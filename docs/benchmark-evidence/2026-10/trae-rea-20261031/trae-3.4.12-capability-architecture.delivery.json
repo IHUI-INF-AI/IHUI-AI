@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "2e6aeb6a-ca9c-4198-96ef-c9ce70cb5494",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-10\\trae-rea-20261031\\diagram-candidate.json",
+  "output": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-10\\trae-rea-20261031\\trae-3.4.12-capability-architecture.html",
+  "specification": {
+    "sha256": "3108eacb372ab01f160c6b2f2cc0bc4b0b67df13ed645e88ebc8f75f4094b53f",
+    "bytes": 25139
+  },
+  "artifact": {
+    "sha256": "95686cc3fe24dffde4aa6e4b6cd664b2398b7d8e0374686c9ee449e08232ca79",
+    "bytes": 928295
+  }
+}

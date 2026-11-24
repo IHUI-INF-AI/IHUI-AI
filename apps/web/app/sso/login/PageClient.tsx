@@ -1,0 +1,432 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
+import { useAuthStore } from '@/stores/auth'
+import { useLoginDialogStore } from '@/stores/login-dialog'
+import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
+import { fetchApi } from '@/lib/api'
+import { buildSsoRedirectUrl, SSO_CLIENT_IDS } from '@ihui/shared'
+import {
+  ensureSsoRedirectAllowed,
+  firstPartyAllowedOrigins,
+  resolveSafeRedirectTarget,
+} from '@/lib/sso-redirect-guard'
+import { handOffSsoCodeToMiniapp, isWechatMiniProgramHost } from './miniapp-bridge'
+import { protectedPathOf } from '@/lib/protected-paths'
+import { resolvePostLoginLanding } from '@/lib/post-login-landing'
+import { Button } from '@ihui/ui-react'
+import { Loader2, ArrowRight } from 'lucide-react'
+import { toast } from 'sonner'
+import { AuthShell, AuthShellPage } from '@/components/auth/AuthShell'
+import { LoginFormContent } from '@/components/login/LoginFormContent'
+import { RegisterFormContent } from '@/components/login/RegisterFormContent'
+import { ForgotPasswordForm } from '@/components/login/ForgotPasswordForm'
+
+/**
+ * SSO 统一登录页(2026-07-22 重做:复用主站 LoginFormContent,功能完全同步)
+ *
+ * 设计:
+ * - 路由保留(/sso/login),外部子项目跳转链接无需改
+ * - 视觉:全屏遮罩 + 居中弹窗卡片(AuthShellPage + AuthShell),与主站 LoginDialog 共用 AuthShell 外壳
+ * - 功能:与主站 LoginDialog 完全同步 —— 4 tab 登录(邮箱验证码/手机验证码/账号密码/扫码)
+ *   + 注册 + 忘记密码 + 8 平台第三方登录 + 协议同意 + 记住密码 + 图形验证码
+ * - 登录成功 → 调 /api/auth/sso/code → 跳回 redirect?sso_code=xxx
+ * - 注册成功 → 切回 login mode(继续走登录授权)
+ * - 忘记密码 → 重置成功切回 login mode
+ *
+ * 关闭策略:右上 X 按钮 → 跳转 redirect 或首页(让子项目处理"用户取消"逻辑)
+ *
+ * 2026-07-22 修订:从"手写账号密码表单 + 单独 ThirdPartyLoginButtons"改为复用 LoginFormContent,
+ * 解决 SSO 与主站 LoginDialog 功能不同步问题(原 SSO 缺少邮箱验证码/手机验证码/扫码登录/注册/忘记密码/协议同意/记住密码/图形验证码)。
+ *
+ * 2026-09-22 修复桌面端"授权并跳转 / 右上 X 都点了没反应":
+ * 现象:桌面端薄壳(窗口直接加载 https://aizhs.top/ 首页,2026-10-13 起启动页,此前 /agents)已登录状态下,点
+ * 「授权并跳转」或右上 X 都原地回到本页;WebView2 历史记录里
+ * /sso/login?redirect=/edu/... 的 redirect 参数中 sso_code 递归膨胀到 4 层。
+ * 根因:cookie 里的 auth_token 是 access JWT(15 分钟过期),而 cookie 自身 30 天;
+ * 桌面端登录态靠持久化 token + Bearer 维持,API 全通,但 cookie 内 JWT 早已过期
+ * → 登录守卫(proxy.ts verifyAccessTokenEdge / 生产 nginx $cookie_auth_token)对
+ * redirect 目标(/admin/*、/edu/edu-management/*)一律 307 打回本页。
+ * 两个按钮的导航目标都是 redirect,于是都退化为「点击后回到本页」的 307 重定向闭环。
+ * 修复:跳转前用 ensureRedirectAllowed() 探测守卫是否放行,被拦则静默续期一次
+ * (后端 /api/auth/refresh 会 setAuthCookies 续种 cookie)后复测;仍被拦时给出
+ * 明确结果(授权按钮报会话失效,关闭按钮回首页),彻底消除静默死循环。
+ */
+export default function SsoLoginPage() {
+  const tSso = useTranslations('sso')
+  const tAuth = useTranslations('auth')
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectUrl = searchParams.get('redirect') || '/'
+  const clientId = searchParams.get('client_id') || 'web'
+  // 2026-10-31 第 21 批:授权页只做**原样透传** —— state 由发起端生成并在回调时比对,
+  // 本页不理解也不校验它(在服务端/页面侧再实现一次比对只会变成第二套真相)。
+  const ssoState = searchParams.get('state') || undefined
+  const rawRedirect = searchParams.get('redirect')
+  // 「本站自己人」判据 = web 客户端 **且** URL 没带显式 redirect。
+  // 带 redirect 的是子项目/桌面深链跳来的授权页,「授权」口径本身就是它回跳契约的一部分;
+  // 不带 redirect 的 web 访问就是用户自己要进站 —— 对他说「正在为 web 授权」「授权并跳转」
+  // 是把内部机制当人话讲(旧 /login→/sso/login 重定向期间的用户投诉即此,2026-10-22 机主反馈)。
+  const isOwnSiteVisitor = clientId === SSO_CLIENT_IDS.WEB && !rawRedirect
+
+  // 登录完成后的默认落点:带显式 redirect(子项目/桌面深链跳来的授权页)时原样返回该目标,
+  // 否则对 admin 账号落到生产在线监控大屏(与主站 LoginDialog 共用同一判据)。取 raw 参数
+  // (而非上面 `|| '/'` 的默认值),以免把"没带 redirect"误当成"显式要首页"。
+  const resolveLoginTarget = React.useCallback(
+    () => resolvePostLoginLanding(useAuthStore.getState().user, rawRedirect) ?? '/',
+    [rawRedirect],
+  )
+
+  const { token, user } = useAuthStore()
+  // redirect 落在受保护路径 ⇒ 用户多半是从服务端守卫 307 打回本页(而不是主动来授权)。
+  // **必须同时不带 client_id**:守卫生成的 307 只有 `?redirect=`,带 client_id 的是子项目/桌面
+  // 显式授权请求(那份「用户在场才授权」的契约不能被自动跳转砍掉,e2e 已钉住)。
+  // forceAttempt 让 bootstrap 不看本地标记、直接问一次 /auth/refresh:httpOnly cookie 在 JS 里
+  // 看不见,而 ihui-session-established 可能已被上一次被动失效清掉(2026-10-26)。
+  const guardedRedirectPath = protectedPathOf(rawRedirect ?? '')
+  const autoReturnEligible = guardedRedirectPath !== '' && searchParams.get('client_id') === null
+  // 取全局 auth bootstrap 的 ready(根 layout 的 GlobalHooksProvider 已触发副作用,此处仅读状态;
+  // 竞态根因与渲染门详见下方 `if (!ready)` 注释)
+  const { ready } = useAuthBootstrap({ forceAttempt: autoReturnEligible })
+  const mode = useLoginDialogStore((s) => s.mode)
+  const setMode = useLoginDialogStore((s) => s.setMode)
+  const [exchanging, setExchanging] = React.useState(false)
+  // 2026-10-13(用户拍板:真实浏览器+手动关):自定义协议深链已交回 OS 后,本页停在
+  // "授权中/授权卡"会让用户以为没完成。置位后渲染完成卡,并保留手动重签按钮
+  // (浏览器外部协议弹窗被拒时,用户还能就地再签一次)。
+  // 2026-10-26(G-957)加 'miniapp' 形态:微信小程序 web-view 无 OS 深链处理器,
+  // sso_code 经 wx.miniProgram.postMessage 交接 —— 消息在「用户返回小程序」时机才
+  // 投递,完成卡的口径因此是"请返回小程序",不是 desktop 的"可关闭此页"。
+  const [handoffKind, setHandoffKind] = React.useState<'desktop' | 'miniapp' | null>(null)
+
+  // SSO 页面 mount 时初始化 mode='login',unmount 时清理 store 避免污染主站 LoginDialog
+  // (ForgotPasswordForm 重置成功后会调 store.open('login') 导致 isOpen=true,需在离开 SSO 时重置)
+  React.useEffect(() => {
+    useLoginDialogStore.getState().setMode('login')
+    return () => {
+      const s = useLoginDialogStore.getState()
+      if (s.isOpen || s.mode !== 'login') {
+        useLoginDialogStore.setState({ isOpen: false, mode: 'login', redirectUrl: null })
+      }
+    }
+  }, [])
+
+  const handleClose = React.useCallback(() => {
+    void (async () => {
+      // 2026-09-22 修复"关闭按钮点了没反应":redirect 若是受保护的同源路径
+      // (如 /edu/edu-management/*),直接跳回去必被守卫 307 弹回本页 → 看起来像按钮失灵。
+      // 先确保能被放行;仍不行则回首页,避免陷入 307 重定向闭环。
+      // 2026-09-28 票 A3/G-413:ensureSsoRedirectAllowed 判的是"守卫会不会放行"(站内相对路径才受
+      // 约束),它**不是**协议闸 —— 所以这一跳此前可以把 `javascript:` / `/\evil.com` 原样喂给
+      // router.push(Next 对跨 origin 的目标执行整页导航 ⇒ 在本站源里执行 = 同源 XSS)。
+      // 现与其余三处回跳落点共用同一把尺子,deep-link 按本页既有契约继续放行。
+      // 2026-11-01 安全强化:`?redirect=` 是完全面向用户的入参,原先只传 allowDeepLink
+      // 而不传 allowedOrigins ⇒ 任意绝对外站 URL 按"只判协议"的原语义放过,受害者刚由
+      // 企业 SSO 建好会话就被本站 URL 栏一路带到仿冒页(下方 effect 无需点击即触发)。
+      // 现在落点收敂到"同源 ∪ env 白名单";深链契约不受影响(走协议族另一支)。
+      const target = resolveSafeRedirectTarget(redirectUrl, {
+        allowDeepLink: true,
+        allowedOrigins: firstPartyAllowedOrigins(),
+      })
+      const allowed = await ensureSsoRedirectAllowed(target)
+      router.push(allowed ? target : '/')
+    })()
+  }, [redirectUrl, router])
+
+  // 签发是否已发起(自动或手动各算一次):见下方"桌面深链已登录自动签发"的 effect。
+  // 置位放在回调最前面 —— 自动与手动点击都过这道闸,失败也**不**复位(失败时用户面对
+  // 授权卡上的按钮可手动重试,自动重试只会把一次网络抖动放大成签发风暴)。
+  const issueStartedRef = React.useRef(false)
+
+  // OIDC 回跳自动闭环(2026-09-19):企业 SSO 认证完成后后端 302 回本页并带 sso=oidc 标记,
+  // bootstrap 经共享域 httpOnly cookie 恢复登录态后自动跳转 redirect(默认首页),
+  // 避免用户刚完成 SSO 登录却停在授权卡片/登录表单需再手动操作。
+  const fromOidc = searchParams.get('sso') === 'oidc'
+  // 桌面深链判定(2026-10-13 自下方 effect 上移:generateCodeAndRedirect 里的完成卡
+  // 判定同样要用它,声明必须先于使用)。
+  const isDesktopDeepLink =
+    clientId === SSO_CLIENT_IDS.DESKTOP &&
+    !fromOidc &&
+    !redirectUrl.startsWith('/') &&
+    !redirectUrl.startsWith('http://') &&
+    !redirectUrl.startsWith('https://')
+
+  const generateCodeAndRedirect = React.useCallback(async () => {
+    issueStartedRef.current = true
+    const currentToken = useAuthStore.getState().token
+    if (!currentToken) return
+    setExchanging(true)
+    try {
+      // 2026-09-28 票 A3/G-413:sso_code 只会跟着"过了同一把尺子的那一跳"离开本站 ——
+      // 服务端 isSafeRedirectUri 认 `startsWith('/') && !startsWith('//')`,而 `/\evil.com`
+      // 在那条规则下成立、在浏览器里却解析成 https://evil.com(WHATWG 把 special scheme 下的
+      // 反斜杠等值当斜杠),于是"过了服务端校验的 code"会被送到外站。落点判据统一走
+      // @/lib/sso-redirect-guard 这一把尺子,不在此另写一份 origin 判断(AGENTS §3)。
+      // 门 278 具名豁免(台账 scripts/data/redirect-origin-pinned-exemptions.json):
+      // 这里刻意**不**传 allowedOrigins。理由:本 target 是 POST /api/auth/sso/code 的 redirectUri,
+      // 权威落点集在服务端 zod refine(apps/api/src/routes/auth-sso.ts 的 isSafeRedirectUri =
+      // 站内相对 ∪ localhost ∪ env SSO_ALLOWED_ORIGINS ∪ chromiumapp ∪ 深链 scheme)—— 站在此处再
+      // 收一层"仅第一方"会把 CLI 的 localhost 回调与扩展的 chromiumapp 回跳一起砍断,而那是该页的
+      // 产品契约;服务端拒签时 r.success=false ⇒ 本页根本不导航,所以外站值拿不到 sso_code。
+      const target = resolveSafeRedirectTarget(resolveLoginTarget(), { allowDeepLink: true })
+      // 2026-10-22 修复"已登录却误报登录失效":
+      // ensureSsoRedirectAllowed 完全依赖 auth_token cookie(页面守卫只认 cookie、不认内存 Bearer)。
+      // 当 COOKIE_DOMAIN 与访问域不匹配(局域网 IP / localhost / 非子域 host)时,浏览器根本
+      // 不存储/携带该 cookie,守卫探测恒判"被拦"——但内存 token 仍在位(也是"已登录"卡片能
+      // 显示的原因),会话并未失效。故:守卫探测只决定"导航会不会被 307",不再直接等价于
+      // "会话失效";会话是否真的失效改由后端 Bearer 鉴权(/api/auth/sso/code)裁定。
+      const guardAllowed = await ensureSsoRedirectAllowed(target)
+      // 2026-10-12:/api/auth/sso/code 与 auth refresh 同链路(都走在"授权并跳转"的
+      // 关键路径上),显式 10s 超时 —— 不吃 fetchApi 默认 30s,生产后端退化时
+      // 授权按钮至多 10s 给出明确失败,而不是让用户对着"点了没反应"干等。
+      // 与 lib/api.ts 的 AUTH_REFRESH_TIMEOUT_MS 同值同理由;不导出复用是为免
+      // 把"auth 续期专用"常量漂成通用超时表(改一处牵动两处语义)。
+      const r = await fetchApi<{ code: string; redirectUri: string }>('/api/auth/sso/code', {
+        method: 'POST',
+        body: JSON.stringify({ clientId, redirectUri: target }),
+        timeoutMs: 10_000,
+      })
+      if (r.success && r.data?.code) {
+        // 后端 Bearer 鉴权通过 ⇒ 会话有效。守卫放行则正常跳转;守卫拦截则多半是
+        // cookie 域/配置问题,不盲目导航以免陷入 307 重入死循环,给出明确提示。
+        if (!guardAllowed) {
+          toast.error(tSso('redirectBlockedByGuard'))
+          return
+        }
+        // 幂等构造:先剥离 redirect 里可能残留的 sso_code 再附加(2026-09-22 去重),
+        // 防守卫打回重入导致 ?sso_code=A&sso_code=B 递归膨胀。
+        const finalUrl = buildSsoRedirectUrl(target, r.data.code, ssoState)
+        // Custom scheme(如 ihui://)需用 window.location.href 触发 OS deep-link handler,
+        // router.push 无法处理非 http/https 协议(2026-08-01 desktop SSO 闭环修复)
+        const isCustomScheme =
+          !target.startsWith('http://') && !target.startsWith('https://') && !target.startsWith('/')
+
+        if (isCustomScheme) {
+          // 微信小程序 web-view 宿主(G-957,2026-10-26):custom scheme 的
+          // window.location.href 在该宿主没有 OS 深链处理器,必然静默无效;唯一回传
+          // 通道 = wx.miniProgram.postMessage(经 miniapp-bridge 注入微信官方 JS-SDK)。
+          // 交接成功渲染"请返回小程序"完成卡;SDK 失败如实提示(绝不静默当成功)。
+          if (clientId === SSO_CLIENT_IDS.MINIAPP_TARO && isWechatMiniProgramHost()) {
+            try {
+              await handOffSsoCodeToMiniapp(r.data.code, ssoState)
+              setHandoffKind('miniapp')
+            } catch {
+              toast.error(tSso('miniappHandoffFailed'))
+            }
+          } else {
+            window.location.href = finalUrl
+            // 深链已交回 OS(浏览器可能弹"打开智汇AI?"确认框)。此刻起本页的使命完成:
+            // 渲染完成卡告知用户可关闭此页(真实浏览器窗口不可由桌面端代关,用户拍板的方案)。
+            if (isDesktopDeepLink) setHandoffKind('desktop')
+          }
+        } else {
+          router.push(finalUrl)
+        }
+      } else {
+        // 后端拒绝(401 等)或异常 ⇒ 会话确实失效/异常:优先透传后端错误文案,
+        // 无文案时归为登录失效(不再把"cookie 守卫拦截"误判成登录失效)。
+        toast.error(!r.success && r.error ? r.error : tSso('sessionExpired'))
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : tSso('generateCodeFailed'))
+    } finally {
+      setExchanging(false)
+    }
+  }, [clientId, resolveLoginTarget, router, tSso, isDesktopDeepLink, ssoState])
+
+  const handleLoginSuccess = React.useCallback(() => {
+    void generateCodeAndRedirect()
+  }, [generateCodeAndRedirect])
+
+  // OIDC 回跳自动闭环(2026-09-19):企业 SSO 认证完成后后端 302 回本页并带 sso=oidc 标记,
+  // bootstrap 经共享域 httpOnly cookie 恢复登录态后自动跳转 redirect(默认首页),
+  // 避免用户刚完成 SSO 登录却停在授权卡片/登录表单需再手动操作。
+  React.useEffect(() => {
+    if (fromOidc && token && user) {
+      // 票 A3/G-413 的"那一处裸用":这一跳此前**不经过任何判据**(既不走 ensureSsoRedirectAllowed
+      // 的守卫探测,也不走导航安全判据),redirect 参数由客户端整条可控 —— 而它正发生在
+      // "刚完成企业 SSO、会话已落 cookie"的那一刻。现与其余落点共用同一把尺子。
+      router.push(
+        resolveSafeRedirectTarget(resolveLoginTarget(), {
+          allowDeepLink: true,
+          allowedOrigins: firstPartyAllowedOrigins(),
+        }),
+      )
+    }
+  }, [fromOidc, token, user, resolveLoginTarget, router])
+
+  // 被登录守卫 307 打回本页后的自动闭环(2026-10-26 用户报「后台待一会儿就要重新登录」)。
+  // 守卫在 access JWT(15 分钟)过期时会 307 到这里,而旧实现只有企业 SSO(sso=oidc)回跳
+  // 才自动返回;普通打回停在本页的「授权并跳转」卡片 ⇒ 感知就是"被踢出、要再点一次授权"。
+  // 只对**受保护的同源相对 redirect**生效(那正是会被 307 的集合):主动访问授权页、子项目带
+  // 外站 redirect 进来时保持卡片,不改变它们「用户在场授权」的契约。
+  // 一次性 ref:自动尝试只做一次,失败留在本页给手动出口,禁止静默循环。
+  const autoReturnTriedRef = React.useRef(false)
+  React.useEffect(() => {
+    if (!ready || !token || !user) return
+    if (fromOidc || isDesktopDeepLink) return // 各自已有回跳闭环
+    if (!autoReturnEligible) return
+    if (autoReturnTriedRef.current) return
+    autoReturnTriedRef.current = true
+    let cancelled = false
+    void (async () => {
+      const target = resolveSafeRedirectTarget(resolveLoginTarget(), {
+        allowDeepLink: true,
+        allowedOrigins: firstPartyAllowedOrigins(),
+      })
+      // 探测 + 被拦时续种 cookie(后端 /auth/refresh 会重下 httpOnly auth_token)后复测。
+      const allowed = await ensureSsoRedirectAllowed(target)
+      if (cancelled || !allowed) return
+      router.push(target)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [
+    ready,
+    token,
+    user,
+    fromOidc,
+    isDesktopDeepLink,
+    autoReturnEligible,
+    resolveLoginTarget,
+    router,
+  ])
+
+  // 桌面深链"已登录自动签发"(2026-10-13,用户要求:已登录直接获取,不再手点授权)。
+  // 桌面端"在浏览器中登录"打开的就是本页(client_id=desktop + redirect=ihui://sso):
+  // - 已登录 ⇒ 自动调 /api/auth/sso/code 并 `location.href = ihui://sso?...` 回跳,
+  //   桌面端换到 token 后自动进入登录态(真实浏览器方案下网页端显示完成卡,可手动关闭);
+  // - 未登录 ⇒ 不满足 token/user,走下方登录表单,登录成功后 handleLoginSuccess
+  //   走同一个 generateCodeAndRedirect,同一条回跳。
+  // 闸只开给这一条路:client_id=desktop **且** redirect 是自定义协议(ihui://)。
+  // OIDC(sso=oidc)有它自己的自动回跳,不在这里重复签发;非深链(站内/外站 redirect)
+  // 维持原状 —— 那是子项目跳来的授权页,直接把用户甩走会砍断它的回跳契约。
+  // (isDesktopDeepLink 定义已上移到 generateCodeAndRedirect 之前,完成卡判定共用。)
+  React.useEffect(() => {
+    if (issueStartedRef.current || !isDesktopDeepLink) return
+    // ready 必须在位:bootstrap 还没恢复完就签发,会把"其实已登录"误判成未登录。
+    if (!ready || !token || !user) return
+    void generateCodeAndRedirect()
+  }, [isDesktopDeepLink, ready, token, user, generateCodeAndRedirect])
+
+  // 已登录分支:授权跳转卡片
+  if (token && user) {
+    // 深链/小程序腿已完成交接:完成卡(desktop=可关闭此页;miniapp=请返回小程序)
+    if (handoffKind) {
+      const handoffTitle =
+        handoffKind === 'desktop' ? tSso('desktopHandoffTitle') : tSso('miniappHandoffTitle')
+      const handoffHint =
+        handoffKind === 'desktop' ? tSso('desktopHandoffHint') : tSso('miniappHandoffHint')
+      return (
+        <AuthShellPage onClose={handleClose}>
+          <AuthShell title={handoffTitle} subtitle={handoffHint} onClose={handleClose}>
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full px-4"
+              onClick={() => generateCodeAndRedirect()}
+              disabled={exchanging}
+            >
+              {exchanging ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowRight className="mr-2 h-4 w-4" />
+              )}
+              {tSso('authorizeAndRedirect')}
+            </Button>
+          </AuthShell>
+        </AuthShellPage>
+      )
+    }
+    return (
+      <AuthShellPage onClose={handleClose}>
+        <AuthShell
+          title={tSso('alreadyLoggedIn')}
+          subtitle={
+            isOwnSiteVisitor ? tAuth('loggedInContinue') : tSso('authorizing', { clientId })
+          }
+          onClose={handleClose}
+        >
+          <Button
+            size="lg"
+            className="w-full px-4"
+            onClick={() => generateCodeAndRedirect()}
+            disabled={exchanging}
+          >
+            {exchanging ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <ArrowRight className="mr-2 h-4 w-4" />
+            )}
+            {isOwnSiteVisitor ? tAuth('continueToSite') : tSso('authorizeAndRedirect')}
+          </Button>
+        </AuthShell>
+      </AuthShellPage>
+    )
+  }
+
+  // 2026-09-02 修复"登录弹窗按钮点不了":已登录用户访问本页时,useAuthBootstrap
+  // 异步恢复 token 前会先渲染未登录表单,恢复完成后表单被"已登录"卡片中途替换
+  // (点击竞态:点 tab 实际命中替换后的授权按钮 → 意外跳转,感知为按钮全部失灵)。
+  // bootstrap 就绪前渲染 loading 骨架,杜绝表单闪现与点击错位。
+  if (!ready) {
+    // 这一帧是用户在 SSR/hydration 期间**第一眼**看到的:2026-10-22 线上实测
+    // www.aizhs.top/sso/login 此处仍写死 sso:title/sso.subtitle,于是自己进站的用户首屏就读到
+    // 「统一登录 / 登录后将为 web 授权并跳转」——分档必须同批覆盖骨架,否则改了等于没改。
+    return (
+      <AuthShellPage onClose={handleClose}>
+        <AuthShell
+          title={isOwnSiteVisitor ? tAuth('loginTitle') : tSso('title')}
+          subtitle={isOwnSiteVisitor ? tAuth('loginSubtitle') : tSso('subtitle', { clientId })}
+          onClose={handleClose}
+        >
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        </AuthShell>
+      </AuthShellPage>
+    )
+  }
+
+  // 未登录分支:根据 mode 切换 login/register/forgot(复用主站 LoginFormContent 等)。
+  // forgot 两档共用主站文案;login/register 才分「自己人 / 授权页」两套口径。
+  const copy =
+    mode === 'forgot'
+      ? { title: tAuth('forgotPassword'), subtitle: tAuth('forgotSubtitle'), footer: undefined }
+      : isOwnSiteVisitor
+        ? mode === 'register'
+          ? {
+              title: tAuth('registerTitle'),
+              subtitle: tAuth('registerSubtitle'),
+              footer: undefined,
+            }
+          : { title: tAuth('loginTitle'), subtitle: tAuth('loginSubtitle'), footer: undefined }
+        : {
+            title: mode === 'register' ? tSso('registerTitle') : tSso('title'),
+            subtitle: tSso('subtitle', { clientId }),
+            footer: mode === 'login' ? tSso('footerHint') : undefined,
+          }
+  const { title, subtitle, footer } = copy
+
+  return (
+    <AuthShellPage onClose={handleClose}>
+      <AuthShell title={title} subtitle={subtitle} onClose={handleClose} footer={footer}>
+        {mode === 'login' ? (
+          <LoginFormContent onSuccess={handleLoginSuccess} />
+        ) : mode === 'register' ? (
+          <RegisterFormContent onSuccess={() => setMode('login')} />
+        ) : (
+          <ForgotPasswordForm />
+        )}
+      </AuthShell>
+    </AuthShellPage>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

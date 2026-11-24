@@ -1,0 +1,203 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * crash-handler 单元测试 — 全局未捕获异常处理 / crash log 持久化 / LRU 保留 10 个 / install 幂等。
+ * 全程 mock fs(不真实写入 ~/.ihui/crash-logs/),用 process.emit 真实触发事件。
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import type * as fsType from 'node:fs';
+import * as path from 'node:path';
+
+const state = vi.hoisted(() => ({
+  dirExists: true,
+  files: [] as string[],
+  mtimeByNum: 0,
+  pkgContent: '{"version":"1.0.0-test"}',
+  writes: [] as Array<{ path: string; text: string }>,
+}));
+
+// 2026-11-19:F-008 起 crash log 走唯一私有写入口 writePrivateFile(原子替换 + 0600),
+// 不再直接调 fs.writeFileSync ⇒ 断言面改到这一步,fs 侧只保留目录/清理相关判据。
+vi.mock('../src/lib/private-file.js', () => ({
+  writePrivateFile: vi.fn((p: string, text: string) => {
+    state.writes.push({ path: p, text });
+  }),
+}));
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = (await importOriginal()) as typeof fsType;
+  return {
+    ...actual,
+    existsSync: vi.fn((_p: unknown) => state.dirExists),
+    mkdirSync: vi.fn(() => undefined as unknown as string),
+    readdirSync: vi.fn(() => state.files as unknown as string[]),
+    statSync: vi.fn((p: unknown) => {
+      const name = path.basename(String(p));
+      const num = Number(name.match(/crash-(\d+)\.log/)?.[1] ?? state.mtimeByNum);
+      return { mtimeMs: num } as unknown as fsType.Stats;
+    }),
+    unlinkSync: vi.fn(() => undefined),
+    writeFileSync: vi.fn(() => undefined),
+    readFileSync: vi.fn(() => state.pkgContent),
+  };
+});
+
+import * as fs from 'node:fs';
+import { writePrivateFile } from '../src/lib/private-file.js';
+import { installCrashHandler, uninstallCrashHandler } from '../src/crash-handler.js';
+
+/** 索引访问 + 运行时越界检查(noUncheckedIndexedAccess 下数组元素天然是 T | undefined) */
+function at<T>(items: readonly T[], index: number): T {
+  const item = items[index];
+  if (item === undefined) throw new Error(`数组索引越界: ${index}`);
+  return item;
+}
+
+describe('crash-handler', () => {
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+  let initialExitCode: typeof process.exitCode;
+  let initialUncaughtListeners: Array<(...args: unknown[]) => void>;
+  let initialUnhandledListeners: Array<(...args: unknown[]) => void>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    state.dirExists = true;
+    state.files = [];
+    state.mtimeByNum = 0;
+    state.pkgContent = '{"version":"1.0.0-test"}';
+    state.writes = [];
+
+    initialUncaughtListeners = process.listeners('uncaughtException') as Array<(...args: unknown[]) => void>;
+    initialUnhandledListeners = process.listeners('unhandledRejection') as Array<(...args: unknown[]) => void>;
+
+    uninstallCrashHandler();
+    process.removeAllListeners('uncaughtException');
+    process.removeAllListeners('unhandledRejection');
+
+    initialExitCode = process.exitCode;
+    process.exitCode = undefined;
+
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    uninstallCrashHandler();
+    process.removeAllListeners('uncaughtException');
+    process.removeAllListeners('unhandledRejection');
+    initialUncaughtListeners.forEach((l) => process.on('uncaughtException', l as (...args: unknown[]) => void));
+    initialUnhandledListeners.forEach((l) => process.on('unhandledRejection', l as (...args: unknown[]) => void));
+    process.exitCode = initialExitCode;
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('installCrashHandler 幂等:连续两次调用不重复注册监听器', () => {
+    const before = process.listenerCount('uncaughtException');
+    installCrashHandler();
+    const after1 = process.listenerCount('uncaughtException');
+    installCrashHandler();
+    const after2 = process.listenerCount('uncaughtException');
+    expect(after1).toBe(before + 1);
+    expect(after2).toBe(after1);
+  });
+
+  it('installCrashHandler 注册 uncaughtException + unhandledRejection 监听器', () => {
+    const beforeUncaught = process.listenerCount('uncaughtException');
+    const beforeUnhandled = process.listenerCount('unhandledRejection');
+    installCrashHandler();
+    expect(process.listenerCount('uncaughtException')).toBe(beforeUncaught + 1);
+    expect(process.listenerCount('unhandledRejection')).toBe(beforeUnhandled + 1);
+  });
+
+  it('uninstallCrashHandler 移除监听器(源码用 removeAllListeners,count 归 0)', () => {
+    installCrashHandler();
+    expect(process.listenerCount('uncaughtException')).toBe(1);
+    expect(process.listenerCount('unhandledRejection')).toBe(1);
+    uninstallCrashHandler();
+    expect(process.listenerCount('uncaughtException')).toBe(0);
+    expect(process.listenerCount('unhandledRejection')).toBe(0);
+  });
+
+  it('uninstallCrashHandler 未安装时安全(不抛异常)', () => {
+    expect(() => uninstallCrashHandler()).not.toThrow();
+  });
+
+  it('handleCrash uncaughtException 写 crash log(路径含 crash-logs + crash-<ts>.log)', () => {
+    installCrashHandler();
+    process.emit('uncaughtException', new Error('test uncaught'));
+    expect(writePrivateFile).toHaveBeenCalledTimes(1);
+    const call = at(vi.mocked(writePrivateFile).mock.calls, 0);
+    expect(String(call[0])).toContain('crash-logs');
+    expect(String(call[0])).toMatch(/crash-\d+\.log$/);
+  });
+
+  it('handleCrash unhandledRejection 写 crash log', () => {
+    installCrashHandler();
+    process.emit('unhandledRejection', new Error('test rejection'));
+    expect(writePrivateFile).toHaveBeenCalledTimes(1);
+    const call = at(vi.mocked(writePrivateFile).mock.calls, 0);
+    expect(String(call[0])).toContain('crash-logs');
+    expect(String(call[0])).toMatch(/crash-\d+\.log$/);
+  });
+
+  it('handleCrash uncaughtException 设置 process.exitCode = 1', () => {
+    installCrashHandler();
+    process.emit('uncaughtException', new Error('boom'));
+    expect(process.exitCode).toBe(1);
+  });
+
+  // F-002:改前这里的断言是 `expect(process.exitCode).toBeUndefined()` —— 它把缺陷本身
+  // 钉成了期望值:未处理 rejection 不设退出码,正是"所有子命令失败被 CI/脚本当成成功"
+  // 的成因,旧断言等于为该行为背书。正确判据是两通道对称:崩溃即退出码 1。
+  // 实测旧源码:本用例报 `expected undefined to be 1`(断言级红),新源码绿。
+  it('handleCrash unhandledRejection 也设置 process.exitCode = 1(F-002:两通道对称)', () => {
+    process.exitCode = undefined;
+    installCrashHandler();
+    process.emit('unhandledRejection', new Error('rejected'));
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('crash log LRU prune:保留最近 10 个,删除最旧的 2 个', () => {
+    const files = Array.from({ length: 12 }, (_, i) => `crash-${1000 - i}.log`);
+    state.files = files;
+
+    installCrashHandler();
+    process.emit('uncaughtException', new Error('prune test'));
+
+    expect(fs.unlinkSync).toHaveBeenCalledTimes(2);
+    const unlinked = vi.mocked(fs.unlinkSync).mock.calls.map((c) => path.basename(String(c[0])));
+    expect(unlinked).toContain('crash-989.log');
+    expect(unlinked).toContain('crash-990.log');
+  });
+
+  it('crash log 内容含错误信息(message + stack)', () => {
+    installCrashHandler();
+    const err = new Error('my error message');
+    err.stack = 'Error: my error message\n    at foo:1:1';
+    process.emit('uncaughtException', err);
+    const content = String(at(at(vi.mocked(writePrivateFile).mock.calls, 0), 1));
+    expect(content).toContain('my error message');
+    expect(content).toContain('Error: my error message');
+    expect(content).toContain('at foo:1:1');
+  });
+
+  it('crash log 目录不存在时自动创建(recursive: true)', () => {
+    state.dirExists = false;
+    installCrashHandler();
+    process.emit('uncaughtException', new Error('mkdir test'));
+    expect(fs.mkdirSync).toHaveBeenCalledTimes(1);
+    const call = at(vi.mocked(fs.mkdirSync).mock.calls, 0);
+    expect(String(call[0])).toContain('crash-logs');
+    expect(call[1]).toEqual({ recursive: true });
+  });
+
+  it('handleCrash 输出友好提示(含 Crash log + GitHub issue 字样)', () => {
+    installCrashHandler();
+    process.emit('uncaughtException', new Error('friendly'));
+    const output = consoleErrorSpy.mock.calls.flat().map(String).join('\n');
+    expect(output).toContain('Crash log');
+    expect(output).toContain('GitHub issue');
+  });
+});
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,313 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+import { create } from 'zustand'
+// 权限档 wire 类型唯一来源(G-164:本文件此前自抄了 3 份三值联合,补第四档时漏改即静默失配)
+import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
+// 79 号票:权限双轴(sandbox_mode × approval_policy)取值对,真源在 @ihui/types
+import type { AxisPair } from '@ihui/types'
+import { persist } from 'zustand/middleware'
+
+import { createPersistConfig } from './persist-helpers'
+import { useChatStore } from './chat'
+// 形态档唯一真相源(2026-11-11):openPanel 必须按视口能力决定「打开成什么形态」,
+// 不能只把 open 置 true —— 停靠位在 640–1279 不存在,只置 open 等于「点了没反应」。
+// 2026-11-15:浮窗支持八向拉伸,尺寸收口同样复用这里的纯函数(视口边界/最小档唯一源)。
+import {
+  AI_FLOAT_DEFAULT_HEIGHT,
+  AI_FLOAT_DEFAULT_WIDTH,
+  getFloatSize,
+  getPanelBucket,
+  readViewportSize,
+  readViewportWidth,
+  type AiFloatSize,
+} from '@/lib/ai-panel-bucket'
+
+/** AI 侧边 docked 面板默认宽度
+ * - 2026-09-30 重构(输入框底栏单行化,深度遵循统一工程规范):
+ *   底部工具栏改为单行 8 控件后,全部控件 icon-only 基线宽 ≈336px(容器 = 面板-48),
+ *   300px 旧默认(容器 252)必然溢出重叠 —— 这正是用户抱怨"堆得乱七八糟"的根因之一。
+ *   默认提到 480(容器 432,模型文字可显示),MIN 提到 400(容器 352,icon-only 全量可点)。
+ *   旧 localStorage 残留由 persist migrate version 4→5 强制覆盖为 480。
+ * - 2026-08-02 曾立"默认宽度设置为380"(version 3→4),本次按新布局重设。
+ */
+export const AI_PANEL_DEFAULT_WIDTH = 480
+export const AI_PANEL_MIN_WIDTH = 400
+export const AI_PANEL_MAX_WIDTH = 720
+
+/** AI 面板当前绑定的本地工作区(遵循统一工程规范)
+ *  - 用户在 AI 面板顶部"添加工作区"按钮选择本地文件夹后绑定
+ *  - 绑定后标题显示 workspace.name,取代兜底"空工作区"文字
+ *  - path 用于后续 AI 工具调用 fs.read/grep 等的根路径上下文
+ *  - mode/techStack 来自 LocalFolderPicker 权限配置,供 UI 显示权限模式徽章 */
+export interface ActiveWorkspace {
+  path: string
+  name: string
+  /** 权限模式:default(默认需审计)/ accept-edits(自动接受编辑)/ bypass-permissions(完全跳过) */
+  mode?: WorkspacePermissionMode
+  /** 技术栈标签数组(逗号分隔的 techStack 字符串拆分),用于 UI 显示技术栈 chip */
+  techStack?: string[]
+}
+
+/** 浮窗位置哨兵:-1 = 未初始化。真实落点由 lib/ai-panel-bucket 的 resolveFloatRect 解析成
+ *  「工作区左下角、向上展开」,并统一做视口收口;不持久化(每次刷新回默认锚点)。 */
+export const FLOAT_DEFAULT_POSITION = { x: -1, y: -1 }
+
+/** 浮窗默认尺寸(首次打开 / 刷新后回默认;用户拖拽任意边角后持久化偏好)。 */
+export const FLOAT_DEFAULT_SIZE: AiFloatSize = {
+  width: AI_FLOAT_DEFAULT_WIDTH,
+  height: AI_FLOAT_DEFAULT_HEIGHT,
+}
+
+interface AiPanelState {
+  /** 面板是否展开(全局唯一,任何路由可触发) */
+  open: boolean
+  /** 用户拖拽后的宽度(持久化) */
+  width: number
+  /** 拖拽中标记(禁用过渡动画) */
+  isResizing: boolean
+  /** 当前绑定的本地工作区(持久化,刷新后保留) */
+  activeWorkspace: ActiveWorkspace | null
+  /**
+   * 工作区按对话隔离(2026-09-04 立,响应"工作区没有根据对话隔离"反馈):
+   * conversationId → 该对话绑定的工作区。切换会话时由 ai-side-panel 的同步 effect
+   * 换装 activeWorkspace;绑定/解绑时 setActiveWorkspace 内部同步写回映射。
+   * - key 存在值为 null = 该对话显式解绑过工作区
+   * - key 不存在 = 从未绑定(老会话切换时视为解绑)
+   * 持久化,刷新后保留绑定关系。
+   */
+  conversationWorkspaces: Record<string, ActiveWorkspace | null>
+  /**
+   * 待确认权限的工作区(2026-07-25 立,深度遵循统一工程规范):
+   * 用户在 WorkspaceSelector 绑定新工作区但该工作区尚未配置权限(perm=null)时,
+   * 写入此字段。由 ai-side-panel 监听并弹 WorkspacePermissionDialog,
+   * 用户在弹窗选定模式后:回写 activeWorkspace.mode + 清空 pendingPermissionSetup。
+   * 不持久化:刷新页面后若 perm 仍为 null,需用户重新触发绑定流程(避免旧状态误弹)。
+   */
+  pendingPermissionSetup: { path: string; name: string; techStack?: string[] } | null
+  /** 待确认启用完全访问模式(2026-07-25 立,首次启用高风险模式弹确认弹窗) */
+  pendingFullAccess: boolean
+  /**
+   * 未绑定工作区时暂存的权限模式(2026-08-31 立,响应式)。
+   * 以前写 sessionStorage,但按钮 currentMode 不读它 → 切换后按钮文字/样式永远停在
+   * "请求批准"不变化(P0 UI bug)。改为 store 内响应式状态:
+   * - popover/Shift+Tab/斜杠命令在无 activeWorkspace 时写入此字段
+   * - 绑定工作区时由 workspace-selector 应用到 activeWorkspace.mode 并清除
+   * - 不持久化(会话级,刷新丢失可接受,与原 sessionStorage 行为一致)
+   */
+  pendingPermissionMode: WorkspacePermissionMode | null
+  /**
+   * 请求级权限双轴(79 号票,2026-10-23 立):用户在权限弹层里显式选的
+   * sandbox_mode × approval_policy。
+   * - `null` = 跟随单轴模式(后端按 PERMISSION_MODE_TO_AXIS 派生),这是默认态;
+   * - 非 null = 双轴覆盖单轴(后端裁决器里显式双轴的优先级高于 Legacy 单轴);
+   * - 与单轴**互斥**:切换单轴档位即清回 null,否则用户点了单轴却仍按旧双轴跑,
+   *   是"界面显示 A、实际生效 B"那一型静默失效。
+   * - 不持久化:请求级偏好,刷新回到跟随单轴(与 pendingPermissionMode 同档)。
+   */
+  permissionAxes: AxisPair | null
+  /** 浮窗模式:docked(flex 流)→ floating(fixed 可拖拽) */
+  floatMode: boolean
+  /** 浮窗最小化:只显示 FAB 按钮,点击展开完整面板 */
+  floatMinimized: boolean
+  /** 浮窗折叠态:只显示输入框,点击展开按钮拉出完整面板(对话历史+header) */
+  floatCollapsed: boolean
+  /** 浮窗位置(视口坐标,持久化) */
+  floatPosition: { x: number; y: number }
+  /**
+   * 浮窗尺寸(2026-11-15 八向拉伸,持久化)。
+   * 用户拖拽任意边 / 角后写入;写入与渲染都经 getFloatSize 按视口收口,
+   * 因此刷新到更小窗口也不会出现「面板比屏幕还大」的死态。
+   */
+  floatSize: AiFloatSize
+  /**
+   * FAB(最小化图标)拖拽后的独立位置(2026-11-11 立)。
+   * null = 从未拖过 ⇒ 跟随浮窗矩形左下角(与最小化瞬间视觉连续)。
+   * 不能复用 floatPosition:那是 360×600 浮窗的钳制范围,会把 48px 圆钮锁在左侧带内。
+   * 会话级不持久化;展开/收起都保留(否则「拖到右缘 → 展开 → 最小化」会被浮窗
+   * 360 宽度拉回左侧),仅在用户**重新拖动浮窗面板**时作废(面板成为落点真相源)。
+   */
+  floatFabPosition: { x: number; y: number } | null
+  /** 工作展示区折叠态:true = 隐藏右侧 work-area,AI 面板占满(2026-08-17 用户需求) */
+  workAreaCollapsed: boolean
+  /**
+   * 工作面全屏(D182,对齐竞品 chatSession.headerActions enter/exitWorkspaceFullscreen):
+   * true = 隐藏 AI 面板,右侧审阅工作面(work-area)占满整行;退出按钮经 portal 渲染在
+   * work-area 右上角。会话级 UI 态不持久化(与 floatMode 同理,刷新回到 docked 默认态)。
+   */
+  workAreaFullscreen: boolean
+  openPanel: () => void
+  closePanel: () => void
+  togglePanel: () => void
+  setWidth: (w: number) => void
+  setResizing: (v: boolean) => void
+  setActiveWorkspace: (ws: ActiveWorkspace | null) => void
+  /** 把当前 activeWorkspace(可为 null)绑定到指定会话(新建会话/分支时调用) */
+  bindWorkspaceToConversation: (conversationId: string) => void
+  setPendingPermissionSetup: (
+    v: { path: string; name: string; techStack?: string[] } | null,
+  ) => void
+  setPendingFullAccess: (v: boolean) => void
+  setPendingPermissionMode: (v: WorkspacePermissionMode | null) => void
+  /** 显式双轴写入;传 null = 回到"跟随单轴模式" */
+  setPermissionAxes: (v: AxisPair | null) => void
+  setFloatMode: (v: boolean) => void
+  setFloatMinimized: (v: boolean) => void
+  toggleWorkAreaCollapsed: () => void
+  setWorkAreaFullscreen: (v: boolean) => void
+  setFloatCollapsed: (v: boolean) => void
+  setFloatPosition: (pos: { x: number; y: number }) => void
+  /** 写入浮窗尺寸(调用方已按 resizeFloatRect 算好;此处再按当前视口兜一次底) */
+  setFloatSize: (size: AiFloatSize) => void
+  setFloatFabPosition: (pos: { x: number; y: number } | null) => void
+}
+
+/**
+ * 全局 AI docked 面板状态。
+ * - open 不持久化:每次刷新默认展开(2026-07-19 改,符合"AI 对话框默认弹出"的全局设定)
+ *   merge 函数强制覆盖 rehydrate 后的 open=true,防止旧版本 localStorage 残留的 open=false 干扰
+ * - width 持久化:保留用户拖拽偏好
+ */
+export const useAiPanelStore = create<AiPanelState>()(
+  persist(
+    (set, get) => ({
+      // open=true:AI 对话框默认弹出展开(用户规则 2026-07-20 确认)
+      open: true,
+      width: AI_PANEL_DEFAULT_WIDTH,
+      isResizing: false,
+      activeWorkspace: null,
+      conversationWorkspaces: {},
+      pendingPermissionSetup: null,
+      pendingFullAccess: false,
+      pendingPermissionMode: null,
+      permissionAxes: null,
+      floatMode: false,
+      floatMinimized: false,
+      floatCollapsed: false,
+      floatPosition: FLOAT_DEFAULT_POSITION,
+      floatSize: FLOAT_DEFAULT_SIZE,
+      floatFabPosition: null,
+      workAreaCollapsed: false,
+      workAreaFullscreen: false,
+
+      /**
+       * 打开面板(所有外部入口的唯一出口)。
+       * 2026-11-11 立:按**调用时**的视口能力落形态,不依赖组件挂载时序 ——
+       * - docked(≥1280):只置 open(桌面手动浮窗保留),并复位最小化;
+       * - float(640–1279)/ sheet(<640):停靠位不存在,必须强制浮窗 + 复位折叠/最小化,
+       *   否则 open=true 也没有任何可见表面(历史 P0「点了没反应」的根因)。
+       */
+      openPanel: () => {
+        const bucket = getPanelBucket(readViewportWidth())
+        if (bucket === 'docked') {
+          set({ open: true, floatMinimized: false })
+          return
+        }
+        set({ open: true, floatMode: true, floatMinimized: false, floatCollapsed: false })
+      },
+      // 关闭 = 收起表面;sheet/float 档由组件渲染 FAB(非 closed 必有可见表面的不变量)
+      closePanel: () => set({ open: false }),
+      togglePanel: () => {
+        const state = get()
+        if (state.open) state.closePanel()
+        else state.openPanel()
+      },
+      setWidth: (w) =>
+        set({
+          width: Math.min(AI_PANEL_MAX_WIDTH, Math.max(AI_PANEL_MIN_WIDTH, w)),
+        }),
+      setResizing: (v: boolean) => set({ isResizing: v }),
+      setActiveWorkspace: (ws) =>
+        set((s) => {
+          // 工作区按对话隔离(2026-09-04):当前有会话时,绑定/解绑同步写回映射,
+          // 保证切换会话后各对话恢复各自的工作区;无会话(新对话)仅更新当前值,
+          // send-message 创建会话后由 bindWorkspaceToConversation 补挂到该会话
+          const cid = useChatStore.getState().conversationId
+          if (cid) {
+            return {
+              activeWorkspace: ws,
+              conversationWorkspaces: { ...s.conversationWorkspaces, [cid]: ws },
+            }
+          }
+          return { activeWorkspace: ws }
+        }),
+      bindWorkspaceToConversation: (conversationId) =>
+        set((s) => ({
+          conversationWorkspaces: {
+            ...s.conversationWorkspaces,
+            [conversationId]: s.activeWorkspace,
+          },
+        })),
+      setPendingPermissionSetup: (v) => set({ pendingPermissionSetup: v }),
+      setPendingFullAccess: (v: boolean) => set({ pendingFullAccess: v }),
+      setPendingPermissionMode: (v) => set({ pendingPermissionMode: v }),
+      setPermissionAxes: (v) => set({ permissionAxes: v }),
+      setFloatMode: (v: boolean) => set({ floatMode: v }),
+      setFloatMinimized: (v: boolean) => set({ floatMinimized: v }),
+      toggleWorkAreaCollapsed: () => set((s) => ({ workAreaCollapsed: !s.workAreaCollapsed })),
+      setWorkAreaFullscreen: (v: boolean) => set({ workAreaFullscreen: v }),
+      setFloatCollapsed: (v: boolean) => set({ floatCollapsed: v }),
+      setFloatPosition: (pos: { x: number; y: number }) => set({ floatPosition: pos }),
+      setFloatSize: (size) => {
+        const vp = readViewportSize()
+        set({ floatSize: getFloatSize(vp.width, vp.height, size) })
+      },
+      setFloatFabPosition: (pos) => set({ floatFabPosition: pos }),
+    }),
+    {
+      ...createPersistConfig<AiPanelState>('ihui-ai-panel', (s) => ({
+        width: s.width,
+        activeWorkspace: s.activeWorkspace,
+        // 浮窗缩放偏好持久化(2026-11-15):用户拉大/缩小的尺寸刷新后保留,
+        // 位置仍按用户规则不持久化(刷新回工作区左下角)。
+        floatSize: s.floatSize,
+        // 会话级工作区映射持久化(2026-09-04):刷新后各对话绑定关系保留
+        conversationWorkspaces: s.conversationWorkspaces,
+      })),
+      // rehydrate 覆盖(2026-11-11 整理,逐条写清「为什么」):
+      // - open=true:"AI 对话框默认弹出"规则(2026-07-20 用户确认),旧 localStorage 残留 open=false 也覆盖。
+      // - floatMode / floatPosition 不持久化(2026-08-01 用户规则「默认状态在侧边栏与工作区中间」):
+      //   刷新一律回停靠默认态;<1280 时由 ai-side-panel 的形态档 effect 立即迁到浮窗,
+      //   不依赖持久化值(否则窄屏刷新会先闪一帧停靠位)。
+      // - workAreaFullscreen / floatMinimized / floatCollapsed 同为会话级 UI 态:防旧值把面板锁成 FAB
+      //   或把工作面锁在全屏。
+      // - permissionAxes 是请求级偏好、未进 partialize,此处再钉一次,防手改 localStorage 残留高危双轴。
+      // 宽度迁移史:v0→v1 提到 680(当时漏了 >680);v2→v3 强制 460(验证 migrate 生效);
+      // 2026-08-02 v3→v4 默认 380(用户规则);2026-09-30 v4→v5 重设 480(旧值下底栏必然溢出)。
+      version: 5,
+      migrate: (persistedState: unknown, version: number) => {
+        const s = (persistedState as Partial<AiPanelState>) || {}
+        if (version < 5 && typeof s.width === 'number') {
+          s.width = AI_PANEL_DEFAULT_WIDTH
+        }
+        return s as Partial<AiPanelState>
+      },
+      merge: (persistedState, currentState) => {
+        const persisted = (persistedState as Partial<AiPanelState>) || {}
+        const viewport = readViewportSize()
+        return {
+          ...currentState,
+          ...persisted,
+          open: true,
+          floatMode: false,
+          // D182 工作面全屏同为会话级:rehydrate 后强制回默认,防旧残留把工作面锁在全屏
+          workAreaFullscreen: false,
+          // 79 号票:双轴是请求级偏好,未进 partialize;此处再强制一次,
+          // 防旧版本/手改的 localStorage 把高危双轴残留到刷新之后
+          permissionAxes: null,
+          // 强制非最小化/非折叠:防旧版本 localStorage 残留 floatMinimized:true
+          // 导致 AI 对话框默认收成 FAB(用户规则:默认展开正常态)
+          floatMinimized: false,
+          floatCollapsed: false,
+          floatPosition: FLOAT_DEFAULT_POSITION,
+          // 尺寸偏好持久化,但必须过视口收口:旧值/手改值超出当前窗口时按最小档与
+          // 8px 边距夹住,否则刷新后浮窗会比视口还大(位置收口也救不回来)。
+          floatSize: getFloatSize(viewport.width, viewport.height, persisted.floatSize),
+          // FAB 独立位置同为会话级:刷新回「跟随浮窗矩形」的默认锚点
+          floatFabPosition: null,
+        }
+      },
+    },
+  ),
+)
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

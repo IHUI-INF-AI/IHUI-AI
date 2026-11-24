@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-toggle-always-on-top"
+description = "Enables the toggle_always_on_top command without any pre-configured scope."
+commands.allow = ["toggle_always_on_top"]
+
+[[permission]]
+identifier = "deny-toggle-always-on-top"
+description = "Denies the toggle_always_on_top command without any pre-configured scope."
+commands.deny = ["toggle_always_on_top"]

@@ -1,0 +1,4 @@
+#EVIDENCE-CMD: node G:/IHUI-AI/node_modules/typescript/bin/tsc --noEmit -p packages/api-client/tsconfig.json
+#EVIDENCE-START: 2026-10-06T09:52:23.218Z
+#EVIDENCE-RC=0
+#EVIDENCE-END: 2026-10-06T09:52:27.396Z

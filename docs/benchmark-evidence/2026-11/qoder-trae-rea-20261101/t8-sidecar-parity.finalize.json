@@ -1,0 +1,1165 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "startedAt": "2026-10-31T17:50:48.467Z",
+  "specification": {
+    "path": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.candidate.json",
+    "sha256": "8ab5659e47d18b9017c898ae89ea92fdd50557ab58d28bc6c409f1ceac64f28f",
+    "bytes": 10744
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.html",
+    "sha256": "ca9f339d8616a4ab3e081a56e47cc0f54bb6f26a163f30114f03ed258407d89a",
+    "bytes": 877006
+  },
+  "stages": {
+    "validate": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": null,
+      "execution": "embedded-in-deliver",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "deliver",
+        "architecture",
+        "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.candidate.json",
+        "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.html",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": true,
+        "command": "validate",
+        "specification": {
+          "sha256": "8ab5659e47d18b9017c898ae89ea92fdd50557ab58d28bc6c409f1ceac64f28f",
+          "bytes": 10744
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        }
+      }
+    },
+    "deliver": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 451,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "deliver",
+        "architecture",
+        "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.candidate.json",
+        "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.html",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "receiptId": "7a63bc90-dce9-4bcb-bc7b-2aab5886338e",
+        "ok": true,
+        "command": "deliver",
+        "type": "architecture",
+        "input": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.candidate.json",
+        "output": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.html",
+        "specification": {
+          "sha256": "8ab5659e47d18b9017c898ae89ea92fdd50557ab58d28bc6c409f1ceac64f28f",
+          "bytes": 10744
+        },
+        "artifact": {
+          "sha256": "ca9f339d8616a4ab3e081a56e47cc0f54bb6f26a163f30114f03ed258407d89a",
+          "bytes": 877006
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        },
+        "update": {
+          "status": "unavailable",
+          "installedVersion": null,
+          "availableVersion": null,
+          "releaseNotes": null,
+          "checkedAt": null,
+          "source": null,
+          "noticeRequired": false,
+          "noticeText": null,
+          "reason": "disabled"
+        }
+      }
+    },
+    "check": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 178,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "check",
+        "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.html",
+        "--require-provenance"
+      ],
+      "receipt": {
+        "ok": true,
+        "file": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.html",
+        "artifact": {
+          "sha256": "ca9f339d8616a4ab3e081a56e47cc0f54bb6f26a163f30114f03ed258407d89a",
+          "bytes": 877006
+        },
+        "checks": [
+          {
+            "name": "single_svg",
+            "ok": true,
+            "details": [
+              "found 1 <svg> block(s)"
+            ]
+          },
+          {
+            "name": "finite_svg",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "orthogonal_arrows",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "label_route_clearance",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_crossings",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_corridors",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "container_border_runs",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "route_rhythm",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "legend_clearance",
+            "ok": true,
+            "details": []
+          }
+        ],
+        "composition": {
+          "schemaVersion": 1,
+          "profile": "showcase",
+          "status": "pass",
+          "summary": {
+            "errors": 0,
+            "warnings": 0
+          },
+          "metrics": {
+            "properCrossings": 0,
+            "resolvedCrossovers": 2,
+            "ambiguousCorridors": 0,
+            "arrowheadCollisions": 0,
+            "containerBorderRuns": 0,
+            "labelRouteClearanceIssues": 0,
+            "labelCanvasOverflowIssues": 0,
+            "minLabelRouteClearance": 5,
+            "desktopReadabilityIssues": 0,
+            "viewportHeightIssues": 0,
+            "minProjectedNodeTextPx": 6.1,
+            "maxBends": 4,
+            "routesOverSuggestedBends": 3,
+            "maxStretch": 1.989,
+            "routesOverSuggestedStretch": 1,
+            "minSegmentPx": 24,
+            "minInteriorSegmentPx": 80,
+            "shortSegmentCount": 0,
+            "shortEndpointSegmentCount": 0,
+            "shortInteriorSegmentCount": 0,
+            "microSegmentCount": 0
+          },
+          "suggestedLimits": {
+            "bendsPerRelationship": 2,
+            "stretch": 1.35,
+            "segmentPx": 16,
+            "microSegmentPx": 8
+          },
+          "routeReview": {
+            "crossings": [
+              {
+                "left": {
+                  "id": "c-qcu-1",
+                  "from": "qcu-host",
+                  "to": "qcu-tools",
+                  "label": "工具面声明",
+                  "collectionIndex": 0,
+                  "artifactIndex": 1
+                },
+                "right": {
+                  "id": "c-qcu-5",
+                  "from": "qcu-size",
+                  "to": "qcu-host",
+                  "label": "读数来源",
+                  "collectionIndex": 4,
+                  "artifactIndex": 5
+                },
+                "point": [
+                  89.45,
+                  191
+                ],
+                "sharedNode": "qcu-host"
+              },
+              {
+                "left": {
+                  "id": "c-ih-3",
+                  "from": "ih-exp",
+                  "to": "ih-flow2",
+                  "label": "引擎已在本仓",
+                  "collectionIndex": 10,
+                  "artifactIndex": 11
+                },
+                "right": {
+                  "id": "c-ih-4",
+                  "from": "ih-doc",
+                  "to": "ih-flow2",
+                  "label": "只读侧现状",
+                  "collectionIndex": 11,
+                  "artifactIndex": 12
+                },
+                "point": [
+                  750.5,
+                  647
+                ],
+                "sharedNode": "ih-flow2"
+              }
+            ],
+            "detours": [
+              {
+                "relationship": {
+                  "id": "c-qcu-5",
+                  "from": "qcu-size",
+                  "to": "qcu-host",
+                  "label": "读数来源",
+                  "collectionIndex": 4,
+                  "artifactIndex": 5
+                },
+                "bends": 4,
+                "stretch": 1.341,
+                "directCorridorBlockers": [
+                  {
+                    "id": "qcu-tools",
+                    "label": "14 枚动作工具",
+                    "box": [
+                      20,
+                      210,
+                      155,
+                      58
+                    ]
+                  },
+                  {
+                    "id": "qcu-input",
+                    "label": "输入类动作",
+                    "box": [
+                      20,
+                      330,
+                      155,
+                      58
+                    ]
+                  },
+                  {
+                    "id": "qcu-guard",
+                    "label": "边界实装 11 项",
+                    "box": [
+                      20,
+                      450,
+                      155,
+                      58
+                    ]
+                  },
+                  {
+                    "id": "qcu-absent",
+                    "label": "审批门/速率闸",
+                    "box": [
+                      20,
+                      570,
+                      155,
+                      58
+                    ]
+                  }
+                ]
+              },
+              {
+                "relationship": {
+                  "id": "c-ih-4",
+                  "from": "ih-doc",
+                  "to": "ih-flow2",
+                  "label": "只读侧现状",
+                  "collectionIndex": 11,
+                  "artifactIndex": 12
+                },
+                "bends": 4,
+                "stretch": 1.989,
+                "directCorridorBlockers": [
+                  {
+                    "id": "ih-exp",
+                    "label": "api excel-export-service",
+                    "box": [
+                      680,
+                      570,
+                      155,
+                      58
+                    ]
+                  }
+                ]
+              },
+              {
+                "relationship": {
+                  "id": "c-ih-6",
+                  "from": "ih-flow1",
+                  "to": "ih-absent",
+                  "label": "刻意止步",
+                  "collectionIndex": 13,
+                  "artifactIndex": 14
+                },
+                "bends": 4,
+                "stretch": 1.315,
+                "directCorridorBlockers": [
+                  {
+                    "id": "ih-doc",
+                    "label": "document_tools",
+                    "box": [
+                      680,
+                      450,
+                      155,
+                      58
+                    ]
+                  },
+                  {
+                    "id": "ih-exp",
+                    "label": "api excel-export-service",
+                    "box": [
+                      680,
+                      570,
+                      155,
+                      58
+                    ]
+                  },
+                  {
+                    "id": "ih-flow2",
+                    "label": "在飞:agent 工作簿读写",
+                    "box": [
+                      680,
+                      690,
+                      155,
+                      58
+                    ]
+                  },
+                  {
+                    "id": "ih-gate",
+                    "label": "门 277 逐文件完整性",
+                    "box": [
+                      680,
+                      810,
+                      155,
+                      58
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "leadingSpace": {
+            "measured": true,
+            "emptyTopPx": 66,
+            "emptyTopRatio": 0.061,
+            "occupiedTop": 66,
+            "viewBoxTop": 0,
+            "canvasHeight": 1076,
+            "typicalNodeHeight": 58,
+            "reviewSuggested": false
+          },
+          "desktopReadability": {
+            "budgetBasis": "legacy-930",
+            "readerContract": "declared-wide-v1",
+            "availableDiagramWidth": 930,
+            "actualBudgetPx": 930,
+            "limit": "legacy",
+            "requestedTargetPx": 7.5,
+            "requestedTargetMet": false,
+            "hardFloorPx": 6,
+            "hardFloorMet": true,
+            "minimumOwner": {
+              "kind": "node",
+              "id": "qcu-host"
+            },
+            "minimumSourceTextPx": 6.1,
+            "minimumProjectedTextPx": 6.1,
+            "semanticTextCount": 53
+          },
+          "issues": []
+        },
+        "provenance": "current",
+        "deliveryReceiptId": "7a63bc90-dce9-4bcb-bc7b-2aab5886338e"
+      }
+    },
+    "browser-check": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 3216,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "browser-check",
+        "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.html",
+        "--json",
+        "--require-provenance",
+        "--out-dir",
+        "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101"
+      ],
+      "execution": "in-process",
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": true,
+        "command": "browser-check",
+        "evidenceKind": "automated-browser",
+        "status": "pass",
+        "visualReview": "not-requested",
+        "provenance": "current",
+        "deliveryReceiptId": "7a63bc90-dce9-4bcb-bc7b-2aab5886338e",
+        "artifact": {
+          "path": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.html",
+          "sha256": "ca9f339d8616a4ab3e081a56e47cc0f54bb6f26a163f30114f03ed258407d89a",
+          "bytes": 877006
+        },
+        "state": {
+          "detail": "read",
+          "motion": "still"
+        },
+        "chrome": {
+          "status": "available",
+          "executable": "C:\\Users\\Administrator\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe"
+        },
+        "diagnostics": [],
+        "containment": {
+          "status": "pass",
+          "policy": "fit-or-reader-declared-readable-vertical-scroll",
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "theme": "light",
+              "innerWidth": 1440,
+              "innerHeight": 900,
+              "scrollWidth": 1440,
+              "scrollHeight": 1260,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": "adaptive",
+              "readerOverflow": "authored",
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 960,
+              "diagramWidth": 891,
+              "pageComposition": {
+                "bodyPaddingPx": 12,
+                "headerPx": 94,
+                "diagramChromePx": 78,
+                "svgPx": 1076,
+                "cardsPx": 0,
+                "viewBoxHeight": 1076
+              },
+              "viewBoxWidth": 891,
+              "minimumProjectedNodeTextPx": 6.1,
+              "minimumProjectedNonEdgeTextPx": 6.1,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "stdio inherit · MCP 形 JSON-RPC · 无 TCP",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "qcu-host"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "theme": "light",
+              "innerWidth": 1600,
+              "innerHeight": 1000,
+              "scrollWidth": 1600,
+              "scrollHeight": 1326,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": "adaptive",
+              "readerOverflow": "authored",
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 960,
+              "diagramWidth": 891,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 102,
+                "diagramChromePx": 84,
+                "svgPx": 1076,
+                "cardsPx": 0,
+                "viewBoxHeight": 1076
+              },
+              "viewBoxWidth": 891,
+              "minimumProjectedNodeTextPx": 6.1,
+              "minimumProjectedNonEdgeTextPx": 6.1,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "stdio inherit · MCP 形 JSON-RPC · 无 TCP",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "qcu-host"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "theme": "light",
+              "innerWidth": 1920,
+              "innerHeight": 1080,
+              "scrollWidth": 1920,
+              "scrollHeight": 1326,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": "adaptive",
+              "readerOverflow": "authored",
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 960,
+              "diagramWidth": 891,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 102,
+                "diagramChromePx": 84,
+                "svgPx": 1076,
+                "cardsPx": 0,
+                "viewBoxHeight": 1076
+              },
+              "viewBoxWidth": 891,
+              "minimumProjectedNodeTextPx": 6.1,
+              "minimumProjectedNonEdgeTextPx": 6.1,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "stdio inherit · MCP 形 JSON-RPC · 无 TCP",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "qcu-host"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "theme": "light",
+              "innerWidth": 2048,
+              "innerHeight": 1320,
+              "scrollWidth": 2048,
+              "scrollHeight": 1344,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": "adaptive",
+              "readerOverflow": "authored",
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 960,
+              "diagramWidth": 891,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 110,
+                "diagramChromePx": 94,
+                "svgPx": 1076,
+                "cardsPx": 0,
+                "viewBoxHeight": 1076
+              },
+              "viewBoxWidth": 891,
+              "minimumProjectedNodeTextPx": 6.1,
+              "minimumProjectedNonEdgeTextPx": 6.1,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "stdio inherit · MCP 形 JSON-RPC · 无 TCP",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "qcu-host"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 44,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            }
+          ]
+        },
+        "themeStates": {
+          "status": "pass",
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 1440,
+              "height": 900,
+              "requestedTheme": "dark",
+              "resolvedTheme": "dark",
+              "ok": true
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "requestedTheme": "dark",
+              "resolvedTheme": "dark",
+              "ok": true
+            }
+          ]
+        },
+        "readability": {
+          "status": "pass",
+          "minimumProjectedNodeTextPx": 6,
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "theme": "light",
+              "innerWidth": 1440,
+              "innerHeight": 900,
+              "scrollWidth": 1440,
+              "scrollHeight": 1260,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": "adaptive",
+              "readerOverflow": "authored",
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 960,
+              "diagramWidth": 891,
+              "pageComposition": {
+                "bodyPaddingPx": 12,
+                "headerPx": 94,
+                "diagramChromePx": 78,
+                "svgPx": 1076,
+                "cardsPx": 0,
+                "viewBoxHeight": 1076
+              },
+              "viewBoxWidth": 891,
+              "minimumProjectedNodeTextPx": 6.1,
+              "minimumProjectedNonEdgeTextPx": 6.1,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "stdio inherit · MCP 形 JSON-RPC · 无 TCP",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "qcu-host"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "theme": "light",
+              "innerWidth": 1600,
+              "innerHeight": 1000,
+              "scrollWidth": 1600,
+              "scrollHeight": 1326,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": "adaptive",
+              "readerOverflow": "authored",
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 960,
+              "diagramWidth": 891,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 102,
+                "diagramChromePx": 84,
+                "svgPx": 1076,
+                "cardsPx": 0,
+                "viewBoxHeight": 1076
+              },
+              "viewBoxWidth": 891,
+              "minimumProjectedNodeTextPx": 6.1,
+              "minimumProjectedNonEdgeTextPx": 6.1,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "stdio inherit · MCP 形 JSON-RPC · 无 TCP",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "qcu-host"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "theme": "light",
+              "innerWidth": 1920,
+              "innerHeight": 1080,
+              "scrollWidth": 1920,
+              "scrollHeight": 1326,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": "adaptive",
+              "readerOverflow": "authored",
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 960,
+              "diagramWidth": 891,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 102,
+                "diagramChromePx": 84,
+                "svgPx": 1076,
+                "cardsPx": 0,
+                "viewBoxHeight": 1076
+              },
+              "viewBoxWidth": 891,
+              "minimumProjectedNodeTextPx": 6.1,
+              "minimumProjectedNonEdgeTextPx": 6.1,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "stdio inherit · MCP 形 JSON-RPC · 无 TCP",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "qcu-host"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "theme": "light",
+              "innerWidth": 2048,
+              "innerHeight": 1320,
+              "scrollWidth": 2048,
+              "scrollHeight": 1344,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": "adaptive",
+              "readerOverflow": "authored",
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 960,
+              "diagramWidth": 891,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 110,
+                "diagramChromePx": 94,
+                "svgPx": 1076,
+                "cardsPx": 0,
+                "viewBoxHeight": 1076
+              },
+              "viewBoxWidth": 891,
+              "minimumProjectedNodeTextPx": 6.1,
+              "minimumProjectedNonEdgeTextPx": 6.1,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "stdio inherit · MCP 形 JSON-RPC · 无 TCP",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "qcu-host"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 44,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            }
+          ]
+        },
+        "viewerChrome": {
+          "status": "pass",
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "theme": "light",
+              "innerWidth": 1440,
+              "innerHeight": 900,
+              "scrollWidth": 1440,
+              "scrollHeight": 1260,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": "adaptive",
+              "readerOverflow": "authored",
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 960,
+              "diagramWidth": 891,
+              "pageComposition": {
+                "bodyPaddingPx": 12,
+                "headerPx": 94,
+                "diagramChromePx": 78,
+                "svgPx": 1076,
+                "cardsPx": 0,
+                "viewBoxHeight": 1076
+              },
+              "viewBoxWidth": 891,
+              "minimumProjectedNodeTextPx": 6.1,
+              "minimumProjectedNonEdgeTextPx": 6.1,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "stdio inherit · MCP 形 JSON-RPC · 无 TCP",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "qcu-host"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "theme": "light",
+              "innerWidth": 1600,
+              "innerHeight": 1000,
+              "scrollWidth": 1600,
+              "scrollHeight": 1326,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": "adaptive",
+              "readerOverflow": "authored",
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 960,
+              "diagramWidth": 891,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 102,
+                "diagramChromePx": 84,
+                "svgPx": 1076,
+                "cardsPx": 0,
+                "viewBoxHeight": 1076
+              },
+              "viewBoxWidth": 891,
+              "minimumProjectedNodeTextPx": 6.1,
+              "minimumProjectedNonEdgeTextPx": 6.1,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "stdio inherit · MCP 形 JSON-RPC · 无 TCP",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "qcu-host"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "theme": "light",
+              "innerWidth": 1920,
+              "innerHeight": 1080,
+              "scrollWidth": 1920,
+              "scrollHeight": 1326,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": "adaptive",
+              "readerOverflow": "authored",
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 960,
+              "diagramWidth": 891,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 102,
+                "diagramChromePx": 84,
+                "svgPx": 1076,
+                "cardsPx": 0,
+                "viewBoxHeight": 1076
+              },
+              "viewBoxWidth": 891,
+              "minimumProjectedNodeTextPx": 6.1,
+              "minimumProjectedNonEdgeTextPx": 6.1,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "stdio inherit · MCP 形 JSON-RPC · 无 TCP",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "qcu-host"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "theme": "light",
+              "innerWidth": 2048,
+              "innerHeight": 1320,
+              "scrollWidth": 2048,
+              "scrollHeight": 1344,
+              "overflowX": false,
+              "overflowY": true,
+              "verticalScrollAccepted": true,
+              "overflowDisposition": "readable-vertical-scroll",
+              "readerLayout": "adaptive",
+              "readerOverflow": "authored",
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 960,
+              "diagramWidth": 891,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 110,
+                "diagramChromePx": 94,
+                "svgPx": 1076,
+                "cardsPx": 0,
+                "viewBoxHeight": 1076
+              },
+              "viewBoxWidth": 891,
+              "minimumProjectedNodeTextPx": 6.1,
+              "minimumProjectedNonEdgeTextPx": 6.1,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "stdio inherit · MCP 形 JSON-RPC · 无 TCP",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "qcu-host"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 44,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            }
+          ]
+        },
+        "captures": {
+          "status": "not-requested",
+          "screenshots": [],
+          "contactSheet": null
+        },
+        "sidecars": {
+          "receipt": "t8-sidecar-parity.browser-check.json",
+          "files": []
+        }
+      }
+    }
+  },
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  },
+  "diagnostics": [],
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "finishedAt": "2026-10-31T17:50:52.597Z",
+  "durationMs": 4129,
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-31T16:48:55.729Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  }
+}

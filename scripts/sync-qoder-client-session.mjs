@@ -1,0 +1,324 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Qoder 客户端会话定期回灌(2026-10-28 立)—— 客户端为主策略的取数端。
+ *
+ * 链路:本机 Qoder 登录态(apps/api/scripts/qoder-capture.ps1 解密 auth.v1.dat)→
+ * stdin JSON → apps/api/scripts/relay-qoder-session-sync.ts(tsx,判据 + 只写凭证列)。
+ * 由 apps/api/src/workers/relay-account-pool-worker.ts 的 `qoder-session-sync` 定时任务
+ * 每 10 分钟派发;也可人工跑:
+ *
+ *   node scripts/sync-qoder-client-session.mjs [--dry-run] [--json]
+ *
+ * 为什么需要它:Qoder 的 deviceToken/refresh 会轮换 refreshToken,池与客户端共用同一枚
+ * rt —— 客户端轮换后池内旧票就永久失效(刷新失败 3 次即被摘除)。回灌把客户端新票
+ * 同步进池,与 Trae 自 2026-10-24 起的形态一致。
+ *
+ * 判据(同票不写 / 池内更新不写 / 客户端更新才写)在 ts 脚本内,本文件只做提取与编排,
+ * 不复制第二份规则(§0.6)。退出码:0 全部处理完(含 skip)/ 1 落库失败 / 2 未判定
+ * (本机没有 Qoder 客户端 / 解密失败 / tsx 缺失)。
+ *
+ * 安全:令牌只在两个进程的管道里流动,任何输出都不含凭据明文。
+ */
+import { resolveTsxCli } from './lib/tsx-cli.mjs'
+import {
+  CAPTURE_TIMEOUT_MS,
+  DB_WRITE_TIMEOUT_MS,
+  stageFailureText,
+} from './lib/sync-stage-timeouts.mjs'
+import { listProductPids } from './lib/trae-client-process.mjs'
+import { __test__ as traeSyncTest } from './sync-trae-client-session.mjs'
+import path from 'node:path'
+import { spawn, spawnSync } from 'node:child_process'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+const HERE = path.dirname(fileURLToPath(import.meta.url))
+const ROOT = path.resolve(HERE, '..')
+const API_DIR = path.join(ROOT, 'apps', 'api')
+const SYNC_TS = path.join(API_DIR, 'scripts', 'relay-qoder-session-sync.ts')
+const CAPTURE_PS1 = path.join(API_DIR, 'scripts', 'qoder-capture.ps1')
+
+export function parseArgs(argv) {
+  const options = { dryRun: false, json: false, help: false, error: null }
+  for (const a of argv) {
+    if (a === '--dry-run') options.dryRun = true
+    else if (a === '--json') options.json = true
+    else if (a === '--help' || a === '-h') options.help = true
+    else if (a === '--')
+      continue // pnpm 透传的裸分隔符,不是参数
+    else options.error = `未知参数: ${a}`
+  }
+  return options
+}
+
+/**
+ * 本机 Qoder 客户端进程镜像名(2026-11-05 现读 = `Qoder CN.exe` ⇒ 国内版;国际版按
+ * `Qoder.exe` 一并探测,免得换版后心跳静默断供)。tasklist 解析判据单源 =
+ * scripts/lib/trae-client-process.listProductPids,本层只给清单、不写第二份解析(§0.6)。
+ */
+export const QODER_PRODUCTS = Object.freeze(['Qoder CN', 'Qoder'])
+
+/**
+ * 客户端此刻在不在跑 —— 三态绝不并桶(§0.3):true = 任一产品在跑;false = 都不在;
+ * null = 探测失败(未知)。未知与 true 同向处理(照样写心跳):代价不对称 ——
+ * 误判「没在跑」会让池把「客户端正在自己续期」读成「客户端已静默」,对登记了
+ * 永久保活的号即接管续票,当场把机主正在用的 Qoder 顶下线,而这条号掉线后要手机
+ * 验证码才能登回来(不可逆)。判据与 Trae 腿同一型(见 sync-trae-client-session.mjs)。
+ */
+export function probeQoderClientActive(env = process.env) {
+  let unknown = false
+  for (const product of QODER_PRODUCTS) {
+    const pids = listProductPids(product, env)
+    if (pids === null) {
+      unknown = true
+      continue
+    }
+    if (pids.length > 0) return true
+  }
+  return unknown ? null : false
+}
+
+const str = (v) => (typeof v === 'string' ? v.trim() : '')
+
+/** 捕获结果 → 同步脚本的 stdin 载荷(纯函数,测试锁形状;凭据与账号身份键只走管道面,不进输出)。 */
+export function buildPayload(sessions, meta, heartbeatAt = null) {
+  const accounts = (Array.isArray(sessions) ? sessions : [])
+    .map((s) => {
+      const uid = str(s?.uid)
+      const token = str(s?.accessToken)
+      if (!uid || !token) return null
+      const refreshToken = str(s?.refreshToken)
+      const expiresAt = str(s?.expiresAt)
+      const refreshExpiresAt = str(s?.refreshTokenExpiresAt)
+      const deviceId = str(s?.deviceId)
+      const machineId = str(s?.machineId)
+      const machineToken = str(s?.machineToken)
+      const machineCode = str(s?.machineCode)
+      const machineType = str(s?.machineType)
+      const version = str(s?.version)
+      // 身份键族:missing 自动入池时交 importAccounts 的统一名判据(O66 手机号优先);
+      // 仅随 stdin 走内存管道,任何输出面不回显(2026-10-30)
+      const phone = str(s?.phone)
+      const nickname = str(s?.nickname)
+      return {
+        uid,
+        token,
+        ...(refreshToken ? { refreshToken } : {}),
+        ...(expiresAt ? { expiresAt } : {}),
+        ...(refreshExpiresAt ? { refreshTokenExpiresAt: refreshExpiresAt } : {}),
+        ...(deviceId ? { deviceId } : {}),
+        ...(machineId ? { machineId } : {}),
+        // Cosy-* 设备头族:缺了 refresh 会被上游拒(2026-10-23 真机实证)
+        ...(machineToken ? { machineToken } : {}),
+        ...(machineCode ? { machineCode } : {}),
+        ...(machineType ? { machineType } : {}),
+        ...(version ? { version } : {}),
+        ...(phone ? { phone } : {}),
+        ...(nickname ? { nickname } : {}),
+      }
+    })
+    .filter(Boolean)
+  return {
+    providerCode: 'qoder',
+    accounts,
+    meta: meta ?? {},
+    // 客户端心跳时刻(三态折算单源 = Trae 腿 heartbeatOf);不写 = 让池侧心跳自然过期,
+    // 由调度面按 TTL 判「客户端静默」⇒ 永久保活号才被池接管续期。
+    ...(heartbeatAt ? { clientActiveAt: heartbeatAt } : {}),
+  }
+}
+
+/** 跑 qoder-capture.ps1(pwsh 7+),stdout 即 { sessions:[…] } */
+function captureSessions() {
+  const r = spawnSync(
+    'pwsh',
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', CAPTURE_PS1],
+    {
+      encoding: 'utf8',
+      maxBuffer: 32 * 1024 * 1024,
+      // §12g:不吃 stdin ⇒ 首通道 ignore;要回读 JSON ⇒ stdout 管道
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: CAPTURE_TIMEOUT_MS,
+    },
+  )
+  if (r.error || r.status !== 0) {
+    // 「超时」必须是一等读数,不能靠信号反推:spawnSync 的 ETIMEDOUT / killed 就是本方窗口到点。
+    // 原形态 `r.error.message` 只剩一句 `spawnSync pwsh ETIMEDOUT`,不带窗口值,读的人无法判断
+    // 是该调窗口还是该修 pwsh 环境(两件事的修法完全不同)。
+    const timedOut = r.error?.code === 'ETIMEDOUT' || r.error?.killed === true
+    const tail = String(r.stderr ?? '')
+      .trim()
+      .slice(0, 200)
+    const why = timedOut
+      ? stageFailureText({
+          timedOut,
+          signal: r.signal,
+          code: r.status,
+          stderr: tail,
+          limitMs: CAPTURE_TIMEOUT_MS,
+        })
+      : `${r.error?.message ?? `exit ${r.status}`}${tail ? `: ${tail}` : ''}`
+    return { sessions: null, error: `本机捕获失败(未判定): ${why}` }
+  }
+  try {
+    const parsed = JSON.parse(String(r.stdout ?? '').trim())
+    const sessions = parsed?.sessions
+    if (!Array.isArray(sessions)) return { sessions: null, error: '捕获输出缺 sessions[]' }
+    return { sessions, error: null }
+  } catch (e) {
+    return {
+      sessions: null,
+      error: `捕获输出不是合法 JSON: ${e instanceof Error ? e.message : String(e)}`,
+    }
+  }
+}
+
+function runSyncTs(payloadText, dryRun) {
+  const tsx = resolveTsxCli(ROOT)
+  if (!tsx) {
+    return Promise.resolve({
+      code: 2,
+      json: null,
+      error: '未找到 tsx(apps/api/node_modules/tsx);先在仓根 pnpm install',
+    })
+  }
+  const args = [tsx, SYNC_TS, '--stdin', '--json']
+  if (dryRun) args.push('--dry-run')
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, args, {
+      cwd: API_DIR,
+      windowsHide: true,
+      // 带输入必须三段全接管(AGENTS §12g)
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    let stdout = ''
+    let stderr = ''
+    // kill 前先落笔 timedOut:否则退出时只剩一个 SIGTERM,分不清是本方等死它还是别人杀的
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      child.kill()
+    }, DB_WRITE_TIMEOUT_MS)
+    child.stdout.on('data', (d) => (stdout += d))
+    child.stderr.on('data', (d) => (stderr += d))
+    child.on('error', (e) => {
+      clearTimeout(timer)
+      resolve({ code: 2, json: null, error: e.message })
+    })
+    child.on('exit', (code, signal) => {
+      clearTimeout(timer)
+      // stdout 可能混有 db 连接等噪音行 ⇒ 逐行找可解析的 JSON 汇总
+      let json = null
+      for (const line of stdout.split(/\r?\n/)) {
+        const t = line.trim()
+        if (!t.startsWith('{')) continue
+        try {
+          json = JSON.parse(t)
+        } catch {
+          /* 不是汇总行,继续找 */
+        }
+      }
+      resolve({
+        code: signal ? 2 : (code ?? 2),
+        json,
+        // 旧形态是 `stderr || 退出码/信号`:ts 脚本常态会往 stderr 打 db/连接噪音,
+        // 于是"本方等死了它"被那句噪音顶掉,与"它自己崩了"混成同一个读数(§0.3 两桶必须分开)。
+        error: json
+          ? null
+          : stageFailureText({
+              timedOut,
+              signal,
+              code,
+              stderr,
+              limitMs: DB_WRITE_TIMEOUT_MS,
+            }).slice(0, 300),
+      })
+    })
+    child.stdin.write(payloadText)
+    child.stdin.end()
+  })
+}
+
+async function main(argv) {
+  const parsed = parseArgs(argv)
+  if (parsed.error) {
+    process.stderr.write(`❌ ${parsed.error}\n`)
+    return 2
+  }
+  if (parsed.help) {
+    process.stdout.write(
+      '用法: node scripts/sync-qoder-client-session.mjs [--dry-run] [--json]\n' +
+        '读取本机 Qoder 登录态并回灌号池(客户端为主策略的取数端;判据在 apps/api/scripts/relay-qoder-session-sync.ts)。\n',
+    )
+    return 0
+  }
+
+  const captured = captureSessions()
+  if (captured.error) {
+    process.stderr.write(`❌ 提取失败(未判定): ${captured.error}\n`)
+    return 2
+  }
+  // 心跳在捕获之后、落库之前取:探测的是「本轮跑起来时客户端在不在」,与票是否变化无关
+  const heartbeatAt = traeSyncTest.heartbeatOf(probeQoderClientActive(), new Date().toISOString())
+  const payload = buildPayload(
+    captured.sessions,
+    {
+      count: captured.sessions.length,
+      editions: captured.sessions.map((s) => str(s?.edition)).filter(Boolean),
+    },
+    heartbeatAt,
+  )
+  process.stderr.write(
+    `提取: ${payload.accounts.length} 条可用会话` +
+      `(uid=${payload.accounts.map((a) => String(a.uid).slice(0, 8)).join(',') || '-'}) ` +
+      `客户端心跳=${heartbeatAt ?? '未写(客户端未在跑)'}\n`,
+  )
+  if (payload.accounts.length === 0) {
+    process.stderr.write('❌ 没有可回灌的会话(缺 uid/token)⇒ 未判定\n')
+    return 2
+  }
+
+  const result = await runSyncTs(JSON.stringify(payload), parsed.dryRun)
+  if (result.error) {
+    process.stderr.write(`❌ 同步失败(未判定): ${result.error}\n`)
+    return 2
+  }
+  if (parsed.json && result.json) {
+    process.stdout.write(`${JSON.stringify(result.json)}\n`)
+  } else if (result.json) {
+    const s = result.json
+    process.stderr.write(
+      `回灌完成: applied=${s.applied} skipped=${s.skipped} missing=${s.missing} imported=${s.imported ?? 0} 心跳=${s.heartbeat ?? 0} failed=${s.failed}${s.dryRun ? '(dry-run 未写)' : ''}\n`,
+    )
+    for (const r of s.rows ?? []) {
+      process.stderr.write(
+        `  ${r.uid} ${r.decision}${r.applied ? ' ✓已写' : ''}${r.error ? ` (${r.error})` : ''}\n`,
+      )
+    }
+  }
+  return result.code
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main(process.argv.slice(2))
+    .then((code) => process.exit(code))
+    .catch((e) => {
+      process.stderr.write(`❌ ${e instanceof Error ? e.message : String(e)}\n`)
+      process.exit(2)
+    })
+}
+
+export const __test__ = {
+  parseArgs,
+  buildPayload,
+  probeQoderClientActive,
+  QODER_PRODUCTS,
+  // 心跳折算与 Trae 腿必须是**同一个函数引用**(§0.6):测试拿引用相等钉它,
+  // 谁在这儿另写一份三态折算就会被判红
+  heartbeatOf: traeSyncTest.heartbeatOf,
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

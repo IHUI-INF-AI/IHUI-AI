@@ -1,0 +1,110 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: Migration Tests
+
+# 数据库迁移测试工作流 — 验证 Drizzle migration 迁移正确性
+# 当 database 包迁移/迁移脚本/schema 变更时触发
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'packages/database/drizzle/**'
+      - 'packages/database/scripts/**'
+      - 'packages/database/src/**'
+      - 'packages/database/drizzle.config.ts'
+      - '.github/workflows/migration-tests.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'packages/database/drizzle/**'
+      - 'packages/database/scripts/**'
+      - 'packages/database/src/**'
+      - 'packages/database/drizzle.config.ts'
+      - '.github/workflows/migration-tests.yml'
+
+# Security: least-privilege GITHUB_TOKEN (CWE-250). Third-party actions use @v tags — pin to commit SHA for stricter supply-chain security.
+permissions:
+  contents: read
+
+# 并发收敛(2026-11-10):非 required check,同 ref 连续 push 时旧轮排队只烧分钟数,cancel 同 build.yml 治理语义。
+concurrency:
+  group: migration-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  migration-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        # 全量迁移含 vector 列;postgres:18 官方镜像不带 pgvector 扩展 → 迁移在
+        # `type "vector" does not exist` 处回滚。与 db-from-zero-migrate.yml 同款镜像。
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@eae0cfeb286e66ffb5155f1a79b90583a127a68b # v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # DB-10:不再用 `drizzle-kit push --force` 按 schema 现状建表 —— 那会绕过
+      # drizzle/*.sql 迁移链(索引/触发器/扩展全都不执行),给"已有迁移测试"的假保证。
+      # 改为与 test-real-db.yml / db-from-zero-migrate.yml 同款的两遍迁移 + 形状守卫:
+      # 全新库第一遍在 journal idx 325 失败属预期(1..324 已逐条提交),
+      # 守卫把 uuid 形状收敛成 bigserial 后第二遍通过;存量库第一遍直接通过。
+      - name: Run migrations (fresh DB, two-pass + guard)
+        working-directory: packages/database
+        env:
+          DATABASE_URL: postgresql://postgres:test@localhost:5432/test
+        run: |
+          if ! npx drizzle-kit migrate; then
+            echo "::notice::第一遍 migrate 在 idx 325 处失败(从零库预期行为,1..324 已逐条提交)"
+          fi
+          node scripts/pre-migrate-fresh-db-guard.mjs
+          npx drizzle-kit migrate
+
+      # 迁移链必须真的把账本写进 drizzle.__drizzle_migrations,而不是"命令 exit 0 但库是空的"。
+      - name: Verify migration ledger is non-empty
+        working-directory: packages/database
+        env:
+          DATABASE_URL: postgresql://postgres:test@localhost:5432/test
+        run: |
+          node --input-type=module -e "
+            import postgres from 'postgres';
+            const sql = postgres(process.env.DATABASE_URL);
+            try {
+              const [row] = await sql\`select count(*)::int as n from drizzle.__drizzle_migrations\`;
+              if (!row || row.n === 0) {
+                console.error('迁移账本为空:迁移链没有真正落库');
+                process.exit(1);
+              }
+              console.log('drizzle.__drizzle_migrations rows=' + row.n);
+            } finally {
+              await sql.end();
+            }
+          "
+
+      - name: Verify schema
+        run: cd packages/database && npx tsc --noEmit
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,399 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { drizzle } from 'drizzle-orm/postgres-js'
+import postgres from 'postgres'
+// O13(2026-09-21):受控出口可以有**自己的一条连接**了 —— schema 与 Database 类型
+// 继续复用 @ihui/database,不在这里另起一套。
+import {
+  buildPoolOptions,
+  createReadWriteDb,
+  normalizeReplicaLagSec,
+  schema,
+  wrapClientWithLogger,
+  type Database,
+  type SqlLoggerFn,
+} from '@ihui/database'
+import type { FastifyInstance } from 'fastify'
+import { config } from '../config/index.js'
+import { currentPrincipal } from '../plugins/principal.js'
+import { sqlEventBus } from './sql-event-bus.js'
+import { isWriteSql, RywReadBarrier } from '../utils/ryw-consistency.js'
+// O4 数据作用域闸:受控出口 dbScoped()/dbReadScoped() + 只读超级用户探针
+import {
+  configureDataScopeGuard,
+  createScopedDb,
+  createSuperuserProbe,
+} from '../utils/scoped-guard.js'
+// P1 修复:集成 pool-leak-detector,跟踪 postgres.js 连接池中 active/idle 连接,
+// 让 db-keepalive.ts 的 scanLeaks 能检测到长时间未归还的连接泄漏。
+// 此前 pool-leak-detector.ts 完整实现但从未被任何模块调用 checkout/trackConnection,
+// 导致泄漏扫描器无数据可扫。这里通过周期性采样 pool 内部状态,把 active 连接注册为
+// "已借出",idle 连接标记为 "已归还",从而让泄漏检测真正生效。
+import {
+  poolLeakDetector,
+  trackConnection,
+  untrackConnection,
+} from '../utils/pool-leak-detector.js'
+import { samplePostgresPoolMetrics } from '../utils/pool-metrics.js'
+
+// 使用读写分离工厂创建主库(写)与读副本(读)
+// 无 DATABASE_READ_REPLICA_URL 时,dbReader 自动回退到主库
+// logger 回调把每次 SQL 查询事件发布到 sqlEventBus,
+// slow-sql-killer 与 n1-detector 订阅消费(自动注入 ALS 中的 requestId)
+// O13 补齐①(2026-09-21):这个回调提取为共享 sqlLogger —— 主池与受控出口独立池
+// (DATABASE_APP_URL)走**同一条**观测口径,事件形状不变,不发明新事件名。
+// DB-26:写后读(RYW)屏障 —— 写 SQL 完成后按调用主体(subjectId)开启 2s 窗口,
+// 窗口内 dbRead 代理强制走主库,消除"创建后跳详情/列表刷新读到旧副本"。
+const rywBarrier = new RywReadBarrier()
+
+const sqlLogger: SqlLoggerFn = (event) => {
+  // 写语句在 promise resolve 时回调(wrapClientWithLogger 的 then 早于调用方 await),
+  // 因此下一次同主体读必然能看到标记。
+  if (isWriteSql(event.query)) rywBarrier.markWrite(currentPrincipal()?.subjectId)
+  sqlEventBus.emit({
+    query: event.query,
+    params: event.params,
+    durationMs: event.durationMs,
+    timestamp: event.timestamp,
+  })
+}
+
+const {
+  dbWriter,
+  writerClient,
+  getReader,
+  reportReplicaHealth,
+  replicaClients,
+  close: closeReadWriteDb,
+} = createReadWriteDb({
+  url: config.DATABASE_URL,
+  readReplicaUrl: config.DATABASE_READ_REPLICA_URL,
+  logger: sqlLogger,
+})
+
+// 主库(写) — insert/update/delete 必须使用此客户端
+export const db: Database = dbWriter
+// P1-3 修复(2026-08-06):dbRead 原为固定绑第一个副本(dbReader),副本故障不自动回退。
+// 改为动态代理 —— 每次属性访问都从 getReader() 取当前优先级最高且健康的副本,
+// 全部不健康时 getReader() 自动回退主库,实现读路径故障转移。
+// 健康状态由下方探测循环通过 reportReplicaHealth 驱动。
+export const dbRead: Database = new Proxy(dbWriter, {
+  get(target, prop, receiver) {
+    // DB-26:本主体刚写完 ⇒ RYW 窗口内读必须落主库(副本延迟再小也不保证读己之写)。
+    if (rywBarrier.mustReadPrimary(currentPrincipal()?.subjectId)) {
+      return Reflect.get(target, prop, receiver)
+    }
+    const reader = getReader()
+    if (reader === target) return Reflect.get(target, prop, receiver)
+    const value = Reflect.get(reader, prop)
+    return typeof value === 'function' ? value.bind(reader) : value
+  },
+})
+// 原始 postgres.js 客户端，用于连接池指标采样
+export const dbClient = writerClient
+
+// ============================================================================
+// O4 数据作用域闸(2026-09-25 立)—— 受控客户端出口
+//
+// 判定层不变:每条经 dbScoped()/dbReadScoped() 发出的语句先过 utils/scoped-guard.ts
+// 的判据 —— 机器凭据 + 已登记能力(capability)时,compute 只能碰自有运行记录白名单表,
+// scoped-* 必须带 owner 谓词,否则:
+//   403 DATA_ACCESS_DENIED(模式不允许触达该表)/ 403 DATA_SCOPE_DENIED(越过归属边界)/
+//   503 DATA_ISOLATION_UNAVAILABLE(隔离前提不成立,见 assertNonSuperuserForScopedMode)。
+// 未挂 capability 的调用链(存量 /api/* 全部路由)行为逐字节不变。
+//
+// ----------------------------------------------------------------------------
+// O13(2026-09-21)补的是**连接层**,不是再多加一层判据:
+// 上面那个 503 一直打在生产,原因很朴素 —— 受控出口和 db 同池,而那条池子是超级用户,
+// 超级用户绕过一切 RLS,"声明了行级隔离却给不出隔离"于是被 fail-closed 断言挡死。
+// 现在配了 DATABASE_APP_URL 就让**受控出口单独挂到应用角色池**(角色 + 逐表 GRANT
+// 见 packages/database/drizzle/20260921160000_scoped_app_role_owner_rls.sql):
+//  · 探针跟着换目标 —— 探针必须测**真正服务 scoped 查询的那条连接**,测主池等于
+//    测了一条不相干的超级用户连接,结论再准也与被保护的语句无关;
+//  · db / dbRead **一律不动**(仍主池 + 读副本故障转移),所以第一方链路零回归;
+//  · 代价说清楚:dbReadScoped 走应用池即**不再走读副本**(应用角色只连主库),
+//    这条面只有 4 张表,换"归属边界落在同一个角色上"是值得的;真要横向扩,
+//    给应用角色单独配副本连接串(尚未提供,别拿 DATABASE_READ_REPLICA_URL 凑 ——
+//    那条串的角色若与主库不同,scoped 读会在 DB 层 permission denied)。
+// 未配置该 env 时**维持原状**并显式告警:此时 scoped-* 在生产仍然恒 503,
+// 这是有意的 fail-closed,不是回退到"假装隔离"。
+//
+// 探针必须走原始 postgres 客户端(而非任何 drizzle 出口),否则会与被包装的
+// prepareQuery 互相递归;探测结果进程内缓存 10 分钟,不给请求增加往返。
+// ============================================================================
+
+/** 受控出口专用池上限:开放面只有 4 张表的读写,不该跟主池(40)抢连接。 */
+const SCOPED_POOL_MAX = 8
+
+/** 配了 DATABASE_APP_URL 才建独立池;两条都 null = 受控出口继续与 db 同池。 */
+// O13 补齐①(2026-09-21):scoped 池此前直接拿裸 postgres() 建,绕过了仓库既有的
+// wrapClientWithLogger —— 经 dbScoped()/dbReadScoped() 发出的 SQL 不进 sqlEventBus,
+// slow-sql / n+1 检测对开放面完全失明。现在与主池同口径包装(同一 sqlLogger)。
+const scopedClient: typeof writerClient | null = config.DATABASE_APP_URL
+  ? wrapClientWithLogger(
+      // DB-29/DB-31:受控出口与主池同口径护栏(max 仍固定 8,不参与 DB_POOL_MAX)。
+      postgres(config.DATABASE_APP_URL, buildPoolOptions({ max: SCOPED_POOL_MAX })),
+      sqlLogger,
+    )
+  : null
+const scopedDrizzle: Database | null = scopedClient ? drizzle(scopedClient, { schema }) : null
+
+/**
+ * DB-30:关闭本模块自建的全部写/读/受控出口连接池。
+ * 幂等由各池自己的 close()/end() 保证;所有池并行关闭且互不阻塞,
+ * 单个池失败不影响其余池完成收尾。
+ */
+export async function closeDbPools(): Promise<void> {
+  await Promise.allSettled([
+    closeReadWriteDb(),
+    ...(scopedClient ? [scopedClient.end({ timeout: 5 })] : []),
+  ])
+}
+
+if (scopedDrizzle) {
+  console.info(
+    '[db] 受控出口(dbScoped/dbReadScoped)已切到 DATABASE_APP_URL 的应用角色连接;' +
+      '超级用户探针同样改测这条连接;db/dbRead 仍走主池,第一方链路不受影响',
+  )
+} else {
+  console.warn(
+    '[db] 未配置 DATABASE_APP_URL:受控出口仍与 db 同池。若这条连接是超级用户,' +
+      'scoped-* 能力会在生产恒 503 DATA_ISOLATION_UNAVAILABLE(这是 fail-closed 的正确行为)。' +
+      '要放行:跑迁移建 ihui_app(非超级用户)并配 DATABASE_APP_URL,详见 ' +
+      'docs/developer/data-classes.md §3.1',
+  )
+}
+
+configureDataScopeGuard({
+  // 常量只读 SELECT(无参数、无写、无 SET);形态异常抛错 → 归类为"探测不可用"而非"非超级用户"
+  probeSuperuser: createSuperuserProbe((probeSql) =>
+    (scopedClient ?? writerClient).unsafe(probeSql),
+  ),
+})
+
+// O13 补齐②(2026-09-21):postgres() 是惰性连接 —— DATABASE_APP_URL 把角色/库/密码
+// 写错时启动零信号,要等第一个 scoped 请求才暴露成 503。启动期做一次**有界超时**的
+// SELECT 1 探测把信号前移;失败/超时只 warn,**不 crash 进程** —— 开放面配置错
+// 不许把第一方链路(db/dbRead,主池)一起拖起不来。
+if (scopedClient) {
+  /**
+   * 2026-09-21 实跑校准:原本 2s 单次,在多构建并发的开发机上**首连**就会被挤到超时,
+   * 打出"scoped-* 恒 503"的假告警(实际请求仍 200)。假告警会侵蚀这条信号的可信度,
+   * 故放宽到 8s 并允许一次重试;仍然只 warn、不 crash。
+   */
+  const SCOPED_BOOT_PROBE_TIMEOUT_MS = 8_000
+  const SCOPED_BOOT_PROBE_ATTEMPTS = 2
+  void (async (): Promise<void> => {
+    for (let attempt = 1; attempt <= SCOPED_BOOT_PROBE_ATTEMPTS; attempt += 1) {
+      let timer: ReturnType<typeof setTimeout> | undefined
+      try {
+        await Promise.race([
+          // 与下方 replica 探测循环同款口径:tagged template 直连,不经任何 drizzle 出口
+          scopedClient`SELECT 1`,
+          new Promise<never>((_resolve, reject) => {
+            timer = setTimeout(
+              () => reject(new Error(`连接探测超时(>${SCOPED_BOOT_PROBE_TIMEOUT_MS}ms)`)),
+              SCOPED_BOOT_PROBE_TIMEOUT_MS,
+            )
+            timer.unref()
+          }),
+        ])
+        console.info(
+          `[db] DATABASE_APP_URL 启动探测成功(SELECT 1${attempt > 1 ? `,第 ${attempt} 次` : ''}),scoped-* 受控出口连接可用`,
+        )
+        return
+      } catch (e) {
+        if (attempt === SCOPED_BOOT_PROBE_ATTEMPTS) {
+          console.warn(
+            '[db] DATABASE_APP_URL 启动探测失败:' +
+              ((e as Error)?.message ?? e) +
+              ' —— scoped-* 能力将恒 503 DATA_ISOLATION_UNAVAILABLE(有意的 fail-closed);' +
+              'db/dbRead 第一方链路不受影响。请核对该 DSN 的角色/库/密码与网络连通性',
+          )
+        }
+      } finally {
+        if (timer) clearTimeout(timer)
+      }
+    }
+  })()
+}
+
+/** 受控写出口:机器凭据可达的写路径必须用它(而非 db)。 */
+export const dbScoped: Database = createScopedDb<Database>(() => scopedDrizzle ?? db)
+/**
+ * 受控读出口:配了应用连接串就是应用角色池(归属边界与写路径同一个角色);
+ * 否则维持"每次解析跟随当前健康读副本"的旧语义(与 dbRead 同一故障转移)。
+ */
+export const dbReadScoped: Database = createScopedDb<Database>(() => scopedDrizzle ?? dbRead)
+
+// P1 修复:导出 poolLeakDetector 单例,供 admin 路由 / db-keepalive 等模块统一访问
+export { poolLeakDetector }
+
+// P1 修复:周期性采样 postgres.js 连接池状态,把 active 连接注册到 leak detector。
+// Drizzle ORM 内部自动管理连接(不暴露 acquire/release 钩子),无法在查询前后手动
+// trackConnection;改为周期性读取 postgres.js 内部 pool 状态,active 连接 → track,
+// idle 连接 → untrack。这样若某连接长期停留在 active 状态(疑似泄漏),scanLeaks
+// 会在超时阈值(默认 5 分钟)后告警。
+const POOL_TRACK_INTERVAL_MS = 30_000
+const trackedConns = new WeakSet<object>()
+// O13 补齐①(2026-09-21):受控出口应用角色池一并采样(pool 标签 'app-scoped')。
+// 此前只采 writerClient,scoped 池的连接泄漏永远进不了 scanLeaks 视野。
+const poolClientsToSample: ReadonlyArray<readonly [typeof writerClient, string]> = scopedClient
+  ? [
+      [writerClient, 'writer'],
+      [scopedClient, 'app-scoped'],
+    ]
+  : [[writerClient, 'writer']]
+let poolTrackUnavailableLogged = false
+const poolTracker = setInterval(() => {
+  try {
+    for (const [client, poolLabel] of poolClientsToSample) {
+      // F-324:postgres.js 3.x 不公开 pool 内部状态。不可采样时显式告警一次,
+      // 不再静默 continue(否则泄漏跟踪永远没有数据且无人知道)。
+      const sample = samplePostgresPoolMetrics(client)
+      if (!sample.available) {
+        if (!poolTrackUnavailableLogged) {
+          poolTrackUnavailableLogged = true
+          console.warn(`[pool-tracker] 连接池内部状态不可采样,泄漏跟踪不可用: ${sample.reason}`)
+        }
+        continue
+      }
+      const internal = client as unknown as {
+        state?: { idle?: object[]; active?: object[] }
+      }
+      const activeConns = internal.state?.active ?? []
+      const idleConns = internal.state?.idle ?? []
+      // 新增 active 连接 → track(记录借出 + 调用栈)
+      for (const conn of activeConns) {
+        if (!trackedConns.has(conn)) {
+          trackedConns.add(conn)
+          trackConnection(conn, poolLabel, 'postgres-pool-active')
+        }
+      }
+      // 转为 idle 的连接 → untrack(记录归还)
+      for (const conn of idleConns) {
+        if (trackedConns.has(conn)) {
+          trackedConns.delete(conn)
+          untrackConnection(conn)
+        }
+      }
+    }
+  } catch (e) {
+    // 2026-08-02 修复:不再静默吞错,记录 warn 日志(便于排查 pool 状态采样失败)
+    console.warn('[pool-tracker] sampling failed:', e)
+  }
+}, POOL_TRACK_INTERVAL_MS)
+// unref:不阻止进程退出,进程结束时 timer 自动清理
+// P2 修复(2026-07-31):导出 stopPoolTracker 供 index.ts shutdown 显式清理
+poolTracker.unref()
+
+/** 显式停止 poolTracker,避免 vitest/HMR 场景下累积。 */
+export function stopPoolTracker(): void {
+  clearInterval(poolTracker)
+}
+
+// =============================================================================
+// P1-3 修复(2026-08-06):读副本健康探测循环。
+// 原 reportReplicaHealth/getReader 为死代码(从未被调用),dbRead 固定绑第一个副本,
+// 副本宕机/延迟超阈值不自动回退主库 → 700+ 处 dbRead 读路径雪崩。
+// DB-27/DB-28:每 15s 探测每个副本的 WAL 回放时延(pg_last_xact_replay_timestamp,单次 8s 超时),
+// 成功 → reportReplicaHealth(id, true, 回放延迟秒);失败 → reportReplicaHealth(id, false);
+// 连续失败 ≥3 次或延迟 >10s 标记不健康,getReader() 自动跳过并回退主库,恢复后自动回读副本。
+// 副本健康初值 false(read-replica.ts),首轮探测成功前不会把读流量打到未就绪副本。
+// =============================================================================
+const REPLICA_PROBE_INTERVAL_MS = 15_000
+/** DB-28:单次副本探测的硬超时(避免半开连接把探测循环无限拖住)。 */
+const REPLICA_PROBE_TIMEOUT_MS = 8_000
+
+/** 给探测加有界超时;超时后仍挂起的 promise 已被 then 接住,不会产生 unhandled rejection。 */
+function withProbeTimeout<T>(work: () => Promise<T>, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), REPLICA_PROBE_TIMEOUT_MS)
+    timer.unref()
+    work().then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (err) => {
+        clearTimeout(timer)
+        reject(err)
+      },
+    )
+  })
+}
+
+const replicaProbeTimer = (() => {
+  if (replicaClients.size === 0) return null
+  const probe = async (): Promise<void> => {
+    for (const [id, client] of replicaClients) {
+      try {
+        // DB-27:延迟取副本的 WAL 回放位点差(pg_last_xact_replay_timestamp),
+        // 不再用 SELECT 1 的网络 RTT 冒充 —— RTT 2ms 而真实复制延迟 30s 时旧实现永远判健康。
+        // 副本尚未回放任何事务时返回 NULL ⇒ normalizeReplicaLagSec 返回 undefined,
+        // reportReplicaHealth 保留上次读数(绝不抹成 0)。
+        const lagMs = await withProbeTimeout(async () => {
+          const rows = await client`
+            SELECT CASE
+              WHEN pg_last_xact_replay_timestamp() IS NULL THEN NULL
+              ELSE extract(epoch from (now() - pg_last_xact_replay_timestamp()))::float8 * 1000
+            END AS lag_ms
+          `
+          return (rows[0]?.lag_ms as number | null | undefined) ?? null
+        }, `副本 ${id} 探测超时(>${REPLICA_PROBE_TIMEOUT_MS}ms)`)
+        reportReplicaHealth(id, true, normalizeReplicaLagSec(lagMs))
+      } catch (e) {
+        // 连接失败 → 上报不健康(连续失败达阈值后 getReader 跳过该副本)
+        console.warn(`[replica-probe] 副本 ${id} 探测失败:`, (e as Error).message)
+        reportReplicaHealth(id, false)
+      }
+    }
+  }
+  void probe()
+  const timer = setInterval(() => void probe(), REPLICA_PROBE_INTERVAL_MS)
+  timer.unref()
+  return timer
+})()
+
+/**
+ * 2026-08-02 修复:注册 onClose 钩子清理 poolTracker,防进程不退出。
+ * 在 Fastify 启动后调用:registerPoolTrackerCleanup(server)
+ * P1-3:同时清理 replicaProbeTimer。
+ * O13:另需关掉受控出口自己的应用角色池(有配 DATABASE_APP_URL 时才存在)。
+ */
+export function registerPoolTrackerCleanup(server: FastifyInstance): void {
+  server.addHook('onClose', async () => {
+    clearInterval(poolTracker)
+    if (replicaProbeTimer) clearInterval(replicaProbeTimer)
+    // DB-30:停机必须 await 主池 + 副本池 + 受控出口池的 end(),
+    // 不得硬退把在途事务/连接丢给 DB 侧超时回收。
+    await closeDbPools()
+  })
+}
+
+export type { Database }
+
+/**
+ * 安全获取 `.returning()` 的单条结果。
+ * 若无结果抛出 Error(由调用方 catch 返回 500 + message,与现有 catch 模式一致)。
+ * 用途:消除 `const [x] = ...returning(); if (!x) return reply.status(500).send(...)` 重复守卫。
+ *
+ * @example
+ * // 替换前:
+ * const [created] = await db.insert(t).values(v).returning()
+ * if (!created) return reply.status(500).send(error(500, '创建失败'))
+ * // 替换后:
+ * const created = await returningOne(db.insert(t).values(v).returning(), '创建失败')
+ */
+export async function returningOne<T>(
+  promise: Promise<T[]>,
+  errorMessage = '数据库操作未返回记录',
+): Promise<T> {
+  const rows = await promise
+  const row = rows[0]
+  if (!row) throw new Error(errorMessage)
+  return row
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

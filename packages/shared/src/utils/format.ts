@@ -1,0 +1,116 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 格式化文件大小（1024 进制，保留 1 位小数，单位 B/KB/MB/GB/TB）。
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1)
+  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`
+}
+
+/**
+ * 格式化价格（分 → 元，保留 2 位小数）。
+ */
+export function formatPrice(cents: number): string {
+  if (!cents || isNaN(cents)) return '0.00'
+  return (Number(cents) / 100).toFixed(2)
+}
+
+/**
+ * 格式化金额（千分位 + 2 位小数）。
+ */
+export function formatMoney(amount: number): string {
+  return Number(amount || 0)
+    .toFixed(2)
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
+/**
+ * 手机号脱敏:13812345678 → 138****4567。
+ * XUI-036:先归一化(+86 / 空格 / 短横线都剥掉)再脱敏;非 11 位本地号保持原串,
+ * 不把 `+86 138...` 这种常见写法整串透出。
+ */
+export function formatPhone(phone: string): string {
+  const raw = String(phone ?? '')
+  const digits = raw.replace(/\D/g, '')
+  const local =
+    digits.length === 13 && digits.startsWith('86')
+      ? digits.slice(2)
+      : digits.length === 11
+        ? digits
+        : ''
+  if (!local) return raw
+  return `${local.slice(0, 3)}****${local.slice(7)}`
+}
+
+/**
+ * 格式化 token 数为人类可读字符串(如 32K / 128K / 1M / 2M)。
+ *
+ * 单一来源:@ihui/shared/utils(2026-07-25 立,从 @ihui/api-client 迁入)。
+ * api-client 的同名函数保留作为向后兼容 re-export,新代码应优先从 @ihui/shared/utils 导入。
+ *
+ * BUG-28④:K/M 两支统一「四舍五入到 1 位小数」口径 —— K 支旧用 toFixed(0) 会把
+ * 1500 进成 "2K"、999999 进成 "1000K" 这类畸形值。单位切换按四舍五入后的 K 值判定,
+ * 达到 1000K 就升到 M 单位,不产出 "1000K";M 支同样归一,999999 → "1M"。
+ */
+function formatUnitValue(value: number): string {
+  const rounded = Math.round(value * 10) / 10
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+}
+
+export function formatTokenCount(tokens: number): string {
+  const k = tokens / 1_000
+  // 四舍五入后达到 1000K ⇒ 用 M 单位(避免 "1000K" 畸形值,与 M 支口径一致)
+  if (Math.round(k * 10) / 10 >= 1_000) {
+    return `${formatUnitValue(tokens / 1_000_000)}M`
+  }
+  if (tokens >= 1_000) {
+    return `${formatUnitValue(k)}K`
+  }
+  return String(tokens)
+}
+
+/**
+ * 格式化金额(空值返回 fallback,默认 '—';千分位 + 2 位小数)。
+ * 跨端统一:mobile-rn 6 screens + UserInfoCard 共用。
+ * IncomeScreen 等需空值返回 '0.00' 的场景,传 fallback = '0.00'。
+ */
+export function formatAmount(n: number | string | undefined | null, fallback = '—'): string {
+  // XUI-036:空串不是 0。旧实现 `Number('') === 0` 会把"没有金额"渲染成 0.00,
+  // 和"实付 0 元"混为一体;空值一律走 fallback。
+  if (n === undefined || n === null) return fallback
+  if (typeof n === 'string' && n.trim() === '') return fallback
+  const num = typeof n === 'string' ? Number(n) : n
+  if (typeof num !== 'number' || isNaN(num)) return fallback
+  return num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+/**
+ * 中文金额格式化(≥10000→'X.XX万',≥100000000→'X.XX亿',其他→向下取整的数字字符串)。
+ * 跨端统一:mobile-rn/UserInfoCard + miniapp-taro/time.ts 共用(采用 mobile-rn 版本,支持亿)。
+ * 实现依据 mobile-rn/UserInfoCard.tsx 原始逻辑(parseFloat + Math.floor),miniapp-taro 旧版不支亿,统一升级。
+ */
+export function formatTokenValue(value: number | string | undefined): string {
+  if (value === undefined || value === null || value === '') return '0'
+  const num = typeof value === 'string' ? parseFloat(value) : value
+  if (isNaN(num)) return '0'
+  if (num >= 100000000) return `${(num / 100000000).toFixed(2)}亿`
+  if (num >= 10000) return `${(num / 10000).toFixed(2)}万`
+  return String(Math.floor(num))
+}
+
+/**
+ * 格式化时长(秒 → HH:MM:SS,跨端统一:mobile-rn/LiveHostScreen + miniapp-taro/live/host 共用)。
+ */
+export function formatDuration(sec: number): string {
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const s = sec % 60
+  return [h, m, s].map((n) => String(n).padStart(2, '0')).join(':')
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

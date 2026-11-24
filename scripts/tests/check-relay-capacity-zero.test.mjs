@@ -1,0 +1,365 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 号池「容量归零」只读哨兵的镜像测试(§22c:import 源脚本的 __test__,零复制判据)。
+//
+// 这组用例要钉死的是三件事,缺一就不算这把尺子装对了:
+// 1. **判据真的是生产实现**:哨子不自己写"可调度"的算法,而是把
+//    `apps/api/src/services/relay-pool-stats-service.ts` 里那几个函数抽出来求值。
+//    本文件用正/反成对的样本量它(恒 true 的空壳、把 'f' 读成 true 的转换器都过不了)。
+// 2. **未判定不许冒绿**:判据没装载 / 读数缺失 / 哨兵行没了 / 行数对不上 ⇒ 一律
+//    `unjudged` 且 exit 2。这一族就是"把未判定改成冒绿"的变异证明要打的地方。
+// 3. **它没被当成已接线**:派单约束不许改 git-guardian,所以头注与账面都必须读得出
+//    "未装车"。谁哪天把它接进提交链,这一条会先红(§12e 恒红门禁令)。
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
+import ts from 'typescript'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const GUARD_PATH = resolve(HERE, '..', 'check-relay-capacity-zero.mjs')
+const GUARD_SRC = readFileSync(GUARD_PATH, 'utf8')
+const STATS_SRC = readFileSync(
+  resolve(HERE, '..', '..', 'apps', 'api', 'src', 'services', 'relay-pool-stats-service.ts'),
+  'utf8',
+)
+const RUNNER_SRC = readFileSync(resolve(HERE, '..', 'guardian-runner.mjs'), 'utf8')
+
+const { __test__ } = await import(import.meta.resolve('../check-relay-capacity-zero.mjs'))
+const judges = await __test__.loadPoolJudges()
+
+test('M0 判据装载成功(锚点在、括号配平、四个都是函数)', () => {
+  assert.equal(judges.ok, true, judges.why ?? 'ok')
+  for (const name of __test__.REQUIRED_JUDGES) {
+    assert.equal(typeof judges.fns[name], 'function', `${name} 不是函数`)
+  }
+})
+
+test('M1 判据单源:四个函数逐字来自 stats 源文件,且本尺子里没有第二份可调度算法(§0.6)', () => {
+  // 旧形在这里再写一遍 `export function ${name}(` 字面量 —— 那既是 §0.6 的第二份判据副本,
+  // 又把"必须带 export"这个偶然形态当成了契约。2026-11-03 生产侧把 isRelayPoolRowSchedulable
+  // 收成内部符号 ⇒ 哨兵连着 146 轮未判定,而这行断言当时也在红(只是红在测试层,不在到人通道)。
+  // 现在一律问源脚本自己的定位器,两形态同判。
+  for (const name of __test__.REQUIRED_JUDGES) {
+    const decl = __test__.findTopLevelDeclaration(STATS_SRC, name)
+    assert.ok(decl, `stats 源文件里应有 ${name} 的顶层声明(export function / function 任一形态)`)
+    const end = __test__.sliceTopLevelFunction(STATS_SRC, decl.index)
+    assert.ok(end > 0, `${name} 的函数体应能括号配平取段`)
+    assert.match(STATS_SRC.slice(decl.index, end + 1), new RegExp(`function\\s+${name}\\s*\\(`), `${name} 取到的段应是它自己`)
+  }
+  // 形状锁:哨子只搬行,不重算 —— 出现任何一种"自己判可调度"的写法就是复制判据。
+  assert.doesNotMatch(GUARD_SRC, /Boolean\(\s*row\.isEnabled\s*\)/)
+  assert.doesNotMatch(GUARD_SRC, /&&\s*!\s*\w+\.tempUnschedulable/)
+  assert.doesNotMatch(GUARD_SRC, /isEnabled\s*\?\s*\w+\.tempUnschedulable/)
+})
+
+test('M1b 定位器成对:两形态都认,而注释/调用点不得被当成声明(反向夹具)', () => {
+  const F = __test__.findTopLevelDeclaration
+  const N = 'isRelayPoolRowSchedulable'
+  // 正向①:带 export
+  assert.ok(F(`export function ${N}(row: R): boolean {\n return true\n}`, N)?.exported === true)
+  // 正向②:内部形态(本次真漂移形)
+  const bare = F(`/** 全仓唯一一份 */\nfunction ${N}(row: R): boolean {\n return true\n}`, N)
+  assert.ok(bare, '内部 function 形态必须认')
+  assert.equal(bare.exported, false)
+  // 反向①:只有注释与调用点 ⇒ 不许命中(否则从错误的一段里"抽出"一个恰好能跑的函数)
+  assert.equal(F(`// ${N} 已废弃\nconst n = ${N}(row)\n`, N), null)
+  // 反向②:同名但前缀更长的别的函数不算命中
+  assert.equal(F(`export function ${N}Extra(row) {}\n`, N), null)
+  // 反向③:被缩进到块里的内层函数不当作顶层声明
+  assert.equal(F(`  function ${N}(row) {}\n`, N), null)
+})
+
+test('M1c 合成导出:内部符号取段后仍能被求值取到(证明没靠改判据蒙过去)', async () => {
+  const decl = __test__.findTopLevelDeclaration(STATS_SRC, 'isRelayPoolRowSchedulable')
+  assert.ok(decl && !decl.exported, '现读形态应为「无 export 的内部符号」')
+  const end = __test__.sliceTopLevelFunction(STATS_SRC, decl.index)
+  const part = `export ${STATS_SRC.slice(decl.index, end + 1)}`
+  const js = ts.transpileModule(part, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+  }).outputText
+  const mod = await import(`data:text/javascript;charset=utf-8,${encodeURIComponent(js)}`)
+  const f = mod.isRelayPoolRowSchedulable
+  assert.equal(typeof f, 'function')
+  assert.equal(f({ isEnabled: true, tempUnschedulable: false }), true)
+  assert.equal(f({ isEnabled: true, tempUnschedulable: true }), false)
+  assert.equal(f({ isEnabled: false, tempUnschedulable: false }), false)
+})
+
+test('M2 正/反成对:抽出来的是真判据,不是恒真的空壳', () => {
+  const f = judges.fns.isRelayPoolRowSchedulable
+  assert.equal(f({ isEnabled: true, tempUnschedulable: false }), true, '启用且未摘 ⇒ 可调度')
+  assert.equal(f({ isEnabled: true, tempUnschedulable: true }), false, '被临时摘除 ⇒ 不可调度')
+  assert.equal(f({ isEnabled: false, tempUnschedulable: false }), false, '未启用 ⇒ 不可调度')
+  assert.equal(f({ isEnabled: null, tempUnschedulable: null }), false, '列为 null ⇒ 不可调度')
+})
+
+test('M3 折叠按 provider 分档(容量口径含停用行,与健康态词表无关)', () => {
+  const cap = judges.fns.foldRelayPoolCapacity([
+    { providerCode: 'trae', isEnabled: true, tempUnschedulable: true },
+    { providerCode: 'trae', isEnabled: true, tempUnschedulable: false },
+    { providerCode: 'agn', isEnabled: false, tempUnschedulable: false },
+  ])
+  assert.deepEqual(cap, [
+    { providerCode: 'agn', totalRows: 1, enabledRows: 0, schedulableRows: 0 },
+    { providerCode: 'trae', totalRows: 2, enabledRows: 2, schedulableRows: 1 },
+  ])
+  assert.deepEqual(
+    judges.fns.zeroCapacityProviders(cap).map((c) => c.providerCode),
+    [],
+    'trae 还能调度 ⇒ 不该被读成归零',
+  )
+})
+
+test('M4 未判定族:四种取不到输入的形态一律 unjudged + exit 2(变异证明的靶)', () => {
+  const cases = [
+    __test__.judgeCapacity({
+      judges: { ok: false, why: '锚点找不到' },
+      accountRows: [],
+      keyRows: [],
+      sentinel: { accountCount: 0, keyCount: 0 },
+    }),
+    __test__.judgeCapacity({
+      judges,
+      accountRows: null,
+      keyRows: [],
+      sentinel: { accountCount: 0, keyCount: 0 },
+    }),
+    __test__.judgeCapacity({ judges, accountRows: [], keyRows: [], sentinel: null }),
+    __test__.judgeCapacity({
+      judges,
+      accountRows: [{ providerCode: 'trae', isEnabled: true, tempUnschedulable: false }],
+      keyRows: [],
+      sentinel: { accountCount: 9, keyCount: 0 },
+    }),
+  ]
+  for (const v of cases) {
+    assert.equal(v.state, 'unjudged', `不许冒绿:${v.reason}`)
+    assert.equal(__test__.exitCodeFor(v.state), 2, '未判定必须 exit 2')
+    assert.equal(v.breaches.length, 0, '未判定不冒充 breach')
+  }
+})
+
+test('M5 S1:有 enabled 号但可调度 0 ⇒ breach 并点名 provider 与下一步', () => {
+  const v = __test__.judgeCapacity({
+    judges,
+    accountRows: [
+      { providerCode: 'trae', isEnabled: true, tempUnschedulable: true },
+      { providerCode: 'trae', isEnabled: true, tempUnschedulable: true },
+    ],
+    keyRows: [{ providerCode: 'openai', isEnabled: true, tempUnschedulable: false }],
+    sentinel: { accountCount: 2, keyCount: 1 },
+  })
+  assert.equal(v.state, 'breach')
+  assert.equal(__test__.exitCodeFor(v.state), 1)
+  const b = v.breaches.find((x) => x.kind === 'account_provider_zero_capacity')
+  assert.ok(b, '应点名账号池 provider 归零')
+  assert.equal(b.providerCode, 'trae')
+  assert.ok(b.nextStep.length >= 10, '到人正文必须给得出可执行下一步(§5e-1)')
+})
+
+test('M5b S1 复活出口按 provider 定制:trae/workbuddy 点名客户端重登链,无定制者不硬塞(§0.8)', () => {
+  const s1Of = (providerCode) =>
+    __test__
+      .judgeCapacity({
+        judges,
+        accountRows: [{ providerCode, isEnabled: true, tempUnschedulable: true }],
+        keyRows: [],
+        sentinel: { accountCount: 1, keyCount: 0 },
+      })
+      .breaches.find((x) => x.kind === 'account_provider_zero_capacity')
+  const t = s1Of('trae')
+  assert.ok(
+    t.nextStep.includes('trae-session-sync'),
+    'trae 必须点名 10 分钟自动回灌链,不是让人找后台按钮',
+  )
+  assert.ok(t.nextStep.includes('重新打开 Trae 客户端'), 'trae 的当场动作 = 客户端重登一次')
+  const w = s1Of('workbuddy')
+  assert.ok(w.nextStep.includes('--from workbuddy'), 'workbuddy 必须点名重提取命令')
+  const o = s1Of('openai')
+  assert.ok(
+    !o.nextStep.includes('trae-session-sync') && !o.nextStep.includes('--from workbuddy'),
+    '没定制出口的 provider 不得被硬塞别的平台文案(出路必须真跑得通)',
+  )
+  assert.ok(o.nextStep.includes('temp_unschedulable'), '通用出口(解除摘除/补号)仍在')
+  // 四平台齐名:qoder/codearts 也要有人性化出口,且不许指向未装车的命令(§0.8)
+  const q = s1Of('qoder')
+  assert.ok(q.nextStep.includes('换票'), 'qoder 点名池内通用巡检自动换票是首选处置')
+  assert.ok(
+    q.nextStep.includes('--from qoder') && !q.nextStep.includes('未装车'),
+    'qoder 提取器已装车(2026-10-27):出口点名真跑得通的一键重提取命令',
+  )
+  const c = s1Of('codearts')
+  assert.ok(c.nextStep.includes('无签到引擎'), 'codearts 不得被要求签到(映射即拦截的事实进文案)')
+  assert.ok(
+    c.nextStep.includes('--from codearts') && !c.nextStep.includes('未装车'),
+    'codearts 提取器已装车(2026-10-27):出口点名真跑得通的一键重提取命令',
+  )
+})
+
+test('M6 S2 两型:整池 0 行 / 有行但无一条 enabled', () => {
+  const empty = __test__.judgeCapacity({
+    judges,
+    accountRows: [],
+    keyRows: [],
+    sentinel: { accountCount: 0, keyCount: 0 },
+  })
+  assert.equal(empty.breaches[0]?.kind, 'account_pool_empty')
+  const allDisabled = __test__.judgeCapacity({
+    judges,
+    accountRows: [{ providerCode: 'trae', isEnabled: false, tempUnschedulable: false }],
+    keyRows: [],
+    sentinel: { accountCount: 1, keyCount: 0 },
+  })
+  assert.equal(allDisabled.breaches[0]?.kind, 'account_pool_no_enabled_rows')
+  const healthy = __test__.judgeCapacity({
+    judges,
+    accountRows: [{ providerCode: 'trae', isEnabled: true, tempUnschedulable: false }],
+    keyRows: [{ providerCode: 'openai', isEnabled: true, tempUnschedulable: false }],
+    sentinel: { accountCount: 1, keyCount: 1 },
+  })
+  assert.equal(healthy.state, 'ok', '反向牙:有可调度号时不许见号就红')
+})
+
+test('M7 白名单"验过才免":理由 ≥10 字才生效,短一字节照旧 breach(§0.7/§5e-1)', () => {
+  const base = {
+    judges,
+    accountRows: [],
+    keyRows: [],
+    sentinel: { accountCount: 0, keyCount: 0 },
+  }
+  const long = 'x'.repeat(__test__.MIN_REASON_LEN)
+  assert.equal(__test__.judgeCapacity({ ...base, allowEmptyReason: long }).state, 'ok')
+  assert.equal(
+    __test__.judgeCapacity({
+      ...base,
+      allowEmptyReason: long.slice(0, __test__.MIN_REASON_LEN - 1),
+    }).state,
+    'breach',
+  )
+  assert.equal(__test__.judgeCapacity({ ...base, allowEmptyReason: '   ' }).state, 'breach')
+  assert.equal(__test__.judgeCapacity({ ...base, allowEmptyReason: null }).state, 'breach')
+  // 白名单只免 S2,绝不由它免掉 S1(号在、全被摘 ⇒ 仍然是真缺口)
+  assert.equal(
+    __test__.judgeCapacity({
+      judges,
+      accountRows: [{ providerCode: 'trae', isEnabled: true, tempUnschedulable: true }],
+      keyRows: [],
+      sentinel: { accountCount: 1, keyCount: 0 },
+      allowEmptyReason: long,
+    }).state,
+    'breach',
+  )
+})
+
+test('M8 解析:t/f 显式转布尔(Boolean("f") 那一坑)+ 哨兵与坏行', () => {
+  const p = __test__.parsePoolRows(
+    [
+      'account\ttrae\tt\tf',
+      'account\ttrae\tt\tt',
+      'key\topenai\tf\tt',
+      'nonsense\tx\ty\tz',
+      'too\tfew',
+      `sentinel\t${__test__.SENTINEL}\t2\t1`,
+    ].join('\n'),
+  )
+  assert.equal(p.account.length, 2)
+  assert.equal(p.account[0].isEnabled, true)
+  assert.equal(p.account[1].tempUnschedulable, true)
+  assert.equal(p.key[0].isEnabled, false, "'f' 必须是 false,不是 Boolean('f')=true")
+  assert.equal(p.sentinel.accountCount, 2)
+  assert.equal(p.sentinel.keyCount, 1)
+  // 真跑撞过的坑:SQL 里 `::text` 出的是 true/false,psql 裸 bool 才出 t/f。
+  // 只认一种拼法 = 把启用号读成停用号(容量归零会假报,反向也成立)。
+  assert.match(__test__.buildSql(), /::text/, '布尔列是以 ::text 取的 ⇒ 真实拼法是 true/false')
+  const spelled = __test__.parsePoolRows(
+    ['account\ttrae\ttrue\tfalse', 'account\tqoder\tfalse\ttrue', 'key\topenai\tTRUE\tFALSE'].join(
+      '\n',
+    ),
+  )
+  assert.deepEqual(spelled.account, [
+    { providerCode: 'trae', isEnabled: true, tempUnschedulable: false },
+    { providerCode: 'qoder', isEnabled: false, tempUnschedulable: true },
+  ])
+  assert.deepEqual(spelled.key, [
+    { providerCode: 'openai', isEnabled: true, tempUnschedulable: false },
+  ])
+  assert.ok(__test__.buildSql().includes(__test__.SENTINEL), 'SQL 必须自带哨兵行')
+  assert.ok(__test__.buildSql().includes('ai_relay_key_pool'), '两张池表都要在一条 SQL 里')
+})
+
+test('M9 本机护栏:DSN 指向公网即未判定(绝不连生产库)', () => {
+  assert.equal(__test__.isLocalHost('localhost'), true)
+  assert.equal(__test__.isLocalHost('127.0.0.1'), true)
+  assert.equal(__test__.isLocalHost('192.168.3.20'), true)
+  assert.equal(__test__.isLocalHost('::1'), true)
+  assert.equal(__test__.isLocalHost('prod-db.example.com'), false)
+  assert.equal(__test__.isLocalHost(''), false)
+})
+
+test('M10 接线账面:未装车就写未装车 —— 头注不得自称已接,且确实不在提交链注册表里', () => {
+  assert.doesNotMatch(RUNNER_SRC, /check-relay-capacity-zero/, '本尺子刻意不进提交链(§12e)')
+  assert.match(GUARD_SRC, /不进提交链/)
+  assert.doesNotMatch(
+    GUARD_SRC,
+    /已接线|已挂 ?guardian|已注册在 ?guardian|guardian 已派发/,
+    '判机器状态的尺子若自称已接线,守门 89 R1/R2 会当场抓住(§0.9)',
+  )
+  // 三态与退出码的形状锁:ok/breach/unjudged 各对应 0/1/2
+  assert.equal(__test__.exitCodeFor('ok'), 0)
+  assert.equal(__test__.exitCodeFor('breach'), 1)
+  assert.equal(__test__.exitCodeFor('unjudged'), 2)
+  assert.equal(__test__.exitCodeFor('typo'), 2, '未知结论按未判定上浮,不默认绿')
+})
+
+test('S-store 商店号清单与生产同源可装载(判据单源,零硬编码)', async () => {
+  const r = await __test__.loadStoreProviderCodes()
+  assert.equal(r.ok, true, r.why ?? 'ok')
+  // 与常量源逐字一致:不能出现"本尺子自己写死一张表"的第二份(§0.6)
+  assert.ok(r.codes.length >= 7, `商店号应至少 7 个,实读 ${r.codes.length}`)
+  for (const required of ['google-play', 'honor-store', 'huawei-agc', 'oppo-store', 'vivo-store', 'xiaomi-store', 'yyb-store']) {
+    assert.ok(r.codes.includes(required), `应含商店号 ${required}`)
+  }
+  assert.match(GUARD_SRC, /STORE_PLATFORMS_TS_REL/, '清单必须来自源文件常量,不许在本尺子里写死 provider code')
+})
+
+test('S-store-sql 账号池 SQL 排除商店号,key 池与哨兵行数同源(正向牙)', async () => {
+  const { codes } = await __test__.loadStoreProviderCodes()
+  const sql = __test__.buildSql(codes)
+  // 账号池查询与哨兵 account count 两处都要带排除,否则读数与哨兵行数对不上 ⇒ 恒未判定
+  const acctWhere = (sql.match(/provider_code not in \([^)]*\)/g) ?? [])
+  assert.ok(acctWhere.length >= 2, `账号池查询与哨兵计数都要排除商店号,实际 ${acctWhere.length} 处`)
+  for (const c of ['google-play', 'yyb-store']) assert.ok(sql.includes(`'${c}'`), `SQL 应含排除项 ${c}`)
+  assert.ok(sql.includes(`from ai_relay_key_pool`) && !sql.includes(`from ai_relay_key_pool where`), 'key 池不受商店号排除影响')
+})
+
+test('S-store-sql 反向牙:空清单 ⇒ 不排除(自测对照仍可跑),且单引号被转义', () => {
+  const plain = __test__.buildSql([])
+  assert.doesNotMatch(plain, /provider_code not in/, '空清单时不得拼 WHERE,保持原始口径')
+  const evil = __test__.buildSql(["o'brien"])
+  assert.ok(evil.includes("'o''brien'"), 'provider code 里的单引号必须转义,防 SQL 注入')
+})
+
+test('S-store-judge 7 个商店号被排除后不再误报归零(根因回归)', async () => {
+  const judges = await __test__.loadPoolJudges()
+  const { codes } = await __test__.loadStoreProviderCodes()
+  // 模拟:商店号全 temp_unschedulable=1,codearts 3 号也 down(真故障,必须继续报)
+  const rows = [
+    ...codes.map((p) => ({ providerCode: p, isEnabled: true, tempUnschedulable: true })),
+    { providerCode: 'codearts', isEnabled: true, tempUnschedulable: true },
+  ]
+  // 但判据输入是已被 SQL 排除商店号后的行 —— 这里喂排除后的集合
+  const afterExclude = rows.filter((r) => !codes.includes(r.providerCode))
+  const verdict = __test__.judgeCapacity({
+    judges,
+    accountRows: afterExclude,
+    keyRows: [],
+    sentinel: { accountCount: afterExclude.length, keyCount: 0 },
+  })
+  assert.equal(verdict.state, 'breach')
+  assert.deepEqual(verdict.breaches.map((b) => b.providerCode), ['codearts'], '只剩 codearts 真故障被报,7 商店号不再误报')
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

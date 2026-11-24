@@ -1,0 +1,291 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Playground API 调用层:直连 /v1/* 公开端点(X-Ihui-Api-Key 鉴权由 v1-public.ts 提供,
+ * 实际支持 Authorization: Bearer 与 X-Api-Key 两种头,此处用 Bearer)。
+ *
+ * 不走 fetchApi(那是内部 session 鉴权),playground 用用户自己的 API Key 直接调 /v1/*。
+ */
+
+import type {
+  PlaygroundMessage,
+  PlaygroundParams,
+  PlaygroundResponse,
+} from '@/components/playground/PlaygroundTypes'
+import { resolveStreamApiBaseUrl } from '@/lib/api-base-url'
+
+/**
+ * 推导 API base URL(2026-09-21 收口):与 lib/api.ts 的 detectStreamBaseUrl 同源,
+ * 统一走 lib/api-base-url.ts 的 resolveStreamApiBaseUrl()。
+ *
+ * 关键:桌面端是薄壳(窗口加载线上 https://aizhs.top/agents),必须同源 /api/*;
+ * 旧实现 Tauri 分支在线上空 env 下回退 localhost:8802,导致桌面端 Playground
+ * 打到用户本机 dev 后端。
+ */
+function getPlaygroundBaseUrl(): string {
+  return resolveStreamApiBaseUrl()
+}
+
+/**
+ * 代码生成用的对外 base URL(展示给用户):
+ * 有显式 base 用 base,否则用当前 origin,兜底占位。
+ */
+function getPublicBaseUrl(): string {
+  const base = getPlaygroundBaseUrl()
+  if (base) return base.replace(/\/$/, '')
+  if (typeof window !== 'undefined') return window.location.origin.replace(/\/$/, '')
+  return 'https://api.ihui.ai'
+}
+
+/** 构造请求体(与 OpenAI 兼容格式对齐) */
+function buildRequestBody(
+  messages: PlaygroundMessage[],
+  params: PlaygroundParams,
+): Record<string, unknown> {
+  return {
+    model: params.model,
+    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    temperature: params.temperature,
+    max_tokens: params.maxTokens,
+    top_p: params.topP,
+    stream: params.stream,
+  }
+}
+
+/** 安全解析 SSE 行为对象,失败返回 null */
+function parseSseJson(line: string): Record<string, unknown> | null {
+  if (!line.startsWith('data:')) return null
+  const data = line.slice(5).trim()
+  if (!data || data === '[DONE]') return null
+  try {
+    const parsed = JSON.parse(data) as unknown
+    if (parsed && typeof parsed === 'object') {
+      return parsed as Record<string, unknown>
+    }
+  } catch {
+    // 非 JSON 行,跳过
+  }
+  return null
+}
+
+/** 从 usage 对象安全取数值 */
+function safeNumber(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0
+}
+
+/** 粗略估算 token(1 token ≈ 4 字符,中英文混合) */
+function estimateTokens(text: string): number {
+  return Math.max(1, Math.ceil(text.length / 4))
+}
+
+/**
+ * 调用 /v1/chat/completions,支持 stream + 非流式。
+ * stream=true 时通过 onStreamDelta 实时回调增量文本。
+ *
+ * 2026-09-09 0-5-f 豁免确认:直连用户配置的 relay 站点(OpenAI 兼容协议,响应非
+ * 平台统一 code 包装),且流式分支直接消费 resp.body;fetchApi/fetchAiServiceJson
+ * 均假设平台统一响应结构,不适用第三方 OpenAI 协议端点。
+ */
+export async function callPlayground(
+  messages: PlaygroundMessage[],
+  params: PlaygroundParams,
+  apiKey: string,
+  onStreamDelta?: (delta: string) => void,
+): Promise<PlaygroundResponse> {
+  const base = getPlaygroundBaseUrl()
+  const url = `${base}/v1/chat/completions`
+  const startTime = Date.now()
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
+  }
+  const body = JSON.stringify(buildRequestBody(messages, params))
+
+  const resp = await fetch(url, { method: 'POST', headers, body })
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '')
+    throw new Error(`请求失败 (${resp.status}): ${errText.slice(0, 300) || resp.statusText}`)
+  }
+
+  if (params.stream && onStreamDelta && resp.body) {
+    // 流式 SSE 解析
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let content = ''
+    let promptTokens = 0
+    let completionTokens = 0
+    let totalTokens = 0
+    let model = params.model
+
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      let nl: number
+      while ((nl = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, nl).replace(/\r$/, '').trim()
+        buffer = buffer.slice(nl + 1)
+        const json = parseSseJson(line)
+        if (!json) continue
+        if (typeof json.model === 'string') model = json.model
+        const choices = json.choices
+        if (Array.isArray(choices) && choices.length > 0) {
+          const choice = choices[0] as Record<string, unknown>
+          const delta = choice.delta as Record<string, unknown> | undefined
+          if (delta && typeof delta.content === 'string' && delta.content) {
+            content += delta.content
+            onStreamDelta(delta.content)
+          }
+        }
+        const usage = json.usage as Record<string, unknown> | undefined
+        if (usage) {
+          promptTokens = safeNumber(usage.prompt_tokens) || promptTokens
+          completionTokens = safeNumber(usage.completion_tokens) || completionTokens
+          totalTokens = safeNumber(usage.total_tokens) || totalTokens
+        }
+      }
+    }
+
+    // 流式无 usage 时按字符估算
+    if (totalTokens === 0) {
+      completionTokens = estimateTokens(content)
+      promptTokens = estimateTokens(messages.map((m) => m.content).join(''))
+      totalTokens = promptTokens + completionTokens
+    }
+
+    return {
+      content,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      costCents: 0,
+      latencyMs: Date.now() - startTime,
+      model,
+    }
+  }
+
+  // 非流式
+  const data = (await resp.json()) as Record<string, unknown>
+  let content = ''
+  const choices = data.choices
+  if (Array.isArray(choices) && choices.length > 0) {
+    const choice = choices[0] as Record<string, unknown>
+    const message = choice.message as Record<string, unknown> | undefined
+    if (message && typeof message.content === 'string') {
+      content = message.content
+    }
+  }
+  const usage = (data.usage as Record<string, unknown> | undefined) ?? {}
+  const promptTokens = safeNumber(usage.prompt_tokens)
+  const completionTokens = safeNumber(usage.completion_tokens)
+  const totalTokens = safeNumber(usage.total_tokens) || promptTokens + completionTokens
+  const model = typeof data.model === 'string' ? data.model : params.model
+
+  return {
+    content,
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    costCents: 0,
+    latencyMs: Date.now() - startTime,
+    model,
+  }
+}
+
+/** 拉取 /v1/models 模型列表(用 API Key 鉴权)
+ * 2026-09-09 0-5-f 豁免确认:同 callPlayground——直连第三方 relay 的 OpenAI 兼容端点,
+ * 响应为 OpenAI { data: [...] } 结构而非平台统一 code 包装。 */
+export async function fetchPlaygroundModels(apiKey: string): Promise<string[]> {
+  const base = getPlaygroundBaseUrl()
+  const resp = await fetch(`${base}/v1/models`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  })
+  if (!resp.ok) {
+    throw new Error(`获取模型列表失败 (${resp.status})`)
+  }
+  const data = (await resp.json()) as Record<string, unknown>
+  const arr = data.data
+  if (!Array.isArray(arr)) return []
+  const ids: string[] = []
+  for (const m of arr) {
+    if (typeof m === 'object' && m !== null) {
+      const id = (m as Record<string, unknown>).id
+      if (typeof id === 'string' && id) ids.push(id)
+    }
+  }
+  return ids
+}
+
+/** 生成 cURL 代码 */
+export function generateCurlCode(
+  messages: PlaygroundMessage[],
+  params: PlaygroundParams,
+  apiKey: string,
+): string {
+  const base = getPublicBaseUrl()
+  const body = JSON.stringify(buildRequestBody(messages, params), null, 2)
+  return `curl -X POST ${base}/v1/chat/completions \\
+  -H "Authorization: Bearer ${apiKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '${body}'`
+}
+
+/** 生成 Python 代码(openai SDK) */
+export function generatePythonCode(
+  messages: PlaygroundMessage[],
+  params: PlaygroundParams,
+  apiKey: string,
+): string {
+  const base = getPublicBaseUrl()
+  const messagesJson = JSON.stringify(messages.map((m) => ({ role: m.role, content: m.content })))
+  return `from openai import OpenAI
+
+client = OpenAI(
+    api_key="${apiKey}",
+    base_url="${base}/v1",
+)
+
+response = client.chat.completions.create(
+    model="${params.model}",
+    messages=${messagesJson},
+    temperature=${params.temperature},
+    max_tokens=${params.maxTokens},
+    top_p=${params.topP},
+    stream=${params.stream},
+)
+print(response.choices[0].message.content)`
+}
+
+/** 生成 Node.js 代码(openai SDK) */
+export function generateNodejsCode(
+  messages: PlaygroundMessage[],
+  params: PlaygroundParams,
+  apiKey: string,
+): string {
+  const base = getPublicBaseUrl()
+  const messagesJson = JSON.stringify(
+    messages.map((m) => ({ role: m.role, content: m.content })),
+    null,
+    2,
+  )
+  return `import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: "${apiKey}",
+  baseURL: "${base}/v1",
+});
+
+const response = await client.chat.completions.create({
+  model: "${params.model}",
+  messages: ${messagesJson},
+  temperature: ${params.temperature},
+  max_tokens: ${params.maxTokens},
+  top_p: ${params.topP},
+  stream: ${params.stream},
+});
+console.log(response.choices[0].message.content); // 生产环境应替换为 UI 展示`
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

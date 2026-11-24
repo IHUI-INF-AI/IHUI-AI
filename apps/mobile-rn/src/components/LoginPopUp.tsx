@@ -1,0 +1,956 @@
+import { useI18n, t as tStatic } from '../i18n'
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * LoginPopUp 登录弹窗 (mobile-rn 端)
+ *
+ * 复刻自 uniapp `src/components/loginPopUp/index.vue`,保留原通用授权卡契约,
+ * 并补齐头像/昵称/角色/手机号/保存/登出等业务功能(对齐原 vue 组件)。
+ *
+ * 两种形态:
+ * 1. 通用授权卡(默认,不传业务 props 时):标题 + 描述 + 主/次按钮 + 协议勾选。
+ * 2. 资料编辑卡(传入头像/昵称/角色/手机号/保存/登出等任一业务 props 时):
+ *    头像展示 + 更换、昵称输入(中英文校验)、角色展示(普通/会员/操盘手)、
+ *    升级入口、手机号展示 + 绑定、保存/登出。
+ *
+ * Props(保留原有契约,新增均为可选):
+ * - visible / title / description:弹窗显示、标题与描述
+ * - primaryLabel + onPrimary:主按钮
+ * - secondaryLabel + onSecondary:次按钮
+ * - onClose:关闭回调
+ * - agreeChecked? / onAgreeChange?:协议勾选
+ * - avatarUrl? / nickname? / role? / phone? / phoneDisabled?:资料数据
+ * - onChooseAvatar?:头像上传回调(待接后端/微信 SDK chooseAvatar)
+ * - onBindPhone?:手机号绑定回调(carrierLogin 运营商一键登录拿到手机号并回填后触发)
+ * - onSave?:保存回调(待接后端保存)
+ * - onLogout?:登出回调(待接后端:清缓存 + reLaunch)
+ * - onUpgrade? / onUpgradeTrader?:升级入口回调(跳会员/操盘手介绍弹窗)
+ */
+import { currentRnTheme, tokens } from '../theme/active-tokens'
+import { withAlpha, rnRadius, rnSpacing } from '@ihui/design-tokens'
+import {
+  LOGIN_POPUP_AVATAR_BOX_PX,
+  LOGIN_POPUP_AVATAR_HINT_GAP_PX,
+  LOGIN_POPUP_BUTTON_FONT_PX,
+  LOGIN_POPUP_BUTTON_HEIGHT_PX,
+  LOGIN_POPUP_CARD_PADDING_BOTTOM_PX,
+  LOGIN_POPUP_CARD_PADDING_X_PX,
+  LOGIN_POPUP_CHANGE_HINT_FONT_PX,
+  LOGIN_POPUP_CHECKBOX_SIZE_PX,
+  LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX,
+  LOGIN_POPUP_CLOSE_ICON_FONT_PX,
+  LOGIN_POPUP_CLOSE_ICON_LINE_HEIGHT_PX,
+  LOGIN_POPUP_CLOSE_INSET_PX,
+  LOGIN_POPUP_DESC_MARGIN_BOTTOM_PX,
+  LOGIN_POPUP_DRAG_BAR_HEIGHT_PX,
+  LOGIN_POPUP_DRAG_BAR_MARGIN_BOTTOM_PX,
+  LOGIN_POPUP_DRAG_BAR_WIDTH_PX,
+  LOGIN_POPUP_FOOTER_GAP_PX,
+  LOGIN_POPUP_FOOTER_MARGIN_TOP_PX,
+  LOGIN_POPUP_ICON_BADGE_MARGIN_RIGHT_PX,
+  LOGIN_POPUP_ICON_BADGE_SIZE_PX,
+  LOGIN_POPUP_ICON_GLYPH_FONT_PX,
+  LOGIN_POPUP_AGREEMENT_FONT_PX,
+  LOGIN_POPUP_AGREEMENT_GAP_PX,
+  LOGIN_POPUP_AGREEMENT_MARK_PX,
+  LOGIN_POPUP_NOTE_FONT_PX,
+  LOGIN_POPUP_NOTE_MARGIN_TOP_PX,
+  LOGIN_POPUP_PILL_FONT_PX,
+  LOGIN_POPUP_PILL_HEIGHT_PX,
+  LOGIN_POPUP_PILL_PADDING_X_PX,
+  LOGIN_POPUP_ROW_HEIGHT_PX,
+  LOGIN_POPUP_ROW_PADDING_X_PX,
+  LOGIN_POPUP_BODY_FONT_PX,
+  LOGIN_POPUP_SECTION_GAP_PX,
+  LOGIN_POPUP_SECONDARY_BUTTON_MARGIN_BOTTOM_PX,
+  LOGIN_POPUP_SHEET_PADDING_TOP_PX,
+  LOGIN_POPUP_TITLE_FONT_PX,
+  LOGIN_POPUP_TITLE_MARGIN_BOTTOM_PX,
+} from '@ihui/shared/ui/login-popup-spec'
+import { BadgeCheck, Check, Phone, User } from 'lucide-react-native'
+import {
+  ActivityIndicator,
+  Image,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type ViewStyle,
+} from 'react-native'
+import { useState } from 'react'
+import { CarrierOneClickError, carrierLogin, getRecentPhone } from '../lib/carrier-one-click'
+import { TextField } from '@ihui/rn-app'
+import { Tappable } from '@ihui/ui-native'
+import { toFriendlyOr } from '@ihui/shared/utils'
+
+export type LoginPopUpRole = 'normal' | 'vip' | 'trader'
+
+export interface LoginPopUpSavePayload {
+  avatar?: string
+  nickname?: string
+  phone?: string
+}
+
+/**
+ * 与小程序端 `userInfo` 入参同形(platform: 小程序默认字段拼写 identityTypy 保留,
+ * 对齐后端契约;RN 侧只读不写)。
+ */
+export interface LoginPopUpUserInfo {
+  nickname?: string
+  avatar?: string
+  /** 0=普通 1=VIP */
+  isVip?: number
+  /** 0=普通/会员 1=操盘手(原项目拼写) */
+  identityTypy?: number
+}
+
+export interface LoginPopUpProps {
+  visible?: boolean
+  title?: string
+  description?: string
+  primaryLabel?: string
+  onPrimary?: () => void
+  secondaryLabel?: string
+  onSecondary?: () => void
+  onClose: () => void
+  agreeChecked?: boolean
+  onAgreeChange?: (value: boolean) => void
+  // ===== 业务资料(可选;与小程序端同槽:资料包 userInfo) =====
+  /** 用户资料包(与小程序端同形) */
+  userInfo?: LoginPopUpUserInfo
+  /** 无头像时的默认头像(与小程序端 defaultAvatar 同语义;不传则退回 initials) */
+  defaultAvatar?: string
+  /** 昵称输入变化回调(传已按两端同规则过滤后的值) */
+  onNicknameChange?: (nickname: string) => void
+  // ===== 业务回调(可选,均待接后端/微信 SDK) =====
+  onChooseAvatar?: () => void
+  onBindPhone?: () => void
+  onSave?: (payload: LoginPopUpSavePayload) => void
+  onLogout?: () => void
+  onUpgrade?: () => void
+  // ===== 登录方式(与小程序端同槽;全部"传入才渲染",不传即零增量) =====
+  /**
+   * 一键登录结果回传。小程序端来源是微信 getPhoneNumber(loginCode + phoneCode);
+   * 本端来源是运营商 carrierLogin,`loginCode` 承载运营商 accessToken、`phoneCode` 承载本机号码。
+   */
+  onOneClickLogin?: (result: { loginCode: string; phoneCode: string }) => Promise<void> | void
+  /** 账号密码兜底(传入才渲染收起态入口,点开才出两个字段) */
+  onPasswordLogin?: (account: string, password: string) => Promise<void> | void
+  /** 网页授权登录入口(导航由宿主页接管,本组件只回调) */
+  onWebAuthLogin?: () => void
+}
+
+// 可见几何数字唯一源在 @ihui/shared/ui/login-popup-spec(与小程序端同表,逐档裁决见该文件注释);
+// RN 单位是 dp,与逻辑 px 1:1,故本文件直接取用。
+// 头像描边环宽度 3dp:RN 独有形态(小程序端头像是 1px border 类,不走本档),不属跨端对账几何。
+const AVATAR_BORDER_WIDTH = 3
+
+/** 中英文校验:汉字计 1 单位,字母/数字计 0.5 单位,上限 3 单位(对齐原 vue onInput)。 */
+function filterNickname(raw: string): string {
+  let out = ''
+  let len = 0
+  for (const char of raw) {
+    if (/[\u4e00-\u9fa5]/.test(char)) {
+      if (len + 1 > 3) break
+      out += char
+      len += 1
+    } else if (/[a-zA-Z0-9]/.test(char)) {
+      if (len + 0.5 > 3) break
+      out += char
+      len += 0.5
+    }
+  }
+  return out
+}
+
+/** 角色标签:返回 i18n 键(顶层函数不调 t——模块求值早于 Provider 挂载;消费处 t() 解析) */
+function roleLabelKey(role: LoginPopUpRole): string {
+  switch (role) {
+    case 'vip':
+      return 'lp.member'
+    case 'trader':
+      return 'lp.trader'
+    default:
+      return 'lp.normal'
+  }
+}
+
+export function LoginPopUp({
+  visible = false,
+  title,
+  description,
+  primaryLabel,
+  onPrimary,
+  secondaryLabel,
+  onSecondary,
+  onClose,
+  agreeChecked = false,
+  onAgreeChange,
+  userInfo,
+  defaultAvatar,
+  onNicknameChange,
+  onChooseAvatar,
+  onBindPhone,
+  onSave,
+  onLogout,
+  onUpgrade,
+  onOneClickLogin,
+  onPasswordLogin,
+  onWebAuthLogin,
+}: LoginPopUpProps) {
+  const { t } = useI18n()
+  const [oneClickLoading, setOneClickLoading] = useState(false)
+  const [loginError, setLoginError] = useState('')
+  const [pwdOpen, setPwdOpen] = useState(false)
+  const [account, setAccount] = useState('')
+  const [password, setPassword] = useState('')
+  const [pwdSubmitting, setPwdSubmitting] = useState(false)
+
+  // 一键登录 = 运营商取号(A 端能力) → 与小程序端同一回调槽位,
+  // loginCode 承载运营商 accessToken,phoneCode 承载本机号码。
+  const handleOneClickLogin = async () => {
+    if (!onOneClickLogin || oneClickLoading) return
+    setOneClickLoading(true)
+    setLoginError('')
+    try {
+      const res = await carrierLogin()
+      await onOneClickLogin({ loginCode: res.accessToken ?? '', phoneCode: res.phone ?? '' })
+    } catch {
+      setLoginError(t('lp.oneLoginFail'))
+    } finally {
+      setOneClickLoading(false)
+    }
+  }
+
+  const handlePasswordLogin = async () => {
+    if (!onPasswordLogin || pwdSubmitting) return
+    const acc = account.trim()
+    if (!acc || !password) {
+      setLoginError(t('login.accountPlaceholder'))
+      return
+    }
+    setPwdSubmitting(true)
+    setLoginError('')
+    try {
+      await onPasswordLogin(acc, password)
+    } catch (err) {
+      setLoginError(toFriendlyOr(err, t('login.loginFailed')))
+    } finally {
+      setPwdSubmitting(false)
+    }
+  }
+  const handleAgreeToggle = () => {
+    onAgreeChange?.(!agreeChecked)
+  }
+
+  const showAgreementRow = onAgreeChange !== undefined
+
+  // 资料包 → 展示字段(与小程序端同一 userInfo 槽位)
+  const resolvedAvatarUrl = userInfo?.avatar
+  const resolvedNickname = userInfo?.nickname
+  const resolvedRole: LoginPopUpRole =
+    userInfo?.isVip === 1 ? (userInfo?.identityTypy === 1 ? 'trader' : 'vip') : 'normal'
+
+  const showProfile = Boolean(
+    onSave || onLogout || onChooseAvatar || onBindPhone || onUpgrade || userInfo,
+  )
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View style={styles.root}>
+        <Tappable style={styles.overlay} onPress={onClose} accessibilityLabel={t('lp.closeA11y')} />
+        <View style={styles.card}>
+          <View style={styles.dragBar} />
+          <Tappable
+            style={styles.closeButton}
+            onPress={onClose}
+            hitSlop={8}
+            accessibilityLabel={t('common.close')}
+          >
+            <Text style={styles.closeIcon}>×</Text>
+          </Tappable>
+          {showProfile ? (
+            <ProfileForm
+              avatarUrl={resolvedAvatarUrl}
+              defaultAvatar={defaultAvatar}
+              initialNickname={resolvedNickname}
+              role={resolvedRole}
+              onNicknameChange={onNicknameChange}
+              onChooseAvatar={onChooseAvatar}
+              onBindPhone={onBindPhone}
+              onSave={onSave}
+              onLogout={onLogout}
+              onUpgrade={onUpgrade}
+            />
+          ) : (
+            <>
+              <Text style={styles.title}>{title}</Text>
+              <Text style={styles.description}>{description}</Text>
+              {/* 按压态不得写成「函数形态 style」挂在 Pressable 上:Pressable 注册过 cssInterop,
+                  interop 对非数组声明执行「展开函数」得到空对象 ⇒ 整份内联 style 静默消失
+                  (守门 131 那一型)。拆成「外框承载声明好的盒/布局 + 面层承载 pressed」。 */}
+              <Pressable style={styles.primaryButton} onPress={onPrimary}>
+                {({ pressed }) => (
+                  <View style={[styles.face, pressed ? styles.primaryButtonPressed : null]}>
+                    <Text style={styles.primaryButtonLabel}>{primaryLabel}</Text>
+                  </View>
+                )}
+              </Pressable>
+              <Pressable style={styles.secondaryButton} onPress={onSecondary}>
+                {({ pressed }) => (
+                  <View style={[styles.face, pressed ? styles.secondaryButtonPressed : null]}>
+                    <Text style={styles.secondaryButtonLabel}>{secondaryLabel}</Text>
+                  </View>
+                )}
+              </Pressable>
+              {/* 登录方式(与小程序端同槽;传入才渲染):一键登录 / 网页授权 / 账号密码兜底 */}
+              {onOneClickLogin ? (
+                <Pressable
+                  style={styles.primaryButton}
+                  onPress={() => void handleOneClickLogin()}
+                  disabled={oneClickLoading}
+                >
+                  {({ pressed }) => (
+                    <View style={[styles.face, pressed ? styles.primaryButtonPressed : null]}>
+                      {oneClickLoading ? (
+                        <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
+                      ) : (
+                        <Text style={styles.primaryButtonLabel}>{t('login.wechatOneClick')}</Text>
+                      )}
+                    </View>
+                  )}
+                </Pressable>
+              ) : null}
+              {onWebAuthLogin ? (
+                <Tappable style={styles.methodLink} onPress={onWebAuthLogin}>
+                  <Text style={styles.methodLinkText}>{t('login.webAuthLogin')}</Text>
+                </Tappable>
+              ) : null}
+              {onPasswordLogin ? (
+                <View style={styles.pwdBlock}>
+                  {pwdOpen ? (
+                    <>
+                      <TextField
+                        colorScheme={currentRnTheme()}
+                        style={styles.pwdInput}
+                        value={account}
+                        onChangeText={setAccount}
+                        placeholder={t('login.accountPlaceholder')}
+                        placeholderTextColor={tokens.text.secondary}
+                        autoCapitalize="none"
+                      />
+                      <TextField
+                        colorScheme={currentRnTheme()}
+                        style={styles.pwdInput}
+                        value={password}
+                        onChangeText={setPassword}
+                        placeholder={t('login.passwordPlaceholder')}
+                        placeholderTextColor={tokens.text.secondary}
+                        secureTextEntry
+                      />
+                      <Pressable
+                        style={styles.primaryButton}
+                        onPress={() => void handlePasswordLogin()}
+                        disabled={pwdSubmitting}
+                      >
+                        {({ pressed }) => (
+                          <View style={[styles.face, pressed ? styles.primaryButtonPressed : null]}>
+                            {pwdSubmitting ? (
+                              <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
+                            ) : (
+                              <Text style={styles.primaryButtonLabel}>{t('login.login')}</Text>
+                            )}
+                          </View>
+                        )}
+                      </Pressable>
+                    </>
+                  ) : (
+                    <Tappable style={styles.methodLink} onPress={() => setPwdOpen(true)}>
+                      <Text style={styles.methodLinkText}>{t('login.passwordLogin')}</Text>
+                    </Tappable>
+                  )}
+                </View>
+              ) : null}
+              {loginError ? <Text style={styles.loginErrorText}>{loginError}</Text> : null}
+              {showAgreementRow ? (
+                <Tappable style={styles.agreementRow} onPress={handleAgreeToggle}>
+                  <View style={[styles.checkbox, agreeChecked ? styles.checkboxChecked : null]}>
+                    {agreeChecked ? (
+                      <Check
+                        size={LOGIN_POPUP_AGREEMENT_MARK_PX}
+                        color={tokens.brand.ctaForeground}
+                      />
+                    ) : null}
+                  </View>
+                  <Text style={styles.agreementText}>
+                    <Text style={styles.agreementLink}>{tStatic('uiText.userAgreementTitle')}</Text>
+                    <Text style={styles.agreementSeparator}> {tStatic('uiText.and')} </Text>
+                    <Text style={styles.agreementLink}>{tStatic('uiText.privacyPolicyTitle')}</Text>
+                  </Text>
+                </Tappable>
+              ) : null}
+            </>
+          )}
+        </View>
+      </View>
+    </Modal>
+  )
+}
+
+interface ProfileFormProps {
+  avatarUrl?: string
+  defaultAvatar?: string
+  initialNickname?: string
+  role: LoginPopUpRole
+  onNicknameChange?: (nickname: string) => void
+  onChooseAvatar?: () => void
+  onBindPhone?: () => void
+  onSave?: (payload: LoginPopUpSavePayload) => void
+  onLogout?: () => void
+  onUpgrade?: () => void
+}
+
+function ProfileForm({
+  avatarUrl,
+  defaultAvatar,
+  initialNickname,
+  role,
+  onNicknameChange,
+  onChooseAvatar,
+  onBindPhone,
+  onSave,
+  onLogout,
+  onUpgrade,
+}: ProfileFormProps) {
+  const { t } = useI18n()
+  const [nickname, setNickname] = useState(initialNickname ?? '')
+  const displayAvatar = avatarUrl ?? defaultAvatar
+  const [phone, setPhone] = useState('')
+  const [nicknameError, setNicknameError] = useState('')
+  const [phoneError, setPhoneError] = useState('')
+  // 运营商一键登录绑定中(绑定按钮 loading)
+  const [bindPhoneLoading, setBindPhoneLoading] = useState(false)
+
+  const handleNicknameChange = (raw: string) => {
+    const next = filterNickname(raw)
+    setNickname(next)
+    onNicknameChange?.(next)
+    if (nicknameError) setNicknameError('')
+  }
+
+  const handlePhoneChange = (raw: string) => {
+    setPhone(raw.replace(/[^0-9]/g, ''))
+    if (phoneError) setPhoneError('')
+  }
+
+  // 绑定手机号 = 运营商一键登录拿到本机号码并回填,再触发上层 onBindPhone 完成绑定。
+  // 未配置/失败 → 免费自动回填最近手机号,降级让用户手动确认。
+  const handleBindPhone = async () => {
+    if (bindPhoneLoading) return
+    setBindPhoneLoading(true)
+    setPhoneError('')
+    try {
+      const res = await carrierLogin()
+      if (res.phone) setPhone(res.phone)
+      onBindPhone?.()
+    } catch (err) {
+      if (!(err instanceof CarrierOneClickError)) {
+        setPhoneError(t('lp.oneLoginFail'))
+      } else {
+        // 未配置 / 通道失败 → 免费回填最近手机号
+        const recent = getRecentPhone()
+        if (recent) setPhone(recent)
+      }
+      onBindPhone?.()
+    } finally {
+      setBindPhoneLoading(false)
+    }
+  }
+
+  const handleSave = () => {
+    let hasError = false
+    if (!nickname) {
+      setNicknameError(t('lp.nickRequired'))
+      hasError = true
+    } else if (nickname.length > 8) {
+      setNicknameError(t('lp.nickTooLong'))
+      hasError = true
+    }
+    if (!phone || phone.length !== 11) {
+      setPhoneError(t('lp.phoneInvalid'))
+      hasError = true
+    }
+    if (hasError) return
+    setNicknameError('')
+    setPhoneError('')
+    onSave?.({ avatar: avatarUrl, nickname, phone })
+  }
+
+  const showUpgrade = role === 'normal' || role === 'vip'
+  const roleColor =
+    role === 'vip'
+      ? tokens.success.deep
+      : role === 'trader'
+        ? tokens.brandAccent.deep
+        : tokens.text.secondary
+
+  return (
+    <View>
+      {/* 头像 */}
+      <View style={styles.avatarWrap}>
+        <Pressable
+          style={styles.avatar}
+          onPress={onChooseAvatar}
+          accessibilityLabel={t('lp.changeAvatarA11y')}
+        >
+          {({ pressed }) => (
+            <View style={[styles.face, pressed ? styles.avatarPressed : null]}>
+              {displayAvatar ? (
+                <Image source={{ uri: displayAvatar }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarPlaceholder}>{nickname ? nickname[0] : '?'}</Text>
+              )}
+            </View>
+          )}
+        </Pressable>
+        <Text style={styles.changeAvatar}>{tStatic('user.profile.avatar')}</Text>
+      </View>
+
+      {/* 昵称 */}
+      <View style={styles.row}>
+        <View style={styles.iconBadge}>
+          <User size={LOGIN_POPUP_ICON_GLYPH_FONT_PX} color={tokens.text.secondary} />
+        </View>
+        <TextField
+          colorScheme={currentRnTheme()}
+          style={styles.input}
+          value={nickname}
+          onChangeText={handleNicknameChange}
+          placeholder={t('lp.usernamePh')}
+          placeholderTextColor={tokens.text.secondary}
+          maxLength={20}
+        />
+      </View>
+      {nicknameError ? (
+        <Text style={styles.errorText}>{nicknameError}</Text>
+      ) : (
+        <Text style={styles.hintText}>{tStatic('uiText.nicknameLengthHint')}</Text>
+      )}
+
+      {/* 角色 + 升级入口 */}
+      <View style={[styles.row, styles.roleRow]}>
+        <View style={styles.iconBadge}>
+          <BadgeCheck size={LOGIN_POPUP_ICON_GLYPH_FONT_PX} color={tokens.text.secondary} />
+        </View>
+        <Text style={[styles.roleText, { color: roleColor }]}>{t(roleLabelKey(role))}</Text>
+        {showUpgrade ? (
+          <Pressable
+            style={styles.upgradeButton}
+            onPress={onUpgrade}
+            accessibilityLabel={t('lp.upgradeA11y')}
+          >
+            {({ pressed }) => (
+              <View style={[styles.face, pressed ? styles.upgradeButtonPressed : null]}>
+                <Text style={styles.upgradeLabel}>{tStatic('lp.upgradeA11y')}</Text>
+              </View>
+            )}
+          </Pressable>
+        ) : null}
+      </View>
+
+      {/* 手机号 */}
+      <View style={styles.row}>
+        <View style={styles.iconBadge}>
+          <Phone size={LOGIN_POPUP_ICON_GLYPH_FONT_PX} color={tokens.text.secondary} />
+        </View>
+        <TextField
+          colorScheme={currentRnTheme()}
+          style={styles.input}
+          value={phone}
+          onChangeText={handlePhoneChange}
+          placeholder={t('lp.phonePh')}
+          placeholderTextColor={tokens.text.secondary}
+          maxLength={11}
+          keyboardType="phone-pad"
+        />
+        {onBindPhone ? (
+          <Pressable
+            style={styles.bindButton}
+            onPress={() => void handleBindPhone()}
+            disabled={bindPhoneLoading}
+            accessibilityLabel={t('lp.bindA11y')}
+          >
+            {({ pressed }) => (
+              <View style={[styles.face, pressed ? styles.bindButtonPressed : null]}>
+                {bindPhoneLoading ? (
+                  <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
+                ) : (
+                  <Text style={styles.bindLabel}>{phone ? t('lp.rebind') : t('lp.bind')}</Text>
+                )}
+              </View>
+            )}
+          </Pressable>
+        ) : null}
+      </View>
+      {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
+
+      {/* 保存 / 登出 */}
+      <View style={styles.footer}>
+        {onSave ? (
+          <Pressable
+            style={styles.footerButton}
+            onPress={handleSave}
+            accessibilityLabel={t('lp.saveA11y')}
+          >
+            {({ pressed }) => (
+              <View style={[styles.face, pressed ? styles.footerButtonPressed : null]}>
+                <Text style={styles.footerLabel}>{tStatic('lp.saveA11y')}</Text>
+              </View>
+            )}
+          </Pressable>
+        ) : null}
+        {onLogout ? (
+          <Pressable
+            style={[styles.footerButton, styles.footerButtonLogout]}
+            onPress={onLogout}
+            accessibilityLabel={t('lp.logoutA11y')}
+          >
+            {({ pressed }) => (
+              <View style={[styles.face, pressed ? styles.footerButtonPressed : null]}>
+                <Text style={[styles.footerLabel, styles.footerLabelLogout]}>
+                  {tStatic('lp.logoutA11y')}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: withAlpha(tokens.gray.black, 0.5),
+  } as ViewStyle,
+  card: {
+    width: '100%',
+    backgroundColor: tokens.surface.card,
+    // 弹层体 = 角色档 panel → xl(12);此前取 2xl(16),守门 150 判"panel 取 2xl 应为 xl"
+    borderTopLeftRadius: rnRadius.xl,
+    borderTopRightRadius: rnRadius.xl,
+    paddingTop: LOGIN_POPUP_SHEET_PADDING_TOP_PX,
+    paddingHorizontal: LOGIN_POPUP_CARD_PADDING_X_PX,
+    paddingBottom: LOGIN_POPUP_CARD_PADDING_BOTTOM_PX,
+  },
+  dragBar: {
+    alignSelf: 'center',
+    width: LOGIN_POPUP_DRAG_BAR_WIDTH_PX,
+    height: LOGIN_POPUP_DRAG_BAR_HEIGHT_PX,
+    borderRadius: rnRadius['2xl'],
+    backgroundColor: tokens.border.light,
+    marginBottom: LOGIN_POPUP_DRAG_BAR_MARGIN_BOTTOM_PX,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: LOGIN_POPUP_CLOSE_INSET_PX,
+    right: LOGIN_POPUP_CLOSE_INSET_PX,
+    width: LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX,
+    height: LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX,
+    borderRadius: rnRadius['2xl'],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeIcon: {
+    fontSize: LOGIN_POPUP_CLOSE_ICON_FONT_PX,
+    lineHeight: LOGIN_POPUP_CLOSE_ICON_LINE_HEIGHT_PX,
+    color: tokens.text.secondary,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  title: {
+    fontSize: LOGIN_POPUP_TITLE_FONT_PX,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    textAlign: 'center',
+    marginBottom: LOGIN_POPUP_TITLE_MARGIN_BOTTOM_PX,
+  },
+  description: {
+    fontSize: LOGIN_POPUP_BODY_FONT_PX,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+    marginBottom: LOGIN_POPUP_DESC_MARGIN_BOTTOM_PX,
+  },
+  /**
+   * 面层:撑满外框的内容盒,承载 pressed 反馈与子元素排布。
+   * 外框(`primaryButton`/`secondaryButton`/`avatar`/`upgradeButton`/`bindButton`/`footerButton`)
+   * 的声明逐字未动,只是把「按压态」与「居中」挪到这一层 —— Pressable 上的函数形态 style 会被
+   * cssInterop 整份丢掉(守门 131),两层都只能用对象/数组形态。
+   */
+  face: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  primaryButton: {
+    height: LOGIN_POPUP_BUTTON_HEIGHT_PX,
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.brand.cta,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
+  },
+  primaryButtonPressed: {
+    opacity: 0.8,
+  },
+  primaryButtonLabel: {
+    fontSize: LOGIN_POPUP_BUTTON_FONT_PX,
+    fontWeight: '500',
+    color: tokens.brand.ctaForeground,
+    textAlign: 'center',
+  },
+  secondaryButton: {
+    height: LOGIN_POPUP_BUTTON_HEIGHT_PX,
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: LOGIN_POPUP_SECONDARY_BUTTON_MARGIN_BOTTOM_PX,
+  },
+  secondaryButtonPressed: {
+    opacity: 0.8,
+  },
+  secondaryButtonLabel: {
+    fontSize: LOGIN_POPUP_BUTTON_FONT_PX,
+    color: tokens.text.primary,
+    textAlign: 'center',
+  },
+  agreementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // ===== 登录方式(一键 / 网页授权 / 账号密码兜底) =====
+  methodLink: {
+    alignItems: 'center',
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
+  },
+  methodLinkText: {
+    fontSize: LOGIN_POPUP_NOTE_FONT_PX,
+    color: tokens.text.secondary,
+  },
+  pwdBlock: {
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
+  },
+  pwdInput: {
+    height: LOGIN_POPUP_BUTTON_HEIGHT_PX,
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    paddingHorizontal: LOGIN_POPUP_ROW_PADDING_X_PX,
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
+    fontSize: LOGIN_POPUP_BODY_FONT_PX,
+    color: tokens.text.primary,
+  },
+  loginErrorText: {
+    fontSize: LOGIN_POPUP_NOTE_FONT_PX,
+    color: tokens.danger.deepText,
+    textAlign: 'center',
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
+  },
+  checkbox: {
+    width: LOGIN_POPUP_CHECKBOX_SIZE_PX,
+    height: LOGIN_POPUP_CHECKBOX_SIZE_PX,
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: LOGIN_POPUP_AGREEMENT_GAP_PX,
+  },
+  checkboxChecked: {
+    backgroundColor: tokens.brand.cta,
+    borderColor: tokens.brandAccent.deep,
+  },
+  checkboxMark: {
+    fontSize: LOGIN_POPUP_AGREEMENT_MARK_PX,
+    lineHeight: LOGIN_POPUP_AGREEMENT_MARK_PX,
+    color: tokens.brand.ctaForeground,
+    fontWeight: '700',
+  },
+  agreementText: {
+    fontSize: LOGIN_POPUP_AGREEMENT_FONT_PX,
+    color: tokens.text.secondary,
+  },
+  agreementLink: {
+    color: tokens.brand.DEFAULT,
+  },
+  agreementSeparator: {
+    color: tokens.text.secondary,
+  },
+  // ===== 资料编辑卡 =====
+  avatarWrap: {
+    alignItems: 'center',
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
+  },
+  avatar: {
+    width: LOGIN_POPUP_AVATAR_BOX_PX,
+    height: LOGIN_POPUP_AVATAR_BOX_PX,
+    borderRadius: rnRadius['2xl'],
+    borderWidth: AVATAR_BORDER_WIDTH,
+    borderColor: tokens.border.medium,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarPressed: {
+    opacity: 0.8,
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarPlaceholder: {
+    fontSize: LOGIN_POPUP_BODY_FONT_PX,
+    fontWeight: '600',
+    color: tokens.text.secondary,
+  },
+  changeAvatar: {
+    marginTop: LOGIN_POPUP_AVATAR_HINT_GAP_PX,
+    fontSize: LOGIN_POPUP_CHANGE_HINT_FONT_PX,
+    color: tokens.brand.DEFAULT,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: LOGIN_POPUP_ROW_HEIGHT_PX,
+    borderRadius: rnRadius.sm,
+    paddingHorizontal: LOGIN_POPUP_ROW_PADDING_X_PX,
+    backgroundColor: tokens.surface.card,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
+  },
+  roleRow: {
+    justifyContent: 'flex-start',
+  },
+  iconBadge: {
+    width: LOGIN_POPUP_ICON_BADGE_SIZE_PX,
+    height: LOGIN_POPUP_ICON_BADGE_SIZE_PX,
+    borderRadius: rnRadius['2xl'],
+    backgroundColor: tokens.surface.card,
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: LOGIN_POPUP_ICON_BADGE_MARGIN_RIGHT_PX,
+  },
+  input: {
+    flex: 1,
+    height: '100%',
+    fontSize: LOGIN_POPUP_BODY_FONT_PX,
+    color: tokens.text.primary,
+    padding: rnSpacing.none,
+  },
+  roleText: {
+    flex: 1,
+    fontSize: LOGIN_POPUP_BODY_FONT_PX,
+    fontWeight: '600',
+  },
+  upgradeButton: {
+    height: LOGIN_POPUP_PILL_HEIGHT_PX,
+    paddingHorizontal: LOGIN_POPUP_PILL_PADDING_X_PX,
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.warning.amber,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  upgradeButtonPressed: {
+    opacity: 0.8,
+  },
+  upgradeLabel: {
+    fontSize: LOGIN_POPUP_PILL_FONT_PX,
+    fontWeight: '700',
+    color: tokens.danger.deepText,
+  },
+  bindButton: {
+    height: LOGIN_POPUP_PILL_HEIGHT_PX,
+    paddingHorizontal: LOGIN_POPUP_PILL_PADDING_X_PX,
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.brand.cta,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bindButtonPressed: {
+    opacity: 0.8,
+  },
+  bindLabel: {
+    fontSize: LOGIN_POPUP_PILL_FONT_PX,
+    fontWeight: '600',
+    color: tokens.brand.ctaForeground,
+  },
+  hintText: {
+    fontSize: LOGIN_POPUP_NOTE_FONT_PX,
+    color: tokens.text.medium,
+    marginTop: LOGIN_POPUP_NOTE_MARGIN_TOP_PX,
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
+  },
+  errorText: {
+    fontSize: LOGIN_POPUP_NOTE_FONT_PX,
+    color: tokens.danger.deepText,
+    marginTop: LOGIN_POPUP_NOTE_MARGIN_TOP_PX,
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
+  },
+  footer: {
+    flexDirection: 'row',
+    gap: LOGIN_POPUP_FOOTER_GAP_PX,
+    marginTop: LOGIN_POPUP_FOOTER_MARGIN_TOP_PX,
+  },
+  footerButton: {
+    flex: 1,
+    height: LOGIN_POPUP_BUTTON_HEIGHT_PX,
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.brandAccent.deep,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerButtonPressed: {
+    opacity: 0.8,
+  },
+  footerButtonLogout: {
+    backgroundColor: tokens.danger.light,
+    borderColor: tokens.danger.DEFAULT,
+  },
+  footerLabel: {
+    fontSize: LOGIN_POPUP_BUTTON_FONT_PX,
+    fontWeight: '600',
+    color: tokens.brand.DEFAULT,
+  },
+  footerLabelLogout: {
+    color: tokens.danger.deepText,
+  },
+})
+
+export default LoginPopUp
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

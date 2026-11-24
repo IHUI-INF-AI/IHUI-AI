@@ -1,0 +1,548 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 终端 PTY 工具集 — 长驻终端会话管理(open/send/read/resize/close)。
+ *
+ * 灵感来源:参考 API 端 terminal-service.ts 的 node-pty 动态加载 + background-registry.ts 的 Map 管理。
+ * 简化策略(做减法):
+ *   - 动态加载 node-pty,缺失时降级到 child_process.spawn(设置 FORCE_COLOR 模拟 TTY)
+ *   - 模块级 Map 管理会话,30 分钟无活动自动清理,最多 10 个并发
+ *   - 复用 command-safety 的执行链闸门(gateCommandExecution + describeCommandBlock,
+ *     内部含危险档 / alwaysConfirm 档 / 只读免确认档)+ confirmDangerous + runPreToolCall 安全护栏
+ *   - 会话输出累积到 outputBuffer,terminal_read 返回自上次读取以来的增量
+ */
+
+import { spawn as spawnChild } from 'node:child_process';
+import { createRequire } from 'node:module';
+import * as crypto from 'node:crypto';
+import type { Tool, ToolResult } from './index.js';
+// 危险确认判定只住 `resolveDangerousConfirmation` 一处(与 builtins 的 run_command/kill_command
+// 同一条出口);本 handler 只传上下文,不再各自读 ctx.confirmDangerous 判放行。
+import { resolveDangerousConfirmation } from './index.js';
+import { gateCommandExecution, describeCommandBlock } from './command-safety.js';
+import { runPreToolCall } from '../hooks/index.js';
+import { execSandboxed, precheckSandboxedCommand, type SandboxPolicy } from './sandbox/index.js';
+import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS, TERMINAL_CLI_CREDENTIAL_ALLOWLIST } from '../sandbox/index.js';
+import { loadSettings, type SandboxSettings } from '../commands/settings.js';
+import { killProcessTree } from '../util/kill-tree.js';
+import { createStreamDecoder, resolveLegacyEncoding } from './sandbox/platform/output-encoding.js';
+
+// ==================== 沙箱接入(默认关闭,向后兼容) ====================
+
+/** 扩展 SandboxSettings 读取 enabled 开关(旧 settings 文件无此字段时视为未启用) */
+type SandboxSettingsWithEnabled = SandboxSettings & { enabled?: boolean };
+
+/**
+ * 判断沙箱是否启用(默认关闭,保持向后兼容)。
+ * 开关来源(OR 语义):
+ *   - 环境变量 IHUI_SANDBOX_ENABLED=1/true
+ *   - settings 文件中 sandbox.enabled=true
+ */
+function isSandboxEnabled(): boolean {
+  const envFlag = process.env.IHUI_SANDBOX_ENABLED;
+  if (envFlag === '1' || envFlag === 'true') return true;
+  if (envFlag === '0' || envFlag === 'false') return false;
+  const sb = loadSettings().sandbox as SandboxSettingsWithEnabled | undefined;
+  return sb?.enabled === true;
+}
+
+/** 从用户 settings 构造沙箱策略(workspaceRoot 为传入的基准目录) */
+export function buildSandboxPolicy(workspaceRoot: string): SandboxPolicy {
+  const sb = loadSettings().sandbox as SandboxSettingsWithEnabled | undefined;
+  return {
+    workspaceRoot,
+    allowRead: sb?.allowedPaths,
+    allowWrite: sb?.allowedPaths,
+    commandAllowlist: sb?.commandAllowlist,
+    blockedEnvVars: sb?.blockedEnvVars,
+  };
+}
+
+/**
+ * 沙箱内一次性执行命令的统一入口(供其他模块复用)。
+ * 沙箱未启用时抛错(调用方自行降级到直接执行路径)。
+ */
+export async function execSandboxedEntry(
+  commandLine: string,
+  workspaceRoot: string,
+  cwd?: string,
+): Promise<Awaited<ReturnType<typeof execSandboxed>>> {
+  if (!isSandboxEnabled()) {
+    throw new Error('沙箱未启用(默认关闭):设置 settings.sandbox.enabled=true 或环境变量 IHUI_SANDBOX_ENABLED=1');
+  }
+  const policy = buildSandboxPolicy(workspaceRoot);
+  return execSandboxed(policy, commandLine, { cwd });
+}
+
+// ==================== node-pty 动态加载(参考 API 端 terminal-service.ts)====================
+
+const require = createRequire(import.meta.url);
+// 手动定义 node-pty 模块类型(避免 typeof import('node-pty') 在未安装时报 TS2307)
+interface NodePtyModule {
+  spawn(file: string, args: string[], options: {
+    name?: string;
+    cols?: number;
+    rows?: number;
+    cwd?: string;
+    env?: Record<string, string>;
+  }): IPty;
+}
+let ptyMod: NodePtyModule | null = null;
+try {
+  ptyMod = require('node-pty') as NodePtyModule;
+} catch {
+  ptyMod = null; // node-pty 未安装,降级到 child_process.spawn
+}
+
+// PTY 实例最小接口(与 node-pty 的 IPty 兼容,避免静态 import 失败)
+interface IPty {
+  pid: number;
+  write(data: string): void;
+  resize(cols: number, rows: number): void;
+  kill(signal?: string): void;
+  onData(cb: (data: string) => void): { dispose(): void };
+  onExit(cb: (e: { exitCode: number; signal?: number }) => void): { dispose(): void };
+}
+
+// 统一会话进程句柄(node-pty IPty 或 ChildProcess fallback 共用)
+interface SessionProc {
+  // F-003:清理点要按进程树回收,句柄必须带出根 pid(PTY 与 spawn 都能给)
+  readonly pid?: number;
+  write(data: string): void;
+  resize?(cols: number, rows: number): void;
+  kill(signal?: string): void;
+  onData(cb: (data: string) => void): () => void;
+  onExit(cb: (e: { exitCode: number; signal?: number }) => void): () => void;
+}
+
+// ==================== 会话注册表(参考 background-registry.ts)====================
+
+interface TerminalSession {
+  id: string;
+  command: string;
+  proc: SessionProc | null;
+  cols: number;
+  rows: number;
+  startedAt: number;
+  lastActivityAt: number;
+  outputBuffer: string; // 累积输出
+  lastReadOffset: number; // 上次读取位置
+  exited: boolean;
+  exitCode?: number;
+  mode: 'pty' | 'spawn';
+}
+
+const MAX_SESSIONS = 10;
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 分钟
+const MAX_OUTPUT_BUFFER = 1024 * 1024; // 1MB
+
+// routing-handle: key=sessionId minted-by=genId registry=sessions 句柄而非路由身份:值由本进程 genId() 铸造(时间戳+crypto 随机),只经 sessions 查表,查不到即返回"会话不存在"
+const sessions = new Map<string, TerminalSession>();
+
+function genId(): string {
+  return `term_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+}
+
+/** 获取默认 shell(Windows: pwsh/cmd,Unix: /bin/bash) */
+function getDefaultShell(): string {
+  if (process.platform === 'win32') {
+    return process.env.COMSPEC || 'pwsh.exe';
+  }
+  return process.env.SHELL || '/bin/bash';
+}
+
+/** 用 node-pty 创建 PTY 会话句柄,并立即注入要执行的命令 */
+function spawnPty(command: string, cwd: string, cols: number, rows: number): SessionProc {
+  if (!ptyMod) throw new Error('node-pty 未安装');
+  const shell = getDefaultShell();
+  const pty = ptyMod.spawn(shell, [], {
+    name: 'xterm-256color',
+    cols,
+    rows,
+    cwd,
+    env: buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS, TERMINAL_CLI_CREDENTIAL_ALLOWLIST) as Record<string, string>,
+  }) as unknown as IPty;
+  pty.write(`${command}\r`); // 立即注入命令
+  return {
+    pid: pty.pid,
+    write: (data: string) => pty.write(data),
+    resize: (c: number, r: number) => pty.resize(c, r),
+    kill: (signal?: string) => pty.kill(signal),
+    onData: (cb) => {
+      const h = pty.onData(cb);
+      return () => h.dispose();
+    },
+    onExit: (cb) => {
+      const h = pty.onExit(cb);
+      return () => h.dispose();
+    },
+  };
+}
+
+/** 降级:用 child_process.spawn 模拟 TTY(无 PTY,但设置 FORCE_COLOR 启用颜色) */
+function spawnFallback(command: string, cwd: string, _cols: number, _rows: number): SessionProc {
+  const env = { ...buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS, TERMINAL_CLI_CREDENTIAL_ALLOWLIST), FORCE_COLOR: '1' } as Record<string, string>;
+  const child = spawnChild(command, {
+    shell: true,
+    cwd,
+    env,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    // F-003:POSIX 下自成进程组,清理点才能 kill(-pid) 收掉整组;输入输出都走 pipe,
+    // 不涉及交互式终端的 stdin/stdout 继承,detached 不会改变读写行为。
+    // Windows 无进程组语义,detached 只会多分配控制台窗口 ⇒ 不设,团灭走 taskkill /T。
+    detached: process.platform !== 'win32',
+  });
+  return {
+    pid: child.pid,
+    write: (data: string) => { child.stdin?.write(data); },
+    // F-003:降级路径是 shell:true,`child.kill` 只杀 shell,命令自己派生/后台化的
+    // 子进程(sleep、npm 起的 node、cmd 启动的 exe)继承 stdio 继续活着 —— 会话关掉
+    // 了进程还在。先给目标 shell 信号,再走进程树回收(Windows taskkill /T,F / POSIX 组)。
+    kill: (signal?: string) => {
+      try { child.kill(signal as NodeJS.Signals); } catch { /* ignore */ }
+      killProcessTree(child.pid);
+    },
+    onData: (cb) => {
+      // F-026:输出字节不承诺 UTF-8(936 代码页子进程的中文按 GBK 吐)⇒ 硬解 utf-8 会成 U+FFFD。
+      // 复用 output-encoding 的**流式**解码器(整读版 decodeBufferWithFallback 无跨 chunk 状态,
+      // 边界切开的半个字符会被判 U+FFFD):unknown 档把截断的序列攒进 pending 等下一块,
+      // 判不出 UTF-8 才走 legacy 回退链(gb18030/cp932/...)。stdout/stderr 各一份独立状态。
+      const stdoutDecoder = createStreamDecoder(() => resolveLegacyEncoding());
+      const stderrDecoder = createStreamDecoder(() => resolveLegacyEncoding());
+      const h1 = (chunk: Buffer) => cb(stdoutDecoder.write(chunk));
+      const h2 = (chunk: Buffer) => cb(stderrDecoder.write(chunk));
+      child.stdout?.on('data', h1);
+      child.stderr?.on('data', h2);
+      return () => { child.stdout?.off('data', h1); child.stderr?.off('data', h2); };
+    },
+    onExit: (cb) => {
+      const h = (code: number | null, signal: NodeJS.Signals | null) => {
+        cb({ exitCode: code ?? 0, signal: signal ? Number(signal) : undefined });
+      };
+      child.on('close', h);
+      return () => child.off('close', h);
+    },
+  };
+}
+
+/** 清理超时会话(30 分钟无活动)— 每次新建会话前调用 */
+function pruneStaleSessions(): void {
+  const now = Date.now();
+  for (const [id, s] of sessions) {
+    if (now - s.lastActivityAt > SESSION_TIMEOUT_MS) {
+      try { s.proc?.kill('SIGTERM'); } catch { /* ignore */ }
+      // F-003:会话句柄的 kill 只管直接子进程(PTY 的 shell / spawn 的 shell),
+      // 命令自己派生的孙进程还在 ⇒ 补一发按 pid 的进程树回收。
+      killProcessTree(s.proc?.pid);
+      sessions.delete(id);
+    }
+  }
+}
+
+// ==================== 工具实现 ====================
+
+export const terminal_open: Tool = {
+  name: 'terminal_open',
+  description: '创建长驻 PTY 终端会话(交互式 shell,如 pnpm dev / python repl)。参数:command(要执行的命令),cwd(可选,工作目录,默认工作区根),cols(可选,列数,默认 80),rows(可选,行数,默认 24)。返回 sessionId。',
+  dangerLevel: 'dangerous',
+  parameters: {
+    command: { type: 'string', description: '要执行的 shell 命令(如 pnpm dev)' },
+    cwd: { type: 'string', description: '工作目录(默认工作区根目录)' },
+    cols: { type: 'number', description: '终端列数(默认 80)' },
+    rows: { type: 'number', description: '终端行数(默认 24)' },
+  },
+  required: ['command'],
+  async execute(args, ctx): Promise<ToolResult> {
+    const command = args.command as string;
+    if (!command) return { success: false, output: '', error: '缺少 command 参数' };
+
+    // 安全:与 run_command 走**同一个**闸门判定(command-safety 的 gateCommandExecution
+    // + describeCommandBlock),两档语义一处实现:危险档可被 IHUI_YOLO 越,
+    // alwaysConfirm 档连逃生舱也不放行;免确认资格只给"只读且非破坏性"。
+    const gate = gateCommandExecution(command);
+    const blockMessage = describeCommandBlock(gate, !!process.env.IHUI_YOLO);
+    if (blockMessage) {
+      return { success: false, output: blockMessage };
+    }
+    if (!gate.autoApprovable) {
+      // 经唯一判定出口问人:无渠道与人答假都是拒绝(可观测行为与原两支逐字等价)。
+      const confirmation = await resolveDangerousConfirmation(ctx, terminal_open, args);
+      if (confirmation.kind !== 'approved') {
+        return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${terminal_open.name}` };
+      }
+    }
+    const preResult = await runPreToolCall('terminal', { command, cwd: args.cwd ?? ctx.workspacePath }, ctx.signal);
+    if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
+
+    // 沙箱预检(sandbox.enabled=true 时生效;默认关闭,完全向后兼容)
+    if (isSandboxEnabled()) {
+      // 授权根只认服务端可信的工作区,绝不取自工具入参 args.cwd ——
+      // 否则传一个 cwd 就能把 allowRead/allowWrite 的默认边界挪出工作区。
+      const decision = precheckSandboxedCommand(buildSandboxPolicy(ctx.workspacePath), command);
+      if (!decision.allowed) {
+        return {
+          success: false,
+          output: '',
+          error: `沙箱策略拒绝该命令: ${decision.violations.map((v) => `[${v.kind}] ${v.message}`).join('; ')}`,
+        };
+      }
+    }
+
+    // 清理超时会话 + 限额检查
+    pruneStaleSessions();
+    if (sessions.size >= MAX_SESSIONS) {
+      return { success: false, output: '', error: `超过最大并发终端数(${MAX_SESSIONS})` };
+    }
+
+    const cwd = (args.cwd as string) || ctx.workspacePath;
+    const cols = (args.cols as number) ?? 80;
+    const rows = (args.rows as number) ?? 24;
+    const id = genId();
+    const mode: 'pty' | 'spawn' = ptyMod ? 'pty' : 'spawn';
+
+    let proc: SessionProc;
+    try {
+      proc = ptyMod ? spawnPty(command, cwd, cols, rows) : spawnFallback(command, cwd, cols, rows);
+    } catch (e) {
+      return { success: false, output: '', error: `终端创建失败: ${(e as Error).message}` };
+    }
+
+    const session: TerminalSession = {
+      id, command, proc, cols, rows,
+      startedAt: Date.now(),
+      lastActivityAt: Date.now(),
+      outputBuffer: '',
+      lastReadOffset: 0,
+      exited: false,
+      mode,
+    };
+
+    proc.onData((data: string) => {
+      session.lastActivityAt = Date.now();
+      if (session.outputBuffer.length < MAX_OUTPUT_BUFFER) {
+        session.outputBuffer += data;
+        if (session.outputBuffer.length >= MAX_OUTPUT_BUFFER) {
+          // 超限时保留最新 1MB,同步修正 lastReadOffset 避免负差
+          const overflow = session.outputBuffer.length - MAX_OUTPUT_BUFFER;
+          session.outputBuffer = session.outputBuffer.slice(overflow);
+          session.lastReadOffset = Math.max(0, session.lastReadOffset - overflow);
+        }
+      }
+    });
+    proc.onExit((e) => {
+      session.exited = true;
+      session.exitCode = e.exitCode;
+      session.lastActivityAt = Date.now();
+    });
+
+    sessions.set(id, session);
+    return {
+      success: true,
+      output: `终端会话已创建\n  sessionId: ${id}\n  command: ${command}\n  cwd: ${cwd}\n  size: ${cols}x${rows}\n  mode: ${mode}${mode === 'spawn' ? '(node-pty 未安装,降级 child_process)' : ''}\n  用 terminal_send ${id} <input> 发送输入,terminal_read ${id} 读取输出,terminal_close ${id} 关闭`,
+    };
+  },
+};
+
+export const terminal_send: Tool = {
+  name: 'terminal_send',
+  description: '向 PTY 终端会话发送输入(模拟键盘输入)。参数:sessionId,input(要发送的文本),pressEnter(可选,默认 false,是否在末尾追加 \\r 回车)。',
+  dangerLevel: 'write',
+  parameters: {
+    sessionId: { type: 'string', description: 'terminal_open 返回的 sessionId' },
+    input: { type: 'string', description: '要发送的输入文本' },
+    pressEnter: { type: 'boolean', description: '是否在输入末尾追加回车(\\r,默认 false)' },
+  },
+  required: ['sessionId', 'input'],
+  async execute(args, ctx): Promise<ToolResult> {
+    const sessionId = args.sessionId as string;
+    const input = args.input as string;
+    const pressEnter = args.pressEnter === true;
+    if (!sessionId) return { success: false, output: '', error: '缺少 sessionId 参数' };
+    if (input === undefined || input === null) return { success: false, output: '', error: '缺少 input 参数' };
+
+    const session = sessions.get(sessionId);
+    if (!session) return { success: false, output: '', error: `会话 ${sessionId} 不存在` };
+    if (session.exited) return { success: false, output: '', error: `会话 ${sessionId} 已退出(exitCode=${session.exitCode ?? '-'})` };
+    if (!session.proc) return { success: false, output: '', error: `会话 ${sessionId} 无进程句柄` };
+
+    // 每一次 send 都是一条新的、会被 shell 执行的命令行。open 只判首条命令时,
+    // 先 open 一条免确认命令、再 send 任意危险命令即可完全绕过闸门 ⇒ 每次输入
+    // 都复用 terminal_open 的同一条判定出口(gate + describe + 唯一确认出口)。
+    const gate = gateCommandExecution(input);
+    const blockMessage = describeCommandBlock(gate, !!process.env.IHUI_YOLO);
+    if (blockMessage) return { success: false, output: blockMessage };
+    if (!gate.autoApprovable) {
+      const confirmation = await resolveDangerousConfirmation(ctx, terminal_send, args);
+      if (confirmation.kind !== 'approved') {
+        return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${terminal_send.name}` };
+      }
+    }
+    const preResult = await runPreToolCall('terminal', { command: input, cwd: ctx.workspacePath }, ctx.signal);
+    if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
+
+    // 沙箱预检同样逐次执行,授权根只认可信工作区。
+    if (isSandboxEnabled()) {
+      const decision = precheckSandboxedCommand(buildSandboxPolicy(ctx.workspacePath), input);
+      if (!decision.allowed) {
+        return {
+          success: false,
+          output: '',
+          error: `沙箱策略拒绝该输入: ${decision.violations.map((v) => `[${v.kind}] ${v.message}`).join('; ')}`,
+        };
+      }
+    }
+
+    try {
+      session.proc.write(input + (pressEnter ? '\r' : ''));
+      session.lastActivityAt = Date.now();
+      return {
+        success: true,
+        output: `已发送 ${input.length + (pressEnter ? 1 : 0)} 字节到会话 ${sessionId}${pressEnter ? '(含回车)' : ''}`,
+      };
+    } catch (e) {
+      return { success: false, output: '', error: `写入失败: ${(e as Error).message}` };
+    }
+  },
+};
+
+export const terminal_read: Tool = {
+  name: 'terminal_read',
+  description: '读取 PTY 终端会话的累积输出(返回自上次读取以来的新输出)。参数:sessionId,timeout(可选,等待新输出的超时毫秒数,默认 3000)。',
+  dangerLevel: 'read',
+  parameters: {
+    sessionId: { type: 'string', description: 'terminal_open 返回的 sessionId' },
+    timeout: { type: 'number', description: '等待新输出的超时毫秒数(默认 3000)' },
+  },
+  required: ['sessionId'],
+  async execute(args, _ctx): Promise<ToolResult> {
+    const sessionId = args.sessionId as string;
+    const timeout = (args.timeout as number) ?? 3000;
+    if (!sessionId) return { success: false, output: '', error: '缺少 sessionId 参数' };
+
+    const session = sessions.get(sessionId);
+    if (!session) return { success: false, output: '', error: `会话 ${sessionId} 不存在` };
+
+    // 等待新输出(若已读到末尾,短暂轮询等待新数据到达)
+    const start = Date.now();
+    while (
+      session.outputBuffer.length <= session.lastReadOffset &&
+      !session.exited &&
+      Date.now() - start < timeout
+    ) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+
+    const newOutput = session.outputBuffer.slice(session.lastReadOffset);
+    session.lastReadOffset = session.outputBuffer.length;
+
+    const parts: string[] = [];
+    if (newOutput) parts.push(newOutput);
+    if (session.exited) parts.push(`\n[会话已退出 exitCode=${session.exitCode ?? '-'}]`);
+    if (!newOutput && !session.exited) parts.push('(暂无新输出)');
+
+    return { success: true, output: parts.join('').trimEnd() || '(无输出)' };
+  },
+};
+
+export const terminal_resize: Tool = {
+  name: 'terminal_resize',
+  description: '调整 PTY 终端会话的尺寸(列数 x 行数)。参数:sessionId,cols,rows。',
+  dangerLevel: 'read',
+  parameters: {
+    sessionId: { type: 'string', description: 'terminal_open 返回的 sessionId' },
+    cols: { type: 'number', description: '新的列数' },
+    rows: { type: 'number', description: '新的行数' },
+  },
+  required: ['sessionId', 'cols', 'rows'],
+  async execute(args, _ctx): Promise<ToolResult> {
+    const sessionId = args.sessionId as string;
+    const cols = args.cols as number;
+    const rows = args.rows as number;
+    if (!sessionId) return { success: false, output: '', error: '缺少 sessionId 参数' };
+    if (!cols || !rows || cols < 1 || rows < 1) return { success: false, output: '', error: 'cols 和 rows 必须为正整数' };
+
+    const session = sessions.get(sessionId);
+    if (!session) return { success: false, output: '', error: `会话 ${sessionId} 不存在` };
+    if (session.exited) return { success: false, output: '', error: `会话 ${sessionId} 已退出` };
+
+    if (!session.proc?.resize) {
+      // 降级模式(spawn)不支持 PTY resize,仅更新元数据
+      session.cols = cols;
+      session.rows = rows;
+      return { success: true, output: `会话 ${sessionId} 尺寸更新为 ${cols}x${rows}(降级模式无 PTY resize)` };
+    }
+    try {
+      session.proc.resize(cols, rows);
+      session.cols = cols;
+      session.rows = rows;
+      return { success: true, output: `会话 ${sessionId} 尺寸调整为 ${cols}x${rows}` };
+    } catch (e) {
+      return { success: false, output: '', error: `resize 失败: ${(e as Error).message}` };
+    }
+  },
+};
+
+export const terminal_close: Tool = {
+  name: 'terminal_close',
+  description: '关闭 PTY 终端会话(终止进程,释放资源)。参数:sessionId。',
+  dangerLevel: 'write',
+  parameters: {
+    sessionId: { type: 'string', description: 'terminal_open 返回的 sessionId' },
+  },
+  required: ['sessionId'],
+  async execute(args, _ctx): Promise<ToolResult> {
+    const sessionId = args.sessionId as string;
+    if (!sessionId) return { success: false, output: '', error: '缺少 sessionId 参数' };
+
+    const session = sessions.get(sessionId);
+    if (!session) return { success: false, output: '', error: `会话 ${sessionId} 不存在` };
+
+    try { session.proc?.kill('SIGTERM'); } catch { /* ignore */ }
+    // F-003:terminal_close 同样只收到 shell 层就会漏掉孙进程(dev server 继续占端口),
+    // 按会话根 pid 再收一次整棵树(Windows taskkill /T /F;POSIX kill(-pid))。
+    killProcessTree(session.proc?.pid);
+    sessions.delete(sessionId);
+    return {
+      success: true,
+      output: `会话 ${sessionId} 已关闭(command: ${session.command}, exitCode: ${session.exitCode ?? '-'})`,
+    };
+  },
+};
+
+export const terminal_exec_sandboxed: Tool = {
+  name: 'terminal_exec_sandboxed',
+  description: '在 OS 级沙箱内一次性执行命令(策略白名单 + 路径授权 + 资源限制,输出受控)。需沙箱已启用(settings.sandbox.enabled=true 或 IHUI_SANDBOX_ENABLED=1)。参数:command(命令),cwd(可选,默认工作区根)。',
+  dangerLevel: 'dangerous',
+  parameters: {
+    command: { type: 'string', description: '要在沙箱内执行的命令' },
+    cwd: { type: 'string', description: '工作目录(默认工作区根目录)' },
+  },
+  required: ['command'],
+  async execute(args, ctx): Promise<ToolResult> {
+    const command = args.command as string;
+    if (!command) return { success: false, output: '', error: '缺少 command 参数' };
+    if (!isSandboxEnabled()) {
+      return {
+        success: false,
+        output: '',
+        error: '沙箱未启用(默认关闭):在 settings 中设置 sandbox.enabled=true,或设置环境变量 IHUI_SANDBOX_ENABLED=1',
+      };
+    }
+    const cwd = (args.cwd as string) || ctx.workspacePath;
+    // 授权根只认可信工作区;args.cwd 仅作为执行目录,不参与授权边界计算。
+    const policy = buildSandboxPolicy(ctx.workspacePath);
+    try {
+      const result = await execSandboxed(policy, command, { cwd });
+      const meta = `backend=${result.backend} exitCode=${result.exitCode ?? '-'}${result.timedOut ? ' (超时强杀)' : ''}${result.truncated ? ' (输出已截断)' : ''}`;
+      if (result.refused) {
+        return { success: false, output: '', error: `沙箱拒绝执行(${meta}):\n${result.stderr}` };
+      }
+      return { success: (result.exitCode ?? 1) === 0, output: `[${meta}]\n${result.stdout}${result.stderr ? `\n[stderr]\n${result.stderr}` : ''}`.trimEnd() };
+    } catch (e) {
+      return { success: false, output: '', error: `沙箱执行失败: ${(e as Error).message}` };
+    }
+  },
+};
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

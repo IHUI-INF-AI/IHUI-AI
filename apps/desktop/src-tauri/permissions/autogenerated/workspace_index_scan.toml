@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-workspace-index-scan"
+description = "Enables the workspace_index_scan command without any pre-configured scope."
+commands.allow = ["workspace_index_scan"]
+
+[[permission]]
+identifier = "deny-workspace-index-scan"
+description = "Denies the workspace_index_scan command without any pre-configured scope."
+commands.deny = ["workspace_index_scan"]

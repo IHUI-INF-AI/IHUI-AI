@@ -1,0 +1,1058 @@
+<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
+# 跨端生产线总账 · 逐页清单(机器生成)
+
+> 由 `scripts/cross-end-pipeline-inventory.mjs --pages-md=<路径>` 生成,与 `--json` 同一份判定数据。
+> 取材面 = head(本报告默认 HEAD blob);重跑会整文件覆盖本文件。
+> 说明与判据见 [主报告](./cross-end-pipeline-inventory-2026-11-08.md)。
+
+## 口径速记
+
+- 已共享 = web 页面族 import `@ihui/rn-app`/`packages/app/src` 且渲染 `*Screen`;仅 import 组件记为局部共享。
+- 端侧各自 = 登记表 aligned,web 未接共享屏;按 RN 侧真实形态分三档(已接共享屏 / 共享屏在但 RN 未接 / 两端都自实现)。
+- 只存在一端 = web 侧 gap/unmapped(未判定) + RN 侧未被 aligned 行引用(启发式消歧)。
+- 无法共享 = 登记表 excluded(平台特有) + portal(WebView 门户承载)。
+- 行数 = 页面族有效内容行(不含空行/整行注释),仅用于候选排序,不是精确 LOC。
+
+### 已共享·整屏 (2)
+
+- `h5/share/[code]` ← ShareLandingScreen  (apps/web/app/h5/share/[code]/page.tsx)
+- `wallet/withdraw` ← SharedWithdrawScreen  (apps/web/app/(main)/wallet/withdraw/page.tsx)
+
+### 已共享·仅局部组件 (3)
+
+- `agents/categories/[id]` ← CategoryHeader, AgentAvatar  (apps/web/app/(main)/agents/categories/[id]/page.tsx)
+- `exam/[id]/result` ← ExamResultReviewList, ExamResultStats  (apps/web/app/(main)/exam/[id]/result/page.tsx)
+- `live` ← LiveQuickActions  (apps/web/app/(main)/live/page.tsx)
+
+### 端侧各自·RN 已接共享屏 (227)
+
+- `about` — web 220 行 / rn `packages/app/src/features/about/AboutScreen.tsx`  (shared)
+- `account-pool` — web 249 行 / rn `packages/app/src/features/account-pool/AccountPoolScreen.tsx`  (shared)
+- `activities` — web 255 行 / rn `packages/app/src/features/activity/ActivityScreen.tsx`  (shared)
+- `activities/[slug]` — web 189 行 / rn `packages/app/src/features/activity-detail/ActivityDetailScreen.tsx`  (shared)
+- `agents` — web 87 行 / rn `packages/app/src/features/agent-screen/AgentScreen.tsx`  (shared)
+- `agents/[id]` — web 327 行 / rn `packages/app/src/features/agent-detail/AgentDetailScreen.tsx`  (shared)
+- `agents/create` — web 370 行 / rn `packages/app/src/features/agent-create/AgentCreateScreen.tsx`  (shared)
+- `agents/edit/[id]` — web 128 行 / rn `apps/mobile-rn/src/screens/AgentEditScreen.tsx`  (shared-adapter)
+- `agents/featured` — web 238 行 / rn `packages/app/src/features/agent-market/AgentMarketScreen.tsx`  (shared)
+- `agents/my` — web 289 行 / rn `apps/mobile-rn/src/screens/MyAgentsScreen.tsx`  (shared-adapter)
+- `agents/stats` — web 241 行 / rn `packages/app/src/features/agent-stat/AgentStatScreen.tsx`  (shared)
+- `agreement` — web 137 行 / rn `packages/app/src/features/agreement/AgreementScreen.tsx`  (shared)
+- `agreement/[type]` — web 127 行 / rn `apps/mobile-rn/src/screens/AgreementByTypeScreen.tsx`  (shared-adapter)
+- `ai-career` — web 470 行 / rn `apps/mobile-rn/src/screens/AiCareerScreen.tsx`  (shared-adapter)
+- `ai-skills` — web 516 行 / rn `apps/mobile-rn/src/screens/AiSkillScreen.tsx`  (shared-adapter)
+- `ai-skills/[id]` — web 642 行 / rn `apps/mobile-rn/src/screens/AiSkillDetailScreen.tsx`  (shared-adapter)
+- `ai-world` — web 135 行 / rn `packages/app/src/features/ai-world/AiWorldScreen.tsx`  (shared)
+- `ai-world/[id]` — web 214 行 / rn `apps/mobile-rn/src/screens/AiWorldDetailScreen.tsx`  (shared-adapter)
+- `ai-world/edit/[id]` — web 193 行 / rn `apps/mobile-rn/src/screens/AiWorldEditScreen.tsx`  (shared-adapter)
+- `ai-world/favorites` — web 215 行 / rn `apps/mobile-rn/src/screens/AiWorldFavoritesScreen.tsx`  (shared-adapter)
+- `ai-world/history` — web 225 行 / rn `apps/mobile-rn/src/screens/AiWorldHistoryScreen.tsx`  (shared-adapter)
+- `announcements` — web 217 行 / rn `packages/app/src/features/announcement/AnnouncementScreen.tsx`  (shared)
+- `announcements/[id]` — web 166 行 / rn `packages/app/src/features/announcement-detail/AnnouncementDetailScreen.tsx`  (shared)
+- `app-permissions` — web 69 行 / rn `packages/app/src/features/app-permission/AppPermissionScreen.tsx`  (shared)
+- `articles/[id]` — web 139 行 / rn `apps/mobile-rn/src/screens/ArticleDetailScreen.tsx`  (shared-adapter)
+- `asks` — web 109 行 / rn `packages/app/src/features/ask-list/AskListScreen.tsx`  (shared)
+- `asks/[id]` — web 254 行 / rn `packages/app/src/features/ask-detail/AskDetailScreen.tsx`  (shared)
+- `asks/edit` — web 123 行 / rn `apps/mobile-rn/src/screens/AskCreateScreen.tsx`  (shared-adapter)
+- `automations` — web 643 行 / rn `packages/app/src/features/automations/AutomationsScreen.tsx`  (shared)
+- `bi-dashboard` — web 309 行 / rn `apps/mobile-rn/src/screens/DashboardScreen.tsx`  (shared-adapter)
+- `business-card` — web 390 行 / rn `apps/mobile-rn/src/screens/BusinessCardScreen.tsx`  (shared-adapter)
+- `business-license` — web 38 行 / rn `packages/app/src/features/business-license/BusinessLicenseScreen.tsx`  (shared)
+- `carte` — web 40 行 / rn `packages/app/src/features/carte/CarteScreen.tsx`  (shared)
+- `certificate` — web 3 行 / rn `packages/app/src/features/certificate/CertificateScreen.tsx`  (shared)
+- `certificate/[id]` — web 138 行 / rn `apps/mobile-rn/src/screens/CertDetailScreen.tsx`  (shared-adapter)
+- `certificate/verify` — web 222 行 / rn `apps/mobile-rn/src/screens/CertVerifyScreen.tsx`  (shared-adapter)
+- `chat` — web 2779 行 / rn `packages/app/src/features/chat/ChatScreen.tsx`  (shared)
+- `chat/history` — web 1220 行 / rn `packages/app/src/features/chat/ChatScreen.tsx`  (shared)
+- `chat/workbench` — web 587 行 / rn `apps/mobile-rn/src/screens/ChatWorkbenchScreen.tsx`  (shared-adapter)
+- `circles/[id]` — web 166 行 / rn `apps/mobile-rn/src/screens/CircleDetailScreen.tsx`  (shared-adapter)
+- `circles/post` — web 306 行 / rn `apps/mobile-rn/src/screens/CirclePostScreen.tsx`  (shared-adapter)
+- `comments` — web 450 行 / rn `apps/mobile-rn/src/screens/MyCommentsScreen.tsx`  (shared-adapter)
+- `commission/plan` — web 202 行 / rn `apps/mobile-rn/src/screens/InviteScreen.tsx`  (shared-adapter)
+- `connectors` — web 622 行 / rn `packages/app/src/features/connectors/ConnectorsScreen.tsx`  (shared)
+- `context` — web 414 行 / rn `packages/app/src/features/context/ContextScreen.tsx`  (shared)
+- `context/compression` — web 287 行 / rn `packages/app/src/features/context/ContextScreen.tsx`  (shared)
+- `context/mentions` — web 474 行 / rn `packages/app/src/features/context/ContextScreen.tsx`  (shared)
+- `dashboard` — web 578 行 / rn `packages/app/src/features/home/HomeScreen.tsx`  (shared)
+- `developer` — web 390 行 / rn `packages/app/src/features/developer/DeveloperScreen.tsx`  (shared)
+- `distribution` — web 304 行 / rn `packages/app/src/features/distribution/DistributionScreen.tsx`  (shared)
+- `distribution/orders` — web 327 行 / rn `apps/mobile-rn/src/screens/DistributionOrderListScreen.tsx`  (shared-adapter)
+- `distribution/referrer` — web 305 行 / rn `packages/app/src/features/referrer/ReferrerScreen.tsx`  (shared)
+- `distribution/team` — web 341 行 / rn `packages/app/src/features/team/TeamScreen.tsx`  (shared)
+- `distribution/team/[id]` — web 212 行 / rn `apps/mobile-rn/src/screens/InviteScreen.tsx`  (shared-adapter)
+- `ecosystem/connectors/[key]` — web 179 行 / rn `apps/mobile-rn/src/screens/ConnectorsScreen.tsx`  (shared-adapter)
+- `edu-ai/aigc-tools` — web 518 行 / rn `apps/mobile-rn/src/screens/EduAiHubScreen.tsx`  (shared-adapter)
+- `edu-ai/certification` — web 403 行 / rn `apps/mobile-rn/src/screens/EduAiHubScreen.tsx`  (shared-adapter)
+- `edu-ai/courses` — web 474 行 / rn `apps/mobile-rn/src/screens/EduAiHubScreen.tsx`  (shared-adapter)
+- `edu-ai/policy` — web 425 行 / rn `apps/mobile-rn/src/screens/EduAiHubScreen.tsx`  (shared-adapter)
+- `edu-ai/video-compose` — web 612 行 / rn `apps/mobile-rn/src/screens/EduAiVideoComposeScreen.tsx`  (shared-adapter)
+- `edu/attendance` — web 146 行 / rn `apps/mobile-rn/src/screens/EduMyAttendanceScreen.tsx`  (shared-adapter)
+- `edu/certificates` — web 8 行 / rn `packages/app/src/features/cert-list/CertListScreen.tsx`  (shared)
+- `edu/certificates/[id]` — web 7 行 / rn `packages/app/src/features/cert-detail/CertDetailScreen.tsx`  (shared)
+- `edu/courses/[id]` — web 7 行 / rn `packages/app/src/features/course-detail/CourseDetailScreen.tsx`  (shared)
+- `edu/courses/[id]/learn` — web 294 行 / rn `packages/app/src/features/course-chapter/CourseChapterScreen.tsx`  (shared)
+- `edu/dashboard` — web 305 行 / rn `apps/mobile-rn/src/screens/EduDashboardScreen.tsx`  (shared-adapter)
+- `edu/edu-management/enrollment` — web 1519 行 / rn `apps/mobile-rn/src/screens/EduEnrollmentScreen.tsx`  (shared-adapter)
+- `edu/edu-management/finance` — web 2317 行 / rn `apps/mobile-rn/src/screens/EduFinanceScreen.tsx`  (shared-adapter)
+- `edu/edu-management/grades` — web 1000 行 / rn `apps/mobile-rn/src/screens/EduGradesScreen.tsx`  (shared-adapter)
+- `edu/edu-management/grades/trend/[studentId]` — web 278 行 / rn `apps/mobile-rn/src/screens/EduGradeTrendScreen.tsx`  (shared-adapter)
+- `edu/edu-management/meal` — web 1479 行 / rn `apps/mobile-rn/src/screens/EduMealScreen.tsx`  (shared-adapter)
+- `edu/edu-management/schedule` — web 1135 行 / rn `apps/mobile-rn/src/screens/EduScheduleScreen.tsx`  (shared-adapter)
+- `edu/edu-management/scheduling` — web 1178 行 / rn `apps/mobile-rn/src/screens/EduSchedulingScreen.tsx`  (shared-adapter)
+- `edu/edu-management/study-plan` — web 635 行 / rn `apps/mobile-rn/src/screens/EduTeacherStudyPlanScreen.tsx`  (shared-adapter)
+- `edu/exam` — web 229 行 / rn `packages/app/src/features/exam/ExamScreen.tsx`  (shared)
+- `edu/exam/[id]` — web 198 行 / rn `packages/app/src/features/exam-question/ExamQuestionScreen.tsx`  (shared)
+- `edu/exam/[id]/result` — web 200 行 / rn `packages/app/src/features/exam-result/ExamResultScreen.tsx`  (shared)
+- `edu/notes` — web 225 行 / rn `packages/app/src/features/note-list/NoteListScreen.tsx`  (shared)
+- `edu/parent/bind` — web 258 行 / rn `apps/mobile-rn/src/screens/EduParentBindScreen.tsx`  (shared-adapter)
+- `edu/parent/children/[childId]/attendance` — web 164 行 / rn `apps/mobile-rn/src/screens/EduChildAttendanceScreen.tsx`  (shared-adapter)
+- `edu/parent/children/[childId]/courses` — web 114 行 / rn `apps/mobile-rn/src/screens/EduChildScheduleScreen.tsx`  (shared-adapter)
+- `edu/parent/children/[childId]/grades` — web 148 行 / rn `apps/mobile-rn/src/screens/EduChildGradesScreen.tsx`  (shared-adapter)
+- `edu/parent/children/[childId]/meals` — web 103 行 / rn `apps/mobile-rn/src/screens/EduChildMealsScreen.tsx`  (shared-adapter)
+- `edu/parent/children/[childId]/study-plans` — web 111 行 / rn `apps/mobile-rn/src/screens/EduChildStudyPlansScreen.tsx`  (shared-adapter)
+- `edu/progress` — web 267 行 / rn `packages/app/src/features/study-progress/StudyProgressScreen.tsx`  (shared)
+- `edu/qa` — web 293 行 / rn `packages/app/src/features/course-qa-list/CourseQAListScreen.tsx`  (shared)
+- `edu/shop` — web 450 行 / rn `apps/mobile-rn/src/screens/EduShopScreen.tsx`  (shared-adapter)
+- `exam` — web 140 行 / rn `packages/app/src/features/exam/ExamScreen.tsx`  (shared)
+- `exam/[id]` — web 146 行 / rn `apps/mobile-rn/src/screens/ExamQuestionScreen.tsx`  (shared-adapter)
+- `exam/wrong-questions` — web 375 行 / rn `packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx`  (shared)
+- `favorites` — web 143 行 / rn `packages/app/src/features/favorite/FavoriteScreen.tsx`  (shared)
+- `feedback` — web 416 行 / rn `packages/app/src/features/feedback/FeedbackScreen.tsx`  (shared)
+- `feedback/[id]` — web 93 行 / rn `apps/mobile-rn/src/screens/FeedbackDetailScreen.tsx`  (shared-adapter)
+- `following` — web 138 行 / rn `packages/app/src/features/follow/FollowScreen.tsx`  (shared)
+- `help` — web 274 行 / rn `packages/app/src/features/help/HelpScreen.tsx`  (shared)
+- `help/[slug]` — web 182 行 / rn `apps/mobile-rn/src/screens/HelpScreen.tsx`  (shared-adapter)
+- `home` — web 317 行 / rn `packages/app/src/features/home/HomeScreen.tsx`  (shared)
+- `image-gen/favorites` — web 87 行 / rn `apps/mobile-rn/src/screens/ImageGenHistoryScreen.tsx`  (shared-adapter)
+- `image-gen/gallery` — web 111 行 / rn `packages/app/src/features/image-gen-gallery/ImageGenGalleryScreen.tsx`  (shared)
+- `image-gen/history` — web 90 行 / rn `packages/app/src/features/image-gen-history/ImageGenHistoryScreen.tsx`  (shared)
+- `image-gen/templates` — web 157 行 / rn `packages/app/src/features/image-gen-templates/ImageGenTemplatesScreen.tsx`  (shared)
+- `invitations` — web 400 行 / rn `apps/mobile-rn/src/screens/InvitationsScreen.tsx`  (shared-adapter)
+- `knowledge-base` — web 230 行 / rn `packages/app/src/features/knowledge-base/KnowledgeBaseListScreen.tsx`  (shared)
+- `knowledge-base/[id]` — web 183 行 / rn `apps/mobile-rn/src/screens/KnowledgeEntryReadingScreen.tsx`  (shared-adapter)
+- `knowledge-planet` — web 214 行 / rn `apps/mobile-rn/src/screens/KnowledgePlanetScreen.tsx`  (shared-adapter)
+- `knowledge-rag/[id]` — web 168 行 / rn `apps/mobile-rn/src/screens/KnowledgeDocScreen.tsx`  (shared-adapter)
+- `knowledge-rag/[id]/chunks` — web 152 行 / rn `apps/mobile-rn/src/screens/KnowledgeDocScreen.tsx`  (shared-adapter)
+- `knowledge-rag/manage` — web 395 行 / rn `apps/mobile-rn/src/screens/KnowledgeBaseScreen.tsx`  (shared-adapter)
+- `learn` — web 312 行 / rn `packages/app/src/features/learn/LearnScreen.tsx`  (shared)
+- `learn/[id]` — web 272 行 / rn `packages/app/src/features/course-detail/CourseDetailScreen.tsx`  (shared)
+- `learn/[id]/homework` — web 165 行 / rn `apps/mobile-rn/src/screens/CourseHomeworkScreen.tsx`  (shared-adapter)
+- `learn/[id]/rate` — web 206 行 / rn `packages/app/src/features/course-comment/CourseCommentScreen.tsx`  (shared)
+- `learn/payment/confirm` — web 227 行 / rn `packages/app/src/features/payment/PaymentScreen.tsx`  (shared)
+- `learn/topic/[id]` — web 195 行 / rn `apps/mobile-rn/src/screens/TopicDetailScreen.tsx`  (shared-adapter)
+- `lecturers` — web 262 行 / rn `apps/mobile-rn/src/screens/LecturerListScreen.tsx`  (shared-adapter)
+- `lecturers/[id]` — web 145 行 / rn `apps/mobile-rn/src/screens/LecturerProfileScreen.tsx`  (shared-adapter)
+- `legal/service-specific-terms` — web 30 行 / rn `apps/mobile-rn/src/screens/LegalDocScreen.tsx`  (shared-adapter)
+- `legal/supported-regions` — web 107 行 / rn `apps/mobile-rn/src/screens/LegalDocScreen.tsx`  (shared-adapter)
+- `legal/terms` — web 35 行 / rn `apps/mobile-rn/src/screens/LegalDocScreen.tsx`  (shared-adapter)
+- `legal/usage-policy` — web 30 行 / rn `apps/mobile-rn/src/screens/LegalDocScreen.tsx`  (shared-adapter)
+- `letters` — web 501 行 / rn `apps/mobile-rn/src/screens/LettersScreen.tsx`  (shared-adapter)
+- `live/[id]` — web 174 行 / rn `apps/mobile-rn/src/screens/LiveDetailScreen.tsx`  (shared-adapter)
+- `live/[id]/play` — web 190 行 / rn `apps/mobile-rn/src/screens/LivePlaybackScreen.tsx`  (shared-adapter)
+- `live/host` — web 398 行 / rn `apps/mobile-rn/src/screens/LiveHostScreen.tsx`  (shared-adapter)
+- `login` — web 182 行 / rn `packages/app/src/features/login/LoginScreen.tsx`  (shared)
+- `mcp-store` — web 578 行 / rn `packages/app/src/features/mcp-store/McpStoreScreen.tsx`  (shared)
+- `member/benefits` — web 202 行 / rn `packages/app/src/features/vip-benefit/VipBenefitScreen.tsx`  (shared)
+- `member/coupons` — web 235 行 / rn `packages/app/src/features/coupon/CouponScreen.tsx`  (shared)
+- `member/dashboard` — web 293 行 / rn `apps/mobile-rn/src/screens/MemberDashboardScreen.tsx`  (shared-adapter)
+- `member/exam/record` — web 250 行 / rn `packages/app/src/features/exam-history/ExamHistoryScreen.tsx`  (shared)
+- `member/favorites` — web 135 行 / rn `packages/app/src/features/favorite/FavoriteScreen.tsx`  (shared)
+- `member/feedback` — web 339 行 / rn `packages/app/src/features/feedback/FeedbackScreen.tsx`  (shared)
+- `member/help` — web 102 行 / rn `packages/app/src/features/help/HelpScreen.tsx`  (shared)
+- `member/history` — web 432 行 / rn `packages/app/src/features/history/HistoryScreen.tsx`  (shared)
+- `member/settings` — web 274 行 / rn `apps/mobile-rn/src/screens/MemberSettingsScreen.tsx`  (shared-adapter)
+- `member/subscription` — web 169 行 / rn `packages/app/src/features/subscriptions/SubscriptionsScreen.tsx`  (shared)
+- `memory` — web 537 行 / rn `packages/app/src/features/memory/MemoryScreen.tsx`  (shared)
+- `memory/scope/[scope]` — web 156 行 / rn `packages/app/src/features/memory/MemoryScreen.tsx`  (shared)
+- `messages/[type]` — web 206 行 / rn `apps/mobile-rn/src/screens/MessageCenterScreen.tsx`  (shared-adapter)
+- `models` — web 77 行 / rn `apps/mobile-rn/src/screens/ModelPlazaScreen.tsx`  (shared-adapter)
+- `models/prompts` — web 655 行 / rn `apps/mobile-rn/src/screens/ModelsPromptsScreen.tsx`  (shared-adapter)
+- `models/skills` — web 233 行 / rn `apps/mobile-rn/src/screens/AiSkillScreen.tsx`  (shared-adapter)
+- `models/usage` — web 548 行 / rn `apps/mobile-rn/src/screens/UsageScreen.tsx`  (shared-adapter)
+- `n8n-agents` — web 147 行 / rn `apps/mobile-rn/src/screens/N8nModelScreen.tsx`  (shared-adapter)
+- `news` — web 83 行 / rn `apps/mobile-rn/src/screens/NewsScreen.tsx`  (shared-adapter)
+- `news/[id]` — web 168 行 / rn `apps/mobile-rn/src/screens/NewsArticleScreen.tsx`  (shared-adapter)
+- `news/category/[id]` — web 214 行 / rn `apps/mobile-rn/src/screens/NewsCategoryScreen.tsx`  (shared-adapter)
+- `notifications` — web 367 行 / rn `apps/mobile-rn/src/screens/NotificationListScreen.tsx`  (shared-adapter)
+- `orders` — web 330 行 / rn `apps/mobile-rn/src/screens/OrderScreen.tsx`  (shared-adapter)
+- `orders/[id]` — web 235 行 / rn `apps/mobile-rn/src/screens/OrderDetailScreen.tsx`  (shared-adapter)
+- `payment` — web 98 行 / rn `packages/app/src/features/payment/PaymentScreen.tsx`  (shared)
+- `payment/checkout` — web 371 行 / rn `apps/mobile-rn/src/screens/PaymentScreen.tsx`  (shared-adapter)
+- `plan` — web 289 行 / rn `apps/mobile-rn/src/screens/PlanScreen.tsx`  (shared-adapter)
+- `plan/[id]` — web 330 行 / rn `apps/mobile-rn/src/screens/PlanDetailScreen.tsx`  (shared-adapter)
+- `plan/new` — web 426 行 / rn `apps/mobile-rn/src/screens/PlanNewScreen.tsx`  (shared-adapter)
+- `points` — web 616 行 / rn `packages/app/src/features/points/PointsScreen.tsx`  (shared)
+- `points/mall` — web 304 行 / rn `apps/mobile-rn/src/screens/PointsMallScreen.tsx`  (shared-adapter)
+- `points/sign-in` — web 397 行 / rn `apps/mobile-rn/src/screens/CheckInScreen.tsx`  (shared-adapter)
+- `points/tasks` — web 271 行 / rn `apps/mobile-rn/src/screens/TaskCenterScreen.tsx`  (shared-adapter)
+- `publish` — web 118 行 / rn `packages/app/src/features/publish/PublishScreen.tsx`  (shared)
+- `ranking` — web 122 行 / rn `packages/app/src/features/ranking/RankingScreen.tsx`  (shared)
+- `refund` — web 242 行 / rn `apps/mobile-rn/src/screens/RefundHistoryScreen.tsx`  (shared-adapter)
+- `refund/[id]` — web 244 行 / rn `apps/mobile-rn/src/screens/RefundDetailScreen.tsx`  (shared-adapter)
+- `registry` — web 626 行 / rn `apps/mobile-rn/src/screens/McpStoreScreen.tsx`  (shared-adapter)
+- `search` — web 515 行 / rn `packages/app/src/features/search/SearchScreen.tsx`  (shared)
+- `search/history` — web 238 行 / rn `apps/mobile-rn/src/screens/SearchHistoryScreen.tsx`  (shared-adapter)
+- `security-audit` — web 112 行 / rn `apps/mobile-rn/src/screens/SecurityAuditScreen.tsx`  (shared-adapter)
+- `settings` — web 630 行 / rn `packages/app/src/features/security-settings/SecuritySettingsScreen.tsx`  (shared)
+- `settings/account-deletion` — web 482 行 / rn `packages/app/src/features/account-cancel/AccountCancelScreen.tsx`  (shared)
+- `settings/billing` — web 941 行 / rn `apps/mobile-rn/src/screens/OrderScreen.tsx`  (shared-adapter)
+- `settings/connected-accounts` — web 269 行 / rn `packages/app/src/features/connected-accounts/ConnectedAccountsScreen.tsx`  (shared)
+- `settings/icp-record` — web 66 行 / rn `packages/app/src/features/icp-record/IcpRecordScreen.tsx`  (shared)
+- `settings/import` — web 1185 行 / rn `apps/mobile-rn/src/screens/ConversationImportScreen.tsx`  (shared-adapter)
+- `settings/llm` — web 943 行 / rn `apps/mobile-rn/src/screens/LlmSettingsScreen.tsx`  (shared-adapter)
+- `settings/notifications` — web 502 行 / rn `packages/app/src/features/notification-settings/NotificationSettingsScreen.tsx`  (shared)
+- `settings/privacy` — web 401 行 / rn `packages/app/src/features/privacy/PrivacyScreen.tsx`  (shared)
+- `settings/usage` — web 347 行 / rn `packages/app/src/features/usage/UsageScreen.tsx`  (shared)
+- `skills-market` — web 620 行 / rn `apps/mobile-rn/src/screens/SkillMarketListScreen.tsx`  (shared-adapter)
+- `skills-market/[id]` — web 27 行 / rn `apps/mobile-rn/src/screens/SkillMarketDetailScreen.tsx`  (shared-adapter)
+- `spec/[id]` — web 158 行 / rn `packages/app/src/features/spec/SpecScreen.tsx`  (shared)
+- `spec/generate` — web 310 行 / rn `packages/app/src/features/spec/SpecScreen.tsx`  (shared)
+- `status` — web 508 行 / rn `packages/app/src/features/status/StatusScreen.tsx`  (shared)
+- `student` — web 581 行 / rn `apps/mobile-rn/src/screens/StudentCenterScreen.tsx`  (shared-adapter)
+- `student/certificates` — web 214 行 / rn `packages/app/src/features/cert-list/CertListScreen.tsx`  (shared)
+- `student/my-asks` — web 179 行 / rn `packages/app/src/features/ask-list/AskListScreen.tsx`  (shared)
+- `student/my-circles` — web 271 行 / rn `packages/app/src/features/circle-member/CircleMemberScreen.tsx`  (shared)
+- `student/my-comments` — web 287 行 / rn `apps/mobile-rn/src/screens/MyCommentsScreen.tsx`  (shared-adapter)
+- `student/my-lessons` — web 261 行 / rn `apps/mobile-rn/src/screens/MyLessonsScreen.tsx`  (shared-adapter)
+- `student/my-resources` — web 295 行 / rn `apps/mobile-rn/src/screens/MyResourcesScreen.tsx`  (shared-adapter)
+- `student/notes` — web 348 行 / rn `packages/app/src/features/note-list/NoteListScreen.tsx`  (shared)
+- `student/offline-records` — web 385 行 / rn `apps/mobile-rn/src/screens/OfflineRecordsScreen.tsx`  (shared-adapter)
+- `student/wrong-book` — web 265 行 / rn `packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx`  (shared)
+- `subscriptions` — web 148 行 / rn `packages/app/src/features/subscriptions/SubscriptionsScreen.tsx`  (shared)
+- `support` — web 264 行 / rn `apps/mobile-rn/src/screens/SupportScreen.tsx`  (shared-adapter)
+- `tags` — web 262 行 / rn `apps/mobile-rn/src/screens/TagsScreen.tsx`  (shared-adapter)
+- `tags/[slug]` — web 181 行 / rn `apps/mobile-rn/src/screens/TagDetailScreen.tsx`  (shared-adapter)
+- `teams` — web 286 行 / rn `apps/mobile-rn/src/screens/TeamsScreen.tsx`  (shared-adapter)
+- `teams/[id]` — web 227 行 / rn `apps/mobile-rn/src/screens/TeamWorkspaceScreen.tsx`  (shared-adapter)
+- `token-value` — web 356 行 / rn `apps/mobile-rn/src/screens/TokenValueScreen.tsx`  (shared-adapter)
+- `tools` — web 192 行 / rn `apps/mobile-rn/src/screens/ToolsScreen.tsx`  (shared-adapter)
+- `tools/pdf/merge` — web 244 行 / rn `apps/mobile-rn/src/screens/PdfToolsHubScreen.tsx`  (shared-adapter)
+- `tools/pdf/split` — web 272 行 / rn `apps/mobile-rn/src/screens/PdfToolsHubScreen.tsx`  (shared-adapter)
+- `tools/pdf/watermark` — web 331 行 / rn `apps/mobile-rn/src/screens/PdfToolsHubScreen.tsx`  (shared-adapter)
+- `user/[id]` — web 156 行 / rn `apps/mobile-rn/src/screens/UserPublicScreen.tsx`  (shared-adapter)
+- `user/ask` — web 291 行 / rn `packages/app/src/features/ask-list/AskListScreen.tsx`  (shared)
+- `user/circle` — web 340 行 / rn `packages/app/src/features/circle-member/CircleMemberScreen.tsx`  (shared)
+- `user/comment` — web 393 行 / rn `apps/mobile-rn/src/screens/MyCommentsScreen.tsx`  (shared-adapter)
+- `user/exam` — web 270 行 / rn `packages/app/src/features/exam/ExamScreen.tsx`  (shared)
+- `user/fans` — web 282 行 / rn `packages/app/src/features/user-fans/UserFansScreen.tsx`  (shared)
+- `user/follow` — web 481 行 / rn `packages/app/src/features/follow/FollowScreen.tsx`  (shared)
+- `user/learn-record` — web 404 行 / rn `apps/mobile-rn/src/screens/StudyRecordScreen.tsx`  (shared-adapter)
+- `user/profile` — web 1012 行 / rn `packages/app/src/features/profile-edit/ProfileEditScreen.tsx`  (shared)
+- `user/qr-code` — web 279 行 / rn `packages/app/src/features/qr-code/QrCodeScreen.tsx`  (shared)
+- `user/realname` — web 423 行 / rn `packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx`  (shared)
+- `user/security` — web 650 行 / rn `packages/app/src/features/change-phone/ChangePhoneScreen.tsx`  (shared)
+- `user/sign-up` — web 359 行 / rn `apps/mobile-rn/src/screens/SignUpScreen.tsx`  (shared-adapter)
+- `user/subscription` — web 657 行 / rn `packages/app/src/features/subscriptions/SubscriptionsScreen.tsx`  (shared)
+- `vip` — web 456 行 / rn `packages/app/src/features/vip/VipScreen.tsx`  (shared)
+- `vip/details` — web 304 行 / rn `apps/mobile-rn/src/screens/VipScreen.tsx`  (shared-adapter)
+- `vip/trader` — web 323 行 / rn `apps/mobile-rn/src/screens/VipTraderScreen.tsx`  (shared-adapter)
+- `wallet` — web 343 行 / rn `packages/app/src/features/wallet/WalletScreen.tsx`  (shared)
+- `wallet/recharge/fail` — web 58 行 / rn `packages/app/src/features/topup-fail/TopupFailScreen.tsx`  (shared)
+- `wallet/recharge/success` — web 174 行 / rn `packages/app/src/features/topup-success/TopupSuccessScreen.tsx`  (shared)
+- `workflows` — web 112 行 / rn `apps/mobile-rn/src/screens/WorkflowListScreen.tsx`  (shared-adapter)
+- `workflows/[id]` — web 599 行 / rn `apps/mobile-rn/src/screens/WorkflowDetailScreen.tsx`  (shared-adapter)
+- `workflows/instances/[id]` — web 99 行 / rn `apps/mobile-rn/src/screens/WorkflowInstanceDetailScreen.tsx`  (shared-adapter)
+- `workspace/[id]` — web 159 行 / rn `apps/mobile-rn/src/screens/AiWorkspaceProjectScreen.tsx`  (shared-adapter)
+
+### 端侧各自·共享屏在但 RN 未接 (1)
+
+- `publish/history` — web 655 行 / rn `apps/mobile-rn/src/screens/PublishScreen.tsx`
+
+### 端侧各自·两端都自实现 (60)
+
+- `agent-runtime` — web 1034 行 / rn `apps/mobile-rn/src/screens/AgentRuntimeScreen.tsx`
+- `agent-teams` — web 271 行 / rn `apps/mobile-rn/src/screens/SubagentsScreen.tsx`
+- `agents/categories` — web 217 行 / rn `apps/mobile-rn/src/screens/AgentCategoriesScreen.tsx`
+- `ai-world/create` — web 263 行 / rn `apps/mobile-rn/src/screens/AiWorldCreateScreen.tsx`
+- `articles/edit` — web 121 行 / rn `apps/mobile-rn/src/screens/ArticleEditScreen.tsx`
+- `articles/hot` — web 154 行 / rn `apps/mobile-rn/src/screens/ArticleHotScreen.tsx`
+- `asks/edit/[id]` — web 94 行 / rn `apps/mobile-rn/src/screens/AskEditScreen.tsx`
+- `business-card/edit` — web 237 行 / rn `apps/mobile-rn/src/screens/BusinessCardEditScreen.tsx`
+- `chat/templates` — web 253 行 / rn `apps/mobile-rn/src/screens/ChatTemplatesScreen.tsx`
+- `checkin` — web 5908 行 / rn `apps/mobile-rn/src/screens/CheckinAssistantScreen.tsx`
+- `circles` — web 120 行 / rn `apps/mobile-rn/src/screens/CircleIndexScreen.tsx`
+- `deep-research` — web 504 行 / rn `apps/mobile-rn/src/screens/DeepResearchScreen.tsx`
+- `distribution/commission` — web 347 行 / rn `apps/mobile-rn/src/screens/DistributionCompanyScreen.tsx`
+- `distribution/company` — web 468 行 / rn `apps/mobile-rn/src/screens/DistributionCompanyScreen.tsx`
+- `edu-ai/map` — web 644 行 / rn `apps/mobile-rn/src/screens/LearnMapScreen.tsx`
+- `edu/edu-management/attendance` — web 1331 行 / rn `apps/mobile-rn/src/screens/EduAttendanceQrScreen.tsx`
+- `edu/parent` — web 1184 行 / rn `apps/mobile-rn/src/screens/EduParentScreen.tsx`
+- `groups` — web 552 行 / rn `apps/mobile-rn/src/screens/GroupsScreen.tsx`
+- `image-gen` — web 124 行 / rn `apps/mobile-rn/src/screens/ImageGenCreateScreen.tsx`
+- `invoices` — web 78 行 / rn `apps/mobile-rn/src/screens/InvoicesScreen.tsx`
+- `knowledge-base/edit` — web 252 行 / rn `apps/mobile-rn/src/screens/KnowledgeBaseEditScreen.tsx`
+- `knowledge-base/edit/[id]` — web 135 行 / rn `apps/mobile-rn/src/screens/KnowledgeBaseEditScreen.tsx`
+- `knowledge-cards` — web 1752 行 / rn `apps/mobile-rn/src/screens/KnowledgeRagManageScreen.tsx`
+- `knowledge-rag` — web 193 行 / rn `apps/mobile-rn/src/screens/KnowledgeRagScreen.tsx`
+- `learn/map` — web 282 行 / rn `apps/mobile-rn/src/screens/LearnMapScreen.tsx`
+- `learn/review` — web 374 行 / rn `apps/mobile-rn/src/screens/LearnReviewScreen.tsx`
+- `member/addresses` — web 311 行 / rn `apps/mobile-rn/src/screens/AddressesScreen.tsx`
+- `memory/new` — web 244 行 / rn `apps/mobile-rn/src/screens/MemoryNewScreen.tsx`
+- `models/keys` — web 145 行 / rn `apps/mobile-rn/src/screens/ApiKeysScreen.tsx`
+- `patrol` — web 771 行 / rn `apps/mobile-rn/src/screens/PatrolScreen.tsx`
+- `plaza` — web 70 行 / rn `apps/mobile-rn/src/screens/CircleIndexScreen.tsx`
+- `plaza/new` — web 198 行 / rn `apps/mobile-rn/src/screens/PlazaNewScreen.tsx`
+- `publish/accounts` — web 4914 行 / rn `apps/mobile-rn/src/screens/PublishAccountsScreen.tsx`
+- `publish/analytics` — web 588 行 / rn `apps/mobile-rn/src/screens/PublishAnalyticsScreen.tsx`
+- `publish/calendar` — web 494 行 / rn `apps/mobile-rn/src/screens/PublishCalendarScreen.tsx`
+- `publish/new` — web 1694 行 / rn `apps/mobile-rn/src/screens/PublishNewScreen.tsx`
+- `purchase` — web 38 行 / rn `apps/mobile-rn/src/screens/PurchaseScreen.tsx`
+- `repo-wiki` — web 1609 行 / rn `apps/mobile-rn/src/screens/RepoWikiScreen.tsx`
+- `resources` — web 313 行 / rn `apps/mobile-rn/src/screens/ResourcesScreen.tsx`
+- `resources/[id]` — web 204 行 / rn `apps/mobile-rn/src/screens/ResourcesScreen.tsx`
+- `self-healing` — web 199 行 / rn `apps/mobile-rn/src/screens/SelfHealingScreen.tsx`
+- `settings/api-keys` — web 578 行 / rn `apps/mobile-rn/src/screens/ApiKeysScreen.tsx`
+- `settings/authorizations` — web 369 行 / rn `apps/mobile-rn/src/screens/SecurityCenterScreen.tsx`
+- `settings/data-export` — web 317 行 / rn `apps/mobile-rn/src/screens/DataRightsScreen.tsx`
+- `settings/data-rights` — web 570 行 / rn `apps/mobile-rn/src/screens/DataRightsScreen.tsx`
+- `settings/devices` — web 561 行 / rn `apps/mobile-rn/src/screens/DevicesScreen.tsx`
+- `settings/security-log` — web 326 行 / rn `apps/mobile-rn/src/screens/SecurityCenterScreen.tsx`
+- `student/my-articles` — web 201 行 / rn `apps/mobile-rn/src/screens/UserArticlesScreen.tsx`
+- `student/papers` — web 286 行 / rn `apps/mobile-rn/src/screens/MyPapersScreen.tsx`
+- `subagents` — web 353 行 / rn `apps/mobile-rn/src/screens/SubagentsScreen.tsx`
+- `subagents/topology` — web 327 行 / rn `apps/mobile-rn/src/screens/SubagentsScreen.tsx`
+- `team-knowledge` — web 494 行 / rn `apps/mobile-rn/src/screens/TeamKnowledgeScreen.tsx`
+- `team-memory` — web 345 行 / rn `apps/mobile-rn/src/screens/TeamMemoryScreen.tsx`
+- `tools/pdf` — web 78 行 / rn `apps/mobile-rn/src/screens/PdfToolsScreen.tsx`
+- `tools/voice-stt` — web 326 行 / rn `apps/mobile-rn/src/screens/VoiceSttScreen.tsx`
+- `topics` — web 247 行 / rn `apps/mobile-rn/src/screens/TopicListScreen.tsx`
+- `user/articles` — web 325 行 / rn `apps/mobile-rn/src/screens/UserArticlesScreen.tsx`
+- `wallet/recharge` — web 250 行 / rn `apps/mobile-rn/src/screens/PurchaseScreen.tsx`
+- `workspace` — web 372 行 / rn `apps/mobile-rn/src/screens/WorkspaceScreen.tsx`
+- `workspace/permissions` — web 809 行 / rn `apps/mobile-rn/src/screens/WorkspaceScreen.tsx`
+
+### 只存在一端·web 未判定 (1)
+
+- `articles` — pending 未验证 / rn `apps/mobile-rn/src/screens/ArticleListScreen.tsx`
+
+### 只存在一端·RN 独有(启发式) (111)
+
+- `AgentChatScreen` — 206 行 / `apps/mobile-rn/src/screens/AgentChatScreen.tsx`
+- `AgentReviewDetailScreen` — 76 行 / `apps/mobile-rn/src/screens/AgentReviewDetailScreen.tsx`
+- `AgentReviewListScreen` — 76 行 / `apps/mobile-rn/src/screens/AgentReviewListScreen.tsx`
+- `AgentSettingScreen` — 78 行 / `apps/mobile-rn/src/screens/AgentSettingScreen.tsx`
+- `AiAssistantN8nScreen` — 2488 行 / `apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx`
+- `AiAssistantScreen` — 153 行 / `apps/mobile-rn/src/screens/AiAssistantScreen.tsx`
+- `AigcCoverScreen` — 124 行 / `apps/mobile-rn/src/screens/AigcCoverScreen.tsx`
+- `AigcListScreen` — 266 行 / `apps/mobile-rn/src/screens/AigcListScreen.tsx`
+- `AigcPublishScreen` — 202 行 / `apps/mobile-rn/src/screens/AigcPublishScreen.tsx`
+- `AiGroupScreen` — 172 行 / `apps/mobile-rn/src/screens/AiGroupScreen.tsx`
+- `AIMultimodalScreen` — 110 行 / `apps/mobile-rn/src/screens/AIMultimodalScreen.tsx`
+- `ApiSettingsScreen` — 132 行 / `apps/mobile-rn/src/screens/ApiSettingsScreen.tsx`
+- `AppTopupScreen` — 139 行 / `apps/mobile-rn/src/screens/AppTopupScreen.tsx`
+- `ArticleListScreen` — 61 行 / `apps/mobile-rn/src/screens/ArticleListScreen.tsx`
+- `ArtifactPreviewScreen` — 107 行 / `apps/mobile-rn/src/screens/ArtifactPreviewScreen.tsx`
+- `ArtifactsScreen` — 128 行 / `apps/mobile-rn/src/screens/ArtifactsScreen.tsx`
+- `AssistantScreen` — 292 行 / `apps/mobile-rn/src/screens/AssistantScreen.tsx`
+- `BankCardScreen` — 62 行 / `apps/mobile-rn/src/screens/BankCardScreen.tsx`
+- `BookmarkScreen` — 89 行 / `apps/mobile-rn/src/screens/BookmarkScreen.tsx`
+- `CartScreen` — 219 行 / `apps/mobile-rn/src/screens/CartScreen.tsx`
+- `CategoryDetailScreen` — 118 行 / `apps/mobile-rn/src/screens/CategoryDetailScreen.tsx`
+- `CertApplyScreen` — 67 行 / `apps/mobile-rn/src/screens/CertApplyScreen.tsx`
+- `ChangePwdScreen` — 96 行 / `apps/mobile-rn/src/screens/ChangePwdScreen.tsx`
+- `ChatToolsScreen` — 214 行 / `apps/mobile-rn/src/screens/ChatToolsScreen.tsx`
+- `CircleChatScreen` — 104 行 / `apps/mobile-rn/src/screens/CircleChatScreen.tsx`
+- `CircleCreateScreen` — 75 行 / `apps/mobile-rn/src/screens/CircleCreateScreen.tsx`
+- `CloudRunsScreen` — 106 行 / `apps/mobile-rn/src/screens/CloudRunsScreen.tsx`
+- `ConversationHistoryScreen` — 214 行 / `apps/mobile-rn/src/screens/ConversationHistoryScreen.tsx`
+- `CourseAnnexScreen` — 80 行 / `apps/mobile-rn/src/screens/CourseAnnexScreen.tsx`
+- `CourseCatalogScreen` — 67 行 / `apps/mobile-rn/src/screens/CourseCatalogScreen.tsx`
+- `CourseEnrollScreen` — 101 行 / `apps/mobile-rn/src/screens/CourseEnrollScreen.tsx`
+- `CourseFilterScreen` — 113 行 / `apps/mobile-rn/src/screens/CourseFilterScreen.tsx`
+- `CoursePlanetScreen` — 102 行 / `apps/mobile-rn/src/screens/CoursePlanetScreen.tsx`
+- `CourseQAAskScreen` — 65 行 / `apps/mobile-rn/src/screens/CourseQAAskScreen.tsx`
+- `CourseResourceScreen` — 79 行 / `apps/mobile-rn/src/screens/CourseResourceScreen.tsx`
+- `CourseScreen` — 222 行 / `apps/mobile-rn/src/screens/CourseScreen.tsx`
+- `CustomerServiceScreen` — 75 行 / `apps/mobile-rn/src/screens/CustomerServiceScreen.tsx`
+- `DeveloperConversationsScreen` — 124 行 / `apps/mobile-rn/src/screens/DeveloperConversationsScreen.tsx`
+- `DeveloperLimitsScreen` — 87 行 / `apps/mobile-rn/src/screens/DeveloperLimitsScreen.tsx`
+- `DeveloperNotificationsScreen` — 108 行 / `apps/mobile-rn/src/screens/DeveloperNotificationsScreen.tsx`
+- `DeveloperSettingsScreen` — 125 行 / `apps/mobile-rn/src/screens/DeveloperSettingsScreen.tsx`
+- `DeveloperWebhooksScreen` — 146 行 / `apps/mobile-rn/src/screens/DeveloperWebhooksScreen.tsx`
+- `DevEnterCoverScreen` — 93 行 / `apps/mobile-rn/src/screens/DevEnterCoverScreen.tsx`
+- `DevEnterScreen` — 604 行 / `apps/mobile-rn/src/screens/DevEnterScreen.tsx`
+- `DomainHubScreen` — 70 行 / `apps/mobile-rn/src/screens/DomainHubScreen.tsx`
+- `EarnCommissionScreen` — 70 行 / `apps/mobile-rn/src/screens/EarnCommissionScreen.tsx`
+- `EduAttendanceScreen` — 422 行 / `apps/mobile-rn/src/screens/EduAttendanceScreen.tsx`
+- `EduChildBillsScreen` — 126 行 / `apps/mobile-rn/src/screens/EduChildBillsScreen.tsx`
+- `ExamIntroScreen` — 150 行 / `apps/mobile-rn/src/screens/ExamIntroScreen.tsx`
+- `FavoritesScreen` — 24 行 / `apps/mobile-rn/src/screens/FavoritesScreen.tsx`
+- `FeedbackHistoryScreen` — 64 行 / `apps/mobile-rn/src/screens/FeedbackHistoryScreen.tsx`
+- `IdentityVerifyScreen` — 84 行 / `apps/mobile-rn/src/screens/IdentityVerifyScreen.tsx`
+- `IncomeScreen` — 176 行 / `apps/mobile-rn/src/screens/IncomeScreen.tsx`
+- `KnowledgeCreateScreen` — 66 行 / `apps/mobile-rn/src/screens/KnowledgeCreateScreen.tsx`
+- `LearnDevelopScreen` — 65 行 / `apps/mobile-rn/src/screens/LearnDevelopScreen.tsx`
+- `LetterChatScreen` — 169 行 / `apps/mobile-rn/src/screens/LetterChatScreen.tsx`
+- `LiveChatScreen` — 87 行 / `apps/mobile-rn/src/screens/LiveChatScreen.tsx`
+- `LiveListScreen` — 113 行 / `apps/mobile-rn/src/screens/LiveListScreen.tsx`
+- `LivePlaybackListScreen` — 71 行 / `apps/mobile-rn/src/screens/LivePlaybackListScreen.tsx`
+- `LivePreviewScreen` — 74 行 / `apps/mobile-rn/src/screens/LivePreviewScreen.tsx`
+- `MessageChatScreen` — 111 行 / `apps/mobile-rn/src/screens/MessageChatScreen.tsx`
+- `MessageDetailScreen` — 111 行 / `apps/mobile-rn/src/screens/MessageDetailScreen.tsx`
+- `MessageDirectScreen` — 88 行 / `apps/mobile-rn/src/screens/MessageDirectScreen.tsx`
+- `MessageGroupScreen` — 63 行 / `apps/mobile-rn/src/screens/MessageGroupScreen.tsx`
+- `MessageSystemScreen` — 75 行 / `apps/mobile-rn/src/screens/MessageSystemScreen.tsx`
+- `ModelEditScreen` — 149 行 / `apps/mobile-rn/src/screens/ModelEditScreen.tsx`
+- `ModelIncomeScreen` — 153 行 / `apps/mobile-rn/src/screens/ModelIncomeScreen.tsx`
+- `ModelRecordScreen` — 184 行 / `apps/mobile-rn/src/screens/ModelRecordScreen.tsx`
+- `MoreCourseScreen` — 125 行 / `apps/mobile-rn/src/screens/MoreCourseScreen.tsx`
+- `NoteCreateScreen` — 79 行 / `apps/mobile-rn/src/screens/NoteCreateScreen.tsx`
+- `NoteDetailScreen` — 59 行 / `apps/mobile-rn/src/screens/NoteDetailScreen.tsx`
+- `NoteScreen` — 144 行 / `apps/mobile-rn/src/screens/NoteScreen.tsx`
+- `OrderLogScreen` — 61 行 / `apps/mobile-rn/src/screens/OrderLogScreen.tsx`
+- `OrderRefundScreen` — 119 行 / `apps/mobile-rn/src/screens/OrderRefundScreen.tsx`
+- `OrderTrackScreen` — 61 行 / `apps/mobile-rn/src/screens/OrderTrackScreen.tsx`
+- `PayResultScreen` — 108 行 / `apps/mobile-rn/src/screens/PayResultScreen.tsx`
+- `PendingDecisionsScreen` — 275 行 / `apps/mobile-rn/src/screens/PendingDecisionsScreen.tsx`
+- `PlazaCoverScreen` — 37 行 / `apps/mobile-rn/src/screens/PlazaCoverScreen.tsx`
+- `PlazaScreen` — 749 行 / `apps/mobile-rn/src/screens/PlazaScreen.tsx`
+- `PointHistoryScreen` — 125 行 / `apps/mobile-rn/src/screens/PointHistoryScreen.tsx`
+- `PointRuleScreen` — 59 行 / `apps/mobile-rn/src/screens/PointRuleScreen.tsx`
+- `PointsRecordScreen` — 72 行 / `apps/mobile-rn/src/screens/PointsRecordScreen.tsx`
+- `PostCreateScreen` — 129 行 / `apps/mobile-rn/src/screens/PostCreateScreen.tsx`
+- `PostDetailScreen` — 90 行 / `apps/mobile-rn/src/screens/PostDetailScreen.tsx`
+- `ProfileScreen` — 2745 行 / `apps/mobile-rn/src/screens/ProfileScreen.tsx`
+- `PromoteScreen` — 149 行 / `apps/mobile-rn/src/screens/PromoteScreen.tsx`
+- `PromotionScreen` — 71 行 / `apps/mobile-rn/src/screens/PromotionScreen.tsx`
+- `QuickNotesScreen` — 114 行 / `apps/mobile-rn/src/screens/QuickNotesScreen.tsx`
+- `RankingDetailScreen` — 265 行 / `apps/mobile-rn/src/screens/RankingDetailScreen.tsx`
+- `RecruitmentScreen` — 79 行 / `apps/mobile-rn/src/screens/RecruitmentScreen.tsx`
+- `RegisterScreen` — 189 行 / `apps/mobile-rn/src/screens/RegisterScreen.tsx`
+- `ScanLoginScreen` — 316 行 / `apps/mobile-rn/src/screens/ScanLoginScreen.tsx`
+- `SelfMediaScreen` — 126 行 / `apps/mobile-rn/src/screens/SelfMediaScreen.tsx`
+- `SetNeedScreen` — 137 行 / `apps/mobile-rn/src/screens/SetNeedScreen.tsx`
+- `SettingsAccountScreen` — 90 行 / `apps/mobile-rn/src/screens/SettingsAccountScreen.tsx`
+- `SettingsScreen` — 390 行 / `apps/mobile-rn/src/screens/SettingsScreen.tsx`
+- `ShareLandingScreen` — 119 行 / `apps/mobile-rn/src/screens/ShareLandingScreen.tsx`
+- `ShareScreen` — 568 行 / `apps/mobile-rn/src/screens/ShareScreen.tsx`
+- `StudyIndexScreen` — 219 行 / `apps/mobile-rn/src/screens/StudyIndexScreen.tsx`
+- `StudyPlanScreen` — 107 行 / `apps/mobile-rn/src/screens/StudyPlanScreen.tsx`
+- `StudyPublishScreen` — 268 行 / `apps/mobile-rn/src/screens/StudyPublishScreen.tsx`
+- `SubPackageIndexScreen` — 106 行 / `apps/mobile-rn/src/screens/SubPackageIndexScreen.tsx`
+- `TeacherDetailScreen` — 166 行 / `apps/mobile-rn/src/screens/TeacherDetailScreen.tsx`
+- `TeamDetailScreen` — 114 行 / `apps/mobile-rn/src/screens/TeamDetailScreen.tsx`
+- `UsageRulesScreen` — 31 行 / `apps/mobile-rn/src/screens/UsageRulesScreen.tsx`
+- `VideoPlayerScreen` — 297 行 / `apps/mobile-rn/src/screens/VideoPlayerScreen.tsx`
+- `VipCompareScreen` — 57 行 / `apps/mobile-rn/src/screens/VipCompareScreen.tsx`
+- `VipLevelScreen` — 100 行 / `apps/mobile-rn/src/screens/VipLevelScreen.tsx`
+- `WebPortalScreen` — 130 行 / `apps/mobile-rn/src/screens/WebPortalScreen.tsx`
+- `WebViewScreen` — 167 行 / `apps/mobile-rn/src/screens/WebViewScreen.tsx`
+- `WorkflowsScreen` — 100 行 / `apps/mobile-rn/src/screens/WorkflowsScreen.tsx`
+
+### 无法共享·WebView 门户承载 (88)
+
+- `admin`
+- `admin/agents`
+- `admin/articles`
+- `admin/configs`
+- `admin/dashboard-stat`
+- `admin/edu/course`
+- `admin/edu/exam`
+- `admin/feedbacks`
+- `admin/live`
+- `admin/member/users`
+- `admin/news`
+- `admin/orders`
+- `admin/point`
+- `admin/refund`
+- `admin/ticket`
+- `admin/users`
+- `admin/wallet`
+- `admin/withdrawal`
+- `agent-plan`
+- `agent-plan/progress`
+- `ai-generation`
+- `ai-generation/video-tasks`
+- `api-test`
+- `artifacts`
+- `business-card/favorites`
+- `capability-market`
+- `certificate/download`
+- `chat/favorites`
+- `chat/settings`
+- `cloud-agent`
+- `cost-dashboard`
+- `developer/api-docs`
+- `developer/billing`
+- `developer/keys`
+- `developer/logs`
+- `developer/relay`
+- `developer/webhooks`
+- `distribution/token`
+- `distribution/withdraw/records`
+- `docs`
+- `docs/manual/faq`
+- `docs/manual/getting-started`
+- `docs/quickstart`
+- `drama`
+- `edu-ai/marking`
+- `edu-ai/outbound`
+- `edu-ai/tbox`
+- `edu-ai/voice`
+- `edu-points`
+- `edu/edu-management/homework`
+- `edu/edu-management/procurement`
+- `edu/schedule`
+- `enterprise`
+- `feature-center`
+- `fund-data`
+- `knowledge`
+- `knowledge-base/search`
+- `knowledge-graph`
+- `learn/buyconfirm`
+- `learn/topic`
+- `mcp-projects`
+- `media-tasks`
+- `member/exam/sign-up`
+- `members`
+- `memory-manager`
+- `memory/[id]`
+- `models/eval`
+- `models/overview`
+- `oauth/my-authorized`
+- `orchestration`
+- `plugins`
+- `publish/monitor`
+- `rules`
+- `schedule`
+- `self-media/automation`
+- `self-media/koubo`
+- `self-media/wechat`
+- `settings/agent-security`
+- `settings/model-record`
+- `skills/market`
+- `stock`
+- `subagents/detail`
+- `subagents/dispatch`
+- `traders`
+- `user/resource`
+- `voices`
+- `wallet/withdraw/records`
+- `web-tools`
+
+### 无法共享·平台特有(excluded) (514)
+
+- `(root)`［(root)］
+- `a2a`［a2a］
+- `admin/about-us`［admin/**］
+- `admin/advertise`［admin/**］
+- `admin/agent-rule`［admin/**］
+- `admin/agent-rules`［admin/**］
+- `admin/agent-task`［admin/**］
+- `admin/agents/categories`［admin/**］
+- `admin/agents/examine`［admin/**］
+- `admin/agents/settlement`［admin/**］
+- `admin/agreements`［admin/**］
+- `admin/ai-cost`［admin/**］
+- `admin/ai-feed`［admin/**］
+- `admin/ai-gc`［admin/**］
+- `admin/ai-metrics`［admin/**］
+- `admin/ai-models`［admin/**］
+- `admin/ai-pricing`［admin/**］
+- `admin/ai-skills`［admin/**］
+- `admin/ai-world/sites`［admin/**］
+- `admin/announcements`［admin/**］
+- `admin/api-debug`［admin/**］
+- `admin/api-groups`［admin/**］
+- `admin/api-logs`［admin/**］
+- `admin/api-platform/apps`［admin/**］
+- `admin/api-platform/billing`［admin/**］
+- `admin/api-platform/packages`［admin/**］
+- `admin/api-platform/usage`［admin/**］
+- `admin/api-usage`［admin/**］
+- `admin/asks`［admin/**］
+- `admin/auth-accounts`［admin/**］
+- `admin/auth-dept`［admin/**］
+- `admin/auth-find-info`［admin/**］
+- `admin/auth-role`［admin/**］
+- `admin/auth-user-vip`［admin/**］
+- `admin/auth-veri-codes`［admin/**］
+- `admin/backend-health`［admin/**］
+- `admin/backup-jobs`［admin/**］
+- `admin/behavior`［admin/**］
+- `admin/behavior-analytics`［admin/**］
+- `admin/bi-dashboard`［admin/**］
+- `admin/carousel`［admin/**］
+- `admin/certificate`［admin/**］
+- `admin/certificate/templates`［admin/**］
+- `admin/channel-quota`［admin/**］
+- `admin/circles`［admin/**］
+- `admin/circles/dynamics`［admin/**］
+- `admin/clawdbot`［admin/**］
+- `admin/clawdbot/analytics`［admin/**］
+- `admin/clawdbot/bots`［admin/**］
+- `admin/clawdbot/health`［admin/**］
+- `admin/clawdbot/messages`［admin/**］
+- `admin/clawdbot/permissions`［admin/**］
+- `admin/clawdbot/sessions`［admin/**］
+- `admin/clawdbot/tools`［admin/**］
+- `admin/comment-logs`［admin/**］
+- `admin/comments`［admin/**］
+- `admin/contact`［admin/**］
+- `admin/crew`［admin/**］
+- `admin/crew/[id]`［admin/**］
+- `admin/customer-service`［admin/**］
+- `admin/database-optimization`［admin/**］
+- `admin/demand-audit`［admin/**］
+- `admin/demand-audit/[id]`［admin/**］
+- `admin/demand-square`［admin/**］
+- `admin/demand-square/[id]`［admin/**］
+- `admin/deploy-diagnosis`［admin/**］
+- `admin/developer`［admin/**］
+- `admin/developer-link`［admin/**］
+- `admin/dict`［admin/**］
+- `admin/distribution`［admin/**］
+- `admin/distribution/orders`［admin/**］
+- `admin/distribution/rules`［admin/**］
+- `admin/distribution/settlements`［admin/**］
+- `admin/distribution/withdrawals`［admin/**］
+- `admin/docs`［admin/**］
+- `admin/downloads`［admin/**］
+- `admin/edu`［admin/**］
+- `admin/edu-settings`［admin/**］
+- `admin/edu/answer`［admin/**］
+- `admin/edu/answer/card`［admin/**］
+- `admin/edu/answer/online`［admin/**］
+- `admin/edu/answer/programming`［admin/**］
+- `admin/edu/certificate`［admin/**］
+- `admin/edu/certificate/issued`［admin/**］
+- `admin/edu/certificate/templates`［admin/**］
+- `admin/edu/class`［admin/**］
+- `admin/edu/class/members`［admin/**］
+- `admin/edu/class/schedule`［admin/**］
+- `admin/edu/course/audit`［admin/**］
+- `admin/edu/course/categories`［admin/**］
+- `admin/edu/course/chapters`［admin/**］
+- `admin/edu/course/pay`［admin/**］
+- `admin/edu/course/platform-log`［admin/**］
+- `admin/edu/course/trash`［admin/**］
+- `admin/edu/exam/arrangements`［admin/**］
+- `admin/edu/exam/categories`［admin/**］
+- `admin/edu/exam/grades`［admin/**］
+- `admin/edu/exam/papers-manual`［admin/**］
+- `admin/edu/exam/papers-random`［admin/**］
+- `admin/edu/exam/papers-template`［admin/**］
+- `admin/edu/exam/questions`［admin/**］
+- `admin/edu/exam/questions/[type]`［admin/**］
+- `admin/edu/exam/ranking`［admin/**］
+- `admin/edu/exam/records`［admin/**］
+- `admin/edu/finance`［admin/**］
+- `admin/edu/finance/invoices`［admin/**］
+- `admin/edu/finance/statistics`［admin/**］
+- `admin/edu/learn`［admin/**］
+- `admin/edu/learn/community`［admin/**］
+- `admin/edu/learn/homework`［admin/**］
+- `admin/edu/learn/live`［admin/**］
+- `admin/edu/learn/maps`［admin/**］
+- `admin/edu/learn/materials`［admin/**］
+- `admin/edu/learn/plan`［admin/**］
+- `admin/edu/learn/progress`［admin/**］
+- `admin/edu/learn/ranking`［admin/**］
+- `admin/edu/learn/recorded`［admin/**］
+- `admin/edu/learn/records`［admin/**］
+- `admin/edu/learn/remind`［admin/**］
+- `admin/edu/learn/signup-batch`［admin/**］
+- `admin/edu/learn/signup-batchlesson`［admin/**］
+- `admin/edu/learn/topics`［admin/**］
+- `admin/edu/organization`［admin/**］
+- `admin/edu/platform`［admin/**］
+- `admin/edu/reports/companystudy`［admin/**］
+- `admin/edu/reports/lessonstudy`［admin/**］
+- `admin/edu/reports/memberstudy`［admin/**］
+- `admin/edu/reports/signup`［admin/**］
+- `admin/edu/student`［admin/**］
+- `admin/edu/student/detail`［admin/**］
+- `admin/edu/student/levels`［admin/**］
+- `admin/edu/teacher`［admin/**］
+- `admin/edu/teacher/detail`［admin/**］
+- `admin/edu/teacher/review`［admin/**］
+- `admin/edu/user-platform`［admin/**］
+- `admin/edu/zhs-identity`［admin/**］
+- `admin/error-dashboard`［admin/**］
+- `admin/event-bus-monitor`［admin/**］
+- `admin/events`［admin/**］
+- `admin/exam`［admin/**］
+- `admin/exam-marking`［admin/**］
+- `admin/exam/categories`［admin/**］
+- `admin/exam/questions`［admin/**］
+- `admin/exam/records`［admin/**］
+- `admin/exchange-rates`［admin/**］
+- `admin/github-app`［admin/**］
+- `admin/gray-release`［admin/**］
+- `admin/help`［admin/**］
+- `admin/home-schema`［admin/**］
+- `admin/i18n-dashboard`［admin/**］
+- `admin/i18n-dashboard/compare`［admin/**］
+- `admin/i18n-dashboard/missing`［admin/**］
+- `admin/identity-proportion`［admin/**］
+- `admin/im-channels`［admin/**］
+- `admin/integrations`［admin/**］
+- `admin/invoices`［admin/**］
+- `admin/invoices/applications`［admin/**］
+- `admin/invoices/titles`［admin/**］
+- `admin/knowledge-rag`［admin/**］
+- `admin/learn`［admin/**］
+- `admin/learn/categories`［admin/**］
+- `admin/learn/chapters`［admin/**］
+- `admin/learn/signups`［admin/**］
+- `admin/learn/topic/category`［admin/**］
+- `admin/live/categories`［admin/**］
+- `admin/live/lecturers`［admin/**］
+- `admin/login-logs`［admin/**］
+- `admin/logs`［admin/**］
+- `admin/lottery`［admin/**］
+- `admin/member-groups`［admin/**］
+- `admin/member/blacklist`［admin/**］
+- `admin/member/companies`［admin/**］
+- `admin/member/company-types`［admin/**］
+- `admin/member/departments`［admin/**］
+- `admin/member/logs`［admin/**］
+- `admin/member/permissions`［admin/**］
+- `admin/member/roles`［admin/**］
+- `admin/member/unaudited`［admin/**］
+- `admin/members`［admin/**］
+- `admin/members/levels`［admin/**］
+- `admin/menu`［admin/**］
+- `admin/menu-permission`［admin/**］
+- `admin/message-overview`［admin/**］
+- `admin/message-templates`［admin/**］
+- `admin/meta-learner`［admin/**］
+- `admin/mobile-adapter`［admin/**］
+- `admin/model-pricing`［admin/**］
+- `admin/monitor/alerts`［admin/**］
+- `admin/monitor/dashboard`［admin/**］
+- `admin/monitor/funnel`［admin/**］
+- `admin/monitor/panels`［admin/**］
+- `admin/monitor/wallboard`［admin/**］
+- `admin/monitoring-dashboard`［admin/**］
+- `admin/news/categories`［admin/**］
+- `admin/notification-channels`［admin/**］
+- `admin/notification-dispatch`［admin/**］
+- `admin/notification-logs`［admin/**］
+- `admin/notification-preferences`［admin/**］
+- `admin/oauth-apps`［admin/**］
+- `admin/oauth-audit-dashboard`［admin/**］
+- `admin/oauth/apps`［admin/**］
+- `admin/oauth/audit`［admin/**］
+- `admin/oauth/tokens`［admin/**］
+- `admin/online-users`［admin/**］
+- `admin/operlog`［admin/**］
+- `admin/org-governance`［admin/**］
+- `admin/oss`［admin/**］
+- `admin/oss-config`［admin/**］
+- `admin/oss/files`［admin/**］
+- `admin/performance-dashboard`［admin/**］
+- `admin/permissions`［admin/**］
+- `admin/plugins-stats`［admin/**］
+- `admin/point/records`［admin/**］
+- `admin/point/rules`［admin/**］
+- `admin/points-mall`［admin/**］
+- `admin/post`［admin/**］
+- `admin/private-letters`［admin/**］
+- `admin/product-identity`［admin/**］
+- `admin/projects`［admin/**］
+- `admin/promotion-rule`［admin/**］
+- `admin/providers-health`［admin/**］
+- `admin/realname-audit`［admin/**］
+- `admin/recommendation-config`［admin/**］
+- `admin/redis-monitor`［admin/**］
+- `admin/refund/[id]`［admin/**］
+- `admin/relay`［admin/**］
+- `admin/relay-param-ops`［admin/**］
+- `admin/relay/account-pool`［admin/**］
+- `admin/relay/account-proxy`［admin/**］
+- `admin/relay/alert-rules`［admin/**］
+- `admin/relay/capacity`［admin/**］
+- `admin/relay/channels`［admin/**］
+- `admin/relay/data-management`［admin/**］
+- `admin/relay/discovery`［admin/**］
+- `admin/relay/enterprise`［admin/**］
+- `admin/relay/error-rules`［admin/**］
+- `admin/relay/insights`［admin/**］
+- `admin/relay/key-pool`［admin/**］
+- `admin/relay/key-scheduling`［admin/**］
+- `admin/relay/logs`［admin/**］
+- `admin/relay/models`［admin/**］
+- `admin/relay/overview`［admin/**］
+- `admin/relay/peak-pricing`［admin/**］
+- `admin/relay/plugins`［admin/**］
+- `admin/relay/prompt-audit`［admin/**］
+- `admin/relay/tasks`［admin/**］
+- `admin/relay/user-attributes`［admin/**］
+- `admin/resource-product`［admin/**］
+- `admin/resource-tag`［admin/**］
+- `admin/resources`［admin/**］
+- `admin/resources/categories`［admin/**］
+- `admin/resources/product-categories`［admin/**］
+- `admin/resources/products`［admin/**］
+- `admin/resources/tags`［admin/**］
+- `admin/revenue-stat`［admin/**］
+- `admin/roles`［admin/**］
+- `admin/roles/auth-user`［admin/**］
+- `admin/roles/select-user`［admin/**］
+- `admin/saas`［admin/**］
+- `admin/saas/[slug]`［admin/**］
+- `admin/saas/[slug]/backups`［admin/**］
+- `admin/saas/certificates`［admin/**］
+- `admin/saas/metrics`［admin/**］
+- `admin/schedule`［admin/**］
+- `admin/schedule/logs`［admin/**］
+- `admin/search-hot-words`［admin/**］
+- `admin/security/anomalies`［admin/**］
+- `admin/security/ip-reputation`［admin/**］
+- `admin/security/threat-dashboard`［admin/**］
+- `admin/sensitive-word`［admin/**］
+- `admin/sensitive-words`［admin/**］
+- `admin/shop/funds`［admin/**］
+- `admin/shop/payments`［admin/**］
+- `admin/shop/products`［admin/**］
+- `admin/shop/withdrawals`［admin/**］
+- `admin/signin-rule`［admin/**］
+- `admin/skill-batch`［admin/**］
+- `admin/skill-categories`［admin/**］
+- `admin/skill-stats`［admin/**］
+- `admin/skill-versions`［admin/**］
+- `admin/skills`［admin/**］
+- `admin/sms`［admin/**］
+- `admin/sms-receive`［admin/**］
+- `admin/sms/operations`［admin/**］
+- `admin/statistics`［admin/**］
+- `admin/system/login-logs`［admin/**］
+- `admin/system/monitor`［admin/**］
+- `admin/system/operation-logs`［admin/**］
+- `admin/system/tasks`［admin/**］
+- `admin/system/tasks/log`［admin/**］
+- `admin/tags`［admin/**］
+- `admin/task-developer`［admin/**］
+- `admin/tax`［admin/**］
+- `admin/theme`［admin/**］
+- `admin/theme/assets`［admin/**］
+- `admin/theme/colors`［admin/**］
+- `admin/theme/create`［admin/**］
+- `admin/theme/dark-mode`［admin/**］
+- `admin/theme/edit/[id]`［admin/**］
+- `admin/theme/export`［admin/**］
+- `admin/theme/fonts`［admin/**］
+- `admin/theme/presets`［admin/**］
+- `admin/ticket-reply`［admin/**］
+- `admin/tool/gen`［admin/**］
+- `admin/topup-config`［admin/**］
+- `admin/unauthorized`［admin/**］
+- `admin/user-agent-audio`［admin/**］
+- `admin/user-agent-context`［admin/**］
+- `admin/user-agent-image`［admin/**］
+- `admin/user-center`［admin/**］
+- `admin/user-margin`［admin/**］
+- `admin/user-stat`［admin/**］
+- `admin/variables`［admin/**］
+- `admin/video-logs`［admin/**］
+- `admin/visit-tracking`［admin/**］
+- `admin/visit-trend`［admin/**］
+- `admin/workflows`［admin/**］
+- `admin/zhs-activity`［admin/**］
+- `admin/zhs-agent`［admin/**］
+- `admin/zhs-user`［admin/**］
+- `agent-canvas`［agent-canvas］
+- `agent-kanban`［agent-kanban］
+- `agent-step-recorder`［agent-step-recorder］
+- `agent-timeline`［agent-timeline］
+- `agent-workbench`［agent-workbench］
+- `ai-news`［ai-news］
+- `ai-world/share/[id]`［ai-world/share/[id]］
+- `apple/callback`［apple/callback］
+- `article`［article］
+- `ask`［ask］
+- `available-channels`［available-channels］
+- `blog`［blog］
+- `blog/[slug]`［blog/[slug]］
+- `business-card/share/[id]`［business-card/share/[id]］
+- `callback`［callback］
+- `channel-status`［channel-status］
+- `chat/share/[id]`［chat/share/[id]］
+- `cloud-run`［cloud-run］
+- `compare`［compare/**］
+- `compare/ihui-vs-autogen`［compare/**］
+- `compare/ihui-vs-bolt-new`［compare/**］
+- `compare/ihui-vs-claude-code`［compare/**］
+- `compare/ihui-vs-copilot-studio`［compare/**］
+- `compare/ihui-vs-coze`［compare/**］
+- `compare/ihui-vs-crewai`［compare/**］
+- `compare/ihui-vs-cursor`［compare/**］
+- `compare/ihui-vs-deepseek-platform`［compare/**］
+- `compare/ihui-vs-devin`［compare/**］
+- `compare/ihui-vs-dify`［compare/**］
+- `compare/ihui-vs-doubao`［compare/**］
+- `compare/ihui-vs-ernie`［compare/**］
+- `compare/ihui-vs-fastgpt`［compare/**］
+- `compare/ihui-vs-flowise`［compare/**］
+- `compare/ihui-vs-github-copilot`［compare/**］
+- `compare/ihui-vs-kimi-platform`［compare/**］
+- `compare/ihui-vs-langchain`［compare/**］
+- `compare/ihui-vs-llamaindex`［compare/**］
+- `compare/ihui-vs-lovable`［compare/**］
+- `compare/ihui-vs-make`［compare/**］
+- `compare/ihui-vs-manus`［compare/**］
+- `compare/ihui-vs-minimax`［compare/**］
+- `compare/ihui-vs-n8n`［compare/**］
+- `compare/ihui-vs-openai-agent`［compare/**］
+- `compare/ihui-vs-qwen-platform`［compare/**］
+- `compare/ihui-vs-relevance-ai`［compare/**］
+- `compare/ihui-vs-replit-agent`［compare/**］
+- `compare/ihui-vs-spark`［compare/**］
+- `compare/ihui-vs-stack-ai`［compare/**］
+- `compare/ihui-vs-typebot`［compare/**］
+- `compare/ihui-vs-v0-dev`［compare/**］
+- `compare/ihui-vs-voiceflow`［compare/**］
+- `compare/ihui-vs-windsurf`［compare/**］
+- `compare/ihui-vs-wordware`［compare/**］
+- `compare/ihui-vs-zapier-ai`［compare/**］
+- `compare/ihui-vs-zhipu`［compare/**］
+- `computer-use`［computer-use］
+- `contact`［contact］
+- `context-compaction`［context-compaction］
+- `context/visualization`［context/visualization］
+- `design`［design］
+- `design-system`［design-system］
+- `developer/capabilities`［developer/**］
+- `developer/conversations`［developer/**］
+- `developer/enterprise`［developer/**］
+- `developer/error-codes`［developer/**］
+- `developer/ide`［developer/**］
+- `developer/limits`［developer/**］
+- `developer/notifications`［developer/**］
+- `developer/pricing`［developer/**］
+- `developer/relay/benefits`［developer/**］
+- `developer/relay/keys`［developer/**］
+- `developer/relay/subscriptions`［developer/**］
+- `developer/relay/usage`［developer/**］
+- `developer/sandbox`［developer/**］
+- `developer/settings`［developer/**］
+- `developer/subscription`［developer/**］
+- `developer/team`［developer/**］
+- `developer/versions`［developer/**］
+- `developers`［developers］
+- `distribution/withdraw`［distribution/withdraw］
+- `docs/[slug]`［docs/[slug]］
+- `docs/agent`［docs/**］
+- `docs/api`［docs/**］
+- `docs/manual`［docs/**］
+- `docs/manual/account`［docs/**］
+- `docs/manual/agent`［docs/**］
+- `docs/manual/ai-chat`［docs/**］
+- `docs/manual/billing`［docs/**］
+- `docs/manual/knowledge-base`［docs/**］
+- `docs/mcp`［docs/**］
+- `docs/models`［docs/**］
+- `docs/rag`［docs/**］
+- `docs/self-host`［docs/**］
+- `docs/team`［docs/**］
+- `docs/workflow`［docs/**］
+- `domains/ai`［domains/**］
+- `domains/content`［domains/**］
+- `domains/edu`［domains/**］
+- `domains/personal`［domains/**］
+- `domains/trade`［domains/**］
+- `download`［download］
+- `download/[platform]`［download/[platform]］
+- `e2e-harness/markdown-stream`［e2e-harness/**］
+- `earnings`［earnings］
+- `ecosystem`［ecosystem］
+- `ecosystem/expert-packs`［ecosystem/expert-packs］
+- `ecosystem/expert-packs/[slug]`［ecosystem/expert-packs/[slug]］
+- `edu`［edu］
+- `edu-ai`［edu-ai］
+- `edu/courses`［edu/courses］
+- `enterprise/inquiry`［enterprise/inquiry］
+- `faq`［faq］
+- `feature-center/agents`［feature-center/**］
+- `feature-center/apis`［feature-center/**］
+- `feature-center/documents`［feature-center/**］
+- `feature-center/models`［feature-center/**］
+- `feature-center/sdks`［feature-center/**］
+- `figma-import`［figma-import］
+- `forbidden`［forbidden］
+- `forgot-password`［forgot-password］
+- `free-ai`［free-ai］
+- `google/callback`［google/callback］
+- `hooks`［hooks］
+- `member`［member］
+- `messages`［messages］
+- `mobile-dashboard`［mobile-dashboard］
+- `models-pricing`［models-pricing］
+- `models/api-docs`［models/api-docs］
+- `models/billing`［models/billing］
+- `models/channels`［models/channels］
+- `models/chats`［models/chats］
+- `models/contact`［models/contact］
+- `models/groups`［models/groups］
+- `models/logs`［models/logs］
+- `models/openclaw`［models/openclaw］
+- `models/redeem`［models/redeem］
+- `models/referral`［models/referral］
+- `models/trajectory`［models/trajectory］
+- `models/users`［models/users］
+- `newsletter`［newsletter］
+- `oauth/authorize`［oauth/authorize］
+- `oauth/platform`［oauth/platform］
+- `onboarding`［onboarding］
+- `openclaw`［openclaw］
+- `personas`［personas］
+- `play-beta`［play-beta］
+- `playground`［playground］
+- `pricing`［pricing］
+- `products`［products］
+- `qoder-reset`［qoder-reset］
+- `recruitment`［recruitment］
+- `recruitment/[id]`［recruitment/[id]］
+- `resources/affiliates`［resources/affiliates］
+- `resources/edit`［resources/edit］
+- `services`［services］
+- `settings/activity`［settings/activity］
+- `settings/dashboard`［settings/dashboard］
+- `settings/gateway`［settings/gateway］
+- `settings/login-security`［settings/login-security］
+- `settings/preferences`［settings/preferences］
+- `share`［share］
+- `share/[code]`［share/[code]］
+- `skills`［skills］
+- `spec`［spec/**］
+- `spec/templates`［spec/**］
+- `sponsor`［sponsor］
+- `sso/[provider]`［sso/**］
+- `sso/auth`［sso/**］
+- `sso/dingtalk`［sso/**］
+- `sso/login`［sso/**］
+- `sso/mobile-auth`［sso/**］
+- `sso/redirect`［sso/**］
+- `sso/register`［sso/**］
+- `sso/wecom`［sso/**］
+- `task-receiver`［task-receiver］
+- `tools/pdf/convert`［tools/pdf/convert］
+- `use-cases`［use-cases/**］
+- `use-cases/ai-design`［use-cases/**］
+- `use-cases/ai-edu`［use-cases/**］
+- `use-cases/ai-marketing`［use-cases/**］
+- `use-cases/ai-research`［use-cases/**］
+- `use-cases/ai-translation`［use-cases/**］
+- `use-cases/code-assistant`［use-cases/**］
+- `use-cases/content-generation`［use-cases/**］
+- `use-cases/customer-support`［use-cases/**］
+- `use-cases/data-analysis`［use-cases/**］
+- `use-cases/hr-recruiting`［use-cases/**］
+- `use-cases/it-ops`［use-cases/**］
+- `use-cases/knowledge-base`［use-cases/**］
+- `use-cases/market-analysis`［use-cases/**］
+- `use-cases/product-analysis`［use-cases/**］
+- `use-cases/sales`［use-cases/**］
+- `user`［user］
+- `workbuddy-reset`［workbuddy-reset］
+
+### 内部工具页 (1)
+
+- `shared-pilot`
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

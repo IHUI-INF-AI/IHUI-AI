@@ -1,0 +1,389 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { renderHook, waitFor } from '@testing-library/react'
+
+/**
+ * 通知 WS 断线补拉回归(断点续读的通知侧)。
+ * 病灶:断线窗口内服务端推的通知不重放,原实现只重建 socket ⇒ 通知永久丢失。
+ * 纪律:首连不补(由 unread-count 初始化 + 面板列表负责);重连拉最新页走 store
+ * 按 id 幂等合并;角标一律取服务端真相,不把补回误算成新未读。
+ */
+const h = vi.hoisted(() => ({
+  getNotifications: vi.fn(),
+  getUnreadCount: vi.fn(),
+  hydrateNotifications: vi.fn(),
+  handleWsMessage: vi.fn(),
+  markAllAsRead: vi.fn(),
+  clearAll: vi.fn(),
+  setUnreadCounts: vi.fn(),
+  queryNotificationStates: vi.fn(),
+  markAsReadByIds: vi.fn(),
+  archiveByIds: vi.fn(),
+  restoreByIds: vi.fn(),
+  deleteByIds: vi.fn(),
+  ws: { lastMessage: null as unknown, connected: false },
+  // 权威快照拿本地已知 ids;分片用例直接替换这个数组(>500 条)
+  notifications: [{ id: 'n-missed' }] as Array<{ id: string }>,
+}))
+
+vi.mock('@ihui/api-client', () => ({
+  getNotifications: h.getNotifications,
+  getUnreadCount: h.getUnreadCount,
+  queryNotificationStates: h.queryNotificationStates,
+}))
+
+vi.mock('@/hooks/use-websocket', () => ({ useWebSocket: () => h.ws }))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: (sel: (s: { isAuthenticated: boolean }) => unknown) =>
+    sel({ isAuthenticated: true }),
+}))
+
+vi.mock('@/stores/notification', () => {
+  const state = {
+    unreadCount: 0,
+    unreadMessageCount: 0,
+    handleWsMessage: h.handleWsMessage,
+    markAllAsRead: h.markAllAsRead,
+    clearAll: h.clearAll,
+    setUnreadCounts: h.setUnreadCounts,
+    hydrateNotifications: h.hydrateNotifications,
+    markAsReadByIds: h.markAsReadByIds,
+    archiveByIds: h.archiveByIds,
+    restoreByIds: h.restoreByIds,
+    deleteByIds: h.deleteByIds,
+    // 权威快照拿本地已知 ids;测试里 hydrating 的条目由这里给出。
+    // 用 h 持有的可写数组,便于 >500 分片用例动态塞 ids(默认仍是单条)。
+    get notifications() {
+      return h.notifications
+    },
+  }
+  return {
+    useNotificationStore: Object.assign((sel: (s: typeof state) => unknown) => sel(state), {
+      getState: () => state,
+    }),
+  }
+})
+
+import {
+  compareNotificationWatermark,
+  extractNotificationWatermark,
+  useGlobalNotification,
+} from '../use-global-notification'
+
+const ROW = {
+  id: 'n-missed',
+  type: 'system',
+  title: '断线期间的通知',
+  content: '',
+  createdAt: '2026-11-24T12:00:00.000Z',
+  isRead: false,
+}
+const okList = (list: readonly unknown[]) => ({
+  success: true,
+  data: { list, total: list.length, page: 1, pageSize: 100 },
+})
+const okCount = () => ({
+  success: true,
+  data: { notification: 2, message: 1, customerService: 0, total: 3 },
+})
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  h.ws.connected = false
+  h.ws.lastMessage = null
+  h.notifications = [{ id: 'n-missed' }]
+  h.getNotifications.mockResolvedValue(okList([]))
+  h.getUnreadCount.mockResolvedValue(okCount())
+  h.queryNotificationStates.mockResolvedValue({
+    success: true,
+    data: { readIds: [], archivedIds: [], deletedIds: [] },
+  })
+})
+
+describe('useGlobalNotification — 重连补增量', () => {
+  it('首次 open 不补拉(首连由角标初始化与面板列表负责)', async () => {
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    await Promise.resolve()
+    expect(h.getNotifications).not.toHaveBeenCalled()
+  })
+
+  it('断开后重连 ⇒ 拉最新页幂等合并 + 刷新服务端未读真相', async () => {
+    h.getNotifications.mockResolvedValue(okList([ROW]))
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.getNotifications).toHaveBeenCalledTimes(1))
+    expect(h.getNotifications).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 100,
+      partition: 'active',
+    })
+    expect(h.hydrateNotifications).toHaveBeenCalledWith([ROW])
+    expect(h.setUnreadCounts).toHaveBeenCalledWith({ notifications: 2, messages: 1 })
+  })
+
+  it('补拉失败 ⇒ 静默,不 hydrate、不冒充已对齐', async () => {
+    h.getNotifications.mockRejectedValue(new Error('offline'))
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.getNotifications).toHaveBeenCalledTimes(1))
+    expect(h.hydrateNotifications).not.toHaveBeenCalled()
+  })
+
+  it('卸载后到达的补拉结果不再写入(取消判据真接线)', async () => {
+    const gate: { release: ((v: unknown) => void) | null } = { release: null }
+    h.getNotifications.mockImplementation(
+      () =>
+        new Promise((r) => {
+          gate.release = r
+        }),
+    )
+    const { rerender, unmount } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.getNotifications).toHaveBeenCalledTimes(1))
+    unmount()
+    gate.release?.(okList([ROW]))
+    await Promise.resolve()
+    expect(h.hydrateNotifications).not.toHaveBeenCalled()
+  })
+
+  it('变异锁:补拉必须真装在重连边沿且走幂等 hydrate + keyset(抹掉即红)', () => {
+    const src = readFileSync(resolve(__dirname, '../use-global-notification.ts'), 'utf8')
+    const markers = [
+      'hydrateSinceWatermark(',
+      'hydrateNotifications(list)',
+      'sinceCreatedAt: cursor.createdAt',
+    ]
+    for (const marker of markers) expect(src).toContain(marker)
+    const stripped = markers.reduce((text, marker) => text.split(marker).join(''), src)
+    for (const marker of markers) expect(stripped).not.toContain(marker)
+  })
+
+  // ==================== 精确水位(复合 keyset) ====================
+  const WATERMARK_ROW = {
+    id: 'n-wm',
+    type: 'system',
+    title: '水位通知',
+    isRead: false,
+    createdAt: '2026-11-24T12:00:00.000Z',
+  }
+
+  it('WS 水位只认服务端 id/createdAt(拒绝伪造 ws- id、坏时刻、非通知帧)', () => {
+    expect(extractNotificationWatermark({ type: 'notification', data: WATERMARK_ROW })).toEqual({
+      createdAt: WATERMARK_ROW.createdAt,
+      id: WATERMARK_ROW.id,
+    })
+    expect(
+      extractNotificationWatermark({
+        type: 'notification',
+        data: { id: 'ws-1', createdAt: WATERMARK_ROW.createdAt },
+      }),
+    ).toBeNull()
+    expect(
+      extractNotificationWatermark({
+        type: 'notification',
+        data: { id: 'n-x', createdAt: 'not-a-date' },
+      }),
+    ).toBeNull()
+    expect(extractNotificationWatermark({ type: 'other', data: WATERMARK_ROW })).toBeNull()
+    expect(
+      compareNotificationWatermark(
+        { createdAt: '2026-11-24T12:00:00Z', id: 'a' },
+        { createdAt: '2026-11-24T12:00:00Z', id: 'b' },
+      ),
+    ).toBeLessThan(0)
+  })
+
+  it('有服务端水位 ⇒ 重连走 sinceCreatedAt/sinceId 增量,不再拉最新页', async () => {
+    const sinceRow = { ...ROW, id: 'n-since', createdAt: '2026-11-24T12:30:00.000Z' }
+    h.getNotifications.mockResolvedValue(okList([sinceRow]))
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.lastMessage = { type: 'notification', data: WATERMARK_ROW }
+    rerender()
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.getNotifications).toHaveBeenCalledTimes(1))
+    expect(h.getNotifications).toHaveBeenCalledWith({
+      pageSize: 100,
+      partition: 'active',
+      sinceCreatedAt: WATERMARK_ROW.createdAt,
+      sinceId: WATERMARK_ROW.id,
+    })
+    expect(h.hydrateNotifications).toHaveBeenCalledWith([sinceRow])
+  })
+
+  it('断线超过 100 条 ⇒ 按水位滚动续拉多页,角标仍取服务端真相', async () => {
+    const page1 = Array.from({ length: 100 }, (_, i) => ({
+      ...ROW,
+      id: `n-${String(i + 1).padStart(3, '0')}`,
+    }))
+    const page2 = [{ ...ROW, id: 'n-101' }]
+    h.getNotifications.mockImplementation((query: { sinceId?: string }) =>
+      Promise.resolve(okList(query.sinceId === 'n-000' ? page1 : page2)),
+    )
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.lastMessage = { type: 'notification', data: { ...WATERMARK_ROW, id: 'n-000' } }
+    rerender()
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.getNotifications).toHaveBeenCalledTimes(2))
+    expect(h.getNotifications.mock.calls[1]?.[0]).toMatchObject({ sinceId: 'n-100' })
+    expect(h.hydrateNotifications).toHaveBeenNthCalledWith(1, page1)
+    expect(h.hydrateNotifications).toHaveBeenNthCalledWith(2, page2)
+    // 登录初始化 + 重连各一次,不用本地补回条数重算
+    expect(h.getUnreadCount).toHaveBeenCalledTimes(2)
+  })
+
+  // ==================== 权威状态对账(WS 帧不重放的兜底) ====================
+  it('重连补增量后按本地 ids 对账权威已读/归档并按确切 ids 翻转', async () => {
+    h.queryNotificationStates.mockResolvedValue({
+      success: true,
+      data: { readIds: ['n-missed'], archivedIds: ['n-missed'], deletedIds: [] },
+    })
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.queryNotificationStates).toHaveBeenCalledWith(['n-missed']))
+    expect(h.markAsReadByIds).toHaveBeenCalledWith(['n-missed'])
+    expect(h.archiveByIds).toHaveBeenCalledWith(['n-missed'])
+  })
+
+  it('权威快照 deletedIds ⇒ 按确切 ids 移除断线期被删的通知', async () => {
+    h.queryNotificationStates.mockResolvedValue({
+      success: true,
+      data: { readIds: [], archivedIds: [], deletedIds: ['n-missed'] },
+    })
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.deleteByIds).toHaveBeenCalledWith(['n-missed']))
+    expect(h.markAsReadByIds).not.toHaveBeenCalled()
+  })
+
+  it('权威快照失败 ⇒ 静默,不翻转、不冒充已对齐', async () => {
+    h.queryNotificationStates.mockRejectedValue(new Error('offline'))
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.queryNotificationStates).toHaveBeenCalledTimes(1))
+    expect(h.markAsReadByIds).not.toHaveBeenCalled()
+    expect(h.archiveByIds).not.toHaveBeenCalled()
+    expect(h.deleteByIds).not.toHaveBeenCalled()
+  })
+
+  // ==================== 2026-11-24:state-query 500 上限真闭合(分片循环) ====================
+  it('本地 1200 ids ⇒ 分 3 片查询,每片 500/500/200,末片翻转也 apply', async () => {
+    const all = Array.from({ length: 1200 }, (_, i) => `n-${i}`)
+    h.notifications = all.map((id) => ({ id }))
+    // 第 501 条(n-500,在第二片)与第 1200 条(n-1199,在第三片)断线期被标已读
+    h.queryNotificationStates.mockImplementation((ids: string[]) =>
+      Promise.resolve({
+        success: true,
+        data: {
+          readIds: ids.filter((id) => id === 'n-500' || id === 'n-1199'),
+          archivedIds: [],
+          deletedIds: [],
+        },
+      }),
+    )
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.queryNotificationStates).toHaveBeenCalledTimes(3))
+    const chunks = h.queryNotificationStates.mock.calls.map((c: unknown[]) => c[0] as string[])
+    expect(chunks.map((c) => c.length)).toEqual([500, 500, 200])
+    expect(chunks[0]?.[0]).toBe('n-0')
+    expect(chunks[1]?.[0]).toBe('n-500')
+    expect(chunks[2]?.[0]).toBe('n-1000')
+    // 两片各自的翻转合并后一次性 apply(此前只查前 500,n-1199 永久拿不到)
+    expect(h.markAsReadByIds).toHaveBeenCalledWith(['n-500', 'n-1199'])
+  })
+
+  it('任一分片失败 ⇒ 整批不 apply(不留半批状态),下次重连重来', async () => {
+    const all = Array.from({ length: 1200 }, (_, i) => `n-${i}`)
+    h.notifications = all.map((id) => ({ id }))
+    h.queryNotificationStates
+      .mockResolvedValueOnce({
+        success: true,
+        data: { readIds: ['n-0'], archivedIds: [], deletedIds: [] },
+      })
+      .mockRejectedValueOnce(new Error('offline on chunk 2'))
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.queryNotificationStates).toHaveBeenCalledTimes(2))
+    // 第一片拿到 n-0 但因第二片失败整批丢弃,不 apply 半批
+    expect(h.markAsReadByIds).not.toHaveBeenCalled()
+  })
+
+  it('变异锁:对账必须分片循环(单 slice(0, LIMIT) 即红)', () => {
+    // 对账逻辑在独立模块 notification-state-reconcile.ts(切断循环 import)
+    const src = readFileSync(resolve(__dirname, '../notification-state-reconcile.ts'), 'utf8')
+    expect(src).toContain('offset += STATE_QUERY_LIMIT')
+    expect(src).toContain('merged.readIds.push')
+    const singleShot = 'getIds().slice(0, STATE_QUERY_LIMIT)'
+    expect(src).not.toContain(singleShot)
+    // 两个 hook 都必须真接这个对账出口(广播重连是背压跳帧的收敛路径)
+    const stateSync = readFileSync(resolve(__dirname, '../use-notification-state-sync.ts'), 'utf8')
+    expect(stateSync).toContain('void reconcileNotificationState(() => cancelled)')
+  })
+
+  it('首连不对账(只重连边沿;与补增量同一条纪律)', async () => {
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    await Promise.resolve()
+    expect(h.queryNotificationStates).not.toHaveBeenCalled()
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

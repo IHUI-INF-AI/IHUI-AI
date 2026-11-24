@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-store-read-entry"
+description = "Enables the store_read_entry command without any pre-configured scope."
+commands.allow = ["store_read_entry"]
+
+[[permission]]
+identifier = "deny-store-read-entry"
+description = "Denies the store_read_entry command without any pre-configured scope."
+commands.deny = ["store_read_entry"]

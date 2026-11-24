@@ -1,0 +1,351 @@
+{
+  "version": 1,
+  "generatedFor": "scripts/check-face-spec-hardcode.mjs",
+  "generatedAt": "2026-11-07",
+  "note": "存量棘轮:仅登记 2026-11-07 HEAD 面扫描时已存在的命中;新增命中一律判红。key = <file>|<patternId>|<同文件同pattern序号>。不得用通配符或公共兜底批量填充。其中 check-guarded-write-affected.mjs:360、check-generator-resource-release.mjs:702、check-readout-no-break.mjs:288/322/414 即当日事故 1/2/3 原写法,仍在树中未修,已如实登记为存量,修复责任在该门属主。",
+  "entries": [
+    {
+      "key": "scripts/check-api-client-utf8.mjs|head-prefix-concat|1",
+      "file": "scripts/check-api-client-utf8.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 174,
+      "snippet": "const specs = files.map((x) => (face === 'staged' ? ':' + x : 'HEAD:' + x))"
+    },
+    {
+      "key": "scripts/check-api-key-permission-labels.mjs|head-prefix-template|1",
+      "file": "scripts/check-api-key-permission-labels.mjs",
+      "patternId": "head-prefix-template",
+      "line": 135,
+      "snippet": "out[rel] = mode === 'worktree' ? readWorktreeFile(root, rel) : gitRaw(['show', `${mode === 'staged' ? ':' : 'HEAD:'}${rel}`], root)"
+    },
+    {
+      "key": "scripts/check-chat-element-coverage.mjs|head-prefix-template|1",
+      "file": "scripts/check-chat-element-coverage.mjs",
+      "patternId": "head-prefix-template",
+      "line": 230,
+      "snippet": "const specs = [`${usedFace === 'staged' ? ':' : 'HEAD:'}${LEDGER_REL}`]"
+    },
+    {
+      "key": "scripts/check-chat-element-coverage.mjs|head-prefix-template|2",
+      "file": "scripts/check-chat-element-coverage.mjs",
+      "patternId": "head-prefix-template",
+      "line": 237,
+      "snippet": "const specs = files.map((p) => `${usedFace === 'staged' ? ':' : 'HEAD:'}${p}`)"
+    },
+    {
+      "key": "scripts/check-ci-failure-triage-wiring.mjs|head-prefix-template|1",
+      "file": "scripts/check-ci-failure-triage-wiring.mjs",
+      "patternId": "head-prefix-template",
+      "line": 254,
+      "snippet": "text = mode === 'worktree' ? readWorktreeFile(root, p) : gitRaw(['show', `${mode === 'staged' ? ':' : 'HEAD:'}${p}`], root)"
+    },
+    {
+      "key": "scripts/check-ci-failure-triage-wiring.mjs|head-prefix-template|2",
+      "file": "scripts/check-ci-failure-triage-wiring.mjs",
+      "patternId": "head-prefix-template",
+      "line": 263,
+      "snippet": "ledgerRaw = mode === 'worktree' ? readWorktreeFile(root, EXEMPT_LEDGER_REL) : gitRaw(['show', `${mode === 'staged' ? ':' : 'HEAD:'}${EXEMPT_LEDGER_REL}`], root)"
+    },
+    {
+      "key": "scripts/check-generator-resource-release.mjs|bare-path-ternary|1",
+      "file": "scripts/check-generator-resource-release.mjs",
+      "patternId": "bare-path-ternary",
+      "line": 702,
+      "snippet": "const specs = paths.map((p) => `${face === 'staged' ? '' : 'HEAD:'}${p}`)"
+    },
+    {
+      "key": "scripts/check-generator-resource-release.mjs|head-prefix-template|1",
+      "file": "scripts/check-generator-resource-release.mjs",
+      "patternId": "head-prefix-template",
+      "line": 702,
+      "snippet": "const specs = paths.map((p) => `${face === 'staged' ? '' : 'HEAD:'}${p}`)"
+    },
+    {
+      "key": "scripts/check-grafana-datasource-wiring.mjs|head-prefix-template|1",
+      "file": "scripts/check-grafana-datasource-wiring.mjs",
+      "patternId": "head-prefix-template",
+      "line": 159,
+      "snippet": "const specs = want.map((p) => `${face === 'staged' ? ':' : 'HEAD:'}${p}`)"
+    },
+    {
+      "key": "scripts/check-grafana-datasource-wiring.mjs|head-prefix-template|2",
+      "file": "scripts/check-grafana-datasource-wiring.mjs",
+      "patternId": "head-prefix-template",
+      "line": 164,
+      "snippet": "blobs.get(`${face === 'staged' ? ':' : 'HEAD:'}${tree.provisioning}`) ?? null,"
+    },
+    {
+      "key": "scripts/check-grafana-datasource-wiring.mjs|head-prefix-template|3",
+      "file": "scripts/check-grafana-datasource-wiring.mjs",
+      "patternId": "head-prefix-template",
+      "line": 168,
+      "snippet": "const text = blobs.get(`${face === 'staged' ? ':' : 'HEAD:'}${p}`)"
+    },
+    {
+      "key": "scripts/check-guarded-write-affected.mjs|staged-colon-map|1",
+      "file": "scripts/check-guarded-write-affected.mjs",
+      "patternId": "staged-colon-map",
+      "line": 360,
+      "snippet": "const FACE_REV = { head: 'HEAD', staged: ':', worktree: null }"
+    },
+    {
+      "key": "scripts/check-head-recall-stock.mjs|head-prefix-concat|1",
+      "file": "scripts/check-head-recall-stock.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 167,
+      "snippet": "const got = catBatch(ROOT, ['HEAD:' + FILE])"
+    },
+    {
+      "key": "scripts/check-head-recall-stock.mjs|head-prefix-concat|2",
+      "file": "scripts/check-head-recall-stock.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 168,
+      "snippet": "baseText = got?.get('HEAD:' + FILE) ?? null"
+    },
+    {
+      "key": "scripts/check-live-doc-pathspec.mjs|head-prefix-template|1",
+      "file": "scripts/check-live-doc-pathspec.mjs",
+      "patternId": "head-prefix-template",
+      "line": 177,
+      "snippet": "const specs = files.map((p) => `${face === 'staged' ? ':' : 'HEAD:'}${p}`)"
+    },
+    {
+      "key": "scripts/check-mjs-export-resolution.mjs|head-prefix-template|1",
+      "file": "scripts/check-mjs-export-resolution.mjs",
+      "patternId": "head-prefix-template",
+      "line": 601,
+      "snippet": "const spec = `${face === 'staged' ? ':' : 'HEAD:'}${missingScope[0]}`"
+    },
+    {
+      "key": "scripts/check-money-display-single-source.mjs|head-prefix-concat|1",
+      "file": "scripts/check-money-display-single-source.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 227,
+      "snippet": "agot = catBatch(ROOT, arels.map((x) => 'HEAD:' + x), { maxBuffer: 1 << 29 })"
+    },
+    {
+      "key": "scripts/check-money-display-single-source.mjs|head-prefix-concat|2",
+      "file": "scripts/check-money-display-single-source.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 231,
+      "snippet": "for (const x of arels) anchor.set(x, countInlineCentsFormats(agot.get('HEAD:' + x) ?? ''))"
+    },
+    {
+      "key": "scripts/check-panel-datasource-wiring.mjs|head-prefix-template|1",
+      "file": "scripts/check-panel-datasource-wiring.mjs",
+      "patternId": "head-prefix-template",
+      "line": 163,
+      "snippet": "const spec = (p) => `${face === 'staged' ? ':' : 'HEAD:'}${p}`"
+    },
+    {
+      "key": "scripts/check-plan-archive-monotonic.mjs|head-prefix-concat|1",
+      "file": "scripts/check-plan-archive-monotonic.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 407,
+      "snippet": "head = gitRaw(['show', 'HEAD:' + FILE], ROOT)"
+    },
+    {
+      "key": "scripts/check-plan-closed-stock.mjs|head-prefix-concat|1",
+      "file": "scripts/check-plan-closed-stock.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 287,
+      "snippet": "picked.face === 'staged' ? ':' + FILE : picked.face === 'worktree' ? null : 'HEAD:' + FILE"
+    },
+    {
+      "key": "scripts/check-plan-closed-stock.mjs|head-prefix-concat|2",
+      "file": "scripts/check-plan-closed-stock.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 289,
+      "snippet": "picked.face === 'staged' || picked.face === 'worktree' ? 'HEAD:' + FILE : 'HEAD^:' + FILE"
+    },
+    {
+      "key": "scripts/check-plan-dup-pointer-ratchet.mjs|head-prefix-concat|1",
+      "file": "scripts/check-plan-dup-pointer-ratchet.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 517,
+      "snippet": "const got = catBatch(root, ['HEAD:' + FILE], { timeout: 60000 })"
+    },
+    {
+      "key": "scripts/check-plan-dup-pointer-ratchet.mjs|head-prefix-concat|2",
+      "file": "scripts/check-plan-dup-pointer-ratchet.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 518,
+      "snippet": "newContent = got.get('HEAD:' + FILE) ?? null"
+    },
+    {
+      "key": "scripts/check-plan-dup-pointer-ratchet.mjs|head-prefix-concat|3",
+      "file": "scripts/check-plan-dup-pointer-ratchet.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 549,
+      "snippet": "const got = catBatch(root, ['HEAD:' + FILE], { timeout: 60000 })"
+    },
+    {
+      "key": "scripts/check-plan-dup-pointer-ratchet.mjs|head-prefix-concat|4",
+      "file": "scripts/check-plan-dup-pointer-ratchet.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 550,
+      "snippet": "oldContent = got.get('HEAD:' + FILE) ?? ''"
+    },
+    {
+      "key": "scripts/check-python-import-resolvable.mjs|head-prefix-concat|1",
+      "file": "scripts/check-python-import-resolvable.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 157,
+      "snippet": "const specs = files.map((x) => (face === 'staged' ? ':' + x : 'HEAD:' + x))"
+    },
+    {
+      "key": "scripts/check-radius-role-conformance.mjs|head-prefix-concat|1",
+      "file": "scripts/check-radius-role-conformance.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 2088,
+      "snippet": "const src = catBatch(repoRoot, ['HEAD:' + rel], { maxBuffer: 1 << 27 }).get('HEAD:' + rel)"
+    },
+    {
+      "key": "scripts/check-radius-role-conformance.mjs|head-prefix-concat|2",
+      "file": "scripts/check-radius-role-conformance.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 2088,
+      "snippet": "const src = catBatch(repoRoot, ['HEAD:' + rel], { maxBuffer: 1 << 27 }).get('HEAD:' + rel)"
+    },
+    {
+      "key": "scripts/check-radius-single-source.mjs|head-prefix-concat|1",
+      "file": "scripts/check-radius-single-source.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 1543,
+      "snippet": "const accHead0 = makeBlobAccessor(new Map([['HEAD:' + FACE_REL, HEAD_CLEAN]]))"
+    },
+    {
+      "key": "scripts/check-radius-single-source.mjs|head-prefix-concat|2",
+      "file": "scripts/check-radius-single-source.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 1555,
+      "snippet": "const accHead3 = makeBlobAccessor(new Map([['HEAD:' + FACE_REL, DISK_DIRTY]]))"
+    },
+    {
+      "key": "scripts/check-readout-and-timer-hygiene.mjs|staged-colon-map|1",
+      "file": "scripts/check-readout-and-timer-hygiene.mjs",
+      "patternId": "staged-colon-map",
+      "line": 278,
+      "snippet": "const FACE_REV = { head: 'HEAD', staged: ':', worktree: null }"
+    },
+    {
+      "key": "scripts/check-readout-no-break.mjs|staged-bang-rev|1",
+      "file": "scripts/check-readout-no-break.mjs",
+      "patternId": "staged-bang-rev",
+      "line": 288,
+      "snippet": "const faceText = readAt(':!0', p)"
+    },
+    {
+      "key": "scripts/check-readout-no-break.mjs|staged-bang-rev|2",
+      "file": "scripts/check-readout-no-break.mjs",
+      "patternId": "staged-bang-rev",
+      "line": 322,
+      "snippet": "const rev = face === 'staged' ? ':!0' : 'HEAD'"
+    },
+    {
+      "key": "scripts/check-readout-no-break.mjs|staged-bang-rev|3",
+      "file": "scripts/check-readout-no-break.mjs",
+      "patternId": "staged-bang-rev",
+      "line": 414,
+      "snippet": "const r8 = runR8(face, (rev, p) => (rev === ':!0' ? gitShow(':!0', p) : gitShow('HEAD', p)))"
+    },
+    {
+      "key": "scripts/check-readout-no-break.mjs|staged-bang-rev|4",
+      "file": "scripts/check-readout-no-break.mjs",
+      "patternId": "staged-bang-rev",
+      "line": 414,
+      "snippet": "const r8 = runR8(face, (rev, p) => (rev === ':!0' ? gitShow(':!0', p) : gitShow('HEAD', p)))"
+    },
+    {
+      "key": "scripts/check-skip-env-promise.mjs|head-prefix-template|1",
+      "file": "scripts/check-skip-env-promise.mjs",
+      "patternId": "head-prefix-template",
+      "line": 606,
+      "snippet": "const specs = files.map((rel) => `${face === 'head' ? 'HEAD:' : ':'}${rel}`)"
+    },
+    {
+      "key": "scripts/check-skip-env-promise.mjs|head-prefix-template|2",
+      "file": "scripts/check-skip-env-promise.mjs",
+      "patternId": "head-prefix-template",
+      "line": 609,
+      "snippet": "const text = map.get(`${face === 'head' ? 'HEAD:' : ':'}${rel}`)"
+    },
+    {
+      "key": "scripts/check-skip-env-promise.mjs|head-prefix-template|3",
+      "file": "scripts/check-skip-env-promise.mjs",
+      "patternId": "head-prefix-template",
+      "line": 620,
+      "snippet": "const specs = DOC_FILES.map((f) => `${face === 'head' ? 'HEAD:' : ':'}${f}`)"
+    },
+    {
+      "key": "scripts/check-skip-env-promise.mjs|head-prefix-template|4",
+      "file": "scripts/check-skip-env-promise.mjs",
+      "patternId": "head-prefix-template",
+      "line": 626,
+      "snippet": "for (const rel of DOC_FILES) docs.push({ rel, text: map.get(`${face === 'head' ? 'HEAD:' : ':'}${rel}`) })"
+    },
+    {
+      "key": "scripts/check-spawn-stdio.mjs|head-prefix-concat|1",
+      "file": "scripts/check-spawn-stdio.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 1034,
+      "snippet": "const key = (f) => (face === 'worktree' ? 'WT:' + f : 'HEAD:' + f)"
+    },
+    {
+      "key": "scripts/check-statusbar-single-source.mjs|head-prefix-template|1",
+      "file": "scripts/check-statusbar-single-source.mjs",
+      "patternId": "head-prefix-template",
+      "line": 143,
+      "snippet": "return git(['show', `${face === 'index' ? ':' : 'HEAD:'}${rel}`], root)"
+    },
+    {
+      "key": "scripts/check-tool-contract-declared.mjs|head-prefix-template|1",
+      "file": "scripts/check-tool-contract-declared.mjs",
+      "patternId": "head-prefix-template",
+      "line": 921,
+      "snippet": "const specs = files.map((f) => `${face === 'staged' ? ':' : 'HEAD:'}${f}`)"
+    },
+    {
+      "key": "scripts/check-tool-family-registered.mjs|head-prefix-template|1",
+      "file": "scripts/check-tool-family-registered.mjs",
+      "patternId": "head-prefix-template",
+      "line": 604,
+      "snippet": "const specs = files.map((f) => `${face === 'staged' ? ':' : 'HEAD:'}${f}`)"
+    },
+    {
+      "key": "scripts/check-v3-62-conversation-mount.mjs|head-prefix-template|1",
+      "file": "scripts/check-v3-62-conversation-mount.mjs",
+      "patternId": "head-prefix-template",
+      "line": 289,
+      "snippet": "const specs = files.map((f) => `${face === 'staged' ? ':' : 'HEAD:'}${f}`)"
+    },
+    {
+      "key": "scripts/dedupe-live-doc.mjs|head-prefix-concat|1",
+      "file": "scripts/dedupe-live-doc.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 177,
+      "snippet": "const ref = face === 'staged' ? ':./' + relPath : 'HEAD:' + relPath"
+    },
+    {
+      "key": "scripts/scan-dead-i18n-keys.mjs|head-prefix-template|1",
+      "file": "scripts/scan-dead-i18n-keys.mjs",
+      "patternId": "head-prefix-template",
+      "line": 230,
+      "snippet": "const spec = `${FACE === 'staged' ? ':' : 'HEAD:'}${CONTRACT_FILE_REL}`"
+    },
+    {
+      "key": "scripts/strip-stale-closed-rows.mjs|head-prefix-concat|1",
+      "file": "scripts/strip-stale-closed-rows.mjs",
+      "patternId": "head-prefix-concat",
+      "line": 2011,
+      "snippet": "const drift = faceDriftVerdict(headText, blobOf('HEAD:' + FILE))"
+    },
+    {
+      "key": "scripts/verify-wallboard-readout.mjs|staged-bang-rev|1",
+      "file": "scripts/verify-wallboard-readout.mjs",
+      "patternId": "staged-bang-rev",
+      "line": 178,
+      "snippet": "return gitRaw(['show', `${face === 'staged' ? ':!0' : 'HEAD'}:${TARGET_REL}`], REPO_ROOT, {"
+    }
+  ]
+}

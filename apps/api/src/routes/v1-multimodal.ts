@@ -1,0 +1,2540 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * /v1/* 对外开放 API — 多模态类路由(2026-07-22 立)。
+ *
+ * 所有端点统一 requireApiKeyAuth + requireApiKeyPermission + requireApiKeyQuota 三重 preHandler。
+ * 响应格式 OpenAI 兼容(不套 { code, message, data } 壳,camelCase 字段)。
+ * 鉴权由 plugins/api-key-auth.ts 提供,契约类型由 @ihui/types 提供。
+ *
+ * 转发策略:fetch 转发到内部 /api/* 路由(base url http://localhost:${PORT||8802})。
+ * 内部 /api/* 路由使用 JWT 鉴权(plugins/auth.ts authenticate),本文件用 signAccessToken
+ * 从 request.apiKey.userId 签发短期内部 JWT,作为 Bearer 透传,保持 API Key 鉴权隔离不混用用户 JWT。
+ * 内部成功响应 { code:0, message:'success', data } 自动拆壳返回 data;错误响应透传 HTTP 状态码。
+ *
+ * 端点清单(21 个):
+ * 1.  GET    /v1/audio/voices              — 音色列表(audio:read)
+ * 2.  POST   /v1/audio/speech              — TTS 语音合成(audio:write)
+ * 3.  POST   /v1/audio/transcriptions      — ASR 语音识别(audio:write)
+ * 4.  POST   /v1/audio/chat                — 语音对话(audio:write)
+ * 5.  GET    /v1/audio/speakers            — 声纹列表(audio:read)
+ * 6.  POST   /v1/audio/speakers            — 声纹注册(audio:write)
+ * 7.  POST   /v1/audio/speakers/compare    — 声纹比对(audio:read)
+ * 8.  POST   /v1/audio/music               — 音乐生成(audio:write)
+ * 9.  POST   /v1/images/generations        — 文生图(images:write,按 vendor 路由)
+ * 10. POST   /v1/images/edits              — 图片编辑(images:write,按 vendor 路由)
+ * 11. POST   /v1/images/inpaint            — 图片修复(images:write)
+ * 12. POST   /v1/images/style-transfer     — 风格迁移(images:write)
+ * 13. POST   /v1/images/virtual-try-on     — 虚拟试穿(images:write)
+ * 14. POST   /v1/images/background         — 背景生成(images:write)
+ * 15. POST   /v1/videos/generations        — 视频生成(videos:write,按 vendor 路由)
+ * 16. GET    /v1/videos/tasks/:id          — 视频任务查询(videos:read,sora2→jimeng4 回退)
+ * 17. POST   /v1/videos/compose            — 视频编排(videos:write)
+ * 18. POST   /v1/3d/generations            — 3D 模型生成(threed:write)
+ * 19. POST   /v1/generation/enqueue        — 生成队列入队(generation:write)
+ * 20. GET    /v1/generation/status/:id     — 生成队列状态(generation:write)
+ * 21. POST   /v1/generation/cancel/:id     — 生成队列取消(generation:write)
+ * 22. POST   /v1/images/generations/async  — 异步文生图(任务编排骨架,202 + task id)(images:write)
+ * 23. GET    /v1/images/generations/async/:id — 异步图片任务状态轮询(images:read)
+ */
+import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
+import { z } from 'zod'
+import type {
+  V1AudioVoicesResponse,
+  V1AudioTranscriptionsResponse,
+  V1AudioChatResponse,
+  V1CompareSpeakersResponse,
+  V1MusicGenerationsResponse,
+  V1VideoGenerationsResponse,
+  V1VideoTaskResponse,
+  V1VideoComposeResponse,
+  V1ThreeDGenerationsResponse,
+  V1GenerationEnqueueResponse,
+  V1GenerationStatusResponse,
+} from '@ihui/types'
+import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
+import { requireCapability } from '../utils/capability-guard.js'
+import type { Redis } from 'ioredis'
+import { error } from '../utils/response.js'
+import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
+import { recordCall, refundTaskCall } from '../services/relay-billing-service.js'
+import { logger } from '../utils/logger.js'
+import { forwardToChannel, type SelectedChannelKey } from '../services/relay-upstream-forwarder.js'
+import { MEDIA_BASE64_BODY_LIMIT } from '../config/body-limits.js'
+
+// =============================================================================
+// 常量
+// =============================================================================
+
+/** 内部 /api/* 路由 base url(保持 API Key 鉴权隔离,不混用用户 JWT)。 */
+const INTERNAL_BASE = `http://localhost:${process.env.PORT || 8802}`
+
+// =============================================================================
+// 多模态计费挂钩(2026-09-13 立)
+// -----------------------------------------------------------------------------
+// 生图按张 / 生视频按次(或按秒) / 按次计费模型,定价行在 ai_pricing(billing_mode):
+//   per_image  → 分/张 × 张数
+//   per_video  → 分/次 或 分/秒(video_unit)
+//   per_call   → 三档价按上下文(chat 端点场景,这里不涉及)
+// 无定价行的模型 calculateCost 回退 0(免费),不阻断调用。
+// 计费时机:提交/返回成功即扣(乐观计费,防漏损);任务查询发现 failed 时
+// refundTaskCall 按 costCents 全额退款(幂等,refunded 标记防重)。
+// =============================================================================
+
+/** 取鉴权后的 API Key 上下文(计费需要 apiKeyId)。 */
+function apiKeyOf(request: Parameters<typeof getUserId>[0]): { id: string; userId: string } | null {
+  const apiKey = (request as FastifyRequest & { apiKey?: { id: string; userId: string } }).apiKey
+  return apiKey ?? null
+}
+
+/**
+ * 多模态调用计费(fire-and-forget,失败只 log 不影响主链路)。
+ * units:image=张数;video=次数或秒数(按定价行 videoUnit)。
+ * channel:relay 直连成功时传入(渠道审计进流水 provider_code/config_id/key_pool_id)。
+ */
+function chargeMultimodal(
+  request: Parameters<typeof getUserId>[0],
+  args: {
+    model: string
+    callType: 'image' | 'video'
+    units: number
+    prompt: string
+    taskId?: string
+    channel?: Pick<SelectedChannelKey, 'keyPoolId' | 'providerCode' | 'configId'> | null
+  },
+): void {
+  const apiKey = apiKeyOf(request)
+  if (!apiKey) return
+  void recordCall({
+    apiKeyId: apiKey.id,
+    userId: apiKey.userId,
+    model: args.model,
+    prompt: args.prompt,
+    response: null,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    latencyMs: 0,
+    status: 'success',
+    callType: args.callType,
+    billingUnits: Math.max(1, Math.ceil(args.units || 1)),
+    providerCode: args.channel?.providerCode,
+    configId: args.channel?.configId,
+    keyPoolId: args.channel?.keyPoolId,
+    metadata: {
+      endpoint: `v1_${args.callType === 'image' ? 'images' : 'videos'}_generations`,
+      ...(args.channel ? { relayDirect: true } : {}),
+      ...(args.taskId ? { task_id: args.taskId } : {}),
+    },
+  })
+}
+
+/** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致)。 */
+
+// =============================================================================
+// 任务失败退款(F-34,2026-11-13)
+// -----------------------------------------------------------------------------
+// 原实现 `void refundTaskCall(id)` 丢弃返回值,退款失败只活在服务端日志里 ⇒
+// 「用户付费但产出为空且钱没退」可能永远无人处理。现在:等退款结果,
+// 未完成(error/exhausted)时写退款 DLQ(Redis,7 天,可人工 REPLAY/DROP)+ error 告警。
+// =============================================================================
+
+/**
+ * 任务失败退款(幂等,内部有界重试)。
+ *
+ * - 成功退款:清掉此前可能累积的 DLQ 记录(逐次轮询失败后本轮成功);
+ * - 未完成:error 级告警 + 写退款 DLQ(error 计次/exhausted 直接入队,等人工);
+ * - 任何异常都不外抛,不影响状态查询响应。
+ */
+async function refundFailedTask(
+  server: FastifyInstance,
+  taskId: string,
+  endpoint: string,
+): Promise<void> {
+  // 测试/裁剪构建可能未注册 resilience-toolkit 装饰器
+  const dlq = server.refundDlq as FastifyInstance['refundDlq'] | undefined
+  const dlqKey = `task:${taskId}`
+  let result: Awaited<ReturnType<typeof refundTaskCall>>
+  try {
+    result = await refundTaskCall(taskId)
+  } catch (err) {
+    // 服务内部已兜住 DB 错误,这里只防御非常规抛错
+    logger.error('[billing] 多模态任务失败退款异常', {
+      taskId,
+      endpoint,
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return
+  }
+  if (result.refunded) {
+    if (result.reason === 'ok' && dlq) {
+      await dlq.clearRefundFailure(dlqKey).catch((err: unknown) => {
+        logger.warn('[billing] 清理退款 DLQ 记录失败(不影响已完成的退款)', {
+          taskId,
+          endpoint,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      })
+    }
+    return
+  }
+  // no_log(未扣费/已退过)/no_api_key 无需补偿
+  if (result.reason !== 'error' && result.reason !== 'exhausted') return
+  const detail = { taskId, endpoint, reason: result.reason, attempts: result.attempts }
+  logger.error('[billing] 多模态任务失败退款未完成(已记待补偿)', detail)
+  if (!dlq) return
+  try {
+    if (result.reason === 'exhausted') {
+      // 已达重试上限:直接入 DLQ,等人工核对后补偿
+      await dlq.enqueueRefundFailure(dlqKey, 'refund_exhausted', detail)
+    } else {
+      await dlq.recordRefundFailure(dlqKey, 'refund_error', detail)
+    }
+  } catch (err) {
+    // DLQ 不可用也不能影响响应;待补偿事实已写在本行 metadata.refund_state
+    logger.error('[billing] 退款 DLQ 写入失败(待补偿标记仍在业务表)', {
+      ...detail,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+}
+
+// =============================================================================
+// Zod schemas
+// =============================================================================
+
+const audioSpeechSchema = z.object({
+  model: z.string().min(1),
+  input: z.string().min(1),
+  voice: z.string().min(1),
+  responseFormat: z.string().optional(),
+  speed: z.number().optional(),
+})
+
+const audioTranscriptionsSchema = z.object({
+  model: z.string().min(1),
+  audio: z.string().min(1),
+  language: z.string().optional(),
+  prompt: z.string().optional(),
+})
+
+const audioChatSchema = z.object({
+  audio: z.string().min(1),
+  model: z.string().min(1),
+  sessionId: z.string().optional(),
+})
+
+const registerSpeakerSchema = z.object({
+  name: z.string().min(1),
+  audio: z.string().min(1),
+})
+
+const compareSpeakersSchema = z.object({
+  speakerId: z.string().min(1),
+  audio: z.string().min(1),
+})
+
+const musicSchema = z.object({
+  prompt: z.string().min(1),
+  lyrics: z.string().optional(),
+  duration: z.number().optional(),
+})
+
+const imageGenerationsSchema = z.object({
+  model: z.string().min(1),
+  prompt: z.string().min(1),
+  n: z.number().int().positive().optional(),
+  size: z.string().optional(),
+  quality: z.string().optional(),
+  style: z.string().optional(),
+  vendor: z.string().optional(),
+})
+
+/**
+ * 异步图片生成任务(2026-09-16 立):入参 { model, prompt, n?, size? }。
+ * 与同步 /images/generations 解耦:此端点仅落地任务编排骨架(pending),
+ * 不真正调用上游生图(上游调用由既有同步端点 / 调用方体系负责,worker 消费任务后推进状态)。
+ */
+const imageAsyncGenerationsSchema = z.object({
+  model: z.string().min(1),
+  prompt: z.string().min(1),
+  n: z.number().int().positive().optional(),
+  size: z.string().optional(),
+})
+
+const imageEditsSchema = z.object({
+  model: z.string().min(1),
+  image: z.string().min(1),
+  prompt: z.string().min(1),
+  mask: z.string().optional(),
+  n: z.number().int().positive().optional(),
+  size: z.string().optional(),
+  vendor: z.string().optional(),
+})
+
+const imageInpaintSchema = z.object({
+  model: z.string().min(1),
+  image: z.string().min(1),
+  mask: z.string().min(1),
+  prompt: z.string().min(1),
+})
+
+const styleTransferSchema = z.object({
+  model: z.string().min(1),
+  image: z.string().min(1),
+  style: z.string().min(1),
+})
+
+const virtualTryOnSchema = z.object({
+  model: z.string().min(1),
+  personImage: z.string().min(1),
+  garmentImage: z.string().min(1),
+})
+
+const backgroundSchema = z.object({
+  model: z.string().min(1),
+  foreground: z.string().min(1),
+  prompt: z.string().min(1),
+})
+
+const videoGenerationsSchema = z.object({
+  model: z.string().min(1),
+  prompt: z.string().min(1),
+  image: z.string().optional(),
+  duration: z.number().optional(),
+  resolution: z.string().optional(),
+  vendor: z.string().optional(),
+})
+
+const videoComposeSchema = z.object({
+  scenes: z
+    .array(
+      z.object({
+        text: z.string().min(1),
+        duration: z.number().optional(),
+        imagePrompt: z.string().optional(),
+      }),
+    )
+    .min(1),
+  bgmUrl: z.string().optional(),
+})
+
+const threeDGenerationsSchema = z.object({
+  model: z.string().min(1),
+  input: z.string().min(1),
+  format: z.string().optional(),
+})
+
+const generationEnqueueSchema = z.object({
+  type: z.string().min(1),
+  payload: z.record(z.string(), z.unknown()),
+  priority: z.union([z.string(), z.number()]).optional(),
+})
+
+// =============================================================================
+// Fastify OpenAPI schemas(共享)
+// =============================================================================
+
+const errorResponseSchema = {
+  type: 'object',
+  properties: { code: { type: 'number' }, message: { type: 'string' } },
+}
+
+// =============================================================================
+// 辅助函数
+// =============================================================================
+
+/** 从 apiKey 上下文取 userId,失败 reply 401。 */
+
+/** 用 apiKey.userId 签发短期内部 JWT,模拟内部调用满足 /api/* 的 JWT 鉴权。 */
+
+/** 构造 JSON 请求 init。 */
+
+interface InternalResult {
+  ok: boolean
+  status: number
+  code: number
+  message: string
+  data: unknown
+  isBinary: boolean
+  buffer: Buffer | null
+  contentType: string
+}
+
+/** 调用内部 /api/* 路由,自动附加内部 JWT Bearer。 */
+async function callInternal(
+  path: string,
+  init: RequestInit,
+  userId: string,
+): Promise<InternalResult> {
+  const token = await mintInternalJwt(userId)
+  const headers = new Headers(init.headers)
+  headers.set('Authorization', `Bearer ${token}`)
+  const resp = await fetch(`${INTERNAL_BASE}${path}`, { ...init, headers })
+  const contentType = resp.headers.get('content-type') ?? ''
+
+  // 二进制音频/图片直返
+  if (
+    contentType.includes('audio') ||
+    contentType.includes('octet-stream') ||
+    contentType.includes('image')
+  ) {
+    const buffer = Buffer.from(await resp.arrayBuffer())
+    return {
+      ok: resp.ok,
+      status: resp.status,
+      code: resp.ok ? 0 : resp.status,
+      message: '',
+      data: null,
+      isBinary: true,
+      buffer,
+      contentType,
+    }
+  }
+
+  const json = (await resp.json().catch(() => null)) as Record<string, unknown> | null
+
+  // 拆壳 { code, message, data }
+  if (json && typeof json === 'object' && 'code' in json) {
+    const code = (json as { code: number }).code
+    if (code === 0) {
+      return {
+        ok: true,
+        status: resp.status,
+        code: 0,
+        message: '',
+        data: (json as { data: unknown }).data,
+        isBinary: false,
+        buffer: null,
+        contentType,
+      }
+    }
+    return {
+      ok: false,
+      status: resp.status,
+      code,
+      message: (json as { message?: string }).message ?? '',
+      data: null,
+      isBinary: false,
+      buffer: null,
+      contentType,
+    }
+  }
+
+  // 未包装的直接对象
+  return {
+    ok: resp.ok,
+    status: resp.status,
+    code: resp.ok ? 0 : resp.status,
+    message: '',
+    data: json,
+    isBinary: false,
+    buffer: null,
+    contentType,
+  }
+}
+
+/**
+ * 通用内部转发(JSON 请求 + JSON/二进制响应)。
+ * 成功返回 mapper(data) 或 data;失败返回 reply.status(httpStatus).send(error(...))。
+ */
+async function forwardInternal(
+  reply: FastifyReply,
+  path: string,
+  init: RequestInit,
+  userId: string,
+  mapper?: (data: unknown) => unknown,
+): Promise<void> {
+  try {
+    const result = await callInternal(path, init, userId)
+    if (result.isBinary && result.buffer) {
+      reply.header('Content-Type', result.contentType)
+      return reply.send(result.buffer)
+    }
+    if (!result.ok) {
+      const httpStatus = result.status >= 400 && result.status < 600 ? result.status : 502
+      return reply
+        .status(httpStatus)
+        .send(error(httpStatus, result.message || `Internal service error (${result.status})`))
+    }
+    return reply.send(mapper ? mapper(result.data) : result.data)
+  } catch (e) {
+    return reply
+      .status(503)
+      .send(error(503, (e as Error).message || 'Internal service unavailable'))
+  }
+}
+
+/** 将内部任务状态字符串映射为 v1 camelCase 状态。 */
+function mapJobStatus(s: unknown): 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled' {
+  const v = typeof s === 'string' ? s.toLowerCase() : ''
+  if (v === 'waiting' || v === 'delayed' || v === 'pending') return 'queued'
+  if (v === 'active' || v === 'processing' || v === 'running') return 'processing'
+  if (v === 'succeeded' || v === 'completed' || v === 'success') return 'completed'
+  if (v === 'failed' || v === 'error') return 'failed'
+  if (v === 'cancelled' || v === 'canceled') return 'cancelled'
+  return 'queued'
+}
+
+/**
+ * 轮询内部任务状态,直到 completed/failed 或超时。
+ * 默认 30s 超时,1s 间隔。返回 {completed, result}。
+ */
+async function pollInternalJob(
+  taskId: string,
+  userId: string,
+  timeoutMs = 30_000,
+  intervalMs = 1_000,
+): Promise<{ completed: boolean; result?: unknown }> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, intervalMs))
+    try {
+      const status = await callInternal(
+        `/api/ai/generation/${encodeURIComponent(taskId)}/status`,
+        { method: 'GET' },
+        userId,
+      )
+      if (!status.ok) continue
+      const d = asObj(status.data)
+      const s = mapJobStatus(d.status)
+      if (s === 'completed') return { completed: true, result: d.returnvalue ?? d.result ?? d }
+      if (s === 'failed') return { completed: false, result: d }
+    } catch {
+      // 继续轮询
+    }
+  }
+  return { completed: false }
+}
+
+// =============================================================================
+// 异步图片生成任务编排(2026-09-16 立)
+// -----------------------------------------------------------------------------
+// 对齐 OpenAI /images/generations/async + 轮询。本模块只落地任务编排骨架:
+//   POST /v1/images/generations/async    → 创建任务,返回 202 { id, status:'pending' }
+//   GET  /v1/images/generations/async/:id → 查询任务状态
+// 状态推进(worker 消费上游生图结果后置 succeeded/failed)由 completeImageTask /
+// failImageTask 提供 —— 本端点内部不自动推进状态。
+//
+// 存储:优先 Redis(key `imgtask:{id}`, JSON, TTL 24h);Redis 不可用(未连接 / 命令异常)
+// 降级进程内 Map(单进程内存,重启即丢,跨进程不可见 —— 仅作骨架降级,非生产多实例方案)。
+// 金额 / 计费不在本任务范围(OpenAI 异步图片的计费随既有同步链路 /images/generations 走)。
+// =============================================================================
+
+/** 任务状态(与 OpenAI images 异步约定一致)。 */
+type ImageTaskStatus = 'pending' | 'processing' | 'succeeded' | 'failed'
+
+/** 异步图片任务记录(Redis value / 内存结构一致)。 */
+interface ImageTask {
+  id: string
+  status: ImageTaskStatus
+  model: string
+  prompt: string
+  /** 发起任务的下游用户(异步 worker 调上游计费链路需要) */
+  userId?: string
+  /** 发起任务的 API Key id(F-675 乐观扣费对账:创建即按次 recordCall) */
+  apiKeyId?: string
+  createdAt: string
+  /** 生图结果:图片 URL / base64 数组(仅 succeeded 时存在)。 */
+  result?: string[]
+  /** 失败原因(仅 failed 时存在)。 */
+  error?: string
+  /** 认领令牌(仅 processing 期间存在;F-48:只有令牌持有者能推进状态)。 */
+  claimToken?: string
+  /** 认领时间 ISO(记账租约;超过租约视为认领者崩溃,允许重新认领)。 */
+  claimedAt?: string
+}
+
+const IMG_TASK_PREFIX = 'imgtask:'
+const IMG_TASK_TTL_SECONDS = 24 * 60 * 60
+/** 认领租约(毫秒):认领者持有上限,超时视为认领者崩溃,允许其他 worker 重新认领。 */
+const IMG_TASK_CLAIM_LEASE_MS = 15 * 60 * 1000
+const IMG_TASK_CLAIM_LEASE_SECONDS = Math.floor(IMG_TASK_CLAIM_LEASE_MS / 1000)
+/** 认领租约键前缀。刻意与 `imgtask:` 分开,避免被 listPendingImageTasks 的 KEYS 扫到。 */
+const IMG_TASK_CLAIM_PREFIX = 'imgtask-claim:'
+
+/** Redis 客户端(插件注册时捕获);为 null 或命令异常时降级进程内 Map。 */
+let imageTaskRedis: Redis | null = null
+
+/** 进程内降级存储(Redis 不可用时的兜底)。 */
+const inMemoryImageTasks = new Map<string, ImageTask>()
+
+/** 解析 Redis 原始串为 ImageTask(结构非法返回 null)。 */
+function parseImageTask(raw: string | null): ImageTask | null {
+  if (!raw) return null
+  let obj: unknown
+  try {
+    obj = JSON.parse(raw)
+  } catch {
+    return null
+  }
+  if (!obj || typeof obj !== 'object') return null
+  const o = obj as Record<string, unknown>
+  if (typeof o.id !== 'string') return null
+  const status = o.status
+  if (
+    status !== 'pending' &&
+    status !== 'processing' &&
+    status !== 'succeeded' &&
+    status !== 'failed'
+  ) {
+    return null
+  }
+  const result = Array.isArray(o.result)
+    ? (o.result.filter((x): x is string => typeof x === 'string') as string[])
+    : undefined
+  return {
+    id: o.id,
+    status,
+    model: typeof o.model === 'string' ? o.model : '',
+    prompt: typeof o.prompt === 'string' ? o.prompt : '',
+    createdAt: typeof o.createdAt === 'string' ? o.createdAt : new Date().toISOString(),
+    ...(result && result.length > 0 ? { result } : {}),
+    ...(typeof o.error === 'string' ? { error: o.error } : {}),
+    ...(typeof o.claimToken === 'string' ? { claimToken: o.claimToken } : {}),
+    ...(typeof o.claimedAt === 'string' ? { claimedAt: o.claimedAt } : {}),
+  }
+}
+
+/** 落盘任务(Redis 优先,失败降级进程内 Map)。 */
+async function saveImageTask(task: ImageTask): Promise<void> {
+  const key = `${IMG_TASK_PREFIX}${task.id}`
+  const value = JSON.stringify(task)
+  if (imageTaskRedis) {
+    try {
+      // ioredis SET key value EX seconds(覆盖写,天然续期 TTL)。
+      await imageTaskRedis.set(key, value, 'EX', IMG_TASK_TTL_SECONDS)
+      return
+    } catch {
+      // Redis 不可用 → 降级进程内 Map(注释:单进程内存,重启即丢)。
+    }
+  }
+  inMemoryImageTasks.set(task.id, task)
+}
+
+/** 查询任务(Redis 优先,异常/缺失降级进程内 Map)。 */
+export async function getImageTask(id: string): Promise<ImageTask | null> {
+  const key = `${IMG_TASK_PREFIX}${id}`
+  if (imageTaskRedis) {
+    try {
+      const raw = await imageTaskRedis.get(key)
+      const parsed = parseImageTask(raw)
+      if (parsed) return parsed
+    } catch {
+      // Redis 不可用 → 试图从进程内 Map 取。
+    }
+  }
+  return inMemoryImageTasks.get(id) ?? null
+}
+
+/**
+ * 原子认领任务(F-48)。
+ *
+ * 先 `SET imgtask-claim:{id} {token} EX 900 NX` 抢租约 —— 这一步在 Redis 内原子,
+ * 同一任务的并发 worker 只有一个能拿到,拿不到的直接返回 null 让出(不调上游、不计费)。
+ * 拿到租约者才把任务置 processing 并写上令牌;认领前若任务已终结则归还租约并放弃。
+ * Redis 不可用时降级进程内 Map:同一事件循环内 check 与 set 之间无 await,天然互斥。
+ *
+ * @returns 认领令牌(认领成功)或 null(已被他人认领 / 任务已终结)
+ */
+export async function claimImageTask(id: string): Promise<string | null> {
+  const token = crypto.randomUUID()
+  const claimKey = `${IMG_TASK_CLAIM_PREFIX}${id}`
+  if (imageTaskRedis) {
+    try {
+      const acquired = await imageTaskRedis.set(
+        claimKey,
+        token,
+        'EX',
+        IMG_TASK_CLAIM_LEASE_SECONDS,
+        'NX',
+      )
+      if (acquired !== 'OK') return null
+      const current = await getImageTask(id)
+      if (!isImageTaskClaimable(current)) {
+        await imageTaskRedis.del(claimKey)
+        return null
+      }
+      await saveImageTask({
+        ...current,
+        status: 'processing',
+        claimToken: token,
+        claimedAt: new Date().toISOString(),
+      })
+      return token
+    } catch {
+      // Redis 异常 → 走下面的进程内降级(与既有存储降级一致)。
+    }
+  }
+  const current = inMemoryImageTasks.get(id)
+  if (!isImageTaskClaimable(current)) return null
+  inMemoryImageTasks.set(id, {
+    ...current,
+    status: 'processing',
+    claimToken: token,
+    claimedAt: new Date().toISOString(),
+  })
+  return token
+}
+
+/** 认领租约是否过期(仅 processing 有意义;缺 claimedAt 的历史记录按过期处理,便于回收)。 */
+function isImageTaskClaimExpired(task: ImageTask): boolean {
+  if (task.status !== 'processing') return false
+  const at = Date.parse(task.claimedAt ?? '')
+  return !Number.isFinite(at) || Date.now() - at >= IMG_TASK_CLAIM_LEASE_MS
+}
+
+/** 任务当前是否可认领:pending,或 processing 但租约已过期(崩溃恢复)。 */
+function isImageTaskClaimable(task: ImageTask | null | undefined): task is ImageTask {
+  if (!task) return false
+  return task.status === 'pending' || isImageTaskClaimExpired(task)
+}
+
+/** 归还认领租约(仅当租约键仍是本 worker 的令牌时删除,避免误删他人租约)。 */
+async function releaseImageTaskClaim(id: string, token?: string): Promise<void> {
+  if (!token || !imageTaskRedis) return
+  const claimKey = `${IMG_TASK_CLAIM_PREFIX}${id}`
+  try {
+    if ((await imageTaskRedis.get(claimKey)) === token) await imageTaskRedis.del(claimKey)
+  } catch {
+    // 释放失败不影响任务状态;租约键由 TTL 自行过期。
+  }
+}
+
+/**
+ * 推进任务为 succeeded(供 worker 调用:消费上游生图结果后置)。
+ * 保留既有 model/prompt/createdAt;result 为图片 URL/base64 数组。
+ * 任务不存在时仍写入一条 succeeded 记录(id + result,model/prompt 留空)。
+ *
+ * claimToken 传入时做令牌校验:任务已被他人重新认领则拒绝写入并返回 false
+ * (避免租约过期的旧 worker 覆盖新认领者的处理结果)。
+ */
+export async function completeImageTask(
+  id: string,
+  result: string[],
+  claimToken?: string,
+): Promise<boolean> {
+  const existing = await getImageTask(id)
+  if (claimToken && existing?.claimToken && existing.claimToken !== claimToken) return false
+  const task: ImageTask = {
+    id,
+    status: 'succeeded',
+    model: existing?.model ?? '',
+    prompt: existing?.prompt ?? '',
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+    result: Array.isArray(result) ? result : [],
+  }
+  await saveImageTask(task)
+  await releaseImageTaskClaim(id, claimToken)
+  return true
+}
+
+/**
+ * 推进任务为 failed(供 worker 调用:上游生图失败 / 超时后置)。
+ * 保留既有 model/prompt/createdAt,附 error 原因。
+ * 任务不存在时仍写入一条 failed 记录(id + error,model/prompt 留空)。
+ *
+ * claimToken 语义同 completeImageTask:非当前认领者的失败结果被丢弃。
+ */
+export async function failImageTask(
+  id: string,
+  errMsg: string,
+  claimToken?: string,
+): Promise<boolean> {
+  const existing = await getImageTask(id)
+  if (claimToken && existing?.claimToken && existing.claimToken !== claimToken) return false
+  const task: ImageTask = {
+    id,
+    status: 'failed',
+    model: existing?.model ?? '',
+    prompt: existing?.prompt ?? '',
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+    error: typeof errMsg === 'string' ? errMsg : String(errMsg),
+  }
+  await saveImageTask(task)
+  await releaseImageTaskClaim(id, claimToken)
+  return true
+}
+
+/**
+ * 扫描待处理任务(worker 消费用):pending,以及 processing 但认领租约已过期
+ * (认领者崩溃/重启,靠租约过期回收,避免任务永久卡在 processing)。
+ * Redis 优先:KEYS imgtask:* 后逐个解析;降级扫进程内 Map。
+ */
+export async function listPendingImageTasks(): Promise<ImageTask[]> {
+  const out: ImageTask[] = []
+  if (imageTaskRedis) {
+    try {
+      const keys = await imageTaskRedis.keys(IMG_TASK_PREFIX + '*')
+      for (const k of keys) {
+        const raw = await imageTaskRedis.get(k)
+        const t = parseImageTask(raw)
+        if (t && (t.status === 'pending' || isImageTaskClaimExpired(t))) out.push(t)
+      }
+      return out
+    } catch {
+      // 降级到 Map
+    }
+  }
+  for (const t of inMemoryImageTasks.values()) {
+    if (t.status === 'pending' || isImageTaskClaimExpired(t)) out.push(t)
+  }
+  return out
+}
+
+/** 仅供测试:替换任务存储的 Redis 客户端并清空进程内降级存储。 */
+export function __setImageTaskRedisForTest(redis: Redis | null): void {
+  imageTaskRedis = redis
+  inMemoryImageTasks.clear()
+}
+
+/**
+ * 视频生成:vendor → 内部路由 path + 请求体字段适配(2026-10-30 自 handler 内匿名 if/else 链抽取)。
+ *
+ * 为什么必须是导出纯函数而不是留在 handler 里:这条链的**默认分支是 sora2 兜底**,
+ * 于是一枚没登记的 vendor(agnes 曾经就是)不会报错,而是静默由另一个厂商出片 ——
+ * 计费按 agnes、出片按 sora2,两头都对不上且账面全绿。链匿名写在 handler 里 ⇒ 任何
+ * 一条分支都测不到,同型回归只能靠人肉看代码。抽出来 + 逐厂商钉 path 才是可判的锁。
+ *
+ * 行为与抽取前逐字等值(含各厂商的字段适配与 agnes 的 duration 剥离)。
+ * 入参 body 不被改写:返回的是适配后的副本(纯函数,可安全断言)。
+ */
+export function resolveVideoVendorRoute(
+  vendor: string | undefined,
+  input: Record<string, unknown>,
+): { path: string; body: Record<string, unknown>; reject?: string } {
+  const v = (vendor ?? 'sora2').trim().toLowerCase()
+  const body: Record<string, unknown> = { ...input }
+  // 三个厂商把 image 改名(先取出值再删键 —— 原写法读的是 handler 的局部变量)
+  const image = body.image
+  let path: string
+  if (v === 'dashscope') path = '/api/ai/dashscope/video'
+  else if (v === 'doubao') path = '/api/ai/doubao/video'
+  else if (v === 'gemini') path = '/api/ai/gemini/video'
+  // 2026-09-21 补:以下厂商内部端点均已存在(ai-vendors/proxy-extended-media*.ts),
+  // 请求体按各厂商官方字段做最小适配(与既有 dashscope/doubao/gemini 同构:提交返回 taskId 走轮询)。
+  else if (v === 'minimax') {
+    path = '/api/ai/minimax/video'
+    if (image) {
+      delete body.image // MiniMax 官方字段为 first_frame_image
+      body.first_frame_image = image
+    }
+  } else if (v === 'kling') {
+    path = '/api/ai/kling/generate'
+    if (body.duration) body.duration = String(body.duration) // 可灵官方 duration 为字符串 "5"/"10"
+  } else if (v === 'vidu') {
+    path = '/api/ai/vidu/generate'
+    if (image) {
+      delete body.image // Vidu 官方 images 为 URL 数组(端点内包装为 [{url}])
+      body.images = [image]
+    }
+  } else if (v === 'runway') {
+    path = '/api/ai/runway/generate' // image/duration 字段与官方同构,无需适配
+  } else if (v === 'luma') {
+    path = '/api/ai/luma/generate'
+    if (body.duration) body.duration = `${body.duration}s` // Luma 官方为 "5s" 字符串
+  } else if (v === 'pixverse') {
+    path = '/api/ai/pixverse/generate' // image/duration 字段与官方同构,无需适配
+  } else if (v === 'zhipu') {
+    path = '/api/ai/zhipu/video'
+    if (image) {
+      delete body.image // 智谱 CogVideoX 官方字段为 image_url
+      body.image_url = image
+    }
+  } else if (v === 'agnes') {
+    // Agnes 视频(2026-10-30 立):此前 vendor='agnes' 会静默落到下面的 sora2 兜底
+    // ——用户按 agnes 计价提交、由 sora2 出片,是计费与出片两头都对不上的静默错路由。
+    // 内部端点 /api/ai/agnes/video 已存在(Proxy 上游 POST /v1/videos),mode/size 由它补默认;
+    // 顶层 duration 上游不认(2.5 系列输出时长由 num_frames/frame_rate 决定)⇒ 不透传,定价按 'call'。
+    path = '/api/ai/agnes/video'
+    delete body.duration
+  } else {
+    // Sora 通道已停服(2026-11-21 现读 OpenAI 官方公告:Sora 网页版/App 2026-04-26 停服、
+    // Sora API 2026-09-24 停服)。此前这里静默落到 `/api/ai/sora2/generate`:
+    // 提交能返回 taskId、按次照扣费,但任务永远查不到结果 —— 计费与出片两头都对不上,
+    // 且账面全绿。现在改成显式拒绝,让"这个厂商没接通"在提交那一刻就可见。
+    return {
+      path: '',
+      body: {},
+      reject: `视频厂商「${vendor ?? '(未指定)'}」未接通:默认兜底通道 Sora 已于 2026-09-24 停服`,
+    }
+  }
+  return { path, body }
+}
+
+/**
+ * 图像生成:vendor → 内部路由 path + 请求体字段适配(2026-10-30 立,与视频侧 resolveVideoVendorRoute 同形)。
+ *
+ * 为什么也必须抽出来:与视频同型 —— 这条链的默认分支是 tongyi 兜底,一枚没登记的 vendor
+ * 不会报错,而是静默由另一家出片(计费按请求方、出片按 tongyi),两头对不上而账面全绿。
+ *
+ * agnes 分支(2026-10-30 立):内部端点 /api/ai/agnes/image 已存在(proxy-llm.ts),
+ * 同步出图(实测 40-50s),上游 OpenAI images 协议同构。
+ * n>1 显式拒绝而不是静默截断成 1 张:实测上游对本账号 n>1 直接回 429
+ * (需平台实名认证才放开 rpm),静默截断会变成「按 n 计费、只出 1 张」= 计费与出片两头对不上。
+ *
+ * 既有五家(dashscope/doubao/gemini/recraft/tongyi)的 path 与 body 逐字不变;
+ * 唯一行为变化是 vendor 串两侧空白再比(原先 ' agnes ' 会落到 tongyi 兜底)。
+ */
+export function resolveImageVendorRoute(
+  vendor: string | undefined,
+  input: { prompt: string; model: string; n?: number; size?: string; style?: string },
+): { path: string; body: Record<string, unknown>; reject?: string } {
+  const v = (vendor ?? 'tongyi').trim().toLowerCase()
+  const { prompt, model, n, size, style } = input
+  if (v === 'dashscope') return { path: '/api/ai/dashscope/image', body: { prompt, model, size } }
+  if (v === 'doubao') return { path: '/api/ai/doubao/image', body: { prompt, model, size } }
+  if (v === 'gemini') return { path: '/api/ai/gemini/image', body: { prompt, model } }
+  if (v === 'recraft') {
+    // 2026-09-21 补:Recraft 内部端点(/api/ai/recraft/generate)为 OpenAI images 兼容
+    // (prompt/model/size/style/n 同构透传),同步返回 data:[{url}]。
+    return { path: '/api/ai/recraft/generate', body: { prompt, model, n, size, style } }
+  }
+  if (v === 'agnes') {
+    if (n !== undefined && n > 1) {
+      return {
+        path: '',
+        body: {},
+        reject: 'Agnes 生图当前仅支持 n=1(上游按 rpm 限制,多张需平台实名认证)',
+      }
+    }
+    return { path: '/api/ai/agnes/image', body: { prompt, model, size, n: 1 } }
+  }
+  // tongyi(默认)
+  return { path: '/api/ai-image/tongyi/text-to-image', body: { prompt, model, n, size } }
+}
+
+/**
+ * 同步出图响应取图数组(2026-10-30 立)。
+ * 既有形态:{images:[…]} 或 {data:[…]};agnes 形态:内部端点把上游包了一层
+ * {taskId, status, raw:{data:[{url,…}]}} ⇒ 图在 raw.data 里,不取则「已出图但回不出地址」。
+ * 只对 agnes 认 raw 形态,避免把别家的 {raw:…} 误当产出。
+ */
+export function extractSyncImages(vendor: string | undefined, payload: unknown): unknown[] | null {
+  const d = asObj(payload)
+  const direct = Array.isArray(d.images) ? d.images : Array.isArray(d.data) ? d.data : null
+  if (direct) return direct
+  if ((vendor ?? '').trim().toLowerCase() === 'agnes') {
+    const raw = asObj(d.raw)
+    return Array.isArray(raw.data) ? raw.data : null
+  }
+  return null
+}
+
+// =============================================================================
+// 路由插件
+// =============================================================================
+
+const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
+  // 捕获 Redis 客户端供异步图片任务存储使用(为 null 时落到进程内 Map 降级)。
+  imageTaskRedis = server.redis
+  // ===== 1. GET /audio/voices — 音色列表 =====
+  server.get(
+    '/audio/voices',
+    {
+      schema: {
+        description: '音色列表',
+        tags: ['Multimodal'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    name: { type: 'string' },
+                    gender: { type: 'string' },
+                    language: { type: 'string' },
+                    preview: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('audio:read'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      return forwardInternal(reply, '/api/ai/audio/voices', { method: 'GET' }, userId, (data) => {
+        const d = asObj(data)
+        const voices = Array.isArray(d.voices) ? d.voices : []
+        const result: V1AudioVoicesResponse = {
+          object: 'list',
+          data: voices.map((v) => {
+            const o = asObj(v)
+            return {
+              id:
+                (typeof o.voice_id === 'string' && o.voice_id) ||
+                (typeof o.id === 'string' && o.id) ||
+                '',
+              name: (typeof o.name === 'string' && o.name) || '',
+              gender: (typeof o.gender === 'string' && o.gender) || '',
+              language: (typeof o.language === 'string' && o.language) || '',
+              preview: typeof o.description === 'string' ? o.description : undefined,
+            }
+          }),
+        }
+        return result
+      })
+    },
+  )
+
+  // ===== 2. POST /audio/speech — TTS 语音合成 =====
+  server.post(
+    '/audio/speech',
+    {
+      schema: {
+        description: 'TTS 语音合成(返回二进制音频流)',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            input: { type: 'string' },
+            voice: { type: 'string' },
+            responseFormat: { type: 'string' },
+            speed: { type: 'number' },
+          },
+          required: ['model', 'input', 'voice'],
+        },
+        response: {
+          200: { type: 'string' },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('audio:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = audioSpeechSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { model, input, voice, responseFormat, speed } = parsed.data
+      // 内部 /api/ai/audio/speech 返回二进制音频流(OpenAI 兼容,透传二进制 body)。
+      // 响应 Content-Type 由 forwardInternal 透传(通常为 audio/mpeg);为兼容内部未设置的情况,这里设默认值。
+      // V1AudioSpeechResponse 类型(结构化 {audio,format,durationMs})不适用于此端点:OpenAI TTS 即返回二进制音频流,响应体本身就是 audio bytes。
+      const body: Record<string, unknown> = {
+        model,
+        text: input,
+        voice_id: voice,
+        response_format: responseFormat ?? 'mp3',
+      }
+      if (speed !== undefined) body.rate = speed
+      reply.header('Content-Type', `audio/${responseFormat ?? 'mp3'}`)
+      return forwardInternal(reply, '/api/ai/audio/speech', jsonInit(body), userId)
+    },
+  )
+
+  // ===== 3. POST /audio/transcriptions — ASR 语音识别 =====
+  server.post(
+    '/audio/transcriptions',
+    {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
+      schema: {
+        description: 'ASR 语音识别',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            audio: { type: 'string' },
+            language: { type: 'string' },
+            prompt: { type: 'string' },
+          },
+          required: ['model', 'audio'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              text: { type: 'string' },
+              language: { type: 'string' },
+              duration: { type: 'number' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('audio:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = audioTranscriptionsSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { model, audio, language } = parsed.data
+      const body: Record<string, unknown> = { model, audio_base64: audio }
+      if (language) body.language = language
+      return forwardInternal(reply, '/api/ai/audio/recognize', jsonInit(body), userId, (data) => {
+        const d = asObj(data)
+        const result: V1AudioTranscriptionsResponse = {
+          text:
+            (typeof d.transcription === 'string' && d.transcription) ||
+            (typeof d.text === 'string' && d.text) ||
+            '',
+          language: (typeof d.language === 'string' && d.language) || language || '',
+          duration: typeof d.duration === 'number' ? d.duration : 0,
+        }
+        return result
+      })
+    },
+  )
+
+  // ===== 4. POST /audio/chat — 语音对话 =====
+  server.post(
+    '/audio/chat',
+    {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
+      schema: {
+        description: '语音对话',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            audio: { type: 'string' },
+            model: { type: 'string' },
+            sessionId: { type: 'string' },
+          },
+          required: ['audio', 'model'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              text: { type: 'string' },
+              audio: { type: 'string' },
+              sessionId: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('audio:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = audioChatSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { audio, model, sessionId } = parsed.data
+      const body: Record<string, unknown> = { audio_base64: audio, model }
+      if (sessionId) body.session_id = sessionId
+      return forwardInternal(reply, '/api/ai/audio/chat', jsonInit(body), userId, (data) => {
+        const d = asObj(data)
+        const result: V1AudioChatResponse = {
+          text:
+            (typeof d.text === 'string' && d.text) ||
+            (typeof d.transcription === 'string' && d.transcription) ||
+            (typeof d.reply === 'string' && d.reply) ||
+            '',
+          audio:
+            (typeof d.audio === 'string' && d.audio) ||
+            (typeof d.audio_base64 === 'string' && d.audio_base64) ||
+            '',
+          sessionId:
+            (typeof d.session_id === 'string' && d.session_id) ||
+            (typeof d.sessionId === 'string' && d.sessionId) ||
+            sessionId ||
+            '',
+        }
+        return result
+      })
+    },
+  )
+
+  // ===== 5. GET /audio/speakers — 声纹列表 =====
+  server.get(
+    '/audio/speakers',
+    {
+      schema: {
+        description: '声纹列表',
+        tags: ['Multimodal'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    name: { type: 'string' },
+                    gender: { type: 'string' },
+                    language: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('audio:read'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      return forwardInternal(reply, '/api/ai/speaker/list', { method: 'GET' }, userId, (data) => {
+        const d = asObj(data)
+        const voices = Array.isArray(d.voices) ? d.voices : []
+        return {
+          object: 'list' as const,
+          data: voices.map((v) => {
+            const o = asObj(v)
+            return {
+              id:
+                (typeof o.voice_id === 'string' && o.voice_id) ||
+                (typeof o.id === 'string' && o.id) ||
+                '',
+              name:
+                (typeof o.name === 'string' && o.name) ||
+                (typeof o.voice_id === 'string' && o.voice_id) ||
+                '',
+              gender: (typeof o.gender === 'string' && o.gender) || '',
+              language: (typeof o.language === 'string' && o.language) || '',
+            }
+          }),
+        }
+      })
+    },
+  )
+
+  // ===== 6. POST /audio/speakers — 声纹注册 =====
+  server.post(
+    '/audio/speakers',
+    {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
+      schema: {
+        description: '声纹注册',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            audio: { type: 'string' },
+          },
+          required: ['name', 'audio'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              name: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('audio:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = registerSpeakerSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { name, audio } = parsed.data
+      // v1 {name,audio} → 内部 {voice_id:name, audio_base64:audio}
+      const body = { voice_id: name, audio_base64: audio }
+      return forwardInternal(reply, '/api/ai/speaker/register', jsonInit(body), userId, (data) => {
+        const d = asObj(data)
+        return {
+          id: (typeof d.voice_id === 'string' && d.voice_id) || name,
+          name,
+          status: (typeof d.status === 'string' && d.status) || 'registered',
+        }
+      })
+    },
+  )
+
+  // ===== 7. POST /audio/speakers/compare — 声纹比对 =====
+  server.post(
+    '/audio/speakers/compare',
+    {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
+      schema: {
+        description: '声纹比对',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            speakerId: { type: 'string' },
+            audio: { type: 'string' },
+          },
+          required: ['speakerId', 'audio'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              score: { type: 'number' },
+              matched: { type: 'boolean' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('audio:read'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = compareSpeakersSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { speakerId, audio } = parsed.data
+      const body = { voice_id: speakerId, audio_base64: audio }
+      return forwardInternal(reply, '/api/ai/speaker/compare', jsonInit(body), userId, (data) => {
+        const d = asObj(data)
+        const result: V1CompareSpeakersResponse = {
+          score:
+            typeof d.confidence === 'number'
+              ? d.confidence
+              : typeof d.score === 'number'
+                ? d.score
+                : 0,
+          matched: Boolean(d.matched ?? false),
+        }
+        return result
+      })
+    },
+  )
+
+  // ===== 8. POST /audio/music — 音乐生成 =====
+  server.post(
+    '/audio/music',
+    {
+      schema: {
+        description: '音乐生成',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            prompt: { type: 'string' },
+            lyrics: { type: 'string' },
+            duration: { type: 'number' },
+          },
+          required: ['prompt'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              taskId: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('audio:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = musicSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { prompt, lyrics, duration } = parsed.data
+      const body: Record<string, unknown> = { prompt }
+      if (lyrics) body.lyrics = lyrics
+      if (duration !== undefined) body.duration = duration
+      return forwardInternal(reply, '/api/ai/suno/generate', jsonInit(body), userId, (data) => {
+        const d = asObj(data)
+        const result: V1MusicGenerationsResponse = {
+          taskId:
+            (typeof d.taskId === 'string' && d.taskId) ||
+            (typeof d.task_id === 'string' && d.task_id) ||
+            '',
+          status: (mapJobStatus(d.status) as 'pending' | 'processing' | 'completed') || 'pending',
+        }
+        return result
+      })
+    },
+  )
+
+  // ===== 9. POST /images/generations — 文生图(按 vendor 路由) =====
+  server.post(
+    '/images/generations',
+    {
+      schema: {
+        description: '文生图(按 vendor 路由,同步或异步轮询)',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            prompt: { type: 'string' },
+            n: { type: 'number' },
+            size: { type: 'string' },
+            quality: { type: 'string' },
+            style: { type: 'string' },
+            vendor: { type: 'string' },
+          },
+          required: ['model', 'prompt'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              created: { type: 'number' },
+              data: { type: 'array' },
+            },
+          },
+          202: {
+            type: 'object',
+            properties: {
+              taskId: { type: 'string' },
+              status: { type: 'string' },
+              message: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          500: errorResponseSchema,
+          502: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = imageGenerationsSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { model, prompt, n, size, vendor } = parsed.data
+
+      // 0. relay 渠道直连优先(2026-09-13):渠道目录上架的生图模型走 OpenAI 兼容
+      //    /images/generations 直连(failover 由 forwarder 内置);fwd=null(目录无此模型)
+      //    或直连失败/空产出 → 回落下方 vendor 内部实现,行为与改造前完全一致。
+      {
+        const relayBody: Record<string, unknown> = { model, prompt }
+        if (n !== undefined) relayBody.n = n
+        if (size !== undefined) relayBody.size = size
+        if (parsed.data.quality !== undefined) relayBody.quality = parsed.data.quality
+        if (parsed.data.style !== undefined) relayBody.style = parsed.data.style
+        const fwd = await forwardToChannel({
+          model,
+          endpoint: 'images',
+          stream: false,
+          bodyOverride: relayBody,
+          userId,
+          affinityKey: apiKeyOf(request)?.id,
+        })
+        if (fwd && fwd.ok) {
+          const upstream = (await fwd.response.json().catch(() => null)) as {
+            data?: unknown[]
+          } | null
+          const arr = Array.isArray(upstream?.data) ? upstream.data : []
+          if (arr.length > 0) {
+            chargeMultimodal(request, {
+              model,
+              callType: 'image',
+              units: arr.length,
+              prompt,
+              channel: fwd.channel,
+            })
+            return reply.send({
+              created: Math.floor(Date.now() / 1000),
+              data: arr.map((img) => {
+                const o = asObj(img)
+                return {
+                  url: typeof o.url === 'string' ? o.url : undefined,
+                  ...(typeof o.b64_json === 'string' ? { b64_json: o.b64_json } : {}),
+                }
+              }),
+            })
+          }
+          // 上游 200 但空 data → 视为本次候选产出失败,继续回落内部实现
+        }
+        // fwd === null(渠道目录无此模型)或 ok:false(候选全败)→ 回落
+      }
+
+      const v = (vendor ?? 'tongyi').toLowerCase()
+      // vendor → path + 字段适配的唯一实现见 resolveImageVendorRoute(模块级导出,可测)
+      const route = resolveImageVendorRoute(vendor, {
+        prompt,
+        model,
+        n,
+        size,
+        style: parsed.data.style,
+      })
+      if (route.reject) {
+        return reply.status(400).send(error(400, route.reject))
+      }
+      const path = route.path
+      const body = route.body
+
+      // 1. 提交生成任务(可能直接返回 images,也可能返回 taskId)
+      const result = await callInternal(path, jsonInit(body), userId)
+      if (!result.ok) {
+        const httpStatus = result.status >= 400 && result.status < 600 ? result.status : 502
+        return reply
+          .status(httpStatus as 200 | 202 | 400 | 401 | 500 | 502 | 503)
+          .send(error(httpStatus, result.message || `Internal service error (${result.status})`))
+      }
+      const d = asObj(result.data)
+
+      // 2. 同步路径:已有 images → 直接返回 OpenAI 同步格式 data:[{url}]
+      //    取图数组的唯一实现见 extractSyncImages(agnes 形态在 raw.data 里)
+      const imagesArray = extractSyncImages(v, d)
+      if (imagesArray && imagesArray.length > 0) {
+        // 按张计费(2026-09-13):成功产出多少张扣多少张
+        chargeMultimodal(request, {
+          model,
+          callType: 'image',
+          units: imagesArray.length,
+          prompt,
+        })
+        return reply.send({
+          created: Math.floor(Date.now() / 1000),
+          data: imagesArray.map((img) => {
+            const o = asObj(img)
+            return { url: typeof o.url === 'string' ? o.url : undefined }
+          }),
+        })
+      }
+
+      // 3. 异步路径:有 taskId → 30s 内轮询任务状态,完成则返回 OpenAI 同步格式
+      const taskId =
+        (typeof d.taskId === 'string' && d.taskId) ||
+        (typeof d.task_id === 'string' && d.task_id) ||
+        ''
+      if (!taskId) {
+        // 既无 images 也无 taskId → 返回空数据(避免误导客户端)
+        return reply.send({ created: Math.floor(Date.now() / 1000), data: [] })
+      }
+      // 按张计费(2026-09-13):异步任务提交成功即扣(乐观计费防漏损),
+      // 任务 failed 由 GET /v1/generation/status/:id 触发全额退款
+      chargeMultimodal(request, {
+        model,
+        callType: 'image',
+        units: n ?? 1,
+        prompt,
+        taskId,
+      })
+      const polled = await pollInternalJob(taskId, userId, 30_000)
+      if (polled.completed && polled.result) {
+        const r = asObj(polled.result)
+        const urls: unknown[] = Array.isArray(r.images)
+          ? r.images
+          : Array.isArray(r.urls)
+            ? r.urls
+            : Array.isArray(r.data)
+              ? r.data
+              : Array.isArray(r)
+                ? r
+                : []
+        return reply.send({
+          created: Math.floor(Date.now() / 1000),
+          data: urls.map((img) => {
+            const o = asObj(img)
+            return {
+              url: typeof o.url === 'string' ? o.url : typeof o === 'string' ? o : undefined,
+            }
+          }),
+        })
+      }
+
+      // 4. 30s 未完成 → 202 Accepted + 建议轮询 GET /v1/generation/status/:id
+      return reply.status(202).send({
+        taskId,
+        status: 'processing',
+        message: `Image generation in progress. Poll GET /v1/generation/status/${encodeURIComponent(taskId)} for final result.`,
+      })
+    },
+  )
+
+  // ===== 10. POST /images/edits — 图片编辑(按 vendor 路由) =====
+  server.post(
+    '/images/edits',
+    {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
+      schema: {
+        description: '图片编辑(按 vendor 路由)',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            image: { type: 'string' },
+            prompt: { type: 'string' },
+            mask: { type: 'string' },
+            n: { type: 'number' },
+            size: { type: 'string' },
+            vendor: { type: 'string' },
+          },
+          required: ['model', 'image', 'prompt'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              created: { type: 'number' },
+              data: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = imageEditsSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { model, image, prompt, mask, n, size, vendor } = parsed.data
+      const v = (vendor ?? 'doubao').toLowerCase()
+      const path = v === 'tongyi' ? '/api/ai-image/tongyi/edit' : '/api/ai-image/doubao/edit'
+      const body: Record<string, unknown> = { model, image, prompt }
+      if (mask) body.mask = mask
+      if (n !== undefined) body.n = n
+      if (size) body.size = size
+      return forwardInternal(reply, path, jsonInit(body), userId)
+    },
+  )
+
+  // ===== 11. POST /images/inpaint — 图片修复 =====
+  server.post(
+    '/images/inpaint',
+    {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
+      schema: {
+        description: '图片修复',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            image: { type: 'string' },
+            mask: { type: 'string' },
+            prompt: { type: 'string' },
+          },
+          required: ['model', 'image', 'mask', 'prompt'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              created: { type: 'number' },
+              data: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = imageInpaintSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { model, image, mask, prompt } = parsed.data
+      return forwardInternal(
+        reply,
+        '/api/ai-image/doubao/inpaint',
+        jsonInit({ model, image, mask, prompt }),
+        userId,
+      )
+    },
+  )
+
+  // ===== 12. POST /images/style-transfer — 风格迁移 =====
+  server.post(
+    '/images/style-transfer',
+    {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
+      schema: {
+        description: '风格迁移',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            image: { type: 'string' },
+            style: { type: 'string' },
+          },
+          required: ['model', 'image', 'style'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              created: { type: 'number' },
+              data: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = styleTransferSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { model, image, style } = parsed.data
+      return forwardInternal(
+        reply,
+        '/api/ai-image/tongyi/style-transfer',
+        jsonInit({ model, image, style }),
+        userId,
+      )
+    },
+  )
+
+  // ===== 13. POST /images/virtual-try-on — 虚拟试穿 =====
+  server.post(
+    '/images/virtual-try-on',
+    {
+      schema: {
+        description: '虚拟试穿',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            personImage: { type: 'string' },
+            garmentImage: { type: 'string' },
+          },
+          required: ['model', 'personImage', 'garmentImage'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              created: { type: 'number' },
+              data: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = virtualTryOnSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { model, personImage, garmentImage } = parsed.data
+      return forwardInternal(
+        reply,
+        '/api/ai-image/tongyi/virtual-try-on',
+        jsonInit({ model, person_image: personImage, garment_image: garmentImage }),
+        userId,
+      )
+    },
+  )
+
+  // ===== 14. POST /images/background — 背景生成 =====
+  server.post(
+    '/images/background',
+    {
+      schema: {
+        description: '背景生成',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            foreground: { type: 'string' },
+            prompt: { type: 'string' },
+          },
+          required: ['model', 'foreground', 'prompt'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              created: { type: 'number' },
+              data: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = backgroundSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { model, foreground, prompt } = parsed.data
+      return forwardInternal(
+        reply,
+        '/api/ai-image/tongyi/background-generation',
+        jsonInit({ model, foreground, prompt }),
+        userId,
+      )
+    },
+  )
+
+  // ===== 15. POST /videos/generations — 视频生成(按 vendor 路由) =====
+  server.post(
+    '/videos/generations',
+    {
+      bodyLimit: MEDIA_BASE64_BODY_LIMIT,
+      schema: {
+        description: '视频生成(按 vendor 路由,异步返回 taskId)',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            prompt: { type: 'string' },
+            image: { type: 'string' },
+            duration: { type: 'number' },
+            resolution: { type: 'string' },
+            vendor: { type: 'string' },
+          },
+          required: ['model', 'prompt'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              taskId: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('videos:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = videoGenerationsSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { model, prompt, image, duration, vendor } = parsed.data
+      const seedBody: Record<string, unknown> = { prompt, model }
+      if (image) seedBody.image = image
+      if (duration) seedBody.duration = duration
+      // vendor → path + 字段适配的唯一实现见 resolveVideoVendorRoute(模块级导出,可测)
+      const route = resolveVideoVendorRoute(vendor, seedBody)
+      // 未接通/已停服的厂商在提交时就拒绝,绝不落到死通道再扣费(见 resolve 注释)
+      if (route.reject) return reply.status(400).send(error(400, route.reject))
+      const path = route.path
+      const body = route.body
+      // 视频计费(2026-09-13):提交成功即按次/按秒扣费(乐观计费防漏损),
+      // 任务 failed 由 GET /v1/videos/tasks/:id 触发全额退款。
+      // taskId 由 mapper 闭包捕获(forwardInternal 仅在提交成功时调用 mapper)。
+      let submittedTaskId = ''
+      const replyResult = await forwardInternal(reply, path, jsonInit(body), userId, (data) => {
+        const d = asObj(data)
+        // 2026-09-21 补:zhipu(CogVideoX)端点透传上游 { id } 而非本地 taskId,追加 d.id 兜底
+        submittedTaskId =
+          (typeof d.taskId === 'string' && d.taskId) ||
+          (typeof d.task_id === 'string' && d.task_id) ||
+          (typeof d.id === 'string' && d.id) ||
+          ''
+        const result: V1VideoGenerationsResponse = {
+          taskId: submittedTaskId,
+          status:
+            (mapJobStatus(d.status) as 'pending' | 'processing' | 'completed' | 'failed') ||
+            'pending',
+        }
+        return result
+      })
+      if (submittedTaskId) {
+        chargeMultimodal(request, {
+          model,
+          callType: 'video',
+          // videoUnit='second' 时按秒计价(units=duration);='call' 时按次(单位数恒 1,
+          // calculateCost 内部对 per_video+call 会忽略 units,这里传 duration 无副作用)
+          units: duration && duration > 0 ? duration : 1,
+          prompt,
+          taskId: submittedTaskId,
+        })
+      }
+      return replyResult
+    },
+  )
+
+  // ===== 16. GET /videos/tasks/:id — 视频任务查询(sora2→jimeng4→agnes 回退) =====
+  server.get(
+    '/videos/tasks/:id',
+    {
+      schema: {
+        description: '视频任务查询(sora2→jimeng4→agnes 回退)',
+        tags: ['Multimodal'],
+        params: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+          },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              taskId: { type: 'string' },
+              status: { type: 'string' },
+              videoUrl: { type: 'string' },
+              progress: { type: 'number' },
+              error: { type: 'string' },
+              createdAt: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+          500: errorResponseSchema,
+          502: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('videos:read'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const { id } = request.params as { id: string }
+      const tryMap = (data: unknown): V1VideoTaskResponse => {
+        const d = asObj(data)
+        const result = asObj(d.result ?? d)
+        return {
+          taskId:
+            (typeof d.taskId === 'string' && d.taskId) ||
+            (typeof d.task_id === 'string' && d.task_id) ||
+            id,
+          status:
+            (mapJobStatus(d.status ?? result.status) as
+              'pending' | 'processing' | 'completed' | 'failed') || 'pending',
+          ...(typeof result.video_url === 'string' || typeof result.videoUrl === 'string'
+            ? { videoUrl: (result.video_url as string) || (result.videoUrl as string) }
+            : {}),
+          ...(typeof d.progress === 'number' ? { progress: d.progress } : {}),
+          ...(typeof result.error === 'string' ? { error: result.error } : {}),
+          createdAt:
+            (typeof d.createdAt === 'string' && d.createdAt) ||
+            (typeof d.created_at === 'string' && d.created_at) ||
+            new Date().toISOString(),
+        }
+      }
+      try {
+        const sora2 = await callInternal(
+          `/api/ai/sora2/tasks/${encodeURIComponent(id)}`,
+          { method: 'GET' },
+          userId,
+        )
+        if (sora2.ok) {
+          const mapped = tryMap(sora2.data)
+          // 视频任务失败退款(2026-09-13):提交时已乐观扣费,失败全额退(幂等)
+          // F-34(2026-11-13):await 退款结果,失败写 DLQ + 告警,不再 void 丢弃
+          if (mapped.status === 'failed') await refundFailedTask(server, id, 'v1_videos_tasks')
+          return reply.send(mapped)
+        }
+        // sora2 404 → 回退 jimeng4
+        if (sora2.status !== 404) {
+          const httpStatus = sora2.status >= 400 && sora2.status < 600 ? sora2.status : 502
+          return reply
+            .status(httpStatus as 200 | 400 | 401 | 404 | 500 | 502 | 503)
+            .send(error(httpStatus, sora2.message || `Internal service error (${sora2.status})`))
+        }
+        const jimeng4 = await callInternal(
+          `/api/ai/jimeng4/video/tasks/${encodeURIComponent(id)}`,
+          { method: 'GET' },
+          userId,
+        )
+        if (jimeng4.ok) {
+          const mapped = tryMap(jimeng4.data)
+          // 视频任务失败退款(2026-09-13):同上,幂等
+          if (mapped.status === 'failed') await refundFailedTask(server, id, 'v1_videos_tasks')
+          return reply.send(mapped)
+        }
+        const httpStatus = jimeng4.status >= 400 && jimeng4.status < 600 ? jimeng4.status : 502
+        if (jimeng4.status === 404) {
+          // jimeng4 404 → 回退 agnes(2026-10-30 立):不回退则 agnes 任务永远查不到,
+          // 而提交侧是乐观扣费、failed 的退款点只挂在下面各探测分支 ⇒ 「查不到」等于「失败也不退」。
+          const agnes = await callInternal(
+            `/api/ai/agnes/video/tasks/${encodeURIComponent(id)}`,
+            { method: 'GET' },
+            userId,
+          )
+          if (agnes.ok) {
+            const mapped = tryMap(agnes.data)
+            // 视频任务失败退款(同上,幂等)
+            if (mapped.status === 'failed') await refundFailedTask(server, id, 'v1_videos_tasks')
+            return reply.send(mapped)
+          }
+          if (agnes.status !== 404) {
+            const agnesStatus = agnes.status >= 400 && agnes.status < 600 ? agnes.status : 502
+            return reply
+              .status(agnesStatus as 200 | 400 | 401 | 404 | 500 | 502 | 503)
+              .send(error(agnesStatus, agnes.message || `Internal service error (${agnes.status})`))
+          }
+          return reply.status(404).send(error(404, `Video task not found: ${id}`))
+        }
+        return reply
+          .status(httpStatus as 200 | 400 | 401 | 404 | 500 | 502 | 503)
+          .send(error(httpStatus, jimeng4.message || `Internal service error (${jimeng4.status})`))
+      } catch (e) {
+        return reply
+          .status(503)
+          .send(error(503, (e as Error).message || 'Internal service unavailable'))
+      }
+    },
+  )
+
+  // ===== 17. POST /videos/compose — 视频编排 =====
+  server.post(
+    '/videos/compose',
+    {
+      schema: {
+        description: '视频编排(多场景 + BGM)',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            scenes: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  text: { type: 'string' },
+                  duration: { type: 'number' },
+                  imagePrompt: { type: 'string' },
+                },
+                required: ['text'],
+              },
+            },
+            bgmUrl: { type: 'string' },
+          },
+          required: ['scenes'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              composeId: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('videos:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = videoComposeSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { scenes, bgmUrl } = parsed.data
+      // 内部 /api/ai-video-compose 仅接受 {prompt,model} 作为生成参数。
+      // scenes 折叠为 prompt 主文本(向后兼容),但保留结构化分镜 + bgmUrl 在 metadata 字段(供下游消费,不丢失信息)。
+      const prompt = scenes.map((s) => s.text).join('\n')
+      const metadata: Record<string, unknown> = { scenes }
+      if (bgmUrl) metadata.bgmUrl = bgmUrl
+      return forwardInternal(
+        reply,
+        '/api/ai-video-compose',
+        jsonInit({ prompt, metadata }),
+        userId,
+        (data) => {
+          const d = asObj(data)
+          const result: V1VideoComposeResponse = {
+            composeId:
+              (typeof d.id === 'string' && d.id) ||
+              (typeof d.composeId === 'string' && d.composeId) ||
+              '',
+            status:
+              d.status === 'succeeded'
+                ? 'completed'
+                : (mapJobStatus(d.status) as 'processing' | 'completed' | 'failed') || 'processing',
+          }
+          return result
+        },
+      )
+    },
+  )
+
+  // ===== 18. POST /3d/generations — 3D 模型生成 =====
+  server.post(
+    '/3d/generations',
+    {
+      schema: {
+        description: '3D 模型生成(腾讯混元 3D)',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            input: { type: 'string' },
+            format: { type: 'string' },
+          },
+          required: ['model', 'input'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              taskId: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('threed:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = threeDGenerationsSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { model, input, format } = parsed.data
+      // v1 {model,input,format} → 内部 {user_uuid, Prompt, ResultFormat}
+      const body: Record<string, unknown> = {
+        user_uuid: userId,
+        Prompt: input,
+      }
+      if (format) body.ResultFormat = format
+      // model 暂透传(腾讯混元 3D 仅一种模型)
+      body.model = model
+      // F-276:3D 生成此前零计费(仅次数窗口 requireApiKeyQuota,无 recordCall/退款),
+      // 平台白担腾讯混元 3D 调用费。口径与本文件 /videos/generations 一致:
+      // - 内部转发失败(内部 5xx/网络异常)时 mapper 不执行 ⇒ 不产生计费流水,失败零费用;
+      // - 提交成功即 recordCall 按次扣费(乐观计费防漏损,metadata.task_id 挂任务号对账);
+      // - 提交响应判定 failed ⇒ 立即 refundTaskCall 全额退(先扣后退、顺序 await,无时序竞态)。
+      //   refundTaskCall 仅认 callType image/video,3D 资产生成按次归入 image 档
+      //   (模型无定价行时 calculateCost 回退 0,不改变现价行为)。
+      let submittedTaskId = ''
+      let submitStatus: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'pending' =
+        'pending'
+      const replyResult = await forwardInternal(
+        reply,
+        '/api/tencent/hunyuan3d/submit',
+        jsonInit(body),
+        userId,
+        (data) => {
+          const d = asObj(data)
+          const inner = asObj(d.data ?? data)
+          const rawStatus = mapJobStatus(inner.Status ?? d.status)
+          submittedTaskId =
+            (typeof inner.JobId === 'string' && inner.JobId) ||
+            (typeof d.taskId === 'string' && d.taskId) ||
+            ''
+          submitStatus = rawStatus
+          const result: V1ThreeDGenerationsResponse = {
+            taskId: submittedTaskId,
+            // 对外联合类型沿用 @ihui/types 定义(pending/processing/completed),不改契约
+            status: (rawStatus as V1ThreeDGenerationsResponse['status']) || 'pending',
+          }
+          return result
+        },
+      )
+      if (submittedTaskId) {
+        const apiKey = apiKeyOf(request)
+        if (apiKey) {
+          await recordCall({
+            apiKeyId: apiKey.id,
+            userId: apiKey.userId,
+            model,
+            prompt: input,
+            response: null,
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            latencyMs: 0,
+            status: 'success',
+            callType: 'image',
+            billingUnits: 1,
+            metadata: { endpoint: 'v1_3d_generations', task_id: submittedTaskId },
+          })
+          // submitStatus 在 mapper 回调内被改写,TS 的控制流分析看不到这一层赋值
+          // (会把这里收窄成初始化字面量 'pending'),故读一次到 string 再判等。
+          const statusAfterSubmit: string = submitStatus
+          if (statusAfterSubmit === 'failed') {
+            // F-34(2026-11-13):同上,退款未完成会写 DLQ + 告警
+            await refundFailedTask(server, submittedTaskId, 'v1_3d_generations')
+          }
+        }
+      }
+      return replyResult
+    },
+  )
+
+  // ===== 19. POST /generation/enqueue — 生成队列入队 =====
+  server.post(
+    '/generation/enqueue',
+    {
+      schema: {
+        description: '生成队列入队',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            type: { type: 'string' },
+            payload: { type: 'object' },
+            priority: {
+              oneOf: [{ type: 'string' }, { type: 'number' }],
+            },
+          },
+          required: ['type', 'payload'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              jobId: { type: 'string' },
+              status: { type: 'string' },
+              position: { type: 'number' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('generation:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = generationEnqueueSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { type, payload, priority } = parsed.data
+      // v1 {type,payload,priority} → 内部 /api/ai/generation/enqueue {type,data,priority,dedupeWindowMs}
+      const body: Record<string, unknown> = { type, data: payload }
+      if (priority !== undefined) body.priority = priority
+      return forwardInternal(
+        reply,
+        '/api/ai/generation/enqueue',
+        jsonInit(body),
+        userId,
+        (data) => {
+          const d = asObj(data)
+          const result: V1GenerationEnqueueResponse = {
+            jobId:
+              (typeof d.jobId === 'string' && d.jobId) ||
+              (typeof d.job_id === 'string' && d.job_id) ||
+              '',
+            status: 'queued',
+            position: typeof d.position === 'number' ? d.position : 0,
+          }
+          return result
+        },
+      )
+    },
+  )
+
+  // ===== 20. GET /generation/status/:id — 生成队列状态 =====
+  server.get(
+    '/generation/status/:id',
+    {
+      schema: {
+        description: '生成队列状态查询',
+        tags: ['Multimodal'],
+        params: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+          },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              jobId: { type: 'string' },
+              status: { type: 'string' },
+              result: {},
+              error: { type: 'string' },
+              progress: { type: 'number' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('generation:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const { id } = request.params as { id: string }
+      let taskFailed = false
+      const statusResult = await forwardInternal(
+        reply,
+        `/api/ai/generation/${encodeURIComponent(id)}/status`,
+        { method: 'GET' },
+        userId,
+        (data) => {
+          const d = asObj(data)
+          const result: V1GenerationStatusResponse = {
+            jobId:
+              (typeof d.jobId === 'string' && d.jobId) || (typeof d.id === 'string' && d.id) || id,
+            status: mapJobStatus(d.status),
+            ...(d.returnvalue !== undefined || d.result !== undefined
+              ? { result: d.returnvalue ?? d.result }
+              : {}),
+            ...(typeof d.failedReason === 'string' ? { error: d.failedReason } : {}),
+            ...(typeof d.progress === 'number' ? { progress: d.progress } : {}),
+          }
+          // 多模态任务失败退款(2026-09-13):提交时已乐观扣费,失败全额退(幂等)。
+          // 覆盖生图异步任务(202 轮询此端点);视频另有 videos/tasks 退款入口。
+          // F-34(2026-11-13):mapper 是同步的,退款挪到转发返回后 await,失败写 DLQ + 告警。
+          if (result.status === 'failed') taskFailed = true
+          return result
+        },
+      )
+      if (taskFailed) await refundFailedTask(server, id, 'v1_generation_status')
+      return statusResult
+    },
+  )
+
+  // ===== 21. POST /generation/cancel/:id — 生成队列取消 =====
+  server.post(
+    '/generation/cancel/:id',
+    {
+      schema: {
+        description: '生成队列取消',
+        tags: ['Multimodal'],
+        params: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+          },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              jobId: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('generation:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const { id } = request.params as { id: string }
+      // 内部取消路由为 DELETE /api/ai/generation/:jobId
+      return forwardInternal(
+        reply,
+        `/api/ai/generation/${encodeURIComponent(id)}`,
+        jsonInit({}, 'DELETE'),
+        userId,
+        (data) => {
+          const d = asObj(data)
+          return {
+            jobId: (typeof d.jobId === 'string' && d.jobId) || id,
+            status: 'cancelled' as const,
+          }
+        },
+      )
+    },
+  )
+
+  // ===== 22. POST /images/generations/async — 异步文生图(任务编排骨架) =====
+  server.post(
+    '/images/generations/async',
+    {
+      schema: {
+        description: '异步文生图(创建任务,返回 202 + task id,供轮询)',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            prompt: { type: 'string' },
+            n: { type: 'number' },
+            size: { type: 'string' },
+          },
+          required: ['model', 'prompt'],
+        },
+        response: {
+          202: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = imageAsyncGenerationsSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { model, prompt } = parsed.data
+      // F-675(2026-11-13):异步图片创建此前零计费(仅 requireApiKeyQuota 余额校验,
+      // 无 recordCall)⇒ 持 images:write 的 Key 可无限提交,平台承担 100% 上游成本。
+      // 口径与 3D(/v1/3d/generations,F-276)/视频分支一致:提交即乐观按次扣费
+      // (billingUnits=1,callType=image),metadata.task_id 挂任务号对账;
+      // 失败退款链暂不接 —— worker 消费时无 request/apiKey 上下文,refundTaskCall 按
+      // taskId 查计费流水会找不到对应行,贸然接会误退款;缺口如实记录在票面。
+      // task 保存后再扣费:saveImageTask 失败则任务未入 Redis/Map,不产生费用。
+      const task: ImageTask = {
+        id: crypto.randomUUID(),
+        status: 'pending',
+        model,
+        prompt,
+        userId,
+        apiKeyId: apiKeyOf(request)?.id,
+        createdAt: new Date().toISOString(),
+      }
+      await saveImageTask(task)
+      const apiKey = apiKeyOf(request)
+      if (apiKey) {
+        await recordCall({
+          apiKeyId: apiKey.id,
+          userId: apiKey.userId,
+          model,
+          prompt,
+          response: null,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          latencyMs: 0,
+          status: 'success',
+          callType: 'image',
+          billingUnits: 1,
+          metadata: { endpoint: 'v1_images_generations_async', task_id: task.id },
+        })
+      }
+      // 扩展点:未来由 worker 消费上游生图(既有同步端点 / 调用方体系)后,
+      // 调用 completeImageTask(id, result) / failImageTask(id, error) 推进状态。
+      // 本端点内部不自动推进。
+      return reply.status(202).send({ id: task.id, status: task.status })
+    },
+  )
+
+  // ===== 23. GET /images/generations/async/:id — 异步任务状态查询 =====
+  server.get(
+    '/images/generations/async/:id',
+    {
+      schema: {
+        description: '异步文生图任务状态查询(轮询)',
+        tags: ['Multimodal'],
+        params: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+          },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              status: { type: 'string' },
+              model: { type: 'string' },
+              prompt: { type: 'string' },
+              createdAt: { type: 'string' },
+              result: { type: 'array', items: { type: 'string' } },
+              error: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const { id } = request.params as { id: string }
+      const task = await getImageTask(id)
+      if (!task) {
+        return reply.status(404).send(error(404, `Image generation task not found: ${id}`))
+      }
+      // 直接返回任务记录(状态 pending/processing/succeeded/failed);
+      // 不在本端点推进状态(result 仅 succeeded 时存在,error 仅 failed 时存在)。
+      return reply.send({
+        id: task.id,
+        status: task.status,
+        model: task.model,
+        prompt: task.prompt,
+        createdAt: task.createdAt,
+        ...(Array.isArray(task.result) ? { result: task.result } : {}),
+        ...(typeof task.error === 'string' ? { error: task.error } : {}),
+      })
+    },
+  )
+}
+
+export default v1MultimodalRoutes
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

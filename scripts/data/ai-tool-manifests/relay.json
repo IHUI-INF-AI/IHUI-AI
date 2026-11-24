@@ -1,0 +1,59 @@
+[
+  {
+    "domain": "relay",
+    "specs": [
+      {
+        "name": "relay_pool_list",
+        "description": "列出 relay 号池账号(默认只看运营池/admin 号池;含 checkinSync 签到同步态、健康、token 到期)。可按 owner/provider/search/enabled/health 过滤。",
+        "method": "GET",
+        "path": "/api/admin/relay/accounts",
+        "params": [
+          {
+            "name": "owner",
+            "type": "string",
+            "description": "范围:me=当前管理员个人池;all=全部;缺省=运营池(admin 号池)"
+          },
+          { "name": "provider", "type": "string", "description": "平台过滤,如 trae / qoder" },
+          { "name": "search", "type": "string", "description": "按名称/uid/平台模糊搜索" },
+          { "name": "enabled", "type": "string", "description": "true/false,只列启用/停用" },
+          { "name": "health", "type": "string", "description": "健康状态过滤,如 healthy / down" },
+          { "name": "page", "type": "number", "description": "页码(默认 1)" },
+          { "name": "pageSize", "type": "number", "description": "每页条数(默认 20)" }
+        ]
+      },
+      {
+        "name": "relay_account_get",
+        "description": "按 id 查看单枚号池账号详情(健康/到期/签到同步态等)。",
+        "method": "GET",
+        "path": "/api/admin/relay/accounts/:id",
+        "params": [
+          { "name": "id", "type": "string", "description": "账号行 id(uuid)", "required": true }
+        ]
+      },
+      {
+        "name": "relay_pool_sweep",
+        "description": "立即跑一轮号池巡检(临期刷新/空闲保活/健康检查/解摘),等价于保活腿 --once。无参数。",
+        "method": "POST",
+        "path": "/api/admin/relay/account-pool/sweep"
+      },
+      {
+        "name": "relay_pool_tasks",
+        "description": "号池任务中心:各任务上次执行/下次执行/成败/能否手动触发。无参数。",
+        "method": "GET",
+        "path": "/api/admin/relay/account-pool/tasks"
+      },
+      {
+        "name": "relay_reauth_status",
+        "description": "重认证/续期能力状态(哪些号能自动 refresh)。无参数。",
+        "method": "GET",
+        "path": "/api/admin/relay/account-pool/reauth-status"
+      },
+      {
+        "name": "relay_pool_policy",
+        "description": "读取号池策略(调度/保活相关配置)。无参数。",
+        "method": "GET",
+        "path": "/api/admin/relay/pool-policy"
+      }
+    ]
+  }
+]

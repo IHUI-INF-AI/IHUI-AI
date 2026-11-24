@@ -1,0 +1,400 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""Connectors 路由端点测试(2026-09-02 立,P2-2)。
+
+覆盖:
+- GET    /api/connectors               列表(空 + 保存后脱敏)
+- POST   /api/connectors/config        保存 + 脱敏 + app_secret 空串保留旧值 + 非法 type 400
+- POST   /api/connectors/sync          未配置 400 / 未知 key 404 / 成功路径(落 last_sync_at + sync_items)
+- POST   /api/connectors/{key}/fetch   成功 / 空 doc_id 400 / 未知 key 404
+- POST   /api/connectors/{key}/enable|disable
+- DELETE /api/connectors/{key}         404 / 成功
+
+隔离策略:独立 FastAPI app 只挂载 connectors 路由;connector_store 注入内存 fake
+会话;sync/fetch 用 fake connector 模块避免真网。
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import pytest
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
+
+from app.core.config import settings
+from app.core.jwt_auth import require_request_user_id
+from app.routers import connectors as connectors_router
+from app.services import connector_store
+from app.services.tenant_scope import ConnectorScope
+from tests._connector_fake import FakeSession
+
+# 两个固定主体:端点侧的身份由承载层注入,测试用 dependency_overrides 显式给,
+# 不去依赖"开发降级单一身份" —— 那会让"没传身份"这一型在测试里永远测不出来。
+USER_A = "user-a"
+USER_B = "user-b"
+TENANT = "2306401f-4b6d-4436-8f5c-aa36d25da676"
+
+
+def _app_for(owner: str, fake: FakeSession, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
+    """挂一份只含 connectors 路由的 app,身份固定为 owner;存储走注入的 fake 会话。"""
+    monkeypatch.setattr(connector_store, "_pg_session", lambda: fake)
+    monkeypatch.setattr(settings, "platform_default_tenant_id", TENANT)
+    monkeypatch.setattr(connectors_router, "get_connector", lambda t: _FakeConnector() if t == "yuque" else None)
+    app = FastAPI()
+    app.include_router(connectors_router.router, prefix="/api")
+    app.dependency_overrides[require_request_user_id] = lambda: owner
+    return app
+
+
+class _FakeConnector:
+    """fake connector 模块:sync/fetch_document 返回固定结果。"""
+
+    async def sync(self, record: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "ok": True,
+            "message": "找到 2 篇文档",
+            "items": [
+                {"doc_id": "api", "title": "Overview"},
+                {"doc_id": "start", "title": "开始使用"},
+            ],
+            "last_sync_at": "2026-09-02T00:00:00+00:00",
+        }
+
+    async def fetch_document(self, record: dict[str, Any], doc_id: str) -> dict[str, Any]:
+        return {
+            "ok": True,
+            "title": "Overview",
+            "content": "正文内容",
+            "chars": 4,
+            "truncated": False,
+            "message": "正文 4 字符",
+        }
+
+
+@pytest.fixture
+def api_app(monkeypatch):
+    """只挂载 connectors 路由的 FastAPI app;存储走内存 fake,身份固定为 USER_A。"""
+    return _app_for(USER_A, FakeSession(), monkeypatch)
+
+
+@pytest.fixture
+async def ac(api_app):
+    """httpx 异步客户端。"""
+    async with AsyncClient(
+        transport=ASGITransport(app=api_app), base_url="http://test"
+    ) as client:
+        yield client
+
+
+def _config_body(**overrides: Any) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "key": "yuque:docs",
+        "type": "yuque",
+        "name": "语雀文档库",
+        "app_id": "",
+        "app_secret": "",
+        "extra": {"user": "yuque", "repo": "developer"},
+    }
+    body.update(overrides)
+    return body
+
+
+async def test_list_empty(ac):
+    res = await ac.get("/api/connectors")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["connectors"] == []
+    assert data["count"] == 0
+
+
+async def test_config_save_and_mask_secret(ac):
+    res = await ac.post("/api/connectors/config", json=_config_body(app_secret="super-secret"))
+    assert res.status_code == 200
+    item = res.json()
+    assert item["key"] == "yuque:docs"
+    assert item["configured"] is True
+    assert "app_secret" not in item  # 脱敏:绝不返回明文
+    assert "app_id" not in item
+    # 2026-10-31 安全强化第 11 批:extra 由原样回传改为「键保留、值布尔化」——
+    # 飞书 folder_token 等目录访问凭据此前会随列表直达客户端;落库仍存明文供同步
+    assert item["extra"] == {"user": True, "repo": True}
+    # 落库字段仍保留明文(供同步时使用),并带上承载层注入的属主
+    stored = connector_store.get(USER_A, "yuque:docs")
+    assert stored is not None
+    assert stored["app_secret"] == "super-secret"
+    assert stored["owner_user_id"] == USER_A
+
+
+async def test_config_invalid_type_400(ac):
+    res = await ac.post("/api/connectors/config", json=_config_body(type="notion"))
+    assert res.status_code == 400
+    assert "不支持" in res.json()["error"]
+
+
+async def test_config_empty_secret_keeps_old(ac):
+    await ac.post("/api/connectors/config", json=_config_body(app_secret="old-secret"))
+    res = await ac.post("/api/connectors/config", json=_config_body(app_secret=""))
+    assert res.status_code == 200
+    stored = connector_store.get(USER_A, "yuque:docs")
+    assert stored["app_secret"] == "old-secret"
+
+
+async def test_config_managed_records_real_credential_source(ac, monkeypatch):
+    """托管保存也必须标真实来源,不能一律写 platform_env(租户凭据会被误报)。"""
+    monkeypatch.setattr(
+        connectors_router.managed,
+        "status",
+        lambda t, scope=None: {
+            "available": True,
+            "supported": True,
+            "credential_source": "tenant",
+            "missing": [],
+            "reason": "",
+        },
+    )
+    body = _config_body(
+        key="feishu:manual",
+        type="feishu",
+        name="飞书",
+        app_id="",
+        app_secret="",
+        extra={},
+        managed=True,
+    )
+    res = await ac.post("/api/connectors/config", json=body)
+    assert res.status_code == 200
+    item = res.json()
+    assert item["managed"] is True
+    assert item["credential_source"] == "tenant"
+    stored = connector_store.get(USER_A, "feishu:manual")
+    assert stored is not None
+    assert stored["app_secret"] == ""
+    assert stored["app_id"] == ""
+
+
+async def test_config_update_keeps_extra_and_sync_state(ac):
+    await ac.post("/api/connectors/config", json=_config_body())
+    connector_store.set_sync_state(
+        USER_A, "yuque:docs", "2026-09-02T00:00:00+00:00", "", items=[{"doc_id": "a", "title": "A"}]
+    )
+    res = await ac.post("/api/connectors/config", json=_config_body(name="改名"))
+    assert res.status_code == 200
+    item = res.json()
+    assert item["name"] == "改名"
+    assert item["last_sync_at"] == "2026-09-02T00:00:00+00:00"
+    assert item["sync_items"] == [{"doc_id": "a", "title": "A"}]
+
+
+async def test_list_after_save(ac):
+    await ac.post("/api/connectors/config", json=_config_body())
+    res = await ac.get("/api/connectors")
+    data = res.json()
+    assert data["count"] == 1
+    item = data["connectors"][0]
+    assert item["key"] == "yuque:docs"
+    assert item["capabilities"] == {"doc_list": True, "fetch_doc": True}
+
+
+async def test_sync_unconfigured_400(ac):
+    await ac.post("/api/connectors/config", json=_config_body(extra={}, app_id=""))
+    res = await ac.post("/api/connectors/sync", json={"key": "yuque:docs"})
+    assert res.status_code == 400
+    assert "未配置" in res.json()["error"]
+
+
+async def test_sync_unknown_key_404(ac):
+    res = await ac.post("/api/connectors/sync", json={"key": "yuque:none"})
+    assert res.status_code == 404
+
+
+async def test_sync_success_persists_items(ac):
+    await ac.post("/api/connectors/config", json=_config_body())
+    res = await ac.post("/api/connectors/sync", json={"key": "yuque:docs"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["ok"] is True
+    assert len(data["items"]) == 2
+    assert data["last_sync_at"] == "2026-09-02T00:00:00+00:00"
+    # 落库:last_sync_at + sync_items 已持久化
+    stored = connector_store.get(USER_A, "yuque:docs")
+    assert stored["last_sync_at"] == "2026-09-02T00:00:00+00:00"
+    assert stored["last_error"] == ""
+    assert stored["sync_items"] == [{"doc_id": "api", "title": "Overview"}, {"doc_id": "start", "title": "开始使用"}]
+
+
+async def test_fetch_document_success(ac):
+    await ac.post("/api/connectors/config", json=_config_body())
+    res = await ac.post("/api/connectors/yuque:docs/fetch", json={"doc_id": "api"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["ok"] is True
+    assert data["title"] == "Overview"
+    assert data["chars"] == 4
+
+
+async def test_fetch_document_empty_doc_id_400(ac):
+    await ac.post("/api/connectors/config", json=_config_body())
+    res = await ac.post("/api/connectors/yuque:docs/fetch", json={"doc_id": ""})
+    assert res.status_code == 400
+    assert "doc_id" in res.json()["error"]
+
+
+async def test_fetch_document_unknown_key_404(ac):
+    res = await ac.post("/api/connectors/yuque:none/fetch", json={"doc_id": "api"})
+    assert res.status_code == 404
+
+
+async def test_enable_disable(ac):
+    await ac.post("/api/connectors/config", json=_config_body())
+    res = await ac.post("/api/connectors/yuque:docs/disable")
+    assert res.status_code == 200
+    assert res.json()["enabled"] is False
+    res = await ac.post("/api/connectors/yuque:docs/enable")
+    assert res.status_code == 200
+    assert res.json()["enabled"] is True
+    # 未知 key → 404
+    res = await ac.post("/api/connectors/yuque:none/enable")
+    assert res.status_code == 404
+
+
+async def test_disabled_blocks_sync_and_fetch(ac):
+    """停用的连接器不得继续同步或读文档(2026-11-23 补)。"""
+    await ac.post("/api/connectors/config", json=_config_body())
+    await ac.post("/api/connectors/yuque:docs/disable")
+    res = await ac.post("/api/connectors/sync", json={"key": "yuque:docs"})
+    assert res.status_code == 400
+    assert "已停用" in res.json()["error"]
+    res = await ac.post("/api/connectors/yuque:docs/fetch", json={"doc_id": "api"})
+    assert res.status_code == 400
+    assert "已停用" in res.json()["error"]
+    await ac.post("/api/connectors/yuque:docs/enable")
+    res = await ac.post("/api/connectors/sync", json={"key": "yuque:docs"})
+    assert res.status_code == 200
+
+
+async def test_delete(ac):
+    res = await ac.delete("/api/connectors/yuque:none")
+    assert res.status_code == 404
+    await ac.post("/api/connectors/config", json=_config_body())
+    res = await ac.delete("/api/connectors/yuque:docs")
+    assert res.status_code == 200
+    assert res.json() == {"ok": True}
+    assert connector_store.get(USER_A, "yuque:docs") is None
+
+
+async def test_foreign_owner_row_is_filtered_out_of_http_list(monkeypatch):
+    """他属主的记录在 HTTP 读取面**一条都不出现**(收窄发生在 handler 的调用上)。
+
+    立因(2026-10-27):`list_owned` 的 fail-closed 只在 store 单测里钉过;端点若改回
+    `list_all()`/整片读,store 层测试照样全绿,而 `connectors:read` 的"已按属主收窄"
+    在 HTTP 面就变成了纸面措辞。这条用例把"收窄发生在 handler 的调用上"钉住:
+    变异成整片读 ⇒ 这里立刻看到别人的 key。
+    """
+    fake = FakeSession()
+    monkeypatch.setattr(connector_store, "_pg_session", lambda: fake)
+    monkeypatch.setattr(settings, "platform_default_tenant_id", TENANT)
+    fake.rows.append(
+        {
+            "id": "row-1",
+            "tenant_id": TENANT,
+            "owner_user_id": USER_B,
+            "key": "yuque:legacy",
+            "conn_type": "yuque",
+            "name": "他属主遗留",
+            "enabled": True,
+            "app_id": "",
+            "app_secret": "legacy-secret",
+            "extra": {"user": "u", "repo": "r"},
+            "mode": "preset",
+            "spec": {},
+            "operations": [],
+            "managed": False,
+            "credential_source": "",
+            "installed_at": "2026-09-02T00:00:00+00:00",
+            "last_sync_at": "",
+            "last_error": "",
+            "sync_items": [],
+            "created_at": "2026-09-02T00:00:00+00:00",
+            "updated_at": "2026-09-02T00:00:00+00:00",
+        }
+    )
+    app = FastAPI()
+    app.include_router(connectors_router.router, prefix="/api")
+    app.dependency_overrides[require_request_user_id] = lambda: USER_A
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.get("/api/connectors")
+
+    assert res.status_code == 200
+    assert res.json() == {"connectors": [], "count": 0}
+    assert "legacy-secret" not in res.text
+
+
+async def test_cross_owner_http_is_shaped_like_missing_and_side_effect_free(
+    monkeypatch,
+):
+    """HTTP 级越权:换主体后"看不见、改不动、删不掉",且**别人的记录一字未动**。
+
+    只断言 404 会放过"先改了再抛 404"与"授权判定发生在写库之后"两种写法(AGENTS §5),
+    所以每一条越权之后都回读一次 A 名下的记录做逐字段对照。
+    两个 app 共用同一份 fake 会话 —— 否则"看不见"只是因为换了分片,什么也没证明。
+    """
+    fake = FakeSession()
+    app_a = _app_for(USER_A, fake, monkeypatch)
+    app_b = _app_for(USER_B, fake, monkeypatch)
+    async with (
+        AsyncClient(transport=ASGITransport(app=app_a), base_url="http://test") as a,
+        AsyncClient(transport=ASGITransport(app=app_b), base_url="http://test") as b,
+    ):
+        await a.post("/api/connectors/config", json=_config_body(app_secret="s3cret"))
+        before = connector_store.get(USER_A, "yuque:docs")
+        assert before is not None
+
+        # 列不出来,但形态与"你还没有配置"完全一致(不是 403,不做存在性预言机)
+        listed = await b.get("/api/connectors")
+        assert listed.status_code == 200
+        assert listed.json()["connectors"] == []
+
+        for res in (
+            await b.post("/api/connectors/sync", json={"key": "yuque:docs"}),
+            await b.post("/api/connectors/yuque:docs/fetch", json={"doc_id": "api"}),
+            await b.post("/api/connectors/yuque:docs/enable"),
+            await b.post("/api/connectors/yuque:docs/disable"),
+            await b.delete("/api/connectors/yuque:docs"),
+        ):
+            assert res.status_code == 404, res.text
+            assert res.json()["error"] == "连接器不存在: yuque:docs"
+
+        after = connector_store.get(USER_A, "yuque:docs")
+        assert after == before  # 逐字段等值 ⇒ 越权请求没留下任何副作用
+
+        # 正向对照:B 用同名 key 存自己的配置,不会覆盖 A 的那条(否则会静默丢别人的密钥)
+        saved = await b.post("/api/connectors/config", json=_config_body(name="B 的", app_secret="other"))
+        assert saved.status_code == 200
+        assert connector_store.get(USER_A, "yuque:docs") == before
+        assert connector_store.get(USER_B, "yuque:docs")["name"] == "B 的"
+
+
+@pytest.mark.asyncio
+async def test_tenant_member_cannot_change_shared_connector(monkeypatch):
+    """企业租户里的普通成员可读可调用,但不得改共享连接器/凭据。"""
+    app = _app_for(USER_A, FakeSession(), monkeypatch)
+    app.dependency_overrides[connectors_router.connector_context] = lambda: ConnectorScope(
+        scope="tenant-a",
+        tenant_id="11111111-1111-1111-1111-111111111111",
+        role="member",
+        tenant_mode=True,
+    )
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        denied = await client.post(
+            "/api/connectors/config", json=_config_body(app_secret="tenant-secret")
+        )
+        assert denied.status_code == 403
+        assert "租户管理员权限" in denied.text
+        # 副作用未发生:共享存储里没有这条配置
+        assert connector_store.get("tenant-a", "yuque:docs") is None
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

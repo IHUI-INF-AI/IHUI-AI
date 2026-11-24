@@ -1,0 +1,237 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { eq, desc, asc, sql } from 'drizzle-orm'
+import { db } from './index.js'
+import {
+  hotWords,
+  newsTops,
+  newsRecommends,
+  type HotWord,
+  type NewsTop,
+  type NewsRecommend,
+} from '@ihui/database'
+
+// =============================================================================
+// HotWords - 热搜词
+// =============================================================================
+
+export async function findHotWordList(): Promise<HotWord[]> {
+  // F-609: search-aspect 每次搜索把 sort + 1(越大越热),列表必须 desc(sort);
+  // 此前 asc(sort) 把最冷门词排最前。管理端仍要全量(含下架词)供运营维护,故不加过滤。
+  return db.select().from(hotWords).orderBy(desc(hotWords.sort), desc(hotWords.createdAt))
+}
+
+/**
+ * F-609:面向 C 端搜索建议的热搜词查询 —— 只取已上架(active)、按热度降序、限量返回。
+ * 管理端 /search/hot-words 需要看到全部词(含下架),仍用 findHotWordList()。
+ */
+export async function findActiveHotWords(limit: number): Promise<HotWord[]> {
+  return db
+    .select()
+    .from(hotWords)
+    .where(eq(hotWords.status, 'active'))
+    .orderBy(desc(hotWords.sort), desc(hotWords.createdAt))
+    .limit(Math.max(1, Math.min(200, Math.trunc(limit))))
+}
+
+export interface CreateHotWordInput {
+  word: string
+  sort?: number
+  status?: string
+}
+
+export async function createHotWord(data: CreateHotWordInput): Promise<HotWord> {
+  const rows = await db
+    .insert(hotWords)
+    .values({
+      word: data.word,
+      sort: data.sort,
+      status: data.status,
+    })
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建热搜词失败')
+  return row
+}
+
+export interface UpdateHotWordInput {
+  word?: string
+  sort?: number
+  status?: string
+}
+
+export async function updateHotWord(
+  id: string,
+  data: UpdateHotWordInput,
+): Promise<HotWord | undefined> {
+  const set: Record<string, unknown> = {}
+  if (data.word !== undefined) set.word = data.word
+  if (data.sort !== undefined) set.sort = data.sort
+  if (data.status !== undefined) set.status = data.status
+  set.updatedAt = new Date()
+  const rows = await db.update(hotWords).set(set).where(eq(hotWords.id, id)).returning()
+  return rows[0]
+}
+
+/** 删除热搜词。返回库确认已删除的 id 集合(未命中为空数组,调用方据此判 deleted 真假)。 */
+export async function deleteHotWord(id: string): Promise<string[]> {
+  const rows = await db.delete(hotWords).where(eq(hotWords.id, id)).returning({ id: hotWords.id })
+  return rows.map((r) => r.id)
+}
+
+// =============================================================================
+// NewsTops - 资讯置顶
+// =============================================================================
+
+/**
+ * 置顶列表(F-354:按 news_id 去重)。
+ *
+ * 表上现在有 UNIQUE(news_id),正常情况下不会有重复行;这里仍按 newsId 只留首行,
+ * 是为了「代码先发、迁移后跑」的窗口期:旧库里已存在的重复置顶不能让公开列表重复展示,
+ * 也不能让它们各自占一个位置把别的置顶挤出去。排序口径(asc sort, desc createdAt)不变。
+ */
+export async function findNewsTopList(): Promise<NewsTop[]> {
+  const rows = await db
+    .select()
+    .from(newsTops)
+    .orderBy(asc(newsTops.sort), desc(newsTops.createdAt))
+  const seen = new Set<string>()
+  return rows.filter((r) => {
+    if (seen.has(r.newsId)) return false
+    seen.add(r.newsId)
+    return true
+  })
+}
+
+/** 按 newsId 查询置顶记录（用于判断是否已置顶）。 */
+export async function findNewsTopByNewsId(newsId: string): Promise<NewsTop | undefined> {
+  const rows = await db.select().from(newsTops).where(eq(newsTops.newsId, newsId)).limit(1)
+  return rows[0]
+}
+
+export interface CreateNewsTopInput {
+  newsId: string
+  sort?: number
+}
+
+export async function createNewsTop(data: CreateNewsTopInput): Promise<NewsTop> {
+  // F-354:同一资讯只允许一条置顶。(news_id) 唯一索引 + ON CONFLICT DO UPDATE,
+  // 把「路由先 findNewsTopByNewsId 再 insert」的 check-then-act 竞态在库侧收口:
+  // 两次并发 PUT /news/articles/:id/top 都查到「未置顶」时,后到的那次改为更新同一行,
+  // 不会留下两条 news_id 相同的置顶(旧行为:重复展示 / 取消置顶删多行 / 改 sort 只回写一行)。
+  // sort 缺省时保留现有行的 sort(与新行落默认值 0 的语义一致)。
+  const rows = await db
+    .insert(newsTops)
+    .values({
+      newsId: data.newsId,
+      sort: data.sort,
+    })
+    .onConflictDoUpdate({
+      target: newsTops.newsId,
+      set: { sort: data.sort ?? sql`${newsTops.sort}` },
+    })
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建资讯置顶失败')
+  return row
+}
+
+/** 更新置顶排序（已有置顶记录时调用）。 */
+export async function updateNewsTopSort(
+  newsId: string,
+  sort: number,
+): Promise<NewsTop | undefined> {
+  const rows = await db
+    .update(newsTops)
+    .set({ sort })
+    .where(eq(newsTops.newsId, newsId))
+    .returning()
+  return rows[0]
+}
+
+/** 取消资讯置顶。返回库确认已删除的行 id 集合(按 newsId 匹配,未置顶时为空数组)。 */
+export async function deleteNewsTop(newsId: string): Promise<string[]> {
+  const rows = await db
+    .delete(newsTops)
+    .where(eq(newsTops.newsId, newsId))
+    .returning({ id: newsTops.id })
+  return rows.map((r) => r.id)
+}
+
+// =============================================================================
+// NewsRecommends - 资讯推荐
+// =============================================================================
+
+/** 推荐列表(F-354:按 news_id 去重,理由同 findNewsTopList —— 兼容迁移未跑的窗口期)。 */
+export async function findNewsRecommendList(): Promise<NewsRecommend[]> {
+  const rows = await db
+    .select()
+    .from(newsRecommends)
+    .orderBy(asc(newsRecommends.sort), desc(newsRecommends.createdAt))
+  const seen = new Set<string>()
+  return rows.filter((r) => {
+    if (seen.has(r.newsId)) return false
+    seen.add(r.newsId)
+    return true
+  })
+}
+
+/** 按 newsId 查询推荐记录（用于判断是否已推荐）。 */
+export async function findNewsRecommendByNewsId(
+  newsId: string,
+): Promise<NewsRecommend | undefined> {
+  const rows = await db
+    .select()
+    .from(newsRecommends)
+    .where(eq(newsRecommends.newsId, newsId))
+    .limit(1)
+  return rows[0]
+}
+
+export interface CreateNewsRecommendInput {
+  newsId: string
+  sort?: number
+}
+
+export async function createNewsRecommend(data: CreateNewsRecommendInput): Promise<NewsRecommend> {
+  // F-354:同 createNewsTop —— (news_id) 唯一索引 + ON CONFLICT DO UPDATE 收口并发双插。
+  const rows = await db
+    .insert(newsRecommends)
+    .values({
+      newsId: data.newsId,
+      sort: data.sort,
+    })
+    .onConflictDoUpdate({
+      target: newsRecommends.newsId,
+      set: { sort: data.sort ?? sql`${newsRecommends.sort}` },
+    })
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建资讯推荐失败')
+  return row
+}
+
+/** 更新推荐排序（已有推荐记录时调用）。 */
+export async function updateNewsRecommendSort(
+  newsId: string,
+  sort: number,
+): Promise<NewsRecommend | undefined> {
+  const rows = await db
+    .update(newsRecommends)
+    .set({ sort })
+    .where(eq(newsRecommends.newsId, newsId))
+    .returning()
+  return rows[0]
+}
+
+/** 取消资讯推荐。返回库确认已删除的行 id 集合(按 newsId 匹配,未推荐时为空数组)。 */
+export async function deleteNewsRecommend(newsId: string): Promise<string[]> {
+  const rows = await db
+    .delete(newsRecommends)
+    .where(eq(newsRecommends.newsId, newsId))
+    .returning({ id: newsRecommends.id })
+  return rows.map((r) => r.id)
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

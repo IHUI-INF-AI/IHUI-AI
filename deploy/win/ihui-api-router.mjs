@@ -1,0 +1,504 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+//
+// API 蓝绿入口路由：监听 127.0.0.1:8802，把 HTTP / WebSocket 流量转发到当前活跃配色
+// （blue=8842 / green=8843）。
+//
+// 为什么需要这一层：原部署流程是 sc.exe stop 旧 API → sleep → start 新 API，中间 20~30 秒
+// 8802 没有监听；Next.js 代理与 cloudflared 打到空端口，前端拿到纯文本
+// "Internal Server Error"，登录直接失败。有路由层后，8802 始终有人 listening，
+// 部署变成「起另一色 → 健康 → 原子切 active → 排空 → 停旧色」，用户无感。
+//
+// 状态文件（由 ihui-api-bluegreen.ps1 原子写入）：
+//   { "active": "blue", "blue": 8842, "green": 8843 }
+//
+// 启动：node ihui-api-router.mjs（NSSM 服务 IHUI-API-ROUTER）
+
+import http from 'node:http'
+import net from 'node:net'
+import fs from 'node:fs'
+import path from 'node:path'
+
+import { createIpRateLimiter, isLoopbackAddress, resolveRateLimitConfig } from './lib/ip-rate-limit.mjs'
+import { decideEdgeGuard, resolveEdgeGuardMode } from './lib/edge-origin-guard.mjs'
+import {
+  bgStatusVisibleTo,
+  buildForwardHeaders,
+  buildRejectionFrame,
+  decideUpgradeAdmission,
+  resolveRouterMaxConnections,
+} from './lib/edge-admission.mjs'
+import { applySecurityHeaders, resolveSecurityHeaderMode } from './lib/response-security.mjs'
+
+// ── 通用化(2026-10-28 生产席:web 蓝绿复用同一份 router,不落第二份反代实现)────────
+// 立因:web 走蓝绿也要一个"常驻监听 + 原子切流"的入口层,而另写一份 router 就是第二个真相源
+// (§0.6:同类实现全仓只许一份,第二份必然漂移)。故把监听面/上游面/端口表全部改成 env 驱动,
+// **缺省值与改造前逐字等价** ⇒ api 侧 8802/127.0.0.1/8842/8843 行为零变化。
+// 为什么 LISTEN_HOST 与 UPSTREAM_HOST 必须分成两个:web 的 8801 必须监听 0.0.0.0
+// (EdgeOne 源站直填本机公网 IP,只绑回环会让回源恒 522,2026-10-28 实测 8/8 轮判 GATE-ENTRY-BROKEN
+//  即此);而两色 web 实例只监听 127.0.0.1,router 到上游仍走回环 ⇒ 上游主机不能跟着监听面改。
+const LISTEN_HOST = process.env.IHUI_BG_ROUTER_HOST || '127.0.0.1'
+const UPSTREAM_HOST = process.env.IHUI_BG_UPSTREAM_HOST || '127.0.0.1'
+const LISTEN_PORT = Number(
+  process.env.IHUI_API_ROUTER_PORT || process.env.IHUI_BG_ROUTER_PORT || 8802,
+)
+const STATE_FILE =
+  process.env.IHUI_API_BG_STATE ||
+  process.env.IHUI_BG_STATE ||
+  'D:\\DevEnv\\ihui-prod\\deploy\\run\\api-bluegreen.json'
+const DEFAULT_PORTS = {
+  blue: Number(process.env.IHUI_BG_PORT_BLUE || 8842),
+  green: Number(process.env.IHUI_BG_PORT_GREEN || 8843),
+}
+// 健康判据也要随被代理的那一个应用走:api 探 /api/health 要 `"status":"ok"`,
+// web 探首页要 `<!DOCTYPE html`。缺省仍是 api 口径 ⇒ 现有 router 实例行为不变。
+const HEALTH_PATH = process.env.IHUI_BG_HEALTH_PATH || '/api/health'
+const HEALTH_MATCH = process.env.IHUI_BG_HEALTH_MATCH || '"status":"ok"'
+
+function log(level, msg, extra = {}) {
+  process.stdout.write(
+    `${JSON.stringify({ time: new Date().toISOString(), level, msg, ...extra })}\n`,
+  )
+}
+
+function loadState() {
+  try {
+    const raw = fs.readFileSync(STATE_FILE, 'utf8')
+    const parsed = JSON.parse(raw)
+    const active = parsed.active === 'green' ? 'green' : 'blue'
+    return {
+      active,
+      blue: Number(parsed.blue) || DEFAULT_PORTS.blue,
+      green: Number(parsed.green) || DEFAULT_PORTS.green,
+      source: 'file',
+    }
+  } catch (e) {
+    return { ...DEFAULT_PORTS, active: 'blue', source: 'default', error: String(e?.message || e) }
+  }
+}
+
+let state = loadState()
+
+// ── 入口限流(2026-10-29 加固)──────────────────────────────────────────────
+// 线上入口就是本文件,**没有 nginx** —— deploy/nginx/conf.d/rate-limit.conf 的 6 套 zone
+// 在本机生产从未装车(实测:无 nginx.exe 进程、无 docker,8802/8801 由本 router 承载)。
+// 而 web 的 8801 必须绑 0.0.0.0(EdgeOne 回源直填公网 IP)⇒ 知道源站 IP 即可绕过边缘,
+// 本层是唯一还能拦一手的。定位与阈值取舍见 lib/ip-rate-limit.mjs 头注。
+const RATE_LIMIT = resolveRateLimitConfig()
+const limiter = RATE_LIMIT.enabled
+  ? createIpRateLimiter({ rps: RATE_LIMIT.rps, burst: RATE_LIMIT.burst })
+  : null
+
+// ── 连接数硬顶(2026-10-29 加固,第三层)────────────────────────────────────
+// Node 缺省 `maxConnections = Infinity` —— 反代对「同时挂多少条 TCP」没有任何上限。
+// headersTimeout 只保证单条连接不会永远挂着,挡不住「每秒建 N 条、30 秒内堆 30N 条」这种量:
+// FD 与内存按连接数线性涨,而 router 一旦 OOM,全站入口同时消失(比被攻击更彻底)。
+// 超顶时 Node 直接关掉新连接,已建立的照常服务。常量提前到此,因为启动日志要报它。
+const MAX_CONNECTIONS = resolveRouterMaxConnections(process.env.IHUI_BG_MAX_CONNECTIONS)
+
+// ── 上游响应安全头(2026-10-29 变更 C)───────────────────────────────────────
+// 真实代码此前零安全响应头。web 由 next.config 自理(且同域 iframe 不能被 frame 头破坏),
+// 故只在「API 上游实例」(监听回环)补,web 实例(监听 0.0.0.0)不加。判定见 lib/response-security.mjs。
+// 用 env IHUI_BG_SECURITY_HEADERS=off 可显式关、=on 显式开(覆盖监听面推断)。
+const ADD_SECURITY_HEADERS = resolveSecurityHeaderMode(
+  process.env.IHUI_BG_SECURITY_HEADERS,
+  LISTEN_HOST,
+)
+
+// ── 回源鉴权(2026-10-29 加固,第二层)───────────────────────────────────────
+// 治「知道源站 IP 就能绕过 EdgeOne 直连」。第一层(防火墙只放行 EdgeOne 回源 IP 段)
+// 必须在 EdgeOne 控制台拿 IP 段才能配,且只对付费套餐开放、3-6 个月变一次 —— 那一层
+// 代码侧做不了。本层是腾讯云文档 1552/76086 自己建议叠加的「回源鉴权」:控制台
+// 「规则引擎 → 修改 HTTP 回源请求头」注入 X-IHUI-Edge-Secret,源站只放行匹配的请求。
+//
+// 默认 off:线上关键路径上新装一个 403 开关,默认必须是「什么都不做」。
+// 上线第一步必须走 observe(只统计不拦),确认正常流量都带头之后再切 enforce ——
+// 直接 enforce 会把「控制台还没配」变成全站 403,那是自己把自己打瘫。
+const EDGE_MODE = resolveEdgeGuardMode(process.env.IHUI_EDGE_SECRET_MODE)
+const EDGE_SECRET = String(process.env.IHUI_EDGE_SECRET || '').trim()
+const EDGE_GUARD_LOG_INTERVAL_MS = 10_000
+let edgeGuardLogAt = 0
+let edgeGuardDenied = 0
+
+function logEdgeGuard(reason, ip) {
+  const t = Date.now()
+  if (t - edgeGuardLogAt < EDGE_GUARD_LOG_INTERVAL_MS) return
+  edgeGuardLogAt = t
+  log('warn', 'edge guard', { mode: EDGE_MODE, reason, ip, deniedTotal: edgeGuardDenied })
+}
+
+// 日志节流:被刷时每 IP 10s 只记一条,避免攻击本身把日志盘写满(那也是一种打垮)。
+const RATE_LIMIT_LOG_INTERVAL_MS = 10_000
+const rateLimitLogAt = new Map()
+
+function logRateLimited(ip, verdict) {
+  const t = Date.now()
+  const last = rateLimitLogAt.get(ip) ?? 0
+  if (t - last < RATE_LIMIT_LOG_INTERVAL_MS) return
+  rateLimitLogAt.set(ip, t)
+  // 这个 Map 只在「被限流的 IP」上增长;超限时直接清空(宁可丢几条日志,不换内存泄漏)
+  if (rateLimitLogAt.size > 10_000) rateLimitLogAt.clear()
+  log('warn', 'rate limited', { ip, retryAfterSec: verdict.retryAfterSec })
+}
+
+log('info', 'router started', {
+  listen: `${LISTEN_HOST}:${LISTEN_PORT}`,
+  state: STATE_FILE,
+  active: state.active,
+  upstream: state[state.active],
+  source: state.source,
+  rateLimit: RATE_LIMIT.enabled ? `${RATE_LIMIT.rps}rps/${RATE_LIMIT.burst}burst` : 'off',
+  // 连接数硬顶必须报出来:运维要能一眼确认「上限是多少」,而不是去翻 env 或读源码。
+  maxConnections: MAX_CONNECTIONS,
+  // 必须报出来:运维要能一眼确认「回源鉴权到底开没开」,而不是去翻 env。
+  // 配了 observe/enforce 却没给密钥 ⇒ 实际不拦,这里明说,免得被当成已生效。
+  edgeGuard:
+    EDGE_MODE === 'off'
+      ? 'off'
+      : EDGE_SECRET
+        ? EDGE_MODE
+        : `${EDGE_MODE}(缺 IHUI_EDGE_SECRET ⇒ 实际不拦)`,
+  // 同样报出:运维要能确认「API 响应安全头到底补没补」,以及是否因 web 实例而自动跳过。
+  securityHeaders: ADD_SECURITY_HEADERS ? 'on' : 'off',
+})
+
+// 状态文件变化即热切换；1s 轮询足以让部署脚本「写完即生效」，又不必依赖 fs.watch 的
+// 平台差异（Windows 上 rename 覆盖会触发 rename 事件，但断线重连时 watch 会丢）。
+fs.watchFile(STATE_FILE, { interval: 1000 }, () => {
+  const next = loadState()
+  if (next.active !== state.active || next.blue !== state.blue || next.green !== state.green) {
+    log('info', 'active upstream switched', {
+      from: `${state.active}:${state[state.active]}`,
+      to: `${next.active}:${next[next.active]}`,
+    })
+    state = next
+  }
+})
+
+/** 主上游优先，另一色兜底（某色进程挂了也不至于全站 502）。 */
+function upstreams() {
+  return [state[state.active], state[state.active] === 'blue' ? state.green : state.blue]
+}
+
+function sendJson(res, status, body) {
+  if (res.headersSent) {
+    res.destroy()
+    return
+  }
+  const buf = Buffer.from(JSON.stringify(body))
+  res.writeHead(
+    status,
+    applySecurityHeaders(
+      { 'content-type': 'application/json', 'content-length': buf.length },
+      ADD_SECURITY_HEADERS,
+    ),
+  )
+  res.end(buf)
+}
+
+
+const server = http.createServer((req, res) => {
+  // 运维探针：给部署脚本确认「路由在跑、当前是哪一色」。
+  //
+  // 2026-10-29 加固:原注释写「仅本机可达（监听 127.0.0.1）」,那只对 API router 成立 ——
+  // WEB router 复用同一份实现且监听 0.0.0.0,实测公网可读走「活跃色 + 两色内部端口」。
+  // 故判据从"我以为它监听在哪"改成按**来源**:非回环一律 404(与未知路径同形,
+  // 不回 403 —— 403 等于承认端点存在)。
+  if (req.url === '/__bg/status') {
+    if (!bgStatusVisibleTo(req.socket.remoteAddress || '')) {
+      sendJson(res, 404, { code: 404, message: 'not found' })
+      return
+    }
+    sendJson(res, 200, { ok: true, active: state.active, upstream: state[state.active] })
+    return
+  }
+  // 回源鉴权在限流**之前**:直连攻击者不带头 ⇒ 直接 403,不必再为它耗一个限流令牌;
+  // 正常流量经 EdgeOne 带头 ⇒ 通过后再进限流。两道都是「便宜的先做」。
+  //
+  // 结论要传给转发层做 IP 归一(buildForwardHeaders 只信"确实经边缘"的请求),
+  // 故用块外变量承接 —— 写在块内则转发层读不到,归一退化成"全按直连处理"。
+  let edgeReason = 'off'
+  if (EDGE_MODE !== 'off') {
+    const ip = req.socket.remoteAddress || ''
+    const verdict = decideEdgeGuard({
+      mode: EDGE_MODE,
+      secret: EDGE_SECRET,
+      loopback: isLoopbackAddress(ip),
+      headers: req.headers,
+    })
+    edgeReason = verdict.reason
+    if (verdict.action === 'observe') {
+      logEdgeGuard(verdict.reason, ip)
+    } else if (verdict.action === 'deny') {
+      edgeGuardDenied += 1
+      logEdgeGuard(verdict.reason, ip)
+      const body = Buffer.from(JSON.stringify({ code: 403, message: 'forbidden' }))
+      res.writeHead(403, { 'content-type': 'application/json', 'content-length': body.length })
+      res.end(body)
+      return
+    }
+  }
+  if (limiter) {
+    // key = TCP 对端地址(不可伪造)。绝不用 X-Forwarded-For:那是客户端可任意改的头,
+    // 拿它当 key 等于把限流开关交给攻击者(每请求换一个假 IP 即绕过)。
+    const ip = req.socket.remoteAddress || 'unknown'
+    // 回环豁免:内部服务(ai-service → /api/internal/*)与健康检查都从这里进来,
+    // 不豁免会让一次批量内部调用把自己的通道限死(加固把自己打瘫)。见 lib 头注。
+    if (!isLoopbackAddress(ip)) {
+      const verdict = limiter.check(ip)
+      if (!verdict.allowed) {
+        logRateLimited(ip, verdict)
+        const body = Buffer.from(JSON.stringify({ code: 429, message: 'too many requests' }))
+        res.writeHead(429, {
+          'content-type': 'application/json',
+          'content-length': body.length,
+          'retry-after': String(verdict.retryAfterSec),
+        })
+        res.end(body)
+        return
+      }
+    }
+  }
+  proxyHttp(req, res, 0, edgeReason)
+})
+
+// 慢速攻击面收口(2026-10-29):Node 默认 headersTimeout=60s / requestTimeout=300s,
+// 一个连接可以慢吞吞喂头/喂体占住 socket 五分钟。本服务正常请求远达不到这两个量级
+// (API 体上限 2MiB),故收紧到 30s/120s —— 对合法用户无感,对 slowloris 直接断。
+server.headersTimeout = 30_000
+server.requestTimeout = 120_000
+
+// 连接数硬顶(2026-10-29):常量见文件上方 MAX_CONNECTIONS(启动日志已报出)。
+server.maxConnections = MAX_CONNECTIONS
+
+function proxyHttp(req, res, attempt, edgeReason = 'off') {
+  const ports = upstreams()
+  const port = ports[attempt]
+  if (!port) {
+    sendJson(res, 502, { code: 502, message: 'api upstream unavailable' })
+    return
+  }
+
+  const upReq = http.request({
+    host: UPSTREAM_HOST,
+    port,
+    method: req.method,
+    path: req.url,
+    // 不是 req.headers 原样透传:客户端可整写 IP 类头,原样转给上游等于把
+    // "我是谁" 的决定权交给它(限流键、风控、审计全部随之失真)。见 buildForwardHeaders。
+    headers: buildForwardHeaders({
+      headers: req.headers,
+      remoteAddress: req.socket.remoteAddress,
+      edgeMode: EDGE_MODE,
+      edgeReason,
+      // 本实例只监听回环(127.0.0.1)⇒ 是内部 API 路由,上游只能来自公网路由 8801,
+      // 可把 8801 注入的 verified 标记透传给 API 上游实例(ai-service per-user 限流要用)。
+      // 公网路由 8801(监听 0.0.0.0)传 false:只认自己比对的 secret,绝不信任公网自带该头。
+      trustInboundVerified: LISTEN_HOST === '127.0.0.1',
+    }),
+  })
+
+  upReq.on('response', (upRes) => {
+    // 补安全响应头(变更 C):只补上游没设的,不覆盖 api 自身已设的安全头。
+    res.writeHead(upRes.statusCode || 502, applySecurityHeaders(upRes.headers, ADD_SECURITY_HEADERS))
+    upRes.pipe(res)
+  })
+
+  upReq.on('error', (err) => {
+    // 连接被拒 = 请求还没进入应用，重放到另一色是安全的；POST 也可（未产生副作用）。
+    // 但只重放一次，且只针对连接级错误 —— 已经建立连接后的 reset 不重放，避免重复下单。
+    if ((err.code === 'ECONNREFUSED' || err.code === 'EHOSTUNREACH') && attempt === 0) {
+      log('warn', 'primary upstream refused, retrying secondary', {
+        primary: ports[0],
+        secondary: ports[1],
+        url: req.url,
+      })
+      proxyHttp(req, res, 1, edgeReason)
+      return
+    }
+    log('error', 'proxy error', { port, url: req.url, code: err.code, message: err.message })
+    sendJson(res, 502, { code: 502, message: 'api upstream unavailable' })
+  })
+
+  res.on('close', () => {
+    if (!res.writableEnded) upReq.destroy()
+  })
+  req.pipe(upReq)
+}
+
+// WebSocket：手工做 HTTP Upgrade 透传（不引第三方依赖，避免 pnpm 隔离目录解析问题）
+//
+// 2026-10-29 加固:这条分支此前**完全绕过**上面两道闸 —— `server.on('upgrade')` 是独立
+// 回调,拿到连接就直接 net.connect,既不验回源密钥也不过令牌桶。攻击者只要在请求行写
+// `Upgrade: websocket`,就能以任意速率、任意条数直连上游,限流日志里一条都不留。
+// 判定抽到 lib/edge-admission.mjs 并做成纯函数 —— 原实现内联在回调里时,想验证只能起
+// 真 router 发真握手,而「从非回环地址发」在本机结构上做不到,这条路径永远测不到。
+server.on('upgrade', (req, socket, head) => {
+  // 先挂 error:拒绝路径要往 socket 写响应帧,对端此刻已断时 write 会 EPIPE,
+  // 没有 handler 就是整个 router 进程崩(那等于攻击者用一次断连打掉入口)。
+  let upSocket = null
+  socket.on('error', () => {
+    if (upSocket) upSocket.destroy()
+    else socket.destroy()
+  })
+
+  const admission = decideUpgradeAdmission({
+    edgeMode: EDGE_MODE,
+    edgeSecret: EDGE_SECRET,
+    remoteAddress: req.socket.remoteAddress || '',
+    headers: req.headers,
+    // 与 HTTP 分支共用同一个桶:各建一个等于把阈值悄悄翻倍。
+    checkRate: limiter ? (ip) => limiter.check(ip) : null,
+  })
+
+  if (!admission.allow) {
+    if (admission.reason === 'edge-guard') edgeGuardDenied += 1
+    log('warn', 'ws handshake rejected', {
+      reason: admission.reason,
+      status: admission.status,
+      edgeReason: admission.edgeReason,
+      ip: req.socket.remoteAddress || '',
+      url: req.url,
+    })
+    try {
+      socket.end(buildRejectionFrame(admission.status, admission.reason, admission.retryAfterSec))
+    } catch {
+      /* 对端已断,下面统一销毁 */
+    }
+    socket.destroy()
+    return
+  }
+  // observe 档下不拦,但要留下「这条握手是直连来的」证据 —— 与 HTTP 分支同一口径。
+  // 不记的话,直连攻击者只要改走 WS 就能在 observe 统计里彻底隐身。
+  if (EDGE_MODE !== 'off' && admission.edgeReason !== 'match' && admission.edgeReason !== 'loopback') {
+    logEdgeGuard(admission.edgeReason, req.socket.remoteAddress || '')
+  }
+
+  const port = upstreams()[0]
+  // WS 握手同样要过 IP 归一:API 侧的 ws-guard 拿这个头当单 IP 并发/握手的限流键,
+  // 原样透传客户端头就等于把限流开关交出去。
+  const forwardHeaders = buildForwardHeaders({
+    headers: req.headers,
+    remoteAddress: req.socket.remoteAddress,
+    edgeMode: EDGE_MODE,
+    edgeReason: admission.edgeReason,
+    // 同 HTTP 分支:内部 API 路由透传 verified,公网路由不信任入站该头。
+    trustInboundVerified: LISTEN_HOST === '127.0.0.1',
+  })
+  upSocket = net.connect(port, UPSTREAM_HOST, () => {
+    const lines = [`${req.method} ${req.url} HTTP/1.1`]
+    for (const [k, v] of Object.entries(forwardHeaders)) {
+      lines.push(`${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+    }
+    upSocket.write(`${lines.join('\r\n')}\r\n\r\n`)
+    if (head && head.length) upSocket.write(head)
+    upSocket.pipe(socket)
+    socket.pipe(upSocket)
+  })
+  upSocket.on('error', (err) => {
+    log('warn', 'ws upstream error', { port, code: err.code, url: req.url })
+    socket.destroy()
+  })
+  socket.on('close', () => {
+    if (upSocket) upSocket.destroy()
+  })
+})
+
+server.on('error', (err) => {
+  log('error', 'router listen failed', { code: err.code, message: err.message })
+  process.exit(1)
+})
+
+server.listen(LISTEN_PORT, LISTEN_HOST, () => {
+  log('info', 'listening', { addr: `${LISTEN_HOST}:${LISTEN_PORT}` })
+  void reconcileActiveAtBoot()
+})
+
+/**
+ * 开机对账（2026-10-28 加）：状态文件记的活跃色可能压根没起来 —— 典型是上次活跃停在
+ * green（green 是 SERVICE_DEMAND_START），机器重启后只有 blue 自动启动。此时若不改写，
+ * 每个请求都要先吃一次 ECONNREFUSED 再兜底，而且部署脚本会把唯一在服务的 blue 当成
+ * "待升级色"停掉重起 —— 那是一次真实停机。
+ *
+ * 只在启动时跑一次，且只在"活跃色探不通、另一色可服务"时改写；两色都探不通时不动状态
+ * （那是真故障，交给监控，不靠路由猜）。
+ */
+async function reconcileActiveAtBoot() {
+  const deadline = Date.now() + 120_000
+  while (Date.now() < deadline) {
+    const active = state.active
+    const other = active === 'blue' ? 'green' : 'blue'
+    if (await probeHealth(state[active])) {
+      if (state.source !== 'file') {
+        writeStateFile(active, state)
+        state = { ...state, source: 'file' }
+        log('info', 'boot reconcile: state file seeded', { active, port: state[active] })
+      }
+      return
+    }
+    if (await probeHealth(state[other])) {
+      writeStateFile(other, state)
+      log('warn', 'boot reconcile: active color unreachable, adopted the other', {
+        from: `${active}:${state[active]}`,
+        to: `${other}:${state[other]}`,
+      })
+      state = { ...state, active: other, source: 'file' }
+      return
+    }
+    await new Promise((r) => setTimeout(r, 3000))
+  }
+  log('warn', 'boot reconcile: neither color answered /api/health', {
+    active: state.active,
+    blue: state.blue,
+    green: state.green,
+  })
+}
+
+function probeHealth(port) {
+  return new Promise((resolve) => {
+    const req = http.get(
+      { host: UPSTREAM_HOST, port, path: HEALTH_PATH, timeout: 2000 },
+      (res) => {
+        let body = ''
+        res.setEncoding('utf8')
+        res.on('data', (chunk) => {
+          body += chunk
+          if (body.length > 4096) body = body.slice(0, 4096)
+        })
+        res.on('end', () => resolve(res.statusCode === 200 && body.includes(HEALTH_MATCH)))
+      },
+    )
+    req.on('timeout', () => {
+      req.destroy()
+      resolve(false)
+    })
+    req.on('error', () => resolve(false))
+  })
+}
+
+/** 与 ihui-api-bluegreen.ps1 的 Write-BgStateAtomic 同语义：先写 .tmp 再改名。 */
+function writeStateFile(active, ports) {
+  const tmp = `${STATE_FILE}.tmp`
+  fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true })
+  fs.writeFileSync(
+    tmp,
+    JSON.stringify(
+      { active, blue: ports.blue, green: ports.green, updatedAt: new Date().toISOString() },
+      null,
+      2,
+    ),
+    'utf8',
+  )
+  fs.renameSync(tmp, STATE_FILE)
+}
+
+for (const sig of ['SIGINT', 'SIGTERM']) {
+  process.once(sig, () => {
+    log('info', 'shutting down', { signal: sig })
+    server.close(() => process.exit(0))
+    setTimeout(() => process.exit(0), 5000).unref()
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,301 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { Stats } from 'node:fs';
+
+/**
+ * Plugins 系统 — 类型定义。
+ *
+ * 灵感来源:参考行业 Agent 框架的 plugin.json 清单机制(第三方插件注册工具/Hook/Slash command)。
+ * 简化策略(做减法):
+ *   - 只支持 JSON 清单(plugin.json / plugin.config.json),不实现 .js/.ts 动态 import
+ *   - PluginDefinition 描述插件元信息 + 扩展点(tools/hooks/commands 字符串数组声明)
+ *   - 可选 setup/teardown 生命周期钩子(由集成方在主循环中调用)
+ *   - PluginContext 注入 logger/config/workingDir,供 plugin 运行时使用
+ *
+ * plugin.json schema(简化版):
+ * {
+ *   "name": "my-plugin",
+ *   "version": "1.0.0",
+ *   "description": "示例插件",
+ *   "author": "alice",
+ *   "tools": ["custom-tool"],
+ *   "hooks": ["preToolCall:custom-tool"],
+ *   "commands": ["my-slash"]
+ * }
+ */
+
+/** 简化 logger 接口(对齐 console 的子集,避免依赖具体日志库) */
+export interface PluginLogger {
+  info(msg: string, ...args: unknown[]): void;
+  warn(msg: string, ...args: unknown[]): void;
+  error(msg: string, ...args: unknown[]): void;
+}
+
+/** 注入给 plugin 的上下文(由集成方在主循环装配) */
+export interface PluginContext {
+  /** 工作目录(绝对路径) */
+  workingDir: string;
+  /** 配置对象(透传 settings 的相关子集,任意结构) */
+  config: Record<string, unknown>;
+  /** 日志器(默认 console) */
+  logger: PluginLogger;
+}
+
+/** 插件清单 — 从 plugin.json 解析出的扩展声明 */
+export interface PluginManifest {
+  name: string;
+  version: string;
+  description?: string;
+  author?: string;
+  /** 扩展的工具名(由集成方按名解析;运行期那一半见 `declaration-consumers.ts`,解析不出就出声) */
+  tools?: string[];
+  /**
+   * 插件**贡献的接口型工具**(2026-11-13 立):以纯数据声明的可调用后端端点。
+   *
+   * 与 `tools` 的分工:`tools` 是"我要涉及宿主已有的那枚工具"(hook matcher 可寻址它),
+   * 本字段是"我要新贡献一枚模型可直接调用的工具"。声明层是**数据**(不是回调、不是脚本),
+   * 装载器依旧绝不 import 插件代码。编译与拒收判据单源 = `interface-tools.ts`。
+   */
+  interfaces?: PluginInterfaceDeclaration[];
+  /** 扩展的 Hook 标识(格式 "<event>:<matcher>" 或纯事件名) */
+  hooks?: string[];
+  /** 扩展的 slash command 名 */
+  commands?: string[];
+  /**
+   * 依赖的其他插件名(G-682):注册前校验依赖闭包 —— 声明的依赖必须在册(或在同一批注册集合内),
+   * 否则该插件注册被拒。依赖闭包在安装期一次定型,运行期只做"在不在"查询,不决定谁先谁后。
+   */
+  dependencies?: string[];
+  // P2-4 agent-lifecycle 扩展点(声明式,实际调度由集成方实现)
+  /** turnInputContributors:在 turnStart 时贡献额外输入上下文的扩展名(如注入额外文档/状态) */
+  turnInputContributors?: string[];
+  /** commandContributors:在 turnEnd 时贡献命令执行的扩展名(如自动 lint/test/notify) */
+  commandContributors?: string[];
+}
+
+/** 完整插件定义 — 清单 + 可选生命周期回调 */
+export interface PluginDefinition extends PluginManifest {
+  /** 来源文件路径(绝对路径,便于调试) */
+  source?: string;
+  /** 插件装载时调用(可选,可同步可异步) */
+  setup?(ctx: PluginContext): void | Promise<void>;
+  /** 插件卸载时调用(可选,可同步可异步) */
+  teardown?(ctx: PluginContext): void | Promise<void>;
+  /**
+   * Hook 事件回调(程序化注册,JSON 清单无法声明此字段)。
+   * 仅当插件通过代码注册时可注入;JSON 加载的插件只声明 hooks 数组,无实际回调。
+   * 回调失败不阻塞主流程(由 PluginRegistry.runHook try/catch 包裹)。
+   */
+  onHook?(event: string, context: PluginHookContext): void | Promise<void>;
+  /**
+   * P2-4 turnInputContributor 回调(程序化注册):在 turnStart 时被调用,返回值作为额外输入注入。
+   * 返回空字符串/null/undefined 表示不注入。回调失败不阻塞主流程。
+   */
+  onTurnInputContribute?(ctx: TurnContributorContext): string | null | undefined | Promise<string | null | undefined>;
+  /**
+   * P2-4 commandContributor 回调(程序化注册):在 turnEnd 时被调用,可执行外部命令(lint/test/notify 等)。
+   * 回调失败不阻塞主流程。
+   */
+  onCommandContribute?(ctx: TurnContributorContext): void | Promise<void>;
+}
+
+/**
+ * P2-4 Turn 贡献者上下文 — 传给 onTurnInputContribute / onCommandContribute 回调。
+ * 复用 PluginHookContext 的扩展字段语义([key: string]: unknown)。
+ */
+export interface TurnContributorContext {
+  /** 工作目录 */
+  workingDir: string;
+  /** 当前 turn 序号(1-based) */
+  turnNumber: number;
+  /** 最大 turn 数 */
+  maxTurns: number;
+  /** 会话 ID(可选) */
+  sessionId?: string;
+  /** 任意扩展字段 */
+  [key: string]: unknown;
+}
+
+/**
+ * 插件贡献的一枚**接口型工具**声明(2026-11-13 立,纯数据)。
+ *
+ * 为什么不是回调:`loader.ts` 只读 JSON、从不 import 插件代码(`plugin-entry-channel-lock.test.ts`
+ * 的 ②③ 两条形状锁逐字钉着这一点)。所以"插件贡献工具"只能表达成**可校验的数据** ——
+ * 端点 + 参数 schema,由宿主编译成真工具并复用既有 `fetchApi` 通道。
+ *
+ * 编译/拒收判据唯一实现 = `interface-tools.ts`;本接口只是它的**公开形状**
+ * (字段全部可省,因为磁盘字节不可信,校验在编译层做 —— 类型层假装必填只会让人以为已校验)。
+ */
+export interface PluginInterfaceDeclaration {
+  /** 工具名:`<namespace>__<tool>`(或写全 `plugin__<namespace>__<tool>`),小写字母数字下划线 */
+  name?: string;
+  /** HTTP 方法,词表 GET/POST/PUT/PATCH/DELETE(大写,不折叠) */
+  method?: string;
+  /** 完整路径(含 `/api` 等前缀),`:param` 占位由宿主自动补成必填参数 */
+  path?: string;
+  /** 给模型看的说明 */
+  description?: string;
+  /**
+   * 危险档声明。**只能抬高不能压低**:与 method 推导值取更严的一侧
+   * (GET→read / POST·PUT·PATCH→write / DELETE→dangerous)。
+   */
+  access?: 'read' | 'write' | 'dangerous';
+  /** 业务参数声明(GET 走 query,写方法走 body) */
+  params?: Array<Record<string, unknown>>;
+  /** 路径参数的显式声明(缺省由 path 里的 `:x` 自动补成必填 string) */
+  pathParams?: Array<Record<string, unknown>>;
+}
+
+/** Plugin hook 上下文(传给 onHook 回调) */
+export interface PluginHookContext {
+  /** 触发 hook 的工具名(preToolCall/postToolCall 场景) */
+  toolName?: string;
+  /** 工具参数 */
+  args?: Record<string, unknown>;
+  /** 工具结果(postToolCall 场景) */
+  result?: unknown;
+  /** 任意扩展字段(由集成方按需注入) */
+  [key: string]: unknown;
+}
+
+/** 加载器选项 */
+export interface LoadPluginsOptions {
+  /** 待扫描的插件目录(绝对路径) */
+  pluginsDir: string;
+  /** 是否递归扫描子目录(默认 false,只扫顶层) */
+  recursive?: boolean;
+  /**
+   * 注入文件探针(缺省 fs.statSync)。测试与非 POSIX 宿主用它模拟读不到;
+   * 非 ENOENT 的读失由装载器如实报成诊断,不得当成"没有插件目录"。
+   */
+  stat?: (path: string) => Stats;
+  /**
+   * 宿主**已占用**的工具名(2026-11-13 立):接口型工具编译时用来判"这枚名字能不能用"。
+   *
+   * 由调用方注入(`commands/agent.ts` 在 `listTools()` 之后传),因为装载器自己看不见工具表 ——
+   * 让它去 import `tools/index.ts` 会把工具面依赖拉进装载链路(装载器必须保持"只读 JSON")。
+   * 缺席 ⇒ 只判本次清单之间的重名(仍然拦得住"同一个名字被两份清单贡献"),但不拦与宿主撞名,
+   * 那一步由 `registerTools` 的跨归属冲突规则兜底并报名。
+   */
+  takenToolNames?: readonly string[];
+}
+
+/**
+ * 插件诊断的判别码 — **封闭联合**(`as const` 数组派生),禁止在产出点散落字符串字面量。
+ *
+ * 立因(G-683):`loader.ts` 的 `parseManifestFile` 原先 `catch { return null }` ——
+ * 有隔离但零诊断,用户只看到"插件没生效",账面没有任何线索说明**为什么**。
+ * 把失败编码成数据(稳定 code)而不是异常,才能被日志/CI/上层按码分档处理。
+ *
+ * `plugin-dependency-cycle` 是 G-684 点名要求的「环依赖专属判别码」:
+ * 它与 `plugin_ambiguous_name` **语义不同、文案不得复用** ——
+ * 前者是"依赖图成环"(需要拆开环),后者是"两份清单抢同一个名字"(需要改名或删一份)。
+ * `dependencies` 字段已由 G-682 引入(见 PluginManifest);注册侧的拒绝行为落在
+ * registry(register/registerAll 的依赖闭包校验),该码本身现阶段仍无产出方。
+ */
+export const PLUGIN_DIAGNOSTIC_CODES = [
+  /** 清单文件读不出来(EISDIR / EACCES / 竞态消失等) */
+  'manifest-unreadable',
+  /** JSON 语法错误 */
+  'manifest-json-invalid',
+  /** JSON 能解析,但不是普通对象(数组 / 字符串 / 数字 / null) */
+  'manifest-not-object',
+  /** 缺 `name`(或 name 为空串) */
+  'manifest-name-missing',
+  /** 缺 `version`(或 version 为空串) */
+  'manifest-version-missing',
+  /** 同目录内被高优先级清单压掉的那一份(plugin.config.json vs plugin.json) */
+  'manifest-shadowed-by-priority',
+  /** 同名歧义:多份清单(不同 rootPath)声明同一个 name ⇒ 全部不装载(G-684/G-658) */
+  'plugin_ambiguous_name',
+  /** 兜底:未预期的抛点,一律编码成诊断而不让单点失败抛穿整次装载 */
+  'manifest-unexpected-error',
+  /** 依赖环(G-682 的 dependencies 落地后由装载器产出;刻意不复用歧义码) */
+  'plugin-dependency-cycle',
+  /**
+   * 贡献档被本宿主拒收(goal-b49/W2):档在词表内、但本 CLI 宿主没有落点(`no-host`),
+   * 或声明的贡献经 capability-catalog 求不出任何可达数据类(**默认拒**)。
+   * 与 `plugin-contribution-unknown-kind` **语义不同、文案不得复用** ——
+   * 前者是"认得但吃不下"(要改的是宿主/权限),后者是"词表里压根没这一档"(要改的是清单拼写)。
+   */
+  'plugin-contribution-declined',
+  /** 贡献档不在词表内(goal-b49/W2):诊断正文点名当前词表全量,免得用户对着不存在的落点瞎找 */
+  'plugin-contribution-unknown-kind',
+  /**
+   * 激活事件被本宿主拒收(goal-b49/W6):档在词表内、但本 CLI 没有该事件源(`runHook` 的在册触发点
+   * 只有 preToolCall/postToolCall),或声明的事件经能力目录求不出任何可达数据类(**默认拒**)。
+   * 与 `plugin-activation-unknown-event` **语义不同、文案不得复用** —— 前者要改的是宿主/权限,
+   * 后者是清单拼写。
+   */
+  'plugin-activation-rejected',
+  /** 激活事件不在词表内 / 形态不对(goal-b49/W6):正文点名当前词表全量 */
+  'plugin-activation-unknown-event',
+  /**
+   * 扩展声明在本宿主没有运行期消费者(goal-b49/Z1 立):名字被汇总口读到了,但对账拿不出消费者 ——
+   * 工具名背后没有 `Tool` 实现(装载器从不 import 插件代码)、hook 事件段永不派发、
+   * 命令族没有注册通道、contributor 声明没有回调。
+   * 与 `plugin-contribution-declined` **语义不同、文案不得复用** —— 那一条判的是清单里的
+   * `contributes` 档(词表维),这一条判的是 `tools` / `hooks` / `commands` 等扩展声明(运行期维)。
+   * 两条都在 `warning`:装载成功是事实,吃不下是另一回事,升档会把提示变成启动红旗(§12e)。
+   */
+  'plugin-declaration-unconsumed',
+  /**
+   * 插件声明的**接口型工具**被拒收(2026-11-13 立):声明在 `interfaces[]` 里,但编译不出可调用工具
+   * —— 名字不合三段形态 / method 不在词表 / path 不合法 / 参数形态坏 / 参数名撞路由身份键 / 与在册工具同名。
+   * 与 `plugin-declaration-unconsumed` **语义不同、文案不得复用** —— 那一条判的是"`tools[]` 引用了一个
+   * 宿主没有的名字"(声明背后没有实现),这一条判的是"插件自己贡献的工具声明没通过编译"。
+   * 装载仍是成功的(warning):插件照常装上,拒的只是那一条接口声明。
+   */
+  'plugin-interface-rejected',
+  /**
+   * 版本被压掉(#12 多版本共存):同名插件的另一个版本成为 active,本版本目录保留在盘但不装载。
+   * 与 `plugin_ambiguous_name` **语义不同、文案不得复用** —— 那一条判的是"同名**同版本**两份抢一个身份"
+   * (要改名或删一份),这一条判的是"版本选择的结果"(要改的是 pin 或禁用清单)。
+   */
+  'plugin-version-shadowed',
+  /**
+   * pin 落空(#12):`settings.plugins.versionPins` 点名的版本不在盘上(或已被禁用),
+   * 装载已确定性退回"序最高"的可用版本。装载仍成功,所以是 warning 而不是 error。
+   */
+  'plugin-version-pin-missing',
+  /**
+   * 一个名字下没有可用版本(#12):盘上该名的所有版本都被禁用,或全部因同版本歧义退出,
+   * 该名不装载。这是配置意图的结果,不是清单坏了,所以是 warning。
+   */
+  'plugin-version-all-disabled',
+] as const;
+
+export type PluginDiagnosticCode = (typeof PLUGIN_DIAGNOSTIC_CODES)[number];
+
+/** 诊断严重级:`error` = 有清单没被装载;`warning` = 装载了但有内容被忽略(含被本宿主拒收的贡献档) */
+export type PluginDiagnosticSeverity = 'error' | 'warning';
+
+/**
+ * 一条装载诊断 — "这份清单为什么没生效"的可机读记录。
+ * 消费方按 `code` 分档(逐条点名 / 汇总计数),不得靠 `message` 文本判流程。
+ */
+export interface PluginDiagnostic {
+  /** 稳定判别码(封闭集,见 PLUGIN_DIAGNOSTIC_CODES) */
+  code: PluginDiagnosticCode;
+  /** 严重级(由 code 唯一决定,产出点不各写一遍) */
+  severity: PluginDiagnosticSeverity;
+  /** 触发该诊断的清单/目录绝对路径 */
+  file: string;
+  /** 能解析出 name 时带上(G-684 的歧义场景必须点名是哪个名字撞了) */
+  pluginName?: string;
+  /** 相关路径(同名歧义时点名其余各份的清单路径) */
+  relatedFiles?: string[];
+  /** 人类可读说明(ASCII:诊断要能进日志,不得被控制台码页吃掉) */
+  message: string;
+}
+
+/** 装载结果:插件集合 + 每一条被跳过清单的诊断(G-683 的返回形态) */
+export interface PluginLoadResult {
+  /** 成功装载的插件(tools / hooks / commands 等扩展声明都在此) */
+  plugins: PluginDefinition[];
+  /** 装载过程的诊断:每个被跳过的清单恰好留一条;装载本身永不抛异常 */
+  diagnostics: PluginDiagnostic[];
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

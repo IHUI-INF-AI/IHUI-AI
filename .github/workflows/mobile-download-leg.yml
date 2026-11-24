@@ -1,0 +1,73 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: Mobile Download Leg
+
+# Android 对外下载腿门(2026-11-03 立,P1 发布线收尾)。
+# 只验证「用户点下去最终拿到的那一枚」:跟随 302 后 200/206 + Content-Length >= 50MiB。
+# 为什么不在 PR 上跑:外部站点抖动/EdgeOne 限流不应阻塞每次 PR;这是发布链路的运行态门,
+# 用 workflow_dispatch(发版前后手动点)+ 每日定时跑。
+# 证书校验为什么不在 CI:CI 没有正式 keystore/密码(私钥绝不进 GitHub Secrets),
+# apksigner 也只能验证"这枚包的签名",不能证明"这枚包是正式签名机产出的";
+# 证书基准比对在持钥发布机由 scripts/build-mobile-rn-release.ps1 第 5 步 `--apk` 跑。
+# 退出码:0=ok / 1=fail / 2=skipped 或未判定 —— **2 也会让 job 红,skip 不是绿**。
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_cn_leg:
+        description: '把站点主腿的官网签名 APK 同步到 Gitee 国内腿(需 CI Secret GITEE_TOKEN)'
+        type: boolean
+        default: false
+  schedule:
+    # 每日 03:17 UTC(Asia/Shanghai 11:17),避开整点高峰
+    - cron: '17 3 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-download-leg
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check public APK download leg
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '20'
+
+      - name: Self-test (offline fixtures)
+        run: node scripts/check-mobile-download-leg.mjs --self-test
+
+      - name: Probe configured download URL
+        run: node scripts/check-mobile-download-leg.mjs --json
+
+      # 国内腿资产为空 / 过期 / 是同名旧包时,原门只探站点主腿,照样全绿。
+      # 这道门对两条腿真发 Range 探针并做总长对账,量不到即 exit 2(未判定,不折算成绿)。
+      - name: Probe CN leg byte parity (fail-closed)
+        run: node scripts/check-mobile-download-leg-cn.mjs
+
+      # 上面的门变红时的整改入口:把站点主腿的官网签名 APK 搬到 Gitee 固定 tag,
+      # 搬完立刻复跑同一道门。证书基准校验仍归持钥发布机
+      # (check-mobile-download-leg.mjs --apk),CI 只做字节搬运 + 体积/总长对账。
+      - name: Publish CN leg from site leg (manual)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_cn_leg }}
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          set -euo pipefail
+          URL=$(node -p "require('./scripts/data/mobile-download-leg.json').downloadUrl")
+          curl -fL --retry 3 --retry-delay 5 --max-time 900 \
+            -o "$RUNNER_TEMP/ihui-ai-latest.apk" "$URL"
+          python3 scripts/publish-mobile-apk-gitee.py --apk "$RUNNER_TEMP/ihui-ai-latest.apk"
+          node scripts/check-mobile-download-leg-cn.mjs
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

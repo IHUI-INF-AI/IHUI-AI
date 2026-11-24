@@ -1,0 +1,152 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+/**
+ * /chat 路由(2026-07-28 重构 / 2026-07-31 升级):
+ * - AI 对话的实际承载组件是全局 docked 的 AISidePanel,通过 useAiPanelStore.open 控制
+ * - /chat 路由本身只是 AI 面板的快捷入口,不应在主工作区重复渲染"任务列表"等 AI 相关 UI
+ *   (用户反馈:右侧"任务列表"几行文字与 AI 面板完全重复,属于冗余)
+ * - 已登录时,/chat 复用 /home 的工作区首页内容(已自动打开 AI 面板,体验一致)
+ *   保持 /chat URL 仍可访问,导航/书签/SEO 都不破坏
+ *
+ * 2026-07-31 修复(用户反馈 web 端登录弹窗"乱七八糟"挡住 AI 对话内容):
+ * - 未登录时,/chat 路由不再复用 /home(避免 marketing 首页 + AI 面板被弹窗挡的内容混乱)
+ * - 改为显示简洁的"请登录"友好引导 + 自动打开 LoginDialog
+ * - 登录后切换为 home 内容(包含 AISidePanel),体验一致
+ * - 不跳独立 /login 路由(用户偏好"弹窗而非独立页",与 user profile 偏好一致)
+ */
+import * as React from 'react'
+import { Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
+import { MessageSquare, Sparkles } from 'lucide-react'
+
+import { useAuthStore } from '@/stores/auth'
+import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
+import { useLoginDialogStore } from '@/stores/login-dialog'
+import { useMounted } from '@/hooks/use-mounted'
+import { useChatStore } from '@/stores/chat'
+import { useAiPanelStore } from '@/stores/ai-panel'
+import { clearTurnDeepLink, parseTurnParam, setTurnDeepLink } from '@/lib/turn-deeplink'
+import { usePaneSplitStore } from '@/stores/pane-split'
+import { ROOT_PANE_ID, collectPaneLeaves } from '@ihui/shared/chat/multi-pane'
+import { Button } from '@ihui/ui-react'
+
+import WorkAreaHomePage from '../home/page'
+
+/**
+ * 差距⑤遗留边界2(2026-10-30):深链目标窗格解析 —— 布局树里已有**非根叶**承载该会话
+ * ⇒ 深链落那一叶(不动根窗格的全局会话);没有 ⇒ null(根窗格,既有行为)。
+ * 默认单窗格树只有一个未登记的根叶,恒回落 null ⇒ 单窗格场景逐字节不变。
+ */
+function resolveDeepLinkPaneId(conversationId: string): string | null {
+  const leaves = collectPaneLeaves(usePaneSplitStore.getState().tree)
+  const hit = leaves.find(
+    (leaf) => leaf.id !== ROOT_PANE_ID && leaf.conversationId === conversationId,
+  )
+  return hit ? hit.id : null
+}
+
+/**
+ * 多会话并行(2026-08-30 立):/chat?conversationId=xxx 深链跳转。
+ * AI 面板是全局 docked 组件,由 useChatStore.conversationId 驱动 —— 设置 store 即触发
+ * 全局 AISidePanel 的 loadHistory effect 加载对应会话;多浏览器 Tab 天然并行互不阻塞。
+ * useSearchParams 需 <Suspense> 边界(output:'export' 模式),由 ChatPage 包裹。
+ */
+function ChatConversationSync() {
+  const searchParams = useSearchParams()
+  React.useEffect(() => {
+    const convId = searchParams.get('conversationId')
+    // 差距④(2026-10-30 立):?turn=<turnOrdinal> 深链锚点。目标必须在
+    // setConversationId **之前**写入 —— conversationId 变更触发的 loadHistory effect
+    // 要能 peek 到它,改走 around 居中窗口。无 turn 参数即清:URL 是目标的唯一权威,
+    // 陈旧目标不得泄漏进常规打开。
+    // 差距⑤遗留边界(2026-10-30 补):已在该会话时换 turn 会重锚 —— set/clear 广播
+    // 版本号,承载窗格(根 = ai-side-panel,非根 = chat-pane-body)的历史 effect 订阅后重跑;
+    // 目标归属非根窗格时不动根窗格的全局会话(见 resolveDeepLinkPaneId)。
+    const turn = parseTurnParam(searchParams.get('turn'))
+    if (!convId) {
+      clearTurnDeepLink()
+      return
+    }
+    if (turn === null) clearTurnDeepLink()
+    else {
+      const paneId = resolveDeepLinkPaneId(convId)
+      setTurnDeepLink(convId, turn, paneId)
+      if (paneId !== null) {
+        // 会话已由目标窗格承载:只开面板,不切根窗格的全局会话;重锚由该窗格消费目标完成
+        useAiPanelStore.getState().openPanel()
+        return
+      }
+    }
+    // 已在该会话则跳过,避免冗余重载(换 turn 的重锚由版本号驱动,不走这条)
+    if (useChatStore.getState().conversationId === convId) return
+    useChatStore.getState().setConversationId(convId)
+    useAiPanelStore.getState().openPanel()
+  }, [searchParams])
+  return null
+}
+
+export default function ChatPage() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  // 「还没查完」≠「确认未登录」(2026-10-26,与 admin/layout 同口径):冷启动 auth bootstrap
+  // 是异步的(httpOnly refresh cookie 静默续期),ready=false 这一格绝不弹登录框、
+  // 绝不渲染「请登录」引导,否则凭据有效的用户被画成被踢出 → 手动重登。
+  const { ready } = useAuthBootstrap()
+  const open = useLoginDialogStore((s) => s.open)
+  const mounted = useMounted()
+  const t = useTranslations('chat')
+  const tc = useTranslations('common')
+
+  // 未登录(终态):挂载且 auth 校验完成后才自动打开 LoginDialog
+  // 守卫:openGuard 在 @/lib/login-dialog-trigger 中已实现(全局去重,防并发弹窗)
+  React.useEffect(() => {
+    if (mounted && ready && !isAuthenticated) {
+      open('login')
+    }
+  }, [mounted, ready, isAuthenticated, open])
+
+  // hydration/校验-safe:未挂载或未就绪显示极简占位,避免 SSR/CSR 不一致与"假未登录"闪念
+  if (!mounted || !ready) {
+    return <div className="px-4 flex h-[calc(100vh-58px)] items-center justify-center" />
+  }
+
+  // 未登录:显示友好引导(替代 marketing 首页,避免被弹窗挡的内容混乱)
+  if (!isAuthenticated) {
+    return (
+      <div className="flex h-[calc(100vh-58px)] items-center justify-center px-4">
+        <div className="max-w-md text-center">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10">
+            <MessageSquare className="h-7 w-7 text-primary" />
+          </div>
+          <h2 className="text-lg font-semibold tracking-tight">
+            {t('loginRequiredTitle') || '登录后开始 AI 对话'}
+          </h2>
+          <p className="mt-2 text-body leading-relaxed text-muted-foreground">
+            {t('loginRequiredDesc') ||
+              '登录后即可与 AI 智能体对话,支持多模型切换、附件上传、深度思考等功能'}
+          </p>
+          <Button type="button" onClick={() => open('login')} className="mt-6 gap-1.5">
+            <Sparkles className="h-4 w-4" />
+            <span>{tc('login')}</span>
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // 已登录:显示 home 内容(包含 AISidePanel)
+  return (
+    <>
+      {/* 深链同步:/chat?conversationId=xxx 跳转对应会话(useSearchParams 需 Suspense 包裹) */}
+      <Suspense fallback={null}>
+        <ChatConversationSync />
+      </Suspense>
+      <WorkAreaHomePage />
+    </>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

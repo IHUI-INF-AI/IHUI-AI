@@ -1,0 +1,55 @@
+{
+  "$comment": "O6504 人工阀清单(机读闭集)。autonomous = AI 可自决;gates = 必须安全停机等人。判据唯一真源在本文件,调度层/部署环只读不另写第二份。",
+  "version": 1,
+  "issuesAt": "2026-10-25",
+  "autonomous": [
+    { "id": "code-change", "title": "改代码 / 补测试 / 改文档 / 台账登记 / 本地提交(过门后)" },
+    { "id": "deploy-after-gate", "title": "过门后的部署推进(部署环自行 ff-only + 健康门禁)" },
+    { "id": "read-only-probe", "title": "只读取证:探针、日志、指标查询" },
+    { "id": "rollback-to-green", "title": "回退到上一个通过守门的可运行态(green-state --rollback)" }
+  ],
+  "gates": [
+    {
+      "id": "api-key-change",
+      "title": "替换、新增或吊销任何 API key / 密钥 / 凭据",
+      "stop": "notify-human",
+      "why": "密钥属机主凭据交付面,机器侧无可派生来源;自作主张可能打断线上通道"
+    },
+    {
+      "id": "console-operation",
+      "title": "云控制台操作(DNS / 隧道路由 / 计费 / 域名)",
+      "stop": "notify-human",
+      "why": "写入路径只有控制台登录态或受限 token,且影响面在仓外"
+    },
+    {
+      "id": "device-scan",
+      "title": "真机扫码 / 真机人验(登录、SSO、推送到达)",
+      "stop": "notify-human",
+      "why": "需要真实账号与实体设备,自动化探针不能替代人证"
+    },
+    {
+      "id": "public-release-wording",
+      "title": "对外发布口径(公告、商店文案、法务声明)",
+      "stop": "notify-human",
+      "why": "对外表达属机主拍板面,不以自动生成结果直接发布"
+    },
+    {
+      "id": "destructive-git",
+      "title": "历史改写:强推 / reset --hard / 删分支 / 删 worktree 未合并检出",
+      "stop": "notify-human",
+      "why": "会抹掉并行会话或他人的在库工作,按 AGENTS §12h 归人决策"
+    },
+    {
+      "id": "production-data-delete",
+      "title": "删除生产数据 / 备份 / 归档",
+      "stop": "notify-human",
+      "why": "不可逆且无仓内副本;删除前须人确认归属"
+    },
+    {
+      "id": "budget-cap-change",
+      "title": "上调成本熔断上限(cost-caps.json)",
+      "stop": "notify-human",
+      "why": "放量等于放大无人值守的花钱速度,须人拍板"
+    }
+  ]
+}

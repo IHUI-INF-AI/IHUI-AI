@@ -1,0 +1,1023 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
+import {
+  createReadStream,
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  unlinkSync,
+} from 'node:fs'
+import { isAbsolute, join } from 'node:path'
+import { pipeline } from 'node:stream/promises'
+import { Readable } from 'node:stream'
+import { randomUUID } from 'node:crypto'
+import { authenticate } from '../plugins/auth.js'
+import { db } from '../db/index.js'
+import { agentRuntimeSessions } from '@ihui/database'
+import { attributeError } from '@ihui/shared/utils/error-attribution'
+import { validateUploadFile } from '../utils/file-type-validator.js'
+import {
+  WORKSPACE_ROOTS_ENV,
+  getRegisteredWorkspaceRoots,
+  isInsideRoot,
+  realpathOrResolve,
+} from '../utils/workspace-roots.js'
+import {
+  listProjectsByUserWithFileCount,
+  findProjectById,
+  createProject,
+  updateProject,
+  deleteProject,
+  listFilesByProject,
+  listFilesByProjectIncludeTrashed,
+  findFileById,
+  findFileByIdIncludeTrashed,
+  createFile,
+  softDeleteFile,
+  restoreFile,
+  hardDeleteFile,
+  findTrashedFiles,
+  batchSoftDelete,
+  batchRestore,
+  findFileOwnershipBatch,
+  findFileVersions,
+} from '../db/workspace-queries.js'
+import { success, error } from '../utils/response.js'
+// 批量写的 affected 一律由库确认集合经唯一出口推出,不得由请求侧自算(2026-09-26 静默失真修复)
+import { batchWriteOutcome } from '../utils/batch-outcome.js'
+import { canAccessFile } from '../db/file-queries.js'
+import type { FileVersion } from '@ihui/database'
+import { getBulkhead } from '../plugins/resilience-extended.js'
+// Workspace wire 类型(adjacent tagging,与 ACP 协议对齐)
+import type {
+  BeginPromptData,
+  EndPromptData,
+  CreateSessionData,
+  SessionCreatedData,
+  PromptStartedData,
+  PromptCompletedData,
+  WorkspaceEvent,
+} from '@ihui/types'
+// 权限档 wire 清单唯一来源(G-164:此前本文件两处 z.enum 各抄了一份,加档位必漏)
+import {
+  PERMISSION_MODES,
+  PERMISSION_MODE_WIRE_VALUES,
+  permissionModeWire,
+  type PermissionModeWire,
+} from '@ihui/types/permission-mode'
+import { buildResponseSchema } from '../utils/api-schemas.js'
+
+// =============================================================================
+// 上传目录
+// =============================================================================
+
+// P2 修复(2026-08-06):工作区文件属私有资源,写入 uploads/private(静态白名单只暴露
+// uploads/public,该目录不对外提供);读取走 GET /api/files/:id 鉴权下载(基于 DB path 定位)。
+const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads', 'private')
+
+function ensureUploadDir(): void {
+  if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
+}
+
+// =============================================================================
+// Zod schemas
+// =============================================================================
+
+const createProjectSchema = z.object({
+  name: z.string().min(1, '项目名称不能为空').max(128, '项目名称最多 128 字符'),
+  description: z.string().max(2000).optional(),
+})
+
+const updateProjectSchema = z.object({
+  name: z.string().min(1).max(128).optional(),
+  description: z.string().max(2000).optional(),
+  status: z.number().int().optional(),
+})
+
+const batchFileIdsSchema = z.object({
+  fileIds: z.array(z.uuid()).min(1, '至少选择一个文件').max(100, '单次最多操作 100 个文件'),
+})
+
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
+
+// =============================================================================
+// 序列化辅助
+// =============================================================================
+
+function serializeProject(p: {
+  id: string
+  userId: string
+  name: string
+  description: string | null
+  status: number | null
+  createdAt: Date
+  updatedAt: Date
+  fileCount?: number
+}) {
+  return {
+    id: p.id,
+    userId: p.userId,
+    name: p.name,
+    description: p.description ?? '',
+    status: p.status ?? 1,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+    ...(p.fileCount !== undefined ? { fileCount: Number(p.fileCount) } : {}),
+  }
+}
+
+function serializeFile(f: {
+  id: string
+  projectId: string
+  name: string
+  path: string
+  size: number | bigint
+  mimeType: string
+  uploadedBy: string | null
+  createdAt: Date
+  deletedAt?: Date | null
+  deletedBy?: string | null
+}) {
+  return {
+    id: f.id,
+    projectId: f.projectId,
+    name: f.name,
+    size: Number(f.size),
+    mimeType: f.mimeType,
+    uploadedBy: f.uploadedBy,
+    createdAt: f.createdAt,
+    ...(f.deletedAt !== undefined ? { deletedAt: f.deletedAt } : {}),
+    ...(f.deletedBy !== undefined ? { deletedBy: f.deletedBy } : {}),
+  }
+}
+
+/**
+ * O21 ②(2026-09-23 安全 P0)「出口剥 path」:版本行对外形态,与 `serializeFile` 同口径
+ * —— **不**输出 `path`(服务端磁盘绝对路径)。此前 `/files/:id/versions*` 直接把
+ * `findFileVersions` 的整行(含 path)倒给客户端,泄漏落盘位置与文件名。
+ */
+function serializeFileVersion(v: FileVersion) {
+  return {
+    id: v.id,
+    fileId: v.fileId,
+    version: v.version,
+    size: v.size,
+    uploadedBy: v.uploadedBy,
+    changeLog: v.changeLog,
+    createdAt: v.createdAt,
+  }
+}
+
+// =============================================================================
+// 路由
+// =============================================================================
+
+export const workspaceRoutes: FastifyPluginAsync = async (server) => {
+  // F-425::id 最终进 uuid 列,非法字面量直达 SQL 会 22P02 ⇒ 500;收紧为 uuid 形状闸
+  const idParam = z.object({ id: z.uuid({ error: '无效的 ID' }) })
+
+  // 鉴权失败统一处理
+  const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || '操作失败,请稍后重试'
+      return reply.status(statusCode).send(error(statusCode, message))
+    }
+  }
+
+  // GET /projects - 列出当前用户的项目
+  server.get(
+    '/projects',
+    {
+      schema: {
+        summary: '项目列表',
+        description: '列出当前用户的所有项目(含文件数量)',
+        tags: ['workspace'],
+        response: buildResponseSchema(401),
+      },
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return // requireAuth 已响应
+      const userId = request.userId
+
+      const rows = await listProjectsByUserWithFileCount(userId)
+      return reply.send(success({ projects: rows.map(serializeProject) }))
+    },
+  )
+
+  // POST /projects - 创建项目
+  server.post(
+    '/projects',
+    {
+      schema: {
+        summary: '创建项目',
+        description: '创建新项目',
+        tags: ['workspace'],
+        body: {
+          type: 'object',
+          required: ['name'],
+          properties: {
+            name: { type: 'string', maxLength: 128, description: '项目名称' },
+            description: { type: 'string', maxLength: 2000, description: '描述(可选)' },
+          },
+        },
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
+
+      const parsed = createProjectSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const project = await createProject({
+        name: parsed.data.name,
+        description: parsed.data.description,
+        userId,
+      })
+
+      return reply
+        .status(201)
+        .send(success({ project: serializeProject({ ...project, fileCount: 0 }) }))
+    },
+  )
+
+  // GET /projects/:id - 获取项目详情
+  server.get('/projects/:id', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const project = await findProjectById(id)
+    if (!project) {
+      return reply.status(404).send(error(404, '项目不存在'))
+    }
+    if (project.userId !== userId) {
+      return reply.status(403).send(error(403, '无权访问该项目'))
+    }
+
+    return reply.send(success({ project: serializeProject(project) }))
+  })
+
+  // PATCH /projects/:id - 更新项目
+  server.patch('/projects/:id', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const parsed = updateProjectSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const existing = await findProjectById(id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '项目不存在'))
+    }
+    if (existing.userId !== userId) {
+      return reply.status(403).send(error(403, '无权修改该项目'))
+    }
+
+    const updated = await updateProject(id, parsed.data)
+    return reply.send(success({ project: serializeProject(updated) }))
+  })
+
+  // DELETE /projects/:id - 删除项目（仅 owner）
+  server.delete('/projects/:id', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const existing = await findProjectById(id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '项目不存在'))
+    }
+    if (existing.userId !== userId) {
+      return reply.status(403).send(error(403, '无权删除该项目'))
+    }
+
+    // 删除项目关联的文件（磁盘）
+    // F-431:删项目会级联删除 files 行(含回收站软删行),磁盘清理必须覆盖回收站,
+    // 否则这些 blob 永久成孤儿;GET 列表仍用 listFilesByProject(不含回收站)。
+    const projectFiles = await listFilesByProjectIncludeTrashed(id)
+    for (const f of projectFiles) {
+      try {
+        if (existsSync(f.path)) unlinkSync(f.path)
+      } catch {
+        // 忽略磁盘清理错误
+      }
+    }
+
+    const removed = await deleteProject(id)
+    return reply.send(success({ deleted: removed.length > 0 }))
+  })
+
+  // GET /projects/:id/files - 列出项目文件
+  server.get('/projects/:id/files', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const project = await findProjectById(id)
+    if (!project) {
+      return reply.status(404).send(error(404, '项目不存在'))
+    }
+    if (project.userId !== userId) {
+      return reply.status(403).send(error(403, '无权访问该项目'))
+    }
+
+    const fileList = await listFilesByProject(id)
+    return reply.send(success({ files: fileList.map(serializeFile) }))
+  })
+
+  // POST /projects/:id/files - 上传文件（multipart）
+  // 2026-10-28 DDoS P2:项目文件上限 20MB,显式放开脱离全局 2MiB(handler 内再精确闸)。
+  server.post('/projects/:id/files', { bodyLimit: 21 * 1024 * 1024 }, async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const project = await findProjectById(id)
+    if (!project) {
+      return reply.status(404).send(error(404, '项目不存在'))
+    }
+    if (project.userId !== userId) {
+      return reply.status(403).send(error(403, '无权访问该项目'))
+    }
+
+    try {
+      return await getBulkhead('file-upload', 3, 10).execute(async () => {
+        const data = await request.file()
+        if (!data) {
+          return reply.status(400).send(error(400, '未检测到上传文件'))
+        }
+
+        const originalName = data.filename ?? 'unnamed'
+        const mimeType = data.mimetype ?? 'application/octet-stream'
+        ensureUploadDir()
+
+        // 2026-07-24 安全加固:文件类型校验 + 大小限制(防 CWE-434 任意文件上传)
+        const PROJECT_FILE_MAX_SIZE = 20 * 1024 * 1024 // 20MB
+        const buffer = await data.toBuffer()
+        const valid = validateUploadFile(buffer, originalName, mimeType, PROJECT_FILE_MAX_SIZE)
+        if (!valid.ok) {
+          return reply.status(400).send(error(400, valid.reason))
+        }
+
+        // 临时文件路径：uploads/<uuid>，写入完成后重命名为最终路径
+        const fileId = randomUUID()
+        const tmpPath = join(UPLOAD_DIR, `${fileId}.tmp`)
+        const finalPath = join(UPLOAD_DIR, fileId)
+
+        try {
+          await pipeline(Readable.from(buffer), createWriteStream(tmpPath))
+          renameSync(tmpPath, finalPath)
+        } catch (err) {
+          // 清理临时文件
+          try {
+            if (existsSync(tmpPath)) unlinkSync(tmpPath)
+          } catch {
+            // ignore
+          }
+          request.log.error({ err }, '文件上传失败')
+          return reply.status(500).send(error(500, '文件上传失败'))
+        }
+
+        const file = await createFile({
+          projectId: id,
+          name: originalName,
+          path: finalPath,
+          size: buffer.length,
+          mimeType,
+          uploadedBy: userId,
+        })
+
+        return reply.status(201).send(success({ file: serializeFile(file) }))
+      })
+    } catch (err) {
+      // Bulkhead 并发上限拒绝(成因判据走错误归因唯一出口 G-816012)
+      const attribution = attributeError(err)
+      if (
+        attribution.errorSource === 'capacity' &&
+        attribution.failureReason === 'concurrency-limit'
+      ) {
+        return reply.status(503).send(error(503, '文件上传并发数已达上限,请稍后重试'))
+      }
+      throw err
+    }
+  })
+
+  // GET /files/trash - 回收站：列出当前用户已删除的文件
+  // 注意：必须在 /files/:id 之前注册，避免 trash 被当作 :id
+  server.get('/files/trash', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const trashed = await findTrashedFiles(userId)
+    return reply.send(success({ files: trashed.map(serializeFile) }))
+  })
+
+  // DELETE /files/trash/:id - 永久删除（从数据库删除 + 删磁盘文件）
+  // 注意：必须在 /files/:id 之前注册，避免 trash 被当作 :id
+  server.delete('/files/trash/:id', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const file = await findFileByIdIncludeTrashed(id)
+    if (!file) {
+      return reply.status(404).send(error(404, '文件不存在'))
+    }
+
+    const project = await findProjectById(file.projectId)
+    if (!project || project.userId !== userId) {
+      return reply.status(403).send(error(403, '无权删除该文件'))
+    }
+
+    // 删除磁盘文件
+    try {
+      if (existsSync(file.path)) unlinkSync(file.path)
+    } catch {
+      // 忽略磁盘清理错误
+    }
+
+    const removed = await hardDeleteFile(id)
+    return reply.send(success({ deleted: removed !== undefined }))
+  })
+
+  // POST /files/batch-delete - 批量软删除（移入回收站）
+  // 注意：必须在 /files/:id 之前注册，避免 batch-delete 被当作 :id
+  server.post('/files/batch-delete', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const parsed = batchFileIdsSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    // F-79:归属校验一次 IN 查询(左连 projects 取 owner),不再逐文件 N+1;
+    // 逐项判定顺序与请求一致:存在性先于归属,404 点名缺的那个 id、403 不点名。
+    const ownership = await findFileOwnershipBatch(parsed.data.fileIds, false)
+    const ownerById = new Map(ownership.map((r) => [r.id, r.projectUserId]))
+    for (const fid of parsed.data.fileIds) {
+      if (!ownerById.has(fid)) {
+        return reply.status(404).send(error(404, `文件 ${fid} 不存在或已删除`))
+      }
+      if (ownerById.get(fid) !== userId) {
+        return reply.status(403).send(error(403, '无权操作部分文件'))
+      }
+    }
+
+    // 2026-09-26 修「改了 0 行与改成功同形」:deleted 由 batchSoftDelete 的 RETURNING 命中集
+    // 经 batchWriteOutcome 推出,校验通过后被并发删除的行不再被读成成功;missedIds 逐条点名。
+    // 既有响应键 deleted 与 status code 不变,只新增 missedIds。
+    const confirmedIds = await batchSoftDelete(parsed.data.fileIds, userId)
+    const { affected, missedIds } = batchWriteOutcome(parsed.data.fileIds, confirmedIds)
+    return reply.send(success({ deleted: affected, missedIds }))
+  })
+
+  // POST /files/batch-restore - 批量恢复（从回收站恢复）
+  // 注意：必须在 /files/:id 之前注册，避免 batch-restore 被当作 :id
+  server.post('/files/batch-restore', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const parsed = batchFileIdsSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    // F-79:同 batch-delete,归属校验收敛成一次 IN 查询(回收站行也算存在)
+    const ownership = await findFileOwnershipBatch(parsed.data.fileIds, true)
+    const ownerById = new Map(ownership.map((r) => [r.id, r.projectUserId]))
+    for (const fid of parsed.data.fileIds) {
+      if (!ownerById.has(fid)) {
+        return reply.status(404).send(error(404, `文件 ${fid} 不存在`))
+      }
+      if (ownerById.get(fid) !== userId) {
+        return reply.status(403).send(error(403, '无权操作部分文件'))
+      }
+    }
+
+    // 2026-09-26 同 batch-delete:restored 由 batchRestore 的 RETURNING 命中集经唯一出口推出。
+    const confirmedIds = await batchRestore(parsed.data.fileIds)
+    const { affected, missedIds } = batchWriteOutcome(parsed.data.fileIds, confirmedIds)
+    return reply.send(success({ restored: affected, missedIds }))
+  })
+
+  // GET /files/:id/versions - 文件版本历史
+  // 注意：放在 /files/:id 之前注册，避免冲突
+  server.get('/files/:id/versions', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    // 校验文件存在
+    const file = await findFileById(parsed.data.id)
+    if (!file) {
+      return reply.status(404).send(error(404, '文件不存在'))
+    }
+    // O21 ②:补齐属主/成员谓词(上传者 ∪ 项目 owner ∪ project_members),
+    // 此前此处只判"文件存在",任意登录用户可枚举他人文件的全部版本历史。
+    if (!(await canAccessFile(request.userId, file))) {
+      return reply.status(403).send(error(403, '无权访问该文件'))
+    }
+    const versions = await findFileVersions(parsed.data.id)
+    return reply.send(success({ list: versions.map(serializeFileVersion) }))
+  })
+
+  // GET /files/:id/versions/:version - 获取特定版本
+  server.get('/files/:id/versions/:version', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const params = z
+      .object({ id: z.uuid(), version: z.coerce.number().int().min(1) })
+      .safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, params.error.issues[0]?.message ?? '参数错误'))
+    }
+    // O21 ②:此端点原先连 files 行都不读,直接按 id 取版本 —— 先定位文件再判属主,
+    // 顺序与上方 /files/:id/versions 一致(不存在 404 → 非属主 403 → 版本缺失 404)。
+    const file = await findFileById(params.data.id)
+    if (!file) {
+      return reply.status(404).send(error(404, '文件不存在'))
+    }
+    if (!(await canAccessFile(request.userId, file))) {
+      return reply.status(403).send(error(403, '无权访问该文件'))
+    }
+    const versions = await findFileVersions(params.data.id)
+    const version = versions.find((v) => v.version === params.data.version)
+    if (!version) {
+      return reply.status(404).send(error(404, '版本不存在'))
+    }
+    return reply.send(success({ version: serializeFileVersion(version) }))
+  })
+
+  // GET /files/:id - 下载文件
+  server.get(
+    '/files/:id',
+    {
+      schema: {
+        summary: '下载文件',
+        description: '下载指定文件(返回二进制流)',
+        tags: ['workspace'],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid', description: '文件 ID' },
+          },
+        },
+        response: {
+          200: {
+            type: 'string',
+            format: 'binary',
+            description: '文件二进制流',
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          403: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
+
+      const { id } = idParam.parse(request.params)
+      const file = await findFileById(id)
+      if (!file) {
+        return reply.status(404).send(error(404, '文件不存在'))
+      }
+
+      // 校验项目归属
+      const project = await findProjectById(file.projectId)
+      if (!project || project.userId !== userId) {
+        return reply.status(403).send(error(403, '无权访问该文件'))
+      }
+
+      if (!existsSync(file.path)) {
+        return reply.status(404).send(error(404, '文件已被移除'))
+      }
+
+      return reply
+        .header('Content-Type', file.mimeType || 'application/octet-stream')
+        .header(
+          'Content-Disposition',
+          `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+        )
+        .header('Content-Length', String(file.size))
+        .send(createReadStream(file.path))
+    },
+  )
+
+  // DELETE /files/:id - 删除文件（软删除，移入回收站）
+  server.delete(
+    '/files/:id',
+    {
+      schema: {
+        summary: '删除文件',
+        description: '软删除文件(移入回收站,不删磁盘文件)',
+        tags: ['workspace'],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid', description: '文件 ID' },
+          },
+        },
+        response: buildResponseSchema(401, 403, 404),
+      },
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
+
+      const { id } = idParam.parse(request.params)
+      const file = await findFileById(id)
+      if (!file) {
+        return reply.status(404).send(error(404, '文件不存在'))
+      }
+
+      const project = await findProjectById(file.projectId)
+      if (!project || project.userId !== userId) {
+        return reply.status(403).send(error(403, '无权删除该文件'))
+      }
+
+      // 软删除：仅标记 deletedAt/deletedBy，不删磁盘文件
+      const removed = await softDeleteFile(id, userId)
+      return reply.send(success({ deleted: removed.length > 0 }))
+    },
+  )
+
+  // POST /files/:id/restore - 恢复文件（从回收站恢复）
+  server.post('/files/:id/restore', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const file = await findFileByIdIncludeTrashed(id)
+    if (!file) {
+      return reply.status(404).send(error(404, '文件不存在'))
+    }
+
+    const project = await findProjectById(file.projectId)
+    if (!project || project.userId !== userId) {
+      return reply.status(403).send(error(403, '无权操作该文件'))
+    }
+
+    if (!file.deletedAt) {
+      return reply.status(400).send(error(400, '文件未在回收站中'))
+    }
+
+    // 2026-09-27 修「恢复了 0 行也回成功」:上面的存在性 / 归属 / 回收站三道闸只防住
+    // "根本没执行写",防不住"写了但命中 0 行"(并发永久删除即此) —— ack 改由 UPDATE 自己的
+    // RETURNING 命中集合派生,键名与状态码逐字不变。
+    const restoredIds = await restoreFile(id)
+    return reply.send(success({ restored: restoredIds.length > 0 }))
+  })
+
+  // ===========================================================================
+  // ACP 风格 Workspace wire 端点(使用 @ihui/types 的 workspace 类型)
+  // 渐进式迁移:新端点用 workspace.ts wire 类型,旧端点保持
+  // ===========================================================================
+
+  /**
+   * ACP 端点权限档入参面 = wire(kebab)∪ 规范档(camel),与 workspace-permissions.ts
+   * 存值迁移第①步同形态。此前 `z.enum(PERMISSION_MODE_WIRE_VALUES)` 只收 kebab,
+   * camel 客户端一律 400。两份清单都从注册表派生,本文件不再出现第二份字面量;
+   * 归一规则同第①步:判定/落库走规范档,出参与对下游转发走 wire。
+   * `manual` 有规范档语义但无 wire 映射 → 仍拒,不因"接受 camel"而漏放行。
+   */
+  const acpModeInputValues = [
+    ...new Set<string>([...PERMISSION_MODE_WIRE_VALUES, ...PERMISSION_MODES]),
+  ]
+  const acpModeInputSchema = z.enum(acpModeInputValues, {
+    error: (iss) => `非法权限档: ${String(iss.input)}(取值 ${acpModeInputValues.join(' / ')})`,
+  })
+
+  /** 可选 mode → wire 拼写:未提供保持 undefined;null = 合法但无 wire 映射(manual),调用方须 400。 */
+  const resolveAcpSessionMode = (raw: string | undefined): PermissionModeWire | null | undefined =>
+    raw === undefined ? undefined : permissionModeWire(raw)
+
+  const beginPromptSchema = z.object({
+    sessionId: z.string().min(1),
+    prompt: z.string().min(1),
+    attachments: z
+      .array(
+        z.object({
+          kind: z.enum(['file', 'image', 'text']),
+          path: z.string().optional(),
+          content: z.string().optional(),
+          mimeType: z.string().optional(),
+        }),
+      )
+      .optional(),
+    mode: acpModeInputSchema.optional(),
+  })
+
+  const endPromptSchema = z.object({
+    sessionId: z.string().min(1),
+  })
+
+  const createSessionSchemaACP = z.object({
+    workspaceRoot: z.string().min(1),
+    initialPrompt: z.string().optional(),
+    modelId: z.string().optional(),
+    mode: acpModeInputSchema.optional(),
+  })
+
+  // F-280:ACP 会话归属与可用性判据。
+  //
+  // begin/end 只认**本进程内**登记过的会话(与扩展侧 ACP 子进程同一生命周期),
+  // 库行只是持久化凭据、不作为可恢复性来源 —— 否则重启后旧 sessionId 会让begin 命中
+  // 一条早已消失的子进程。三件事必须在这里一次判完:
+  //   ① workspaceRoot 必须是绝对路径、不能是文件系统根(工作区不可能是整盘);
+  //   ② 必须落在服务端登记根(IHUI_WORKSPACE_ROOTS,未配置即 fail-closed);
+  //   ③ 必须是调用者自己登记过的工作区(workspace_permissions 行)。
+  const acpSessions = new Map<
+    string,
+    { userId: string; workspaceRoot: string; status: 'active' | 'ended' }
+  >()
+
+  /** 文件系统根(盘符根 / POSIX 根 / 323 UNC 共享根)——不是工作区 */
+  const isFilesystemRoot = (p: string): boolean => {
+    const normalized = p.replace(/\\/g, '/')
+    return /^[A-Za-z]:\/?$/.test(normalized) || normalized === '/' || /^\/\/[^/]+\/[^/]+$/.test(normalized)
+  }
+
+  const resolveAcpWorkspaceRoot = async (
+    raw: string,
+    userId: string,
+  ): Promise<{ ok: true; path: string } | { ok: false; status: 400 | 403; message: string }> => {
+    const trimmed = raw.trim()
+    if (!trimmed) return { ok: false, status: 400, message: 'workspaceRoot 不能为空' }
+    if (isFilesystemRoot(trimmed)) {
+      return { ok: false, status: 400, message: 'workspaceRoot 不能是文件系统根(工作区必须是具体目录)' }
+    }
+    if (!isAbsolute(trimmed)) {
+      return { ok: false, status: 400, message: 'workspaceRoot 必须是绝对路径' }
+    }
+    const real = realpathOrResolve(trimmed)
+    const roots = getRegisteredWorkspaceRoots()
+    if (roots.length === 0) {
+      return {
+        ok: false,
+        status: 403,
+        message: `未启用:服务端未登记任何工作区根(${WORKSPACE_ROOTS_ENV} 为空)`,
+      }
+    }
+    if (!roots.some((r) => isInsideRoot(real, r))) {
+      return {
+        ok: false,
+        status: 403,
+        message: `workspaceRoot 未在服务端登记:仅允许 ${WORKSPACE_ROOTS_ENV} 白名单内的路径`,
+      }
+    }
+    // 本人登记(workspace_permissions):没登记过就不许在这个工作区开会话
+    const { listPermissionsByUser } = await import('../db/workspace-permission-queries.js')
+    const rows = await listPermissionsByUser(userId)
+    const allowed = rows.some((row) => isInsideRoot(real, realpathOrResolve(row.workspacePath)))
+    if (!allowed) {
+      return { ok: false, status: 403, message: '调用者未登记该工作区' }
+    }
+    return { ok: true, path: trimmed }
+  }
+
+  /** 取当前用户名下的活跃会话;不存在 / 他人 / 已结束一律 null(同形,不泄露存在性) */
+  const findActiveAcpSession = (sessionId: string, userId: string) => {
+    const row = acpSessions.get(sessionId)
+    if (!row || row.userId !== userId || row.status !== 'active') return null
+    return row
+  }
+
+  // POST /workspace/acp/sessions - 创建 ACP 会话
+  // 请求:CreateSessionData,响应:SessionCreatedData(adjacent tagging)
+  server.post('/workspace/acp/sessions', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = createSessionSchemaACP.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const modeWire = resolveAcpSessionMode(parsed.data.mode)
+    if (modeWire === null) {
+      return reply
+        .status(400)
+        .send(error(400, `非法权限档: ${String(parsed.data.mode)}(manual 无落库/会话语义,不接受)`))
+    }
+    // F-280:workspaceRoot 归属先判,再落库(授权先于任何副作用)
+    const rootCheck = await resolveAcpWorkspaceRoot(parsed.data.workspaceRoot, request.userId)
+    if (!rootCheck.ok) {
+      return reply.status(rootCheck.status).send(error(rootCheck.status, rootCheck.message))
+    }
+
+    // 跨界前归一:CreateSessionData.mode 只允许 wire 拼写,camel 入参不得原样泄进下游
+    const data: CreateSessionData = { ...parsed.data, mode: modeWire, workspaceRoot: rootCheck.path }
+    const sessionId = randomUUID()
+    const now = Date.now()
+
+    // F-432:会话必须真实落库后才能回 201。旧实现只生成 UUID,后续 begin/end
+    // 对任意 id 都回成功;现在以 agent_runtime_sessions 行为归属与存在性真相。
+    try {
+      await db.insert(agentRuntimeSessions).values({
+        id: sessionId,
+        botId: 'workspace-acp',
+        userId: request.userId,
+        status: 'active',
+        messages: [],
+        metadata: {
+          source: 'workspace-acp',
+          workspaceRoot: data.workspaceRoot,
+          ...(data.mode !== undefined ? { mode: data.mode } : {}),
+        },
+      })
+    } catch (e) {
+      request.log.error({ err: e, sessionId }, 'ACP 会话落库失败')
+      return reply.status(500).send(error(500, '会话创建失败,请稍后重试'))
+    }
+    acpSessions.set(sessionId, {
+      userId: request.userId,
+      workspaceRoot: data.workspaceRoot,
+      status: 'active',
+    })
+
+    // wire 类型响应(adjacent tagging,与 ACP 协议对齐)
+    const event: WorkspaceEvent = {
+      type: 'session_created',
+      data: {
+        sessionId,
+        workspaceRoot: data.workspaceRoot,
+        createdAt: now,
+      } satisfies SessionCreatedData,
+    }
+
+    return reply.status(201).send(success(event))
+  })
+
+  // POST /workspace/acp/sessions/:id/begin-prompt - 开始 prompt
+  // 请求:BeginPromptData,响应:PromptStartedData
+  server.post('/workspace/acp/sessions/:id/begin-prompt', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const { id } = idParam.parse(request.params)
+    const body = (request.body ?? {}) as Record<string, unknown>
+    const parsed = beginPromptSchema.safeParse({ ...body, sessionId: id })
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const modeWire = resolveAcpSessionMode(parsed.data.mode)
+    if (modeWire === null) {
+      return reply
+        .status(400)
+        .send(error(400, `非法权限档: ${String(parsed.data.mode)}(manual 无落库/会话语义,不接受)`))
+    }
+    // F-432/F-280:任意 id 不得回 prompt_started —— 只认本进程内、本人名下且仍活着的会话
+    const session = findActiveAcpSession(id, request.userId)
+    if (!session) {
+      return reply.status(404).send(error(404, '会话不存在或无权限'))
+    }
+    // 会话登记的工作区与本次声明不一致 ⇒ 400(两段上下文不能拼在一张会话上)
+    const declaredRoot = typeof body.workspaceRoot === 'string' ? body.workspaceRoot.trim() : undefined
+    if (declaredRoot !== undefined && realpathOrResolve(declaredRoot) !== realpathOrResolve(session.workspaceRoot)) {
+      return reply.status(400).send(error(400, 'workspaceRoot 与会话登记的工作区不一致'))
+    }
+    // 跨界前归一:BeginPromptData.mode 只允许 wire 拼写,camel 入参不得原样泄进日志
+    const data: BeginPromptData = { ...parsed.data, mode: modeWire }
+    const promptId = randomUUID()
+    const now = Date.now()
+
+    const event: WorkspaceEvent = {
+      type: 'prompt_started',
+      data: {
+        sessionId: data.sessionId,
+        promptId,
+        prompt: data.prompt,
+        startedAt: now,
+      } satisfies PromptStartedData,
+    }
+
+    // 日志只留长度/数量:prompt 与附件正文属用户内容,不得进 info 日志(F-280 ⑧⑨)
+    const attachmentCount = data.attachments?.length ?? 0
+    const attachmentBytes = (data.attachments ?? []).reduce(
+      (sum, a) => sum + Buffer.byteLength(a.content ?? a.path ?? ''),
+      0,
+    )
+    request.log.info(
+      {
+        acp: {
+          type: 'begin_prompt',
+          sessionId: data.sessionId,
+          // 日志/转发面只认 wire 拼写:camel 入参已在上面归一,不得原样泄出
+          mode: modeWire,
+          promptLength: data.prompt.length,
+          attachmentCount,
+          attachmentBytes,
+        },
+        event: 'prompt_started',
+      },
+      'ACP begin_prompt',
+    )
+    return reply.send(success(event))
+  })
+
+  // POST /workspace/acp/sessions/:id/end-prompt - 结束 prompt
+  // 请求:EndPromptData,响应:PromptCompletedData
+  server.post('/workspace/acp/sessions/:id/end-prompt', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const { id } = idParam.parse(request.params)
+    const body = (request.body ?? {}) as Record<string, unknown>
+    const parsed = endPromptSchema.safeParse({ ...body, sessionId: id })
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    // F-432/F-280:与 begin 同口径,只认本进程内、本人名下且仍活着的会话
+    const session = findActiveAcpSession(id, request.userId)
+    if (!session) {
+      return reply.status(404).send(error(404, '会话不存在或无权限'))
+    }
+    const data: EndPromptData = parsed.data
+    const promptId = (body.promptId as string | undefined) ?? randomUUID()
+    const now = Date.now()
+
+    const event: WorkspaceEvent = {
+      type: 'prompt_completed',
+      data: {
+        sessionId: data.sessionId,
+        promptId,
+        completedAt: now,
+      } satisfies PromptCompletedData,
+    }
+
+    // 结束即注销:再次 begin 同一 id 必须 404(会话状态是本地真相,库行不改写)
+    session.status = 'ended'
+    request.log.info(
+      { acp: { type: 'end_prompt', sessionId: data.sessionId }, event: 'prompt_completed' },
+      'ACP end_prompt',
+    )
+    return reply.send(success(event))
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

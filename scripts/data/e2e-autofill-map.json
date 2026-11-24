@@ -1,0 +1,91 @@
+{
+  "_note": "E2E/集成测试缺口自动补测器的唯一真相源(AGENTS §0.6 / §22c)。扫描面、测试落点配方、模块↔测试显式映射都只住在本文件;脚本内不得再抄一份同名清单。新增配方/映射只改这里。",
+  "version": 1,
+  "audit": {
+    "roots": ["apps/web/app", "apps/web/src", "apps/api/src"],
+    "noiseSegments": [
+      "node_modules",
+      "dist",
+      "build",
+      "coverage",
+      ".next",
+      ".next-e2e",
+      ".turbo",
+      "playwright-report",
+      "test-results",
+      "storage",
+      "uploads",
+      "tmp",
+      ".tmp-sync"
+    ],
+    "nonSourceSegments": ["__tests__", "__mocks__", "__fixtures__", "tests", "test", "e2e"],
+    "sourceExts": [".ts", ".tsx", ".js", ".jsx", ".mjs"],
+    "testSuffixes": [
+      ".test.ts",
+      ".test.tsx",
+      ".test.js",
+      ".test.jsx",
+      ".test.mjs",
+      ".node-test.mjs",
+      ".spec.ts",
+      ".spec.tsx",
+      ".spec.js",
+      ".spec.mjs"
+    ],
+    "ignoreFilenames": [
+      "index.ts",
+      "index.tsx",
+      "index.js",
+      "index.jsx",
+      "types.ts",
+      "types.tsx",
+      "constants.ts",
+      "constants.tsx",
+      "enums.ts",
+      "loading.tsx",
+      "error.tsx",
+      "not-found.tsx",
+      "template.tsx",
+      "default.tsx",
+      "head.tsx"
+    ],
+    "ignoreSuffixes": [".d.ts"]
+  },
+  "e2eRoots": ["apps/web/e2e", "apps/web/tests/visual"],
+  "recipes": [
+    {
+      "id": "web-route",
+      "app": "web",
+      "match": "^apps/web/app/",
+      "filenames": ["page.tsx", "page.ts", "layout.tsx", "layout.ts", "route.ts"],
+      "key": "route-path",
+      "spec": "apps/web/e2e/{key}.spec.ts",
+      "framework": "playwright"
+    },
+    {
+      "id": "web-unit",
+      "app": "web",
+      "match": "^apps/web/(app|src)/",
+      "key": "stem",
+      "spec": "{dir}/__tests__/{stem}.test{ext}",
+      "framework": "vitest"
+    },
+    {
+      "id": "api-unit-collected",
+      "app": "api",
+      "match": "^apps/api/src/(routes|services|jobs|plugins)/",
+      "key": "stem",
+      "spec": "apps/api/src/{area}/__tests__/{stem}.test.ts",
+      "framework": "vitest"
+    },
+    {
+      "id": "api-unit-other",
+      "app": "api",
+      "match": "^apps/api/src/",
+      "key": "stem",
+      "spec": "apps/api/tests/{area}/{stem}.test.ts",
+      "framework": "vitest"
+    }
+  ],
+  "mappings": {}
+}

@@ -1,0 +1,209 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 流式遥测纯函数层(大屏指挥台)。
+ *
+ * 只做"从观测值推导读数",不持状态、不取时间:时间由调用方注入(便于测试)。
+ * 失效方向:缺任何一项 ⇒ 该项显示为空,绝不拿 0 冒充"很快/没花时间"
+ * (与 AGENTS §5e-3 "取不到不冒充 0" 同一条纪律)。
+ */
+
+export type StreamTelemetryPhase = 'waiting' | 'thinking' | 'tool' | 'writing' | 'done'
+
+export interface StreamTelemetryInput {
+  isStreaming: boolean
+  /** 本轮开始时刻;null = 从未跑过 */
+  startedAt: number | null
+  /** 首个正文字符到达时刻;null = 还没出字 */
+  firstTokenAt: number | null
+  /** 本轮结束时刻;仅在 isStreaming=false 时有意义 */
+  endedAt: number | null
+  /** 当前时刻(流式期间由调用方 tick 注入) */
+  now: number
+  /** 已到达的正文字符数(正文 + 思考) */
+  chars: number
+  /** token 数;null = 后端还没回 usage */
+  tokens: number | null
+  runningTools: number
+  hasReasoning: boolean
+  hasContent: boolean
+}
+
+export interface StreamTelemetrySnapshot {
+  phase: StreamTelemetryPhase
+  elapsedMs: number
+  ttftMs: number | null
+  charsPerSec: number
+  tokensPerSec: number | null
+}
+
+/** 速率样本下限:不足 200ms 的窗口算速率会把"首帧"放大成假高值 */
+const MIN_RATE_WINDOW_MS = 200
+
+export function deriveStreamTelemetry(input: StreamTelemetryInput): StreamTelemetrySnapshot {
+  const {
+    isStreaming,
+    startedAt,
+    firstTokenAt,
+    endedAt,
+    now,
+    chars,
+    tokens,
+    runningTools,
+    hasReasoning,
+    hasContent,
+  } = input
+
+  if (startedAt === null) {
+    return { phase: 'waiting', elapsedMs: 0, ttftMs: null, charsPerSec: 0, tokensPerSec: null }
+  }
+
+  const end = isStreaming ? now : (endedAt ?? now)
+  const elapsedMs = Math.max(0, end - startedAt)
+  const phase: StreamTelemetryPhase = isStreaming
+    ? runningTools > 0
+      ? 'tool'
+      : hasContent
+        ? 'writing'
+        : hasReasoning
+          ? 'thinking'
+          : 'waiting'
+    : 'done'
+
+  const ttftMs = firstTokenAt === null ? null : Math.max(0, firstTokenAt - startedAt)
+  const streamedMs = firstTokenAt === null ? 0 : Math.max(0, end - firstTokenAt)
+  const charsPerSec =
+    chars > 0 && streamedMs >= MIN_RATE_WINDOW_MS ? Math.round((chars / streamedMs) * 1000) : 0
+  const tokensPerSec =
+    tokens !== null && tokens > 0 && elapsedMs >= MIN_RATE_WINDOW_MS
+      ? Math.round((tokens / elapsedMs) * 1000 * 10) / 10
+      : null
+
+  return { phase, elapsedMs, ttftMs, charsPerSec, tokensPerSec }
+}
+
+export interface TelemetryUsageTruth {
+  firstTokenMs: number
+  durationMs: number
+  totalTokens: number
+}
+
+export interface StreamClock {
+  conversationId: string | null
+  isStreaming: boolean
+  startedAt: number | null
+  firstTokenAt: number | null
+  endedAt: number | null
+  /** 切会话或新开一轮时递增;调用方据此清空速率采样 */
+  epoch: number
+}
+
+export interface StreamClockEvent {
+  conversationId: string | null
+  isStreaming: boolean
+  /** 已到达的正文字符数;>0 才记下首字时刻 */
+  chars: number
+  /** 本次转移的时刻,由调用方注入 */
+  now: number
+}
+
+/**
+ * 流式计时状态机。开流、出字、收流、切会话都在同一次转移里写完时刻,
+ * 调用方用返回值渲染 —— 不把时刻藏进 effect 之后才赋值的 ref
+ * (那样收流不触发重渲染,耗时会停在上一拍;开流第一帧还会被看成「没跑过」)。
+ * 无变化时返回同一引用。
+ */
+export function reduceStreamClock(prev: StreamClock, event: StreamClockEvent): StreamClock {
+  let next = prev
+  if (event.conversationId !== prev.conversationId) {
+    next = {
+      conversationId: event.conversationId,
+      isStreaming: event.isStreaming,
+      startedAt: event.isStreaming ? event.now : null,
+      firstTokenAt: null,
+      endedAt: null,
+      epoch: prev.epoch + 1,
+    }
+  } else if (event.isStreaming !== prev.isStreaming) {
+    next = event.isStreaming
+      ? {
+          ...prev,
+          isStreaming: true,
+          startedAt: event.now,
+          firstTokenAt: null,
+          endedAt: null,
+          epoch: prev.epoch + 1,
+        }
+      : {
+          ...prev,
+          isStreaming: false,
+          endedAt: event.now,
+        }
+  }
+
+  if (
+    next.isStreaming &&
+    event.chars > 0 &&
+    next.startedAt !== null &&
+    next.firstTokenAt === null
+  ) {
+    next = { ...next, firstTokenAt: event.now }
+  }
+  return next
+}
+
+/**
+ * 后端 usage 帧到达后用权威值覆盖实时估算(仅覆盖"有值且为正"的字段)。
+ * usage 的 firstTokenMs/durationMs 是从请求发出量到流结束,与实时口径同源。
+ */
+export function applyUsageTruth(
+  snapshot: StreamTelemetrySnapshot,
+  usage: TelemetryUsageTruth | null,
+): StreamTelemetrySnapshot {
+  if (!usage) return snapshot
+  const ttftMs = usage.firstTokenMs > 0 ? usage.firstTokenMs : snapshot.ttftMs
+  const elapsedMs = usage.durationMs > 0 ? usage.durationMs : snapshot.elapsedMs
+  const tokensPerSec =
+    usage.totalTokens > 0 && elapsedMs >= MIN_RATE_WINDOW_MS
+      ? Math.round((usage.totalTokens / elapsedMs) * 1000 * 10) / 10
+      : snapshot.tokensPerSec
+  return { ...snapshot, ttftMs, elapsedMs, tokensPerSec }
+}
+
+/**
+ * 速率趋势采样环(火花线数据源):保留最近 max 个样本,0 也保留 ——
+ * 停顿是真实读数的一部分,抹掉 0 会把"卡了 3 秒"画成"一直很顺"。
+ */
+export function pushRateSample(samples: readonly number[], value: number, max = 24): number[] {
+  const next = [...samples, Number.isFinite(value) && value > 0 ? value : 0]
+  return next.length > max ? next.slice(next.length - max) : next
+}
+
+/** 紧凑计数:999 / 1.2k / 3.4M(读数不得断行的前提是短) */
+export function formatCompactCount(value: number): string {
+  if (!Number.isFinite(value) || value < 0) return ''
+  if (value < 1000) return String(Math.round(value))
+  if (value < 1_000_000) {
+    const k = value / 1000
+    return `${k < 10 ? k.toFixed(1).replace(/\.0$/, '') : Math.round(k)}k`
+  }
+  const m = value / 1_000_000
+  return `${m < 10 ? m.toFixed(1).replace(/\.0$/, '') : Math.round(m)}M`
+}
+
+/** 秒表读数:8.4s / 1m03s / 1h02m */
+export function formatElapsedShort(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return ''
+  const totalSeconds = ms / 1000
+  if (totalSeconds < 60) return `${totalSeconds.toFixed(1)}s`
+  const minutes = Math.floor(totalSeconds / 60)
+  if (minutes < 60) {
+    const seconds = Math.floor(totalSeconds % 60)
+    return `${minutes}m${String(seconds).padStart(2, '0')}s`
+  }
+  const hours = Math.floor(minutes / 60)
+  return `${hours}h${String(minutes % 60).padStart(2, '0')}m`
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,170 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""通用网页渲染抓取服务(2026-09-05 新增)。
+
+用途:Cloudflare 挑战类站点(chatgpt / claude / midjourney / dalle / leonardo /
+ideogram / sora / perplexity / the-information 等)纯 HTTP fetch 返回 403,
+需 Playwright headless Chromium 渲染后取 HTML。
+供 apps/api 的 ai-world-sync.ts fetchSiteMeta 在直接抓取失败时兜底调用。
+
+设计:
+- 复用 screenshot_service._get_browser_sync 单例(避免重复启动 Chromium)
+- sync API + run_in_executor(根治 Windows SelectorEventLoop NotImplementedError)
+- Cloudflare 挑战检测("Just a moment" / cf-challenge 等),挑战未通过抛异常
+- 代理:PLAYWRIGHT_PROXY_URL > HTTPS_PROXY > HTTP_PROXY(本机为 Clash 7897),
+  在 context 级传入(Chromium 不读环境变量代理)
+- SSRF(2026-10-31 安全强化第 29 批):本服务会把目标页面的 HTML 原样回传,等于一个
+  "带浏览器语义的 HTTP 客户端"。此前只判 url.startswith(http(s)://),Playwright 随后
+  自行跟随重定向、加载任意子资源 ⇒ `url=http://169.254.169.254/latest/meta-data/` 这类
+  内网/云元数据目标可被读走。现在两道:路由层拦初始 URL(进浏览器之前),context.route
+  对**每个**请求(重定向 + 子资源 + XHR)逐条重过同一把尺(screenshot_service._validate_url_ssrf,
+  不另立判据);非 http(s) 协议(data:/blob:/about:)不联网,直接放行。
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import logging
+import os
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any
+
+from .screenshot_service import _validate_url_ssrf
+
+logger = logging.getLogger(__name__)
+
+# 根治线程亲和(2026-09-05):Playwright 同步对象绑定创建线程,且 greenlet 禁止跨线程切换。
+# 此前用默认线程池 + 全局锁,锁只保证"不并发"但执行仍在不同物理线程间漂移,
+# 实测同步期间报 "Cannot switch to a different thread" 全军覆没。
+# 正解:专属单线程 executor —— 所有渲染永远在同一线程执行,浏览器实例也在该线程
+# 内惰性创建(亲和性从此恒定),并独立于 screenshot_service 的共享单例,互不干扰。
+_render_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="browser-render")
+
+_playwright: Any = None
+_browser: Any = None
+_browser_lock = threading.Lock()
+
+# Cloudflare 挑战页特征(只检查前 4000 字符,降低误判)
+_CF_MARKERS = (
+    "just a moment",
+    "cf-challenge",
+    "challenge-platform",
+    "cf-browser-verification",
+    "attention required",
+)
+
+
+def _pick_proxy() -> str:
+    """挑渲染代理:显式 PLAYWRIGHT_PROXY_URL 优先,回退通用 HTTPS/HTTP_PROXY。"""
+    for key in ("PLAYWRIGHT_PROXY_URL", "HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"):
+        val = os.environ.get(key)
+        if val:
+            return val
+    return ""
+
+
+def _ensure_browser() -> Any:
+    """在渲染线程内惰性创建 Playwright + Chromium 单例(线程亲和正确的前提)。"""
+    global _playwright, _browser
+    with _browser_lock:
+        if _browser is None:
+            from playwright.sync_api import sync_playwright
+
+            _playwright = sync_playwright().start()
+            launch_kwargs: dict[str, Any] = {"headless": True}
+            proxy = _pick_proxy()
+            if proxy:
+                # 代理放在 browser 级(Chromium 不读环境变量代理),context 无需重复传
+                launch_kwargs["proxy"] = {"server": proxy}
+            _browser = _playwright.chromium.launch(**launch_kwargs)
+            logger.info("[browser_render] chromium launched on dedicated render thread (proxy=%s)", bool(proxy))
+    return _browser
+
+
+def _render_page_sync(url: str, timeout_ms: int = 30000) -> dict[str, Any]:
+    """同步渲染页面(只会被提交到 _render_executor 单线程执行)。
+
+    返回 {url, final_url, http_status, title, html, captured_at}。
+    失败抛异常,由调用方(路由层)捕获转 ApiResponse。
+    """
+    return _render_page_locked(url, timeout_ms)
+
+
+def _guard_request(route: Any) -> None:
+    """Playwright 层 SSRF 闸:重定向与子资源同样逐请求校验。
+
+    初始 URL 的校验在路由层(进浏览器之前);这里兜的是"页面自己再发出去的请求" ——
+    服务端 302 到 169.254.169.254、img.src 指向 127.0.0.1:6379、fetch 打内网网关,
+    走的都是同一条 route。只校验 http(s):data:/blob:/about: 不联网,不构成 SSRF 通道。
+    """
+    url = route.request.url
+    if url.startswith(("http://", "https://")):
+        ok, reason = _validate_url_ssrf(url)
+        if not ok:
+            logger.warning("[browser_render] 拦截非公网请求 %s: %s", url, reason)
+            route.abort()
+            return
+    route.continue_()
+
+
+def _render_page_locked(url: str, timeout_ms: int) -> dict[str, Any]:
+    browser = _ensure_browser()
+    context_kwargs: dict[str, Any] = {
+        "viewport": {"width": 1280, "height": 900},
+        "locale": "zh-CN",
+        "timezone_id": "Asia/Shanghai",
+        "user_agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+    }
+
+    context = browser.new_context(**context_kwargs)
+    context.route("**/*", _guard_request)
+    page = context.new_page()
+    try:
+        resp = page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+        status = resp.status if resp is not None else None
+
+        # 等 JS 渲染收敛(networkidle 短等待,失败不阻塞)
+        with contextlib.suppress(Exception):
+            page.wait_for_load_state("networkidle", timeout=10_000)
+
+        # Cloudflare 挑战等待:最多再等 15s,轮询检查挑战标记是否消失
+        deadline = time.time() + 15
+        while time.time() < deadline:
+            html = page.content()
+            low = html[:4000].lower()
+            if not any(marker in low for marker in _CF_MARKERS):
+                break
+            page.wait_for_timeout(3000)
+
+        html = page.content()
+        low = html[:4000].lower()
+        if any(marker in low for marker in _CF_MARKERS):
+            raise RuntimeError("cloudflare challenge not passed (headless)")
+
+        return {
+            "url": url,
+            "final_url": page.url,
+            "http_status": status,
+            "title": page.title(),
+            "html": html,
+            "captured_at": int(time.time() * 1000),
+        }
+    finally:
+        page.close()
+        context.close()
+
+
+async def render_page(url: str, timeout_ms: int = 30000) -> dict[str, Any]:
+    """异步渲染页面:提交到专属单线程 executor,保证 Playwright 线程亲和。"""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(_render_executor, _render_page_sync, url, timeout_ms)
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

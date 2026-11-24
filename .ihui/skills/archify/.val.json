@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "validate",
+  "stage": "render",
+  "type": "architecture",
+  "input": "G:\\IHUI-AI\\.archify\\trae-native-runtime-20261114-232132\\candidate.json",
+  "error": "Cannot read properties of undefined (reading '0')",
+  "diagnostics": [
+    {
+      "code": "internal/unclassified",
+      "severity": "error",
+      "message": "Cannot read properties of undefined (reading '0')",
+      "subject": {
+        "input": "D:\\DevEnv\\Temp\\archify-validate-YKV9Jx\\specification.snapshot.json"
+      },
+      "evidence": {
+        "errorName": "TypeError"
+      },
+      "supportedFixes": []
+    }
+  ]
+}

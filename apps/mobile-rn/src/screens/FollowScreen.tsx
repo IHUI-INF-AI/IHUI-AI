@@ -1,0 +1,127 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15) until 2027-05-31
+
+import { useCallback, useState } from 'react'
+import { appAlert } from '../components/BottomPops'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { getFans, getFollowing } from '@ihui/api-client'
+import { FollowScreen as SharedFollowScreen } from '@ihui/rn-app'
+import type { FollowTab, FollowUserItem } from '@ihui/types'
+import { unfollowUser } from '../api/social'
+import { usePaginatedList, useRefreshOnFocus } from '../hooks'
+import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+const PAGE_SIZE = 20
+
+/**
+ * 对齐说明:Uniapp 历史项目无独立关注/粉丝列表页(仅 developer.vue 详情有关注按钮),
+ * 用词对齐 Uniapp user.public 统计文案:statsFollowing=关注 / statsFollowers=粉丝 / unfollow=取消关注。
+ * mobile-rn/shared zh-CN 暂无 follow.* key(translate 缺 key 返回 key 本身),
+ * key 就绪后此覆盖可删。
+ */
+const UNIAPP_TEXT: Record<string, string> = {
+  'follow.title': '关注与粉丝',
+  'follow.following': '关注',
+  'follow.fans': '粉丝',
+  'follow.empty': '暂无关注',
+  'follow.loadFailed': '加载失败',
+  'follow.unfollowTitle': '取消关注',
+  'follow.unfollow': '取消关注',
+  'follow.unfollowFailed': '取消关注失败',
+}
+
+export function FollowScreen() {
+  // tab 语义(nav-B):
+  // - 路由级 Follow 是 stack 屏(RN_UI_ROUTES 中 Follow.tab=false),进入走 navigate,不用 tab 端口;
+  // - 屏内「关注/粉丝」是本地 tab 状态,切换走 onSelectTab,不产生 navigate;
+  // - 返回属于栈行为,由 navigation.goBack() 承担。
+  const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
+  const navigation = useNavigation<NavigationProp>()
+  const { onNavigate, onToast } = useHostPorts()
+  const [tab, setTab] = useState<FollowTab>('following')
+
+  // t 包装:缺失 key 的中文兜底优先,其余回落 i18n
+  const uniappT = useCallback(
+    (key: string, params?: Record<string, string | number>) => UNIAPP_TEXT[key] ?? t(key, params),
+    [t],
+  )
+
+  const fetcher = useCallback(
+    async (query: { page: number; pageSize: number }) => {
+      const apiFn = tab === 'following' ? getFollowing : getFans
+      const res = await apiFn(query)
+      if (res.success) {
+        return { success: true as const, data: res.data }
+      }
+      return { success: false as const, error: res.error || uniappT('follow.loadFailed') }
+    },
+    [tab, uniappT],
+  )
+
+  const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
+    usePaginatedList<FollowUserItem>(fetcher, PAGE_SIZE)
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新):走分页 hook 的 refresh,重置分页并重载
+  useRefreshOnFocus(refresh)
+
+  const onSelectTab = (next: FollowTab) => {
+    if (next === tab) return
+    setTab(next)
+    // fetcher 已随 tab 变化触发 usePaginatedList 的自动重取;这里再 refresh 一次
+    // 调的是**上一次渲染**的闭包(绑旧 tab)⇒ 两个请求竞速,旧结果后到会覆盖新 tab 的列表。
+  }
+
+  // 取关确认弹窗:uni.showModal → RN Alert(取消/取消关注·destructive)
+  const onUnfollow = (item: FollowUserItem) => {
+    appAlert(uniappT('follow.unfollowTitle'), `${item.nickname || item.username}?`, [
+      { text: uniappT('common.cancel'), style: 'cancel' },
+      {
+        text: uniappT('follow.unfollow'),
+        style: 'destructive',
+        onPress: async () => {
+          const res = await unfollowUser(item.id)
+          if (res.success) {
+            removeItem((i) => i.id === item.id)
+            // 成功回执走宿主端口(与小程序 following/index.tsx 的 common.success 同口径):
+            // 端内不再自建 toast 态,时长/通道都由宿主单源决定。
+            onToast(uniappT('common.success'), { kind: 'success' })
+          } else {
+            appAlert(uniappT('common.failed'), res.error || uniappT('follow.unfollowFailed'))
+          }
+        },
+      },
+    ])
+  }
+
+  return (
+    <SharedFollowScreen
+      t={uniappT}
+      items={items}
+      activeTab={tab}
+      onSelectTab={onSelectTab}
+      loading={loading}
+      refreshing={refreshing}
+      loadingMore={loadingMore}
+      error={error}
+      onRefresh={refresh}
+      onLoadMore={loadMore}
+      onUnfollow={onUnfollow}
+      onBack={() => navigation.goBack()}
+      onRetry={() => {
+        void refresh()
+      }}
+      colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
+      onToast={onToast}
+    />
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

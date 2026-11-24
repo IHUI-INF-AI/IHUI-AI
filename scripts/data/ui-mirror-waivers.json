@@ -1,0 +1,11 @@
+{
+  "$comment": "gen-ui-mirror 的具名豁免台账(2026-10-28 立)。豁免对象是「小程序壳缺 RN 壳导入的某个 spec 出口」这一条判据 —— 只在**该端的承载形制不允许照抄消费形**时用,必须逐条写 names + reason(≥10 字定向说明)+ reviewBy(YYYY-MM-DD)。判序由 scripts/gen-ui-mirror.mjs 的 waiverVerdict 现算:到期回队列、被审面不再命中判清单腐烂、行形态不合格免不了任何东西(AGENTS §0.7 / §0.10)。",
+  "waivers": [
+    {
+      "pair": "avatar",
+      "names": ["AVATAR_TAILWIND", "AVATAR_TEXT_TAILWIND"],
+      "reason": "weapp-tailwindcss 的 content 只扫 apps/miniapp-taro/src/**,类名表搬进 spec 就产不出规则(头像会静默失去尺寸);本端以端内字面量表 SIZES 镜像同一张 spec 表,其换算等价由 packages/shared/src/ui/__tests__/avatar-spec-wiring.test.ts 第②/④条钉住",
+      "reviewBy": "2027-10-28"
+    }
+  ]
+}

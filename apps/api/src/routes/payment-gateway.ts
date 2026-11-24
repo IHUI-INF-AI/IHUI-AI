@@ -1,0 +1,2375 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyPluginAsync, FastifyBaseLogger, FastifyRequest } from 'fastify'
+import { z } from 'zod'
+import { env } from 'node:process'
+import { authenticate } from '../plugins/auth.js'
+import { success, error } from '../utils/response.js'
+import { queryPendingOrders } from '../db/payment-queries.js'
+import {
+  placeOrder,
+  getOrder,
+  completeOrder,
+  completeOrderWithSaga,
+  cancelOrder,
+  claimRefund,
+  abortRefund,
+  refundOrder,
+  activateOrderSubscription,
+} from '../services/order-service.js'
+import { feedbackInvite } from '../services/commission-service.js'
+import { billDateForYesterday } from '../services/reconciliation-service.js'
+import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
+import {
+  isWechatPayConfigured,
+  jsapiPrepay,
+  appPrepay,
+  h5Prepay,
+  nativePrepay,
+  buildJsapiSign,
+  verifyCallbackSignature,
+  consumeNotifyNonce,
+  decryptCallback,
+  queryOrder as wxQueryOrder,
+  closeOrder as wxCloseOrder,
+  refund as wxRefund,
+  downloadBill as wxDownloadBill,
+} from '../services/wechat-pay.js'
+import {
+  isAlipayConfigured,
+  buildSignedUrl,
+  appPayOrder,
+  tradeCreate,
+  exchangeAuthCode,
+  verifyNotify,
+  queryOrder as aliQueryOrder,
+  refundOrder as aliRefundOrder,
+  closeOrder as aliCloseOrder,
+  downloadBillUrl as aliDownloadBillUrl,
+} from '../services/alipay.js'
+import {
+  isPaypalConfigured,
+  createOrder as createPaypalOrder,
+  captureOrder as capturePaypalOrder,
+  getOrderStatus as getPaypalOrderStatus,
+  refundCapture as refundPaypalCapture,
+  verifyWebhookSignature as verifyPaypalWebhook,
+  centsToYuanString,
+  isSubscribedEvent as isPaypalSubscribedEvent,
+  type PaypalWebhookHeaders,
+} from '../services/paypal.js'
+import { applyWithdrawal, getBalance } from '../db/commission-queries.js'
+import { buildSchema, swaggerSchemas } from '../utils/swagger.js'
+import { yuanToCents } from '../utils/money.js'
+import { db } from '../db/index.js'
+import { zhsCourseVideo, vipLevels, developerPricing, plans } from '@ihui/database'
+import { eq, sql, and } from 'drizzle-orm'
+import { calculateTopupBonus } from '../services/topup-discount-service.js'
+import { getWechatMiniOpenId } from '../services/wechat-subscribe-message.js'
+// ihui_payment_wxpay_callback_* / ihui_payment_exception_*:回调三指标 + 异常分类
+import {
+  recordWxpayCallback,
+  recordWxpayCallbackSuccess,
+  recordWxpayCallbackFailed,
+  recordPaymentException,
+} from '../plugins/business-metrics.js'
+
+const notifyUrl = (type?: string): string => {
+  if (type === 'course') return env.WX_PAY_COURSE_NOTIFY_URL ?? env.WX_PAY_NOTIFY_URL ?? ''
+  if (type === 'android') return env.WX_ANDROID_NOTIFY_URL ?? env.WX_PAY_NOTIFY_URL ?? ''
+  return env.WX_PAY_NOTIFY_URL ?? ''
+}
+
+const ADMIN_ROLE_ID = 1
+// 2026-07-24 安全防护:支付金额上限(分,100 万元,防异常大额 CWE-841)
+const MAX_PAYMENT_AMOUNT_CENTS = 100_000_000
+
+/**
+ * 2026-07-25 安全防护:服务端反查真实商品价格(CWE-994 客户端控制金额)。
+ * 仅对绑定真实商品的订单类型反查:
+ * - orderType=2: VIP 等级(vipLevels.price,单位:分)
+ * - orderType=5: 开发者套餐(developerPricing.price,单位:元 → 转分)
+ * 其他 orderType 或无 productId:返回 null(用户自定义金额场景,不反查)。
+ *
+ * @returns DB 反查金额(分);null 表示无商品可反查,调用方使用客户端金额。
+ */
+export async function resolveProductAmountCents(
+  orderType: number,
+  productId: string | undefined,
+  clientAmountCents: number,
+  log: FastifyBaseLogger,
+  userId: string,
+): Promise<number | null> {
+  if (!productId) return null
+  if (orderType === 2) {
+    const [row] = await db
+      .select({ price: vipLevels.price, status: vipLevels.status })
+      .from(vipLevels)
+      .where(and(eq(vipLevels.id, productId), eq(vipLevels.status, 1)))
+      .limit(1)
+    if (!row) {
+      log.warn({ orderType, productId, userId }, 'VIP 等级不存在或已下架,使用客户端金额')
+      return null
+    }
+    if (row.price !== clientAmountCents) {
+      log.error(
+        { orderType, productId, clientAmountCents, dbAmountCents: row.price, userId },
+        'VIP 金额不一致,采用 DB 金额',
+      )
+    }
+    return row.price
+  }
+  if (orderType === 5) {
+    const [row] = await db
+      .select({ price: developerPricing.price, status: developerPricing.status })
+      .from(developerPricing)
+      .where(and(eq(developerPricing.id, productId), eq(developerPricing.status, 1)))
+      .limit(1)
+    if (!row) {
+      log.warn({ orderType, productId, userId }, '开发者套餐不存在或已下架,使用客户端金额')
+      return null
+    }
+    const dbAmountCents = Math.round(Number(row.price) * 100)
+    if (dbAmountCents !== clientAmountCents) {
+      log.error(
+        { orderType, productId, clientAmountCents, dbAmountCents, userId },
+        '开发者套餐金额不一致,采用 DB 金额',
+      )
+    }
+    return dbAmountCents
+  }
+  // 2026-10-31 安全强化第 19 批(F1 高危):API 订阅(orderType=6)此前直接落
+  // 客户端金额 —— 任意登录用户可下 0.01 元订单,回调验签通过后按 planId 激活
+  // 整档 token 配额(activateApiSubscription 只查 plan 行不比对实付金额)。
+  // 与 VIP/Developer 同口径按 plans 表反查覆盖(isForSale=false 一并拒,防下架
+  // 套餐被低价扫尾)。
+  if (orderType === 6) {
+    const [row] = await db
+      .select({ price: plans.price, isActive: plans.isActive, isForSale: plans.isForSale })
+      .from(plans)
+      .where(and(eq(plans.id, productId), eq(plans.isActive, true), eq(plans.isForSale, true)))
+      .limit(1)
+    if (!row) {
+      log.warn({ orderType, productId, userId }, 'API 订阅套餐不存在或已下架,使用客户端金额')
+      return null
+    }
+    if (row.price !== clientAmountCents) {
+      log.error(
+        { orderType, productId, clientAmountCents, dbAmountCents: row.price, userId },
+        'API 订阅金额不一致,采用 DB 金额',
+      )
+    }
+    return row.price
+  }
+  return null
+}
+
+/**
+ * P0-21 集成(部分):计算充值阶梯折扣到账额度并记录审计日志。
+ *
+ * P2 修复(2026-08-06):充值赠送已在 order-service.ts 接线 —— completeOrder/
+ * completeOrderWithSaga 中 orderType=2(token 充值)支付成功后调用 calculateTopupBonus,
+ * 按 bonus 部分(actualCredit - paidAmount)追加赠送 token 流水(幂等键 bonus:${orderNo})。
+ * 此函数保留为审计日志,使 bonus 计算可见,不阻塞支付流程。
+ */
+async function auditTopupBonus(
+  orderNo: string,
+  amountCents: number,
+  method: string,
+  userId: string | null | undefined,
+  log: FastifyBaseLogger,
+): Promise<void> {
+  try {
+    const amountYuan = amountCents / 100
+    const bonus = await calculateTopupBonus(amountYuan, method)
+    if (bonus.actualCredit !== amountYuan) {
+      log.info(
+        {
+          orderNo,
+          userId,
+          method,
+          paidAmountYuan: amountYuan,
+          multiplier: bonus.multiplier,
+          bonus: bonus.bonus,
+          expectedCreditYuan: bonus.actualCredit,
+          credited: true,
+        },
+        'topup bonus calculated (credited via order-service)',
+      )
+    }
+  } catch (e) {
+    log.warn({ err: e, orderNo }, 'calculateTopupBonus failed (non-blocking)')
+  }
+}
+
+// =============================================================================
+// Zod schemas
+// =============================================================================
+
+const outTradeNoQuery = z.object({ outTradeNo: z.string() })
+const billDateQuery = z.object({ billDate: z.string().optional() })
+
+const wechatCreateQuery = z.object({
+  amount: z.coerce.number(),
+  // 2026-09-19:改为可选,未传时按 userId 反查小程序绑定 openid(微信 JSAPI 必需)
+  openId: z.string().optional(),
+  orderType: z.coerce.number().optional().default(0),
+  productId: z.string().optional(),
+  description: z.string().optional().default('Purchase'),
+})
+
+const wechatAndroidCreateQuery = z.object({
+  amount: z.coerce.number(),
+  orderType: z.coerce.number().optional().default(0),
+  description: z.string().optional().default('Purchase'),
+})
+
+const wechatH5CreateQuery = z.object({
+  amount: z.coerce.number(),
+  orderType: z.coerce.number().optional().default(0),
+  description: z.string().optional().default('Purchase'),
+})
+
+const wechatNativeCreateQuery = z.object({
+  amount: z.coerce.number(),
+  orderType: z.coerce.number().optional().default(0),
+  productId: z.string().optional(),
+  description: z.string().optional().default('Purchase'),
+})
+
+const wechatCourseCreateQuery = z.object({
+  amount: z.coerce.number(),
+  courseId: z.string(),
+})
+
+const wechatRefundQuery = z.object({
+  outTradeNo: z.string(),
+  refundAmount: z.coerce.number(),
+  reason: z.string().optional().default('User requested refund'),
+})
+
+const alipayCreateQuery = z.object({
+  amount: z.coerce.number(),
+  orderType: z.coerce.number().optional().default(0),
+  subject: z.string().optional().default('订单支付'),
+  productId: z.string().optional(),
+  /**
+   * 小程序支付必传:买家支付宝 user_id(2088开头16位纯数字)或 buyer_open_id。
+   * 小程序端通过 my.getAuthCode + alipay.system.oauth.token 兑换后传入。
+   * 缺失时后端降级返回 mock=true(不调支付宝,仅落订单)。
+   */
+  buyerId: z.string().optional(),
+})
+
+const alipayExchangeQuery = z.object({
+  /** 小程序 my.getAuthCode({ scopes: 'auth_user' }) 返回的 authCode */
+  authCode: z.string().min(1),
+})
+
+const alipayRefundQuery = z.object({
+  outTradeNo: z.string(),
+  refundAmount: z.coerce.number(),
+  reason: z.string().optional().default('用户申请退款'),
+})
+
+// PayPal Orders API v2(金额单位:分,后端转 "10.99" 元字符串传 PayPal)
+const paypalCreateOrderQuery = z.object({
+  amount: z.coerce.number(),
+  orderType: z.coerce.number().optional().default(0),
+  productId: z.string().optional(),
+  currency: z.string().optional().default('USD'),
+  description: z.string().optional().default('IHUI-AI Purchase'),
+  returnUrl: z.url().optional(),
+  cancelUrl: z.url().optional(),
+})
+
+const paypalCaptureQuery = z.object({
+  paypalOrderId: z.string().min(1),
+})
+
+const paypalOrderStatusQuery = z.object({
+  paypalOrderId: z.string().min(1),
+})
+
+const paypalRefundQuery = z.object({
+  outTradeNo: z.string(),
+  captureId: z.string().optional(),
+  refundAmount: z.coerce.number().optional(), // 单位:分
+  reason: z.string().optional().default('User requested refund'),
+})
+
+const fundCreateOrderQuery = z.object({
+  amount: z.coerce.number(),
+  orderType: z.coerce.number().optional().default(0),
+  productId: z.string().optional(),
+})
+
+const wechatPayQuery = z.object({
+  outTradeNo: z.string(),
+  totalFee: z.coerce.number(),
+})
+
+const transferQuery = z.object({
+  amount: z.coerce.number().positive(),
+  bankAccount: z.string(),
+  bankName: z.string().optional().default(''),
+})
+
+const withdrawalQuery = z.object({
+  amount: z.coerce.number().positive(),
+})
+
+const orderNoQuery = z.object({ orderNo: z.string().optional() })
+
+export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
+  // ==========================================================================
+  // Webhook 原始请求体捕获(验签需要 raw body,与 tbox.ts 同模式)
+  // 仅在本插件作用域内覆盖默认 JSON parser,其他路由不受影响
+  // ==========================================================================
+  // 根实例已有自定义 application/json(server.ts)⇒ 先 remove 再 add,否则抛 ALREADY_PRESENT。
+  server.removeContentTypeParser('application/json')
+  server.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
+    try {
+      const raw = body.toString()
+      ;(req as FastifyRequest & { rawBody?: string }).rawBody = raw
+      done(null, JSON.parse(raw))
+    } catch (err) {
+      done(err as Error, undefined)
+    }
+  })
+
+  // ==========================================================================
+  // 微信支付
+  // ==========================================================================
+
+  server.post(
+    '/payments/wechat/create',
+    {
+      schema: buildSchema({
+        summary: '微信 JSAPI 支付下单',
+        description: '创建微信 JSAPI 支付订单(需 openId)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const {
+        amount: amountCentsInitial,
+        openId,
+        orderType,
+        productId,
+        description,
+      } = wechatCreateQuery.parse(request.query)
+      let amountCents = amountCentsInitial
+      const userId = request.userId!
+      // 2026-09-19:openid 反查兜底 —— 客户端未传 openId 时按 userId 反查 user_third_party_accounts
+      // (小程序绑定),学费账单页等新入口无需自行获取/存储 openid
+      const resolvedOpenId = openId || (await getWechatMiniOpenId(userId))
+      if (!resolvedOpenId)
+        return reply.status(400).send(error(400, '当前账号未绑定微信,无法发起支付'))
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
+      // 2026-07-25 安全修复:商品金额服务端反查(VIP/Developer),不一致用 DB 金额替换
+      const dbAmountCents = await resolveProductAmountCents(
+        orderType,
+        productId,
+        amountCents,
+        request.log,
+        userId,
+      )
+      if (dbAmountCents !== null) {
+        amountCents = dbAmountCents
+        if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
+          return reply.status(400).send(error(400, '金额超过上限'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
+      }
+      // P0 资金安全修复(2026-09-06):充值/下单入口接入风控引擎
+      const risk = server.riskEngine.evaluateRisk({
+        userId,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        amount: amountCents,
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId, hits: risk.hits }, '微信下单被风控拒绝')
+        return reply.status(403).send(error(403, '下单请求被风控拦截,请联系客服'))
+      }
+      if (risk.action === 'REVIEW') {
+        request.log.info({ userId, hits: risk.hits }, '微信下单进入人工复核(不阻断)')
+      }
+      const order = await placeOrder({
+        userId,
+        amount: amountCents,
+        orderType,
+        productId,
+        payType: 'wechat',
+        openId: resolvedOpenId,
+        description,
+      })
+      if (!isWechatPayConfigured()) {
+        return reply.send(success({ outTradeNo: order.orderNo, amount: amountCents, mock: true }))
+      }
+      const prepayId = await jsapiPrepay({
+        outTradeNo: order.orderNo,
+        amount: amountCents,
+        description,
+        openId: resolvedOpenId,
+        notifyUrl: notifyUrl(),
+      })
+      const sign = buildJsapiSign(prepayId)
+      return reply.send(success({ outTradeNo: order.orderNo, amount: amountCents, ...sign }))
+    },
+  )
+
+  server.post(
+    '/payments/wechat/android/create',
+    {
+      schema: buildSchema({
+        summary: '微信 Android APP 支付下单',
+        description: '创建微信 Android APP 支付订单',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const {
+        amount: amountCents,
+        orderType,
+        description,
+      } = wechatAndroidCreateQuery.parse(request.query)
+      const userId = request.userId!
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
+      const order = await placeOrder({
+        userId,
+        amount: amountCents,
+        orderType,
+        payType: 'wechat_android',
+        description,
+      })
+      if (!isWechatPayConfigured())
+        return reply.send(success({ outTradeNo: order.orderNo, mock: true }))
+      const prepay = await appPrepay({
+        outTradeNo: order.orderNo,
+        amount: amountCents,
+        description,
+        notifyUrl: notifyUrl('android'),
+      })
+      return reply.send(
+        success({ outTradeNo: order.orderNo, amount: amountCents, prepayData: prepay }),
+      )
+    },
+  )
+
+  server.post(
+    '/payments/wechat/h5',
+    {
+      schema: buildSchema({
+        summary: '微信 H5 支付下单',
+        description: '创建微信 H5 支付订单(返回 h5_url 跳转链接,移动端浏览器使用)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const {
+        amount: amountCents,
+        orderType,
+        description,
+      } = wechatH5CreateQuery.parse(request.query)
+      const userId = request.userId!
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
+      const order = await placeOrder({
+        userId,
+        amount: amountCents,
+        orderType,
+        payType: 'wechat_h5',
+        description,
+      })
+      if (!isWechatPayConfigured()) {
+        return reply.send(success({ outTradeNo: order.orderNo, amount: amountCents, mock: true }))
+      }
+      const h5Url = await h5Prepay({
+        outTradeNo: order.orderNo,
+        amount: amountCents,
+        description,
+        notifyUrl: notifyUrl(),
+        payerClientIp: request.ip,
+      })
+      return reply.send(success({ outTradeNo: order.orderNo, amount: amountCents, h5Url }))
+    },
+  )
+
+  server.post(
+    '/payments/wechat/native',
+    {
+      schema: buildSchema({
+        summary: '微信 Native 支付下单',
+        description: '创建微信 Native 支付订单(返回 code_url 用于生成二维码)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const {
+        amount: amountCentsInitial,
+        orderType,
+        productId,
+        description,
+      } = wechatNativeCreateQuery.parse(request.query)
+      let amountCents = amountCentsInitial
+      const userId = request.userId!
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
+      // 2026-07-25 安全修复:商品金额服务端反查(VIP/Developer),不一致用 DB 金额替换
+      const dbAmountCents = await resolveProductAmountCents(
+        orderType,
+        productId,
+        amountCents,
+        request.log,
+        userId,
+      )
+      if (dbAmountCents !== null) {
+        amountCents = dbAmountCents
+        if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
+          return reply.status(400).send(error(400, '金额超过上限'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
+      }
+      const order = await placeOrder({
+        userId,
+        amount: amountCents,
+        orderType,
+        productId,
+        payType: 'wechat_native',
+        description,
+      })
+      if (!isWechatPayConfigured()) {
+        return reply.send(success({ outTradeNo: order.orderNo, amount: amountCents, mock: true }))
+      }
+      const codeUrl = await nativePrepay({
+        outTradeNo: order.orderNo,
+        amount: amountCents,
+        description,
+        notifyUrl: notifyUrl(),
+      })
+      return reply.send(success({ outTradeNo: order.orderNo, amount: amountCents, codeUrl }))
+    },
+  )
+
+  server.post(
+    '/payments/wechat/course/create',
+    {
+      schema: buildSchema({
+        summary: '微信课程支付下单',
+        description: '创建微信课程购买支付订单',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const { amount: amountCentsInitial, courseId } = wechatCourseCreateQuery.parse(request.query)
+      let amountCents = amountCentsInitial
+      const userId = request.userId!
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
+      // 2026-07-25 安全修复:课程金额服务端反查 zhsCourseVideo.amount,忽略客户端 amount
+      const courseIdNum = Number(courseId)
+      if (Number.isNaN(courseIdNum) || courseIdNum <= 0)
+        return reply.status(400).send(error(400, '无效的 courseId'))
+      const [coursePrice] = await db
+        .select({ amount: zhsCourseVideo.amount, isPay: zhsCourseVideo.isPay })
+        .from(zhsCourseVideo)
+        .where(and(eq(zhsCourseVideo.courseId, courseIdNum), eq(zhsCourseVideo.status, 1)))
+        .orderBy(sql`${zhsCourseVideo.amount} DESC NULLS LAST`)
+        .limit(1)
+      if (!coursePrice) {
+        request.log.warn({ courseId, amountCents, userId }, '课程无视频价格记录,使用客户端金额')
+      } else if (coursePrice.amount === null || coursePrice.isPay === 0) {
+        request.log.warn({ courseId, amountCents, userId }, '课程为免费或无价格,使用客户端金额')
+      } else {
+        // F-449:amount 列已改 numeric(12,2),读回为字符串,按十进制精确换算为分;
+        // 不再用浮点乘 100(131072.01 的旧 float4 读回值会多收 1 分)。
+        const dbAmountCents = yuanToCents(coursePrice.amount) ?? amountCents
+        if (dbAmountCents !== amountCents) {
+          request.log.error(
+            { courseId, clientAmount: amountCents, dbAmount: dbAmountCents, userId },
+            '课程金额不一致,采用 DB 金额',
+          )
+          amountCents = dbAmountCents
+        }
+        if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
+          return reply.status(400).send(error(400, '金额超过上限'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
+      }
+      const order = await placeOrder({
+        userId,
+        amount: amountCents,
+        orderType: 1,
+        productId: courseId,
+        payType: 'wechat',
+      })
+      if (!isWechatPayConfigured())
+        return reply.send(success({ outTradeNo: order.orderNo, mock: true }))
+      const prepayId = await jsapiPrepay({
+        outTradeNo: order.orderNo,
+        amount: amountCents,
+        description: '课程购买',
+        openId: '',
+        notifyUrl: notifyUrl('course'),
+      })
+      return reply.send(success({ outTradeNo: order.orderNo, ...buildJsapiSign(prepayId) }))
+    },
+  )
+
+  server.post(
+    '/payments/wechat/notify',
+    {
+      schema: buildSchema({
+        summary: '微信支付回调',
+        description: '微信支付异步通知回调(无需登录,验签后处理)',
+        tags: ['Payment'],
+        auth: false,
+        response: swaggerSchemas.callback,
+      }),
+    },
+    async (request, reply) => {
+      // ihui_payment_wxpay_callback_total:每次微信回调进入(验签前)
+      recordWxpayCallback()
+      const body = request.body as Record<string, unknown>
+      const timestamp = request.headers['wechatpay-timestamp'] as string
+      const nonce = request.headers['wechatpay-nonce'] as string
+      const signature = request.headers['wechatpay-signature'] as string
+      // P0 修复(2026-09-18):必须用原始请求体验签——JSON.stringify(body) 的重序列化
+      // 与微信原始报文存在转义/浮点差异,会导致真实回调验签失败、订单永远无法入账
+      const rawBody =
+        (request as FastifyRequest & { rawBody?: string }).rawBody ?? JSON.stringify(body)
+      if (!verifyCallbackSignature(timestamp, nonce, rawBody, signature)) {
+        recordWxpayCallbackFailed()
+        recordPaymentException('wechat', 'sign_verify')
+        return reply.code(400).send({ code: 'FAIL', message: '签名验证失败' })
+      }
+      // 2026-10-30:报文级一次性去重(防时间窗内重放)。验签通过后再消费 —— 签名不对的报文
+      // 不该占用 nonce。Redis 不可用 ⇒ fail-closed(500),由微信按重试曲线重投。
+      const nonceVerdict = await consumeNotifyNonce('pay', timestamp, nonce)
+      if (nonceVerdict === 'replayed') {
+        return reply.send({ code: 'SUCCESS', message: '重复通知' })
+      }
+      if (nonceVerdict === 'unavailable') {
+        return reply.code(500).send({ code: 'FAIL', message: '系统繁忙,请稍后重试' })
+      }
+      const resource = (
+        body as { resource?: { ciphertext: string; nonce: string; associated_data: string } }
+      ).resource
+      if (!resource) return reply.send({ code: 'SUCCESS', message: 'No resource' })
+      const decrypted = decryptCallback(
+        resource.ciphertext,
+        resource.nonce,
+        resource.associated_data,
+      ) as {
+        out_trade_no: string
+        trade_state: string
+        transaction_id?: string
+        amount?: { total?: number }
+      }
+      const { out_trade_no, trade_state, transaction_id } = decrypted
+      if (trade_state === 'SUCCESS') {
+        // 2026-07-24 安全防护:校验回调金额与订单金额一致(防金额篡改)
+        const localOrder = await getOrder(out_trade_no)
+        if (!localOrder) {
+          recordWxpayCallbackFailed()
+          recordPaymentException('wechat', 'order_missing')
+          return reply.code(400).send({ code: 'FAIL', message: '订单不存在' })
+        }
+        const callbackAmount = decrypted.amount?.total
+        if (callbackAmount !== undefined && callbackAmount !== localOrder.amount) {
+          request.log.error(
+            { orderNo: out_trade_no, callbackAmount, orderAmount: localOrder.amount },
+            '回调金额与订单金额不一致',
+          )
+          recordWxpayCallbackFailed()
+          recordPaymentException('wechat', 'amount_mismatch')
+          return reply.code(400).send({ code: 'FAIL', message: '金额不匹配' })
+        }
+        // 2026-07-24 安全加固:必须用 transaction_id 作幂等键,缺失则拒绝(防重复支付)
+        if (!transaction_id) {
+          request.log.warn({ orderNo: out_trade_no }, 'wechat callback missing transaction_id')
+          recordWxpayCallbackFailed()
+          recordPaymentException('wechat', 'missing_txn_id')
+          return reply.code(400).send({ code: 'FAIL', message: '缺少 transaction_id 参数' })
+        }
+        const idemKey = transaction_id
+        const idem = await server.paymentIdempotency.acquire(out_trade_no, idemKey)
+        if (idem.status === 'completed') {
+          recordWxpayCallbackSuccess()
+          return reply.send({ code: 'SUCCESS', message: 'OK (duplicate)' })
+        }
+        if (idem.status !== 'new') {
+          // F-220:processing(并发在途)/unknown(Redis 故障)都不能 ACK SUCCESS。
+          // 原实现把 processing 直接回 SUCCESS 让微信停止重投;若在途 handler 最终失败
+          // 或丢失,已扣款订单再无补单机会。这里回 FAIL 让平台按退避重投,
+          // 重复回调由 acquire/saga 幂等吸收。
+          request.log.warn(
+            { orderNo: out_trade_no, idemStatus: idem.status },
+            'wechat callback idempotency not ready, ask retry',
+          )
+          recordWxpayCallbackFailed()
+          recordPaymentException('wechat', `idem_${idem.status}`)
+          return reply.code(503).send({ code: 'FAIL', message: '幂等锁未就绪,请稍后重试' })
+        }
+        try {
+          // P0 安全修复(2026-08-02):用 completeOrderWithSaga 替代 completeOrder,
+          // saga 编排 mark-order-paid + rechargeTokens + earnPoints + write-outbox(order.paid),
+          // 任一步失败自动补偿(订单回滚 pending + 扣回 token/积分 + 写 compensated 事件)。
+          const result = await completeOrderWithSaga(out_trade_no, transaction_id)
+          // F-32:saga 失败是**返回值** success=false(executeSaga 捕获异常后逆序补偿,不抛),
+          // 原实现只在 catch 里回 FAIL;返回失败时仍落 complete 并 ACK SUCCESS ⇒ 微信停止重投,
+          // 订单被补偿回 pending、权益未到账,只能人工补单。这里必须显式判返回值。
+          if (!result.success) {
+            await server.paymentIdempotency.fail(
+              out_trade_no,
+              idemKey,
+              result.reason ?? 'order complete failed',
+            )
+            recordWxpayCallbackFailed()
+            recordPaymentException('wechat', 'saga_failed')
+            return reply.code(500).send({ code: 'FAIL', message: '订单完成失败,待重试' })
+          }
+          // 支付成功后触发返佣（失败不阻塞支付完成,但 log error 触发监控告警）
+          if (result.order) {
+            // P0-21 集成:充值阶梯折扣到账审计(实际入账待 order-service.ts 集成)
+            await auditTopupBonus(
+              out_trade_no,
+              result.order.amount,
+              'wechat',
+              result.order.userId,
+              request.log,
+            )
+            // B7: 副作用失败时不标记 complete,释放锁让支付平台重试
+            let sideEffectFailed = false
+            try {
+              await activateOrderSubscription(result.order)
+            } catch (ae) {
+              request.log.error(
+                { err: ae, orderNo: out_trade_no },
+                'subscription activation failed',
+              )
+              sideEffectFailed = true
+            }
+            try {
+              if (!result.order.userId) throw new Error('order has no userId')
+              await feedbackInvite(
+                { id: result.order.userId },
+                {
+                  id: result.order.id,
+                  amount: result.order.amount,
+                  orderType: result.order.orderType,
+                  productId: result.order.productId ?? null,
+                },
+              )
+            } catch (ce) {
+              request.log.error({ err: ce, orderNo: out_trade_no }, 'commission feedback failed')
+              sideEffectFailed = true
+            }
+            if (sideEffectFailed) {
+              await server.paymentIdempotency.fail(out_trade_no, idemKey, 'side effect failed')
+              recordWxpayCallbackFailed()
+              recordPaymentException('wechat', 'side_effect_failed')
+              return reply.code(500).send({ code: 'FAIL', message: '副作用处理失败,待重试' })
+            }
+          }
+          await server.paymentIdempotency.complete(out_trade_no, idemKey, {
+            out_trade_no,
+            trade_state,
+          })
+        } catch (e) {
+          await server.paymentIdempotency.fail(out_trade_no, idemKey, (e as Error).message)
+          recordWxpayCallbackFailed()
+          recordPaymentException('wechat', 'saga_failed')
+          return reply.code(400).send({ code: 'FAIL', message: '处理失败' })
+        }
+      }
+      recordWxpayCallbackSuccess()
+      return reply.send({ code: 'SUCCESS', message: 'OK' })
+    },
+  )
+
+  server.post(
+    '/payments/wechat/notify/refund',
+    {
+      schema: buildSchema({
+        summary: '微信退款回调',
+        description: '微信退款异步通知回调(无需登录,验签后处理)',
+        tags: ['Payment'],
+        auth: false,
+        response: swaggerSchemas.callback,
+      }),
+    },
+    async (request, reply) => {
+      const body = request.body as Record<string, unknown>
+      const timestamp = request.headers['wechatpay-timestamp'] as string
+      const nonce = request.headers['wechatpay-nonce'] as string
+      const signature = request.headers['wechatpay-signature'] as string
+      // P0 修复(2026-09-18):必须用原始请求体验签——JSON.stringify(body) 的重序列化
+      // 与微信原始报文存在转义/浮点差异,会导致真实回调验签失败、订单永远无法入账
+      const rawBody =
+        (request as FastifyRequest & { rawBody?: string }).rawBody ?? JSON.stringify(body)
+      if (!verifyCallbackSignature(timestamp, nonce, rawBody, signature)) {
+        return reply.code(400).send({ code: 'FAIL', message: '签名验证失败' })
+      }
+      // 2026-10-30:退款回调同样补报文级一次性去重(此前 refundOrder 只靠订单状态守卫)
+      const refundNonceVerdict = await consumeNotifyNonce('refund', timestamp, nonce)
+      if (refundNonceVerdict === 'replayed') {
+        return reply.send({ code: 'SUCCESS', message: '重复通知' })
+      }
+      if (refundNonceVerdict === 'unavailable') {
+        return reply.code(500).send({ code: 'FAIL', message: '系统繁忙,请稍后重试' })
+      }
+      const resource = (
+        body as { resource?: { ciphertext: string; nonce: string; associated_data: string } }
+      ).resource
+      if (resource) {
+        const decrypted = decryptCallback(
+          resource.ciphertext,
+          resource.nonce,
+          resource.associated_data,
+        ) as {
+          out_trade_no: string
+          refund_status: string
+        }
+        if (['SUCCESS', 'CHANGE'].includes(decrypted.refund_status)) {
+          // F-09:微信渠道侧已实际退款,本地必须无条件同步状态并做退款副作用(token 扣回/佣金
+          // 冲减/权益回收)。用 claimRefund 抢占(paid→refunded)——若管理员主动退款已先抢占落库,
+          // 这里 0 行命中,说明副作用已由主动路径处理,按幂等跳过(返回 SUCCESS 让微信停止重推),
+          // 不返回 FAIL 否则微信会持续重试一条已落账的回调。
+          const claim = await claimRefund(decrypted.out_trade_no)
+          if (claim.success) {
+            await refundOrder(decrypted.out_trade_no, { alreadyClaimed: true })
+          }
+        }
+      }
+      return reply.send({ code: 'SUCCESS', message: 'OK' })
+    },
+  )
+
+  server.post(
+    '/payments/wechat/query',
+    {
+      schema: buildSchema({
+        summary: '查询微信订单',
+        description: '查询本地 + 微信侧订单状态(管理员或订单归属人可查)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      const payload = await authenticate(request)
+      const { outTradeNo } = outTradeNoQuery.parse(request.query)
+      const local = await getOrder(outTradeNo)
+      if (!local) return reply.status(404).send(error(404, '订单不存在'))
+      if (payload.roleId < ADMIN_ROLE_ID && local.userId !== request.userId) {
+        return reply.status(403).send(error(403, '无权操作此订单'))
+      }
+      if (!isWechatPayConfigured()) return reply.send(success({ local }))
+      const wechat = await wxQueryOrder(outTradeNo)
+      return reply.send(success({ local, wechat }))
+    },
+  )
+
+  server.post(
+    '/payments/wechat/close',
+    {
+      schema: buildSchema({
+        summary: '关闭微信订单',
+        description: '关闭微信侧订单并本地取消(管理员或订单归属人可操作)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      const payload = await authenticate(request)
+      const { outTradeNo } = outTradeNoQuery.parse(request.query)
+      const order = await getOrder(outTradeNo)
+      if (!order) return reply.status(404).send(error(404, '订单不存在'))
+      if (payload.roleId < ADMIN_ROLE_ID && order.userId !== request.userId) {
+        return reply.status(403).send(error(403, '无权操作此订单'))
+      }
+      if (isWechatPayConfigured()) await wxCloseOrder(outTradeNo)
+      await cancelOrder(outTradeNo)
+      return reply.send(success({ outTradeNo }))
+    },
+  )
+
+  server.post(
+    '/payments/wechat/refund',
+    {
+      schema: buildSchema({
+        summary: '微信退款',
+        description: '发起微信退款并本地退款(订单需为 paid 状态,仅管理员可操作,仅支持整单退款)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      const payload = await authenticate(request)
+      const { outTradeNo, refundAmount: amount, reason } = wechatRefundQuery.parse(request.query)
+      const order = await getOrder(outTradeNo)
+      if (!order) return reply.status(404).send(error(404, '订单不存在'))
+      // P0 修复(2026-09-18):退款仅限管理员——原"归属人可自助退款"叠加权益不回滚,
+      // 构成"付款买 VIP→自助退款→保留会员"套利链
+      if (payload.roleId < ADMIN_ROLE_ID) {
+        return reply.status(403).send(error(403, '仅管理员可操作退款'))
+      }
+      if (order.status !== 'paid') return reply.status(400).send(error(400, '订单状态不允许退款'))
+      // P0 修复(2026-09-18):仅允许整单退款——无累计退款台账前开放部分退款可被反复套现
+      if (!amount || amount <= 0) return reply.status(400).send(error(400, '退款金额必须为正'))
+      if (amount < order.amount)
+        return reply.status(400).send(error(400, '当前仅支持整单退款,退款金额须等于订单金额'))
+      if (amount > order.amount)
+        return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
+      // P0 资金安全修复(2026-09-06):退款入口接入风控引擎
+      const risk = server.riskEngine.evaluateRisk({
+        userId: order.userId ?? undefined,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        orderNo: outTradeNo,
+        amount,
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId: order.userId, hits: risk.hits }, '微信退款被风控拒绝')
+        recordPaymentException('wechat', 'risk_denied')
+        return reply.status(403).send(error(403, '退款请求被风控拦截,请联系客服'))
+      }
+      if (risk.action === 'REVIEW') {
+        request.log.info({ userId: order.userId, hits: risk.hits }, '微信退款进入人工复核(不阻断)')
+      }
+      // 部分退/整单退语义区分:仅全额退款才把订单置为 refunded(并回退 token 余额)
+      const fullRefund = amount >= order.amount
+      const refundNo = `refund_${outTradeNo}`
+      // F-09:与支付宝退款端点同模式——调微信渠道之前先用条件 UPDATE 抢占订单(paid→refunded)。
+      // 并发第二笔(另一管理员请求 / 微信异步退款回调)在此 0 行命中直接 409,不再重复调渠道,
+      // 否则两个路径都读到 paid、各退一次渠道就是真实资金双出。渠道失败/异常必须 abortRefund
+      // 回退到 paid,否则订单被误记 refunded、用户无法再次发起退款。
+      const claim = await claimRefund(outTradeNo)
+      if (!claim.success) {
+        return reply.status(409).send(error(409, claim.reason ?? '订单状态已变更,退款未落库'))
+      }
+      if (isWechatPayConfigured()) {
+        try {
+          await wxRefund({
+            outTradeNo,
+            refundNo,
+            refundAmount: amount,
+            totalAmount: order.amount,
+            reason,
+            notifyUrl: env.WX_PAY_NOTIFY_URL ?? '',
+          })
+        } catch (e) {
+          // 微信渠道调用异常:解除抢占回到 paid,保持原 500 错误语义,允许重试。
+          // 微信渠道无独立成功布尔返回(异常即失败),故不设 wxOk 死分支;支付宝侧
+          // 有 result.success 布尔才需对应 if(!result.success) abort。
+          await abortRefund(outTradeNo)
+          throw e
+        }
+      }
+      if (fullRefund) {
+        // F-09:状态已在调渠道前抢占落库,这里只做退款副作用(token 扣回/佣金冲减/权益回收)。
+        const localResult = await refundOrder(outTradeNo, { alreadyClaimed: true })
+        if (!localResult.success) {
+          return reply
+            .status(409)
+            .send(error(409, localResult.reason ?? '订单状态已变更,退款未落库'))
+        }
+      }
+      return reply.send(success({ outTradeNo, refundNo, full: fullRefund }))
+    },
+  )
+
+  server.get(
+    '/payments/wechat/status/:outTradeNo',
+    {
+      schema: buildSchema({
+        summary: '查询微信订单状态(轻量)',
+        description: '按 outTradeNo 返回订单状态与金额(不泄露完整订单信息)',
+        tags: ['Payment'],
+        params: outTradeNoQuery,
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const { outTradeNo } = outTradeNoQuery.parse(request.params)
+      const order = await getOrder(outTradeNo)
+      if (!order) return reply.status(404).send(error(404, '订单不存在'))
+      // 仅返回订单状态与归属人校验，不泄露完整订单信息
+      if (order.userId && order.userId !== request.userId) {
+        return reply.status(403).send(error(403, '无权查看此订单'))
+      }
+      return reply.send(
+        success({ orderNo: order.orderNo, status: order.status, amount: order.amount }),
+      )
+    },
+  )
+
+  // ==========================================================================
+  // 支付宝支付
+  // ==========================================================================
+
+  server.post(
+    '/payments/alipay/create',
+    {
+      schema: buildSchema({
+        summary: '支付宝网页支付下单',
+        description: '创建支付宝 PC 网页支付订单,返回支付链接(金额单位:元)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const {
+        amount: amountYuan,
+        orderType,
+        subject,
+        productId,
+      } = alipayCreateQuery.parse(request.query)
+      const userId = request.userId!
+      let amountCents = Math.round(amountYuan * 100)
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
+      // 2026-07-25 安全修复:商品金额服务端反查(VIP/Developer),不一致用 DB 金额替换
+      const dbAmountCents = await resolveProductAmountCents(
+        orderType,
+        productId,
+        amountCents,
+        request.log,
+        userId,
+      )
+      if (dbAmountCents !== null) {
+        amountCents = dbAmountCents
+        if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
+          return reply.status(400).send(error(400, '金额超过上限'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
+      }
+      const order = await placeOrder({
+        userId,
+        amount: amountCents,
+        orderType,
+        payType: 'alipay',
+        productId,
+      })
+      if (!isAlipayConfigured())
+        return reply.send(success({ outTradeNo: order.orderNo, mock: true }))
+      const bizContent: Record<string, unknown> = {
+        out_trade_no: order.orderNo,
+        total_amount: (amountCents / 100).toFixed(2),
+        subject,
+        product_code: 'FAST_INSTANT_TRADE_PAY',
+      }
+      if (env.ALIPAY_NOTIFY_URL) bizContent.notify_url = env.ALIPAY_NOTIFY_URL
+      const payUrl = buildSignedUrl(bizContent, 'alipay.trade.page.pay')
+      return reply.send(success({ outTradeNo: order.orderNo, payUrl }))
+    },
+  )
+
+  server.post(
+    '/payments/alipay/app/create',
+    {
+      schema: buildSchema({
+        summary: '支付宝 APP 支付下单',
+        description: '创建支付宝 APP 支付订单,返回 orderStr(金额单位:元)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const { amount: amountYuan, orderType, subject } = alipayCreateQuery.parse(request.query)
+      const userId = request.userId!
+      const amountCents = Math.round(amountYuan * 100)
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
+      const order = await placeOrder({
+        userId,
+        amount: amountCents,
+        orderType,
+        payType: 'alipay_app',
+      })
+      if (!isAlipayConfigured())
+        return reply.send(success({ outTradeNo: order.orderNo, mock: true }))
+      const orderStr = appPayOrder({ outTradeNo: order.orderNo, amount: amountYuan, subject })
+      return reply.send(success({ outTradeNo: order.orderNo, orderStr }))
+    },
+  )
+
+  server.post(
+    '/payments/alipay/miniapp/exchange-buyer-id',
+    {
+      schema: buildSchema({
+        summary: '小程序授权码兑换买家 user_id',
+        description:
+          '小程序端 my.getAuthCode({scopes:"auth_user"}) 拿到 authCode 后,POST 此端点兑换买家 user_id(2088开头)或 open_id。',
+        tags: ['Payment'],
+        auth: false,
+      }),
+    },
+    async (request, reply) => {
+      const { authCode } = alipayExchangeQuery.parse(request.body ?? request.query)
+      if (!isAlipayConfigured()) {
+        return reply.status(503).send(error(503, '支付宝未配置,无法兑换 buyer_id'))
+      }
+      try {
+        const result = await exchangeAuthCode(authCode)
+        return reply.send(success(result))
+      } catch (err) {
+        request.log.error(
+          { err, authCodePrefix: authCode.slice(0, 8) },
+          'alipay exchange auth code failed',
+        )
+        return reply.status(400).send(error(400, `授权码兑换失败: ${(err as Error).message}`))
+      }
+    },
+  )
+
+  server.post(
+    '/payments/alipay/miniapp/create',
+    {
+      schema: buildSchema({
+        summary: '支付宝小程序支付下单',
+        description:
+          '创建支付宝小程序支付订单(JSAPI_PAY),返回 tradeNO 给前端 my.tradePay 调起支付(金额单位:元)。buyerId 必传(从 alipay.system.oauth.token 兑换)或降级 mock。',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const {
+        amount: amountYuan,
+        orderType,
+        subject,
+        productId,
+        buyerId,
+      } = alipayCreateQuery.parse(request.query)
+      const userId = request.userId!
+      let amountCents = Math.round(amountYuan * 100)
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
+      // 2026-07-25 安全修复:商品金额服务端反查(VIP/Developer),不一致用 DB 金额替换
+      const dbAmountCents = await resolveProductAmountCents(
+        orderType,
+        productId,
+        amountCents,
+        request.log,
+        userId,
+      )
+      if (dbAmountCents !== null) {
+        amountCents = dbAmountCents
+        if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
+          return reply.status(400).send(error(400, '金额超过上限'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
+      }
+      const order = await placeOrder({
+        userId,
+        amount: amountCents,
+        orderType,
+        payType: 'alipay_miniapp',
+        productId,
+      })
+      if (!isAlipayConfigured())
+        return reply.send(success({ outTradeNo: order.orderNo, mock: true }))
+      // 小程序支付必须传 buyer_id,缺失降级 mock(避免 40006 错误)
+      if (!buyerId) {
+        request.log.warn(
+          { orderNo: order.orderNo, userId },
+          'miniapp pay missing buyerId, falling back to mock',
+        )
+        return reply.send(
+          success({ outTradeNo: order.orderNo, mock: true, reason: 'missing_buyer_id' }),
+        )
+      }
+      if (!env.ALIPAY_MINIAPP_APP_ID) {
+        request.log.warn(
+          { orderNo: order.orderNo },
+          'miniapp pay missing ALIPAY_MINIAPP_APP_ID, falling back to mock',
+        )
+        return reply.send(
+          success({ outTradeNo: order.orderNo, mock: true, reason: 'missing_op_app_id' }),
+        )
+      }
+      try {
+        const { tradeNo } = await tradeCreate({
+          outTradeNo: order.orderNo,
+          amount: amountCents / 100,
+          subject,
+          buyerId,
+        })
+        return reply.send(success({ outTradeNo: order.orderNo, tradeNo }))
+      } catch (err) {
+        request.log.error({ err, orderNo: order.orderNo }, 'alipay miniapp tradeCreate failed')
+        return reply
+          .status(400)
+          .send(error(400, `支付宝小程序支付下单失败: ${(err as Error).message}`))
+      }
+    },
+  )
+
+  server.post(
+    '/payments/alipay/notify',
+    {
+      schema: buildSchema({
+        summary: '支付宝异步回调',
+        description: '支付宝支付异步通知回调(无需登录,验签后处理,返回 success/fail 文本)',
+        tags: ['Payment'],
+        auth: false,
+        response: swaggerSchemas.public,
+      }),
+    },
+    async (request, reply) => {
+      const params = (request.body ?? {}) as Record<string, string>
+      if (!params.sign || !verifyNotify(params)) return reply.type('text/plain').send('fail')
+      const tradeStatus = params.trade_status ?? ''
+      const outTradeNo = params.out_trade_no ?? ''
+      if (['TRADE_SUCCESS', 'TRADE_FINISHED'].includes(tradeStatus)) {
+        // 2026-07-24 安全防护:校验回调金额与订单金额一致(防金额篡改)
+        const localOrder = await getOrder(outTradeNo)
+        if (!localOrder) {
+          return reply.type('text/plain').send('fail')
+        }
+        const callbackAmountYuan = parseFloat(params.total_amount ?? '0')
+        if (
+          !Number.isNaN(callbackAmountYuan) &&
+          Math.round(callbackAmountYuan * 100) !== localOrder.amount
+        ) {
+          request.log.error(
+            { orderNo: outTradeNo, callbackAmountYuan, orderAmountCents: localOrder.amount },
+            '回调金额与订单金额不一致',
+          )
+          return reply.type('text/plain').send('fail')
+        }
+        // 支付幂等：用支付宝 trade_no 作幂等键，防止重复回调
+        const idemKey = params.trade_no ?? outTradeNo
+        const idem = await server.paymentIdempotency.acquire(outTradeNo, idemKey)
+        if (idem.status === 'completed') {
+          return reply.type('text/plain').send('success')
+        }
+        if (idem.status === 'processing' || idem.status === 'unknown') {
+          // F-220:只有 completed 才能 ack success;processing/unknown 让支付宝重投。
+          request.log.warn(
+            { orderNo: outTradeNo, idemStatus: idem.status },
+            'alipay callback idempotency not ready, ask retry',
+          )
+          return reply.type('text/plain').send('fail')
+        }
+        try {
+          const result = await completeOrder(outTradeNo, params.trade_no)
+          // F-32:与微信回调同口径 —— 返回 success:false 不得 ACK success,必须 fail 让支付宝重投。
+          if (!result.success) {
+            await server.paymentIdempotency.fail(
+              outTradeNo,
+              idemKey,
+              result.reason ?? 'order complete failed',
+            )
+            request.log.error(
+              { orderNo: outTradeNo, reason: result.reason },
+              'alipay callback order complete failed',
+            )
+            return reply.type('text/plain').send('fail')
+          }
+          // 支付成功后触发返佣（失败不阻塞支付完成）
+          if (result.order) {
+            // P0-21 集成:充值阶梯折扣到账审计(实际入账待 order-service.ts 集成)
+            await auditTopupBonus(
+              outTradeNo,
+              result.order.amount,
+              'alipay',
+              result.order.userId,
+              request.log,
+            )
+            // B7: 副作用失败时不标记 complete,释放锁让支付平台重试
+            let sideEffectFailed = false
+            try {
+              await activateOrderSubscription(result.order)
+            } catch (ae) {
+              request.log.error({ err: ae, orderNo: outTradeNo }, 'subscription activation failed')
+              sideEffectFailed = true
+            }
+            try {
+              if (!result.order.userId) throw new Error('order has no userId')
+              await feedbackInvite(
+                { id: result.order.userId },
+                {
+                  id: result.order.id,
+                  amount: result.order.amount,
+                  orderType: result.order.orderType,
+                  productId: result.order.productId ?? null,
+                },
+              )
+            } catch (ce) {
+              request.log.error({ err: ce, orderNo: outTradeNo }, 'commission feedback failed')
+              sideEffectFailed = true
+            }
+            if (sideEffectFailed) {
+              await server.paymentIdempotency.fail(outTradeNo, idemKey, 'side effect failed')
+              return reply.type('text/plain').send('fail')
+            }
+          }
+          await server.paymentIdempotency.complete(outTradeNo, idemKey, { outTradeNo, tradeStatus })
+        } catch (e) {
+          await server.paymentIdempotency.fail(outTradeNo, idemKey, (e as Error).message)
+          return reply.type('text/plain').send('fail')
+        }
+      }
+      return reply.type('text/plain').send('success')
+    },
+  )
+
+  server.post(
+    '/payments/alipay/query',
+    {
+      schema: buildSchema({
+        summary: '查询支付宝订单',
+        description: '查询本地 + 支付宝侧订单状态(管理员或订单归属人可查)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      const payload = await authenticate(request)
+      const { outTradeNo } = outTradeNoQuery.parse(request.query)
+      const local = await getOrder(outTradeNo)
+      if (!local) return reply.status(404).send(error(404, '订单不存在'))
+      if (payload.roleId < ADMIN_ROLE_ID && local.userId !== request.userId) {
+        return reply.status(403).send(error(403, '无权操作此订单'))
+      }
+      if (!isAlipayConfigured()) return reply.send(success({ local }))
+      const alipay = await aliQueryOrder(outTradeNo)
+      return reply.send(success({ local, alipay }))
+    },
+  )
+
+  server.post(
+    '/payments/alipay/refund',
+    {
+      schema: buildSchema({
+        summary: '支付宝退款',
+        description:
+          '发起支付宝退款并本地退款(订单需为 paid 状态,仅管理员可操作,仅支持整单退款,金额单位:元)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      const payload = await authenticate(request)
+      const {
+        outTradeNo,
+        refundAmount: amountYuan,
+        reason,
+      } = alipayRefundQuery.parse(request.query)
+      const order = await getOrder(outTradeNo)
+      if (!order) return reply.status(404).send(error(404, '订单不存在'))
+      // P0 修复(2026-09-18):退款仅限管理员(同微信退款端点)
+      if (payload.roleId < ADMIN_ROLE_ID) {
+        return reply.status(403).send(error(403, '仅管理员可操作退款'))
+      }
+      if (order.status !== 'paid') return reply.status(400).send(error(400, '订单状态不允许退款'))
+      // P0 修复(2026-09-18):仅允许整单退款 + 金额为正——原部分退款无条件整单置 refunded
+      // 且 amountYuan<=0 可通过,构成重复退款套现口子
+      if (!amountYuan || amountYuan <= 0)
+        return reply.status(400).send(error(400, '退款金额必须为正'))
+      // F-23:金额比较必须先取整成"分"再比。
+      //
+      // 修前是 `amountYuan * 100 < order.amount`:浮点乘法会给出 19999.999999999996
+      // 这种值(如 199.99 * 100),于是"恰好等于订单金额"的合法退款被判成"小于",
+      // 用户看到"须等于订单金额"却怎么填都不对;反向比较同样可能漏判。
+      // 同文件其它路径(:1016/:1069/:1136/:1960)都是 `Math.round(amountYuan * 100)`,
+      // 这里漏了取整,属同文件内的口径不一致 —— 统一到同一出口,不新增换算函数。
+      const refundCents = Math.round(amountYuan * 100)
+      if (refundCents < order.amount)
+        return reply.status(400).send(error(400, '当前仅支持整单退款,退款金额须等于订单金额'))
+      if (refundCents > order.amount)
+        return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
+      // P0 资金安全修复(2026-09-06):退款入口接入风控引擎
+      const risk = server.riskEngine.evaluateRisk({
+        userId: order.userId ?? undefined,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        orderNo: outTradeNo,
+        amount: refundCents,
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId: order.userId, hits: risk.hits }, '支付宝退款被风控拒绝')
+        return reply.status(403).send(error(403, '退款请求被风控拦截,请联系客服'))
+      }
+      if (risk.action === 'REVIEW') {
+        request.log.info(
+          { userId: order.userId, hits: risk.hits },
+          '支付宝退款进入人工复核(不阻断)',
+        )
+      }
+      // F-09:调支付宝之前先用条件 UPDATE 抢占订单(paid→refunded)。并发第二笔在此 0 行命中
+      // 直接 409,不得再调支付宝——否则两个请求都读到 paid,各调一次支付宝就是真实资金双出。
+      const claim = await claimRefund(outTradeNo)
+      if (!claim.success) {
+        return reply.status(409).send(error(409, claim.reason ?? '订单状态已变更,退款未落库'))
+      }
+      if (isAlipayConfigured()) {
+        let result: { success: boolean }
+        try {
+          result = await aliRefundOrder({ outTradeNo, refundAmount: amountYuan, reason })
+        } catch (e) {
+          // 支付宝调用异常:解除抢占回到 paid,保持原 500 错误语义,允许重试
+          await abortRefund(outTradeNo)
+          throw e
+        }
+        if (!result.success) {
+          await abortRefund(outTradeNo)
+          return reply.status(500).send(error(500, '退款失败'))
+        }
+      }
+      // F-09:状态已在调支付宝前抢占落库,这里只做退款副作用(token 扣回/指标)。
+      const localResult = await refundOrder(outTradeNo, { alreadyClaimed: true })
+      if (!localResult.success) {
+        return reply.status(409).send(error(409, localResult.reason ?? '订单状态已变更,退款未落库'))
+      }
+      return reply.send(success({ outTradeNo }))
+    },
+  )
+
+  // ==========================================================================
+  // PayPal 支付(海外收款,Orders API v2 模式)
+  // 文档:https://developer.paypal.com/docs/api/orders/v2/
+  // 货币单位:分(cents),传 PayPal API 时转 "10.99" 元字符串
+  // 订阅激活:复用 activateOrderSubscription(orderType=2 VIP / 5 开发者套餐)
+  // ==========================================================================
+
+  server.post(
+    '/payments/paypal/create-order',
+    {
+      schema: buildSchema({
+        summary: 'PayPal Order 下单(海外)',
+        description:
+          '创建 PayPal Order,返回 approve URL 给前端跳转 PayPal 托管支付页(金额单位:分/cents,currency 默认 USD)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const {
+        amount: amountCentsInitial,
+        orderType,
+        productId,
+        currency,
+        description,
+        returnUrl,
+        cancelUrl,
+      } = paypalCreateOrderQuery.parse(request.query)
+      let amountCents = amountCentsInitial
+      const userId = request.userId!
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
+      // 2026-07-25 安全修复:商品金额服务端反查(VIP/Developer),不一致用 DB 金额替换
+      const dbAmountCents = await resolveProductAmountCents(
+        orderType,
+        productId,
+        amountCents,
+        request.log,
+        userId,
+      )
+      if (dbAmountCents !== null) {
+        amountCents = dbAmountCents
+        if (dbAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
+          return reply.status(400).send(error(400, '金额超过上限'))
+        if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
+      }
+      const order = await placeOrder({
+        userId,
+        amount: amountCents,
+        orderType,
+        productId,
+        payType: 'paypal',
+        description,
+      })
+      if (!isPaypalConfigured()) {
+        return reply.send(success({ outTradeNo: order.orderNo, amount: amountCents, mock: true }))
+      }
+      // return/cancel URL 默认值:从 CORS_ORIGIN 取第一个 origin
+      const webOrigin = ((env.CORS_ORIGIN ?? 'http://localhost:8801').split(',')[0] ?? '').trim()
+      const finalReturnUrl =
+        returnUrl ?? `${webOrigin}/payments/paypal/return?orderNo=${order.orderNo}`
+      const finalCancelUrl = cancelUrl ?? `${webOrigin}/payments/paypal/cancel`
+      const paypalOrder = await createPaypalOrder({
+        outTradeNo: order.orderNo,
+        amountYuan: centsToYuanString(amountCents),
+        currency,
+        description,
+        returnUrl: finalReturnUrl,
+        cancelUrl: finalCancelUrl,
+      })
+      const approveLink = paypalOrder.links.find((l) => l.rel === 'approve')
+      return reply.send(
+        success({
+          outTradeNo: order.orderNo,
+          amount: amountCents,
+          paypalOrderId: paypalOrder.id,
+          status: paypalOrder.status,
+          approveUrl: approveLink?.href ?? '',
+        }),
+      )
+    },
+  )
+
+  server.post(
+    '/payments/paypal/capture',
+    {
+      schema: buildSchema({
+        summary: 'PayPal 捕获已批准订单',
+        description:
+          '用户在 PayPal 批准后前端回调此端点,后端调用 PayPal capture 完成扣款并完成本地订单',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      const payload = await authenticate(request)
+      const { paypalOrderId } = paypalCaptureQuery.parse(request.query)
+      const userId = request.userId!
+      if (!isPaypalConfigured()) {
+        return reply.send(success({ paypalOrderId, mock: true }))
+      }
+      // 先查询 PayPal 订单拿到 reference_id(= outTradeNo)做归属校验
+      const statusBefore = await getPaypalOrderStatus(paypalOrderId)
+      const purchaseUnit = statusBefore.purchase_units?.[0]
+      const outTradeNo = purchaseUnit?.reference_id
+      if (!outTradeNo) {
+        return reply.status(400).send(error(400, 'PayPal 订单缺少 reference_id'))
+      }
+      const local = await getOrder(outTradeNo)
+      if (!local) return reply.status(404).send(error(404, '订单不存在'))
+      if (payload.roleId < ADMIN_ROLE_ID && local.userId !== userId) {
+        return reply.status(403).send(error(403, '无权操作此订单'))
+      }
+      if (local.status === 'paid') {
+        return reply.send(success({ outTradeNo, paypalOrderId, dup: true }))
+      }
+      // 校验金额(防篡改)
+      const paypalAmountYuan = purchaseUnit?.amount?.value
+      if (paypalAmountYuan && Math.round(Number(paypalAmountYuan) * 100) !== local.amount) {
+        request.log.error(
+          {
+            outTradeNo,
+            paypalAmountYuan,
+            orderAmountCents: local.amount,
+          },
+          'paypal capture amount mismatch',
+        )
+        return reply.status(400).send(error(400, '金额不匹配'))
+      }
+      // 调 PayPal capture
+      const captureResult = await capturePaypalOrder(paypalOrderId)
+      const capture = captureResult.purchase_units?.[0]?.payments?.captures?.[0]
+      if (!capture || capture.status !== 'COMPLETED') {
+        request.log.warn(
+          { paypalOrderId, captureStatus: capture?.status ?? 'no_capture' },
+          'paypal capture not completed',
+        )
+        return reply.status(400).send(error(400, `capture 状态异常: ${capture?.status ?? 'none'}`))
+      }
+      // 幂等键:capture_id(PayPal 保证全局唯一)
+      const idemKey = capture.id
+      const idem = await server.paymentIdempotency.acquire(outTradeNo, idemKey)
+      if (idem.status === 'completed') {
+        return reply.send(success({ outTradeNo, paypalOrderId, dup: true }))
+      }
+      if (idem.status === 'processing' || idem.status === 'unknown') {
+        // F-220:同微信回调 —— 非 completed 一律不 ack 成功,让 PayPal 重投。
+        request.log.warn(
+          { outTradeNo, idemStatus: idem.status },
+          'paypal capture idempotency not ready, ask retry',
+        )
+        return reply.status(503).send(error(503, 'idempotency not ready, will retry'))
+      }
+      try {
+        const result = await completeOrder(outTradeNo, capture.id)
+        // F-32:返回 success:false 不得当成功处理,否则幂等键被标 complete、用户不会再被补单。
+        if (!result.success) {
+          await server.paymentIdempotency.fail(
+            outTradeNo,
+            idemKey,
+            result.reason ?? 'order complete failed',
+          )
+          request.log.error(
+            { orderNo: outTradeNo, reason: result.reason, paypalOrderId },
+            'paypal capture order complete failed',
+          )
+          return reply.status(500).send(error(500, 'order complete failed, will retry'))
+        }
+        if (result.order) {
+          // P0-21 集成:充值阶梯折扣到账审计(实际入账待 order-service.ts 集成)
+          await auditTopupBonus(
+            outTradeNo,
+            result.order.amount,
+            'paypal',
+            result.order.userId,
+            request.log,
+          )
+          // B7: 副作用失败时不标记 complete,释放锁让支付平台重试
+          let sideEffectFailed = false
+          try {
+            await activateOrderSubscription(result.order)
+          } catch (ae) {
+            request.log.error(
+              { err: ae, orderNo: outTradeNo },
+              'paypal subscription activation failed',
+            )
+            sideEffectFailed = true
+          }
+          try {
+            if (!result.order.userId) throw new Error('order has no userId')
+            await feedbackInvite(
+              { id: result.order.userId },
+              {
+                id: result.order.id,
+                amount: result.order.amount,
+                orderType: result.order.orderType,
+                productId: result.order.productId ?? null,
+              },
+            )
+          } catch (ce) {
+            request.log.error({ err: ce, orderNo: outTradeNo }, 'paypal commission feedback failed')
+            sideEffectFailed = true
+          }
+          if (sideEffectFailed) {
+            await server.paymentIdempotency.fail(outTradeNo, idemKey, 'side effect failed')
+            return reply.status(500).send(error(500, 'side effect failed, will retry'))
+          }
+        }
+        await server.paymentIdempotency.complete(outTradeNo, idemKey, {
+          outTradeNo,
+          captureId: capture.id,
+        })
+      } catch (e) {
+        await server.paymentIdempotency.fail(outTradeNo, idemKey, (e as Error).message)
+        request.log.error({ err: e, outTradeNo, paypalOrderId }, 'paypal capture process failed')
+        return reply.status(500).send(error(500, 'process failed'))
+      }
+      return reply.send(
+        success({
+          outTradeNo,
+          paypalOrderId,
+          captureId: capture.id,
+          status: 'COMPLETED',
+        }),
+      )
+    },
+  )
+
+  server.post(
+    '/payments/paypal/webhook',
+    {
+      schema: buildSchema({
+        summary: 'PayPal Webhook 回调',
+        description:
+          'PayPal 异步事件回调(无需登录,验签后处理 PAYMENT.CAPTURE.COMPLETED / REFUNDED / DENIED)',
+        tags: ['Payment'],
+        auth: false,
+        response: swaggerSchemas.public,
+      }),
+    },
+    async (request, reply) => {
+      const rawBody = (request as FastifyRequest & { rawBody?: string }).rawBody
+      if (!rawBody) return reply.status(400).send(error(400, 'no raw body'))
+      const headers: PaypalWebhookHeaders = {
+        transmissionId: request.headers['paypal-transmission-id'] as string,
+        transmissionTime: request.headers['paypal-transmission-time'] as string,
+        transmissionSig: request.headers['paypal-transmission-sig'] as string,
+        certUrl: request.headers['paypal-cert-url'] as string,
+        authAlgo: request.headers['paypal-auth-algo'] as string,
+      }
+      if (
+        !headers.transmissionId ||
+        !headers.transmissionSig ||
+        !headers.certUrl ||
+        !headers.authAlgo
+      ) {
+        return reply.status(400).send(error(400, 'missing paypal webhook headers'))
+      }
+      let event
+      try {
+        event = await verifyPaypalWebhook(rawBody, headers)
+      } catch (err) {
+        request.log.warn(
+          { err: (err as Error).message },
+          'paypal webhook signature verification failed',
+        )
+        return reply.status(400).send(error(400, 'signature verification failed'))
+      }
+      request.log.info(
+        { eventId: event.id, eventType: event.event_type },
+        'paypal webhook received',
+      )
+      if (!isPaypalSubscribedEvent(event.event_type)) {
+        return reply.send(success({ received: true, skipped: 'unsubscribed_event' }))
+      }
+
+      // PAYMENT.CAPTURE.COMPLETED:实际到账(capture 已完成)
+      if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED') {
+        const resource = event.resource as {
+          id?: string // capture id
+          custom_id?: string // 修复后下单同时写入的 outTradeNo
+          reference_id?: string // 修复前的旧订单只带这个
+          amount?: { value?: string; currency_code?: string }
+          status?: string
+        }
+        // 老订单(2026-11-11 前下单)没有 custom_id,回退 reference_id,
+        // 避免已扣款订单在异步对账时彻底失联。
+        const outTradeNo = resource.custom_id ?? resource.reference_id
+        const captureId = resource.id
+        if (!outTradeNo || !captureId) {
+          request.log.warn(
+            { eventId: event.id, resource },
+            'paypal webhook missing out trade no or capture id',
+          )
+          return reply.send(success({ received: true, skipped: 'no_out_trade_no' }))
+        }
+        const localOrder = await getOrder(outTradeNo)
+        if (!localOrder) {
+          request.log.warn({ outTradeNo, eventId: event.id }, 'paypal webhook order not found')
+          return reply.send(success({ received: true, skipped: 'order_not_found' }))
+        }
+        // 校验金额
+        const callbackAmountYuan = resource.amount?.value
+        if (
+          callbackAmountYuan &&
+          Math.round(Number(callbackAmountYuan) * 100) !== localOrder.amount
+        ) {
+          request.log.error(
+            { outTradeNo, callbackAmountYuan, orderAmountCents: localOrder.amount },
+            'paypal webhook amount mismatch',
+          )
+          return reply.status(400).send(error(400, 'amount mismatch'))
+        }
+        const idem = await server.paymentIdempotency.acquire(outTradeNo, captureId)
+        if (idem.status === 'completed') return reply.send(success({ received: true, dup: true }))
+        if (idem.status === 'processing' || idem.status === 'unknown') {
+          // F-220:同微信回调 —— 非 completed 一律不 ack 成功,让 PayPal 重投。
+          request.log.warn(
+            { outTradeNo, idemStatus: idem.status },
+            'paypal webhook idempotency not ready, ask retry',
+          )
+          return reply.status(503).send(error(503, 'idempotency not ready, will retry'))
+        }
+        try {
+          const result = await completeOrder(outTradeNo, captureId)
+          // F-32:同上,失败必须 500 让 PayPal 重投,不得落 complete + 200。
+          if (!result.success) {
+            await server.paymentIdempotency.fail(
+              outTradeNo,
+              captureId,
+              result.reason ?? 'order complete failed',
+            )
+            request.log.error(
+              { orderNo: outTradeNo, reason: result.reason, eventId: event.id },
+              'paypal webhook order complete failed',
+            )
+            return reply.status(500).send(error(500, 'order complete failed, will retry'))
+          }
+          if (result.order) {
+            // P0-21 集成:充值阶梯折扣到账审计(实际入账待 order-service.ts 集成)
+            await auditTopupBonus(
+              outTradeNo,
+              result.order.amount,
+              'paypal',
+              result.order.userId,
+              request.log,
+            )
+            // B7: 副作用失败时不标记 complete,释放锁让支付平台重试
+            let sideEffectFailed = false
+            try {
+              await activateOrderSubscription(result.order)
+            } catch (ae) {
+              request.log.error(
+                { err: ae, orderNo: outTradeNo },
+                'paypal webhook subscription activation failed',
+              )
+              sideEffectFailed = true
+            }
+            try {
+              if (!result.order.userId) throw new Error('order has no userId')
+              await feedbackInvite(
+                { id: result.order.userId },
+                {
+                  id: result.order.id,
+                  amount: result.order.amount,
+                  orderType: result.order.orderType,
+                  productId: result.order.productId ?? null,
+                },
+              )
+            } catch (ce) {
+              request.log.error(
+                { err: ce, orderNo: outTradeNo },
+                'paypal webhook commission feedback failed',
+              )
+              sideEffectFailed = true
+            }
+            if (sideEffectFailed) {
+              await server.paymentIdempotency.fail(outTradeNo, captureId, 'side effect failed')
+              return reply.status(500).send(error(500, 'side effect failed, will retry'))
+            }
+          }
+          await server.paymentIdempotency.complete(outTradeNo, captureId, {
+            outTradeNo,
+            eventId: event.id,
+          })
+        } catch (e) {
+          await server.paymentIdempotency.fail(outTradeNo, captureId, (e as Error).message)
+          request.log.error(
+            { err: e, outTradeNo, eventId: event.id },
+            'paypal webhook process failed',
+          )
+          return reply.status(500).send(error(500, 'process failed'))
+        }
+      }
+
+      // PAYMENT.CAPTURE.REFUNDED:退款完成
+      if (event.event_type === 'PAYMENT.CAPTURE.REFUNDED') {
+        const resource = event.resource as {
+          id?: string // refund id
+          links?: Array<{ rel: string; href: string }>
+        }
+        // 通过 links 找到原 capture 的 refund 链接拿 custom_id(= outTradeNo)
+        // PayPal refund 资源不含 custom_id,需要通过 up link 找原 capture
+        // 简化处理:用 resource.links 中 rel='up' 的 href 末段作 capture_id
+        const upLink = resource.links?.find((l) => l.rel === 'up')
+        const captureIdFromLink = upLink?.href.split('/').pop()
+        if (captureIdFromLink) {
+          request.log.info(
+            { refundId: resource.id, captureId: captureIdFromLink, eventId: event.id },
+            'paypal refund webhook received, marking local order as refunded',
+          )
+          // 通过 capture_id 查找本地订单(本地 payments 表 provider_order_id 存 capture_id)
+          // 简化:直接 log,实际本地退款由 /payments/paypal/refund 端点主动调用触发
+          // webhook 仅作对账记录,不主动改本地状态(避免无 outTradeNo 时误改)
+        }
+      }
+
+      return reply.send(success({ received: true }))
+    },
+  )
+
+  server.get(
+    '/payments/paypal/order-status',
+    {
+      schema: buildSchema({
+        summary: '查询 PayPal 订单状态',
+        description: '按 paypalOrderId 查询 PayPal 订单支付状态(管理员或订单归属人可查)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const { paypalOrderId } = paypalOrderStatusQuery.parse(request.query)
+      if (!isPaypalConfigured()) {
+        return reply.send(success({ paypalOrderId, mock: true }))
+      }
+      const status = await getPaypalOrderStatus(paypalOrderId)
+      // 校验订单归属:reference_id = outTradeNo
+      const outTradeNo = status.purchase_units?.[0]?.reference_id
+      if (outTradeNo) {
+        const local = await getOrder(outTradeNo)
+        if (local && local.userId && local.userId !== request.userId) {
+          return reply.status(403).send(error(403, '无权查看此订单'))
+        }
+      }
+      return reply.send(
+        success({
+          paypalOrderId: status.id,
+          status: status.status,
+          intent: status.intent,
+          outTradeNo,
+          amount: status.purchase_units?.[0]?.amount,
+        }),
+      )
+    },
+  )
+
+  server.post(
+    '/payments/paypal/refund',
+    {
+      schema: buildSchema({
+        summary: 'PayPal 退款',
+        description: '发起 PayPal 退款并本地退款(订单需为 paid 状态,仅管理员可操作,仅支持整单退款)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      const payload = await authenticate(request)
+      const { outTradeNo, captureId, refundAmount, reason } = paypalRefundQuery.parse(request.query)
+      const order = await getOrder(outTradeNo)
+      if (!order) return reply.status(404).send(error(404, '订单不存在'))
+      // P0 修复(2026-09-18):退款仅限管理员(同微信退款端点)
+      if (payload.roleId < ADMIN_ROLE_ID) {
+        return reply.status(403).send(error(403, '仅管理员可操作退款'))
+      }
+      if (order.status !== 'paid') return reply.status(400).send(error(400, '订单状态不允许退款'))
+      // P0 修复(2026-09-18):仅允许整单退款——无累计退款台账前开放部分退款可被反复套现
+      const refundCents = refundAmount ?? order.amount
+      if (refundCents < order.amount)
+        return reply.status(400).send(error(400, '当前仅支持整单退款,退款金额须等于订单金额'))
+      if (refundCents > order.amount)
+        return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
+      // P0 资金安全修复(2026-09-06):退款入口接入风控引擎
+      const risk = server.riskEngine.evaluateRisk({
+        userId: order.userId ?? undefined,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        orderNo: outTradeNo,
+        amount: refundCents,
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId: order.userId, hits: risk.hits }, 'PayPal 退款被风控拒绝')
+        return reply.status(403).send(error(403, '退款请求被风控拦截,请联系客服'))
+      }
+      if (risk.action === 'REVIEW') {
+        request.log.info(
+          { userId: order.userId, hits: risk.hits },
+          'PayPal 退款进入人工复核(不阻断)',
+        )
+      }
+      if (!captureId) {
+        return reply.status(400).send(error(400, 'PayPal 退款必须提供 captureId'))
+      }
+      // F-09:与支付宝/微信退款端点同模式——调渠道之前先用条件 UPDATE 抢占订单(paid→refunded)。
+      // 并发第二笔(另一管理员请求 / PayPal webhook)在此 0 行命中直接 409,不再重复调渠道,
+      // 否则两个路径都读到 paid、各退一次渠道就是真实资金双出。渠道失败/异常必须 abortRefund
+      // 回退到 paid,否则订单被误记 refunded、用户无法再次发起退款。
+      const claim = await claimRefund(outTradeNo)
+      if (!claim.success) {
+        return reply.status(409).send(error(409, claim.reason ?? '订单状态已变更,退款未落库'))
+      }
+      if (isPaypalConfigured()) {
+        let refundResult
+        try {
+          refundResult = await refundPaypalCapture({
+            captureId,
+            amountYuan: centsToYuanString(refundCents),
+            note: reason,
+          })
+        } catch (e) {
+          // PayPal 渠道调用异常:解除抢占回到 paid,保持原 500 错误语义,允许重试
+          await abortRefund(outTradeNo)
+          throw e
+        }
+        // F-09:状态已在调渠道前抢占落库,这里只做退款副作用(token 扣回/佣金冲减/权益回收)。
+        const localResult = await refundOrder(outTradeNo, { alreadyClaimed: true })
+        if (!localResult.success) {
+          return reply
+            .status(409)
+            .send(error(409, localResult.reason ?? '订单状态已变更,退款未落库'))
+        }
+        return reply.send(
+          success({
+            outTradeNo,
+            refundId: refundResult.id,
+            amount: refundResult.amount.value,
+            status: refundResult.status,
+          }),
+        )
+      }
+      // 未配置 PayPal:仅本地退款(状态已抢占,复用 alreadyClaimed 做副作用)
+      const localOnly = await refundOrder(outTradeNo, { alreadyClaimed: true })
+      if (!localOnly.success) {
+        return reply
+          .status(409)
+          .send(error(409, localOnly.reason ?? '订单状态已变更,退款未落库'))
+      }
+      return reply.send(success({ outTradeNo, mock: true }))
+    },
+  )
+
+  // ==========================================================================
+  // 基金（转账/提现）
+  // ==========================================================================
+
+  server.post(
+    '/payments/createOrder',
+    {
+      schema: buildSchema({
+        summary: '基金下单',
+        description: '创建基金订单(金额单位:元,自动转分)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const { amount: amountYuan, orderType, productId } = fundCreateOrderQuery.parse(request.query)
+      const userId = request.userId!
+      const amountCents = Math.round(amountYuan * 100)
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      // 2026-10-31 安全强化第 10 批 R10：**服务端反查商品价**。
+      //
+      // 此前本路由直接落客户端金额，而第 19 批只把 `resolveProductAmountCents` 接到了
+      // wechat/native/alipay/paypal 等**支付**调用点 —— 下单这一侧仍可自报。攻击面是：
+      // 下 1 分钱的 orderType=2/5/6 订单 → 支付完成回调按 productId 激活整档权益
+      // （VIP 等级 / 开发者套餐 / API 订阅配额），只查产品行不比对实付金额 ⇒ 1 分钱买整档。
+      // 反查与支付侧同一单源（vipLevels / developerPricing / plans），此处补上不漏。
+      const dbAmountCents = await resolveProductAmountCents(
+        orderType,
+        productId,
+        amountCents,
+        request.log,
+        userId,
+      )
+      const finalAmountCents = dbAmountCents ?? amountCents
+      if (finalAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
+      if (finalAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
+      const order = await placeOrder({
+        userId,
+        amount: finalAmountCents,
+        orderType,
+        productId,
+        payType: 'fund',
+      })
+      return reply.send(success({ outTradeNo: order.orderNo, amount: finalAmountCents }))
+    },
+  )
+
+  server.post(
+    '/payments/wechatPay',
+    {
+      schema: buildSchema({
+        summary: '基金微信支付',
+        description: '使用微信 JSAPI 支付基金订单(返回 prepayId 用于拉起支付)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const { outTradeNo, totalFee } = wechatPayQuery.parse(request.query)
+      if (!isWechatPayConfigured()) return reply.send(success({ outTradeNo, mock: true }))
+      // 2026-07-25 安全修复:用 DB 订单金额替换客户端 totalFee(CWE-994)
+      const localOrder = await getOrder(outTradeNo)
+      if (!localOrder) return reply.status(404).send(error(404, '订单不存在'))
+      if (totalFee !== localOrder.amount) {
+        request.log.error(
+          { outTradeNo, clientFee: totalFee, orderAmount: localOrder.amount },
+          'wechatPay totalFee 与订单金额不一致,采用 DB 订单金额',
+        )
+      }
+      const prepayId = await jsapiPrepay({
+        outTradeNo,
+        amount: localOrder.amount,
+        description: '基金充值',
+        openId: '',
+        notifyUrl: notifyUrl(),
+      })
+      return reply.send(success({ outTradeNo, prepayId }))
+    },
+  )
+
+  server.post(
+    '/payments/transfer',
+    {
+      schema: buildSchema({
+        summary: '银行卡提现',
+        description: '申请银行卡提现(创建提现流水,异步处理)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const { amount, bankAccount, bankName } = transferQuery.parse(request.query)
+      const userId = request.userId!
+      // 2FA step-up 闸：已开 2FA 的账号，提现前须有窗内二次验证（会话被窃 ⇒ 拿不到凭据）
+      const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+      if (!stepUp.ok) {
+        return reply
+          .status(401)
+          .send(
+            error(
+              401,
+              stepUp.code === 'STEP_UP_REQUIRED'
+                ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）'
+                : '暂时无法确认该账号的两步验证状态，请稍后重试',
+              stepUp.code,
+            ),
+          )
+      }
+      // 2026-07-24 安全防护:提现金额不能超过用户余额(CWE-841)
+      const balance = await getBalance(userId)
+      if (amount > balance) return reply.status(400).send(error(400, '提现金额不能超过可用余额'))
+      // P0 资金安全修复(2026-09-06):银行卡提现(transfer)接入风控引擎
+      const risk = server.riskEngine.evaluateRisk({
+        userId,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        withdrawalAmountFen: amount,
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId, hits: risk.hits }, '银行卡提现被风控拒绝')
+        return reply.status(403).send(error(403, '提现请求被风控拦截,请联系客服'))
+      }
+      if (risk.action === 'REVIEW') {
+        request.log.info({ userId, hits: risk.hits }, '银行卡提现进入人工复核(不阻断)')
+      }
+      const flow = await applyWithdrawal(
+        {
+          userId,
+          amount,
+          method: 'bank',
+          accountInfo: { bankAccount, bankName },
+        },
+        userId,
+      )
+      return reply.send(success(flow))
+    },
+  )
+
+  server.post(
+    '/payments/withdrawal',
+    {
+      schema: buildSchema({
+        summary: '微信提现',
+        description: '申请微信提现(创建提现流水,异步处理)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const { amount } = withdrawalQuery.parse(request.query)
+      const userId = request.userId!
+      // 2FA step-up 闸：已开 2FA 的账号，提现前须有窗内二次验证（会话被窃 ⇒ 拿不到凭据）
+      const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+      if (!stepUp.ok) {
+        return reply
+          .status(401)
+          .send(
+            error(
+              401,
+              stepUp.code === 'STEP_UP_REQUIRED'
+                ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）'
+                : '暂时无法确认该账号的两步验证状态，请稍后重试',
+              stepUp.code,
+            ),
+          )
+      }
+      // 2026-07-24 安全防护:提现金额不能超过用户余额(CWE-841)
+      const balance = await getBalance(userId)
+      if (amount > balance) return reply.status(400).send(error(400, '提现金额不能超过可用余额'))
+      // P0 资金安全修复(2026-09-06):微信提现接入风控引擎
+      const risk = server.riskEngine.evaluateRisk({
+        userId,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        withdrawalAmountFen: amount,
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId, hits: risk.hits }, '微信提现被风控拒绝')
+        return reply.status(403).send(error(403, '提现请求被风控拦截,请联系客服'))
+      }
+      if (risk.action === 'REVIEW') {
+        request.log.info({ userId, hits: risk.hits }, '微信提现进入人工复核(不阻断)')
+      }
+      const flow = await applyWithdrawal(
+        {
+          userId,
+          amount,
+          method: 'wechat',
+          accountInfo: {},
+        },
+        request.userId ?? null,
+      )
+      return reply.send(success(flow))
+    },
+  )
+
+  server.get(
+    '/payments/success',
+    {
+      schema: buildSchema({
+        summary: '支付成功页',
+        description: '支付成功后的回调着陆页(返回 orderNo)',
+        tags: ['Payment'],
+        auth: false,
+      }),
+    },
+    async (request, reply) => {
+      const { orderNo } = orderNoQuery.parse(request.query)
+      return reply.send(success({ orderNo, msg: 'Payment success' }))
+    },
+  )
+
+  server.get(
+    '/payments/fail',
+    {
+      schema: buildSchema({
+        summary: '支付失败页',
+        description: '支付失败时的回调着陆页(返回 500)',
+        tags: ['Payment'],
+        auth: false,
+      }),
+    },
+    async (_request, reply) => {
+      return reply.status(500).send(error(500, 'Payment failed, please retry'))
+    },
+  )
+
+  // 对账（用户级）
+  server.get(
+    '/payments/reconciliation/pending',
+    {
+      schema: buildSchema({
+        summary: '待处理订单列表',
+        description: '返回当前所有待处理(pending)订单列表',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      // P1 修复(2026-08-06): 全平台待处理订单列表含全量订单信息,普通登录用户可越权查看,改为仅管理员
+      const payload = await authenticate(request)
+      if (payload.roleId < ADMIN_ROLE_ID) {
+        return reply.status(403).send(error(403, '需要管理员权限'))
+      }
+      const items = await queryPendingOrders()
+      return reply.send(success({ count: items.length, items }))
+    },
+  )
+
+  server.post(
+    '/payments/reconciliation/close_expired',
+    {
+      schema: buildSchema({
+        summary: '关闭过期订单',
+        description: '扫描所有待处理订单并关闭已过期的(返回成功/失败清单)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      // P1 修复(2026-08-06): 批量关闭全平台过期订单为管理员操作,普通登录用户可越权触发,改为仅管理员
+      const payload = await authenticate(request)
+      if (payload.roleId < ADMIN_ROLE_ID) {
+        return reply.status(403).send(error(403, '需要管理员权限'))
+      }
+      const pending = await queryPendingOrders()
+      const closed: string[] = []
+      const failed: Array<{ outTradeNo: string; error: string }> = []
+      const results = await Promise.allSettled(
+        pending.map(async (order) => {
+          const payType = order.paymentMethod ?? ''
+          if (payType.startsWith('alipay') && isAlipayConfigured()) {
+            await aliCloseOrder(order.orderNo)
+          } else if (payType.startsWith('wechat') && isWechatPayConfigured()) {
+            await wxCloseOrder(order.orderNo)
+          }
+          await cancelOrder(order.orderNo)
+          return order.orderNo
+        }),
+      )
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') {
+          closed.push(r.value)
+        } else {
+          failed.push({
+            outTradeNo: pending[i]!.orderNo,
+            error: (r.reason as Error)?.message ?? String(r.reason),
+          })
+        }
+      })
+      return reply.send(success({ scanned: pending.length, closed, failed }))
+    },
+  )
+}
+
+export const adminPaymentGatewayRoutes: FastifyPluginAsync = async (server) => {
+  server.addHook('preHandler', async (request) => {
+    const payload = await authenticate(request)
+    if (payload.roleId < ADMIN_ROLE_ID) {
+      const err = new Error('需要管理员权限')
+      ;(err as Error & { statusCode: number }).statusCode = 403
+      throw err
+    }
+  })
+
+  // 三个对账端点缺省 billDate 时取「北京时区的昨日日历日」(唯一实现见
+  // reconciliation-service.billDateForYesterday)——网关按北京时间归档账单,
+  // 用 UTC 日历日会在北京 00:00–08:00 请求到前天的账单。
+  server.get(
+    '/payments/reconciliation/alipay',
+    {
+      schema: buildSchema({
+        summary: '支付宝对账单',
+        description: '下载支付宝指定日期对账单(管理员,默认前一天)',
+        tags: ['Admin', 'Payment'],
+      }),
+    },
+    async (request, reply) => {
+      const { billDate } = billDateQuery.parse(request.query)
+      const date = billDate ?? billDateForYesterday()
+      if (!isAlipayConfigured()) return reply.send(success({ billDate: date, mock: true }))
+      const billUrl = await aliDownloadBillUrl(date, 'trade')
+      return reply.send(success({ billDate: date, billUrl }))
+    },
+  )
+
+  server.get(
+    '/payments/reconciliation/wechat',
+    {
+      schema: buildSchema({
+        summary: '微信对账单',
+        description: '下载微信指定日期对账单 CSV(管理员,默认前一天)',
+        tags: ['Admin', 'Payment'],
+      }),
+    },
+    async (request, reply) => {
+      const { billDate } = billDateQuery.parse(request.query)
+      const date = billDate ?? billDateForYesterday()
+      if (!isWechatPayConfigured()) return reply.send(success({ billDate: date, mock: true }))
+      const csv = await wxDownloadBill(date, 'ALL')
+      return reply.send(success({ billDate: date, csv }))
+    },
+  )
+
+  server.get(
+    '/payments/reconciliation/all',
+    {
+      schema: buildSchema({
+        summary: '全平台对账单',
+        description: '同时下载支付宝 + 微信指定日期对账单(管理员,默认前一天)',
+        tags: ['Admin', 'Payment'],
+      }),
+    },
+    async (request, reply) => {
+      const { billDate } = billDateQuery.parse(request.query)
+      const date = billDate ?? billDateForYesterday()
+      const result: Record<string, unknown> = { billDate: date }
+      if (isAlipayConfigured()) {
+        try {
+          result.alipay = await aliDownloadBillUrl(date, 'trade')
+        } catch (e) {
+          result.alipayError = (e as Error).message
+        }
+      }
+      if (isWechatPayConfigured()) {
+        try {
+          result.wechat = await wxDownloadBill(date, 'ALL')
+        } catch (e) {
+          result.wechatError = (e as Error).message
+        }
+      }
+      return reply.send(success(result))
+    },
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

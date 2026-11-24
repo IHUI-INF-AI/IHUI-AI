@@ -1,0 +1,369 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""Artifact 安全静态文件服务(2026-09-01 立,对齐 Claude Artifacts)。
+
+对话中 generate_chart 工具生成的本地 ECharts HTML 产物,通过**短期签名 token**
+在 web 端聊天卡片内以 iframe 直接预览。
+
+鉴权设计:
+- iframe 无法携带 Authorization header,故文件访问端点用 URL 内嵌的短期签名
+  token(30 分钟,HS256 + 独立 aud)鉴权,不依赖 JWT 中间件。
+- token 签发端点走 JWT 保护(Depends(get_current_user_id)),防未登录用户任意换取。
+
+安全约束:
+- 签名 token 校验(防伪造/防过期)。
+- file_name 必须是相对路径,`..` 段 / 绝对路径 / 盘符 / 以 / 开头全部拒绝;
+  `resolve()` 后必须落在白名单目录(项目根 tmp/charts + tmp/artifacts)内,防路径逃逸。
+- 仅允许 .html 产物(图表 Artifact 均为 .html,杜绝经 token 读取任意文件)。
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import re
+import time
+from pathlib import Path
+from typing import Any, Literal
+
+import jwt as pyjwt
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, PlainTextResponse
+
+from app.core.config import settings
+from app.core.jwt_auth import get_current_user_id
+from app.services.tool_output_artifacts import read_tool_output_page
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+# 项目根 = G:/IHUI-AI (app/routers -> app -> ai-service -> apps -> IHUI-AI)
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
+# 产物文件白名单根目录(相对项目根)。token 内 file_name 必须落在其一内。
+_ARTIFACT_DIRS: tuple[Path, ...] = (
+    _PROJECT_ROOT / "tmp" / "charts",
+    _PROJECT_ROOT / "tmp" / "artifacts",
+)
+
+# 签名 token 有效期:30 分钟(与前端 iframe 预览生命周期匹配)
+TOKEN_TTL_SECONDS = 30 * 60
+TOKEN_AUDIENCE = "ihui-artifacts"
+TOKEN_ISSUER = "ihui-ai"
+
+# 工具输出工件(MCP apps)挂载 token(2026-11-20):独立 aud,短寿命 10 分钟。
+# 与图表产物同一把签名密钥、同一条校验入口家族的写法,但**不共用 aud** ——
+# 图表 token 能读 .html,工件 token 只能按 artifact_id 读分页纯文本,两权限面不可互换。
+TOOL_ARTIFACT_AUDIENCE = "ihui-artifacts-tool"
+TOOL_ARTIFACT_TTL_SECONDS = 10 * 60
+MOUNT_EXPIRED_DETAIL = "Mount Expired"
+
+# 归属 sidecar 强制生效起点(AIS-096,2026-09-09 sidecar 落盘逻辑上线)。
+# 判定口径:
+# - chart_tools / report_tools 产物统一命名为 `YYYYMMDD_HHMM_slug_rand.html`。
+# - 文件名前缀日期 >= 该日 ⇒ **新产物**:缺 sidecar 一律 fail-closed(403)。
+# - 前缀日期早于该日 ⇒ **存量历史产物**(上线时无 sidecar 机制,无法重建归属),
+#   维持放行(兼容口径;这批文件生成时尚无随机段,枚举面另由 TTL 收敛)。
+# - 非时间戳命名(如 tmp/artifacts/<artifact_id>/v1.html 的版本化产物,归属由
+#   artifacts_store 会话元数据负责)不在本 sidecar 契约内,同样放行,避免误挡。
+_SIDECAR_REQUIRED_SINCE = "20260909"
+_PRODUCT_NAME_RE = re.compile(r"^(\d{8})_\d{4}(?:_|$)")
+
+
+def _requires_owner_sidecar(file_name: str) -> bool:
+    """该产物是否必须持有归属 sidecar(新产物 fail-closed,存量/非契约命名放行)。"""
+    name = file_name.replace("\\", "/").rsplit("/", 1)[-1]
+    m = _PRODUCT_NAME_RE.match(name)
+    if not m:
+        return False
+    return m.group(1) >= _SIDECAR_REQUIRED_SINCE
+
+
+async def enforce_artifact_owner(target: Path, user_id: str) -> None:
+    """校验产物归属;不通过抛 403。缺失 sidecar 按产物新老口径 fail-closed。
+
+    - sidecar 存在且 user_id 与当前用户不符 → 403;
+    - sidecar 存在但不可解析/无 user_id → 视为无归属凭证(按缺失处理);
+    - sidecar 缺失:新产物 → 403;存量/非契约命名 → 放行(见 `_requires_owner_sidecar`)。
+    """
+    owner_file = Path(str(target) + ".owner")
+    owner: str | None = None
+    if owner_file.is_file():
+        try:
+            payload = json.loads(
+                await asyncio.to_thread(owner_file.read_text, encoding="utf-8")
+            )
+            if isinstance(payload, dict) and payload.get("user_id"):
+                owner = str(payload["user_id"])
+        except (OSError, ValueError):
+            owner = None
+    if owner:
+        if owner != str(user_id):
+            logger.warning(
+                "[artifacts] 越权换取 token 拒绝: user=%s file=%s owner=%s",
+                user_id, target.name, owner,
+            )
+            raise HTTPException(status_code=403, detail="无权访问该产物")
+        return
+    if _requires_owner_sidecar(target.name):
+        logger.warning(
+            "[artifacts] 缺归属凭证拒绝(fail-closed): user=%s file=%s",
+            user_id, target.name,
+        )
+        raise HTTPException(status_code=403, detail="产物缺少归属凭证,拒绝访问")
+    logger.warning("[artifacts] 无 sidecar 存量产物放行: file=%s", target.name)
+
+
+# 签名 token 不再有任何兜底密钥(2026-11-01 安全强化)。
+# 此前这里有一个写死的开发常量 `_DEV_SIGNING_KEY = "ihui-artifacts-dev-key"`,并在
+# `_signing_key()` 里用 `settings.jwt_secret or _DEV_SIGNING_KEY` 静默回落。三重问题:
+#   ① 那个字面量躺在**公开仓**里 ⇒ 知道它就能伪造 token;
+#   ② `/api/artifacts/f/` 在 `JWT_PUBLIC_PATHS` 名单内(匿名可达,唯一门槛就是这枚签名),
+#      所以"漏配 JWT_SECRET 的部署"= 白名单目录内任意文件对公网可读;
+#   ③ 第 54 行那句注释("生产环境 jwt_secret 必填,fail-closed")当时**没有任何启动校验支撑**
+#      —— `validate_cors_origin` / `validate_mtls_config` 都不看 jwt_secret。
+# ②③ 都由本次补上:校验见 `core/config.py` 的 `validate_secrets()`(在 `create_app` 里调用),
+# 取值见下面 `_signing_key()` —— 拿不到密钥就抛,不签也不验。
+# 本地开发要用这一面:在 `.env` 里给 `JWT_SECRET` 一个 ≥32 字符的值(与 apps/api 同口径,
+# api 侧本来就在 `config/index.ts` 用 `.min(32)` 强制,不存在"本地也没有密钥"的正常形态)。
+
+
+def _signing_key() -> str:
+    """签名/验签的唯一取密钥处:空值 ⇒ 拒绝(fail-closed),不回落任何常量。"""
+    key = (settings.jwt_secret or "").strip()
+    if not key:
+        raise RuntimeError(
+            "JWT_SECRET 未配置 ⇒ 拒绝签发/校验产物访问 token。"
+            "这一面没有任何兜底密钥:回落写死常量等于把匿名可达的文件读端点开放给"
+            "任何读到公开仓这一行的人。请在 .env 配置 JWT_SECRET(≥32 字符,与 apps/api 同口径)。"
+        )
+    return key
+
+
+def sign_artifact_token(file_name: str) -> str:
+    """为产物相对路径签发短期访问 token(HS256,含 iat/exp/aud)。"""
+    now = int(time.time())
+    payload = {
+        "file": file_name,
+        "iat": now,
+        "exp": now + TOKEN_TTL_SECONDS,
+        "iss": TOKEN_ISSUER,
+        "aud": TOKEN_AUDIENCE,
+    }
+    return pyjwt.encode(payload, _signing_key(), algorithm="HS256")
+
+
+def verify_artifact_token(token: str) -> str | None:
+    """校验签名 token,返回其中携带的相对路径;无效/过期返回 None。
+
+    2026-11-01:密钥取不到(`RuntimeError`)也按"无效"处理并**喊响**,而不是抛成 500 ——
+    拒绝是正确结论,栈炸了反而把这一面变成可用性故障。生产档走不到这一支:`create_app`
+    里的 `settings.validate_secrets()` 已经在启动时把"生产 + 空 JWT_SECRET"判成起不来。
+    """
+    try:
+        key = _signing_key()
+    except RuntimeError as e:
+        logger.error("产物 token 校验被拒:签名密钥不可用(漏配 JWT_SECRET)：%s", e)
+        return None
+    try:
+        payload = pyjwt.decode(
+            token,
+            key,
+            algorithms=["HS256"],
+            issuer=TOKEN_ISSUER,
+            audience=TOKEN_AUDIENCE,
+        )
+    except pyjwt.PyJWTError:
+        return None
+    file_name = payload.get("file")
+    if not isinstance(file_name, str) or not file_name:
+        return None
+    return file_name
+
+
+def validate_and_resolve(file_name: str) -> Path:
+    """校验相对路径并解析到白名单目录内的绝对路径;非法直接抛 HTTPException。
+
+    拒绝规则:空值 / 绝对路径 / 以 / 开头 / 含盘符 / 含 `..` 路径段 /
+    resolve 后不在白名单目录内 / 非 .html 后缀。
+    """
+    name = file_name.replace("\\", "/").strip()
+    if not name or name.startswith("/"):
+        raise HTTPException(status_code=400, detail="非法文件路径")
+    p = Path(name)
+    if p.is_absolute() or p.drive or ".." in p.parts:
+        raise HTTPException(status_code=400, detail="非法文件路径")
+    resolved = (_PROJECT_ROOT / p).resolve()
+    try:
+        resolved.relative_to(_PROJECT_ROOT.resolve())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="非法文件路径") from None
+    if resolved.suffix.lower() != ".html":
+        raise HTTPException(status_code=400, detail="仅支持 .html 产物")
+    for root in _ARTIFACT_DIRS:
+        try:
+            resolved.relative_to(root.resolve())
+        except ValueError:
+            continue
+        return resolved
+    raise HTTPException(status_code=400, detail="文件不在白名单目录内")
+
+
+@router.get("/artifacts/token")
+async def issue_artifact_token(
+    request: Request,
+    file: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """换取产物访问签名 token(JWT 保护)。
+
+    查询参数:
+        file: 产物相对路径(如 tmp/charts/20260901_2200_xxx.html)
+
+    返回:
+        {"token": "<签名token>", "url": "/api/artifacts/f/<token>", "expires_in": 1800}
+
+    注:响应脱敏中间件会把字段名含 "token" 的值替换为 ***,而此 token 本就是
+    返回给调用方使用的短期签名凭证(非内部 secret),故跳过脱敏。
+    2026-09-09 P2 越权修复:签发时校验产物归属(sidecar <file>.owner 内的 user_id
+    由 generate_chart 落盘);存在且与当前用户不符 → 403。
+    AIS-096(2026-11-08):sidecar 缺失不能再放行 —— 清扫曾把所有 sidecar 当孤儿
+    删光,持路径者可越权取他人图表。现按产物新老口径 fail-closed:新产物缺
+    sidecar → 403;sidecar 上线前的存量产物/非时间戳命名的版本化产物维持放行
+    (口径见 `_requires_owner_sidecar`)。
+    """
+    target = validate_and_resolve(file)
+    await enforce_artifact_owner(target, user_id)
+    token = sign_artifact_token(file)
+    request.state.skip_response_sanitization = True
+    return {
+        "token": token,
+        "url": f"/api/artifacts/f/{token}",
+        "expires_in": TOKEN_TTL_SECONDS,
+    }
+
+
+@router.get("/artifacts/f/{token}")
+async def serve_artifact(token: str) -> HTMLResponse:
+    """按签名 token 返回产物 HTML(iframe 可直接加载,无需 Authorization)。"""
+    file_name = verify_artifact_token(token)
+    if file_name is None:
+        raise HTTPException(status_code=403, detail="签名 token 无效或已过期")
+    target = validate_and_resolve(file_name)
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="产物文件不存在")
+    try:
+        content = await asyncio.to_thread(target.read_text, encoding="utf-8")
+    except OSError as exc:
+        logger.error("读取产物失败 %s: %s", target, exc)
+        raise HTTPException(status_code=500, detail="读取产物失败") from None
+    return HTMLResponse(content=content)
+
+
+# ─── 工具输出工件挂载（MCP apps，2026-11-20）──────────────────────────────
+# 对照件（WorkBuddy）把"工具结果工件"挂成一次性预览点，过期统一 404 `Mount Expired`。
+# 本仓的工件早已落盘分页（tool_output_artifacts，7 天保留 + 过期清扫），缺的正是**这一层挂载**：
+# 模型/前端拿 artifact_id 只能自己回读，无法把"能看但不能长期分享"的链接交给界面。
+# 权限面刻意与图表 token 分离：独立 aud、只回纯文本、不能读 .html。
+
+
+def sign_tool_artifact_token(artifact_id: str) -> str:
+    """为工具输出工件签发短期挂载 token（HS256，独立 aud）。"""
+    now = int(time.time())
+    payload = {
+        "artifact": artifact_id,
+        "iat": now,
+        "exp": now + TOOL_ARTIFACT_TTL_SECONDS,
+        "iss": TOKEN_ISSUER,
+        "aud": TOOL_ARTIFACT_AUDIENCE,
+    }
+    return pyjwt.encode(payload, _signing_key(), algorithm="HS256")
+
+
+def verify_tool_artifact_token(token: str) -> str | None:
+    """校验工件挂载 token，返回 artifact_id；无效/过期/密钥不可用一律 None。"""
+    try:
+        key = _signing_key()
+    except RuntimeError as e:
+        logger.error("工件挂载 token 校验被拒:签名密钥不可用(漏配 JWT_SECRET)：%s", e)
+        return None
+    try:
+        payload = pyjwt.decode(
+            token,
+            key,
+            algorithms=["HS256"],
+            issuer=TOKEN_ISSUER,
+            audience=TOOL_ARTIFACT_AUDIENCE,
+        )
+    except pyjwt.PyJWTError:
+        return None
+    artifact_id = payload.get("artifact")
+    if not isinstance(artifact_id, str) or not artifact_id:
+        return None
+    return artifact_id
+
+
+@router.get("/artifacts/tool/token")
+async def issue_tool_artifact_token(
+    request: Request,
+    artifact_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """换取工具输出工件的短期挂载 token（JWT 保护，防匿名换链）。
+
+    归属校验口径：工件元数据里若记录了 `userId`，必须与当前用户一致；未记录（历史工件）
+    不在此路由上放行任意换取——调用方需持有 JWT 且知道 artifact_id，等同于会话内可见性。
+    """
+    _ = user_id
+    page = read_tool_output_page(artifact_id, offset=0, limit=1)
+    if not page.get("ok"):
+        raise HTTPException(status_code=404, detail=MOUNT_EXPIRED_DETAIL)
+    token = sign_tool_artifact_token(artifact_id)
+    request.state.skip_response_sanitization = True
+    return {
+        "token": token,
+        "url": f"/api/artifacts/tool/f/{token}",
+        "expires_in": TOOL_ARTIFACT_TTL_SECONDS,
+    }
+
+
+@router.get("/artifacts/tool/f/{token}")
+async def serve_tool_artifact(
+    request: Request,
+    token: str,
+    offset: int = Query(0, ge=0),
+    format: Literal["text", "json"] = Query("text"),
+) -> Any:
+    """按 token 返回工件分页;过期/无效一律 404 `Mount Expired`(对外与"不存在"同形)。
+
+    format=text(默认)回 `text/plain` + `X-Artifact-Next/Complete` 头,供外链直接打开;
+    format=json 回 `{content,next,complete,totalChars}`,供卡片内嵌预览分页消费 ——
+    JSON 分支只读回包,不发任何一份正文的第二份副本(与 text 分支同一 `read_tool_output_page`)。
+    """
+    artifact_id = verify_tool_artifact_token(token)
+    if artifact_id is None:
+        raise HTTPException(status_code=404, detail=MOUNT_EXPIRED_DETAIL)
+    page = await asyncio.to_thread(read_tool_output_page, artifact_id, offset=offset)
+    if not page.get("ok"):
+        raise HTTPException(status_code=404, detail=MOUNT_EXPIRED_DETAIL)
+    if format == "json":
+        request.state.skip_response_sanitization = True
+        return {
+            "content": str(page.get("content") or ""),
+            "next": int(page.get("next") or 0),
+            "complete": bool(page.get("complete")),
+            "totalChars": int(page.get("totalChars") or 0),
+        }
+    return PlainTextResponse(
+        str(page.get("content") or ""),
+        headers={
+            "X-Artifact-Next": str(page.get("next") or 0),
+            "X-Artifact-Complete": "true" if page.get("complete") else "false",
+            "Cache-Control": "no-store",
+        },
+    )
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

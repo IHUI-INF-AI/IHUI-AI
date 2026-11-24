@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "owner": "B 票(判据面实现票:格式对账尺补媒体族)· 2026-11-03",
+  "purpose": "check-format-support-parity.mjs 的 ③ 桶(有实现但未登记)具名豁免台账。§0.7:验过才免、会到期、到期回队列;owner/reason/expires 三键缺一或 reason 短于 10 字 ⇒ 视同无豁免;台账在册而本次 ③ 不再命中该档 ⇒ 清单腐烂,判 drift 不判绿。",
+  "entries": [
+    {
+      "ext": "html",
+      "owner": "apps/api 上传白名单(归另一条腿,主席 2026-11-03 定口径:本票不动端上表)",
+      "reason": "后端按 XSS 故意不收 html:file-type-validator 的 EXT_MIME_MAP 不登记 html,而 apps/api/src/services/document-parser.ts 有 HTML_MIME 常量(消费端真能处理),属\"有实现但未登记\"。这是安全设计而非漂移,故具名豁免;到期必须复评\"该常量是否仍被用到、是否应摘掉常量本身\"。",
+      "expires": "2027-02-03",
+      "evidence": "内容锚点:FORMAT-PARITY ③ 桶现报 html 命中面 A;面 A = apps/api/src/services/document-parser.ts 的 HTML_MIME 常量,由尺子 parseRagMimes 从被审面现读,非本台账抄写(§1:证据指针不用行号、不用短 sha)"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-store-account-open"
+description = "Enables the store_account_open command without any pre-configured scope."
+commands.allow = ["store_account_open"]
+
+[[permission]]
+identifier = "deny-store-account-open"
+description = "Denies the store_account_open command without any pre-configured scope."
+commands.deny = ["store_account_open"]

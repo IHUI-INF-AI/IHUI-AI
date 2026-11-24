@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-store-account-probe"
+description = "Enables the store_account_probe command without any pre-configured scope."
+commands.allow = ["store_account_probe"]
+
+[[permission]]
+identifier = "deny-store-account-probe"
+description = "Denies the store_account_probe command without any pre-configured scope."
+commands.deny = ["store_account_probe"]

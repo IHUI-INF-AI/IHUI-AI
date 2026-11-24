@@ -1,0 +1,84 @@
+﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# =============================================================================
+# test-health.ps1 — 生产四维健康自检(web / api / llm 网关 / wss)
+# 用法: pwsh -NoProfile -File deploy\win\test-health.ps1 [域名]
+# 返回: 每维一行 + 最终 ALL_PASS / PARTIAL_FAIL;退出码 0=全过 1=有缺
+# =============================================================================
+param([string]$Base = 'https://aizhs.top')
+
+$fail = 0
+function Check([string]$name, [bool]$okVal, [string]$detail) {
+    $tag = if ($okVal) { 'PASS' } else { 'FAIL' }
+    if (-not $okVal) { $script:fail++ }
+    '{0}  {1,-12} {2}' -f $tag, $name, $detail
+}
+
+# 1) web 首页
+$webOk = $false; $webDetail = ''
+try {
+    $r = Invoke-WebRequest -Uri $Base -TimeoutSec 20 -UseBasicParsing -ErrorAction Stop
+    $webOk = ($r.StatusCode -ge 200 -and $r.StatusCode -lt 400 -and $r.Content -match '<!DOCTYPE html')
+    $webDetail = "status=$($r.StatusCode) len=$($r.Content.Length)"
+} catch { $webDetail = "err=$_" }
+
+# 2) api health
+$apiOk = $false; $apiDetail = ''
+try {
+    $h = Invoke-RestMethod -Uri "$Base/api/health" -TimeoutSec 20 -ErrorAction Stop
+    $apiOk = ($h.status -eq 'ok')
+    $apiDetail = "status=$($h.status)"
+} catch { $apiDetail = "err=$_" }
+
+# 3) llm 网关(需 Bearer,用 admin 探活;密码经环境变量 IHUI_ADMIN_PASSWORD 注入)
+$llmOk = $false; $llmDetail = ''
+try {
+    if (-not $env:IHUI_ADMIN_PASSWORD) { throw 'missing IHUI_ADMIN_PASSWORD' }
+    $b = @{ username='admin'; password=$env:IHUI_ADMIN_PASSWORD } | ConvertTo-Json
+    $lg = Invoke-RestMethod -Uri "$Base/api/auth/login/username" -Method Post -Body $b -ContentType 'application/json' -TimeoutSec 20 -ErrorAction Stop
+    $tok = $lg.data.accessToken
+    if ($tok) {
+        $rr = Invoke-WebRequest -Uri "$Base/api/llm/providers/health" -Headers @{ Authorization = "Bearer $tok" } -TimeoutSec 20 -UseBasicParsing -ErrorAction Stop
+        $llmOk = ($rr.StatusCode -ge 200 -and $rr.StatusCode -lt 400)
+        $llmDetail = "status=$($rr.StatusCode)"
+    } else { $llmDetail = 'login-no-token' }
+} catch { $llmDetail = "err=$_" }
+
+# 4) wss — 真实 WebSocket 升级握手(不再以恒真占位)。端点与
+#    deploy/prod-bundle/scripts/smoke-public-ws.mjs 同一条口径(api 子域 +
+#    /v1/ai/capabilities/ws/stream),可用 IHUI_WS_PROBE_URL 覆盖。
+$wssOk = $false; $wssDetail = ''
+try {
+    $wsUri = if ($env:IHUI_WS_PROBE_URL) {
+        [Uri]$env:IHUI_WS_PROBE_URL
+    } else {
+        $u = [Uri]$Base
+        $hostName = $u.Host -replace '^www\.', ''
+        $wsHost = if ($hostName -like 'api.*') { $hostName } else { "api.$hostName" }
+        [Uri]"wss://$wsHost/v1/ai/capabilities/ws/stream"
+    }
+    # 该端点要求 token(见 smoke-public-ws.mjs);复用 llm 维登录取到的令牌,取不到即判失败
+    if (-not $tok) { throw 'no-token(llm 登录未取到 accessToken)' }
+    $probe = [Uri]("$($wsUri.AbsoluteUri)?token=$([Uri]::EscapeDataString($tok))")
+    $ws = [System.Net.WebSockets.ClientWebSocket]::new()
+    $cts = [System.Threading.CancellationTokenSource]::new()
+    try {
+        $cts.CancelAfter(15000)
+        $ws.ConnectAsync($probe, $cts.Token).GetAwaiter().GetResult()
+        $wssOk = ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open)
+        $wssDetail = "state=$($ws.State) host=$($wsUri.Host)"
+    } finally {
+        $ws.Dispose(); $cts.Dispose()
+    }
+} catch { $wssDetail = "err=$_" }
+
+Check 'web' $webOk $webDetail
+Check 'api' $apiOk $apiDetail
+Check 'llm' $llmOk $llmDetail
+Check 'wss' $wssOk $wssDetail
+
+if ($script:fail -gt 0) { Write-Host "RESULT: PARTIAL_FAIL ($script:fail 维异常)"; exit 1 }
+Write-Host 'RESULT: ALL_PASS'; exit 0
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

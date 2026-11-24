@@ -1,0 +1,497 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Fastify 反自动化插件(国安级风控前置防线)。
+ *
+ * onRequest 阶段执行:
+ * 1. 提取 IP / UA / 路径,查 Redis 计数(IP 维度滑动窗口 + 用户维度单独计数)。
+ * 2. 自动化检测:无 UA / curl / wget / python-requests / bot / headless 特征 → 标记。
+ * 3. 响应策略:
+ *    - 单 IP 1 分钟 > 100 请求 → 429 + 引入 CAPTCHA(响应头 X-Challenge-Required)
+ *    - 单 IP 1 分钟 > 600 请求 → 403 临时封禁 15 分钟
+ *    - 扫描器模式(/.env /admin /backup 等) → 立即 403 + 封禁 1 小时
+ *    两个阈值可用 ANTI_AUTOMATION_CHALLENGE_THRESHOLD / ANTI_AUTOMATION_BLOCK_THRESHOLD 覆盖。
+ *    封禁线定在 600 而非早先的 200:2026-09-23 实测用户仅打开一个页面就打出 205 次/分钟
+ *    (前端按账号数线性扇出),被封 15 分钟。封禁是不可自助绕过的重处置,
+ *    判据线必须落在人类正常使用够不着的位置。
+ * 4. 白名单:内网 IP 自动放行;健康检查 UA **只豁免频率统计**,不豁免封禁与扫描器判定
+ *    (UA 是纯客户端头,可任意伪造,不能作为放行依据);
+ *    监控探针与自助解封面豁免(见 utils/block-exempt-paths.ts)。
+ * 5. 路由级开关:routeOptions.config.antiAutomation = { enabled: false } 可关闭。
+ * 6. 开发档(显式 development)整体放行:本地测试的高频重放不该把开发者自己的出口封掉。
+ *
+ * Redis 不可用时 fail-open(放行),保障可用性。
+ */
+
+import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import fp from 'fastify-plugin'
+import { verifyAccessToken } from '@ihui/auth'
+import type { Redis } from 'ioredis'
+import { config } from '../config/index.js'
+import { isAdminRequest } from './require-permission.js'
+import { logger } from '../utils/logger.js'
+import {
+  isBotUserAgent,
+  isCurlLike,
+  isHeadlessBrowser,
+  isMissingOrShortUserAgent,
+} from '../utils/bot-detection.js'
+import { isPrivateIp, getIpReputationService } from '../services/ip-reputation.js'
+import { isBlockExemptPath } from '../utils/block-exempt-paths.js'
+
+/* -------------------------------------------------------------------------- */
+/* 配置                                                                        */
+/* -------------------------------------------------------------------------- */
+
+export interface AntiAutomationRouteConfig {
+  /** 是否启用本插件,默认 true */
+  enabled?: boolean
+  /** 单 IP 每分钟请求数阈值,超过返回 429。默认 100 */
+  threshold?: number
+}
+
+declare module 'fastify' {
+  interface FastifyContextConfig {
+    antiAutomation?: AntiAutomationRouteConfig
+  }
+}
+
+/** 单 IP 每分钟请求数阈值,超过返回 429。 */
+const DEFAULT_THRESHOLD = readIntEnv('ANTI_AUTOMATION_CHALLENGE_THRESHOLD', 100)
+/**
+ * 触发 403 + 临时封禁的阈值。
+ *
+ * 原值 200 是**可被正常使用打穿的**:2026-09-23 实测,用户仅打开「平台账号管理」页
+ * 就在 60 秒窗口内产生 205 个请求(按账号数线性扇出),被封 15 分钟。
+ * 封禁是不可自助绕过的重处置,判据线必须落在"人类正常使用够不着"的位置,
+ * 否则每个前端的扇出 bug 都会变成一次用户侧事故。
+ * 600/分钟 = 持续 10 次/秒,远超任何真实交互;软性第一道仍是 429 + CAPTCHA。
+ */
+const BLOCK_THRESHOLD = readIntEnv('ANTI_AUTOMATION_BLOCK_THRESHOLD', 600)
+/** 扫描器模式命中 → 封禁时长(秒)。 */
+const SCANNER_BLOCK_SEC = 3600
+/** 超频 403 封禁时长(秒)。 */
+const RATE_BLOCK_SEC = 900
+/** 滑动窗口(毫秒)。 */
+const WINDOW_MS = 60_000
+
+/**
+ * 频率挑战白名单(2026-11-13 立,治「公网固定出口 + 客户端无 CAPTCHA 实现」的登录卡死)。
+ *
+ * 背景:anti-automation 的 429 CAPTCHA(`X-Challenge-Required`)要求客户端渲染
+ * `/api/security/challenge` 的验证控件,但桌面/移动/CLI 首方客户端**没有任何实现**
+ * (见 tests/first-party-user-agent.test.ts、apps/mobile-rn/src/lib/config.ts 的注释)。
+ * 于是公网固定出口 IP(家庭宽带 / 小型办公室 NAT / 自有服务器)一旦撞上挑战阈值,
+ * 用户侧只剩一句「请求频率过高,需完成人机验证」却无控件可完成 —— 死锁。
+ *
+ * 用法:环境变量 `ANTI_AUTOMATION_ALLOWLIST`,逗号分隔 IPv4 或 CIDR,如
+ *   ANTI_AUTOMATION_ALLOWLIST=203.0.113.7,198.51.100.0/24
+ * 缺省为空 ⇒ 不改变任何既有行为(默认关闭,零破坏面)。
+ *
+ * 安全边界(刻意收窄,只豁免误伤、不打开后门):
+ *   - 仅跳过第 3 步「频率统计 + 429 挑战 + 频率 403 封禁」;
+ *   - **不**豁免第 1 步扫描器判定、**不**豁免第 2 步「已被封禁 IP」。
+ *     真已被封(封禁表)与主动扫 /.env /admin 的客户端,白名单照样拦。
+ *     ⇒ 白名单只把「正常人类 IP 被频率误判」捞出来,不成为绕过封禁的通道。
+ * 失效方向:解析失败的条目一律忽略(安全跳过),绝不因配置错就放行全部。
+ */
+/**
+ * 现读环境变量(遵循 §0「凡数字一律现读」):每次首次用到时读 process.env,
+ * 而非模块加载时读死 —— 便于运维热切换 env + 重启即生效,也便于测试注入。
+ */
+let allowlistCache: readonly string[] | null = null
+function allowlist(): readonly string[] {
+  if (allowlistCache) return allowlistCache
+  allowlistCache = (process.env.ANTI_AUTOMATION_ALLOWLIST ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+  return allowlistCache
+}
+function resetAllowlistCacheForTest(): void {
+  allowlistCache = null
+}
+
+/** 读整数型环境变量;缺失或非法(<=0 / NaN)时用默认值。 */
+function readIntEnv(name: string, fallback: number): number {
+  const raw = process.env[name]
+  if (!raw) return fallback
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback
+}
+
+/**
+ * 健康检查 / 监控 UA 白名单关键词。
+ *
+ * 仅用于豁免频率统计,不参与任何放行判定 —— UA 是纯客户端头,任何字符串都能伪造,
+ * 一旦拿它当放行依据,攻击者只要写 `User-Agent: monitor` 就能连封禁与扫描器判定一起跳过。
+ * 故此处不保留 `monitor` / `uptime` 这类通用词(命中面过宽),只留厂商特征明确的探针标识。
+ */
+const HEALTH_UA_KEYWORDS = [
+  'kube-probe',
+  'elb-healthchecker',
+  'gthealthcheck',
+  'health-check',
+] as const
+
+/** 扫描器路径特征(与 anomaly-detector 保持一致语义)。 */
+const SCANNER_PATTERNS: readonly string[] = [
+  '/.env',
+  '/.git',
+  '/.aws',
+  '/.ssh',
+  '/wp-admin',
+  '/wp-login',
+  '/phpmyadmin',
+  '/phpinfo',
+  '/cgi-bin',
+  '/actuator/env',
+  '/manager/html',
+  '/server-status',
+  '/jenkins',
+  '/solr',
+  '/struts',
+]
+
+const K_FREQ = (ip: string) => `anti:auto:ip:${ip}`
+const K_FREQ_USER = (uid: string) => `anti:auto:user:${uid}`
+
+/* -------------------------------------------------------------------------- */
+/* 插件实现                                                                    */
+/* -------------------------------------------------------------------------- */
+
+const antiAutomationPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
+  const redis: Redis | null = (server as unknown as { redis?: Redis }).redis ?? null
+  const ipRep = getIpReputationService(redis)
+
+  server.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
+    // 路由级开关
+    const aaCfg = request.routeOptions.config?.antiAutomation
+    if (aaCfg?.enabled === false) return
+
+    const ip = request.ip
+    if (!ip) return
+
+    // 内网白名单(服务端视角的事实,不来自客户端头)
+    if (isPrivateIp(ip)) return
+
+    // 健康检查 / 监控 UA 白名单:只做标记,绝不前置 return。
+    // UA 可伪造,它唯一的语义是跳过频率统计(步骤 3);封禁与扫描器判定必须照常执行。
+    const ua = request.headers['user-agent'] ?? ''
+    const healthCheckUa = isHealthCheckUa(ua)
+
+    const path = (request.url.split('?')[0] ?? request.url).toLowerCase()
+
+    // 管理员请求不做任何反自动化处置(2026-11-15):包括公网访问 —— 机主需要随时能进管理面调试。
+    // 认 JWT(roleId>=1),未登录/普通用户照旧。
+    if (await isAdminRequest(request)) return
+
+    // 开发档整体放行(2026-11-15 立):本插件是面向公网滥用的前置防线,而本地测试/自测
+    // 会在几十秒内打出远超人类的请求量(接口连点、脚本重放、前端扇出),于是"自己人封自己人":
+    // 15 分钟 403、甚至被 threat-detector 叠加到 1 小时起。档位判据走 config 唯一出口,
+    // 只在**显式声明**的 development 档成立(缺省 fail-safe 为 production),生产/测试档行为不变。
+    if (config.isDevelopmentRuntime ?? config.NODE_ENV === 'development') {
+      return
+    }
+
+    // 监控探针与自助解封面:既不占频率预算,也不该被已有封禁挡住
+    if (isBlockExemptPath(path)) return
+
+    // 1. 扫描器模式:立即 403 + 封禁 1 小时
+    if (isScannerPath(path)) {
+      logger.warn('anti-automation: scanner pattern detected, blocking', { ip, path, ua })
+      await ipRep.recordBadEvent(ip, 'scanner-pattern')
+      await ipRep.blockIp(ip, SCANNER_BLOCK_SEC, 'scanner-detected')
+      reply
+        .status(403)
+        .header('X-Block-Reason', 'scanner-detected')
+        .header('Retry-After', String(SCANNER_BLOCK_SEC))
+        .send({ code: 403, message: '检测到扫描行为,已被临时封禁' })
+      return
+    }
+
+    // 2. IP 是否已被封禁
+    const blockInfo = await ipRep.getBlockInfo(ip)
+    if (blockInfo) {
+      reply
+        .status(403)
+        .header('X-Block-Reason', 'ip-blocked')
+        .header('Retry-After', String(blockInfo.remainingSec))
+        .send({ code: 403, message: 'IP 已被临时封禁', retryAfterSec: blockInfo.remainingSec })
+      return
+    }
+
+    // 3. 频率统计
+    //    封禁只看 IP 维度:账号跑得快不该惩罚一个可能是 NAT / 手机热点共享的出口地址。
+    //    用户维度单独计数并喂给信誉体系(recordBadEvent → threat-detector),不直接封 IP。
+    //    (历史上这里取 max(ipCount, userCount) 判封禁,但 request.userId 在 onRequest
+    //     阶段恒未填充 —— authenticate 跑得更晚 —— 所以 userCount 一直是 0,"双轨"实为单轨。)
+    //
+    //    健康检查 UA 的唯一豁免就在这里:不计数、不触发 429/403。
+    //    上面的封禁查询与扫描器判定已经执行过,伪造 UA 换不来任何放行。
+    //
+    //    白名单(ANTI_AUTOMATION_ALLOWLIST)同在此处豁免:命中则跳过频率挑战/频率封禁,
+    //    但扫描器与「已被封禁」判定已在上方照常执行 —— 白名单不是封禁的旁路。
+    if (!healthCheckUa && !isRateAllowlisted(ip)) {
+      const threshold = aaCfg?.threshold ?? DEFAULT_THRESHOLD
+      const now = Date.now()
+      const ipCount = await incrCounter(redis, K_FREQ(ip), now, WINDOW_MS)
+      const userId = await resolveUserIdForRate(request)
+      const userCount = userId ? await incrCounter(redis, K_FREQ_USER(userId), now, WINDOW_MS) : 0
+      if (userId && userCount > BLOCK_THRESHOLD) {
+        logger.warn('anti-automation: user-dimension rate exceeded', { ip, userId, userCount })
+        await ipRep.recordBadEvent(ip, 'user-rate-exceeded')
+      }
+
+      if (ipCount > BLOCK_THRESHOLD) {
+        // > 阈值:403 + 封禁
+        logger.warn('anti-automation: block threshold exceeded', {
+          ip,
+          userId,
+          ipCount,
+          userCount,
+        })
+        await ipRep.blockIp(ip, RATE_BLOCK_SEC, 'rate-limit-block')
+        reply
+          .status(403)
+          .header('X-Block-Reason', 'rate-limit-block')
+          .header('Retry-After', String(RATE_BLOCK_SEC))
+          .send({ code: 403, message: '请求频率过高,IP 已被临时封禁 15 分钟' })
+        return
+      }
+
+      if (ipCount > threshold) {
+        // > 挑战阈值:429 + 要求 CAPTCHA
+        const botFlag =
+          isMissingOrShortUserAgent(ua) ||
+          isCurlLike(ua) ||
+          isHeadlessBrowser(ua) ||
+          isBotUserAgent(ua)
+        logger.warn('anti-automation: challenge threshold exceeded', {
+          ip,
+          userId,
+          ipCount,
+          userCount,
+          botFlag,
+        })
+        reply
+          .status(429)
+          .header('X-Challenge-Required', 'captcha')
+          .header('X-Challenge-Type', botFlag ? 'bot' : 'rate')
+          .header('Retry-After', String(Math.ceil(WINDOW_MS / 1000)))
+          .send({
+            code: 429,
+            message: '请求频率过高,需完成人机验证',
+            // 机器可读信号:首方客户端(web/桌面/移动/CLI)没有 CAPTCHA 实现,无法完成本挑战。
+            // api-client 的 deriveFailureFromBody 见此 errorCode 即改写为「请稍后再试」,
+            // 而不是把「需完成人机验证」原样上屏 —— 否则用户只见文案、无控件可完成,死锁。
+            errorCode: 'challenge_required',
+            challengeEndpoint: '/api/security/challenge',
+          })
+        return
+      }
+    }
+
+    // 4. 自动化标记(仅记录,不阻塞;高分由 anomaly-detector 综合)
+    if (isMissingOrShortUserAgent(ua) || isCurlLike(ua) || isHeadlessBrowser(ua)) {
+      logger.info('anti-automation: automation client flagged', { ip, path, ua })
+      // 异步记录异常事件,不阻塞
+      ipRep.recordBadEvent(ip, 'automation-ua').catch(() => {})
+    }
+  })
+}
+
+/* -------------------------------------------------------------------------- */
+/* 辅助                                                                        */
+/* -------------------------------------------------------------------------- */
+
+function isHealthCheckUa(ua: string): boolean {
+  if (!ua) return false
+  const lower = ua.toLowerCase()
+  return HEALTH_UA_KEYWORDS.some((k) => lower.includes(k))
+}
+
+/**
+ * 尽力解析调用者身份 —— 只用于用户维度频率统计,不做任何授权判定。
+ *
+ * 只验签不查库:`authenticate()` 还会查用户状态,不能放进 onRequest 的每请求路径。
+ * 任何失败一律返回 undefined —— 反自动化不是鉴权面,坏 token 自有后续鉴权层拒绝。
+ * 历史上这里读 `request.userId`,但它在 onRequest 阶段恒未填充(authenticate 跑得更晚),
+ * 导致"IP/用户双轨"实际只有 IP 一轨。
+ */
+async function resolveUserIdForRate(request: FastifyRequest): Promise<string | undefined> {
+  const header = request.headers.authorization
+  const cookieToken = (request as unknown as { cookies?: Record<string, string> }).cookies
+    ?.auth_token
+  const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : cookieToken
+  if (!token) return undefined
+  try {
+    return (await verifyAccessToken(token)).userId
+  } catch {
+    return undefined
+  }
+}
+
+function isScannerPath(path: string): boolean {
+  return SCANNER_PATTERNS.some((p) => path.includes(p))
+}
+
+/**
+ * 解析 IPv4 → uint32;非法(段数错/越界/非数字/IPv6)返回 null。
+ * 本插件是国安级前置防线,不反向依赖计费模块(relay-billing-service 的 ipInCidr),
+ * 故此处自包含一份最小解析 —— 与 services/relay-billing-service.ts:parseIPv4 语义一致。
+ */
+function parseIPv4(ip: string): number | null {
+  const parts = ip.split('.')
+  if (parts.length !== 4) return null
+  let out = 0
+  for (const p of parts) {
+    if (!/^\d{1,3}$/.test(p)) return null
+    const n = Number(p)
+    if (n < 0 || n > 255) return null
+    out = (out << 8) | n
+  }
+  return out >>> 0
+}
+
+/**
+ * IP 是否命中频率挑战白名单(精确 IPv4 或 CIDR)。
+ * 解析失败的条目一律忽略(安全跳过):配置错绝不升级成「放行全部」。
+ * 仅匹配 IPv4 —— 挑战白名单面向自有公网出口,IPv6 由运营者显式加 /128 或按需扩展。
+ */
+function isRateAllowlisted(ip: string): boolean {
+  const entries = allowlist()
+  if (entries.length === 0) return false
+  const target = parseIPv4(ip)
+  if (target === null) return false
+  for (const entry of entries) {
+    const [base, prefixRaw] = entry.split('/')
+    const baseInt = parseIPv4(base ?? '')
+    if (baseInt === null) continue
+    if (prefixRaw === undefined) {
+      if (target === baseInt) return true
+      continue
+    }
+    const prefix = Number(prefixRaw)
+    if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) continue
+    if (prefix === 0) return true
+    const mask = prefix === 32 ? 0xffffffff : (0xffffffff << (32 - prefix)) >>> 0
+    if ((target & mask) === (baseInt & mask)) return true
+  }
+  return false
+}
+
+/**
+ * 滑动窗口计数(Redis ZSET)。Redis 不可用时回退内存计数。
+ * 返回当前窗口内请求数(含本次)。
+ */
+async function incrCounter(
+  redis: Redis | null,
+  key: string,
+  now: number,
+  windowMs: number,
+): Promise<number> {
+  if (!redis) {
+    const cutoff = now - windowMs
+    const arr = memFreq.get(key)
+    let kept: number[] = []
+    if (arr) {
+      kept = arr.filter((t) => t > cutoff)
+      // 窗口内已无有效时间戳:立即摘键,不留空数组。
+      // 否则键空间等于进程生命周期内见过的独立 IP/用户数,Redis 降级时内存单调增长(F-46)。
+      if (kept.length === 0) memFreq.delete(key)
+    }
+    kept.push(now)
+    memFreq.set(key, kept)
+    memWritesSinceSweep += 1
+    // 每 N 次写入才做一次全表清扫,避免每请求遍历整个键空间。
+    if (memWritesSinceSweep >= MEM_SWEEP_EVERY) {
+      memWritesSinceSweep = 0
+      sweepExpiredMemFreq(now, windowMs)
+    }
+    evictOldest(memFreq, MAX_MEM_ENTRIES)
+    return kept.length
+  }
+  try {
+    const pipe = redis.multi()
+    pipe.zremrangebyscore(key, 0, now - windowMs)
+    pipe.zcard(key)
+    pipe.zadd(key, now, `${now}:${Math.random().toString(36).slice(2)}`)
+    pipe.pexpire(key, windowMs)
+    const res = await pipe.exec()
+    const card = res?.[1]?.[1]
+    return typeof card === 'number' ? card + 1 : 1
+  } catch (e) {
+    logger.warn('anti-automation: incrCounter failed, allow', { err: e })
+    return 0
+  }
+}
+
+/** 内存降级计数器的键上限(与 services/anomaly-detector.ts 的 MAX_MEM_ENTRIES 同量级)。 */
+const MAX_MEM_ENTRIES = 50_000
+/** 每 N 次内存写入触发一次过期键清扫,避免每个请求都遍历整表。 */
+const MEM_SWEEP_EVERY = 512
+
+const memFreq = new Map<string, number[]>()
+/** 距上次清扫已发生的内存写入次数。 */
+let memWritesSinceSweep = 0
+
+/**
+ * FIFO 淘汰:Map 按插入顺序遍历,超出上限时删除最早的条目。
+ * 与 services/anomaly-detector.ts:744 的 evictOldest 同思路(该函数未导出,故本地实现)。
+ */
+function evictOldest<K, V>(map: Map<K, V>, max: number): void {
+  while (map.size > max) {
+    const firstKey = map.keys().next().value
+    if (firstKey === undefined) break
+    map.delete(firstKey)
+  }
+}
+
+/**
+ * 清扫已整体滑出窗口的键:时间戳单调递增,末尾也过期则整条记录作废。
+ * 只在每 MEM_SWEEP_EVERY 次写入后调用一次。
+ */
+function sweepExpiredMemFreq(now: number, windowMs: number): void {
+  const cutoff = now - windowMs
+  for (const [key, stamps] of memFreq) {
+    const last = stamps[stamps.length - 1]
+    if (last === undefined || last <= cutoff) memFreq.delete(key)
+  }
+}
+
+/** 只读调试入口:当前降级计数器键数(F-46 回归测试用,不参与运行语义)。 */
+export function __memFreqSizeForTest(): number {
+  return memFreq.size
+}
+
+export default fp(antiAutomationPlugin, {
+  name: 'anti-automation',
+  fastify: '5.x',
+})
+
+/** 供单测直接命中判据(§22c),不引入 CLI 副作用。 */
+export const __test__ = {
+  readIntEnv,
+  resolveUserIdForRate,
+  thresholds: () => ({ DEFAULT_THRESHOLD, BLOCK_THRESHOLD }),
+  /** 频率挑战白名单匹配(默认关闭,配置后命中才豁免频率判定)。 */
+  isRateAllowlisted,
+  /** 重置白名单缓存:测试改 ANTI_AUTOMATION_ALLOWLIST 后须调用以生效。 */
+  resetAllowlistCacheForTest,
+  /** 内存降级计数(Redis 缺失时走的分支),用于 F-46 回归测试。 */
+  incrCounter,
+  memFreqSize: __memFreqSizeForTest,
+  memFreqGet: (key: string): number[] | undefined => {
+    const arr = memFreq.get(key)
+    return arr ? [...arr] : undefined
+  },
+  memFreqReset: (): void => {
+    memFreq.clear()
+    memWritesSinceSweep = 0
+  },
+  memLimits: () => ({ MAX_MEM_ENTRIES, MEM_SWEEP_EVERY }),
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

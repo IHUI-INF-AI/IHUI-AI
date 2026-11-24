@@ -1,0 +1,780 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
+import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { join, resolve as resolvePath } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { Undetermined, assertRepoRoot, catBatch, gitRaw, selectFace } from './lib/face-reader.mjs'
+
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// G-322:带值旗标的**唯一取值出口**(值必须存在且不以 `-` 开头,否则判死,绝不折回默认)。
+import { requireFlagValue } from './lib/flag-value.mjs'
+
+/**
+ * check-capability-matrix.mjs — 能力台账静态对账门(V3 #57,2026-09-26 立)
+ *
+ * 病理:
+ *   ai-service 的 feature env(能力开关)散落在 core/services/routers 各处,
+ *   app/core/capability_matrix.py 的台账登记完全靠人手维护。两型漂移无人能发现:
+ *     (a) 幽灵条目 —— 台账登记的 env 在代码里已被改名/删除,台账变成小说;
+ *     (b) 台账逃逸 —— 新增一个 `os.environ.get("X_XXX_ENABLED", "false")` 型
+ *         默认关能力却没登记进矩阵,「生产上哪些能力是关的」再度不可知。
+ *
+ * 判据:
+ *   J1 矩阵登记的每个 env 必须在 apps/ai-service/app/ 源码中以字符串字面量真实
+ *      出现(含常量定义 `ENV_X = "..."` 形态,如 ENABLE_MCP_EXPORT)。缺失即红。
+ *   J2 代码中以 `os.environ.get("X", "false"|"0"|"off")` / `os.getenv(同型)`
+ *      内联字面量出现的默认关 env,必须已登记进矩阵。缺失即红。
+ *   J3 (G-667) 被剪掉的矩阵格子必须带不变式:条目写 `"pruned": "<日期/记录>"`(或裸
+ *      True)即声明该能力已从代码剪除、格子留作墓碑 —— J1 对它的 env 免检(env 不在
+ *      代码里正是「已剪除」的本义),但每个 pruned 条目必须逐条带**非空** `invariant`
+ *      或 `guard` 字段(剪除为什么安全:哪条不变式仍然成立 / 哪道护栏接住了它),
+ *      缺即红并点名 key。"A missing test path is a gap, not coverage" —— 没有记录的
+ *      剪除是缺口,不是覆盖;同一 env 仍被活条目登记时不免检(防用墓碑洗白活条目)。
+ *   J4 (2026-10-31 立,seat-e2 量出「settings 族零射程」盲区后补的档) ——
+ *      app/core/config.py 的 class Settings 体内默认 False 的布尔字段(bool / bool | None /
+ *      Optional[bool] 三形同视)是**第四种读取形态**(大写 env 键经 case_sensitive=False
+ *      映射进小写字段,读取点是 settings.<字段> 属性访问,不经 os.environ),J2 的三种
+ *      正则一条都看不见它 ⇒ 「生产上哪些能力是关的」台账对这一整族结构性隐身。
+ *      J4 红域 = 这类字段派生的大写 env 名(FIELD.upper();无 env_prefix/alias,见下
+ *      已知局限)未登记进矩阵即红。减项三条(与 .ihui-agent/tmp/seat-e2 量算件同口径):
+ *      ① 已在矩阵在册;② 大写名同时有 os.environ 字面量直读(anyRead 命中,J2 已覆盖,
+ *      不重复报);③ 取值型后缀/具名运行模式位(SETTINGS_NON_SWITCH_SUFFIXES /
+ *      SETTINGS_RUNTIME_MODE_FIELDS,判据写死在常量表,不靠肉眼)。
+ *      **配套 J1 免检(不是削判据,是加覆盖面的代价)**:矩阵行的 env 若由 Settings 体内
+ *      真实存在的布尔字段派生,则 J1 不要求其大写键以带引号字面量出现 —— 字面量住在
+ *      字段名(标识符)里,不在大写键上;settings 族代码从不写大写键字符串。免检的边界
+ *      由「字段存续」背书:字段被改名/删除 ⇒ 派生集当场失去该员 ⇒ 在册行立刻回到 J1
+ *      射程按幽灵条目红(self-test 场景 9 锁这一界)。**既有 J1/J2/J3 判据一字未放松。**
+ *   已知局限(J4):Field(alias=/validation_alias=)声明的布尔字段不匹配裸 `= False`
+ *      正则,落 J4 射程外(现读 config.py 无任何 alias;若引入,alias 名不会静默进台账,
+ *      新增字段会被"字段在但台账查无"以 J4 之外的下一次人工清点接住 —— 与 J2 跨行盲区
+ *      同档登记,不冒充已覆盖)。config.py 在被检面取不到 ⇒ J4 无输入 = exit 2 未判定,
+ *      绝不回退另一个面、绝不记绿(§0.3/§0.4)。
+ *
+ * 取材铁律(仓库血泪教训):Python 侧一律先剥行注释再 grep —— 注释里出现的
+ * 同名字符串会被裸正则误吸,造成假绿/假红(参考 check-agent-event-parity.mjs
+ * 的 stripPyLineComments / check-tool-registry-integrity.mjs 的 stripLineComments,
+ * 本脚本复制同一实现)。
+ *
+ * 已知盲区(报告为局限而非红):跨行的 os.environ.get( 调用(如 agent_loop_v2.py
+ * 的 AGENT_COMPACTION_RETENTION_BUDGET_ENABLED 把参数换行)第二行的字符串不被
+ * J2 的单行正则捕获 —— 该 env 已手工登记,J1 仍校验其存在。
+ *
+ * 用法:
+ *   node scripts/check-capability-matrix.mjs             (报告模式, 漂移 exit 1;判定面=工作树磁盘)
+ *   node scripts/check-capability-matrix.mjs --quiet     (无漂移时静默, 供 pre-commit)
+ *   node scripts/check-capability-matrix.mjs --staged    (提交链档:判定面 = **索引 blob**)
+ *   node scripts/check-capability-matrix.mjs --worktree  (显式磁盘档,人工逃生舱)
+ *   node scripts/check-capability-matrix.mjs --self-test (自检, 临时夹具验证两判据都能红/绿)
+ *   node scripts/check-capability-matrix.mjs --root <dir>(改取材根目录, 供夹具)
+ * 接线:scripts/lib/pre-commit-hook.js(blocking,接线由主会话统一做)。
+ *
+ * 判定面(2026-09-28 收口,与守门 70/118 及 2i 死 key 扫描同口径):
+ *   本步是**批外 blocking**,旧形态把 apps/ai-service/app 下**全部 .py** 按磁盘读 —— ai-service
+ *   是并行会话最常动的面之一,任何人一个未暂存的默认关 env(还没登记进台账)都会把**无关提交**
+ *   钉红,唯一出路是 --no-verify,一次绕过约等于链上全部守门对该提交作废(§12e/§12f)。
+ *   `--staged` ⇒ 清单(`git ls-files -z -- apps/ai-service/app`)与内容(一次 `cat-file --batch`
+ *   读满)**同面同轮**;面上取材失败 / 枚举到 0 个 .py ⇒ **exit 2「未判定」并点名原因,
+ *   绝不回退磁盘、绝不记为通过**。缺省 / `--worktree` ⇒ 磁盘,既有全量行为逐字不变。
+ *   退出码:0 通过 / 1 台账漂移 / 2 无法判定(未判定)。
+ */
+
+const ROOT_DEFAULT = join(fileURLToPath(import.meta.url), '..', '..')
+const args = process.argv.slice(2)
+const quiet = args.includes('--quiet')
+const selfTest = args.includes('--self-test')
+// G-322:--root 的取值一律走 scripts/lib/flag-value.mjs 单源(本器不再自己算 `args[i + 1]`)。
+const rootFlag = requireFlagValue(args, '--root', { noun: '目录值' })
+const ROOT = rootFlag.value ? resolvePath(rootFlag.value) : ROOT_DEFAULT
+if (rootFlag.error) {
+  // --root 给了开关却没值:静默退回真仓 = 夹具扫真仓的假绿(守门 70 那一型),判死。
+  console.error(`❌ check-capability-matrix: ${rootFlag.error}(未判定,exit 2)`)
+  process.exit(2)
+}
+
+/** 判定面(缺省 = 工作树磁盘,既有全量行为;--staged = 索引 blob)。 */
+const FACE_PICK = selectFace({
+  staged: args.includes('--staged'),
+  worktree: args.includes('--worktree'),
+  def: 'worktree',
+})
+const APP_DIR_REL = 'apps/ai-service/app'
+const MATRIX_REL = `${APP_DIR_REL}/core/capability_matrix.py`
+
+/**
+ * 取材层:按判定面提供「枚举 .py」与「读一份正文」。
+ * 磁盘档逐字保留旧行为(readdirSync + readFileSync);索引档一次 `ls-files` + 一次
+ * `cat-file --batch` 读满 ⇒ **清单与内容同面同轮**(混面取数会产出自洽却错位的尺子,守门 118)。
+ * 面上取不到 ⇒ 抛 Undetermined,由调用方折成 exit 2「未判定」,**绝不回退磁盘**。
+ */
+function makeLoader(root, face) {
+  if (face !== 'staged') {
+    return {
+      face,
+      listPy(dirRel) {
+        return listPyFiles(join(root, dirRel)).map((abs) =>
+          abs.slice(root.length + 1).replace(/\\/g, '/'),
+        )
+      },
+      read(rel) {
+        try {
+          return readFileSync(join(root, rel), 'utf-8')
+        } catch (e) {
+          // ENOENT = 磁盘上真没有(与旧语义同:矩阵缺失时返回判据红);
+          // 其它错误(编码/权限)原样抛 ⇒ 不得伪装成"文件不存在"的业务结论。
+          if (e && e.code === 'ENOENT') return null
+          throw e
+        }
+      },
+    }
+  }
+  let cache = null
+  const preload = () => {
+    if (cache) return cache
+    try {
+      assertRepoRoot(root, '本门')
+    } catch (e) {
+      if (e instanceof Undetermined) throw e
+      throw new Undetermined(`判定面基准不成立:${e?.message ?? e}`)
+    }
+    let listing
+    try {
+      listing = gitRaw(['ls-files', '-z', '--', dirRelOf(root)], root, { timeout: 120000 }).split('\0')
+    } catch (e) {
+      if (e instanceof Undetermined) throw e
+      throw new Undetermined(`索引面枚举失败:${e?.message ?? e}`)
+    }
+    const rels = listing.filter(Boolean).filter((r) => r.endsWith('.py'))
+    if (rels.length === 0)
+      throw new Undetermined(`索引面在 ${APP_DIR_REL} 下枚举到 0 个 .py(空扫不记绿)`)
+    let got
+    try {
+      got = catBatch(root, rels.map((r) => `:${r}`), { maxBuffer: 1 << 28, timeout: 180000 })
+    } catch (e) {
+      if (e instanceof Undetermined) throw e
+      throw new Undetermined(`索引面取材失败:${e?.message ?? e}`)
+    }
+    const texts = new Map()
+    const unreadable = []
+    for (const r of rels) {
+      const t = got.get(`:${r}`)
+      if (typeof t === 'string') texts.set(r, t)
+      else unreadable.push(r)
+    }
+    if (unreadable.length > 0)
+      throw new Undetermined(
+        `索引面有 ${unreadable.length} 个 .py 取不到正文(unmerged / 非 blob),首个:${unreadable[0]}`,
+      )
+    cache = { rels, texts }
+    return cache
+  }
+  return {
+    face,
+    listPy() {
+      return preload().rels.slice()
+    },
+    read(rel) {
+      const t = preload().texts.get(rel)
+      return typeof t === 'string' ? t : null
+    },
+  }
+}
+/** ls-files 的 pathspec:仓库根相对,正斜杠。 */
+function dirRelOf() {
+  return APP_DIR_REL
+}
+
+/** 默认值字面量为这些值时,视为「默认关」能力(J2 的红域)。 */
+const OFF_DEFAULTS = new Set(['false', '0', 'off'])
+/** 读 env 的写法。旧判据只认「内联字面量 + 带默认值」这一种,实测 235 个读取点只看得见 76 个:
+ *  经模块常量(`X_ENV = "X"`)或经辅助函数(`_env_flag(X_ENV, default=False)`)的读取**整条隐身**,
+ *  于是门一路报「台账全部对账一致」而替漏登的项背书。现四种形态同视。 */
+const ENV_READ_RE = /os\.(?:environ\.get|getenv)\(\s*"([A-Z][A-Z0-9_]+)"\s*,\s*"([A-Za-z0-9_]+)"/g
+/** `X_ENV = "ACTUAL_ENV"` —— 常量名到 env 名的映射,按文件现读,不抄第二份表。 */
+const ENV_CONST_DECL_RE = /^([A-Z][A-Z0-9_]*_ENV)\s*=\s*["']([A-Z][A-Z0-9_]+)["']/gm
+/** 常量形态:`os.environ.get(X_ENV)` / `os.getenv(X_ENV, "false")`。 */
+const ENV_READ_CONST_RE = /os\.(?:environ\.get|getenv)\(\s*([A-Z][A-Z0-9_]*_ENV)\b\s*(?:,\s*"([A-Za-z0-9_]+)")?/g
+/** 辅助函数形态:`_env_flag(X_ENV, default=False)` / `_env_flag("X", default=False)`。 */
+const ENV_FLAG_RE = /_env_flag\(\s*(?:"([A-Z][A-Z0-9_]+)"|([A-Z][A-Z0-9_]*_ENV))\s*,\s*default=(True|False)/g
+/** 矩阵条目的 env 字段。 */
+const MATRIX_ENV_RE = /"env":\s*"([A-Z][A-Z0-9_]+)"/g
+
+/** J4(2026-10-31)的取材位与判据。config.py 与矩阵同目录,固定相对路径。 */
+const CONFIG_REL = `${APP_DIR_REL}/core/config.py`
+/** Settings 类体起点(到第一条 4 空格缩进 `def` 截止 —— 字段声明全在其前)。 */
+const SETTINGS_CLASS_RE = /^class Settings\(BaseSettings\):/m
+/** 布尔字段声明:注解 bool / bool | None / Optional[bool],默认裸 True/False。
+ *  Field(alias=...) 形态不匹配(已知局限,见头注),刻意不扩 —— 扩了就要替 alias 派生背书。 */
+const SETTINGS_BOOL_RE =
+  /^ {4}([a-z][a-z0-9_]*)\s*:\s*(?:bool\s*(?:\|\s*None)?|Optional\[bool\])\s*=\s*(True|False)\b/gm
+/** J4 减项③a:取值型后缀(字段名以小写后缀结尾 ⇒ 旋钮取值,不是能力开关)。 */
+const SETTINGS_NON_SWITCH_SUFFIXES = [
+  '_path',
+  '_template',
+  '_seconds',
+  '_minutes',
+  '_count',
+  '_model',
+  '_hosts',
+  '_tiers',
+  '_window',
+  '_order',
+  '_field',
+  '_codes',
+  '_url',
+  '_dir',
+  '_roots',
+  '_turns',
+]
+/** J4 减项③b:具名运行模式位(部署/调试形态,不是"生产上关着的能力")。 */
+const SETTINGS_RUNTIME_MODE_FIELDS = new Set(['debug'])
+
+/**
+ * 解析 config.Settings 类体内的布尔字段(J4 的输入面)。
+ * @returns {{fields: Array<{field: string, env: string, defaultFalse: boolean}>} | null}
+ *   供 J1 免检与 J4 红域;定位不到类体 ⇒ null(调用方折成「未判定」,不猜)。
+ */
+export function collectSettingsBoolFields(configSrc) {
+  const text = stripPyLineComments(configSrc)
+  const cls = SETTINGS_CLASS_RE.exec(text)
+  if (!cls) return null
+  const rest = text.slice(cls.index)
+  const defIdx = rest.search(/\n    def /)
+  const body = defIdx < 0 ? rest : rest.slice(0, defIdx)
+  const fields = []
+  for (const m of body.matchAll(SETTINGS_BOOL_RE)) {
+    fields.push({ field: m[1], env: m[1].toUpperCase(), defaultFalse: m[2] === 'False' })
+  }
+  return { fields }
+}
+
+/**
+ * 剥掉 Python 行注释(保留字符串内部的 `#`)。
+ * 这不是洁癖:capability_matrix 与被扫描代码的注释里都会出现 env 同名串
+ * (如「AGENT_COMPACTION_MODE=off,语义正确且可放量」这类说明),不剥会把
+ * 注释里的词吸进集合,直接造成假绿/假红 —— 与 check-tool-registry-integrity
+ * 的取材铁律同型。
+ */
+function stripPyLineComments(src) {
+  const out = []
+  for (const line of src.split('\n')) {
+    let buf = ''
+    let quote = null
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i]
+      if (quote) {
+        if (ch === '\\') {
+          buf += ch + (line[i + 1] ?? '')
+          i++
+          continue
+        }
+        if (ch === quote) quote = null
+        buf += ch
+        continue
+      }
+      if (ch === '"' || ch === "'") {
+        quote = ch
+        buf += ch
+        continue
+      }
+      if (ch === '#') break
+      buf += ch
+    }
+    out.push(buf)
+  }
+  return out.join('\n')
+}
+
+/** 递归收集 dir 下全部 .py 文件绝对路径(跳过 __pycache__)。 */
+function listPyFiles(dir) {
+  const files = []
+  for (const name of readdirSync(dir)) {
+    const full = join(dir, name)
+    const st = statSync(full)
+    if (st.isDirectory()) {
+      if (name === '__pycache__') continue
+      files.push(...listPyFiles(full))
+    } else if (name.endsWith('.py')) {
+      files.push(full)
+    }
+  }
+  return files
+}
+
+/** 解析矩阵登记的 env 集合。 */
+export function collectMatrixEnvs(matrixSrc) {
+  const envs = new Set()
+  for (const m of stripPyLineComments(matrixSrc).matchAll(MATRIX_ENV_RE)) envs.add(m[1])
+  return envs
+}
+
+/** CAPABILITY_MATRIX 列表声明(夹具 `CAPABILITY_MATRIX = [` 与真文件 `CAPABILITY_MATRIX: list[...] = [` 同吃)。 */
+const MATRIX_LIST_DECL_RE = /CAPABILITY_MATRIX[^=\n]*=\s*\[/
+/** 单条目截取:条目按类型注解是无嵌套 dict 的扁平字符串表,`\{[^{}]*\}` 恰好一圈取一条。 */
+const MATRIX_ENTRY_RE = /\{[^{}]*\}/g
+/** 条目内字符串字段抽取。 */
+function entryStrField(chunk, name) {
+  const m = chunk.match(new RegExp(`"${name}"\\s*:\\s*"([^"]*)"`, 's'))
+  return m ? m[1] : undefined
+}
+
+/**
+ * 解析 CAPABILITY_MATRIX 列表体的**逐条目**字段(key/env/pruned/invariant/guard)。
+ * J1/J2 的 env 集合仍走 collectMatrixEnvs 的全文件口径(既有行为,不因本条改动漂移);
+ * 这里只服务 J3(G-667):识别 pruned 墓碑条目并取出其 invariant/guard 有无。
+ * 列表体从声明行起、到第一条**行首 `]`** 截止 —— 条目全部缩进,行首 `]` 只可能是终止符。
+ * pruned 标记:非空字符串(日期/记录)或裸 True/true;空串 = 未剪除(格子还活着)。
+ */
+export function collectMatrixEntries(matrixSrc) {
+  const text = stripPyLineComments(matrixSrc)
+  const decl = MATRIX_LIST_DECL_RE.exec(text)
+  if (!decl) return []
+  const body = text.slice(decl.index + decl[0].length)
+  const endRel = body.search(/^\]/m)
+  const listSrc = endRel >= 0 ? body.slice(0, endRel) : body
+  const entries = []
+  for (const m of listSrc.matchAll(MATRIX_ENTRY_RE)) {
+    const chunk = m[0]
+    const prunedRaw = chunk.match(/"pruned"\s*:\s*(?:"([^"]*)"|(?:True|true)\b)/)
+    const prunedValue = prunedRaw ? (prunedRaw[1] === undefined ? 'true' : prunedRaw[1]) : undefined
+    entries.push({
+      key: entryStrField(chunk, 'key'),
+      env: entryStrField(chunk, 'env'),
+      pruned: prunedValue !== undefined && prunedValue !== '',
+      invariant: entryStrField(chunk, 'invariant'),
+      guard: entryStrField(chunk, 'guard'),
+    })
+  }
+  return entries
+}
+
+/**
+ * 对账主流程。
+ * @param {string} root 仓库根(或夹具根)
+ * @param {{face?:string}} [opts] 判定面;缺省 `worktree` = 磁盘(自检与 CI 全量档走这档)。
+ *   `staged` 走索引 blob —— **清单与内容同面同轮**;面上取不到一律抛 Undetermined,
+ *   由调用方折成 exit 2「未判定」,绝不回退磁盘。
+ * @returns {{errors: string[], stats: Record<string, number>}}
+ */
+export function runCheck(root, opts = {}) {
+  const face = opts.face || 'worktree'
+  const loader = makeLoader(root, face)
+  // MATRIX_FILE 常量已删(eslint no-unused-vars):--root 夹具场景下 root 是参数
+  // 不是模块级 ROOT,路径必须就地重拼,常量反成误导
+  const errors = []
+  const stats = { face: face === 'staged' ? 1 : 0 }
+
+  let matrixSrc
+  try {
+    matrixSrc = loader.read(MATRIX_REL)
+  } catch (e) {
+    if (e instanceof Undetermined) throw e
+    matrixSrc = null
+  }
+  if (matrixSrc === null || matrixSrc === undefined) {
+    return {
+      errors: [
+        `${MATRIX_REL} 缺失(判定面:${face === 'staged' ? '索引 blob' : '工作树磁盘'}): 能力台账单一事实源被移动/删除, 请同步本守门`,
+      ],
+      stats,
+    }
+  }
+  const matrixEnvs = collectMatrixEnvs(matrixSrc)
+  stats.matrixEnvs = matrixEnvs.size
+  // J4/G-667 输入面:config.Settings 的布尔字段(2026-10-31 立)。取不到 ⇒ 未判定,
+  // 不回退另一个面、不记绿(§0.3/§0.4);J1 免检与 J4 红域共用这一次解析。
+  let configSrc
+  try {
+    configSrc = loader.read(CONFIG_REL)
+  } catch (e) {
+    if (e instanceof Undetermined) throw e
+    configSrc = null
+  }
+  if (configSrc === null || configSrc === undefined) {
+    throw new Undetermined(
+      `被检面取不到 ${CONFIG_REL} ⇒ J4(settings 族默认关)没有输入,未判定(不回落磁盘/不记绿)`,
+    )
+  }
+  const settingsParse = collectSettingsBoolFields(configSrc)
+  if (!settingsParse) {
+    throw new Undetermined(
+      `${CONFIG_REL} 定位不到 class Settings(BaseSettings) 类体 ⇒ J4 未判定(口径失效不猜)`,
+    )
+  }
+  const settingsDerivedEnvs = new Set(settingsParse.fields.map((f) => f.env))
+  stats.settingsBoolFields = settingsParse.fields.length
+  stats.settingsBoolOff = settingsParse.fields.filter((f) => f.defaultFalse).length
+  // J3(G-667)的观测面:逐条目解析(只看列表体),算出墓碑 env 集合。
+  // 同一 env 仍被活条目登记时不免检 —— 墓碑不得拿来洗白活条目的幽灵红。
+  const matrixEntries = collectMatrixEntries(matrixSrc)
+  const liveEnvs = new Set(matrixEntries.filter((e) => !e.pruned && e.env).map((e) => e.env))
+  const prunedEnvs = new Set(
+    matrixEntries.filter((e) => e.pruned && e.env && !liveEnvs.has(e.env)).map((e) => e.env),
+  )
+  stats.prunedEntries = matrixEntries.filter((e) => e.pruned).length
+
+  // 取材语料:除矩阵文件本身(登记动作当然会写出 env 名,不算"代码里存在"的证据)。
+  const pyRels = loader.listPy(APP_DIR_REL).filter((r) => r !== MATRIX_REL)
+  let corpus = ''
+  const defaultOff = new Map() // env -> 首个出现文件(相对路径, 供报错定位)
+  const anyRead = new Set() // 四种形态合起来「代码真读了」的 env 名,用于诚实报账
+  for (const rel of pyRels) {
+    const raw = loader.read(rel)
+    if (raw === null || raw === undefined) continue // 面上没有这份正文(枚举已保证在,保守跳过)
+    const text = stripPyLineComments(raw)
+    corpus += text + '\n'
+    const consts = new Map()
+    for (const m of text.matchAll(ENV_CONST_DECL_RE)) consts.set(m[1], m[2])
+    const noteOff = (env) => {
+      if (!defaultOff.has(env)) defaultOff.set(env, rel)
+    }
+    for (const m of text.matchAll(ENV_READ_RE)) {
+      anyRead.add(m[1])
+      if (OFF_DEFAULTS.has(m[2])) noteOff(m[1])
+    }
+    for (const m of text.matchAll(ENV_READ_CONST_RE)) {
+      const env = consts.get(m[1])
+      if (!env) continue
+      anyRead.add(env)
+      if (m[2] !== undefined && OFF_DEFAULTS.has(m[2])) noteOff(env)
+    }
+    for (const m of text.matchAll(ENV_FLAG_RE)) {
+      const env = m[1] ?? consts.get(m[2])
+      if (!env) continue
+      anyRead.add(env)
+      if (m[3] === 'False') noteOff(env)
+    }
+  }
+  stats.scannedFiles = pyRels.length
+  stats.defaultOffEnvs = defaultOff.size
+  // 台账外但**不属 J2 红域**的读取点(阈值/URL/密钥路径等非默认关项):原样报数不判红。
+  // 报出来的理由是「放过」与「没看见」在账面上必须不同形 —— 本门此前就是后者。
+  stats.envNamesRead = anyRead.size
+  stats.undocumentedNotOff = [...anyRead].filter((e) => !matrixEnvs.has(e)).length
+
+  // J1: 幽灵条目 —— 矩阵登记的 env 必须在源码里真实存在。
+  // pruned 墓碑(G-667)免检:env 不在代码里正是「已剪除」的本义;免检的代价由 J3 收。
+  // settings 族派生名(2026-10-31 J4 配套)免检:字面量住在 Settings 字段名(标识符)里,
+  // 大写键字符串在代码里从不出现 —— 免检存续由「字段仍在类体里」背书,字段消失即回到射程。
+  for (const env of [...matrixEnvs].sort()) {
+    if (prunedEnvs.has(env) || settingsDerivedEnvs.has(env)) continue
+    if (!corpus.includes(`"${env}"`) && !corpus.includes(`'${env}'`)) {
+      errors.push(`[J1 幽灵条目] 台账登记的 env "${env}" 在 apps/ai-service/app/ 源码中不存在(被改名/删除?), 请同步 capability_matrix.py`)
+    }
+  }
+
+  // J2: 台账逃逸 —— 代码里新增的默认关 env 必须登记进矩阵。
+  for (const [env, file] of [...defaultOff.entries()].sort()) {
+    if (!matrixEnvs.has(env)) {
+      errors.push(`[J2 台账逃逸] 默认关 env "${env}"(${file})未登记进 capability_matrix.py, 生产能力状态再度不可知`)
+    }
+  }
+
+  // J4 (2026-10-31): settings 族逃逸 —— config.Settings 里默认 False 的布尔字段,
+  // 其派生大写 env 名未登记进矩阵即红(第四种读取形态, J2 三种正则看不见)。
+  // 减项:①在册;②大写名同时有 os.environ 字面量直读(anyRead ⇒ J2 已覆盖,不重复报);
+  // ③取值型后缀/具名运行模式位(判据写死在上方常量表)。
+  for (const f of settingsParse.fields.filter((x) => x.defaultFalse)) {
+    if (matrixEnvs.has(f.env)) continue
+    if (anyRead.has(f.env)) continue
+    if (
+      SETTINGS_RUNTIME_MODE_FIELDS.has(f.field) ||
+      SETTINGS_NON_SWITCH_SUFFIXES.some((s) => f.field.endsWith(s))
+    )
+      continue
+    errors.push(
+      `[J4 settings族台账逃逸] config.Settings 默认关布尔字段 "${f.field}"(派生 env ${f.env},settings.<字段> 属性读取形态)未登记进 capability_matrix.py, 「生产上哪些能力是关的」对 settings 族再度失明(登记时条目须带 "settings_field": "${f.field}", current 取数走 settings 不读 os.environ)`,
+    )
+  }
+
+  // J3 (G-667): 被剪掉的矩阵格子必须带不变式 —— 墓碑换了 J1 免检,代价是必须逐条写清
+  // 「剪除为什么安全」:invariant(剪除后仍然成立的不变式)或 guard(接住回归的护栏/测试路径)。
+  // 只写 reason_if_off 不算数:那是"为什么关",回答不了"剪掉之后靠什么保证它不缺角回来"。
+  for (const e of matrixEntries) {
+    if (!e.pruned || e.invariant || e.guard) continue
+    errors.push(
+      `[J3 剪除无据] 矩阵格子 "${e.key || e.env || '(未名)'}" 标记 pruned 但既无 invariant 也无 guard:` +
+        '被剪掉的能力必须逐条写明不变式或护栏("A missing test path is a gap, not coverage" —— 没有记录的剪除是缺口,不是覆盖)',
+    )
+  }
+
+  return { errors, stats }
+}
+
+function main() {
+  if (selfTest) {
+    process.exit(selfTestRun())
+  }
+  if (FACE_PICK.error) {
+    console.error(`❌ check-capability-matrix: 无法判定(exit 2,未判定)—— ${FACE_PICK.error}`)
+    process.exit(2)
+  }
+  const face = FACE_PICK.face
+  let checked
+  try {
+    checked = runCheck(ROOT, { face })
+  } catch (e) {
+    if (e instanceof Undetermined) {
+      console.error(
+        `❌ check-capability-matrix: 无法判定(exit 2,未判定)—— 判定面取材失败,**不回退另一个面**:${e.message}`,
+      )
+      console.error('   未判定 ≠ 通过:这次没判成,不是"台账一致"。')
+      process.exit(2)
+    }
+    throw e
+  }
+  const { errors, stats } = checked
+  if (errors.length > 0) {
+    console.error(
+      `❌ check-capability-matrix: 能力台账对账失败(${errors.length} 条;判定面:${face === 'staged' ? '索引 blob' : '工作树磁盘'}):`,
+    )
+    for (const e of errors) console.error(`   ${e}`)
+    process.exit(1)
+  }
+  if (!quiet) {
+    console.log(
+      `✅ check-capability-matrix: 台账 ${stats.matrixEnvs} 条 / 扫描 ${stats.scannedFiles} 个 py 文件 / ` +
+        `代码可读到的 env 名 ${stats.envNamesRead} 个,其中可判「默认关」${stats.defaultOffEnvs} 个已全部登记; ` +
+        `settings 族布尔字段 ${stats.settingsBoolFields} 个(默认关 ${stats.settingsBoolOff},J4 红域已过); ` +
+        `pruned 墓碑 ${stats.prunedEntries} 条(J3:剪除格子须逐条带 invariant/guard); ` +
+        `台账外且非默认关 ${stats.undocumentedNotOff} 个(阈值/URL/密钥路径等,按设计不属 J2 红域,只报数不判红)`,
+    )
+  }
+  // 判定面**总是**印(不受 --quiet 影响):提交链的绿必须能读出它判的是哪一份。
+  console.log(
+    `   判定面:${face === 'staged' ? '索引 blob(本次提交真正会带走的那一份)' : '工作树磁盘'}`,
+  )
+  process.exit(0)
+}
+
+/** --self-test: 用临时夹具验证 J1/J2/J3 都能红、修正后能绿。返回 exit code。 */
+function selfTestRun() {
+  const dir = mkScratch('ihui-cap-matrix-selftest-')
+  try {
+    const coreDir = join(dir, 'apps/ai-service/app/core')
+    mkdirSync(coreDir, { recursive: true })
+
+    const matrixSrc = (envs) =>
+      `CAPABILITY_MATRIX = [\n${envs.map((e) => `    {"key": "${e.toLowerCase()}", "env": "${e}", "default": "false", "category": "开关类", "owner_module": "m", "doc_ref": "d", "reason_if_off": ""},\n`).join('')}]\n`
+    // G-667 夹具用:在 matrixSrc 的列表尾部追加自定义条目(如 pruned 墓碑)。
+    const matrixSrcPlus = (envs, extraEntries) =>
+      matrixSrc(envs).replace(/\]\n$/, `${extraEntries}]\n`)
+    // 夹具代码:两个默认关 env,其中 MISSING_ENABLED 故意不登记;GHOST_ENABLED 是矩阵幽灵
+    const fixtureCode =
+      `import os\n` +
+      `# 注释陷阱: os.environ.get("FIXTURE_COMMENT_ENABLED", "false") 出现在注释里, 不许被吸\n` +
+      `A = os.environ.get("FIXTURE_MISSING_ENABLED", "false")\n` +
+      `B = os.environ.get("FIXTURE_REAL_ENABLED", "false")\n` +
+      // 下面两行是本门旧判据的结构盲区:env 名经模块常量、以及经 `_env_flag` 辅助函数读取,
+      // 形态上没有内联字面量 ⇒ 旧正则一条都吸不到,而门照报"全部对账一致"。
+      `FIXTURE_CONST_ENV = "FIXTURE_CONST_ENABLED"\n` +
+      `C = os.environ.get(FIXTURE_CONST_ENV, "false")\n` +
+      `FIXTURE_FLAG_ENV = "FIXTURE_FLAG_ENABLED"\n` +
+      `D = _env_flag(FIXTURE_FLAG_ENV, default=False)\n`
+
+    const ALL_FOUR = ['FIXTURE_MISSING_ENABLED', 'FIXTURE_REAL_ENABLED', 'FIXTURE_CONST_ENABLED', 'FIXTURE_FLAG_ENABLED']
+    // J4 夹具(2026-10-31):config.py 是 J4 的取材面,所有场景都必须写它
+    // (缺面 ⇒ runCheck 抛 Undetermined ⇒ self-test 当场炸,这正是「取不到不记绿」的形态)。
+    // CONFIG_PLAIN:无布尔默认关字段 ⇒ 场景 1–6 的既有期望逐字不变。
+    const CONFIG_PLAIN =
+      'from pydantic_settings import BaseSettings\n' +
+      '\nclass Settings(BaseSettings):\n' +
+      '    app_name: str = "ihui"\n' +
+      '    model_config = {"env_file": ".env", "extra": "ignore"}\n' +
+      '\n    def boot(self) -> None:\n' +
+      '        return None\n' +
+      '\nsettings = Settings()\n'
+    // CONFIG_OFF:四枚默认 False 布尔字段 + 两枚减项③样本(debug / _template 后缀)。
+    // fixture_dual_enabled 同时被 fixtureCodeDual 以 os.environ 字面量直读 ⇒ 落 J4 减项②。
+    const CONFIG_OFF =
+      'from pydantic_settings import BaseSettings\n' +
+      '\nclass Settings(BaseSettings):\n' +
+      '    app_name: str = "ihui"\n' +
+      '    debug: bool = False\n' +
+      '    fixture_settings_off_enabled: bool = False\n' +
+      '    fixture_settings_opt_off: bool | None = False\n' +
+      '    fixture_dual_enabled: bool = False\n' +
+      '    fixture_knob_template: bool = False\n' +
+      '    model_config = {"env_file": ".env", "extra": "ignore"}\n' +
+      '\n    def boot(self) -> None:\n' +
+      '        return None\n' +
+      '\nsettings = Settings()\n'
+    // 常量形态之外的直读腿(减项②夹具):大写键以 os.environ.get 字面量出现
+    const fixtureCodeDual = fixtureCode + 'F = os.environ.get("FIXTURE_DUAL_ENABLED", "false")\n'
+    /** J4 红域成员(减项③两枚 debug/fixture_knob_template 不在内)。 */
+    const SETTINGS_THREE = [
+      'FIXTURE_SETTINGS_OFF_ENABLED',
+      'FIXTURE_SETTINGS_OPT_OFF',
+      'FIXTURE_DUAL_ENABLED',
+    ]
+
+    const run = (envs, cfg = CONFIG_PLAIN, code = fixtureCode) => {
+      writeFileSync(join(coreDir, 'capability_matrix.py'), matrixSrc(envs))
+      writeFileSync(join(coreDir, 'fixture.py'), code)
+      writeFileSync(join(coreDir, 'config.py'), cfg)
+      return runCheck(dir)
+    }
+    // G-667 场景用:列表尾部追加自定义条目(pruned 墓碑)再跑一遍。
+    const runPlus = (envs, extraEntries) => {
+      writeFileSync(join(coreDir, 'capability_matrix.py'), matrixSrcPlus(envs, extraEntries))
+      writeFileSync(join(coreDir, 'fixture.py'), fixtureCode)
+      writeFileSync(join(coreDir, 'config.py'), CONFIG_PLAIN)
+      return runCheck(dir)
+    }
+
+    // 场景 1(应绿): 四个真实 env 都登记 → 无错误, 且注释里的 env 未被误吸。
+    {
+      const { errors } = run(ALL_FOUR)
+      const commentLeak = errors.some((e) => e.includes('FIXTURE_COMMENT_ENABLED'))
+      if (errors.length !== 0 || commentLeak) {
+        console.error(`❌ self-test 绿场景失败: 期望 0 错误, 实得 ${errors.length}${commentLeak ? '(注释被误吸!)' : ''}:`, errors)
+        return 1
+      }
+    }
+    // 场景 1b(应红,放宽判据的阳性对照): 只登记内联字面量那两个 ⇒ 经常量与经 `_env_flag`
+    // 读的两个必须被抓出来。少这一条,「放宽形态」就等于只写在注释里。
+    {
+      const { errors } = run(['FIXTURE_MISSING_ENABLED', 'FIXTURE_REAL_ENABLED'])
+      for (const need of ['FIXTURE_CONST_ENABLED', 'FIXTURE_FLAG_ENABLED']) {
+        if (!errors.some((e) => e.includes('J2') && e.includes(need))) {
+          console.error(`❌ self-test 场景 1b 失败: 未检出台账逃逸 ${need}(该形态仍是盲区)`, errors)
+          return 1
+        }
+      }
+    }
+    // 场景 2(应红): 少登记 MISSING → J2 台账逃逸。
+    {
+      const { errors } = run(['FIXTURE_REAL_ENABLED'])
+      if (!errors.some((e) => e.includes('J2') && e.includes('FIXTURE_MISSING_ENABLED'))) {
+        console.error('❌ self-test 红场景(J2)失败: 未检出台账逃逸:', errors)
+        return 1
+      }
+    }
+    // 场景 3(应红): 登记 GHOST → J1 幽灵条目。
+    {
+      const { errors } = run(['FIXTURE_MISSING_ENABLED', 'FIXTURE_REAL_ENABLED', 'FIXTURE_GHOST_ENABLED'])
+      if (!errors.some((e) => e.includes('J1') && e.includes('FIXTURE_GHOST_ENABLED'))) {
+        console.error('❌ self-test 红场景(J1)失败: 未检出幽灵条目:', errors)
+        return 1
+      }
+    }
+    // 场景 4(G-667 J3,应红): 剪一格不写理由 ⇒ J3 红并点名 key;同时 J1 必须给墓碑 env
+    // 免检(env 不在代码里正是 pruned 的本义,不得按幽灵条目陪绑出第二条红)。
+    {
+      const tombstone =
+        `    {"key": "fixture_pruned", "env": "FIXTURE_PRUNED_ENABLED", "default": "false", "category": "开关类", "owner_module": "m", "doc_ref": "d", "reason_if_off": "已剪除", "pruned": "2026-09-30"},\n`
+      const { errors } = runPlus(ALL_FOUR, tombstone)
+      if (!errors.some((e) => e.includes('J3') && e.includes('fixture_pruned'))) {
+        console.error('❌ self-test 场景 4 失败: 剪除无据的墓碑未被判红:', errors)
+        return 1
+      }
+      if (errors.some((e) => e.includes('J1') && e.includes('FIXTURE_PRUNED_ENABLED'))) {
+        console.error('❌ self-test 场景 4 失败: pruned 墓碑被 J1 按幽灵条目陪绑:', errors)
+        return 1
+      }
+    }
+    // 场景 5/6(G-667 应绿): 同一格写上 invariant(或只写 guard)⇒ 绿 —— 出口是真的,
+    // 不是判据没跑(反证即场景 4:同位置不写理由必红)。
+    {
+      for (const [extra, label] of [
+        [`, "invariant": "env 读取点已随能力一并删除,全仓无残留分支"`, 'invariant'],
+        [`, "guard": "test_capabilities_no_orphan_env 钉住不缺角回归"`, 'guard'],
+      ]) {
+        const tombstone =
+          `    {"key": "fixture_pruned", "env": "FIXTURE_PRUNED_ENABLED", "default": "false", "category": "开关类", "owner_module": "m", "doc_ref": "d", "reason_if_off": "已剪除", "pruned": "2026-09-30"${extra}},\n`
+        const { errors } = runPlus(ALL_FOUR, tombstone)
+        if (errors.length !== 0) {
+          console.error(`❌ self-test 场景 5/6(${label})失败: 期望 0 错误:`, errors)
+          return 1
+        }
+      }
+    }
+    // ── J4(settings 族,2026-10-31)成对夹具:能红也能绿,并锁 J1 免检的边界 ──
+    // 场景 7(应红):默认 False 布尔字段未登记 ⇒ J4 点名;bool | None 形态同视;
+    // 减项③(debug / _template 后缀)不得误伤成红。
+    {
+      const { errors } = run(ALL_FOUR, CONFIG_OFF)
+      for (const need of [
+        'FIXTURE_SETTINGS_OFF_ENABLED',
+        'FIXTURE_SETTINGS_OPT_OFF',
+        'FIXTURE_DUAL_ENABLED',
+      ]) {
+        if (!errors.some((e) => e.includes('J4') && e.includes(need))) {
+          console.error(`❌ self-test 场景 7 失败: J4 未检出 settings 族台账逃逸 ${need}`, errors)
+          return 1
+        }
+      }
+      for (const mustNot of ['DEBUG', 'FIXTURE_KNOB_TEMPLATE']) {
+        if (errors.some((e) => e.includes('J4') && e.includes(mustNot))) {
+          console.error(`❌ self-test 场景 7 失败: 减项③误伤 ${mustNot}(取值型/运行模式位不得进 J4 红域)`, errors)
+          return 1
+        }
+      }
+    }
+    // 场景 8(应绿):登记后 J4 清零,且 J1 对 settings 族派生名免检成立
+    // (夹具代码里根本没有 "FIXTURE_SETTINGS_*" 字面量,不免检就会陪绑出 J1 红)。
+    {
+      const { errors } = run([...ALL_FOUR, ...SETTINGS_THREE], CONFIG_OFF)
+      if (errors.length !== 0) {
+        console.error(
+          '❌ self-test 场景 8 失败: 期望 0 错误(settings 族登记后应绿,J1 免检应成立):',
+          errors,
+        )
+        return 1
+      }
+    }
+    // 场景 9(应红,免检不松口的锁):字段从 config.py 消失(改名/删除)⇒ 派生集失去该员
+    // ⇒ 在册行立刻回到 J1 射程按幽灵条目红。少这一条,"免检"就是永久免检。
+    {
+      const { errors } = run([...ALL_FOUR, ...SETTINGS_THREE], CONFIG_PLAIN)
+      if (!errors.some((e) => e.includes('J1') && e.includes('FIXTURE_SETTINGS_OFF_ENABLED'))) {
+        console.error(
+          '❌ self-test 场景 9 失败: settings 字段消失后在册行未被 J1 按幽灵条目追回:',
+          errors,
+        )
+        return 1
+      }
+    }
+    // 场景 10(J4 减项②不误伤也不重复):大写键同时有 os.environ 字面量直读 ⇒
+    // 归 J2 报(台账逃逸本体),J4 不重复点名;登记后两档一起清零。
+    {
+      const { errors } = run(
+        [...ALL_FOUR, 'FIXTURE_SETTINGS_OFF_ENABLED', 'FIXTURE_SETTINGS_OPT_OFF'],
+        CONFIG_OFF,
+        fixtureCodeDual,
+      )
+      if (!errors.some((e) => e.includes('J2') && e.includes('FIXTURE_DUAL_ENABLED'))) {
+        console.error('❌ self-test 场景 10 失败: 直读形态未落 J2 红域:', errors)
+        return 1
+      }
+      if (errors.some((e) => e.includes('J4') && e.includes('FIXTURE_DUAL_ENABLED'))) {
+        console.error('❌ self-test 场景 10 失败: J4 与 J2 对同一逃逸重复点名:', errors)
+        return 1
+      }
+      const green = run([...ALL_FOUR, ...SETTINGS_THREE], CONFIG_OFF, fixtureCodeDual)
+      if (green.errors.length !== 0) {
+        console.error('❌ self-test 场景 10 失败: 全部登记后期望 0 错误:', green.errors)
+        return 1
+      }
+    }
+    if (!quiet)
+      console.log(
+        '✅ check-capability-matrix self-test: J1/J2/J3 红 + 绿场景全部咬合, J4(settings 族)红/绿/免检边界/减项不重复 四场景咬合, 注释剥离生效',
+      )
+    return 0
+  } finally {
+    rmScratch(dir)
+  }
+}
+
+// §22d 双形态入口守护:`runCheck` / `collectMatrixEnvs` 已 export 给镜像测试直接 import,
+// 而 main() 顶层就取材并 process.exit —— 不加守护时 import 一次等于把整道门跑完,
+// 测试退出码由真仓当下状态决定(于是"跟着仓库颜色走"的复读机,§22c 那一型)。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) main()
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,235 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+/**
+ * check-web-rn-copy-parity.test.mjs — 守门 291 的 §22c 镜像测试
+ *
+ * 取向:一律 import 源文件 `__test__`,**不复制判据实现**;夹具现造键值表,
+ * 不把真仓存量(68 条账/287 屏)写死进断言;接线对账读 guardian-runner 原文。
+ */
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { __test__ as G } from '../check-web-rn-copy-parity.mjs'
+
+const ROOT = join(import.meta.dirname, '..', '..')
+const RUNNER = readFileSync(join(ROOT, 'scripts/guardian-runner.mjs'), 'utf8')
+const SELF = readFileSync(join(ROOT, 'scripts/check-web-rn-copy-parity.mjs'), 'utf8')
+const MESSAGES = new Map([
+  ['wallet.balance', '余额'],
+  ['wallet.title', '我的钱包'],
+  ['common.save', '保存'],
+  ['wallet.save', '保存'],
+])
+
+test('T1 aligned 过滤:excluded/portal/gap 一律跳过,坏 JSON 行不炸', () => {
+  const text = [
+    '{"web":"wallet","rn":"rn/W.tsx","status":"aligned"}',
+    '{"web":"a","rn":"rn/A.tsx","status":"excluded"}',
+    '{"web":"b","rn":"rn/B.tsx","status":"portal"}',
+    '{"web":"c","rn":"rn/C.tsx","status":"gap"}',
+    'not-json',
+    '{"web":"d","status":"aligned"}',
+  ].join('\n')
+  const { rows, skipped } = G.loadAlignedRows(text)
+  assert.equal(rows.length, 1)
+  assert.equal(skipped.excluded, 1)
+  assert.equal(skipped.portal, 1)
+  assert.equal(skipped.gap, 1)
+})
+
+test('T2 同屏同文案硬编码 ⇒ B1 红,并点名 web 键', () => {
+  const r = G.judgeScreen(
+    {
+      web: 'wallet',
+      rn: 'rn/W.tsx',
+      webKeys: new Set(['wallet.balance']),
+      rnKeys: new Set(),
+      hardcoded: [{ kind: 'jsx-text', value: '余额', line: 7 }],
+    },
+    MESSAGES,
+  )
+  assert.equal(r.blocking.length, 1)
+  assert.deepEqual(r.blocking[0].webKeys, ['wallet.balance'])
+  assert.equal(r.advisory.length, 0)
+})
+
+test('T3 同值异键(同尾段) ⇒ 已裁决的命名约定,不判红', () => {
+  const r = G.judgeScreen(
+    { web: 'wallet', rn: 'rn/W.tsx', webKeys: new Set(['common.save']), rnKeys: new Set(['wallet.save']), hardcoded: [] },
+    MESSAGES,
+  )
+  assert.equal(r.blocking.length, 0)
+  assert.equal(r.advisory.length, 0)
+  assert.equal(r.accepted.length, 1)
+  assert.equal(r.accepted[0].rule, 'B2-accepted')
+})
+
+test('T4 同键不报;RN 自有中文(web 无同值键)不判红', () => {
+  const same = G.judgeScreen(
+    { web: 'wallet', rn: 'rn/W.tsx', webKeys: new Set(['wallet.title']), rnKeys: new Set(['wallet.title']), hardcoded: [] },
+    MESSAGES,
+  )
+  assert.equal(same.blocking.length + same.advisory.length, 0)
+  const own = G.judgeScreen(
+    {
+      web: 'wallet',
+      rn: 'rn/W.tsx',
+      webKeys: new Set(['wallet.title']),
+      rnKeys: new Set(),
+      hardcoded: [{ kind: 'jsx-text', value: 'web 没有这句', line: 3 }],
+    },
+    MESSAGES,
+  )
+  assert.equal(own.blocking.length, 0)
+})
+
+test('T5 命名空间合成:useTranslations(wallet)+t(balance) ⇒ wallet.balance;动态键不冒充命中', () => {
+  const r = G.extractWebKeys("const t = useTranslations('wallet')\nt('balance')\nt(`k.${x}`)", MESSAGES)
+  assert.ok(r.keys.has('wallet.balance'))
+  assert.equal(r.keys.size, 1)
+})
+
+test('T6 注释遮罩:注释里的 t("…") 与 JSX 文本不算', () => {
+  const keys = G.extractRnKeys('// t("wallet.balance")\nconst v = t("wallet.title")', MESSAGES)
+  assert.deepEqual([...keys.keys], ['wallet.title'])
+  const h = G.extractHardcodedChinese('// <Text>余额</Text>\nconst A = () => <Text>ok</Text>')
+  assert.equal(h.length, 0)
+})
+
+test('T7 属性位硬编码进射程;样式/日志字符串不进', () => {
+  const h = G.extractHardcodedChinese('<TextField placeholder="余额" />')
+  assert.equal(h.length, 1)
+  assert.equal(h[0].kind, 'attr:placeholder')
+  const code = G.extractHardcodedChinese('const cls = "text-red-500"\nlog("中文日志")')
+  assert.equal(code.length, 0, '代码字符串被当用户可见文案')
+})
+
+test('T8 台账:到期即红;count 差额与缺字段点名;scopeFiles 只判本次审过的屏', () => {
+  const expired = G.judgeLedger(
+    [],
+    [{ file: 'wallet', rule: 'B1-hardcoded-cjk', count: 0, owner: 'o', expires: '2020-01-01', evidence: 'e' }],
+    { today: '2026-11-03' },
+  )
+  assert.equal(expired.expired.length, 1)
+  const scoped = G.judgeLedger(
+    [],
+    [{ file: 'wallet', rule: 'B1-hardcoded-cjk', count: 3, owner: 'o', expires: '2099-01-01', evidence: 'e' }],
+    { today: '2026-11-03', scopeFiles: new Set(['learn']) },
+  )
+  assert.equal(scoped.advisory.length, 0, '未审过的屏不该刷清单腐烂')
+  const malformed = G.judgeLedger([], [{ file: 'wallet', rule: 'B1-hardcoded-cjk' }], { today: '2026-11-03' })
+  assert.equal(malformed.malformed.length, 3)
+})
+
+test('T9 自检全绿(18 例)', () => {
+  assert.equal(G.runSelfTest(), 18)
+})
+
+test('T10 接线对账:gate 291 已注册进 guardian-runner,blocking + staged 触发面 + skip env', () => {
+  const block = RUNNER.slice(RUNNER.indexOf("id: '291'"), RUNNER.indexOf("id: '291'") + 1200)
+  assert.ok(RUNNER.includes("id: '291'"), "guardian-runner 里找不到 id: '291'")
+  assert.match(block, /script: 'check-web-rn-copy-parity\.mjs'/)
+  assert.match(block, /mode: 'blocking'/)
+  assert.match(block, /stagedTriggers:/)
+  assert.match(block, /skipEnv: 'HUSKY_SKIP_WEB_RN_COPY_PARITY'/)
+  assert.match(SELF, /守门 291/)
+  assert.match(SELF, /集成位置: .*guardian-runner\.mjs 第 291 项/)
+})
+
+test('T11 账本结构合法:条目必须是可判据规则且字段齐全;空账必须带 emptyReason(清零依据)', () => {
+  const raw = JSON.parse(readFileSync(join(ROOT, 'scripts/data/web-rn-copy-diffs.json'), 'utf8'))
+  assert.ok(Array.isArray(raw.entries), 'entries 必须是数组')
+  if (raw.entries.length === 0) {
+    assert.ok(
+      typeof raw.emptyReason === 'string' && raw.emptyReason.trim(),
+      '空账必须写明 emptyReason(已清零的判定依据)',
+    )
+  }
+  for (const e of raw.entries) {
+    assert.ok(e.file && e.rule && e.owner && e.expires && e.evidence, `条目缺字段:${JSON.stringify(e).slice(0, 120)}`)
+    assert.match(e.expires, /^\d{4}-\d{2}-\d{2}$/)
+    assert.ok(Number.isInteger(e.count) && e.count > 0, `count 非正整数:${e.file}`)
+    assert.ok(G.JUDGED_RULES.has(e.rule), `rule 不是可判据规则(真缺口不许挂账):${e.rule}`)
+  }
+})
+
+test('T11b 真缺口必红:web 侧缺键而 RN 有消费被挂账(B1-web-no-key)⇒ 形状判据必须红', () => {
+  const gap = G.validateLedgerShape(
+    [{ file: 'learn', rule: 'B1-web-no-key', count: 4, owner: 'web-rn-copy', expires: '2027-06-30', evidence: 'x' }],
+    undefined,
+  )
+  assert.equal(gap.length, 1)
+  assert.match(gap[0], /web 侧缺键而 RN 有消费/)
+  assert.deepEqual(G.validateLedgerShape([], '已清零:B1 0 / B2 0 / B3 0 / 未判定 0'), [])
+  assert.equal(G.validateLedgerShape([], undefined).length, 1)
+})
+
+test('T11c 退休行:entries 带标记 ⇒ 判据面剔除不计数;retired[] 缺 sha/理由短 ⇒ 红;正常条目不受影响', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'web-rn-retired-'))
+  try {
+    // 五个标记齐全、理由定向且 ≥10 字、sha 为 64 位小写十六进制
+    const retired = {
+      file: 'learn',
+      rule: 'B2-key-diff',
+      count: 1,
+      owner: 'web-rn-copy',
+      expires: '2027-06-30',
+      evidence: 'x',
+      retiredAt: '2026-11-05T12:00:00+08:00',
+      retiredReason: '同屏双键经裁决属角色不同,已并入 ROLE_EXEMPTIONS',
+      retiredBy: 'web-rn-copy',
+      retiredFrom: '{"file":"learn"}',
+      retiredFromSha: 'a'.repeat(64),
+    }
+    const p = join(dir, 'ledger.json')
+    writeFileSync(p, JSON.stringify({ entries: [retired], retired: [retired], emptyReason: '已清零' }))
+    // ① 判决面:entries 里的退休行被剔除 ⇒ 0 条、形状不红(不许因 retired[] 存在就红)
+    assert.deepEqual(G.readLedger(p), [], '带退休标记的 entry 不得留在判据面')
+    assert.equal(G.readLedgerRetired(p).length, 1, 'retired[] 必须被读到(否则形状判据空转)')
+    assert.deepEqual(
+      G.validateLedgerShape(G.readLedger(p), '已清零', G.readLedgerRetired(p)),
+      [],
+      '退休行齐全 ⇒ 形状必须绿',
+    )
+    // ② 缺 retiredFromSha ⇒ 红;理由 <10 字 ⇒ 红
+    const noSha = { ...retired }
+    delete noSha.retiredFromSha
+    assert.ok(
+      G.validateLedgerShape([], '已清零', [noSha]).some((x) => /缺退休标记/.test(x)),
+      '缺 retiredFromSha 必须判形状红',
+    )
+    assert.ok(
+      G.validateLedgerShape([], '已清零', [{ ...retired, retiredReason: '退休' }]).some((x) =>
+        /少于 10 字/.test(x),
+      ),
+      '理由 <10 字必须判形状红',
+    )
+    assert.ok(
+      G.validateLedgerShape([], '已清零', [{ ...retired, retiredFromSha: 'short' }]).some((x) =>
+        /retiredFromSha/.test(x),
+      ),
+      'sha 非 64 位必须判形状红',
+    )
+    // ③ 正常条目不受影响:可判据规则照旧绿,非法规则照旧红
+    assert.deepEqual(
+      G.validateLedgerShape([{ file: 'wallet', rule: 'B2-key-diff', count: 1 }], undefined, []),
+      [],
+    )
+    assert.equal(
+      G.validateLedgerShape([{ file: 'learn', rule: 'B1-web-no-key', count: 4 }], undefined, []).length,
+      1,
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('T12 两面读:staged 面读索引、worktree 面读盘;取不到返回 null 而不是空串', () => {
+  assert.equal(typeof G.readFace('scripts/data/web-rn-screen-map.jsonl', 'staged'), 'string')
+  assert.equal(G.readFace('apps/miniapp-taro/src/__不存在__.tsx', 'worktree'), null)
+})

@@ -1,0 +1,103 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import nextConfig from '@ihui/eslint-config/next'
+import jsxA11y from 'eslint-plugin-jsx-a11y'
+// 2026-09-04 (main) 页面留白防回归:本地插件(规则实现见 eslint-rules/main-page-padding.js)
+import mainPagePadding from './eslint-rules/main-page-padding.js'
+
+export default [
+  ...nextConfig,
+  {
+    ignores: [
+      // A 席 2026-11-08 根治 ESLint RC=124:.ihui-agent/tmp/ 存着 HEAD 整仓副本
+      // (实测 18G / 52317 文件 / 29802 个 ts|js),而 nextConfig 展开的
+      // files: ['**/*.{ts,tsx,js,jsx,mjs,cjs}'] 会把它们全收进 FileEnumerator。
+      // 旧写法 '.ihui-agent/**' 缺 '**/' 前缀,flat config 全局 ignores 下不能对该
+      // 目录做剪枝 ⇒ 全量与单文件 eslint 都卡在巨型树枚举(超时 124)。
+      // 只排除非源码临时副本,不改任何判据、不降低规则强度。
+      '**/.ihui-agent/**',
+      '.next/**',
+      // 2026-09-14 加:.next-* 覆盖 e2e 隔离栈(.next-e2e)/静态导出(.next-static)/
+      // 全量验证隔离构建(.next-h12,IHUI_BUILD_DIST)等产物目录,
+      // 否则编译产物(编译后 var 等)被 lint 误报为真实错误污染 lint 门禁
+      '.next-*/**',
+      // 2026-11-19 加:`.next.bak-deploy` 这类"点后缀"备份目录既不被 `.next/**`
+      // 也不被 `.next-*/**` 命中(后者要求紧跟连字符) ⇒ 整仓编译 chunk 被当源码扫,
+      // 单次 lint 报出 20 万条伪错误、真缺陷全被淹没。`.next*` 覆盖全部前缀族,
+      // 这些目录同为构建/回滚产物,不属源码面。
+      '.next*/**',
+      // 2026-09-14 加:.rollback 是部署回滚产物目录(含编译 chunk),同属产物非源码
+      '.rollback/**',
+      'out/**',
+      'coverage/**',
+      'playwright-report/**',
+      'test-results/**',
+      'e2e/**',
+      'public/**',
+      'scripts/**',
+      'next-env.d.ts',
+      // 2026-07-30 加:.ihui-agent/** 是项目内临时目录(已 gitignore),
+      // 此前未在 eslint ignores 中,导致 .ihui-agent/tmp/ 里的临时脚本被 lint 误报
+      // 污染真实 lint 报告。AGENTS.md §15 卫生规则要求临时文件必须项目内 .ihui-agent/tmp/,
+      // 故这里统一加 ignore 让 eslint 跳过。
+      '.ihui-agent/**',
+      'tmp/**',
+    ],
+  },
+  {
+    files: ['src/**/*.js'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Program',
+          message: '.js files are not allowed in src/. Use .ts or .tsx instead.',
+        },
+      ],
+    },
+  },
+  {
+    files: ['**/*.{tsx,jsx}'],
+    plugins: { 'jsx-a11y': jsxA11y },
+    rules: { ...jsxA11y.configs.recommended.rules },
+  },
+  {
+    files: ['src/components/media/ThreeDViewer.tsx'],
+    rules: {
+      'react/no-unknown-property': 'off',
+    },
+  },
+  {
+    files: ['app/(main)/admin/clawdbot/**/*.tsx'],
+    rules: {
+      'jsx-a11y/click-events-have-key-events': 'off',
+      'jsx-a11y/no-static-element-interactions': 'off',
+      'jsx-a11y/no-noninteractive-tabindex': 'off',
+    },
+  },
+  {
+    // 管理后台表格广泛展示用户/服务端上传的图片(URL 动态、尺寸不可控),
+    // Next/Image 强制 width/height 难以适配;统一关闭此规则
+    files: ['app/(main)/admin/**/*.{tsx,jsx}'],
+    rules: {
+      '@next/next/no-img-element': 'off',
+    },
+  },
+  {
+    files: ['src/components/sidebar.tsx'],
+    rules: {
+      '@next/next/no-img-element': 'off',
+    },
+  },
+  {
+    // 2026-09-04 (main) 页面留白防回归(见 eslint-rules/main-page-padding.js):
+    // MainShell <main> 无 padding,page.tsx 根元素必须自带水平留白。
+    // error 级——治理后全站应零违规;任何新裸奔页在 lint 阶段即被拦截。
+    files: ['app/(main)/**/page.tsx'],
+    plugins: { 'ihui-main-padding': mainPagePadding },
+    rules: { 'ihui-main-padding/main-page-root-padding': 'error' },
+  },
+]
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

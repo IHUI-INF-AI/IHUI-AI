@@ -1,0 +1,901 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+//! 桌面端「行为偏好」的单一真相源(2026-09-28 立,用户批准的托盘/关窗/启动/角标设置)。
+//!
+//! 为什么单开一个文件:`DesktopPrefs` 的**判定**(两条不变量 + 关窗去向决策)必须能在
+//! 没有运行中的 app 的情况下被真跑测试覆盖 —— 把 `#[tauri::command]` 混进来的话,这些判据
+//! 就只能等整条 tauri 事件循环跑起来才谈得上验证,而本仓最高频的失效型正是
+//! 「判据写了、没人跑得动,于是它对着空气报绿」(见 git_channel_ipc.rs 同样的分层理由)。
+//! 因此本文件把**纯函数**(`normalize_prefs` / `decide_close_action` / `*_from` / `*_to`)
+//! 与**薄壳**(取 `app_config_dir` 的两个 AppHandle 包装)分开,测试只喂路径与结构体。
+//!
+//! 落点:`<app_config_dir>/desktop-behavior.json`,snake_case,与既有
+//! `tray-settings.json`(`lib.rs` 的 `TraySettings`)同一套持久化先例。
+//!
+//! ⚠️ `show_tray_icon` 与既有的 `get_tray_always_visible` / `set_tray_always_visible`
+//! 是**两件事**:那一条说的是 Windows 通知区「图标是否常驻(注册表 IsPromoted)」,
+//! 本字段说的是「托盘图标到底存不存在」。不得合并、不得改名互相顶替。
+
+// G-715:桌面 IPC 的错误身份档定义在 crate 根(lib.rs),这里只引它,不开第二份档位表。
+use crate::IpcError;
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+use tauri::Manager;
+
+/// 关闭窗口时的去向。JSON 里就是 `"hide"` / `"quit"` / `"ask"` 三个小写字面量。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CloseBehavior {
+    /// 隐藏到托盘(托盘不存在时这个去向无处可去,由不变量 1 归一成 Quit)。
+    Hide,
+    /// 直接退出进程。
+    Quit,
+    /// 每次问用户(前端弹确认框,再经 `resolve_close_choice` 回答)。
+    Ask,
+}
+
+/// 托盘图标**左键单击**的语义。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TraySingleClick {
+    /// 弹托盘菜单(tauri 的 `show_menu_on_left_click` 默认即 true,所以这一档 = 现状)。
+    Menu,
+    /// 左键改为显示/隐藏主窗口的开关,菜单只由右键唤出。
+    ToggleWindow,
+}
+
+/// `decide_close_action` 的结论。
+///
+/// 刻意与 `CloseBehavior` 分家:配置里写着 `ask` 而此刻**没有托盘**,结论就不是「问」
+/// (问了也没有意义 —— 隐藏要去的地方不存在)。用一个新类型,调用方无法把两者混为一谈。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CloseDecision {
+    Hide,
+    Quit,
+    Ask,
+}
+
+/// 托盘菜单项的**唯一**登记表:id、本地化标签下标、分隔符分组。
+///
+/// 一张表同时喂三处,不得再抄第二份:
+/// - `default_tray_menu_items()`(默认值)
+/// - `normalize_prefs` 的「未知 id 丢弃」判据
+/// - `build_tray`(lib.rs)按 id 取标签 + 按 group 变化插分隔符
+#[derive(Debug, Clone, Copy)]
+pub struct TrayMenuItem {
+    pub id: &'static str,
+    /// `tray_menu_labels()` 的下标(0..=7,前 7 项与历史顺序逐字一致;第 8 项是操作员专属)。
+    pub label_index: usize,
+    /// 分组号:相邻两项分组不同 ⇒ 中间有一条分隔线(复刻历史形态)。
+    pub group: u8,
+}
+
+pub const TRAY_MENU_ITEMS: [TrayMenuItem; 9] = [
+    TrayMenuItem { id: "new_chat", label_index: 0, group: 0 },
+    TrayMenuItem { id: "show", label_index: 1, group: 1 },
+    TrayMenuItem { id: "hide", label_index: 2, group: 1 },
+    TrayMenuItem { id: "theme", label_index: 3, group: 2 },
+    TrayMenuItem { id: "settings", label_index: 4, group: 2 },
+    TrayMenuItem { id: "update", label_index: 5, group: 2 },
+    // 2026-11-18:窗口置顶开关(托盘入口)。与 group 2 的「设置/检查更新」同组 ——
+    // 它是"窗口行为"类开关,和退出(人员动作)不该贴在一起。label_index 6 对应
+    // tray_menu_labels() 的「窗口置顶(切换)」;默认菜单里就该有它(不是操作员专属):
+    // 桌面端加载的是线上页,图钉按钮要等前端发版,托盘这条是用户当场可用的入口。
+    TrayMenuItem { id: "always_on_top", label_index: 6, group: 2 },
+    TrayMenuItem { id: "quit", label_index: 7, group: 3 },
+    // 2026-11-11:操作员专属项。**默认不进 default 列表**(见 default_tray_menu_items),
+    // 需在 <app_config_dir>/desktop-behavior.json 的 tray_menu_items 里显式加
+    // "relay_switch" 才出现 —— 详见 is_operator_only_tray_item 的立因。
+    TrayMenuItem { id: "relay_switch", label_index: 8, group: 4 },
+];
+
+/// 「退出」这一项的 id:不变量 2 要求菜单里永远有它(否则用户没法从托盘退进程)。
+pub const TRAY_MENU_QUIT_ID: &str = "quit";
+
+/// 窗口置顶开关的托盘项 id(2026-11-18 立):点击 = 翻转 `DesktopPrefs::always_on_top`
+/// 并落盘 + 立刻落到窗口上,与前端图钉按钮共用同一枚偏好与同一个 `apply_always_on_top`。
+pub const TRAY_MENU_ALWAYS_ON_TOP_ID: &str = "always_on_top";
+
+/// 操作员专属托盘项 id:拉起本机号池切号器(见 lib.rs 的 spawn_relay_switch)。
+pub const TRAY_MENU_RELAY_SWITCH_ID: &str = "relay_switch";
+
+/// 这一项是否**只对操作员有意义**、因而不该出现在默认菜单里。
+///
+/// 立因(2026-11-11):号池切号的前提是这台机器有 IHUI-AI 仓库 + relay 号池库 +
+/// `apps/api/.env` 凭据。普通终端用户一个都不具备,给他们菜单里放这一项,
+/// 点下去只能得到"仓库/号池未就绪"的报错 —— 那是产品面污染,不是功能。
+/// 所以它登记在册(操作员可在 desktop-behavior.json 里显式启用),但默认不导出。
+pub fn is_operator_only_tray_item(id: &str) -> bool {
+    id == TRAY_MENU_RELAY_SWITCH_ID
+}
+
+/// 按 id 查登记项(归一化之后一定查得到,因为未知 id 已被丢弃)。
+pub fn tray_menu_item(id: &str) -> Option<TrayMenuItem> {
+    TRAY_MENU_ITEMS.iter().copied().find(|item| item.id == id)
+}
+
+/// 默认菜单项列表由登记表导出 —— 不是第二份手抄的名字。
+///
+/// 只排除 `is_operator_only_tray_item` 项,其余逐字同形(默认仍是历史那 7 项)。
+pub fn default_tray_menu_items() -> Vec<String> {
+    TRAY_MENU_ITEMS
+        .iter()
+        .filter(|item| !is_operator_only_tray_item(item.id))
+        .map(|item| item.id.to_string())
+        .collect()
+}
+
+/// 桌面端行为偏好。**每个字段都有默认值**,且默认值只由下面手写的 `impl Default` 决定。
+///
+/// 序列化侧用**容器级** `#[serde(default)]`:字段缺失时取 `Default::default()` 里
+/// **该字段**的值。写成字段级 `#[serde(default)]` 会改取「字段类型自己的 Default」,
+/// 于是 `show_tray_icon` 缺失 ⇒ `false`、`unread_badge` 缺失 ⇒ `false` —— 即 lib.rs
+/// `TraySettings`(:594 那条注释)记过的「派生 Default 把默认开关静默关掉」同一型。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DesktopPrefs {
+    /// 托盘图标是否存在。
+    pub show_tray_icon: bool,
+    /// 点窗口关闭按钮时的去向。
+    pub close_behavior: CloseBehavior,
+    /// 启动时直接进后台(不弹主窗口)。
+    pub launch_minimized: bool,
+    /// 托盘左键单击的语义。
+    pub tray_single_click: TraySingleClick,
+    /// 有未读消息时在任务栏图标上画小红点。
+    pub unread_badge: bool,
+    /// 托盘菜单里有哪些项(顺序即菜单顺序)。
+    pub tray_menu_items: Vec<String>,
+    /// 主窗口是否置顶。默认 **false**:置顶会盖住其他程序,只能由用户显式打开
+    /// (2026-11-18 立,此前无此偏好 ⇒ 运行期一旦被切到置顶就没人能把它关回去)。
+    pub always_on_top: bool,
+}
+
+/// 手写 Default:见上面那段 —— bool 的派生 Default 是 false,会把两个默认「开」的开关
+/// 静默关掉(照抄 lib.rs :594-600 的教训,不是审美)。
+impl Default for DesktopPrefs {
+    fn default() -> Self {
+        Self {
+            show_tray_icon: true,
+            close_behavior: CloseBehavior::Ask,
+            launch_minimized: false,
+            tray_single_click: TraySingleClick::Menu,
+            unread_badge: true,
+            tray_menu_items: default_tray_menu_items(),
+            // 默认不置顶:旧版本/外部残留的 WS_EX_TOPMOST 由启动路径强制清掉,
+            // 这里只认用户显式保存过的那一份(缺省即 false)。
+            always_on_top: false,
+        }
+    }
+}
+
+/// `set_desktop_prefs` 的入参:每档都是 `Option`,缺失 = 「不改这一档」。
+///
+/// 这里字段级/容器级的 `#[serde(default)]` 语义一致(都是 `None`),所以两种写法都对;
+/// 取容器级 + `skip_serializing_if`,回包/日志里只出现调用方真填了的键。
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DesktopPrefsPatch {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub show_tray_icon: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub close_behavior: Option<CloseBehavior>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub launch_minimized: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tray_single_click: Option<TraySingleClick>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unread_badge: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tray_menu_items: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub always_on_top: Option<bool>,
+}
+
+impl DesktopPrefsPatch {
+    /// patch 覆盖到已存盘偏好之上(纯合并,**不做归一** —— 归一只有一个出口)。
+    pub fn merge_into(self, base: DesktopPrefs) -> DesktopPrefs {
+        DesktopPrefs {
+            show_tray_icon: self.show_tray_icon.unwrap_or(base.show_tray_icon),
+            close_behavior: self.close_behavior.unwrap_or(base.close_behavior),
+            launch_minimized: self.launch_minimized.unwrap_or(base.launch_minimized),
+            tray_single_click: self.tray_single_click.unwrap_or(base.tray_single_click),
+            unread_badge: self.unread_badge.unwrap_or(base.unread_badge),
+            tray_menu_items: self.tray_menu_items.unwrap_or(base.tray_menu_items),
+            always_on_top: self.always_on_top.unwrap_or(base.always_on_top),
+        }
+    }
+}
+
+/// 不变量的**唯一**落点:加载、写入、关窗判定三条路径都过这里。
+/// 两处各写一遍必然漂移(本仓「两处算同一件事」记过多次),所以只有这一份。
+pub fn normalize_prefs(prefs: DesktopPrefs) -> DesktopPrefs {
+    let mut prefs = prefs;
+
+    // 不变量 1:没有托盘就没有「隐藏到托盘」,这一组合是自我矛盾的 ⇒ 归一成 Quit。
+    // 必须喊出来:静默改用户的设置,下次他只会看见「设置没生效」。
+    if !prefs.show_tray_icon && prefs.close_behavior == CloseBehavior::Hide {
+        log::warn!(
+            "[desktop-prefs] 不变量:show_tray_icon=false 时 close_behavior=hide 无处可藏,\
+             已按 quit 处理(要保留隐藏语义请先把托盘打开)"
+        );
+        prefs.close_behavior = CloseBehavior::Quit;
+    }
+
+    // 不变量 2:菜单必须留得下「退出」,且只认登记表里的 id。
+    let mut kept: Vec<String> = Vec::with_capacity(prefs.tray_menu_items.len());
+    for id in prefs.tray_menu_items {
+        if tray_menu_item(&id).is_some() {
+            kept.push(id);
+        } else {
+            log::warn!("[desktop-prefs] 丢弃未知托盘菜单项 id: {id}(不在 TRAY_MENU_ITEMS 登记表里)");
+        }
+    }
+    // 记住"补 quit 之前"是否本来就是一张有内容的菜单:空表是"用户把菜单删光了"的
+    // 极端形态,归一语义是「只留 quit」—— 下面的新项迁移不得借"补完 quit 就非空了"
+    // 把它顺带撑开(实测踩过:条件写成 !kept.is_empty() 时空表也会被补进新项)。
+    let had_items_before_quit_fill = !kept.is_empty();
+    if !kept.iter().any(|id| id == TRAY_MENU_QUIT_ID) {
+        log::warn!(
+            "[desktop-prefs] tray_menu_items 里没有 {TRAY_MENU_QUIT_ID},已补到末尾(托盘必须留得下退出出口)"
+        );
+        kept.push(TRAY_MENU_QUIT_ID.to_string());
+    }
+
+    // 2026-11-18 迁移:「窗口置顶(切换)」是本版新登记的第 9 项,旧版本的
+    // desktop-behavior.json 里**不可能**有它 —— 已装用户因此看不到这枚开关
+    // (实证:本机配置 = 历史 7 项 + relay_switch,新项一条都不出现)。这里按
+    // 「登记表里有、而用户列表里缺」补入,插在 quit 之前(与登记表同序);
+    // 幂等(已有就一个字不动),且**只对非空列表**生效 —— 空表是"用户把菜单删光了"
+    // 的极端形态,归一语义仍是"只留 quit",不得借迁移把它再撑开。
+    // 取舍(如实登记):一旦补入,用户若手工把它从 json 删掉,下次归一还会补回来 ——
+    // "用户想长期删掉这一项"目前没有产品面出口;真要支持时再加一枚 migrated 标记字段,
+    // 不要在本条里偷偷引入第二套记忆。
+    if had_items_before_quit_fill && !kept.iter().any(|id| id == TRAY_MENU_ALWAYS_ON_TOP_ID) {
+        // debug 档:归一在同一轮启动里会被多次调用(build_tray/各命令各读一次),
+        // 用 info 会一次启动刷出多行同样的迁移记录(本机实测 6 行)。
+        log::debug!(
+            "[desktop-prefs] 迁移:托盘菜单补入「{TRAY_MENU_ALWAYS_ON_TOP_ID}」项(本版新登记,旧配置里不可能有)"
+        );
+        let insert_at = kept
+            .iter()
+            .position(|id| id == TRAY_MENU_QUIT_ID)
+            .unwrap_or(kept.len());
+        kept.insert(insert_at, TRAY_MENU_ALWAYS_ON_TOP_ID.to_string());
+    }
+    prefs.tray_menu_items = kept;
+
+    prefs
+}
+
+/// 关窗去向的唯一判定:先归一,再按配置映射;`hide`/`ask` 但托盘不在 ⇒ 直接 Quit。
+///
+/// `tray_present` 取的是**运行时事实**(`app.tray_by_id("main").is_some()`)而不是
+/// `show_tray_icon`:托盘创建可能整个失败(build_tray 返回 Err),那时 prefs 里仍是 true,
+/// 而「隐藏」真的无处可去。
+pub fn decide_close_action(prefs: &DesktopPrefs, tray_present: bool) -> CloseDecision {
+    let normalized = normalize_prefs(prefs.clone());
+    match normalized.close_behavior {
+        // F-048:托盘不在时 hide 与 ask 同样无处可去 —— 藏进去的窗口没有任何入口能唤回。
+        CloseBehavior::Hide => {
+            if tray_present {
+                CloseDecision::Hide
+            } else {
+                log::warn!(
+                    "[desktop-prefs] close_behavior=hide 但托盘图标不在(build_tray 失败?)\
+                     ⇒ 退化为 quit(隐藏后没有任何入口能唤回窗口)"
+                );
+                CloseDecision::Quit
+            }
+        }
+        CloseBehavior::Quit => CloseDecision::Quit,
+        CloseBehavior::Ask => {
+            if tray_present {
+                CloseDecision::Ask
+            } else {
+                // 不许问:没有托盘就没有「隐藏」这一支,弹框里给两个选项而其中一个做不到,
+                // 比不给选项更糟。选 Quit 并写明原因(本仓禁的是静默无终态,不是终态本身)。
+                log::warn!(
+                    "[desktop-prefs] close_behavior=ask 但托盘图标不在 ⇒ 不问,直接 quit\
+                     (隐藏到托盘无处可去)"
+                );
+                CloseDecision::Quit
+            }
+        }
+    }
+}
+
+/// 偏好文件名(不含目录,便于测试与 lib.rs 共用同一个名字)。
+pub const PREFS_FILE_NAME: &str = "desktop-behavior.json";
+
+pub fn prefs_path_in(config_dir: &Path) -> PathBuf {
+    config_dir.join(PREFS_FILE_NAME)
+}
+
+/// 读 + 归一。缺失/损坏一律回退 `DesktopPrefs::default()`(再走一遍归一,保证内存里
+/// 不存在违规形态 —— 默认值本身也必须是归一后的)。
+pub fn load_prefs_from(path: &Path) -> DesktopPrefs {
+    let raw = match std::fs::read(path) {
+        Ok(bytes) => bytes,
+        // 首次运行没有这个文件属正常形态,不报警(但也不得把"没读到"当成"读到了空的")。
+        Err(_) => return normalize_prefs(DesktopPrefs::default()),
+    };
+    // BOM 只剥这一个:Windows 侧任何非 Rust 的写手(PowerShell 5.1 的 `-Encoding utf8`、记事本)
+    // 都会在文件头留 U+FEFF,而 serde_json 见 BOM 即整份解析失败 ⇒ 用户的全部偏好静默回退默认值。
+    // 本票的真机采样就撞上过一次:五轮读数全成 vis=1,看着像"开关失效",其实是量具换了编码。
+    let body = raw.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(&raw);
+    match serde_json::from_slice::<DesktopPrefs>(body) {
+        Ok(parsed) => normalize_prefs(parsed),
+        Err(e) => {
+            log::warn!(
+                "[desktop-prefs] {} 解析失败({e}),整份回退默认值(不做半份抢救:键名已经不可信)",
+                path.display()
+            );
+            normalize_prefs(DesktopPrefs::default())
+        }
+    }
+}
+
+/// 写盘(目录不存在则创建)。失败返回**带身份档**的原因,由调用方决定喊多大声 —— 不得吞。
+///
+/// G-715(2026-09-30):此前返回 `String`,于是"目录不可写(权限)"与"序列化失败(内部缺陷)"
+/// 在日志与任何上游出口上完全同形。现在档名由 `IpcError::from_io` 按 `ErrorKind` 给出 ——
+/// 归类只看 kind,不看 io 的文案(Windows 的报错措辞随系统语言变,按文案猜档就是本票要消灭的形态)。
+pub fn save_prefs_to(path: &Path, prefs: &DesktopPrefs) -> Result<(), IpcError> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| IpcError::from_io("create_dir_all", dir, e))?;
+    }
+    let bytes =
+        serde_json::to_vec_pretty(prefs).map_err(|e| IpcError::internal(format!("serialize: {e}")))?;
+    std::fs::write(path, bytes).map_err(|e| IpcError::from_io("write", path, e))
+}
+
+/// 盘面与归一形态不一致时写回一次(**幂等**,2026-11-19 立)。
+///
+/// 立因:`normalize_prefs` 只在内存生效,盘面永远停在旧形态 —— 后果三条:
+/// ① 盘上事实与界面长期不一致(本机实测:json 里 8 项、菜单里 9 项);
+/// ② 用户手工从 json 删掉某项也删不掉 —— 每次启动归一都补回来,而盘面从不记"已迁移";
+/// ③ 每次启动都重走一遍迁移判据(迁移日志反复出现)。
+///
+/// 判据只一条:盘上解析出的 JSON **整体**与 `prefs` 的序列化结果不等才写。
+/// 读不到/解析失败一律 `Ok(false)` —— 首次运行与"坏盘"归各自的既有路径负责,
+/// 本函数不做半份抢救(与 `load_prefs_from` 同一取舍)。
+pub fn persist_if_changed(path: &Path, prefs: &DesktopPrefs) -> Result<bool, IpcError> {
+    let disk = match std::fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(_) => return Ok(false),
+    };
+    let body = disk.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(&disk);
+    let disk_value: serde_json::Value = match serde_json::from_slice(body) {
+        Ok(v) => v,
+        Err(_) => return Ok(false),
+    };
+    let want_value =
+        serde_json::to_value(prefs).map_err(|e| IpcError::internal(format!("serialize: {e}")))?;
+    if disk_value == want_value {
+        return Ok(false);
+    }
+    save_prefs_to(path, prefs)?;
+    Ok(true)
+}
+
+// ================== 老用户迁移判据(纯函数)==================
+
+/// 是否把 `launch_minimized` 从 false 迁成 true。三条**同时**成立才迁:
+/// ① 偏好文件此前不存在(= "启动后进后台"这个开关上线后的首次启动);
+/// ② 当前值为 false(不覆盖用户已明确选过的答案);
+/// ③ 本次命令行带着 `--minimized`(它由 autostart 插件写死,只有"开机自启"这一条路会带)。
+///
+/// 立因:旧版没有开关时,开机自启一律最小化到托盘。新默认值是 false,不做迁移的话,
+/// 装过自启的老用户升级后开机突然弹一个窗口 —— 用户报回来的会是"故障",不是"新默认档"。
+/// 反向也要成立:手动双击不带该参数 ⇒ 绝不迁移(否则首启就被藏进后台,像程序没启动)。
+pub fn should_migrate_launch_minimized(
+    prefs_absent_before: bool,
+    current: bool,
+    argv_has_minimized: bool,
+) -> bool {
+    prefs_absent_before && !current && argv_has_minimized
+}
+
+/// 本次启动**是否应当保持隐藏**(不弹主窗口)。两条同时成立才隐藏:
+/// ① 用户开着「启动后先进托盘」;② 本次是**开机自启**(带 `--minimized`,由 autostart
+/// 插件写死,只有这一条路会带)。
+///
+/// 立因(2026-10-13 用户实报:「双击桌面快捷方式,界面没出来,只有右下角托盘图标」):
+/// 此前判据是「只看 `launch_minimized`」,开关一开,**任何**启动方式都不弹窗 —— 包括
+/// 用户双击桌面快捷方式这种明确的"给我打开界面"的意图,表现就是"程序像是没启动"。
+/// 双击必须看见窗口,所以启动来源要进判据:
+/// - 手动双击(不带参数)⇒ 一律显示,开关管不着;
+/// - 开机自启(带 `--minimized`)⇒ 按开关,老用户迁移来的 `launch_minimized=true`
+///   仍保持"开机静默进托盘"的旧行为,不产生行为回归。
+///
+/// 这与 2026-09-28 立的「用户开关压过命令行参数」不冲突:那条要防的是"开关关掉了
+/// 却被 `--minimized` 按回去",本函数里 `argv_has_minimized=false` 的分支天然无此冲突,
+/// 而 `true` 的分支恰恰是开关该生效的场合。
+pub fn should_start_hidden(launch_minimized: bool, argv_has_minimized: bool) -> bool {
+    launch_minimized && argv_has_minimized
+}
+
+// ================== AppHandle 薄壳(lib.rs 只用这三条)==================
+
+pub fn desktop_prefs_path(app: &tauri::AppHandle) -> Option<PathBuf> {
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|dir| prefs_path_in(dir.as_path()))
+}
+
+pub fn load_desktop_prefs(app: &tauri::AppHandle) -> DesktopPrefs {
+    match desktop_prefs_path(app) {
+        Some(path) => load_prefs_from(&path),
+        None => {
+            log::warn!("[desktop-prefs] app_config_dir 取不到,本次用默认偏好(未读盘)");
+            normalize_prefs(DesktopPrefs::default())
+        }
+    }
+}
+
+/// `app_config_dir` 取不到属宿主内部缺陷(不是策略拒绝)⇒ internal 档,与 io 失败分得开。
+pub fn save_desktop_prefs(app: &tauri::AppHandle, prefs: &DesktopPrefs) -> Result<(), IpcError> {
+    let path = desktop_prefs_path(app)
+        .ok_or_else(|| IpcError::internal("app_config_dir unavailable"))?;
+    save_prefs_to(&path, prefs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 临时目录:走系统 TEMP(本仓 §26 的口径是「用 `$env:TEMP`/`os.tmpdir()` 而非硬编码盘符」),
+    /// 名字带 pid 防并发测试互踩,用例结束即删。
+    fn scratch_dir(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("ihui-desktop-prefs-{}-{}", std::process::id(), tag));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("create scratch dir");
+        dir
+    }
+
+    fn prefs(show_tray_icon: bool, close_behavior: CloseBehavior) -> DesktopPrefs {
+        DesktopPrefs {
+            show_tray_icon,
+            close_behavior,
+            ..DesktopPrefs::default()
+        }
+    }
+
+    // ── 1. 默认值:两条默认「开」的开关必须是 true(派生 Default 会静默关掉它们) ──
+
+    #[test]
+    fn defaults_are_the_documented_values() {
+        let d = DesktopPrefs::default();
+        assert!(d.show_tray_icon, "show_tray_icon 默认必须是 true");
+        assert_eq!(d.close_behavior, CloseBehavior::Ask);
+        assert!(!d.launch_minimized);
+        assert_eq!(d.tray_single_click, TraySingleClick::Menu);
+        assert!(d.unread_badge, "unread_badge 默认必须是 true");
+        // 负向对照:默认列表不是空表(空表会被归一成"只剩 quit",那与默认档不同形)
+        assert_eq!(d.tray_menu_items, default_tray_menu_items());
+        assert_eq!(
+            d.tray_menu_items.len(),
+            8,
+            "默认菜单 = 历史 7 项 + 2026-11-18「窗口置顶(切换)」"
+        );
+        // 置顶是"盖住别人"的开关:默认必须是关,不能有第二个默认值(2026-11-18 立)
+        assert!(!d.always_on_top, "always_on_top 默认必须是 false");
+    }
+
+    #[test]
+    fn default_prefs_survive_normalize_unchanged() {
+        // 默认值必须已经是归一后的形态:否则"读到默认"与"归一后"两个读数会分叉。
+        assert_eq!(normalize_prefs(DesktopPrefs::default()), DesktopPrefs::default());
+    }
+
+    // ── 2. serde:缺失文件 / 损坏文件 / 部分键 ──
+
+    #[test]
+    fn missing_file_falls_back_to_defaults() {
+        let dir = scratch_dir("missing");
+        let loaded = load_prefs_from(&prefs_path_in(&dir));
+        assert_eq!(loaded, DesktopPrefs::default());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn corrupt_file_falls_back_to_defaults() {
+        let dir = scratch_dir("corrupt");
+        let path = prefs_path_in(&dir);
+        std::fs::write(&path, b"{ this is not json ").expect("write corrupt");
+        assert_eq!(load_prefs_from(&path), DesktopPrefs::default());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// 这条是「容器级 serde(default) + 手写 Default」这套组合的全部理由:
+    /// 只填一个键时,**其余**键必须取默认值里的那一份,而不是字段类型的 Default。
+    #[test]
+    fn partial_json_keeps_other_fields_defaults_not_type_defaults() {
+        let dir = scratch_dir("partial");
+        let path = prefs_path_in(&dir);
+        std::fs::write(&path, br#"{"close_behavior":"quit"}"#).expect("write partial");
+        let loaded = load_prefs_from(&path);
+        assert_eq!(loaded.close_behavior, CloseBehavior::Quit, "填了的那档要生效");
+        // 负向对照:bool 的字段类型 Default 是 false —— 若写成字段级 serde(default) 这里就会红。
+        assert!(loaded.show_tray_icon, "未填的 show_tray_icon 必须是默认 true(不是 bool::default)");
+        assert!(loaded.unread_badge, "未填的 unread_badge 必须是默认 true(不是 bool::default)");
+        assert_eq!(loaded.tray_menu_items, default_tray_menu_items());
+        assert!(!loaded.always_on_top, "未填的 always_on_top 必须落在默认 false");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn round_trip_saved_file_reads_back_identical() {
+        let dir = scratch_dir("roundtrip");
+        let path = prefs_path_in(&dir);
+        let wanted = prefs(false, CloseBehavior::Ask);
+        save_prefs_to(&path, &wanted).expect("save");
+        assert_eq!(load_prefs_from(&path), wanted);
+        // 落盘字节必须是 snake_case 的文档形态(前端与人工都会照这个读)
+        let text = std::fs::read_to_string(&path).expect("read back");
+        for key in [
+            "show_tray_icon",
+            "close_behavior",
+            "launch_minimized",
+            "tray_single_click",
+            "unread_badge",
+            "tray_menu_items",
+        ] {
+            assert!(text.contains(key), "JSON 里缺少 snake_case 键 {key}");
+        }
+        assert!(text.contains("\"ask\""), "close_behavior 要序列化成小写字面量");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ── 3. 不变量 1:无托盘 + hide ⇒ quit(正反成对) ──
+
+    #[test]
+    fn persist_if_changed_writes_once_then_is_idempotent() {
+        let dir = scratch_dir("persist-once");
+        let path = prefs_path_in(&dir);
+        // 旧盘面形态:托盘只有 8 项(缺本版新登记的 always_on_top)
+        let legacy = serde_json::json!({
+            "tray_menu_items": [
+                "new_chat", "show", "hide", "theme", "settings", "update", "relay_switch", "quit"
+            ],
+            "always_on_top": false
+        });
+        std::fs::write(&path, serde_json::to_vec_pretty(&legacy).expect("legacy json"))
+            .expect("write legacy");
+        let loaded = load_prefs_from(&path);
+        assert!(
+            loaded.tray_menu_items.iter().any(|id| id == TRAY_MENU_ALWAYS_ON_TOP_ID),
+            "归一后内存里必须已有本版新项"
+        );
+        assert!(
+            persist_if_changed(&path, &loaded).expect("persist once"),
+            "盘面缺项时必须写回一次(否则用户手工删项永远删不掉、盘面事实与界面长期不一致)"
+        );
+        let text = std::fs::read_to_string(&path).expect("read back");
+        assert!(
+            text.contains(TRAY_MENU_ALWAYS_ON_TOP_ID),
+            "回写后盘面必须出现本版新项"
+        );
+        assert_eq!(
+            load_prefs_from(&path),
+            loaded,
+            "回写后再读必须与归一形态逐字段一致"
+        );
+        assert!(
+            !persist_if_changed(&path, &loaded).expect("persist twice"),
+            "盘面已是归一形态时不得再写(幂等)"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn persist_if_changed_leaves_absent_and_corrupt_files_alone() {
+        let dir = scratch_dir("persist-skip");
+        // 文件不存在 ⇒ 不写(首次运行归首次运行那条路径)
+        let path = prefs_path_in(&dir);
+        assert!(!persist_if_changed(&path, &normalize_prefs(DesktopPrefs::default()))
+            .expect("absent"));
+        assert!(!path.exists(), "不存在时不得凭空创建文件");
+        // 坏盘 ⇒ 返回 false 且不改写(半份抢救不在本函数)
+        std::fs::write(&path, b"{ this is not json").expect("write corrupt");
+        let before = std::fs::read(&path).expect("read before");
+        assert!(!persist_if_changed(&path, &normalize_prefs(DesktopPrefs::default()))
+            .expect("corrupt"));
+        assert_eq!(std::fs::read(&path).expect("read after"), before, "坏盘不得被本函数改写");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn invariant1_no_tray_with_hide_becomes_quit() {
+        let normalized = normalize_prefs(prefs(false, CloseBehavior::Hide));
+        assert_eq!(normalized.close_behavior, CloseBehavior::Quit);
+        assert!(!normalized.show_tray_icon);
+    }
+
+    #[test]
+    fn invariant1_does_not_touch_legal_combinations() {
+        // 反面对照:三样都不该被改 —— 判据过宽会把用户 settings 里"看起来对"的那一档改掉。
+        for (show, behavior) in [
+            (true, CloseBehavior::Hide),
+            (true, CloseBehavior::Quit),
+            (true, CloseBehavior::Ask),
+            (false, CloseBehavior::Quit),
+            (false, CloseBehavior::Ask),
+        ] {
+            let normalized = normalize_prefs(prefs(show, behavior));
+            assert_eq!(normalized.close_behavior, behavior, "(show={show}) 不该改 close_behavior");
+        }
+    }
+
+    // ── 4. 不变量 2:菜单必须含 quit,未知 id 丢弃(正反成对) ──
+
+    #[test]
+    fn invariant2_appends_missing_quit_and_drops_unknown() {
+        let input = DesktopPrefs {
+            tray_menu_items: vec!["show".into(), "bogus_item".into(), "hide".into()],
+            ..DesktopPrefs::default()
+        };
+        let normalized = normalize_prefs(input);
+        assert_eq!(
+            normalized.tray_menu_items,
+            vec![
+                "show".to_string(),
+                "hide".to_string(),
+                TRAY_MENU_ALWAYS_ON_TOP_ID.to_string(),
+                "quit".to_string()
+            ],
+            "未知项要被丢掉、quit 补到末尾、本版新项(always_on_top)补在 quit 之前、其余顺序不变"
+        );
+    }
+
+    #[test]
+    fn invariant2_leaves_a_legal_menu_untouched() {
+        // 反面对照:已经含 quit、且已含本版新项(always_on_top)的列表不得被改动 ——
+        // 迁移是"缺则补",不是"每次重排"。
+        let input = DesktopPrefs {
+            tray_menu_items: vec![
+                "quit".into(),
+                "new_chat".into(),
+                TRAY_MENU_ALWAYS_ON_TOP_ID.into(),
+            ],
+            ..DesktopPrefs::default()
+        };
+        let normalized = normalize_prefs(input);
+        assert_eq!(
+            normalized.tray_menu_items,
+            vec![
+                "quit".to_string(),
+                "new_chat".to_string(),
+                TRAY_MENU_ALWAYS_ON_TOP_ID.to_string()
+            ]
+        );
+        assert_eq!(normalized.tray_menu_items.iter().filter(|id| *id == "quit").count(), 1);
+    }
+
+    #[test]
+    fn migrates_missing_always_on_top_item_into_an_existing_menu() {
+        // 2026-11-18 迁移:已装用户的旧配置(历史 7 项 ± relay_switch)必须长出这枚开关,
+        // 且插在 quit 之前(与登记表同序)。这是"用户自己能决定置不置顶"在已装机器上
+        // 可达的唯一前提 —— 不迁移的话,装上新版也看不到那一条。
+        let input = DesktopPrefs {
+            tray_menu_items: vec!["show".into(), "hide".into(), "quit".into()],
+            ..DesktopPrefs::default()
+        };
+        let normalized = normalize_prefs(input);
+        assert_eq!(
+            normalized.tray_menu_items,
+            vec![
+                "show".to_string(),
+                "hide".to_string(),
+                TRAY_MENU_ALWAYS_ON_TOP_ID.to_string(),
+                "quit".to_string()
+            ],
+            "缺项必须补在 quit 之前"
+        );
+        // 幂等:再归一一次不得长出第二份。
+        let again = normalize_prefs(normalized.clone());
+        assert_eq!(again.tray_menu_items, normalized.tray_menu_items);
+    }
+
+    #[test]
+    fn invariant2_empty_list_still_ends_up_quit_only() {
+        // 空表不是一种"合法但不含 quit"的例外:它同样只被补出 quit。
+        let input = DesktopPrefs { tray_menu_items: Vec::new(), ..DesktopPrefs::default() };
+        let normalized = normalize_prefs(input);
+        assert_eq!(normalized.tray_menu_items, vec!["quit".to_string()]);
+    }
+
+    #[test]
+    fn every_default_menu_id_resolves_against_the_registry() {
+        // 登记表与默认值必须互证(否则 label_index 漂了没人喊)。
+        for id in default_tray_menu_items() {
+            let item = tray_menu_item(&id).unwrap_or_else(|| panic!("默认项 {id} 不在登记表里"));
+            // 上界跟着登记表长度走,不写死 7 —— 写死会让"新登记项下标越界"漏过判据
+            // (2026-11-11 加第 8 项 relay_switch 时实测:硬编码 7 会把合法项判红)。
+            assert!(item.label_index < TRAY_MENU_ITEMS.len(), "{id} 的标签下标越界");
+        }
+        assert!(tray_menu_item("not_a_real_id").is_none());
+    }
+
+    #[test]
+    fn registry_label_indexes_are_dense_and_unique() {
+        // label_index 是 tray_menu_labels() 数组的下标:登记表里若有重号或空洞,
+        // 拿到的是别人的文案(而且菜单照样建得出来,静态看不出坏)。
+        let mut seen: Vec<usize> = TRAY_MENU_ITEMS.iter().map(|item| item.label_index).collect();
+        seen.sort_unstable();
+        assert_eq!(
+            seen,
+            (0..TRAY_MENU_ITEMS.len()).collect::<Vec<_>>(),
+            "label_index 必须 0..N 密排且不重复(改登记表就得同步 tray_menu_labels 的条目数)"
+        );
+        for item in TRAY_MENU_ITEMS.iter() {
+            assert!(tray_menu_item(item.id).is_some(), "登记项 {} 查不回来", item.id);
+        }
+    }
+
+    #[test]
+    fn default_menu_excludes_operator_only_items() {
+        // 号池切号只对操作员机有意义(需仓库 + 号池库 + .env)。默认出现在所有用户的
+        // 托盘里 = 产品面污染(点了只会报"未就绪")。故默认导出必须排除它,
+        // 但它仍须登记在册 —— 否则操作员在 desktop-behavior.json 里写了也会被
+        // normalize_prefs 当未知 id 丢掉。
+        let defaults = default_tray_menu_items();
+        assert!(
+            !defaults.iter().any(|id| is_operator_only_tray_item(id)),
+            "默认托盘菜单不得包含操作员专属项"
+        );
+        assert_eq!(
+            defaults.len(),
+            8,
+            "默认托盘项 = 历史 7 项 + 2026-11-18「窗口置顶(切换)」;改这里必须同笔说明来由"
+        );
+        assert!(
+            tray_menu_item(TRAY_MENU_RELAY_SWITCH_ID).is_some(),
+            "操作员项仍须登记在册,否则 desktop-behavior.json 里写了也会被归一化丢掉"
+        );
+    }
+
+    // ── 5. decide_close_action:行为 × 托盘在/不在 的表 ──
+
+    #[test]
+    fn decide_close_action_table() {
+        let cases: &[(bool, CloseBehavior, bool, CloseDecision)] = &[
+            // (show_tray_icon, close_behavior, tray_present, expected)
+            (true, CloseBehavior::Hide, true, CloseDecision::Hide),
+            // F-048:托盘建失败时 hide 无处可去,必须退化成 quit(藏进去就再也唤不回)。
+            (true, CloseBehavior::Hide, false, CloseDecision::Quit),
+            (true, CloseBehavior::Quit, true, CloseDecision::Quit),
+            (true, CloseBehavior::Quit, false, CloseDecision::Quit),
+            (true, CloseBehavior::Ask, true, CloseDecision::Ask),
+            (true, CloseBehavior::Ask, false, CloseDecision::Quit),
+            // 归一先发生:hide + 无托盘 ⇒ quit,与"托盘确实不在"这个事实同向
+            (false, CloseBehavior::Hide, false, CloseDecision::Quit),
+            // show_tray_icon=false 而 tray_present=true(用户刚把开关关掉、托盘还没拆掉):
+            // 归一仍然判 quit —— 配置组合本身是矛盾的,不以运行时事实赦免它。
+            (false, CloseBehavior::Hide, true, CloseDecision::Quit),
+            (false, CloseBehavior::Ask, true, CloseDecision::Ask),
+            (false, CloseBehavior::Ask, false, CloseDecision::Quit),
+        ];
+        for (show, behavior, tray, expected) in cases {
+            let got = decide_close_action(&prefs(*show, *behavior), *tray);
+            assert_eq!(
+                got, *expected,
+                "show_tray_icon={show} close_behavior={behavior:?} tray_present={tray}"
+            );
+        }
+    }
+
+    #[test]
+    fn decide_is_the_normalized_view_of_itself() {
+        // 归一是幂等的:判定路径被走两次(先 set 再 decide)不得再改结论。
+        let once = normalize_prefs(prefs(false, CloseBehavior::Hide));
+        let twice = normalize_prefs(once.clone());
+        assert_eq!(once, twice);
+        assert_eq!(
+            decide_close_action(&twice, true),
+            decide_close_action(&once, true)
+        );
+    }
+
+    // ── 6. patch 合并语义:None = 不改 ──
+
+    #[test]
+    fn patch_none_leaves_the_field_alone_and_some_overwrites() {
+        let merged = DesktopPrefsPatch {
+            close_behavior: Some(CloseBehavior::Hide),
+            ..DesktopPrefsPatch::default()
+        }
+        .merge_into(DesktopPrefs::default());
+        assert_eq!(merged.close_behavior, CloseBehavior::Hide);
+        assert!(merged.show_tray_icon, "未填的档必须保持原值");
+        assert_eq!(merged.tray_menu_items, default_tray_menu_items());
+    }
+
+    #[test]
+    fn patch_is_normalized_by_the_same_single_exit() {
+        // 正例:把托盘关掉 + 用户此刻要 hide ⇒ 归一必须当场改判 quit(调用方不需要重算)。
+        let merged = DesktopPrefsPatch {
+            show_tray_icon: Some(false),
+            close_behavior: Some(CloseBehavior::Hide),
+            ..DesktopPrefsPatch::default()
+        }
+        .merge_into(DesktopPrefs::default());
+        assert_eq!(
+            normalize_prefs(merged).close_behavior,
+            CloseBehavior::Quit,
+            "set 路径与 load 路径必须给同一个答案"
+        );
+    }
+
+    #[test]
+    fn empty_patch_serializes_without_any_keys() {
+        // skip_serializing_if 的兑现:空 patch 回包得是 {},否则前端读到一堆 null。
+        assert_eq!(serde_json::to_string(&DesktopPrefsPatch::default()).unwrap(), "{}");
+    }
+
+    #[test]
+    fn migrate_launch_minimized_fires_only_on_the_legacy_autostart_first_run() {
+        // 正例:老用户(此前没有偏好文件)开机自启(带 --minimized)⇒ 迁,保住旧表现。
+        assert!(should_migrate_launch_minimized(true, false, true));
+    }
+
+    #[test]
+    fn migrate_launch_minimized_refuses_all_three_non_legacy_shapes() {
+        // 反例三条各一条:文件已存在(用户已经选过 / 已迁过)、当前已是 true、手动启动不带参数。
+        assert!(!should_migrate_launch_minimized(false, false, true), "偏好文件已在 ⇒ 绝不覆盖既有选择");
+        assert!(!should_migrate_launch_minimized(true, true, true), "已是 true ⇒ 不必迁(幂等)");
+        assert!(
+            !should_migrate_launch_minimized(true, false, false),
+            "不带 --minimized(手动双击)⇒ 迁了就是把窗口藏起来,像程序没启动"
+        );
+    }
+
+    // ── 2026-10-13「双击快捷方式只有托盘图标」的判据:四象限全锁 ──
+
+    #[test]
+    fn 手动双击时开关按不住窗口_两个开关档位都必须显示() {
+        // 本 bug 的正例:用户开着「启动后先进托盘」,双击桌面快捷方式(不带 --minimized)
+        // ⇒ 必须显示窗口。旧行为(只看 launch_minimized)在这里返回 true,即被报的现象。
+        assert!(!should_start_hidden(true, false), "开关开着也压不住手动双击");
+        assert!(!should_start_hidden(false, false), "开关关着手动启动 ⇒ 显示(默认档)");
+    }
+
+    #[test]
+    fn 开机自启时开关仍然生效_隐藏与显示各一档() {
+        // 迁移来的老用户(开关 true)+ autostart 写死的 --minimized ⇒ 保持"开机静默进托盘",
+        // 不产生行为回归;开关关掉 ⇒ 自启照样弹窗(2026-09-28 那条契约要的效果)。
+        assert!(should_start_hidden(true, true), "开关 ∧ 自启 ⇒ 隐藏");
+        assert!(!should_start_hidden(false, true), "开关关着 ⇒ 自启也显示");
+    }
+
+    // ── 编码陷阱:非 Rust 写手留下的 BOM 不得让整份偏好静默回退默认值 ──
+
+    #[test]
+    fn bom_prefixed_file_still_loads_the_users_values() {
+        let dir = scratch_dir("bom-ok");
+        let path = dir.join("desktop-behavior.json");
+        let wanted = prefs(false, CloseBehavior::Quit);
+        let mut bytes = vec![0xEFu8, 0xBB, 0xBF];
+        bytes.extend_from_slice(serde_json::to_string(&wanted).expect("serialize").as_bytes());
+        std::fs::write(&path, &bytes).expect("write bom prefs");
+        assert_eq!(load_prefs_from(&path), wanted);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn bom_prefixed_garbage_still_falls_back_to_defaults() {
+        // 剥 BOM 不等于放宽判据:内容坏照样整份回默认(负向对照,防"为容编码把判据削穿")。
+        let dir = scratch_dir("bom-bad");
+        let path = dir.join("desktop-behavior.json");
+        let mut bytes = vec![0xEFu8, 0xBB, 0xBF];
+        bytes.extend_from_slice(b"{ not json");
+        std::fs::write(&path, &bytes).expect("write broken prefs");
+        assert_eq!(load_prefs_from(&path), DesktopPrefs::default());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

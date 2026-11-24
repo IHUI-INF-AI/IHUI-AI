@@ -1,0 +1,97 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * A/B 测试持久化表(2026-07-25 立,对齐 ABTestTracker)。
+ *
+ * 由 apps/ai-service(app/services/ab_test_tracker.py)以 raw SQL 读写,
+ * 此处补 TS schema 定义以消除 check-db-schema-drift 的 dead migration 告警,
+ * 并保持 packages/database 单一数据源的表名 ↔ migration 一致性。
+ */
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  integer,
+  boolean,
+  jsonb,
+  timestamp,
+  index,
+  unique,
+} from 'drizzle-orm/pg-core'
+
+export const abTests = pgTable(
+  'ab_tests',
+  {
+    id: uuid('id').primaryKey().notNull(),
+    name: varchar('name', { length: 200 }).notNull(),
+    description: text('description'),
+    status: varchar('status', { length: 32 }).default('draft').notNull(),
+    trafficPercent: integer('traffic_percent').default(100).notNull(),
+    targetMetric: varchar('target_metric', { length: 100 }).notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    endedAt: timestamp('ended_at', { withTimezone: true }),
+    winningVariantId: uuid('winning_variant_id'),
+    config: jsonb('config').default({}).notNull(),
+    autoPromote: boolean('auto_promote').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    statusIdx: index('idx_ab_tests_status').on(t.status),
+  }),
+)
+
+export type AbTest = typeof abTests.$inferSelect
+export type NewAbTest = typeof abTests.$inferInsert
+
+export const abTestVariants = pgTable(
+  'ab_test_variants',
+  {
+    id: uuid('id').primaryKey().notNull(),
+    testId: uuid('test_id').notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    isControl: boolean('is_control').default(false).notNull(),
+    trafficWeight: integer('traffic_weight').default(0).notNull(),
+    payload: jsonb('payload'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    testIdx: index('idx_ab_test_variants_test').on(t.testId),
+  }),
+)
+
+export type AbTestVariant = typeof abTestVariants.$inferSelect
+export type NewAbTestVariant = typeof abTestVariants.$inferInsert
+
+export const abTestResults = pgTable(
+  'ab_test_results',
+  {
+    id: uuid('id').primaryKey().notNull(),
+    testId: uuid('test_id').notNull(),
+    variantId: uuid('variant_id').notNull(),
+    bucket: varchar('bucket', { length: 64 }).notNull(),
+    samples: integer('samples').default(0).notNull(),
+    conversions: integer('conversions').default(0).notNull(),
+    revenue: integer('revenue').default(0).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    testIdx: index('idx_ab_test_results_test').on(t.testId),
+    variantIdx: index('idx_ab_test_results_variant').on(t.variantId),
+    // F-448:UNIQUE(variant_id,bucket) 与首定义迁移 0043 及修复迁移
+    // 20261112000002 对齐——此前 schema 把唯一约束丢了(bucket 可空、无约束),
+    // routes/ab-testing.ts 两处 onConflictDoUpdate({ target:[variantId,bucket] })
+    // 在 drizzle-kit push / 按 20260831 重建的库上必撞 42P10,同一 variant+bucket
+    // 还会重复计数。约束名沿用既成事实:ab_test_results_variant_bucket_uniq。
+    variantBucketUniq: unique('ab_test_results_variant_bucket_uniq').on(t.variantId, t.bucket),
+  }),
+)
+
+export type AbTestResult = typeof abTestResults.$inferSelect
+export type NewAbTestResult = typeof abTestResults.$inferInsert
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

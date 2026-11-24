@@ -1,0 +1,237 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { eq, and, desc, sql, ilike } from 'drizzle-orm'
+import { db } from './index.js'
+import { scheduleTasks, scheduleLogs, type ScheduleTask, type ScheduleLog } from '@ihui/database'
+
+// =============================================================================
+// Tasks 定时任务
+// =============================================================================
+
+export interface FindScheduleTasksOpts {
+  page: number
+  pageSize: number
+  enabled?: boolean
+  name?: string
+}
+
+/**
+ * 任务列表(分页)，按 priority 降序、id 降序。
+ */
+export async function findScheduleTasks(
+  opts: FindScheduleTasksOpts,
+): Promise<{ list: ScheduleTask[]; total: number; page: number; pageSize: number }> {
+  const conds = []
+  if (opts.enabled !== undefined) conds.push(eq(scheduleTasks.enabled, opts.enabled))
+  if (opts.name) conds.push(ilike(scheduleTasks.name, `%${opts.name}%`))
+  const where = conds.length ? and(...conds) : undefined
+
+  const [list, countRows] = await Promise.all([
+    db
+      .select()
+      .from(scheduleTasks)
+      .where(where)
+      .orderBy(desc(scheduleTasks.priority), desc(scheduleTasks.id))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(scheduleTasks)
+      .where(where),
+  ])
+  return { list, total: countRows[0]?.count ?? 0, page: opts.page, pageSize: opts.pageSize }
+}
+
+export async function findScheduleTaskById(id: string): Promise<ScheduleTask | undefined> {
+  const rows = await db.select().from(scheduleTasks).where(eq(scheduleTasks.id, id)).limit(1)
+  return rows[0]
+}
+
+export interface CreateScheduleTaskInput {
+  name: string
+  cronExpression: string
+  description?: string | null
+  targetService?: string | null
+  targetMethod?: string | null
+  parameters?: string | null
+  priority?: number
+  maxRetryCount?: number
+  timeout?: number
+  enabled?: boolean
+}
+
+export async function createScheduleTask(data: CreateScheduleTaskInput): Promise<ScheduleTask> {
+  const rows = await db
+    .insert(scheduleTasks)
+    .values({
+      name: data.name,
+      cronExpression: data.cronExpression,
+      description: data.description,
+      targetService: data.targetService,
+      targetMethod: data.targetMethod,
+      parameters: data.parameters,
+      priority: data.priority,
+      maxRetryCount: data.maxRetryCount,
+      timeout: data.timeout,
+      enabled: data.enabled,
+    })
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建定时任务失败')
+  return row
+}
+
+export interface UpdateScheduleTaskInput {
+  name?: string
+  cronExpression?: string
+  description?: string | null
+  targetService?: string | null
+  targetMethod?: string | null
+  parameters?: string | null
+  priority?: number
+  maxRetryCount?: number
+  timeout?: number
+  enabled?: boolean
+}
+
+export async function updateScheduleTask(
+  id: string,
+  data: UpdateScheduleTaskInput,
+): Promise<ScheduleTask | undefined> {
+  const rows = await db
+    .update(scheduleTasks)
+    .set({
+      ...(data.name !== undefined ? { name: data.name } : {}),
+      ...(data.cronExpression !== undefined ? { cronExpression: data.cronExpression } : {}),
+      ...(data.description !== undefined ? { description: data.description } : {}),
+      ...(data.targetService !== undefined ? { targetService: data.targetService } : {}),
+      ...(data.targetMethod !== undefined ? { targetMethod: data.targetMethod } : {}),
+      ...(data.parameters !== undefined ? { parameters: data.parameters } : {}),
+      ...(data.priority !== undefined ? { priority: data.priority } : {}),
+      ...(data.maxRetryCount !== undefined ? { maxRetryCount: data.maxRetryCount } : {}),
+      ...(data.timeout !== undefined ? { timeout: data.timeout } : {}),
+      ...(data.enabled !== undefined ? { enabled: data.enabled } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(scheduleTasks.id, id))
+    .returning()
+  return rows[0]
+}
+
+/** 删除定时任务。返回库确认已删除的 id 集合(未命中为空数组,调用方据此判 deleted 真假)。 */
+export async function deleteScheduleTask(id: string): Promise<string[]> {
+  const rows = await db
+    .delete(scheduleTasks)
+    .where(eq(scheduleTasks.id, id))
+    .returning({ id: scheduleTasks.id })
+  return rows.map((r) => r.id)
+}
+
+/**
+ * 设置任务启用状态。
+ */
+export async function setScheduleTaskEnabled(
+  id: string,
+  enabled: boolean,
+): Promise<ScheduleTask | undefined> {
+  const rows = await db
+    .update(scheduleTasks)
+    .set({ enabled, updatedAt: new Date() })
+    .where(eq(scheduleTasks.id, id))
+    .returning()
+  return rows[0]
+}
+
+/**
+ * 立即触发任务执行：更新 lastRun 信息并写入一条执行日志。
+ * status 由调用方给定:'running'(仅记账)或 'queued'(已真实入队 BullMQ,G-978075)。
+ * 返回更新后的任务与新建的日志。
+ */
+export async function runScheduleTaskNow(
+  id: string,
+  status: 'running' | 'queued' = 'running',
+): Promise<{ task: ScheduleTask; log: ScheduleLog } | undefined> {
+  const now = new Date()
+  // F-644:任务读取 + 标记已运行 + 写日志必须在同一事务 —— 旧形态日志写失败时,
+  // 任务已被标成"已运行"却没有执行记录,状态与日志永久对不上;且"已写库但拿不到日志"
+  // 会被 `return undefined` 伪装成任务不存在(404),调用方无从分辨。
+  return db.transaction(async (tx) => {
+    const [task] = await tx
+      .select()
+      .from(scheduleTasks)
+      .where(eq(scheduleTasks.id, id))
+      .limit(1)
+    if (!task) return undefined
+    const [updated] = await tx
+      .update(scheduleTasks)
+      .set({
+        lastRunTime: now,
+        lastRunStatus: status,
+        lastRunMessage: '手动触发执行',
+        updatedAt: now,
+      })
+      .where(eq(scheduleTasks.id, id))
+      .returning()
+    if (!updated) throw new Error('更新定时任务状态失败')
+    const logRows = await tx
+      .insert(scheduleLogs)
+      .values({
+        taskId: task.id,
+        taskName: task.name,
+        status,
+        startTime: now,
+        message: '手动触发执行',
+      })
+      .returning()
+    const log = logRows[0]
+    // 日志落地失败(空行而非抛错)同样抛出去回滚,不得以 undefined 冒充"任务不存在"
+    if (!log) throw new Error('写入定时任务执行日志失败')
+    return { task: updated, log }
+  })
+}
+
+// =============================================================================
+// Logs 执行日志
+// =============================================================================
+
+export interface FindScheduleLogsOpts {
+  page: number
+  pageSize: number
+  taskId?: string
+  status?: string
+}
+
+/**
+ * 日志列表(分页)，按 id 降序。
+ */
+export async function findScheduleLogs(
+  opts: FindScheduleLogsOpts,
+): Promise<{ list: ScheduleLog[]; total: number; page: number; pageSize: number }> {
+  const conds = []
+  if (opts.taskId) conds.push(eq(scheduleLogs.taskId, opts.taskId))
+  if (opts.status) conds.push(eq(scheduleLogs.status, opts.status))
+  const where = conds.length ? and(...conds) : undefined
+
+  const [list, countRows] = await Promise.all([
+    db
+      .select()
+      .from(scheduleLogs)
+      .where(where)
+      .orderBy(desc(scheduleLogs.id))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(scheduleLogs)
+      .where(where),
+  ])
+  return { list, total: countRows[0]?.count ?? 0, page: opts.page, pageSize: opts.pageSize }
+}
+
+export async function findScheduleLogById(id: string): Promise<ScheduleLog | undefined> {
+  const rows = await db.select().from(scheduleLogs).where(eq(scheduleLogs.id, id)).limit(1)
+  return rows[0]
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

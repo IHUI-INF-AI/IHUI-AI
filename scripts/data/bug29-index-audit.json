@@ -1,0 +1,1979 @@
+{
+ "meta": {
+  "generated": "2026-11-18",
+  "encoding": "utf-8",
+  "mode": "prod=db:migrate (drizzle-kit migrate); push 非生产路径",
+  "note": "格3 首扫误报40已更正(宽松regex+去注释=0)"
+ },
+ "grid1_fk_no_index": {
+  "fk_total": 498,
+  "count": 131,
+  "by_file": {
+   "packages\\database\\src\\schema\\edu-ai-management.ts": 10,
+   "packages\\database\\src\\schema\\billing.ts": 6,
+   "packages\\database\\src\\schema\\community.ts": 6,
+   "packages\\database\\src\\schema\\workflow.ts": 6,
+   "packages\\database\\src\\schema\\commission.ts": 5,
+   "packages\\database\\src\\schema\\exam.ts": 5,
+   "packages\\database\\src\\schema\\hr-attendance-monthly.ts": 5,
+   "packages\\database\\src\\schema\\team-knowledge.ts": 5,
+   "packages\\database\\src\\schema\\agent-tasks.ts": 3,
+   "packages\\database\\src\\schema\\edu-canteen.ts": 3,
+   "packages\\database\\src\\schema\\files-extra.ts": 3,
+   "packages\\database\\src\\schema\\files.ts": 3,
+   "packages\\database\\src\\schema\\hr-ai-management.ts": 3,
+   "packages\\database\\src\\schema\\projects.ts": 3,
+   "packages\\database\\src\\schema\\teams.ts": 3,
+   "packages\\database\\src\\schema\\api-key-shares.ts": 2,
+   "packages\\database\\src\\schema\\chat-ledger.ts": 2,
+   "packages\\database\\src\\schema\\content.ts": 2,
+   "packages\\database\\src\\schema\\edu-extended.ts": 2,
+   "packages\\database\\src\\schema\\hr-import.ts": 2,
+   "packages\\database\\src\\schema\\hr-shift-daily.ts": 2,
+   "packages\\database\\src\\schema\\promotions.ts": 2,
+   "packages\\database\\src\\schema\\redemption-codes.ts": 2,
+   "packages\\database\\src\\schema\\social.ts": 2,
+   "packages\\database\\src\\schema\\system.ts": 2,
+   "packages\\database\\src\\schema\\wechat-pay-contracts.ts": 2,
+   "packages\\database\\src\\schema\\workflow-todo.ts": 2,
+   "packages\\database\\src\\schema\\agreements.ts": 1,
+   "packages\\database\\src\\schema\\ai-capabilities.ts": 1,
+   "packages\\database\\src\\schema\\ai-relay.ts": 1,
+   "packages\\database\\src\\schema\\canary.ts": 1,
+   "packages\\database\\src\\schema\\chat-collab.ts": 1,
+   "packages\\database\\src\\schema\\chat-voice-notes.ts": 1,
+   "packages\\database\\src\\schema\\circle-extra.ts": 1,
+   "packages\\database\\src\\schema\\comments.ts": 1,
+   "packages\\database\\src\\schema\\crash-reports.ts": 1,
+   "packages\\database\\src\\schema\\customer-service.ts": 1,
+   "packages\\database\\src\\schema\\developer.ts": 1,
+   "packages\\database\\src\\schema\\devices.ts": 1,
+   "packages\\database\\src\\schema\\hr-outgoing.ts": 1,
+   "packages\\database\\src\\schema\\hr-overtime.ts": 1,
+   "packages\\database\\src\\schema\\hr-salary-config.ts": 1,
+   "packages\\database\\src\\schema\\learn-record.ts": 1,
+   "packages\\database\\src\\schema\\learn.ts": 1,
+   "packages\\database\\src\\schema\\member.ts": 1,
+   "packages\\database\\src\\schema\\message.ts": 1,
+   "packages\\database\\src\\schema\\news.ts": 1,
+   "packages\\database\\src\\schema\\order.ts": 1,
+   "packages\\database\\src\\schema\\oss.ts": 1,
+   "packages\\database\\src\\schema\\p3-deep-layer.ts": 1,
+   "packages\\database\\src\\schema\\plugin-events.ts": 1,
+   "packages\\database\\src\\schema\\refund-audit.ts": 1,
+   "packages\\database\\src\\schema\\relay-commission-records.ts": 1,
+   "packages\\database\\src\\schema\\self-media.ts": 1,
+   "packages\\database\\src\\schema\\setting.ts": 1,
+   "packages\\database\\src\\schema\\srs.ts": 1,
+   "packages\\database\\src\\schema\\stock.ts": 1,
+   "packages\\database\\src\\schema\\task-messages.ts": 1,
+   "packages\\database\\src\\schema\\tenant.ts": 1,
+   "packages\\database\\src\\schema\\tour.ts": 1,
+   "packages\\database\\src\\schema\\trader.ts": 1,
+   "packages\\database\\src\\schema\\user-auth-info.ts": 1,
+   "packages\\database\\src\\schema\\users.ts": 1,
+   "packages\\database\\src\\schema\\vip.ts": 1,
+   "packages\\database\\src\\schema\\visit-tracking.ts": 1
+  },
+  "pairs": [
+   {
+    "table": "agent_tasks",
+    "column": "rule_id",
+    "jsColumn": "ruleId",
+    "schema": "packages\\database\\src\\schema\\agent-tasks.ts"
+   },
+   {
+    "table": "agent_tasks",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\agent-tasks.ts"
+   },
+   {
+    "table": "agent_tasks",
+    "column": "updated_by",
+    "jsColumn": "updatedBy",
+    "schema": "packages\\database\\src\\schema\\agent-tasks.ts"
+   },
+   {
+    "table": "agreements",
+    "column": "published_by",
+    "jsColumn": "publishedBy",
+    "schema": "packages\\database\\src\\schema\\agreements.ts"
+   },
+   {
+    "table": "ai_capabilities",
+    "column": "author_id",
+    "jsColumn": "authorId",
+    "schema": "packages\\database\\src\\schema\\ai-capabilities.ts"
+   },
+   {
+    "table": "ai_relay_discovery",
+    "column": "reviewed_by",
+    "jsColumn": "reviewedBy",
+    "schema": "packages\\database\\src\\schema\\ai-relay.ts"
+   },
+   {
+    "table": "api_key_shares",
+    "column": "shared_with_user_id",
+    "jsColumn": "sharedWithUserId",
+    "schema": "packages\\database\\src\\schema\\api-key-shares.ts"
+   },
+   {
+    "table": "api_key_shares",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\api-key-shares.ts"
+   },
+   {
+    "table": "orders",
+    "column": "plan_id",
+    "jsColumn": "planId",
+    "schema": "packages\\database\\src\\schema\\billing.ts"
+   },
+   {
+    "table": "orders",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\billing.ts"
+   },
+   {
+    "table": "orders",
+    "column": "updated_by",
+    "jsColumn": "updatedBy",
+    "schema": "packages\\database\\src\\schema\\billing.ts"
+   },
+   {
+    "table": "payments",
+    "column": "order_id",
+    "jsColumn": "orderId",
+    "schema": "packages\\database\\src\\schema\\billing.ts"
+   },
+   {
+    "table": "api_subscriptions",
+    "column": "plan_id",
+    "jsColumn": "planId",
+    "schema": "packages\\database\\src\\schema\\billing.ts"
+   },
+   {
+    "table": "api_subscriptions",
+    "column": "order_id",
+    "jsColumn": "orderId",
+    "schema": "packages\\database\\src\\schema\\billing.ts"
+   },
+   {
+    "table": "canary_audit_logs",
+    "column": "config_id",
+    "jsColumn": "configId",
+    "schema": "packages\\database\\src\\schema\\canary.ts"
+   },
+   {
+    "table": "chat_conversation_collaborators",
+    "column": "invited_by",
+    "jsColumn": "invitedBy",
+    "schema": "packages\\database\\src\\schema\\chat-collab.ts"
+   },
+   {
+    "table": "chat_context_ledgers",
+    "column": "user_id",
+    "jsColumn": "userId",
+    "schema": "packages\\database\\src\\schema\\chat-ledger.ts"
+   },
+   {
+    "table": "chat_budget_stops",
+    "column": "user_id",
+    "jsColumn": "userId",
+    "schema": "packages\\database\\src\\schema\\chat-ledger.ts"
+   },
+   {
+    "table": "chat_voice_notes",
+    "column": "conversation_id",
+    "jsColumn": "conversationId",
+    "schema": "packages\\database\\src\\schema\\chat-voice-notes.ts"
+   },
+   {
+    "table": "circle_post_comments",
+    "column": "reply_user_id",
+    "jsColumn": "replyUserId",
+    "schema": "packages\\database\\src\\schema\\circle-extra.ts"
+   },
+   {
+    "table": "comments",
+    "column": "parent_id",
+    "jsColumn": "parentId",
+    "schema": "packages\\database\\src\\schema\\comments.ts"
+   },
+   {
+    "table": "commission_flows",
+    "column": "order_id",
+    "jsColumn": "orderId",
+    "schema": "packages\\database\\src\\schema\\commission.ts"
+   },
+   {
+    "table": "commission_flows",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\commission.ts"
+   },
+   {
+    "table": "commission_flows",
+    "column": "updated_by",
+    "jsColumn": "updatedBy",
+    "schema": "packages\\database\\src\\schema\\commission.ts"
+   },
+   {
+    "table": "withdrawal_flows",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\commission.ts"
+   },
+   {
+    "table": "withdrawal_flows",
+    "column": "updated_by",
+    "jsColumn": "updatedBy",
+    "schema": "packages\\database\\src\\schema\\commission.ts"
+   },
+   {
+    "table": "circles",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\community.ts"
+   },
+   {
+    "table": "circle_posts",
+    "column": "circle_id",
+    "jsColumn": "circleId",
+    "schema": "packages\\database\\src\\schema\\community.ts"
+   },
+   {
+    "table": "circle_posts",
+    "column": "user_id",
+    "jsColumn": "userId",
+    "schema": "packages\\database\\src\\schema\\community.ts"
+   },
+   {
+    "table": "asks",
+    "column": "user_id",
+    "jsColumn": "userId",
+    "schema": "packages\\database\\src\\schema\\community.ts"
+   },
+   {
+    "table": "ask_answers",
+    "column": "ask_id",
+    "jsColumn": "askId",
+    "schema": "packages\\database\\src\\schema\\community.ts"
+   },
+   {
+    "table": "ask_answers",
+    "column": "user_id",
+    "jsColumn": "userId",
+    "schema": "packages\\database\\src\\schema\\community.ts"
+   },
+   {
+    "table": "announcements",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\content.ts"
+   },
+   {
+    "table": "docs",
+    "column": "author_id",
+    "jsColumn": "authorId",
+    "schema": "packages\\database\\src\\schema\\content.ts"
+   },
+   {
+    "table": "crash_reports",
+    "column": "user_id",
+    "jsColumn": "userId",
+    "schema": "packages\\database\\src\\schema\\crash-reports.ts"
+   },
+   {
+    "table": "customer_service_sessions",
+    "column": "transferred_to",
+    "jsColumn": "transferredTo",
+    "schema": "packages\\database\\src\\schema\\customer-service.ts"
+   },
+   {
+    "table": "developer_subscriptions",
+    "column": "pricing_id",
+    "jsColumn": "pricingId",
+    "schema": "packages\\database\\src\\schema\\developer.ts"
+   },
+   {
+    "table": "device_tasks",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\devices.ts"
+   },
+   {
+    "table": "edu_study_plan",
+    "column": "creator_id",
+    "jsColumn": "creatorId",
+    "schema": "packages\\database\\src\\schema\\edu-ai-management.ts"
+   },
+   {
+    "table": "edu_attendance_record",
+    "column": "operated_by",
+    "jsColumn": "operatedBy",
+    "schema": "packages\\database\\src\\schema\\edu-ai-management.ts"
+   },
+   {
+    "table": "edu_leave_request",
+    "column": "approver_id",
+    "jsColumn": "approverId",
+    "schema": "packages\\database\\src\\schema\\edu-ai-management.ts"
+   },
+   {
+    "table": "edu_exam_score",
+    "column": "recorded_by",
+    "jsColumn": "recordedBy",
+    "schema": "packages\\database\\src\\schema\\edu-ai-management.ts"
+   },
+   {
+    "table": "edu_schedule_change",
+    "column": "approver_id",
+    "jsColumn": "approverId",
+    "schema": "packages\\database\\src\\schema\\edu-ai-management.ts"
+   },
+   {
+    "table": "edu_enrollment",
+    "column": "operator_id",
+    "jsColumn": "operatorId",
+    "schema": "packages\\database\\src\\schema\\edu-ai-management.ts"
+   },
+   {
+    "table": "edu_payment_record",
+    "column": "operator_id",
+    "jsColumn": "operatorId",
+    "schema": "packages\\database\\src\\schema\\edu-ai-management.ts"
+   },
+   {
+    "table": "edu_refund_record",
+    "column": "approver_id",
+    "jsColumn": "approverId",
+    "schema": "packages\\database\\src\\schema\\edu-ai-management.ts"
+   },
+   {
+    "table": "edu_refund_record",
+    "column": "operator_id",
+    "jsColumn": "operatorId",
+    "schema": "packages\\database\\src\\schema\\edu-ai-management.ts"
+   },
+   {
+    "table": "edu_fee_reminder",
+    "column": "operator_id",
+    "jsColumn": "operatorId",
+    "schema": "packages\\database\\src\\schema\\edu-ai-management.ts"
+   },
+   {
+    "table": "edu_canteen_supplier",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\edu-canteen.ts"
+   },
+   {
+    "table": "edu_canteen_procurement",
+    "column": "confirmed_by",
+    "jsColumn": "confirmedBy",
+    "schema": "packages\\database\\src\\schema\\edu-canteen.ts"
+   },
+   {
+    "table": "edu_canteen_procurement",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\edu-canteen.ts"
+   },
+   {
+    "table": "edu_uploaded_certs",
+    "column": "reviewed_by",
+    "jsColumn": "reviewedBy",
+    "schema": "packages\\database\\src\\schema\\edu-extended.ts"
+   },
+   {
+    "table": "edu_uploaded_papers",
+    "column": "reviewed_by",
+    "jsColumn": "reviewedBy",
+    "schema": "packages\\database\\src\\schema\\edu-extended.ts"
+   },
+   {
+    "table": "exam_papers",
+    "column": "category_id",
+    "jsColumn": "categoryId",
+    "schema": "packages\\database\\src\\schema\\exam.ts"
+   },
+   {
+    "table": "exam_papers",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\exam.ts"
+   },
+   {
+    "table": "exam_questions",
+    "column": "paper_id",
+    "jsColumn": "paperId",
+    "schema": "packages\\database\\src\\schema\\exam.ts"
+   },
+   {
+    "table": "exam_records",
+    "column": "paper_id",
+    "jsColumn": "paperId",
+    "schema": "packages\\database\\src\\schema\\exam.ts"
+   },
+   {
+    "table": "exam_records",
+    "column": "user_id",
+    "jsColumn": "userId",
+    "schema": "packages\\database\\src\\schema\\exam.ts"
+   },
+   {
+    "table": "file_shares",
+    "column": "shared_by",
+    "jsColumn": "sharedBy",
+    "schema": "packages\\database\\src\\schema\\files-extra.ts"
+   },
+   {
+    "table": "file_shares",
+    "column": "shared_with",
+    "jsColumn": "sharedWith",
+    "schema": "packages\\database\\src\\schema\\files-extra.ts"
+   },
+   {
+    "table": "file_versions",
+    "column": "uploaded_by",
+    "jsColumn": "uploadedBy",
+    "schema": "packages\\database\\src\\schema\\files-extra.ts"
+   },
+   {
+    "table": "files",
+    "column": "project_id",
+    "jsColumn": "projectId",
+    "schema": "packages\\database\\src\\schema\\files.ts"
+   },
+   {
+    "table": "files",
+    "column": "uploaded_by",
+    "jsColumn": "uploadedBy",
+    "schema": "packages\\database\\src\\schema\\files.ts"
+   },
+   {
+    "table": "files",
+    "column": "deleted_by",
+    "jsColumn": "deletedBy",
+    "schema": "packages\\database\\src\\schema\\files.ts"
+   },
+   {
+    "table": "hr_attendance_record",
+    "column": "operated_by",
+    "jsColumn": "operatedBy",
+    "schema": "packages\\database\\src\\schema\\hr-ai-management.ts"
+   },
+   {
+    "table": "hr_leave_request",
+    "column": "approver_id",
+    "jsColumn": "approverId",
+    "schema": "packages\\database\\src\\schema\\hr-ai-management.ts"
+   },
+   {
+    "table": "hr_employee_link_request",
+    "column": "invited_by",
+    "jsColumn": "invitedBy",
+    "schema": "packages\\database\\src\\schema\\hr-ai-management.ts"
+   },
+   {
+    "table": "hr_attendance_monthly",
+    "column": "source_batch_id",
+    "jsColumn": "sourceBatchId",
+    "schema": "packages\\database\\src\\schema\\hr-attendance-monthly.ts"
+   },
+   {
+    "table": "hr_attendance_monthly",
+    "column": "signed_by",
+    "jsColumn": "signedBy",
+    "schema": "packages\\database\\src\\schema\\hr-attendance-monthly.ts"
+   },
+   {
+    "table": "hr_payroll_period",
+    "column": "attendance_sheet_file_id",
+    "jsColumn": "attendanceSheetFileId",
+    "schema": "packages\\database\\src\\schema\\hr-attendance-monthly.ts"
+   },
+   {
+    "table": "hr_payroll_period",
+    "column": "payroll_sheet_file_id",
+    "jsColumn": "payrollSheetFileId",
+    "schema": "packages\\database\\src\\schema\\hr-attendance-monthly.ts"
+   },
+   {
+    "table": "hr_payroll_period",
+    "column": "operator_id",
+    "jsColumn": "operatorId",
+    "schema": "packages\\database\\src\\schema\\hr-attendance-monthly.ts"
+   },
+   {
+    "table": "hr_import_batch",
+    "column": "uploaded_by",
+    "jsColumn": "uploadedBy",
+    "schema": "packages\\database\\src\\schema\\hr-import.ts"
+   },
+   {
+    "table": "hr_import_row",
+    "column": "resolved_by",
+    "jsColumn": "resolvedBy",
+    "schema": "packages\\database\\src\\schema\\hr-import.ts"
+   },
+   {
+    "table": "hr_outgoing_record",
+    "column": "operated_by",
+    "jsColumn": "operatedBy",
+    "schema": "packages\\database\\src\\schema\\hr-outgoing.ts"
+   },
+   {
+    "table": "hr_overtime_record",
+    "column": "operated_by",
+    "jsColumn": "operatedBy",
+    "schema": "packages\\database\\src\\schema\\hr-overtime.ts"
+   },
+   {
+    "table": "hr_salary_config",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\hr-salary-config.ts"
+   },
+   {
+    "table": "hr_attendance_daily",
+    "column": "shift_id",
+    "jsColumn": "shiftId",
+    "schema": "packages\\database\\src\\schema\\hr-shift-daily.ts"
+   },
+   {
+    "table": "hr_punch_fix",
+    "column": "approver_id",
+    "jsColumn": "approverId",
+    "schema": "packages\\database\\src\\schema\\hr-shift-daily.ts"
+   },
+   {
+    "table": "lesson_records",
+    "column": "chapter_id",
+    "jsColumn": "chapterId",
+    "schema": "packages\\database\\src\\schema\\learn-record.ts"
+   },
+   {
+    "table": "lessons",
+    "column": "lecturer_id",
+    "jsColumn": "lecturerId",
+    "schema": "packages\\database\\src\\schema\\learn.ts"
+   },
+   {
+    "table": "edu_members",
+    "column": "department_id",
+    "jsColumn": "departmentId",
+    "schema": "packages\\database\\src\\schema\\member.ts"
+   },
+   {
+    "table": "edu_messages",
+    "column": "sender_id",
+    "jsColumn": "senderId",
+    "schema": "packages\\database\\src\\schema\\message.ts"
+   },
+   {
+    "table": "news_articles",
+    "column": "author_id",
+    "jsColumn": "authorId",
+    "schema": "packages\\database\\src\\schema\\news.ts"
+   },
+   {
+    "table": "edu_invoice_applications",
+    "column": "title_id",
+    "jsColumn": "titleId",
+    "schema": "packages\\database\\src\\schema\\order.ts"
+   },
+   {
+    "table": "oss_drivers",
+    "column": "updated_by",
+    "jsColumn": "updatedBy",
+    "schema": "packages\\database\\src\\schema\\oss.ts"
+   },
+   {
+    "table": "ai_generated_question",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\p3-deep-layer.ts"
+   },
+   {
+    "table": "plugin_events",
+    "column": "user_id",
+    "jsColumn": "userId",
+    "schema": "packages\\database\\src\\schema\\plugin-events.ts"
+   },
+   {
+    "table": "projects",
+    "column": "user_id",
+    "jsColumn": "userId",
+    "schema": "packages\\database\\src\\schema\\projects.ts"
+   },
+   {
+    "table": "project_members",
+    "column": "project_id",
+    "jsColumn": "projectId",
+    "schema": "packages\\database\\src\\schema\\projects.ts"
+   },
+   {
+    "table": "project_members",
+    "column": "user_id",
+    "jsColumn": "userId",
+    "schema": "packages\\database\\src\\schema\\projects.ts"
+   },
+   {
+    "table": "invitation_codes",
+    "column": "inviter_id",
+    "jsColumn": "inviterId",
+    "schema": "packages\\database\\src\\schema\\promotions.ts"
+   },
+   {
+    "table": "invitation_codes",
+    "column": "invitee_id",
+    "jsColumn": "inviteeId",
+    "schema": "packages\\database\\src\\schema\\promotions.ts"
+   },
+   {
+    "table": "redemption_codes",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\redemption-codes.ts"
+   },
+   {
+    "table": "redemption_codes",
+    "column": "used_by",
+    "jsColumn": "usedBy",
+    "schema": "packages\\database\\src\\schema\\redemption-codes.ts"
+   },
+   {
+    "table": "refund_audit_records",
+    "column": "order_id",
+    "jsColumn": "orderId",
+    "schema": "packages\\database\\src\\schema\\refund-audit.ts"
+   },
+   {
+    "table": "relay_commission_records",
+    "column": "source_call_log_id",
+    "jsColumn": "sourceCallLogId",
+    "schema": "packages\\database\\src\\schema\\relay-commission-records.ts"
+   },
+   {
+    "table": "self_media_published",
+    "column": "author_id",
+    "jsColumn": "authorId",
+    "schema": "packages\\database\\src\\schema\\self-media.ts"
+   },
+   {
+    "table": "edu_settings",
+    "column": "updated_by",
+    "jsColumn": "updatedBy",
+    "schema": "packages\\database\\src\\schema\\setting.ts"
+   },
+   {
+    "table": "tags",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\social.ts"
+   },
+   {
+    "table": "tag_relations",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\social.ts"
+   },
+   {
+    "table": "srs_streams",
+    "column": "user_id",
+    "jsColumn": "userId",
+    "schema": "packages\\database\\src\\schema\\srs.ts"
+   },
+   {
+    "table": "stock_analyses",
+    "column": "user_id",
+    "jsColumn": "userId",
+    "schema": "packages\\database\\src\\schema\\stock.ts"
+   },
+   {
+    "table": "system_configs",
+    "column": "updated_by",
+    "jsColumn": "updatedBy",
+    "schema": "packages\\database\\src\\schema\\system.ts"
+   },
+   {
+    "table": "api_logs",
+    "column": "user_id",
+    "jsColumn": "userId",
+    "schema": "packages\\database\\src\\schema\\system.ts"
+   },
+   {
+    "table": "task_messages",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\task-messages.ts"
+   },
+   {
+    "table": "team_knowledge_spaces",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\team-knowledge.ts"
+   },
+   {
+    "table": "team_knowledge_spaces",
+    "column": "updated_by",
+    "jsColumn": "updatedBy",
+    "schema": "packages\\database\\src\\schema\\team-knowledge.ts"
+   },
+   {
+    "table": "team_knowledge_space_members",
+    "column": "granted_by",
+    "jsColumn": "grantedBy",
+    "schema": "packages\\database\\src\\schema\\team-knowledge.ts"
+   },
+   {
+    "table": "team_knowledge_items",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\team-knowledge.ts"
+   },
+   {
+    "table": "team_knowledge_items",
+    "column": "updated_by",
+    "jsColumn": "updatedBy",
+    "schema": "packages\\database\\src\\schema\\team-knowledge.ts"
+   },
+   {
+    "table": "teams",
+    "column": "owner_id",
+    "jsColumn": "ownerId",
+    "schema": "packages\\database\\src\\schema\\teams.ts"
+   },
+   {
+    "table": "team_invitations",
+    "column": "inviter_id",
+    "jsColumn": "inviterId",
+    "schema": "packages\\database\\src\\schema\\teams.ts"
+   },
+   {
+    "table": "team_invitations",
+    "column": "invitee_id",
+    "jsColumn": "inviteeId",
+    "schema": "packages\\database\\src\\schema\\teams.ts"
+   },
+   {
+    "table": "tenants",
+    "column": "owner_id",
+    "jsColumn": "ownerId",
+    "schema": "packages\\database\\src\\schema\\tenant.ts"
+   },
+   {
+    "table": "tour_content",
+    "column": "author_id",
+    "jsColumn": "authorId",
+    "schema": "packages\\database\\src\\schema\\tour.ts"
+   },
+   {
+    "table": "traders",
+    "column": "user_id",
+    "jsColumn": "userId",
+    "schema": "packages\\database\\src\\schema\\trader.ts"
+   },
+   {
+    "table": "user_auth_info",
+    "column": "user_uuid",
+    "jsColumn": "userUuid",
+    "schema": "packages\\database\\src\\schema\\user-auth-info.ts"
+   },
+   {
+    "table": "users",
+    "column": "dept_id",
+    "jsColumn": "deptId",
+    "schema": "packages\\database\\src\\schema\\users.ts"
+   },
+   {
+    "table": "user_vips",
+    "column": "vip_level_id",
+    "jsColumn": "vipLevelId",
+    "schema": "packages\\database\\src\\schema\\vip.ts"
+   },
+   {
+    "table": "visit_logs",
+    "column": "user_id",
+    "jsColumn": "userId",
+    "schema": "packages\\database\\src\\schema\\visit-tracking.ts"
+   },
+   {
+    "table": "wechat_pay_contracts",
+    "column": "plan_id",
+    "jsColumn": "planId",
+    "schema": "packages\\database\\src\\schema\\wechat-pay-contracts.ts"
+   },
+   {
+    "table": "wechat_pay_contracts",
+    "column": "product_id",
+    "jsColumn": "productId",
+    "schema": "packages\\database\\src\\schema\\wechat-pay-contracts.ts"
+   },
+   {
+    "table": "workflow_todo",
+    "column": "assignee_id",
+    "jsColumn": "assigneeId",
+    "schema": "packages\\database\\src\\schema\\workflow-todo.ts"
+   },
+   {
+    "table": "workflow_todo",
+    "column": "resolved_by",
+    "jsColumn": "resolvedBy",
+    "schema": "packages\\database\\src\\schema\\workflow-todo.ts"
+   },
+   {
+    "table": "workflows",
+    "column": "created_by",
+    "jsColumn": "createdBy",
+    "schema": "packages\\database\\src\\schema\\workflow.ts"
+   },
+   {
+    "table": "workflow_instances",
+    "column": "workflow_id",
+    "jsColumn": "workflowId",
+    "schema": "packages\\database\\src\\schema\\workflow.ts"
+   },
+   {
+    "table": "workflow_instances",
+    "column": "project_id",
+    "jsColumn": "projectId",
+    "schema": "packages\\database\\src\\schema\\workflow.ts"
+   },
+   {
+    "table": "workflow_tasks",
+    "column": "instance_id",
+    "jsColumn": "instanceId",
+    "schema": "packages\\database\\src\\schema\\workflow.ts"
+   },
+   {
+    "table": "workflow_logs",
+    "column": "instance_id",
+    "jsColumn": "instanceId",
+    "schema": "packages\\database\\src\\schema\\workflow.ts"
+   },
+   {
+    "table": "workflow_logs",
+    "column": "task_id",
+    "jsColumn": "taskId",
+    "schema": "packages\\database\\src\\schema\\workflow.ts"
+   }
+  ]
+ },
+ "grid3_declared_index_no_ddl": {
+  "declared": 1154,
+  "created": 1647,
+  "count": 0,
+  "verdict": "无缺陷(首扫误报已更正)"
+ },
+ "grid4_col_type_conflicts": [
+  {
+   "table": "users",
+   "column": "phone",
+   "types": {
+    "varchar(11)": [
+     "0000_naive_barracuda.sql"
+    ],
+    "varchar(20)": [
+     "0043_neat_the_spike.sql"
+    ]
+   }
+  },
+  {
+   "table": "video_generation_tasks",
+   "column": "id",
+   "types": {
+    "serial": [
+     "0038_missing_tables.sql",
+     "0043_neat_the_spike.sql"
+    ],
+    "integer": [
+     "0112_r80_new_tables.sql"
+    ]
+   }
+  },
+  {
+   "table": "video_generation_tasks",
+   "column": "task_id",
+   "types": {
+    "varchar(36)": [
+     "0038_missing_tables.sql",
+     "0043_neat_the_spike.sql"
+    ],
+    "uuid": [
+     "0112_r80_new_tables.sql"
+    ]
+   }
+  },
+  {
+   "table": "video_generation_tasks",
+   "column": "result",
+   "types": {
+    "text": [
+     "0038_missing_tables.sql",
+     "0043_neat_the_spike.sql"
+    ],
+    "jsonb": [
+     "0112_r80_new_tables.sql"
+    ]
+   }
+  },
+  {
+   "table": "gen_table_column",
+   "column": "table_id",
+   "types": {
+    "bigint": [
+     "0038_missing_tables.sql",
+     "0043_neat_the_spike.sql"
+    ],
+    "integer": [
+     "20260831000000_feature_gap_tables.sql"
+    ]
+   }
+  },
+  {
+   "table": "gen_table_column",
+   "column": "column_comment",
+   "types": {
+    "varchar(1000)": [
+     "0038_missing_tables.sql",
+     "0043_neat_the_spike.sql"
+    ],
+    "varchar(500)": [
+     "20260831000000_feature_gap_tables.sql"
+    ]
+   }
+  },
+  {
+   "table": "gen_table_column",
+   "column": "is_pk",
+   "types": {
+    "varchar(1)": [
+     "0038_missing_tables.sql",
+     "0043_neat_the_spike.sql"
+    ],
+    "boolean": [
+     "20260831000000_feature_gap_tables.sql"
+    ]
+   }
+  },
+  {
+   "table": "tbox_bean",
+   "column": "id",
+   "types": {
+    "bigserial": [
+     "0038_missing_tables.sql",
+     "0043_neat_the_spike.sql"
+    ],
+    "serial": [
+     "20260831000000_feature_gap_tables.sql"
+    ]
+   }
+  },
+  {
+   "table": "tbox_bean",
+   "column": "bean_data",
+   "types": {
+    "text": [
+     "0038_missing_tables.sql",
+     "0043_neat_the_spike.sql"
+    ],
+    "jsonb": [
+     "20260831000000_feature_gap_tables.sql"
+    ]
+   }
+  },
+  {
+   "table": "ab_test_results",
+   "column": "bucket",
+   "types": {
+    "varchar(32)": [
+     "0043_neat_the_spike.sql"
+    ],
+    "varchar(64)": [
+     "20260831000000_feature_gap_tables.sql"
+    ]
+   }
+  },
+  {
+   "table": "ab_test_variants",
+   "column": "name",
+   "types": {
+    "varchar(100)": [
+     "0043_neat_the_spike.sql"
+    ],
+    "varchar(255)": [
+     "20260831000000_feature_gap_tables.sql"
+    ]
+   }
+  },
+  {
+   "table": "live_gift",
+   "column": "id",
+   "types": {
+    "serial": [
+     "0044_silky_banshee.sql"
+    ],
+    "uuid": [
+     "20260831000000_feature_gap_tables.sql"
+    ]
+   }
+  },
+  {
+   "table": "live_gift",
+   "column": "channel_id",
+   "types": {
+    "integer": [
+     "0044_silky_banshee.sql"
+    ],
+    "uuid": [
+     "20260831000000_feature_gap_tables.sql"
+    ]
+   }
+  },
+  {
+   "table": "live_gift",
+   "column": "user_id",
+   "types": {
+    "varchar(64)": [
+     "0044_silky_banshee.sql"
+    ],
+    "uuid": [
+     "20260831000000_feature_gap_tables.sql"
+    ]
+   }
+  },
+  {
+   "table": "live_gift",
+   "column": "total_price",
+   "types": {
+    "integer": [
+     "0044_silky_banshee.sql"
+    ],
+    "numeric(20,4)": [
+     "20260831000000_feature_gap_tables.sql"
+    ]
+   }
+  }
+ ],
+ "col_type_conflict_count": 15,
+ "grid2_userId_no_fk": {
+  "caliber": "userId: uuid('user_id') 声明且该列定义无 .references()",
+  "count": 151,
+  "notNull_count": 14,
+  "nullable_count": 137,
+  "plan_note": "票面登记 24 处;本次全量复测 151 处(其中 notNull 14 / nullable 137)——分歧较大,票面 24 疑为登记时刻部分表集估计,须以本复测为现值",
+  "items": [
+   {
+    "table": "zhs_agent_buy",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\agent-commerce.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "zhs_agent_withdrawal_detail",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\agent-commerce.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "agent_event_triggers",
+    "nullable": false,
+    "schema": "packages\\database\\src\\schema\\agent-event-triggers.ts",
+    "def": "userId: uuid('user_id').notNull()"
+   },
+   {
+    "table": "agent_reviews",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\agent-reviews.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "agent_upload",
+    "nullable": false,
+    "schema": "packages\\database\\src\\schema\\agent-rule.ts",
+    "def": "userId: uuid('user_id').notNull()"
+   },
+   {
+    "table": "agent_memory_decay_state",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\agent-state.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "agent_user_profile",
+    "nullable": false,
+    "schema": "packages\\database\\src\\schema\\agent-state.ts",
+    "def": "userId: uuid('user_id').primaryKey().notNull()"
+   },
+   {
+    "table": "agents",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\agents-extended.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "agent_examines",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\agents-extended.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "ai_model_mappings",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\ai-model-mappings.ts",
+    "def": ""
+   },
+   {
+    "table": "ai_conversations",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\ai-modules.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "ai_aigc_tasks",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\ai-modules.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "ai_ext_reports",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\ai-modules.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "analytics_events",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\analytics-events.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "ask_likes",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\ask-extra.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "ask_favorites",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\ask-extra.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "ask_comments",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\ask-extra.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "search_history",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\audit.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "behavior_watch_records",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\behavior.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "api_subscriptions",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\billing.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "api_subscription_window_usage",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\billing.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "business_cards",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\business-cards.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "business_card_favorites",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\business-cards.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "certificates",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\certificate.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "chat_conversation_collaborators",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\chat-collab.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "chat_message_comments",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\chat-collab.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "chat_context_ledgers",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\chat-ledger.ts",
+    "def": ""
+   },
+   {
+    "table": "chat_budget_stops",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\chat-ledger.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "chat_voice_notes",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\chat-voice-notes.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "chat_conversation_groups",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\chat.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "chat_conversations",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\chat.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "chat_favorites",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\chat.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "chat_message_feedbacks",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\chat.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "circle_members",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\circle-extra.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "circle_post_likes",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\circle-extra.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "circle_post_comments",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\circle-extra.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "clawdbot_permissions",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\clawdbot.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "clawdbot_sessions",
+    "nullable": false,
+    "schema": "packages\\database\\src\\schema\\clawdbot.ts",
+    "def": "userId: uuid('user_id').notNull()"
+   },
+   {
+    "table": "comments",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\comments.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "comment_likes",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\comments.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "feedbacks",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\comments.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "circle_posts",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\community.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "asks",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\community.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "ask_answers",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\community.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "content_generation_tasks",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\content-generation.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "announcement_reads",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\content.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_coupons",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\coupons.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "customer_service_tickets",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\customer-service.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "customer_service_comments",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\customer-service.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "customer_service_agents",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\customer-service.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "customer_service_sessions",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\customer-service.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "customer_service_ratings",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\customer-service.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "desktop_prefs",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\desktop-prefs.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "developer_api_keys",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\developer-api-keys.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "developer_applications",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\developer.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "developer_subscriptions",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\developer.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "device_tokens",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\device-tokens.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "devices",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\devices.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "device_pair_codes",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\devices.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "exam_signups",
+    "nullable": false,
+    "schema": "packages\\database\\src\\schema\\exam-extended.ts",
+    "def": "userId: uuid('user_id').notNull()"
+   },
+   {
+    "table": "exam_wrong_question",
+    "nullable": false,
+    "schema": "packages\\database\\src\\schema\\exam-extended.ts",
+    "def": "userId: uuid('user_id').notNull()"
+   },
+   {
+    "table": "exam_records",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\exam.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "export_tasks",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\export-tasks.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_points",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\gamification.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "point_transactions",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\gamification.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "sign_in_records",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\gamification.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_group_members",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\groups.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "hr_employee_link_request",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\hr-ai-management.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "im_adapters",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\im-adapters.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "im_messages",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\im-adapters.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "image_gen_favorites",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\image-gen-favorites.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "knowledge_cards",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\knowledge-card.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "learn_invoice_applications",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\learn-extended.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "learn_invoice_titles",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\learn-extended.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "learn_community_post",
+    "nullable": false,
+    "schema": "packages\\database\\src\\schema\\learn-extra-extended.ts",
+    "def": "userId: uuid('user_id').notNull()"
+   },
+   {
+    "table": "lesson_rate",
+    "nullable": false,
+    "schema": "packages\\database\\src\\schema\\learn-extra-extended.ts",
+    "def": "userId: uuid('user_id').notNull()"
+   },
+   {
+    "table": "lesson_records",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\learn-record.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "lesson_record_logs",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\learn-record.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "lesson_sign_ups",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\learn.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "llm_call_logs",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\llm-call-logs.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "agent_memory_episodic",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\memory.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "agent_memory_semantic",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\memory.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "agent_memory_procedural",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\memory.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "agent_memory_edges",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\memory.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "notes",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\notes.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "notifications",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\notifications.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "notification_preferences",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\notifications.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "oauth_sessions",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\oauth.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "oauth_users",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\oauth.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_third_party_accounts",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\oauth.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_sk",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\oauth.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "edu_orders",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\order.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "edu_payments",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\order.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "edu_refunds",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\order.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "edu_invoice_titles",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\order.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "edu_invoice_applications",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\order.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "langgraph_thread_owners",
+    "nullable": false,
+    "schema": "packages\\database\\src\\schema\\p3-deep-layer.ts",
+    "def": "userId: uuid('user_id').notNull()"
+   },
+   {
+    "table": "patrol_tasks",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\patrol.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "points_mall_orders",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\points-mall.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "projects",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\projects.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "project_members",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\projects.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "activity_participants",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\promotions.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_roles",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\rbac.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "exam_sign_up",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\relation-tables.ts",
+    "def": ""
+   },
+   {
+    "table": "relay_conversations",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\relay-conversations.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "remote_devices",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\remote-device.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "repo_wiki_docs",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\repo-wiki.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "resource_likes",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\resource-likes.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "resource_downloads",
+    "nullable": false,
+    "schema": "packages\\database\\src\\schema\\resource.ts",
+    "def": "userId: uuid('user_id').notNull()"
+   },
+   {
+    "table": "security_logs",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\security-logs.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "service_appointments",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\service-appointments.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_favorites",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\social.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "subscriptions",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\social.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "srs_streams",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\srs.ts",
+    "def": ""
+   },
+   {
+    "table": "study_plans",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\study.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "study_posts",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\study.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "ai_tutor_logs",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\study.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "tbox_device",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\tbox-extended.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "team_knowledge_space_members",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\team-knowledge.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "team_members",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\teams.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "tenant_members",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\tenant.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "tool_invocation_ledger",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\tool-invocation-ledger.ts",
+    "def": ""
+   },
+   {
+    "table": "tool_favorites",
+    "nullable": false,
+    "schema": "packages\\database\\src\\schema\\tool.ts",
+    "def": "userId: uuid('user_id').notNull()"
+   },
+   {
+    "table": "tour_recommendations",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\tour.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "traders",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\trader.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "usdt_payments",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\usdt-payments.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_addresses",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\user-addresses.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_automations",
+    "nullable": false,
+    "schema": "packages\\database\\src\\schema\\user-automations.ts",
+    "def": "userId: uuid('user_id').notNull()"
+   },
+   {
+    "table": "user_billing_group_members",
+    "nullable": false,
+    "schema": "packages\\database\\src\\schema\\user-billing-groups.ts",
+    "def": "userId: uuid('user_id').notNull().unique()"
+   },
+   {
+    "table": "user_browse_history",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\user-browse-history.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_chat_skills",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\user-chat-skills.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_devices",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\user-devices.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_course_enrollments",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\user-learning.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_learn_records",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\user-learning.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_memories",
+    "nullable": false,
+    "schema": "packages\\database\\src\\schema\\user-memory.ts",
+    "def": "userId: uuid('user_id').notNull()"
+   },
+   {
+    "table": "user_passkeys",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\user-passkeys.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_preferences",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\user-preferences.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_profiles",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\usercenter.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_certificates",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\usercenter.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "refresh_tokens",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\users.ts",
+    "def": ""
+   },
+   {
+    "table": "user_emails",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\users.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_vips",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\vip.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "user_margins",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\wallet.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "token_flows",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\wallet.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "webhook_subscriptions",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\webhook-subscriptions.ts",
+    "def": ""
+   },
+   {
+    "table": "webhooks",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\webhooks.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "wechat_pay_contracts",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\wechat-pay-contracts.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "workspace_ai_tasks",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\workspace-ai-tasks.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "workspace_permissions",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\workspace-permissions.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "workspace_permission_rules",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\workspace-permissions.ts",
+    "def": "userId: uuid('user_id')"
+   },
+   {
+    "table": "workspace_permission_audit_logs",
+    "nullable": true,
+    "schema": "packages\\database\\src\\schema\\workspace-permissions.ts",
+    "def": "userId: uuid('user_id')"
+   }
+  ]
+ }
+}

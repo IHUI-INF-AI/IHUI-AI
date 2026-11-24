@@ -1,0 +1,458 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native'
+import type { ProfileScreenProps, SharedUserStatistics } from '../../types'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { ChevronRight, LogOut, Mail, Phone } from 'lucide-react-native'
+import { useFontMultiplier } from '../../components/MoreLink'
+import { ScreenSkeleton } from '../../components/ScreenStates'
+import { isCapabilityOff, resolveOptionalPort } from '../../host/ports'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+
+/**
+ * ProfileScreen — 跨端共享「个人资料」页。
+ *
+ * 平台无关:数据(user/stats/orderCount)、状态(loading/error)、导航(onNavigate/onLogout/onBack)
+ * 全部通过 props 注入,组件只负责渲染。web/RN wrapper 各自实现数据获取与导航。
+ * 配色:由 colorScheme prop('light' | 'dark',默认 'light')经 getTokens 解析为明/暗 token 集。
+ *
+ * 页头归属(2026-09-27,双层页头收敛,同 SettingsScreen 先例):本组件**不渲染内置页头/返回键**,
+ * 页头(标题 + 返回 + 右侧动作)由宿主提供 —— RN 端生产页(apps/mobile-rn/src/screens/ProfileScreen.tsx)
+ * 渲染 NavBar(标题 + 反馈 + Drawer 菜单入口),demo 页(SharedDemoScreen)有常驻 tab 栏。
+ * 此前组件自带 BackChevron + 标题,在生产页里悬在滚动区中段、与宿主 NavBar 同屏两条返回键
+ * (守门 102 GA7 / 守门 145 DH2 判定型)。onBack 仍留在 ProfileScreenProps 契约中
+ * (packages/types,本轮不可改),运行时不再消费。
+ */
+export function ProfileScreen({
+  t,
+  user,
+  stats,
+  orderCount = 0,
+  loading = false,
+  error = '',
+  menuSections = [],
+  onNavigate,
+  onLogout,
+  onToast,
+  realnameStatus,
+  identityTags = [],
+  onAvatarPress,
+  colorScheme = 'light',
+  userExtra,
+  quickActions,
+  children,
+}: ProfileScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+  const fontMultiplier = useFontMultiplier()
+  // 端口闸:导航缺省时不再 `?.()` 静默吞掉点击;能提示就把原因上屏,提示腿也缺省则保持可见降级。
+  const navigate = resolveOptionalPort(onNavigate)
+  const toast = resolveOptionalPort(onToast)
+  // 实名徽标配色(见 realnameBadgeTone;取不到状态 ⇒ null ⇒ 不渲染,不猜默认态)
+  const badgeTone = realnameStatus ? realnameBadgeTone(tk, realnameStatus) : null
+
+  if (loading) {
+    return <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+  }
+
+  const statsCells = buildStatsCells(t, stats, orderCount)
+
+  return (
+    <View style={styles.container}>
+      {error ? (
+        <View style={styles.errorBar}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.body}>
+        <View style={styles.userCard}>
+          <View style={styles.userHeader}>
+            {onAvatarPress ? (
+              <TouchableOpacity
+                style={styles.avatar}
+                onPress={onAvatarPress}
+                accessibilityRole="button"
+              >
+                {renderAvatar(user?.avatar, user?.nickname, styles)}
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.avatar}>
+                {renderAvatar(user?.avatar, user?.nickname, styles)}
+              </View>
+            )}
+            <View style={styles.userMeta}>
+              <View style={styles.nicknameRow}>
+                <Text style={styles.nickname}>{user?.nickname || t('profile.nickname')}</Text>
+              </View>
+              {identityTags.length > 0 ? (
+                <View style={styles.identityRow}>
+                  {identityTags.map((tag) => {
+                    const tone = identityTone(tk, tag.tone)
+                    return (
+                      <View key={tag.text} style={[styles.identityTag, tone.container]}>
+                        <Text style={[styles.identityTagText, tone.text]}>{tag.text}</Text>
+                      </View>
+                    )
+                  })}
+                </View>
+              ) : null}
+              {user?.email ? (
+                <View style={styles.subTextRow}>
+                  <Mail size={13} color={tk.text.medium} />
+                  <Text style={styles.subText} numberOfLines={1} ellipsizeMode="middle">
+                    {user.email}
+                  </Text>
+                </View>
+              ) : null}
+              {user?.phone ? (
+                <View style={styles.subTextRow}>
+                  <Phone size={13} color={tk.text.medium} />
+                  <Text style={styles.subText} numberOfLines={1}>
+                    {formatPhone(user.phone)}
+                  </Text>
+                </View>
+              ) : null}
+              {/* 实名状态单独成行并带「实名认证」前缀:昵称旁只放会员身份,避免两个灰 chip
+                  被读成同一类标签(admin 的「普通用户」尤其容易误解)。 */}
+              {badgeTone && realnameStatus ? (
+                <View style={styles.realnameRow}>
+                  <Text style={styles.realnameLabel}>{t('realNameAuth.title')}</Text>
+                  <View style={[styles.realnameBadge, badgeTone.container]}>
+                    <Text style={[styles.realnameBadgeText, badgeTone.text]}>
+                      {t(`realNameAuth.status_${realnameStatus}`)}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          </View>
+          {userExtra ? <View style={styles.userExtraSlot}>{userExtra}</View> : null}
+        </View>
+
+        <View style={styles.statsGrid}>
+          {statsCells.map((cell) => (
+            <View key={cell.key} style={styles.statsCell}>
+              <Text
+                style={styles.statsValue}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >
+                {cell.value}
+              </Text>
+              <Text style={styles.statsLabel} numberOfLines={1}>
+                {cell.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {quickActions ? <View style={styles.quickActionsSlot}>{quickActions}</View> : null}
+
+        {menuSections.map((section) => (
+          <View key={section.title} style={styles.menuSection}>
+            <Text style={styles.sectionTitle}>{section.title}</Text>
+            <View style={styles.menuCard}>
+              {section.items.map((item) => (
+                <TouchableOpacity
+                  key={item.key}
+                  style={styles.menuItem}
+                  onPress={() => {
+                    if (isCapabilityOff(navigate)) {
+                      if (!isCapabilityOff(toast)) {
+                        toast(t('common.failed'), { kind: 'error' })
+                      }
+                      return
+                    }
+                    navigate(item.key)
+                  }}
+                >
+                  {typeof item.icon === 'string' ? (
+                    <Text style={styles.menuIcon}>{item.icon}</Text>
+                  ) : item.icon ? (
+                    <item.icon size={20} color={tk.text.primary} />
+                  ) : null}
+                  <Text style={styles.menuLabel}>{item.label}</Text>
+                  {item.value ? (
+                    <Text style={styles.menuValue} numberOfLines={1}>
+                      {item.value}
+                    </Text>
+                  ) : null}
+                  <ChevronRight size={Math.round(16 * fontMultiplier)} color={tk.text.secondary} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ))}
+
+        {children ? <View style={styles.childrenSlot}>{children}</View> : null}
+
+        {onLogout ? (
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={onLogout}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={t('profile.logout')}
+          >
+            <LogOut size={16} color={tk.danger.deepText} />
+            <Text style={styles.logoutText}>{t('profile.logout')}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    </View>
+  )
+}
+
+function initials(name?: string): string {
+  if (!name) return 'U'
+  return name.trim().charAt(0).toUpperCase()
+}
+
+/** 11 位手机号按 3-4-4 分组,让联系方式在窄屏上更易扫读;非大陆手机号原样返回 */
+function formatPhone(phone: string): string {
+  const digits = phone.replace(/\s+/g, '')
+  return /^1\d{10}$/.test(digits)
+    ? `${digits.slice(0, 3)} ${digits.slice(3, 7)} ${digits.slice(7)}`
+    : phone
+}
+
+/** 头像:有服务端图就渲染图,否则渲染昵称首字母(保持既有降级) */
+function renderAvatar(
+  avatar: string | null | undefined,
+  nickname: string | undefined,
+  styles: ReturnType<typeof createStyles>,
+) {
+  if (avatar) {
+    return <Image source={{ uri: avatar }} style={styles.avatarImage} />
+  }
+  return <Text style={styles.avatarText}>{initials(nickname)}</Text>
+}
+
+/** 身份标签配色:vip 用品牌强调档,其余走中性档(只用既有令牌) */
+function identityTone(tk: AppThemeTokens, tone?: 'vip' | 'admin' | 'normal') {
+  if (tone === 'vip') {
+    return {
+      container: { backgroundColor: tk.brandAccent.light },
+      text: { color: tk.brandAccent.deep },
+    }
+  }
+  return {
+    container: { backgroundColor: tk.surface.muted },
+    text: { color: tk.text.secondary },
+  }
+}
+
+type RealnameStatus = NonNullable<ProfileScreenProps['realnameStatus']>
+
+/**
+ * 实名徽标配色(只用既有令牌,不新增色值/不做发光):
+ * - verified(后端 approved) = 品牌强调档:brandAccent.light 底 + brandAccent.deep 字
+ * - pending = 警告档:warning.amberLight 底 + warning.amberText 字(审核中是过程态,不再与未认证同灰)
+ * - rejected = 错误档:error.bg 底 + error.text 字
+ * - unverified(unknown 同档)= 中性档:surface.muted 底 + text.tertiary 字
+ */
+function realnameBadgeTone(tk: AppThemeTokens, status: RealnameStatus) {
+  if (status === 'verified') {
+    return {
+      container: { backgroundColor: tk.brandAccent.light },
+      text: { color: tk.brandAccent.deep },
+    }
+  }
+  if (status === 'pending') {
+    return {
+      container: { backgroundColor: tk.warning.amberLight },
+      text: { color: tk.warning.amberText },
+    }
+  }
+  if (status === 'rejected') {
+    return {
+      container: { backgroundColor: tk.error.bg },
+      text: { color: tk.error.text },
+    }
+  }
+  return {
+    container: { backgroundColor: tk.surface.muted },
+    text: { color: tk.text.medium },
+  }
+}
+
+/** 一格读数:未取到渲染 '--',不把「请求失败/没取到」压成 0 */
+function cellText(v: number | null | undefined): string {
+  return v === null || v === undefined || !Number.isFinite(v) ? '--' : String(v)
+}
+
+function buildStatsCells(
+  t: ProfileScreenProps['t'],
+  stats: SharedUserStatistics | null | undefined,
+  orderCount: number | null | undefined,
+) {
+  return [
+    { key: 'courses', label: t('profile.myCourses'), value: cellText(stats?.courseCount) },
+    { key: 'favorites', label: t('profile.myFavorites'), value: cellText(stats?.favoriteCount) },
+    { key: 'following', label: t('community.follow'), value: cellText(stats?.followingCount) },
+    { key: 'fans', label: t('community.follower'), value: cellText(stats?.fansCount) },
+    { key: 'orders', label: t('profile.myOrders'), value: cellText(orderCount) },
+    { key: 'points', label: t('wallet.points'), value: cellText(stats?.points) },
+  ]
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    errorBar: {
+      marginHorizontal: rnSpacing.lg,
+      marginBottom: rnSpacing.sm,
+      padding: rnSpacing['sm-loose'],
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.error.bg,
+    },
+    errorText: { fontSize: rnType.body.size, color: tk.error.text },
+    body: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.lg,
+      gap: rnSpacing.md,
+    },
+    userCard: {
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
+      backgroundColor: tk.surface.light,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      gap: rnSpacing.md,
+    },
+    /** 头像 + 昵称/身份/联系方式一行;userExtra 另起一行,避免动作行被挤压在头像右侧半栏 */
+    userHeader: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
+    avatar: {
+      width: 56,
+      height: 56,
+      borderRadius: rnRadius['2xl'],
+      backgroundColor: tk.brandAccent.DEFAULT,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarImage: {
+      width: 56,
+      height: 56,
+      borderRadius: rnRadius['2xl'],
+      backgroundColor: tk.surface.muted,
+    },
+    avatarText: {
+      fontSize: rnType.displayXl.size,
+      fontWeight: '700',
+      color: tk.brandAccent.foreground,
+    },
+    userMeta: { flex: 1, gap: rnSpacing.xs },
+    /** 用户卡内附加区(宿主注入账户动作);宽度撑满,动作行由宿主自行排版 */
+    userExtraSlot: { width: '100%' },
+    identityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.xs },
+    identityTag: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+    },
+    identityTagText: { fontSize: rnType.label.size, fontWeight: '600' },
+    nicknameRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
+    nickname: {
+      flexShrink: 1,
+      fontSize: rnType.heading.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    },
+    realnameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.xs,
+      marginTop: rnSpacing['2xs'],
+    },
+    realnameLabel: { fontSize: rnType.label.size, color: tk.text.medium },
+    realnameBadge: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+    },
+    realnameBadgeText: { fontSize: rnType.label.size, fontWeight: '600' },
+    subTextRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
+    subText: {
+      flexShrink: 1,
+      fontSize: rnType.bodySm.size,
+      lineHeight: rnType.bodySm.lineHeight,
+      color: tk.text.secondary,
+    },
+    /** 六项账户数据压成一行白卡:两行大灰块会占掉首屏,而这里只是状态摘要不是主内容 */
+    statsGrid: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      paddingVertical: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    statsCell: {
+      flex: 1,
+      minWidth: 0,
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing['2xs'],
+    },
+    /** 统计之后的快捷入口区(会员/创作之前,保证高频路径在首屏) */
+    quickActionsSlot: { width: '100%' },
+    /** 菜单分节之后的附加区(会员权益/创作内容);分节间距由 body 的 gap 提供 */
+    childrenSlot: { width: '100%', gap: rnSpacing.md },
+    statsValue: {
+      fontSize: rnType.titleLg.size,
+      fontWeight: '600',
+      fontVariant: ['tabular-nums'],
+      color: tk.text.primary,
+    },
+    statsLabel: {
+      marginTop: rnSpacing['2xs'],
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+    },
+    menuSection: { gap: rnSpacing.sm },
+    sectionTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.medium },
+    menuCard: {
+      borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
+      backgroundColor: tk.surface.light,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      overflow: 'hidden',
+    },
+    menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minHeight: 60,
+      paddingVertical: rnSpacing.lg,
+      paddingHorizontal: rnSpacing.lg,
+      gap: rnSpacing['sm-loose'],
+    },
+    menuIcon: { fontSize: rnType.title.size },
+    menuLabel: { flex: 1, fontSize: rnType.title.size, color: tk.text.primary },
+    menuValue: { maxWidth: '45%', fontSize: rnType.body.size, color: tk.text.secondary },
+    logoutBtn: {
+      marginTop: rnSpacing.sm,
+      minHeight: 48,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: rnSpacing.xs,
+      paddingHorizontal: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    logoutText: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.danger.deepText,
+    },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,13 @@
+{
+  "generatedBy": "scripts/check-egress-facts.mjs",
+  "face": "HEAD",
+  "note": "每文件额度:只减不增。判红锚点 = 该文件在本次取材面自身的违规数;缺条目按 0 计。",
+  "coverage": "判定面 apps/api/src + apps/cli/src/provider;覆盖面 HEAD 全量清单",
+  "counts": {
+    "apps/api/src/plugins/ws-ai.ts": 1,
+    "apps/api/src/routes/ai-vendors/proxy-extended-media.ts": 1,
+    "apps/api/src/routes/chat.ts": 1,
+    "apps/api/src/routes/legacy-langchain.ts": 1,
+    "apps/api/src/routes/tencent-hunyuan-3d.ts": 2
+  }
+}

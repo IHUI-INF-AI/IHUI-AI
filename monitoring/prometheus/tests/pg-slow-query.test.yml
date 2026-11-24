@@ -1,0 +1,127 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# promtool 单元测试 —— PG 查询延迟两条规则的正反用例(2026-10-12 立,P11)。
+# 目的不是"多覆盖",是让"这两条规则真会响、且只在真慢时响"变成可机器证明的东西:
+#   PgSlowQuery(>5s, warning, for:2m)与 PgVerySlowQuery(>30s, critical, for:1m)
+# 各覆盖:正例必 firing / 等号边界不 firing / 快查询不 firing / 瞬时抖动(for 未满)不 firing /
+# 指标缺席(无序列)不 firing。指标形态 = postgres_exporter 扩展查询
+# (monitoring/postgres-exporter/queries.yml),序列按 datname 分标签、聚合用 max()。
+# 运行:promtool test rules monitoring/prometheus/tests/pg-slow-query.test.yml
+rule_files:
+  - ../alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ── 正例一:最长活跃查询 8s 持续 ⇒ PgSlowQuery firing(warning) ──
+  - interval: 1m
+    input_series:
+      - series: 'pg_query_max_duration_seconds{datname="ihui_dev"}'
+        values: '8x141'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: PgSlowQuery
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: 'PostgreSQL 查询延迟超 5s'
+              description: '最长活跃查询已运行 8s(排除备份用户),PG 疑似退化;登录/续期等轻端点会一起变慢,排查:SELECT pid, now()-query_start, state, query FROM pg_stat_activity WHERE state=''active'' ORDER BY 2 DESC'
+
+  # ── 正例二:45s 持续 ⇒ 两层同时 firing(warning + critical) ──
+  # 这一格同时钉住"分层两条"的意义:30s 一档必须另有一条 critical,不被 warning 吞掉。
+  - interval: 1m
+    input_series:
+      - series: 'pg_query_max_duration_seconds{datname="ihui_dev"}'
+        values: '45x141'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: PgSlowQuery
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: 'PostgreSQL 查询延迟超 5s'
+              description: '最长活跃查询已运行 45s(排除备份用户),PG 疑似退化;登录/续期等轻端点会一起变慢,排查:SELECT pid, now()-query_start, state, query FROM pg_stat_activity WHERE state=''active'' ORDER BY 2 DESC'
+      - eval_time: 10m
+        alertname: PgVerySlowQuery
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: 'PostgreSQL 查询延迟超 30s'
+              description: '最长活跃查询已运行 45s(排除备份用户),PG 严重退化,用户端已可感知卡顿;排查同上 SQL 定位长事务,确认误伤后可 SELECT pg_terminate_backend(pid)'
+
+  # ── 反例一:恰好 5s(阈值是 >5 不含等号)⇒ 两条均不 firing ──
+  - interval: 1m
+    input_series:
+      - series: 'pg_query_max_duration_seconds{datname="ihui_dev"}'
+        values: '5x141'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: PgSlowQuery
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: PgVerySlowQuery
+        exp_alerts: []
+
+  # ── 反例二:恰好 30s ⇒ warning  firing、critical 不 firing(>30 不含等号) ──
+  - interval: 1m
+    input_series:
+      - series: 'pg_query_max_duration_seconds{datname="ihui_dev"}'
+        values: '30x141'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: PgSlowQuery
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: 'PostgreSQL 查询延迟超 5s'
+              description: '最长活跃查询已运行 30s(排除备份用户),PG 疑似退化;登录/续期等轻端点会一起变慢,排查:SELECT pid, now()-query_start, state, query FROM pg_stat_activity WHERE state=''active'' ORDER BY 2 DESC'
+      - eval_time: 10m
+        alertname: PgVerySlowQuery
+        exp_alerts: []
+
+  # ── 反例三:2s 常态(健康 PG)⇒ 两条均不 firing ──
+  - interval: 1m
+    input_series:
+      - series: 'pg_query_max_duration_seconds{datname="ihui_dev"}'
+        values: '2x141'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: PgSlowQuery
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: PgVerySlowQuery
+        exp_alerts: []
+
+  # ── 反例四:瞬时抖动(6s 只持续 2 个采集点即回落)⇒ for:2m 未满足,不 firing ──
+  # 这一格防的是最常见假红形态:偶发慢查询(一次复杂统计)不得触发告警。
+  - interval: 1m
+    input_series:
+      - series: 'pg_query_max_duration_seconds{datname="ihui_dev"}'
+        values: '6x2 2x139'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: PgSlowQuery
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: PgVerySlowQuery
+        exp_alerts: []
+
+  # ── 反例五:指标缺席(无 pg_query_max_duration_seconds 序列, exporter 未挂扩展查询)⇒ 不 firing ──
+  # 顺带证明规则不会误匹配其它序列(这里只放一个无关的 up 序列)。
+  - interval: 1m
+    input_series:
+      - series: 'up{job="postgres"}'
+        values: '1x141'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: PgSlowQuery
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: PgVerySlowQuery
+        exp_alerts: []

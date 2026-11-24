@@ -1,0 +1,64 @@
+# Docker 构建上下文排除(Monorepo 新架构)
+
+# 版本控制
+.git/
+.gitattributes
+.github/
+
+# 依赖目录(镜像内重新安装)
+**/node_modules/
+**/.venv/
+**/venv/
+
+# 构建产物
+**/dist/
+**/build/
+**/*.egg-info/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.next/
+**/.turbo/
+# TypeScript 增量编译缓存(2026-07-20 修复:避免本地 .tsbuildinfo 被复制到容器,
+# 导致 tsc 增量编译跳过某些文件,造成 dist/endpoints 等产物缺失)
+**/*.tsbuildinfo
+
+# 测试产物
+**/test-results/
+**/playwright-report/
+**/coverage/
+
+# IDE / 编辑器
+.idea/
+.vscode/
+**/.cursorrules
+**/.editorconfig
+
+# 日志 / 运行时数据
+logs/
+**/logs/
+**/*.log
+
+# 临时文件
+*.txt
+*.html
+*.cjs
+tmp/
+
+# 密钥与证书(2026-10-29 补:此前完全不排除,构成镜像层泄密面)
+# 构建上下文里现存在 .env / .env.bak-* / cert/apiclient_key.pem(微信支付私钥)/
+# cert/alipay/alipay_app_private_key.pem / apps/miniapp-taro/private.*.key(小程序上传私钥)/
+# .workbuddy/github-app.private-key.pem。任何 `COPY . .` 都会把它们写进镜像层 ——
+# 镜像被拉取、推送或扫描即全量泄露,删历史层也清不掉构建缓存里的副本。
+# 一律运行时注入(env / secrets / 挂载),构建期不携带任何真实密钥。
+**/.env
+**/.env.*
+.env
+.env.*
+**/cert/
+cert/
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx

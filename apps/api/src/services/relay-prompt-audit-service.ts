@@ -1,0 +1,254 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { eq, desc, sql } from 'drizzle-orm'
+import { db, dbRead } from '../db/index.js'
+import {
+  relayPromptAuditRules,
+  relayPromptAuditHits,
+  type RelayPromptAuditRule,
+  type RelayPromptAuditHit,
+} from '@ihui/database'
+import { logger } from '../utils/logger.js'
+
+/**
+ * 提示词审计服务(2026-09-17 立,补强 54,对齐竞品 /prompt-audit)。
+ *
+ * 职责:
+ * 1. CRUD(管理端配置关键字规则)
+ * 2. auditPrompt(text, ctx) — 入站提示词风险检测,返回:
+ *    { action: 'pass'|'warn'|'block', hits: [...命中规则] },并落命中记录
+ *
+ * 安全设计:
+ * - **仅关键字子串匹配**(大小写不敏感),不支持正则 → 规避 ReDoS;
+ * - 全文分块滑动扫描(8KB 窗口 + `最长关键词长度-1` 重叠),不截断,不产生全文多份副本;
+ * - 命中记录写库失败不影响调用结果(fire-and-forget + catch);
+ * - 规则查询异常按"无规则"处理(放行),保证审计不阻断业务。
+ */
+export type PromptAuditAction = 'pass' | 'warn' | 'block'
+
+export interface PromptAuditHit {
+  ruleId: string
+  ruleName: string
+  keyword: string
+  action: 'log' | 'warn' | 'block'
+  severity: number
+}
+
+export interface PromptAuditResult {
+  action: PromptAuditAction
+  hits: PromptAuditHit[]
+}
+
+const MAX_SCAN_CHARS = 8000
+const SNIPPET_CONTEXT_CHARS = 60
+
+/**
+ * F-623:分块滑动扫描全文,返回每个关键词在原文中的首个命中位置(未命中不出现)。
+ *
+ * 窗口 8KB,步长 = 窗口 - (最长关键词长度 - 1):任一长度 ≤ 最长关键词的命中,
+ * 必然被「起点不大于它、且离它最近」的那个窗口完整覆盖(含跨窗口边界的半个词),
+ * 因此前置填充多少字符都无法把违规内容挤出扫描面。
+ * 每次只切一个窗口再转小写,最长关键词之外的文本不会被复制成多份大字符串。
+ */
+export function scanKeywordFirstHit(
+  text: string,
+  keywords: readonly string[],
+): Map<number, number> {
+  const result = new Map<number, number>()
+  const needles = keywords.map((k) => k.toLowerCase())
+  const maxLen = needles.reduce((m, k) => Math.max(m, k.length), 0)
+  if (text === '' || maxLen === 0) return result
+  if (maxLen >= MAX_SCAN_CHARS) {
+    // 极端配置(关键词本身长于单窗口):分块无法覆盖,退化为全文一次性匹配。
+    const lower = text.toLowerCase()
+    for (let i = 0; i < needles.length; i++) {
+      const needle = needles[i]
+      if (!needle) continue
+      const idx = lower.indexOf(needle)
+      if (idx >= 0) result.set(i, idx)
+    }
+    return result
+  }
+  const step = MAX_SCAN_CHARS - (maxLen - 1)
+  for (let start = 0; start < text.length; start += step) {
+    const end = Math.min(start + MAX_SCAN_CHARS, text.length)
+    const window = text.slice(start, end).toLowerCase()
+    for (let i = 0; i < needles.length; i++) {
+      const needle = needles[i]
+      if (!needle || result.has(i)) continue
+      const idx = window.indexOf(needle)
+      if (idx >= 0) result.set(i, start + idx)
+    }
+    if (result.size === needles.length || end >= text.length) break
+  }
+  return result
+}
+
+export async function listPromptAuditRules(): Promise<RelayPromptAuditRule[]> {
+  const rows = await dbRead
+    .select()
+    .from(relayPromptAuditRules)
+    .orderBy(desc(relayPromptAuditRules.severity))
+  return rows as RelayPromptAuditRule[]
+}
+
+export async function createPromptAuditRule(input: {
+  name: string
+  keyword: string
+  action: 'log' | 'warn' | 'block'
+  severity?: number
+  enabled?: boolean
+  remark?: string | null
+}): Promise<RelayPromptAuditRule> {
+  const [row] = await db
+    .insert(relayPromptAuditRules)
+    .values({
+      name: input.name.trim(),
+      keyword: input.keyword.trim(),
+      action: input.action,
+      severity: input.severity ?? 3,
+      enabled: input.enabled ?? true,
+      remark: input.remark ?? null,
+    })
+    .returning()
+  return row as RelayPromptAuditRule
+}
+
+export async function updatePromptAuditRule(
+  id: string,
+  patch: Partial<{
+    name: string
+    keyword: string
+    action: 'log' | 'warn' | 'block'
+    severity: number
+    enabled: boolean
+    remark: string | null
+  }>,
+): Promise<RelayPromptAuditRule | null> {
+  const setData: Record<string, unknown> = { updatedAt: new Date() }
+  if (patch.name !== undefined) setData.name = patch.name.trim()
+  if (patch.keyword !== undefined) setData.keyword = patch.keyword.trim()
+  if (patch.action !== undefined) setData.action = patch.action
+  if (patch.severity !== undefined) setData.severity = patch.severity
+  if (patch.enabled !== undefined) setData.enabled = patch.enabled
+  if (patch.remark !== undefined) setData.remark = patch.remark
+  const [row] = await db
+    .update(relayPromptAuditRules)
+    .set(setData)
+    .where(eq(relayPromptAuditRules.id, id))
+    .returning()
+  return (row as RelayPromptAuditRule) ?? null
+}
+
+export async function deletePromptAuditRule(id: string): Promise<boolean> {
+  const rows = await db
+    .delete(relayPromptAuditRules)
+    .where(eq(relayPromptAuditRules.id, id))
+    .returning({ id: relayPromptAuditRules.id })
+  return rows.length > 0
+}
+
+export async function listPromptAuditHits(limit = 50): Promise<RelayPromptAuditHit[]> {
+  const rows = await dbRead
+    .select()
+    .from(relayPromptAuditHits)
+    .orderBy(desc(relayPromptAuditHits.createdAt))
+    .limit(Math.min(Math.max(1, limit), 200))
+  return rows as RelayPromptAuditHit[]
+}
+
+/** 命中统计(按规则分组,管理端看哪些规则在频繁触发)。 */
+export async function countHitsByRule(): Promise<
+  Array<{ ruleId: string | null; ruleName: string | null; count: number }>
+> {
+  const rows = await dbRead
+    .select({
+      ruleId: relayPromptAuditHits.ruleId,
+      ruleName: relayPromptAuditHits.ruleName,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(relayPromptAuditHits)
+    .groupBy(relayPromptAuditHits.ruleId, relayPromptAuditHits.ruleName)
+  return rows.map((r) => ({ ruleId: r.ruleId, ruleName: r.ruleName, count: Number(r.count) }))
+}
+
+/**
+ * 入站提示词审计。
+ * 无规则/异常 → 放行(pass);命中 block → block;命中 warn → warn;其余 log → pass(仅记录)。
+ */
+export async function auditPrompt(
+  text: string | null | undefined,
+  ctx: { userId?: string | null; apiKeyId?: string | null; model?: string | null } = {},
+): Promise<PromptAuditResult> {
+  const raw = (text ?? '').trim()
+  if (raw === '') return { action: 'pass', hits: [] }
+
+  let rules: RelayPromptAuditRule[] = []
+  try {
+    rules = await dbRead
+      .select()
+      .from(relayPromptAuditRules)
+      .where(eq(relayPromptAuditRules.enabled, true))
+  } catch (e) {
+    logger.warn('[prompt-audit] 规则查询失败,按放行处理', {
+      err: e instanceof Error ? e.message : String(e),
+    })
+    return { action: 'pass', hits: [] }
+  }
+  if (rules.length === 0) return { action: 'pass', hits: [] }
+
+  const activeRules = rules
+    .map((rule) => ({ rule, keyword: (rule.keyword ?? '').trim() }))
+    .filter((x) => x.keyword !== '')
+  if (activeRules.length === 0) return { action: 'pass', hits: [] }
+
+  // F-623:全文分块滑动扫描 —— 命中任意位置都拦截,前置填充无法绕过。
+  const firstHits = scanKeywordFirstHit(
+    raw,
+    activeRules.map((x) => x.keyword),
+  )
+
+  const hits: PromptAuditHit[] = []
+  let block = false
+  let warn = false
+  for (let i = 0; i < activeRules.length; i++) {
+    const idx = firstHits.get(i)
+    if (idx === undefined) continue
+    const { rule: r, keyword: kw } = activeRules[i]!
+    hits.push({
+      ruleId: r.id,
+      ruleName: r.name,
+      keyword: kw,
+      action: r.action as 'log' | 'warn' | 'block',
+      severity: r.severity,
+    })
+    if (r.action === 'block') block = true
+    else if (r.action === 'warn') warn = true
+
+    // 落命中记录(fire-and-forget,失败不影响调用)
+    const from = Math.max(0, idx - SNIPPET_CONTEXT_CHARS)
+    void db
+      .insert(relayPromptAuditHits)
+      .values({
+        ruleId: r.id,
+        ruleName: r.name,
+        userId: ctx.userId ?? null,
+        apiKeyId: ctx.apiKeyId ?? null,
+        model: ctx.model ?? null,
+        keyword: kw,
+        actionTaken: r.action,
+        snippet: raw.slice(from, idx + kw.length + SNIPPET_CONTEXT_CHARS),
+      })
+      .catch((e: unknown) => {
+        logger.warn('[prompt-audit] 命中记录写入失败', {
+          err: e instanceof Error ? e.message : String(e),
+        })
+      })
+  }
+
+  if (hits.length === 0) return { action: 'pass', hits: [] }
+  return { action: block ? 'block' : warn ? 'warn' : 'pass', hits }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

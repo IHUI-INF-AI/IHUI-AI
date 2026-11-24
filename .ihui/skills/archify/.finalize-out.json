@@ -1,0 +1,218 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.archify\\deepseek-harness-runtime-20261115-0057\\candidate.json",
+    "sha256": "cf115d302def2010f08c6015a2c395c2ecd310087c93b5c0921fb214034fbd63",
+    "bytes": 9152
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\.archify\\deepseek-harness-runtime-20261115-0057\\deepseek-harness-runtime.html",
+    "sha256": "26a9d9664a5bdfe0be55f3cf43f3a6d0a77423e2431ae076886ced9bb92a93d5",
+    "bytes": 113645
+  },
+  "gates": { "validate": "pass", "deliver": "pass", "check": "pass", "browser-check": "fail" },
+  "failedStage": "browser-check",
+  "diagnostics": [
+    {
+      "code": "viewer/theme-state",
+      "severity": "error",
+      "message": "The rendered artifact resolved dark instead of the requested light theme at 1440x900.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\deepseek-harness-runtime-20261115-0057\\deepseek-harness-runtime.html",
+        "viewport": { "width": 1440, "height": 900, "theme": "light" }
+      },
+      "evidence": { "requestedTheme": "light", "resolvedTheme": "dark" },
+      "supportedFixes": ["restore deterministic light theme resolution, then rerun browser-check"]
+    },
+    {
+      "code": "viewer/viewport-overflow",
+      "severity": "error",
+      "message": "The rendered artifact overflows 6 viewport/theme combinations.",
+      "subject": {},
+      "evidence": {
+        "overflows": [
+          {
+            "detection": "browser-measurement",
+            "subject": { "viewport": { "width": 1440, "height": 900, "theme": "light" } },
+            "evidence": {
+              "scrollWidth": 1440,
+              "scrollHeight": 1429,
+              "overflowX": false,
+              "overflowY": true,
+              "overflowDisposition": "unexpected-overflow",
+              "pageComposition": {
+                "bodyPaddingPx": 48,
+                "headerPx": 58,
+                "diagramChromePx": 121,
+                "svgPx": 954,
+                "cardsPx": 216,
+                "viewBoxHeight": 745
+              },
+              "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+            }
+          },
+          {
+            "detection": "browser-measurement",
+            "subject": { "viewport": { "width": 1600, "height": 1000, "theme": "light" } },
+            "evidence": {
+              "scrollWidth": 1600,
+              "scrollHeight": 1486,
+              "overflowX": false,
+              "overflowY": true,
+              "overflowDisposition": "unexpected-overflow",
+              "pageComposition": {
+                "bodyPaddingPx": 48,
+                "headerPx": 58,
+                "diagramChromePx": 121,
+                "svgPx": 1030,
+                "cardsPx": 197,
+                "viewBoxHeight": 745
+              },
+              "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+            }
+          },
+          {
+            "detection": "browser-measurement",
+            "subject": { "viewport": { "width": 1920, "height": 1080, "theme": "light" } },
+            "evidence": {
+              "scrollWidth": 1920,
+              "scrollHeight": 1486,
+              "overflowX": false,
+              "overflowY": true,
+              "overflowDisposition": "unexpected-overflow",
+              "pageComposition": {
+                "bodyPaddingPx": 48,
+                "headerPx": 58,
+                "diagramChromePx": 121,
+                "svgPx": 1030,
+                "cardsPx": 197,
+                "viewBoxHeight": 745
+              },
+              "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+            }
+          },
+          {
+            "detection": "browser-measurement",
+            "subject": { "viewport": { "width": 2048, "height": 1320, "theme": "light" } },
+            "evidence": {
+              "scrollWidth": 2048,
+              "scrollHeight": 1486,
+              "overflowX": false,
+              "overflowY": true,
+              "overflowDisposition": "unexpected-overflow",
+              "pageComposition": {
+                "bodyPaddingPx": 48,
+                "headerPx": 58,
+                "diagramChromePx": 121,
+                "svgPx": 1030,
+                "cardsPx": 197,
+                "viewBoxHeight": 745
+              },
+              "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+            }
+          },
+          {
+            "detection": "browser-measurement",
+            "subject": { "viewport": { "width": 1440, "height": 900, "theme": "dark" } },
+            "evidence": {
+              "scrollWidth": 1440,
+              "scrollHeight": 1429,
+              "overflowX": false,
+              "overflowY": true,
+              "overflowDisposition": "unexpected-overflow",
+              "pageComposition": {
+                "bodyPaddingPx": 48,
+                "headerPx": 58,
+                "diagramChromePx": 121,
+                "svgPx": 954,
+                "cardsPx": 216,
+                "viewBoxHeight": 745
+              },
+              "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+            }
+          },
+          {
+            "detection": "browser-measurement",
+            "subject": { "viewport": { "width": 2048, "height": 1320, "theme": "dark" } },
+            "evidence": {
+              "scrollWidth": 2048,
+              "scrollHeight": 1486,
+              "overflowX": false,
+              "overflowY": true,
+              "overflowDisposition": "unexpected-overflow",
+              "pageComposition": {
+                "bodyPaddingPx": 48,
+                "headerPx": 58,
+                "diagramChromePx": 121,
+                "svgPx": 1030,
+                "cardsPx": 197,
+                "viewBoxHeight": 745
+              },
+              "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+            }
+          }
+        ]
+      },
+      "supportedFixes": [
+        "contain the rendered layout within 1440x900 (smallest reported viewport), then rerun browser-check"
+      ]
+    },
+    {
+      "code": "viewer/theme-state",
+      "severity": "error",
+      "message": "The rendered artifact resolved dark instead of the requested light theme at 1600x1000.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\deepseek-harness-runtime-20261115-0057\\deepseek-harness-runtime.html",
+        "viewport": { "width": 1600, "height": 1000, "theme": "light" }
+      },
+      "evidence": { "requestedTheme": "light", "resolvedTheme": "dark" },
+      "supportedFixes": ["restore deterministic light theme resolution, then rerun browser-check"]
+    },
+    {
+      "code": "viewer/theme-state",
+      "severity": "error",
+      "message": "The rendered artifact resolved dark instead of the requested light theme at 1920x1080.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\deepseek-harness-runtime-20261115-0057\\deepseek-harness-runtime.html",
+        "viewport": { "width": 1920, "height": 1080, "theme": "light" }
+      },
+      "evidence": { "requestedTheme": "light", "resolvedTheme": "dark" },
+      "supportedFixes": ["restore deterministic light theme resolution, then rerun browser-check"]
+    },
+    {
+      "code": "viewer/theme-state",
+      "severity": "error",
+      "message": "The rendered artifact resolved dark instead of the requested light theme at 2048x1320.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\deepseek-harness-runtime-20261115-0057\\deepseek-harness-runtime.html",
+        "viewport": { "width": 2048, "height": 1320, "theme": "light" }
+      },
+      "evidence": { "requestedTheme": "light", "resolvedTheme": "dark" },
+      "supportedFixes": ["restore deterministic light theme resolution, then rerun browser-check"]
+    }
+  ],
+  "diagnosticSummary": { "total": 5, "shown": 5, "truncated": false },
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\deepseek-harness-runtime-20261115-0057\\deepseek-harness-runtime.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\deepseek-harness-runtime-20261115-0057\\deepseek-harness-runtime.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\.archify\\deepseek-harness-runtime-20261115-0057\\deepseek-harness-runtime.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-11-14T14:51:26.805Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 41272,
+  "browserCheck": { "requested": true, "ran": true }
+}

@@ -1,0 +1,138 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { ChevronRight } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { MENU_ITEM_CLASS, MENU_ITEM_ICON_CLASS } from '@/lib/menu-item'
+// 2026-11-16 立:浮层与视口边缘的统一安全间距(单一源)
+import { FLOATING_VIEWPORT_PADDING_PX } from '@ihui/shared/ui/floating-layer-spec'
+
+export interface DropdownItem {
+  key: string
+  label?: React.ReactNode
+  icon?: React.ComponentType<{ className?: string }>
+  disabled?: boolean
+  danger?: boolean
+  onSelect?: () => void
+  // 2026-09-21 新增:子菜单(Qoder 风格"语言 >"/"下载客户端 >")
+  children?: DropdownItem[]
+  // 2026-09-21 新增:右侧尾缀内容(未读徽标 / 当前项勾选),ml-auto 右对齐
+  trailing?: React.ReactNode
+  // 2026-11-11 新增:子菜单容器附加类名(如站内消息子菜单需要更宽的内容卡)
+  contentClassName?: string
+  // 2026-11-11 新增:单项容器附加类名(富内容行需要自定义内边距/对齐,如消息列表行)
+  itemClassName?: string
+}
+
+const ITEM_CLASS = cn(MENU_ITEM_CLASS, 'relative')
+
+function ItemBody({ item }: { item: DropdownItem }) {
+  return (
+    <>
+      {item.icon && <item.icon className={MENU_ITEM_ICON_CLASS} />}
+      {item.label}
+      {item.trailing !== null && item.trailing !== undefined && (
+        <span className="ml-auto flex shrink-0 items-center gap-1">{item.trailing}</span>
+      )}
+    </>
+  )
+}
+
+/** 递归渲染 items:普通项 / 子菜单(children) */
+function DropdownItems({ items }: { items: DropdownItem[] }) {
+  return (
+    <>
+      {items.map((item) => {
+        if (item.children?.length) {
+          return (
+            <DropdownMenu.Sub key={item.key}>
+              <DropdownMenu.SubTrigger
+                disabled={item.disabled}
+                className={cn(
+                  ITEM_CLASS,
+                  'data-[state=open]:bg-accent data-[state=open]:text-accent-foreground',
+                  item.itemClassName,
+                )}
+              >
+                <ItemBody item={item} />
+                <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
+              </DropdownMenu.SubTrigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.SubContent
+                  sideOffset={4}
+                  // 2026-11-16 立:与视口边缘留统一安全间距,避免菜单贴屏幕边缘
+                  collisionPadding={FLOATING_VIEWPORT_PADDING_PX}
+                  className={cn(
+                    'z-popover min-w-[10rem] overflow-hidden rounded-md border border-stroke-strong bg-popover p-1 text-popover-foreground shadow-elevation-md',
+                    'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-(--duration-unified) ease-unified',
+                    item.contentClassName,
+                  )}
+                >
+                  <DropdownItems items={item.children} />
+                </DropdownMenu.SubContent>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Sub>
+          )
+        }
+        return (
+          <DropdownMenu.Item
+            key={item.key}
+            disabled={item.disabled}
+            onSelect={item.onSelect}
+            className={cn(
+              ITEM_CLASS,
+              item.danger && 'text-destructive focus:bg-destructive/10',
+              item.itemClassName,
+            )}
+          >
+            <ItemBody item={item} />
+          </DropdownMenu.Item>
+        )
+      })}
+    </>
+  )
+}
+
+interface DropdownProps {
+  items: DropdownItem[]
+  trigger: React.ReactElement
+  align?: 'start' | 'center' | 'end'
+  side?: 'top' | 'right' | 'bottom' | 'left'
+  className?: string
+}
+
+export function Dropdown({
+  items,
+  trigger,
+  align = 'end',
+  side = 'bottom',
+  className,
+}: DropdownProps) {
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          align={align}
+          side={side}
+          sideOffset={4}
+          // 2026-11-16 立:与视口边缘留统一安全间距,避免菜单贴屏幕边缘
+          collisionPadding={FLOATING_VIEWPORT_PADDING_PX}
+          className={cn(
+            'z-popover min-w-[10rem] overflow-hidden rounded-md border border-stroke-strong bg-popover p-1 text-popover-foreground shadow-elevation-md',
+            'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-(--duration-unified) ease-unified',
+            className,
+          )}
+        >
+          <DropdownItems items={items} />
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

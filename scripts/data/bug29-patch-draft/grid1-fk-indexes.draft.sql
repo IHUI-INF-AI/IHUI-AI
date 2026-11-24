@@ -1,0 +1,144 @@
+-- © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+-- Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+-- [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+-- BUG-29 格1 补齐草案:外键列无索引(131 处 / FK 声明总数 498)
+-- 生成:2026-11-18 · 由 generate-drafts.mjs 程序化导出,非手抄
+-- 状态:草案,未落 packages/database/drizzle/。专票落地时:① 现场查各表行数定 CONCURRENTLY;
+--        ② 复制进真实迁移文件(命名 <ts>_bug29_fk_indexes.sql)并跑生产 db:migrate 验证。
+-- 注:建索引持 ShareLock;表超千万行改 CREATE INDEX CONCURRENTLY(不能在事务块内跑)。
+
+CREATE INDEX IF NOT EXISTS "agent_tasks_rule_id_idx" ON "agent_tasks" ("rule_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "agent_tasks_created_by_idx" ON "agent_tasks" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "agent_tasks_updated_by_idx" ON "agent_tasks" ("updated_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "agreements_published_by_idx" ON "agreements" ("published_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "ai_capabilities_author_id_idx" ON "ai_capabilities" ("author_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "ai_relay_discovery_reviewed_by_idx" ON "ai_relay_discovery" ("reviewed_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "api_key_shares_shared_with_user_id_idx" ON "api_key_shares" ("shared_with_user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "api_key_shares_created_by_idx" ON "api_key_shares" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "orders_plan_id_idx" ON "orders" ("plan_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "orders_created_by_idx" ON "orders" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "orders_updated_by_idx" ON "orders" ("updated_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "payments_order_id_idx" ON "payments" ("order_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "api_subscriptions_plan_id_idx" ON "api_subscriptions" ("plan_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "api_subscriptions_order_id_idx" ON "api_subscriptions" ("order_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "canary_audit_logs_config_id_idx" ON "canary_audit_logs" ("config_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "chat_conversation_collaborators_invited_by_idx" ON "chat_conversation_collaborators" ("invited_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "chat_context_ledgers_user_id_idx" ON "chat_context_ledgers" ("user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "chat_budget_stops_user_id_idx" ON "chat_budget_stops" ("user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "chat_voice_notes_conversation_id_idx" ON "chat_voice_notes" ("conversation_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "circle_post_comments_reply_user_id_idx" ON "circle_post_comments" ("reply_user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "comments_parent_id_idx" ON "comments" ("parent_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "commission_flows_order_id_idx" ON "commission_flows" ("order_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "commission_flows_created_by_idx" ON "commission_flows" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "commission_flows_updated_by_idx" ON "commission_flows" ("updated_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "withdrawal_flows_created_by_idx" ON "withdrawal_flows" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "withdrawal_flows_updated_by_idx" ON "withdrawal_flows" ("updated_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "circles_created_by_idx" ON "circles" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "circle_posts_circle_id_idx" ON "circle_posts" ("circle_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "circle_posts_user_id_idx" ON "circle_posts" ("user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "asks_user_id_idx" ON "asks" ("user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "ask_answers_ask_id_idx" ON "ask_answers" ("ask_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "ask_answers_user_id_idx" ON "ask_answers" ("user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "announcements_created_by_idx" ON "announcements" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "docs_author_id_idx" ON "docs" ("author_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "crash_reports_user_id_idx" ON "crash_reports" ("user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "customer_service_sessions_transferred_to_idx" ON "customer_service_sessions" ("transferred_to"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "developer_subscriptions_pricing_id_idx" ON "developer_subscriptions" ("pricing_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "device_tasks_created_by_idx" ON "device_tasks" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_study_plan_creator_id_idx" ON "edu_study_plan" ("creator_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_attendance_record_operated_by_idx" ON "edu_attendance_record" ("operated_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_leave_request_approver_id_idx" ON "edu_leave_request" ("approver_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_exam_score_recorded_by_idx" ON "edu_exam_score" ("recorded_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_schedule_change_approver_id_idx" ON "edu_schedule_change" ("approver_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_enrollment_operator_id_idx" ON "edu_enrollment" ("operator_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_payment_record_operator_id_idx" ON "edu_payment_record" ("operator_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_refund_record_approver_id_idx" ON "edu_refund_record" ("approver_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_refund_record_operator_id_idx" ON "edu_refund_record" ("operator_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_fee_reminder_operator_id_idx" ON "edu_fee_reminder" ("operator_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_canteen_supplier_created_by_idx" ON "edu_canteen_supplier" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_canteen_procurement_confirmed_by_idx" ON "edu_canteen_procurement" ("confirmed_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_canteen_procurement_created_by_idx" ON "edu_canteen_procurement" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_uploaded_certs_reviewed_by_idx" ON "edu_uploaded_certs" ("reviewed_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_uploaded_papers_reviewed_by_idx" ON "edu_uploaded_papers" ("reviewed_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "exam_papers_category_id_idx" ON "exam_papers" ("category_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "exam_papers_created_by_idx" ON "exam_papers" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "exam_questions_paper_id_idx" ON "exam_questions" ("paper_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "exam_records_paper_id_idx" ON "exam_records" ("paper_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "exam_records_user_id_idx" ON "exam_records" ("user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "file_shares_shared_by_idx" ON "file_shares" ("shared_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "file_shares_shared_with_idx" ON "file_shares" ("shared_with"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "file_versions_uploaded_by_idx" ON "file_versions" ("uploaded_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "files_project_id_idx" ON "files" ("project_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "files_uploaded_by_idx" ON "files" ("uploaded_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "files_deleted_by_idx" ON "files" ("deleted_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "hr_attendance_record_operated_by_idx" ON "hr_attendance_record" ("operated_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "hr_leave_request_approver_id_idx" ON "hr_leave_request" ("approver_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "hr_employee_link_request_invited_by_idx" ON "hr_employee_link_request" ("invited_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "hr_attendance_monthly_source_batch_id_idx" ON "hr_attendance_monthly" ("source_batch_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "hr_attendance_monthly_signed_by_idx" ON "hr_attendance_monthly" ("signed_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "hr_payroll_period_attendance_sheet_file_id_idx" ON "hr_payroll_period" ("attendance_sheet_file_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "hr_payroll_period_payroll_sheet_file_id_idx" ON "hr_payroll_period" ("payroll_sheet_file_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "hr_payroll_period_operator_id_idx" ON "hr_payroll_period" ("operator_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "hr_import_batch_uploaded_by_idx" ON "hr_import_batch" ("uploaded_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "hr_import_row_resolved_by_idx" ON "hr_import_row" ("resolved_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "hr_outgoing_record_operated_by_idx" ON "hr_outgoing_record" ("operated_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "hr_overtime_record_operated_by_idx" ON "hr_overtime_record" ("operated_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "hr_salary_config_created_by_idx" ON "hr_salary_config" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "hr_attendance_daily_shift_id_idx" ON "hr_attendance_daily" ("shift_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "hr_punch_fix_approver_id_idx" ON "hr_punch_fix" ("approver_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "lesson_records_chapter_id_idx" ON "lesson_records" ("chapter_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "lessons_lecturer_id_idx" ON "lessons" ("lecturer_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_members_department_id_idx" ON "edu_members" ("department_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_messages_sender_id_idx" ON "edu_messages" ("sender_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "news_articles_author_id_idx" ON "news_articles" ("author_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_invoice_applications_title_id_idx" ON "edu_invoice_applications" ("title_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "oss_drivers_updated_by_idx" ON "oss_drivers" ("updated_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "ai_generated_question_created_by_idx" ON "ai_generated_question" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "plugin_events_user_id_idx" ON "plugin_events" ("user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "projects_user_id_idx" ON "projects" ("user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "project_members_project_id_idx" ON "project_members" ("project_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "project_members_user_id_idx" ON "project_members" ("user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "invitation_codes_inviter_id_idx" ON "invitation_codes" ("inviter_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "invitation_codes_invitee_id_idx" ON "invitation_codes" ("invitee_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "redemption_codes_created_by_idx" ON "redemption_codes" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "redemption_codes_used_by_idx" ON "redemption_codes" ("used_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "refund_audit_records_order_id_idx" ON "refund_audit_records" ("order_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "relay_commission_records_source_call_log_id_idx" ON "relay_commission_records" ("source_call_log_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "self_media_published_author_id_idx" ON "self_media_published" ("author_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "edu_settings_updated_by_idx" ON "edu_settings" ("updated_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "tags_created_by_idx" ON "tags" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "tag_relations_created_by_idx" ON "tag_relations" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "srs_streams_user_id_idx" ON "srs_streams" ("user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "stock_analyses_user_id_idx" ON "stock_analyses" ("user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "system_configs_updated_by_idx" ON "system_configs" ("updated_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "api_logs_user_id_idx" ON "api_logs" ("user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "task_messages_created_by_idx" ON "task_messages" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "team_knowledge_spaces_created_by_idx" ON "team_knowledge_spaces" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "team_knowledge_spaces_updated_by_idx" ON "team_knowledge_spaces" ("updated_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "team_knowledge_space_members_granted_by_idx" ON "team_knowledge_space_members" ("granted_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "team_knowledge_items_created_by_idx" ON "team_knowledge_items" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "team_knowledge_items_updated_by_idx" ON "team_knowledge_items" ("updated_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "teams_owner_id_idx" ON "teams" ("owner_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "team_invitations_inviter_id_idx" ON "team_invitations" ("inviter_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "team_invitations_invitee_id_idx" ON "team_invitations" ("invitee_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "tenants_owner_id_idx" ON "tenants" ("owner_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "tour_content_author_id_idx" ON "tour_content" ("author_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "traders_user_id_idx" ON "traders" ("user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "user_auth_info_user_uuid_idx" ON "user_auth_info" ("user_uuid"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "users_dept_id_idx" ON "users" ("dept_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "user_vips_vip_level_id_idx" ON "user_vips" ("vip_level_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "visit_logs_user_id_idx" ON "visit_logs" ("user_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "wechat_pay_contracts_plan_id_idx" ON "wechat_pay_contracts" ("plan_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "wechat_pay_contracts_product_id_idx" ON "wechat_pay_contracts" ("product_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "workflow_todo_assignee_id_idx" ON "workflow_todo" ("assignee_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "workflow_todo_resolved_by_idx" ON "workflow_todo" ("resolved_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "workflows_created_by_idx" ON "workflows" ("created_by"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "workflow_instances_workflow_id_idx" ON "workflow_instances" ("workflow_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "workflow_instances_project_id_idx" ON "workflow_instances" ("project_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "workflow_tasks_instance_id_idx" ON "workflow_tasks" ("instance_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "workflow_logs_instance_id_idx" ON "workflow_logs" ("instance_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+CREATE INDEX IF NOT EXISTS "workflow_logs_task_id_idx" ON "workflow_logs" ("task_id"); -- TODO: 行数>1e7 改 CONCURRENTLY
+
+-- 共 131 条(= audit.grid1_fk_no_index.count=131)
+-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

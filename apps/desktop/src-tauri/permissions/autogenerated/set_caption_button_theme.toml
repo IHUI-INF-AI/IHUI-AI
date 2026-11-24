@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-caption-button-theme"
+description = "Enables the set_caption_button_theme command without any pre-configured scope."
+commands.allow = ["set_caption_button_theme"]
+
+[[permission]]
+identifier = "deny-set-caption-button-theme"
+description = "Denies the set_caption_button_theme command without any pre-configured scope."
+commands.deny = ["set_caption_button_theme"]

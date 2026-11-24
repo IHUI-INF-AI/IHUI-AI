@@ -1,0 +1,163 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 用户侧 Agent 定时自动化端点(2026-09-07 立,对应 apps/api /api/automations/*)。
+ * 创建定时任务 → 服务端调度器到点自动执行 agent → 查看结果/暂停/恢复/立即运行/删除。
+ */
+
+import { fetchApi } from '../client.js'
+
+/** 自动化计划类型:once=一次性定时;recurring=按 rrule 重复 */
+export type AutomationScheduleType = 'once' | 'recurring'
+
+/** 自动化状态:active=启用中;paused=已暂停 */
+export type AutomationStatus = 'active' | 'paused'
+
+/**
+ * G-241(2026-10-26 立)终态成因封闭集 —— 与 user_automations.terminal_reason 取值一致。
+ *
+ * 权威词表住在 packages/database/src/schema/user-automations.ts 的
+ * AUTOMATION_TERMINAL_REASONS(写它的有两处:调度器结算出口 + PATCH 路由)。
+ * 本包为可发布性不依赖 @ihui/database(database 的 exports 指向 TS 源码,
+ * 具名值导入会把本包钉回 workspace-only,同 client.ts 对 @ihui/types 的收口先例),
+ * 故此处是**客户端投影镜像**,防漂移由成对锁钉住:
+ * tests/automations-terminal-reason-parity.test.ts 逐字比对源真相文本与本数组。
+ * null = 无终态(在排或在跑)。
+ */
+export const AUTOMATION_TERMINAL_REASONS = [
+  'manual_pause',
+  'failed_permanent',
+  'failed_retries_exhausted',
+  'completed',
+] as const
+
+export type AutomationTerminalReason = (typeof AUTOMATION_TERMINAL_REASONS)[number]
+
+/** 上次执行结果摘要(服务端 jsonb) */
+export interface AutomationLastResult {
+  finishedAt: string
+  summary: string
+}
+
+/** 用户自动化(对应后端 user_automations 行) */
+export interface UserAutomation {
+  id: string
+  userId: string
+  name: string
+  prompt: string
+  scheduleType: AutomationScheduleType
+  rrule: string | null
+  scheduledAt: string | null
+  timezone: string
+  status: AutomationStatus
+  /** G-241 终态成因:为什么不排了/跑完的封闭档;null = 无终态(在排或在跑) */
+  terminalReason: AutomationTerminalReason | null
+  /** G-241 执行体认领凭据(行级 CAS 写入,结算时清空);null = 无人认领 */
+  claimToken: string | null
+  /** G-241 认领落租约的时刻;租约必须会过期,判租超龄的执行体可接管 */
+  claimedAt: string | null
+  lastRunAt: string | null
+  nextRunAt: string | null
+  lastResult: AutomationLastResult | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateAutomationInput {
+  name: string
+  prompt: string
+  scheduleType: AutomationScheduleType
+  /** recurring 必填,如 'FREQ=DAILY;BYHOUR=9;BYMINUTE=0' */
+  rrule?: string
+  /** once 必填,ISO 8601(含时区偏移) */
+  scheduledAt?: string
+  timezone?: string
+}
+
+export interface UpdateAutomationInput {
+  name?: string
+  prompt?: string
+  rrule?: string
+  scheduledAt?: string | null
+  timezone?: string
+  status?: AutomationStatus
+}
+
+export interface ListAutomationsResult {
+  items: UserAutomation[]
+  total: number
+}
+
+export interface RunAutomationResult {
+  id: string
+  summary: string
+}
+
+function assertOk<T>(res: { success: boolean; data?: T; error?: string }): T {
+  if (!res.success) throw new Error(res.error ?? '请求失败')
+  return res.data as T
+}
+
+/** 获取自动化列表(当前用户) */
+export async function listAutomations(params?: {
+  limit?: number
+  offset?: number
+}): Promise<ListAutomationsResult> {
+  const qs = new URLSearchParams()
+  if (params?.limit !== undefined) qs.set('limit', String(params.limit))
+  if (params?.offset !== undefined) qs.set('offset', String(params.offset))
+  const query = qs.toString()
+  const res = await fetchApi<ListAutomationsResult>(`/automations${query ? `?${query}` : ''}`)
+  return assertOk(res)
+}
+
+/** 获取自动化详情 */
+export async function getAutomation(id: string): Promise<UserAutomation> {
+  const res = await fetchApi<UserAutomation>(`/automations/${encodeURIComponent(id)}`)
+  return assertOk(res)
+}
+
+/** 创建自动化 */
+export async function createAutomation(input: CreateAutomationInput): Promise<UserAutomation> {
+  const res = await fetchApi<UserAutomation>('/automations', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return assertOk(res)
+}
+
+/** 更新自动化(部分字段) */
+export async function updateAutomation(
+  id: string,
+  input: UpdateAutomationInput,
+): Promise<UserAutomation> {
+  const res = await fetchApi<UserAutomation>(`/automations/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+  return assertOk(res)
+}
+
+/** 删除自动化 */
+export async function deleteAutomation(id: string): Promise<{ id: string; deleted: boolean }> {
+  const res = await fetchApi<{ id: string; deleted: boolean }>(
+    `/automations/${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+  )
+  return assertOk(res)
+}
+
+/** 立即执行一次(阻塞直到 agent 执行完成,返回摘要) */
+export async function runAutomation(id: string): Promise<RunAutomationResult> {
+  const res = await fetchApi<RunAutomationResult>(
+    `/automations/${encodeURIComponent(id)}/run-now`,
+    {
+      method: 'POST',
+      timeoutMs: 300_000,
+    },
+  )
+  return assertOk(res)
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

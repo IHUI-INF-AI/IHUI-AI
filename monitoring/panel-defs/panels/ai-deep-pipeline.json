@@ -1,0 +1,609 @@
+{
+  "uid": "ihui-ai-deep-pipeline",
+  "title": "IHUI-AI · AI 深度链路(压缩 / MCP / TTFT)",
+  "description": "AI 链路里最深、最低频但最有价值的一批观测:上下文压缩、MCP 工具质量、首 token 时延、token 压缩。立因(2026-10-19):这批指标此前既无面板,又被误判为'埋点坏了'。实测结论(72h 窗口):TTFT 与 token_compaction 埋点工作正常(72h 分别有过 3 次 / 2 次事件),只是低频;ihui_compaction_* 与 ihui_mcp_* 系列 72h 零样本的原因是这两条功能路径近 72 小时从未被真实流量触发(埋点完好)。⇒ 本盘的 0 多数是诚实的'业务未发生',不是采集故障;一旦有流量,这里会立刻有数。所有直方图一律用 $__range + increase,避免短窗 rate 出 NaN。【Relay 号池健康组(2026-10-23 立,盘尾 y=61 起)】ai_relay_key_pool(API key 池)与 ai_relay_account_pool(账号池)的健康态此前只是库里两列——admin 页能看到当次快照,但'哪条 key 什么时候开始 down、冷却/临期有没有人在恢复、池子里还剩几条能用的腿'没有任何时序,也没有头条数。本组把两表当前状态折叠成有界标签 gauge(5 分钟一轮,错开 tenant-resource-gauge),指标由 apps/api 的 /business-metrics 手写文本端点发射(job=business-metrics)。读数纪律三条:① '可用 key 数'显示 No data = 本进程从未成功刷新过(≠ 池子空),看'key 池刷新滞后'佐证;② 健康态是封闭四档(unknown/healthy/degraded/down),schema 列注释是唯一源,库里的历史脏值会被跳过并计进'号池采集丢失'面板——那块大于 0 说明有行没被统计到,不是没坏;③ token 临期允许负值(负 = 已过期,正是要看的信号),年龄类一律钳 0。号池现状(2026-10-23 实测):key 池 29 行 / 14 provider 全部 down 或 degraded 且 disabled,账号池 1 行 healthy ⇒ 本组上线初期'可用 key 数'预期是 0 或 No data,那是诚实读数,不是面板坏了。",
+  "tags": ["ai", "compaction", "mcp", "ttft"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "title": "号池冷却中的腿数",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum(ihui_llm_pool_leg_in_cooldown)", "legendFormat": "冷却中的腿", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "LLM 请求平均耗时(秒)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_llm_request_duration_seconds_sum[$__range])) / clamp_min(sum(increase(ihui_llm_request_duration_seconds_count[$__range])), 0.000001)",
+          "legendFormat": "平均耗时",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "decimals": 2 }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "首 token 时延 TTFT(秒)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_llm_ttft_seconds_sum[$__range])) / clamp_min(sum(increase(ihui_llm_ttft_seconds_count[$__range])), 0.000001)",
+          "legendFormat": "TTFT",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 2 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "TTFT 事件计数(窗口内)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 5 },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_llm_ttft_seconds_count[$__range]))",
+          "legendFormat": "TTFT 事件",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(ihui_llm_stream_interrupt_total[$__range]))",
+          "legendFormat": "流式中断",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "Token 压缩:触发 / 成功 / 失败",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 5 },
+      "targets": [
+        {
+          "expr": "sum(increase(llm_token_compaction_triggered_total[$__range]))",
+          "legendFormat": "触发",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(llm_token_compaction_success_total[$__range]))",
+          "legendFormat": "成功",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(increase(llm_token_compaction_failure_total[$__range]))",
+          "legendFormat": "失败",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "Token 压缩比(压缩后/压缩前,越小越好)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 13 },
+      "targets": [
+        {
+          "expr": "sum(increase(llm_token_compaction_ratio_sum[$__range])) / clamp_min(sum(increase(llm_token_compaction_ratio_count[$__range])), 0.000001)",
+          "legendFormat": "压缩比",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "上下文压缩事件数",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 13 },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_compaction_events_total[$__range]))",
+          "legendFormat": "压缩事件",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(ihui_context_recall_queries_total[$__range]))",
+          "legendFormat": "上下文召回查询",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "上下文压缩:run 结局分布",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 21 },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (increase(ihui_compaction_run_outcomes_total[$__range]))",
+          "legendFormat": "{{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "上下文压缩平均耗时(秒)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 21 },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_compaction_duration_seconds_sum[$__range])) / clamp_min(sum(increase(ihui_compaction_duration_seconds_count[$__range])), 0.000001)",
+          "legendFormat": "压缩耗时",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "上下文压缩比(越小越好)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 29 },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_compaction_ratio_sum[$__range])) / clamp_min(sum(increase(ihui_compaction_ratio_count[$__range])), 0.000001)",
+          "legendFormat": "压缩比",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "推理内容保留率(越高越好)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 29 },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_compaction_reasoning_retention_sum[$__range])) / clamp_min(sum(increase(ihui_compaction_reasoning_retention_count[$__range])), 0.000001)",
+          "legendFormat": "保留率",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "MCP 工具调用次数",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 37 },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_mcp_tool_calls_total[$__range]))",
+          "legendFormat": "工具调用",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "MCP 工具平均耗时(秒)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 37 },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_mcp_tool_latency_seconds_sum[$__range])) / clamp_min(sum(increase(ihui_mcp_tool_latency_seconds_count[$__range])), 0.000001)",
+          "legendFormat": "工具耗时",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "MCP schema 不匹配次数",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 45 },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_mcp_schema_mismatch_total[$__range]))",
+          "legendFormat": "schema 不匹配",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "压缩决策链长度",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 53 },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_compaction_decision_chain_entries_sum[$__range])) / clamp_min(sum(increase(ihui_compaction_decision_chain_entries_count[$__range])), 0.000001)",
+          "legendFormat": "决策链条目",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "Relay 号池健康(key 池 + 账号池)",
+      "type": "row",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 1, "w": 12, "x": 0, "y": 61 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "title": "可用 relay key 数(选路选得到)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 5, "w": 3, "x": 0, "y": 62 },
+      "targets": [
+        {
+          "expr": "sum(ihui_relay_key_pool_schedulable_keys{job=\"business-metrics\"})",
+          "legendFormat": "可用 key",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0.5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "异常 relay key 数(degraded + down)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 5, "w": 3, "x": 3, "y": 62 },
+      "targets": [
+        {
+          "expr": "sum(ihui_relay_key_pool_keys{job=\"business-metrics\",state=~\"degraded|down\"})",
+          "legendFormat": "异常 key",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "可用 relay 账号数",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 5, "w": 3, "x": 6, "y": 62 },
+      "targets": [
+        {
+          "expr": "sum(ihui_relay_account_pool_schedulable{job=\"business-metrics\"})",
+          "legendFormat": "可用账号",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0.5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "key 池刷新滞后(秒;5 分钟一轮)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 5, "w": 3, "x": 9, "y": 62 },
+      "targets": [
+        {
+          "expr": "time() - ihui_relay_key_pool_refresh_last_success_timestamp_seconds{job=\"business-metrics\"}",
+          "legendFormat": "刷新滞后",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 600 },
+              { "color": "red", "value": 1800 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "Relay key 健康态分布(按 provider 折叠)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 67 },
+      "targets": [
+        {
+          "expr": "sum by (provider_code, state) (ihui_relay_key_pool_keys{job=\"business-metrics\"})",
+          "legendFormat": "{{provider_code}}·{{state}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "账号连续失败(熔断计数,按账号)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 67 },
+      "targets": [
+        {
+          "expr": "ihui_relay_account_pool_consecutive_failures{job=\"business-metrics\"}",
+          "legendFormat": "{{provider_code}}/{{account}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 3 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "账号 token 临期(秒;负 = 已过期)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 75 },
+      "targets": [
+        {
+          "expr": "ihui_relay_account_pool_token_expires_in_seconds{job=\"business-metrics\"}",
+          "legendFormat": "{{provider_code}}/{{account}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "最陈的 10 条 key(健康检查年龄,秒)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 75 },
+      "targets": [
+        {
+          "expr": "topk(10, ihui_relay_key_pool_health_age_seconds{job=\"business-metrics\"})",
+          "legendFormat": "{{provider_code}}/{{key}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "账号累计转发调用(按账号)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 83 },
+      "targets": [
+        {
+          "expr": "ihui_relay_account_pool_total_calls{job=\"business-metrics\"}",
+          "legendFormat": "{{provider_code}}/{{account}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "号池采集丢失(窗口增量;脏行 + 标签撞车)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 83 },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_relay_key_pool_rows_skipped_total{job=\"business-metrics\"}[$__range]))",
+          "legendFormat": "key 脏行",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(ihui_relay_key_pool_label_collisions_total{job=\"business-metrics\"}[$__range]))",
+          "legendFormat": "key 标签撞车",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(increase(ihui_relay_account_pool_rows_skipped_total{job=\"business-metrics\"}[$__range]))",
+          "legendFormat": "账号脏行",
+          "refId": "C"
+        },
+        {
+          "expr": "sum(increase(ihui_relay_account_pool_label_collisions_total{job=\"business-metrics\"}[$__range]))",
+          "legendFormat": "账号标签撞车",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "账号池可调度账号数(按 provider;与 key 族同节拍,5 分钟一轮)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 91 },
+      "targets": [
+        {
+          "expr": "ihui_relay_account_pool_schedulable_accounts{job=\"business-metrics\"}",
+          "legendFormat": "{{provider_code}}·可调度",
+          "refId": "A"
+        },
+        {
+          "expr": "ihui_relay_account_pool_enabled_accounts{job=\"business-metrics\"}",
+          "legendFormat": "{{provider_code}}·启用",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "账号池容量归零的 provider 数(有启用号但可调度=0 ⇒ 回落正在静默发生)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 3, "x": 6, "y": 91 },
+      "targets": [
+        {
+          "expr": "sum(ihui_relay_account_pool_zero_capacity{job=\"business-metrics\"})",
+          "legendFormat": "容量归零 provider",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "上游静默回落(窗口增量,按原因四档)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 3, "x": 9, "y": 91 },
+      "targets": [
+        {
+          "expr": "sum by (reason) (increase(ihui_relay_upstream_fallback_total{job=\"business-metrics\"}[$__range]))",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    }
+  ]
+}

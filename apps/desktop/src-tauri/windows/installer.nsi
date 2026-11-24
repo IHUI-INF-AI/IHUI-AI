@@ -1,0 +1,1359 @@
+; ⚠️ 本文件是 Tauri v2 NSIS 安装器模板的定制副本,上游版权归 tauri-apps/tauri(MIT / Apache-2.0)。
+; 来源:tauri-bundler · crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi(tauri-cli 内置,include_str!)
+;
+; IHUI 定制范围(补丁集 P0-P7,由 scripts/desktop-nsis-template.mjs 维护,其余与上游逐字节一致):
+;   P0 .onInit 默认安装目录:固定盘探测(优先 D:\software\${PRODUCTNAME},否则取首个固定盘上已存在的 \software 目录,再兜底 %LOCALAPPDATA%\Programs),不写死盘符。
+;      上游紧跟其后的 Call RestorePreviousInstallLocation 原样保留,
+;      因此"已装过则沿用既有安装位置"(重装不产生第二份安装、/UPDATE 静默升级回原位置)的语义不变。
+;      目的是让安装向导"选择安装位置"页的首屏默认值即为该路径。
+;   P1-P4,P6 安装向导全面品牌化(无边框深色窗口/每页满幅品牌位图/位图按钮/进度条重着色/
+;      AdvSplash 多帧开屏),实现见 windows/ihui-ui.nsi(经 hooks.nsi include 接线)。
+;   P5 重装/升级确认页深色主题宏。
+;   P7 Install Section 进度埋点:9 个真实步骤各报一次 IHUI_PROGRESS(百分比 + 品牌进度条 + 阶段文案)。
+;
+; ⚠️ 升级 Tauri CLI 后必须执行:node scripts/desktop-nsis-template.mjs --check
+;   禁止手工编辑本文件的非定制段落;要改定制逻辑请改本脚本内的常量后重新 --write。
+
+Unicode true
+ManifestDPIAware true
+; Add in `dpiAwareness` `PerMonitorV2` to manifest for Windows 10 1607+ (note this should not affect lower versions since they should be able to ignore this and pick up `dpiAware` `true` set by `ManifestDPIAware true`)
+; Currently undocumented on NSIS's website but is in the Docs folder of source tree, see
+; https://github.com/kichik/nsis/blob/5fc0b87b819a9eec006df4967d08e522ddd651c9/Docs/src/attributes.but#L286-L300
+; https://github.com/tauri-apps/tauri/pull/10106
+ManifestDPIAwareness PerMonitorV2
+
+!if "{{compression}}" == "none"
+  SetCompress off
+!else
+  ; Set the compression algorithm. We default to LZMA.
+  SetCompressor /SOLID "{{compression}}"
+!endif
+
+; Keep above !include to stay ahead of any plugin command
+; see https://github.com/tauri-apps/tauri/pull/15422#discussion_r3289239624
+{{#if signed_plugins_path}}
+!addplugindir "{{signed_plugins_path}}"
+{{/if}}
+
+!include MUI2.nsh
+!include FileFunc.nsh
+!include x64.nsh
+!include WordFunc.nsh
+!include "utils.nsh"
+!include "FileAssociation.nsh"
+!include "Win\COM.nsh"
+!include "Win\Propkey.nsh"
+!include "StrFunc.nsh"
+${StrCase}
+${StrLoc}
+
+{{#if installer_hooks}}
+!include "{{installer_hooks}}"
+{{/if}}
+
+!define WEBVIEW2APPGUID "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+
+; ==== IHUI 定制:WebView2 失败不在静默模式弹任何框 ====
+; 上游三条失败路径会 Abort 带字符串 / MessageBox ABORTRETRYIGNORE；
+; 静默安装遇到它们会挂住等待用户点按钮。这里统一：写日志，静默 exit 6，交互只提示一次。
+!macro IHUI_WEBVIEW2_FAIL reason
+  !insertmacro IHUI_INSTALL_WARN "WebView2 失败: ${reason}"
+  !define UniqueID ${__LINE__}
+  IfSilent ihui_webview2_silent_${UniqueID} 0
+  MessageBox MB_ICONEXCLAMATION|MB_OK "$(webview2AbortError)"
+  ihui_webview2_silent_${UniqueID}:
+  SetErrorLevel 6
+  Quit
+  !undef UniqueID
+!macroend
+; ==== IHUI 定制结束 ====
+
+!define MANUFACTURER "{{manufacturer}}"
+!define PRODUCTNAME "{{product_name}}"
+!define VERSION "{{version}}"
+!define VERSIONWITHBUILD "{{version_with_build}}"
+!define HOMEPAGE "{{homepage}}"
+!define INSTALLMODE "{{install_mode}}"
+; ==== IHUI 定制:安装器/卸载器绝不替用户结束进程 ====
+; 上游 utils.nsh 的 CheckIfAppIsRunning 在静默模式会直接 KillProcess，
+; 交互模式则给“确定终止”按钮。用户可能正在编辑草稿，安装器无权替他们关应用；
+; 这里只做只读探测：静默→退出码 5，交互→提示先关闭后退出，杀进程代码为零。
+!macro IHUI_CHECK_APP_NOT_RUNNING executableName productName
+  !define UniqueID ${__LINE__}
+  !if "${INSTALLMODE}" == "currentUser"
+    nsis_tauri_utils::FindProcessCurrentUser "${executableName}"
+  !else
+    nsis_tauri_utils::FindProcess "${executableName}"
+  !endif
+  Pop $R0
+  ${If} $R0 = 0
+    IfSilent ihui_app_running_silent_${UniqueID} 0
+    nsis_tauri_utils::StrReplace "$(appRunning)" "{{product_name}}" "${productName}"
+    Pop $R1
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$R1"
+    SetErrorLevel 5
+    Quit
+    ihui_app_running_silent_${UniqueID}:
+      DetailPrint "app running, installer exit 5: ${executableName}"
+      SetErrorLevel 5
+      Quit
+  ${EndIf}
+  !undef UniqueID
+!macroend
+; ==== IHUI 定制结束 ====
+!define LICENSE "{{license}}"
+!define INSTALLERICON "{{installer_icon}}"
+!define SIDEBARIMAGE "{{sidebar_image}}"
+!define HEADERIMAGE "{{header_image}}"
+!define UNINSTALLERICON "{{uninstaller_icon}}"
+!define UNINSTALLERHEADERIMAGE "{{uninstaller_header_image}}"
+; 2026-11-24 稳定 Launcher 布局:
+; - 根目录 ${PRODUCTNAME}.exe 永远是 Launcher(稳定、不随业务版本更新)
+; - 真实应用落在 versions\<version>\ihui-app.exe;快捷方式/深链/自启只指 Launcher
+; - MAINBINARYNAME 继续给所有“用户入口”用,PAYLOADNAME 只给版本目录里的载荷用
+!define MAINBINARYNAME "${PRODUCTNAME}"
+!define PAYLOADNAME "ihui-app"
+!define MAINBINARYSRCPATH "{{main_binary_path}}"
+!define BUNDLEID "{{bundle_id}}"
+; Launcher 自身版本（不是应用版本）；feed 的 minLauncher 判定读 launcher-version.txt。
+; 改 Launcher 协议/交接码时同步 bump 这里与 launcher/Cargo.toml。
+!define LAUNCHER_VERSION "0.1.0"
+
+; 安装期失败不能只留在 DetailPrint（静默安装没人看窗口）：追加到 launcher.log，
+; 日志本身不可写时仍保留 DetailPrint，避免因为“记日志失败”把安装主流程弄崩。
+!macro IHUI_INSTALL_WARN text
+  DetailPrint "WARN: ${text}"
+  ClearErrors
+  FileOpen $9 "$INSTDIR\launcher.log" a
+  ${IfNot} ${Errors}
+    FileWrite $9 "[installer] ${text}$\r$\n"
+    FileClose $9
+  ${EndIf}
+!macroend
+!define COPYRIGHT "{{copyright}}"
+!define OUTFILE "{{out_file}}"
+!define ARCH "{{arch}}"
+!define ADDITIONALPLUGINSPATH "{{additional_plugins_path}}"
+!define ALLOWDOWNGRADES "{{allow_downgrades}}"
+!define DISPLAYLANGUAGESELECTOR "{{display_language_selector}}"
+!define INSTALLWEBVIEW2MODE "{{install_webview2_mode}}"
+!define WEBVIEW2INSTALLERARGS "{{webview2_installer_args}}"
+!define WEBVIEW2BOOTSTRAPPERPATH "{{webview2_bootstrapper_path}}"
+!define WEBVIEW2INSTALLERPATH "{{webview2_installer_path}}"
+!define MINIMUMWEBVIEW2VERSION "{{minimum_webview2_version}}"
+!define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}"
+!define MANUKEY "Software\${MANUFACTURER}"
+!define MANUPRODUCTKEY "${MANUKEY}\${PRODUCTNAME}"
+!define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
+!define ESTIMATEDSIZE "{{estimated_size}}"
+!define STARTMENUFOLDER "{{start_menu_folder}}"
+
+Var PassiveMode
+Var UpdateMode
+Var NoShortcutMode
+Var WixMode
+Var OldMainBinaryName
+; IHUI 2026-09-21:覆盖升级时尊重用户桌面快捷方式现状(见 .onInit / CreateOrUpdateDesktopShortcut)
+Var HadExistingInstall
+Var DesktopIconExisted
+
+Name "${PRODUCTNAME}"
+BrandingText "${COPYRIGHT}"
+OutFile "${OUTFILE}"
+
+; We don't actually use this value as default install path,
+; it's just for nsis to append the product name folder in the directory selector
+; https://nsis.sourceforge.io/Reference/InstallDir
+!define PLACEHOLDER_INSTALL_DIR "placeholder\${PRODUCTNAME}"
+InstallDir "${PLACEHOLDER_INSTALL_DIR}"
+
+VIProductVersion "${VERSIONWITHBUILD}"
+VIAddVersionKey "ProductName" "${PRODUCTNAME}"
+VIAddVersionKey "FileDescription" "${PRODUCTNAME}"
+VIAddVersionKey "LegalCopyright" "${COPYRIGHT}"
+VIAddVersionKey "FileVersion" "${VERSION}"
+VIAddVersionKey "ProductVersion" "${VERSION}"
+
+# additional plugins
+!addplugindir "${ADDITIONALPLUGINSPATH}"
+
+; Uninstaller signing command
+!if "${UNINSTALLERSIGNCOMMAND}" != ""
+  !uninstfinalize '${UNINSTALLERSIGNCOMMAND}'
+!endif
+
+; Handle install mode, `perUser`, `perMachine` or `both`
+!if "${INSTALLMODE}" == "perMachine"
+  RequestExecutionLevel admin
+!endif
+
+!if "${INSTALLMODE}" == "currentUser"
+  RequestExecutionLevel user
+!endif
+
+!if "${INSTALLMODE}" == "both"
+  !define MULTIUSER_MUI
+  !define MULTIUSER_INSTALLMODE_INSTDIR "${PRODUCTNAME}"
+  !define MULTIUSER_INSTALLMODE_COMMANDLINE
+  !if "${ARCH}" == "x64"
+    !define MULTIUSER_USE_PROGRAMFILES64
+  !else if "${ARCH}" == "arm64"
+    !define MULTIUSER_USE_PROGRAMFILES64
+  !endif
+  !define MULTIUSER_INSTALLMODE_DEFAULT_REGISTRY_KEY "${UNINSTKEY}"
+  !define MULTIUSER_INSTALLMODE_DEFAULT_REGISTRY_VALUENAME "CurrentUser"
+  !define MULTIUSER_INSTALLMODEPAGE_SHOWUSERNAME
+  !define MULTIUSER_INSTALLMODE_FUNCTION RestorePreviousInstallLocation
+  !define MULTIUSER_EXECUTIONLEVEL Highest
+  !include MultiUser.nsh
+!endif
+
+; Installer icon
+!if "${INSTALLERICON}" != ""
+  !define MUI_ICON "${INSTALLERICON}"
+!endif
+
+; Installer sidebar image
+!if "${SIDEBARIMAGE}" != ""
+  !define MUI_WELCOMEFINISHPAGE_BITMAP "${SIDEBARIMAGE}"
+!endif
+
+; Enable header images for installer and uninstaller pages when either image is configured.
+!if "${HEADERIMAGE}" != ""
+  !define MUI_HEADERIMAGE
+!else if "${UNINSTALLERHEADERIMAGE}" != ""
+  !define MUI_HEADERIMAGE
+!endif
+
+; Installer header image
+!if "${HEADERIMAGE}" != ""
+  !define MUI_HEADERIMAGE_BITMAP "${HEADERIMAGE}"
+!endif
+
+; Uninstaller header image
+!if "${UNINSTALLERHEADERIMAGE}" != ""
+  !define MUI_HEADERIMAGE_UNBITMAP "${UNINSTALLERHEADERIMAGE}"
+!endif
+
+; Uninstaller icon
+!if "${UNINSTALLERICON}" != ""
+  !define MUI_UNICON "${UNINSTALLERICON}"
+!endif
+
+; Define registry key to store installer language
+!define MUI_LANGDLL_REGISTRY_ROOT "HKCU"
+!define MUI_LANGDLL_REGISTRY_KEY "${MANUPRODUCTKEY}"
+!define MUI_LANGDLL_REGISTRY_VALUENAME "Installer Language"
+
+; Installer pages, must be ordered as they appear
+; 1. Welcome Page(IHUI 自定义品牌页,见 windows/ihui-ui.nsi;passive/静默在页内 Abort 跳过)
+Page custom IHUIWelcomePage IHUIWelcomeLeave
+
+; 2. License Page (if defined)
+!if "${LICENSE}" != ""
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
+  !insertmacro MUI_PAGE_LICENSE "${LICENSE}"
+!endif
+
+; 3. Install mode (if it is set to `both`)
+!if "${INSTALLMODE}" == "both"
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
+  !insertmacro MULTIUSER_PAGE_INSTALLMODE
+!endif
+
+; 4. Custom page to ask user if he wants to reinstall/uninstall
+;    only if a previous installation was detected
+Var ReinstallPageCheck
+Page custom PageReinstall PageLeaveReinstall
+Function PageReinstall
+  ; Uninstall previous WiX installation if exists.
+  ;
+  ; A WiX installer stores the installation info in registry
+  ; using a UUID and so we have to loop through all keys under
+  ; `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall`
+  ; and check if `DisplayName` and `Publisher` keys match ${PRODUCTNAME} and ${MANUFACTURER}
+  ;
+  ; This has a potential issue that there maybe another installation that matches
+  ; our ${PRODUCTNAME} and ${MANUFACTURER} but wasn't installed by our WiX installer,
+  ; however, this should be fine since the user will have to confirm the uninstallation
+  ; and they can chose to abort it if doesn't make sense.
+  StrCpy $0 0
+  wix_loop:
+    EnumRegKey $1 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" $0
+    StrCmp $1 "" wix_loop_done ; Exit loop if there is no more keys to loop on
+    IntOp $0 $0 + 1
+    ReadRegStr $R0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$1" "DisplayName"
+    ReadRegStr $R1 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$1" "Publisher"
+    StrCmp "$R0$R1" "${PRODUCTNAME}${MANUFACTURER}" 0 wix_loop
+    ReadRegStr $R0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$1" "UninstallString"
+    ${StrCase} $R1 $R0 "L"
+    ${StrLoc} $R0 $R1 "msiexec" ">"
+    StrCmp $R0 0 0 wix_loop_done
+    StrCpy $WixMode 1
+    StrCpy $R6 "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$1"
+    Goto compare_version
+  wix_loop_done:
+
+  ; Check if there is an existing installation, if not, abort the reinstall page
+  ReadRegStr $R0 SHCTX "${UNINSTKEY}" ""
+  ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
+  ${IfThen} "$R0$R1" == "" ${|} Abort ${|}
+
+  ; Compare this installar version with the existing installation
+  ; and modify the messages presented to the user accordingly
+  compare_version:
+  StrCpy $R4 "$(older)"
+  ${If} $WixMode = 1
+    ReadRegStr $R0 HKLM "$R6" "DisplayVersion"
+  ${Else}
+    ReadRegStr $R0 SHCTX "${UNINSTKEY}" "DisplayVersion"
+  ${EndIf}
+  ${IfThen} $R0 == "" ${|} StrCpy $R4 "$(unknown)" ${|}
+
+  nsis_tauri_utils::SemverCompare "${VERSION}" $R0
+  Pop $R0
+  ; Reinstalling the same version
+  ${If} $R0 = 0
+    StrCpy $R1 "$(alreadyInstalledLong)"
+    StrCpy $R2 "$(addOrReinstall)"
+    StrCpy $R3 "$(uninstallApp)"
+    !insertmacro MUI_HEADER_TEXT "$(alreadyInstalled)" "$(chooseMaintenanceOption)"
+  ; Upgrading
+  ${ElseIf} $R0 = 1
+    StrCpy $R1 "$(olderOrUnknownVersionInstalled)"
+    StrCpy $R2 "$(uninstallBeforeInstalling)"
+    StrCpy $R3 "$(dontUninstall)"
+    !insertmacro MUI_HEADER_TEXT "$(alreadyInstalled)" "$(choowHowToInstall)"
+  ; Downgrading
+  ${ElseIf} $R0 = -1
+    StrCpy $R1 "$(newerVersionInstalled)"
+    StrCpy $R2 "$(uninstallBeforeInstalling)"
+    !if "${ALLOWDOWNGRADES}" == "true"
+      StrCpy $R3 "$(dontUninstall)"
+    !else
+      StrCpy $R3 "$(dontUninstallDowngrade)"
+    !endif
+    !insertmacro MUI_HEADER_TEXT "$(alreadyInstalled)" "$(choowHowToInstall)"
+  ${Else}
+    Abort
+  ${EndIf}
+
+  ; Skip showing the page if passive
+  ;
+  ; Note that we don't call this earlier at the begining
+  ; of this function because we need to populate some variables
+  ; related to current installed version if detected and whether
+  ; we are downgrading or not.
+  ${If} $PassiveMode = 1
+    Call PageLeaveReinstall
+  ${Else}
+    nsDialogs::Create 1018
+    Pop $R4
+    ${IfThen} $(^RTL) = 1 ${|} nsDialogs::SetRTL $(^RTL) ${|}
+
+    ${NSD_CreateLabel} 0 0 100% 24u $R1
+    Pop $R1
+
+    ${NSD_CreateRadioButton} 30u 50u -30u 8u $R2
+    Pop $R2
+    ${NSD_OnClick} $R2 PageReinstallUpdateSelection
+
+    ${NSD_CreateRadioButton} 30u 70u -30u 8u $R3
+    Pop $R3
+    ; Disable this radio button if downgrading and downgrades are disabled
+    !if "${ALLOWDOWNGRADES}" == "false"
+      ${IfThen} $R0 = -1 ${|} EnableWindow $R3 0 ${|}
+    !endif
+    ${NSD_OnClick} $R3 PageReinstallUpdateSelection
+
+    ; Check the first radio button if this the first time
+    ; we enter this page or if the second button wasn't
+    ; selected the last time we were on this page
+    ${If} $ReinstallPageCheck <> 2
+      SendMessage $R2 ${BM_SETCHECK} ${BST_CHECKED} 0
+    ${Else}
+      SendMessage $R3 ${BM_SETCHECK} ${BST_CHECKED} 0
+    ${EndIf}
+
+    ${NSD_SetFocus} $R2
+    ; IHUI:重装/升级确认页深色主题(只读 $R1/$R2/$R3/$R4,见 windows/ihui-ui.nsi)
+    !insertmacro IHUI_REINSTALLTHEME
+    nsDialogs::Show
+  ${EndIf}
+FunctionEnd
+Function PageReinstallUpdateSelection
+  ${NSD_GetState} $R2 $R1
+  ${If} $R1 == ${BST_CHECKED}
+    StrCpy $ReinstallPageCheck 1
+  ${Else}
+    StrCpy $ReinstallPageCheck 2
+  ${EndIf}
+FunctionEnd
+Function PageLeaveReinstall
+  ${NSD_GetState} $R2 $R1
+
+  ; If migrating from Wix, always uninstall
+  ${If} $WixMode = 1
+    Goto reinst_uninstall
+  ${EndIf}
+
+  ; In update mode, always proceeds without uninstalling
+  ${If} $UpdateMode = 1
+    Goto reinst_done
+  ${EndIf}
+
+  ; $R0 holds whether same(0)/upgrading(1)/downgrading(-1) version
+  ; $R1 holds the radio buttons state:
+  ;   1 => first choice was selected
+  ;   0 => second choice was selected
+  ${If} $R0 = 0 ; Same version, proceed
+    ${If} $R1 = 1              ; User chose to add/reinstall
+      Goto reinst_done
+    ${Else}                    ; User chose to uninstall
+      Goto reinst_uninstall
+    ${EndIf}
+  ${ElseIf} $R0 = 1 ; Upgrading
+    ${If} $R1 = 1              ; User chose to uninstall
+      Goto reinst_uninstall
+    ${Else}
+      Goto reinst_done         ; User chose NOT to uninstall
+    ${EndIf}
+  ${ElseIf} $R0 = -1 ; Downgrading
+    ${If} $R1 = 1              ; User chose to uninstall
+      Goto reinst_uninstall
+    ${Else}
+      Goto reinst_done         ; User chose NOT to uninstall
+    ${EndIf}
+  ${EndIf}
+
+  reinst_uninstall:
+    HideWindow
+    ClearErrors
+
+    ${If} $WixMode = 1
+      ReadRegStr $R1 HKLM "$R6" "UninstallString"
+      ExecWait '$R1' $0
+    ${Else}
+      ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
+      ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
+      ${IfThen} $UpdateMode = 1 ${|} StrCpy $R1 "$R1 /UPDATE" ${|} ; append /UPDATE
+      ${IfThen} $PassiveMode = 1 ${|} StrCpy $R1 "$R1 /P" ${|} ; append /P
+      StrCpy $R1 "$R1 _?=$4" ; append uninstall directory
+      ExecWait '$R1' $0
+    ${EndIf}
+
+    BringToFront
+
+    ${IfThen} ${Errors} ${|} StrCpy $0 2 ${|} ; ExecWait failed, set fake exit code
+
+    ${If} $0 <> 0
+    ${OrIf} ${FileExists} "$INSTDIR\${MAINBINARYNAME}.exe"
+      ; User cancelled wix uninstaller? return to select un/reinstall page
+      ${If} $WixMode = 1
+      ${AndIf} $0 = 1602
+        Abort
+      ${EndIf}
+
+      ; User cancelled NSIS uninstaller? return to select un/reinstall page
+      ${If} $0 = 1
+        Abort
+      ${EndIf}
+
+      ; Other erros? show generic error message and return to select un/reinstall page
+      MessageBox MB_ICONEXCLAMATION "$(unableToUninstall)"
+      Abort
+    ${EndIf}
+  reinst_done:
+FunctionEnd
+
+; 5. Choose install directory page(IHUI 自定义品牌页,见 windows/ihui-ui.nsi)
+Page custom IHUIDirPage IHUIDirLeave
+
+; 6. Start menu shortcut page
+Var AppStartMenuFolder
+!if "${STARTMENUFOLDER}" != ""
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
+  !define MUI_STARTMENUPAGE_DEFAULTFOLDER "${STARTMENUFOLDER}"
+!else
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE Skip
+!endif
+!insertmacro MUI_PAGE_STARTMENU Application $AppStartMenuFolder
+
+; 7. Installation page(IHUI 深色化:SHOW/LEAVE 回调见 windows/ihui-ui.nsi)
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW IHUIInstShow
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE IHUIInstLeave
+!insertmacro MUI_PAGE_INSTFILES
+
+; 8. Finish page(IHUI 自定义品牌页,见 windows/ihui-ui.nsi)
+; 上游 MUI_FINISHPAGE_* 已移除:instfiles 完成后自动进入品牌完成页;
+; 快捷方式创建/启动应用逻辑移入 IHUIOnFinish/IHUIOnLaunch(Call 模板函数,语义不变)。
+Page custom IHUIFinishPage IHUIFinishLeave
+
+Function RunMainBinary
+  nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" ""
+FunctionEnd
+
+; Uninstaller Pages
+; 1. Confirm uninstall page
+Var DeleteAppDataCheckbox
+Var DeleteAppDataCheckboxState
+!define /ifndef WS_EX_LAYOUTRTL         0x00400000
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.ConfirmShow
+Function un.ConfirmShow ; Add add a `Delete app data` check box
+  ; $1 inner dialog HWND
+  ; $2 window DPI
+  ; $3 style
+  ; $4 x
+  ; $5 y
+  ; $6 width
+  ; $7 height
+  FindWindow $1 "#32770" "" $HWNDPARENT ; Find inner dialog
+  System::Call "user32::GetDpiForWindow(p r1) i .r2"
+  ${If} $(^RTL) = 1
+    StrCpy $3 "${__NSD_CheckBox_EXSTYLE} | ${WS_EX_LAYOUTRTL}"
+    IntOp $4 50 * $2
+  ${Else}
+    StrCpy $3 "${__NSD_CheckBox_EXSTYLE}"
+    IntOp $4 0 * $2
+  ${EndIf}
+  IntOp $5 100 * $2
+  IntOp $6 400 * $2
+  IntOp $7 25 * $2
+  IntOp $4 $4 / 96
+  IntOp $5 $5 / 96
+  IntOp $6 $6 / 96
+  IntOp $7 $7 / 96
+  System::Call 'user32::CreateWindowEx(i r3, w "${__NSD_CheckBox_CLASS}", w "$(deleteAppData)", i ${__NSD_CheckBox_STYLE}, i r4, i r5, i r6, i r7, p r1, i0, i0, i0) i .s'
+  Pop $DeleteAppDataCheckbox
+  SendMessage $HWNDPARENT ${WM_GETFONT} 0 0 $1
+  SendMessage $DeleteAppDataCheckbox ${WM_SETFONT} $1 1
+FunctionEnd
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE un.ConfirmLeave
+Function un.ConfirmLeave
+  SendMessage $DeleteAppDataCheckbox ${BM_GETCHECK} 0 0 $DeleteAppDataCheckboxState
+FunctionEnd
+!undef MUI_PAGE_CUSTOMFUNCTION_SHOW
+!undef MUI_PAGE_CUSTOMFUNCTION_LEAVE
+!undef MUI_PAGE_CUSTOMFUNCTION_PRE
+; U1 卸载确认页改自定义品牌页(原生向导外观 + 无法主题化的复选框一并弃用)
+UninstPage custom un.IHUIConfirmPage un.IHUIConfirmLeave
+
+; 2. Uninstalling Page
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIUninstShow
+!insertmacro MUI_UNPAGE_INSTFILES
+; U4 卸载完成页 —— 终屏 + 唯一可点出口(实现见 windows/ihui-uninstaller.nsi un.IHUIFinishShow)
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIFinishShow
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE un.IHUIFinishLeave
+!define /redef MUI_BGCOLOR "242424"
+!define /redef MUI_TEXTCOLOR "FAFAFA"
+!define MUI_FINISHPAGE_TITLE " "
+!define MUI_FINISHPAGE_TEXT " "
+!define MUI_FINISHPAGE_BUTTON "完成"
+!insertmacro MUI_UNPAGE_FINISH
+
+;Languages
+{{#each languages}}
+!insertmacro MUI_LANGUAGE "{{this}}"
+{{/each}}
+!insertmacro MUI_RESERVEFILE_LANGDLL
+{{#each language_files}}
+  !include "{{this}}"
+{{/each}}
+
+Function .onInit
+  ; GetOptions 是"任意 / 后前缀匹配",$CMDLINE 含 exe 全路径,正斜杠路径里
+  ; 的 /ns(如 Git Bash 启动)会误匹配 /NS → 先 GetParameters 剥掉 exe 路径。
+  ${GetParameters} $R9
+  ${GetOptions} $R9 "/P" $PassiveMode
+  ${IfNot} ${Errors}
+    StrCpy $PassiveMode 1
+  ${EndIf}
+
+  ${GetOptions} $R9 "/NS" $NoShortcutMode
+  ${IfNot} ${Errors}
+    StrCpy $NoShortcutMode 1
+  ${EndIf}
+
+  ${GetOptions} $R9 "/UPDATE" $UpdateMode
+  ${IfNot} ${Errors}
+    StrCpy $UpdateMode 1
+  ${EndIf}
+
+  !if "${DISPLAYLANGUAGESELECTOR}" == "true"
+    !insertmacro MUI_LANGDLL_DISPLAY
+  !endif
+
+  !insertmacro SetContext
+
+  ; IHUI 2026-11-24: v2 更新链拥有 state.json / pending / versions。
+  ; 旧安装器的 /UPDATE 会在 Install Section 无条件重写 state 并删 update-ready/updates，
+  ; 等于把已暂存好的新版本直接抹掉。v1 自动更新在 Windows 已停用，这里再加一道硬闸：
+  ; 只要目标安装目录已有 v2 状态，任何 /UPDATE 直接中止，更新只走应用内胶囊链。
+  ; 手动交互安装/重装不带 /UPDATE，不受影响，仍可由用户显式覆盖安装。
+  ${If} $UpdateMode = 1
+    ; 不能只信注册表里的旧安装位置：旧更新器可能把 /D 指到另一个仍有 v2 状态的目录，
+    ; 注册表路径过期时会绕过硬闸。state.json 只是一份指针，它可能被误删而
+    ; .bak/.tmp/launcher-version.txt 仍在；这些 v2 标记任一存在都必须静默中止，
+    ; 避免旧 /UPDATE 覆盖一个仍可回退的安装。
+    StrCpy $R1 "$INSTDIR"
+    ReadRegStr $R0 SHCTX "${MANUPRODUCTKEY}" ""
+    ${If} $R0 != ""
+      StrCpy $R1 "$R0"
+    ${EndIf}
+    ${If} ${FileExists} "$INSTDIR\state.json"
+    ${OrIf} ${FileExists} "$INSTDIR\state.json.bak"
+    ${OrIf} ${FileExists} "$INSTDIR\state.json.tmp"
+    ${OrIf} ${FileExists} "$INSTDIR\launcher-version.txt"
+    ${OrIf} ${FileExists} "$R1\state.json"
+    ${OrIf} ${FileExists} "$R1\state.json.bak"
+    ${OrIf} ${FileExists} "$R1\state.json.tmp"
+    ${OrIf} ${FileExists} "$R1\launcher-version.txt"
+      ; 这条路径只可能由旧更新器/旧快捷方式触发，绝不能让终端用户看到任何弹窗。
+      ; 不论交互还是静默模式，都只记 DetailPrint，然后立即以退出码 2 结束。
+      DetailPrint "v2 state present; installer /UPDATE disabled"
+      SetErrorLevel 2
+      Quit
+    ${EndIf}
+  ${EndIf}
+
+  ; IHUI 2026-09-21:覆盖升级时尊重用户桌面快捷方式现状。
+  ; 背景:仅应用内自动更新器带 /UPDATE(UpdateMode=1,卸载器不删图标、新装不重建);
+  ; 手动跑安装包覆盖安装(交互/静默)不带该参数,走「卸载旧版(删桌面图标)→
+  ; 全新安装(无条件重建)」,用户删过的图标被强行恢复。此处于 .onInit
+  ; (卸载旧版之前、SetContext 之后,SHCTX/$DESKTOP 语义与快捷方式创建一致)
+  ; 记录「升级前是否已有安装」与「桌面图标是否存在」,供
+  ; CreateOrUpdateDesktopShortcut 判断:用户已删 → 不再创建;未删 → 重建(视觉等同保留)。
+  StrCpy $DesktopIconExisted 0
+  ${If} ${FileExists} "$DESKTOP\${PRODUCTNAME}.lnk"
+    StrCpy $DesktopIconExisted 1
+  ${EndIf}
+  ReadRegStr $HadExistingInstall SHCTX "${UNINSTKEY}" "UninstallString"
+  ${If} ${Errors}
+  ${OrIf} $HadExistingInstall == ""
+    StrCpy $HadExistingInstall 0
+  ${Else}
+    StrCpy $HadExistingInstall 1
+  ${EndIf}
+
+  ${If} $INSTDIR == "${PLACEHOLDER_INSTALL_DIR}"
+    ; ==== IHUI 定制:默认安装目录(向导首屏即生效)====
+    ; 上游按 INSTALLMODE 推导(currentUser → %LOCALAPPDATA%,perMachine → %PROGRAMFILES%);
+    ; 这里改为「软件归集目录」策略,盘符不写死:
+    ;   ① D: 是固定盘 → D:\software\${PRODUCTNAME}(与团队既有归集目录一致,不落盘根);
+    ;   ② 否则遍历 C:..Z:,取第一个固定盘上已存在的 \software 目录;
+    ;   ③ 都没有 → %LOCALAPPDATA%\Programs\${PRODUCTNAME}(上游 currentUser 语义,必可写、无需提权)。
+    ; 盘型判定用 kernel32::GetDriveTypeW(3 = DRIVE_FIXED),天然排除光驱 / U 盘 / 网络盘。
+    ; 目录存在性用 ${FileExists} "<dir>\*.*" 判定(NSIS v3.11 真机探针四例实测):非空目录、
+    ; 空目录均返回 true —— 用户新建的空归集目录能被正确选中;路径不存在返回 false;同一路径
+    ; 被同名普通文件占用时返回 false。与 GetFileAttributesW 按目录属性判定的结论完全一致,
+    ; 故不需要为此改判定代码。将来若改用 kernel32::GetFileAttributesW 取属性:无效返回值
+    ; 必须用 `!= -1` 排除(本机真机探针实测 `!= 0xFFFFFFFF` 会把不存在路径误判为有效),
+    ; 再 IntOp $R3 $R3 & 0x10 判 FILE_ATTRIBUTE_DIRECTORY,同时排除同名普通文件。
+    ; 赋值发生在 .onInit,目录页 EDIT 框运行期读 $INSTDIR(windows/ihui-ui.nsi 的 IHUIDirPage),
+    ; 所以向导首屏显示的是这条动态路径,不是烧死在位图里的静态文案。
+    StrCpy $INSTDIR ""
+    System::Call 'kernel32::GetDriveTypeW(w "D:\") i .R0'
+    ${If} $R0 == 3
+      StrCpy $INSTDIR `D:\software\${PRODUCTNAME}`
+    ${Else}
+      StrCpy $1 67
+      ${Do}
+        ${If} $1 > 90
+          ${ExitDo}
+        ${EndIf}
+        IntFmt $R1 "%c" $1
+        System::Call 'kernel32::GetDriveTypeW(w "$R1:\") i .R2'
+        ${If} $R2 == 3
+          ${If} ${FileExists} "$R1:\software\*.*"
+            StrCpy $INSTDIR `$R1:\software\${PRODUCTNAME}`
+            ${ExitDo}
+          ${EndIf}
+        ${EndIf}
+        IntOp $1 $1 + 1
+      ${Loop}
+    ${EndIf}
+    ${If} "$INSTDIR" == ""
+      StrCpy $INSTDIR "$LOCALAPPDATA\Programs\${PRODUCTNAME}"
+    ${EndIf}
+
+    Call RestorePreviousInstallLocation
+    ; 全新安装的默认目录不能只判“盘存在/目录见过”：多用户机器上 D:\software
+    ; 可能被前一个用户建过但当前用户无写权限，静默安装会在复制载荷时才失败。
+    ; 这里做一次真实写探针；不可写就退回当前用户必定可写的 LOCALAPPDATA\Programs。
+    ${If} $HadExistingInstall = 0
+      ClearErrors
+      CreateDirectory "$INSTDIR"
+      ${If} ${Errors}
+        DetailPrint "默认安装目录不可创建，回退用户目录: $INSTDIR"
+        StrCpy $INSTDIR "$LOCALAPPDATA\Programs\${PRODUCTNAME}"
+      ${Else}
+        ClearErrors
+        FileOpen $0 "$INSTDIR\.ihui-write-probe" w
+        ${If} ${Errors}
+          DetailPrint "默认安装目录不可写，回退用户目录: $INSTDIR"
+          StrCpy $INSTDIR "$LOCALAPPDATA\Programs\${PRODUCTNAME}"
+        ${Else}
+          FileWrite $0 "probe"
+          FileClose $0
+          Delete "$INSTDIR\.ihui-write-probe"
+        ${EndIf}
+      ${EndIf}
+    ${EndIf}
+    ; ==== IHUI 定制结束 ====
+  ${EndIf}
+
+  ; IHUI:多帧品牌开屏动画 + 页面资产预解压(passive/静默/升级模式跳过,见 windows/ihui-ui.nsi)
+  !insertmacro IHUI_INITSPLASH
+
+  !if "${INSTALLMODE}" == "both"
+    !insertmacro MULTIUSER_INIT
+  !endif
+FunctionEnd
+
+
+Section EarlyChecks
+  ; Abort silent installer if downgrades is disabled
+  !if "${ALLOWDOWNGRADES}" == "false"
+  ${If} ${Silent}
+    ; If downgrading
+    ${If} $R0 = -1
+      System::Call 'kernel32::AttachConsole(i -1)i.r0'
+      ${If} $0 <> 0
+        System::Call 'kernel32::GetStdHandle(i -11)i.r0'
+        System::call 'kernel32::SetConsoleTextAttribute(i r0, i 0x0004)' ; set red color
+        FileWrite $0 "$(silentDowngrades)"
+      ${EndIf}
+      Abort
+    ${EndIf}
+  ${EndIf}
+  !endif
+
+SectionEnd
+
+Section WebView2
+  ; Check if Webview2 is already installed and skip this section
+  ${If} ${RunningX64}
+    ReadRegStr $4 HKLM "SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\${WEBVIEW2APPGUID}" "pv"
+  ${Else}
+    ReadRegStr $4 HKLM "SOFTWARE\Microsoft\EdgeUpdate\Clients\${WEBVIEW2APPGUID}" "pv"
+  ${EndIf}
+  ${If} $4 == ""
+    ReadRegStr $4 HKCU "SOFTWARE\Microsoft\EdgeUpdate\Clients\${WEBVIEW2APPGUID}" "pv"
+  ${EndIf}
+
+  ${If} $4 == ""
+    ; Webview2 installation
+    ;
+    ; Skip if updating
+    ${If} $UpdateMode <> 1
+      !if "${INSTALLWEBVIEW2MODE}" == "downloadBootstrapper"
+        Delete "$TEMP\MicrosoftEdgeWebview2Setup.exe"
+        DetailPrint "$(webview2Downloading)"
+        NSISdl::download "https://go.microsoft.com/fwlink/p/?LinkId=2124703" "$TEMP\MicrosoftEdgeWebview2Setup.exe"
+        Pop $0
+        ${If} $0 == "success"
+          DetailPrint "$(webview2DownloadSuccess)"
+        ${Else}
+          DetailPrint "$(webview2DownloadError)"
+          !insertmacro IHUI_WEBVIEW2_FAIL "download"
+        ${EndIf}
+        StrCpy $6 "$TEMP\MicrosoftEdgeWebview2Setup.exe"
+        Goto install_webview2
+      !endif
+
+      !if "${INSTALLWEBVIEW2MODE}" == "embedBootstrapper"
+        Delete "$TEMP\MicrosoftEdgeWebview2Setup.exe"
+        File "/oname=$TEMP\MicrosoftEdgeWebview2Setup.exe" "${WEBVIEW2BOOTSTRAPPERPATH}"
+        DetailPrint "$(installingWebview2)"
+        StrCpy $6 "$TEMP\MicrosoftEdgeWebview2Setup.exe"
+        Goto install_webview2
+      !endif
+
+      !if "${INSTALLWEBVIEW2MODE}" == "offlineInstaller"
+        Delete "$TEMP\MicrosoftEdgeWebView2RuntimeInstaller.exe"
+        File "/oname=$TEMP\MicrosoftEdgeWebView2RuntimeInstaller.exe" "${WEBVIEW2INSTALLERPATH}"
+        DetailPrint "$(installingWebview2)"
+        StrCpy $6 "$TEMP\MicrosoftEdgeWebView2RuntimeInstaller.exe"
+        Goto install_webview2
+      !endif
+
+      Goto webview2_done
+
+      install_webview2:
+        DetailPrint "$(installingWebview2)"
+        ; $6 holds the path to the webview2 installer
+        ExecWait "$6 ${WEBVIEW2INSTALLERARGS} /install" $1
+        ${If} $1 = 0
+          DetailPrint "$(webview2InstallSuccess)"
+        ${Else}
+          DetailPrint "$(webview2InstallError)"
+          !insertmacro IHUI_WEBVIEW2_FAIL "install"
+        ${EndIf}
+      webview2_done:
+    ${EndIf}
+  ${Else}
+    !if "${MINIMUMWEBVIEW2VERSION}" != ""
+      ${VersionCompare} "${MINIMUMWEBVIEW2VERSION}" "$4" $R0
+      ${If} $R0 = 1
+        update_webview:
+          DetailPrint "$(installingWebview2)"
+          ${If} ${RunningX64}
+            ReadRegStr $R1 HKLM "SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate" "path"
+          ${Else}
+            ReadRegStr $R1 HKLM "SOFTWARE\Microsoft\EdgeUpdate" "path"
+          ${EndIf}
+          ${If} $R1 == ""
+            ReadRegStr $R1 HKCU "SOFTWARE\Microsoft\EdgeUpdate" "path"
+          ${EndIf}
+          ${If} $R1 != ""
+            ; Chromium updater docs: https://source.chromium.org/chromium/chromium/src/+/main:docs/updater/user_manual.md
+            ; Modified from "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft EdgeWebView\ModifyPath"
+            ExecWait `"$R1" /install appguid=${WEBVIEW2APPGUID}&needsadmin=true` $1
+            ${If} $1 = 0
+              DetailPrint "$(webview2InstallSuccess)"
+            ${Else}
+              !insertmacro IHUI_WEBVIEW2_FAIL "update"
+            ${EndIf}
+          ${EndIf}
+      ${EndIf}
+    !endif
+  ${EndIf}
+SectionEnd
+
+Section Install
+  SetOutPath $INSTDIR
+
+  !ifmacrodef NSIS_HOOK_PREINSTALL
+    !insertmacro NSIS_HOOK_PREINSTALL
+  !endif
+
+  !insertmacro IHUI_CHECK_APP_NOT_RUNNING "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  ; Launcher 被强杀但 payload 仍在跑（孤儿进程）时，也必须拦住静默覆盖。
+  !insertmacro IHUI_CHECK_APP_NOT_RUNNING "${PAYLOADNAME}.exe" "${PRODUCTNAME}"
+  ; 0.1.92 旧主程序名：升级时旧进程还在跑，同样不能覆盖/删文件。
+  !insertmacro IHUI_CHECK_APP_NOT_RUNNING "ihui-desktop.exe" "${PRODUCTNAME}"
+
+  ; Payload 落到版本目录:运行中的旧版本不被覆盖,更新只新增目录 + 切 state 指针。
+  CreateDirectory "$INSTDIR\versions\${VERSION}"
+  SetOutPath "$INSTDIR\versions\${VERSION}"
+
+  ; Copy main executable (renamed to the Launcher's stable payload name)
+  !insertmacro IHUI_PROGRESS 12 "正在复制主程序"
+  File /oname=${PAYLOADNAME}.exe "${MAINBINARYSRCPATH}"
+
+  !insertmacro IHUI_PROGRESS 34 "正在写入运行资源"
+  ; Copy resources
+  {{#each resources_dirs}}
+    CreateDirectory "$INSTDIR\versions\${VERSION}\\{{this}}"
+  {{/each}}
+  {{#each resources}}
+    File /a "/oname={{this.[1]}}" "{{no-escape @key}}"
+  {{/each}}
+
+  !insertmacro IHUI_PROGRESS 52 "正在写入外部组件"
+  ; Copy external binaries
+  {{#each binaries}}
+    File /a "/oname={{this}}" "{{no-escape @key}}"
+  {{/each}}
+
+  ; 回到安装根:Launcher / 卸载器 / 状态文件都在这里
+  SetOutPath $INSTDIR
+
+  ; 旧版根目录主程序可能同名(智汇AI.exe):先删再放 Launcher;运行中已由上方 Check 拦住。
+  Delete "$INSTDIR\${MAINBINARYNAME}.exe"
+  Rename "$INSTDIR\versions\${VERSION}\launcher\ihui-launcher.exe" "$INSTDIR\${MAINBINARYNAME}.exe"
+  RMDir /r "$INSTDIR\versions\${VERSION}\launcher"
+  ; 覆盖安装保留一次回退代际：把旧 state.json 的 current/previous 读出来，
+  ; 升级/降级时 previous=旧 current；**同版本重装时 previous 必须保留旧 previous**，
+  ; 否则 0.1.93(previous=0.1.92) 原地重装会变成 previous=0.1.93，把可回退代际弄丢。
+  ; pending/updates 属于上一轮更新事务，由本次显式安装重置。
+  StrCpy $R6 ""
+  StrCpy $R5 ""
+  ${If} ${FileExists} "$INSTDIR\state.json"
+    ClearErrors
+    FileOpen $0 "$INSTDIR\state.json" r
+    ${IfNot} ${Errors}
+      ${Do}
+        ClearErrors
+        FileRead $0 $R9
+        ${If} ${Errors}
+          ${Break}
+        ${EndIf}
+        ${StrLoc} $R4 $R9 '"current": "' ">"
+        ${If} $R4 != ""
+          StrCpy $R9 $R9 "" $R4
+          StrCpy $R9 $R9 "" 12
+          ${StrLoc} $R4 $R9 '"' ">"
+          ${If} $R4 != ""
+            StrCpy $R6 $R9 $R4
+          ${EndIf}
+        ${Else}
+          ${StrLoc} $R4 $R9 '"previous": "' ">"
+          ${If} $R4 != ""
+            StrCpy $R9 $R9 "" $R4
+            StrCpy $R9 $R9 "" 13
+            ${StrLoc} $R4 $R9 '"' ">"
+            ${If} $R4 != ""
+              StrCpy $R5 $R9 $R4
+            ${EndIf}
+          ${EndIf}
+        ${EndIf}
+      ${Loop}
+      FileClose $0
+    ${EndIf}
+  ${EndIf}
+  ${If} $R6 == ""
+    StrCpy $R7 "null"
+  ${ElseIf} $R6 == "${VERSION}"
+    ${If} $R5 != ""
+      StrCpy $R7 '"$R5"'
+    ${Else}
+      StrCpy $R7 "null"
+    ${EndIf}
+  ${Else}
+    StrCpy $R7 '"$R6"'
+  ${EndIf}
+  ; 保留旧 state 作为 .bak：新 state 万一写坏，Launcher 回退到的是**上一份真实状态**，
+  ; 不是更早某次更新留下的任意备份。
+  ${If} $R6 != ""
+    ClearErrors
+    CopyFiles /SILENT "$INSTDIR\state.json" "$INSTDIR\state.json.bak"
+  ${EndIf}
+  ClearErrors
+  ; 先写 .tmp，再用 MoveFileEx(REPLACE_EXISTING|WRITE_THROUGH) 原子替换。
+  ; 直接以 "w" 打开 state.json 会在截断后写失败时留下半截 JSON，Launcher 只能回退旧 .bak，
+  ; 严重时会把 previous 指到错误代际。安装器这条路径同样必须原子。
+  FileOpen $0 "$INSTDIR\state.json.tmp" w
+  ${If} ${Errors}
+    !insertmacro IHUI_INSTALL_WARN "state.json.tmp 写入失败，Launcher 可能无法定位当前版本"
+  ${Else}
+    FileWrite $0 '{$\r$\n  "schema": 1,$\r$\n  "current": "${VERSION}",$\r$\n  "previous": $R7,$\r$\n  "pending": null,$\r$\n  "fail_count": 0,$\r$\n  "last_good_at": 0,$\r$\n  "bad": null$\r$\n}$\r$\n'
+    FileClose $0
+    System::Call 'kernel32::MoveFileExW(w "$INSTDIR\state.json.tmp", w "$INSTDIR\state.json", i 0x9) i .R8'
+    ${If} $R8 == 0
+      !insertmacro IHUI_INSTALL_WARN "state.json 原子替换失败，旧状态保持不变"
+      Delete "$INSTDIR\state.json.tmp"
+    ${EndIf}
+  ${EndIf}
+  ClearErrors
+  FileOpen $0 "$INSTDIR\launcher-version.txt" w
+  ${If} ${Errors}
+    !insertmacro IHUI_INSTALL_WARN "launcher-version.txt 写入失败"
+  ${Else}
+    FileWrite $0 "${LAUNCHER_VERSION}$\r$\n"
+    FileClose $0
+  ${EndIf}
+  Delete "$INSTDIR\update-ready.json"
+  Delete "$INSTDIR\rollback-notice.json"
+  Delete "$INSTDIR\pending-update.json"
+  ; 升级/重装会重置版本目录；旧下载暂存包已无意义，顺手清掉避免占盘。
+  RMDir /r "$INSTDIR\updates"
+
+  !insertmacro IHUI_PROGRESS 64 "正在登记文件关联"
+  ; Create file associations
+  {{#each file_associations as |association| ~}}
+    {{#each association.ext as |ext| ~}}
+       !insertmacro APP_ASSOCIATE "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+    {{/each}}
+  {{/each}}
+
+  !insertmacro IHUI_PROGRESS 72 "正在登记深度链接"
+  ; Register deep links
+  {{#each deep_link_protocols as |protocol| ~}}
+    WriteRegStr SHCTX "Software\Classes\\{{protocol}}" "URL Protocol" ""
+    WriteRegStr SHCTX "Software\Classes\\{{protocol}}" "" "URL:${BUNDLEID} protocol"
+    WriteRegStr SHCTX "Software\Classes\\{{protocol}}\DefaultIcon" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\",0"
+    WriteRegStr SHCTX "Software\Classes\\{{protocol}}\shell\open\command" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
+  {{/each}}
+
+  ; 2026-11-24 稳定 Launcher:老用户的开机自启值原来指向根目录旧主程序/某版 payload。
+  ; 只要自启原本是开启的，安装时就改写成 Launcher，避免升级后第一次开机静默失效。
+  ; 值不存在则绝不新建（尊重用户关闭自启的选择）。
+  ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}"
+  ${If} $0 != ""
+    ClearErrors
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}" '$\"$INSTDIR\${MAINBINARYNAME}.exe$\" --minimized'
+    ${If} ${Errors}
+      !insertmacro IHUI_INSTALL_WARN "自启值 ${PRODUCTNAME} 无法改写为 Launcher"
+    ${EndIf}
+  ${EndIf}
+  ; 完成页自启开关写的是 IHUI-AI-Desktop（与卸载 hooks 同名），也一并迁移；
+  ; 否则该类老用户升级后第一次开机仍指向旧 payload。
+  ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "IHUI-AI-Desktop"
+  ${If} $0 != ""
+    ClearErrors
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "IHUI-AI-Desktop" '$\"$INSTDIR\${MAINBINARYNAME}.exe$\" --minimized'
+    ${If} ${Errors}
+      !insertmacro IHUI_INSTALL_WARN "自启值 IHUI-AI-Desktop 无法改写为 Launcher"
+    ${EndIf}
+  ${EndIf}
+
+  !insertmacro IHUI_PROGRESS 80 "正在生成卸载程序"
+  ; Create uninstaller
+  WriteUninstaller "$INSTDIR\uninstall.exe"
+
+  !insertmacro IHUI_PROGRESS 88 "正在登记安装位置"
+  ; Save $INSTDIR in registry for future installations
+  WriteRegStr SHCTX "${MANUPRODUCTKEY}" "" $INSTDIR
+
+  !if "${INSTALLMODE}" == "both"
+    ; Save install mode to be selected by default for the next installation such as updating
+    ; or when uninstalling
+    WriteRegStr SHCTX "${UNINSTKEY}" $MultiUser.InstallMode 1
+  !endif
+
+  ; Remove old main binary if it doesn't match new main binary name
+  ReadRegStr $OldMainBinaryName SHCTX "${UNINSTKEY}" "MainBinaryName"
+  ${If} $OldMainBinaryName != ""
+  ${AndIf} $OldMainBinaryName != "${MAINBINARYNAME}.exe"
+    Delete "$INSTDIR\$OldMainBinaryName"
+  ${EndIf}
+
+  ; Save current MAINBINARYNAME for future updates
+  WriteRegStr SHCTX "${UNINSTKEY}" "MainBinaryName" "${MAINBINARYNAME}.exe"
+
+  ; Registry information for add/remove programs
+  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayName" "${PRODUCTNAME}"
+  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayIcon" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\""
+  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayVersion" "${VERSION}"
+  WriteRegStr SHCTX "${UNINSTKEY}" "Publisher" "${MANUFACTURER}"
+  WriteRegStr SHCTX "${UNINSTKEY}" "InstallLocation" "$\"$INSTDIR$\""
+  WriteRegStr SHCTX "${UNINSTKEY}" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
+  WriteRegDWORD SHCTX "${UNINSTKEY}" "NoModify" "1"
+  WriteRegDWORD SHCTX "${UNINSTKEY}" "NoRepair" "1"
+
+  !insertmacro IHUI_PROGRESS 93 "正在统计占用"
+  ${GetSize} "$INSTDIR" "/M=uninstall.exe /S=0K /G=0" $0 $1 $2
+  IntOp $0 $0 + ${ESTIMATEDSIZE}
+  IntFmt $0 "0x%08X" $0
+  WriteRegDWORD SHCTX "${UNINSTKEY}" "EstimatedSize" "$0"
+
+  !if "${HOMEPAGE}" != ""
+    WriteRegStr SHCTX "${UNINSTKEY}" "URLInfoAbout" "${HOMEPAGE}"
+    WriteRegStr SHCTX "${UNINSTKEY}" "URLUpdateInfo" "${HOMEPAGE}"
+    WriteRegStr SHCTX "${UNINSTKEY}" "HelpLink" "${HOMEPAGE}"
+  !endif
+
+  !insertmacro IHUI_PROGRESS 97 "正在创建快捷方式"
+  ; Create start menu shortcut
+  !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
+    Call CreateOrUpdateStartMenuShortcut
+  !insertmacro MUI_STARTMENU_WRITE_END
+
+  ; Create desktop shortcut for silent and passive installers
+  ; because finish page will be skipped
+  ${If} $PassiveMode = 1
+  ${OrIf} ${Silent}
+    Call CreateOrUpdateDesktopShortcut
+  ${EndIf}
+
+  !ifmacrodef NSIS_HOOK_POSTINSTALL
+    !insertmacro NSIS_HOOK_POSTINSTALL
+  !endif
+
+  ; Auto close this page for passive mode
+  ${If} $PassiveMode = 1
+    SetAutoClose true
+  ${EndIf}
+SectionEnd
+
+Function .onInstSuccess
+  ; Check for `/R` flag only in silent and passive installers because
+  ; GUI installer has a toggle for the user to (re)start the app
+  ${If} $PassiveMode = 1
+  ${OrIf} ${Silent}
+    ; 同 .onInit:GetParameters 剥 exe 路径,防正斜杠路径 /r /args 前缀误匹配
+    ${GetParameters} $R9
+    ${GetOptions} $R9 "/R" $R0
+    ${IfNot} ${Errors}
+      ${GetOptions} $R9 "/ARGS" $R0
+      nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" "$R0"
+    ${EndIf}
+  ${EndIf}
+FunctionEnd
+
+Function un.onInit
+  !insertmacro SetContext
+
+  !if "${INSTALLMODE}" == "both"
+    !insertmacro MULTIUSER_UNINIT
+  !endif
+
+  ; ==== IHUI 定制:卸载器语言只读注册表,绝不弹原生选择框 ====
+  !insertmacro MUI_LANGDLL_VARIABLES
+  !ifdef MUI_LANGDLL_REGISTRY_ROOT & MUI_LANGDLL_REGISTRY_KEY & MUI_LANGDLL_REGISTRY_VALUENAME
+    ReadRegStr $mui.LangDLL.RegistryLanguage "${MUI_LANGDLL_REGISTRY_ROOT}" "${MUI_LANGDLL_REGISTRY_KEY}" "${MUI_LANGDLL_REGISTRY_VALUENAME}"
+    ${If} $mui.LangDLL.RegistryLanguage != ""
+      StrCpy $LANGUAGE $mui.LangDLL.RegistryLanguage
+    ${EndIf}
+  !endif
+  ; ==== IHUI 定制结束 ====
+
+  ; 同 .onInit:GetParameters 剥 exe 路径,防前缀误匹配
+  ${GetParameters} $R9
+  ${GetOptions} $R9 "/P" $PassiveMode
+  ${IfNot} ${Errors}
+    StrCpy $PassiveMode 1
+  ${EndIf}
+
+  ${GetOptions} $R9 "/UPDATE" $UpdateMode
+  ${IfNot} ${Errors}
+    StrCpy $UpdateMode 1
+  ${EndIf}
+FunctionEnd
+
+Section Uninstall
+
+  !ifmacrodef NSIS_HOOK_PREUNINSTALL
+    !insertmacro NSIS_HOOK_PREUNINSTALL
+  !endif
+
+  !insertmacro IHUI_CHECK_APP_NOT_RUNNING "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  !insertmacro IHUI_CHECK_APP_NOT_RUNNING "${PAYLOADNAME}.exe" "${PRODUCTNAME}"
+  ; 0.1.92 旧主程序名：卸载时旧进程还在跑，不能删正在执行的 exe。
+  !insertmacro IHUI_CHECK_APP_NOT_RUNNING "ihui-desktop.exe" "${PRODUCTNAME}"
+
+  !insertmacro IHUI_UNPROGRESS 20 "正在删除程序文件"
+  ; Delete the app directory and its content from disk
+  ; Copy main executable
+  Delete "$INSTDIR\${MAINBINARYNAME}.exe"
+  ; 2026-11-24 稳定 Launcher:所有版本目录、状态指针与更新日志一并清理。
+  RMDir /r "$INSTDIR\versions"
+  RMDir /r "$INSTDIR\updates"
+  Delete "$INSTDIR\state.json"
+  Delete "$INSTDIR\state.json.bak"
+  Delete "$INSTDIR\state.json.tmp"
+  Delete "$INSTDIR\state.lock"
+  Delete "$INSTDIR\update-ready.json"
+  Delete "$INSTDIR\rollback-notice.json"
+  Delete "$INSTDIR\pending-update.json"
+  Delete "$INSTDIR\launcher.log"
+  Delete "$INSTDIR\launcher.log.1"
+  Delete "$INSTDIR\update.log"
+  Delete "$INSTDIR\update.log.1"
+  Delete "$INSTDIR\update-telemetry.jsonl"
+  Delete "$INSTDIR\update-telemetry.jsonl.1"
+  Delete "$INSTDIR\launcher-version.txt"
+
+  !insertmacro IHUI_UNPROGRESS 34 "正在删除运行资源"
+  ; Delete resources
+  {{#each resources}}
+    Delete "$INSTDIR\\{{this.[1]}}"
+  {{/each}}
+
+  !insertmacro IHUI_UNPROGRESS 46 "正在删除外部组件"
+  ; Delete external binaries
+  {{#each binaries}}
+    Delete "$INSTDIR\\{{this}}"
+  {{/each}}
+
+  !insertmacro IHUI_UNPROGRESS 56 "正在解除文件关联"
+  ; Delete app associations
+  {{#each file_associations as |association| ~}}
+    {{#each association.ext as |ext| ~}}
+      !insertmacro APP_UNASSOCIATE "{{ext}}" "{{or association.name ext}}"
+    {{/each}}
+  {{/each}}
+
+  !insertmacro IHUI_UNPROGRESS 66 "正在解除深度链接"
+  ; Delete deep links
+  {{#each deep_link_protocols as |protocol| ~}}
+    ReadRegStr $R7 SHCTX "Software\Classes\\{{protocol}}\shell\open\command" ""
+    ${If} $R7 == "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
+      DeleteRegKey SHCTX "Software\Classes\\{{protocol}}"
+    ${EndIf}
+  {{/each}}
+
+
+  !insertmacro IHUI_UNPROGRESS 76 "正在清理安装目录"
+  ; Delete uninstaller
+  Delete "$INSTDIR\uninstall.exe"
+
+  {{#each resources_ancestors}}
+  RMDir /REBOOTOK "$INSTDIR\\{{this}}"
+  {{/each}}
+  RMDir "$INSTDIR"
+
+  !insertmacro IHUI_UNPROGRESS 86 "正在移除快捷方式"
+  ; Remove shortcuts if not updating
+  ${If} $UpdateMode <> 1
+    !insertmacro DeleteAppUserModelId
+
+    ; Remove start menu shortcut
+    !insertmacro MUI_STARTMENU_GETFOLDER Application $AppStartMenuFolder
+    !insertmacro IsShortcutTarget "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+    Pop $0
+    ${If} $0 = 1
+      !insertmacro UnpinShortcut "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk"
+      Delete "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk"
+      RMDir "$SMPROGRAMS\$AppStartMenuFolder"
+    ${EndIf}
+    !insertmacro IsShortcutTarget "$SMPROGRAMS\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+    Pop $0
+    ${If} $0 = 1
+      !insertmacro UnpinShortcut "$SMPROGRAMS\${PRODUCTNAME}.lnk"
+      Delete "$SMPROGRAMS\${PRODUCTNAME}.lnk"
+    ${EndIf}
+
+    ; Remove desktop shortcuts
+    !insertmacro IsShortcutTarget "$DESKTOP\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+    Pop $0
+    ${If} $0 = 1
+      !insertmacro UnpinShortcut "$DESKTOP\${PRODUCTNAME}.lnk"
+      Delete "$DESKTOP\${PRODUCTNAME}.lnk"
+    ${EndIf}
+  ${EndIf}
+
+  !insertmacro IHUI_UNPROGRESS 92 "正在清理注册信息"
+  ; Remove registry information for add/remove programs
+  !if "${INSTALLMODE}" == "both"
+    DeleteRegKey SHCTX "${UNINSTKEY}"
+  !else if "${INSTALLMODE}" == "perMachine"
+    DeleteRegKey HKLM "${UNINSTKEY}"
+  !else
+    DeleteRegKey HKCU "${UNINSTKEY}"
+  !endif
+
+  ; Removes the Autostart entry for ${PRODUCTNAME} from the HKCU Run key if it exists.
+  ; This ensures the program does not launch automatically after uninstallation if it exists.
+  ; If it doesn't exist, it does nothing.
+  ; We do this when not updating (to preserve the registry value on updates)
+  ${If} $UpdateMode <> 1
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}"
+  ${EndIf}
+
+  ; IHUI 2026-09-21 根治:凡真实卸载(非更新模式)一律清理「安装位置/语言」持久化键。
+  ; 上游仅在勾选「删除应用数据」时清理,/S 静默卸载不勾选 → 键残留,重装时
+  ; RestorePreviousInstallLocation 会把全新安装拉回旧目录
+  ; (0.1.42 本机实测:静默重装被拉回测试目录而非默认目录)。
+  ${If} $UpdateMode <> 1
+    ; Clear the install location $INSTDIR from registry
+    DeleteRegKey SHCTX "${MANUPRODUCTKEY}"
+    DeleteRegKey /ifempty SHCTX "${MANUKEY}"
+
+    ; Clear the install language from registry
+    DeleteRegValue HKCU "${MANUPRODUCTKEY}" "Installer Language"
+    DeleteRegKey /ifempty HKCU "${MANUPRODUCTKEY}"
+    DeleteRegKey /ifempty HKCU "${MANUKEY}"
+  ${EndIf}
+
+  ; Delete app data if the checkbox is selected
+  ; and if not updating
+  ; U7 卸载确认页已改品牌开关(见 ihui-uninstaller.nsi),上游那颗复选框不再被创建,
+  ; 故此处改读 $UNDATA —— 全仓唯一消费点,不留第二份状态。
+  ${If} $UNDATA = 1
+  ${AndIf} $UpdateMode <> 1
+    SetShellVarContext current
+    RmDir /r "$APPDATA\${BUNDLEID}"
+    RmDir /r "$LOCALAPPDATA\${BUNDLEID}"
+  ${EndIf}
+
+  !ifmacrodef NSIS_HOOK_POSTUNINSTALL
+    !insertmacro NSIS_HOOK_POSTUNINSTALL
+  !endif
+
+  ; Auto close if passive mode or updating
+  ${If} $PassiveMode = 1
+  ${OrIf} $UpdateMode = 1
+    SetAutoClose true
+  ${EndIf}
+SectionEnd
+
+Function RestorePreviousInstallLocation
+  ; IHUI 2026-09-21 根治:仅当「真实存在的旧安装」(卸载注册表项仍有
+  ; UninstallString,即升级路径)才沿用其目录。防残留劫持:位置键残留时
+  ; (旧版卸载器未清 / 上游仅在勾选删除数据时清理),全新安装不得被拉回
+  ; 旧目录,应落默认目录(固定盘上的 \software 归集目录,兜底 %LOCALAPPDATA%\Programs)。
+  ClearErrors
+  ReadRegStr $4 SHCTX "${UNINSTKEY}" "UninstallString"
+  ${If} ${Errors}
+    Return
+  ${EndIf}
+  ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
+  StrCmp $4 "" +2 0
+    StrCpy $INSTDIR $4
+FunctionEnd
+
+Function Skip
+  Abort
+FunctionEnd
+
+Function SkipIfPassive
+  ${IfThen} $PassiveMode = 1  ${|} Abort ${|}
+FunctionEnd
+Function un.SkipIfPassive
+  ${IfThen} $PassiveMode = 1  ${|} Abort ${|}
+FunctionEnd
+
+Function CreateOrUpdateStartMenuShortcut
+  ; We used to use product name as MAINBINARYNAME
+  ; migrate old shortcuts to target the new MAINBINARYNAME
+  StrCpy $R0 0
+
+  !insertmacro IsShortcutTarget "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk" "$INSTDIR\$OldMainBinaryName"
+  Pop $0
+  ${If} $0 = 1
+    !insertmacro SetShortcutTarget "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+    StrCpy $R0 1
+  ${EndIf}
+
+  !insertmacro IsShortcutTarget "$SMPROGRAMS\${PRODUCTNAME}.lnk" "$INSTDIR\$OldMainBinaryName"
+  Pop $0
+  ${If} $0 = 1
+    !insertmacro SetShortcutTarget "$SMPROGRAMS\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+    StrCpy $R0 1
+  ${EndIf}
+
+  ${If} $R0 = 1
+    Return
+  ${EndIf}
+
+  ; Skip creating shortcut if in update mode or no shortcut mode
+  ; but always create if migrating from wix
+  ${If} $WixMode = 0
+    ${If} $UpdateMode = 1
+    ${OrIf} $NoShortcutMode = 1
+      Return
+    ${EndIf}
+  ${EndIf}
+
+  !if "${STARTMENUFOLDER}" != ""
+    CreateDirectory "$SMPROGRAMS\$AppStartMenuFolder"
+    CreateShortcut "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+    !insertmacro SetLnkAppUserModelId "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk"
+  !else
+    CreateShortcut "$SMPROGRAMS\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+    !insertmacro SetLnkAppUserModelId "$SMPROGRAMS\${PRODUCTNAME}.lnk"
+  !endif
+FunctionEnd
+
+Function CreateOrUpdateDesktopShortcut
+  ; We used to use product name as MAINBINARYNAME
+  ; migrate old shortcuts to target the new MAINBINARYNAME
+  !insertmacro IsShortcutTarget "$DESKTOP\${PRODUCTNAME}.lnk" "$INSTDIR\$OldMainBinaryName"
+  Pop $0
+  ${If} $0 = 1
+    !insertmacro SetShortcutTarget "$DESKTOP\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+    Return
+  ${EndIf}
+
+  ; Skip creating shortcut if in update mode or no shortcut mode
+  ; but always create if migrating from wix
+  ${If} $WixMode = 0
+    ${If} $UpdateMode = 1
+    ${OrIf} $NoShortcutMode = 1
+      Return
+    ${EndIf}
+    ; IHUI 2026-09-21:覆盖升级(手动跑安装包,无 /UPDATE)尊重用户桌面图标现状:
+    ; 升级前桌面无快捷方式(用户已删) → 不再强行创建。
+    ; 首次安装(HadExistingInstall=0)行为不变,始终创建;
+    ; 升级前图标存在 → 仍创建(旧卸载器已删除,重建后视觉等同保留,且指向新安装目录)。
+    ${If} $HadExistingInstall = 1
+    ${AndIf} $DesktopIconExisted = 0
+      Return
+    ${EndIf}
+  ${EndIf}
+
+  CreateShortcut "$DESKTOP\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+  !insertmacro SetLnkAppUserModelId "$DESKTOP\${PRODUCTNAME}.lnk"
+FunctionEnd

@@ -1,0 +1,482 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 对账服务。
+ * 迁移自旧架构 reconciliation_service.py。
+ * 拉取支付宝/微信账单，与本地订单对比，输出差异。
+ * 提供自动对账（每日）与自动关单（超时未支付）。
+ *
+ * P2 遗留(2026-08-06):对账差异(onlyRemote/onlyLocal)仅输出结果,无人工复核闭环——
+ * 差异不会进入工单、无确认/销账/告警处理流程。生产上需补"差异 → 人工复核 → 处置"
+ * 的工单化流程,否则长期差异可能被忽略导致资金口径不一致。
+ */
+
+import { downloadBillUrl } from './alipay.js'
+import { downloadBill as wxDownloadBill, closeOrder as wxCloseOrder } from './wechat-pay.js'
+import { closeOrder as aliCloseOrder } from './alipay.js'
+import { findPaidOrdersByDate, findExpiredOrders } from './order-service.js'
+import { updateOrderStatus } from '../db/payment-queries.js'
+import { formatDateByTemplate } from '@ihui/shared'
+import type { Order } from '@ihui/database'
+
+const MS_PER_DAY = 86400_000
+
+/**
+ * 「昨日账单日」的唯一实现:北京时区的昨日日历日。
+ *
+ * 支付宝/微信的 bill_date 由**服务端按北京时间**归档,所以这个值必须是北京日历日,
+ * 既不得取宿主时区(宿主时钟被改就错一天 —— 2026-09-04 本机被静默改成 UTC,25 天无人发现),
+ * 也不得取 UTC 日历日(北京 00:00–08:00 之间会请求**前两天的**账单)。
+ * 取时区一律经共享出口 `formatDateByTemplate`(AGENTS §3 共享层优先,与 alipay.ts 的
+ * `formatTimestamp` 同一份「北京怎么说」的实现),不得在本文件或调用方再抄一份。
+ */
+export function billDateForYesterday(nowMs: number = Date.now()): string {
+  return formatDateByTemplate(new Date(nowMs - MS_PER_DAY), 'YYYY-MM-DD')
+}
+
+/** 单类差异明细上限:账单异常时防止结果无限累积。统计计数不受此上限影响。 */
+const MAX_DIFF_DETAILS = 50
+
+/** 对账差异分类。 */
+export type ReconcileDiffType = 'missing_in_gateway' | 'amount_mismatch' | 'status_mismatch'
+
+export interface ReconcileDiffItem {
+  type: ReconcileDiffType
+  orderNo: string
+  /** 本地实付金额(分)。 */
+  localAmount: number
+  /** 远端账单原始金额(元)。 */
+  remoteAmount?: string
+  /** 远端金额归一化到分;null = 无法解析。 */
+  remoteAmountFen?: number | null
+  /** 远端交易状态原文。 */
+  tradeStatus?: string
+  /** 差异判定依据,便于人工复核。 */
+  reason?:
+    'amount_diff' | 'unparsable_remote_amount' | 'currency_not_cny' | 'not_success' | 'refund'
+}
+
+export interface ReconcileStats {
+  /** 单号、金额、状态三项全一致的对账笔数。 */
+  matched: number
+  missingInGateway: number
+  amountMismatch: number
+  statusMismatch: number
+  /** 网关有、本地无对应订单的笔数。 */
+  onlyRemote: number
+}
+
+export interface ReconcileDiff {
+  /** 兼容旧字段:网关有、本地无。 */
+  onlyRemote: Array<{ outTradeNo: string; amount: string; tradeStatus: string }>
+  /** 兼容旧字段:本地有、网关无(等价于 missingInGateway)。 */
+  onlyLocal: Array<{ orderNo: string; amount: number }>
+  missingInGateway: ReconcileDiffItem[]
+  amountMismatch: ReconcileDiffItem[]
+  statusMismatch: ReconcileDiffItem[]
+  stats: ReconcileStats
+}
+
+export interface ReconcileResult {
+  date: string
+  platform: string
+  localCount: number
+  remoteCount: number
+  diff: ReconcileDiff
+  error?: string
+}
+
+/**
+ * 支付宝对账：拉取账单 CSV → 解析 → 与本地 paid 订单对比。
+ */
+export async function reconcileAlipay(billDate: string): Promise<ReconcileResult> {
+  try {
+    const billUrl = await downloadBillUrl(billDate, 'trade')
+    const resp = await fetch(billUrl)
+    // F-551:网关 5xx/404/维护页 HTML 不得被当成「平台无交易」。
+    // 判 HTTP 状态与内容类型,异常抛给 catch 写进 ReconcileResult.error,由调度层按 failed 记账。
+    if (!resp.ok) {
+      throw new Error(`支付宝账单下载失败: HTTP ${resp.status}`)
+    }
+    const contentType = resp.headers.get('content-type') ?? ''
+    if (/text\/html|application\/json/i.test(contentType)) {
+      throw new Error(`支付宝账单返回非账单内容: ${contentType || '(缺失 content-type)'}`)
+    }
+    const csvText = await resp.text()
+
+    const remoteTrades = parseAlipayBill(csvText)
+    const localOrders = await findPaidOrdersByDate(billDate)
+    return buildDiff(billDate, 'alipay', localOrders, remoteTrades)
+  } catch (e) {
+    return {
+      date: billDate,
+      platform: 'alipay',
+      localCount: 0,
+      remoteCount: 0,
+      diff: emptyDiff(),
+      error: (e as Error).message,
+    }
+  }
+}
+
+/**
+ * 微信对账：拉取账单 CSV → 解析 → 与本地 paid 订单对比。
+ */
+export async function reconcileWechat(billDate: string): Promise<ReconcileResult> {
+  try {
+    const csvText = await wxDownloadBill(billDate, 'ALL')
+    const remoteTrades = parseWechatBill(csvText)
+    const localOrders = await findPaidOrdersByDate(billDate)
+    return buildDiff(billDate, 'wechat', localOrders, remoteTrades)
+  } catch (e) {
+    return {
+      date: billDate,
+      platform: 'wechat',
+      localCount: 0,
+      remoteCount: 0,
+      diff: emptyDiff(),
+      error: (e as Error).message,
+    }
+  }
+}
+
+/** 支付宝 + 微信合并对账。 */
+export async function reconcileAll(billDate: string): Promise<{
+  date: string
+  alipay: ReconcileResult
+  wechat: ReconcileResult
+}> {
+  const [alipay, wechat] = await Promise.all([reconcileAlipay(billDate), reconcileWechat(billDate)])
+  return { date: billDate, alipay, wechat }
+}
+
+/** 自动对账昨天（供定时任务每日 03:00 调用）。 */
+export async function autoReconcileYesterday(): Promise<{
+  date: string
+  alipay: ReconcileResult
+  wechat: ReconcileResult
+}> {
+  const billDate = billDateForYesterday()
+  return reconcileAll(billDate)
+}
+
+/**
+ * 自动关闭超时未支付订单（默认 30 分钟）。
+ * 供定时任务每 10 分钟调用。
+ */
+export async function autoCloseExpiredOrders(): Promise<{
+  scanned: number
+  closed: string[]
+  failed: Array<{ orderNo: string; error: string }>
+}> {
+  const pending = await findExpiredOrders()
+  const closed: string[] = []
+  const failed: Array<{ orderNo: string; error: string }> = []
+
+  // F-566:渠道关单是有外部延迟的串行调用,积压时单轮可能超 10 分钟导致 job 排队。
+  // 改为有界并发(每批 8):批内并行、批间串行,既缩短单轮又不放大渠道压力。
+  const CLOSE_CONCURRENCY = 8
+  for (let i = 0; i < pending.length; i += CLOSE_CONCURRENCY) {
+    const batch = pending.slice(i, i + CLOSE_CONCURRENCY)
+    await Promise.all(
+      batch.map(async (order) => {
+        try {
+          // 调用对应支付渠道关单接口
+          if (order.paymentMethod === 'alipay') {
+            await aliCloseOrder(order.orderNo)
+          } else if (
+            order.paymentMethod === 'wechat' ||
+            order.paymentMethod === 'wechat_android' ||
+            order.paymentMethod === 'wechat_course'
+          ) {
+            await wxCloseOrder(order.orderNo)
+          }
+          // F-230:关渠道单与本地改状态之间隔着数百 ms~秒的外部调用,期间用户可能刚完成支付
+          // 并把订单置为 paid。必须用条件 UPDATE(fromStatus='pending')抢占:
+          // 返回 undefined = 状态已不是 pending(已支付/已处理),不得覆盖为 cancelled。
+          const updated = await updateOrderStatus(order.orderNo, 'cancelled', 'pending')
+          if (updated) closed.push(order.orderNo)
+        } catch (e) {
+          failed.push({ orderNo: order.orderNo, error: (e as Error).message })
+        }
+      }),
+    )
+  }
+
+  return { scanned: pending.length, closed, failed }
+}
+
+// =============================================================================
+// 内部工具
+// =============================================================================
+
+interface RemoteTrade {
+  outTradeNo: string
+  amount: string
+  tradeStatus: string
+}
+
+/** CSV 单元格清理:去引号包裹 + 去除 BOM。 */
+function cleanCell(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^`/, '')
+    .replace(/\uFEFF/g, '')
+}
+
+/** 按列名定位表头行中的索引;找不到返回 -1。 */
+function findColumnIndex(header: string[], name: string): number {
+  const idx = header.findIndex((h) => h.trim().replace(/^`/, '') === name)
+  return idx
+}
+
+/**
+ * 解析支付宝账单 CSV(业务明细段)。
+ *
+ * P1 修复(2026-08-06):原实现按固定 index 取列——outTradeNo 取 parts[0](账务流水号,实为
+ * 商户订单号前一位)、tradeStatus 取 parts[14](实为"费率"列),且 `#` 段标题后的表头行会被
+ * 当成交易记录解析。改为定位表头行(含"商户订单号")建立列名→索引映射,按表头名取列,
+ * 避免表头顺序变化导致列错位;表头找不到时回退旧固定索引兼容。
+ */
+function parseAlipayBill(csvText: string): RemoteTrade[] {
+  const lines = csvText.split(/\r?\n/).filter((l) => l.trim())
+  const trades: RemoteTrade[] = []
+  let headerIdx: string[] | null = null
+  for (const line of lines) {
+    if (line.startsWith('#')) continue
+    const parts = line.split(',').map(cleanCell)
+    if (parts.includes('商户订单号')) {
+      headerIdx = parts
+      break
+    }
+  }
+
+  let inDetail = false
+  for (const line of lines) {
+    if (line.startsWith('#')) {
+      inDetail = line.includes('明细') || line.includes('记录')
+      continue
+    }
+    if (!inDetail) continue
+    const parts = line.split(',').map(cleanCell)
+    // 跳过表头行本身(表头行也会匹配明细段)
+    if (headerIdx && parts.length >= 4 && parts[0] === '账务流水号') continue
+    if (parts.length < 6) continue
+    // 按表头名取列;找不到时回退到标准支付宝账单固定索引(1=商户订单号 5=交易金额 14=费率)
+    const outTradeNoIdx = headerIdx ? findColumnIndex(headerIdx, '商户订单号') : -1
+    const amountIdx = headerIdx ? findColumnIndex(headerIdx, '交易金额') : -1
+    const statusIdx = headerIdx ? findColumnIndex(headerIdx, '交易状态') : -1
+    const outTradeNo = outTradeNoIdx >= 0 ? (parts[outTradeNoIdx] ?? '') : (parts[1] ?? '')
+    const amount = amountIdx >= 0 ? (parts[amountIdx] ?? '') : (parts[5] ?? '')
+    // 支付宝账单无"交易状态"列(明细均为已成交交易),留空即可
+    const tradeStatus = statusIdx >= 0 ? (parts[statusIdx] ?? '') : ''
+    if (!outTradeNo) continue
+    trades.push({ outTradeNo, amount, tradeStatus })
+  }
+  return trades
+}
+
+/**
+ * 解析微信账单 CSV(跳过表头汇总行)。
+ *
+ * P1 修复(2026-08-06):原实现按固定 index 取列——outTradeNo 取 parts[9](实为"交易状态")、
+ * amount 取 parts[2](实为"商户号")、tradeStatus 取 parts[7](实为"用户标识"),列全部错位,
+ * 导致对账把商户号当订单号、把用户标识当状态,对账结果完全失真。改为定位表头行
+ * (含"商户订单号")按表头名取列;找不到表头时回退微信 V3 标准固定索引
+ * (6=商户订单号 12=应结订单金额 9=交易状态)。
+ */
+function parseWechatBill(csvText: string): RemoteTrade[] {
+  const lines = csvText.split(/\r?\n/).filter((l) => l.trim())
+  const trades: RemoteTrade[] = []
+  let headerIdx: string[] | null = null
+  for (const line of lines) {
+    if (line.startsWith('总') || line.startsWith('交易时间')) continue
+    const parts = line.split(',').map(cleanCell)
+    if (parts.includes('商户订单号')) {
+      headerIdx = parts
+      break
+    }
+  }
+  // 微信账单前 2 行为标题与表头,从第 3 行开始为交易记录
+  for (let i = 2; i < lines.length; i++) {
+    const line = lines[i]!
+    if (line.startsWith('总') || line.startsWith('交易时间')) continue
+    const parts = line.split(',').map(cleanCell)
+    // 跳过表头行本身
+    if (headerIdx && parts.length >= 4 && parts[0] === '交易时间') continue
+    if (parts.length < 13) continue
+    // 按表头名取列;找不到时回退微信 V3 标准固定索引
+    const outTradeNoIdx = headerIdx ? findColumnIndex(headerIdx, '商户订单号') : -1
+    const amountIdx = headerIdx ? findColumnIndex(headerIdx, '应结订单金额') : -1
+    const statusIdx = headerIdx ? findColumnIndex(headerIdx, '交易状态') : -1
+    const outTradeNo = outTradeNoIdx >= 0 ? (parts[outTradeNoIdx] ?? '') : (parts[6] ?? '')
+    const amount = amountIdx >= 0 ? (parts[amountIdx] ?? '') : (parts[12] ?? '')
+    const tradeStatus = statusIdx >= 0 ? (parts[statusIdx] ?? '') : (parts[9] ?? '')
+    if (!outTradeNo) continue
+    trades.push({ outTradeNo, amount, tradeStatus })
+  }
+  return trades
+}
+
+/** 视为「交易成功」的远端状态;支付宝明细无状态列,留空按已成交处理。 */
+const SUCCESS_TRADE_STATUSES = new Set([
+  '',
+  'success',
+  'trade_success',
+  'trade_finished',
+  '支付成功',
+  '交易成功',
+  '已支付',
+  '成功',
+])
+
+/** 退款/关单类状态:单独归类,不按普通「未成功」混在一起。 */
+const REFUND_TRADE_STATUSES = new Set([
+  'refund',
+  'refunded',
+  'trade_closed',
+  'closed',
+  'revoked',
+  '已退款',
+  '已全额退款',
+  '退款',
+  '交易关闭',
+])
+
+function normalizeTradeStatus(raw: string): string {
+  return raw.trim().toLowerCase()
+}
+
+function isSuccessTradeStatus(raw: string): boolean {
+  return SUCCESS_TRADE_STATUSES.has(normalizeTradeStatus(raw))
+}
+
+function isRefundTradeStatus(raw: string): boolean {
+  return REFUND_TRADE_STATUSES.has(normalizeTradeStatus(raw))
+}
+
+/**
+ * 账单金额（元，如 "12.34"/"¥12.34"/"1,234.56"）归一化到分。
+ * 无法解析返回 null —— 调用方按金额不一致处理（宁可误报，不得静默判为已对上）。
+ */
+function amountToFen(raw: string): number | null {
+  const normalized = raw.replace(/[^\d.-]/g, '')
+  if (!normalized || normalized === '-' || normalized === '.' || normalized === '-.') return null
+  const value = Number(normalized)
+  if (!Number.isFinite(value)) return null
+  return Math.round(value * 100)
+}
+
+function emptyDiff(): ReconcileDiff {
+  return {
+    onlyRemote: [],
+    onlyLocal: [],
+    missingInGateway: [],
+    amountMismatch: [],
+    statusMismatch: [],
+    stats: { matched: 0, missingInGateway: 0, amountMismatch: 0, statusMismatch: 0, onlyRemote: 0 },
+  }
+}
+
+/**
+ * 构建对账差异结果。
+ *
+ * F-550:匹配必须同时满足「单号存在 + 金额一致（分口径）+ 交易成功」。
+ * 金额按分比较（本地 orders.amount 即分，远端账单为元）；非 CNY 订单无法与
+ * 支付宝/微信人民币账单直接比对，保守按金额差异上报（不判已对上）。
+ * 差异按 missing_in_gateway / amount_mismatch / status_mismatch 分类，
+ * stats 为全量计数，明细每类最多 MAX_DIFF_DETAILS 条。
+ */
+function buildDiff(
+  billDate: string,
+  platform: string,
+  localOrders: Order[],
+  remoteTrades: RemoteTrade[],
+): ReconcileResult {
+  const localMap = new Map(localOrders.map((o) => [o.orderNo, o]))
+  const remoteMap = new Map(remoteTrades.map((t) => [t.outTradeNo, t]))
+
+  const missingInGateway: ReconcileDiffItem[] = []
+  const amountMismatch: ReconcileDiffItem[] = []
+  const statusMismatch: ReconcileDiffItem[] = []
+  let matched = 0
+
+  for (const order of localOrders) {
+    const trade = remoteMap.get(order.orderNo)
+    if (!trade) {
+      missingInGateway.push({
+        type: 'missing_in_gateway',
+        orderNo: order.orderNo,
+        localAmount: order.amount,
+      })
+      continue
+    }
+
+    const statusOk = isSuccessTradeStatus(trade.tradeStatus)
+    const remoteAmountFen = amountToFen(trade.amount)
+    const currency = (order.currency ?? 'CNY').toUpperCase()
+    const amountOk =
+      currency === 'CNY' && remoteAmountFen !== null && remoteAmountFen === order.amount
+
+    if (!statusOk) {
+      statusMismatch.push({
+        type: 'status_mismatch',
+        orderNo: order.orderNo,
+        localAmount: order.amount,
+        remoteAmount: trade.amount,
+        remoteAmountFen,
+        tradeStatus: trade.tradeStatus,
+        reason: isRefundTradeStatus(trade.tradeStatus) ? 'refund' : 'not_success',
+      })
+    }
+
+    if (!amountOk) {
+      amountMismatch.push({
+        type: 'amount_mismatch',
+        orderNo: order.orderNo,
+        localAmount: order.amount,
+        remoteAmount: trade.amount,
+        remoteAmountFen,
+        tradeStatus: trade.tradeStatus,
+        reason:
+          currency !== 'CNY'
+            ? 'currency_not_cny'
+            : remoteAmountFen === null
+              ? 'unparsable_remote_amount'
+              : 'amount_diff',
+      })
+    }
+
+    if (statusOk && amountOk) matched++
+  }
+
+  const onlyRemoteAll = remoteTrades.filter((t) => !localMap.has(t.outTradeNo))
+
+  return {
+    date: billDate,
+    platform,
+    localCount: localOrders.length,
+    remoteCount: remoteTrades.length,
+    diff: {
+      onlyRemote: onlyRemoteAll
+        .slice(0, MAX_DIFF_DETAILS)
+        .map((t) => ({ outTradeNo: t.outTradeNo, amount: t.amount, tradeStatus: t.tradeStatus })),
+      onlyLocal: missingInGateway
+        .slice(0, MAX_DIFF_DETAILS)
+        .map((d) => ({ orderNo: d.orderNo, amount: d.localAmount })),
+      missingInGateway: missingInGateway.slice(0, MAX_DIFF_DETAILS),
+      amountMismatch: amountMismatch.slice(0, MAX_DIFF_DETAILS),
+      statusMismatch: statusMismatch.slice(0, MAX_DIFF_DETAILS),
+      stats: {
+        matched,
+        missingInGateway: missingInGateway.length,
+        amountMismatch: amountMismatch.length,
+        statusMismatch: statusMismatch.length,
+        onlyRemote: onlyRemoteAll.length,
+      },
+    },
+  }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

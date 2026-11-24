@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mouse-scroll"
+description = "Enables the mouse_scroll command without any pre-configured scope."
+commands.allow = ["mouse_scroll"]
+
+[[permission]]
+identifier = "deny-mouse-scroll"
+description = "Denies the mouse_scroll command without any pre-configured scope."
+commands.deny = ["mouse_scroll"]

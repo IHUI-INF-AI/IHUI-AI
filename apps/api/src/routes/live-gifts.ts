@@ -1,0 +1,376 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
+import { and, desc, eq, sql } from 'drizzle-orm'
+import { db, dbRead } from '../db/index.js'
+import {
+  liveGift,
+  liveGiftCatalog,
+  users,
+  userMargins,
+  tokenFlows,
+  type LiveGift,
+} from '@ihui/database'
+import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
+import { error, paginatedSuccess, success } from '../utils/response.js'
+// ihui_live_gift_income_total:单位 = 平台币(扣 user_margins.token_quantity 余额)
+import { recordLiveGiftIncome } from '../plugins/business-metrics.js'
+
+// =============================================================================
+// 礼物目录表(2026-08-31 已纳入共享 schema live-extended.ts 的 liveGiftCatalog,
+// 此处保留幂等建表 SQL 兜底,避免依赖 migration 时序)。
+// live_gift 仍是"打赏记录表"(channel_id/user_id/gift_name/gift_count/total_price)。
+// =============================================================================
+
+const CREATE_CATALOG_SQL = sql`
+  CREATE TABLE IF NOT EXISTS live_gift_catalog (
+    id serial PRIMARY KEY,
+    name varchar(100) NOT NULL,
+    icon varchar(500),
+    price numeric(20, 4) NOT NULL DEFAULT 0,
+    status integer NOT NULL DEFAULT 1,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )
+`
+
+// =============================================================================
+// Zod schemas
+// =============================================================================
+
+const listQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.coerce.number().int().min(0).max(1).optional(),
+  all: z.enum(['1']).optional(),
+})
+
+const idParamSchema = z.object({ id: z.coerce.number().int().positive() })
+
+const createGiftSchema = z.object({
+  name: z.string().min(1).max(100),
+  icon: z.string().max(500).optional(),
+  price: z.coerce.number().nonnegative(),
+  status: z.coerce.number().int().min(0).max(1).default(1),
+})
+
+const updateGiftSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  icon: z.string().max(500).nullable().optional(),
+  price: z.coerce.number().nonnegative().optional(),
+  status: z.coerce.number().int().min(0).max(1).optional(),
+})
+
+const sendGiftSchema = z.object({
+  liveId: z.coerce.number().int().positive().optional(),
+  receiverId: z.string().max(64).optional(),
+  quantity: z.coerce.number().int().min(1).max(999).default(1),
+})
+
+/** 目录行的类型别名 —— 下面四个 catalog 落点在 try 外接收结果时要写得出类型。 */
+type CatalogRow = typeof liveGiftCatalog.$inferSelect
+
+// =============================================================================
+// 路由插件
+// =============================================================================
+
+export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
+  // 注册期兜底建表的结论(plugin 作用域,一次注册一份,不与别的 app 共享):
+  // null = 建表已执行;非 null = 失败原因文本,后面的端点据此给可归因的失败响应。
+  let catalogBootstrapFailure: string | null = null
+
+  // 幂等建表(测试环境 db 被 mock,execute 直接放行)。
+  // 失败**不得**向上抛:2026-09-26 07:58 线上哑火就是这句在 PG 崩溃恢复窗口
+  // ("the database system is starting up")抛错,而它跑在 avvio 注册期 ——
+  // 注册期抛错 = 整棵插件树 boot 失败 = server.listen() 永不 bind,
+  // 进程却被 unhandledRejection 处理器留下,于是"RUNNING + 端口没人听"46 分钟。
+  // 但"不打断启动"不等于"安静":这一格必须 error 级留痕并给出**可复制的处置线索**,
+  // 因为 nssm 只看得到子进程没退出、看不到它没进 listen —— 安静就等于没人知道。
+  // 建表只是兜底(真表已在 @ihui/database 的 live-extended schema 里),所以失败期间
+  // 不预先把端点打死(那会把"表其实已经存在"的正常情形变成人为故障),而是记下根因,
+  // 由 catalog 读写真被打回时回显式 503(见 catalogUnavailableReply)。
+  try {
+    await db.execute(CREATE_CATALOG_SQL)
+  } catch (err) {
+    catalogBootstrapFailure = err instanceof Error ? err.message : String(err)
+    server.log.error(
+      {
+        err,
+        scope: 'live-gifts:register',
+        table: 'live_gift_catalog',
+        impact:
+          'HTTP 面照常 bind(本函数按设计不得向上抛);live_gift_catalog 视为未就绪,' +
+          '本插件四个目录端点在读写真被打回时回 503(不是泛化的 500"服务器错误")',
+        remediation:
+          '① 部署机确认 PostgreSQL 已结束崩溃恢复: psql "$DATABASE_URL" -c \'SELECT 1\'  ' +
+          '② 就绪后重启 api 服务重跑本兜底建表(生产服务名 IHUI-API)  ' +
+          '③ 想彻底不再依赖注册期建表:把它并入 packages/database 的 migration(归属另计一票,本文件不做)',
+      },
+      '[live-gifts] 注册期兜底建表失败 —— 已按非致命处理(进程继续 listen),但 live_gift_catalog 未就绪',
+    )
+  }
+
+  /**
+   * 把"这一条 catalog 查询被打回"归因给注册期兜底建表失败。
+   *
+   * 返回已写好的 reply ⇒ 调用方直接 return;返回 undefined ⇒ 建表当初是成功的,
+   * 这次失败与本判据无关,**原样抛出**交给全局 errorHandler —— 行为一字不变。
+   * 四个 catalog 落点共用这一份实现,禁止在各 handler 里各抄一遍。
+   */
+  function catalogUnavailableReply(reply: FastifyReply, err: unknown): FastifyReply | undefined {
+    if (catalogBootstrapFailure === null) return undefined
+    server.log.error(
+      {
+        err,
+        scope: 'live-gifts:catalog-query',
+        table: 'live_gift_catalog',
+        rootCause: catalogBootstrapFailure,
+      },
+      '[live-gifts] live_gift_catalog 读写失败,且注册期兜底建表已失败 —— 回 503(处置线索见本插件注册期那条 error)',
+    )
+    return reply.status(503).send(error(503, '礼物目录暂不可用:数据库尚未就绪,请稍后重试'))
+  }
+
+  // ----- 礼物列表(默认只返回上架 status=1;管理端可传 status=0 或 all=1) -----
+  server.get('/live-gifts', async (request: FastifyRequest, reply: FastifyReply) => {
+    const parsed = listQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize, status, all } = parsed.data
+    const conds = []
+    if (all !== '1') conds.push(eq(liveGiftCatalog.status, status ?? 1))
+    const where = conds.length ? and(...conds) : undefined
+
+    let rows: CatalogRow[]
+    let total: number
+    try {
+      const [rowsResult, totalResult] = await Promise.all([
+        db
+          .select()
+          .from(liveGiftCatalog)
+          .where(where)
+          .orderBy(desc(liveGiftCatalog.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(liveGiftCatalog)
+          .where(where),
+      ])
+      rows = rowsResult
+      total = totalResult[0]?.count ?? 0
+    } catch (err) {
+      const handled = catalogUnavailableReply(reply, err)
+      if (handled) return handled
+      throw err
+    }
+    return reply.send(paginatedSuccess(rows, total, { page, pageSize }))
+  })
+
+  // ----- 新增礼物(管理端) -----
+  server.post(
+    '/live-gifts',
+    { preHandler: requireAdmin },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const parsed = createGiftSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      let gift: CatalogRow | undefined
+      try {
+        const rows = await db
+          .insert(liveGiftCatalog)
+          .values({
+            name: parsed.data.name,
+            icon: parsed.data.icon ?? null,
+            price: String(parsed.data.price),
+            status: parsed.data.status,
+          })
+          .returning()
+        gift = rows[0]
+      } catch (err) {
+        const handled = catalogUnavailableReply(reply, err)
+        if (handled) return handled
+        throw err
+      }
+      if (!gift) return reply.status(500).send(error(500, '创建礼物失败'))
+      return reply.status(201).send(success({ gift }))
+    },
+  )
+
+  // ----- 更新礼物(管理端) -----
+  server.patch(
+    '/live-gifts/:id',
+    { preHandler: requireAdmin },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const idParsed = idParamSchema.safeParse(request.params)
+      if (!idParsed.success) {
+        return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const parsed = updateGiftSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const set: Record<string, unknown> = {}
+      if (parsed.data.name !== undefined) set.name = parsed.data.name
+      if (parsed.data.icon !== undefined) set.icon = parsed.data.icon
+      if (parsed.data.price !== undefined) set.price = String(parsed.data.price)
+      if (parsed.data.status !== undefined) set.status = parsed.data.status
+      set.updatedAt = new Date()
+
+      let gift: CatalogRow | undefined
+      try {
+        const rows = await db
+          .update(liveGiftCatalog)
+          .set(set)
+          .where(eq(liveGiftCatalog.id, idParsed.data.id))
+          .returning()
+        gift = rows[0]
+      } catch (err) {
+        const handled = catalogUnavailableReply(reply, err)
+        if (handled) return handled
+        throw err
+      }
+      if (!gift) return reply.status(404).send(error(404, '礼物不存在'))
+      return reply.send(success({ gift }))
+    },
+  )
+
+  // ----- 打赏(需登录,扣平台币/积分余额 + 写 live_gift 记录) -----
+  server.post(
+    '/live-gifts/:id/send',
+    { preHandler: requireAuth },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const idParsed = idParamSchema.safeParse(request.params)
+      if (!idParsed.success) {
+        return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const parsed = sendGiftSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const quantity = parsed.data.quantity
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '请先登录'))
+
+      let gift: CatalogRow | undefined
+      try {
+        const giftRows = await dbRead
+          .select()
+          .from(liveGiftCatalog)
+          .where(and(eq(liveGiftCatalog.id, idParsed.data.id), eq(liveGiftCatalog.status, 1)))
+          .limit(1)
+        gift = giftRows[0]
+      } catch (err) {
+        const handled = catalogUnavailableReply(reply, err)
+        if (handled) return handled
+        throw err
+      }
+      if (!gift) return reply.status(404).send(error(404, '礼物不存在或已下架'))
+
+      const price = Number(gift.price)
+      const totalPrice = Math.round(price * quantity)
+
+      // 赠送人昵称(供记录展示)
+      const userRows = await dbRead
+        .select({ nickname: users.nickname })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1)
+      const nickname = userRows[0]?.nickname ?? null
+
+      // F-68:礼物扣款统一走钱包主账本 user_margins.token_quantity。
+      // 原实现读/扣孤儿表 user_token_balance,但全仓没有任何入账写入点,余额恒 0,
+      // 钱包里有余额的用户送礼永远「余额不足」,且不产生 token_flows。
+      // 取舍:不做孤儿表→主账本的数据迁移——其余额没有任何入账来源,迁移等于凭空铸币;
+      // user_token_balance 仅保留只读用于历史审计,不再参与扣款判断。
+      const result = await db.transaction(async (tx) => {
+        // 条件 UPDATE 原子扣减:够才扣,并发下不会扣成负数
+        const [deducted] = await tx
+          .update(userMargins)
+          .set({
+            tokenQuantity: sql`${userMargins.tokenQuantity} - ${totalPrice}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(eq(userMargins.userId, userId), sql`${userMargins.tokenQuantity} >= ${totalPrice}`),
+          )
+          .returning({ balance: userMargins.tokenQuantity })
+        if (!deducted) return { code: 400, message: '余额不足' } as const
+
+        // 写打赏记录(live_gift 表)
+        const inserted = await tx
+          .insert(liveGift)
+          .values({
+            channelId: parsed.data.liveId ?? 0,
+            userId,
+            userName: nickname,
+            giftId: gift.id,
+            giftName: gift.name,
+            giftCount: quantity,
+            totalPrice,
+          })
+          .returning()
+        const record = inserted[0]
+        if (!record) return { code: 500, message: '写入打赏记录失败' } as const
+
+        // 与钱包扣款同事务写流水:opType=1 扣减,balanceAfter 取 RETURNING 的落库值
+        await tx.insert(tokenFlows).values({
+          userId,
+          opType: 1,
+          quantity: totalPrice,
+          balanceAfter: deducted.balance,
+          remark: `直播礼物 ${gift.name} x${quantity}`,
+        })
+
+        return { code: 0, record, balanceAfter: deducted.balance } as const
+      })
+
+      if (result.code !== 0) {
+        return reply.status(result.code).send(error(result.code, result.message))
+      }
+      // ihui_live_gift_income_total:扣款+写 live_gift 事务成功后累加(平台币,room_id=liveId)
+      recordLiveGiftIncome(String(parsed.data.liveId ?? 0), totalPrice)
+      return reply.send(success({ record: result.record, balanceAfter: result.balanceAfter }))
+    },
+  )
+
+  // ----- 打赏记录列表(分页;F-199:需登录且只返回本人送出的记录) -----
+  server.get(
+    '/live-gifts/records',
+    { preHandler: requireAuth },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '请先登录'))
+      const parsed = listQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { page, pageSize } = parsed.data
+      const [rows, totalRows] = await Promise.all([
+        db
+          .select({ record: liveGift, senderName: users.nickname })
+          .from(liveGift)
+          .leftJoin(users, eq(liveGift.userId, sql`${users.id}::text`))
+          .where(eq(liveGift.userId, userId))
+          .orderBy(desc(liveGift.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(liveGift)
+          .where(eq(liveGift.userId, userId)),
+      ])
+      const items: (LiveGift & { senderName: string | null })[] = rows.map((r) => ({
+        ...r.record,
+        senderName: r.senderName,
+      }))
+      return reply.send(paginatedSuccess(items, totalRows[0]?.count ?? 0, { page, pageSize }))
+    },
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

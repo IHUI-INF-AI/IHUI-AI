@@ -1,0 +1,736 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * StudyIndexScreen AI 视频页(共享层,平台无关 UI)
+ *
+ * 对齐 mobile-rn StudyIndexScreen 核心 UI:
+ * - index 预览态:TipBanner 滚动 + 推荐模型前 3 + 最新课程前 3 + 各自「更多」
+ * - study 全屏态:双列视频卡片(封面/标题/时长/讲师/相对时间)
+ * - 赛道分类 chip 切换(替代 SingleTypeBar,保持平台无关)
+ * - 搜索输入框 + 下拉刷新 + 上拉分页 + 空态/加载态/错误重试
+ * - 浅色优雅风,圆角守门(无 rounded-full);无分割线(gap 间距)
+ */
+import { useMemo, useEffect, useRef } from 'react'
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  FlatList,
+  Image,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type ImageStyle,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { SearchInput } from '../../components/SearchInput'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { SectionHeader } from '../../components/SectionHeader'
+import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
+import { Lightbulb, Play, Flame, Bot, Clapperboard, Plus } from 'lucide-react-native'
+import type { AppIcon, StudyTrackCategory, StudyVideoItem } from '@ihui/types'
+
+import { ELEVATION_STEPS, rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
+export type { StudyTrackCategory, StudyVideoItem }
+
+/** 赛道分类 */
+
+/** 学习视频项 */
+
+/** 模型预览项(简化,对齐 ModelListItem 子集) */
+export interface StudyModelPreview {
+  id: string
+  name: string
+  description: string
+  icon?: AppIcon | string
+  isFree?: boolean
+}
+
+/** StudyIndexScreen props(wrapper 注入数据+回调) */
+export interface StudyIndexScreenProps {
+  colorScheme?: 'light' | 'dark'
+  items: StudyVideoItem[]
+  refreshing: boolean
+  loadingMore: boolean
+  error: string
+  total: number
+  searchInput: string
+  showSearch: boolean
+  pageType: 'index' | 'model' | 'study'
+  activeCategory: string
+  previewModels: StudyModelPreview[]
+  previewItems: StudyVideoItem[]
+  initialLoading: boolean
+  trackCategories: readonly StudyTrackCategory[]
+  onRefresh: () => void
+  onEndReached: () => void
+  onSubmitSearch: () => void
+  onSearchInputChange: (v: string) => void
+  onCategoryChange: (id: string) => void
+  onViewMoreModels: () => void
+  onViewMoreCourses: () => void
+  retryText: string
+  emptyText: string
+  noMoreText: string
+  loadingText: string
+  loadingMoreText: string
+  /** 提供时在右下渲染发布 FAB（缺省不渲染，避免假按钮） */
+  onPublish?: () => void
+  /**
+   * 视频卡片点击（2026-11-14 补）。
+   *
+   * 注意：`@ihui/types` 里另有一份同名 `StudyIndexScreenProps`，那份把 `onVideoClick`
+   * 声明成**必填**，而本文件这份本地定义**没有该字段** —— 两份已漂移。宿主按本地这份传参，
+   * 所以类型检查不报错、回调也从来没被消费过，视频卡片是一整片点不动的死区。
+   * 这里按可选补上：宿主不传卡片退化为不可点（不再假装能点），传了才响应。
+   */
+  onVideoClick?: (item: StudyVideoItem) => void
+}
+
+/** 网格封面高度(对齐 Uniapp study_list .video height: 178rpx ≈ 89dp) */
+const GRID_COVER_HEIGHT = 89
+
+/**
+ * Tip 提示横幅(对齐 Uniapp pagesA/studyindex/components/tip.vue):
+ * - 蓝色描边容器(#d9e6fd)+ 灰色内层(#eee)+ 圆角 15rpx≈7dp
+ * - 左侧 tip 图标 + 中间滚动文字 + 右侧「我的合集」按钮
+ */
+const TIP_TEXT = '智汇AI 云教育/短视频  欢迎所有AI相关视频上传分享'
+
+export function StudyIndexScreen({
+  colorScheme = 'light',
+  items,
+  refreshing,
+  loadingMore,
+  error,
+  total,
+  searchInput,
+  showSearch,
+  pageType,
+  activeCategory,
+  previewModels,
+  previewItems,
+  initialLoading,
+  trackCategories,
+  onRefresh,
+  onEndReached,
+  onSubmitSearch,
+  onSearchInputChange,
+  onCategoryChange,
+  onViewMoreModels,
+  onViewMoreCourses,
+  retryText,
+  emptyText,
+  noMoreText,
+  loadingText,
+  loadingMoreText,
+  onPublish,
+  onVideoClick,
+}: StudyIndexScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+  const trackCategoryItems = useMemo(
+    () => trackCategories.map((cat) => ({ id: cat.id, label: cat.name })),
+    [trackCategories],
+  )
+
+  function TipBanner({ onPressMyModel }: { onPressMyModel: () => void }) {
+    const translateX = useRef(new Animated.Value(0)).current
+
+    useEffect(() => {
+      const loop = Animated.loop(
+        Animated.timing(translateX, {
+          toValue: 1,
+          duration: 8000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      )
+      loop.start()
+      return () => loop.stop()
+    }, [translateX])
+
+    const animTranslateX = translateX.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, -300],
+    })
+
+    return (
+      <View style={styles.tipOuter}>
+        <View style={styles.tipInner}>
+          <Lightbulb size={20} color={tk.text.medium} style={styles.tipIcon} />
+          <View style={styles.tipScrollContainer}>
+            <Animated.View
+              style={[styles.tipTextWrapper, { transform: [{ translateX: animTranslateX }] }]}
+            >
+              <Text style={styles.tipText}>{TIP_TEXT}</Text>
+              <Text style={styles.tipText}>{TIP_TEXT}</Text>
+            </Animated.View>
+          </View>
+          <Tappable
+            style={styles.tipMyModel}
+            onPress={onPressMyModel}
+            accessibilityRole="button"
+            accessibilityLabel="我的合集"
+          >
+            <Text style={styles.tipMyModelText}>我的合集</Text>
+          </Tappable>
+        </View>
+      </View>
+    )
+  }
+
+  const renderVideoItem = ({ item }: { item: StudyVideoItem }) => {
+    const time = item.createdAt ? item.createdAt : ''
+    const author = item.teacherName || '智汇社区-官方'
+    return (
+      // gridCard 在这份表里是**纯布局档**(flex:1 占双列槽位 + 边距),留在外层作静态对象;
+      // 按压淡出随内层承载 —— 外层无底色,可见像素全在内层里,淡出的范围与改前逐像素相同
+      // (守门 131 那一型:函数形态 style 落在注册过 cssInterop 的 Pressable 上会整份静默失效)。
+      <Pressable
+        style={styles.gridCard}
+        onPress={onVideoClick ? () => onVideoClick(item) : undefined}
+        disabled={!onVideoClick}
+        accessibilityRole="button"
+        accessibilityLabel={item.title}
+        accessibilityState={{ disabled: !onVideoClick }}
+      >
+        {({ pressed }) => (
+          <View style={pressed ? styles.gridCardPressed : null}>
+            <View style={styles.gridCoverWrap}>
+              {item.cover ? (
+                <Image source={{ uri: item.cover }} style={styles.gridCover} resizeMode="cover" />
+              ) : (
+                <View style={styles.gridCoverPlaceholder}>
+                  <Play size={24} color={tk.text.secondary} />
+                </View>
+              )}
+              <View style={styles.gridCoverInfo}>
+                <Text style={styles.gridCoverTitle} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                {time ? (
+                  <Text style={styles.gridCoverDate} numberOfLines={1}>
+                    {time}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+            {item.name ? (
+              <Text style={styles.gridTitle} numberOfLines={1}>
+                {item.name}
+              </Text>
+            ) : null}
+            <View style={styles.gridAuthorRow}>
+              {item.avatar ? (
+                <Image source={{ uri: item.avatar }} style={styles.gridAvatar} />
+              ) : null}
+              <Text style={styles.gridAuthor} numberOfLines={1}>
+                {author}
+              </Text>
+            </View>
+          </View>
+        )}
+      </Pressable>
+    )
+  }
+
+  return (
+    <View style={styles.container}>
+      {showSearch ? (
+        <View style={styles.searchBar}>
+          <SearchInput
+            value={searchInput}
+            onChangeText={onSearchInputChange}
+            placeholder="搜索视频"
+            onSubmit={onSubmitSearch}
+            colorScheme={colorScheme}
+          />
+        </View>
+      ) : null}
+
+      {/* 赛道分类 chip 切换 */}
+      <View style={styles.scrollTitleWrap}>
+        <CategoryInlineBar
+          items={trackCategoryItems}
+          selectedId={activeCategory}
+          colorScheme={colorScheme}
+          onSelect={onCategoryChange}
+          contentPaddingHorizontal={0}
+        />
+      </View>
+
+      {/* 内容区 */}
+      {pageType === 'index' ? (
+        <ScrollView
+          style={styles.indexScroll}
+          contentContainerStyle={styles.indexContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <TipBanner onPressMyModel={onViewMoreModels} />
+
+          {/* 推荐课程合集预览 */}
+          <View style={styles.previewSection}>
+            <SectionHeader
+              title="推荐课程合集"
+              leading={<Flame size={20} color={tk.text.medium} style={styles.previewIcon} />}
+              moreText="更多"
+              onMore={onViewMoreModels}
+              accessibilityLabel="查看更多模型"
+              colorScheme={colorScheme}
+              style={styles.previewHeader}
+            />
+            {previewModels.length > 0 ? (
+              previewModels.map((m) => (
+                <View key={m.id} style={styles.previewModelRow}>
+                  <View style={styles.previewModelIcon}>
+                    {typeof m.icon === 'function' ? (
+                      <m.icon size={28} color={tk.text.primary} />
+                    ) : m.icon ? (
+                      <Text style={styles.previewModelEmoji}>{m.icon}</Text>
+                    ) : (
+                      <Bot size={28} color={tk.text.primary} />
+                    )}
+                  </View>
+                  <View style={styles.previewModelBody}>
+                    <Text style={styles.previewModelName} numberOfLines={1}>
+                      {m.name}
+                    </Text>
+                    <Text style={styles.previewModelDesc} numberOfLines={1}>
+                      {m.description}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.previewBadge,
+                      m.isFree ? styles.previewBadgeFree : styles.previewBadgePaid,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.previewBadgeText,
+                        m.isFree ? styles.previewBadgeFreeText : styles.previewBadgePaidText,
+                      ]}
+                    >
+                      {m.isFree ? '免费' : '付费'}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.previewEmpty}>暂无模型</Text>
+            )}
+          </View>
+
+          {/* 最新课程预览 */}
+          <View style={styles.previewSection}>
+            <SectionHeader
+              title="最新课程"
+              leading={<Clapperboard size={20} color={tk.text.medium} style={styles.previewIcon} />}
+              moreText="更多"
+              onMore={onViewMoreCourses}
+              accessibilityLabel="查看更多课程"
+              colorScheme={colorScheme}
+              style={styles.previewHeader}
+            />
+            {initialLoading ? (
+              <View style={styles.centerWrap}>
+                <ActivityIndicator color={tk.brand.DEFAULT} />
+                <Text style={styles.loadingText}>{loadingText}</Text>
+              </View>
+            ) : previewItems.length > 0 ? (
+              <View style={styles.previewGrid}>
+                {previewItems.map((item) => (
+                  <View key={String(item.id)} style={styles.previewGridItem}>
+                    {renderVideoItem({ item })}
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.centerWrap}>
+                <Text style={styles.emptyText}>{emptyText}</Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      ) : initialLoading ? (
+        <ScreenSkeleton variant="grid" count={4} colorScheme={colorScheme} />
+      ) : (
+        <FlatList
+          data={items}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={(info) => renderVideoItem(info)}
+          numColumns={2}
+          columnWrapperStyle={styles.gridRow}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={tk.text.secondary}
+            />
+          }
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.3}
+          ListEmptyComponent={
+            error ? (
+              <ErrorState
+                message={error}
+                onRetry={() => void onRefresh()}
+                retryLabel={retryText || undefined}
+                colorScheme={colorScheme}
+              />
+            ) : (
+              <EmptyState title={emptyText} colorScheme={colorScheme} />
+            )
+          }
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footerWrap}>
+                <ActivityIndicator color={tk.brand.DEFAULT} size="small" />
+                <Text style={styles.footerText}>{loadingMoreText}</Text>
+              </View>
+            ) : items.length > 0 && items.length >= total ? (
+              <View style={styles.noMoreWrap}>
+                <Text style={styles.noMoreText}>{noMoreText}</Text>
+              </View>
+            ) : null
+          }
+        />
+      )}
+
+      {onPublish ? (
+        <Tappable
+          onPress={onPublish}
+          // 悬浮发布钮是全屏最显眼的单一动作,按下必须立刻有回执(2026-11-13)。
+          style={styles.fab}
+          accessibilityRole="button"
+          accessibilityLabel="发布视频"
+        >
+          <Plus size={24} color={tk.brand.ctaForeground} />
+        </Tappable>
+      ) : null}
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg } as ViewStyle,
+    fab: {
+      position: 'absolute',
+      right: 24,
+      bottom: 32,
+      width: rnGeometry.fabBox,
+      height: rnGeometry.fabBox,
+      /**
+       * 正方 FAB 用几何表达式取半边(design-tokens/geometry.js 的明文口径):
+       * RN 的 borderRadius 只吃 number,字符串 `'50%'` 会被 Yoga 静默丢弃 ⇒
+       * 56×56 的 FAB 退化成直角方形。这里不写死 28(28 超 2xl=16 的定档上限),
+       * 由 rnGeometry.fabBox / 2 取半边,与守门 77 的 B9「几何正圆」例外同形。
+       */
+      borderRadius: rnGeometry.fabBox / 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.brand.cta,
+      // elevation 只在 Android 生效;单写它会让 iOS 上这枚 FAB 完全没有投影。
+      // 取唯一层级档(四元组 + elevation 同档携带),两端同一层级,不另写裸值。
+      ...ELEVATION_STEPS.md,
+    } as ViewStyle,
+    searchBar: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
+      backgroundColor: tk.surface.light,
+    } as ViewStyle,
+    searchInput: {
+      height: 50,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      paddingHorizontal: rnSpacing.md,
+      fontSize: rnType.title.size,
+      color: tk.text.primary,
+      backgroundColor: tk.surface.muted,
+    } as TextStyle,
+    // 赛道分类 chip 切换
+    scrollTitleWrap: {
+      backgroundColor: tk.surface.light,
+      paddingVertical: rnSpacing.sm,
+    } as ViewStyle,
+    // index 预览态容器
+    indexScroll: {
+      flex: 1,
+    } as ViewStyle,
+    indexContent: {
+      padding: rnSpacing['md-loose'],
+      paddingBottom: 96,
+    } as ViewStyle,
+    // 预览区块
+    previewSection: {
+      marginTop: rnSpacing.md,
+    } as ViewStyle,
+    previewHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: rnSpacing.sm,
+    } as ViewStyle,
+    previewIcon: {
+      fontSize: rnType.heading.size,
+      marginRight: rnSpacing.sm,
+    } as TextStyle,
+    // 模型预览行
+    previewModelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: rnSpacing['sm-loose'],
+      paddingHorizontal: rnSpacing.md,
+      gap: rnSpacing.md,
+      backgroundColor: tk.surface.light,
+      borderRadius: rnRadius.xl,
+      marginBottom: rnSpacing.sm,
+    } as ViewStyle,
+    previewModelIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.surface.muted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    } as ViewStyle,
+    previewModelEmoji: {
+      fontSize: rnType.heading.size,
+    } as TextStyle,
+    previewModelBody: {
+      flex: 1,
+    } as ViewStyle,
+    previewModelName: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
+    previewModelDesc: {
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      marginTop: rnSpacing.sm,
+    } as TextStyle,
+    previewBadge: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
+      borderRadius: rnRadius.md,
+    } as ViewStyle,
+    previewBadgeFree: {
+      backgroundColor: tk.success.lighter,
+    } as ViewStyle,
+    previewBadgePaid: {
+      backgroundColor: tk.warning.amberLight,
+    } as ViewStyle,
+    previewBadgeText: {
+      fontSize: rnType.caption.size,
+    } as TextStyle,
+    previewBadgeFreeText: {
+      color: tk.success.deepText,
+    } as TextStyle,
+    previewBadgePaidText: {
+      color: tk.warning.amberText,
+    } as TextStyle,
+    previewEmpty: {
+      fontSize: rnType.body.size,
+      color: tk.text.medium,
+      textAlign: 'center',
+      paddingVertical: rnSpacing.lg,
+    } as TextStyle,
+    // 课程预览网格
+    previewGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+    } as ViewStyle,
+    previewGridItem: {
+      width: '48%',
+    } as ViewStyle,
+    // 视频列表(双列网格)
+    listContent: {
+      padding: rnSpacing['md-loose'],
+      paddingBottom: 96,
+    } as ViewStyle,
+    gridRow: {
+      justifyContent: 'space-between',
+    } as ViewStyle,
+    gridCard: {
+      flex: 1,
+      marginHorizontal: rnSpacing.sm,
+      marginBottom: rnSpacing.sm,
+    } as ViewStyle,
+    gridCardPressed: {
+      opacity: 0.8,
+    } as ViewStyle,
+    gridCoverWrap: {
+      position: 'relative',
+      height: GRID_COVER_HEIGHT,
+    } as ViewStyle,
+    gridCover: {
+      width: '100%',
+      height: GRID_COVER_HEIGHT,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.surface.muted,
+    } as ImageStyle,
+    gridCoverPlaceholder: {
+      width: '100%',
+      height: GRID_COVER_HEIGHT,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.surface.muted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    } as ViewStyle,
+    gridCoverPlaceholderText: {
+      fontSize: rnType.display.size,
+      color: tk.text.medium,
+    } as TextStyle,
+    // 标题+日期覆盖层
+    gridCoverInfo: {
+      position: 'absolute',
+      bottom: 4,
+      left: 6,
+      right: 6,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    } as ViewStyle,
+    gridCoverTitle: {
+      flex: 1,
+      fontSize: rnType.badge.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    } as TextStyle,
+    gridCoverDate: {
+      fontSize: rnType.badge.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+      marginLeft: rnSpacing.sm,
+    } as TextStyle,
+    // 下方课程名
+    gridTitle: {
+      fontSize: rnType.body.size,
+      color: tk.text.primary,
+      marginTop: rnSpacing.sm,
+      marginBottom: rnSpacing.sm,
+    } as TextStyle,
+    gridAuthorRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    } as ViewStyle,
+    gridAvatar: {
+      width: 12,
+      height: 12,
+      borderRadius: rnRadius.sm,
+      marginRight: rnSpacing.sm,
+    } as ImageStyle,
+    gridAuthor: {
+      fontSize: rnType.caption.size,
+      fontWeight: '700',
+      color: tk.overlay.modal,
+      flex: 1,
+    } as TextStyle,
+    // Tip 提示横幅
+    tipOuter: {
+      backgroundColor: tk.brandAccent.light,
+      padding: rnSpacing.xs,
+      borderRadius: rnRadius.xl,
+      marginBottom: 9,
+    } as ViewStyle,
+    tipInner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: tk.surface.muted,
+      borderRadius: rnRadius.xl,
+      paddingVertical: rnSpacing.xs,
+      paddingHorizontal: rnSpacing['xs-loose'],
+    } as ViewStyle,
+    tipIcon: {
+      fontSize: rnType.heading.size,
+      marginRight: rnSpacing.sm,
+    } as TextStyle,
+    tipScrollContainer: {
+      flex: 1,
+      height: 20,
+      overflow: 'hidden',
+    } as ViewStyle,
+    tipTextWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    } as ViewStyle,
+    tipText: {
+      fontSize: rnType.title.size,
+      fontWeight: '700',
+      color: tk.text.secondary,
+      paddingRight: rnSpacing['sm-loose'],
+    } as TextStyle,
+    tipMyModel: {
+      width: 72,
+      height: rnGeometry.tapBox,
+      borderRadius: rnRadius.xl,
+      borderWidth: 1,
+      borderColor: tk.brandAccent.deep,
+      backgroundColor: tk.brandAccent.light,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: rnSpacing.sm,
+    } as ViewStyle,
+    tipMyModelText: {
+      fontSize: rnType.body.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    } as TextStyle,
+    // 没有更多了(§4 禁分割线:两侧细线已清,文字居中留白)
+    noMoreWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingTop: rnSpacing.xl,
+      marginTop: rnSpacing['sm-loose'],
+    } as ViewStyle,
+    noMoreText: {
+      marginHorizontal: rnSpacing['sm-loose'],
+      color: tk.text.secondary,
+      fontSize: rnType.body.size,
+    } as TextStyle,
+    centerWrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: rnSpacing['2xl'],
+      gap: rnSpacing.md,
+    } as ViewStyle,
+    emptyText: {
+      fontSize: rnType.title.size,
+      color: tk.text.medium,
+      textAlign: 'center',
+    } as TextStyle,
+    loadingText: {
+      fontSize: rnType.title.size,
+      color: tk.text.secondary,
+      marginTop: rnSpacing.sm,
+    } as TextStyle,
+    footerWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing['xs-loose'],
+    } as ViewStyle,
+    footerText: {
+      fontSize: rnType.body.size,
+      color: tk.text.medium,
+    } as TextStyle,
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

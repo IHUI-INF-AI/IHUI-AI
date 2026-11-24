@@ -1,0 +1,240 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+
+/**
+ * 渲染口径说明(2026-11-20 修正):vitest.config 的 `react` / `react-dom` /
+ * `react/jsx-runtime` 三条 alias 已把**整个模块图**(含 packages/app 共享屏与
+ * @ihui/ui-native)统一压到 miniapp 的 react@18 —— 共享屏组件的元素由 react18 的
+ * jsx-runtime 生成。本册若继续用 packages/app 的 react@19 造元素/做 SSR,就把两代
+ * 元素混回同一棵树(CI 实测 "Objects are not valid as a React child",对象键为
+ * {$$typeof, type, key, ref, props, _owner, _store})。故改为同一条解析链的裸包名:
+ * createRequire('react') 与 vite alias 落到同一个 node_modules/react(18.3.1) ⇒
+ * 单实例;react-native 宿主元素桩也由这同一个 react 造。只收口在本测试文件。
+ */
+const appRequire = createRequire(import.meta.url)
+const React18 = appRequire('react')
+const ReactDOMServer18 = appRequire('react-dom/server')
+
+vi.mock('react-native', () => {
+  const React = createRequire(import.meta.url)('react')
+  // style 可能是数组(RN 条件样式),也可能是**函数**(RN 的 `style={({pressed}) => …}`)。
+  // 函数形态必须与小程序端 rn-compat/primitives.tsx 的 Pressable 同语义:以
+  // `{ pressed: false }` 求值后再摊平 —— 直接把函数透传给 React DOM 会抛
+  // "The `style` prop expects a mapping from style properties to values, not a string",
+  // 那是替身失真,不是产品缺陷(rn-compat 明确支持函数形态)。
+  const flattenStyle = (style: unknown): unknown => {
+    const resolved =
+      typeof style === 'function'
+        ? (style as (s: { pressed: boolean }) => unknown)({ pressed: false })
+        : style
+    if (Array.isArray(resolved)) {
+      return Object.assign({}, ...resolved.map(flattenStyle))
+    }
+    return resolved
+  }
+  const make = (tag: string) => {
+    const Host = (props: Record<string, unknown>) =>
+      React.createElement(tag, { ...props, style: flattenStyle(props.style) })
+    return Host
+  }
+  return {
+    View: make('div'),
+    Text: make('span'),
+    Image: (props: Record<string, unknown>) =>
+      React.createElement('img', {
+        ...props,
+        src: (props.source as { uri?: string } | undefined)?.uri,
+        style: flattenStyle(props.style),
+      }),
+    TextInput: make('input'),
+    ScrollView: make('div'),
+    Modal: make('div'),
+    Pressable: make('button'),
+    TouchableOpacity: make('button'),
+    StyleSheet: {
+      create: (styles: Record<string, unknown>) => styles,
+      flatten: (styles: unknown) => styles,
+      hairlineWidth: 1,
+    },
+  }
+})
+
+// 图标由 vitest.config 的别名统一指到 tests/stubs/lucide-react-native.ts(零依赖桩),
+// 本册只判布局与文案,不引平台渲染链。
+
+// 2026-11-13:`@ihui/ui-native` 的 Tappable 走**真实模块**时,本册会在渲染中崩:
+//   `Cannot read properties of null (reading 'useState')`
+//
+// 根因是 React **双实例**:上面 `react-native` mock 为还原 RN 语义,用 createRequire
+// 从 `packages/app/node_modules/react` 加载了一个独立 React;而 Tappable
+// (packages/ui-native/src/tappable.tsx)用 forwardRef + useState,由 vitest 的主
+// 解析链加载**另一个** React。两实例的 hooks dispatcher 不共享 ⇒ 渲染期读
+// current dispatcher 得到 null。
+//
+// 为什么在这里 mock 而不是去改上面那个 require 路径:换成 `createRequire('react')`
+// 会让该 mock 的 createElement 与测试文件的 React 分属不同实例,整套 7 例全红
+// (本册已实测)。改测试基础设施的风险大于收益。
+//
+// 替身只需满足本册的两处用途:可点击(role=button + onClick)、aria-label 可查。
+// 刻意**不**模拟按压态 —— 本册判的是布局与文案,不是按压反馈(那条在 ui-native 自己的测试里)。
+vi.mock('@ihui/ui-native', () => {
+  const React = createRequire(import.meta.url)('react')
+  const Tappable = (props: Record<string, unknown>) =>
+    React.createElement(
+      'button',
+      {
+        onClick: typeof props.onPress === 'function' ? props.onPress : undefined,
+        // 无障碍名:Tappable 的真实实现把 accessibilityLabel 透传给底层 Pressable,
+        // 本册用 getByRole('button', { name }) 定位按钮,所以这里必须保留。
+        'aria-label': props.accessibilityLabel,
+        disabled: props.disabled === true,
+        style: typeof props.style === 'function' ? undefined : props.style,
+      },
+      props.children as React.ReactNode,
+    )
+  return { Tappable }
+})
+
+import {
+  ChatActionBar,
+  type ChatActionBarProps,
+} from '../../../packages/app/src/features/chat/ChatActionBar'
+
+const t = (key: string): string => `⟦${key}⟧`
+
+const baseProps: ChatActionBarProps = {
+  t,
+}
+
+const render = (props: Partial<ChatActionBarProps>): string =>
+  ReactDOMServer18.renderToStaticMarkup(
+    React18.createElement(ChatActionBar, { ...baseProps, ...props }),
+  )
+
+const countOccurrences = (html: string, token: string): number => html.split(token).length - 1
+
+const source = readFileSync(
+  new URL('../../../packages/app/src/features/chat/ChatActionBar.tsx', import.meta.url),
+  'utf8',
+)
+
+describe('ChatActionBar 契约(块 4 底部动作栏)', () => {
+  it('正例:actions 与 toggles 按传入顺序,visible=false 不占位', () => {
+    const html = render({
+      actions: [
+        { key: 'a1', label: '动作一', glyph: '①', onPress: () => {} },
+        { key: 'a2', label: '隐藏动作', visible: false, onPress: () => {} },
+        { key: 'a3', label: '动作三', onPress: () => {} },
+      ],
+      toggles: [
+        { key: 't1', label: '开关一', active: true },
+        { key: 't2', label: '开关二', active: false },
+      ],
+    })
+
+    expect(html).toContain('动作一')
+    expect(html).toContain('动作三')
+    expect(html).not.toContain('隐藏动作')
+    expect(html.indexOf('动作一')).toBeLessThan(html.indexOf('动作三'))
+    expect(html.indexOf('动作三')).toBeLessThan(html.indexOf('开关一'))
+    expect(html.indexOf('开关一')).toBeLessThan(html.indexOf('开关二'))
+  })
+
+  it('正例:images 在模型条下方横排,并按 index 回传移除', () => {
+    const html = render({
+      modelLabel: '引擎A',
+      images: [
+        { id: 'i1', uri: 'https://cdn/1.png' },
+        { id: 'i2', uri: 'https://cdn/2.png' },
+      ],
+      onImageRemove: () => {},
+    })
+
+    // react19 SSR 会把图片 preload 提到文档头部,这里只比 body 内 <img> 的先后
+    const firstImage = html.indexOf('src="https://cdn/1.png"')
+    const secondImage = html.indexOf('src="https://cdn/2.png"')
+    expect(html.indexOf('引擎A')).toBeLessThan(firstImage)
+    expect(firstImage).toBeLessThan(secondImage)
+    expect(countOccurrences(html, '<img')).toBe(2)
+    expect(countOccurrences(html, '⟦chat.imageDelete⟧')).toBe(2)
+  })
+
+  it('正例:compacting 时显示压缩入口且不重复普通动作', () => {
+    const html = render({
+      compacting: true,
+      onCompactContext: () => {},
+      actions: [{ key: 'a1', label: '动作一', onPress: () => {} }],
+      toggles: [{ key: 't1', label: '开关一', active: true }],
+    })
+
+    expect(html).toContain('⟦messageInput.compactButton⟧')
+    expect(html).not.toContain('动作一')
+    expect(html).not.toContain('开关一')
+  })
+
+  it('正例:图标组按 camera/album/file/wxfile 固定顺序渲染', () => {
+    const html = render({ onIconClick: () => {} })
+    expect(html.indexOf('⟦bab.camera⟧')).toBeLessThan(html.indexOf('⟦bab.album⟧'))
+    expect(html.indexOf('⟦bab.album⟧')).toBeLessThan(html.indexOf('⟦bab.localFile⟧'))
+    expect(html.indexOf('⟦bab.localFile⟧')).toBeLessThan(html.indexOf('⟦bab.wxFile⟧'))
+  })
+
+  it('阴性对照:未触发交互时所有注入回调 0 次', () => {
+    const onToggle = vi.fn()
+    const onImageRemove = vi.fn()
+    const onIconClick = vi.fn()
+    const onCompactContext = vi.fn()
+    const onShowModelList = vi.fn()
+    const onShowModelConfig = vi.fn()
+    const onModelConfigChange = vi.fn()
+
+    const actionPress = vi.fn()
+    render({
+      modelLabel: '引擎A',
+      images: [{ id: 'i1', uri: 'https://cdn/1.png' }],
+      actions: [{ key: 'a1', label: '动作一', onPress: actionPress }],
+      toggles: [{ key: 't1', label: '开关一', active: false }],
+      onToggle,
+      onImageRemove,
+      onIconClick,
+      onCompactContext,
+      onShowModelList,
+      onShowModelConfig,
+      onModelConfigChange,
+    })
+
+    expect(onToggle).toHaveBeenCalledTimes(0)
+    expect(onImageRemove).toHaveBeenCalledTimes(0)
+    expect(onIconClick).toHaveBeenCalledTimes(0)
+    expect(onCompactContext).toHaveBeenCalledTimes(0)
+    expect(onShowModelList).toHaveBeenCalledTimes(0)
+    expect(onShowModelConfig).toHaveBeenCalledTimes(0)
+    expect(onModelConfigChange).toHaveBeenCalledTimes(0)
+    expect(actionPress).toHaveBeenCalledTimes(0)
+  })
+
+  it('阴性对照:未注入回调时对应控件不渲染', () => {
+    const html = render({})
+    expect(html).not.toContain('引擎A')
+    expect(html).not.toContain('⟦bab.camera⟧')
+    expect(html).not.toContain('⟦chat.fnTitle⟧')
+    expect(html).not.toContain('⟦common.more⟧')
+    expect(html).not.toContain('⟦bab.enlarge⟧')
+    expect(html).not.toContain('⟦common.myCreation⟧')
+    expect(html).not.toContain('⟦messageInput.compactButton⟧')
+    expect(html).not.toContain('⟦bab.modelConfig⟧')
+  })
+
+  it('阴性对照:源码不含平台 API 字面', () => {
+    expect(source).not.toMatch(/Taro|fetch\(|axios|localStorage|Alert\.|react-navigation/)
+    // lucide-react-native 不再算平台 API 违禁项:主线的图标迁移(dc4c471aa2)就是让它进共享屏,
+    // 小程序构建侧 config/index.ts 有 `lucide-react-native$ → src/rn-compat/icons-generated.tsx`
+    // 别名把它换成端内实现;仍禁的是真正会炸的平台调用来路。
+    expect(source).not.toMatch(/wx\.|AsyncStorage|Animated|Dimensions/)
+    expect(source).not.toMatch(/\bany\b/)
+  })
+})

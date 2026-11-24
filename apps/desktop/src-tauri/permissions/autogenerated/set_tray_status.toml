@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-tray-status"
+description = "Enables the set_tray_status command without any pre-configured scope."
+commands.allow = ["set_tray_status"]
+
+[[permission]]
+identifier = "deny-set-tray-status"
+description = "Denies the set_tray_status command without any pre-configured scope."
+commands.deny = ["set_tray_status"]

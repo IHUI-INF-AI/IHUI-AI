@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-minimax-reset-plan"
+description = "Enables the minimax_reset_plan command without any pre-configured scope."
+commands.allow = ["minimax_reset_plan"]
+
+[[permission]]
+identifier = "deny-minimax-reset-plan"
+description = "Denies the minimax_reset_plan command without any pre-configured scope."
+commands.deny = ["minimax_reset_plan"]

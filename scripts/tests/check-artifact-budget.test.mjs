@@ -1,0 +1,563 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 镜像测试:产物预算门 A8(scripts/check-artifact-budget.mjs)
+ *
+ * 为什么单独有一支"接线条件不变量"(本文件唯一一支读仓库状态的测试):
+ * 本门的注册由主会话统一做(实现角色禁止改 guardian-runner / package.json / workflows)。
+ * 于是两头都不能写死:
+ *   - 写"必须已登记"为硬断言 ⇒ 接线之前全队恒红,结局是 --no-verify(§12e 同型);
+ *   - 省掉这条断言 ⇒ 接线后被谁咬掉、或只接提交链不接 CI,无人知道(守门 70/76/81
+ *     反复记过同一型:"判据存在而永不调用 = 没有")。
+ * 所以判据写成**条件不变量**:未登记 ⇒ 打印"待接线"并放过;已登记 ⇒ mode 必须是
+ * warn(磁盘产物不是提交者能保证的东西)、skipEnv 必须存在、编号不得重复、
+ * 且必须同时有 CI 面调用点(本门唯一能真判红的地方)。
+ *
+ * 跑法:node --test scripts/tests/check-artifact-budget.test.mjs
+ */
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { __test__ as ab } from '../check-artifact-budget.mjs'
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const REPO = resolve(HERE, '..', '..')
+const SCRIPT = 'check-artifact-budget.mjs'
+const SKIP_ENV = 'HUSKY_SKIP_ARTIFACT_BUDGET'
+
+/** §22c 锚点:源脚本必须 export __test__ 且键齐(缺一条就是双真相漂移)。 */
+test('C0 源脚本 export __test__ 且核心判据可被直接 import', () => {
+  for (const k of [
+    'BUDGET',
+    'resolveTarget',
+    'classifyEntry',
+    'parseSubPackageRoots',
+    'accumulateBuckets',
+    'judgeBudget',
+    'findDanglingSourceMaps',
+    'decideExit',
+  ]) {
+    assert.ok(ab[k], `__test__ 缺键 ${k}`)
+  }
+})
+
+/** 在演练仓里造一份 miniapp 产物目录。sizes = { 相对 dist 的路径: 字节数 }。 */
+function makeDist(repoDir, relDist, files, appJson) {
+  const d = join(repoDir, relDist)
+  for (const [rel, size] of Object.entries(files)) {
+    const abs = join(d, rel)
+    mkdirSync(dirname(abs), { recursive: true })
+    writeFileSync(abs, 'z'.repeat(size))
+  }
+  if (appJson !== null) {
+    mkdirSync(d, { recursive: true })
+    writeFileSync(
+      join(d, 'app.json'),
+      appJson ?? JSON.stringify({ pages: [], subpackages: [{ root: 'pkg-ai' }] }),
+    )
+  }
+  return d
+}
+
+/** 造一个只放了本门脚本(+ 它的 import 闭包)的演练仓。 */
+function mkFakeRepo(prefix) {
+  const dir = mkScratch(prefix)
+  mkdirSync(join(dir, 'scripts'), { recursive: true })
+  // 闭包必须是**推导**的:本门顶层 import ./lib/scratch-dir.mjs,手抄清单少一跳就
+  // 是 ERR_MODULE_NOT_FOUND(本仓同日连吃两次)。
+  const copied = copyScriptWithClosure(join(REPO, 'scripts'), SCRIPT, join(dir, 'scripts'), [
+    'lib/scratch-dir.mjs',
+  ])
+  assert.ok(copied.includes('lib/scratch-dir.mjs'), '闭包必须含 scratch-dir')
+  return dir
+}
+
+function run(repoDir, args, env = {}) {
+  return spawnSync(process.execPath, [join(repoDir, 'scripts', SCRIPT), ...args], {
+    cwd: repoDir,
+    encoding: 'utf8',
+    windowsHide: true,
+    env: { ...process.env, ...env },
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}
+
+test('C1 未知 target ⇒ exit 2 并点名,绝不回落默认档', () => {
+  const dir = mkFakeRepo('ab-c1-')
+  try {
+    const r = run(dir, ['--target', 'nope'])
+    assert.equal(r.status, 2, `stdout=${r.stdout} stderr=${r.stderr}`)
+    assert.match(r.stderr, /未知 --target "nope"/)
+    assert.match(r.stderr, /miniapp/)
+    // 反向对照:回落默认档会跑出 miniapp 的判定 —— 那正是被禁的行为
+    assert.doesNotMatch(r.stderr + r.stdout, /未判定:产物目录不存在/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C1b 缺 --target / 未知参数同样 exit 2(白名单开关)', () => {
+  const dir = mkFakeRepo('ab-c1b-')
+  try {
+    assert.equal(run(dir, []).status, 2)
+    const r = run(dir, ['--target', 'miniapp', '--puhs'])
+    assert.equal(r.status, 2)
+    assert.match(r.stderr, /未知参数/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C2 产物目录不存在 ⇒ exit 0 + 逐条"未判定:<原因>" + 构建命令', () => {
+  const dir = mkFakeRepo('ab-c2-')
+  try {
+    const r = run(dir, ['--target', 'miniapp'])
+    assert.equal(r.status, 0, `不该因机器态判红: ${r.stdout}${r.stderr}`)
+    assert.match(r.stdout, /未判定:产物目录不存在/)
+    assert.match(r.stdout, /pnpm --filter @ihui\/miniapp-taro build/)
+    assert.match(r.stdout, /不冒红也不静默记绿/)
+    const j = JSON.parse(run(dir, ['--target', 'miniapp', '--json']).stdout)
+    assert.equal(j.undetermined, true)
+    assert.equal(j.exists, false)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C3 超预算 ⇒ exit 1,且实测/上限/余量三个数都必须出现', () => {
+  const dir = mkFakeRepo('ab-c3-')
+  try {
+    makeDist(dir, 'apps/miniapp-taro/dist', { 'pages/index/blob.js': 2 * 1024 * 1024 + 1000 })
+    const r = run(dir, ['--target', 'miniapp'])
+    assert.equal(r.status, 1, r.stdout + r.stderr)
+    assert.match(r.stdout, /实测 2,09[0-9],[0-9]{3} B/)
+    assert.match(r.stdout, /上限 2,097,152 B/)
+    assert.match(r.stdout, /超硬上限/)
+    const j = JSON.parse(run(dir, ['--target', 'miniapp', '--json']).stdout)
+    assert.equal(j.status, 'over')
+    assert.equal(j.limitBytes, 2_097_152)
+    assert.ok(j.measuredBytes > j.limitBytes)
+    assert.ok(j.marginBytes < 0)
+    assert.equal(j.undetermined, false)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C4 破告警水位但未超上限 ⇒ 仍判红,但文案必须与"超上限"分得清', () => {
+  const dir = mkFakeRepo('ab-c4-')
+  try {
+    makeDist(dir, 'apps/miniapp-taro/dist', { 'pages/index/blob.js': 2_054_751 })
+    const r = run(dir, ['--target', 'miniapp'])
+    assert.equal(r.status, 1, '现实测 97.98% 的形态必须当轮判红(规格验收)')
+    assert.match(r.stdout, /破告警水位/)
+    // 余量必须与真仓那个数量级一致(夹具主包 = 该文件 + app.json,故用 4x,xxx 而不是钉死 42,401)
+    assert.match(r.stdout, /余量 4[0-9],[0-9]{3} B/)
+    // 两态必须分得清 —— 比 JSON 的 status,不比人读文案:文案里"尚未超硬上限"这种
+    // 说明性措辞会被子串判据误伤(第一版就在这里红过一次)。
+    const j = JSON.parse(run(dir, ['--target', 'miniapp', '--json']).stdout)
+    assert.equal(j.status, 'over-water')
+    assert.ok(j.marginBytes > 0, '破水位时余量必须仍为正')
+    assert.equal(j.fail, true)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * 主包口径的构造面证明(规格风险条:"累加范围错一位就把 42KB 报成 800KB")。
+ * 同一份 3 MiB 字节,放分包 root 下必须绿、放主包必须红 —— 两支共用一份夹具,
+ * 差别只有那一个文件的落点,所以红了不可能是别的原因。不靠真仓状态。
+ */
+test('C5 分包目录不得计入主包(构造面正反同夹具对照)', () => {
+  const dir = mkFakeRepo('ab-c5-')
+  try {
+    const appJson = JSON.stringify({
+      pages: ['pages/index/index'],
+      subpackages: [{ root: 'pkg-ai', pages: ['a'] }],
+      subPackages: undefined,
+    })
+    // 2026-10-26 改:这里原来放 3 MiB 分包并断言 exit 0 —— AB3(单分包 2 MiB)上线后
+    // 那已经是**该红**的形态,继续拿它当"主包口径正例"就会把 AB3 当成误伤。
+    // 主包口径的正例只需"分包字节不进主包",与大小无关 ⇒ 用 1,000 B。
+    makeDist(dir, 'apps/miniapp-taro/dist', { 'pkg-ai/blob.js': 1000 }, appJson)
+    const sub = run(dir, ['--target', 'miniapp'])
+    assert.equal(sub.status, 0, `分包体积被算进主包了:\n${sub.stdout}`)
+    assert.match(sub.stdout, /主包 实测 [0-9]{2,3} B/)
+    assert.match(sub.stdout, /pkg-ai: 1,000 B/)
+    const j1 = JSON.parse(run(dir, ['--target', 'miniapp', '--json']).stdout)
+    assert.equal(j1.ab3Fail, false)
+
+    // 反向:把**同一份字节**挪进主包 ⇒ 主包读数必须恰好涨这么多(口径对称性),
+    // 不再拿"变红"当对照 —— AB3 上线后 3 MiB 分包本身就该红,拿它当正例会把 AB3 读成误伤。
+    mkdirSync(join(dir, 'apps/miniapp-taro/dist/pages/index'), { recursive: true })
+    const moved = readFileSync(join(dir, 'apps/miniapp-taro/dist/pkg-ai/blob.js'))
+    writeFileSync(join(dir, 'apps/miniapp-taro/dist/pages/index/blob.js'), moved)
+    const j2 = JSON.parse(run(dir, ['--target', 'miniapp', '--json']).stdout)
+    assert.equal(
+      j2.measuredBytes,
+      j1.measuredBytes + moved.length,
+      '同一份字节进主包后,主包读数必须逐字节地涨,否则口径有一半是假的',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * AB4 整档总量:微信 20 MiB 是**整档**上限,逐包都绿也可能整档传不上去。
+ * 夹具刻意把量摊到 12 个分包、每个 1.9 MiB —— 于是 AB1(主包)与 AB3(单分包)都必须仍判绿,
+ * 红的只有 AB4。若哪天有人把总量维并进主包那一维、或把上限写错,这条就会露馅。
+ */
+test('C10 整档总量超 20 MiB ⇒ 判红并点名总量维(主包与逐包仍必须绿)', () => {
+  const dir = mkFakeRepo('ab-c10-')
+  try {
+    const per = 1_900_000
+    const files = {}
+    const subs = []
+    for (let i = 0; i < 12; i += 1) {
+      files[`pkg-b${i}/blob.js`] = per
+      subs.push({ root: `pkg-b${i}`, pages: ['a'] })
+    }
+    makeDist(dir, 'apps/miniapp-taro/dist', files, JSON.stringify({ pages: ['pages/index/index'], subpackages: subs }))
+    const r = run(dir, ['--target', 'miniapp'])
+    assert.equal(r.status, 1, `总量超限没判红:\n${r.stdout}`)
+    assert.match(r.stdout, /AB4 整档总量/)
+    assert.match(r.stdout, /整档总量超 20 MiB/)
+    const j = JSON.parse(run(dir, ['--target', 'miniapp', '--json']).stdout)
+    assert.equal(j.ab4Fail, true)
+    assert.equal(j.ab3Fail, false, '每个分包都只有 1.9 MiB ⇒ AB3 必须仍绿,红的只能是总量维')
+    assert.equal(j.status, 'ok', '主包必须仍报 ok,否则测不出"只有总量红"这一型')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * AB3:单个分包超 2 MiB 必须判红 —— 主包可能完全正常(实测形态:pkg-user 3.77 MB 而主包 82%)。
+ * 这条同时是"主包绿 ⇒ 能上传"这个旧假设的反证。
+ */
+test('C9 单个分包超 2 MiB ⇒ 判红,且文案点名是哪一包、超多少', () => {
+  const dir = mkFakeRepo('ab-c9-')
+  try {
+    makeDist(
+      dir,
+      'apps/miniapp-taro/dist',
+      { 'pkg-user/blob.js': 2 * 1024 * 1024 + 4096 },
+      JSON.stringify({ pages: ['pages/index/index'], subpackages: [{ root: 'pkg-user', pages: ['a'] }] }),
+    )
+    const r = run(dir, ['--target', 'miniapp'])
+    assert.equal(r.status, 1, `分包超限没判红:\n${r.stdout}`)
+    assert.match(r.stdout, /AB3 单分包尺寸/)
+    assert.match(r.stdout, /pkg-user: 2,10[0-9],[0-9]{3} B/)
+    assert.match(r.stdout, /上传会被拒/)
+    const j = JSON.parse(run(dir, ['--target', 'miniapp', '--json']).stdout)
+    assert.equal(j.ab3Fail, true)
+    assert.equal(j.fail, true)
+    assert.equal(j.ab3.overs.length, 1)
+    assert.equal(j.ab3.overs[0].root, 'pkg-user')
+    assert.equal(j.status, 'ok', '主包本身必须仍报 ok —— 两桶是分开判的')
+
+    // 反向:同一份字节缩到限内(恰好等于上限)⇒ 必须转绿,否则这是恒红门
+    writeFileSync(join(dir, 'apps/miniapp-taro/dist/pkg-user/blob.js'), Buffer.alloc(2 * 1024 * 1024))
+    const okRun = run(dir, ['--target', 'miniapp'])
+    assert.equal(okRun.status, 0, `恰好等于上限不该判红:\n${okRun.stdout}`)
+    assert.match(okRun.stdout, /全部在限内/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C5b 嵌套分包 root(pages/member)同样不得计入主包', () => {
+  const dir = mkFakeRepo('ab-c5b-')
+  try {
+    makeDist(
+      dir,
+      'apps/miniapp-taro/dist',
+      { 'pages/member/blob.js': 2 * 1024 * 1024 },
+      JSON.stringify({ pages: ['pages/index/index'], subpackages: [{ root: 'pages/member' }] }),
+    )
+    const r = run(dir, ['--target', 'miniapp'])
+    assert.equal(r.status, 0, `嵌套分包被算进主包:\n${r.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C6 主包清单读不出 ⇒ exit 2 无法判定(既不冒红也不记绿)', () => {
+  const dir = mkFakeRepo('ab-c6-')
+  try {
+    makeDist(dir, 'apps/miniapp-taro/dist', { 'pages/index/a.js': 10 }, null) // 无 app.json
+    const r = run(dir, ['--target', 'miniapp'])
+    assert.equal(r.status, 2, r.stdout + r.stderr)
+    assert.match(r.stderr, /无法判定/)
+    assert.match(r.stderr, /app\.json/)
+    // 反向:JSON 坏了也是"无法判定",不是"判据红"
+    writeFileSync(join(dir, 'apps/miniapp-taro/dist/app.json'), '{oops')
+    assert.equal(run(dir, ['--target', 'miniapp']).status, 2)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C7 AB2 只拦"引用在而 .map 不在"的悬空态,成对在位必须绿', () => {
+  const dir = mkFakeRepo('ab-c7-')
+  try {
+    makeDist(
+      dir,
+      'apps/miniapp-taro/dist',
+      { 'pages/index/a.js': 1 },
+      JSON.stringify({ pages: [] }),
+    )
+    const abs = join(dir, 'apps/miniapp-taro/dist/pages/index/a.js')
+    writeFileSync(abs, 'x\n//# sourceMappingURL=a.js.map\n')
+    let r = run(dir, ['--target', 'miniapp'])
+    assert.equal(r.status, 1, `悬空 map 引用未被拦:\n${r.stdout}`)
+    assert.match(r.stdout, /AB2 悬空 map 引用: 1 处/)
+    assert.match(r.stdout, /pages\/index\/a\.js -> a\.js\.map/)
+    // 补上 .map ⇒ 同一份引用注释必须转为绿(证明拦的是"悬空",不是"有 sourcemap")
+    writeFileSync(`${abs}.map`, '{"version":3,"sources":[],"mappings":""}')
+    r = run(dir, ['--target', 'miniapp'])
+    assert.equal(r.status, 0, `成对存在仍判红 = 把"清 sourcemap"立成了判据主体:\n${r.stdout}`)
+    assert.match(r.stdout, /已随产物带出 1 处/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C8 新鲜度必须如实报:结论区含产物 mtime 与"可能是上一次构建的产物"', () => {
+  const dir = mkFakeRepo('ab-c8-')
+  try {
+    makeDist(
+      dir,
+      'apps/miniapp-taro/dist',
+      { 'pages/index/a.js': 10 },
+      JSON.stringify({ pages: [] }),
+    )
+    const r = run(dir, ['--target', 'miniapp'])
+    assert.match(r.stdout, /产物最新 mtime: \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/)
+    assert.match(r.stdout, /这可能是上一次构建的产物/)
+    const j = JSON.parse(run(dir, ['--target', 'miniapp', '--json']).stdout)
+    assert.ok(j.newestMtimeMs > 0 && typeof j.ageHours === 'number')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C9 未校准档只报数不判红,但必须把理由与 AB2 计数喊出来', () => {
+  const dir = mkFakeRepo('ab-c9-')
+  try {
+    makeDist(dir, 'apps/web/out', { 'index.html': 10, 'a.js': 10 })
+    writeFileSync(join(dir, 'apps/web/out/a.js'), 'x\n//# sourceMappingURL=gone.js.map\n')
+    const r = run(dir, ['--target', 'web-static'])
+    assert.equal(r.status, 0, `未校准档被判红:\n${r.stdout}`)
+    assert.match(r.stdout, /未校准依据/)
+    assert.match(r.stdout, /AB2 未启用判红/)
+    assert.match(r.stdout, /a\.js -> gone\.js\.map/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * C10 --self-test 经 CLI 真跑也必须 0 失败(不只 import 判据)。
+ * ⚠ 跑的是**真仓那一份**脚本:scratch-dir.mjs 的落点由"脚本自身位置往上两级"推导,
+ * 拷进 `<演练仓>/scripts/` 后那个推导会算到演练仓外面,mkdir 直接 EPERM(第一版就这样
+ * 红过 —— 红的是夹具落点、不是判据)。其余用例只走判定路径、不碰 mkScratch,
+ * 所以才放在演练仓里。
+ */
+test('C10 --self-test 经 CLI 真跑必须 0 失败', () => {
+  const r = spawnSync(process.execPath, [join(REPO, 'scripts', SCRIPT), '--self-test'], {
+    cwd: REPO,
+    encoding: 'utf8',
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`)
+  assert.match(r.stdout, /失败 0/)
+})
+
+test('C10b 紧急跳过开关只关"要不要判",不关"报不报"', () => {
+  const dir = mkFakeRepo('ab-c10b-')
+  try {
+    makeDist(dir, 'apps/miniapp-taro/dist', { 'pages/index/blob.js': 3 * 1024 * 1024 })
+    assert.equal(run(dir, ['--target', 'miniapp']).status, 1, '不跳过时必须判红,否则下面那半无意义')
+    const skipped = run(dir, ['--target', 'miniapp'], { [SKIP_ENV]: '1' })
+    assert.equal(skipped.status, 0)
+    assert.match(skipped.stdout, /跳过产物预算门/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * C11 接线条件不变量(见文件头)。未登记 ⇒ 打印"待接线"、不判失败。
+ */
+test('C11 接线条件不变量:登记了就 mode=warn + skipEnv + 编号唯一 + CI 调用点', () => {
+  const runnerPath = join(REPO, 'scripts', 'guardian-runner.mjs')
+  const pkgPath = join(REPO, 'package.json')
+  assert.ok(existsSync(runnerPath), '找不到 guardian-runner.mjs,本断言失去对象')
+  const runner = readFileSync(runnerPath, 'utf8')
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
+
+  const marker = `script: '${SCRIPT}'`
+  const idx = runner.indexOf(marker)
+  if (idx === -1) {
+    const inPkg = Object.values(pkg.scripts ?? {}).some((v) => String(v).includes(SCRIPT))
+    if (!inPkg) {
+      console.log(`ℹ️ 待接线:${SCRIPT} 尚未登记进提交链 / package.json(由主会话统一接线,不判失败)`)
+      return
+    }
+  }
+
+  // 已登记 ⇒ 四条都必须成立
+  const blocks = []
+  let at = -1
+  while ((at = runner.indexOf(marker, at + 1)) !== -1) {
+    const start = runner.lastIndexOf('\n  {', at)
+    const end = runner.indexOf('\n  }', at)
+    assert.ok(start !== -1 && end !== -1, '注册块边界解析失败(格式变了,请同步本测试)')
+    blocks.push(runner.slice(start, end))
+  }
+  assert.equal(blocks.length, 1, `本门在 runner 中必须恰好出现一次,实得 ${blocks.length}`)
+  const block = blocks[0]
+  const idm = block.match(/id:\s*'([^']+)'/)
+  assert.ok(idm, '注册块缺 id')
+  const idCount =
+    runner.match(new RegExp(`id: '${idm[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`, 'g')) ?? []
+  assert.equal(
+    idCount.length,
+    1,
+    `编号 ${idm[1]} 在 runner 中被两道门共用(撞号会串 skipEnv 与失败归属)`,
+  )
+  assert.match(
+    block,
+    /mode:\s*'warn'/,
+    '本门判磁盘产物 ⇒ 提交链必须 warn。blocking 的结果是每一次提交都被拦,' +
+      '而恒红门唯一结局是逼人 --no-verify,连带废掉全部守门(AGENTS §12e)。',
+  )
+  assert.ok(
+    block.includes(`skipEnv: '${SKIP_ENV}'`),
+    `注册块必须声明 skipEnv: '${SKIP_ENV}'(脚本本身读的是这个名)`,
+  )
+
+  const ciDirs = [join(REPO, '.github', 'workflows')]
+  const cited = ciDirs.some((d) => {
+    if (!existsSync(d)) return false
+    return readdirSync(d)
+      .filter((f) => /\.ya?ml$/.test(f))
+      .some((f) => readFileSync(join(d, f), 'utf8').includes(SCRIPT))
+  })
+  assert.ok(
+    cited,
+    `${SCRIPT} 已接提交链却没有 CI 调用点。本门唯一能真判红的地方是 CI(那里产物必然存在);` +
+      '只接提交链 = 退化成一台永远不会真红的 warn。',
+  )
+})
+
+// ── C12:提交链里的「可执行性」(G-176)────────────────────────────────
+// 本门刻意「缺/未知 --target 即 exit 2、不回落默认档」,而 runner 曾以 `args: []` 登记它,
+// 且提交链会给每道门自动下发 --staged ⇒ 它在链里 100% 跑不起来。exit 2 被 warn 档计成
+// 「警告」,看起来像检测结果,实际含义是"这道门从没运行过" —— 那比恒红更坏(恒红至少逼人去看)。
+test('C12 链式调用形态必须可执行:--target + --artifact(夹具)+ --staged 必须给出真结论 0/1,不得 exit 2', () => {
+  // 这条臂原先把**真仓 miniapp 产物路径**直接喂进去 ⇒ 它赌的其实是"这台机器此刻构建过没有"。
+  // 没构建时门如实报「主包口径要求 …/app.json,它不在」并 exit 2 —— 那是 §0.3 的正确行为,
+  // 与本门**旗标能否组合**毫无关系(2026-10-16 夜间首跑量出的 146 条里就混着这一型假红)。
+  // 要判的事只有一件:链式旗标不互相顶掉。所以输入由夹具给,结论必须是 0/1;
+  // 反向那一半(输入确实取不到时必须是"未判定 + 点名缺哪一件")另立一条臂,两者不混。
+  const dir = mkScratch('g-artifact-budget-c12')
+  try {
+    writeFileSync(join(dir, 'app.json'), '{"pages":["index/index"],"subpackages":[]}\n', 'utf8')
+    writeFileSync(join(dir, 'index.js'), 'console.log(1)\n', 'utf8')
+    const r = spawnSync(
+      process.execPath,
+      [join(REPO, 'scripts', SCRIPT), '--target', 'miniapp', '--artifact', dir, '--staged'],
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 240000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    assert.notEqual(
+      r.status,
+      2,
+      `夹具齐了却仍"无法判定" ⇒ 才是真的旗标/口径问题(本门在提交链里等于没跑)\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.ok(
+      r.status === 0 || r.status === 1,
+      `应给出真结论(0 或 1),实得 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C12d 输入取不到时三档必须分得开:不冒红、不记绿,且点名缺的是哪一件', () => {
+  const dir = mkScratch('g-artifact-budget-c12d')
+  try {
+    // 夹具只给一个空目录(没有 app.json,也可能整目录已被 mkScratch 的退出回收)。
+    // 本门这两档都属**机器态**:按 §12e 不得冒红(逼所有人跳门),也不得静默记绿 ——
+    // 要锁的性质是"未判定必须报名",而不是具体第几号退出码(第一版把它写成"必须 exit 2",
+    // 实测门对"产物目录不在"走的是 exit 0 + 未判定 + 下一步,那条臂判错了档 ⇒ 假红)。
+    const r = spawnSync(
+      process.execPath,
+      [join(REPO, 'scripts', SCRIPT), '--target', 'miniapp', '--artifact', dir, '--staged'],
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 240000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.notEqual(r.status, 1, `输入不在却冒红 ⇒ 恒红门(§12e 唯一结局是逼人 --no-verify)\n${out.slice(-600)}`)
+    assert.match(out, /未判定/, `必须明写"未判定",不许把没判成写成判过(§0.3):\n${out.slice(-600)}`)
+    assert.match(
+      out,
+      /app\.json|产物目录/,
+      `未判定必须点名缺的是哪一件输入,否则就是"没跑"的遮罩:\n${out.slice(-600)}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C12b runner 的 110 注册块必须带 --target(args 为空就是本门的死因)', () => {
+  const runner = readFileSync(join(REPO, 'scripts', 'guardian-runner.mjs'), 'utf8')
+  const at = runner.indexOf(`script: '${SCRIPT}'`)
+  assert.ok(at > 0, 'runner 里没有本门注册块,本断言失去对象')
+  const block = runner.slice(runner.lastIndexOf('\n  {', at), runner.indexOf('\n  }', at))
+  assert.match(
+    block,
+    /args: \[[^\]]*'--target'/,
+    "args 必须含 --target:空 args 让本门在链里恒 exit 2(它不回落默认档是对的,别让它没参数跑)",
+  )
+})
+
+test('C12c 反向对照:未知参数仍必须 exit 2(证明 C12 的绿不是"什么都收"换来的)', () => {
+  const r = spawnSync(
+    process.execPath,
+    [join(REPO, 'scripts', SCRIPT), '--totally-unknown-flag'],
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
+  assert.equal(r.status, 2, `未知参数应仍判"无法判定",实得 ${r.status}`)
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

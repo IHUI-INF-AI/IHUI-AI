@@ -1,0 +1,237 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 可插拔 HTTP 传输层 — 抽象 native fetch,支持非浏览器环境(微信小程序 Taro.request 等)。
+ *
+ * 设计:
+ * - TransportResponse 接口兼容 fetch Response 的子集(ok / status / headers.get / text / json)
+ * - 默认 transport 包装 native fetch(web/desktop/extension/mobile-rn 直接用)
+ * - 小程序环境通过 setTransport 注入 Taro.request 适配器
+ * - streamChat / SSE 端点仍用 native fetch(需要 ReadableStream,小程序保持本地实现)
+ */
+
+// D147(2026-09-28):traceparent 的编解码住在 @ihui/types(跨端契约包,零平台依赖),
+// 不在这里重复实现格式 —— 两处算同一件事必漂移,本仓记过最多次的那一型。
+// api-client 的 dependencies 是空的,而 @ihui/types 已是它的运行时依赖
+// (见 client.ts 的 GOAL_WIRE_STATUSES),所以这里取用不需要新增 workspace 依赖。
+import { readTraceIdFromResponse, withTraceparentHeader } from '@ihui/types'
+
+/** 传输响应 — 兼容 fetch Response 子集 */
+export interface TransportResponse {
+  ok: boolean
+  status: number
+  headers: { get(name: string): string | null }
+  text(): Promise<string>
+  json(): Promise<unknown>
+  /** blob() 仅 web/desktop/extension 实现,小程序环境用不到(downloadFile 走 native) */
+  blob?(): Promise<Blob>
+}
+
+/** 传输初始化参数 — RequestInit 的跨平台子集 */
+export interface TransportInit {
+  method?: string
+  body?:
+    | ReadableStream<Uint8Array>
+    | string
+    | Blob
+    | FormData
+    | URLSearchParams
+    | ArrayBuffer
+    | DataView<ArrayBuffer>
+    | null
+  headers?: Record<string, string>
+  signal?: AbortSignal
+  /**
+   * fetch credentials 模式。
+   * - web/desktop/extension/mobile-rn:传 'include' 让跨端口 fetch 带 cookie
+   * - 小程序 Taro.request:通常不需要(同域或不跨域),传 'omit' 或不传
+   * 默认 'include'(适配 8801 web -> 8802 api 跨端口场景)。
+   *
+   * ⚠️ 跨端口能不能真带上 cookie,判据是**同站(same-site)而不是同端口**。
+   * 2026-10-14 用真 Chromium 151(与 Tauri/WebView2 同引擎族)以窗口 origin
+   * `http://localhost:8801` 打双栈 echo 服务器、读服务器实收的请求头实测,两型分开:
+   *   · `localhost:8801 → localhost:8802`(dev 的 SSE 腿,见 api-base-url.ts 的
+   *     LOCAL_STREAM_BASE)——同站跨端口,SameSite=Lax 的 auth_token **确实发出**
+   *     (实收 `Cookie=auth_token=…`)。旧注释"localhost 跨端口 sameSite=lax 允许"
+   *     只对这一型成立。
+   *   · `localhost:8801 → 127.0.0.1:8802 / 127.0.0.1:8803`(**桌面端 dev 的 REST 与
+   *     ai-service 两条腿**)——`localhost` 与 `127.0.0.1` 是两个不同的 registrable
+   *     host,浏览器按**跨站**处理,SameSite=Lax 的 auth_token **一个字节都不发**
+   *     (实收 `Cookie=(NONE)`)。
+   * 结论:桌面端 dev 的鉴权**只依赖 `Authorization: Bearer`**(client.ts 的
+   *   fetchApi/fetchAiServiceJson 显式注入),`apps/ai-service/app/core/jwt_auth.py`
+   *   里"无 Bearer 则读 HttpOnly cookie auth_token"的兜底分支在跨站这条路上**不可达**;
+   *   该路的 401 与 csrf 豁免均与此分支无关。此处 `credentials:'include'` 对跨站腿
+   *   是惰性无害的(不带 cookie,也不报错),不要据此推断"cookie 在主路径上"。
+   *   另:127.0.0.1 这个地址本身是**承重**的、不是随手写的 —— 见 api-base-url.ts 的
+   *   resolveAiServiceBaseUrl 注释(8802/8803 只监听 IPv4,而 localhost 优先解析 ::1)。
+   *
+   * 2026-07-30:用字面量联合替代 DOM `RequestCredentials` 类型,因 packages/api-client
+   *   是跨端共享包(被 apps/api 等无 DOM lib 的 Node 端消费),DOM 类型不可见。
+   *   apps/web 端 TS 仍可通过字符串字面量赋值给 native fetch 的 RequestCredentials,
+   *   运行时行为完全一致。
+   */
+  credentials?: 'include' | 'omit' | 'same-origin'
+  /**
+   * 这次请求最多等多久(毫秒)。**超时是传输介质的职责,不是调用方的职责**:
+   * - web/desktop/extension/mobile-rn:由 `startTimeoutWatchdog` 起的 `signal` 中止(见下),
+   *   本字段同时透传下来,便于适配器自行决定怎么掐;
+   * - 小程序运行时**没有 `AbortController` 也没有 `fetch`**,`signal` 只能为 null,
+   *   那一端的超时必须由适配器原生实现(`Taro.request` 自带 `timeout`)。
+   * 不设默认值:缺省 30s 的口径住在 client.ts 的那一处,不在这里重复一份(§0.6)。
+   */
+  timeoutMs?: number
+}
+
+/** 传输函数类型 — 替代 native fetch */
+export type Transport = (url: string, init: TransportInit) => Promise<TransportResponse>
+
+/** 默认 transport:包装 native fetch(web/desktop/extension/mobile-rn) */
+const defaultTransport: Transport = async (url, init) => {
+  // 2026-07-28 加固:credentials: 'include' 保的是**同站跨端口**那条腿的 cookie
+  // (如 dev SSE `localhost:8801 -> localhost:8802`),那条路上 SameSite=Lax 的 auth_token
+  // 会随请求发出,api 端 csrf 校验才走得通。
+  // 2026-10-14 订正:原注释"cookie token 是主路径"**不成立** —— 桌面端 dev 走的是
+  // `localhost:8801 -> 127.0.0.1:8802/8803`,跨站 ⇒ Lax cookie 不发(见上面 TransportInit
+  // 的 credentials 说明)。那条路上主路径只有 Authorization: Bearer;此处保留 'include'
+  // 对跨站腿无害但不构成鉴权依据。
+  // 发给 fetch 的入参**逐项显式列举**,不用 `...rest` 摊平:TransportInit 是跨端契约,
+  // 里面有些键(如 timeoutMs)是"给适配器用的约定",不是 RequestInit 的成员 —— 摊平会让
+  // 以后新增的跨端字段被悄悄塞进 fetch,看着像"被 honored",实际被静默忽略。
+  // 本端的超时由 client.ts 的看门狗经 signal 兑现(有 AbortController 的运行时它一定给得出)。
+  const response = await fetch(url, {
+    method: init.method,
+    headers: init.headers,
+    signal: init.signal,
+    body: init.body as RequestInit['body'] | undefined,
+    credentials: init.credentials ?? 'include',
+  })
+  return {
+    ok: response.ok,
+    status: response.status,
+    headers: response.headers,
+    text: () => response.text(),
+    json: () => response.json(),
+    blob: () => response.blob(),
+  }
+}
+
+// D147:默认 transport 同样过装配 —— 否则 web/desktop/RN 走的是没包装的那一份,
+// "端侧生成"只对小程序适配器成立,而那正是本票要串的第一段。
+let transport: Transport = withTraceparent(defaultTransport)
+
+/**
+ * 注入自定义 transport(如 Taro.request 适配器)。
+ *
+ * D147(2026-09-28):注入点即 traceparent 的**唯一出站装配点** —— 端生成的
+ * trace id 在这里进头,所以任何一端(含小程序适配器)都不可能"忘了带"。
+ * 判据是幂等的:调用方已带合法 traceparent ⇒ 原样保留(延续同一条 trace),
+ * 缺失或非法才新起一条(`withTraceparentHeader` 内已处理,不在此重复形状判断)。
+ */
+export function setTransport(t: Transport): void {
+  transport = withTraceparent(t)
+}
+
+/** 把 traceparent 装配到 init.headers 上(不原地改调用方对象)。 */
+function withTraceparent(t: Transport): Transport {
+  return async (url, init) => {
+    const headers = applyTraceparentToHeaders(init.headers)
+    const response = await t(url, { ...init, headers })
+    recordTraceIdFromResponse(response.headers)
+    return response
+  }
+}
+
+/**
+ * D147(2026-09-29 立):**出站 traceparent 的唯一装配出口**,与 `withTraceparent` 同处。
+ *
+ * 为什么必须导出而不是让调用方自己 `headers.traceparent = createTraceparent()`:
+ * `streamChat()` 这条腿走的是 native fetch(端内注释自述"SSE 端点仍用 native fetch"),
+ * 结构上绕过了 transport 装配点 —— 而它恰恰是"一轮对话"的主路径。绕过点若各自实现一份
+ * 判据,就会出现"普通请求带编号、流式请求不带"这种两边自洽的分裂(本仓最高频失效型)。
+ * 现两腿都调这两个出口,判据只有一份。
+ */
+export function applyTraceparentToHeaders(
+  headers: Record<string, string> | undefined,
+): Record<string, string> {
+  return withTraceparentHeader(headers)
+}
+
+/** 记下来自响应的排查编号(拿不到就置 null,不回退成请求侧的值冒充"服务端确认过")。 */
+export function recordTraceIdFromResponse(responseHeaders: TransportResponse['headers']): void {
+  lastTraceId = readTraceIdFromResponse(responseHeaders)
+}
+
+let lastTraceId: string | null = null
+
+/**
+ * 最近一次服务端回带的 trace id(排查用)。
+ * 当前无界面消费者 —— 这是**如实登记的缺口**,不是"已接完":见交付报告的未做清单。
+ */
+export function getLastTraceId(): string | null {
+  return lastTraceId
+}
+
+/** 读取当前 transport(测试/诊断用) */
+export function getTransport(): Transport {
+  return transport
+}
+
+/** 一次"到点就中止"的看门狗。 */
+export interface TimeoutWatchdog {
+  /** 能中止时给 signal;本运行时没有 AbortController(微信小程序)时给 null。 */
+  signal: AbortSignal | null
+  /** 请求结束时清定时器(必须放在 finally,否则每次请求漏一个 timer)。 */
+  clear: () => void
+  /** 到点有没有真的掐过 —— 用来把"超时"和"用户主动取消"分开报,不撒谎。 */
+  fired: () => boolean
+}
+
+/**
+ * 起一个超时看门狗。**这是全仓唯一一处**决定"这次请求能不能被客户端主动中止"。
+ *
+ * 立因(2026-10-23 微信开发者工具 Stable 2.02.2608080 实测):小程序运行时既没有 `fetch`
+ * 也没有 `AbortController`,而 client.ts 的四条请求腿都在进 transport **之前**无条件
+ * `new AbortController()` ⇒ 端内每一次 API 调用当场抛 `AbortController is not defined`,
+ * 请求根本没发出去(点登录页「微信登录」弹的就是这一句)。传输适配器早就注入了
+ * (`setTransport(createTaroTransport())`),坏的是它上游那一步假设了 Web API 存在。
+ *
+ * 拿不到中止能力时**不假装超时还在**:把 `timeoutMs` 透给 transport,由那一端用自己的机制掐
+ * (`Taro.request` 的 `timeout`),所以"请求不会永久挂起"这一性质在两端都成立,只是实现不同。
+ */
+export function startTimeoutWatchdog(ms: number): TimeoutWatchdog {
+  if (typeof AbortController === 'undefined') {
+    return { signal: null, clear: () => {}, fired: () => false }
+  }
+  const controller = new AbortController()
+  let didFire = false
+  const id = setTimeout(() => {
+    didFire = true
+    controller.abort()
+  }, ms)
+  return {
+    signal: controller.signal,
+    clear: () => clearTimeout(id),
+    fired: () => didFire,
+  }
+}
+
+/** 本运行时能不能主动中止一次请求(判据单源,端内与测试都问它,不各自 `typeof` 一遍)。 */
+export function runtimeSupportsAbort(): boolean {
+  return typeof AbortController !== 'undefined'
+}
+
+/**
+ * 有些请求腿**没有别的超时手段**(例如要读二进制的 fetchRaw —— transport 的 `timeoutMs`
+ * 只对支持它的介质成立)。这类腿在不能中止的运行时上必须当场喊响,不能静默把"30s 超时"
+ * 这一保护悄悄丢掉 —— 丢保护的请求挂起来是永久挂起,比报错贵得多。
+ */
+export function requireAbortSignal(signal: AbortSignal | null, leg: string): AbortSignal {
+  if (!signal) {
+    throw new Error(`${leg} 需要可中止的请求(本运行时没有 AbortController),改走该端原生下载通道`)
+  }
+  return signal
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

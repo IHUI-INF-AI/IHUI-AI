@@ -1,0 +1,293 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""OpenCompass 司南排行榜抓取服务(2026-07-22 新增,2026-07-22 修复 Windows EventLoop)。
+
+用途:OpenCompass(rank.opencompass.org.cn)是 Vue SPA,数据完全 JS 渲染,
+后端 API 受 nginx WAF 保护返回 405。本服务用 Playwright headless Chromium
+渲染页面后提取表格数据。
+
+设计:
+- 复用 screenshot_service._get_browser_sync 单例(避免重复启动 Chromium)
+- sync API + run_in_executor(根治 Windows SelectorEventLoop NotImplementedError)
+- goto + waitForSelector('table') + page.evaluate 提取
+- 超时 30s,失败抛异常由调用方降级
+- 返回结构化 entries,与 api 端 LeaderboardEntry 一致
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from typing import Any
+
+from .screenshot_service import _get_browser_sync, sync_executor
+
+logger = logging.getLogger(__name__)
+
+OPENCOMPASS_URL = "https://rank.opencompass.org.cn/leaderboard/llm"
+
+# page.evaluate 提取所有表格数据的 JS 代码
+# OpenCompass 用 ant-design Vue Table,thead 和 tbody 在**独立的 table 元素**:
+# - <div class="ant-table-header"><table><thead><tr><th>...</th></tr></thead></table></div>
+# - <div class="ant-table-body"><table><tbody><tr><td>...</td></tr></tbody></table></div>
+# 所以需要按顺序配对 header-table 和 body-table,合并出 { headers, rows }
+# 返回 [{ tableIdx, headers, rows }]
+_EXTRACT_JS = """
+() => {
+  const tables = Array.from(document.querySelectorAll('table'));
+  const headerTables = tables.filter(t => t.querySelector('thead'));
+  const bodyTables = tables.filter(t => t.querySelector('tbody'));
+  const count = Math.max(headerTables.length, bodyTables.length);
+  const result = [];
+  for (let i = 0; i < count; i++) {
+    const ht = headerTables[i];
+    const bt = bodyTables[i];
+    const headers = ht
+      ? Array.from(ht.querySelectorAll('thead th'))
+          .map(th => (th.innerText || th.textContent || '').trim())
+      : [];
+    const rows = bt
+      ? Array.from(bt.querySelectorAll('tbody tr')).map(tr =>
+          Array.from(tr.querySelectorAll('td'))
+            .map(td => (td.innerText || td.textContent || '').trim())
+        )
+      : [];
+    result.push({ tableIdx: i, headers, rows });
+  }
+  return result;
+}
+"""
+
+
+def _find_col(headers: list[str], keywords: list[str]) -> int | None:
+    """启发式查找列索引(大小写不敏感,包含任一关键词即命中)。"""
+    for idx, h in enumerate(headers):
+        if not h:
+            continue
+        hl = h.lower()
+        for kw in keywords:
+            if kw.lower() in hl:
+                return idx
+    return None
+
+
+def _try_float(s: Any) -> float | None:
+    """尝试把字符串转为 float(支持 '95.32' / '95.32%' / '95.32 分')。"""
+    if s is None:
+        return None
+    try:
+        cleaned = str(s).replace("%", "").replace("分", "").strip()
+        return float(cleaned)
+    except Exception as e:
+        logger.warning("opencompass_scrape._try_float 数值转换失败: %s", e, exc_info=True)
+        return None
+
+
+def _scrape_opencompass_sync(timeout_ms: int = 30000) -> dict[str, Any]:
+    """同步抓取 OpenCompass(在线程池中运行,不受 EventLoop policy 限制)。
+
+    返回:
+        {
+            "entries": List[dict],  # LeaderboardEntry-like
+            "captured_at": int(time.time() * 1000),
+            "url": OPENCOMPASS_URL,
+            "headers": list[str],
+        }
+
+    失败抛异常,由调用方 try/except 返回错误响应。
+    """
+    browser = _get_browser_sync()
+    context = browser.new_context(
+        viewport={"width": 1280, "height": 900},
+        locale="zh-CN",
+        timezone_id="Asia/Shanghai",
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+    )
+    page = context.new_page()
+    try:
+        page.goto(OPENCOMPASS_URL, wait_until="domcontentloaded", timeout=timeout_ms)
+
+        # 等待表格出现(JS 渲染完成的核心标志)
+        try:
+            page.wait_for_selector("table", state="attached", timeout=timeout_ms)
+        except Exception as e:
+            # 退化等待 networkidle
+            logger.warning("等待 table selector 超时,退化 networkidle: %s", e)
+            try:
+                page.wait_for_load_state("networkidle", timeout=10_000)
+            except Exception as e2:
+                logger.warning("networkidle 等待也失败: %s", e2)
+
+        # 等待 ant-design Vue Table 渲染数据行(tbody tr 出现)
+        # OpenCompass 用 ant-design Vue,数据加载后 tbody 才有 tr
+        try:
+            page.wait_for_selector("table tbody tr", state="attached", timeout=20_000)
+        except Exception as e:
+            # 数据行等待超时,继续执行(可能是 loading 状态,稍后再试)
+            logger.warning("等待 table tbody tr 超时,继续执行: %s", e)
+
+        # 额外等待 2s 让数据填充完整(Vue 异步渲染)
+        page.wait_for_timeout(2000)
+
+        tables = page.evaluate(_EXTRACT_JS)
+        if not tables:
+            raise RuntimeError("OpenCompass 页面无表格(JS 渲染未完成或页面结构变化)")
+
+        # 找第一个有数据的表格(ant-design Vue thead/tbody 分离,第一个通常是能力榜)
+        first_table = next(
+            (t for t in tables if t.get("rows")),
+            tables[0] if tables else {"headers": [], "rows": []},
+        )
+        headers = first_table.get("headers", [])
+        rows = first_table.get("rows", [])
+
+        # 启发式定位列索引
+        # OpenCompass 列结构(2026-07-22 实测):
+        # 0: 序号(空) / 1: 模型(含 "模型名\n开源闭源 · 机构") / 2: 发布日期 / 3: 参数量
+        # 4: 均分(总分) / 5-10: 子能力(语言/知识/推理/数学/代码/智能体)
+        name_idx = _find_col(headers, ["模型", "名称", "model", "name"])
+        date_idx = _find_col(headers, ["发布日期", "发布", "日期", "date"])
+        params_idx = _find_col(headers, ["参数量", "参数", "params"])
+        score_idx = _find_col(headers, ["均分", "总分", "综合", "平均", "score", "total", "overall"])
+
+        # 兜底:若未命中,用常见默认值
+        if name_idx is None:
+            name_idx = 1 if len(headers) >= 2 else 0
+        if score_idx is None and len(headers) >= 5:
+            # 找第一个数值列(跳过 name/date/params)
+            skip = {name_idx, date_idx, params_idx}
+            for idx in range(len(headers)):
+                if idx in skip or not headers[idx]:
+                    continue
+                sample_count = 0
+                for r in rows[:3]:
+                    if idx < len(r) and _try_float(r[idx]) is not None:
+                        sample_count += 1
+                if sample_count >= 2:
+                    score_idx = idx
+                    break
+
+        # 非能力分数列(从 scores map 中排除)
+        meta_cols = {name_idx, date_idx, params_idx, score_idx}
+
+        entries: list[dict[str, Any]] = []
+        for i, row in enumerate(rows):
+            if not row or len(row) < 2:
+                continue
+            raw_name = (row[name_idx] if name_idx < len(row) else "").strip()
+            if not raw_name or raw_name == "-":
+                continue
+
+            # ant-design Vue 把 "模型名\n开源闭源 · 机构" 合并到一个 td
+            # 用换行符拆分:第一行是模型名,第二行是 "开源/闭源 · 机构"
+            name_lines = [ln.strip() for ln in raw_name.split("\n") if ln.strip()]
+            model_name = name_lines[0] if name_lines else raw_name
+            provider: str | None = None
+            if len(name_lines) > 1:
+                # 第二行格式:"闭源 · OpenAI" / "开源 · DeepSeek"
+                org_line = name_lines[1]
+                if "·" in org_line:
+                    provider = org_line.split("·", 1)[1].strip() or None
+                else:
+                    provider = org_line or None
+
+            # 分数
+            score = (
+                row[score_idx] if score_idx is not None and score_idx < len(row) else ""
+            ).strip() or None
+
+            # 子能力分数(只保留数值列,排除 name/date/params/score)
+            # 关键:值必须转为 float,api 端 typeof v !== 'number' 检查才能通过(多分类拆分依赖此)
+            scores_map: dict[str, Any] = {}
+            for col_idx, h in enumerate(headers):
+                if col_idx in meta_cols or not h:
+                    continue
+                if col_idx < len(row):
+                    val = row[col_idx].strip()
+                    if val and val != "-":
+                        num_val = _try_float(val)
+                        if num_val is not None:
+                            scores_map[h] = num_val
+                        else:
+                            scores_map[h] = val
+
+            # 发布日期作为 publishedAt(可选)
+            published_at = None
+            if date_idx is not None and date_idx < len(row):
+                date_str = row[date_idx].strip()
+                if date_str and date_str != "-":
+                    try:
+                        # OpenCompass 格式:2026/3/5
+                        from datetime import datetime
+                        published_at = datetime.strptime(date_str, "%Y/%m/%d").isoformat()
+                    except Exception as e:
+                        logger.debug("opencompass_scrape._scrape 日期解析失败(date_str=%s): %s", date_str, e, exc_info=True)
+
+            entries.append({
+                "leaderboard": "opencompass",
+                "category": "overall",
+                "rank": i + 1,
+                "modelName": model_name[:200],
+                "provider": provider,
+                "score": score,
+                "scores": scores_map or None,
+                "publishedAt": published_at,
+            })
+
+        # 若分数是数值,按分数降序重排 rank
+        if any(_try_float(entry.get("score")) is not None for entry in entries):
+            entries.sort(
+                key=lambda entry: _try_float(entry.get("score")) or 0.0,
+                reverse=True,
+            )
+            for idx, entry in enumerate(entries):
+                entry["rank"] = idx + 1
+
+        logger.info(
+            "[opencompass_scrape] 提取 %d 条记录(列:%s)",
+            len(entries),
+            headers,
+        )
+        return {
+            "entries": entries[:50],
+            "captured_at": int(time.time() * 1000),
+            "url": OPENCOMPASS_URL,
+            "headers": headers,
+        }
+    finally:
+        page.close()
+        context.close()
+
+
+async def scrape_opencompass(timeout_ms: int = 30000) -> dict[str, Any]:
+    """异步抓取 OpenCompass 司南排行榜(在线程池中运行同步实现)。
+
+    使用 run_in_executor 包装 sync 实现,根治 Windows SelectorEventLoop
+    下 async_playwright 报 NotImplementedError 的问题。
+
+    返回:
+        {
+            "entries": List[dict],  # LeaderboardEntry-like
+            "captured_at": int(time.time() * 1000),
+            "url": OPENCOMPASS_URL,
+            "headers": list[str],
+        }
+
+    失败抛异常,由调用方 try/except 返回错误响应。
+    """
+    loop = asyncio.get_running_loop()
+    # 2026-09-05:改用 screenshot_service 的专属单线程 executor——browser 单例有
+    # greenlet 线程亲和性,默认多线程池跨线程触碰会报 "Cannot switch to a different thread"
+    return await loop.run_in_executor(
+        sync_executor,
+        _scrape_opencompass_sync,
+        timeout_ms,
+    )
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

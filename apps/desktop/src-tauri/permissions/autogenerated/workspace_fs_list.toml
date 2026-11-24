@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-workspace-fs-list"
+description = "Enables the workspace_fs_list command without any pre-configured scope."
+commands.allow = ["workspace_fs_list"]
+
+[[permission]]
+identifier = "deny-workspace-fs-list"
+description = "Denies the workspace_fs_list command without any pre-configured scope."
+commands.deny = ["workspace_fs_list"]

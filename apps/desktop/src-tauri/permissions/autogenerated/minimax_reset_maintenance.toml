@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-minimax-reset-maintenance"
+description = "Enables the minimax_reset_maintenance command without any pre-configured scope."
+commands.allow = ["minimax_reset_maintenance"]
+
+[[permission]]
+identifier = "deny-minimax-reset-maintenance"
+description = "Denies the minimax_reset_maintenance command without any pre-configured scope."
+commands.deny = ["minimax_reset_maintenance"]

@@ -1,0 +1,225 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { Metadata } from 'next'
+import {
+  Lightbulb,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
+  Music,
+  Archive,
+  Code,
+  AlertTriangle,
+  CheckCircle,
+  Circle,
+  XCircle,
+  Gift,
+  Coins,
+  Star,
+  Brain,
+} from 'lucide-react'
+import { ManualNav, chapters } from '../_manual-nav'
+import { ManualFigure } from '@/components/docs/manual-figure'
+
+const SITE_URL = 'https://aizhs.top'
+
+export const metadata: Metadata = {
+  title: '第 2 章 AI 对话 — 智汇 AI 使用说明手册',
+  description:
+    '智汇 AI 使用说明手册第 2 章:新建对话、发送消息、上传文件、切换模型、流式输出、历史对话、分享对话链接操作指南。',
+  alternates: {
+    canonical: '/docs/manual/ai-chat',
+    languages: {
+      'x-default': '/docs/manual/ai-chat',
+    },
+  },
+  openGraph: {
+    title: '第 2 章 AI 对话 — 智汇 AI',
+    description: '如何与 AI 对话、上传文件、切换模型、查看历史。',
+    url: `${SITE_URL}/docs/manual/ai-chat`,
+    type: 'article',
+    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 对话' }],
+  },
+}
+
+export default function ManualAiChatPage() {
+  return (
+    <main className="px-4 mx-auto w-full max-w-3xl py-4">
+      {/* Hero */}
+      <header className="space-y-3">
+        <div className="font-[weight:inherit] text-label font-mono text-muted-foreground">第 02 章 · 使用说明手册</div>
+        <h1 className="text-display min-[768px]:text-3xl font-bold tracking-tight">AI 对话</h1>
+        <p className="font-[weight:inherit] text-body text-muted-foreground min-[768px]:text-base">
+          掌握 AI 对话的全部常用操作:发消息、上传文件、切模型、看历史、分享对话。
+        </p>
+      </header>
+
+      {/* 新建对话 */}
+      <section id="new-chat" className="mt-10 space-y-3">
+        <h2 className="text-heading font-bold">2.1 新建对话</h2>
+        <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-2 text-body text-muted-foreground">
+          <ul className="ml-4 list-disc space-y-1">
+            <li>方式一:左侧栏顶部"新建对话"按钮</li>
+            <li>方式二:快捷键 <kbd className="font-[weight:inherit] rounded border bg-muted px-1.5 py-0.5 text-label">Ctrl + K</kbd>(Mac 用 <kbd className="font-[weight:inherit] rounded border bg-muted px-1.5 py-0.5 text-label">Cmd + K</kbd>)</li>
+            <li>方式三:历史对话列表底部"+ 新对话"</li>
+          </ul>
+          <p className="font-[weight:inherit] rounded bg-muted/60 p-3 text-label">
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            每个对话独立保存,可同时开多个对话,互不影响。建议每个话题一个对话,AI 回答更准。
+          </p>
+        </div>
+        <ManualFigure
+          src="/images/docs/manual/ai-chat-workbench.png"
+          alt="智汇 AI 的 AI 对话工作台整屏实拍:最左是主导航(新建任务、插件市场、自动化、产物中心、任务列表、首页、热门、生态市场、AI 智能体、AI 教育、内容、交易、个人),其右一列顶部为「会话」与「新建会话」及关键词搜索框,主体标题「AI 对话工作台」下写明「在下方直接输入即可开新会话,或从左侧选择会话继续任务」,再往下是计划 / 构建 / 添加为上下文引用 / 调用命令与技能(/)四张快捷动作卡、总结任务 / 翻译为英文 / 解释概念 / 生成代码 / 润色文本五枚快捷按钮,底部输入框占位文案为「详细描述需求,输入 / 调用技能、插件、MCP(如 /goal /loop /plan)」,输入框左下角是一个加号按钮、右下角是模型选择器(当前显示「自动」)与发送按钮"
+          caption="实拍 aizhs.top AI 对话工作台(/chat/workbench),2026-11-06 无头浏览器 1440×900 抓取,界面状态为未登录会话失效态:工作台骨架、会话列表、输入框、加号按钮与模型选择器均已渲染,左侧任务列表显示「加载失败」、发送需先登录。本节三种新建对话入口里的两枚(顶部「新建任务」、会话列「新建会话」)就是图中的按钮,快捷键 Ctrl/Cmd + K 是同一入口的键盘形式;2.3 的加号按钮与 2.4 的模型选择器也都在这一屏。"
+        />
+      </section>
+
+      {/* 发送消息 */}
+      <section id="send-message" className="mt-10 space-y-3">
+        <h2 className="text-heading font-bold">2.2 发送消息</h2>
+        <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-3 text-body text-muted-foreground">
+          <ul className="ml-4 list-disc space-y-1">
+            <li><kbd className="font-[weight:inherit] rounded border bg-muted px-1.5 py-0.5 text-label">Enter</kbd>:发送</li>
+            <li><kbd className="font-[weight:inherit] rounded border bg-muted px-1.5 py-0.5 text-label">Shift + Enter</kbd>:换行(消息内多行)</li>
+            <li><kbd className="font-[weight:inherit] rounded border bg-muted px-1.5 py-0.5 text-label">↑</kbd>(输入框空时):编辑上一条消息</li>
+            <li><kbd className="font-[weight:inherit] rounded border bg-muted px-1.5 py-0.5 text-label">Esc</kbd>:停止 AI 流式输出</li>
+          </ul>
+          <p className="font-[weight:inherit] text-label">
+            <strong>消息长度</strong>:单条最长 32000 字符(约 2 万汉字)。长文档请用附件上传,不要直接粘贴。
+          </p>
+        </div>
+      </section>
+
+      {/* 上传文件 */}
+      <section id="upload-files" className="mt-10 space-y-3">
+        <h2 className="text-heading font-bold">2.3 上传文件给 AI</h2>
+        <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-3 text-body text-muted-foreground">
+          <ol className="ml-4 list-decimal space-y-1">
+            <li>
+              点击输入框左侧 <Paperclip className="inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              (附件)按钮
+            </li>
+            <li>选择文件(可多选):PDF / Word / Excel / PPT / 图片 / TXT / Markdown / 代码文件</li>
+            <li>等待上传完成(进度条显示)</li>
+            <li>在消息框补充问题,例如:<code className="font-[weight:inherit] rounded bg-muted px-1 text-label">总结这份 PDF 的要点</code></li>
+            <li>发送,AI 自动读取文件内容并回答</li>
+          </ol>
+          <div className="space-y-2">
+            <p className="font-[weight:inherit] text-label"><strong>支持的文件类型</strong>:</p>
+            <div className="space-y-1">
+              {[
+                { Icon: FileText, type: 'PDF / Word / PPT / Excel / TXT / Markdown', desc: 'AI 直接读取文本内容' },
+                { Icon: ImageIcon, type: 'PNG / JPG / WebP / GIF', desc: 'AI 视觉理解(需 GPT-4o / Claude / Qwen-VL 等多模态模型)' },
+                { Icon: Music, type: 'MP3 / WAV / M4A', desc: '语音转文字后理解(自动调用 STT)' },
+                { Icon: Archive, type: 'ZIP', desc: '自动解压,逐个文件处理' },
+                { Icon: Code, type: '.js / .ts / .py / .java / .go / .rs', desc: '代码文件,支持语法高亮 + 代码理解' },
+              ].map(({ Icon, type, desc }, i) => (
+                <div
+                  key={i}
+                  className={`font-[weight:inherit] rounded p-2 text-label ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
+                >
+                  <div className="flex items-center gap-1.5 font-medium">
+                    <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {type}
+                  </div>
+                  <div className="text-muted-foreground">{desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <p className="font-[weight:inherit] rounded bg-muted/60 p-3 text-label">
+            <AlertTriangle className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>大小限制</strong>:单文件 100MB,单次最多 10 个文件。超大文件建议拆分或用知识库(见第 4 章)。
+          </p>
+        </div>
+      </section>
+
+      {/* 切换模型 */}
+      <section id="switch-model" className="mt-10 space-y-3">
+        <h2 className="text-heading font-bold">2.4 切换 AI 模型</h2>
+        <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-3 text-body text-muted-foreground">
+          <ol className="ml-4 list-decimal space-y-1">
+            <li>对话区顶部点击模型名称(如"GPT-4o")</li>
+            <li>下拉菜单显示所有可用模型,按厂商分组</li>
+            <li>
+              每个模型右侧有徽章:
+              <CheckCircle className="mr-1 inline h-3.5 w-3.5 align-text-bottom text-green-600" aria-hidden />
+              可用 / <Circle className="mr-1 inline h-3.5 w-3.5 align-text-bottom text-yellow-600" aria-hidden />
+              慢 / <XCircle className="mr-1 inline h-3.5 w-3.5 align-text-bottom text-red-600" aria-hidden />
+              不可用
+            </li>
+            <li>点击目标模型,立即切换(下一轮对话生效)</li>
+          </ol>
+          <p className="font-[weight:inherit] text-label">
+            <strong>选模型建议</strong>:
+          </p>
+          <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 text-label">
+            <li>
+              <Gift className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              <strong>免费</strong>:DeepSeek V3.2(中文 / 推理)、Qwen-Turbo(中文 / 快)
+            </li>
+            <li>
+              <Coins className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              <strong>便宜</strong>:GPT-4o-mini、Claude Haiku 3.5、Gemini Flash
+            </li>
+            <li>
+              <Star className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              <strong>旗舰</strong>:GPT-4o、Claude Sonnet 4.5、Qwen3-Max(质量最高)
+            </li>
+            <li>
+              <Brain className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              <strong>推理</strong>:o3-mini、DeepSeek R1(数学 / 代码 / 复杂逻辑)
+            </li>
+            <li>
+              <ImageIcon className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              <strong>视觉</strong>:GPT-4o、Claude Sonnet、Qwen-VL(看图说话)
+            </li>
+          </ul>
+        </div>
+        <ManualFigure
+          src="/images/docs/manual/ai-chat-playground.png"
+          alt="智汇 AI 在线测试(API Playground)页实拍:顶部标题「API Playground」与说明「用你的 API Key 直接调用 /v1/chat/completions,支持流式渲染、参数调节与代码生成,无需跳转到 /chat」,其下是「发送」「清空」两枚按钮与「POST /v1/chat/completions · SSE」字样;左列依次为「消息列表 1 条」(system 角色下拉 + You are a helpful assistant. 文本框 + 添加消息)、「API Key」输入框、「模型」输入框与刷新图标、temperature 0.7 / max_tokens 2048 / top_p 1 三条滑杆、stream(流式)开关;右列是响应 / 代码 / 历史(0) 三个页签"
+          caption="实拍 aizhs.top 在线测试(/playground),2026-11-06 无头浏览器 1440×900 抓取,界面状态为未登录游客态(表单为空、响应区提示「点击「发送」查看响应」)。这是与工作台并行的另一条对话入口:模型在这里用输入框加刷新按钮取列表,而非工作台的「自动」下拉;2.2 的发送、2.4 的选模型与流式开关在这一屏可逐项对照,需在 API Key 栏填入第 6 章 6.4 生成的密钥后才能发出请求。"
+        />
+      </section>
+
+      {/* 历史对话 */}
+      <section id="history" className="mt-10 space-y-3">
+        <h2 className="text-heading font-bold">2.5 历史对话管理</h2>
+        <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-3 text-body text-muted-foreground">
+          <ul className="ml-4 list-disc space-y-1">
+            <li><strong>查看</strong>:左侧栏"历史对话",按时间倒序排列</li>
+            <li><strong>重命名</strong>:对话右键 → 重命名(或双击标题)</li>
+            <li><strong>删除</strong>:对话右键 → 删除(30 天内可在"回收站"恢复)</li>
+            <li><strong>搜索</strong>:顶部搜索框,搜对话标题 / 内容</li>
+            <li><strong>置顶</strong>:常用对话置顶,避免被挤下去</li>
+            <li><strong>导出</strong>:对话右键 → 导出(Markdown / PDF / 图片)</li>
+          </ul>
+        </div>
+      </section>
+
+      {/* 分享对话 */}
+      <section id="share" className="mt-10 space-y-3">
+        <h2 className="text-heading font-bold">2.6 分享对话</h2>
+        <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-2 text-body text-muted-foreground">
+          <ol className="ml-4 list-decimal space-y-1">
+            <li>对话右上角点击"分享"按钮</li>
+            <li>选择权限:<strong>仅查看</strong> / <strong>可评论</strong> / <strong>公开</strong></li>
+            <li>复制链接,发给同事 / 朋友</li>
+            <li>对方无需登录即可查看(公开模式),或需登录后查看(团队模式)</li>
+          </ol>
+          <p className="font-[weight:inherit] rounded bg-muted/60 p-3 text-label">
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>团队版</strong>:分享到团队空间,所有成员可见,支持评论协同。
+          </p>
+        </div>
+      </section>
+
+      <ManualNav prev={chapters['01']} next={chapters['03']} />
+    </main>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

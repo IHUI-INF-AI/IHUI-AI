@@ -1,0 +1,221 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { gte, desc, sql, count } from 'drizzle-orm'
+import { db } from './index.js'
+import { pluginEvents, type PluginEvent } from '@ihui/database'
+
+// =============================================================================
+// 业务日界
+// =============================================================================
+
+/**
+ * 统计口径时区。created_at 为 timestamptz,`current_date` / 裸 `to_char` 走会话时区
+ * (默认 UTC),会让「今日」与按天趋势在北京时间 0-8 点错位;统一显式换算到本地日。
+ */
+const BUSINESS_TIMEZONE = 'Asia/Shanghai'
+
+const BUSINESS_TZ_SQL = sql.raw(`'${BUSINESS_TIMEZONE}'`)
+
+/** 事件发生所在的业务日期(本地日)。 */
+const eventBusinessDate = sql`(${pluginEvents.createdAt} AT TIME ZONE ${BUSINESS_TZ_SQL})::date`
+
+/** 当前业务日期(本地日)。 */
+const todayBusinessDate = sql`(now() AT TIME ZONE ${BUSINESS_TZ_SQL})::date`
+
+// =============================================================================
+// 查询窗口天数收口(Y-85)
+// =============================================================================
+
+/**
+ * Y-85:DB 函数被 export,不能只靠路由层 Zod 兜住 days。
+ * 这里把天数夹到 [1,365] 的有限整数,并用 make_interval 走 drizzle 参数绑定 ——
+ * 天数永远以绑定参数进 SQL,不再拼 `interval '${sql.raw(...)} days'` 字面量,
+ * 新调用点即便绕过路由层也无法构造越界 interval / 注入片段。
+ */
+const STATS_MIN_DAYS = 1
+const STATS_MAX_DAYS = 365
+const STATS_DEFAULT_DAYS = 7
+
+function clampedIntervalDays(days: number): number {
+  if (!Number.isFinite(days)) return STATS_DEFAULT_DAYS
+  return Math.min(STATS_MAX_DAYS, Math.max(STATS_MIN_DAYS, Math.trunc(days)))
+}
+
+/** 有界天数 → make_interval(days => $1) 参数化窗口起点。 */
+function windowStartDays(days: number) {
+  return sql`now() - make_interval(days => ${clampedIntervalDays(days)})`
+}
+
+// =============================================================================
+// 事件写入(append-only)
+// =============================================================================
+
+export type PluginEventType = 'click' | 'install' | 'uninstall' | 'pin' | 'unpin'
+
+export interface RecordPluginEventInput {
+  pluginId: string
+  eventType: PluginEventType
+  userId?: string | null
+  ip?: string | null
+}
+
+/**
+ * 记录插件事件。失败时只 log,不抛(埋点不能阻塞主业务)。
+ */
+export async function recordPluginEvent(
+  input: RecordPluginEventInput,
+): Promise<PluginEvent | undefined> {
+  try {
+    const rows = await db
+      .insert(pluginEvents)
+      .values({
+        pluginId: input.pluginId,
+        eventType: input.eventType,
+        userId: input.userId ?? null,
+        ip: input.ip ?? null,
+      })
+      .returning()
+    return rows[0]
+  } catch (err) {
+    // 表未创建 / DB 不可达:埋点失败不阻塞主流程
+    console.warn('[plugin-events] record failed:', err instanceof Error ? err.message : err)
+    return undefined
+  }
+}
+
+// =============================================================================
+// Admin 统计聚合
+// =============================================================================
+
+export interface PluginStatsRow {
+  pluginId: string
+  installs: number
+  uninstalls: number
+  clicks: number
+  pins: number
+  unpins: number
+  heat: number
+}
+
+export interface PluginStatsSummary {
+  totalEvents: number
+  totalInstalls: number
+  totalUninstalls: number
+  totalClicks: number
+  totalPins: number
+  totalUnpins: number
+  todayInstalls: number
+  todayClicks: number
+}
+
+export interface PluginTrendRow {
+  date: string
+  installs: number
+  clicks: number
+  uninstalls: number
+}
+
+/**
+ * 总览:6 个核心指标 + 今日安装 / 今日点击。
+ */
+export async function getPluginStatsSummary(days: number): Promise<PluginStatsSummary> {
+  const since = windowStartDays(days)
+  const [row] = await db
+    .select({
+      totalEvents: count(),
+      totalInstalls: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'install')`,
+      totalUninstalls: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'uninstall')`,
+      totalClicks: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'click')`,
+      totalPins: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'pin')`,
+      totalUnpins: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'unpin')`,
+      todayInstalls: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'install' and ${eventBusinessDate} = ${todayBusinessDate})`,
+      todayClicks: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'click' and ${eventBusinessDate} = ${todayBusinessDate})`,
+    })
+    .from(pluginEvents)
+    .where(gte(pluginEvents.createdAt, since))
+  return (
+    (row as PluginStatsSummary) ?? {
+      totalEvents: 0,
+      totalInstalls: 0,
+      totalUninstalls: 0,
+      totalClicks: 0,
+      totalPins: 0,
+      totalUnpins: 0,
+      todayInstalls: 0,
+      todayClicks: 0,
+    }
+  )
+}
+
+/**
+ * 按插件聚合:安装 / 卸载 / 点击 / 置顶 / 取消置顶 / 热度。
+ * 热度公式: heat = installs * 10 + clicks * 1 + pins * 20 - uninstalls * 5
+ */
+export async function getPluginStatsByPlugin(
+  days: number,
+  limit: number,
+): Promise<PluginStatsRow[]> {
+  const since = windowStartDays(days)
+  const installsExpr = sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'install')`
+  const uninstallsExpr = sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'uninstall')`
+  const clicksExpr = sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'click')`
+  const pinsExpr = sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'pin')`
+  const unpinsExpr = sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'unpin')`
+  const heatExpr = sql<number>`(${installsExpr}) * 10 + (${clicksExpr}) + (${pinsExpr}) * 20 - (${uninstallsExpr}) * 5`
+  const rows = await db
+    .select({
+      pluginId: pluginEvents.pluginId,
+      installs: installsExpr,
+      uninstalls: uninstallsExpr,
+      clicks: clicksExpr,
+      pins: pinsExpr,
+      unpins: unpinsExpr,
+      heat: heatExpr,
+    })
+    .from(pluginEvents)
+    .where(gte(pluginEvents.createdAt, since))
+    .groupBy(pluginEvents.pluginId)
+    .orderBy(desc(heatExpr))
+    .limit(limit)
+
+  return rows.map((r) => ({
+    pluginId: r.pluginId,
+    installs: Number(r.installs ?? 0),
+    uninstalls: Number(r.uninstalls ?? 0),
+    clicks: Number(r.clicks ?? 0),
+    pins: Number(r.pins ?? 0),
+    unpins: Number(r.unpins ?? 0),
+    heat:
+      Number(r.installs ?? 0) * 10 +
+      Number(r.clicks ?? 0) +
+      Number(r.pins ?? 0) * 20 -
+      Number(r.uninstalls ?? 0) * 5,
+  }))
+}
+
+/**
+ * 趋势:按天聚合 installs / clicks / uninstalls。
+ */
+export async function getPluginStatsTrend(days: number): Promise<PluginTrendRow[]> {
+  const since = windowStartDays(days)
+  const rows = await db
+    .select({
+      date: sql<string>`to_char(${eventBusinessDate}, 'YYYY-MM-DD')`,
+      installs: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'install')`,
+      clicks: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'click')`,
+      uninstalls: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'uninstall')`,
+    })
+    .from(pluginEvents)
+    .where(gte(pluginEvents.createdAt, since))
+    .groupBy(sql`1`)
+    .orderBy(sql`1`)
+  return rows.map((r) => ({
+    date: String(r.date),
+    installs: Number(r.installs ?? 0),
+    clicks: Number(r.clicks ?? 0),
+    uninstalls: Number(r.uninstalls ?? 0),
+  }))
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

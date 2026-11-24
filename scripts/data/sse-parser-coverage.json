@@ -1,0 +1,27 @@
+{
+  "$comment": "SSE 双解析器归属台账(守门 scripts/check-sse-parser-parity.mjs 读取)。parseCoverageBaseline = packages/shared/src/utils/sse-parse.ts 侧覆盖帧数的下限(ratchet,只挡倒退不挡增长);webOnly = packages/api-client 已解析、sse-parse 未解析的帧,以及「为什么只有该端消费」的理由。每在 sse-parse 补接一帧,就同步删除该登记项并上调 parseCoverageBaseline。",
+  "parseCoverageBaseline": 29,
+  "$ticket_s6": "2026-11-05 票 s6-sse:sse-parse 补 chunk 显式认领分支(行为与 content 兜底链等价,miniapp-taro dispatch 早有 case 'chunk' 消费),覆盖读数 27→28,基线按工单口径同批 25→28(原基线滞后 2 格系 tool-delta/partial_done 等帧接上后未调,现读 extractHandledEvents 实证 28)。",
+  "webOnly": [
+    {
+      "event": "thinking",
+      "why": "api-client 只把 thinking 帧的 content 投给 onReasoning(web/extension 有推理展示区),而 sse-parse 侧的 miniapp-taro 没有推理内容区。另有一类只带 message 的阶段帧(「正在思考…」「正在规划执行步骤…」「正在总结执行结果…」,见 apps/ai-service/app/services/langgraph_service.py)在**两端都没人消费**,属于生产了却没人看的字段,已单独立项(不靠本登记项掩盖)。"
+    },
+    {
+      "event": "tool-approval",
+      "why": "工具批准需要「挂起等待 + 批准/拒绝卡 + 把回执发回服务端续跑」整条闭环,实测消费面只有 web:apps/web/src/components/ai/tool-approval-dialog.tsx(对话框)+ apps/web/src/components/chat/message-list/MessageList.tsx(挂载)+ packages/api-client/src/client.ts 的 onToolApproval 回调;apps/miniapp-taro/src 全面对 tool-approval / toolApproval **零命中**(无批准卡、无回执通道),小程序只解析帧会出现\"弹出了却无处可点\"的状态,比不显示更糟。与 question/form_request 同一判据口径。"
+    },
+    {
+      "event": "admission",
+      "why": "差距①(2026-10-30 立;2026-11-13 小程序腿落地后订正)发送准入回执帧:服务端生产判据 = 请求体必须带 inputId——apps/ai-service/app/routers/llm.py 的 inputId 字段声明原文「缺席 ⇒ 不发 admission 帧。在场 ⇒ 首个内容帧之前原样回显一帧准入回执」;载荷形状权威 = packages/shared/src/chat/send-admission.ts。**web 腿**:apps/web/src/hooks/use-chat/send-message.ts(createInputId + createSendAdmissionTracker :151/:802,onSendAdmissionReceipt :915)与 send-answer.ts:289。**miniapp-taro 腿(2026-11-13 已落,四腿齐)**:① 上行 inputId = pkg-ai/ai/chat.tsx 的 roundInputId(共享 createInputId 生成,端内不造第二源);⓪ metadata.conversationId = api/index.ts 的 buildMetadata(仅在带 inputId 时补,否则回执恒 accepted 无信息量);② 解析 = lib/tool-approval-frame.ts 的 parseAdmissionLine (调共享 readSendAdmissionReceipt,端内不复制四档值域);③ 分发 = api/index.ts 的 onRawLine 旁路 → onSendAdmissionReceipt;④ 呈现 = chat.tsx 把 queued/rejected/duplicate 写进既有 pushStreamActivity 执行过程列表(accepted 静默,与\"我发出去了\"同义反复)。**本帧继续留在 webOnly 是设计如此,不是缺口**:共享 sse-parse 的 SSEEvent 联合类型不认领该帧族,小程序端与 tool-approval / question 同一条 onRawLine 旁路自行认领;因此这一行只反映\"共享解析层不认领\",不反映\"端内未消费\"。解除本行的判据:若将来要把 admission 收编进共享 SSEEvent 联合类型(与 tool-approval 的旁路归口同理),届时删除本行并上调 sse-parse 基线。"
+    },
+    {
+      "event": "hook-failed",
+      "why": "G-87 hook 执行失败帧(D65):仓内唯一落桶与呈现面都在 web——apps/web/src/stores/chat.ts 的 meta.hookFailures(appendMessageHookFailure 写入、hookFailureRecordsFromMeta 读出)+ apps/web/src/components/chat/message-list/hook-failure-card.tsx(六态文案取自 hookFailureView,判定层 packages/shared/src/chat/hook-failures.ts)。小程序端消息 meta 没有该键、无六态卡渲染位(2026-10-31 现读 apps/miniapp-taro/src 对 hookFailure/hook-failed 零命中)⇒ sse-parse 补解析等于把数据收进一个没人读的内存键。与守门 90 的 groups.no-hook-failure-ui 同判据(该分组解阻判据:本端先有 hook 失败呈现位=六态文案 ×5 语言 + meta 落桶,再同批接解析与 dispatch;两条台账必须同批删,本项不得被读成「小程序已可用」)。"
+    },
+    {
+      "event": "review-finding",
+      "why": "D115/G-229 review 模式结构化结论帧:生产点唯一 = apps/ai-service/app/core/review_findings.py::build_review_finding_frames,且只在 chat_mode == \"review\" 时由 apps/ai-service/app/routers/llm.py 的 _with_review_findings 投影;小程序端无 review 会话入口——2026-10-31 现读 apps/miniapp-taro/src 对 ChatMode/review 模式轴零命中(发送体只有 plan_mode/model 两轴,且 plan_mode 无 review 取值调用方)⇒ 服务端结构上不会向本端下发该帧;sse-parse 补了也收不到。finding 分组卡仓内唯一渲染位 = apps/web/src/components/chat/message-list/review-findings-card.tsx(经 stream-handlers.ts::createReviewFindingHandler 收帧)。与守门 90 的 groups.no-review-finding-ui 同判据(两条台账必须同批删)。解阻判据:本端先有 review 模式入口与 finding 分组渲染位(严重度 P1/P2/Nit ×5 语言),再同批补 sse-parse 解析 + dispatch 接线。"
+    }
+  ]
+}

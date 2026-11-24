@@ -1,0 +1,24 @@
+{
+  "startedAt": "2026-10-01T05:31:08.736Z",
+  "durationMs": 13387,
+  "httpStatus": 200,
+  "contentType": "text/event-stream",
+  "prompt": "请用两三句话介绍你自己,然后给一个 ```python\nprint(\"hi\")\n``` 代码块作为示例。",
+  "model": "@cf/zai-org/glm-4.7-flash",
+  "request_body": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "请用两三句话介绍你自己,然后给一个 ```python\nprint(\"hi\")\n``` 代码块作为示例。"
+      }
+    ],
+    "model": "@cf/zai-org/glm-4.7-flash"
+  },
+  "tokenFingerprint": "643fa18f",
+  "frameCount": 280,
+  "eventHistogram": {
+    "reasoning": 246,
+    "chunk": 33,
+    "done": 1
+  }
+}

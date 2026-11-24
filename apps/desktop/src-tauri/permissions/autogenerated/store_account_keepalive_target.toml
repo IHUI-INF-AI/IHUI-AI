@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-store-account-keepalive-target"
+description = "Enables the store_account_keepalive_target command without any pre-configured scope."
+commands.allow = ["store_account_keepalive_target"]
+
+[[permission]]
+identifier = "deny-store-account-keepalive-target"
+description = "Denies the store_account_keepalive_target command without any pre-configured scope."
+commands.deny = ["store_account_keepalive_target"]

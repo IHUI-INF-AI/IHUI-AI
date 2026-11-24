@@ -1,0 +1,343 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// G-700:app-version 强更策略的 web 消费者(策略声明面此前零消费者)。
+//
+// 声明面(只读对照,不改):
+//   - packages/api-client/src/endpoints/system.ts 的 checkAppVersion(GET /api/app-version/check-update)
+//   - apps/api/src/routes/app-version.ts:43 的 forceUpdate(版本发布策略位)
+//   - apps/api/src/routes/app-version.ts 的 resolveAppMinVersion(全平台最低版本闸门,环境变量
+//     IHUI_MIN_VERSION;2026-10-27 起该字段真的随 check-update 下发 —— 在此之前客户端读的字段
+//     端点从不返回,minimumVersion 那条强更分支结构上不可达)
+//   - packages/database/src/schema/app-version.ts 的 app_versions.force_update
+//
+// 六终态机与动作语义照抄上游 zcode packages/desktop/src/main(只读参考,不改它):
+//   - autoUpdater.ts:99-105  ForceAutoUpdateState 六终态
+//   - autoUpdater.ts:1099-1102  skipAvailableUpdateVersion:强更会话激活 ⇒ skip 侧门直接锁死
+//   - autoUpdater.ts:1245-1248  cancelDownloadingUpdate:强更会话激活 ⇒ cancel 侧门直接锁死
+//   - forceUpdatePrompt.ts:383-385  isActiveAutoState = checking|downloading|ready|installing
+//   - forceUpdatePrompt.ts:386-401/462-464  confirm-close:manual/quit 恒可点,active 态下先二次确认
+//
+// 服务端同款降级哲学(app-version.ts:67-70):配错/取不到一律 fail-open 不拦,
+// 挡住全部用户比旧版本跑新契约更坏;结论带 reason,留痕不静默。
+
+import { checkAppVersion, type VersionCheckResult } from '@ihui/api-client/endpoints/system'
+
+// ==================== 六终态机 ====================
+
+/** 六终态(照抄上游 ForceAutoUpdateState:autoUpdater.ts:99-105)。 */
+export type AppVersionGateKind =
+  'checking' | 'downloading' | 'ready' | 'installing' | 'error' | 'dev-skipped'
+
+/** UI 态 = 六终态 + confirm-close(上游 forceUpdatePrompt.ts:390)+ idle(闸门未接管)。 */
+export type AppVersionGateUiState = AppVersionGateKind | 'confirm-close' | 'idle'
+
+/** 强更会话的激活态子集(上游 isActiveAutoState,forceUpdatePrompt.ts:383-385)。 */
+export const APP_VERSION_GATE_ACTIVE_KINDS: readonly AppVersionGateKind[] = [
+  'checking',
+  'downloading',
+  'ready',
+  'installing',
+]
+
+export function isActiveAppVersionGateKind(kind: AppVersionGateUiState): boolean {
+  return (APP_VERSION_GATE_ACTIVE_KINDS as readonly string[]).includes(kind)
+}
+
+/** 强更弹窗的四个动作:manual/quit 恒可用;skip/cancel 是侧门,强更期间锁死。 */
+export type AppVersionGateAction = 'skip' | 'cancel' | 'manual' | 'quit'
+
+// ==================== 版本比较(与服务端 MIN_VERSION_RE / CLI compareVersions 同口径) ====================
+
+/** 服务端 app-version.ts:78 同款:只认 X.Y.Z 三段数字。 */
+const VERSION_RE = /^\d+\.\d+\.\d+$/
+
+export function isValidVersion(v: string): boolean {
+  return VERSION_RE.test(v)
+}
+
+/** 逐段数字比较,缺段按 0 补('1.2' == '1.2.0');多进位正确('2.10.0' > '2.9.9')。 */
+export function compareVersions(a: string, b: string): -1 | 0 | 1 {
+  const pa = a.split('.')
+  const pb = b.split('.')
+  const len = Math.max(pa.length, pb.length)
+  for (let i = 0; i < len; i++) {
+    const na = Number.parseInt(pa[i] ?? '0', 10) || 0
+    const nb = Number.parseInt(pb[i] ?? '0', 10) || 0
+    if (na !== nb) return na < nb ? -1 : 1
+  }
+  return 0
+}
+
+// ==================== 策略判定(纯函数) ====================
+
+export interface AppVersionGateInput {
+  currentVersion: string
+  /** check-update 端点的 hasUpdate(服务端按 buildNumber 比过)。 */
+  hasUpdate: boolean
+  latestVersion?: string | null
+  downloadUrl?: string | null
+  releaseNotes?: string | null
+  /** check-update 的 forceUpdate 策略位(app-version.ts:43)。 */
+  forceUpdate?: boolean
+  /** 服务端下发的最低版本(app-version.ts 的 resolveAppMinVersion / 环境变量 IHUI_MIN_VERSION;null/缺省=没要求)。 */
+  minimumVersion?: string | null
+  /**
+   * 当前版本号是否可信(缺省 true)。
+   * web 端若没注入真实版本号(恒 '0.0.0'),服务端按 buildNumber 比对就毫无意义 ——
+   * 任何一条 web 平台版本记录都会被判成"有更新",若那条记录还是 force_update,
+   * 全站用户会被永久拦住且点「立即更新」也修不好(重载后版本号仍是 0.0.0)。
+   * 所以这条为 false 时整条策略 fail-open,理由随 reason 回传。
+   */
+  versionTrusted?: boolean
+}
+
+export interface AppVersionGateDecision {
+  /** true = 强更会话:六终态机接管,skip/cancel 侧门锁死,manual/quit 恒可用(active 态经 confirm-close)。 */
+  required: boolean
+  /** required 会话的起点恒为 'checking',由下游沿六终态机推进;非强更 = 'idle',判定失败 = 'error'(fail-open)。 */
+  kind: AppVersionGateUiState
+  /** 结论为什么是这样(人在控制台能直接读;放行也留痕,同服务端哲学)。 */
+  reason: string
+  /** 本次判定用的当前版本(渲染端要按它显示"当前 X → 最新 Y",不再自己猜)。 */
+  currentVersion: string
+  /** 命中的策略位:渲染端据此选文案,禁止反解析 reason 散文(措辞一改就静默失忆)。 */
+  cause: 'minimum-version' | 'force-update' | 'none'
+  latestVersion: string | null
+  downloadUrl: string | null
+  releaseNotes: string | null
+}
+
+/**
+ * 强更策略判定:版本比较(minimumVersion 硬闸 + forceUpdate 策略位)⇒ 是否进入强更会话。
+ * 纯函数,不碰网络;配错一律 fail-open(required=false),理由随 reason 回传。
+ */
+export function appVersionGate(input: AppVersionGateInput): AppVersionGateDecision {
+  const base = {
+    currentVersion: input.currentVersion,
+    latestVersion: input.latestVersion ?? null,
+    downloadUrl: input.downloadUrl ?? null,
+    releaseNotes: input.releaseNotes ?? null,
+  }
+  if (input.versionTrusted === false) {
+    // 版本号不可信 ⇒ 整条策略 fail-open,连 latestVersion 都不往下传:
+    // 传下去渲染端就会弹"有新版本可用",而用户点了也修不好(版本号根本没变)。
+    return {
+      required: false,
+      kind: 'idle',
+      cause: 'none',
+      reason:
+        '当前版本号不可信(web 端未注入 NEXT_PUBLIC_APP_VERSION,恒 0.0.0)⇒ 版本策略 fail-open 不拦也不提示;' +
+        '要启用 web 版本策略,发布时注入真实版本号并在 app_versions 表登记同名版本',
+      ...base,
+      latestVersion: null,
+      downloadUrl: null,
+      releaseNotes: null,
+    }
+  }
+  if (!isValidVersion(input.currentVersion)) {
+    return {
+      required: false,
+      kind: 'error',
+      cause: 'none',
+      reason: `当前版本 "${input.currentVersion}" 不是 X.Y.Z 形态 ⇒ 不拦(fail-open,同服务端配错降级哲学)`,
+      ...base,
+    }
+  }
+  const minimumVersion = input.minimumVersion ?? null
+  if (minimumVersion !== null) {
+    if (!isValidVersion(minimumVersion)) {
+      return {
+        required: false,
+        kind: 'error',
+        cause: 'none',
+        reason: `服务端 minimumVersion="${minimumVersion}" 不是 X.Y.Z 形态 ⇒ 不拦(fail-open,同服务端配错降级哲学)`,
+        ...base,
+      }
+    }
+    if (compareVersions(input.currentVersion, minimumVersion) < 0) {
+      return {
+        required: true,
+        kind: 'checking',
+        cause: 'minimum-version',
+        reason: `当前版本 ${input.currentVersion} 低于服务端最低版本 ${minimumVersion} ⇒ 强更会话(六终态机接管,skip/cancel 侧门锁死)`,
+        ...base,
+      }
+    }
+  }
+  if (input.hasUpdate && input.forceUpdate === true) {
+    return {
+      required: true,
+      kind: 'checking',
+      cause: 'force-update',
+      reason: `有更新且服务端标记 forceUpdate ⇒ 强更会话(六终态机接管,skip/cancel 侧门锁死)`,
+      ...base,
+    }
+  }
+  if (input.hasUpdate) {
+    return {
+      required: false,
+      kind: 'idle',
+      cause: 'none',
+      reason: `有更新(最新 ${input.latestVersion ?? '未知'})但服务端未标记 forceUpdate ⇒ 仅提示,skip 侧门可用`,
+      ...base,
+    }
+  }
+  return {
+    required: false,
+    kind: 'idle',
+    cause: 'none',
+    reason: '服务端判定无更新 ⇒ 闸门放行',
+    ...base,
+  }
+}
+
+// ==================== 动作可用性(manual/quit 恒可用;强更锁死 skip/cancel 侧门) ====================
+
+export interface AppVersionGateActionVerdict {
+  allowed: boolean
+  /** true = 动作可点但不立即执行,须先经 confirm-close 二次确认(上游 forceUpdatePrompt.ts:462-464)。 */
+  confirmFirst: boolean
+  reason: string
+}
+
+/**
+ * 单一动作可用性判据(照抄上游三处守门):
+ *   - manual/quit 恒可用(forceUpdatePrompt.ts:398-399 两按钮从不 disabled);
+ *     active 自动态下先 confirm-close(462-464),confirm-close 态本身不再叠加确认。
+ *   - skip/cancel 在强更会话期间锁死(autoUpdater.ts:1099-1102 / 1245-1248 的
+ *     activeForceAutoUpdateListener 早退分支)。
+ */
+export function gateAllowsAction(
+  state: AppVersionGateUiState,
+  decision: Pick<AppVersionGateDecision, 'required'>,
+  action: AppVersionGateAction,
+): AppVersionGateActionVerdict {
+  if (action === 'manual' || action === 'quit') {
+    return {
+      allowed: true,
+      confirmFirst: isActiveAppVersionGateKind(state),
+      reason: 'manual/quit 恒可用;active 自动态下先经 confirm-close 二次确认',
+    }
+  }
+  if (decision.required) {
+    return {
+      allowed: false,
+      confirmFirst: false,
+      reason: `强更会话期间 ${action} 侧门锁死(上游 activeForceAutoUpdateListener 早退,autoUpdater.ts:1099-1102/1245-1248)`,
+    }
+  }
+  return { allowed: true, confirmFirst: false, reason: '非强更会话,侧门可用' }
+}
+
+// ==================== 接线:拉端点 + 广播决策(UI 钩子) ====================
+
+/** 决策广播事件名:UI 侧 window.addEventListener(APP_VERSION_GATE_EVENT, …) 即可订阅强更提示。 */
+export const APP_VERSION_GATE_EVENT = 'app-version-gate:decision'
+
+// ==================== 决策广播:进程内订阅 + 回放 ====================
+//
+// 为什么除了 window 事件还要一层进程内订阅(2026-10-27 补):
+// 接线点在 GlobalHooksProvider 的挂载 effect 里,而渲染端是另一棵子树上的组件 ——
+// 两者挂载顺序不保证,事件派发可能早于订阅者 addEventListener ⇒ 首次决策被丢掉,
+// 用户看到的就是"强更策略配了但永远不弹"。所以这里把最新决策留一份,订阅时回放,
+// 同时保留 window CustomEvent(跨包/调试台可直接监听,且既有测试按它断言)。
+// 只保留最后一条:同一页面会话内策略以最新一次检查为准,历史决策没有消费价值。
+
+let lastAppVersionGateDecision: AppVersionGateDecision | null = null
+const appVersionGateListeners = new Set<(decision: AppVersionGateDecision) => void>()
+
+/** 订阅决策(订阅即刻回放最新一条,天然免疫挂载顺序);返回退订函数。 */
+export function subscribeAppVersionGate(
+  listener: (decision: AppVersionGateDecision) => void,
+): () => void {
+  appVersionGateListeners.add(listener)
+  if (lastAppVersionGateDecision) listener(lastAppVersionGateDecision)
+  return () => {
+    appVersionGateListeners.delete(listener)
+  }
+}
+
+/** 当前进程内最新决策(未检查过 = null);给"按需重查后再读"的场景用。 */
+export function getLastAppVersionGateDecision(): AppVersionGateDecision | null {
+  return lastAppVersionGateDecision
+}
+
+function publishAppVersionGate(decision: AppVersionGateDecision): void {
+  lastAppVersionGateDecision = decision
+  for (const listener of appVersionGateListeners) listener(decision)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent<AppVersionGateDecision>(APP_VERSION_GATE_EVENT, { detail: decision }),
+    )
+  }
+}
+
+/** web 当前版本号:构建时可经 NEXT_PUBLIC_APP_VERSION 注入;缺省 0.0.0(哨兵值,代表"没注入")。 */
+const WEB_APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.0.0'
+
+/**
+ * 版本号是否可信:'0.0.0' 是"没注入"的哨兵,不是真实版本(全仓只有这一处读 NEXT_PUBLIC_APP_VERSION,
+ * 构建脚本目前并不注入它)。不可信时整条版本策略 fail-open,见 appVersionGate 的 versionTrusted 分支。
+ */
+export function isTrustedAppVersion(version: string): boolean {
+  return version !== '0.0.0' && isValidVersion(version)
+}
+
+function failOpen(reason: string, currentVersion = WEB_APP_VERSION): AppVersionGateDecision {
+  return {
+    required: false,
+    kind: 'error',
+    cause: 'none',
+    reason,
+    currentVersion,
+    latestVersion: null,
+    downloadUrl: null,
+    releaseNotes: null,
+  }
+}
+
+/**
+ * 启动/登录后的接线点:拉 GET /api/app-version/check-update,套 appVersionGate 策略,
+ * 把决策经 window CustomEvent 广播(下游 UI 钩子订阅即可出强更提示,不在此造弹窗工程)。
+ * 端点失败/响应异常一律 fail-open 不拦启动;决策照常广播,消费方拿得到失败留痕。
+ */
+export async function appVersionGateCheck(
+  opts: { currentVersion?: string; platform?: 'web' | 'android' | 'ios' | 'miniapp' } = {},
+): Promise<AppVersionGateDecision> {
+  const currentVersion = opts.currentVersion ?? WEB_APP_VERSION
+  let decision: AppVersionGateDecision
+  try {
+    const res = await checkAppVersion({
+      version: currentVersion,
+      platform: opts.platform ?? 'web',
+    })
+    if (!res.success || !res.data) {
+      decision = failOpen(
+        `check-update 端点未返回有效数据(success=${res.success}) ⇒ 不拦(fail-open)`,
+        currentVersion,
+      )
+    } else {
+      const d: VersionCheckResult = res.data
+      decision = appVersionGate({
+        currentVersion,
+        versionTrusted: isTrustedAppVersion(currentVersion),
+        hasUpdate: d.hasUpdate === true,
+        latestVersion: (d.latestVersion as string | undefined) ?? null,
+        downloadUrl: (d.downloadUrl as string | undefined) ?? null,
+        releaseNotes: (d.releaseNotes as string | undefined) ?? null,
+        forceUpdate: d.forceUpdate === true,
+        minimumVersion: (d.minimumVersion as string | null | undefined) ?? null,
+      })
+    }
+  } catch (e) {
+    decision = failOpen(
+      `check-update 请求失败(${e instanceof Error ? e.message : String(e)}) ⇒ 不拦(fail-open)`,
+      currentVersion,
+    )
+  }
+  publishAppVersionGate(decision)
+  return decision
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

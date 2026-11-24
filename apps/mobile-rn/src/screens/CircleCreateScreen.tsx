@@ -1,0 +1,74 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
+import { CircleCreateScreen as SharedCircleCreateScreen } from '@ihui/rn-app'
+import { useI18n } from '../i18n'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+
+type Route = RouteProp<RootStackParamList, 'CircleCreate'>
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+export function CircleCreateScreen() {
+  const { resolvedTheme } = useTheme()
+  const { t } = useI18n()
+  const route = useRoute<Route>()
+  const navigation = useNavigation<NavigationProp>()
+  // P1(2026-09-04):话题详情发布入口透传 topicId/topicName(对齐小程序 circle/create?topicId=&topicName=)
+  const { topicId, topicName } = route.params ?? {}
+  const [name, setName] = useState(topicName ?? '')
+  const [description, setDescription] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const onSubmit = async () => {
+    if (!name.trim()) {
+      setError(t('circleCreate.nameRequired'))
+      return
+    }
+    setSaving(true)
+    setError('')
+    // POST /api/circles 回 201 + success({ circle: created })(community/circles.ts:683),
+    // id 在 envelope 内层的 circle 上,直接读 res.data.id 恒 undefined。
+    const res = await fetchApi<{ circle: { id: string } | null }>('/api/circles', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: name.trim(),
+        description: description.trim(),
+        category: 'general',
+        isPublic: true,
+        ...(topicId ? { topicId } : {}),
+      }),
+    })
+    setSaving(false)
+    // ApiResult 是可辨识联合:data 只在 success 分支上,先收窄再解包 circle
+    const createdId = res.success ? res.data?.circle?.id : undefined
+    if (createdId) {
+      navigation.replace('CircleDetail', { id: createdId })
+    } else if (!res.success) {
+      setError(apiFailureToText(res, t('circleCreate.saveFailed')))
+    }
+  }
+
+  return (
+    <SharedCircleCreateScreen
+      t={t}
+      name={name}
+      description={description}
+      saving={saving}
+      error={error}
+      onNameChange={setName}
+      onDescriptionChange={setDescription}
+      onSubmit={onSubmit}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

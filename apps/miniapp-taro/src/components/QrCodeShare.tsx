@@ -1,0 +1,95 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useTt, useI18n, t } from '@/i18n'
+import { View, Text, Image, Button } from '@tarojs/components'
+import Taro from '@tarojs/taro'
+import { onToast } from '@/host/on-toast'
+
+export interface QrCodeShareProps {
+  title?: string
+  desc?: string
+  qrUrl?: string
+  logoUrl?: string
+  userName?: string
+  onSave?: () => void
+  onShare?: () => void
+}
+
+export default function QrCodeShare({
+  title = t('QrCodeShare.p1'),
+  desc = t('QrCodeShare.p2'),
+  qrUrl = '',
+  logoUrl = '',
+  userName = '',
+  onSave,
+  onShare,
+}: QrCodeShareProps) {
+  const { t } = useI18n()
+  const tt = useTt()
+  const handleSave = () => {
+    if (!qrUrl) {
+      Taro.showToast({ title: tt('qrCode.generating', '二维码生成中'), icon: 'loading' })
+      return
+    }
+    Taro.saveImageToPhotosAlbum({
+      filePath: qrUrl,
+      success: () => onToast(tt('qrCode.savedAlbum', '已保存到相册'), { kind: 'success' }),
+      fail: () => onToast(tt('qrCode.saveFailed', '保存失败'), { kind: 'error' }),
+    })
+    onSave?.()
+  }
+
+  const handleShare = () => {
+    onShare?.()
+  }
+
+  return (
+    <View className="flex flex-col items-center px-2xl py-3xl">
+      <Text className="text-title font-semibold text-foreground">{title}</Text>
+      <Text className="text-label text-muted-foreground mt-xs">{desc}</Text>
+
+      <View className="relative mt-xl w-56 h-56 bg-card rounded-lg shadow-elevation-sm flex items-center justify-center">
+        {qrUrl ? (
+          <Image src={qrUrl} className="w-48 h-48" mode="aspectFit" />
+        ) : (
+          <View className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center">
+            <Text className="text-label text-muted-foreground">
+              {tt('qrCode.loading', '二维码加载中')}
+            </Text>
+          </View>
+        )}
+        {logoUrl && (
+          <Image
+            src={logoUrl}
+            className="absolute top-2 right-2 w-8 h-8 rounded-lg border-2 border-[var(--color-white-98)]"
+            mode="aspectFill"
+          />
+        )}
+      </View>
+
+      {userName && (
+        <Text className="mt-lg text-body text-foreground">
+          {t('qrCode.from', { name: userName })}
+        </Text>
+      )}
+
+      <View className="flex gap-md mt-2xl w-full">
+        <Button
+          className="flex-1 !bg-muted !text-foreground text-body rounded-sm"
+          onClick={handleShare}
+        >
+          {tt('wallet.recharge.success.shareFriend', '分享给好友')}
+        </Button>
+        <Button
+          className="flex-1 !bg-cta !text-cta-foreground text-body rounded-sm"
+          onClick={handleSave}
+        >
+          {tt('invite.saveImage', '保存图片')}
+        </Button>
+      </View>
+    </View>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

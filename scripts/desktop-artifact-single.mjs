@@ -1,0 +1,219 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 桌面端 tauri build 之后的收敛钩子:保证 bundle/nsis 目录里**不存在多个版本**的安装包。
+
+import { createHash } from 'node:crypto'
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import path from 'node:path'
+import process from 'node:process'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import {
+  archFromInstallerName,
+  judgeContentManifest,
+  planArtifactInvariant,
+} from './lib/desktop-artifact-invariant.mjs'
+// 未签名豁免开关的常量与判据单源(§0.6):本文件只 import,不重抄(原本地副本已删)。
+import { ALLOW_UNSIGNED_ENV, allowUnsignedFrom } from './lib/desktop-unsigned-config.mjs'
+// 带值旗标取值判据单源(G-322,§0.6):旧副本 `argv[i+1]` 会把紧邻的下一个旗标当值收下。
+import { requireFlagValue } from './lib/flag-value.mjs'
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const CONF = path.join(ROOT, 'apps/desktop/src-tauri/tauri.conf.json')
+
+/**
+ * 未签名本地打包的**显式**豁免开关(2026-09-24 立,常量与判据单源见
+ * `scripts/lib/desktop-unsigned-config.mjs`,本文件只 import 不重抄 —— §0.6)。
+ * 背景:`bundle.createUpdaterArtifacts=true` + 钉死 minisign pubkey,而签名私钥
+ * `~/.tauri/ihui-updater.key` 只存在于发版机/CI。本机没有私钥时 makensis **已经产出**
+ * setup.exe,tauri 却在随后的签名步报 `A public key has been found, but no private key.`
+ * → 整条链路恒红,本地连自测包都拿不到。默认(不设该 env)判据一字不改。
+ * 严格只认 '1' —— `0`/空/任意其他值一律按"未豁免"处理,避免误开。
+ */
+
+/**
+ * 违规分堆:`blocking`(照旧判红)与 `excused`(仅在显式豁免下放行)。
+ *
+ * 豁免面**只有**"仅缺当前签名"这一种形态,而且判据不是文案匹配:把当前签名**假想补齐**
+ * 后再跑一遍同一份纯判据 —— 补上就完全干净 ⇒ 唯一缺的就是签名;补上后仍有违规
+ * (缺当前安装包、目录里残留其他版本产物……)⇒ 一律留在 blocking。
+ * 所以这道豁免放行的只有"sig 这一项",不是把整扇门关掉。
+ *
+ * @param {string[]} files 目录内的文件名列表
+ * @param {string} exeName 本次构建应产出的包名(由版本号拼出,不得靠 glob 猜)
+ * @param {boolean} allowUnsigned 显式豁免开关(见 ALLOW_UNSIGNED_ENV)
+ * @returns {{ blocking: string[], excused: string[] }}
+ */
+function partitionViolations(files, exeName, allowUnsigned) {
+  const { violations } = planArtifactInvariant(files, exeName)
+  if (violations.length === 0) return { blocking: [], excused: [] }
+  if (!allowUnsigned) return { blocking: violations, excused: [] }
+  const sigName = `${exeName}.sig`
+  const withPretendSig = planArtifactInvariant([...files, sigName], exeName)
+  return withPretendSig.violations.length === 0
+    ? { blocking: [], excused: violations }
+    : { blocking: violations, excused: [] }
+}
+
+function measureInstaller(absPath) {
+  let buf
+  try {
+    buf = readFileSync(absPath)
+  } catch (error) {
+    const code = error && typeof error === 'object' ? error.code : undefined
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { kind: 'absent' }
+    return { kind: 'unreadable', code: typeof code === 'string' ? code : 'unknown' }
+  }
+  return {
+    kind: 'present',
+    sha256: createHash('sha256').update(buf).digest('hex'),
+    bytes: buf.length,
+  }
+}
+
+function verifyInstallerContent(nsisDir, exeName) {
+  const arch = archFromInstallerName(exeName)
+  if (!arch) {
+    console.error(`[artifact-single] 安装包文件名里没有架构标记,不能把它说成已核验: ${exeName}`)
+    return 2
+  }
+  const measured = measureInstaller(path.join(nsisDir, exeName))
+  if (measured.kind === 'unreadable') {
+    console.error(
+      `[artifact-single] 安装包读不到,不能把它说成内容已核验: ${exeName} (${measured.code})`,
+    )
+    return 2
+  }
+  if (measured.kind === 'absent') {
+    console.error(`[artifact-single] 安装包在清理后不在目录里: ${exeName}`)
+    return 1
+  }
+  // F-041(2026-11-12):0 字节文件能算出 sha256、也能通过内容清单,但它不是可安装产物 —— 必须判红。
+  if (measured.bytes === 0) {
+    console.error(`[artifact-single] ❌ 产物为空(0 字节): ${exeName} —— 空文件不是安装包,不得记作通过`)
+    return 1
+  }
+  const manifest = {
+    fileCount: 1,
+    files: [{ path: exeName, sha256: measured.sha256, bytes: measured.bytes, arch }],
+  }
+  const verdict = judgeContentManifest(manifest, {
+    [exeName]: { sha256: measured.sha256, bytes: measured.bytes },
+  })
+  if (verdict.disposition !== 'intact') {
+    console.error(`[artifact-single] 安装包内容清单未通过: ${verdict.reason}`)
+    return verdict.disposition === 'unjudged' ? 2 : 1
+  }
+  console.info(
+    `[artifact-single] 内容已核验 sha256=${measured.sha256} bytes=${measured.bytes} arch=${arch}`,
+  )
+  return 0
+}
+
+async function main() {
+  const argv = process.argv.slice(2)
+  // 给了旗标就必须给一个值:旧副本 `--dir --expect x.exe` 会把 "--expect" 当目录,
+  // 而 `!existsSync(nsisDir) ⇒ return 0` 会让整道产物校验静默通过(实测旧 rc=0 无输出)。
+  const dirOpt = requireFlagValue(argv, '--dir', { noun: '目录路径' })
+  const expectOpt = requireFlagValue(argv, '--expect', { noun: '安装包文件名' })
+  if (dirOpt.error || expectOpt.error) {
+    console.error(`[artifact-single] ❌ 无法判定(exit 2): ${dirOpt.error ?? expectOpt.error}`)
+    return 2
+  }
+  // --dir / --expect 只为把判据放进临时目录做负向对照;默认走真实构建产物目录。
+  const nsisDir =
+    dirOpt.value ?? path.join(ROOT, 'apps/desktop/src-tauri/target/release/bundle/nsis')
+  const expected = expectOpt.value ?? undefined
+  const allowUnsigned = allowUnsignedFrom(process.env)
+  // F-041:缺产物默认判红。只有**显式** --no-artifact-check 才退回"不产 nsis 的安全空操作"
+  // —— 不删任何文件、也不得出具"产物已通过",供 --no-bundle / --bundles app 这类目标直连调用。
+  const skipArtifactCheck = argv.includes('--no-artifact-check')
+
+  // F-041(2026-11-12):目录不存在 = 这次构建压根没产出安装包。旧实现 `return 0` 把
+  // 「没有产物」记成通过,发布侧拿到假绿;缺产物必须判红并点名目录(退出码 1)。
+  if (!existsSync(nsisDir)) {
+    if (skipArtifactCheck) {
+      console.info(
+        `[artifact-single] ⓘ 产物目录不存在 ${nsisDir};已按 --no-artifact-check 跳过「没有产物」判据(未删除任何文件)`,
+      )
+      return 0
+    }
+    console.error(
+      `[artifact-single] ❌ 没有产物:产物目录不存在 ${nsisDir}\n` +
+        '  本次构建没有产出 NSIS 安装包;若这确实是不产包的目标(如 --no-bundle / --bundles app),\n' +
+        '  请显式加 --no-artifact-check 跳过 —— 「没有产物」不得记作通过。',
+    )
+    return 1
+  }
+
+  const version = expected ? undefined : JSON.parse(readFileSync(CONF, 'utf8')).version
+  const exeName = expected ?? `智汇AI_${version}_x64-setup.exe`
+
+  const { keep, stale } = planArtifactInvariant(readdirSync(nsisDir), exeName)
+
+  // F-041(2026-11-12):目录里找不到本次应产出的包 = 没有产物。旧实现按"不产 nsis"放行,
+  // 于是 --no-bundle / --bundles app,或 --config 改了 version/productName 时都拿到假绿。
+  // 清理仍只发生在"当前包在场"这一支(不得因缺包去删别人的产物),但结论必须是失败。
+  if (!keep.includes(exeName)) {
+    if (skipArtifactCheck) {
+      console.info(
+        `[artifact-single] ⓘ 目录内无 ${exeName};已按 --no-artifact-check 跳过「没有产物」判据,` +
+          `保留现有 ${stale.length} 项(未删除任何文件)`,
+      )
+      return 0
+    }
+    console.error(
+      `[artifact-single] ❌ 没有产物:目录内找不到本次构建应产出的安装包 ${exeName}\n` +
+        `  目录 ${nsisDir} 现存: ${stale.join(', ') || '(空)'}\n` +
+        '  可能原因:本次构建未产出 NSIS(--no-bundle / --bundles app),或 --config 改了 version/productName\n' +
+        '  (期望名默认按 tauri.conf.json 推出,可用 --expect 显式指定)。「没有产物」不得记作通过;\n' +
+        '  确需跳过请显式加 --no-artifact-check。',
+    )
+    return 1
+  }
+
+  // 旧版本包/签名一律先清理 —— "多包共存"这一判据的执行体就是这段删除,
+  // 它不属于豁免面:开了豁免也照删,否则下游"取目录里那个 setup.exe"又退化成字母序猜包。
+  for (const f of stale) {
+    rmSync(path.join(nsisDir, f), { force: true })
+    console.log(`[artifact-single] 清理旧产物: ${f}`)
+  }
+
+  const files = readdirSync(nsisDir)
+  const { keep: surviving } = planArtifactInvariant(files, exeName)
+  const { blocking, excused } = partitionViolations(files, exeName, allowUnsigned)
+  if (blocking.length > 0) {
+    console.error(
+      `[artifact-single] 单一产物不变量被破坏 —— ${blocking.join(';')}\n` +
+        `  目录 ${nsisDir} 现存产物: ${surviving.join(', ') || '(空)'}`,
+    )
+    return 1
+  }
+  const content = verifyInstallerContent(nsisDir, exeName)
+  if (content !== 0) return content
+  if (excused.length > 0) {
+    console.log(
+      `[artifact-single] !! 已按 ${ALLOW_UNSIGNED_ENV}=1 放行「${excused.join(';')}」\n` +
+        `  !! 未签名产物:**不得进更新源、不得发版、不得上传任何下载/更新 CDN**,只能本地自测。\n` +
+        `  !! 发版一律走持有 minisign 私钥的通道;其余判据(单一安装包、旧版本清理)未因本豁免放松。`,
+    )
+    console.log(`[artifact-single] ✅ ${exeName} 为目录内唯一安装包(未签名)`)
+    return 0
+  }
+  console.log(`[artifact-single] ✅ ${exeName} 为目录内唯一安装包`)
+  return 0
+}
+
+const isDirectRun = !!process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  // 不 catch:main() 自身抛错(tauri.conf 读不到等)走 Node 默认"未处理拒绝"→ 打印堆栈 + exit 1,
+  // 与改版前同步抛错的退出码一致。
+  main().then((code) => {
+    if (code !== 0) process.exit(code)
+  })
+}
+
+export const __test__ = { partitionViolations, allowUnsignedFrom, ALLOW_UNSIGNED_ENV }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

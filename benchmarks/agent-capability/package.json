@@ -1,0 +1,11 @@
+{
+  "name": "@ihui/agent-capability-eval",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent 能力评测基线：固定任务集 + 录制回放 provider + 结果快照 + 基线对比（不依赖外网与付费模型）",
+  "scripts": {
+    "eval": "node run.mjs",
+    "eval:update-baseline": "node run.mjs --update-baseline"
+  }
+}

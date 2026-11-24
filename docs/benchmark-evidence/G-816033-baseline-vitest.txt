@@ -1,0 +1,54 @@
+#EVIDENCE-CMD: node G:/IHUI-AI/packages/api-client/node_modules/vitest/vitest.mjs run tests
+#EVIDENCE-START: 2026-10-06T09:46:36.302Z
+#EVIDENCE-CWD=G:/IHUI-AI/packages/api-client
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mG:/IHUI-AI/packages/api-client[39m
+
+ [32m✓[39m tests/stream-chat-swallow-fix.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m tests/user-agent.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+ [32m✓[39m tests/fetch-api-baseline.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+ [32m✓[39m tests/chat-pinned.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 40[2mms[22m[39m
+ [32m✓[39m tests/post-tool-result-error.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 41[2mms[22m[39m
+ [32m✓[39m tests/agent-runtime-pause-resume.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 39[2mms[22m[39m
+ [32m✓[39m tests/conversation-import.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 44[2mms[22m[39m
+ [32m✓[39m tests/agent-plan.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 46[2mms[22m[39m
+ [32m✓[39m tests/agent-runtime.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 47[2mms[22m[39m
+ [32m✓[39m tests/client-utilities.test.ts [2m([22m[2m57 tests[22m[2m)[22m[32m 53[2mms[22m[39m
+ [32m✓[39m tests/error-body-whitespace.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 55[2mms[22m[39m
+ [32m✓[39m tests/wallet.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m tests/error-body-single-source.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 51[2mms[22m[39m
+ [32m✓[39m tests/exam-signup-id-contract.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m tests/circuit-breaker-integration.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 58[2mms[22m[39m
+ [32m✓[39m tests/unauthorized-handler.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 119[2mms[22m[39m
+ [32m✓[39m tests/refresh-cooldown.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 133[2mms[22m[39m
+ [32m✓[39m tests/user-broadcast-hub-d153.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 395[2mms[22m[39m
+     [33m[2m✓[22m[39m 真仓受检面零命中,且阳性对照证明扫描确实读到了内容(不是空扫) [33m 385[2mms[22m[39m
+ [32m✓[39m tests/frame-watermark-parity-b76-13.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/circuit-breaker.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/model-context-capacity.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/api-error.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/fetch-api-form-data.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 41[2mms[22m[39m
+ [32m✓[39m tests/envelope-inbound-strict.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 51[2mms[22m[39m
+ [32m✓[39m tests/transport.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/stream-chat-injection-retry.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/stream-chat-usage.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/ai-service-upstream-acceptance.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m tests/tool-approval-response-acceptance.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/http-error-meta.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/g-693-stream-idle-parity.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 697[2mms[22m[39m
+     [33m[2m✓[22m[39m 反向对照:streamIdleMs=0 时同一条死流不得被递出空闲码(红必须来自判据本身) [33m 306[2mms[22m[39m
+ [32m✓[39m tests/stream-chat-plan-terminal.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+ [32m✓[39m tests/api-error-outcome.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/stream-chat-usage-cache.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m tests/list-cap-honesty-b76-13.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/stream-trace-id-parity.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/sse-d34-frames.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m tests/tool-approval-env-projection-d159.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m38 passed[39m[22m[90m (38)[39m
+[2m      Tests [22m [1m[32m385 passed[39m[22m[90m (385)[39m
+[2m   Start at [22m 17:46:36
+[2m   Duration [22m 2.18s[2m (transform 9.80s, setup 0ms, import 19.65s, tests 2.30s, environment 4ms)[22m
+
+#EVIDENCE-RC=0
+#EVIDENCE-END: 2026-10-06T09:46:38.895Z

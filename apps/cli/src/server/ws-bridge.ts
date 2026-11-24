@@ -1,0 +1,310 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * WebSocket 实时事件桥 — 升级 /ws 连接,推送 onEvent 流式事件。
+ *
+ * ws 为硬依赖,静态导入(运行时 createRequire(import.meta.url) 中转在 SEA 单文件
+ * 形态下锚定 exe 目录且经变量中转,esbuild 无法解析,必抛误导性错误)。
+ *
+ * 协议:client 发送 JSON {type:'message', text, sessionId?},server 流式推送 AgentEvent,
+ * 最终推送 {type:'result', ...} 或 {type:'error', message, errorCode?}。
+ *
+ * 鉴权(O12 两条通道,与 HTTP 面同一实现):
+ *   1. `Authorization: Bearer <IHUI_AGENT_TOKEN>` 握手头,或既有的 `?token=` query
+ *   2. 服务端 API Key:`Authorization: Bearer ihui_xxx` + `X-Api-Secret: sk_xxx`,
+ *      并按 /ws 端点所需 scope(chat:write)做能力闸
+ *   拒绝时先发一帧 `{type:'error', errorCode, message}` 再关闭,让机器 client 能判别原因,
+ *   而不是只拿到一个 4001 关闭码。
+ */
+
+import type { IncomingHttpHeaders, Server } from 'node:http';
+import { WebSocketServer as WsServerNamed } from 'ws';
+import type { AgentCore, AgentEvent } from './agent-core.js';
+import {
+  authenticateInbound,
+  classifyAuthError,
+  type InboundAuthContext,
+  type MachineKeyEntry,
+} from '../config/credentials.js';
+import type { ApiKeyPermission } from '@ihui/types';
+
+/** /ws 只做消息驱动,所需能力与 POST /message 一致。 */
+const WS_REQUIRED_SCOPE: ApiKeyPermission = 'chat:write';
+
+interface WsServerLike {
+  on(
+    event: 'connection',
+    listener: (ws: WsSocketLike, req: { url?: string; headers?: IncomingHttpHeaders }) => void,
+  ): void;
+  close(callback?: () => void): void;
+}
+
+interface WsSocketLike {
+  readyState: number;
+  /** 已排队未发出字节数(ws 内置 getter),用于发送侧背压判断(F-063)。 */
+  readonly bufferedAmount?: number;
+  send(data: string): void;
+  close(code?: number, reason?: string): void;
+  on(event: 'message', listener: (data: Buffer) => void): void;
+  on(event: 'close', listener: () => void): void;
+  on(event: 'error', listener: (err: Error) => void): void;
+}
+
+type WsServerCtor = new (options: {
+  server: Server;
+  path: string;
+  /** ws 默认 100MiB:单连接可白吃进程内存,桥务必显式封顶(F-062)。 */
+  maxPayload?: number;
+}) => WsServerLike;
+
+/** 单条 WS 帧上限:足够承载一条 agent 消息/工具输出,又不至于被一条帧打爆内存。 */
+const WS_MAX_PAYLOAD_BYTES = 4 * 1024 * 1024;
+
+/** 单连接发送侧背压阈值:排队字节超过即视为慢客户端,本帧丢弃,不再无界堆积(F-063)。 */
+const WS_MAX_BUFFERED_BYTES = 8 * 1024 * 1024;
+
+export interface WsBridgeOptions {
+  server: Server;
+  path?: string;
+  token?: string;
+  /** O12:放行的机器凭据清单 */
+  machineKeys?: MachineKeyEntry[];
+  /** O12:机器凭据是否必须携带 X-Api-Secret,默认 true */
+  requireApiSecret?: boolean;
+}
+
+export interface WsBridgeHandle {
+  close: () => Promise<void>;
+}
+
+function loadWsServer(): WsServerCtor | null {
+  /**
+   * 取具名档,且**不得**再留 `?? mod.default` 那一档兜底:ws 的默认导出是**客户端** WebSocket
+   * (ESM 走 wrapper.mjs 的 `export default WebSocket`;CJS 互操作下 `mod.default` 也是那枚裸类),
+   * 兜底成功时拿到的是构造函数型别不对 —— `new WsServer({server,path})` 会变成一条向外拨号的客户端连接,
+   * 比当场报 null 更坏(桥"起来了",但没人能连上)。具名 WebSocketServer 四条载入形态都取得到:
+   * ESM wrapper、CJS index 别名、esbuild `--format=cjs` 的 SEA 产物、CI 现用形态。
+   */
+  return typeof WsServerNamed === 'function' ? (WsServerNamed as unknown as WsServerCtor) : null;
+}
+
+/** 取单值请求头(重复头时 node:http 给数组)。 */
+function headerValue(raw: string | string[] | undefined): string | undefined {
+  if (Array.isArray(raw)) return raw[0];
+  return raw;
+}
+
+export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Promise<WsBridgeHandle> {
+  const path = opts.path ?? '/ws';
+  const authCtx: InboundAuthContext = {
+    agentToken: opts.token ?? process.env.IHUI_AGENT_TOKEN,
+    machineKeys: opts.machineKeys ?? [],
+    requireApiSecret: opts.requireApiSecret,
+  };
+
+  const WsServer = loadWsServer();
+  if (!WsServer) {
+    throw new Error(
+      'ws 载入形态不认识:具名 WebSocketServer 不是构造函数(不是"没装"—— ws 已在 apps/cli 的 devDependencies/dependencies 与 lock 里;缺包会在加载期就报 ERR_MODULE_NOT_FOUND)',
+    );
+  }
+
+  const wss = new WsServer({ server: opts.server, path, maxPayload: WS_MAX_PAYLOAD_BYTES });
+  const clients = new Set<WsSocketLike>();
+  /** 每条连接的在飞回合取消器:close/关桥时统一 abort,断连后不再继续烧 token(F-063)。 */
+  const inflight = new Map<WsSocketLike, Set<AbortController>>();
+
+  function addInflight(ws: WsSocketLike, controller: AbortController): void {
+    let set = inflight.get(ws);
+    if (!set) {
+      set = new Set();
+      inflight.set(ws, set);
+    }
+    set.add(controller);
+  }
+
+  function dropInflight(ws: WsSocketLike, controller: AbortController): void {
+    const set = inflight.get(ws);
+    if (!set) return;
+    set.delete(controller);
+    if (set.size === 0) inflight.delete(ws);
+  }
+
+  /** 取消该连接全部在飞回合(幂等,重复调用无副作用)。 */
+  function abortInflight(ws: WsSocketLike): void {
+    const set = inflight.get(ws);
+    if (!set) return;
+    inflight.delete(ws);
+    for (const controller of set) {
+      try {
+        controller.abort();
+      } catch {
+        // 已 abort,忽略
+      }
+    }
+  }
+
+  /**
+   * 发送前看背压:排队字节超阈值时丢弃本帧并留痕,避免慢客户端把内存拖爆。
+   * 返回是否真正送出。
+   */
+  function trySend(ws: WsSocketLike, payload: string): boolean {
+    const buffered = ws.bufferedAmount ?? 0;
+    if (buffered > WS_MAX_BUFFERED_BYTES) {
+      console.warn(
+        `[ws-bridge] 发送背压超阈值(${buffered} B > ${WS_MAX_BUFFERED_BYTES} B),丢弃本帧`,
+      );
+      return false;
+    }
+    try {
+      ws.send(payload);
+      return true;
+    } catch {
+      // socket 已关闭,忽略
+      return false;
+    }
+  }
+
+  wss.on('connection', (ws, req) => {
+    // F-062:error 必须在任何分支之前挂上 —— Origin/鉴权拒绝路径同样会 return,
+    // 只挂到放行后的连接上时,这些"鉴权前"的连接在 EPIPE/ECONNRESET 时无人接 error,
+    // 会升级成未捕获异常打崩常驻 server。error 后立即清出可写集合并安全关闭。
+    ws.on('error', (err: Error) => {
+      clients.delete(ws);
+      console.warn('[ws-bridge] 连接错误(已隔离该连接):', err.message);
+      try {
+        ws.close(1009, 'MESSAGE_TOO_BIG');
+      } catch {
+        // 对端可能已断开
+      }
+    });
+    const url = new URL(req.url ?? '', 'http://localhost');
+    const headers = req.headers ?? {};
+    // 2026-10-31 安全强化第 10 批:浏览器跨站 WebSocket(CSWSH)不受 CORS 限,唯一
+    // 防线是 Origin 校验 —— drive-by 网页发起的握手必带本页 Origin,非回环来源直接
+    // 拒绝(带凭据也不放行);非浏览器客户端可不带 Origin,不受影响。
+    const origin = headerValue(headers.origin);
+    // R8 复评 O2:Origin: null(沙箱 iframe/file://)同样不属回环来源,一并拒 ——
+    // 该形态曾跳过主机名校验直入鉴权;凭据面虽仍闸住,方向是多拒一次(fail-closed)。
+    if (origin !== undefined) {
+      let originHost = '';
+      try {
+        originHost = new URL(origin).hostname.toLowerCase();
+      } catch {
+        originHost = '';
+      }
+      if (originHost !== 'localhost' && originHost !== '127.0.0.1' && originHost !== '::1') {
+        try {
+          ws.send(
+            JSON.stringify({ type: 'error', message: 'Origin not allowed', errorCode: 'ORIGIN_REJECTED' }),
+          );
+        } catch {
+          // 对端可能已关闭
+        }
+        ws.close(4003, 'ORIGIN_REJECTED');
+        return;
+      }
+    }
+    const decision = authenticateInbound(
+      {
+        authorization: headerValue(headers.authorization),
+        apiSecret: headerValue(headers['x-api-secret']),
+        // 既有 client 用 ?token= 传凭据,继续接受(header 优先)
+        queryToken: url.searchParams.get('token') ?? undefined,
+        requiredScope: WS_REQUIRED_SCOPE,
+      },
+      authCtx,
+    );
+    if (!decision.ok) {
+      try {
+        ws.send(
+          JSON.stringify({
+            type: 'error',
+            message: decision.message,
+            errorCode: decision.errorCode,
+            ...(decision.requiredScope ? { requiredScope: decision.requiredScope } : {}),
+          }),
+        );
+      } catch {
+        // 握手后 socket 可能已被对端关闭,关闭码仍携带原因
+      }
+      ws.close(decision.status === 403 ? 4003 : 4001, decision.errorCode);
+      return;
+    }
+    clients.add(ws);
+    ws.on('message', (data: Buffer) => {
+      void handleMessage(ws, core, data);
+    });
+    ws.on('close', () => {
+      clients.delete(ws);
+      // F-063:断连即取消该连接的在飞回合,不留给它继续跑完。
+      abortInflight(ws);
+    });
+  });
+
+  async function handleMessage(ws: WsSocketLike, core: AgentCore, data: Buffer): Promise<void> {
+    let msg: { type?: string; text?: string; sessionId?: string };
+    try {
+      msg = JSON.parse(data.toString('utf-8'));
+    } catch {
+      return;
+    }
+    if (msg.type !== 'message' || typeof msg.text !== 'string') return;
+
+    const sessionId = msg.sessionId;
+    const onEvent = (event: AgentEvent): void => {
+      if (ws.readyState === 1) {
+        trySend(ws, JSON.stringify(event));
+      }
+    };
+
+    // F-063:每个回合可单独取消,并登记到连接名下,close 时一并 abort。
+    const controller = new AbortController();
+    addInflight(ws, controller);
+
+    try {
+      const result = await core.sendMessage(msg.text, onEvent, {
+        ...(sessionId ? { sessionId } : {}),
+        signal: controller.signal,
+      });
+      if (ws.readyState === 1) {
+        trySend(ws, JSON.stringify({ type: 'result', ...result }));
+      }
+    } catch (err) {
+      if (ws.readyState === 1) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const errorCode = classifyAuthError(err);
+        trySend(
+          ws,
+          JSON.stringify({
+            type: 'error',
+            message: msg,
+            ...(errorCode ? { errorCode } : {}),
+          }),
+        );
+      }
+    } finally {
+      dropInflight(ws, controller);
+    }
+  }
+
+  return {
+    close: () =>
+      new Promise<void>((resolve) => {
+        for (const ws of clients) {
+          // F-063:关桥等同断连,先取消在飞回合再关闭 socket。
+          abortInflight(ws);
+          try {
+            ws.close();
+          } catch {
+            // ignore
+          }
+        }
+        clients.clear();
+        wss.close(() => resolve());
+      }),
+  };
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
