@@ -9566,7 +9566,18 @@
       "templateForm": "Form submit check",
       "templatePayment": "Payment confirm",
       "templateDownload": "Download check",
-      "templateNoSession": "Open a browser tab in the work panel first, then start template monitoring."
+      "templateNoSession": "Open a browser tab in the work panel first, then start template monitoring.",
+      "ckLoginHandoffLogin": "Login page detected",
+      "ckLoginHandoffVerify": "Verification submitted",
+      "ckLoginHandoffBack": "Back to the task",
+      "ckFormCommitConfirm": "Confirm before submit",
+      "ckFormCommitReceipt": "Submission result",
+      "ckPaymentConfirmCheckout": "Checkout page reached",
+      "ckPaymentConfirmPay": "Confirm before payment",
+      "ckPaymentConfirmDone": "Payment result",
+      "ckDownloadExportExport": "Export triggered",
+      "ckDownloadExportDownload": "Download started",
+      "ckDownloadExportDone": "File verified"
     },
     "resizeFloatHint": "Resize",
     "earlier": "Earlier"

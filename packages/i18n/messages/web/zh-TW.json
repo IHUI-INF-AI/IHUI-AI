@@ -9566,7 +9566,18 @@
       "templateForm": "表單提交確認",
       "templatePayment": "付款確認",
       "templateDownload": "下載核對",
-      "templateNoSession": "先在工作面板開啟瀏覽器分頁,再依範本監看。"
+      "templateNoSession": "先在工作面板開啟瀏覽器分頁,再依範本監看。",
+      "ckLoginHandoffLogin": "登入頁已出現",
+      "ckLoginHandoffVerify": "驗證碼已提交",
+      "ckLoginHandoffBack": "已回到目標任務",
+      "ckFormCommitConfirm": "提交前確認",
+      "ckFormCommitReceipt": "提交結果確認",
+      "ckPaymentConfirmCheckout": "已進入結算頁",
+      "ckPaymentConfirmPay": "付款前確認",
+      "ckPaymentConfirmDone": "支付結果確認",
+      "ckDownloadExportExport": "已觸發生成/匯出",
+      "ckDownloadExportDownload": "下載已開始",
+      "ckDownloadExportDone": "產物核對完成"
     },
     "resizeFloatHint": "調整大小",
     "earlier": "更早"

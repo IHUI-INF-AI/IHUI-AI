@@ -9590,7 +9590,18 @@
       "templateForm": "表单提交确认",
       "templatePayment": "支付确认",
       "templateDownload": "下载核对",
-      "templateNoSession": "先在右侧工作面打开一个浏览器标签,再按模板监看。"
+      "templateNoSession": "先在右侧工作面打开一个浏览器标签,再按模板监看。",
+      "ckLoginHandoffLogin": "登录页已出现",
+      "ckLoginHandoffVerify": "验证码已提交",
+      "ckLoginHandoffBack": "已回到目标任务",
+      "ckFormCommitConfirm": "提交前确认",
+      "ckFormCommitReceipt": "提交结果确认",
+      "ckPaymentConfirmCheckout": "已进入结算页",
+      "ckPaymentConfirmPay": "付款前确认",
+      "ckPaymentConfirmDone": "支付结果确认",
+      "ckDownloadExportExport": "已触发生成/导出",
+      "ckDownloadExportDownload": "下载已开始",
+      "ckDownloadExportDone": "产物核对完成"
     },
     "resizeFloatHint": "调整大小",
     "earlier": "更早"
