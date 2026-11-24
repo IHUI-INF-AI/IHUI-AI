@@ -3,6 +3,7 @@
   Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
+
 > ⚠️ **Copyright & Commercial Licensing Notice**
 >
 > © 2026 **IHUI AI (智汇AI)** · Copyright owner: **Li Chunchuan (李春川)** · https://aizhs.top
@@ -10,26 +11,34 @@
 > - Dual licensing: open-source use under **Apache-2.0** (copyright notice and NOTICE must be retained); **closed-source commercial use, rebranding, or SaaS resale** requires a separate commercial license.
 > - All source files in this repository are embedded with provenance watermarks (visible banners + invisible zero-width steganography; verify with `node scripts/watermark.mjs decode <file>`). Removing watermarks does not change copyright ownership; unauthorized commercial use is technically traceable and legally actionable.
 > - CI enforces watermark verification (`pnpm watermark:check`); any change that strips watermarks fails the build.
+
 # IHUI-AI
+
 <p align="center">
   <img src="apps/web/public/images/logo.png" width="140" alt="IHUI-AI Logo" />
 </p>
+
 <p align="center">
   <strong>Online Demo</strong> · <a href="https://aizhs.top">https://aizhs.top</a> &nbsp;|&nbsp; <strong>GitHub</strong> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star this repo</a><br/>
   <sub><strong>Self-hosted full-stack AI platform</strong>: model gateway + Agent orchestration + multi-tenant business backend + 8 frontend ends · Apache 2.0 · Fork to production in 5 minutes</sub>
 </p>
+
 <p align="center">
   <sub>
     <a href="README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.ko.md">한국어</a> · <a href="README.ja.md">日本語</a>
   </sub>
 </p>
+
 ---
+
 > **This file is an index only.** As of 2026-09-30 the root README is an index layer: positioning,
 > live-computed numbers, quick start, and entry points into nine topic documents. Every capability's
 > full rationale and evidence lives, verbatim, in the nine archive files under
 > [`docs/engineering/`](./docs/engineering); the authoritative engineering rulebook is
 > [`AGENTS.md`](./AGENTS.md).
+
 ## What it is
+
 | Dimension   | Description                                                                                                                                                     |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | In one line | Self-hosted full-stack AI platform: model gateway + Agent orchestration + multi-tenant backend + 8 frontend ends                                                |
@@ -38,21 +47,27 @@
 | Frontends   | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui (web), Taro 4 (mini-program), React Native + NativeWind (app), Tauri 2 (desktop), WXT (extension), Node.js (CLI) |
 | Data        | PostgreSQL (row-level security, multi-tenant) + pgvector vector search + Redis                                                                                  |
 | License     | Apache-2.0 (copyright notice and NOTICE must be retained; source files carry provenance watermarks)                                                             |
+
 Full positioning narrative (value pyramid, cost comparison, differentiation, benchmark categories):
 [`docs/engineering/readme-01-positioning.md`](./docs/engineering/readme-01-positioning.md).
+
 ## Key numbers (live-computed)
+
 **These numbers are not hand-copied.** The single algorithm lives in
 [`scripts/gen-doc-numbers.mjs`](./scripts/gen-doc-numbers.mjs), which counts from real sources
 (schema code, route registrations, locale directories, compose manifests...). The gate
 [`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) re-computes them for this file and
 the Chinese README, and blocks any stale value.
+
 Headline claims (same source as the table below, all live-computed): **database tables · API routes ·
 WebSocket endpoints · LLMs · multi-platform auto-publishing · test file counts in the generated table below ·
 engineering gates · CI workflows · i18n parity · app and shared packages · compose services**.
+
 Cross-end UI parity across web, mini-program and React Native is enforced by
 [`scripts/check-cross-end-ui-parity.mjs`](./scripts/check-cross-end-ui-parity.mjs) — a blocking gate
 that reconciles geometry, radius and per-element radius anchors over the three ends and fails on any
 divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`.
+
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
@@ -78,43 +93,187 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 | — blocking | 339 | `guardianBlocking` |
 | — warn | 33 | `guardianWarn` |
 | 跟踪文件 | 23015 | `trackedFiles` |
+
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-19。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
 <!-- END GENERATED NUMBERS -->
+
+
 ## Recent updates (auto-maintained)
+
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-24**
-- 🔧 工程/其他:构建前强制校验 NSIS 模板/补丁一致性 (c8a342e32f)
-- 🐞 修复:WebView2 失败路径静默退出 6，交互只提示一次 (4cdc0eb545)
-- 🔧 工程/其他:v2 版本语义/300MB 上限/URL/签名结构判据 (d929ade27e)
-- 🐞 修复:安装/卸载绝不 KillProcess，静默退出码 5 (f241c495f4)
-- 🐞 修复:修正钉钉userAccessToken注入header为x-acs-dingtalk-access-token (ecbdec2f4d)
-- 🚀 新功能/改进:补齐 codex/doubao/minimax 三平台模型清单自动发现 (13f8e979b6)
-- 🔧 工程/其他:v2 版本语义/300MB 上限/URL/签名结构判据 (0811a2a83e)
-- 🐞 修复:同版本重装保留旧 previous，旧 state 落 .bak (42c5f5a829)
-- 📚 文档:补齐本机五程序 deep 取证 (4723500e3b)
-- 🔧 工程/其他:发布构建后强制跑安装器 /UPDATE 零弹窗真机回归 (2d537385f0)
-- 🔧 工程/其他:安装器 /UPDATE 零弹窗真机回归 + feed v2 字段上限对齐 (9430b0ff49)
-- 🐞 修复:/UPDATE 硬闸覆盖 /D 目标 + state.json 原子替换 + 回归门禁 (4926b30438)
-- 🚀 新功能/改进:员工报销自助端补齐(审批链自动解析+票据上传+我的单据进度) (e6bd4427b3)
-- 🚀 新功能/改进:报销自助页词条(hrGap 31 键 + nav 3 键 × 5 语言) (d047dfb537)
-- 🚀 新功能/改进:loomy 上游模型清单自动发现——真票实弹取证 + listModelsDetailed (acaf971c24)
-- 🚀 新功能/改进:worktree回收租约带owner/heldForMs诊断——对标Cursor WorktreeCleanupMainService lease id/owner=window:1/heldForMs;原孤儿腿锁是空文件冲突只报'另一进程持有锁'无归属无时长,长持堵safe-commit/push时靠人肉stat判死活;升级为JSON租约{lease,owner:{pid,ppid,cmd},sinceMs,reason},冲突报owner+heldForMs+reason;兼容旧纯pid/空锁格式;修owner对象拼接变[object Object]的真bug;6例成对测试含变异验证(改回[object Object]即红)+24/24全绿+守门316绿+水印OK (6ad233403b)
-- 📚 文档:302p 门剩余三维红的逐处 file:line 证据清单——交跨端对齐线 owner 收口，不刷新基线不改生产代码 (13f9b7c0b8)
-- 🐞 修复:旧更新链 /UPDATE 全面静默，任何模式零弹窗、退出码 2 (6d46eca1e8)
-- 🚀 新功能/改进:WS看门狗判死留结构化诊断——对标Cursor RendererPing stacks=true(判死必留证据);原判死只静默close上层只见普通onClose无法区分假死与正常断线,新增onLivenessTimeout(代际/距末pong毫秒/阈值/readyState);绝不携带URL/token防凭据泄漏+每次连接只报一次闩锁+回调异常不阻断重连+未传时零行为变化;6例成对测试含变异验证(移除诊断5/6红)/typecheck/796测试/lint/水印全绿 (adec731ebf)
-- 🐞 修复:补齐审计 P2——默认目录写探针、自启/状态写入告警、静默 /UPDATE 快速失败 (a0f63de5e9)
-- 🐞 修复:按 302p 门明示合法通道收口 web-unmapped 0→2 与自述计数腐烂 0→1——两页 HR 自助面登记 gap + admin 自述 343→345 (6ac405ff82)
-- 🐞 修复:补齐审计 P2——默认目录写探针、自启/状态写入告警、静默 /UPDATE 快速失败 (6e214b3584)
-- 🐞 修复:修 5 处类型错(员工自助端两页 AuthGatePrompt message/OAuth 回调 params/expense·perf mutation 泛型) (e7475fd75c)
-- 📚 文档:craft deep rizin 静态复评四件未判定原生件——aiep_sbox/sandbox_ffi/tsbx/keytar/AoqClientSdk 推进到函数级观察 (dceb2b416e)
-- 📚 文档:Loomy 正文数改为现场快照 (ddcadb2e3e)
-- 🐞 修复:补全模型自动同步遗漏——qoder 能力门/吞错返空/环境变量/红测 (c9f0c932ac)
-- 🔧 工程/其他:v2 签名 zip/feed 随 Release 自动上传并校验资产落地 (a3b1cfc799)
-- 🚀 新功能/改进:三处"证据不足"边界做实——disabled 执行层拒执门 + 报告映射漂移标注 + UI 前置拦截 (0d4c6453fe)
-- 🐞 修复:闭环 v2 更新审计 P0/P1——回滚落盘/清单复验/父进程存活/feed 校验/安装器状态保留 (540935c209)
-- 📚 文档:测试命令对齐 13 个脚本文件 (e43d8d5162)
-- 🚀 新功能/改进:员工自助端补全——/my/perf+/my/training 两页两路由,顺手根治他席已入库面的 i18n 裸键真 bug (6241328b42)
+- 🚀 新功能/改进:浏览器画中画监看——只读浮窗+独立收帧+一键接管,后端多观众帧/导航 fan-out (19198ba7)
+- 🐞 修复:用户OAuth回调地址按平台解析——凭据extra→平台env→通用env→站点默认;修生产未配FEISHU_REDIRECT_URI致authorize恒400;authorize/callback同源防拒换code;+4测试(27全绿)+两处变异验证 (a8896c29)
+- 🚀 新功能/改进:把本机五程序取证结论转成五项可验证强化 (e0a23e03)
+- 🐞 修复:报销审批人池剔除本人 + 票据上传返回形状对齐 (1650611e)
+- 🐞 修复:lessons_difficulty 迁移补真水印载荷(clean+inject:PLACEHOLDER 残迹->可解码载荷,sha 5b972273),语义按远端版保留 COMMENT ON COLUMN;账本 hash 同步为该值 (2364914c)
+- 🐞 修复:/UPDATE 硬闸覆盖 .bak/.tmp/launcher 标记，E2E 清理句柄 (eba918da)
+- 🐞 修复:号池/直连双引擎所有权仲裁,禁止 Python 引擎删除 relay 自动登记模型 (5f060ea9)
+- 🐞 修复:报销审批人池剔除本人 + 票据上传返回形状对齐 (87fa9140)
+- 🔧 工程/其他:构建前强制校验 NSIS 模板/补丁一致性 (c8a342e3)
+- 🐞 修复:WebView2 失败路径静默退出 6，交互只提示一次 (4cdc0eb5)
+- 🔧 工程/其他:v2 版本语义/300MB 上限/URL/签名结构判据 (d929ade2)
+- 🐞 修复:安装/卸载绝不 KillProcess，静默退出码 5 (f241c495)
+- 🐞 修复:修正钉钉userAccessToken注入header为x-acs-dingtalk-access-token (ecbdec2f)
+- 🚀 新功能/改进:补齐 codex/doubao/minimax 三平台模型清单自动发现 (13f8e979)
+- 🔧 工程/其他:v2 版本语义/300MB 上限/URL/签名结构判据 (0811a2a8)
+- 🐞 修复:同版本重装保留旧 previous，旧 state 落 .bak (42c5f5a8)
+- 📚 文档:补齐本机五程序 deep 取证 (4723500e)
+- 🔧 工程/其他:发布构建后强制跑安装器 /UPDATE 零弹窗真机回归 (2d537385)
+- 🔧 工程/其他:安装器 /UPDATE 零弹窗真机回归 + feed v2 字段上限对齐 (9430b0ff)
+- 🐞 修复:/UPDATE 硬闸覆盖 /D 目标 + state.json 原子替换 + 回归门禁 (4926b304)
+- 🚀 新功能/改进:员工报销自助端补齐(审批链自动解析+票据上传+我的单据进度) (e6bd4427)
+- 🚀 新功能/改进:报销自助页词条(hrGap 31 键 + nav 3 键 × 5 语言) (d047dfb5)
+- 🚀 新功能/改进:loomy 上游模型清单自动发现——真票实弹取证 + listModelsDetailed (acaf971c)
+- 🚀 新功能/改进:worktree回收租约带owner/heldForMs诊断——对标Cursor WorktreeCleanupMainService lease id/owner=window:1/heldForMs;原孤儿腿锁是空文件冲突只报'另一进程持有锁'无归属无时长,长持堵safe-commit/push时靠人肉stat判死活;升级为JSON租约{lease,owner:{pid,ppid,cmd},sinceMs,reason},冲突报owner+heldForMs+reason;兼容旧纯pid/空锁格式;修owner对象拼接变[object Object]的真bug;6例成对测试含变异验证(改回[object Object]即红)+24/24全绿+守门316绿+水印OK (6ad23340)
+- 📚 文档:302p 门剩余三维红的逐处 file:line 证据清单——交跨端对齐线 owner 收口，不刷新基线不改生产代码 (13f9b7c0)
+- 🐞 修复:旧更新链 /UPDATE 全面静默，任何模式零弹窗、退出码 2 (6d46eca1)
+- 🚀 新功能/改进:WS看门狗判死留结构化诊断——对标Cursor RendererPing stacks=true(判死必留证据);原判死只静默close上层只见普通onClose无法区分假死与正常断线,新增onLivenessTimeout(代际/距末pong毫秒/阈值/readyState);绝不携带URL/token防凭据泄漏+每次连接只报一次闩锁+回调异常不阻断重连+未传时零行为变化;6例成对测试含变异验证(移除诊断5/6红)/typecheck/796测试/lint/水印全绿 (adec731e)
+- 🐞 修复:补齐审计 P2——默认目录写探针、自启/状态写入告警、静默 /UPDATE 快速失败 (a0f63de5)
+- 🔧 工程/其他:摘净回潮件 assistant-release-upload.yml（内容锚点：一次性 blob 汇编脚本，10 枚硬编码 blob SHA 拼 msi/setup.exe） (c224fcc0)
+- 🐞 修复:修 5 处类型错(员工自助端两页 AuthGatePrompt message/OAuth 回调 params/expense·perf mutation 泛型) (e7475fd7)
+- 🐞 修复:按 302p 门明示合法通道收口 web-unmapped 0→2 与自述计数腐烂 0→1——两页 HR 自助面登记 gap + admin 自述 343→345 (6ac405ff)
+- 🐞 修复:补齐审计 P2——默认目录写探针、自启/状态写入告警、静默 /UPDATE 快速失败 (6e214b35)
+- 📚 文档:craft deep rizin 静态复评四件未判定原生件——aiep_sbox/sandbox_ffi/tsbx/keytar/AoqClientSdk 推进到函数级观察 (dceb2b41)
+- 📚 文档:Loomy 正文数改为现场快照 (ddcadb2e)
+- 🐞 修复:补全模型自动同步遗漏——qoder 能力门/吞错返空/环境变量/红测 (c9f0c932)
+- 🔧 工程/其他:v2 签名 zip/feed 随 Release 自动上传并校验资产落地 (a3b1cfc7)
+- 🚀 新功能/改进:三处"证据不足"边界做实——disabled 执行层拒执门 + 报告映射漂移标注 + UI 前置拦截 (0d4c6453)
+- 🐞 修复:闭环 v2 更新审计 P0/P1——回滚落盘/清单复验/父进程存活/feed 校验/安装器状态保留 (540935c2)
+- 📚 文档:测试命令对齐 13 个脚本文件 (e43d8d51)
+- 🐞 修复:补齐 coverage 面板三件缺失模块 + 两处类型错误 (0f70e257)
+- 🚀 新功能/改进:员工自助端补全——/my/perf+/my/training 两页两路由,顺手根治他席已入库面的 i18n 裸键真 bug (6241328b)
+- 🐞 修复:解析 Node 22+ skipped 汇总键 (396b2157)
+- 🐞 修复:一键切号文案补全 OpenCode/Loomy/Codex 现场口径 (7a34bab3)
+- 🚀 新功能/改进:闭合扩展端 notification:state 六档翻转消费——常驻侧栏他端已读/删除不再停在旧角标 (2da0d9cd)
+- 📚 文档:补全正库路径与测试跳过口径 (a48c792a)
+- 🚀 新功能/改进:HR补齐线管理面 UI——职级/绩效/培训/报销四 tab 挂进 hr-lifecycle 一页 (7e243fff)
+- 🐞 修复:覆盖探测引擎错误分类/写库容错/全量分批游标闭环 (cd74a811)
+- 📚 文档:校正小浣熊 profile 已初始化口径与测试数 (fcd08963)
+- 🐞 修复:迁移 IHUI-AI-Desktop 自启值到 Launcher (1ed50e80)
+- 🐞 修复:迁移 IHUI-AI-Desktop 自启值到 Launcher (54c95abb)
+- 🚀 新功能/改进:号池平台模型自动下架闭环——上游消失模型软下架(50%/2条安全阀+空清单保护+qoder前缀保护),复活机制让重新上架自动恢复;新key/新平台动态纳入 (02f5fcb5)
+- 🐞 修复:云端平台本地零副本不报 0 条 (cc53f4df)
+- 🐞 修复:加固 Launcher 状态恢复、自启路径与安装器旧进程检查 (022ce8c1)
+- 🐞 修复:extension 通知角标改取服务端真相,闭合打开即 0 与只增不减 (a1d8d7d6)
+- 🐞 修复:修复用户OAuth令牌刷新不落库与飞书refresh_token链路断裂 (472b5fcd)
+- 🚀 新功能/改进:OpenCode/Loomy 正库与正文级核验 (c00fd1e3)
+- 🚀 新功能/改进:闭合 RN 端 notification:state 六档消费(跨端状态翻转全端对齐) (17c6fa7e)
+- 🐞 修复:Launcher 使用 Windows GUI 子系统，避免每次启动闪黑框 (7f5feca0)
+- 🐞 修复:安装 ID 写盘失败时用安装根稳定哈希兜底，避免灰度桶漂移 (cd6e919e)
+- 🐞 修复:v2 签名支持 CI 全局 tauri，不再只认 pnpm exec (d747e110)
+- 🔧 工程/其他:删除旧 updater 前端死链与 plugin-updater 依赖 (6f94d598)
+- 📚 文档:校正小浣熊当前状态为 profile 已初始化/库待生成 (bbca4e0a)
+- 🚀 新功能/改进:小浣熊正库与 profile 适配 (461d0adf)
+- 🚀 新功能/改进:通知同步最后两处诚实边界真闭合——state-query 500 分片 + 背压跳帧断连重连对账 (5d5c676f)
+- 🐞 修复:断点续读断链真闭合——history 普通分页补 prevCursor 解 dead code + 水位只在 resync 成功后推进解永久漏 + 100turn 翻页 + 小程序直插补 turnOrdinal (9dd3e7bf)
+- 🚀 新功能/改进:绩效考核——周期+评估单三级流转(自评→上级定稿→确认/申诉),close 硬闸不 force (96fe7aa5)
+- 🚀 新功能/改进:稳定 Launcher + v2 后台更新（签名 zip/自动回滚/常驻胶囊） (9e78a535)
+- 🐞 修复:重头 appmap 深度比对——修复首屏 boot 快照 return 提前退出致 Tauri 深色主题闪白 (2c8c9f01)
+- 📚 文档:删除翻转边界收口——notification:state 六档含 delete/delete-all + state-query deletedIds 快照,删除后不再永久残留;仍余非web端/背压跳帧/500上限如实标注 (af1db22d)
+- 🚀 新功能/改进:平台适配深度分级 + ZCode/MiniMax 正库修正 (2e5f45fd)
+- 🚀 新功能/改进:craft deep 榨取第5条——confirmDialog 宿主接管超时兜底,根治弹窗服务未挂载时 Promise 悬挂 (6a998b3a)
+- 🚀 新功能/改进:钉钉用户OAuth扫码授权补齐——官方端点+字段映射+dingtalk_user Bearer注入;企微协议无per-user token显式禁用;飞书/钉钉前端放开 (6c4fb985)
+- 🚀 新功能/改进:通知删除翻转闭合——notification:state 扩 delete/delete-all 两档+两 DELETE 路由落库后广播确切 ids+state-query 回 deletedIds 快照兜底(WS帧不重放)+store deleteByIds 精确移除+react-query就地改,零 migration,84 例 (60cdd0ef)
+- 🚀 新功能/改进:职级体系——职级字典+员工生效史,P4"调岗/晋升/职级 0 命中"补成带时间线可回放的一等公民 (ff9d290d)
+- 🚀 新功能/改进:国内版 SDK 模型清单自动接入——桥缓存 available_models_update 帧+/v1/models,adapter 优先桥清单回落 CLI,15分钟同步;新模型先登记不公开 (05d6a1f7)
+- 🚀 新功能/改进:craft deep 榨取竞品补两条真缺口——长任务防休眠 + PTY 终端背压 (98533093)
+- 🚀 新功能/改进:打通用户扫码授权公网链路——ai-service精确回调公开+8802窄代理+Web回调页state分流;密钥正规化含迁移脚本 (396eb2f8)
+- 📚 文档:通知状态翻转边界收口——notification:state 独立事件+state-query 权威对账,删除/非web端/背压跳帧仍余如实标注 (2aae5e5a)
+- 🚀 新功能/改进:通知状态翻转消费闭环——store 三批量 API(按确切ids不重算角标)+use-notification-state-sync 订阅 notification:state 就地改react-query缓存并取服务端角标+重连权威状态对账(WS帧不重放兜底),16 例 (05cc61a2)
+- 🚀 新功能/改进:报销闭环——自助提单(认本人档案)→固化审批链逐级留痕→付款→入账凭证,一条对账揪出的"没做也没挂账"补到底 (e2b00ff6)
+- 🚀 新功能/改进:切号 profile 感知 + 旧号归档/交接单 + 导入入口实测分流 (e7e07751)
+- 🚀 新功能/改进:重连权威状态快照 state-query——带本地已知 ids 只回真已读/归档子集(uuid+500上限+userId谓词防越权,零 migration)+queryNotificationStates getter,5 例路由边界测试 (45ea591e)
+- 🐞 修复:OAuth回调复用项目既有飞书配置——FEISHU_REDIRECT_URI/NEXT_PUBLIC_FEISHU_REDIRECT_URI优先,消除需管理员新增配置的错误结论,修正报告边界 (e6f42c17)
+- 🚀 新功能/改进:通知状态翻转广播——四条状态路由(read/read-all/archive/restore)+老写路径发 notification:state 帧,markAllAsRead 返回确切 ids(零 migration),6 例路由广播测试 (a5c9c820)
+- 🐞 修复:复制代码双通道降级消除静默失败——craft deep榨取竞品125处clipboard effects分通道(桌面主进程API/Web浏览器API),发现用户最高频的复制代码入口markdown-stream只调navigator.clipboard.writeText且.catch(()=>{})静默吞,非HTTPS/权限拒绝/移动端WebView点了没反应;复用仓内既有legacy textarea+execCommand降级,保留1.5s回退timer与卸载清理契约;3例新测(无API降级/权限拒降级/双失败不谎报)+回归43例/typecheck/lint/水印全绿 (dcef8d54)
+- 🐞 修复:对齐小程序更新文案并锁定下载单源断言 (8e89126c)
+- 🐞 修复:同步 publish-mobile-apk 站点腿断言到 /downloads/mobile 单源 (8e070fcb)
+- 🚀 新功能/改进:号池上游模型自动上架提速至15分钟——各平台上新第一时间抓取(单源周期+运维覆盖) (0aaa7c2b)
+- 🚀 新功能/改进:通知状态翻转事件契约——notification:state 四档(read/archive/restore/read-all)构造出口+载荷守卫(拒空ids/主体键)+d153两表等值,10例 (e0dbd6d1)
+- 🐞 修复:WS活性看门狗根治休眠唤醒/TCP半开假连接态——craft deep榨取竞品renderer-ping/pong配对+power-state广播,发现我们有ping无活性判定(pong帧被吞/重连只靠onclose);收到pong才武装(降级兼容不回pong的服务端)+超时主动close复用既有重连补增量链;4例新测10例回归/typecheck/lint/水印全绿 (409d1c99)
+- 🚀 新功能/改进:连接器用户授权按钮文案(5语言) (d0a1f955)
+- 🚀 新功能/改进:用户OAuth扫码授权链路+可用性修复——飞书user token注入,55条GET丢弃修复,AI调用全链路 (dad93932)
+- 🚀 新功能/改进:一键零申报——mark-zero 核验式落零,bulk 逐条点名,提交仍人工闸 (ec8c866a)
+- 🔧 工程/其他:通知断点水位入口补全——半参数 refine 反向用例 + 成对/空串/变异锁(4 例) (8fd2276f)
+- 🚀 新功能/改进:断点续读补全——消息侧断线全新消息按 history 水位集合差补拉 + 通知侧 (createdAt,id) 复合 keyset 精确水位(零 DB migration，33 例) (337af3af)
+- 🐞 修复:生产 run_command 进程回收有界等待——deep取证发现此前kill-wait修复只被测试调用,生产_tool_run_command两处裸await proc.wait无界(超时拿不到errorCode=TIMEOUT+partial_output);补有界wait_for+killSurvived如实标注+4常量对齐守卫,5例新测63例回归全绿 (626dffcb)
+- 📚 文档:§8 改写为项目内 craft deep MCP 连接与使用——项目CLI运行时加载491工具/core_target_open实调成功/信任闸门对照0工具；移除无关宿主IDE注册叙述 (0d04122c)
+- 🚀 新功能/改进:代账入账腿闭合——ai_bookkeeping 带 ledger_id 输出 ledger_ops_payloads 确定性转换器 (da42640a)
+- 🚀 新功能/改进:通知 WS 重连补增量——断线窗口通知拉最新页幂等合并、角标取服务端真相(首连不补/取消保护，5 例) (cbac746c)
+- 🐞 修复:重连补增量测试文件 lint 修正——去 import() 类型/require 风格，改正规 import(eslint 8 红清零) (fb07792e)
+- 🚀 新功能/改进:重连补增量——接活休眠的 planChatSyncReconnectResync，只补无终态消息(首连不轰炸/四维如实上报，11 例) (79389918)
+- 🚀 新功能/改进:打开 deep 模式 MCP 连接并完成真实使用——项目通道加 --deep 显式开关；WorkBuddy 插件官方注册(doctor workbuddy=ok)；deep 实调 js_app_map(clean_room=false 证据)；证据文档补第8节 (fe475cbf)
+- 🐞 修复:命令强杀后有界等待(kill_timeout_ms 对齐)——消除两处无界 await proc.wait()，强杀残存如实报 killSurvived(5 例) (7351788b)
+- 🐞 修复:craft MCP 配置路径漂移修复(0.6.1缺失→0.5.0可用,握手321工具实证)；文档补 REA doctor 全绿与配置真相 (a4ba837c)
+- 🚀 新功能/改进:统一各端下载命名空间到 /downloads (ec063662)
+- 📚 文档:REA MCP 官方 doctor 全绿实证(170工具/6prompts/digest匹配)，craft 0.6.1 下载中断如实标注 (13d58bca)
+- 🐞 修复:规范冒号路径参数并纠正探测404误判 (f113955e)
+- 🐞 修复:H5 构建因字体目录缺失必红,改条件复制并加回归测试 (73bcdbb6)
+- 📚 文档:craft deep 模式函数级复评——libckg Go 函数表+pclntab伪代码(版本握手/sqlite_vec/幂等键)、四大件字符串→函数定位与反编译，纠正此前仅字符串级 (893aab97)
+- 📚 文档:记录有效 Cookie 直连导入 API 实测 (ec31fda2)
+- 📚 文档:纠正工具链缺口结论——REA 6.4.0 补装+MCP握手170工具实证，craft 0.6.1 官方源校验中 (51f176f9)
+- 🔧 工程/其他:构建重生成产物(ui-routes / i18n 压缩包 pin 与 hash 对齐 19d92767) (fa795f39)
+- 🚀 新功能/改进:代账报税人事缺口补齐包——账簿三件套/年结/影像/取数/验真/排班/联动/补偿/复核/工资条/RPA点位 (10988cdd)
+- 🚀 新功能/改进:小程序顶栏改左右留边悬浮玻璃条,与底栏同一垂直边线 (3c52e88e)
+- 🐞 修复:精确豁免连接器API目录面板的coverage误判 (6ebd6ed1)
+- 📚 文档:修正 §0.4/§3 滚动表与 §1/§0.5 已落地证据的自相矛盾(函数清单/伪代码计数、五大件未判定边界) (004f7f4e)
+- 🚀 新功能/改进:切号迁移保真升级(图片/语音逐条还原)+双格式导入文件 (d237098a)
+- 📚 文档:复评 P3 全系列判据落地——纠正五大件路径/指纹自报/来源留痕三处过时结论，补 libckg 函数级 CKG 观察并反向核 IHUI 无漏 (fc5076f9)
+- 📚 文档:Cursor 运行时动态面深度取证——节点截断攻下+31动态IPC收窄(纯证据不造代码) (bd1b67a9)
+- 📚 文档:补导入文件的ZIP兜底与真机确认边界 (c27da704)
+- 🚀 新功能/改进:P3-07① 桌面通知权限三态查询接入 Web 发送路径(allowed/denied/unjudged + fail-closed，13 例) (c4783795)
+- 🐞 修复:镜像消息按真实角色落库(user 取请求体 / assistant 取 LLM 回复) (44a5c52f)
+- 🚀 新功能/改进:豆包切号改走官方导入通道实现逐条无缝续聊 (6df551db)
+- 🚀 新功能/改进:镜像会话补写首条消息 + 本票四条迁移 idx 让位重排 (3919e321)
+- 🚀 新功能/改进:平台全量API目录覆盖引擎与分域探测 (930b0a84)
+- 🚀 新功能/改进:RN 抽屉补异端来源徽章 + 七处会话映射透传 source (62719a7d)
+- 🚀 新功能/改进:小程序玻璃面补齐 ELEVATION_CSS.lg 投影 (5f13bdae)
+- 🚀 新功能/改进:P3-02 探测双判定值+来源API留痕；P3-03 双路审计事件队列（有界/溢出标记/drain 语义） (9ed1ebdb)
+- 🚀 新功能/改进:顶栏与底栏共用玻璃面 token,整条顶栏改玻璃停靠条 (8eb0d2b9)
+- 🚀 新功能/改进:豆包一键切号自动回放对话(写前export/写后replay) (987adc64)
+- 🔧 工程/其他:忽略 OCR 桥运行时帧目录 (28d8e325)
+- 🚀 新功能/改进:沙箱会话等待能力（P3-03 WaitSandbox 对齐，超时保留句柄） (4bb286ba)
+- 🚀 新功能/改进:三端会话统一入库并标注录入端 (c19e006b)
+- 🐞 修复:OCR 切换稳定化与解析几何收口 (3e87506f)
+- 🚀 新功能/改进:令牌降权与 DACL 判据层——恒真桩落未判定/未初始化无创建入口/尺寸不足单列一档(P3-03，8 例) (217450db)
+- 📚 文档:修正 P3-01/P3-04 落地现状与 P3-06/P3-07 过时结论 (7eeaca91)
+- 🚀 新功能/改进:目标暂停落到评估账本控制端点（goal-control 装车） (260061c4)
+- 🚀 新功能/改进:工具结果裁剪补图片形态与精确省略计数（DSH spill-policy 对齐，37 例） (f5cc64d8)
+- 🚀 新功能/改进:保留区图片计价对齐图文共享预算口径（DSH 对齐） (d45946c4)
+- 🐞 修复:knowledge_lookup 默认继承工作区根访问闸 (5a018285)
+- 🚀 新功能/改进:ALPC 通道抽象层 + Job 判活谓词（P3-01/P3-04 fail-closed） (390022b9)
+- 🔧 工程/其他:T24 出处面改成动态探测 —— 固定 sha 会把脆弱性钉进测试 (1dd6ba71)
+- 🐞 修复:knowledge_lookup 旧索引出口按 cursorignore 再过滤 (5beb5f52)
+- 🚀 新功能/改进:顶栏同步透明底与圆角控件片 (7c840943)
+- 🚀 新功能/改进:支持 OCR 桥切换会话（chat.switch） (24053270)
+- 🔧 工程/其他:NavBar radius 额度 1→2 按实测重锚（+ baseline radiusCounts 同步） (c8be4c29)
+- 🐞 修复:非长度档记账前移到键过滤之前（C15 真因，覆盖面口径归位） (553a9618)
+- 🐞 修复:.cursorignore 检索面旧索引与预览泄露收口 (9c2edf79)
+- 🚀 新功能/改进:一键接入后自动连通性自检 (404be4bd)
+- 🐞 修复:非长度档记账提到键过滤之前 —— C15/C16 的真因（口径裁决：颜色≠解不出） (74f7d0a9)
+- 🚀 新功能/改进:统一透明顶栏与圆角控件底片 (13cf7545)
+- 🔧 工程/其他:C6 反向锁改成"两格都在 + 允许额外格"（本票自引入） (a66e68fb)
+- 🔧 工程/其他:feat(cli)+docs: 注册表接入 serve 单例预检（6 例）+ Qoder/DSH 深读证据 (5d4423fe)
+- 🐞 修复:托管保存来源标记与租户停用态现读修复 (1eaee690)
+- 🚀 新功能/改进:影子工作区事务写 + goal 六态/延后 + cursorignore 访问面 (1f595139)
+- 🔧 工程/其他:三条存量红清零 —— T23 锁搬家 / T24 出处面重锚 / T47 按实测收桶 (7541e307)
+- 📚 文档:记入五程序原生深水「明确不做」一行结论与理由 (84eb8faf)
+- 🐞 修复:OCR 只读账号收敛管理台不可用入口 (c5e89718)
+- 🚀 新功能/改进:补反向守护拓扑与跨进程注册表三判据（P0-2/P0-3，60 例） (7c97d572)
+- 🐞 修复:停用/残缺租户凭据禁止回退平台环境凭据 (9c97dc7a)
+- 🐞 修复:托管连接器记录回填真实凭据来源 (ce41ad28)
+- 🔧 工程/其他:对齐第一方用户面租户豁免的单测口径 (bed4538c)
+- 🔧 工程/其他:修正多租户托管归属测试并补停用态回归 (d7ba4636)
+- 🐞 修复:微信 4.x OCR 能从托盘找回隐藏主窗口 (ba403351)
+- 📚 文档:未认证微信服务号停用并记录原因 (ce80282a)
+- 🚀 新功能/改进:增加微信 4.x 截图 OCR 只读驱动 (4d8be836)
+- 🚀 新功能/改进:增加微信 4.x 截图 OCR 只读驱动 (02235b5e)
+- 🐞 修复:修 readGeometry 圆角支的 it.at 越界引用（本轮自引入，T66 的真因） (317fa157)
+- 🚀 新功能/改进:补回合前上下文自检钩子与请求元数据四层（P0-7/B3-07，29 例） (63164070)
+- 🐞 修复:T70 真因不是缺导出 —— 联合体折行只读第一段；同批补 README 点名（T3） (a8bb91fd)
 - 🚀 新功能/改进:规则选择面只读诊断工具 list_project_rules (6936efb2)
 - 📚 文档:更新微信公众号服务号凭据与认证状态 (4508d526)
 - 🐞 修复:补齐 __test__ 的 geometryDeclCheck 导出 + README 点名本门（T70 / T3） (a57fe357)
@@ -157,6 +316,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 🔧 工程/其他:同步 codebase-index 事务测试到三表删除/状态行/边实体返回新形态 (3ac12ff8)
 - 📚 文档:补 OEM 无障碍开启路径说明 + 修 gradle 发行包自愈判据 (97dfe4c1)
 - 🐞 修复:本地联调 dev 启动两处阻断(Cargo 默认运行目标 + 徽标圆角 clamp 浮点倒挂) (2b633332)
+
 **2026-11-23**
 - 🐞 修复:小程序系统提示词补齐为多行输入（跨端同挂 60 最小高） (eed0d648)
 - 🐞 修复:archify 模板读 URL theme 修 viewer/theme-state 恒红 (60f63184)
@@ -390,6 +550,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 🚀 新功能/改进:默认允许跳钩(2026-11-23 机主改定)—— 非 mine 存量红自动跳并留痕;--forbid-skip-hooks 与 IHUI_PRE_PUSH_SKIP_DEFAULT=forbid 可回退 (f7066a13)
 - 🐞 修复:Turnstile 人机验证框居中(外层 flex 居中壳;修用户反馈往左偏) (267b1dde)
 - 🔧 工程/其他:聚焦环去 2px 外扩间隙 + 颜色写法单一化(不透明 #rrggbb / 透明 rgba),三端派生同源并立不变量测试 (c20d99da)
+
 **2026-11-22**
 - 🔧 工程/其他:追认仓库清理提交的受保护面变更 (3ca74ad0)
 - 🔧 工程/其他:清理根目录杂物、乱码副本与失效截图并补忽略样例 (92ab7fd3)
@@ -421,10 +582,12 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 🔧 工程/其他:仓库最终快照（仅保留当前代码，不保留历史） (4fa6b2cf)
 - 🔧 工程/其他:同步 knip entry 受管块(移除已删页面 index.config.ts) (7a14c0c8)
 - 🐞 修复:公开状态响应连 providerCode 一并归一,JSON 零内部 relay (ac55aca4)
+
 **2026-11-19**
 - 📚 Docs:同步最近更新自动块(本轮两枚安装脚本修复入库) (ad65572bea)
 - 🔧 Chore/Other:追认 bd46446f9f 的判据库头注修正 (3aac3fb83d)
 - 📚 Docs:同步最近更新自动块(本轮两枚安装脚本修复入库) (3ac94015b9)
+
 **2026-11-18**
 - 🐞 Fix:移除提权段,两份安装脚本回到实测零命中形态(火绒 NetLoader 根治收口) (bd46446f9f)
 - 🐞 Fix:两份分发安装脚本统一为同一实现，彻底消除杀软触发面 (6374264c2e)
@@ -583,6 +746,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 🔧 Chore/Other:并入两处主线所需修复(ahead 仅 queued 档 + 发布 scp 255 重试) (963695c34ec)
 - 🚀 Feature/Improvement:R84 hook 定义对象二进制坐实(7 中 6 认证/3 共享一址/PostToolUse 未定位) (c8b910b01b3)
 - 🚀 Feature/Improvement:R83 滑动窗口认领16结构(跨源认证1枚/薄证据2枚/覆盖321/长run切分收益0) (6c608e59084)
+
 **2026-11-17**
 - 🐞 Fix:修复 relay 语法阻断 + nav-data 重复声明 + 补登两条孤儿迁移 (64fe054900)
 - 🐞 Fix:nav-data 删除末尾重复的 ADMIN_HUB_ITEMS/DEVELOPER_HUB_ITEMS/HR_HUB_ITEMS 定义(Turbopack 'defined multiple times'+ADDR,web 构建 collect page data 失败) (020fe2ef9e)
@@ -664,6 +828,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 📚 Docs:刷新 README trackedFiles/testFiles 数字块(合并带入新文件后对账) (165836082f)
 - 📚 Docs:同步勾结清 43D/DB-35(对侧实修落地,本侧同步消除收敛冲突根因) (5b63c7710d)
 - 🐞 Fix:折叠头行统一单层 code 实色底,悬停改低对比描边 (a959f984d7)
+
 **2026-11-16**
 - 🚀 Feature/Improvement:desktop 未签名发版开关(allow_unsigned) + 修 npm 构建 tauri 子命令 (31bd368f8e)
 - 📚 Docs:DB-35 方案② 定案并实修落地(勾结清 PROJECT_PLAN 行) (e792af6c65)
@@ -770,6 +935,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 🚀 Feature/Improvement:浏览器三级交互 API 优先级仲裁(复现 Codex 三级交互原语) (f3216c036cd)
 - 🐞 Fix:跨会话强杀腿 + 验收窗口 + Windows 中文乱码 (79efa223c85)
 - 🐞 Fix:排版令牌对齐 —— 定价管控台 heading/label 字号档 + ProfileScreen avatarText 走 rnType.displayXl (5a4f007eda7)
+
 **2026-11-15**
 - 🐞 Fix:恢复被 69ce958a9b2 误删的不可逆判死码清单;旁路删除硬门射程补入 config/ (4737158ee9)
 - 🔧 Chore/Other:fix desktop: 内置浏览器一窗多标签,修 WebView2 profile 冲突致标签全空 (cf373610a1)
@@ -853,13 +1019,16 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 🐞 Fix:深度扫描第二批收口 RN/小程序端样式、交互与逻辑缺陷 (97b7a7ac968)
 - 🐞 Fix:门302 rendersSharedIn 认深子路径导入(补正/反例测试);接线 check-line-endings/check-mirror-surface-parity 判面层(门312 R1);rn-miniapp 矩阵文档重生成为现值(镜像257→258,门302修复后真实现读) (ab211603b9c)
 - 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (62368b7976c)
+
 **2026-11-14**
 - 🐞 Fix:两端 JSX 裸中文清零 + Taro 静默失败兜底 + 延迟导航定时器清理 (9f5d9041c97)
 - 🐞 Fix:深度扫描修复 RN/小程序端样式、交互与逻辑缺陷 (4a007dfecd8)
 - 🐞 Fix:补齐 RN/Taro 图标按钮无障碍语义标签 (247c8da4800)
 - 🐞 Fix:修复前端遗留问题——RN/Taro 冲突、i18n 源文件还原、promise、定时器 (b276b219572)
 <!-- END RECENT UPDATES -->
+
 ## Nine topic documents (verbatim archives from the old root README)
+
 | File                                                                                                     | Domain                           | Archived sections                                                                                                                                                                                                              |
 | -------------------------------------------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [`readme-01-positioning`](./docs/engineering/readme-01-positioning.md)                                   | Positioning & claims             | Header banners & manifesto · one-click deploy · tech-stack overview · project manifesto · GEO optimization · TOC · positioning · feature matrix                                                                                |
@@ -872,9 +1041,13 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 | [`readme-08-seo-keywords-story`](./docs/engineering/readme-08-seo-keywords-story.md)                     | SEO & brand story                | AI-engine exposure · our story · open-source vision · license · join us · acknowledgements · quick FAQ · full keywords                                                                                                         |
 | [`readme-09-ops-tools`](./docs/engineering/readme-09-ops-tools.md)                                       | Ops tooling & archives           | Release-line closure capabilities & ops entries · production monitoring tools · gate registry addenda · dangling table rows archive                                                                                            |
 ## The 9 ends (8 apps + 1 Capacitor shell)
+
+
 ## The 8 ends (plus one shell)
+
 The workspace holds **9 app packages** (the last row is a Capacitor shell reusing the web static export)
 and **16 shared packages**.
+
 | End               | Directory           | Stack                                          | Notes                                                        |
 | ----------------- | ------------------- | ---------------------------------------------- | ------------------------------------------------------------ |
 | Web               | `apps/web`          | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui | Main site + admin console + IDE panel                        |
@@ -886,10 +1059,14 @@ and **16 shared packages**.
 | Browser extension | `apps/extension`    | WXT + Chrome MV3                               | Side Panel toolset                                           |
 | CLI               | `apps/cli`          | Node.js + TypeScript                           | Terminal assistant, tools, drift checks, agent-engine client |
 | Capacitor shell   | `apps/mobile-cap`   | Capacitor 7                                    | Packages `apps/web` `out/` export for Android/iOS            |
+
 ### Sidebar domain hub and per-domain entry pages (introduced 2026-10-19, AI and personal domains added 2026-10-23)
+
 The sidebar collapses many first-level menu items into **per-domain entries**; each domain's full set of pages is hosted by one card-grid page. Existing routes are untouched (`CategoryShell` as a Next.js layout only covers its own directory subtree, so moving a directory would change URLs), so the entry page only groups and links.
+
 - **What it does**: all five entry pages render through one component, `apps/web/src/components/layout/DomainHub.tsx`, and take their items from the `*_HUB_ITEMS` exports in `apps/web/src/components/sidebar/nav-data.ts` (single source of truth — no per-page copy of the list). Visibility goes through `useNavVisibilityFilter` (`apps/web/src/components/sidebar/use-nav-visibility.ts`): `adminOnly`/`permission` decide *may this be seen at all*, `advancedOnly` decides *should it be shown to ordinary users*. Same predicate as the Sidebar; do not re-implement it per page.
 - **How to use**: open one of the URLs below, or click the domain entry in the sidebar and then a card. The tier (simple mode) is set in Settings → sidebar tiers and persists to `user_preferences.group=preferences` under `navTiers`.
+
 | Entry URL | Item source | End |
 | --------- | ----------- | --- |
 | `/domains/ai` | `AI_HUB_ITEMS` | web (Next.js, platform-exclusive) |
@@ -897,13 +1074,17 @@ The sidebar collapses many first-level menu items into **per-domain entries**; e
 | `/domains/content` | `CONTENT_HUB_ITEMS` | web (Next.js, platform-exclusive) |
 | `/domains/edu` | `EDU_HUB_ITEMS` | web (Next.js, platform-exclusive) |
 | `/domains/trade` | `TRADE_HUB_ITEMS` | web (Next.js, platform-exclusive) |
+
 - **End**: web-only (the desktop shell reuses this web UI; mini-program and RN carry their own navigation).
+
 ### User-side read-only and unauthenticated endpoints (registered 2026-10-23 — previously absent from the README)
+
 | Endpoint | Method | Auth | Response shape | End / consumer |
 | -------- | ------ | ---- | -------------- | -------------- |
 | `/api/goods/select` | GET | Public — only the on-shelf catalogue where `zhs_product.status = 1`, no private user fields | `{ code, message, data: { list, total, page, pageSize } }`; `page` defaults to 1, `pageSize` is 1..100 with default 20 | api + mobile-rn `CartScreen` + mini-program `pkg-shop/cart`, through `selectGoods()` in `packages/api-client/src/endpoints/goods.ts` |
 | `/api/sign-ups` | GET | Requires login; ownership is checked in the handler — a `?userId` that is not the caller's, without system-admin rights, gets 403 (authentication is not authorization) | `{ code, message, data: { list: [{ id, targetTitle, targetType, status, createdAt }] } }`, status normalised to `draft/published/rejected/completed` | api + web `apps/web/app/(main)/user/sign-up/page.tsx`; aggregates `lesson_sign_ups` and `exam_signups` |
 | `/api/auth/wechat/mini/one-tap-login` | POST | **Unauthenticated** (rate limited to 5 requests per minute); the phone number and the openId are both exchanged from one-time WeChat codes, so nothing is taken from the client | Success returns `{ ...tokens, user }` — the user object travels with the tokens; 503 when WeChat mini is unconfigured, 401 when the code exchange fails, 409 when the openId is already bound to another account, 403 when the account is disabled | api + mini-program `apps/miniapp-taro` (one-tap login button) |
+
 - **What they do**: `/goods/select` supplies the cart's product paging read; `/sign-ups` merges course sign-ups and exam sign-ups into one "my sign-ups" list; `/auth/wechat/mini/one-tap-login` is a newly opened endpoint — previously `/mini/login` answered new users with `{needPhone:true, openId}` and issued no token, while `/mini/phone` required an existing session and returned no token either, so that chain was structurally impossible (proof case: `apps/api/src/routes/__tests__/wechat-mini-one-tap-login.test.ts`).
 - **How to use**: all three are registered in `apps/api/src/routes/index.ts` (`goods.ts` under `prefix:'/api'`, `sign-ups.ts` under `prefix:'/api/sign-ups'`, the login leg under the auth prefix). Inputs are Zod-validated; one-tap login accepts `{ loginCode, phoneCode }` as a `strictObject`, so unknown keys answer 400.
 - **End**: backend `apps/api`; consumers are listed in the table column above (web / mobile-rn / mini-program).
@@ -913,8 +1094,11 @@ The sidebar collapses many first-level menu items into **per-domain entries**; e
 - **Default**: 500 ms (`DEFAULT_RESPONSE_BUDGET_MS = 500`, read from source). Missing, non-finite or negative values all fall back to that default rather than being guessed. `0` selects the pure-async mode, which always returns 200 immediately.
 - **New response field `dispatch`**: `'inline'` or `'async'`. If the job finishes within the budget the 200 carries `dispatch:'inline'` plus the existing `outcome` (the previous response shape is preserved); when the budget expires — or in `0` mode (`deferred`) — the 200 carries `dispatch:'async'` with no `outcome`, while the heavy work finishes in the background queue.
 - **Known gap (deferred is not persisted)**: the dispatch queue is a one-shot in-process, in-memory queue — no resident service, no polling, no durable storage — and the delivery row is written only after the job finishes. If the API process crashes or restarts in the window after a `dispatch:'async'` 200 was sent but before the background job completes, both the in-memory job and the not-yet-written delivery row are lost. GitHub already recorded the delivery as successful and will not redeliver, and the in-process LRU deduper disappears with the process, so that delivery's review / comment write-back is silently lost, cannot be replayed and cannot be reconciled. This window is not closed by the current implementation (the execute-in-place fallback only covers a full backlog, not process exit).
+
 ### Account keepalive centre (added 2026-10-26 — two unrelated liveness loops merged into one answer)
+
 Publish-line cookie probing (`services/publish/cookie_refresh_daemon.py`) and AI-platform check-in credentials (`services/checkin_scheduler.py`) used to keep separate switches, separate counters and separate ways of saying "it failed", so the system had **no single answer** to "are these accounts still alive?". The centre (`apps/ai-service/app/services/keepalive/`, HTTP layer in `apps/ai-service/app/routers/keepalive.py`) folds cookie probing, credential (api_key / oauth) expiry detection and check-in JWT health (reads `exp` only, never re-signs) into one schedule, two tables, one health vocabulary and one alert outlet.
+
 | Endpoint | Method | What it answers |
 | -------- | ------ | --------------- |
 | `/api/keepalive/status` | GET | Self-check: whether it is really on (reason, scheduler liveness, last round, probe list) — never infer it from config |
@@ -923,20 +1107,26 @@ Publish-line cookie probing (`services/publish/cookie_refresh_daemon.py`) and AI
 | `/api/keepalive/events` | GET | Probe log, filterable by `?ref=` and `?only_failures=true`; `limit` defaults to 50, caps at 500 |
 | `/api/keepalive/stats` | GET | Per-source ok / failed / total / rate over `?days=` (1..90, default 7) |
 | `/api/keepalive/run` | POST | Trigger one round in the background and return immediately; `?ref=<source>:<id>` for a single account, `?force=true` to ignore back-off |
+
 - **Health buckets** are computed in exactly one place (`policy.health_of`): `critical` when the last failure was `expired`, the expiry has passed, or consecutive failures reach `ALERT_AFTER_FAILURES`; `warning` while there are consecutive failures, inside the expiry-warning window, or only failures have ever been seen; `healthy` otherwise; `unknown` when neither success nor failure has been recorded. Clients must not recompute them.
 - **Failure vocabulary**: `ok` / `expired` / `network` / `error` / `unsupported` / `skipped`, normalised by one entry point (`classify_message`). A ciphertext that will not decrypt (`InvalidTag`, key mismatch) is always `expired` — retrying it a thousand times cannot help, only re-recording the credential can. `unsupported` (nothing to keep alive) counts as neither success nor failure and never lands in `failed`, so it cannot drown real red. Back-off is `base × 2^(n-1)` capped at `RETRY_CAP_SECONDS`, retried at most `RETRY_MAX` times; success clears the counter, the warning stamp and the alert stamp together.
 - **Alert outlet**: the site-wide `notifications` table, **one aggregated notification per owner per round** (19 accounts expiring at once must not send 19 messages — users then mute it and never see the real one); non-uuid owners such as `probe-user` are dropped and counted, because one bad owner aborts the whole batch insert; a missing table is reported as a warning rather than pretended delivered. `KEEPALIVE_ALERT_WEBHOOK` adds an extra leg. The whole path is fail-open — a failed notification never interrupts keepalive.
 - **Switches**: `KEEPALIVE_ENABLED`, inherited from `COOKIE_REFRESH_ENABLED` / `CHECKIN_CRON_ENABLED` when unset; `resolve_config()` re-reads every round, so an `.env` change takes effect on the next round without a restart. Related defaults: `INTERVAL_HOURS`=6, `RETRY_MAX`=3, `RETRY_BASE_SECONDS`=300, `RETRY_CAP_SECONDS`=21600, `ALERT_AFTER_FAILURES`=3, `ALERT_REPEAT_HOURS`=24, `EXPIRE_WARN_DAYS`=3, `ALERT_INAPP`=true, `PROBE_CONCURRENCY`=4, `EVENT_RETENTION_DAYS`=90.
 - **Bounds**: it judges credential liveness only — publishing still belongs to the publish scheduler and daily check-in to `checkin_scheduler`, otherwise one account gets hit by two writers at once. Front end: `apps/web/src/components/publish/KeepaliveCenterPanel.tsx` on `/publish/accounts`; client wrappers in `packages/api-client/src/endpoints/keepalive.ts`.
+
 ## 🚀 Quick start
+
 ```bash
 git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
 cd IHUI-AI
 cp .env.example .env           # fill JWT_SECRET / DB_PASSWORD / CREDENTIALS_ENCRYPTION_KEY
 docker compose up -d           # business + migrations; add --profile observability as needed
 ```
+
 If something does not come up: `docs/DEPLOYMENT_RUNBOOK.md` · `docs/TROUBLESHOOTING.md` · port registry `docs/port-management.md`.
+
 Local development:
+
 ```bash
 pnpm install                   # full install, --filter is forbidden (AGENTS §12e)
 docker compose up -d db redis
@@ -944,10 +1134,13 @@ pnpm --filter @ihui/database run db:migrate
 pnpm dev                       # web :8801 + api :8802 (+ ai-service :8803)
 pnpm turbo build typecheck lint test
 ```
+
 Model keys are never in the repo: bootstrap with `node scripts/env-backfill-model-keys.mjs --verify`
 (see [`AGENTS.md` §5d](./AGENTS.md)). Windows one-click launch scripts, full env-var table, REST/WebSocket
 API, model sync and IM multi-platform control: [`readme-05`](./docs/engineering/readme-05-quickstart-api-data.md).
+
 ## Deployment
+
 | Topic                                            | Where                                                                               |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------- |
 | Production runbook (blue-green, rollback, certs) | [`docs/DEPLOYMENT_RUNBOOK.md`](./docs/DEPLOYMENT_RUNBOOK.md)                        |
@@ -956,9 +1149,12 @@ API, model sync and IM multi-platform control: [`readme-05`](./docs/engineering/
 | Database backups & read-only backup role         | [`docs/DATABASE.md`](./docs/DATABASE.md)                                            |
 | Credential rotation                              | [`docs/CREDENTIAL_ROTATION_RUNBOOK.md`](./docs/CREDENTIAL_ROTATION_RUNBOOK.md)      |
 | CI workflow inventory                            | [`.github/workflows/`](./.github/workflows) + the workflow count in the table above |
+
 ## Development constraints (excerpt)
+
 **The rules in this repo are code, not verbal agreements.** The single authoritative text is
 [`AGENTS.md`](./AGENTS.md). The ones you hit on day one:
+
 1. Task plans live only in `PROJECT_PLAN.md`; claims use the lease format `（进行中@日期/持有者）`.
 2. Commits go through `node scripts/safe-commit.mjs`; `git add .` / `-A` / `-u` are forbidden; live docs
    require `node scripts/merge-live-doc.mjs --file README.md` first.
@@ -972,46 +1168,32 @@ API, model sync and IM multi-platform control: [`readme-05`](./docs/engineering/
 8. i18n: key parity across five languages (en/zh-CN/zh-TW/ja/ko) is a gate.
 9. Temp files only under `.ihui-agent/tmp/<task>/`.
 10. New files must be watermarked: `node scripts/watermark.mjs inject <file>`.
+
 ## License & copyright
+
 - **License**: Apache-2.0 (see [`LICENSE`](./LICENSE)); contributor terms in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 - **NOTICE**: must be retained with every copy.
 - **Provenance watermarks**: three-layer watermark on source files, maintained by `scripts/watermark.mjs`;
   they do not alter the rights granted by Apache-2.0.
 - **Trademarks**: "智汇AI / IHUI-AI" and its logos belong to the project; Apache-2.0 grants no trademark rights.
+
 ## Contact
+
 - Site / docs: <https://aizhs.top>
 - Issues: <https://github.com/IHUI-INF-AI/IHUI-AI/issues>
 - Security disclosures (please do not post publicly): [`SECURITY.md`](./SECURITY.md)
 - Code of conduct: [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md)
+
 <div align="center">
+
 If this project is useful to you, a ⭐ is the most direct contribution.
+
 </div>
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+
 <!-- 2026-11-07 全量收敛归档:本侧相对 base 独有行逐字保留(语义由对侧新版承载,零内容丢失) -->
 Headline claims (same source as the table below, all live-computed): **624 tables · 4720 API routes ·
 25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4341 test files ·
 332 engineering gates · 55 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 Headline claims (same source as the table below, all live-computed): **624 tables · 4720 API routes ·
 Headline claims (same source as the table below, all live-computed): **624 tables · 4720 API routes ·
-- 🐞 修复:镜像消息按真实角色落库(user 取请求体 / assistant 取 LLM 回复) (44a5c52f72)
-- 🚀 新功能/改进:镜像会话补写首条消息 + 本票四条迁移 idx 让位重排 (3919e321e1)
-- 🚀 新功能/改进:RN 抽屉补异端来源徽章 + 七处会话映射透传 source (62719a7d5f)
-- 🚀 新功能/改进:三端会话统一入库并标注录入端 (c19e006b54)
-- 🐞 修复:knowledge_lookup 默认继承工作区根访问闸 (5a01828582)
-- 🚀 新功能/改进:ALPC 通道抽象层 + Job 判活谓词（P3-01/P3-04 fail-closed） (390022b993)
-- 🔧 工程/其他:T24 出处面改成动态探测 —— 固定 sha 会把脆弱性钉进测试 (1dd6ba71d8)
-- 🐞 修复:knowledge_lookup 旧索引出口按 cursorignore 再过滤 (5beb5f52a5)
-- 🚀 新功能/改进:顶栏同步透明底与圆角控件片 (7c84094337)
-- 🚀 新功能/改进:支持 OCR 桥切换会话（chat.switch） (2405327051)
-- 🔧 工程/其他:NavBar radius 额度 1→2 按实测重锚（+ baseline radiusCounts 同步） (c8be4c2923)
-- 🐞 修复:非长度档记账前移到键过滤之前（C15 真因，覆盖面口径归位） (553a961801)
-- 🐞 修复:.cursorignore 检索面旧索引与预览泄露收口 (9c2edf794d)
-- 🚀 新功能/改进:一键接入后自动连通性自检 (404be4bd70)
-- 🐞 修复:非长度档记账提到键过滤之前 —— C15/C16 的真因（口径裁决：颜色≠解不出） (74f7d0a9ee)
-- 🚀 新功能/改进:统一透明顶栏与圆角控件底片 (13cf7545cd)
-- 🔧 工程/其他:C6 反向锁改成"两格都在 + 允许额外格"（本票自引入） (a66e68fb2f)
-- 🔧 工程/其他:feat(cli)+docs: 注册表接入 serve 单例预检（6 例）+ Qoder/DSH 深读证据 (5d4423feef)
-- 🐞 修复:托管保存来源标记与租户停用态现读修复 (1eaee6905e)
-- 🚀 新功能/改进:影子工作区事务写 + goal 六态/延后 + cursorignore 访问面 (1f5951390b)
-- 🔧 工程/其他:三条存量红清零 —— T23 锁搬家 / T24 出处面重锚 / T47 按实测收桶 (7541e307ae)
-- 📚 文档:记入五程序原生深水「明确不做」一行结论与理由 (84eb8faf63)
