@@ -4,15 +4,16 @@
 
 // 占位：水印头由 scripts/lib/doubao-carry.mjs 逐字节拼接（见落盘步骤）
 /**
- * 豆包归档 → 豆包「数据导入与同步」可识别的 ChatGPT conversations.json。
+ * 豆包归档 → ChatGPT conversations.json(留档格式,不是「官方导入已可用」承诺)。
  *
  * 用法:
  *   node scripts/doubao-build-import.mjs --archive <归档目录> --out <输出文件> [--apply]
- *   不带 --apply = 干跑,只报将导入的会话/消息数,不写文件。
+ *   不带 --apply = 干跑,只报将导出的会话/消息数,不写文件。
  *
- * 为什么是 ChatGPT 格式:豆包 2.37.16「设置 → 数据导入与同步」支持导入
- * ChatGPT 本地备份(conversations.json),导入后会话进入原生列表、逐条保留上下文、
- * 打开即可接着聊 —— 这是豆包唯一能拿到「逐条原生可续聊会话」的官方通道。
+ * 2026-11-24 二次取证:豆包 2.37.16「设置 → 数据导入与同步」的安装包文案是
+ * 「正在扫描你安装的应用」,不是文件选择/上传;手搓 conversations.json 没有可用
+ * 入口。本 CLI 只负责把归档转成结构公开、可外部工具读的留档文件;要跨号续聊,
+ * 用同目录 `handoff.md` 交接单(见 scripts/lib/doubao-handoff.mjs)。
  *
  * 纯本地文件操作:不读 cookie、不发网络、不碰任何账号。
  */
@@ -108,10 +109,11 @@ function main() {
     process.exit(1)
   }
   process.stdout.write(
-    `豆包导入文件: 会话 ${r.conversations} / 消息 ${r.messages} / 跳过 ${r.skipped}` +
+    `豆包留档文件: 会话 ${r.conversations} / 消息 ${r.messages} / 跳过 ${r.skipped}` +
       `\n裸 JSON: ${r.outFile}` +
-      `\nZIP(推荐): ${r.zipFile}` +
-      `\n${r.applied ? '已写入(--apply)' : '干跑:未写文件,加 --apply 落盘'}\n`,
+      `\nZIP: ${r.zipFile}` +
+      `\n${r.applied ? '已写入(--apply)' : '干跑:未写文件,加 --apply 落盘'}` +
+      '\n注意:当前 2.37.16 的「数据导入与同步」是扫描式入口,不收手搓文件;跨号续聊用 handoff.md\n',
   )
 }
 

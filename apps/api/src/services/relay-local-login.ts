@@ -153,6 +153,14 @@ export interface LocalLoginResult {
   clientForced?: boolean
   clientRestarted?: boolean
   clientLaunchError?: string
+  /** 豆包专属:实际写回的 Chromium profile 名与来源(default/active/explicit/…) */
+  profile?: string
+  profileSource?: string
+  /** 豆包专属:写前 Local State.last_used 与是否已切到目标 profile(下次启动直接进目标号) */
+  previousProfile?: string
+  profileActivated?: boolean
+  localStateFile?: string
+  localStateBackup?: string
 }
 
 function runScript(
@@ -440,6 +448,7 @@ async function loginTraeLocal(row: AiRelayAccountPool): Promise<LocalLoginResult
 async function loginViaScript(
   row: AiRelayAccountPool,
   providerCode: RelayProviderCode,
+  options: { profile?: string } = {},
 ): Promise<LocalLoginResult> {
   const creds = decryptAccountCredentials(row)
   const payload = {
@@ -451,6 +460,8 @@ async function loginViaScript(
     secrets: creds.secrets,
     // 豆包捆绑账号的整套 cookie(其它平台为空数组,适配器忽略)
     cookies: creds.cookies,
+    // 豆包专用:目标 Chromium profile 名(Default / Profile N / active);其它平台忽略
+    profile: options.profile,
   }
 
   let outcome
@@ -514,6 +525,16 @@ async function loginViaScript(
     clientForced,
     clientRestarted,
     clientLaunchError,
+    ...(typeof parsed.profile === 'string' ? { profile: parsed.profile } : {}),
+    ...(typeof parsed.profileSource === 'string' ? { profileSource: parsed.profileSource } : {}),
+    ...(typeof parsed.previousProfile === 'string'
+      ? { previousProfile: parsed.previousProfile }
+      : {}),
+    ...(parsed.profileActivated === true ? { profileActivated: true } : {}),
+    ...(typeof parsed.localStateFile === 'string' ? { localStateFile: parsed.localStateFile } : {}),
+    ...(typeof parsed.localStateBackup === 'string'
+      ? { localStateBackup: parsed.localStateBackup }
+      : {}),
   }
 }
 
@@ -523,7 +544,10 @@ async function loginViaScript(
  * @throws LocalLoginError 平台不支持(409,带原因)/ 模板缺失或错配(409)/ 客户端环境不可写(409)/
  *   脚本故障(502)。任何错误信息都不含凭据明文。
  */
-export async function loginAccountLocal(row: AiRelayAccountPool): Promise<LocalLoginResult> {
+export async function loginAccountLocal(
+  row: AiRelayAccountPool,
+  options: { profile?: string } = {},
+): Promise<LocalLoginResult> {
   const providerCode = row.providerCode as RelayProviderCode
   if (providerCode === 'trae') return loginTraeLocal(row)
   const unsupported = LOCAL_LOGIN_UNSUPPORTED_REASONS[providerCode]
@@ -541,6 +565,6 @@ export async function loginAccountLocal(row: AiRelayAccountPool): Promise<LocalL
       409,
     )
   }
-  return loginViaScript(row, providerCode)
+  return loginViaScript(row, providerCode, options)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

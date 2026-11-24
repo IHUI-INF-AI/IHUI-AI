@@ -39,6 +39,10 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { readAesKeyFromLocalState } from './codearts-auth-extract.mjs'
 import { decryptOsCryptString, stripDoubaoAppPrefix } from './doubao-auth-extract.mjs'
+import {
+  describeDoubaoProfileDir,
+  resolveDoubaoProfile,
+} from './doubao-profile.mjs'
 
 const require = createRequire(import.meta.url)
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -146,9 +150,21 @@ function decryptCookieRow(row, getAesKey) {
  *   skipped?:string[], appBound?:string[]}>}
  *   code: 'ok' | 'cookie-missing' | 'cookie-app-bound' | 'cookie-unreadable' | 'cookie-undecryptable'
  */
-export async function readDoubaoCookie({ profileDir, localStatePath, shellBin } = {}) {
-  const profile = profileDir || defaultDoubaoProfileDir()
-  const dbPath = path.join(profile, 'Network', 'Cookies')
+export async function readDoubaoCookie({ profileDir, profile, env, localStatePath, shellBin } = {}) {
+  const resolved = profileDir ? describeDoubaoProfileDir(profileDir) : resolveDoubaoProfile({ profile, env })
+  if (!resolved.ok) {
+    return {
+      code: resolved.code,
+      cookieHeader: null,
+      count: 0,
+      source: null,
+      profile: null,
+      profileSource: null,
+      message: resolved.message,
+    }
+  }
+  const profileLabel = resolved.profile
+  const dbPath = path.join(resolved.profileDir, 'Network', 'Cookies')
   const source = dbPath
   if (!fs.existsSync(dbPath)) {
     return {
@@ -156,7 +172,9 @@ export async function readDoubaoCookie({ profileDir, localStatePath, shellBin } 
       cookieHeader: null,
       count: 0,
       source,
-      message: `Cookies 库不存在: ${dbPath}(该机器当前没有豆包登录态)`,
+      profile: profileLabel,
+      profileSource: resolved.source,
+      message: `Cookies 库不存在: ${dbPath}(profile=${profileLabel};该机器当前没有豆包登录态)`,
     }
   }
   const { DatabaseSync } = require('node:sqlite')
@@ -169,10 +187,12 @@ export async function readDoubaoCookie({ profileDir, localStatePath, shellBin } 
       cookieHeader: null,
       count: 0,
       source,
+      profile: profileLabel,
+      profileSource: resolved.source,
       message: `Cookies 库只读打开失败(${e instanceof Error ? e.message : String(e)});客户端在跑时先退出豆包`,
     }
   }
-  const lsPath = localStatePath || defaultLocalStatePath(profile)
+  const lsPath = localStatePath || defaultLocalStatePath(resolved.profileDir)
   let aesKey = null
   const getAesKey = () => {
     if (!aesKey) aesKey = readAesKeyFromLocalState(lsPath, { shellBin })
@@ -204,6 +224,8 @@ export async function readDoubaoCookie({ profileDir, localStatePath, shellBin } 
         cookieHeader: null,
         count: 0,
         source,
+        profile: profileLabel,
+        profileSource: resolved.source,
         appBound,
         skipped,
         message: `豆包 cookie 全是 v20(app-bound)形态,本机解不开(${appBound.length} 条);改用 --cdp <port> 从运行中的客户端取`,
@@ -215,6 +237,8 @@ export async function readDoubaoCookie({ profileDir, localStatePath, shellBin } 
         cookieHeader: null,
         count: 0,
         source,
+        profile: profileLabel,
+        profileSource: resolved.source,
         skipped,
         message: `Local State 的 DPAPI 密钥取不到: ${keyError}`,
       }
@@ -224,6 +248,8 @@ export async function readDoubaoCookie({ profileDir, localStatePath, shellBin } 
       cookieHeader: null,
       count: 0,
       source,
+      profile: profileLabel,
+      profileSource: resolved.source,
       skipped,
       message: `Cookies 库在盘但 0 条豆包 cookie 可读(未登录或键名/域形态变更)`,
     }
@@ -234,6 +260,8 @@ export async function readDoubaoCookie({ profileDir, localStatePath, shellBin } 
     cookieHeader: pairs.map((p) => `${p.name}=${p.value}`).join('; '),
     count: pairs.length,
     source,
+    profile: profileLabel,
+    profileSource: resolved.source,
     skipped,
     appBound,
   }

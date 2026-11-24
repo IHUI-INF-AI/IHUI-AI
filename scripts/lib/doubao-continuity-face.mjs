@@ -39,6 +39,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url))
 
 /** 会话族判据单一源:豆包提取器(落点、键名、域、解密、指纹全在它那边) */
 const extract = await import(pathToFileURL(path.join(HERE, 'doubao-auth-extract.mjs')).href)
+const profileResolver = await import(pathToFileURL(path.join(HERE, 'doubao-profile.mjs')).href)
 
 export const DOUBAO_FACE_APP_KEY = 'doubao'
 const LABEL = '豆包(登录态 cookie 族面)'
@@ -66,6 +67,8 @@ export function buildDoubaoFace(valid, meta = {}) {
     label: LABEL,
     state: 'ok',
     faceKind: 'login-cookies',
+    profile: meta.profile ?? null,
+    profileSource: meta.profileSource ?? null,
     dbFile: meta.dbFile ?? null,
     walMerged: null,
     takenAt: new Date().toISOString(),
@@ -98,22 +101,29 @@ export function snapshotDoubaoFace(opts = {}) {
   }
   const errs = []
   for (const dir of existing) {
+    const resolved = profileResolver.resolveDoubaoProfile({ userDataDir: dir, profile: opts.profile })
+    if (!resolved.ok) {
+      errs.push(`${dir}: [${resolved.code}] ${resolved.message}`)
+      continue
+    }
     try {
-      const { entries, skips, dbPath } = extract.readCookieSessionRows(
-        dir,
-        opts.profile ?? 'Default',
-      )
+      const { entries, skips, dbPath } = extract.readCookieSessionRows(dir, resolved.profile)
       const { valid, skipped } = extract.pickImportableEntries(entries)
       if (valid.length === 0) {
         return {
           app: DOUBAO_FACE_APP_KEY,
           state: 'undetermined',
           why:
-            `Cookies 库在盘(${dbPath})但会话族 0 命中(未登录或键名/域清单过期 ⇒ 未判定)` +
+            `Cookies 库在盘(${dbPath};profile=${resolved.profile})但会话族 0 命中(未登录或键名/域清单过期 ⇒ 未判定)` +
             (skips.length ? `;取证注记: ${skips.join('; ')}` : ''),
         }
       }
-      return buildDoubaoFace(valid, { dbFile: dbPath, skipped })
+      return buildDoubaoFace(valid, {
+        dbFile: dbPath,
+        skipped,
+        profile: resolved.profile,
+        profileSource: resolved.source,
+      })
     } catch (e) {
       errs.push(`${dir}: [${e?.code ?? 'read-failed'}] ${e?.message ?? String(e)}`)
     }

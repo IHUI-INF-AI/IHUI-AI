@@ -21,7 +21,7 @@ import assert from 'node:assert/strict'
 
 import { __test__ as S } from '../switch-client-account.mjs'
 
-const { normalizeProvider, planCli, parseArgs, buildPlan, TRAE_SOLO_PRODUCT, SUPPORTED_PLATFORMS } =
+const { normalizeProvider, planCli, parseArgs, buildPlan, TRAE_SOLO_PRODUCT, SUPPORTED_PLATFORMS, needsDoubaoPreClose } =
   S
 
 const SCRIPT = path.join(
@@ -129,6 +129,43 @@ test('②b 参数映射:其它平台 → login-local-verified argv(--to 折成 -
     assert.equal(plan.ok, false, `${extra.join(' ')} 应被拒`)
     assert.equal(plan.code, 2)
   }
+})
+
+test('②c 豆包 --profile 透传到 login-verified;非豆包与 Trae 如实拒', () => {
+  const doubao = planCli(['--to', 'pool-uid', '--provider', 'doubao', '--profile', 'Profile 2'])
+  assert.equal(doubao.ok, true)
+  assert.deepEqual(doubao.args, ['--provider', 'doubao', '--uid', 'pool-uid', '--profile', 'Profile 2'])
+
+  const active = planCli(['--to', 'pool-uid', '--provider', 'doubao', '--profile', 'active', '--dry-run'])
+  assert.deepEqual(active.args, ['--provider', 'doubao', '--uid', 'pool-uid', '--profile', 'active', '--dry-run'])
+
+  const minimax = planCli(['--to', 'pool-uid', '--provider', 'minimax', '--profile', 'Profile 2'])
+  assert.equal(minimax.ok, false)
+  assert.match(minimax.error, /--profile/)
+
+  const trae = planCli(['--to', 'u-1', '--provider', 'trae', '--profile', 'Profile 2'])
+  assert.equal(trae.ok, false)
+  assert.match(trae.error, /Trae 不支持 --profile/)
+})
+
+test('②d 豆包真切才前置关端(dry-run / 其它平台不关)', () => {
+  const real = planCli(['--to', 'pool-uid', '--provider', 'doubao', '--profile', 'active'])
+  assert.equal(real.ok, true)
+  assert.equal(needsDoubaoPreClose(real), true)
+
+  const dry = planCli(['--to', 'pool-uid', '--provider', 'doubao', '--dry-run'])
+  assert.equal(dry.ok, true)
+  assert.equal(needsDoubaoPreClose(dry), false)
+
+  const other = planCli(['--to', 'pool-uid', '--provider', 'minimax'])
+  assert.equal(other.ok, true)
+  assert.equal(needsDoubaoPreClose(other), false)
+  assert.equal(needsDoubaoPreClose(planCli(['--list', '--provider', 'doubao'])), false)
+
+  // profile 名非法由下游拒绝,不能先去关用户的豆包
+  const badProfile = planCli(['--to', 'pool-uid', '--provider', 'doubao', '--profile', '../evil'])
+  assert.equal(badProfile.ok, true)
+  assert.equal(needsDoubaoPreClose(badProfile), false)
 })
 
 test('③ list/current 分流:Trae 系转 account 入口,其余平台 list 走只读列池、current 如实未判定', () => {

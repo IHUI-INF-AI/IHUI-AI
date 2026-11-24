@@ -531,15 +531,16 @@ describe('豆包一键切号自动对话回放(2026-11-24 立,全注入零真 co
             code: 'ok',
             importFile: exportResult?.importFile ?? null,
             conversations: 5,
-            steps: ['设置→数据导入与同步→ChatGPT→选文件'],
-            note: '无缝迁移已备好 ✓ 5 个会话',
+            importMode: 'scan-apps',
+            steps: ['扫描式入口 ⇒ 用 handoff.md 粘贴续聊'],
+            note: '归档 + 交接单 ✓ 5 个会话',
           }
         },
       },
     }
   }
 
-  it('写回前 export → 写回后走官方导入(prepareImport),导入文件跨阶段传递', async () => {
+  it('写回前 export → 写回后 prepareImport 收口(导入/交接单分流),归档跨阶段传递', async () => {
     const { impl, calls } = makeCarry()
     const r = await runVerifiedSwitch({
       provider: 'doubao',
@@ -552,7 +553,7 @@ describe('豆包一键切号自动对话回放(2026-11-24 立,全注入零真 co
     expect(calls).toEqual(['export', 'prepare:/fake/archive/conversations.json'])
     expect(r.doubaoCarry).not.toBeNull()
     expect((r.doubaoCarry?.replay as { conversations: number }).conversations).toBe(5)
-    expect(r.notes.some((n) => n.includes('官方导入通道'))).toBe(true)
+    expect(r.notes.some((n) => n.includes('归档 + 交接单'))).toBe(true)
     expect(r.ok).toBe(true)
   })
 

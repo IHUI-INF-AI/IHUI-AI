@@ -1222,6 +1222,13 @@ test(
         ro.close()
       }
       assert.equal(result.targetFile, dbFile)
+      assert.equal(result.profile, 'Default')
+      assert.equal(result.profileActivated, true)
+      assert.equal(
+        JSON.parse(fs.readFileSync(path.join(udata, 'Local State'), 'utf8')).profile.last_used,
+        'Default',
+      )
+      assert.ok(result.notes.some((n) => n.includes('Local State.last_used')))
       assert.equal(fs.readFileSync(result.backupFile).equals(beforeRaw), true, '备份必须逐字节等于写前')
       noPlaintext(result, ['new-ttwid', 'new-sess'])
     } finally {
@@ -1233,6 +1240,29 @@ test(
 test('doubao:池号没有 cookie 捆绑包 ⇒ no-template 点名(不猜不落笔)', () => {
   const payload = L.normalizePayload({ uid: 'auto:x', token: 't', secrets: {} })
   assert.throws(() => L.applyDoubao(payload, { extract }), (e) => e?.code === 'no-template')
+})
+
+test('doubao:显式 profile 不存在 ⇒ no-target(不回落 Default 冒充成功)', () => {
+  const scratch = mkScratch('local-login-doubao-profile')
+  try {
+    const udata = path.join(scratch, 'User Data')
+    fs.mkdirSync(path.join(udata, 'Default', 'Network'), { recursive: true })
+    fs.writeFileSync(path.join(udata, 'Default', 'Network', 'Cookies'), '')
+    const payload = L.normalizePayload({
+      uid: 'auto:x',
+      token: 't',
+      target: udata,
+      profile: 'Profile 9',
+      cookies: [{ source: 'cookies', key: 'ttwid', host: '.doubao.com', value: 'v' }],
+      secrets: {},
+    })
+    assert.throws(
+      () => L.applyDoubao(payload, { extract }),
+      (e) => e?.code === 'no-target' && /Profile 9/.test(e.message),
+    )
+  } finally {
+    rmScratch(scratch)
+  }
 })
 
 // =============================================================================

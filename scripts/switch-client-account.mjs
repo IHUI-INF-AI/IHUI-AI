@@ -88,6 +88,7 @@ const USAGE =
   '  --current    本机登录号在该平台池里的状态\n' +
   '  --to         把池里的号写回本机客户端(Trae 系支持名称匹配;其它平台须精确 uid)\n' +
   `  --provider   平台名:${SUPPORTED_PLATFORMS.join(' | ')}\n` +
+  '  --profile    豆包专用:目标 Chromium profile 名(Default | Profile N | active);不给仍写 Default。真切会先关闭豆包读取旧号 Cookies,写完自动拉起\n' +
   '  --dry-run    只打印计划,不写任何本机文件\n' +
   '  --force      Trae 在跑时按 pid 代关后再写(仅 Trae 系)\n' +
   '  --no-launch  写完后不拉起客户端(仅 Trae 系)\n' +
@@ -132,6 +133,7 @@ export function parseArgs(argv) {
     to: null,
     providerRaw: null,
     productRaw: null,
+    profileRaw: null,
     dryRun: false,
     force: false,
     noLaunch: false,
@@ -165,6 +167,12 @@ export function parseArgs(argv) {
       if (r.error) return fail(r.error)
       opts.productRaw = r.value
       i += 1
+    } else if (a === '--profile') {
+      const r = readValue(argv, i, '--profile')
+      if (r.error) return fail(r.error)
+      if (opts.profileRaw !== null) return fail('--profile 只能给一次')
+      opts.profileRaw = r.value
+      i += 1
     } else if (a === '--dry-run') {
       opts.dryRun = true
     } else if (a === '--force') {
@@ -178,6 +186,9 @@ export function parseArgs(argv) {
     }
   }
   if (opts.action !== null && opts.to !== null) return fail('--list/--current 与 --to 互斥')
+  if (opts.action !== null && opts.profileRaw) {
+    return fail('--profile 只与 --to 同用(--list/--current 不切 profile)')
+  }
   if (opts.action === null && opts.to === null) return fail('必须给 --list / --current / --to 之一')
   if (opts.to !== null && opts.providerRaw === null) {
     return fail('--to 必须配 --provider(要写哪个平台的客户端不猜)')
@@ -247,6 +258,7 @@ function buildSwitchPlan(opts) {
   const n = normalizeProvider(opts.providerRaw)
   if (!n.ok) return unknownProvider(n)
   if (n.provider === 'trae') {
+    if (opts.profileRaw) return fail('Trae 不支持 --profile(它走 with-chat 产品面,不切 Chromium profile)')
     if (opts.productRaw && n.product && !sameProductName(opts.productRaw, n.product)) {
       return fail(
         `--provider ${opts.providerRaw} 已固定产品面 ${n.product},与 --product ${opts.productRaw} 冲突(不猜)`,
@@ -270,12 +282,14 @@ function buildSwitchPlan(opts) {
   if (opts.force) unsupported.push('--force')
   if (opts.noLaunch) unsupported.push('--no-launch')
   if (opts.productRaw) unsupported.push('--product')
+  if (opts.profileRaw && n.provider !== 'doubao') unsupported.push('--profile')
   if (unsupported.length > 0) {
     return fail(
       `${n.provider} 走 relay-login-local-verified.ts,它不支持 ${unsupported.join(' / ')}(不编参数、不静默吞)`,
     )
   }
   const args = ['--provider', n.provider, '--uid', opts.to]
+  if (opts.profileRaw) args.push('--profile', opts.profileRaw)
   if (opts.dryRun) args.push('--dry-run')
   if (opts.json) args.push('--json')
   return { ok: true, action: 'switch', target: 'login-verified', args }
@@ -319,25 +333,80 @@ function spawnAndWait(command, args, cwd) {
   })
 }
 
-async function dispatch(plan) {
-  if (plan.target === 'login-verified' || plan.target === 'pool-list') {
-    const tsx = resolveTsx()
-    if (!tsx) {
-      process.stderr.write('❌ 未找到 tsx(apps/api/node_modules/tsx);先在仓根 pnpm install\n')
-      return 2
-    }
-    // login-verified 形态照 apps/api/package.json 的 relay:login-local-verified(env 由 --env-file=.env 注入,不自动找);
-    // pool-list 自身 import dotenv 读 apps/api/.env,不再叠一层 env-file
-    const viaEnvFile = plan.target === 'login-verified'
-    const script = viaEnvFile ? LOGIN_VERIFIED_TS : POOL_LIST_TS
-    return await spawnAndWait(
-      process.execPath,
-      viaEnvFile ? [tsx, '--env-file=.env', script, ...plan.args] : [tsx, script, ...plan.args],
-      API_DIR,
-    )
+/**
+ * 豆包导出前必须让客户端先退出:Chromium 运行时会独占 `Network\Cookies`,
+ * 只读打开/复制都 EBUSY(2026-11-24 本机实测)。写回腿本来也要关端,所以把关闭
+ * 提前到派发前,导出读完再由本层统一拉起;dry-run 不关。
+ */
+export function needsDoubaoPreClose(plan) {
+  if (!plan?.ok || plan.target !== 'login-verified') return false
+  const i = plan.args?.indexOf('--provider') ?? -1
+  if (i < 0 || plan.args[i + 1] !== 'doubao') return false
+  if (plan.args.includes('--dry-run')) return false
+  const p = plan.args.indexOf('--profile')
+  if (p >= 0) {
+    const name = String(plan.args[p + 1] ?? '')
+    // 非法 profile 由下游拒绝,不该先关用户的客户端
+    if (!/^(Default|Profile \d+|active|current|last-used)$/i.test(name)) return false
   }
-  const spec = TARGETS[plan.target]
-  return await spawnAndWait(process.execPath, [path.join(ROOT, spec.scriptRel), ...plan.args], ROOT)
+  return true
+}
+
+async function loadLocalLogin() {
+  return await import(pathToFileURL(path.join(ROOT, 'scripts', 'local-login.mjs')).href)
+}
+
+async function dispatch(plan) {
+  const run = async () => {
+    if (plan.target === 'login-verified' || plan.target === 'pool-list') {
+      const tsx = resolveTsx()
+      if (!tsx) {
+        process.stderr.write('❌ 未找到 tsx(apps/api/node_modules/tsx);先在仓根 pnpm install\n')
+        return 2
+      }
+      // login-verified 形态照 apps/api/package.json 的 relay:login-local-verified(env 由 --env-file=.env 注入,不自动找);
+      // pool-list 自身 import dotenv 读 apps/api/.env,不再叠一层 env-file
+      const viaEnvFile = plan.target === 'login-verified'
+      const script = viaEnvFile ? LOGIN_VERIFIED_TS : POOL_LIST_TS
+      return await spawnAndWait(
+        process.execPath,
+        viaEnvFile ? [tsx, '--env-file=.env', script, ...plan.args] : [tsx, script, ...plan.args],
+        API_DIR,
+      )
+    }
+    const spec = TARGETS[plan.target]
+    return await spawnAndWait(process.execPath, [path.join(ROOT, spec.scriptRel), ...plan.args], ROOT)
+  }
+
+  if (!needsDoubaoPreClose(plan)) return await run()
+  let ll = null
+  let client = null
+  try {
+    ll = await loadLocalLogin()
+    client = ll.closeClientForWrite('doubao')
+    ll.assertClientClosed(client)
+  } catch (e) {
+    process.stderr.write(
+      `❌ 豆包导出前置关闭失败(未改动登录态):${e instanceof Error ? e.message : String(e)}\n`,
+    )
+    return 1
+  }
+  try {
+    return await run()
+  } finally {
+    if (client?.wasRunning) {
+      try {
+        const re = ll.relaunchClient(client)
+        if (!re.restarted) {
+          process.stderr.write(`⚠️ 豆包未能自动重新打开:${re.error || '未知原因'};请手动启动\n`)
+        }
+      } catch (e) {
+        process.stderr.write(
+          `⚠️ 豆包重新打开异常:${e instanceof Error ? e.message : String(e)};请手动启动\n`,
+        )
+      }
+    }
+  }
 }
 
 async function main(argv) {
@@ -369,6 +438,7 @@ export const __test__ = {
   buildPlan,
   planCli,
   sameProductName,
+  needsDoubaoPreClose,
   SUPPORTED_PLATFORMS,
   TRAE_SOLO_PRODUCT,
   TARGETS,

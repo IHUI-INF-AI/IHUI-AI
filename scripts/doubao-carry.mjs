@@ -24,7 +24,6 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
   defaultArchiveDir,
-  defaultDoubaoProfileDir,
   exportArchive,
   listConversations,
   readArchiveIndex,
@@ -47,7 +46,8 @@ const USAGE = `豆包跨号会话归档 + 回放(只走云端 /samantha 接口,�
   node scripts/doubao-carry.mjs --replay <dir> --apply --limit 5 先回放最近 5 个试水
 
   凭据:--cookie "<k=v; k=v>" 手动传 / --cdp <port> 从运行中的豆包(CDP)取 / 默认读本机 Cookies 库
-  其它:--profile <dir> 指定 profile 目录 / --max-pages <n> 翻页上限
+  其它:--profile <dir> 指定 profile 目录 / --profile-name <Default|Profile N|active> 按 Chromium profile 名取
+        (缺省仍读 Default;要切眼前这个号用 --profile-name active) / --max-pages <n> 翻页上限
 `
 
 /** 取旗标值:给了旗标就必须给非空且不以 - 开头的值,否则如实报错(不回落默认) */
@@ -196,14 +196,20 @@ async function main(argv = process.argv.slice(2)) {
   if (replay.present) {
     const out = takeValue(argv, '--out')
     const profile = takeValue(argv, '--profile')
+    const profileName = takeValue(argv, '--profile-name')
     for (const [, r] of [
       ['--out', out],
       ['--profile', profile],
+      ['--profile-name', profileName],
     ]) {
       if (r.error) {
         console.error(`用法错:${r.error}`)
         return 2
       }
+    }
+    if (profile.present && profileName.present) {
+      console.error('用法错:--profile <目录> 与 --profile-name <名> 只能给一个(不猜优先级)')
+      return 2
     }
     // 回放腿的凭据同样三路:cookie 明文 > CDP > 本机 Cookies 库(此时本机登录的是【新号】)
     let cookie
@@ -223,14 +229,18 @@ async function main(argv = process.argv.slice(2)) {
     } else if (cdp.present) {
       cookie = await cookieViaCdp(cdp.value)
     } else {
-      cookie = await readDoubaoCookie({ profileDir: profile.value || defaultDoubaoProfileDir() })
+      cookie = await readDoubaoCookie({
+        profileDir: profile.value,
+        profile: profileName.value,
+        env: process.env,
+      })
     }
     if (cookie.code !== 'ok') {
       console.error(`❌ 回放失败:${cookie.message ?? cookie.code}(code=${cookie.code})`)
       console.error('   回放需要【新号】的登录态:登录新号后重跑,或 --cookie "<k=v; k=v>" / --cdp <port>')
       return 1
     }
-    console.info(`凭据:${cookie.source}(${cookie.count} 条 cookie)`)
+    console.info(`凭据:${cookie.source}(${cookie.count} 条 cookie;profile=${cookie.profile ?? '?'})`)
     const res = await replayArchive({
       cookieHeader: cookie.cookieHeader,
       archiveDir: replay.value,
@@ -259,21 +269,27 @@ async function main(argv = process.argv.slice(2)) {
     }
     const bits = [`回放 ${res.replayed}`, `跳过(已回放) ${res.skipped}`, `失败 ${res.failed}`]
     console.info(`✅ 回放完成:${bits.join(' / ')};落点记录:${res.logFile}`)
-    console.info('   打开豆包客户端(新号),侧栏最新会话即旧对话上下文,可直接接着聊')
+    console.info('   打开豆包客户端(新号):侧栏会多出一条含旧对话文本的新会话,不是原生历史;可直接接着聊但服务端会重生成')
     return res.failed > 0 && res.replayed === 0 ? 1 : 0
   }
   const out = takeValue(argv, '--out')
   const profile = takeValue(argv, '--profile')
+  const profileName = takeValue(argv, '--profile-name')
   const maxPages = takeValue(argv, '--max-pages')
   for (const [, r] of [
     ['--out', out],
     ['--profile', profile],
+    ['--profile-name', profileName],
     ['--max-pages', maxPages],
   ]) {
     if (r.error) {
       console.error(`用法错:${r.error}`)
       return 2
     }
+  }
+  if (profile.present && profileName.present) {
+    console.error('用法错:--profile <目录> 与 --profile-name <名> 只能给一个(不猜优先级)')
+    return 2
   }
 
   // ---- 取 cookie:cookie 明文 > CDP > 本机 Cookies 库 ----
@@ -299,7 +315,9 @@ async function main(argv = process.argv.slice(2)) {
     cookie = await cookieViaCdp(cdp.value)
   } else {
     cookie = await readDoubaoCookie({
-      profileDir: profile.value || defaultDoubaoProfileDir(),
+      profileDir: profile.value,
+      profile: profileName.value,
+      env: process.env,
     })
   }
   if (cookie.code !== 'ok') {
@@ -307,7 +325,7 @@ async function main(argv = process.argv.slice(2)) {
     console.error('   本机没有可用凭据时:--cookie "<k=v; k=v>" 或 --cdp <port>(从运行中的豆包取)')
     return 1
   }
-  console.info(`凭据:${cookie.source}(${cookie.count} 条 cookie)`)
+  console.info(`凭据:${cookie.source}(${cookie.count} 条 cookie;profile=${cookie.profile ?? '?'})`)
 
   // ---- 干跑:只列会话,不写盘 ----
   if (!apply) {

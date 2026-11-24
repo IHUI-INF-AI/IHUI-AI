@@ -17,7 +17,8 @@
  *              找到库 → 数条数 → 确认没有账号维度;发现多了账号列就立刻升档报
  *              `account-scoped-store`(绝不继续冒绿)。
  *   cloud  —— 会话在云端且绑账号、本地零副本(豆包):本地无迁移路径,走
- *              scripts/doubao-carry.mjs 的导出 + 回放(新号下以新会话重建)。
+ *              scripts/doubao-carry.mjs 的导出归档 + handoff 交接单;官方导入入口
+ *              按安装包探针实测,不承诺文件导入。
  *
  * 纪律(§0.3/§0.6):判据全部在本文件与 local-store 探针里单源;切号编排层只拿结论,
  * 不自己发明"应该没事"。任何取不到 ⇒ ok:false + code,绝不返回"0 条 = 成功"。
@@ -90,7 +91,7 @@ export const CARRY_MATRIX = Object.freeze({
     kind: 'cloud',
     label: '豆包',
     auto: 'replay',
-    detail: '云端账号库、本地零副本:用 scripts/doubao-carry.mjs --export/--replay 回放迁移',
+    detail: '云端账号库、本地零副本:导出归档 + handoff 交接单;官方导入入口按安装包实测(2.37.16 扫描式,非选文件)',
   },
 })
 
@@ -344,7 +345,7 @@ export function switchCarry(opts = {}) {
       kind: 'cloud',
       action: 'replay-required',
       code: '',
-      notes: [m.detail, '本次切号未自动回放(网络写入需显式执行 doubao-carry 的 --replay)'],
+      notes: [m.detail, '本次切号未自动导入(原生文件导入入口未成立;交接单/--replay 需显式执行)'],
       moved: null,
     }
   }
@@ -427,7 +428,7 @@ export function auditProviders({ env = process.env } = {}) {
     const installed = p.located ? true : probeInstalled(provider, env)
     const ok =
       p.kind === 'cloud'
-        ? true // 云端平台:本地无路径是事实,能力在 doubao-carry 回放链,不算失败
+        ? true // 云端平台:本地无路径是事实,能力在导出/交接单链,不算失败
         : installed === false
           ? true // 本机没装:没有可核验的本地面,不算能力缺陷(装/登录后再核验)
           : p.kind === 'rebind'

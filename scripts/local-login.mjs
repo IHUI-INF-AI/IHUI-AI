@@ -19,7 +19,7 @@
  *   qoder    %APPDATA%\com.qoder[cn].app.*\auth.v1.dat                DPAPI+AES-GCM,可重封;GUI 同上
  *   workbuddy %LOCALAPPDATA%\CodeBuddyExtension\...\auth\workbuddy-desktop[-ai].info
  *            $wbEncrypted 字段信封,密钥取自运行中主进程 inspector;取钥→关端→重封→拉起
- *   doubao   %LOCALAPPDATA%\Doubao\User Data\Default\Network\Cookies  Chromium os_crypt v10,可重封;GUI 同上
+ *   doubao   %LOCALAPPDATA%\Doubao\User Data\<Default|Profile N>\Network\Cookies  Chromium os_crypt v10,可重封;GUI 同上
  *   loomy    %APPDATA%\Loomy\Local Storage\leveldb\<活日志>.log       Chromium DOM Storage WriteBatch 追加(后写为准);GUI 同上
  *   其余(lingma/grokbot)无法离线重封,由服务层给明确 409 原因。
  *
@@ -43,6 +43,7 @@ import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { clientHomeEnvs } from './lib/client-home.mjs'
 import * as lv from './lib/leveldb-log.mjs'
+import { resolveDoubaoProfile } from './lib/doubao-profile.mjs'
 import {
   closeProduct,
   launchProduct,
@@ -164,6 +165,8 @@ export function normalizePayload(raw) {
     // 豆包捆绑账号的整套 cookie 条目 [{source,key,host,value}](其它平台为空)
     cookies: Array.isArray(raw.cookies) ? raw.cookies : [],
     target: asText(raw.target),
+    // 豆包专用:目标 Chromium profile 名(Default / Profile N / active);其它平台忽略
+    profile: asText(raw.profile),
   }
 }
 
@@ -1766,30 +1769,43 @@ export function applyDoubao(payload, opts = {}) {
       'no-template',
     )
   }
+  const requestedProfile = asText(payload.profile)
   let userDataDir = ''
+  let profile = ''
+  let profileSource = ''
+  const failures = []
   if (payload.target) {
-    userDataDir = path.resolve(payload.target)
+    const r = resolveDoubaoProfile({ userDataDir: path.resolve(payload.target), profile: requestedProfile })
+    if (!r.ok) {
+      throw new WriteError(`指定豆包数据目录下 profile 解析失败:[${r.code}] ${r.message}`, 'no-target')
+    }
+    userDataDir = r.userDataDir
+    profile = r.profile
+    profileSource = r.source
   } else {
     for (const env of clientEnvs(opts)) {
-      const hit = (extract.doubaoCandidateUserDataDirs(env) ?? []).find((d) =>
-        fs.existsSync(path.join(d, 'Default', 'Network', 'Cookies')),
-      )
-      if (hit) {
-        userDataDir = hit
+      const r = resolveDoubaoProfile({ env, profile: requestedProfile })
+      if (r.ok) {
+        userDataDir = r.userDataDir
+        profile = r.profile
+        profileSource = r.source
         break
       }
+      failures.push(`[${r.code}] ${r.message}`)
     }
   }
-  if (!userDataDir) {
+  if (!userDataDir || !profile) {
     throw new WriteError(
-      '本机没找到豆包 Cookies 库(%LOCALAPPDATA%\\Doubao\\User Data\\Default\\Network\\Cookies)' +
-        ' ⇒ 请先安装豆包桌面端并登录一次任意账号',
+      '本机没找到可用豆包 profile(%LOCALAPPDATA%\\Doubao\\User Data\\<Default|Profile N>\\Network\\Cookies)' +
+        ' ⇒ 请先安装豆包桌面端并登录一次任意账号' +
+        (requestedProfile ? `;请求 profile=${requestedProfile}` : '') +
+        (failures.length ? `;逐候选:${failures.join(' | ')}` : ''),
       'no-target',
     )
   }
-  const dbFile = path.join(userDataDir, 'Default', 'Network', 'Cookies')
+  const dbFile = path.join(userDataDir, profile, 'Network', 'Cookies')
   if (!fs.existsSync(dbFile)) {
-    throw new WriteError(`豆包 Cookies 库不存在:${dbFile}`, 'no-target')
+    throw new WriteError(`豆包 Cookies 库不存在:${dbFile}(profile=${profile})`, 'no-target')
   }
   const key = readElectronKey(extract, path.join(userDataDir, 'Local State'))
   const { DatabaseSync } = require('node:sqlite')
@@ -1856,11 +1872,54 @@ export function applyDoubao(payload, opts = {}) {
       'target-locked',
     )
   }
+
+  // 关键一步:Chromium 下次启动进哪个 profile,看 Local State.profile.last_used。
+  // 不更新它 ⇒ 写进 Profile 2 却仍从 Default 启动,用户会以为没切成功(2026-11-24 补)。
+  const localStateFile = path.join(userDataDir, 'Local State')
+  let localStateBackup = null
+  let previousProfile = ''
+  let profileActivated = false
+  let localStateNote = ''
+  try {
+    const state = JSON.parse(fs.readFileSync(localStateFile, 'utf8'))
+    previousProfile = asText(state?.profile?.last_used)
+    state.profile = state.profile && typeof state.profile === 'object' ? state.profile : {}
+    if (previousProfile !== profile) {
+      localStateBackup = backupOf(localStateFile)
+      state.profile.last_used = profile
+      atomicWrite(localStateFile, `${JSON.stringify(state)}\n`)
+    }
+    const reread = JSON.parse(fs.readFileSync(localStateFile, 'utf8'))
+    if (asText(reread?.profile?.last_used) !== profile) {
+      throw new Error(`读回 last_used=${asText(reread?.profile?.last_used) || '(空)'}`)
+    }
+    profileActivated = true
+    localStateNote =
+      previousProfile === profile
+        ? `Local State.last_used 已是 ${profile};下次启动直接进目标号`
+        : `Local State.last_used ${previousProfile || '(空)'} → ${profile};下次启动直接进目标号`
+  } catch (e) {
+    // Cookies 已写成功;这里失败不翻转整次写回,但必须点名,让用户知道可能要手动选 profile
+    localStateNote = `Local State.last_used 未确认(${e instanceof Error ? e.message : String(e)});下次启动可能仍进旧 profile,请手动选择`
+  }
+
   return writeResult('doubao', dbFile, backupFile, {
     uid: payload.uid,
     replacedUid: null,
-    notes: [`已写入 ${written.length} 条会话族 cookie:${written.join(', ')}`],
-    restartHint: '重启豆包桌面端后生效(运行中客户端退出时可能覆写库,建议先退出再写)',
+    profile,
+    profileSource,
+    previousProfile,
+    profileActivated,
+    localStateFile,
+    localStateBackup,
+    notes: [
+      `目标 profile=${profile}(${profileSource})`,
+      `已写入 ${written.length} 条会话族 cookie:${written.join(', ')}`,
+      localStateNote,
+    ],
+    restartHint: profileActivated
+      ? '重启豆包桌面端后生效(已指向目标 profile)'
+      : '重启豆包桌面端后生效;Local State 未确认,启动后请手动选择目标 profile',
   })
 }
 

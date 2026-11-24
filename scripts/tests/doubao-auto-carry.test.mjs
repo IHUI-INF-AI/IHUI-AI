@@ -4,7 +4,7 @@
 // 豆包一键切号自动回放两阶段单测(全注入:零真 cookie 库、零真网络)。
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { exportBeforeSwitch, replayAfterSwitch } from '../lib/doubao-auto-carry.mjs'
+import { exportBeforeSwitch, prepareImport, replayAfterSwitch } from '../lib/doubao-auto-carry.mjs'
 
 const COOKIE = 'sessionid=SECRET_SHOULD_NOT_LEAK; uid_tt=TOP_SECRET_VALUE'
 
@@ -129,8 +129,8 @@ test('⑨ 两阶段串联:export 的 archiveDir 直接喂给 replay,时序由调
   assert.deepEqual(calls, ['export', 'replay:/chain'])
 })
 
-// ===== 2026-11-24 官方导入主路径(逐条原生可续聊)测试 =====
-test('⑩ export 成功后自动产出 ChatGPT conversations.json 导入文件(逐条,非文本压包)', async () => {
+// ===== 2026-11-24 导入入口分流 + 留档/交接单 测试 =====
+test('⑩ export 成功后自动产出 ChatGPT 格式留档文件(逐条,非文本压包)', async () => {
   const fs = await import('node:fs')
   const os = await import('node:os')
   const nodePath = await import('node:path')
@@ -203,7 +203,69 @@ test('⑪ 双格式：realBuildImportFile 同时产出裸 JSON 与 ZIP', async (
     // ZIP 用 Python 风格魔数校验头
     const z = fs.readFileSync(r.zipFile)
     assert.equal(z.readUInt32LE(0), 0x04034b50, 'ZIP local header 魔数')
-    assert.ok(r.note.includes('ZIP'), 'note 点名 ZIP 让用户优先选')
+    assert.ok(r.note.includes('ZIP'), 'note 点名 ZIP(留档双载体,不是导入承诺)')
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('⑫ profile 透传:exportBeforeSwitch 把 profile 原样交给 readCookie,note 点名 profile', async () => {
+  let seen = null
+  const r = await exportBeforeSwitch({
+    profile: 'Profile 2',
+    deps: deps({
+      readCookie: async (opts) => {
+        seen = opts
+        return { code: 'ok', cookieHeader: COOKIE, count: 2, source: 'fake', profile: 'Profile 2' }
+      },
+      buildHandoffFile: () => ({ ok: true, file: '/fake/handoff.md', conversationId: 'c1', messages: 2, note: '交接单 ok' }),
+    }),
+  })
+  assert.deepEqual(seen, { profile: 'Profile 2' })
+  assert.equal(r.ok, true)
+  assert.equal(r.profile, 'Profile 2')
+  assert.match(r.note, /profile=Profile 2/)
+  assert.equal(r.handoffFile, '/fake/handoff.md')
+})
+
+test('⑬ 导入清单按安装包形态分流:scan-apps 不承诺原生导入,file-pick 才给选文件', async () => {
+  const fs = await import('node:fs')
+  const os = await import('node:os')
+  const nodePath = await import('node:path')
+  const tmp = fs.mkdtempSync(nodePath.join(os.tmpdir(), 'doubao-import-mode-'))
+  try {
+    const file = nodePath.join(tmp, 'conversations.json')
+    const zip = nodePath.join(tmp, 'conversations.zip')
+    const handoff = nodePath.join(tmp, 'handoff.md')
+    fs.writeFileSync(file, '[]')
+    fs.writeFileSync(zip, 'PK')
+    fs.writeFileSync(handoff, '# handoff')
+    const exportResult = { ok: true, importFile: file, importZipFile: zip, handoffFile: handoff, importConversations: 2 }
+
+    const scan = prepareImport({
+      exportResult,
+      deps: { probeImportSurface: () => ({ ok: true, mode: 'scan-apps', scanHits: ['a', 'b'], fileHits: [], note: 'scan' }) },
+    })
+    assert.equal(scan.ok, false)
+    assert.equal(scan.code, 'import-surface-scan-only')
+    assert.equal(scan.importMode, 'scan-apps')
+    assert.match(scan.steps.join(' '), /粘贴/)
+    assert.match(scan.note, /手搓文件无入口/)
+
+    const pick = prepareImport({
+      exportResult,
+      deps: { probeImportSurface: () => ({ ok: true, mode: 'file-pick', scanHits: [], fileHits: ['a', 'b'], note: 'pick' }) },
+    })
+    assert.equal(pick.ok, true)
+    assert.equal(pick.code, 'ok')
+    assert.match(pick.steps.join(' '), /来源选 ChatGPT/)
+
+    const unknown = prepareImport({
+      exportResult,
+      deps: { probeImportSurface: () => ({ ok: true, mode: 'unknown', scanHits: [], fileHits: [], note: 'unknown' }) },
+    })
+    assert.equal(unknown.ok, false)
+    assert.equal(unknown.code, 'import-surface-unknown')
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true })
   }

@@ -100,12 +100,12 @@ const CHAT_CARRY = Object.freeze({
   doubao: {
     kind: 'cloud',
     text:
-      '本器自动办写回前的一步:用旧号登录态把全部对话逐条导出(含图片 URL、语音转写、长文本),' +
-      '生成豆包官方可识别的【conversations.zip(优先)+ 裸 conversations.json】双格式导入文件' +
-      '(不再压成一条文本重发、不消耗新号额度)。写回后在窗口点名路径 —— ' +
-      '到豆包(已登新号)「设置 → 数据导入与同步 → ChatGPT → 选 ZIP(不认再试裸 JSON)」导入即可:' +
-      '旧会话逐条原样落入新号、上下文完整、打开就能接着聊(与 Trae 同款无缝续聊)。' +
-      '若导出失败窗口会点名原因,可在旧号登录态手动跑 node scripts/doubao-carry.mjs --export --apply',
+      '切号前自动用旧号登录态把全部对话逐条导出(含图片 URL、语音转写、长文本),生成 conversations.zip + 裸 JSON 留档, ' +
+      '并生成 handoff.md 交接单。当前 2.37.16 的「数据导入与同步」实测是扫描本机已安装应用,不是选文件,' +
+      '所以不承诺「原生导入、零点击」;写回后在窗口点名路径 —— ' +
+      '要马上接着聊,用 handoff.md 在新号新建会话粘贴(文本最近若干轮,不重生成);' +
+      '或显式跑 --replay 文本回放(耗新号额度、会重生成,不推荐)。' +
+      '导出失败窗口会点名原因,可在旧号登录态手动跑 node scripts/doubao-carry.mjs --export --apply --profile-name active',
   },
 })
 
@@ -338,6 +338,33 @@ async function main() {
       return 1
     }
     const target = accounts[a.idx]
+    /**
+     * 豆包多 profile:缺省仍写 Default(不静默切宿主会话);要切当前活跃号必须显式说 active。
+     * 只对 doubao 提问,其它平台零打扰。
+     */
+    let doubaoProfile = ''
+    if (platform === 'doubao') {
+      let hint = ''
+      try {
+        const dp = await import(pathToFileURL(path.join(ROOT, 'scripts', 'lib', 'doubao-profile.mjs')).href)
+        const resolved = dp.resolveDoubaoProfile({ profile: 'active' })
+        if (resolved.ok) {
+          hint = `可用:${resolved.profiles.join(' / ')};当前活跃:${resolved.lastUsed || '(未知)'}。`
+        }
+      } catch {
+        hint = ''
+      }
+      const answer = (await rl.question(
+        `豆包目标 profile(${hint}回车=Default;输入 active=当前活跃,或 Profile 2): `,
+      )).trim()
+      if (answer) {
+        if (!/^(Default|Profile \d+|active|current|last-used)$/i.test(answer)) {
+          err('❌ profile 名只认 Default / Profile N / active;未改动任何登录态\n')
+          return 2
+        }
+        doubaoProfile = answer
+      }
+    }
     // Trae 系写回前客户端必须已退出(其余平台由写回腿自己判在跑与否);话术不替它代裁
     const carry = chatCarryOf(platform)
     /**
@@ -353,10 +380,13 @@ async function main() {
         ? 'Trae 在跑时本器会代关、写完自动拉起(--force),不用手动先退。'
         : platform === 'workbuddy'
           ? 'WorkBuddy 会热切生效(客户端 watcher 自动重载),本器不关端。'
-          : '写回腿会按需关闭并重新拉起客户端。'
+          : platform === 'doubao'
+            ? `切号器会先关闭豆包读取旧号对话(Chromium 会独占 Cookies 库),写完自动拉起;本次目标 profile=${doubaoProfile || 'Default(缺省)'}。`
+            : '写回腿会按需关闭并重新拉起客户端。'
     const cmdLine =
       `node scripts/switch-client-account.mjs --to ${target.uid} --provider ${platform}` +
-      (platform === 'trae' ? ' --force' : '')
+      (platform === 'trae' ? ' --force' : '') +
+      (doubaoProfile ? ` --profile "${doubaoProfile}"` : '')
     out(`\n将执行:\n  ${cmdLine}\n\n对话:${carry.text}\n${procNote}\n`)
     const yes = (await rl.question('确认执行请输入 y(其它任意键取消): ')).trim().toLowerCase()
     if (yes !== 'y') {
@@ -368,6 +398,7 @@ async function main() {
       const args = [SWITCH_MJS, '--to', target.uid, '--provider', platform]
       // Trae 在跑时必须代关才写得进去(客户端退出会用内存态覆写);其余平台写回腿自己处理
       if (platform === 'trae') args.push('--force')
+      if (doubaoProfile) args.push('--profile', doubaoProfile)
       const child = spawn(
         process.execPath,
         args,
@@ -389,7 +420,7 @@ async function main() {
         const banner =
           code === 0
             ? `\n✅ 切号完成。\n📚 对话:${carry.text}\n` +
-              `   打开客户端核对当前账号即可;若界面仍显示旧号,看上方有没有「模板缺失」告警 —— ` +
+              `   打开客户端核对当前账号即可;若界面仍显示旧号,看上方最后几行有没有「模板缺失」或「Local State 未确认」告警 —— ` +
               `缺模板时写回腿会直接拒绝(不再沿用旧号资料),按告警里的一键补模板命令补齐后再切。\n`
             : `\n❌ 切号未成功(exit=${code}${cause ? `,${cause}` : ''}):登录态很可能未被改写,上方最后几行是失败原因。\n`
         out(banner)

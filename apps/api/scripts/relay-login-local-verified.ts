@@ -58,8 +58,8 @@ const wbCarry = await import(
   pathToFileURL(path.join(REPO_ROOT, 'scripts', 'lib', 'workbuddy-chat-carry.mjs')).href
 )
 /**
- * 豆包一键切号自动对话回放(2026-11-24 立)。两阶段必须跨写回点:
- * 写回前 export(旧号 cookie 还在)→ 写回后 replay(新号 cookie 生效)。
+ * 豆包一键切号对话留档(2026-11-24 立,同日二次取证修正)。两阶段必须跨写回点:
+ * 写回前 export(旧号 cookie 还在)→ 写回后按安装包探针给「导入入口 / handoff 交接单」清单。
  * 判据与失败降级在 scripts/lib/doubao-auto-carry.mjs 单源,本层只编排时序、不重造判据。
  */
 const doubaoAutoCarry = await import(
@@ -194,6 +194,8 @@ export async function runVerifiedSwitch(opts: {
   provider: string
   uid?: string
   dryRun?: boolean
+  /** 豆包专用:指定 Chromium profile 名(Default / Profile N / active);其它平台忽略 */
+  profile?: string
   /** 测试注入:替换选票腿(绝不连真库) */
   loadRow?: typeof loadPoolRow
   /** 测试注入:替换写回腿(绝不在测试里真写本机客户端) */
@@ -201,7 +203,7 @@ export async function runVerifiedSwitch(opts: {
   /** 测试注入:替换快照腿 */
   snapshot?: typeof snapshotApp
   /** 测试注入:替换豆包登录态快照腿(绝不在测试里真读本机 Cookies 库) */
-  snapshotDoubao?: () => SnapshotResult
+  snapshotDoubao?: (opts?: { profile?: string }) => SnapshotResult
   /** 测试注入:替换 compare */
   compare?: typeof compareSnapshots
   /** 测试注入:替换「该票有无会话模板」判据(默认解密 secretsEnc,零真库) */
@@ -218,7 +220,7 @@ export async function runVerifiedSwitch(opts: {
   doubaoCarryImpl?: {
     exportBeforeSwitch: typeof doubaoAutoCarry.exportBeforeSwitch
     replayAfterSwitch: typeof doubaoAutoCarry.replayAfterSwitch
-    /** 2026-11-24 新增:写回后产出官方导入清单(主路径)。旧测试夹具可省略,回退到 replay。 */
+    /** 2026-11-24 新增:写回后按安装包探针分流「导入入口 / 交接单」;旧测试夹具可省略,回退到 replay。 */
     prepareImport?: typeof doubaoAutoCarry.prepareImport
   }
 }): Promise<VerifiedSwitchResult> {
@@ -244,7 +246,11 @@ export async function runVerifiedSwitch(opts: {
   const isDoubaoFace = opts.provider === DOUBAO_PROVIDER
   const face = faceKey ?? (isDoubaoFace ? DOUBAO_PROVIDER : undefined)
   const takeSnap = (): SnapshotResult | null =>
-    !face ? null : isDoubaoFace ? doSnapDoubao() : doSnap(face)
+    !face
+      ? null
+      : isDoubaoFace
+        ? doSnapDoubao(opts.profile ? { profile: opts.profile } : undefined)
+        : doSnap(face)
   const before = takeSnap()
   if (face && before?.state !== 'ok') notes.push(`切号前快照未判定:${before?.why ?? '?'}`)
 
@@ -291,7 +297,7 @@ export async function runVerifiedSwitch(opts: {
   let doubaoExport: unknown = null
   if (opts.provider === 'doubao' && doDoubaoCarry) {
     try {
-      doubaoExport = await doDoubaoCarry.exportBeforeSwitch()
+      doubaoExport = await doDoubaoCarry.exportBeforeSwitch({ profile: opts.profile })
       notes.push((doubaoExport as { note?: string })?.note ?? '豆包对话导出:无返回说明')
     } catch (e) {
       doubaoExport = {
@@ -305,7 +311,7 @@ export async function runVerifiedSwitch(opts: {
     notes.push('豆包对话导出未执行:测试进程默认不碰真实 cookie/网络(需验请注入 doubaoCarryImpl)')
   }
 
-  const writeBack = await doWrite(row)
+  const writeBack = await doWrite(row, opts.profile ? { profile: opts.profile } : undefined)
   /** 对话随行结果(null = 未执行) */
   let resumeCarry: unknown = null
   /** 豆包两阶段回放结果(export + replay);非豆包 / 未执行 ⇒ null */
@@ -323,10 +329,12 @@ export async function runVerifiedSwitch(opts: {
         notes.push(`对话随行未执行:平台 ${opts.provider} 未登记(不猜)`)
       } else if (m.kind === 'cloud' && opts.provider === 'doubao' && doDoubaoCarry) {
         /**
-         * 豆包(cloud)无缝迁移(2026-11-24 修正):走豆包官方「数据导入与同步」通道。
-         * 写回前已 export 逐条归档并生成 ChatGPT conversations.json(见 doubaoExport.importFile),
-         * 这里产出导入清单与操作路径 —— 用户在豆包设置里选该文件导入 ⇒ 逐条原生会话、
-         * 上下文原样保留、可直接接着聊(与 Trae 等价的无缝续聊,不重生成、不耗新号额度)。
+         * 豆包(cloud)切号后收口(2026-11-24 二次取证修正):不再承诺「官方文件导入」。
+         * 写回前已 export 逐条归档 + 生成 ChatGPT 格式文件(留档)+ handoff.md(交接单);
+         * 这里调用 prepareImport:它先读安装包 `s2-asset-import.js` 判入口形态 ——
+         *  - scan-apps(当前 2.37.16)⇒ 明确说手搓文件不适用,给 handoff.md 粘贴续聊步骤;
+         *  - file-pick ⇒ 才给「设置 → 数据导入与同步 → ChatGPT → 选 ZIP/JSON」三步;
+         *  - unknown ⇒ 不猜、不承诺。
          * 本腿独立于 doCarry(测试进程 doCarry=null 但注入 doubaoCarryImpl 后仍要能验),
          * 故必须排在 !doCarry 检查之前。任一步失败只记 note,不翻转切号成败。
          * 兼容:旧注入夹具只提供 replayAfterSwitch 时回退到文本回放兜底。
@@ -354,12 +362,12 @@ export async function runVerifiedSwitch(opts: {
         resumeCarry = {
           kind: 'cloud',
           provider: 'doubao',
-          autoReplay: true,
-          mode: 'official-import',
+          autoReplay: false,
+          mode: 'archive-handoff',
           export: doubaoExport,
           replay,
         }
-        notes.push('豆包对话随行走官方导入通道(逐条原生可续聊);矩阵 cloud 语义不变')
+        notes.push('豆包对话随行=归档 + 交接单;原生导入入口按安装包实测,矩阵 cloud 语义不变')
       } else if (!doCarry) {
         notes.push(
           `对话随行未执行:测试进程默认不碰真实客户端库(${opts.provider});需验请注入 carryImpl`,
@@ -475,16 +483,17 @@ export function main(argv: string[], io: MainIo = {}): number {
   if (!provider) {
     exitWith(
       2,
-      '用法:relay-login-local-verified.ts --provider <code> [--uid <池票uid>] [--dry-run] [--json]',
+      '用法:relay-login-local-verified.ts --provider <code> [--uid <池票uid>] [--profile <Default|Profile N|active>] [--dry-run] [--json]',
       io,
     )
     return 2 // 仅注入假 exit 时可达;真 process.exit 不返回
   }
   const uid = argValue(argv, '--uid')
+  const profile = argValue(argv, '--profile')
   const dryRun = argv.includes('--dry-run')
   const run = io.run ?? runVerifiedSwitch
   const log = io.log ?? ((text: string) => void console.log(text))
-  run({ provider, uid, dryRun })
+  run({ provider, uid, dryRun, profile })
     .then((r) => {
       const lines = [
         `票: provider=${r.provider} uid=${r.uid}`,
@@ -499,9 +508,10 @@ export function main(argv: string[], io: MainIo = {}): number {
         ...(r.doubaoCarry
           ? [
               `豆包迁移: export=${(r.doubaoCarry.export as { ok?: boolean } | null)?.ok ? 'ok' : 'skip/fail'}` +
-                ` import=${(r.doubaoCarry.replay as { ok?: boolean } | null)?.ok ? 'ready' : 'skip/fail'}` +
+                ` import=${(r.doubaoCarry.replay as { ok?: boolean } | null)?.ok ? 'ready' : ((r.doubaoCarry.replay as { code?: string } | null)?.code ?? 'skip/fail')}` +
+                ` 入口=${(r.doubaoCarry.replay as { importMode?: string } | null)?.importMode ?? 'unknown'}` +
                 ` ZIP=${(r.doubaoCarry.export as { importZipFile?: string } | null)?.importZipFile ?? '-'}` +
-                ` 裸JSON=${(r.doubaoCarry.export as { importFile?: string } | null)?.importFile ?? '-'}`,
+                ` 交接=${(r.doubaoCarry.export as { handoffFile?: string } | null)?.handoffFile ?? '-'}`,
             ]
           : []),
         r.after

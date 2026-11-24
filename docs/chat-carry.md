@@ -26,7 +26,7 @@
 | loomy | local | `Local Storage/leveldb` + IndexedDB,无账号列 |
 | codex | local | `~/.codex/state_5.sqlite` / `threads`(账号列全 NULL)+ `sessions/YYYY/**/*.jsonl` |
 | raccoon | local | 本地库,本机未装 ⇒ 装好登录后 `--audit` 再核 |
-| doubao | cloud | 云端绑账号、本地零副本 ⇒ 切号自动 `--export`/`--replay` 回放(一步完成,免手动) |
+| doubao | cloud | 云端绑账号、本地零副本 ⇒ 真切前先关端,export 归档 + 生成 `handoff.md` 交接单;原生导入入口按安装包实测(2.37.16 是扫描已安装应用,不是选文件) ⇒ 不能零点击,需交接单/文本回放 |
 
 **local 不是「不用管」,是「已经核验过没有账号维度」。** 探针一旦在某个平台的库里读到账号列,立即翻成 `account-scoped-store` 并改按 rebind 适配,绝不冒绿。
 
@@ -98,50 +98,96 @@ node scripts/chat-carry.mjs --provider workbuddy --from <旧uid> --revive-window
 
 本机实测(2026-11-22 13:12):窗口 180 分钟 ⇒ 复活 5 条真实会话(含 11:56:18 那条「完成所有计划任务 协同并发运行」),新号可见会话 1 → 6 条;`--audit` 复核 `workbuddy 库=236 可见=6`。写库前自动整库备份(`workbuddy.db.pre-carry-<runId>.bak`)。
 
-## 6. 豆包(cloud)—— 官方导入通道实现逐条无缝续聊
+## 6. 豆包(cloud)—— 能做的是「归档 + 交接单」,不是文件级迁移
 
-### 2026-11-24 判断修正(上一版错在哪)
+### 2026-11-24 二次取证:上一版「官方导入」只对了一半
 
-上一版结论是「豆包对话在云端绑账号、本地零副本、没有逐条写回端点 ⇒ 只能压成一条文本重发、AI 重新生成 ⇒ 做不到 Trae 那种逐条续聊」。这是**没查豆包官方导入通道**导致的误判,已推翻。
+上一版把豆包 2.37.16「设置 → 数据导入与同步」写成「选 ChatGPT 的 `conversations.json/ZIP` 文件导入,逐条原生、打开即可续聊」。本机安装包二次取证推翻了「选文件」这一半:
 
-本机取证(豆包 2.37.16,`C:\Program Files\Doubao\app\manifest.json`):
-- 前端 bundle 实有 `framework.asset-import.*` 组件族(`asset-import` / `asset-import-manage` / `asset-import.service`);
-- 客户端「设置 → 数据导入与同步」支持从 ChatGPT / Claude Code / TRAE Work 的**本地备份文件**导入历史会话;
-- 导入后会话进入原生列表、**逐条保留原有上下文、打开即可接着聊**(官方说明 + 实测报道一致)。
+- `C:\Program Files\Doubao\app\local_webcontents\extensions\ai-views\static\js\async\s2-asset-import.js` 的实文案是「正在扫描你安装的应用」「查看我的电脑,找到需要导入的 AI 应用」「个人应用/企业应用」;
+- 同一 bundle 里 `zip`、`上传`、`选择文件`、`备份` 均 **0 命中** —— 入口形态是**扫描本机已安装的 AI 应用**(再由用户选要导入哪一个),不是文件选择/上传;
+- bundle 内中文以 `\uXXXX` 转义存储,直接 `includes` 会 0 命中、误判 `unknown`;探针已先还原再匹配(`decodeBundleText`),真实探针现返回 `scan-apps`(5 条扫描文案 / 0 条文件文案);
+- 账号侧 `import/entry/list` 只暴露 Coze(`native_brand=COZE`),`import/start` 无权限;有效 cookie 也不足以全自动(见下方 API 实测);
+- 所以手搓的 `conversations.json` 在这条入口上对不上,「只差用户点一下」不成立。
 
-⇒ 这就是与 Trae 等价的「无缝续聊」,而且是官方能力,不碰私有协议、不伪造会话、不逆向加密库。
+**唯一没变的是**:豆包对话在云端绑账号,本地 `IndexedDB\chrome_doubao-chat_0.indexeddb.leveldb` 只是下行缓存,不是正库。复制 profile 目录到新号,要么把旧号 cookie 一起带过去(等于没切),要么只带缓存被新号同步覆盖;旧 `conversation_id` 用新号发消息会被服务端按 uid 拒绝或新建。**文件级迁移对话记录这条路径,技术上能复制、业务上不成立。**
 
 ### 现在的链路
 
-写回前(旧号 cookie):`export` 逐条导出归档 → 转 ChatGPT 导入文件,**双格式同时产出**
-(`conversations.zip` 优先 + 裸 `conversations.json` 回退);消息保真:
+写回前(旧号 cookie):`export` 逐条导出归档 → 转 ChatGPT `conversations.json` + 同形 ZIP(留档,入口可用时再用)→ 同时生成 `handoff.md` 交接单(确定可用)。消息保真:
+
 - 纯文本(ct=1)/ 长文本(ct=9999):原样 part
-- 图片(ct=20):从 `entities[].image.image_ori.url` 抽 URL → 标准 `image_url` 多模态 part
-  + `[图片] URL` 文本兜底(实测图片 URL 有效期到 2036 年,HTTP 200 可访问)
+- 图片(ct=20):从 `entities[].image.image_ori.url` 抽 URL → 标准 `image_url` 多模态 part + `[图片] URL` 文本兜底
 - 语音(ct=101):抽 `asr_content` / `summary_content.content` 转写文本
 
-写回后(新号 cookie):窗口点名 ZIP + 裸 JSON 两个路径,用户在豆包设置里任选一个导入 ⇒ 逐条原生会话落入新号。
+写回后(新号):`prepareImport` 先读安装包判入口形态,再给**不夸大**的清单:
+
+| 探针判定 | 结果 | 给用户的下一步 |
+| --- | --- | --- |
+| `scan-apps`(当前 2.37.16) | `ok:false` / `import-surface-scan-only` | 明确说手搓文件不适用;用 `handoff.md` 在新会话粘贴续聊 |
+| `file-pick` | `ok:true` / `ok` | 才给「设置 → 数据导入与同步 → ChatGPT → 选 ZIP/JSON」三步,仍要求目标账号 UI 实测 |
+| `unknown` | `ok:false` / `import-surface-unknown` | 不猜、不承诺;只给归档与交接单落点 |
+
+### 豆包在跑时:先关端再导出(2026-11-24 实测)
+
+Chromium 运行时会独占 `Network\Cookies`,只读打开和复制都报 `EBUSY`(本机实测)。所以一键切号的真实顺序是:
+
+- 先关闭豆包(否则导出腿拿不到旧号 cookie),导出归档 + 生成 `handoff.md`;
+- 写回新号 cookie;
+- 自动拉起豆包(若拉起失败会明确提示手动启动)。
+
+独立跑 `node scripts/doubao-carry.mjs --export --apply` 时也要先退出豆包;不想关端可显式 `--cdp <port>` 从已开调试端口的客户端取 cookie。`--dry-run` 不关端。
+
+### profile 感知(2026-11-24 同批修)
+
+豆包每个登录号各占一个 Chromium profile,活跃号由 `User Data\Local State` 的 `profile.last_used` 决定。旧链路把导出/写回一律写死 `Default`,在本机「`Default`=工作、`Profile 2`=智汇AI9808」的布局下会读错号、写错号。
+
+现在:
+
+- `scripts/lib/doubao-profile.mjs` 是唯一解析器;`Default` / `Profile N` / `active` 三种入参;
+- 缺省仍是 `Default`(保持旧口径,绝不静默切当前号);没有 `Default` 时才取首个可用 profile 并留注记;要切眼前这个号必须显式 `--profile active` 或 `--profile "Profile 2"`;
+- `--profile` 从 `switch-client-account.mjs` → `relay-login-local-verified.ts` → `local-login.mjs` 全链透传;导出、写回、对账面用同一个 profile;
+- `active` 解析不到 `last_used` 时回落 `Default` 并留注记,不冒充 active;显式 profile 不存在直接 `profile-missing`,不回落别的号;
+- 写回后同步把 `Local State.profile.last_used` 指到目标 profile,否则 Cookies 写进 `Profile 2` 但客户端下次启动仍从旧 `Default` 进,看起来像没切成功(2026-11-24 补)。
+
+CLI:
+
+```bash
+# 切当前活跃号(本机 Profile 2),对话随行用同一个 profile
+node scripts/switch-client-account.mjs --to <uid> --provider doubao --profile active
+# 切号池常用的 Default(工作号)
+node scripts/switch-client-account.mjs --to <uid> --provider doubao --profile Default
+# 只导出,指定 profile
+node scripts/doubao-carry.mjs --export --apply --profile-name active
+```
+
+### 仍保留的文本回放兜底(不推荐)
+
+`node scripts/doubao-carry.mjs --replay <归档目录> --apply` 仍可用,但它把旧对话压成一条文本重发、服务端重新生成回复、丢消息结构、耗新号额度,主路径已不再默认调用。
 
 事实源:
-- `scripts/lib/doubao-auto-carry.mjs` —— 两阶段编排 + `realBuildImportFile` / `prepareImport`
+- `scripts/lib/doubao-auto-carry.mjs` —— 两阶段编排 + `realBuildImportFile` / `prepareImport`(按安装包探针分流)
 - `scripts/lib/doubao-chatgpt-format.mjs` —— 逐条消息 → ChatGPT mapping 树(纯函数)
-- `scripts/doubao-build-import.mjs` —— 独立 CLI(可对已有归档补生成导入文件)
-- `apps/api/scripts/relay-login-local-verified.ts` —— 时序编排(写回前 export、写回后 prepareImport)
+- `scripts/lib/doubao-profile.mjs` —— `Default`/`Profile N`/`active` 单一解析器(导出/写回/对账面同源)
+- `scripts/lib/doubao-handoff.mjs` —— 归档 → `handoff.md` 对话交接单(文本最近若干轮,确定可用)
+- `scripts/lib/doubao-import-surface.mjs` —— 安装包 `s2-asset-import.js` 文案探针(scan-apps / file-pick / unknown)
+- `scripts/doubao-build-import.mjs` —— 独立 CLI(可对已有归档补生成 ChatGPT 格式文件,仅供留档/外部工具)
+- `apps/api/scripts/relay-login-local-verified.ts` —— 时序编排(写回前 export、写回后 prepareImport、`--profile` 透传)
 
-**与 Trae 的等价点**:逐条原样、上下文完整、不重新生成、不消耗新号额度、图片以 URL 形式保真(不再是文本线索)、语音转写保留。
-**唯一差别**:最后「选文件导入」一步由用户在豆包设置里点(网页端没有调用方、没有公开开放接口;内部 API 虽可用有效 cookie 触达,但 `import/start` 仍需产品授权码 + 服务端已登记的 `asset_uri`,见下方实测,当前不构成全自动通道;比旧版两条命令+AI 重生成已是量级提升)。任一腿失败只记 note、不翻转切号成败。
+**能力边界(不夸大)**:`handoff.md` 是文本上下文交接单,不是新号原生历史;它不进侧栏会话列表,只保证「新号新建会话后粘贴即可接着干」。ChatGPT 格式文件是留档,不是「官方导入已可用」的承诺。任一腿失败只记 note、不翻转切号成败。
 
-**手动生成导入文件**(未走一键入口、或要对旧归档补做):
+**手动生成留档文件**(未走一键入口、或要对旧归档补做):
 
 ```bash
 node scripts/doubao-build-import.mjs --archive <归档目录> --out conversations.json --apply
 # 产出两份:conversations.json(裸) + conversations.zip(同形 ZIP,内含 conversations.json)
-# 然后在豆包(目标号)设置 → 数据导入与同步 → ChatGPT → 优先选 ZIP,不认再选裸 JSON
+# 用途:留档 / 交外部工具 / 等豆包后续版本真出「文件导入」入口时再用;
+# 当前 2.37.16 的「数据导入与同步」是扫描已安装应用,不是选文件,不要按旧文档直接去选。
 ```
 
-> **格式不确定已双载体兜底**:官方报道确认「导入入口 + 导入后逐条可续聊」,但没逐字说明 ChatGPT 来源收裸 `conversations.json` 还是 ChatGPT 原生 ZIP。本器**两份都产出**(ZIP 用零依赖 store 模式,+CRC 校验,已用 Python `zipfile` 独立验证结构/内容逐字节一致),用户哪个能选选哪个。另据报道还有「导入其他AI应用 / 去对话中导入」备用入口,部分来源无法识别时可走它。这一步是本方案唯一需要用户在豆包 UI 点选的环节。
+> **格式双载体只是留档,不是导入承诺**:ChatGPT `conversations.json` / 同形 ZIP 结构公开稳定,本器两份都产出(ZIP 用零依赖 store 模式 + CRC,已用 Python `zipfile` 独立验证)。但豆包当前入口不收手搓文件,所以「格式正确」不等于「能导入」。
 >
-> **多模态保真边界(不夸大)**:图片导出的是豆包 CDN 的带签名 URL(实测有效期到 2036 年),不是图片二进制文件;导入后能否渲染取决于豆包导入器对 ChatGPT `image_url` 多模态 part 的支持程度 —— 即便不渲染,`[图片] URL` 文本兜底也保证线索不丢。语音转写同理(纯文本,无音频文件)。
+> **多模态保真边界(不夸大)**:图片导出的是豆包 CDN 的带签名 URL(实测有效期到 2036 年),不是图片二进制文件;语音只留转写文本。交接单同样只带文本,图片/语音只保留文本线索。
 
 ### 2026-11-24 12:45 有效 Cookie 直连实测(旧「未判定」已收敛)
 
@@ -155,11 +201,7 @@ node scripts/doubao-build-import.mjs --archive <归档目录> --out conversation
 | `import/start` | 仅传 `source_product=4, source_mode=2, asset_types=[1,2]`(其余留空)→ `no permission` (710010101);任何非空本机路径/`https`/`file://` 形式的 `asset_uri` 先撞 `common invalid param` (710010202) |
 | `import/authorize` / `get_coze_oauth_code` | 无效 `code` → 710010702;空 `client_id` → 710010703,授权码需 native 侧参数 |
 
-⇒ **结论修正**:此前「cookie 失效,API 直调未判定」已翻案为「有效 cookie 下官方内部 API 可达;但 `import/start` 仍卡产品授权码 + 服务端已登记的资源 URI(cookie 单独不足以全自动)」。网页端仍无 `AGWStartImport` 调用方;桌面端 native 调用链未取到签名。UI 点选仍是目前可靠路径,自动化只做到「文件生成 + 窗口点名」这一层,不夸大。
-
-### 文本回放兜底(不推荐,仅保留兼容)
-
-`node scripts/doubao-carry.mjs --replay <归档目录> --apply` 仍可用,但它把旧对话压成一条文本重发、服务端重新生成回复、丢消息结构、耗新号额度,主路径已不再默认调用。
+⇒ **结论**:有效 cookie 下官方内部 API 可达,但 `import/start` 仍卡「产品授权码 + 服务端已登记的资源 URI」,`import/entry/list` 只暴露 Coze;桌面端 native 调用链未取到签名。API 全自动不成立,UI 也不是「选文件」而是扫描式入口 ⇒ 当前确定可用的跨号续聊只剩 `handoff.md` 交接单(文本)或 `--replay` 文本回放(不推荐)。
 
 ## 7. 新增平台怎么接
 
@@ -173,12 +215,14 @@ node scripts/doubao-build-import.mjs --archive <归档目录> --out conversation
 ## 8. 测试
 
 ```bash
-node scripts/run-script-tests.mjs -- workbuddy-chat-carry chat-carry-registry
+node scripts/run-script-tests.mjs -- workbuddy-chat-carry chat-carry-registry \
+  doubao-profile doubao-handoff doubao-import-surface doubao-auto-carry \
+  doubao-build-import doubao-chatgpt-format switch-client-account local-login
 ```
 
-覆盖:矩阵覆盖度、账号维度必须报错、探不到库必须 unlocated、rebind 缺 uid 必须 no-uid、快照并入且旧分片清空、软删行复活后 `deleted_at IS NULL`、`--revive-history` 不碰 cloud 行、时间窗只捞窗口内误删行(窗口外用户自删不动)、容器 `spaces.deleted_at` 按 `-1` 口径回活。
+覆盖:矩阵覆盖度、账号维度必须报错、探不到库必须 unlocated、rebind 缺 uid 必须 no-uid、快照并入且旧分片清空、软删行复活后 `deleted_at IS NULL`、`--revive-history` 不碰 cloud 行、时间窗只捞窗口内误删行(窗口外用户自删不动)、容器 `spaces.deleted_at` 按 `-1` 口径回活;豆包侧另有 profile 解析(缺省/active/显式/缺失/非法名)、交接单截断与落盘、导入入口三态探针(含 bundle `\uXXXX` 转义还原)、真切前置关端判据。本次豆包相关 8 个脚本文件 99 例全绿。
 
-API 侧 `relay-login-local-verified.test.ts` 共 26 例;测试进程默认**不执行真实随行**(避免单测写真实客户端库),要验分派请注入 `carryImpl`。
+API 侧 `relay-login-local-verified.test.ts` 共 31 例;测试进程默认**不执行真实随行**(避免单测写真实客户端库),要验分派请注入 `carryImpl`。
 
 ## 9. 历史清理(不想要旧会话时)
 
