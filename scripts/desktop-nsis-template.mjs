@@ -585,6 +585,31 @@ if (!existsSync(TARGET)) {
 }
 
 const current = readFileSync(TARGET, 'utf8').replaceAll('\r\n', '\n')
+
+// 2026-11-24 真实事故回归门禁：旧更新链的 /UPDATE 曾在终端用户桌面弹出 MessageBox，
+// 还把静默安装器永久挂住。这里把"该路径零 UI + 双路径识别 + 退出码 2"钉死；
+// 以后任何人往这段加回 MessageBox/Abort，--check 直接判红。
+function assertSilentUpdateGuard(text) {
+  const start = text.indexOf('  ; IHUI 2026-11-24: v2 更新链拥有')
+  const end = text.indexOf('  ; IHUI 2026-09-21:覆盖升级时尊重用户桌面快捷方式现状。', start)
+  if (start < 0 || end < 0 || end <= start) {
+    console.error('[desktop-nsis-template] UPDATE-GUARD:找不到 /UPDATE 硬闸代码块，拒绝放行')
+    process.exit(1)
+  }
+  const block = text.slice(start, end)
+  const failures = []
+  if (block.includes('MessageBox')) failures.push('仍有 MessageBox（终端用户会看到弹窗）')
+  if (!block.includes('SetErrorLevel 2')) failures.push('缺少 SetErrorLevel 2')
+  if (!block.includes('Quit')) failures.push('缺少无 UI 的 Quit')
+  if (!block.includes('"$INSTDIR\\state.json"')) failures.push('未检查 /D 目标目录的 state.json')
+  if (!block.includes('"$R1\\state.json"')) failures.push('未检查注册表安装目录的 state.json')
+  if (failures.length) {
+    console.error(`[desktop-nsis-template] UPDATE-GUARD 回归:${failures.join('；')}`)
+    process.exit(1)
+  }
+}
+assertSilentUpdateGuard(current)
+
 if (current === expected) {
   // ⚠️ 这里**不能**写成 `console.log(…)` 之后紧跟 `process.exit(0)`(2026-10-12 实测):
   // stdout 是 pipe 时(守门并行派发 stdio: ['ignore','pipe','pipe']),本机 Node v24 上

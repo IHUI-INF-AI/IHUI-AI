@@ -549,9 +549,15 @@ Function .onInit
   ; 只要目标安装目录已有 v2 状态，任何 /UPDATE 直接中止，更新只走应用内胶囊链。
   ; 手动交互安装/重装不带 /UPDATE，不受影响，仍可由用户显式覆盖安装。
   ${If} $UpdateMode = 1
+    ; 不能只信注册表里的旧安装位置：旧更新器可能把 /D 指到另一个仍有 v2 状态的目录，
+    ; 注册表路径过期时会绕过硬闸。两个位置任一存在 state.json 都必须静默中止。
+    StrCpy $R1 "$INSTDIR"
     ReadRegStr $R0 SHCTX "${MANUPRODUCTKEY}" ""
     ${If} $R0 != ""
-    ${AndIf} ${FileExists} "$R0\state.json"
+      StrCpy $R1 "$R0"
+    ${EndIf}
+    ${If} ${FileExists} "$INSTDIR\state.json"
+    ${OrIf} ${FileExists} "$R1\state.json"
       ; 这条路径只可能由旧更新器/旧快捷方式触发，绝不能让终端用户看到任何弹窗。
       ; 不论交互还是静默模式，都只记 DetailPrint，然后立即以退出码 2 结束。
       DetailPrint "v2 state present; installer /UPDATE disabled"
@@ -843,12 +849,20 @@ Section Install
     StrCpy $R7 '"$R6"'
   ${EndIf}
   ClearErrors
-  FileOpen $0 "$INSTDIR\state.json" w
+  ; 先写 .tmp，再用 MoveFileEx(REPLACE_EXISTING|WRITE_THROUGH) 原子替换。
+  ; 直接以 "w" 打开 state.json 会在截断后写失败时留下半截 JSON，Launcher 只能回退旧 .bak，
+  ; 严重时会把 previous 指到错误代际。安装器这条路径同样必须原子。
+  FileOpen $0 "$INSTDIR\state.json.tmp" w
   ${If} ${Errors}
-    !insertmacro IHUI_INSTALL_WARN "state.json 写入失败，Launcher 可能无法定位当前版本"
+    !insertmacro IHUI_INSTALL_WARN "state.json.tmp 写入失败，Launcher 可能无法定位当前版本"
   ${Else}
     FileWrite $0 '{$\r$\n  "schema": 1,$\r$\n  "current": "${VERSION}",$\r$\n  "previous": $R7,$\r$\n  "pending": null,$\r$\n  "fail_count": 0,$\r$\n  "last_good_at": 0,$\r$\n  "bad": null$\r$\n}$\r$\n'
     FileClose $0
+    System::Call 'kernel32::MoveFileExW(w "$INSTDIR\state.json.tmp", w "$INSTDIR\state.json", i 0x9) i .R8'
+    ${If} $R8 == 0
+      !insertmacro IHUI_INSTALL_WARN "state.json 原子替换失败，旧状态保持不变"
+      Delete "$INSTDIR\state.json.tmp"
+    ${EndIf}
   ${EndIf}
   ClearErrors
   FileOpen $0 "$INSTDIR\launcher-version.txt" w
