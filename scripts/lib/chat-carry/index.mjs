@@ -15,7 +15,10 @@
  *              workbuddy 由 lib/workbuddy-chat-carry.mjs 负责(三表重绑 + 可见性复活 + 快照合并)。
  *   local  —— 会话库不带账号维度 ⇒ 切号后历史天然在。能力 = 每次切号现场只读核验:
  *              找到库 → 数条数 → 确认没有账号维度;发现多了账号列就立刻升档报
- *              `account-scoped-store`(绝不继续冒绿)。
+ *              `account-scoped-store`(绝不继续冒绿)。小浣熊是受控例外:它的
+ *              `sessions.user_id` 只服务 `listExternalSessions`(外部只读),侧栏
+ *              `listSessions` 只按 `available=1` 过滤,所以由专用探针显式置
+ *              `accountScoped:false`,不是把账号列当没看见。
  *   cloud  —— 会话在云端且绑账号、本地零副本(豆包):本地无迁移路径,走
  *              scripts/doubao-carry.mjs 的导出归档 + handoff 交接单;官方导入入口
  *              按安装包探针实测,不承诺文件导入。
@@ -29,6 +32,7 @@ import path from 'node:path'
 import { createRequire } from 'node:module'
 
 import * as wbCarry from '../workbuddy-chat-carry.mjs'
+import { findRaccoonInstall, probeRaccoon } from '../raccoon-chat-carry.mjs'
 import { probeSessionKeys, probeSqlite, probeVscdb } from './local-store.mjs'
 
 const require = createRequire(import.meta.url)
@@ -98,8 +102,10 @@ export const CARRY_MATRIX = Object.freeze({
     kind: 'local',
     label: '小浣熊',
     auto: 'verify',
-    detail: '本地 vscdb/LevelDB 面;探不到会话库时如实 unlocated,不冒充通过',
-    identity: '未核验:本机只有 updater/identity,无会话库',
+    detail:
+      '正库 ~/.office-raccoon/user-data/local-chat.sqlite3 / sessions(本机已安装 1.2.3,profile 已初始化、库 0 条);侧栏只按 available=1 过滤,切号只换 auth.json,不重建 profile',
+    identity:
+      '单 profile 单实例;auth.json 的 JWT sub=pu-* 是账号身份;sessions.user_id 只用于外部只读会话索引,不参与侧栏过滤',
   },
   doubao: {
     kind: 'cloud',
@@ -131,15 +137,9 @@ export const STORE_SPECS = Object.freeze({
     },
   }),
   raccoon: () => ({
-    probe: probeVscdb,
+    probe: probeRaccoon,
     spec: {
       provider: 'raccoon',
-      candidates: [
-        '${APPDATA}/@raccoon/office-desktop/User/globalStorage/state.vscdb',
-        '${APPDATA}/office-raccoon/User/globalStorage/state.vscdb',
-        '${LOCALAPPDATA}/office-raccoon/User/globalStorage/state.vscdb',
-        '${LOCALAPPDATA}/@raccoon/office-desktop/User/globalStorage/state.vscdb',
-      ],
     },
   }),
   qoder: () => ({
@@ -237,6 +237,7 @@ const INSTALL_NAME_RE = {
 }
 
 function probeInstalled(provider, env = process.env) {
+  if (provider === 'raccoon') return findRaccoonInstall(env).installed
   const re = INSTALL_NAME_RE[provider]
   if (!re) return null // 不在表内的平台:不做"未装"判定,未定位一律按真问题报
   const bases = [
@@ -350,6 +351,8 @@ export function probeProvider(provider, { env = process.env } = {}) {
     sessions: r.sessions,
     visible: r.visible,
     accountScoped: r.accountScoped,
+    table: r.table ?? null,
+    schemaVersion: r.schemaVersion ?? null,
     notes: r.notes ?? [],
     raw: r,
   }
@@ -433,7 +436,9 @@ export function switchCarry(opts = {}) {
   // local:能力 = 现场只读核验;发现账号维度或探不到库 ⇒ 如实失败,不冒绿
   const p = probeProvider(provider, { env: opts.env ?? process.env })
   if (!p.located) {
-    return { ok: false, provider, kind: 'local', action: 'verify', code: 'unlocated', notes: p.notes, probe: p }
+    const raccoonProfile = provider === 'raccoon' && Boolean(p.raw?.profileRoot ?? p.raw?.raw?.profileRoot)
+    const code = raccoonProfile ? 'profile-uninitialized' : 'unlocated'
+    return { ok: false, provider, kind: 'local', action: 'verify', code, notes: p.notes, probe: p }
   }
   if (p.accountScoped) {
     return {
@@ -483,8 +488,9 @@ export function auditProviders({ env = process.env } = {}) {
       visible: p.visible,
       accountScoped: p.accountScoped,
       ok,
+      state: p.raw?.profileState ?? p.raw?.raw?.profileState ?? '',
       notes,
-      store: p.raw?.path ?? p.raw?.home ?? '',
+      store: p.raw?.path ?? p.raw?.dbPath ?? p.raw?.profileRoot ?? p.raw?.home ?? '',
     }
   })
 }

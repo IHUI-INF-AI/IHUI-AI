@@ -2073,6 +2073,44 @@ export function applyLoomy(payload, opts = {}) {
 
 /** 小浣熊登录态相对家目录的落点(与 scripts/lib/raccoon-auth-extract.mjs 的 AUTH_REL 同形) */
 const RACCOON_AUTH_REL = path.join('.office-raccoon', 'agent', 'config', 'auth.json')
+const RACCOON_PROFILE_MARKER = '.raccoon-lab-client.json'
+const RACCOON_PROFILE_MARKER_CONTENT = '{"application":"@raccoon/office-desktop","version":1}\n'
+
+/**
+ * 小浣熊新客户端只认带 marker 的 profile；空目录/半初始化目录会让
+ * `openClientProfile` 在 lstatSync(marker) 直接 ENOENT，启动都过不去。
+ * 写 auth.json 前必须先验证 profile 已初始化，否则写进去也打不开客户端。
+ */
+function raccoonProfileAuthTarget(home) {
+  const root = path.join(home, '.office-raccoon')
+  if (!fs.existsSync(root)) {
+    return { ok: false, code: 'profile-missing', reason: `尚未首启(缺 ${root})` }
+  }
+  try {
+    const rootStat = fs.lstatSync(root)
+    if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) {
+      return { ok: false, code: 'profile-invalid', reason: 'profile 根不是独立目录' }
+    }
+  } catch (e) {
+    return { ok: false, code: 'profile-invalid', reason: e instanceof Error ? e.message : String(e) }
+  }
+  const marker = path.join(root, RACCOON_PROFILE_MARKER)
+  if (!fs.existsSync(marker)) {
+    return { ok: false, code: 'profile-uninitialized', reason: `缺 ${RACCOON_PROFILE_MARKER}` }
+  }
+  try {
+    const stat = fs.lstatSync(marker)
+    if (!stat.isFile() || stat.isSymbolicLink()) {
+      return { ok: false, code: 'profile-invalid', reason: 'marker 不是普通文件' }
+    }
+    if (fs.readFileSync(marker, 'utf8') !== RACCOON_PROFILE_MARKER_CONTENT) {
+      return { ok: false, code: 'profile-invalid', reason: 'marker 内容不是当前客户端规范' }
+    }
+  } catch (e) {
+    return { ok: false, code: 'profile-invalid', reason: e instanceof Error ? e.message : String(e) }
+  }
+  return { ok: true, file: path.join(root, RACCOON_AUTH_REL.replace(/^\.office-raccoon[\\/]/, '')) }
+}
 
 /**
  * 商汤小浣熊(2026-11-11 立):落点是两键单体 JSON
@@ -2088,31 +2126,28 @@ export function applyRaccoon(payload, opts = {}) {
   const extract = opts.extract ?? {}
   let file = payload.target ? path.resolve(payload.target) : ''
   if (!file) {
-    const candidates = uniq(
-      clientEnvs(opts).map((env) => {
-        const home = asText(env.USERPROFILE) || asText(env.HOME)
-        return home ? path.join(home, RACCOON_AUTH_REL) : ''
-      }),
+    const homes = uniq(
+      clientEnvs(opts)
+        .map((env) => asText(env.USERPROFILE) || asText(env.HOME))
+        .filter(Boolean),
     )
-    if (candidates.length === 0) {
+    if (homes.length === 0) {
       throw new WriteError('解析不出小浣熊数据目录(USERPROFILE/HOME 全缺)', 'no-target')
     }
-    const existingTarget = firstExisting(candidates)
-    if (existingTarget) {
-      file = existingTarget
-    } else {
-      const usable = firstUsableDir(candidates)
-      if (!usable) {
-        throw new WriteError(
-          `本机没有小浣熊数据目录(${path.dirname(candidates[0])})。请先安装客户端并登录一次`,
-          'no-target',
-        )
-      }
-      file = usable
+    const profiles = homes.map((home) => ({ home, ...raccoonProfileAuthTarget(home) }))
+    const ready = profiles.filter((p) => p.ok)
+    if (ready.length === 0) {
+      const first = profiles[0]
+      throw new WriteError(
+        `小浣熊 profile 未就绪(${first.home}): ${first.reason}。先启动客户端完成首次初始化(生成 .raccoon-lab-client.json),再切号`,
+        first.code,
+      )
     }
+    file = firstExisting(ready.map((p) => p.file)) || ready[0].file
   }
 
   const exists = fs.existsSync(file)
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
   const existing = exists ? readJsonObject(file, '小浣熊 auth.json') : {}
   // 替换前登录 uid:令牌 sub(= pu-<uuid>),解不出就如实 null
   const replacedUid = (() => {

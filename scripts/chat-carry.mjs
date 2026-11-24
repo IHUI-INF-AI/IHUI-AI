@@ -96,9 +96,16 @@ export function main(argv, io = {}) {
       for (const r of rows) {
         const cnt = r.sessions === null ? '?' : String(r.sessions)
         const vis = r.visible === null ? '?' : String(r.visible)
+        const locLabel = r.located
+          ? '库=' + cnt + ' 可见=' + vis
+          : r.provider === 'raccoon' && r.installed && r.state === 'uninitialized'
+            ? '已装/profile未初始化(0条)'
+            : r.provider === 'raccoon' && r.installed && r.state === 'initialized'
+              ? '已装/profile已初始化(0条)'
+              : '未定位'
         log(
           `  ${r.provider.padEnd(10)} ${r.kind.padEnd(6)} ${r.ok ? '✓' : '✗'} ` +
-            `${r.located ? '库=' + cnt + ' 可见=' + vis : '未定位'}` +
+            `${locLabel}` +
             `${r.accountScoped ? ' 账号维度=有' : ''}  ${r.store}`,
         )
         for (const n of r.notes.slice(0, 2)) log(`      · ${n}`)

@@ -121,6 +121,43 @@ function seedMiniMax(file) {
   db.close()
 }
 
+/** 造一个小浣熊 local-chat v1 正库:侧栏只看 available=1,user_id 不参与过滤 */
+function seedRaccoon(file, rows) {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  const db = new DatabaseSync(file)
+  db.exec(`
+    CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE sessions (
+      id TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '', chat_type TEXT NOT NULL DEFAULT 'agent',
+      available INTEGER NOT NULL DEFAULT 1, project_uuid TEXT, doc_uid TEXT, user_id TEXT,
+      workspace_dir TEXT, created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
+      last_chatted_at_ms INTEGER NOT NULL, raw_message_count INTEGER NOT NULL DEFAULT 0,
+      display_message_count INTEGER NOT NULL DEFAULT 0, user_message_count INTEGER NOT NULL DEFAULT 0,
+      assistant_message_count INTEGER NOT NULL DEFAULT 0, migration_status TEXT NOT NULL DEFAULT 'native',
+      payload_json TEXT NOT NULL
+    );
+    CREATE TABLE messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, seq INTEGER NOT NULL,
+      display_group_seq INTEGER, role TEXT NOT NULL, type TEXT, turn_id TEXT, uuid TEXT,
+      run_id TEXT, external_idempotency_key TEXT, visible INTEGER NOT NULL DEFAULT 1,
+      active INTEGER NOT NULL DEFAULT 1, created_at_ms INTEGER, updated_at_ms INTEGER,
+      payload_json TEXT NOT NULL, legacy_document_id TEXT, legacy_array_index INTEGER
+    );
+  `)
+  db.prepare(`INSERT INTO schema_meta (key,value) VALUES ('schema_version','1')`).run()
+  const ins = db.prepare(
+    `INSERT INTO sessions (id,title,user_id,available,created_at_ms,updated_at_ms,last_chatted_at_ms,payload_json)
+     VALUES (?,?,?,?,?,?,?,?)`,
+  )
+  for (const [id, uid, available] of rows) {
+    ins.run(id, `对话-${id}`, uid, available, 1, 1, 1, JSON.stringify({ id, title: `对话-${id}`, available }))
+    db.prepare(
+      `INSERT INTO messages (session_id,seq,role,visible,active,payload_json) VALUES (?,?,?,?,?,?)`,
+    ).run(id, 1, 'assistant', 1, 1, JSON.stringify({ role: 'assistant', content: 'ok' }))
+  }
+  db.close()
+}
+
 /** 造一个 Chromium LevelDB 目录,里面只放可扫描的会话 id 文本 */
 function seedLeveldbSessions(dir, ids) {
   fs.mkdirSync(dir, { recursive: true })
@@ -175,6 +212,32 @@ describe('local 平台现场核验', () => {
     assert.equal(r.ok, true, r.notes.join(';'))
     assert.equal(r.probe.sessions, 3)
     assert.equal(r.probe.visible, 2, 'archived=1 的 1 条不可见')
+  })
+
+  it('小浣熊读 local-chat.sqlite3 正库,available=1 为侧栏可见,user_id 不构成账号过滤', () => {
+    const env = { APPDATA: path.join(tmpRoot, 'env-raccoon'), LOCALAPPDATA: tmpRoot, USERPROFILE: path.join(tmpRoot, 'home-raccoon') }
+    seedRaccoon(path.join(env.USERPROFILE, '.office-raccoon', 'user-data', 'local-chat.sqlite3'), [
+      ['r1', 'u-old', 1],
+      ['r2', 'u-old', 1],
+      ['r3', 'u-new', 0],
+    ])
+    const r = switchCarry({ provider: 'raccoon', env })
+    assert.equal(r.ok, true, r.notes.join(';'))
+    assert.equal(r.probe.sessions, 3)
+    assert.equal(r.probe.visible, 2, 'available=0 的 1 条不可见')
+    assert.equal(r.probe.accountScoped, false, 'user_id 只给外部只读会话,不能当侧栏账号维度')
+    assert.equal(r.probe.table, 'sessions')
+    assert.equal(r.probe.schemaVersion, 1)
+    assert.ok(r.notes.join(';').includes('listSessions 只按 available=1 过滤'))
+  })
+
+  it('小浣熊已安装但 profile 未初始化 ⇒ 0 条且不冒充未安装', () => {
+    const env = { APPDATA: path.join(tmpRoot, 'env-raccoon-empty'), LOCALAPPDATA: tmpRoot, USERPROFILE: path.join(tmpRoot, 'home-raccoon-empty') }
+    fs.mkdirSync(path.join(env.USERPROFILE, '.office-raccoon'), { recursive: true })
+    const r = switchCarry({ provider: 'raccoon', env })
+    assert.equal(r.ok, false)
+    assert.equal(r.code, 'profile-uninitialized')
+    assert.ok(r.notes.join(';').includes('profile 未初始化'))
   })
 
   it('OpenCode 从 drafts.sqlite 数唯一会话 id,不冒充侧栏可见条数', () => {

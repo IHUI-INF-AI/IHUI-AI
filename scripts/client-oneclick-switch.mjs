@@ -101,7 +101,7 @@ const CHAT_CARRY = Object.freeze({
   },
   raccoon: {
     kind: 'local',
-    text: '本机只有 updater/device-identity,未找到会话库 ⇒ 未定位;装好登录后先跑 --audit,未定位前不承诺历史已随行',
+    text: '正库在 ~/.office-raccoon/user-data/local-chat.sqlite3 / sessions；侧栏只按 available=1 过滤，user_id 不参与，切号只换 auth.json、不重建 profile，旧会话仍在；本机已装 1.2.3、profile 已初始化、库 0 条（不是未安装）',
   },
   doubao: {
     kind: 'cloud',

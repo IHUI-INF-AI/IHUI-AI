@@ -8,17 +8,17 @@
 
 > 机主 2026-11-22 指令:一键切号后旧号对话必须在新号可见、可续聊;**号池里所有平台都要有这能力**,不是只修 WorkBuddy。
 >
-> 本文是能力的唯一说明书;事实源是代码:`scripts/lib/chat-carry/index.mjs`(矩阵)、`scripts/lib/chat-carry/local-store.mjs`(现场探针)、`scripts/lib/workbuddy-chat-carry.mjs`(WorkBuddy 重绑)、`scripts/lib/trae-chat-carry.mjs`(Trae 重绑)。
+> 本文是能力的唯一说明书;事实源是代码:`scripts/lib/chat-carry/index.mjs`(矩阵)、`scripts/lib/chat-carry/local-store.mjs`(通用现场探针)、`scripts/lib/raccoon-chat-carry.mjs`(小浣熊正库探针)、`scripts/lib/workbuddy-chat-carry.mjs`(WorkBuddy 重绑)、`scripts/lib/trae-chat-carry.mjs`(Trae 重绑)。
 
 ## 1. 一句话结论
 
 号池 11 个平台全部纳管,按三种型各走各的路,没有一个是「不管」;但**验证深度不同,不能一句「都支持」抹平**:
 
 - 重绑级(Trae / WorkBuddy):改会话归属,切完列表可见、点开有内容;
-- 正库核验级(Qoder / MiniMax / CodeArts / ZCode / Codex):本地正库无账号维度,切号后历史天然在,条数/可见数可现场核验;
+- 正库核验级(Qoder / MiniMax / CodeArts / ZCode / Codex / 小浣熊):本地正库无账号维度(或账号列不参与侧栏过滤),切号后历史天然在,条数/可见数可现场核验;
 - 索引级(OpenCode / Loomy):只能证明本地索引里还有会话 id,正文完整性要以客户端为准;
 - 归档级(豆包):云端绑账号、本地零副本,只能归档 + 交接单;
-- 未定位(小浣熊):本机只有 updater/identity,没有会话库,不能称已验证。
+- 小浣熊当前不是「未定位」:主程序已装 1.2.3;取证时 `~/.office-raccoon` 为空、缺 marker,已补规范 marker 解锁首启 ⇒ 现在 profile 已初始化、库 0 条,不是「没装/没库」。
 
 | 平台 | 型 | 切号后旧对话 |
 | --- | --- | --- |
@@ -31,15 +31,15 @@
 | opencode | local | 桌面版 `drafts.sqlite` 是会话 id/草稿索引(本机 18 个唯一 id),无账号列;完整正文由本地 sidecar/服务端持有,不能拿索引冒充正文 |
 | loomy | local | `Local Storage/leveldb` + IndexedDB 是会话 id 索引(本机 19 个唯一 id);auth 键带 userid,但会话 id 不带账号前缀 |
 | codex | local | `~/.codex/state_5.sqlite` / `threads`(账号列全 NULL)+ `sessions/YYYY/**/*.jsonl` |
-| raccoon | local | 本机只有 updater/device-identity,没有会话库 ⇒ `--audit` 如实报未定位,不冒充通过 |
+| raccoon | local | 正库 `~/.office-raccoon/user-data/local-chat.sqlite3` / `sessions`；侧栏 `listSessions` 只按 `available=1` 过滤，`user_id` 只给 `listExternalSessions`（外部只读） ⇒ 切号只换 `auth.json`，不重建 profile，旧会话仍在；本机已装 1.2.3、profile 已初始化、库 0 条 |
 | doubao | cloud | 云端绑账号、本地零副本 ⇒ 真切前先关端,export 归档 + 生成 `handoff.md` 交接单;原生导入入口按安装包实测(2.37.16 是扫描已安装应用,不是选文件) ⇒ 不能零点击,需交接单/文本回放 |
 
 **local 不是「不用管」,是「每次切号都现场核验没有账号维度」。** 但 local 内部还要再分两层,不能混:
 
-- **结构化正库**(Qoder / MiniMax / CodeArts / ZCode / Codex):有会话表或键面,能报真实会话数与可见数;`--audit` 的 `可见=M` 才是客户端口径。
+- **结构化正库**(Qoder / MiniMax / CodeArts / ZCode / Codex / 小浣熊):有会话表或键面,能报真实会话数与可见数;`--audit` 的 `可见=M` 才是客户端口径。小浣熊 `sessions.user_id` 只给外部只读会话,侧栏不按它过滤,属于受控例外。
 - **索引/缓存面**(OpenCode / Loomy):只能证明本地还留着会话 id,不能证明消息正文完整;所以 `--audit` 故意显示 `可见=?`,不把 id 数当侧栏条数。
 
-探针一旦在某个平台的库里读到账号列,立即翻成 `account-scoped-store` 并改按 rebind 适配,绝不冒绿。`raccoon` 当前是未定位,不是「已验证通过」。
+探针一旦在某个平台的库里读到账号列,立即翻成 `account-scoped-store` 并改按 rebind 适配,绝不冒绿。小浣熊的 `sessions.user_id` 是例外:客户端侧栏查询只按 `available=1`,不按 `user_id`;该列只用于外部只读会话,所以不能误判成重绑平台。当前本机 `--audit` 显示「已安装、profile 未初始化、0 条」,不是「未定位」。
 
 **账号身份也钉在同一个矩阵里**(`CARRY_MATRIX[*].identity`),不靠实现者记忆:Trae 是 SQLCipher `user_id` + vscdb uid 前缀 + 上游 `storeRegion`;WorkBuddy 是 `sessions.user_id` + auth 落盘 uid;local 平台逐个注明「会话表无账号列 / 键面无 uid / 索引无账号前缀」;豆包是云端 uid、本地零副本。换平台必须先回答「账号身份在哪」,再谈迁移。
 
@@ -100,7 +100,7 @@ node scripts/chat-carry.mjs --provider workbuddy --from <旧uid> --revive-histor
 node scripts/chat-carry.mjs --provider workbuddy --from <旧uid> --revive-history --apply
 ```
 
-`--revive-history` 只对 WorkBuddy 开放:其余平台本地库不带账号维度,没有「软删要复活」这回事。
+`--revive-history` 只对 WorkBuddy 开放:其余平台的侧栏不按账号过滤(小浣熊的 `user_id` 只给外部只读会话),没有「软删要复活」这回事。
 
 **切号瞬间误删的那条**:客户端在换号那一刻会把旧号当前可见会话打 `deleted_at`,如果当时没抓到名单(例如旧版本切号),用时间窗补捞:
 
@@ -217,7 +217,58 @@ node scripts/doubao-build-import.mjs --archive <归档目录> --out conversation
 
 ⇒ **结论**:有效 cookie 下官方内部 API 可达,但 `import/start` 仍卡「产品授权码 + 服务端已登记的资源 URI」,`import/entry/list` 只暴露 Coze;桌面端 native 调用链未取到签名。API 全自动不成立,UI 也不是「选文件」而是扫描式入口 ⇒ 当前确定可用的跨号续聊只剩 `handoff.md` 交接单(文本)或 `--replay` 文本回放(不推荐)。
 
-## 7. 新增平台怎么接
+## 7. 小浣熊（Raccoon Work）—— 已安装，profile 空根已补 marker 解锁
+
+### 现场事实（2026-11-24 重新取证）
+
+上一版把本机判成「未安装 / 没有会话库」，是错的。真实安装面：
+
+- 注册表 `HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall` 有 `商汤小浣熊`，版本 `1.2.3`；
+- 安装目录 `C:\Apps\浣熊`，主程序 `商汤小浣熊.exe` 约 222.9MB，`resources\app.asar` 约 362MB；
+- 主进程确实在跑，命令行带 `--user-data-dir="C:\Users\Administrator\AppData\Roaming\@raccoon/office-desktop"`；
+- 用户数据面只有 `%APPDATA%\@raccoon\office-desktop\Local State`（434 字节），没有 `User` / `Local Storage` / `IndexedDB` / `Network` / `state.vscdb`；
+- `~/.office-raccoon` 目录存在但为空，缺 `.raccoon-lab-client.json` 与 `user-data/agent`；`~/.box-agent/config/auth.json` 也不存在。
+
+`clientProfile.js` 的默认启动分支是「root 存在 ⇒ `openClientProfile(root)`」，后者第一件事就是 `lstatSync(root/.raccoon-lab-client.json)`；空目录没有 marker 会直接抛 ENOENT，不会自动降级成新版空 profile。所以本机不是「已登录但库没找到」，而是**安装完整、profile 目录把启动卡在 marker 校验**；那两个主进程只能说明映像在跑，不能证明 UI 已经正常初始化。
+
+本机已按 `PROFILE_CONTENT` 原样补上 54 字节 marker（`{"application":"@raccoon/office-desktop","version":1}\n`）；目录原本为空，没有旧数据可覆盖。补完后 `openClientProfile` 可通过 marker 校验，客户端首启会自行生成 `user-data/agent/workspace/logs`，正库落在 `user-data/local-chat.sqlite3`。
+
+所以当前正确口径是：**已安装、profile 未初始化、0 条会话**，不是「未安装」，也不是「库没找到」。
+
+### 正库与账号维度（源码级）
+
+从安装包 `dist/electron/client-main.cjs` 与 `build/electron/main/client/bootstrap/clientProfile.js` 取到：
+
+- 启动时 `app.setPath('userData', profile.userData)`；
+- `profile.userData = ~/.office-raccoon/user-data`；
+- 正库 = `~/.office-raccoon/user-data/local-chat.sqlite3`，表 `sessions` / `messages`（schema v1，`localChatStorage/schema.js`）；
+- `sessions` 有 `available` / `user_id` / `payload_json`；`messages` 有 `active` / `visible`；
+- 侧栏入口 `desktop-client:list-sidebar-sessions` 走 `storage.listSessions`，SQL 条件只有 `available = 1`（外加可选 title/doc_uid/chat_type），**没有 user_id 过滤**；
+- `user_id` 只出现在 `listExternalSessions`（外部只读会话）的查询条件里。
+
+⇒ 小浣熊不是 Trae/WorkBuddy 那种「改 user_id 重绑」平台。切号只换 `~/.office-raccoon/agent/config/auth.json`（或旧安装 `box-agent/config/auth.json`），profile、`local-chat.sqlite3`、消息正文都不重建，旧会话仍在侧栏；续聊由本地 session 记录 + 当前 token 发起，不依赖旧号的云端 conversation 映射。
+
+### 探针口径（不冒绿）
+
+`scripts/lib/raccoon-chat-carry.mjs` 只读核验：
+
+- 先认安装主程序（`C:\Apps\浣熊`、Program Files、D 盘旧装），不再因为目录名叫「浣熊」而漏判；
+- 正库候选：`~/.office-raccoon/user-data/local-chat.sqlite3`、`~/.office-raccoon/local-chat.sqlite3`、旧 `%APPDATA%/office-raccoon/...`、Chromium 默认 userData 兜底；
+- 找到库：`sessions` 总数 + `available=1` 可见数 + `messages` 活跃可见数 + `schema_version`；`accountScoped` 固定为 `false`，但把 `user_id` 取值如实列在 `accountValues`，并注明它不参与侧栏过滤；
+- 找不到库但 profile 已初始化：`located:true / sessions:0`，口径是「库尚未生成」，不是「库丢了」；
+- 找不到库且 profile 根存在但缺 marker：`located:false / profileState=uninitialized`，`--audit` 显示「已装/profile未初始化(0条)」，不再显示「未定位」；
+- 安装主程序在但 profile 根不存在：`profileState=absent`，说明「客户端从未首启」，不是「未安装」。
+
+### 切号语义
+
+1. 写回腿只替换 `auth.json`（账号池 token 换新），且 `applyRaccoon` 写前先验 profile marker：缺 marker 直接 `profile-uninitialized` 拒写，不把 auth 塞进半初始化目录；
+2. 不关闭/不重建 `~/.office-raccoon`，不动 `user-data/local-chat.sqlite3`；
+3. 写回成功后 `chat-carry` 的 local 分支现场核验：库在、`sessions` 条数在、`available=1` 可见数在、`user_id` 不构成侧栏维度 ⇒ 返回 `ok:true`；
+4. 本机已补 marker、profile 已初始化但库 0 条，没有历史可丢；客户端首条对话生成 `local-chat.sqlite3` 后，按同一口径复核真实条数。
+
+**能力边界**：本机当前没有 `local-chat.sqlite3`，不能伪造「已带 0 条」的现场；代码适配与探针已就位，等客户端完成首启/首条对话后用 `node scripts/chat-carry.mjs --provider raccoon` 复核真实条数。
+
+## 8. 新增平台怎么接
 
 1. 在 `CARRY_MATRIX` 登记 `kind` / `detail` / `STORE_SPECS`(路径候选 + 表名/键面);
 2. 跑 `node scripts/chat-carry.mjs --provider <新平台>` 看探针结论:
@@ -228,7 +279,7 @@ node scripts/doubao-build-import.mjs --archive <归档目录> --out conversation
 
 **平台适配不是复制同一套 SQL。** 每个平台至少钉死四件事:账号身份在哪(库列 / 键前缀 / auth 文件 / 云端)、正库与缓存的分界、可见性的真实口径、切号后客户端是否需要重启或复活软删行。少钉一件,就会得到「切号成功、界面空白」的假绿。
 
-## 8. 测试
+## 9. 测试
 
 ```bash
 node scripts/run-script-tests.mjs -- workbuddy-chat-carry chat-carry-registry \
@@ -236,11 +287,11 @@ node scripts/run-script-tests.mjs -- workbuddy-chat-carry chat-carry-registry \
   doubao-build-import doubao-chatgpt-format switch-client-account local-login
 ```
 
-覆盖:矩阵覆盖度、账号维度必须报错、探不到库必须 unlocated、rebind 缺 uid 必须 no-uid、快照并入且旧分片清空、软删行复活后 `deleted_at IS NULL`、`--revive-history` 不碰 cloud 行、时间窗只捞窗口内误删行(窗口外用户自删不动)、容器 `spaces.deleted_at` 按 `-1` 口径回活;豆包侧另有 profile 解析(缺省/active/显式/缺失/非法名)、交接单截断与落盘、导入入口三态探针(含 bundle `\uXXXX` 转义还原)、真切前置关端判据。本次豆包相关 8 个脚本文件 99 例全绿。
+覆盖:矩阵覆盖度、账号维度必须报错、探不到库必须 unlocated、rebind 缺 uid 必须 no-uid、快照并入且旧分片清空、软删行复活后 `deleted_at IS NULL`、`--revive-history` 不碰 cloud 行、时间窗只捞窗口内误删行(窗口外用户自删不动)、容器 `spaces.deleted_at` 按 `-1` 口径回活;小浣熊侧另有 local-chat v1 正库/available 可见口径/`user_id` 不参与侧栏、profile 未初始化拒写;豆包侧另有 profile 解析(缺省/active/显式/缺失/非法名)、交接单截断与落盘、导入入口三态探针(含 bundle `\uXXXX` 转义还原)、真切前置关端判据。本次 chat-carry/local-login 13 个脚本文件 185 例全绿。
 
 API 侧 `relay-login-local-verified.test.ts` 共 31 例;测试进程默认**不执行真实随行**(避免单测写真实客户端库),要验分派请注入 `carryImpl`。
 
-## 9. 历史清理(不想要旧会话时)
+## 10. 历史清理(不想要旧会话时)
 
 WorkBuddy 的「删除」是软删:行标 `deleted_at`,正文 `projects/**/<id>.jsonl` 留在磁盘。长时间切号/清理会攒出 GB 级无主正文。清理入口:
 
@@ -254,7 +305,7 @@ node scripts/workbuddy-prune-history.mjs --apply --no-orphans   # 无主正文�
 
 本机实测(2026-11-22):清 382 行、搬 258 个软删正文(1103.5MB)+1298 个无主正文(1090.1MB),回收目录共 2194MB;剩余 28 行、4 个可见会话正文 14.9MB。
 
-## 10. 不做什么
+## 11. 不做什么
 
 
 - 不改本项目数据层(仍只允许 PostgreSQL);本功能读写的是**第三方客户端自带的 sqlite**,属既有事实。

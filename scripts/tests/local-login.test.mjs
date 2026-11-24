@@ -1495,4 +1495,43 @@ test('applyLoomy:客户端仍在运行 ⇒ client-running 拒写(文件逐字节
     rmScratch(scratch)
   }
 })
+
+// 2026-11-24 小浣熊现场:空 ~/.office-raccoon 缺 marker,openClientProfile 会在 lstatSync 直接 ENOENT。
+// 写 auth.json 前必须先验证 profile 已初始化,否则账号切了客户端仍打不开。
+test('applyRaccoon:profile 未初始化 ⇒ profile-uninitialized 拒写,不伪造成功', () => {
+  const scratch = mkScratch('local-login-raccoon-uninit')
+  try {
+    const home = path.join(scratch, 'home')
+    fs.mkdirSync(path.join(home, '.office-raccoon'), { recursive: true })
+    const env = { USERPROFILE: home, HOME: home, IHUI_CLIENT_HOME: home }
+    assert.throws(
+      () => L.applyRaccoon({ uid: 'u-raccoon', token: 't-raccoon', secrets: {} }, { env }),
+      (e) => e?.code === 'profile-uninitialized' && /先启动客户端/.test(e.message),
+    )
+    assert.equal(fs.existsSync(path.join(home, '.office-raccoon', 'agent', 'config', 'auth.json')), false)
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('applyRaccoon:profile marker 就绪后写进 profile/agent/config/auth.json', () => {
+  const scratch = mkScratch('local-login-raccoon-ready')
+  try {
+    const home = path.join(scratch, 'home')
+    const root = path.join(home, '.office-raccoon')
+    fs.mkdirSync(root, { recursive: true })
+    fs.writeFileSync(
+      path.join(root, '.raccoon-lab-client.json'),
+      '{"application":"@raccoon/office-desktop","version":1}\n',
+    )
+    const env = { USERPROFILE: home, HOME: home, IHUI_CLIENT_HOME: home }
+    const r = L.applyRaccoon({ uid: 'u-raccoon', token: 't-raccoon', secrets: {} }, { env })
+    const file = path.join(root, 'agent', 'config', 'auth.json')
+    assert.equal(fs.existsSync(file), true, 'profile 就绪后必须能落 auth.json')
+    assert.equal(readJson(file).access_token, 't-raccoon')
+    assert.equal(r.targetFile, file)
+  } finally {
+    rmScratch(scratch)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
