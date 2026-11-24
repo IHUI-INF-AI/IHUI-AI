@@ -137,24 +137,24 @@ describe('O57 App 根 View 底色按聚焦路由条件化(状态栏带单点修�
     expect(css(tokens.gray.black)).toBe('rgb(0, 0, 0)')
   })
 
-  // 实现按聚焦路由分档(App.tsx ROUTE_ROOT_BG):顶栏区取白档的屏 = surface.chrome,
-  // 其余常规屏仍 surface.bg。逐路由钉真实值,表镜像 App.tsx 的 ROUTE_ROOT_BG(未导出)。
-  it('逐路由聚焦 ⇒ 根底色按 ROUTE_ROOT_BG 分档(顶栏白档屏=surface.chrome,常规屏=surface.bg)', () => {
+  // 实现按聚焦路由分档(App.tsx ROUTE_ROOT_BG):透明顶栏屏统一取页面底 surface.bg,
+  // 其余常规屏同档。逐路由钉真实值,表镜像 App.tsx 的 ROUTE_ROOT_BG(未导出)。
+  it('逐路由聚焦 ⇒ 根底色按 ROUTE_ROOT_BG 分档(透明顶栏屏=surface.bg,常规屏同档)', () => {
     const expectedByRoute: Record<string, string> = {
-      // 一级屏:顶栏区取白,状态栏带随之同档(2026-10-10 用户点名首页顶部灰色带)
-      Home: tokens.surface.chrome,
-      HomeMain: tokens.surface.chrome,
-      Plaza: tokens.surface.chrome,
-      News: tokens.surface.chrome,
-      ProfileMain: tokens.surface.chrome,
-      AiMain: tokens.surface.chrome,
-      Agent: tokens.surface.chrome,
-      Settings: tokens.surface.chrome,
+      // 一级屏:2026-11-24 顶栏透明后取页面底,状态栏带随之同档
+      Home: tokens.surface.bg,
+      HomeMain: tokens.surface.bg,
+      Plaza: tokens.surface.bg,
+      News: tokens.surface.bg,
+      ProfileMain: tokens.surface.bg,
+      AiMain: tokens.surface.bg,
+      Agent: tokens.surface.bg,
+      Settings: tokens.surface.bg,
       Login: tokens.surface.card, // ROUTE_ROOT_BG.Login ⇒ surface.card
       // 对照:未收口的二级屏仍走默认档,证明这不是"整片回落同一档"
-      CourseDetail: tokens.surface.chrome,
-      Chat: tokens.surface.chrome,
-      // 真对照:**不渲染 NavBar** 的路由仍走默认 surface.bg —— 证明 chrome 跟着"有没有顶栏"走,
+      CourseDetail: tokens.surface.bg,
+      Chat: tokens.surface.bg,
+      // 真对照:**不渲染 NavBar** 的路由仍走默认 surface.bg —— 证明页面底跟着"有没有顶栏"走,
       // 不是整片回落同一档
       Main: tokens.surface.bg,
     }
@@ -176,14 +176,14 @@ describe('O57 App 根 View 底色按聚焦路由条件化(状态栏带单点修�
     expect(rootBackgroundOf(container)).toBe(css(tokens.gray.black))
   })
 
-  it('路由切换经 state 订阅驱动底色:黑 → 白 → 黑(订阅真实挂上而非一次性快照)', () => {
+  it('路由切换经 state 订阅驱动底色:黑 → 页面底 → 黑(订阅真实挂上而非一次性快照)', () => {
     env.route = 'VideoPlayer'
     const { container } = render(<App />)
     expect(rootBackgroundOf(container)).toBe(css(tokens.gray.black))
 
     env.route = 'Home'
     fireNavigation()
-    expect(rootBackgroundOf(container)).toBe(css(tokens.surface.chrome))
+    expect(rootBackgroundOf(container)).toBe(css(tokens.surface.bg))
 
     env.route = 'VideoPlayer'
     fireNavigation()

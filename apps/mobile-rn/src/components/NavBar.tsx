@@ -239,6 +239,7 @@ export function NavBar({
               label={t('common.back')}
               colorScheme={currentRnTheme()}
               color={textColor}
+              style={styles.backChip}
             />
           ) : null}
           {onBack && showBack !== false ? (
@@ -247,6 +248,7 @@ export function NavBar({
               label={t('common.back')}
               colorScheme={currentRnTheme()}
               color={textColor}
+              style={styles.backChip}
             />
           ) : null}
           {menuButton ? (
@@ -277,6 +279,7 @@ export function NavBar({
                 onPress={() => onActiveNav?.(item.index)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: activeTitleIndex === item.index }}
+                style={styles.titleSwitchChip}
               >
                 <Text
                   style={[
@@ -409,6 +412,14 @@ function NavBarActionButton({ action }: NavBarActionButtonProps) {
   )
 }
 
+/// 2026-11-24:顶栏整体不铺底色后,行内每个可交互件自持圆角底;同一份取值只在这里。
+const NAV_CHIP = {
+  backgroundColor: tokens.surface.card,
+  borderWidth: 1,
+  borderColor: tokens.stroke.subtle,
+  borderRadius: rnRadius.xl,
+} as const
+
 const styles = StyleSheet.create({
   container: {
     width: '100%',
@@ -425,6 +436,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: rnSpacing.xs,
   },
   center: {
     // 标题层独立居中:不参与左右槽的流式分配,两端槽宽不等也保持屏幕几何中心。
@@ -448,6 +460,16 @@ const styles = StyleSheet.create({
     maxWidth: NAVBAR_TITLE_MAX_WIDTH_PX,
     fontWeight: '600',
     color: tokens.text.primary,
+    // 2026-11-24:整条顶栏不再铺底色,标题单独成胶囊标签;页面底色从胶囊四周透出。
+    // 底色取 surface.card(亮 #FFF / 暗 #1A1A1A),描边取 stroke.subtle(AGENTS §4 描边禁墨档)。
+    paddingHorizontal: rnSpacing.sm,
+    paddingVertical: rnSpacing['2xs'],
+    borderRadius: rnRadius.xl,
+    borderWidth: 1,
+    borderColor: tokens.stroke.subtle,
+    backgroundColor: tokens.surface.card,
+    overflow: 'hidden',
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: NAVBAR_SUBTITLE_FONT_PX,
@@ -463,6 +485,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     minWidth: NAVBAR_SIDE_PLACEHOLDER_PX,
+    gap: rnSpacing.xs,
   },
   legacyRight: {
     alignItems: 'flex-end',
@@ -475,11 +498,20 @@ const styles = StyleSheet.create({
   titleSwitch: {
     flexDirection: 'row',
     alignItems: 'center',
-    // 40rpx = 20 逻辑 px(小程序端同一档)
-    gap: rnSpacing.xl,
+    gap: rnSpacing.sm,
+  },
+  titleSwitchChip: {
+    ...NAV_CHIP,
+    height: NAVBAR_ROW_HEIGHT_PX,
+    paddingHorizontal: rnSpacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   titleSwitchText: {
     fontSize: NAVBAR_TITLE_FONT_PX,
+  },
+  backChip: {
+    ...NAV_CHIP,
   },
   joinButton: {
     minWidth: NAVBAR_SIDE_PLACEHOLDER_PX,
@@ -489,7 +521,7 @@ const styles = StyleSheet.create({
     // 强调描边取 brandAccent.deep(AGENTS §4「描边不得取墨档」;与小程序端 NavBar 的
     // `3rpx solid var(--color-brand-accent-deep)` 同一档,跨端同脸)
     borderColor: tokens.brandAccent.deep,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -501,6 +533,7 @@ const styles = StyleSheet.create({
   },
   rightTextBtn: {
     ...navbarActionBoxStyle((px: number) => px),
+    ...NAV_CHIP,
     paddingHorizontal: rnSpacing['xs-loose'],
     justifyContent: 'center',
   },
@@ -523,6 +556,7 @@ const styles = StyleSheet.create({
   actionBtn: {
     // 盒宽/盒高/居中唯一源 navbar-spec;gap 与内边距是"图标+文字"并排的端内布局,不是跨端档
     ...navbarActionBoxStyle((px: number) => px),
+    ...NAV_CHIP,
     paddingHorizontal: rnSpacing['xs-loose'],
     gap: rnSpacing.xs,
   },

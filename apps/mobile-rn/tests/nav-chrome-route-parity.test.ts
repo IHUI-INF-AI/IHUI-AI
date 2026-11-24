@@ -3,18 +3,19 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 //
-// 顶栏 chrome 的**结构锁**:凡是渲染 <NavBar> 的屏,它的每一个注册路由名都必须在
-// App.tsx 的 ROUTE_ROOT_BG 里拿到**同一档** tokens.surface.chrome。
+// 顶栏透明后的**结构锁**(2026-11-24 起):凡是渲染 <NavBar> 的屏,它的每一个注册路由名
+// 都必须在 App.tsx 的 ROUTE_ROOT_BG 里拿到**页面同档** tokens.surface.bg。
 //
-// 为什么要有它:状态栏 inset 带由 App.tsx 那枚根 View 画,导航行由屏自己用 <NavChrome> 画,
-// 两处各写各的 ⇒ 只要有一屏加了顶栏而忘了往路由表里加一行(或反过来),同一屏就露出两截色。
-// 2026-10-10 用户实拍「顶部这个区域为什么是灰色的,怎么还有个灰色带呢」正是这个形态,
-// 而当时靠的是"人记得两张表都要改"。本用例把"记得改"换成"改漏就红":
+// 为什么要有它:状态栏 inset 带由 App.tsx 那枚根 View 画,导航行由屏内透明 <NavChrome> 透出页面底;
+// 两处各写各的 ⇒ 只要有一屏加了顶栏而忘了往路由表里加一行(或反过来),同一屏仍会露出两截色
+// (2026-10-10 用户实拍「顶部这个区域为什么是灰色的,怎么还有个灰色带呢」就是这一形态)。
+// 2026-11-24 用户再定「顶栏不要整条底色,按钮和页面标签各自做圆角底片」:
+// NavChrome 改为 transparent,页面底由 route 表给 surface.bg。
 //  ① 屏清单**现读源码**(grep <NavBar),不是手抄名单 —— 名单必然腐烂(AGENTS §4 对
 //     RN_ONLY_BRAND_KEYS 记过同一条教训);
 //  ② 路由名从 RootNavigator 的 name=/component= 注册对现读,一屏多名(Home/HomeMain、
 //     Agent/AiMain)必须**每个名**都在表里;
-//  ③ 两侧取值必须同为 surface.chrome:NavChrome 那侧与 ROUTE_ROOT_BG 那侧任何一侧换档即红;
+//  ③ 两侧取值必须同为 surface.bg:NavChrome 透明 + ROUTE_ROOT_BG 页面底;任何一侧换档即红;
 //  ④ 例外表是台账不是后门:每条必须带 reason,且指向的屏**此刻确实渲染 NavBar**
 //     (屏不再渲染 NavBar 了还挂着例外 ⇒ 清单腐烂,判红)。
 import { readFileSync, readdirSync } from 'node:fs'
@@ -23,10 +24,10 @@ import { describe, expect, it } from 'vitest'
 
 const ROOT = join(__dirname, '..')
 const SCREENS_DIR = join(ROOT, 'src/screens')
-const CHROME_TIER = 'surface.chrome'
+const PAGE_TIER = 'surface.bg'
 
 /**
- * 刻意不收口的屏:顶色是各自的定档,套 chrome 会把它们推给白档。
+ * 刻意不收口的屏:顶色是各自的定档,套页面底会把它们推平。
  * 每条必须带理由,且由本用例反向核"它今天还在渲染 NavBar" —— 不在了就是腐烂。
  */
 const DECLARED_EXCEPTIONS: Record<string, string> = {
@@ -80,7 +81,7 @@ function routeRootBgTier(): Record<string, string> {
   while ((m = re.exec(body)) !== null) {
     if (m[1] && m[2] && m[3]) out[m[1]] = m[2] + '.' + m[3]
   }
-  // 简写形态 `Route: (t) => t.surface.chrome,` 已被上面覆盖;三元形态单独收
+  // 简写形态 `Route: (t) => t.surface.bg,` 已被上面覆盖;三元形态单独收
   const reTernary =
     /^\s*([A-Za-z][\w]*):\s*\(t,\s*\w+\)\s*=>\s*\([^)]*\)\s*\?\s*t\.(\w+)\.(\w+)\s*:\s*t\.(\w+)\.(\w+)/gm
   while ((m = reTernary.exec(body)) !== null) {
@@ -89,7 +90,7 @@ function routeRootBgTier(): Record<string, string> {
   return out
 }
 
-describe('顶栏 chrome 结构锁(AGENTS §4「判据必须覆盖门自己产出的形态」同族)', () => {
+describe('顶栏透明 + 页面底结构锁(AGENTS §4「判据必须覆盖门自己产出的形态」同族)', () => {
   const navBarScreens = screensRenderingNavBar()
   const namesByComponent = routeNamesByComponent()
   const tiers = routeRootBgTier()
@@ -112,7 +113,7 @@ describe('顶栏 chrome 结构锁(AGENTS §4「判据必须覆盖门自己产出
     expect(unwrapped, '这些屏把导航行裸放在 shell 上:\n' + unwrapped.join('\n')).toEqual([])
   })
 
-  it('这些屏的每一个注册路由名,在 App.tsx 里都取 surface.chrome', () => {
+  it('这些屏的每一个注册路由名,在 App.tsx 里都取 surface.bg', () => {
     const offenders: string[] = []
     const unregistered: string[] = []
     for (const screen of navBarScreens) {
@@ -123,7 +124,7 @@ describe('顶栏 chrome 结构锁(AGENTS §4「判据必须覆盖门自己产出
         continue
       }
       for (const n of names) {
-        if (tiers[n] !== CHROME_TIER)
+        if (tiers[n] !== PAGE_TIER)
           offenders.push(`${screen} → ${n} 取的是 ${tiers[n] ?? '(表里没有这一行)'}`)
       }
     }
@@ -134,12 +135,12 @@ describe('顶栏 chrome 结构锁(AGENTS §4「判据必须覆盖门自己产出
     expect(offenders, '带色表与顶栏档不一致:\n' + offenders.join('\n')).toEqual([])
   })
 
-  it('NavChrome 与 ROUTE_ROOT_BG 读的是同一档(任何一侧换档即红)', () => {
+  it('NavChrome 透明、ROUTE_ROOT_BG 取页面底(任何一侧改回整条底色即红)', () => {
     const chromeSrc = read(join(ROOT, 'src/components/NavChrome.tsx'))
-    expect(chromeSrc, 'NavChrome 不再取 tokens.surface.chrome ⇒ 与带色表分叉').toMatch(
-      /backgroundColor:\s*tokens\.surface\.chrome/,
+    expect(chromeSrc, 'NavChrome 又铺回整幅底色 ⇒ 与透明顶栏分叉').toMatch(
+      /backgroundColor:\s*'transparent'/,
     )
-    expect(Object.values(tiers).filter((v) => v === CHROME_TIER).length).toBeGreaterThan(0)
+    expect(Object.values(tiers).filter((v) => v === PAGE_TIER).length).toBeGreaterThan(0)
   })
 
   it('例外台账不得腐烂:每条指向的屏此刻确实还在渲染 NavBar', () => {

@@ -267,11 +267,11 @@ describe('② 带位仍由 App 根 View 单点绘制(全屏态不得有第二层
   })
 
   it('全屏窗口在位而 App **挂载之后**才呈现 ⇒ 由订阅翻黑,退出后逐字翻回原值', () => {
-    // Settings 的顶栏区已取白档(2026-10-10 灰色带收口),所以"退出后翻回的原值"是 surface.card
+    // Settings 的透明顶栏已改取页面底(2026-11-24),所以"退出后翻回的原值"是 surface.bg
     env.route = 'Settings'
     const { container } = render(<App />)
     const before = rootBackgroundOf(container)
-    expect(before).toBe(css(tokens.surface.card))
+    expect(before).toBe(css(tokens.surface.bg))
 
     // setState 由订阅回调驱动(不在 React 事件里),翻转必须整个包在 act 内 ——
     // 只在断言前 `act(() => undefined)` 冲不掉一次已经排队的并发更新,读数会停在旧值。
@@ -293,40 +293,40 @@ describe('② 带位仍由 App 根 View 单点绘制(全屏态不得有第二层
     // 权威取色表是 App.tsx 的 ROUTE_ROOT_BG(2026-10-07 用户点名「登录页状态栏露出一截浅灰」后
     // 按路由分档:Login 页面底取 surface.card,不是 surface.bg;该表未导出,逐路由真实值另由
     // app-root-background-focused-route.test.tsx 钉住)。本用例锁的是"非全屏态 ⇒ 底色等于该路由
-    // 自己那一档",所以不得整片回落到 surface.bg —— 那会把 10-07 那次修复当成缺陷改回去。
-    // Home 等一级屏由 2026-10-10 用户点名「首页顶部露出一条灰色带」后加入:顶栏区取白,带随之同档;
-    // 同日第二轮把 chrome 单立成档(亮 #FFFFFF / 暗 #262626,对齐小程序原生导航栏 navBgColor),深色档不再跟着 card 走。
-    // 顶栏 chrome 档(2026-10-10 立):凡屏内用 <NavChrome> 给导航行取色的屏,其注册路由名的
-    // 状态栏带必须同档。清单与 apps/mobile-rn/tests/nav-chrome-route-parity.test.ts 同源,
+    // 自己那一档",所以不得把所有路由(含 Login)整片回落成同一档 —— 那会把 10-07 那次修复当成缺陷改回去。
+    // Home 等一级屏由 2026-10-10 用户点名「首页顶部露出一条灰色带」后加入;
+    // 2026-11-24 用户再定顶栏透明,这些路由改取页面底 surface.bg,状态栏带随页面同色。
+    // 顶栏透明档(2026-11-24 立):凡屏内用透明 <NavChrome> 的屏,其注册路由名的
+    // 状态栏带取页面底 surface.bg。清单与 apps/mobile-rn/tests/nav-chrome-route-parity.test.ts 同源,
     // 那张锁负责"漏一条即红",这里负责"实落到根元素上的值等于该档"。
-    const CHROME = css(tokens.surface.chrome)
+    const PAGE_BG = css(tokens.surface.bg)
     const EXPECTED_ROOT_BG: Record<string, string> = {
       Login: css(tokens.surface.card), // 登录页无 NavBar,页面底定档仍是 card(2026-10-07 那次修复)
-      Home: CHROME,
-      HomeMain: CHROME,
-      Plaza: CHROME,
-      News: CHROME,
-      ProfileMain: CHROME,
-      AiMain: CHROME,
-      Agent: CHROME,
-      Settings: CHROME,
-      AiAssistantN8n: CHROME,
-      Cart: CHROME,
-      Chat: CHROME,
-      CircleIndex: CHROME,
-      ConversationImport: CHROME,
-      CourseDetail: CHROME,
-      DevEnter: CHROME,
-      Developer: CHROME,
-      LiveDetail: CHROME,
-      RankingDetail: CHROME,
-      Share: CHROME,
-      StudyIndex: CHROME,
-      StudyPublish: CHROME,
-      Subagents: CHROME,
-      TopicDetail: CHROME,
-      TopicList: CHROME,
-      WebPortal: CHROME,
+      Home: PAGE_BG,
+      HomeMain: PAGE_BG,
+      Plaza: PAGE_BG,
+      News: PAGE_BG,
+      ProfileMain: PAGE_BG,
+      AiMain: PAGE_BG,
+      Agent: PAGE_BG,
+      Settings: PAGE_BG,
+      AiAssistantN8n: PAGE_BG,
+      Cart: PAGE_BG,
+      Chat: PAGE_BG,
+      CircleIndex: PAGE_BG,
+      ConversationImport: PAGE_BG,
+      CourseDetail: PAGE_BG,
+      DevEnter: PAGE_BG,
+      Developer: PAGE_BG,
+      LiveDetail: PAGE_BG,
+      RankingDetail: PAGE_BG,
+      Share: PAGE_BG,
+      StudyIndex: PAGE_BG,
+      StudyPublish: PAGE_BG,
+      Subagents: PAGE_BG,
+      TopicDetail: PAGE_BG,
+      TopicList: PAGE_BG,
+      WebPortal: PAGE_BG,
     }
     // 真对照:不渲染 NavBar 的容器路由仍走默认 surface.bg
     const DEFAULT_BG_ROUTES = ['Main']
