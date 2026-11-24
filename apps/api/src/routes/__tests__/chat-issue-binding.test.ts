@@ -109,6 +109,8 @@ const CONVERSATION_A = {
   shareTokenExpiresAt: null,
   historyProjectionState: null,
   groupId: null,
+  source: 'web',
+  sourceRef: null,
 }
 
 const BINDING_BODY = {

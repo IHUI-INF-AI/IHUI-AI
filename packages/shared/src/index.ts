@@ -22,6 +22,8 @@ export * from './chat'
 // G3 Beyond-Coding 泛化:统一 Artifact 交付物体系(纯类型+校验+渲染,跨端单一真相源)
 export * from './artifact'
 export * from './constants'
+export * from './navigation/sidebar-nav'
+export * from './navigation/drawer-ui-contract'
 export * from './pay'
 export * from './share'
 export * from './seo'

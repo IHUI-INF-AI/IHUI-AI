@@ -7841,5 +7841,8 @@
     "privateAdvisor": "전담 어드바이저",
     "daysSuffix": "일"
   },
-  "charCount": "{count}자"
+  "charCount": "{count}자",
+  "sourceWeb": "Web",
+  "sourceApp": "모바일",
+  "sourceMiniApp": "미니"
 }

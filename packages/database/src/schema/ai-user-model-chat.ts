@@ -45,6 +45,24 @@ export const zhsAiUserModelChatHistory = pgTable(
     promptTokens: integer('prompt_tokens').notNull().default(0),
     completionTokens: integer('completion_tokens').notNull().default(0),
     totalTokens: integer('total_tokens').notNull().default(0),
+    /**
+     * 置顶标记(2026-11-23):与 web `/chat/conversations` 的 `pinned` 同语义(用户级置顶)。
+     * 该表按消息粒度存储,一条历史 = 一行,置顶即钉这一行;默认 false,存量行为零变化。
+     */
+    pinned: boolean('pinned').notNull().default(false),
+    /**
+     * 文件夹(2026-11-23):与 web `/chat/conversations` 的文件夹同**语义**(用户级组织维度),
+     * 但**不同承载** —— web 侧已迁服务端分组表(chat_conversation_groups),本表按消息粒度、
+     * 实体与会话 id 不是同一体系,故这里存归一化后的文件夹名(空 = 未分组)。
+     * 上限 64 与 shared `ORG_FOLDER_MAX_LENGTH` 同档,写入前在路由内归一化。
+     */
+    folder: varchar('folder', { length: 64 }),
+    /**
+     * 自命名标题(2026-11-23):与 web 会话的「重命名」同语义。
+     * 本表按消息粒度存,`content` 是用户原话;`title` 存用户改过的显示名(空 = 未改名,
+     * 出参回落到 content 前 30 字,故存量行为零变化)。上限 120 与 web `PATCH title` 同档上限。
+     */
+    title: varchar('title', { length: 120 }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({

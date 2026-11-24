@@ -4,18 +4,83 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { eq, desc, sql } from 'drizzle-orm'
+import { and, eq, desc, inArray, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { checkAuth } from '../plugins/auth.js'
 import { recordAiCost } from '../plugins/ai-cost.js'
 import { success, error } from '../utils/response.js'
 import { zhsAiUserModelChatConfig, zhsAiUserModelChatHistory } from '@ihui/database'
+import { chatConversations, chatConversationGroups } from '@ihui/database'
 import { toUserFriendlyMessage } from '@ihui/shared'
 import { maskKey } from './v1-shared.js'
 import { safeFetch, assertSafeFetchUrl } from '../utils/ssrf-guard.js'
 import { encryptCredential, decryptCredential } from '../utils/crypto.js'
 
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
+
+/**
+ * 2026-11-24 统一后端(机主令「所有接口所有功能全部多端互通,但要分好是从哪个端操作录入的」):
+ * 小程序历史与统一会话表 chat_conversations 的镜像层。
+ * 幂等键 = (user_id, source='miniapp', source_ref=history.id);双写与存量收编共用同一键,
+ * 故「本表新写一条」与「脚本收编一条」不会各造一份。
+ *
+ * 纪律:镜像失败一律只记警告,不阻断小程序本端读写 —— 失效方向恒为「统一层滞后」,
+ * 绝不把「多端能看到」这件事的重量压到「本轮对话能不能存下来」上。
+ */
+async function mirrorConversations(
+  userId: string,
+  historyIds: string[],
+  patch: { pinned?: boolean; pinnedAt?: Date | null; title?: string; groupId?: string | null },
+  log: { warn: (obj: unknown, msg?: string) => void },
+): Promise<void> {
+  if (historyIds.length === 0) return
+  try {
+    await db
+      .update(chatConversations)
+      .set({
+        ...(patch.pinned !== undefined ? { pinned: patch.pinned } : {}),
+        ...(patch.pinnedAt !== undefined ? { pinnedAt: patch.pinnedAt } : {}),
+        ...(patch.title !== undefined ? { title: patch.title } : {}),
+        ...(patch.groupId !== undefined ? { groupId: patch.groupId } : {}),
+      })
+      .where(
+        and(
+          eq(chatConversations.userId, userId),
+          eq(chatConversations.source, 'miniapp'),
+          inArray(chatConversations.sourceRef, historyIds),
+        ),
+      )
+  } catch (err) {
+    log.warn({ err }, '小程序→统一会话镜像失败(不影响端上操作)')
+  }
+}
+
+/** 按文件夹名拿（或建）统一分组行;返回 null = 未分组。名字已由调用方归一化。 */
+async function ensureConversationGroup(
+  userId: string,
+  name: string | null,
+): Promise<string | null> {
+  if (!name) return null
+  const existing = await db
+    .select({ id: chatConversationGroups.id })
+    .from(chatConversationGroups)
+    .where(and(eq(chatConversationGroups.userId, userId), eq(chatConversationGroups.name, name)))
+    .limit(1)
+  if (existing[0]) return existing[0].id
+  const inserted = await db
+    .insert(chatConversationGroups)
+    .values({ userId, name })
+    .onConflictDoNothing()
+    .returning({ id: chatConversationGroups.id })
+  if (inserted[0]) return inserted[0].id
+  // 并发下 onConflictDoNothing 可能不返回行,再查一次收口
+  const again = await db
+    .select({ id: chatConversationGroups.id })
+    .from(chatConversationGroups)
+    .where(and(eq(chatConversationGroups.userId, userId), eq(chatConversationGroups.name, name)))
+    .limit(1)
+  return again[0]?.id ?? null
+}
 
 const paginationQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -495,6 +560,24 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
           createdAt: zhsAiUserModelChatHistory.createdAt,
         })
 
+      // 2026-11-24 统一后端:本条提问同步落一条统一会话(source=miniapp, source_ref=history.id),
+      // 三端抽屉因此能看到同一条记录;失败只记警告(见 mirrorConversations 注释的降级方向)。
+      try {
+        await db
+          .insert(chatConversations)
+          .values({
+            userId: request.userId!,
+            title: replyContent.slice(0, 30) || '小程序对话',
+            model: config.modelId,
+            lastMessageAt: now,
+            source: 'miniapp',
+            sourceRef: history?.id ?? null,
+          })
+          .onConflictDoNothing()
+      } catch (err) {
+        request.log.warn({ err }, '小程序会话同步落库失败(不影响历史写入)')
+      }
+
       recordAiCost({
         userId: request.userId!,
         model: config.modelId,
@@ -543,7 +626,198 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
       .from(zhsAiUserModelChatHistory)
       .where(eq(zhsAiUserModelChatHistory.userId, userId))
     const total = countRows[0]?.count ?? 0
-    return reply.send(success({ list, total, page, pageSize }))
+    /**
+     * 出参补齐展示字段(2026-11-23):小程序抽屉与四个页面都按 `title / time / modelName`
+     * 取值,而本端点此前原样吐数据库列(content / createdAt / model) ⇒ 抽屉里的标题与时间
+     * 恒为 undefined(与 web 侧栏 `sidebar-chat-history` 的展示字段名不一致)。
+     * 这里只**追加**同名展示字段并保留原始列(向后兼容旧调用方),`pinned` 随 `select()` 带出。
+     */
+    const items = list.map((item) => ({
+      ...item,
+      /* 自命名标题优先(与 web 会话重命名同语义);未改名时回落原话前 30 字 */
+      title: item.title || item.content.slice(0, 30) || '未命名对话',
+      time: item.createdAt ? new Date(item.createdAt).toISOString() : '',
+      modelName: item.model || undefined,
+      pinned: item.pinned === true,
+      /* 文件夹:空串 / null 一律折成 null(= 未分组),客户端按 null 判定,不判 undefined */
+      folder: item.folder || null,
+    }))
+    return reply.send(success({ list: items, total, page, pageSize }))
+  })
+
+  /**
+   * 批量删除历史(2026-11-23,小程序抽屉多选态用)。
+   * 与 web `POST /conversations/batch` 的 delete 动作同语义:一次事务内按 (userId, ids) 收口,
+   * 只删属于本账号的行并回传真正删掉的 id 集(前端据此做最优化的即时隐藏,不做"删了没删"的猜)。
+   * 上限 200 —— 抽屉一次分页 20 条,200 足够覆盖"全选 + 跨页",同时挡住超大数组打爆单语句。
+   */
+  server.post('/history/batch-delete', async (request, reply) => {
+    const body = z
+      .object({
+        ids: z
+          .array(z.uuid({ error: '记录 ID 不合法' }))
+          .min(1)
+          .max(200),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const deleted = await db
+      .delete(zhsAiUserModelChatHistory)
+      .where(
+        and(
+          inArray(zhsAiUserModelChatHistory.id, body.data.ids),
+          eq(zhsAiUserModelChatHistory.userId, userId),
+        ),
+      )
+      .returning({ id: zhsAiUserModelChatHistory.id })
+    // 三端互通:删历史与删统一会话同一轮收口(镜像行没有独立内容,留着只会在 web 列表里变成幽灵)
+    if (deleted.length > 0) {
+      try {
+        await db.delete(chatConversations).where(
+          and(
+            eq(chatConversations.userId, userId),
+            eq(chatConversations.source, 'miniapp'),
+            inArray(
+              chatConversations.sourceRef,
+              deleted.map((r) => r.id),
+            ),
+          ),
+        )
+      } catch (err) {
+        request.log.warn({ err }, '删除统一会话镜像失败(历史已删,镜像待下次清扫)')
+      }
+    }
+    return reply.send(success({ deleted: deleted.length, deletedIds: deleted.map((r) => r.id) }))
+  })
+
+  /**
+   * 小程序抽屉「置顶」落库端点(2026-11-23)。
+   * 语义与 web `PATCH /chat/conversations/:id {pinned}` 同向:置顶是用户级持久状态,不是本机偏好。
+   * 授权:归属用 `userId` 一并收口(认证 ≠ 授权,不靠 id 反推身份),越权行不会被写。
+   */
+  server.patch('/history/:id/pinned', async (request, reply) => {
+    const params = z.object({ id: z.uuid({ error: '记录 ID 不合法' }) }).safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, params.error.issues[0]?.message ?? '参数错误'))
+    }
+    const body = z.object({ pinned: z.boolean() }).safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, 'pinned 必须为布尔值'))
+    const userId = request.userId!
+    const updated = await db
+      .update(zhsAiUserModelChatHistory)
+      .set({ pinned: body.data.pinned })
+      .where(
+        and(
+          eq(zhsAiUserModelChatHistory.id, params.data.id),
+          eq(zhsAiUserModelChatHistory.userId, userId),
+        ),
+      )
+      .returning({
+        id: zhsAiUserModelChatHistory.id,
+        pinned: zhsAiUserModelChatHistory.pinned,
+      })
+    const row = updated[0]
+    if (!row) return reply.status(404).send(error(404, '记录不存在或无权操作'))
+    // 三端互通:置顶同向写入统一会话
+    await mirrorConversations(
+      userId,
+      [row.id],
+      { pinned: row.pinned, pinnedAt: row.pinned ? new Date() : null },
+      request.log,
+    )
+    return reply.send(success({ id: row.id, pinned: row.pinned }))
+  })
+
+  /**
+   * 重命名历史标题(2026-11-23):与 web `PATCH /chat/conversations/:id {title}` 同语义。
+   * 归一化只做「折叠空白 + 去首尾 + 截 120」;空串拒收(清空标题没有意义 —— 回落到原话
+   * 是通过"不写"实现,而不是写空)。归属仍由 userId 一并收口。
+   */
+  server.patch('/history/:id/title', async (request, reply) => {
+    const params = z.object({ id: z.uuid({ error: '记录 ID 不合法' }) }).safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, params.error.issues[0]?.message ?? '参数错误'))
+    }
+    const body = z
+      .object({ title: z.string({ error: '标题必须为字符串' }).max(120) })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const squashed = body.data.title
+      .replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 120)
+    if (!squashed) return reply.status(400).send(error(400, '标题不能为空'))
+    const userId = request.userId!
+    const updated = await db
+      .update(zhsAiUserModelChatHistory)
+      .set({ title: squashed })
+      .where(
+        and(
+          eq(zhsAiUserModelChatHistory.id, params.data.id),
+          eq(zhsAiUserModelChatHistory.userId, userId),
+        ),
+      )
+      .returning({ id: zhsAiUserModelChatHistory.id, title: zhsAiUserModelChatHistory.title })
+    const row = updated[0]
+    if (!row) return reply.status(404).send(error(404, '记录不存在或无权操作'))
+    // 三端互通:改名同向写入统一会话
+    await mirrorConversations(userId, [row.id], { title: squashed }, request.log)
+    return reply.send(success({ id: row.id, title: row.title }))
+  })
+
+  /**
+   * 批量移动到文件夹(2026-11-23,小程序抽屉唯一的文件夹写出口)。
+   * 单条也走这条(ids 长度 1):端内不另留一份 PATCH 单条实现,归一化与 userId 收口只有一处。
+   * 归一化只做「折叠空白 + 去首尾 + 截 64」这一件事,与 shared `normalizeOrgName` 同规则同上限,
+   * 不另立第二套(客户端用同一份纯函数做展示侧归一,故两端比对不会因空格/长度漂开)。
+   */
+  server.post('/history/batch-folder', async (request, reply) => {
+    const body = z
+      .object({
+        ids: z
+          .array(z.uuid({ error: '记录 ID 不合法' }))
+          .min(1)
+          .max(200),
+        folder: z.string().max(64, { error: '文件夹名最长 64 个字符' }).nullable(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const squashed = (body.data.folder ?? '')
+      .replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 64)
+    const nextFolder = squashed || null
+    const userId = request.userId!
+    const updated = await db
+      .update(zhsAiUserModelChatHistory)
+      .set({ folder: nextFolder })
+      .where(
+        and(
+          inArray(zhsAiUserModelChatHistory.id, body.data.ids),
+          eq(zhsAiUserModelChatHistory.userId, userId),
+        ),
+      )
+      .returning({ id: zhsAiUserModelChatHistory.id })
+    // 三端互通:文件夹名 → 统一分组表(groupId);清空 = 回未分组
+    const groupId = await ensureConversationGroup(userId, nextFolder)
+    await mirrorConversations(
+      userId,
+      updated.map((r) => r.id),
+      { groupId },
+      request.log,
+    )
+    return reply.send(
+      success({ updated: updated.length, ids: updated.map((r) => r.id), folder: nextFolder }),
+    )
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

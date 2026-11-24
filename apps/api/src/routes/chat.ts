@@ -378,6 +378,9 @@ function serializeConversation(c: {
   pinnedAt?: Date | null
   messageCount?: number
   favorite?: boolean
+  source?: string
+  sourceRef?: string | null
+  groupId?: string | null
 }) {
   return {
     id: c.id,
@@ -396,6 +399,10 @@ function serializeConversation(c: {
     ...(c.pinnedAt !== undefined && { pinnedAt: c.pinnedAt }),
     ...(c.messageCount !== undefined && { messageCount: c.messageCount }),
     ...(c.favorite !== undefined && { favorite: c.favorite }),
+    // 2026-11-24:录入端(web/rn/miniapp)与源记录 id —— 三端互通后列表要能标出「这条从哪个端录入」
+    ...(c.source !== undefined && { source: c.source }),
+    ...(c.sourceRef !== undefined && { sourceRef: c.sourceRef }),
+    ...(c.groupId !== undefined && { groupId: c.groupId }),
   }
 }
 
@@ -835,6 +842,12 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
 
+      // 2026-11-24:录入端白名单。只作列表展示/筛选维度,不参与归属鉴权(userId 恒来自令牌);
+      // 未知或未声明一律回填 web,不引入第四态。
+      const platformHeader = String(request.headers['x-client-platform'] ?? '').toLowerCase()
+      const source =
+        platformHeader === 'rn' || platformHeader === 'miniapp' ? platformHeader : 'web'
+
       try {
         const conversation = await createConversation({
           userId,
@@ -842,6 +855,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           model: parsed.data.model,
           systemPrompt: parsed.data.systemPrompt,
           metadata: parsed.data.metadata,
+          source,
         })
 
         return reply

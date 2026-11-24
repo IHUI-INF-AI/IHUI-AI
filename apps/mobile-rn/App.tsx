@@ -15,6 +15,8 @@ import {
   View,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+// 2026-11-24:会话统一入库后,RN 端所有请求带来源端标识(后端据此记 source='rn')
+import { setClientPlatform } from '@ihui/api-client'
 import { StatusBar, useFonts } from '@/platform/ui'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native'
@@ -156,8 +158,11 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
   // 却漏登记本表 ⇒ nav-chrome-route-parity 判据当场红。补 surface.bg 档(与 Settings/Help 同档)。
   About: (t) => t.surface.bg,
   // HrAttendance(2026-11-11 补录):考勤屏渲染 <NavBar> 且注册了路由,却漏登记本表
-  // ⇒ 状态栏 inset 带与导航行两截色(nav-chrome-route-parity 判据当场判红)。按表判据补 surface.bg 档。
-  HrAttendance: (t) => t.surface.bg,
+  // ⇒ 状态栏 inset 带与导航行两截色(nav-chrome-route-parity 判据当场判红)。按表判据补 chrome 档。
+  HrAttendance: (t) => t.surface.chrome,
+  // Dashboard(2026-11-23 补录):DashboardScreen 已渲染 <NavBar>,路由却漏登记本表
+  // ⇒ 状态栏 inset 与导航行两截色;按同一判据补 chrome 档。
+  Dashboard: (t) => t.surface.chrome,
   ChatTools: (t, dark) => (dark ? t.gray[900] : t.surface.light),
   WebView: (t, dark) => (dark ? t.gray[900] : t.surface.light),
   Note: (t) => t.surface.light,
@@ -181,6 +186,10 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
  * 显式 style 中的 fontFamily 优先级更高,不受影响。
  */
 const GLOBAL_FONT_FAMILY = 'AlimamaFangYuanTiVF-Thin'
+// 2026-11-24:注册端标识 —— 必须在任何会话请求之前执行(模块顶层,早于组件挂载)
+setClientPlatform('rn')
+// 2026-11-24:注册端标识 —— 必须在任何会话请求之前执行(模块顶层,早于组件挂载)
+setClientPlatform('rn')
 // 注入全局默认字体（React Native 限制，defaultProps 需要 any 断言）
 /* eslint-disable @typescript-eslint/no-explicit-any */
 ;(Text as any).defaultProps = {

@@ -7841,5 +7841,8 @@
     "privateAdvisor": "Private advisor",
     "daysSuffix": "days"
   },
-  "charCount": "{count} chars"
+  "charCount": "{count} chars",
+  "sourceWeb": "Web",
+  "sourceApp": "Mobile",
+  "sourceMiniApp": "Mini"
 }

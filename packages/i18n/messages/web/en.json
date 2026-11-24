@@ -30623,5 +30623,8 @@
     "escalateScan": "Scan escalations",
     "escalatedDone": "Escalated {count}",
     "loading": "Loading"
-  }
+  },
+  "sourceWeb": "Web",
+  "sourceApp": "Mobile",
+  "sourceMiniApp": "Mini"
 }

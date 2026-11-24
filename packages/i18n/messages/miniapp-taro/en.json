@@ -7328,5 +7328,8 @@
     "feedbackOpenFailed": "Failed to open feedback. Please try again.",
     "navigationNotWired": "Navigation is not available",
     "pageUnsupported": "This page is not supported yet"
-  }
+  },
+  "sourceWeb": "Web",
+  "sourceApp": "Mobile",
+  "sourceMiniApp": "Mini"
 }
