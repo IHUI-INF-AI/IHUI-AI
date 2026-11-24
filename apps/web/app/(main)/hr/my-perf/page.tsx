@@ -92,7 +92,7 @@ export default function MyPerfPage() {
       </div>
     )
   }
-  if (ready === false) return <AuthGatePrompt />
+  if (ready === false) return <AuthGatePrompt message="请先登录后查看我的绩效" />
 
   return (
     <FeaturePageShell title={t('myPerfTitle')}>

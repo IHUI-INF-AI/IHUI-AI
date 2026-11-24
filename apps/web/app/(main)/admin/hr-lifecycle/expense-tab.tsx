@@ -64,7 +64,8 @@ export function ExpenseTab() {
     onError: (e: Error) => toast.error(e.message),
   })
   const link = useMutation({
-    mutationFn: (id: string) => api(`${EXP}/${id}/link-voucher`, { method: 'POST', body: JSON.stringify({}) }),
+    mutationFn: (id: string) =>
+      api<{ voucherNo?: string }>(`${EXP}/${id}/link-voucher`, { method: 'POST', body: JSON.stringify({}) }),
     onSuccess: (r: { voucherNo?: string }) => {
       toast.success(r?.voucherNo ?? t('done'))
       invalidate()

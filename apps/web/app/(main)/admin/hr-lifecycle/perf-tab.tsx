@@ -92,7 +92,7 @@ export function PerfTab() {
   })
   const launch = useMutation({
     mutationFn: () =>
-      api(`${PERF}/cycles/${selectedCycle}/launch`, {
+      api<{ created?: number; skipped?: string[] }>(`${PERF}/cycles/${selectedCycle}/launch`, {
         method: 'POST',
         body: JSON.stringify({ assignments: [{ employeeId, reviewerId }] }),
       }),

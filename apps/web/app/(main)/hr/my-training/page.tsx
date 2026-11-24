@@ -58,7 +58,7 @@ export default function MyTrainingPage() {
       </div>
     )
   }
-  if (ready === false) return <AuthGatePrompt />
+  if (ready === false) return <AuthGatePrompt message="请先登录后查看我的培训" />
 
   return (
     <FeaturePageShell title={t('myTrainingTitle')}>
