@@ -16,7 +16,7 @@
       "name": "craft-anything",
       "transport": "stdio",
       "command": "C:\\Users\\Administrator\\AppData\\Local\\craft-anything\\0.5.0\\craft-anything-cli.exe",
-      "args": ["mcp", "--all-tools", "--allow-run"],
+      "args": ["mcp", "--all-tools", "--allow-run", "--deep"],
       "requestTimeoutMs": 600000
     }
   ]

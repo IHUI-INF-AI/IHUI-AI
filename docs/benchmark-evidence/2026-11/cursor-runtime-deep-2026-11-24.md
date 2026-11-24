@@ -145,4 +145,44 @@ craft 的 `dynamic_ipc_channels` 判据 = "channel 实参非字符串字面量"�
 - 两条欠账（63,655 节点截断、31 动态 IPC）本就是 craft 0.5.0 静态攻下，与工具版本无关；§2–§6 全部结论**不变**。
 - 修订：§1 与 §6 里"工具缺失=未采用"措辞作废 —— **REA 已补装且官方 doctor 全绿（170 工具）**；**craft 不在缺工具，是 MCP 配置路径漂移，已修指向 0.5.0 并握手 321 工具实证**；0.6.1 下载中断如实登记、不声明可用。证据以本节为准。
 - 未运行任何目标程序；未粘专有源码正文；未破解/绕过/提取凭据。
+
+## 8. craft-anything **Deep 模式 MCP / 插件连接**（2026-11-24 13:45 后，用户点名要求）
+
+§7.2 只做到"路径修复 + 握手"，但**没有打开 Deep、没有真正调用 deep 工具读代码**。本节按用户明确要求
+（"要的是 craft anything deep 模式的 mcp 或者插件的连接、使用"）补齐连接与使用两件事，全部实测留痕。
+
+### 8.1 Deep 连接的两条通道（都已打通）
+
+- **项目 MCP 通道**（`.ihui/mcp.json`，项目 agent harness 用）：craft server 的 `args` 从
+  `["mcp","--all-tools","--allow-run"]` 改为 `["mcp","--all-tools","--allow-run","--deep"]`。
+  `--deep` 是 CLI `mcp --help` 明列的开关（"Deep mode for this run only: tools may read a target's code,
+  files and page source"）——**显式打开，不依赖 config.toml 的 `deep_mode=true` 隐式默认**，可复核。
+- **WorkBuddy 插件通道**（`~/.workbuddy/mcp.json`，官方注册）：执行
+  `craft-anything-cli setup --client workbuddy --yes` → `status=configured`、`mcpServers.craft-anything`
+  写入、`skill_files` 安装 `SKILL.md` + `references/recovery.md` 到 `~/.workbuddy/skills/craft-anything/`。
+  `craft-anything-cli doctor --format json`：`registration:workbuddy` = **ok（"WorkBuddy is connected."）**、
+  `skill:C:\Users\Administrator\.workbuddy\skills` = ok、`mcp:self-test` = ok（协议 2025-06-18）。
+  官方 setup 只写 `args:["mcp"]`，deep 由 `config.toml` 的 `deep_mode = true` 保证；曾把额外参数塞进全局配置，
+  doctor 报 "connected to a different copy or shape" warn，已还原成官方形状使注册转 ok。
+
+### 8.2 Deep 使用的真实调用（不是只握手）
+
+- 以 `["mcp","--all-tools","--allow-run","--deep"]` spawn 0.5.0 exe，`initialize` → `serverInfo=craft-anything@0.5.0`、
+  `protocolVersion=2025-06-18`、`tools/list` **321 工具**。产物 `.ihui-agent/tmp/r12/craft-mcp-deep-probe.mjs/.json`。
+- `core_target_open` 实调打开真实文件（README.md，26,997 B，sha256 `d11adc26…`），返回 `target_id=t_d11adc26bca5`。
+- **deep 专属能力验证**：`js_app_map` 实调分析 craft 自己的 renderer bundle：证据 `ev_9a4f4db9…`，
+  `coverage.examined=1/total=1`、`environment.clean_room=false`、`engine=builtin@0.5.0`、
+  `authority=original-files`、并明确列出 `static_only` limitation（运行时 eval/计算 require 不可见）。
+  **`clean_room=false` 是 deep 模式真在读目标代码、而非 clean-room 拒绝的硬证据**。
+  产物 `.ihui-agent/tmp/r12/craft-mcp-deep-use.mjs/.json`，verdict `CRAFT_DEEP_TOOL_USE_OK`。
+- deep 工具 schema 已 dump 存档（`core_target_open`/`js_app_map`/`js_source_locate`/`js_runtime_code_match`/
+  `native_cursor_show`），见 probe JSON 的 `deepToolSchemas`。
+
+### 8.3 诚实边界
+
+- craft 工具未挂进当前 WorkBuddy 会话的工具列表：它是给项目 agent harness 的 **stdio MCP server**，
+  插件通道已注册（doctor ok），但需宿主重启/重连后才会在会话工具清单出现；本轮的连接与使用验证走 stdio 直连。
+- 本轮只分析 craft 自身安装目录内的小目标（README / renderer），**没有重跑 Cursor 大图**（§2 已攻下，无必要）；
+  未运行任何被分析目标程序；未粘专有源码正文；未破解/绕过/提取凭据。
+- 唯一 doctor warn 是 `ai:OpenCode local`（opencode 不在 PATH），属无关 AI 后端，不影响 MCP/deep 取证链。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
