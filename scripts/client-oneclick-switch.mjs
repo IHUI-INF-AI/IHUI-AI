@@ -73,13 +73,13 @@ const SWITCH_MJS = path.join(ROOT, 'scripts', 'switch-client-account.mjs')
  * 补搬/复活历史 --revive-history [--apply]。文档:docs/chat-carry.md。
  */
 const CHAT_CARRY = Object.freeze({
-  trae: { kind: 'rebind', text: '旧号对话随新号重绑(含 SQLCipher 加密正库),切完打开即是旧对话,可直接接着聊' },
+  trae: { kind: 'rebind', text: '旧号对话随新号重绑(含 SQLCipher 加密正库),切完打开即是旧对话,可直接接着聊;本机键面 287 key、117 个 uid 前缀键,条数由专用链自证' },
   workbuddy: {
     kind: 'rebind',
     text:
       '旧号对话重绑到新号(sessions/spaces/automations 三表 + 侧边栏快照分片),并把切号瞬间' +
       '被客户端打软删的会话复活 ⇒ 新号列表里看得见、点开有内容、可接着聊;' +
-      '正文按会话 id 存 projects/*.jsonl,不随账号变',
+      '正文按会话 id 存 projects/*.jsonl,不随账号变(本机当前号 0bc1074d:10 会话 / 4 可见)',
   },
   qoder: { kind: 'local', text: '对话在本地 main.sqlite、不带账号维度;本机 239 条全部归档(正常侧栏 0)、正文 5219 行仍在库里,切号后可取消归档再接着聊' },
   minimax: { kind: 'local', text: '对话在本地 runtime-state.sqlite、不带账号维度(archived=0 才是可见),切号后历史仍在并可接着聊' },
@@ -90,15 +90,19 @@ const CHAT_CARRY = Object.freeze({
   zcode: { kind: 'local', text: '任务/会话正库在 ~/.zcode/v2/tasks-index.sqlite 的 tasks 表(旧 cli/db/session 是空壳),无账号维度,切号后历史仍在并可接着聊' },
   opencode: {
     kind: 'local',
-    text: '正库是 $XDG_DATA_HOME/opencode/opencode.db 的 session_v2 + session_message(不是 drafts.sqlite),不带账号维度;credential 才是登录面,切号后旧会话仍在并可接着聊',
+    text:
+      '正库是 C:\\caches\\xdg\\data\\opencode\\opencode.db(由 XDG_DATA_HOME 推导)的 session_v2 + session_message(不是 drafts.sqlite),' +
+      '本机 0 条会话 / 0 可见 / 正文 0 条;不带账号维度,credential 才是登录面,切号后旧会话仍在并可接着聊',
   },
   loomy: {
     kind: 'local',
-    text: '正库是 C:\\Users\\Public\\Loomy\\<tenant>\\share\\opencode\\opencode.db 的 session/message/part,Local Storage 只是登录票;不带账号维度,切号后旧会话仍在并可接着聊',
+    text:
+      '正库是 C:\\Users\\Public\\Loomy\\<tenant>\\share\\opencode\\opencode.db 的 session/message/part(本机 tenant e7d3e769f3f5,' +
+      '顶层 1/1、正文 331 条、part 1662 条);Local Storage 的 loomy-auth-session 只是登录票,不带账号维度,切号后旧会话仍在并可接着聊',
   },
   codex: {
     kind: 'local',
-    text: '会话在 ~/.codex/state_5.sqlite 与 sessions/YYYY/**/*.jsonl,账号列全 NULL 不构成维度,切号后历史仍在',
+    text: '会话在 ~/.codex/state_5.sqlite 与 sessions/YYYY/**/*.jsonl(本机 threads 8 条 / 8 可见,账号列全 NULL 不构成维度),切号后历史仍在',
   },
   raccoon: {
     kind: 'local',
