@@ -24,6 +24,7 @@ import {
   gradeDistribution,
   launchReviews,
   listCycles,
+  listMyReviews,
   listReviews,
   managerScore,
   selfSubmit,
@@ -209,6 +210,21 @@ export const hrPerfRoutes: FastifyPluginAsync = async (server) => {
         if (!userId) throw new AppError('未登录', 401, 'UNAUTHORIZED')
         const emp = await selfEmployee(userId)
         return employeeDecide(id, { employeeId: emp.id }, parsed.data.action)
+      })
+    },
+  )
+
+  // 自助面:我的评估单列表(本人作用域由服务端解析,不信客户端自报 employeeId)
+  server.get(
+    '/my/reviews',
+    { preHandler: requireSelf },
+    async (request, reply) => {
+      const userId = userIdOf(request)
+      if (!userId) return reply.status(401).send(error(401, '未登录', 'UNAUTHORIZED'))
+      await guard(reply, async () => {
+        const emp = await selfEmployee(userId)
+        const rows = await listMyReviews(emp.id)
+        return { list: rows, total: rows.length }
       })
     },
   )

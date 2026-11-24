@@ -284,6 +284,15 @@ export async function listReviews(cycleId: string, status?: string) {
   return db.select().from(hrPerfReview).where(and(...conds)).orderBy(asc(hrPerfReview.employeeId))
 }
 
+/** 自助端(本人作用域):我的全部评估单(含各周期),倒序;归属由服务端 employeeId 定死 */
+export async function listMyReviews(employeeId: string) {
+  return db
+    .select()
+    .from(hrPerfReview)
+    .where(and(eq(hrPerfReview.employeeId, employeeId), isNull(hrPerfReview.deletedAt)))
+    .orderBy(sql`${hrPerfReview.createdAt} desc`)
+}
+
 /** 等级分布报表(定稿单的 grade 计数;只数事实不做强制分布判定) */
 export async function gradeDistribution(cycleId: string) {
   return db

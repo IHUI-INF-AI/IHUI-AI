@@ -12291,7 +12291,9 @@
       "pinnedFirst": "置頂優先"
     },
     "titleHistoryOriginal": "原始歷史",
-    "titleHistoryCurrent": "目前歷史"
+    "titleHistoryCurrent": "目前歷史",
+    "sourceApp": "來源應用程式",
+    "sourceMiniApp": "迷你程式錄入"
   },
   "chatSettingsPage": {
     "back": "返回",
@@ -30724,6 +30726,7 @@
     "cycleEnd": "結束",
     "scoreLabel": "分數",
     "managerComment": "評語",
-    "perfReviewsTitle": "評估單"
+    "perfReviewsTitle": "評估單",
+    "trCourse": "課程"
   }
 }

@@ -22,6 +22,7 @@ import {
   enroll,
   listCourses,
   listEnrollments,
+  listMyEnrollments,
   listPlans,
   markCompleted,
   markDropped,
@@ -212,7 +213,27 @@ export const hrTrainingRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // ---------- 自助面:本人学时 ----------
+  // ---------- 自助面:本人记录与学时(归属由服务端解析,不信客户端自报) ----------
+  server.get(
+    '/my/enrollments',
+    { preHandler: requireSelf },
+    async (request, reply) => {
+      const userId = userIdOf(request)
+      if (!userId) return reply.status(401).send(error(401, '未登录', 'UNAUTHORIZED'))
+      await guard(reply, async () => {
+        const [emp] = await db
+          .select({ id: hrEmployee.id })
+          .from(hrEmployee)
+          .where(eq(hrEmployee.userId, userId))
+          .limit(1)
+        if (!emp) throw new AppError('未关联员工档案,无培训记录可查', 403, 'TRAINING_NO_EMPLOYEE')
+        const rows = await listMyEnrollments(emp.id)
+        const hours = await employeeTrainingHours(emp.id)
+        return { list: rows, total: rows.length, hours }
+      })
+    },
+  )
+
   server.get(
     '/my/hours',
     { preHandler: requireSelf },

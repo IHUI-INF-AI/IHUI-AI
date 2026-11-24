@@ -12357,7 +12357,9 @@
       "byTime": "日時順",
       "label": "並び替え方法",
       "pinnedFirst": "ピン留め優先"
-    }
+    },
+    "sourceApp": "ソースアプリ",
+    "sourceMiniApp": "ミニアプリ入力"
   },
   "chatSettingsPage": {
     "back": "戻る",
@@ -31257,6 +31259,7 @@
     "cycleEnd": "終了",
     "scoreLabel": "点数",
     "managerComment": "コメント",
-    "perfReviewsTitle": "評価一覧"
+    "perfReviewsTitle": "評価一覧",
+    "trCourse": "コース"
   }
 }

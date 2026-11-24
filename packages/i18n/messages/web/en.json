@@ -12291,7 +12291,9 @@
       "pinnedFirst": "Pinned first"
     },
     "titleHistoryOriginal": "Original History",
-    "titleHistoryCurrent": "Current History"
+    "titleHistoryCurrent": "Current History",
+    "sourceApp": "Source app",
+    "sourceMiniApp": "Mini-app entry"
   },
   "chatSettingsPage": {
     "back": "Back",
@@ -30724,6 +30726,7 @@
     "cycleEnd": "End",
     "scoreLabel": "Score",
     "managerComment": "Comment",
-    "perfReviewsTitle": "Reviews"
+    "perfReviewsTitle": "Reviews",
+    "trCourse": "Course"
   }
 }
