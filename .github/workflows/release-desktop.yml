@@ -593,8 +593,9 @@ jobs:
           echo "platform=${{ matrix.label }} 应有目标齐备;产物总数 $TOTAL"
 
       # 2026-11-24 真实事故回归：旧 /UPDATE 硬闸把 MessageBox 放在 .onInit，静默安装永久挂住。
+      # 同时锁住“应用在跑也绝不替用户 KillProcess”。
       # 本步用真安装→两次 /UPDATE→卸载，任何弹窗都会让子进程超时，直接判红。
-      - name: Verify installer /UPDATE has no UI (Windows)
+      - name: Verify installer never kills app and /UPDATE has no UI (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |

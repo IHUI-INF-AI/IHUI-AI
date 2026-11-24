@@ -14,16 +14,26 @@
  *   node scripts/check-desktop-installer-e2e.mjs --installer <智汇AI_x.y.z_x64-setup.exe>
  *
  * 判据：
+ *   0. 同名进程在跑时静默安装 exit 5，且该进程仍活着（安装器绝不 KillProcess）；
  *   1. 静默安装 exit 0，state.json 可解析；
  *   2. /S /UPDATE exit 2 且 < 8s；
  *   3. 非静默 /UPDATE exit 2 且 < 8s（这条最容易把弹窗带回来）；
  *   4. 两次 /UPDATE 后 state.json 逐字节不变；
- *   5. 静默卸载 exit 0，目录删除。
+ *   5. 卸载时同名进程在跑：不杀进程、不继续删除；随后静默卸载 exit 0，目录删除。
  */
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { spawnSync } from 'node:child_process'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
+import { spawn, spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 
 const TIMEOUT_UPDATE_MS = 8_000
 const TIMEOUT_INSTALL_MS = 60_000
@@ -64,6 +74,78 @@ function run(label, exe, args, timeout, expected) {
   console.log(`[installer-e2e] PASS ${label}: exit=${r.status} ${elapsed}ms`)
 }
 
+/**
+ * 安装器不能在“应用还在跑”时替用户 KillProcess。
+ * 这里用同名 ping 进程冒充产品进程：静默安装必须 exit 5 且该进程仍活着。
+ */
+function runNoKillProbe(setup, installDir, productName, root) {
+  const dummyDir = join(root, 'no-kill-probe')
+  const dummyExe = join(dummyDir, `${productName}.exe`)
+  mkdirSync(dummyDir, { recursive: true })
+  copyFileSync(join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'ping.exe'), dummyExe)
+
+  const dummy = spawn(dummyExe, ['-t', '127.0.0.1'], {
+    windowsHide: true,
+    stdio: 'ignore',
+  })
+  const started = Date.now()
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 300)
+  if (dummy.exitCode !== null) fail('无法启动同名探针进程', root)
+
+  try {
+    const r = spawnSync(setup, ['/S', `/D=${installDir}`], {
+      timeout: TIMEOUT_UPDATE_MS,
+      windowsHide: true,
+      stdio: 'ignore',
+    })
+    const elapsed = Date.now() - started
+    if (r.error?.code === 'ETIMEDOUT') fail(`进程在跑时安装器超时 ${elapsed}ms`, root)
+    if (r.error) fail(`进程在跑时安装器启动失败：${r.error.message}`, root)
+    if (r.status !== 5) fail(`进程在跑时安装器退出码 ${r.status}，期望 5`, root)
+    if (dummy.exitCode !== null) fail('安装器把正在运行的应用杀掉了', root)
+    console.log(`[installer-e2e] PASS 进程在跑不杀进程: exit=${r.status} ${elapsed}ms`)
+  } finally {
+    dummy.kill()
+    rmSync(dummyDir, { recursive: true, force: true })
+    rmSync(installDir, { recursive: true, force: true })
+  }
+}
+
+/**
+ * 卸载器同样不能杀进程。NSIS 卸载器是“复制到临时目录再执行”的壳，
+ * 壳进程退出码恒为 0，所以这里不看退出码，只看两个硬事实：
+ * 同名进程仍活着，且 state.json 没有被删掉（说明卸载没有继续执行）。
+ */
+function runNoKillUninstallProbe(uninstaller, installDir, productName, stateFile, root) {
+  const dummyDir = join(root, 'no-kill-uninstall-probe')
+  const dummyExe = join(dummyDir, `${productName}.exe`)
+  mkdirSync(dummyDir, { recursive: true })
+  copyFileSync(join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'ping.exe'), dummyExe)
+
+  const dummy = spawn(dummyExe, ['-t', '127.0.0.1'], {
+    windowsHide: true,
+    stdio: 'ignore',
+  })
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 300)
+  if (dummy.exitCode !== null) fail('无法启动卸载探针进程', root)
+
+  try {
+    const r = spawnSync(uninstaller, ['/S'], {
+      timeout: TIMEOUT_UPDATE_MS,
+      windowsHide: true,
+      stdio: 'ignore',
+    })
+    if (r.error?.code === 'ETIMEDOUT') fail('进程在跑时卸载器超时（疑似弹窗）', root)
+    if (r.error) fail(`进程在跑时卸载器启动失败：${r.error.message}`, root)
+    if (dummy.exitCode !== null) fail('卸载器把正在运行的应用杀掉了', root)
+    if (!existsSync(stateFile)) fail('进程在跑时卸载器仍然继续删除了安装目录', root)
+    console.log('[installer-e2e] PASS 卸载时进程在跑不杀进程且不继续删除')
+  } finally {
+    dummy.kill()
+    rmSync(dummyDir, { recursive: true, force: true })
+  }
+}
+
 if (process.platform !== 'win32') {
   console.error('[installer-e2e] 未判定：仅 Windows 可执行 NSIS 安装器测试')
   process.exit(2)
@@ -80,8 +162,11 @@ const installDir = join(root, 'app')
 const setup = installer
 const uninstaller = join(installDir, 'uninstall.exe')
 const stateFile = join(installDir, 'state.json')
+const productName = basename(setup).replace(/_\d+\.\d+\.\d+.*$/, '')
+if (!productName) fail('无法从安装包文件名推导产品名', root)
 
 try {
+  runNoKillProbe(setup, installDir, productName, root)
   run('静默安装', setup, ['/S', `/D=${installDir}`], TIMEOUT_INSTALL_MS, 0)
   if (!existsSync(stateFile)) fail('安装后没有 state.json', root)
   const installed = readFileSync(stateFile, 'utf8')
@@ -115,6 +200,7 @@ try {
   if (existsSync(join(installDir, 'state.json.tmp'))) fail('/UPDATE 后残留 state.json.tmp', root)
 
   if (!existsSync(uninstaller)) fail('安装目录缺少 uninstall.exe', root)
+  runNoKillUninstallProbe(uninstaller, installDir, productName, stateFile, root)
   run('静默卸载', uninstaller, ['/S'], TIMEOUT_INSTALL_MS, 0)
   if (existsSync(installDir)) {
     // NSIS 卸载器可能把自删除进程留到下一拍；最多等 2 秒再判。

@@ -34,6 +34,9 @@
   硬闸同时检查 `/D` 目标目录与注册表里的原安装目录，过期注册表不能绕过。
 - 安装器写 `state.json` 同样走 `.tmp` + `MoveFileEx(REPLACE_EXISTING|WRITE_THROUGH)` 原子替换，
   并在替换前把旧 state 复制为 `.bak`，不会在写失败时留下半截 JSON 或让 Launcher 回退到更早的任意备份。
+- 安装/卸载发现 Launcher、payload 或旧主程序仍在运行时，**绝不杀进程**：静默安装以退出码 5
+  结束且不弹窗；卸载器壳进程的退出码由 NSIS 固定为 0，但同样不弹窗、不杀进程、不继续删除；
+  交互模式只提示“请关闭后重试”后退出。用户未保存的草稿不能被安装器替他们关掉。
 - 全新安装的默认目录会做一次真实写探针；`D:\software` 等归集目录对当前用户不可写时，
   自动回退 `%LOCALAPPDATA%\Programs\<产品名>`，不会等到复制载荷才失败。
 
@@ -42,7 +45,8 @@
 - `node scripts/desktop-nsis-template.mjs --check` 会拒绝 `/UPDATE` 硬闸里的 `MessageBox`
   与带字符串的 `Abort`，并强制保留“`/D` 目标 + 注册表目录”双路径识别和退出码 2。
 - `node scripts/check-desktop-installer-e2e.mjs --installer <setup.exe>` 做真机
-  安装 → 静默/非静默两次 `/UPDATE` → 卸载；任何弹窗都会让子进程超时并判红。
+  同名进程探针（必须 exit 5 且进程仍活着）→ 安装 → 静默/非静默两次 `/UPDATE` → 卸载；
+  任何弹窗都会让子进程超时并判红，任何 KillProcess 都会让探针进程消失并判红。
 
 ## 一次更新的完整时序
 

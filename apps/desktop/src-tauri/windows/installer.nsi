@@ -59,6 +59,33 @@ ${StrLoc}
 !define VERSIONWITHBUILD "{{version_with_build}}"
 !define HOMEPAGE "{{homepage}}"
 !define INSTALLMODE "{{install_mode}}"
+; ==== IHUI 定制:安装器/卸载器绝不替用户结束进程 ====
+; 上游 utils.nsh 的 CheckIfAppIsRunning 在静默模式会直接 KillProcess，
+; 交互模式则给“确定终止”按钮。用户可能正在编辑草稿，安装器无权替他们关应用；
+; 这里只做只读探测：静默→退出码 5，交互→提示先关闭后退出，杀进程代码为零。
+!macro IHUI_CHECK_APP_NOT_RUNNING executableName productName
+  !define UniqueID ${__LINE__}
+  !if "${INSTALLMODE}" == "currentUser"
+    nsis_tauri_utils::FindProcessCurrentUser "${executableName}"
+  !else
+    nsis_tauri_utils::FindProcess "${executableName}"
+  !endif
+  Pop $R0
+  ${If} $R0 = 0
+    IfSilent ihui_app_running_silent_${UniqueID} 0
+    nsis_tauri_utils::StrReplace "$(appRunning)" "{{product_name}}" "${productName}"
+    Pop $R1
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$R1"
+    SetErrorLevel 5
+    Quit
+    ihui_app_running_silent_${UniqueID}:
+      DetailPrint "app running, installer exit 5: ${executableName}"
+      SetErrorLevel 5
+      Quit
+  ${EndIf}
+  !undef UniqueID
+!macroend
+; ==== IHUI 定制结束 ====
 !define LICENSE "{{license}}"
 !define INSTALLERICON "{{installer_icon}}"
 !define SIDEBARIMAGE "{{sidebar_image}}"
@@ -779,11 +806,11 @@ Section Install
     !insertmacro NSIS_HOOK_PREINSTALL
   !endif
 
-  !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  !insertmacro IHUI_CHECK_APP_NOT_RUNNING "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
   ; Launcher 被强杀但 payload 仍在跑（孤儿进程）时，也必须拦住静默覆盖。
-  !insertmacro CheckIfAppIsRunning "${PAYLOADNAME}.exe" "${PRODUCTNAME}"
+  !insertmacro IHUI_CHECK_APP_NOT_RUNNING "${PAYLOADNAME}.exe" "${PRODUCTNAME}"
   ; 0.1.92 旧主程序名：升级时旧进程还在跑，同样不能覆盖/删文件。
-  !insertmacro CheckIfAppIsRunning "ihui-desktop.exe" "${PRODUCTNAME}"
+  !insertmacro IHUI_CHECK_APP_NOT_RUNNING "ihui-desktop.exe" "${PRODUCTNAME}"
 
   ; Payload 落到版本目录:运行中的旧版本不被覆盖,更新只新增目录 + 切 state 指针。
   CreateDirectory "$INSTDIR\versions\${VERSION}"
@@ -1060,10 +1087,10 @@ Section Uninstall
     !insertmacro NSIS_HOOK_PREUNINSTALL
   !endif
 
-  !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
-  !insertmacro CheckIfAppIsRunning "${PAYLOADNAME}.exe" "${PRODUCTNAME}"
+  !insertmacro IHUI_CHECK_APP_NOT_RUNNING "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  !insertmacro IHUI_CHECK_APP_NOT_RUNNING "${PAYLOADNAME}.exe" "${PRODUCTNAME}"
   ; 0.1.92 旧主程序名：卸载时旧进程还在跑，不能删正在执行的 exe。
-  !insertmacro CheckIfAppIsRunning "ihui-desktop.exe" "${PRODUCTNAME}"
+  !insertmacro IHUI_CHECK_APP_NOT_RUNNING "ihui-desktop.exe" "${PRODUCTNAME}"
 
   !insertmacro IHUI_UNPROGRESS 20 "正在删除程序文件"
   ; Delete the app directory and its content from disk

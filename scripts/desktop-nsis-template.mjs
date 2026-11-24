@@ -611,6 +611,29 @@ function assertSilentUpdateGuard(text) {
 }
 assertSilentUpdateGuard(current)
 
+/**
+ * 安装器绝不替用户结束进程：上游 CheckIfAppIsRunning 在静默模式会 KillProcess，
+ * 交互模式给“终止”按钮。用户可能正在编辑草稿，安装/卸载只能提示后退出。
+ */
+function assertNoKillProcess(text) {
+  const failures = []
+  if (text.includes('nsis_tauri_utils::KillProcess')) failures.push('仍有 KillProcess 调用')
+  if (text.includes('!insertmacro CheckIfAppIsRunning')) {
+    failures.push('仍有上游 CheckIfAppIsRunning 调用')
+  }
+  if (!text.includes('!macro IHUI_CHECK_APP_NOT_RUNNING')) {
+    failures.push('缺少 IHUI_CHECK_APP_NOT_RUNNING 宏')
+  }
+  const calls = (text.match(/!insertmacro IHUI_CHECK_APP_NOT_RUNNING/g) || []).length
+  if (calls < 6) failures.push(`IHUI_CHECK_APP_NOT_RUNNING 调用不足（${calls}/6）`)
+  if (!text.includes('SetErrorLevel 5')) failures.push('缺少“进程在跑”退出码 5')
+  if (failures.length) {
+    console.error(`[desktop-nsis-template] NO-KILL-GUARD 回归:${failures.join('；')}`)
+    process.exit(1)
+  }
+}
+assertNoKillProcess(current)
+
 if (current === expected) {
   // ⚠️ 这里**不能**写成 `console.log(…)` 之后紧跟 `process.exit(0)`(2026-10-12 实测):
   // stdout 是 pipe 时(守门并行派发 stdio: ['ignore','pipe','pipe']),本机 Node v24 上
