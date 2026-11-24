@@ -18,7 +18,12 @@
  *
  * 分层：准入 / 握手状态机 / 交接判据 / worker 集合追踪全是纯判据（注入假 IPC 通道 + 假时钟，
  * 零真实副作用）；`spawnDetachedSupervisor` 是唯一有 spawn 副作用的薄 runner。
- * 本模块不接现有命令链的缺省路径（零缺省行为变化），入口待后续命令层显式接线。
+ *
+ * 待承载（2026-11-24 核查）：本仓 apps/cli 尚无常驻 daemon 启动路径 —— serve / rtc serve /
+ * rtc signal 均为进程内单进程常驻，relay 是短命令，graceful-restart 是自重启（方向不同），
+ * 没有「主进程 detached 拉起独立 daemon worker 并经 IPC 握手看护、worker 清零自退」的链路。
+ * 故本模块当前由测试直接消费，不接现有命令链的缺省路径（零缺省行为变化）；待后续出现真实
+ * 常驻 daemon 启动子命令时，再由命令层显式接线，不为凑 importer 造假命令。
  */
 
 import { spawn, type SpawnOptions } from 'node:child_process'

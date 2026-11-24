@@ -9,6 +9,10 @@
  * 复用 server/http-server.ts(node:http 创建 server)+ server/ws-bridge.ts(WS 桥)。
  * 平台独占:仅 cli(W1-2 Client/Server 架构,对齐 OpenCode client/server)。
  *
+ * B4-04 单例预检:绑定端口前先用 daemon 注册表三判据(存活→身份→host→端口)查同 host
+ * 在跑实例;命中才阻断并报具名原因(pid/port/host/identity)。无台账文件 / 台账读失败 /
+ * 任一判据未判定 ⇒ 一律回落原绑定流程,不新增失败分支(零缺省行为变化)。
+ *
  * O12 机器凭据接入:
  *   - 入站:除既有 IHUI_AGENT_TOKEN 外,还可放行服务端 API Key(`Bearer ihui_xxx`
  *     + `X-Api-Secret: sk_xxx`),按端点 scope 做能力闸。
@@ -24,6 +28,16 @@ import { AgentCore, startAgentServer, attachWsBridge } from '../server/index.js'
 import { isLoopbackHost } from '../server/http-server.js';
 import { loadSettings, resolveEffectiveConfig } from './settings.js';
 import { envBool } from '../config/env.js';
+import {
+  DaemonRegistry,
+  JsonFileRegistryStore,
+  defaultAliveProbe,
+  defaultRegistryFilePath,
+  matchIdentityProbe,
+  probePortOpen,
+  type DaemonRegistryEntry,
+} from '../daemon/registry.js';
+import { readCliPackage } from '../util/pkg-version.js';
 import {
   installOutboundCredentialHeaders,
   machineKeysFromSettings,
@@ -200,6 +214,23 @@ export function registerServeCommand(program: Command): void {
         );
         process.exit(1);
       }
+
+      // ---- 单例预检(B4-04):注册表三判据查同 host 在跑实例 ----
+      // 零缺省回落:无台账文件 / 台账读失败 / 任一判据未判定 ⇒ 一律继续原绑定流程,不新增失败分支。
+      const registry = registryFactory();
+      const existing = await checkExistingServeInstance(registry, {
+        host: bindHost,
+        kind: SERVE_REGISTRY_KIND,
+      });
+      if (existing.status === 'running' && existing.entry) {
+        const e = existing.entry;
+        const detail = `pid=${e.pid} port=${e.port} host=${e.host} identity=${e.identity}`;
+        console.error(chalk.red(`✗ 已有在跑实例: ${detail}`));
+        emit({ type: 'error', errorCode: 'SERVER_START_FAILED', message: `instance-alive ${detail}`, exitCode: 1 });
+        process.exit(1);
+        return;
+      }
+
       try {
         const handle = await startAgentServer(core, {
           port,
@@ -217,6 +248,20 @@ export function registerServeCommand(program: Command): void {
           machineKeys,
           requireApiSecret,
         });
+        // best-effort 把自身登记进 daemon 台账:台账只是探测辅助,写失败不阻断服务
+        // (交端口占用报错兜底;陈旧回收轮兜不住时由后续探针判定)。
+        try {
+          registry.register({
+            pid: process.pid,
+            identity: serveIdentityFingerprint(),
+            port: handle.port,
+            host: bindHost,
+            kind: SERVE_REGISTRY_KIND,
+            registeredAtMs: Date.now(),
+          });
+        } catch {
+          // 台账 io 失败 ⇒ 不外抛、不影响启动。
+        }
         const inboundSummary = {
           agentTokenConfigured: Boolean(opts.token ?? process.env.IHUI_AGENT_TOKEN),
           machineKeys: machineKeys.length,
@@ -288,5 +333,53 @@ function describeCredentialForLog(
   if (maskedToken) summary.token = maskedToken;
   if (maskedSecret) summary.secret = maskedSecret;
   return summary;
+}
+
+/** 本进程在 daemon 台账里的身份指纹:CLI 版本号;版本取不到退 `unknown`(不冒空身份)。 */
+export function serveIdentityFingerprint(): string {
+  const version = readCliPackage(import.meta.url)?.version ?? 'unknown';
+  return `cli@${version}`;
+}
+
+/** 台账内 serve 实例的 kind 标签;预检与自登记共用同一份字面量。 */
+export const SERVE_REGISTRY_KIND = 'serve';
+
+/**
+ * 注册表装配工厂。默认:JSON 文件台账 + 存活/身份/端口三枚默认探针;
+ * 测试可经 `__setRegistryFactoryForTest` 换成内存台账 + 假探针,零 fs / 零网络副作用。
+ */
+let registryFactory: () => DaemonRegistry = () => {
+  const store = new JsonFileRegistryStore(defaultRegistryFilePath());
+  return new DaemonRegistry(store, {
+    isAlive: defaultAliveProbe,
+    isIdentityCurrent: matchIdentityProbe(serveIdentityFingerprint()),
+    isPortOpen: probePortOpen,
+  });
+};
+
+/** 测试专用:替换注册表装配(落盘台账 / 真实探针不进测试路径)。 */
+export function __setRegistryFactoryForTest(factory: () => DaemonRegistry): void {
+  registryFactory = factory;
+}
+
+export interface ExistingInstanceCheck {
+  readonly status: 'running' | 'none' | 'unjudged';
+  readonly entry: DaemonRegistryEntry | null;
+  readonly storeError: string | null;
+}
+
+/**
+ * 绑定前单例预检(B4-04):按 存活→身份→host→端口 三判据查同 host/kind 的在跑实例。
+ * 零缺省回落:台账读失败 / 任一判据未判定 ⇒ `unjudged`,调用方照旧走原绑定流程,不新增失败分支。
+ */
+export async function checkExistingServeInstance(
+  registry: DaemonRegistry,
+  query: { host: string; kind?: string },
+): Promise<ExistingInstanceCheck> {
+  const result = await registry.findRunning({
+    kind: query.kind ?? SERVE_REGISTRY_KIND,
+    host: query.host,
+  });
+  return { status: result.status, entry: result.entry, storeError: result.storeError };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
