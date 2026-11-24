@@ -37,6 +37,16 @@ const PIP_KEYS = [
   'statusError',
   'statusStalled',
   'tooSmall',
+  'checkpointProgress',
+  'checkpointWaiting',
+  'continueLabel',
+  'taskFailed',
+  'templateMenuLabel',
+  'templateLogin',
+  'templateForm',
+  'templatePayment',
+  'templateDownload',
+  'templateNoSession',
 ] as const
 
 beforeEach(() => {
@@ -109,6 +119,8 @@ describe('D181 锚点层:面板溢出菜单入口', () => {
       'utf-8',
     )
     expect(panel).toContain('data-testid="ai-panel-open-pip"')
+    expect(panel).toContain('data-testid={`ai-panel-pip-template-${template.id}`}')
+    expect(panel).toContain('startPipFromTemplate')
     expect(panel).toContain('openPictureInPictureWindow')
     const host = readFileSync(
       resolve(process.cwd(), 'src/components/chat/message-list/MessageList.tsx'),
@@ -121,7 +133,7 @@ describe('D181 锚点层:面板溢出菜单入口', () => {
 describe('D181 词包层:aiChat.pictureInPicture 五语言直锁', () => {
   const LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko'] as const
   for (const locale of LOCALES) {
-    it(`${locale}:十二键齐全且非空`, () => {
+    it(`${locale}:画中画词条齐全且非空`, () => {
       const m = JSON.parse(
         readFileSync(
           resolve(process.cwd(), `../../packages/i18n/messages/web/${locale}.json`),

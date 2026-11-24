@@ -31,6 +31,10 @@ const LABELS: BrowserPipLabels = {
   error: 'Screen disconnected',
   stalled: (seconds) => `Screen has not updated for ${seconds}s`,
   tooSmall: 'Window too small',
+  checkpointProgress: (done, total) => `Checkpoint ${done}/${total}`,
+  checkpointWaiting: (label) => `Waiting for you: ${label}`,
+  continueLabel: 'Done, continue',
+  taskFailed: 'Action not delivered',
 }
 
 class FakeWebSocket {
@@ -191,6 +195,44 @@ describe('openBrowserPipMonitor:真实浮窗 DOM 与状态流转', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(isBrowserPipOpen()).toBe(false)
     expect(ws.readyState).toBe(3)
+  })
+
+  it('任务条:目标/进度/当前检查点可见,「继续」发出恢复协议', async () => {
+    const { openBrowserPipMonitor } = await import('../browser-pip')
+    const handle = await openBrowserPipMonitor({ sessionId: 'session-task', labels: LABELS })
+    const win = opened!.win
+    const ws = FakeWebSocket.instances[0]!
+    ws.emitOpen()
+
+    handle!.setTask({
+      task_id: 'task_1',
+      goal: '完成支付',
+      requirements: ['核对金额'],
+      checkpoints: [
+        { id: 'checkout', label: '进入结算页', status: 'done' },
+        { id: 'pay', label: '付款前确认', status: 'active' },
+      ],
+    })
+    handle!.setPhase('waiting')
+
+    expect(win.document.body.textContent).toContain('完成支付')
+    expect(win.document.body.textContent).toContain('Checkpoint 1/2')
+    expect(win.document.body.textContent).toContain('Waiting for you: 付款前确认')
+
+    const continueBtn = Array.from(win.document.querySelectorAll('button')).find(
+      (candidate) => candidate.textContent === 'Done, continue',
+    )
+    expect(continueBtn).toBeTruthy()
+    expect((continueBtn as HTMLElement).style.display).not.toBe('none')
+    continueBtn!.click()
+    expect(ws.sent.some((item) => item.includes('checkpoint_resume'))).toBe(true)
+    expect(ws.sent.some((item) => item.includes('"pay"'))).toBe(true)
+
+    ws.emitMessage({
+      type: 'phase',
+      phase: 'running',
+    })
+    expect((continueBtn as HTMLElement).style.display).toBe('none')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

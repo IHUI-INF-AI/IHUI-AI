@@ -72,6 +72,98 @@ export function storePipSize(size: PipSize, storage?: WritableStorage | null): v
 
 export type BrowserPipPhase = 'running' | 'waiting' | 'gate' | 'error'
 
+/** 任务检查点状态(服务端 browser_task 同名字面量) */
+export type BrowserPipCheckpointStatus = 'pending' | 'active' | 'done'
+
+export interface BrowserPipCheckpoint {
+  id: string
+  label: string
+  match: string | null
+  status: BrowserPipCheckpointStatus
+  enteredAt: string | null
+  doneAt: string | null
+}
+
+export interface BrowserPipTask {
+  taskId: string
+  templateId: string | null
+  goal: string
+  requirements: string[]
+  checkpoints: BrowserPipCheckpoint[]
+  createdAt: string | null
+}
+
+export interface BrowserPipTaskView {
+  task: BrowserPipTask
+  /** 当前 active 的检查点;没有则为 null */
+  active: BrowserPipCheckpoint | null
+  done: number
+  total: number
+  /** true = 当前有检查点正在等人,浮窗应出现「继续」 */
+  waitingAtCheckpoint: boolean
+}
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function normalizeCheckpointStatus(value: unknown): BrowserPipCheckpointStatus {
+  return value === 'active' || value === 'done' ? value : 'pending'
+}
+
+/**
+ * 归一服务端任务快照。服务端字段是 snake_case,前端类型是 camelCase,
+ * 这里同时接受两种写法,避免协议演进时前端静默丢任务。
+ */
+export function normalizeBrowserPipTask(raw: unknown): BrowserPipTask | null {
+  if (!raw || typeof raw !== 'object') return null
+  const source = raw as Record<string, unknown>
+  const goal = asString(source.goal).trim()
+  if (!goal) return null
+  const checkpointsRaw = Array.isArray(source.checkpoints) ? source.checkpoints : []
+  const checkpoints: BrowserPipCheckpoint[] = []
+  for (const item of checkpointsRaw) {
+    if (!item || typeof item !== 'object') continue
+    const cp = item as Record<string, unknown>
+    const id = asString(cp.id).trim()
+    if (!id) continue
+    checkpoints.push({
+      id,
+      label: asString(cp.label).trim() || id,
+      match: asString(cp.match) || null,
+      status: normalizeCheckpointStatus(cp.status),
+      enteredAt: asString(cp.entered_at ?? cp.enteredAt) || null,
+      doneAt: asString(cp.done_at ?? cp.doneAt) || null,
+    })
+  }
+  if (checkpoints.length === 0) return null
+  return {
+    taskId: asString(source.task_id ?? source.taskId),
+    templateId: asString(source.template_id ?? source.templateId) || null,
+    goal,
+    requirements: Array.isArray(source.requirements)
+      ? source.requirements.map((item) => asString(item)).filter(Boolean)
+      : [],
+    checkpoints,
+    createdAt: asString(source.created_at ?? source.createdAt) || null,
+  }
+}
+
+/** 给浮窗渲染用的派生视图:只算事实,不碰 DOM。 */
+export function resolveBrowserPipTaskView(raw: unknown): BrowserPipTaskView | null {
+  const task = normalizeBrowserPipTask(raw)
+  if (!task) return null
+  const active = task.checkpoints.find((cp) => cp.status === 'active') ?? null
+  const done = task.checkpoints.filter((cp) => cp.status === 'done').length
+  return {
+    task,
+    active,
+    done,
+    total: task.checkpoints.length,
+    waitingAtCheckpoint: active !== null,
+  }
+}
+
 export type BrowserPipStatusKind =
   'connecting' | 'running' | 'stalled' | 'waiting' | 'gate' | 'error'
 

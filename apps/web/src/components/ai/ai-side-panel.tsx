@@ -86,7 +86,7 @@ import { AI_PANEL_MAX_WIDTH, AI_PANEL_MIN_WIDTH, useAiPanelStore } from '@/store
 import { useEnvironmentInfoStore } from '@/stores/environment-info'
 import { useTerminalDockStore } from '@/stores/terminal-dock'
 import { useLoginDialogStore } from '@/stores/login-dialog'
-import { getConversation, getConversationHistory, getMessages } from '@ihui/api-client'
+import { getConversation, getConversationHistory, getMessages, bindBrowserTask } from '@ihui/api-client'
 import { parsePendingQuestion } from '@/lib/pending-question'
 // 2026-11:新建对话时把「提示留痕」一并归零(与 RN 的 handleDrawerCreateNewChat 同语义),
 // 否则「新建」后还能看到上一个新会话残留的提示。
@@ -479,35 +479,76 @@ export function AISidePanel() {
     setPipSupported(isDocumentPictureInPictureSupported())
   }, [])
   const pipLabels = useBrowserPipLabels()
-  // 2026-11-24:有活跃 CDP 会话就接实时画面,没有才回落 D181 的空态窗。
-  // 「接管」把右侧工作面切回该 tab 并展开面板(浮窗此时已关掉,输入回到主窗口)。
-  const openPipFromPanel = React.useCallback(() => {
+  // 模板入口只给内置 id;目标/要求/检查点由服务端展开,前端不复制一份模板真相。
+  const pipTemplates = [
+    { id: 'login-handoff', label: tc('pictureInPicture.templateLogin') },
+    { id: 'form-commit', label: tc('pictureInPicture.templateForm') },
+    { id: 'payment-confirm', label: tc('pictureInPicture.templatePayment') },
+    { id: 'download-export', label: tc('pictureInPicture.templateDownload') },
+  ] as const
+  const resolvePipTarget = React.useCallback(() => {
     const state = useWorkPanelStore.getState()
     const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId)
     const cdpTab =
       activeTab && activeTab.state.mode === 'cdp' && activeTab.state.sessionId
         ? activeTab
         : state.tabs.find((tab) => tab.state.mode === 'cdp' && tab.state.sessionId)
-    const targetSessionId = cdpTab?.state.sessionId ?? null
-    if (!cdpTab || !targetSessionId) {
+    const sessionId = cdpTab?.state.sessionId ?? null
+    if (!cdpTab || !sessionId) return null
+    return { tabId: cdpTab.id, sessionId, title: cdpTab.title }
+  }, [])
+  // 2026-11-24:有活跃 CDP 会话就接实时画面,没有才回落 D181 的空态窗。
+  // 「接管」把右侧工作面切回该 tab 并展开面板(浮窗此时已关掉,输入回到主窗口)。
+  const openPipFromPanel = React.useCallback(() => {
+    const target = resolvePipTarget()
+    if (!target) {
       openPictureInPictureWindow({
         title: tc('pictureInPicture.title'),
         emptyState: tc('pictureInPicture.emptyState'),
       })
       return
     }
-    const targetTabId = cdpTab.id
     void openBrowserPipMonitor({
-      sessionId: targetSessionId,
-      title: cdpTab.title,
+      sessionId: target.sessionId,
+      title: target.title,
       labels: pipLabels,
       onHandover: () => {
         const latest = useWorkPanelStore.getState()
-        if (latest.tabs.some((tab) => tab.id === targetTabId)) latest.setActiveTab(targetTabId)
+        if (latest.tabs.some((tab) => tab.id === target.tabId)) latest.setActiveTab(target.tabId)
         latest.openPanel()
       },
     })
-  }, [pipLabels, tc])
+  }, [pipLabels, resolvePipTarget, tc])
+  // 按模板监看:先绑定任务(服务端校验/展开),再开浮窗;浮窗连上后从服务端快照拿到任务条。
+  const startPipFromTemplate = React.useCallback(
+    async (templateId: string) => {
+      const target = resolvePipTarget()
+      if (!target) {
+        toast.error(tc('pictureInPicture.templateMenuLabel'), {
+          description: tc('pictureInPicture.templateNoSession'),
+        })
+        return
+      }
+      const res = await bindBrowserTask(target.sessionId, { template_id: templateId })
+      if (!res.success) {
+        toast.error(tc('pictureInPicture.templateMenuLabel'), {
+          description: res.error || tc('pictureInPicture.taskFailed'),
+        })
+        return
+      }
+      await openBrowserPipMonitor({
+        sessionId: target.sessionId,
+        title: target.title,
+        labels: pipLabels,
+        onHandover: () => {
+          const latest = useWorkPanelStore.getState()
+          if (latest.tabs.some((tab) => tab.id === target.tabId)) latest.setActiveTab(target.tabId)
+          latest.openPanel()
+        },
+      })
+    },
+    [pipLabels, resolvePipTarget, tc],
+  )
   const tcommon = useTranslations('common')
   // 登录态门(与 settings 页同型):未就绪/未登录不发注定 401 的会话历史请求,消息区改显登录引导
   const tGate = useTranslations('chatHistory')
@@ -2960,6 +3001,18 @@ export function AISidePanel() {
                           <span className="truncate">{tc('pictureInPicture.openWindow')}</span>
                         </DropdownMenu.Item>
                       )}
+                      {pipSupported &&
+                        pipTemplates.map((template) => (
+                          <DropdownMenu.Item
+                            key={template.id}
+                            data-testid={`ai-panel-pip-template-${template.id}`}
+                            className={MENU_ITEM_CLASS}
+                            onSelect={() => void startPipFromTemplate(template.id)}
+                          >
+                            <PictureInPicture2 className={MENU_ITEM_ICON_CLASS} />
+                            <span className="truncate">{template.label}</span>
+                          </DropdownMenu.Item>
+                        ))}
                       <DropdownMenu.Label className={MENU_ITEM_SECTION_CLASS}>
                         {tc('headerActions.groupSession')}
                       </DropdownMenu.Label>
