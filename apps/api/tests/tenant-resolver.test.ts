@@ -183,8 +183,14 @@ describe('isPublicPath — 公开路径白名单（R15 补全）', () => {
     expect(isPublicPath('/api/admin/users')).toBe(false)
   })
 
-  it('/api/users/profile → false（非公开）', () => {
-    expect(isPublicPath('/api/users/profile')).toBe(false)
+  it('/api/users/profile → true（第一方用户面免租户，但仍需登录）', () => {
+    // 2026-11-23 起 `/api/users` 列入 TENANT_BYPASS_PREFIX_PATHS：Web 端不发 X-Tenant-Id，
+    // 严格模式下否则登录后仍 401。users.ts 每条路由仍自行 authenticate，免租户不等于免鉴权。
+    expect(isPublicPath('/api/users/profile')).toBe(true)
+  })
+
+  it('/api/usersXYZ → false（租户豁免前缀边界防护）', () => {
+    expect(isPublicPath('/api/usersXYZ')).toBe(false)
   })
 
   it('/api/authlogin → false（前缀边界防护）', () => {
