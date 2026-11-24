@@ -317,16 +317,21 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
       arbitraryDim.set(at, pre ? dimOfKey(pre[1]) : null)
     }
     for (const it of cssVarItemsInSrc(code, cssVars)) {
+      // 非长度档**必须在任何键过滤之前**记账（2026-11-24 修，C15 真因）：
+      // `--color-brand` 落在 `color:` 键上，而 `color` 不是几何键 ⇒ 原序被下面那句
+      // `if (!key) continue` 提前吃掉，`notLength` 恒为 0，与"这一档根本不在源里"同形。
+      // 口径：颜色/字重/时长"本来就不该进几何维"（记 notLength，不喊）；
+      // 长度档但因源缺/折算不等解不出 px 才记 unresolvable（要喊）。二者不可混算。
+      if (it.notLength) {
+        cssVar.notLength++
+        continue
+      }
       const isArbitrary = arbitraryAt.has(it.at)
       let dim = arbitraryDim.get(it.at) ?? null
       if (!isArbitrary) {
         const key = keyBefore(it.at)
         if (!key || !keyed(key.replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
         dim = dimOfKey(key)
-      }
-      if (it.notLength) {
-        cssVar.notLength++
-        continue
       }
       if (it.px === null) {
         cssVar.unresolvable++

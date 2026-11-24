@@ -407,7 +407,10 @@ test('C15 纪律:档名不在源里 / 受管块取不到 ⇒ 落未判定并点�
   // ② 0 值档(--spacing-none)按 C4 纪律不入集(0 值引用会造"两侧同值"的假账)
   assert.equal(g.values.has(0), false, '"读不到"或 0 值档进了比对集合')
   // ③ 非长度档不报未判定、但必须留覆盖面读数(静默跳过与"没这一档"同形)
-  assert.equal(g.cssVar.notLength, 1, `颜色档没计入覆盖面读数:${JSON.stringify(g.cssVar)}`)
+  // 2026-11-24 修:非长度档的记账提到键过滤**之前**(原先落在 `color:` / `box-shadow:` 上的
+  // 非长度档会被"该键不是几何键"提前吃掉 ⇒ notLength 恒 0)。夹具里两枚非长度档都会被记:
+  // `--color-brand`(颜色) 与 `--color-black-6`(rgba 阴影色) ⇒ 期望 2。
+  assert.equal(g.cssVar.notLength, 2, `颜色档没计入覆盖面读数:${JSON.stringify(g.cssVar)}`)
   assert.equal(g.values.has(600), false, '颜色/字重档被当成长度收进几何集')
   // ④ 源取不到 ⇒ 解值表为空 ⇒ 一条都不采(由调用方的失明判据喊死,而不是在这里当作"没有变量")
   const noTable = src.readGeometry(file, 'miniapp', spTiers, null)
@@ -447,7 +450,12 @@ test('C16 真差异在解值能力打开后仍必须判红(成对反例,不得�
   )
   const f = res.findings.find((x) => x.name === 'T16')
   assert.ok(f, '两侧都写了不同档值却零判据')
-  assert.deepEqual(f.geometry, { onlyMiniapp: [15], onlyRn: [10] })
+  // 只钉两个值集合：`hints`（2026-11-24 加的每档来源行证据格）是**附加**信息，
+  // 参与 deepEqual 会让"多一格"冒充"少格"（C6 同一课）。
+  assert.deepEqual(
+    { onlyMiniapp: f.geometry.onlyMiniapp, onlyRn: f.geometry.onlyRn },
+    { onlyMiniapp: [15], onlyRn: [10] },
+  )
   // 棘轮侧:锚点为 0 时这一族必须落红(解值不是"少报"的通道)
   assert.equal(src.verdictOf([f], { counts: { T16: 0 } }).red.length, 1, '真分叉没被锚点问责')
   assert.equal(src.verdictOf([f], { counts: { T16: 2 } }).red.length, 0, '存量被当成新增(判据过头)')
