@@ -29,6 +29,7 @@ import {
   resolveBrowserPipStatus,
   resolveBrowserPipTaskView,
   storePipSize,
+  type BrowserPipCheckpoint,
   type BrowserPipPhase,
   type BrowserPipStatusKind,
   type BrowserPipTaskView,
@@ -59,6 +60,8 @@ export interface BrowserPipLabels extends BrowserPipBaseLabels {
   checkpointWaiting: (label: string) => string
   continueLabel: string
   taskFailed: string
+  /** 内置检查点 label_key → 本地化文案;缺省时回退服务端 label。 */
+  checkpointLabels?: Record<string, string>
 }
 
 export interface BrowserPipMonitorOptions {
@@ -361,6 +364,11 @@ export async function openBrowserPipMonitor(
     continueBtn.style.display = active && phase === 'waiting' ? '' : 'none'
   }
 
+  const checkpointText = (cp: BrowserPipCheckpoint): string => {
+    const translated = cp.labelKey ? labels.checkpointLabels?.[cp.labelKey] : undefined
+    return translated || cp.label
+  }
+
   const refreshTask = (raw: unknown): void => {
     taskView = resolveBrowserPipTaskView(raw)
     if (!taskView) {
@@ -382,7 +390,7 @@ export async function openBrowserPipMonitor(
       iconEl.textContent = icon
       iconEl.style.color = color
       const labelEl = doc.createElement('span')
-      labelEl.textContent = cp.label
+      labelEl.textContent = checkpointText(cp)
       labelEl.style.color = color
       item.append(iconEl, labelEl)
       return item
@@ -406,7 +414,7 @@ export async function openBrowserPipMonitor(
     const activeCheckpoint = taskView?.active ?? null
     const statusLabel =
       status.kind === 'waiting' && activeCheckpoint
-        ? labels.checkpointWaiting(activeCheckpoint.label)
+        ? labels.checkpointWaiting(checkpointText(activeCheckpoint))
         : textFor(status.kind, status.stalledSeconds)
     statusText.textContent = statusLabel
     syncContinue()

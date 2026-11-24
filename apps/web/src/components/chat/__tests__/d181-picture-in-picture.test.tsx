@@ -47,6 +47,17 @@ const PIP_KEYS = [
   'templatePayment',
   'templateDownload',
   'templateNoSession',
+  'ckLoginHandoffLogin',
+  'ckLoginHandoffVerify',
+  'ckLoginHandoffBack',
+  'ckFormCommitConfirm',
+  'ckFormCommitReceipt',
+  'ckPaymentConfirmCheckout',
+  'ckPaymentConfirmPay',
+  'ckPaymentConfirmDone',
+  'ckDownloadExportExport',
+  'ckDownloadExportDownload',
+  'ckDownloadExportDone',
 ] as const
 
 beforeEach(() => {

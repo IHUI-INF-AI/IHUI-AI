@@ -33,6 +33,19 @@ export function useBrowserPipLabels(): BrowserPipLabels {
     checkpointWaiting: (label: string) => t('checkpointWaiting', { label }),
     continueLabel: t('continueLabel'),
     taskFailed: t('taskFailed'),
+    checkpointLabels: {
+      ck_login_handoff_login: t('ckLoginHandoffLogin'),
+      ck_login_handoff_verify: t('ckLoginHandoffVerify'),
+      ck_login_handoff_back: t('ckLoginHandoffBack'),
+      ck_form_commit_confirm: t('ckFormCommitConfirm'),
+      ck_form_commit_receipt: t('ckFormCommitReceipt'),
+      ck_payment_confirm_checkout: t('ckPaymentConfirmCheckout'),
+      ck_payment_confirm_pay: t('ckPaymentConfirmPay'),
+      ck_payment_confirm_done: t('ckPaymentConfirmDone'),
+      ck_download_export_export: t('ckDownloadExportExport'),
+      ck_download_export_download: t('ckDownloadExportDownload'),
+      ck_download_export_done: t('ckDownloadExportDone'),
+    },
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

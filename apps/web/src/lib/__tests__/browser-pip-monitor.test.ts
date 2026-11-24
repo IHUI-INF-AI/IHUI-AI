@@ -35,6 +35,7 @@ const LABELS: BrowserPipLabels = {
   checkpointWaiting: (label) => `Waiting for you: ${label}`,
   continueLabel: 'Done, continue',
   taskFailed: 'Action not delivered',
+  checkpointLabels: { ck_payment_confirm_pay: 'Confirm before payment' },
 }
 
 class FakeWebSocket {
@@ -210,14 +211,14 @@ describe('openBrowserPipMonitor:真实浮窗 DOM 与状态流转', () => {
       requirements: ['核对金额'],
       checkpoints: [
         { id: 'checkout', label: '进入结算页', status: 'done' },
-        { id: 'pay', label: '付款前确认', status: 'active' },
+        { id: 'pay', label: '付款前确认', label_key: 'ck_payment_confirm_pay', status: 'active' },
       ],
     })
     handle!.setPhase('waiting')
 
     expect(win.document.body.textContent).toContain('完成支付')
     expect(win.document.body.textContent).toContain('Checkpoint 1/2')
-    expect(win.document.body.textContent).toContain('Waiting for you: 付款前确认')
+    expect(win.document.body.textContent).toContain('Waiting for you: Confirm before payment')
 
     const continueBtn = Array.from(win.document.querySelectorAll('button')).find(
       (candidate) => candidate.textContent === 'Done, continue',

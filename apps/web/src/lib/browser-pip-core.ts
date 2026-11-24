@@ -78,6 +78,8 @@ export type BrowserPipCheckpointStatus = 'pending' | 'active' | 'done'
 export interface BrowserPipCheckpoint {
   id: string
   label: string
+  /** 内置模板给的稳定翻译键;自定义任务为空,直接显示 label。 */
+  labelKey: string | null
   match: string | null
   status: BrowserPipCheckpointStatus
   enteredAt: string | null
@@ -130,6 +132,7 @@ export function normalizeBrowserPipTask(raw: unknown): BrowserPipTask | null {
     checkpoints.push({
       id,
       label: asString(cp.label).trim() || id,
+      labelKey: asString(cp.label_key ?? cp.labelKey).trim() || null,
       match: asString(cp.match) || null,
       status: normalizeCheckpointStatus(cp.status),
       enteredAt: asString(cp.entered_at ?? cp.enteredAt) || null,

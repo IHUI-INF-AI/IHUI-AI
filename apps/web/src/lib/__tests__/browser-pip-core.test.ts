@@ -170,7 +170,7 @@ describe('任务模板与检查点视图', () => {
     created_at: '2026-11-25T00:00:00Z',
     checkpoints: [
       { id: 'checkout', label: '进入结算页', status: 'done', done_at: '2026-11-25T00:01:00Z' },
-      { id: 'pay', label: '付款前确认', status: 'active', entered_at: '2026-11-25T00:02:00Z' },
+      { id: 'pay', label: '付款前确认', label_key: 'ck_payment_confirm_pay', status: 'active', entered_at: '2026-11-25T00:02:00Z' },
     ],
   }
 
@@ -179,6 +179,7 @@ describe('任务模板与检查点视图', () => {
     expect(task?.taskId).toBe('task_1')
     expect(task?.createdAt).toBe('2026-11-25T00:00:00Z')
     expect(task?.checkpoints[1]?.enteredAt).toBe('2026-11-25T00:02:00Z')
+    expect(task?.checkpoints[1]?.labelKey).toBe('ck_payment_confirm_pay')
   })
 
   it('派生视图给出进度、当前项与等待标记', () => {
