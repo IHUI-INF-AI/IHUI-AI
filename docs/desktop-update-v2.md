@@ -27,6 +27,11 @@
   `update_v2::sync_autostart` 在每次 setup（以及启用自启的同一时刻）把属于本安装目录的
   Run 值改写为 `"<根>\智汇AI.exe" --minimized`，不存在则绝不新建。
 - 载荷永远从 `versions/<ver>/ihui-app.exe` 启动；运行中的版本一个字节不被覆盖。
+- 安装器覆盖安装时保留一次回退代际：旧 `state.current` 写进新 `state.previous`；
+  `pending`/`updates` 属于上一轮更新事务，随显式安装重置。检测到 v2 `state.json` 时，
+  安装器 `/UPDATE` 直接以退出码 2 中止（静默模式不弹框），防止旧更新链抹掉已暂存版本。
+- 全新安装的默认目录会做一次真实写探针；`D:\software` 等归集目录对当前用户不可写时，
+  自动回退 `%LOCALAPPDATA%\Programs\<产品名>`，不会等到复制载荷才失败。
 
 ## 一次更新的完整时序
 
