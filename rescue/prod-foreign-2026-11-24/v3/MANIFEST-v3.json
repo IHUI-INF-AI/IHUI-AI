@@ -1,0 +1,70 @@
+{
+  "snapshot": "prod-foreign-v3",
+  "takenAt": "2026-11-24T22:48:49.7003929+08:00",
+  "baseHead": "a0f63de5e9eaec318159ce79f7ba5c51a4607258",
+  "zipSha256": "3b959c23ae2d0ba250bed41474a17057a5964475cd3700dea3f860cbca5609e2",
+  "zipBytes": 103103,
+  "files": [
+    {
+      "path": "apps/api/src/db/oauth-queries.ts",
+      "bytes": 21605,
+      "sha256": "ddf2ee31903bf8a86a9101918419bc67278b57c6ce661333bf94d0af426936b8"
+    },
+    {
+      "path": "apps/api/src/routes/auth-extended.ts",
+      "bytes": 204093,
+      "sha256": "4baf7404caae294cdc536f4009c57096c83d2616b69db50d13927f5ef0e6e9ba"
+    },
+    {
+      "path": "apps/web/public/sw.js",
+      "bytes": 8792,
+      "sha256": "0551c87c5fe36da9623e4708ef364256f666f2279e3397a62ab568ed62ef86cd"
+    },
+    {
+      "path": "deploy/win/ihui-api-router.mjs",
+      "bytes": 34888,
+      "sha256": "5fb1d31be6fd97a5b5b4a3116d15ea8406963811d461f582604fdf7f160a8935"
+    },
+    {
+      "path": "deploy/win/lib/edge-admission.mjs",
+      "bytes": 19792,
+      "sha256": "5c26a1a5150d3cc2be9d6c10b8814c126ea9030219966bf7b0b0f6360d755e97"
+    },
+    {
+      "path": "deploy/win/lib/block-notice.mjs",
+      "bytes": 19147,
+      "sha256": "ce9a0f4e006142d59520548df879882ac76c60459937c9b68b800c248dea45e8"
+    },
+    {
+      "path": "deploy/win/lib/notice-ledger.mjs",
+      "bytes": 8843,
+      "sha256": "a01186746d874e896c837616908c0cbf99d6d5de50226bb2c92349dda6d66b51"
+    },
+    {
+      "path": "deploy/win/lib/tool-fingerprint.mjs",
+      "bytes": 5564,
+      "sha256": "e0ddaef6243d65ab1e96e840bb65650288cd65e4deee4a80ed1db905d706677a"
+    },
+    {
+      "path": "deploy/win/lib/waf-signatures.mjs",
+      "bytes": 11343,
+      "sha256": "3415171f18e0fa3c82d2c14efafc6a1951e2399b594a349ab682bae5ce117a47"
+    }
+  ],
+  "excluded": [
+    {
+      "bytes": 2112647168,
+      "path": ".git-broken-20261122/",
+      "reason": "2.0GB .git 损坏备份,体积不入仓,已移存 D:\\DevEnv\\ihui-prod-orphans-20261124c\\"
+    },
+    {
+      "bytes": 78470000,
+      "path": "apps/web/.rollback.retired-77d3f9b8a79847c98b25aeecd7ddd4ca/",
+      "reason": "退役回滚目录 5053 文件/76.6MB,部署产物不入仓,已移存"
+    },
+    {
+      "path": "probe_prod_creds.py",
+      "reason": "疑似生产凭据探测脚本,敏感性不入仓,已移存"
+    }
+  ]
+}
