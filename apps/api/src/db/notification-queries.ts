@@ -284,6 +284,37 @@ export async function countUnread(userId: string): Promise<number> {
   return Number(rows[0]?.count ?? 0)
 }
 
+/**
+ * 重连权威状态快照(2026-11-24):按本地已知 ids 查它们此刻的真状态。
+ * 用途:WS 帧不重放 —— 断线期别的设备把已知通知标已读/归档时,createdAt 水位只补新增行,
+ * 拿不到翻转。重连后拿本地 ids 来这里对账,返回确实已读/归档的 id 子集。
+ *
+ * 零 migration:只用既有 isRead/archivedAt/userId 列。
+ * 防越权:userId 显式入参并进 where,查询不到别人的行(AGENTS §5)。
+ * ids 由调用方限制上限(路由层 max 500),返回体有界。
+ */
+export async function queryNotificationStateIds(
+  userId: string,
+  ids: string[],
+): Promise<{ readIds: string[]; archivedIds: string[] }> {
+  if (ids.length === 0) return { readIds: [], archivedIds: [] }
+  const rows = await db
+    .select({
+      id: notifications.id,
+      isRead: notifications.isRead,
+      archivedAt: notifications.archivedAt,
+    })
+    .from(notifications)
+    .where(and(eq(notifications.userId, userId), inArray(notifications.id, ids)))
+  const readIds: string[] = []
+  const archivedIds: string[] = []
+  for (const row of rows) {
+    if (row.isRead) readIds.push(row.id)
+    if (row.archivedAt) archivedIds.push(row.id)
+  }
+  return { readIds, archivedIds }
+}
+
 export async function markAsRead(id: string, userId: string): Promise<Notification | undefined> {
   const rows = await db
     .update(notifications)

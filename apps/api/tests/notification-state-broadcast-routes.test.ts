@@ -34,6 +34,7 @@ const {
   mockRestore,
   mockCountUnread,
   mockFindByUser,
+  mockQueryStateIds,
 } = vi.hoisted(() => ({
   mockMarkAsRead: vi.fn(),
   mockMarkAllAsRead: vi.fn(),
@@ -41,6 +42,7 @@ const {
   mockRestore: vi.fn(),
   mockCountUnread: vi.fn(async () => 0),
   mockFindByUser: vi.fn(async () => ({ list: [], total: 0 })),
+  mockQueryStateIds: vi.fn(async () => ({ readIds: [], archivedIds: [] })),
 }))
 
 vi.mock('@ihui/auth', () => ({
@@ -104,6 +106,7 @@ vi.mock('../src/db/notification-queries.js', () => ({
   findAllNotificationsForAdmin: vi.fn(async () => []),
   broadcastNotification: vi.fn(),
   attachTopicToList: vi.fn(async (list: unknown) => list),
+  queryNotificationStateIds: mockQueryStateIds,
 }))
 vi.mock('../src/services/email-service.js', () => ({ sendEmail: vi.fn() }))
 vi.mock('../src/services/email-templates.js', () => ({ renderNoticeEmail: vi.fn(() => '') }))
@@ -247,6 +250,76 @@ describe('notification:state 广播生产面', () => {
     expect(src).toContain("op: 'archive'")
     expect(src).toContain("op: 'restore'")
     expect(src).toContain("op: 'read-all'")
+  })
+})
+
+describe('POST /notifications/state-query 权威快照边界', () => {
+  let app: FastifyInstance
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    mockQueryStateIds.mockResolvedValue({ readIds: [], archivedIds: [] })
+    app = await buildApp()
+  })
+
+  it('带合法 ids 回服务端真相子集,不泄漏未传入的 id', async () => {
+    mockQueryStateIds.mockResolvedValue({ readIds: [N1], archivedIds: [] })
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/notifications/state-query',
+      headers: AUTH_HEADER,
+      payload: { ids: [N1] },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toEqual({ readIds: [N1], archivedIds: [] })
+    expect(mockQueryStateIds).toHaveBeenCalledWith(USER_A, [N1])
+  })
+
+  it('空 ids 合法(本地无通知,无需对账)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/notifications/state-query',
+      headers: AUTH_HEADER,
+      payload: { ids: [] },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toEqual({ readIds: [], archivedIds: [] })
+  })
+
+  it('半 uuid / 非 uuid id 直接 400(不静默 strip)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/notifications/state-query',
+      headers: AUTH_HEADER,
+      payload: { ids: ['not-a-uuid'] },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(mockQueryStateIds).not.toHaveBeenCalled()
+  })
+
+  it('超过 500 条 400(返回体有界,防滥用)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/notifications/state-query',
+      headers: AUTH_HEADER,
+      payload: {
+        ids: Array.from(
+          { length: 501 },
+          (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+        ),
+      },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(mockQueryStateIds).not.toHaveBeenCalled()
+  })
+
+  it('未登录 401', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/notifications/state-query',
+      payload: { ids: [N1] },
+    })
+    expect(res.statusCode).toBe(401)
+    expect(mockQueryStateIds).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

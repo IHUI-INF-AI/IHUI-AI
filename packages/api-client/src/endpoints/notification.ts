@@ -81,6 +81,19 @@ export async function getNotificationDetail(id: string): Promise<ApiResult<Notif
   return fetchApi<NotificationItem>(`/api/notifications/${id}`)
 }
 
+/**
+ * 重连权威状态快照:带本地已知 ids,回这些 id 此刻真已读/真归档的子集。
+ * WS 帧不重放,断线期状态翻转靠这个对账;单次最多 500 条(与后端 stateQuerySchema 同限)。
+ */
+export async function queryNotificationStates(
+  ids: string[],
+): Promise<ApiResult<{ readIds: string[]; archivedIds: string[] }>> {
+  return fetchApi<{ readIds: string[]; archivedIds: string[] }>('/api/notifications/state-query', {
+    method: 'POST',
+    body: JSON.stringify({ ids }),
+  })
+}
+
 // 创建通知(管理员) —— 2026-09-28 门 8 死调用清账:删除。
 // POST /api/notifications 从未注册(后端通知由服务端事件产生,管理面在 /admin/notifications/*);
 // 本仓零消费方(命中的 createNotification* 是后端同名 db 函数与 createNotificationClient,均非本函数)。

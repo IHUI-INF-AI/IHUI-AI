@@ -26,6 +26,7 @@ import {
   findAllNotificationsForAdmin,
   broadcastNotification,
   attachTopicToList,
+  queryNotificationStateIds,
 } from '../db/notification-queries.js'
 import { countUnreadEduMessages } from '../db/message-queries.js'
 import { sendEmail } from '../services/email-service.js'
@@ -105,6 +106,12 @@ const adminListNotificationsQuery = z.object({
 // 但让"同一裸契约多一个消费点"这一型不再随新路由累积(门 161 判的正是消费点数)。
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) }).strict()
 const userIdParamSchema = z.object({ userId: z.uuid({ error: '无效的用户 ID' }) })
+
+// 重连权威状态快照入参:本地已知 id 列表,id 必须是 uuid,上限 500(返回体有界,防滥用)。
+// 空数组合法(本地还没有通知,无需对账)。
+const stateQuerySchema = z.object({
+  ids: z.array(z.uuid()).max(500, '单次最多查询 500 条通知状态'),
+})
 
 const sendMessageSchema = z.object({
   receiverId: z.uuid({ error: '无效的接收者 ID' }),
@@ -218,6 +225,28 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
   server.get('/notifications/unread-count', async (request, reply) => {
     return reply.send(success(await buildUnreadCount(request.userId!)))
   })
+
+  // POST /notifications/state-query - 重连权威状态快照(WS 帧不重放的兜底)。
+  // 带本地已知 ids,只回这些 id 此刻真已读/真归档的子集;userId 由鉴权注入,不进 body。
+  server.post(
+    '/notifications/state-query',
+    {
+      schema: {
+        summary: '查询已知通知的当前已读/归档状态',
+        description: '重连时对账断线期状态翻转;仅返回本人通知,最多 500 条',
+        tags: ['notifications'],
+        response: buildResponseSchema(400, 401),
+      },
+    },
+    async (request, reply) => {
+      const parsed = stateQuerySchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const state = await queryNotificationStateIds(request.userId!, parsed.data.ids)
+      return reply.send(success(state))
+    },
+  )
 
   // PATCH /notifications/:id/read - 标记单条已读（仅本人）
   server.patch('/notifications/:id/read', async (request, reply) => {
