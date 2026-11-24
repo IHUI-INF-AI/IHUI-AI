@@ -87,11 +87,13 @@ interface DesktopFeedV2 {
  * 字段缺一个，客户端要么下载 404 资产，要么 minisign 解码失败，最后只在
  * 客户端 console.warn —— 发布侧必须在这里先红。
  */
-function isValidDesktopFeedV2(value: unknown): value is DesktopFeedV2 {
+export function isValidDesktopFeedV2(value: unknown): value is DesktopFeedV2 {
   if (!value || typeof value !== 'object') return false
   const feed = value as Record<string, unknown>
   const payload = feed.payload as Record<string, unknown> | undefined
-  const VERSION_RE = /^[0-9A-Za-z.-]{1,64}$/
+  // 版本号必须至少含一个数字：`latest` 这类纯字母虽然能过旧的字符集，
+  // 但客户端会拿它做版本比较，属于“结构合法、语义非法”的坏 feed。
+  const VERSION_RE = /^(?=.*\d)[0-9A-Za-z.-]{1,64}$/
   // 必须与客户端 update_v2.rs 的上限一致：客户端会在超过 300MB 时直接拒收，
   // 发布侧若放行，线上表现就是“feed 有效但永远下载失败”。
   const MAX_PAYLOAD_BYTES = 300 * 1024 * 1024
