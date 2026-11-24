@@ -440,6 +440,13 @@ describe('raccoon listModels', () => {
     mockFetch.mockResolvedValueOnce(res(200, { data: { unknown: 1 } }))
     await expect(raccoonAdapter.listModels?.(ctx)).rejects.toThrow(/未判定|形状/)
   })
+
+  it('条目 name/model_name/id 全缺 ⇒ 抛未判定(不把解析失败冒充成上游没模型)', async () => {
+    mockFetch.mockResolvedValueOnce(
+      res(200, { data: { categories: [{ type: 'chat', models: [{ description: 'x' }] }] } }),
+    )
+    await expect(raccoonAdapter.listModels?.(ctx)).rejects.toThrow(/未判定/)
+  })
 })
 
 // =============================================================================

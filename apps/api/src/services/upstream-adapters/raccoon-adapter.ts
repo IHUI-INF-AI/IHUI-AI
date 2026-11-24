@@ -369,6 +369,13 @@ async function listModels(
     out.push(id)
     if (rec['visible'] !== false) visibleOnly.push(id)
   }
+  if (out.length === 0) {
+    // 容器认出来了但一条 model_name/name/id 都取不到 ⇒ 仍是"未判定",不得返回空数组
+    // 让上层记成 ok=true、ids=[] —— 那会把解析失败冒充成"上游没有模型"(2026-11-25 安全线点名)。
+    throw new Error(
+      `HTTP 200 但清单条目无可传 key(name/model_name/id 全缺) ⇒ 未判定(键=[${Object.keys(arr[0] as Record<string, unknown>).join(',')}])`,
+    )
+  }
   return visibleOnly.length > 0 ? visibleOnly : out
 }
 

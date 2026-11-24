@@ -33,6 +33,7 @@ import type {
   ChatExecuteOptions,
   NormalizedChatRequest,
   QuotaCallOptions,
+  RelayModelListResult,
   RelayQuotaResult,
   RelayUpstreamAdapter,
   StreamState,
@@ -582,6 +583,53 @@ function withStopCleanup(
 
 const MULTI_PATH_MSG = 'trae 走 executeChat 多段式路径'
 
+/**
+ * 模型清单探测(2026-11-25 立):上游 model_list 优先,失败/空清单回落客户端同源缓存。
+ * scope 如实标注清单来源,供 listModelsDetailed 上报(不许把缓存来源冒充成上游)。
+ */
+type TraeModelProbe =
+  | { ok: true; names: string[]; scope: 'upstream-model-list' | 'local-client-cache' }
+  | { ok: false; error: Error }
+
+async function probeTraeModelNames(
+  ctx: AdapterAccountContext,
+  opts?: AdapterCallOptions,
+): Promise<TraeModelProbe> {
+  let httpError: Error | null = null
+  try {
+    const res = await resolveFetchImpl(opts ?? {})(TRAE_MODEL_LIST_URL, {
+      method: 'GET',
+      headers: {
+        Authorization: `Cloud-IDE-JWT ${ctx.credentials.token}`,
+        Accept: 'application/json',
+      },
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new TraeUpstreamError(
+        res.status,
+        `Trae model_list 失败(HTTP ${res.status})${text ? `: ${text.slice(0, 300)}` : ''}`,
+      )
+    }
+    const configs = extractModelConfigs(await res.json().catch(() => null)) ?? []
+    if (configs.length > 0) rememberModelConfigs(ctx, configs)
+    const names = configs
+      .map((c) => (typeof c?.name === 'string' ? c.name : null))
+      .filter((n): n is string => n !== null && n !== '')
+    if (names.length > 0) return { ok: true, names, scope: 'upstream-model-list' }
+  } catch (e) {
+    httpError = e instanceof Error ? e : new TraeUpstreamError(0, String(e))
+  }
+  const localModels = await readTraeClientModels().catch(() => null)
+  if (localModels && localModels.length > 0) {
+    return { ok: true, names: localModels, scope: 'local-client-cache' }
+  }
+  return {
+    ok: false,
+    error: httpError ?? new TraeUpstreamError(0, 'Trae model_list 与客户端缓存均取不到模型清单'),
+  }
+}
+
 export const traeAdapter: RelayUpstreamAdapter = {
   providerCode: 'trae',
 
@@ -963,36 +1011,27 @@ export const traeAdapter: RelayUpstreamAdapter = {
    * 绝不把"取不到"伪装成"上游没模型"。
    */
   async listModels(ctx: AdapterAccountContext, opts?: AdapterCallOptions): Promise<string[]> {
-    let httpError: unknown = null
-    try {
-      const res = await resolveFetchImpl(opts ?? {})(TRAE_MODEL_LIST_URL, {
-        method: 'GET',
-        headers: {
-          Authorization: `Cloud-IDE-JWT ${ctx.credentials.token}`,
-          Accept: 'application/json',
-        },
-      })
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        throw new TraeUpstreamError(
-          res.status,
-          `Trae model_list 失败(HTTP ${res.status})${text ? `: ${text.slice(0, 300)}` : ''}`,
-        )
-      }
-      const configs = extractModelConfigs(await res.json().catch(() => null)) ?? []
-      if (configs.length > 0) rememberModelConfigs(ctx, configs)
-      const names = configs
-        .map((c) => (typeof c?.name === 'string' ? c.name : null))
-        .filter((n): n is string => n !== null && n !== '')
-      if (names.length > 0) return names
-    } catch (e) {
-      httpError = e
+    const r = await probeTraeModelNames(ctx, opts)
+    if (r.ok) return r.names
+    throw r.error
+  },
+
+  /**
+   * 富清单(2026-11-25 补):把清单来源如实上报 —— `upstream-model-list` = 上游端点直取;
+   * `local-client-cache` = 上游 401/空清单后回落的客户端 state.vscdb 同源缓存。
+   * 消费方(号池/同步器)据此区分证据强度,不再出现"回落来源失标"。
+   */
+  async listModelsDetailed(
+    ctx: AdapterAccountContext,
+    opts?: AdapterCallOptions,
+  ): Promise<RelayModelListResult> {
+    const r = await probeTraeModelNames(ctx, opts)
+    if (!r.ok) return { ok: false, error: r.error.message.slice(0, 300) }
+    return {
+      ok: true,
+      scope: r.scope,
+      models: r.names.map((id) => ({ id, name: id })),
     }
-    const localModels = await readTraeClientModels().catch(() => null)
-    if (localModels && localModels.length > 0) return localModels
-    throw httpError instanceof Error
-      ? httpError
-      : new TraeUpstreamError(0, 'Trae model_list 与客户端缓存均取不到模型清单')
   },
 
   /**
