@@ -119,11 +119,11 @@ export function TrainingTab() {
   })
   const enroll = useMutation({
     mutationFn: () =>
-      api(`${TR}/plans/${selectedPlan}/enroll`, {
+      api<{ created?: number; skipped?: string[] }>(`${TR}/plans/${selectedPlan}/enroll`, {
         method: 'POST',
         body: JSON.stringify({ assignments: [{ employeeId: empId, courseId }] }),
       }),
-    onSuccess: (r: { created?: number; skipped?: string[] }) => {
+    onSuccess: (r) => {
       toast.success(
         `${t('done')} created=${r?.created ?? 0} skipped=${(r?.skipped ?? []).join(';')}`,
       )
