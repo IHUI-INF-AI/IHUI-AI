@@ -21,8 +21,10 @@
 import type {
   AdapterAccountContext,
   AdapterCallOptions,
+  ModelListCallOptions,
   NormalizedChatRequest,
   QuotaCallOptions,
+  RelayModelListResult,
   RelayQuotaResult,
   RelayUpstreamAdapter,
   StreamState,
@@ -39,6 +41,20 @@ const CHATGPT_BACKEND = 'https://chatgpt.com/backend-api'
 const CHAT_URL = `${CHATGPT_BACKEND}/codex/responses`
 /** 已认证身份探测端点(chatgpt web 同源;形状未实证,仅用于鉴权判定) */
 const IDENTITY_URL = `${CHATGPT_BACKEND}/me`
+
+/**
+ * Codex 官方模型目录端点(2026-11-24 立)。
+ * 一手依据:OpenAI 官方帮助文档 help.openai.com/articles/20001607 明确 Codex CLI 用
+ * `model_catalog_url = "https://chatgpt.com/backend-api/codex/models"` 拉取模型目录;
+ * developers.openai.com 的 litellm 文档片段给出 `GET .../codex/models?client_version=<ver>`
+ * + `Authorization: Bearer <token>`(`models` 顶层数组,`client_version` 影响返回条数)。
+ * 鉴权与 chat 完全同构:Bearer tokens.access_token + chatgpt-account-id + originator。
+ * 本机能见性:号池当前零 codex 号 + 直连超时/代理 502 ⇒ 未实弹,按官方契约实现 + 测试锁,
+ * 判据留 §0.3「未判定」;有真号即自动生效,不冒绿。
+ */
+const MODELS_URL = `${CHATGPT_BACKEND}/codex/models`
+/** 对齐官方示例的 CLI 版本;client_version 影响目录条数,后续可随 CLI 升级收口 */
+const MODELS_CLIENT_VERSION = '0.162.1'
 
 // =============================================================================
 // secrets 读取
@@ -223,6 +239,50 @@ interface ProbeResult {
   networkError?: string
 }
 
+/**
+ * Codex 模型目录(detailed):GET /backend-api/codex/models?client_version=...,鉴权与 chat 同构。
+ * 响应顶层 `models` 数组,每项取 `slug` 为 id(官方 litellm 文档口径);兼容 `id`/`name` 字段。
+ * 取不到/空/形状非法一律 ok:false,永不抛。scope 如实标 'upstream-account'(官方目录,未实弹)。
+ */
+async function listModelsDetailed(
+  ctx: AdapterAccountContext,
+  opts?: ModelListCallOptions,
+): Promise<RelayModelListResult> {
+  const fetchImpl = opts?.fetchImpl ?? globalThis.fetch.bind(globalThis)
+  const headers: Record<string, string> = {
+    accept: 'application/json',
+    authorization: `Bearer ${ctx.credentials.token}`,
+    originator: 'codex_cli_rs',
+  }
+  const accountId = readAccountId(ctx)
+  if (accountId) headers['chatgpt-account-id'] = accountId
+  try {
+    const url = `${MODELS_URL}?client_version=${encodeURIComponent(MODELS_CLIENT_VERSION)}`
+    const res = await fetchImpl(url, { method: 'GET', headers })
+    if (!res.ok) return { ok: false, error: `上游返回 ${res.status}` }
+    const body: unknown = JSON.parse(await res.text())
+    const arr = body && typeof body === 'object' ? (body as Record<string, unknown>)['models'] : undefined
+    if (!Array.isArray(arr)) return { ok: false, error: '目录形状非法(models 非数组)' }
+    const models: RelayModelListResult['models'] = []
+    const seen = new Set<string>()
+    for (const item of arr) {
+      if (!item || typeof item !== 'object') continue
+      const rec = item as Record<string, unknown>
+      const id =
+        (typeof rec['slug'] === 'string' ? rec['slug'] : typeof rec['id'] === 'string' ? rec['id'] : '').trim()
+      if (!id || seen.has(id)) continue
+      seen.add(id)
+      const name = typeof rec['name'] === 'string' ? rec['name'].trim() : id
+      models.push({ id, name })
+    }
+    return models.length > 0
+      ? { ok: true, scope: 'upstream-account', models }
+      : { ok: false, error: '目录 models 为空' }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 async function probeIdentity(
   ctx: AdapterAccountContext,
   opts?: AdapterCallOptions,
@@ -343,6 +403,7 @@ export const codexAdapter: RelayUpstreamAdapter = {
   // 额度能力:无公开额度端点,getQuota 实为 probeIdentity 探测(401 会被读成 authFailed)。
   // 声明 false ⇒ 承载层直接标"未支持",零探测、零误触发 refresh 重试、零假数(§0.3)。
   quotaSupported: false,
+  listModelsDetailed,
   buildChatRequest,
   translateStreamChunk,
   translateNonStream,

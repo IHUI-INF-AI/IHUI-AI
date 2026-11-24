@@ -470,4 +470,64 @@ describe('minimax summarizeRecord(零回显)', () => {
     expect(s).toMatchObject({ region: 'cn', hasRefresh: true })
   })
 })
+
+// =============================================================================
+// 模型清单自动发现(2026-11-24:上游 /v1/models 优先,本机 mcode config.yaml 回落)
+// =============================================================================
+
+describe('minimax listModelsDetailed', () => {
+  beforeEach(() => {
+    mockFetch.mockReset()
+    delete process.env['IHUI_MINIMAX_CONFIG']
+  })
+  afterAll(() => delete process.env['IHUI_MINIMAX_CONFIG'])
+
+  it('上游 /v1/models 返回 data[].id → ok,scope=upstream-account', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ data: [{ id: 'MiniMax-M3.1-Flash' }, { id: 'MiniMax-M3' }] }),
+    })
+    const r = await minimaxAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch as unknown as typeof fetch })
+    expect(r.ok).toBe(true)
+    expect(r.scope).toBe('upstream-account')
+    expect(r.models?.map((x) => x.id)).toEqual(['MiniMax-M3.1-Flash', 'MiniMax-M3'])
+    const [url] = mockFetch.mock.calls[0] as [string]
+    expect(url).toBe('https://api.minimaxi.com/v1/models')
+  })
+
+  it('上游 base_resp 业务错误 → 不读成清单,回落本机(无配置则 ok:false)', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ base_resp: { status_code: 1004 }, data: [] }),
+    })
+    process.env['IHUI_MINIMAX_CONFIG'] = resolve(tmpdir(), 'ihui-no-such-minimax-config.yaml')
+    const r = await minimaxAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch as unknown as typeof fetch })
+    expect(r.ok).toBe(false)
+  })
+
+  it('上游失败 + 本机 config.yaml 有模型 → ok,scope=local-cli-login', async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 401, text: async () => '' })
+    const cfg = resolve(tmpdir(), `ihui-mm-cfg-${Date.now()}.yaml`)
+    writeFileSync(cfg, `provider:
+  minimax:
+    models:
+      MiniMax-M3.1-Flash:
+        name: M3.1-Flash
+      MiniMax-M3:
+        name: M3
+    whitelist:
+      - MiniMax-M2.7
+defaultModel: minimax/MiniMax-M3.1-Flash
+`)
+    tmpRoots.push(cfg)
+    process.env['IHUI_MINIMAX_CONFIG'] = cfg
+    const r = await minimaxAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch as unknown as typeof fetch })
+    expect(r.ok).toBe(true)
+    expect(r.scope).toBe('local-cli-login')
+    expect(r.models?.map((x) => x.id)).toEqual(['MiniMax-M3.1-Flash', 'MiniMax-M3'])
+  })
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

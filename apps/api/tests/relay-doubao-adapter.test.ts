@@ -30,6 +30,7 @@ import type { AdapterAccountContext, StreamState, TranslatedChunk } from '../src
 import {
   __clearDoubaoConversationCache,
   buildCookieHeader,
+  extractDoubaoModelItems,
   doubaoAdapter,
   DoubaoUpstreamError,
 } from '../src/services/upstream-adapters/doubao-adapter.js'
@@ -843,4 +844,64 @@ describe('doubao 上游会话续写缓存(2026-11-11 立)', () => {
     expect(body.option.need_create_conversation).toBe(false)
   })
 })
+
+// =============================================================================
+// 模型清单自动发现(2026-11-24 真票实弹:/chat/models 内嵌 menu_item_list)
+// =============================================================================
+
+describe('doubao extractDoubaoModelItems(纯解析)', () => {
+  const importHeader = 'import { defineConfig } from "x"'
+  it('提取 menu_item_list 的 model_item_key + name,去重,key 优先', () => {
+    const html = `<html>${importHeader}"modeSelectConfig":{"menu_item_list":[` +
+      `{"model_item_key":"9","name":"豆包 2.1 Auto","menu_type":9},` +
+      `{"model_item_key":"person-deepseek-v4-1-flash-261017","name":"DeepSeek V4.1 Flash"},` +
+      `{"model_item_key":"9","name":"重复项"},` +
+      `{"menu_type":10001,"name":"无 key 忽略"}` +
+      `]},"other":1}</html>`
+    expect(extractDoubaoModelItems(html)).toEqual([
+      { key: '9', name: '豆包 2.1 Auto' },
+      { key: 'person-deepseek-v4-1-flash-261017', name: 'DeepSeek V4.1 Flash' },
+    ])
+  })
+
+  it('字符串内含 ] 不被括号配平骗到', () => {
+    const html = '"menu_item_list":[{"model_item_key":"a]b","name":"含]括号"}]'
+    expect(extractDoubaoModelItems(html)).toEqual([{ key: 'a]b', name: '含]括号' }])
+  })
+
+  it('无字段 / 非数组 / 空数组 → null(不冒充空清单)', () => {
+    expect(extractDoubaoModelItems('<html>nothing</html>')).toBeNull()
+    expect(extractDoubaoModelItems('"menu_item_list":{"a":1}')).toBeNull()
+    expect(extractDoubaoModelItems('"menu_item_list":[]')).toBeNull()
+    expect(extractDoubaoModelItems('"menu_item_list":[{"name":"无key"}]')).toBeNull()
+  })
+})
+
+describe('doubao listModelsDetailed', () => {
+  beforeEach(() => mockFetch.mockReset())
+
+  it('HTTP 200 + 内嵌清单 → ok,scope=upstream-account', async () => {
+    const html = '<html>"menu_item_list":[{"model_item_key":"0","name":"快速"},{"model_item_key":"5","name":"豆包 2.1 Pro"}]</html>'
+    mockFetch.mockResolvedValue({ ok: true, status: 200, text: async () => html })
+    const r = await doubaoAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch as unknown as typeof fetch })
+    expect(r.ok).toBe(true)
+    expect(r.scope).toBe('upstream-account')
+    expect(r.models).toEqual([{ id: '0', name: '快速' }, { id: '5', name: '豆包 2.1 Pro' }])
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://www.doubao.com/chat/models')
+    expect((init.headers as Record<string,string>)['cookie']).toContain('sessionid')
+  })
+
+  it('非 2xx / 无清单 / 抛错 → ok:false,永不抛', async () => {
+    mockFetch.mockImplementationOnce(() => Promise.resolve({ ok: false, status: 401, text: async () => '' }))
+    expect((await doubaoAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch as unknown as typeof fetch })).ok).toBe(false)
+    mockFetch.mockImplementationOnce(() => Promise.resolve({ ok: true, status: 200, text: async () => '<html>login wall</html>' }))
+    expect((await doubaoAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch as unknown as typeof fetch })).ok).toBe(false)
+    mockFetch.mockImplementationOnce(() => Promise.reject(new Error('network down')))
+    const r = await doubaoAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch as unknown as typeof fetch })
+    expect(r.ok).toBe(false)
+    expect(r.error).toContain('network down')
+  })
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -42,8 +42,10 @@ import { ProxyAgent, fetch as undiciFetch } from 'undici'
 import type {
   AdapterAccountContext,
   AdapterCallOptions,
+  ModelListCallOptions,
   NormalizedChatRequest,
   QuotaCallOptions,
+  RelayModelListResult,
   RelayQuotaResult,
   RelayUpstreamAdapter,
   StreamState,
@@ -51,6 +53,7 @@ import type {
   TranslatedChunk,
   UpstreamHttpRequest,
 } from '../relay-upstream-adapters.js'
+import { readLocalMinimaxModels } from './minimax-models.js'
 
 // =============================================================================
 // 端点与常量(改端点只改这里;双域名常量都是公开文档口径,未本机实弹)
@@ -127,6 +130,82 @@ function resolveRegion(ctx: AdapterAccountContext): 'cn' | 'global' {
 
 function regionBase(ctx: AdapterAccountContext): string {
   return resolveRegion(ctx) === 'global' ? BASE_GLOBAL : BASE_CN
+}
+
+// =============================================================================
+// 模型清单(2026-11-24)
+// =============================================================================
+
+/**
+ * 官方模型清单端点(OpenAI 兼容面)。号池当前 OAuth 票调它必 401 1004(实弹),
+ * 但账号一旦换成 API Secret Key 号型(sk-api-/sk-cp-)即自动可用 —— 故保留上游优先。
+ */
+const MODELS_PATH = '/v1/models'
+
+/**
+ * MiniMax 模型清单(detailed),双路:
+ *  ① 上游 GET /v1/models(Bearer):API key 号型可用,scope='upstream-account';
+ *  ② 失败回落本机 mcode config.yaml(CLI 自己用的模型),scope='local-cli-login'。
+ * 两条都取不到才 ok:false。永不抛,绝不返回静态清单冒充点查结果(§0.3)。
+ */
+async function listModelsDetailed(
+  ctx: AdapterAccountContext,
+  opts?: ModelListCallOptions,
+): Promise<RelayModelListResult> {
+  // ① 上游优先(API key 号型)
+  try {
+    const token = ctx.credentials.token
+    if (token) {
+      const res = await resolveFetchImpl(opts ?? {})(`${regionBase(ctx)}${MODELS_PATH}`, {
+        method: 'GET',
+        headers: { accept: 'application/json', authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        const body: unknown = JSON.parse(await res.text())
+        // MiniMax 特有信封:base_resp.status_code 非 0 = 业务拒绝,不读成空清单
+        const baseResp = body && typeof body === 'object' ? (body as Record<string, unknown>)['base_resp'] : undefined
+        const bizCode = baseResp && typeof baseResp === 'object'
+          ? (baseResp as Record<string, unknown>)['status_code']
+          : undefined
+        if (bizCode === undefined || Number(bizCode) === 0) {
+          const arr = body && typeof body === 'object' ? (body as Record<string, unknown>)['data'] : undefined
+          if (Array.isArray(arr)) {
+            const models: RelayModelListResult['models'] = []
+            const seen = new Set<string>()
+            for (const item of arr) {
+              if (!item || typeof item !== 'object') continue
+              const rec = item as Record<string, unknown>
+              const id = typeof rec['id'] === 'string' ? rec['id'].trim() : ''
+              if (!id || seen.has(id)) continue
+              seen.add(id)
+              const name = typeof rec['name'] === 'string' ? rec['name'].trim() : id
+              models.push({ id, name })
+            }
+            if (models.length > 0) return { ok: true, scope: 'upstream-account', models }
+          }
+        }
+      }
+    }
+  } catch {
+    // 上游失败 → 回落本机 CLI,如实记在 scope
+  }
+
+  // ② 本机 mcode config.yaml(CLI 登录态配置)
+  const local = readLocalMinimaxModels()
+  if (!local) return { ok: false, error: '上游 /v1/models 不可用且本机 mcode config.yaml 无模型' }
+  const ids = local.models.length > 0
+    ? local.models
+    : local.whitelist
+  const models = ids
+    .map((raw) => {
+      // defaultModel 形如 'minimax/MiniMax-M3.1-Flash',config.models 键为 'MiniMax-M3.1-Flash'
+      const id = raw.includes('/') ? (raw.split('/').pop() ?? raw) : raw
+      return { id, name: id }
+    })
+    .filter((x, i, a) => x.id && a.findIndex((y) => y.id === x.id) === i)
+  return models.length > 0
+    ? { ok: true, scope: 'local-cli-login', models }
+    : { ok: false, error: '本机 mcode 清单为空' }
 }
 
 // =============================================================================
@@ -613,13 +692,15 @@ export const minimaxAdapter: RelayUpstreamAdapter = {
   // 集成点:主会话需把 'minimax' 加进 RELAY_PROVIDERS(relay-account-format.ts);
   // 此处断言只为让本文件独立可编译,不改动既有文件。
   providerCode: 'minimax' as RelayUpstreamAdapter['providerCode'],
+  listModelsDetailed,
   buildChatRequest,
   translateStreamChunk,
   translateNonStream,
   refreshToken,
   checkHealth,
   getQuota,
-  // listModels 不实现:模型清单端点未实证(健康检查走余量端点)
+  // listModels(纯 id 数组)不实现;模型清单走 listModelsDetailed(上游 /v1/models 优先,
+  // 回落本机 mcode config.yaml,2026-11-24 立,见 minimax-models.ts + 取证文档)
   isAuthFailure,
   classifyUpstreamFailure,
   /**

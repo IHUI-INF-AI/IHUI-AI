@@ -213,4 +213,45 @@ describe('codex checkHealth / getQuota(打桩 fetch;形状未实证 ⇒ 200 也�
     )
   })
 })
+
+// =============================================================================
+// 模型目录自动发现(2026-11-24,官方 model_catalog_url 契约,未实弹)
+// =============================================================================
+
+describe('codex listModelsDetailed', () => {
+  beforeEach(() => mockFetch.mockReset())
+
+  it('GET /codex/models?client_version + models[].slug → ok', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ models: [{ slug: 'gpt-5.1-codex', name: 'GPT-5.1 Codex' }, { slug: 'gpt-5' }, { slug: 'gpt-5.1-codex' }] }),
+    })
+    const r = await codexAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch as unknown as typeof fetch })
+    expect(r.ok).toBe(true)
+    expect(r.scope).toBe('upstream-account')
+    expect(r.models).toEqual([
+      { id: 'gpt-5.1-codex', name: 'GPT-5.1 Codex' },
+      { id: 'gpt-5', name: 'gpt-5' },
+    ])
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/backend-api/codex/models?client_version=')
+    expect((init.headers as Record<string,string>)['chatgpt-account-id']).toBe('acc-test-1')
+    expect((init.headers as Record<string,string>)['originator']).toBe('codex_cli_rs')
+  })
+
+  it('非 2xx / models 非数组 / 空 / 抛错 → ok:false', async () => {
+    mockFetch.mockImplementationOnce(() => Promise.resolve({ ok: false, status: 401, text: async () => '' }))
+    expect((await codexAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch as unknown as typeof fetch })).ok).toBe(false)
+    mockFetch.mockImplementationOnce(() => Promise.resolve({ ok: true, status: 200, text: async () => '{"data":[]}' }))
+    expect((await codexAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch as unknown as typeof fetch })).ok).toBe(false)
+    mockFetch.mockImplementationOnce(() => Promise.resolve({ ok: true, status: 200, text: async () => '{"models":[]}' }))
+    expect((await codexAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch as unknown as typeof fetch })).ok).toBe(false)
+    mockFetch.mockImplementationOnce(() => Promise.reject(new Error('offline')))
+    const r = await codexAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch as unknown as typeof fetch })
+    expect(r.ok).toBe(false)
+    expect(r.error).toContain('offline')
+  })
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

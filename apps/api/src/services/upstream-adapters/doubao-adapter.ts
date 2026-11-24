@@ -38,8 +38,10 @@ import { ProxyAgent, fetch as undiciFetch } from 'undici'
 import type {
   AdapterAccountContext,
   AdapterCallOptions,
+  ModelListCallOptions,
   NormalizedChatRequest,
   QuotaCallOptions,
+  RelayModelListResult,
   RelayQuotaResult,
   RelayUpstreamAdapter,
   StreamState,
@@ -105,6 +107,16 @@ const DOUBAO_QUOTA_URL = `${DOUBAO_BASE}/api/user/quota`
  * 只校验 cookie 存在性 —— 伪造 32 位 sessionid 照样回 code:0,**不足以判活**,故不作判据。
  */
 const DOUBAO_IM_BATCH_GET_URL = `${DOUBAO_BASE}/im/conversation/batch_get`
+
+/**
+ * 模型清单端点(2026-11-24 真票实弹打通):GET /chat/models 是豆包 web 的模型选择页,
+ * cookie 鉴权,HTTP 200 返回 HTML,里面内嵌 `menu_item_list` 数组,每项含
+ * `model_item_key`(chat body 的 conversation_init_ext.model_item_key 直接用的 key)与 `name`。
+ * 实弹 16 条(豆包 2.1 Auto/Pro/Lite、DeepSeek V4.1 Flash、GLM 5.4、Qwen 4 Max、
+ * Kimi K3.1 Pro 等)—— 这是「平台程序自己知道的模型」的一手源,新模型上线会进这个列表。
+ * 注意:不是 JSON API,是 HTML 内嵌 JSON 片段;须做括号配平提取,绝不正则贪婪匹配。
+ */
+const DOUBAO_MODELS_URL = `${DOUBAO_BASE}/chat/models`
 
 /** 实证:豆包 web 统一 query 面;缺 aid/real_aid 会被服务端按非法请求拒(710020702) */
 const DOUBAO_AID = '497858'
@@ -340,6 +352,93 @@ function buildDoubaoDeltaChunk(
  * 实证:chat 面 query 比 IM 面多一组端类型/区域参数(2026-11-10 浏览器抓包独立实现,
  * 纯 Node 复现可通)。故意**不带 `a_bogus`** —— 实测真票下不传也回 200(签名只影响风控评分)。
  */
+/**
+ * 从 HTML 里按 `"menu_item_list":[` 定位并做括号配平提取 JSON 数组。
+ * 纯函数、零依赖,便于单测锁死「不贪婪匹配、不被字符串内的括号骗到」。
+ * 取不到或形状非法返回 null,绝不返回空数组冒充「上游没模型」。
+ */
+export function extractDoubaoModelItems(html: string): Array<{ key: string; name: string }> | null {
+  const needle = '"menu_item_list":['
+  const at = html.indexOf(needle)
+  if (at < 0) return null
+  const arrStart = at + needle.length - 1 // 指向 '['
+  let depth = 0
+  let inStr = false
+  let esc = false
+  let end = -1
+  for (let i = arrStart; i < html.length; i++) {
+    const ch = html[i]!
+    if (inStr) {
+      if (esc) esc = false
+      else if (ch === '\\') esc = true
+      else if (ch === '"') inStr = false
+      continue
+    }
+    if (ch === '"') inStr = true
+    else if (ch === '[') depth++
+    else if (ch === ']') {
+      depth--
+      if (depth === 0) {
+        end = i + 1
+        break
+      }
+    }
+  }
+  if (end < 0) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(html.slice(arrStart, end))
+  } catch {
+    return null
+  }
+  if (!Array.isArray(parsed)) return null
+  const out: Array<{ key: string; name: string }> = []
+  const seen = new Set<string>()
+  for (const item of parsed) {
+    if (!item || typeof item !== 'object') continue
+    const rec = item as Record<string, unknown>
+    const key = typeof rec['model_item_key'] === 'string' ? rec['model_item_key'].trim() : ''
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    const name = typeof rec['name'] === 'string' ? rec['name'].trim() : ''
+    out.push({ key, name: name || key })
+  }
+  return out.length > 0 ? out : null
+}
+
+/**
+ * 模型清单(detailed,2026-11-24 真票实弹):GET /chat/models + 会话 cookie ⇒ HTML 内嵌
+ * menu_item_list → model_item_key 清单。取不到/空/形状非法一律 ok:false(不冒充没模型),
+ * 永不抛。scope='upstream-account'(清单来自本号 cookie 看到的模型选择页)。
+ */
+async function listModelsDetailed(
+  ctx: AdapterAccountContext,
+  opts?: ModelListCallOptions,
+): Promise<RelayModelListResult> {
+  try {
+    const res = await resolveFetchImpl(opts ?? {})(DOUBAO_MODELS_URL, {
+      method: 'GET',
+      headers: {
+        accept: 'text/html',
+        cookie: buildCookieHeader(ctx),
+        referer: 'https://www.doubao.com/chat/',
+        'user-agent': DOUBAO_UA,
+      },
+    })
+    if (!res.ok) return { ok: false, error: `上游返回 ${res.status}` }
+    const html = await res.text()
+    const items = extractDoubaoModelItems(html)
+    if (!items) return { ok: false, error: '模型页无 menu_item_list 或形状非法' }
+    return {
+      ok: true,
+      scope: 'upstream-account',
+      models: items.map((x) => ({ id: x.key, name: x.name })),
+    }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 function doubaoChatQuery(ctx: AdapterAccountContext): string {
   const own = (ctx.row.deviceId ?? '').trim()
   return new URLSearchParams({
@@ -645,6 +744,7 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
   // 额度能力:无公开余额端点,getQuota 只是探测签名墙的推断路径(200 也如实报未判定)。
   // 声明 false ⇒ 承载层(切号列表/admin 点查)直接标"未支持",零探测、零假数(§0.3)。
   quotaSupported: false,
+  listModelsDetailed,
 
   /**
    * chat 请求构造(2026-11-10 实证重写,纯 Node 已打通)。
