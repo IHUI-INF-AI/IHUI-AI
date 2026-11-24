@@ -33,10 +33,15 @@ const MAX_QUEUE = Number(process.env.BRIDGE_MAX_QUEUE ?? 5000)
 let driver = null
 let seq = 0
 let queue = []
+const seenIds = new Set()
 
 async function loadDriver() {
   if (DRIVER_NAME === 'wcfhttp') {
     const mod = await import('./drivers/wcfhttp.mjs')
+    return mod.createDriver()
+  }
+  if (DRIVER_NAME === 'ocr') {
+    const mod = await import('./drivers/ocr-readonly.mjs')
     return mod.createDriver()
   }
   if (DRIVER_NAME !== 'mock') throw new Error(`未知 BRIDGE_DRIVER：${DRIVER_NAME}`)
@@ -56,6 +61,9 @@ async function loadQueue() {
     }
   })
   queue = parsed.filter((item) => item && typeof item.seq === 'number').slice(-MAX_QUEUE)
+  for (const item of queue) {
+    if (item.id) seenIds.add(String(item.id))
+  }
   const last = queue.at(-1)
   seq = last ? last.seq : 0
 }
@@ -65,6 +73,17 @@ async function persist(message) {
   await appendFile(QUEUE_FILE, `${JSON.stringify(message)}\n`, 'utf8')
   queue.push(message)
   if (queue.length > MAX_QUEUE) queue = queue.slice(-MAX_QUEUE)
+}
+
+/** 入站统一去重：同一 id 重复投递不推进 seq，避免 OCR 轮询/重试落重复消息。 */
+async function appendInbound(raw) {
+  const message = normalizeInbound(raw)
+  if (message.id && seenIds.has(message.id)) return false
+  seq += 1
+  const stored = { ...message, seq }
+  await persist(stored)
+  if (stored.id) seenIds.add(String(stored.id))
+  return true
 }
 
 function json(res, status, body) {
@@ -176,8 +195,7 @@ async function handle(req, res) {
           ? body
           : [body]
       for (const raw of list) {
-        seq += 1
-        await persist({ ...normalizeInbound(raw), seq })
+        await appendInbound(raw)
       }
       return json(res, 200, { ok: true, ingested: list.length, seq })
     }
@@ -222,6 +240,33 @@ async function handle(req, res) {
 driver = await loadDriver()
 await loadQueue()
 
+/** 可选轮询：OCR 等拉取型驱动主动产出入站消息，复用 /ingest 的去重与队列。 */
+function startDriverPoll() {
+  if (typeof driver?.poll !== 'function') return
+  const intervalMs = Math.max(1000, Number(process.env.BRIDGE_DRIVER_POLL_MS ?? 5000))
+  let busy = false
+  const tick = async () => {
+    if (busy) return
+    busy = true
+    try {
+      const items = await driver.poll()
+      let ingested = 0
+      for (const item of items ?? []) {
+        if (await appendInbound(item)) ingested += 1
+      }
+      if (ingested > 0) {
+        console.log(`[wechat-bridge] ${DRIVER_NAME} 轮询入站 ${ingested} 条，seq=${seq}`)
+      }
+    } catch (e) {
+      console.error(`[wechat-bridge] ${DRIVER_NAME} 轮询失败:`, e instanceof Error ? e.message : e)
+    } finally {
+      busy = false
+    }
+  }
+  void tick()
+  setInterval(tick, intervalMs).unref()
+}
+
 const server = createServer((req, res) => {
   handle(req, res).catch((e) => {
     json(res, 500, { ok: false, error: e instanceof Error ? e.message : 'internal error' })
@@ -230,6 +275,7 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`[wechat-bridge] listening on http://${HOST}:${PORT} driver=${DRIVER_NAME}`)
+  startDriverPoll()
 })
 
 function shutdown() {

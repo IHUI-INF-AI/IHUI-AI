@@ -87,6 +87,24 @@ describe('normalizeBridgePayload', () => {
     expect(events[0]?.platformChatId).toBe('unknown')
   })
 
+  it('OCR 桥的 chatTitle 作为会话标题', () => {
+    const events = normalizeBridgePayload({
+      messages: [
+        {
+          id: 'ocr-1',
+          chatId: 'ocr:abc',
+          sender: 'ocr:abc',
+          senderName: '微信ClawBot',
+          type: 'text',
+          content: '你好',
+          chatTitle: '微信ClawBot',
+        },
+      ],
+    })
+    expect(events[0]?.conversationTitle).toBe('微信ClawBot')
+    expect(events[0]?.senderName).toBe('微信ClawBot')
+  })
+
   it('桥 seq 回退到游标之前时把游标退回 0，避免新消息被 since 过滤掉', () => {
     expect(bridgeCursorNeedsReset('4', 1)).toBe(true)
     expect(bridgeCursorNeedsReset('3', 3)).toBe(false)

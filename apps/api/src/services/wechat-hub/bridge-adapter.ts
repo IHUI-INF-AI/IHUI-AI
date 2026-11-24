@@ -248,7 +248,8 @@ export function normalizeBridgePayload(payload: unknown): WechatInboundEvent[] {
       platformChatId: chatId,
       conversationKind: isGroup ? 'group' : 'private',
       conversationTitle:
-        firstString(record, ['roomName', 'room_name', 'chatName', 'chat_name']) ?? null,
+        firstString(record, ['roomName', 'room_name', 'chatName', 'chat_name', 'chatTitle']) ??
+        null,
       senderId,
       senderName,
       kind,
