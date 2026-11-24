@@ -24,6 +24,8 @@ from dataclasses import dataclass
 
 import httpx
 
+from app.core.bounded_ttl_store import BoundedTtlDict
+
 logger = logging.getLogger(__name__)
 
 
@@ -123,12 +125,16 @@ class SandboxError(Exception):
 # ===========================================================================
 
 SANDBOX_TIER_STRICT = "strict"
+SANDBOX_TIER_WORKSPACE = "workspace"
 SANDBOX_TIER_RELAXED = "relaxed"
 DEFAULT_SANDBOX_TIER = SANDBOX_TIER_STRICT
-#: 唯一的放宽开关名(取值: strict / relaxed;空/未设置 = strict)
+#: 唯一的放宽开关名(取值: strict / workspace / relaxed;空/未设置 = strict)
 SANDBOX_TIER_ENV = "SANDBOX_EXEC_TIER"
 #: 严档超时上限(秒)。既有调用方缺省 timeout=60,故取 60 不改变既有基线。
 STRICT_TIMEOUT_CEILING_S = 60
+#: 工作区档超时上限(秒):安全面与严档一致,仅给工作区内较长命令(测试/构建)
+#: 留出中间预算;不放开网络 / 宿主环境 / 根外 workdir。
+WORKSPACE_TIMEOUT_CEILING_S = 180
 #: 放宽档超时上限(秒),仍须显式 opt-in 才生效。
 RELAXED_TIMEOUT_CEILING_S = 3600
 
@@ -152,6 +158,13 @@ SANDBOX_EXECUTION_PROFILES: dict[str, SandboxExecutionProfile] = {
         full_env=False,
         allow_unconfined_workdir=False,
         timeout_ceiling_s=STRICT_TIMEOUT_CEILING_S,
+    ),
+    SANDBOX_TIER_WORKSPACE: SandboxExecutionProfile(
+        tier=SANDBOX_TIER_WORKSPACE,
+        allow_network=False,
+        full_env=False,
+        allow_unconfined_workdir=False,
+        timeout_ceiling_s=WORKSPACE_TIMEOUT_CEILING_S,
     ),
     SANDBOX_TIER_RELAXED: SandboxExecutionProfile(
         tier=SANDBOX_TIER_RELAXED,
@@ -183,6 +196,79 @@ def resolve_execution_profile(raw: str | None = None) -> SandboxExecutionProfile
             f"{sorted(SANDBOX_EXECUTION_PROFILES)} (设置 {SANDBOX_TIER_ENV}=relaxed 才放宽)"
         )
     return profile
+
+
+# ---------------------------------------------------------------------------
+# B1-05 会话级额外可写根侧车(本模块执行面镜像,2026-11-24 立)
+# ---------------------------------------------------------------------------
+# mcp_server 侧已有一套 (主体, 会话) → 附加目录 的 ContextVar + TTL 登记(准入校验在
+# 那一侧);本侧车是执行面的同构镜像:执行链在 call_tool 的 ContextVar 作用域之外
+# (自愈链 / 续跑 / 直接调 executor)时,仍能按会话查到已登记的附加根。
+#
+# 纪律:
+# - 注册即生效:register 写入后,同 (主体, 会话) 的判定立即认这些根;
+# - 注销即失效:clear 后同一会话再查 ⇒ 空元组,不残留;
+# - 续跑需重注册:注册表是进程内有界 TTL 存储,不落库;进程重启 / 跨进程续跑
+#   一律从空集开始,不会把上一轮会话的扩权带过来;
+# - 只扩不收:静态根内路径不因侧车集变严;侧车集之外仍照旧拒绝;
+# - 缺省零行为:不传 session_id ⇒ 不查侧车,合并集与改动前逐字等价。
+_SESSION_EXTRA_WRITABLE_ROOTS: BoundedTtlDict = BoundedTtlDict(
+    max_keys=5000,
+    ttl_seconds=6 * 3600.0,
+)
+
+
+def _session_extra_root_key(user_id: str | None, session_id: str) -> str:
+    """(主体, 会话) 复合键:会话 id 是客户端可自报字段,键必须含已验证主体。"""
+    return f"{user_id or ''}\x00{session_id}"
+
+
+def register_session_extra_roots(
+    session_id: str,
+    dirs: list[str] | tuple[str, ...],
+    *,
+    user_id: str | None = None,
+) -> tuple[str, ...]:
+    """注册某会话的额外可写根(覆盖式;注册即生效)。
+
+    路径先做归一化 / 去重 / 空项剔除;准入校验(是否真实目录、是否敏感目录)由
+    调用方(mcp_server add_directories)负责,本侧车只做执行面镜像登记。
+    """
+    if not session_id or not str(session_id).strip():
+        raise SandboxError("注册会话附加可写根必须带非空 session_id")
+    resolved: list[str] = []
+    for raw in dirs:
+        text = str(raw).strip()
+        if not text:
+            continue
+        normalized = os.path.abspath(text)
+        if normalized not in resolved:
+            resolved.append(normalized)
+    _SESSION_EXTRA_WRITABLE_ROOTS.set(
+        _session_extra_root_key(user_id, str(session_id).strip()), tuple(resolved)
+    )
+    return tuple(resolved)
+
+
+def clear_session_extra_roots(session_id: str, *, user_id: str | None = None) -> None:
+    """注销某会话的全部附加可写根(注销即失效,不留残根)。"""
+    if not session_id:
+        return
+    _SESSION_EXTRA_WRITABLE_ROOTS.pop(
+        _session_extra_root_key(user_id, str(session_id).strip()), None
+    )
+
+
+def get_session_extra_roots(
+    session_id: str | None, *, user_id: str | None = None
+) -> tuple[str, ...]:
+    """读某会话登记的附加根;未注册 / 已过期 / 主体不符 ⇒ 空元组。"""
+    if not session_id:
+        return ()
+    value = _SESSION_EXTRA_WRITABLE_ROOTS.get(
+        _session_extra_root_key(user_id, str(session_id).strip()), ()
+    )
+    return tuple(value) if value else ()
 
 
 def _workspace_roots() -> list[str]:
@@ -233,17 +319,27 @@ def _resolve_workdir(
     profile: SandboxExecutionProfile,
     workdir: str | None,
     extra_roots: "list[str] | None" = None,
+    *,
+    session_id: str | None = None,
+    user_id: str | None = None,
 ) -> str:
     """workdir 收敛:严档必须落在工作区根内;放宽档才允许越界(并留审计)。
 
     `extra_roots` = 该会话经 MCP `add_directories` 追加、且已过准入校验的绝对目录。
     附加集**只做扩、不做收**(与 mcp_server 的两态纪律同源):进程级白名单内的路径
     不因附加集而变严;附加集之外的路径仍照旧拒绝。
+
+    `session_id` / `user_id` = 执行面侧车登记会话(B1-05):传入时把该会话已注册的
+    附加根一并并入判定集;不传 ⇒ 不查侧车,行为与改动前逐字等价。
     """
     candidate = os.path.abspath(workdir or ".")
     if profile.allow_unconfined_workdir:
         return candidate
     roots = _merge_writable_roots(_workspace_roots(), extra_roots or [])
+    if session_id:
+        roots = _merge_writable_roots(
+            roots, list(get_session_extra_roots(session_id, user_id=user_id))
+        )
     if not any(_path_within(candidate, root) for root in roots):
         raise SandboxError(
             f"workdir 越出服务端工作区根(MCP_WORKSPACE_ROOTS ∪ 会话附加目录): {candidate};"
@@ -356,6 +452,8 @@ class SandboxExecutor:
         allow_network: bool = False,
         *,
         extra_writable_roots: "list[str] | None" = None,
+        session_id: str | None = None,
+        user_id: str | None = None,
     ) -> SandboxResult:
         """执行命令(默认严档:网络拒绝 / 超时上限 / workdir 收敛 / env 白名单)。
 
@@ -372,9 +470,16 @@ class SandboxExecutor:
             resource_limits: 资源限制(cpu/memory/gpu 等,透传到后端)
             allow_network: 显式请求网络;严档下拒绝执行,仅 relaxed 档放行
             extra_writable_roots: 会话级附加可写根(已过 mcp_server 准入);只扩不收
+            session_id: 执行面侧车会话标识(B1-05);传入时并入该会话已注册的附加根
+            user_id: 已验证主体,与 session_id 组成侧车复合键(防同名会话串权)
         """
         profile = resolve_execution_profile()
         timeout = _resolve_timeout(profile, timeout)
+        if session_id is not None:
+            extra_writable_roots = _merge_writable_roots(
+                extra_writable_roots or [],
+                list(get_session_extra_roots(session_id, user_id=user_id)),
+            )
         workdir = _resolve_workdir(profile, workdir, extra_writable_roots)
         if allow_network and not profile.allow_network:
             logger.warning(
@@ -390,7 +495,7 @@ class SandboxExecutor:
                 ),
                 duration_ms=0, backend=backend, timed_out=False,
             )
-        if profile.tier != SANDBOX_TIER_STRICT:
+        if profile.allow_network or profile.full_env or profile.allow_unconfined_workdir:
             logger.warning(
                 "sandbox 放宽档生效 tier=%s backend=%s timeout=%ss workdir=%s "
                 "network=%s env=%s",
