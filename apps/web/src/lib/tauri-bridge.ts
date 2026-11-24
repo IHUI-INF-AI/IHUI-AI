@@ -1135,6 +1135,65 @@ export async function quitApp(): Promise<void> {
   await invoke('quit_app')
 }
 
+// ================== 通知系统级权限三态查询(P3-07①)==================
+
+/**
+ * 桌面端系统级通知权限三态(对齐 Rust `notification_permission::PermissionReport`)。
+ *
+ * 与浏览器 `Notification.permission`、plugin 的布尔授权是**三个不同的面**:
+ * 本三态读 Windows toast 总开关,专门回答"用户是不是在系统设置里关了通知"——
+ * 这是纯布尔授权区分不出来的那一档(对照 Qoder 证据:P3-07 两态归一 + 未判定)。
+ */
+export type SystemNotificationPermission = 'allowed' | 'denied' | 'unjudged'
+
+export interface SystemNotificationPermissionReport {
+  state: SystemNotificationPermission
+  reason: string
+  source: string
+}
+
+const SYSTEM_NOTIFICATION_STATES: ReadonlySet<string> = new Set(['allowed', 'denied', 'unjudged'])
+
+/**
+ * 把桌面命令回执归一为封闭三态(fail-closed)。
+ * 缺字段 / 类型错 / 未知态 ⇒ `unjudged` + 点名原因,绝不冒充 `allowed`。
+ * 纯函数,夹具可直接注入,不依赖 Tauri 运行时。
+ */
+export function normalizeSystemNotificationPermission(
+  raw: unknown,
+): SystemNotificationPermissionReport {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { state: 'unjudged', reason: 'invalid-report-shape', source: 'bridge' }
+  }
+  const report = raw as Record<string, unknown>
+  const state = report.state
+  if (typeof state !== 'string' || !SYSTEM_NOTIFICATION_STATES.has(state)) {
+    return { state: 'unjudged', reason: 'invalid-report-state', source: 'bridge' }
+  }
+  return {
+    state: state as SystemNotificationPermission,
+    reason: typeof report.reason === 'string' ? report.reason : 'reason-missing',
+    source: typeof report.source === 'string' ? report.source : 'source-missing',
+  }
+}
+
+/**
+ * 查询桌面系统级通知权限(只读;消费 Rust `query_notification_permission` 命令)。
+ * fail-closed:非 Tauri / invoke 失败 / 回执异常一律落 `unjudged`,不默认 `allowed`。
+ */
+export async function querySystemNotificationPermission(): Promise<SystemNotificationPermissionReport> {
+  if (!isTauri()) {
+    return { state: 'unjudged', reason: 'platform-not-tauri', source: 'platform' }
+  }
+  try {
+    const raw: unknown = await invoke('query_notification_permission')
+    return normalizeSystemNotificationPermission(raw)
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    return { state: 'unjudged', reason: `bridge-invoke-failed:${detail}`, source: 'bridge' }
+  }
+}
+
 /**
  * 发送系统原生通知(标题 + 正文)。
  * 自动处理权限请求(首次调用时请求,已授权则直接发送)。
@@ -1145,6 +1204,12 @@ export async function sendDesktopNotification(title: string, body: string): Prom
   try {
     let granted = await invoke<boolean>('plugin:notification|is_permission_granted')
     if (!granted) {
+      // P3-07①: 先用系统级三态区分"用户在系统里关了通知"(denied) 与
+      // "权限尚未申请 / 查询链路故障"(unjudged)。系统明确 denied 时 toast 总开关
+      // 已关,再请求应用权限也不会弹,直接短路。unjudged 绝不冒充 denied 或 allowed,
+      // 保持原 plugin 请求路径(fail-closed 不默认放行,也不误判为用户拒绝)。
+      const system = await querySystemNotificationPermission()
+      if (system.state === 'denied') return
       const permission = await invoke<string>('plugin:notification|request_permission')
       granted = permission === 'granted'
     }
