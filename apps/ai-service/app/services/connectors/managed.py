@@ -154,6 +154,24 @@ def status(conn_type: str, scope: str | None = None) -> dict[str, Any]:
     # 先查租户自己的应用凭据:有行就只认这一行,不管环境凭据配没配。
     tenant_cred = resolve_tenant_platform_credentials(scope, conn_type)
     if tenant_cred is not None:
+        if tenant_cred.get("enabled") is False:
+            return {
+                "available": False,
+                "supported": True,
+                "credential_source": "tenant",
+                "missing": [],
+                "reason": "该租户已停用该平台应用凭据,需租户管理员在「企业应用凭据」中重新启用",
+                "multi_tenant": True,
+            }
+        if tenant_cred.get("complete") is False:
+            return {
+                "available": False,
+                "supported": True,
+                "credential_source": "tenant",
+                "missing": [],
+                "reason": "该租户平台应用凭据不完整或密钥不可解密,需租户管理员重新保存",
+                "multi_tenant": True,
+            }
         return {
             "available": True,
             "supported": True,
@@ -196,6 +214,14 @@ def credentials(conn_type: str, scope: str | None = None) -> dict[str, Any]:
         return {"app_id": "", "app_secret": "", "extra": {}, "source": "public"}
     tenant_cred = resolve_tenant_platform_credentials(scope, conn_type)
     if tenant_cred is not None:
+        if tenant_cred.get("enabled") is False:
+            raise ManagedUnavailable(
+                conn_type, [], "该租户已停用该平台应用凭据,需租户管理员重新启用"
+            )
+        if tenant_cred.get("complete") is False:
+            raise ManagedUnavailable(
+                conn_type, [], "该租户平台应用凭据不完整或密钥不可解密,需租户管理员重新保存"
+            )
         return tenant_cred
     spec = _CREDENTIAL_ENV[conn_type]
     app_id = _env_value(spec["app_id"])

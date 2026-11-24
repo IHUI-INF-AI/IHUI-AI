@@ -64,7 +64,50 @@ def test_other_tenant_cannot_fall_back_to_platform_env(monkeypatch):
     assert "其他租户" in st["reason"]
 
 
-def test_tenant_row_query_passes_params_as_one_sequence(monkeypatch):
+def test_disabled_tenant_row_returns_state_marker(monkeypatch):
+    """停用行必须被看见:返回 enabled=False,不能当成“没有行”去回退环境凭据。"""
+    tenant = "44444444-4444-4444-4444-444444444444"
+
+    class FakeSession:
+        def fetchrow(self, sql, params=()):
+            return {
+                "app_id": "cli_tenant",
+                "app_secret": NODE_CIPHERTEXT,
+                "extra": {},
+                "enabled": False,
+            }
+
+    monkeypatch.setattr(settings, "credentials_encryption_key", "0123456789abcdef0123456789abcdef")
+    monkeypatch.setattr(tpa, "_pg", FakeSession())
+    monkeypatch.setattr(tpa, "_pg_session", lambda: tpa._pg)
+    tpa.clear_tenant_platform_cache()
+    got = tpa.resolve_tenant_platform_credentials(tenant, "feishu")
+    assert got is not None
+    assert got["enabled"] is False
+    assert got["source"] == "tenant"
+    assert got["app_id"] == "" and got["app_secret"] == ""
+
+
+def test_incomplete_tenant_row_returns_state_marker(monkeypatch):
+    """启用但 secret 缺失/不可解密的行也不能回退环境凭据。"""
+    tenant = "55555555-5555-5555-5555-555555555555"
+
+    class FakeSession:
+        def fetchrow(self, sql, params=()):
+            return {
+                "app_id": "cli_tenant",
+                "app_secret": "",
+                "extra": {},
+                "enabled": True,
+            }
+
+    monkeypatch.setattr(tpa, "_pg", FakeSession())
+    monkeypatch.setattr(tpa, "_pg_session", lambda: tpa._pg)
+    tpa.clear_tenant_platform_cache()
+    got = tpa.resolve_tenant_platform_credentials(tenant, "feishu")
+    assert got is not None
+    assert got["enabled"] is True
+    assert got["complete"] is False
     """SyncPgSession.fetchrow(sql, params) 是 (sql, 序列) 两参形态;传成三个位置参会 TypeError。"""
     tenant = "33333333-3333-3333-3333-333333333333"
     seen: dict[str, object] = {}
@@ -76,6 +119,7 @@ def test_tenant_row_query_passes_params_as_one_sequence(monkeypatch):
                 "app_id": "cli_tenant",
                 "app_secret": NODE_CIPHERTEXT,
                 "extra": {"agent_id": "100"},
+                "enabled": True,
             }
 
     monkeypatch.setattr(settings, "credentials_encryption_key", "0123456789abcdef0123456789abcdef")

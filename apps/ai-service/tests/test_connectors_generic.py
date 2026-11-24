@@ -539,6 +539,35 @@ def test_managed_build_record_reports_tenant_credential_source(monkeypatch):
     assert rec["app_id"] == "" and rec["app_secret"] == ""
 
 
+def test_managed_disabled_tenant_row_never_falls_back_to_env(monkeypatch):
+    """租户显式停用后,环境里的平台凭据不能把它悄悄复活。"""
+    tenant = "33333333-3333-3333-3333-333333333333"
+    monkeypatch.setenv("FEISHU_APP_ID", "cli_env")
+    monkeypatch.setenv("FEISHU_APP_SECRET", "env-secret")
+    monkeypatch.setenv("CONNECTOR_MULTI_TENANT", "1")
+    monkeypatch.delenv("CONNECTOR_MANAGED_TENANT_ID", raising=False)
+    monkeypatch.setattr(settings, "platform_default_tenant_id", tenant)
+    monkeypatch.setattr(
+        managed,
+        "resolve_tenant_platform_credentials",
+        lambda scope, conn_type: {
+            "app_id": "",
+            "app_secret": "",
+            "extra": {},
+            "source": "tenant",
+            "enabled": False,
+            "complete": True,
+        },
+    )
+    st = managed.status("feishu", tenant)
+    assert st["available"] is False
+    assert st["credential_source"] == "tenant"
+    assert "已停用" in st["reason"]
+    with pytest.raises(managed.ManagedUnavailable) as exc:
+        managed.credentials("feishu", tenant)
+    assert "已停用" in str(exc.value)
+
+
 def test_managed_single_tenant_mode_keeps_env_zero_config(monkeypatch):
     """未打开 SaaS 模式时保持单企业部署的一键接入行为。"""
     monkeypatch.setenv("FEISHU_APP_ID", "cli_test")

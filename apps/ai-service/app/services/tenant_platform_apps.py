@@ -10,6 +10,8 @@
 
 - 只有租户 UUID 作用域才查库;``user:<id>`` 个人作用域不查,由调用方回退环境凭据。
 - 查不到行返回 ``None``,绝不把别的租户的凭据借用过来。
+- 查到行但 ``enabled=false`` / 凭据不完整时返回状态标记,调用方必须拒绝并禁止回退
+  环境凭据 —— 租户管理员的停用不能被平台环境变量悄悄覆盖。
 - 表不存在/连接失败也返回 ``None``,由调用方按"该租户未配置"降级,不静默共享环境凭据。
 """
 
@@ -34,11 +36,10 @@ _UUID_RE = re.compile(
 _CACHE_TTL_SECONDS = 60.0
 
 _SQL = """
-SELECT app_id, app_secret, extra
+SELECT app_id, app_secret, extra, enabled
 FROM tenant_platform_apps
 WHERE tenant_id = $1::uuid
   AND platform = $2
-  AND enabled = true
 LIMIT 1
 """
 
@@ -101,7 +102,13 @@ def resolve_tenant_platform_credentials(
     tenant_id: str | None,
     platform: str,
 ) -> dict[str, Any] | None:
-    """返回 ``{app_id, app_secret, extra, source:'tenant'}``;无行/不可读返回 None。"""
+    """返回租户行状态;无行返回 None。
+
+    有行时返回 ``{app_id, app_secret, extra, source:'tenant', enabled, complete}``。
+    ``enabled=False`` / ``complete=False`` 是状态标记，调用方必须据此拒绝并**禁止**
+    回退环境凭据 —— 租户管理员显式停用或漏填 secret 时，环境里的平台凭据不能
+    悄悄把这行“复活”。
+    """
     tenant = str(tenant_id or "").strip()
     if not tenant or not _UUID_RE.match(tenant):
         return None
@@ -126,13 +133,16 @@ def resolve_tenant_platform_credentials(
                 app_secret = _decrypt_secret(stored_secret)
             except Exception:
                 app_secret = ""
-            if app_id and app_secret:
-                result = {
-                    "app_id": app_id,
-                    "app_secret": app_secret,
-                    "extra": _extra_dict(row["extra"]),
-                    "source": "tenant",
-                }
+            enabled = bool(row["enabled"])
+            complete = bool(app_id and app_secret) and enabled
+            result = {
+                "app_id": app_id if complete else "",
+                "app_secret": app_secret if complete else "",
+                "extra": _extra_dict(row["extra"]),
+                "source": "tenant",
+                "enabled": enabled,
+                "complete": complete,
+            }
 
     with _cache_lock:
         _cache[key] = (now + _CACHE_TTL_SECONDS, dict(result) if result else None)
