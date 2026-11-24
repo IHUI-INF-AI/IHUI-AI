@@ -30,6 +30,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { gitBinary } from './lib/face-reader.mjs'
+import { alignSharedIndex } from './lib/bypass-git.mjs'
 
 export const LEDGER_ROW_RE = /^- \[[ x]\] /
 
@@ -267,6 +268,20 @@ function main() {
     }
     run(['update-ref', targetRef, commit, OURS])
     console.log(`✅ 已推进 ${targetRef} → ${commit.slice(0, 11)}(CAS 前像=${OURS.slice(0, 11)})`)
+    // ref 已 CAS 推进,共享索引里 DOC 仍停在 OURS(= 新 HEAD 的父提交态)⇒ 不回同步就会留下
+    // "反向 staged"(门327):下次任何不带 pathspec 的裸提交会把合流前的旧活文档写回 HEAD。
+    // 只对齐索引、不碰工作树(守住本器"零触碰工作树"边界);别人真 staged 的 DOC 由
+    // alignSharedIndex 判"≠父提交态=归属他人"跳过并点名,不覆盖。ref 已落地不可回滚,故对齐
+    // 失败只报警 + 退出非 0,绝不假成功。parentRef=OURS:索引停在 OURS 即本次落地残留。
+    const align = alignSharedIndex({ root: process.cwd(), paths: [DOC], parentRef: OURS })
+    if (align.failed || align.lockAbandoned || align.undetermined.length || align.skipped.length) {
+      console.error(
+        `❌ ref 已推进但共享索引回同步未达预期 ⇒ 请人工复跑 node scripts/check-index-reverse-staged.mjs 并按提示修:` +
+          ` ${JSON.stringify(align).slice(0, 600)}`,
+      )
+      return 1
+    }
+    console.log(`✅ 共享索引已回同步 DOC → ${align.moved.length ? '已对齐' : '本就一致'}(${align.already.length} 条 already)`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

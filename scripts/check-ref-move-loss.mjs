@@ -43,6 +43,7 @@
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { alignSharedIndex } from './lib/bypass-git.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const STATE_DIR = path.join(ROOT, '.ihui-agent', 'state')
@@ -228,6 +229,25 @@ export function tryRestore({ curHead, droppedShas, root = ROOT, attest = true })
   }
   const cas = run(['update-ref', 'refs/heads/main', base, curHead])
   if (!cas.ok) return { ok: false, why: 'CAS 被拒(别人又推进了 main),不硬写', applied, skipped }
+  // ref 已从 curHead CAS 到 base,共享索引里被回补触及的文件仍停在 curHead(= 新 HEAD 的父提交态)
+  // ⇒ 不回同步就留下"反向 staged"(门327):下次裸提交会把回补前的旧内容写回 HEAD。
+  // 只对齐索引、不碰工作树(守夜人"对象空间修、零触碰工作树"的边界);别人真 staged 的由
+  // alignSharedIndex 判"≠父提交态=归属他人"跳过并点名。parentRef=curHead:索引停在 curHead 即本次残留。
+  // ref 已落地不可回滚,故对齐失败只报警 + 退出非 0,绝不假成功。
+  const changed = run(['diff-tree', '--no-commit-id', '--name-only', '-r', curHead, base])
+  const paths = (changed.ok ? changed.out.split(/\r?\n/) : []).filter(Boolean)
+  if (!changed.ok || !paths.length) {
+    console.error(`❌ 回补后算不出变更路径集(未判定)⇒ 共享索引回同步跳过,请人工复跑 check-index-reverse-staged.mjs`)
+    return { ok: false, why: '回补已 CAS 但变更路径集未判定,索引未回同步', applied, skipped }
+  }
+  const align = alignSharedIndex({ root: ROOT, paths, parentRef: curHead })
+  if (align.failed || align.lockAbandoned || align.undetermined.length || align.skipped.length) {
+    console.error(
+      `❌ 回补已 CAS 但共享索引回同步未达预期 ⇒ 请人工复跑 check-index-reverse-staged.mjs 并按提示修:` +
+        ` ${JSON.stringify(align).slice(0, 600)}`,
+    )
+    return { ok: false, why: '回补已 CAS 但索引回同步未达预期', applied, skipped }
+  }
   if (attest) {
     try {
       fs.appendFileSync(
