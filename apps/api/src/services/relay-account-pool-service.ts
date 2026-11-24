@@ -2415,6 +2415,12 @@ const POOL_MODEL_CACHE_TTL_MS = 10 * 60 * 1000
 const POOL_MODEL_CACHE_MAX = 500
 /** 单平台上游清单超时:拉清单不该把选择器拖到十几秒 */
 const POOL_MODEL_UPSTREAM_TIMEOUT_MS = 8_000
+/**
+ * qoder 清单超时放宽(2026-11-24):qoder 走 SDK available_models_update 帧,
+ * 桥缓存过期时要跑一次真实 query(实测 7~15s)才会推送清单,8s 会把首轮误判为"取不到"。
+ * 仅 qoder 特化,其余平台维持 8s;这只影响同步/选择器打开时的等待上限,不改变失败语义。
+ */
+const POOL_MODEL_QODER_TIMEOUT_MS = 60_000
 const poolModelCache = new Map<string, UserPoolModelCacheEntry>()
 
 /** 上游模型 id → 选择器 id:`<平台>/<上游名>`(已带同前缀则不重复拼,qoder 的登记形态即如此) */
@@ -2469,8 +2475,10 @@ async function fetchUpstreamModelIds(
       }
       return null
     }
+    const timeoutMs =
+      providerCode === 'qoder' ? POOL_MODEL_QODER_TIMEOUT_MS : POOL_MODEL_UPSTREAM_TIMEOUT_MS
     const timeout = new Promise<null>((resolve) => {
-      const timer = setTimeout(() => resolve(null), POOL_MODEL_UPSTREAM_TIMEOUT_MS)
+      const timer = setTimeout(() => resolve(null), timeoutMs)
       timer.unref?.()
     })
     const raced = await Promise.race([task().catch(() => null), timeout])

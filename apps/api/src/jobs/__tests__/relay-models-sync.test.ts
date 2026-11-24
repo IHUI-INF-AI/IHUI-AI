@@ -11,48 +11,60 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-const { mockSchedule, mockStop, mockFetchUpstream, fromResults, insertReturning, mockDb } =
-  vi.hoisted(() => {
-    // select().from(table) 用「结果队列」分发:每平台一轮固定两次 select ——
-    //   ① 父表 ai_model_config 查 config 行(await 取数组)
-    //   ② 子表 ai_model_config_models 遍历(dedupModelsInDb for..of)
-    // loop 平台面若走号池 select,也在同一队列里按调用顺序排队。
-    const fromResults: unknown[][] = []
-    const insertReturning = vi.fn()
-    function wrap(data: unknown[]): any {
-      const arr = Array.from(data)
-      Object.defineProperties(arr, {
-        from: { value: () => wrap(arr), enumerable: false, writable: true, configurable: true },
-        where: { value: () => arr, enumerable: false, writable: true, configurable: true },
-        orderBy: { value: () => arr, enumerable: false, writable: true, configurable: true },
-        limit: { value: () => arr, enumerable: false, writable: true, configurable: true },
-      })
-      return arr
-    }
-    const mockFrom = vi.fn(() => wrap(fromResults.length > 0 ? fromResults.shift()! : []))
-    const mockDb: any = {
-      insert: vi.fn(() => ({
-        values: vi.fn(() => ({
+const {
+  mockSchedule,
+  mockStop,
+  mockFetchUpstream,
+  fromResults,
+  insertReturning,
+  insertValues,
+  mockDb,
+} = vi.hoisted(() => {
+  // select().from(table) 用「结果队列」分发:每平台一轮固定两次 select ——
+  //   ① 父表 ai_model_config 查 config 行(await 取数组)
+  //   ② 子表 ai_model_config_models 遍历(dedupModelsInDb for..of)
+  // loop 平台面若走号池 select,也在同一队列里按调用顺序排队。
+  const fromResults: unknown[][] = []
+  const insertReturning = vi.fn()
+  const insertValues: Array<Record<string, unknown>> = []
+  function wrap(data: unknown[]): any {
+    const arr = Array.from(data)
+    Object.defineProperties(arr, {
+      from: { value: () => wrap(arr), enumerable: false, writable: true, configurable: true },
+      where: { value: () => arr, enumerable: false, writable: true, configurable: true },
+      orderBy: { value: () => arr, enumerable: false, writable: true, configurable: true },
+      limit: { value: () => arr, enumerable: false, writable: true, configurable: true },
+    })
+    return arr
+  }
+  const mockFrom = vi.fn(() => wrap(fromResults.length > 0 ? fromResults.shift()! : []))
+  const mockDb: any = {
+    insert: vi.fn(() => ({
+      values: vi.fn((v: Record<string, unknown>) => {
+        insertValues.push(v)
+        return {
           onConflictDoNothing: vi.fn(() => ({ returning: insertReturning })),
           returning: insertReturning,
-        })),
-      })),
-      select: vi.fn(() => ({ from: mockFrom })),
-      update: vi.fn(() => ({
-        set: vi.fn(() => ({ where: vi.fn(() => Promise.resolve()) })),
-      })),
-    }
-    mockDb.dbRead = mockDb
-    return {
-      mockSchedule: vi.fn(),
-      mockStop: vi.fn(),
-      mockFetchUpstream: vi.fn(),
-      fromResults,
-      insertReturning,
-      mockDb,
-      dbRead: mockDb,
-    }
-  })
+        }
+      }),
+    })),
+    select: vi.fn(() => ({ from: mockFrom })),
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({ where: vi.fn(() => Promise.resolve()) })),
+    })),
+  }
+  mockDb.dbRead = mockDb
+  return {
+    mockSchedule: vi.fn(),
+    mockStop: vi.fn(),
+    mockFetchUpstream: vi.fn(),
+    fromResults,
+    insertReturning,
+    insertValues,
+    mockDb,
+    dbRead: mockDb,
+  }
+})
 
 vi.mock('node-cron', () => ({
   default: { schedule: mockSchedule },
@@ -87,12 +99,14 @@ import {
   stopRelayModelsSyncScheduler,
   resolveModelSyncCron,
   DEFAULT_MODEL_SYNC_CRON,
+  defaultRelayModelPublic,
 } from '../relay-models-sync.js'
 
 afterEach(() => {
   stopRelayModelsSyncScheduler()
   vi.clearAllMocks()
   fromResults.length = 0
+  insertValues.length = 0
 })
 
 // ===== 单平台 syncRelayProviderModels =====
@@ -146,6 +160,30 @@ describe('syncRelayProviderModels — 编排与早退', () => {
     expect(r.inserted).toBe(2)
     expect(r.exists).toBe(0)
     expect(r.configRowCreated).toBe(false)
+    expect(insertValues.find((v) => v.modelId === 'gpt-x')?.isRelayPublic).toBe(true)
+  })
+
+  it('qoder 新上架模型默认不公开(跟现有 qoder 口径;不自动放开)', async () => {
+    insertReturning.mockReturnValue([{ id: 1 }])
+    fromResults.push([{ id: 49 }]) // qoder 父表已存在
+    fromResults.push([]) // dedup 子表空
+    const r = await syncRelayProviderModels({
+      providerCode: 'qoder',
+      fetchUpstream: async () => ({ ok: true, ids: ['auto', 'qmodel_latest'] }),
+    })
+    expect(r.inserted).toBe(2)
+    expect(
+      insertValues.filter((v) => v.modelId === 'auto' || v.modelId === 'qmodel_latest'),
+    ).toHaveLength(2)
+    for (const v of insertValues) {
+      expect(v.isRelayPublic).toBe(false)
+    }
+  })
+
+  it('默认公开策略只在 qoder 收口,其余平台不变', () => {
+    expect(defaultRelayModelPublic('qoder')).toBe(false)
+    expect(defaultRelayModelPublic('trae')).toBe(true)
+    expect(defaultRelayModelPublic(undefined)).toBe(true)
   })
 
   it('已存在(onConflict 命中)→ 计 exists 不计 inserted', async () => {

@@ -116,11 +116,23 @@ const PROVIDER_CONFIG_NAME: Partial<Record<RelayProviderCode, string>> = {
   codearts: 'CodeArts 账号池(反代)',
 }
 
+/**
+ * 自动上架的新行默认是否公开(2026-11-24 立)。
+ * qoder 例外:上游 SDK available_models_update 一次推 14 个 id,其中大量 isNew;
+ * 机主定档「跟现有 qoder 模型一致」=先登记、不自动放开给终端用户,由 admin 逐条上架。
+ * 只影响**新插入行**;onConflictDoNothing 永不覆盖 admin 手置的公开状态。
+ * 其它平台维持原有自动公开语义,避免扩大本次策略变更面。
+ */
+export function defaultRelayModelPublic(providerCode: string | undefined): boolean {
+  return providerCode !== 'qoder'
+}
+
 /** 单模型 upsert:按 (config_id, model_id) 唯一约束 onConflictDoNothing。
  *  不更新既有行(避免覆盖管理员手置的 is_relay_public / relay_display_name / 定价)。 */
 async function upsertRelayModel(
   configId: number,
   modelId: string,
+  providerCode?: string,
 ): Promise<RelayModelWriteOutcome> {
   const rows = await db
     .insert(aiModelConfigModels)
@@ -129,7 +141,7 @@ async function upsertRelayModel(
       modelId,
       displayName: modelId,
       enabled: true,
-      isRelayPublic: true,
+      isRelayPublic: defaultRelayModelPublic(providerCode),
       pointsMultiplier: inferPointsMultiplier(modelId).toFixed(2),
     })
     .onConflictDoNothing({
@@ -259,7 +271,10 @@ export async function syncRelayProviderModels(options: {
   }
 
   const fetchUpstream = options.fetchUpstream ?? fetchUpstreamModelIdsForProvider
-  const write = options.write ?? upsertRelayModel
+  // 把平台码绑进默认 writer:qoder 走保守公开策略,其余平台不变。
+  // 显式注入 options.write 的调用方(测试/admin)仍完全掌控写入语义。
+  const write: RelayModelWriter =
+    options.write ?? ((cid, mid) => upsertRelayModel(cid, mid, providerCode))
 
   // 1. 现拉上游清单(适配器无 listModels ⇒ ok=false 跳过)
   let upstreamIds: string[] = []

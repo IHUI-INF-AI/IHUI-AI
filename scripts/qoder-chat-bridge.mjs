@@ -24,6 +24,9 @@
  * 协议（OpenAI 兼容子集）：
  *   POST /v1/chat/completions   {model, messages, stream, ...} → chat.completion | SSE
  *   GET  /healthz               → {ok, pid, sdk, uptime_ms, inflight}
+ *   GET  /v1/models             → {object:'list', data:[{id, displayName, ...}]}
+ *                                 上游模型清单(来自 SDK available_models_update 帧,
+ *                                 缓存 15 分钟;过期需 bearer token + x-qoder-token-exp 触发刷新)。
  *
  * 用法（父进程据此拉起）：
  *   ELECTRON_RUN_AS_NODE=1 "Qoder CN.exe" <this> --port 0 --key <random> --cwd <clean dir>
@@ -53,6 +56,7 @@ import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { normalizeModelCatalogFrame } from './lib/qoder-model-catalog.mjs'
 
 // ───────────────────────────── 参数 ─────────────────────────────
 function arg(name, fallback) {
@@ -161,6 +165,19 @@ let inflight = 0
 const queue = []
 let seq = 0
 
+// ───────────────────── 上游模型清单缓存(2026-11-24 立) ─────────────────────
+// Qoder 上游**没有** models HTTP 端点(取证 docs/RELAY_QODER_LISTMODELS_EVIDENCE.md);
+// 唯一客户端同源事实是 SDK 在每次 query 时主动推的 `available_models_update` 系统帧
+// (本机 2026-11-24 实弹:14 个模型,含 isNew 的 Qwen4-Max/DeepSeek-V4-Pro/GLM-5.4 等)。
+// 此前桥把该帧当"只用于观测"丢弃 ⇒ 上游上新永远进不了号池模型表。这里把它缓存下来,
+// 经 GET /v1/models 暴露给自动同步器,做到"各平台一有更新就第一时间抓取"。
+// 语义:缓存 = 最近一次真实 SDK query 的上游声明,scope 如实标注,不冒充实时点查。
+let modelCatalog = null // { models: Array<{id,value,displayName,isEnabled,...}>, fetchedAt: number }
+/** 缓存新鲜度:15 分钟(与 relay-models-sync 周期一致;过期由 /v1/models 主动跑一次最小 query 刷新) */
+const MODEL_CATALOG_TTL_MS = Number(process.env.QODER_BRIDGE_MODEL_TTL_MS || 15 * 60 * 1000)
+
+// normalizeModelCatalogFrame 单一真相源在 scripts/lib/qoder-model-catalog.mjs(本文件 import)。
+
 function log(...a) {
   if (process.env.QODER_BRIDGE_QUIET === '1') return
   console.error('[bridge]', ...a)
@@ -256,7 +273,10 @@ async function runQuery({ token, expiresAt, prompt, model, signal, onEvent }) {
     if (msg.type === 'system' && msg.subtype === 'init') {
       if (msg.model) sdkModel = msg.model
     } else if (msg.type === 'system' && msg.subtype === 'available_models_update') {
-      // 只用于观测，不参与本次应答
+      // 上游在每次 query 主动推全量模型清单 —— 这是唯一"上游声明了哪些模型"的客户端同源事实。
+      // 缓存下来供 GET /v1/models 消费;不参与本次应答文本,语义边界见顶部注释。
+      const catalog = normalizeModelCatalogFrame(msg)
+      if (catalog && catalog.models.length > 0) modelCatalog = catalog
     } else if (msg.type === 'assistant' && msg.message?.content) {
       for (const c of msg.message.content) {
         if (!c || typeof c !== 'object') continue
@@ -374,6 +394,53 @@ const server = http.createServer(async (req, res) => {
       cwd: workDir,
       electron: process.versions.electron,
       node: process.versions.node,
+    })
+    return
+  }
+
+  // GET /v1/models —— 上游模型清单(自动同步器消费;OpenAI list 兼容子集)。
+  // 事实源:SDK 每次 query 主动推的 available_models_update 帧,缓存于内存。
+  // 缓存新鲜(<=TTL)直接返回;空/过期时用调用方携带的代表号 token 跑一次最小 query 触发推送刷新。
+  // 纪律:取不到一律 ok=false 式 503,绝不伪造空清单冒充"上游没有模型"(取不到 ≠ 没模型)。
+  if (req.method === 'GET' && url.pathname === '/v1/models') {
+    if (KEY && req.headers['x-qoder-bridge-key'] !== KEY) {
+      sendError(res, 403, 'bridge key mismatch', 'forbidden')
+      return
+    }
+    const fresh =
+      modelCatalog &&
+      modelCatalog.models.length > 0 &&
+      Date.now() - modelCatalog.fetchedAt <= MODEL_CATALOG_TTL_MS
+    if (!fresh) {
+      const auth = String(req.headers.authorization || '')
+      const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : ''
+      const expiresAt = Number(req.headers['x-qoder-token-exp'] || 0)
+      if (!token || !Number.isFinite(expiresAt) || expiresAt < 1e12) {
+        sendError(res, 401, 'stale/empty model catalog; refresh needs bearer token + x-qoder-token-exp', 'catalog_refresh_unauthorized')
+        return
+      }
+      try {
+        await acquire()
+        try {
+          // 最小 query 只为触发 available_models_update 帧;tools=[] 安全红线不变。
+          await runQuery({ token, expiresAt, prompt: 'hi', signal: null })
+        } finally {
+          release()
+        }
+      } catch (e) {
+        sendError(res, 502, `model catalog refresh failed: ${e.message}`, 'catalog_refresh_failed')
+        return
+      }
+    }
+    if (!modelCatalog || modelCatalog.models.length === 0) {
+      sendError(res, 503, 'no available_models_update frame observed', 'catalog_unavailable')
+      return
+    }
+    sendJson(res, 200, {
+      object: 'list',
+      scope: 'qoder-sdk-available_models_update',
+      fetched_at: new Date(modelCatalog.fetchedAt).toISOString(),
+      data: modelCatalog.models.map((m) => ({ id: m.id, ...m })),
     })
     return
   }

@@ -313,6 +313,77 @@ export async function ensureQoderBridge(): Promise<QoderBridgeEndpoint | null> {
   }
 }
 
+/**
+ * 从桥读取上游模型清单(2026-11-24 立)。桥端 GET /v1/models 的客户端封装:
+ * - 事实源是 SDK available_models_update 帧(上游唯一客户端同源声明),不是静态清单;
+ * - 带代表号 token + exp,桥缓存过期时据此跑一次最小 query 刷新;
+ * - 永不抛:取不到返回 null(调用方据此回落 CLI,「取不到 ≠ 没模型」)。
+ */
+export interface QoderBridgeModelEntry {
+  id: string
+  value?: string
+  displayName?: string
+  isNew?: boolean
+}
+
+export async function fetchQoderModelsFromBridge(
+  token: string,
+  expiresAt: number,
+  fetchImpl: typeof fetch = fetch,
+): Promise<
+  | { ok: true; models: QoderBridgeModelEntry[]; scope: string; fetchedAt: string }
+  | { ok: false; error: string }
+> {
+  const ep = getQoderBridgeEndpoint() ?? (await ensureQoderBridge())
+  if (!ep) return { ok: false, error: describeQoderBridgeFailure() }
+  if (!token) return { ok: false, error: 'missing device token for model catalog refresh' }
+  try {
+    const res = await fetchImpl(`${ep.baseUrl}/v1/models`, {
+      method: 'GET',
+      headers: {
+        'x-qoder-bridge-key': ep.key,
+        authorization: `Bearer ${token}`,
+        'x-qoder-token-exp': String(expiresAt),
+      },
+      signal: AbortSignal.timeout(180_000), // 缓存过期时桥要跑一次最小 query,给足预算
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      return {
+        ok: false,
+        error: `bridge /v1/models HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
+      }
+    }
+    const json = (await res.json()) as {
+      data?: Array<Record<string, unknown>>
+      scope?: string
+      fetched_at?: string
+    }
+    const models: QoderBridgeModelEntry[] = []
+    const seen = new Set<string>()
+    for (const m of Array.isArray(json.data) ? json.data : []) {
+      const id = typeof m.id === 'string' ? m.id.trim() : ''
+      if (!id || seen.has(id)) continue
+      seen.add(id)
+      models.push({
+        id,
+        ...(typeof m.value === 'string' ? { value: m.value } : {}),
+        ...(typeof m.displayName === 'string' ? { displayName: m.displayName } : {}),
+        ...(typeof m.isNew === 'boolean' ? { isNew: m.isNew } : {}),
+      })
+    }
+    if (models.length === 0) return { ok: false, error: 'bridge /v1/models returned empty list' }
+    return {
+      ok: true,
+      models,
+      scope: json.scope ?? 'qoder-sdk-available_models_update',
+      fetchedAt: json.fetched_at ?? '',
+    }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 /** API 启动时后台预热；不抛、不阻塞主流程 */
 export function startQoderBridge(): void {
   stopped = false

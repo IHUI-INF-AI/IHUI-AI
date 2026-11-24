@@ -35,6 +35,7 @@ import { extractTokenExpiry } from '../relay-account-format.js'
 import {
   describeQoderBridgeFailure,
   ensureQoderBridge,
+  fetchQoderModelsFromBridge,
   getQoderBridgeEndpoint,
 } from '../qoder-bridge-client.js'
 import type {
@@ -531,16 +532,40 @@ export const qoderAdapter: RelayUpstreamAdapter = {
   },
 
   /**
-   * 富模型清单(2026-10-27 立;契约见 RelayModelListResult)。
-   * 调 listQoderModels(spawn 本机 CLI --list-models),永不抛,失败归 ok:false。
-   * ctx 不用于取凭据:CLI 用本机登录态(清单语义 = 本机 CLI 登录态的当前用户,
-   * 不是号池账号),scope 字段如实标注;取证:上游无 models HTTP 端点
-   * (docs/RELAY_QODER_LISTMODELS_EVIDENCE.md),CLI 是唯一客户端同源通路。
+   * 富模型清单(2026-10-27 立;2026-11-24 改走 SDK 推送帧;契约见 RelayModelListResult)。
+   *
+   * 事实源优先级:
+   *   ① 桥 GET /v1/models —— SDK 每次 query 主动推的 available_models_update 帧
+   *      (本机 2026-11-24 实弹:14 个模型,含 isNew 的 Qwen4-Max/DeepSeek-V4-Pro/GLM-5.4 等)。
+   *      这是"上游声明了哪些模型"的唯一客户端同源通路,scope 如实标注为 sdk 推送帧。
+   *   ② 回落 CLI listQoderModels(本机登录态)—— 桥不可用/取不到时兜底,scope 为 local-cli-login。
+   * 永不抛:两条都取不到归 ok:false(「取不到 ≠ 没模型」,同步器据此整块跳过,不判下架)。
+   * 取证:上游无 models HTTP 端点(docs/RELAY_QODER_LISTMODELS_EVIDENCE.md)。
    */
   async listModelsDetailed(
-    _ctx: AdapterAccountContext,
+    ctx: AdapterAccountContext,
     _opts?: ModelListCallOptions,
   ): Promise<RelayModelListResult> {
+    // ① 桥推送帧(优先):用代表号 token,缓存过期时桥会主动跑一次最小 query 刷新
+    try {
+      const token = ctx.credentials.token
+      const expRaw = ctx.row.tokenExpiresAt
+      const expiresAt =
+        expRaw instanceof Date && Number.isFinite(expRaw.getTime())
+          ? expRaw.getTime()
+          : Date.now() + 3_600_000
+      const viaBridge = await fetchQoderModelsFromBridge(token, expiresAt)
+      if (viaBridge.ok) {
+        return {
+          ok: true,
+          scope: viaBridge.scope,
+          models: viaBridge.models.map((m) => ({ name: m.displayName || m.id, id: m.id })),
+        }
+      }
+    } catch {
+      /* 桥路径失败 → 回落 CLI */
+    }
+    // ② 回落 CLI(本机登录态)
     try {
       const r = listQoderModels()
       if (!r.ok) return { ok: false, error: r.error }
@@ -549,11 +574,7 @@ export const qoderAdapter: RelayUpstreamAdapter = {
         ...r.official.map((name) => ({ name, id: name })),
         ...r.custom.map((c) => ({ name: c.name, id: c.idPrefix, idTruncated: true as const })),
       ]
-      return {
-        ok: true,
-        scope: r.scope,
-        models,
-      }
+      return { ok: true, scope: r.scope, models }
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) }
     }
