@@ -3257,6 +3257,13 @@
       "when": 1795502400000,
       "tag": "20261124240000_hr_training",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 469,
+      "when": 1795503000000,
+      "tag": "20261124250000_finance_ledger_permissions",
+      "breakpoints": true
     }
   ]
 }
