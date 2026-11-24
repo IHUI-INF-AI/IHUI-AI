@@ -131,6 +131,15 @@ def _should_goal_rerun(result: Any, decision: Any) -> bool:
     state = getattr(decision, "round_state", None)
     if state is None or bool(getattr(state, "blocked", False)):
         return False
+    # 显式暂停 / 配额耗尽 / 用户要求别自动续跑:本轮结束后都不再自动起下一轮
+    from ..services.goal_round_state import ROUND_USAGE_LIMITED
+
+    if bool(getattr(state, "paused", False)):
+        return False
+    if bool(getattr(state, "continuation_deferred", False)):
+        return False
+    if str(getattr(state, "last_status", "")) == ROUND_USAGE_LIMITED:
+        return False
     budget = getattr(state, "token_budget", None)
     spent = getattr(state, "tokens_spent", None)
     if isinstance(budget, int) and isinstance(spent, int) and spent >= budget:

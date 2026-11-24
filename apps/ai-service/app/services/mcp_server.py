@@ -855,6 +855,8 @@ def _active_extra_roots() -> tuple[str, ...]:
 # 危险工具:写文件 / 执行命令 / 数据库查询 / git 操作 / 自动化配置 / 电脑控制 / 截图(SSRF 入口)
 _ADMIN_ONLY_TOOLS: set[str] = {
     "write_file", "run_command", "sandbox_session", "terminal", "db_query", "git_operations",
+    # 2026-11-24 shadow workspace:多文件事务写,危险面与 write_file 同档
+    "apply_patch_set",
     "configure_automation_task",
     # 2026-07-24 file_edit:写文件操作(精细编辑),必须 admin
     "file_edit",
@@ -3071,6 +3073,139 @@ async def _tool_read_tool_output(arguments: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "read_tool_output", **page}
 
 
+_SHADOW_LSP_SUFFIXES: Final = {".py", ".pyi", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json"}
+
+
+class _ShadowLspValidator:
+    """影子校验器:内置语法 + 可用时的语言服务诊断(404/不可用自动回退)。
+
+    语言服务诊断取自既有 `get_diagnostics` 判据(白名单工作区 + containment + 可用性),
+    不另造 AST;影子文件位于真实工作区内,工作区根仍为调用方给的 root。
+    """
+
+    def __init__(self, workspace: str) -> None:
+        self.workspace = workspace
+        self.engine_name = "builtin"
+        self.metadata: dict[str, Any] = {
+            "requested": True,
+            "files": 0,
+            "unavailable": False,
+            "errors": 0,
+        }
+
+    async def __call__(self, shadow_root: Path, rel_paths: tuple[str, ...]) -> list[dict[str, Any]]:
+        from .shadow_workspace import builtin_validate
+
+        diagnostics = list(await builtin_validate(shadow_root, rel_paths))
+        seen = {
+            (item.get("file"), item.get("line"), item.get("column"), item.get("message"))
+            for item in diagnostics
+        }
+        for rel in rel_paths:
+            if Path(rel).suffix.lower() not in _SHADOW_LSP_SUFFIXES:
+                continue
+            result = await _tool_get_diagnostics(
+                {"workspacePath": self.workspace, "file": str(shadow_root / rel), "limit": 100}
+            )
+            if not result.get("ok"):
+                self.metadata["unavailable"] = True
+                continue
+            self.metadata["files"] += 1
+            for item in result.get("diagnostics", []):
+                entry = {**item, "file": rel, "source": item.get("source") or "lsp"}
+                key = (entry.get("file"), entry.get("line"), entry.get("column"), entry.get("message"))
+                if key in seen:
+                    continue
+                seen.add(key)
+                diagnostics.append(entry)
+        if self.metadata["files"]:
+            self.engine_name = "lsp+builtin"
+        self.metadata["errors"] = sum(
+            1 for item in diagnostics if str(item.get("severity", "")).lower() == "error"
+        )
+        return diagnostics
+
+
+async def _tool_apply_patch_set(arguments: dict[str, Any]) -> dict[str, Any]:
+    """apply_patch_set:影子副本校验 + 多文件全成功或全恢复(2026-11-24)。
+
+    与 write_file 的分工:write_file 是单文件原子写;本工具负责"一组文件一起改"。
+    落盘前先把拟写内容写进影子目录跑校验,真实工作区在 valid 之前逐字节不变;
+    任一写失败逆序回滚。校验器可注入(语言服务同一函数面),内置覆盖 py/json/toml。
+    """
+    from .agent_security_prefs import current_security_principal
+    from .shadow_workspace import apply_patch_set
+
+    if not current_security_principal():
+        return {"tool": "apply_patch_set", "ok": False, "error": "principal_required"}
+    workspace = arguments.get("path")
+    if not isinstance(workspace, str) or not workspace.strip():
+        return {"tool": "apply_patch_set", "ok": False, "status": "rejected", "errorCode": "workspace_missing"}
+    patches = arguments.get("patches")
+    if not isinstance(patches, list):
+        return {"tool": "apply_patch_set", "ok": False, "status": "rejected", "errorCode": "invalid_patches"}
+    from pathlib import Path as _Path
+
+    from .read_access import check_access
+
+    for raw in patches:
+        if not isinstance(raw, dict):
+            continue
+        rel = str(raw.get("path") or "")
+        denied, rule, errors = check_access(_Path(workspace), rel)
+        if denied:
+            where = rule.where() if rule is not None else ".cursorignore:unreadable"
+            return {
+                "tool": "apply_patch_set",
+                "ok": False,
+                "status": "rejected",
+                "errorCode": "CURSORIGNORE_DENIED",
+                "error": f"路径被 .cursorignore 排除({where}),整批不落",
+                "rule": where,
+                "ruleErrors": errors,
+            }
+
+    async def _skip_validation(_shadow: Any, _rels: tuple[str, ...]) -> list[dict[str, Any]]:
+        return []
+
+    if arguments.get("validate", True) is False:
+        validator: Any = _skip_validation
+        engine_name = "skipped"
+    elif arguments.get("languageServer", True) is not False:
+        validator = _ShadowLspValidator(workspace)
+        engine_name = None
+    else:
+        validator = None
+        engine_name = None
+    result = await apply_patch_set(
+        workspace,
+        patches,
+        validator=validator,
+        dry_run=bool(arguments.get("dryRun")),
+        engine_name=engine_name,
+    )
+    return {"tool": "apply_patch_set", **result}
+
+
+def _cursorignore_denial(resolved_path: str) -> dict[str, Any] | None:
+    """`.cursorignore` 访问面 deny(读/写/索引同源;2026-11-24 定档)。
+
+    只认工作区根的 `.cursorignore`;命中或规则文件读不动都返回拒绝体。
+    """
+    from .read_access import access_denied_for_resolved
+
+    roots = _get_workspace_roots() + list(_active_extra_roots())
+    denial = access_denied_for_resolved(resolved_path, roots)
+    if denial is None:
+        return None
+    return {
+        "errorCode": "CURSORIGNORE_DENIED",
+        "error": f"路径被 .cursorignore 排除({denial.where}),AI 不得读取/写入",
+        "rule": denial.where,
+        "ruleErrors": list(denial.errors),
+    }
+
+
 async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
     """read_file: 读取文件内容(路径必须在工作区白名单内,防 symlink 穿越)。"""
     path = arguments.get("path", "")
@@ -3106,6 +3241,15 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
             "ok": False,
             "error": "拒绝读取敏感文件(可能含 API key/私钥/凭证)",
             "errorCode": "SENSITIVE_FILE_BLOCKED",
+        }
+    denied = _cursorignore_denial(str(resolved_path))
+    if denied is not None:
+        return {
+            "tool": "read_file",
+            "path": resolved_path,
+            "content": "",
+            "ok": False,
+            **denied,
         }
     # 读不到 ≠ 不存在:先量一次路径,权限/IO 错误单独报 UNREADABLE,不落到 open()
     # 的模糊异常上(否则会被上游当成"文件不存在"或"内容为空")。
@@ -3352,6 +3496,9 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
     if not ok:
         return {"tool": "write_file", "path": path, "ok": False, "error": info}
     resolved_path = info
+    denied = _cursorignore_denial(str(resolved_path))
+    if denied is not None:
+        return {"tool": "write_file", "path": resolved_path, "ok": False, **denied}
     try:
         async with get_path_write_lock(resolved_path):
             # 写前基线漂移判定(判定与写盘同锁内完成,判定结果对写盘时刻负责)
@@ -3486,6 +3633,9 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"tool": "file_edit", "file_path": path, "ok": False,
                 "error": info, "errorCode": "PATH_NOT_ALLOWED"}
     resolved_path = info
+    denied = _cursorignore_denial(str(resolved_path))
+    if denied is not None:
+        return {"tool": "file_edit", "file_path": resolved_path, "ok": False, **denied}
 
     try:
         # AIS-083:读盘 → 匹配计数 → 3-way 合并 → 写回必须整体在同一把 per-path
@@ -7565,6 +7715,9 @@ async def _tool_read_image(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": info, "errorCode": "PATH_NOT_ALLOWED",
         }
     path = Path(info)
+    denied = _cursorignore_denial(str(path))
+    if denied is not None:
+        return {"tool": "read_image", "ok": False, **denied}
     if not path.exists() or not path.is_file():
         return {
             "tool": "read_image", "ok": False,
@@ -15485,6 +15638,46 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="apply_patch_set",
+        description=(
+            "多文件事务写:先把拟写内容放进影子目录跑校验(py/json/toml 内置,可注入语言服务),"
+            "全部通过才逐个原子回写;任一失败逆序恢复整批。返回 status(validated/applied/"
+            "validation_failed/rolled_back/rejected)与逐文件诊断。改一组相关文件时优先用它,"
+            "单文件仍用 write_file/file_edit。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "工作区根目录绝对路径"},
+                "patches": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 64,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "工作区相对路径"},
+                            "content": {"type": "string", "description": "写入后的完整 UTF-8 文本"},
+                            "expectedSha256": {
+                                "type": "string",
+                                "description": "可选前置条件:现盘文件的 sha256(新建为空串)",
+                            },
+                        },
+                        "required": ["path", "content"],
+                    },
+                },
+                "dryRun": {"type": "boolean", "default": False, "description": "只校验不落盘"},
+                "validate": {"type": "boolean", "default": True, "description": "false 跳过校验(只保留影子副本与事务写)"},
+                "languageServer": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "校验时叠加语言服务诊断;不可用自动回退内置语法校验",
+                },
+            },
+            "required": ["path", "patches"],
+        },
+    ),
+    MCPTool(
         name="write_file",
         description=(
             "写入内容到本地文件。写冲突治理:若现盘内容与本会话上次看到的版本不一致"
@@ -19556,6 +19749,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "list_files": _tool_list_files,
     "render_repo_tree": _tool_render_repo_tree,
     "write_file": _tool_write_file,
+    "apply_patch_set": _tool_apply_patch_set,
     "file_edit": _tool_file_edit,
     "run_command": _tool_run_command,
     "sandbox_session": _tool_sandbox_session,

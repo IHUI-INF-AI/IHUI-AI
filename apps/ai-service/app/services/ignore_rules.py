@@ -30,9 +30,13 @@ from pathlib import Path
 DEFAULT_IGNORE_FILENAMES: tuple[str, ...] = (".gitignore", ".aiignore")
 
 #: 索引面独有的一档(2026-11-24,Cursor `.cursorindexingignore` 等价):它只影响
-#: "索引/检索"的取材面,**不**改变仓库树渲染与读文件权限。`.cursorignore` 刻意不并入 ——
-#: 它是"AI 不许读"的访问面规则,当索引剪枝会让被排除文件从检索面静默消失;隐私语义待产品定档。
-INDEX_IGNORE_FILENAMES: tuple[str, ...] = DEFAULT_IGNORE_FILENAMES + (".cursorindexingignore",)
+#: "索引/检索"的取材面,**不**改变仓库树渲染与读文件权限。
+#: `.cursorignore` 同时并入:2026-11-24 产品定档为"AI 不许读写"的访问面规则,
+#: 既然读面已拒,再让它进索引就是给被拒文件造一条可检索的影子。
+INDEX_IGNORE_FILENAMES: tuple[str, ...] = DEFAULT_IGNORE_FILENAMES + (
+    ".cursorindexingignore",
+    ".cursorignore",
+)
 
 #: 索引口径:哪些规则文件的命中可以**被"已跟踪"这一事实推翻**。
 #:

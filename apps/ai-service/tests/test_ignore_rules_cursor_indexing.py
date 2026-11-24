@@ -24,7 +24,8 @@ def _write(root: Path, name: str, text: str) -> None:
 def test_index_filenames_include_cursor_only() -> None:
     assert ".cursorindexingignore" in INDEX_IGNORE_FILENAMES
     assert ".cursorindexingignore" not in DEFAULT_IGNORE_FILENAMES
-    assert ".cursorignore" not in INDEX_IGNORE_FILENAMES
+    # 2026-11-24 定档:.cursorignore 是访问面 deny,同时并入索引剪枝
+    assert ".cursorignore" in INDEX_IGNORE_FILENAMES
 
 
 def test_cursor_indexing_ignore_prunes(tmp_path: Path) -> None:

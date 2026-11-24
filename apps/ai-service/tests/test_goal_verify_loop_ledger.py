@@ -612,4 +612,169 @@ def test_both_doors_resolve_the_same_store_accessor() -> None:
 
     assert goal_verification.get_store is gate.get_store
     assert get_store() is get_store()
+
+
+# ==================== ⑥ Codex 六态 / deferral / pause(2026-11-24) ====================
+
+
+def test_six_state_derivation_covers_every_branch() -> None:
+    from app.services.goal_round_state import (
+        GOAL_ACTIVE,
+        GOAL_BLOCKED,
+        GOAL_BUDGET_LIMITED,
+        GOAL_COMPLETE,
+        GOAL_PAUSED,
+        GOAL_USAGE_LIMITED,
+        derive_goal_status,
+    )
+
+    assert derive_goal_status(_state()) == GOAL_ACTIVE
+    assert derive_goal_status(_state(paused=True)) == GOAL_PAUSED
+    assert derive_goal_status(_state(last_status="usage_limited")) == GOAL_USAGE_LIMITED
+    budget = _state(blocked=True, blocked_reason="budget_exhausted", last_status="budget_limited")
+    assert derive_goal_status(budget) == GOAL_BUDGET_LIMITED
+    assert derive_goal_status(_state(blocked=True, blocked_reason="consecutive_failures")) == GOAL_BLOCKED
+    assert derive_goal_status(_state(last_status="achieved", consecutive_failures=0)) == GOAL_COMPLETE
+    assert derive_goal_status(None) is None
+
+
+def test_lifecycle_flags_survive_payload_roundtrip_and_legacy_payload_defaults_false() -> None:
+    state = _state(paused=True, continuation_deferred=True)
+    parsed = parse_state_payload(state.to_payload())
+    assert parsed is not None
+    assert parsed.paused is True
+    assert parsed.continuation_deferred is True
+
+    legacy = state.to_payload()
+    legacy.pop("paused")
+    legacy.pop("continuation_deferred")
+    parsed_legacy = parse_state_payload(legacy)
+    assert parsed_legacy is not None
+    assert parsed_legacy.paused is False
+    assert parsed_legacy.continuation_deferred is False
+
+    bad = state.to_payload()
+    bad["paused"] = "yes"
+    assert parse_state_payload(bad) is None
+
+
+def test_advance_preserves_control_flags_but_completion_clears_them() -> None:
+    from app.services.goal_round_state import GOAL_COMPLETE, GOAL_PAUSED, derive_goal_status
+
+    paused = _state(paused=True, continuation_deferred=True)
+    next_state = advance_round_state(
+        session_id=paused.session_id,
+        owner_user_id=paused.owner_user_id,
+        outcome=normalize_outcome(status="not_achieved", unmet=("x",)),
+        previous=paused,
+        max_consecutive_failures=3,
+    )
+    assert derive_goal_status(next_state) == GOAL_PAUSED
+    assert next_state.continuation_deferred is True
+
+    done = advance_round_state(
+        session_id=paused.session_id,
+        owner_user_id=paused.owner_user_id,
+        outcome=normalize_outcome(status="achieved", unmet=()),
+        previous=paused,
+        max_consecutive_failures=3,
+    )
+    assert derive_goal_status(done) == GOAL_COMPLETE
+    assert done.paused is False
+    assert done.continuation_deferred is False
+
+
+@pytest.mark.asyncio
+async def test_control_endpoint_round_trips_all_six_states(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services.goal_round_state import InProcessGoalRoundStore
+
+    store = InProcessGoalRoundStore()
+    await store.write(_state())
+    monkeypatch.setattr(goal_verification, "get_store", lambda: store)
+    async with await _client("user-a") as client:
+        paused = await client.post(
+            "/api/agent/goal-control", json={"session_id": "s-1", "action": "pause"}
+        )
+        assert paused.status_code == 200, paused.text
+        assert paused.json()["goal_lifecycle"] == "paused"
+
+        resumed = await client.post(
+            "/api/agent/goal-control", json={"session_id": "s-1", "action": "resume"}
+        )
+        assert resumed.json()["goal_lifecycle"] == "active"
+
+        deferred = await client.post(
+            "/api/agent/goal-control",
+            json={"session_id": "s-1", "action": "defer_continuation"},
+        )
+        assert deferred.json()["state"]["continuation_deferred"] is True
+
+        usage = await client.post(
+            "/api/agent/goal-control",
+            json={"session_id": "s-1", "action": "mark_usage_limited"},
+        )
+        assert usage.json()["goal_lifecycle"] == "usage_limited"
+
+        back = await client.post(
+            "/api/agent/goal-control",
+            json={"session_id": "s-1", "action": "resume_from_usage_limit"},
+        )
+        assert back.json()["goal_lifecycle"] == "active"
+
+        read = await client.get("/api/agent/goal-state", params={"session_id": "s-1"})
+        assert read.status_code == 200
+        assert read.json()["goal_lifecycle"] == "active"
+
+
+@pytest.mark.asyncio
+async def test_paused_and_usage_limited_short_circuit_before_judge(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.goal_round_state import InProcessGoalRoundStore
+
+    store = InProcessGoalRoundStore()
+    await store.write(_state(paused=True))
+    monkeypatch.setattr(goal_verification, "get_store", lambda: store)
+    payload = {
+        "goal": "g",
+        "criteria": [{"id": "a", "statement": "a 必须成立", "evidence_kind": "command"}],
+    }
+    async with await _client("user-a") as client:
+        paused = await client.post(
+            "/api/agent/goal-verify", json={**payload, "session_id": "s-1"}
+        )
+    assert paused.status_code == 200, paused.text
+    body = paused.json()
+    assert body["status"] == "paused"
+    assert body["independent_request_made"] is False
+    assert body["goal_lifecycle"] == "paused"
+    assert body["should_pause"] is True
+
+    await store.write(_state(last_status="usage_limited", blocked_reason="usage_exhausted"))
+    async with await _client("user-a") as client:
+        usage = await client.post(
+            "/api/agent/goal-verify", json={**payload, "session_id": "s-1"}
+        )
+    assert usage.status_code == 200
+    assert usage.json()["status"] == "usage_limited"
+    assert usage.json()["goal_lifecycle"] == "usage_limited"
+
+
+def test_should_goal_rerun_stops_on_pause_deferral_and_usage_limit() -> None:
+    from types import SimpleNamespace
+
+    from app.routers.agents import _should_goal_rerun
+
+    result = SimpleNamespace(stop_reason="")
+    for state in (
+        _state(paused=True),
+        _state(continuation_deferred=True),
+        _state(last_status="usage_limited", blocked_reason="usage_exhausted"),
+    ):
+        decision = SimpleNamespace(allowed_complete=False, goal_status="not_achieved", round_state=state)
+        assert _should_goal_rerun(result, decision) is False
+    normal = SimpleNamespace(
+        allowed_complete=False, goal_status="not_achieved", round_state=_state()
+    )
+    assert _should_goal_rerun(result, normal) is True
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

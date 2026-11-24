@@ -42,7 +42,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Final, Protocol
 
 logger = logging.getLogger(__name__)
@@ -61,6 +61,9 @@ ROUND_ACHIEVED: Final = "achieved"
 ROUND_NOT_ACHIEVED: Final = "not_achieved"
 ROUND_UNDETERMINED: Final = "undetermined"
 ROUND_BUDGET_LIMITED: Final = "budget_limited"
+#: 供应商配额耗尽(Codex `usage_limited`):不是失败,也不是 blocked;暂停自动续跑,
+#: 配额恢复后由显式 resume 放行
+ROUND_USAGE_LIMITED: Final = "usage_limited"
 #: blocked 是**推导出来的档**,不是校验结果本身
 ROUND_BLOCKED: Final = "blocked"
 ROUND_STATUSES: Final[frozenset[str]] = frozenset(
@@ -69,7 +72,27 @@ ROUND_STATUSES: Final[frozenset[str]] = frozenset(
         ROUND_NOT_ACHIEVED,
         ROUND_UNDETERMINED,
         ROUND_BUDGET_LIMITED,
+        ROUND_USAGE_LIMITED,
         ROUND_BLOCKED,
+    }
+)
+
+#: 目标级生命周期六态(Codex `thread_goals.status` 等价)。它是**派生视图**,不是
+#: 第二份状态真相:每次都由 `GoalRoundState` 现算,不落盘。
+GOAL_ACTIVE: Final = "active"
+GOAL_PAUSED: Final = "paused"
+GOAL_BLOCKED: Final = "blocked"
+GOAL_USAGE_LIMITED: Final = "usage_limited"
+GOAL_BUDGET_LIMITED: Final = "budget_limited"
+GOAL_COMPLETE: Final = "complete"
+GOAL_STATUSES: Final[frozenset[str]] = frozenset(
+    {
+        GOAL_ACTIVE,
+        GOAL_PAUSED,
+        GOAL_BLOCKED,
+        GOAL_USAGE_LIMITED,
+        GOAL_BUDGET_LIMITED,
+        GOAL_COMPLETE,
     }
 )
 
@@ -81,12 +104,15 @@ BLOCK_REASON_CONSECUTIVE: Final = "consecutive_failures"
 BLOCK_REASON_NO_PROGRESS: Final = "no_progress"
 #: 预算耗尽:既不判达成也不判 blocked
 BLOCK_REASON_BUDGET: Final = "budget_exhausted"
+#: 供应商配额耗尽(与预算耗尽的处置不同:等配额恢复,不换执行路径)
+BLOCK_REASON_USAGE: Final = "usage_exhausted"
 BLOCK_REASONS: Final[frozenset[str]] = frozenset(
     {
         BLOCK_REASON_NONE,
         BLOCK_REASON_CONSECUTIVE,
         BLOCK_REASON_NO_PROGRESS,
         BLOCK_REASON_BUDGET,
+        BLOCK_REASON_USAGE,
     }
 )
 
@@ -123,6 +149,11 @@ class GoalRoundState:
     seconds_spent: int | None = None
     #: 墙钟预算(秒;None = 没声明过 ⇒ 永不按时间判耗尽)
     time_budget_seconds: int | None = None
+    #: 用户/调度器显式暂停(Codex `paused`);暂停不是 blocked,resume 可原地放行
+    paused: bool = False
+    #: 一次性"别自动续跑"标记(Codex `thread_goal_continuation_deferrals`):
+    #: 只影响自动续跑,不拦显式 goal-verify;清标记由控制面显式做
+    continuation_deferred: bool = False
 
     def to_payload(self) -> dict[str, object]:
         return {
@@ -141,6 +172,8 @@ class GoalRoundState:
             "updated_at": self.updated_at,
             "seconds_spent": self.seconds_spent,
             "time_budget_seconds": self.time_budget_seconds,
+            "paused": self.paused,
+            "continuation_deferred": self.continuation_deferred,
         }
 
     def as_view(self) -> dict[str, object]:
@@ -248,6 +281,16 @@ def parse_state_payload(raw: object) -> GoalRoundState | None:
     time_budget = _as_int(time_budget_raw) if time_budget_raw is not None else None
     if time_budget_raw is not None and (time_budget is None or time_budget <= 0):
         return None
+    # 生命周期两枚也是向后兼容新增:老载荷缺键 ⇒ False(不是"未知")。
+    # 有键但值不是 bool ⇒ 整份读不出,不把坏值折成 False。
+    paused_raw = raw.get("paused")
+    if paused_raw is not None and not isinstance(paused_raw, bool):
+        return None
+    paused = bool(paused_raw) if paused_raw is not None else False
+    deferred_raw = raw.get("continuation_deferred")
+    if deferred_raw is not None and not isinstance(deferred_raw, bool):
+        return None
+    deferred = bool(deferred_raw) if deferred_raw is not None else False
     return GoalRoundState(
         session_id=session_id,
         owner_user_id=owner,
@@ -264,6 +307,8 @@ def parse_state_payload(raw: object) -> GoalRoundState | None:
         time_budget_seconds=time_budget,
         # updated_at 用 int 存(避免 float 往返误差);读回按 float 用
         updated_at=float(updated_at),
+        paused=paused,
+        continuation_deferred=deferred,
     )
 
 
@@ -395,10 +440,15 @@ def advance_round_state(
     seconds_spent = prev_seconds
     if outcome.seconds_this_round is not None:
         seconds_spent = (prev_seconds or 0) + outcome.seconds_this_round
+    paused = False if previous is None else previous.paused
+    deferred = False if previous is None else previous.continuation_deferred
 
     if outcome.status == ROUND_ACHIEVED:
         streak = 0
         stagnation = 0
+        # 目标已完成:暂停/延后标记失去意义,随终态一起清掉
+        paused = False
+        deferred = False
     else:
         streak = prev_streak + 1
         # 显式分开两步判(把 previous is not None 收进一个 bool 变量,mypy 才认得
@@ -444,7 +494,78 @@ def advance_round_state(
         token_budget=budget,
         seconds_spent=seconds_spent,
         time_budget_seconds=time_budget,
+        paused=paused,
+        continuation_deferred=deferred,
         updated_at=stamp,
+    )
+
+
+def derive_goal_status(state: GoalRoundState | None) -> str | None:
+    """把账本现算成 Codex 六态(唯一派生出口;不落盘、不另存一份)。
+
+    顺序即语义优先级:
+    `paused` > `usage_limited` > `budget_limited` > `blocked` > `complete` > `active`。
+    `budget_limited` 必须先于 `blocked`:现有账本在预算耗尽时同时 `blocked=True`,
+    若先看 blocked 就会把"等预算"误报成"连续失败收口"。
+    """
+    if state is None:
+        return None
+    if state.paused:
+        return GOAL_PAUSED
+    if state.last_status == ROUND_USAGE_LIMITED:
+        return GOAL_USAGE_LIMITED
+    if state.last_status == ROUND_BUDGET_LIMITED:
+        return GOAL_BUDGET_LIMITED
+    if state.blocked and state.blocked_reason == BLOCK_REASON_BUDGET:
+        return GOAL_BUDGET_LIMITED
+    if state.blocked:
+        return GOAL_BLOCKED
+    if state.last_status == ROUND_ACHIEVED:
+        return GOAL_COMPLETE
+    return GOAL_ACTIVE
+
+
+def set_paused(
+    state: GoalRoundState, *, paused: bool, now: float | None = None
+) -> GoalRoundState:
+    """显式暂停/恢复(只改 paused 一位,不碰连击/预算/轮次)。"""
+    return replace(state, paused=bool(paused), updated_at=now if now is not None else time.time())
+
+
+def set_continuation_deferred(
+    state: GoalRoundState, *, deferred: bool, now: float | None = None
+) -> GoalRoundState:
+    """设置/清除"别自动续跑"标记;只影响自动续跑,不拦显式 verify。"""
+    return replace(
+        state,
+        continuation_deferred=bool(deferred),
+        updated_at=now if now is not None else time.time(),
+    )
+
+
+def mark_usage_limited(state: GoalRoundState, *, now: float | None = None) -> GoalRoundState:
+    """标记供应商配额耗尽:terminal 到配额恢复,不计连击、不判 blocked。"""
+    return replace(
+        state,
+        last_status=ROUND_USAGE_LIMITED,
+        blocked=False,
+        blocked_reason=BLOCK_REASON_USAGE,
+        updated_at=now if now is not None else time.time(),
+    )
+
+
+def resume_from_usage_limit(
+    state: GoalRoundState, *, now: float | None = None
+) -> GoalRoundState:
+    """配额恢复/人工放行:从 usage_limited 回到 active,连击与轮次原样保留。"""
+    if state.last_status != ROUND_USAGE_LIMITED:
+        return state
+    return replace(
+        state,
+        last_status=ROUND_NOT_ACHIEVED,
+        blocked=False,
+        blocked_reason=BLOCK_REASON_NONE,
+        updated_at=now if now is not None else time.time(),
     )
 
 
@@ -453,11 +574,9 @@ class PauseDecision:
     """闭环的"要不要停 / 要不要报人"两个结论。
 
     两档刻意**不合并**:
-    - `pausing` = 账本判收口(blocked / 预算耗尽)⇒ 不许再问下一轮,也不许宣布完成;
-    - `escalate` = 必须到人。它包含 `pausing`,并额外覆盖"账读不出来"这一型 ——
-      存储坏了既不该停掉全站 goal(那是把一次 redis 抖动放大成生产事故),
-      更不该安静地继续(连击被低估意味着 §8 的收口永不触发)。
-      把这个情形只落在日志里 = 没人会看,所以它必须出现在响应字段上。
+    - `pausing` = 账本判收口(blocked / 预算耗尽)或显式暂停/配额耗尽 ⇒ 不许再问下一轮;
+    - `escalate` = 必须到人。它覆盖 blocked 与"账读不出来"两型,但**不含**显式暂停
+      与供应商配额耗尽 —— 那两类等恢复即可,报人只会制造噪音。
     """
 
     pausing: bool
@@ -471,6 +590,10 @@ def decide_pause(
     ledger_unreadable: bool = False,
 ) -> PauseDecision:
     """由账本推出暂停结论(唯一出口;调用方不得自己 `if streak >= 3`)。"""
+    if state is not None and state.paused:
+        return PauseDecision(pausing=True, escalate=False, reason=GOAL_PAUSED)
+    if state is not None and state.last_status == ROUND_USAGE_LIMITED:
+        return PauseDecision(pausing=True, escalate=False, reason=BLOCK_REASON_USAGE)
     if state is not None and state.blocked:
         reason = state.blocked_reason or BLOCK_REASON_CONSECUTIVE
         if state.last_status == ROUND_BUDGET_LIMITED:
@@ -730,12 +853,20 @@ def clear_session(session_id: SessionId) -> None:
 
 __all__ = [
     "BLOCK_REASONS",
+    "GOAL_ACTIVE",
+    "GOAL_BLOCKED",
+    "GOAL_BUDGET_LIMITED",
+    "GOAL_COMPLETE",
+    "GOAL_PAUSED",
+    "GOAL_STATUSES",
+    "GOAL_USAGE_LIMITED",
     "NOT_FOUND",
     "ROUND_ACHIEVED",
     "ROUND_BUDGET_LIMITED",
     "ROUND_NOT_ACHIEVED",
     "ROUND_STATUSES",
     "ROUND_UNDETERMINED",
+    "ROUND_USAGE_LIMITED",
     "STORAGE_CHECKPOINT",
     "STORAGE_MEMORY",
     "STATE_METADATA_KEY",
@@ -751,13 +882,18 @@ __all__ = [
     "clear_session",
     "configure_durable_store",
     "decide_pause",
+    "derive_goal_status",
     "encode_state_metadata",
     "get_store",
     "get_memory_store",
+    "mark_usage_limited",
     "normalize_outcome",
     "parse_state_payload",
     "peek_streak",
     "reset_store",
+    "resume_from_usage_limit",
+    "set_continuation_deferred",
+    "set_paused",
     "state_from_checkpoint_metadata",
 ]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

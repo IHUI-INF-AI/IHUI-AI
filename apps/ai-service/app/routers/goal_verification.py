@@ -60,13 +60,19 @@ from ..services.completion_verification import (
     verify_goal_completion,
 )
 from ..services.goal_round_state import (
+    ROUND_USAGE_LIMITED,
     GoalRoundRead,
     GoalRoundState,
     WriteReceipt,
     advance_round_state,
     decide_pause,
+    derive_goal_status,
     get_store,
+    mark_usage_limited,
     normalize_outcome,
+    resume_from_usage_limit,
+    set_continuation_deferred,
+    set_paused,
 )
 from ..services.session_store import (
     normalize_goal_state,
@@ -89,6 +95,9 @@ _STATUS_NOT_ACHIEVED = "not_achieved"
 _STATUS_UNDETERMINED = "undetermined"
 #: 账本已收口时本层给出的档:不是校验结果,是"不再受理下一轮"
 _STATUS_BLOCKED = "blocked"
+#: 账本显式暂停 / 供应商配额耗尽:同样不受理下一轮,但处置不同(可原地恢复)
+_STATUS_PAUSED = "paused"
+_STATUS_USAGE_LIMITED = "usage_limited"
 
 
 # —— 不可信读取的三态分离(b76-03 票2,吸收 ZCode runtime/statusSnapshot 四支判别)——
@@ -234,6 +243,12 @@ class VerifyOut(BaseModel):
     token_budget: int | None = None
     seconds_spent: int | None = None
     time_budget_seconds: int | None = None
+    #: Codex 六态派生视图(active/paused/blocked/usage_limited/budget_limited/complete)
+    goal_lifecycle: str | None = None
+    #: 显式暂停标记;与 blocked 不同,resume 可原地放行
+    paused: bool = False
+    #: 一次性"别自动续跑"标记(只影响自动续跑,不拦显式 verify)
+    continuation_deferred: bool = False
 
 
 class GoalStateOut(BaseModel):
@@ -250,6 +265,8 @@ class GoalStateOut(BaseModel):
     read_state: str
     reason: str | None = None
     state: dict[str, Any] | None = None
+    #: Codex 六态派生视图;state 为空时也是 None
+    goal_lifecycle: str | None = None
     should_pause: bool = False
     escalate: bool = False
     pause_reason: str = ""
@@ -266,6 +283,31 @@ class ResetIn(BaseModel):
 class ResetOut(BaseModel):
     cleared: bool
     session_id: str
+
+
+GoalControlAction = Literal[
+    "pause",
+    "resume",
+    "defer_continuation",
+    "clear_continuation_deferral",
+    "mark_usage_limited",
+    "resume_from_usage_limit",
+]
+
+
+class GoalControlIn(BaseModel):
+    """显式生命周期控制(暂停/恢复/延后续跑/配额耗尽);不跑 judge、不动轮次。"""
+
+    session_id: str = Field(min_length=1, max_length=MAX_SESSION_ID_CHARS)
+    action: GoalControlAction
+    owner_user_id: str | None = Field(default=None, max_length=200)
+
+
+class GoalControlOut(BaseModel):
+    session_id: str
+    action: str
+    goal_lifecycle: str | None = None
+    state: dict[str, Any] | None = None
 
 
 def _validate_payload(payload: VerifyIn) -> None:
@@ -423,6 +465,9 @@ def _ledger_fields(
         "token_budget": None if state is None else state.token_budget,
         "seconds_spent": None if state is None else state.seconds_spent,
         "time_budget_seconds": None if state is None else state.time_budget_seconds,
+        "goal_lifecycle": derive_goal_status(state),
+        "paused": False if state is None else state.paused,
+        "continuation_deferred": False if state is None else state.continuation_deferred,
         "ledger_storage": receipt.storage,
         "ledger_durable": receipt.durable,
     }
@@ -448,6 +493,30 @@ async def verify_goal(payload: VerifyIn, request: Request) -> VerifyOut:
         previous = read.state
         ledger_unreadable = read.unreadable
         ledger_read_state = classify_ledger_read(read)
+
+    # —— 生命周期短路:暂停 / 供应商配额耗尽都不再起 judge,但保留原地恢复路径
+    if previous is not None and (previous.paused or previous.last_status == ROUND_USAGE_LIMITED):
+        pause = decide_pause(previous, ledger_unreadable=ledger_unreadable)
+        return VerifyOut(
+            status=_STATUS_PAUSED if previous.paused else _STATUS_USAGE_LIMITED,
+            treat_as_complete=False,
+            criteria=[],
+            independent_request_made=False,
+            unavailable_reason=(
+                "goal 已被显式暂停;resume 后才能继续校验"
+                if previous.paused
+                else "供应商配额已耗尽(usage_limited);恢复配额后 resume_from_usage_limit 才能继续"
+            ),
+            executor_claim=payload.executor_claim,
+            stateful=True,
+            session_id=payload.session_id,
+            should_pause=True,
+            escalate=pause.escalate,
+            pause_reason=pause.reason,
+            ledger_unreadable=ledger_unreadable,
+            ledger_read_state=ledger_read_state,
+            **_ledger_fields(previous, storage),
+        )
 
     # —— 收口短路:账本已 blocked 就不再受理下一轮(省一次推理,也不给任何"通过"答复)
     if previous is not None and previous.blocked:
@@ -610,6 +679,7 @@ async def read_goal_state(
         read_state=read_state,
         reason=read.reason,
         state=None if read.state is None else read.state.as_view(),
+        goal_lifecycle=derive_goal_status(read.state),
         should_pause=pause.pausing,
         escalate=pause.escalate,
         pause_reason=pause.reason,
@@ -645,4 +715,60 @@ async def reset_goal_state(
     cleared = await store.clear(key)
     logger.info("goal 评估账本已重置:session=%s by=%s cleared=%s", key, principal, cleared)
     return ResetOut(cleared=cleared, session_id=key)
+
+
+@router.post("/api/agent/goal-control", response_model=GoalControlOut)
+async def control_goal_state(
+    payload: GoalControlIn,
+    principal: str = Depends(require_request_user_id),
+) -> GoalControlOut:
+    """显式生命周期控制:暂停/恢复/延后自动续跑/标记或恢复配额耗尽。
+
+    与 verify 的分工:verify 判"这一轮成不成",本端点只改控制位,不跑 judge、不动
+    轮次与连击。`pause` 不是 `blocked`(resume 可原地放行);`usage_limited` 也不是
+    `blocked`(等配额恢复后 `resume_from_usage_limit`)。已 blocked 的账仍只能 reset。
+    """
+    key = payload.session_id.strip()
+    if not key:
+        raise HTTPException(status_code=422, detail="session_id 不得为空白")
+    if payload.owner_user_id is not None and payload.owner_user_id.strip():
+        claimed = payload.owner_user_id.strip()
+        if claimed != principal:
+            raise HTTPException(
+                status_code=403,
+                detail="请求体自报的 owner_user_id 与令牌主体不一致(不采信自报归属)",
+            )
+    store = get_store()
+    read = await store.read(key)
+    _assert_state_ownership(read.state, principal)
+    if read.unreadable:
+        raise HTTPException(status_code=502, detail="账本读取不可信,拒绝基于坏账改控制位")
+    if read.state is None:
+        raise HTTPException(status_code=404, detail="该会话没有可控制的 goal 账本")
+    state = read.state
+    if payload.action == "pause":
+        state = set_paused(state, paused=True)
+    elif payload.action == "resume":
+        state = set_paused(state, paused=False)
+    elif payload.action == "defer_continuation":
+        state = set_continuation_deferred(state, deferred=True)
+    elif payload.action == "clear_continuation_deferral":
+        state = set_continuation_deferred(state, deferred=False)
+    elif payload.action == "mark_usage_limited":
+        if state.blocked:
+            raise HTTPException(
+                status_code=409,
+                detail="已 blocked 的账只能 reset,不能改标为 usage_limited(否则可绕过收口)",
+            )
+        state = mark_usage_limited(state)
+    elif payload.action == "resume_from_usage_limit":
+        state = resume_from_usage_limit(state)
+    await store.write(state)
+    logger.info("goal 生命周期控制:session=%s action=%s by=%s", key, payload.action, principal)
+    return GoalControlOut(
+        session_id=key,
+        action=payload.action,
+        goal_lifecycle=derive_goal_status(state),
+        state=state.as_view(),
+    )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
