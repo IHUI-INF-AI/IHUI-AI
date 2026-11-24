@@ -18,6 +18,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -1693,6 +1694,28 @@ export function HomeScreen() {
     scrollRef.current?.scrollTo({ y: 0, animated: true })
   }, [])
 
+  // 首屏不再让运营位/推荐卡压住问候与高频入口:两者经共享屏 afterDiscover 槽位,
+  // 排在「发现」宫格之后、学习进度之前,整页仍只保留外层一条滚动轴。
+  const homeHighlights = (
+    <>
+      <View style={shellStyles.bottomFigureWrap}>
+        <BottomFigure items={carouselList.length > 0 ? carouselList : undefined} />
+      </View>
+      <View style={shellStyles.aiModelWrap}>
+        <AiModelCard
+          data={aiModelData}
+          favorited={assistantFavorited}
+          onPress={() => rootNav?.navigate('Chat', {})}
+          onWarningPress={handleAssistantWarning}
+          onDislikePress={handleAssistantDislike}
+          onFavoritePress={handleAssistantFavorite}
+          onInfoPress={handleAssistantInfo}
+          onSharePress={handleAssistantShare}
+        />
+      </View>
+    </>
+  )
+
   return (
     <View style={shellStyles.root}>
       {/* NavBar 顶部导航栏(对齐 Uniapp navigation-bars:标题"智汇AI社区"+菜单按钮+加入社区群)
@@ -1725,28 +1748,11 @@ export function HomeScreen() {
           ]}
           onScroll={handleScroll}
           scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
         >
-          {/* BottomFigure 轮播(2026-10-15 用户定稿:轮播图置顶;数据源 GET /api/carousels?position=home,
-              运营数据为空/接口失败时回退组件内置本地默认图) */}
-          <View style={shellStyles.bottomFigureWrap}>
-            <BottomFigure items={carouselList.length > 0 ? carouselList : undefined} />
-          </View>
-          {/* 课程封面轮播与横向推荐列表已下线(2026-10-29 机主定:首页不堆同数据源区块),
-           *  同一份 recommends 课程数据只由共享屏「推荐课程」区段渲染一次 */}
-          {/* AiModelCard AI 模型卡片(对齐 Uniapp 首页 AI 模型入口;
-              2026-10-15 全交互接线:收藏/举报/踩/详情/分享) */}
-          <View style={shellStyles.aiModelWrap}>
-            <AiModelCard
-              data={aiModelData}
-              favorited={assistantFavorited}
-              onPress={() => rootNav?.navigate('Chat', {})}
-              onWarningPress={handleAssistantWarning}
-              onDislikePress={handleAssistantDislike}
-              onFavoritePress={handleAssistantFavorite}
-              onInfoPress={handleAssistantInfo}
-              onSharePress={handleAssistantShare}
-            />
-          </View>
+          {/* 首屏先给问候 + 高频入口:轮播与 AI 助手卡经共享屏 afterDiscover 槽位下移,
+           *  不再在滚动内容最前面叠三层入口,也不再让共享屏自带第二层 ScrollView。 */}
           {/* 最近使用 / 智汇值卡 / 我的AI APP / 智能体商品列表 只在「AI 应用商店」Tab 呈现,
            *  首页不重复(2026-10-29 机主定) */}
           <SharedHomeScreen
@@ -1761,6 +1767,9 @@ export function HomeScreen() {
             loading={loading}
             refreshing={refreshing}
             error={error}
+            embedded
+            discoverFirst
+            afterDiscover={homeHighlights}
             onRefresh={() => load(true)}
             onOpenNotifications={() => setVisible(true)}
             onPressProgress={(courseId) => navigation.navigate('CourseDetail', { id: courseId })}
@@ -1829,7 +1838,11 @@ export function HomeScreen() {
           {/* FunctionBlockColumn 功能块列(对齐 Uniapp 首页功能入口) */}
           <View style={shellStyles.sectionWrap}>
             <MoreTitles title={t('home.featureEntry')} />
-            <FunctionBlockColumn blocks={functionBlocks} onBlockPress={onFunctionBlockPress} />
+            <FunctionBlockColumn
+              blocks={functionBlocks}
+              onBlockPress={onFunctionBlockPress}
+              columns={2}
+            />
           </View>
         </ScrollView>
       </BlurTargetView>
@@ -2381,11 +2394,11 @@ const shellStyles = {
   // 顶栏行取白档,与 App.tsx 给 Home 的状态栏带同色;主体底色由外层导航容器提供
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(120) } as const,
-  aiModelWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
+  aiModelWrap: { paddingHorizontal: rpx(20), paddingTop: rpx(8), paddingBottom: rpx(16) } as const,
   sectionWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   bottomFigureWrap: {
     // 横向留白已内聚于 BottomFigure(SIDE_INSET),此处仅保留底部间距(2026-10-15)
-    marginBottom: rpx(20),
+    marginBottom: rpx(12),
   } as const,
   // ── toodown 返回顶部按钮样式已收进 @ihui/shared/ui/scroll-jump-spec(2026-10-20 用户定
   //  「上滑下滑的箭头不许有单独设定,统一使用一段代码样式」)。此处此前写死

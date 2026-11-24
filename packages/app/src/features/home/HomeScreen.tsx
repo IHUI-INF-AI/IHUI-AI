@@ -36,6 +36,7 @@ function getGreetingKey():
  * 平台无关:负责渲染问候语 + 通知铃铛 + 学习进度 + 直播预览 + 推荐课程 + 发现菜单。
  * 所有平台特定(useAuth/useNotificationStore/getCourses 等)由 wrapper 注入。
  * 问候语时段由共享层基于 new Date() 计算(纯 JS,平台无关)。
+ * embedded/discoverFirst/afterDiscover 供宿主做首屏编排;缺省保持独立滚动与旧顺序。
  */
 export function HomeScreen({
   t,
@@ -58,6 +59,9 @@ export function HomeScreen({
   onNavigateCourses,
   onNavigateLives,
   colorScheme = 'light',
+  embedded = false,
+  discoverFirst = false,
+  afterDiscover,
 }: HomeScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -72,12 +76,33 @@ export function HomeScreen({
   // 三块内容全空时不再各摆一张同形空卡(整屏就成三个空盒),合并成一枚引导卡
   const nothingToShow = !firstProgress && lives.length === 0 && recommends.length === 0
 
-  return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      contentContainerStyle={{ paddingBottom: rnSpacing['3xl'] }}
-    >
+  const discoverSection = (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{t('menu.sectionDiscover')}</Text>
+      <View style={styles.menuGrid}>
+        {menuItems.map((m) => (
+          <TouchableOpacity
+            key={m.key}
+            onPress={() => onPressMenu(m.key)}
+            activeOpacity={0.7}
+            style={styles.menuCell}
+          >
+            {typeof m.icon === 'string' ? (
+              <Text style={styles.menuIcon}>{m.icon}</Text>
+            ) : m.icon ? (
+              <m.icon size={22} color={tk.text.medium} />
+            ) : null}
+            <Text style={styles.menuLabel} numberOfLines={1} maxFontSizeMultiplier={fontMultiplier}>
+              {t(m.labelKey)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  )
+
+  const content = (
+    <>
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
           <Text style={styles.greeting} numberOfLines={1}>
@@ -121,6 +146,8 @@ export function HomeScreen({
         </View>
       ) : null}
 
+      {discoverFirst ? discoverSection : null}
+      {afterDiscover}
       {nothingToShow ? (
         <View style={styles.section}>
           <View style={[styles.card, styles.emptyCard]}>
@@ -265,32 +292,21 @@ export function HomeScreen({
         </>
       )}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('menu.sectionDiscover')}</Text>
-        <View style={styles.menuGrid}>
-          {menuItems.map((m) => (
-            <TouchableOpacity
-              key={m.key}
-              onPress={() => onPressMenu(m.key)}
-              activeOpacity={0.7}
-              style={styles.menuCell}
-            >
-              {typeof m.icon === 'string' ? (
-                <Text style={styles.menuIcon}>{m.icon}</Text>
-              ) : m.icon ? (
-                <m.icon size={22} color={tk.text.medium} />
-              ) : null}
-              <Text
-                style={styles.menuLabel}
-                numberOfLines={1}
-                maxFontSizeMultiplier={fontMultiplier}
-              >
-                {t(m.labelKey)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
+      {!discoverFirst ? discoverSection : null}
+    </>
+  )
+
+  if (embedded) {
+    return <View style={styles.embedded}>{content}</View>
+  }
+
+  return (
+    <ScrollView
+      style={styles.container}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      contentContainerStyle={{ paddingBottom: rnSpacing['3xl'] }}
+    >
+      {content}
     </ScrollView>
   )
 }
@@ -299,11 +315,14 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     // 页面背景必须用 surface.bg(明暗自适应);gray[100] 是明暗同值浅灰(#f5f5f5),暗色下会铺白底
     container: { flex: 1, backgroundColor: tk.surface.bg },
+    /** 嵌进宿主 ScrollView 时只排内容,不再生成第二层滚动/背景 */
+    embedded: { width: '100%' },
     headerRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: rnSpacing.lg,
+      paddingTop: rnSpacing.lg,
     },
     headerLeft: { flex: 1 },
     headerRight: { flexDirection: 'row', alignItems: 'center' },

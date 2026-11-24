@@ -64,7 +64,7 @@ vi.mock('react-native', () => {
     Text: rnEl('span'),
     TouchableOpacity: rnEl('button'),
     Pressable: rnEl('button'),
-    ScrollView: rnEl('div'),
+    ScrollView: (p: Record<string, unknown>) => rnEl('div')({ ...p, 'data-scrollview': 'true' }),
     RefreshControl: () => null,
     ActivityIndicator: rnEl('div'),
     StyleSheet: { flatten, create: (s: unknown) => s },
@@ -168,6 +168,24 @@ describe('首页共享屏形态', () => {
       expect(s.alignItems).toBe('center')
       expect(s.flexWrap).toBeUndefined()
     }
+  })
+
+  it('默认独立滚动;embedded 嵌入宿主时不再生成第二层 ScrollView', () => {
+    const standalone = renderHome()
+    expect(standalone.container.querySelectorAll('[data-scrollview]')).toHaveLength(1)
+
+    const embedded = renderHome({ embedded: true })
+    expect(embedded.container.querySelectorAll('[data-scrollview]')).toHaveLength(0)
+  })
+
+  it('discoverFirst 把发现前置,afterDiscover 紧随其后', () => {
+    const { container } = renderHome({
+      discoverFirst: true,
+      afterDiscover: createElement('div', null, 'after-discover'),
+    })
+    const text = container.textContent || ''
+    expect(text.indexOf('menu.sectionDiscover')).toBeLessThan(text.indexOf('after-discover'))
+    expect(text.indexOf('after-discover')).toBeLessThan(text.indexOf('home.progressEmpty'))
   })
 
   it('错误态带重试出口,不是只有一行红字', () => {

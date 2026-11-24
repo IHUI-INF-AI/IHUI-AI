@@ -708,6 +708,12 @@ export interface HomeScreenProps {
   onNavigateCourses: () => void
   onNavigateLives: () => void
   colorScheme?: 'light' | 'dark'
+  /** 嵌进宿主滚动容器时不再创建第二层 ScrollView(避免嵌套滚动/滚动回弹) */
+  embedded?: boolean
+  /** 把「发现」宫格移到学习进度之前,首屏优先给高频入口 */
+  discoverFirst?: boolean
+  /** 「发现」宫格之后的宿主插槽(轮播/推荐卡等,embedded 场景使用) */
+  afterDiscover?: ReactNode
 }
 
 /** 推广状态(active/inactive) */
