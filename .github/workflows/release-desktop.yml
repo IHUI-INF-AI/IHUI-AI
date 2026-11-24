@@ -342,6 +342,11 @@ jobs:
           # 这才是 beforeBuildCommand 真实走的那条解析链,别用 require('sharp') 糊过去。
           node -e "const {createRequire}=require('module'); const r=createRequire(process.cwd()+'/apps/desktop/package.json'); const s=r('sharp'); console.log('sharp ok | libvips=', s.versions.vips)"
 
+      - name: Verify NSIS installer template/patches (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: node scripts/desktop-nsis-template.mjs --check
+
       # macOS 签名凭据必须先落到 GITHUB_ENV,再由下一步的 tauri build 消费。
       # 为什么不直接把 secrets 写进 Build & Release 的 env: GitHub Actions 的 env 无法按
       # 单个键做条件赋值,未配置的 secret 会被注入成**空字符串**,而 Tauri 看到
