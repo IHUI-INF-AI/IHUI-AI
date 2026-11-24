@@ -72,6 +72,8 @@ function isSqliteFile(p) {
  * @param {string} [spec.idCol] 主键列
  * @param {string} [spec.titleCol] 标题列(只用于样本展示,不参与判定)
  * @param {string} [spec.deletedCol] 显式软删列(缺省自动认 HIDDEN_COLUMN_RE 命中的第一个)
+ * @param {string} [spec.visibleWhere] 复合可见口径 SQL(如 ZCode 的 archived/deleted/cli_deleted 三列);
+ *                                      给了就优先于 deletedCol 的单列 IS NULL 判据
  * @param {Array<string>} [spec.accountCols] 已知账号列(缺省按 ACCOUNT_COLUMN_RE 自动认)
  * @param {Function} [spec.env]
  */
@@ -115,13 +117,15 @@ export function probeSqlite(spec = {}) {
         ? spec.deletedCol
         : cols.find((c) => HIDDEN_COLUMN_RE.test(c)) ?? ''
     const total = Number(db.prepare(`SELECT count(*) AS n FROM ${spec.table}`).get().n) || 0
-    const visible = hiddenCol
-      ? Number(
-          db
-            .prepare(`SELECT count(*) AS n FROM ${spec.table} WHERE ${hiddenCol} IS NULL`)
-            .get().n,
-        ) || 0
-      : total
+    const visible = spec.visibleWhere
+      ? Number(db.prepare(`SELECT count(*) AS n FROM ${spec.table} WHERE ${spec.visibleWhere}`).get().n) || 0
+      : hiddenCol
+        ? Number(
+            db
+              .prepare(`SELECT count(*) AS n FROM ${spec.table} WHERE ${hiddenCol} IS NULL`)
+              .get().n,
+          ) || 0
+        : total
     // 有账号列 ≠ 真有账号维度:列在场但全 NULL/单值 ⇒ 实际不分账号;多值 ⇒ 切号会按值过滤
     const accountValues = []
     let accountScoped = false
@@ -246,6 +250,117 @@ export function probeLeveldb(spec = {}) {
     path: dir,
     entries: entries.length,
     notes: ['LevelDB 面只核对目录在场;DOM Storage 无账号键(见 CHAT_CARRY 矩阵),条数以客户端为准'],
+  }
+}
+
+/**
+ * 会话 id 索引探针(OpenCode drafts.sqlite / Loomy Local Storage+IndexedDB)。
+ *
+ * 只回答一个事实:本地索引里出现过多少个唯一 `ses_*` id。它**不等于**客户端侧栏可见条数,
+ * 也不证明正文完整;所以 visible 固定 null,note 明写口径。用于把"只核对目录在场"提升为
+ * "至少知道本地有没有会话索引、索引里有多少个 id"。
+ */
+export function probeSessionKeys(spec = {}) {
+  const env = spec.env ?? process.env
+  const re = spec.sessionIdRe ?? /ses_[A-Za-z0-9]{26,}/g
+  const files = []
+  for (const c of spec.candidates ?? []) {
+    const raw = typeof c === 'function' ? c(env) : c
+    const p = expandPath(raw, env)
+    if (p && fs.existsSync(p)) files.push(p)
+  }
+  const base = {
+    kind: 'session-index',
+    provider: spec.provider ?? '',
+    located: false,
+    path: '',
+    sessions: null,
+    visible: null,
+    accountScoped: false,
+    notes: [],
+    evidence: 'session-id-index',
+  }
+  if (files.length === 0) return { ...base, notes: ['未找到会话索引(该平台可能未安装/未登录/落点变更)'] }
+
+  const ids = new Set()
+  const sources = []
+  for (const f of files) {
+    let st
+    try {
+      st = fs.statSync(f)
+    } catch {
+      continue
+    }
+    if (st.isDirectory()) {
+      let ents = []
+      try {
+        ents = fs.readdirSync(f)
+      } catch {
+        continue
+      }
+      let used = false
+      for (const n of ents) {
+        if (!/\.(log|ldb|sst)$/i.test(n)) continue
+        try {
+          const text = fs.readFileSync(path.join(f, n), 'latin1')
+          for (const m of text.matchAll(re)) ids.add(m[0])
+          used = true
+        } catch {
+          /* 客户端独占的文件读不到,不把读失败当 0 */
+        }
+      }
+      if (used) sources.push(f)
+      continue
+    }
+    try {
+      if (isSqliteFile(f)) {
+        const { DatabaseSync } = require('node:sqlite')
+        const db = new DatabaseSync(f, { readOnly: true })
+        try {
+          const table = spec.table
+          if (!table) continue
+          const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => String(c.name))
+          const useCols = (spec.valueCols ?? ['key', 'value']).filter((c) => cols.includes(c))
+          if (useCols.length === 0) continue
+          const rows = db
+            .prepare(`SELECT ${useCols.map((c, i) => `${c} AS v${i}`).join(',')} FROM ${table}`)
+            .all()
+          for (const r of rows) {
+            for (const k of Object.keys(r)) {
+              const v = r[k]
+              if (v === null || v === undefined) continue
+              const text = Buffer.isBuffer(v) ? v.toString('latin1') : String(v)
+              for (const m of text.matchAll(re)) ids.add(m[0])
+            }
+          }
+          sources.push(f)
+        } finally {
+          db.close()
+        }
+      } else {
+        const text = fs.readFileSync(f, 'latin1')
+        for (const m of text.matchAll(re)) ids.add(m[0])
+        sources.push(f)
+      }
+    } catch {
+      /* 单个源读失败不影响其它源;但若全部失败,下面按 0 源报未判定 */
+    }
+  }
+  if (sources.length === 0) {
+    return { ...base, path: files[0], notes: ['会话索引存在但读不到(可能被客户端独占),不冒充 0 条'] }
+  }
+  return {
+    ...base,
+    located: true,
+    path: sources[0],
+    sources,
+    sessions: ids.size,
+    visible: null,
+    accountScoped: false,
+    notes: [
+      `本地索引扫描到 ${ids.size} 个唯一会话 id;这不是客户端侧栏可见条数,也不证明正文完整`,
+      spec.note ?? '',
+    ].filter(Boolean),
   }
 }
 

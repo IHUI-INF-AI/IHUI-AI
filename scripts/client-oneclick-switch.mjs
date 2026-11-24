@@ -59,8 +59,8 @@ const SWITCH_MJS = path.join(ROOT, 'scripts', 'switch-client-account.mjs')
  *              WorkBuddy:切前抓可见名单,重绑 sessions/spaces/automations 后把切号瞬间
  *              被客户端打上 deleted_at 的会话清回 NULL;否则「搬了却看不见」= 用户实际感受的
  *              「WorkBuddy 切号不带对话,Trae 能带」。见 scripts/lib/workbuddy-chat-carry.mjs。
- *   local  —— 会话表/记录里**没有账号维度**,切号后历史天然仍在,可直接续聊。8 平台已现场读库
- *              核验(qoder/minimax/codearts/zcode/opencode/loomy/codex,加未装机的 raccoon);
+ *   local  —— 会话表/记录里**没有账号维度**,切号后历史天然仍在,可直接续聊。7 个平台已现场读库
+ *              核验(qoder/minimax/codearts/zcode/codex,加索引级的 opencode/loomy);raccoon 未定位;
  *              一旦读账号维度 ⇒ 立即判 account-scoped-store 并改按 rebind 适配,绝不冒绿。
  *   cloud  —— 会话在云端且绑账号、本地 0 字节(仅豆包),走 --export/--replay 回放。
  *
@@ -81,22 +81,28 @@ const CHAT_CARRY = Object.freeze({
       '正文按会话 id 存 projects/*.jsonl,不随账号变',
   },
   qoder: { kind: 'local', text: '对话在本地 main.sqlite、不带账号维度,切号后历史仍在并可接着聊' },
-  minimax: { kind: 'local', text: '对话在本地 runtime-state.sqlite、不带账号维度,切号后历史仍在并可接着聊' },
+  minimax: { kind: 'local', text: '对话在本地 runtime-state.sqlite、不带账号维度(archived=0 才是可见),切号后历史仍在并可接着聊' },
   codearts: {
     kind: 'local',
     text: '对话在 VS Code 系 globalStorage/state.vscdb、键面无 uid 前缀,切号后历史仍在并可接着聊',
   },
-  zcode: { kind: 'local', text: '任务/会话在 ~/.zcode/cli/db/db.sqlite、不带账号维度,切号后历史仍在并可接着聊' },
+  zcode: { kind: 'local', text: '任务/会话正库在 ~/.zcode/v2/tasks-index.sqlite 的 tasks 表(旧 cli/db/session 是空壳),无账号维度,切号后历史仍在并可接着聊' },
   opencode: {
     kind: 'local',
-    text: '会话在桌面版 Local Storage/leveldb、不带账号维度,切号后历史仍在并可接着聊',
+    text: '会话草稿/索引在桌面版 drafts.sqlite、不带账号维度;完整正文由本地 sidecar/服务端持有,切号后索引仍在',
   },
-  loomy: { kind: 'local', text: '对话在 Local Storage/leveldb + IndexedDB、不带账号维度,切号后历史仍在' },
+  loomy: {
+    kind: 'local',
+    text: '会话索引在 Local Storage+IndexedDB、不带账号前缀;auth 有 userid,切号后索引仍在,正文是否完整要以客户端为准',
+  },
   codex: {
     kind: 'local',
     text: '会话在 ~/.codex/state_5.sqlite 与 sessions/YYYY/**/*.jsonl,账号列全 NULL 不构成维度,切号后历史仍在',
   },
-  raccoon: { kind: 'local', text: '对话落本地、无账号维度(本机未装 ⇒ 装好登录后跑 --audit 再核),切号后历史仍在' },
+  raccoon: {
+    kind: 'local',
+    text: '本机只有 updater/device-identity,未找到会话库 ⇒ 未定位;装好登录后先跑 --audit,未定位前不承诺历史已随行',
+  },
   doubao: {
     kind: 'cloud',
     text:

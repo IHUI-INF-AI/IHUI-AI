@@ -77,11 +77,65 @@ describe('能力矩阵', () => {
       const m = CARRY_MATRIX[p]
       assert.ok(['rebind', 'local', 'cloud'].includes(m.kind), `${p} 档位非法`)
       assert.equal(typeof m.detail, 'string')
+      assert.equal(typeof m.identity, 'string', `${p} 缺账号身份说明`)
+      assert.ok(m.identity.length > 0, `${p} 账号身份说明为空`)
     }
     assert.equal(CARRY_MATRIX.workbuddy.kind, 'rebind')
     assert.equal(CARRY_MATRIX.doubao.kind, 'cloud')
   })
 })
+
+/** 造一个 ZCode tasks-index(桌面端正库形态):archived/deleted/cli_deleted 三列复合可见 */
+function seedZcodeTasks(file) {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  const db = new DatabaseSync(file)
+  db.exec(`
+    CREATE TABLE tasks (
+      task_id TEXT PRIMARY KEY, title TEXT, task_status TEXT,
+      archived INTEGER, deleted INTEGER, cli_deleted INTEGER,
+      provider TEXT, workspace_key TEXT, project_id TEXT, host_id TEXT
+    );
+  `)
+  const ins = db.prepare(
+    'INSERT INTO tasks (task_id,title,task_status,archived,deleted,cli_deleted,provider,workspace_key,project_id,host_id) VALUES (?,?,?,?,?,?,?,?,?,?)',
+  )
+  ins.run('sess_a', '可见任务', 'completed', 0, 0, null, 'glm', 'c:/repo', 'p1', 'local')
+  ins.run('sess_b', '已归档任务', 'completed', 1, 0, 0, 'glm', 'c:/repo', 'p1', 'local')
+  ins.run('sess_c', '已删除任务', 'error', 0, 1, 0, 'glm', 'c:/repo', 'p1', 'local')
+  db.close()
+}
+
+/** 造一个 MiniMax runtime-state 形态:archived 是 0/1 整数列,不是 NULL 软删列 */
+function seedMiniMax(file) {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  const db = new DatabaseSync(file)
+  db.exec(`
+    CREATE TABLE local_runtime_sessions (
+      session_id TEXT PRIMARY KEY, title TEXT, archived INTEGER, status TEXT
+    );
+  `)
+  const ins = db.prepare('INSERT INTO local_runtime_sessions (session_id,title,archived,status) VALUES (?,?,?,?)')
+  ins.run('m1', '可见一', 0, 'idle')
+  ins.run('m2', '可见二', 0, 'error')
+  ins.run('m3', '已归档', 1, 'idle')
+  db.close()
+}
+
+/** 造一个 Chromium LevelDB 目录,里面只放可扫描的会话 id 文本 */
+function seedLeveldbSessions(dir, ids) {
+  fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(path.join(dir, '000003.log'), ids.map((id) => `\u0000key\u0000${id}\u0000`).join('\n'), 'latin1')
+}
+
+/** 造 OpenCode drafts.sqlite:document(key,value) 里带会话 id */
+function seedOpenCodeDrafts(file, ids) {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  const db = new DatabaseSync(file)
+  db.exec(`CREATE TABLE document (key TEXT PRIMARY KEY, value TEXT);`)
+  const ins = db.prepare('INSERT INTO document (key,value) VALUES (?,?)')
+  for (const id of ids) ins.run(`session:${id}:prompt`, `{"sessionID":"${id}"}`)
+  db.close()
+}
 
 describe('local 平台现场核验', () => {
   it('无账号列 ⇒ 通过并报真实条数', () => {
@@ -101,6 +155,54 @@ describe('local 平台现场核验', () => {
     assert.equal(r.ok, false)
     assert.equal(r.code, 'account-scoped-store')
     assert.equal(r.probe.accountScoped, true)
+  })
+
+  it('ZCode 读 tasks 正库,可见按 archived/deleted/cli_deleted 复合口径', () => {
+    const env = { APPDATA: path.join(tmpRoot, 'env-zcode'), LOCALAPPDATA: tmpRoot, USERPROFILE: tmpRoot }
+    seedZcodeTasks(path.join(env.USERPROFILE, '.zcode', 'v2', 'tasks-index.sqlite'))
+    const r = switchCarry({ provider: 'zcode', env })
+    assert.equal(r.ok, true, r.notes.join(';'))
+    assert.equal(r.probe.raw.table, 'tasks')
+    assert.equal(r.probe.sessions, 3)
+    assert.equal(r.probe.visible, 1, 'archived 与 deleted 都不能算可见')
+    assert.equal(r.probe.accountScoped, false)
+  })
+
+  it('MiniMax 的 archived 是 0/1 整数列,不能按 IS NULL 把 25 条全判成不可见', () => {
+    const env = { APPDATA: path.join(tmpRoot, 'env-minimax'), LOCALAPPDATA: tmpRoot, USERPROFILE: tmpRoot }
+    seedMiniMax(path.join(env.USERPROFILE, '.minimax', 'v2', 'sqlite', 'runtime-state.sqlite'))
+    const r = switchCarry({ provider: 'minimax', env })
+    assert.equal(r.ok, true, r.notes.join(';'))
+    assert.equal(r.probe.sessions, 3)
+    assert.equal(r.probe.visible, 2, 'archived=1 的 1 条不可见')
+  })
+
+  it('OpenCode 从 drafts.sqlite 数唯一会话 id,不冒充侧栏可见条数', () => {
+    const env = { APPDATA: path.join(tmpRoot, 'env-opencode'), LOCALAPPDATA: tmpRoot, USERPROFILE: tmpRoot }
+    seedOpenCodeDrafts(path.join(env.APPDATA, 'ai.opencode.desktop', 'drafts.sqlite'), [
+      'ses_aaaaaaaaaaaaaaaaaaaaaaaaaa',
+      'ses_bbbbbbbbbbbbbbbbbbbbbbbbbb',
+      'ses_cccccccccccccccccccccccccc',
+    ])
+    const r = switchCarry({ provider: 'opencode', env })
+    assert.equal(r.ok, true, r.notes.join(';'))
+    assert.equal(r.probe.sessions, 3)
+    assert.equal(r.probe.visible, null, '索引计数不能冒充可见条数')
+    assert.equal(r.probe.accountScoped, false)
+  })
+
+  it('Loomy 扫 Local Storage+IndexedDB,截断 id 不得当完整会话', () => {
+    const env = { APPDATA: path.join(tmpRoot, 'env-loomy'), LOCALAPPDATA: tmpRoot, USERPROFILE: tmpRoot }
+    seedLeveldbSessions(path.join(env.APPDATA, 'Loomy', 'Local Storage', 'leveldb'), [
+      'ses_dddddddddddddddddddddddddd',
+      'ses_eeeeeeeeeeeeeeeeeeeeeeeeee',
+      'ses_df43d8a0cffecuRBKo', // 截断的 UI key,不能计成第 3 条
+    ])
+    const r = switchCarry({ provider: 'loomy', env })
+    assert.equal(r.ok, true, r.notes.join(';'))
+    assert.equal(r.probe.sessions, 2)
+    assert.equal(r.probe.visible, null)
+    assert.equal(r.probe.accountScoped, false)
   })
 
   it('探不到库 ⇒ unlocated,不冒充通过', () => {

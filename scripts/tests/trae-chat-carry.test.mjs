@@ -503,7 +503,9 @@ test('档案自愈: 切号腿必须在写回前补齐 storeRegion(否则客户�
   // 自愈必须发生在预检之前:预检会真换票,档案没修好就先换票等于走错路
   // (索引也在剥注释后的 code 上取,否则注释掉仍能定位 ⇒ 假绿)
   const idxHeal = code.indexOf('profile-healed-from-upstream')
-  const idxPreflight = code.indexOf('preflightTraeDeviceMatch(dec, preflightStore)')
+  // 只认调用点,不认函数定义;调用在 2026-11 被 prettier 拆成多行,
+  // 不能再钉 `preflightTraeDeviceMatch(dec, preflightStore)` 这种单行字面量。
+  const idxPreflight = code.indexOf('await preflightTraeDeviceMatch(')
   assert.ok(idxHeal > 0 && idxPreflight > idxHeal, '自愈必须早于预检')
   // 自愈必须早于写回信封
   const idxWrite = code.indexOf('buildClientUserInfo({')

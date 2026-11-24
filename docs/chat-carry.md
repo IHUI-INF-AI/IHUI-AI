@@ -12,23 +12,36 @@
 
 ## 1. 一句话结论
 
-号池 11 个平台全部纳管,按三种型各走各的路,但没有一个平台是「切完看不到旧对话」:
+号池 11 个平台全部纳管,按三种型各走各的路,没有一个是「不管」;但**验证深度不同,不能一句「都支持」抹平**:
+
+- 重绑级(Trae / WorkBuddy):改会话归属,切完列表可见、点开有内容;
+- 正库核验级(Qoder / MiniMax / CodeArts / ZCode / Codex):本地正库无账号维度,切号后历史天然在,条数/可见数可现场核验;
+- 索引级(OpenCode / Loomy):只能证明本地索引里还有会话 id,正文完整性要以客户端为准;
+- 归档级(豆包):云端绑账号、本地零副本,只能归档 + 交接单;
+- 未定位(小浣熊):本机只有 updater/identity,没有会话库,不能称已验证。
 
 | 平台 | 型 | 切号后旧对话 |
 | --- | --- | --- |
 | trae | rebind | SQLCipher 正库解密→改 `user_id`→重加密,四处键面(globalStorage/workspaceStorage/storage.json/conversation-tips)一起重绑 |
 | workbuddy | rebind | 重绑 `sessions/spaces/automations` + 并入侧边栏快照,**并把切号瞬间被客户端打软删的会话复活** ⇒ 列表可见、点开有内容 |
-| qoder | local | 本地 `main.sqlite` / `chat_sessions`,无账号列 ⇒ 天然可见 |
-| minimax | local | 本地 `runtime-state.sqlite` / `local_runtime_sessions`,无账号列 |
-| codearts | local | VS Code 系 `globalStorage/state.vscdb`,键面无 uid 前缀 |
-| zcode | local | `~/.zcode/cli/db/db.sqlite` / `session`,无账号列 |
-| opencode | local | 桌面版 `Local Storage/leveldb`,无账号列 |
-| loomy | local | `Local Storage/leveldb` + IndexedDB,无账号列 |
+| qoder | local | 本地 `main.sqlite` / `chat_sessions`(本机 239 条/2 可见),无账号列 ⇒ 天然可见 |
+| minimax | local | 本地 `runtime-state.sqlite` / `local_runtime_sessions`(本机 25 条/18 可见;`archived` 是 0/1 整数列,不是 NULL 软删列),无账号列 |
+| codearts | local | VS Code 系 `globalStorage/state.vscdb`(本机 72 键/72 可见),键面无 uid 前缀 |
+| zcode | local | 桌面端正库是 `~/.zcode/v2/tasks-index.sqlite` / `tasks`(本机 40 条/17 可见);旧 `cli/db/db.sqlite` / `session` 是 0 行空壳,无账号列 |
+| opencode | local | 桌面版 `drafts.sqlite` 是会话 id/草稿索引(本机 18 个唯一 id),无账号列;完整正文由本地 sidecar/服务端持有,不能拿索引冒充正文 |
+| loomy | local | `Local Storage/leveldb` + IndexedDB 是会话 id 索引(本机 19 个唯一 id);auth 键带 userid,但会话 id 不带账号前缀 |
 | codex | local | `~/.codex/state_5.sqlite` / `threads`(账号列全 NULL)+ `sessions/YYYY/**/*.jsonl` |
-| raccoon | local | 本地库,本机未装 ⇒ 装好登录后 `--audit` 再核 |
+| raccoon | local | 本机只有 updater/device-identity,没有会话库 ⇒ `--audit` 如实报未定位,不冒充通过 |
 | doubao | cloud | 云端绑账号、本地零副本 ⇒ 真切前先关端,export 归档 + 生成 `handoff.md` 交接单;原生导入入口按安装包实测(2.37.16 是扫描已安装应用,不是选文件) ⇒ 不能零点击,需交接单/文本回放 |
 
-**local 不是「不用管」,是「已经核验过没有账号维度」。** 探针一旦在某个平台的库里读到账号列,立即翻成 `account-scoped-store` 并改按 rebind 适配,绝不冒绿。
+**local 不是「不用管」,是「每次切号都现场核验没有账号维度」。** 但 local 内部还要再分两层,不能混:
+
+- **结构化正库**(Qoder / MiniMax / CodeArts / ZCode / Codex):有会话表或键面,能报真实会话数与可见数;`--audit` 的 `可见=M` 才是客户端口径。
+- **索引/缓存面**(OpenCode / Loomy):只能证明本地还留着会话 id,不能证明消息正文完整;所以 `--audit` 故意显示 `可见=?`,不把 id 数当侧栏条数。
+
+探针一旦在某个平台的库里读到账号列,立即翻成 `account-scoped-store` 并改按 rebind 适配,绝不冒绿。`raccoon` 当前是未定位,不是「已验证通过」。
+
+**账号身份也钉在同一个矩阵里**(`CARRY_MATRIX[*].identity`),不靠实现者记忆:Trae 是 SQLCipher `user_id` + vscdb uid 前缀 + 上游 `storeRegion`;WorkBuddy 是 `sessions.user_id` + auth 落盘 uid;local 平台逐个注明「会话表无账号列 / 键面无 uid / 索引无账号前缀」;豆包是云端 uid、本地零副本。换平台必须先回答「账号身份在哪」,再谈迁移。
 
 ## 2. WorkBuddy 为什么以前「带不过去」
 
@@ -70,10 +83,11 @@ node scripts/chat-carry.mjs --provider workbuddy --from <旧uid> --revive-window
 
 巡检结果解读:
 
-- `✓ 库=N 可见=M` —— 探到库,`M` 是客户端真实可见条数;
-- `✗ 未定位` —— 客户端没装或路径变了,**不是**「历史没问题」;
+- `✓ 库=N 可见=M` —— 探到结构化正库,`M` 是客户端可见条数;
+- `✓ 库=N 可见=?` —— 只探到索引/缓存面(OpenCode/Loomy),`N` 是唯一会话 id 数,不是侧栏条数,也不证明正文完整;
+- `✗ 未定位` —— 客户端没装、只有 updater/identity、或路径变了,**不是**「历史没问题」;
 - `账号维度=有` —— 必须按 rebind 适配,不允许当 local 放行;
-- `本机未安装该客户端 ⇒ 跳过核验` —— 已区分「没装」与「能力缺陷」,不会误报。
+- `本机未安装该客户端 ⇒ 跳过核验` —— 已区分「没装」与「能力缺陷」,不会误报;但这行也不是通过。
 
 ## 5. 补搬历史 / 复活旧会话
 
@@ -209,8 +223,10 @@ node scripts/doubao-build-import.mjs --archive <归档目录> --out conversation
 2. 跑 `node scripts/chat-carry.mjs --provider <新平台>` 看探针结论:
    - `unlocated` ⇒ 路径写错或客户端没装;
    - `account-scoped-store` ⇒ 必须写 rebind 实现(备份 + 事务 + 失败整组回滚 + 可见性复活);
-   - `ok` ⇒ local,现场核验通过;
+   - `ok` ⇒ local,现场核验通过;若只有索引面,必须 `visible:null`,不许把 id 数当可见数;
 3. 在 `scripts/tests/chat-carry-registry.test.mjs` 补一条矩阵/探针断言,保证以后改路径能红。
+
+**平台适配不是复制同一套 SQL。** 每个平台至少钉死四件事:账号身份在哪(库列 / 键前缀 / auth 文件 / 云端)、正库与缓存的分界、可见性的真实口径、切号后客户端是否需要重启或复活软删行。少钉一件,就会得到「切号成功、界面空白」的假绿。
 
 ## 8. 测试
 

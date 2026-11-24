@@ -29,7 +29,7 @@ import path from 'node:path'
 import { createRequire } from 'node:module'
 
 import * as wbCarry from '../workbuddy-chat-carry.mjs'
-import { probeLeveldb, probeSqlite, probeVscdb } from './local-store.mjs'
+import { probeSessionKeys, probeSqlite, probeVscdb } from './local-store.mjs'
 
 const require = createRequire(import.meta.url)
 
@@ -42,56 +42,71 @@ export const CARRY_MATRIX = Object.freeze({
     label: 'Trae',
     auto: 'dedicated',
     detail: '正库(SQLCipher)+ vscdb 键前缀 + storage.json 四处重绑,切完直接接着聊',
+    identity: 'SQLCipher user_id + vscdb uid 前缀;上游 profile 的 storeRegion 在预检前自愈',
   },
   workbuddy: {
     kind: 'rebind',
     label: 'WorkBuddy',
     auto: 'switch-entry',
     detail: 'sessions/spaces/automations 重绑 + 侧边栏快照合并 + 可见性复活(切号瞬间被软删的行)',
+    identity: 'sessions.user_id;auth 落盘 uid;可见性靠 deleted_at 复活',
   },
-  qoder: { kind: 'local', label: 'Qoder', auto: 'verify', detail: '本地 main.sqlite/chat_sessions 不含账号列,切号后历史天然在' },
+  qoder: { kind: 'local', label: 'Qoder', auto: 'verify', detail: '本地 main.sqlite/chat_sessions 不含账号列,切号后历史天然在', identity: '无:会话表无账号列' },
   minimax: {
     kind: 'local',
     label: 'MiniMax Code',
     auto: 'verify',
-    detail: '本地 runtime-state.sqlite/local_runtime_sessions 不含账号列,切号后历史天然在',
+    detail: '本地 runtime-state.sqlite/local_runtime_sessions 不含账号列;archived=0 为可见(25 条/18 可见)',
+    identity: '无:会话表无账号列',
   },
   codearts: {
     kind: 'local',
     label: 'CodeArts',
     auto: 'verify',
     detail: '本地 state.vscdb 键面;发现 uid 前缀键即判定需重绑并报错',
+    identity: '键面:无 uid 前缀;出现即翻 account-scoped-store',
   },
-  zcode: { kind: 'local', label: 'ZCode', auto: 'verify', detail: '本地 cli/db/db.sqlite/session 不含账号列,切号后历史天然在' },
+  zcode: {
+    kind: 'local',
+    label: 'ZCode',
+    auto: 'verify',
+    detail: '本地 v2/tasks-index.sqlite/tasks 是正库(40 条/17 可见);cli/db/db.sqlite/session 是空壳,无账号列',
+    identity: '无:任务表无账号列',
+  },
   opencode: {
     kind: 'local',
     label: 'OpenCode',
     auto: 'verify',
-    detail: '本地 storage/session 按会话落文件,不含账号维度,切号后历史天然在',
+    detail: '桌面版 drafts.sqlite 保存会话 id/草稿索引(本机 18 个唯一 id),无账号维度;完整正文由本地 sidecar/服务端持有',
+    identity: '无:草稿索引无账号列;正文在本地 sidecar/服务端',
   },
   loomy: {
     kind: 'local',
     label: 'Loomy',
     auto: 'verify',
-    detail: '本地 Local Storage/LevelDB;DOM Storage 无账号键,切号后历史天然在',
+    detail: '本地 Local Storage+IndexedDB 保存会话 id 索引(本机 19 个唯一 id);auth 有 userid,但会话 id 不带账号前缀',
+    identity: 'auth 有 userid;会话 id 无账号前缀',
   },
   codex: {
     kind: 'local',
     label: 'Codex',
     auto: 'verify',
     detail: '本地 state_5.sqlite/threads + sessions/*.jsonl;creator_* 列实测全 NULL,切号后历史天然在',
+    identity: 'creator_user_id/creator_account_id 全 NULL',
   },
   raccoon: {
     kind: 'local',
     label: '小浣熊',
     auto: 'verify',
     detail: '本地 vscdb/LevelDB 面;探不到会话库时如实 unlocated,不冒充通过',
+    identity: '未核验:本机只有 updater/identity,无会话库',
   },
   doubao: {
     kind: 'cloud',
     label: '豆包',
     auto: 'replay',
     detail: '云端账号库、本地零副本:导出归档 + handoff 交接单;官方导入入口按安装包实测(2.37.16 扫描式,非选文件)',
+    identity: '云端 uid;本地 IndexedDB 只是缓存,不是正库',
   },
 })
 
@@ -120,8 +135,10 @@ export const STORE_SPECS = Object.freeze({
     spec: {
       provider: 'raccoon',
       candidates: [
+        '${APPDATA}/@raccoon/office-desktop/User/globalStorage/state.vscdb',
         '${APPDATA}/office-raccoon/User/globalStorage/state.vscdb',
         '${LOCALAPPDATA}/office-raccoon/User/globalStorage/state.vscdb',
+        '${LOCALAPPDATA}/@raccoon/office-desktop/User/globalStorage/state.vscdb',
       ],
     },
   }),
@@ -148,17 +165,22 @@ export const STORE_SPECS = Object.freeze({
       idCol: 'session_id',
       titleCol: 'title',
       deletedCol: 'archived',
+      // archived 是 0/1 整数列,不是 NULL 软删列;不写这条会把 25 条全算成不可见。
+      visibleWhere: 'COALESCE(archived,0)=0',
     },
   }),
   zcode: () => ({
     probe: probeSqlite,
     spec: {
       provider: 'zcode',
-      candidates: ['~/.zcode/cli/db/db.sqlite', '${APPDATA}/ZCode/cli/db/db.sqlite'],
-      table: 'session',
-      idCol: 'id',
+      // 2026-11-24 现场核对:桌面端会话正库是 v2/tasks-index.sqlite 的 tasks 表(40 条);
+      // 旧 cli/db/db.sqlite 的 session 表是 0 行空壳,不能再当正库。
+      candidates: ['~/.zcode/v2/tasks-index.sqlite'],
+      table: 'tasks',
+      idCol: 'task_id',
       titleCol: 'title',
-      deletedCol: 'time_deleted',
+      deletedCol: 'deleted',
+      visibleWhere: "COALESCE(deleted,0)=0 AND COALESCE(archived,0)=0 AND COALESCE(cli_deleted,0)=0",
     },
   }),
   codex: () => ({
@@ -173,20 +195,27 @@ export const STORE_SPECS = Object.freeze({
     },
   }),
   opencode: () => ({
-    probe: probeLeveldb,
+    probe: probeSessionKeys,
     spec: {
       provider: 'opencode',
       candidates: [
+        '${APPDATA}/ai.opencode.desktop/drafts.sqlite',
         '${APPDATA}/ai.opencode.desktop/Local Storage/leveldb',
-        '~/.local/share/opencode/storage',
       ],
+      table: 'document',
+      valueCols: ['key', 'value'],
+      note: 'drafts.sqlite 只是草稿/会话 id 索引;完整正文由本地 sidecar/服务端持有,不能用它证明历史正文完整',
     },
   }),
   loomy: () => ({
-    probe: probeLeveldb,
+    probe: probeSessionKeys,
     spec: {
       provider: 'loomy',
-      candidates: ['${APPDATA}/Loomy/Local Storage/leveldb'],
+      candidates: [
+        '${APPDATA}/Loomy/Local Storage/leveldb',
+        '${APPDATA}/Loomy/IndexedDB/file__0.indexeddb.leveldb',
+      ],
+      note: 'auth-session 带 userid,但会话 id 本身不带账号前缀;这是索引计数,不是侧栏可见条数',
     },
   }),
   doubao: () => ({
@@ -210,7 +239,14 @@ const INSTALL_NAME_RE = {
 function probeInstalled(provider, env = process.env) {
   const re = INSTALL_NAME_RE[provider]
   if (!re) return null // 不在表内的平台:不做"未装"判定,未定位一律按真问题报
-  for (const base of [env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'Programs'), env.ProgramFiles]) {
+  const bases = [
+    env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'Programs'),
+    env.LOCALAPPDATA,
+    env.APPDATA,
+    env.USERPROFILE,
+    env.ProgramFiles,
+  ]
+  for (const base of bases) {
     if (!base) continue
     try {
       for (const e of fs.readdirSync(base, { withFileTypes: true })) {
@@ -416,7 +452,10 @@ export function switchCarry(opts = {}) {
     kind: 'local',
     action: 'verify',
     code: '',
-    notes: [...p.notes, `只读核验通过:会话 ${p.sessions ?? '?'} 条,无账号维度 ⇒ 切号后历史天然在`],
+    notes: [
+      ...p.notes,
+      `只读核验通过:会话 ${p.sessions ?? '?'} 条${p.visible === null ? '' : `,可见 ${p.visible} 条`},无账号维度 ⇒ 切号后历史天然在`,
+    ],
     probe: p,
   }
 }
