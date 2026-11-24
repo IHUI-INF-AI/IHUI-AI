@@ -34,7 +34,11 @@ import {
   type UserBroadcastConfig,
 } from '@ihui/api-client'
 import type { QueryClient } from '@tanstack/react-query'
-import type { ConversationMetaField, ConversationUpdatedEvent } from '@ihui/types'
+import {
+  planChatSyncReconnectResync,
+  type ConversationMetaField,
+  type ConversationUpdatedEvent,
+} from '@ihui/types'
 import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import { getQueryClient } from '@/lib/query-client'
@@ -263,6 +267,10 @@ export function useConversationBroadcastSync(): {
   const gapMessageIds = useChatStore((s) => s.chatSyncGapMessageIds ?? EMPTY_GAP_IDS)
   const [undetermined, setUndetermined] = React.useState(0)
   const [connected, setConnected] = React.useState(false)
+  // 重连判定跨订阅 effect 重建保持:首次 open 不算重连(否则一挂载就把全部历史消息
+  // 当"可能推进"逐条拉快照,违反 §4「只让 gap 触发 resync」的纪律),只有曾经 open
+  // 过、断开后再次 open 才补增量。
+  const everOpened = React.useRef(false)
 
   const translate = React.useCallback(
     (key: string, values?: Record<string, string>): string =>
@@ -284,6 +292,7 @@ export function useConversationBroadcastSync(): {
       baseUrl: resolveWsApiBaseUrl(),
       tokenProvider: () => useAuthStore.getState().token,
     }
+    let cancelled = false
     const sub = subscribeUserBroadcast(config, {
       'conversation:updated': (evt) => {
         const e = evt as ConversationUpdatedEvent
@@ -305,7 +314,29 @@ export function useConversationBroadcastSync(): {
         if (rowsTouched > 0 && listed.length > 0) fireOnceNotice(e, listed)
       },
       onUndetermined: () => setUndetermined((n) => n + 1),
-      onState: (s) => setConnected(s === 'open'),
+      onState: (s) => {
+        const open = s === 'open'
+        const reconnect = open && everOpened.current
+        everOpened.current = everOpened.current || open
+        setConnected(open)
+        if (!reconnect) return
+        // 重连补增量:坐标只由契约内核的 planner 判定(只挑「无终态」消息),本层不复制
+        // gap/stale/duplicate 判据(§22c)。无坐标 ⇒ 一次请求都不发;拉回结果由既有
+        // resync 编排四维上报,不把「没拉到」洗成「已对齐」。
+        const store = useChatStore.getState()
+        const id = store.conversationId
+        if (!id) return
+        const plan = planChatSyncReconnectResync({
+          state: store.chatSync,
+          conversationId: id,
+        })
+        if (!plan.needed) return
+        void resyncChatSyncGaps({
+          conversationId: id,
+          messageIds: plan.requests.map((r) => r.messageId),
+          isCancelled: () => cancelled,
+        })
+      },
     })
     // 票71 第二切片:消息面同步只走契约内核 —— 房间过滤与 (messageId,rev) 幂等裁定
     // 都在 `applyChatSync` 里(store 侧单点),本处不做第二份去重。被拒(duplicate/
@@ -316,6 +347,7 @@ export function useConversationBroadcastSync(): {
         )
       : null
     return () => {
+      cancelled = true
       sub.close()
       chatSub?.close()
     }
