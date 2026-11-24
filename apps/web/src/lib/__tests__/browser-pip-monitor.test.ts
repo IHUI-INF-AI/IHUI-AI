@@ -131,7 +131,7 @@ describe('openBrowserPipMonitor:真实浮窗 DOM 与状态流转', () => {
     expect(canvas?.style.pointerEvents).toBe('none')
     expect(win.document.body.textContent).toContain('Connecting')
 
-    const ws = FakeWebSocket.instances[0]
+    const ws = FakeWebSocket.instances[0]!
     expect(ws?.url).toBe('ws://test/session-1')
     ws.emitOpen()
     expect(win.document.body.textContent).toContain('Running')
@@ -160,7 +160,7 @@ describe('openBrowserPipMonitor:真实浮窗 DOM 与状态流转', () => {
       onClose,
     })
     const win = opened!.win
-    const ws = FakeWebSocket.instances[0]
+    const ws = FakeWebSocket.instances[0]!
     ws.emitOpen()
 
     const button = Array.from(win.document.querySelectorAll('button')).find(
