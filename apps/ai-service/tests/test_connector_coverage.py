@@ -247,7 +247,8 @@ def test_catalog_events_overrides_and_null_total(tmp_path):
         ("wecom", 400, {"errcode": 40014, "errmsg": "invalid access_token"}, "need_user_token", ""),
         ("dingtalk", 403, {"errcode": 88, "errmsg": "需要管理员"}, "need_admin", ""),
         ("wecom", 403, {"errcode": 48001}, "permission_denied", ""),
-        ("feishu", 404, {"code": 404}, "unsupported", ""),
+        # 裸 404 不再判 unsupported:路径参数无有效样本时必然 404,不能据此断言平台不支持
+        ("feishu", 404, {"code": 404}, "error", ""),
         ("feishu", 500, {"code": 12345, "msg": "未知错误码"}, "error", ""),
         ("feishu", 200, {"code": 0, "data": {}}, "available", ""),
     ],
@@ -259,6 +260,38 @@ def test_classify_outcome(platform, http_code, body, expected_state, expected_sc
     if expected_state != "available":
         # 非 available 必须保留平台原始码,不得清空
         assert outcome["platform_code"] != "" or http_code is not None
+
+
+def test_normalize_path_params_pure_predicate():
+    """台账 :name 占位符必须在装车时规范成执行层认的 {name};其余形态不碰。"""
+    cases = [
+        ("/open-apis/contact/v3/users/:user_id", "/open-apis/contact/v3/users/{user_id}"),
+        ("/a/:id/b/:sub_id", "/a/{id}/b/{sub_id}"),
+        ("/a/{already}", "/a/{already}"),  # 幂等
+        ("https://example.com/a/:id", "https://example.com/a/{id}"),  # 协议冒号不碰
+        ("/a?t=12:30", "/a?t=12:30"),  # 非 / 后冒号不碰
+    ]
+    for raw, expected in cases:
+        assert coverage.normalize_path_params(raw) == expected, raw
+    # 递归处理 query/body
+    assert coverage.normalize_path_params({"k": ":id", "l": [":x", "{y}"]}) == {
+        "k": "{id}",
+        "l": ["{x}", "{y}"],
+    }
+
+
+def test_api_to_operation_normalizes_colon_path():
+    """飞书台账冒号语法装车后必须能被执行层 path_param_names 识别。"""
+    api = _api("get_user", "contact")
+    api["path"] = "/open-apis/contact/v3/users/:user_id"
+    api["query"] = {"form": ":user_id"}
+    op = coverage.api_to_operation(api, "https://open.feishu.cn")
+    assert op["path"] == "/open-apis/contact/v3/users/{user_id}"
+    assert op["query"] == {"form": "{user_id}"}
+    assert ConnectorOperation.from_dict(op).path == "/open-apis/contact/v3/users/{user_id}"
+    from app.services.connectors.base import path_param_names
+
+    assert path_param_names(op["path"]) == ["user_id"]
 
 
 def test_unknown_code_never_available():
@@ -385,6 +418,40 @@ async def test_probe_user_auth_prejudged_without_request():
     assert uo["http_code"] is None
     assert "feishu_user" in uo["reason"]
     assert persisted["u1"]["state"] == "need_user_token"
+
+
+async def test_probe_injects_sample_params_for_path_placeholders(monkeypatch):
+    """带路径占位符的只读接口探测时注入样本值,不再空参导致假 404;写操作不注入。"""
+    captured: dict[str, Any] = {}
+
+    async def fake_invoke(self: Any, operation_id: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        captured["id"] = operation_id
+        captured["params"] = params
+        return {"status": 200, "message": "ok", "content": ""}
+
+    monkeypatch.setattr(coverage_probe.custom_http.CustomHttpConnector, "invoke", fake_invoke)
+
+    api = _api("get_user", "contact")
+    api["path"] = "/open-apis/contact/v3/users/:user_id"
+    op = coverage.api_to_operation(api, "https://open.feishu.cn")
+    record = {
+        "key": "feishu:managed",
+        "type": "feishu",
+        "tenant_id": "t1",
+        "scope": "s1",
+        "spec": {"auth_kind": "feishu_tenant", "base_url": "https://open.feishu.cn"},
+    }
+    outcome = await coverage_probe._default_executor(record, op)
+    assert outcome["state"] == "available"
+    assert captured["id"] == "get_user"
+    assert captured["params"] == {"user_id": coverage_probe._PROBE_SAMPLE_VALUE}
+
+    # 写操作保持空参数:缺参 fail-closed,绝不注入样本触发真实写副作用
+    write_api = _api("del_user", "contact", method="DELETE", read=False)
+    write_api["path"] = "/open-apis/contact/v3/users/:user_id"
+    write_op = coverage.api_to_operation(write_api, "https://open.feishu.cn")
+    await coverage_probe._default_executor(record, write_op)
+    assert captured["params"] == {}
 
 
 async def test_probe_read_only_skips_write():

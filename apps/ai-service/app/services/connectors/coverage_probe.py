@@ -27,7 +27,7 @@ from app.core.config import settings
 from app.core.pg_sync import SyncPgSession
 
 from . import coverage
-from .base import DEFAULT_PROBE_LIMIT, MAX_PROBE_LIMIT
+from .base import DEFAULT_PROBE_LIMIT, MAX_PROBE_LIMIT, path_param_names
 from . import custom_http
 
 logger = logging.getLogger(__name__)
@@ -114,12 +114,19 @@ _CODE_MAPS: dict[str, dict[str, str]] = {
     },
 }
 
-# HTTP 状态码兜底映射(平台码未命中时使用)
+# HTTP 状态码兜底映射(平台码未命中时使用)。
+# 404/405 **不**映射到 unsupported:裸 HTTP 404 只能说明"这次请求打到的 URL/方法
+# 不存在",在路径参数未填样本值时尤其如此,不能据此断言平台不支持该接口。
+# 真正的"不支持"必须由平台业务码或文档态判定;这里一律落 error 并附原因。
 _HTTP_MAP: dict[int, str] = {
     401: coverage.STATUS_NEED_USER_TOKEN,
     403: coverage.STATUS_PERMISSION_DENIED,
-    404: coverage.STATUS_UNSUPPORTED,
-    405: coverage.STATUS_UNSUPPORTED,
+    404: coverage.STATUS_ERROR,
+    405: coverage.STATUS_ERROR,
+}
+_HTTP_REASON_HINT: dict[int, str] = {
+    404: "HTTP 404 不能判定接口不支持(可能是路径参数无有效样本、URL 变更),需结合文档确认",
+    405: "HTTP 405 不能判定接口不支持(可能是方法模板与文档不一致),需结合文档确认",
 }
 
 _SUCCESS_CODES = {0, "0", None}
@@ -192,6 +199,8 @@ def classify_outcome(
         state = _CODE_MAPS[platform][code_str]
     elif http_code is not None and http_code in _HTTP_MAP:
         state = _HTTP_MAP[http_code]
+        if http_code in _HTTP_REASON_HINT and not message:
+            message = _HTTP_REASON_HINT[http_code]
     else:
         state = coverage.STATUS_ERROR
 
@@ -375,6 +384,11 @@ Executor = Callable[
 ]
 
 
+# 探测用的路径参数样本值:明显非真实 ID,只为让请求打到合法 URL 形态。
+# 绝不用于写操作(action 一律不注入,缺参时 fail-closed,不产生副作用)。
+_PROBE_SAMPLE_VALUE = "ihui-probe-sample"
+
+
 def _default_executor(record: dict[str, Any], op: dict[str, Any]) -> Coroutine[Any, Any, dict[str, Any]]:
     """默认执行器:走 custom_http 声明式执行层发真实请求。"""
 
@@ -383,7 +397,15 @@ def _default_executor(record: dict[str, Any], op: dict[str, Any]) -> Coroutine[A
         exec_record["operations"] = [op]
         connector = custom_http.CustomHttpConnector(exec_record)
         try:
-            result = await connector.invoke(op["id"], {})
+            # 只读接口带路径占位符时注入样本值:否则空参数会被执行层判定缺参、
+            # 或打到字面量 :id 造成假 404。写操作保持空参数,fail-closed 不探。
+            params: dict[str, Any] = {}
+            if str(op.get("capability") or "") != "action":
+                params = {
+                    name: _PROBE_SAMPLE_VALUE
+                    for name in path_param_names(str(op.get("path") or ""))
+                }
+            result = await connector.invoke(op["id"], params)
             return {
                 "state": coverage.STATUS_AVAILABLE,
                 "http_code": int(result.get("status") or 200),

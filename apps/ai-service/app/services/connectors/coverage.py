@@ -434,11 +434,36 @@ def _read_capability(method: str, path: str, api: dict[str, Any]) -> str:
     return "list"
 
 
+# 飞书官方文档的路径参数写成形如 ``/users/:user_id`` 的冒号语法,而执行层
+# (``base.path_param_names`` / ``custom_http._fill_template``)只识别 ``{name}``。
+# 台账忠实保留官方形态,装车时在此规范化;否则参数永不替换,请求打到字面量
+# ``:user_id``,必然 404 被误判 unsupported(飞书 955/1768 条受影响)。
+# 只替换紧跟 ``/`` 的冒号名,不碰 ``http://`` 这类协议冒号,也不重复包裹已有 ``{name}``。
+_COLON_PATH_PARAM_RE = re.compile(r"(?:(?<=/)|^):([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def normalize_path_params(value: Any) -> Any:
+    """把 ``:name`` 占位符规范成执行层的 ``{name}``;递归处理 query/body。
+
+    幂等:已是 ``{name}`` 的形态原样返回;无 ``/`` 前缀的冒号(协议、时间等)不碰。
+    """
+    if isinstance(value, str):
+        return _COLON_PATH_PARAM_RE.sub(r"{\1}", value)
+    if isinstance(value, list):
+        return [normalize_path_params(item) for item in value]
+    if isinstance(value, dict):
+        return {key: normalize_path_params(item) for key, item in value.items()}
+    return value
+
+
 def api_to_operation(api: dict[str, Any], default_base_url: str = "") -> dict[str, Any]:
     """台账 API 条目 → 声明式操作定义(与 base.ConnectorOperation 字段对齐)。
 
     操作基址:条目 ``base_url_override`` 优先;缺省回落台账顶层 ``base_url``;
     再缺省由连接器 spec 基址兜底。
+
+    路径/query/body 统一经 :func:`normalize_path_params` 规范化,确保台账里的
+    冒号语法参数能被执行层识别并替换。
     """
     read = bool(api.get("read"))
     method = str(api["method"])
@@ -458,10 +483,10 @@ def api_to_operation(api: dict[str, Any], default_base_url: str = "") -> dict[st
         "name": api["name"],
         "capability": capability,
         "method": method,
-        "path": api["path"],
+        "path": normalize_path_params(api["path"]),
         "base_url": api.get("base_url_override") or default_base_url,
-        "query": dict(api.get("query") or {}),
-        "body": api.get("body"),
+        "query": normalize_path_params(dict(api.get("query") or {})),
+        "body": normalize_path_params(api.get("body")),
         "response_path": "",
         "confirm": confirm,
         "disabled": disabled,
