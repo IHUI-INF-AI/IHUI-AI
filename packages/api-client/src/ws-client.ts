@@ -95,11 +95,37 @@ export interface WebSocketClientOptions<TMessage> {
   webSocketFactory?: (url: string) => WebSocketLike
 }
 
+/**
+ * 活性看门狗判死时的结构化诊断(对标 Cursor RendererPing `stacks=true`:判死必留证据)。
+ *
+ * **绝不携带 URL / token**:通知端点 URL 含 WS ticket 或 access token,写进日志即凭据泄漏
+ * (与 G-21③ 脱敏口径一致)。只给"哪一代连接、多久没 pong、阈值多少、什么 readyState",
+ * 足以定位休眠唤醒 / TCP 半开类假死。
+ */
+export interface LivenessTimeoutDiagnostics {
+  /** 连接代际(G-816007),用于把诊断和多连接竞争对上号 */
+  generation: number
+  /** 判死瞬间距最后一个 pong 的毫秒数(必 > timeoutMs) */
+  sinceLastPongMs: number
+  /** 本次生效的判死阈值(ms) */
+  timeoutMs: number
+  /** 判死瞬间 socket 的 readyState(先诊断后 close,故通常为 OPEN=1) */
+  readyState: number
+}
+
 export interface WebSocketClientHandlers<TMessage> {
   onMessage?: (msg: TMessage) => void
   onOpen?: () => void
   onClose?: () => void
   onError?: (error: string) => void
+  /**
+   * 看门狗主动判死时回调一次,带结构化诊断。
+   *
+   * 此前判死只静默 close,上层仅见普通 onClose,无法区分"看门狗判死"和"正常断线"——
+   * 线上休眠唤醒 / TCP 半开假死因此无从观测、无从统计。未传时行为与历史完全一致
+   * (仍静默 close + 复用 onclose 重连链),纯增量能力。
+   */
+  onLivenessTimeout?: (diagnostics: LivenessTimeoutDiagnostics) => void
 }
 
 /**
@@ -126,6 +152,10 @@ export class WebSocketClient<TMessage = WSNotification> {
   // ping 空发,连接停在 _isConnected=true 假态;这里用最后 pong 时间主动判死并重连。
   private lastPongAt = 0
   private livenessArmed = false
+  // 判死诊断每次连接只发一次:close() 后 onclose 是异步的,在它到达前心跳定时器
+  // 仍可能再跑几拍、重复命中判死分支;没有这个闩会向上层重复上报同一假死事件。
+  // onopen 时随 lastPongAt 一并重置,保证新连接能独立报一次。
+  private livenessTimeoutReported = false
   private closedByUser = false
   private _isConnected = false
   // 2026-08-06 修复:连接代际计数。updateToken/disconnect 主动断开旧连接时,
@@ -252,6 +282,7 @@ export class WebSocketClient<TMessage = WSNotification> {
       // 否则会在不回 pong 的服务端上误杀正常连接(降级兼容)。
       this.lastPongAt = Date.now()
       this.livenessArmed = false
+      this.livenessTimeoutReported = false
       this.handlers.onOpen?.()
       this.startHeartbeat(ws)
     }
@@ -361,6 +392,21 @@ export class WebSocketClient<TMessage = WSNotification> {
           // 心跳发送失败也视为活性丢失(走下方统一判死/重连)
         }
         if (this.livenessArmed && Date.now() - this.lastPongAt > livenessTimeout) {
+          // 判死诊断先于 close:此刻 readyState 仍是被判死的真实状态(通常 OPEN=1),
+          // close 后再取会变成 CLOSING/CLOSED,丢掉定位信息。闩住只报一次。
+          if (!this.livenessTimeoutReported) {
+            this.livenessTimeoutReported = true
+            try {
+              this.handlers.onLivenessTimeout?.({
+                generation: this.generation,
+                sinceLastPongMs: Date.now() - this.lastPongAt,
+                timeoutMs: livenessTimeout,
+                readyState: ws.readyState,
+              })
+            } catch {
+              // 诊断回调属于可观测性旁路,异常不得阻断 close → 重连主链路
+            }
+          }
           // 服务端不再回 pong(TCP 半开/休眠唤醒/服务端假死):onclose 不会自然触发,
           // 主动 close 制造 onclose,让既有重连+补增量链接管,消除 _isConnected 假态。
           try {
