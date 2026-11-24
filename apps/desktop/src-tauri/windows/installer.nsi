@@ -552,12 +552,11 @@ Function .onInit
     ReadRegStr $R0 SHCTX "${MANUPRODUCTKEY}" ""
     ${If} $R0 != ""
     ${AndIf} ${FileExists} "$R0\state.json"
-      ; 静默 /UPDATE 不能弹模态框：旧更新器在后台等，没人点会永久挂住。
-      ${IfNot} ${Silent}
-        MessageBox MB_OK|MB_ICONSTOP "检测到智汇AI v2 更新状态。请从应用内更新；安装器 /UPDATE 已停用，以免覆盖已暂存的版本。"
-      ${EndIf}
+      ; 这条路径只可能由旧更新器/旧快捷方式触发，绝不能让终端用户看到任何弹窗。
+      ; 不论交互还是静默模式，都只记 DetailPrint，然后立即以退出码 2 结束。
+      DetailPrint "v2 state present; installer /UPDATE disabled"
       SetErrorLevel 2
-      Abort "v2 state present; installer /UPDATE disabled"
+      Quit
     ${EndIf}
   ${EndIf}
 
