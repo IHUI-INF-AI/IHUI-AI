@@ -335,20 +335,22 @@ describe('调度器 — cron 形态 + 成对 start/stop', () => {
   })
 })
 
-describe('启动/关闭路径接线(装车判据)', () => {
+describe('启动/关闭路径接线(2026-11-24 更正:该单平台 job 已退役)', () => {
   const indexSrc = readFileSync(fileURLToPath(new URL('../../index.ts', import.meta.url)), 'utf8')
 
-  it('index.ts 在 startBackgroundSchedulers 里注册 startTraeModelsScheduler', () => {
-    const from = indexSrc.indexOf('function startBackgroundSchedulers')
-    const next = indexSrc.indexOf('\nasync function', from)
-    const scoped = indexSrc.slice(from, next === -1 ? indexSrc.length : next)
-    expect(from).toBeGreaterThan(-1)
-    expect(scoped).toContain('startTraeModelsScheduler()')
-    expect(indexSrc).toContain("from './jobs/trae-models-sync.js'")
+  // 原装车判据已删除:trae 单平台 job 被 relay-models-sync(15 分钟、全平台泛化、含自动下架
+  // 与 qoder 能力门的同一套判据)取代。两套 job 若都写 ai_model_config_models 会重复/双写,
+  // 故本 job 有意不上车。保留反向锁:一旦有人误把它重新接进 index.ts,此处转红提醒先裁决
+  // 与 relay job 的双写冲突(单一真相源 §0.6)。
+  it('index.ts 不再注册 startTraeModelsScheduler(已由 relay-models-sync 泛化取代)', () => {
+    expect(indexSrc).not.toContain('startTraeModelsScheduler')
+    expect(indexSrc).not.toContain('stopTraeModelsScheduler')
+    expect(indexSrc).not.toContain("from './jobs/trae-models-sync.js'")
   })
 
-  it('index.ts 的 shutdown 相位清单里有 stopTraeModelsScheduler', () => {
-    expect(indexSrc).toContain("syncStopPhase('stopTraeModelsScheduler', stopTraeModelsScheduler)")
+  it('relay-models-sync 已上车并覆盖 trae 平台(取代本 job 的装车职责)', () => {
+    expect(indexSrc).toContain('startRelayModelsSyncScheduler()')
+    expect(indexSrc).toContain("from './jobs/relay-models-sync.js'")
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

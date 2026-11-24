@@ -102,6 +102,7 @@ import {
   resolveModelSyncCron,
   DEFAULT_MODEL_SYNC_CRON,
   defaultRelayModelPublic,
+  hasModelCatalogCapability,
   resolveStaleModelIds,
   AUTO_DELIST_MAX_RATIO,
   AUTO_DELIST_ABS_FLOOR,
@@ -191,6 +192,18 @@ describe('syncRelayProviderModels — 编排与早退', () => {
     expect(defaultRelayModelPublic('qoder')).toBe(false)
     expect(defaultRelayModelPublic('trae')).toBe(true)
     expect(defaultRelayModelPublic(undefined)).toBe(true)
+  })
+
+  it('清单能力门:qoder 仅实现 listModelsDetailed 也判有能力(不被整家跳过)', () => {
+    // 回归锁:旧门只认 listModels,qoder 被 relay loop 跳过,自动上/下架/复活全失效。
+    expect(hasModelCatalogCapability({ listModelsDetailed: vi.fn() })).toBe(true)
+    expect(hasModelCatalogCapability({ listModels: vi.fn() })).toBe(true)
+    expect(hasModelCatalogCapability({ listModels: vi.fn(), listModelsDetailed: vi.fn() })).toBe(
+      true,
+    )
+    expect(hasModelCatalogCapability({})).toBe(false)
+    expect(hasModelCatalogCapability(undefined)).toBe(false)
+    expect(hasModelCatalogCapability(null)).toBe(false)
   })
 
   // ===== 自动下架判据(2026-11-24) =====
@@ -333,6 +346,21 @@ describe('runRelayModelsSyncLoop — 遍历与失败隔离', () => {
     vi.clearAllMocks()
     insertReturning.mockReturnValue([])
     fromResults.length = 0
+  })
+
+  it('RELAY_MODEL_SYNC_PROVIDERS 覆盖平台面(逗号分隔+白名单校验,非法项丢弃)', async () => {
+    const prev = process.env.RELAY_MODEL_SYNC_PROVIDERS
+    process.env.RELAY_MODEL_SYNC_PROVIDERS = ' qoder , trae , not-a-provider , '
+    try {
+      insertReturning.mockReturnValue([{ id: 1 }])
+      const r = await runRelayModelsSyncLoop({ listModelsCapable: async () => true })
+      // 只保留 qoder/trae 两个合法平台;非法项与空白丢弃,不写库枚举
+      expect(r.providersScanned).toBe(2)
+      expect(r.perProvider.map((p) => p.providerCode).sort()).toEqual(['qoder', 'trae'])
+    } finally {
+      if (prev === undefined) delete process.env.RELAY_MODEL_SYNC_PROVIDERS
+      else process.env.RELAY_MODEL_SYNC_PROVIDERS = prev
+    }
   })
 
   it('listModels 无能力的平台 → providersNoListModels 计数,不拉上游', async () => {
@@ -490,6 +518,16 @@ describe('启动/关闭路径接线', () => {
     expect(indexSrc).toContain(
       "syncStopPhase('stopRelayModelsSyncScheduler', stopRelayModelsSyncScheduler)",
     )
+  })
+
+  it('loop 默认能力门走 hasModelCatalogCapability,不得回退成 listModels-only(qoder 回归)', () => {
+    const jobSrc = readFileSync(
+      fileURLToPath(new URL('../relay-models-sync.ts', import.meta.url)),
+      'utf8',
+    )
+    expect(jobSrc).toContain('return hasModelCatalogCapability(getRelayAdapter(code))')
+    // 旧错误形态必须消失:能力门不得再直接用 listModels !== undefined 判 qoder。
+    expect(jobSrc).not.toContain('getRelayAdapter(code)?.listModels !== undefined')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

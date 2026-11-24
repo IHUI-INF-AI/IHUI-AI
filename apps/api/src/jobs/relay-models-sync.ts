@@ -5,17 +5,18 @@
 /**
  * 号池中继平台上游模型通用自动上架 job(ai_model_config_models 表)。
  *
- * 立因:trae-models-sync 只覆盖 trae 单平台。实测全号池 11 个反代型平台里只有 3 个
- * (trae/qoder/minimax)用户能选到模型,其余 8 个「有号却选不到模型」—— 它们有可调度账号、
- * 适配器也支持 listModels,但 ai_model_config(_models) 没登记模型行。
- * 本 job 把 trae 的「上游清单→逐条 upsert→跨上游去重」链路泛化到**所有**中继平台。
+ * 立因:trae-models-sync 只覆盖 trae 单平台。实测全号池 14 个反代型平台里只有 3 个
+ * (trae/qoder/minimax)用户能选到模型,其余「有号却选不到模型」—— 它们有可调度账号、
+ * 适配器也支持清单接口,但 ai_model_config(_models) 没登记模型行。
+ * 本 job 把 trae 的「上游清单→逐条 upsert→跨上游去重→自动下架」链路泛化到**所有**中继平台,
+ * 已取代单平台 trae-models-sync(后者不再上车)。
  *
  * 与 model-discovery-cron(relay-pool-model-discovery-sync)的分工:
  *   discovery 写 ai_relay_discovery(status='discovered',等人工审批定价),刻意不写正式表;
  *   本 job 直写正式表 ai_model_config_models(is_relay_public=true 立即可见),补齐最后一公里。
  *
- * 覆盖面:号池「有可调度号」且「适配器实现 listModels」的中继平台。
- *   - 适配器无 listModels(如 doubao/minimax/codearts)⇒ 跳过(无法自动拉清单),如实记 skipped;
+ * 覆盖面:号池「有可调度号」且「适配器实现任一清单接口(listModels / listModelsDetailed)」的中继平台。
+ *   - 适配器两种清单接口都没有(如 doubao/minimax/codex)⇒ 跳过(无法自动拉清单),如实记 skipped;
  *   - 取不到上游清单(ok=false)⇒ 整块跳过,绝不据此判下架(「取不到 ≠ 没模型」)。
  *
  * 转发安全性(关键):relay-account-forwarder 对号池中继平台恒走 adapter
@@ -129,6 +130,16 @@ const PROVIDER_CONFIG_NAME: Partial<Record<RelayProviderCode, string>> = {
  */
 export function defaultRelayModelPublic(providerCode: string | undefined): boolean {
   return providerCode !== 'qoder'
+}
+
+/** 平台是否有可拉取的模型清单接口(2026-11-24 修):listModels 与 listModelsDetailed 任一存在即有能力。
+ *  qoder 只实现 listModelsDetailed(SDK available_models_update 帧 / CLI 回落),旧门只认 listModels
+ *  会把 qoder 整家跳过 —— 与服务层 fetchUpstreamModelIds(两种接口都试)判据分裂,导致 qoder
+ *  新模型/下架/复活全不生效。此处统一单一真相源,供 loop 能力门与单测复用。 */
+export function hasModelCatalogCapability(
+  adapter: { listModels?: unknown; listModelsDetailed?: unknown } | undefined | null,
+): boolean {
+  return Boolean(adapter?.listModels || adapter?.listModelsDetailed)
 }
 
 /** 单模型 upsert:按 (config_id, model_id) 唯一约束。
@@ -448,10 +459,18 @@ export async function runRelayModelsSyncLoop(
     perProvider: [],
   }
 
-  // 平台遍历面:显式指定 > 号池「有可调度号」的中继平台(discovery-sync 同范式)
+  // 平台遍历面:显式注入 > RELAY_MODEL_SYNC_PROVIDERS 环境变量 > 号池「有可调度号」的中继平台
+  // (discovery-sync 同范式)。环境变量是运维止血/定向补跑出口:逗号分隔、逐个经白名单校验,
+  // 空串/非法项一律丢弃;全部非法则回落 DB 枚举(绝不跑一个空列表冒充"本轮无平台")。
   let providers: RelayProviderCode[] = []
+  const envProviders = (process.env.RELAY_MODEL_SYNC_PROVIDERS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s): s is RelayProviderCode => s !== '' && isRelayProviderCode(s))
   if (options.providers && options.providers.length > 0) {
     providers = options.providers
+  } else if (envProviders.length > 0) {
+    providers = [...new Set(envProviders)].sort()
   } else {
     const { accountSchedulableCondition } =
       await import('../services/relay-account-pool-scheduler.js')
@@ -466,14 +485,15 @@ export async function runRelayModelsSyncLoop(
     providers = [...set].filter((c): c is RelayProviderCode => isRelayProviderCode(c)).sort()
   }
 
-  // listModels 能力面:注入 > 默认按适配器是否实现 listModels
+  // 模型清单能力面:注入 > 默认按适配器是否实现任一清单接口(listModels / listModelsDetailed)。
+  // 统一走 hasModelCatalogCapability,勿在这里另写 listModels-only 判据(qoder 会被整家跳过)。
   const capable =
     options.listModelsCapable ??
     (async (code: RelayProviderCode) => {
       const { getRelayAdapter } = await import('../services/relay-upstream-adapters.js')
       const { registerAllRelayAdapters } = await import('../services/upstream-adapters/index.js')
       registerAllRelayAdapters()
-      return getRelayAdapter(code)?.listModels !== undefined
+      return hasModelCatalogCapability(getRelayAdapter(code))
     })
 
   for (const providerCode of providers) {

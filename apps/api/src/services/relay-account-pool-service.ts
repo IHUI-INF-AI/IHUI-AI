@@ -2457,6 +2457,11 @@ async function fetchUpstreamModelIds(
     const task = async (): Promise<{ ok: boolean; ids: string[] } | null> => {
       if (adapter.listModelsDetailed) {
         const detailed = await adapter.listModelsDetailed(ctx, opts)
+        // 上游明确报"取不到"(ok=false,如鉴权失败/网络异常)⇒ 直接判 ok=false,不回落 listModels。
+        // 回落会把 listModels 的"失败返空"冒充成"明确报空"(ok=true,ids=[]),令同步器/discovery
+        // 误以为该号真没模型 —— 与本法 :2437 的语义定义相悖。仅 detailed.ok=false 时生效;
+        // detailed.ok=true 但 models 非数组/全被清洗掉的,仍回落旧接口(兼容解析漂移)。
+        if (detailed.ok === false) return { ok: false, ids: [] }
         if (detailed.ok && Array.isArray(detailed.models)) {
           const ids = detailed.models
             .map((m) => m.id ?? m.name)

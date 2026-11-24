@@ -149,6 +149,28 @@ describe('opencode listModels(2026-11-10 实弹:zen/v1/models)', () => {
     mockFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: 'bad' }) })
     expect(await opencodeAdapter.listModels!(makeCtx())).toEqual([])
   })
+
+  it('listModelsDetailed:失败报 ok=false,不冒充明确报空(2026-11-24)', async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 401, json: async () => ({}) })
+    const failed = await opencodeAdapter.listModelsDetailed!(makeCtx(), {})
+    expect(failed.ok).toBe(false)
+    mockFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: 'bad' }) })
+    expect((await opencodeAdapter.listModelsDetailed!(makeCtx(), {})).ok).toBe(false)
+    // 成功:ok=true + models 带 id(服务层据此判"拿到清单")
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: [
+          { id: 'm1', type: 'chat' },
+          { id: 'e1', type: 'embedding' },
+        ],
+      }),
+    })
+    const ok = await opencodeAdapter.listModelsDetailed!(makeCtx(), {})
+    expect(ok.ok).toBe(true)
+    expect(ok.models).toEqual([{ name: 'm1', id: 'm1' }])
+  })
 })
 
 describe('opencode checkHealth(2026-10-27 实弹:zen/v1/models 轻量端点)', () => {

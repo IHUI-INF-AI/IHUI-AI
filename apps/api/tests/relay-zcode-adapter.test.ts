@@ -547,6 +547,26 @@ describe('zcode listModels(2026-11-10 实弹:通用面 + 账号 api-key)', () =>
     mockFetch.mockResolvedValue({ ok: false, status: 401, json: async () => ({}) })
     expect(await zcodeAdapter.listModels!(ctxWithAccountKey('global'))).toEqual([])
   })
+
+  it('listModelsDetailed:两站失败报 ok=false;无 key 也 ok=false(2026-11-24)', async () => {
+    mockFetch.mockReset()
+    mockFetch.mockResolvedValue({ ok: false, status: 401, json: async () => ({}) })
+    const failed = await zcodeAdapter.listModelsDetailed!(ctxWithAccountKey('global'), {})
+    expect(failed.ok).toBe(false)
+    // 无 api-key ⇒ ok=false,不发请求
+    mockFetch.mockReset()
+    const noKey = await zcodeAdapter.listModelsDetailed!(makeCtx('global'), {})
+    expect(noKey.ok).toBe(false)
+    // 成功站:ok=true + models
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: [{ id: 'glm-5.3' }] }),
+    })
+    const ok = await zcodeAdapter.listModelsDetailed!(ctxWithAccountKey('global'), {})
+    expect(ok.ok).toBe(true)
+    expect(ok.models).toEqual([{ name: 'glm-5.3', id: 'glm-5.3' }])
+  })
 })
 
 describe('zcode summarizeCredentials(零回显)', () => {

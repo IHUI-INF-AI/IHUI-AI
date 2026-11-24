@@ -330,7 +330,8 @@ function startBackgroundSchedulers(server: Awaited<ReturnType<typeof buildServer
     startRelayAlertEvaluationScheduler()
   }
 
-  // 启动号池中继平台上游模型自动上架(每 6 小时的 :50,错峰于 discovery 整点批与 trae 的 :30;
+  // 启动号池中继平台上游模型自动上架/下架(每 15 分钟,准实时;周期由 job 内
+  // DEFAULT_MODEL_SYNC_CRON 单源定义,RELAY_MODEL_SYNC_CRON 可覆盖;
   // ENABLE_RELAY_MODEL_SYNC=false 的禁用短路在 job 内部,不在这里重复判断)
   startRelayModelsSyncScheduler()
 

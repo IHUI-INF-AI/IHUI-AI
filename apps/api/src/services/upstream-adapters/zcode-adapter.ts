@@ -41,6 +41,8 @@ import type {
   AdapterCallOptions,
   NormalizedChatRequest,
   QuotaCallOptions,
+  ModelListCallOptions,
+  RelayModelListResult,
   RelayQuotaResult,
   RelayUpstreamAdapter,
   StreamState,
@@ -508,6 +510,49 @@ async function listModels(
   return []
 }
 
+/**
+ * 富模型清单契约(2026-11-24 补):listModels 无成败标志,两站都失败/无 key 时返 [] 会被
+ * 服务层误判「明确报空」。本方法给同一双站逻辑加 ok 标志:无 key / 两站都取不到 ⇒ ok=false
+ * (取不到 ≠ 没模型),同步器据此整块跳过。永不抛,与 listModels 共用站点基址与 MODELS_PATH 判据。
+ */
+async function listModelsDetailed(
+  ctx: AdapterAccountContext,
+  opts?: ModelListCallOptions,
+): Promise<RelayModelListResult> {
+  const key = accountApiKey(ctx)
+  if (!key) return { ok: false, error: '账号无 api-key' }
+  const bases = resolveRegion(ctx) === 'global' ? [BASE_GLOBAL, BASE_CN] : [BASE_CN, BASE_GLOBAL]
+  const lastError: string[] = []
+  for (const base of bases) {
+    try {
+      const res = await resolveFetchImpl(opts ?? {})(`${base}${MODELS_PATH}`, {
+        method: 'GET',
+        headers: { accept: 'application/json', authorization: `Bearer ${key}` },
+      })
+      if (!res.ok) {
+        lastError.push(`${base}: ${res.status}`)
+        continue
+      }
+      const json = (await res.json()) as { data?: unknown }
+      if (!Array.isArray(json?.data)) {
+        lastError.push(`${base}: 形状非法`)
+        continue
+      }
+      const models: RelayModelListResult['models'] = []
+      for (const item of json.data) {
+        if (!item || typeof item !== 'object') continue
+        const id = str((item as Record<string, unknown>)['id'])
+        if (id) models.push({ name: id, id })
+      }
+      // 成功拿到清单(哪怕是空数组=该号确实没模型),如实 ok=true 返回,不再换站
+      return { ok: true, scope: 'upstream-account', models }
+    } catch (e) {
+      lastError.push(`${base}: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+  return { ok: false, error: `两站均取不到模型清单(${lastError.join('; ')})` }
+}
+
 async function checkHealth(
   ctx: AdapterAccountContext,
   opts?: AdapterCallOptions,
@@ -578,6 +623,7 @@ export const zcodeAdapter: RelayUpstreamAdapter = {
   checkHealth,
   // listModels 走通用资源面 + 账号 api-key(2026-11-10 实弹);健康检查仍走余额端点
   listModels,
+  listModelsDetailed,
   getQuota,
   isAuthFailure,
   classifyUpstreamFailure,

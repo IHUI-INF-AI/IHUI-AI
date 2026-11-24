@@ -25,6 +25,8 @@ import type {
   AdapterCallOptions,
   NormalizedChatRequest,
   QuotaCallOptions,
+  ModelListCallOptions,
+  RelayModelListResult,
   RelayQuotaResult,
   RelayUpstreamAdapter,
   StreamState,
@@ -211,6 +213,39 @@ async function listModels(
 }
 
 /**
+ * 富模型清单契约(2026-11-24 补):listModels 无成败标志,失败返 [] 会被服务层误判
+ * 「明确报空」。本方法给同一端点加 ok 标志:非 2xx / 形状非法 / 网络异常 ⇒ ok=false
+ * (取不到 ≠ 没模型),同步器据此整块跳过,不把"接不到"当"该号没模型"。
+ * 永不抛,与 listModels 共用 MODELS_URL 与 type=chat 过滤判据(§0.6 不复制)。
+ */
+async function listModelsDetailed(
+  ctx: AdapterAccountContext,
+  opts?: ModelListCallOptions,
+): Promise<RelayModelListResult> {
+  try {
+    const res = await resolveFetchImpl(opts ?? {})(MODELS_URL, {
+      method: 'GET',
+      headers: { accept: 'application/json', authorization: `Bearer ${ctx.credentials.token}` },
+    })
+    if (!res.ok) return { ok: false, error: `上游返回 ${res.status}` }
+    const json = (await res.json()) as { data?: unknown }
+    if (!Array.isArray(json?.data)) return { ok: false, error: '清单形状非法(data 非数组)' }
+    const models: RelayModelListResult['models'] = []
+    for (const item of json.data) {
+      if (!item || typeof item !== 'object') continue
+      const rec = item as Record<string, unknown>
+      const type = typeof rec['type'] === 'string' ? rec['type'] : ''
+      if (type && type !== 'chat') continue
+      const id = typeof rec['id'] === 'string' ? rec['id'].trim() : ''
+      if (id) models.push({ name: id, id })
+    }
+    return { ok: true, scope: 'upstream-account', models }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+/**
  * 余额点查(§0.3 如实未判定):OpenCode **无公开额度端点**(2026-10-27 实弹复核:
  * zen/v1/usage 404 不存在;models 只回模型清单不含用量)。额度在各个底层 provider,
  * 聚合面不可查。不发请求、不编数字;凭据是否失效由 chat 面实测 401 时按
@@ -277,6 +312,7 @@ export const opencodeAdapter: RelayUpstreamAdapter = {
   translateNonStream,
   checkHealth,
   listModels,
+  listModelsDetailed,
   getQuota,
   isAuthFailure,
 }
