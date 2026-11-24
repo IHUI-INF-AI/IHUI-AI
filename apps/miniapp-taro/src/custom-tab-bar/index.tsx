@@ -21,6 +21,7 @@ import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { rnRadius, withAlpha } from '@ihui/design-tokens'
+import { glassBarSurface } from '@/constants/glass-bar-surface'
 import { useAppTheme } from '@/lib/theme'
 import LineIcon, { type IconName } from '@/components/LineIcon'
 import { COLORS } from '@/constants/style'
@@ -36,7 +37,6 @@ import {
   TAB_BAR_INDICATOR_H,
   TAB_BAR_INDICATOR_INSET,
   TAB_BAR_GLOW_RADIUS_PX,
-  TAB_BAR_GLASS_BLUR,
   TAB_BAR_OCCUPIED_CSS,
 } from '@/constants/tab-bar-metrics'
 import { t as tGlobal } from '@/i18n'
@@ -57,9 +57,8 @@ const TABS: TabItem[] = [
   { pagePath: `/${MINI_TAB_PAGE_ROUTES.share}`, labelKey: 'tabBar.share', icon: 'share-2' },
 ]
 
-/** 毛玻璃模糊半径(px):单一源头 = @ihui/shared/ui/tab-bar-spec 的 TAB_BAR_GLASS_BLUR_PX。
- *  2026-10-29 前本端自写一份 24、靠注释与 RN 对齐(两份副本,谁也拦不住单端改值),现改转发。 */
-const GLASS_BLUR_PX = TAB_BAR_GLASS_BLUR
+/** 毛玻璃模糊半径(px)与圆角/描边/玻璃底统一收进 constants/glass-bar-surface.ts,
+ *  顶栏与底栏共用;本文件不再单独写一份。 */
 
 /** 选中态光晕:半径取单一源 TAB_BAR_GLOW_RADIUS_PX,颜色取 ink 同源的 rgba(0.85) ——
  *  与 RN TabBar.styles.ts 的 iconGlow 同档(同半径、同透明度、同色源),端内不出现裸 hex。
@@ -80,6 +79,7 @@ function buildGlowStyle(ink: string) {
 
 export default function CustomTabBar() {
   const { resolved } = useAppTheme()
+  const barSurface = glassBarSurface(resolved)
   const [current, setCurrent] = useState<string>(() => {
     try {
       const pages = Taro.getCurrentPages()
@@ -120,13 +120,7 @@ export default function CustomTabBar() {
           alignItems: 'center',
           justifyContent: 'space-around',
           height: `${TAB_BAR_HEIGHT}px`,
-          backgroundColor: COLORS.glassBg[resolved],
-          backdropFilter: `blur(${GLASS_BLUR_PX}px)`,
-          WebkitBackdropFilter: `blur(${GLASS_BLUR_PX}px)`,
-          borderRadius: rnRadius.xl,
-          borderWidth: 1,
-          borderStyle: 'solid',
-          borderColor: COLORS.borderMedium[resolved],
+          ...barSurface,
         }}
       >
         {TABS.map((item) => {

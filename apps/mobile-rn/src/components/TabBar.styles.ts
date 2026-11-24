@@ -9,10 +9,11 @@
  * 独立的白色透明带;玻璃底(glass.bg 半透明 + web 预览 backdrop blur),下方内容若隐若现。
  * 5 Tab 等宽布局;选中态用强调档,未选中用中性灰。
  */
-import { Platform, StyleSheet } from 'react-native'
+import { StyleSheet } from 'react-native'
 import type { ViewStyle, TextStyle, ImageStyle } from 'react-native'
 import { tokens as tk } from '../theme/active-tokens'
-import { ELEVATION_STEPS, rnRadius, withAlpha, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, withAlpha, rnSpacing } from '@ihui/design-tokens'
+import { GLASS_BAR_SURFACE } from '../theme/glass-bar-surface'
 import {
   TAB_BAR_FONT_SIZE_ACTIVE_PX,
   TAB_BAR_FONT_SIZE_PX,
@@ -24,7 +25,6 @@ import {
   TAB_BAR_INDICATOR_INSET_PX,
   TAB_BAR_MARGIN_H_PX,
   TAB_BAR_GLOW_RADIUS_PX as TAB_BAR_GLOW_RADIUS_SRC_PX,
-  TAB_BAR_GLASS_BLUR_PX,
 } from '@ihui/shared/ui/tab-bar-spec'
 
 /*
@@ -80,18 +80,10 @@ export function tabBarDockSpacer(insetsBottom: number): number {
  * 液态玻璃模糊半径(px)。web 预览(react-native-web)原生支持 View 的 backdropFilter,
  * 零依赖真模糊;原生端暂不引入 expo-blur,退化为 glass.bg 半透明底(仍"若隐若现",无模糊)。
  * 与 miniapp custom-tab-bar 的 backdrop-blur-xl(24px)同值,两端观感一致。
+ *
+ * 2026-11-24 起本段并入 `theme/glass-bar-surface.ts`:顶栏与底栏共用同一枚玻璃面,
+ * 模糊半径/背景/描边/圆角/阴影不再各写一份。
  */
-// 名字刻意不带 RADIUS:它是模糊半径(px),不是圆角档位。门 77 的 B2 按常量名取"圆角绕过",
-// 而该门头注(535 行)写明"确实叫 RADIUS 但不是圆角"属命名债,正解是改名而不是加豁免、
-// 更不是把它吸附到 rnRadius 档位上(24 是 blur 的 px,与圆角档位表无关)。
-const GLASS_BLUR_PX = TAB_BAR_GLASS_BLUR_PX
-
-/** web 预览专属模糊层(RNW 类型外属性,经 ViewStyle 断言注入,避免 any);
- *  TabBar 胶囊与 HomeScreen 底部玻璃停靠区共用同一模糊半径。 */
-const glassBlurLayer: ViewStyle =
-  Platform.OS === 'web'
-    ? ({ backdropFilter: `blur(${GLASS_BLUR_PX}px)` } as unknown as ViewStyle)
-    : {}
 
 export const tabBarStyles = {
   /**
@@ -124,14 +116,8 @@ export const tabBarStyles = {
     alignItems: 'center',
     justifyContent: 'space-around',
     height: TAB_BAR_HEIGHT,
-    overflow: 'hidden',
-    backgroundColor: tk.glass.bg,
-    borderRadius: TAB_BAR_RADIUS,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tk.border.light,
-    // 投影:液态玻璃停靠栏(浮层)→ 档位 lg(原 6/.16/20 + elevation 12)
-    ...ELEVATION_STEPS.lg,
-    ...glassBlurLayer,
+    // 背景 / 描边 / 圆角 / 阴影 / web 模糊与顶栏共用同一枚玻璃面(theme/glass-bar-surface.ts)
+    ...GLASS_BAR_SURFACE,
   } satisfies ViewStyle,
 
   /** 真背景模糊层(expo-blur BlurView 的 absolute fill,仅 iOS 端渲染,置于图标行之下) */

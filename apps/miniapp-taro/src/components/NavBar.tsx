@@ -9,6 +9,8 @@ import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import type { AppIcon } from '@ihui/types'
 import { rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import { glassBarSurface } from '@/constants/glass-bar-surface'
+import { useAppTheme } from '@/lib/theme'
 import {
   NAVBAR_ACTION_GLYPH_PX,
   NAVBAR_ACTION_LABEL_FONT_PX,
@@ -28,36 +30,25 @@ import BackChevron from '@/components/BackChevron'
 
 /// 档位数字与盒子结构在 @ihui/shared/ui/navbar-spec(与 RN 端同表);本文件只做 rpx 换算 + 挂 Taro 原语。
 const toUnit = (logicalPx: number) => rpx(logicalPx * TARO_RPX_PER_PX)
-/// 2026-11-24 顶栏透明化后,行内每个可交互件/标题自持圆角底片;与 RN 端 NAV_CHIP 同档:
-/// 卡片底 + stroke.subtle 1px 描边 + 12px 圆角。小程序 1 逻辑 px = 2rpx。
-const NAV_CHIP = {
-  backgroundColor: 'var(--color-card)',
-  border: '2rpx solid var(--color-stroke-subtle)',
-  borderRadius: rnRadius.xl,
-} as const
+/// 2026-11-24 整条顶栏改为玻璃面(constants/glass-bar-surface.ts,与底部 tabBar 同一枚):
+/// 标题/返回键/侧钮不再各自套白色底片,只有「加入社区群」保留独立 CTA 描边。
 /// LineIcon 的 size 收 rpx 数值(与 BackChevron 同一口径)
 const ACTION_GLYPH_RPX_NUM = NAVBAR_ACTION_GLYPH_PX * TARO_RPX_PER_PX
-const ACTION_BOX_STYLE = { ...navbarActionBoxStyle(toUnit), ...NAV_CHIP }
+const ACTION_BOX_STYLE = { ...navbarActionBoxStyle(toUnit) }
 const TITLE_FONT = toUnit(NAVBAR_TITLE_FONT_PX)
 /// 标题区下限 / 标题截断宽:与 RN 的 center.minWidth、title.maxWidth 同档同值(两端都真取它,
 /// 不是把数字搬进声明而另一端仍渲染别的宽度)
 const CENTER_STYLE = { minWidth: toUnit(NAVBAR_CENTER_MIN_WIDTH_PX) } as const
-/// 标题也做成独立底片:高 28 / 左右 8 / 上下由 inline-flex 居中,与 RN title 的
-/// paddingHorizontal 8、paddingVertical 2、圆角 12 同脸。
+/// 标题不再单独套胶囊底片,只保留字号、截断宽与行内居中(与 RN title 同档)。
 const TITLE_STYLE = {
   fontSize: TITLE_FONT,
   maxWidth: toUnit(NAVBAR_TITLE_MAX_WIDTH_PX),
-  ...NAV_CHIP,
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  height: toUnit(28),
-  padding: `0 ${toUnit(8)}`,
-  boxSizing: 'border-box',
 } as const
-/// 首页标题切换的两枚标签同样各成底片(不是给整条 titleSwitch 铺一块)。
+/// 首页标题切换的两枚标签也不再各成底片,只保留点击区高度与间距(与 RN titleSwitchChip 同档)。
 const TITLE_SWITCH_CHIP_STYLE = {
-  ...NAV_CHIP,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -162,8 +153,9 @@ export interface NavBarAction {
  * - 默认(兼容旧调用):fixed 顶部 + 左返回按钮 + 居中标题 + 右可选文字
  * - variant="ai-home"(首页专用):sticky 顶部 + 左菜单按钮 + 标题居中(对齐原项目 navigation-bars/index.vue:背景 #E9F0FD + 标题色 #171717 + 字号 30rpx)+ 右"加入社区群"按钮
  *
- * 其他页面(distribution 等)默认顶栏透明:页面底色直接透出,标题/返回键/侧按钮各自持圆角底片;
- * 仅当调用方显式传 bgColor 时才铺整条底色(特殊沉浸页用,常规页面不要再传)。
+ * 其他页面默认走整条玻璃面(与底部按钮栏同一套 token,见 constants/glass-bar-surface.ts):
+ * 标题/返回键/侧按钮直接坐在玻璃上;仅当调用方显式传 bgColor 时才覆盖整条底色(特殊沉浸页用,
+ * 常规页面不要再传)。
  */
 export interface NavBarProps {
   title?: string
@@ -230,7 +222,7 @@ export default function NavBar({
   rightActions,
   rightAction,
   showBack = true,
-  bgColor = 'transparent',
+  bgColor,
   textColor = 'var(--color-foreground)',
   onBack,
   rightText,
@@ -252,6 +244,8 @@ export default function NavBar({
   onActiveNav,
 }: NavBarProps) {
   const tt = useTt()
+  const { resolved } = useAppTheme()
+  const barSurface = glassBarSurface(resolved)
   const statusBarHeight = menuButton.top
   const navBarHeight = menuButton.height + 8
   // 有副标题时行高取 spec 的 56 档(与 RN 端 ROW_HEIGHT_SUBTITLE 同值);无副标题仍走胶囊实测高
@@ -286,7 +280,7 @@ export default function NavBar({
       <NavBarCore
         platform={NAVBAR_PLATFORM}
         containerClassName="sticky top-0 left-0 right-0 z-[1001] flex flex-col"
-        containerStyle={{ backgroundColor: bgColor }}
+        containerStyle={{ ...barSurface, backgroundColor: bgColor ?? barSurface.backgroundColor }}
         leading={<View style={{ height: px(statusBarHeight) }} />}
         rowClassName="relative flex items-center"
         rowStyle={{
@@ -303,7 +297,7 @@ export default function NavBar({
         left={
           <>
             {/* 返回首页按钮 + 菜单按钮(对齐原项目 navigation-bars: @pack + @menu-click) */}
-            {onPack ? <BackChevron onTap={onPack} color={textColor} style={NAV_CHIP} /> : null}
+            {onPack ? <BackChevron onTap={onPack} color={textColor} /> : null}
             {leftActions?.map((action, index) => (
               <NavBarActionButton key={index} action={action} />
             ))}
@@ -521,7 +515,8 @@ export default function NavBar({
           : 'fixed top-0 left-0 right-0 z-50 flex items-center justify-center'
       }
       containerStyle={{
-        backgroundColor: bgColor,
+        ...barSurface,
+        backgroundColor: bgColor ?? barSurface.backgroundColor,
         height: px(statusBarHeight + rowHeight),
       }}
       leading={<View style={{ height: px(statusBarHeight) }} />}
@@ -535,7 +530,7 @@ export default function NavBar({
       }}
       left={
         <>
-          {showBack ? <BackChevron onTap={handleBack} color={textColor} style={NAV_CHIP} /> : null}
+          {showBack ? <BackChevron onTap={handleBack} color={textColor} /> : null}
           {leftActions?.map((action, index) => (
             <NavBarActionButton key={index} action={action} />
           ))}

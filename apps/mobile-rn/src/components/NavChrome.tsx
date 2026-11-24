@@ -4,13 +4,15 @@
 
 import type { ReactNode } from 'react'
 import { StyleSheet, View } from 'react-native'
+import { TAB_BAR_GAP_TOP_PX, TAB_BAR_MARGIN_H_PX } from '@ihui/shared/ui/tab-bar-spec'
+import { GLASS_BAR_SURFACE } from '../theme/glass-bar-surface'
 
 /**
  * 顶栏承载件 —— 全端唯一实现。
  *
- * 2026-11-24 用户定:顶栏不再铺一条整幅底色,而是**透出页面底色**;
- * 标题标签、返回键、侧边按钮各自用圆角底片成组出现,顶栏只在内容层留白。
- * 因此本件只负责包住导航行,不画背景、不画底边线。
+ * 2026-11-24 用户定稿:顶栏与底部菜单栏共用同一套玻璃 token(背景、描边、圆角、阴影、模糊),
+ * 改 `theme/glass-bar-surface.ts` 一处,顶部与底部同时生效。整条顶栏是一枚悬浮玻璃条,
+ * 左右留边与底部胶囊同一垂直线,顶部留 6px 呼吸。
  *
  * 状态栏 inset 带仍由 App.tsx 根 View 按路由取色;凡渲染 NavBar 的路由都应取
  * `tokens.surface.bg`(与页面壳同档),由 `tests/nav-chrome-route-parity.test.ts` 现读锁住。
@@ -20,6 +22,10 @@ export function NavChrome({ children }: { children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { backgroundColor: 'transparent' },
+  wrap: {
+    ...GLASS_BAR_SURFACE,
+    marginHorizontal: TAB_BAR_MARGIN_H_PX,
+    marginTop: TAB_BAR_GAP_TOP_PX,
+  },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
