@@ -59,4 +59,17 @@ tar -xzf prod-foreign-work.tar.gz -C <目标目录> apps/ai-service/app/core/llm
 
 D 类 34 个内容不同的文件**不要盲目回灌主线**：本机正在收敛的三端个人中心 / i18n 线（80 枚本地独有提交）已是更新实现，直接覆盖会回退。
 需要回取时按单文件 diff 判方向后再合。
+
+## v3 快照（2026-11-24 22:45 前后）
+
+- `v3/prod-foreign-v3.zip`（103,103 B / 9 文件，逐条 sha256 与盘上一致）：
+  `apps/api/src/db/oauth-queries.ts`(+28)、`apps/api/src/routes/auth-extended.ts`(+29/-?)、`apps/web/public/sw.js`(2)、
+  `deploy/win/ihui-api-router.mjs`(+235)、`deploy/win/lib/edge-admission.mjs`(+28/-?)、
+  以及未跟踪的 `deploy/win/lib/{block-notice,notice-ledger,tool-fingerprint,waf-signatures}.mjs`。
+- 明细见 `v3/MANIFEST-v3.json`（逐文件 bytes+sha256）。
+- 三项按"不丢但体积/敏感性不入仓"移存至 `D:\DevEnv\ihui-prod-orphans-20261124c\`：
+  `.git-broken-20261122/`（1146 文件 / 2013 MB，.git 损坏备份）、
+  `apps/web/.rollback.retired-77d3f9b8a79847c98b25aeecd7ddd4ca/`（5053 文件 / 76.6 MB，退役回滚目录）、
+  `probe_prod_creds.py` 与 `probe_prod_config.py`（疑似生产凭据/配置探测脚本，敏感性）。
+- 清完后 prod 已 ff 至 `2364914c28`，`check-migrations-landed`（prod 自身 ROOT）读到 landed/468/零 missing。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
