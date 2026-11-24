@@ -100,6 +100,9 @@ test('parseTap:正常汇总取到计数,并把 not ok 名字提出来', () => {
     ['某门判据回归'],
   )
   assert.equal(typeof r.notOk[0].why, 'string', 'why 缺失 ⇒ main 的失败汇总没有"为什么",只有名字')
+  // Node 22+ 的汇总键是 `# skipped`,旧夹具只有 `# skip`;两种都认,否则 skip 恒报 0
+  const p2 = parseTap('# tests 5\n# pass 3\n# fail 0\n# skipped 2\n')
+  assert.deepEqual([p2.tests, p2.pass, p2.fail, p2.skipped], [5, 3, 0, 2])
 })
 
 test('parseTap(反假绿核心):只有崩溃残迹、没有计数 ⇒ parsed:false,不得当成 0 失败', () => {
