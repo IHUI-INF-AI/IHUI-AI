@@ -362,8 +362,7 @@ export function applyFormAction(phase: FormStatePhase, event: FormStateEvent): F
 // ---------------------------------------------------------------------------
 // 错误文案有界化(门 181 `check-error-message-bounded.mjs` 修法:describe() 式)
 // 全仓唯一实现:进持久错误文案的"实得值"只描述形状,上限按 UTF-8 字节量。
-// 已有第二消费方(apps/web/src/lib/update-manifest-verify.ts),经
-// `@ihui/shared/chat/business-forms` 复用;是否升格 utils/* 由门持有人定夺。
+// 经 `@ihui/shared/chat/business-forms` 导出,供 web 侧错误文案复用;是否升格 utils/* 由门持有人定夺。
 // ---------------------------------------------------------------------------
 
 /** describe 输出的 UTF-8 字节上限(度量 `new TextEncoder().encode(v).length`,非字符数)。 */

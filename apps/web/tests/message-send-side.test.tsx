@@ -80,7 +80,6 @@ vi.mock('@/components/common', async (importOriginal) => {
 
 vi.mock('@/lib/tauri-bridge', () => ({
   isTauri: () => false,
-  checkForUpdates: () => Promise.resolve(null),
   installUpdate: () => Promise.resolve(),
 }))
 

@@ -281,10 +281,9 @@ vi.mock('@/components/media/MarkdownViewer', () => ({
   ),
 }))
 
-// tauri-bridge mock(避免 @tauri-apps/plugin-updater 缺失依赖导致测试失败)
+// tauri-bridge mock
 vi.mock('@/lib/tauri-bridge', () => ({
   isTauri: () => false,
-  checkForUpdates: () => Promise.resolve(null),
   installUpdate: () => Promise.resolve(),
 }))
 
