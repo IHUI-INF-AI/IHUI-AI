@@ -282,9 +282,11 @@ node scripts/doubao-build-import.mjs --archive <归档目录> --out conversation
 ## 9. 测试
 
 ```bash
-node scripts/run-script-tests.mjs -- workbuddy-chat-carry chat-carry-registry \
-  doubao-profile doubao-handoff doubao-import-surface doubao-auto-carry \
-  doubao-build-import doubao-chatgpt-format switch-client-account local-login
+node scripts/run-script-tests.mjs -- \
+  chat-carry-registry client-oneclick-switch local-login switch-client-account \
+  workbuddy-chat-carry trae-chat-carry trae-client-switch sync-trae-client-session \
+  trae-auth-extract trae-client-helper-contract trae-client-process-cross-session-kill \
+  trae-login-local trae-sqlcipher
 ```
 
 覆盖:矩阵覆盖度、账号维度必须报错、探不到库必须 unlocated、rebind 缺 uid 必须 no-uid、快照并入且旧分片清空、软删行复活后 `deleted_at IS NULL`、`--revive-history` 不碰 cloud 行、时间窗只捞窗口内误删行(窗口外用户自删不动)、容器 `spaces.deleted_at` 按 `-1` 口径回活;小浣熊侧另有 local-chat v1 正库/available 可见口径/`user_id` 不参与侧栏、profile 未初始化拒写;OpenCode 侧另有 `session_v2` 正库/顶层可见/正文行数、只有 drafts 不得冒充正库;Loomy 侧另有 OpenCode v1 `session/message/part` 正库、只有 Local Storage 索引不得冒充;豆包侧另有 profile 解析(缺省/active/显式/缺失/非法名)、交接单截断与落盘、导入入口三态探针(含 bundle `\uXXXX` 转义还原)、真切前置关端判据。本次 chat-carry/local-login 13 个脚本文件实测 191 用例 / 187 通过 / 0 失败 / 4 跳过;4 项跳过分别是 2 项 dec4 取证产物缺席、1 项 `ai_agent.dll` 缺席、1 项真实 Trae 库取证产物缺席,按口径不记绿。
