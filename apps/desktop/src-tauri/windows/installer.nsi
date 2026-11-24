@@ -791,6 +791,12 @@ Section Install
   ${If} $0 != ""
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}" '$\"$INSTDIR\${MAINBINARYNAME}.exe$\" --minimized'
   ${EndIf}
+  ; 完成页自启开关写的是 IHUI-AI-Desktop（与卸载 hooks 同名），也一并迁移；
+  ; 否则该类老用户升级后第一次开机仍指向旧 payload。
+  ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "IHUI-AI-Desktop"
+  ${If} $0 != ""
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "IHUI-AI-Desktop" '$\"$INSTDIR\${MAINBINARYNAME}.exe$\" --minimized'
+  ${EndIf}
 
   !insertmacro IHUI_PROGRESS 80 "正在生成卸载程序"
   ; Create uninstaller
