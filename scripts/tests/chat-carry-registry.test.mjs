@@ -82,6 +82,10 @@ describe('能力矩阵', () => {
     }
     assert.equal(CARRY_MATRIX.workbuddy.kind, 'rebind')
     assert.equal(CARRY_MATRIX.doubao.kind, 'cloud')
+    const cloud = probeProvider('doubao')
+    assert.equal(cloud.located, false)
+    assert.equal(cloud.sessions, null, '云端本地零副本不能报 0 条')
+    assert.equal(cloud.visible, null, '云端本地零副本不能报 0 条')
   })
 })
 

@@ -321,7 +321,8 @@ export function probeProvider(provider, { env = process.env } = {}) {
     }
   }
   if (m.kind === 'cloud') {
-    return { provider, kind: 'cloud', located: false, sessions: 0, visible: 0, accountScoped: true, notes: [m.detail], raw: null }
+    // 云端平台本地零副本:0 不是"查到 0 条",而是"本地没有可查面";sessions/visible 必须是 null。
+    return { provider, kind: 'cloud', located: false, sessions: null, visible: null, accountScoped: true, notes: [m.detail], raw: null }
   }
   if (provider === 'trae') {
     // trae 的正库是 SQLCipher 加密件,通用探针只核对 vscdb 键面;条数由专用链自证
