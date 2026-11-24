@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import time
 from pathlib import Path
@@ -61,6 +62,25 @@ def test_a_spill_shape(tmp_artifact_dir: Path) -> None:
     meta = json.loads((tmp_artifact_dir / f"{artifact['artifactId']}.json").read_text("utf-8"))
     assert "preview" not in meta
     assert meta["artifactId"] == artifact["artifactId"]
+
+
+def test_h_spill_notice_exact_counts(tmp_artifact_dir: Path) -> None:
+    """H 省略计数:按实际预览/落盘内容反推字符数与图片数,不按预算推导。"""
+    text = "x" * 5000
+    artifact = toa.maybe_spill_tool_output(
+        text,
+        tool_name="run_command",
+        session_id="sess-1",
+        keep_chars=1000,
+        force=True,
+        image_count=3,
+    )
+    assert artifact is not None
+    assert artifact["omittedChars"] == 4000
+    assert artifact["omittedImages"] == 3
+    meta = json.loads((tmp_artifact_dir / f"{artifact['artifactId']}.json").read_text("utf-8"))
+    assert meta["omittedChars"] == 4000
+    assert meta["omittedImages"] == 3
 
 
 def test_b_pagination_offsets_and_complete(tmp_artifact_dir: Path) -> None:
@@ -157,6 +177,24 @@ def test_d3_spill_failure_returns_none(
         )
         is None
     )
+
+
+def test_d4_spill_failure_logs_reason(
+    tmp_artifact_dir: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """D4 落盘失败:warn-and-keep —— 返回 None 交调用方兜底,但必须留下可诊断原因。"""
+
+    def _boom(*_a: object, **_k: object) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Path, "write_text", _boom)
+    with caplog.at_level(logging.WARNING, logger=toa.__name__):
+        result = toa.maybe_spill_tool_output(
+            "abc", tool_name="read_file", keep_chars=0, force=True
+        )
+    assert result is None
+    reasons = [r.getMessage() for r in caplog.records]
+    assert any("disk full" in msg and "OSError" in msg and "read_file" in msg for msg in reasons)
 
 
 def test_e_expired_artifacts_are_pruned(

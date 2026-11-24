@@ -12,13 +12,16 @@ from app.services.tool_result_pruner import (
     DEFAULT_HEAD_CHARS,
     DEFAULT_TAIL_CHARS,
     DEFAULT_THRESHOLD_CHARS,
+    IMAGE_PRICE_DEFAULT,
     PRUNE_MARKER,
     ContentBlock,
     PruneConfig,
     code_point_length,
+    default_price,
     measure_content,
     prune_blocks_over_budget,
     prune_content,
+    prune_content_with_stats,
 )
 
 
@@ -54,11 +57,10 @@ class TestPruneContent:
         cfg = _cfg(threshold_chars=80, head_chars=10, tail_chars=5)
         result = prune_content([ContentBlock("text", text)], config=cfg)
         assert result is not None
-        assert len(result) == 1
-        out = result[0].text
-        assert out.startswith("A" * 10)
-        assert out.endswith("A" * 5)
-        assert PRUNE_MARKER in out
+        joined = "".join(b.text or "" for b in result)
+        assert joined.startswith("A" * 10)
+        assert joined.endswith("A" * 5)
+        assert PRUNE_MARKER in joined
 
     def test_marker_inserted_once(self) -> None:
         # 两个 text block 都与被移除区相交, marker 只出现一次
@@ -79,18 +81,37 @@ class TestPruneContent:
         result = prune_content(blocks, config=cfg)
         assert result is not None
         types = [b.type for b in result]
-        # 富块 image 仍在中间
-        assert types.count("image") == 1
-        assert "image" in types
+        # 头/尾文本端按原顺序保留;中段图片随省略区整张移除(不可二分)
+        assert types == ["text", "text", "text"]
+        joined = "".join(b.text or "" for b in result)
+        assert joined.startswith("D" * 10)
+        assert joined.endswith("E" * 5)
 
-    def test_non_text_block_untouched(self) -> None:
+    def test_image_omitted_whole_when_over_budget(self) -> None:
+        # 默认桩图片固定 1024,超头/尾预算 → 整张省略,绝不二分留半张
         blocks = [ContentBlock("image", None), ContentBlock("text", "F" * 100)]
         cfg = _cfg(threshold_chars=80, head_chars=10, tail_chars=5)
-        result = prune_content(blocks, config=cfg)
-        assert result is not None
-        img = [b for b in result if b.type == "image"]
-        assert len(img) == 1
-        assert img[0].text is None
+        outcome = prune_content_with_stats(blocks, config=cfg)
+        assert outcome is not None
+        assert all(b.type != "image" for b in outcome.blocks)
+        assert outcome.stats.omitted_images == 1
+
+    def test_image_retained_whole_never_split(self) -> None:
+        def cheap_price(block: ContentBlock) -> int:
+            return 1 if block.type == "image" else code_point_length(block.text or "")
+
+        blocks = [
+            ContentBlock("image", None, image_url="img-1"),
+            ContentBlock("text", "F" * 100),
+        ]
+        cfg = _cfg(threshold_chars=80, head_chars=10, tail_chars=5)
+        outcome = prune_content_with_stats(blocks, config=cfg, price=cheap_price)
+        assert outcome is not None
+        image = [b for b in outcome.blocks if b.type == "image"]
+        assert len(image) == 1
+        # 整张保留:定位字段原样带出,不产生半截图片块
+        assert image[0].image_url == "img-1"
+        assert outcome.stats.omitted_images == 0
 
     def test_post_condition_smaller(self) -> None:
         text = "G" * 500
@@ -99,6 +120,62 @@ class TestPruneContent:
         assert result is not None
         assert measure_content(result) < 500
         assert measure_content(result) <= cfg.threshold_chars
+
+
+class TestPriceInjection:
+    def test_default_price_text_code_points_image_fixed(self) -> None:
+        assert default_price(ContentBlock("text", "abc")) == 3
+        assert default_price(ContentBlock("image", None)) == IMAGE_PRICE_DEFAULT
+        assert default_price(ContentBlock("tool_call")) == 0
+
+    def test_price_stub_decides_budget(self) -> None:
+        blocks = [ContentBlock("text", "x" * 100)]
+        cfg = _cfg(threshold_chars=150, head_chars=20, tail_chars=10)
+        # 默认桩:100 码点 ≤ 150 → 不裁
+        assert prune_content(blocks, config=cfg) is None
+
+        def double_price(block: ContentBlock) -> int:
+            return code_point_length(block.text or "") * 2
+
+        # 注入桩:200 > 150 → 裁;证明预算判定走注入的 price,不是内置码点口径
+        outcome = prune_content_with_stats(blocks, config=cfg, price=double_price)
+        assert outcome is not None
+
+
+class TestExactOmission:
+    def test_omitted_chars_bytes_images_exact(self) -> None:
+        text = "中文A" * 30  # 90 码点;每段 2 个 CJK(3 字节)+ A(1 字节)= 7 字节
+        blocks = [ContentBlock("text", text), ContentBlock("image", None)]
+        cfg = _cfg(threshold_chars=80, head_chars=10, tail_chars=5)
+        outcome = prune_content_with_stats(blocks, config=cfg)
+        assert outcome is not None
+        pieces = [
+            b.text or ""
+            for b in outcome.blocks
+            if b.type == "text" and b.text != PRUNE_MARKER
+        ]
+        retained_text = "".join(pieces)
+        # 按「原始 − 实际保留」反推,不按预算推导
+        assert outcome.stats.omitted_chars == len(text) - len(retained_text)
+        assert (
+            outcome.stats.omitted_bytes
+            == len(text.encode("utf-8")) - len(retained_text.encode("utf-8"))
+        )
+        assert outcome.stats.omitted_images == 1
+
+    def test_binary_search_head_tail_fit_budget(self) -> None:
+        text = "a" * 1000
+        cfg = _cfg(threshold_chars=200, head_chars=30, tail_chars=10)
+        outcome = prune_content_with_stats([ContentBlock("text", text)], config=cfg)
+        assert outcome is not None
+        pieces = [
+            b.text or ""
+            for b in outcome.blocks
+            if b.type == "text" and b.text != PRUNE_MARKER
+        ]
+        # 二分拟合单调价格:头/尾各取到预算上限
+        assert len(pieces[0]) == 30
+        assert len(pieces[1]) == 10
 
 
 class TestPruneBlocksOverBudget:
@@ -110,6 +187,10 @@ class TestPruneBlocksOverBudget:
         assert len(res.pruned) == 1
         assert res.pruned[0].index == 1
         assert res.chars_removed > 0
+        entry = res.pruned[0]
+        assert entry.omitted_bytes > 0
+        assert entry.omitted_images == 0
+        assert res.omitted_images == 0
 
     def test_none_over_budget(self) -> None:
         blocks = [ContentBlock("text", "x")]
