@@ -152,6 +152,99 @@ impl ProbeState {
     }
 }
 
+// ---------------------------------------------------------------------------
+// P3-02：双判定值留痕（原始 raw + 归一三态 + 来源 API 名）
+// ---------------------------------------------------------------------------
+
+/// 作业级探测来源 API 名（对照方 TLS 槽位写入的 `api=...` 一栏）。
+pub const API_JOB_OBJECT_PROBE: &str = "job_object_probe";
+/// 微虚拟机级探测来源 API 名。
+pub const API_MICRO_VM_PROBE: &str = "micro_vm_probe";
+
+/// 一次探测的双判定值留痕：原始判定值 + 归一后的三态 + 来源 API 名。
+///
+/// 对齐对照方两套同构 `Is*Supported`：判定函数先出原始结果，归一函数再出归一值，
+/// 两者都留；本仓额外保留「未判定」态（对照方没有这一档，见模块头注纪律 1）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProbeRecord {
+    /// 来源 API 名（对照方非 0 时写进 TLS 槽位的那条）。
+    pub source_api: &'static str,
+    /// 判定函数直出的原始值；`None` = 判定函数本身没跑成（未判定）。
+    pub raw: Option<u32>,
+    /// 归一后的三态。
+    pub state: ProbeState,
+}
+
+impl ProbeRecord {
+    /// 归一判据（纯函数，夹具可注入）：原始值 → 三态。
+    ///
+    /// - `Some(0)` ⇒ 不成立 ⇒ `Unsupported(zero_reason)`；
+    /// - `Some(nonzero)` ⇒ 成立 ⇒ `Supported`；
+    /// - `None` ⇒ 判定函数没跑成 ⇒ `Unjudged(unavailable)`（不默认支持）。
+    pub fn normalize(
+        source_api: &'static str,
+        raw: Option<u32>,
+        zero_reason: UnsupportedReason,
+        unavailable: UnjudgedReason,
+    ) -> Self {
+        let state = match raw {
+            Some(0) => ProbeState::Unsupported(zero_reason),
+            Some(_) => ProbeState::Supported,
+            None => ProbeState::Unjudged(unavailable),
+        };
+        Self {
+            source_api,
+            raw,
+            state,
+        }
+    }
+
+    /// 判定是否成立：仅原始值非 0 算成立；未判定 / 不成立都不算。
+    pub fn established(&self) -> bool {
+        matches!(self.raw, Some(n) if n != 0)
+    }
+}
+
+/// 探测留痕槽（对照方 TLS 槽位的进程内等价物）。
+///
+/// 对齐对照方观察：判定为 0 清空留痕；非 0 才在槽位写来源 API 名。判定没跑成（`None`）
+/// 同样清空——不许把“没判”留成“支持”。
+#[derive(Debug, Default)]
+pub struct ProbeTrace {
+    record: Option<ProbeRecord>,
+}
+
+impl ProbeTrace {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// 写入一次探测留痕；不成立 / 未跑成 ⇒ 清空槽位。
+    pub fn record(&mut self, record: ProbeRecord) {
+        self.record = record.established().then_some(record);
+    }
+
+    /// 最近一次成立的探测留痕；无成立记录 ⇒ `None`。
+    pub fn last(&self) -> Option<&ProbeRecord> {
+        self.record.as_ref()
+    }
+
+    /// 显式清空。
+    pub fn clear(&mut self) {
+        self.record = None;
+    }
+}
+
+/// 形态对齐的探测日志：`stage=support_check native_domain=support_status native={}`。
+pub fn log_support_check(record: &ProbeRecord) {
+    log::info!(
+        "stage=support_check native_domain=support_status native={} source_api={} state={}",
+        record.raw.unwrap_or(0),
+        record.source_api,
+        record.state.code()
+    );
+}
+
 /// 拒绝执行的回执。`reasons` 至少一条，调用方可直接展示给模型。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Refusal {
@@ -912,6 +1005,89 @@ mod tests {
         b.init().expect("作业对象应能建起来");
         let err = b.wait(999, Some(10)).expect_err("未知 handle 必须报错");
         assert!(err.contains("未知 handle=999"));
+    }
+
+    #[test]
+    fn normalize_maps_raw_to_state_and_keeps_source_api() {
+        let ok = ProbeRecord::normalize(
+            API_JOB_OBJECT_PROBE,
+            Some(1),
+            UnsupportedReason::OsFailed,
+            UnjudgedReason::BackendAbsent,
+        );
+        assert_eq!(ok.state, ProbeState::Supported);
+        assert!(ok.established());
+        assert_eq!(ok.source_api, API_JOB_OBJECT_PROBE);
+        assert_eq!(ok.raw, Some(1));
+
+        let zero = ProbeRecord::normalize(
+            API_MICRO_VM_PROBE,
+            Some(0),
+            UnsupportedReason::OsFailed,
+            UnjudgedReason::BackendAbsent,
+        );
+        assert_eq!(
+            zero.state,
+            ProbeState::Unsupported(UnsupportedReason::OsFailed)
+        );
+        assert!(!zero.established());
+
+        let missed = ProbeRecord::normalize(
+            API_MICRO_VM_PROBE,
+            None,
+            UnsupportedReason::OsFailed,
+            UnjudgedReason::BackendAbsent,
+        );
+        assert_eq!(
+            missed.state,
+            ProbeState::Unjudged(UnjudgedReason::BackendAbsent)
+        );
+        assert!(!missed.established());
+    }
+
+    #[test]
+    fn trace_clears_on_non_established_and_keeps_on_established() {
+        let mut trace = ProbeTrace::new();
+        let zero = ProbeRecord::normalize(
+            API_JOB_OBJECT_PROBE,
+            Some(0),
+            UnsupportedReason::OsFailed,
+            UnjudgedReason::BackendAbsent,
+        );
+        trace.record(zero);
+        assert!(trace.last().is_none(), "不成立必须清空留痕");
+
+        let missed = ProbeRecord::normalize(
+            API_MICRO_VM_PROBE,
+            None,
+            UnsupportedReason::OsFailed,
+            UnjudgedReason::BackendAbsent,
+        );
+        trace.record(missed);
+        assert!(trace.last().is_none(), "未判定必须清空留痕");
+
+        let ok = ProbeRecord::normalize(
+            API_JOB_OBJECT_PROBE,
+            Some(7),
+            UnsupportedReason::OsFailed,
+            UnjudgedReason::BackendAbsent,
+        );
+        trace.record(ok);
+        assert_eq!(trace.last().unwrap().source_api, API_JOB_OBJECT_PROBE);
+        trace.clear();
+        assert!(trace.last().is_none());
+    }
+
+    #[test]
+    fn support_check_log_path_is_callable_with_raw_and_api() {
+        let rec = ProbeRecord::normalize(
+            API_JOB_OBJECT_PROBE,
+            Some(1),
+            UnsupportedReason::OsFailed,
+            UnjudgedReason::BackendAbsent,
+        );
+        // 不打断言:确保留痕记录可走进日志路径;形态串由 log 宏承载。
+        log_support_check(&rec);
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
