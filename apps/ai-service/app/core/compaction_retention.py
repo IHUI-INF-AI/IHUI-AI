@@ -39,6 +39,7 @@ from ..services.tool_budget_governor import (
     tool_budget_governor as _default_budget_gov,
 )
 from .context_compaction import (
+    _is_image_part,
     _split_pair_groups,
     estimate_messages_tokens,
 )
@@ -71,7 +72,12 @@ def _strip_images(text: str) -> str:
 
 
 def _massage_for_budget(msg: dict[str, Any], *, charge_images: bool) -> dict[str, Any]:
-    """按图片预算开关生成用于估算的消息副本(不修改原消息)。"""
+    """按图片预算开关生成用于估算的消息副本(不修改原消息)。
+
+    Enabled(charge_images=True):图片 visualTokens 与同一条消息的说明文字一起计入
+    共享预算,原样交估算器(图片占位 + 邻近文本 part 在同一条消息内合计),不剥图片。
+    Disabled:vision part 剥成空文本 part,图片占位成本归 0。
+    """
     if charge_images:
         return msg
     content = msg.get("content")
@@ -82,13 +88,20 @@ def _massage_for_budget(msg: dict[str, Any], *, charge_images: bool) -> dict[str
         new_parts: list[Any] = []
         for part in content:
             if isinstance(part, dict):
-                image_url = part.get("image_url")
                 text_part = part.get("text")
-                if image_url is not None or (
-                    isinstance(text_part, str) and _DATA_IMAGE_RE.search(text_part)
-                ):
-                    # vision part:图片 part 按空文本计(保留 part 结构,计 overhead)
-                    new_parts.append({**part, "text": "", "image_url": None})
+                is_vision = (
+                    _is_image_part(part)
+                    or part.get("image_url") is not None
+                    or part.get("source") is not None
+                    or (
+                        isinstance(text_part, str)
+                        and _DATA_IMAGE_RE.search(text_part)
+                    )
+                )
+                if is_vision:
+                    # 不能只清 image_url 而保留 type=image_url:估算器按 type 判
+                    # vision part 仍会补图片占位。这里整体降级为空文本 part。
+                    new_parts.append({"type": "text", "text": ""})
                     continue
             new_parts.append(part)
         stripped = new_parts
@@ -113,7 +126,11 @@ def group_messages(messages: Sequence[dict[str, Any]]) -> list[list[dict[str, An
 def estimate_group_tokens(
     group: Sequence[dict[str, Any]], *, charge_images: bool = True
 ) -> int:
-    """估算一组消息的 token;charge_images=False 时 base64 图片按 0 计。"""
+    """估算一组消息的 token。
+
+    charge_images=True:图片 visualTokens 与同条消息的说明文字一起计入共享预算;
+    charge_images=False:base64 图片与 vision part 按 0 图片成本计。
+    """
     if charge_images:
         return estimate_messages_tokens(list(group))
     massaged = [_massage_for_budget(m, charge_images=False) for m in group]
