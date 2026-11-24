@@ -10,13 +10,13 @@
  * 顶栏与底栏都只 spread 本函数返回值,要改观感只改本文件。
  */
 import type { CSSProperties } from 'react'
-import { rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import { ELEVATION_CSS, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import { TAB_BAR_GLASS_BLUR_PX } from '@ihui/shared/ui/tab-bar-spec'
 import { COLORS } from '@/constants/style'
 
 export type GlassBarTheme = 'light' | 'dark'
 
-/** 玻璃面:glass 底 + border.medium 描边 + rnRadius.xl(12)圆角 + 与底栏同一条模糊半径。 */
+/** 玻璃面:glass 底 + border.medium 描边 + rnRadius.xl(12)圆角 + 与底栏同一条模糊半径 + 同一档投影。 */
 export function glassBarSurface(resolved: GlassBarTheme): CSSProperties {
   return {
     backgroundColor: COLORS.glassBg[resolved],
@@ -24,6 +24,7 @@ export function glassBarSurface(resolved: GlassBarTheme): CSSProperties {
     borderRadius: `${rnRadius.xl * TARO_RPX_PER_PX}rpx`,
     backdropFilter: `blur(${TAB_BAR_GLASS_BLUR_PX}px)`,
     WebkitBackdropFilter: `blur(${TAB_BAR_GLASS_BLUR_PX}px)`,
+    boxShadow: ELEVATION_CSS.lg,
     boxSizing: 'border-box',
   }
 }
