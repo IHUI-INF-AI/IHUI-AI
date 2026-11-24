@@ -74,6 +74,14 @@ export interface WebSocketClientOptions<TMessage> {
   messageGuard: (data: unknown) => data is TMessage
   /** 心跳间隔(ms),默认 30000 */
   heartbeatInterval?: number
+  /**
+   * 活性看门狗超时(ms),默认 = heartbeatInterval × 3(即连续 3 拍无 pong)。
+   *
+   * 仅在该连接**实际收到过 pong 后**才武装:服务端不支持 pong 时应答缺失属正常形态,
+   * 不能误杀。武装后超过此值未收到任何 pong ⇒ 主动 close,复用 onclose → 重连 →
+   * 上层补增量链路。根治休眠唤醒 / TCP 半开时 onclose 不触发的假连接态。
+   */
+  livenessTimeoutMs?: number
   /** 最大重连延迟(ms),默认 30000 */
   maxReconnectDelay?: number
   /** 心跳消息工厂,默认 () => 'ping' */
@@ -114,6 +122,10 @@ export class WebSocketClient<TMessage = WSNotification> {
   private reconnectAttempt = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  // 活性看门狗:仅在收到过 pong 的连接上武装。休眠唤醒 / TCP 半开时 onclose 不来,
+  // ping 空发,连接停在 _isConnected=true 假态;这里用最后 pong 时间主动判死并重连。
+  private lastPongAt = 0
+  private livenessArmed = false
   private closedByUser = false
   private _isConnected = false
   // 2026-08-06 修复:连接代际计数。updateToken/disconnect 主动断开旧连接时,
@@ -236,6 +248,10 @@ export class WebSocketClient<TMessage = WSNotification> {
       }
       this.reconnectAttempt = 0
       this._isConnected = true
+      // 新连接不预装看门狗:等第一个 pong 证明服务端支持活性协议再武装,
+      // 否则会在不回 pong 的服务端上误杀正常连接(降级兼容)。
+      this.lastPongAt = Date.now()
+      this.livenessArmed = false
       this.handlers.onOpen?.()
       this.startHeartbeat(ws)
     }
@@ -248,7 +264,12 @@ export class WebSocketClient<TMessage = WSNotification> {
         return
       }
       const raw = event?.data
-      if (raw === 'pong' || raw === '"pong"') return
+      if (raw === 'pong' || raw === '"pong"') {
+        // pong 是活性证据:记录时间并武装看门狗(服务端 ws-broadcast 回纯 'pong')。
+        this.lastPongAt = Date.now()
+        this.livenessArmed = true
+        return
+      }
       if (typeof raw !== 'string') return
       try {
         const parsed = JSON.parse(raw) as unknown
@@ -328,12 +349,25 @@ export class WebSocketClient<TMessage = WSNotification> {
     const interval = this.options.heartbeatInterval ?? 30000
     const heartbeatMessage = this.options.heartbeatMessage ?? (() => 'ping')
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer)
+    // 活性看门狗:超时 = N×interval(默认 3 拍)。只有武装过(收到过 pong)的连接才判死,
+    // 避免误杀不回 pong 的服务端。判死后主动 close,复用 onclose → scheduleReconnect →
+    // onopen → 上层 planChatSyncReconnectResync 补增量,无需新增重连逻辑。
+    const livenessTimeout = this.options.livenessTimeoutMs ?? interval * 3
     this.heartbeatTimer = setInterval(() => {
       if (ws.readyState === WS_OPEN) {
         try {
           ws.send(heartbeatMessage())
         } catch {
-          // 心跳失败等 onclose 重连
+          // 心跳发送失败也视为活性丢失(走下方统一判死/重连)
+        }
+        if (this.livenessArmed && Date.now() - this.lastPongAt > livenessTimeout) {
+          // 服务端不再回 pong(TCP 半开/休眠唤醒/服务端假死):onclose 不会自然触发,
+          // 主动 close 制造 onclose,让既有重连+补增量链接管,消除 _isConnected 假态。
+          try {
+            ws.close()
+          } catch {
+            // ignore
+          }
         }
       }
     }, interval)
