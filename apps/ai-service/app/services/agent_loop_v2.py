@@ -801,6 +801,43 @@ def _as_entry(approval_id: str) -> _ApprovalEntry | None:
     return entry
 
 
+def _pending_approvals_for_user(user_id: str | None) -> int:
+    """该用户名下仍未结算的审批条数(供浏览器浮窗判断要不要保持 waiting)。"""
+    if not user_id:
+        return 0
+    count = 0
+    for approval_id in tuple(_approval_registry):
+        entry = _as_entry(approval_id)
+        if entry is None or entry.owner_user_id != user_id:
+            continue
+        if entry.decision is None:
+            count += 1
+    return count
+
+
+def _sync_browser_approval_attention(user_id: str | None) -> None:
+    """把"有没有审批在等"投递给该用户的浏览器浮窗。
+
+    只投递,不 await、不抛错:审批主链路不能因为浮窗状态失败而受影响。
+    与提问共用 browser_hub 的来源记名,先结束的一方不会把另一方顶回 running。
+    """
+    if not user_id:
+        return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    try:
+        from . import browser_hub as _browser_hub
+
+        active = _pending_approvals_for_user(user_id) > 0
+        loop.create_task(
+            _browser_hub.set_user_attention(user_id, "tool-approval", active)
+        )
+    except Exception:
+        return
+
+
 # 批 53(2026-09-20):审批 persist 持久键旁路登记(approval_id → cache_key)。
 # _request_approval 造 approval_id 时顺手填,供引擎侧 approval.respond 携带 persist 字段时
 # 按 id 取回 key 落盘 always/session 级授权(批 52 仅写 session);finally 清理防内存泄漏。
@@ -7199,6 +7236,9 @@ class AgentLoopV2:
             args_preview=args_preview,
             created_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         )
+        # 2026-11-25:审批也是一种"人必须介入"的人工节点。登记即把该用户的
+        # 浏览器浮窗切到 waiting(不 await、不影响审批主链路)。
+        _sync_browser_approval_attention(self._user_id)
         # G-816004(2026-10-13)注册盖章:approval_generation_cas 权威登记 ——
         # generation=0(初始路由代;换代路径经 cas.supersede 显式递增,静默换代被
         # register 拒绝),snapshot_digest=content_digest(决策 payload) —— 用户在批的
@@ -7364,6 +7404,9 @@ class AgentLoopV2:
         finally:
             # 防内存泄漏:无论批准/拒绝/超时,清理注册表条目
             _approval_registry.pop(approval_id, None)
+            # 2026-11-25:审批结算(批准/拒绝/超时/取消/异常)后撤销这一路等待;
+            # 若还有别的审批或提问在等,set_user_attention 会保持 waiting。
+            _sync_browser_approval_attention(self._user_id)
             # 批 53:同步清理 persist 旁路键(与 _approval_registry 同期生命周期)
             _approval_persist_keys.pop(approval_id, None)
             # G-09:释放 elicitation 登记(异常/取消也走到这里;paused/outstanding 归零)

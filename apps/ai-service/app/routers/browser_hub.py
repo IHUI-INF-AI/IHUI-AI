@@ -59,6 +59,11 @@ from ..services.browser_hub import (
     BrowserTabScopeError,
     hub,
 )
+from ..services.browser_task import (
+    TaskValidationError,
+    list_task_templates,
+    task_from_template,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +136,20 @@ class SessionInfo(BaseModel):
     url: str
     title: str
     cookie_count: int
+
+
+class TaskBindRequest(BaseModel):
+    """绑定任务:可给模板 id 让服务端展开,也可直接给完整字段。"""
+
+    template_id: str | None = Field(None, description="内置模板 id(给了模板可省 checkpoints)")
+    goal: str | None = Field(None, description="目标;给模板时可覆盖模板目标")
+    requirements: list[str] | None = Field(None, description="运行要求")
+    checkpoints: list[dict[str, Any]] | None = Field(None, description="检查点")
+
+
+class CheckpointRequest(BaseModel):
+    action: Literal["enter", "resume"] = Field(..., description="进入或恢复检查点")
+    checkpoint_id: str | None = Field(None, description="检查点 id;resume 缺省恢复当前 active")
 
 
 # =============================================================================
@@ -355,6 +374,83 @@ async def reload(
 
 
 # =============================================================================
+# 任务模板 / 检查点(2026-11-25)
+# =============================================================================
+def _task_payload(body: TaskBindRequest) -> dict[str, Any]:
+    """模板 id 优先展开;完整字段原样交给服务层再校验(单一真相源)。"""
+    if body.template_id and not body.checkpoints:
+        return task_from_template(body.template_id, goal_override=body.goal)
+    return body.model_dump(exclude_none=True)
+
+
+def _task_denial(exc: TaskValidationError) -> HTTPException:
+    return HTTPException(status_code=400, detail=f"{exc.code}: {exc.message}")
+
+
+@router.get("/task-templates")
+async def get_task_templates(
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """内置任务模板目录(只读)。"""
+    templates = list_task_templates()
+    return {"code": 0, "data": {"templates": templates, "count": len(templates)}}
+
+
+@router.post("/sessions/{session_id}/task")
+async def bind_task(
+    session_id: str,
+    body: TaskBindRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """给会话绑定任务模板。"""
+    try:
+        session = hub.require_tab(_tab_scope(session_id, user_id))
+    except BrowserTabScopeError as exc:
+        raise _tab_scope_denial(exc) from exc
+    try:
+        snapshot = await session.start_task(_task_payload(body))
+    except TaskValidationError as exc:
+        raise _task_denial(exc) from exc
+    return {"code": 0, "message": "任务已绑定", "data": {"task": snapshot}}
+
+
+@router.get("/sessions/{session_id}/task")
+async def read_task(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """读当前会话任务快照(含检查点状态)。"""
+    try:
+        session = hub.require_tab(_tab_scope(session_id, user_id))
+    except BrowserTabScopeError as exc:
+        raise _tab_scope_denial(exc) from exc
+    return {"code": 0, "data": await session.task_state()}
+
+
+@router.post("/sessions/{session_id}/checkpoint")
+async def handle_checkpoint(
+    session_id: str,
+    body: CheckpointRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """进入/恢复检查点。"""
+    try:
+        session = hub.require_tab(_tab_scope(session_id, user_id))
+    except BrowserTabScopeError as exc:
+        raise _tab_scope_denial(exc) from exc
+    try:
+        if body.action == "enter":
+            if not body.checkpoint_id:
+                raise TaskValidationError("checkpoint_id_missing", "enter 必须给 checkpoint_id")
+            data = await session.enter_checkpoint(body.checkpoint_id)
+        else:
+            data = await session.resume_checkpoint(body.checkpoint_id)
+    except TaskValidationError as exc:
+        raise _task_denial(exc) from exc
+    return {"code": 0, "message": "检查点已更新", "data": data}
+
+
+# =============================================================================
 # WebSocket:画面流 + 事件回传
 # =============================================================================
 @router.websocket("/ws/{session_id}")
@@ -431,6 +527,22 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
             logger.debug(f"[browser_hub] 发送 phase 异常: {e}")
 
     await stream_session.set_phase_handler(on_phase)
+
+    # 任务模板/检查点:与 phase 同型,登记即补发快照,变更时广播。
+    async def on_task(state: dict[str, Any]) -> None:
+        try:
+            await ws.send_json({"type": "task", **state})
+        except Exception as e:
+            logger.debug(f"[browser_hub] 发送 task 异常: {e}")
+
+    async def on_checkpoint(state: dict[str, Any]) -> None:
+        try:
+            await ws.send_json({"type": "checkpoint", **state})
+        except Exception as e:
+            logger.debug(f"[browser_hub] 发送 checkpoint 异常: {e}")
+
+    await stream_session.set_task_handler(on_task)
+    await stream_session.set_checkpoint_handler(on_checkpoint)
 
     # 画面帧回调
     async def on_frame(data_b64: str, metadata: dict[str, Any]) -> None:
@@ -524,8 +636,34 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
                         str(msg.get("phase", "running")), msg.get("reason")
                     )
                     await ws.send_json({"type": "phase_result", "data": state})
+                elif msg_type == "task_start":
+                    # 载荷二选一:{"task": {...}} 或直接 {...};模板展开在 HTTP 层,
+                    # WS 只收归一后的任务字段,避免两套模板语法。
+                    payload = msg.get("task") if isinstance(msg.get("task"), dict) else msg
+                    snapshot = await session.start_task(payload)
+                    await ws.send_json({"type": "task_result", "data": {"task": snapshot}})
+                elif msg_type == "task_clear":
+                    await session.clear_task()
+                    await ws.send_json({"type": "task_result", "data": {"task": None}})
+                elif msg_type == "checkpoint_enter":
+                    checkpoint_id = str(msg.get("checkpoint_id") or "")
+                    if not checkpoint_id:
+                        raise TaskValidationError(
+                            "checkpoint_id_missing", "checkpoint_enter 必须给 checkpoint_id"
+                        )
+                    data = await session.enter_checkpoint(checkpoint_id, msg.get("reason"))
+                    await ws.send_json({"type": "checkpoint_result", "data": data})
+                elif msg_type == "checkpoint_resume":
+                    data = await session.resume_checkpoint(
+                        str(msg.get("checkpoint_id") or "") or None
+                    )
+                    await ws.send_json({"type": "checkpoint_result", "data": data})
                 elif msg_type == "ping":
                     await ws.send_json({"type": "pong"})
+            except TaskValidationError as e:
+                await ws.send_json(
+                    {"type": "error", "code": e.code, "message": e.message, "event": msg_type}
+                )
             except Exception as e:
                 logger.warning(f"[browser_hub] 处理事件异常: {msg_type} - {e}")
                 await ws.send_json({"type": "error", "message": str(e)[:200], "event": msg_type})
@@ -538,6 +676,8 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
         await stream_session.remove_frame_handler(on_frame)
         await stream_session.remove_navigation_handler(on_navigation)
         await stream_session.remove_phase_handler(on_phase)
+        await stream_session.remove_task_handler(on_task)
+        await stream_session.remove_checkpoint_handler(on_checkpoint)
         logger.info(f"[browser_hub] WebSocket 断开: session={session_id}")
 
 
