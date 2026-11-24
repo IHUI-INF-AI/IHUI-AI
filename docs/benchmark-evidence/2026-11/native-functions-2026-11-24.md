@@ -44,12 +44,14 @@
 
 ### 0.4 本轮进度（滚动）
 
+> 下表为 2026-11-24 12:30 复评后的现读值，旧稿「函数清单待取 / 伪代码 0 条 / 状态未开始」系滚动表未同步 §1 已落地证据，已作废。
+
 | 程序 | 已完成 | 函数清单 | 伪代码/反编译条数 | 状态 |
 |---|---|---|---|---|
-| Trae | 路径 + 体量分级 + 上一轮导出/导入/字符串切片复用 | 待取 | 0 | 进行中 |
-| Qoder | 路径纠正（`C:\Qoder CN`）+ 枚举 | 待取 | 0 | 未开始 |
-| WorkBuddy | 两处路径核对 + 枚举 | 待取 | 0 | 未开始 |
-| DeepSeek Harness | 路径纠正（`C:\Apps`）+ 枚举；业务逻辑上一轮已到 JS/TS 面 | 待取 | 0 | 未开始 |
+| Trae | 路径 + 体量分级；P3-01(ALPC)/P3-02(双探测 SDK) 已 Ghidra 伪代码；§0.5 完成五大件 rizin+raw 符号/字符串级取证 | 小件 `sbox_sdk/vm_sdk/aiep_ipc` Ghidra 已取；五大件仅符号面（体量纪律不进全量） | 2（P3-01/02 Ghidra）+ §0.5 函数级符号/SQL 证据 | 判据已核、符号面完成；大件全量反编译按体量纪律放弃 |
+| Qoder | 路径纠正（`C:\Qoder CN`）+ 枚举；P3-05/06/07 已取证 | 小件 `system_commit/native_clipboard/notification_permission.node` 可进；`keytar.node` stripped 仅字符串面 | 3（P3-05/06/07，含字符串级；令牌一次性闭包 `function_not_found`） | 判据已核；大件面未展开 |
+| WorkBuddy | 两处路径核对 + 枚举；P3-03/04 已 Ghidra 伪代码 | `job-object.node` craft builtin 2492 切分函数（全 stripped）；`sandbox_ffi/tsbx.dll` 未逐条展开 | 2（P3-03/04 Ghidra）+ P3-04 函数清单 | 判据已核；`sandbox_ffi/tsbx` 未逐条 |
+| DeepSeek Harness | 路径纠正（`C:\Apps`）+ 枚举；业务逻辑上一轮已到 JS/TS 面 | 原生面以第三方/运行时件为主，无可进的自研业务 DLL | 0（本轮原生函数级无新增；业务判定已在 JS/TS 面） | 原生面完成枚举，无新增结论 |
 
 ### 0.5 复评补录（2026-11-24 12:30，倒着用证据核判据）
 
@@ -252,7 +254,7 @@
 
 ## 3. 未判定 / 未做（按程序，含原因）
 
-- **Trae 大体积原生件（仅 rizin 符号/字符串级，未函数级反编译）**：`ai_agent.dll` 271.48MB、`harness.dll` 253.65MB、`toolhost.dll` 95.31MB、`agent-tool-host.exe` 96.43MB、`libckg.dll` 37.83MB。Ghidra 全量分析超 15 分钟无产出风险高，本轮不进；审批结局枚举、命令级 `timeout_ms`、输出 drain 闸门、CKG schema/向量维度/幂等标记的函数级实现均**未判定**。
+- **Trae 大体积原生件（rizin + raw 符号/字符串级已取证，未进 Ghidra 全量伪代码）**：`ai_agent.dll` 271.48MB、`harness.dll` 253.65MB、`toolhost.dll` 95.31MB、`agent-tool-host.exe` 96.43MB、`libckg.dll` 37.83MB。§0.5 已从内嵌 Python/JS 源码串取到**函数级符号与 SQL 证据**：审批结局枚举（`queued/claimed/delivered/cancelled`、`pending/approved`）、命令级 `timeout:int=120` + `_DBW_PRECHECK_POLL_TIMEOUT` + 具名超时回执、断点游标（`reply_user_read_cursor`/`last_cursor_rowid`）、CKG schema（`SQLiteVecStorageV2`/`vector_to_entity`/`missing_vector_entity_count`/`StorageVersion`握手/`ON CONFLICT`幂等）。**仍未取得**的是这些符号对应的 Ghidra 级伪代码基本块（体量纪律：全量分析 >15 分钟无产出风险高，放弃）；对照 IHUI 判据后这些语义均已覆盖或形态不同（照搬即降级），故不补反编译。
 - **Trae**：`aiep_sbox.dll` 仅见导出 `DetourFinishHelperProcess`；Detours 注入细节、ALPC 与命名管道链路拆分、SDDL/ACL 主体静态不可达，未动态验证。
 - **Qoder**：`AoqClientSdk.dll` 14.01MB（RTC 引擎）、`sgsdk.dll` 7.01MB、`keytar.node` 凭据存储面未展开函数级；`.node` Rust/打包 stripped，方法名只能从字符串区取，闭包内部伪代码解析为 `function_not_found`。
 - **WorkBuddy**：`sandbox_ffi.dll`（manager configure/initialize/start/stop + 可等待定时器 + WSASocket 复制面）、`tsbx.dll`（`LsInjectBridge` / `Tsbx_DumpHookSnapshot` + 命名管道等待 + 进程内存读写）函数级判据未逐条展开；`process-snapshot.node` 仅 darwin 两版，win32 无此件；跨进程内核命名 mutex、重启放弃阈值、manual 心跳周期、注册表写入原子性仍未知。
