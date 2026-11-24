@@ -53,6 +53,21 @@ ${StrLoc}
 
 !define WEBVIEW2APPGUID "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
+; ==== IHUI 定制:WebView2 失败不在静默模式弹任何框 ====
+; 上游三条失败路径会 Abort 带字符串 / MessageBox ABORTRETRYIGNORE；
+; 静默安装遇到它们会挂住等待用户点按钮。这里统一：写日志，静默 exit 6，交互只提示一次。
+!macro IHUI_WEBVIEW2_FAIL reason
+  !insertmacro IHUI_INSTALL_WARN "WebView2 失败: ${reason}"
+  !define UniqueID ${__LINE__}
+  IfSilent ihui_webview2_silent_${UniqueID} 0
+  MessageBox MB_ICONEXCLAMATION|MB_OK "$(webview2AbortError)"
+  ihui_webview2_silent_${UniqueID}:
+  SetErrorLevel 6
+  Quit
+  !undef UniqueID
+!macroend
+; ==== IHUI 定制结束 ====
+
 !define MANUFACTURER "{{manufacturer}}"
 !define PRODUCTNAME "{{product_name}}"
 !define VERSION "{{version}}"
@@ -732,7 +747,7 @@ Section WebView2
           DetailPrint "$(webview2DownloadSuccess)"
         ${Else}
           DetailPrint "$(webview2DownloadError)"
-          Abort "$(webview2AbortError)"
+          !insertmacro IHUI_WEBVIEW2_FAIL "download"
         ${EndIf}
         StrCpy $6 "$TEMP\MicrosoftEdgeWebview2Setup.exe"
         Goto install_webview2
@@ -764,7 +779,7 @@ Section WebView2
           DetailPrint "$(webview2InstallSuccess)"
         ${Else}
           DetailPrint "$(webview2InstallError)"
-          Abort "$(webview2AbortError)"
+          !insertmacro IHUI_WEBVIEW2_FAIL "install"
         ${EndIf}
       webview2_done:
     ${EndIf}
@@ -789,9 +804,7 @@ Section WebView2
             ${If} $1 = 0
               DetailPrint "$(webview2InstallSuccess)"
             ${Else}
-              MessageBox MB_ICONEXCLAMATION|MB_ABORTRETRYIGNORE "$(webview2InstallError)" IDIGNORE ignore IDRETRY update_webview
-              Quit
-              ignore:
+              !insertmacro IHUI_WEBVIEW2_FAIL "update"
             ${EndIf}
           ${EndIf}
       ${EndIf}

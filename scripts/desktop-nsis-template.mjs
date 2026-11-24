@@ -634,6 +634,24 @@ function assertNoKillProcess(text) {
 }
 assertNoKillProcess(current)
 
+/**
+ * WebView2 的三条失败路径不能把静默安装挂成模态框：
+ * 上游会 `Abort "..."` 或 `MB_ABORTRETRYIGNORE`，静默模式同样弹窗。
+ */
+function assertWebView2NoUI(text) {
+  const failures = []
+  if (text.includes('Abort "$(webview2AbortError)"')) failures.push('仍有 WebView2 Abort 弹窗')
+  if (text.includes('MB_ABORTRETRYIGNORE')) failures.push('仍有 WebView2 重试模态框')
+  const calls = (text.match(/!insertmacro IHUI_WEBVIEW2_FAIL/g) || []).length
+  if (calls < 3) failures.push(`IHUI_WEBVIEW2_FAIL 调用不足（${calls}/3）`)
+  if (!text.includes('SetErrorLevel 6')) failures.push('缺少 WebView2 失败退出码 6')
+  if (failures.length) {
+    console.error(`[desktop-nsis-template] WEBVIEW2-GUARD 回归:${failures.join('；')}`)
+    process.exit(1)
+  }
+}
+assertWebView2NoUI(current)
+
 if (current === expected) {
   // ⚠️ 这里**不能**写成 `console.log(…)` 之后紧跟 `process.exit(0)`(2026-10-12 实测):
   // stdout 是 pipe 时(守门并行派发 stdio: ['ignore','pipe','pipe']),本机 Node v24 上
