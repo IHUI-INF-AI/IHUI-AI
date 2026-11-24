@@ -80,6 +80,9 @@ jobs:
       # 通道 B 的第三件是 `.p8` **内容**(APPLE_API_KEY_P8),不是路径:workflow 负责落盘并
       # 把 APPLE_API_KEY_PATH 指到落盘位置(2026-11-05 补,此前只搬路径变量、文件从未存在)。
       APPLE_SIGNING_CONFIGURED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && ((secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '') || (secrets.APPLE_API_KEY != '' && secrets.APPLE_API_ISSUER != '' && secrets.APPLE_API_KEY_P8 != '')) }}
+      # v2 签名 zip 的钥匙与安装器 updater 同一把；没有它时下面 v2 发版步整体跳过，
+      # 不能用“未签名 zip”冒充可被客户端验签的更新包。
+      HAS_TAURI_SIGNING_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY != '' }}
       # 未签名发版开关(2026-11-16 立;2026-11-17 改 push-tag 默认未签名,机主拍板
       # "发未签名包,跟 0.1.77 一样"):
       # 【旧口径】只认 workflow_dispatch 的 allow_unsigned 勾选 ⇒ push tag 时恒为 false,
@@ -976,7 +979,7 @@ jobs:
           # tauri-action existsSync 过滤丢产物的兜底:按磁盘真实文件名(含中文)直接上传
           FILES=$(find "$BUNDLE" -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
             -o -name '*.AppImage.tar.gz' -o -name '*.dmg' -o -name '*.exe' -o -name '*.msi' \
-            -o -name '*.app.tar.gz' -o -name '*.sig' \) 2>/dev/null)
+            -o -name '*.zip' -o -name '*.app.tar.gz' -o -name '*.sig' \) 2>/dev/null)
           if [ -z "$FILES" ]; then
             echo "No bundle files found, skip fallback upload"
             exit 0
@@ -998,6 +1001,24 @@ jobs:
             echo "::error::${NFAIL} 枚资产上传失败(exe 与其 .sig 可能不成对),拒绝以全绿结束: $(tr '\n' ' ' < "$RUNNER_TEMP/desktop-upload-failures.txt")"
             exit 1
           fi
+
+      - name: Publish v2 signed zip and feed
+        if: runner.os == 'Windows' && env.HAS_TAURI_SIGNING_KEY == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          VERSION="${TAG#desktop-v}"
+          node scripts/desktop-release-v2.mjs \
+            --exe "$(pwd)/apps/desktop/src-tauri/target/release/ihui-desktop.exe" \
+            --version "$VERSION" \
+            --base-url "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG" \
+            --github-release "$GITHUB_REPOSITORY@$TAG" \
+            --out-dir "$RUNNER_TEMP/v2" \
+            --rollout 5
 
       - name: Upload bundle artifacts
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -1352,7 +1373,7 @@ jobs:
           merge-multiple: true
 
       - name: Sync downloads to public/downloads/
-        run: node scripts/sync-downloads.mjs --target=public
+        run: node scripts/sync-downloads.mjs
 
       # 动态解析桌面端下载产物:从 GitHub Releases API 读取最新 desktop-v* release
       # 资产(URL/大小/版本/发布日期),刷新 desktop-feed.generated.ts 入库快照。
