@@ -599,6 +599,7 @@ function assertSilentUpdateGuard(text) {
   const block = text.slice(start, end)
   const failures = []
   if (block.includes('MessageBox')) failures.push('仍有 MessageBox（终端用户会看到弹窗）')
+  if (/\bAbort\b/.test(block)) failures.push('仍有 Abort（带字符串时会弹系统错误框）')
   if (!block.includes('SetErrorLevel 2')) failures.push('缺少 SetErrorLevel 2')
   if (!block.includes('Quit')) failures.push('缺少无 UI 的 Quit')
   if (!block.includes('"$INSTDIR\\state.json"')) failures.push('未检查 /D 目标目录的 state.json')

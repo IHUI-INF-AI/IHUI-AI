@@ -91,13 +91,28 @@ function isValidDesktopFeedV2(value: unknown): value is DesktopFeedV2 {
   if (!value || typeof value !== 'object') return false
   const feed = value as Record<string, unknown>
   const payload = feed.payload as Record<string, unknown> | undefined
+  const VERSION_RE = /^[0-9A-Za-z.-]{1,64}$/
+  // 必须与客户端 update_v2.rs 的上限一致：客户端会在超过 300MB 时直接拒收，
+  // 发布侧若放行，线上表现就是“feed 有效但永远下载失败”。
+  const MAX_PAYLOAD_BYTES = 300 * 1024 * 1024
   if (feed.schema !== 2) return false
-  if (typeof feed.version !== 'string' || !/^[0-9A-Za-z.-]{1,64}$/.test(feed.version)) return false
+  if (typeof feed.version !== 'string' || !VERSION_RE.test(feed.version)) return false
   if (typeof feed.channel !== 'string' || feed.channel === '') return false
   if (typeof feed.notes !== 'string') return false
-  if (feed.minSupported !== null && typeof feed.minSupported !== 'string') return false
-  if (feed.rollbackTo !== null && typeof feed.rollbackTo !== 'string') return false
-  if (!Array.isArray(feed.revoked) || !feed.revoked.every((v) => typeof v === 'string'))
+  if (
+    feed.minSupported !== null &&
+    (typeof feed.minSupported !== 'string' || !VERSION_RE.test(feed.minSupported))
+  )
+    return false
+  if (
+    feed.rollbackTo !== null &&
+    (typeof feed.rollbackTo !== 'string' || !VERSION_RE.test(feed.rollbackTo))
+  )
+    return false
+  if (
+    !Array.isArray(feed.revoked) ||
+    !feed.revoked.every((v) => typeof v === 'string' && VERSION_RE.test(v))
+  )
     return false
   const rollout = feed.rollout as Record<string, unknown> | undefined
   if (
@@ -114,7 +129,8 @@ function isValidDesktopFeedV2(value: unknown): value is DesktopFeedV2 {
   if (
     typeof payload.size !== 'number' ||
     !Number.isSafeInteger(payload.size) ||
-    payload.size <= 0
+    payload.size <= 0 ||
+    payload.size > MAX_PAYLOAD_BYTES
   ) {
     return false
   }
@@ -122,7 +138,7 @@ function isValidDesktopFeedV2(value: unknown): value is DesktopFeedV2 {
   if (typeof payload.signature !== 'string' || payload.signature.trim() === '') return false
   if (payload.format !== 'zip') return false
   if (typeof payload.platform !== 'string' || payload.platform === '') return false
-  if (typeof payload.minLauncher !== 'string' || payload.minLauncher === '') return false
+  if (typeof payload.minLauncher !== 'string' || !VERSION_RE.test(payload.minLauncher)) return false
   return true
 }
 
