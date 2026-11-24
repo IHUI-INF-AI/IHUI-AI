@@ -165,7 +165,23 @@ export default function ConnectorsPageClient() {
     try {
       const r = await connectManagedConnector(type)
       if (r.success) {
-        toast.success(t('managedConnected', { name: label }))
+        // 一键接入后立刻自检:用户不用再去列表里点「测试连接」才知道凭据是否有效。
+        const key = r.data?.key
+        if (key) {
+          const check = await checkConnector(key)
+          if (check.success && check.data?.ok) {
+            toast.success(
+              `${t('managedConnected', { name: label })}，${check.data.message || t('checkOk')}`,
+            )
+          } else {
+            const failMessage = check.success ? check.data?.message : ''
+            toast.error(
+              `${t('managedConnected', { name: label })}，${failMessage || t('checkFailed')}`,
+            )
+          }
+        } else {
+          toast.success(t('managedConnected', { name: label }))
+        }
         refresh()
       } else {
         toast.error(r.error ?? t('actionFailed'))
