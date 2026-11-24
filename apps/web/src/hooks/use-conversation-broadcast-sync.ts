@@ -29,12 +29,14 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import {
+  getConversationHistory,
   subscribeChatSync,
   subscribeUserBroadcast,
   type UserBroadcastConfig,
 } from '@ihui/api-client'
 import type { QueryClient } from '@tanstack/react-query'
 import {
+  planChatSyncReconnectNewMessages,
   planChatSyncReconnectResync,
   type ConversationMetaField,
   type ConversationUpdatedEvent,
@@ -248,6 +250,61 @@ function fireOnceNotice(evt: ConversationUpdatedEvent, fields: ConversationMetaF
   toast.info(tc('meta.changedElsewhere', { field: label, value }))
 }
 
+/** 一次重连最多补这么多 turn 的新消息;超出即停,不把「还没补完」冒充已对齐 */
+const RECONNECT_HISTORY_LIMIT = 100
+
+/**
+ * 建立会话级 history 水位。`prevCursor` 是服务端给出的「窗口内最大轮」,专配
+ * direction:'newer';游标绝不由客户端自己编码(唯一真相在服务端)。
+ * 失败 / stale / 未升级服务端 ⇒ null,调用方退回「只补本地已知无终态消息」的诚实降级。
+ */
+async function anchorHistoryWatermark(
+  conversationId: string,
+  isCancelled: () => boolean,
+): Promise<string | null> {
+  try {
+    const res = await getConversationHistory(conversationId, {
+      direction: 'newest',
+      limit: 1,
+    })
+    if (isCancelled() || !res.success || !res.data) return null
+    if (res.data.cursorState?.status === 'stale') return null
+    return res.data.prevCursor ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 按水位取断线期**新增**的 turn,只做传输与提取:候选 ids 交给契约 planner 判「本地是否见过」,
+ * 真正的内容/rev 裁定仍由 resync 编排 + store 承担(§22c 不复制判据)。
+ * `null` = 请求失败/已取消 ⇒ 静默降级,不冒充对齐;stale = 锚点消失 ⇒ 调用方整段重锚。
+ */
+async function fetchReconnectNewMessageIds(
+  conversationId: string,
+  cursor: string,
+  isCancelled: () => boolean,
+): Promise<{ ids: string[]; nextCursor: string | null; stale: boolean } | null> {
+  try {
+    const res = await getConversationHistory(conversationId, {
+      direction: 'newer',
+      cursor,
+      limit: RECONNECT_HISTORY_LIMIT,
+    })
+    if (isCancelled() || !res.success || !res.data) return null
+    if (res.data.cursorState?.status === 'stale') {
+      return { ids: [], nextCursor: null, stale: true }
+    }
+    return {
+      ids: res.data.turns.flatMap((turn) => turn.messages.map((message) => message.id)),
+      nextCursor: res.data.prevCursor ?? cursor,
+      stale: false,
+    }
+  } catch {
+    return null
+  }
+}
+
 /**
  * 挂载点:`apps/web/src/hooks/use-websocket.ts` 的 `useWebSocket()` 里调一次即可 ——
  * 那个入口已被全局通知/任务接收/侧栏等消费者挂载,而引用计数在 api-client 那一侧,
@@ -271,6 +328,9 @@ export function useConversationBroadcastSync(): {
   // 当"可能推进"逐条拉快照,违反 §4「只让 gap 触发 resync」的纪律),只有曾经 open
   // 过、断开后再次 open 才补增量。
   const everOpened = React.useRef(false)
+  // 断线期全新消息的水位(服务端 history prevCursor,base64url 透明回传)。
+  // 切会话 / 换 token 时随订阅 effect 重建复位,不跨房间复用别人的锚点。
+  const historyCursorRef = React.useRef<string | null>(null)
 
   const translate = React.useCallback(
     (key: string, values?: Record<string, string>): string =>
@@ -293,6 +353,15 @@ export function useConversationBroadcastSync(): {
       tokenProvider: () => useAuthStore.getState().token,
     }
     let cancelled = false
+    // 每个(会话,token)建一次水位:切房间不复用旧锚点。首连不补拉,但要先把锚点存好,
+    // 这样之后的每一次重连都能取到真正的断线增量,而不是只补本地已知的无终态消息。
+    historyCursorRef.current = null
+    if (conversationId) {
+      void (async () => {
+        const cursor = await anchorHistoryWatermark(conversationId, () => cancelled)
+        if (!cancelled) historyCursorRef.current = cursor
+      })()
+    }
     const sub = subscribeUserBroadcast(config, {
       'conversation:updated': (evt) => {
         const e = evt as ConversationUpdatedEvent
@@ -320,9 +389,8 @@ export function useConversationBroadcastSync(): {
         everOpened.current = everOpened.current || open
         setConnected(open)
         if (!reconnect) return
-        // 重连补增量:坐标只由契约内核的 planner 判定(只挑「无终态」消息),本层不复制
-        // gap/stale/duplicate 判据(§22c)。无坐标 ⇒ 一次请求都不发;拉回结果由既有
-        // resync 编排四维上报,不把「没拉到」洗成「已对齐」。
+        // 重连补增量第一半:坐标只由契约内核的 planner 判定(只挑「无终态」消息),
+        // 本层不复制 gap/stale/duplicate 判据(§22c)。无坐标 ⇒ 这一半一次请求都不发。
         const store = useChatStore.getState()
         const id = store.conversationId
         if (!id) return
@@ -330,12 +398,43 @@ export function useConversationBroadcastSync(): {
           state: store.chatSync,
           conversationId: id,
         })
-        if (!plan.needed) return
-        void resyncChatSyncGaps({
-          conversationId: id,
-          messageIds: plan.requests.map((r) => r.messageId),
-          isCancelled: () => cancelled,
-        })
+        if (plan.needed) {
+          void resyncChatSyncGaps({
+            conversationId: id,
+            messageIds: plan.requests.map((r) => r.messageId),
+            isCancelled: () => cancelled,
+          })
+        }
+
+        // 第二半:本地 rev 账本里根本没有的「断线期全新消息」。用会话级 history 水位取
+        // 增量 ids,再由 planChatSyncReconnectNewMessages 集合差出未知坐标,喂同一个
+        // resync 编排。无水位 / 请求失败 ⇒ 静默降级到第一半,不冒充已对齐。
+        const cursor = historyCursorRef.current
+        if (!cursor) return
+        void (async () => {
+          const delta = await fetchReconnectNewMessageIds(id, cursor, () => cancelled)
+          if (cancelled || !delta) return
+          if (delta.stale) {
+            // 锚点已从服务端消失:整段重锚,本次不发半真窗口的增量快照
+            historyCursorRef.current = null
+            historyCursorRef.current = await anchorHistoryWatermark(id, () => cancelled)
+            return
+          }
+          historyCursorRef.current = delta.nextCursor
+          if (delta.ids.length === 0) return
+          const fresh = useChatStore.getState().chatSync
+          const newPlan = planChatSyncReconnectNewMessages({
+            state: fresh,
+            conversationId: id,
+            candidateMessageIds: delta.ids,
+          })
+          if (!newPlan.needed) return
+          void resyncChatSyncGaps({
+            conversationId: id,
+            messageIds: newPlan.requests.map((r) => r.messageId),
+            isCancelled: () => cancelled,
+          })
+        })()
       },
     })
     // 票71 第二切片:消息面同步只走契约内核 —— 房间过滤与 (messageId,rev) 幂等裁定

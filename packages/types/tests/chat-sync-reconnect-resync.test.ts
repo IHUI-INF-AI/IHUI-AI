@@ -18,6 +18,7 @@ import {
   CHAT_SYNC_TERMINAL_PROTOCOL_VERSION,
   EMPTY_CHAT_SYNC_STATE,
   mergeChatSyncResyncSnapshot,
+  planChatSyncReconnectNewMessages,
   planChatSyncReconnectResync,
   type ChatMessageCreatedEvent,
   type ChatMessagePatchedEvent,
@@ -144,6 +145,39 @@ describe('票71 重连/换标签 resync 整面协调', () => {
     expect(after.needed).toBe(false)
     expect(after.requests).toEqual([])
     expect(merged.state).toBe(merged.state)
+  })
+
+  // 2026-11-24:planner 只遍历本地已知面,断线期全新消息必须走集合差这条补法。
+  it('⑥ 断线期全新消息(本地未知)⇒ created 级坐标;已知/空/重复候选不重复纳入', () => {
+    let state = applyChatSyncEvent(EMPTY_CHAT_SYNC_STATE, createdEvent('m1')).state
+    state = applyChatSyncEvent(state, deltaEvent('m1', 1, '在途')).state
+    const known = planChatSyncReconnectResync({ state, conversationId: 'conv-1' })
+
+    const plan = planChatSyncReconnectNewMessages({
+      state,
+      conversationId: 'conv-1',
+      candidateMessageIds: ['m1', 'm-new-1', '', 'm-new-1', 'm-new-2'],
+    })
+    expect(plan.needed).toBe(true)
+    expect(plan.requests).toEqual([
+      { conversationId: 'conv-1', messageId: 'm-new-1', lastAppliedRev: 0 },
+      { conversationId: 'conv-1', messageId: 'm-new-2', lastAppliedRev: 0 },
+    ])
+    // 已知无终态坐标由姊妹函数负责,本函数绝不再产一份(否则同坐标重复拉)
+    expect(plan.requests.some((r) => r.messageId === known.requests[0]?.messageId)).toBe(false)
+  })
+
+  it('⑦ 候选里的已终态消息不重新纳入(增量窗口若有旧轮也不轰炸)', () => {
+    let state = applyChatSyncEvent(EMPTY_CHAT_SYNC_STATE, createdEvent('m1')).state
+    state = applyChatSyncEvent(state, deltaEvent('m1', 1, 'ok')).state
+    state = applyChatSyncEvent(state, terminalEvent('m1', 1)).state
+    const plan = planChatSyncReconnectNewMessages({
+      state,
+      conversationId: 'conv-1',
+      candidateMessageIds: ['m1'],
+    })
+    expect(plan.needed).toBe(false)
+    expect(plan.requests).toEqual([])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

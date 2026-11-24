@@ -135,6 +135,13 @@ export interface NotificationListFilters {
   type?: string
   unread?: boolean
   partition?: NotificationPartition
+  /**
+   * 断点续读的复合水位(2026-11-24):createdAt ISO 串 + id,**必须成对出现**才生效。
+   * 只覆盖「水位之后新增的通知行」,不覆盖已读/归档等状态翻转;没有水位时前后端都
+   * 退回普通分页行为,不把半截参数当成增量查询。
+   */
+  sinceCreatedAt?: string
+  sinceId?: string
 }
 
 /** 通知列表项 */

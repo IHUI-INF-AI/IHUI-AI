@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, or, desc, asc, sql, inArray, isNull, isNotNull, lt } from 'drizzle-orm'
+import { eq, and, or, desc, asc, gt, sql, inArray, isNull, isNotNull, lt } from 'drizzle-orm'
 import type { NotificationPartition } from '@ihui/types'
 import { db } from './index.js'
 import {
@@ -34,6 +34,8 @@ export async function findNotificationsByUser(
     type?: string
     unreadOnly?: boolean
     partition?: NotificationPartition
+    /** 复合水位 (createdAt,id);方向固定 newer,只在成对传入时启用 */
+    since?: { createdAt: Date; id: string }
   },
 ): Promise<{ list: Notification[]; total: number }> {
   const conds = [eq(notifications.userId, userId)]
@@ -46,16 +48,36 @@ export async function findNotificationsByUser(
       ? isNotNull(notifications.archivedAt)
       : isNull(notifications.archivedAt),
   )
+  // 断点续读:(createdAt,id) 双列同向 gt —— 与 chat-queries 的 keyset 唯一实现同构。
+  // 只比 createdAt 会把同一时刻的兄弟行整批跳过(通知批量插入时同刻很常见);
+  // id 是 uuid 全序唯一,作决胜键稳定。这里不新建第三套游标实现。
+  if (opts.since) {
+    const { createdAt, id } = opts.since
+    const newer = or(
+      gt(notifications.createdAt, createdAt),
+      and(eq(notifications.createdAt, createdAt), gt(notifications.id, id)),
+    )
+    // or() 在 drizzle 的类型里可能返回 undefined;判据失效方向必须是显式不放宽
+    if (!newer) throw new Error('通知 keyset 条件构造失败,拒绝退回无水位全表查询')
+    conds.push(newer)
+  }
   const where = and(...conds)
 
+  // since 模式从旧到新升序取「水位之后」的一页,供调用方以本页最后一条滚动续拉;
+  // 普通模式保持原 desc + offset,逐字节不动既有分页语义。
+  const base = db.select().from(notifications).where(where)
+  const paged = opts.since
+    ? base
+        .orderBy(asc(notifications.createdAt), asc(notifications.id))
+        .limit(opts.pageSize)
+        .offset(0)
+    : base
+        .orderBy(desc(notifications.createdAt))
+        .limit(opts.pageSize)
+        .offset((opts.page - 1) * opts.pageSize)
+
   const [list, totalRows] = await Promise.all([
-    db
-      .select()
-      .from(notifications)
-      .where(where)
-      .orderBy(desc(notifications.createdAt))
-      .limit(opts.pageSize)
-      .offset((opts.page - 1) * opts.pageSize),
+    paged,
     db
       .select({ count: sql<number>`COUNT(*)` })
       .from(notifications)

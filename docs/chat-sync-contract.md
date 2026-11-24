@@ -225,7 +225,20 @@ resync 的客户端契约(2026-10-26,纯函数,不接网络/UI):
    **确定性收敛(2026-11-14 phase 2 补齐)**:连续丢掉末帧及其后所有重发帧、但端侧仍
    收到任意后续帧时,该帧引出的 gap 会进 `pendingResyncs`,由端侧泵拉权威快照补齐
    (含缺 created 的情形:`mergeChatSyncResyncSnapshot` 先补 created 再并 snapshot)。
-   仍不承诺的是「整段离线期间连一枚帧都没收到」——那条只剩下次打开会话的全量历史拉取。
+   2026-11-24 补齐「整段离线期间连一枚帧都没收到」:web `useConversationBroadcastSync`
+   在重连时跑两半补增量 —— ① `planChatSyncReconnectResync` 补本地已知但无终态的旧消息;
+   ② 以会话级 history `prevCursor` 取 `direction:'newer'` 增量,经
+   `planChatSyncReconnectNewMessages` 集合差出本地完全未知的新消息 id,一并喂既有
+   `resyncChatSyncGaps`(仍由 `mergeChatSyncResyncSnapshot` 唯一裁定内容/rev/终态)。
+   首连不补、切会话复位水位、stale 整段重锚;无水位/请求失败静默降级到①,不冒充已对齐。
+   边界:单次增量上限 100 turn,且 history 增量只取 `turnOrdinal IS NOT NULL` 的行。
+   通知侧对偶能力(2026-11-24):`useGlobalNotification` 从真实落库 WS 帧取服务端
+   `(id,createdAt)` 水位,重连走 REST `sinceCreatedAt/sinceId` 复合 keyset
+   (`created_at > ? OR (created_at = ? AND id > ?)`,双列同序),按页滚动直到水位对齐,
+   突破原「最新 100 条」上限;无水位时退回最新页幂等合并并建立水位。半参数由路由
+   refine 直接 400,不静默 strip 成普通分页;角标仍取 `getUnreadCount` 服务端真相。
+   边界:水位只覆盖新增行,不覆盖已读/归档等状态翻转;单次重连最多回填 10 页,
+   触顶只把水位推到已拉位置、不冒充已对齐。零 DB migration(复用既有索引)。
    **仍余 ②(验证面)**:微信开发者工具 / Android 模拟器本机不具备(AGENTS §17),
    端侧回归均为 node(jsdom) 下同一条接线,不冒充真机观感。
    **CLI 平台独占豁免**(§9):主 REPL 会话存 `~/.ihui/sessions/*.json`,与后端

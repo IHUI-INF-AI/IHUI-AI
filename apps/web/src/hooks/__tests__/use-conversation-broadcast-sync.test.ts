@@ -14,26 +14,34 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import type { ChatSyncState } from '@ihui/types'
 
-const { userBroadcastMock, chatSyncMock, applyChatSyncMock, closeMeta, closeChat, storeState } =
-  vi.hoisted(() => ({
-    userBroadcastMock: vi.fn(),
-    chatSyncMock: vi.fn(),
-    applyChatSyncMock: vi.fn(),
-    closeMeta: vi.fn(),
-    closeChat: vi.fn(),
-    storeState: {
-      conversationId: 'conv-1' as string | null,
-      gapMessageIds: [] as string[],
-      // 重连补增量 planner 的只读输入面,逐例赋具体 Map
-      chatSync: {
-        messages: new Map<string, unknown>(),
-        appliedRevs: new Map<string, number>(),
-      } as unknown as ChatSyncState,
-    },
-  }))
+const {
+  userBroadcastMock,
+  chatSyncMock,
+  historyMock,
+  applyChatSyncMock,
+  closeMeta,
+  closeChat,
+  storeState,
+} = vi.hoisted(() => ({
+  userBroadcastMock: vi.fn(),
+  chatSyncMock: vi.fn(),
+  historyMock: vi.fn(),
+  applyChatSyncMock: vi.fn(),
+  closeMeta: vi.fn(),
+  closeChat: vi.fn(),
+  storeState: {
+    conversationId: 'conv-1' as string | null,
+    gapMessageIds: [] as string[],
+    // 重连补增量 planner 的只读输入面,逐例赋具体 Map
+    chatSync: {
+      messages: new Map<string, unknown>(),
+      appliedRevs: new Map<string, number>(),
+    } as unknown as ChatSyncState,
+  },
+}))
 
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }))
 
@@ -73,6 +81,7 @@ const { resyncMock } = vi.hoisted(() => ({ resyncMock: vi.fn().mockResolvedValue
 vi.mock('@/lib/chat-sync-resync', () => ({ resyncChatSyncGaps: resyncMock }))
 
 vi.mock('@ihui/api-client', () => ({
+  getConversationHistory: (...args: unknown[]) => historyMock(...args),
   subscribeUserBroadcast: (...args: unknown[]) => {
     userBroadcastMock(...args)
     return { close: closeMeta }
@@ -93,6 +102,18 @@ beforeEach(() => {
     messages: new Map<string, unknown>(),
     appliedRevs: new Map<string, number>(),
   } as unknown as ChatSyncState
+  // 默认:锚点建立成功,newer 无新增轮(不干扰既有 planner 用例)
+  historyMock.mockImplementation((_id: string, params: { direction?: string }) =>
+    Promise.resolve({
+      success: true,
+      data: {
+        turns: [],
+        nextCursor: null,
+        prevCursor: params.direction === 'newest' ? 'anchor-cursor' : null,
+        cursorState: { status: 'ok' },
+      },
+    }),
+  )
 })
 
 /** 从 meta 订阅的 handlers 里取 onState,按真实状态机序列驱动重连判定。 */
@@ -226,6 +247,92 @@ describe('useConversationBroadcastSync — 票71 消息面接线', () => {
     const marker = 'planChatSyncReconnectResync({'
     expect(src).toContain(marker)
     expect(src.replace(marker, '')).not.toContain(marker)
+  })
+
+  // ==================== 断线期全新消息(本地 rev 账本为零的那批) ====================
+  it('重连 ⇒ 按 history 水位补全新消息,已知无终态仍由 planner 负责(两路不重复)', async () => {
+    storeState.chatSync = syncStateOf([['m-live', false]])
+    historyMock.mockImplementation((_id: string, params: { direction?: string }) =>
+      Promise.resolve({
+        success: true,
+        data: {
+          turns:
+            params.direction === 'newer'
+              ? [{ turnOrdinal: 7, messages: [{ id: 'm-live' }, { id: 'm-new' }] }]
+              : [],
+          nextCursor: null,
+          prevCursor: params.direction === 'newest' ? 'anchor-cursor' : 'newer-cursor',
+          cursorState: { status: 'ok' },
+        },
+      }),
+    )
+    renderHook(() => useConversationBroadcastSync())
+    await waitFor(() =>
+      expect(historyMock).toHaveBeenCalledWith('conv-1', { direction: 'newest', limit: 1 }),
+    )
+    emitConnectionState('open')
+    emitConnectionState('closed')
+    emitConnectionState('open')
+    await waitFor(() => expect(resyncMock).toHaveBeenCalledTimes(2))
+    const idSets = resyncMock.mock.calls.map((call) => call[0].messageIds)
+    expect(idSets).toContainEqual(['m-live'])
+    expect(idSets).toContainEqual(['m-new'])
+  })
+
+  it('水位 stale ⇒ 整段重锚,不发半真窗口的增量快照', async () => {
+    storeState.chatSync = syncStateOf([['m-live', false]])
+    historyMock.mockImplementation((_id: string, params: { direction?: string }) =>
+      Promise.resolve({
+        success: true,
+        data: {
+          turns:
+            params.direction === 'newer' ? [{ turnOrdinal: 7, messages: [{ id: 'm-new' }] }] : [],
+          nextCursor: null,
+          prevCursor: params.direction === 'newest' ? 'anchor-cursor' : null,
+          cursorState:
+            params.direction === 'newer'
+              ? { status: 'stale', reason: 'anchor-missing' }
+              : { status: 'ok' },
+        },
+      }),
+    )
+    renderHook(() => useConversationBroadcastSync())
+    await waitFor(() => expect(historyMock).toHaveBeenCalledTimes(1))
+    emitConnectionState('open')
+    emitConnectionState('closed')
+    emitConnectionState('open')
+    await waitFor(() =>
+      expect(historyMock.mock.calls.filter((c) => c[1]?.direction === 'newer')).toHaveLength(1),
+    )
+    await waitFor(() =>
+      expect(historyMock.mock.calls.filter((c) => c[1]?.direction === 'newest')).toHaveLength(2),
+    )
+    expect(resyncMock).toHaveBeenCalledTimes(1)
+    expect(resyncMock).toHaveBeenCalledWith(expect.objectContaining({ messageIds: ['m-live'] }))
+  })
+
+  it('anchor 没给出水位 ⇒ 降级为只补本地已知,不伪造增量', async () => {
+    storeState.chatSync = syncStateOf([['m-live', false]])
+    historyMock.mockResolvedValue({
+      success: true,
+      data: { turns: [], nextCursor: null, prevCursor: null, cursorState: { status: 'ok' } },
+    })
+    renderHook(() => useConversationBroadcastSync())
+    await waitFor(() => expect(historyMock).toHaveBeenCalledTimes(1))
+    emitConnectionState('open')
+    emitConnectionState('closed')
+    emitConnectionState('open')
+    expect(resyncMock).toHaveBeenCalledTimes(1)
+    expect(historyMock.mock.calls.some((c) => c[1]?.direction === 'newer')).toBe(false)
+  })
+
+  it('变异锁:全新消息补拉必须真走 history newer + 集合差 planner(抹掉即红)', () => {
+    const src = readFileSync(resolve(__dirname, '../use-conversation-broadcast-sync.ts'), 'utf8')
+    const planner = 'planChatSyncReconnectNewMessages({'
+    const newer = "direction: 'newer'"
+    expect(src).toContain(planner)
+    expect(src).toContain(newer)
+    expect(src.replace(planner, '').replace(newer, '')).not.toContain(newer)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

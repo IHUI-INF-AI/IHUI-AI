@@ -49,7 +49,11 @@ vi.mock('@/stores/notification', () => ({
     }),
 }))
 
-import { useGlobalNotification } from '../use-global-notification'
+import {
+  compareNotificationWatermark,
+  extractNotificationWatermark,
+  useGlobalNotification,
+} from '../use-global-notification'
 
 const ROW = {
   id: 'n-missed',
@@ -139,13 +143,99 @@ describe('useGlobalNotification — 重连补增量', () => {
     expect(h.hydrateNotifications).not.toHaveBeenCalled()
   })
 
-  it('变异锁:补拉必须真装在重连边沿且走幂等 hydrate(抹掉即红)', () => {
+  it('变异锁:补拉必须真装在重连边沿且走幂等 hydrate + keyset(抹掉即红)', () => {
     const src = readFileSync(resolve(__dirname, '../use-global-notification.ts'), 'utf8')
-    const call = 'getNotifications({'
-    const merge = 'hydrateNotifications(listRes.data.list ?? [])'
-    expect(src).toContain(call)
-    expect(src).toContain(merge)
-    expect(src.replace(call, '').replace(merge, '')).not.toContain(call)
+    const markers = [
+      'hydrateSinceWatermark(',
+      'hydrateNotifications(list)',
+      'sinceCreatedAt: cursor.createdAt',
+    ]
+    for (const marker of markers) expect(src).toContain(marker)
+    const stripped = markers.reduce((text, marker) => text.split(marker).join(''), src)
+    for (const marker of markers) expect(stripped).not.toContain(marker)
+  })
+
+  // ==================== 精确水位(复合 keyset) ====================
+  const WATERMARK_ROW = {
+    id: 'n-wm',
+    type: 'system',
+    title: '水位通知',
+    isRead: false,
+    createdAt: '2026-11-24T12:00:00.000Z',
+  }
+
+  it('WS 水位只认服务端 id/createdAt(拒绝伪造 ws- id、坏时刻、非通知帧)', () => {
+    expect(extractNotificationWatermark({ type: 'notification', data: WATERMARK_ROW })).toEqual({
+      createdAt: WATERMARK_ROW.createdAt,
+      id: WATERMARK_ROW.id,
+    })
+    expect(
+      extractNotificationWatermark({
+        type: 'notification',
+        data: { id: 'ws-1', createdAt: WATERMARK_ROW.createdAt },
+      }),
+    ).toBeNull()
+    expect(
+      extractNotificationWatermark({
+        type: 'notification',
+        data: { id: 'n-x', createdAt: 'not-a-date' },
+      }),
+    ).toBeNull()
+    expect(extractNotificationWatermark({ type: 'other', data: WATERMARK_ROW })).toBeNull()
+    expect(
+      compareNotificationWatermark(
+        { createdAt: '2026-11-24T12:00:00Z', id: 'a' },
+        { createdAt: '2026-11-24T12:00:00Z', id: 'b' },
+      ),
+    ).toBeLessThan(0)
+  })
+
+  it('有服务端水位 ⇒ 重连走 sinceCreatedAt/sinceId 增量,不再拉最新页', async () => {
+    const sinceRow = { ...ROW, id: 'n-since', createdAt: '2026-11-24T12:30:00.000Z' }
+    h.getNotifications.mockResolvedValue(okList([sinceRow]))
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.lastMessage = { type: 'notification', data: WATERMARK_ROW }
+    rerender()
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.getNotifications).toHaveBeenCalledTimes(1))
+    expect(h.getNotifications).toHaveBeenCalledWith({
+      pageSize: 100,
+      partition: 'active',
+      sinceCreatedAt: WATERMARK_ROW.createdAt,
+      sinceId: WATERMARK_ROW.id,
+    })
+    expect(h.hydrateNotifications).toHaveBeenCalledWith([sinceRow])
+  })
+
+  it('断线超过 100 条 ⇒ 按水位滚动续拉多页,角标仍取服务端真相', async () => {
+    const page1 = Array.from({ length: 100 }, (_, i) => ({
+      ...ROW,
+      id: `n-${String(i + 1).padStart(3, '0')}`,
+    }))
+    const page2 = [{ ...ROW, id: 'n-101' }]
+    h.getNotifications.mockImplementation((query: { sinceId?: string }) =>
+      Promise.resolve(okList(query.sinceId === 'n-000' ? page1 : page2)),
+    )
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.lastMessage = { type: 'notification', data: { ...WATERMARK_ROW, id: 'n-000' } }
+    rerender()
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.getNotifications).toHaveBeenCalledTimes(2))
+    expect(h.getNotifications.mock.calls[1]?.[0]).toMatchObject({ sinceId: 'n-100' })
+    expect(h.hydrateNotifications).toHaveBeenNthCalledWith(1, page1)
+    expect(h.hydrateNotifications).toHaveBeenNthCalledWith(2, page2)
+    // 登录初始化 + 重连各一次,不用本地补回条数重算
+    expect(h.getUnreadCount).toHaveBeenCalledTimes(2)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

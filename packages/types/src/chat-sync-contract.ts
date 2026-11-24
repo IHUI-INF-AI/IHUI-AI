@@ -656,4 +656,37 @@ export function planChatSyncReconnectResync(input: {
   }
   return { needed: requests.length > 0, requests }
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 重连补增量的另一半(2026-11-24):`planChatSyncReconnectResync` 只遍历 `state.messages`,
+ * 断线期**全新**的消息(本地 rev 账本里根本没有)永远进不了它的坐标集,只能靠下次打开
+ * 会话的全量历史兜底 —— 而历史拉取有 pageSize 上限、在途守卫、深链关分页等漏点。
+ *
+ * 本函数接收「会话级增量端点返回的候选 messageId」(web 侧取 history direction:'newer'),
+ * 只挑本地**完全没有**的那批,产出 `lastAppliedRev=0` 的 created 级坐标;已终态的旧消息
+ * 不因候选里出现而被重新纳入(它本来就不在增量窗口,这里再做一道防线)。
+ *
+ * 与姊妹函数同一纪律:纯函数、不碰网络/UI、不复制 gap/stale/duplicate 判据 —— 那些仍由
+ * `mergeChatSyncResyncSnapshot` 唯一裁定;这里只做「本地是否见过」的集合差。
+ */
+export function planChatSyncReconnectNewMessages(input: {
+  state: ChatSyncState
+  conversationId: string
+  candidateMessageIds: readonly string[]
+}): ChatSyncReconnectResyncPlan {
+  const { state, conversationId, candidateMessageIds } = input
+  const requests: ChatSyncResyncRequest[] = []
+  const seen = new Set<string>()
+  for (const messageId of candidateMessageIds) {
+    if (!messageId || seen.has(messageId)) continue
+    seen.add(messageId)
+    if (state.messages.has(messageId)) continue
+    requests.push({
+      conversationId,
+      messageId,
+      lastAppliedRev: CREATED_REV_SENTINEL,
+    })
+  }
+  return { needed: requests.length > 0, requests }
+}
+// ⁠​‌ش​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

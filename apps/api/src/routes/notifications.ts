@@ -71,18 +71,27 @@ import { buildResponseSchema, paginationQuerySchema } from '../utils/api-schemas
 
 // BUG-80:过滤键名与 @ihui/types 的 NotificationListFilters 收敛到唯一真相源 `unread`;
 // 旧版 api-client 的 `isRead` 不在本 schema 内(z.object 默认 strip),不再被误当作过滤开关。
-const listNotificationsQuery = z.object({
-  ...paginationQuery,
-  type: z.transform(emptyToUndefined).pipe(z.enum(NOTIFICATION_TYPES).optional()),
-  unread: z
-    .transform((v) => (v === null || v === undefined || v === '' ? undefined : v === 'true'))
-    .pipe(z.boolean().optional()),
-  // D195 分区:closed enum + 缺省 active。缺省值必须是成员本身(不得把默认放宽成"全部"),
-  // 否则不带参数的老客户端会突然看见归档行,"隐藏"这一维在默认视图里就失效了。
-  partition: z
-    .transform((v) => (v === null || v === '' ? undefined : v))
-    .pipe(z.enum(['active', 'archived']).default('active')),
-})
+const listNotificationsQuery = z
+  .object({
+    ...paginationQuery,
+    type: z.transform(emptyToUndefined).pipe(z.enum(NOTIFICATION_TYPES).optional()),
+    unread: z
+      .transform((v) => (v === null || v === undefined || v === '' ? undefined : v === 'true'))
+      .pipe(z.boolean().optional()),
+    // D195 分区:closed enum + 缺省 active。缺省值必须是成员本身(不得把默认放宽成"全部"),
+    // 否则不带参数的老客户端会突然看见归档行,"隐藏"这一维在默认视图里就失效了。
+    partition: z
+      .transform((v) => (v === null || v === '' ? undefined : v))
+      .pipe(z.enum(['active', 'archived']).default('active')),
+    // 断点续读复合水位。refine 成对校验:半截参数(只给时间或只给 id)直接 400,
+    // 绝不静默 strip 后退回普通分页——那会让调用方误以为"按水位对齐过了"。
+    sinceCreatedAt: z.transform(emptyToUndefined).pipe(z.coerce.date().optional()),
+    sinceId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  })
+  .refine((v) => Boolean(v.sinceCreatedAt) === Boolean(v.sinceId), {
+    message: 'sinceCreatedAt 与 sinceId 必须成对提供',
+    path: ['sinceId'],
+  })
 
 const listMessagesQuery = z.object(paginationQuery)
 
@@ -167,6 +176,16 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
               description: '分区:active=动态流(缺省),archived=已归档(可选)',
               default: 'active',
             },
+            sinceCreatedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: '断点续读水位时间(须与 sinceId 成对;缺省=普通分页)',
+            },
+            sinceId: {
+              type: 'string',
+              format: 'uuid',
+              description: '断点续读水位 id(须与 sinceCreatedAt 成对)',
+            },
           },
         },
         response: buildResponseSchema(400, 401),
@@ -177,13 +196,15 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { page, pageSize, type, unread, partition } = parsed.data
+      const { page, pageSize, type, unread, partition, sinceCreatedAt, sinceId } = parsed.data
       const { list, total } = await findNotificationsByUser(request.userId!, {
         page,
         pageSize,
         type,
         unreadOnly: unread,
         partition,
+        // schema 的 refine 已保证成对;这里再按 pair 组装,不传半截对象下去
+        since: sinceCreatedAt && sinceId ? { createdAt: sinceCreatedAt, id: sinceId } : undefined,
       })
       const unreadCount = await countUnread(request.userId!)
       const listWithTopic = await attachTopicToList(list)
