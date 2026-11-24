@@ -301,8 +301,46 @@ def _prune_stale(now: datetime) -> None:
             item.status = STATUS_TIMEOUT
             item.reason = "timeout"
             item.event.set()
+            _sync_browser_attention(item.user_id)
         if item.expires_at < now - timedelta(seconds=STALE_RETENTION_S):
             _registry.pop(qid, None)
+
+
+def _pending_for_user(user_id: str | None) -> bool:
+    """该用户此刻是否还有待答问题(跨会话,按 user_id)。"""
+    target = user_id or None
+    with _registry_lock:
+        return any(
+            item.user_id == target and item.status == STATUS_PENDING and not item.continued
+            for item in _registry.values()
+        )
+
+
+def _sync_browser_attention(user_id: str | None) -> None:
+    """把"是否在等人回答"投递给该用户打开的浏览器监看浮窗。
+
+    只把任务扔进当前事件循环,不 await、不抛错:同步调用/测试没有 loop 时静默跳过。
+    监看状态永远不能影响提问主流程 —— 任何异常都在这里吞掉。
+    """
+    if not user_id:
+        return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    try:
+        from . import browser_hub as _browser_hub
+
+        pending = _pending_for_user(user_id)
+        loop.create_task(
+            _browser_hub.notify_user_attention(
+                user_id,
+                "waiting" if pending else "running",
+                "agent-question" if pending else None,
+            )
+        )
+    except Exception:
+        return
 
 
 def create_question(
@@ -368,6 +406,8 @@ def create_question(
     with _registry_lock:
         _prune_stale(now)
         _registry[item.question_id] = item
+    # 问题已登记:该用户打开的浏览器监看浮窗切"等待人工"
+    _sync_browser_attention(item.user_id)
     return item
 
 
@@ -473,6 +513,7 @@ def resolve_question(
             item.status = STATUS_TIMEOUT
             item.reason = "timeout"
             item.event.set()
+            _sync_browser_attention(item.user_id)
             return STATUS_TIMEOUT, item
         if item.questions and answers is not None:
             parsed, answers_error = _resolve_sub_answers(item, answers)
@@ -484,6 +525,7 @@ def resolve_question(
             item.custom_text = parsed[0]["customText"]
             item.status = STATUS_ANSWERED
             item.event.set()
+            _sync_browser_attention(item.user_id)
             return STATUS_ANSWERED, item
         ids, custom, selection_error = _selection(item, selected_ids, custom_text)
         if selection_error is not None:
@@ -492,6 +534,7 @@ def resolve_question(
         item.custom_text = custom
         item.status = STATUS_ANSWERED
         item.event.set()
+        _sync_browser_attention(item.user_id)
         return STATUS_ANSWERED, item
 
 
@@ -516,10 +559,12 @@ def withdraw_question(
             item.status = STATUS_TIMEOUT
             item.reason = "timeout"
             item.event.set()
+            _sync_browser_attention(item.user_id)
             return STATUS_TIMEOUT, item
         item.status = STATUS_WITHDRAWN
         item.reason = reason
         item.event.set()
+        _sync_browser_attention(item.user_id)
         return STATUS_WITHDRAWN, item
 
 
@@ -541,6 +586,8 @@ def cancel_session_questions(
             item.reason = reason
             item.event.set()
             affected.append(item)
+    for user_id in {item.user_id for item in affected}:
+        _sync_browser_attention(user_id)
     return affected
 
 
@@ -606,6 +653,7 @@ def mark_continued(
         extended = _now() + timedelta(seconds=max(float(grace_s), 1.0))
         if item.expires_at < extended:
             item.expires_at = extended
+        _sync_browser_attention(item.user_id)
         return STATUS_CONTINUED
 
 

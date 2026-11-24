@@ -38,6 +38,7 @@ import tempfile
 import threading
 import time
 import uuid
+import weakref
 from collections import deque
 from collections.abc import Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
@@ -88,6 +89,29 @@ def detect_human_gate(url: str | None) -> bool:
         return True
     query_keys = set(parse_qs(parsed.query, keep_blank_values=True))
     return bool(query_keys & _GATE_QUERY_KEYS)
+
+
+# 2026-11-25:活跃会话弱引用表。提问/审批这类"人必须介入"的信号发生在别的模块,
+# 它们不该反向依赖 BrowserHub 实例;按属主把信号扇出到已打开的会话就够了。
+_ACTIVE_SESSIONS: weakref.WeakSet[Any] = weakref.WeakSet()
+
+
+async def notify_user_attention(
+    user_id: str | None, phase: str, reason: str | None = None
+) -> int:
+    """把某用户所有在役浏览器会话切到 phase(供 chat/agent 的等待事件调用)。
+
+    返回命中的会话数。没有属主的系统级会话不会被误伤。
+    """
+    if not user_id:
+        return 0
+    hits = 0
+    for session in list(_ACTIVE_SESSIONS):
+        if getattr(session, "owner_user_id", None) != user_id:
+            continue
+        await session.set_phase(phase, reason, source="manual")
+        hits += 1
+    return hits
 
 
 _T = TypeVar("_T")
@@ -876,6 +900,7 @@ class BrowserSession:
         # 对已登录调用方一律不可见 —— 与 session_store.owner_scoped_allows 同一条口径,
         # 宁可让"没盖章的会话"少一个人能看见,也不给"谁都能碰"留口子。
         self.owner_user_id: str | None = owner_user_id or None
+        _ACTIVE_SESSIONS.add(self)
         self._cdp: Any | None = None  # sync CDPSession
         self._screencast_running = False
         self._screenshot_task: asyncio.Task[None] | None = None  # 截图轮询后台 task

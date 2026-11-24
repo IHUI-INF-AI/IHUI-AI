@@ -24,6 +24,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.services import ask_user_question as auq
 from app.services import browser_hub as bh
 
 
@@ -904,6 +905,66 @@ async def test_navigation_listener_marks_gate_automatically():
     page.on_handlers["framenavigated"][0](page.main_frame)
     await asyncio.sleep(0.05)
     assert session._phase_state["phase"] == "gate"
+
+
+async def test_notify_user_attention_targets_owner_only():
+    """提问属于"人必须介入":按属主扇出,别家的会话不动。"""
+    mine = _make_session(page=FakePage(url="https://a.com/"))
+    mine.owner_user_id = "u-attn-1"
+    other = _make_session(page=FakePage(url="https://b.com/"))
+    other.owner_user_id = "u-other-1"
+
+    hits = await bh.notify_user_attention("u-attn-1", "waiting", "agent-question")
+    assert hits == 1
+    assert mine._phase_state["phase"] == "waiting"
+    assert other._phase_state["phase"] == "running"
+
+
+async def test_ask_user_question_drives_browser_phase():
+    """提问登记 → 浮窗 waiting;回答 → 收回 running(整条链路,不是单点)。"""
+    session = _make_session(page=FakePage(url="https://a.com/"))
+    session.owner_user_id = "u-attn-2"
+
+    item = auq.create_question(
+        session_id="chat-attn-2",
+        user_id="u-attn-2",
+        prompt="需要你登录一下",
+        options=[{"id": "ok", "label": "好"}],
+    )
+    assert not isinstance(item, dict)
+    await asyncio.sleep(0.05)
+    assert session._phase_state["phase"] == "waiting"
+
+    status, _item = auq.resolve_question(
+        item.question_id,
+        session_id="chat-attn-2",
+        user_id="u-attn-2",
+        selected_ids=["ok"],
+    )
+    assert status == auq.STATUS_ANSWERED
+    await asyncio.sleep(0.05)
+    assert session._phase_state["phase"] == "running"
+
+
+async def test_cancel_session_questions_clears_browser_waiting():
+    """会话中断也必须把浮窗从"等待人工"收回,不能留一个假等待。"""
+    session = _make_session(page=FakePage(url="https://a.com/"))
+    session.owner_user_id = "u-attn-3"
+
+    item = auq.create_question(
+        session_id="chat-attn-3",
+        user_id="u-attn-3",
+        prompt="需要你确认一下",
+        options=[{"id": "ok", "label": "好"}],
+    )
+    assert not isinstance(item, dict)
+    await asyncio.sleep(0.05)
+    assert session._phase_state["phase"] == "waiting"
+
+    affected = auq.cancel_session_questions("chat-attn-3")
+    assert affected
+    await asyncio.sleep(0.05)
+    assert session._phase_state["phase"] == "running"
 
 
 async def test_close_detaches_cdp_and_closes_context():
