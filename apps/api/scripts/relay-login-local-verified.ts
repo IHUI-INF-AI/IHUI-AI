@@ -57,6 +57,14 @@ const chatCarry = await import(
 const wbCarry = await import(
   pathToFileURL(path.join(REPO_ROOT, 'scripts', 'lib', 'workbuddy-chat-carry.mjs')).href
 )
+/**
+ * 豆包一键切号自动对话回放(2026-11-24 立)。两阶段必须跨写回点:
+ * 写回前 export(旧号 cookie 还在)→ 写回后 replay(新号 cookie 生效)。
+ * 判据与失败降级在 scripts/lib/doubao-auto-carry.mjs 单源,本层只编排时序、不重造判据。
+ */
+const doubaoAutoCarry = await import(
+  pathToFileURL(path.join(REPO_ROOT, 'scripts', 'lib', 'doubao-auto-carry.mjs')).href
+)
 const { snapshotApp, compareSnapshots } = continuity
 type SnapshotResult = Awaited<ReturnType<typeof snapshotApp>>
 
@@ -174,6 +182,11 @@ export interface VerifiedSwitchResult {
   writeBack: Awaited<ReturnType<typeof loginAccountLocal>> | null
   /** WorkBuddy 对话随行结果(null = 该平台不走这条腿 / 未执行) */
   resumeCarry: unknown
+  /**
+   * 豆包自动回放结果(null = 非豆包 / dry-run / 未执行)。
+   * export 与 replay 两段都在内,失败只记这里、不翻转 ok。
+   */
+  doubaoCarry: { export: unknown; replay: unknown } | null
   notes: string[]
 }
 
@@ -198,6 +211,14 @@ export async function runVerifiedSwitch(opts: {
    * 不注入且处在测试进程 ⇒ 不执行真实随行,避免单测写真实客户端库。
    */
   carryImpl?: typeof chatCarry.switchCarry
+  /**
+   * 测试注入:替换豆包自动回放两阶段(默认真模块;测试进程默认不执行,绝不真读 cookie/真发网络)。
+   * 形状与 doubao-auto-carry.mjs 的两个导出函数一致。
+   */
+  doubaoCarryImpl?: {
+    exportBeforeSwitch: typeof doubaoAutoCarry.exportBeforeSwitch
+    replayAfterSwitch: typeof doubaoAutoCarry.replayAfterSwitch
+  }
 }): Promise<VerifiedSwitchResult> {
   const doLoad = opts.loadRow ?? loadPoolRow
   const doWrite = opts.writeBack ?? loginAccountLocal
@@ -206,6 +227,9 @@ export async function runVerifiedSwitch(opts: {
   const doCompare = opts.compare ?? compareSnapshots
   const hasTemplate = opts.hasTemplate ?? hasSessionTemplate
   const notes: string[] = []
+  const isTestEnv = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test'
+  /** 豆包回放腿:未注入且在测试进程 ⇒ null(不碰真实 cookie/网络);生产走真模块。 */
+  const doDoubaoCarry = opts.doubaoCarryImpl ?? (isTestEnv ? null : doubaoAutoCarry)
 
   const row = await doLoad(opts.provider, opts.uid)
 
@@ -237,6 +261,7 @@ export async function runVerifiedSwitch(opts: {
       compare: null,
       writeBack: null,
       resumeCarry: null,
+      doubaoCarry: null,
       notes,
     }
   }
@@ -256,14 +281,37 @@ export async function runVerifiedSwitch(opts: {
         })()
       : null
 
+  /**
+   * 豆包阶段一(写回【前】,旧号 cookie 还在):把旧号云端对话导出归档。
+   * 必须早于 doWrite —— 写回腿会把本机 Cookies 换成新号,晚一步就拉不到旧号对话。
+   * 只在 provider=doubao 且回放腿可用(生产真模块 / 测试注入假件)时执行;失败只记 note。
+   */
+  let doubaoExport: unknown = null
+  if (opts.provider === 'doubao' && doDoubaoCarry) {
+    try {
+      doubaoExport = await doDoubaoCarry.exportBeforeSwitch()
+      notes.push((doubaoExport as { note?: string })?.note ?? '豆包对话导出:无返回说明')
+    } catch (e) {
+      doubaoExport = {
+        ok: false,
+        code: 'export-threw',
+        note: `豆包对话导出异常:${e instanceof Error ? e.message : String(e)}`,
+      }
+      notes.push((doubaoExport as { note: string }).note)
+    }
+  } else if (opts.provider === 'doubao') {
+    notes.push('豆包对话导出未执行:测试进程默认不碰真实 cookie/网络(需验请注入 doubaoCarryImpl)')
+  }
+
   const writeBack = await doWrite(row)
   /** 对话随行结果(null = 未执行) */
   let resumeCarry: unknown = null
+  /** 豆包两阶段回放结果(export + replay);非豆包 / 未执行 ⇒ null */
+  let doubaoCarry: { export: unknown; replay: unknown } | null = null
   /**
    * 全平台对话随行(2026-11-22 收口)。
    * 只在写回腿自报成功且回报落点时执行;carry 失败**不翻转切号成败**,但必须点名。
    */
-  const isTestEnv = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test'
   const doCarry = opts.carryImpl ?? (isTestEnv ? null : chatCarry.switchCarry)
   if (writeBack?.ok === true && writeBack?.targetFile) {
     const toUid = String(row.uid)
@@ -271,6 +319,37 @@ export async function runVerifiedSwitch(opts: {
       const m = chatCarry.getMatrix(opts.provider)
       if (!m) {
         notes.push(`对话随行未执行:平台 ${opts.provider} 未登记(不猜)`)
+      } else if (m.kind === 'cloud' && opts.provider === 'doubao' && doDoubaoCarry) {
+        /**
+         * 豆包(cloud)自动回放(2026-11-24 立):不再只回 replay-required 静态提示。
+         * 写回前已 export 出归档(见 doubaoExport),这里用【新号】登录态把归档回放成新会话。
+         * 本腿独立于 doCarry(测试进程 doCarry=null 但注入 doubaoCarryImpl 后仍要能验),
+         * 故必须排在 !doCarry 检查之前。回放失败只记 note,不翻转切号成败。
+         */
+        const ea = doubaoExport as { ok?: boolean; archiveDir?: string } | null
+        let replay: unknown = null
+        try {
+          replay = await doDoubaoCarry.replayAfterSwitch({
+            archiveDir: ea?.ok === true ? ea.archiveDir : undefined,
+          })
+          notes.push((replay as { note?: string })?.note ?? '豆包对话回放:无返回说明')
+        } catch (e) {
+          replay = {
+            ok: false,
+            code: 'replay-threw',
+            note: `豆包对话回放异常:${e instanceof Error ? e.message : String(e)}`,
+          }
+          notes.push((replay as { note: string }).note)
+        }
+        doubaoCarry = { export: doubaoExport, replay }
+        resumeCarry = {
+          kind: 'cloud',
+          provider: 'doubao',
+          autoReplay: true,
+          export: doubaoExport,
+          replay,
+        }
+        notes.push('豆包对话随行走自动回放链(免手动 export/replay);矩阵 cloud 语义不变')
       } else if (!doCarry) {
         notes.push(
           `对话随行未执行:测试进程默认不碰真实客户端库(${opts.provider});需验请注入 carryImpl`,
@@ -347,6 +426,7 @@ export async function runVerifiedSwitch(opts: {
     compare,
     writeBack,
     resumeCarry,
+    doubaoCarry,
     notes,
   }
 }
@@ -406,6 +486,12 @@ export function main(argv: string[], io: MainIo = {}): number {
           : '写回: (dry-run 或未执行)',
         ...(r.writeBack?.notes ?? []).map((n) => `  · ${n}`),
         r.resumeCarry ? '对话随行: 已执行(明细见上方 notes)' : '',
+        ...(r.doubaoCarry
+          ? [
+              `豆包回放: export=${(r.doubaoCarry.export as { ok?: boolean } | null)?.ok ? 'ok' : 'skip/fail'}` +
+                ` replay=${(r.doubaoCarry.replay as { ok?: boolean } | null)?.ok ? 'ok' : 'skip/fail'}`,
+            ]
+          : []),
         r.after
           ? `after: ${r.after.state} 会话=${r.after.sessions?.count ?? '?'} 钉=${r.after.sessions?.digest ?? '-'}`
           : r.dryRun

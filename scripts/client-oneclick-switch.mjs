@@ -100,10 +100,10 @@ const CHAT_CARRY = Object.freeze({
   doubao: {
     kind: 'cloud',
     text:
-      '对话在云端且与账号绑定、本地零副本,豆包没有逐条消息写回的端点 ⇒ 走回放迁移:' +
-      '旧号登录态跑 node scripts/doubao-carry.mjs --export --apply 全量归档;' +
-      '再切到新号(本机登录新号)跑 node scripts/doubao-carry.mjs --replay <归档目录> --apply,' +
-      '旧对话以新会话进新号,打开客户端即可接着聊(指纹防重,复跑自动跳过;--limit n 可先试水)',
+      '对话在云端且与账号绑定、本地零副本 ⇒ 本器自动办两步:切号前用旧号导出全量归档,' +
+      '切号后用新号回放成新会话,无需手动敲命令;内容以新会话进新号(服务端重新生成回复,' +
+      '不是逐条原位续聊,图片/语音降级为文字占位)。若某步失败窗口会点名,可按提示手动补跑 ' +
+      'node scripts/doubao-carry.mjs --export/--replay',
   },
 })
 

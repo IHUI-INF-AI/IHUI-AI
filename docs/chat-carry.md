@@ -26,7 +26,7 @@
 | loomy | local | `Local Storage/leveldb` + IndexedDB,无账号列 |
 | codex | local | `~/.codex/state_5.sqlite` / `threads`(账号列全 NULL)+ `sessions/YYYY/**/*.jsonl` |
 | raccoon | local | 本地库,本机未装 ⇒ 装好登录后 `--audit` 再核 |
-| doubao | cloud | 云端绑账号、本地零副本 ⇒ `--export` / `--replay` 回放迁移 |
+| doubao | cloud | 云端绑账号、本地零副本 ⇒ 切号自动 `--export`/`--replay` 回放(一步完成,免手动) |
 
 **local 不是「不用管」,是「已经核验过没有账号维度」。** 探针一旦在某个平台的库里读到账号列,立即翻成 `account-scoped-store` 并改按 rebind 适配,绝不冒绿。
 
@@ -100,7 +100,13 @@ node scripts/chat-carry.mjs --provider workbuddy --from <旧uid> --revive-window
 
 ## 6. 豆包(cloud)
 
-云端会话绑账号、本地零副本,且没有逐条消息写回端点。迁移是**回放**而不是重绑:
+云端会话绑账号、本地零副本,且没有逐条消息写回端点。迁移是**回放**而不是重绑。
+
+**一键切号已自动完成这两步**(2026-11-24 立):写回前用旧号登录态自动导出归档,写回成功后用新号登录态自动回放。事实源 `scripts/lib/doubao-auto-carry.mjs`(两阶段) + `apps/api/scripts/relay-login-local-verified.ts`(时序编排)。任一腿失败只记 note、不翻转切号成败,窗口会点名失败原因。
+
+> 诚实边界:豆包没有逐条消息写回端点,回放 = 旧对话压成一条文本发进新会话、服务端重新生成回复。内容搬过去了,但不是 Trae 那种逐条原位续聊;图片/语音降级为文字占位;单会话 20 万字符上限。
+
+**手动补跑出口**(自动回放失败、或未走一键入口时用):
 
 ```bash
 # 旧号登录态
