@@ -1221,6 +1221,7 @@ fn install_id(root: &Path, app_data: &Path) -> String {
             return id;
         }
     }
+    let _ = fs::create_dir_all(app_data);
     let seed = format!(
         "{}:{}:{}",
         SystemTime::now()
@@ -1232,8 +1233,13 @@ fn install_id(root: &Path, app_data: &Path) -> String {
     );
     let digest = Sha256::digest(seed.as_bytes());
     let id = hex_digest(&digest)[..32].to_string();
-    let _ = fs::write(&path, &id);
-    id
+    if fs::write(&path, &id).is_ok() {
+        return id;
+    }
+    // app_data 不可写（只读安装/权限异常）时，灰度桶仍必须稳定：
+    // 用安装根目录的哈希兜底，绝不让同一台机器每次启动换一个 rollout 桶。
+    let fallback = Sha256::digest(root.to_string_lossy().as_bytes());
+    hex_digest(&fallback)[..32].to_string()
 }
 
 fn emit(app: &AppHandle, event: UpdateEvent) {
@@ -1275,6 +1281,44 @@ pub fn sync_display_version(_app: &AppHandle) {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn install_id_is_stable_when_app_data_is_writable() {
+        let root = std::env::temp_dir().join(format!(
+            "ihui-install-id-{}-{}",
+            std::process::id(),
+            now_secs()
+        ));
+        let app_data = root.join("app-data");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let first = install_id(&root, &app_data);
+        let second = install_id(&root, &app_data);
+        assert_eq!(first, second);
+        assert_eq!(first.len(), 32);
+        assert!(first.chars().all(|c| c.is_ascii_hexdigit()));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn install_id_falls_back_stably_when_app_data_is_not_writable() {
+        let root = std::env::temp_dir().join(format!(
+            "ihui-install-id-fallback-{}-{}",
+            std::process::id(),
+            now_secs()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        // 把 app_data 做成文件，create_dir_all / write 都会失败，模拟只读/异常安装根。
+        let app_data = root.join("app-data-as-file");
+        fs::write(&app_data, b"not-a-directory").unwrap();
+        let first = install_id(&root, &app_data);
+        let second = install_id(&root, &app_data);
+        assert_eq!(first, second);
+        assert_eq!(first.len(), 32);
+        assert!(first.chars().all(|c| c.is_ascii_hexdigit()));
+        let _ = fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn manifest_path_rejects_traversal() {
