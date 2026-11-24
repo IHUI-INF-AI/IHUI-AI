@@ -99,6 +99,10 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-24**
+- 🚀 Feature/Improvement:双端首页横向边线统一并收口全仓 token；同批办公会话收尾 (fc6fc179)
+- 🐞 Fix:补齐 finance:ledger:view|manage 权限点(真库 0 行导致任何角色都授不出,仅管理员 bypass 可用) (16738e1f)
+- 🐞 Fix:报销审批人候选池财务优先排序,默认选中人与展示顺序一致 (d75671ce)
+- 🐞 Fix:my-expense 页补 AuthGatePrompt message(TS2741;净面构建唯一类型错) —— 直接基于 origin/main 建树,避开 README 自动段两侧冲突 (857e8dd0)
 - 📚 Docs:三语最近更新补回浏览器画中画监看条目（19198ba7） (25a999ed)
 - 🐞 Fix:门327接判面层单一真相源——git调用从裸spawnSync收敛到face-reader.gitRaw(绝对路径/windowsHide/有界timeout/读动词重试),消门312 R1新增未覆盖;判据语义不变(索引blob vs HEAD祖先),自测3/3+成对测试7/7+门312工作树档覆盖295->296全绿 (f7c7d7df)
 - 🔧 Chore/Other:v3 快照二进制本体(prod-foreign-v3.zip 103103B)强制入库——.gitignore 的 *.zip 会静默吞掉它,漏了等于只有清单没有快照 (2f1080e8)
