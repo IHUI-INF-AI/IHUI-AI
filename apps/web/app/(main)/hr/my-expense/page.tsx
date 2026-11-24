@@ -53,7 +53,7 @@ export default function MyExpensePage() {
       </div>
     )
   }
-  if (!allow) return <AuthGatePrompt />
+  if (!allow) return <AuthGatePrompt message="请先登录后查看我的报销单" />
 
   const rows = listQ.data?.list ?? []
 
