@@ -323,7 +323,7 @@ export function parseTap(stdout) {
     tests: grab('tests') ?? 0,
     pass,
     fail,
-    skipped: grab('skip') ?? 0,
+    skipped: grab('skipped') ?? grab('skip') ?? 0,
     cancelled: grab('cancelled') ?? 0,
     notOk: collectFailures(out.split('\n')),
   }
