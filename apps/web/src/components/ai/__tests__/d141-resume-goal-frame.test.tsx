@@ -52,26 +52,26 @@ const lookupIn = (pack: Record<string, unknown>, ns: string, key: string): unkno
     pack,
   )
 
-const { resumeSessionGoalMock, toastMock, chatState } = vi.hoisted(() => ({
+const { resumeSessionGoalMock, controlGoalStateMock, toastMock, chatState } = vi.hoisted(() => ({
   resumeSessionGoalMock: vi.fn(),
+  controlGoalStateMock: vi.fn(),
   toastMock: { success: vi.fn(), info: vi.fn(), error: vi.fn(), warning: vi.fn() },
   chatState: { conversationId: 'conv-42' as string | null },
 }))
 
 vi.mock('@ihui/api-client', () => ({
   resumeSessionGoal: resumeSessionGoalMock,
+  controlGoalState: controlGoalStateMock,
   // MyQuestsBoard(goal 卡内嵌的跨会话目标板)也从此包取出口;本用例不测它,
   // 但模块整体被替换 ⇒ 少一个具名导出就会在默认参数求值时炸(vi.mock 的整模替换语义)。
   listMyGoals: vi.fn(async () => ({ goals: [] })),
 }))
 vi.mock('@/components/common', () => ({ toast: toastMock }))
 vi.mock('next-intl', () => ({
-  useTranslations:
-    () =>
-    (key: string, vars?: Record<string, string | number>) =>
-      key === 'resumeFailed' && vars
-        ? `${key}:${String(vars.message ?? '')}`
-        : key,
+  useTranslations: () => (key: string, vars?: Record<string, string | number>) =>
+    (key === 'resumeFailed' || key === 'pauseFailed') && vars
+      ? `${key}:${String(vars.message ?? '')}`
+      : key,
 }))
 // GoalCard 只在 handleContinue 里 setState,隔离重依赖的 chat store
 vi.mock('@/stores/chat', () => ({
@@ -102,6 +102,7 @@ describe('控制帧 resume_goal 的 web 消费端', () => {
     cleanup()
     useGoalStore.setState({ goal: null, expanded: true })
     resumeSessionGoalMock.mockReset()
+    controlGoalStateMock.mockReset()
     toastMock.success.mockReset()
     toastMock.info.mockReset()
     toastMock.error.mockReset()
@@ -183,7 +184,57 @@ describe('控制帧 resume_goal 的 web 消费端', () => {
     expect(useGoalStore.getState().goal?.status).toBe('paused')
   })
 
-  it('⑤ 真语包:新增的五枚键在五语言里都在(不是「组件念了个键」)', () => {
+  it('⑥ 暂停装车:点「暂停」⇒ 控制端点被调(action=pause),本地态 paused', async () => {
+    useGoalStore.setState({ goal: makeGoal({ status: 'active' }) })
+    controlGoalStateMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      sessionId: 'conv-42',
+      action: 'pause',
+      goalLifecycle: 'paused',
+    })
+    render(<GoalCard />)
+    fireEvent.click(screen.getByTestId('goal-pause'))
+
+    await waitFor(() => expect(controlGoalStateMock).toHaveBeenCalledTimes(1))
+    expect(controlGoalStateMock.mock.calls[0]).toEqual(['conv-42', 'pause'])
+    expect(useGoalStore.getState().goal?.status).toBe('paused')
+  })
+
+  it('⑦ 暂停无账本:404 不当作失败,本地暂停保留', async () => {
+    useGoalStore.setState({ goal: makeGoal({ status: 'active' }) })
+    controlGoalStateMock.mockResolvedValue({
+      ok: false,
+      status: 404,
+      sessionId: 'conv-42',
+      action: 'pause',
+      error: 'no ledger',
+    })
+    render(<GoalCard />)
+    fireEvent.click(screen.getByTestId('goal-pause'))
+
+    await waitFor(() => expect(toastMock.info).toHaveBeenCalledWith('pauseLocalOnly'))
+    expect(useGoalStore.getState().goal?.status).toBe('paused')
+    expect(toastMock.error).not.toHaveBeenCalled()
+  })
+
+  it('⑧ 暂停没落到服务端:网络失败回滚 + 可见原因', async () => {
+    useGoalStore.setState({ goal: makeGoal({ status: 'active' }) })
+    controlGoalStateMock.mockResolvedValue({
+      ok: false,
+      status: 0,
+      sessionId: 'conv-42',
+      action: 'pause',
+      error: 'network down',
+    })
+    render(<GoalCard />)
+    fireEvent.click(screen.getByTestId('goal-pause'))
+
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('pauseFailed:network down'))
+    expect(useGoalStore.getState().goal?.status).toBe('active')
+  })
+
+  it('⑤ 真语包:恢复/暂停七枚键在五语言里都在(不是「组件念了个键」)', () => {
     const langs = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
     const keys = [
       'resumeServerOk',
@@ -191,12 +242,11 @@ describe('控制帧 resume_goal 的 web 消费端', () => {
       'resumeTerminal',
       'resumeNoGoal',
       'resumeFailed',
+      'pauseLocalOnly',
+      'pauseFailed',
     ]
     for (const lang of langs) {
-      const pack = mergePack(
-        readPack(`shared/${lang}.json`),
-        readPack(`web/${lang}.json`),
-      )
+      const pack = mergePack(readPack(`shared/${lang}.json`), readPack(`web/${lang}.json`))
       for (const key of keys) {
         const value = lookupIn(pack, 'goalCard', key)
         expect(typeof value, `${lang}/goalCard.${key}`).toBe('string')
@@ -205,14 +255,11 @@ describe('控制帧 resume_goal 的 web 消费端', () => {
     }
     // 插值占位符必须五语言都在(缺一个 ⇒ 那一语言的报错文案里 {message} 会原样露出)
     for (const lang of langs) {
-      const pack = mergePack(
-        readPack(`shared/${lang}.json`),
-        readPack(`web/${lang}.json`),
-      )
-      const failed = (
-        pack.goalCard as Record<string, unknown>
-      ).resumeFailed as string
+      const pack = mergePack(readPack(`shared/${lang}.json`), readPack(`web/${lang}.json`))
+      const failed = (pack.goalCard as Record<string, unknown>).resumeFailed as string
       expect(failed, `${lang}/goalCard.resumeFailed`).toContain('{message}')
+      const pauseFailed = (pack.goalCard as Record<string, unknown>).pauseFailed as string
+      expect(pauseFailed, `${lang}/goalCard.pauseFailed`).toContain('{message}')
     }
   })
 })

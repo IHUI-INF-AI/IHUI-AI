@@ -19,7 +19,7 @@
 | POST | `/typing`                 | 可选，装饰性                                                |
 | POST | `/ingest`                 | 上游把入站消息推进队列；可单条、`{messages:[...]}` 或裸数组 |
 
-动作名：`contact.sync`、`contact.delete`、`group.create`、`group.invite`、`group.kick`、`group.rename`、`group.announce`、`moment.publish`。不支持的动作必须返回 `{ ok:false, status:"unsupported" }`，不要伪造成功。`group.create` 必须在 `data.chatId` 返回新群 id（形如 `xxxx@chatroom`），IHUI 侧据此建立本地群会话镜像。
+动作名：`contact.sync`、`contact.delete`、`group.create`、`group.invite`、`group.kick`、`group.rename`、`group.announce`、`moment.publish`、`chat.switch`（OCR 只读驱动支持）。不支持的动作必须返回 `{ ok:false, status:"unsupported" }`，不要伪造成功。`group.create` 必须在 `data.chatId` 返回新群 id（形如 `xxxx@chatroom`），IHUI 侧据此建立本地群会话镜像。
 
 ## 运行
 
@@ -35,7 +35,7 @@ node server.mjs
 
 ```bash
 node test/smoke.mjs
-node test/ocr-dedupe.mjs   # OCR 变体去重/追加消息/重复短句/窗口缩放
+node test/ocr-dedupe.mjs   # OCR 变体去重/追加消息/重复短句/窗口缩放/单栏解析/2 倍补标题
 ```
 
 ## 接 wcfhttp（WeChatFerry）
@@ -88,6 +88,8 @@ node server.mjs
 - 当前打开哪个会话，就只读哪个会话。
 
 驱动只产出左侧气泡的文本消息，不入库自己发出的右侧消息；`/send`、群动作、朋友圈会明确返回不支持。`/action` 的 `chat.switch` 可用：传 `{ "title": "会话标题" }`，驱动会优先点左侧会话列表，找不到再走微信搜索；切换后从新会话重建基线，不会把历史消息当新入站重复入库。识别有错字属于 OCR 固有误差，不要把 OCR 文本当平台原始内容。适合先打通「真机入站」链路，不适合替代 hook 做全量后台收信。
+
+切换的工程细节：列表会上下滚动逐屏查找（先上后下），窗口会先 `Fit` 到 1240×1120 并保持置顶；宽窗列表+聊天布局下正常 OCR 常漏掉深色标题，脚本只在这一情形补一次 2 倍放大 OCR 拿标题；搜索若打开内置浏览器而不是目标会话，会返回 `ok:false`，不伪造成功。`-Mode ocr` / `-Mode windows` 是诊断入口，分别只跑 OCR / 只列微信窗口。
 
 新增环境变量：
 

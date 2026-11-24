@@ -152,6 +152,99 @@ impl ProbeState {
     }
 }
 
+// ---------------------------------------------------------------------------
+// P3-02：双判定值留痕（原始 raw + 归一三态 + 来源 API 名）
+// ---------------------------------------------------------------------------
+
+/// 作业级探测来源 API 名（对照方 TLS 槽位写入的 `api=...` 一栏）。
+pub const API_JOB_OBJECT_PROBE: &str = "job_object_probe";
+/// 微虚拟机级探测来源 API 名。
+pub const API_MICRO_VM_PROBE: &str = "micro_vm_probe";
+
+/// 一次探测的双判定值留痕：原始判定值 + 归一后的三态 + 来源 API 名。
+///
+/// 对齐对照方两套同构 `Is*Supported`：判定函数先出原始结果，归一函数再出归一值，
+/// 两者都留；本仓额外保留「未判定」态（对照方没有这一档，见模块头注纪律 1）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProbeRecord {
+    /// 来源 API 名（对照方非 0 时写进 TLS 槽位的那条）。
+    pub source_api: &'static str,
+    /// 判定函数直出的原始值；`None` = 判定函数本身没跑成（未判定）。
+    pub raw: Option<u32>,
+    /// 归一后的三态。
+    pub state: ProbeState,
+}
+
+impl ProbeRecord {
+    /// 归一判据（纯函数，夹具可注入）：原始值 → 三态。
+    ///
+    /// - `Some(0)` ⇒ 不成立 ⇒ `Unsupported(zero_reason)`；
+    /// - `Some(nonzero)` ⇒ 成立 ⇒ `Supported`；
+    /// - `None` ⇒ 判定函数没跑成 ⇒ `Unjudged(unavailable)`（不默认支持）。
+    pub fn normalize(
+        source_api: &'static str,
+        raw: Option<u32>,
+        zero_reason: UnsupportedReason,
+        unavailable: UnjudgedReason,
+    ) -> Self {
+        let state = match raw {
+            Some(0) => ProbeState::Unsupported(zero_reason),
+            Some(_) => ProbeState::Supported,
+            None => ProbeState::Unjudged(unavailable),
+        };
+        Self {
+            source_api,
+            raw,
+            state,
+        }
+    }
+
+    /// 判定是否成立：仅原始值非 0 算成立；未判定 / 不成立都不算。
+    pub fn established(&self) -> bool {
+        matches!(self.raw, Some(n) if n != 0)
+    }
+}
+
+/// 探测留痕槽（对照方 TLS 槽位的进程内等价物）。
+///
+/// 对齐对照方观察：判定为 0 清空留痕；非 0 才在槽位写来源 API 名。判定没跑成（`None`）
+/// 同样清空——不许把“没判”留成“支持”。
+#[derive(Debug, Default)]
+pub struct ProbeTrace {
+    record: Option<ProbeRecord>,
+}
+
+impl ProbeTrace {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// 写入一次探测留痕；不成立 / 未跑成 ⇒ 清空槽位。
+    pub fn record(&mut self, record: ProbeRecord) {
+        self.record = record.established().then_some(record);
+    }
+
+    /// 最近一次成立的探测留痕；无成立记录 ⇒ `None`。
+    pub fn last(&self) -> Option<&ProbeRecord> {
+        self.record.as_ref()
+    }
+
+    /// 显式清空。
+    pub fn clear(&mut self) {
+        self.record = None;
+    }
+}
+
+/// 形态对齐的探测日志：`stage=support_check native_domain=support_status native={}`。
+pub fn log_support_check(record: &ProbeRecord) {
+    log::info!(
+        "stage=support_check native_domain=support_status native={} source_api={} state={}",
+        record.raw.unwrap_or(0),
+        record.source_api,
+        record.state.code()
+    );
+}
+
 /// 拒绝执行的回执。`reasons` 至少一条，调用方可直接展示给模型。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Refusal {
@@ -217,6 +310,16 @@ pub enum SandboxAction {
     Kill,
 }
 
+/// 等待一次沙箱会话的结果。
+///
+/// `TimedOut` 不是失败:会话仍在跑,句柄仍有效;只有 `Exited` 才会从后端的
+/// `children` 表里摘掉。未知 handle 走 `Err`,不折成超时——两者原因不同。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WaitOutcome {
+    Exited { code: Option<i32> },
+    TimedOut,
+}
+
 /// 在跑沙箱会话的只读快照。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AliveInfo {
@@ -225,14 +328,18 @@ pub struct AliveInfo {
 }
 
 /// 后端统一接口（导出名映射：`init`↔`Init/InitV2`、`is_supported`↔`IsSBoxSupported`、
-/// `create`↔`CreateSandbox`、`action`↔`Action`、`get_alive_infos`↔`GetSBoxInfo`、
-/// `uninit`↔`UnInit`；`kill_all` 是本仓补的批量善后，原生由 `Action` 承担）。
+/// `create`↔`CreateSandbox`、`action`↔`Action`、`wait`↔`WaitSandbox`、
+/// `get_alive_infos`↔`GetSBoxInfo`、`uninit`↔`UnInit`；`kill_all` 是本仓补的批量善后，
+/// 原生由 `Action` 承担）。
 pub trait SandboxBackend {
     fn tier(&self) -> &'static str;
     fn init(&mut self) -> Result<(), String>;
     fn is_supported(&self) -> ProbeState;
     fn create(&mut self, spec: &SandboxSpec) -> Result<u64, String>;
     fn action(&mut self, handle: u64, action: SandboxAction) -> Result<(), String>;
+    /// 等会话结束(`timeout_ms=None` = 一直等)。超时返回 [`WaitOutcome::TimedOut`],
+    /// 会话句柄保留;未知 handle 返回 Err,不冒充超时。
+    fn wait(&mut self, handle: u64, timeout_ms: Option<u64>) -> Result<WaitOutcome, String>;
     fn kill_all(&mut self) -> usize;
     fn get_alive_infos(&self) -> Vec<AliveInfo>;
     fn uninit(&mut self);
@@ -377,6 +484,43 @@ mod job_object_impl {
             }
         }
 
+        fn wait(&mut self, handle: u64, timeout_ms: Option<u64>) -> Result<WaitOutcome, String> {
+            let child = self
+                .children
+                .get_mut(&handle)
+                .ok_or_else(|| format!("未知 handle={handle}"))?;
+            let outcome = match timeout_ms {
+                None => WaitOutcome::Exited {
+                    code: child
+                        .wait()
+                        .map_err(|e| format!("wait 失败 handle={handle}: {e}"))?
+                        .code(),
+                },
+                Some(ms) => {
+                    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(ms);
+                    loop {
+                        if let Some(status) = child
+                            .try_wait()
+                            .map_err(|e| format!("try_wait 失败 handle={handle}: {e}"))?
+                        {
+                            break WaitOutcome::Exited {
+                                code: status.code(),
+                            };
+                        }
+                        if std::time::Instant::now() >= deadline {
+                            break WaitOutcome::TimedOut;
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(20));
+                    }
+                }
+            };
+            if matches!(outcome, WaitOutcome::Exited { .. }) {
+                self.children.remove(&handle);
+                self.pids.remove(&handle);
+            }
+            Ok(outcome)
+        }
+
         fn kill_all(&mut self) -> usize {
             let n = self.children.len();
             for (_, mut child) in std::mem::take(&mut self.children) {
@@ -442,6 +586,10 @@ impl SandboxBackend for MicroVmBackend {
     }
 
     fn action(&mut self, _handle: u64, _action: SandboxAction) -> Result<(), String> {
+        Err("micro-vm 后端未实现".to_string())
+    }
+
+    fn wait(&mut self, _handle: u64, _timeout_ms: Option<u64>) -> Result<WaitOutcome, String> {
         Err("micro-vm 后端未实现".to_string())
     }
 
@@ -553,6 +701,43 @@ impl SandboxBackend for PortableJobBackend {
         }
     }
 
+    fn wait(&mut self, handle: u64, timeout_ms: Option<u64>) -> Result<WaitOutcome, String> {
+        let child = self
+            .children
+            .get_mut(&handle)
+            .ok_or_else(|| format!("未知 handle={handle}"))?;
+        let outcome = match timeout_ms {
+            None => WaitOutcome::Exited {
+                code: child
+                    .wait()
+                    .map_err(|e| format!("wait 失败 handle={handle}: {e}"))?
+                    .code(),
+            },
+            Some(ms) => {
+                let deadline = std::time::Instant::now() + std::time::Duration::from_millis(ms);
+                loop {
+                    if let Some(status) = child
+                        .try_wait()
+                        .map_err(|e| format!("try_wait 失败 handle={handle}: {e}"))?
+                    {
+                        break WaitOutcome::Exited {
+                            code: status.code(),
+                        };
+                    }
+                    if std::time::Instant::now() >= deadline {
+                        break WaitOutcome::TimedOut;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                }
+            }
+        };
+        if matches!(outcome, WaitOutcome::Exited { .. }) {
+            self.children.remove(&handle);
+            self.pids.remove(&handle);
+        }
+        Ok(outcome)
+    }
+
     fn kill_all(&mut self) -> usize {
         let n = self.children.len();
         for (_, mut child) in std::mem::take(&mut self.children) {
@@ -594,6 +779,9 @@ impl SandboxBackend for PortableJobBackend {
         Err("本平台无作业级隔离".to_string())
     }
     fn action(&mut self, _h: u64, _a: SandboxAction) -> Result<(), String> {
+        Err("本平台无作业级隔离".to_string())
+    }
+    fn wait(&mut self, _h: u64, _t: Option<u64>) -> Result<WaitOutcome, String> {
         Err("本平台无作业级隔离".to_string())
     }
     fn kill_all(&mut self) -> usize {
@@ -760,6 +948,146 @@ mod tests {
         assert_eq!(b.kill_all(), 1);
         assert!(b.get_alive_infos().is_empty());
         b.uninit();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn job_object_backend_wait_reports_exit_and_timeout_without_eating_handle() {
+        let mut b = JobObjectBackend::new();
+        b.init().expect("作业对象应能建起来");
+
+        // 超时:进程还没退 ⇒ TimedOut,句柄仍在(不是"没等到就当失败")
+        let mut slow = SandboxSpec::new("cmd.exe");
+        slow.args = vec!["/C".into(), "ping -n 4 127.0.0.1 > nul".into()];
+        let slow_handle = b.create(&slow).expect("应能 spawn");
+        assert_eq!(
+            b.wait(slow_handle, Some(50)).expect("wait 不应炸"),
+            WaitOutcome::TimedOut
+        );
+        assert!(b.get_alive_infos().iter().any(|i| i.handle == slow_handle));
+        b.action(slow_handle, SandboxAction::Kill)
+            .expect("超时后应能 kill");
+        assert!(b.get_alive_infos().is_empty());
+
+        // 正常退出:拿得到真实 exit code,并从存活表摘掉
+        let mut quick = SandboxSpec::new("cmd.exe");
+        quick.args = vec!["/C".into(), "exit 3".into()];
+        let quick_handle = b.create(&quick).expect("应能 spawn");
+        assert_eq!(
+            b.wait(quick_handle, Some(5_000)).expect("wait 不应炸"),
+            WaitOutcome::Exited { code: Some(3) }
+        );
+        assert!(b.get_alive_infos().is_empty());
+        b.uninit();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn wait_without_timeout_blocks_until_exit() {
+        let mut b = JobObjectBackend::new();
+        b.init().expect("作业对象应能建起来");
+        let mut spec = SandboxSpec::new("cmd.exe");
+        spec.args = vec!["/C".into(), "exit 5".into()];
+        let handle = b.create(&spec).expect("应能 spawn");
+        // timeout_ms=None ⇒ 一直等到退出,拿到真实 code,并从存活表摘掉
+        assert_eq!(
+            b.wait(handle, None).expect("wait 不应炸"),
+            WaitOutcome::Exited { code: Some(5) }
+        );
+        assert!(b.get_alive_infos().is_empty());
+        b.uninit();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn wait_unknown_handle_is_err_not_timeout() {
+        let mut b = JobObjectBackend::new();
+        b.init().expect("作业对象应能建起来");
+        let err = b.wait(999, Some(10)).expect_err("未知 handle 必须报错");
+        assert!(err.contains("未知 handle=999"));
+    }
+
+    #[test]
+    fn normalize_maps_raw_to_state_and_keeps_source_api() {
+        let ok = ProbeRecord::normalize(
+            API_JOB_OBJECT_PROBE,
+            Some(1),
+            UnsupportedReason::OsFailed,
+            UnjudgedReason::BackendAbsent,
+        );
+        assert_eq!(ok.state, ProbeState::Supported);
+        assert!(ok.established());
+        assert_eq!(ok.source_api, API_JOB_OBJECT_PROBE);
+        assert_eq!(ok.raw, Some(1));
+
+        let zero = ProbeRecord::normalize(
+            API_MICRO_VM_PROBE,
+            Some(0),
+            UnsupportedReason::OsFailed,
+            UnjudgedReason::BackendAbsent,
+        );
+        assert_eq!(
+            zero.state,
+            ProbeState::Unsupported(UnsupportedReason::OsFailed)
+        );
+        assert!(!zero.established());
+
+        let missed = ProbeRecord::normalize(
+            API_MICRO_VM_PROBE,
+            None,
+            UnsupportedReason::OsFailed,
+            UnjudgedReason::BackendAbsent,
+        );
+        assert_eq!(
+            missed.state,
+            ProbeState::Unjudged(UnjudgedReason::BackendAbsent)
+        );
+        assert!(!missed.established());
+    }
+
+    #[test]
+    fn trace_clears_on_non_established_and_keeps_on_established() {
+        let mut trace = ProbeTrace::new();
+        let zero = ProbeRecord::normalize(
+            API_JOB_OBJECT_PROBE,
+            Some(0),
+            UnsupportedReason::OsFailed,
+            UnjudgedReason::BackendAbsent,
+        );
+        trace.record(zero);
+        assert!(trace.last().is_none(), "不成立必须清空留痕");
+
+        let missed = ProbeRecord::normalize(
+            API_MICRO_VM_PROBE,
+            None,
+            UnsupportedReason::OsFailed,
+            UnjudgedReason::BackendAbsent,
+        );
+        trace.record(missed);
+        assert!(trace.last().is_none(), "未判定必须清空留痕");
+
+        let ok = ProbeRecord::normalize(
+            API_JOB_OBJECT_PROBE,
+            Some(7),
+            UnsupportedReason::OsFailed,
+            UnjudgedReason::BackendAbsent,
+        );
+        trace.record(ok);
+        assert_eq!(trace.last().unwrap().source_api, API_JOB_OBJECT_PROBE);
+        trace.clear();
+        assert!(trace.last().is_none());
+    }
+
+    #[test]
+    fn support_check_log_path_is_callable_with_raw_and_api() {
+        let rec = ProbeRecord::normalize(
+            API_JOB_OBJECT_PROBE,
+            Some(1),
+            UnsupportedReason::OsFailed,
+            UnjudgedReason::BackendAbsent,
+        );
+        // 不打断言:确保留痕记录可走进日志路径;形态串由 log 宏承载。
+        log_support_check(&rec);
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

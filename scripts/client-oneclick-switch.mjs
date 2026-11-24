@@ -100,10 +100,12 @@ const CHAT_CARRY = Object.freeze({
   doubao: {
     kind: 'cloud',
     text:
-      '对话在云端且与账号绑定、本地零副本,豆包没有逐条消息写回的端点 ⇒ 走回放迁移:' +
-      '旧号登录态跑 node scripts/doubao-carry.mjs --export --apply 全量归档;' +
-      '再切到新号(本机登录新号)跑 node scripts/doubao-carry.mjs --replay <归档目录> --apply,' +
-      '旧对话以新会话进新号,打开客户端即可接着聊(指纹防重,复跑自动跳过;--limit n 可先试水)',
+      '本器自动办写回前的一步:用旧号登录态把全部对话逐条导出(含图片 URL、语音转写、长文本),' +
+      '生成豆包官方可识别的【conversations.zip(优先)+ 裸 conversations.json】双格式导入文件' +
+      '(不再压成一条文本重发、不消耗新号额度)。写回后在窗口点名路径 —— ' +
+      '到豆包(已登新号)「设置 → 数据导入与同步 → ChatGPT → 选 ZIP(不认再试裸 JSON)」导入即可:' +
+      '旧会话逐条原样落入新号、上下文完整、打开就能接着聊(与 Trae 同款无缝续聊)。' +
+      '若导出失败窗口会点名原因,可在旧号登录态手动跑 node scripts/doubao-carry.mjs --export --apply',
   },
 })
 

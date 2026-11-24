@@ -26,7 +26,7 @@
 | loomy | local | `Local Storage/leveldb` + IndexedDB,无账号列 |
 | codex | local | `~/.codex/state_5.sqlite` / `threads`(账号列全 NULL)+ `sessions/YYYY/**/*.jsonl` |
 | raccoon | local | 本地库,本机未装 ⇒ 装好登录后 `--audit` 再核 |
-| doubao | cloud | 云端绑账号、本地零副本 ⇒ `--export` / `--replay` 回放迁移 |
+| doubao | cloud | 云端绑账号、本地零副本 ⇒ 切号自动 `--export`/`--replay` 回放(一步完成,免手动) |
 
 **local 不是「不用管」,是「已经核验过没有账号维度」。** 探针一旦在某个平台的库里读到账号列,立即翻成 `account-scoped-store` 并改按 rebind 适配,绝不冒绿。
 
@@ -98,18 +98,54 @@ node scripts/chat-carry.mjs --provider workbuddy --from <旧uid> --revive-window
 
 本机实测(2026-11-22 13:12):窗口 180 分钟 ⇒ 复活 5 条真实会话(含 11:56:18 那条「完成所有计划任务 协同并发运行」),新号可见会话 1 → 6 条;`--audit` 复核 `workbuddy 库=236 可见=6`。写库前自动整库备份(`workbuddy.db.pre-carry-<runId>.bak`)。
 
-## 6. 豆包(cloud)
+## 6. 豆包(cloud)—— 官方导入通道实现逐条无缝续聊
 
-云端会话绑账号、本地零副本,且没有逐条消息写回端点。迁移是**回放**而不是重绑:
+### 2026-11-24 判断修正(上一版错在哪)
+
+上一版结论是「豆包对话在云端绑账号、本地零副本、没有逐条写回端点 ⇒ 只能压成一条文本重发、AI 重新生成 ⇒ 做不到 Trae 那种逐条续聊」。这是**没查豆包官方导入通道**导致的误判,已推翻。
+
+本机取证(豆包 2.37.16,`C:\Program Files\Doubao\app\manifest.json`):
+- 前端 bundle 实有 `framework.asset-import.*` 组件族(`asset-import` / `asset-import-manage` / `asset-import.service`);
+- 客户端「设置 → 数据导入与同步」支持从 ChatGPT / Claude Code / TRAE Work 的**本地备份文件**导入历史会话;
+- 导入后会话进入原生列表、**逐条保留原有上下文、打开即可接着聊**(官方说明 + 实测报道一致)。
+
+⇒ 这就是与 Trae 等价的「无缝续聊」,而且是官方能力,不碰私有协议、不伪造会话、不逆向加密库。
+
+### 现在的链路
+
+写回前(旧号 cookie):`export` 逐条导出归档 → 转 ChatGPT 导入文件,**双格式同时产出**
+(`conversations.zip` 优先 + 裸 `conversations.json` 回退);消息保真:
+- 纯文本(ct=1)/ 长文本(ct=9999):原样 part
+- 图片(ct=20):从 `entities[].image.image_ori.url` 抽 URL → 标准 `image_url` 多模态 part
+  + `[图片] URL` 文本兜底(实测图片 URL 有效期到 2036 年,HTTP 200 可访问)
+- 语音(ct=101):抽 `asr_content` / `summary_content.content` 转写文本
+
+写回后(新号 cookie):窗口点名 ZIP + 裸 JSON 两个路径,用户在豆包设置里任选一个导入 ⇒ 逐条原生会话落入新号。
+
+事实源:
+- `scripts/lib/doubao-auto-carry.mjs` —— 两阶段编排 + `realBuildImportFile` / `prepareImport`
+- `scripts/lib/doubao-chatgpt-format.mjs` —— 逐条消息 → ChatGPT mapping 树(纯函数)
+- `scripts/doubao-build-import.mjs` —— 独立 CLI(可对已有归档补生成导入文件)
+- `apps/api/scripts/relay-login-local-verified.ts` —— 时序编排(写回前 export、写回后 prepareImport)
+
+**与 Trae 的等价点**:逐条原样、上下文完整、不重新生成、不消耗新号额度、图片以 URL 形式保真(不再是文本线索)、语音转写保留。
+**唯一差别**:最后「选文件导入」一步由用户在豆包设置里点(官方通道要求,没有开放 API;比旧版两条命令+AI 重生成已是量级提升)。任一腿失败只记 note、不翻转切号成败。
+
+**手动生成导入文件**(未走一键入口、或要对旧归档补做):
 
 ```bash
-# 旧号登录态
-node scripts/doubao-carry.mjs --export --apply
-# 切到新号后
-node scripts/doubao-carry.mjs --replay <归档目录> --apply
+node scripts/doubao-build-import.mjs --archive <归档目录> --out conversations.json --apply
+# 产出两份:conversations.json(裸) + conversations.zip(同形 ZIP,内含 conversations.json)
+# 然后在豆包(目标号)设置 → 数据导入与同步 → ChatGPT → 优先选 ZIP,不认再选裸 JSON
 ```
 
-指纹防重,复跑自动跳过;`--limit n` 可先试水。
+> **格式不确定已双载体兜底**:官方报道确认「导入入口 + 导入后逐条可续聊」,但没逐字说明 ChatGPT 来源收裸 `conversations.json` 还是 ChatGPT 原生 ZIP。本器**两份都产出**(ZIP 用零依赖 store 模式,+CRC 校验,已用 Python `zipfile` 独立验证结构/内容逐字节一致),用户哪个能选选哪个。另据报道还有「导入其他AI应用 / 去对话中导入」备用入口,部分来源无法识别时可走它。这一步是本方案唯一需要用户在豆包 UI 点选的环节。
+>
+> **多模态保真边界(不夸大)**:图片导出的是豆包 CDN 的带签名 URL(实测有效期到 2036 年),不是图片二进制文件;导入后能否渲染取决于豆包导入器对 ChatGPT `image_url` 多模态 part 的支持程度 —— 即便不渲染,`[图片] URL` 文本兜底也保证线索不丢。语音转写同理(纯文本,无音频文件)。
+
+### 文本回放兜底(不推荐,仅保留兼容)
+
+`node scripts/doubao-carry.mjs --replay <归档目录> --apply` 仍可用,但它把旧对话压成一条文本重发、服务端重新生成回复、丢消息结构、耗新号额度,主路径已不再默认调用。
 
 ## 7. 新增平台怎么接
 

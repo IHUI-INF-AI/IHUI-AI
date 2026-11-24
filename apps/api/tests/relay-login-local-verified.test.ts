@@ -328,6 +328,8 @@ describe('CLI 退出路径(失败必须显式 exit,只设 exitCode 会被 pg 句
     verdict,
     compare: null,
     writeBack: null,
+    resumeCarry: null,
+    doubaoCarry: null,
     notes: [],
   })
 
@@ -481,6 +483,171 @@ describe('豆包登录态对账面(2026-11-06 接线,判据在 scripts/lib/douba
 
   it('CONTINUITY_FACE 不为豆包登记 APPS 键(登录态面走自家腿,正库映射表口径不变)', () => {
     expect(CONTINUITY_FACE['doubao']).toBeUndefined()
+  })
+})
+
+describe('豆包一键切号自动对话回放(2026-11-24 立,全注入零真 cookie 零真网络)', () => {
+  /** 豆包登录态快照假件(与上方对账面测试同形,零真 cookie) */
+  const snapOkFace = () =>
+    ({
+      app: 'doubao',
+      state: 'ok',
+      sessions: { count: 12, digest: 'a'.repeat(16) },
+      sessionIds: ['d0', 'd1'],
+      accountDigests: ['f'.repeat(12)],
+    }) as never
+
+  /** 写回腿假件:回报落点,让 carry 分派进门 */
+  const doubaoWrite = async () =>
+    ({ ok: true, notes: [], targetFile: 'X:\\Cookies', backupFile: 'X:\\Cookies.bak' }) as never
+
+  /** 两阶段假件:记录调用时序,返回结构化结果 */
+  const makeCarry = () => {
+    const calls: string[] = []
+    return {
+      calls,
+      impl: {
+        exportBeforeSwitch: async () => {
+          calls.push('export')
+          return {
+            ok: true,
+            code: 'ok',
+            archiveDir: '/fake/archive',
+            exported: 5,
+            totalMessages: 50,
+            importFile: '/fake/archive/conversations.json',
+            importConversations: 5,
+            note: '导出 ✓',
+          }
+        },
+        replayAfterSwitch: async ({ archiveDir }: { archiveDir?: string }) => {
+          calls.push(`replay:${archiveDir ?? 'none'}`)
+          return { ok: true, code: 'ok', replayed: 4, skipped: 1, failed: 0, note: '回放 ✓' }
+        },
+        prepareImport: ({ exportResult }: { exportResult?: { importFile?: string | null } }) => {
+          calls.push(`prepare:${exportResult?.importFile ?? 'none'}`)
+          return {
+            ok: true,
+            code: 'ok',
+            importFile: exportResult?.importFile ?? null,
+            conversations: 5,
+            steps: ['设置→数据导入与同步→ChatGPT→选文件'],
+            note: '无缝迁移已备好 ✓ 5 个会话',
+          }
+        },
+      },
+    }
+  }
+
+  it('写回前 export → 写回后走官方导入(prepareImport),导入文件跨阶段传递', async () => {
+    const { impl, calls } = makeCarry()
+    const r = await runVerifiedSwitch({
+      provider: 'doubao',
+      loadRow: async () => FAKE_ROW,
+      writeBack: doubaoWrite,
+      snapshotDoubao: () => snapOkFace(),
+      compare: fakeCompare(0),
+      doubaoCarryImpl: impl as never,
+    })
+    expect(calls).toEqual(['export', 'prepare:/fake/archive/conversations.json'])
+    expect(r.doubaoCarry).not.toBeNull()
+    expect((r.doubaoCarry?.replay as { conversations: number }).conversations).toBe(5)
+    expect(r.notes.some((n) => n.includes('官方导入通道'))).toBe(true)
+    expect(r.ok).toBe(true)
+  })
+
+  it('导出失败 ⇒ 回放收到无归档目录(undefined),不抛异常、切号仍成功', async () => {
+    const calls: string[] = []
+    const impl = {
+      exportBeforeSwitch: async () => {
+        calls.push('export')
+        return {
+          ok: false,
+          code: 'cookie-missing',
+          archiveDir: null,
+          exported: 0,
+          totalMessages: 0,
+          note: '导出跳过',
+        }
+      },
+      replayAfterSwitch: async ({ archiveDir }: { archiveDir?: string }) => {
+        calls.push(`replay:${archiveDir ?? 'none'}`)
+        return {
+          ok: false,
+          code: 'no-archive',
+          replayed: 0,
+          skipped: 0,
+          failed: 0,
+          note: '回放未执行:无归档',
+        }
+      },
+    }
+    const r = await runVerifiedSwitch({
+      provider: 'doubao',
+      loadRow: async () => FAKE_ROW,
+      writeBack: doubaoWrite,
+      snapshotDoubao: () => snapOkFace(),
+      compare: fakeCompare(0),
+      doubaoCarryImpl: impl as never,
+    })
+    expect(calls).toEqual(['export', 'replay:none'])
+    // 回放失败只记 note,不翻转切号成败
+    expect(r.ok).toBe(true)
+    expect(r.notes.some((n) => n.includes('无归档'))).toBe(true)
+  })
+
+  it('回放腿抛异常 ⇒ 被 catch 降级为 note,不让整个切号崩掉', async () => {
+    const impl = {
+      exportBeforeSwitch: async () => ({
+        ok: true,
+        code: 'ok',
+        archiveDir: '/fake/a',
+        exported: 1,
+        totalMessages: 1,
+        note: 'ok',
+      }),
+      replayAfterSwitch: async () => {
+        throw new Error('网络炸了')
+      },
+    }
+    const r = await runVerifiedSwitch({
+      provider: 'doubao',
+      loadRow: async () => FAKE_ROW,
+      writeBack: doubaoWrite,
+      snapshotDoubao: () => snapOkFace(),
+      compare: fakeCompare(0),
+      doubaoCarryImpl: impl as never,
+    })
+    expect(r.ok).toBe(true)
+    expect(r.notes.some((n) => n.includes('豆包对话迁移异常'))).toBe(true)
+  })
+
+  it('dry-run 不碰回放腿(两阶段均不执行),doubaoCarry=null', async () => {
+    const { impl, calls } = makeCarry()
+    const r = await runVerifiedSwitch({
+      provider: 'doubao',
+      dryRun: true,
+      loadRow: async () => FAKE_ROW,
+      snapshotDoubao: () => snapOkFace(),
+      doubaoCarryImpl: impl as never,
+    })
+    expect(calls).toEqual([])
+    expect(r.doubaoCarry).toBeNull()
+    expect(r.verdict).toBe('not-run')
+  })
+
+  it('非豆包平台即使注入回放腿也不执行 export/replay', async () => {
+    const { impl, calls } = makeCarry()
+    const r = await runVerifiedSwitch({
+      provider: 'minimax',
+      loadRow: async () => FAKE_ROW,
+      writeBack: async () => ({ ok: true, notes: [], targetFile: 'X', backupFile: 'X' }) as never,
+      snapshot: () => snapOk(3),
+      compare: fakeCompare(0),
+      doubaoCarryImpl: impl as never,
+    })
+    expect(calls).toEqual([])
+    expect(r.doubaoCarry).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

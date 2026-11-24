@@ -9,6 +9,8 @@ import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import type { AppIcon } from '@ihui/types'
 import { rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import { glassBarSurface } from '@/constants/glass-bar-surface'
+import { useAppTheme } from '@/lib/theme'
 import {
   NAVBAR_ACTION_GLYPH_PX,
   NAVBAR_ACTION_LABEL_FONT_PX,
@@ -25,39 +27,29 @@ import {
 import { NavBarCore, type NavBarCoreBoxProps, type NavBarCoreTextProps } from '@ihui/shared/ui'
 import { rpx, px } from '@/utils/rpx'
 import BackChevron from '@/components/BackChevron'
+import { TAB_BAR_MARGIN_H } from '@/constants/tab-bar-metrics'
 
 /// 档位数字与盒子结构在 @ihui/shared/ui/navbar-spec(与 RN 端同表);本文件只做 rpx 换算 + 挂 Taro 原语。
 const toUnit = (logicalPx: number) => rpx(logicalPx * TARO_RPX_PER_PX)
-/// 2026-11-24 顶栏透明化后,行内每个可交互件/标题自持圆角底片;与 RN 端 NAV_CHIP 同档:
-/// 卡片底 + stroke.subtle 1px 描边 + 12px 圆角。小程序 1 逻辑 px = 2rpx。
-const NAV_CHIP = {
-  backgroundColor: 'var(--color-card)',
-  border: '2rpx solid var(--color-stroke-subtle)',
-  borderRadius: rnRadius.xl,
-} as const
+/// 2026-11-24 整条顶栏改为玻璃面(constants/glass-bar-surface.ts,与底部 tabBar 同一枚):
+/// 标题/返回键/侧钮不再各自套白色底片,只有「加入社区群」保留独立 CTA 描边。
 /// LineIcon 的 size 收 rpx 数值(与 BackChevron 同一口径)
 const ACTION_GLYPH_RPX_NUM = NAVBAR_ACTION_GLYPH_PX * TARO_RPX_PER_PX
-const ACTION_BOX_STYLE = { ...navbarActionBoxStyle(toUnit), ...NAV_CHIP }
+const ACTION_BOX_STYLE = { ...navbarActionBoxStyle(toUnit) }
 const TITLE_FONT = toUnit(NAVBAR_TITLE_FONT_PX)
 /// 标题区下限 / 标题截断宽:与 RN 的 center.minWidth、title.maxWidth 同档同值(两端都真取它,
 /// 不是把数字搬进声明而另一端仍渲染别的宽度)
 const CENTER_STYLE = { minWidth: toUnit(NAVBAR_CENTER_MIN_WIDTH_PX) } as const
-/// 标题也做成独立底片:高 28 / 左右 8 / 上下由 inline-flex 居中,与 RN title 的
-/// paddingHorizontal 8、paddingVertical 2、圆角 12 同脸。
+/// 标题不再单独套胶囊底片,只保留字号、截断宽与行内居中(与 RN title 同档)。
 const TITLE_STYLE = {
   fontSize: TITLE_FONT,
   maxWidth: toUnit(NAVBAR_TITLE_MAX_WIDTH_PX),
-  ...NAV_CHIP,
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  height: toUnit(28),
-  padding: `0 ${toUnit(8)}`,
-  boxSizing: 'border-box',
 } as const
-/// 首页标题切换的两枚标签同样各成底片(不是给整条 titleSwitch 铺一块)。
+/// 首页标题切换的两枚标签也不再各成底片,只保留点击区高度与间距(与 RN titleSwitchChip 同档)。
 const TITLE_SWITCH_CHIP_STYLE = {
-  ...NAV_CHIP,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -162,8 +154,9 @@ export interface NavBarAction {
  * - 默认(兼容旧调用):fixed 顶部 + 左返回按钮 + 居中标题 + 右可选文字
  * - variant="ai-home"(首页专用):sticky 顶部 + 左菜单按钮 + 标题居中(对齐原项目 navigation-bars/index.vue:背景 #E9F0FD + 标题色 #171717 + 字号 30rpx)+ 右"加入社区群"按钮
  *
- * 其他页面(distribution 等)默认顶栏透明:页面底色直接透出,标题/返回键/侧按钮各自持圆角底片;
- * 仅当调用方显式传 bgColor 时才铺整条底色(特殊沉浸页用,常规页面不要再传)。
+ * 其他页面走左右留边的悬浮玻璃条(与底部按钮栏同一套 token,见 constants/glass-bar-surface.ts):
+ * 玻璃只铺在导航行,左右留边与底栏同线;状态栏占位区为不透明页面底。标题/返回键/侧按钮直接坐
+ * 在玻璃上;仅当调用方显式传 bgColor 时才覆盖承载容器底色(特殊沉浸页用,常规页面不要再传)。
  */
 export interface NavBarProps {
   title?: string
@@ -230,7 +223,7 @@ export default function NavBar({
   rightActions,
   rightAction,
   showBack = true,
-  bgColor = 'transparent',
+  bgColor,
   textColor = 'var(--color-foreground)',
   onBack,
   rightText,
@@ -252,6 +245,19 @@ export default function NavBar({
   onActiveNav,
 }: NavBarProps) {
   const tt = useTt()
+  const { resolved } = useAppTheme()
+  const barSurface = glassBarSurface(resolved)
+  /// 2026-11-24 顶栏改悬浮玻璃条:玻璃面只铺在导航行,左右留边取底栏同一枚
+  /// (TAB_BAR_MARGIN_H 转发自 shared/tab-bar-spec,即 RN NavChrome 的 marginHorizontal),
+  /// 这样顶栏与底栏胶囊处在同一条垂直边线上。状态栏占位区改用不透明页面底,
+  /// 挡住 fixed 模式下从 y=0 起渲染的页面内容。
+  /// 顶部不照搬 RN 的 6px 留白:微信原生胶囊按钮与本行同顶同高,加 gap 会让两枚胶囊垂直错开。
+  const glassRowStyle = {
+    ...barSurface,
+    marginLeft: px(TAB_BAR_MARGIN_H),
+    marginRight: px(TAB_BAR_MARGIN_H),
+  }
+  const chromeStyle = { backgroundColor: bgColor ?? 'var(--color-background)' }
   const statusBarHeight = menuButton.top
   const navBarHeight = menuButton.height + 8
   // 有副标题时行高取 spec 的 56 档(与 RN 端 ROW_HEIGHT_SUBTITLE 同值);无副标题仍走胶囊实测高
@@ -286,11 +292,12 @@ export default function NavBar({
       <NavBarCore
         platform={NAVBAR_PLATFORM}
         containerClassName="sticky top-0 left-0 right-0 z-[1001] flex flex-col"
-        containerStyle={{ backgroundColor: bgColor }}
+        containerStyle={chromeStyle}
         leading={<View style={{ height: px(statusBarHeight) }} />}
         rowClassName="relative flex items-center"
         rowStyle={{
           height: px(rowHeight),
+          ...glassRowStyle,
         }}
         leftClassName="flex items-center gap-[8rpx]"
         leftStyle={{
@@ -303,7 +310,7 @@ export default function NavBar({
         left={
           <>
             {/* 返回首页按钮 + 菜单按钮(对齐原项目 navigation-bars: @pack + @menu-click) */}
-            {onPack ? <BackChevron onTap={onPack} color={textColor} style={NAV_CHIP} /> : null}
+            {onPack ? <BackChevron onTap={onPack} color={textColor} /> : null}
             {leftActions?.map((action, index) => (
               <NavBarActionButton key={index} action={action} />
             ))}
@@ -511,22 +518,24 @@ export default function NavBar({
 
   // ===== 默认模式:fixed 顶部 + 返回按钮(兼容 distribution 等旧调用)=====
   // 状态栏占位走 core 的 leading 槽,行内左/中/右三槽承载返回键/标题/右文字;
-  // 绝对定位与类名/命中块仍住本文件(与改前逐档一致)。
+  // 2026-11-24 悬浮条化:容器由横向 flex 改 flex-col —— 此前 leading 与 row 在横排下
+  // 各自垂直居中,导航行实际从 statusBarHeight/2 起(陷进状态栏);同时 row 去掉 w-full,
+  // 让左右 margin 生效而不溢出。绝对定位与命中块仍住本文件。
   return (
     <NavBarCore
       platform={NAVBAR_PLATFORM}
       containerClassName={
         sticky
-          ? 'sticky top-0 left-0 right-0 z-[1001] flex items-center justify-center'
-          : 'fixed top-0 left-0 right-0 z-50 flex items-center justify-center'
+          ? 'sticky top-0 left-0 right-0 z-[1001] flex flex-col'
+          : 'fixed top-0 left-0 right-0 z-50 flex flex-col'
       }
       containerStyle={{
-        backgroundColor: bgColor,
+        ...chromeStyle,
         height: px(statusBarHeight + rowHeight),
       }}
       leading={<View style={{ height: px(statusBarHeight) }} />}
-      rowClassName="relative flex w-full items-center justify-center"
-      rowStyle={{ height: px(rowHeight) }}
+      rowClassName="relative flex items-center justify-center"
+      rowStyle={{ height: px(rowHeight), ...glassRowStyle }}
       leftClassName="absolute left-2 flex items-center gap-[8rpx]"
       leftStyle={{
         ...rowBoxStyle,
@@ -535,7 +544,7 @@ export default function NavBar({
       }}
       left={
         <>
-          {showBack ? <BackChevron onTap={handleBack} color={textColor} style={NAV_CHIP} /> : null}
+          {showBack ? <BackChevron onTap={handleBack} color={textColor} /> : null}
           {leftActions?.map((action, index) => (
             <NavBarActionButton key={index} action={action} />
           ))}

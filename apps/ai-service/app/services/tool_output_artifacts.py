@@ -57,6 +57,8 @@ _META_FIELDS = (
     "storedChars",
     "complete",
     "truncatedOnDisk",
+    "omittedChars",
+    "omittedImages",
     "toolName",
     "sessionId",
     "toolCallId",
@@ -111,12 +113,17 @@ def maybe_spill_tool_output(
     tool_call_id: str | None = None,
     keep_chars: int,
     force: bool = False,
+    image_count: int = 0,
 ) -> dict[str, Any] | None:
     """超预算时把完整输出落盘并返回工件凭据;未超预算返回 None。
 
     `keep_chars` 是正文预览保留的字符数(调用方按 token 预算换算),用于给
     `offset/next` 与 `preview` 同一口径的起点。`force=True` 表示调用方已经确定
     要落盘(用于"两套 token 估算口径差 1-2"的边界),跳过二次预算判断。
+
+    ``omittedChars/omittedImages`` 按实际写入/返回的内容反推(预览之外的字符数、
+    随结果一起落盘的图片张数),不按预算推导;``image_count`` 由调用方按结果载荷
+    实际清点后传入。
     """
     if not force:
         from .mcp_server import _estimate_tokens_len, _get_tool_output_max_tokens
@@ -129,6 +136,8 @@ def maybe_spill_tool_output(
     truncated_on_disk = len(text) > len(stored)
     digest = "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
     preview_len = max(0, min(keep_chars, len(stored)))
+    omitted_chars = max(0, len(text) - preview_len)
+    omitted_images = max(0, image_count)
 
     try:
         _text_path(artifact_id).write_text(stored, encoding="utf-8")
@@ -140,6 +149,8 @@ def maybe_spill_tool_output(
             "storedChars": len(stored),
             "complete": False,
             "truncatedOnDisk": truncated_on_disk,
+            "omittedChars": omitted_chars,
+            "omittedImages": omitted_images,
             "toolName": tool_name,
             "sessionId": session_id,
             "toolCallId": tool_call_id,
@@ -148,8 +159,16 @@ def maybe_spill_tool_output(
         _meta_path(artifact_id).write_text(
             json.dumps(meta, ensure_ascii=False), encoding="utf-8"
         )
-    except OSError as e:
-        logger.warning("[b2] 工具输出落盘失败(降级为纯截断): %s", e)
+    except (OSError, ValueError, TypeError) as e:
+        # warn-and-keep(对齐 DSH fail-open):失败仍由调用方退回原文/临时路径,
+        # 但必须留可诊断原因,不许静默吞。
+        logger.warning(
+            "[b2] 工具输出落盘失败(降级为纯截断): tool=%s session=%s reason=%s: %s",
+            tool_name,
+            session_id,
+            type(e).__name__,
+            e,
+        )
         return None
 
     _prune_expired(time.time())

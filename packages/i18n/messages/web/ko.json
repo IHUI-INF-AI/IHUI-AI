@@ -10459,6 +10459,8 @@
     "cleared": "목표가 삭제되었습니다",
     "resetProgress": "초기화",
     "fullProgress": "100%로 설정",
+    "pauseLocalOnly": "이 세션에는 평가 원장이 없어 로컬에서 일시 중지했습니다",
+    "pauseFailed": "일시 중지가 서버에 반영되지 않았습니다: {message}",
     "resumeServerOk": "서비스 재개 요청됨",
     "resumeAlreadyActive": "서비스 이미 실행 중",
     "resumeTerminal": "터미널 상태라 재개 불가",

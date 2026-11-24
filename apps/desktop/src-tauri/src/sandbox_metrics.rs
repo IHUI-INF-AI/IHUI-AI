@@ -18,7 +18,9 @@
 //!    的 `enforced_refusal` 决定;
 //! ③ 桶里只有计数,不留目标主机名(清单留痕仍归 egress_gate,一处一份)。
 
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 
 /// 判定桶:与 `egress_gate::Decision` × `Enforcement` 的组合一一对应。
 ///
@@ -166,6 +168,102 @@ pub fn report() -> EgressMetricReport {
         unjudged: snap.unjudged,
         total: snap.total,
         consistency,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// P3-03：双路审计事件队列（进程/文件类 + 网络类）
+//
+// 对照 `ReadAuditEvents` / `ReadNetworkAuditEvents` 两条平行导出。与上面的 egress
+// 计数链并存：egress 只记桶计数，这里记可 drain 的事件摘要；两者互不改写。
+// ---------------------------------------------------------------------------
+
+/// 审计事件双路：进程/文件类 与 网络类 各一条队列。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AuditChannel {
+    /// 进程 / 文件类审计（对照 `ReadAuditEvents`）。
+    Process,
+    /// 网络类审计（对照 `ReadNetworkAuditEvents`）。
+    Network,
+}
+
+/// 一条审计事件（类别 + 序号 + 摘要；不留主机名等清单明细，明细归 egress_gate）。
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AuditEvent {
+    pub seq: u64,
+    pub channel: AuditChannel,
+    pub summary: String,
+}
+
+/// 单路队列有界容量；超出后丢最旧一条并记溢出计数（显式标记，不静默丢）。
+const AUDIT_QUEUE_CAPACITY: usize = 256;
+
+static PROCESS_AUDIT: Mutex<VecDeque<AuditEvent>> = Mutex::new(VecDeque::new());
+static NETWORK_AUDIT: Mutex<VecDeque<AuditEvent>> = Mutex::new(VecDeque::new());
+static PROCESS_SEQ: AtomicU64 = AtomicU64::new(0);
+static NETWORK_SEQ: AtomicU64 = AtomicU64::new(0);
+static PROCESS_DROPPED: AtomicU64 = AtomicU64::new(0);
+static NETWORK_DROPPED: AtomicU64 = AtomicU64::new(0);
+
+fn audit_queue(channel: AuditChannel) -> &'static Mutex<VecDeque<AuditEvent>> {
+    match channel {
+        AuditChannel::Process => &PROCESS_AUDIT,
+        AuditChannel::Network => &NETWORK_AUDIT,
+    }
+}
+
+fn audit_seq(channel: AuditChannel) -> &'static AtomicU64 {
+    match channel {
+        AuditChannel::Process => &PROCESS_SEQ,
+        AuditChannel::Network => &NETWORK_SEQ,
+    }
+}
+
+fn audit_dropped(channel: AuditChannel) -> &'static AtomicU64 {
+    match channel {
+        AuditChannel::Process => &PROCESS_DROPPED,
+        AuditChannel::Network => &NETWORK_DROPPED,
+    }
+}
+
+/// 记一条审计事件；队列满时丢最旧一条并记溢出计数（溢出可见，不静默丢弃）。
+pub fn record_audit(channel: AuditChannel, summary: String) {
+    let seq = audit_seq(channel).fetch_add(1, Ordering::Relaxed) + 1;
+    let mut q = audit_queue(channel).lock().unwrap_or_else(|p| p.into_inner());
+    if q.len() >= AUDIT_QUEUE_CAPACITY {
+        q.pop_front();
+        audit_dropped(channel).fetch_add(1, Ordering::Relaxed);
+    }
+    q.push_back(AuditEvent {
+        seq,
+        channel,
+        summary,
+    });
+}
+
+/// 取走一路全部事件并清空队列；重复 drain 不重复给（第二次返回空）。
+pub fn drain_audit(channel: AuditChannel) -> Vec<AuditEvent> {
+    let mut q = audit_queue(channel).lock().unwrap_or_else(|p| p.into_inner());
+    std::mem::take(&mut *q).into_iter().collect()
+}
+
+/// 一路队列的只读快照（长度 / 容量 / 溢出丢弃数 / 是否溢出）。
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AuditQueueSnapshot {
+    pub len: usize,
+    pub capacity: usize,
+    pub dropped_on_overflow: u64,
+    pub overflowed: bool,
+}
+
+pub fn audit_snapshot(channel: AuditChannel) -> AuditQueueSnapshot {
+    let q = audit_queue(channel).lock().unwrap_or_else(|p| p.into_inner());
+    let dropped = audit_dropped(channel).load(Ordering::Relaxed);
+    AuditQueueSnapshot {
+        len: q.len(),
+        capacity: AUDIT_QUEUE_CAPACITY,
+        dropped_on_overflow: dropped,
+        overflowed: dropped > 0,
     }
 }
 
@@ -343,6 +441,46 @@ mod tests {
         let line = render_line(&snap);
         assert!(line.starts_with("[sandbox-egress] state=consistent"));
         assert!(!line.contains("://"), "桶读数里不该有目标主机名: {line}");
+    }
+
+    #[test]
+    fn audit_drain_takes_events_and_clears_queue() {
+        let _g = test_lock();
+        record_audit(AuditChannel::Process, "spawn cmd.exe".into());
+        record_audit(AuditChannel::Process, "write tmp".into());
+        let first = drain_audit(AuditChannel::Process);
+        assert_eq!(first.len(), 2);
+        assert!(
+            drain_audit(AuditChannel::Process).is_empty(),
+            "重复 drain 不重复给"
+        );
+    }
+
+    #[test]
+    fn audit_channels_are_independent() {
+        let _g = test_lock();
+        record_audit(AuditChannel::Process, "p".into());
+        record_audit(AuditChannel::Network, "n".into());
+        let p = drain_audit(AuditChannel::Process);
+        let n = drain_audit(AuditChannel::Network);
+        assert_eq!(p.len(), 1);
+        assert_eq!(n.len(), 1);
+        assert_eq!(p[0].channel, AuditChannel::Process);
+        assert_eq!(n[0].channel, AuditChannel::Network);
+    }
+
+    #[test]
+    fn audit_overflow_marks_dropped_and_bounds_len() {
+        let _g = test_lock();
+        for i in 0..(AUDIT_QUEUE_CAPACITY + 10) {
+            record_audit(AuditChannel::Network, format!("ev-{i}"));
+        }
+        let snap = audit_snapshot(AuditChannel::Network);
+        assert_eq!(snap.len, AUDIT_QUEUE_CAPACITY);
+        assert!(snap.overflowed);
+        assert_eq!(snap.dropped_on_overflow, 10);
+        let drained = drain_audit(AuditChannel::Network);
+        assert_eq!(drained.len(), AUDIT_QUEUE_CAPACITY);
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

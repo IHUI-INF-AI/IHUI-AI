@@ -10459,6 +10459,8 @@
     "cleared": "目標をクリアしました",
     "resetProgress": "リセット",
     "fullProgress": "100% にする",
+    "pauseLocalOnly": "このセッションには評価台帳がありません。ローカルで一時停止しました",
+    "pauseFailed": "一時停止をサーバーに反映できませんでした: {message}",
     "resumeServerOk": "サービスの再開を要求しました",
     "resumeAlreadyActive": "サービスは既に稼働中です",
     "resumeTerminal": "ターミナル状態で再開できません",

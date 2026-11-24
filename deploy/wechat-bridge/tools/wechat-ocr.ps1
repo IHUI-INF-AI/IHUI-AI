@@ -8,7 +8,7 @@
 # 不注入、不读内存、不改微信文件；窗口隐藏时 -AutoShow 会从托盘找回并还原，否则报 ok=false。
 
 param(
-  [ValidateSet('status', 'read', 'search', 'click', 'switch')]
+  [ValidateSet('status', 'read', 'search', 'click', 'switch', 'ocr', 'windows')]
   [string]$Mode = 'read',
   [string]$ImagePath = '',
   [string]$JsonPath = '',
@@ -91,6 +91,27 @@ public class WeChatOcrWin {
   public static bool IsMinimized(IntPtr h) { return IsIconic(h); }
   public static bool Restore(IntPtr h) { return ShowWindow(h, 9); }
 
+  // 诊断用：列出所有标题「微信」的 Qt 窗口及矩形/可见/最小化状态，排查多候选窗选错。
+  public static string Candidates() {
+    StringBuilder sb = new StringBuilder();
+    EnumWindows(delegate(IntPtr h, IntPtr l) {
+      StringBuilder cls = new StringBuilder(256);
+      GetClassName(h, cls, 256);
+      StringBuilder title = new StringBuilder(256);
+      GetWindowText(h, title, 256);
+      if (title.ToString() != "微信") return true;
+      RECT r;
+      if (!GetWindowRect(h, out r)) return true;
+      int w = r.Right - r.Left;
+      int ht = r.Bottom - r.Top;
+      sb.Append(h.ToInt64()).Append('|').Append(cls.ToString()).Append('|').Append(w).Append('x').Append(ht)
+        .Append('|').Append(IsWindowVisible(h) ? "vis" : "hidden")
+        .Append('|').Append(IsIconic(h) ? "min" : "normal").Append('\n');
+      return true;
+    }, IntPtr.Zero);
+    return sb.ToString();
+  }
+
   public static bool Capture(IntPtr h, string path) {
     RECT r;
     if (!GetWindowRect(h, out r)) return false;
@@ -126,10 +147,12 @@ public class WeChatOcrWin {
     int top = r.Top;
     int targetW = 1240;
     int targetH = 1120;
+    if (IsIconic(h)) { ShowWindow(h, 9); System.Threading.Thread.Sleep(400); }
     if (left + targetW > screenW) left = 20;
     if (top + targetH > screenH) top = 20;
     if (r.Right - r.Left != targetW || r.Bottom - r.Top != targetH || left != r.Left || top != r.Top) {
-      SetWindowPos(h, IntPtr.Zero, left, top, targetW, targetH, 0x0004);
+      SetWindowPos(h, new IntPtr(-1), left, top, targetW, targetH, 0x0004 | 0x0010);
+      System.Threading.Thread.Sleep(350);
       GetWindowRect(h, out r);
     }
     return new int[] { r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top };
@@ -156,6 +179,13 @@ public class WeChatOcrWin {
     SetWindowPos(h, new IntPtr(-2), 0, 0, 0, 0, 0x0040 | 0x0001 | 0x0002);
   }
 
+  // 只举到最前、不抢焦点、不改尺寸；用于后台 PrintWindow 截图，避免 PrintWindow 在窗口被遮挡时返回黑图。
+  public static void ShowTop(IntPtr h) {
+    ShowWindow(h, 4);
+    SetWindowPos(h, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);
+    System.Threading.Thread.Sleep(250);
+  }
+
   public static bool CaptureRect(IntPtr h, string path) {
     int[] r = Rect(h);
     if (r[2] <= 0 || r[3] <= 0) return false;
@@ -175,6 +205,14 @@ public class WeChatOcrWin {
     System.Threading.Thread.Sleep(80);
     mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
     return true;
+  }
+
+  // 会话列表可能因上次点击停在中间：滚轮向上到顶，保证目标行可见（delta 正数=向上）。
+  public static void Wheel(int x, int y, int delta) {
+    SetCursorPos(x, y);
+    System.Threading.Thread.Sleep(150);
+    mouse_event(0x0800, 0, 0, (uint)delta, UIntPtr.Zero);
+    System.Threading.Thread.Sleep(120);
   }
 
   public static void Paste() {
@@ -252,8 +290,7 @@ function Write-Payload($payload) {
   }
 }
 
-function Read-OcrLines($path) {
-  Add-Type -AssemblyName System.Runtime.WindowsRuntime
+function Read-OcrLines($path) {  Add-Type -AssemblyName System.Runtime.WindowsRuntime
   $null = [Windows.Media.Ocr.OcrEngine, Windows.Foundation, ContentType = WindowsRuntime]
   $null = [Windows.Storage.StorageFile, Windows.Storage, ContentType = WindowsRuntime]
   $null = [Windows.Graphics.Imaging.BitmapDecoder, Windows.Graphics, ContentType = WindowsRuntime]
@@ -303,6 +340,60 @@ function Read-OcrLines($path) {
     }
   }
   return $lines
+}
+
+function Find-ListLine($lines, $key, $ascii, $w, $hgt) {
+  return $lines | Where-Object {
+    $norm = ($_.text -replace '[^\p{L}\p{N}]', '').ToLower() -replace '0', 'o' -replace '1', 'l'
+    $_.x -lt ($w * 0.32) -and $_.y -gt ($hgt * 0.08) -and
+      ($norm.Contains($key) -or ($ascii -and $norm.Contains($ascii)))
+  } | Sort-Object y | Select-Object -First 1
+}
+
+# 深色主题 + 小字号下 Windows OCR 会漏掉会话标题（实测 1240×1120 原图只识别到正文，
+# 2 倍放大后「微信ClawBot」标题才出现）。列表/搜索结果判定用放大副本来补这一档。
+function Read-OcrLinesScaled($path, [double]$scale = 2.0) {
+  $src = [System.Drawing.Image]::FromFile($path)
+  if ($src.Width * $scale -gt 4000 -or $src.Height * $scale -gt 4000) { $scale = 1.0 }
+  if ($scale -le 1.0) { $src.Dispose(); return (Read-OcrLines $path) }
+  $bmp = [System.Drawing.Bitmap]::new([int]($src.Width * $scale), [int]($src.Height * $scale))
+  $g = [System.Drawing.Graphics]::FromImage($bmp)
+  $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+  $g.DrawImage($src, 0, 0, $bmp.Width, $bmp.Height)
+  $g.Dispose()
+  $src.Dispose()
+  $scaledPath = Join-Path $env:TEMP 'wechat-ocr-scaled.png'
+  $bmp.Save($scaledPath, [System.Drawing.Imaging.ImageFormat]::Png)
+  $bmp.Dispose()
+  $lines = Read-OcrLines $scaledPath
+  foreach ($line in $lines) {
+    $line.x = [Math]::Round($line.x / $scale, 1)
+    $line.y = [Math]::Round($line.y / $scale, 1)
+    $line.w = [Math]::Round($line.w / $scale, 1)
+    $line.h = [Math]::Round($line.h / $scale, 1)
+  }
+  return $lines
+}
+
+if ($Mode -eq 'ocr') {
+  if (-not $ImagePath -or -not (Test-Path -LiteralPath $ImagePath)) {
+    Write-Payload ([ordered]@{ ok = $false; reason = 'ocr 模式必须提供存在的 -ImagePath' })
+    exit 2
+  }
+  $bmp = [System.Drawing.Image]::FromFile($ImagePath)
+  $w = $bmp.Width
+  $hgt = $bmp.Height
+  $bmp.Dispose()
+  $lines = Read-OcrLines $ImagePath
+  Write-Payload ([ordered]@{ ok = $true; image = $ImagePath; width = $w; height = $hgt; lines = $lines })
+  exit 0
+}
+
+if ($Mode -eq 'windows') {
+  $raw = [WeChatOcrWin]::Candidates()
+  $list = @($raw -split "`n" | Where-Object { $_.Trim() })
+  Write-Payload ([ordered]@{ ok = $true; candidates = $list })
+  exit 0
 }
 
 $info = Get-WindowInfo
@@ -376,49 +467,87 @@ if ($Mode -eq 'switch') {
   }
   $h = [IntPtr]$info.hwnd
   [void][WeChatOcrWin]::Focus($h, $true)
-  Start-Sleep -Milliseconds 200
+  Start-Sleep -Milliseconds 500
   [void][WeChatOcrWin]::Fit($h)
   $rect = [WeChatOcrWin]::Rect($h)
+  if ($rect[2] -lt 600 -or $rect[3] -lt 500) {
+    [void][WeChatOcrWin]::Restore($h)
+    Start-Sleep -Milliseconds 800
+    [void][WeChatOcrWin]::Fit($h)
+    $rect = [WeChatOcrWin]::Rect($h)
+  }
   $left = $rect[0]
   $top = $rect[1]
   $width = $rect[2]
   $height = $rect[3]
   $needle = ($Title -replace '[^\p{L}\p{N}]', '').ToLower()
+  if ($width -lt 600 -or $height -lt 500) {
+    [WeChatOcrWin]::Untop($h)
+    Write-Payload ([ordered]@{ ok = $false; reason = "微信窗口尺寸异常 ${width}x${height}"; left = $left; top = $top })
+    exit 5
+  }
   $matchKey = if ($needle.Length -gt 6) { $needle.Substring(0, 6) } else { $needle }
+  # 中文标题被 OCR 丢字时（「微信ClawBot」常被识别成「GClawBot」），用 ASCII 尾段兜底匹配。
+  $asciiKey = (($Title -replace '[^\x00-\x7F]', '') -replace '[^\p{L}\p{N}]', '').ToLower()
+  if ($asciiKey.Length -lt 3) { $asciiKey = '' }
 
   # 先看当前聊天标题和左侧会话列表：能直接点到的会话不走搜索，避免点开网页搜索结果。
   $listPath = Join-Path $env:TEMP 'wechat-ocr-switch-list.png'
   $listLine = $null
+  [WeChatOcrWin]::Wheel($left + 300, $top + 300, -600)
+  Start-Sleep -Milliseconds 400
   if ([WeChatOcrWin]::Capture($h, $listPath)) {
     $listLines = Read-OcrLines $listPath
     $headerLine = $listLines | Where-Object { $_.x -gt ($width * 0.08) -and $_.y -lt ($height * 0.12) } |
       Where-Object {
         $norm = ($_.text -replace '[^\p{L}\p{N}]', '').ToLower() -replace '0', 'o' -replace '1', 'l'
-        $norm -eq $matchKey -or ($norm.StartsWith($matchKey) -and $norm.Length -le ($matchKey.Length + 6))
+        $norm -eq $matchKey -or ($norm.StartsWith($matchKey) -and $norm.Length -le ($matchKey.Length + 6)) -or ($asciiKey -and $norm.Contains($asciiKey))
       } | Select-Object -First 1
+    if (-not $headerLine) {
+      $scaledLines = Read-OcrLinesScaled $listPath 2
+      if ($scaledLines.Count -gt 0) {
+        $listLines = $scaledLines
+        $headerLine = $listLines | Where-Object { $_.x -gt ($width * 0.08) -and $_.y -lt ($height * 0.12) } |
+          Where-Object {
+            $norm = ($_.text -replace '[^\p{L}\p{N}]', '').ToLower() -replace '0', 'o' -replace '1', 'l'
+            $norm -eq $matchKey -or ($norm.StartsWith($matchKey) -and $norm.Length -le ($matchKey.Length + 6)) -or ($asciiKey -and $norm.Contains($asciiKey))
+          } | Select-Object -First 1
+      }
+    }
     $current = [bool]$headerLine
     if ($current) {
       [WeChatOcrWin]::Untop($h)
       Write-Payload ([ordered]@{ ok = $true; opened = $true; method = 'current'; typed = $Title; image = $listPath; lines = $listLines })
       exit 0
     }
-    $listLine = $listLines | Where-Object {
-      $norm = ($_.text -replace '[^\p{L}\p{N}]', '').ToLower() -replace '0', 'o' -replace '1', 'l'
-      $_.x -lt ($width * 0.32) -and $_.y -gt ($height * 0.08) -and $norm.Contains($matchKey)
-    } | Sort-Object y | Select-Object -First 1
+    $listLine = Find-ListLine $listLines $matchKey $asciiKey $width $height
     # 微信可以处在「只显示聊天」的单栏模式：左侧会话列表不可见，先点返回键回到列表再找。
     $hasHeader = $listLines | Where-Object {
       $_.x -gt ($width * 0.08) -and $_.x -lt ($width * 0.65) -and $_.y -lt ($height * 0.12)
     } | Select-Object -First 1
     if (-not $listLine -and $hasHeader) {
       [void][WeChatOcrWin]::Click($left + 143, $top + 83)
-      Start-Sleep -Milliseconds 900
+      Start-Sleep -Milliseconds 1200
+      [WeChatOcrWin]::Wheel($left + 300, $top + 300, 900)
+      Start-Sleep -Milliseconds 400
       [void][WeChatOcrWin]::Capture($h, $listPath)
       $listLines = Read-OcrLines $listPath
-      $listLine = $listLines | Where-Object {
-        $norm = ($_.text -replace '[^\p{L}\p{N}]', '').ToLower() -replace '0', 'o' -replace '1', 'l'
-        $_.x -lt ($width * 0.32) -and $_.y -gt ($height * 0.08) -and $norm.Contains($matchKey)
-      } | Sort-Object y | Select-Object -First 1
+      $listLine = Find-ListLine $listLines $matchKey $asciiKey $width $height
+    }
+    # 会话列表可能很长且停在上次点击的位置：先向上翻到顶，再向下逐屏找。
+    for ($i = 0; $i -lt 6 -and -not $listLine; $i++) {
+      [WeChatOcrWin]::Wheel($left + 300, $top + 300, 900)
+      Start-Sleep -Milliseconds 500
+      if (-not [WeChatOcrWin]::Capture($h, $listPath)) { break }
+      $listLines = Read-OcrLines $listPath
+      $listLine = Find-ListLine $listLines $matchKey $asciiKey $width $height
+    }
+    for ($i = 0; $i -lt 8 -and -not $listLine; $i++) {
+      [WeChatOcrWin]::Wheel($left + 300, $top + 300, -900)
+      Start-Sleep -Milliseconds 500
+      if (-not [WeChatOcrWin]::Capture($h, $listPath)) { break }
+      $listLines = Read-OcrLines $listPath
+      $listLine = Find-ListLine $listLines $matchKey $asciiKey $width $height
     }
   }
   if ($listLine) {
@@ -460,11 +589,11 @@ if ($Mode -eq 'switch') {
   $minY = if ($label) { $label.y + 18 } else { $height * 0.2 }
   $resultLine = $probeLines | Where-Object {
     $norm = ($_.text -replace '[^\p{L}\p{N}]', '').ToLower() -replace '0', 'o' -replace '1', 'l'
-    $_.y -gt $minY -and $_.x -lt ($width * 0.55) -and $norm.Contains($matchKey)
+    $_.y -gt $minY -and $_.x -lt ($width * 0.55) -and ($norm.Contains($matchKey) -or ($asciiKey -and $norm.Contains($asciiKey)))
   } | Sort-Object y | Select-Object -First 1
   if (-not $resultLine) {
     [WeChatOcrWin]::Untop($h)
-    Write-Payload ([ordered]@{ ok = $false; reason = '未找到目标会话搜索结果'; image = $probePath; lines = $probeLines })
+    Write-Payload ([ordered]@{ ok = $false; reason = '未找到目标会话搜索结果'; image = $probePath; listImage = $listPath; listLines = $listLines; lines = $probeLines })
     exit 4
   }
   $hitX = $left + [int][Math]::Round($resultLine.x + [Math]::Min(80, $resultLine.w / 2))
@@ -482,6 +611,15 @@ if ($Mode -eq 'switch') {
     exit 3
   }
   $lines = Read-OcrLines $rectPath
+  $opened = [bool]($lines | Where-Object {
+    $norm = ($_.text -replace '[^\p{L}\p{N}]', '').ToLower() -replace '0', 'o' -replace '1', 'l'
+    $_.y -lt ($height * 0.12) -and ($norm -eq $matchKey -or ($norm.StartsWith($matchKey) -and $norm.Length -le ($matchKey.Length + 6)) -or ($asciiKey -and $norm.Contains($asciiKey)))
+  })
+  if (-not $opened) {
+    Write-Payload ([ordered]@{ ok = $false; reason = '已点击搜索结果但未打开目标会话'; image = $rectPath; probe = $probePath; hitX = $hitX; hitY = $hitY; lines = $lines })
+    exit 4
+  }
+  [WeChatOcrWin]::Untop($h)
   Write-Payload ([ordered]@{
     ok = $true
     left = $left
@@ -490,13 +628,11 @@ if ($Mode -eq 'switch') {
     height = $height
     image = $rectPath
     probe = $probePath
+    method = 'search'
     typed = $Title
     hitX = $hitX
     hitY = $hitY
-    opened = [bool]($lines | Where-Object {
-      $norm = ($_.text -replace '[^\p{L}\p{N}]', '').ToLower() -replace '0', 'o' -replace '1', 'l'
-      $_.y -lt ($height * 0.12) -and ($norm -eq $matchKey -or ($norm.StartsWith($matchKey) -and $norm.Length -le ($matchKey.Length + 6)))
-    })
+    opened = $true
     lines = $lines
   })
   exit 0
@@ -513,6 +649,8 @@ if (-not $info.ok) {
 }
 
 $h = [IntPtr]$info.hwnd
+$pre = [WeChatOcrWin]::Rect($h)
+if ($pre[2] -gt 1600) { [void][WeChatOcrWin]::Fit($h) }
 $rectPath = $ImagePath
 if (-not $rectPath) {
   $rectPath = Join-Path $env:TEMP 'wechat-ocr-frame.png'
@@ -521,10 +659,12 @@ $dir = Split-Path -Parent $rectPath
 if ($dir -and -not (Test-Path -LiteralPath $dir)) {
   New-Item -ItemType Directory -Path $dir -Force | Out-Null
 }
+[WeChatOcrWin]::ShowTop($h)
 if (-not [WeChatOcrWin]::Capture($h, $rectPath)) {
   Write-Payload ([ordered]@{ ok = $false; visible = $true; hwnd = $h.ToInt64(); title = '微信'; reason = '截图失败' })
   exit 3
 }
+[WeChatOcrWin]::Untop($h)
 
 Add-Type -AssemblyName System.Drawing
 $bmp = [System.Drawing.Image]::FromFile($rectPath)
@@ -533,6 +673,29 @@ $height = $bmp.Height
 $bmp.Dispose()
 $lines = Read-OcrLines $rectPath
 $rect = [WeChatOcrWin]::Rect($h)
+# 宽窗列表+聊天布局下，标题「微信ClawBot」在深色背景上常被正常 OCR 漏掉；
+# 正常帧找不到标题时，额外给一份 2 倍放大的行，让驱动只补标题、不把列表行当消息。
+$headerSeen = $lines | Where-Object {
+  $_.y -lt ($height * 0.09) -and $_.x -gt ($width * 0.06) -and $_.x -lt ($width * 0.55) -and
+  $_.text -notmatch '搜索|凶'
+} | Select-Object -First 1
+if (-not $headerSeen) {
+  $payload = [ordered]@{
+    ok = $true
+    visible = $true
+    hwnd = $h.ToInt64()
+    title = '微信'
+    left = $rect[0]
+    top = $rect[1]
+    width = $width
+    height = $height
+    image = $rectPath
+    lines = $lines
+    linesScaled = (Read-OcrLinesScaled $rectPath 2)
+  }
+  Write-Payload $payload
+  exit 0
+}
 Write-Payload ([ordered]@{
   ok = $true
   visible = $true

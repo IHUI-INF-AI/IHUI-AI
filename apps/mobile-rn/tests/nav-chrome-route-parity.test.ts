@@ -9,14 +9,16 @@
 // 为什么要有它:状态栏 inset 带由 App.tsx 那枚根 View 画,导航行由屏内透明 <NavChrome> 透出页面底;
 // 两处各写各的 ⇒ 只要有一屏加了顶栏而忘了往路由表里加一行(或反过来),同一屏仍会露出两截色
 // (2026-10-10 用户实拍「顶部这个区域为什么是灰色的,怎么还有个灰色带呢」就是这一形态)。
-// 2026-11-24 用户再定「顶栏不要整条底色,按钮和页面标签各自做圆角底片」:
-// NavChrome 改为 transparent,页面底由 route 表给 surface.bg。
+// 2026-11-24 用户再定「整条顶部栏跟底部菜单栏同一套样式 token,改一处双方都生效」:
+// NavChrome 与 TabBar.container 都 spread `theme/glass-bar-surface.ts` 的 GLASS_BAR_SURFACE,
+// 页面底仍由 route 表给 surface.bg(玻璃半透时下面透出的就是这一档)。
 //  ① 屏清单**现读源码**(grep <NavBar),不是手抄名单 —— 名单必然腐烂(AGENTS §4 对
 //     RN_ONLY_BRAND_KEYS 记过同一条教训);
 //  ② 路由名从 RootNavigator 的 name=/component= 注册对现读,一屏多名(Home/HomeMain、
 //     Agent/AiMain)必须**每个名**都在表里;
-//  ③ 两侧取值必须同为 surface.bg:NavChrome 透明 + ROUTE_ROOT_BG 页面底;任何一侧换档即红;
-//  ④ 例外表是台账不是后门:每条必须带 reason,且指向的屏**此刻确实渲染 NavBar**
+//  ③ 页面底仍须为 surface.bg,避免玻璃顶栏背后透出两截页底色;
+//  ④ 顶栏/底栏必须共用同一枚 surface,端内不得各自再写背景/描边/圆角/阴影;
+//  ⑤ 例外表是台账不是后门:每条必须带 reason,且指向的屏**此刻确实渲染 NavBar**
 //     (屏不再渲染 NavBar 了还挂着例外 ⇒ 清单腐烂,判红)。
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -90,7 +92,7 @@ function routeRootBgTier(): Record<string, string> {
   return out
 }
 
-describe('顶栏透明 + 页面底结构锁(AGENTS §4「判据必须覆盖门自己产出的形态」同族)', () => {
+describe('顶栏/底栏共用玻璃面 + 页面底结构锁(AGENTS §4「判据必须覆盖门自己产出的形态」同族)', () => {
   const navBarScreens = screensRenderingNavBar()
   const namesByComponent = routeNamesByComponent()
   const tiers = routeRootBgTier()
@@ -135,11 +137,32 @@ describe('顶栏透明 + 页面底结构锁(AGENTS §4「判据必须覆盖门�
     expect(offenders, '带色表与顶栏档不一致:\n' + offenders.join('\n')).toEqual([])
   })
 
-  it('NavChrome 透明、ROUTE_ROOT_BG 取页面底(任何一侧改回整条底色即红)', () => {
+  it('顶栏与底栏共用同一枚玻璃面,端内不得各自重写背景/描边/圆角/阴影', () => {
     const chromeSrc = read(join(ROOT, 'src/components/NavChrome.tsx'))
-    expect(chromeSrc, 'NavChrome 又铺回整幅底色 ⇒ 与透明顶栏分叉').toMatch(
+    const tabSrc = read(join(ROOT, 'src/components/TabBar.styles.ts'))
+    const surfaceSrc = read(join(ROOT, 'src/theme/glass-bar-surface.ts'))
+
+    // 两侧都只 spread 单一源,不再各自铺色
+    expect(chromeSrc, 'NavChrome 没接 GLASS_BAR_SURFACE ⇒ 顶栏与底栏分叉').toMatch(
+      /\.\.\.GLASS_BAR_SURFACE/,
+    )
+    expect(tabSrc, 'TabBar.container 没接 GLASS_BAR_SURFACE ⇒ 底栏与顶栏分叉').toMatch(
+      /\.\.\.GLASS_BAR_SURFACE/,
+    )
+    expect(tabSrc, 'TabBar 又在端内写了一份 glass 背景 ⇒ 改一处不会双方生效').not.toMatch(
+      /backgroundColor:\s*tk\.glass\.bg/,
+    )
+    expect(chromeSrc, 'NavChrome 又铺回 transparent ⇒ 整条顶栏没有玻璃面').not.toMatch(
       /backgroundColor:\s*'transparent'/,
     )
+
+    // 单一源自身必须取这两条共同 token(缺一条就等于某一侧被悄悄改档)
+    expect(surfaceSrc, '玻璃面没取 glass.bg').toMatch(/backgroundColor:\s*tk\.glass\.bg/)
+    expect(surfaceSrc, '玻璃面没取 border.light').toMatch(/borderColor:\s*tk\.border\.light/)
+    expect(surfaceSrc, '玻璃面没取 rnRadius.xl').toMatch(/borderRadius:\s*rnRadius\.xl/)
+    expect(surfaceSrc, '玻璃面没取 ELEVATION_STEPS.lg').toMatch(/ELEVATION_STEPS\.lg/)
+    expect(surfaceSrc, '玻璃面没取底部同一条模糊半径').toMatch(/TAB_BAR_GLASS_BLUR_PX/)
+
     expect(Object.values(tiers).filter((v) => v === PAGE_TIER).length).toBeGreaterThan(0)
   })
 

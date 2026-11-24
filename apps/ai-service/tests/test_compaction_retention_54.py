@@ -14,6 +14,7 @@ from typing import Any
 from app.core.compaction_retention import (
     MAX_RETAINED_AGENT_MESSAGE_TOKENS,
     RETAINED_MESSAGE_TOKEN_BUDGET,
+    _massage_for_budget,
     estimate_group_tokens,
     group_messages,
     select_retained_history,
@@ -176,6 +177,40 @@ def test_estimate_group_tokens_image_switch() -> None:
     with_img = estimate_group_tokens(group, charge_images=True)
     without_img = estimate_group_tokens(group, charge_images=False)
     assert with_img > without_img
+
+
+def test_vision_list_image_and_caption_share_budget() -> None:
+    """Enabled:图片 visualTokens 与同条消息的说明文字一起计入共享预算。"""
+    msg = {
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "请看这张截图里的报错信息"},
+            {"type": "image_url", "image_url": {"url": BIG_IMAGE}},
+        ],
+    }
+    charged = estimate_group_tokens([msg], charge_images=True)
+    bare = estimate_group_tokens([msg], charge_images=False)
+    # 开启图片预算时:图片占位 + 说明文字同条合计,高于关闭时的纯文本口径
+    assert charged > bare
+
+
+def test_disabled_neutralizes_vision_part_entirely() -> None:
+    """Disabled:vision part 整体降级为空文本,估算器不会再按 type 补图片占位。"""
+    msg = {
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "说明文字"},
+            {"type": "image_url", "image_url": {"url": BIG_IMAGE}},
+            {"type": "image", "source": {"type": "base64", "data": "AAAA"}},
+        ],
+    }
+    massaged = _massage_for_budget(msg, charge_images=False)
+    parts = massaged["content"]
+    assert isinstance(parts, list)
+    assert all(p.get("type") != "image_url" and p.get("type") != "image" for p in parts)
+    # 说明文字 part 保留,图片 part 换成空文本 part
+    assert any(p.get("text") == "说明文字" for p in parts)
+    assert sum(1 for p in parts if p.get("text") == "") == 2
 
 
 def test_tool_reply_never_split_from_assistant() -> None:

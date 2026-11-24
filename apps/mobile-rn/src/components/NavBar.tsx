@@ -10,7 +10,8 @@
  * - 中间:title + 可选 subtitle(独立绝对居中层,不被左右槽挤压)
  * - 右侧:rightActions(搜索/设置/分类等,多按钮)+ rightAction(兼容旧 ReactNode)
  * - sticky 支持(对齐 Uniapp viscosity,position:sticky + top:0 + zIndex)
- * - 不自绘背景、不画底边线:顶栏与页面同色,由所在屏的 shell 底色透出
+ * - 不自绘背景、不画底边线:整条玻璃面由 `NavChrome` 画,本组件只排行内内容;
+ *   背景/描边/圆角/阴影与底部 TabBar 同源(theme/glass-bar-surface.ts)
  * - 状态栏:顶距由 App.tsx 的 SafeAreaView 单点注入,本组件不再自加(否则双份)
  */
 import { type ReactNode } from 'react'
@@ -239,7 +240,6 @@ export function NavBar({
               label={t('common.back')}
               colorScheme={currentRnTheme()}
               color={textColor}
-              style={styles.backChip}
             />
           ) : null}
           {onBack && showBack !== false ? (
@@ -248,7 +248,6 @@ export function NavBar({
               label={t('common.back')}
               colorScheme={currentRnTheme()}
               color={textColor}
-              style={styles.backChip}
             />
           ) : null}
           {menuButton ? (
@@ -412,14 +411,8 @@ function NavBarActionButton({ action }: NavBarActionButtonProps) {
   )
 }
 
-/// 2026-11-24:顶栏整体不铺底色后,行内每个可交互件自持圆角底;同一份取值只在这里。
-const NAV_CHIP = {
-  backgroundColor: tokens.surface.card,
-  borderWidth: 1,
-  borderColor: tokens.stroke.subtle,
-  borderRadius: rnRadius.xl,
-} as const
-
+/// 2026-11-24:整条顶栏改为玻璃面(NavChrome 绘制),行内可交互件不再各自套白色底片,
+/// 只有「加入群」保留独立 CTA 描边;标题、返回键、侧钮直接坐在玻璃上。
 const styles = StyleSheet.create({
   container: {
     width: '100%',
@@ -460,14 +453,7 @@ const styles = StyleSheet.create({
     maxWidth: NAVBAR_TITLE_MAX_WIDTH_PX,
     fontWeight: '600',
     color: tokens.text.primary,
-    // 2026-11-24:整条顶栏不再铺底色,标题单独成胶囊标签;页面底色从胶囊四周透出。
-    // 底色取 surface.card(亮 #FFF / 暗 #1A1A1A),描边取 stroke.subtle(AGENTS §4 描边禁墨档)。
-    paddingHorizontal: rnSpacing.sm,
-    paddingVertical: rnSpacing['2xs'],
-    borderRadius: rnRadius.xl,
-    borderWidth: 1,
-    borderColor: tokens.stroke.subtle,
-    backgroundColor: tokens.surface.card,
+    // 2026-11-24:玻璃整条已由 NavChrome 绘制,标题不再单独套胶囊底片,只保留居中与截断。
     overflow: 'hidden',
     textAlign: 'center',
   },
@@ -501,7 +487,6 @@ const styles = StyleSheet.create({
     gap: rnSpacing.sm,
   },
   titleSwitchChip: {
-    ...NAV_CHIP,
     height: NAVBAR_ROW_HEIGHT_PX,
     paddingHorizontal: rnSpacing.sm,
     alignItems: 'center',
@@ -509,9 +494,6 @@ const styles = StyleSheet.create({
   },
   titleSwitchText: {
     fontSize: NAVBAR_TITLE_FONT_PX,
-  },
-  backChip: {
-    ...NAV_CHIP,
   },
   joinButton: {
     minWidth: NAVBAR_SIDE_PLACEHOLDER_PX,
@@ -533,7 +515,6 @@ const styles = StyleSheet.create({
   },
   rightTextBtn: {
     ...navbarActionBoxStyle((px: number) => px),
-    ...NAV_CHIP,
     paddingHorizontal: rnSpacing['xs-loose'],
     justifyContent: 'center',
   },
@@ -556,7 +537,6 @@ const styles = StyleSheet.create({
   actionBtn: {
     // 盒宽/盒高/居中唯一源 navbar-spec;gap 与内边距是"图标+文字"并排的端内布局,不是跨端档
     ...navbarActionBoxStyle((px: number) => px),
-    ...NAV_CHIP,
     paddingHorizontal: rnSpacing['xs-loose'],
     gap: rnSpacing.xs,
   },

@@ -10393,6 +10393,8 @@
     "cleared": "目標已清除",
     "resetProgress": "歸零",
     "fullProgress": "置滿",
+    "pauseLocalOnly": "此會話沒有評估帳本,已在本地暫停",
+    "pauseFailed": "暫停未落實到服務端: {message}",
     "resumeServerOk": "已請求恢復服務",
     "resumeAlreadyActive": "服務已處於啟用狀態",
     "resumeTerminal": "終端狀態無法恢復",

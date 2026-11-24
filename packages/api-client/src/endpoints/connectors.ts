@@ -48,10 +48,14 @@ export interface ConnectorOperation {
   capability: ConnectorCapability
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   path: string
+  /** 该操作独立基址(台账 base_url_override);空串用连接器 spec 基址 */
+  base_url?: string
   query: Record<string, unknown>
   body: Record<string, unknown> | null
   response_path: string
   confirm: boolean
+  /** 是否默认停用(台账生成的写操作默认 true,需显式 opt-in) */
+  disabled?: boolean
   description: string
 }
 
@@ -144,6 +148,12 @@ export interface SaveConnectorConfigInput {
   spec?: Partial<ConnectorSpec>
   /** 声明式操作清单(空=用平台模板默认) */
   operations?: ConnectorOperation[]
+  /** 台账展开平台;填写后按 api_ids/domains 从目录重新生成 operations(会覆盖直传 operations) */
+  platform?: string
+  /** 展开指定的台账 API id */
+  api_ids?: string[]
+  /** 展开指定业务域 */
+  domains?: string[]
 }
 
 /** 平台托管可用性(缺失项只给环境变量名) */
@@ -237,6 +247,169 @@ export interface ConnectorCheckResult {
 /** 删除响应 */
 export interface ConnectorDeleteResult {
   ok: boolean
+}
+
+// ===================== 平台目录覆盖(coverage) =====================
+
+/** 覆盖目录支持的平台标识(冻结契约枚举) */
+export type CoveragePlatform = 'feishu' | 'dingtalk' | 'wecom'
+
+/** 能力探测状态枚举(与后端冻结契约逐字对齐,不得增删) */
+export type CoverageState =
+  | 'unprobed'
+  | 'available'
+  | 'permission_denied'
+  | 'need_user_token'
+  | 'need_admin'
+  | 'unsupported'
+  | 'error'
+  | 'unjudged'
+
+/** 目录台账来源信息 */
+export interface CoverageSource {
+  index_url: string
+  fetched_at: string
+  declared_total: number
+  enumeration_method: string
+}
+
+/** 各状态分桶计数(全局 totals 与分域计数共用同一组键) */
+export interface CoverageStateCounts {
+  available: number
+  permission_denied: number
+  need_user_token: number
+  need_admin: number
+  unsupported: number
+  error: number
+  unprobed: number
+}
+
+/** 全局汇总计数 */
+export interface CoverageTotals extends CoverageStateCounts {
+  apis: number
+  domains: number
+}
+
+/** 单个业务域的目录条目 */
+export interface CoverageDomain extends CoverageStateCounts {
+  key: string
+  label: string
+  count: number
+  complete: boolean
+  /** 域级备注/未展开原因(台账自带,可空) */
+  reason?: string
+}
+
+/** 单条 API 的探测结果状态 */
+export interface CoverageApiStatus {
+  state: CoverageState
+  http_code: number | null
+  platform_code: string | null
+  reason: string
+  missing_scope: string
+  probed_at: string | null
+}
+
+/** 目录中的单条 API(事件条目复用同一视图) */
+export interface CoverageApi {
+  id: string
+  domain: string
+  name: string
+  method: string
+  path: string
+  auth: string
+  scope: string
+  read: boolean
+  event: boolean
+  doc_url: string
+  /** 操作独立基址覆盖(台账 base_url_override),可空 */
+  base_url_override?: string
+  /** 台账是否已核验该条目,可空 */
+  verified?: boolean
+  status: CoverageApiStatus
+}
+
+/** 未展开业务域(台账枚举时遗留、未进入 apis 清单的域) */
+export interface CoverageUnenumeratedDomain {
+  key: string
+  label: string
+  reason: string
+}
+
+/** 事件/回调条目汇总(不计入 totals.apis) */
+export interface CoverageEventsView {
+  count: number
+  items: CoverageApi[]
+}
+
+/** 平台目录覆盖响应 */
+export interface CoverageCatalog {
+  platform: CoveragePlatform
+  label: string
+  catalog_state: 'ok' | 'unjudged'
+  source: CoverageSource
+  totals: CoverageTotals
+  domains: CoverageDomain[]
+  apis: CoverageApi[]
+  /** 事件/回调条目,单独计数,不计入 totals.apis */
+  events: CoverageEventsView
+  /** 台账遗留、未展开进 apis 的业务域 */
+  unenumerated_domains: CoverageUnenumeratedDomain[]
+  /** 台账未判定原因(catalog_state=unjudged 时给出) */
+  unjudged_reason: string
+}
+
+/** 探测请求体 */
+export interface CoverageProbeRequest {
+  api_ids: string[]
+  domains: string[]
+  limit: number
+  read_only: boolean
+}
+
+/** 单条探测结果 */
+export interface CoverageProbeItem {
+  api_id: string
+  state: CoverageState
+  http_code: number | null
+  platform_code: string | null
+  reason: string
+  missing_scope: string
+}
+
+/** 探测响应 */
+export interface CoverageProbeResponse {
+  probed: number
+  skipped: number
+  summary: Record<string, unknown>
+  results: CoverageProbeItem[]
+}
+
+/** 分片规划请求体 */
+export interface CoveragePlanRequest {
+  platform: CoveragePlatform
+  domains: string[]
+  api_ids: string[]
+}
+
+/** 规划出的单个分片连接器 */
+export interface CoveragePlanConnector {
+  key: string
+  label: string
+  domain: string
+  api_ids: string[]
+  /** 片内操作条数(计数) */
+  operations: number
+  /** 可直接落库的完整操作定义;长度与 operations 计数一致 */
+  operation_defs: ConnectorOperation[]
+}
+
+/** 分片规划响应 */
+export interface CoveragePlanResponse {
+  platform: string
+  selected: number
+  connectors: CoveragePlanConnector[]
+  dropped: number
 }
 
 // ===================== 接口函数 =====================
@@ -339,5 +512,37 @@ export async function deleteConnector(key: string): Promise<ApiResult<ConnectorD
   return fetchApi<ConnectorDeleteResult>(`/api/connectors/${encodeURIComponent(key)}`, {
     method: 'DELETE',
   })
+}
+
+/** 获取平台 API 目录与能力探测覆盖状态 */
+export async function getConnectorCoverage(
+  platform: CoveragePlatform,
+): Promise<ApiResult<CoverageCatalog>> {
+  return fetchApi<CoverageCatalog>('/api/connectors/coverage', { params: { platform } })
+}
+
+/** 对目录中的 API 发起探测(默认只读),返回逐条状态用于就地回填 */
+export async function probeConnectorCoverage(
+  key: string,
+  input: CoverageProbeRequest,
+): Promise<ApiResult<CoverageProbeResponse>> {
+  return fetchApi<CoverageProbeResponse>(`/api/connectors/${encodeURIComponent(key)}/probe`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+/** 按域 / 按 API 规划分片连接器清单(每片 ≤200 操作) */
+export async function getConnectorCoveragePlan(
+  key: string,
+  input: CoveragePlanRequest,
+): Promise<ApiResult<CoveragePlanResponse>> {
+  return fetchApi<CoveragePlanResponse>(
+    `/api/connectors/${encodeURIComponent(key)}/coverage/plan`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
