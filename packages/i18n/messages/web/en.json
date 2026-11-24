@@ -6242,7 +6242,16 @@
     "operationSave": "Save operation",
     "operationRequired": "Operation ID, path or method is invalid",
     "operationJsonInvalid": "Query parameters or request body is not valid JSON",
-    "connecting": "Connecting"
+    "connecting": "Connecting",
+    "wecomRobotTitle": "WeCom · Smart Robot",
+    "wecomRobotHint": "Authorize in WeCom client (Smart Robot → Permissions), then paste the MCP URL below. Valid for 7 days.",
+    "wecomRobotAuthorize": "Configure robot",
+    "wecomRobotAuthorized": "Robot authorized",
+    "wecomRobotExpired": "Expired, please re-authorize",
+    "wecomRobotPasteLabel": "MCP URL or JSON config",
+    "wecomRobotPastePlaceholder": "https://qyapi.weixin.qq.com/mcp/v2/bot/doc?apikey=...",
+    "wecomRobotSubmit": "Save authorization",
+    "wecomRobotTools": "View available tools"
   },
   "adminAiSkills": {
     "avgDuration": "Avg Duration",

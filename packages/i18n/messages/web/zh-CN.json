@@ -6242,7 +6242,16 @@
     "operationSave": "保存操作",
     "operationRequired": "操作 ID、路径或方法格式不正确",
     "operationJsonInvalid": "查询参数或请求体不是合法 JSON",
-    "connecting": "接入中"
+    "connecting": "接入中",
+    "wecomRobotTitle": "企业微信 · 智能机器人",
+    "wecomRobotHint": "在企微客户端「智能机器人→可使用权限」授权后，复制 MCP 地址粘贴到下方；有效期 7 天。",
+    "wecomRobotAuthorize": "配置机器人授权",
+    "wecomRobotAuthorized": "机器人已授权",
+    "wecomRobotExpired": "授权已过期，请重新授权",
+    "wecomRobotPasteLabel": "MCP 地址或 JSON 配置",
+    "wecomRobotPastePlaceholder": "https://qyapi.weixin.qq.com/mcp/v2/bot/doc?apikey=...",
+    "wecomRobotSubmit": "保存授权",
+    "wecomRobotTools": "查看可用工具"
   },
   "adminAiSkills": {
     "avgDuration": "平均耗时",

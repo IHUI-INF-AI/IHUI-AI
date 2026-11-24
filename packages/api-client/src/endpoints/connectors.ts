@@ -472,6 +472,41 @@ export async function getConnectorOAuthAuthorize(
   )
 }
 
+/** 企微智能机器人授权状态(脱敏,不含 apikey) */
+export async function getWecomRobotStatus(): Promise<
+  ApiResult<{ authorized: boolean; capability: string; expired: boolean; message: string }>
+> {
+  return fetchApi('/api/connectors/wecom-robot/status')
+}
+
+/** 保存企微智能机器人 MCP 端点(用户在企微客户端「可使用权限」复制的 URL/JSON Config) */
+export async function authorizeWecomRobot(
+  config: string,
+): Promise<ApiResult<{ authorized: boolean; capability: string; expired: boolean; message: string }>> {
+  return fetchApi('/api/connectors/wecom-robot/authorize', {
+    method: 'POST',
+    body: JSON.stringify({ config }),
+  })
+}
+
+/** 拉取企微机器人授权范围内的 MCP 工具清单 */
+export async function listWecomRobotTools(): Promise<
+  ApiResult<{ tools: Array<{ name: string; description?: string; inputSchema?: unknown }>; count: number }>
+> {
+  return fetchApi('/api/connectors/wecom-robot/tools')
+}
+
+/** 调用企微机器人 MCP 工具 */
+export async function invokeWecomRobotTool(
+  tool: string,
+  arguments_: Record<string, unknown> = {},
+): Promise<ApiResult<{ ok: boolean; tool: string; result: unknown }>> {
+  return fetchApi('/api/connectors/wecom-robot/invoke', {
+    method: 'POST',
+    body: JSON.stringify({ tool, arguments: arguments_ }),
+  })
+}
+
 /** 同步连接器数据源,返回条目列表 */
 export async function syncConnector(key: string): Promise<ApiResult<ConnectorSyncResult>> {
   return fetchApi<ConnectorSyncResult>('/api/connectors/sync', {

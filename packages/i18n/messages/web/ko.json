@@ -6273,7 +6273,16 @@
     "operationSave": "작업 저장",
     "operationRequired": "작업 ID, 경로 또는 메서드 형식이 올바르지 않습니다",
     "operationJsonInvalid": "쿼리 매개변수 또는 요청 본문이 유효한 JSON이 아닙니다",
-    "connecting": "연결 중"
+    "connecting": "연결 중",
+    "wecomRobotTitle": "WeCom · 스마트 봇",
+    "wecomRobotHint": "WeCom 클라이언트에서 «스마트 봇 → 사용 권한»을 승인한 뒤 MCP URL을 붙여넣으세요. 유효 기간은 7일입니다.",
+    "wecomRobotAuthorize": "봇 설정",
+    "wecomRobotAuthorized": "봇 승인됨",
+    "wecomRobotExpired": "만료됨, 다시 승인해 주세요",
+    "wecomRobotPasteLabel": "MCP URL 또는 JSON 설정",
+    "wecomRobotPastePlaceholder": "https://qyapi.weixin.qq.com/mcp/v2/bot/doc?apikey=...",
+    "wecomRobotSubmit": "승인 저장",
+    "wecomRobotTools": "사용 가능한 도구"
   },
   "adminAiSkills": {
     "avgDuration": "평균 시간",

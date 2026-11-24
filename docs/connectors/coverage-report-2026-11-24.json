@@ -2127,5 +2127,8 @@
     ],
     "driver": "asyncpg (PostgreSQL);未使用 sqlite",
     "note": "表由 coverage_probe 惰性 CREATE TABLE IF NOT EXISTS 引导;首次巡检时表已存在但 0 行,本次探测后落库 106 行,与抽样执行记录对账一致(115 抽样 − 9 条只读跳过)。"
-  }
+  },
+  "notes": [
+    "【2026-11-26 补注】企业微信「协议层不成立」的旧结论仅适用于旧版网页 OAuth(userid/user_ticket)。企业微信 2026-11-05 上线「智能机器人 AI 能力」:成员单独授权「可使用权限」后,机器人可代替成员操作文档/表格/智能表格/待办/日程/会议/微盘/通讯录,支持 MCP(Streamable HTTP)与 CLI,官方明确支持 OpenClaw 接入。本项目已新增 wecom_mcp 客户端 + wecom_robot 连接器 + 前端授权引导:apikey 加密落库、7 天有效期提示;该路径是「机器人身份+成员授权范围」,非 per-user access_token,与 wecom_corp 应用身份并存。"
+  ]
 }

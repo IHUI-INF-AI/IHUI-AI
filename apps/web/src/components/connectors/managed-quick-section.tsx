@@ -28,7 +28,8 @@ interface ManagedQuickSectionProps {
  * 用户扫码授权入口:仅后端已核实 OAuth 端点且协议提供 per-user token 的平台可见。
  * - 飞书:user_access_token(官方 authen/v2/oauth/token)
  * - 钉钉:userAccessToken(官方 /v1.0/oauth2/userAccessToken)
- * - 企微:网页授权只回 userid/user_ticket,无 per-user token ⇒ 不可做,不放行。
+ * - 企微:旧网页 OAuth 只回 userid/user_ticket,无 per-user token ⇒ 不放行扫码入口;
+ *   新的「智能机器人 MCP」走独立 WecomRobotSection(成员授权办公能力),不走此入口。
  */
 const USER_OAUTH_PLATFORMS = new Set(['feishu', 'dingtalk'])
 

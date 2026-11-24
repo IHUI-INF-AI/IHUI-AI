@@ -25,6 +25,7 @@ import { ConnectorConfigDialog } from '@/components/connectors/connector-config-
 import { ConnectorInvokeDialog } from '@/components/connectors/connector-invoke-dialog'
 import { ConnectorCard } from '@/components/connectors/connector-card'
 import { ManagedQuickSection } from '@/components/connectors/managed-quick-section'
+import { WecomRobotSection } from '@/components/connectors/wecom-robot-section'
 import { useConnectorActions } from '@/components/connectors/use-connector-actions'
 import { CoveragePanel } from '@/components/connectors/coverage/coverage-panel'
 
@@ -112,6 +113,8 @@ export default function ConnectorsPageClient() {
           onUserAuthorize={(type) => void actions.handleUserAuthorize(type)}
         />
       )}
+
+      {allow && <WecomRobotSection />}
 
       {allow && <CoveragePanel connectors={connectors} onRefresh={refresh} />}
 

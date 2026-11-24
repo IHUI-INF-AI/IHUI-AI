@@ -60,6 +60,7 @@ AUTH_KINDS: tuple[str, ...] = (
     "feishu_user",  # 飞书用户 OAuth user_access_token(connector_oauth 授权后注入)
     "dingtalk_user",  # 钉钉用户 OAuth userAccessToken(connector_oauth 授权后注入)
     "wecom_corp",
+    "wecom_robot_mcp",  # 企业微信智能机器人 MCP(成员授权办公能力,与 wecom_corp 并存)
     "dingtalk",
     "wechat_mp",
 )

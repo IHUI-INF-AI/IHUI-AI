@@ -70,6 +70,7 @@ SENSITIVE_EXTRA_KEYS = {
     "api_key",
     "private_key",
     "user_oauth",  # 用户 OAuth 令牌密文(connector_oauth),只回传"已授权"布尔位
+    "robot_mcp_endpoint",  # 企业微信机器人 MCP 端点密文(含 apikey),只回传"已授权"布尔位
 }
 
 
@@ -1205,3 +1206,92 @@ async def delete_connector(
         logger.error("删除连接器失败(%s): %s", key, e)
         return _error(500, "删除连接器失败,请稍后重试")
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# ---------------------------------------------------------------------------
+# 企业微信智能机器人 MCP(成员授权办公能力,与自建应用 wecom_corp 并存)
+# 官方 2026-11-05 上线的「可使用权限」:成员授权后机器人可代替成员操作
+# 文档/表格/智能表格/待办/日程/会议/微盘/通讯录。端点(apikey)加密落库。
+# ---------------------------------------------------------------------------
+
+
+class WecomRobotAuthorizeRequest(BaseModel):
+    """用户在企微客户端「可使用权限」授权后复制的 MCP URL / JSON Config。"""
+
+    config: str = Field(..., min_length=1, max_length=8192)
+
+
+class WecomRobotInvokeRequest(BaseModel):
+    tool: str = Field(..., min_length=1, max_length=128)
+    arguments: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.get("/wecom-robot/status", response_model=None)
+async def wecom_robot_status(
+    user_id: str = Depends(require_request_user_id),
+    scope: str = Depends(connector_scope),
+    ctx: ConnectorScope = Depends(connector_context),
+) -> dict[str, Any]:
+    """企微机器人授权状态(脱敏,绝不含 apikey)。"""
+    from ..services.connectors import wecom_robot
+
+    return wecom_robot.status(scope, ctx.tenant_id)
+
+
+@router.post("/wecom-robot/authorize", response_model=None)
+async def wecom_robot_authorize(
+    req: WecomRobotAuthorizeRequest,
+    user_id: str = Depends(require_request_user_id),
+    scope: str = Depends(connector_admin_scope),
+    ctx: ConnectorScope = Depends(connector_context),
+) -> dict[str, Any] | JSONResponse:
+    """保存 MCP 端点(加密落库)。仅租户 owner/admin 可写共享凭据。"""
+    from ..services.connectors import wecom_mcp, wecom_robot
+
+    try:
+        return wecom_robot.save_endpoint(scope, ctx.tenant_id, req.config)
+    except wecom_mcp.WecomMcpError as e:
+        return _error(400, f"MCP 端点非法: {e}")
+    except wecom_robot.WecomRobotError as e:
+        return _error(400, str(e))
+    except Exception as e:  # noqa: BLE001
+        logger.error("[wecom_robot] 保存端点失败: %s", e)
+        return _error(500, "保存失败,请稍后重试")
+
+
+@router.get("/wecom-robot/tools", response_model=None)
+async def wecom_robot_tools(
+    user_id: str = Depends(require_request_user_id),
+    scope: str = Depends(connector_scope),
+    ctx: ConnectorScope = Depends(connector_context),
+) -> dict[str, Any] | JSONResponse:
+    """拉取授权范围内的 MCP 工具清单(含 inputSchema)。"""
+    from ..services.connectors import wecom_robot
+
+    try:
+        tools = await wecom_robot.list_tools(scope, ctx.tenant_id)
+        return {"tools": tools, "count": len(tools)}
+    except wecom_robot.WecomRobotError as e:
+        return _error(400, str(e))
+    except Exception as e:  # noqa: BLE001
+        logger.error("[wecom_robot] tools/list 失败: %s", e)
+        return _error(502, f"拉取工具失败: {type(e).__name__}")
+
+
+@router.post("/wecom-robot/invoke", response_model=None)
+async def wecom_robot_invoke(
+    req: WecomRobotInvokeRequest,
+    user_id: str = Depends(require_request_user_id),
+    scope: str = Depends(connector_scope),
+    ctx: ConnectorScope = Depends(connector_context),
+) -> dict[str, Any] | JSONResponse:
+    """调用一个授权范围内的 MCP 工具。只读/写由工具自身权限位决定。"""
+    from ..services.connectors import wecom_robot
+
+    try:
+        result = await wecom_robot.invoke(scope, ctx.tenant_id, req.tool, req.arguments)
+        return {"ok": True, "tool": req.tool, "result": result}
+    except wecom_robot.WecomRobotError as e:
+        return _error(400, str(e))
+    except Exception as e:  # noqa: BLE001
+        logger.error("[wecom_robot] tools/call 失败: %s", e)
+        return _error(502, f"调用失败: {type(e).__name__}")

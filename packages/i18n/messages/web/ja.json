@@ -6273,7 +6273,16 @@
     "operationSave": "操作を保存",
     "operationRequired": "操作 ID、パス、メソッドの形式が不正です",
     "operationJsonInvalid": "クエリパラメータまたはリクエストボディが有効な JSON ではありません",
-    "connecting": "接続中"
+    "connecting": "接続中",
+    "wecomRobotTitle": "WeCom · スマートボット",
+    "wecomRobotHint": "WeComクライアントで「スマートボット→利用可能な権限」を承認し、MCP URLを貼り付けてください。有効期限は7日間です。",
+    "wecomRobotAuthorize": "ボットを設定",
+    "wecomRobotAuthorized": "ボット承認済み",
+    "wecomRobotExpired": "期限切れ、再承認が必要です",
+    "wecomRobotPasteLabel": "MCP URL または JSON 設定",
+    "wecomRobotPastePlaceholder": "https://qyapi.weixin.qq.com/mcp/v2/bot/doc?apikey=...",
+    "wecomRobotSubmit": "承認を保存",
+    "wecomRobotTools": "利用可能なツール"
   },
   "adminAiSkills": {
     "avgDuration": "平均時間",
