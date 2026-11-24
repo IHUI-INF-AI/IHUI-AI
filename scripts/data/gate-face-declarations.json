@@ -473,6 +473,10 @@
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
     },
+    "scripts/check-index-reverse-staged.mjs": {
+      "face": "auto",
+      "reason": "门327固定读共享索引 vs HEAD 祖先链,判面内建于 gitRaw(gitRaw 自带根/面),不随运行旗改变;缺声明时派发层 exit 2 未判定,补 auto 让本门可判"
+    },
     "scripts/check-inline-back-button.mjs": {
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
