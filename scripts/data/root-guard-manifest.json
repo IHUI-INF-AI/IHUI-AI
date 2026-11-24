@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-24T14:20:01.000Z",
+  "sealedAt": "2026-11-24T16:29:40.724Z",
   "sealedBy": "root-guard --seal",
-  "reason": "2026-11-24 反向 staged 根治门 327 注册进 guardian-runner,按 root-guard 自身 hashTarget 同尺重封",
+  "reason": "AGENTS.md 追加机主 2026-11-24 定案第14/15条铁律并做体积清偿(重复注释折1),复核后重封",
   "targets": [
     {
       "id": "guardian-runner",
@@ -22,7 +22,7 @@
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "c4166f95be43d0d38c15fe0968fc21e49b6be2d42a4e59a0e79a484acdb9e8c0"
+      "sha256": "b1e49e8fe0d5ac5838d80ab8570a570e88c528bbb700fd6364cc29e234a4c37a"
     },
     {
       "id": "git-guardian",
