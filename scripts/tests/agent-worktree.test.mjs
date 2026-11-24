@@ -9,7 +9,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { __test__ as aw } from '../agent-worktree.mjs'
 
@@ -402,6 +402,137 @@ test('⑱ I4:另一进程持锁时本轮孤儿腿跳过,不误报失败且零动
       assert.match(r.lines.join('\n'), /本轮跳过/)
     } finally {
       rmSync(lock, { force: true })
+    }
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true })
+  }
+})
+
+
+// ---------- 孤儿腿清理租约 owner/heldForMs 诊断(对标 Cursor WorktreeCleanupMainService) ----------
+test('⑲ 抢锁成功后写入 JSON 租约(lease id / owner pid+ppid+cmd / sinceMs / reason)', () => {
+  const sandbox = mkdtempSync(join(tmpdir(), 'ihui-lease-write-'))
+  try {
+    const root = join(sandbox, 'IHUI-AI')
+    const got = aw.acquireOrphanLock(root, { reason: 'guardian-24h' })
+    try {
+      assert.equal(got.ok, true)
+      assert.ok(got.lease, '成功抢锁必须返回租约对象')
+      const raw = JSON.parse(readFileSync(got.path, 'utf8'))
+      assert.equal(raw.v, 1)
+      assert.match(raw.lease, /^\d+-\d+$/)
+      assert.equal(raw.owner.pid, process.pid)
+      assert.equal(raw.reason, 'guardian-24h')
+      assert.ok(Number.isFinite(raw.sinceMs))
+      assert.ok(Date.now() - raw.sinceMs < 5000, 'sinceMs 应是当前时间')
+    } finally {
+      aw.releaseOrphanLock(got.path)
+    }
+    assert.equal(existsSync(got.path), false, '释放后锁文件必须消失')
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true })
+  }
+})
+
+test('⑳ 冲突报错带 owner/heldForMs/reason 现场证据(不再是空泛"另一进程持有锁")', () => {
+  const sandbox = mkdtempSync(join(tmpdir(), 'ihui-lease-conflict-'))
+  try {
+    const root = join(sandbox, 'IHUI-AI')
+    const first = aw.acquireOrphanLock(root, { reason: 'manual-reap-apply' })
+    try {
+      assert.equal(first.ok, true)
+      // 让 heldForMs 有明确可读的量级(不依赖 sleep:直接改写锁内 sinceMs)
+      const raw = JSON.parse(readFileSync(first.path, 'utf8'))
+      raw.owner.pid = 424242
+      raw.sinceMs = Date.now() - 125_000
+      writeFileSync(first.path, JSON.stringify(raw))
+
+      const second = aw.acquireOrphanLock(root, { reason: 'guardian-24h' })
+      assert.equal(second.ok, false)
+      assert.match(second.err, /owner=/)
+      assert.match(second.err, /pid:424242|"pid":424242|424242/)
+      assert.match(second.err, /heldForMs=12[4-6]\d{3}/, '必须报出约 125 秒的持锁时长')
+      assert.match(second.err, /reason="manual-reap-apply"/, '必须带出持有者当初的用途')
+      assert.ok(second.heldForMs >= 124_000 && second.heldForMs < 130_000)
+      assert.equal(second.lease.ownerRaw.pid, 424242, '租约须保留 owner 原始对象供结构化消费')
+    } finally {
+      aw.releaseOrphanLock(first.path)
+    }
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true })
+  }
+})
+
+test('㉑ 旧格式纯 pid 锁兼容:读得出 owner、不崩、heldForMs 取 mtime', () => {
+  const sandbox = mkdtempSync(join(tmpdir(), 'ihui-lease-legacy-'))
+  try {
+    const root = join(sandbox, 'IHUI-AI')
+    const lock = aw.orphanLockPathOf(root)
+    writeFileSync(lock, '31337')
+    const old = new Date(Date.now() - 60_000)
+    utimesSync(lock, old, old)
+    const got = aw.acquireOrphanLock(root)
+    assert.equal(got.ok, false)
+    assert.match(got.err, /owner=pid:31337/)
+    assert.match(got.err, /heldForMs=6\d{4}/)
+    assert.match(got.err, /legacy-lock/)
+    assert.equal(got.lease.legacy, true)
+    rmSync(lock, { force: true })
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true })
+  }
+})
+
+test('㉒ 空锁文件兼容(旧实现写空文件):owner=unknown 不崩', () => {
+  const sandbox = mkdtempSync(join(tmpdir(), 'ihui-lease-empty-'))
+  try {
+    const root = join(sandbox, 'IHUI-AI')
+    const lock = aw.orphanLockPathOf(root)
+    writeFileSync(lock, '')
+    const got = aw.acquireOrphanLock(root)
+    assert.equal(got.ok, false)
+    assert.match(got.err, /owner=\(unknown\)/)
+    assert.match(got.err, /legacy-empty-lock/)
+    rmSync(lock, { force: true })
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true })
+  }
+})
+
+test('㉓ 陈旧锁(超 ORPHAN_LOCK_STALE_MS)自动回收后可重新抢到', () => {
+  const sandbox = mkdtempSync(join(tmpdir(), 'ihui-lease-stale-'))
+  try {
+    const root = join(sandbox, 'IHUI-AI')
+    const lock = aw.orphanLockPathOf(root)
+    writeFileSync(lock, JSON.stringify({ v: 1, owner: { pid: 999 }, sinceMs: Date.now() - 40 * 60_000, reason: 'dead' }))
+    const stale = new Date(Date.now() - (aw.ORPHAN_LOCK_STALE_MS + 60_000))
+    utimesSync(lock, stale, stale)
+    const got = aw.acquireOrphanLock(root, { reason: 'after-stale' })
+    assert.equal(got.ok, true, '超 30 分钟的死锁必须能被新进程接管')
+    assert.equal(JSON.parse(readFileSync(got.path, 'utf8')).reason, 'after-stale')
+    aw.releaseOrphanLock(got.path)
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true })
+  }
+})
+
+test('㉔ reapOrphanDirs 冲突行带上 owner/heldForMs(调度日志现场可判死活)', () => {
+  const sandbox = mkdtempSync(join(tmpdir(), 'ihui-lease-reap-line-'))
+  try {
+    const root = join(sandbox, 'IHUI-AI')
+    const worktreesRoot = join(root, '.worktrees')
+    mkdirSync(worktreesRoot, { recursive: true })
+    const first = aw.acquireOrphanLock(root, { reason: 'other-lane' })
+    try {
+      const r = aw.reapOrphanDirs({ root, worktreesRoot, now: Date.now(), minIdleDays: 1, graceDays: 1, apply: true })
+      assert.equal(r.tombstoned, 0)
+      assert.equal(r.purged, 0)
+      const line = r.lines.join('\n')
+      assert.match(line, /owner=/)
+      assert.match(line, /heldForMs=/)
+      assert.match(line, /other-lane/)
+    } finally {
+      aw.releaseOrphanLock(first.path)
     }
   } finally {
     rmSync(sandbox, { recursive: true, force: true })

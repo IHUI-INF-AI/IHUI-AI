@@ -56,6 +56,8 @@ import {
   openSync,
   closeSync,
   unlinkSync,
+  readFileSync,
+  writeFileSync,
 } from 'node:fs'
 import { join, dirname, resolve, basename, relative, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -503,16 +505,69 @@ export function listCandidateOrphanDirs({ root = ROOT, worktreesRoot = WT_DIR } 
  * 可能同时进孤儿腿。A 改名墓碑后 B 的 renameSync 抛 ENOENT 会被计成 failed;A 真删后 B 对
  * 已不存在的目录走 robocopy /MIR 还会新建空目录再虚报 purged+1 —— 数据不丢,但调度层日志失真。
  * 锁放 tmpdir(不污染工作树),`openSync(...,'wx')` 独占创建保证原子;超 30 分钟视为进程被杀的死锁。
+ *
+ * 2026-11-24 加固(对标 Cursor WorktreeCleanupMainService 的 lease id/owner/heldForMs 日志):
+ * 锁文件从空文件升级为 JSON 租约 { v, lease, owner:{pid,ppid,cmd}, sinceMs, reason }。抢锁失败时
+ * 读出持有者并算 heldForMs,让"锁被长持、safe-commit/push 全堵"的现场自带 owner/时长证据,
+ * 不必再靠人肉 stat mtime 猜死活。兼容旧格式(纯 pid 文本 ⇒ owner 只能给 pid,时长取 mtime)。
  */
+const ORPHAN_LOCK_STALE_MS = 30 * 60_000
+
 function orphanLockPathOf(root) {
   const key = resolve(root).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(-80)
   return join(tmpdir(), `ihui-orphan-reap-${key}.lock`)
 }
 
-function acquireOrphanLock(root) {
+/** 把租约 owner 格式化成可读串:新格式是 {pid,ppid,cmd} 对象,直接拼进模板会变 [object Object] */
+function formatLeaseOwner(owner) {
+  if (owner == null) return '(unknown)'
+  if (typeof owner === 'string') return owner
+  if (typeof owner === 'object') {
+    const pid = owner.pid != null ? `pid:${owner.pid}` : ''
+    const ppid = owner.ppid != null ? `ppid:${owner.ppid}` : ''
+    const cmd = owner.cmd ? ` cmd="${String(owner.cmd).slice(0, 80)}"` : ''
+    return [pid, ppid].filter(Boolean).join(' ') + cmd || '(unknown)'
+  }
+  return String(owner)
+}
+
+/** 读锁文件内容:新格式 JSON 租约 / 旧格式纯 pid 文本,统一成 { owner, sinceMs, reason } */
+function readOrphanLease(lock) {
+  let raw = ''
+  try {
+    raw = readFileSync(lock, 'utf8').trim()
+  } catch {
+    return null
+  }
+  let statMs = null
+  try {
+    statMs = statSync(lock).mtimeMs
+  } catch {
+    /* 忽略 */
+  }
+  if (!raw) return { owner: '(unknown)', sinceMs: statMs, reason: '(legacy-empty-lock)', legacy: true }
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object') {
+      return {
+        owner: formatLeaseOwner(parsed.owner),
+        ownerRaw: parsed.owner,
+        sinceMs: Number.isFinite(parsed.sinceMs) ? parsed.sinceMs : statMs,
+        reason: parsed.reason ?? '(unspecified)',
+        lease: parsed.lease,
+        legacy: false,
+      }
+    }
+  } catch {
+    /* 非 JSON:旧格式纯 pid */
+  }
+  return { owner: `pid:${raw.slice(0, 40)}`, sinceMs: statMs, reason: '(legacy-lock)', legacy: true }
+}
+
+function acquireOrphanLock(root, { reason = '(unspecified)' } = {}) {
   const lock = orphanLockPathOf(root)
   try {
-    if (Date.now() - statSync(lock).mtimeMs > 30 * 60_000) unlinkSync(lock)
+    if (Date.now() - statSync(lock).mtimeMs > ORPHAN_LOCK_STALE_MS) unlinkSync(lock)
   } catch {
     /* 锁不存在/刚被清掉:继续抢 */
   }
@@ -520,13 +575,37 @@ function acquireOrphanLock(root) {
   try {
     fd = openSync(lock, 'wx')
   } catch (e) {
-    if (e?.code === 'EEXIST')
-      return { ok: false, err: `另一进程持有锁 ${basename(lock)}(本轮跳过,不误报失败)` }
+    if (e?.code === 'EEXIST') {
+      const lease = readOrphanLease(lock)
+      const heldForMs = lease?.sinceMs != null ? Math.max(0, Date.now() - lease.sinceMs) : null
+      const owner = lease?.owner ?? '(unknown)'
+      const held = heldForMs == null ? '' : ` heldForMs=${heldForMs}`
+      const why = lease?.reason ? ` reason="${String(lease.reason).slice(0, 120)}"` : ''
+      return {
+        ok: false,
+        err: `另一进程持有锁 ${basename(lock)} owner=${owner}${held}${why}(本轮跳过,不误报失败)`,
+        lease,
+        heldForMs,
+      }
+    }
     return { ok: false, err: String(e?.message ?? e) }
   } finally {
     if (fd !== null) closeSync(fd)
   }
-  return { ok: true, path: lock }
+  // 写入租约内容(mtime 仍是权威死锁判据;sinceMs 仅用于 heldForMs 诊断)
+  const lease = {
+    v: 1,
+    lease: `${process.pid}-${Date.now()}`,
+    owner: { pid: process.pid, ppid: process.ppid ?? null, cmd: String(process.argv?.slice(1, 3).join(' ') ?? '').slice(0, 160) },
+    sinceMs: Date.now(),
+    reason: String(reason).slice(0, 120),
+  }
+  try {
+    writeFileSync(lock, JSON.stringify(lease), 'utf8')
+  } catch {
+    /* 写租约失败不影响互斥(open wx 已成功持有),退化为旧空锁形态 */
+  }
+  return { ok: true, path: lock, lease }
 }
 
 function releaseOrphanLock(lock) {
@@ -562,7 +641,7 @@ export function reapOrphanDirs({
     plannedPurge: 0,
     lines: [],
   }
-  const lock = apply ? acquireOrphanLock(root) : null
+  const lock = apply ? acquireOrphanLock(root, { reason: 'orphan-reap-apply' }) : null
   if (lock && !lock.ok) {
     out.lines.push(`ℹ 孤儿腿本轮跳过:${lock.err}`)
     return out
@@ -1484,6 +1563,10 @@ export const __test__ = {
   PROTECTED_ORPHAN_SIBLINGS,
   samePath,
   orphanLockPathOf,
+  acquireOrphanLock,
+  releaseOrphanLock,
+  readOrphanLease,
+  ORPHAN_LOCK_STALE_MS,
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
