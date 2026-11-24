@@ -6329,6 +6329,9 @@ class AgentLoopV2:
                         for tc in tool_calls
                     ]
                 else:
+                    # P0-7 回合前上下文自检(默认关):锚点掉落 ⇒ 回源重读并留审计;
+                    # 关闭 / 无锚点 / 自检失败均零行为,不阻断真实工具下发。
+                    await self._run_context_anchor_check(i, messages, tool_calls)
                     tool_results = await self._execute_tools(tool_calls)
                 # Hook 引擎: tool.after(1-5 起经事件流层发射:逐工具明细含
                 # input/diff/test/rollback 可解释性证据,evidence 推导失败跳过整次事件)
@@ -7714,6 +7717,44 @@ class AgentLoopV2:
                         slots[idx] = asyncio.CancelledError()
                 break
         return slots
+
+    async def _run_context_anchor_check(
+        self,
+        iteration: int,
+        messages: list[dict[str, Any]],
+        tool_calls: list[ToolCall],
+    ) -> None:
+        """P0-7 回合前上下文自检(默认关):锚点/指纹仍在上下文内?缺失 ⇒ 回源重读。
+
+        开关 env ``AGENT_CONTEXT_ANCHOR_CHECK_ENABLED``;off 时零调用零开销。
+        自检 / 重读异常一律降级跳过,不阻断工具下发(§0.10);审计走既有
+        audit_service 通道(PostgreSQL,内存缓冲兜底)。
+        """
+        try:
+            from app.core.context_anchor_check import run_context_anchor_check
+
+            result = await run_context_anchor_check(
+                tool_calls,
+                messages,
+                session_id=self._session_id or "",
+                iteration=iteration,
+            )
+            if not result.enabled or not result.missing:
+                return
+            logger.info(
+                "上下文自检: 锚点缺失 %d 个, 重读成功 %d 个, 不可用 %d 个 session=%s",
+                len(result.missing), len(result.reread), len(result.unavailable),
+                self._session_id or "",
+            )
+            from .audit_service import audit_service
+
+            audit_service.log_agent_action(
+                agent_id=self._session_id or "agent_loop",
+                action="context_anchor_check",
+                details=result.audit,
+            )
+        except Exception as e:  # noqa: BLE001 - 自检钩子失败不阻断主链路
+            logger.warning("上下文自检钩子失败(降级不阻断): %s", e)
 
     async def _execute_tools(self, tool_calls: list[ToolCall]) -> list[ToolResult]:
         """执行工具调用(并行或串行)。"""

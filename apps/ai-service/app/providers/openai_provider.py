@@ -83,8 +83,16 @@ class OpenAIProvider(BaseProvider):
         tools: list[dict[str, Any]] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
+        # B3-07:元数据先摘出,不进上游 payload/headers;随 _request 落 span/日志。
+        request_meta = self._pop_request_meta(kwargs)
         payload = self._build_payload(messages, model, tools=tools, stream=False, **kwargs)
-        data = await self._request("POST", self._api_path("/v1/chat/completions"), headers=self._headers(), json=payload)
+        data = await self._request(
+            "POST",
+            self._api_path("/v1/chat/completions"),
+            headers=self._headers(),
+            json=payload,
+            request_meta=request_meta,
+        )
         # AIS-065:choices 空/缺键时抛 ProviderError 进 fallback,不再 IndexError/静默空回复
         choice = first_choice_or_raise(data, "OpenAI")
         msg = choice.get("message", {})
@@ -111,6 +119,10 @@ class OpenAIProvider(BaseProvider):
         tools: list[dict[str, Any]] | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[dict[str, Any]]:
+        # B3-07:元数据先摘出,不进上游 payload;流式不经 _request,在此直接落痕。
+        request_meta = self._pop_request_meta(kwargs)
+        if request_meta is not None:
+            self._annotate_request(request_meta)
         payload = self._build_payload(messages, model, tools=tools, stream=True, **kwargs)
         # P1-7: 流式 done 事件兜底标志
         _done_yielded = False

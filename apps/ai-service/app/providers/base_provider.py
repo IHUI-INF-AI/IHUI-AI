@@ -6,14 +6,103 @@
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 import httpx
 
 from ..core.llm_gateway import get_http_client
 from ..core.retry_after import extract_server_retry_hint
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class RequestMeta:
+    """四层请求元数据(B3-07,2026-11-24 立)。
+
+    分层:
+    - ``workspace``:工作区标识(哪个项目/目录发起);
+    - ``context``:上下文层,含 ``request_set_id``(同一批请求的集合键,落 span/日志);
+    - ``purpose``:本次调用目的(advisor/tool/followup/...);
+    - ``trace``:追踪层(可带 trace_id;缺省回中间件 contextvar)。
+
+    另承载两条既有能力的可观测维度(不重复造预算/补丁逻辑):
+    - ``advisor``:advisor 咨询的 ``max_uses``(预算实现仍在 ``services/advisor.py``);
+    - ``patches``:按 ``cache_id`` 复用的条目(补丁归并仍在 ``services/chat_patch.py``)。
+
+    纪律:元数据**只进 span 与日志**,绝不进上游 headers / 请求体;不传时整层不产生
+    任何观测副作用(零缺省变化)。
+    """
+
+    workspace: str | None = None
+    context: dict[str, Any] = field(default_factory=dict)
+    purpose: str | None = None
+    trace: dict[str, Any] = field(default_factory=dict)
+    advisor: dict[str, Any] = field(default_factory=dict)
+    patches: list[dict[str, Any]] = field(default_factory=list)
+
+    @property
+    def request_set_id(self) -> str | None:
+        """上下文层的请求集合键;空/非字符串 ⇒ None(不造占位值)。"""
+        value = self.context.get("request_set_id")
+        return str(value) if value else None
+
+    @property
+    def advisor_max_uses(self) -> int | None:
+        """advisor 次数预算;非整数(含 bool)⇒ None。"""
+        value = self.advisor.get("max_uses")
+        if isinstance(value, bool) or not isinstance(value, int):
+            return None
+        return value
+
+    @property
+    def patch_cache_ids(self) -> list[str]:
+        """patches 条目的 cache_id 有序去重(复用定位键)。"""
+        ids: list[str] = []
+        for patch in self.patches:
+            if isinstance(patch, dict):
+                cache_id = patch.get("cache_id")
+                if isinstance(cache_id, str) and cache_id and cache_id not in ids:
+                    ids.append(cache_id)
+        return ids
+
+
+def parse_request_meta(raw: Any) -> RequestMeta | None:
+    """把调用方传入的元数据归一为 :class:`RequestMeta`;空/坏类型 ⇒ None(fail-closed)。
+
+    - None / 空 dict ⇒ None(调用方没传,保持现状零变化);
+    - :class:`RequestMeta` ⇒ 原样返回;
+    - dict ⇒ 按四层字段收编,类型不符的子段回落空容器;
+    - 其他类型 ⇒ None,不抛异常进主链路。
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, RequestMeta):
+        return raw
+    if not isinstance(raw, dict):
+        return None
+
+    workspace = raw.get("workspace")
+    purpose = raw.get("purpose")
+    context = raw.get("context")
+    trace = raw.get("trace")
+    advisor = raw.get("advisor")
+    patches = raw.get("patches")
+    if not any((workspace, purpose, context, trace, advisor, patches)):
+        return None
+
+    return RequestMeta(
+        workspace=str(workspace) if workspace else None,
+        context=dict(context) if isinstance(context, dict) else {},
+        purpose=str(purpose) if purpose else None,
+        trace=dict(trace) if isinstance(trace, dict) else {},
+        advisor=dict(advisor) if isinstance(advisor, dict) else {},
+        patches=list(patches) if isinstance(patches, list) else [],
+    )
 
 
 def first_choice_or_raise(data: dict[str, Any], provider_label: str) -> dict[str, Any]:
@@ -100,6 +189,67 @@ class BaseProvider(ABC):
         """列出厂商可用模型(尽力而为,默认空列表)。"""
         return []
 
+    @staticmethod
+    def _pop_request_meta(kwargs: dict[str, Any]) -> RequestMeta | None:
+        """从调用 kwargs 摘出 ``request_meta``(不进上游 payload/headers)。"""
+        return parse_request_meta(kwargs.pop("request_meta", None))
+
+    def _annotate_request(self, meta: RequestMeta) -> None:
+        """把四层元数据落 OTel span 与结构化日志;观测失败静默降级,不阻断上游。
+
+        span 属性键与既有 telemetry 中间件风格对齐(``trace.id``);元数据只作关联键,
+        不带授权凭据。取不到 current span / opentelemetry 未装 ⇒ 跳过 span,日志仍记。
+        """
+        trace_id = str(meta.trace.get("trace_id") or "")
+        if not trace_id:
+            from ..middleware.trace_context import current_trace_id
+
+            trace_id = current_trace_id() or ""
+
+        attrs: dict[str, Any] = {}
+        if meta.workspace:
+            attrs["request.workspace"] = meta.workspace
+        if meta.request_set_id:
+            attrs["request.context.request_set_id"] = meta.request_set_id
+        if meta.purpose:
+            attrs["request.purpose"] = meta.purpose
+        if trace_id:
+            attrs["request.trace.id"] = trace_id
+        if meta.advisor_max_uses is not None:
+            attrs["request.advisor.max_uses"] = meta.advisor_max_uses
+        cache_ids = meta.patch_cache_ids
+        if cache_ids:
+            attrs["request.patches.cache_ids"] = cache_ids
+
+        if attrs:
+            try:
+                from opentelemetry import trace
+
+                span = trace.get_current_span()
+                for key, value in attrs.items():
+                    span.set_attribute(key, value)
+            except Exception:  # noqa: BLE001 - 观测降级,不阻断上游调用
+                logger.debug("provider 请求元数据落 span 失败(降级跳过)", exc_info=True)
+
+        logger.info(
+            "provider request meta: purpose=%s workspace=%s request_set_id=%s "
+            "advisor_max_uses=%s patch_cache_ids=%s",
+            meta.purpose,
+            meta.workspace,
+            meta.request_set_id,
+            meta.advisor_max_uses,
+            cache_ids,
+            extra={
+                "request_meta": {
+                    "workspace": meta.workspace,
+                    "purpose": meta.purpose,
+                    "request_set_id": meta.request_set_id,
+                    "advisor_max_uses": meta.advisor_max_uses,
+                    "patch_cache_ids": cache_ids,
+                }
+            },
+        )
+
     async def _request(
         self,
         method: str,
@@ -107,8 +257,12 @@ class BaseProvider(ABC):
         *,
         headers: dict[str, str] | None = None,
         json: dict[str, Any] | None = None,
+        request_meta: RequestMeta | dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """通用 httpx 请求封装,失败抛 ProviderError。使用全局共享 AsyncClient。"""
+        meta = parse_request_meta(request_meta)
+        if meta is not None:
+            self._annotate_request(meta)
         try:
             client = get_http_client()
             resp = await client.request(method, url, headers=headers, json=json, timeout=self.timeout)
