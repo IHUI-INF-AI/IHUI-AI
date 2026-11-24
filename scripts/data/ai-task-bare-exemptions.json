@@ -1,9 +1,0 @@
-[
-  {
-    "file": "apps/ai-service/app/services/agent_checkpoint.py",
-    "marker": "asyncio.get_running_loop().create_task(",
-    "reason": "测试专用 reset helper:close 协程即时完成,且调用点已在 contextlib.suppress(RuntimeError) 内",
-    "ticket": "本门 247 立闸同批登记(2026-10-25)",
-    "until": "2027-04-30"
-  }
-]

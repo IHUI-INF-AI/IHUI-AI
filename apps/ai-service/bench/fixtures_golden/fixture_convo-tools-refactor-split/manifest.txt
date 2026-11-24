@@ -1,2 +1,0 @@
-notes/a.txt -> notes/a.md
-notes/b.txt -> notes/b.md

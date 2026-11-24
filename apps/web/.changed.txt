@@ -1,4 +1,0 @@
-apps/web/app/(main)/admin/exam-marking/page.tsx
-apps/web/app/(main)/admin/news/NewsArticleTable.tsx
-apps/web/app/(main)/admin/resources/page.tsx
-apps/web/app/(main)/admin/shop/withdrawals/WithdrawalFlowTable.tsx

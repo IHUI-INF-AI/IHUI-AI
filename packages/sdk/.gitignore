@@ -1,5 +1,0 @@
-# prepack 生成的发布物(见 scripts/prepack.mjs)—— 由仓库根 LICENSE / NOTICE 复制而来,
-# 不入库以避免法律文本副本漂移;`files` 白名单仍会把它们打进 npm 包。
-/LICENSE
-/NOTICE
-/tsconfig.tsbuildinfo

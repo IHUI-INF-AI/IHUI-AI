@@ -180,7 +180,15 @@ function ensureInstalled() {
     process.env.APPDATA || '',
     'Microsoft\\Windows\\Start Menu\\Programs\\Startup',
   )
-  if (!existsSync(startupDir)) fail(`找不到启动目录：${startupDir}`)
+  if (!existsSync(startupDir)) {
+    // 服务账户(LocalSystem/NetworkService)没有 Startup 目录是常态：锚点是「登录自启」器物，
+    // 服务会话不需要它，也不该为它把整条 postinstall 打死。
+    // 2026-11-24 实测：pnpm postinstall 链尾 `workspace-anchor --install --quiet` 在 SYSTEM 下
+    // 因这里 fail ⇒ exit 2 ⇒ 净面 install 失败 ⇒ 部署回退到共享工作树 ⇒ type check 撞在飞代码 ⇒ 生产停摆。
+    // 安装动作缺目录时**跳过并说明**；对账语义不受影响（--verify 仍逐条判红/未判定，这条只关"能不能装"）。
+    log(`[anchor] 跳过登录自启：本账户无 Startup 目录(${startupDir || '(APPDATA 为空)'})`)
+    return null
+  }
   const nodeExe = pickNode()
   const cmd = [
     '@echo off',
@@ -211,6 +219,20 @@ function ensureInstalled() {
 function main() {
   const mode = flag('--verify') ? 'verify' : flag('--install') ? 'install' : 'anchor'
 
+  // 非 git 工作树 = 部署净面(`git archive` 导出面)或别的非仓目录：锚点只服务真仓，
+  // 导出面既不该装锚点、更不该把 C:\IHUI-AI / <letter>: 指到净面（那会让 Agent 客户端的
+  // 写死路径解析到构建临时目录）。2026-11-24 实测：净面 postinstall 链尾调用本脚本，
+  // 一路 fail 到 exit 2 ⇒ 净面 install 失败 ⇒ 部署回退共享工作树 ⇒ 生产停摆。
+  // 安装/校准模式 ⇒ 跳过并说明(exit 0)；--verify 仍属"取不到输入 ⇒ 未判定 exit 2"。
+  if (!existsSync(join(REPO_ROOT, '.git'))) {
+    if (mode === 'verify') {
+      console.error(`❌ workspace-anchor:非 git 工作树(${REPO_ROOT}) —— 未判定(exit 2)`)
+      process.exit(2)
+    }
+    log(`[anchor] 跳过：非 git 工作树(导出面构建)，锚点只服务真仓(${REPO_ROOT})`)
+    return
+  }
+
   if (mode === 'verify') {
     const v = verify()
     log(`[anchor] ${v.ok ? 'green' : 'red'}: ${v.why} (repo=${REPO_ROOT}, anchor=${ANCHOR})`)
@@ -220,7 +242,7 @@ function main() {
   // 任何一次校准都顺手把「注册表指针 + 登录自启」补齐：
   // 换机后只要在仓里跑过任意一次 pnpm install / pnpm dev / 本脚本，这台机器就自适应了。
   const file = ensureInstalled()
-  if (mode === 'install') {
+  if (mode === 'install' && file) {
     log(`[anchor] 已安装：${file}`)
     log(`[anchor] 注册表指针：${REG_KEY}\\RepoRoot = ${REPO_ROOT}`)
   }

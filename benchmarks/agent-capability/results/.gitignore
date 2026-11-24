@@ -1,4 +1,0 @@
-# 一次评测的产物：current.json（当前快照）与 tmp/（临时工作区）
-# 基线文件在 ../baseline/baseline.json，需要提交
-*
-!.gitignore
