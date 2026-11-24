@@ -7328,5 +7328,8 @@
     "feedbackOpenFailed": "意見回饋頁開啟失敗,請稍後重試",
     "navigationNotWired": "導覽未接入",
     "pageUnsupported": "此頁面暫未支援"
-  }
+  },
+  "sourceWeb": "Web",
+  "sourceApp": "手機",
+  "sourceMiniApp": "小程式"
 }

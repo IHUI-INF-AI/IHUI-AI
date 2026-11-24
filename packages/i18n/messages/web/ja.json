@@ -31158,5 +31158,8 @@
     "escalateScan": "期限超過をスキャン",
     "escalatedDone": "{count} 件をエスカレーション",
     "loading": "読み込み中"
-  }
+  },
+  "sourceWeb": "Web",
+  "sourceApp": "モバイル",
+  "sourceMiniApp": "ミニ"
 }

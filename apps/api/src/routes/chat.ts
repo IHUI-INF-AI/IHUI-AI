@@ -24,6 +24,15 @@ import { db } from '../db/index.js'
 import { dedupeIds, batchWriteOutcome } from '../utils/batch-outcome.js'
 // 批量操作的"哪些 id 根本没被写"对账需要直接按 (userId, ids) 查一次归属(见 POST /conversations/batch)
 import { chatConversations } from '@ihui/database'
+// 2026-11-24 真多端互通:统一表上的改名/置顶/归档/删除反向回写小程序历史表
+// (只对 source='miniapp' 且有 source_ref 的镜像行生效,见 conversation-miniapp-backflow.ts)
+import {
+  backflowMiniappPatch,
+  backflowMiniappPatchMany,
+  backflowMiniappRemove,
+  collectMiniappRefs,
+  removeMiniappHistoryRows,
+} from './conversation-miniapp-backflow.js'
 import {
   createConversationGroup,
   deleteConversationGroup,
@@ -378,6 +387,9 @@ function serializeConversation(c: {
   pinnedAt?: Date | null
   messageCount?: number
   favorite?: boolean
+  source?: string
+  sourceRef?: string | null
+  groupId?: string | null
 }) {
   return {
     id: c.id,
@@ -396,6 +408,10 @@ function serializeConversation(c: {
     ...(c.pinnedAt !== undefined && { pinnedAt: c.pinnedAt }),
     ...(c.messageCount !== undefined && { messageCount: c.messageCount }),
     ...(c.favorite !== undefined && { favorite: c.favorite }),
+    // 2026-11-24:录入端(web/rn/miniapp)与源记录 id —— 三端互通后列表要能标出「这条从哪个端录入」
+    ...(c.source !== undefined && { source: c.source }),
+    ...(c.sourceRef !== undefined && { sourceRef: c.sourceRef }),
+    ...(c.groupId !== undefined && { groupId: c.groupId }),
   }
 }
 
@@ -835,6 +851,12 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
 
+      // 2026-11-24:录入端白名单。只作列表展示/筛选维度,不参与归属鉴权(userId 恒来自令牌);
+      // 未知或未声明一律回填 web,不引入第四态。
+      const platformHeader = String(request.headers['x-client-platform'] ?? '').toLowerCase()
+      const source =
+        platformHeader === 'rn' || platformHeader === 'miniapp' ? platformHeader : 'web'
+
       try {
         const conversation = await createConversation({
           userId,
@@ -842,6 +864,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           model: parsed.data.model,
           systemPrompt: parsed.data.systemPrompt,
           metadata: parsed.data.metadata,
+          source,
         })
 
         return reply
@@ -951,6 +974,17 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
                   : updated.title,
             }),
       })
+    }
+    // 2026-11-24 真多端互通:小程序镜像会话的改名/置顶反向回写小程序历史表。
+    // 失败只 warn、绝不让请求失败(该表是镜像副本,下次小程序读到统一表会重新对齐)。
+    if (parsed.data.title !== undefined || parsed.data.pinned !== undefined) {
+      const backflowed = await backflowMiniappPatch(userId, owned.conversation, {
+        ...(parsed.data.title === undefined ? {} : { title: updated.title }),
+        ...(parsed.data.pinned === undefined ? {} : { pinned: parsed.data.pinned }),
+      })
+      if (backflowed < 0) {
+        request.log.warn({ conversationId: id }, 'miniapp backflow patch failed')
+      }
     }
     // D153:写库成功后按"库里到底变了哪一列"广播(见 broadcastConversationMeta 判据②)
     broadcastConversationMeta(
@@ -1091,6 +1125,14 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     // deleted 由库侧 RETURNING 派生,不是代码常量(2026-09-27):上面的归属预查与这次
     // 删除之间若有并发,行已不在 ⇒ 这里必须如实报 false,而不是照旧回 true。
     const removed = await deleteConversation(id)
+    // 2026-11-24 真多端互通:小程序镜像会话在统一表删成功后,同步删小程序历史行。
+    // 只在**真删掉**之后执行 —— 删的是镜像副本,绝不能在小程序那边留下唯一一份。
+    if (removed.length > 0) {
+      const backflowed = await backflowMiniappRemove(userId, owned.conversation)
+      if (backflowed < 0) {
+        request.log.warn({ conversationId: id }, 'miniapp backflow remove failed')
+      }
+    }
     return reply.send(success({ deleted: removed.length > 0 }))
   })
 
@@ -1127,6 +1169,11 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         ownedRows.map((r) => r.id),
       )
 
+      // 2026-11-24 真多端互通:删除类必须在统一表删**之前**收走镜像 ref ——
+      // 行删掉后 source_ref 就查不到了,后置查询恒得空集(一处顺序错,小程序副本就永留)。
+      const miniappRefsToRemove =
+        action === 'delete' ? await collectMiniappRefs(userId, ownedRows.map((row) => row.id)) : []
+
       let affected = 0
       switch (action) {
         case 'delete':
@@ -1155,6 +1202,28 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           broadcastConversationMeta(request, userId, row.id, ['archive'], new Date(), {
             archive: action === 'archive',
           })
+        }
+      }
+      // 2026-11-24 真多端互通:批量删除 / 归档反向回写小程序镜像行。
+      // 归档类可后置(archived_at 与 source_ref 都在同一行,写后仍查得到);
+      // 删除类走删前收集的 miniappRefsToRemove(见上面取点),这里只负责删小程序副本。
+      if (action === 'archive' || action === 'unarchive') {
+        const backflowed = await backflowMiniappPatchMany(
+          userId,
+          ownedRows.map((row) => row.id),
+          { archivedAt: action === 'archive' ? new Date() : null },
+        )
+        if (backflowed < 0) {
+          request.log.warn({ action }, 'miniapp backflow archive failed')
+        }
+      }
+      if (action === 'delete' && miniappRefsToRemove.length > 0) {
+        const backflowed = await removeMiniappHistoryRows(userId, miniappRefsToRemove)
+        if (backflowed < 0) {
+          request.log.warn(
+            { action, count: miniappRefsToRemove.length },
+            'miniapp backflow delete failed',
+          )
         }
       }
       return reply.send(success({ action, affected, missedIds }))

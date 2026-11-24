@@ -31158,5 +31158,8 @@
     "escalateScan": "기한 초과 스캔",
     "escalatedDone": "{count}건 에스컬레이션",
     "loading": "불러오는 중"
-  }
+  },
+  "sourceWeb": "Web",
+  "sourceApp": "모바일",
+  "sourceMiniApp": "미니"
 }

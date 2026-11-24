@@ -7841,5 +7841,8 @@
     "privateAdvisor": "私人顧問",
     "daysSuffix": "天"
   },
-  "charCount": "{count} 字元"
+  "charCount": "{count} 字元",
+  "sourceWeb": "Web",
+  "sourceApp": "手機",
+  "sourceMiniApp": "小程式"
 }

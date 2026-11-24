@@ -30625,5 +30625,8 @@
     "escalateScan": "掃描逾時升級",
     "escalatedDone": "已升級 {count} 筆",
     "loading": "載入中"
-  }
+  },
+  "sourceWeb": "Web",
+  "sourceApp": "手機",
+  "sourceMiniApp": "小程式"
 }

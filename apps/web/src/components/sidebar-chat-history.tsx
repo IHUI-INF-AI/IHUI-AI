@@ -45,6 +45,9 @@ import {
   ListChecks,
   // 按钮层级重构(2026-10-26):导出/压缩收进二级子菜单,压缩项与历史页 conversation-list 同型用 Shrink
   Shrink,
+  // 2026-11-24:会话来源端徽章(非本端录入才显示)
+  Smartphone,
+  AppWindow,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
@@ -57,6 +60,8 @@ import {
   setConversationPinned,
   // V3 #62:侧栏批量动作走 api-client 唯一出口(§3 禁止端内裸 fetch 调后端)
   batchOperateConversations,
+  /* 重命名走 api-client 唯一出口(此前本文件自拼 PATCH fetchApi,与 updateConversation 重复两份实现) */
+  updateConversation,
   type BatchConversationAction,
 } from '@ihui/api-client'
 import {
@@ -170,6 +175,8 @@ export interface ConversationItem {
   hasPendingQuestion?: boolean
   /** D179:会话业务元数据原样透传(绑定 Issue 走 metadata.issueBinding,经 resolveIssueBinding 解析) */
   metadata?: unknown
+  /** 2026-11-24:该会话由哪个端录入(统一后端 chat_conversations.source);缺省视为 web */
+  source?: 'web' | 'rn' | 'miniapp'
 }
 
 interface ConversationsResponse {
@@ -449,10 +456,7 @@ export function SidebarChatHistory({
 
   const renameMutation = useMutation({
     mutationFn: async ({ id, title }: { id: string; title: string }) => {
-      const res = await fetchApi<{ conversation: ConversationItem }>(
-        `/api/chat/conversations/${encodeURIComponent(id)}`,
-        { method: 'PATCH', body: JSON.stringify({ title }) },
-      )
+      const res = await updateConversation(id, { title })
       if (!res.success) throw new Error(res.error)
       return res.data
     },
@@ -937,9 +941,7 @@ export function SidebarChatHistory({
             'before:content-[""] before:-z-10',
             // 多选态给左侧复选框让出 20px,否则行首文字被压在框下
             selection.selectionMode && 'pl-7',
-            active
-              ? 'text-primary before:bg-primary/10'
-              : 'hover:text-foreground hover:before:bg-muted',
+            active ? 'text-cta before:bg-primary/10' : 'hover:text-cta hover:before:bg-muted',
           )}
         >
           {active && (
@@ -961,7 +963,14 @@ export function SidebarChatHistory({
                 </span>
               }
             >
-              <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
+              <span
+                className={cn(
+                  'min-w-0 flex-1 truncate text-[12px] font-medium',
+                  // 2026-11-23 机主令:侧栏所有按钮文字亮色纯黑 / 暗色纯白(cta 对 = 0%/100%);
+                  // 2026-11-24 选中态也归纯黑白 —— 选中感由底块 + 左端竖条承担,不再用墨色字区分
+                  !active && 'text-cta',
+                )}
+              >
                 {displayTitle}
               </span>
             </Tooltip>
@@ -974,6 +983,20 @@ export function SidebarChatHistory({
               <span className="inline-flex min-w-0 max-w-[72px] shrink-0 items-center gap-0.5 rounded-sm bg-muted px-1 text-[9px] leading-4 text-muted-foreground">
                 <FolderOpen className="h-2.5 w-2.5 shrink-0" />
                 <span className="min-w-0 truncate">{orgMeta.folder}</span>
+              </span>
+            )}
+            {/* 2026-11-24:来源端徽章 —— 本端(web)录入不标,只标手机/小程序录入的会话,
+                让「这条从哪个端操作来的」一眼可分,又不给全 web 的侧栏添噪声 */}
+            {item.source === 'rn' && (
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-primary/10 px-1 text-[9px] leading-4 text-muted-foreground">
+                <Smartphone className="h-2.5 w-2.5 shrink-0" aria-hidden />
+                <span>{t('sourceApp')}</span>
+              </span>
+            )}
+            {item.source === 'miniapp' && (
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-primary/10 px-1 text-[9px] leading-4 text-muted-foreground">
+                <AppWindow className="h-2.5 w-2.5 shrink-0" aria-hidden />
+                <span>{t('sourceMiniApp')}</span>
               </span>
             )}
             {orgTags.slice(0, 2).map((tag) => (
@@ -1327,7 +1350,7 @@ export function SidebarChatHistory({
               onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
               className={cn(
                 'flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-accent',
-                searchOpen && 'bg-primary/10 text-primary',
+                searchOpen && 'bg-muted text-primary',
               )}
             >
               {searchOpen ? <X className="h-3 w-3" /> : <Search className="h-3 w-3" />}
@@ -1342,7 +1365,7 @@ export function SidebarChatHistory({
               onClick={selection.toggleSelectionMode}
               className={cn(
                 'flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-accent',
-                selection.selectionMode && 'bg-primary/10 text-primary',
+                selection.selectionMode && 'bg-muted text-primary',
               )}
             >
               <ListChecks className="h-3 w-3" />
@@ -1357,7 +1380,7 @@ export function SidebarChatHistory({
                     data-testid="conversation-folder-filter"
                     className={cn(
                       'flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-accent',
-                      folderFilter !== undefined && 'bg-primary/10 text-primary',
+                      folderFilter !== undefined && 'bg-muted text-primary',
                     )}
                   >
                     <ListFilter className="h-3 w-3" />
@@ -1419,7 +1442,7 @@ export function SidebarChatHistory({
                   data-testid="conversation-sort-toggle"
                   className={cn(
                     'flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-accent',
-                    sortMode !== 'pinnedFirst' && 'bg-primary/10 text-primary',
+                    sortMode !== 'pinnedFirst' && 'bg-muted text-primary',
                   )}
                 >
                   <ArrowUpDown className="h-3 w-3" />

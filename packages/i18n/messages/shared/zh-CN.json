@@ -5290,5 +5290,8 @@
     "totalPrefix": "共",
     "targetPrefix": "目标",
     "aiTutor": "AI 助教"
-  }
+  },
+  "sourceWeb": "Web",
+  "sourceApp": "手机",
+  "sourceMiniApp": "小程序"
 }

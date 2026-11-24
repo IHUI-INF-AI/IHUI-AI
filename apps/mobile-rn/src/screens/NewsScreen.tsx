@@ -592,6 +592,7 @@ function mapConversationToDrawer(
     modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
     createdAt,
     favorited: item.favorite === true,
+    source: item.source,
   }
 }
 

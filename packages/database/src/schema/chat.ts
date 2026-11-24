@@ -12,8 +12,10 @@ import {
   jsonb,
   boolean,
   unique,
+  uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 import { users } from './users.js'
 
 /**
@@ -86,12 +88,23 @@ export const chatConversations = pgTable(
     // nextRolloutByteOffset 为增量回放的字节断点(流式续读),nextRolloutOrdinal 为
     // turn 级语义断点。投影器写入与消费在后续段落接线,本段先立列。
     historyProjectionState: jsonb('history_projection_state'),
+    // 2026-11-24 立(机主令「所有接口所有功能全部多端互通,但要分好是从哪个端操作录入的」):
+    // 来源端。web / rn / miniapp 三值白名单(未知或未声明一律回填 'web',不引入第四态)。
+    // 只作「这条会话从哪个端录入」的展示与筛选维度,不参与归属鉴权(归属恒取 user_id)。
+    source: varchar('source', { length: 16 }).default('web').notNull(),
+    // 源系统记录 id:小程序收编时存 zhs_ai_user_model_chat_history.id,web/rn 自建会话为 null。
+    // 与 source 组成幂等键,收编/双写按 (user_id, source, source_ref) 唯一,重跑不产生副本。
+    sourceRef: varchar('source_ref', { length: 64 }),
   },
   (t) => ({
     // 2026-09-06 P0:会话列表按 (user_id + last_message_at DESC) 排序+分页,缺索引全表扫描
     userLastMsgIdx: index('ix_chat_conversations_user_last_message').on(t.userId, t.lastMessageAt),
     // D165:分组视图按 (user_id + group_id) 取整组会话,移动动作也按这两列判归属
     userGroupIdx: index('ix_chat_conversations_user_group').on(t.userId, t.groupId),
+    // 2026-11-24:收编幂等键(部分唯一索引,source_ref 为 null 的 web/rn 自建会话不受约束)
+    userSourceRefUniq: uniqueIndex('uq_chat_conversations_user_source_ref')
+      .on(t.userId, t.source, t.sourceRef)
+      .where(sql`${t.sourceRef} is not null`),
   }),
 )
 

@@ -7841,5 +7841,8 @@
     "privateAdvisor": "私人顾问",
     "daysSuffix": "天"
   },
-  "charCount": "{count} 字符"
+  "charCount": "{count} 字符",
+  "sourceWeb": "Web",
+  "sourceApp": "手机",
+  "sourceMiniApp": "小程序"
 }

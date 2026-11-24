@@ -98,6 +98,30 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-24**
+- 🐞 Fix:镜像消息按真实角色落库(user 取请求体 / assistant 取 LLM 回复) (44a5c52f72)
+- 🚀 Feature/Improvement:镜像会话补写首条消息 + 本票四条迁移 idx 让位重排 (3919e321e1)
+- 🚀 Feature/Improvement:RN 抽屉补异端来源徽章 + 七处会话映射透传 source (62719a7d5f)
+- 🚀 Feature/Improvement:三端会话统一入库并标注录入端 (c19e006b54)
+- 🐞 Fix:knowledge_lookup 默认继承工作区根访问闸 (5a01828582)
+- 🚀 Feature/Improvement:ALPC 通道抽象层 + Job 判活谓词（P3-01/P3-04 fail-closed） (390022b993)
+- 🔧 Chore/Other:T24 出处面改成动态探测 —— 固定 sha 会把脆弱性钉进测试 (1dd6ba71d8)
+- 🐞 Fix:knowledge_lookup 旧索引出口按 cursorignore 再过滤 (5beb5f52a5)
+- 🚀 Feature/Improvement:顶栏同步透明底与圆角控件片 (7c84094337)
+- 🚀 Feature/Improvement:支持 OCR 桥切换会话（chat.switch） (2405327051)
+- 🔧 Chore/Other:NavBar radius 额度 1→2 按实测重锚（+ baseline radiusCounts 同步） (c8be4c2923)
+- 🐞 Fix:非长度档记账前移到键过滤之前（C15 真因，覆盖面口径归位） (553a961801)
+- 🐞 Fix:.cursorignore 检索面旧索引与预览泄露收口 (9c2edf794d)
+- 🚀 Feature/Improvement:一键接入后自动连通性自检 (404be4bd70)
+- 🐞 Fix:非长度档记账提到键过滤之前 —— C15/C16 的真因（口径裁决：颜色≠解不出） (74f7d0a9ee)
+- 🚀 Feature/Improvement:统一透明顶栏与圆角控件底片 (13cf7545cd)
+- 🔧 Chore/Other:C6 反向锁改成"两格都在 + 允许额外格"（本票自引入） (a66e68fb2f)
+- 🔧 Chore/Other:feat(cli)+docs: 注册表接入 serve 单例预检（6 例）+ Qoder/DSH 深读证据 (5d4423feef)
+- 🐞 Fix:托管保存来源标记与租户停用态现读修复 (1eaee6905e)
+- 🚀 Feature/Improvement:影子工作区事务写 + goal 六态/延后 + cursorignore 访问面 (1f5951390b)
+- 🔧 Chore/Other:三条存量红清零 —— T23 锁搬家 / T24 出处面重锚 / T47 按实测收桶 (7541e307ae)
+- 📚 Docs:记入五程序原生深水「明确不做」一行结论与理由 (84eb8faf63)
+
 **2026-11-23**
 - 🐞 Fix:我的页收口为单一共享用户卡 (dd4fba38)
 - 🔧 Chore/Other:输入框辉光/登录阴影单源收口 + web↔RN 4 屏 aligned 登记 + LoginPopUp 额度收紧 (5d11b000)

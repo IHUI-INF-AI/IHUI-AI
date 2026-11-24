@@ -7328,5 +7328,8 @@
     "feedbackOpenFailed": "フィードバック画面を開けませんでした。再度お試しください",
     "navigationNotWired": "画面遷移は未接続です",
     "pageUnsupported": "このページはまだ対応していません"
-  }
+  },
+  "sourceWeb": "Web",
+  "sourceApp": "モバイル",
+  "sourceMiniApp": "ミニ"
 }

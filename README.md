@@ -3,7 +3,6 @@
   Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
-
 > ⚠️ **Copyright & Commercial Licensing Notice**
 >
 > © 2026 **IHUI AI (智汇AI)** · Copyright owner: **Li Chunchuan (李春川)** · https://aizhs.top
@@ -11,34 +10,26 @@
 > - Dual licensing: open-source use under **Apache-2.0** (copyright notice and NOTICE must be retained); **closed-source commercial use, rebranding, or SaaS resale** requires a separate commercial license.
 > - All source files in this repository are embedded with provenance watermarks (visible banners + invisible zero-width steganography; verify with `node scripts/watermark.mjs decode <file>`). Removing watermarks does not change copyright ownership; unauthorized commercial use is technically traceable and legally actionable.
 > - CI enforces watermark verification (`pnpm watermark:check`); any change that strips watermarks fails the build.
-
 # IHUI-AI
-
 <p align="center">
   <img src="apps/web/public/images/logo.png" width="140" alt="IHUI-AI Logo" />
 </p>
-
 <p align="center">
   <strong>Online Demo</strong> · <a href="https://aizhs.top">https://aizhs.top</a> &nbsp;|&nbsp; <strong>GitHub</strong> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star this repo</a><br/>
   <sub><strong>Self-hosted full-stack AI platform</strong>: model gateway + Agent orchestration + multi-tenant business backend + 8 frontend ends · Apache 2.0 · Fork to production in 5 minutes</sub>
 </p>
-
 <p align="center">
   <sub>
     <a href="README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.ko.md">한국어</a> · <a href="README.ja.md">日本語</a>
   </sub>
 </p>
-
 ---
-
 > **This file is an index only.** As of 2026-09-30 the root README is an index layer: positioning,
 > live-computed numbers, quick start, and entry points into nine topic documents. Every capability's
 > full rationale and evidence lives, verbatim, in the nine archive files under
 > [`docs/engineering/`](./docs/engineering); the authoritative engineering rulebook is
 > [`AGENTS.md`](./AGENTS.md).
-
 ## What it is
-
 | Dimension   | Description                                                                                                                                                     |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | In one line | Self-hosted full-stack AI platform: model gateway + Agent orchestration + multi-tenant backend + 8 frontend ends                                                |
@@ -47,27 +38,21 @@
 | Frontends   | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui (web), Taro 4 (mini-program), React Native + NativeWind (app), Tauri 2 (desktop), WXT (extension), Node.js (CLI) |
 | Data        | PostgreSQL (row-level security, multi-tenant) + pgvector vector search + Redis                                                                                  |
 | License     | Apache-2.0 (copyright notice and NOTICE must be retained; source files carry provenance watermarks)                                                             |
-
 Full positioning narrative (value pyramid, cost comparison, differentiation, benchmark categories):
 [`docs/engineering/readme-01-positioning.md`](./docs/engineering/readme-01-positioning.md).
-
 ## Key numbers (live-computed)
-
 **These numbers are not hand-copied.** The single algorithm lives in
 [`scripts/gen-doc-numbers.mjs`](./scripts/gen-doc-numbers.mjs), which counts from real sources
 (schema code, route registrations, locale directories, compose manifests...). The gate
 [`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) re-computes them for this file and
 the Chinese README, and blocks any stale value.
-
 Headline claims (same source as the table below, all live-computed): **database tables · API routes ·
 WebSocket endpoints · LLMs · multi-platform auto-publishing · test file counts in the generated table below ·
 engineering gates · CI workflows · i18n parity · app and shared packages · compose services**.
-
 Cross-end UI parity across web, mini-program and React Native is enforced by
 [`scripts/check-cross-end-ui-parity.mjs`](./scripts/check-cross-end-ui-parity.mjs) — a blocking gate
 that reconciles geometry, radius and per-element radius anchors over the three ends and fails on any
 divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`.
-
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
@@ -93,15 +78,10 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 | — blocking | 339 | `guardianBlocking` |
 | — warn | 33 | `guardianWarn` |
 | 跟踪文件 | 23015 | `trackedFiles` |
-
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-19。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
-
-
 ## Recent updates (auto-maintained)
-
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-24**
 - 🚀 新功能/改进:规则选择面只读诊断工具 list_project_rules (6936efb2)
@@ -146,7 +126,6 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 🔧 工程/其他:同步 codebase-index 事务测试到三表删除/状态行/边实体返回新形态 (3ac12ff8)
 - 📚 文档:补 OEM 无障碍开启路径说明 + 修 gradle 发行包自愈判据 (97dfe4c1)
 - 🐞 修复:本地联调 dev 启动两处阻断(Cargo 默认运行目标 + 徽标圆角 clamp 浮点倒挂) (2b633332)
-
 **2026-11-23**
 - 🐞 修复:小程序系统提示词补齐为多行输入（跨端同挂 60 最小高） (eed0d648)
 - 🐞 修复:archify 模板读 URL theme 修 viewer/theme-state 恒红 (60f63184)
@@ -380,7 +359,6 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 🚀 新功能/改进:默认允许跳钩(2026-11-23 机主改定)—— 非 mine 存量红自动跳并留痕;--forbid-skip-hooks 与 IHUI_PRE_PUSH_SKIP_DEFAULT=forbid 可回退 (f7066a13)
 - 🐞 修复:Turnstile 人机验证框居中(外层 flex 居中壳;修用户反馈往左偏) (267b1dde)
 - 🔧 工程/其他:聚焦环去 2px 外扩间隙 + 颜色写法单一化(不透明 #rrggbb / 透明 rgba),三端派生同源并立不变量测试 (c20d99da)
-
 **2026-11-22**
 - 🔧 工程/其他:追认仓库清理提交的受保护面变更 (3ca74ad0)
 - 🔧 工程/其他:清理根目录杂物、乱码副本与失效截图并补忽略样例 (92ab7fd3)
@@ -412,12 +390,10 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 🔧 工程/其他:仓库最终快照（仅保留当前代码，不保留历史） (4fa6b2cf)
 - 🔧 工程/其他:同步 knip entry 受管块(移除已删页面 index.config.ts) (7a14c0c8)
 - 🐞 修复:公开状态响应连 providerCode 一并归一,JSON 零内部 relay (ac55aca4)
-
 **2026-11-19**
 - 📚 Docs:同步最近更新自动块(本轮两枚安装脚本修复入库) (ad65572bea)
 - 🔧 Chore/Other:追认 bd46446f9f 的判据库头注修正 (3aac3fb83d)
 - 📚 Docs:同步最近更新自动块(本轮两枚安装脚本修复入库) (3ac94015b9)
-
 **2026-11-18**
 - 🐞 Fix:移除提权段,两份安装脚本回到实测零命中形态(火绒 NetLoader 根治收口) (bd46446f9f)
 - 🐞 Fix:两份分发安装脚本统一为同一实现，彻底消除杀软触发面 (6374264c2e)
@@ -576,7 +552,6 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 🔧 Chore/Other:并入两处主线所需修复(ahead 仅 queued 档 + 发布 scp 255 重试) (963695c34ec)
 - 🚀 Feature/Improvement:R84 hook 定义对象二进制坐实(7 中 6 认证/3 共享一址/PostToolUse 未定位) (c8b910b01b3)
 - 🚀 Feature/Improvement:R83 滑动窗口认领16结构(跨源认证1枚/薄证据2枚/覆盖321/长run切分收益0) (6c608e59084)
-
 **2026-11-17**
 - 🐞 Fix:修复 relay 语法阻断 + nav-data 重复声明 + 补登两条孤儿迁移 (64fe054900)
 - 🐞 Fix:nav-data 删除末尾重复的 ADMIN_HUB_ITEMS/DEVELOPER_HUB_ITEMS/HR_HUB_ITEMS 定义(Turbopack 'defined multiple times'+ADDR,web 构建 collect page data 失败) (020fe2ef9e)
@@ -658,7 +633,6 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 📚 Docs:刷新 README trackedFiles/testFiles 数字块(合并带入新文件后对账) (165836082f)
 - 📚 Docs:同步勾结清 43D/DB-35(对侧实修落地,本侧同步消除收敛冲突根因) (5b63c7710d)
 - 🐞 Fix:折叠头行统一单层 code 实色底,悬停改低对比描边 (a959f984d7)
-
 **2026-11-16**
 - 🚀 Feature/Improvement:desktop 未签名发版开关(allow_unsigned) + 修 npm 构建 tauri 子命令 (31bd368f8e)
 - 📚 Docs:DB-35 方案② 定案并实修落地(勾结清 PROJECT_PLAN 行) (e792af6c65)
@@ -765,7 +739,6 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 🚀 Feature/Improvement:浏览器三级交互 API 优先级仲裁(复现 Codex 三级交互原语) (f3216c036cd)
 - 🐞 Fix:跨会话强杀腿 + 验收窗口 + Windows 中文乱码 (79efa223c85)
 - 🐞 Fix:排版令牌对齐 —— 定价管控台 heading/label 字号档 + ProfileScreen avatarText 走 rnType.displayXl (5a4f007eda7)
-
 **2026-11-15**
 - 🐞 Fix:恢复被 69ce958a9b2 误删的不可逆判死码清单;旁路删除硬门射程补入 config/ (4737158ee9)
 - 🔧 Chore/Other:fix desktop: 内置浏览器一窗多标签,修 WebView2 profile 冲突致标签全空 (cf373610a1)
@@ -849,16 +822,13 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 🐞 Fix:深度扫描第二批收口 RN/小程序端样式、交互与逻辑缺陷 (97b7a7ac968)
 - 🐞 Fix:门302 rendersSharedIn 认深子路径导入(补正/反例测试);接线 check-line-endings/check-mirror-surface-parity 判面层(门312 R1);rn-miniapp 矩阵文档重生成为现值(镜像257→258,门302修复后真实现读) (ab211603b9c)
 - 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (62368b7976c)
-
 **2026-11-14**
 - 🐞 Fix:两端 JSX 裸中文清零 + Taro 静默失败兜底 + 延迟导航定时器清理 (9f5d9041c97)
 - 🐞 Fix:深度扫描修复 RN/小程序端样式、交互与逻辑缺陷 (4a007dfecd8)
 - 🐞 Fix:补齐 RN/Taro 图标按钮无障碍语义标签 (247c8da4800)
 - 🐞 Fix:修复前端遗留问题——RN/Taro 冲突、i18n 源文件还原、promise、定时器 (b276b219572)
 <!-- END RECENT UPDATES -->
-
 ## Nine topic documents (verbatim archives from the old root README)
-
 | File                                                                                                     | Domain                           | Archived sections                                                                                                                                                                                                              |
 | -------------------------------------------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [`readme-01-positioning`](./docs/engineering/readme-01-positioning.md)                                   | Positioning & claims             | Header banners & manifesto · one-click deploy · tech-stack overview · project manifesto · GEO optimization · TOC · positioning · feature matrix                                                                                |
@@ -871,13 +841,9 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 | [`readme-08-seo-keywords-story`](./docs/engineering/readme-08-seo-keywords-story.md)                     | SEO & brand story                | AI-engine exposure · our story · open-source vision · license · join us · acknowledgements · quick FAQ · full keywords                                                                                                         |
 | [`readme-09-ops-tools`](./docs/engineering/readme-09-ops-tools.md)                                       | Ops tooling & archives           | Release-line closure capabilities & ops entries · production monitoring tools · gate registry addenda · dangling table rows archive                                                                                            |
 ## The 9 ends (8 apps + 1 Capacitor shell)
-
-
 ## The 8 ends (plus one shell)
-
 The workspace holds **9 app packages** (the last row is a Capacitor shell reusing the web static export)
 and **16 shared packages**.
-
 | End               | Directory           | Stack                                          | Notes                                                        |
 | ----------------- | ------------------- | ---------------------------------------------- | ------------------------------------------------------------ |
 | Web               | `apps/web`          | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui | Main site + admin console + IDE panel                        |
@@ -889,14 +855,10 @@ and **16 shared packages**.
 | Browser extension | `apps/extension`    | WXT + Chrome MV3                               | Side Panel toolset                                           |
 | CLI               | `apps/cli`          | Node.js + TypeScript                           | Terminal assistant, tools, drift checks, agent-engine client |
 | Capacitor shell   | `apps/mobile-cap`   | Capacitor 7                                    | Packages `apps/web` `out/` export for Android/iOS            |
-
 ### Sidebar domain hub and per-domain entry pages (introduced 2026-10-19, AI and personal domains added 2026-10-23)
-
 The sidebar collapses many first-level menu items into **per-domain entries**; each domain's full set of pages is hosted by one card-grid page. Existing routes are untouched (`CategoryShell` as a Next.js layout only covers its own directory subtree, so moving a directory would change URLs), so the entry page only groups and links.
-
 - **What it does**: all five entry pages render through one component, `apps/web/src/components/layout/DomainHub.tsx`, and take their items from the `*_HUB_ITEMS` exports in `apps/web/src/components/sidebar/nav-data.ts` (single source of truth — no per-page copy of the list). Visibility goes through `useNavVisibilityFilter` (`apps/web/src/components/sidebar/use-nav-visibility.ts`): `adminOnly`/`permission` decide *may this be seen at all*, `advancedOnly` decides *should it be shown to ordinary users*. Same predicate as the Sidebar; do not re-implement it per page.
 - **How to use**: open one of the URLs below, or click the domain entry in the sidebar and then a card. The tier (simple mode) is set in Settings → sidebar tiers and persists to `user_preferences.group=preferences` under `navTiers`.
-
 | Entry URL | Item source | End |
 | --------- | ----------- | --- |
 | `/domains/ai` | `AI_HUB_ITEMS` | web (Next.js, platform-exclusive) |
@@ -904,17 +866,13 @@ The sidebar collapses many first-level menu items into **per-domain entries**; e
 | `/domains/content` | `CONTENT_HUB_ITEMS` | web (Next.js, platform-exclusive) |
 | `/domains/edu` | `EDU_HUB_ITEMS` | web (Next.js, platform-exclusive) |
 | `/domains/trade` | `TRADE_HUB_ITEMS` | web (Next.js, platform-exclusive) |
-
 - **End**: web-only (the desktop shell reuses this web UI; mini-program and RN carry their own navigation).
-
 ### User-side read-only and unauthenticated endpoints (registered 2026-10-23 — previously absent from the README)
-
 | Endpoint | Method | Auth | Response shape | End / consumer |
 | -------- | ------ | ---- | -------------- | -------------- |
 | `/api/goods/select` | GET | Public — only the on-shelf catalogue where `zhs_product.status = 1`, no private user fields | `{ code, message, data: { list, total, page, pageSize } }`; `page` defaults to 1, `pageSize` is 1..100 with default 20 | api + mobile-rn `CartScreen` + mini-program `pkg-shop/cart`, through `selectGoods()` in `packages/api-client/src/endpoints/goods.ts` |
 | `/api/sign-ups` | GET | Requires login; ownership is checked in the handler — a `?userId` that is not the caller's, without system-admin rights, gets 403 (authentication is not authorization) | `{ code, message, data: { list: [{ id, targetTitle, targetType, status, createdAt }] } }`, status normalised to `draft/published/rejected/completed` | api + web `apps/web/app/(main)/user/sign-up/page.tsx`; aggregates `lesson_sign_ups` and `exam_signups` |
 | `/api/auth/wechat/mini/one-tap-login` | POST | **Unauthenticated** (rate limited to 5 requests per minute); the phone number and the openId are both exchanged from one-time WeChat codes, so nothing is taken from the client | Success returns `{ ...tokens, user }` — the user object travels with the tokens; 503 when WeChat mini is unconfigured, 401 when the code exchange fails, 409 when the openId is already bound to another account, 403 when the account is disabled | api + mini-program `apps/miniapp-taro` (one-tap login button) |
-
 - **What they do**: `/goods/select` supplies the cart's product paging read; `/sign-ups` merges course sign-ups and exam sign-ups into one "my sign-ups" list; `/auth/wechat/mini/one-tap-login` is a newly opened endpoint — previously `/mini/login` answered new users with `{needPhone:true, openId}` and issued no token, while `/mini/phone` required an existing session and returned no token either, so that chain was structurally impossible (proof case: `apps/api/src/routes/__tests__/wechat-mini-one-tap-login.test.ts`).
 - **How to use**: all three are registered in `apps/api/src/routes/index.ts` (`goods.ts` under `prefix:'/api'`, `sign-ups.ts` under `prefix:'/api/sign-ups'`, the login leg under the auth prefix). Inputs are Zod-validated; one-tap login accepts `{ loginCode, phoneCode }` as a `strictObject`, so unknown keys answer 400.
 - **End**: backend `apps/api`; consumers are listed in the table column above (web / mobile-rn / mini-program).
@@ -924,11 +882,8 @@ The sidebar collapses many first-level menu items into **per-domain entries**; e
 - **Default**: 500 ms (`DEFAULT_RESPONSE_BUDGET_MS = 500`, read from source). Missing, non-finite or negative values all fall back to that default rather than being guessed. `0` selects the pure-async mode, which always returns 200 immediately.
 - **New response field `dispatch`**: `'inline'` or `'async'`. If the job finishes within the budget the 200 carries `dispatch:'inline'` plus the existing `outcome` (the previous response shape is preserved); when the budget expires — or in `0` mode (`deferred`) — the 200 carries `dispatch:'async'` with no `outcome`, while the heavy work finishes in the background queue.
 - **Known gap (deferred is not persisted)**: the dispatch queue is a one-shot in-process, in-memory queue — no resident service, no polling, no durable storage — and the delivery row is written only after the job finishes. If the API process crashes or restarts in the window after a `dispatch:'async'` 200 was sent but before the background job completes, both the in-memory job and the not-yet-written delivery row are lost. GitHub already recorded the delivery as successful and will not redeliver, and the in-process LRU deduper disappears with the process, so that delivery's review / comment write-back is silently lost, cannot be replayed and cannot be reconciled. This window is not closed by the current implementation (the execute-in-place fallback only covers a full backlog, not process exit).
-
 ### Account keepalive centre (added 2026-10-26 — two unrelated liveness loops merged into one answer)
-
 Publish-line cookie probing (`services/publish/cookie_refresh_daemon.py`) and AI-platform check-in credentials (`services/checkin_scheduler.py`) used to keep separate switches, separate counters and separate ways of saying "it failed", so the system had **no single answer** to "are these accounts still alive?". The centre (`apps/ai-service/app/services/keepalive/`, HTTP layer in `apps/ai-service/app/routers/keepalive.py`) folds cookie probing, credential (api_key / oauth) expiry detection and check-in JWT health (reads `exp` only, never re-signs) into one schedule, two tables, one health vocabulary and one alert outlet.
-
 | Endpoint | Method | What it answers |
 | -------- | ------ | --------------- |
 | `/api/keepalive/status` | GET | Self-check: whether it is really on (reason, scheduler liveness, last round, probe list) — never infer it from config |
@@ -937,26 +892,20 @@ Publish-line cookie probing (`services/publish/cookie_refresh_daemon.py`) and AI
 | `/api/keepalive/events` | GET | Probe log, filterable by `?ref=` and `?only_failures=true`; `limit` defaults to 50, caps at 500 |
 | `/api/keepalive/stats` | GET | Per-source ok / failed / total / rate over `?days=` (1..90, default 7) |
 | `/api/keepalive/run` | POST | Trigger one round in the background and return immediately; `?ref=<source>:<id>` for a single account, `?force=true` to ignore back-off |
-
 - **Health buckets** are computed in exactly one place (`policy.health_of`): `critical` when the last failure was `expired`, the expiry has passed, or consecutive failures reach `ALERT_AFTER_FAILURES`; `warning` while there are consecutive failures, inside the expiry-warning window, or only failures have ever been seen; `healthy` otherwise; `unknown` when neither success nor failure has been recorded. Clients must not recompute them.
 - **Failure vocabulary**: `ok` / `expired` / `network` / `error` / `unsupported` / `skipped`, normalised by one entry point (`classify_message`). A ciphertext that will not decrypt (`InvalidTag`, key mismatch) is always `expired` — retrying it a thousand times cannot help, only re-recording the credential can. `unsupported` (nothing to keep alive) counts as neither success nor failure and never lands in `failed`, so it cannot drown real red. Back-off is `base × 2^(n-1)` capped at `RETRY_CAP_SECONDS`, retried at most `RETRY_MAX` times; success clears the counter, the warning stamp and the alert stamp together.
 - **Alert outlet**: the site-wide `notifications` table, **one aggregated notification per owner per round** (19 accounts expiring at once must not send 19 messages — users then mute it and never see the real one); non-uuid owners such as `probe-user` are dropped and counted, because one bad owner aborts the whole batch insert; a missing table is reported as a warning rather than pretended delivered. `KEEPALIVE_ALERT_WEBHOOK` adds an extra leg. The whole path is fail-open — a failed notification never interrupts keepalive.
 - **Switches**: `KEEPALIVE_ENABLED`, inherited from `COOKIE_REFRESH_ENABLED` / `CHECKIN_CRON_ENABLED` when unset; `resolve_config()` re-reads every round, so an `.env` change takes effect on the next round without a restart. Related defaults: `INTERVAL_HOURS`=6, `RETRY_MAX`=3, `RETRY_BASE_SECONDS`=300, `RETRY_CAP_SECONDS`=21600, `ALERT_AFTER_FAILURES`=3, `ALERT_REPEAT_HOURS`=24, `EXPIRE_WARN_DAYS`=3, `ALERT_INAPP`=true, `PROBE_CONCURRENCY`=4, `EVENT_RETENTION_DAYS`=90.
 - **Bounds**: it judges credential liveness only — publishing still belongs to the publish scheduler and daily check-in to `checkin_scheduler`, otherwise one account gets hit by two writers at once. Front end: `apps/web/src/components/publish/KeepaliveCenterPanel.tsx` on `/publish/accounts`; client wrappers in `packages/api-client/src/endpoints/keepalive.ts`.
-
 ## 🚀 Quick start
-
 ```bash
 git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
 cd IHUI-AI
 cp .env.example .env           # fill JWT_SECRET / DB_PASSWORD / CREDENTIALS_ENCRYPTION_KEY
 docker compose up -d           # business + migrations; add --profile observability as needed
 ```
-
 If something does not come up: `docs/DEPLOYMENT_RUNBOOK.md` · `docs/TROUBLESHOOTING.md` · port registry `docs/port-management.md`.
-
 Local development:
-
 ```bash
 pnpm install                   # full install, --filter is forbidden (AGENTS §12e)
 docker compose up -d db redis
@@ -964,13 +913,10 @@ pnpm --filter @ihui/database run db:migrate
 pnpm dev                       # web :8801 + api :8802 (+ ai-service :8803)
 pnpm turbo build typecheck lint test
 ```
-
 Model keys are never in the repo: bootstrap with `node scripts/env-backfill-model-keys.mjs --verify`
 (see [`AGENTS.md` §5d](./AGENTS.md)). Windows one-click launch scripts, full env-var table, REST/WebSocket
 API, model sync and IM multi-platform control: [`readme-05`](./docs/engineering/readme-05-quickstart-api-data.md).
-
 ## Deployment
-
 | Topic                                            | Where                                                                               |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------- |
 | Production runbook (blue-green, rollback, certs) | [`docs/DEPLOYMENT_RUNBOOK.md`](./docs/DEPLOYMENT_RUNBOOK.md)                        |
@@ -979,12 +925,9 @@ API, model sync and IM multi-platform control: [`readme-05`](./docs/engineering/
 | Database backups & read-only backup role         | [`docs/DATABASE.md`](./docs/DATABASE.md)                                            |
 | Credential rotation                              | [`docs/CREDENTIAL_ROTATION_RUNBOOK.md`](./docs/CREDENTIAL_ROTATION_RUNBOOK.md)      |
 | CI workflow inventory                            | [`.github/workflows/`](./.github/workflows) + the workflow count in the table above |
-
 ## Development constraints (excerpt)
-
 **The rules in this repo are code, not verbal agreements.** The single authoritative text is
 [`AGENTS.md`](./AGENTS.md). The ones you hit on day one:
-
 1. Task plans live only in `PROJECT_PLAN.md`; claims use the lease format `（进行中@日期/持有者）`.
 2. Commits go through `node scripts/safe-commit.mjs`; `git add .` / `-A` / `-u` are forbidden; live docs
    require `node scripts/merge-live-doc.mjs --file README.md` first.
@@ -998,32 +941,46 @@ API, model sync and IM multi-platform control: [`readme-05`](./docs/engineering/
 8. i18n: key parity across five languages (en/zh-CN/zh-TW/ja/ko) is a gate.
 9. Temp files only under `.ihui-agent/tmp/<task>/`.
 10. New files must be watermarked: `node scripts/watermark.mjs inject <file>`.
-
 ## License & copyright
-
 - **License**: Apache-2.0 (see [`LICENSE`](./LICENSE)); contributor terms in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 - **NOTICE**: must be retained with every copy.
 - **Provenance watermarks**: three-layer watermark on source files, maintained by `scripts/watermark.mjs`;
   they do not alter the rights granted by Apache-2.0.
 - **Trademarks**: "智汇AI / IHUI-AI" and its logos belong to the project; Apache-2.0 grants no trademark rights.
-
 ## Contact
-
 - Site / docs: <https://aizhs.top>
 - Issues: <https://github.com/IHUI-INF-AI/IHUI-AI/issues>
 - Security disclosures (please do not post publicly): [`SECURITY.md`](./SECURITY.md)
 - Code of conduct: [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md)
-
 <div align="center">
-
 If this project is useful to you, a ⭐ is the most direct contribution.
-
 </div>
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
-
 <!-- 2026-11-07 全量收敛归档:本侧相对 base 独有行逐字保留(语义由对侧新版承载,零内容丢失) -->
 Headline claims (same source as the table below, all live-computed): **624 tables · 4720 API routes ·
 25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4341 test files ·
 332 engineering gates · 55 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 Headline claims (same source as the table below, all live-computed): **624 tables · 4720 API routes ·
 Headline claims (same source as the table below, all live-computed): **624 tables · 4720 API routes ·
+- 🐞 修复:镜像消息按真实角色落库(user 取请求体 / assistant 取 LLM 回复) (44a5c52f72)
+- 🚀 新功能/改进:镜像会话补写首条消息 + 本票四条迁移 idx 让位重排 (3919e321e1)
+- 🚀 新功能/改进:RN 抽屉补异端来源徽章 + 七处会话映射透传 source (62719a7d5f)
+- 🚀 新功能/改进:三端会话统一入库并标注录入端 (c19e006b54)
+- 🐞 修复:knowledge_lookup 默认继承工作区根访问闸 (5a01828582)
+- 🚀 新功能/改进:ALPC 通道抽象层 + Job 判活谓词（P3-01/P3-04 fail-closed） (390022b993)
+- 🔧 工程/其他:T24 出处面改成动态探测 —— 固定 sha 会把脆弱性钉进测试 (1dd6ba71d8)
+- 🐞 修复:knowledge_lookup 旧索引出口按 cursorignore 再过滤 (5beb5f52a5)
+- 🚀 新功能/改进:顶栏同步透明底与圆角控件片 (7c84094337)
+- 🚀 新功能/改进:支持 OCR 桥切换会话（chat.switch） (2405327051)
+- 🔧 工程/其他:NavBar radius 额度 1→2 按实测重锚（+ baseline radiusCounts 同步） (c8be4c2923)
+- 🐞 修复:非长度档记账前移到键过滤之前（C15 真因，覆盖面口径归位） (553a961801)
+- 🐞 修复:.cursorignore 检索面旧索引与预览泄露收口 (9c2edf794d)
+- 🚀 新功能/改进:一键接入后自动连通性自检 (404be4bd70)
+- 🐞 修复:非长度档记账提到键过滤之前 —— C15/C16 的真因（口径裁决：颜色≠解不出） (74f7d0a9ee)
+- 🚀 新功能/改进:统一透明顶栏与圆角控件底片 (13cf7545cd)
+- 🔧 工程/其他:C6 反向锁改成"两格都在 + 允许额外格"（本票自引入） (a66e68fb2f)
+- 🔧 工程/其他:feat(cli)+docs: 注册表接入 serve 单例预检（6 例）+ Qoder/DSH 深读证据 (5d4423feef)
+- 🐞 修复:托管保存来源标记与租户停用态现读修复 (1eaee6905e)
+- 🚀 新功能/改进:影子工作区事务写 + goal 六态/延后 + cursorignore 访问面 (1f5951390b)
+- 🔧 工程/其他:三条存量红清零 —— T23 锁搬家 / T24 出处面重锚 / T47 按实测收桶 (7541e307ae)
+- 📚 文档:记入五程序原生深水「明确不做」一行结论与理由 (84eb8faf63)

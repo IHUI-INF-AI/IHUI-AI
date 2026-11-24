@@ -88,6 +88,9 @@ import {
   Sun,
   Trash2,
   User,
+  // 2026-11-24:会话来源端徽章(只标异端 —— 本端 rn 不标,web / 小程序录入才标)
+  AppWindow,
+  Monitor,
 } from 'lucide-react-native'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import { favoriteConversation, unfavoriteConversation } from '@ihui/api-client'
@@ -125,6 +128,12 @@ export interface DrawerConversationItem {
   createdAt: number // timestamp,用于日期分组
   /** 收藏标记(列表 API favorite 字段;Drawer 内乐观覆盖,2026-09-05 立) */
   favorited?: boolean
+  /**
+   * 录入端(2026-11-24 会话统一入库):'web' / 'rn' / 'miniapp',由后端
+   * `chat_conversations.source` 回吐。抽屉只标**异端**(本端是 rn,故不标 rn),
+   * 与 web 侧栏同一口径 —— 让「这条从哪个端操作来的」一眼可分,又不给纯本端列表添噪声。
+   */
+  source?: string
 }
 
 export interface DrawerProps {
@@ -404,6 +413,40 @@ function SwipeableConversationItem({
           >
             {item.title}
           </Text>
+          {/* 2026-11-24:来源端徽章 —— 与 web 侧栏同一口径,本端(rn)录入不标,
+              只标 web / 小程序录入的会话,零噪声又能分清「从哪个端操作来的」 */}
+          {item.source === 'web' && (
+            <View
+              className="ml-2 flex-row items-center"
+              style={{
+                backgroundColor: tokens.surface.muted,
+                borderRadius: rnRadius.sm,
+                paddingHorizontal: rnSpacing.xs,
+                gap: rnSpacing.xs / 2,
+              }}
+            >
+              <Monitor size={rnGeometry.glyphSm} color={tokens.text.secondary} />
+              <Text style={{ color: tokens.text.secondary, fontSize: rnGeometry.textCaption }}>
+                {t('sourceWeb')}
+              </Text>
+            </View>
+          )}
+          {item.source === 'miniapp' && (
+            <View
+              className="ml-2 flex-row items-center"
+              style={{
+                backgroundColor: tokens.surface.muted,
+                borderRadius: rnRadius.sm,
+                paddingHorizontal: rnSpacing.xs,
+                gap: rnSpacing.xs / 2,
+              }}
+            >
+              <AppWindow size={rnGeometry.glyphSm} color={tokens.text.secondary} />
+              <Text style={{ color: tokens.text.secondary, fontSize: rnGeometry.textCaption }}>
+                {t('sourceMiniApp')}
+              </Text>
+            </View>
+          )}
         </Pressable>
       </Animated.View>
     </View>

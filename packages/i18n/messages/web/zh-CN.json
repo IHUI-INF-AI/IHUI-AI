@@ -31159,5 +31159,8 @@
     "escalateScan": "扫描超时升级",
     "escalatedDone": "已升级 {count} 条",
     "loading": "加载中"
-  }
+  },
+  "sourceWeb": "Web",
+  "sourceApp": "手机",
+  "sourceMiniApp": "小程序"
 }

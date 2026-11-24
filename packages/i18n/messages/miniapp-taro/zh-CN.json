@@ -7328,5 +7328,8 @@
     "feedbackOpenFailed": "反馈页打开失败,请稍后重试",
     "navigationNotWired": "导航未接入",
     "pageUnsupported": "该页面暂未支持"
-  }
+  },
+  "sourceWeb": "Web",
+  "sourceApp": "手机",
+  "sourceMiniApp": "小程序"
 }

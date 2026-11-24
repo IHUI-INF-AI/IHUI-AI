@@ -311,6 +311,7 @@ function mapConversationToDrawer(c: ConversationDetail, untitled: string): Drawe
     modelConfig: mdl ? { id: mdl, name: mdl, icon: undefined } : undefined,
     createdAt,
     favorited: c.favorite === true,
+    source: c.source,
   }
 }
 

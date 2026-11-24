@@ -49,11 +49,29 @@ export function resolveClientSignature(): string {
   }
 }
 
+/** 客户端平台标识(2026-11-24 立):三端会话统一入库后,后端按此 header 记录「哪一端录入」 */
+export const CLIENT_PLATFORM_HEADER = 'X-Client-Platform'
+export type ClientPlatform = 'web' | 'rn' | 'miniapp'
+let clientPlatform: ClientPlatform | null = null
+
+/** 各端启动时注册一次;共享层不读 Platform.OS,避免平台分支进共享代码 */
+export function setClientPlatform(platform: ClientPlatform): void {
+  clientPlatform = platform
+}
+
+/** 读当前注册值(渲染层判「这条会话是不是别的端录入的」用) */
+export function getClientPlatform(): ClientPlatform | null {
+  return clientPlatform
+}
+
 /**
  * 把签名合并进给定请求头(原地改后返回同一对象,便于链式复用)。
  * 已有同名 header 时不覆盖:显式传入优先于默认注入。
+ * 同时注入客户端平台标识(未注册则不带,后端回填 web)。
  */
 export function applyClientSignature(headers: Record<string, string>): Record<string, string> {
+  if (clientPlatform && !headers[CLIENT_PLATFORM_HEADER])
+    headers[CLIENT_PLATFORM_HEADER] = clientPlatform
   if (headers[CLIENT_SIGN_HEADER]) return headers
   const value = resolveClientSignature()
   if (value) headers[CLIENT_SIGN_HEADER] = value

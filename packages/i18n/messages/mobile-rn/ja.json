@@ -7841,5 +7841,8 @@
     "privateAdvisor": "専任アドバイザー",
     "daysSuffix": "日"
   },
-  "charCount": "{count} 文字"
+  "charCount": "{count} 文字",
+  "sourceWeb": "Web",
+  "sourceApp": "モバイル",
+  "sourceMiniApp": "ミニ"
 }

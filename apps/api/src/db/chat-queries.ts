@@ -51,6 +51,10 @@ export interface CreateConversationInput {
   model?: string
   systemPrompt?: string
   metadata?: unknown
+  /** 录入端(web / rn / miniapp),缺省 web;只作展示,不参与归属鉴权 */
+  source?: string
+  /** 源系统记录 id(小程序 history.id),与 source 组成收编幂等键 */
+  sourceRef?: string
 }
 
 export async function createConversation(
@@ -68,6 +72,8 @@ export async function createConversation(
       model: input.model,
       systemPrompt: input.systemPrompt,
       metadata: input.metadata as Record<string, unknown> | null,
+      ...(input.source ? { source: input.source } : {}),
+      ...(input.sourceRef ? { sourceRef: input.sourceRef } : {}),
     })
     .returning()
   const row = rows[0]
@@ -120,6 +126,8 @@ export async function findConversationsByUser(
         pinnedAt: chatConversations.pinnedAt,
         groupId: chatConversations.groupId,
         historyProjectionState: chatConversations.historyProjectionState,
+        source: chatConversations.source,
+        sourceRef: chatConversations.sourceRef,
       })
       .from(chatConversations)
       .where(where)
@@ -2255,6 +2263,8 @@ export async function findFavoriteConversations(
         pinnedAt: chatConversations.pinnedAt,
         groupId: chatConversations.groupId,
         historyProjectionState: chatConversations.historyProjectionState,
+        source: chatConversations.source,
+        sourceRef: chatConversations.sourceRef,
         favorite: sql<boolean>`TRUE`,
         favoriteId: chatFavorites.id,
         favoriteCreatedAt: chatFavorites.createdAt,
