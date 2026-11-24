@@ -84,6 +84,15 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-24**
+- 🐞 修复:修 5 处类型错(员工自助端两页 AuthGatePrompt message/OAuth 回调 params/expense·perf mutation 泛型) (e7475fd75c)
+- 📚 文档:craft deep rizin 静态复评四件未判定原生件——aiep_sbox/sandbox_ffi/tsbx/keytar/AoqClientSdk 推进到函数级观察 (dceb2b416e)
+- 📚 文档:Loomy 正文数改为现场快照 (ddcadb2e3e)
+- 🐞 修复:补全模型自动同步遗漏——qoder 能力门/吞错返空/环境变量/红测 (c9f0c932ac)
+- 🔧 工程/其他:v2 签名 zip/feed 随 Release 自动上传并校验资产落地 (a3b1cfc799)
+- 🚀 新功能/改进:三处"证据不足"边界做实——disabled 执行层拒执门 + 报告映射漂移标注 + UI 前置拦截 (0d4c6453fe)
+- 🐞 修复:闭环 v2 更新审计 P0/P1——回滚落盘/清单复验/父进程存活/feed 校验/安装器状态保留 (540935c209)
+- 📚 文档:测试命令对齐 13 个脚本文件 (e43d8d5162)
+- 🚀 新功能/改进:员工自助端补全——/my/perf+/my/training 两页两路由,顺手根治他席已入库面的 i18n 裸键真 bug (6241328b42)
 - 🚀 新功能/改进:规则选择面只读诊断工具 list_project_rules (6936efb2)
 - 📚 文档:更新微信公众号服务号凭据与认证状态 (4508d526)
 - 🐞 修复:补齐 __test__ 的 geometryDeclCheck 导出 + README 点名本门（T70 / T3） (a57fe357)

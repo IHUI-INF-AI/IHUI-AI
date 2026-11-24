@@ -2227,6 +2227,15 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-24**
+- 🐞 修正:修 5 处类型错(员工自助端两页 AuthGatePrompt message/OAuth 回调 params/expense·perf mutation 泛型) (e7475fd75c)
+- 📚 ドキュメント:craft deep rizin 静态复评四件未判定原生件——aiep_sbox/sandbox_ffi/tsbx/keytar/AoqClientSdk 推进到函数级观察 (dceb2b416e)
+- 📚 ドキュメント:Loomy 正文数改为现场快照 (ddcadb2e3e)
+- 🐞 修正:补全模型自动同步遗漏——qoder 能力门/吞错返空/环境变量/红测 (c9f0c932ac)
+- 🔧 その他:v2 签名 zip/feed 随 Release 自动上传并校验资产落地 (a3b1cfc799)
+- 🚀 機能/改善:三处"证据不足"边界做实——disabled 执行层拒执门 + 报告映射漂移标注 + UI 前置拦截 (0d4c6453fe)
+- 🐞 修正:闭环 v2 更新审计 P0/P1——回滚落盘/清单复验/父进程存活/feed 校验/安装器状态保留 (540935c209)
+- 📚 ドキュメント:测试命令对齐 13 个脚本文件 (e43d8d5162)
+- 🚀 機能/改善:员工自助端补全——/my/perf+/my/training 两页两路由,顺手根治他席已入库面的 i18n 裸键真 bug (6241328b42)
 - 🐞 修正:镜像消息按真实角色落库(user 取请求体 / assistant 取 LLM 回复) (44a5c52f72)
 - 🚀 機能/改善:镜像会话补写首条消息 + 本票四条迁移 idx 让位重排 (3919e321e1)
 - 🚀 機能/改善:RN 抽屉补异端来源徽章 + 七处会话映射透传 source (62719a7d5f)
