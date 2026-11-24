@@ -11,8 +11,11 @@
  *  ③ 帧回调**原样**交给 store 的 applyChatSync —— 房间过滤与幂等裁定在内核,此处不做第二份;
  *  ④ 卸载时两路订阅都 close(成对清理,不留监听)。
  */
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
+import type { ChatSyncState } from '@ihui/types'
 
 const { userBroadcastMock, chatSyncMock, applyChatSyncMock, closeMeta, closeChat, storeState } =
   vi.hoisted(() => ({
@@ -28,7 +31,7 @@ const { userBroadcastMock, chatSyncMock, applyChatSyncMock, closeMeta, closeChat
       chatSync: {
         messages: new Map<string, unknown>(),
         appliedRevs: new Map<string, number>(),
-      } as unknown as import('@ihui/types').ChatSyncState,
+      } as unknown as ChatSyncState,
     },
   }))
 
@@ -89,7 +92,7 @@ beforeEach(() => {
   storeState.chatSync = {
     messages: new Map<string, unknown>(),
     appliedRevs: new Map<string, number>(),
-  } as unknown as import('@ihui/types').ChatSyncState
+  } as unknown as ChatSyncState
 })
 
 /** 从 meta 订阅的 handlers 里取 onState,按真实状态机序列驱动重连判定。 */
@@ -100,7 +103,7 @@ function emitConnectionState(s: 'idle' | 'connecting' | 'open' | 'closed'): void
 }
 
 /** 构造一条无终态 / 有终态消息面(planner 只认 terminal 有无,内容不参与判定)。 */
-function syncStateOf(entries: readonly [string, boolean][]): import('@ihui/types').ChatSyncState {
+function syncStateOf(entries: readonly [string, boolean][]): ChatSyncState {
   return {
     messages: new Map(
       entries.map(([id, done]) => [
@@ -111,7 +114,7 @@ function syncStateOf(entries: readonly [string, boolean][]): import('@ihui/types
       ]),
     ),
     appliedRevs: new Map(entries.map(([id], i) => [id, i + 1])),
-  } as unknown as import('@ihui/types').ChatSyncState
+  } as unknown as ChatSyncState
 }
 
 describe('useConversationBroadcastSync — 票71 消息面接线', () => {
@@ -219,8 +222,6 @@ describe('useConversationBroadcastSync — 票71 消息面接线', () => {
   })
 
   it('变异锁:hook 必须真调用契约 planner(抹掉即红,不靠恒绿断言)', () => {
-    const { readFileSync } = require('node:fs') as typeof import('node:fs')
-    const { resolve } = require('node:path') as typeof import('node:path')
     const src = readFileSync(resolve(__dirname, '../use-conversation-broadcast-sync.ts'), 'utf8')
     const marker = 'planChatSyncReconnectResync({'
     expect(src).toContain(marker)
