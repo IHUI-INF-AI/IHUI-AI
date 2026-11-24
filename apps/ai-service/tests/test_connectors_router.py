@@ -142,6 +142,39 @@ async def test_config_empty_secret_keeps_old(ac):
     assert stored["app_secret"] == "old-secret"
 
 
+async def test_config_managed_records_real_credential_source(ac, monkeypatch):
+    """托管保存也必须标真实来源,不能一律写 platform_env(租户凭据会被误报)。"""
+    monkeypatch.setattr(
+        connectors_router.managed,
+        "status",
+        lambda t, scope=None: {
+            "available": True,
+            "supported": True,
+            "credential_source": "tenant",
+            "missing": [],
+            "reason": "",
+        },
+    )
+    body = _config_body(
+        key="feishu:manual",
+        type="feishu",
+        name="飞书",
+        app_id="",
+        app_secret="",
+        extra={},
+        managed=True,
+    )
+    res = await ac.post("/api/connectors/config", json=body)
+    assert res.status_code == 200
+    item = res.json()
+    assert item["managed"] is True
+    assert item["credential_source"] == "tenant"
+    stored = connector_store.get(USER_A, "feishu:manual")
+    assert stored is not None
+    assert stored["app_secret"] == ""
+    assert stored["app_id"] == ""
+
+
 async def test_config_update_keeps_extra_and_sync_state(ac):
     await ac.post("/api/connectors/config", json=_config_body())
     connector_store.set_sync_state(

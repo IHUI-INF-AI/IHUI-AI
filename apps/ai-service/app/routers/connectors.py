@@ -412,11 +412,13 @@ async def save_connector_config(
             operations = catalog.default_operations(req.type)
         managed_flag = bool(req.managed and tpl is not None)
         if managed_flag:
-            # 托管连接器不落任何密钥;记录只声明"凭据由平台提供"
+            # 托管连接器不落任何密钥;来源必须与真实凭据一致 ——
+            # 租户自己的应用凭据标 tenant,平台环境凭据标 platform_env,
+            # 语雀公开知识库标 public。不能一律写成 platform_env。
             app_id = ""
             app_secret = ""
-            credential_source = (
-                "public" if req.type in {"yuque"} else "platform_env"
+            credential_source = str(
+                managed.status(req.type, scope).get("credential_source") or "platform_env"
             )
         else:
             credential_source = ""

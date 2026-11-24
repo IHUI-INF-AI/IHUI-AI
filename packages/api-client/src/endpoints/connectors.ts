@@ -96,7 +96,7 @@ export interface ConnectorEntry {
   configured: boolean
   /** 是否平台托管(凭据由部署环境提供,用户不填) */
   managed?: boolean
-  /** public | platform_env | ''(手动配置) */
+  /** public | platform_env | tenant | ''(手动配置) */
   credential_source?: string
   /** 是否启用 */
   enabled: boolean
@@ -150,7 +150,7 @@ export interface SaveConnectorConfigInput {
 export interface ConnectorManagedStatus {
   available: boolean
   supported: boolean
-  credential_source: 'platform_env' | 'public' | ''
+  credential_source: 'platform_env' | 'public' | 'tenant' | ''
   missing: string[]
   reason: string
   /** 是否处于多企业 SaaS 模式(平台应用凭据按租户归属) */
