@@ -133,7 +133,15 @@ def _should_goal_rerun(result: Any, decision: Any) -> bool:
         return False
     budget = getattr(state, "token_budget", None)
     spent = getattr(state, "tokens_spent", None)
-    return not (isinstance(budget, int) and isinstance(spent, int) and spent >= budget)
+    if isinstance(budget, int) and isinstance(spent, int) and spent >= budget:
+        return False
+    time_budget = getattr(state, "time_budget_seconds", None)
+    time_spent = getattr(state, "seconds_spent", None)
+    return not (
+        isinstance(time_budget, int)
+        and isinstance(time_spent, int)
+        and time_spent >= time_budget
+    )
 
 
 async def _closing_event_stream(

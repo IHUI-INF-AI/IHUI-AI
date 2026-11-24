@@ -158,6 +158,10 @@ class VerifyIn(BaseModel):
     tokens_this_round: int | None = Field(default=None, ge=0)
     #: 预算上限(§8 budget 子命令语义)。必须为正数,0 会被读成"已耗尽"
     token_budget: int | None = Field(default=None, gt=0)
+    #: 本轮墙钟秒数(调用方上报;None = 没上报,不得当成 0)
+    seconds_this_round: int | None = Field(default=None, ge=0)
+    #: 墙钟预算(秒,Codex `time_used_seconds` 等价);必须为正数
+    time_budget_seconds: int | None = Field(default=None, gt=0)
 
     @field_validator("session_id")
     @classmethod
@@ -228,6 +232,8 @@ class VerifyOut(BaseModel):
     ledger_read_state: str | None = None
     tokens_spent: int | None = None
     token_budget: int | None = None
+    seconds_spent: int | None = None
+    time_budget_seconds: int | None = None
 
 
 class GoalStateOut(BaseModel):
@@ -415,6 +421,8 @@ def _ledger_fields(
         "goal_status": None if state is None else state.last_status,
         "tokens_spent": None if state is None else state.tokens_spent,
         "token_budget": None if state is None else state.token_budget,
+        "seconds_spent": None if state is None else state.seconds_spent,
+        "time_budget_seconds": None if state is None else state.time_budget_seconds,
         "ledger_storage": receipt.storage,
         "ledger_durable": receipt.durable,
     }
@@ -528,6 +536,8 @@ async def verify_goal(payload: VerifyIn, request: Request) -> VerifyOut:
             unmet=[v.criterion_id for v in views if v.verdict != "met"],
             tokens_this_round=payload.tokens_this_round,
             token_budget=payload.token_budget,
+            seconds_this_round=payload.seconds_this_round,
+            time_budget_seconds=payload.time_budget_seconds,
         ),
         previous=previous,
         max_consecutive_failures=GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES,

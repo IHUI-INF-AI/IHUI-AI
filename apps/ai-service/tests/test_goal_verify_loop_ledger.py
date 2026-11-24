@@ -514,6 +514,98 @@ async def test_http_door_and_gate_door_share_one_ledger() -> None:
         reset_store()
 
 
+@pytest.mark.asyncio
+async def test_time_budget_survives_restart_and_blocks_overrun() -> None:
+    """墙钟账与 token 账同源:重启后仍在,超限即预算耗尽收口(2026-11-24 对齐 Codex)。"""
+    sink = RecordingSink()
+    store = CheckpointGoalRoundStore(sink)
+    await store.write(_state(seconds_spent=40, time_budget_seconds=60))
+    read = await store.read("s-1")
+    assert read.state is not None
+    assert read.state.seconds_spent == 40
+    assert read.state.time_budget_seconds == 60
+    continued = advance_round_state(
+        session_id="s-1",
+        owner_user_id="user-a",
+        outcome=normalize_outcome(
+            status="not_achieved", unmet=["tsc"], seconds_this_round=30
+        ),
+        previous=read.state,
+        max_consecutive_failures=3,
+    )
+    assert continued.seconds_spent == 70
+    assert continued.time_budget_seconds == 60
+    assert continued.blocked is True
+    assert continued.blocked_reason == "budget_exhausted"
+
+
+def test_legacy_payload_without_time_fields_reads_as_none() -> None:
+    """老载荷没有时间键 ⇒ None(不得折成 0,也不得判读不出)。"""
+    payload = _state().to_payload()
+    payload.pop("seconds_spent")
+    payload.pop("time_budget_seconds")
+    parsed = parse_state_payload(payload)
+    assert parsed is not None
+    assert parsed.seconds_spent is None
+    assert parsed.time_budget_seconds is None
+
+
+def test_time_budget_rejects_bad_values() -> None:
+    with pytest.raises(ValueError):
+        normalize_outcome(status="not_achieved", unmet=[], seconds_this_round=-1)
+    with pytest.raises(ValueError):
+        normalize_outcome(status="not_achieved", unmet=[], time_budget_seconds=0)
+    bad = _state(seconds_spent=-5).to_payload()
+    assert parse_state_payload(bad) is None
+    bad_budget = _state(time_budget_seconds=0).to_payload()
+    assert parse_state_payload(bad_budget) is None
+
+
+def test_time_budget_stops_goal_rerun() -> None:
+    """执行闸门的再跑判定必须看时间账,不能只看 token。"""
+    from types import SimpleNamespace
+
+    from app.routers.agents import _should_goal_rerun
+
+    result = SimpleNamespace(stop_reason="ongoing")
+    over = SimpleNamespace(
+        allowed_complete=False,
+        goal_status="not_achieved",
+        round_state=SimpleNamespace(
+            blocked=False,
+            token_budget=None,
+            tokens_spent=None,
+            time_budget_seconds=10,
+            seconds_spent=10,
+        ),
+    )
+    under = SimpleNamespace(
+        allowed_complete=False,
+        goal_status="not_achieved",
+        round_state=SimpleNamespace(
+            blocked=False,
+            token_budget=None,
+            tokens_spent=None,
+            time_budget_seconds=10,
+            seconds_spent=9,
+        ),
+    )
+    assert _should_goal_rerun(result, over) is False
+    assert _should_goal_rerun(result, under) is True
+
+
+def test_verify_payload_accepts_time_fields() -> None:
+    from app.routers.goal_verification import VerifyIn
+
+    payload = VerifyIn(
+        criteria=[{"id": "tsc", "statement": "tsc=0", "evidence_kind": "command"}],
+        seconds_this_round=5,
+        time_budget_seconds=40,
+    )
+    assert payload.seconds_this_round == 5
+    assert payload.time_budget_seconds == 40
+
+
 def test_both_doors_resolve_the_same_store_accessor() -> None:
     """两条链用的是**同一个** accessor(同一函数对象),不是各自另立一份登记表。"""
     from app.services import goal_completion_gate as gate

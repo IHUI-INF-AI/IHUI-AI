@@ -119,6 +119,10 @@ class GoalRoundState:
     #: 预算上限(调用方声明;None = 没声明过,因此也永不判耗尽)
     token_budget: int | None
     updated_at: float
+    #: 累计墙钟秒数(Codex `thread_goals.time_used_seconds` 等价;整数秒,None = 从未上报)
+    seconds_spent: int | None = None
+    #: 墙钟预算(秒;None = 没声明过 ⇒ 永不按时间判耗尽)
+    time_budget_seconds: int | None = None
 
     def to_payload(self) -> dict[str, object]:
         return {
@@ -135,6 +139,8 @@ class GoalRoundState:
             "tokens_spent": self.tokens_spent,
             "token_budget": self.token_budget,
             "updated_at": self.updated_at,
+            "seconds_spent": self.seconds_spent,
+            "time_budget_seconds": self.time_budget_seconds,
         }
 
     def as_view(self) -> dict[str, object]:
@@ -232,6 +238,16 @@ def parse_state_payload(raw: object) -> GoalRoundState | None:
     token_budget = _as_int(raw.get("token_budget")) if raw.get("token_budget") is not None else None
     if raw.get("token_budget") is not None and token_budget is None:
         return None
+    # 时间维是**向后兼容新增**:老载荷没有这两枚键 ⇒ 读成 None(不是 0)。
+    # 有键但值非法 ⇒ 整份判"读不出",绝不把坏值静默折成 0。
+    seconds_raw = raw.get("seconds_spent")
+    seconds_spent = _as_int(seconds_raw) if seconds_raw is not None else None
+    if seconds_raw is not None and (seconds_spent is None or seconds_spent < 0):
+        return None
+    time_budget_raw = raw.get("time_budget_seconds")
+    time_budget = _as_int(time_budget_raw) if time_budget_raw is not None else None
+    if time_budget_raw is not None and (time_budget is None or time_budget <= 0):
+        return None
     return GoalRoundState(
         session_id=session_id,
         owner_user_id=owner,
@@ -244,6 +260,8 @@ def parse_state_payload(raw: object) -> GoalRoundState | None:
         blocked_reason=blocked_reason,
         tokens_spent=tokens_spent,
         token_budget=token_budget,
+        seconds_spent=seconds_spent,
+        time_budget_seconds=time_budget,
         # updated_at 用 int 存(避免 float 往返误差);读回按 float 用
         updated_at=float(updated_at),
     )
@@ -295,6 +313,10 @@ class RoundOutcome:
     unmet: UnmetSet
     tokens_this_round: int | None = None
     token_budget: int | None = None
+    #: 本轮墙钟秒数(整数;None = 没上报,不得当成 0)
+    seconds_this_round: int | None = None
+    #: 墙钟预算(秒;None = 没声明;0/负 = 拒绝记账)
+    time_budget_seconds: int | None = None
 
 
 def normalize_outcome(
@@ -303,6 +325,8 @@ def normalize_outcome(
     unmet: Sequence[str],
     tokens_this_round: int | None = None,
     token_budget: int | None = None,
+    seconds_this_round: int | None = None,
+    time_budget_seconds: int | None = None,
 ) -> RoundOutcome:
     """把一次校验结论收成 `RoundOutcome`(校验档必须在封闭集内,否则拒绝记账)。
 
@@ -315,11 +339,17 @@ def normalize_outcome(
         raise ValueError("tokens_this_round 不得为负")
     if token_budget is not None and token_budget <= 0:
         raise ValueError("token_budget 必须是正数或 None(0 会被读成'预算已耗尽')")
+    if seconds_this_round is not None and seconds_this_round < 0:
+        raise ValueError("seconds_this_round 不得为负")
+    if time_budget_seconds is not None and time_budget_seconds <= 0:
+        raise ValueError("time_budget_seconds 必须是正数或 None(0 会被读成'预算已耗尽')")
     return RoundOutcome(
         status=status,
         unmet=tuple(sorted({str(x) for x in unmet})),
         tokens_this_round=tokens_this_round,
         token_budget=token_budget,
+        seconds_this_round=seconds_this_round,
+        time_budget_seconds=time_budget_seconds,
     )
 
 
@@ -358,6 +388,13 @@ def advance_round_state(
     spent = prev_tokens
     if outcome.tokens_this_round is not None:
         spent = (prev_tokens or 0) + outcome.tokens_this_round
+    prev_seconds = None if previous is None else previous.seconds_spent
+    time_budget = outcome.time_budget_seconds if outcome.time_budget_seconds is not None else (
+        None if previous is None else previous.time_budget_seconds
+    )
+    seconds_spent = prev_seconds
+    if outcome.seconds_this_round is not None:
+        seconds_spent = (prev_seconds or 0) + outcome.seconds_this_round
 
     if outcome.status == ROUND_ACHIEVED:
         streak = 0
@@ -371,6 +408,10 @@ def advance_round_state(
         stagnation = (previous.stagnation + 1) if (same_set and previous is not None) else 0
 
     budget_exhausted = budget is not None and spent is not None and spent >= budget
+    time_budget_exhausted = (
+        time_budget is not None and seconds_spent is not None and seconds_spent >= time_budget
+    )
+    budget_exhausted = budget_exhausted or time_budget_exhausted
     over_streak = streak >= max_consecutive_failures
     over_stall = stagnation >= max(1, max_consecutive_failures - 1)
     blocked = (over_streak or over_stall or budget_exhausted) and outcome.status != ROUND_ACHIEVED
@@ -401,6 +442,8 @@ def advance_round_state(
         blocked_reason=reason,
         tokens_spent=spent,
         token_budget=budget,
+        seconds_spent=seconds_spent,
+        time_budget_seconds=time_budget,
         updated_at=stamp,
     )
 
