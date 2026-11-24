@@ -48,7 +48,7 @@
 
 | 程序 | 已完成 | 函数清单 | 伪代码/反编译条数 | 状态 |
 |---|---|---|---|---|
-| Trae | 路径 + 体量分级；P3-01(ALPC)/P3-02(双探测 SDK) 已 Ghidra 伪代码；§0.5 完成五大件 rizin+raw 符号/字符串级取证 | 小件 `sbox_sdk/vm_sdk/aiep_ipc` Ghidra 已取；五大件仅符号面（体量纪律不进全量） | 2（P3-01/02 Ghidra）+ §0.5 函数级符号/SQL 证据 | 判据已核、符号面完成；大件全量反编译按体量纪律放弃 |
+| Trae | 路径 + 体量分级；P3-01(ALPC)/P3-02(双探测 SDK) 已 Ghidra 伪代码；§0.5 raw 取证 + §0.6 **craft deep 函数级复评**（libckg Go 函数表 + 四大件字符串→函数定位 + 反编译） | 小件 Ghidra 已取；libckg 33406 Go 函数（pclntab）；四大件 stripped，按判据词定位到函数 | 2（P3-01/02 Ghidra）+ §0.5 + §0.6 函数级伪代码 | 判据已核、函数级完成；仅超大函数体未逐条展开（如实记已定位未逐条） |
 | Qoder | 路径纠正（`C:\Qoder CN`）+ 枚举；P3-05/06/07 已取证 | 小件 `system_commit/native_clipboard/notification_permission.node` 可进；`keytar.node` stripped 仅字符串面 | 3（P3-05/06/07，含字符串级；令牌一次性闭包 `function_not_found`） | 判据已核；大件面未展开 |
 | WorkBuddy | 两处路径核对 + 枚举；P3-03/04 已 Ghidra 伪代码 | `job-object.node` craft builtin 2492 切分函数（全 stripped）；`sandbox_ffi/tsbx.dll` 未逐条展开 | 2（P3-03/04 Ghidra）+ P3-04 函数清单 | 判据已核；`sandbox_ffi/tsbx` 未逐条 |
 | DeepSeek Harness | 路径纠正（`C:\Apps`）+ 枚举；业务逻辑上一轮已到 JS/TS 面 | 原生面以第三方/运行时件为主，无可进的自研业务 DLL | 0（本轮原生函数级无新增；业务判定已在 JS/TS 面） | 原生面完成枚举，无新增结论 |
@@ -109,13 +109,41 @@
 `VerifyOutcome`/`sha256_of_file`/`verify_artifact` 也已落地（文档 §1 P3-04 与 §2 表中"可选未落"字样过时）。
 本轮不改任何生产代码：取证结论若与现有判据同构或域不同，照搬即违反 §0「重交付结果」。
 
+### 0.6 craft deep 模式函数级复评（2026-11-24 12:45，纠正「只做到字符串级」）
+
+> 触发：机主指出此前只做 rizin + raw strings，未用 craft deep 模式真正把函数级榨透。复核属实——
+> `craft capabilities` 显示 `analysis_mode: deep` 默认开启、Ghidra/Java/rizin 引擎齐备，而此前一次未用。
+> 本轮用 craft 0.5.0 `--deep`（前置全局旗标）+ `--project .ihui-agent/tmp/craft-deep-*` 落证据，
+> 只读目标、不运行、不提凭据；伪代码来自 builtin clean-room lifter（Ghidra 全量建库在 37MB Go 件上 >300s 超时，故走 builtin，如实标注）。
+
+**libckg.dll（Go 1.25 c-shared，主模块 `ide/ckg`，33406 函数 / 1227 包，`native-go-binary-show` 内置 pclntab 解析）**
+
+| 函数（Go 全名，观察） | 函数级证据 | 判据含义 |
+|---|---|---|
+| `data_storage.(*SQLiteVecStorageV2).GetVersion` | 伪代码 `mov eax, 2; ret`（地址 `0x37ef340c0`，1 块 2 指令） | 存储版本**硬编码 2**，非配置驱动 |
+| `ckg_config.(*Config).GetTargetStorageVersion` | 伪代码校验入参长度 `r9==10`，逐字比对 `0x765f6574696c7173`+`0x6365`（ASCII `sqlite_v`+`ec`）后返回 `2`，否则返回 `0` | 版本握手判据本体＝**`sqlite_vec` 精确匹配 → 版本 2**，此前只有函数名、无判据 |
+| `data_storage.(*EntityStorage).UpsertUriMeta` | 引用串 `idempotency_level` + `uri_canonical = ?`；伪代码调 `util.IsSubdirectory` 后分派 | 幂等键＝规范化 URI，带幂等级别字段（此前只见 `ON CONFLICT` 串） |
+| `data_storage.(*SQLiteVecStorageV2).AddEmbeddingDocument` | 函数体仅 `runtime.gopanic()`（无业务逻辑） | **单条写入未实现，实际走批量** `AddEmbeddingDocuments`——边界发现 |
+| `data_storage.(*SQLiteVecStorageV2).QueryByEmbedding` | 栈展开 `0x30c0`，引用串含 `RetrieveCodeChunk start`、`[GetOrCreateStorage] Storage creation completed` | 批量向量检索，与索引/存储生命周期同函数族 |
+
+**四大件（PE / stripped，`core-feature-find` 字符串→函数定位 + `native-function-study` 反编译）**
+
+| 件 | 判据词 → 函数（观察） | 函数级证据 |
+|---|---|---|
+| `ai_agent.dll` | `queued` → `sub_180988775`（4639B） | 串 `[Toolhost] VM SDK not ready yet, whitelist paths queued for deferred flush`；伪代码 switch 分派 + 跳转表偏移 `rcx+=0x5c7`；KERNEL32 完成端口 `Post/GetQueuedCompletionStatus(Ex)` 导入 |
+| `ai_agent.dll` | `approval` → `sub_1801302fa`（自动/降级/手动）、`sub_180a92fd1`（11326B） | 串 `cached_auto_approval_available`、`[PermissionV3] downgrade explicit auto_approval profile`、`manual_approval`、`Automatic approval review failed`；后者伪代码含 guardian 解析、`allow`/`low` 分支与状态位清零 |
+| `ai_agent.dll` | `timeout_ms` → `sub_1809aae07` | 请求结构 `CliRequest{session_id,command_id,args,timeout_ms,binary_data,extra}`；**三级超时** `timeout_ms` / `kill_timeout_ms` / `busy_timeout_ms`（此前只记 `timeout:int=120`） |
+| `harness.dll` / `toolhost.dll` / `agent-tool-host.exe` | `timeout_ms` 45 命中、`queued` 21 命中、`timeout` 171 命中→33 函数 | 均命中函数级定位；未逐函数深挖（体量/边际），如实记「已定位未逐条」 |
+
+**反向核 IHUI 判据**：以上进一步坐实 §0.5 结论且无新增缺口——版本握手我们是静态配置指纹 `v1536:tree-sitter-chunk-v1`（单机无 C/S 握手边界）；幂等/规范化键在数据库层已有；`AddEmbeddingDocument` 未实现恰说明对照方也不支持单条写；三级超时我们 `hook_runtime`/`scan_login`/`rg_fallback_parity` 已覆盖具名超时 + 无界等待防护；审批三级我们业务域不同但 `cancelled`/超时终态已闭环。**仍不改生产代码**——deep 模式的价值是把「未判定」变成有据的观察，不是照搬。
+
 ---
 
 ## 1. 取证条目（P3-NN，滚动增补）
 
 > 复现命令约定：rizin=`C:\Program Files\Rizin\bin\rizin.exe`；
 > craft=`C:\Users\Administrator\AppData\Local\craft-anything\0.5.0\craft-anything-cli.exe`（0.5.0，`--deep` 全局旗标前置）。
-> 伪代码来自 Ghidra 12.1.4 clean-room lifter；下文只摘一两条关键判据并改写为中文，不整段粘贴对方源码。
+> 伪代码来自 craft 0.5.0 deep 模式的 builtin clean-room lifter（Ghidra 12.1.4 作 deep 引擎，37MB Go 件建库超时时回退 builtin，见 §0.6）；下文只摘一两条关键判据并改写为中文，不整段粘贴对方源码。
 
 ### P3-01（B 档）Trae ALPC IPC 通道：安全描述符由外部入参，空参/建段失败显式报错
 
