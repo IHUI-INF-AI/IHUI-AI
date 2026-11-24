@@ -176,7 +176,12 @@ async def test_auth_parts_injects_user_token():
 
 @pytest.mark.asyncio
 async def test_auth_parts_injects_dingtalk_user_token():
-    """钉钉用户态令牌走新版 api.dingtalk.com 的 Authorization: Bearer。"""
+    """钉钉 userAccessToken 只认 x-acs-dingtalk-access-token,不是 Authorization: Bearer。
+
+    钉钉新版 v1.0 REST API(如 /v1.0/contact/users/me)的 header 是
+    ``x-acs-dingtalk-access-token``;传 Authorization: Bearer 会被拒
+    "缺少参数 x-acs-dingtalk-access-token"。变异:改回 Bearer 则此测试红。
+    """
     token = {"access_token": "dt-u-token", "refresh_token": "", "expires_at": 9999999999}
     record = {
         "key": "dingtalk:user-oauth",
@@ -184,7 +189,8 @@ async def test_auth_parts_injects_dingtalk_user_token():
     }
     spec = ConnectorSpec.from_dict({"auth_kind": "dingtalk_user", "auth_name": "Authorization"})
     headers, params = await custom_http._auth_parts(record, spec)
-    assert headers["Authorization"] == "Bearer dt-u-token"
+    assert headers["x-acs-dingtalk-access-token"] == "dt-u-token"
+    assert "Authorization" not in headers, "钉钉不认 Authorization: Bearer"
     assert params == {}  # 不注入 access_token query(那是老版 oapi 的应用身份路径)
 
 
@@ -920,7 +926,8 @@ async def test_dingtalk_callback_real_exchange_normalizes_camel_case(monkeypatch
     spec = ConnectorSpec.from_dict(stored["spec"])
     assert spec.auth_kind == "dingtalk_user"
     headers, params = await custom_http._auth_parts(stored, spec)
-    assert headers["Authorization"] == "Bearer dt-from-code"
+    assert headers["x-acs-dingtalk-access-token"] == "dt-from-code"
+    assert "Authorization" not in headers
     assert params == {}
 
 
