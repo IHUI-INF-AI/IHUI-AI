@@ -74,6 +74,14 @@ export default function PageClient() {
   }, [accounts, selectedId])
 
   const selected: WechatAccountView | undefined = accounts.find((item) => item.id === selectedId)
+  const readOnlyOcr =
+    selected?.metadata.driver === 'ocr' || selected?.metadata.driver === 'ocr-readonly'
+  React.useEffect(() => {
+    if (!readOnlyOcr) return
+    if (tab !== 'conversations' && tab !== 'contacts' && tab !== 'analysis' && tab !== 'audit') {
+      setTab('conversations')
+    }
+  }, [readOnlyOcr, tab])
 
   if (accountsQuery.isLoading) {
     return (
@@ -110,6 +118,14 @@ export default function PageClient() {
 
       <CapabilitiesStrip capabilities={capabilitiesQuery.data ?? []} />
 
+      {readOnlyOcr ? (
+        <Alert
+          variant="info"
+          title="截图 OCR 只读接入"
+          description="只能读取微信当前打开的会话，且 OCR 可能有错字，按原文入库；发送、群管理、朋友圈、自动回复、定时日报与群发不可用。"
+        />
+      ) : null}
+
       <AccountsPanel
         accounts={accounts}
         selectedId={selectedId}
@@ -133,26 +149,30 @@ export default function PageClient() {
               <Contact className="h-3 w-3" />
               <span>联系人与群成员</span>
             </TabsTrigger>
-            <TabsTrigger value="send" className="gap-1">
-              <Send className="h-3 w-3" />
-              <span>主动发送</span>
-            </TabsTrigger>
-            <TabsTrigger value="groupOps" className="gap-1">
-              <Users className="h-3 w-3" />
-              <span>群与朋友圈</span>
-            </TabsTrigger>
-            <TabsTrigger value="knowledge" className="gap-1">
-              <BookOpen className="h-3 w-3" />
-              <span>知识库与群发</span>
-            </TabsTrigger>
-            <TabsTrigger value="autoReply" className="gap-1">
-              <Bot className="h-3 w-3" />
-              <span>自动回复</span>
-            </TabsTrigger>
-            <TabsTrigger value="digest" className="gap-1">
-              <Clock className="h-3 w-3" />
-              <span>定时日报</span>
-            </TabsTrigger>
+            {readOnlyOcr ? null : (
+              <>
+                <TabsTrigger value="send" className="gap-1">
+                  <Send className="h-3 w-3" />
+                  <span>主动发送</span>
+                </TabsTrigger>
+                <TabsTrigger value="groupOps" className="gap-1">
+                  <Users className="h-3 w-3" />
+                  <span>群与朋友圈</span>
+                </TabsTrigger>
+                <TabsTrigger value="knowledge" className="gap-1">
+                  <BookOpen className="h-3 w-3" />
+                  <span>知识库与群发</span>
+                </TabsTrigger>
+                <TabsTrigger value="autoReply" className="gap-1">
+                  <Bot className="h-3 w-3" />
+                  <span>自动回复</span>
+                </TabsTrigger>
+                <TabsTrigger value="digest" className="gap-1">
+                  <Clock className="h-3 w-3" />
+                  <span>定时日报</span>
+                </TabsTrigger>
+              </>
+            )}
             <TabsTrigger value="analysis" className="gap-1">
               <Brain className="h-3 w-3" />
               <span>AI 分析</span>
@@ -166,23 +186,31 @@ export default function PageClient() {
             <ConversationsPanel accountId={selected.id} />
           </TabsContent>
           <TabsContent value="contacts" className="mt-3">
-            <ContactsPanel accountId={selected.id} backend={selected.backend} />
+            <ContactsPanel
+              accountId={selected.id}
+              backend={selected.backend}
+              readOnly={readOnlyOcr}
+            />
           </TabsContent>
-          <TabsContent value="send" className="mt-3">
-            <SendPanel accountId={selected.id} />
-          </TabsContent>
-          <TabsContent value="groupOps" className="mt-3">
-            <GroupOpsPanel accountId={selected.id} backend={selected.backend} />
-          </TabsContent>
-          <TabsContent value="knowledge" className="mt-3">
-            <KnowledgePanel accountId={selected.id} />
-          </TabsContent>
-          <TabsContent value="autoReply" className="mt-3">
-            <AutoReplyPanel accountId={selected.id} />
-          </TabsContent>
-          <TabsContent value="digest" className="mt-3">
-            <DigestPanel accountId={selected.id} />
-          </TabsContent>
+          {readOnlyOcr ? null : (
+            <>
+              <TabsContent value="send" className="mt-3">
+                <SendPanel accountId={selected.id} />
+              </TabsContent>
+              <TabsContent value="groupOps" className="mt-3">
+                <GroupOpsPanel accountId={selected.id} backend={selected.backend} />
+              </TabsContent>
+              <TabsContent value="knowledge" className="mt-3">
+                <KnowledgePanel accountId={selected.id} />
+              </TabsContent>
+              <TabsContent value="autoReply" className="mt-3">
+                <AutoReplyPanel accountId={selected.id} />
+              </TabsContent>
+              <TabsContent value="digest" className="mt-3">
+                <DigestPanel accountId={selected.id} />
+              </TabsContent>
+            </>
+          )}
           <TabsContent value="analysis" className="mt-3">
             <AnalysisPanel accountId={selected.id} />
           </TabsContent>

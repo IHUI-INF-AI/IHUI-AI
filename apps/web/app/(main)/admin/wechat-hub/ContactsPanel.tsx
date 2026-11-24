@@ -37,9 +37,11 @@ function formatTime(value: string | null): string {
 export default function ContactsPanel({
   accountId,
   backend,
+  readOnly = false,
 }: {
   accountId: string
   backend: WechatBackend
+  readOnly?: boolean
 }) {
   const [query, setQuery] = React.useState('')
   const [contactId, setContactId] = React.useState<string | null>(null)
@@ -103,9 +105,11 @@ export default function ContactsPanel({
               <Search className="h-3.5 w-3.5" />
             </Button>
           </div>
-          {backend === 'ilink' ? (
+          {backend === 'ilink' || readOnly ? (
             <p className="rounded-sm bg-muted px-3 py-2 text-xs text-muted-foreground">
-              iLink 官方通道不提供平台联系人同步/删除；备注、标签与屏蔽只存本地，入站时自动归档。
+              {readOnly
+                ? '截图 OCR 只读接入不提供平台联系人同步/删除；备注、标签与屏蔽只存本地，入站时自动归档。'
+                : 'iLink 官方通道不提供平台联系人同步/删除；备注、标签与屏蔽只存本地，入站时自动归档。'}
             </p>
           ) : (
             <ContactPlatformActions
