@@ -6,6 +6,7 @@ import { defineConfig } from '@tarojs/cli'
 import devConfig from './dev'
 import prodConfig from './prod'
 import path from 'path'
+import fs from 'fs'
 // 2026-07-26 修复 WXSS 不支持 Tailwind 任意值语法 [xxx] 的编译错误
 // (541 个规则如 .-bottom-[2px]{bottom:-2rpx} 被 WXSS parser 当作属性选择器报错)
 // weapp-tailwindcss 同时处理 WXSS 选择器转义和 wxml class 匹配,保留全部样式
@@ -118,7 +119,11 @@ export default defineConfig(async (merge) => {
         // 2026-09-10 字体仅 H5 使用(weapp 端 loadFontFace 已于 2026-07-27 移除,
         // 全仓零 url 引用),防止 7.4MB TTF 被默认 static 拷贝打进小程序主包。
         // H5 仍以 /static/fonts/ 路径提供,app.tsx 的 @font-face 无需改动。
-        ...(taroEnv === 'h5'
+        // 2026-11-24 H5 预览修复:该字体目录在 HEAD/工作树均不存在(全仓零引用,
+        // app.tsx 的 @font-face 走线上字体),无条件声明会让 `taro build --type h5`
+        // 在 copy 阶段直接 `unable to locate ... glob` 失败。仅在目录真实存在时复制,
+        // 以后有人放回字体文件仍会自动生效,不需要再改这行。
+        ...(taroEnv === 'h5' && fs.existsSync(path.resolve(__dirname, '..', 'src', 'assets', 'h5-fonts'))
           ? [{ from: 'src/assets/h5-fonts/', to: `${outputRoot}/static/fonts/` }]
           : []),
       ],
