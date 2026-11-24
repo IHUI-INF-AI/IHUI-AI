@@ -193,7 +193,7 @@ def credentials(conn_type: str, scope: str | None = None) -> dict[str, Any]:
     if not st["available"]:
         raise ManagedUnavailable(conn_type, list(st["missing"]), str(st.get("reason") or ""))
     if conn_type in _PUBLIC_TYPES:
-        return {"app_id": "", "app_secret": "", "extra": {}}
+        return {"app_id": "", "app_secret": "", "extra": {}, "source": "public"}
     tenant_cred = resolve_tenant_platform_credentials(scope, conn_type)
     if tenant_cred is not None:
         return tenant_cred
@@ -205,7 +205,12 @@ def credentials(conn_type: str, scope: str | None = None) -> dict[str, Any]:
         value = _env_value(names)
         if value:
             extra[key] = value
-    return {"app_id": app_id, "app_secret": app_secret, "extra": extra}
+    return {
+        "app_id": app_id,
+        "app_secret": app_secret,
+        "extra": extra,
+        "source": "platform_env",
+    }
 
 
 def hydrate(record: dict[str, Any], scope: str | None = None) -> dict[str, Any]:
@@ -260,6 +265,8 @@ def build_record(conn_type: str, name: str = "", scope: str | None = None) -> di
         "operations": catalog.default_operations(conn_type),
         "enabled": True,
         "managed": True,
-        "credential_source": "public" if conn_type in _PUBLIC_TYPES else "platform_env",
+        "credential_source": str(
+            cred.get("source") or ("public" if conn_type in _PUBLIC_TYPES else "platform_env")
+        ),
     }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -521,6 +521,24 @@ def test_managed_multi_tenant_requires_owner_tenant(monkeypatch):
     assert "属于其他租户" in str(exc_b.value)
 
 
+def test_managed_build_record_reports_tenant_credential_source(monkeypatch):
+    """租户行托管时记录必须标 tenant,不能一律写成 platform_env。"""
+    tenant = "33333333-3333-3333-3333-333333333333"
+    monkeypatch.setattr(
+        managed,
+        "resolve_tenant_platform_credentials",
+        lambda scope, conn_type: {
+            "app_id": "cli_tenant",
+            "app_secret": "tenant-secret",
+            "extra": {"agent_id": "100"},
+            "source": "tenant",
+        },
+    )
+    rec = managed.build_record("feishu", scope=tenant)
+    assert rec["credential_source"] == "tenant"
+    assert rec["app_id"] == "" and rec["app_secret"] == ""
+
+
 def test_managed_single_tenant_mode_keeps_env_zero_config(monkeypatch):
     """未打开 SaaS 模式时保持单企业部署的一键接入行为。"""
     monkeypatch.setenv("FEISHU_APP_ID", "cli_test")
