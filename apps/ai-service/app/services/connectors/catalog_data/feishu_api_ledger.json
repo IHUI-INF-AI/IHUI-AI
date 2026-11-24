@@ -8,7 +8,8 @@
     "fetched_at": "2026-11-24",
     "declared_total": 2500,
     "declared_total_source": "文档首页原文：「2,500+ 开放接口与事件，全面开放飞书能力。」(https://open.feishu.cn/document/home/index?lang=zh-CN)",
-    "enumeration_method": "先探测机器索引入口：GET /llms.txt 返回 200（指南/教程级目录，非逐条 API 索引）；GET /llms-full.txt 返回 200 但内容为 SPA HTML 壳；GET /sitemap.xml 404；GET /document/sitemap.xml 返回 200 SPA 壳，其 .md 变体 404。随后采用开放平台两个目录接口逐条枚举：/api/tools/server-side-api/list（服务端 API）与 /api/tools/server-side-event/list（事件订阅）；每条接口的 Method/URL/权限点/访问凭证再拉取对应文档 .md 源（https://open.feishu.cn<fullPath>.md）交叉核验。"
+    "enumeration_method": "先探测机器索引入口：GET /llms.txt 返回 200（指南/教程级目录，非逐条 API 索引）；GET /llms-full.txt 返回 200 但内容为 SPA HTML 壳；GET /sitemap.xml 404；GET /document/sitemap.xml 返回 200 SPA 壳，其 .md 变体 404。随后采用开放平台两个目录接口逐条枚举：/api/tools/server-side-api/list（服务端 API）与 /api/tools/server-side-event/list（事件订阅）；每条接口的 Method/URL/权限点/访问凭证再拉取对应文档 .md 源（https://open.feishu.cn<fullPath>.md）交叉核验。",
+    "full_enumeration_verified": "2026-11-24第三轮核验:官方目录接口 GET /api/tools/server-side-api/list 全量返回1768条API、/api/tools/server-side-event/list 全量返回208条事件,与台账逐条一致,服务端口径已全量。eLearning分组下API条目数为0(分组存在但无服务端接口);4条旧版短链事件已收录并核验;client_api属客户端侧能力不在服务端目录,不枚举合理。"
   },
   "domains": [
     {
@@ -26042,7 +26043,8 @@
       "read": false,
       "event": true,
       "doc_url": "https://open.feishu.cn/document/ukTMukTMukTM/uETNz4SM1MjLxUzM//event/user-status-changed",
-      "notes": "当员工的激活、暂停账号/恢复账号、操作离职时会触发此事件。此事件不依赖于任何权限。"
+      "notes": "官方HTML正文核验(最后更新2021-09-30)：当员工的激活、暂停账号/恢复账号、操作离职时触发此事件；此事件不依赖于任何权限。事件类型 user_status_change。角色 version=old / tags=[history]，官方建议迁移新版 contact-v3/user 事件。台账已收录该条(id=feishu_contact_old_default_user_status_change, auth=feishu_tenant, scope空)；scope空与文档'不依赖任何权限'一致。抓不到的是.md镜像(404)，HTML正文可抓取。",
+      "verified": true
     },
     {
       "id": "feishu_contact_old_default_user_add",
@@ -26055,7 +26057,8 @@
       "read": false,
       "event": true,
       "doc_url": "https://open.feishu.cn/document/ukTMukTMukTM/uETNz4SM1MjLxUzM//event/employee-change",
-      "notes": "当员工加入企业（user_add）、离职（user_leave）、个人信息发生变化（user_update）时，推送此事件。"
+      "notes": "官方HTML正文核验(最后更新2021-09-30)：当员工加入(user_add)、离职(user_leave)、个人信息发生变化(user_update)时推送事件。依赖权限：以应用身份访问通讯录；其他条件：只有在企业通讯录授权范围内的员工变化才会推送。事件类型 user_add / user_update / user_leave。version=old / tags=[history]，建议迁移新版员工入职/离职事件。台账已收录(id=feishu_contact_old_default_user_add, auth=feishu_tenant, scope空)；文档只给出权限中文名'以应用身份访问通讯录'，未给出机器scope码，故不臆造scope。",
+      "verified": true
     },
     {
       "id": "feishu_contact_old_default_dept_add",
@@ -26068,7 +26071,8 @@
       "read": false,
       "event": true,
       "doc_url": "https://open.feishu.cn/document/ukTMukTMukTM/uETNz4SM1MjLxUzM//event/department-update",
-      "notes": "当新建部门（dept_add）、删除部门（dept_delete）、修改部门（dept_update）时，推送此事件。"
+      "notes": "官方HTML正文核验(最后更新2021-09-30)：新建部门(dept_add)、删除部门(dept_delete)、修改部门(dept_update)时推送事件。依赖权限：以应用身份访问通讯录；其他条件：只有在企业通讯录授权范围内的部门变化才会推送。事件类型 dept_add / dept_update / dept_delete。version=old / tags=[history]，建议迁移新版 contact-v3/department/events/updated。台账已收录(id=feishu_contact_old_default_dept_add, auth=feishu_tenant, scope空)；文档未给出机器scope码，不臆造。",
+      "verified": true
     },
     {
       "id": "feishu_contact_old_default_contact_scope_change",
@@ -26081,7 +26085,8 @@
       "read": false,
       "event": true,
       "doc_url": "https://open.feishu.cn/document/ukTMukTMukTM/uETNz4SM1MjLxUzM//event/scope-change",
-      "notes": "当应用申请了 以应用身份访问通讯录 权限后，管理员可以配置应用的通讯录授权范围。"
+      "notes": "官方HTML正文核验(最后更新2021-09-30)：当应用申请了'以应用身份访问通讯录'权限后，管理员可配置应用的通讯录授权范围，此范围变化时触发。依赖权限：以应用身份访问通讯录；特殊说明：此事件无需订阅，开通'以应用身份访问通讯录'权限后自动订阅。事件类型 contact_scope_change。version=old / tags=[history]，建议迁移新版 contact-v3/scope/events/updated。台账已收录(id=feishu_contact_old_default_contact_scope_change, auth=feishu_tenant, scope空)；文档未给出机器scope码，不臆造。",
+      "verified": true
     },
     {
       "id": "feishu_feishu_people_v1_employment_resigned",
@@ -26163,7 +26168,7 @@
     {
       "key": "legacy_event_short_links",
       "label": "4 条旧版短链事件",
-      "reason": "以下旧版短链事件详情 .md 抓取失败（URL 含双斜杠历史短链），未取到凭证/权限信息，未编入 events：/document/ukTMukTMukTM/uETNz4SM1MjLxUzM//event/user-status-changed; /document/ukTMukTMukTM/uETNz4SM1MjLxUzM//event/employee-change; /document/ukTMukTMukTM/uETNz4SM1MjLxUzM//event/department-update; /document/ukTMukTMukTM/uETNz4SM1MjLxUzM//event/scope-change"
+      "reason": "4条旧版短链事件详情.md镜像(双斜杠URL)返回404,但官方HTML正文可抓取且已核验权限描述,4条均已编入events(id=feishu_contact_old_default_*,verified=true)。官方建议迁移新版contact-v3事件,本台账保留旧版条目并标注version=old。"
     },
     {
       "key": "historic_version",

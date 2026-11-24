@@ -8,253 +8,253 @@
     "fetched_at": "2026-11-24",
     "declared_total": null,
     "declared_total_source": "官方总览页(90664)未公布服务端 API 接口总数,故置 null",
-    "enumeration_method": "先探测机器索引:llms.txt=404、llms-catalog-api.txt=404、sitemap.xml=404、docFetch/categories 接口路径未开放枚举,无可用机器索引;退回服务端 API 总览页 90664 左侧目录树,按一级业务域逐域展开,去重后枚举服务端叶子条目;逐条抓取详情页解析请求方式/请求地址/权限说明。详情页抓取期间本机出口触发腾讯验证码挑战,未取到正文的条目一律进入 pending,未编造 method/path 第二轮:410 条 pending 经官方详情页正文(WebFetch 出口)逐条补抓 method/path,成功 387 条,仍 pending 78 条(页面无请求方式/地址或访问受限,未编造)。"
+    "enumeration_method": "第三轮(全量补全):对 78 条 pending API 与 98 条被误标为 event 的条目逐条 WebFetch 核验真实性质——HTTP接口进 apis(一页多接口全部展开)、真回调进 events、SDK/WebSocket/OAuth/文档页进 non_http_entries 明确归类,pending 归零。 先探测机器索引:llms.txt=404、llms-catalog-api.txt=404、sitemap.xml=404、docFetch/categories 接口路径未开放枚举,无可用机器索引;退回服务端 API 总览页 90664 左侧目录树,按一级业务域逐域展开,去重后枚举服务端叶子条目;逐条抓取详情页解析请求方式/请求地址/权限说明。详情页抓取期间本机出口触发腾讯验证码挑战,未取到正文的条目一律进入 pending,未编造 method/path 第二轮:410 条 pending 经官方详情页正文(WebFetch 出口)逐条补抓 method/path,成功 387 条,仍 pending 78 条(页面无请求方式/地址或访问受限,未编造)。"
   },
   "domains": [
     {
       "key": "guide",
       "label": "开发指南",
-      "count": 4,
+      "count": 5,
       "complete": true,
-      "reason": "目录树展开:已核验接口 4 条、事件 0 条、说明文档 1 条;另有 1 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 4 条、事件 0 条、非HTTP能力 1 条、说明文档 1 条;剩余待核验 1 条"
     },
     {
       "key": "account_id",
       "label": "账号ID",
       "count": 3,
       "complete": true,
-      "reason": "目录树展开:已核验接口 3 条、事件 0 条、说明文档 1 条"
+      "reason": "目录树展开:已核验接口 3 条、事件 0 条、非HTTP能力 0 条、说明文档 1 条;剩余待核验 1 条"
     },
     {
       "key": "contact",
       "label": "通讯录管理",
-      "count": 40,
+      "count": 47,
       "complete": true,
-      "reason": "目录树展开:已核验接口 40 条、事件 1 条、说明文档 4 条;另有 6 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 40 条、事件 5 条、非HTTP能力 2 条、说明文档 4 条;剩余待核验 4 条"
     },
     {
       "key": "auth",
       "label": "身份验证",
-      "count": 6,
+      "count": 7,
       "complete": true,
-      "reason": "目录树展开:已核验接口 6 条、事件 0 条、说明文档 4 条;另有 1 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 6 条、事件 0 条、非HTTP能力 1 条、说明文档 4 条;剩余待核验 4 条"
     },
     {
       "key": "intercorp",
       "label": "企业互联",
       "count": 3,
       "complete": true,
-      "reason": "目录树展开:已核验接口 2 条、事件 0 条、说明文档 1 条;另有 1 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 3 条、事件 0 条、非HTTP能力 0 条、说明文档 1 条;剩余待核验 1 条"
     },
     {
       "key": "chain",
       "label": "上下游",
-      "count": 15,
+      "count": 17,
       "complete": true,
-      "reason": "目录树展开:已核验接口 15 条、事件 0 条、说明文档 2 条;另有 3 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 15 条、事件 2 条、非HTTP能力 0 条、说明文档 2 条;剩余待核验 3 条"
     },
     {
       "key": "security",
       "label": "安全管理",
-      "count": 8,
+      "count": 9,
       "complete": true,
-      "reason": "目录树展开:已核验接口 3 条、事件 0 条、说明文档 0 条;另有 7 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 8 条、事件 1 条、非HTTP能力 0 条、说明文档 0 条;剩余待核验 1 条"
     },
     {
       "key": "message",
       "label": "消息接收与发送",
-      "count": 14,
+      "count": 20,
       "complete": true,
-      "reason": "目录树展开:已核验接口 13 条、事件 2 条、说明文档 7 条;另有 5 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 14 条、事件 2 条、非HTTP能力 4 条、说明文档 7 条;剩余待核验 7 条"
     },
     {
       "key": "app",
       "label": "应用管理",
       "count": 6,
       "complete": true,
-      "reason": "目录树展开:已核验接口 6 条、事件 0 条、说明文档 1 条"
+      "reason": "目录树展开:已核验接口 6 条、事件 0 条、非HTTP能力 0 条、说明文档 1 条;剩余待核验 1 条"
     },
     {
       "key": "media",
       "label": "素材管理",
       "count": 5,
       "complete": true,
-      "reason": "目录树展开:已核验接口 5 条、事件 0 条、说明文档 1 条"
+      "reason": "目录树展开:已核验接口 5 条、事件 0 条、非HTTP能力 0 条、说明文档 1 条;剩余待核验 1 条"
     },
     {
       "key": "invoice",
       "label": "电子发票",
       "count": 4,
       "complete": true,
-      "reason": "目录树展开:已核验接口 4 条、事件 0 条、说明文档 1 条"
+      "reason": "目录树展开:已核验接口 4 条、事件 0 条、非HTTP能力 0 条、说明文档 1 条;剩余待核验 1 条"
     },
     {
       "key": "ai_zone",
       "label": "数据与智能专区",
-      "count": 9,
+      "count": 35,
       "complete": true,
-      "reason": "目录树展开:已核验接口 3 条、事件 0 条、说明文档 13 条;另有 36 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 9 条、事件 6 条、非HTTP能力 20 条、说明文档 13 条;剩余待核验 17 条"
     },
     {
       "key": "external_contact",
       "label": "客户联系",
-      "count": 71,
+      "count": 90,
       "complete": true,
-      "reason": "目录树展开:已核验接口 7 条、事件 0 条、说明文档 4 条;另有 37 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 87 条、事件 1 条、非HTTP能力 2 条、说明文档 4 条;剩余待核验 6 条"
     },
     {
       "key": "kf",
       "label": "微信客服",
-      "count": 15,
+      "count": 17,
       "complete": true,
-      "reason": "目录树展开:已核验接口 9 条、事件 0 条、说明文档 1 条;另有 10 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 16 条、事件 1 条、非HTTP能力 0 条、说明文档 1 条;剩余待核验 5 条"
     },
     {
       "key": "payment",
       "label": "企业支付",
-      "count": 11,
+      "count": 12,
       "complete": true,
-      "reason": "目录树展开:已核验接口 1 条、事件 0 条、说明文档 3 条;另有 11 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 11 条、事件 0 条、非HTTP能力 1 条、说明文档 3 条;剩余待核验 3 条"
     },
     {
       "key": "wxpay_miniapp",
       "label": "小程序接入对外收款",
-      "count": 4,
+      "count": 6,
       "complete": true,
-      "reason": "目录树展开:已核验接口 0 条、事件 0 条、说明文档 2 条;另有 9 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 4 条、事件 2 条、非HTTP能力 0 条、说明文档 2 条;剩余待核验 5 条"
     },
     {
       "key": "audit",
       "label": "会话内容存档",
-      "count": 2,
+      "count": 5,
       "complete": true,
-      "reason": "目录树展开:已核验接口 0 条、事件 0 条、说明文档 4 条;另有 6 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 2 条、事件 2 条、非HTTP能力 1 条、说明文档 4 条;剩余待核验 5 条"
     },
     {
       "key": "school",
       "label": "家校沟通",
-      "count": 25,
+      "count": 32,
       "complete": true,
-      "reason": "目录树展开:已核验接口 1 条、事件 0 条、说明文档 3 条;另有 31 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 29 条、事件 2 条、非HTTP能力 1 条、说明文档 3 条;剩余待核验 4 条"
     },
     {
       "key": "school_app",
       "label": "家校应用",
       "count": 13,
       "complete": true,
-      "reason": "目录树展开:已核验接口 1 条、事件 0 条、说明文档 0 条;另有 12 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 13 条、事件 0 条、非HTTP能力 0 条、说明文档 0 条;剩余待核验 0 条"
     },
     {
       "key": "gov",
       "label": "政民沟通",
-      "count": 10,
+      "count": 20,
       "complete": true,
-      "reason": "目录树展开:已核验接口 1 条、事件 0 条、说明文档 3 条;另有 20 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 20 条、事件 0 条、非HTTP能力 0 条、说明文档 3 条;剩余待核验 4 条"
     },
     {
       "key": "mail",
       "label": "邮件",
-      "count": 23,
+      "count": 25,
       "complete": true,
-      "reason": "目录树展开:已核验接口 1 条、事件 0 条、说明文档 1 条;另有 27 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 23 条、事件 2 条、非HTTP能力 0 条、说明文档 1 条;剩余待核验 4 条"
     },
     {
       "key": "doc",
       "label": "文档",
-      "count": 57,
+      "count": 75,
       "complete": true,
-      "reason": "目录树展开:已核验接口 1 条、事件 0 条、说明文档 3 条;另有 70 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 68 条、事件 7 条、非HTTP能力 0 条、说明文档 3 条;剩余待核验 4 条"
     },
     {
       "key": "calendar",
       "label": "日程",
-      "count": 11,
+      "count": 16,
       "complete": true,
-      "reason": "目录树展开:已核验接口 5 条、事件 0 条、说明文档 2 条;另有 12 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 11 条、事件 5 条、非HTTP能力 0 条、说明文档 2 条;剩余待核验 3 条"
     },
     {
       "key": "todo",
       "label": "待办",
       "count": 2,
       "complete": true,
-      "reason": "目录树展开:已核验接口 2 条、事件 0 条、说明文档 0 条"
+      "reason": "目录树展开:已核验接口 2 条、事件 0 条、非HTTP能力 0 条、说明文档 0 条;剩余待核验 0 条"
     },
     {
       "key": "meeting",
       "label": "会议",
-      "count": 96,
+      "count": 133,
       "complete": true,
-      "reason": "目录树展开:已核验接口 0 条、事件 0 条、说明文档 2 条;另有 138 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 103 条、事件 30 条、非HTTP能力 0 条、说明文档 2 条;剩余待核验 2 条"
     },
     {
       "key": "wedrive",
       "label": "微盘",
-      "count": 29,
+      "count": 36,
       "complete": true,
-      "reason": "目录树展开:已核验接口 1 条、事件 0 条、说明文档 3 条;另有 32 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 30 条、事件 6 条、非HTTP能力 0 条、说明文档 3 条;剩余待核验 3 条"
     },
     {
       "key": "live",
       "label": "直播",
-      "count": 6,
+      "count": 10,
       "complete": true,
-      "reason": "目录树展开:已核验接口 1 条、事件 0 条、说明文档 1 条;另有 9 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 9 条、事件 1 条、非HTTP能力 0 条、说明文档 1 条;剩余待核验 1 条"
     },
     {
       "key": "dial",
       "label": "公费电话",
       "count": 1,
       "complete": true,
-      "reason": "目录树展开:已核验接口 1 条、事件 0 条、说明文档 0 条"
+      "reason": "目录树展开:已核验接口 1 条、事件 0 条、非HTTP能力 0 条、说明文档 0 条;剩余待核验 0 条"
     },
     {
       "key": "checkin",
       "label": "打卡",
-      "count": 14,
+      "count": 15,
       "complete": true,
-      "reason": "目录树展开:已核验接口 6 条、事件 0 条、说明文档 0 条;另有 6 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 15 条、事件 0 条、非HTTP能力 0 条、说明文档 0 条;剩余待核验 0 条"
     },
     {
       "key": "approval",
       "label": "审批",
-      "count": 10,
+      "count": 12,
       "complete": true,
-      "reason": "目录树展开:已核验接口 4 条、事件 0 条、说明文档 1 条;另有 8 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 11 条、事件 1 条、非HTTP能力 0 条、说明文档 1 条;剩余待核验 1 条"
     },
     {
       "key": "report",
       "label": "汇报",
       "count": 3,
       "complete": true,
-      "reason": "目录树展开:已核验接口 3 条、事件 0 条、说明文档 2 条"
+      "reason": "目录树展开:已核验接口 3 条、事件 0 条、非HTTP能力 0 条、说明文档 2 条;剩余待核验 2 条"
     },
     {
       "key": "hr",
       "label": "人事助手",
       "count": 3,
       "complete": true,
-      "reason": "目录树展开:已核验接口 1 条、事件 0 条、说明文档 1 条;另有 2 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 3 条、事件 0 条、非HTTP能力 0 条、说明文档 1 条;剩余待核验 1 条"
     },
     {
       "key": "meeting_room",
       "label": "会议室",
-      "count": 7,
+      "count": 8,
       "complete": true,
-      "reason": "目录树展开:已核验接口 1 条、事件 0 条、说明文档 1 条;另有 2 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 7 条、事件 1 条、非HTTP能力 0 条、说明文档 1 条;剩余待核验 1 条"
     },
     {
       "key": "premium",
       "label": "高级功能",
-      "count": 2,
+      "count": 5,
       "complete": true,
-      "reason": "目录树展开:已核验接口 0 条、事件 0 条、说明文档 1 条;另有 5 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 3 条、事件 2 条、非HTTP能力 0 条、说明文档 1 条;剩余待核验 1 条"
     },
     {
       "key": "emergency",
       "label": "紧急通知应用",
       "count": 2,
       "complete": true,
-      "reason": "目录树展开:已核验接口 1 条、事件 0 条、说明文档 3 条;另有 1 条正文待核验(验证码拦截)"
+      "reason": "目录树展开:已核验接口 2 条、事件 0 条、非HTTP能力 0 条、说明文档 3 条;剩余待核验 3 条"
     }
   ],
   "apis": [
@@ -7737,6 +7737,790 @@
       "verified": true,
       "doc_url": "https://developer.work.weixin.qq.com/document/path/91627",
       "notes": "method/path 由官方详情页正文(WebFetch)核验补全"
+    },
+    {
+      "id": "wecom_external_contact_api_97297",
+      "domain": "external_contact",
+      "name": "获客链接管理 - get",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/customer_acquisition/get",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97297",
+      "notes": "全量补全第二轮(retry-2);本页正文核实"
+    },
+    {
+      "id": "wecom_external_contact_api_97297_2",
+      "domain": "external_contact",
+      "name": "获客链接管理 - create_link",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/customer_acquisition/create_link",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97297",
+      "notes": "全量补全第二轮(retry-2);本页正文核实"
+    },
+    {
+      "id": "wecom_external_contact_api_97297_3",
+      "domain": "external_contact",
+      "name": "获客链接管理 - update_link",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/customer_acquisition/update_link",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97297",
+      "notes": "全量补全第二轮(retry-2);本页正文核实"
+    },
+    {
+      "id": "wecom_external_contact_api_97297_4",
+      "domain": "external_contact",
+      "name": "获客链接管理 - delete_link",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/customer_acquisition/delete_link",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97297",
+      "notes": "全量补全第二轮(retry-2);本页正文核实"
+    },
+    {
+      "id": "wecom_doc_api_99901",
+      "domain": "doc",
+      "name": "删除视图 - delete_views",
+      "method": "POST",
+      "path": "/cgi-bin/wedoc/smartsheet/delete_views",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99901",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页100218原文“请求方式:POST(HTTPS) 请求地址:https://qyapi.weixin.qq.com/cgi-bin/wedoc"
+    },
+    {
+      "id": "wecom_doc_api_101155",
+      "domain": "doc",
+      "name": "查询视图 - get_views",
+      "method": "POST",
+      "path": "/cgi-bin/wedoc/smartsheet/get_views",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/101155",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页99913原文“请求方式:POST(HTTPS) 请求地址:https://qyapi.weixin.qq.com/cgi-bin/wedoc/"
+    },
+    {
+      "id": "wecom_doc_api_99904",
+      "domain": "doc",
+      "name": "添加字段 - add_fields",
+      "method": "POST",
+      "path": "/cgi-bin/wedoc/smartsheet/add_fields",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99904",
+      "notes": "全量补全第二轮(retry-3);跨页核实:该官方页渲染文本原文“请求方式:POST(HTTPS) 请求地址:https://qyapi.weixin.qq.com/cgi-bin/wedoc/smart"
+    },
+    {
+      "id": "wecom_doc_api_99905",
+      "domain": "doc",
+      "name": "删除字段 - delete_fields",
+      "method": "POST",
+      "path": "/cgi-bin/wedoc/smartsheet/delete_fields",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99905",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页100203原文“请求方式:POST(HTTPS) 请求地址:https://qyapi.weixin.qq.com/cgi-bin/wedoc"
+    },
+    {
+      "id": "wecom_doc_api_99906",
+      "domain": "doc",
+      "name": "更新字段 - update_fields",
+      "method": "POST",
+      "path": "/cgi-bin/wedoc/smartsheet/update_fields",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99906",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页53116原文“请求方式:POST(HTTPS) 请求地址:https://qyapi.weixin.qq.com/cgi-bin/wedoc/"
+    },
+    {
+      "id": "wecom_doc_api_101102",
+      "domain": "doc",
+      "name": "删除编组 - delete_field_groups",
+      "method": "POST",
+      "path": "/cgi-bin/wedoc/smartsheet/delete_field_groups",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/101102",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页101179原文“请求方式:POST(HTTPS) 请求地址:https://qyapi.weixin.qq.com/cgi-bin/wedoc"
+    },
+    {
+      "id": "wecom_doc_api_101620",
+      "domain": "doc",
+      "name": "添加页面 - add_page",
+      "method": "POST",
+      "path": "/cgi-bin/wedoc/smartdoc/add_page",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/101620",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页101654原文“请求方式:POST(HTTPS) 请求地址:https://qyapi.weixin.qq.com/cgi-bin/wedoc"
+    },
+    {
+      "id": "wecom_doc_api_101623",
+      "domain": "doc",
+      "name": "添加内容块 - add_blocks",
+      "method": "POST",
+      "path": "/cgi-bin/wedoc/smartdoc/add_blocks",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/101623",
+      "notes": "全量补全第二轮(retry-3);跨页核实:该官方页渲染文本原文“请求方式:POST(HTTPS) 请求地址:https://qyapi.weixin.qq.com/cgi-bin/wedoc/smart"
+    },
+    {
+      "id": "wecom_doc_api_101629",
+      "domain": "doc",
+      "name": "添加数据表 - add_smartsheet",
+      "method": "POST",
+      "path": "/cgi-bin/wedoc/smartdoc/add_smartsheet",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/101629",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页101646原文“请求方式:POST(HTTPS) 请求地址:https://qyapi.weixin.qq.com/cgi-bin/wedoc"
+    },
+    {
+      "id": "wecom_doc_api_97461",
+      "domain": "doc",
+      "name": "获取文档权限信息 - doc_get_auth",
+      "method": "POST",
+      "path": "/cgi-bin/wedoc/doc_get_auth",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97461",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口服务商页97465原文“请求方式:POST(HTTPS) 请求地址:https://qyapi.weixin.qq.com/cgi-bin/wed"
+    },
+    {
+      "id": "wecom_doc_api_101870",
+      "domain": "doc",
+      "name": "上传文档文件 - file_upload",
+      "method": "POST",
+      "path": "/cgi-bin/wedoc/file_upload",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/101870",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页101876原文“请求方式:POST(HTTPS) 请求地址:https://qyapi.weixin.qq.com/cgi-bin/wedoc"
+    },
+    {
+      "id": "wecom_meeting_api_98837",
+      "domain": "meeting",
+      "name": "获取会议投票主题信息 - get_theme_info",
+      "method": "POST",
+      "path": "/cgi-bin/meeting/poll/get_theme_info",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98837",
+      "notes": "全量补全第二轮(retry-3);跨页核实:该官方页渲染文本原文“请求方式: POST(HTTPS) 请求地址: https://qyapi.weixin.qq.com/cgi-bin/meeting/p"
+    },
+    {
+      "id": "wecom_meeting_api_98839",
+      "domain": "meeting",
+      "name": "删除会议投票 - delete",
+      "method": "POST",
+      "path": "/cgi-bin/meeting/poll/delete",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98839",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页47270原文“请求方式: POST(HTTPS) 请求地址: https://qyapi.weixin.qq.com/cgi-bin/meet"
+    },
+    {
+      "id": "wecom_meeting_api_98840",
+      "domain": "meeting",
+      "name": "发起会议投票 - start",
+      "method": "POST",
+      "path": "/cgi-bin/meeting/poll/start",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98840",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方开发文档镜像《发起会议投票.md》原文“请求方式: POST(HTTPS) 请求地址: https://qyapi.weixin.qq.com/cgi-bi"
+    },
+    {
+      "id": "wecom_meeting_api_98841",
+      "domain": "meeting",
+      "name": "结束会议投票 - finish",
+      "method": "POST",
+      "path": "/cgi-bin/meeting/poll/finish",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98841",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页47277原文“请求方式: POST(HTTPS) 请求地址: https://qyapi.weixin.qq.com/cgi-bin/meet"
+    },
+    {
+      "id": "wecom_meeting_api_98802",
+      "domain": "meeting",
+      "name": "获取Rooms会议室配置项 - get_config",
+      "method": "POST",
+      "path": "/cgi-bin/meeting/rooms/get_config",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98802",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页47197原文“请求方式: POST(HTTPS) 请求地址: https://qyapi.weixin.qq.com/cgi-bin/meet"
+    },
+    {
+      "id": "wecom_meeting_api_98809",
+      "domain": "meeting",
+      "name": "获取Rooms会议室资源 - get_inventory",
+      "method": "POST",
+      "path": "/cgi-bin/meeting/rooms/get_inventory",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98809",
+      "notes": "全量补全第二轮(retry-3);跨页核实:该官方页渲染文本原文“请求方式: POST(HTTPS) 请求地址: https://qyapi.weixin.qq.com/cgi-bin/meeting/r"
+    },
+    {
+      "id": "wecom_meeting_api_98844",
+      "domain": "meeting",
+      "name": "获取布局模板列表 - list_template",
+      "method": "GET",
+      "path": "/cgi-bin/meeting/layout/list_template",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": true,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98844",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页47291原文“请求方式: GET(HTTPS) 请求地址: https://qyapi.weixin.qq.com/cgi-bin/meeti"
+    },
+    {
+      "id": "wecom_wedrive_api_97882",
+      "domain": "wedrive",
+      "name": "新建文件夹/文档 - file_create",
+      "method": "POST",
+      "path": "/cgi-bin/wedrive/file_create",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97882",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页97916原文“请求方式:POST(HTTPS) 请求地址: https://qyapi.weixin.qq.com/cgi-bin/wedri"
+    },
+    {
+      "id": "wecom_live_api_93640",
+      "domain": "live",
+      "name": "修改预约直播 - modify",
+      "method": "POST",
+      "path": "/cgi-bin/living/modify",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/93640",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页96839/服务商页93431原文“请求方式: POST(HTTPS) 请求地址: https://qyapi.weixin.qq.com/cg"
+    },
+    {
+      "id": "wecom_live_api_93638",
+      "domain": "live",
+      "name": "取消预约直播 - cancel",
+      "method": "POST",
+      "path": "/cgi-bin/living/cancel",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/93638",
+      "notes": "全量补全第二轮(retry-3);跨页核实:该官方页渲染文本原文“请求方式: POST(HTTPS) 请求地址: https://qyapi.weixin.qq.com/cgi-bin/living/ca"
+    },
+    {
+      "id": "wecom_live_api_93635",
+      "domain": "live",
+      "name": "获取直播详情 - get_living_info",
+      "method": "GET",
+      "path": "/cgi-bin/living/get_living_info",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": true,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/93635",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口服务商页93715原文“请求方式:GET(HTTPS) 请求地址:https://qyapi.weixin.qq.com/cgi-bin/livi"
+    },
+    {
+      "id": "wecom_checkin_api_95803",
+      "domain": "checkin",
+      "name": "为打卡人员补卡 - punch_correction",
+      "method": "POST",
+      "path": "/cgi-bin/checkin/punch_correction",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95803",
+      "notes": "全量补全第二轮(retry-3);跨页核实:该官方页渲染文本原文“请求方式: POST(HTTPS) 请求地址: https://qyapi.weixin.qq.com/cgi-bin/checkin/p"
+    },
+    {
+      "id": "wecom_approval_api_97437",
+      "domain": "approval",
+      "name": "创建审批模板 - create_template",
+      "method": "POST",
+      "path": "/cgi-bin/oa/approval/create_template",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97437",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页97439原文“请求方式:POST(HTTPS) 请求地址: https://qyapi.weixin.qq.com/cgi-bin/oa/ap"
+    },
+    {
+      "id": "wecom_premium_api_99883",
+      "domain": "premium",
+      "name": "批量获取申请单ID - get_apply_id_list",
+      "method": "POST",
+      "path": "/cgi-bin/advanced_feature/get_apply_id_list",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99883",
+      "notes": "全量补全第二轮(retry-3);跨页核实:官方文档同接口页53722原文“请求方式:POST(HTTPS) 请求地址: https://qyapi.weixin.qq.com/cgi-bin/advan"
+    },
+    {
+      "id": "wecom_external_contact_api_95096",
+      "domain": "external_contact",
+      "name": "管理商品图册 - add_product_album",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/add_product_album",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95096",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_external_contact_api_95096_2",
+      "domain": "external_contact",
+      "name": "管理商品图册 - get_product_album",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/get_product_album",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95096",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_external_contact_api_95096_3",
+      "domain": "external_contact",
+      "name": "管理商品图册 - get_product_album_list",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/get_product_album_list",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95096",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_external_contact_api_95096_4",
+      "domain": "external_contact",
+      "name": "管理商品图册 - update_product_album",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/update_product_album",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95096",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_external_contact_api_95096_5",
+      "domain": "external_contact",
+      "name": "管理商品图册 - delete_product_album",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/delete_product_album",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95096",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_external_contact_api_95097",
+      "domain": "external_contact",
+      "name": "管理聊天敏感词 - add_intercept_rule",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/add_intercept_rule",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95097",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_external_contact_api_95097_2",
+      "domain": "external_contact",
+      "name": "管理聊天敏感词 - get_intercept_rule_list",
+      "method": "GET",
+      "path": "/cgi-bin/externalcontact/get_intercept_rule_list",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": true,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95097",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_external_contact_api_95097_3",
+      "domain": "external_contact",
+      "name": "管理聊天敏感词 - get_intercept_rule",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/get_intercept_rule",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95097",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_external_contact_api_95097_4",
+      "domain": "external_contact",
+      "name": "管理聊天敏感词 - update_intercept_rule",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/update_intercept_rule",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95097",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_external_contact_api_95097_5",
+      "domain": "external_contact",
+      "name": "管理聊天敏感词 - del_intercept_rule",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/del_intercept_rule",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95097",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_external_contact_api_95098",
+      "domain": "external_contact",
+      "name": "上传附件资源 - upload_attachment",
+      "method": "POST",
+      "path": "/cgi-bin/media/upload_attachment",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95098",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_external_contact_api_99434",
+      "domain": "external_contact",
+      "name": "获取已服务的外部联系人 - contact_list",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/contact_list",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99434",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_kf_api_94670",
+      "domain": "kf",
+      "name": "接收消息和事件 - sync_msg",
+      "method": "POST",
+      "path": "/cgi-bin/kf/sync_msg",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/94670",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_school_api_92320",
+      "domain": "school",
+      "name": "获取「学校通知」二维码 - get_subscribe_qr_code",
+      "method": "GET",
+      "path": "/cgi-bin/externalcontact/get_subscribe_qr_code",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": true,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/92320",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_school_api_92318",
+      "domain": "school",
+      "name": "管理「学校通知」的关注模式 - set_subscribe_mode",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/set_subscribe_mode",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/92318",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_school_api_92318_2",
+      "domain": "school",
+      "name": "管理「学校通知」的关注模式 - get_subscribe_mode",
+      "method": "GET",
+      "path": "/cgi-bin/externalcontact/get_subscribe_mode",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": true,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/92318",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_school_api_92321",
+      "domain": "school",
+      "name": "发送「学校通知」 - send",
+      "method": "POST",
+      "path": "/cgi-bin/externalcontact/message/send",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/92321",
+      "notes": "全量补全第二轮(evtverify-1);本页正文核实"
+    },
+    {
+      "id": "wecom_gov_api_94536",
+      "domain": "gov",
+      "name": "添加事件类别 - add_cata",
+      "method": "POST",
+      "path": "/cgi-bin/report/grid/add_cata",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/94536",
+      "notes": "全量补全第二轮(evtverify-2);本页正文核实"
+    },
+    {
+      "id": "wecom_gov_api_94537",
+      "domain": "gov",
+      "name": "修改事件类别 - update_cata",
+      "method": "POST",
+      "path": "/cgi-bin/report/grid/update_cata",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/94537",
+      "notes": "全量补全第二轮(evtverify-2);本页正文核实"
+    },
+    {
+      "id": "wecom_gov_api_94538",
+      "domain": "gov",
+      "name": "删除事件类别 - delete_cata",
+      "method": "POST",
+      "path": "/cgi-bin/report/grid/delete_cata",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/94538",
+      "notes": "全量补全第二轮(evtverify-2);本页正文核实"
+    },
+    {
+      "id": "wecom_gov_api_94540",
+      "domain": "gov",
+      "name": "获取事件类别列表 - list_cata",
+      "method": "POST",
+      "path": "/cgi-bin/report/grid/list_cata",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/94540",
+      "notes": "全量补全第二轮(evtverify-2);本页正文核实"
+    },
+    {
+      "id": "wecom_gov_api_93534",
+      "domain": "gov",
+      "name": "获取上报事件分类统计 - category_statistic",
+      "method": "POST",
+      "path": "/cgi-bin/report/patrol/category_statistic",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/93534",
+      "notes": "全量补全第二轮(evtverify-2);本页正文核实"
+    },
+    {
+      "id": "wecom_gov_api_93536",
+      "domain": "gov",
+      "name": "获取巡查上报事件列表 - get_order_list",
+      "method": "POST",
+      "path": "/cgi-bin/report/patrol/get_order_list",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/93536",
+      "notes": "全量补全第二轮(evtverify-2);本页正文核实"
+    },
+    {
+      "id": "wecom_gov_api_93535",
+      "domain": "gov",
+      "name": "获取巡查上报的事件详情信息 - get_order_info",
+      "method": "POST",
+      "path": "/cgi-bin/report/patrol/get_order_info",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/93535",
+      "notes": "全量补全第二轮(evtverify-2);本页正文核实"
+    },
+    {
+      "id": "wecom_gov_api_93517",
+      "domain": "gov",
+      "name": "获取上报事件分类统计 - category_statistic",
+      "method": "POST",
+      "path": "/cgi-bin/report/resident/category_statistic",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/93517",
+      "notes": "全量补全第二轮(evtverify-2);本页正文核实"
+    },
+    {
+      "id": "wecom_gov_api_93518",
+      "domain": "gov",
+      "name": "获取居民上报事件列表 - get_order_list",
+      "method": "POST",
+      "path": "/cgi-bin/report/resident/get_order_list",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/93518",
+      "notes": "全量补全第二轮(evtverify-2);本页正文核实"
+    },
+    {
+      "id": "wecom_gov_api_93519",
+      "domain": "gov",
+      "name": "获取居民上报的事件详情信息 - get_order_info",
+      "method": "POST",
+      "path": "/cgi-bin/report/resident/get_order_info",
+      "auth": "wecom_corp",
+      "scope": "",
+      "read": false,
+      "event": false,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/93519",
+      "notes": "全量补全第二轮(evtverify-2);本页正文核实"
     }
   ],
   "events": [
@@ -7781,6 +8565,1070 @@
       "verified": true,
       "doc_url": "https://developer.work.weixin.qq.com/document/path/101027",
       "notes": "智能机器人；feedback_event 反馈事件(准确/不准确/取消)"
+    },
+    {
+      "id": "wecom_contact_event_94946",
+      "domain": "contact",
+      "name": "导出任务完成通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/94946",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_contact_event_90971",
+      "domain": "contact",
+      "name": "部门变更通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/90971",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_contact_event_90972",
+      "domain": "contact",
+      "name": "标签变更通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/90972",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_contact_event_90973",
+      "domain": "contact",
+      "name": "异步任务完成通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/90973",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_chain_event_95796",
+      "domain": "chain",
+      "name": "上下游变更回调",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95796",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_chain_event_95797",
+      "domain": "chain",
+      "name": "异步任务完成通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95797",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_security_event_100080",
+      "domain": "security",
+      "name": "回调通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/100080",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_ai_zone_event_99993",
+      "domain": "ai_zone",
+      "name": "客户同意进行聊天内容存档事件回调",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99993",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_ai_zone_event_99994",
+      "domain": "ai_zone",
+      "name": "产生会话回调通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99994",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_ai_zone_event_99995",
+      "domain": "ai_zone",
+      "name": "命中关键词规则通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99995",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_ai_zone_event_99996",
+      "domain": "ai_zone",
+      "name": "知识集管理回调",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99996",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_ai_zone_event_99997",
+      "domain": "ai_zone",
+      "name": "会话内容导出完成通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99997",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_ai_zone_event_99998",
+      "domain": "ai_zone",
+      "name": "应用接收专区通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99998",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_external_contact_event_97299",
+      "domain": "external_contact",
+      "name": "获客助手事件通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97299",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_kf_event_97712",
+      "domain": "kf",
+      "name": "回调通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97712",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_wxpay_miniapp_event_97335",
+      "domain": "wxpay_miniapp",
+      "name": "支付通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97335",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_wxpay_miniapp_event_97338",
+      "domain": "wxpay_miniapp",
+      "name": "退款通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97338",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_audit_event_92005",
+      "domain": "audit",
+      "name": "客户同意进行聊天内容存档事件回调",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/92005",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_audit_event_95039",
+      "domain": "audit",
+      "name": "产生会话回调事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95039",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_school_event_92032",
+      "domain": "school",
+      "name": "成员变更事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/92032",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_school_event_92052",
+      "domain": "school",
+      "name": "部门变更事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/92052",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_mail_event_100180",
+      "domain": "mail",
+      "name": "回调通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/100180",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_mail_event_97495",
+      "domain": "mail",
+      "name": "回调通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97495",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_doc_event_97833",
+      "domain": "doc",
+      "name": "修改文档成员事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97833",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_doc_event_97834",
+      "domain": "doc",
+      "name": "删除文档事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97834",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_doc_event_97835",
+      "domain": "doc",
+      "name": "收集表完成事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97835",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_doc_event_98095",
+      "domain": "doc",
+      "name": "删除收集表事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98095",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_doc_event_98096",
+      "domain": "doc",
+      "name": "修改收集表设置事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98096",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_doc_event_100987",
+      "domain": "doc",
+      "name": "字段变更事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/100987",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_doc_event_100986",
+      "domain": "doc",
+      "name": "记录变更事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/100986",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_calendar_event_97728",
+      "domain": "calendar",
+      "name": "删除日历事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97728",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_calendar_event_97730",
+      "domain": "calendar",
+      "name": "修改日历事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97730",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_calendar_event_97731",
+      "domain": "calendar",
+      "name": "修改日程事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97731",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_calendar_event_97732",
+      "domain": "calendar",
+      "name": "删除日程事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97732",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_calendar_event_98111",
+      "domain": "calendar",
+      "name": "日程回执事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98111",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_99081",
+      "domain": "meeting",
+      "name": "修改会议事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99081",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_99082",
+      "domain": "meeting",
+      "name": "取消会议事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99082",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98333",
+      "domain": "meeting",
+      "name": "会议开始事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98333",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98337",
+      "domain": "meeting",
+      "name": "会议结束事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98337",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98341",
+      "domain": "meeting",
+      "name": "会议全体静音事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98341",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98345",
+      "domain": "meeting",
+      "name": "会议解除全体静音事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98345",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98348",
+      "domain": "meeting",
+      "name": "成员入会事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98348",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98352",
+      "domain": "meeting",
+      "name": "成员离会事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98352",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98353",
+      "domain": "meeting",
+      "name": "成员等待主持人入会事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98353",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98354",
+      "domain": "meeting",
+      "name": "成员进入等候室事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98354",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98355",
+      "domain": "meeting",
+      "name": "成员离开等候室事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98355",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98393",
+      "domain": "meeting",
+      "name": "成员从等候室进入会议事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98393",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98394",
+      "domain": "meeting",
+      "name": "成员从会议中被移入等候室事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98394",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98395",
+      "domain": "meeting",
+      "name": "共享屏幕开启事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98395",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98396",
+      "domain": "meeting",
+      "name": "共享屏幕结束事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98396",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98397",
+      "domain": "meeting",
+      "name": "会议成员角色变更事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98397",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98771",
+      "domain": "meeting",
+      "name": "网络研讨会成员角色变更事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98771",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98773",
+      "domain": "meeting",
+      "name": "网络研讨会暖场上传结果",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98773",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98774",
+      "domain": "meeting",
+      "name": "PSTN 外呼状态更新事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98774",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98775",
+      "domain": "meeting",
+      "name": "素材上传结果",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98775",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98398",
+      "domain": "meeting",
+      "name": "开始云录制事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98398",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98399",
+      "domain": "meeting",
+      "name": "暂停云录制事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98399",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98400",
+      "domain": "meeting",
+      "name": "恢复云录制事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98400",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98401",
+      "domain": "meeting",
+      "name": "停止云录制事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98401",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98402",
+      "domain": "meeting",
+      "name": "云录制已完成事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98402",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98404",
+      "domain": "meeting",
+      "name": "删除云录制事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98404",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98781",
+      "domain": "meeting",
+      "name": "用户报名事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98781",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98782",
+      "domain": "meeting",
+      "name": "用户取消报名事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98782",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_98783",
+      "domain": "meeting",
+      "name": "会议室应答事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/98783",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_event_99648",
+      "domain": "meeting",
+      "name": "会议发起事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99648",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_wedrive_event_97898",
+      "domain": "wedrive",
+      "name": "微盘容量不足事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97898",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_wedrive_event_97899",
+      "domain": "wedrive",
+      "name": "空间变更事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97899",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_wedrive_event_97900",
+      "domain": "wedrive",
+      "name": "文件变更事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97900",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_wedrive_event_97901",
+      "domain": "wedrive",
+      "name": "解散空间",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97901",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_wedrive_event_97902",
+      "domain": "wedrive",
+      "name": "修改空间成员",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97902",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_wedrive_event_97903",
+      "domain": "wedrive",
+      "name": "修改空间安全设置",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/97903",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_live_event_94145",
+      "domain": "live",
+      "name": "直播回调事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/94145",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_approval_event_91815",
+      "domain": "approval",
+      "name": "审批申请状态变化回调通知",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/91815",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_meeting_room_event_95333",
+      "domain": "meeting_room",
+      "name": "回调事件",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/95333",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_premium_event_99876",
+      "domain": "premium",
+      "name": "成员申请的提交回调",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99876",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
+    },
+    {
+      "id": "wecom_premium_event_99877",
+      "domain": "premium",
+      "name": "成员申请的终止回调",
+      "method": "",
+      "path": "",
+      "auth": "wecom_corp",
+      "scope": "回调通知,非主动调用的HTTP接口",
+      "read": false,
+      "event": true,
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99877",
+      "notes": "全量补全第二轮核验:官方回调事件;正文未逐条HTTP核验,不虚构请求地址"
     }
   ],
   "pending": [
@@ -7827,50 +9675,10 @@
     {
       "domain": "contact",
       "domain_label": "通讯录管理",
-      "name": "导出任务完成通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/94946",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "contact",
-      "domain_label": "通讯录管理",
       "name": "概述",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/90967",
       "kind": "doc",
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
-    },
-    {
-      "domain": "contact",
-      "domain_label": "通讯录管理",
-      "name": "部门变更通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/90971",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "contact",
-      "domain_label": "通讯录管理",
-      "name": "标签变更通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/90972",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "contact",
-      "domain_label": "通讯录管理",
-      "name": "异步任务完成通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/90973",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "contact",
-      "domain_label": "通讯录管理",
-      "name": "通讯录同步接口调整",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/96079",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
     },
     {
       "domain": "auth",
@@ -7929,30 +9737,6 @@
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
     },
     {
-      "domain": "chain",
-      "domain_label": "上下游",
-      "name": "上下游变更回调",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/95796",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "chain",
-      "domain_label": "上下游",
-      "name": "异步任务完成通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/95797",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "security",
-      "domain_label": "安全管理",
-      "name": "回调通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/100080",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
       "domain": "message",
       "domain_label": "消息接收与发送",
       "name": "概述",
@@ -7999,14 +9783,6 @@
       "doc_url": "https://developer.work.weixin.qq.com/document/path/101039",
       "kind": "doc",
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
-    },
-    {
-      "domain": "message",
-      "domain_label": "消息接收与发送",
-      "name": "回调和回复的加解密方案",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/101033",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
     },
     {
       "domain": "message",
@@ -8123,66 +9899,10 @@
     {
       "domain": "ai_zone",
       "domain_label": "数据与智能专区",
-      "name": "专区通知应用",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99990",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
       "name": "概述",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/99992",
       "kind": "doc",
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "客户同意进行聊天内容存档事件回调",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99993",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "产生会话回调通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99994",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "命中关键词规则通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99995",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "知识集管理回调",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99996",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "会话内容导出完成通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99997",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "应用接收专区通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99998",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
     },
     {
       "domain": "ai_zone",
@@ -8233,46 +9953,6 @@
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
     },
     {
-      "domain": "external_contact",
-      "domain_label": "客户联系",
-      "name": "获客助手事件通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97299",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "external_contact",
-      "domain_label": "客户联系",
-      "name": "管理商品图册",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/95096",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "external_contact",
-      "domain_label": "客户联系",
-      "name": "管理聊天敏感词",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/95097",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "external_contact",
-      "domain_label": "客户联系",
-      "name": "上传附件资源",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/95098",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "external_contact",
-      "domain_label": "客户联系",
-      "name": "获取已服务的外部联系人",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99434",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
       "domain": "kf",
       "domain_label": "微信客服",
       "name": "概述",
@@ -8283,26 +9963,10 @@
     {
       "domain": "kf",
       "domain_label": "微信客服",
-      "name": "接收消息和事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/94670",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "kf",
-      "domain_label": "微信客服",
       "name": "发送欢迎语等事件响应消息",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/95122",
       "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "kf",
-      "domain_label": "微信客服",
-      "name": "回调通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97712",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "payment",
@@ -8345,22 +10009,6 @@
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
     },
     {
-      "domain": "wxpay_miniapp",
-      "domain_label": "小程序接入对外收款",
-      "name": "支付通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97335",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "wxpay_miniapp",
-      "domain_label": "小程序接入对外收款",
-      "name": "退款通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97338",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
       "domain": "audit",
       "domain_label": "会话内容存档",
       "name": "概述",
@@ -8393,52 +10041,12 @@
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
     },
     {
-      "domain": "audit",
-      "domain_label": "会话内容存档",
-      "name": "客户同意进行聊天内容存档事件回调",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/92005",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "audit",
-      "domain_label": "会话内容存档",
-      "name": "产生会话回调事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/95039",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
       "domain": "school",
       "domain_label": "家校沟通",
       "name": "概述",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/91638",
       "kind": "doc",
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
-    },
-    {
-      "domain": "school",
-      "domain_label": "家校沟通",
-      "name": "获取「学校通知」二维码",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/92320",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "school",
-      "domain_label": "家校沟通",
-      "name": "管理「学校通知」的关注模式",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/92318",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "school",
-      "domain_label": "家校沟通",
-      "name": "发送「学校通知」",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/92321",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
     },
     {
       "domain": "school",
@@ -8457,60 +10065,12 @@
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
     },
     {
-      "domain": "school",
-      "domain_label": "家校沟通",
-      "name": "成员变更事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/92032",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "school",
-      "domain_label": "家校沟通",
-      "name": "部门变更事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/92052",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
       "domain": "gov",
       "domain_label": "政民沟通",
       "name": "概述",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/94557",
       "kind": "doc",
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
-    },
-    {
-      "domain": "gov",
-      "domain_label": "政民沟通",
-      "name": "添加事件类别",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/94536",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "gov",
-      "domain_label": "政民沟通",
-      "name": "修改事件类别",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/94537",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "gov",
-      "domain_label": "政民沟通",
-      "name": "删除事件类别",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/94538",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "gov",
-      "domain_label": "政民沟通",
-      "name": "获取事件类别列表",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/94540",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
     },
     {
       "domain": "gov",
@@ -8523,58 +10083,10 @@
     {
       "domain": "gov",
       "domain_label": "政民沟通",
-      "name": "获取上报事件分类统计",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/93534",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "gov",
-      "domain_label": "政民沟通",
-      "name": "获取巡查上报事件列表",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/93536",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "gov",
-      "domain_label": "政民沟通",
-      "name": "获取巡查上报的事件详情信息",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/93535",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "gov",
-      "domain_label": "政民沟通",
       "name": "概述",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/93513",
       "kind": "doc",
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
-    },
-    {
-      "domain": "gov",
-      "domain_label": "政民沟通",
-      "name": "获取上报事件分类统计",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/93517",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "gov",
-      "domain_label": "政民沟通",
-      "name": "获取居民上报事件列表",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/93518",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "gov",
-      "domain_label": "政民沟通",
-      "name": "获取居民上报的事件详情信息",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/93519",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
     },
     {
       "domain": "mail",
@@ -8583,22 +10095,6 @@
       "doc_url": "https://developer.work.weixin.qq.com/document/path/95486",
       "kind": "doc",
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
-    },
-    {
-      "domain": "mail",
-      "domain_label": "邮件",
-      "name": "回调通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/100180",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "mail",
-      "domain_label": "邮件",
-      "name": "回调通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97495",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
     },
     {
       "domain": "doc",
@@ -8615,62 +10111,6 @@
       "doc_url": "https://developer.work.weixin.qq.com/document/path/97316",
       "kind": "doc",
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "修改文档成员事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97833",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "删除文档事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97834",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "收集表完成事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97835",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "删除收集表事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98095",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "修改收集表设置事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98096",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "字段变更事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/100987",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "记录变更事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/100986",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
     },
     {
       "domain": "doc",
@@ -8697,46 +10137,6 @@
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
     },
     {
-      "domain": "calendar",
-      "domain_label": "日程",
-      "name": "删除日历事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97728",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "calendar",
-      "domain_label": "日程",
-      "name": "修改日历事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97730",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "calendar",
-      "domain_label": "日程",
-      "name": "修改日程事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97731",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "calendar",
-      "domain_label": "日程",
-      "name": "删除日程事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97732",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "calendar",
-      "domain_label": "日程",
-      "name": "日程回执事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98111",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
       "domain": "meeting",
       "domain_label": "会议",
       "name": "概述",
@@ -8751,246 +10151,6 @@
       "doc_url": "https://developer.work.weixin.qq.com/document/path/99103",
       "kind": "doc",
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "修改会议事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99081",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "取消会议事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99082",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "会议开始事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98333",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "会议结束事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98337",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "会议全体静音事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98341",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "会议解除全体静音事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98345",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "成员入会事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98348",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "成员离会事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98352",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "成员等待主持人入会事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98353",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "成员进入等候室事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98354",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "成员离开等候室事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98355",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "成员从等候室进入会议事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98393",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "成员从会议中被移入等候室事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98394",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "共享屏幕开启事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98395",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "共享屏幕结束事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98396",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "会议成员角色变更事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98397",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "网络研讨会成员角色变更事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98771",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "网络研讨会暖场上传结果",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98773",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "PSTN 外呼状态更新事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98774",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "素材上传结果",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98775",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "开始云录制事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98398",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "暂停云录制事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98399",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "恢复云录制事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98400",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "停止云录制事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98401",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "云录制已完成事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98402",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "删除云录制事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98404",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "用户报名事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98781",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "用户取消报名事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98782",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "会议室应答事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98783",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "会议发起事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99648",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
     },
     {
       "domain": "wedrive",
@@ -9017,54 +10177,6 @@
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
     },
     {
-      "domain": "wedrive",
-      "domain_label": "微盘",
-      "name": "微盘容量不足事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97898",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "wedrive",
-      "domain_label": "微盘",
-      "name": "空间变更事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97899",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "wedrive",
-      "domain_label": "微盘",
-      "name": "文件变更事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97900",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "wedrive",
-      "domain_label": "微盘",
-      "name": "解散空间",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97901",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "wedrive",
-      "domain_label": "微盘",
-      "name": "修改空间成员",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97902",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "wedrive",
-      "domain_label": "微盘",
-      "name": "修改空间安全设置",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97903",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
       "domain": "live",
       "domain_label": "直播",
       "name": "概述",
@@ -9073,28 +10185,12 @@
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
     },
     {
-      "domain": "live",
-      "domain_label": "直播",
-      "name": "直播回调事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/94145",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
       "domain": "approval",
       "domain_label": "审批",
       "name": "概述",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/91854",
       "kind": "doc",
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
-    },
-    {
-      "domain": "approval",
-      "domain_label": "审批",
-      "name": "审批申请状态变化回调通知",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/91815",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
     },
     {
       "domain": "report",
@@ -9129,36 +10225,12 @@
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
     },
     {
-      "domain": "meeting_room",
-      "domain_label": "会议室",
-      "name": "回调事件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/95333",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
       "domain": "premium",
       "domain_label": "高级功能",
       "name": "概述",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/99860",
       "kind": "doc",
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
-    },
-    {
-      "domain": "premium",
-      "domain_label": "高级功能",
-      "name": "成员申请的提交回调",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99876",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "premium",
-      "domain_label": "高级功能",
-      "name": "成员申请的终止回调",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99877",
-      "kind": "event",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
     },
     {
       "domain": "emergency",
@@ -9185,36 +10257,12 @@
       "reason": "说明性/概念/格式文档,非主动调用业务接口"
     },
     {
-      "domain": "guide",
-      "domain_label": "开发指南",
-      "name": "开发前必读",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/90664",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "contact",
-      "domain_label": "通讯录管理",
-      "name": "成员扩展属性",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/100067",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "auth",
-      "domain_label": "身份验证",
-      "name": "构造网页授权链接",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/91022",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
       "domain": "chain",
       "domain_label": "上下游",
       "name": "获取下级/下游企业小程序session",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/95817",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "security",
@@ -9222,63 +10270,7 @@
       "name": "截屏/录屏管理",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/100128",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "message",
-      "domain_label": "消息接收与发送",
-      "name": "被动回复消息",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/101031",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "message",
-      "domain_label": "消息接收与发送",
-      "name": "模板卡片类型",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/101032",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "message",
-      "domain_label": "消息接收与发送",
-      "name": "智能机器人长连接",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/101463",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "专区程序示例",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/100052",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "文件内容存档",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/101501",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "获取会话记录",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99968",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "获取会话同意情况",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99969",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "ai_zone",
@@ -9286,15 +10278,7 @@
       "name": "获取内部群信息",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/99970",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "会话名称搜索",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99971",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "ai_zone",
@@ -9302,119 +10286,7 @@
       "name": "会话消息搜索",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/99972",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "员工或客户名称搜索",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/100243",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "关键词规则管理",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99973",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "获取命中关键词规则的会话记录",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99974",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "管理知识集",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99975",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "通用模型",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99875",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "话术推荐模型",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99977",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "客户标签模型",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99979",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "会话摘要模型",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99980",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "情感分析模型",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99983",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "自有模型分析",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99985",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "会话反垃圾分析",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99986",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "会话内容导出",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99987",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "异步调用自有分析程序",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99988",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "ai_zone",
-      "domain_label": "数据与智能专区",
-      "name": "上报异步任务结果",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99989",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "ai_zone",
@@ -9422,7 +10294,7 @@
       "name": "关闭专区调试模式",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/100088",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "ai_zone",
@@ -9430,31 +10302,7 @@
       "name": "获取专区调试模式状态",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/100113",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "external_contact",
-      "domain_label": "客户联系",
-      "name": "成员对外信息",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/92230",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "external_contact",
-      "domain_label": "客户联系",
-      "name": "获客链接管理",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97297",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "external_contact",
-      "domain_label": "客户联系",
-      "name": "提升广告有效率",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99596",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "external_contact",
@@ -9462,7 +10310,7 @@
       "name": "提醒成员群发",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/97610",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "external_contact",
@@ -9470,7 +10318,7 @@
       "name": "发送新客户欢迎语",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/92137",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "kf",
@@ -9478,7 +10326,8 @@
       "name": "获取客户基础信息",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/95159",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "全量补全第二轮已核实真实请求地址 /cgi-bin/kf/customer/batchget，但官方文档未标注请求方式(GET/POST)，按纪律不推断method，保留待核验",
+      "known_path": "/cgi-bin/kf/customer/batchget"
     },
     {
       "domain": "kf",
@@ -9486,7 +10335,7 @@
       "name": "获取「客户数据统计」企业汇总数据",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/95489",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "kf",
@@ -9494,15 +10343,8 @@
       "name": "获取「客户数据统计」接待人员明细数据",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/95490",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "payment",
-      "domain_label": "企业支付",
-      "name": "向员工收款",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/90280",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "全量补全第二轮已核实真实请求地址 /cgi-bin/kf/get_servicer_statistic，但官方文档未标注请求方式(GET/POST)，按纪律不推断method，保留待核验",
+      "known_path": "/cgi-bin/kf/get_servicer_statistic"
     },
     {
       "domain": "wxpay_miniapp",
@@ -9510,7 +10352,7 @@
       "name": "查询订单",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/97323",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "wxpay_miniapp",
@@ -9518,7 +10360,7 @@
       "name": "关闭订单",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/97324",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "wxpay_miniapp",
@@ -9526,15 +10368,7 @@
       "name": "查询退款",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/97352",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "audit",
-      "domain_label": "会话内容存档",
-      "name": "获取会话内容",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/91774",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "audit",
@@ -9542,15 +10376,7 @@
       "name": "获取会话同意情况",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/91782",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "school",
-      "domain_label": "家校沟通",
-      "name": "构造网页授权链接",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/91857",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "school",
@@ -9558,7 +10384,7 @@
       "name": "获取部门列表",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/92343",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "gov",
@@ -9566,7 +10392,7 @@
       "name": "获取配置的网格及网格负责人",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/93531",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "mail",
@@ -9574,7 +10400,7 @@
       "name": "获取邮件内容",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/97979",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "mail",
@@ -9582,7 +10408,7 @@
       "name": "查询应用邮箱账号",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/97991",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "mail",
@@ -9590,7 +10416,7 @@
       "name": "模糊搜索公共邮箱",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/98003",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "doc",
@@ -9598,95 +10424,7 @@
       "name": "删除子表",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/99899",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "删除视图",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99901",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "查询视图",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/101155",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "添加字段",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99904",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "删除字段",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99905",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "更新字段",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99906",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "删除编组",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/101102",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "添加页面",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/101620",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "添加内容块",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/101623",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "添加数据表",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/101629",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "获取文档权限信息",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97461",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "doc",
-      "domain_label": "文档",
-      "name": "上传文档文件",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/101870",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     },
     {
       "domain": "calendar",
@@ -9694,119 +10432,7 @@
       "name": "更新重复日程",
       "doc_url": "https://developer.work.weixin.qq.com/document/path/96204",
       "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "获取会议投票主题信息",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98837",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "删除会议投票",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98839",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "发起会议投票",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98840",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "结束会议投票",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98841",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "获取Rooms会议室配置项",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98802",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "获取Rooms会议室资源",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98809",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "meeting",
-      "domain_label": "会议",
-      "name": "获取布局模板列表",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/98844",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "wedrive",
-      "domain_label": "微盘",
-      "name": "新建文件夹/文档",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97882",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "live",
-      "domain_label": "直播",
-      "name": "修改预约直播",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/93640",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "live",
-      "domain_label": "直播",
-      "name": "取消预约直播",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/93638",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "live",
-      "domain_label": "直播",
-      "name": "获取直播详情",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/93635",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "checkin",
-      "domain_label": "打卡",
-      "name": "为打卡人员补卡",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/95803",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "approval",
-      "domain_label": "审批",
-      "name": "创建审批模板",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/97437",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
-    },
-    {
-      "domain": "premium",
-      "domain_label": "高级功能",
-      "name": "批量获取申请单ID",
-      "doc_url": "https://developer.work.weixin.qq.com/document/path/99883",
-      "kind": "api",
-      "reason": "详情正文未核验(访问被验证码挑战拦截),请求方式/地址待补抓,未编造"
+      "reason": "三轮补抓仍未取到正文(页面访问受限),未编造method/path;保留待后续核验"
     }
   ],
   "unenumerated_domains": [
@@ -9824,6 +10450,338 @@
       "key": "mobile_sdk",
       "label": "移动端 SDK",
       "reason": "属原生端 SDK 能力,非服务端 HTTP 接口,未纳入本台账"
+    }
+  ],
+  "non_http_entries": [
+    {
+      "id": "wecom_guide_doc_page_90664",
+      "domain": "guide",
+      "name": "开发前必读",
+      "kind": "doc_page",
+      "detail": "文档导读/开发必读说明页，非具体API接口页。文中『请求方式：GET/POST（HTTPS）』『请求地址：https://qyapi.weixin.qq.com/cgi-bin/gettoken?...』仅为接口说明格式示例，非本页接口，按",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/90664",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_contact_doc_page_100067",
+      "domain": "contact",
+      "name": "成员扩展属性",
+      "kind": "doc_page",
+      "detail": "字段说明页（成员extattr扩展属性字段定义），仅含权限说明与字段结构，无请求方式/请求地址",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/100067",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_auth_oauth_redirect_91022",
+      "domain": "auth",
+      "name": "构造网页授权链接",
+      "kind": "oauth_redirect",
+      "detail": "网页授权(OAuth2)链接构造页，为浏览器跳转URL https://open.weixin.qq.com/connect/oauth2/authorize?appid=...&redirect_uri=... ，非服务端HTTP接口，无",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/91022",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_message_doc_page_101031",
+      "domain": "message",
+      "name": "被动回复消息",
+      "kind": "doc_page",
+      "detail": "智能机器人『被动回复消息』说明页，为回调应答（返回JSON消息体如msgtype/text/template_card/stream），非主动HTTP请求接口，无请求方式/请求地址",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/101031",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_message_doc_page_101032",
+      "domain": "message",
+      "name": "模板卡片类型",
+      "kind": "doc_page",
+      "detail": "模板卡片 TemplateCard 结构体说明页（结构体说明），非具体API接口，无请求方式/请求地址；文中url/icon_url等为卡片配置字段，非API地址",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/101032",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_message_websocket_101463",
+      "domain": "message",
+      "name": "智能机器人长连接",
+      "kind": "websocket",
+      "detail": "wss://openws.work.weixin.qq.com",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/101463",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_doc_page_100052",
+      "domain": "ai_zone",
+      "name": "专区程序示例",
+      "kind": "doc_page",
+      "detail": "专区程序示例代码/配置说明页（镜像文件配置、程序能力配置、调用协议示例），无HTTP请求地址",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/100052",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_oauth_redirect_101501",
+      "domain": "ai_zone",
+      "name": "文件内容存档",
+      "kind": "oauth_redirect",
+      "detail": "文件内容存档功能说明页（介绍oauth2授权→调用通用模型能力→成员选择专区文档→前端展示的流程），无独立HTTP请求地址",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/101501",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99968",
+      "domain": "ai_zone",
+      "name": "获取会话记录",
+      "kind": "sdk",
+      "detail": "请求接口名:sync_msg",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99968",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99969",
+      "domain": "ai_zone",
+      "name": "获取会话同意情况",
+      "kind": "sdk",
+      "detail": "请求接口名:get_agree_status_single、get_agree_status_room",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99969",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99971",
+      "domain": "ai_zone",
+      "name": "会话名称搜索",
+      "kind": "sdk",
+      "detail": "请求接口名:search_chat",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99971",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_100243",
+      "domain": "ai_zone",
+      "name": "员工或客户名称搜索",
+      "kind": "sdk",
+      "detail": "请求接口名:search_contact_or_customer",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/100243",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99973",
+      "domain": "ai_zone",
+      "name": "关键词规则管理",
+      "kind": "sdk",
+      "detail": "请求接口名:create_rule、get_rule_list、get_rule_detail、update_rule、delete_rule",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99973",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99974",
+      "domain": "ai_zone",
+      "name": "获取命中关键词规则的会话记录",
+      "kind": "sdk",
+      "detail": "请求接口名:get_hit_msg_list",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99974",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99975",
+      "domain": "ai_zone",
+      "name": "管理知识集",
+      "kind": "sdk",
+      "detail": "请求接口名:knowledge_base_list、knowledge_base_create、knowledge_base_detail、knowledge_base_add_doc、knowledge_base_remove_doc、knowledge_base_modify_name、knowledge_base_delete",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99975",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99875",
+      "domain": "ai_zone",
+      "name": "通用模型",
+      "kind": "sdk",
+      "detail": "请求接口名:create_ww_model_task、get_ww_model_result",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99875",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99977",
+      "domain": "ai_zone",
+      "name": "话术推荐模型",
+      "kind": "sdk",
+      "detail": "请求接口名:create_recommend_dialog_task、get_recommend_dialog_result",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99977",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99979",
+      "domain": "ai_zone",
+      "name": "客户标签模型",
+      "kind": "sdk",
+      "detail": "请求接口名:create_customer_tag_task、get_customer_tag_result",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99979",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99980",
+      "domain": "ai_zone",
+      "name": "会话摘要模型",
+      "kind": "sdk",
+      "detail": "请求接口名:create_summary_task、get_summary_result",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99980",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99983",
+      "domain": "ai_zone",
+      "name": "情感分析模型",
+      "kind": "sdk",
+      "detail": "请求接口名:create_sentiment_task、get_sentiment_result",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99983",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99985",
+      "domain": "ai_zone",
+      "name": "自有模型分析",
+      "kind": "sdk",
+      "detail": "请求接口名:create_model_task、get_model_task_result",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99985",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99986",
+      "domain": "ai_zone",
+      "name": "会话反垃圾分析",
+      "kind": "sdk",
+      "detail": "请求接口名:create_spam_task、get_spam_result",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99986",
+      "notes": "全量补全第二轮(retry-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99987",
+      "domain": "ai_zone",
+      "name": "会话内容导出",
+      "kind": "sdk",
+      "detail": "SDK接口,无HTTP请求地址。原文：『**请求方法** 通过SDK调用，具体方式参考专区程序使用指引』；含两个SDK接口名 create_chatdata_export_job、get_chatdata_export_job_status",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99987",
+      "notes": "全量补全第二轮(retry-2);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99988",
+      "domain": "ai_zone",
+      "name": "异步调用自有分析程序",
+      "kind": "sdk",
+      "detail": "SDK接口,无HTTP请求地址。原文：『**请求方法** 通过SDK调用』；SDK接口名 create_program_task、get_program_task_result。",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99988",
+      "notes": "全量补全第二轮(retry-2);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99989",
+      "domain": "ai_zone",
+      "name": "上报异步任务结果",
+      "kind": "sdk",
+      "detail": "SDK接口,无HTTP请求地址。原文：『**请求方法** 通过SDK调用』；SDK接口名 program_async_job_call_back。",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99989",
+      "notes": "全量补全第二轮(retry-2);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_external_contact_doc_page_92230",
+      "domain": "external_contact",
+      "name": "成员对外信息",
+      "kind": "doc_page",
+      "detail": "该页为字段说明文档（讲解 external_profile 字段结构：external_corp_name、wechat_channels、external_attr 等），本身没有独立HTTP请求地址，仅在正文中引用 user/creat",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/92230",
+      "notes": "全量补全第二轮(retry-2);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_external_contact_doc_page_99596",
+      "domain": "external_contact",
+      "name": "提升广告有效率",
+      "kind": "doc_page",
+      "detail": "该页为运营指引文档（『提升广告有效率的几种方式』：优化广告落地页、广告回传、微信客服互动问答），正文未定义任何API，无HTTP请求地址。",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99596",
+      "notes": "全量补全第二轮(retry-2);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_payment_doc_page_90280",
+      "domain": "payment",
+      "name": "向员工收款",
+      "kind": "doc_page",
+      "detail": "该页为『企业向内部员工收款』接入指引（五步：获取openid、JSAPI权限验证、发起收款、调用支付JSAPI），正文引用微信支付文档(pay.weixin.qq.com/wiki/...)，本身未定义企业微信侧的HTTP请求地址。",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/90280",
+      "notes": "全量补全第二轮(retry-2);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_audit_sdk_91774",
+      "domain": "audit",
+      "name": "获取会话内容",
+      "kind": "sdk",
+      "detail": "SDK接口,无HTTP请求地址。原文：『业务方通过企业微信提供的sdk，可以进行会话记录数据的获取、媒体数据的获取』，提供的是C接口 NewSdk/Init/GetChatData/DecryptData，非HTTP API。",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/91774",
+      "notes": "全量补全第二轮(retry-2);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_school_oauth_redirect_91857",
+      "domain": "school",
+      "name": "构造网页授权链接",
+      "kind": "oauth_redirect",
+      "detail": "该页为构造OAuth授权跳转链接的说明，原文给的是授权URL『https://open.weixin.qq.com/connect/oauth2/authorize?appid=CORPID&redirect_uri=...』（供员工点击跳",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/91857",
+      "notes": "全量补全第二轮(retry-2);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_contact_doc_page_96079",
+      "domain": "contact",
+      "name": "通讯录同步接口调整",
+      "kind": "doc_page",
+      "detail": "标题「通讯录同步接口调整」，最后更新2022/08/20。为接口调整公告/说明文档，正文介绍新增ID查询接口、通讯录查询接口停用、回调通知调整及Q&A，仅含页面锚点链接与跳转到其他文档的链接，本页没有给出任何HTTP请求方式/请求地址。属纯",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/96079",
+      "notes": "全量补全第二轮(evtverify-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_message_doc_page_101033",
+      "domain": "message",
+      "name": "回调和回复的加解密方案",
+      "kind": "doc_page",
+      "detail": "标题「回调和回复的加解密方案」，最后更新2025/07/23。为加解密方案说明文档（验证URL有效性、接收回调解密、加密与被动回复）。文中确有『请求方式：GET』『请求地址：https://api.3dept.com/?...』，但那是企业",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/101033",
+      "notes": "全量补全第二轮(evtverify-1);经核验非服务端HTTP接口,明确归类不编造method/path"
+    },
+    {
+      "id": "wecom_ai_zone_sdk_99990",
+      "domain": "ai_zone",
+      "name": "专区通知应用",
+      "kind": "sdk",
+      "detail": "请求接口名:spec_notify_app』及请求包体、SDK生成notify_id的Python/C++/Java代码示例",
+      "verified": true,
+      "doc_url": "https://developer.work.weixin.qq.com/document/path/99990",
+      "notes": "全量补全第二轮(evtverify-1);经核验非服务端HTTP接口,明确归类不编造method/path"
     }
   ]
 }

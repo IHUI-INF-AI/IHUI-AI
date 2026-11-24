@@ -9,7 +9,8 @@
       "抽样为每业务域 1 条,不代表全量目录可用性;未抽样条目在覆盖视图中仍为 unprobed。",
       "探测以空模板参数发起,缺路径参数/缺 body 的 error 不等同于平台权限拒绝。",
       "wecom 台账在探测期间被并行任务扩充(104→152 条、12→31 域),部分早期探测 api_id 已不在当前台账。",
-      "【2026-11-24 引擎修复后补注】本报告的探测数据生成于修复前:裸404被误判unsupported、飞书冒号路径参数未被替换、user型接口用租户令牌误探。这些数据不可用于判断接口真实可用性,须在探测引擎修复版(f113955e/dc893bf4)部署后重跑。"
+      "【2026-11-24 引擎修复后补注】本报告的探测数据生成于修复前:裸404被误判unsupported、飞书冒号路径参数未被替换、user型接口用租户令牌误探。这些数据不可用于判断接口真实可用性,须在探测引擎修复版(f113955e/dc893bf4)部署后重跑。",
+      "【2026-11-24 全量补全后补注】台账目录已补齐至飞书1768+208/钉钉1568+231/企微590+79(+33非HTTP)，但 coverage_totals_from_api 仍是引擎修复前旧探测值，与当前台账条目数不匹配，不可用于可用性判断。"
     ],
     "engine_fix": {
       "fixed_at": "2026-11-24T13:20:00+08:00",
@@ -24,6 +25,37 @@
         "只读探测对带路径占位符接口注入样本值,写操作保持空参 fail-closed"
       ],
       "impact": "本报告 unsupported/available 计数含修复前误判,不可直接作为接口可用性结论;重跑前仅作台账目录与引擎自检记录。"
+    },
+    "full_enumeration_update": {
+      "updated_at": "2026-11-24T14:00:00+08:00",
+      "scope": "台账全量性补齐（目录覆盖），非探测可用性重跑",
+      "platforms": {
+        "feishu": {
+          "apis": 1768,
+          "events": 208,
+          "api_domains": 51,
+          "meta_domains": 53
+        },
+        "dingtalk": {
+          "apis": 1568,
+          "events": 231,
+          "api_domains": 31,
+          "meta_domains": 31
+        },
+        "wecom": {
+          "apis": 590,
+          "events": 79,
+          "api_domains": 35,
+          "meta_domains": 35
+        }
+      },
+      "changes": [
+        "飞书：官方目录接口 GET /api/tools/server-side-api/list 全量返回 1768 条 API、/api/tools/server-side-event/list 全量返回 208 条事件，与台账逐条一致，服务端口径确认全量；eLearning 分组下 API 条目为 0；4 条旧版短链事件早已收录并用官方正文补全权限说明。台账条目数不变，仅纠正过时说明。",
+        "钉钉：官方 llms 机器索引声明 1568 API + 231 事件，台账 1568+231 完全一致，服务端口径已全量。",
+        "企微：对 78 条 pending API 与 98 条被误标 event 的条目逐条 WebFetch 核验真实性质——新增 56 条 HTTP API（含一页多接口全部展开）、76 条真回调事件进 events、33 条 SDK/WebSocket/OAuth跳转/文档页归类为 non_http_entries，pending 由 253 降至 100（77 条说明文档 + 23 条地址行被采集出口吞掉、已如实标注 known_path/reason）。",
+        "企微台账最终：590 API + 79 事件 + 33 非HTTP能力；events 由 3 增至 79（与飞书208/钉钉231同量级）。"
+      ],
+      "caveat": "本轮补齐的是目录全量性，不是接口可用性探测。探测数据仍为引擎修复前的旧结果，不可直接作为可用性结论；须在能连通服务的环境用修复版引擎重跑。"
     }
   },
   "platforms": {
@@ -1441,9 +1473,9 @@
     "wecom": {
       "catalog_state": "ok",
       "catalog": {
-        "apis": 152,
-        "events": 0,
-        "domains": 31,
+        "apis": 590,
+        "events": 79,
+        "domains": 35,
         "source": {
           "index_url": "https://developer.work.weixin.qq.com/document/path/90664",
           "fetched_at": "2026-11-24",
@@ -1452,17 +1484,12 @@
         },
         "ledger_reconcile": {
           "file_exists": true,
-          "ledger_apis": 152,
-          "ledger_events": 3,
-          "ledger_api_domains": 31,
+          "ledger_apis": 590,
+          "ledger_events": 79,
+          "ledger_api_domains": 35,
           "ledger_meta_domains": 35,
-          "ledger_event_domains": 2,
-          "meta_only_domains": [
-            "audit",
-            "meeting",
-            "premium",
-            "wxpay_miniapp"
-          ],
+          "ledger_event_domains": 19,
+          "meta_only_domains": [],
           "base_url": "https://qyapi.weixin.qq.com/cgi-bin",
           "auth_kind": "wecom_corp",
           "fetched_at": "2026-11-24",
