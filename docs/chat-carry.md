@@ -15,8 +15,8 @@
 号池 11 个平台全部纳管,按三种型各走各的路,没有一个是「不管」;但**验证深度不同,不能一句「都支持」抹平**:
 
 - 重绑级(Trae / WorkBuddy):改会话归属,切完列表可见、点开有内容;
-- 正库核验级(Qoder / MiniMax / CodeArts / ZCode / Codex / 小浣熊):本地正库无账号维度(或账号列不参与侧栏过滤),切号后历史天然在,条数/可见数可现场核验;
-- 索引级(OpenCode / Loomy):只能证明本地索引里还有会话 id,正文完整性要以客户端为准;
+- 正库+正文核验级(Qoder / MiniMax / Codex / 小浣熊 / OpenCode / Loomy):本地正库无账号维度(或账号列不参与侧栏过滤),切号后历史天然在,会话数/可见数/正文行数都能现场核验;
+- 键面/任务索引级(CodeArts / ZCode):本地键面或任务索引在,能证明历史入口在,但键面数/任务数不等于侧栏会话行数,正文完整性以客户端为准;
 - 归档级(豆包):云端绑账号、本地零副本,只能归档 + 交接单;
 - 小浣熊当前不是「未定位」:主程序已装 1.2.3;取证时 `~/.office-raccoon` 为空、缺 marker,已补规范 marker 解锁首启 ⇒ 现在 profile 已初始化、库 0 条,不是「没装/没库」。
 
@@ -24,24 +24,24 @@
 | --- | --- | --- |
 | trae | rebind | SQLCipher 正库解密→改 `user_id`→重加密,四处键面(globalStorage/workspaceStorage/storage.json/conversation-tips)一起重绑 |
 | workbuddy | rebind | 重绑 `sessions/spaces/automations` + 并入侧边栏快照,**并把切号瞬间被客户端打软删的会话复活** ⇒ 列表可见、点开有内容 |
-| qoder | local | 本地 `main.sqlite` / `chat_sessions`(本机 239 条/2 可见),无账号列 ⇒ 天然可见 |
-| minimax | local | 本地 `runtime-state.sqlite` / `local_runtime_sessions`(本机 25 条/18 可见;`archived` 是 0/1 整数列,不是 NULL 软删列),无账号列 |
-| codearts | local | VS Code 系 `globalStorage/state.vscdb`(本机 72 键/72 可见),键面无 uid 前缀 |
-| zcode | local | 桌面端正库是 `~/.zcode/v2/tasks-index.sqlite` / `tasks`(本机 40 条/17 可见);旧 `cli/db/db.sqlite` / `session` 是 0 行空壳,无账号列 |
-| opencode | local | 桌面版 `drafts.sqlite` 是会话 id/草稿索引(本机 18 个唯一 id),无账号列;完整正文由本地 sidecar/服务端持有,不能拿索引冒充正文 |
-| loomy | local | `Local Storage/leveldb` + IndexedDB 是会话 id 索引(本机 19 个唯一 id);auth 键带 userid,但会话 id 不带账号前缀 |
+| qoder | local | 本地 `main.sqlite` / `chat_sessions`(本机 239 条/正常侧栏 0 可见,`archived_at` 全量非空;正文 `chat_session_messages` 5219 行仍在),无账号列 ⇒ 切号后历史在库,取消归档可打开 |
+| minimax | local | 本地 `runtime-state.sqlite` / `local_runtime_sessions`(本机 25 条/18 可见;`archived` 是 0/1 整数列,不是 NULL 软删列;正文 `local_runtime_message_rows` 4420 行),无账号列 |
+| codearts | local | VS Code 系 `globalStorage/state.vscdb`(本机 72 key),键面无 uid 前缀;只做键面核对,72 key 不等于 72 条侧栏会话 |
+| zcode | local | 桌面端正库是 `~/.zcode/v2/tasks-index.sqlite` / `tasks`(本机 40 条/17 可见);旧 `cli/db/db.sqlite` / `session` 是 0 行空壳,无账号列;正文完整性以客户端为准 |
+| opencode | local | 正库是 `$XDG_DATA_HOME/opencode/opencode.db` / `session_v2` + `session_message`(本机 0/0;`drafts.sqlite` 只是 UI 草稿索引,已退役);`credential` 才是登录面 |
+| loomy | local | 正库是 `C:\Users\Public\Loomy\<tenant>\share\opencode\opencode.db` / `session` + `message` + `part`(本机顶层 1/1,正文 307 条、part 1545 条);Local Storage 只是登录票 |
 | codex | local | `~/.codex/state_5.sqlite` / `threads`(账号列全 NULL)+ `sessions/YYYY/**/*.jsonl` |
 | raccoon | local | 正库 `~/.office-raccoon/user-data/local-chat.sqlite3` / `sessions`；侧栏 `listSessions` 只按 `available=1` 过滤，`user_id` 只给 `listExternalSessions`（外部只读） ⇒ 切号只换 `auth.json`，不重建 profile，旧会话仍在；本机已装 1.2.3、profile 已初始化、库 0 条 |
 | doubao | cloud | 云端绑账号、本地零副本 ⇒ 真切前先关端,export 归档 + 生成 `handoff.md` 交接单;原生导入入口按安装包实测(2.37.16 是扫描已安装应用,不是选文件) ⇒ 不能零点击,需交接单/文本回放 |
 
 **local 不是「不用管」,是「每次切号都现场核验没有账号维度」。** 但 local 内部还要再分两层,不能混:
 
-- **结构化正库**(Qoder / MiniMax / CodeArts / ZCode / Codex / 小浣熊):有会话表或键面,能报真实会话数与可见数;`--audit` 的 `可见=M` 才是客户端口径。小浣熊 `sessions.user_id` 只给外部只读会话,侧栏不按它过滤,属于受控例外。
-- **索引/缓存面**(OpenCode / Loomy):只能证明本地还留着会话 id,不能证明消息正文完整;所以 `--audit` 故意显示 `可见=?`,不把 id 数当侧栏条数。
+- **结构化正库 + 正文**(Qoder / MiniMax / Codex / 小浣熊 / OpenCode / Loomy):有会话表、正文表或 JSONL,能报真实会话数、可见数、正文行数;`--audit` 的 `可见=M` 才是客户端口径。小浣熊 `sessions.user_id` 只给外部只读会话,侧栏不按它过滤,属于受控例外。
+- **键面/任务索引面**(CodeArts / ZCode):能证明历史入口在,但 key 数/任务数不等于侧栏会话行数,`--audit` 故意显示 `可见=?` 或只报任务数;不把索引冒充正文。
 
 探针一旦在某个平台的库里读到账号列,立即翻成 `account-scoped-store` 并改按 rebind 适配,绝不冒绿。小浣熊的 `sessions.user_id` 是例外:客户端侧栏查询只按 `available=1`,不按 `user_id`;该列只用于外部只读会话,所以不能误判成重绑平台。当前本机 `--audit` 显示「已安装、profile 已初始化、库 0 条」,不是「未定位」。
 
-**账号身份也钉在同一个矩阵里**(`CARRY_MATRIX[*].identity`),不靠实现者记忆:Trae 是 SQLCipher `user_id` + vscdb uid 前缀 + 上游 `storeRegion`;WorkBuddy 是 `sessions.user_id` + auth 落盘 uid;local 平台逐个注明「会话表无账号列 / 键面无 uid / 索引无账号前缀」;豆包是云端 uid、本地零副本。换平台必须先回答「账号身份在哪」,再谈迁移。
+**账号身份也钉在同一个矩阵里**(`CARRY_MATRIX[*].identity`),不靠实现者记忆:Trae 是 SQLCipher `user_id` + vscdb uid 前缀 + 上游 `storeRegion`;WorkBuddy 是 `sessions.user_id` + auth 落盘 uid;local 平台逐个注明「会话表无账号列 / 键面无 uid / 登录票在 Local Storage」;豆包是云端 uid、本地零副本。换平台必须先回答「账号身份在哪」,再谈迁移。
 
 ## 2. WorkBuddy 为什么以前「带不过去」
 
@@ -83,8 +83,8 @@ node scripts/chat-carry.mjs --provider workbuddy --from <旧uid> --revive-window
 
 巡检结果解读:
 
-- `✓ 库=N 可见=M` —— 探到结构化正库,`M` 是客户端可见条数;
-- `✓ 库=N 可见=?` —— 只探到索引/缓存面(OpenCode/Loomy),`N` 是唯一会话 id 数,不是侧栏条数,也不证明正文完整;
+- `✓ 库=N 可见=M` —— 探到结构化正库,`M` 是客户端可见条数;Qoder 本机 239 条全归档 ⇒ `可见=0`,正文 5219 行仍在;
+- `✓ 库=? 可见=?` —— 键面/索引面(CodeArts)或只有 key 数,不能冒充侧栏条数;Trae/WorkBuddy 的 vscdb 也是键面,不把 287 key 说成 287 条会话;
 - `✗ 未定位` —— 客户端没装、只有 updater/identity、或路径变了,**不是**「历史没问题」;
 - `账号维度=有` —— 必须按 rebind 适配,不允许当 local 放行;
 - `本机未安装该客户端 ⇒ 跳过核验` —— 已区分「没装」与「能力缺陷」,不会误报;但这行也不是通过。
@@ -274,7 +274,7 @@ node scripts/doubao-build-import.mjs --archive <归档目录> --out conversation
 2. 跑 `node scripts/chat-carry.mjs --provider <新平台>` 看探针结论:
    - `unlocated` ⇒ 路径写错或客户端没装;
    - `account-scoped-store` ⇒ 必须写 rebind 实现(备份 + 事务 + 失败整组回滚 + 可见性复活);
-   - `ok` ⇒ local,现场核验通过;若只有索引面,必须 `visible:null`,不许把 id 数当可见数;
+   - `ok` ⇒ local,现场核验通过;若只有键面/任务索引面,必须 `visible:null`,不许把 key 数/任务数当可见数;
 3. 在 `scripts/tests/chat-carry-registry.test.mjs` 补一条矩阵/探针断言,保证以后改路径能红。
 
 **平台适配不是复制同一套 SQL。** 每个平台至少钉死四件事:账号身份在哪(库列 / 键前缀 / auth 文件 / 云端)、正库与缓存的分界、可见性的真实口径、切号后客户端是否需要重启或复活软删行。少钉一件,就会得到「切号成功、界面空白」的假绿。
@@ -287,7 +287,7 @@ node scripts/run-script-tests.mjs -- workbuddy-chat-carry chat-carry-registry \
   doubao-build-import doubao-chatgpt-format switch-client-account local-login
 ```
 
-覆盖:矩阵覆盖度、账号维度必须报错、探不到库必须 unlocated、rebind 缺 uid 必须 no-uid、快照并入且旧分片清空、软删行复活后 `deleted_at IS NULL`、`--revive-history` 不碰 cloud 行、时间窗只捞窗口内误删行(窗口外用户自删不动)、容器 `spaces.deleted_at` 按 `-1` 口径回活;小浣熊侧另有 local-chat v1 正库/available 可见口径/`user_id` 不参与侧栏、profile 未初始化拒写;豆包侧另有 profile 解析(缺省/active/显式/缺失/非法名)、交接单截断与落盘、导入入口三态探针(含 bundle `\uXXXX` 转义还原)、真切前置关端判据。本次 chat-carry/local-login 13 个脚本文件 185 例全绿。
+覆盖:矩阵覆盖度、账号维度必须报错、探不到库必须 unlocated、rebind 缺 uid 必须 no-uid、快照并入且旧分片清空、软删行复活后 `deleted_at IS NULL`、`--revive-history` 不碰 cloud 行、时间窗只捞窗口内误删行(窗口外用户自删不动)、容器 `spaces.deleted_at` 按 `-1` 口径回活;小浣熊侧另有 local-chat v1 正库/available 可见口径/`user_id` 不参与侧栏、profile 未初始化拒写;OpenCode 侧另有 `session_v2` 正库/顶层可见/正文行数、只有 drafts 不得冒充正库;Loomy 侧另有 OpenCode v1 `session/message/part` 正库、只有 Local Storage 索引不得冒充;豆包侧另有 profile 解析(缺省/active/显式/缺失/非法名)、交接单截断与落盘、导入入口三态探针(含 bundle `\uXXXX` 转义还原)、真切前置关端判据。本次 chat-carry/local-login 13 个脚本文件 187 例全绿。
 
 API 侧 `relay-login-local-verified.test.ts` 共 31 例;测试进程默认**不执行真实随行**(避免单测写真实客户端库),要验分派请注入 `carryImpl`。
 

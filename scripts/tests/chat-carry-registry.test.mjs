@@ -164,13 +164,60 @@ function seedLeveldbSessions(dir, ids) {
   fs.writeFileSync(path.join(dir, '000003.log'), ids.map((id) => `\u0000key\u0000${id}\u0000`).join('\n'), 'latin1')
 }
 
-/** 造 OpenCode drafts.sqlite:document(key,value) 里带会话 id */
-function seedOpenCodeDrafts(file, ids) {
+/** 造 Loomy 自带 OpenCode v1 正库:session 顶层/子会话 + message 正文 + part */
+function seedLoomyDb(file) {
   fs.mkdirSync(path.dirname(file), { recursive: true })
   const db = new DatabaseSync(file)
-  db.exec(`CREATE TABLE document (key TEXT PRIMARY KEY, value TEXT);`)
-  const ins = db.prepare('INSERT INTO document (key,value) VALUES (?,?)')
-  for (const id of ids) ins.run(`session:${id}:prompt`, `{"sessionID":"${id}"}`)
+  db.exec(`
+    CREATE TABLE session (
+      id TEXT PRIMARY KEY, project_id TEXT, parent_id TEXT, title TEXT,
+      time_created INTEGER, time_updated INTEGER, time_archived INTEGER
+    );
+    CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, data TEXT);
+    CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT NOT NULL, data TEXT);
+    CREATE TABLE account (id TEXT PRIMARY KEY, email TEXT);
+    CREATE TABLE account_state (id INTEGER PRIMARY KEY, active_account_id TEXT);
+  `)
+  const s = db.prepare('INSERT INTO session (id,project_id,parent_id,title,time_created,time_updated,time_archived) VALUES (?,?,?,?,?,?,?)')
+  s.run('ses_lroot_visible', 'p1', null, '可见顶层', 1, 1, null)
+  s.run('ses_lroot_archived', 'p1', null, '已归档顶层', 1, 1, 100)
+  s.run('ses_lchild', 'p1', 'ses_lroot_visible', '子会话', 1, 1, null)
+  const m = db.prepare('INSERT INTO message (id,session_id,data) VALUES (?,?,?)')
+  m.run('lmsg1', 'ses_lroot_visible', '{}')
+  m.run('lmsg2', 'ses_lroot_visible', '{}')
+  m.run('lmsg3', 'ses_lroot_archived', '{}')
+  m.run('lmsg4', 'ses_lchild', '{}')
+  const p = db.prepare('INSERT INTO part (id,message_id,session_id,data) VALUES (?,?,?,?)')
+  for (let i = 1; i <= 5; i++) p.run(`lpart${i}`, `lmsg${Math.min(i, 4)}`, i <= 2 ? 'ses_lroot_visible' : 'ses_lchild', '{}')
+  db.close()
+}
+function seedOpenCodeDb(file) {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  const db = new DatabaseSync(file)
+  db.exec(`
+    CREATE TABLE session_v2 (
+      id TEXT PRIMARY KEY, project_id TEXT, parent_id TEXT, title TEXT,
+      time_created INTEGER, time_updated INTEGER, time_archived INTEGER
+    );
+    CREATE TABLE session_message (
+      id TEXT PRIMARY KEY, session_id TEXT NOT NULL, type TEXT, seq INTEGER, data TEXT
+    );
+    CREATE TABLE credential (
+      id TEXT PRIMARY KEY, integration_id TEXT, label TEXT, value TEXT, active INTEGER
+    );
+    CREATE TABLE account (id TEXT PRIMARY KEY, email TEXT);
+    CREATE TABLE account_state (id INTEGER PRIMARY KEY, active_account_id TEXT);
+  `)
+  const s = db.prepare('INSERT INTO session_v2 (id,project_id,parent_id,title,time_created,time_updated,time_archived) VALUES (?,?,?,?,?,?,?)')
+  s.run('ses_root_visible', 'p1', null, '可见顶层', 1, 1, null)
+  s.run('ses_root_archived', 'p1', null, '已归档顶层', 1, 1, 100)
+  s.run('ses_child', 'p1', 'ses_root_visible', '子会话', 1, 1, null)
+  const m = db.prepare('INSERT INTO session_message (id,session_id,type,seq,data) VALUES (?,?,?,?,?)')
+  m.run('msg1', 'ses_root_visible', 'user', 1, '{}')
+  m.run('msg2', 'ses_root_visible', 'assistant', 2, '{}')
+  m.run('msg3', 'ses_root_archived', 'user', 1, '{}')
+  m.run('msg4', 'ses_child', 'assistant', 1, '{}')
+  db.prepare(`INSERT INTO credential (id,integration_id,label,value,active) VALUES ('cred_1','opencode','OAuth','{}',1)`).run()
   db.close()
 }
 
@@ -240,32 +287,62 @@ describe('local 平台现场核验', () => {
     assert.ok(r.notes.join(';').includes('profile 未初始化'))
   })
 
-  it('OpenCode 从 drafts.sqlite 数唯一会话 id,不冒充侧栏可见条数', () => {
-    const env = { APPDATA: path.join(tmpRoot, 'env-opencode'), LOCALAPPDATA: tmpRoot, USERPROFILE: tmpRoot }
-    seedOpenCodeDrafts(path.join(env.APPDATA, 'ai.opencode.desktop', 'drafts.sqlite'), [
-      'ses_aaaaaaaaaaaaaaaaaaaaaaaaaa',
-      'ses_bbbbbbbbbbbbbbbbbbbbbbbbbb',
-      'ses_cccccccccccccccccccccccccc',
-    ])
+  it('OpenCode 读 session_v2 正库,顶层未归档为可见,子会话不混进侧栏计数', () => {
+    const env = {
+      APPDATA: path.join(tmpRoot, 'env-opencode'),
+      LOCALAPPDATA: tmpRoot,
+      USERPROFILE: path.join(tmpRoot, 'home-opencode'),
+      XDG_DATA_HOME: path.join(tmpRoot, 'xdg-open'),
+    }
+    seedOpenCodeDb(path.join(env.XDG_DATA_HOME, 'opencode', 'opencode.db'))
     const r = switchCarry({ provider: 'opencode', env })
     assert.equal(r.ok, true, r.notes.join(';'))
-    assert.equal(r.probe.sessions, 3)
-    assert.equal(r.probe.visible, null, '索引计数不能冒充可见条数')
-    assert.equal(r.probe.accountScoped, false)
+    assert.equal(r.probe.table, 'session_v2')
+    assert.equal(r.probe.sessions, 2, 'session_v2 顶层会话 2 条,子会话不算侧栏')
+    assert.equal(r.probe.visible, 1, 'time_archived 非空的顶层会话不可见')
+    assert.equal(r.probe.accountScoped, false, 'session_v2 无 account_id/user_id')
+    assert.equal(r.probe.messageCount, 4)
+    assert.match(r.notes.join(';'), /session_v2 无 account_id\/user_id/)
   })
 
-  it('Loomy 扫 Local Storage+IndexedDB,截断 id 不得当完整会话', () => {
-    const env = { APPDATA: path.join(tmpRoot, 'env-loomy'), LOCALAPPDATA: tmpRoot, USERPROFILE: tmpRoot }
-    seedLeveldbSessions(path.join(env.APPDATA, 'Loomy', 'Local Storage', 'leveldb'), [
-      'ses_dddddddddddddddddddddddddd',
-      'ses_eeeeeeeeeeeeeeeeeeeeeeeeee',
-      'ses_df43d8a0cffecuRBKo', // 截断的 UI key,不能计成第 3 条
-    ])
+  it('OpenCode 只有 drafts.sqlite 索引 ⇒ 不能冒充正库/历史仍在', () => {
+    const env = { APPDATA: path.join(tmpRoot, 'env-opencode-drafts'), LOCALAPPDATA: tmpRoot, USERPROFILE: path.join(tmpRoot, 'home-opencode-drafts') }
+    fs.mkdirSync(path.join(env.APPDATA, 'ai.opencode.desktop'), { recursive: true })
+    const db = new DatabaseSync(path.join(env.APPDATA, 'ai.opencode.desktop', 'drafts.sqlite'))
+    db.exec(`CREATE TABLE document (key TEXT PRIMARY KEY, value TEXT);`)
+    db.prepare('INSERT INTO document (key,value) VALUES (?,?)').run('session:ses_x', '{}')
+    db.close()
+    const r = switchCarry({ provider: 'opencode', env })
+    assert.equal(r.ok, false)
+    assert.equal(r.code, 'unlocated')
+  })
+
+  it('Loomy 读自带 OpenCode 正库 session/message/part,不把 Local Storage 索引当正文', () => {
+    const env = {
+      APPDATA: path.join(tmpRoot, 'env-loomy'),
+      LOCALAPPDATA: tmpRoot,
+      USERPROFILE: tmpRoot,
+      PUBLIC: path.join(tmpRoot, 'Public'),
+    }
+    const file = path.join(env.PUBLIC, 'Loomy', 'tenant-a', 'share', 'opencode', 'opencode.db')
+    seedLoomyDb(file)
     const r = switchCarry({ provider: 'loomy', env })
     assert.equal(r.ok, true, r.notes.join(';'))
-    assert.equal(r.probe.sessions, 2)
-    assert.equal(r.probe.visible, null)
-    assert.equal(r.probe.accountScoped, false)
+    assert.equal(r.probe.table, 'session')
+    assert.equal(r.probe.sessions, 2, '顶层会话 2 条,子会话不混进侧栏')
+    assert.equal(r.probe.visible, 1, 'time_archived 非空的顶层会话不可见')
+    assert.equal(r.probe.messageCount, 4)
+    assert.equal(r.probe.partCount, 5)
+    assert.equal(r.probe.accountScoped, false, 'session 无 account_id/user_id')
+    assert.match(r.notes.join(';'), /旧会话在新号仍在/)
+  })
+
+  it('Loomy 只有 Local Storage 索引 ⇒ unlocated,不冒充正库', () => {
+    const env = { APPDATA: path.join(tmpRoot, 'env-loomy-index'), LOCALAPPDATA: tmpRoot, USERPROFILE: tmpRoot, PUBLIC: path.join(tmpRoot, 'Public-empty') }
+    seedLeveldbSessions(path.join(env.APPDATA, 'Loomy', 'Local Storage', 'leveldb'), ['ses_dddddddddddddddddddddddddd'])
+    const r = switchCarry({ provider: 'loomy', env })
+    assert.equal(r.ok, false)
+    assert.equal(r.code, 'unlocated')
   })
 
   it('探不到库 ⇒ unlocated,不冒充通过', () => {

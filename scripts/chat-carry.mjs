@@ -96,8 +96,9 @@ export function main(argv, io = {}) {
       for (const r of rows) {
         const cnt = r.sessions === null ? '?' : String(r.sessions)
         const vis = r.visible === null ? '?' : String(r.visible)
+        const body = r.messageCount === null || r.messageCount === undefined ? '' : ` 正文=${r.messageCount}`
         const locLabel = r.located
-          ? '库=' + cnt + ' 可见=' + vis
+          ? '库=' + cnt + ' 可见=' + vis + body
           : r.provider === 'raccoon' && r.installed && r.state === 'uninitialized'
             ? '已装/profile未初始化(0条)'
             : r.provider === 'raccoon' && r.installed && r.state === 'initialized'

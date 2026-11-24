@@ -33,7 +33,9 @@ import { createRequire } from 'node:module'
 
 import * as wbCarry from '../workbuddy-chat-carry.mjs'
 import { findRaccoonInstall, probeRaccoon } from '../raccoon-chat-carry.mjs'
-import { probeSessionKeys, probeSqlite, probeVscdb } from './local-store.mjs'
+import { findOpenCodeInstall, probeOpenCode } from '../opencode-chat-carry.mjs'
+import { findLoomyInstall, probeLoomy } from '../loomy-chat-carry.mjs'
+import { probeSqlite, probeVscdb } from './local-store.mjs'
 
 const require = createRequire(import.meta.url)
 
@@ -81,15 +83,15 @@ export const CARRY_MATRIX = Object.freeze({
     kind: 'local',
     label: 'OpenCode',
     auto: 'verify',
-    detail: '桌面版 drafts.sqlite 保存会话 id/草稿索引(本机 18 个唯一 id),无账号维度;完整正文由本地 sidecar/服务端持有',
-    identity: '无:草稿索引无账号列;正文在本地 sidecar/服务端',
+    detail: '正库 $XDG_DATA_HOME/opencode/opencode.db 的 session_v2 + session_message;drafts.sqlite 只是 UI 草稿索引,不是正文',
+    identity: 'session_v2 无 account_id/user_id;credential 才是登录面,account/account_state 运行时零读写',
   },
   loomy: {
     kind: 'local',
     label: 'Loomy',
     auto: 'verify',
-    detail: '本地 Local Storage+IndexedDB 保存会话 id 索引(本机 19 个唯一 id);auth 有 userid,但会话 id 不带账号前缀',
-    identity: 'auth 有 userid;会话 id 无账号前缀',
+    detail: '正库 C:\\Users\\Public\\Loomy\\<tenant>\\share\\opencode\\opencode.db 的 session/message/part;Local Storage 只是登录票与 UI 索引',
+    identity: 'session 无 account_id/user_id;account/account_state 零行;登录票在 Local Storage loomy-auth-session',
   },
   codex: {
     kind: 'local',
@@ -154,6 +156,12 @@ export const STORE_SPECS = Object.freeze({
       idCol: 'session_id',
       titleCol: 'title',
       deletedCol: 'deleted_at',
+      // 2026-11-24 现场核对:archived_at 全量非空,archived=1 的会话不进正常侧栏;
+      // 只看 deleted_at 会把 2 条归档会话误报成可见。
+      visibleWhere: 'deleted_at IS NULL AND COALESCE(archived,0)=0',
+      note: '归档会话仍计入总数、不计入正常侧栏可见;历史仍在库,取消归档后可打开',
+      messageTable: 'chat_session_messages',
+      messageSessionCol: 'session_id',
     },
   }),
   minimax: () => ({
@@ -167,6 +175,8 @@ export const STORE_SPECS = Object.freeze({
       deletedCol: 'archived',
       // archived 是 0/1 整数列,不是 NULL 软删列;不写这条会把 25 条全算成不可见。
       visibleWhere: 'COALESCE(archived,0)=0',
+      messageTable: 'local_runtime_message_rows',
+      messageSessionCol: 'session_id',
     },
   }),
   zcode: () => ({
@@ -195,27 +205,15 @@ export const STORE_SPECS = Object.freeze({
     },
   }),
   opencode: () => ({
-    probe: probeSessionKeys,
+    probe: probeOpenCode,
     spec: {
       provider: 'opencode',
-      candidates: [
-        '${APPDATA}/ai.opencode.desktop/drafts.sqlite',
-        '${APPDATA}/ai.opencode.desktop/Local Storage/leveldb',
-      ],
-      table: 'document',
-      valueCols: ['key', 'value'],
-      note: 'drafts.sqlite 只是草稿/会话 id 索引;完整正文由本地 sidecar/服务端持有,不能用它证明历史正文完整',
     },
   }),
   loomy: () => ({
-    probe: probeSessionKeys,
+    probe: probeLoomy,
     spec: {
       provider: 'loomy',
-      candidates: [
-        '${APPDATA}/Loomy/Local Storage/leveldb',
-        '${APPDATA}/Loomy/IndexedDB/file__0.indexeddb.leveldb',
-      ],
-      note: 'auth-session 带 userid,但会话 id 本身不带账号前缀;这是索引计数,不是侧栏可见条数',
     },
   }),
   doubao: () => ({
@@ -238,6 +236,8 @@ const INSTALL_NAME_RE = {
 
 function probeInstalled(provider, env = process.env) {
   if (provider === 'raccoon') return findRaccoonInstall(env).installed
+  if (provider === 'opencode') return findOpenCodeInstall(env).installed
+  if (provider === 'loomy') return findLoomyInstall(env).installed
   const re = INSTALL_NAME_RE[provider]
   if (!re) return null // 不在表内的平台:不做"未装"判定,未定位一律按真问题报
   const bases = [
@@ -350,6 +350,9 @@ export function probeProvider(provider, { env = process.env } = {}) {
     located: r.located,
     sessions: r.sessions,
     visible: r.visible,
+    messageCount: r.messageCount ?? null,
+    messageVisible: r.messageVisible ?? null,
+    partCount: r.partCount ?? null,
     accountScoped: r.accountScoped,
     table: r.table ?? null,
     schemaVersion: r.schemaVersion ?? null,
@@ -459,7 +462,7 @@ export function switchCarry(opts = {}) {
     code: '',
     notes: [
       ...p.notes,
-      `只读核验通过:会话 ${p.sessions ?? '?'} 条${p.visible === null ? '' : `,可见 ${p.visible} 条`},无账号维度 ⇒ 切号后历史天然在`,
+      `只读核验通过:会话 ${p.sessions ?? '?'} 条${p.visible === null ? '' : `,可见 ${p.visible} 条`}${p.messageCount === null || p.messageCount === undefined ? '' : `,本地正文 ${p.messageCount} 行`},无账号维度 ⇒ 切号后历史天然在`,
     ],
     probe: p,
   }
@@ -486,6 +489,8 @@ export function auditProviders({ env = process.env } = {}) {
       located: p.located,
       sessions: p.sessions,
       visible: p.visible,
+      messageCount: p.messageCount ?? null,
+      partCount: p.partCount ?? null,
       accountScoped: p.accountScoped,
       ok,
       state: p.raw?.profileState ?? p.raw?.raw?.profileState ?? '',

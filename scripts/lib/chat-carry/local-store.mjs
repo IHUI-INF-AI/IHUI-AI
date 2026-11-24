@@ -148,6 +148,17 @@ export function probeSqlite(spec = {}) {
     const notes = []
     if (accountScoped) notes.push(`检测到账号维度(${accountCols.join('/')}),切号必须重绑归属`)
     else if (accountCols.length > 0) notes.push(`账号列在场但无多值(${accountCols.join('/')}),实际不分账号`)
+    if (spec.note) notes.push(spec.note)
+    let messageCount = null
+    let messageSessionCol = ''
+    if (spec.messageTable && tables.includes(spec.messageTable)) {
+      const mcols = db.prepare(`PRAGMA table_info(${spec.messageTable})`).all().map((c) => String(c.name))
+      messageSessionCol = spec.messageSessionCol && mcols.includes(spec.messageSessionCol) ? spec.messageSessionCol : ''
+      if (messageSessionCol) {
+        messageCount = Number(db.prepare(`SELECT count(*) AS n FROM ${spec.messageTable}`).get().n) || 0
+        notes.push(`正文表 ${spec.messageTable}:${messageCount} 行(按 ${messageSessionCol} 归属会话),证明本地持有正文而不是只有索引`)
+      }
+    }
     return {
       ...base,
       located: true,
@@ -158,6 +169,8 @@ export function probeSqlite(spec = {}) {
       accountCols,
       accountScoped,
       accountValues,
+      messageCount,
+      messageSessionCol,
       notes,
     }
   } catch (e) {
@@ -201,15 +214,16 @@ export function probeVscdb(spec = {}) {
       ...base,
       located: true,
       path: file,
-      sessions: keys.length,
-      visible: keys.length,
+      // 键面不是会话面:不能把 72 个 key 说成 72 条侧栏会话。
+      sessions: null,
+      visible: null,
       keyCount: keys.length,
       accountScoped: uidKeys.length > 0,
       notes: [
         uidKeys.length > 0
           ? `键面有 ${uidKeys.length} 个 uid 前缀键 ⇒ 切号需重绑键前缀`
           : '键面无 uid 前缀 ⇒ 切号后历史天然在',
-        '该平台会话条数以键面计,不等同于客户端侧边栏行数',
+        `该平台只做键面核对:${keys.length} 个 key,不等于侧栏会话行数,也不证明正文完整`,
       ],
     }
   } catch (e) {
