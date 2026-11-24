@@ -455,9 +455,12 @@ class CustomHttpConnector:
     async def _execute(
         self, op: ConnectorOperation, params: dict[str, Any]
     ) -> dict[str, Any]:
-        base_url = self.spec.base_url.rstrip("/")
+        # 操作级独立基址(台账 base_url_override)优先;空串回落到连接器 spec 基址
+        base_url = (op.base_url or self.spec.base_url).rstrip("/")
         if not base_url:
             raise ConnectorExecutionError("未配置 base_url")
+        if not base_url.startswith(("http://", "https://")):
+            raise ConnectorExecutionError("操作 base_url 必须是 http(s):// 开头")
 
         # 路径占位符必须都能取到值
         for name in path_param_names(op.path):

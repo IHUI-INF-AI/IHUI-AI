@@ -324,6 +324,8 @@ test-results/
 test-results-*/
 playwright-report/
 coverage/
+# 业务代码目录(连接器 API 覆盖面板),非测试覆盖率产物 —— 精确放行
+!apps/web/src/components/connectors/coverage/
 .v8-coverage/
 
 # ============================================================================

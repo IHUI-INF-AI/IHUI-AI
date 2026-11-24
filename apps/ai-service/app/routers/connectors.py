@@ -24,11 +24,13 @@ from pydantic import BaseModel, Field
 from ..core.jwt_auth import require_request_user_id
 from ..services import connector_store
 from ..services import connectors as connector_registry
-from ..services.connectors import catalog, custom_http, managed, openapi_import
+from ..services.connectors import catalog, coverage, coverage_probe, custom_http, managed, openapi_import
 from ..services.connectors import get_connector
 from ..services.connectors.base import (
     CAPABILITIES,
     CONNECTOR_MODES,
+    DEFAULT_PROBE_LIMIT,
+    MAX_PROBE_LIMIT,
     ConnectorOperationError,
     ConnectorSpec,
     capability_summary,
@@ -99,6 +101,9 @@ class ConnectorConfigRequest(BaseModel):
     operations: list[dict[str, Any]] = Field(
         default_factory=list, description="声明式操作清单"
     )
+    platform: str = Field("", description="台账展开平台;填写后按 api_ids/domains 从目录生成 operations")
+    api_ids: list[str] = Field(default_factory=list, description="展开指定的台账 API id")
+    domains: list[str] = Field(default_factory=list, description="展开指定业务域")
 
 
 class ConnectorSyncRequest(BaseModel):
@@ -134,6 +139,23 @@ class OpenApiPreviewRequest(BaseModel):
     raw: str = Field("", description="OpenAPI JSON/YAML 原文")
     spec: dict[str, Any] | None = Field(None, description="已解析的 OpenAPI 对象")
     base_url: str = Field("", description="覆盖 servers[0].url")
+
+
+class ProbeRequest(BaseModel):
+    """能力探测请求(POST /connectors/{key}/probe)。"""
+
+    api_ids: list[str] = Field(default_factory=list, description="指定探测的 API id;空=按 domains/全量")
+    domains: list[str] = Field(default_factory=list, description="按业务域筛选")
+    limit: int = Field(DEFAULT_PROBE_LIMIT, description="单批探测上限(1..MAX_PROBE_LIMIT)")
+    read_only: bool = Field(True, description="只探只读接口;false 才纳入写操作(仍走确认/写权限门)")
+
+
+class CoveragePlanRequest(BaseModel):
+    """目录分片规划请求(POST /connectors/{key}/coverage/plan)。"""
+
+    platform: str = Field("", description="平台;空串回退连接器记录类型")
+    domains: list[str] = Field(default_factory=list)
+    api_ids: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -352,6 +374,112 @@ async def connector_catalog(
         return _error(500, "获取连接器目录失败,请稍后重试")
 
 
+@router.get("/coverage", response_model=None)
+async def connector_coverage(
+    platform: str,
+    scope: str = Depends(connector_scope),
+    ctx: ConnectorScope = Depends(connector_context),
+) -> dict[str, Any] | JSONResponse:
+    """平台目录覆盖视图:台账条目 + 最近探测状态(GET /connectors/coverage?platform=)。"""
+    del scope
+    if platform not in coverage.PLATFORMS:
+        return _error(400, f"不支持的平台: {platform}(仅 feishu/dingtalk/wecom)")
+    try:
+        results = coverage_probe.load_results(ctx.tenant_id or "", platform)
+        return coverage.build_coverage(platform, probe_results=results)
+    except Exception as e:  # noqa: BLE001
+        logger.error("获取目录覆盖视图失败(%s): %s", platform, e)
+        return _error(500, "获取目录覆盖视图失败,请稍后重试")
+
+
+@router.post("/{key}/probe", response_model=None)
+async def probe_connector(
+    key: str,
+    req: ProbeRequest,
+    scope: str = Depends(connector_scope),
+    ctx: ConnectorScope = Depends(connector_context),
+) -> dict[str, Any] | JSONResponse:
+    """对选中的目录 API 发真实只读探测,结果落 PostgreSQL 并按状态汇总。"""
+    if req.limit < 1 or req.limit > MAX_PROBE_LIMIT:
+        return _error(400, f"limit 须在 1..{MAX_PROBE_LIMIT} 之间")
+    try:
+        rec = connector_store.get(scope, key, tenant_id=ctx.tenant_id)
+        if rec is None:
+            return _error(404, f"连接器不存在: {key}")
+        if not bool(rec.get("enabled")):
+            return _error(400, "连接器已停用,请先启用")
+        if not _safe(rec)["configured"]:
+            return _error(400, "未配置，无法探测")
+
+        platform = str(rec.get("type") or "")
+        if platform not in coverage.PLATFORMS:
+            return _error(400, "该连接器类型不支持目录能力探测")
+
+        bundle = coverage.load_catalog(platform)
+        if bundle.state != "ok":
+            return _error(400, f"台账未判定,无法探测: {bundle.reason}")
+
+        wanted_ids = set(req.api_ids)
+        wanted_domains = set(req.domains)
+        apis = [
+            api
+            for api in bundle.apis
+            if (not wanted_ids or api["id"] in wanted_ids)
+            and (not wanted_domains or api["domain"] in wanted_domains)
+        ]
+
+        exec_rec = _record_for_execution(rec, scope)
+        exec_rec["tenant_id"] = ctx.tenant_id or ""
+        exec_rec["scope"] = scope
+        result = await coverage_probe.probe_apis(
+            record=exec_rec,
+            platform=platform,
+            apis=apis,
+            read_only=req.read_only,
+            limit=req.limit,
+            default_base_url=bundle.base_url,
+        )
+        return result
+    except coverage_probe.ProbeStoreUnavailable as e:
+        logger.error("探测结果持久化不可用(%s): %s", key, e)
+        return _error(502, "探测结果持久化不可用(PostgreSQL 未启用),请稍后重试")
+    except Exception as e:  # noqa: BLE001
+        logger.error("连接器探测失败(%s): %s", key, e)
+        return _error(500, "连接器探测失败,请稍后重试")
+
+
+@router.post("/{key}/coverage/plan", response_model=None)
+async def coverage_plan(
+    key: str,
+    req: CoveragePlanRequest,
+    scope: str = Depends(connector_scope),
+    ctx: ConnectorScope = Depends(connector_context),
+) -> dict[str, Any] | JSONResponse:
+    """把平台目录按业务域切成 ≤200 操作的分片,供落成多个连接器。"""
+    try:
+        rec = connector_store.get(scope, key, tenant_id=ctx.tenant_id)
+        platform = req.platform.strip()
+        if not platform and rec is not None:
+            platform = str(rec.get("type") or "")
+        if platform not in coverage.PLATFORMS:
+            return _error(400, f"不支持的平台: {platform}(仅 feishu/dingtalk/wecom)")
+
+        bundle = coverage.load_catalog(platform)
+        if bundle.state != "ok":
+            return _error(400, f"台账未判定,无法规划分片: {bundle.reason}")
+
+        return coverage.plan_shards(
+            platform,
+            bundle.apis,
+            domains=req.domains,
+            api_ids=req.api_ids,
+            default_base_url=bundle.base_url,
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.error("目录分片规划失败(%s): %s", key, e)
+        return _error(500, "目录分片规划失败,请稍后重试")
+
+
 @router.post("/openapi/preview", response_model=None)
 async def preview_openapi(
     req: OpenApiPreviewRequest,
@@ -385,6 +513,25 @@ async def save_connector_config(
     """
     try:
         normalized, operations = _validate_config(req)
+        # 目录展开:platform 或 api_ids/domains 任一给出时,走 coverage 同一生成器
+        # 从台账展开 operations;台账缺失/未匹配 ⇒ 显式 400,不落空壳连接器。
+        expand_platform = req.platform.strip() or (
+            req.type if (req.api_ids or req.domains) else ""
+        )
+        if expand_platform:
+            try:
+                _selected, operations, bundle = coverage.resolve_expansion(
+                    expand_platform,
+                    api_ids=req.api_ids,
+                    domains=req.domains,
+                )
+            except coverage.CatalogUnavailable as e:
+                return _error(400, f"目录展开失败: {e.reason}")
+            spec = normalized["spec"]
+            if not spec.get("base_url") and bundle.base_url:
+                spec["base_url"] = bundle.base_url
+            if (not spec.get("auth_kind") or spec.get("auth_kind") == "none") and bundle.auth_kind:
+                spec["auth_kind"] = bundle.auth_kind
         if normalized["mode"] == "custom" and not operations:
             raise ConnectorOperationError("自定义连接器至少需要一条操作")
         # 预置平台没填 spec 时用模板的 base_url/鉴权方式(存量与新建同口径)

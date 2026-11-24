@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from . import coverage
+
 # 模板版本(前端展示与缓存指纹)
 CATALOG_VERSION = "2026-11-23"
 
@@ -395,4 +397,19 @@ def default_operations(conn_type: str) -> list[dict[str, Any]]:
         {**op, "query": dict(op.get("query") or {}), "body": op.get("body")}
         for op in tpl["operations"]
     ]
+
+
+def operations_from_catalog(conn_type: str) -> list[dict[str, Any]]:
+    """从平台台账生成预设操作;台账未判定/缺失时回退内置兜底模板。
+
+    内置 ``PRESET_TEMPLATES``(飞书 9 / 钉钉 6 / 企微 6 / 公众号 5 / 语雀 3)
+    是台账落盘前的兜底口径;台账就绪后以台账为准,内置清单不再扩写。
+    """
+    if conn_type in coverage.PLATFORMS:
+        bundle = coverage.load_catalog(conn_type)
+        if bundle.state == "ok":
+            return [
+                coverage.api_to_operation(api, bundle.base_url) for api in bundle.apis
+            ]
+    return default_operations(conn_type)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

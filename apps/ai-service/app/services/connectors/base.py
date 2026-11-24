@@ -30,8 +30,18 @@ CAPABILITIES: tuple[str, ...] = ("list", "search", "fetch", "action")
 # 允许的 HTTP 方法
 HTTP_METHODS: tuple[str, ...] = ("GET", "POST", "PUT", "PATCH", "DELETE")
 
-# 单连接器操作数上限(防用户导入超大 OpenAPI 撑爆存储与界面)
+# 单连接器操作数上限(防用户导入超大 OpenAPI 撑爆存储与界面)。
+# 这是**自定义 / OpenAPI 导入连接器**的硬上限,保存校验与导入截断都只认这一份。
 MAX_OPERATIONS = 200
+
+# 全量目录(台账)覆盖走「分域分片」:同一业务域优先不跨片,每片操作数 ≤ SHARD_SIZE。
+# 分片尺寸直接复用 MAX_OPERATIONS —— 片落成连接器后仍落在既有单连接器上限内,
+# 不另立第二档阈值(避免两个上限漂移)。
+SHARD_SIZE = MAX_OPERATIONS
+
+# 单次探测的操作数上限(与单连接器上限同档);默认每批探测条数。
+MAX_PROBE_LIMIT = MAX_OPERATIONS
+DEFAULT_PROBE_LIMIT = 50
 
 # 操作 id 允许字符(字母数字下划线连字符点)
 _OP_ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
@@ -74,6 +84,8 @@ class ConnectorOperation:
         body          请求体模板;字符串值可含 ``{param}`` 占位符
         response_path 从响应 JSON 取值的点路径(如 ``data.items``),空=整个响应
         confirm       写操作是否需要前端二次确认(action 恒为 True)
+        disabled      是否默认停用(台账生成的写操作默认 True,需显式 opt-in)
+        base_url      该操作独立基址(台账 base_url_override);空串用连接器 spec 基址
         description   说明文案
     """
 
@@ -82,10 +94,12 @@ class ConnectorOperation:
     capability: str = "list"
     method: str = "GET"
     path: str = ""
+    base_url: str = ""
     query: dict[str, Any] = field(default_factory=dict)
     body: dict[str, Any] | None = None
     response_path: str = ""
     confirm: bool = False
+    disabled: bool = False
     description: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -95,10 +109,12 @@ class ConnectorOperation:
             "capability": self.capability,
             "method": self.method,
             "path": self.path,
+            "base_url": self.base_url,
             "query": dict(self.query),
             "body": self.body,
             "response_path": self.response_path,
             "confirm": bool(self.confirm or self.capability == "action"),
+            "disabled": bool(self.disabled),
             "description": self.description,
         }
 
@@ -112,10 +128,12 @@ class ConnectorOperation:
             capability=str(raw.get("capability") or "list").strip(),
             method=str(raw.get("method") or "GET").strip().upper(),
             path=str(raw.get("path") or "").strip(),
+            base_url=str(raw.get("base_url") or "").strip(),
             query=dict(raw.get("query") or {}) if isinstance(raw.get("query"), dict) else {},
             body=raw.get("body") if isinstance(raw.get("body"), dict) else None,
             response_path=str(raw.get("response_path") or "").strip(),
             confirm=bool(raw.get("confirm")),
+            disabled=bool(raw.get("disabled")),
             description=str(raw.get("description") or "").strip(),
         )
         op.validate()
