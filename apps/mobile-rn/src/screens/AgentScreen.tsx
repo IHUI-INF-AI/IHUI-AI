@@ -896,6 +896,7 @@ function mapConversationToDrawer(c: ConversationDetail, untitled: string): Drawe
     modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
     createdAt,
     favorited: c.favorite === true,
+    source: c.source,
   }
 }
 
