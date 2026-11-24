@@ -10,7 +10,7 @@ import { checkAuth } from '../plugins/auth.js'
 import { recordAiCost } from '../plugins/ai-cost.js'
 import { success, error } from '../utils/response.js'
 import { zhsAiUserModelChatConfig, zhsAiUserModelChatHistory } from '@ihui/database'
-import { chatConversations, chatConversationGroups } from '@ihui/database'
+import { chatConversations, chatConversationGroups, chatMessages } from '@ihui/database'
 import { toUserFriendlyMessage } from '@ihui/shared'
 import { maskKey } from './v1-shared.js'
 import { safeFetch, assertSafeFetchUrl } from '../utils/ssrf-guard.js'
@@ -563,7 +563,7 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
       // 2026-11-24 统一后端:本条提问同步落一条统一会话(source=miniapp, source_ref=history.id),
       // 三端抽屉因此能看到同一条记录;失败只记警告(见 mirrorConversations 注释的降级方向)。
       try {
-        await db
+        const insertedConv = await db
           .insert(chatConversations)
           .values({
             userId: request.userId!,
@@ -574,6 +574,17 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
             sourceRef: history?.id ?? null,
           })
           .onConflictDoNothing()
+          .returning({ id: chatConversations.id })
+        // 镜像消息(2026-11-24):web / RN 打开这条跨端会话时不该是空对话 —— 小程序这张
+        // 历史表存的是用户原话(content),落一条 user 消息后对端就能看到「问的是什么」。
+        // 只在本轮**新建**会话时插(重复同步走冲突路径,不再补第二份)。
+        const newConvId = insertedConv[0]?.id
+        if (newConvId && replyContent) {
+          await db
+            .insert(chatMessages)
+            .values({ conversationId: newConvId, role: 'user', content: replyContent })
+            .onConflictDoNothing()
+        }
       } catch (err) {
         request.log.warn({ err }, '小程序会话同步落库失败(不影响历史写入)')
       }

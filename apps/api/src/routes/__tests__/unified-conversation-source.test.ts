@@ -94,13 +94,14 @@ describe('B. 统一会话表结构与幂等键', () => {
 })
 
 describe('C. 迁移装车（journal 登记 + 文件真实存在）', () => {
-  it('迁移文件已在 journal 登记且 idx/tag 唯一', () => {
+  it('迁移文件已在 journal 登记且本票 idx/tag 不与他人撞', () => {
     const journal = JSON.parse(read(JOURNAL)) as { entries: Array<{ idx: number; tag: string }> }
-    expect(journal.entries.some((e) => e.tag === '20261124120000_chat_conversation_source')).toBe(
-      true,
-    )
-    expect(new Set(journal.entries.map((e) => e.idx)).size).toBe(journal.entries.length)
-    expect(new Set(journal.entries.map((e) => e.tag)).size).toBe(journal.entries.length)
+    const tag = '20261124120000_chat_conversation_source'
+    const mine = journal.entries.filter((e) => e.tag === tag)
+    expect(mine).toHaveLength(1)
+    // 全表 idx/tag 唯一性归 `check-drizzle-journal-sync` 判(它是那条判据的唯一真相源);
+    // 本用例只拦「本票这条把 idx/tag 撞了」—— 远端存量重复(他席历史插入)不归本票(§0.5 棘轮)。
+    expect(journal.entries.filter((e) => e.idx === mine[0]!.idx)).toHaveLength(1)
   })
 
   it('收编脚本存在且带台账 / 回滚 / 未判定三件套', () => {

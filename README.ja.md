@@ -2227,6 +2227,7 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-24**
+- 🚀 機能/改善:RN 抽屉补异端来源徽章 + 七处会话映射透传 source (62719a7d5f)
 - 🚀 機能/改善:三端会话统一入库并标注录入端 (c19e006b54)
 - 🐞 修正:knowledge_lookup 默认继承工作区根访问闸 (5a01828582)
 - 🚀 機能/改善:ALPC 通道抽象层 + Job 判活谓词（P3-01/P3-04 fail-closed） (390022b993)
