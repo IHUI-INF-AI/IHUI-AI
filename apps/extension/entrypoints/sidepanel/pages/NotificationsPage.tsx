@@ -13,6 +13,7 @@ import {
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { fmtDate } from '../../../lib/date-utils'
+import { NOTIFICATION_UNREAD_REFRESH_EVENT } from '../../../lib/config'
 
 export default function NotificationsPage() {
   const { t } = useI18n()
@@ -44,11 +45,17 @@ export default function NotificationsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时加载一次,load 依赖 t/setState 但无需重跑
   }, [])
 
+  // 标记成功后让 header 铃铛重拉服务端真相(本页 unread 是 local 派生,不当权威)。
+  const notifyHeader = () => {
+    window.dispatchEvent?.(new Event(NOTIFICATION_UNREAD_REFRESH_EVENT))
+  }
+
   const onMarkAll = async () => {
     const res = await markAllNotificationsRead()
     if (res.success) {
       setItems((prev) => prev.map((n) => ({ ...n, isRead: true })))
       setUnread(0)
+      notifyHeader()
     }
   }
 
@@ -57,6 +64,7 @@ export default function NotificationsPage() {
     if (res.success) {
       setItems((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
       setUnread((u) => Math.max(0, u - 1))
+      notifyHeader()
     }
   }
 

@@ -2,10 +2,10 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Bell, Bot, BookOpen, MessageCircle, Settings, User } from 'lucide-react'
 import { NavLink, Navigate, Outlet, Route, Routes, useNavigate, useParams } from 'react-router-dom'
-import { getProfile, logout, type AuthUser, type LoginResult } from '@ihui/api-client'
+import { getProfile, getUnreadCount, logout, type AuthUser, type LoginResult } from '@ihui/api-client'
 import { classifyRefreshFailureStatus } from '@ihui/shared/auth/auto-login-policy'
 import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 import {
@@ -17,7 +17,7 @@ import {
   SESSION_EXPIRED_EVENT,
 } from '../../lib/token'
 import { startAutoRefresh, scheduleRefreshAlarm, doRefresh } from '../../lib/token-utils'
-import { TOKEN_STORAGE_KEY } from '../../lib/config'
+import { NOTIFICATION_UNREAD_REFRESH_EVENT, TOKEN_STORAGE_KEY } from '../../lib/config'
 import { useNotificationWebSocket } from '../../lib/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../../lib/notification-store'
 import { isComponentType } from '../../lib/is-component-type'
@@ -104,6 +104,38 @@ function SidepanelInner() {
   const [token, setTokenState] = useState<string | null>(null)
   const { connected: wsConnected, lastMessage } = useNotificationWebSocket(token)
   const { addFromWs, unreadCount, setVisible } = useNotificationStore()
+  // 未读角标取服务端真相(与 web use-global-notification 同纪律)。本地 store 的 unreadCount
+  // 只从本次会话 WS 累积派生,打开侧栏即为 0、且对他端已读/删除无感 ⇒ 不能当角标真相。
+  // null = 尚未拿到权威值,此时回退本地派生(不冒充 0);拿到后一律用服务端数。
+  const [serverUnread, setServerUnread] = useState<number | null>(null)
+  const refreshUnread = useCallback(() => {
+    void getUnreadCount()
+      .then((res) => {
+        if (res.success && res.data) setServerUnread(res.data.notification ?? 0)
+      })
+      .catch(() => {
+        // 静默失败:保留上一次权威值,不把失败冒充 0
+      })
+  }, [])
+
+  // 登录态就绪后拉一次权威未读数(覆盖"打开侧栏角标 0"缺口)
+  useEffect(() => {
+    if (!authed) return
+    refreshUnread()
+  }, [authed, refreshUnread])
+
+  // 收到新通知 WS 帧后重拉:服务端未读数已变,本地只加条目不重算角标
+  useEffect(() => {
+    if (!lastMessage) return
+    refreshUnread()
+  }, [lastMessage, refreshUnread])
+
+  // 同页通知列表标记已读/全部已读后,铃铛立即重拉(单一真相事件名走 config)
+  useEffect(() => {
+    const onChange = () => refreshUnread()
+    window.addEventListener(NOTIFICATION_UNREAD_REFRESH_EVENT, onChange)
+    return () => window.removeEventListener(NOTIFICATION_UNREAD_REFRESH_EVENT, onChange)
+  }, [refreshUnread])
 
   useEffect(() => {
     addFromWs(lastMessage)
@@ -291,9 +323,9 @@ function SidepanelInner() {
                 aria-label={t('nav.notifications')}
               >
                 <Bell size={16} className="shrink-0" aria-hidden />
-                {unreadCount > 0 ? (
+                {(serverUnread ?? unreadCount) > 0 ? (
                   <span className="absolute -top-0.5 -right-1 min-w-3.5 h-3.5 px-1 rounded-md bg-destructive text-primary-foreground text-[9px] leading-3.5 text-center font-semibold">
-                    {unreadCount}
+                    {serverUnread ?? unreadCount}
                   </span>
                 ) : null}
               </button>

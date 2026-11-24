@@ -75,6 +75,13 @@ export async function initApiBaseUrl(): Promise<void> {
 export const API_BASE_URL = DEFAULT_API_BASE_URL
 /** @deprecated 使用 getBridgeBaseUrl() 替代。此常量不会在 initApiBaseUrl() 后更新。 */
 export const BRIDGE_BASE_URL = `${DEFAULT_API_BASE_URL}/api/agent-control`
+/**
+ * sidepanel 通知页标记已读/全部已读后,通知 header 铃铛重拉权威未读数的同页信号。
+ * 铃铛取服务端 getUnreadCount 真相(与 web 同纪律),不用本地 WS 累积条目数派生 ——
+ * 后者打开即为 0、且对他端已读无感。事件名单一真相源,两个组件只 import 不硬编码。
+ */
+export const NOTIFICATION_UNREAD_REFRESH_EVENT = 'ihui:notification-unread-refresh'
+
 export {
   TOKEN_STORAGE_KEY,
   REFRESH_TOKEN_STORAGE_KEY,
