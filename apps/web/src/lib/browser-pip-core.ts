@@ -70,7 +70,7 @@ export function storePipSize(size: PipSize, storage?: WritableStorage | null): v
   }
 }
 
-export type BrowserPipPhase = 'running' | 'waiting' | 'error'
+export type BrowserPipPhase = 'running' | 'waiting' | 'gate' | 'error'
 
 export type BrowserPipStatusKind =
   'connecting' | 'running' | 'stalled' | 'waiting' | 'gate' | 'error'
@@ -105,6 +105,9 @@ export function resolveBrowserPipStatus(input: BrowserPipStatusInput): BrowserPi
 
   if (input.phase === 'error') return { kind: 'error', stalledSeconds }
   if (input.phase === 'waiting') return { kind: 'waiting', stalledSeconds }
+  // 服务端按 URL 自动判出的登录/验证墙:比"连接中/停更"更该让人看到 ——
+  // 它说明 AI 现在过不去,不是网络坏了。
+  if (input.phase === 'gate') return { kind: 'gate', stalledSeconds }
   if (!input.connected) return { kind: 'connecting', stalledSeconds }
   if (input.lastFrameAt > 0 && input.now - input.lastFrameAt >= PIP_STALL_MS) {
     return { kind: 'stalled', stalledSeconds }

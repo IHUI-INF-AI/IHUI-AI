@@ -393,7 +393,10 @@ export async function openBrowserPipMonitor(
           refresh()
         } else if (msg.type === 'phase') {
           // 服务端人工节点状态:自动化说"停下来等人"时,浮窗不用自己猜。
-          phase = msg.phase === 'waiting' || msg.phase === 'error' ? msg.phase : 'running'
+          phase =
+            msg.phase === 'waiting' || msg.phase === 'gate' || msg.phase === 'error'
+              ? msg.phase
+              : 'running'
           refresh()
         }
       } catch {

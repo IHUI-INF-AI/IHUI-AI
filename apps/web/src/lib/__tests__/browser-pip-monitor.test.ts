@@ -160,6 +160,9 @@ describe('openBrowserPipMonitor:真实浮窗 DOM 与状态流转', () => {
     ws.emitMessage({ type: 'phase', phase: 'waiting', reason: 'login required' })
     expect(win.document.body.textContent).toContain('Waiting for you')
 
+    ws.emitMessage({ type: 'phase', phase: 'gate', reason: 'login-or-captcha' })
+    expect(win.document.body.textContent).toContain('Login or verification page')
+
     ws.emitMessage({ type: 'phase', phase: 'running' })
     expect(win.document.body.textContent).toContain('Running')
   })

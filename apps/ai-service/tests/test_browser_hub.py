@@ -850,6 +850,62 @@ async def test_remove_phase_handler_stops_delivery():
     assert [s["phase"] for s in got] == ["running"]
 
 
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://accounts.example.com/login", True),
+        ("https://example.com/sign-in?next=/x", True),
+        ("https://login.example.com/", True),
+        ("https://example.com/captcha", True),
+        ("https://example.com/blog/how-to-login", False),
+        ("https://example.com/article?tag=login", False),
+        ("about:blank", False),
+        ("", False),
+    ],
+)
+def test_detect_human_gate(url, expected):
+    """登录闸判据:按路径整段/主机前缀/query 键名,不做子串匹配。"""
+    assert bh.detect_human_gate(url) is expected
+
+
+async def test_navigation_gate_autosets_and_clears_phase():
+    """导航到登录页 → 自动 gate;离开 → 自动收回 running。"""
+    session = _make_session(page=FakePage(url="https://example.com/login"))
+    states: list[dict] = []
+
+    async def on_phase(state):
+        states.append(state)
+
+    await session.set_phase_handler(on_phase)
+    await session._sync_gate_phase("https://example.com/login")
+    assert states[-1] == {"phase": "gate", "reason": "login-or-captcha"}
+
+    await session._sync_gate_phase("https://example.com/dashboard")
+    assert states[-1]["phase"] == "running"
+
+
+async def test_auto_gate_does_not_override_manual_waiting():
+    """人工已经声明 waiting 时,自动判据不改口。"""
+    session = _make_session(page=FakePage(url="https://example.com/login"))
+    await session.set_phase("waiting", "agent paused for user")
+    await session._sync_gate_phase("https://example.com/login")
+    assert session._phase_state["phase"] == "waiting"
+
+
+async def test_navigation_listener_marks_gate_automatically():
+    """真实链路:page.on(framenavigated) → 自动判 gate,不需要任何观众。"""
+    page = FakePage(url="https://example.com/login")
+    session = _make_session(page=page)
+
+    async def on_nav(url, title):
+        pass
+
+    await session.set_navigation_handler(on_nav)
+    page.on_handlers["framenavigated"][0](page.main_frame)
+    await asyncio.sleep(0.05)
+    assert session._phase_state["phase"] == "gate"
+
+
 async def test_close_detaches_cdp_and_closes_context():
     ctx = FakeContext()
     session = _make_session(context=ctx)

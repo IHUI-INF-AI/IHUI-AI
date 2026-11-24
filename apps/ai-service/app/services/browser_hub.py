@@ -44,7 +44,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, TypeVar, cast
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from playwright.sync_api import (
     Browser,
@@ -57,6 +57,38 @@ from playwright.sync_api import (
 from ..core.logging import get_logger
 
 logger = get_logger(__name__)
+
+# 人工闸识别(2026-11-25):与 web 侧 browser-pip-core 的 looksLikeHumanGate 同一套
+# 结构判据 —— 路径整段 / 主机前缀 / query 键名,不用子串。`/blog/how-to-login`
+# 这类内容页不能误判成登录页;误报会让状态条一直喊"需要验证",比不提示更伤信任。
+_GATE_PATH_SEGMENTS = frozenset({
+    "login", "log-in", "log_in", "signin", "sign-in", "sign_in",
+    "verify", "verification", "captcha", "challenge", "2fa",
+    "two-factor", "sso", "passport", "oauth", "authorize",
+})
+_GATE_QUERY_KEYS = frozenset({"verify", "verification", "captcha", "login", "signin", "sso"})
+_GATE_HOST_PREFIXES = ("login.", "signin.", "sso.", "auth.", "passport.")
+
+
+def detect_human_gate(url: str | None) -> bool:
+    """URL 是否像登录/验证/风控页。只做提示,不做"必须接管"的判定。"""
+    if not url:
+        return False
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return False
+    if host.startswith(_GATE_HOST_PREFIXES):
+        return True
+    segments = {segment.lower() for segment in parsed.path.split("/") if segment}
+    if segments & _GATE_PATH_SEGMENTS:
+        return True
+    query_keys = set(parse_qs(parsed.query, keep_blank_values=True))
+    return bool(query_keys & _GATE_QUERY_KEYS)
+
 
 _T = TypeVar("_T")
 
@@ -864,6 +896,9 @@ class BrowserSession:
             Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
         ] = []
         self._phase_state: dict[str, Any] = {"phase": "running", "reason": None}
+        # 谁设的:manual(编排层明确声明)/ auto(本服务按 URL 自动判 gate)/ system
+        # 自动判 gate 不能把人工声明的 waiting 顶掉 —— 人明确说在等,机器别改口。
+        self._phase_source = "system"
         self._lock = threading.Lock()
         # 2026-11-08 运行时观测:console / network 各有独立环形缓冲,读写线程不同,
         # 由 BrowserEventBuffer 内部锁保护;enable 幂等,失败降级为"观测不可用"。
@@ -1145,6 +1180,9 @@ class BrowserSession:
                         for handler in tuple(self._navigation_handlers):
                             # title 在 sync 线程取可能为空,延迟到 main loop 取
                             self._schedule_coro(handler(url, None))
+                        # 登录/验证墙自动判:导航是唯一可靠的触发点,一次导航只判一次,
+                        # 与观众数无关(page.on 只挂了一条监听)。
+                        self._schedule_coro(self._sync_gate_phase(url))
                 except Exception as e:
                     logger.debug(f"[browser_hub] navigation 回调异常: {e}")
             self._page.on("framenavigated", _on_frame_navigated)
@@ -1164,10 +1202,9 @@ class BrowserSession:
             self._navigation_handlers.remove(on_nav)
 
     # ---- 人工节点(phase)----
-    # 状态机只认三档:running(自动化在跑)/ waiting(已停下来等人)/ error。
-    # 这里不做"登录页自动判 gate"那种推断 —— 那是前端按 URL 结构做的提示,
-    # 服务端只承载"谁在什么时候明确说了一句:现在需要人"。
-    _PHASE_VALUES = ("running", "waiting", "error")
+    # 状态机认四档:running(自动化在跑)/ waiting(已停下来等人)/ gate(页面像登录
+    # 或验证墙)/ error。gate 由本服务按 URL 结构自动判,不需要自动化显式声明。
+    _PHASE_VALUES = ("running", "waiting", "gate", "error")
 
     async def set_phase_handler(
         self, on_phase: Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
@@ -1188,17 +1225,22 @@ class BrowserSession:
         if on_phase in self._phase_handlers:
             self._phase_handlers.remove(on_phase)
 
-    async def set_phase(self, phase: str, reason: str | None = None) -> dict[str, Any]:
+    async def set_phase(
+        self, phase: str, reason: str | None = None, *, source: str = "manual"
+    ) -> dict[str, Any]:
         """把会话切到某个人工节点状态,并 fan-out 给所有观众。
 
         同一状态重复设置不重复广播(自动化轮询式调用不会刷屏);
         非法值一律归 running,不把未知字符串原样传给前端。
+        source=auto 是服务端按 URL 自动判的 gate;它不会覆盖人工声明的 waiting。
         """
         normalized = phase if phase in self._PHASE_VALUES else "running"
         next_state = {"phase": normalized, "reason": reason}
         if normalized == self._phase_state.get("phase") and reason == self._phase_state.get("reason"):
+            self._phase_source = source
             return dict(self._phase_state)
         self._phase_state = next_state
+        self._phase_source = source
         for handler in tuple(self._phase_handlers):
             try:
                 await handler(dict(next_state))
@@ -1207,6 +1249,19 @@ class BrowserSession:
             except Exception as e:
                 logger.debug(f"[browser_hub] phase 观众接收失败(跳过): {e}")
         return dict(next_state)
+
+    async def _sync_gate_phase(self, url: str) -> None:
+        """导航后按 URL 自动维护 gate:进登录/验证页标 gate,离开则收回 running。
+
+        人工声明的 waiting 是更高优先级:人已经说在等,自动判据不改口。
+        """
+        if self._phase_source == "manual" and self._phase_state.get("phase") == "waiting":
+            return
+        if detect_human_gate(url):
+            if self._phase_state.get("phase") != "gate":
+                await self.set_phase("gate", "login-or-captcha", source="auto")
+        elif self._phase_source == "auto" and self._phase_state.get("phase") == "gate":
+            await self.set_phase("running", None, source="auto")
 
     # ---- 画面流(截图轮询,2026-07-31 改)----
     # 原方案用 CDP Page.startScreencast,但 sync_playwright 的 CDP 事件回调在
