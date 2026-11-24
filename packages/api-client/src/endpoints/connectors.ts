@@ -364,6 +364,8 @@ export interface CoverageProbeRequest {
   api_ids: string[]
   domains: string[]
   limit: number
+  /** 分批游标(配合响应 nextOffset 翻页);缺省 0=首批,向后兼容 */
+  offset?: number
   read_only: boolean
 }
 
@@ -381,6 +383,8 @@ export interface CoverageProbeItem {
 export interface CoverageProbeResponse {
   probed: number
   skipped: number
+  /** 下一批游标;null/缺省=已探完全部 eligible(旧后端无此字段时按 null 兼容) */
+  nextOffset?: number | null
   summary: Record<string, unknown>
   results: CoverageProbeItem[]
 }

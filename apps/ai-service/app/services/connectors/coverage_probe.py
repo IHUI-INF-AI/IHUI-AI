@@ -199,8 +199,12 @@ def classify_outcome(
         state = _CODE_MAPS[platform][code_str]
     elif http_code is not None and http_code in _HTTP_MAP:
         state = _HTTP_MAP[http_code]
-        if http_code in _HTTP_REASON_HINT and not message:
-            message = _HTTP_REASON_HINT[http_code]
+        # 404/405 原因提示必须进结果库,不能在真实链路上丢失:执行器捕获
+        # _PartialFailure 时必传 reason=str(exc)(至少 "上游返回 404"),此前
+        # `and not message` 在该链路恒假 ⇒ 提示永远不落库。改为该档必带、去重追加。
+        if http_code in _HTTP_REASON_HINT and _HTTP_REASON_HINT[http_code] not in message:
+            hint = _HTTP_REASON_HINT[http_code]
+            message = f"{message} | {hint}" if message else hint
     else:
         state = coverage.STATUS_ERROR
 
@@ -258,14 +262,33 @@ def _user_token_outcome(api: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# 执行层异常里,只有"明确指向用户态令牌缺失/失效"才算 need_user_token。
+# 宽泛 token 关键词命中会把配置缺失(未配置 app_id/app_secret/bearer token)
+# 和租户凭据获取失败(平台代码错或故障)误判成 need_user_token —— 这些真实
+# 原因都不是"用户态授权",落 error 才诚实,也不会被平台码映射掩盖。
+_USER_TOKEN_ERROR_MARKERS = (
+    "用户令牌刷新失败",
+    "请重新扫码授权",
+    "需要用户授权",
+    "user token",
+    "user_access_token",
+    "useraccess",
+)
+
+
 def classify_execution_error(exc: Exception) -> dict[str, Any]:
-    """执行层异常归类:令牌/凭证类 → need_user_token;其余 → error。"""
+    """执行层异常归类:仅明确的用户态令牌失效 → need_user_token;其余 → error。
+
+    配置缺失、租户凭据错误/平台故障此前会被宽泛 "token/secret/app_id" 关键词
+    误判成 need_user_token;现改为结构化标记,宁可落 error(如实)也不冒用户态。
+    """
     text = str(exc)
     lowered = text.lower()
-    if any(token in lowered for token in ("token", "secret", "凭证", "凭据", "app_id")):
-        state = coverage.STATUS_NEED_USER_TOKEN
-    else:
-        state = coverage.STATUS_ERROR
+    state = (
+        coverage.STATUS_NEED_USER_TOKEN
+        if any(marker in lowered for marker in _USER_TOKEN_ERROR_MARKERS)
+        else coverage.STATUS_ERROR
+    )
     return {
         "state": state,
         "http_code": None,
@@ -319,21 +342,30 @@ def upsert_result(
     session = _pg_session()
     if session is None:
         raise ProbeStoreUnavailable("PostgreSQL 不可用,探测结果未持久化(拒绝回落本地文件)")
-    session.execute(
-        _UPSERT_SQL,
-        (
-            tenant_id,
-            scope,
-            connector_key,
-            platform,
-            api_id,
-            str(outcome.get("state") or coverage.STATUS_UNPROBED),
-            outcome.get("http_code"),
-            str(outcome.get("platform_code") or ""),
-            str(outcome.get("reason") or "")[:300],
-            str(outcome.get("missing_scope") or ""),
-        ),
-    )
+    # 写库原生异常(断连/约束冲突/表结构变更)此前直接冒泡出 probe_apis,路由返 500、
+    # 整批内存结果连同已成功条目一起丢。读面 load_results 是 catch-all 降级;写面
+    # 对齐:任何 execute 失败统一转 ProbeStoreUnavailable,由 probe_apis 逐条捕获、
+    # 在 reason 标注"结果未持久化"后保留该条,不毁掉整批。
+    try:
+        session.execute(
+            _UPSERT_SQL,
+            (
+                tenant_id,
+                scope,
+                connector_key,
+                platform,
+                api_id,
+                str(outcome.get("state") or coverage.STATUS_UNPROBED),
+                outcome.get("http_code"),
+                str(outcome.get("platform_code") or ""),
+                str(outcome.get("reason") or "")[:300],
+                str(outcome.get("missing_scope") or ""),
+            ),
+        )
+    except ProbeStoreUnavailable:
+        raise
+    except Exception as exc:  # noqa: BLE001 - 写失败降级为逐条标注,不丢整批
+        raise ProbeStoreUnavailable(f"探测结果写入失败: {type(exc).__name__}: {exc}") from exc
 
 
 def load_results(tenant_id: str, platform: str) -> dict[str, dict[str, Any]]:
@@ -433,6 +465,7 @@ async def probe_apis(
     apis: list[dict[str, Any]],
     read_only: bool = True,
     limit: int = DEFAULT_PROBE_LIMIT,
+    offset: int = 0,
     executor: Executor | None = None,
     persist: Callable[[str, str, str, str, str, dict[str, Any]], None] | None = None,
     default_base_url: str = "",
@@ -441,6 +474,9 @@ async def probe_apis(
 
     - ``read_only=True``(默认)只探只读接口;写操作(action)跳过,不发起请求。
     - ``limit`` 单批上限 ``MAX_PROBE_LIMIT``;超出部分计入 skipped。
+    - ``offset`` 批内游标(默认 0,行为与此前完全一致):配合返回的 ``nextOffset``
+      让"探测全量"能分批翻页。此前无游标,前端只能探前 limit 条,第 limit+1 条
+      之后永远 unprobed。offset 缺省/非法(<0)一律按 0,向后兼容。
     - ``executor`` / ``persist`` 可注入,便于单测隔离真网与 PG。
     """
     executor_fn = executor or _default_executor
@@ -455,8 +491,12 @@ async def probe_apis(
             continue
         eligible.append((api, op))
 
-    capped = eligible[: max(0, min(limit, MAX_PROBE_LIMIT))]
+    take = max(0, min(limit, MAX_PROBE_LIMIT))
+    cursor = max(0, offset)  # 非法/缺省 offset 按 0,向后兼容
+    capped = eligible[cursor : cursor + take]
     skipped += len(eligible) - len(capped)
+    # 下一批游标:仅当本批之后仍有 eligible 时给出,否则 null(前端据此停止翻页)。
+    next_offset = cursor + take if cursor + take < len(eligible) else None
 
     summary: dict[str, int] = {status: 0 for status in coverage.ALL_STATUSES}
     results: list[dict[str, Any]] = []
@@ -498,6 +538,7 @@ async def probe_apis(
     return {
         "probed": len(results),
         "skipped": skipped,
+        "nextOffset": next_offset,
         "summary": {k: v for k, v in summary.items() if v or k in _PROBED_BUDGET_KEYS},
         "results": results,
     }

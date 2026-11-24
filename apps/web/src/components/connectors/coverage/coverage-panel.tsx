@@ -51,6 +51,12 @@ const PROBE_LIMIT_MIN = 1
 const PROBE_LIMIT_MAX = 200
 const PROBE_LIMIT_DEFAULT = 50
 
+/**
+ * "探测全量"分批翻页硬上限(防后端 nextOffset 异常导致前端死循环)。
+ * 60 批 × 每批 200 = 12000,已远超当前最大台账(飞书 1768 条),触顶即停并提示。
+ */
+const PROBE_MAX_BATCHES = 60
+
 /** 校验探测条数是否落在后端合法区间;越界返回 false,不发请求 */
 export function isProbeLimitValid(limit: number): boolean {
   return Number.isFinite(limit) && limit >= PROBE_LIMIT_MIN && limit <= PROBE_LIMIT_MAX
@@ -95,22 +101,57 @@ export function CoveragePanel({ connectors, onRefresh }: CoveragePanelProps) {
       }
       setProbing(true)
       try {
-        const r = await probeConnectorCoverage(activeKey, {
-          api_ids: [],
-          domains,
-          limit: PROBE_LIMIT_DEFAULT,
-          read_only: true,
-        })
-        if (r.success && r.data) {
+        // "探测全量"必须真翻页:后端单批上限 200,此前固定 limit:50 且不传游标,
+        // 第 51 条之后永远 unprobed(机主点的"造好没装车")。按 nextOffset 循环拉完。
+        // 首批不传 offset(走后端缺省 0,兼容旧契约/测试),后续批显式带游标。
+        let offset: number | undefined
+        let totalProbed = 0
+        let totalSkipped = 0
+        let batches = 0
+        let hitCap = false
+        const collected: CoverageProbeItem[] = []
+        while (batches < PROBE_MAX_BATCHES) {
+          const r = await probeConnectorCoverage(activeKey, {
+            api_ids: [],
+            domains,
+            limit: PROBE_LIMIT_DEFAULT,
+            ...(offset === undefined ? {} : { offset }),
+            read_only: true,
+          })
+          if (!r.success || !r.data) {
+            if (batches === 0) {
+              toast.error(`探测失败:${r.error ?? '未知错误'}`)
+              return
+            }
+            // 后续批失败:保留已拿到批次的结果,如实提示部分完成,不冒充全量对齐
+            break
+          }
+          batches += 1
+          totalProbed += r.data.probed ?? 0
+          totalSkipped += r.data.skipped ?? 0
+          for (const item of r.data.results ?? []) collected.push(item)
+          const next = r.data.nextOffset ?? null
+          if (next === null) break
+          // 防御:游标未前进则停,避免后端异常导致重复拉同一批死循环
+          if (offset !== undefined && next <= offset) {
+            hitCap = true
+            break
+          }
+          offset = next
+          if (batches >= PROBE_MAX_BATCHES) hitCap = true
+        }
+        if (collected.length > 0) {
           setOverrides((prev) => {
             const next = { ...prev }
-            for (const item of r.data?.results ?? []) next[item.api_id] = item
+            for (const item of collected) next[item.api_id] = item
             return next
           })
-          toast.success(`探测完成:已探测 ${r.data.probed} 条,跳过 ${r.data.skipped} 条`)
-        } else {
-          toast.error(`探测失败:${r.error ?? '未知错误'}`)
         }
+        toast.success(
+          hitCap
+            ? `探测完成:已探测 ${totalProbed} 条(达分批上限 ${PROBE_MAX_BATCHES},可能仍有未探接口)`
+            : `探测完成:共 ${batches} 批,已探测 ${totalProbed} 条,跳过 ${totalSkipped} 条`,
+        )
       } catch (err) {
         toast.error(`探测失败:${err instanceof Error ? err.message : '网络异常'}`)
       } finally {

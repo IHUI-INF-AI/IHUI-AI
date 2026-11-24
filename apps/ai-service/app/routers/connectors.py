@@ -157,6 +157,7 @@ class ProbeRequest(BaseModel):
     api_ids: list[str] = Field(default_factory=list, description="指定探测的 API id;空=按 domains/全量")
     domains: list[str] = Field(default_factory=list, description="按业务域筛选")
     limit: int = Field(DEFAULT_PROBE_LIMIT, description="单批探测上限(1..MAX_PROBE_LIMIT)")
+    offset: int = Field(0, ge=0, description="分批游标(配合响应 nextOffset 翻页;缺省 0=首批)")
     read_only: bool = Field(True, description="只探只读接口;false 才纳入写操作(仍走确认/写权限门)")
 
 
@@ -699,6 +700,7 @@ async def probe_connector(
             apis=apis,
             read_only=req.read_only,
             limit=req.limit,
+            offset=req.offset,
             default_base_url=bundle.base_url,
         )
         return result

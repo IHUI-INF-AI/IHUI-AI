@@ -2,6 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -346,4 +349,47 @@ describe('状态徽章映射', () => {  it('八态文案与既有 Badge 变体�
     expect(overridden.http_code).toBe(200)
   })
 })
+
+  it('探测全量分批:按 nextOffset 翻页,第二批显式带 offset、两批结果都回填', async () => {
+    mocks.probe.mockReset()
+    mocks.coverage.mockResolvedValue({ success: true, data: okCatalog })
+    const batch1 = {
+      probed: 1,
+      skipped: 0,
+      nextOffset: 50,
+      summary: {},
+      results: [{ api_id: 'api-2', state: 'available', http_code: 200, platform_code: null, reason: '', missing_scope: '' }],
+    }
+    const batch2 = {
+      probed: 1,
+      skipped: 0,
+      nextOffset: null,
+      summary: {},
+      results: [{ api_id: 'api-1', state: 'available', http_code: 200, platform_code: null, reason: '', missing_scope: '' }],
+    }
+    mocks.probe.mockResolvedValueOnce({ success: true, data: batch1 })
+    mocks.probe.mockResolvedValueOnce({ success: true, data: batch2 })
+    const installed = [{ type: 'feishu', key: 'feishu:main' }] as ConnectorEntry[]
+    const { findByText, findByRole } = renderPanel(installed)
+    await findByText('消息与群组')
+    const expand = await findByRole('button', { expanded: false })
+    expand.click()
+    const probeButton = await findByRole('button', { name: /探测全量/ })
+    probeButton.click()
+
+    await waitFor(() => expect(mocks.probe).toHaveBeenCalledTimes(2))
+    const first = mocks.probe.mock.calls[0]?.[1]
+    const second = mocks.probe.mock.calls[1]?.[1]
+    // 首批不传 offset(兼容旧契约),后续批显式带游标
+    expect(first).toEqual({ api_ids: [], domains: [], limit: 50, read_only: true })
+    expect(second).toEqual({ api_ids: [], domains: [], limit: 50, offset: 50, read_only: true })
+  })
+
+  it('变异锁:探测全量必须真翻页(固定 limit:50 无 nextOffset 消费即红)', () => {
+    const src = readFileSync(resolve(__dirname, '../coverage-panel.tsx'), 'utf8')
+    expect(src).toContain('const next = r.data.nextOffset ?? null')
+    expect(src).toContain('PROBE_MAX_BATCHES')
+    expect(src).toContain('...(offset === undefined ? {} : { offset })')
+  })
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

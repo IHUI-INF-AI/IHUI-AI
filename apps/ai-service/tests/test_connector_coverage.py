@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -874,4 +875,150 @@ async def test_probe_instance_not_found_404(monkeypatch):
             json={"limit": 50, "read_only": True},
         )
     assert res.status_code == 404
+
+async def test_classify_execution_error_structured():
+    """执行层异常:仅明确用户态令牌失效才 need_user_token,配置/租户故障落 error。"""
+    from app.services.connectors import custom_http
+
+    def state_of(msg: str) -> str:
+        return coverage_probe.classify_execution_error(
+            custom_http.ConnectorExecutionError(msg)
+        )["state"]
+
+    # 修正误判:配置缺失/租户凭据失败不再被宽泛 token 关键词判成 need_user_token
+    assert state_of("未配置 app_id/app_secret") == coverage.STATUS_ERROR
+    assert state_of("未配置 bearer token") == coverage.STATUS_ERROR
+    assert state_of("飞书 token 获取失败: invalid app (code=99991661)") == coverage.STATUS_ERROR
+    assert state_of("企业微信 token 获取失败: invalid credential") == coverage.STATUS_ERROR
+    # 修正漏判:用户态授权失效此前落 error,现准确判 need_user_token
+    assert state_of("用户令牌刷新失败,请重新扫码授权: refresh_token expired") == coverage.STATUS_NEED_USER_TOKEN
+
+
+async def test_probe_write_failure_does_not_drop_batch(monkeypatch):
+    """写库原生异常转 ProbeStoreUnavailable,probe_apis 逐条标注不丢整批。"""
+    apis = [_api(f"r{i}", "im") for i in range(3)]
+
+    async def fake_exec(record: dict[str, Any], op: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "state": "available",
+            "http_code": 200,
+            "platform_code": "",
+            "reason": "ok",
+            "missing_scope": "",
+        }
+
+    class BrokenSession:
+        def execute(self, sql: str, params: tuple[Any, ...] = ()) -> str:
+            raise RuntimeError("connection lost")
+
+    monkeypatch.setattr(coverage_probe, "_pg_session", lambda: BrokenSession())
+
+    out = await coverage_probe.probe_apis(
+        record={"key": "feishu:managed", "type": "feishu", "tenant_id": "t1", "scope": "u1"},
+        platform="feishu",
+        apis=apis,
+        read_only=True,
+        limit=10,
+        executor=fake_exec,
+    )
+    # 写失败不丢条目;每条 reason 如实标注未持久化
+    assert out["probed"] == 3
+    for item in out["results"]:
+        assert "结果未持久化" in item["reason"]
+
+
+def test_404_reason_hint_survives_real_executor_path():
+    """404 原因提示在 reason 非空(真实执行链)时也必须进结果,不再被吞。"""
+    out = coverage_probe.classify_outcome(
+        "feishu", 404, {"code": 404}, reason="上游返回 404"
+    )
+    assert out["state"] == coverage.STATUS_ERROR
+    assert "不能判定接口不支持" in out["reason"]
+    assert "上游返回 404" in out["reason"]
+
+
+def test_mutation_lock_batch_a():
+    """变异锁:三处修复任一被抹掉即红(判据必须真有牙)。"""
+    src = Path("app/services/connectors/coverage_probe.py").read_text(encoding="utf-8")
+    # ① 用户态标记结构化判定存在,且不再用宽泛 token 单命中
+    assert "_USER_TOKEN_ERROR_MARKERS" in src
+    assert '"token", "secret", "凭证", "凭据", "app_id"' not in src
+    # ② 写库异常转 ProbeStoreUnavailable
+    assert "raise ProbeStoreUnavailable(f\"探测结果写入失败" in src
+    # ③ 404/405 提示不再受 not message 约束(只认真实代码行,不认注释)
+    assert "if http_code in _HTTP_REASON_HINT and not message:" not in src
+    assert "if http_code in _HTTP_REASON_HINT and _HTTP_REASON_HINT[http_code] not in message:" in src
+
+
+async def test_probe_offset_pagination():
+    """分批游标:offset 翻页不重复、nextOffset 精确指向下批、末批为 None。"""
+    apis = [_api(f"r{i}", "im") for i in range(5)]
+
+    async def fake_exec(record: dict[str, Any], op: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "state": "available",
+            "http_code": 200,
+            "platform_code": "",
+            "reason": "ok",
+            "missing_scope": "",
+        }
+
+    kwargs = {
+        "record": {"key": "feishu:managed", "type": "feishu", "tenant_id": "t1", "scope": "u1"},
+        "platform": "feishu",
+        "apis": apis,
+        "read_only": True,
+        "limit": 2,
+        "executor": fake_exec,
+        "persist": lambda *a: None,
+    }
+    p1 = await coverage_probe.probe_apis(offset=0, **kwargs)
+    assert [r["api_id"] for r in p1["results"]] == ["r0", "r1"]
+    assert p1["nextOffset"] == 2
+
+    p2 = await coverage_probe.probe_apis(offset=2, **kwargs)
+    assert [r["api_id"] for r in p2["results"]] == ["r2", "r3"]
+    assert p2["nextOffset"] == 4
+
+    p3 = await coverage_probe.probe_apis(offset=4, **kwargs)
+    assert [r["api_id"] for r in p3["results"]] == ["r4"]
+    assert p3["nextOffset"] is None
+
+
+async def test_probe_offset_legacy_and_invalid():
+    """缺省/非法 offset 按 0,行为与此前完全一致(向后兼容)。"""
+    apis = [_api(f"r{i}", "im") for i in range(3)]
+
+    async def fake_exec(record: dict[str, Any], op: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "state": "available",
+            "http_code": 200,
+            "platform_code": "",
+            "reason": "ok",
+            "missing_scope": "",
+        }
+
+    base = {
+        "record": {"key": "feishu:managed", "type": "feishu", "tenant_id": "t1", "scope": "u1"},
+        "platform": "feishu",
+        "apis": apis,
+        "read_only": True,
+        "limit": 2,
+        "executor": fake_exec,
+        "persist": lambda *a: None,
+    }
+    legacy = await coverage_probe.probe_apis(**base)  # 不传 offset
+    assert [r["api_id"] for r in legacy["results"]] == ["r0", "r1"]
+    invalid = await coverage_probe.probe_apis(offset=-5, **base)
+    assert [r["api_id"] for r in invalid["results"]] == ["r0", "r1"]
+
+
+def test_mutation_lock_batch_b():
+    """变异锁:游标翻页判据抹掉即红。"""
+    probe_src = Path("app/services/connectors/coverage_probe.py").read_text(encoding="utf-8")
+    assert "nextOffset" in probe_src
+    assert "capped = eligible[cursor : cursor + take]" in probe_src
+    route_src = Path("app/routers/connectors.py").read_text(encoding="utf-8")
+    assert "offset=req.offset" in route_src
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
