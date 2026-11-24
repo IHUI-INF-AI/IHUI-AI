@@ -227,6 +227,35 @@ def _record_for_execution(rec: dict[str, Any], scope: str | None = None) -> dict
     return enriched
 
 
+def _make_refresh_persister(
+    rec: dict[str, Any],
+    scope: str,
+    tenant_id: str | None,
+    key: str,
+) -> custom_http.TokenRefreshedCallback:
+    """构造用户令牌刷新后的持久化回调,供 invoke/sync/fetch 三条路由复用。"""
+
+    def _persist_refreshed_token(cipher: str) -> None:
+        """用户令牌刷新成功:把新密文落回**原记录**并持久化。
+
+        执行副本经 managed.hydrate 注过托管凭据,不能直接拿它落库(会把
+        app_secret 写回);只从原记录 rec 派生,仅替换 user_oauth 密文。
+        作用域/租户沿用读取该记录时已校验的 scope/ctx.tenant_id,不采信
+        记录自报值 —— refresh_token 单次有效,漏落库下次刷新必失败。
+        """
+        updated = dict(rec)
+        extra = dict(rec.get("extra") or {})
+        extra[connector_oauth.USER_TOKEN_EXTRA_KEY] = cipher
+        updated["extra"] = extra
+        saved = connector_store.save(scope, updated, tenant_id=tenant_id)
+        if saved is None:
+            logger.error("[oauth] 刷新后新令牌持久化失败 key=%s", key)
+        else:
+            logger.info("[oauth] 刷新后新令牌已持久化 key=%s", key)
+
+    return _persist_refreshed_token
+
+
 def _safe_spec(rec: dict[str, Any]) -> dict[str, Any] | None:
     """传输配置的脱敏形态:请求头值一律不回传,只保留"哪些头已配置"。"""
     raw = rec.get("spec")
@@ -539,7 +568,17 @@ async def oauth_authorize(
         app_id = str(cred.get("app_id") or "")
         if not app_id:
             raise connector_oauth.ConnectorOAuthError("平台应用凭据缺少 app_id")
-        redirect = redirect_uri.strip() or _oauth_redirect_uri()
+        configured_redirect = _oauth_redirect_uri()
+        supplied_redirect = redirect_uri.strip()
+        # 回调端点硬编码 _oauth_redirect_uri():authorize 若放行任意 redirect_uri,
+        # 授权码会被发往该地址,而 token 换取仍用另一地址 —— 平台按 redirect_uri
+        # 必须逐字相等的规则必然拒换,还给"把 code 钓鱼到外部回调"留了口。
+        # 前端本就不传该参数;未配置白名单时只接受与已配置回调逐字相等的值。
+        if supplied_redirect and supplied_redirect != configured_redirect:
+            raise connector_oauth.ConnectorOAuthError(
+                "redirect_uri 与已配置回调地址不一致,拒绝授权"
+            )
+        redirect = supplied_redirect or configured_redirect
         if not redirect:
             raise connector_oauth.ConnectorOAuthError("未配置 OAuth 回调地址：请设置 FEISHU_REDIRECT_URI（生产示例已配）或 CONNECTOR_OAUTH_REDIRECT_URI")
         # state 带全 scope/tenant_id/user_id,回调原样回传,
@@ -559,8 +598,19 @@ async def oauth_authorize(
         # 传入的 oauth_scope 优先,可覆盖平台默认 scope。
         for key, value in cfg.authorize_extra_params:
             params[key] = value
-        if oauth_scope.strip():
-            params["scope"] = oauth_scope.strip()
+        requested = oauth_scope.strip()
+        if requested:
+            params["scope"] = requested
+        # 平台默认 scope 与用户 scope 合并去重:飞书默认 offline_access 才能拿到
+        # refresh_token,且不覆盖用户额外申请的 scope。钉钉 default_oauth_scope
+        # 为空,scope=openid 原样保留(其 refreshToken 机制不同,不加 offline_access)。
+        if cfg.default_oauth_scope:
+            merged = str(params.get("scope") or "").split()
+            for scope_part in cfg.default_oauth_scope.split():
+                if scope_part not in merged:
+                    merged.append(scope_part)
+            if merged:
+                params["scope"] = " ".join(merged)
         url = f"{cfg.authorize_url}?{urlencode(params)}"
         return {"url": url, "state": state, "platform": platform, "expires_in": connector_oauth.STATE_TTL_SECONDS}
     except connector_oauth.ConnectorOAuthError as exc:
@@ -887,7 +937,12 @@ async def sync_connector(
                 return _error(500, "连接器模块未就绪")
             result = await mod.sync(exec_rec)
         else:
-            result = await custom_http.sync(exec_rec)
+            result = await custom_http.sync(
+                exec_rec,
+                on_token_refreshed=_make_refresh_persister(
+                    rec, scope, ctx.tenant_id, req.key
+                ),
+            )
 
         ok = bool(result.get("ok"))
         raw_items = result.get("items")
@@ -946,7 +1001,11 @@ async def fetch_connector_document(
             result = await mod.fetch_document(exec_rec, req.doc_id.strip())
         else:
             result = await custom_http.fetch_document(
-                exec_rec, req.doc_id.strip()
+                exec_rec,
+                req.doc_id.strip(),
+                on_token_refreshed=_make_refresh_persister(
+                    rec, scope, ctx.tenant_id, key
+                ),
             )
         return result if isinstance(result, dict) else {"ok": False, "message": "模块返回异常"}
     except Exception as e:  # noqa: BLE001
@@ -990,7 +1049,12 @@ async def invoke_connector_operation(
                 return _error(400, "写操作需要二次确认(confirm=true)")
 
         result = await custom_http.invoke(
-            _record_for_execution(rec, scope), req.operation_id, req.params
+            _record_for_execution(rec, scope),
+            req.operation_id,
+            req.params,
+            on_token_refreshed=_make_refresh_persister(
+                rec, scope, ctx.tenant_id, key
+            ),
         )
         if str(target.get("capability")) == "action":
             custom_http.audit_write(rec, user_id, req.operation_id)

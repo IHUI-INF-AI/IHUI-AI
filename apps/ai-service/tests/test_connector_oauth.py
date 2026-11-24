@@ -10,9 +10,12 @@ fail-closed(未授权不得回落 tenant 令牌)。
 
 from __future__ import annotations
 
+import json
 import os
+import time
 from typing import Any
 
+import httpx
 import pytest
 
 os.environ.setdefault("CONNECTOR_OAUTH_STATE_SECRET", "test-state-secret-32chars-minimum")
@@ -195,6 +198,364 @@ async def test_auth_parts_no_user_token_fails_closed():
 
 
 # ---------------------------------------------------------------------------
+# 刷新关键分支:临近过期 → 真实 refresh 请求 → 新令牌注入 → 新密文持久化
+# ---------------------------------------------------------------------------
+
+
+class _FakeResponse:
+    """httpx.Response 最小替身(refresh 与操作请求共用)。"""
+
+    def __init__(self, data: dict[str, Any], status_code: int = 200) -> None:
+        self._data = data
+        self.status_code = status_code
+        self.content = json.dumps(data, ensure_ascii=False).encode()
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
+
+    def json(self) -> dict[str, Any]:
+        return self._data
+
+
+class _RefreshHttpClient:
+    """httpx.AsyncClient 替身:拦截 refresh POST 与操作请求,记录调用参数。
+
+    执行层的 refresh 与操作请求都走它,便于断言"刷新请求字段正确 / 新令牌进
+    header / 全程不触网"。
+    """
+
+    def __init__(self, token_payload: dict[str, Any]) -> None:
+        self.token_payload = token_payload
+        self.refresh_calls: list[tuple[str, dict[str, Any]]] = []
+        self.operation_headers: dict[str, str] = {}
+
+    def __call__(self, *args: Any, **kwargs: Any) -> "_RefreshHttpClient":
+        return self
+
+    async def __aenter__(self) -> "_RefreshHttpClient":
+        return self
+
+    async def __aexit__(self, *exc: Any) -> None:
+        return None
+
+    async def post(self, url: str, json: dict[str, Any] | None = None) -> _FakeResponse:
+        self.refresh_calls.append((url, dict(json or {})))
+        return _FakeResponse(self.token_payload)
+
+    async def request(self, method: str, url: str, **kwargs: Any) -> _FakeResponse:
+        headers = kwargs.get("headers") or {}
+        self.operation_headers.update({str(k): str(v) for k, v in headers.items()})
+        return _FakeResponse({"items": [], "code": 0})
+
+
+async def _no_op_validate_outbound_url(
+    url: str, *, allow_private_hosts: bool = False
+) -> None:
+    """测试隔离:刷新用例不验 DNS,避免真解析外网域名。"""
+    return None
+
+
+def _near_expiry_token() -> dict[str, Any]:
+    """1 分钟后过期:落在 300s 提前刷新窗口内,但尚未真正过期。"""
+    return {
+        "access_token": "u-old-token",
+        "refresh_token": "r-old-token",
+        "expires_at": int(time.time()) + 60,
+        "token_type": "Bearer",
+        "scope": "offline_access",
+    }
+
+
+def _refreshed_payload() -> dict[str, Any]:
+    """飞书 v2 刷新响应(snake_case):新 access_token + 新 refresh_token。"""
+    return {
+        "code": 0,
+        "access_token": "u-new-token",
+        "refresh_token": "r-new-token",
+        "expires_in": 7200,
+        "token_type": "Bearer",
+        "scope": "offline_access",
+    }
+
+
+@pytest.mark.asyncio
+async def test_refresh_request_fields_and_new_token_in_header(monkeypatch):
+    """临近过期触发真实刷新:请求字段按官方映射,新 access_token 注入 header。"""
+    record = {
+        "key": "feishu:user-oauth",
+        "app_id": "cli_x",
+        "app_secret": "sec",
+        "extra": {oauth.USER_TOKEN_EXTRA_KEY: oauth.encrypt_user_token(_near_expiry_token())},
+    }
+    spec = ConnectorSpec.from_dict({"auth_kind": "feishu_user", "auth_name": "Authorization"})
+    fake = _RefreshHttpClient(_refreshed_payload())
+    monkeypatch.setattr(httpx, "AsyncClient", fake)
+
+    headers, params = await custom_http._auth_parts(record, spec)
+
+    assert len(fake.refresh_calls) == 1, "必须恰好触发一次 refresh"
+    url, body = fake.refresh_calls[0]
+    assert url == "https://open.feishu.cn/open-apis/authen/v2/oauth/token"
+    assert body == {
+        "grant_type": "refresh_token",
+        "client_id": "cli_x",
+        "client_secret": "sec",
+        "refresh_token": "r-old-token",
+    }
+    assert headers["Authorization"] == "Bearer u-new-token", "新令牌必须注入 header"
+    assert params == {}
+
+
+@pytest.mark.asyncio
+async def test_refresh_writes_back_cipher_and_notifies(monkeypatch):
+    """刷新后新密文写回记录并回调上层(变异验证:删写回或删回调即变红)。"""
+    old_cipher = oauth.encrypt_user_token(_near_expiry_token())
+    record = {
+        "key": "feishu:user-oauth",
+        "app_id": "cli_x",
+        "app_secret": "sec",
+        "extra": {oauth.USER_TOKEN_EXTRA_KEY: old_cipher},
+    }
+    spec = ConnectorSpec.from_dict({"auth_kind": "feishu_user", "auth_name": "Authorization"})
+    fake = _RefreshHttpClient(_refreshed_payload())
+    monkeypatch.setattr(httpx, "AsyncClient", fake)
+
+    notified: list[str] = []
+    await custom_http._auth_parts(
+        record, spec, on_token_refreshed=lambda cipher: notified.append(cipher)
+    )
+
+    new_cipher = record["extra"][oauth.USER_TOKEN_EXTRA_KEY]
+    assert new_cipher != old_cipher, "密文必须被替换(变异:去掉写回则此处失败)"
+    assert len(notified) == 1 and notified[0] == new_cipher, "回调必须拿到同一份新密文"
+    fresh = oauth.decrypt_user_token(new_cipher)
+    assert fresh["access_token"] == "u-new-token"
+    assert fresh["refresh_token"] == "r-new-token", "refresh_token 单次有效,必须落新值"
+    assert fresh["expires_at"] > time.time(), "新过期时间必须被刷新"
+
+
+@pytest.mark.asyncio
+async def test_refresh_persists_to_store_via_invoke_route(monkeypatch):
+    """端到端:invoke 触发刷新后新密文必须真落库,重读可解密出新令牌。"""
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient as RealAsyncClient
+
+    from app.core.jwt_auth import require_request_user_id
+    from app.routers import connectors as router_mod
+    from app.routers.connectors import connector_scope
+    from app.services import connector_store
+    from app.services.connectors import managed
+    from tests._connector_fake import FakeSession
+
+    fake_store = FakeSession()
+    monkeypatch.setattr(connector_store, "_pg_session", lambda: fake_store)
+    monkeypatch.setattr(
+        managed,
+        "credentials",
+        lambda platform, scope=None: {
+            "app_id": "cli_x",
+            "app_secret": "sec",
+            "extra": {},
+            "source": "platform_env",
+        },
+    )
+    monkeypatch.setattr(custom_http, "validate_outbound_url", _no_op_validate_outbound_url)
+
+    old_cipher = oauth.encrypt_user_token(_near_expiry_token())
+    stored = connector_store.save(
+        "user-1",
+        {
+            "key": "feishu:user-oauth",
+            "type": "feishu",
+            "name": "飞书用户授权",
+            "app_id": "",
+            "app_secret": "",
+            "extra": {oauth.USER_TOKEN_EXTRA_KEY: old_cipher},
+            "mode": "preset",
+            "spec": {
+                "base_url": "https://open.feishu.cn/open-apis",
+                "auth_kind": "feishu_user",
+                "auth_name": "Authorization",
+            },
+            "operations": [
+                {
+                    "id": "list_items",
+                    "capability": "list",
+                    "method": "GET",
+                    "path": "/items",
+                    "response_path": "items",
+                }
+            ],
+            "enabled": True,
+            "managed": True,
+            "credential_source": "platform_env",
+        },
+    )
+    assert stored is not None
+
+    # 先构造 ASGI 客户端:它的 AsyncClient 必须绑定真类,不受下面的替身影响
+    app = FastAPI()
+    app.include_router(router_mod.router, prefix="/api")
+    app.dependency_overrides[require_request_user_id] = lambda: "user-1"
+    app.dependency_overrides[connector_scope] = lambda: "user-1"
+
+    fake_http = _RefreshHttpClient(_refreshed_payload())
+    monkeypatch.setattr(httpx, "AsyncClient", fake_http)
+
+    async with RealAsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        resp = await client.post(
+            "/api/connectors/feishu:user-oauth/invoke",
+            json={"operation_id": "list_items", "params": {}},
+        )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["ok"] is True
+
+    # 关键断言(变异:去掉路由回调/回写则此处失败):落库密文被替换且可解密
+    reread = connector_store.get("user-1", "feishu:user-oauth")
+    assert reread is not None
+    new_cipher = reread["extra"][oauth.USER_TOKEN_EXTRA_KEY]
+    assert new_cipher != old_cipher
+    assert oauth.decrypt_user_token(new_cipher)["access_token"] == "u-new-token"
+    assert fake_http.operation_headers.get("Authorization") == "Bearer u-new-token"
+
+
+def _setup_refresh_route(monkeypatch):
+    """sync/fetch 路由刷新用例的公共装配:假 store + 平台凭据 + 临期令牌记录。
+
+    返回 (app, old_cipher, fake_http)。本函数会 monkeypatch httpx.AsyncClient,
+    调用方须在调用前绑定真 AsyncClient(复用 invoke 用例的写法)。
+    """
+    from fastapi import FastAPI
+
+    from app.core.jwt_auth import require_request_user_id
+    from app.routers import connectors as router_mod
+    from app.routers.connectors import connector_scope
+    from app.services import connector_store
+    from app.services.connectors import managed
+    from tests._connector_fake import FakeSession
+
+    fake_store = FakeSession()
+    monkeypatch.setattr(connector_store, "_pg_session", lambda: fake_store)
+    monkeypatch.setattr(
+        managed,
+        "credentials",
+        lambda platform, scope=None: {
+            "app_id": "cli_x",
+            "app_secret": "sec",
+            "extra": {},
+            "source": "platform_env",
+        },
+    )
+    monkeypatch.setattr(custom_http, "validate_outbound_url", _no_op_validate_outbound_url)
+
+    old_cipher = oauth.encrypt_user_token(_near_expiry_token())
+    stored = connector_store.save(
+        "user-1",
+        {
+            # type 不能落 LEGACY_TYPES,否则 sync/fetch 走旧注册表而非 custom_http
+            "key": "feishu:user-oauth",
+            "type": "custom",
+            "name": "飞书用户授权",
+            "app_id": "",
+            "app_secret": "",
+            "extra": {oauth.USER_TOKEN_EXTRA_KEY: old_cipher},
+            "mode": "custom",
+            "spec": {
+                "base_url": "https://open.feishu.cn/open-apis",
+                "auth_kind": "feishu_user",
+                "auth_name": "Authorization",
+            },
+            "operations": [
+                {
+                    "id": "list_items",
+                    "capability": "list",
+                    "method": "GET",
+                    "path": "/items",
+                    "response_path": "items",
+                },
+                {
+                    "id": "fetch_doc",
+                    "capability": "fetch",
+                    "method": "GET",
+                    "path": "/docs/{doc_id}",
+                    "response_path": "data",
+                },
+            ],
+            "enabled": True,
+            "managed": True,
+            "credential_source": "platform_env",
+        },
+    )
+    assert stored is not None
+
+    app = FastAPI()
+    app.include_router(router_mod.router, prefix="/api")
+    app.dependency_overrides[require_request_user_id] = lambda: "user-1"
+    app.dependency_overrides[connector_scope] = lambda: "user-1"
+
+    fake_http = _RefreshHttpClient(_refreshed_payload())
+    monkeypatch.setattr(httpx, "AsyncClient", fake_http)
+    return app, old_cipher, fake_http
+
+
+@pytest.mark.asyncio
+async def test_refresh_persists_to_store_via_sync_route(monkeypatch):
+    """sync 路由:custom_http 分支刷新后新密文必须真落库(变异:删回调即变红)。"""
+    from httpx import ASGITransport, AsyncClient as RealAsyncClient
+
+    from app.services import connector_store
+
+    app, old_cipher, fake_http = _setup_refresh_route(monkeypatch)
+
+    async with RealAsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        resp = await client.post(
+            "/api/connectors/sync", json={"key": "feishu:user-oauth"}
+        )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["ok"] is True
+
+    reread = connector_store.get("user-1", "feishu:user-oauth")
+    assert reread is not None
+    new_cipher = reread["extra"][oauth.USER_TOKEN_EXTRA_KEY]
+    assert new_cipher != old_cipher
+    assert oauth.decrypt_user_token(new_cipher)["access_token"] == "u-new-token"
+    assert len(fake_http.refresh_calls) == 1
+    assert fake_http.operation_headers.get("Authorization") == "Bearer u-new-token"
+
+
+@pytest.mark.asyncio
+async def test_refresh_persists_to_store_via_fetch_route(monkeypatch):
+    """fetch 路由:custom_http 分支刷新后新密文必须真落库(变异:删回调即变红)。"""
+    from httpx import ASGITransport, AsyncClient as RealAsyncClient
+
+    from app.services import connector_store
+
+    app, old_cipher, fake_http = _setup_refresh_route(monkeypatch)
+
+    async with RealAsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        resp = await client.post(
+            "/api/connectors/feishu:user-oauth/fetch", json={"doc_id": "doc-1"}
+        )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["ok"] is True
+
+    reread = connector_store.get("user-1", "feishu:user-oauth")
+    assert reread is not None
+    new_cipher = reread["extra"][oauth.USER_TOKEN_EXTRA_KEY]
+    assert new_cipher != old_cipher
+    assert oauth.decrypt_user_token(new_cipher)["access_token"] == "u-new-token"
+    assert len(fake_http.refresh_calls) == 1
+    assert fake_http.operation_headers.get("Authorization") == "Bearer u-new-token"
+
+
+# ---------------------------------------------------------------------------
 # 请求构造:官方端点与字段
 # ---------------------------------------------------------------------------
 
@@ -270,10 +631,104 @@ async def test_authorize_route_builds_official_url(monkeypatch):
     qs = parse_qs(parsed.query)
     assert qs["client_id"] == ["cli_test"]
     assert qs["response_type"] == ["code"]
-    assert qs["scope"] == ["contact:contact"], "oauth_scope 必须进授权 URL"
+    # 用户 scope 必须进 URL,且飞书默认 offline_access 合并去重(不覆盖用户 scope)
+    scopes = qs["scope"][0].split()
+    assert "contact:contact" in scopes
+    assert scopes.count("offline_access") == 1
     assert qs["state"] == [body["state"]]
     # state 绑定的是租户作用域,不是 oauth_scope
     oauth.verify_state(body["state"], "feishu", "tenant-A", now=None)
+
+
+@pytest.mark.asyncio
+async def test_feishu_authorize_defaults_offline_access_and_dedupes(monkeypatch):
+    """飞书缺省 scope 必须含 offline_access(官方:否则换取响应不带 refresh_token)。
+
+    用户显式传入的额外 scope 不得被覆盖;重复传 offline_access 也不叠加。
+    """
+    from urllib.parse import parse_qs, urlparse
+
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient
+
+    from app.core.jwt_auth import require_request_user_id
+    from app.routers import connectors as router_mod
+    from app.routers.connectors import connector_scope
+    from app.services.connectors import managed
+
+    monkeypatch.setattr(
+        managed,
+        "credentials",
+        lambda platform, scope=None: {
+            "app_id": "cli_test",
+            "app_secret": "sec",
+            "source": "platform_env",
+        },
+    )
+    monkeypatch.setattr(
+        router_mod, "_oauth_redirect_uri", lambda: "https://app.example.com/callback"
+    )
+
+    app = FastAPI()
+    app.include_router(router_mod.router, prefix="/api")
+    app.dependency_overrides[require_request_user_id] = lambda: "user-1"
+    app.dependency_overrides[connector_scope] = lambda: "tenant-A"
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        default_resp = await client.get("/api/connectors/feishu/oauth/authorize")
+        dup_resp = await client.get(
+            "/api/connectors/feishu/oauth/authorize",
+            params={"oauth_scope": "offline_access contact:contact"},
+        )
+    assert default_resp.status_code == 200, default_resp.text
+    assert dup_resp.status_code == 200, dup_resp.text
+    default_scopes = parse_qs(urlparse(default_resp.json()["url"]).query)["scope"][0].split()
+    dup_scopes = parse_qs(urlparse(dup_resp.json()["url"]).query)["scope"][0].split()
+    assert default_scopes == ["offline_access"], "缺省必须带 offline_access 才能换到 refresh_token"
+    assert dup_scopes == ["offline_access", "contact:contact"], "用户 scope 保留且 offline_access 不重复"
+
+
+@pytest.mark.asyncio
+async def test_authorize_rejects_mismatched_redirect_uri(monkeypatch):
+    """authorize 不接受自定义 redirect_uri:回调端硬编码,不一致会让 code 换不到 token。"""
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient
+
+    from app.core.jwt_auth import require_request_user_id
+    from app.routers import connectors as router_mod
+    from app.routers.connectors import connector_scope
+    from app.services.connectors import managed
+
+    monkeypatch.setattr(
+        managed,
+        "credentials",
+        lambda platform, scope=None: {
+            "app_id": "cli_test",
+            "app_secret": "sec",
+            "source": "platform_env",
+        },
+    )
+    monkeypatch.setattr(
+        router_mod, "_oauth_redirect_uri", lambda: "https://app.example.com/callback"
+    )
+
+    app = FastAPI()
+    app.include_router(router_mod.router, prefix="/api")
+    app.dependency_overrides[require_request_user_id] = lambda: "user-1"
+    app.dependency_overrides[connector_scope] = lambda: "tenant-A"
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        bad = await client.get(
+            "/api/connectors/feishu/oauth/authorize",
+            params={"redirect_uri": "https://attacker.example.com/cb"},
+        )
+        good = await client.get(
+            "/api/connectors/feishu/oauth/authorize",
+            params={"redirect_uri": "https://app.example.com/callback"},
+        )
+    assert bad.status_code == 400, bad.text
+    assert "redirect_uri" in bad.json()["error"]
+    assert good.status_code == 200, good.text
 
 
 @pytest.mark.asyncio

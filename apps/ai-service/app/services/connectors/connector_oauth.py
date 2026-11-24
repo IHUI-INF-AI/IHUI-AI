@@ -80,6 +80,10 @@ class OAuthProviderConfig:
     refresh_grant_type: str = "refresh_token"
     # 授权页额外固定参数(钉钉需 scope=openid + prompt=consent)
     authorize_extra_params: tuple[tuple[str, str], ...] = ()
+    # 授权页默认 scope:飞书拿 refresh_token 必须在 scope 里声明 offline_access
+    # (官方「刷新 user_access_token」前置工作);与用户传入 oauth_scope 合并去重,
+    # 不覆盖用户额外 scope。钉钉 refreshToken 机制不同,留空即不注入。
+    default_oauth_scope: str = ""
     # 是否启用(端点未经官方文档核实的平台保持 False)
     enabled: bool = False
     docs: str = ""
@@ -92,6 +96,8 @@ class OAuthProviderConfig:
 # - 授权: https://open.feishu.cn/open-apis/authen/v1/authorize
 # - 换取/刷新: https://open.feishu.cn/open-apis/authen/v2/oauth/token
 #   (官方「刷新 user_access_token」页「基本 HTTP URL」原文)
+# - 拿 refresh_token 的前置:应用开通 offline_access 权限 + 授权 URL 的 scope
+#   含 offline_access;否则换取响应不带 refresh_token,后续无法刷新(user token 必过期)
 # 钉钉:
 # - 授权: https://login.dingtalk.com/oauth2/auth
 #   (官方「获取登录用户的访问凭证」页参数表原文:redirect_uri/response_type=code/
@@ -106,6 +112,7 @@ PROVIDERS: dict[str, OAuthProviderConfig] = {
         authorize_url="https://open.feishu.cn/open-apis/authen/v1/authorize",
         token_url="https://open.feishu.cn/open-apis/authen/v2/oauth/token",
         client_id_param="client_id",
+        default_oauth_scope="offline_access",
         enabled=True,
         docs="https://open.feishu.cn/document/common-capabilities/sso/web-application-sso",
     ),

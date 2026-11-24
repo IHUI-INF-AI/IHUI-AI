@@ -29,7 +29,7 @@ import logging
 import re
 import socket
 import time
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -53,6 +53,11 @@ MAX_CONTENT_CHARS = 20_000
 # 平台 token 缓存:{cache_key: (token, expire_at)}
 _TOKEN_CACHE: dict[str, tuple[str, float]] = {}
 _TOKEN_TTL_MAX_S = 7000.0
+
+# 用户令牌刷新回写回调:(新密文) -> None。
+# refresh_token 单次有效(飞书刷新后旧 refresh_token 立即失效),新密文不落库则
+# 下一次刷新必失败 —— 故执行层只负责产出密文,持久化由调用方(路由)经此回调完成。
+TokenRefreshedCallback = Callable[[str], None]
 
 # 禁止自定义的请求头(鉴权头白名单之外的安全边界)
 _FORBIDDEN_HEADERS = {
@@ -256,7 +261,12 @@ def clear_token_cache(record: dict[str, Any] | None = None) -> None:
             _TOKEN_CACHE.pop(key, None)
 
 
-async def _user_access_token(record: dict[str, Any], platform: str) -> str:
+async def _user_access_token(
+    record: dict[str, Any],
+    platform: str,
+    *,
+    on_token_refreshed: TokenRefreshedCallback | None = None,
+) -> str:
     """取用户 OAuth user_access_token:解密 → 临近过期则刷新 → 回明文。
 
     令牌密文存 ``record.extra.user_oauth``(connector_oauth 授权时落库)。
@@ -295,19 +305,28 @@ async def _user_access_token(record: dict[str, Any], platform: str) -> str:
             )
         except connector_oauth.ConnectorOAuthError as exc:
             raise ConnectorExecutionError(f"用户令牌刷新失败,请重新扫码授权: {exc}") from exc
-        # 刷新成功:把新密文写回内存副本(持久化由上层可选取回;此处至少本次调用可用)
+        # 刷新成功:把新密文写回内存副本(本次调用可用),并通知上层持久化。
+        # refresh_token 单次有效(飞书刷新后旧值立即失效),不落库则下次刷新必失败,
+        # 故回调不可省;写回密文失败时本调用仍用新令牌,但不会误报"已持久化"。
+        cipher = ""
         try:
+            cipher = connector_oauth.encrypt_user_token(refreshed)
             extra = dict(record.get("extra") or {})
-            extra[connector_oauth.USER_TOKEN_EXTRA_KEY] = connector_oauth.encrypt_user_token(refreshed)
+            extra[connector_oauth.USER_TOKEN_EXTRA_KEY] = cipher
             record["extra"] = extra
         except Exception:  # noqa: BLE001 - 写回失败不影响本次已拿到的新令牌
             pass
+        if cipher and on_token_refreshed is not None:
+            on_token_refreshed(cipher)
         token = refreshed
     return str(token["access_token"])
 
 
 async def _auth_parts(
-    record: dict[str, Any], spec: ConnectorSpec
+    record: dict[str, Any],
+    spec: ConnectorSpec,
+    *,
+    on_token_refreshed: TokenRefreshedCallback | None = None,
 ) -> tuple[dict[str, str], dict[str, str]]:
     """返回 (额外请求头, 额外查询参数)。"""
     kind = spec.auth_kind
@@ -325,7 +344,7 @@ async def _auth_parts(
         # access_token query 参数体系不同)。与 tenant 共用 header 但令牌来源
         # 完全不同(解密/刷新),不可混用。
         platform = "feishu" if kind == "feishu_user" else "dingtalk"
-        token = await _user_access_token(record, platform)
+        token = await _user_access_token(record, platform, on_token_refreshed=on_token_refreshed)
         headers[header] = f"Bearer {token}"
         return headers, params
     if kind == "bearer":
@@ -475,8 +494,14 @@ def _items_of(extracted: Any) -> list[dict[str, str]]:
 class CustomHttpConnector:
     """声明式操作执行器(自定义连接器与平台模板共用)。"""
 
-    def __init__(self, record: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        record: dict[str, Any],
+        *,
+        on_token_refreshed: TokenRefreshedCallback | None = None,
+    ) -> None:
         self.record = record
+        self._on_token_refreshed = on_token_refreshed
         self.spec = ConnectorSpec.from_dict(record.get("spec"))
         raw_ops = record.get("operations")
         self.operations: list[ConnectorOperation] = []
@@ -531,7 +556,9 @@ class CustomHttpConnector:
             url, allow_private_hosts=self.spec.allow_private_hosts
         )
 
-        auth_headers, auth_params = await _auth_parts(self.record, self.spec)
+        auth_headers, auth_params = await _auth_parts(
+            self.record, self.spec, on_token_refreshed=self._on_token_refreshed
+        )
         headers: dict[str, str] = {}
         for key, value in self.spec.headers.items():
             if key.lower() in _FORBIDDEN_HEADERS:
@@ -702,21 +729,45 @@ def _doc_fail(message: str) -> dict[str, Any]:
 # ============================================================================
 
 
-async def sync(record: dict[str, Any]) -> dict[str, Any]:
+async def sync(
+    record: dict[str, Any],
+    *,
+    on_token_refreshed: TokenRefreshedCallback | None = None,
+) -> dict[str, Any]:
     """同步自定义连接器数据源。"""
-    return await CustomHttpConnector(record).sync()
+    return await CustomHttpConnector(
+        record, on_token_refreshed=on_token_refreshed
+    ).sync()
 
 
-async def fetch_document(record: dict[str, Any], doc_id: str) -> dict[str, Any]:
+async def fetch_document(
+    record: dict[str, Any],
+    doc_id: str,
+    *,
+    on_token_refreshed: TokenRefreshedCallback | None = None,
+) -> dict[str, Any]:
     """拉取单条正文。"""
-    return await CustomHttpConnector(record).fetch_document(doc_id)
+    return await CustomHttpConnector(
+        record, on_token_refreshed=on_token_refreshed
+    ).fetch_document(doc_id)
 
 
 async def invoke(
-    record: dict[str, Any], operation_id: str, params: dict[str, Any] | None = None
+    record: dict[str, Any],
+    operation_id: str,
+    params: dict[str, Any] | None = None,
+    *,
+    on_token_refreshed: TokenRefreshedCallback | None = None,
 ) -> dict[str, Any]:
-    """执行指定操作(路由层 /invoke 入口)。"""
-    return await CustomHttpConnector(record).invoke(operation_id, params)
+    """执行指定操作(路由层 /invoke 入口)。
+
+    ``on_token_refreshed`` 在用户令牌刷新成功时收到新密文,由路由负责落库 ——
+    执行副本上的写回只保本次调用可用,不持久化则 refresh_token 一次性失效后
+    下一次调用必然要求用户重新授权。
+    """
+    return await CustomHttpConnector(
+        record, on_token_refreshed=on_token_refreshed
+    ).invoke(operation_id, params)
 
 
 def audit_write(record: dict[str, Any], user_id: str, operation_id: str) -> None:
