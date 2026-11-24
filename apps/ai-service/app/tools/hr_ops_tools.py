@@ -122,6 +122,19 @@ HR_GAP_ROUTES: dict[str, tuple[str, str]] = {
     "perf.manager": ("POST", "/api/hr-perf/reviews/:id/manager"),
     "perf.confirm": ("POST", "/api/hr-perf/reviews/:id/decide"),
     "perf.adminDecide": ("POST", "/api/hr-perf/reviews/:id/admin-decide"),
+    "training.courseList": ("GET", "/api/hr-training/courses"),
+    "training.courseCreate": ("POST", "/api/hr-training/courses"),
+    "training.courseUpdate": ("PATCH", "/api/hr-training/courses/:id"),
+    "training.planCreate": ("POST", "/api/hr-training/plans"),
+    "training.planList": ("GET", "/api/hr-training/plans"),
+    "training.planStatus": ("POST", "/api/hr-training/plans/:id/status"),
+    "training.enroll": ("POST", "/api/hr-training/plans/:id/enroll"),
+    "training.enrollments": ("GET", "/api/hr-training/plans/:id/enrollments"),
+    "training.progress": ("GET", "/api/hr-training/plans/:id/progress"),
+    "training.complete": ("POST", "/api/hr-training/enrollments/:id/complete"),
+    "training.drop": ("POST", "/api/hr-training/enrollments/:id/drop"),
+    "training.reopen": ("POST", "/api/hr-training/enrollments/:id/reopen"),
+    "training.myHours": ("GET", "/api/hr-training/my/hours"),
 }
 
 HR_LIFECYCLE_DESCRIPTION = (
@@ -164,6 +177,9 @@ HR_GAP_DESCRIPTION = (
     "绩效:perf.cycleCreate→perf.cycleStatus(open)→perf.launch(员工×上级配对,重单幂等跳过点名)→"
     "员工 perf.self 自评→上级 perf.manager 定稿(finalScore 0~100,grade 按阈值表当场算存)→"
     "员工 perf.confirm 或申诉退回重评;perf.close 前所有单必须 confirmed,有未完成即硬闸拒绝。"
+    "培训:training.courseCreate/planCreate→planStatus(open)→training.enroll(批量,重复与停用课程点名跳过)→"
+    "training.complete 登记(学时按完成时刻课程快照,之后改课程不回洗历史)→training.myHours 本人累计;"
+    "completed 不可 drop(历史台账保真),dropped 可 reopen。"
 )
 
 

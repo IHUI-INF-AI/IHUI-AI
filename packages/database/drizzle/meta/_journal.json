@@ -3250,6 +3250,13 @@
       "when": 1795501200000,
       "tag": "20261124230000_hr_perf",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 468,
+      "when": 1795502400000,
+      "tag": "20261124240000_hr_training",
+      "breakpoints": true
     }
   ]
 }

@@ -228,6 +228,7 @@ import { hrShiftSocialRoutes } from './hr-shift-social.js'
 import { hrExpenseRoutes } from './hr-expense.js'
 import { hrGradeRoutes } from './hr-grade.js'
 import { hrPerfRoutes } from './hr-perf.js'
+import { hrTrainingRoutes } from './hr-training.js'
 import { hrCompRoutes } from './hr-comp.js'
 // 财务代账账套(RP-48,2026-11-23 立):客户/账套/科目/期初/凭证/余额/结账/报表。
 // 与 AI 工具的分工:工具负责算,本路由负责把结果落成可跨期连续的账。
@@ -1047,6 +1048,7 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(hrExpenseRoutes, { prefix: '/api/hr-expense' })
   server.register(hrGradeRoutes, { prefix: '/api/hr-grade' })
   server.register(hrPerfRoutes, { prefix: '/api/hr-perf' })
+  server.register(hrTrainingRoutes, { prefix: '/api/hr-training' })
   // 人事补口(2026-11-24):年终奖单独计税 / 经济补偿测算 / 算薪复核留痕
   server.register(hrCompRoutes, { prefix: '/api/hr-comp' })
   // 财务代账账套(RP-48,2026-11-23 立):账套骨架 + 凭证过账 + 余额/报表 + 结账
