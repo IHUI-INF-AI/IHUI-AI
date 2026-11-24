@@ -11,11 +11,22 @@ from pathlib import Path
 import pytest
 
 from app.core.project_rules import select_rules
-from app.services.mcp_server import _TOOL_HANDLERS, _TOOLS, _tool_read_project_rule
+from app.services.mcp_server import (
+    _TOOL_HANDLERS,
+    _TOOLS,
+    _tool_list_project_rules,
+    _tool_read_project_rule,
+)
 
 
 def _rule_text(description: str, body: str) -> str:
     return f"---\ndescription: {description}\nalwaysApply: false\n---\n{body}\n"
+
+
+@pytest.fixture(autouse=True)
+def _no_user_rules(monkeypatch: pytest.MonkeyPatch) -> None:
+    """默认关掉真实用户规则目录,保证名单确定;需要用户档的用例自行置 0。"""
+    monkeypatch.setenv("IHUI_USER_RULES_DISABLE", "1")
 
 
 def _write(root: Path, rel: str, text: str) -> Path:
@@ -86,4 +97,64 @@ async def test_agent_requested_roundtrip(tmp_path: Path, monkeypatch: pytest.Mon
     assert out["body"] == "USER-BODY"
     assert out["scope"] == "user"
     assert out["locator"] == locator
+
+
+# ==================== list_project_rules 诊断面 ====================
+
+
+def test_list_tool_registered_both_sides() -> None:
+    names = {tool.name for tool in _TOOLS}
+    assert "list_project_rules" in names
+    assert "list_project_rules" in _TOOL_HANDLERS
+
+
+@pytest.mark.asyncio
+async def test_lists_selected_agent_requested_and_excluded(tmp_path: Path) -> None:
+    (tmp_path / ".ihui/rules").mkdir(parents=True)
+    (tmp_path / ".ihui/rules/always.mdc").write_text(
+        "---\nalwaysApply: true\n---\nALWAYS-BODY\n", encoding="utf-8"
+    )
+    (tmp_path / ".ihui/rules/glob.mdc").write_text(
+        "---\nglobs: [\"src/**\"]\n---\nGLOB-BODY\n", encoding="utf-8"
+    )
+    (tmp_path / ".ihui/rules/agent.mdc").write_text(
+        "---\ndescription: 请求式规则\n---\nAGENT-BODY\n", encoding="utf-8"
+    )
+    (tmp_path / ".ihui/rules/broken.mdc").write_text(
+        "---\nalwaysApply: nope\n---\nBROKEN\n", encoding="utf-8"
+    )
+    out = await _tool_list_project_rules({"path": str(tmp_path), "targetPaths": ["src/a.py"]})
+    assert out["ok"] is True
+    assert {x["locator"] for x in out["selected"]} == {
+        ".ihui/rules/always.mdc",
+        ".ihui/rules/glob.mdc",
+    }
+    assert out["agentRequested"][0]["locator"] == ".ihui/rules/agent.mdc"
+    assert [x["locator"] for x in out["excluded"]] == [".ihui/rules/broken.mdc"]
+    assert out["excluded"][0]["reason"].startswith("invalid_frontmatter")
+    # 诊断面不回正文:否则它就成了第二个注入面
+    assert all("body" not in x for x in out["selected"])
+    assert out["budget"]["used"] > 0
+
+
+@pytest.mark.asyncio
+async def test_list_rejects_bad_budget_and_targets(tmp_path: Path) -> None:
+    bad_budget = await _tool_list_project_rules({"path": str(tmp_path), "budgetChars": 0})
+    assert bad_budget["ok"] is False
+    assert bad_budget["errorCode"] == "invalid_budget"
+    bad_targets = await _tool_list_project_rules({"path": str(tmp_path), "targetPaths": "src/a.py"})
+    assert bad_targets["ok"] is False
+    assert bad_targets["errorCode"] == "invalid_targets"
+
+
+@pytest.mark.asyncio
+async def test_list_reports_budget_truncation(tmp_path: Path) -> None:
+    (tmp_path / ".ihui/rules").mkdir(parents=True)
+    (tmp_path / ".ihui/rules/long.mdc").write_text(
+        "---\nalwaysApply: true\n---\n" + "X" * 200 + "\n", encoding="utf-8"
+    )
+    out = await _tool_list_project_rules({"path": str(tmp_path), "budgetChars": 50})
+    assert out["ok"] is True
+    assert out["budget"]["truncated"] is True
+    assert out["budget"]["used"] <= 50
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

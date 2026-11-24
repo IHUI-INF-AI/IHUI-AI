@@ -2188,6 +2188,86 @@ async def _tool_list_symbol_definitions(arguments: dict[str, Any]) -> dict[str, 
     return out
 
 
+async def _tool_list_project_rules(arguments: dict[str, Any]) -> dict[str, Any]:
+    """list_project_rules: 规则选择面的只读诊断(2026-11-24,Cursor 规则 picker 等价)。
+
+    会话注入只带正文与「可请求目录」,人被问"为什么这条规则没生效"时没有观测口。
+    本工具把 **selected / agentRequested / excluded / budget** 一次列清,并且只回
+    locator、原因与长度,不回正文(避免把诊断工具变成第二个注入面)。
+    """
+    from ..core.project_rules import DEFAULT_BUDGET_CHARS, select_rules
+
+    tool = "list_project_rules"
+    path = str(arguments.get("path", ".") or ".")
+    try:
+        root = Path(path).resolve(strict=True)
+    except OSError:
+        return {
+            "tool": tool,
+            "ok": False,
+            "errorCode": "workspace_missing",
+            "error": f"工作区不存在或不可达: {path}",
+        }
+    budget = DEFAULT_BUDGET_CHARS
+    raw_budget = arguments.get("budgetChars")
+    if raw_budget is not None:
+        try:
+            parsed_budget = int(raw_budget)
+        except (TypeError, ValueError):
+            parsed_budget = 0
+        if parsed_budget <= 0:
+            return {
+                "tool": tool,
+                "ok": False,
+                "errorCode": "invalid_budget",
+                "error": "budgetChars 必须是正整数",
+            }
+        budget = parsed_budget
+    raw_targets = arguments.get("targetPaths")
+    if raw_targets is not None and not isinstance(raw_targets, list):
+        return {
+            "tool": tool,
+            "ok": False,
+            "errorCode": "invalid_targets",
+            "error": "targetPaths 必须是字符串数组",
+        }
+    targets = [str(x) for x in raw_targets] if isinstance(raw_targets, list) else None
+    selection = select_rules(root, targets, budget_chars=budget)
+    return {
+        "tool": tool,
+        "ok": True,
+        "selected": [
+            {
+                "locator": rule.rel_path,
+                "description": rule.description,
+                "reason": rule.reason,
+                "matchedPaths": list(rule.matched_paths),
+                "bodyChars": len(rule.body),
+            }
+            for rule in selection.selected
+        ],
+        "agentRequested": [
+            {
+                "locator": rule.locator,
+                "description": rule.description,
+                "scope": "user" if rule.locator.startswith("user:") else "project",
+            }
+            for rule in selection.agent_requested
+        ],
+        "excluded": [{"locator": item.rel_path, "reason": item.reason} for item in selection.excluded],
+        "budget": {
+            "chars": selection.budget_chars,
+            "used": selection.used_chars,
+            "truncated": selection.truncated,
+        },
+        "counts": {
+            "selected": len(selection.selected),
+            "agentRequested": len(selection.agent_requested),
+            "excluded": len(selection.excluded),
+        },
+    }
+
+
 async def _tool_read_project_rule(arguments: dict[str, Any]) -> dict[str, Any]:
     """read_project_rule: 按 locator 取一条项目/用户规则正文(2026-11-24 第二档)。
 
@@ -15120,6 +15200,28 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="list_project_rules",
+        description=(
+            "列出项目/用户规则的选择结果(2026-11-24,Cursor 规则 picker 等价):"
+            "selected(已注入正文)、agentRequested(只进目录待按需取)、excluded(逐条带原因)、"
+            "budget(预算与截断)。可选 targetPaths 模拟某组文件路径下的命中;"
+            "只回 locator/原因/长度,不回正文。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "工作区根目录(默认当前目录)"},
+                "budgetChars": {"type": "integer", "minimum": 1, "description": "正文预算字符数(默认 8000)"},
+                "targetPaths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "按这组路径模拟 globs 命中(可选)",
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="read_project_rule",
         description=(
             "按 locator 取一条项目规则正文(2026-11-24,Cursor Agent Requested 等价):"
@@ -19438,6 +19540,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "search_codebase": _tool_search_codebase,
     "list_symbol_definitions": _tool_list_symbol_definitions,
     "read_project_rule": _tool_read_project_rule,
+    "list_project_rules": _tool_list_project_rules,
     "find_import_edges": _tool_find_import_edges,
     "index_codebase": _tool_index_codebase,
     "auto_rebuild_codebase": _tool_auto_rebuild_codebase,

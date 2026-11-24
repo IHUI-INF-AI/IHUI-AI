@@ -637,6 +637,7 @@ land 锁已实测两次僵死）。
 - 落地2(`.cursorindexingignore`): `INDEX_IGNORE_FILENAMES` 仅索引面生效,仓库树仍 DEFAULT;命中即剪含已跟踪;`.gitignore` 对已跟踪仍 tracked_kept;`.cursorignore` 不并入(隐私待定档)
 - 落地3(Codex 时间预算): goal-run 逐轮秒数记账 + `maxSeconds` 闸(未达成才收口、达成优先);CLI `--max-seconds`;摘要 `/ Ns`
 - 落地4(时间账进生产账本): `GoalRoundState` 加 `seconds_spent/time_budget_seconds`;`normalize_outcome` 拒负秒/非正预算;`advance_round_state` 时间与 token 任一越线即 `budget_exhausted`;装车 `goal-verify` 请求/响应、`_ledger_fields`、`agents._should_goal_rerun`;老载荷缺键读 None
+- 落地5(规则选择面可观测): MCP `list_project_rules`(selected/agentRequested/excluded/budget,支持 targetPaths 与 budgetChars 复算,不回正文)
 - 验证: Python 243 passed(规则/MCP/索引组)+ 目标账本/闸门四链 64 passed;CLI 13 passed;变异 8 处均转红后恢复绿;ruff/mypy --strict/prettier/tsc 8/8/watermark 全绿
 - 环境边界: `test_codebase_indexer.py` 缺 `anydoc` 无法导入(存量);git 用例需 PATH 含 Git bin(补齐后 9/9)
 - 报告: `.ihui-agent/tmp/r12/REPORT.md` §八
