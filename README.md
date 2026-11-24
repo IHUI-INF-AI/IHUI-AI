@@ -84,6 +84,9 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-25**
+- 🚀 新功能/改进:检查点标签五语言词条 (b00fc1b9)
+- 🚀 新功能/改进:检查点标签按 label_key 本地化 (756abbaa)
+- 🚀 新功能/改进:内置检查点补稳定翻译键 (bdadab0d)
 - 🚀 新功能/改进:内嵌浏览器原生置顶画中画小窗 (a3571ce9)
 - 🚀 新功能/改进:画中画任务面板五语言词条 (0176bb37)
 - 🚀 新功能/改进:画中画任务面板与模板入口 (a40f25c4)

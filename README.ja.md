@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-25**
+- 🚀 機能/改善:检查点标签五语言词条 (b00fc1b9)
+- 🚀 機能/改善:检查点标签按 label_key 本地化 (756abbaa)
+- 🚀 機能/改善:内置检查点补稳定翻译键 (bdadab0d)
 - 🚀 機能/改善:内嵌浏览器原生置顶画中画小窗 (a3571ce9)
 - 🚀 機能/改善:画中画任务面板五语言词条 (0176bb37)
 - 🚀 機能/改善:画中画任务面板与模板入口 (a40f25c4)

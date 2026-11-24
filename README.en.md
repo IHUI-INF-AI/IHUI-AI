@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-25**
+- 🚀 Feature/Improvement:检查点标签五语言词条 (b00fc1b9)
+- 🚀 Feature/Improvement:检查点标签按 label_key 本地化 (756abbaa)
+- 🚀 Feature/Improvement:内置检查点补稳定翻译键 (bdadab0d)
 - 🚀 Feature/Improvement:内嵌浏览器原生置顶画中画小窗 (a3571ce9)
 - 🚀 Feature/Improvement:画中画任务面板五语言词条 (0176bb37)
 - 🚀 Feature/Improvement:画中画任务面板与模板入口 (a40f25c4)
