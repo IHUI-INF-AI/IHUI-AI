@@ -158,9 +158,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 1,
+      "count": 2,
       "reason": "两端圆角档集合仍有差;属文件级读数差异,本批不调视觉取值;到期前必须复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: NavBar radiusCount=1(onlyMiniapp=1 / onlyRn=0)"
+      "evidence": "check-cross-end-ui-parity --json: NavBar radiusCount=1(onlyMiniapp=1 / onlyRn=0)；2026-11-24 复核:现值 radiusCount=2(onlyMiniapp=[4] / onlyRn=[12]),额度 1→2 —— RN 侧 NavBar 新增 rnRadius.xl(12) 用法(L420/L467/L524)而小程序侧只有 L36/L465 两处,集合差异 1→2,故按实测重锚(不超量也逐渐把额度写实,防白名单虚高)"
     },
     {
       "component": "SectionHeader",
