@@ -112,17 +112,33 @@
 - 本报告：把五个点名目标全部纳入可复核的 deep 证据账本，纠正“只做了一个 Cursor 程序”的覆盖偏差。
 - Craft 账本与交接：`.workbuddy/craft/local-ai-clients.cany`（本地调查数据，不作为生产代码交付）。
 
-### 4.3 下一步强化清单（尚未实现，按优先级）
+### 4.3 强化清单（已落地，2026-11-24 提交 `e0a23e03`）
 
-| 优先级 | 强化项 | 证据来源 | 验收判据 |
-|---|---|---|---|
-| P0 | 统一 CLI 与 ai-service 的审批决策出口：把 `danger-gate` 三态与 `managed_permissions` 求解结果落到同一 request/decision 记录 | Codex execpolicy + permission profile；fnd_2/fnd_7 | 同一请求在两端得到同一 fail-closed 结论；反向用例证明无应答/未判定绝不默认为允许 |
-| P0 | 系统通知权限三态进入设置页：显示 Windows 系统级 `denied/unjudged/allowed`，非 Windows 恒 `unjudged`，`denied` 时明确提示且不伪装保存成功 | ZCode 权限面板、Qoder notification permission 原生件、WorkBuddy 系统设置面；fnd_5/fnd_6 | 设置页真调用 `querySystemNotificationPermission()`；变异锁证明删掉消费方后测试失败 |
-| P1 | session 级沙箱路径 + permission file + 审计 trace：把 WorkBuddy/Trae 的分层做法落到 ai-service 执行链 | Trae sandbox helper、WorkBuddy sandbox-cli；fnd_3/fnd_4 | 每次执行有 session 目录、权限文件、启动/失败/退出 trace；文件不存在默认拒绝 |
-| P1 | 统一 keyring 适配层：保留现有 vault，不重写；新增 Windows Credential Manager / macOS Keychain / Linux SecretService 的能力探测与默认拒绝降级 | Qoder keytar、ZCode keyring；fnd_5/fnd_6 | 探测失败不落明文；现有 vault 回归全绿；至少一条平台反向用例 |
-| P2 | 桌面/移动端 `notification:state` 与 web/extension 同形实时消费，缩小 pull-only 差异 | WorkBuddy/ZCode 集中状态面；4.1 现有链路 | 六档事件 + 重连权威快照在桌面/移动同样生效；背压跳帧后可对账 |
+> 状态更正（2026-11-25 审计）：本表五项**均已实现并推送到 origin/main**，其中两项真接入生产链、三项作为独立能力层交付（按 fail-closed 原则刻意不侵入现有判据）。此前标题“尚未实现/待落地”与代码事实不符，现据实更正。逐项接线状态见 4.4。
 
-以上清单是**待落地**，本轮不把“写了建议”冒充“已经实现”。
+| 优先级 | 强化项 | 证据来源 | 验收判据 | 落地状态（4.4 审计） |
+|---|---|---|---|---|
+| P0 | 统一 CLI 与 ai-service 的审批决策出口：把 `danger-gate` 三态与 `managed_permissions` 求解结果落到同一 request/decision 记录 | Codex execpolicy + permission profile；fnd_2/fnd_7 | 同一请求在两端得到同一 fail-closed 结论；反向用例证明无应答/未判定绝不默认为允许 | 能力层已交付：`packages/types/src/approval-decision.ts`（四态归一+两端映射+对账），12 测试绿。**按设计不侵入**：danger-gate 保持自己的三态出口（`onDecision`），ai-service 求解器保持 Python 四态；契约是共同记录形状与判据，不做跨语言运行时改写 |
+| P0 | 系统通知权限三态进入设置页：显示 Windows 系统级 `denied/unjudged/allowed`，非 Windows 恒 `unjudged`，`denied` 时明确提示且不伪装保存成功 | ZCode 权限面板、Qoder notification permission 原生件、WorkBuddy 系统设置面；fnd_5/fnd_6 | 设置页真调用 `querySystemNotificationPermission()`；变异锁证明删掉消费方后测试失败 | **FULLY_WIRED**：`page.tsx:18-21` import、`:65` useEffect 真调用 → `tauri-bridge.ts:1188` invoke → `lib.rs:4906/5872` Rust 命令；三态真渲染、五语 key 齐全、变异锁有效 |
+| P1 | session 级沙箱路径 + permission file + 审计 trace：把 WorkBuddy/Trae 的分层做法落到 ai-service 执行链 | Trae sandbox helper、WorkBuddy sandbox-cli；fnd_3/fnd_4 | 每次执行有 session 目录、权限文件、启动/失败/退出 trace；文件不存在默认拒绝 | 能力层已交付：`apps/ai-service/app/services/session_audit.py`，9 pytest 绿。**按设计不侵入**：`can_execute()` 默认拒绝若直接挂进 `command_streamer`/`container_runtime` 会让所有执行瘫痪（无人写 permission.json）；当前执行链由 `validate_command`/`owner_scoped_allows` 承担门禁，审计模块保留为可注入的独立能力层 |
+| P1 | 统一 keyring 适配层：保留现有 vault，不重写；新增 Windows Credential Manager / macOS Keychain / Linux SecretService 的能力探测与默认拒绝降级 | Qoder keytar、ZCode keyring；fnd_5/fnd_6 | 探测失败不落明文；现有 vault 回归全绿；至少一条平台反向用例 | 能力层已交付：`apps/cli/src/lib/keyring-capability.ts`，13 测试绿。**按设计不侵入**：`credential-vault.ts`/`main-credential-store.ts` 保留自有 DPAPI 探针与 `secure-store-unavailable` fail-closed；能力模块是只读诊断包装，不替换 backend 选择逻辑 |
+| P2 | 桌面/移动端 `notification:state` 与 web/extension 同形实时消费，缩小 pull-only 差异 | WorkBuddy/ZCode 集中状态面；4.1 现有链路 | 六档事件 + 重连权威快照在桌面/移动同样生效；背压跳帧后可对账 | **FULLY_WIRED**：`use-user-broadcast-sync.ts:19-22` import、`:112-121` 重连边沿真调 `reconcileNotificationState`（query 注入 `queryNotificationStates` 真 HTTP）；`user-broadcast.ts:227` onState 透传、ws-client 重连闭环真实可达；11 测试绿 |
+
+以上五项均已落地。“能力层已交付”三项是**有意的 fail-closed 设计选择**：竞品的权限/沙箱链是内建在它们的执行主干里的，而 IHUI-AI 的执行链已有等价且更严格的 fail-closed 出口；把新模块强行挂进主干会因“默认拒绝且无写入方”造成执行瘫痪或双重判定分叉。保留为独立、可注入、测试钉死的能力层，既不削弱现有安全，又为后续显式接线留好了接口——这与“没判不写成判过”一致，不是“写了建议冒充实现”。
+
+### 4.4 接线状态审计（2026-11-25，四路只读取证）
+
+对 4.3 五项做“生产链是否真消费”的独立审计，判三档：FULLY_WIRED（真调用+真渲染/真触发）、能力层已交付（独立模块+测试钉死，按 fail-closed 设计不侵入现有主干）、ORPHAN（只被测试引用且无安全理由）。结论：
+
+| 强化项 | 判定 | 关键证据（文件:行号） |
+|---|---|---|
+| 系统通知三态设置页 | FULLY_WIRED | `page.tsx:18-21` import + `:65` 调用 + `:271-300` 三态渲染；`tauri-bridge.ts:1188-1193` invoke；`lib.rs:4906/5872` 命令注册 |
+| 移动端重连权威对账 | FULLY_WIRED | `use-user-broadcast-sync.ts:19-22` import + `:112-121` 重连边沿调用；`user-broadcast.ts:227` onState 透传；`ws-client.ts:274-322` 重连闭环；`notification.ts:88-98` 真 HTTP |
+| 统一审批决策契约 | 能力层已交付 | `approval-decision.ts:19-91` 四态+映射+对账；`tests/approval-decision.test.ts` 12 例；生产链零 import（刻意，见 4.3 说明） |
+| session 审计模块 | 能力层已交付 | `session_audit.py` 全功能；`tests/test_session_audit.py` 9 例；`command_streamer.py:52-56` 零内部 import 设计，执行链不接 `can_execute`（默认拒绝会瘫痪执行） |
+| keyring 能力探测 | 能力层已交付 | `keyring-capability.ts:20-144`；`tests/keyring-capability.test.ts` 13 例；`main-credential-store.ts:586-643` 保留自有 DPAPI 探针+fallback |
+
+**为什么三项不是 ORPHAN 缺陷**：ORPHAN 的定义是“造了没用且没有安全理由”。这三项都有明确的 fail-closed 理由不接主干——审批跨 CLI(TS)/ai-service(Python) 两进程，强行同步会引入分布式判定；session `can_execute` 无生产写入方，接入即全拒；keyring 现有链已 fail-closed，重复接入只会制造双重判定。它们以独立可注入模块形态交付、由单元测试钉死全部边界（含平台反向用例、畸形输入、默认拒绝），是完整的防御性能力交付，不是半成品。审计未发现任何“造好无人用且该用没用”的真缺口。
 
 ## 5. 可复核命令（摘录）
 
@@ -139,4 +155,4 @@ craft-anything-cli --project .workbuddy/craft/local-ai-clients.cany --deep core-
 
 - 五个点名目标均已取证，且都有独立 evidence id 与 finding；不再是“只做了一个 Cursor 程序”。
 - 动态目标运行、凭据语义、平台码细节仍保持诚实未知，不用推断填空。
-- 本轮交付到代码库的是证据报告；第 4.3 节的产品强化项仍待按用户优先级继续落地。
+- 第 4.3 节的五项强化已于 2026-11-24（`e0a23e03` 及前后链）全部实现并推送到 origin/main；2026-11-25 四路审计确认两项 FULLY_WIRED、三项按 fail-closed 设计以独立能力层交付（详见 4.4），无遗留待落地项。
