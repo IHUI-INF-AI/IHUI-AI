@@ -532,10 +532,17 @@ describe('F-116 ws-customer-service:会话超阈值断开连接(无回放缓冲)
 
 // ────────────────────────────── 形态锁:阈值/判定不在四文件里各写一份 ──────────────────────────────
 
-describe('F-116 形态锁:阈值单点、四条链路都接同一个工具', () => {
+describe('F-116 形态锁:阈值单点、五条链路都接同一个工具', () => {
   const src = (name: string): string =>
     readFileSync(fileURLToPath(new URL(`../src/plugins/${name}`, import.meta.url)), 'utf8')
-  const chains = ['ws-notifications.ts', 'ws-chat.ts', 'ws-customer-service.ts', 'ws-broadcast.ts']
+  const chains = [
+    'ws-notifications.ts',
+    'ws-chat.ts',
+    'ws-customer-service.ts',
+    'ws-broadcast.ts',
+    // 2026-11-24:终端输出链接入同一背压闸(超水位 pause PTY 而非丢帧)
+    'terminal-ws.ts',
+  ]
 
   it.each(chains)('%s 从 ws-backpressure 取阈值与发送单点,不留自己的魔数', (name) => {
     const text = src(name)
@@ -547,7 +554,7 @@ describe('F-116 形态锁:阈值单点、四条链路都接同一个工具', () 
     expect(src('ws-backpressure.ts').match(/1024 \* 1024/g)).toHaveLength(1)
   })
 
-  it('四条链路都使用 sendWithBackpressure 或 isWsBackpressured', () => {
+  it('五条链路都使用 sendWithBackpressure 或 isWsBackpressured', () => {
     for (const name of chains) {
       const text = src(name)
       expect(

@@ -57,6 +57,9 @@ import { listCheckpoints, restoreCheckpoint, type CheckpointMeta } from '@/api/c
 import { readTitleAutoUpdate } from '@/components/chat/title-update-policy'
 import { expandRuleToken } from '@/stores/memory'
 import { expandContextTokens } from '@/lib/context-token-expander'
+// 2026-11-24 立(craft deep 榨取竞品 powerSaveBlocker):长任务期间持有系统不休眠。
+// owner 引用计数在 lib/wake-lock 内,这里只按 assistantId 挂载 acquire/release。
+import { acquireWakeLock, releaseWakeLock } from '@/lib/wake-lock'
 // 2026-11-12 立:号池 WS 流式客户端 —— 选中「我的号池」模型时,主对话改走 /ws/relay/chat
 // 2026-11-21:改由 pool-tool-loop 承接(带工具回路:取 schema → 带 tools → 收 tool_calls → 执
 // 行 → 文本回灌续跑),对外仍是一条号池通道,平台腿的 onDelta/onError/onDone 回调口径不变。
@@ -815,6 +818,8 @@ export function createSendMessage(
     const streamStartedAt = Date.now()
 
     store.setStreaming(true)
+    // 长任务防休眠:本轮以 assistantId 为 owner 持锁,与下方 finally 的 release 成对。
+    acquireWakeLock(assistantId)
     // D131:新一轮发送开始 ⇒ 连接位归零。断开态不由 isStreaming 的收尾清(那会把它
     // 在同一帧内抹掉),只有"用户又发起了一次流"才是它该消失的时刻。
     clearStreamConnection()
@@ -1981,6 +1986,9 @@ export function createSendMessage(
       // 前端 streamChat metadata 已携带 conversationId/userId/messageId,
       // ai-service 推理完成后 _fire_callback → /api/ai/callback → worker 落库。
       // 2026-08-21 修复:删除此处前端持久化(曾每轮必现 400 误报 toast)。
+      // 长任务防休眠:无条件释放本轮 owner —— 必须放在代际守卫**外**,否则被切换会话
+      // abort 的旧流不会进守卫,锁会泄漏到最后一个 owner 离开(对齐竞品 stopWakelock)。
+      if (assistantId) releaseWakeLock(assistantId)
       contentBatcher.cancel()
       reasoningBatcher.cancel()
       agentBatcher.cancelAll()

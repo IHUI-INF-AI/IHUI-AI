@@ -26,6 +26,10 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
 import { wsAuth } from './ws-helpers.js'
+// F-116 第五条链:终端输出也走统一背压闸(其余四条 ws-* 早已接入)。
+// 终端帧不能像通知那样静默丢,故超水位时 pause PTY(数据留在 OS 缓冲不丢帧),
+// drain 后 resume;另加超时兜底,防半死连接让命令永久暂停。
+import { isWsBackpressured, sendWithBackpressure } from './ws-backpressure.js'
 import {
   getPTYEntry,
   onData,
@@ -69,12 +73,46 @@ const wsTerminalPlugin: FastifyPluginAsync = async (server) => {
           return
         }
 
-        // 3. 注册 PTY 数据监听器 → WebSocket 推送
-        const removeDataListener = onData(sessionId, (data) => {
-          if (socket.readyState === WS_OPEN) {
-            socket.send(JSON.stringify({ type: 'output', data }))
+        // 3. 注册 PTY 数据监听器 → WebSocket 推送(带背压)
+        // node-pty 有 pause/resume;SSH wrapper 可能没有,统一用可选调用安全降级。
+        const ptyControl = entry.pty as unknown as {
+          pause?: () => void
+          resume?: () => void
+        }
+        let ptyPaused = false
+        let pauseTimer: ReturnType<typeof setTimeout> | null = null
+        const resumePty = (): void => {
+          if (!ptyPaused) return
+          ptyPaused = false
+          if (pauseTimer) {
+            clearTimeout(pauseTimer)
+            pauseTimer = null
           }
+          try { ptyControl.resume?.() } catch { /* SSH wrapper 不支持则忽略 */ }
+        }
+        const pausePty = (): void => {
+          if (ptyPaused) return
+          ptyPaused = true
+          try { ptyControl.pause?.() } catch { /* SSH wrapper 不支持则忽略 */ }
+          // 半死连接(既不读也不 drain)兜底:5s 后强制恢复。宁可让客户端丢几帧,
+          // 也不能让后台命令因为一次暂停而永久卡住(对齐 kill-wait 的有界思想)。
+          pauseTimer = setTimeout(resumePty, 5000)
+        }
+        const removeDataListener = onData(sessionId, (data) => {
+          if (socket.readyState !== WS_OPEN) return
+          if (isWsBackpressured(socket)) {
+            pausePty()
+            return
+          }
+          const outcome = sendWithBackpressure(
+            socket,
+            JSON.stringify({ type: 'output', data }),
+            () => socket.close(1011, 'terminal write failed'),
+          )
+          if (outcome === 'skipped') pausePty()
         })
+        // 消费端追上后恢复 PTY(不丢积压数据:node-pty pause 把数据留在 OS 缓冲)
+        socket.on('drain', resumePty)
 
         // 4. 注册 PTY 退出监听器 → WebSocket 推送 + 关闭连接
         const removeExitListener = onExit(sessionId, (e) => {
@@ -128,6 +166,8 @@ const wsTerminalPlugin: FastifyPluginAsync = async (server) => {
 
         // 6. 连接关闭时清理监听器
         socket.on('close', () => {
+          // 断线必须恢复 PTY:否则半死连接会把后台命令永久挂起
+          resumePty()
           removeDataListener?.()
           removeExitListener?.()
         })

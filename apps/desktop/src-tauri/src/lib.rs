@@ -85,6 +85,9 @@ mod sandbox_sdk;
 mod sandbox_ipc;
 // 2026-11-23 立(B3-05):通知权限三态查询(只读注册表,不写不改)。
 mod notification_permission;
+// 2026-11-24 立(craft deep 榨取竞品 powerSaveBlocker):长任务防休眠能力面。
+// owner 引用计数在前端 wake-lock.ts;本模块只做幂等平台开关 + 三态报告。
+mod wake_lock;
 // 2026-11-23 立(B2-10):出站拦截四桶只增计数(纯观测,判定仍归 egress_gate)。
 mod sandbox_metrics;
 // 2026-11-23 立(B3-06):剪贴板一次性读取票据(30s / 最多 8 张 / 二次消费即拒)。
@@ -4902,6 +4905,12 @@ fn query_notification_permission() -> notification_permission::PermissionReport 
     notification_permission::read_notification_permission()
 }
 
+/// 长任务防休眠开关(幂等):前端 owner 引用计数归零时才调 active=false。
+#[tauri::command]
+fn set_sleep_prevention(active: bool) -> wake_lock::SleepPreventionReport {
+    wake_lock::set_sleep_prevention(active)
+}
+
 /// B2-10:出站拦截计数读数(只读;放行/真拒绝/只出声/未判定四桶 + 恒等式一致性)。
 #[tauri::command]
 fn sandbox_egress_metrics() -> sandbox_metrics::EgressMetricReport {
@@ -5851,6 +5860,7 @@ pub fn run() {
     sandbox_ipc::native_module_probe,
     // 2026-11-23 立(B3-05):通知权限三态查询(只读;区分"用户关了"与"链路故障")。
     query_notification_permission,
+    set_sleep_prevention,
     // 2026-11-23 立(B2-10):出站拦截四桶计数(只读;埋点挂在 guard_egress_target)。
     sandbox_egress_metrics,
     // 2026-11-23 立(B3-06):剪贴板一次性读取票据(发票 + 凭票读一次)。
