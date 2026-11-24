@@ -9,6 +9,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Bell } from 'lucide-react'
 import { sendMessage } from '../../lib/message-router'
+import { getToken } from '../../lib/token'
+import { useNotificationStateSync } from '../../lib/use-notification-state-sync'
 
 export interface NotificationBellProps {
   initialCount?: number
@@ -61,6 +63,15 @@ export function NotificationBell({ initialCount = 0, onOpen }: NotificationBellP
       )
     }
   }, [refreshCount])
+
+  // 他端状态翻转经 /ws/broadcast 到达时重拉服务端真相。popup 短命,但打开期间他端已读/删除
+  // 同样会让角标停在旧值;回调 useCallback 稳定,hook 内引用计数归零自动断连。
+  const onStateEvent = useCallback(() => refreshCount(), [refreshCount])
+  const onReconnect = useCallback(() => refreshCount(), [refreshCount])
+  useNotificationStateSync(getToken(), {
+    onStateEvent,
+    onReconnect,
+  })
 
   return (
     <button

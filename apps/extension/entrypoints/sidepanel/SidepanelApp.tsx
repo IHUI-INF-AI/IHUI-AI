@@ -17,8 +17,13 @@ import {
   SESSION_EXPIRED_EVENT,
 } from '../../lib/token'
 import { startAutoRefresh, scheduleRefreshAlarm, doRefresh } from '../../lib/token-utils'
-import { NOTIFICATION_UNREAD_REFRESH_EVENT, TOKEN_STORAGE_KEY } from '../../lib/config'
+import {
+  NOTIFICATION_STATE_REFRESH_EVENT,
+  NOTIFICATION_UNREAD_REFRESH_EVENT,
+  TOKEN_STORAGE_KEY,
+} from '../../lib/config'
 import { useNotificationWebSocket } from '../../lib/use-websocket'
+import { useNotificationStateSync } from '../../lib/use-notification-state-sync'
 import { NotificationProvider, useNotificationStore } from '../../lib/notification-store'
 import { isComponentType } from '../../lib/is-component-type'
 import { useI18n } from '../../src/i18n'
@@ -117,6 +122,23 @@ function SidepanelInner() {
         // 静默失败:保留上一次权威值,不把失败冒充 0
       })
   }, [])
+
+  // 他端通知状态翻转(read/read-all/archive/restore/delete/delete-all)走 /ws/broadcast,
+  // 与新通知到达帧(/ws/notifications)是两条通道。此前扩展只接了后者 ⇒ 常驻侧栏期间他端
+  // 已读/删除后角标停在旧值。这里按帧重拉权威未读数(角标真相),同页列表页重拉走事件,
+  // 两者都不靠本地 WS 条目数派生。所有回调 useCallback 稳定,避免 hook 反复重订阅。
+  const onNotificationStateEvent = useCallback(() => {
+    refreshUnread()
+    window.dispatchEvent(new Event(NOTIFICATION_STATE_REFRESH_EVENT))
+  }, [refreshUnread])
+  const onBroadcastReconnect = useCallback(() => {
+    refreshUnread()
+    window.dispatchEvent(new Event(NOTIFICATION_STATE_REFRESH_EVENT))
+  }, [refreshUnread])
+  useNotificationStateSync(token, {
+    onStateEvent: onNotificationStateEvent,
+    onReconnect: onBroadcastReconnect,
+  })
 
   // 登录态就绪后拉一次权威未读数(覆盖"打开侧栏角标 0"缺口)
   useEffect(() => {

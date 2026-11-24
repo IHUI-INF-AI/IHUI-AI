@@ -13,7 +13,10 @@ import {
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { fmtDate } from '../../../lib/date-utils'
-import { NOTIFICATION_UNREAD_REFRESH_EVENT } from '../../../lib/config'
+import {
+  NOTIFICATION_STATE_REFRESH_EVENT,
+  NOTIFICATION_UNREAD_REFRESH_EVENT,
+} from '../../../lib/config'
 
 export default function NotificationsPage() {
   const { t } = useI18n()
@@ -43,6 +46,16 @@ export default function NotificationsPage() {
   useEffect(() => {
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时加载一次,load 依赖 t/setState 但无需重跑
+  }, [])
+
+  // 他端通知状态翻转(read/read-all/archive/restore/delete/delete-all)经 /ws/broadcast
+  // 到达 sidepanel 后,本页重拉服务端真相 —— 不能靠本地条目数派生(归档行口径与列表不一致)。
+  // 回调体只调 load(),不在本页改 items/unread,避免与标记路径的本地派生互相覆盖。
+  useEffect(() => {
+    const onRemoteState = () => void load()
+    window.addEventListener(NOTIFICATION_STATE_REFRESH_EVENT, onRemoteState)
+    return () => window.removeEventListener(NOTIFICATION_STATE_REFRESH_EVENT, onRemoteState)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load 每次渲染重建,但这里只需稳定订阅一次,事件到达时闭包取当次 load
   }, [])
 
   // 标记成功后让 header 铃铛重拉服务端真相(本页 unread 是 local 派生,不当权威)。

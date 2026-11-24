@@ -82,6 +82,13 @@ export const BRIDGE_BASE_URL = `${DEFAULT_API_BASE_URL}/api/agent-control`
  */
 export const NOTIFICATION_UNREAD_REFRESH_EVENT = 'ihui:notification-unread-refresh'
 
+/**
+ * 广播 `notification:state` 六档翻转到达扩展后,通知列表页重拉服务端真相的同页信号。
+ * 与未读数刷新事件分开:状态翻转既要刷角标,也要让已打开的列表就地更新(标记/删除/归档),
+ * 两者触发点不同(前者本页标记,后者他端广播),合成一个事件会让来源不可辨。
+ */
+export const NOTIFICATION_STATE_REFRESH_EVENT = 'ihui:notification-state-refresh'
+
 export {
   TOKEN_STORAGE_KEY,
   REFRESH_TOKEN_STORAGE_KEY,
