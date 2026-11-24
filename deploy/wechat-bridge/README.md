@@ -76,7 +76,7 @@ wcfhttp --cb "http://127.0.0.1:8848/ingest?secret=<BRIDGE_SECRET>"
 ```powershell
 cd deploy/wechat-bridge
 $env:BRIDGE_DRIVER = "ocr"
-$env:OCR_AUTO_SHOW = "1"   # 窗口隐藏时自动恢复；0 则只报未显示
+$env:OCR_AUTO_SHOW = "1"   # 窗口隐藏时从托盘找回并还原；0 则只报未显示
 node server.mjs
 ```
 
@@ -84,21 +84,21 @@ node server.mjs
 
 - Windows 10/11 已安装 `zh-cn` OCR 语言包；
 - 本机 `Weixin.exe` 已登录，进程名是 `Weixin`；
-- 微信主窗口保持可见、未最小化（截图走 `PrintWindow`，隐藏时是黑图）；托盘隐藏需先手工点开；
+- 微信主窗口默认由 `-AutoShow` 从托盘找回并还原；关闭该开关时，隐藏/最小化窗口截图为黑图；
 - 当前打开哪个会话，就只读哪个会话。
 
 驱动只产出左侧气泡的文本消息，不入库自己发出的右侧消息；`/send`、群动作、朋友圈会明确返回不支持。识别有错字属于 OCR 固有误差，不要把 OCR 文本当平台原始内容。适合先打通「真机入站」链路，不适合替代 hook 做全量后台收信。
 
 新增环境变量：
 
-| 变量                    | 默认                   | 说明                                         |
-| ----------------------- | ---------------------- | -------------------------------------------- |
-| `BRIDGE_DRIVER`         | `mock`                 | 增加 `ocr`（微信 4.x 只读截图 + OCR）        |
-| `BRIDGE_DRIVER_POLL_MS` | `5000`                 | 拉取型驱动的轮询间隔                         |
-| `OCR_AUTO_SHOW`         | `1`                    | 窗口被最小化时自动还原；托盘隐藏需先手工点开 |
-| `OCR_EMIT_EXISTING`     | `0`                    | 调试用：首次轮询也把当前会话已有消息推入队   |
-| `BRIDGE_OCR_SCRIPT`     | `tools/wechat-ocr.ps1` | OCR 脚本路径                                 |
-| `BRIDGE_OCR_POWERSHELL` | 系统 PowerShell 5.1    | 必须用 5.1，WinRT OCR 在 PowerShell 7 不可用 |
+| 变量                    | 默认                   | 说明                                                |
+| ----------------------- | ---------------------- | --------------------------------------------------- |
+| `BRIDGE_DRIVER`         | `mock`                 | 增加 `ocr`（微信 4.x 只读截图 + OCR）               |
+| `BRIDGE_DRIVER_POLL_MS` | `5000`                 | 拉取型驱动的轮询间隔                                |
+| `OCR_AUTO_SHOW`         | `1`                    | 窗口隐藏/最小化时自动从托盘找回并还原；`0` 只报状态 |
+| `OCR_EMIT_EXISTING`     | `0`                    | 调试用：首次轮询也把当前会话已有消息推入队          |
+| `BRIDGE_OCR_SCRIPT`     | `tools/wechat-ocr.ps1` | OCR 脚本路径                                        |
+| `BRIDGE_OCR_POWERSHELL` | 系统 PowerShell 5.1    | 必须用 5.1，WinRT OCR 在 PowerShell 7 不可用        |
 
 ## 在 IHUI 里挂账号
 

@@ -5,7 +5,7 @@
 #
 # 微信 4.x 截图 + Windows OCR 只读探测。
 # 只做三件事：找到 Weixin 主窗口、截图、调用 Windows.Media.Ocr 识别中文。
-# 不注入、不读内存、不改微信文件；窗口被隐藏时默认报 ok=false，避免凭空弹窗。
+# 不注入、不读内存、不改微信文件；窗口隐藏时 -AutoShow 会从托盘找回并还原，否则报 ok=false。
 
 param(
   [ValidateSet('status', 'read')]
@@ -26,7 +26,12 @@ using System.Runtime.InteropServices;
 using System.Text;
 
 public class WeChatOcrWin {
+  public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+  [DllImport("user32.dll")] static extern bool EnumWindows(EnumWindowsProc cb, IntPtr lParam);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int max);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr hWnd, StringBuilder text, int max);
   [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hWnd);
+  [DllImport("user32.dll")] static extern bool IsIconic(IntPtr hWnd);
   [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hWnd, int cmd);
   [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
   [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr hWnd, IntPtr hdc, uint flags);
@@ -34,7 +39,40 @@ public class WeChatOcrWin {
   [StructLayout(LayoutKind.Sequential)]
   public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
 
+  // 微信 4.2 主窗口类名是 Qt51514QWindowIcon（早期文档写的 mmui::MainWindow 已过时）。
+  // 托盘隐藏后 Get-Process.MainWindowHandle 为 0，必须用 EnumWindows 找隐藏主窗，
+  // 且要按尺寸过滤掉「微信」小弹窗，否则会把 294×387 的通知窗当主窗截图。
+  public static IntPtr FindMain() {
+    IntPtr best = IntPtr.Zero;
+    int bestArea = 0;
+    bool bestVisible = false;
+    EnumWindows(delegate(IntPtr h, IntPtr l) {
+      StringBuilder cls = new StringBuilder(256);
+      GetClassName(h, cls, 256);
+      string c = cls.ToString();
+      if (!c.StartsWith("Qt51514QWindowIcon") && c != "mmui::MainWindow") return true;
+      StringBuilder title = new StringBuilder(256);
+      GetWindowText(h, title, 256);
+      if (title.ToString() != "微信") return true;
+      RECT r;
+      if (!GetWindowRect(h, out r)) return true;
+      int w = r.Right - r.Left;
+      int hgt = r.Bottom - r.Top;
+      if (w < 600 || hgt < 500) return true;
+      int area = w * hgt;
+      bool vis = IsWindowVisible(h);
+      if (vis) {
+        if (!bestVisible || area > bestArea) { best = h; bestArea = area; bestVisible = true; }
+      } else if (!bestVisible && area > bestArea) {
+        best = h; bestArea = area;
+      }
+      return true;
+    }, IntPtr.Zero);
+    return best;
+  }
+
   public static bool IsVisible(IntPtr h) { return IsWindowVisible(h); }
+  public static bool IsMinimized(IntPtr h) { return IsIconic(h); }
   public static bool Restore(IntPtr h) { return ShowWindow(h, 9); }
 
   public static bool Capture(IntPtr h, string path) {
@@ -58,18 +96,23 @@ public class WeChatOcrWin {
 '@
 
 function Get-WindowInfo {
-  $proc = Get-Process -Name Weixin -ErrorAction SilentlyContinue |
-    Where-Object { $_.MainWindowHandle -ne 0 } |
-    Select-Object -First 1
-  $h = if ($proc) { [IntPtr]$proc.MainWindowHandle } else { [IntPtr]::Zero }
+  $h = [WeChatOcrWin]::FindMain()
   if ($h -eq [IntPtr]::Zero) {
-    return [ordered]@{ ok = $false; visible = $false; hwnd = 0; title = ''; reason = '未找到 Weixin 主窗口；请先打开微信主窗口（托盘隐藏需手工点开）' }
+    $proc = Get-Process -Name Weixin -ErrorAction SilentlyContinue |
+      Where-Object { $_.MainWindowHandle -ne 0 } |
+      Select-Object -First 1
+    if ($proc) { $h = [IntPtr]$proc.MainWindowHandle }
   }
-  if (-not [WeChatOcrWin]::IsVisible($h)) {
-    if ($AutoShow) { [void][WeChatOcrWin]::Restore($h); Start-Sleep -Milliseconds 800 }
-    else {
+  if ($h -eq [IntPtr]::Zero) {
+    return [ordered]@{ ok = $false; visible = $false; hwnd = 0; title = ''; reason = '未找到微信主窗口；请先登录并打开微信主窗口（托盘隐藏需手工点开）' }
+  }
+  if (-not [WeChatOcrWin]::IsVisible($h) -or [WeChatOcrWin]::IsMinimized($h)) {
+    if ($AutoShow) {
+      [void][WeChatOcrWin]::Restore($h)
+      Start-Sleep -Milliseconds 800
+    } else {
       return [ordered]@{
-        ok = $false; visible = $false; hwnd = $h.ToInt64(); title = '微信'; reason = '微信主窗口当前被最小化；请还原窗口，或启动时加 -AutoShow'
+        ok = $false; visible = $false; hwnd = $h.ToInt64(); title = '微信'; reason = '微信主窗口当前未显示；请打开窗口，或启动时加 -AutoShow'
       }
     }
   }
