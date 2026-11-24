@@ -54,6 +54,8 @@ export interface RelayModelSyncResult {
   inserted: number
   exists: number
   deduped: number
+  /** 上游清单里消失、本轮自动软下架的模型数 */
+  delisted: number
   failed: number
   errors: string[]
   fetchOk: boolean
@@ -71,6 +73,7 @@ export interface RelayModelSyncLoopResult {
   inserted: number
   exists: number
   deduped: number
+  delisted: number
   failed: number
   perProvider: Array<{
     providerCode: string
@@ -78,6 +81,7 @@ export interface RelayModelSyncLoopResult {
     upstreamCount: number
     inserted: number
     deduped: number
+    delisted: number
   }>
 }
 
@@ -127,8 +131,12 @@ export function defaultRelayModelPublic(providerCode: string | undefined): boole
   return providerCode !== 'qoder'
 }
 
-/** 单模型 upsert:按 (config_id, model_id) 唯一约束 onConflictDoNothing。
- *  不更新既有行(避免覆盖管理员手置的 is_relay_public / relay_display_name / 定价)。 */
+/** 单模型 upsert:按 (config_id, model_id) 唯一约束。
+ *  - 新行:插入(enabled=true, 公开状态按 defaultRelayModelPublic)。
+ *  - 已存在且 enabled=true:不动(尊重管理员手置的 is_relay_public / 展示名 / 定价)。
+ *  - 已存在但 enabled=false(曾被自动下架):原地复活 enabled=true —— 上游重新上架时
+ *    模型能自动恢复,否则软下架-row 会被 onConflictDoNothing 永久跳过、再也回不来。
+ *    复活只翻 enabled,不碰公开状态/定价(管理员下架意图仍被尊重)。 */
 async function upsertRelayModel(
   configId: number,
   modelId: string,
@@ -144,10 +152,17 @@ async function upsertRelayModel(
       isRelayPublic: defaultRelayModelPublic(providerCode),
       pointsMultiplier: inferPointsMultiplier(modelId).toFixed(2),
     })
-    .onConflictDoNothing({
+    .onConflictDoUpdate({
       target: [aiModelConfigModels.configId, aiModelConfigModels.modelId],
+      // 只在"本行已下架"时复活;enabled=true 的行 set 成同样值=无副作用更新,
+      // 但会刷新 updatedAt。为彻底不打扰活跃行,where 限 enabled=false。
+      set: { enabled: true, updatedAt: new Date() },
+      where: eq(aiModelConfigModels.enabled, false),
     })
     .returning({ id: aiModelConfigModels.id })
+  // onConflictDoUpdate+where 未命中(=活跃行)时 returning 也为空,需区分 inserted/revived/exists。
+  // drizzle 无法直接区分,复活与新增都算"写入成功";调用方只关心 inserted 计数,
+  // 这里用 rows 是否非空判断:复活返回 id ⇒ 计 inserted(语义=本轮有写入动作)。
   return rows.length > 0 ? 'inserted' : 'exists'
 }
 
@@ -187,6 +202,76 @@ async function dedupModelsInDb(configId: number): Promise<number> {
 
 // eq 延迟到此处(保持顶部 import 简洁,与本文件其他 drizzle 用法一致)
 import { eq, isNotNull, and } from 'drizzle-orm'
+
+/** 自动下架安全阀(2026-11-24 立):单轮"启用中模型"下架比例超过此值、且绝对条数超过下限,
+ *  判定上游清单异常/部分返回,本轮不下架只告警 —— 防止上游一次抖动把整家平台清空。
+ *  与 Python model_sync 的 _AUTO_DISABLE_MAX_REMOVAL_RATIO / _AUTO_DISABLE_ABS_FLOOR 同参。 */
+export const AUTO_DELIST_MAX_RATIO = 0.5
+export const AUTO_DELIST_ABS_FLOOR = 2
+
+/** 纯判据:本轮哪些启用中模型应下架。
+ *  - stale = 本平台库内 enabled=true 但上游本轮清单不再返回的 model_id;
+ *  - 安全阀:stale 条数 > ABS_FLOOR 且 stale/total > MAX_RATIO ⇒ 判异常,返回空(不下架);
+ *    小目录(<= ABS_FLOOR 条)比例天然失真,不看比例照常下架。
+ *  导出供单测钉死阈值行为;DB 层 zero-hit 的 update 不产生副作用。 */
+export function resolveStaleModelIds(
+  enabledDbIds: string[],
+  upstreamIds: string[],
+  maxRatio = AUTO_DELIST_MAX_RATIO,
+  absFloor = AUTO_DELIST_ABS_FLOOR,
+  keepPrefixed = false,
+): { stale: string[]; total: number; suppressedBySafety: boolean } {
+  const upstream = new Set(upstreamIds)
+  const total = enabledDbIds.length
+  // keepPrefixed(qoder):带 'qoder/' 前缀的老别名行与上游裸 id 不同命名空间,
+  // 不能被差集判 stale —— 它们 public=true 正在用,误删会直接打断线上路由。
+  const stale = enabledDbIds.filter(
+    (id) => !upstream.has(id) && !(keepPrefixed && id.includes('/')),
+  )
+  const suppressedBySafety = stale.length > absFloor && total > 0 && stale.length / total > maxRatio
+  return { stale: suppressedBySafety ? [] : stale, total, suppressedBySafety }
+}
+
+/** 自动下架:上游本轮清单里消失的启用中模型置 enabled=false(软下架,可逆)。
+ *  只碰本 configId 下 enabled=true 的行;admin 手置的 is_relay_public / 定价一律不动。
+ *  上游重新上架时由 upsertRelayModel 的 onConflict 分支原地复活(见该函数)。 */
+async function delistStaleModels(
+  configId: number,
+  upstreamIds: string[],
+  providerCode: string,
+): Promise<{ delisted: number; suppressedBySafety: boolean; total: number }> {
+  const rows = await db
+    .select({ modelId: aiModelConfigModels.modelId, enabled: aiModelConfigModels.enabled })
+    .from(aiModelConfigModels)
+    .where(eq(aiModelConfigModels.configId, configId))
+  const enabledDbIds = rows.filter((r) => r.enabled).map((r) => r.modelId)
+  const { stale, total, suppressedBySafety } = resolveStaleModelIds(
+    enabledDbIds,
+    upstreamIds,
+    AUTO_DELIST_MAX_RATIO,
+    AUTO_DELIST_ABS_FLOOR,
+    providerCode === 'qoder',
+  )
+  if (suppressedBySafety) {
+    logger.warn(
+      `[relay-models-sync] ${configId} 本轮下架 ${stale.length}/${total} 触发安全阀(>50% 且 >2 条),判上游清单异常,跳过下架`,
+    )
+  }
+  if (stale.length === 0) return { delisted: 0, suppressedBySafety, total }
+  for (const modelId of stale) {
+    await db
+      .update(aiModelConfigModels)
+      .set({ enabled: false, updatedAt: new Date() })
+      .where(
+        and(
+          eq(aiModelConfigModels.configId, configId),
+          eq(aiModelConfigModels.modelId, modelId),
+          eq(aiModelConfigModels.enabled, true),
+        ),
+      )
+  }
+  return { delisted: stale.length, suppressedBySafety, total }
+}
 
 /** 串行写入:逐条 await,单条失败只计 failed 并继续(不整批中断)。 */
 async function persistModels(
@@ -258,6 +343,7 @@ export async function syncRelayProviderModels(options: {
     inserted: 0,
     exists: 0,
     deduped: 0,
+    delisted: 0,
     failed: 0,
     errors: [],
     fetchOk: false,
@@ -301,10 +387,23 @@ export async function syncRelayProviderModels(options: {
   // 2. 父表行(缺则自动建)
   const { configId, created } = await ensureProviderConfigRow(providerCode)
 
-  // 3. 串行 upsert
+  // 3. 串行 upsert(新增 / 复活已下架行)
   const stats = await persistModels(configId, upstreamIds, write)
 
-  // 4. 跨上游去重
+  // 4. 自动下架:上游本轮清单里消失的启用中模型软下架。
+  //    空清单保护:上游返回 0 个模型视为异常(取不到 ≠ 没模型),本轮不下架整家。
+  let delisted = 0
+  if (upstreamIds.length > 0) {
+    const d = await delistStaleModels(configId, upstreamIds, providerCode)
+    delisted = d.delisted
+    if (delisted > 0) {
+      logger.info(
+        `[relay-models-sync] ${providerCode} delisted ${delisted}/${d.total} stale models (config_id=${configId})`,
+      )
+    }
+  }
+
+  // 5. 跨上游去重
   const deduped = await dedupModelsInDb(configId)
   if (deduped > 0) {
     logger.info(
@@ -319,6 +418,7 @@ export async function syncRelayProviderModels(options: {
     inserted: stats.inserted,
     exists: stats.exists,
     deduped,
+    delisted,
     failed: stats.failed,
     errors: stats.errors,
     fetchOk: true,
@@ -343,6 +443,7 @@ export async function runRelayModelsSyncLoop(
     inserted: 0,
     exists: 0,
     deduped: 0,
+    delisted: 0,
     failed: 0,
     perProvider: [],
   }
@@ -385,6 +486,7 @@ export async function runRelayModelsSyncLoop(
         upstreamCount: 0,
         inserted: 0,
         deduped: 0,
+        delisted: 0,
       })
       continue
     }
@@ -399,6 +501,7 @@ export async function runRelayModelsSyncLoop(
       result.inserted += r.inserted
       result.exists += r.exists
       result.deduped += r.deduped
+      result.delisted += r.delisted
       result.failed += r.failed
       result.perProvider.push({
         providerCode,
@@ -406,6 +509,7 @@ export async function runRelayModelsSyncLoop(
         upstreamCount: r.upstreamModelCount,
         inserted: r.inserted,
         deduped: r.deduped,
+        delisted: r.delisted,
       })
     } catch (err) {
       result.providersSkipped += 1
@@ -418,6 +522,7 @@ export async function runRelayModelsSyncLoop(
         upstreamCount: 0,
         inserted: 0,
         deduped: 0,
+        delisted: 0,
       })
     }
   }

@@ -42,10 +42,12 @@ const {
     insert: vi.fn(() => ({
       values: vi.fn((v: Record<string, unknown>) => {
         insertValues.push(v)
-        return {
+        const conflict = {
           onConflictDoNothing: vi.fn(() => ({ returning: insertReturning })),
+          onConflictDoUpdate: vi.fn(() => ({ returning: insertReturning })),
           returning: insertReturning,
         }
+        return conflict
       }),
     })),
     select: vi.fn(() => ({ from: mockFrom })),
@@ -100,6 +102,9 @@ import {
   resolveModelSyncCron,
   DEFAULT_MODEL_SYNC_CRON,
   defaultRelayModelPublic,
+  resolveStaleModelIds,
+  AUTO_DELIST_MAX_RATIO,
+  AUTO_DELIST_ABS_FLOOR,
 } from '../relay-models-sync.js'
 
 afterEach(() => {
@@ -150,6 +155,7 @@ describe('syncRelayProviderModels — 编排与早退', () => {
   it('全部新增 → inserted=count, exists=0', async () => {
     insertReturning.mockReturnValue([{ id: 1 }])
     fromResults.push([{ id: 48 }]) // 父表已存在
+    fromResults.push([]) // 下架子表空(无 stale)
     fromResults.push([]) // dedup 子表空
     const r = await syncRelayProviderModels({
       providerCode: 'trae',
@@ -166,6 +172,7 @@ describe('syncRelayProviderModels — 编排与早退', () => {
   it('qoder 新上架模型默认不公开(跟现有 qoder 口径;不自动放开)', async () => {
     insertReturning.mockReturnValue([{ id: 1 }])
     fromResults.push([{ id: 49 }]) // qoder 父表已存在
+    fromResults.push([]) // 下架子表空
     fromResults.push([]) // dedup 子表空
     const r = await syncRelayProviderModels({
       providerCode: 'qoder',
@@ -186,9 +193,72 @@ describe('syncRelayProviderModels — 编排与早退', () => {
     expect(defaultRelayModelPublic(undefined)).toBe(true)
   })
 
+  // ===== 自动下架判据(2026-11-24) =====
+  it('resolveStaleModelIds:上游消失的启用模型判 stale', () => {
+    const r = resolveStaleModelIds(['a', 'b', 'c'], ['a', 'b'])
+    expect(r.stale).toEqual(['c'])
+    expect(r.total).toBe(3)
+    expect(r.suppressedBySafety).toBe(false)
+  })
+
+  it('resolveStaleModelIds:小目录(<=2 条)不受 50% 比例误伤', () => {
+    const r = resolveStaleModelIds(['a', 'b'], ['a']) // 1/2=50% 但条数=1 <= ABS_FLOOR
+    expect(r.stale).toEqual(['b'])
+    expect(r.suppressedBySafety).toBe(false)
+    expect(AUTO_DELIST_ABS_FLOOR).toBe(2)
+    expect(AUTO_DELIST_MAX_RATIO).toBe(0.5)
+  })
+
+  it('resolveStaleModelIds:大批消失(>2 且 >50%)触发安全阀,本轮不下架', () => {
+    const r = resolveStaleModelIds(['a', 'b', 'c', 'd', 'e'], ['a']) // 4/5=80% > 50%,4 条 > 2
+    expect(r.stale).toEqual([])
+    expect(r.suppressedBySafety).toBe(true)
+  })
+
+  it('resolveStaleModelIds:qoder 带前缀别名行不被差集误删', () => {
+    const r = resolveStaleModelIds(
+      ['auto', 'qmodel_latest', 'qoder/kmodel', 'qoder/qmodel_38max'],
+      ['auto', 'qmodel_latest'],
+      AUTO_DELIST_MAX_RATIO,
+      AUTO_DELIST_ABS_FLOOR,
+      true, // keepPrefixed
+    )
+    expect(r.stale).toEqual([]) // 两条 qoder/ 前缀行被保护
+  })
+
+  it('端到端:上游消失的模型自动软下架(enabled=false)', async () => {
+    insertReturning.mockReturnValue([{ id: 1 }])
+    fromResults.push([{ id: 48 }]) // 父表
+    fromResults.push([
+      { id: 1, modelId: 'keep-me', enabled: true },
+      { id: 2, modelId: 'gone', enabled: true },
+    ]) // 下架读
+    fromResults.push([{ id: 1, modelId: 'keep-me', enabled: true }]) // dedup 读
+    const r = await syncRelayProviderModels({
+      providerCode: 'trae',
+      fetchUpstream: async () => ({ ok: true, ids: ['keep-me'] }),
+    })
+    expect(r.delisted).toBe(1) // 'gone' 被下架
+    expect(mockDb.update).toHaveBeenCalled()
+  })
+
+  it('端到端:上游返回空清单 → 不下架整家(空清单保护)', async () => {
+    insertReturning.mockReturnValue([])
+    fromResults.push([{ id: 48 }]) // 父表
+    // 注意:空清单时 delistStaleModels 不被调用,队列只剩 dedup
+    fromResults.push([]) // dedup 读
+    const r = await syncRelayProviderModels({
+      providerCode: 'trae',
+      fetchUpstream: async () => ({ ok: true, ids: [] }),
+    })
+    expect(r.delisted).toBe(0)
+    expect(r.upstreamModelCount).toBe(0)
+  })
+
   it('已存在(onConflict 命中)→ 计 exists 不计 inserted', async () => {
     insertReturning.mockReturnValue([]) // 冲突命中 = 已存在
     fromResults.push([{ id: 48 }])
+    fromResults.push([]) // 下架子表空
     fromResults.push([])
     const r = await syncRelayProviderModels({
       providerCode: 'trae',
@@ -203,6 +273,7 @@ describe('syncRelayProviderModels — 编排与早退', () => {
       .mockReturnValueOnce([{ id: 999 }]) // 父表 insert → id=999
       .mockReturnValue([{ id: 1 }]) // 后续 upsert 全部新增
     fromResults.push([]) // 父表查询落空
+    fromResults.push([]) // 下架子表空
     fromResults.push([]) // dedup 子表空
     const r = await syncRelayProviderModels({
       providerCode: 'workbuddy',
@@ -215,6 +286,7 @@ describe('syncRelayProviderModels — 编排与早退', () => {
 
   it('单条 write 抛错只计 failed,不中断后续', async () => {
     fromResults.push([{ id: 48 }])
+    fromResults.push([]) // 下架子表空
     fromResults.push([])
     const attempted: string[] = []
     const r = await syncRelayProviderModels({
@@ -235,6 +307,12 @@ describe('syncRelayProviderModels — 编排与早退', () => {
   it('dedup:重复 model_id 保留最早,其余置 enabled=false', async () => {
     insertReturning.mockReturnValue([{ id: 9 }])
     fromResults.push([{ id: 48 }])
+    // 下架读:两条 gpt-x 都在上游清单里 ⇒ 无 stale,不触发下架 update
+    fromResults.push([
+      { id: 1, modelId: 'gpt-x', enabled: true },
+      { id: 3, modelId: 'gpt-x', enabled: true },
+    ])
+    // dedup 读:同一份重复行 ⇒ 去重 1 条
     fromResults.push([
       { id: 1, modelId: 'gpt-x', enabled: true },
       { id: 3, modelId: 'gpt-x', enabled: true },
@@ -244,6 +322,7 @@ describe('syncRelayProviderModels — 编排与早退', () => {
       fetchUpstream: async () => ({ ok: true, ids: ['gpt-x'] }),
     })
     expect(r.deduped).toBe(1)
+    expect(r.delisted).toBe(0)
     expect(mockDb.update).toHaveBeenCalledTimes(1)
   })
 })
@@ -270,8 +349,8 @@ describe('runRelayModelsSyncLoop — 遍历与失败隔离', () => {
 
   it('两平台都有能力:逐平台同步,统计累加', async () => {
     insertReturning.mockReturnValue([{ id: 1 }])
-    fromResults.push([{ id: 48 }], []) // trae 父+子
-    fromResults.push([{ id: 49 }], []) // qoder 父+子
+    fromResults.push([{ id: 48 }], [], []) // trae 父+下架+dedup
+    fromResults.push([{ id: 49 }], [], []) // qoder 父+下架+dedup
     const r = await runRelayModelsSyncLoop({
       providers: ['trae', 'qoder'],
       listModelsCapable: async () => true,
@@ -288,7 +367,7 @@ describe('runRelayModelsSyncLoop — 遍历与失败隔离', () => {
     // 不会向外抛到 loop 的 catch ⇒ 计 providersSkipped 而非 loop 级 failed。
     // 隔离语义:workbuddy 失败绝不影响 trae 正常同步。
     insertReturning.mockReturnValue([{ id: 1 }])
-    fromResults.push([{ id: 48 }], []) // trae 父+子
+    fromResults.push([{ id: 48 }], [], []) // trae 父+下架+dedup
     const r = await runRelayModelsSyncLoop({
       providers: ['trae', 'workbuddy'],
       listModelsCapable: async () => true,
