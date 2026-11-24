@@ -123,9 +123,9 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
         return
       }
       let cancelled = false
-      fetchApi<{ error?: string }>('/api/callback/connectors/oauth', {
-        params: { code, state },
-      })
+      fetchApi<{ error?: string }>(
+        `/api/callback/connectors/oauth?${new URLSearchParams({ code, state }).toString()}`,
+      )
         .then((res) => {
           if (cancelled) return
           if (!res.success) {
