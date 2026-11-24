@@ -15,6 +15,11 @@ import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
 import { fetchApi } from '@/lib/api'
 import { useNotification } from '@/hooks/use-notification'
+import {
+  querySystemNotificationPermission,
+  type SystemNotificationPermissionReport,
+} from '@/lib/tauri-bridge'
+import { resolveSystemPermissionView } from './system-permission-display'
 
 interface NotificationPrefs {
   emailEnabled: boolean
@@ -49,6 +54,26 @@ export default function NotificationsPage() {
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState('')
   const [toast, setToast] = React.useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  // 系统级通知权限三态:默认 unjudged,绝不在查询前预设 allowed。
+  const [systemPermission, setSystemPermission] =
+    React.useState<SystemNotificationPermissionReport | null>(null)
+  const systemView = resolveSystemPermissionView(systemPermission?.state)
+
+  // 独立查询:系统级权限不依赖登录态,也不依赖偏好接口;失败保持 null(=未判定)。
+  React.useEffect(() => {
+    let cancelled = false
+    querySystemNotificationPermission()
+      .then((report) => {
+        if (!cancelled) setSystemPermission(report)
+      })
+      .catch(() => {
+        // fail-closed:查询失败不写 allowed,保持未判定。
+        if (!cancelled) setSystemPermission(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   React.useEffect(() => {
     if (!allow) return
@@ -240,6 +265,37 @@ export default function NotificationsPage() {
                     className="shrink-0"
                   />
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Bell className="h-4 w-4" />
+                  {t('systemPermissionTitle')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 flex-1 text-body text-muted-foreground">
+                    {t('systemPermissionDesc')}
+                  </span>
+                  <span
+                    data-testid="system-permission-state"
+                    data-state={systemView.state}
+                    className="shrink-0 font-mono text-label"
+                  >
+                    {t(systemView.labelKey)}
+                  </span>
+                </div>
+                {systemView.showDeniedHint && (
+                  <p
+                    data-testid="system-permission-denied-hint"
+                    className="text-body text-destructive"
+                  >
+                    {t('systemPermissionDeniedHint')}
+                  </p>
+                )}
               </CardContent>
             </Card>
 

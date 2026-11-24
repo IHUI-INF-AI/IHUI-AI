@@ -8,6 +8,7 @@
 
 import { useEffect, useRef } from 'react'
 import { conversationMetaLedger, mcpStatusLedger } from '@ihui/shared/chat'
+import { queryNotificationStates } from '@ihui/api-client'
 
 import { WS_BASE_URL } from '../lib/config'
 import {
@@ -15,6 +16,10 @@ import {
   resetBroadcastNotices,
   type NotificationStateActions,
 } from '../lib/user-broadcast'
+import {
+  applySnapshot,
+  reconcileNotificationState,
+} from '../lib/notification-state-reconcile'
 import { startRnChatSyncResync, stopRnChatSyncResync } from '../lib/chat-sync-resync'
 import { useNotificationStore } from '../stores/notification'
 
@@ -59,6 +64,10 @@ export function useUserBroadcastSync(opts: UseUserBroadcastSyncOptions): void {
     restoreByIds: store.restoreByIds,
     deleteByIds: store.deleteByIds,
   }
+  // 权威对账要现读本地 ids;store 对象每次通知变化都是新值,同样走 ref 不进依赖。
+  const localIdsRef = useRef<string[]>([])
+  localIdsRef.current = store.notifications.map((n) => n.id)
+  const everConnectedRef = useRef(false)
 
   useEffect(() => {
     if (!token) {
@@ -67,8 +76,13 @@ export function useUserBroadcastSync(opts: UseUserBroadcastSyncOptions): void {
       resetBroadcastNotices()
       // 身份面退场 ⇒ gap 待办也失去意义,泵必须同批停止(否则残留订阅会继续追问旧会话)
       stopRnChatSyncResync()
+      everConnectedRef.current = false
       return
     }
+    // 每次建订阅(登录/换账号)重置首连标志:首连不拉权威快照(通知加载链路负责),
+    // 只有曾经连上后的再次 open 才是需要补帧的重连边沿。
+    everConnectedRef.current = false
+    let cancelled = false
     const sub = attachUserBroadcast({
       baseUrl: WS_BASE_URL,
       token,
@@ -92,11 +106,26 @@ export function useUserBroadcastSync(opts: UseUserBroadcastSyncOptions): void {
           `${LOG_TAG} unrecognized frame received: event=${typeof event === 'string' ? event : '-'}`,
         )
       },
+      // 重连权威对账:WS notification:state 帧不重放,服务端背压跳帧会断连制造此边沿。
+      // 首连不拉;失败静默,下次重连再试,不把"查失败"冒充已对齐。
+      onConnectionState: (state) => {
+        const reconnect = state === 'open' && everConnectedRef.current
+        everConnectedRef.current = everConnectedRef.current || state === 'open'
+        if (!reconnect) return
+        void reconcileNotificationState({
+          getLocalIds: () => localIdsRef.current,
+          query: queryNotificationStates,
+          apply: applySnapshot,
+          actions: notificationStateRef.current,
+          isCancelled: () => cancelled,
+        })
+      },
     })
     // 票 B02 / 票71 phase 2:gap-resync 泵与订阅同生命周期(有登录态才建;
     // 泵只订阅共享 store,不依赖 WS 是否建成 —— 没帧就不会有 gap)。
     startRnChatSyncResync()
     return () => {
+      cancelled = true
       sub?.close()
       stopRnChatSyncResync()
     }

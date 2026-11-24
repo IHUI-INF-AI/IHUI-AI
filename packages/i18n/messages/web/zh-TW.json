@@ -474,7 +474,9 @@
     "devtools": "開發者工具",
     "popout": "彈出視窗",
     "browserTab": "瀏覽器分頁"
-  },
+  ,
+    "pipMonitor": "畫中畫監看",
+    "pipMonitorActive": "關閉畫中畫"},
   "a11y": {
     "previewLoadFailed": "預覽載入失敗。",
     "previewRetryAction": "重試",
@@ -9537,7 +9539,16 @@
       "title": "畫中畫",
       "emptyState": "暫無內容",
       "openWindow": "開啟畫中畫視窗"
-    },
+    ,
+      "readOnly": "唯讀",
+      "handover": "接管",
+      "statusConnecting": "連線中",
+      "statusRunning": "執行中",
+      "statusWaiting": "等待你確認",
+      "statusGate": "登入/驗證頁，可能需要接管",
+      "statusError": "畫面已中斷",
+      "statusStalled": "畫面 {seconds} 秒未更新",
+      "tooSmall": "視窗過小，建議不小於 1/4 螢幕"},
     "resizeFloatHint": "調整大小"
   },
   "aiCost": {
@@ -22657,6 +22668,12 @@
     "exportRecreate": "重新產生",
     "notificationsSaveSuccess": "通知設定已儲存",
     "notificationsDesc": "管理站內與郵件通知偏好",
+    "systemPermissionTitle": "系統通知權限",
+    "systemPermissionDesc": "桌面系統級通知開關(唯讀;由作業系統控制)",
+    "systemPermissionStateAllowed": "系統已允許",
+    "systemPermissionStateDenied": "系統已關閉",
+    "systemPermissionStateUnjudged": "無法判定（非桌面端或未授權查詢）",
+    "systemPermissionDeniedHint": "系統設定中關閉了通知，應用內開關不會生效，請先在系統中開啟通知",
     "emailNotifDesc": "透過郵件接收重要通知",
     "themeLight": "淺色",
     "themeDark": "深色",

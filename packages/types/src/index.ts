@@ -38,6 +38,8 @@ export * from './wechat-hub.js'
 // 权限模式唯一真源(G-161):跨端/跨语言注册表 + 别名归一,详见 permission-mode.ts 头注
 export * from './permission-mode.js'
 export * from './permission-axis.js'
+// 统一审批决策出口(2026-11-24):CLI danger-gate 与 ai-service managed permissions 的共同记录形状
+export * from './approval-decision.js'
 // 推理强度档位封闭集合(D130,2026-09-30 立):跨端 wire 值域第四落点,由守门 C5/C6 与既有三处对账。
 export * from './reasoning-effort.js'
 

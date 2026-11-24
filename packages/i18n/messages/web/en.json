@@ -474,7 +474,9 @@
     "devtools": "DevTools",
     "popout": "Pop Out",
     "browserTab": "Browser Tab"
-  },
+  ,
+    "pipMonitor": "PiP monitor",
+    "pipMonitorActive": "Close PiP"},
   "a11y": {
     "previewLoadFailed": "Preview failed to load.",
     "previewRetryAction": "Retry",
@@ -9537,7 +9539,16 @@
       "title": "Picture-in-Picture",
       "emptyState": "Nothing to display",
       "openWindow": "Open Picture-in-Picture Window"
-    },
+    ,
+      "readOnly": "Read-only",
+      "handover": "Take over",
+      "statusConnecting": "Connecting",
+      "statusRunning": "Running",
+      "statusWaiting": "Waiting for you",
+      "statusGate": "Login or verification page — you may need to take over",
+      "statusError": "Screen disconnected",
+      "statusStalled": "Screen hasn't updated for {seconds}s",
+      "tooSmall": "Window too small — keep it at least a quarter screen"},
     "resizeFloatHint": "Resize"
   },
   "aiCost": {
@@ -22506,6 +22517,12 @@
     "exportRecreate": "Regenerate",
     "notificationsSaveSuccess": "Notification settings saved",
     "notificationsDesc": "Manage in-app and email notification preferences",
+    "systemPermissionTitle": "System notification permission",
+    "systemPermissionDesc": "OS-level notification switch (read-only; controlled by your operating system)",
+    "systemPermissionStateAllowed": "Allowed by system",
+    "systemPermissionStateDenied": "Disabled by system",
+    "systemPermissionStateUnjudged": "Undetermined (non-desktop or query unauthorized)",
+    "systemPermissionDeniedHint": "Notifications are turned off in system settings, so in-app switches have no effect. Enable notifications in your system settings first.",
     "emailNotifDesc": "Receive important updates by email",
     "themeLight": "Light",
     "themeDark": "Dark",

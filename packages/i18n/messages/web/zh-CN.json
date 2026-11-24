@@ -474,7 +474,9 @@
     "devtools": "开发者工具",
     "popout": "弹出窗口",
     "browserTab": "浏览器标签页"
-  },
+  ,
+    "pipMonitor": "画中画监看",
+    "pipMonitorActive": "关闭画中画"},
   "a11y": {
     "previewLoadFailed": "预览加载失败。",
     "previewRetryAction": "重试",
@@ -9561,7 +9563,16 @@
       "title": "画中画",
       "emptyState": "暂无内容",
       "openWindow": "打开画中画窗口"
-    },
+    ,
+      "readOnly": "只读",
+      "handover": "接管",
+      "statusConnecting": "连接中",
+      "statusRunning": "运行中",
+      "statusWaiting": "等待你确认",
+      "statusGate": "登录/验证页，可能需要接管",
+      "statusError": "画面已断开",
+      "statusStalled": "画面 {seconds} 秒未更新",
+      "tooSmall": "窗口过小，建议不小于 1/4 屏"},
     "resizeFloatHint": "调整大小"
   },
   "aiCost": {
@@ -23186,6 +23197,12 @@
     "exportRecreate": "重新生成",
     "notificationsSaveSuccess": "通知设置已保存",
     "notificationsDesc": "管理站内与邮件通知偏好",
+    "systemPermissionTitle": "系统通知权限",
+    "systemPermissionDesc": "桌面系统级通知开关(只读;由操作系统控制)",
+    "systemPermissionStateAllowed": "系统已允许",
+    "systemPermissionStateDenied": "系统已关闭",
+    "systemPermissionStateUnjudged": "无法判定（非桌面端或未授权查询）",
+    "systemPermissionDeniedHint": "系统设置中关闭了通知，应用内开关不会生效，请先在系统中开启通知",
     "emailNotifDesc": "通过邮件接收重要通知",
     "themeLight": "浅色",
     "themeDark": "深色",

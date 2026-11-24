@@ -27,7 +27,11 @@
 //    那条验收就会变成"写了但没人验过"的第二格;
 //  ③ 未登录不建连(返回 null 而不是"假装已订阅")。
 
-import { subscribeUserBroadcast, type UserBroadcastSubscription } from '@ihui/api-client'
+import {
+  subscribeUserBroadcast,
+  type UserBroadcastConnectionState,
+  type UserBroadcastSubscription,
+} from '@ihui/api-client'
 import type { WebSocketLike } from '@ihui/api-client'
 import {
   CHAT_SYNC_EVENT_NAMES,
@@ -84,6 +88,11 @@ export interface UserBroadcastAdapterDeps {
   webSocketFactory?: (url: string) => WebSocketLike
   /** 诊断出口:认不下来的帧在这里点名(真机 = console.warn,与本端桥接层同一约定) */
   onUndetermined?: (raw: unknown) => void
+  /**
+   * 连接状态出口(2026-11-24):挂载层用它识别重连边沿,拉通知权威快照对账。
+   * 首连不触发对账(由通知加载链路负责),只有 everConnected 后的 open 才是重连。
+   */
+  onConnectionState?: (state: UserBroadcastConnectionState) => void
   /**
    * 通知状态翻转投影出口(2026-11-24):由挂载层从通知 store 取四个批量 action 注入。
    * 本文件不 import Context store(模块级函数拿不到 hook),判据零复算——六档 op 的
@@ -215,6 +224,7 @@ export function attachUserBroadcast(
         applyNotificationStateFrame(evt, deps.notificationStateActions, deps.onUndetermined)
       },
       onUndetermined: (raw) => deps.onUndetermined?.(raw),
+      onState: (state) => deps.onConnectionState?.(state),
     },
   )
   // 一次订阅 = 一份账本:`use-user-broadcast-sync` 只在 token 变化时重建订阅(重新登录/换账号),
