@@ -132,16 +132,17 @@ craft 的 `dynamic_ipc_channels` 判据 = "channel 实参非字符串字面量"�
   - **修改说明**：首次 `analyze` 用 `C://Users//...` 双斜杠路径失败（`ERR_REA_WINDOWS_NATIVE` "Ambiguous Windows path component"），改单反斜杠正确路径后成功——是参数传递问题，非引擎缺陷（留痕 `rea-iselevated-analyze.json` 失败证据）。
   - **价值**：这是 craft `js-app-map` 给不出的**函数级原生证据**，补足了 §4 原生模块清单只有名字、无函数计数的空缺；但按 §5「本仓等价覆盖」判据，它仍是**证据增量而非能力缺口**（本仓 Tauri 已用 Rust 原生层），不新增代码。
 
-### 7.2 craft-anything 0.6.1 —— 官方源获取中（校验后再改口径）
+### 7.2 craft MCP 配置 —— 不是"缺工具"，是**路径漂移**（已修复）
 
-- **确认存在**：GitHub Releases `v0.6.1`（published 2026-11-12）含 `craft-anything-0.6.1-windows-x64-portable.zip`（69,934,191 B）与 `SHA256SUMS.txt`、`release-signing-key.asc`。
-- **获取路径**：`curl` 官方 release URL → `D:\DevEnv\craft-anything\0.6.1\`（正是 `.ihui/mcp.json` 指向的路径，补上即修复该注册），下载后以 `SHA256SUMS.txt` 比对再解压。
-- **release notes 性质**：v0.6.1 变更以 R3.12 原生二进制解析器健壮性（Mach-O zero-fill/ELF symbol versions/PE VA wrap/DEX boundaries 等）与少量 R2.x 浏览器生命周期修复为主，**无 js-app-map 或 MCP 工具数的新增说明** ⇒ 对本文 JS 运行时动态面结论无增量影响。
-- **状态纪律**：截至本节落笔，zip 仍在下载（未校验、未解压、未跑版本）。**在 SHA256 验证 + `--version` 实测前，不声明 0.6.1 可用**。
+- **真相**：项目 `.ihui/mcp.json` 本来就配了 craft MCP server（`mcp --all-tools --allow-run`），但 `command` 指向 `D:\DevEnv\craft-anything\0.6.1\craft-anything-cli.exe` —— **该 exe 盘上不存在**（0.6.1 从未落盘）。本机现成的 `0.5.0\craft-anything-cli.exe` 完全支持这套参数。**所以缺口不是"工具缺失"，是配置里一个失效的绝对路径**。
+- **实测**：`craft-anything-cli 0.5.0 mcp --help` 确认 `--all-tools`/`--allow-run`/`--deep` 全支持；`capabilities` 报 **17 toolsets / 321 工具**。写验证器 `.ihui-agent/tmp/r12/craft-mcp-handshake.mjs` 按项目原参数 spawn 0.5.0 exe 做真实 MCP 握手：`initialize` → `serverInfo={name:"craft-anything",version:"0.5.0"}`、`protocolVersion=2025-06-18`、`tools/list` **321 工具**（`core_target_open`/`native_cursor_show`/…），**握手成功**。
+- **修复**：把 `.ihui/mcp.json` 的 craft `command` 从失效的 `0.6.1` 路径改为现成可用的 `0.5.0` 路径（单值改动，其余参数原样）。修后 JSON 合法、路径存在、握手实测通过 ⇒ 项目 craft MCP 配置真正可用。
+- **0.6.1 下载的处置**：曾从 GitHub Releases `v0.6.1`（含 `SHA256SUMS.txt`）下载 portable zip，但带宽仅 ~10KB/s，`D:\DevEnv\craft-anything\0.6.1\` 下 zip 停在 37.5MB/69.9MB，**SHA256 不匹配（未完成）⇒ 不解压、不声明可用**。release notes 显示 0.6.1 变更以 R3.12 原生解析器健壮性为主、**对 js-app-map 零增量**，不值得为它耗时。
+- **纪律**：不伪造 0.6.1 可用性；不删半成品 zip（留痕下载中断事实）。
 
 ### 7.3 对本文结论的影响
 
 - 两条欠账（63,655 节点截断、31 动态 IPC）本就是 craft 0.5.0 静态攻下，与工具版本无关；§2–§6 全部结论**不变**。
-- 唯一修订：§1 与 §6 里"工具缺失=未采用"的措辞作废，改为"REA 已补装实测 / craft 0.6.1 官方源校验中"，证据以本节为准。
+- 修订：§1 与 §6 里"工具缺失=未采用"措辞作废 —— **REA 已补装且官方 doctor 全绿（170 工具）**；**craft 不在缺工具，是 MCP 配置路径漂移，已修指向 0.5.0 并握手 321 工具实证**；0.6.1 下载中断如实登记、不声明可用。证据以本节为准。
 - 未运行任何目标程序；未粘专有源码正文；未破解/绕过/提取凭据。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
