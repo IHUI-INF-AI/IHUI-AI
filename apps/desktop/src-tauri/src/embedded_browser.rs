@@ -77,9 +77,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use tauri::webview::Color;
-use tauri::{
-    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Url, WebviewBuilder, WebviewUrl,
-};
+use tauri::{AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, PhysicalSize, Url, WebviewBuilder, WebviewUrl};
 
 use crate::checkin_web_login::{WebLoginProbe, WB_WEB_LOGIN_URL, checkin_workbuddy_web_login_probe};
 use crate::IpcError;
@@ -89,6 +87,16 @@ pub const BROWSER_WINDOW_LABEL: &str = "embedded-browser";
 
 /// 主页(点「主页」按钮去这里)。
 pub const HOME_URL: &str = "https://aizhs.top/";
+
+/// 画中画小窗尺寸与下限(2026-11-25)。420×280 足够看清网页主内容,
+/// 又不会盖掉主工作区;低于 320×200 时连地址栏都挤没了,不再允许缩。
+const PIP_WIDTH: u32 = 420;
+const PIP_HEIGHT: u32 = 280;
+const PIP_MIN_WIDTH: u32 = 320;
+const PIP_MIN_HEIGHT: u32 = 200;
+/// 普通内嵌浏览器窗的最小尺寸(与建窗时的 `.min_inner_size` 保持一致)。
+const BROWSER_MIN_WIDTH: u32 = 900;
+const BROWSER_MIN_HEIGHT: u32 = 640;
 
 /// 内容 webview label 前缀;完整 label = `browser-tab-<id>`。
 pub(crate) const TAB_LABEL_PREFIX: &str = "browser-tab-";
@@ -302,11 +310,16 @@ const BAR_JS: &str = r#"(function () {
   toolbar.appendChild(btn('\u21bb', '刷新', 'reload'));
   toolbar.appendChild(btn('\u2715', '停止', 'stop'));
   toolbar.appendChild(btn('\u2302', '主页', 'home'));
+  // 2026-11-25:画中画按钮/关闭提前到地址栏左侧 —— 小窗只有 420 宽,
+  // 放最右边会被地址栏挤到可视区外,用户就没有退出入口了。
+  var pipBtn = btn('\u29c9', '画中画小窗', 'pip');
+  var closeBtn = btn('\u2715', '关闭窗口', 'close-window');
+  toolbar.appendChild(pipBtn);
+  toolbar.appendChild(closeBtn);
   toolbar.appendChild(urlInput);
   toolbar.appendChild(btn('\u2699', '开发者工具', 'devtools'));
   var pickBtn = btn('\u25ce', '元素点选', 'pick', 'on=1');
   toolbar.appendChild(pickBtn);
-  toolbar.appendChild(btn('\u2715', '关闭窗口', 'close-window'));
 
   var newTabBtn = btn('+', '新建标签页', 'new-tab', 'u=' + encodeURIComponent('about:blank'));
   bar.appendChild(tabStrip);
@@ -360,9 +373,15 @@ const BAR_JS: &str = r#"(function () {
     }
     // 地址栏
     if (document.activeElement !== urlInput) urlInput.value = s.url || location.href;
+    // 画中画:窗口只有 420 宽,地址栏让位给右侧按钮,否则「退出画中画」被挤出可视区。
+    urlInput.style.setProperty('flex', s.pip ? '0 1 90px' : '1 1 auto');
+    urlInput.style.setProperty('min-width', s.pip ? '0px' : '60px');
     // 点选态
     pickBtn.style.setProperty('background', s.picking ? '#3b3b7a' : 'transparent');
     pickBtn.title = s.picking ? '退出点选' : '元素点选';
+    // 画中画态
+    pipBtn.style.setProperty('background', s.pip ? '#2f5d50' : 'transparent');
+    pipBtn.title = s.pip ? '退出画中画' : '画中画小窗';
   };
   window.__ihuiBarRender(lastState);
 })();"#;
@@ -462,6 +481,8 @@ pub enum SentinelAction {
     Pick(bool),
     Picked(String),
     CloseWindow,
+    /// 画中画小窗:None = 切换,Some(true/false) = 明确进入/退出(IPC 命令用)。
+    Pip(Option<bool>),
     /// 签到页(内嵌 tab 里的 aizhs.top/checkin)请求「浏览器登录 WorkBuddy」:
     /// 内容页无 IPC,只能借哨兵导航把意图带出来(2026-10-17 立)。
     WbCheckinLogin,
@@ -591,6 +612,7 @@ pub fn parse_sentinel(url: &Url) -> Option<SentinelAction> {
         "pick" => SentinelAction::Pick(q("on").as_deref() == Some("1")),
         "picked" => SentinelAction::Picked(q("d").unwrap_or_default()),
         "close-window" => SentinelAction::CloseWindow,
+        "pip" => SentinelAction::Pip(q("on").map(|v| v == "1" || v == "true")),
         "wb-checkin-login" => SentinelAction::WbCheckinLogin,
         _ => return None,
     })
@@ -624,6 +646,20 @@ struct Session {
     /// true = `Window::add_child`(unstable 多 webview)建窗失败,已降级为
     /// **单 webview 窗**(窗口 label 即 webview label,无多标签)。见 `open_or_navigate`。
     degraded: bool,
+    /// 2026-11-25:窗口是否处于「画中画小窗」模式(缩到 420×280、置顶、不抢焦点)。
+    pip: bool,
+    /// 进入画中画前的窗口几何/置顶态,退出时原样恢复。只在 `pip=true` 时存在。
+    pip_restore: Option<PipRestore>,
+}
+
+/// 画中画进入前的窗口快照。
+#[derive(Clone, Copy, Debug)]
+struct PipRestore {
+    width: u32,
+    height: u32,
+    x: i32,
+    y: i32,
+    always_on_top: bool,
 }
 
 /// 浏览器会话状态(窗口在不在、标签列表、当前标签)。
@@ -690,6 +726,8 @@ pub struct BrowserStateDto {
     pub active: Option<u64>,
     /// true = 走了单 webview 降级路径(多标签不可用)。
     pub degraded: bool,
+    /// true = 当前处于画中画小窗模式(缩窗 + 置顶)。
+    pub pip: bool,
 }
 
 fn tab_label(id: u64) -> String {
@@ -846,7 +884,13 @@ fn bar_state_json(s: &Session) -> serde_json::Value {
         .and_then(|id| s.tabs.iter().find(|t| t.id == id))
         .map(|t| t.url.clone())
         .unwrap_or_default();
-    serde_json::json!({ "tabs": tabs, "url": url, "picking": false, "multiTab": !s.degraded })
+    serde_json::json!({
+        "tabs": tabs,
+        "url": url,
+        "picking": false,
+        "multiTab": !s.degraded,
+        "pip": s.pip,
+    })
 }
 
 /// 把状态渲染进某个 webview 的工具条。
@@ -871,6 +915,78 @@ fn refresh_active_bar(app: &AppHandle) {
     if let Some(id) = snapshot.active {
         push_bar_state(app, &tab_label(id), &snapshot);
     }
+}
+
+/// 进入/退出画中画小窗(2026-11-25)。
+///
+/// 进入:保存当前几何与置顶态 → 放开最小尺寸 → 缩到 420×280 → 挪进当前
+/// 显示器可视区 → 置顶。**不调用 show()/set_focus()**:画中画的意义是"看得见
+/// 但不抢当前输入",抢焦点会把用户正在主窗打的字打断。
+/// 退出:恢复最小尺寸、原尺寸、原位置、原置顶态。
+fn set_browser_pip(app: &AppHandle, window: &tauri::Window, enable: Option<bool>) {
+    let current = app.state::<BrowserManager>().with(|s| s.pip);
+    let target = enable.unwrap_or(!current);
+    if target == current {
+        refresh_active_bar(app);
+        return;
+    }
+    if target {
+        // set_size 设的是内容区尺寸,这里必须存 inner_size;存 outer_size 会在
+        // 恢复时把边框再叠一次,窗口越长越大(2026-11-25 真机实测)。
+        let size = window
+            .inner_size()
+            .unwrap_or(PhysicalSize::new(1280u32, 860u32));
+        let position = window
+            .outer_position()
+            .unwrap_or(PhysicalPosition::new(0i32, 0i32));
+        let always_on_top = window.is_always_on_top().unwrap_or(false);
+        app.state::<BrowserManager>().with(|s| {
+            s.pip = true;
+            s.pip_restore = Some(PipRestore {
+                width: size.width,
+                height: size.height,
+                x: position.x,
+                y: position.y,
+                always_on_top,
+            });
+        });
+        // 普通窗最小 900×640,不先放开就缩不到 420×280。
+        let _ = window.set_min_size(Some(tauri::Size::Logical(LogicalSize::new(
+            PIP_MIN_WIDTH as f64,
+            PIP_MIN_HEIGHT as f64,
+        ))));
+        let _ = window.set_size(LogicalSize::new(PIP_WIDTH as f64, PIP_HEIGHT as f64));
+        // 原地缩小可能越出屏幕右下角:夹进当前显示器可视区。
+        if let Ok(Some(monitor)) = window.current_monitor() {
+            let scale = window.scale_factor().unwrap_or(1.0);
+            let pw = (PIP_WIDTH as f64 * scale).round() as i32;
+            let ph = (PIP_HEIGHT as f64 * scale).round() as i32;
+            let mx = monitor.position().x;
+            let my = monitor.position().y;
+            let mw = monitor.size().width as i32;
+            let mh = monitor.size().height as i32;
+            let nx = position.x.min(mx + mw - pw).max(mx);
+            let ny = position.y.min(my + mh - ph).max(my);
+            let _ = window.set_position(PhysicalPosition::new(nx, ny));
+        }
+        let _ = window.set_always_on_top(true);
+    } else {
+        let restore = app.state::<BrowserManager>().with(|s| {
+            s.pip = false;
+            s.pip_restore.take()
+        });
+        let _ = window.set_min_size(Some(tauri::Size::Logical(LogicalSize::new(
+            BROWSER_MIN_WIDTH as f64,
+            BROWSER_MIN_HEIGHT as f64,
+        ))));
+        if let Some(r) = restore {
+            let _ = window.set_size(PhysicalSize::new(r.width, r.height));
+            let _ = window.set_position(PhysicalPosition::new(r.x, r.y));
+            let _ = window.set_always_on_top(r.always_on_top);
+        }
+    }
+    // 不 show、不 set_focus:只把工具条按钮态刷新成当前模式。
+    refresh_active_bar(app);
 }
 
 /// 构建一个内容 webview builder(多标签与降级两条路共用)。
@@ -1513,6 +1629,9 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
             }
             refresh_active_bar(&app);
         }
+        SentinelAction::Pip(on) => {
+            set_browser_pip(&app, &window, on);
+        }
         SentinelAction::CloseWindow => {
             let _ = window.close();
             app.state::<BrowserManager>().with(|s| {
@@ -1678,14 +1797,14 @@ pub async fn embedded_browser_close(app: AppHandle) -> Result<(), IpcError> {
 
 /// 查询内嵌浏览器窗口状态(窗口在不在、当前地址、标签列表)。
 #[tauri::command]
-pub fn embedded_browser_state(app: AppHandle) -> BrowserStateDto {
-    if app.get_window(BROWSER_WINDOW_LABEL).is_none() {
+pub fn embedded_browser_state(app: AppHandle) -> BrowserStateDto {    if app.get_window(BROWSER_WINDOW_LABEL).is_none() {
         return BrowserStateDto {
             open: false,
             url: None,
             tabs: vec![],
             active: None,
             degraded: false,
+            pip: false,
         };
     }
     app.state::<BrowserManager>().with(|s| {
@@ -1699,8 +1818,22 @@ pub fn embedded_browser_state(app: AppHandle) -> BrowserStateDto {
             tabs: s.tabs.clone(),
             active: s.active,
             degraded: s.degraded,
+            pip: s.pip,
         }
     })
+}
+
+/// 进入/退出内嵌浏览器画中画小窗(enable 缺省 = 切换)。
+#[tauri::command]
+pub fn embedded_browser_pip(
+    app: AppHandle,
+    enable: Option<bool>,
+) -> Result<BrowserStateDto, IpcError> {
+    let window = app
+        .get_window(BROWSER_WINDOW_LABEL)
+        .ok_or_else(|| IpcError::internal("内嵌浏览器窗口未打开"))?;
+    set_browser_pip(&app, &window, enable);
+    Ok(embedded_browser_state(app))
 }
 
 /// 新建标签页(可指定 URL;不合法则去主页)。
@@ -1805,6 +1938,19 @@ mod tests {
         assert_eq!(
             parse_sentinel(&u("https://browser.ihui.invalid/wb-checkin-login")),
             Some(SentinelAction::WbCheckinLogin)
+        );
+        // 2026-11-25:画中画小窗(无 on = 切换)
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/pip")),
+            Some(SentinelAction::Pip(None))
+        );
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/pip?on=1")),
+            Some(SentinelAction::Pip(Some(true)))
+        );
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/pip?on=0")),
+            Some(SentinelAction::Pip(Some(false)))
         );
     }
 
@@ -2007,6 +2153,13 @@ mod tests {
         // 工具条脚本里确实有这条分支
         assert!(BAR_JS.contains("multiTab"));
         assert!(BAR_JS.contains("'display', multi ? 'flex' : 'none'"));
+        // 2026-11-25:画中画按钮与状态同源
+        assert_eq!(bar_state_json(&s)["pip"], serde_json::json!(false));
+        let mut p = Session::default();
+        p.pip = true;
+        assert_eq!(bar_state_json(&p)["pip"], serde_json::json!(true));
+        assert!(BAR_JS.contains("'pip'"));
+        assert!(BAR_JS.contains("画中画小窗"));
     }
 
     #[test]
