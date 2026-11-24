@@ -46,6 +46,7 @@ def test_normalize_task_defaults_and_statuses():
     assert snapshot is not None
     assert snapshot["goal"] == "把报表导出并核对"
     assert snapshot["requirements"] == ["导出 xlsx", "核对行数"]
+    assert snapshot["checkpoints"][0]["label_key"] is None
 
 
 def test_normalize_task_keeps_explicit_id():
@@ -79,6 +80,10 @@ def test_normalize_task_keeps_explicit_id():
             lambda p: p["checkpoints"][0].update(match="export*"),
             "checkpoint_match_invalid",
         ),
+        (
+            lambda p: p["checkpoints"][0].update(label_key="Bad Key"),
+            "task_invalid_checkpoints",
+        ),
     ],
 )
 def test_normalize_task_rejects_bad_input(mutate, code):
@@ -100,6 +105,9 @@ def test_builtin_templates_are_valid_and_unique():
     for tpl in BUILTIN_TASK_TEMPLATES:
         task = task_from_template(tpl["id"])
         assert task["template_id"] == tpl["id"]
+        keys = [cp["label_key"] for cp in task["checkpoints"]]
+        assert all(isinstance(k, str) and k.startswith("ck_") for k in keys)
+        assert len(set(keys)) == len(keys)
         assert len(task["checkpoints"]) == len(tpl["checkpoints"])
     with pytest.raises(TaskValidationError) as exc:
         task_from_template("not-exist")

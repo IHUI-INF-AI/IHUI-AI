@@ -28,6 +28,7 @@ MAX_REQUIREMENTS = 8
 MAX_REQUIREMENT_CHARS = 80
 MAX_CHECKPOINTS = 8
 MAX_LABEL_CHARS = 40
+MAX_LABEL_KEY_CHARS = 48
 MAX_MATCH_CHARS = 24
 MAX_TEMPLATE_ID_CHARS = 32
 
@@ -153,10 +154,22 @@ def _normalize_checkpoints(raw: object) -> list[dict[str, Any]]:
                 "task_invalid_checkpoints",
                 f"checkpoints[{index}].label 最长 {MAX_LABEL_CHARS} 字符",
             )
+        # 2026-11-25:label_key 只给内置模板用,客户端据此本地化;自定义任务可省,
+        # 省了就一直显示 label 原文,不因缺翻译而报错。
+        label_key = str(item.get("label_key") or "").strip().lower()
+        if label_key:
+            if len(label_key) > MAX_LABEL_KEY_CHARS or not re.match(
+                r"^[a-z0-9][a-z0-9._-]*$", label_key
+            ):
+                raise TaskValidationError(
+                    "task_invalid_checkpoints",
+                    f"checkpoints[{index}].label_key 含非法字符",
+                )
         out.append(
             {
                 "id": cp_id,
                 "label": label,
+                "label_key": label_key or None,
                 "match": normalize_match(item.get("match"), field=f"checkpoints[{index}].match"),
                 "status": CHECKPOINT_PENDING,
                 "entered_at": None,
@@ -215,6 +228,7 @@ def task_snapshot(task: dict[str, Any] | None) -> dict[str, Any] | None:
             {
                 "id": cp.get("id"),
                 "label": cp.get("label"),
+                "label_key": cp.get("label_key"),
                 "match": cp.get("match"),
                 "status": cp.get("status", CHECKPOINT_PENDING),
                 "entered_at": cp.get("entered_at"),
@@ -309,16 +323,20 @@ def _template(
     template_id: str,
     goal: str,
     requirements: list[str],
-    checkpoints: list[tuple[str, str, str | None]],
+    checkpoints: list[tuple[str, str, str | None] | tuple[str, str, str | None, str]],
 ) -> dict[str, Any]:
+    def _one(cp: tuple) -> dict[str, Any]:
+        cp_id, label, match = cp[0], cp[1], cp[2]
+        out: dict[str, Any] = {"id": cp_id, "label": label, "match": match}
+        if len(cp) > 3 and cp[3]:
+            out["label_key"] = cp[3]
+        return out
+
     return {
         "id": template_id,
         "goal": goal,
         "requirements": requirements,
-        "checkpoints": [
-            {"id": cp_id, "label": label, "match": match}
-            for cp_id, label, match in checkpoints
-        ],
+        "checkpoints": [_one(cp) for cp in checkpoints],
     }
 
 
@@ -333,9 +351,9 @@ BUILTIN_TASK_TEMPLATES: list[dict[str, Any]] = [
             "登录成功后确认页面已离开验证墙",
         ],
         [
-            ("login", "登录页已出现", "login"),
-            ("verify", "验证码已提交", "verify"),
-            ("back", "已回到目标任务", None),
+            ("login", "登录页已出现", "login", "ck_login_handoff_login"),
+            ("verify", "验证码已提交", "verify", "ck_login_handoff_verify"),
+            ("back", "已回到目标任务", None, "ck_login_handoff_back"),
         ],
     ),
     _template(
@@ -347,8 +365,8 @@ BUILTIN_TASK_TEMPLATES: list[dict[str, Any]] = [
             "提交后确认成功回执,不留半提交状态",
         ],
         [
-            ("confirm", "提交前确认", "confirm"),
-            ("receipt", "提交结果确认", None),
+            ("confirm", "提交前确认", "confirm", "ck_form_commit_confirm"),
+            ("receipt", "提交结果确认", None, "ck_form_commit_receipt"),
         ],
     ),
     _template(
@@ -360,9 +378,9 @@ BUILTIN_TASK_TEMPLATES: list[dict[str, Any]] = [
             "完成后保留订单号或支付回执",
         ],
         [
-            ("checkout", "已进入结算页", "checkout"),
-            ("pay", "付款前确认", "pay"),
-            ("done", "支付结果确认", None),
+            ("checkout", "已进入结算页", "checkout", "ck_payment_confirm_checkout"),
+            ("pay", "付款前确认", "pay", "ck_payment_confirm_pay"),
+            ("done", "支付结果确认", None, "ck_payment_confirm_done"),
         ],
     ),
     _template(
@@ -374,9 +392,9 @@ BUILTIN_TASK_TEMPLATES: list[dict[str, Any]] = [
             "失败时保留错误信息,不谎报成功",
         ],
         [
-            ("export", "已触发生成/导出", "export"),
-            ("download", "下载已开始", "download"),
-            ("done", "产物核对完成", None),
+            ("export", "已触发生成/导出", "export", "ck_download_export_export"),
+            ("download", "下载已开始", "download", "ck_download_export_download"),
+            ("done", "产物核对完成", None, "ck_download_export_done"),
         ],
     ),
 ]
