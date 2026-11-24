@@ -317,6 +317,76 @@ def test_plan_shards_domain_filter():
 # ---------------------------------------------------------------------------
 
 
+def test_needs_user_token_pure_predicate():
+    """台账需 user token 且执行副本只有租户令牌 ⇒ True;判不准一律 False。"""
+    cases = [
+        ("feishu_user", "feishu_tenant", True),
+        ("feishu_user_access_token", "feishu_tenant", True),
+        ("feishu_tenant", "feishu_tenant", False),
+        ("", "feishu_tenant", False),
+        ("feishu_user", "", False),
+        ("feishu_user", "header", False),  # 判不准 ⇒ 照旧真探,不误拦
+        ("wecom_corp", "wecom_corp", False),
+    ]
+    for api_auth, exec_kind, expected in cases:
+        assert coverage_probe.needs_user_token(api_auth, exec_kind) is expected, (
+            api_auth,
+            exec_kind,
+        )
+
+
+async def test_probe_user_auth_prejudged_without_request():
+    """user 型接口不发起请求、不落 unsupported,直接判 need_user_token;tenant 照旧真调。"""
+    user_api = _api("u1", "auth")
+    user_api["auth"] = "feishu_user"
+    tenant_api = _api("t1", "im")
+    tenant_api["auth"] = "feishu_tenant"
+    calls: list[str] = []
+    persisted: dict[str, dict[str, Any]] = {}
+
+    async def fake_exec(record: dict[str, Any], op: dict[str, Any]) -> dict[str, Any]:
+        calls.append(op["id"])
+        return {
+            "state": "available",
+            "http_code": 200,
+            "platform_code": "",
+            "reason": "ok",
+            "missing_scope": "",
+        }
+
+    def fake_persist(
+        tenant: str, scope: str, key: str, platform: str, api_id: str, outcome: dict[str, Any]
+    ) -> None:
+        persisted[api_id] = outcome
+
+    out = await coverage_probe.probe_apis(
+        record={
+            "key": "feishu:managed",
+            "type": "feishu",
+            "tenant_id": "t1",
+            "scope": "u1",
+            "spec": {"auth_kind": "feishu_tenant"},
+        },
+        platform="feishu",
+        apis=[user_api, tenant_api],
+        read_only=True,
+        limit=50,
+        executor=fake_exec,
+        persist=fake_persist,
+    )
+    # user 型未发请求;只有 tenant 型进了 executor
+    assert calls == ["t1"]
+    assert out["probed"] == 2
+    assert out["summary"]["need_user_token"] == 1
+    assert out["summary"]["available"] == 1
+    assert out["summary"]["unsupported"] == 0  # 关键:不再产生假 unsupported
+    uo = next(r for r in out["results"] if r["api_id"] == "u1")
+    assert uo["state"] == "need_user_token"
+    assert uo["http_code"] is None
+    assert "feishu_user" in uo["reason"]
+    assert persisted["u1"]["state"] == "need_user_token"
+
+
 async def test_probe_read_only_skips_write():
     apis = [_api("r1", "im", read=True), _api("w1", "im", method="POST", read=False)]
     calls: list[str] = []

@@ -207,6 +207,48 @@ def classify_outcome(
     }
 
 
+# 台账 auth 字段标识"需要用户态令牌"的形态。只有明确命中才预判定拦截;
+# 判不准(空/未知)一律返回 False,照旧真调 —— 失效方向是"多探一次",不是"多拦一次"。
+_USER_AUTH_SUFFIXES = ("_user", "_user_access_token", "_user_token")
+
+# 执行副本里代表"只有应用/租户级令牌"的 auth_kind;与 user 型台账 auth 冲突。
+_TENANT_ONLY_AUTH_KINDS = frozenset(
+    {"feishu_tenant", "dingtalk", "wecom_corp", "wechat_mp"}
+)
+
+
+def needs_user_token(api_auth: str, exec_auth_kind: str) -> bool:
+    """台账要求的令牌类型与执行副本可用凭据是否冲突(需 user token 但只有租户令牌)。
+
+    - ``api_auth`` 以 ``_user`` / ``_user_access_token`` / ``_user_token`` 结尾 ⇒ 需用户态;
+    - ``exec_auth_kind`` 落在已知租户级集合 ⇒ 执行副本无用户态通道;
+    - 两者同时成立才返回 True;任一取不到/判不准返回 False(照旧真探,不冒红也不误拦)。
+
+    这条判据存在的意义:飞书台账 164 条 ``feishu_user`` 接口用 ``feishu_tenant``
+    凭据去调必然失败,若发请求会被 HTTP 兜底误判成 ``unsupported``;预判定直接落
+    ``need_user_token`` 既避免假 404,又让"缺什么权限"这一档首次有真实来源。
+    """
+    api_auth = str(api_auth or "").strip().lower()
+    exec_auth_kind = str(exec_auth_kind or "").strip().lower()
+    if not any(api_auth.endswith(suffix) for suffix in _USER_AUTH_SUFFIXES):
+        return False
+    return exec_auth_kind in _TENANT_ONLY_AUTH_KINDS
+
+
+def _user_token_outcome(api: dict[str, Any]) -> dict[str, Any]:
+    """预判定结果:不发起请求,状态 need_user_token,原因点明台账与凭据不匹配。"""
+    return {
+        "state": coverage.STATUS_NEED_USER_TOKEN,
+        "http_code": None,
+        "platform_code": "",
+        "reason": (
+            f"台账要求 {api.get('auth') or '用户态令牌'},当前托管连接器仅应用/租户级凭据; "
+            "需接入用户态授权后方可调用,未发起请求"
+        )[:300],
+        "missing_scope": "",
+    }
+
+
 def classify_execution_error(exc: Exception) -> dict[str, Any]:
     """执行层异常归类:令牌/凭证类 → need_user_token;其余 → error。"""
     text = str(exc)
@@ -399,9 +441,16 @@ async def probe_apis(
     tenant_id = str(record.get("tenant_id") or "")
     scope = str(record.get("scope") or "")
     connector_key = str(record.get("key") or "")
+    spec = record.get("spec")
+    exec_auth_kind = str(spec.get("auth_kind") or "") if isinstance(spec, dict) else ""
 
     for api, op in capped:
-        outcome = await executor_fn(record, op)
+        # 鉴权类型不匹配(台账需 user token,执行副本只有租户令牌)⇒ 预判定,不发请求。
+        # 放在 read_only 过滤之后、executor 之前:既不污染 skipped 语义,也不产生假 404。
+        if needs_user_token(api.get("auth", ""), exec_auth_kind):
+            outcome = _user_token_outcome(api)
+        else:
+            outcome = await executor_fn(record, op)
         state = str(outcome.get("state") or coverage.STATUS_ERROR)
         if state not in coverage.ALL_STATUSES:
             state = coverage.STATUS_ERROR
