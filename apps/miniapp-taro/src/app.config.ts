@@ -441,6 +441,14 @@ export default defineAppConfig({
     navigationBarTextStyle: '@navTxtStyle',
     backgroundColor: '@bgColor',
   },
+  // 首页壳已整体下沉 pkg-mirror2(主包 2MB 硬上限),入口页只做一次重定向。
+  // 启动即预下载该分包,避免首页出现白屏等待。
+  preloadRule: {
+    'pages/index/index': {
+      network: 'all',
+      packages: ['pkg-mirror2'],
+    },
+  },
   tabBar: {
     // 自 2026-09-10 全平台切 webpack5 编译器后,custom-tab-bar 已正常编译输出(MiniPlugin
     // 在 tabBar.custom 为 true 时打包 custom-tab-bar/index),故启用自定义 TabBar。

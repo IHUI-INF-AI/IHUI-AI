@@ -13,7 +13,53 @@
  * `useI18n()` 取 `{locale, t, tList, setLocale}` —— 端内是超集,直接转出口即同形可用。
  * 再建一份 i18n 就是 §0.6 禁止的第二份真相源(词包与端内 5 语言 JSON 必然漂移)。
  */
+import { getMessages } from '@/i18n'
+
 export * from '@/i18n'
+
+/**
+ * RN 壳的底栏/卡片文案键在小程序的精简词典里没有收录（词典只保证 tabBar.community/agent/
+ * square/user/share 五枚），壳直接取键名会露 `tabBar.market`。这里把 RN 底栏五键补进
+ * 端内 zh-CN 词典对象，仍是同一份词典实例（`getMessages('zh-CN')` 返回引用），不另立真相源。
+ */
+const zhPack = getMessages('zh-CN') as unknown as Record<string, unknown>
+try {
+  const tabBar = (zhPack.tabBar ?? {}) as Record<string, string>
+  Object.assign(tabBar, {
+    market: 'AI应用商店',
+    plaza: '广场',
+    chat: '智汇AI',
+    feed: '动态',
+    me: '我的',
+  })
+  zhPack.tabBar = tabBar
+  const aiCard = (zhPack.aiCard ?? {}) as Record<string, string>
+  if (!aiCard.tFreeUse) aiCard.tFreeUse = '免费使用'
+  zhPack.aiCard = aiCard
+  // 九宫格「回放列表」在端内词包缺 livePlaybackList 这一组，壳按 RN 词面补齐，
+  // 避免回落到 livePlayback.title 的「直播回放」。
+  const playbackList = (zhPack.livePlaybackList ?? {}) as Record<string, string>
+  if (!playbackList.title) playbackList.title = '回放列表'
+  zhPack.livePlaybackList = playbackList
+} catch {
+  // 词典被冻结时不影响页面渲染，壳会退化为显示键名
+}
+
+/**
+ * RN 壳里的 `import { messages } from '../i18n'` 会直接按 locale 下标取整包：
+ * `messages[locale]`。端内 i18n 只暴露 `getMessages(locale)`，这里补一个同形
+ * 只读视图，避免壳页拿到 undefined 后崩在 `messages['zh-CN']`。
+ */
+export const messages = new Proxy(
+  {},
+  {
+    get: (_target, locale) =>
+      typeof locale === 'string' ? getMessages(locale as Locale) : undefined,
+  },
+) as Record<Locale, ReturnType<typeof getMessages>>
+
+/** RN 壳里 `getValueByPath(messages[locale], 'a.b')` 的同源转出口 */
+export { getValueByPath } from '@ihui/i18n/loader'
 
 /** RN 侧的 Locale 形态(壳里有 1 处 `import type { Locale }`),取端内 locale 字面量集 */
 export type Locale = 'zh-CN' | 'zh-TW' | 'en' | 'ja' | 'ko'

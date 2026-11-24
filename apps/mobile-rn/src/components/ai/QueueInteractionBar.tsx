@@ -20,7 +20,7 @@ import {
   type QueueDeniedAction,
   type QueueDenyReason,
 } from '@ihui/shared/chat/input-notices'
-import { rnRadius, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnType, taroSpacing } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { useI18n } from '../../i18n'
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     fontSize: rnType.label.size,
     color: tokens.text.primary,
     paddingVertical: rpx(6),
-    paddingHorizontal: rpx(12),
+    paddingHorizontal: rpx(taroSpacing['xs-loose']),
     borderRadius: rnRadius.sm,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.light,
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
   },
   textBtn: {
     paddingVertical: rpx(6),
-    paddingHorizontal: rpx(8),
+    paddingHorizontal: rpx(taroSpacing.xs),
     borderRadius: rnRadius.sm,
   },
   textBtnPressed: {

@@ -9,13 +9,17 @@
  * 服务层不伪造成功，UI 直接展示原因。
  */
 
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, notInArray, sql } from 'drizzle-orm'
 import { wechatHubContacts, wechatHubConversations, wechatHubGroupMembers } from '@ihui/database'
 import type {
   WechatActionResult,
   WechatBridgeAction,
   WechatGroupActionInput,
+  WechatGroupMembersSyncResult,
+  WechatMomentFetchInput,
+  WechatMomentFetchResult,
   WechatMomentInput,
+  WechatMomentView,
 } from '@ihui/types'
 import { db, dbRead } from '../../db/index.js'
 import { AppError } from '../../errors/AppError.js'
@@ -25,6 +29,7 @@ import {
   assertConversationForAccount,
 } from './guards.js'
 import { wechatHubManager } from './manager.js'
+import { listGroupMembers } from './contacts.js'
 
 type JsonRecord = Record<string, unknown>
 
@@ -151,6 +156,136 @@ export async function syncContacts(
   }
   if (fresh.length > 0) await db.insert(wechatHubContacts).values(fresh).onConflictDoNothing()
   return { synced: inserted + updated, inserted, updated, result }
+}
+
+function pickGroupMember(raw: JsonRecord): {
+  memberId: string
+  nickname: string
+  role: string
+} | null {
+  const memberId =
+    asString(raw.memberId) ??
+    asString(raw.wxid) ??
+    asString(raw.userName) ??
+    asString(raw.user_id) ??
+    asString(raw.id)
+  if (!memberId) return null
+  const role =
+    asString(raw.role) ??
+    (raw.isOwner === true ? 'owner' : raw.isAdmin === true ? 'admin' : 'member')
+  return {
+    memberId,
+    nickname: (
+      asString(raw.nickname) ??
+      asString(raw.name) ??
+      asString(raw.displayName) ??
+      ''
+    ).slice(0, 255),
+    role: role.slice(0, 16),
+  }
+}
+
+/** 桥返回 members/list/items 都吃，字段别名归一；同一 wxid 只保留一条。 */
+export function normalizeBridgeGroupMembers(data: Record<string, unknown>): Array<{
+  memberId: string
+  nickname: string
+  role: string
+}> {
+  const byId = new Map<string, { memberId: string; nickname: string; role: string }>()
+  for (const item of readList(data)) {
+    const member = pickGroupMember(item)
+    if (member) byId.set(member.memberId, member)
+  }
+  return [...byId.values()]
+}
+
+/**
+ * 从桥拉取群成员快照并替换本地镜像。
+ * 只有桥明确返回 members 才替换；空列表视为失败，避免把本地成员清空。
+ */
+export async function syncGroupMembersFromBridge(
+  userId: string,
+  accountId: string,
+  conversationId: string,
+): Promise<WechatGroupMembersSyncResult> {
+  await assertAccountForUser(userId, accountId)
+  const conversation = await assertConversationForAccount(accountId, conversationId)
+  const result = await wechatHubManager.performAction(userId, accountId, 'group.members', {
+    conversationId,
+    chatId: conversation.platformChatId,
+  })
+  if (!result.ok) {
+    return { synced: 0, inserted: 0, updated: 0, removed: 0, members: [], result }
+  }
+  const members = normalizeBridgeGroupMembers(result.data)
+  if (members.length === 0) {
+    return { synced: 0, inserted: 0, updated: 0, removed: 0, members: [], result }
+  }
+
+  const existingRows = await dbRead
+    .select({
+      id: wechatHubGroupMembers.id,
+      memberId: wechatHubGroupMembers.memberId,
+      nickname: wechatHubGroupMembers.nickname,
+      role: wechatHubGroupMembers.role,
+    })
+    .from(wechatHubGroupMembers)
+    .where(
+      and(
+        eq(wechatHubGroupMembers.accountId, accountId),
+        eq(wechatHubGroupMembers.conversationId, conversationId),
+      ),
+    )
+  const existing = new Map(existingRows.map((row) => [row.memberId, row]))
+  const incomingIds = members.map((member) => member.memberId)
+  const removed = existingRows.filter((row) => !incomingIds.includes(row.memberId)).length
+  if (removed > 0) {
+    await db
+      .delete(wechatHubGroupMembers)
+      .where(
+        and(
+          eq(wechatHubGroupMembers.accountId, accountId),
+          eq(wechatHubGroupMembers.conversationId, conversationId),
+          notInArray(wechatHubGroupMembers.memberId, incomingIds),
+        ),
+      )
+  }
+
+  let inserted = 0
+  let updated = 0
+  for (const member of members) {
+    const current = existing.get(member.memberId)
+    if (!current) {
+      await db
+        .insert(wechatHubGroupMembers)
+        .values({
+          accountId,
+          conversationId,
+          memberId: member.memberId,
+          nickname: member.nickname,
+          role: member.role,
+          metadata: { source: 'bridge-sync' },
+        })
+        .onConflictDoNothing()
+      inserted += 1
+      continue
+    }
+    if (current.nickname === member.nickname && current.role === member.role) continue
+    await db
+      .update(wechatHubGroupMembers)
+      .set({ nickname: member.nickname, role: member.role, updatedAt: new Date() })
+      .where(eq(wechatHubGroupMembers.id, current.id))
+    updated += 1
+  }
+  await refreshGroupMemberCount(accountId, conversationId)
+  return {
+    synced: inserted + updated,
+    inserted,
+    updated,
+    removed,
+    members: await listGroupMembers(userId, accountId, conversationId),
+    result,
+  }
 }
 
 /** 桥侧删除好友/联系人，成功后再删本地副本。 */
@@ -321,6 +456,62 @@ export async function publishMoment(
     text: input.text,
     mediaUrls: input.mediaUrls ?? [],
   })
+}
+
+function readMoment(raw: JsonRecord): WechatMomentView | null {
+  const id = asString(raw.id)
+  const content = asString(raw.content)
+  if (!id || !content) return null
+  const createdAt =
+    typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt) ? raw.createdAt : null
+  const page = typeof raw.page === 'number' && Number.isFinite(raw.page) ? raw.page : undefined
+  return {
+    id,
+    authorId: asString(raw.authorId),
+    authorName: asString(raw.authorName) ?? '未知好友',
+    content,
+    mediaUrls: asStringArray(raw.mediaUrls),
+    createdAt,
+    source: asString(raw.source) ?? 'bridge',
+    page,
+  }
+}
+
+/**
+ * 朋友圈只读遍历：OCR 驱动滚动朋友圈窗口，wcfhttp 用 /pyq 翻页并等 type=0 回调。
+ * 返回值保留桥的 unsupported/failed 原因，不用空列表伪装成功。
+ */
+export async function fetchMoments(
+  userId: string,
+  accountId: string,
+  input: WechatMomentFetchInput = {},
+): Promise<WechatMomentFetchResult> {
+  await assertAccountForUser(userId, accountId)
+  const maxPages = Math.min(Math.max(Number(input.maxPages ?? 3) || 3, 1), 30)
+  const result = await wechatHubManager.performAction(userId, accountId, 'moment.fetch', {
+    maxPages,
+    id: Number(input.id ?? 0) || 0,
+  })
+  const data = asRecord(result.data) ?? {}
+  const moments = (Array.isArray(data.moments) ? data.moments : [])
+    .map((item) => asRecord(item))
+    .filter((item): item is JsonRecord => item !== null)
+    .map(readMoment)
+    .filter((item): item is WechatMomentView => item !== null)
+  const pages =
+    typeof data.pages === 'number' && Number.isFinite(data.pages) ? Math.max(0, data.pages) : 0
+  return {
+    moments,
+    fetched:
+      typeof data.fetched === 'number' && Number.isFinite(data.fetched)
+        ? Math.max(0, data.fetched)
+        : moments.length,
+    pages,
+    source: asString(data.source),
+    partial: data.partial === true,
+    reason: asString(data.reason) ?? result.reason,
+    result,
+  }
 }
 
 /**

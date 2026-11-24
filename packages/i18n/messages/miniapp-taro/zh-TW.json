@@ -7331,5 +7331,8 @@
   },
   "sourceWeb": "Web",
   "sourceApp": "手機",
-  "sourceMiniApp": "小程式"
+  "sourceMiniApp": "小程式",
+  "livePlaybackList": {
+    "title": "回放列表"
+  }
 }

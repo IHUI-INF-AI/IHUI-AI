@@ -48,7 +48,7 @@ import {
   type NativeSyntheticEvent,
   type TextInputSubmitEditingEventData,
 } from 'react-native'
-import { getRnTokens, rnRadiusFor } from '@ihui/design-tokens'
+import { getRnTokens, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
 import { useWrapFocus } from '../hooks/use-wrap-focus'
 import { Search, Mic, Keyboard, X } from 'lucide-react-native'
 import { Tappable } from '@ihui/ui-native'
@@ -76,7 +76,7 @@ export interface SearchInputProps {
 }
 
 const CONTAINER_HEIGHT = 40
-const CONTAINER_PADDING_HORIZONTAL = 12
+const CONTAINER_PADDING_HORIZONTAL = rnSpacing.md
 const CONTAINER_BORDER_WIDTH = 1
 const CONTAINER_GAP = 8
 const ICON_FONT_SIZE = 16

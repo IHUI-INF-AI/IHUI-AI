@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BackChevron, TextField } from '@ihui/rn-app'
-import { rnRadius, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnType, rnSpacing } from '@ihui/design-tokens'
 import {
   BadgeCheck,
   BookOpen,
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: rnSpacing.lg,
     paddingVertical: 10,
   },
   headerTitle: {
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: rnSpacing.lg,
     paddingTop: 4,
     gap: 12,
   },
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   },
   searchField: {
     height: 44,
-    paddingHorizontal: 14,
+    paddingHorizontal: rnSpacing['md-loose'],
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.medium,
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   searchFieldWithIcon: {
-    paddingLeft: 38,
+    paddingLeft: rnSpacing['4xl'],
   },
   section: {
     gap: 8,
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 56,
     gap: 12,
-    paddingHorizontal: 14,
+    paddingHorizontal: rnSpacing['md-loose'],
     paddingVertical: 10,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   sectionCountPill: {
     minWidth: 24,
     height: 20,
-    paddingHorizontal: 6,
+    paddingHorizontal: rnSpacing['xs-loose'],
     borderRadius: rnRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 48,
-    paddingHorizontal: 14,
+    paddingHorizontal: rnSpacing['md-loose'],
     paddingVertical: 10,
     gap: 12,
   },

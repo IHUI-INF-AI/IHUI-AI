@@ -1072,7 +1072,7 @@ const styles = StyleSheet.create({
   inputBare: {
     // 4 = 壳内再让 4,合计左侧 12 与 web textarea pl-3 同档;右侧 40 给右上角展开钮让位
     paddingLeft: rnSpacing.xs,
-    paddingRight: 40,
+    paddingRight: rnSpacing['4xl'],
     // 单行 48 = 行高 20 + 上下各 14;多行按行高 20 逐行撑高,最多 6 行(148)
     paddingTop: (MIN_INPUT_HEIGHT - rnType.body.lineHeight) / 2,
     paddingBottom: (MIN_INPUT_HEIGHT - rnType.body.lineHeight) / 2,

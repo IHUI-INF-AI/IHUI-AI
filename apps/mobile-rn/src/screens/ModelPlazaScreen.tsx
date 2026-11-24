@@ -27,7 +27,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { Bot, Film, Palette, type LucideIcon } from 'lucide-react-native'
 
-import { rnRadius, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnType, taroSpacing } from '@ihui/design-tokens'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -257,14 +257,14 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingTop: rpx(96),
     paddingBottom: rpx(16),
     gap: rpx(16),
     backgroundColor: tokens.surface.bg,
   },
   tab: {
-    paddingHorizontal: rpx(28),
+    paddingHorizontal: rpx(taroSpacing['md-loose']),
     paddingVertical: rpx(12),
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,

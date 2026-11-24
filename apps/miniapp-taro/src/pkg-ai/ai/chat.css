@@ -374,7 +374,7 @@
   margin-bottom: var(--spacing-xs-loose);
 }
 .tishi-title-icon {
-  margin-right: 10rpx;
+  margin-right: var(--spacing-xs);
   font-size: var(--text-body);
 }
 .tishi-title-text {
@@ -1031,7 +1031,7 @@
 .fuyong-btn {
   width: 100rpx;
   height: var(--spacing-xl);
-  margin-right: 10rpx;
+  margin-right: var(--spacing-xs);
   flex-shrink: 0;
 }
 

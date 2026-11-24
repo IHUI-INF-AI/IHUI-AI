@@ -1,7 +1,8 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, taroSpacing } from '@ihui/design-tokens'
+import { HOME_CARD_PADDING_PX } from '@ihui/shared/ui/home-layout-spec'
 import { rpx } from '../utils/rpx'
 
 /**
@@ -316,11 +317,11 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: tokens.border.light,
     borderRadius: rnRadius.lg,
-    // 2026-10-15 样式修复:padding 走 rpx(12dp=24rpx);marginBottom 删除——
+    // 卡片内边距与首页发现卡同走 home-layout-spec 的 12dp 单一源；
     // 卡片外留白由调用方 wrap 统一控制(HomeScreen aiModelWrap 已有 paddingVertical)
-    padding: rpx(24),
+    padding: HOME_CARD_PADDING_PX,
   },
   header: {
     flexDirection: 'row',
@@ -334,7 +335,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: rpx(24),
+    marginRight: rpx(taroSpacing.md),
     overflow: 'hidden',
   },
   icon: {
@@ -363,7 +364,7 @@ const styles = StyleSheet.create({
   mumber: {
     fontSize: rpx(20),
     color: tokens.text.secondary,
-    marginLeft: rpx(16),
+    marginLeft: rpx(taroSpacing.sm),
   },
   // 标签 + 用户类型徽章合并单行(原两行信息重复)
   metaRow: {
@@ -374,7 +375,7 @@ const styles = StyleSheet.create({
     marginTop: rpx(20),
   },
   tag: {
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(4),
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.md,
@@ -384,7 +385,7 @@ const styles = StyleSheet.create({
     color: tokens.brand.DEFAULT,
   },
   badge: {
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(4),
     backgroundColor: tokens.warning.light,
     borderRadius: rnRadius.md,
@@ -419,7 +420,7 @@ const styles = StyleSheet.create({
     height: rpx(36),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
-    marginRight: rpx(12),
+    marginRight: rpx(taroSpacing['xs-loose']),
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -444,7 +445,7 @@ const styles = StyleSheet.create({
   payDetailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: rpx(24),
+    marginLeft: rpx(taroSpacing.md),
   },
   payDetailText: {
     fontSize: rpx(24),
@@ -457,11 +458,11 @@ const styles = StyleSheet.create({
   payDetailArrow: {
     fontSize: rpx(24),
     color: tokens.brand.DEFAULT,
-    marginLeft: rpx(4),
+    marginLeft: rpx(taroSpacing['2xs']),
   },
   buyBtn: {
-    marginLeft: rpx(24),
-    paddingHorizontal: rpx(24),
+    marginLeft: rpx(taroSpacing.md),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(8),
     backgroundColor: tokens.brand.cta,
     borderRadius: rnRadius.sm,
@@ -479,7 +480,7 @@ const styles = StyleSheet.create({
     paddingTop: rpx(20),
   },
   settingBtn: {
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(10),
     borderWidth: 1,
     borderColor: tokens.border.medium,

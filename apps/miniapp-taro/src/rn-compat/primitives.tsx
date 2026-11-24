@@ -249,17 +249,12 @@ type ScrollToLowerEventHandler = NonNullable<TaroScrollViewProps['onScrollToLowe
 /**
  * RN 的 onPress 收的是原生事件对象,而端内点击位由 Taro 提供 ⇒ 把事件**透传**过去，
  * 而不是像旧写法那样 call 零参(改成从 Taro props 反解的事件签名后，零参调用当场编不过)。
- *
- * 2026-11-23 补 `onClick` 兜底：共享屏(packages/app)里仍有按 Taro 语义写的 `<View onClick=…>`
- * (ChatMessageItem 的复制/下载/分享/朗读/重新生成/收藏/点赞/点踩就是这一族)。本层在
- * 2026-11-14 把点击位迁到 onPress 时把 onClick 静默丢了 ⇒ 这些按钮在小程序端**点不动**，
- * 且 TS 因 RNBaseProps 的兜底索引签名不报错。两者语义同一个物理动作，onPress 优先。
  */
 function clickHandler(
   props: RNBaseProps,
   extra?: () => void,
 ): ((event: Parameters<NonNullable<EventHandler>>[0]) => void) | undefined {
-  const onPress = (props.onPress ?? props.onClick) as EventHandler
+  const onPress = props.onPress as EventHandler
   if (props.disabled === true) return undefined
   if (!onPress && !extra) return undefined
   return (event) => {
@@ -433,22 +428,30 @@ function ViewInner(props: RNCompatProps, ref: ForwardedRef<ViewInstance>) {
   // 挂了 ref 才需要 id:没 ref 的 View 不必为测量多生成一个选择器(节点 id 是全局开销)
   const probeId = useLayoutBridge(p, ref !== null && ref !== undefined)
   useMeasureHandle(ref, probeId)
+  const className = typeof p.className === 'string' ? p.className : undefined
+  const mergedStyle = merged(p.style, VIEW_BASE, className)
+  // 顶栏/底栏共用 GLASS_BAR_SURFACE(底色 --color-glass-bg 0.6)。RN 端靠原生
+  // 模糊把底色压在 0.6;小程序/H5 没有会生效的 backdropFilter(实测 computed
+  // backdrop-filter=none),0.6 的透明底会让滚动内容从胶囊里透出来。
+  // 这里只在玻璃面节点补一个类,由 app.css 给 0.92 实底 + 真模糊兜底,
+  // 不改 token 值,也不影响非玻璃节点。
+  const glassBg = String((mergedStyle as Record<string, unknown>).backgroundColor ?? '').replace(
+    /\s+/g,
+    '',
+  )
+  const isGlassSurface =
+    typeof (mergedStyle as Record<string, unknown>).backdropFilter === 'string' ||
+    glassBg === 'rgba(255,255,255,0.6)' ||
+    glassBg === 'rgba(26,26,26,0.6)'
+  const finalClassName = [className, isGlassSurface ? 'rn-glass-surface' : '']
+    .filter(Boolean)
+    .join(' ')
   return (
     <TaroView
-      className={typeof p.className === 'string' ? p.className : undefined}
-      style={toTaroStyle(
-        merged(p.style, VIEW_BASE, typeof p.className === 'string' ? p.className : undefined),
-      )}
+      className={finalClassName || undefined}
+      style={toTaroStyle(mergedStyle)}
       id={probeId}
       onClick={onClick}
-      /**
-       * 无障碍透传(2026-11-23)：共享屏(packages/app)只写 RN 键 accessibilityRole /
-       * accessibilityLabel，本层旧实现不把它们映射到 Taro 的 ariaRole / ariaLabel ——
-       * 小程序端这些键**整批静默丢失**，纯图标按钮因此没有可读名称(视觉上也无从感知)。
-       * 两套键语义一一对应，直接同名透传，不做降级。
-       */
-      ariaRole={typeof p.accessibilityRole === 'string' ? p.accessibilityRole : undefined}
-      ariaLabel={typeof p.accessibilityLabel === 'string' ? p.accessibilityLabel : undefined}
       onLongPress={p.onLongPress as EventHandler}
       onTouchStart={p.onTouchStart as TaroViewProps['onTouchStart']}
       onTouchMove={p.onTouchMove as TaroViewProps['onTouchMove']}
@@ -596,9 +599,6 @@ export function Image(props: RNBaseProps) {
       )}
       className={typeof props.className === 'string' ? props.className : undefined}
       onClick={clickHandler(props)}
-      /** 无障碍名称透传(2026-11-23)：RN 的 accessibilityLabel → Taro 的 ariaLabel。
-       *  纯图标消息动作(复制/下载)在共享层只给 RN 键，旧实现不映射 ⇒ 小程序端无名称。 */
-      ariaLabel={typeof props.accessibilityLabel === 'string' ? props.accessibilityLabel : undefined}
       /**
        * onLoad 桥(2026-11-01):Taro 给 detail.{width,height},RN 消费面读
        * nativeEvent.source.{width,height,uri} —— 旧写法声明了 onLoad 却从不派发,
@@ -1175,6 +1175,19 @@ function TextInputInner(props: RNBaseProps, ref: ForwardedRef<TextInputHandle>) 
   const confirmType = RETURN_KEY_TO_CONFIRM[(props.returnKeyType as string) ?? ''] ?? 'done'
   const onSubmitEditing = props.onSubmitEditing as
     ((e: { nativeEvent: { text: string } }) => void) | undefined
+  const inputStyle = toTaroStyle(
+    merged(
+      props.style,
+      VIEW_BASE,
+      typeof props.className === 'string' ? props.className : undefined,
+    ),
+  )
+  // Taro Textarea 默认 150px 高；RN 多行输入只给 minHeight(44) 时，Web 端会撑成 150px，
+  // 首页底部停靠区因此高出一截、把 AI 卡片整块盖住。未显式给 height 时按 RN 的 minHeight
+  // 收口；显式 height 的页面不覆盖。
+  if (multiline && inputStyle && !inputStyle.height) {
+    inputStyle.height = inputStyle.minHeight ?? '44px'
+  }
   const common = {
     value: (props.value as string) ?? '',
     placeholder: (props.placeholder as string) ?? '',
@@ -1187,13 +1200,7 @@ function TextInputInner(props: RNBaseProps, ref: ForwardedRef<TextInputHandle>) 
     // 受控焦点:focus()/blur() 改的是这一位,和 autoFocus 取或,避免首次挂载把焦点抢回来
     focus: focused || props.autoFocus === true,
     className: typeof props.className === 'string' ? props.className : undefined,
-    style: toTaroStyle(
-      merged(
-        props.style,
-        VIEW_BASE,
-        typeof props.className === 'string' ? props.className : undefined,
-      ),
-    ),
+    style: inputStyle,
     confirmType,
     // RN 的 onConfirm 只在"键盘确认键"触发,与 onSubmitEditing 同义;取当前输入值随事件带出
     onConfirm: onSubmitEditing

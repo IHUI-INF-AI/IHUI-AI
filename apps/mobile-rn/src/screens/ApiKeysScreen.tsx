@@ -397,14 +397,14 @@ export default function ApiKeysScreen() {
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={styles.iconBtn}
                       onPress={() => onDelete(key)}
                       disabled={deleting === key.id}
                       activeOpacity={0.7}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('apiKeys.delete')}
                     >
-                      <Trash2 size={18} color={tokens.danger.DEFAULT} />
+                      <View style={styles.trashRow}>
+                        <Trash2 size={13} color={tokens.danger.DEFAULT} />
+                        <Text style={styles.dangerLink}>{t('apiKeys.delete')}</Text>
+                      </View>
                     </TouchableOpacity>
                   </View>
                   {usageOf === key.id ? (
@@ -450,8 +450,10 @@ function makeStyles() {
     container: { flex: 1, backgroundColor: tokens.surface.bg },
     body: { padding: rnSpacing.md, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
     card: {
-      padding: rnSpacing.md,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
       gap: rnSpacing.sm,
     },
@@ -550,7 +552,7 @@ function makeStyles() {
       fontSize: rnType.badge.size,
       color: tokens.text.secondary,
       backgroundColor: tokens.surface.muted,
-      paddingHorizontal: 5,
+      paddingHorizontal: rnSpacing.xs,
       paddingVertical: 1,
       borderRadius: rnRadius.md,
       overflow: 'hidden',
@@ -568,15 +570,15 @@ function makeStyles() {
       marginTop: rnSpacing['2xs'],
     },
     link: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
-    /** 纯图标按钮:40×40 固定命中盒(与全仓纯图标按钮同档) */
-    iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+    trashRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
+    dangerLink: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.deepText },
     usageBox: {
       marginTop: rnSpacing.xs,
       padding: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.surface.card,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tokens.border.light,
       gap: rnSpacing.xs,
     },
     usageTitle: {

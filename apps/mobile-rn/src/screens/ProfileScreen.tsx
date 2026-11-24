@@ -22,7 +22,14 @@ import {
 import { appAlert } from '../components/BottomPops'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { rnRadius, rnRadiusFor, rnType, rnCssLight } from '@ihui/design-tokens'
+import {
+  rnRadius,
+  rnRadiusFor,
+  rnType,
+  rnCssLight,
+  taroSpacing,
+  rnSpacing,
+} from '@ihui/design-tokens'
 // 分享图兜底资源(require 写法对齐项目惯例,如 BusinessLicenseScreen)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const SHARE_FALLBACK_IMAGE: ImageSourcePropType = require('../../assets/images/common/default/vip_message.jpg')
@@ -1756,7 +1763,11 @@ function VideoTabContent({ list, onPlay }: VideoTabProps): React.JSX.Element {
                   <View style={[styles.videoPosterPlaceholder, { width: w, height: h }]} />
                 )}
                 <View style={styles.videoPlayIcon}>
-                  <Play size={24} color={tokens.surface.light} style={{ marginLeft: rpx(8) }} />
+                  <Play
+                    size={24}
+                    color={tokens.surface.light}
+                    style={{ marginLeft: rpx(taroSpacing.xs) }}
+                  />
                 </View>
               </TouchableOpacity>
             </View>
@@ -1874,9 +1885,17 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
               accessibilityLabel={status.playing ? t('player.pause') : t('player.play')}
             >
               {status.playing ? (
-                <Pause size={16} color={tokens.brand.foreground} style={{ marginLeft: rpx(4) }} />
+                <Pause
+                  size={16}
+                  color={tokens.brand.foreground}
+                  style={{ marginLeft: rpx(taroSpacing['2xs']) }}
+                />
               ) : (
-                <Play size={16} color={tokens.brand.foreground} style={{ marginLeft: rpx(4) }} />
+                <Play
+                  size={16}
+                  color={tokens.brand.foreground}
+                  style={{ marginLeft: rpx(taroSpacing['2xs']) }}
+                />
               )}
             </TouchableOpacity>
             {/* 进度条(对齐 Uniapp 行 166-175 原生 <slider> 可拖动)。
@@ -2179,7 +2198,6 @@ function mapConversationToDrawer(c: ConversationDetail, untitled: string): Drawe
     modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
     createdAt,
     favorited: c.favorite === true,
-    source: c.source,
   }
 }
 
@@ -2228,7 +2246,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: rpx(8),
-    paddingHorizontal: rpx(12),
+    paddingHorizontal: rpx(taroSpacing['xs-loose']),
     borderRadius: rnRadius.sm,
   },
   accountActionGhost: {
@@ -2269,7 +2287,7 @@ const styles = StyleSheet.create({
   quickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: rpx(8),
+    paddingHorizontal: rpx(taroSpacing.xs),
     paddingVertical: rpx(8),
     borderRadius: rnRadius.lg,
     borderWidth: 1,
@@ -2346,7 +2364,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: rpx(2),
     paddingVertical: rpx(4),
-    paddingLeft: rpx(8),
+    paddingLeft: rpx(taroSpacing.xs),
   },
   levelIntroText: {
     fontSize: rnType.caption.size,
@@ -2437,7 +2455,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: rpx(2),
     paddingVertical: rpx(4),
-    paddingLeft: rpx(8),
+    paddingLeft: rpx(taroSpacing.xs),
   },
   creationToggleText: {
     fontSize: rnType.caption.size,
@@ -2457,7 +2475,7 @@ const styles = StyleSheet.create({
     // 对齐 Uniapp(删除大容器圆角,改 minHeight + marginBottom + 紧凑 padding)
     minHeight: 100,
     marginBottom: rpx(20),
-    paddingHorizontal: 0,
+    paddingHorizontal: rnSpacing.none,
     paddingVertical: rpx(0),
   },
   listContent: {
@@ -2539,7 +2557,7 @@ const styles = StyleSheet.create({
   videoPlayIconText: {
     fontSize: rnType.display.size,
     color: tokens.surface.light,
-    marginLeft: rpx(8),
+    marginLeft: rpx(taroSpacing.xs),
   },
   audioPlayer: {
     flexDirection: 'row',
@@ -2557,7 +2575,7 @@ const styles = StyleSheet.create({
   audioPlayIcon: {
     fontSize: rnType.title.size,
     color: tokens.brand.foreground,
-    marginLeft: rpx(4),
+    marginLeft: rpx(taroSpacing['2xs']),
   },
   audioProgressTrack: {
     flex: 1,
@@ -2602,7 +2620,7 @@ const styles = StyleSheet.create({
     right: 72,
     zIndex: 2,
     height: 40,
-    paddingHorizontal: rpx(28),
+    paddingHorizontal: rpx(taroSpacing['md-loose']),
     borderRadius: rnRadius.sm,
     backgroundColor: rnCssLight.white18,
     alignItems: 'center',
@@ -2682,7 +2700,7 @@ const styles = StyleSheet.create({
     backgroundColor: rnCssLight.black50,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: rpx(48),
+    paddingHorizontal: rpx(taroSpacing['2xl']),
   },
   sharePopupCard: {
     width: '100%',
@@ -2767,7 +2785,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: rpx(96),
-    paddingHorizontal: rpx(48),
+    paddingHorizontal: rpx(taroSpacing['2xl']),
     gap: rpx(24),
   },
   tabErrorText: {
@@ -2776,7 +2794,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   tabRetryBtn: {
-    paddingHorizontal: rpx(40),
+    paddingHorizontal: rpx(taroSpacing.xl),
     paddingVertical: rpx(16),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.DEFAULT,
@@ -2871,7 +2889,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderRadius: rnRadius.sm,
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(20),
     fontSize: rnType.body.size,
     color: tokens.text.primary,
@@ -3000,7 +3018,7 @@ const styles = StyleSheet.create({
     backgroundColor: rnCssLight.black50,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: rpx(48),
+    paddingHorizontal: rpx(taroSpacing['2xl']),
   },
   unsubscribeCard: {
     width: '100%',

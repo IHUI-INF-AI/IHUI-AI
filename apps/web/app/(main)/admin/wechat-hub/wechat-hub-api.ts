@@ -20,6 +20,8 @@ import {
   deleteWechatKnowledge,
   deleteWechatRemoteContact,
   disconnectWechatAccount,
+  exportWechatMessages,
+  importWechatMessages as importWechatMessagesApi,
   fetchWechatAccounts,
   fetchWechatActions,
   fetchWechatAutoReplyRules,
@@ -31,10 +33,12 @@ import {
   fetchWechatKnowledge,
   fetchWechatMcpTools,
   fetchWechatMessages,
+  fetchWechatMoments,
   fetchWechatQrCode,
   fetchWechatStatus,
   ingestWechatKnowledge,
   publishWechatMoment,
+  previewWechatAutoReplyRule,
   runWechatDigest,
   runWechatGroupAction,
   saveWechatDigestSchedule,
@@ -42,6 +46,9 @@ import {
   sendWechatMessage,
   switchWechatChat,
   syncWechatContacts,
+  syncWechatGroupMembers,
+  syncWechatHistory,
+  testWechatOutboundWebhook,
   updateWechatAutoReplyRule,
   updateWechatContact,
   updateWechatSettings,
@@ -54,6 +61,8 @@ import type {
   WechatActionResult,
   WechatAnalysisKind,
   WechatAnalysisRunView,
+  WechatAutoReplyPreviewInput,
+  WechatAutoReplyPreviewResult,
   WechatAutoReplyRuleInput,
   WechatAutoReplyRuleView,
   WechatBackendCapability,
@@ -64,12 +73,21 @@ import type {
   WechatConversationView,
   WechatDigestScheduleInput,
   WechatDigestScheduleView,
+  WechatExportInput,
+  WechatExportResult,
   WechatGroupActionInput,
   WechatGroupMemberView,
+  WechatGroupMembersSyncResult,
+  WechatHistorySyncInput,
+  WechatHistorySyncResult,
+  WechatImportMessagesInput,
+  WechatImportMessagesResult,
   WechatKnowledgeDocView,
   WechatKnowledgeHit,
   WechatMcpTool,
   WechatMessageView,
+  WechatMomentFetchInput,
+  WechatMomentFetchResult,
   WechatMomentInput,
   WechatQrCodeView,
   WechatSendInput,
@@ -106,8 +124,11 @@ export const wechatHubApi = {
       allowedTargets?: string[]
       blockedWords?: string[]
       rateLimitPerMinute?: number
+      outboundWebhookUrl?: string
     },
   ): Promise<WechatAccountView> => call(() => updateWechatSettings(id, patch), '保存设置失败'),
+  testOutboundWebhook: (id: string, url?: string): Promise<void> =>
+    call(() => testWechatOutboundWebhook(id, url), '测试出站 Webhook 失败'),
   conversations: (id: string, limit = 50): Promise<WechatConversationView[]> =>
     call(() => fetchWechatConversations(id, limit), '获取微信会话失败'),
   messages: (id: string, conversationId: string | null, limit = 50): Promise<WechatMessageView[]> =>
@@ -137,6 +158,8 @@ export const wechatHubApi = {
     call(() => updateWechatContact(id, contactId, patch), '保存联系人失败'),
   groupMembers: (id: string, conversationId: string): Promise<WechatGroupMemberView[]> =>
     call(() => fetchWechatGroupMembers(id, conversationId), '获取群成员失败'),
+  syncGroupMembers: (id: string, conversationId: string): Promise<WechatGroupMembersSyncResult> =>
+    call(() => syncWechatGroupMembers(id, conversationId), '同步群成员失败'),
   autoReplyRules: (id: string): Promise<WechatAutoReplyRuleView[]> =>
     call(() => fetchWechatAutoReplyRules(id), '获取自动回复规则失败'),
   createAutoReplyRule: (
@@ -152,6 +175,21 @@ export const wechatHubApi = {
     call(() => updateWechatAutoReplyRule(id, ruleId, input), '更新自动回复规则失败'),
   deleteAutoReplyRule: (id: string, ruleId: string): Promise<void> =>
     call(() => deleteWechatAutoReplyRule(id, ruleId), '删除自动回复规则失败'),
+  previewAutoReplyRule: (
+    id: string,
+    ruleId: string,
+    input: WechatAutoReplyPreviewInput,
+  ): Promise<WechatAutoReplyPreviewResult> =>
+    call(() => previewWechatAutoReplyRule(id, ruleId, input), '生成 AI 回复预览失败'),
+  exportMessages: (id: string, input: WechatExportInput = {}): Promise<WechatExportResult> =>
+    call(() => exportWechatMessages(id, input), '导出微信消息失败'),
+  importMessages: (
+    id: string,
+    input: WechatImportMessagesInput,
+  ): Promise<WechatImportMessagesResult> =>
+    call(() => importWechatMessagesApi(id, input), '导入微信消息失败'),
+  syncHistory: (id: string, input: WechatHistorySyncInput = {}): Promise<WechatHistorySyncResult> =>
+    call(() => syncWechatHistory(id, input), '同步微信历史消息失败'),
   digestSchedule: (id: string): Promise<WechatDigestScheduleView | null> =>
     call(() => fetchWechatDigestSchedule(id), '获取日报计划失败'),
   saveDigestSchedule: (
@@ -177,6 +215,11 @@ export const wechatHubApi = {
     call(() => switchWechatChat(id, title), '切换微信会话失败'),
   publishMoment: (id: string, input: WechatMomentInput): Promise<WechatActionResult> =>
     call(() => publishWechatMoment(id, input), '发布朋友圈失败'),
+  fetchMoments: (
+    id: string,
+    input: WechatMomentFetchInput = {},
+  ): Promise<WechatMomentFetchResult> =>
+    call(() => fetchWechatMoments(id, input), '遍历朋友圈失败'),
   knowledge: (id: string): Promise<WechatKnowledgeDocView[]> =>
     call(() => fetchWechatKnowledge(id), '获取知识库失败'),
   ingestKnowledge: (id: string, input: { title: string; text: string }) =>

@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { HOME_PAGE_GUTTER_X_PX } from '@ihui/shared/ui/home-layout-spec'
 
 /**
  * PopularCourses 热门课程列表 (mobile-rn 端)
@@ -14,9 +15,9 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
  *   vertical 模式用于首页/分类页热门区。
  *
  * 设计规范:
- *   - 容器:paddingHorizontal 16,paddingTop 8(头部区),无强制底部分隔
+ *   - 容器:页面 10dp 留白由 HomeScreen sectionWrap 统一提供,组件内不再重复留白
  *   - 网格:FlatList numColumns=2,ItemSeparatorComponent 行/列间距 8
- *   - 卡片宽:(屏宽 - 16*2 - 8) / 2,用 useWindowDimensions 自适应
+ *   - 卡片宽:(屏宽 - 10*2 - 8) / 2,用 useWindowDimensions 自适应
  *   - 缩略图:100% × 100,borderRadius 8,bgColor surface.muted,居中 emoji 📚 32pt
  *   - VIP 角标:absolute top-right,8px 圆角,brand.DEFAULT bg,白字 10/600
  *   - 文字:标题 14/600,讲师/价格行沿用项目浅色优雅风
@@ -77,10 +78,11 @@ export interface PopularCoursesProps {
   onTabChange?: (index: number) => void
 }
 
-const CONTAINER_PADDING = 16
-const GRID_GAP = 8
+const CONTAINER_PADDING = rnSpacing.none
+const PAGE_GUTTER = HOME_PAGE_GUTTER_X_PX
+const GRID_GAP = rnSpacing.sm
 const THUMB_HEIGHT = 100
-const VIP_BADGE_PADDING = 4
+const VIP_BADGE_PADDING = rnSpacing.xs
 const DEFAULT_BOOK_ICON = BookOpen
 
 /** 双 Tab(对齐原项目 popular-courses-tab:爆款入门 / 爆款精选) */
@@ -175,7 +177,7 @@ export default function PopularCourses({
 }: PopularCoursesProps): React.JSX.Element {
   const { t } = useI18n()
   const screenWidth = useAppFrameWidth()
-  const cardWidth = (screenWidth - CONTAINER_PADDING * 2 - GRID_GAP) / 2
+  const cardWidth = (screenWidth - PAGE_GUTTER * 2 - GRID_GAP) / 2
   const hasHeader = Boolean(title) || Boolean(subtitle) || Boolean(onMore)
 
   const [selectedTab, setSelectedTab] = useState(0)

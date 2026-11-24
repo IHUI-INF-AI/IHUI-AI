@@ -22,7 +22,7 @@ import {
   ThumbsUp,
 } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType, taroSpacing } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import { VoiceBubble } from '../../components/VoiceBubble'
 import { VideoPlayer } from '../VideoPlayer'
@@ -46,7 +46,6 @@ import {
   buildStreamErrorLabelSet,
   buildStreamErrorView,
   isErrorTurn,
-  looksLikeUpstreamErrorContent,
   resolveErrorCatalog,
   resendTargetText,
 } from '@ihui/shared/chat'
@@ -94,11 +93,6 @@ const styles = StyleSheet.create({
   },
   msgContent: {
     flexDirection: 'column',
-    // 2026-11-23 修:宽度上限搬到这里(原来是 msgBubble 的 maxWidth: '78%')。
-    // 气泡是 auto 宽度的列的子项、默认 stretch;列本身没有定宽时,气泡里的百分比
-    // 上限解析不到基准,实测「hello」被折成 he/llo 两行(气泡被压成操作行那么窄)。
-    // 把上限挂到列上(列宽由 row 定宽决定,78% 有基准),气泡再按内容撑开。
-    maxWidth: '78%',
   },
   // 纯图标操作行(2026-11-23 用户定档:按钮不再带功能说明文字):
   // gap 归零、由按钮自身的水平内衬撑出 8dp 视觉间距,命中区同步加大
@@ -106,27 +100,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 0,
     marginTop: rpx(8),
-    paddingLeft: rpx(16),
+    paddingLeft: rpx(taroSpacing.sm),
   },
   msgActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: rpx(12),
-    paddingHorizontal: rpx(8),
+    paddingHorizontal: rpx(taroSpacing.xs),
   },
   // AI 生成内容显式标识:与操作行同档小字,距气泡 4px,不参与操作按钮热区
   aiGeneratedLabel: {
     marginTop: rpx(8),
-    paddingLeft: rpx(24),
+    paddingLeft: rpx(taroSpacing.md),
     fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
-  // 失败轮外壳:只占满列宽,不铺底、不加内衬(视觉全部交给 msgErrorCard)
-  msgFailedShell: {
-    width: '100%',
-  },
   msgBubble: {
-    paddingHorizontal: rpx(28),
+    maxWidth: '78%',
+    paddingHorizontal: rpx(taroSpacing['md-loose']),
     paddingVertical: rpx(20),
     borderRadius: rnRadius['2xl'],
   },
@@ -415,10 +406,7 @@ export function ChatMessageItem({
     </>
   )
   // 失败轮:渲染错误卡片而非正文;重试只在"确实有一条可重发的用户提问"时给
-  // 2026-11-23 补第二个来源:上游把异常原文当 content 吐回来时(网关 429 / 缺 key 档),
-  // 消息没有 error 标记,但正文本身就是异常串 —— 照正常气泡画出来就是一段白底报错堆栈。
-  // 判据放共享层(呈现层专用),web/miniapp 可同源取用,不各自嗅一遍文案。
-  const isFailed = !isUser && (isErrorTurn(item) || looksLikeUpstreamErrorContent(item.content))
+  const isFailed = !isUser && isErrorTurn(item)
   const retryable = isFailed && resendTargetText(messages) !== null
   // D-AI-3 错误卡目录化:码在目录表里 ⇒ 标题/建议取目录词;未收录 ⇒ 保持既有 fallback
   // (判据与拼装全在共享层 buildStreamErrorView,端内不复制 15 类映射)。
@@ -463,13 +451,7 @@ export function ChatMessageItem({
           }}
           onLongPress={() => void handleLongPressMessage(item)}
           delayLongPress={500}
-          // 失败轮不走气泡壳:错误卡片自带边框/底色/圆角,外面再套一层白底气泡(带 14dp 内衬)
-          // 就又是"白框套粉卡"的双层,实测四边各多一圈白。成功轮仍是原来的气泡样式。
-          style={
-            isFailed
-              ? styles.msgFailedShell
-              : [styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAi]
-          }
+          style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAi]}
         >
           {isFailed ? (
             // 失败轮:错误卡片(警示头 + 正文 + 重试出口),整块替换正文 —— 与 web D22 /

@@ -16,6 +16,7 @@ import {
   NAVBAR_ACTION_LABEL_FONT_PX,
   NAVBAR_ACTION_LABEL_MAX_WIDTH_PX,
   NAVBAR_CENTER_MIN_WIDTH_PX,
+  NAVBAR_ROW_HEIGHT_PX,
   NAVBAR_ROW_HEIGHT_SUBTITLE_PX,
   NAVBAR_SIDE_PADDING_PX,
   NAVBAR_SUBTITLE_FONT_PX,
@@ -24,6 +25,7 @@ import {
   NAVBAR_TITLE_MAX_WIDTH_PX,
   navbarActionBoxStyle,
 } from '@ihui/shared/ui/navbar-spec'
+import { TAB_BAR_GAP_TOP_PX } from '@ihui/shared/ui/tab-bar-spec'
 import { NavBarCore, type NavBarCoreBoxProps, type NavBarCoreTextProps } from '@ihui/shared/ui'
 import { rpx, px } from '@/utils/rpx'
 import BackChevron from '@/components/BackChevron'
@@ -247,21 +249,32 @@ export default function NavBar({
   const tt = useTt()
   const { resolved } = useAppTheme()
   const barSurface = glassBarSurface(resolved)
-  /// 2026-11-24 顶栏改悬浮玻璃条:玻璃面只铺在导航行,左右留边取底栏同一枚
-  /// (TAB_BAR_MARGIN_H 转发自 shared/tab-bar-spec,即 RN NavChrome 的 marginHorizontal),
-  /// 这样顶栏与底栏胶囊处在同一条垂直边线上。状态栏占位区改用不透明页面底,
-  /// 挡住 fixed 模式下从 y=0 起渲染的页面内容。
-  /// 顶部不照搬 RN 的 6px 留白:微信原生胶囊按钮与本行同顶同高,加 gap 会让两枚胶囊垂直错开。
+  /// 2026-11-24 顶栏与 RN `NavChrome` 全量同形:外框只做定位,不铺色;玻璃面只铺导航行,
+  /// 左右留边取底栏同一枚(TAB_BAR_MARGIN_H = RN marginHorizontal),顶部留 6px 呼吸
+  /// (TAB_BAR_GAP_TOP_PX = RN marginTop),行高取共享 spec 的 44 档(与 RN NAVBAR_ROW_HEIGHT_PX 同值)。
+  /// 状态栏占位区单独铺页面底色,滚动时挡住从 y=0 起渲染的内容。
   const glassRowStyle = {
     ...barSurface,
     marginLeft: px(TAB_BAR_MARGIN_H),
     marginRight: px(TAB_BAR_MARGIN_H),
+    marginTop: px(TAB_BAR_GAP_TOP_PX),
   }
-  const chromeStyle = { backgroundColor: bgColor ?? 'var(--color-background)' }
+  const chromeStyle =
+    variant === 'ai-home'
+      ? { backgroundColor: 'transparent' }
+      : { backgroundColor: bgColor ?? 'var(--color-background)' }
   const statusBarHeight = menuButton.top
   const navBarHeight = menuButton.height + 8
-  // 有副标题时行高取 spec 的 56 档(与 RN 端 ROW_HEIGHT_SUBTITLE 同值);无副标题仍走胶囊实测高
-  const rowHeight = subtitle ? NAVBAR_ROW_HEIGHT_SUBTITLE_PX : navBarHeight
+  // 有副标题时行高取 spec 的 56 档(与 RN 端 ROW_HEIGHT_SUBTITLE 同值);
+  // ai-home 无副标题时取 spec 的 44 档,与 RN 完全同高;其余页面仍走胶囊实测高。
+  const rowHeight =
+    variant === 'ai-home'
+      ? subtitle
+        ? NAVBAR_ROW_HEIGHT_SUBTITLE_PX
+        : NAVBAR_ROW_HEIGHT_PX
+      : subtitle
+        ? NAVBAR_ROW_HEIGHT_SUBTITLE_PX
+        : navBarHeight
 
   const handleBack = () => {
     if (onBack) {
@@ -293,7 +306,14 @@ export default function NavBar({
         platform={NAVBAR_PLATFORM}
         containerClassName="sticky top-0 left-0 right-0 z-[1001] flex flex-col"
         containerStyle={chromeStyle}
-        leading={<View style={{ height: px(statusBarHeight) }} />}
+        leading={
+          <View
+            style={{
+              height: px(statusBarHeight),
+              backgroundColor: variant === 'ai-home' ? 'var(--color-background)' : undefined,
+            }}
+          />
+        }
         rowClassName="relative flex items-center"
         rowStyle={{
           height: px(rowHeight),

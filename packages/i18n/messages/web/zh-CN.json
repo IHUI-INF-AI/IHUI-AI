@@ -473,10 +473,10 @@
     "picking": "点选中",
     "devtools": "开发者工具",
     "popout": "弹出窗口",
-    "browserTab": "浏览器标签页"
-  ,
+    "browserTab": "浏览器标签页",
     "pipMonitor": "画中画监看",
-    "pipMonitorActive": "关闭画中画"},
+    "pipMonitorActive": "关闭画中画"
+  },
   "a11y": {
     "previewLoadFailed": "预览加载失败。",
     "previewRetryAction": "重试",
@@ -9562,8 +9562,7 @@
     "pictureInPicture": {
       "title": "画中画",
       "emptyState": "暂无内容",
-      "openWindow": "打开画中画窗口"
-    ,
+      "openWindow": "打开画中画窗口",
       "readOnly": "只读",
       "handover": "接管",
       "statusConnecting": "连接中",
@@ -9572,8 +9571,10 @@
       "statusGate": "登录/验证页，可能需要接管",
       "statusError": "画面已断开",
       "statusStalled": "画面 {seconds} 秒未更新",
-      "tooSmall": "窗口过小，建议不小于 1/4 屏"},
-    "resizeFloatHint": "调整大小"
+      "tooSmall": "窗口过小，建议不小于 1/4 屏"
+    },
+    "resizeFloatHint": "调整大小",
+    "earlier": "更早"
   },
   "aiCost": {
     "budgetAlerts": "预算告警",
@@ -12811,6 +12812,24 @@
           "market"
         ],
         "label": "Skill 市场"
+      },
+      "automations": {
+        "label": "定时自动化",
+        "description": "查看并按计划管理自动运行的 Agent 任务",
+        "keywords": [
+          "自动化",
+          "定时",
+          "计划任务"
+        ]
+      },
+      "imageGen": {
+        "label": "AI 图片生成",
+        "description": "用文字描述生成图片",
+        "keywords": [
+          "图片",
+          "生成",
+          "绘图"
+        ]
       }
     },
     "keyboardHint": "↑↓ 选择 · Enter 执行",
@@ -20554,11 +20573,12 @@
     "saasCertificates": "SaaS 证书",
     "finAccounting": "财务账套",
     "hrLifecycle": "人事生命周期",
-    "hrApproval": "请假审批"
-  ,
+    "hrApproval": "请假审批",
     "hrMyPerf": "我的绩效",
     "hrMyTraining": "我的培训",
-    "hrMyExpense": "我的报销"},
+    "hrMyExpense": "我的报销",
+    "financeGroup": "财务部"
+  },
   "news": {
     "allCategories": "全部分类",
     "backToList": "返回资讯",
@@ -31281,8 +31301,7 @@
     "scoreLabel": "分数",
     "managerComment": "评语",
     "perfReviewsTitle": "评估单",
-    "trCourse": "课程"
-  ,
+    "trCourse": "课程",
     "myExpenseTitle": "我的报销",
     "expNew": "新建报销",
     "expSubmit": "提交报销",
@@ -31313,5 +31332,6 @@
     "expStatusRejected": "已驳回",
     "expStatusPaid": "已付款",
     "expStatusVoided": "已作废",
-    "uploading": "上传中…"}
+    "uploading": "上传中…"
+  }
 }

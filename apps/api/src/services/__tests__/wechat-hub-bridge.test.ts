@@ -105,6 +105,76 @@ describe('normalizeBridgePayload', () => {
     expect(events[0]?.senderName).toBe('微信ClawBot')
   })
 
+  it('OCR 群聊：ocr:chatId + isGroup=true 仍识别为群，并保留群成员发送人', () => {
+    const events = normalizeBridgePayload({
+      id: 'ocr-group-1',
+      chatId: 'ocr:group123',
+      sender: 'ocr:member:abc',
+      senderName: '张三',
+      type: 'text',
+      content: '明天十点开会',
+      chatTitle: '项目群 (23)',
+      isGroup: true,
+    })
+    expect(events).toHaveLength(1)
+    expect(events[0]?.conversationKind).toBe('group')
+    expect(events[0]?.conversationTitle).toBe('项目群 (23)')
+    expect(events[0]?.senderId).toBe('ocr:member:abc')
+    expect(events[0]?.senderName).toBe('张三')
+  })
+
+  it('吃下 WeChatFerry WxMsg 的 roomid/isGroup/ts 与数字 type', () => {
+    const events = normalizeBridgePayload({
+      id: 'wcf-1',
+      type: 1,
+      isGroup: true,
+      sender: 'wxid-sender',
+      roomid: '12345678@chatroom',
+      content: '群里好',
+      ts: 1_760_000_000,
+    })
+    expect(events).toHaveLength(1)
+    expect(events[0]?.conversationKind).toBe('group')
+    expect(events[0]?.platformChatId).toBe('12345678@chatroom')
+    expect(events[0]?.senderId).toBe('wxid-sender')
+    expect(events[0]?.kind).toBe('text')
+    expect(events[0]?.sentAt.getTime()).toBe(1_760_000_000_000)
+  })
+
+  it('数字 type=3 识别图片，并用 thumb 作为媒体地址', () => {
+    const events = normalizeBridgePayload({
+      id: 'wcf-2',
+      type: 3,
+      sender: 'wxid-a',
+      roomid: '',
+      thumb: 'https://cdn.example.com/wcf.png',
+    })
+    expect(events[0]?.conversationKind).toBe('private')
+    expect(events[0]?.kind).toBe('image')
+    expect(events[0]?.mediaUrl).toBe('https://cdn.example.com/wcf.png')
+  })
+
+  it('吃下酷喵 fromwx/gidfromwx/msg，群消息不把群 id 记成发送人', () => {
+    const events = normalizeBridgePayload({
+      type: 1,
+      fromwx: 'room-9@chatroom',
+      gidfromwx: 'wxid-sender',
+      msg: '大家好',
+    })
+    expect(events[0]?.conversationKind).toBe('group')
+    expect(events[0]?.platformChatId).toBe('room-9@chatroom')
+    expect(events[0]?.senderId).toBe('wxid-sender')
+    expect(events[0]?.content).toBe('大家好')
+    const privateEvent = normalizeBridgePayload({
+      type: 1,
+      fromwx: 'wxid-a',
+      toWxid: 'wxid-me',
+      msg: '私聊',
+    })[0]
+    expect(privateEvent?.conversationKind).toBe('private')
+    expect(privateEvent?.platformChatId).toBe('wxid-a')
+  })
+
   it('桥 seq 回退到游标之前时把游标退回 0，避免新消息被 since 过滤掉', () => {
     expect(bridgeCursorNeedsReset('4', 1)).toBe(true)
     expect(bridgeCursorNeedsReset('3', 3)).toBe(false)

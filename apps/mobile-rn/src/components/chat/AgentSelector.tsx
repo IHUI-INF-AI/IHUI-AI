@@ -8,7 +8,7 @@ import { t as tStatic } from '../../i18n'
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Sparkles, X } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
-import { rnGeometry, rnRadius, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnType, taroSpacing } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import AgentList, { type AgentListItem } from '../../components/AgentList'
 import { Tappable } from '@ihui/ui-native'
@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(20),
     backgroundColor: tokens.surface.card,
   },
@@ -50,9 +50,9 @@ const styles = StyleSheet.create({
   },
   // ── 当前人格摘要区(D114:列表上方呈现选中 Agent 的人格/角色) ──
   personaWrap: {
-    marginHorizontal: rpx(32),
+    marginHorizontal: rpx(taroSpacing.lg),
     marginBottom: rpx(12),
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(20),
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.sm,
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     gap: rpx(8),
   },
   personaMetaChip: {
-    paddingHorizontal: rpx(12),
+    paddingHorizontal: rpx(taroSpacing['xs-loose']),
     paddingVertical: rpx(4),
     backgroundColor: tokens.brandAccent.light,
     borderRadius: rnRadius.md,

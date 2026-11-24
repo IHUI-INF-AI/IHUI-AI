@@ -133,7 +133,7 @@ const VARIANT_CONFIG: Record<IntroducePopupVariant, VariantConfig> = {
 }
 
 const SHEET_MAX_HEIGHT_PERCENT = '80%'
-const SHEET_PADDING_HORIZONTAL = 16
+const SHEET_PADDING_HORIZONTAL = rnSpacing.lg
 const SHEET_PADDING_VERTICAL = 20
 
 const TITLE_FONT_SIZE = 18

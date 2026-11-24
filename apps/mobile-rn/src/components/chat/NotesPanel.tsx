@@ -11,7 +11,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { Mic, X } from 'lucide-react-native'
 import { listVoiceNotes, type VoiceNoteItem } from '@ihui/api-client'
 import { tokens } from '../../theme/active-tokens'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType, taroSpacing } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import { formatShortDateTime } from '../../utils/date-utils'
 import { useDialogHeightStyle } from '../../lib/use-dialog-height'
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(20),
     backgroundColor: tokens.surface.card,
   },
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   },
   // ── 顶部「新建录音」入口 ──
   newRecordSlot: {
-    marginHorizontal: rpx(32),
+    marginHorizontal: rpx(taroSpacing.lg),
     marginTop: rpx(8),
   },
   newRecordBtn: {
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: rpx(12),
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(24),
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.sm,
@@ -84,14 +84,14 @@ const styles = StyleSheet.create({
   // ── 列表区三态 ──
   notesScroll: {
     maxHeight: rpx(680),
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingTop: rpx(16),
   },
   notesRowSlot: {
     marginBottom: rpx(12),
   },
   notesRow: {
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(20),
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.sm,
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   },
   retryBtn: {
     alignSelf: 'center',
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(16),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   },
   // ── 底部取消 ──
   panelCancelBtn: {
-    marginHorizontal: rpx(32),
+    marginHorizontal: rpx(taroSpacing.lg),
     marginTop: rpx(16),
     height: 48,
     borderRadius: rnRadius.sm,

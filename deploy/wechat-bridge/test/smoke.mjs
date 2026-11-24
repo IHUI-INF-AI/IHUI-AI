@@ -14,7 +14,9 @@ const PORT = 18848
 const BASE = `http://127.0.0.1:${PORT}`
 const SECRET = 'bridge-test-secret'
 const QUEUE_FILE = process.env.BRIDGE_TEST_QUEUE_FILE ?? '.bridge-test-queue.jsonl'
+const MOMENTS_FILE = process.env.BRIDGE_TEST_MOMENTS_FILE ?? '.bridge-test-moments.jsonl'
 rmSync(QUEUE_FILE, { force: true })
+rmSync(MOMENTS_FILE, { force: true })
 
 const child = spawn(process.execPath, ['server.mjs'], {
   env: {
@@ -23,6 +25,7 @@ const child = spawn(process.execPath, ['server.mjs'], {
     BRIDGE_PORT: String(PORT),
     BRIDGE_SECRET: SECRET,
     BRIDGE_QUEUE_FILE: QUEUE_FILE,
+    BRIDGE_MOMENTS_FILE: MOMENTS_FILE,
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 })
@@ -78,6 +81,24 @@ try {
   if (incoming.nextCursor !== String(incoming.messages[0].seq)) throw new Error('nextCursor 不符')
   if (incoming.seq !== incoming.messages[0].seq) throw new Error('messages 未回当前 seq')
 
+  const formBody = new URLSearchParams({
+    type: '1',
+    fromwx: 'room-1@chatroom',
+    gidfromwx: 'wxid_b',
+    msg: '表单入站',
+  })
+  const formIngest = await (
+    await fetch(`${BASE}/ingest`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Bearer ${SECRET}`,
+      },
+      body: formBody.toString(),
+    })
+  ).json()
+  if (formIngest.ingested !== 1) throw new Error('form-urlencoded ingest 失败')
+
   const send = await api('/send', { target: 'wxid_a', type: 'text', text: 'hi' })
   if (!send.ok || !send.messageId) throw new Error('send 失败')
 
@@ -92,6 +113,38 @@ try {
     throw new Error('group.create 未回 chatId')
   if (!group.data.chatId.endsWith('@chatroom')) throw new Error('group.create 的 chatId 形态不符')
 
+  const members = await api('/action', { action: 'group.members', chatId: 'mock@chatroom' })
+  if (!members.ok || members.data?.members?.length !== 3) throw new Error('group.members 失败')
+
+  const history = await api('/action', {
+    action: 'history.fetch',
+    chatId: 'wxid_mock_alice',
+    limit: 10,
+  })
+  if (!history.ok || history.data?.messages?.length !== 2) throw new Error('history.fetch 失败')
+  if (history.data.messages[0]?.platformChatId !== 'wxid_mock_alice')
+    throw new Error('history.fetch 会话 id 不符')
+
+  const momentIngest = await api('/ingest', {
+    type: 0,
+    id: 'sns-1',
+    xml: '<timeline><snsId>501</snsId><nickname><![CDATA[Mock 好友]]></nickname><content><![CDATA[朋友圈正文]]></content></timeline>',
+  })
+  if (momentIngest.ingested !== 0 || momentIngest.moments !== 1)
+    throw new Error('type=0 朋友圈未与聊天队列分离')
+  const momentFeed = await (
+    await fetch(`${BASE}/moments?since=0&limit=10`, {
+      headers: { Authorization: `Bearer ${SECRET}` },
+    })
+  ).json()
+  if (momentFeed.moments?.length !== 1) throw new Error('moments 未取到朋友圈')
+  if (momentFeed.moments[0]?.content !== '朋友圈正文') throw new Error('朋友圈正文不符')
+
+  const momentFetch = await api('/action', { action: 'moment.fetch', maxPages: 2 })
+  if (!momentFetch.ok || momentFetch.data?.fetched !== 2) throw new Error('moment.fetch 失败')
+  if (momentFetch.data.moments?.[0]?.id !== 'mock-moment-1')
+    throw new Error('moment.fetch 返回内容不符')
+
   const unsupported = await api('/action', { action: 'unknown.action' })
   if (unsupported.status !== 'unsupported') throw new Error('未知动作未返回 unsupported')
 
@@ -99,5 +152,7 @@ try {
 } finally {
   child.kill('SIGTERM')
   await once(child, 'exit').catch(() => {})
+  rmSync(QUEUE_FILE, { force: true })
+  rmSync(MOMENTS_FILE, { force: true })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

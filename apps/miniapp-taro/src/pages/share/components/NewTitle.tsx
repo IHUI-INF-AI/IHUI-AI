@@ -5,7 +5,7 @@
 import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { rpx } from '@/utils/rpx'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, taroSpacing } from '@ihui/design-tokens'
 
 /**
  * NewTitle 热门资讯列表组件
@@ -34,8 +34,8 @@ export default function NewTitle({ items, onItemClick }: NewTitleProps) {
       style={{
         paddingTop: rpx(16),
         paddingBottom: rpx(16),
-        paddingLeft: rpx(24),
-        paddingRight: rpx(24),
+        paddingLeft: rpx(taroSpacing.md),
+        paddingRight: rpx(taroSpacing.md),
       }}
     >
       <Text
@@ -68,7 +68,7 @@ export default function NewTitle({ items, onItemClick }: NewTitleProps) {
               height: rpx(20),
               borderRadius: rnRadius['2xl'],
               background: 'var(--color-muted)',
-              marginRight: rpx(16),
+              marginRight: rpx(taroSpacing.sm),
               flexShrink: 0,
             }}
           />

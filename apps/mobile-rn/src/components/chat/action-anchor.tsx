@@ -8,7 +8,7 @@ import { type ReactNode } from 'react'
 import { StyleSheet, Text, TouchableOpacity, type StyleProp, type TextStyle } from 'react-native'
 import { MousePointerClick } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
-import { rnRadius, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnType, taroSpacing } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import { useI18n } from '../../i18n'
 
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: rpx(4),
     marginVertical: rpx(2),
-    paddingHorizontal: rpx(12),
+    paddingHorizontal: rpx(taroSpacing['xs-loose']),
     paddingVertical: rpx(2),
     borderRadius: rnRadius.md,
     borderWidth: 1,

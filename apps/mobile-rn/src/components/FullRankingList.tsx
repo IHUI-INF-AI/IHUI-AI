@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     fontSize: rnType.caption.size,
     fontWeight: '600',
     lineHeight: rnType.badge.lineHeight,
-    marginLeft: 1,
+    marginLeft: rnSpacing['2xs'],
   },
   avatar: {
     width: 40,

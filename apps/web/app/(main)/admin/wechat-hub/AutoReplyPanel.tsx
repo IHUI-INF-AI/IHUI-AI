@@ -18,6 +18,7 @@ import {
 } from '@ihui/ui-react'
 import type { WechatAutoReplyRuleView } from '@ihui/types'
 import { cn } from '@/lib/utils'
+import AutoReplyPreview from './AutoReplyPreview'
 import AutoReplyRuleForm from './AutoReplyRuleForm'
 import { wechatHubApi } from './wechat-hub-api'
 
@@ -86,7 +87,9 @@ export default function AutoReplyPanel({ accountId }: { accountId: string }) {
                   >
                     <span className="block truncate text-sm font-medium">{rule.name}</span>
                     <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                      {rule.matchType} · {rule.keywords.join(' / ') || '无关键词'}
+                      {rule.matchType === 'agent' ? 'AI 智能回复' : rule.matchType} ·{' '}
+                      {rule.keywords.join(' / ') ||
+                        (rule.matchType === 'agent' ? '全部消息' : '无关键词')}
                     </span>
                   </button>
                   <Switch
@@ -102,21 +105,26 @@ export default function AutoReplyPanel({ accountId }: { accountId: string }) {
         </CardContent>
       </Card>
 
-      <AutoReplyRuleForm
-        accountId={accountId}
-        rule={selected}
-        visible={showForm}
-        onSaved={(rule) => {
-          setSelectedId(rule.id)
-          setShowForm(true)
-          void rulesQuery.refetch()
-        }}
-        onDeleted={() => {
-          setSelectedId(null)
-          setShowForm(false)
-          void rulesQuery.refetch()
-        }}
-      />
+      <div className="space-y-3">
+        <AutoReplyRuleForm
+          accountId={accountId}
+          rule={selected}
+          visible={showForm}
+          onSaved={(rule) => {
+            setSelectedId(rule.id)
+            setShowForm(true)
+            void rulesQuery.refetch()
+          }}
+          onDeleted={() => {
+            setSelectedId(null)
+            setShowForm(false)
+            void rulesQuery.refetch()
+          }}
+        />
+        {selected?.matchType === 'agent' ? (
+          <AutoReplyPreview key={selected.id} accountId={accountId} rule={selected} />
+        ) : null}
+      </div>
     </div>
   )
 }

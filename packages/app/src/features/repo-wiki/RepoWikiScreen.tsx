@@ -387,7 +387,7 @@ function createStyles(tk: AppThemeTokens) {
     iconSquare: {
       width: rnSpacing['4xl'],
       height: rnSpacing['4xl'],
-      paddingHorizontal: 0,
+      paddingHorizontal: rnSpacing.none,
       justifyContent: 'center',
     },
     disabled: { opacity: 0.5 },

@@ -9,7 +9,7 @@
   margin: var(--spacing-xs-loose) var(--spacing-sm);
   padding: var(--spacing-sm) var(--spacing-sm-loose);
   background: var(--color-streamed-container-bg);
-
+  border: 1rpx solid var(--color-border);
   border-radius: var(--radius-lg);
   box-sizing: border-box;
 }
@@ -45,7 +45,7 @@
   margin-bottom: 10rpx;
 }
 .ai-card-section-title {
-  margin-left: 10rpx;
+  margin-left: var(--spacing-xs);
   font-size: var(--text-label);
   font-weight: 600;
   color: var(--color-foreground);
@@ -117,7 +117,7 @@
 }
 .ai-card-plan-body {
   flex: 1;
-  margin-left: 14rpx;
+  margin-left: var(--spacing-xs-loose);
 }
 .ai-card-plan-text {
   display: block;
@@ -170,7 +170,7 @@
 }
 .ai-card-tool-body {
   flex: 1;
-  margin-left: 14rpx;
+  margin-left: var(--spacing-xs-loose);
 }
 .ai-card-tool-row {
   display: flex;
@@ -335,7 +335,7 @@
   color: var(--color-danger);
 }
 .ai-card-term-duration {
-  margin-left: 10rpx;
+  margin-left: var(--spacing-xs);
   font-size: var(--text-caption);
   color: var(--color-muted-foreground);
 }

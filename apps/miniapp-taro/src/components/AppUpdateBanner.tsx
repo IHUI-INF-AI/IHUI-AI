@@ -18,7 +18,7 @@ import { View, Text } from '@tarojs/components'
 import { useEffect, useState, useRef, type CSSProperties } from 'react'
 import { useLaunch } from '@tarojs/taro'
 import { useI18n } from '@/i18n'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import {
   applyAppUpdate,
   dismissAppUpdate,
@@ -149,8 +149,8 @@ export function AppUpdateBanner() {
     minWidth: 84,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingLeft: 16,
-    paddingRight: 16,
+    paddingLeft: rnSpacing.lg,
+    paddingRight: rnSpacing.lg,
     paddingTop: 8,
     paddingBottom: 8,
     borderRadius: rnRadius.lg,

@@ -68,6 +68,7 @@ import {
   searchMessages as querySearchMessages,
 } from './queries.js'
 import { recordInboundContact, syncGroupMembers } from './contacts.js'
+import { normalizeOutboundWebhookUrl, sendOutboundWebhook } from './webhook-outbound.js'
 import { runAutoReply } from './automation.js'
 import {
   claimDueSchedules,
@@ -232,6 +233,7 @@ export class WechatHubManager {
       allowedTargets?: string[]
       blockedWords?: string[]
       rateLimitPerMinute?: number
+      outboundWebhookUrl?: string
     },
   ): Promise<WechatAccountView> {
     const row = await this.assertAccount(userId, accountId)
@@ -240,6 +242,11 @@ export class WechatHubManager {
     if (patch.blockedWords) metadata.blockedWords = patch.blockedWords
     if (patch.rateLimitPerMinute !== undefined) {
       metadata.rateLimitPerMinute = Math.max(1, Math.min(120, patch.rateLimitPerMinute))
+    }
+    if (patch.outboundWebhookUrl !== undefined) {
+      const normalized = normalizeOutboundWebhookUrl(patch.outboundWebhookUrl)
+      if (normalized) metadata.outboundWebhookUrl = normalized
+      else delete metadata.outboundWebhookUrl
     }
     const updated = await db
       .update(wechatHubAccounts)
@@ -264,10 +271,53 @@ export class WechatHubManager {
         allowedTargets: patch.allowedTargets?.length ?? 0,
         blockedWords: patch.blockedWords?.length ?? 0,
         rateLimitPerMinute: patch.rateLimitPerMinute ?? null,
+        outboundWebhookConfigured: Boolean(metadata.outboundWebhookUrl),
       },
       'success',
     )
     return toAccountView(next)
+  }
+
+  async testOutboundWebhook(
+    userId: string,
+    accountId: string,
+    urlOverride?: string,
+  ): Promise<void> {
+    const row = await this.assertAccount(userId, accountId)
+    const runtime = loadRuntime(row)
+    const url =
+      urlOverride !== undefined
+        ? normalizeOutboundWebhookUrl(urlOverride)
+        : asString(runtime.metadata.outboundWebhookUrl)
+    if (!url) throw new AppError('未配置出站 Webhook', 400, 'WECHAT_WEBHOOK_URL_MISSING')
+    const secret = runtime.credentials.webhookSecret ?? asString(runtime.metadata.webhookSecret)
+    try {
+      await sendOutboundWebhook(
+        url,
+        { type: 'wechat.test', accountId, at: new Date().toISOString() },
+        secret,
+      )
+      await this.writeAction(
+        row.id,
+        userId,
+        'webhook.test',
+        null,
+        { event: 'wechat.test' },
+        'success',
+      )
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      await this.writeAction(
+        row.id,
+        userId,
+        'webhook.test',
+        null,
+        { event: 'wechat.test' },
+        'failed',
+        message,
+      ).catch(() => undefined)
+      throw new AppError(`出站 Webhook 测试失败：${message}`, 502, 'WECHAT_WEBHOOK_TEST_FAILED')
+    }
   }
 
   async listConversations(
@@ -597,6 +647,7 @@ export class WechatHubManager {
       .where(eq(wechatHubConversations.id, conversationId))
     await recordInboundContact(accountId, event)
     await syncGroupMembers(accountId, conversationId, event)
+    void this.dispatchOutboundWebhook(accountId, conversationId, event)
     void this.handleAutoReply(accountId, event)
     logger.debug('[wechat-hub] 入站消息入库', {
       accountId,
@@ -605,22 +656,73 @@ export class WechatHubManager {
     })
   }
 
+  private async dispatchOutboundWebhook(
+    accountId: string,
+    conversationId: string,
+    event: WechatInboundEvent,
+  ): Promise<void> {
+    try {
+      const rows = await dbRead
+        .select()
+        .from(wechatHubAccounts)
+        .where(eq(wechatHubAccounts.id, accountId))
+        .limit(1)
+      const row = rows[0]
+      if (!row) return
+      const runtime = loadRuntime(row)
+      const metadata = runtime.metadata
+      const url = asString(metadata.outboundWebhookUrl)
+      if (!url) return
+      const secret = runtime.credentials.webhookSecret ?? asString(metadata.webhookSecret)
+      await sendOutboundWebhook(
+        url,
+        {
+          type: 'wechat.inbound',
+          accountId,
+          conversationId,
+          event: {
+            platformMessageId: event.platformMessageId,
+            platformChatId: event.platformChatId,
+            conversationKind: event.conversationKind,
+            conversationTitle: event.conversationTitle,
+            senderId: event.senderId,
+            senderName: event.senderName,
+            kind: event.kind,
+            content: event.content,
+            mediaUrl: event.mediaUrl,
+            sentAt: event.sentAt.toISOString(),
+          },
+        },
+        secret,
+      )
+      logger.debug('[wechat-hub] 出站 webhook 已投递', { accountId, conversationId })
+    } catch (e) {
+      logger.warn('[wechat-hub] 出站 webhook 投递失败', {
+        accountId,
+        conversationId,
+        error: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
+
   private async handleAutoReply(accountId: string, event: WechatInboundEvent): Promise<void> {
+    let userId: string | undefined
     try {
       const rows = await dbRead
         .select({ userId: wechatHubAccounts.userId })
         .from(wechatHubAccounts)
         .where(eq(wechatHubAccounts.id, accountId))
         .limit(1)
-      const userId = rows[0]?.userId
-      if (!userId) return
-      const outcome = await runAutoReply(userId, accountId, event, (input) =>
-        this.send(userId, input),
+      userId = rows[0]?.userId
+      const ownerUserId = userId
+      if (!ownerUserId) return
+      const outcome = await runAutoReply(ownerUserId, accountId, event, (input) =>
+        this.send(ownerUserId, input),
       )
       if (!outcome) return
       await this.writeAction(
         accountId,
-        userId,
+        ownerUserId,
         'message.auto_reply',
         event.platformChatId,
         {
@@ -632,10 +734,18 @@ export class WechatHubManager {
         outcome.result.ok ? 'success' : 'failed',
       )
     } catch (e) {
-      logger.warn('[wechat-hub] 自动回复失败', {
-        accountId,
-        error: e instanceof Error ? e.message : String(e),
-      })
+      const message = e instanceof Error ? e.message : String(e)
+      logger.warn('[wechat-hub] 自动回复失败', { accountId, error: message })
+      if (userId) {
+        await this.writeAction(
+          accountId,
+          userId,
+          'message.auto_reply',
+          event.platformChatId,
+          { status: 'failed', error: message },
+          'failed',
+        ).catch(() => undefined)
+      }
     }
   }
 

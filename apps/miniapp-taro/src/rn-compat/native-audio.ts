@@ -318,13 +318,15 @@ function ensureManager(): Taro.RecorderManager {
   const manager = Taro.getRecorderManager()
   if (wiredManager === manager) return manager
   wiredManager = manager
-  manager.onStop((res) => {
+  // H5 预览端 getRecorderManager() 只给空壳(无 onStop/onStart),weapp 才有完整事件面。
+  // 壳页在 H5 也必须能挂载,故全部按可选事件接入;weapp 行为不变。
+  manager.onStop?.((res) => {
     activeSlot?.finish(String(res?.tempFilePath ?? ''), true)
   })
-  manager.onStart(() => {
+  manager.onStart?.(() => {
     activeSlot?.mark()
   })
-  manager.onError(() => {
+  manager.onError?.(() => {
     warnOnce(
       'audio-record-error',
       'expo-audio 录音链:RecorderManager 报错 ⇒ 本轮未录到(返回空 uri,调用方按失败分支)',

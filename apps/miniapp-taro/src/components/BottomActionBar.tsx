@@ -330,7 +330,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
               <LineIcon
                 name="scissors"
                 size={toUnit(BOTTOM_ACTION_BAR_MODEL_BADGE_PX)}
-                style={{ marginRight: rpx(8) }}
+                style={{ marginRight: rpx(taroSpacing.xs) }}
               />
               <Text>
                 {compactContextLoading
@@ -413,7 +413,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
               <LineIcon
                 name="check"
                 size={toUnit(BOTTOM_ACTION_BAR_MODEL_BADGE_PX)}
-                style={{ marginRight: rpx(8) }}
+                style={{ marginRight: rpx(taroSpacing.xs) }}
               />
               <Text>{tt('BottomActionBar.text1', '已默认自动切换深度思考')}</Text>
             </View>

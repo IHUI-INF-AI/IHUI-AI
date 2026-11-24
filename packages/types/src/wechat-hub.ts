@@ -157,8 +157,11 @@ export interface WechatGroupMemberView {
   updatedAt: string
 }
 
-/** 自动回复匹配方式 */
-export type WechatAutoReplyMatchType = 'contains' | 'exact' | 'prefix'
+/**
+ * 自动回复匹配方式。
+ * agent = AI 智能回复：replyText 作为人设/系统提示词，keywords 为空表示接管全部消息。
+ */
+export type WechatAutoReplyMatchType = 'contains' | 'exact' | 'prefix' | 'agent'
 
 /** 自动回复作用域 */
 export type WechatAutoReplyScope = 'all' | 'private' | 'group'
@@ -188,6 +191,85 @@ export interface WechatAutoReplyRuleInput {
   replyText?: string
   scope?: WechatAutoReplyScope
   cooldownSeconds?: number
+}
+
+/** AI 回复预览入参：只生成不发送 */
+export interface WechatAutoReplyPreviewInput {
+  text: string
+  /** 不传则取该账号最近活跃会话作为上下文 */
+  conversationId?: string
+}
+
+/** AI 回复预览结果 */
+export interface WechatAutoReplyPreviewResult {
+  replyText: string
+}
+
+/** 微信消息导出格式 */
+export type WechatExportFormat = 'jsonl' | 'csv'
+
+/** 微信消息导出入参 */
+export interface WechatExportInput {
+  format?: WechatExportFormat
+  /** 不传则导出该账号全部会话 */
+  conversationId?: string
+  since?: string
+  until?: string
+  limit?: number
+}
+
+/** 微信消息导出结果（content 由前端落成 Blob 下载） */
+export interface WechatExportResult {
+  filename: string
+  mimeType: string
+  content: string
+  count: number
+}
+
+/** 单条历史消息导入行；字段与 IHUI 导出的 JSONL 对齐。 */
+export interface WechatImportMessageRow {
+  /** 平台会话 id：私聊 wxid、群聊 xxxx@chatroom */
+  platformChatId: string
+  platformMessageId?: string
+  conversationTitle?: string
+  conversationKind?: WechatConversationKind
+  direction?: WechatMessageDirection
+  kind?: WechatMessageKind
+  senderId?: string
+  senderName?: string
+  content?: string
+  mediaUrl?: string
+  /** ISO 时间；也接受毫秒/秒时间戳 */
+  sentAt?: string | number
+}
+
+/** 历史消息导入入参 */
+export interface WechatImportMessagesInput {
+  messages: WechatImportMessageRow[]
+}
+
+/** 历史消息导入结果 */
+export interface WechatImportMessagesResult {
+  imported: number
+  skipped: number
+  conversations: number
+  errors: Array<{ index: number; reason: string }>
+}
+
+/** 从本地桥自动回填历史消息的入参 */
+export interface WechatHistorySyncInput {
+  /** 单次最多拉取多少条，默认 500 */
+  limit?: number
+  /** 只回填某个会话；不传则桥按自己的可见范围拉取 */
+  conversationId?: string
+}
+
+/** 从本地桥自动回填历史消息的结果 */
+export interface WechatHistorySyncResult extends WechatImportMessagesResult {
+  fetched: number
+  status: WechatActionResult['status']
+  reason: string | null
+  source: { db: string | null; table: string | null } | null
 }
 
 /** 日报计划 */
@@ -251,7 +333,10 @@ export type WechatBridgeAction =
   | 'group.kick'
   | 'group.rename'
   | 'group.announce'
+  | 'group.members'
+  | 'history.fetch'
   | 'moment.publish'
+  | 'moment.fetch'
   | 'chat.switch'
 
 /** 桥动作结果；data 由桥原样返回，平台侧只做展示与审计。 */
@@ -271,10 +356,50 @@ export interface WechatGroupActionInput {
   text?: string
 }
 
+/** 从桥同步群成员快照的结果 */
+export interface WechatGroupMembersSyncResult {
+  synced: number
+  inserted: number
+  updated: number
+  removed: number
+  members: WechatGroupMemberView[]
+  result: WechatActionResult
+}
+
 /** 朋友圈发布入参 */
 export interface WechatMomentInput {
   text: string
   mediaUrls?: string[]
+}
+
+/** 朋友圈只读遍历入参；OCR 驱动按页滚动，wcfhttp 走 /pyq 翻页。 */
+export interface WechatMomentFetchInput {
+  /** 最多抓多少页，1–30；默认 3 */
+  maxPages?: number
+  /** wcfhttp 的起始朋友圈 id；0 表示最新页 */
+  id?: number
+}
+
+/** 一条朋友圈动态；OCR 来源可能没有 createdAt/mediaUrls。 */
+export interface WechatMomentView {
+  id: string
+  authorId: string | null
+  authorName: string
+  content: string
+  mediaUrls: string[]
+  createdAt: number | null
+  source: string
+  page?: number
+}
+
+export interface WechatMomentFetchResult {
+  moments: WechatMomentView[]
+  fetched: number
+  pages: number
+  source: string | null
+  partial: boolean
+  reason: string | null
+  result: WechatActionResult
 }
 
 /** 群发入参：targets 与 tags 二选一；都不给时取全部未拉黑联系人。 */

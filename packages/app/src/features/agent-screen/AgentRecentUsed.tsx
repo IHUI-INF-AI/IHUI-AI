@@ -88,7 +88,7 @@ function createStyles(colorScheme: AppThemeMode) {
       alignItems: 'center',
       minWidth: 60,
       paddingVertical: rnSpacing['sm-loose'],
-      paddingHorizontal: 5,
+      paddingHorizontal: rnSpacing.xs,
       borderRadius: rnRadius.xl,
       backgroundColor: tokens.surface.muted,
     },

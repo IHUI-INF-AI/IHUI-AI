@@ -122,6 +122,7 @@ import {
   rnSpacing,
   rnType,
   rnCssLight,
+  taroSpacing,
 } from '@ihui/design-tokens'
 import {
   CitationList,
@@ -2213,14 +2214,18 @@ export default function AiAssistantN8nScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: tokens.surface.bg },
-  valueCardWrap: { paddingHorizontal: rpx(16), marginTop: rpx(8) },
+  valueCardWrap: { paddingHorizontal: rpx(taroSpacing.sm), marginTop: rpx(8) },
   body: { flex: 1 },
   // 滚动淡出包装容器:与消息视口同界(ScrollView 默认 flexGrow/flexShrink 1,几何不变)
   listFadeWrap: { flex: 1 },
-  listContent: { paddingHorizontal: rpx(32), paddingVertical: rpx(16), paddingBottom: rpx(32) },
+  listContent: {
+    paddingHorizontal: rpx(taroSpacing.lg),
+    paddingVertical: rpx(16),
+    paddingBottom: rpx(32),
+  },
   // 语音输入行(对齐 Uniapp ai_assistant_n8n.vue 输入区语音模式,置于 InputArea 上方)
   voiceInputWrap: {
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(12),
     backgroundColor: tokens.surface.card,
   },
@@ -2229,7 +2234,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(16),
     backgroundColor: tokens.surface.card,
   },
@@ -2250,19 +2255,19 @@ const styles = StyleSheet.create({
   modelBarArrow: {
     fontSize: rnType.subtitle.size,
     color: tokens.text.medium,
-    marginLeft: rpx(16),
+    marginLeft: rpx(taroSpacing.sm),
   },
   // 快捷操作区(对齐 Uniapp quick-actions-container)
   quickWrap: {
     backgroundColor: tokens.surface.bg,
   },
   quickScrollContent: {
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(16),
     gap: rpx(16),
   },
   quickChip: {
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(12),
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.card,
@@ -2290,7 +2295,7 @@ const bubbleStyles = StyleSheet.create({
   rowAi: { justifyContent: 'flex-start' },
   bubble: {
     maxWidth: '78%',
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(16),
     borderRadius: rnRadiusFor.bubble,
   },
@@ -2356,7 +2361,7 @@ const bubbleStyles = StyleSheet.create({
   thinkingBox: {
     maxWidth: '78%',
     marginTop: rpx(8),
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(12),
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
@@ -2380,7 +2385,7 @@ const bubbleStyles = StyleSheet.create({
   },
   tokensText: {
     flex: 1,
-    marginRight: rpx(16),
+    marginRight: rpx(taroSpacing.sm),
     fontSize: rnType.caption.size,
     color: tokens.text.medium,
   },
@@ -2419,7 +2424,7 @@ const bubbleStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rpx(8),
-    paddingHorizontal: rpx(12),
+    paddingHorizontal: rpx(taroSpacing['xs-loose']),
     paddingVertical: rpx(8),
   },
   cardTitle: { flexShrink: 0, fontSize: rnType.label.size, color: tokens.text.primary },
@@ -2431,7 +2436,7 @@ const bubbleStyles = StyleSheet.create({
   },
   cardMeta: { fontSize: rnType.badge.size, color: tokens.text.medium },
   cardBody: {
-    paddingHorizontal: rpx(12),
+    paddingHorizontal: rpx(taroSpacing['xs-loose']),
     paddingBottom: rpx(10),
     gap: rpx(6),
   },
@@ -2469,7 +2474,7 @@ const bubbleStyles = StyleSheet.create({
   },
   // 状态徽标(pending/active/done/failed 四态:底色 + 文字色成对)
   badge: {
-    paddingHorizontal: rpx(8),
+    paddingHorizontal: rpx(taroSpacing.xs),
     paddingVertical: rpx(2),
     borderRadius: rnRadius.md,
   },
@@ -2500,7 +2505,7 @@ const pickerStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(24),
   },
   title: {

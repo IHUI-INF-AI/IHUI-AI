@@ -236,16 +236,25 @@ const SAFE_AREA_BOTTOM_FALLBACK_PX = 0
  * 这条边界登记为允许差异(top/left/right 恒 0)。
  */
 export function computeSafeAreaInsets(info: SafeAreaSystemInfo | null | undefined): SafeAreaInsets {
+  // H5 是浏览器视口，没有手机 Home Indicator；Taro H5 的 safeArea.bottom 常与
+  // windowHeight 差出 48px，照搬到 RN 的 bottomDock 会让停靠区整体抬高、盖住 AI 卡片。
+  // H5 实渲一律取 0；真机(weapp)仍按下面同坐标系的缺口计算。
+  if (process.env.TARO_ENV === 'h5') return { top: 0, bottom: 0, left: 0, right: 0 }
   const screenHeight =
     typeof info?.screen?.height === 'number'
       ? info.screen.height
       : typeof info?.screenHeight === 'number'
         ? info.screenHeight
         : 0
+  // 安全区与窗口高必须同一坐标系：H5 的 screen.height 是物理像素(844@3x=2532)，
+  // 直接减 safeArea.bottom(逻辑 844) 会算出 1688 的假缺口，底栏被顶到屏幕中间。
+  // 优先用 windowHeight（逻辑像素），没有才退回 screenHeight。
+  const windowHeight = typeof info?.windowHeight === 'number' ? info.windowHeight : 0
+  const heightBase = windowHeight > 0 ? windowHeight : screenHeight
   const safeBottom = info?.safeArea?.bottom
   const bottom =
-    screenHeight > 0 && typeof safeBottom === 'number' && Number.isFinite(safeBottom)
-      ? Math.max(0, screenHeight - safeBottom)
+    heightBase > 0 && typeof safeBottom === 'number' && Number.isFinite(safeBottom)
+      ? Math.min(48, Math.max(0, heightBase - safeBottom))
       : SAFE_AREA_BOTTOM_FALLBACK_PX
   return { top: 0, bottom, left: 0, right: 0 }
 }

@@ -1,3 +1,4 @@
+import { t as tStatic } from '../i18n'
 import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
@@ -10,17 +11,16 @@ import { useI18n } from '../i18n'
  * - 靠右的白色圆角容器 + 左侧竖线 + 双箭头(2026-09-04 起箭头为 lucide 图标按状态换向,
  *   竖线独立 View;原静态图 zhankaiH.png 弃用),不是上下箭头按钮
  * - 收起时浮窗滑出屏幕右侧,只露出左侧竖条;点竖条 → 浮窗向左滑入
- * - 3 个按钮竖排:赚米/客服/反馈,**纯图标无文字标签**(2026-11-23 用户定档:
- *   按钮不再带功能说明文字,语义只由 accessibilityLabel 承担),图标用原 uniapp 图片
+ * - 3 个按钮竖排:赚米(红字)/客服/反馈,图标用原 uniapp 图片
  * - 滑动动画:Animated translateX(对齐 uniapp transition right 0.35s)
  *
  * 尺寸对齐(2rpx=1dp):
  * - 浮窗宽 118rpx=59dp,圆角 30rpx=15dp,right 20rpx=10dp,bottom 9%
  * - 竖条 40rpx=20dp 宽 × 100rpx=50dp 高
- * - 图标 72rpx=36dp(去掉文字后按钮高由图标 + 内衬撑起,内衬同时把命中区抬到 ≥48dp)
+ * - 图标 72rpx=36dp,文字 28rpx=14dp 加粗(text.primary)
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Animated, Image, StyleSheet, View, type ViewStyle } from 'react-native'
+import { Animated, Image, StyleSheet, Text, View, type ViewStyle } from 'react-native'
 import { ChevronsLeft, ChevronsRight } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 
@@ -51,10 +51,8 @@ const ARROW_WIDTH = 36 // 2026-09-04:双箭头 30dp + gap + 竖线 3dp,原 20 �
 const ARROW_HEIGHT = 50 // 100rpx
 const BORDER_RADIUS = rnRadius['2xl'] // 原 30rpx(15),吸附 16dp 档位
 const ICON_SIZE = 36 // 72rpx
+const LABEL_FONT_SIZE = 14 // 28rpx
 const ITEM_MARGIN = 2 // 5rpx
-/** 图标内衬:无文字后按钮的可点区不能只剩图标本体,上下各 6 → 命中高度 48dp */
-const ITEM_PADDING_Y = 6
-const ITEM_PADDING_X = 8
 const CONTENT_PADDING = 7 // 14rpx
 const RIGHT = 10 // 20rpx
 const COLLAPSE_DISTANCE = FLOAT_BOX_WIDTH + RIGHT // 收起平移距离 = 盒宽 + right 偏移,确保完全滑出屏幕右缘
@@ -114,7 +112,7 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
         <View style={styles.arrowBar} />
       </Tappable>
 
-      {/* 浮窗内容:三个纯图标按钮竖排(赚米/客服/反馈;文字标签已按 2026-11-23 定档删除) */}
+      {/* 浮窗内容:三个按钮竖排(赚米/客服/反馈) */}
       <View style={styles.floatBox}>
         <Tappable
           style={styles.item}
@@ -123,6 +121,7 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
           accessibilityLabel={t('globalBox.earn')}
         >
           <Image source={ICON_TUIGUANG} style={styles.icon} resizeMode="contain" />
+          <Text style={[styles.label, styles.labelPromote]}>{tStatic('uiText.earnMoney')}</Text>
         </Tappable>
         <Tappable
           style={styles.item}
@@ -131,6 +130,7 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
           accessibilityLabel={t('globalBox.support')}
         >
           <Image source={ICON_KF} style={styles.icon} resizeMode="contain" />
+          <Text style={styles.label}>{tStatic('uiText.customerService')}</Text>
         </Tappable>
         <Tappable
           style={styles.item}
@@ -139,6 +139,7 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
           accessibilityLabel={t('globalBox.feedback')}
         >
           <Image source={ICON_FANKUI} style={styles.icon} resizeMode="contain" />
+          <Text style={styles.label}>{tStatic('uiText.feedback')}</Text>
         </Tappable>
       </View>
     </Animated.View>
@@ -162,9 +163,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: rnSpacing.none,
     // 图标盒自带约 5.8 的右侧死空(lucide viewBox),居中排布会把可见墨迹整体往左带;
-    // 用左内边距把整组(箭头+竖线)往右推 4.8,让竖线右缘离竖条右缘 0.6(2026-09-29 用户定档)。
+    // 用左内边距把整组(箭头+竖线)往右推 5.0,让竖线右缘离竖条右缘 0.4(2026-11-24 对齐 sm-loose 档)。
     // 宽度仍是 ARROW_WIDTH,命中区不变。
-    paddingLeft: 9.6,
+    paddingLeft: rnSpacing['sm-loose'],
   } as ViewStyle,
   // lucide 图标 viewBox 自带内边距,负 margin 抵消,让双箭头紧贴竖线
   // -6 → -7.8(2026-09-29 用户定档):图标盒右缘离竖条右缘从 1.5 收到 0.6
@@ -192,12 +193,20 @@ const styles = StyleSheet.create({
   item: {
     alignItems: 'center',
     marginVertical: ITEM_MARGIN,
-    paddingVertical: ITEM_PADDING_Y,
-    paddingHorizontal: ITEM_PADDING_X,
   } as ViewStyle,
   icon: {
     width: ICON_SIZE,
     height: ICON_SIZE,
+    marginBottom: 3,
+  },
+  label: {
+    fontSize: LABEL_FONT_SIZE,
+    fontWeight: 'bold',
+    color: tokens.text.primary,
+    letterSpacing: 1,
+  },
+  labelPromote: {
+    color: tokens.danger.deepText,
   },
 })
 

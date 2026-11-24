@@ -166,8 +166,8 @@ const viewStyles = {
     alignItems: 'center',
   }),
   rechargeBtn: (tk: AppThemeTokens): CSSProperties => ({
-    paddingLeft: 10,
-    paddingRight: 10,
+    paddingLeft: rnSpacing['sm-loose'],
+    paddingRight: rnSpacing['sm-loose'],
     paddingTop: rnSpacing.xs,
     paddingBottom: rnSpacing.xs,
     backgroundColor: tk.brand.cta,

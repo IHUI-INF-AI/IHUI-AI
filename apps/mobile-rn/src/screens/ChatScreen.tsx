@@ -282,7 +282,7 @@ import { rpx } from '../utils/rpx'
 import { parseMessageContent } from '../utils/message-parse'
 import { API_BASE_URL } from '../lib/config'
 
-import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnSpacing, rnType, taroSpacing } from '@ihui/design-tokens'
 import type { ChatModelType, OnToast } from '@ihui/types'
 import { Tappable } from '@ihui/ui-native'
 import { useHostPorts } from '../host/use-host-ports'
@@ -4301,7 +4301,6 @@ function mapConversationToDrawer(
     modelConfig: mdl ? { id: mdl, name: mdl, icon: undefined } : undefined,
     createdAt,
     favorited: c.favorite === true,
-    source: c.source,
   }
 }
 
@@ -4336,7 +4335,7 @@ const styles = StyleSheet.create({
   },
   tishiBtn: {
     alignSelf: 'flex-start',
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(6),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
@@ -4385,7 +4384,7 @@ const styles = StyleSheet.create({
   },
   questionOption: {
     paddingVertical: rpx(8),
-    paddingHorizontal: rpx(10),
+    paddingHorizontal: rpx(taroSpacing.xs),
     borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -4394,7 +4393,7 @@ const styles = StyleSheet.create({
   questionActions: { flexDirection: 'row', gap: rpx(8), marginTop: rpx(4) },
   questionSubmit: {
     paddingVertical: rpx(8),
-    paddingHorizontal: rpx(14),
+    paddingHorizontal: rpx(taroSpacing['xs-loose']),
     borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
   },
@@ -4403,11 +4402,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: rnType.label.size,
   },
-  questionWithdraw: { paddingVertical: rpx(8), paddingHorizontal: rpx(10) },
+  questionWithdraw: { paddingVertical: rpx(8), paddingHorizontal: rpx(taroSpacing.xs) },
   questionAnswerBtn: {
     marginTop: rpx(4),
     paddingVertical: rpx(8),
-    paddingHorizontal: rpx(14),
+    paddingHorizontal: rpx(taroSpacing['xs-loose']),
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -4428,7 +4427,7 @@ const styles = StyleSheet.create({
   },
   // ── 消息列表 ──
   msgListContent: {
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(24),
     paddingBottom: BOTTOM_BAR_TOTAL + 8,
   },
@@ -4445,9 +4444,24 @@ const styles = StyleSheet.create({
   msgContent: {
     flexDirection: 'column',
   },
+  msgActions: {
+    flexDirection: 'row',
+    gap: rpx(16),
+    marginTop: rpx(8),
+    paddingLeft: rpx(taroSpacing.md),
+  },
+  msgActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(8),
+  },
+  msgActionText: {
+    fontSize: rnType.label.size,
+    color: tokens.text.secondary,
+  },
   msgBubble: {
     maxWidth: '78%',
-    paddingHorizontal: rpx(28),
+    paddingHorizontal: rpx(taroSpacing['md-loose']),
     paddingVertical: rpx(20),
     borderRadius: rnRadius['2xl'],
   },
@@ -4653,7 +4667,7 @@ const styles = StyleSheet.create({
     maxHeight: 72,
   },
   materialCardsContent: {
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     gap: rpx(16),
   },
   materialCard: {
@@ -4661,7 +4675,7 @@ const styles = StyleSheet.create({
     height: 56,
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.lg,
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(12),
     justifyContent: 'center',
   },
@@ -4691,7 +4705,7 @@ const styles = StyleSheet.create({
     maxHeight: 60,
   },
   imgsListContent: {
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     gap: rpx(16),
   },
   imgsListItem: {
@@ -4717,7 +4731,7 @@ const styles = StyleSheet.create({
     maxHeight: 44,
   },
   modelTypeContent: {
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     gap: rpx(16),
     alignItems: 'center',
   },
@@ -4725,7 +4739,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rpx(8),
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: rpx(taroSpacing['sm-loose']),
     paddingVertical: rpx(12),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.card,
@@ -4747,14 +4761,14 @@ const styles = StyleSheet.create({
   },
   // ── 功能开关组(ToggleButtonGroup 容器) ──
   toggleGroupWrap: {
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(4),
   },
   // ── 输入框区域 ──
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(16),
     gap: rpx(16),
     backgroundColor: tokens.surface.card,
@@ -4775,7 +4789,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 36,
     maxHeight: 100,
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(16),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.card,
@@ -4843,7 +4857,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(24),
     backgroundColor: tokens.surface.card,
   },
@@ -4860,7 +4874,7 @@ const styles = StyleSheet.create({
   },
   // ── 素材详情弹窗内容区(复用 listDialogContent/Header,以下为正文/字段/错误态) ──
   detailDialogBody: {
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(16),
     minHeight: 120,
   },
@@ -4894,7 +4908,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   },
   detailDialogRetryBtn: {
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(12),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
@@ -4908,7 +4922,7 @@ const styles = StyleSheet.create({
   panelItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     height: 56,
     gap: rpx(28),
   },
@@ -4931,7 +4945,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   panelCancelBtn: {
-    marginHorizontal: rpx(32),
+    marginHorizontal: rpx(taroSpacing.lg),
     marginTop: rpx(16),
     height: 48,
     borderRadius: rnRadius.sm,
@@ -4942,7 +4956,7 @@ const styles = StyleSheet.create({
   // 守门 131 改型专用:功能面板取消钮拆「外槽位 + 内可视盒」。panelCancelBtn 另有静态消费点
   // (TTS 弹窗取消钮 [panelCancelBtn, ttsCancelBtn]),原档一字不动;这两档取同值常量。
   panelCancelBtnSlot: {
-    marginHorizontal: rpx(32),
+    marginHorizontal: rpx(taroSpacing.lg),
     marginTop: rpx(16),
     height: 48,
   },
@@ -4969,7 +4983,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(24),
     backgroundColor: tokens.surface.card,
   },
@@ -4985,12 +4999,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: rnType.title.size,
     color: tokens.text.primary,
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(24),
     textAlignVertical: 'top',
   },
   fangdaFooter: {
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(24),
     backgroundColor: tokens.surface.card,
   },
@@ -5021,10 +5035,10 @@ const styles = StyleSheet.create({
   },
   // 守门 131 改型:ttsOptionBtn 的 marginHorizontal 搬到外层槽位档,可视盒原样留内层。
   ttsOptionBtnSlot: {
-    marginHorizontal: rpx(32),
+    marginHorizontal: rpx(taroSpacing.lg),
   },
   ttsOptionBtn: {
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(28),
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.sm,
@@ -5044,7 +5058,7 @@ const styles = StyleSheet.create({
     gap: rpx(24),
   },
   urlInputField: {
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(20),
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
@@ -5078,7 +5092,7 @@ const styles = StyleSheet.create({
     gap: rpx(16),
   },
   fileUploadTypeBadge: {
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: rpx(taroSpacing['sm-loose']),
     paddingVertical: rpx(12),
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,

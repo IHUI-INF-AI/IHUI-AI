@@ -7,7 +7,7 @@
  *
  * 对齐 Uniapp 分销体系中的佣金悬浮按钮:
  * - 固定在右下角的悬浮按钮(absolute bottom-right)
- * - 图标 + 可选金额(¥xxx)；2026-11-23 起「我的佣金」文字标签删除，语义只由 accessibilityLabel 承担
+ * - 显示"我的佣金"标签 + 可选金额(¥xxx)
  * - 点击 → onPress(由父级跳转分销页)
  * - 浅色优雅风,品牌色填充,圆角矩形(非圆形)
  * - 无霓虹无渐变,系统字体
@@ -19,6 +19,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  View,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
@@ -33,10 +34,12 @@ export interface CommissionFloatingIconProps {
   onPress: () => void
 }
 
-const CONTAINER_PADDING_H = 12
+const CONTAINER_PADDING_H = rnSpacing.md
 const CONTAINER_PADDING_V = 8
-const TEXT_WRAP_MARGIN_LEFT = 6
+const TEXT_WRAP_MARGIN_LEFT = rnSpacing['xs-loose']
+const LABEL_FONT_SIZE = 10
 const AMOUNT_FONT_SIZE = 14
+const AMOUNT_MARGIN_TOP = 2
 const BOTTOM_OFFSET = 80
 const RIGHT_OFFSET = 16
 const Z_INDEX = 100
@@ -58,13 +61,17 @@ export function CommissionFloatingIcon({ amount, onPress }: CommissionFloatingIc
       accessibilityLabel={t('commission.myLabel')}
     >
       <ICON size={18} color={tk.brand.ctaForeground} />
-      {/* 金额为空时不渲染包装层：空 View 会留下 6 的左边距，把图标整体推偏。 */}
-      {displayAmount !== null ? (
-        <Text style={styles.amount} numberOfLines={1}>
-          {CURRENCY}
-          {displayAmount}
+      <View style={styles.textWrap}>
+        <Text style={styles.label} numberOfLines={1}>
+          {t('commission.myLabel')}
         </Text>
-      ) : null}
+        {displayAmount !== null ? (
+          <Text style={styles.amount} numberOfLines={1}>
+            {CURRENCY}
+            {displayAmount}
+          </Text>
+        ) : null}
+      </View>
     </TouchableOpacity>
   )
 }
@@ -76,17 +83,22 @@ const styles = StyleSheet.create({
     bottom: BOTTOM_OFFSET,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: tk.brand.cta,
     borderRadius: rnRadius.xl,
-    // 纯图标态的高度下限：去掉文字标签后 8+18+8=34 低于 40dp 触控口径
-    minHeight: rnSpacing['4xl'],
     paddingHorizontal: CONTAINER_PADDING_H,
     paddingVertical: CONTAINER_PADDING_V,
     zIndex: Z_INDEX,
   } as ViewStyle,
-  amount: {
+  textWrap: {
     marginLeft: TEXT_WRAP_MARGIN_LEFT,
+  } as ViewStyle,
+  label: {
+    fontSize: LABEL_FONT_SIZE,
+    color: tk.brand.ctaForeground,
+    opacity: 0.85,
+  } as TextStyle,
+  amount: {
+    marginTop: AMOUNT_MARGIN_TOP,
     fontSize: AMOUNT_FONT_SIZE,
     fontWeight: '700',
     color: tk.brand.ctaForeground,

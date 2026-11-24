@@ -487,7 +487,7 @@ export default function ModelList({
                   style={{
                     fontSize: rpx(20),
                     color: 'var(--color-muted-foreground)',
-                    marginRight: rpx(12),
+                    marginRight: rpx(taroSpacing['xs-loose']),
                   }}
                 >
                   {categoryLabel(categoryOf(model))}
@@ -605,7 +605,7 @@ export default function ModelList({
                           style={{
                             fontSize: rpx(20),
                             color: 'var(--color-muted-foreground)',
-                            marginRight: rpx(12),
+                            marginRight: rpx(taroSpacing['xs-loose']),
                           }}
                         >
                           {categoryLabel(group.category)}
@@ -716,7 +716,9 @@ export default function ModelList({
                   />
                 )}
               </View>
-              <Text className="text-label text-muted-foreground truncate">{providerDisplayName(model.provider)}</Text>
+              <Text className="text-label text-muted-foreground truncate">
+                {providerDisplayName(model.provider)}
+              </Text>
             </View>
             <Text className="ml-sm text-label text-muted-foreground shrink-0">
               {categoryLabel(categoryOf(model))}

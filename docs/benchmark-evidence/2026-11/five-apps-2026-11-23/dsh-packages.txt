@@ -1,0 +1,336 @@
+@deepseek-ai/cordis-plugin-group|1.1.0|Nested plugin group for cordis
+@deepseek-ai/cordis-plugin-include|1.1.0|Include files in cordis configurations
+@deepseek-ai/cordis-plugin-loader|1.1.0|Plugin loader for cordis
+@deepseek-ai/cordis-plugin-timer|1.2.0|Timer service for cordis
+@deepseek-ai/cordis|4.1.0|Meta-Framework for Modern JavaScript Applications
+@deepseek-ai/cosmokit|1.9.0|A collection of common utilities
+@deepseek-ai/dsh-acp-app|0.2.2-rc.5|The dsh ACP profile bundle: automation-only JSON-RPC stdio and process lifecycle over dsh-base
+@deepseek-ai/dsh-acp|0.2.2-rc.5|Automation-only Agent Client Protocol server for driving DeepSeek Harness agents over JSON-RPC stdio
+@deepseek-ai/dsh-action-cards|0.2.2-rc.5|Optional action cards below answers: one shared proposal tool, card state, user actions and status notices
+@deepseek-ai/dsh-agent-default-model|0.2.2-rc.5|Default model selection shared by Agent entry points
+@deepseek-ai/dsh-agent-instructions|0.2.2-rc.5|Workspace context loader for AGENTS.md/CLAUDE.md instruction files
+@deepseek-ai/dsh-agent-loop|0.2.2-rc.5|The concrete agent loop plugin for the DeepSeek Harness
+@deepseek-ai/dsh-agent-preset-registry|0.2.2-rc.5|Declarative Agent preset registry and profile-backed editing
+@deepseek-ai/dsh-agent-preset|0.2.2-rc.5|Declare an Agent capability composition in Cordis YAML
+@deepseek-ai/dsh-agent-team|0.2.2-rc.5|Shared task DAG and change waits for subagent trees
+@deepseek-ai/dsh-agent-tool-presentation|0.2.2-rc.5|Deprecated tool presentation selector; use dsh-tool-executor-native or dsh-tool-executor-ptc directly
+@deepseek-ai/dsh-agent|0.2.2-rc.5|Agent interface, registry, initiator scope, and event vocabulary for the DeepSeek Harness
+@deepseek-ai/dsh-anonymous-user-id|0.2.2-rc.5|Shared anonymous user identity for DeepSeek Harness telemetry and feedback correlation
+@deepseek-ai/dsh-api-gateway|0.2.2-rc.5|Typert Remote Host dispatcher and Client API endpoint
+@deepseek-ai/dsh-api-job-controller|0.2.2-rc.5|Job Remote observation stream and the reference-counted client job-output service
+@deepseek-ai/dsh-api-remote-access|0.2.2-rc.5|Method-level Remote access control for non-owner Peers and the per-Peer access snapshot
+@deepseek-ai/dsh-api-remotes|0.2.2-rc.5|Remote BFF assembly for application-selected Host capabilities
+@deepseek-ai/dsh-api-session-controller|0.2.2-rc.5|Session Remote commands, cold reads, and live control transport
+@deepseek-ai/dsh-api-settings-controller|0.2.2-rc.5|Remote owner for the configuration surfaces over the settings-domain seams
+@deepseek-ai/dsh-api-terminal-controller|0.2.2-rc.5|Session-owned interactive terminals with shell discovery, screen recovery and typed Remote control
+@deepseek-ai/dsh-api-workspace-controller|0.2.2-rc.5|Workspace Remote commands and reconnect-safe state transport
+@deepseek-ai/dsh-api-workspace-files|0.2.2-rc.5|Workspace file service and Client resource provider: bounded reads, directory listing, and live metadata over the workspaceFiles Remote namespace
+@deepseek-ai/dsh-app-boot|0.2.2-rc.5|Shared boot glue for the app bins: .env loading, fail-loud Loader guards, snapshot-aware config resolution, and the Loader boot sequence
+@deepseek-ai/dsh-atomic-write|0.2.2-rc.5|Zero-dependency atomic file replacement: exclusive-create random-suffix temp + rename carrying the caller-stated permissions (writeFileAtomic)
+@deepseek-ai/dsh-attachment-local|0.2.2-rc.5|Private content-addressed DSH_HOME attachment storage
+@deepseek-ai/dsh-attachment|0.2.2-rc.5|Durable immutable attachment storage seam for the DeepSeek Harness
+@deepseek-ai/dsh-authorization|0.2.2-rc.5|Authorization seam (ctx.authorization): plugin-owned flows that obtain a credential through a conversation with the human
+@deepseek-ai/dsh-base|0.2.2-rc.5|The shared dsh core as a profile bundle: the first patch layer of base-backed profiles, inserting core rows over the empty profile root
+@deepseek-ai/dsh-bash-local|0.2.2-rc.5|Local-subprocess implementation of the DeepSeek Harness bash executor seam
+@deepseek-ai/dsh-bash-sandbox|0.2.2-rc.5|Sandbox-consuming implementation of the DeepSeek Harness bash executor seam (confines every command via ctx.sandbox, reports denial/enforcement result facts)
+@deepseek-ai/dsh-brand|0.2.2-rc.5|Stateless branded primitive types for the DeepSeek Harness
+@deepseek-ai/dsh-chunked-list|0.2.2-rc.5|Persistent append-only chunked lists with bounded copying and JSON checkpoint validation
+@deepseek-ai/dsh-client-connection|0.2.2-rc.5|Authenticated RPC transport and generation lifecycle
+@deepseek-ai/dsh-client-file-upload|0.2.2-rc.5|Agent-scoped browser file upload, streaming intake, and staged receipt service
+@deepseek-ai/dsh-client-hmr|0.2.2-rc.5|Web client graph synchronization and rebuilt-bundle reload transport
+@deepseek-ai/dsh-client-locale|0.2.2-rc.5|Locale plugin: Host-backed preference, extensible language catalog, browser fallback, and typed built-in dictionaries
+@deepseek-ai/dsh-client-modules|0.2.2-rc.5|Client module system, dual-face: node half composes the __DSH_BOOT__ entry graph (incremental dsh.client scan, bundle route, index tap, webPlugins service); browser half is the lazy-CJS module table the vendored cordis Loader consumes as its internal seam
+@deepseek-ai/dsh-client-product-analytics|0.2.2-rc.5|Desktop product event collection and authenticated Host reporting
+@deepseek-ai/dsh-client-resources|0.2.2-rc.5|Unified client resource model: protocol-registered providers turn URL addresses into live values, consumed through the useResource global standard hook
+@deepseek-ai/dsh-client-shortcuts|0.2.2-rc.5|Application keyboard command registry and physical-key routing
+@deepseek-ai/dsh-client-ui-account-notifications|0.2.2-rc.5|Display account notifications and refresh localized content
+@deepseek-ai/dsh-client-ui-action-cards|0.2.2-rc.5|Action cards below completed answers: the shared card frame, kind bodies and the compact tool row
+@deepseek-ai/dsh-client-ui-agent-preset|0.2.2-rc.5|Agent-preset surfaces: the default for later sessions, this session's seat, and the composition editor
+@deepseek-ai/dsh-client-ui-agent-team|0.2.2-rc.5|Web shared task board for a subagent tree
+@deepseek-ai/dsh-client-ui-approval|0.2.2-rc.5|Approval composer takeover over the scoped Remote Event waterfall
+@deepseek-ai/dsh-client-ui-attachment|0.2.2-rc.5|Dynamic attachment presentation plugin for conversation input, message-image, and trajectory image slots
+@deepseek-ai/dsh-client-ui-brand-official|0.2.2-rc.5|Official DeepSeek Harness brand artwork and click-triggered home background
+@deepseek-ai/dsh-client-ui-chat|0.2.2-rc.5|Chat Conversation target, node definitions, renderers, and details surface
+@deepseek-ai/dsh-client-ui-commands|0.2.2-rc.5|Client command surface: global directory cache, '/' source, three command UI kinds, popupSelect registry
+@deepseek-ai/dsh-client-ui-context-menu|0.2.2-rc.5|Typed, plugin-extensible context menus with captured targets and shared Web presentation
+@deepseek-ai/dsh-client-ui-conversation|0.2.2-rc.5|Target-neutral Conversation assembly, shell, composer, queue, and view navigation
+@deepseek-ai/dsh-client-ui-cordis|0.2.2-rc.5|Cordis dynamic-plugin definition card: the keyed cordis_define tool row with its run/stop switch
+@deepseek-ai/dsh-client-ui-creation-recommendations|0.2.2-rc.5|Body of the personalized page card: location choice, creation progress, Undo and Restore
+@deepseek-ai/dsh-client-ui-deliverables|0.2.2-rc.5|Changed-files card with per-file comparison tabs, delivery cards, and clickable final-response file references for Web
+@deepseek-ai/dsh-client-ui-directory-picker-browse|0.2.2-rc.5|In-app directory browsing surface: the workspace directory-flow owner rendering the host's listing and creation primitives
+@deepseek-ai/dsh-client-ui-directory-picker-native|0.2.2-rc.5|Native directory-picker surface: the renderless workspace directory-flow occupant driving the local Desktop or Host OS chooser
+@deepseek-ai/dsh-client-ui-entry-customization|0.2.2-rc.5|Customize plugin entries in the left sidebar, conversation views, and right sidebar, and quickly create new plugins.
+@deepseek-ai/dsh-client-ui-file-actions|0.2.2-rc.5|Original-file saving and image clipboard actions for Web and Desktop
+@deepseek-ai/dsh-client-ui-file-drag|0.2.2-rc.5|Application-owned file drag transfers and localized failure feedback
+@deepseek-ai/dsh-client-ui-goal|0.2.2-rc.5|Session goal surface: GoalBar docked above the composer, read from the goal session projection
+@deepseek-ai/dsh-client-ui-input-trigger|0.2.2-rc.5|Input trigger pipeline: '/' and '@' detection, candidate menu, pick routing to registered sources
+@deepseek-ai/dsh-client-ui-jobs|0.2.2-rc.5|Session-header background-job list with on-demand streaming record panels
+@deepseek-ai/dsh-client-ui-layout|0.2.2-rc.5|Shell plugin: three-column AppFrame with drag handles, ctx.layout viewing-state service (navigation + panels)
+@deepseek-ai/dsh-client-ui-message-feedback|0.2.2-rc.5|The Web feedback surface: per-message Like/Dislike in the assistant-message action strip and the feedback dialog behind both ratings and /feedback, backed by the messageFeedback and sessionFeedback Host Remotes
+@deepseek-ai/dsh-client-ui-model-selection|0.2.2-rc.5|Model selection over the shared model catalog, Session projection, and session.selectModel
+@deepseek-ai/dsh-client-ui-open-in-app|0.2.2-rc.5|Session application submenus and native opening controls for directories and previewed files
+@deepseek-ai/dsh-client-ui-permission-presets|0.2.2-rc.5|Permission surfaces: a new-session default in General settings and a current-session /permission popup over the permissions projection
+@deepseek-ai/dsh-client-ui-plan|0.2.2-rc.5|Plan mode controls, persistent transcript plan cards, and sidebar Markdown previews
+@deepseek-ai/dsh-client-ui-plugin-manager|0.2.2-rc.5|Plugin management for the dsh web client: the sidebar Plugins panel installs, enables, disables, retries, and composes installed plugin packages
+@deepseek-ai/dsh-client-ui-plugin-market|0.2.2-rc.5|Discover tab of the dsh web Plugins page: browse configured plugin market indexes and install their bundles
+@deepseek-ai/dsh-client-ui-plugin-recommendations|0.2.2-rc.5|Official plugin card body with catalog text and enabling
+@deepseek-ai/dsh-client-ui-reference|0.2.2-rc.5|Unified Web @file and @session reference source
+@deepseek-ai/dsh-client-ui-renderer|0.2.2-rc.5|Browser UI renderer: React slot bindings, ctx.uiRenderer, and the assembled application root
+@deepseek-ai/dsh-client-ui-schedule|0.2.2-rc.5|Host task management page and Session reminder catalog
+@deepseek-ai/dsh-client-ui-secret-mask|0.2.2-rc.5|Web display masking for recognized credentials in sent user text
+@deepseek-ai/dsh-client-ui-session|0.2.2-rc.5|Session Controller adapter for React and session-scoped slots
+@deepseek-ai/dsh-client-ui-settings-account|0.2.2-rc.5|Manage DeepSeek login and open Platform billing pages
+@deepseek-ai/dsh-client-ui-settings-agent-loop|0.2.2-rc.5|Settings page of the agent loop on the dsh web client's Plugins page: the parallel tool-call cap of the agent-loop namespace
+@deepseek-ai/dsh-client-ui-settings-general|0.2.2-rc.5|Settings ownerless-copy and product onboarding plugin: the General section, shell trigger/header chrome content, settings dictionaries, and the versioned welcome notice
+@deepseek-ai/dsh-client-ui-settings-models|0.2.2-rc.5|Models settings and shared product-onboarding dialogs over existing settings and credential joins
+@deepseek-ai/dsh-client-ui-settings-plugin-inventory|0.2.2-rc.5|Read-only Cordis Loader inventory tab in Web Plugins settings
+@deepseek-ai/dsh-client-ui-settings-plugins|0.2.2-rc.5|Built-in plugins settings section for the dsh web client: the Settings navigation entry and the tab chrome feature-owned tabs register into
+@deepseek-ai/dsh-client-ui-settings-session-log|0.2.2-rc.5|General settings control for Session-log upload with DeepSeek API requests
+@deepseek-ai/dsh-client-ui-settings-shell|0.2.2-rc.5|Settings page of the shell executor on the dsh web client's Plugins page: the command timeout and the per-stream output cap of the shell namespace
+@deepseek-ai/dsh-client-ui-settings-subagent|0.2.2-rc.5|Settings page of Subagent delegation on the dsh web client's Plugins page: recursion depth, parallel capacity, and the models agents may choose for subagents
+@deepseek-ai/dsh-client-ui-settings-web-search|0.2.2-rc.5|Settings page for web search and fetch on the dsh web client's Plugins page: the Search and Fetch provider menus, the DeepSeek Search API result count, DeepSeek Search and Fetch API billing, and legacy Messages search settings
+@deepseek-ai/dsh-client-ui-settings|0.2.2-rc.5|Settings domain base plugin: shared configuration forms and the canonical settings slot-type contract
+@deepseek-ai/dsh-client-ui-shortcuts|0.2.2-rc.5|Keyboard shortcut reference, recording, and local preference editing
+@deepseek-ai/dsh-client-ui-sidebar-browser|0.2.2-rc.5|Sandboxed Web browser tabs for the right Sidebar
+@deepseek-ai/dsh-client-ui-sidebar-documentpreview|0.2.2-rc.5|Extensible Sidebar previews for Office documents, spreadsheets, Markdown, code, images, PDF, HTML, and plain text
+@deepseek-ai/dsh-client-ui-sidebar-files|0.2.2-rc.5|The workspace files page and one workspace directory tree per pane beside docked and floating file previews, listed lazily over the workspaceFiles Remote namespace
+@deepseek-ai/dsh-client-ui-sidebar-right|0.2.2-rc.5|Right Sidebar: the docking surface's session-bound state, its panel and header expand control, and the navigation service over it
+@deepseek-ai/dsh-client-ui-sidebar-terminal|0.2.2-rc.5|Interactive shell tabs for the right Sidebar
+@deepseek-ai/dsh-client-ui-sidebar|0.2.2-rc.5|Sidebar plugin: session multi-level tree, search, grouping, state dots
+@deepseek-ai/dsh-client-ui-skill|0.2.2-rc.5|Web skill references and the dedicated skill tool row
+@deepseek-ai/dsh-client-ui-subagent|0.2.2-rc.5|Subagent conversation catalog, continuation routing UI, and '@' reference source
+@deepseek-ai/dsh-client-ui-theme|0.2.2-rc.5|Theme plugin: Host bootstrap for the pre-plugin palette; ThemeRuntime for light/dark/system state and icon replacements; --dsw-* token styles and Appearance settings row
+@deepseek-ai/dsh-client-ui-tool|0.2.2-rc.5|Client Tool call-tree renderer and keyed per-tool presentation slot
+@deepseek-ai/dsh-client-ui-trajectory|0.2.2-rc.5|Trajectory event ledger and timing overview with live tool-result inspection
+@deepseek-ai/dsh-client-ui-user-questions|0.2.2-rc.5|Web ask_user_question composer takeover and plan-review presentation UI
+@deepseek-ai/dsh-client-ui-workflow-run|0.2.2-rc.5|Durable workflow-run Conversation Node and nested member disclosure for dsh web
+@deepseek-ai/dsh-client-ui-workspace|0.2.2-rc.5|Workspace picker plugin: one WorkspacePicker registered into the sidebar and empty-state workspace slots
+@deepseek-ai/dsh-cmdline|0.2.2-rc.5|Immutable command-line handoff from a dsh launcher to any app plugin that injects cmdlineArgs
+@deepseek-ai/dsh-command-compact|0.2.2-rc.5|Human-facing slash command for explicit session compaction
+@deepseek-ai/dsh-command-feedback|0.2.2-rc.5|Log-only session feedback: the record event, the sessionFeedback Host Remote, and the human-facing slash command
+@deepseek-ai/dsh-command-goal|0.2.2-rc.5|Human-facing slash command for persisted same-session goals
+@deepseek-ai/dsh-commands|0.2.2-rc.5|Plugin-owned human command registry for DeepSeek Harness UIs
+@deepseek-ai/dsh-compaction-basic|0.2.2-rc.5|Token-meter-driven compaction policy and LLM summarization backend for the DeepSeek Harness
+@deepseek-ai/dsh-compaction-image-offload|0.2.2-rc.5|Durable image offload for image-capable routes: replace over-budget request images with placeholders and retry
+@deepseek-ai/dsh-compaction-tool-result-pruner|0.2.2-rc.5|Replay-safe model-free head/middle/tail pruning for tool-result surface nodes
+@deepseek-ai/dsh-compaction|0.2.2-rc.5|Abstract compaction service seam (ctx.compaction) for the DeepSeek Harness
+@deepseek-ai/dsh-computer-use|0.2.2-rc.5|Exclusive named computer-use provider registration
+@deepseek-ai/dsh-config-editor|0.2.2-rc.5|Persist plugin configuration through profile patches and Loader reconciliation
+@deepseek-ai/dsh-cordis-client-runner|0.2.2-rc.5|Browser half of dynamic dual-half plugin packages: event subscription, closure evaluation, guard facade, and loader entries
+@deepseek-ai/dsh-cordis-host-runner|0.2.2-rc.5|Dynamic package definition registry, host-half sandbox lifecycle, and invoke handler table for model-mounted dual-half packages
+@deepseek-ai/dsh-creation-recommendations|0.2.2-rc.5|Create persistent removable interface plugins from explicit conversation needs
+@deepseek-ai/dsh-credentials-local|0.2.2-rc.5|File-backed credentials provider ($DSH_HOME/.env under the live process environment) for the DeepSeek Harness
+@deepseek-ai/dsh-credentials|0.2.2-rc.5|Abstract credential seam (ctx.credentials): settings carry references to secrets, providers own the values
+@deepseek-ai/dsh-cua-bundle|0.2.2-rc.5|Optional macOS Computer Use and permission setup
+@deepseek-ai/dsh-cua|0.2.2-rc.5|Shared Computer Use application objects, authorization, and logged tool execution
+@deepseek-ai/dsh-deepseek-account|0.2.2-rc.5|Sign in to DeepSeek and manage account credentials and notifications
+@deepseek-ai/dsh-deepseek-chat-import|0.2.2-rc.5|Import DeepSeek chat exports as stored Sessions in a chosen Workspace
+@deepseek-ai/dsh-deepseek-llm-api-extensions|0.2.2-rc.5|Additive request-field registry for the official DeepSeek LLM API adapter
+@deepseek-ai/dsh-deliverable-file-references|0.2.2-rc.5|Shared model guidance for file links and deliverables across DeepSeek Harness hosts
+@deepseek-ai/dsh-deque|0.2.2-rc.5|Zero-dependency circular deque with amortized constant-time end operations and bounded vacant storage
+@deepseek-ai/dsh-desktop-host|0.2.2-rc.5|Private Node-mode host process for the Electron desktop application
+@deepseek-ai/dsh-error|0.2.2-rc.5|Dependency-free HarnessError base class with a stable machine-routable code for the DeepSeek Harness
+@deepseek-ai/dsh-experimental-api-speech-to-text|0.2.2-rc.5|Authenticated experimental speech transcription for browser clients
+@deepseek-ai/dsh-experimental-auto-review|0.2.2-rc.5|Per-tool LLM authorization review for the DeepSeek Harness Auto permission preset
+@deepseek-ai/dsh-experimental-badge-skill-bundle|0.2.2-rc.5|Let agents add a “powered by dsh” badge to documents, pull requests, and other outputs.
+@deepseek-ai/dsh-experimental-client-ui-cot-translation|0.2.2-rc.5|Optional machine translation of expanded reasoning, preserving original Session text
+@deepseek-ai/dsh-experimental-client-ui-forge|0.2.2-rc.5|Sidebar panel for a Session's change requests, with a worktree option for new Sessions and its Host Remote
+@deepseek-ai/dsh-experimental-client-ui-stats|0.2.2-rc.5|Per-turn and per-step context, timing, cache, and tool-cost table contributed as an experimental conversation View
+@deepseek-ai/dsh-experimental-client-ui-voice-input|0.2.2-rc.5|Record speech and insert editable text into the conversation draft
+@deepseek-ai/dsh-experimental-cot-translation-bundle|0.2.2-rc.5|Experimental machine translation of expanded reasoning
+@deepseek-ai/dsh-experimental-forge-bundle|0.2.2-rc.5|Experimental change request panel and worktree option for Sessions in Git repositories
+@deepseek-ai/dsh-experimental-forge-github|0.2.2-rc.5|GitHub provider for the experimental forge registry, read through the GitHub CLI on the host
+@deepseek-ai/dsh-experimental-forge-session|0.2.2-rc.5|Binds change requests to the Session that created, pushed, or tracked them
+@deepseek-ai/dsh-experimental-forge|0.2.2-rc.5|Provider-neutral change request registry with shared status polling
+@deepseek-ai/dsh-experimental-inspector-profile|0.2.2-rc.5|Optional Web bundle for raw Session logs and Chat node inspection
+@deepseek-ai/dsh-experimental-inspector|0.2.2-rc.5|Experimental cross-realm CDP hub for Host debugging and Client Runtime inspection
+@deepseek-ai/dsh-experimental-liveshare-protocol|0.2.2-rc.5|Liveshare wire frames and the identity contract shared by the owner bundle and the Relay
+@deepseek-ai/dsh-experimental-liveshare|0.2.2-rc.5|Opt-in LiveShare host bundle: share a Session through a separate Relay at the view or bounded-write tier, with forking and attachment uploads as independent switches
+@deepseek-ai/dsh-experimental-plugin-market-bundle|0.2.2-rc.5|Experimental custom plugin indexes: a Discover tab that browses and installs bundles from plugin indexes
+@deepseek-ai/dsh-experimental-ralph-bundle|0.2.2-rc.5|Run explicitly requested repeated work with fresh agents.
+@deepseek-ai/dsh-experimental-session-inspector|0.2.2-rc.5|Experimental virtualized Session log and live Chat group/node inspectors
+@deepseek-ai/dsh-experimental-session-search|0.2.2-rc.5|Give agents tools to search and read earlier sessions from the current workspace.
+@deepseek-ai/dsh-experimental-session-titles-bundle|0.2.2-rc.5|Refresh session titles as new human prompts arrive.
+@deepseek-ai/dsh-experimental-speech-to-text-sensevoice|0.2.2-rc.5|Local SenseVoice ONNX transcription with a managed sherpa-onnx process
+@deepseek-ai/dsh-experimental-speech-to-text|0.2.2-rc.5|Experimental speech recognition with independently selectable providers
+@deepseek-ai/dsh-experimental-terminal-bundle|0.2.2-rc.5|Let the agent run long-lived commands in terminals you can watch in the sidebar.
+@deepseek-ai/dsh-experimental-tool-worktree|0.2.2-rc.5|Model tool that creates and enters a new Git worktree
+@deepseek-ai/dsh-experimental-translator|0.2.2-rc.5|Machine translation with reusable Session results
+@deepseek-ai/dsh-experimental-voice-input-bundle|0.2.2-rc.5|Experimental voice input with local SenseVoice; downloads its runtime on first use
+@deepseek-ai/dsh-experimental-worktree|0.2.2-rc.5|Creates a named Git worktree and changes the calling Session working directory
+@deepseek-ai/dsh-file-reference-local|0.2.2-rc.5|Local-filesystem ctx.fileReferences provider with bounded fuzzy indexes
+@deepseek-ai/dsh-file-reference|0.2.2-rc.5|File-reference discovery contract and shared @file grammar
+@deepseek-ai/dsh-fs-local|0.2.2-rc.5|Local-filesystem implementation of the DeepSeek Harness filesystem seam (ctx.fs)
+@deepseek-ai/dsh-fs-observation-policy|0.2.2-rc.5|File-context policy plugin for the DeepSeek Harness — observed-state, read-before-edit, and version-guarded write/edit added over the ctx.fs provider seam through the fs/* event gate (no service API)
+@deepseek-ai/dsh-fs-patch|0.2.2-rc.5|Pure Codex-style patch parser and LF text updater with structured match failures
+@deepseek-ai/dsh-fs-sandbox|0.2.2-rc.5|Sandbox-enforcing implementation of the DeepSeek Harness filesystem seam: fences write/edit by the per-call sandbox mode (read-only denies mutation, workspace-write contains it to the workspace + temp roots) while reads pass through
+@deepseek-ai/dsh-fs|0.2.2-rc.5|Abstract filesystem capability seam (ctx.fs) for the DeepSeek Harness — vocabulary types, the FileSystem service (text IO + optional version-guarded atomic mutations), and the fs/* policy event vocabulary
+@deepseek-ai/dsh-goal-round-driver|0.2.2-rc.5|Race-fenced same-session goal-round driver
+@deepseek-ai/dsh-goal|0.2.2-rc.5|Event-sourced same-session goal state and lifecycle service for the DeepSeek Harness
+@deepseek-ai/dsh-harness-dev-context|0.2.2-rc.5|Model context naming the DeepSeek Harness checkout and Web GUI URL without letting either change the system prompt
+@deepseek-ai/dsh-headless|0.2.2-rc.5|The dsh one-shot bundle: a direct core Agent/Session runner over dsh-base with no Host, HTTP, or browser layer
+@deepseek-ai/dsh-hmr|0.2.2-rc.5|Coordinated module and profile configuration hot reload
+@deepseek-ai/dsh-home-paths|0.2.2-rc.5|Shared filesystem path helpers for the DeepSeek Harness
+@deepseek-ai/dsh-host-directory-picker-auto|0.2.2-rc.5|Adaptive chooser of the directory-picker seam: resolves the host situation at boot and mounts the native or browse backend for the DeepSeek Harness web GUI host
+@deepseek-ai/dsh-host-directory-picker-browse|0.2.2-rc.5|In-app browsing backend of the directory-picker seam (listing/creation primitives over the host filesystem)
+@deepseek-ai/dsh-host-directory-picker-native|0.2.2-rc.5|Native-OS-chooser backend of the directory-picker seam for the DeepSeek Harness web GUI host
+@deepseek-ai/dsh-host-directory-picker|0.2.2-rc.5|Abstract workspace-directory picking seam (ctx.directoryPicker) for the DeepSeek Harness web GUI host
+@deepseek-ai/dsh-host-frontend-static|0.2.2-rc.5|SPA dist server for the Web shell: owns the webserver fallback seat, serving explicit index entries and static assets with traversal rejection and 404 misses
+@deepseek-ai/dsh-host-open-in-app|0.2.2-rc.5|Host half of open-in-app: resolved application catalog, icons, and the launch endpoint as three webServer routes
+@deepseek-ai/dsh-host-plugin-inventory|0.2.2-rc.5|Read-only Remote projection of current Cordis Loader plugin state
+@deepseek-ai/dsh-host-product-telemetry-otel|0.2.2-rc.5|Explicit product usage events exported through OpenTelemetry HTTP logs
+@deepseek-ai/dsh-host-webserver|0.2.2-rc.5|Web route-registration plugin: HTTP and upgrade routes, per-Peer index transform taps, and static dist fallback
+@deepseek-ai/dsh-http-proxy|0.2.2-rc.5|Process-wide outbound HTTP proxy policy for DeepSeek Harness: resolve it from the launch environment and install it as undici's global dispatcher
+@deepseek-ai/dsh-jobs-local|0.2.2-rc.5|Process-local implementation of the DeepSeek Harness background job registry seam
+@deepseek-ai/dsh-jobs|0.2.2-rc.5|Background job registry (ctx.jobs) for the DeepSeek Harness — shared ids, owner isolation, polling, cancellation, and completion listeners for long-running tool work
+@deepseek-ai/dsh-launch-environment|0.2.2-rc.5|Immutable DeepSeek Harness launch environment that records which layer supplied each value
+@deepseek-ai/dsh-lazy-require|0.2.2-rc.5|Caller-relative, success-cached lazy loading for CommonJS-compatible Host dependencies
+@deepseek-ai/dsh-llm-deepseek-account|0.2.2-rc.5|DeepSeek account provider authentication and discovery
+@deepseek-ai/dsh-llm-deepseek-api-key|0.2.2-rc.5|DeepSeek api-key provider authentication and discovery
+@deepseek-ai/dsh-llm-deepseek|0.2.2-rc.5|DeepSeek Messages adapter
+@deepseek-ai/dsh-llm-pi-ai|0.2.2-rc.5|pi-ai-backed DeepSeek adapter for the DeepSeek Harness LLM seam (design-verification twin of dsh-llm-deepseek)
+@deepseek-ai/dsh-llm-retry|0.2.2-rc.5|Provider-routed LLM request retry policy for the DeepSeek Harness
+@deepseek-ai/dsh-llm|0.2.2-rc.5|Provider-neutral LLM service interface for the DeepSeek Harness
+@deepseek-ai/dsh-mcp-client|0.2.2-rc.5|MCP client bridge: connects to MCP servers and registers their tools on ctx.tools
+@deepseek-ai/dsh-mcp-manager|0.2.2-rc.5|MCP server manager: a settings-driven fleet of mcp-client instances with runtime status, restart, and probe
+@deepseek-ai/dsh-mcp-resources|0.2.2-rc.5|Scoped MCP resource discovery and reading through shared model tools
+@deepseek-ai/dsh-message-feedback|0.2.2-rc.5|Canonical Session-log ratings and notes for finalized assistant messages
+@deepseek-ai/dsh-message-quotes|0.2.2-rc.5|Selected-text quotation and Markdown blockquote presentation
+@deepseek-ai/dsh-native-command|0.2.2-rc.5|Host-native command and path-opening utilities with shell-free execution, cancellation, desktop detection, and WSL handoff
+@deepseek-ai/dsh-office-kit|0.2.2-rc.5|Shared Office rendering, conversion, and recalculation with bounded queues and caching
+@deepseek-ai/dsh-official-bundles|0.2.2-rc.5|Installation-owned lists of official dsh bundles (shipped profile templates, optional, on-demand, and retired bundles) and the plugin manager's protected and presented packages
+@deepseek-ai/dsh-otel|0.2.2-rc.5|Cordis service for independent ordinary-event and byte-bounded Session-log OTLP channels
+@deepseek-ai/dsh-output-retention|0.2.2-rc.5|Zero-dependency bounded-retention primitive: ItemRetainer/TextRetainer + neutral notice helpers (what did we keep, what did we omit)
+@deepseek-ai/dsh-package-manifest|0.2.2-rc.5|Shared type declarations for package.json.dsh configuration fields
+@deepseek-ai/dsh-permission-presets|0.2.2-rc.5|User-facing permission presets (ctx.permissionPresets) for the DeepSeek Harness: one product-level Permissions select bundling the sandbox-mode and approval-policy knobs, written through to their own session events
+@deepseek-ai/dsh-persona|0.2.2-rc.5|Composition-authored deployment persona section for the DeepSeek Harness
+@deepseek-ai/dsh-personalized-recommendations|0.2.2-rc.5|Personalized pages and built-in plugin recommendations offered as cards below answers
+@deepseek-ai/dsh-plan-mode|0.2.2-rc.5|Logged per-agent plan mode with deployment guidance, a direct slash command, and a user-reviewed exit
+@deepseek-ai/dsh-plugin-detail|0.2.2-rc.5|Plugin detail documents: meta.detail or README selection, image paths, and local and npm CDN file sources
+@deepseek-ai/dsh-plugin-manager|0.2.2-rc.5|Current-profile plugin and bundle management shared by dsh CLI, Web and agent tools
+@deepseek-ai/dsh-plugin-market-index|0.2.2-rc.5|Plugin market index format 1: JSON validation, relative icon resolution, and pinned install arguments
+@deepseek-ai/dsh-plugin-market|0.2.2-rc.5|Configured plugin market indexes for the Web Discover page and the plugin_market agent tool
+@deepseek-ai/dsh-plugin-package-inventory-deepseek|0.2.2-rc.5|Active Loader-backed plugin package inventory for official DeepSeek LLM API requests
+@deepseek-ai/dsh-plugin-recommendations|0.2.2-rc.5|Official plugin suggestions with explicit user activation and persistent conversation decisions
+@deepseek-ai/dsh-ptc-runtime-node|0.2.2-rc.5|Node PTC execution with async function, REPL and VM Script evaluators and optional retained state
+@deepseek-ai/dsh-ptc-runtime|0.2.2-rc.5|Abstract PTC execution seam (ctx.ptcRuntime) for the DeepSeek Harness
+@deepseek-ai/dsh-pwsh-local|0.2.2-rc.5|Local PowerShell implementation of the DeepSeek Harness bash executor seam
+@deepseek-ai/dsh-pwsh-sandbox|0.2.2-rc.5|Sandbox-consuming implementation of the DeepSeek Harness PowerShell executor seam (confines every command via ctx.sandbox, reports denial/enforcement result facts)
+@deepseek-ai/dsh-repeat-tool-reminder|0.2.2-rc.5|Repeat-tool-call guard plugin: advisory reminders when an agent loops on identical tool calls
+@deepseek-ai/dsh-sandbox-local|0.2.2-rc.5|Local process-sandbox backends for the DeepSeek Harness sandbox seam: bwrap, the npm-distributed landlock-run launcher, macOS Seatbelt, or the Windows ACL restricted-token runner — functionally probed, fail-closed
+@deepseek-ai/dsh-sandbox-policy|0.2.2-rc.5|Per-call sandbox policy resolver and current model context: deployment fallbacks plus each session's mode and workspace root, shared by every enforcing capability family
+@deepseek-ai/dsh-sandbox-windows-acl|0.2.2-rc.5|Windows ACL write-restriction sandbox backend (restricted-token spawn with capability-SID write allowlist) for the DeepSeek Harness sandbox seam
+@deepseek-ai/dsh-sandbox|0.2.2-rc.5|Abstract process-sandbox seam (ctx.sandbox) for the DeepSeek Harness: same-world confinement vocabulary and the SandboxProvider contract
+@deepseek-ai/dsh-schedule|0.2.2-rc.5|Host-wide durable reminders with shared management and delivery to existing or new Sessions
+@deepseek-ai/dsh-scope|0.2.2-rc.5|Scoped-context registration primitive (scope tags, scope-filtered event dispatch) for the DeepSeek Harness
+@deepseek-ai/dsh-sdk-app|0.2.2-rc.5|The dsh SDK profile bundle: stdio JSON-RPC serving and process lifecycle over dsh-base
+@deepseek-ai/dsh-sdk-jsonrpc-server|0.2.2-rc.5|Stdio JSON-RPC server plugin for out-of-process DeepSeek Harness SDK clients
+@deepseek-ai/dsh-sdk-minimal|0.2.2-rc.5|The standalone minimal SDK profile bundle: JSON-RPC, one DeepSeek adapter, persistent shell, and JSONL sessions
+@deepseek-ai/dsh-sdk-protocol|0.2.2-rc.5|Shared wire protocol for the DeepSeek Harness SDK runtime: the newline-delimited JSON-RPC stdio transport and the named request, result, and notification types spoken between the runtime server and SDK clients
+@deepseek-ai/dsh-session-checkpoint-policy|0.2.2-rc.5|Semantic session durability checkpoints before model requests and tool side effects
+@deepseek-ai/dsh-session-format-catalog|0.2.2-rc.5|Build-static first-party Session format codec and migration catalog
+@deepseek-ai/dsh-session-format-v0-to-v1|0.2.2-rc.5|Frozen released-v0 Session codec and identity migration to v1
+@deepseek-ai/dsh-session-format-v1-to-v2|0.2.2-rc.5|Frozen released-v1 Session codec and assistant-stream migration to v2
+@deepseek-ai/dsh-session-format-v2-to-v3|0.2.2-rc.5|Streaming system-prompt, canonical-envelope and PTC migration into V3
+@deepseek-ai/dsh-session-format-v3-to-v4|0.2.2-rc.5|Streaming tool-role migration and delivery validation from Session V3 to V4
+@deepseek-ai/dsh-session-format|0.2.2-rc.5|Streaming adjacent Session format migration machinery
+@deepseek-ai/dsh-session-log-deepseek|0.2.2-rc.5|Incremental lossless session-log request extension for the official DeepSeek LLM API
+@deepseek-ai/dsh-session-log-export|0.2.2-rc.5|Web Session-log ZIP export and Session Markdown copy
+@deepseek-ai/dsh-session-persistence-jsonl|0.2.2-rc.5|JSONL durable session persistence backend for the DeepSeek Harness
+@deepseek-ai/dsh-session-persistence|0.2.2-rc.5|Abstract durable session persistence seam (ctx.sessionPersistence) for the DeepSeek Harness
+@deepseek-ai/dsh-session-projection-cache|0.2.2-rc.5|Persisted projection cache (ctx.sessionProjectionCache): durable per-session checkpoint records on the session_projcache storage domain (per-record layout), throttled write-behind, and the cached listing read
+@deepseek-ai/dsh-session-projection|0.2.2-rc.5|Session-projection seam: the merge-extensible projection type table, the provider contract, and the ctx.sessionProjections registry serving whole current values of log-derived per-session state
+@deepseek-ai/dsh-session-query-sqlite|0.2.2-rc.5|Concrete ctx.sessionQuery backend with SQLite FTS5 search
+@deepseek-ai/dsh-session-query|0.2.2-rc.5|Combined session query service contract with concrete reads, traces, and filters
+@deepseek-ai/dsh-session-reference|0.2.2-rc.5|Cross-session snapshot references and durable untrusted model context (ctx.sessionReferenceResolver)
+@deepseek-ai/dsh-session-stats|0.2.2-rc.5|Whole-log conversation counts and wall times projection (sessionStats) for the DeepSeek Harness
+@deepseek-ai/dsh-session-telemetry-otel|0.2.2-rc.5|Feedback-authorized Session logs over byte-bounded OpenTelemetry HTTP requests
+@deepseek-ai/dsh-session-telemetry|0.2.2-rc.5|SessionTelemetryBackend seam for the DeepSeek Harness: session-event capture, projection, redaction, and handoff to a reporting backend
+@deepseek-ai/dsh-session-title-all-prompts-llm|0.2.2-rc.5|All-user-messages LLM provider plugin for DeepSeek Harness session titles
+@deepseek-ai/dsh-session-title-first-prompt-llm|0.2.2-rc.5|First-message LLM provider plugin for DeepSeek Harness session titles
+@deepseek-ai/dsh-session-title-llm|0.2.2-rc.5|Shared LLM generation policy for DeepSeek Harness session-title providers
+@deepseek-ai/dsh-session-title|0.2.2-rc.5|Log-backed session title service and provider registry for the DeepSeek Harness
+@deepseek-ai/dsh-session-turn-outline|0.2.2-rc.5|Whole-log turn outline projection (turnOutline) for the DeepSeek Harness
+@deepseek-ai/dsh-session|0.2.2-rc.5|Event-sourced session store for the DeepSeek Harness
+@deepseek-ai/dsh-settings|0.2.2-rc.5|Abstract user-settings seam (ctx.settings) for the DeepSeek Harness
+@deepseek-ai/dsh-shell-env|0.2.2-rc.5|Tool-independent managed DSH_* shell environment registry
+@deepseek-ai/dsh-shell|0.2.2-rc.5|Abstract bash executor seam (ctx.shell) for the DeepSeek Harness
+@deepseek-ai/dsh-skill-badge|0.2.2-rc.5|Bundled dsh badge skill provider for DeepSeek Harness
+@deepseek-ai/dsh-skill-filesystem|0.2.2-rc.5|Local filesystem skill provider for the DeepSeek Harness
+@deepseek-ai/dsh-skill-office|0.2.2-rc.5|Bundled Word, PowerPoint, and Excel workflows and Office operation guidance
+@deepseek-ai/dsh-skill|0.2.2-rc.5|Agent skill provider registry for the DeepSeek Harness
+@deepseek-ai/dsh-spill-local|0.2.2-rc.5|Local-filesystem implementation of the DeepSeek Harness spill storage seam (private session-scoped files)
+@deepseek-ai/dsh-spill-policy|0.2.2-rc.5|Token-budgeted tool-result retention with recoverable text and image paths
+@deepseek-ai/dsh-spill|0.2.2-rc.5|Abstract spill storage seam (ctx.spillStore) for the DeepSeek Harness — save oversized tool text and return a retrieval locator
+@deepseek-ai/dsh-storage-domain|0.2.2-rc.5|Domain data form (ctx.storage.domain): schema-validated, event-emitting KV domains over storage backends for the DeepSeek Harness
+@deepseek-ai/dsh-storage-json|0.2.2-rc.5|JSON file KV storage backend for the DeepSeek Harness storage hub
+@deepseek-ai/dsh-storage|0.2.2-rc.5|Storage hub (ctx.storage): named backend registry plus mounted data-form facilities for the DeepSeek Harness
+@deepseek-ai/dsh-subagent-fork-in-process|0.2.2-rc.5|In-process fork subagent backend: runs a child agent seeded with a prefix of the parent's log
+@deepseek-ai/dsh-subagent-spawn-in-process|0.2.2-rc.5|In-process spawn subagent backend: runs a fresh child agent on ctx.agents
+@deepseek-ai/dsh-subagent|0.2.2-rc.5|Abstract subagent seam (ctx.subagents): named-provider registry for delegating to child agents
+@deepseek-ai/dsh-subprocess-local|0.2.2-rc.5|Local-subprocess implementation of the DeepSeek Harness subprocess seam
+@deepseek-ai/dsh-subprocess|0.2.2-rc.5|Subprocess seam (ctx.subprocess) for the DeepSeek Harness — managed process groups, bounded spill-backed output, and escalated kills behind one abstract service
+@deepseek-ai/dsh-system-prompt|0.2.2-rc.5|System prompt assembly registry for the DeepSeek Harness
+@deepseek-ai/dsh-terminal-bash|0.2.2-rc.5|Persistent shell PTY backend over the DeepSeek Harness subprocess terminal primitive
+@deepseek-ai/dsh-terminal-panel|0.2.2-rc.5|Persistent Agent terminals shown in the Web sidebar, plus read-only access to the user's terminals
+@deepseek-ai/dsh-terminal|0.2.2-rc.5|Persistent PTY session seam for the DeepSeek Harness — owner-scoped ids, backend registry, interactive sends, reads, signals, and awaited cleanup
+@deepseek-ai/dsh-time-context|0.2.2-rc.5|Durable per-step context with the current time and elapsed time
+@deepseek-ai/dsh-timeout|0.2.2-rc.5|Zero-dependency timeout/deadline primitive: clampTimeout, deadline, timeoutOf, TimeoutReason (timing + classification only, no termination)
+@deepseek-ai/dsh-tmux-context|0.2.2-rc.5|Opt-in durable per-step context with this agent's tmux pane and window location
+@deepseek-ai/dsh-token-meter|0.2.2-rc.5|Replay-aware token measurement service (ctx.tokenMeter) for the DeepSeek Harness
+@deepseek-ai/dsh-tool-agent-team|0.2.2-rc.5|Scoped model-facing Agent Teams tools over ctx.agentTeams
+@deepseek-ai/dsh-tool-ask-user|0.2.2-rc.5|Model-facing ask_user_question tool over the ctx.userQuestions seam
+@deepseek-ai/dsh-tool-bash-persistent|0.2.2-rc.5|Model-facing owner-scoped persistent Bash tool backed by the Harness PTY service
+@deepseek-ai/dsh-tool-bash|0.2.2-rc.5|Model-facing bash tool with optional generic background-job and sandbox-escalation support
+@deepseek-ai/dsh-tool-call-timeout-policy|0.2.2-rc.5|Tool-call timeout policy: a tools/execute wrapper that arms a per-tool deadline on exec.signal and returns TOOL_TIMEOUT when it wins
+@deepseek-ai/dsh-tool-cordis|0.2.2-rc.5|Read-only runtime API inspection for Harness plugin development
+@deepseek-ai/dsh-tool-executor-native|0.2.2-rc.5|Native tool execution plugin
+@deepseek-ai/dsh-tool-executor-ptc|0.2.2-rc.5|PTC program execution, tool bindings, and generated SDK prompts
+@deepseek-ai/dsh-tool-fs-search|0.2.2-rc.5|Model-facing filesystem discovery tools (glob, grep) backed by the packaged ripgrep binary (@vscode/ripgrep)
+@deepseek-ai/dsh-tool-fs|0.2.2-rc.5|Model-facing filesystem tools (read, write, edit) over the DeepSeek Harness filesystem seam (ctx.fs)
+@deepseek-ai/dsh-tool-goal|0.2.2-rc.5|Model-facing same-session goal tools with execution-time authority checks
+@deepseek-ai/dsh-tool-jobs|0.2.2-rc.5|Model-facing background job control tools (job_output, job_list, job_kill) over the ctx.jobs registry
+@deepseek-ai/dsh-tool-office|0.2.2-rc.5|Model-facing Office tools for rendering, converting, and recalculating documents
+@deepseek-ai/dsh-tool-present|0.2.2-rc.5|Explicit workspace file delivery declarations for the DeepSeek Harness
+@deepseek-ai/dsh-tool-pwsh-persistent|0.2.2-rc.5|Model-facing owner-scoped persistent PowerShell tool backed by the Harness PTY service
+@deepseek-ai/dsh-tool-pwsh|0.2.2-rc.5|Model-facing pwsh tool over the bash executor seam
+@deepseek-ai/dsh-tool-ralph|0.2.2-rc.5|Model-facing fresh-agent Ralph loop over the workflow and subagent seams
+@deepseek-ai/dsh-tool-schedule|0.2.2-rc.5|Model-facing scheduled task tools (schedule_create, schedule_list, schedule_view, schedule_edit) over the Host ctx.schedule service
+@deepseek-ai/dsh-tool-session-query|0.2.2-rc.5|Workspace-authorized model-facing session history search, trace, and event read tools
+@deepseek-ai/dsh-tool-skill|0.2.2-rc.5|Model-facing skill loading tool for the DeepSeek Harness
+@deepseek-ai/dsh-tool-str-replace-editor|0.2.2-rc.5|Model-facing view, create, literal replace, and line insert tool over the Harness filesystem service
+@deepseek-ai/dsh-tool-subagent-control|0.2.2-rc.5|Shared messaging, interruption, and child discovery tools for subagents
+@deepseek-ai/dsh-tool-subagent|0.2.2-rc.5|Model-facing subagent delegation tool over the ctx.subagents seam
+@deepseek-ai/dsh-tool-terminal|0.2.2-rc.5|Six model-facing persistent PTY tools with owner isolation and generic background-job integration
+@deepseek-ai/dsh-tool-todo|0.2.2-rc.5|Model-facing todo_write tool over the DeepSeek Harness event-sourced session log
+@deepseek-ai/dsh-tool-web|0.2.2-rc.5|Model-facing web tools (web_search, web_fetch) over the DeepSeek Harness web capability seam (ctx.web)
+@deepseek-ai/dsh-tool-workflow|0.2.2-rc.5|Model-facing workflow tool: run a JavaScript orchestration script over ctx.workflowEngine
+@deepseek-ai/dsh-tool-working-directory|0.2.2-rc.5|Read and change the active Session working directory
+@deepseek-ai/dsh-tool-workspace-dependencies|0.2.2-rc.5|The load_workspace_dependencies tool: absolute paths into a bundled Python, Node.js, and pnpm payload
+@deepseek-ai/dsh-tools|0.2.2-rc.5|Tool registry and execution pipeline for the DeepSeek Harness
+@deepseek-ai/dsh-typert-loader|0.2.2-rc.5|Loader integration for generated Typert package contributions
+@deepseek-ai/dsh-typert-protocol|0.2.2-rc.5|Compiler-independent Remote metadata and Typert provider protocols
+@deepseek-ai/dsh-typert-registry|0.2.2-rc.5|Runtime registry for generated package reflection and Zod schemas
+@deepseek-ai/dsh-user-approval|0.2.2-rc.5|User-approval seam (ctx.approval) for the DeepSeek Harness: one-shot permission decisions dispatched to composed answerers over the approval/request waterfall, fail-closed by default
+@deepseek-ai/dsh-user-questions|0.2.2-rc.5|Abstract user-questions seam (ctx.userQuestions) for asking the human during agent runs
+@deepseek-ai/dsh-util-code-language|0.2.2-rc.5|Single file-extension to syntax-highlighting language table shared by Client code surfaces and the Host read card
+@deepseek-ai/dsh-util-crypto|0.2.2-rc.5|Zero-dependency browser-safe UUID and byte-encoding helpers
+@deepseek-ai/dsh-util-ripgrep|0.2.2-rc.5|Packaged ripgrep resolution and subprocess streaming helpers
+@deepseek-ai/dsh-util-time|0.2.2-rc.5|Strict instant and IANA zone parsing, millisecond spans, and bounded Cron/RRULE recurrence arithmetic
+@deepseek-ai/dsh-util-values|0.2.2-rc.5|Duplicate-install-safe value primitives for the DeepSeek Harness
+@deepseek-ai/dsh-util-workspace-path|0.2.2-rc.5|Browser-safe Workspace path and display helpers
+@deepseek-ai/dsh-web-app|0.2.2-rc.5|The dsh browser-surface bundle: the web patch layer over dsh-base plus the runtime glue plugin (frontend dist serving, bash runtime variables, URL line)
+@deepseek-ai/dsh-web-deepseek-api|0.2.2-rc.5|DeepSeek Search and Fetch API providers for the DeepSeek Harness web capability seam (ctx.web)
+@deepseek-ai/dsh-web-fetch-http|0.2.2-rc.5|Anonymous HTTP(S) fetch provider for the DeepSeek Harness web capability seam (ctx.web)
+@deepseek-ai/dsh-web-frontend|0.2.2-rc.5|Web application entry: vite build over the @deepseek-ai/dsh-client-web shell library; dist/ served by apps/cli's dsh web
+@deepseek-ai/dsh-web-search-deepseek|0.2.2-rc.5|DeepSeek-backed search provider (native web_search via the Anthropic-compatible API) for the DeepSeek Harness web capability seam (ctx.web)
+@deepseek-ai/dsh-web|0.2.2-rc.5|Abstract web access capability seam (ctx.web) for the DeepSeek Harness — search/fetch provider registry, registration-order-independent selection, request/result vocabulary, and the WebError taxonomy
+@deepseek-ai/dsh-win32-process|0.2.2-rc.5|Shared low-level Win32 process, stdio, and Job Object primitives
+@deepseek-ai/dsh-workflow-ptc|0.2.2-rc.5|Workflow orchestration in the shared sandboxed Node PTC runtime
+@deepseek-ai/dsh-workflow|0.2.2-rc.5|Workflow capability seam: ctx.workflowEngine service, run vocabulary, and workflow/* events
+@deepseek-ai/dsh-working-directory|0.2.2-rc.5|Session working directories with durable changes and model context
+@deepseek-ai/dsh-workspace-changes|0.2.2-rc.5|Per-turn workspace file changes recorded from git working-tree snapshots and whole-file captures, with per-file comparisons, for the DeepSeek Harness
+@deepseek-ai/dsh-workspace|0.2.2-rc.5|Workspace entity registry (ctx.workspaceRegistry): durable workspace records with validated session attachment over the domain data form for the DeepSeek Harness
+@deepseek-ai/dsh|0.2.2-rc.5|dsh CLI: profile launch, plugin management, and configuration inspection
+@deepseek-ai/node-addon-system|0.1.2|Prebuilt system primitives: a Linux Landlock launcher and asynchronous POSIX flock through stable Node-API
+@deepseek-ai/schemastery|3.19.0|Type driven schema validator

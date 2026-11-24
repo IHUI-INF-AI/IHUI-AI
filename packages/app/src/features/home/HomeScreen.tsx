@@ -18,6 +18,7 @@ import { SectionHeader } from '../../components/SectionHeader'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { HOME_CARD_PADDING_PX, HOME_PAGE_GUTTER_X_PX } from '@ihui/shared/ui/home-layout-spec'
 
 export type { HomeRecommendItem, HomeLiveItem, HomeProgressItem, HomeMenuItem, HomeScreenProps }
 
@@ -78,25 +79,31 @@ export function HomeScreen({
 
   const discoverSection = (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{t('menu.sectionDiscover')}</Text>
-      <View style={styles.menuGrid}>
-        {menuItems.map((m) => (
-          <TouchableOpacity
-            key={m.key}
-            onPress={() => onPressMenu(m.key)}
-            activeOpacity={0.7}
-            style={styles.menuCell}
-          >
-            {typeof m.icon === 'string' ? (
-              <Text style={styles.menuIcon}>{m.icon}</Text>
-            ) : m.icon ? (
-              <m.icon size={22} color={tk.text.medium} />
-            ) : null}
-            <Text style={styles.menuLabel} numberOfLines={1} maxFontSizeMultiplier={fontMultiplier}>
-              {t(m.labelKey)}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.discoverCard}>
+        <Text style={styles.sectionTitle}>{t('menu.sectionDiscover')}</Text>
+        <View style={styles.menuGrid}>
+          {menuItems.map((m) => (
+            <TouchableOpacity
+              key={m.key}
+              onPress={() => onPressMenu(m.key)}
+              activeOpacity={0.7}
+              style={styles.menuCell}
+            >
+              {typeof m.icon === 'string' ? (
+                <Text style={styles.menuIcon}>{m.icon}</Text>
+              ) : m.icon ? (
+                <m.icon size={22} color={tk.text.medium} />
+              ) : null}
+              <Text
+                style={styles.menuLabel}
+                numberOfLines={1}
+                maxFontSizeMultiplier={fontMultiplier}
+              >
+                {t(m.labelKey)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
     </View>
   )
@@ -321,7 +328,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: rnSpacing.lg,
+      paddingHorizontal: HOME_PAGE_GUTTER_X_PX,
       paddingTop: rnSpacing.lg,
     },
     headerLeft: { flex: 1 },
@@ -353,7 +360,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       marginTop: rnSpacing.md,
-      marginHorizontal: rnSpacing.lg,
+      marginHorizontal: HOME_PAGE_GUTTER_X_PX,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.lg,
@@ -368,7 +375,16 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.danger.DEFAULT,
     },
     errorRetryText: { fontSize: rnType.label.size, fontWeight: '600', color: '#FFFFFF' },
-    section: { paddingHorizontal: rnSpacing.lg, marginTop: rnSpacing['2xl'] },
+    section: { paddingHorizontal: HOME_PAGE_GUTTER_X_PX, marginTop: rnSpacing['2xl'] },
+    // 「发现」是入口区里唯一没有卡片底的板块，和下方 AI 卡/进度卡读成两层底；
+    // 这里给它同款 surface.card 白底与圆角，标题和 3×3 宫格一起收进卡内。
+    // 卡片左右边线与 AI 卡/输入区/TabBar 统一走 home-layout-spec 的 10dp 页面留白；
+    // 卡内边距走 HOME_CARD_PADDING_PX(12dp)，不再另写 16dp。
+    discoverCard: {
+      padding: HOME_CARD_PADDING_PX,
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.surface.card,
+    },
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -382,7 +398,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     card: {
-      padding: rnSpacing.lg,
+      padding: HOME_CARD_PADDING_PX,
       borderRadius: rnRadius.lg,
       // 暗色下 surface.light 是 #262626、页面底 #242424,只差 2 阶卡片融进背景;
       // surface.card 亮色同为白、暗色降到 #1A1A1A(与 web 暗色 --color-card 同值),层次才成立。

@@ -47,6 +47,8 @@ export default function SettingsDialog({
   const [allowedTargets, setAllowedTargets] = React.useState('')
   const [blockedWords, setBlockedWords] = React.useState('')
   const [rateLimit, setRateLimit] = React.useState('20')
+  const [outboundWebhookUrl, setOutboundWebhookUrl] = React.useState('')
+  const [testNotice, setTestNotice] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
@@ -56,6 +58,9 @@ export default function SettingsDialog({
     setBlockedWords(readList(account.metadata.blockedWords))
     const rate = account.metadata.rateLimitPerMinute
     setRateLimit(typeof rate === 'number' ? String(rate) : '20')
+    const webhook = account.metadata.outboundWebhookUrl
+    setOutboundWebhookUrl(typeof webhook === 'string' ? webhook : '')
+    setTestNotice(null)
     setError(null)
   }, [account])
 
@@ -66,6 +71,7 @@ export default function SettingsDialog({
         allowedTargets: parseList(allowedTargets),
         blockedWords: parseList(blockedWords),
         rateLimitPerMinute: Number(rateLimit) || 20,
+        outboundWebhookUrl: outboundWebhookUrl.trim(),
       }),
     onSuccess: () => {
       onSaved()
@@ -74,13 +80,27 @@ export default function SettingsDialog({
     onError: (e) => setError(e instanceof Error ? e.message : '保存失败'),
   })
 
+  const testMutation = useMutation({
+    mutationFn: () =>
+      wechatHubApi.testOutboundWebhook(account?.id ?? '', outboundWebhookUrl.trim()),
+    onSuccess: () => {
+      setTestNotice('测试事件已送达')
+      setTimeout(() => setTestNotice(null), 4_000)
+    },
+    onError: (e) => {
+      setTestNotice(e instanceof Error ? e.message : '测试失败')
+      setTimeout(() => setTestNotice(null), 4_000)
+    },
+  })
+
   return (
     <Dialog open={Boolean(account)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>发送策略 · {account?.label}</DialogTitle>
           <DialogDescription>
-            白名单开启后只允许向清单内目标发送；敏感词命中直接本地拒绝；限流按分钟计数。
+            白名单开启后只允许向清单内目标发送；敏感词命中直接本地拒绝；限流按分钟计数。 出站
+            Webhook 可把每条入站消息转发给 n8n / Dify / 自建系统。
           </DialogDescription>
         </DialogHeader>
         {error ? <Alert variant="danger" title="保存失败" description={error} /> : null}
@@ -129,6 +149,31 @@ export default function SettingsDialog({
               value={rateLimit}
               onChange={(e) => setRateLimit(e.target.value)}
             />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="wechat-settings-webhook">出站 Webhook（入站消息转发）</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="wechat-settings-webhook"
+                value={outboundWebhookUrl}
+                onChange={(e) => setOutboundWebhookUrl(e.target.value)}
+                placeholder="https://n8n.example.com/webhook/wechat"
+                className="flex-1"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!outboundWebhookUrl.trim() || testMutation.isPending}
+                onClick={() => testMutation.mutate()}
+              >
+                {testMutation.isPending ? '测试中…' : '测试'}
+              </Button>
+            </div>
+            {testNotice ? <p className="text-xs text-muted-foreground">{testNotice}</p> : null}
+            <p className="text-xs text-muted-foreground">
+              只允许公网 HTTPS；留空关闭。若账号已配置 bridge webhookSecret，会附带 HMAC-SHA256
+              签名头，接收方可按时间戳 + 原始 body 验签。
+            </p>
           </div>
         </div>
         <DialogFooter>

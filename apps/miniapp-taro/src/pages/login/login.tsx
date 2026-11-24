@@ -394,10 +394,11 @@ export default function Login() {
         {/* ===== 内联错误提示(对齐 RN errorAlert) ===== */}
         {inlineError ? (
           <View className="login-error-alert">
-            <Image
+            <LineIcon
               className="login-error-icon"
-              src="/static/images/icons/triangle-alert.svg"
-              mode="aspectFit"
+              name="triangle-alert"
+              size={28}
+              color="var(--color-danger)"
             />
             <Text className="login-error-text">{inlineError}</Text>
           </View>

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 // i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15) until 2027-05-31
 import { useTheme } from '../context/ThemeContext'
-import { rnRadius, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnType, taroSpacing } from '@ihui/design-tokens'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pressable, ScrollView, Share, Text, View } from 'react-native'
@@ -501,7 +501,7 @@ const shellStyles = {
   scrollContent: { paddingBottom: rpx(32) } as const,
   withdrawDetailContent: { gap: rpx(20), paddingVertical: rpx(16) } as const,
   withdrawDetailText: { fontSize: rnType.body.size, color: tokens.text.medium } as const,
-  shareBtnWrap: { paddingHorizontal: rpx(32), paddingBottom: rpx(8) } as const,
+  shareBtnWrap: { paddingHorizontal: rpx(taroSpacing.lg), paddingBottom: rpx(8) } as const,
   shareBtn: {
     height: 44,
     borderRadius: rnRadius.sm,
@@ -520,7 +520,7 @@ const shellStyles = {
     height: 200,
     borderRadius: rnRadius.xl,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',

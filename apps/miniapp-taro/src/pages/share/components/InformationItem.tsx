@@ -9,7 +9,7 @@ import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { rpx } from '@/utils/rpx'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, taroSpacing } from '@ihui/design-tokens'
 import { onToast } from '@/host/on-toast'
 const copyIcon = aizhsUrl('remote-images/copy.png')
 
@@ -81,7 +81,7 @@ export default function InformationItem({
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            marginRight: rpx(16),
+            marginRight: rpx(taroSpacing.sm),
             paddingTop: rpx(8),
           }}
         >

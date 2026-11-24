@@ -38,7 +38,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 /** 直接执行时的入口(为空则说明本文件被当作断言目标跑,不进 CLI 主流程)。 */
 const entryArg = process.argv[1] || ''
 
-/** 子步骤清单:逐字取自改前 `check:all` 的 `&&` 串链(26 条)+ 票 G-217 补接的第 27 条 `check:benchmark-delivery` + 2026-10-31 补接的装机资产对账(G-21),共 28 条;2026-11-12 补接投影唯一源守门(29 条)。顺序与集合都不得增删。 */
+/** 子步骤清单:逐字取自改前 `check:all` 的 `&&` 串链(26 条)+ 票 G-217 补接的第 27 条 `check:benchmark-delivery` + 2026-10-31 补接的装机资产对账(G-21),共 28 条;2026-11-12 补接投影唯一源守门(29 条);2026-11-24 补接首页横向边线守门(30 条)。顺序与集合都不得增删。 */
 export const CHECK_ALL_STEPS = Object.freeze([
   'pnpm check:conflict-markers',
   'pnpm check:api-key-leak',
@@ -54,6 +54,7 @@ export const CHECK_ALL_STEPS = Object.freeze([
   'pnpm check:miniapp-parity',
   'pnpm check:miniapp-generated',
   'pnpm check:rn-parity',
+  'pnpm check:horizontal-gutter',
   'pnpm check:cross-end-tokens',
   'pnpm check:adapter-parity',
   'pnpm check:killer-parity-ends',

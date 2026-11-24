@@ -203,7 +203,7 @@ function makeStyles() {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
       gap: rnSpacing.sm,
     },
@@ -211,7 +211,7 @@ function makeStyles() {
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
     countBadge: {
       minWidth: 18,
-      paddingHorizontal: 5,
+      paddingHorizontal: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',

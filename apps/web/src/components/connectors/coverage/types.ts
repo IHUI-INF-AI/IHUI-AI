@@ -3,46 +3,62 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 平台 API 目录覆盖(catalog/probe/plan)的 UI 侧类型与映射。
- * 数据契约单一真相源在 `@ihui/api-client/endpoints/connectors`,此处只做原文转发 +
- * 纯展示层映射(徽章文案/变体、探测结果就地回填优先级),不得另立第二套字段定义。
+ * 平台目录覆盖(coverage)前端类型与展示映射单一来源。
+ *
+ * 类型逐字对齐后端冻结契约(GET /api/connectors/coverage 等),
+ * 状态枚举只允许后端那八态,前端不得自造分桶。
  */
-export type {
+import type {
   CoverageApi,
   CoverageApiStatus,
   CoverageCatalog,
   CoverageDomain,
+  CoverageEventsView,
+  CoveragePlanConnector,
+  CoveragePlanResponse,
   CoveragePlatform,
   CoverageProbeItem,
+  CoverageProbeResponse,
   CoverageState,
   CoverageStateCounts,
   CoverageTotals,
   CoverageUnenumeratedDomain,
 } from '@ihui/api-client/endpoints/connectors'
 
-import type {
+export type {
   CoverageApi,
   CoverageApiStatus,
+  CoverageCatalog,
+  CoverageDomain,
+  CoverageEventsView,
+  CoveragePlanConnector,
+  CoveragePlanResponse,
   CoveragePlatform,
   CoverageProbeItem,
+  CoverageProbeResponse,
   CoverageState,
-} from '@ihui/api-client/endpoints/connectors'
+  CoverageStateCounts,
+  CoverageTotals,
+  CoverageUnenumeratedDomain,
+}
 
-/** 面板平台切换档位;顺序即按钮顺序 */
-export const COVERAGE_PLATFORMS: ReadonlyArray<{ value: CoveragePlatform; label: string }> = [
+/** 与 @/components/data Badge 既有变体兼容的档位(不引入新色档) */
+export type CoverageBadgeVariant = 'default' | 'primary' | 'success' | 'warning' | 'danger'
+
+/** 平台切换选项 */
+export const COVERAGE_PLATFORMS: { value: CoveragePlatform; label: string }[] = [
   { value: 'feishu', label: '飞书' },
   { value: 'dingtalk', label: '钉钉' },
   { value: 'wecom', label: '企业微信' },
 ]
 
-/** 与 `@/components/data` 的 Badge 变体档一一对齐(不自立颜色档) */
-export type CoverageBadgeVariant = 'default' | 'primary' | 'success' | 'warning' | 'danger'
+interface StateMeta {
+  label: string
+  badge: CoverageBadgeVariant
+}
 
-/**
- * 八态文案与徽章变体:与后端冻结契约 `CoverageState` 逐字对齐,不得增删。
- * 形状被测试逐键钉住(`toEqual({ label, badge })`),多一个键即红。
- */
-export const COVERAGE_STATE_META: Record<CoverageState, { label: string; badge: CoverageBadgeVariant }> = {
+/** 探测状态 -> 中文文案 + 既有 Badge 变体(色值只取 design token,不另起调色板) */
+export const COVERAGE_STATE_META: Record<CoverageState, StateMeta> = {
   available: { label: '可用', badge: 'success' },
   permission_denied: { label: '权限不足', badge: 'danger' },
   need_user_token: { label: '需用户授权', badge: 'warning' },
@@ -53,28 +69,19 @@ export const COVERAGE_STATE_META: Record<CoverageState, { label: string; badge: 
   unjudged: { label: '未判定', badge: 'default' },
 }
 
-/** API 级状态:排除目录级的 `unjudged`(那是 catalog_state,不进单条 API 的计数桶)。
- *  `CoverageStateCounts` 只带这七键 ⇒ 用它索引 counts 不会撞 TS7053。 */
-export type CoverageApiState = Exclude<CoverageState, 'unjudged'>
-
-/** 统计条展示顺序:可用在前、未探测在末,中间按处置紧迫度排 */
-export const COVERAGE_STATE_ORDER: readonly CoverageApiState[] = [
-  'available',
+/** 视为失败 / 需要展示原始错误码的状态 */
+export const FAILURE_STATES: ReadonlySet<CoverageState> = new Set([
   'permission_denied',
   'need_user_token',
   'need_admin',
   'unsupported',
   'error',
-  'unprobed',
-]
+])
 
-/**
- * 单条 API 的有效状态:探测回填(override)优先于目录自带状态。
- * 探测结果不带 `probed_at` 契约位,回填时沿用目录侧的探测时刻,不伪造时间。
- */
+/** 取某条 API 当前展示状态:探测回填覆盖优先,其次目录自带状态 */
 export function resolveApiStatus(
   api: CoverageApi,
-  override: CoverageProbeItem | null,
+  override: CoverageProbeItem | null | undefined,
 ): CoverageApiStatus {
   if (!override) return api.status
   return {
@@ -83,6 +90,7 @@ export function resolveApiStatus(
     platform_code: override.platform_code,
     reason: override.reason,
     missing_scope: override.missing_scope,
-    probed_at: api.status.probed_at,
+    probed_at: null,
   }
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

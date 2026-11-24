@@ -223,7 +223,7 @@ export interface ToggleButtonItem {
 //  - 容器/行级 padding 与 gap:两端切分不同(RN 逐属性、小程序 CSS 简写串),强行配对会把一次
 //    定档变成多次裁决 —— 逐条理由写在共享 spec 的头注里,不得为读数好看硬凑。
 
-const CONTAINER_PADDING_HORIZONTAL = 12
+const CONTAINER_PADDING_HORIZONTAL = rnSpacing.md
 const CONTAINER_PADDING_VERTICAL = 4
 const ROW_GAP = 12
 const COLUMN_GAP = 8
@@ -243,7 +243,7 @@ const INPUT_MIN_HEIGHT = 44
 const INPUT_BORDER_RADIUS = rnRadius['2xl'] // 原 15,R1 吸附至 2xl(16)
 /** 输入框字号:与小程序默认变体的 `text-sm` 同档,取共享源。 */
 const INPUT_FONT_SIZE = BOTTOM_ACTION_BAR_TEXT_FONT_PX
-const INPUT_PADDING_HORIZONTAL = 12
+const INPUT_PADDING_HORIZONTAL = rnSpacing.md
 const INPUT_MAX_HEIGHT = 100 // 多行输入的自然生长上限(键盘避让下的可视高度),非布局档,两端不同形
 
 /** 语音按钮命中方块:取共享几何表档(小程序端本文件里没有这枚方块)。 */

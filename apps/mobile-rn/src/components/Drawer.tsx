@@ -88,9 +88,6 @@ import {
   Sun,
   Trash2,
   User,
-  // 2026-11-24:会话来源端徽章(只标异端 —— 本端 rn 不标,web / 小程序录入才标)
-  AppWindow,
-  Monitor,
 } from 'lucide-react-native'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import { favoriteConversation, unfavoriteConversation } from '@ihui/api-client'
@@ -128,12 +125,8 @@ export interface DrawerConversationItem {
   createdAt: number // timestamp,用于日期分组
   /** 收藏标记(列表 API favorite 字段;Drawer 内乐观覆盖,2026-09-05 立) */
   favorited?: boolean
-  /**
-   * 录入端(2026-11-24 会话统一入库):'web' / 'rn' / 'miniapp',由后端
-   * `chat_conversations.source` 回吐。抽屉只标**异端**(本端是 rn,故不标 rn),
-   * 与 web 侧栏同一口径 —— 让「这条从哪个端操作来的」一眼可分,又不给纯本端列表添噪声。
-   */
-  source?: string
+  /** 会话来源(列表 API source;社区/客服/普通会话共用 Drawer 时用于分组) */
+  source?: string | null
 }
 
 export interface DrawerProps {
@@ -384,6 +377,9 @@ function SwipeableConversationItem({
               color={tokens.surface.light}
               fill={item.favorited ? tokens.surface.light : 'transparent'}
             />
+            <Text className="mt-1" style={styles.swipeBtnText}>
+              {item.favorited ? t('drawer.collected') : t('drawer.collect')}
+            </Text>
           </Pressable>
         </View>
         <View className="items-center justify-center" style={styles.swipeDeleteBtn}>
@@ -391,10 +387,12 @@ function SwipeableConversationItem({
             className="items-center justify-center active:opacity-60"
             style={styles.swipeBtn}
             onPress={() => onDelete(item.id)}
-            accessibilityRole="button"
             accessibilityLabel={`${t('drawer.delete')} ${item.title}`}
           >
             <Trash2 size={rnGeometry.glyphMd} color={tokens.surface.light} />
+            <Text className="mt-1" style={styles.swipeBtnText}>
+              {t('drawer.delete')}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -413,40 +411,6 @@ function SwipeableConversationItem({
           >
             {item.title}
           </Text>
-          {/* 2026-11-24:来源端徽章 —— 与 web 侧栏同一口径,本端(rn)录入不标,
-              只标 web / 小程序录入的会话,零噪声又能分清「从哪个端操作来的」 */}
-          {item.source === 'web' && (
-            <View
-              className="ml-2 flex-row items-center"
-              style={{
-                backgroundColor: tokens.surface.muted,
-                borderRadius: rnRadius.sm,
-                paddingHorizontal: rnSpacing.xs,
-                gap: rnSpacing.xs / 2,
-              }}
-            >
-              <Monitor size={rnGeometry.glyphSm} color={tokens.text.secondary} />
-              <Text style={{ color: tokens.text.secondary, fontSize: rnGeometry.textCaption }}>
-                {t('sourceWeb')}
-              </Text>
-            </View>
-          )}
-          {item.source === 'miniapp' && (
-            <View
-              className="ml-2 flex-row items-center"
-              style={{
-                backgroundColor: tokens.surface.muted,
-                borderRadius: rnRadius.sm,
-                paddingHorizontal: rnSpacing.xs,
-                gap: rnSpacing.xs / 2,
-              }}
-            >
-              <AppWindow size={rnGeometry.glyphSm} color={tokens.text.secondary} />
-              <Text style={{ color: tokens.text.secondary, fontSize: rnGeometry.textCaption }}>
-                {t('sourceMiniApp')}
-              </Text>
-            </View>
-          )}
         </Pressable>
       </Animated.View>
     </View>
@@ -1198,7 +1162,7 @@ const styles = StyleSheet.create({
   },
   // 左滑露出的收藏/删除滑动按钮(纯静态,提取为模块级避免每次渲染重建内联对象):
   // swipeRow=露出的总宽度容器,swipeFavoriteBtn/swipeDeleteBtn=两块实底按钮,
-  // swipeBtn=按钮内 Pressable 撑满;2026-11-23 用户定档:按钮只留图标,文字标签删除。
+  // swipeBtn=按钮内 Pressable 撑满,swipeBtnText=按钮文字(白字+小号 caption)。
   swipeRow: {
     width: SWIPE_WIDTH,
   },
@@ -1213,6 +1177,10 @@ const styles = StyleSheet.create({
   swipeBtn: {
     width: '100%' as const,
     height: '100%',
+  },
+  swipeBtnText: {
+    color: tokens.surface.light,
+    fontSize: rnGeometry.textCaption,
   },
   // 扫一扫快捷区与上方列表的分隔线(2026-10-27 立)
   scanDivider: {

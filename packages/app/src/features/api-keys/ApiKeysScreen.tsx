@@ -399,14 +399,14 @@ export function ApiKeysScreen({
                     <Text style={styles.link}>{t('apiKeys.rotate')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={styles.iconBtn}
                     onPress={() => void askDelete(key)}
                     disabled={deletingId === key.id}
                     activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('apiKeys.delete')}
                   >
-                    <Trash2 size={18} color={tk.danger.deepText} />
+                    <View style={styles.trashRow}>
+                      <Trash2 size={13} color={tk.danger.deepText} />
+                      <Text style={styles.dangerLink}>{t('apiKeys.delete')}</Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
                 {usageOf === key.id ? (
@@ -456,8 +456,10 @@ function createStyles(tk: AppThemeTokens) {
     headerTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     subtitle: { fontSize: rnType.bodySm.size, color: tk.text.secondary, marginTop: -rnSpacing.sm },
     card: {
-      padding: rnSpacing.md,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
       gap: rnSpacing.sm,
     },
@@ -486,7 +488,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.text.secondary,
       backgroundColor: tk.surface.muted,
-      paddingHorizontal: 5,
+      paddingHorizontal: rnSpacing.xs,
       paddingVertical: 1,
       borderRadius: rnRadius.md,
       overflow: 'hidden',
@@ -568,7 +570,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.badge.size,
       color: tk.text.secondary,
       backgroundColor: tk.surface.muted,
-      paddingHorizontal: 5,
+      paddingHorizontal: rnSpacing.xs,
       paddingVertical: 1,
       borderRadius: rnRadius.md,
       overflow: 'hidden',
@@ -581,15 +583,15 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing['2xs'],
     },
     link: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
-    /** 纯图标按钮:40×40 固定命中盒(与全仓纯图标按钮同档) */
-    iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+    trashRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
+    dangerLink: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.danger.deepText },
     usageBox: {
       marginTop: rnSpacing.xs,
       padding: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.card,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tk.border.light,
       gap: rnSpacing.xs,
     },
     usageTitle: {

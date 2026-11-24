@@ -417,7 +417,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     modelName: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     typeBadge: {
-      paddingHorizontal: 7,
+      paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: 3,
       borderRadius: rnRadius.md,
       marginLeft: rnSpacing.sm,

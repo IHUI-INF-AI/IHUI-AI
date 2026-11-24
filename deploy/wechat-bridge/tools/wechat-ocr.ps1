@@ -5,17 +5,22 @@
 #
 # 微信 4.x 截图 + Windows OCR 只读探测。
 # 只做三件事：找到 Weixin 主窗口、截图、调用 Windows.Media.Ocr 识别中文。
-# 不注入、不读内存、不改微信文件；窗口隐藏时 -AutoShow 会从托盘找回并还原，否则报 ok=false。
+# 不注入、不读内存、不改微信文件；普通 read 默认后台 PrintWindow，不置顶、不抢焦点。
+# 隐藏/最小化时 -Background 先放到 z-order 底部显示再截图，随后恢复隐藏；-AutoShow 才还原窗口。
+# 朋友圈 -Background 复用已打开窗口；对 MMUIRenderSubWindowHW 子窗发滚轮可后台翻页。
+# 前台模式用 UI Automation 找「发现」页签再点朋友圈；后台模式不点导航、不抢焦点。
 
 param(
-  [ValidateSet('status', 'read', 'search', 'click', 'switch', 'ocr', 'windows')]
+  [ValidateSet('status', 'read', 'search', 'click', 'switch', 'ocr', 'windows', 'moments')]
   [string]$Mode = 'read',
   [string]$ImagePath = '',
   [string]$JsonPath = '',
   [string]$Title = '',
   [int]$X = 0,
   [int]$Y = 0,
-  [switch]$AutoShow
+  [int]$MaxPages = 3,
+  [switch]$AutoShow,
+  [switch]$Background
 )
 
 $ErrorActionPreference = 'Stop'
@@ -51,6 +56,8 @@ public class WeChatOcrWin {
   [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
   [DllImport("user32.dll")] static extern void mouse_event(uint flags, int dx, int dy, uint data, UIntPtr extra);
   [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+  [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr parent, EnumWindowsProc cb, IntPtr lParam);
+  [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
   [StructLayout(LayoutKind.Sequential)]
   public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
@@ -90,6 +97,47 @@ public class WeChatOcrWin {
   public static bool IsVisible(IntPtr h) { return IsWindowVisible(h); }
   public static bool IsMinimized(IntPtr h) { return IsIconic(h); }
   public static bool Restore(IntPtr h) { return ShowWindow(h, 9); }
+
+  // 后台截图状态：0=隐藏，1=已显示，2=最小化。截图前只把隐藏/最小化窗口放到 z-order 底部再显示，
+  // 不激活、不置顶、不抢焦点；用户当前窗口仍在最前。
+  public static int BackgroundState(IntPtr h) {
+    if (IsIconic(h)) return 2;
+    if (!IsWindowVisible(h)) return 0;
+    return 1;
+  }
+  public static void ShowBehind(IntPtr h) {
+    ShowWindow(h, 4);
+    SetWindowPos(h, new IntPtr(1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);
+    System.Threading.Thread.Sleep(500);
+  }
+  public static void FinishBackground(IntPtr h, int state) {
+    if (state == 0) ShowWindow(h, 0);
+    else if (state == 2) ShowWindow(h, 6);
+  }
+
+  // 微信 4.x 朋友圈可能是独立窗口，标题为「朋友圈」；主窗口内嵌时找不到就退回主窗口。
+  public static IntPtr FindByTitle(string wanted) {
+    IntPtr best = IntPtr.Zero;
+    int bestArea = 0;
+    EnumWindows(delegate(IntPtr h, IntPtr l) {
+      StringBuilder cls = new StringBuilder(256);
+      GetClassName(h, cls, 256);
+      string c = cls.ToString();
+      if (!c.StartsWith("Qt51514QWindowIcon") && c != "mmui::MainWindow") return true;
+      StringBuilder title = new StringBuilder(256);
+      GetWindowText(h, title, 256);
+      if (title.ToString() != wanted) return true;
+      RECT r;
+      if (!GetWindowRect(h, out r)) return true;
+      int w = r.Right - r.Left;
+      int hgt = r.Bottom - r.Top;
+      if (w < 400 || hgt < 300) return true;
+      int area = w * hgt;
+      if (area > bestArea) { best = h; bestArea = area; }
+      return true;
+    }, IntPtr.Zero);
+    return best;
+  }
 
   // 诊断用：列出所有标题「微信」的 Qt 窗口及矩形/可见/最小化状态，排查多候选窗选错。
   public static string Candidates() {
@@ -215,6 +263,35 @@ public class WeChatOcrWin {
     System.Threading.Thread.Sleep(120);
   }
 
+  // 微信 4.2 的 Qt 内容实际画在 MMUIRenderSubWindowHW 子窗里；直接对它 SendMessage
+  // WM_MOUSEWHEEL 可以在后台滚动朋友圈，不需要 SetCursorPos/Focus/前台，也不会抢焦点。
+  public static IntPtr FindRenderChild(IntPtr parent) {
+    IntPtr best = IntPtr.Zero;
+    int bestArea = 0;
+    EnumChildWindows(parent, delegate(IntPtr h, IntPtr l) {
+      StringBuilder cls = new StringBuilder(256);
+      GetClassName(h, cls, 256);
+      if (cls.ToString() != "MMUIRenderSubWindowHW") return true;
+      RECT r;
+      if (!GetWindowRect(h, out r)) return true;
+      int area = (r.Right - r.Left) * (r.Bottom - r.Top);
+      if (area > bestArea) { best = h; bestArea = area; }
+      return true;
+    }, IntPtr.Zero);
+    return best;
+  }
+
+  public static bool BackgroundWheel(IntPtr h, int screenX, int screenY, int delta) {
+    if (h == IntPtr.Zero) return false;
+    IntPtr target = FindRenderChild(h);
+    if (target == IntPtr.Zero) target = h;
+    long wp = ((long)(ushort)delta) << 16;
+    long lp = ((long)(ushort)screenY << 16) | (ushort)screenX;
+    SendMessage(target, 0x020A, (IntPtr)wp, (IntPtr)lp);
+    System.Threading.Thread.Sleep(120);
+    return true;
+  }
+
   public static void Paste() {
     keybd_event(0x11, 0, 0, UIntPtr.Zero);
     keybd_event(0x56, 0, 0, UIntPtr.Zero);
@@ -245,6 +322,38 @@ public class WeChatOcrWin {
     keybd_event(0x1B, 0, 0, UIntPtr.Zero);
     keybd_event(0x1B, 0, 2, UIntPtr.Zero);
   }
+
+  // 群聊发送人昵称比正文小、颜色更浅。OCR 只给文字框，这里在框内采样，
+  // 返回“背景中位亮度 + 文字相对背景的对比度”。驱动用对比度区分昵称/正文。
+  public static double[] InkStats(Bitmap bmp, int x, int y, int w, int h) {
+    if (bmp == null) return new double[] { -1, -1 };
+    int left = Math.Max(0, x);
+    int top = Math.Max(0, y);
+    int right = Math.Min(bmp.Width, x + w);
+    int bottom = Math.Min(bmp.Height, y + h);
+    if (right - left < 2 || bottom - top < 2) return new double[] { -1, -1 };
+    int step = Math.Max(1, Math.Min(2, Math.Min(w, h) / 8));
+    int[] luma = new int[((right - left + step - 1) / step) * ((bottom - top + step - 1) / step)];
+    int n = 0;
+    for (int yy = top; yy < bottom; yy += step) {
+      for (int xx = left; xx < right; xx += step) {
+        Color c = bmp.GetPixel(xx, yy);
+        luma[n++] = (int)(0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B);
+      }
+    }
+    if (n < 4) return new double[] { -1, -1 };
+    int[] sample = new int[n];
+    Array.Copy(luma, sample, n);
+    Array.Sort(sample);
+    double median = sample[sample.Length / 2];
+    int[] deviations = new int[n];
+    for (int i = 0; i < n; i++) deviations[i] = (int)Math.Abs(sample[i] - median);
+    Array.Sort(deviations);
+    int take = Math.Max(1, n / 5);
+    double sum = 0;
+    for (int i = deviations.Length - take; i < deviations.Length; i++) sum += deviations[i];
+    return new double[] { median, sum / take };
+  }
 }
 '@
 
@@ -264,6 +373,10 @@ function Get-WindowInfo {
     return [ordered]@{ ok = $false; visible = $false; hwnd = 0; title = ''; reason = '未找到微信主窗口；请先登录并打开微信主窗口（托盘隐藏需手工点开）' }
   }
   if (-not [WeChatOcrWin]::IsVisible($h) -or [WeChatOcrWin]::IsMinimized($h)) {
+    if ($Background) {
+      # 后台模式只允许 PrintWindow 截当前窗口，不还原、不置顶、不抢焦点。
+      return [ordered]@{ ok = $true; visible = $false; hwnd = $h.ToInt64(); title = '微信'; reason = $null }
+    }
     if ($AutoShow) {
       [void][WeChatOcrWin]::Restore($h)
       Start-Sleep -Milliseconds 800
@@ -276,8 +389,33 @@ function Get-WindowInfo {
   return [ordered]@{ ok = $true; visible = $true; hwnd = $h.ToInt64(); title = '微信'; reason = $null }
 }
 
-function Write-Payload($payload) {
-  $json = $payload | ConvertTo-Json -Depth 8 -Compress
+# 4.2 左侧导航是纯图标，OCR 识别不到「朋友圈」文字；用 UI Automation 找「发现」页签，
+# 再在发现页里找朋友圈入口。仅在显式前台模式使用，后台轮询不调用。
+function Find-UiaButton($windowHandle, $name) {
+  try {
+    Add-Type -AssemblyName UIAutomationClient -ErrorAction Stop
+    Add-Type -AssemblyName UIAutomationTypes -ErrorAction Stop
+    $root = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$windowHandle)
+    $byName = New-Object System.Windows.Automation.PropertyCondition(
+      [System.Windows.Automation.AutomationElement]::NameProperty,
+      $name
+    )
+    $byButton = New-Object System.Windows.Automation.PropertyCondition(
+      [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+      [System.Windows.Automation.ControlType]::Button
+    )
+    $and = New-Object System.Windows.Automation.AndCondition($byName, $byButton)
+    $element = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $and)
+    if (-not $element) { return $null }
+    $rect = $element.Current.BoundingRectangle
+    if ($rect.Width -le 0 -or $rect.Height -le 0) { return $null }
+    return [ordered]@{ x = $rect.X; y = $rect.Y; width = $rect.Width; height = $rect.Height }
+  } catch {
+    return $null
+  }
+}
+
+function Write-Payload($payload) {  $json = $payload | ConvertTo-Json -Depth 8 -Compress
   if ($JsonPath) {
     $parent = Split-Path -Parent $JsonPath
     if ($parent -and -not (Test-Path -LiteralPath $parent)) {
@@ -313,6 +451,8 @@ function Read-OcrLines($path) {  Add-Type -AssemblyName System.Runtime.WindowsRu
   if (-not $engine) { throw '系统未安装 zh-cn OCR 语言包' }
   $result = Await ($engine.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
   $lines = @()
+  $sampleBitmap = $null
+  try { $sampleBitmap = [System.Drawing.Bitmap]::new($path) } catch { $sampleBitmap = $null }
   foreach ($line in $result.Lines) {
     $words = @($line.Words)
     if ($words.Count -eq 0) { continue }
@@ -331,14 +471,31 @@ function Read-OcrLines($path) {  Add-Type -AssemblyName System.Runtime.WindowsRu
     }
     $text = ($parts -join '').Trim()
     if (-not $text) { continue }
+    $contrast = -1.0
+    if ($sampleBitmap) {
+      try {
+        $stats = [WeChatOcrWin]::InkStats(
+          $sampleBitmap,
+          [int][Math]::Floor($minX),
+          [int][Math]::Floor($minY),
+          [int][Math]::Ceiling($maxR - $minX),
+          [int][Math]::Ceiling($maxB - $minY)
+        )
+        if ($stats[1] -gt 0) { $contrast = [Math]::Round($stats[1], 1) }
+      } catch {
+        $contrast = -1.0
+      }
+    }
     $lines += [ordered]@{
       text = $text
       x = [Math]::Round($minX, 1)
       y = [Math]::Round($minY, 1)
       w = [Math]::Round($maxR - $minX, 1)
       h = [Math]::Round($maxB - $minY, 1)
+      contrast = $contrast
     }
   }
+  if ($sampleBitmap) { $sampleBitmap.Dispose() }
   return $lines
 }
 
@@ -348,6 +505,27 @@ function Find-ListLine($lines, $key, $ascii, $w, $hgt) {
     $_.x -lt ($w * 0.32) -and $_.y -gt ($hgt * 0.08) -and
       ($norm.Contains($key) -or ($ascii -and $norm.Contains($ascii)))
   } | Sort-Object y | Select-Object -First 1
+}
+
+# 微信 4.2 的朋友圈不是独立顶层窗口，而是主窗内嵌页：左栏仍显示「发现」导航，
+# 右侧才是动态流。不能只靠 FindByTitle('朋友圈') 判断；后台模式复用主窗时，
+# 用「左栏有朋友圈 + 右侧有正文/全文」确认当前确实停在内嵌朋友圈页。
+function Test-EmbeddedMomentsPage($lines, $w, $hgt) {
+  if (-not $lines -or $lines.Count -eq 0 -or $w -le 0 -or $hgt -le 0) { return $false }
+  # 左侧「朋友圈」有时被红点/未读角标干扰，OCR 会读成「DO号」；此时用「发现」
+  # 加右侧动态流作为等价证据，避免把已经打开的内嵌朋友圈误判成未打开。
+  $nav = $lines | Where-Object {
+    $_.text -match '^(朋友圈|发现)$' -and $_.x -lt ($w * 0.28) -and $_.y -gt ($hgt * 0.05)
+  } | Select-Object -First 1
+  if (-not $nav) { return $false }
+  $feed = @($lines | Where-Object {
+    $_.x -gt ($w * 0.35) -and $_.y -gt ($hgt * 0.1) -and
+      (($_.text -replace '\s', '').Length -ge 2)
+  })
+  if ($feed.Count -ge 2) { return $true }
+  return [bool]($lines | Where-Object {
+    $_.text -match '^全文$' -and $_.x -gt ($w * 0.35)
+  } | Select-Object -First 1)
 }
 
 # 深色主题 + 小字号下 Windows OCR 会漏掉会话标题（实测 1240×1120 原图只识别到正文，
@@ -397,6 +575,221 @@ if ($Mode -eq 'windows') {
 }
 
 $info = Get-WindowInfo
+
+if ($Mode -eq 'moments') {
+  if (-not $info.ok) { Write-Payload $info; exit 2 }
+  $h = [IntPtr]$info.hwnd
+  $bgState = 0
+  $mhState = 0
+  if ($Background) {
+    $bgState = [WeChatOcrWin]::BackgroundState($h)
+    if ($bgState -ne 1) { [WeChatOcrWin]::ShowBehind($h) }
+    $rect = [WeChatOcrWin]::Rect($h)
+  } else {
+    [void][WeChatOcrWin]::Focus($h, $true)
+    [void][WeChatOcrWin]::Fit($h)
+    $rect = [WeChatOcrWin]::Rect($h)
+  }
+  $left = $rect[0]
+  $top = $rect[1]
+  $width = $rect[2]
+  $height = $rect[3]
+  if ($width -lt 600 -or $height -lt 500) {
+    if (-not $Background) { [WeChatOcrWin]::Untop($h) }
+    if ($Background) { [WeChatOcrWin]::FinishBackground($h, $bgState) }
+    Write-Payload ([ordered]@{ ok = $false; reason = "微信窗口尺寸异常 ${width}x${height}" })
+    exit 5
+  }
+  $mh = [WeChatOcrWin]::FindByTitle('朋友圈')
+  $embedded = $false
+  if ($mh -ne [IntPtr]::Zero) {
+    # 用户已经手动打开朋友圈时直接用，不再要求识别左侧导航。
+    if ($Background) {
+      $mhState = [WeChatOcrWin]::BackgroundState($mh)
+      if ($mhState -ne 1) { [WeChatOcrWin]::ShowBehind($mh) }
+    } else {
+      [void][WeChatOcrWin]::Focus($mh, $true)
+    }
+    Start-Sleep -Milliseconds 500
+  } elseif ($Background) {
+    # 后台模式不点导航、不移动鼠标：先看主窗是不是已经停在内嵌朋友圈页。
+    # 4.2 的朋友圈嵌在主窗里，没有独立「朋友圈」窗口，不能直接判失败。
+    $mainPath = Join-Path $env:TEMP 'wechat-ocr-moments-main-bg.png'
+    $mainLines = @()
+    if ([WeChatOcrWin]::Capture($h, $mainPath)) {
+      $mainLines = Read-OcrLines $mainPath
+      if ($mainLines.Count -eq 0) { $mainLines = Read-OcrLinesScaled $mainPath 2 }
+    }
+    if (Test-EmbeddedMomentsPage $mainLines $width $height) {
+      $mh = $h
+      $embedded = $true
+    } else {
+      [WeChatOcrWin]::FinishBackground($h, $bgState)
+      Write-Payload ([ordered]@{
+        ok = $false
+        reason = '朋友圈未打开；后台模式不会自动点左侧导航（会移动鼠标/抢焦点）。请先在微信里打开朋友圈，再后台遍历；需要自动导航请去掉 -Background。'
+        width = $width
+        height = $height
+        background = $true
+      })
+      exit 4
+    }
+  } else {
+    $mainPath = Join-Path $env:TEMP 'wechat-ocr-moments-main.png'
+    if (-not [WeChatOcrWin]::Capture($h, $mainPath)) {
+      [WeChatOcrWin]::Untop($h)
+      Write-Payload ([ordered]@{ ok = $false; reason = '朋友圈入口截图失败' })
+      exit 3
+    }
+    $mainLines = Read-OcrLines $mainPath
+    $navLine = $mainLines | Where-Object {
+      $_.text -match '^朋友圈$' -and $_.x -lt ($width * 0.2) -and $_.y -gt ($height * 0.1)
+    } | Select-Object -First 1
+    if (-not $navLine) {
+      $mainLines = Read-OcrLinesScaled $mainPath 2
+      $navLine = $mainLines | Where-Object {
+        $_.text -match '^朋友圈$' -and $_.x -lt ($width * 0.2) -and $_.y -gt ($height * 0.1)
+      } | Select-Object -First 1
+    }
+    if (-not $navLine) {
+      # 4.2 左侧导航只有图标，没有「朋友圈」文字；先点 UI Automation 的「发现」页签。
+      $discover = Find-UiaButton $h '发现'
+      if (-not $discover) {
+        [WeChatOcrWin]::Untop($h)
+        Write-Payload ([ordered]@{
+          ok = $false
+          reason = '没有识别到左侧「发现」页签（UIA 未返回按钮）；请确认微信主窗口已展开'
+          width = $width
+          height = $height
+          image = $mainPath
+        })
+        exit 4
+      }
+      [void][WeChatOcrWin]::Click(
+        [int][Math]::Round($discover.x + $discover.width / 2),
+        [int][Math]::Round($discover.y + $discover.height / 2)
+      )
+      Start-Sleep -Milliseconds 1800
+      if (-not [WeChatOcrWin]::Capture($h, $mainPath)) {
+        [WeChatOcrWin]::Untop($h)
+        Write-Payload ([ordered]@{ ok = $false; reason = '发现页截图失败' })
+        exit 3
+      }
+      $mainLines = Read-OcrLines $mainPath
+      $navLine = $mainLines | Where-Object { $_.text -match '朋友圈' } | Select-Object -First 1
+      if (-not $navLine) {
+        $mainLines = Read-OcrLinesScaled $mainPath 2
+        $navLine = $mainLines | Where-Object { $_.text -match '朋友圈' } | Select-Object -First 1
+      }
+    }
+    if (-not $navLine) {
+      [WeChatOcrWin]::Untop($h)
+      Write-Payload ([ordered]@{
+        ok = $false
+        reason = '已点开「发现」页，但没有识别到「朋友圈」入口；请确认微信主窗口已展开'
+        width = $width
+        height = $height
+        image = $mainPath
+      })
+      exit 4
+    }
+    $hitX = $left + [int][Math]::Round($navLine.x + $navLine.w / 2)
+    $hitY = $top + [int][Math]::Round($navLine.y + $navLine.h / 2)
+    [void][WeChatOcrWin]::Click($hitX, $hitY)
+    Start-Sleep -Milliseconds 1800
+    $mh = [WeChatOcrWin]::FindByTitle('朋友圈')
+    if ($mh -eq [IntPtr]::Zero) {
+      $mh = $h
+      $embedded = $true
+    } else {
+      [void][WeChatOcrWin]::Focus($mh, $true)
+      Start-Sleep -Milliseconds 500
+    }
+  }
+  # 后台也能真正翻页：微信 4.2 的 Qt 内容画在 MMUIRenderSubWindowHW 子窗里，
+  # 对子窗 SendMessage WM_MOUSEWHEEL 不需要前台、不移动鼠标、不抢焦点。
+  # 每一页 OCR 后比对文本签名，滚不动就停，避免把同一页重复算成多页。
+  $pageCount = [Math]::Min([Math]::Max($MaxPages, 1), 30)
+  $pages = @()
+  $lastSignature = $null
+  $scrollStalled = $false
+  for ($page = 1; $page -le $pageCount; $page++) {
+    $pagePath = if ($ImagePath) {
+      [System.IO.Path]::Combine(
+        [System.IO.Path]::GetDirectoryName($ImagePath),
+        ("{0}-page{1}.png" -f [System.IO.Path]::GetFileNameWithoutExtension($ImagePath), $page)
+      )
+    } else {
+      Join-Path $env:TEMP "wechat-ocr-moments-page$page.png"
+    }
+    if (-not [WeChatOcrWin]::Capture($mh, $pagePath)) { break }
+    $pageRect = [WeChatOcrWin]::Rect($mh)
+    $pageWidth = $pageRect[2]
+    $pageHeight = $pageRect[3]
+    $lines = Read-OcrLines $pagePath
+    if ($lines.Count -eq 0) {
+      $lines = Read-OcrLinesScaled $pagePath 2
+    }
+    $signature = (@($lines | ForEach-Object { $_.text }) -join "`n")
+    if ($page -gt 1 -and $signature -eq $lastSignature) {
+      $scrollStalled = $true
+      break
+    }
+    $pages += [ordered]@{
+      page = $page
+      image = $pagePath
+      width = $pageWidth
+      height = $pageHeight
+      lines = $lines
+    }
+    $lastSignature = $signature
+    if ($page -lt $pageCount) {
+      [void][WeChatOcrWin]::BackgroundWheel(
+        $mh,
+        ($pageRect[0] + [int][Math]::Round($pageWidth * 0.5)),
+        ($pageRect[1] + [int][Math]::Round($pageHeight * 0.55)),
+        -600
+      )
+      Start-Sleep -Milliseconds 1200
+    }
+  }
+  if ($Background) {
+    if (-not $embedded -and $mh -ne $h -and $mh -ne [IntPtr]::Zero) {
+      [WeChatOcrWin]::FinishBackground($mh, $mhState)
+    }
+    [WeChatOcrWin]::FinishBackground($h, $bgState)
+  } else {
+    if (-not $embedded) { [WeChatOcrWin]::Esc() }
+    [WeChatOcrWin]::Untop($h)
+  }
+  if ($pages.Count -eq 0) {
+    Write-Payload ([ordered]@{ ok = $false; reason = '朋友圈窗口截图/OCR 没有产出任何页面' })
+    exit 6
+  }
+  $reason = if ($scrollStalled) {
+    '后台滚轮没有改变页面，可能已到朋友圈底部或当前版本不响应'
+  } elseif ($Background) {
+    '后台已抓取多页；图片、点赞、评论可能缺失'
+  } elseif ($pages.Count -lt $pageCount) {
+    '前台遍历提前结束'
+  } else {
+    $null
+  }
+  Write-Payload ([ordered]@{
+    ok = $true
+    title = '朋友圈'
+    method = 'sidebar'
+    embedded = $embedded
+    background = [bool]$Background
+    partial = [bool]($scrollStalled -or ($pages.Count -lt $pageCount))
+    reason = $reason
+    width = $width
+    height = $height
+    maxPages = $pageCount
+    pages = $pages
+  })
+  exit 0
+}
 
 if ($Mode -eq 'click') {
   if (-not $info.ok) { Write-Payload $info; exit 2 }
@@ -650,7 +1043,7 @@ if (-not $info.ok) {
 
 $h = [IntPtr]$info.hwnd
 $pre = [WeChatOcrWin]::Rect($h)
-if ($pre[2] -gt 1600) { [void][WeChatOcrWin]::Fit($h) }
+if (-not $Background -and $pre[2] -gt 1600) { [void][WeChatOcrWin]::Fit($h) }
 $rectPath = $ImagePath
 if (-not $rectPath) {
   $rectPath = Join-Path $env:TEMP 'wechat-ocr-frame.png'
@@ -659,12 +1052,21 @@ $dir = Split-Path -Parent $rectPath
 if ($dir -and -not (Test-Path -LiteralPath $dir)) {
   New-Item -ItemType Directory -Path $dir -Force | Out-Null
 }
-[WeChatOcrWin]::ShowTop($h)
-if (-not [WeChatOcrWin]::Capture($h, $rectPath)) {
-  Write-Payload ([ordered]@{ ok = $false; visible = $true; hwnd = $h.ToInt64(); title = '微信'; reason = '截图失败' })
+if ($Background) {
+  # 后台模式不调用 ShowTop/Untop；隐藏/最小化时只放到底部显示，截图后恢复隐藏状态。
+  $bgState = [WeChatOcrWin]::BackgroundState($h)
+  if ($bgState -ne 1) { [WeChatOcrWin]::ShowBehind($h) }
+  $captured = [WeChatOcrWin]::Capture($h, $rectPath)
+  [WeChatOcrWin]::FinishBackground($h, $bgState)
+} else {
+  [WeChatOcrWin]::ShowTop($h)
+  $captured = [WeChatOcrWin]::Capture($h, $rectPath)
+  [WeChatOcrWin]::Untop($h)
+}
+if (-not $captured) {
+  Write-Payload ([ordered]@{ ok = $false; visible = $false; hwnd = $h.ToInt64(); title = '微信'; reason = '后台截图失败；窗口可能被最小化或 DWM 未提供可读表面' })
   exit 3
 }
-[WeChatOcrWin]::Untop($h)
 
 Add-Type -AssemblyName System.Drawing
 $bmp = [System.Drawing.Image]::FromFile($rectPath)
@@ -679,10 +1081,17 @@ $headerSeen = $lines | Where-Object {
   $_.y -lt ($height * 0.09) -and $_.x -gt ($width * 0.06) -and $_.x -lt ($width * 0.55) -and
   $_.text -notmatch '搜索|凶'
 } | Select-Object -First 1
+# 4.x 群昵称常常只有 17px 高、颜色又淡，正常 OCR 会整行漏掉；群标题命中人数标记时
+# 额外跑一遍 2 倍放大 OCR，驱动只在群聊里用它补发送人，不把放大后的列表行当正文。
+$groupHeaderSeen = $lines | Where-Object {
+  $_.y -lt ($height * 0.12) -and $_.x -gt ($width * 0.06) -and $_.x -lt ($width * 0.55) -and
+  $_.text -match '[（(]\s*\d{1,4}\s*[）)]'
+} | Select-Object -First 1
+$groupScaledLines = if ($groupHeaderSeen) { @(Read-OcrLinesScaled $rectPath 2) } else { @() }
 if (-not $headerSeen) {
   $payload = [ordered]@{
     ok = $true
-    visible = $true
+    visible = [bool]$info.visible
     hwnd = $h.ToInt64()
     title = '微信'
     left = $rect[0]
@@ -698,7 +1107,7 @@ if (-not $headerSeen) {
 }
 Write-Payload ([ordered]@{
   ok = $true
-  visible = $true
+  visible = [bool]$info.visible
   hwnd = $h.ToInt64()
   title = '微信'
   left = $rect[0]
@@ -707,5 +1116,6 @@ Write-Payload ([ordered]@{
   height = $height
   image = $rectPath
   lines = $lines
+  linesScaled = $groupScaledLines
 })
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

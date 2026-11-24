@@ -16,7 +16,8 @@ import { formatDigestText, isDigestDue, localParts } from '../wechat-hub/digest'
 import { matchAutoReply } from '../wechat-hub/automation'
 import { normalizeBridgePayload } from '../wechat-hub/bridge-adapter'
 import { selectBroadcastTargets } from '../wechat-hub/broadcast'
-import { normalizeBridgeContacts } from '../wechat-hub/operations'
+import { normalizeBridgeContacts, normalizeBridgeGroupMembers } from '../wechat-hub/operations'
+import { normalizeImportRow } from '../wechat-hub/import'
 
 describe('matchAutoReply', () => {
   const base = { matchType: 'contains' as const, keywords: ['报价', '发票'], scope: 'all' as const }
@@ -60,6 +61,27 @@ describe('matchAutoReply', () => {
     ).toBe(false)
     expect(
       matchAutoReply({ ...base, scope: 'group' }, { content: '报价', conversationKind: 'group' }),
+    ).toBe(true)
+  })
+
+  it('agent 模式：空关键词接管全部，有关键词只在这些词出现时触发', () => {
+    expect(
+      matchAutoReply(
+        { matchType: 'agent', keywords: [], scope: 'all' },
+        { content: '在吗', conversationKind: 'private' },
+      ),
+    ).toBe(true)
+    expect(
+      matchAutoReply(
+        { matchType: 'agent', keywords: ['报价'], scope: 'all' },
+        { content: '在吗', conversationKind: 'private' },
+      ),
+    ).toBe(false)
+    expect(
+      matchAutoReply(
+        { matchType: 'agent', keywords: ['报价'], scope: 'all' },
+        { content: '发下最新报价', conversationKind: 'private' },
+      ),
     ).toBe(true)
   })
 })
@@ -172,6 +194,79 @@ describe('normalizeBridgeContacts', () => {
 
   it('没有可用 id 的条目丢弃，不造空联系人', () => {
     expect(normalizeBridgeContacts({ list: [{ nickname: '无 id' }, null, 'wxid-x'] })).toEqual([])
+  })
+})
+
+describe('normalizeBridgeGroupMembers', () => {
+  it('吃下 members/list 与 wxid/memberId/id 别名，并按 wxid 去重', () => {
+    expect(
+      normalizeBridgeGroupMembers({
+        members: [
+          { wxid: 'wxid-owner', nickname: '群主', role: 'owner' },
+          { memberId: 'wxid-2', name: '成员二' },
+          { id: 'wxid-3', displayName: '成员三', isAdmin: true },
+          { wxid: 'wxid-2', nickname: '成员二新' },
+        ],
+      }),
+    ).toEqual([
+      { memberId: 'wxid-owner', nickname: '群主', role: 'owner' },
+      { memberId: 'wxid-2', nickname: '成员二新', role: 'member' },
+      { memberId: 'wxid-3', nickname: '成员三', role: 'admin' },
+    ])
+  })
+
+  it('没有成员列表返回空，不造空成员', () => {
+    expect(normalizeBridgeGroupMembers({ data: { chatId: 'room-1' } })).toEqual([])
+  })
+})
+
+describe('normalizeImportRow', () => {
+  it('兼容秒级时间戳、群会话、出站方向和媒体类型', () => {
+    const result = normalizeImportRow(
+      {
+        platformChatId: 'room-1@chatroom',
+        platformMessageId: 'm-1',
+        conversationTitle: '客户群',
+        direction: 'outbound',
+        kind: 'image',
+        content: '[图片]',
+        sentAt: '1700000000',
+      },
+      0,
+    )
+    expect('value' in result).toBe(true)
+    if (!('value' in result)) throw new Error(result.error)
+    expect(result.value.conversationKind).toBe('group')
+    expect(result.value.direction).toBe('outbound')
+    expect(result.value.kind).toBe('image')
+    expect(result.value.sentAt.toISOString()).toBe('2023-11-14T22:13:20.000Z')
+  })
+
+  it('缺少 platformChatId 报错，不造空会话', () => {
+    const result = normalizeImportRow({ platformChatId: '', content: 'hi' }, 3)
+    expect('error' in result).toBe(true)
+    if ('error' in result) expect(result.error).toBe('缺少 platformChatId')
+  })
+
+  it('没有 platformMessageId 时生成稳定内容 id，重复导入不会翻倍', () => {
+    const a = normalizeImportRow(
+      { platformChatId: 'wxid-a', senderId: 'wxid-b', content: '你好', sentAt: 1_700_000_000 },
+      0,
+    )
+    const b = normalizeImportRow(
+      { platformChatId: 'wxid-a', senderId: 'wxid-b', content: '你好', sentAt: 1_700_000_000 },
+      1,
+    )
+    if (!('value' in a) || !('value' in b)) throw new Error('归一化失败')
+    expect(a.value.platformMessageId).toBe(b.value.platformMessageId)
+    expect(a.value.platformMessageId.startsWith('import:')).toBe(true)
+  })
+
+  it('没有 sentAt 时也生成稳定 id，重复导入不会翻倍', () => {
+    const a = normalizeImportRow({ platformChatId: 'wxid-a', content: '没时间字段' }, 0)
+    const b = normalizeImportRow({ platformChatId: 'wxid-a', content: '没时间字段' }, 1)
+    if (!('value' in a) || !('value' in b)) throw new Error('归一化失败')
+    expect(a.value.platformMessageId).toBe(b.value.platformMessageId)
   })
 })
 

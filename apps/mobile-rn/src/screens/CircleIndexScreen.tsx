@@ -31,7 +31,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Heart, Inbox, MessageCircle, Plus, X } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { getRnTokens, type RnThemeTokens, rnRadius, rnType } from '@ihui/design-tokens'
+import { getRnTokens, type RnThemeTokens, rnRadius, rnType, taroSpacing } from '@ihui/design-tokens'
 import { CategoryInlineBar } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
@@ -218,7 +218,6 @@ export function CircleIndexScreen() {
                     key={i}
                     onPress={() => setPreview({ urls: imgs, index: i })}
                     accessibilityRole="imagebutton"
-                    accessibilityLabel={t('chat.msg.imgA11y')}
                   >
                     <Image source={{ uri: img }} style={styles.img} />
                   </Tappable>
@@ -435,21 +434,21 @@ const createStyles = (tk: RnThemeTokens) =>
     },
     tabRow: {
       flexDirection: 'row',
-      paddingHorizontal: rpx(24),
+      paddingHorizontal: rpx(taroSpacing.md),
       paddingVertical: rpx(16),
       gap: rpx(16),
       backgroundColor: tk.surface.card,
     },
     topicScroll: {
       gap: rpx(16),
-      paddingHorizontal: rpx(24),
+      paddingHorizontal: rpx(taroSpacing.md),
       paddingVertical: rpx(20),
     },
     topicChip: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: rpx(6),
-      paddingHorizontal: rpx(24),
+      paddingHorizontal: rpx(taroSpacing.md),
       height: rpx(64),
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
@@ -470,7 +469,7 @@ const createStyles = (tk: RnThemeTokens) =>
     },
     userScroll: {
       gap: rpx(16),
-      paddingHorizontal: rpx(24),
+      paddingHorizontal: rpx(taroSpacing.md),
       paddingBottom: rpx(20),
     },
     userCard: {
@@ -501,7 +500,7 @@ const createStyles = (tk: RnThemeTokens) =>
     },
     userFollow: {
       marginTop: rpx(8),
-      paddingHorizontal: rpx(28),
+      paddingHorizontal: rpx(taroSpacing['md-loose']),
       paddingVertical: rpx(8),
       borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.cta,
@@ -613,7 +612,7 @@ const createStyles = (tk: RnThemeTokens) =>
       color: tk.text.primary,
     },
     emptyBtn: {
-      paddingHorizontal: rpx(40),
+      paddingHorizontal: rpx(taroSpacing.xl),
       paddingVertical: rpx(16),
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,

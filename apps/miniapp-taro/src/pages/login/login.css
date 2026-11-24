@@ -221,7 +221,7 @@
 
 .login-password-input {
   width: 100%;
-  padding-right: 80rpx;
+  padding-right: var(--spacing-4xl);
 }
 
 /* ===== 忘记密码 ===== */

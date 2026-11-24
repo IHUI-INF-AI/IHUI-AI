@@ -8,6 +8,7 @@
     "pnpm": ">=11.0.0"
   },
   "scripts": {
+    "repo:size": "node scripts/report-repo-size.mjs",
     "postinstall": "node scripts/fix-expo-metro-junction.mjs && node scripts/lib/patch-lint-staged-stdio.mjs --soft && node scripts/sync-mobile-app-json-version.mjs && node scripts/install-git-hooks.mjs --silent && node scripts/workspace-anchor.mjs --install --quiet",
     "dev": "turbo run dev",
     "predev": "node scripts/workspace-anchor.mjs --quiet",
@@ -132,6 +133,7 @@
     "check:nav-dead-links": "node scripts/check-nav-dead-links.mjs",
     "check:popover-trigger-data-state": "node scripts/check-popover-trigger-data-state.mjs",
     "check:rn-parity": "node scripts/check-mobile-rn-style-parity.mjs",
+    "check:horizontal-gutter": "node scripts/check-horizontal-gutter.mjs",
     "check:cross-end-tokens": "node scripts/check-cross-end-tokens.mjs",
     "check:shadow-single-source": "node scripts/check-shadow-single-source.mjs",
     "tokens:css": "node scripts/sync-css-tokens.mjs",
@@ -249,7 +251,9 @@
     "relay:session-export": "pnpm --filter @ihui/api relay:session-export",
     "relay:session-ops": "pnpm --filter @ihui/api relay:session-ops",
     "relay:qoder-sessions": "pnpm --filter @ihui/api relay:qoder-sessions",
-    "relay:qoder-models": "pnpm --filter @ihui/api relay:qoder-models"
+    "relay:qoder-models": "pnpm --filter @ihui/api relay:qoder-models",
+    "check:i18n-data-keys": "node scripts/check-i18n-data-keys.mjs",
+    "check:i18n-placeholder-arity": "node scripts/check-i18n-placeholder-arity.mjs"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
   "contributors": [

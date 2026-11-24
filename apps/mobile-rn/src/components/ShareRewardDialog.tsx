@@ -40,7 +40,7 @@ import { tokens } from '../theme/active-tokens'
 
 // ── 尺寸常量(对齐 IntroducePopup 命名常量惯例) ──
 /** 卡片水平内边距 */
-const CARD_PADDING_H = 20
+const CARD_PADDING_H = rnSpacing.xl
 /** 卡片顶部内边距(Hero 区上方呼吸空间) */
 const CARD_PADDING_TOP = 32
 /** 卡片底部内边距 */
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'transparent',
+    borderColor: tokens.border.light,
     paddingHorizontal: CARD_PADDING_H,
     paddingTop: CARD_PADDING_TOP,
     paddingBottom: CARD_PADDING_BOTTOM,

@@ -7,7 +7,7 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { fetchApi } from '@ihui/api-client'
 import type { ApiResult } from '@ihui/types'
 import { ShieldCheck } from 'lucide-react-native'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, taroSpacing } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
@@ -185,18 +185,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: rpx(16),
     paddingVertical: rpx(12),
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.light,
   },
   ip: { flex: 1, fontSize: rpx(26), color: tokens.text.primary, fontFamily: 'monospace' },
-  removeBtn: { paddingHorizontal: rpx(12), paddingVertical: rpx(6) },
+  removeBtn: { paddingHorizontal: rpx(taroSpacing['xs-loose']), paddingVertical: rpx(6) },
   removeText: { fontSize: rpx(24), color: tokens.danger.deepText },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: rpx(12) },
   input: { flex: 1 },
   addBtn: {
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(14),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,

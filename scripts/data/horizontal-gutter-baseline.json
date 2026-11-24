@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "note": "存量横向数值/rpx 字面量台账；只减不增。新增必须走 rnSpacing.* 或 home-layout-spec token。",
+  "entries": []
+}

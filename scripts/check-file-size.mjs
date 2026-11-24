@@ -124,6 +124,8 @@ const FORBIDDEN_STAGED = [
   /\.(log|tmp|bak|db|sqlite|sqlite3)$/,
   /(^|\/)\.env$/, // .env.example 不匹配
 ]
+// 源码目录名恰好叫 coverage(连接器覆盖面板),不是构建产物目录;只放行这一处精确前缀。
+const FORBIDDEN_STAGED_ALLOW = [/^apps\/web\/src\/components\/connectors\/coverage\//]
 /** @returns {{status:string,path:string,oldPath?:string}[]|null} staged 面新增/修改/重命名 */
 function getStagedAllFiles() {
   try {
@@ -149,7 +151,7 @@ function auditStagedBytes() {
   const violations = []
   let totalStaged = 0
   for (const { status, path: f, oldPath } of files) {
-    if (FORBIDDEN_STAGED.some((re) => re.test(f))) {
+    if (FORBIDDEN_STAGED.some((re) => re.test(f)) && !FORBIDDEN_STAGED_ALLOW.some((re) => re.test(f))) {
       violations.push({ f, why: '禁止入库的生成物/缓存/密钥路径' })
       continue
     }

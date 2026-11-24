@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnType, taroSpacing } from '@ihui/design-tokens'
 
 // 对话流交代区(RN 端共享组件):引用来源 + 本轮上下文注入。
 //
@@ -279,7 +279,7 @@ const disclosureStyles = StyleSheet.create({
   card: {
     borderRadius: rnRadius.lg,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: tokens.border.light,
     backgroundColor: tokens.surface.muted,
     overflow: 'hidden',
   },
@@ -287,11 +287,11 @@ const disclosureStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rpx(8),
-    paddingHorizontal: rpx(12),
+    paddingHorizontal: rpx(taroSpacing['xs-loose']),
     paddingVertical: rpx(8),
   },
   cardBody: {
-    paddingHorizontal: rpx(12),
+    paddingHorizontal: rpx(taroSpacing['xs-loose']),
     paddingBottom: rpx(10),
     gap: rpx(6),
   },
@@ -300,7 +300,7 @@ const disclosureStyles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: rpx(6),
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(6),
   },
   tierLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tokens.text.medium },
@@ -311,11 +311,11 @@ const disclosureStyles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: rpx(8),
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(6),
   },
   approvalBtn: {
-    paddingHorizontal: rpx(12),
+    paddingHorizontal: rpx(taroSpacing['xs-loose']),
     paddingVertical: rpx(6),
     borderRadius: rnRadius.sm,
     borderWidth: 1,

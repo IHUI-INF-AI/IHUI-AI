@@ -6,7 +6,7 @@ import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { rpx } from '@/utils/rpx'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, taroSpacing } from '@ihui/design-tokens'
 
 /**
  * CenterItem 盒子卡片组件
@@ -40,8 +40,8 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
       style={{
         paddingTop: rpx(16),
         paddingBottom: rpx(16),
-        paddingLeft: rpx(24),
-        paddingRight: rpx(24),
+        paddingLeft: rpx(taroSpacing.md),
+        paddingRight: rpx(taroSpacing.md),
       }}
     >
       <Text
@@ -101,7 +101,7 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
                         width: rpx(40),
                         height: rpx(40),
                         borderRadius: rnRadius['2xl'],
-                        marginRight: rpx(8),
+                        marginRight: rpx(taroSpacing.xs),
                       }}
                     />
                   ) : null}

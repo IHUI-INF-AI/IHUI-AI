@@ -142,21 +142,30 @@ export default function AutoReplyRuleForm({ accountId, rule, visible, onSaved, o
                     <SelectItem value="contains">包含任一关键词</SelectItem>
                     <SelectItem value="exact">完全相等</SelectItem>
                     <SelectItem value="prefix">前缀匹配</SelectItem>
+                    <SelectItem value="agent">AI 智能回复</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="wechat-rule-keywords">关键词（逗号分隔）</Label>
+              <Label htmlFor="wechat-rule-keywords">
+                {form.matchType === 'agent' ? '触发关键词（留空=全部消息）' : '关键词（逗号分隔）'}
+              </Label>
               <Input
                 id="wechat-rule-keywords"
                 value={form.keywords}
                 onChange={(event) => setForm({ ...form, keywords: event.target.value })}
-                placeholder="报价, 价格, quote"
+                placeholder={
+                  form.matchType === 'agent'
+                    ? '留空接管全部；填「报价, 价格」只在这些词出现时触发'
+                    : '报价, 价格, quote'
+                }
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="wechat-rule-reply">回复正文</Label>
+              <Label htmlFor="wechat-rule-reply">
+                {form.matchType === 'agent' ? '人设 / 系统提示词' : '回复正文'}
+              </Label>
               <textarea
                 id="wechat-rule-reply"
                 value={form.replyText}
@@ -164,8 +173,18 @@ export default function AutoReplyRuleForm({ accountId, rule, visible, onSaved, o
                 rows={4}
                 maxLength={5000}
                 className="w-full rounded-sm border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
-                placeholder="收到，稍后发您报价单；写 {{knowledge}} 则按知识库检索结果回复。"
+                placeholder={
+                  form.matchType === 'agent'
+                    ? '例如：你是智汇 AI 的客服，语气专业、简短；先回答问题，再引导对方留下需求。不确定的价格不要乱报。'
+                    : '收到，稍后发您报价单；写 {{knowledge}} 则按知识库检索结果回复。'
+                }
               />
+              {form.matchType === 'agent' ? (
+                <p className="text-xs text-muted-foreground">
+                  AI 模式会带上最近 30 条会话上下文，并自动检索该账号的知识库，再调用 IHUI 的 LLM
+                  网关；仍走白名单、敏感词、限流与审计。群聊建议配合关键词和冷却秒数，避免刷屏。
+                </p>
+              ) : null}
             </div>
             <div className="grid grid-cols-1 gap-3 min-[760px]:grid-cols-3">
               <div className="space-y-1">

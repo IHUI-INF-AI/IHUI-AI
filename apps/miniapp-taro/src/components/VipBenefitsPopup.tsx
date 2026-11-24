@@ -401,7 +401,7 @@ export default function VipBenefitsPopup({
   const popupBg = cfg.gradient ? 'var(--color-card)' : 'var(--color-muted)'
 
   return (
-    <View className="fixed inset-0 z-[9999] flex items-end" onClick={onClose}>
+    <View className="fixed inset-0 flex items-end" style={{ zIndex: 9999 }} onClick={onClose}>
       <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       <View
         className="relative w-full overflow-hidden"

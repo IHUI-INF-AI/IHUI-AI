@@ -35,6 +35,7 @@ import { formatRelativeTime } from '@ihui/shared'
 import { Eye, MessageCircle, Share2, ThumbsUp, type LucideIcon } from 'lucide-react-native'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { HOME_CARD_PADDING_PX } from '@ihui/shared/ui/home-layout-spec'
 import { useI18n } from '../i18n'
 
 export interface KnowledgePlanetItem {
@@ -71,9 +72,9 @@ export interface KnowledgePlanetProps {
 
 const DEFAULT_AUTHOR = 'AI 智汇社'
 
-const LIST_PADDING = 16
-const ITEM_GAP = 12
-const CARD_PADDING = 12
+const LIST_PADDING = rnSpacing.none
+const ITEM_GAP = rnSpacing.md
+const CARD_PADDING = HOME_CARD_PADDING_PX
 
 const COVER_WIDTH = 100
 const COVER_HEIGHT = 80
@@ -82,14 +83,14 @@ const TITLE_FONT_SIZE = 15
 const SUMMARY_FONT_SIZE = 12
 const META_FONT_SIZE = 11
 
-const AUTHOR_BADGE_PADDING_H = 8
-const AUTHOR_BADGE_PADDING_V = 3
+const AUTHOR_BADGE_PADDING_H = rnSpacing.sm
+const AUTHOR_BADGE_PADDING_V = rnSpacing['2xs']
 
-const CATEGORY_BADGE_PADDING_H = 8
-const CATEGORY_BADGE_PADDING_V = 3
+const CATEGORY_BADGE_PADDING_H = rnSpacing.sm
+const CATEGORY_BADGE_PADDING_V = rnSpacing['2xs']
 
 const STAT_ICON_SIZE = 12
-const STAT_GAP = 4
+const STAT_GAP = rnSpacing.xs
 const STAT_TEXT_SIZE = 11
 
 const EMPTY_FONT_SIZE = 14

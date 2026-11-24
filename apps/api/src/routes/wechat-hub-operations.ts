@@ -13,6 +13,7 @@ import { checkAuth } from '../plugins/auth.js'
 import { parseOrThrow, success } from '../utils/response.js'
 import {
   deleteContact,
+  fetchMoments,
   publishMoment,
   runGroupAction,
   syncContacts,
@@ -30,6 +31,11 @@ const groupActionSchema = z.object({
 const momentSchema = z.object({
   text: z.string().min(1).max(5000),
   mediaUrls: z.array(z.string().url().max(2048)).max(9).optional(),
+})
+
+const momentFetchSchema = z.object({
+  maxPages: z.coerce.number().int().min(1).max(30).optional(),
+  id: z.coerce.number().int().min(0).optional(),
 })
 
 export const wechatHubOperationsRoutes: FastifyPluginAsync = async (server) => {
@@ -73,6 +79,21 @@ export const wechatHubOperationsRoutes: FastifyPluginAsync = async (server) => {
         const input = parseOrThrow(groupActionSchema, request.body)
         return reply.send(
           success(await runGroupAction(requireUserId(request), request.params.id, input)),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.post<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/moments/fetch',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const input = parseOrThrow(momentFetchSchema, request.body ?? {})
+        return reply.send(
+          success(await fetchMoments(requireUserId(request), request.params.id, input)),
         )
       } catch (e) {
         return answerError(reply, e)

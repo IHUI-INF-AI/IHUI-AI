@@ -15,7 +15,9 @@ const checker = resolve('scripts/check-index-reverse-staged.mjs')
 const { __test__ } = await import(pathToFileURL(checker).href)
 
 function sh(cwd, args) {
-  const r = spawnSync('git', args, { cwd, encoding: 'utf8' })
+  // 门 193:派生 git 必须显式接管 stdio,否则本机 0/30 成功(EBUSY)。取值按不带 input 的
+  // ['ignore','pipe','pipe'] —— 判据只认属性名,不认取值(见 check-git-stdio-discipline.mjs)。
+  const r = spawnSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
   assert.equal(r.status, 0, `git ${args.join(' ')} 失败: ${r.stderr}`)
   return r.stdout.trim()
 }

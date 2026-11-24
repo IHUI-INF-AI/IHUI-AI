@@ -76,7 +76,7 @@
 .community-fenlei-btn {
   flex: none;
   color: var(--color-black-40);
-  margin-right: 6rpx;
+  margin-right: var(--spacing-2xs);
   height: 44rpx;
   padding: 0 var(--spacing-xs) 0 3rpx;
   line-height: 44rpx;
@@ -111,7 +111,7 @@
 .community-fenlei-btn .fenlei_icon {
   width: 44rpx;
   height: 44rpx;
-  margin-right: 10rpx;
+  margin-right: var(--spacing-xs);
   vertical-align: middle;
 }
 

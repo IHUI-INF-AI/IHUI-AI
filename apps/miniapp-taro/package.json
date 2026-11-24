@@ -3,6 +3,12 @@
   "version": "0.0.0",
   "license": "Apache-2.0",
   "private": true,
+  "sideEffects": [
+    "**/*.css",
+    "**/*.scss",
+    "**/*.less",
+    "src/polyfills.ts"
+  ],
   "description": "IHUI-AI 小程序端 (Taro 4 + React + TypeScript + Tailwind)",
   "scripts": {
     "dev": "node scripts/dev-weapp.mjs",

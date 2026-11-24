@@ -49,7 +49,7 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType, taroSpacing } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 import { Tappable } from '@ihui/ui-native'
 
@@ -391,12 +391,12 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   headTabBar: {
     flexDirection: 'row',
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: rpx(taroSpacing['sm-loose']),
     paddingVertical: rpx(16),
     gap: rpx(16),
   } as ViewStyle,
   headTab: {
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(10),
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rpx(12),
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: rpx(taroSpacing['sm-loose']),
     paddingBottom: rpx(8),
   } as ViewStyle,
   searchField: {
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   searchBtn: {
     height: 38,
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: rpx(taroSpacing['sm-loose']),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
@@ -438,12 +438,12 @@ const styles = StyleSheet.create({
   } as TextStyle,
   subTabBar: {
     flexDirection: 'row',
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: rpx(taroSpacing['sm-loose']),
     paddingBottom: rpx(12),
     gap: rpx(12),
   } as ViewStyle,
   subTab: {
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(6),
     borderRadius: rnRadius.md,
   } as ViewStyle,
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   } as TextStyle,
   listContent: {
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: rpx(taroSpacing['sm-loose']),
     paddingBottom: rpx(32),
     flexGrow: 1,
   } as ViewStyle,
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   } as ViewStyle,
   avatarWrap: {
-    marginRight: rpx(18),
+    marginRight: rpx(taroSpacing.sm),
   } as ViewStyle,
   avatar: {
     width: rpx(184) / 2,
@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   } as ViewStyle,
   setBtn: {
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(6),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.muted,
     paddingVertical: rpx(36),
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     alignItems: 'center',
   } as ViewStyle,
   promptContent: {

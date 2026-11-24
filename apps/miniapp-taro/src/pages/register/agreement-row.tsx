@@ -52,7 +52,7 @@ export default function AgreementRow({
         </Text>
       </View>
       {showError ? (
-        <Text className="block mt-[12rpx] text-body-sm leading-[normal] text-[color:var(--color-danger)]">
+        <Text className="block mt-[12rpx] text-body-sm leading-normal text-danger">
           {t('auth.agreeRequired')}
         </Text>
       ) : null}

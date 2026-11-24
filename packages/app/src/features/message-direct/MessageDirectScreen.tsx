@@ -126,7 +126,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     badge: {
       minWidth: 18,
-      paddingHorizontal: 5,
+      paddingHorizontal: rnSpacing.xs,
       paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md, // 数字计数徽章按 §4 模板取 chip 档 md(项目不允许胶囊)
       backgroundColor: tk.danger.DEFAULT,

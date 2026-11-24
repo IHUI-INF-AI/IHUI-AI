@@ -59,11 +59,11 @@ export interface BottomPopsProps {
 const ANIM_DURATION_MS = 300
 const DRAG_CLOSE_THRESHOLD = 80 // 下拉超过此阈值触发关闭
 
-const HEADER_PADDING_H = 20
+const HEADER_PADDING_H = rnSpacing.xl
 const HEADER_PADDING_V = 15
 const TITLE_FONT_SIZE = 17
 const CLOSE_BUTTON_SIZE = 32
-const CONTENT_PADDING_H = 20
+const CONTENT_PADDING_H = rnSpacing.xl
 const CONTENT_PADDING_B = 16
 
 export function BottomPops({ visible, onClose, children, title, height }: BottomPopsProps) {

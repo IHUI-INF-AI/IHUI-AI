@@ -108,11 +108,11 @@ const DRAG_CLOSE_THRESHOLD = 80 // 下拉超过此阈值触发关闭
 const HANDLE_WIDTH = 36
 const HANDLE_HEIGHT = 4
 const HANDLE_AREA_PADDING_V = 12
-const HEADER_PADDING_H = 20
+const HEADER_PADDING_H = rnSpacing.xl
 const HEADER_PADDING_V = 8
 const TITLE_FONT_SIZE = 16
 const TITLE_SPACER_WIDTH = 24 // 标题左右各放一个等宽占位,保证居中
-const CONTENT_PADDING_H = 20
+const CONTENT_PADDING_H = rnSpacing.xl
 const CONTENT_PADDING_B = 16
 const MASK_COLOR = 'rgba(0,0,0,0.5)'
 

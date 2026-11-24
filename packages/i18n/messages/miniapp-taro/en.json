@@ -7331,5 +7331,8 @@
   },
   "sourceWeb": "Web",
   "sourceApp": "Mobile",
-  "sourceMiniApp": "Mini"
+  "sourceMiniApp": "Mini",
+  "livePlaybackList": {
+    "title": "Playback list"
+  }
 }

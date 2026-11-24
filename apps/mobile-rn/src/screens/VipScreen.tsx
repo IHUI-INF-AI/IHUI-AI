@@ -48,7 +48,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { navigateAfterVipPay } from '../navigation/vip-pay-exit'
 import { rpx } from '../utils/rpx'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, taroSpacing, rnSpacing } from '@ihui/design-tokens'
 import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -800,7 +800,7 @@ const PLAN_AMOUNT_FONT_SIZE = 22
 const PLAN_DEF_AMOUNT_FONT_SIZE = 12
 const PLAN_DURATION_FONT_SIZE = 12
 const TAG_FONT_SIZE = 10
-const TAG_PADDING_H = 6
+const TAG_PADDING_H = rnSpacing['xs-loose']
 const TAG_PADDING_V = 2
 const AGREEMENT_FONT_SIZE = 10
 
@@ -829,7 +829,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   } as ViewStyle,
   entryCard: {
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingTop: rpx(24),
     paddingBottom: rpx(20),
     backgroundColor: tokens.surface.card,
@@ -870,7 +870,7 @@ const styles = StyleSheet.create({
   // ── 价格卡片 Tab ──
   planCard: {
     marginTop: rpx(20),
-    marginHorizontal: rpx(32),
+    marginHorizontal: rpx(taroSpacing.lg),
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.lg,
     padding: rpx(28),
@@ -990,7 +990,7 @@ const styles = StyleSheet.create({
   // ── 等级升级机制装饰区 ──
   // 守门 131 改型:margin 留外层槽位,行盒/底色/圆角/padding 移入 face 档(数值原样搬迁)。
   levelBanner: {
-    marginHorizontal: rpx(32),
+    marginHorizontal: rpx(taroSpacing.lg),
     marginTop: rpx(20),
   } as ViewStyle,
   levelBannerFace: {
@@ -998,7 +998,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rpx(20),
-    paddingHorizontal: rpx(28),
+    paddingHorizontal: rpx(taroSpacing['md-loose']),
     paddingVertical: rpx(20),
     backgroundColor: tokens.brandAccent.light,
     borderRadius: rnRadius.lg,
@@ -1026,14 +1026,14 @@ const styles = StyleSheet.create({
   // ── 操盘手专属权益横幅 ──
   // 守门 131 改型:同上,margin 槽位在外,可视盒在 face。
   traderBanner: {
-    marginHorizontal: rpx(32),
+    marginHorizontal: rpx(taroSpacing.lg),
     marginTop: rpx(20),
   } as ViewStyle,
   traderBannerFace: {
     width: '100%',
     backgroundColor: ACCENT_COLOR,
     borderRadius: rnRadius.lg,
-    paddingHorizontal: rpx(28),
+    paddingHorizontal: rpx(taroSpacing['md-loose']),
     paddingVertical: rpx(20),
   } as ViewStyle,
   traderBannerPressed: {

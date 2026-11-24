@@ -100,7 +100,7 @@ function createStyles(colorScheme: AppThemeMode) {
     },
     scroll: {
       flexDirection: 'row',
-      paddingHorizontal: 5,
+      paddingHorizontal: rnSpacing.xs,
       paddingTop: rnSpacing['xs-loose'],
       paddingBottom: rnSpacing['2xs'],
     },
@@ -111,9 +111,9 @@ function createStyles(colorScheme: AppThemeMode) {
     item: {
       alignItems: 'center',
       minWidth: 60,
-      marginHorizontal: 5,
+      marginHorizontal: rnSpacing.xs,
       paddingVertical: rnSpacing['sm-loose'],
-      paddingHorizontal: 5,
+      paddingHorizontal: rnSpacing.xs,
       borderRadius: rnRadius.xl,
       backgroundColor: tokens.surface.muted,
     },

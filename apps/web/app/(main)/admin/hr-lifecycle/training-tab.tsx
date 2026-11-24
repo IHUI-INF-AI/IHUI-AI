@@ -39,9 +39,18 @@ export function TrainingTab() {
   const [empId, setEmpId] = React.useState('')
   const [courseId, setCourseId] = React.useState('')
 
-  const coursesQ = useQuery({ queryKey: ['hrt', 'courses'], queryFn: () => api<unknown>(`${TR}/courses`) })
-  const plansQ = useQuery({ queryKey: ['hrt', 'plans'], queryFn: () => api<unknown>(`${TR}/plans`) })
-  const employeesQ = useQuery({ queryKey: ['hr', 'employees'], queryFn: () => api<unknown>('/api/hr-attendance/employees') })
+  const coursesQ = useQuery({
+    queryKey: ['hrt', 'courses'],
+    queryFn: () => api<unknown>(`${TR}/courses`),
+  })
+  const plansQ = useQuery({
+    queryKey: ['hrt', 'plans'],
+    queryFn: () => api<unknown>(`${TR}/plans`),
+  })
+  const employeesQ = useQuery({
+    queryKey: ['hr', 'employees'],
+    queryFn: () => api<unknown>('/api/hr-attendance/employees'),
+  })
   const enrQ = useQuery({
     queryKey: ['hrt', 'enrollments', selectedPlan],
     queryFn: () => api<unknown>(`${TR}/plans/${selectedPlan}/enrollments`),
@@ -63,7 +72,11 @@ export function TrainingTab() {
     mutationFn: () =>
       api(`${TR}/courses`, {
         method: 'POST',
-        body: JSON.stringify({ code: courseCode.trim(), name: courseName.trim(), durationHours: hours || '1' }),
+        body: JSON.stringify({
+          code: courseCode.trim(),
+          name: courseName.trim(),
+          durationHours: hours || '1',
+        }),
       }),
     onSuccess: () => {
       toast.success(t('done'))
@@ -78,7 +91,11 @@ export function TrainingTab() {
     mutationFn: () =>
       api(`${TR}/plans`, {
         method: 'POST',
-        body: JSON.stringify({ name: planName.trim(), startFrom: planStart, endTo: planEnd || planStart }),
+        body: JSON.stringify({
+          name: planName.trim(),
+          startFrom: planStart,
+          endTo: planEnd || planStart,
+        }),
       }),
     onSuccess: () => {
       toast.success(t('done'))
@@ -90,7 +107,10 @@ export function TrainingTab() {
   })
   const planStatus = useMutation({
     mutationFn: (input: { id: string; status: 'open' | 'closed' }) =>
-      api(`${TR}/plans/${input.id}/status`, { method: 'POST', body: JSON.stringify({ status: input.status }) }),
+      api(`${TR}/plans/${input.id}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status: input.status }),
+      }),
     onSuccess: () => {
       toast.success(t('done'))
       plansQ.refetch()
@@ -98,15 +118,15 @@ export function TrainingTab() {
     onError: (e: Error) => toast.error(e.message),
   })
   const enroll = useMutation({
-    // TData 由泛型显式给定:onSuccess 的参数标注要求 TData 是具体形状,
-    // 而 apiOrThrow 不传泛型时 TData 推断成 unknown ⇒ TS2322(mutationFn 不是 MutationFunction<TData>)。
     mutationFn: () =>
-      api<{ created?: number; skipped?: string[] }>(`${TR}/plans/${selectedPlan}/enroll`, {
+      api(`${TR}/plans/${selectedPlan}/enroll`, {
         method: 'POST',
         body: JSON.stringify({ assignments: [{ employeeId: empId, courseId }] }),
       }),
     onSuccess: (r: { created?: number; skipped?: string[] }) => {
-      toast.success(`${t('done')} created=${r?.created ?? 0} skipped=${(r?.skipped ?? []).join(';')}`)
+      toast.success(
+        `${t('done')} created=${r?.created ?? 0} skipped=${(r?.skipped ?? []).join(';')}`,
+      )
       invalidate()
       enrQ.refetch()
     },
@@ -114,7 +134,10 @@ export function TrainingTab() {
   })
   const act = useMutation({
     mutationFn: (input: { id: string; what: 'complete' | 'drop' | 'reopen' }) =>
-      api(`${TR}/enrollments/${input.id}/${input.what}`, { method: 'POST', body: JSON.stringify({}) }),
+      api(`${TR}/enrollments/${input.id}/${input.what}`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
     onSuccess: () => {
       toast.success(t('done'))
       invalidate()
@@ -135,10 +158,29 @@ export function TrainingTab() {
         }
       >
         <div className="mb-2 flex flex-wrap items-end gap-2">
-          <input className={field} placeholder={t('colCode')} value={courseCode} onChange={(e) => setCourseCode(e.target.value)} />
-          <input className={field} placeholder={t('colName')} value={courseName} onChange={(e) => setCourseName(e.target.value)} />
-          <input className={`${field} w-20`} placeholder={t('trDuration')} value={hours} onChange={(e) => setHours(e.target.value)} />
-          <Button size="sm" disabled={!courseCode.trim() || !courseName.trim() || createCourse.isPending} onClick={() => createCourse.mutate()}>
+          <input
+            className={field}
+            placeholder={t('colCode')}
+            value={courseCode}
+            onChange={(e) => setCourseCode(e.target.value)}
+          />
+          <input
+            className={field}
+            placeholder={t('colName')}
+            value={courseName}
+            onChange={(e) => setCourseName(e.target.value)}
+          />
+          <input
+            className={`${field} w-20`}
+            placeholder={t('trDuration')}
+            value={hours}
+            onChange={(e) => setHours(e.target.value)}
+          />
+          <Button
+            size="sm"
+            disabled={!courseCode.trim() || !courseName.trim() || createCourse.isPending}
+            onClick={() => createCourse.mutate()}
+          >
             {t('create')}
           </Button>
         </div>
@@ -175,10 +217,29 @@ export function TrainingTab() {
 
       <Card title={t('trPlanTitle')}>
         <div className="mb-2 flex flex-wrap items-end gap-2">
-          <input className={field} placeholder={t('perfCycleName')} value={planName} onChange={(e) => setPlanName(e.target.value)} />
-          <input type="date" className={field} value={planStart} onChange={(e) => setPlanStart(e.target.value)} />
-          <input type="date" className={field} value={planEnd} onChange={(e) => setPlanEnd(e.target.value)} />
-          <Button size="sm" disabled={!planName.trim() || createPlan.isPending} onClick={() => createPlan.mutate()}>
+          <input
+            className={field}
+            placeholder={t('perfCycleName')}
+            value={planName}
+            onChange={(e) => setPlanName(e.target.value)}
+          />
+          <input
+            type="date"
+            className={field}
+            value={planStart}
+            onChange={(e) => setPlanStart(e.target.value)}
+          />
+          <input
+            type="date"
+            className={field}
+            value={planEnd}
+            onChange={(e) => setPlanEnd(e.target.value)}
+          />
+          <Button
+            size="sm"
+            disabled={!planName.trim() || createPlan.isPending}
+            onClick={() => createPlan.mutate()}
+          >
             <CalendarPlus className="h-3.5 w-3.5" />
             {t('create')}
           </Button>
@@ -211,12 +272,18 @@ export function TrainingTab() {
                   </td>
                   <td className={td}>
                     {p.status === 'draft' ? (
-                      <button className={btnGhost} onClick={() => planStatus.mutate({ id: String(p.id), status: 'open' })}>
+                      <button
+                        className={btnGhost}
+                        onClick={() => planStatus.mutate({ id: String(p.id), status: 'open' })}
+                      >
                         {t('perfOpenCycle')}
                       </button>
                     ) : null}
                     {p.status === 'open' ? (
-                      <button className={btnGhost} onClick={() => planStatus.mutate({ id: String(p.id), status: 'closed' })}>
+                      <button
+                        className={btnGhost}
+                        onClick={() => planStatus.mutate({ id: String(p.id), status: 'closed' })}
+                      >
                         {t('perfCloseCycle')}
                       </button>
                     ) : null}
@@ -240,7 +307,11 @@ export function TrainingTab() {
                   </option>
                 ))}
               </select>
-              <select className={field} value={courseId} onChange={(e) => setCourseId(e.target.value)}>
+              <select
+                className={field}
+                value={courseId}
+                onChange={(e) => setCourseId(e.target.value)}
+              >
                 <option value="">{t('pickCourse')}</option>
                 {courses.map((c) => (
                   <option key={String(c.id)} value={String(c.id)}>
@@ -248,7 +319,11 @@ export function TrainingTab() {
                   </option>
                 ))}
               </select>
-              <Button size="sm" disabled={!empId || !courseId || enroll.isPending} onClick={() => enroll.mutate()}>
+              <Button
+                size="sm"
+                disabled={!empId || !courseId || enroll.isPending}
+                onClick={() => enroll.mutate()}
+              >
                 {t('enrollBtn')}
               </Button>
             </div>
@@ -256,7 +331,9 @@ export function TrainingTab() {
               {`${t('trProgressTitle')}: enrolled=${progress.enrolled ?? 0} completed=${progress.completed ?? 0} dropped=${progress.dropped ?? 0}`}
             </p>
           </Card>
-          <Card title={`${t('expTitle')} · ${plans.find((p) => String(p.id) === selectedPlan)?.name ?? ''}`}>
+          <Card
+            title={`${t('expTitle')} · ${plans.find((p) => String(p.id) === selectedPlan)?.name ?? ''}`}
+          >
             {enrollments.length === 0 ? (
               <Empty text={t('noData')} />
             ) : (
@@ -276,26 +353,39 @@ export function TrainingTab() {
                     return (
                       <tr key={String(e.id)} className="border-t border-stroke-subtle">
                         <td className={td}>{String(e.employeeId).slice(0, 8)}</td>
-                        <td className={td}>{course ? String(course.name) : String(e.courseId).slice(0, 8)}</td>
+                        <td className={td}>
+                          {course ? String(course.name) : String(e.courseId).slice(0, 8)}
+                        </td>
                         <td className={td}>
                           <Badge status={String(e.status)} />
                         </td>
-                        <td className={`${td} tabular-nums`}>{String(e.hoursAtCompletion ?? '-')}</td>
+                        <td className={`${td} tabular-nums`}>
+                          {String(e.hoursAtCompletion ?? '-')}
+                        </td>
                         <td className={td}>
                           {e.status === 'enrolled' ? (
                             <div className="flex gap-0.5">
-                              <button className={btnGhost} onClick={() => act.mutate({ id: String(e.id), what: 'complete' })}>
+                              <button
+                                className={btnGhost}
+                                onClick={() => act.mutate({ id: String(e.id), what: 'complete' })}
+                              >
                                 <Trophy className="h-3 w-3" />
                                 {t('trComplete')}
                               </button>
-                              <button className={btnGhost} onClick={() => act.mutate({ id: String(e.id), what: 'drop' })}>
+                              <button
+                                className={btnGhost}
+                                onClick={() => act.mutate({ id: String(e.id), what: 'drop' })}
+                              >
                                 <UserMinus className="h-3 w-3" />
                                 {t('trDrop')}
                               </button>
                             </div>
                           ) : null}
                           {e.status === 'dropped' ? (
-                            <button className={btnGhost} onClick={() => act.mutate({ id: String(e.id), what: 'reopen' })}>
+                            <button
+                              className={btnGhost}
+                              onClick={() => act.mutate({ id: String(e.id), what: 'reopen' })}
+                            >
                               <RotateCcw className="h-3 w-3" />
                               {t('trReopen')}
                             </button>

@@ -99,6 +99,13 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-24**
+- 📚 Docs:三语最近更新补回浏览器画中画监看条目（19198ba7） (25a999ed)
+- 🐞 Fix:门327接判面层单一真相源——git调用从裸spawnSync收敛到face-reader.gitRaw(绝对路径/windowsHide/有界timeout/读动词重试),消门312 R1新增未覆盖;判据语义不变(索引blob vs HEAD祖先),自测3/3+成对测试7/7+门312工作树档覆盖295->296全绿 (f7c7d7df)
+- 🔧 Chore/Other:v3 快照二进制本体(prod-foreign-v3.zip 103103B)强制入库——.gitignore 的 *.zip 会静默吞掉它,漏了等于只有清单没有快照 (2f1080e8)
+- 🔧 Chore/Other:prod 外来改动 v3 快照入库(9 文件 zip 103103B + MANIFEST 逐条 sha256;2GB .git-broken/退役回滚目录/两枚凭据探测脚本按体积与敏感性移存仓外 D:\DevEnv\ihui-prod-orphans-20261124c) (b3ea0ff2)
+- 📚 Docs:刷新最近更新，收录浏览器画中画监看（19198ba7）四语文同步 (0cf09298)
+- 🔧 Chore/Other:恢复 a8845a4aca 误删的 23728 个文件(索引未 checkout 导致整树清空),并带上 workspace-anchor 的净面/服务账户修正;恢复面 = f42867da24 原树 + 该文件改动 (e4a946b4)
+- 🐞 Fix:导出面/服务账户不再把锚点安装判死 —— 非 git 工作树直接跳过(exit 0),缺 Startup 目录跳过而非 fail;--verify 仍 exit 2 未判定。根因:净面 postinstall 链尾调用本脚本在 SYSTEM 下 exit 2 ⇒ 净面 install 失败 ⇒ 部署回退共享工作树 ⇒ type check 撞在飞代码(2026-11-24 实测) (a8845a4a)
 - 🚀 Feature/Improvement:浏览器画中画监看——只读浮窗+独立收帧+一键接管,后端多观众帧/导航 fan-out (19198ba7)
 - 🔧 Chore/Other:prod 外来改动 v3 快照入库(9 文件 zip 103103B + MANIFEST 逐条 sha256;2GB .git-broken/退役回滚目录/两枚凭据探测脚本按体积与敏感性移存仓外 D:\DevEnv\ihui-prod-orphans-20261124c) (b3ea0ff2af)
 - 🔧 Chore/Other:恢复 a8845a4aca 误删的 23728 个文件(索引未 checkout 导致整树清空),并带上 workspace-anchor 的净面/服务账户修正;恢复面 = f42867da24 原树 + 该文件改动 (e4a946b41a)

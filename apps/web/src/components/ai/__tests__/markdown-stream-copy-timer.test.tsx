@@ -60,19 +60,15 @@ function installTimerSpies() {
   const cleared: unknown[] = []
   const originalSet = window.setTimeout as unknown as (...args: unknown[]) => unknown
   const originalClear = window.clearTimeout as unknown as (...args: unknown[]) => void
-  vi.spyOn(window, 'setTimeout').mockImplementation(
-    ((...args: unknown[]) => {
-      const id = originalSet(...args)
-      if (args[1] === 1500) scheduled.push(id)
-      return id
-    }) as unknown as typeof window.setTimeout,
-  )
-  vi.spyOn(window, 'clearTimeout').mockImplementation(
-    ((...args: unknown[]) => {
-      if (args[0] !== undefined) cleared.push(args[0])
-      return originalClear(...args)
-    }) as unknown as typeof window.clearTimeout,
-  )
+  vi.spyOn(window, 'setTimeout').mockImplementation(((...args: unknown[]) => {
+    const id = originalSet(...args)
+    if (args[1] === 1500) scheduled.push(id)
+    return id
+  }) as unknown as typeof window.setTimeout)
+  vi.spyOn(window, 'clearTimeout').mockImplementation(((...args: unknown[]) => {
+    if (args[0] !== undefined) cleared.push(args[0])
+    return originalClear(...args)
+  }) as unknown as typeof window.clearTimeout)
   return { scheduled, cleared }
 }
 
@@ -96,9 +92,7 @@ describe('MarkdownStream「已复制」timer 生命周期(G-834)', () => {
 
   /** 点复制并冲掉 writeText 的微任务链,让「.then 里挂 timer」真实执行 */
   async function clickCopy(container: HTMLElement): Promise<void> {
-    const button = container.querySelector(
-      'button[data-testid="copy-button"]',
-    ) as HTMLButtonElement
+    const button = container.querySelector('button[data-testid="copy-button"]') as HTMLButtonElement
     expect(button).toBeTruthy()
     fireEvent.click(button)
     await act(async () => {})

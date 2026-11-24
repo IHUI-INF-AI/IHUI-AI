@@ -30,7 +30,14 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { ChevronRight, Search } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { getRnTokens, type RnThemeTokens, rnRadius, rnType, rnSpacing } from '@ihui/design-tokens'
+import {
+  getRnTokens,
+  type RnThemeTokens,
+  rnRadius,
+  rnType,
+  rnSpacing,
+  taroSpacing,
+} from '@ihui/design-tokens'
 import { TextField, CategoryInlineBar } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
@@ -254,7 +261,7 @@ const createStyles = (tk: RnThemeTokens) =>
       gap: rpx(16),
       margin: rpx(24),
       marginBottom: rpx(20),
-      paddingHorizontal: rpx(20),
+      paddingHorizontal: rpx(taroSpacing['sm-loose']),
       height: rpx(72),
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
@@ -268,12 +275,12 @@ const createStyles = (tk: RnThemeTokens) =>
     tabRow: {
       flexDirection: 'row',
       gap: rpx(16),
-      marginHorizontal: rpx(24),
+      marginHorizontal: rpx(taroSpacing.md),
       marginBottom: rpx(20),
     },
     // 守门 131 改型:行槽位档(margin 数值逐字从 card 搬来,未改动任何数字),card 余档进内层。
     cardSlot: {
-      marginHorizontal: rpx(24),
+      marginHorizontal: rpx(taroSpacing.md),
       marginBottom: rpx(16),
     },
     card: {
@@ -303,7 +310,7 @@ const createStyles = (tk: RnThemeTokens) =>
     },
     cardBody: {
       flex: 1,
-      marginLeft: rpx(24),
+      marginLeft: rpx(taroSpacing.md),
       minWidth: 0,
       gap: rpx(8),
     },

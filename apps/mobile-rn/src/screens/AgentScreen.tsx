@@ -66,7 +66,7 @@ import { rpx } from '../utils/rpx'
 import { FREE_RESOURCE_URL } from '../constants/links'
 import { type LucideIcon, Bot, Film, LayoutGrid, Palette, Search } from 'lucide-react-native'
 
-import { rnRadius, rnCssLight, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnCssLight, rnType, taroSpacing } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import { useRefreshOnFocus } from '../hooks'
@@ -908,21 +908,21 @@ const styles = StyleSheet.create({
   contentScroll: { flex: 1 },
   carouselWrap: {
     marginTop: rpx(18),
-    marginHorizontal: rpx(20),
+    marginHorizontal: rpx(taroSpacing['sm-loose']),
     borderRadius: rnRadius['2xl'],
     overflow: 'hidden',
   },
-  sectionWrap: { marginHorizontal: rpx(24), marginTop: rpx(16) },
+  sectionWrap: { marginHorizontal: rpx(taroSpacing.md), marginTop: rpx(16) },
   tabBar: {
     flexDirection: 'row',
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingTop: rpx(20),
     paddingBottom: rpx(16),
     gap: rpx(16),
     backgroundColor: tokens.surface.bg,
   },
   tab: {
-    paddingHorizontal: rpx(28),
+    paddingHorizontal: rpx(taroSpacing['md-loose']),
     paddingVertical: rpx(12),
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
@@ -934,14 +934,14 @@ const styles = StyleSheet.create({
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
   },
-  viewport: { minHeight: 400, paddingHorizontal: rpx(20) },
+  viewport: { minHeight: 400, paddingHorizontal: rpx(taroSpacing['sm-loose']) },
   // 已选模型操作条(模型选择视图下方,消费 selectedModelIds)
   modelSelectionBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: rpx(12),
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(10),
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
@@ -950,10 +950,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: rnType.bodySm.size,
     color: tokens.text.primary,
-    marginRight: rpx(12),
+    marginRight: rpx(taroSpacing['xs-loose']),
   },
   modelStartBtn: {
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: rpx(taroSpacing['sm-loose']),
     paddingVertical: rpx(8),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
@@ -966,7 +966,7 @@ const styles = StyleSheet.create({
   loadMoreBtn: {
     marginTop: rpx(12),
     marginBottom: rpx(24),
-    marginHorizontal: rpx(16),
+    marginHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(10),
     alignItems: 'center',
     borderRadius: rnRadius.sm,
@@ -978,7 +978,7 @@ const styles = StyleSheet.create({
   trackOverlay: { flex: 1, backgroundColor: rnCssLight.black50 },
   trackContent: {
     backgroundColor: tokens.surface.card,
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: rpx(taroSpacing['sm-loose']),
     // paddingTop 由组件内联注入 `insets.top + TRACK_PADDING_V`(见弹层处注释)
     paddingBottom: TRACK_PADDING_V,
     borderBottomLeftRadius: rnRadius.xl,

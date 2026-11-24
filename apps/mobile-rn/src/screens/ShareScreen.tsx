@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { t as tStatic } from '../i18n'
-import { rnRadius, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnType, taroSpacing } from '@ihui/design-tokens'
 
 /**
  * ShareScreen 分享页(mobile-rn 端)
@@ -304,7 +304,11 @@ export function ShareScreen() {
         onShare={handleShare}
         onBack={() => navigation.goBack()}
         colorScheme={resolvedTheme}
-        containerStyle={{ paddingHorizontal: rpx(0), paddingTop: rpx(0), paddingBottom: rpx(0) }}
+        containerStyle={{
+          paddingHorizontal: rpx(taroSpacing.none),
+          paddingTop: rpx(0),
+          paddingBottom: rpx(0),
+        }}
         renderHeader={() => (
           <NavChrome>
             <NavBar
@@ -551,7 +555,7 @@ function createStyles(tk: RnThemeTokens) {
       lineHeight: rnType.bodySm.lineHeight,
     } as TextStyle,
     bottomBar: {
-      paddingHorizontal: rpx(32),
+      paddingHorizontal: rpx(taroSpacing.lg),
       paddingVertical: rpx(24),
       backgroundColor: tk.surface.bg,
     } as ViewStyle,

@@ -296,6 +296,8 @@ export interface CompatNavigationState {
   index: number
   route: string
   params: RouteParams
+  /** React Navigation `state.routes` 的最小等价：Drawer 等库按 routes.length 取栈深 */
+  routes: Array<{ name: string; params: RouteParams; key?: string }>
 }
 
 export function getNavigationState(): CompatNavigationState {
@@ -317,6 +319,7 @@ export function getNavigationState(): CompatNavigationState {
     index: Math.max(0, pages.length - 1),
     route: path,
     params,
+    routes: [{ name: path, params, key: `page-${Math.max(0, pages.length - 1)}` }],
   }
 }
 
@@ -410,9 +413,23 @@ export interface CompatNavigation {
   dispatch: (action: unknown) => void
   /** 与 React Navigation 同名的 state 读取口(宿主端口白名单校验依赖它) */
   getState: () => CompatNavigationState
+  /**
+   * React Navigation 的嵌套导航器出口。小程序没有 navigator 树，返回自身：
+   * 壳里的 `navigation.getParent()?.navigate(...)` 仍走同一张路由表，不静默丢失。
+   */
+  getParent: () => CompatNavigation
 }
 
 let lastParams: RouteParams = {}
+
+/**
+ * React Navigation `useNavigationState(selector)` 的小程序等价物。
+ * 小程序页面栈由 Taro 持有，壳只需要读到当前 route/index/params；
+ * 这里按调用时快照返回，不额外建订阅（页面切换会由 Taro 重新挂载/触发渲染）。
+ */
+export function useNavigationState<T>(selector: (state: CompatNavigationState) => T): T {
+  return selector(getNavigationState())
+}
 
 /** 供 useRoute 用:router.params ⊕ 内存通道 ⊕ setParams 覆盖,同一参数版本返回稳定对象 */
 export function useRoute() {
@@ -553,7 +570,7 @@ export function createCompatNavigation(deps: CompatNavigationDeps): CompatNaviga
     }
   }
 
-  return {
+  const nav: CompatNavigation = {
     navigate,
     push,
     replace,
@@ -566,7 +583,9 @@ export function createCompatNavigation(deps: CompatNavigationDeps): CompatNaviga
     isFocused: () => true,
     dispatch,
     getState: getNavigationState,
+    getParent: () => nav,
   }
+  return nav
 }
 
 export function useNavigation(): CompatNavigation {

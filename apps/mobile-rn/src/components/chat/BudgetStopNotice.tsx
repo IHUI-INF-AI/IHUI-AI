@@ -14,7 +14,7 @@
  */
 import { t as tStatic } from '../../i18n'
 import { StyleSheet, Text, View } from 'react-native'
-import { rnGeometry, rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, taroSpacing } from '@ihui/design-tokens'
 import { budgetStopReasonText } from '@ihui/shared/chat/budget-stop-note'
 import { formatTokenCount } from '@ihui/shared/utils/format'
 import type { ChatBudgetStopRow } from '../../api/chat-ledger'
@@ -69,9 +69,9 @@ export function BudgetStopNotice({ stop }: BudgetStopNoticeProps) {
 
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: rpx(24),
+    marginHorizontal: rpx(taroSpacing.md),
     marginVertical: rpx(12),
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: rpx(taroSpacing['sm-loose']),
     paddingVertical: rpx(16),
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.warning.light,

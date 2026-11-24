@@ -46,6 +46,27 @@ export default defineConfig(async (merge) => {
     // 必须在构建期定义(不是运行时 polyfill),否则 `if (__DEV__)` 仍会先炸。
     defineConstants: {
       __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
+      // 2026-11-24 三端同源:RN 壳直接读 Expo 公共环境变量。小程序构建没有 Expo 的
+      // .env 注入链,若不在这里映射,`src/lib/config.ts` 会回落到 localhost:8802 并
+      // 在设备上直接拒绝启动。值以 apps/mobile-rn/.env 为单一源(构建机可覆盖)。
+      'process.env.EXPO_PUBLIC_API_BASE_URL': JSON.stringify(
+        process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.aizhs.top',
+      ),
+      'process.env.EXPO_PUBLIC_WEB_URL': JSON.stringify(
+        process.env.EXPO_PUBLIC_WEB_URL || 'https://aizhs.top',
+      ),
+      'process.env.EXPO_PUBLIC_WECHAT_APP_ID': JSON.stringify(
+        process.env.EXPO_PUBLIC_WECHAT_APP_ID || 'wx85fa429a9331b5c8',
+      ),
+      'process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK': JSON.stringify(
+        process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK || 'https://file.aizhs.top/',
+      ),
+      // H5 静态产物没有 devServer 的 /api 代理；RN 首页壳直接走 @ihui/api-client，
+      // 基址为空时会打到 http://localhost:8806/api 全 404。这里把小程序自己的
+      // TARO_APP_API_BASE_URL 也编进构建，H5 预览与真机同指生产 API。
+      'process.env.TARO_APP_API_BASE_URL': JSON.stringify(
+        process.env.TARO_APP_API_BASE_URL || 'https://www.aizhs.top/api',
+      ),
     },
     // 2026-09-11 主包体积治理:关闭 Terser 的 ascii_only。
     // Taro webpack5-runner 在 MiniBaseConfig.js 里硬编码了 `output.ascii_only: true`
@@ -113,6 +134,16 @@ export default defineConfig(async (merge) => {
         // 社群宣传卡(carte)两张图:与 RN 端 assets/images/carousel/ 同一副本(字节等值),
         // 只被 pkg-content/carte 一页引用 ⇒ 停放包 assets 目录并整目录派生,不占主包 2MB 硬上限。
         { from: 'src/pkg-content/assets/', to: `${outputRoot}/pkg-content/assets/` },
+        // H5 实渲 RN 首页壳：壳里的 banner/logo/share 图是 apps/mobile-rn 的静态 import，
+        // webpack 只重写 URL 不搬运文件，必须把同源图片目录复制到产物同路径，否则整页图片 404。
+        ...(taroEnv === 'h5'
+          ? [
+              {
+                from: path.resolve(__dirname, '..', '..', 'mobile-rn', 'assets', 'images'),
+                to: `${outputRoot}/mobile-rn/assets/images`,
+              },
+            ]
+          : []),
         { from: 'src/mini.project.json', to: `${outputRoot}/mini.project.json` },
         // 微信原生 darkmode:Taro vite-runner 从 src/theme.json 读取,copy 保证与 dist/app.json 同级(themeLocation 引用)
         { from: 'src/theme.json', to: `${outputRoot}/theme.json` },
@@ -123,7 +154,8 @@ export default defineConfig(async (merge) => {
         // app.tsx 的 @font-face 走线上字体),无条件声明会让 `taro build --type h5`
         // 在 copy 阶段直接 `unable to locate ... glob` 失败。仅在目录真实存在时复制,
         // 以后有人放回字体文件仍会自动生效,不需要再改这行。
-        ...(taroEnv === 'h5' && fs.existsSync(path.resolve(__dirname, '..', 'src', 'assets', 'h5-fonts'))
+        ...(taroEnv === 'h5' &&
+        fs.existsSync(path.resolve(__dirname, '..', 'src', 'assets', 'h5-fonts'))
           ? [{ from: 'src/assets/h5-fonts/', to: `${outputRoot}/static/fonts/` }]
           : []),
       ],
@@ -159,6 +191,15 @@ export default defineConfig(async (merge) => {
     cache: { enable: false },
     alias: {
       '@': path.resolve(__dirname, '..', 'src'),
+      // H5 验收壳只在 h5 段解析到真实组件；mini 段整体替换 alias 时会显式指向空桩。
+      '@h5-home-preview$': path.resolve(
+        __dirname,
+        '..',
+        'src',
+        'pages',
+        'index',
+        'h5-home-preview.h5.tsx',
+      ),
       // 与 mini 段同三条(h5 段不覆盖顶层 alias,但为防"平台段整体替换"的坑在此也备齐)
       // 2026-11-10 H5 构建修复(ScrollEdgeFades 真渲染验证票):mini 段 alias 是平台级整体替换,
       // h5 段无 alias ⇒ 顶层即 h5 唯一解析面。RN 壳薄壳页(`@rn-shells/<Name>`,2026-10-26 起
@@ -290,6 +331,15 @@ export default defineConfig(async (merge) => {
         // 指到端内 rn-compat 兼容层,小程序页面即可直接 import 共享屏 —— 样式与功能随源头同步。
         // 端内自有代码不 import 这两个包(现读 0 处),alias 只作用于共享层的解析。
         '@': path.resolve(__dirname, '..', 'src'),
+        // H5 验收壳在微信端必须是空桩，否则整条 RN 壳闭包会被拉回主包。
+        '@h5-home-preview$': path.resolve(
+          __dirname,
+          '..',
+          'src',
+          'pages',
+          'index',
+          'h5-home-preview.tsx',
+        ),
         react: path.resolve(__dirname, '..', 'node_modules', 'react'),
         'react-native$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'index.ts'),
         'lucide-react-native$': path.resolve(
@@ -507,6 +557,54 @@ export default defineConfig(async (merge) => {
                     ),
                     to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'theme.tsx'),
                   },
+                  // 登录态同理:RN 壳只认 useAuth() 的 user/token/ready,端内真相源是
+                  // stores/user;换到 compat 实现后,壳页不需要再包 RN AuthProvider。
+                  {
+                    base: path.resolve(
+                      __dirname,
+                      '..',
+                      '..',
+                      '..',
+                      'apps',
+                      'mobile-rn',
+                      'src',
+                      'context',
+                      'AuthContext',
+                    ),
+                    to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'auth.tsx'),
+                  },
+                  // Drawer 依赖 RN Modal/PanResponder/手势链，小程序无等价物；先换占位，
+                  // 保证首页壳首屏可挂载，侧滑菜单后续单独补 Taro 版。
+                  {
+                    base: path.resolve(
+                      __dirname,
+                      '..',
+                      '..',
+                      '..',
+                      'apps',
+                      'mobile-rn',
+                      'src',
+                      'components',
+                      'Drawer',
+                    ),
+                    to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'drawer.tsx'),
+                  },
+                  // PanelLeftRounded 用 react-native-svg 绘制，小程序端没有该原生组件；
+                  // 换成同一几何的 CSS mask 图标，否则顶栏左侧只剩空白。
+                  {
+                    base: path.resolve(
+                      __dirname,
+                      '..',
+                      '..',
+                      '..',
+                      'apps',
+                      'mobile-rn',
+                      'src',
+                      'components',
+                      'PanelLeftRounded',
+                    ),
+                    to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'panel-left-rounded.tsx'),
+                  },
                 ],
                 'apps/mobile-rn/src/',
               ])
@@ -530,10 +628,9 @@ export default defineConfig(async (merge) => {
                 }
                 return [
                   ...new Set(
-                    ['app', 'shared'].flatMap((p) => [
-                      path.join(literalRoot, p, 'src'),
-                      path.join(realRoot, p, 'src'),
-                    ]),
+                    ['app', 'shared', 'api-client', 'design-tokens', 'types', 'ui-native'].flatMap(
+                      (p) => [path.join(literalRoot, p, 'src'), path.join(realRoot, p, 'src')],
+                    ),
                   ),
                 ]
               })()
@@ -660,6 +757,48 @@ export default defineConfig(async (merge) => {
                 'ThemeContext',
               ),
               to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'theme.tsx'),
+            },
+            {
+              base: path.resolve(
+                __dirname,
+                '..',
+                '..',
+                '..',
+                'apps',
+                'mobile-rn',
+                'src',
+                'context',
+                'AuthContext',
+              ),
+              to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'auth.tsx'),
+            },
+            {
+              base: path.resolve(
+                __dirname,
+                '..',
+                '..',
+                '..',
+                'apps',
+                'mobile-rn',
+                'src',
+                'components',
+                'Drawer',
+              ),
+              to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'drawer.tsx'),
+            },
+            {
+              base: path.resolve(
+                __dirname,
+                '..',
+                '..',
+                '..',
+                'apps',
+                'mobile-rn',
+                'src',
+                'components',
+                'PanelLeftRounded',
+              ),
+              to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'panel-left-rounded.tsx'),
             },
           ],
           'apps/mobile-rn/src/',

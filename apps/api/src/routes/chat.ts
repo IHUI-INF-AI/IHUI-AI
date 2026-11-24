@@ -24,15 +24,6 @@ import { db } from '../db/index.js'
 import { dedupeIds, batchWriteOutcome } from '../utils/batch-outcome.js'
 // 批量操作的"哪些 id 根本没被写"对账需要直接按 (userId, ids) 查一次归属(见 POST /conversations/batch)
 import { chatConversations } from '@ihui/database'
-// 2026-11-24 真多端互通:统一表上的改名/置顶/归档/删除反向回写小程序历史表
-// (只对 source='miniapp' 且有 source_ref 的镜像行生效,见 conversation-miniapp-backflow.ts)
-import {
-  backflowMiniappPatch,
-  backflowMiniappPatchMany,
-  backflowMiniappRemove,
-  collectMiniappRefs,
-  removeMiniappHistoryRows,
-} from './conversation-miniapp-backflow.js'
 import {
   createConversationGroup,
   deleteConversationGroup,
@@ -100,7 +91,6 @@ import { findChatSyncSnapshot } from '../db/chat-sync-rev-queries.js'
 import { success, error } from '../utils/response.js'
 // 2026-11-23:标题纯文本净化的唯一实现在共享层(与入库/显示同源),本文件不重写规则
 import { plainTitleText } from '@ihui/shared'
-import { resolveAutoChatRoute } from '../services/chat-auto-resolve.js'
 // D35(2026-10-31):metadata 九类只回摘要 —— 投影判据的唯一实现在 @ihui/shared/chat
 // (九类清单 + 信封形态都在那里),本文件不重写一份键表。
 import {
@@ -387,9 +377,6 @@ function serializeConversation(c: {
   pinnedAt?: Date | null
   messageCount?: number
   favorite?: boolean
-  source?: string
-  sourceRef?: string | null
-  groupId?: string | null
 }) {
   return {
     id: c.id,
@@ -408,10 +395,6 @@ function serializeConversation(c: {
     ...(c.pinnedAt !== undefined && { pinnedAt: c.pinnedAt }),
     ...(c.messageCount !== undefined && { messageCount: c.messageCount }),
     ...(c.favorite !== undefined && { favorite: c.favorite }),
-    // 2026-11-24:录入端(web/rn/miniapp)与源记录 id —— 三端互通后列表要能标出「这条从哪个端录入」
-    ...(c.source !== undefined && { source: c.source }),
-    ...(c.sourceRef !== undefined && { sourceRef: c.sourceRef }),
-    ...(c.groupId !== undefined && { groupId: c.groupId }),
   }
 }
 
@@ -851,12 +834,6 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
 
-      // 2026-11-24:录入端白名单。只作列表展示/筛选维度,不参与归属鉴权(userId 恒来自令牌);
-      // 未知或未声明一律回填 web,不引入第四态。
-      const platformHeader = String(request.headers['x-client-platform'] ?? '').toLowerCase()
-      const source =
-        platformHeader === 'rn' || platformHeader === 'miniapp' ? platformHeader : 'web'
-
       try {
         const conversation = await createConversation({
           userId,
@@ -864,7 +841,6 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           model: parsed.data.model,
           systemPrompt: parsed.data.systemPrompt,
           metadata: parsed.data.metadata,
-          source,
         })
 
         return reply
@@ -974,17 +950,6 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
                   : updated.title,
             }),
       })
-    }
-    // 2026-11-24 真多端互通:小程序镜像会话的改名/置顶反向回写小程序历史表。
-    // 失败只 warn、绝不让请求失败(该表是镜像副本,下次小程序读到统一表会重新对齐)。
-    if (parsed.data.title !== undefined || parsed.data.pinned !== undefined) {
-      const backflowed = await backflowMiniappPatch(userId, owned.conversation, {
-        ...(parsed.data.title === undefined ? {} : { title: updated.title }),
-        ...(parsed.data.pinned === undefined ? {} : { pinned: parsed.data.pinned }),
-      })
-      if (backflowed < 0) {
-        request.log.warn({ conversationId: id }, 'miniapp backflow patch failed')
-      }
     }
     // D153:写库成功后按"库里到底变了哪一列"广播(见 broadcastConversationMeta 判据②)
     broadcastConversationMeta(
@@ -1125,14 +1090,6 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     // deleted 由库侧 RETURNING 派生,不是代码常量(2026-09-27):上面的归属预查与这次
     // 删除之间若有并发,行已不在 ⇒ 这里必须如实报 false,而不是照旧回 true。
     const removed = await deleteConversation(id)
-    // 2026-11-24 真多端互通:小程序镜像会话在统一表删成功后,同步删小程序历史行。
-    // 只在**真删掉**之后执行 —— 删的是镜像副本,绝不能在小程序那边留下唯一一份。
-    if (removed.length > 0) {
-      const backflowed = await backflowMiniappRemove(userId, owned.conversation)
-      if (backflowed < 0) {
-        request.log.warn({ conversationId: id }, 'miniapp backflow remove failed')
-      }
-    }
     return reply.send(success({ deleted: removed.length > 0 }))
   })
 
@@ -1169,11 +1126,6 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         ownedRows.map((r) => r.id),
       )
 
-      // 2026-11-24 真多端互通:删除类必须在统一表删**之前**收走镜像 ref ——
-      // 行删掉后 source_ref 就查不到了,后置查询恒得空集(一处顺序错,小程序副本就永留)。
-      const miniappRefsToRemove =
-        action === 'delete' ? await collectMiniappRefs(userId, ownedRows.map((row) => row.id)) : []
-
       let affected = 0
       switch (action) {
         case 'delete':
@@ -1202,28 +1154,6 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           broadcastConversationMeta(request, userId, row.id, ['archive'], new Date(), {
             archive: action === 'archive',
           })
-        }
-      }
-      // 2026-11-24 真多端互通:批量删除 / 归档反向回写小程序镜像行。
-      // 归档类可后置(archived_at 与 source_ref 都在同一行,写后仍查得到);
-      // 删除类走删前收集的 miniappRefsToRemove(见上面取点),这里只负责删小程序副本。
-      if (action === 'archive' || action === 'unarchive') {
-        const backflowed = await backflowMiniappPatchMany(
-          userId,
-          ownedRows.map((row) => row.id),
-          { archivedAt: action === 'archive' ? new Date() : null },
-        )
-        if (backflowed < 0) {
-          request.log.warn({ action }, 'miniapp backflow archive failed')
-        }
-      }
-      if (action === 'delete' && miniappRefsToRemove.length > 0) {
-        const backflowed = await removeMiniappHistoryRows(userId, miniappRefsToRemove)
-        if (backflowed < 0) {
-          request.log.warn(
-            { action, count: miniappRefsToRemove.length },
-            'miniapp backflow delete failed',
-          )
         }
       }
       return reply.send(success({ action, affected, missedIds }))
@@ -2719,42 +2649,6 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     }
     return reply.send(
       success({ model, temperature, maxTokens, systemPrompt: systemPrompt ?? null }),
-    )
-  })
-
-  // POST /chat/auto-resolve - 聊天 auto 模式的号池决策腿(2026-11-22 立)
-  // 「自动」此前只从平台直连池选模型(ai-service _resolve_auto_model),用户名下号池
-  // 与运营池公开模型完全不可达,用户必须手动点名号池模型。本端点按当前登录用户
-  // (隔离:只认本人名下可调度号池 + 运营池公开登记行)结合任务复杂度,决定本轮走
-  // 号池通道(/ws/relay/chat,计费/工具回路/错误卡全部复用既有链路)还是平台腿
-  // (前端照旧上行 'auto',ai-service 按原有逻辑自行解析,零回归)。判据与失效方向
-  // 见 services/chat-auto-resolve.ts 头注 —— 判不了/失败一律回 platform,绝不挡发送。
-  const autoResolveSchema = z
-    .object({
-      promptTail: z.string().max(20_000).default(''),
-      promptChars: z.number().int().min(0).max(10_000_000).default(0),
-      hasTools: z.boolean().default(false),
-      poolCandidates: z.array(z.string().min(1).max(200)).max(500).default([]),
-    })
-    .strict()
-  server.post('/chat/auto-resolve', { preHandler: [requireAuth] }, async (request, reply) => {
-    const parsed = autoResolveSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, '参数校验失败'))
-    }
-    const userId = request.userId
-    if (!userId) {
-      return reply.status(401).send(error(401, '请先登录'))
-    }
-    const result = await resolveAutoChatRoute({
-      userId,
-      promptTail: parsed.data.promptTail,
-      promptChars: parsed.data.promptChars,
-      hasTools: parsed.data.hasTools,
-      poolCandidates: parsed.data.poolCandidates,
-    })
-    return reply.send(
-      success({ channel: result.channel, model: result.model, source: result.source }),
     )
   })
 }

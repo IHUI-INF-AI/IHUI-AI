@@ -10,7 +10,7 @@ import { useI18n, t as tStatic } from '../../i18n'
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Loader2, Mic, X } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
-import { rnGeometry, rnRadius, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnType, taroSpacing } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import { Tappable } from '@ihui/ui-native'
 import { useDialogHeightStyle } from '../../lib/use-dialog-height'
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(20),
     backgroundColor: tokens.surface.card,
   },
@@ -88,10 +88,10 @@ const styles = StyleSheet.create({
   },
   // 守门 131 改型:ttsOptionBtn 的 marginHorizontal 搬到外层槽位档,可视盒原样留内层。
   ttsOptionBtnSlot: {
-    marginHorizontal: rpx(32),
+    marginHorizontal: rpx(taroSpacing.lg),
   },
   ttsOptionBtn: {
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(28),
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.sm,
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   },
   // ── FF(D126)实时语音对话区 ──
   realtimeSection: {
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingTop: rpx(12),
     paddingBottom: rpx(12),
   },
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   },
   realtimeBtn: {
     marginTop: rpx(10),
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(24),
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.sm,
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   // ── D126 语音回合「按住说话」──
   talkBtn: {
     marginTop: rpx(16),
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(32),
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.sm,
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   },
   // ── 功能面板/来源面板(BottomPops 子内容样式) ──
   panelCancelBtn: {
-    marginHorizontal: rpx(32),
+    marginHorizontal: rpx(taroSpacing.lg),
     marginTop: rpx(16),
     height: 48,
     borderRadius: rnRadius.sm,

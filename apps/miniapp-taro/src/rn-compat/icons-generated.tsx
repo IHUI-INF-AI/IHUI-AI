@@ -121,6 +121,8 @@ const S = {
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-circuit-board"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="18" height="18" x="3" y="3" rx="2" />\n  <path d="M11 9h4a2 2 0 0 0 2-2V3" />\n  <circle cx="9" cy="9" r="2" />\n  <path d="M7 21v-4a2 2 0 0 1 2-2h4" />\n  <circle cx="15" cy="15" r="2" />\n</svg>\n',
   Clapperboard:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-clapperboard"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="m12.296 3.464 3.02 3.956" />\n  <path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3z" />\n  <path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />\n  <path d="m6.18 5.276 3.1 3.899" />\n</svg>\n',
+  ClipboardCheck:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-clipboard-check"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />\n  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />\n  <path d="m9 14 2 2 4-4" />\n</svg>\n',
   ClipboardList:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-clipboard-list"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />\n  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />\n  <path d="M12 11h4" />\n  <path d="M12 16h4" />\n  <path d="M8 11h.01" />\n  <path d="M8 16h.01" />\n</svg>\n',
   ClipboardPaste:
@@ -356,6 +358,8 @@ const S = {
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-scroll-text"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M15 12h-5" />\n  <path d="M15 8h-5" />\n  <path d="M19 17V5a2 2 0 0 0-2-2H4" />\n  <path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3" />\n</svg>\n',
   Search:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-search"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="m21 21-4.34-4.34" />\n  <circle cx="11" cy="11" r="8" />\n</svg>\n',
+  SearchX:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-search-x"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="m13.5 8.5-5 5" />\n  <path d="m8.5 8.5 5 5" />\n  <circle cx="11" cy="11" r="8" />\n  <path d="m21 21-4.3-4.3" />\n</svg>\n',
   Send: '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-send"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" />\n  <path d="m21.854 2.147-10.94 10.939" />\n</svg>\n',
   Server:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-server"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />\n  <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />\n  <line x1="6" x2="6.01" y1="6" y2="6" />\n  <line x1="6" x2="6.01" y1="18" y2="18" />\n</svg>\n',
@@ -522,6 +526,7 @@ export const CircleHelp = makeIcon('CircleHelp', src('CircleHelp'))
 export const CircleQuestionMark = makeIcon('CircleQuestionMark', src('CircleQuestionMark'))
 export const CircuitBoard = makeIcon('CircuitBoard', src('CircuitBoard'))
 export const Clapperboard = makeIcon('Clapperboard', src('Clapperboard'))
+export const ClipboardCheck = makeIcon('ClipboardCheck', src('ClipboardCheck'))
 export const ClipboardList = makeIcon('ClipboardList', src('ClipboardList'))
 export const ClipboardPaste = makeIcon('ClipboardPaste', src('ClipboardPaste'))
 export const Clock = makeIcon('Clock', src('Clock'))
@@ -651,6 +656,7 @@ export const ScanLine = makeIcon('ScanLine', src('ScanLine'))
 export const Scissors = makeIcon('Scissors', src('Scissors'))
 export const ScrollText = makeIcon('ScrollText', src('ScrollText'))
 export const Search = makeIcon('Search', src('Search'))
+export const SearchX = makeIcon('SearchX', src('SearchX'))
 export const Send = makeIcon('Send', src('Send'))
 export const Server = makeIcon('Server', src('Server'))
 export const Settings = makeIcon('Settings', src('Settings'))
@@ -707,3 +713,9 @@ export const X = makeIcon('X', src('X'))
 export const XCircle = makeIcon('XCircle', src('XCircle'))
 export const Zap = makeIcon('Zap', src('Zap'))
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/** PanelLeftRounded：首页左上角抽屉入口；lucide-static 无此圆角档，按同一 stroke 口径手补。 */
+export const PanelLeftRounded = makeIcon(
+  'PanelLeftRounded',
+  '<!-- @license lucide-static v1.31.0 - ISC --><svg class="lucide lucide-panel-left" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg>',
+)

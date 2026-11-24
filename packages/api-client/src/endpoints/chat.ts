@@ -22,12 +22,12 @@ export interface ConversationDetail {
   pinnedAt?: string | null
   /** 2026-09-05 立:会话收藏标记(POST/DELETE /api/chat/conversations/:id/favorite) */
   favorite?: boolean
-  /** 2026-11-24 立:该会话由哪个端录入(web/rn/miniapp);老数据/未打标为 web */
-  source?: 'web' | 'rn' | 'miniapp'
-  /** 端侧原始 id:小程序历史镜像时等于 /ai/history 的记录 id */
-  sourceRef?: string | null
-  /** 所属分组 id(统一分组表 chat_conversation_groups;未分组为 null) */
+  /** 会话所属分组(组织/客服路由回传;缺省表示普通会话) */
   groupId?: string | null
+  /** 会话来源(web/weapp/agent 等入口标记) */
+  source?: string | null
+  /** 来源引用(外部渠道消息/自动化任务关联 ID) */
+  sourceRef?: string | null
 }
 
 /** AI 主动提问选项(与 @ihui/types QuestionOptionPayload 结构一致) */
@@ -1146,17 +1146,13 @@ export interface AgentTerminalFace {
 /**
  * 列出本会话里 agent 开的终端。
  *
- * **`conversationId` 必须是会话 id 本身,不是流会话 id**:agent 侧 `open_terminal` 记账用的
- * 是 `POST /ai/chat/stream` 请求里的 `metadata.conversationId`(见 llm.py 的 `call_tool`
- * 注入那处),而 `upstreamSessionId` 是网关每次流新生成的随机 UUID —— 传后者永远拿到空列表。
- *
  * 归属只认令牌主体 + 会话 id(服务端判定),本函数不发送任何用户身份字段。
  * 失败抛错:面板要能显示"取不到",而不是把失败画成空列表(那会被读成"没有终端")。
  */
-export async function listAgentTerminals(conversationId: string): Promise<AgentTerminalInfo[]> {
-  if (!conversationId) throw new Error('listAgentTerminals: conversationId required')
+export async function listAgentTerminals(sessionId: string): Promise<AgentTerminalInfo[]> {
+  if (!sessionId) throw new Error('listAgentTerminals: sessionId required')
   const resp = await fetchWithAuthRefresh(
-    `${aiServiceBaseUrl()}/llm/complete/stream/${encodeURIComponent(conversationId)}/terminals`,
+    `${aiServiceBaseUrl()}/llm/complete/stream/${encodeURIComponent(sessionId)}/terminals`,
     { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' },
   )
   if (!resp.ok) {
@@ -1182,21 +1178,20 @@ export async function listAgentTerminals(conversationId: string): Promise<AgentT
 /**
  * 取一块终端的屏面。`maxLinks` 只影响链接条数(屏面永远整块回)。
  *
- * `conversationId` 与 `listAgentTerminals` 同口径(**会话 id,不是流会话 id**)。
  * 两种失败**必须分开**:`notFound`(越权/不存在,服务端刻意同形)与 `error`
  * (如"该会话没有屏幕网格")。把后者读成"没这块终端"会让面板反复重新列表。
  */
 export async function getAgentTerminalFace(
-  conversationId: string,
+  sessionId: string,
   terminalId: string,
   options: { maxLinks?: number; signal?: AbortSignal } = {},
 ): Promise<
   { ok: true; face: AgentTerminalFace } | { ok: false; notFound: boolean; error: string }
 > {
-  if (!conversationId || !terminalId) throw new Error('getAgentTerminalFace: ids required')
+  if (!sessionId || !terminalId) throw new Error('getAgentTerminalFace: ids required')
   const qs = options.maxLinks ? `?max_links=${encodeURIComponent(String(options.maxLinks))}` : ''
   const resp = await fetchWithAuthRefresh(
-    `${aiServiceBaseUrl()}/llm/complete/stream/${encodeURIComponent(conversationId)}/terminals/${encodeURIComponent(terminalId)}/face${qs}`,
+    `${aiServiceBaseUrl()}/llm/complete/stream/${encodeURIComponent(sessionId)}/terminals/${encodeURIComponent(terminalId)}/face${qs}`,
     {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },

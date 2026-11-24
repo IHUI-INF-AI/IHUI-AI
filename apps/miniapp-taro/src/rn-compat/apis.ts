@@ -12,6 +12,7 @@ import Taro from '@tarojs/taro'
 import { createElement, useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 
+import { getThemePreference, resolveTheme } from '@/lib/theme'
 import { Image as CompatImage, ScrollView, Text, View } from './primitives'
 import type { RNBaseProps } from './primitives'
 
@@ -264,6 +265,10 @@ class AnimatedValue {
   flattenOffset() {}
   extractOffset() {}
   resetAnimation() {}
+  /** RN `Animated.Value.stopAnimation(cb)`：小程序没有原生动画驱动，冻结当前值并回调 */
+  stopAnimation(callback?: (value: number) => void) {
+    callback?.(this.value)
+  }
   addListener(listener: (event: { value: number }) => void): string {
     const id = `v${++this.seq}`
     this.listeners.set(id, listener)
@@ -1006,10 +1011,10 @@ export const InteractionManager = {
   },
 }
 
-/** 读系统配色(非 hook 形态,供 Appearance 与 hook 共用 —— 钩子规则不许在非组件函数里调 use*) */
+/** 读端内已解析配色：与 `<ThemeRoot>` 的 `.dark` 类同一真相源，避免 RN token 与小程序的 CSS 主题各走一套 */
 function readColorScheme(): 'light' | 'dark' {
   try {
-    return Taro.getSystemInfoSync().theme === 'dark' ? 'dark' : 'light'
+    return resolveTheme(getThemePreference())
   } catch {
     return 'light'
   }

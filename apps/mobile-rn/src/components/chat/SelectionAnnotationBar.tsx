@@ -13,7 +13,7 @@ import { StyleSheet, Text, View } from 'react-native'
 import { Eraser, MessageSquarePlus, X } from 'lucide-react-native'
 import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
-import { rnRadius, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnType, taroSpacing } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import {
   removeAllAnnotations,
@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rpx(6),
-    paddingHorizontal: rpx(12),
+    paddingHorizontal: rpx(taroSpacing['xs-loose']),
     paddingVertical: rpx(6),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: rnRadius.md,
     backgroundColor: tokens.brandAccent.deep,
-    paddingHorizontal: rpx(6),
+    paddingHorizontal: rpx(taroSpacing['2xs']),
   },
   badgeText: {
     fontSize: rnType.badge.size,
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     height: rpx(56),
-    paddingHorizontal: rpx(12),
+    paddingHorizontal: rpx(taroSpacing['xs-loose']),
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.medium,
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   addBtn: {
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     height: rpx(56),
     alignItems: 'center',
     justifyContent: 'center',

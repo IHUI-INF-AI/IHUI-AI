@@ -473,10 +473,10 @@
     "picking": "Picking",
     "devtools": "DevTools",
     "popout": "Pop Out",
-    "browserTab": "Browser Tab"
-  ,
+    "browserTab": "Browser Tab",
     "pipMonitor": "PiP monitor",
-    "pipMonitorActive": "Close PiP"},
+    "pipMonitorActive": "Close PiP"
+  },
   "a11y": {
     "previewLoadFailed": "Preview failed to load.",
     "previewRetryAction": "Retry",
@@ -9538,8 +9538,7 @@
     "pictureInPicture": {
       "title": "Picture-in-Picture",
       "emptyState": "Nothing to display",
-      "openWindow": "Open Picture-in-Picture Window"
-    ,
+      "openWindow": "Open Picture-in-Picture Window",
       "readOnly": "Read-only",
       "handover": "Take over",
       "statusConnecting": "Connecting",
@@ -9548,8 +9547,10 @@
       "statusGate": "Login or verification page — you may need to take over",
       "statusError": "Screen disconnected",
       "statusStalled": "Screen hasn't updated for {seconds}s",
-      "tooSmall": "Window too small — keep it at least a quarter screen"},
-    "resizeFloatHint": "Resize"
+      "tooSmall": "Window too small — keep it at least a quarter screen"
+    },
+    "resizeFloatHint": "Resize",
+    "earlier": "Earlier"
   },
   "aiCost": {
     "budgetAlerts": "Budget Alerts",
@@ -12640,6 +12641,24 @@
         "description": "Browse and install self-evolving skills",
         "keywords": "[\"Skill\",\"Market\"]",
         "label": "Skill Market"
+      },
+      "automations": {
+        "label": "Scheduled automations",
+        "description": "View and manage agent automations that run on a schedule",
+        "keywords": [
+          "automation",
+          "schedule",
+          "cron"
+        ]
+      },
+      "imageGen": {
+        "label": "AI image generation",
+        "description": "Generate images from a text description",
+        "keywords": [
+          "image",
+          "generate",
+          "draw"
+        ]
       }
     },
     "keyboardHint": "↑↓ Navigate · Enter Execute",
@@ -20009,11 +20028,12 @@
     "customNoResults": "No matching features found",
     "finAccounting": "Accounting Books",
     "hrLifecycle": "HR Lifecycle",
-    "hrApproval": "Leave Approval"
-  ,
+    "hrApproval": "Leave Approval",
     "hrMyPerf": "My performance",
     "hrMyTraining": "My training",
-    "hrMyExpense": "My expenses"},
+    "hrMyExpense": "My expenses",
+    "financeGroup": "Finance"
+  },
   "news": {
     "allCategories": "All Categories",
     "backToList": "Back to news",
@@ -30747,8 +30767,7 @@
     "scoreLabel": "Score",
     "managerComment": "Comment",
     "perfReviewsTitle": "Reviews",
-    "trCourse": "Course"
-  ,
+    "trCourse": "Course",
     "myExpenseTitle": "My expenses",
     "expNew": "New expense claim",
     "expSubmit": "Submit claim",
@@ -30779,5 +30798,6 @@
     "expStatusRejected": "Rejected",
     "expStatusPaid": "Paid",
     "expStatusVoided": "Voided",
-    "uploading": "Uploading…"}
+    "uploading": "Uploading…"
+  }
 }

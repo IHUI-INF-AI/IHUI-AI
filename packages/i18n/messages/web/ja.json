@@ -473,10 +473,10 @@
     "picking": "選択中",
     "devtools": "開発者ツール",
     "popout": "ポップアウト",
-    "browserTab": "ブラウザタブ"
-  ,
+    "browserTab": "ブラウザタブ",
     "pipMonitor": "PiP モニター",
-    "pipMonitorActive": "PiP を閉じる"},
+    "pipMonitorActive": "PiP を閉じる"
+  },
   "a11y": {
     "download": "ダウンロード",
     "downloadFile": "ファイルをダウンロード",
@@ -9573,8 +9573,7 @@
     "pictureInPicture": {
       "title": "ピクチャーインピクチャー",
       "emptyState": "表示するものはありません",
-      "openWindow": "PiP ウィンドウを開く"
-    ,
+      "openWindow": "PiP ウィンドウを開く",
       "readOnly": "読み取り専用",
       "handover": "引き継ぐ",
       "statusConnecting": "接続中",
@@ -9583,7 +9582,8 @@
       "statusGate": "ログイン・認証ページ。引き継ぎが必要な場合があります",
       "statusError": "画面が切断されました",
       "statusStalled": "画面が {seconds} 秒更新されていません",
-      "tooSmall": "ウィンドウが小さすぎます。1/4 画面以上を推奨"},
+      "tooSmall": "ウィンドウが小さすぎます。1/4 画面以上を推奨"
+    },
     "resizeFloatHint": "サイズ変更",
     "bindIssue": "Issueを紐付ける",
     "recap": {
@@ -9604,7 +9604,8 @@
       "creating": "新しいタスクの作成中...",
       "createFailed": "タスク作成に失敗しました。再試行してください",
       "handoffUnavailable": "引継ぎドキュメント生成機能が利用できないため、生成できません"
-    }
+    },
+    "earlier": "それ以前"
   },
   "aiCost": {
     "budgetAlerts": "予算アラート",
@@ -12831,6 +12832,24 @@
           "market"
         ],
         "label": "Skill マーケット"
+      },
+      "automations": {
+        "label": "定期自動化",
+        "description": "スケジュールで自動実行されるエージェントタスクを管理",
+        "keywords": [
+          "自動化",
+          "定期",
+          "スケジュール"
+        ]
+      },
+      "imageGen": {
+        "label": "AI 画像生成",
+        "description": "テキストの説明から画像を生成",
+        "keywords": [
+          "画像",
+          "生成",
+          "描画"
+        ]
       }
     },
     "keyboardHint": "↑↓ 選択 · Enter 実行",
@@ -20229,11 +20248,12 @@
     "customNoResults": "一致する機能が見つかりません",
     "finAccounting": "財務帳簿",
     "hrLifecycle": "人事ライフサイクル",
-    "hrApproval": "休暇承認"
-  ,
+    "hrApproval": "休暇承認",
     "hrMyPerf": "自分の評価",
     "hrMyTraining": "自分の研修",
-    "hrMyExpense": "自分の経費"},
+    "hrMyExpense": "自分の経費",
+    "financeGroup": "財務部"
+  },
   "news": {
     "allCategories": "All categories",
     "backToList": "るリスト",
@@ -31280,8 +31300,7 @@
     "scoreLabel": "点数",
     "managerComment": "コメント",
     "perfReviewsTitle": "評価一覧",
-    "trCourse": "コース"
-  ,
+    "trCourse": "コース",
     "myExpenseTitle": "自分の経費",
     "expNew": "新規経費申請",
     "expSubmit": "経費申請を提出",
@@ -31312,5 +31331,6 @@
     "expStatusRejected": "差し戻し",
     "expStatusPaid": "支払済み",
     "expStatusVoided": "無効化",
-    "uploading": "アップロード中…"}
+    "uploading": "アップロード中…"
+  }
 }

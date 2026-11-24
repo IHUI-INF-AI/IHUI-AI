@@ -721,7 +721,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     iconSquare: {
       width: rnSpacing['4xl'],
       height: rnSpacing['4xl'],
-      paddingHorizontal: 0,
+      paddingHorizontal: rnSpacing.none,
       paddingVertical: 0,
       justifyContent: 'center',
     },

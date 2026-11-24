@@ -11,6 +11,9 @@ import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import type { WechatMessageView } from '@ihui/types'
 import { cn } from '@/lib/utils'
+import ConversationExportButton from './ConversationExportButton'
+import HistoryImportButton from './HistoryImportButton'
+import HistorySyncButton from './HistorySyncButton'
 import { wechatHubApi } from './wechat-hub-api'
 
 function formatTime(value: string | null): string {
@@ -176,6 +179,9 @@ export default function ConversationsPanel({
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <HistorySyncButton accountId={accountId} />
+              <HistoryImportButton accountId={accountId} />
+              <ConversationExportButton accountId={accountId} conversationId={conversationId} />
               {readOnly && selected ? (
                 <Button
                   size="sm"

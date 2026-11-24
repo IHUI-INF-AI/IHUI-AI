@@ -28,6 +28,7 @@ import type { ReactElement } from 'react'
 import { Text, View } from '@tarojs/components'
 import type { ChatNotice, NoticeKind } from '@ihui/shared/chat/notice-log'
 import { rpx } from '@/utils/rpx'
+import { taroSpacing } from '@ihui/design-tokens'
 
 /**
  * 语义色取端内 CSS 变量(即设计 token 的运行时形态,与 RN 的 `tokens.*` 同源,
@@ -52,8 +53,8 @@ export function NoticeLog({ notices }: { notices: readonly ChatNotice[] }): Reac
     <View
       style={{
         marginTop: rpx(16),
-        marginLeft: rpx(24),
-        marginRight: rpx(24),
+        marginLeft: rpx(taroSpacing.md),
+        marginRight: rpx(taroSpacing.md),
         paddingTop: rpx(16),
         borderTop: `${rpx(1)} solid var(--color-border)`,
       }}
@@ -74,7 +75,7 @@ export function NoticeLog({ notices }: { notices: readonly ChatNotice[] }): Reac
               height: rpx(8),
               borderRadius: rpx(4),
               marginTop: rpx(12),
-              marginRight: rpx(8),
+              marginRight: rpx(taroSpacing.xs),
               backgroundColor: COLORS[n.kind],
               flexShrink: 0,
             }}
@@ -84,7 +85,7 @@ export function NoticeLog({ notices }: { notices: readonly ChatNotice[] }): Reac
               fontSize: rpx(22),
               lineHeight: rpx(32),
               color: 'var(--color-text-tertiary)',
-              marginRight: rpx(8),
+              marginRight: rpx(taroSpacing.xs),
             }}
           >
             {fmtTime(n.ts)}

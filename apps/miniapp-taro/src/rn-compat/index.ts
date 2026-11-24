@@ -15,7 +15,7 @@
  *  - 数字 = dp,落 `Npx`(weapp 的 px 与 RN 的 dp 同为逻辑像素,尺寸 1:1;不做 rpx 换算)。
  *  - 语义降级处(Animated 补间、lucide strokeWidth)在各自文件里点名,不静默。
  */
-import Taro from '@tarojs/taro'
+import { getThemePreference, resolveTheme } from '@/lib/theme'
 // React 19 起全局 JSX 命名空间不再存在,`JSX.Element` 必须从 react 显式取类型位
 import type { JSX } from 'react'
 
@@ -130,8 +130,7 @@ export const AppState = {
 export const Appearance = {
   getColorScheme: (): 'light' | 'dark' => {
     try {
-      const info = Taro.getSystemInfoSync()
-      return info.theme === 'dark' ? 'dark' : 'light'
+      return resolveTheme(getThemePreference())
     } catch {
       return 'light'
     }

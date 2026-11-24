@@ -5290,6 +5290,9 @@
     "loadFailed": "加载直播聊天失败",
     "sendFailed": "发送失败"
   },
+  "livePlaybackList": {
+    "title": "回放列表"
+  },
   "livePlayback": {
     "duration": "时长",
     "empty": "暂无回放",

@@ -59,6 +59,7 @@ import {
   rnRadiusFor,
   rnSpacing,
   rnType,
+  taroSpacing,
 } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { isSessionLoggedOut } from '../lib/token'
@@ -1441,7 +1442,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 6,
     top: 158,
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(8),
     borderRadius: rnRadius.sm,
     backgroundColor: withAlpha(tokens.brandAccent.DEFAULT, 0.85),
@@ -1513,7 +1514,7 @@ const styles = StyleSheet.create({
   agreementModalHeader: {
     paddingTop: rpx(40),
     paddingBottom: rpx(30),
-    paddingHorizontal: rpx(30),
+    paddingHorizontal: rpx(taroSpacing['md-loose']),
   },
   agreementModalTitle: {
     fontSize: rpx(36),
@@ -1523,7 +1524,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   agreementModalBody: {
-    paddingHorizontal: rpx(30),
+    paddingHorizontal: rpx(taroSpacing['md-loose']),
     paddingBottom: rpx(30),
   },
   agreementModalText: {
@@ -1546,7 +1547,7 @@ const styles = StyleSheet.create({
   agreementModalLinkSeparator: {
     fontSize: rpx(28),
     color: tokens.text.primary,
-    marginHorizontal: rpx(8),
+    marginHorizontal: rpx(taroSpacing.xs),
   },
   agreementModalFooter: {
     flexDirection: 'row',
@@ -1585,7 +1586,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderRadius: rnRadius.sm,
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: rpx(taroSpacing['sm-loose']),
     fontSize: rpx(30),
     color: tokens.text.primary,
     backgroundColor: tokens.surface.inputBg,

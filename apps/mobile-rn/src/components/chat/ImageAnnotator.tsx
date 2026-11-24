@@ -29,7 +29,7 @@ import { captureRef } from 'react-native-view-shot'
 import { Check, PenLine, Trash2, Type, Undo2, X } from 'lucide-react-native'
 import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
-import { rnCssLight, rnRadius, rnType } from '@ihui/design-tokens'
+import { rnCssLight, rnRadius, rnType, taroSpacing } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import { Tappable } from '@ihui/ui-native'
 
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(20),
   },
   headerTitle: {
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   // ── 画布:底图 + 标注层 + 手势层三层同盒叠放 ──
   canvasWrap: {
     flex: 1,
-    marginHorizontal: rpx(24),
+    marginHorizontal: rpx(taroSpacing.md),
     borderRadius: rnRadius.lg,
     overflow: 'hidden',
     backgroundColor: tokens.surface.card,
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   },
   // ── 工具栏 ──
   toolbar: {
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingTop: rpx(20),
     paddingBottom: rpx(12),
     gap: rpx(16),
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rpx(6),
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: rpx(taroSpacing['sm-loose']),
     paddingVertical: rpx(12),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: rpx(taroSpacing['sm-loose']),
     paddingVertical: rpx(14),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rpx(24),
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingTop: rpx(12),
     paddingBottom: rpx(32),
     backgroundColor: tokens.surface.card,

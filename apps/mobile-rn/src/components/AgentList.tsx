@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: tokens.border.medium,
     marginVertical: 2.5,
-    paddingHorizontal: 5,
+    paddingHorizontal: rnSpacing.xs,
   },
   rowActive: {
     borderColor: tokens.brandAccent.deep,
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     height: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 5,
+    marginLeft: rnSpacing.xs,
   },
   icon: {
     width: 20,

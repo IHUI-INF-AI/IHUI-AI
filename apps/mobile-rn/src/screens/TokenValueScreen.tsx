@@ -28,6 +28,7 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { toFriendlyOr } from '@ihui/shared/utils'
+import { taroSpacing } from '@ihui/design-tokens'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -221,7 +222,7 @@ export default function TokenValueScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
-  studyBarWrap: { paddingHorizontal: rpx(32), paddingTop: rpx(16) },
+  studyBarWrap: { paddingHorizontal: rpx(taroSpacing.lg), paddingTop: rpx(16) },
   sharedWrap: { flex: 1 },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

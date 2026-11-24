@@ -5,9 +5,10 @@
 'use client'
 
 import * as React from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Loader2, Users } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Loader2, RefreshCw, Users } from 'lucide-react'
 import {
+  Button,
   Card,
   CardContent,
   CardDescription,
@@ -21,9 +22,10 @@ import {
 } from '@ihui/ui-react'
 import { wechatHubApi } from './wechat-hub-api'
 
-/** 群成员快照：只对 bridge 后端推送过 members 的群有数据。 */
+/** 群成员快照：bridge 后端可主动拉取；iLink 不支持群聊。 */
 export default function GroupMembersCard({ accountId }: { accountId: string }) {
   const [conversationId, setConversationId] = React.useState('none')
+  const queryClient = useQueryClient()
   const conversationsQuery = useQuery({
     queryKey: ['wechat-hub', 'conversations', accountId],
     queryFn: () => wechatHubApi.conversations(accountId, 100),
@@ -34,7 +36,23 @@ export default function GroupMembersCard({ accountId }: { accountId: string }) {
     queryFn: () => wechatHubApi.groupMembers(accountId, conversationId),
     enabled: conversationId !== 'none',
   })
+  const syncMutation = useMutation({
+    mutationFn: () => wechatHubApi.syncGroupMembers(accountId, conversationId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['wechat-hub', 'group-members', accountId, conversationId],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ['wechat-hub', 'conversations', accountId],
+      })
+    },
+  })
   const groups = (conversationsQuery.data ?? []).filter((item) => item.kind === 'group')
+  const resetSyncMutation = syncMutation.reset
+  React.useEffect(() => {
+    resetSyncMutation()
+    // 切换群后清掉上一个群的同步结果，避免误导。
+  }, [conversationId, resetSyncMutation])
 
   return (
     <Card>
@@ -43,22 +61,54 @@ export default function GroupMembersCard({ accountId }: { accountId: string }) {
           <Users className="h-4 w-4" />
           群成员
         </CardTitle>
-        <CardDescription>仅 bridge 后端推送成员快照的群可用；iLink 不支持群聊。</CardDescription>
+        <CardDescription>bridge 后端支持主动拉取成员快照；iLink 不支持群聊。</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        <Select value={conversationId} onValueChange={setConversationId}>
-          <SelectTrigger>
-            <SelectValue placeholder="选择群聊" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">不选择</SelectItem>
-            {groups.map((group) => (
-              <SelectItem key={group.id} value={group.id}>
-                {group.title || group.platformChatId}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <Select value={conversationId} onValueChange={setConversationId}>
+            <SelectTrigger>
+              <SelectValue placeholder="选择群聊" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">不选择</SelectItem>
+              {groups.map((group) => (
+                <SelectItem key={group.id} value={group.id}>
+                  {group.title || group.platformChatId}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0"
+            disabled={conversationId === 'none' || syncMutation.isPending}
+            onClick={() => syncMutation.mutate()}
+          >
+            {syncMutation.isPending ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-1 h-4 w-4" />
+            )}
+            拉取成员
+          </Button>
+        </div>
+        {syncMutation.isError ? (
+          <p className="text-sm text-destructive">
+            {syncMutation.error instanceof Error ? syncMutation.error.message : '同步群成员失败'}
+          </p>
+        ) : syncMutation.data && !syncMutation.data.result.ok ? (
+          <p className="text-sm text-destructive">
+            {syncMutation.data.result.reason ||
+              (syncMutation.data.result.status === 'unsupported'
+                ? '当前后端不支持主动拉群成员'
+                : '同步群成员失败')}
+          </p>
+        ) : syncMutation.data ? (
+          <p className="text-sm text-muted-foreground">
+            已同步 {syncMutation.data.synced} 人，移除 {syncMutation.data.removed} 人。
+          </p>
+        ) : null}
         {conversationId === 'none' ? (
           <p className="text-sm text-muted-foreground">先选择一个群。</p>
         ) : membersQuery.isLoading ? (
@@ -67,7 +117,9 @@ export default function GroupMembersCard({ accountId }: { accountId: string }) {
             加载成员…
           </div>
         ) : (membersQuery.data ?? []).length === 0 ? (
-          <p className="text-sm text-muted-foreground">暂无成员快照。桥推送 members 后自动同步。</p>
+          <p className="text-sm text-muted-foreground">
+            暂无成员快照。点「拉取成员」从桥同步，或等入站消息自动补。
+          </p>
         ) : (
           <div className="max-h-[220px] space-y-1 overflow-y-auto pr-1">
             {(membersQuery.data ?? []).map((member) => (

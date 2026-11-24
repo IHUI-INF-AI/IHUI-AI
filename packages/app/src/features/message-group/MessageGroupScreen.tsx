@@ -128,7 +128,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     badge: {
       minWidth: 18,
-      paddingHorizontal: 5,
+      paddingHorizontal: rnSpacing.xs,
       paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.danger.DEFAULT,

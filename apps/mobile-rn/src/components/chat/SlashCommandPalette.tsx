@@ -24,7 +24,7 @@ import {
   X,
 } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
-import { rnRadius, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnType, taroSpacing } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import type { SlashCommand } from '../../lib/slash-commands'
 import { Tappable } from '@ihui/ui-native'
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(20),
     backgroundColor: tokens.surface.card,
   },
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   },
   // ── D117 命令面板内容 ──
   queryRow: {
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingBottom: rpx(8),
   },
   queryText: {
@@ -93,14 +93,14 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   itemSlot: {
-    marginHorizontal: rpx(32),
+    marginHorizontal: rpx(taroSpacing.lg),
     marginBottom: rpx(8),
   },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: rpx(16),
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(20),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,

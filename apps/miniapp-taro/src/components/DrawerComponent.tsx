@@ -6,7 +6,7 @@ import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, type TtFn } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { navigateTo } from '@tarojs/taro'
-import { cn, rnRadius, rnRadiusFor, taroGeometry } from '@ihui/design-tokens'
+import { cn, rnRadius, rnRadiusFor, taroGeometry, taroSpacing } from '@ihui/design-tokens'
 import { DEFAULT_CONVERSATION_TITLE, plainTitleText } from '@ihui/shared'
 import { listConversations } from '@ihui/api-client'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
@@ -319,10 +319,10 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 hoverClass="opacity-60"
               >
                 {item.icon
-                  ? renderIcon(item.icon, 36, { marginRight: rpx(12) })
+                  ? renderIcon(item.icon, 36, { marginRight: rpx(taroSpacing['xs-loose']) })
                   : // 缺图兜底不得用字符「•」冒充图标 —— 走同一个 renderIcon,尺寸/间距与主分支
                     // 及下方标签项完全一致(竖排下漏 marginRight 会让图标贴住文字)
-                    renderIcon('circle', 36, { marginRight: rpx(12) })}
+                    renderIcon('circle', 36, { marginRight: rpx(taroSpacing['xs-loose']) })}
                 <Text
                   style={{
                     fontSize: rpx(taroGeometry.textBody),
@@ -359,7 +359,9 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 }}
                 hoverClass="opacity-60"
               >
-                {item.icon ? renderIcon(item.icon, 36, { marginRight: rpx(12) }) : null}
+                {item.icon
+                  ? renderIcon(item.icon, 36, { marginRight: rpx(taroSpacing['xs-loose']) })
+                  : null}
                 <Text className="flex-1">{item.label}</Text>
                 {/* 入口箭头 = 矢量,与 RN 端 ChevronRight 同档(glyphSm),禁止字符 › » 冒充 */}
                 <LineIcon
@@ -516,7 +518,13 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                     hoverClass="opacity-60"
                     onClick={() => openCrossEndChat(chat.id, chat.title)}
                   >
-                    <Text className="truncate flex-1" style={{ fontSize: rpx(taroGeometry.textBody), color: 'var(--color-foreground)' }}>
+                    <Text
+                      className="truncate flex-1"
+                      style={{
+                        fontSize: rpx(taroGeometry.textBody),
+                        color: 'var(--color-foreground)',
+                      }}
+                    >
                       {plainTitleText(chat.title) ?? DEFAULT_CONVERSATION_TITLE}
                     </Text>
                     {/* 来源端 = 文字标签(不是图标):异端徽章语义优先,三端同词表
@@ -528,9 +536,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                         color: 'var(--color-muted-foreground)',
                       }}
                     >
-                      {chat.source === 'rn'
-                        ? tt('sourceApp', 'App')
-                        : tt('sourceWeb', '网页')}
+                      {chat.source === 'rn' ? tt('sourceApp', 'App') : tt('sourceWeb', '网页')}
                     </Text>
                   </View>
                 ))}

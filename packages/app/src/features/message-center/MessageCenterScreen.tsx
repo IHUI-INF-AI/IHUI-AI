@@ -347,7 +347,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.md,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
     },
     bannerText: { flex: 1, fontSize: rnType.body.size, color: tk.text.secondary },
@@ -379,7 +379,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.error.text,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 3,
+      paddingHorizontal: rnSpacing['2xs'],
     },
     badgeText: { fontSize: rnType.badge.size, color: tk.surface.light, fontWeight: '700' },
     errorText: {

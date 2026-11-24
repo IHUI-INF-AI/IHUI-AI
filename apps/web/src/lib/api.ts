@@ -260,9 +260,15 @@ setUnauthorizedHandler((ctx) => {
  */
 // 2026-09-07:options 放宽支持 timeoutMs(透传 @ihui/api-client FetchApiOptions,
 // 供 /bestof 等同步阻塞、耗时可达分钟级的端点放大超时,默认 30s)。
+// 2026-11-24:补齐 params 类型,避免 OAuth 回调等调用点被本地壳的窄类型挡住。
+type WebFetchOptions = RequestInit & {
+  timeoutMs?: number
+  params?: Record<string, string | number | boolean | undefined | null>
+}
+
 export async function fetchApi<T>(
   url: string,
-  options: RequestInit & { timeoutMs?: number } = {},
+  options: WebFetchOptions = {},
 ): Promise<ApiResult<T>> {
   const result = await fetchApiShared<T>(url, options)
   if (!result.success && result.status === 401) {
@@ -287,7 +293,7 @@ export type ApiFailure = Error & { status?: number }
 
 export async function apiOrThrow<T>(
   url: string,
-  options: RequestInit & { timeoutMs?: number; fallbackError?: string } = {},
+  options: WebFetchOptions & { fallbackError?: string } = {},
 ): Promise<T> {
   const { fallbackError, ...init } = options
   const r = await fetchApi<T>(url, init)

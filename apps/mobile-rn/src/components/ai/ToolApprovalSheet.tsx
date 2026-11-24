@@ -22,7 +22,7 @@ import type {
   ToolApprovalReasonCode,
 } from '@ihui/api-client'
 import { postToolApprovalResponse } from '@ihui/api-client'
-import { rnRadius, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnType, taroSpacing } from '@ihui/design-tokens'
 import type { ToolApprovalScope } from '@ihui/types'
 import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rpx(8),
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: rpx(taroSpacing['sm-loose']),
     paddingVertical: rpx(12),
     backgroundColor: tokens.brand.cta,
     borderRadius: rnRadius.md,
@@ -619,7 +619,7 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: rpx(48),
+    paddingHorizontal: rpx(taroSpacing['2xl']),
     // 遮罩走 overlay.modal 单一源(亮 0.4 / 暗 0.6 随主题)
     backgroundColor: tokens.overlay.modal,
   },
@@ -689,7 +689,7 @@ const styles = StyleSheet.create({
     gap: rpx(8),
   },
   scopeOption: {
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(10),
     borderRadius: rnRadius.sm,
     borderWidth: StyleSheet.hairlineWidth,
@@ -697,7 +697,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   scopeOptionActive: {
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(10),
     borderRadius: rnRadius.sm,
     borderWidth: StyleSheet.hairlineWidth,
@@ -724,7 +724,7 @@ const styles = StyleSheet.create({
   // 而聚焦态由 @ihui/rn-app 的 TextField 内部给出,端内不再手写第二份聚焦状态)
   reasonInput: {
     minHeight: rpx(88),
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(10),
     borderRadius: rnRadius.sm,
     borderWidth: StyleSheet.hairlineWidth,
@@ -769,7 +769,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'transparent',
+    borderColor: tokens.border.light,
     padding: rpx(24),
     gap: rpx(6),
   },

@@ -473,10 +473,10 @@
     "picking": "선택 중",
     "devtools": "개발자 도구",
     "popout": "팝아웃",
-    "browserTab": "브라우저 탭"
-  ,
+    "browserTab": "브라우저 탭",
     "pipMonitor": "화면 중 화면 모니터",
-    "pipMonitorActive": "화면 중 화면 닫기"},
+    "pipMonitorActive": "화면 중 화면 닫기"
+  },
   "a11y": {
     "download": "다운로드",
     "downloadFile": "파일 다운로드",
@@ -9573,8 +9573,7 @@
     "pictureInPicture": {
       "title": "화면 중 화면",
       "emptyState": "표시할 내용 없음",
-      "openWindow": "화면 중 화면 창 열기"
-    ,
+      "openWindow": "화면 중 화면 창 열기",
       "readOnly": "읽기 전용",
       "handover": "이어받기",
       "statusConnecting": "연결 중",
@@ -9583,7 +9582,8 @@
       "statusGate": "로그인·인증 페이지 — 이어받기가 필요할 수 있습니다",
       "statusError": "화면 연결이 끊겼습니다",
       "statusStalled": "{seconds}초 동안 화면이 갱신되지 않았습니다",
-      "tooSmall": "창이 너무 작습니다. 1/4 화면 이상을 권장"},
+      "tooSmall": "창이 너무 작습니다. 1/4 화면 이상을 권장"
+    },
     "resizeFloatHint": "크기 조절",
     "bindIssue": "이슈 연결",
     "recap": {
@@ -9604,7 +9604,8 @@
       "creating": "새 작업 생성 중",
       "createFailed": "새 작업 생성 실패, 재시도하세요",
       "handoffUnavailable": "인계 문서 생성 기능이 아직 제공되지 않아 인계 내용을 생성할 수 없습니다"
-    }
+    },
+    "earlier": "이전"
   },
   "aiCost": {
     "budgetAlerts": "예산 경고",
@@ -12831,6 +12832,24 @@
           "market"
         ],
         "label": "스킬 마켓"
+      },
+      "automations": {
+        "label": "예약 자동화",
+        "description": "일정에 따라 자동 실행되는 에이전트 작업을 관리",
+        "keywords": [
+          "자동화",
+          "예약",
+          "스케줄"
+        ]
+      },
+      "imageGen": {
+        "label": "AI 이미지 생성",
+        "description": "텍스트 설명으로 이미지 생성",
+        "keywords": [
+          "이미지",
+          "생성",
+          "그리기"
+        ]
       }
     },
     "keyboardHint": "↑↓ 선택 · Enter 실행",
@@ -20229,11 +20248,12 @@
     "customNoResults": "일치하는 기능 없음",
     "finAccounting": "재무 장부",
     "hrLifecycle": "인사 라이프사이클",
-    "hrApproval": "휴가 승인"
-  ,
+    "hrApproval": "휴가 승인",
     "hrMyPerf": "내 성과",
     "hrMyTraining": "내 교육",
-    "hrMyExpense": "내 경비"},
+    "hrMyExpense": "내 경비",
+    "financeGroup": "재무부"
+  },
   "news": {
     "allCategories": "All categories",
     "backToList": "목록으로 돌아가기",
@@ -31280,8 +31300,7 @@
     "scoreLabel": "점수",
     "managerComment": "평문",
     "perfReviewsTitle": "평가 목록",
-    "trCourse": "과정"
-  ,
+    "trCourse": "과정",
     "myExpenseTitle": "내 경비",
     "expNew": "새 경비 신청",
     "expSubmit": "경비 신청 제출",
@@ -31312,5 +31331,6 @@
     "expStatusRejected": "반려됨",
     "expStatusPaid": "지급 완료",
     "expStatusVoided": "무효 처리됨",
-    "uploading": "업로드 중…"}
+    "uploading": "업로드 중…"
+  }
 }

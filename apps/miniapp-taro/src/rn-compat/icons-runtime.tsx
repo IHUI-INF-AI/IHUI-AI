@@ -30,10 +30,10 @@ export interface CompatIconProps {
   name?: string
 }
 
-/** SVG → data URI(# 必须转义,否则 weapp 把 # 当 fragment 截断) */
+/** SVG → data URI（encodeURIComponent 已把 # 转成 %23，不能再二次转义，否则 H5 的 mask 解析失败） */
 function toDataUri(svg: string): string {
   const normalized = svg.replace(/\s+/g, ' ').trim()
-  return `url("data:image/svg+xml,${encodeURIComponent(normalized).replace(/%23/g, '%2523')}")`
+  return `url("data:image/svg+xml,${encodeURIComponent(normalized)}")`
 }
 
 export function makeIcon(defaultName: string, svg: string) {

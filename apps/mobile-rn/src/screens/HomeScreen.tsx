@@ -105,6 +105,7 @@ import {
   type HomeRecommendItem,
 } from '@ihui/rn-app'
 import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
+import { HOME_PAGE_GUTTER_X_PX } from '@ihui/shared/ui/home-layout-spec'
 import type { AiModelData, AppIcon, ChatModelType } from '@ihui/types'
 import { apiFailureToText, providerDisplayName, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
@@ -152,7 +153,7 @@ import { inferVendor } from '../lib/vendor-infer'
 import TabBar, { type TabBarKey } from '../components/TabBar'
 import { tabBarDockSpacer } from '../components/TabBar.styles'
 
-import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType, taroSpacing } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 import { Tappable } from '@ihui/ui-native'
 
@@ -2384,6 +2385,10 @@ const shellStyles = {
     left: 0,
     right: 0,
     bottom: 0,
+    // 2026-11-24 小程序/H5 对齐:DOM 里 ScrollView 内容会形成自己的绘制层,
+    // 只靠源码顺序不再保证绝对定位的停靠区压在其上,会出现「学习进度」从
+    // TabBar 胶囊底下透出来。显式给停靠区一层 zIndex,RN 原生同样正确。
+    zIndex: 10,
   } as const,
   // 输入区抬到 TabBar 的 BottomFadeMask 之上(TabBar root 未设 zIndex ⇒ 默认 0,同级后渲染者
   // 压上,输入框会被那层 0.7→0.98 不透明的页面底色糊住)。zIndex 需配合定位才生效,故 relative。
@@ -2394,8 +2399,12 @@ const shellStyles = {
   // 顶栏行取白档,与 App.tsx 给 Home 的状态栏带同色;主体底色由外层导航容器提供
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(120) } as const,
-  aiModelWrap: { paddingHorizontal: rpx(20), paddingTop: rpx(8), paddingBottom: rpx(16) } as const,
-  sectionWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
+  aiModelWrap: {
+    paddingHorizontal: HOME_PAGE_GUTTER_X_PX,
+    paddingTop: rpx(8),
+    paddingBottom: rpx(16),
+  } as const,
+  sectionWrap: { paddingHorizontal: HOME_PAGE_GUTTER_X_PX, paddingVertical: rpx(16) } as const,
   bottomFigureWrap: {
     // 横向留白已内聚于 BottomFigure(SIDE_INSET),此处仅保留底部间距(2026-10-15)
     marginBottom: rpx(12),
@@ -2410,7 +2419,7 @@ const shellStyles = {
   //  与 ChatScreen 同源;原样式挂在 ScrollView 之后的普通流位置,会落到屏幕最底边) ──
   // ── 素材卡片行(对齐 Uniapp material-cards-wrap:卡片带标题 + 右上 × 移除,compact 风格) ──
   materialCardsWrap: {
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingBottom: rpx(8),
   } as const,
   materialCardsRow: {
@@ -2421,8 +2430,8 @@ const shellStyles = {
     flexDirection: 'row',
     alignItems: 'center',
     maxWidth: rpx(460),
-    paddingLeft: rpx(20),
-    paddingRight: rpx(6),
+    paddingLeft: rpx(taroSpacing['sm-loose']),
+    paddingRight: rpx(taroSpacing['2xs']),
     paddingVertical: rpx(10),
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
@@ -2437,8 +2446,8 @@ const shellStyles = {
     lineHeight: rnType.bodySm.lineHeight,
     color: tokens.text.medium,
     fontWeight: '400',
-    marginLeft: rpx(12),
-    paddingHorizontal: rpx(4),
+    marginLeft: rpx(taroSpacing['xs-loose']),
+    paddingHorizontal: rpx(taroSpacing['2xs']),
   } as const,
   // ── MaterialList Modal 弹窗(对齐 BottomPopup sheet 风格) ──
   materialBackdrop: {
@@ -2456,7 +2465,7 @@ const shellStyles = {
   materialSheetBar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(12),
     backgroundColor: tokens.surface.card,
   } as const,
@@ -2465,7 +2474,7 @@ const shellStyles = {
     lineHeight: rnType.title.lineHeight,
     color: tokens.text.medium,
     fontWeight: '300',
-    paddingHorizontal: rpx(8),
+    paddingHorizontal: rpx(taroSpacing.xs),
   } as const,
   // ── 素材详情弹窗(参照 ChatScreen listDialog 居中对话框风格) ──
   detailDialogMask: {
@@ -2488,12 +2497,12 @@ const shellStyles = {
     // 固定 chrome 不被压缩:弹窗唯一弹性路径 = 内容区 ScrollView(默认 shrink)
     // (sheet-flex 契约,详见 scripts/check-sheet-flex-contract.mjs)
     flexShrink: 0,
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(24),
   } as const,
   detailDialogTitle: {
     flex: 1,
-    marginRight: rpx(16),
+    marginRight: rpx(taroSpacing.sm),
     fontSize: rnType.strong.size,
     fontWeight: '600',
     color: tokens.text.primary,
@@ -2503,10 +2512,10 @@ const shellStyles = {
     lineHeight: rnType.title.lineHeight,
     color: tokens.text.medium,
     fontWeight: '300',
-    paddingHorizontal: rpx(8),
+    paddingHorizontal: rpx(taroSpacing.xs),
   } as const,
   detailDialogBody: {
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(16),
     minHeight: 120,
   } as const,
@@ -2542,7 +2551,7 @@ const shellStyles = {
     color: tokens.text.secondary,
   } as const,
   detailDialogRetryBtn: {
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(12),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
@@ -2574,7 +2583,7 @@ const shellStyles = {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingBottom: rpx(16),
   } as const,
   modelModalTitle: {
@@ -2588,7 +2597,7 @@ const shellStyles = {
     lineHeight: rnType.title.lineHeight,
     color: tokens.text.medium,
     fontWeight: '300',
-    paddingHorizontal: rpx(8),
+    paddingHorizontal: rpx(taroSpacing.xs),
   } as const,
   // ── 弹窗深化(2026-10-15):把手 + 副标题计数 + 分类 tab + 发丝线 + 搜索 ──
   modelModalGrabber: {
@@ -2601,7 +2610,7 @@ const shellStyles = {
   } as const,
   modelModalHeading: {
     flex: 1,
-    paddingRight: rpx(16),
+    paddingRight: rpx(taroSpacing.sm),
   } as const,
   modelModalSubtitle: {
     fontSize: rnType.label.size,
@@ -2625,7 +2634,7 @@ const shellStyles = {
   } as const,
   modelModalTabContent: {
     gap: rpx(12),
-    paddingHorizontal: rpx(32),
+    paddingHorizontal: rpx(taroSpacing.lg),
     paddingBottom: rpx(16),
   } as const,
   modelModalTab: {
@@ -2637,7 +2646,7 @@ const shellStyles = {
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.muted,
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(12),
   } as const,
   modelModalTabActive: {
@@ -2659,7 +2668,7 @@ const shellStyles = {
   modelModalHairline: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: tokens.border.light,
-    marginHorizontal: rpx(32),
+    marginHorizontal: rpx(taroSpacing.lg),
   } as const,
   // ── 弹窗内搜索(头部图标开关 + 展开态胶囊输入框)──
   modelSearchToggle: {
@@ -2672,9 +2681,9 @@ const shellStyles = {
     flexDirection: 'row',
     alignItems: 'center',
     gap: rpx(12),
-    marginHorizontal: rpx(32),
+    marginHorizontal: rpx(taroSpacing.lg),
     marginBottom: rpx(16),
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     height: rpx(64),
     borderRadius: rnRadiusFor.chip,
     borderWidth: 1,
@@ -2692,7 +2701,7 @@ const shellStyles = {
     fontSize: rnType.subtitle.size,
     lineHeight: rnType.body.lineHeight,
     color: tokens.text.medium,
-    paddingHorizontal: rpx(8),
+    paddingHorizontal: rpx(taroSpacing.xs),
   } as const,
   // ── 分享领智汇值弹窗(2026-10-15 重构为共享组件 ShareRewardDialog,样式随组件) ──
   modalMask: {
@@ -2707,7 +2716,7 @@ const shellStyles = {
     borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     paddingVertical: rpx(36),
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     alignItems: 'center',
     position: 'relative',
   } as const,

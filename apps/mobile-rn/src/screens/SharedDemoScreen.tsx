@@ -29,7 +29,7 @@ import { useTheme } from '../context/ThemeContext'
 import { rpx } from '../utils/rpx'
 import { APP_VERSION } from '../lib/config'
 
-import { rnRadius, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnType, taroSpacing } from '@ihui/design-tokens'
 import { useHostPorts } from '../host/use-host-ports'
 
 type Tab = 'about' | 'profile' | 'settings' | 'cards'
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   tabs: { flexDirection: 'row', padding: rpx(16), gap: rpx(16) },
   tab: {
     paddingVertical: rpx(16),
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
   },

@@ -26,7 +26,7 @@
   justify-content: center;
   height: 44rpx;
   padding: 0 var(--spacing-xs);
-  margin-right: 6rpx;
+  margin-right: var(--spacing-2xs);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   background: var(--color-muted);
@@ -50,12 +50,12 @@
 .title-switch-type-bar__icon {
   width: 44rpx;
   height: 44rpx;
-  margin-right: 10rpx;
+  margin-right: var(--spacing-xs);
 }
 
 /* multi 模式勾选图标 */
 .title-switch-type-bar__check {
-  margin-left: 6rpx;
+  margin-left: var(--spacing-2xs);
   font-size: var(--text-body);
   line-height: 1;
   color: var(--color-primary-foreground);

@@ -15,7 +15,7 @@
 import { t as tStatic } from '../../i18n'
 import { useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
-import { rnGeometry, rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, taroSpacing } from '@ihui/design-tokens'
 import type { CompactBoundary } from '@ihui/shared'
 import { boundaryAnchorLines, formatRemovedRange } from '../../utils/compaction-boundary'
 import { tokens } from '../../theme/active-tokens'
@@ -66,9 +66,9 @@ export function CompactionBoundaryNote({ boundary }: CompactionBoundaryNoteProps
 
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: rpx(24),
+    marginHorizontal: rpx(taroSpacing.md),
     marginBottom: rpx(8),
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: rpx(taroSpacing['sm-loose']),
     paddingVertical: rpx(12),
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.brandAccent.light,

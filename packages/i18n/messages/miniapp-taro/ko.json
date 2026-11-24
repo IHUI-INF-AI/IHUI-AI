@@ -7331,5 +7331,8 @@
   },
   "sourceWeb": "Web",
   "sourceApp": "모바일",
-  "sourceMiniApp": "미니"
+  "sourceMiniApp": "미니",
+  "livePlaybackList": {
+    "title": "재생 목록"
+  }
 }

@@ -19,6 +19,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { taroSpacing } from '@ihui/design-tokens'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -137,7 +138,11 @@ const shellStyles = {
   root: { flex: 1 } as const,
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(32) } as const,
-  rankingWrap: { paddingHorizontal: rpx(32), paddingTop: rpx(24), paddingBottom: rpx(8) } as const,
+  rankingWrap: {
+    paddingHorizontal: rpx(taroSpacing.lg),
+    paddingTop: rpx(24),
+    paddingBottom: rpx(8),
+  } as const,
   bottomFigureWrap: { paddingTop: rpx(32) } as const, // 横向留白已内聚于 BottomFigure(SIDE_INSET)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

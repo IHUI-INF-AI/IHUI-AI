@@ -68,7 +68,7 @@ const PANEL_MIN_HEIGHT = 240
 /** 联想段条数上限(对齐 web slice(0, 8)) */
 const SUGGESTION_LIMIT = 8
 /** 词行规格(对齐 web `px-2 py-1.5 text-sm`) */
-const WORD_ROW_PADDING_H = 8
+const WORD_ROW_PADDING_H = rnSpacing.sm
 const WORD_ROW_PADDING_V = 6
 const WORD_ROW_FONT = 14
 /** 段标题规格(对齐 web `text-xs`) */
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadiusFor.popover,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: tokens.border.light,
     // 投影:搜索浮层 → 档位 lg(原 8/.12/16 + elevation 8,对应 web ui-popover 阴影档)
     ...ELEVATION_STEPS.lg,
     // 面板内左右留白(web SearchInput wrapperClassName p-1.5 ≈ 6px + 面板 p-1 的合成量级)
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
     padding: rnSpacing.md,
     borderRadius: rnRadiusFor.card,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
   },
   cardPressed: {

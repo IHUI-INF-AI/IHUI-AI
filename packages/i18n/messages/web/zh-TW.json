@@ -473,10 +473,10 @@
     "picking": "點選中",
     "devtools": "開發者工具",
     "popout": "彈出視窗",
-    "browserTab": "瀏覽器分頁"
-  ,
+    "browserTab": "瀏覽器分頁",
     "pipMonitor": "畫中畫監看",
-    "pipMonitorActive": "關閉畫中畫"},
+    "pipMonitorActive": "關閉畫中畫"
+  },
   "a11y": {
     "previewLoadFailed": "預覽載入失敗。",
     "previewRetryAction": "重試",
@@ -9538,8 +9538,7 @@
     "pictureInPicture": {
       "title": "畫中畫",
       "emptyState": "暫無內容",
-      "openWindow": "開啟畫中畫視窗"
-    ,
+      "openWindow": "開啟畫中畫視窗",
       "readOnly": "唯讀",
       "handover": "接管",
       "statusConnecting": "連線中",
@@ -9548,8 +9547,10 @@
       "statusGate": "登入/驗證頁，可能需要接管",
       "statusError": "畫面已中斷",
       "statusStalled": "畫面 {seconds} 秒未更新",
-      "tooSmall": "視窗過小，建議不小於 1/4 螢幕"},
-    "resizeFloatHint": "調整大小"
+      "tooSmall": "視窗過小，建議不小於 1/4 螢幕"
+    },
+    "resizeFloatHint": "調整大小",
+    "earlier": "更早"
   },
   "aiCost": {
     "budgetAlerts": "預算告警",
@@ -12640,6 +12641,24 @@
         "description": "瀏覽並安裝自進化 Skill",
         "keywords": "[\"skill\",\"技能\",\"市場\",\"market\"]",
         "label": "Skill 市場"
+      },
+      "automations": {
+        "label": "定時自動化",
+        "description": "檢視並依排程管理自動執行的 Agent 任務",
+        "keywords": [
+          "自動化",
+          "定時",
+          "排程"
+        ]
+      },
+      "imageGen": {
+        "label": "AI 圖片生成",
+        "description": "用文字描述生成圖片",
+        "keywords": [
+          "圖片",
+          "生成",
+          "繪圖"
+        ]
       }
     },
     "keyboardHint": "↑↓ 選擇 · Enter 執行",
@@ -20160,11 +20179,12 @@
     "downloadCodeSigningNotice": "Windows 版本由 SignPath.io 使用 SignPath Foundation 提供的免費程式碼簽名憑證進行簽名",
     "finAccounting": "財務帳套",
     "hrLifecycle": "人事生命週期",
-    "hrApproval": "請假審批"
-  ,
+    "hrApproval": "請假審批",
     "hrMyPerf": "我的績效",
     "hrMyTraining": "我的培訓",
-    "hrMyExpense": "我的報銷"},
+    "hrMyExpense": "我的報銷",
+    "financeGroup": "財務部"
+  },
   "news": {
     "allCategories": "全部分類",
     "backToList": "返回資訊",
@@ -30747,8 +30767,7 @@
     "scoreLabel": "分數",
     "managerComment": "評語",
     "perfReviewsTitle": "評估單",
-    "trCourse": "課程"
-  ,
+    "trCourse": "課程",
     "myExpenseTitle": "我的報銷",
     "expNew": "新建報銷",
     "expSubmit": "提交報銷",
@@ -30779,5 +30798,6 @@
     "expStatusRejected": "已駁回",
     "expStatusPaid": "已付款",
     "expStatusVoided": "已作廢",
-    "uploading": "上傳中…"}
+    "uploading": "上傳中…"
+  }
 }

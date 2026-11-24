@@ -49,7 +49,7 @@ export interface PrivacyPolicyModalProps {
 const AGREE_BUTTON_COLOR = tokens.brand.DEFAULT
 const OVERLAY_BG = tokens.overlay.modal
 const CARD_WIDTH_RATIO = '88%'
-const CARD_PADDING_HORIZONTAL = 20
+const CARD_PADDING_HORIZONTAL = rnSpacing.xl
 const CARD_PADDING_VERTICAL = 16
 const SHIELD_SIZE = 44
 const SHIELD_BG = 'rgba(0,0,0,0.08)'

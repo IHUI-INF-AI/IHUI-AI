@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     // 对齐 Uniapp 15rpx(≈7.5px→7px)图标右间距
-    marginRight: 7,
+    marginRight: rnSpacing['xs-loose'],
     alignItems: 'center',
     justifyContent: 'center',
   },

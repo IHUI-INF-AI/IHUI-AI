@@ -95,18 +95,67 @@ const KIND_ALIASES: Record<string, WechatMessageKind> = {
   system: 'system',
 }
 
-function normalizeKind(value: string | null): WechatMessageKind {
+/** 微信协议里的数字 type（WeChatFerry / wcfhttp / 酷喵都沿用这一套）。 */
+const KIND_NUMBERS: Record<number, WechatMessageKind> = {
+  1: 'text',
+  3: 'image',
+  34: 'voice',
+  37: 'system',
+  42: 'card',
+  43: 'video',
+  47: 'image',
+  48: 'link',
+  49: 'link',
+  10000: 'system',
+  10002: 'system',
+  2001: 'card',
+  2002: 'card',
+  2003: 'system',
+}
+
+function normalizeKind(value: string | number | null): WechatMessageKind {
+  if (typeof value === 'number') return KIND_NUMBERS[value] ?? 'other'
   if (!value) return 'text'
+  if (/^\d+$/.test(value)) return KIND_NUMBERS[Number(value)] ?? 'other'
   return KIND_ALIASES[value.toLowerCase()] ?? 'other'
 }
 
+function firstKindValue(record: JsonRecord): string | number | null {
+  for (const key of ['type', 'msgType', 'msg_type', 'kind']) {
+    const value = record[key]
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && value.length > 0) return value
+  }
+  return null
+}
+
+function groupSenderOf(record: JsonRecord): string | null {
+  return firstString(record, ['gidfromwx', 'chatroomSender', 'chatroom_sender'])
+}
+
+function groupChatOf(record: JsonRecord): string | null {
+  const explicit = firstString(record, ['roomid', 'roomId', 'room_id', 'chatroom', 'chatRoom'])
+  if (explicit) return explicit
+  const to = firstString(record, ['toWxid', 'to_wxid'])
+  return to && to.endsWith('@chatroom') ? to : null
+}
+
 function parseSentAt(record: JsonRecord): Date {
-  const numeric = firstNumber(record, ['timestamp', 'createTime', 'create_time', 'time', 'sentAt'])
+  const numeric = firstNumber(record, [
+    'timestamp',
+    'createTime',
+    'create_time',
+    'time',
+    'sentAt',
+    'ts',
+    'msgTime',
+    'msg_time',
+  ])
   if (numeric !== null) {
     // 微信桥常见 10 位秒 / 13 位毫秒
     return new Date(numeric > 1_000_000_000_000 ? numeric : numeric * 1000)
   }
-  const iso = firstString(record, ['timestamp', 'createTime', 'sentAt'])
+  const iso = firstString(record, ['timestamp', 'createTime', 'sentAt', 'ts', 'msgTime'])
   if (iso) {
     const parsed = new Date(iso)
     if (!Number.isNaN(parsed.getTime())) return parsed
@@ -157,6 +206,12 @@ function looksLikeMessage(root: JsonRecord): boolean {
     'mediaUrl',
     'media_url',
     'url',
+    'msg',
+    'fromwx',
+    'gidfromwx',
+    'roomid',
+    'toWxid',
+    'thumb',
   ].some((key) => firstString(root, [key]) !== null)
 }
 
@@ -226,20 +281,66 @@ export function normalizeBridgePayload(payload: unknown): WechatInboundEvent[] {
       firstString(record, ['id', 'messageId', 'message_id', 'msgId', 'msg_id']) ??
       `bridge-${Date.now()}-${events.length}`
     const chatId =
-      firstString(record, ['chatId', 'chat_id', 'roomId', 'room_id', 'conversationId']) ??
+      firstString(record, [
+        'chatId',
+        'chat_id',
+        'roomId',
+        'room_id',
+        'roomid',
+        'chatroom',
+        'chatRoom',
+        'conversationId',
+        'conversation_id',
+        'fromwx',
+      ]) ??
+      groupChatOf(record) ??
       firstString(record, ['sender', 'from', 'senderId']) ??
       'unknown'
-    const senderId = firstString(record, ['sender', 'from', 'senderId', 'sender_id', 'wxid'])
-    const senderName = firstString(record, ['senderName', 'sender_name', 'fromName', 'nickname'])
-    const kindValue = firstString(record, ['type', 'msgType', 'msg_type', 'kind'])
+    const senderId =
+      groupSenderOf(record) ??
+      firstString(record, [
+        'sender',
+        'from',
+        'senderId',
+        'sender_id',
+        'wxid',
+        'fromUser',
+        'from_user',
+        'fromwx',
+      ])
+    const senderName = firstString(record, [
+      'senderName',
+      'sender_name',
+      'fromName',
+      'from_name',
+      'fromNickname',
+      'from_nickname',
+      'gidfromname',
+      'nickname',
+    ])
+    const kindValue = firstKindValue(record)
     const kind = normalizeKind(kindValue)
     const content =
-      firstString(record, ['content', 'text', 'message', 'body']) ??
+      firstString(record, ['content', 'text', 'message', 'body', 'msg']) ??
       (kind === 'image' ? '[图片]' : kind === 'voice' ? '[语音]' : kind === 'video' ? '[视频]' : '')
-    const mediaUrl = firstString(record, ['mediaUrl', 'media_url', 'url', 'fileUrl', 'file_url'])
+    const mediaUrl = firstString(record, [
+      'mediaUrl',
+      'media_url',
+      'url',
+      'fileUrl',
+      'file_url',
+      'thumb',
+      'file',
+      'filePath',
+      'file_path',
+    ])
     if (!content && !mediaUrl && !senderId) continue
     const isGroup =
-      firstString(record, ['roomId', 'room_id']) !== null ||
+      record.isGroup === true ||
+      record.is_group === true ||
+      record.isRoom === true ||
+      groupChatOf(record) !== null ||
+      groupSenderOf(record) !== null ||
       firstString(record, ['chatType', 'chat_type', 'conversationType']) === 'group' ||
       chatId.endsWith('@chatroom') ||
       kindValue === 'group'
@@ -248,8 +349,15 @@ export function normalizeBridgePayload(payload: unknown): WechatInboundEvent[] {
       platformChatId: chatId,
       conversationKind: isGroup ? 'group' : 'private',
       conversationTitle:
-        firstString(record, ['roomName', 'room_name', 'chatName', 'chat_name', 'chatTitle']) ??
-        null,
+        firstString(record, [
+          'roomName',
+          'room_name',
+          'roomname',
+          'chatName',
+          'chat_name',
+          'chatTitle',
+          'chat_title',
+        ]) ?? null,
       senderId,
       senderName,
       kind,
@@ -415,7 +523,7 @@ export class BridgeAdapter implements WechatAdapter {
       if (!ok) {
         return {
           ok: false,
-          status: 'failed',
+          status: root.status === 'unsupported' ? 'unsupported' : 'failed',
           data,
           reason: asString(root.error) ?? asString(root.message) ?? '桥拒绝动作',
         }

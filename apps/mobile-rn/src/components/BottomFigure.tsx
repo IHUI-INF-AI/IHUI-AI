@@ -17,6 +17,7 @@ import { StyleSheet, View, type ViewStyle } from 'react-native'
 import Carousel, { useAppFrameWidth, type CarouselSlide, type CarouselSlideImg } from './Carousel'
 import type { CarouselItem } from '@ihui/ui-native'
 import { rnRadius } from '@ihui/design-tokens'
+import { HOME_PAGE_GUTTER_X_PX } from '@ihui/shared/ui/home-layout-spec'
 import { rpx } from '../utils/rpx'
 // 推广轮播图静态 import(declarations.d.ts 图片模块声明,Metro 标准形态,无需 lint 抑制)
 import IMG_BRAND from '../../assets/images/carousel/banner-brand.jpg'
@@ -47,7 +48,7 @@ const HEIGHT_RATIO = 9 / 21 // 21:9
 /** 组件内聚横向留白(原 Uniapp custom-carousel-wrapper margin 20rpx 语义);
  *  调用方 wrap 不再设横向 padding,容器内宽 = 窗口宽 − 2×SIDE_INSET 精确同步可得
  *  (2026-10-15 实证:本环境 RN Web onLayout 不触发,宽度不可依赖 layout 回调测量) */
-const SIDE_INSET = rpx(20)
+const SIDE_INSET = HOME_PAGE_GUTTER_X_PX
 // 2026-10-15 推广轮播图(用户定稿 21:9 出图,3360×1440 AI 生成,按平台三大业务线设计):
 //   banner-brand.jpg —— 「用AI·找AI」品牌主视觉(AI 助手与人手连接,金币/网络粒子)
 //   banner-learn.jpg —— 「学AI」AI 课程学习(书本/学士帽/笔记本)

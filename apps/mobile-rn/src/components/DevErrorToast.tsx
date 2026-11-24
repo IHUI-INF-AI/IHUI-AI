@@ -47,13 +47,13 @@ let nextId = 1
 
 const MAX_ERRORS = 10
 const MESSAGE_MAX_CHARS = 500
-const SIDE_INSET = 16
+const SIDE_INSET = rnSpacing.lg
 /** 顶部中央对齐 web position="top-center":StatusBar 下方 12dp */
 const TOP_INSET = 12
 const AUTO_DISMISS_MS = 4000
 const Z_INDEX = 9999
 /** 圆角 8 对齐 web toastOptions borderRadius 8px(rounded-lg) */
-const BAR_PADDING_H = 12
+const BAR_PADDING_H = rnSpacing.md
 const BAR_PADDING_V = 10
 const FONT_SIZE = 13
 const LINE_HEIGHT = 18

@@ -7,6 +7,7 @@ import { View, ScrollView } from '@tarojs/components'
 import ModelTypeButton, { type ModelType } from './ModelTypeButton'
 import type { IconName } from '@/components/LineIcon'
 import { rpx } from '@/utils/rpx'
+import { taroSpacing } from '@ihui/design-tokens'
 
 export interface ModelTypeConfig {
   type: ModelType
@@ -68,8 +69,8 @@ export default function ModelTypeButtonGroup({
         className="flex flex-row"
         style={{
           marginBottom: rpx(10),
-          paddingLeft: rpx(16),
-          paddingRight: rpx(16),
+          paddingLeft: rpx(taroSpacing.sm),
+          paddingRight: rpx(taroSpacing.sm),
           paddingTop: rpx(12),
           paddingBottom: rpx(12),
         }}

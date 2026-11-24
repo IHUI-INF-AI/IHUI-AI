@@ -11,9 +11,19 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { parseOrThrow, success } from '../utils/response.js'
-import { createRule, deleteRule, listRules, updateRule } from '../services/wechat-hub/automation.js'
+import {
+  createRule,
+  deleteRule,
+  listRules,
+  previewAgentReply,
+  updateRule,
+} from '../services/wechat-hub/automation.js'
+import { exportAccountMessages } from '../services/wechat-hub/export.js'
+import { importWechatMessages } from '../services/wechat-hub/import.js'
+import { syncHistoryFromBridge } from '../services/wechat-hub/history-sync.js'
 import { listContacts, listGroupMembers, updateContact } from '../services/wechat-hub/contacts.js'
 import { getSchedule, saveSchedule } from '../services/wechat-hub/digest.js'
+import { syncGroupMembersFromBridge } from '../services/wechat-hub/operations.js'
 import { wechatHubManager } from '../services/wechat-hub/manager.js'
 import { answerError, requireUserId } from './wechat-hub-route-utils.js'
 
@@ -28,7 +38,7 @@ const contactUpdateSchema = z.object({
 const ruleSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   enabled: z.boolean().optional(),
-  matchType: z.enum(['contains', 'exact', 'prefix']).optional(),
+  matchType: z.enum(['contains', 'exact', 'prefix', 'agent']).optional(),
   keywords: z.array(z.string().min(1).max(80)).max(50).optional(),
   replyText: z.string().max(5000).optional(),
   scope: z.enum(['all', 'private', 'group']).optional(),
@@ -41,6 +51,44 @@ const digestSchema = z.object({
   minute: z.coerce.number().int().min(0).max(59).optional(),
   timezone: z.string().min(1).max(64).optional(),
   target: z.string().max(255).optional(),
+})
+
+const previewSchema = z.object({
+  text: z.string().min(1).max(2_000),
+  conversationId: z.string().uuid().optional(),
+})
+
+const exportQuerySchema = z.object({
+  format: z.enum(['jsonl', 'csv']).optional(),
+  conversationId: z.string().uuid().optional(),
+  since: z.string().min(1).max(64).optional(),
+  until: z.string().min(1).max(64).optional(),
+  limit: z.coerce.number().int().min(1).max(20_000).optional(),
+})
+
+const importMessageSchema = z.object({
+  platformChatId: z.string().min(1),
+  platformMessageId: z.string().optional(),
+  conversationTitle: z.string().optional(),
+  conversationKind: z.enum(['private', 'group', 'official', 'service']).optional(),
+  direction: z.enum(['inbound', 'outbound']).optional(),
+  kind: z
+    .enum(['text', 'image', 'voice', 'video', 'file', 'link', 'card', 'system', 'other'])
+    .optional(),
+  senderId: z.string().optional(),
+  senderName: z.string().optional(),
+  content: z.string().optional(),
+  mediaUrl: z.string().optional(),
+  sentAt: z.union([z.string(), z.number()]).optional(),
+})
+
+const importMessagesSchema = z.object({
+  messages: z.array(importMessageSchema).min(1).max(5_000),
+})
+
+const historySyncSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(2_000).optional(),
+  conversationId: z.string().uuid().optional(),
 })
 
 export const wechatHubAutomationRoutes: FastifyPluginAsync = async (server) => {
@@ -89,6 +137,26 @@ export const wechatHubAutomationRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(
           success(
             await listGroupMembers(
+              requireUserId(request),
+              request.params.id,
+              request.params.conversationId,
+            ),
+          ),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.post<{ Params: { id: string; conversationId: string } }>(
+    '/wechat-hub/accounts/:id/conversations/:conversationId/members/sync',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        return reply.send(
+          success(
+            await syncGroupMembersFromBridge(
               requireUserId(request),
               request.params.id,
               request.params.conversationId,
@@ -157,6 +225,74 @@ export const wechatHubAutomationRoutes: FastifyPluginAsync = async (server) => {
       try {
         await deleteRule(requireUserId(request), request.params.id, request.params.ruleId)
         return reply.send(success({ deleted: true }))
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.post<{ Params: { id: string; ruleId: string } }>(
+    '/wechat-hub/accounts/:id/auto-reply-rules/:ruleId/preview',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const input = parseOrThrow(previewSchema, request.body)
+        return reply.send(
+          success(
+            await previewAgentReply(
+              requireUserId(request),
+              request.params.id,
+              request.params.ruleId,
+              input,
+            ),
+          ),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.get<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/export',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const query = parseOrThrow(exportQuerySchema, request.query)
+        return reply.send(
+          success(await exportAccountMessages(requireUserId(request), request.params.id, query)),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.post<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/import/messages',
+    { bodyLimit: 20 * 1024 * 1024 },
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const input = parseOrThrow(importMessagesSchema, request.body)
+        return reply.send(
+          success(await importWechatMessages(requireUserId(request), request.params.id, input)),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.post<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/history/sync',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const input = parseOrThrow(historySyncSchema, request.body ?? {})
+        return reply.send(
+          success(await syncHistoryFromBridge(requireUserId(request), request.params.id, input)),
+        )
       } catch (e) {
         return answerError(reply, e)
       }

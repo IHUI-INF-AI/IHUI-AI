@@ -20,19 +20,24 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import type { WechatMcpTool } from '@ihui/types'
+import type { WechatImportMessageRow, WechatMcpTool } from '@ihui/types'
 import { checkAuth } from '../plugins/auth.js'
 import { AppError } from '../errors/AppError.js'
 import { parseOrThrow, success } from '../utils/response.js'
 import { wechatHubManager } from '../services/wechat-hub/manager.js'
 import { listContacts, listGroupMembers } from '../services/wechat-hub/contacts.js'
-import { listRules } from '../services/wechat-hub/automation.js'
+import { listRules, previewAgentReply } from '../services/wechat-hub/automation.js'
+import { exportAccountMessages } from '../services/wechat-hub/export.js'
+import { importWechatMessages } from '../services/wechat-hub/import.js'
+import { syncHistoryFromBridge } from '../services/wechat-hub/history-sync.js'
 import { getSchedule } from '../services/wechat-hub/digest.js'
 import {
+  fetchMoments,
   publishMoment,
   runGroupAction,
   switchChat,
   syncContacts,
+  syncGroupMembersFromBridge,
 } from '../services/wechat-hub/operations.js'
 import { broadcast } from '../services/wechat-hub/broadcast.js'
 import { searchKnowledge } from '../services/wechat-hub/knowledge.js'
@@ -62,6 +67,11 @@ const settingsSchema = z.object({
   allowedTargets: z.array(z.string().min(1).max(255)).max(500).optional(),
   blockedWords: z.array(z.string().min(1).max(80)).max(200).optional(),
   rateLimitPerMinute: z.coerce.number().int().min(1).max(120).optional(),
+  outboundWebhookUrl: z.union([z.string().url().max(2048), z.literal('')]).optional(),
+})
+
+const webhookTestSchema = z.object({
+  url: z.string().url().max(2048).optional(),
 })
 
 const sendSchema = z.object({
@@ -249,12 +259,142 @@ const MCP_TOOLS: WechatMcpTool[] = [
     },
   },
   {
+    name: 'wechat_sync_group_members',
+    description: '从桥拉取指定群成员快照并替换本地镜像（仅 bridge 后端）。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        accountId: { type: 'string' },
+        conversationId: { type: 'string' },
+      },
+      required: ['accountId', 'conversationId'],
+    },
+  },
+  {
     name: 'wechat_list_auto_reply_rules',
     description: '列出指定账号的自动回复规则与启用状态。',
     inputSchema: {
       type: 'object',
       properties: { accountId: { type: 'string' } },
       required: ['accountId'],
+    },
+  },
+  {
+    name: 'wechat_preview_auto_reply',
+    description: '用指定 AI 自动回复规则生成一条回复预览；只生成不发送，不占冷却。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        accountId: { type: 'string' },
+        ruleId: { type: 'string' },
+        text: { type: 'string', minLength: 1, maxLength: 2000 },
+        conversationId: { type: 'string' },
+      },
+      required: ['accountId', 'ruleId', 'text'],
+    },
+  },
+  {
+    name: 'wechat_export_messages',
+    description: '导出指定账号/会话的消息为 JSONL 或 CSV，返回文件名、MIME 与内容。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        accountId: { type: 'string' },
+        format: { type: 'string', enum: ['jsonl', 'csv'] },
+        conversationId: { type: 'string' },
+        since: { type: 'string' },
+        until: { type: 'string' },
+        limit: { type: 'number', minimum: 1, maximum: 5000 },
+      },
+      required: ['accountId'],
+    },
+  },
+  {
+    name: 'wechat_import_messages',
+    description:
+      '把 JSONL/CSV 同形历史消息导入指定账号；按 platformMessageId 去重，不触发自动回复/webhook。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        accountId: { type: 'string' },
+        messages: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 1000,
+          items: {
+            type: 'object',
+            properties: {
+              platformChatId: { type: 'string' },
+              platformMessageId: { type: 'string' },
+              conversationTitle: { type: 'string' },
+              conversationKind: {
+                type: 'string',
+                enum: ['private', 'group', 'official', 'service'],
+              },
+              direction: { type: 'string', enum: ['inbound', 'outbound'] },
+              kind: {
+                type: 'string',
+                enum: [
+                  'text',
+                  'image',
+                  'voice',
+                  'video',
+                  'file',
+                  'link',
+                  'card',
+                  'system',
+                  'other',
+                ],
+              },
+              senderId: { type: 'string' },
+              senderName: { type: 'string' },
+              content: { type: 'string' },
+              mediaUrl: { type: 'string' },
+              sentAt: { type: 'string' },
+            },
+            required: ['platformChatId'],
+          },
+        },
+      },
+      required: ['accountId', 'messages'],
+    },
+  },
+  {
+    name: 'wechat_sync_history',
+    description:
+      '从本地桥自动回填历史消息（wcfhttp 走 /sql 读 MSG 表；mock 返回演示数据），按 platformMessageId 去重。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        accountId: { type: 'string' },
+        limit: { type: 'number', minimum: 1, maximum: 2000 },
+        conversationId: { type: 'string' },
+      },
+      required: ['accountId'],
+    },
+  },
+  {
+    name: 'wechat_test_outbound_webhook',
+    description: '向指定账号配置的出站 Webhook 发送一条测试事件，验证连通与验签。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        accountId: { type: 'string' },
+        url: { type: 'string', maxLength: 2048 },
+      },
+      required: ['accountId'],
+    },
+  },
+  {
+    name: 'wechat_set_outbound_webhook',
+    description: '配置或清除账号的出站 Webhook；只允许公网 HTTPS，空串表示清除。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        accountId: { type: 'string' },
+        url: { type: 'string', maxLength: 2048 },
+      },
+      required: ['accountId', 'url'],
     },
   },
   {
@@ -302,6 +442,20 @@ const MCP_TOOLS: WechatMcpTool[] = [
         mediaUrls: { type: 'array', items: { type: 'string' } },
       },
       required: ['accountId', 'text'],
+    },
+  },
+  {
+    name: 'wechat_fetch_moments',
+    description:
+      '只读遍历朋友圈：OCR 驱动滚动朋友圈窗口，wcfhttp 走 /pyq 翻页并等 type=0 回调；返回真实抓到的文字动态。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        accountId: { type: 'string' },
+        maxPages: { type: 'number', description: '1-10，默认 3' },
+        id: { type: 'number', description: 'wcfhttp 起始朋友圈 id，0 为最新页' },
+      },
+      required: ['accountId'],
     },
   },
   {
@@ -479,6 +633,24 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
             await wechatHubManager.updateSettings(requireUserId(request), request.params.id, patch),
           ),
         )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.post<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/outbound-webhook/test',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const body = parseOrThrow(webhookTestSchema, request.body ?? {})
+        await wechatHubManager.testOutboundWebhook(
+          requireUserId(request),
+          request.params.id,
+          body.url,
+        )
+        return reply.send(success({ ok: true }))
       } catch (e) {
         return answerError(reply, e)
       }
@@ -704,9 +876,92 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
           const conversationId = readArg(args, 'conversationId')
           return reply.send(success(await listGroupMembers(userId, accountId, conversationId)))
         }
+        case 'wechat_sync_group_members': {
+          const accountId = readArg(args, 'accountId')
+          const conversationId = readArg(args, 'conversationId')
+          return reply.send(
+            success(await syncGroupMembersFromBridge(userId, accountId, conversationId)),
+          )
+        }
         case 'wechat_list_auto_reply_rules': {
           const accountId = readArg(args, 'accountId')
           return reply.send(success(await listRules(userId, accountId)))
+        }
+        case 'wechat_preview_auto_reply': {
+          const accountId = readArg(args, 'accountId')
+          return reply.send(
+            success(
+              await previewAgentReply(userId, accountId, readArg(args, 'ruleId'), {
+                text: readArg(args, 'text'),
+                conversationId:
+                  typeof args.conversationId === 'string' ? args.conversationId : undefined,
+              }),
+            ),
+          )
+        }
+        case 'wechat_export_messages': {
+          const accountId = readArg(args, 'accountId')
+          const format =
+            args.format === 'csv' ? 'csv' : args.format === 'jsonl' ? 'jsonl' : undefined
+          return reply.send(
+            success(
+              await exportAccountMessages(userId, accountId, {
+                format,
+                conversationId:
+                  typeof args.conversationId === 'string' ? args.conversationId : undefined,
+                since: typeof args.since === 'string' ? args.since : undefined,
+                until: typeof args.until === 'string' ? args.until : undefined,
+                limit: readOptionalNumber(args, 'limit', 1000, 5000),
+              }),
+            ),
+          )
+        }
+        case 'wechat_import_messages': {
+          const accountId = readArg(args, 'accountId')
+          if (!Array.isArray(args.messages)) {
+            throw new AppError('messages 必须是数组', 400, 'WECHAT_MCP_ARGUMENT_INVALID')
+          }
+          return reply.send(
+            success(
+              await importWechatMessages(userId, accountId, {
+                messages: args.messages as WechatImportMessageRow[],
+              }),
+            ),
+          )
+        }
+        case 'wechat_sync_history': {
+          const accountId = readArg(args, 'accountId')
+          return reply.send(
+            success(
+              await syncHistoryFromBridge(userId, accountId, {
+                limit: typeof args.limit === 'number' ? args.limit : undefined,
+                conversationId:
+                  typeof args.conversationId === 'string' ? args.conversationId : undefined,
+              }),
+            ),
+          )
+        }
+        case 'wechat_test_outbound_webhook': {
+          const accountId = readArg(args, 'accountId')
+          await wechatHubManager.testOutboundWebhook(
+            userId,
+            accountId,
+            typeof args.url === 'string' ? args.url : undefined,
+          )
+          return reply.send(success({ ok: true }))
+        }
+        case 'wechat_set_outbound_webhook': {
+          const accountId = readArg(args, 'accountId')
+          if (typeof args.url !== 'string') {
+            throw new AppError('MCP 参数缺失：url', 400, 'WECHAT_MCP_ARGUMENT_MISSING')
+          }
+          return reply.send(
+            success(
+              await wechatHubManager.updateSettings(userId, accountId, {
+                outboundWebhookUrl: args.url,
+              }),
+            ),
+          )
         }
         case 'wechat_get_digest_schedule': {
           const accountId = readArg(args, 'accountId')
@@ -748,6 +1003,17 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
               await publishMoment(userId, accountId, {
                 text: readArg(args, 'text'),
                 mediaUrls: readOptionalStringArray(args, 'mediaUrls', 9),
+              }),
+            ),
+          )
+        }
+        case 'wechat_fetch_moments': {
+          const accountId = readArg(args, 'accountId')
+          return reply.send(
+            success(
+              await fetchMoments(userId, accountId, {
+                maxPages: readOptionalNumber(args, 'maxPages', 3, 10),
+                id: typeof args.id === 'number' && Number.isFinite(args.id) ? args.id : undefined,
               }),
             ),
           )

@@ -30,7 +30,7 @@ import { useUiTextField } from '../lib/use-ui-text-field'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
-import { rnRadius, rnRadiusFor, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnType, taroSpacing } from '@ihui/design-tokens'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -384,14 +384,14 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    paddingHorizontal: rpx(24),
+    paddingHorizontal: rpx(taroSpacing.md),
     paddingTop: rpx(96),
     paddingBottom: rpx(16),
     gap: rpx(16),
     backgroundColor: tokens.surface.bg,
   },
   tab: {
-    paddingHorizontal: rpx(28),
+    paddingHorizontal: rpx(taroSpacing['md-loose']),
     paddingVertical: rpx(12),
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.overlay.modal,
     justifyContent: 'center',
-    paddingHorizontal: rpx(40),
+    paddingHorizontal: rpx(taroSpacing.xl),
   },
   modalCard: {
     backgroundColor: tokens.surface.card,
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderRadius: rnRadius.sm,
-    paddingHorizontal: rpx(16),
+    paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(12),
     fontSize: rnType.body.size,
     color: tokens.text.primary,

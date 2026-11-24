@@ -242,7 +242,7 @@
   border-left: 5rpx solid transparent;
   border-right: 5rpx solid transparent;
   border-top: 9rpx solid var(--color-muted-foreground);
-  margin-left: 6rpx;
+  margin-left: var(--spacing-2xs);
 }
 
 .input-area-code {

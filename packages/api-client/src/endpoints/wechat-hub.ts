@@ -19,6 +19,8 @@ import type {
   WechatActionResult,
   WechatAnalysisKind,
   WechatAnalysisRunView,
+  WechatAutoReplyPreviewInput,
+  WechatAutoReplyPreviewResult,
   WechatAutoReplyRuleInput,
   WechatAutoReplyRuleView,
   WechatBackendCapability,
@@ -29,12 +31,21 @@ import type {
   WechatConversationView,
   WechatDigestScheduleInput,
   WechatDigestScheduleView,
+  WechatExportInput,
+  WechatExportResult,
   WechatGroupActionInput,
   WechatGroupMemberView,
+  WechatGroupMembersSyncResult,
+  WechatHistorySyncInput,
+  WechatHistorySyncResult,
+  WechatImportMessagesInput,
+  WechatImportMessagesResult,
   WechatKnowledgeDocView,
   WechatKnowledgeHit,
   WechatMcpTool,
   WechatMessageView,
+  WechatMomentFetchInput,
+  WechatMomentFetchResult,
   WechatMomentInput,
   WechatQrCodeView,
   WechatSendInput,
@@ -122,6 +133,7 @@ export async function updateWechatSettings(
     allowedTargets?: string[]
     blockedWords?: string[]
     rateLimitPerMinute?: number
+    outboundWebhookUrl?: string
   },
 ): Promise<WechatAccountView> {
   const res = await fetchApi<WechatAccountView>(`/wechat-hub/accounts/${accountId}/settings`, {
@@ -130,6 +142,15 @@ export async function updateWechatSettings(
   })
   if (!res.success) throw new Error(res.error || '保存微信账号设置失败')
   return res.data
+}
+
+/** POST /api/wechat-hub/accounts/:id/outbound-webhook/test */
+export async function testWechatOutboundWebhook(accountId: string, url?: string): Promise<void> {
+  const res = await fetchApi<{ ok: boolean }>(
+    `/wechat-hub/accounts/${accountId}/outbound-webhook/test`,
+    { method: 'POST', ...(url !== undefined ? { body: JSON.stringify({ url }) } : {}) },
+  )
+  if (!res.success) throw new Error(res.error || '测试出站 Webhook 失败')
 }
 
 /** GET /api/wechat-hub/accounts/:id/conversations */
@@ -264,6 +285,19 @@ export async function fetchWechatGroupMembers(
   return res.data ?? []
 }
 
+/** POST /api/wechat-hub/accounts/:id/conversations/:conversationId/members/sync */
+export async function syncWechatGroupMembers(
+  accountId: string,
+  conversationId: string,
+): Promise<WechatGroupMembersSyncResult> {
+  const res = await fetchApi<WechatGroupMembersSyncResult>(
+    `/wechat-hub/accounts/${accountId}/conversations/${conversationId}/members/sync`,
+    { method: 'POST' },
+  )
+  if (!res.success) throw new Error(res.error || '同步群成员失败')
+  return res.data
+}
+
 /** GET /api/wechat-hub/accounts/:id/auto-reply-rules */
 export async function fetchWechatAutoReplyRules(
   accountId: string,
@@ -310,6 +344,69 @@ export async function deleteWechatAutoReplyRule(accountId: string, ruleId: strin
     { method: 'DELETE' },
   )
   if (!res.success) throw new Error(res.error || '删除自动回复规则失败')
+}
+
+/** POST /api/wechat-hub/accounts/:id/auto-reply-rules/:ruleId/preview */
+export async function previewWechatAutoReplyRule(
+  accountId: string,
+  ruleId: string,
+  input: WechatAutoReplyPreviewInput,
+): Promise<WechatAutoReplyPreviewResult> {
+  const res = await fetchApi<WechatAutoReplyPreviewResult>(
+    `/wechat-hub/accounts/${accountId}/auto-reply-rules/${ruleId}/preview`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+  if (!res.success) throw new Error(res.error || '生成 AI 回复预览失败')
+  return res.data
+}
+
+/** GET /api/wechat-hub/accounts/:id/export */
+export async function exportWechatMessages(
+  accountId: string,
+  input: WechatExportInput = {},
+): Promise<WechatExportResult> {
+  const params = new URLSearchParams()
+  if (input.format) params.set('format', input.format)
+  if (input.conversationId) params.set('conversationId', input.conversationId)
+  if (input.since) params.set('since', input.since)
+  if (input.until) params.set('until', input.until)
+  if (input.limit !== undefined) params.set('limit', String(input.limit))
+  const query = params.toString()
+  const res = await fetchApi<WechatExportResult>(
+    `/wechat-hub/accounts/${accountId}/export${query ? `?${query}` : ''}`,
+    { method: 'GET' },
+  )
+  if (!res.success) throw new Error(res.error || '导出微信消息失败')
+  return res.data
+}
+
+/** POST /api/wechat-hub/accounts/:id/import/messages */
+export async function importWechatMessages(
+  accountId: string,
+  input: WechatImportMessagesInput,
+): Promise<WechatImportMessagesResult> {
+  const res = await fetchApi<WechatImportMessagesResult>(
+    `/wechat-hub/accounts/${accountId}/import/messages`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+  if (!res.success) throw new Error(res.error || '导入微信消息失败')
+  return res.data
+}
+
+/**
+ * POST /api/wechat-hub/accounts/:id/history/sync
+ * 从本地桥自动回填历史消息（wcfhttp 走 /sql；mock 返回演示数据）。
+ */
+export async function syncWechatHistory(
+  accountId: string,
+  input: WechatHistorySyncInput = {},
+): Promise<WechatHistorySyncResult> {
+  const res = await fetchApi<WechatHistorySyncResult>(
+    `/wechat-hub/accounts/${accountId}/history/sync`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+  if (!res.success) throw new Error(res.error || '同步微信历史消息失败')
+  return res.data
 }
 
 /** GET /api/wechat-hub/accounts/:id/digest-schedule */
@@ -403,6 +500,22 @@ export async function switchWechatChat(
     body: JSON.stringify({ title }),
   })
   if (!res.success) throw new Error(res.error || '切换微信会话失败')
+  return res.data
+}
+
+/** POST /api/wechat-hub/accounts/:id/moments/fetch */
+export async function fetchWechatMoments(
+  accountId: string,
+  input: WechatMomentFetchInput = {},
+): Promise<WechatMomentFetchResult> {
+  const res = await fetchApi<WechatMomentFetchResult>(
+    `/wechat-hub/accounts/${accountId}/moments/fetch`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  )
+  if (!res.success) throw new Error(res.error || '遍历朋友圈失败')
   return res.data
 }
 

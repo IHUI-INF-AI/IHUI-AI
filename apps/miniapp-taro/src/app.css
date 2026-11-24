@@ -1041,6 +1041,13 @@ iframe#webpack-dev-server-client-overlay {
   color: var(--color-cta-foreground);
 }
 
+.cs-float-label {
+  font-size: 20rpx;
+  color: var(--color-cta-foreground);
+  margin-top: 4rpx;
+  line-height: 1;
+}
+
 /* ===== AI 首页输入区(对齐原项目 ai_index.vue)===== */
 .input-area {
   position: relative;
@@ -1184,7 +1191,7 @@ iframe#webpack-dev-server-client-overlay {
 .imgs-list-item {
   position: relative;
   display: inline-block;
-  margin-right: 12rpx;
+  margin-right: var(--spacing-xs-loose);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
@@ -1479,3 +1486,39 @@ image {
    - .text-h1~h6 / .text-body(零引用)
    页面若依赖以上类名,由页面迁移并行改用 Tailwind 语义类(flex-col/items-center 等)。 */
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
+
+/* ===== RN 首页壳视口容器:让 RN 的 flex:1 在端内有确定的父高度 ===== */
+.rn-home-viewport {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.rn-home-viewport .theme-root {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.rn-home-viewport .theme-root > * {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/*
+ * 顶栏/底栏共用玻璃面的端内兜底。
+ * GLASS_BAR_SURFACE 的底色是 --color-glass-bg(0.6),RN 原生端有真模糊;
+ * 小程序/H5 没有生效的 backdrop-filter,0.6 会让滚动内容从胶囊里透出来。
+ * 这里给带 .rn-glass-surface 的节点补 0.92 实底 + 真模糊:
+ * 支持 color-mix 的浏览器保留一点透感,不支持的端直接落到 --color-card 实底。
+ */
+.rn-glass-surface {
+  background-color: var(--color-card) !important;
+  background-color: color-mix(in srgb, var(--color-card) 92%, transparent) !important;
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}

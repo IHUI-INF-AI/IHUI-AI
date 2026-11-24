@@ -40,8 +40,80 @@ export function createDriver() {
           },
         }
       }
+      if (action === 'group.members') {
+        return {
+          data: {
+            members: [
+              { wxid: 'wxid_mock_alice', nickname: 'Mock 群主', role: 'owner' },
+              { wxid: 'wxid_mock_bob', nickname: 'Mock 客户 B', role: 'member' },
+              { wxid: 'wxid_mock_bot', nickname: 'Mock 机器人', role: 'member' },
+            ],
+          },
+        }
+      }
+      if (action === 'history.fetch') {
+        const chatId = payload.chatId ?? 'wxid_mock_alice'
+        return {
+          data: {
+            messages: [
+              {
+                platformChatId: chatId,
+                platformMessageId: `mock-history-${chatId}-1`,
+                conversationKind: chatId.endsWith('@chatroom') ? 'group' : 'private',
+                direction: 'inbound',
+                kind: 'text',
+                senderId: chatId,
+                senderName: 'Mock 历史客户',
+                content: '这是一条 mock 历史消息',
+                sentAt: 1_700_000_000,
+              },
+              {
+                platformChatId: chatId,
+                platformMessageId: `mock-history-${chatId}-2`,
+                conversationKind: chatId.endsWith('@chatroom') ? 'group' : 'private',
+                direction: 'outbound',
+                kind: 'text',
+                senderId: 'wxid_mock_bot',
+                senderName: 'Mock 机器人',
+                content: '这是 mock 历史回复',
+                sentAt: 1_700_000_060,
+              },
+            ],
+            count: 2,
+          },
+        }
+      }
       if (action.startsWith('group.')) return { data: { action, chatId: payload.chatId ?? null } }
       if (action === 'moment.publish') return { data: { published: true } }
+      if (action === 'moment.fetch') {
+        return {
+          data: {
+            paging: 'driver',
+            source: 'mock',
+            pages: 1,
+            moments: [
+              {
+                id: 'mock-moment-1',
+                authorId: 'wxid_mock_alice',
+                authorName: 'Mock 客户',
+                content: '朋友圈只读遍历演示：这是一条 mock 动态。',
+                mediaUrls: [],
+                createdAt: 1_760_000_000,
+                source: 'mock',
+              },
+              {
+                id: 'mock-moment-2',
+                authorId: 'wxid_mock_bob',
+                authorName: 'Mock 伙伴',
+                content: '第二条 mock 动态，用于验证列表与去重。',
+                mediaUrls: [],
+                createdAt: 1_759_999_000,
+                source: 'mock',
+              },
+            ],
+          },
+        }
+      }
       return { status: 'unsupported', reason: `mock 不支持 ${action}` }
     },
     async typing() {},

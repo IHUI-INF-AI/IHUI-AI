@@ -508,7 +508,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     secondaryButtonText: { fontSize: rnType.label.size, color: tk.text.primary },
     /** 纯图标按钮:沿用所在按钮族的描边/底色,宽度收成方形(2026-11-23 用户定档) */
-    iconSquare: { width: 40, paddingHorizontal: 0, justifyContent: 'center' },
+    iconSquare: { width: 40, paddingHorizontal: rnSpacing.none, justifyContent: 'center' },
     actionGrow: { flexGrow: 1 },
     actionsRow: {
       flexDirection: 'row',

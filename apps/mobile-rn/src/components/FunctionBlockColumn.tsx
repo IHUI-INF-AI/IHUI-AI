@@ -7,7 +7,7 @@
  *
  * 对齐历史项目 FunctionBlockColumn/index.vue(分销 / 工具入口卡片列):
  * - 卡片 = 图标 + 标题 + 描述
- * - 卡片:浅色 surface.light 底,padding 14,borderRadius 12
+ * - 卡片:浅色 surface.light 底,padding 12(与通用 Card/首页卡片同 token),borderRadius 12
  * - 点击卡片 → onBlockPress(id)
  * - 原版为「双列」卡片布局(内置 4 分销入口 + navigateTo);RN 端分销项已外移为 props,
  *   跳转由调用方 onBlockPress 处理。新增可选 columns 还原双列网格布局(缺省 1 保持单列兼容)。
@@ -30,6 +30,7 @@ import { Star } from 'lucide-react-native'
 import type { AppIcon } from '@ihui/types'
 
 import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { HOME_CARD_PADDING_PX } from '@ihui/shared/ui/home-layout-spec'
 
 export interface FunctionBlock {
   id: string
@@ -45,11 +46,11 @@ export interface FunctionBlockColumnProps {
   columns?: number
 }
 
-const CARD_PADDING = 14
-const BLOCK_GAP = 10
+const CARD_PADDING = HOME_CARD_PADDING_PX
+const BLOCK_GAP = rnSpacing['sm-loose']
 const ICON_SIZE = 44
 const ICON_FONT_SIZE = 22
-const ICON_MARGIN_RIGHT = 12
+const ICON_MARGIN_RIGHT = rnSpacing.md
 const TITLE_FONT_SIZE = 15
 const DESC_FONT_SIZE = 12
 

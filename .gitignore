@@ -1208,6 +1208,13 @@ target/
 **/*.numbers
 **/*.epub
 
+# ---- 构建/取证临时产物（2026-11-24 收尾）----
+# Taro 构建目录与 RN 资源拷贝目录：2,212 文件 / 12.2 MB，盘上产物，不入库。
+apps/miniapp-taro/dist-weapp/
+apps/miniapp-taro/mobile-rn/
+# 竞品逆向取证的 _scratch 原始抓包/解包面：只保留同目录结论 .md，原始面不入库。
+docs/benchmark-evidence/**/_scratch/
+
 # ---- 示例 / 模板统一放行（必须在所有阻断规则之后）----
 !**/*.example
 !**/*.sample

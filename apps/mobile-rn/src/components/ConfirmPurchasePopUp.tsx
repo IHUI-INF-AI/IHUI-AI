@@ -87,7 +87,7 @@ export interface ConfirmPurchasePopUpProps {
 }
 
 const CARD_MAX_WIDTH = 320
-const CARD_PADDING_HORIZONTAL = 24
+const CARD_PADDING_HORIZONTAL = rnSpacing['2xl']
 const CARD_PADDING_VERTICAL = 20
 
 const ICON_BG_SIZE = 48
