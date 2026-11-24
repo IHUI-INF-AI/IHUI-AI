@@ -13,7 +13,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { __test__ } from '../check-staged-artifacts.mjs'
 
-const { judgePath, bucketOf, judgeStaged, parseNameStatus, parseArgs } = __test__
+const { judgePath, bucketOf, judgeStaged, parseNameStatus, parseArgs, isArtifactDirExempt } = __test__
 
 test('真实代码改动一律放行', () => {
   const allowed = [
@@ -36,6 +36,43 @@ test('生成物目录必须命中', () => {
   assert.match(judgePath('packages/database/drizzle-copy/0000_init.sql') ?? '', /drizzle-copy/)
   assert.match(judgePath('experiments/_itmp_0072b3c7/x.json') ?? '', /_itmp/)
   assert.match(judgePath('experiments/iso-0371+372/x.json') ?? '', /iso-/)
+})
+
+test('连接器目录覆盖面板源码精确豁免 coverage 生成物判定(2026-11-24)', () => {
+  // 业务代码目录:按完整前缀放行,源码与测试文件均不得被误判
+  const business = [
+    'apps/web/src/components/connectors/coverage/coverage-panel.tsx',
+    'apps/web/src/components/connectors/coverage/__tests__/coverage-panel.test.tsx',
+    'apps/web/src/components/connectors/coverage/types.ts',
+  ]
+  for (const file of business) {
+    assert.equal(isArtifactDirExempt(file.replace(/\\/g, '/')), true, `${file} 应命中业务豁免前缀`)
+    assert.equal(judgePath(file), null, `${file} 不应被判为生成物`)
+  }
+
+  // 反向:测试覆盖率产物与其他 coverage 目录仍必须拦(豁免不得泛化)
+  assert.match(judgePath('apps/web/coverage/index.html') ?? '', /coverage/)
+  assert.match(judgePath('coverage/lcov-report/index.html') ?? '', /coverage/)
+  assert.match(judgePath('apps/api/src/coverage/snapshot.json') ?? '', /coverage/)
+  // 边界:前缀必须以 '/' 收口,"coverage-evil" 不得蹭豁免
+  assert.equal(
+    isArtifactDirExempt('apps/web/src/components/connectors/coverage-evil/x.ts'),
+    false
+  )
+  assert.equal(
+    isArtifactDirExempt('apps/web/src/components/connectors/coverageX/x.ts'),
+    false
+  )
+
+  // 豁免目录内若真出现生成物形态(日志/实验目录),仍按原判据拦,不得整目录免检
+  assert.match(
+    judgePath('apps/web/src/components/connectors/coverage/_itmp_debug/x.ts') ?? '',
+    /一次性实验目录/
+  )
+  assert.match(
+    judgePath('apps/web/src/components/connectors/coverage/build.log') ?? '',
+    /日志/
+  )
 })
 
 test('一次性产物名必须命中', () => {

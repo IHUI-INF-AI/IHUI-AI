@@ -76,6 +76,19 @@ const ARTIFACT_DIRS = new Set([
   'ghidra-proj',
 ])
 
+/**
+ * 业务代码目录的精确豁免(2026-11-24):`coverage` 作为生成物目录名会误伤
+ * 连接器「平台 API 目录覆盖」面板的源码目录 `apps/web/src/components/connectors/coverage/`。
+ * 这里按**完整前缀**豁免,绝不泛化到测试覆盖率产物(apps/web/coverage/ 等仍拦)。
+ * 与根 .gitignore 的 `!apps/web/src/components/connectors/coverage/` 同一节奏。
+ */
+const ARTIFACT_DIR_EXEMPT_PREFIXES = ['apps/web/src/components/connectors/coverage/']
+
+/** 该路径是否位于业务豁免前缀内(纯函数,前缀边界以 '/' 收口,防 "coverage-evil" 误放行) */
+function isArtifactDirExempt(norm) {
+  return ARTIFACT_DIR_EXEMPT_PREFIXES.some((prefix) => norm.startsWith(prefix))
+}
+
 /** 路径段前缀形态的沙箱目录(_itmp_xxxxxx / iso-0371+372 这类一次性实验目录) */
 const ARTIFACT_SEGMENT_PREFIX = [/^_itmp/, /^iso-/]
 
@@ -117,8 +130,12 @@ function judgePath(file) {
   const norm = file.replace(/\\/g, '/')
   const segments = norm.split('/')
   const basename = segments[segments.length - 1] ?? ''
+  const exempt = isArtifactDirExempt(norm)
 
   for (const seg of segments.slice(0, -1)) {
+    // 业务豁免目录只豁免「生成物目录名」这一判定;其余形态(前缀沙箱目录、
+    // 文件名形态等)照常拦,避免把整条路径变成免检区。
+    if (exempt && ARTIFACT_DIRS.has(seg) && seg === 'coverage') continue
     if (ARTIFACT_DIRS.has(seg)) return `生成物目录 ${seg}/`
     if (ARTIFACT_SEGMENT_PREFIX.some((re) => re.test(seg))) return `一次性实验目录 ${seg}/`
   }
@@ -330,6 +347,8 @@ if (isDirectRun) {
 
 export const __test__ = {
   ARTIFACT_DIRS,
+  ARTIFACT_DIR_EXEMPT_PREFIXES,
+  isArtifactDirExempt,
   ARTIFACT_SEGMENT_PREFIX,
   ARTIFACT_NAME_RES,
   ROOT_BINARY_EXTS,
