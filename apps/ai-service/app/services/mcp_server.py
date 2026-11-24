@@ -127,6 +127,13 @@ from .tool_surface_budget import apply_tool_surface_budget as _apply_tool_surfac
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
 MCP_GLOBAL_TIMEOUT = 120
 
+# 竞品 deep 取证(2026-11-24):生产 run_command 的进程回收两处裸 `await proc.wait()`
+# 无界 —— 进程处在 D 态/僵尸或 Proactor 管道未 EOF 时整条命令链悬挂,外层 120s
+# 兜底只给泛化错误、拿不到 errorCode=TIMEOUT + partial_output,进程树回收也走不到。
+# 此前 command_streamer._cleanup_proc 已修同型病灶(只有测试调用),生产 _tool_run_command
+# 才是真调用链 —— 这里补上有界等待(独立一档,同档对齐 core.exec_params 的 2s)。
+RUN_COMMAND_KILL_WAIT_TIMEOUT = 2.0
+
 # ---------------------------------------------------------------------------
 # 工具层安全护栏(Phase 0 · W2:确定性防御,非审批流)
 # ---------------------------------------------------------------------------
@@ -4870,7 +4877,7 @@ async def _terminate_process_tree(proc: Any) -> None:
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.DEVNULL,
             )
-            await killer.wait()
+            await asyncio.wait_for(killer.wait(), timeout=RUN_COMMAND_KILL_WAIT_TIMEOUT)
             return
         except Exception:
             logger.warning(
@@ -5273,11 +5280,13 @@ async def _tool_run_command(
                 _watch_terminal_input(proc, _activity, _inter_state, _terminal_id, _term_ctx, command)
             )
         timed_out = False
+        kill_survived = False
         try:
             try:
                 timed_out = await _drain_with_input_grace(drain, float(timeout), _inter_state)
                 if not timed_out:
-                    await proc.wait()
+                    # 有界:正常退出也不能无界等 —— D 态/管道未 EOF 时不能拖住结果出口。
+                    await asyncio.wait_for(proc.wait(), timeout=RUN_COMMAND_KILL_WAIT_TIMEOUT)
             except TimeoutError:
                 timed_out = True
             if timed_out:
@@ -5289,9 +5298,15 @@ async def _tool_run_command(
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await drain
                 try:
-                    await proc.wait()
-                except Exception as e:
-                    logger.warning("mcp_server proc.wait 失败: %s", e, exc_info=True)
+                    await asyncio.wait_for(proc.wait(), timeout=RUN_COMMAND_KILL_WAIT_TIMEOUT)
+                except (TimeoutError, Exception) as e:
+                    # 强杀后仍未确认退出 ⇒ 如实标注,不冒充"进程已终止"(对齐
+                    # command_streamer 的 killSurvived 语义)。有界:绝不无界 await。
+                    kill_survived = proc.returncode is None
+                    logger.warning(
+                        "mcp_server run_command 强杀后 %ss 内未确认退出: %s",
+                        RUN_COMMAND_KILL_WAIT_TIMEOUT, e, exc_info=True,
+                    )
         finally:
             if _killer is not None:
                 _killer.cancel()
@@ -5332,9 +5347,11 @@ async def _tool_run_command(
                     "errorCode": "NEEDS_INPUT_TIMEOUT",
                     "interactionCount": _interaction_count,
                     "inputWaitTimeoutMs": TERMINAL_INTERACTION_WAIT_TIMEOUT_S * 1000,
+                    "killSurvived": kill_survived,
                     "message": (
                         f"命令在等待键盘输入,等待 {TERMINAL_INTERACTION_WAIT_TIMEOUT_S} 秒内无人代答"
-                        f"(此前已完成 {_interaction_count} 次代答),进程已终止"
+                        f"(此前已完成 {_interaction_count} 次代答),"
+                        + ("强杀后进程仍未确认退出,需人工核查" if kill_survived else "进程已终止")
                     ),
                 }
             return {
@@ -5345,7 +5362,11 @@ async def _tool_run_command(
                 "ok": False, "streamed": True,
                 "errorCode": "TIMEOUT",
                 "interactionCount": _interaction_count,
-                "message": f"命令执行超时({timeout} 秒,已 kill 进程)",
+                "killSurvived": kill_survived,
+                "message": (
+                    f"命令执行超时({timeout} 秒,已 kill 进程)"
+                    + (";强杀后进程仍未确认退出,需人工核查" if kill_survived else "")
+                ),
             }
 
         exit_code = proc.returncode if proc.returncode is not None else -1
