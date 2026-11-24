@@ -240,12 +240,16 @@ resync 的客户端契约(2026-10-26,纯函数,不接网络/UI):
    边界:水位只覆盖新增行、单次最多回填 10 页(触顶不冒充已对齐);零 DB migration。
    **状态翻转边界(2026-11-24 补齐)**:createdAt 水位对「已有通知被别的设备标已读/归档」
    无感(WS 帧不重放),故另开 `notification:state` 事件走 `/ws/broadcast` 独立通道
-   (四档 read/read-all/archive/restore,按落库确切 ids + changedBy),web 消费端就地改
-   react-query `['notifications','list']` 缓存 + store 批量翻转,角标重新取服务端真相;
-   重连再以 `POST /notifications/state-query` 带本地已知 ids 做权威状态对账,兜住断线期
-   丢失的 WS 帧。两端都按确切 ids 应用(不用"无条件全量置读"洗掉本地未知新通知),
-   userId 由鉴权注入不进 body,单次上限 500。仍不覆盖:删除(DELETE)翻转、非 web 端
-   (mobile/extension)的消费、状态帧本端背压跳帧(由重连快照最终收敛)。零 DB migration。
+   (六档 read/read-all/archive/restore/delete/delete-all,按落库确切 ids + changedBy),
+   web 消费端就地改 react-query `['notifications','list']` 缓存 + store 批量翻转,
+   角标重新取服务端真相;重连再以 `POST /notifications/state-query` 带本地已知 ids
+   做权威状态对账,兜住断线期丢失的 WS 帧。两端都按确切 ids 应用(不用"无条件全量
+   置读/清空"洗掉本地未知新通知),userId 由鉴权注入不进 body,单次上限 500。
+   **删除翻转(2026-11-24 第二切片)**:DELETE 两路由落库后发 delete/delete-all 帧
+   (delete-all 带清空前落库确切 ids,0 条不发),快照端增返回 `deletedIds` =
+   本地已知但本人库已查不到者,web 据此按确切 ids 移除,闭合"已删通知永久残留"。
+   仍不覆盖:非 web 端(mobile/extension)的消费、状态帧本端背压跳帧(由重连快照
+   最终收敛)、单次快照 500 上限。零 DB migration。
    **仍余 ②(验证面)**:微信开发者工具 / Android 模拟器本机不具备(AGENTS §17),
    端侧回归均为 node(jsdom) 下同一条接线,不冒充真机观感。
    **CLI 平台独占豁免**(§9):主 REPL 会话存 `~/.ihui/sessions/*.json`,与后端
