@@ -66,6 +66,7 @@ import {
   TERMINAL_EVENT_NAMES,
   type OpenAiUsage,
 } from './trae-protocol.js'
+import { readTraeClientModels } from './trae-client-models.js'
 import { buildCookieHeader } from '../relay-account-format.js'
 
 // =============================================================================
@@ -952,27 +953,46 @@ export const traeAdapter: RelayUpstreamAdapter = {
     }
   },
 
-  /** 模型列表:同健康检查端点,返回 model_configs[].name */
+  /**
+   * 模型列表:上游 model_list → model_configs[].name。
+   *
+   * 2026-11-25 实证:该端点对号池凭据整批 401(code=1001),连本机当前登录态
+   * (JWT 未到期)直连也 401 ⇒ HTTP 端点本身不再接受外部直连。客户端却把官方
+   * 清单落盘在 state.vscdb(`chat_v3` 25 条)。故 HTTP 失败/空清单时回落到
+   * 客户端同源缓存(见 trae-client-models.ts);两路都取不到才如实抛错,
+   * 绝不把"取不到"伪装成"上游没模型"。
+   */
   async listModels(ctx: AdapterAccountContext, opts?: AdapterCallOptions): Promise<string[]> {
-    const res = await resolveFetchImpl(opts ?? {})(TRAE_MODEL_LIST_URL, {
-      method: 'GET',
-      headers: {
-        Authorization: `Cloud-IDE-JWT ${ctx.credentials.token}`,
-        Accept: 'application/json',
-      },
-    })
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      throw new TraeUpstreamError(
-        res.status,
-        `Trae model_list 失败(HTTP ${res.status})${text ? `: ${text.slice(0, 300)}` : ''}`,
-      )
+    let httpError: unknown = null
+    try {
+      const res = await resolveFetchImpl(opts ?? {})(TRAE_MODEL_LIST_URL, {
+        method: 'GET',
+        headers: {
+          Authorization: `Cloud-IDE-JWT ${ctx.credentials.token}`,
+          Accept: 'application/json',
+        },
+      })
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new TraeUpstreamError(
+          res.status,
+          `Trae model_list 失败(HTTP ${res.status})${text ? `: ${text.slice(0, 300)}` : ''}`,
+        )
+      }
+      const configs = extractModelConfigs(await res.json().catch(() => null)) ?? []
+      if (configs.length > 0) rememberModelConfigs(ctx, configs)
+      const names = configs
+        .map((c) => (typeof c?.name === 'string' ? c.name : null))
+        .filter((n): n is string => n !== null && n !== '')
+      if (names.length > 0) return names
+    } catch (e) {
+      httpError = e
     }
-    const configs = extractModelConfigs(await res.json().catch(() => null)) ?? []
-    if (configs.length > 0) rememberModelConfigs(ctx, configs)
-    return configs
-      .map((c) => (typeof c?.name === 'string' ? c.name : null))
-      .filter((n): n is string => n !== null && n !== '')
+    const localModels = await readTraeClientModels().catch(() => null)
+    if (localModels && localModels.length > 0) return localModels
+    throw httpError instanceof Error
+      ? httpError
+      : new TraeUpstreamError(0, 'Trae model_list 与客户端缓存均取不到模型清单')
   },
 
   /**

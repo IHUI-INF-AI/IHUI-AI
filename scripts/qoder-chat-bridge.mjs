@@ -76,6 +76,9 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const APP_DIR_CANDIDATES = [
   process.env.QODER_APP_DIR,
   path.join(REPO_ROOT, '.DevEnv', 'tools', 'Qoder CN'),
+  // 2026-11-25 本机实证安装位(此前漏配 ⇒ 桥自举阶段就 QODER_APP_NOT_FOUND)
+  'C:/Qoder CN',
+  'D:/Qoder CN',
   'C:/Program Files/Qoder CN',
   'C:/Program Files (x86)/Qoder CN',
 ].filter(Boolean)

@@ -392,6 +392,50 @@ describe('raccoon listModels', () => {
     await expect(raccoonAdapter.listModels?.(ctx)).resolves.toEqual(['m3'])
   })
 
+  it('认 2026-11-25 实证的 data.categories[].models[](name/model_name 是上游 key,visible=false 不展示)', async () => {
+    mockFetch.mockResolvedValueOnce(
+      res(200, {
+        code: 0,
+        data: {
+          categories: [
+            {
+              type: 'chat',
+              default_model: 'raccoon-090dd3',
+              models: [
+                { name: 'raccoon-090dd3', model_name: 'raccoon-090dd3', visible: false },
+                { name: 'sn-glm-5-3', model_name: 'sn-glm-5-3', visible: true },
+                { name: 'sn-kimi-k3-1-pro', model_name: 'sn-kimi-k3-1-pro', visible: true },
+              ],
+            },
+          ],
+        },
+      }),
+    )
+    await expect(raccoonAdapter.listModels?.(ctx)).resolves.toEqual([
+      'sn-glm-5-3',
+      'sn-kimi-k3-1-pro',
+    ])
+  })
+
+  it('categories 全标不可见 ⇒ 仍返回全量(不伪造空清单)', async () => {
+    mockFetch.mockResolvedValueOnce(
+      res(200, {
+        data: {
+          categories: [
+            {
+              type: 'chat',
+              models: [
+                { name: 'r1', visible: false },
+                { name: 'r2', visible: false },
+              ],
+            },
+          ],
+        },
+      }),
+    )
+    await expect(raccoonAdapter.listModels?.(ctx)).resolves.toEqual(['r1', 'r2'])
+  })
+
   it('形状认不出 ⇒ 抛错并点名键(不编造清单)', async () => {
     mockFetch.mockResolvedValueOnce(res(200, { data: { unknown: 1 } }))
     await expect(raccoonAdapter.listModels?.(ctx)).rejects.toThrow(/未判定|形状/)

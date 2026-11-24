@@ -89,6 +89,9 @@ function resolveQoderAppRoot(): { root: string; version: string } | null {
   const candidates = [
     process.env.QODER_APP_DIR,
     'D:/电脑软件/Qoder CN',
+    // 2026-11-25 本机实证安装位(此前漏配 ⇒ 桥永远"未找到 Qoder CN",qoder 整平台 0 模型)
+    'C:/Qoder CN',
+    'D:/Qoder CN',
     'C:/Program Files/Qoder CN',
     'C:/Program Files (x86)/Qoder CN',
   ].filter((x): x is string => typeof x === 'string' && x.length > 0)

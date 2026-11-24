@@ -289,7 +289,15 @@ async function getQuota(
   }
 }
 
-/** 模型清单(GET model_catalog;响应形状未逐字段实证 ⇒ 认得出就用,认不出如实未判定) */
+/**
+ * 模型清单(GET model_catalog)。
+ *
+ * 2026-11-25 实弹(本机已登录桌面端 + 号池 token 双证):真实形状是
+ *   data.categories[] → { type, default_model, models[] }
+ * 每条模型的可传 key 在 `name`/`model_name`(两者同值),另有 `visible`。
+ * 旧解析只认 data.models / data.data / 顶层数组三种容器 ⇒ 线上 HTTP 200 却抛
+ * "形状未实证",整平台被 fail-closed 隐藏(选择器 0 条)。本器补上 categories 容器。
+ */
 async function listModels(
   ctx: AdapterAccountContext,
   opts?: AdapterCallOptions,
@@ -310,32 +318,58 @@ async function listModels(
     json && typeof json['data'] === 'object' && json['data'] !== null
       ? (json['data'] as Record<string, unknown>)
       : json
-  const arr =
-    container && Array.isArray(container['models'])
-      ? container['models']
-      : container && Array.isArray(container['data'])
-        ? container['data']
-        : Array.isArray(container)
-          ? container
-          : null
+  const categories =
+    container && Array.isArray(container['categories']) ? container['categories'] : null
+  // categories 容器:一平台多分类(chat/image/...),逐类展开 models[]。
+  let arr: unknown[] | null = null
+  if (categories) {
+    const flat: unknown[] = []
+    for (const c of categories) {
+      if (!c || typeof c !== 'object') continue
+      const models = (c as Record<string, unknown>)['models']
+      if (Array.isArray(models)) flat.push(...models)
+    }
+    if (flat.length > 0) arr = flat
+  }
   if (!arr) {
+    arr =
+      container && Array.isArray(container['models'])
+        ? container['models']
+        : container && Array.isArray(container['data'])
+          ? container['data']
+          : Array.isArray(container)
+            ? container
+            : null
+  }
+  if (!arr || arr.length === 0) {
     throw new Error(
       `HTTP 200 但清单形状未实证(键=[${container ? Object.keys(container).join(',') : '(非对象)'}]) ⇒ 未判定`,
     )
   }
   const out: string[] = []
+  const seen = new Set<string>()
+  // visible=false 的是产品内不展示的内部路由(如 raccoon-090dd3);优先只收可见模型,
+  // 若上游整份清单都标了不可见,则全量返回(不伪造空清单)。
+  const visibleOnly: string[] = []
   for (const m of arr) {
     if (!m || typeof m !== 'object') continue
     const rec = m as Record<string, unknown>
     const id =
-      typeof rec['id'] === 'string'
-        ? rec['id']
-        : typeof rec['model_id'] === 'string'
-          ? rec['model_id']
-          : ''
-    if (id) out.push(id)
+      typeof rec['model_name'] === 'string' && rec['model_name'].trim()
+        ? rec['model_name'].trim()
+        : typeof rec['name'] === 'string' && rec['name'].trim()
+          ? rec['name'].trim()
+          : typeof rec['id'] === 'string'
+            ? rec['id']
+            : typeof rec['model_id'] === 'string'
+              ? rec['model_id']
+              : ''
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    out.push(id)
+    if (rec['visible'] !== false) visibleOnly.push(id)
   }
-  return out
+  return visibleOnly.length > 0 ? visibleOnly : out
 }
 
 // =============================================================================
