@@ -9591,7 +9591,17 @@
       "statusGate": "로그인·인증 페이지 — 이어받기가 필요할 수 있습니다",
       "statusError": "화면 연결이 끊겼습니다",
       "statusStalled": "{seconds}초 동안 화면이 갱신되지 않았습니다",
-      "tooSmall": "창이 너무 작습니다. 1/4 화면 이상을 권장"
+      "tooSmall": "창이 너무 작습니다. 1/4 화면 이상을 권장",
+      "checkpointProgress": "체크포인트 {done}/{total}",
+      "checkpointWaiting": "확인 대기: {label}",
+      "continueLabel": "완료, 계속",
+      "taskFailed": "작업이 전달되지 않았습니다. 다시 시도하거나 인수하세요",
+      "templateMenuLabel": "템플릿으로 모니터링",
+      "templateLogin": "로그인 지원",
+      "templateForm": "양식 제출 확인",
+      "templatePayment": "결제 확인",
+      "templateDownload": "다운로드 확인",
+      "templateNoSession": "먼저 작업 패널에서 브라우저 탭을 연 뒤 템플릿 모니터링을 시작하세요."
     },
     "resizeFloatHint": "크기 조절",
     "bindIssue": "이슈 연결",

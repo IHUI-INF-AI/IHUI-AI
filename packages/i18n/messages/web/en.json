@@ -9556,7 +9556,17 @@
       "statusGate": "Login or verification page — you may need to take over",
       "statusError": "Screen disconnected",
       "statusStalled": "Screen hasn't updated for {seconds}s",
-      "tooSmall": "Window too small — keep it at least a quarter screen"
+      "tooSmall": "Window too small — keep it at least a quarter screen",
+      "checkpointProgress": "Checkpoint {done}/{total}",
+      "checkpointWaiting": "Waiting for you: {label}",
+      "continueLabel": "Done, continue",
+      "taskFailed": "Action not delivered; retry or take over",
+      "templateMenuLabel": "Watch by template",
+      "templateLogin": "Login help",
+      "templateForm": "Form submit check",
+      "templatePayment": "Payment confirm",
+      "templateDownload": "Download check",
+      "templateNoSession": "Open a browser tab in the work panel first, then start template monitoring."
     },
     "resizeFloatHint": "Resize",
     "earlier": "Earlier"

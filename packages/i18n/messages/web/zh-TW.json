@@ -9556,7 +9556,17 @@
       "statusGate": "登入/驗證頁，可能需要接管",
       "statusError": "畫面已中斷",
       "statusStalled": "畫面 {seconds} 秒未更新",
-      "tooSmall": "視窗過小，建議不小於 1/4 螢幕"
+      "tooSmall": "視窗過小，建議不小於 1/4 螢幕",
+      "checkpointProgress": "檢查點 {done}/{total}",
+      "checkpointWaiting": "等待確認：{label}",
+      "continueLabel": "已處理，繼續",
+      "taskFailed": "操作未送達，請重試或接管",
+      "templateMenuLabel": "依範本監看",
+      "templateLogin": "登入協助",
+      "templateForm": "表單提交確認",
+      "templatePayment": "付款確認",
+      "templateDownload": "下載核對",
+      "templateNoSession": "先在工作面板開啟瀏覽器分頁,再依範本監看。"
     },
     "resizeFloatHint": "調整大小",
     "earlier": "更早"

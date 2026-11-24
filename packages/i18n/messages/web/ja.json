@@ -9591,7 +9591,17 @@
       "statusGate": "ログイン・認証ページ。引き継ぎが必要な場合があります",
       "statusError": "画面が切断されました",
       "statusStalled": "画面が {seconds} 秒更新されていません",
-      "tooSmall": "ウィンドウが小さすぎます。1/4 画面以上を推奨"
+      "tooSmall": "ウィンドウが小さすぎます。1/4 画面以上を推奨",
+      "checkpointProgress": "チェックポイント {done}/{total}",
+      "checkpointWaiting": "確認待ち：{label}",
+      "continueLabel": "完了、続行",
+      "taskFailed": "操作が届きません。再試行するか引き継いでください",
+      "templateMenuLabel": "テンプレートで監視",
+      "templateLogin": "ログイン支援",
+      "templateForm": "フォーム送信確認",
+      "templatePayment": "支払い確認",
+      "templateDownload": "ダウンロード確認",
+      "templateNoSession": "まずワークパネルでブラウザタブを開いてから、テンプレート監視を開始してください。"
     },
     "resizeFloatHint": "サイズ変更",
     "bindIssue": "Issueを紐付ける",
