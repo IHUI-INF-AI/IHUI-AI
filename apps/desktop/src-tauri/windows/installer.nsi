@@ -65,7 +65,12 @@ ${StrLoc}
 !define HEADERIMAGE "{{header_image}}"
 !define UNINSTALLERICON "{{uninstaller_icon}}"
 !define UNINSTALLERHEADERIMAGE "{{uninstaller_header_image}}"
-!define MAINBINARYNAME "{{main_binary_name}}"
+; 2026-11-24 稳定 Launcher 布局:
+; - 根目录 ${PRODUCTNAME}.exe 永远是 Launcher(稳定、不随业务版本更新)
+; - 真实应用落在 versions\<version>\ihui-app.exe;快捷方式/深链/自启只指 Launcher
+; - MAINBINARYNAME 继续给所有“用户入口”用,PAYLOADNAME 只给版本目录里的载荷用
+!define MAINBINARYNAME "${PRODUCTNAME}"
+!define PAYLOADNAME "ihui-app"
 !define MAINBINARYSRCPATH "{{main_binary_path}}"
 !define BUNDLEID "{{bundle_id}}"
 !define COPYRIGHT "{{copyright}}"
@@ -715,15 +720,21 @@ Section Install
   !endif
 
   !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  ; Launcher 被强杀但 payload 仍在跑（孤儿进程）时，也必须拦住静默覆盖。
+  !insertmacro CheckIfAppIsRunning "${PAYLOADNAME}.exe" "${PRODUCTNAME}"
 
-  ; Copy main executable
+  ; Payload 落到版本目录:运行中的旧版本不被覆盖,更新只新增目录 + 切 state 指针。
+  CreateDirectory "$INSTDIR\versions\${VERSION}"
+  SetOutPath "$INSTDIR\versions\${VERSION}"
+
+  ; Copy main executable (renamed to the Launcher's stable payload name)
   !insertmacro IHUI_PROGRESS 12 "正在复制主程序"
-  File "${MAINBINARYSRCPATH}"
+  File /oname=${PAYLOADNAME}.exe "${MAINBINARYSRCPATH}"
 
   !insertmacro IHUI_PROGRESS 34 "正在写入运行资源"
   ; Copy resources
   {{#each resources_dirs}}
-    CreateDirectory "$INSTDIR\\{{this}}"
+    CreateDirectory "$INSTDIR\versions\${VERSION}\\{{this}}"
   {{/each}}
   {{#each resources}}
     File /a "/oname={{this.[1]}}" "{{no-escape @key}}"
@@ -734,6 +745,25 @@ Section Install
   {{#each binaries}}
     File /a "/oname={{this}}" "{{no-escape @key}}"
   {{/each}}
+
+  ; 回到安装根:Launcher / 卸载器 / 状态文件都在这里
+  SetOutPath $INSTDIR
+
+  ; 旧版根目录主程序可能同名(智汇AI.exe):先删再放 Launcher;运行中已由上方 Check 拦住。
+  Delete "$INSTDIR\${MAINBINARYNAME}.exe"
+  Rename "$INSTDIR\versions\${VERSION}\launcher\ihui-launcher.exe" "$INSTDIR\${MAINBINARYNAME}.exe"
+  RMDir /r "$INSTDIR\versions\${VERSION}\launcher"
+  FileOpen $0 "$INSTDIR\state.json" w
+  FileWrite $0 '{$\r$\n  "schema": 1,$\r$\n  "current": "${VERSION}",$\r$\n  "previous": null,$\r$\n  "pending": null,$\r$\n  "fail_count": 0,$\r$\n  "last_good_at": 0,$\r$\n  "bad": null$\r$\n}$\r$\n'
+  FileClose $0
+  FileOpen $0 "$INSTDIR\launcher-version.txt" w
+  FileWrite $0 "0.1.0$\r$\n"
+  FileClose $0
+  Delete "$INSTDIR\update-ready.json"
+  Delete "$INSTDIR\rollback-notice.json"
+  Delete "$INSTDIR\pending-update.json"
+  ; 升级/重装会重置版本目录；旧下载暂存包已无意义，顺手清掉避免占盘。
+  RMDir /r "$INSTDIR\updates"
 
   !insertmacro IHUI_PROGRESS 64 "正在登记文件关联"
   ; Create file associations
@@ -751,6 +781,14 @@ Section Install
     WriteRegStr SHCTX "Software\Classes\\{{protocol}}\DefaultIcon" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\",0"
     WriteRegStr SHCTX "Software\Classes\\{{protocol}}\shell\open\command" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
   {{/each}}
+
+  ; 2026-11-24 稳定 Launcher:老用户的开机自启值原来指向根目录旧主程序/某版 payload。
+  ; 只要自启原本是开启的，安装时就改写成 Launcher，避免升级后第一次开机静默失效。
+  ; 值不存在则绝不新建（尊重用户关闭自启的选择）。
+  ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}"
+  ${If} $0 != ""
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}" '$\"$INSTDIR\${MAINBINARYNAME}.exe$\" --minimized'
+  ${EndIf}
 
   !insertmacro IHUI_PROGRESS 80 "正在生成卸载程序"
   ; Create uninstaller
@@ -873,11 +911,29 @@ Section Uninstall
   !endif
 
   !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  !insertmacro CheckIfAppIsRunning "${PAYLOADNAME}.exe" "${PRODUCTNAME}"
 
   !insertmacro IHUI_UNPROGRESS 20 "正在删除程序文件"
   ; Delete the app directory and its content from disk
   ; Copy main executable
   Delete "$INSTDIR\${MAINBINARYNAME}.exe"
+  ; 2026-11-24 稳定 Launcher:所有版本目录、状态指针与更新日志一并清理。
+  RMDir /r "$INSTDIR\versions"
+  RMDir /r "$INSTDIR\updates"
+  Delete "$INSTDIR\state.json"
+  Delete "$INSTDIR\state.json.bak"
+  Delete "$INSTDIR\state.json.tmp"
+  Delete "$INSTDIR\state.lock"
+  Delete "$INSTDIR\update-ready.json"
+  Delete "$INSTDIR\rollback-notice.json"
+  Delete "$INSTDIR\pending-update.json"
+  Delete "$INSTDIR\launcher.log"
+  Delete "$INSTDIR\launcher.log.1"
+  Delete "$INSTDIR\update.log"
+  Delete "$INSTDIR\update.log.1"
+  Delete "$INSTDIR\update-telemetry.jsonl"
+  Delete "$INSTDIR\update-telemetry.jsonl.1"
+  Delete "$INSTDIR\launcher-version.txt"
 
   !insertmacro IHUI_UNPROGRESS 34 "正在删除运行资源"
   ; Delete resources

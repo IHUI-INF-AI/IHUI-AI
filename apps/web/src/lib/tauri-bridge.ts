@@ -198,6 +198,13 @@ async function invokeIpc<T>(cmd: string, args?: Record<string, unknown>): Promis
 export async function enableAutostart(): Promise<void> {
   if (!isTauri()) return
   await invoke('plugin:autostart|enable')
+  // 插件按 current_exe 写入，落在 versions/<ver>/ihui-app.exe；立即改回稳定
+  // Launcher，避免下一次开机绕过 Launcher 直接拉起旧 payload。
+  try {
+    await invoke('update_v2_sync_autostart')
+  } catch (err) {
+    console.warn('[autostart] sync launcher path failed:', err)
+  }
 }
 
 /** 禁用开机自启。 */
@@ -1724,6 +1731,87 @@ export async function restartApp(): Promise<void> {
   } catch (e) {
     console.warn('[updater] restart failed:', e)
   }
+}
+
+// ================== 稳定 Launcher 更新链（2026-11-24）==================
+// 与旧的 tauri-plugin-updater 链彻底分开：这里不再下载安装器、不再退出安装。
+// 壳侧只会在 zip 已验签/解压/落 pending 后返回 ready；前端只负责常驻胶囊与交棒。
+
+export type UpdateV2Kind = 'none' | 'update' | 'rollback'
+
+export interface UpdateV2Status {
+  supported: boolean
+  current: string
+  kind: UpdateV2Kind
+  available: string | null
+  ready: boolean
+  mandatory: boolean
+  requiresBootstrap: boolean
+  notes: string | null
+  reason: string
+}
+
+export interface UpdateV2Event {
+  phase: 'download' | 'verify' | 'stage' | 'ready' | 'error'
+  version: string | null
+  percent: number | null
+  message: string | null
+  code: string | null
+}
+
+export interface UpdateV2RollbackNotice {
+  from: string
+  to: string
+  at: number
+  reason: string
+}
+
+function emptyUpdateV2Status(): UpdateV2Status {
+  return {
+    supported: false,
+    current: '',
+    kind: 'none',
+    available: null,
+    ready: false,
+    mandatory: false,
+    requiresBootstrap: false,
+    notes: null,
+    reason: 'not-tauri',
+  }
+}
+
+export async function updateV2Check(): Promise<UpdateV2Status> {
+  if (!isTauri()) return emptyUpdateV2Status()
+  return invoke<UpdateV2Status>('update_v2_check')
+}
+
+export async function updateV2Ready(): Promise<UpdateV2Status> {
+  if (!isTauri()) return emptyUpdateV2Status()
+  return invoke<UpdateV2Status>('update_v2_ready')
+}
+
+/** 读取并消费 Launcher 的自动回滚通知（读一次即删，避免反复弹）。 */
+export async function updateV2TakeRollbackNotice(): Promise<UpdateV2RollbackNotice | null> {
+  if (!isTauri()) return null
+  return invoke<UpdateV2RollbackNotice | null>('update_v2_take_rollback_notice')
+}
+
+/** 后台暂存；命令本身立即返回，真正进度走 `update-v2` 事件。 */
+export async function updateV2Stage(): Promise<void> {
+  if (!isTauri()) return
+  await invoke('update_v2_stage')
+}
+
+/** 调用前必须先 flush 草稿；Rust 侧用退出码 42 把进程交棒给父 Launcher。 */
+export async function updateV2Restart(): Promise<void> {
+  if (!isTauri()) return
+  await invoke('update_v2_restart')
+}
+
+/** 设置页“退回上一版”：只写 pending，重启后由 Launcher 切。 */
+export async function updateV2Rollback(): Promise<UpdateV2Status> {
+  if (!isTauri()) return emptyUpdateV2Status()
+  return invoke<UpdateV2Status>('update_v2_rollback')
 }
 
 // ================== 退出时自动更新(2026-07-31 立)==================

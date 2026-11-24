@@ -5,7 +5,7 @@
   "identifier": "com.ihui.desktop",
   "build": {
     "beforeDevCommand": "node ../../scripts/desktop-before-dev.mjs",
-    "beforeBuildCommand": "node ../../scripts/desktop-installer-assets.mjs && node ../../scripts/check-desktop-icons.mjs --icons-dir=src-tauri/icons",
+    "beforeBuildCommand": "node ../../scripts/desktop-launcher-build.mjs && node ../../scripts/desktop-installer-assets.mjs && node ../../scripts/check-desktop-icons.mjs --icons-dir=src-tauri/icons",
     "devUrl": "http://localhost:8801",
     "frontendDist": "shell"
   },
@@ -61,6 +61,9 @@
     "active": true,
     "targets": ["nsis", "app", "dmg", "deb", "rpm", "appimage"],
     "createUpdaterArtifacts": true,
+    "resources": {
+      "binaries/ihui-launcher.exe": "launcher/ihui-launcher.exe"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

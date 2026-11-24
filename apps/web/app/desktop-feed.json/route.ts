@@ -39,6 +39,7 @@
  *   用同一把尺子复核。烘焙步骤见发布清单第 5 步(`--all-platforms`)。
  */
 import { DESKTOP_LATEST } from '@/config/desktop-latest.generated'
+import { DESKTOP_FEED_V2 } from '@/config/desktop-feed-v2.generated'
 import { buildDesktopFeedPayload } from '@/config/desktop-feed-payload'
 import {
   desktopRepo,
@@ -78,14 +79,11 @@ function isValidPayload(p: unknown): p is DesktopFeedPayload {
 async function giteePreferredBaked(payload: DesktopFeedPayload): Promise<DesktopFeedPayload> {
   const tag = desktopTagOf(payload.version)
   try {
-    const r = await fetch(
-      `https://api.github.com/repos/${desktopRepo()}/releases/tags/${tag}`,
-      {
-        headers: { Accept: 'application/vnd.github+json' },
-        signal: AbortSignal.timeout(6000),
-        next: { revalidate: 600 },
-      },
-    )
+    const r = await fetch(`https://api.github.com/repos/${desktopRepo()}/releases/tags/${tag}`, {
+      headers: { Accept: 'application/vnd.github+json' },
+      signal: AbortSignal.timeout(6000),
+      next: { revalidate: 600 },
+    })
     if (!r.ok) return payload
     const rel = (await r.json()) as { assets?: { name?: string; size?: number }[] }
     const sizes = new Map<string, number>()
@@ -100,6 +98,19 @@ async function giteePreferredBaked(payload: DesktopFeedPayload): Promise<Desktop
 }
 
 export async function GET() {
+  // v2 优先（2026-11-24）：发版脚本烘焙 schema=2 的签名 zip feed 后，客户端走
+  // “后台暂存 → 常驻胶囊 → 点击/下次启动切换”，不再下载安装器、不再退出安装。
+  if (DESKTOP_FEED_V2 && DESKTOP_FEED_V2.schema === 2) {
+    const version = String(DESKTOP_FEED_V2.version ?? '')
+    return Response.json(DESKTOP_FEED_V2, {
+      headers: {
+        'Cache-Control': 'public, max-age=300',
+        'X-Desktop-Feed-Version': version,
+        'X-Desktop-Feed-Schema': '2',
+      },
+    })
+  }
+
   // 优先:部署时烘焙进仓库的发布源快照 —— 生产机本地直读,零运行时外部依赖。
   if (isValidPayload(DESKTOP_LATEST)) {
     const served = await giteePreferredBaked(DESKTOP_LATEST)

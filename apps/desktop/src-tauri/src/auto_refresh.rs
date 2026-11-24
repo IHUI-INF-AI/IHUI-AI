@@ -1448,6 +1448,20 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                 // 立因(2026-11-20 实测):原先只在 round % 120 触发 = 启动满 60 分钟才有第一次检查,
                 // 而桌面端多数会话不足 60 分钟 —— 当天全部 7 份日志里没有一条 updater 记录,
                 // 「自动更新失败」与「从未尝试过」在日志上完全不可区分。
+                //
+                // 2026-11-24(稳定 Launcher):Windows 的 zip 暂存/胶囊链由前端
+                // `useUpdateReady` 驱动,这里**绝不能再跑旧安装器链**——旧链会在后台
+                // 拉起 setup.exe 并 exit(0),正是用户明确要求删掉的“下载后退出安装”。
+                // macOS/Linux 暂保留旧链（本任务 Windows 优先，后续再迁）。
+                #[cfg(target_os = "windows")]
+                {
+                    if round == 10 {
+                        log::info!(
+                            "[auto-refresh] Windows 自更新已切到 v2 胶囊链(use-update-ready)，跳过旧安装器检查"
+                        );
+                    }
+                }
+                #[cfg(not(target_os = "windows"))]
                 if round == 10 || round == 12 || (round > 0 && round % 120 == 0) {
                     let ok = check_app_update(&app).await;
                     if !ok {

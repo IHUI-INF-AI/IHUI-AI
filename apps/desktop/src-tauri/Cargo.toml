@@ -68,6 +68,13 @@ sha2 = "0.10"
 # CARGO_FEATURE_STD ⇒ 走免探针分支。lld/环境修复后可移除。
 indexmap = { version = "1.9.3", features = ["std"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
+# 2026-11-24 稳定 Launcher + 版本目录更新：状态机/feed v2 与启动器同源，避免两套指针逻辑漂移。
+ihui-launcher = { path = "../launcher" }
+# 自研 zip 暂存：只解压，不执行安装器；deflate 足够覆盖 CI 产物。
+zip = { version = "4.6", default-features = false, features = ["deflate"] }
+# 与 tauri-plugin-updater 同版本，复用同一把 minisign 公钥验证 zip。
+minisign-verify = "0.2.5"
+fs2 = "0.4"
 
 # Y-84:真机测试(#[ignore])需造 mock AppHandle 才能调用 checkin_one_click_reset_inner。
 # 平时 cargo check 不启用本 feature ⇒ 真机测试块不编译,不拖累构建;

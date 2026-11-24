@@ -544,8 +544,8 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
         未登录时不订阅、未挂载,登录后自动启用。
       */}
         <WorkspacePermissionRequestDialog userId={currentUserId} />
-        {/* 桌面端应用更新下拉提示(平台独占:仅 Tauri 环境渲染,浏览器端 no-op)。
-          内部调用 useUpdater hook,启动静默检查 + 监听托盘菜单 desktop-check-update 事件。 */}
+        {/* 桌面端应用更新常驻胶囊(平台独占:仅 Tauri 环境渲染,浏览器端 no-op)。
+          内部调用 useUpdateReady hook,启动静默检查 + 监听托盘菜单 desktop-check-update 事件。 */}
         <UpdatePrompt />
         {/* 页面访问埋点(2026-08-10 立):全局挂载,pathname 变化自动上报 visit_logs */}
         <VisitTracker />

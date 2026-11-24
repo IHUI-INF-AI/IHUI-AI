@@ -9,6 +9,8 @@
 mod egress_gate;
 // 2026-09-17 薄壳化配套:线上前端自动刷新 + 断网兜底守卫(详见模块文档)
 mod auto_refresh;
+// 2026-11-24 立:稳定 Launcher 的壳侧更新链——feed v2 灰度/签名 zip 暂存/pending 指针/重启胶囊。
+mod update_v2;
 #[cfg(target_os = "windows")]
 mod webview2_runtime;
 // 2026-10-09 立(WP-C 第一步):签到账号本地捕获——TRAE 目录探测/JWT 提取/设备标识重置/9 类快照。
@@ -5368,8 +5370,16 @@ pub fn run() {
                     "[desktop] 系统代理已注入进程环境变量(前端 updater 链与 Rust 链同路): {p}"
                 );
             }
+            // 旧安装器链已从 Windows 下线；它的 pending-update.json 回执不再有意义，
+            // 不再走 reconcile（否则会误报“自更新未生效”）。
+            #[cfg(not(target_os = "windows"))]
             auto_refresh::reconcile_pending_update(app.handle());
             auto_refresh::spawn_stale_update_dir_cleanup();
+            // 2026-11-24:zip 更新不经过安装器，启动时把卸载项 DisplayVersion
+            // 对齐到当前载荷版本（三处版本漂移的收口之一；无权限则静默）。
+            update_v2::sync_display_version(app.handle());
+            // 2026-11-24:自启注册项必须指向 Launcher；旧插件写的是当前 payload 绝对路径。
+            update_v2::sync_autostart(app.handle());
             // F-123:标签上限等设置必须在任何建标签路径之前进内存(默认 12/6 不变)。
             browser_settings::init(app.handle());
             // AUMID 已前移到 run() 顶部(2026-09-02,须早于任何窗口创建)
@@ -5867,7 +5877,16 @@ pub fn run() {
     clipboard_issue_grant,
     clipboard_read_with_grant,
     // 2026-11-23 立(B3-04):提交内存余量预判(只读;unjudged 不等于有余量)。
-    system_memory_pressure
+    system_memory_pressure,
+    // 2026-11-24 立:稳定 Launcher 更新链(Windows)。check 只读 feed;stage 后台
+    // 下载/验签/解压;restart 用 42 交棒给父 Launcher;rollback 只写 pending。
+    update_v2::update_v2_check,
+    update_v2::update_v2_stage,
+    update_v2::update_v2_ready,
+    update_v2::update_v2_take_rollback_notice,
+    update_v2::update_v2_restart,
+    update_v2::update_v2_rollback,
+    update_v2::update_v2_sync_autostart
         ])
         .run(context)
         .unwrap_or_else(|e| {
