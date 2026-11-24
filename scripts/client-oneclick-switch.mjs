@@ -98,7 +98,7 @@ const CHAT_CARRY = Object.freeze({
     kind: 'local',
     text:
       '正库是 C:\\Users\\Public\\Loomy\\<tenant>\\share\\opencode\\opencode.db 的 session/message/part(本机 tenant e7d3e769f3f5,' +
-      '顶层 1/1、正文 331 条、part 1662 条);Local Storage 的 loomy-auth-session 只是登录票,不带账号维度,切号后旧会话仍在并可接着聊',
+      '顶层 1/1、正文 391 条、part 1980 条,随对话增长;以 --audit 当次为准);Local Storage 的 loomy-auth-session 只是登录票,不带账号维度,切号后旧会话仍在并可接着聊',
   },
   codex: {
     kind: 'local',
