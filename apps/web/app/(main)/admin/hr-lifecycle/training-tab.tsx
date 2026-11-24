@@ -98,8 +98,10 @@ export function TrainingTab() {
     onError: (e: Error) => toast.error(e.message),
   })
   const enroll = useMutation({
+    // TData 由泛型显式给定:onSuccess 的参数标注要求 TData 是具体形状,
+    // 而 apiOrThrow 不传泛型时 TData 推断成 unknown ⇒ TS2322(mutationFn 不是 MutationFunction<TData>)。
     mutationFn: () =>
-      api(`${TR}/plans/${selectedPlan}/enroll`, {
+      api<{ created?: number; skipped?: string[] }>(`${TR}/plans/${selectedPlan}/enroll`, {
         method: 'POST',
         body: JSON.stringify({ assignments: [{ employeeId: empId, courseId }] }),
       }),

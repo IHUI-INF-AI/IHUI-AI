@@ -120,6 +120,14 @@
       "reason": "按票面『覆盖率 9/28』口径：28 台里只有服务自愈白名单(service-auto-restart.json，12 台)中的 9 台在本轮实测『应答』；其余 19 台不在自动读数消费面 —— 其中 11 台的 probe 维已量到(9 台应答正常、2 台明确声明端口无应答)但没有任何台账定期消费该读数，5 台是任务型无探针，3 台停在设计内只剩 Application 维。这不是把读数改绿：读数照旧，只把『没人消费』登记成债。",
       "exitRoute": "要么把这些服务纳入 service-auto-restart.json 白名单(带 reason/owner/reviewBy)，要么在监控面另设消费者；不纳入前不得把 9/28 读成覆盖率健康。",
       "reviewBy": "2026-12-31"
+    },
+    {
+      "services": ["IHUI-PG-TEST"],
+      "kind": "installed-without-repo-provisioning-source",
+      "hostScope": "本机(当前承载机)，测试环境专用",
+      "reason": "测试库服务(2026-11-24 现读):注册表 ImagePath 是 pg_ctl.exe runservice 直装形态(\"D:\\DevEnv\\runtimes\\pgsql\\bin\\pg_ctl.exe\" runservice -N \"IHUI-PG-TEST\" -D \"D:\\DevEnv\\data\\pgdata-test5399\" -w -o \"-p 5399 -c listen_addresses=127.0.0.1\")，只监听 127.0.0.1:5399，供测试隔离用(与生产库 8810 分离，测试不得连生产库)。全仓没有任何 nssm install / New-Service / sc create 能把它造出来:它是本机手工 pg_ctl 直装、不进生产部署面，仓内不应有建服源，属声明缺失而非可整改缺陷。",
+      "exitRoute": "维持『本机手工 pg_ctl 直装、测试环境专用』声明;换机时按 scripts/data/service-inventory.json 的 services[] 同形重建(仓根与盘符按当次实测取，不钉死);该测试库退役时删服务键并把本条同批移除。",
+      "reviewBy": "2027-06-30"
     }
   ]
 }
