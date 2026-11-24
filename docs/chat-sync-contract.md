@@ -237,8 +237,15 @@ resync 的客户端契约(2026-10-26,纯函数,不接网络/UI):
    (`created_at > ? OR (created_at = ? AND id > ?)`,双列同序),按页滚动直到水位对齐,
    突破原「最新 100 条」上限;无水位时退回最新页幂等合并并建立水位。半参数由路由
    refine 直接 400,不静默 strip 成普通分页;角标仍取 `getUnreadCount` 服务端真相。
-   边界:水位只覆盖新增行,不覆盖已读/归档等状态翻转;单次重连最多回填 10 页,
-   触顶只把水位推到已拉位置、不冒充已对齐。零 DB migration(复用既有索引)。
+   边界:水位只覆盖新增行、单次最多回填 10 页(触顶不冒充已对齐);零 DB migration。
+   **状态翻转边界(2026-11-24 补齐)**:createdAt 水位对「已有通知被别的设备标已读/归档」
+   无感(WS 帧不重放),故另开 `notification:state` 事件走 `/ws/broadcast` 独立通道
+   (四档 read/read-all/archive/restore,按落库确切 ids + changedBy),web 消费端就地改
+   react-query `['notifications','list']` 缓存 + store 批量翻转,角标重新取服务端真相;
+   重连再以 `POST /notifications/state-query` 带本地已知 ids 做权威状态对账,兜住断线期
+   丢失的 WS 帧。两端都按确切 ids 应用(不用"无条件全量置读"洗掉本地未知新通知),
+   userId 由鉴权注入不进 body,单次上限 500。仍不覆盖:删除(DELETE)翻转、非 web 端
+   (mobile/extension)的消费、状态帧本端背压跳帧(由重连快照最终收敛)。零 DB migration。
    **仍余 ②(验证面)**:微信开发者工具 / Android 模拟器本机不具备(AGENTS §17),
    端侧回归均为 node(jsdom) 下同一条接线,不冒充真机观感。
    **CLI 平台独占豁免**(§9):主 REPL 会话存 `~/.ihui/sessions/*.json`,与后端
