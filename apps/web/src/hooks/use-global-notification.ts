@@ -9,7 +9,7 @@ import * as React from 'react'
 import { useNotificationStore } from '@/stores/notification'
 import { useAuthStore } from '@/stores/auth'
 import { useWebSocket } from '@/hooks/use-websocket'
-import { getNotifications, getUnreadCount } from '@ihui/api-client'
+import { getNotifications, getUnreadCount, queryNotificationStates } from '@ihui/api-client'
 import type { NotificationItem } from '@ihui/types'
 
 /** 通知断线补拉的复合水位;与 REST sinceCreatedAt/sinceId 成对参数同形 */
@@ -88,6 +88,29 @@ async function hydrateSinceWatermark(
     if (list.length < RECONNECT_PAGE_SIZE) return { watermark: cursor, capped: false }
   }
   return { watermark: cursor, capped: true }
+}
+
+/**
+ * 重连权威状态对账:WS 帧不重放,断线期别的设备对**已有**通知的已读/归档翻转,
+ * createdAt 水位补增量拿不到。拿本地已知的 ids 问服务端此刻真相,按确切 ids 应用翻转。
+ * 单次上限 500(与后端 stateQuerySchema 同限),超出只查前 500 并诚实截断,不冒充全量对齐。
+ */
+const STATE_QUERY_LIMIT = 500
+
+async function reconcileStateOnReconnect(
+  getIds: () => string[],
+  apply: (res: { readIds: string[]; archivedIds: string[] }) => void,
+  isCancelled: () => boolean,
+): Promise<void> {
+  const ids = getIds().slice(0, STATE_QUERY_LIMIT)
+  if (ids.length === 0 || isCancelled()) return
+  try {
+    const res = await queryNotificationStates(ids)
+    if (isCancelled() || !res.success || !res.data) return
+    apply(res.data)
+  } catch {
+    // 静默失败:快照对账失败不影响补增量,下次重连再试,不把失败冒充已对齐
+  }
 }
 
 /**
@@ -186,6 +209,18 @@ export function useGlobalNotification(): UseGlobalNotificationReturn {
           }
         }
         if (next) watermarkRef.current = next
+        // 权威状态对账:补增量只覆盖「新增行」,断线期对已有通知的已读/归档翻转靠这步。
+        // 拿本地此刻已知的 ids(含刚补回的)问服务端真相,按确切 ids 应用;失败静默。
+        await reconcileStateOnReconnect(
+          () => useNotificationStore.getState().notifications.map((n) => n.id),
+          (state) => {
+            const store = useNotificationStore.getState()
+            if (state.readIds.length > 0) store.markAsReadByIds(state.readIds)
+            if (state.archivedIds.length > 0) store.archiveByIds(state.archivedIds)
+          },
+          () => cancelled,
+        )
+        if (cancelled) return
         const countRes = await countPromise
         if (cancelled) return
         if (countRes.success && countRes.data) {

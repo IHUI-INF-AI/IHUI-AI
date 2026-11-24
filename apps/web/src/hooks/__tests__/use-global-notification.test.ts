@@ -21,12 +21,17 @@ const h = vi.hoisted(() => ({
   markAllAsRead: vi.fn(),
   clearAll: vi.fn(),
   setUnreadCounts: vi.fn(),
+  queryNotificationStates: vi.fn(),
+  markAsReadByIds: vi.fn(),
+  archiveByIds: vi.fn(),
+  restoreByIds: vi.fn(),
   ws: { lastMessage: null as unknown, connected: false },
 }))
 
 vi.mock('@ihui/api-client', () => ({
   getNotifications: h.getNotifications,
   getUnreadCount: h.getUnreadCount,
+  queryNotificationStates: h.queryNotificationStates,
 }))
 
 vi.mock('@/hooks/use-websocket', () => ({ useWebSocket: () => h.ws }))
@@ -36,18 +41,27 @@ vi.mock('@/stores/auth', () => ({
     sel({ isAuthenticated: true }),
 }))
 
-vi.mock('@/stores/notification', () => ({
-  useNotificationStore: (sel: (s: Record<string, unknown>) => unknown) =>
-    sel({
-      unreadCount: 0,
-      unreadMessageCount: 0,
-      handleWsMessage: h.handleWsMessage,
-      markAllAsRead: h.markAllAsRead,
-      clearAll: h.clearAll,
-      setUnreadCounts: h.setUnreadCounts,
-      hydrateNotifications: h.hydrateNotifications,
+vi.mock('@/stores/notification', () => {
+  const state = {
+    unreadCount: 0,
+    unreadMessageCount: 0,
+    handleWsMessage: h.handleWsMessage,
+    markAllAsRead: h.markAllAsRead,
+    clearAll: h.clearAll,
+    setUnreadCounts: h.setUnreadCounts,
+    hydrateNotifications: h.hydrateNotifications,
+    markAsReadByIds: h.markAsReadByIds,
+    archiveByIds: h.archiveByIds,
+    restoreByIds: h.restoreByIds,
+    // 权威快照拿本地已知 ids;测试里 hydrating 的条目由这里给出
+    notifications: [{ id: 'n-missed' }] as Array<{ id: string }>,
+  }
+  return {
+    useNotificationStore: Object.assign((sel: (s: typeof state) => unknown) => sel(state), {
+      getState: () => state,
     }),
-}))
+  }
+})
 
 import {
   compareNotificationWatermark,
@@ -78,6 +92,10 @@ beforeEach(() => {
   h.ws.lastMessage = null
   h.getNotifications.mockResolvedValue(okList([]))
   h.getUnreadCount.mockResolvedValue(okCount())
+  h.queryNotificationStates.mockResolvedValue({
+    success: true,
+    data: { readIds: [], archivedIds: [] },
+  })
 })
 
 describe('useGlobalNotification — 重连补增量', () => {
@@ -236,6 +254,46 @@ describe('useGlobalNotification — 重连补增量', () => {
     expect(h.hydrateNotifications).toHaveBeenNthCalledWith(2, page2)
     // 登录初始化 + 重连各一次,不用本地补回条数重算
     expect(h.getUnreadCount).toHaveBeenCalledTimes(2)
+  })
+
+  // ==================== 权威状态对账(WS 帧不重放的兜底) ====================
+  it('重连补增量后按本地 ids 对账权威已读/归档并按确切 ids 翻转', async () => {
+    h.queryNotificationStates.mockResolvedValue({
+      success: true,
+      data: { readIds: ['n-missed'], archivedIds: ['n-missed'] },
+    })
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.queryNotificationStates).toHaveBeenCalledWith(['n-missed']))
+    expect(h.markAsReadByIds).toHaveBeenCalledWith(['n-missed'])
+    expect(h.archiveByIds).toHaveBeenCalledWith(['n-missed'])
+  })
+
+  it('权威快照失败 ⇒ 静默,不翻转、不冒充已对齐', async () => {
+    h.queryNotificationStates.mockRejectedValue(new Error('offline'))
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.queryNotificationStates).toHaveBeenCalledTimes(1))
+    expect(h.markAsReadByIds).not.toHaveBeenCalled()
+    expect(h.archiveByIds).not.toHaveBeenCalled()
+  })
+
+  it('首连不对账(只重连边沿;与补增量同一条纪律)', async () => {
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    await Promise.resolve()
+    expect(h.queryNotificationStates).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

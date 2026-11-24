@@ -25,6 +25,12 @@ interface NotificationState {
   hydrateNotifications: (items: NotificationItem[]) => void
   addNotification: (item: NotificationItem) => void
   markAsRead: (id: string) => void
+  /** 按服务端下发的确切 id 批量标已读(状态翻转广播/重连快照用),角标以服务端为准不由本地重算 */
+  markAsReadByIds: (ids: string[]) => void
+  /** 按服务端下发的确切 id 批量归档(active 视图据此过滤) */
+  archiveByIds: (ids: string[]) => void
+  /** 按服务端下发的确切 id 批量恢复(清 archivedAt) */
+  restoreByIds: (ids: string[]) => void
   markAllAsRead: () => void
   setMessages: (messages: MessageItem[]) => void
   addMessage: (msg: MessageItem) => void
@@ -75,6 +81,43 @@ export const useNotificationStore = create<NotificationState>()(
             return n
           })
           return { notifications, unreadCount: Math.max(0, s.unreadCount - (decremented ? 1 : 0)) }
+        }),
+
+      // 批量翻转(状态翻转广播 / 重连权威快照用):只按服务端给的确切 ids 改条目,
+      // 不重算角标 —— 角标真相源是服务端 unread-count(调用方随后 getUnreadCount 覆盖)。
+      // 本地没有的 id 不猜、不新增:它可能是本页不显示的归档行。
+      markAsReadByIds: (ids) =>
+        set((s) => {
+          if (ids.length === 0) return s
+          const target = new Set(ids)
+          return {
+            notifications: s.notifications.map((n) =>
+              target.has(n.id) && !n.isRead ? { ...n, isRead: true } : n,
+            ),
+          }
+        }),
+
+      archiveByIds: (ids) =>
+        set((s) => {
+          if (ids.length === 0) return s
+          const target = new Set(ids)
+          const now = new Date().toISOString()
+          return {
+            notifications: s.notifications.map((n) =>
+              target.has(n.id) && !n.archivedAt ? { ...n, archivedAt: now } : n,
+            ),
+          }
+        }),
+
+      restoreByIds: (ids) =>
+        set((s) => {
+          if (ids.length === 0) return s
+          const target = new Set(ids)
+          return {
+            notifications: s.notifications.map((n) =>
+              target.has(n.id) && n.archivedAt ? { ...n, archivedAt: null } : n,
+            ),
+          }
         }),
 
       markAllAsRead: () =>
