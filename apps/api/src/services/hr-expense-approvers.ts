@@ -48,6 +48,34 @@ export interface ExpenseApproverRoster {
 }
 
 /**
+ * 展示顺序纯核(不碰库):财务权限者在前,管理员兜底;同级保持库返回顺序(稳定排序)。
+ * 2026-11-24 真库验证修正的单一实现 —— 候选池与默认链必须同序,否则页面上
+ * 默认选中的人排在候选末尾,员工看不出"为什么是他"。
+ */
+export function sortCandidatesFinanceFirst<T extends { source: 'finance' | 'admin' }>(
+  list: readonly T[],
+): T[] {
+  return [...list].sort(
+    (a, b) => (a.source === 'finance' ? 0 : 1) - (b.source === 'finance' ? 0 : 1),
+  )
+}
+
+/**
+ * 反自批纯核(不碰库):本人不进候选池,只留一条 self-excluded 说明。
+ * 前移的理由:原先只在默认链里排除本人,candidates 仍把自己回给页面 ⇒
+ * 页面上"自己"是一枚可点的审批人,点下去提交才被 EXPENSE_SELF_APPROVAL 挡回。
+ */
+export function excludeSelfFromPool<T extends { id: string }>(
+  rows: readonly T[],
+  selfUserId: string | null,
+): { pool: T[]; warnings: string[] } {
+  const selfInPool = selfUserId ? rows.some((r) => r.id === selfUserId) : false
+  const warnings = selfInPool ? ['self-excluded'] : []
+  const pool = selfUserId ? rows.filter((r) => r.id !== selfUserId) : [...rows]
+  return { pool, warnings }
+}
+
+/**
  * 审批链纯核(不碰库):财务权限者优先,管理员兜底;排除本人;去重;按上限截断。
  * 返回空数组不是错误 —— 由调用方决定"没人是硬错还是给页面提示"。
  */
@@ -63,9 +91,7 @@ export function buildExpenseApproverChain(
     warnings.push('no-approver')
     return { userIds: [], warnings }
   }
-  const ordered = [...usable].sort(
-    (a, b) => (a.source === 'finance' ? 0 : 1) - (b.source === 'finance' ? 0 : 1),
-  )
+  const ordered = sortCandidatesFinanceFirst(usable)
   const seen = new Set<string>()
   const userIds: string[] = []
   for (const c of ordered) {
@@ -141,9 +167,7 @@ export async function loadExpenseApproverRoster(
    * ⇒ 页面上"自己"是一枚可点的审批人,点下去提交后才被 EXPENSE_SELF_APPROVAL 挡回。
    * 反自批要前移到候选池:本人不进 candidates,只留一条 self-excluded 说明。
    */
-  const selfInPool = selfUserId ? activeAll.some((r) => r.id === selfUserId) : false
-  const baseWarnings = selfInPool ? ['self-excluded'] : []
-  const activeRows = selfUserId ? activeAll.filter((r) => r.id !== selfUserId) : activeAll
+  const { pool: activeRows, warnings: baseWarnings } = excludeSelfFromPool(activeAll, selfUserId)
   if (activeRows.length === 0) {
     return { candidates: [], defaultChain: [], warnings: [...baseWarnings, 'no-approver'] }
   }
@@ -159,9 +183,7 @@ export async function loadExpenseApproverRoster(
    * 原来 candidates 按库返回顺序(管理员在前),而 defaultChain 按 finance 优先 ——
    * 于是页面上默认选中的人排在候选末尾,员工看不出"为什么是他"。
    */
-  const ordered = [...candidates].sort(
-    (a, b) => (a.source === 'finance' ? 0 : 1) - (b.source === 'finance' ? 0 : 1),
-  )
+  const ordered = sortCandidatesFinanceFirst(candidates)
   // 本人已在上面剔出,纯核这里不再传 selfUserId(否则会重复记一条 self-excluded)
   const chain = buildExpenseApproverChain(ordered, null, 1)
   const warnings = [...new Set([...baseWarnings, ...chain.warnings])]
