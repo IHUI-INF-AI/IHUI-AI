@@ -704,7 +704,6 @@ export default function Community() {
             <NavBar
               variant="ai-home"
               title={tt('community.m1', 'A I 应用商店')}
-              bgColor="var(--color-card)"
               showFenLei
               showSearch
               onFenLeiClick={handleFenLeiClick}

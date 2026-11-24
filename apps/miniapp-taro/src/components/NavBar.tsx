@@ -28,14 +28,43 @@ import BackChevron from '@/components/BackChevron'
 
 /// 档位数字与盒子结构在 @ihui/shared/ui/navbar-spec(与 RN 端同表);本文件只做 rpx 换算 + 挂 Taro 原语。
 const toUnit = (logicalPx: number) => rpx(logicalPx * TARO_RPX_PER_PX)
+/// 2026-11-24 顶栏透明化后,行内每个可交互件/标题自持圆角底片;与 RN 端 NAV_CHIP 同档:
+/// 卡片底 + stroke.subtle 1px 描边 + 12px 圆角。小程序 1 逻辑 px = 2rpx。
+const NAV_CHIP = {
+  backgroundColor: 'var(--color-card)',
+  border: '2rpx solid var(--color-stroke-subtle)',
+  borderRadius: rnRadius.xl,
+} as const
 /// LineIcon 的 size 收 rpx 数值(与 BackChevron 同一口径)
 const ACTION_GLYPH_RPX_NUM = NAVBAR_ACTION_GLYPH_PX * TARO_RPX_PER_PX
-const ACTION_BOX_STYLE = navbarActionBoxStyle(toUnit)
+const ACTION_BOX_STYLE = { ...navbarActionBoxStyle(toUnit), ...NAV_CHIP }
 const TITLE_FONT = toUnit(NAVBAR_TITLE_FONT_PX)
 /// 标题区下限 / 标题截断宽:与 RN 的 center.minWidth、title.maxWidth 同档同值(两端都真取它,
 /// 不是把数字搬进声明而另一端仍渲染别的宽度)
 const CENTER_STYLE = { minWidth: toUnit(NAVBAR_CENTER_MIN_WIDTH_PX) } as const
-const TITLE_STYLE = { fontSize: TITLE_FONT, maxWidth: toUnit(NAVBAR_TITLE_MAX_WIDTH_PX) } as const
+/// 标题也做成独立底片:高 28 / 左右 8 / 上下由 inline-flex 居中,与 RN title 的
+/// paddingHorizontal 8、paddingVertical 2、圆角 12 同脸。
+const TITLE_STYLE = {
+  fontSize: TITLE_FONT,
+  maxWidth: toUnit(NAVBAR_TITLE_MAX_WIDTH_PX),
+  ...NAV_CHIP,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  height: toUnit(28),
+  padding: `0 ${toUnit(8)}`,
+  boxSizing: 'border-box',
+} as const
+/// 首页标题切换的两枚标签同样各成底片(不是给整条 titleSwitch 铺一块)。
+const TITLE_SWITCH_CHIP_STYLE = {
+  ...NAV_CHIP,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  height: toUnit(28),
+  padding: `0 ${toUnit(8)}`,
+  boxSizing: 'border-box',
+} as const
 /// 副标题档与 RN 端 `subtitle` 同表同值(字号 12 / 上距 2),颜色由调用方的 textColor 决定
 const SUBTITLE_STYLE = {
   fontSize: toUnit(NAVBAR_SUBTITLE_FONT_PX),
@@ -133,7 +162,8 @@ export interface NavBarAction {
  * - 默认(兼容旧调用):fixed 顶部 + 左返回按钮 + 居中标题 + 右可选文字
  * - variant="ai-home"(首页专用):sticky 顶部 + 左菜单按钮 + 标题居中(对齐原项目 navigation-bars/index.vue:背景 #E9F0FD + 标题色 #171717 + 字号 30rpx)+ 右"加入社区群"按钮
  *
- * 其他页面(distribution 等)只传 title/bgColor/textColor,默认行为不变。
+ * 其他页面(distribution 等)默认顶栏透明:页面底色直接透出,标题/返回键/侧按钮各自持圆角底片;
+ * 仅当调用方显式传 bgColor 时才铺整条底色(特殊沉浸页用,常规页面不要再传)。
  */
 export interface NavBarProps {
   title?: string
@@ -200,7 +230,7 @@ export default function NavBar({
   rightActions,
   rightAction,
   showBack = true,
-  bgColor = 'var(--color-background)',
+  bgColor = 'transparent',
   textColor = 'var(--color-foreground)',
   onBack,
   rightText,
@@ -262,7 +292,7 @@ export default function NavBar({
         rowStyle={{
           height: px(rowHeight),
         }}
-        leftClassName="flex items-center gap-[12rpx]"
+        leftClassName="flex items-center gap-[8rpx]"
         leftStyle={{
           // 侧槽绝对定位,不再参与中槽的流式分配 —— 与 RN 端同一几何口径
           position: 'absolute',
@@ -273,7 +303,7 @@ export default function NavBar({
         left={
           <>
             {/* 返回首页按钮 + 菜单按钮(对齐原项目 navigation-bars: @pack + @menu-click) */}
-            {onPack ? <BackChevron onTap={onPack} color={textColor} /> : null}
+            {onPack ? <BackChevron onTap={onPack} color={textColor} style={NAV_CHIP} /> : null}
             {leftActions?.map((action, index) => (
               <NavBarActionButton key={index} action={action} />
             ))}
@@ -320,7 +350,7 @@ export default function NavBar({
             <>
               {/* 中间:标题切换(每日资讯/排行榜) */}
               <View
-                style={{ pointerEvents: 'auto' }}
+                style={{ pointerEvents: 'auto', ...TITLE_SWITCH_CHIP_STYLE }}
                 onClick={() => onActiveNav(0)}
                 hoverClass="opacity-60"
               >
@@ -338,7 +368,7 @@ export default function NavBar({
                 </Text>
               </View>
               <View
-                style={{ pointerEvents: 'auto' }}
+                style={{ pointerEvents: 'auto', ...TITLE_SWITCH_CHIP_STYLE }}
                 onClick={() => onActiveNav(1)}
                 hoverClass="opacity-60"
               >
@@ -363,7 +393,7 @@ export default function NavBar({
         titleStyle={{ color: textColor, ...TITLE_STYLE }}
         subtitle={subtitle}
         subtitleStyle={{ color: textColor, ...SUBTITLE_STYLE }}
-        rightClassName="flex flex-shrink-0 items-center gap-[12rpx]"
+        rightClassName="flex flex-shrink-0 items-center gap-[8rpx]"
         rightStyle={{
           // 与左槽同一条几何口径:绝对贴右,不挤占标题层
           position: 'absolute',
@@ -432,7 +462,7 @@ export default function NavBar({
                   ...ACTION_BOX_STYLE,
                   padding: '0 16rpx',
                   border: '3rpx solid var(--color-brand-accent-deep)',
-                  borderRadius: rnRadius.sm,
+                  borderRadius: rnRadius.xl,
                   background: 'var(--color-card)',
                 }}
                 onClick={onJoinClick}
@@ -497,7 +527,7 @@ export default function NavBar({
       leading={<View style={{ height: px(statusBarHeight) }} />}
       rowClassName="relative flex w-full items-center justify-center"
       rowStyle={{ height: px(rowHeight) }}
-      leftClassName="absolute left-2 flex items-center"
+      leftClassName="absolute left-2 flex items-center gap-[8rpx]"
       leftStyle={{
         ...rowBoxStyle,
         // 中槽标题层铺满整行,侧钮必须压在它之上才点得到
@@ -505,7 +535,7 @@ export default function NavBar({
       }}
       left={
         <>
-          {showBack ? <BackChevron onTap={handleBack} color={textColor} /> : null}
+          {showBack ? <BackChevron onTap={handleBack} color={textColor} style={NAV_CHIP} /> : null}
           {leftActions?.map((action, index) => (
             <NavBarActionButton key={index} action={action} />
           ))}
@@ -518,10 +548,10 @@ export default function NavBar({
       }
       title={title}
       titleClassName="font-medium truncate max-w-[60%]"
-      titleStyle={{ color: textColor, fontSize: TITLE_FONT, lineHeight: px(rowHeight) }}
+      titleStyle={{ color: textColor, ...TITLE_STYLE }}
       subtitle={subtitle}
       subtitleStyle={{ color: textColor, ...SUBTITLE_STYLE }}
-      rightClassName="absolute right-3 flex items-center"
+      rightClassName="absolute right-3 flex items-center gap-[8rpx]"
       rightStyle={{
         ...rowBoxStyle,
         // 与左槽同一命中口径:侧钮压在中槽之上

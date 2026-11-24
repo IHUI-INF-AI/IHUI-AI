@@ -870,7 +870,6 @@ export default function UserIndex() {
         <NavBar
           variant="ai-home"
           title={tf('user.title', '我的')}
-          bgColor="var(--color-card)"
           textColor="var(--color-foreground)"
           showFeedback
           onMenuClick={toggleDrawer}
@@ -1162,10 +1161,7 @@ export default function UserIndex() {
                   </View>
                 ) : (
                   textContentList.map((item, index) => (
-                    <View
-                      key={index}
-                      className="bg-card rounded-lg p-[28rpx] user-content-text"
-                    >
+                    <View key={index} className="bg-card rounded-lg p-[28rpx] user-content-text">
                       <View className="flex-row items-center justify-between mb-[12rpx]">
                         <Text className="text-title font-semibold text-foreground">
                           {item.title}
@@ -1195,10 +1191,7 @@ export default function UserIndex() {
                   </View>
                 ) : (
                   imageContentList.map((item, index) => (
-                    <View
-                      key={index}
-                      className="bg-card rounded-lg p-[28rpx] user-content-image"
-                    >
+                    <View key={index} className="bg-card rounded-lg p-[28rpx] user-content-image">
                       <View className="flex-row items-center justify-between mb-[12rpx]">
                         <Text className="text-title font-semibold text-foreground">
                           {item.title}
@@ -1299,10 +1292,7 @@ export default function UserIndex() {
                   </View>
                 ) : (
                   audioContentList.map((item, index) => (
-                    <View
-                      key={index}
-                      className="bg-card rounded-lg p-[28rpx] user-content-audio"
-                    >
+                    <View key={index} className="bg-card rounded-lg p-[28rpx] user-content-audio">
                       <View className="flex-row items-center justify-between mb-[12rpx]">
                         <Text className="text-title font-semibold text-foreground">
                           {item.title}
