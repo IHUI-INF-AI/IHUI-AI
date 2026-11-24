@@ -2143,7 +2143,11 @@ export function buildAcpAgentApp(opts: AcpServerOptions): acp.AgentApp {
 }
 
 export function startAcpServer(opts: AcpServerOptions): acp.AgentConnection {
-  const input = Writable.toWeb(process.stdout);
+  // 2026-11-24:Writable.toWeb 在 @types/node 里返回 WritableStream<any>,其 getWriter().closed
+  // 解析成 Promise<void>,与 SDK 的 WritableStream<Uint8Array> 的 Promise<undefined> 不兼容
+  // (TS2345,已入库红,远端同红)。实际写入的元素就是 Buffer/Uint8Array ⇒ 按真实元素类型断言,
+  // 不引入 any(AGENTS §3 类型零技术债)。
+  const input = Writable.toWeb(process.stdout) as unknown as WritableStream<Uint8Array>;
   const output = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
   const stream = acp.ndJsonStream(input, output);
   return buildAcpAgentApp(opts).connect(stream);

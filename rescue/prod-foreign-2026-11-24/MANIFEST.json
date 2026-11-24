@@ -1,0 +1,1021 @@
+{
+  "kind": "prod-checkout-foreign-work",
+  "createdAt": "2026-11-24T09:37:58.520Z",
+  "source": "D:\\DevEnv\\ihui-prod",
+  "sourceHead": "b216021c2b945e300fcfe70a3f6bcda41c63c05f",
+  "note": "生产签出外来改动的无损快照。为解除部署环 git merge --ff-only 的路径重叠阻断而落仓。逐条 sha256/gitBlobSha1 可用于证明快照与原盘内容一致,也用于日后回取。",
+  "fileCount": 101,
+  "totalBytes": 35017020,
+  "files": [
+    {
+      "rel": ".env.production.example",
+      "present": true,
+      "bytes": 21114,
+      "mtime": "2026-11-24T02:37:12.458Z",
+      "gitBlobSha1": "b63e999a529d0c78ad3319ed58028ad0bf8a1bbb",
+      "sha256": "971d01b1607c4cb6aa3fd9fcc3978fd31620da5cd62e956c43028f10e0e6a2c7",
+      "prodHeadOid": "439e01db36b7e46aef20a98e90c62410de5efaaa blob 20826",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "Verify AI Model Connectivity.md",
+      "present": true,
+      "bytes": 818704,
+      "mtime": "2026-11-24T02:37:12.552Z",
+      "gitBlobSha1": "75c9551355adf042fa0a8b8c4ccdfd7f0490d493",
+      "sha256": "e175040a6ba47553ce224cda30d2399237b457caa8747060e3939493f437970f",
+      "prodHeadOid": "8dfa6ecb5d42e18ca75ecc622c971de09e91dcf3 blob 809004",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "apps/ai-service/.env.example",
+      "present": true,
+      "bytes": 39646,
+      "mtime": "2026-11-24T02:33:02.287Z",
+      "gitBlobSha1": "6a111fcc1e103286d263730545c2e9598e6f3665",
+      "sha256": "880cd47e3740fe55925b1e7c045e1e5cd37dd1531856242f39ee6f2f43b46c09",
+      "prodHeadOid": "5949a54c1c7ff6d840149b38997b1cd13b9ad338 blob 42001",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "apps/ai-service/app/core/default_model.py",
+      "present": true,
+      "bytes": 11276,
+      "mtime": "2026-11-24T04:36:59.916Z",
+      "gitBlobSha1": "0adca7fd465d1e675cd9c641f14a83a2cd06d04a",
+      "sha256": "06f6851dbe61c762b96e4c9d4f32e66b380df2a4ce63c1c7a69acf91ea290b0c",
+      "prodHeadOid": "517fa21cc8be7d24a448cd6f24828dcde7793bee blob 10682",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/core/llm_gateway.py",
+      "present": true,
+      "bytes": 263329,
+      "mtime": "2026-11-24T04:37:00.875Z",
+      "gitBlobSha1": "431e13e4b8f36ed54ad0f9193ea499d880a1dbed",
+      "sha256": "6a3f977cc6167ddad4900f09c8d0fa3a349b6686183e0f7b43b203e560df330b",
+      "prodHeadOid": "ebbb9e39c759da17649637e44c4a6d8de0691ecb blob 259027",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/core/provider_caps.py",
+      "present": true,
+      "bytes": 19166,
+      "mtime": "2026-11-24T02:19:28.551Z",
+      "gitBlobSha1": "5642b5280b0153b384ed6f92c454ca4a482deb9d",
+      "sha256": "4477590dd19a1d113202688783ea50b970c4571e4658a742d65a047db441e6d0",
+      "prodHeadOid": "7891ce3319aedc3c973b4e5979e50034d20a1b5f blob 19245",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/data/default_models.json",
+      "present": true,
+      "bytes": 45508,
+      "mtime": "2026-11-24T04:31:36.217Z",
+      "gitBlobSha1": "d9b8927cbd6f55322a58745392bd306044f45b94",
+      "sha256": "d4fb7941bbbe8cc1c1d09a180b6777de3a97d31ac12e72948c53ad9eabe10f5a",
+      "prodHeadOid": "5d94414ddf1e0aee5d868a5b705d92e934031b1f blob 43049",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "apps/ai-service/app/main.py",
+      "present": true,
+      "bytes": 87528,
+      "mtime": "2026-11-24T04:37:24.801Z",
+      "gitBlobSha1": "29dc348f3fbe2a6252d13f457faca13f27744711",
+      "sha256": "612f46ac6270eea5c9cc901b97a9210eb7c6009ff3b85b500f7fabb535d687b1",
+      "prodHeadOid": "854791aebaa6bba8def86eda4f8ce5b02ffe7867 blob 86891",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/middleware/input_sanitizer.py",
+      "present": true,
+      "bytes": 15333,
+      "mtime": "2026-11-24T06:49:09.316Z",
+      "gitBlobSha1": "62ede32ad53879361a8831bbea377198ca978fd2",
+      "sha256": "cb9651e8e80db5ecac5b37e16be34c55ee1c78c57bb4d1a9e61577ac91471ec8",
+      "prodHeadOid": "56b9c2a848c8053cecbe53f8a86bf26aa08fee83 blob 13806",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/providers/__init__.py",
+      "present": true,
+      "bytes": 9945,
+      "mtime": "2026-11-24T02:14:33.697Z",
+      "gitBlobSha1": "205ff4c753ea9792c51638d3dfeffee0725cbe33",
+      "sha256": "dd0a0b33a07b31dca21dcafacd7ba72a8f74a0db2d0c19fde20ba82d2be8ffe5",
+      "prodHeadOid": "8f2447b805c6f947fcc78d3660909b40c7899bb0 blob 10019",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/providers/free_voice_provider.py",
+      "present": true,
+      "bytes": 10226,
+      "mtime": "2026-11-24T02:24:41.650Z",
+      "gitBlobSha1": "fc98c09b3e350f3a57c9fadbfecc05da88c66355",
+      "sha256": "53021c9b77aa3b1692813a6a1dc878306e80be095e222445627d55ecb0332cf2",
+      "prodHeadOid": "502faadeea4ea267cdcd57af78c405191b2ee7bc blob 10050",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/providers/token6688_provider.py",
+      "present": true,
+      "bytes": 71958,
+      "mtime": "2026-11-24T02:14:33.784Z",
+      "gitBlobSha1": "795eb0e1889ba102a2dc4c42bdc209f9aef6d61f",
+      "sha256": "59596687c755e03e4de308d96d755aa0ffcce434a6fd489d833f0a91f772750b",
+      "prodHeadOid": "edd44304922706ed722c25ab2c86192f9b2b0dfd blob 70578",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/routers/image_edit.py",
+      "present": true,
+      "bytes": 5177,
+      "mtime": "2026-11-24T02:14:33.789Z",
+      "gitBlobSha1": "317200a2bb9fe62307ea448a81c9d4d30b7fd756",
+      "sha256": "cb24d78102b4b7bf6d0e7068830e5bb83d96784bcb9175dea70863699a9fb5f2",
+      "prodHeadOid": "375a54c810cdd3cc4674e471492457b5eb146c26 blob 7034",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/routers/llm.py",
+      "present": true,
+      "bytes": 608408,
+      "mtime": "2026-11-24T02:33:02.285Z",
+      "gitBlobSha1": "ddf57d88db230ee1dbb84413ebcd25653ef2c924",
+      "sha256": "38f758079a1806a515dc8e368eba47c858783c044b397887244597b68afbdaef",
+      "prodHeadOid": "1b98b451633cff9ccc7a003d77127bf3703fe064 blob 597675",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "apps/ai-service/app/routers/media_tasks.py",
+      "present": true,
+      "bytes": 49683,
+      "mtime": "2026-11-24T02:14:33.817Z",
+      "gitBlobSha1": "4999164230d8c4ce38b6e0c986f1784ef81bb81f",
+      "sha256": "48fd75fb190e49e130c89cf19f8835c783509671f61a73f72a469af741d6d3d2",
+      "prodHeadOid": "8da7c894286c27559b01e513f9f26f2f058ca5f5 blob 48856",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/routers/video.py",
+      "present": true,
+      "bytes": 13417,
+      "mtime": "2026-11-24T02:14:33.805Z",
+      "gitBlobSha1": "3a7626ef006d12c7bd9a93ef1546b52bbc4a4cf5",
+      "sha256": "527ffdb2939e38591b888c2a7bed1323e92ebca25eb22881156824962b442ebe",
+      "prodHeadOid": "7baca43dac1aa5860026f8c5de763d0c79f15f9d blob 15315",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/routers/voice_tts.py",
+      "present": true,
+      "bytes": 20719,
+      "mtime": "2026-11-24T02:14:33.798Z",
+      "gitBlobSha1": "7b051f56f654ac0d2d12a49e9573146aefbd937e",
+      "sha256": "cc7a8cb82f7a1f825e5758b0765066ae0d2f35577b90366ec6cd6742c79a5bf1",
+      "prodHeadOid": "1c78606fe32982dc49bd29d8431ef9e9c5e88000 blob 20890",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/services/capability_market.py",
+      "present": true,
+      "bytes": 12798,
+      "mtime": "2026-11-24T02:14:34.074Z",
+      "gitBlobSha1": "9bff52621825f3a6a40772b1dfe02b28daa7b9e9",
+      "sha256": "8e6ccd50cc130135718837e4e99da51751ed0611dd99fa8c7825915d440ec1e4",
+      "prodHeadOid": "c1ea74170b5eb717e33c8b24042e56c6bc329937 blob 12735",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/services/conversation.py",
+      "present": true,
+      "bytes": 90955,
+      "mtime": "2026-11-24T02:14:34.099Z",
+      "gitBlobSha1": "60e91499798f40fd1c6a0d787f145ceb9c3c5e71",
+      "sha256": "c3743c88a6ecea97c67e4e7046d18dd7832462f6f3d5e25a870917852a4988b9",
+      "prodHeadOid": "6db95cd91c53ba57b67861612f23330194b22767 blob 92505",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/services/free_provider_registry.py",
+      "present": true,
+      "bytes": 86996,
+      "mtime": "2026-11-24T02:33:37.004Z",
+      "gitBlobSha1": "3476cb456ff21f4af3d6a1da149102d121e307aa",
+      "sha256": "4865a526c343e07771b324f69ce43c99927032a316a2c7e8d7e81c23d86b7c86",
+      "prodHeadOid": "6c65551f3ea0a805cb32f8891b0127c02f6601f9 blob 88406",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "apps/ai-service/app/services/mcp_server.py",
+      "present": true,
+      "bytes": 967345,
+      "mtime": "2026-11-24T02:25:34.923Z",
+      "gitBlobSha1": "8a8b515ced236d944f6e11511d86fc6abb5b77a0",
+      "sha256": "6b58a5f3a71342eea6dfbf05a4e47c93a2c46ec927a7a6990f7faf880b376036",
+      "prodHeadOid": "12905b55f67eb7e2129608827a2126b05e17e7d2 blob 955353",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "apps/ai-service/app/services/media_tasks.py",
+      "present": true,
+      "bytes": 34767,
+      "mtime": "2026-11-24T02:19:28.570Z",
+      "gitBlobSha1": "83c865524ea83412ffcf9b32f6d55fb95581b4e4",
+      "sha256": "329416bced1c9041062b162df8dd369baa59abf60967f64b66ae3b8d2f4a1a1e",
+      "prodHeadOid": "10fc6fd6f5b92a396ed0d14d50766f4c883c4581 blob 34716",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/services/model_availability.py",
+      "present": true,
+      "bytes": 61559,
+      "mtime": "2026-11-24T02:33:02.262Z",
+      "gitBlobSha1": "bfeaac18515e2424ee6205118112bee3e928a32f",
+      "sha256": "f6bfcdc8049ed4eb9ddb9b46b8114a7e5b97b60a1162b1eda52c2b616c37aed6",
+      "prodHeadOid": "9b4d9e598b58a1df602a76043a2f5dff0cbae6c7 blob 61270",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/services/model_health.py",
+      "present": true,
+      "bytes": 103930,
+      "mtime": "2026-11-24T02:33:02.267Z",
+      "gitBlobSha1": "7b6b14d3f91a9b3632afac3f9232d42a0e412063",
+      "sha256": "584c26df37884ae3babfbac7c4815e2cc52c796586d90b35dac2beae8399099b",
+      "prodHeadOid": "96ae33322a139f2182cdb1749456fc1b1846010d blob 101810",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/services/model_sync.py",
+      "present": true,
+      "bytes": 166268,
+      "mtime": "2026-11-24T02:33:02.272Z",
+      "gitBlobSha1": "9b342d8c0af717b7e6acd0721f87073113347721",
+      "sha256": "a11ca703c2eb1aa25068ba97379058add21c994a1c365aef734c60ab0e1e5503",
+      "prodHeadOid": "1b91883c2980a7120d93a290497b50a9a3138db1 blob 162625",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "apps/ai-service/app/services/points_multiplier_rules.py",
+      "present": true,
+      "bytes": 2824,
+      "mtime": "2026-11-24T02:33:02.276Z",
+      "gitBlobSha1": "1f8de375cb83ba8fd346d033a9761dd0a0d3a9e9",
+      "sha256": "518512e119590a65a39f455f3358381dd0bc0bf6ece1d0dc34ee4b5c3168f121",
+      "prodHeadOid": "b0bb10a115184400148fb17b22dcea695d567133 blob 2744",
+      "class": "E 本机无此文件(prod独有)"
+    },
+    {
+      "rel": "apps/ai-service/app/services/publish/scheduler.py",
+      "present": true,
+      "bytes": 66751,
+      "mtime": "2026-11-24T01:33:39.012Z",
+      "gitBlobSha1": "b6abdb0b1631b8026b390e824d3a4bdf2a91efe7",
+      "sha256": "efa64c799e9c7d54792ec5047dba26fa36328f519222a6b0ec5542c813821d01",
+      "prodHeadOid": "448b9aa6800befe1b47ddd4bff24b0a4a3cd1553 blob 66712",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/app/services/tool_surface_budget.py",
+      "present": true,
+      "bytes": 30243,
+      "mtime": "2026-11-24T02:14:34.080Z",
+      "gitBlobSha1": "d664299bdd08953ae1607275b33817af37034c49",
+      "sha256": "25b2e1537bd29a1e5e3f234a24590210678b26761c88350c7135bfc9eaf845cd",
+      "prodHeadOid": "f9f75b9c35fdf7a4a6aa76aac607b94f69cf53cd blob 29593",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "apps/ai-service/app/services/video_generation.py",
+      "present": true,
+      "bytes": 26053,
+      "mtime": "2026-11-24T02:24:41.730Z",
+      "gitBlobSha1": "2745d3419348ec955232cd9b19e40efd37d11868",
+      "sha256": "7651c62cc6e4ef9bc61eb923f2d5fcf44b5015d4f06a9b8c9359f472f82b07fa",
+      "prodHeadOid": "6494e2f29ea1269642d08c2620324f1c29723b0f blob 25564",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/tests/test_free_provider_registry.py",
+      "present": true,
+      "bytes": 26197,
+      "mtime": "2026-11-24T02:33:37.053Z",
+      "gitBlobSha1": "3e4e57955a242a412573f3ad402a8b969aa9b3d1",
+      "sha256": "7bb12de1639b164f68708106ee65473d65dbd5733da08609f1950ee2fe7f7817",
+      "prodHeadOid": "e1d9abb6901003be583c87ae5bdc9486136bf85c blob 25925",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/tests/test_free_providers.py",
+      "present": true,
+      "bytes": 50388,
+      "mtime": "2026-11-24T02:33:02.301Z",
+      "gitBlobSha1": "cc3a1a33d08dc41a8fb44596255cdf88c15f56c1",
+      "sha256": "b940bd6d3e076e839c317c35bd663abff7f8830bbe13b23f83a3d85b376bef8e",
+      "prodHeadOid": "3dbf332b9b3004bd4c2127a0cf7354436e088fbf blob 51828",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/ai-service/tests/test_input_sanitizer.py",
+      "present": true,
+      "bytes": 19162,
+      "mtime": "2026-11-24T06:50:28.015Z",
+      "gitBlobSha1": "a1e11617fd6d2c5fb2a51d56543f5a03010aa18f",
+      "sha256": "bd39eaf23527a32e5248c1024a0ba9504a266a0f1a92c0cc3f37556a03ff8f9e",
+      "prodHeadOid": "da54d39132a8dfc6731e9d414823c942b3e03809 blob 18175",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/api/src/db/visit-tracking-queries.ts",
+      "present": true,
+      "bytes": 31216,
+      "mtime": "2026-11-24T02:52:13.270Z",
+      "gitBlobSha1": "6cadb95ac7bcf7d68866610123318b69e27132cf",
+      "sha256": "2aec4fadab2a23c07a187e1c42c04429621c4a1e08e7df1c4f89fa9b97e0ab97",
+      "prodHeadOid": "c4d2300ea413369b6a9455d6d40c04cab7ca99d2 blob 31214",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/api/src/plugins/anti-automation.ts",
+      "present": true,
+      "bytes": 24055,
+      "mtime": "2026-11-24T06:54:01.059Z",
+      "gitBlobSha1": "1d743eb5e9481bbda11c27ac7912f40b0cf7954b",
+      "sha256": "8bb9e20d9c16150bae8d017f1388e681dfd6f87e0f6bf404987f977058dd0860",
+      "prodHeadOid": "440d2ff2eeafba427721a4b4fddc1a0a08e936b1 blob 23683",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/api/src/routes/admin-ops-wallboard.ts",
+      "present": true,
+      "bytes": 60785,
+      "mtime": "2026-11-24T07:52:54.298Z",
+      "gitBlobSha1": "c50e085a2256840541a3507e5c2093d7547adf04",
+      "sha256": "1edb3314c1532da13b6d539cc5f41ecfdacba26779d0a45d57625852a0dab4fa",
+      "prodHeadOid": "cf5a8b46bd6391f7ac39829f453a81c788207a53 blob 53691",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "apps/api/src/routes/earnings-routes.ts",
+      "present": true,
+      "bytes": 20708,
+      "mtime": "2026-11-24T02:37:12.475Z",
+      "gitBlobSha1": "b61623ff6b282bd69344e5d27b138be434bd1e97",
+      "sha256": "a438db45b05caed8c00df8ae64cdad2f8c3e6cf37989b25cf336dfeb3657cd1b",
+      "prodHeadOid": "505e2bccbf8f2c873def1fa846e61229aaaf0027 blob 20316",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "apps/api/src/services/auto-rollback.ts",
+      "present": true,
+      "bytes": 10389,
+      "mtime": "2026-11-24T07:53:03.047Z",
+      "gitBlobSha1": "0d80d0d4642be98500a2e89a56ce78dd23bd607a",
+      "sha256": "f3c64e6a5fb88aeb59ffb40d7789358342bb00e887008c1fa01ce79622c23f7f",
+      "prodHeadOid": "f0131a06d38d970746bc35184737343d25fb1e90 blob 10282",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/api/src/services/relay-billing-service.ts",
+      "present": true,
+      "bytes": 118836,
+      "mtime": "2026-11-24T02:37:12.474Z",
+      "gitBlobSha1": "10c82e9005b11ae6aa0aee1e6edb95160f5bbbd3",
+      "sha256": "86e965025603eadad82a0c34802fbde59aebc1b61346ca2551dc6c9e57311ab8",
+      "prodHeadOid": "acad921f5facc46bfb8e36966e1067a1b86a4802 blob 116219",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "apps/api/src/services/relay-pool-stats-service.ts",
+      "present": true,
+      "bytes": 30346,
+      "mtime": "2026-11-24T05:27:45.339Z",
+      "gitBlobSha1": "a0ad86cd87dc6dcbcd3ed452804c3b6963f513db",
+      "sha256": "529670217948e8ff4875b8c21b257ad5fe1c6e722e2fca73c8ea42b9de14cce0",
+      "prodHeadOid": "acd18ed73e8d90af61e12eda3183f850b48d4ec8 blob 29698",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+      "present": true,
+      "bytes": 111029,
+      "mtime": "2026-11-24T02:37:12.479Z",
+      "gitBlobSha1": "852da0a27b9cb32cf421014b6e4a83829b379ef1",
+      "sha256": "0f56d86ace38d6e1be7b9c711fe1db2e0120d5aaf162573875feb742802377c2",
+      "prodHeadOid": "cdaab465a655d2e43779d56f57af6b3b8e149a91 blob 108519",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "apps/web/app/(main)/admin/monitor/wallboard/__tests__/page-panels.test.tsx",
+      "present": true,
+      "bytes": 32241,
+      "mtime": "2026-11-24T07:04:28.741Z",
+      "gitBlobSha1": "b00a78f38329ef587c1425114352c1dfc565fcc5",
+      "sha256": "b37ccbabd7e5fc1a7b9d68ef54d2fe38e0c8b48dc5ac46d90637ec69ce714073",
+      "prodHeadOid": "fe9d328b5b7f692cb71e130a829c583a92d87e5a blob 30579",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "apps/web/app/(main)/admin/monitor/wallboard/__tests__/page-relay-pool.test.tsx",
+      "present": true,
+      "bytes": 15760,
+      "mtime": "2026-11-24T07:00:46.722Z",
+      "gitBlobSha1": "4ddbe2846322a6496788e8bfc3a9428885caf56a",
+      "sha256": "a86555420a00935a05da25bc64e23c9ee2b64995f22f1d984f4e52bdef892028",
+      "prodHeadOid": "661bcf01de4c1637b8f18b00af821bd2550efddb blob 14050",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "apps/web/app/(main)/admin/monitor/wallboard/page.tsx",
+      "present": true,
+      "bytes": 159243,
+      "mtime": "2026-11-24T07:31:48.751Z",
+      "gitBlobSha1": "9eac8600a597221826fef28dcf97775127d39f99",
+      "sha256": "a653a45a9c0ae020d518eaac16b61404235c6bd61eb981b99c33f6c4d095cec6",
+      "prodHeadOid": "869a2e3726f3f701bef01cd9ad6166aeb89448fc blob 157902",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/web/next.config.ts",
+      "present": true,
+      "bytes": 66053,
+      "mtime": "2026-11-24T02:24:07.912Z",
+      "gitBlobSha1": "7dda91d9de7f66537ef01164a438e0f6870ae0b9",
+      "sha256": "d63851ff75ac16405614cb25f08cbca6b81fbb3602cfc621d4d81a036cf04b06",
+      "prodHeadOid": "10d8ec79f52dee70c90673916d0ee4fb14cbc96d blob 65410",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/web/public/recruitment/bigtp@2x.png",
+      "present": true,
+      "bytes": 1461621,
+      "mtime": "2026-11-14T10:28:03.685Z",
+      "gitBlobSha1": "567c077c8ddbfcfdb321016a1448f793d12b0dab",
+      "sha256": "87000437e8efa2065682c90e33d2c6aa60c07e5f56389009efbf03e6d261c004",
+      "prodHeadOid": "da04edbdd559bfc3a05b4c936c59c3fb685a41a0 blob 96",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/web/src/components/chat/fallback-models.ts",
+      "present": true,
+      "bytes": 11920,
+      "mtime": "2026-11-24T02:37:12.477Z",
+      "gitBlobSha1": "e734e074e078a8f043dfc3e34de33f5db55274c7",
+      "sha256": "19cec33790fd29021e3170ef5340d4c25935c09fb3e8eb5c04dd53b84d6c5da2",
+      "prodHeadOid": "c1889fc5056b75962680ccb2704c9672258c9b2b blob 11714",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "apps/web/src/components/sidebar/nav-data.ts",
+      "present": true,
+      "bytes": 55736,
+      "mtime": "2026-11-24T02:14:34.104Z",
+      "gitBlobSha1": "16503a793dbbf86921e73b44694821343a753a64",
+      "sha256": "3732a5dcfac91d3d31193a03ae2acbd2b48e761aa7cc6f30f7662eb772fc55ab",
+      "prodHeadOid": "30c897f0f75c7b22fb250cd1720cd5ed90937f27 blob 55010",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "deploy/win/ihui-api-router.mjs",
+      "present": true,
+      "bytes": 28447,
+      "mtime": "2026-11-24T07:49:47.186Z",
+      "gitBlobSha1": "e33e1bf8556bbd855b6d63baa89f2a70df863768",
+      "sha256": "d3dec48bc8ec18feceae887e87b7bae13f454acd4dd0ea63c452f8677fdb9d2d",
+      "prodHeadOid": "3b1ff93478fce2c0139cc8643c0df886d9e5811d blob 25289",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "docs/engineering/readme-04-architecture-and-modules.md",
+      "present": true,
+      "bytes": 325554,
+      "mtime": "2026-11-24T02:37:12.561Z",
+      "gitBlobSha1": "4d8e6751ebbcf2466dd8b880311274a94ccb5404",
+      "sha256": "d31e2ac900386f46883c2012bd4ec8afbe74a3ee43f12d907de50a68bf9a347e",
+      "prodHeadOid": "9344da772cfdead7985c933acbfd4d0668a882a6 blob 324370",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "docs/llm-provider-dict-design.md",
+      "present": true,
+      "bytes": 26255,
+      "mtime": "2026-11-24T02:37:12.557Z",
+      "gitBlobSha1": "90f93cbc1400b6c16122c79957a8fb755354d9ab",
+      "sha256": "c5d52539be4753d9895ee3d67fd59704151529ba884606e0b480d0b68cd52c25",
+      "prodHeadOid": "a4f7e88e61976e8df19ccb8824fad00b48aad5f8 blob 25869",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "monitoring/postgres-exporter/queries.yml",
+      "present": true,
+      "bytes": 5075,
+      "mtime": "2026-11-24T04:55:31.527Z",
+      "gitBlobSha1": "1dbb860638dd1500eb682b626d6dded86fca2231",
+      "sha256": "f59249997939ab4a20341af3502ea84bd2e88b29a075d0f546af17dc4aca643f",
+      "prodHeadOid": "b2e2915dc4512063c8b479a668985c63cd923d06 blob 4305",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "monitoring/prometheus/alerts-ai.yml",
+      "present": true,
+      "bytes": 13517,
+      "mtime": "2026-11-24T02:45:33.345Z",
+      "gitBlobSha1": "f7f98399232e3dae7910c7fe1357f65942e28727",
+      "sha256": "daf6eac66fb58313056c0ca18c859edf666d20cb000b4a124e314893ca0ff975",
+      "prodHeadOid": "bf0dc36fc64a119f14d7a97cf3b2d95824e1d299 blob 13038",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "monitoring/prometheus/alerts.yml",
+      "present": true,
+      "bytes": 35938,
+      "mtime": "2026-11-24T07:53:12.637Z",
+      "gitBlobSha1": "bde8c9514c8cc0b0accac6fa6d52c5a85611f531",
+      "sha256": "21b7d920282887952734a3605f0ff8fc1b690425d21f7acf902d71d752277da0",
+      "prodHeadOid": "fb5bff9eee6ad0f1e296eac3e075f676f676062f blob 35747",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "packages/database/drizzle/meta/_journal.json",
+      "present": true,
+      "bytes": 71942,
+      "mtime": "2026-11-24T04:48:44.858Z",
+      "gitBlobSha1": "79daefaa47c2258483bd4a2b1ba7efdff0826fbb",
+      "sha256": "935aee14ffa0305b05db2acec4ce25bba5d72f85abb2e72390c1ceaccaf36891",
+      "prodHeadOid": "fc132d3c7fe594b2c42444f97d39a565424a1b90 blob 71104",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "packages/i18n/messages/shared/en.json",
+      "present": true,
+      "bytes": 204589,
+      "mtime": "2026-11-24T07:31:27.961Z",
+      "gitBlobSha1": "37ad0fe619402d20f86da00f28532bd2be9aae61",
+      "sha256": "53d5f1ecff3f529d553d5645fc2aafa631f18162372c0cbbb8d845781d1cbcb8",
+      "prodHeadOid": "78b048385929aa2e1f05e919e5cf1dffb000ed35 blob 204460",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "packages/i18n/messages/shared/ja.json",
+      "present": true,
+      "bytes": 203783,
+      "mtime": "2026-11-24T05:27:58.883Z",
+      "gitBlobSha1": "ada306b1e13fd6031330a1f67a9b9745e52c7c8d",
+      "sha256": "bbeeada8f26fc9aa4013d2ea03e9b98aada91798388f2d2bf4d9318c26cd3e21",
+      "prodHeadOid": "14f4a80c51bf3b2f080999090c597fc0df2f1deb blob 203777",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "packages/i18n/messages/shared/ko.json",
+      "present": true,
+      "bytes": 185343,
+      "mtime": "2026-11-24T05:27:58.889Z",
+      "gitBlobSha1": "77ca3dbe402cc6a2d7ddc245f8e64266569471ba",
+      "sha256": "4335785ca3a1815716335715b81006b5b8f57bc886effd8fd1078d5a8d256f39",
+      "prodHeadOid": "7474d2d28d3439dfb797fc3477dc22293c1b0a6b blob 185321",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "packages/i18n/messages/shared/zh-CN.json",
+      "present": true,
+      "bytes": 197084,
+      "mtime": "2026-11-24T07:31:24.616Z",
+      "gitBlobSha1": "268c42290476c9ed9511fd6beee4131da7e1b695",
+      "sha256": "107078426c42f273580fea55a8152bed35b6a31c260a52aaaa23a548e414adb5",
+      "prodHeadOid": "ec62f3e11d383d8cf09875187f5bdd5ef799e15c blob 196955",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "packages/i18n/messages/shared/zh-TW.json",
+      "present": true,
+      "bytes": 197738,
+      "mtime": "2026-11-24T07:31:31.497Z",
+      "gitBlobSha1": "0d412663fba904ba8d1f68f513af57e20551efb6",
+      "sha256": "280664476a818f8f79cd444822eb3be1bd6ad87a82fcbc6dd7c2054923198525",
+      "prodHeadOid": "86bc47794872f1ce4e3307a1370208c0fac0db85 blob 197609",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "packages/i18n/messages/web/en.json",
+      "present": true,
+      "bytes": 1199348,
+      "mtime": "2026-11-24T07:38:41.436Z",
+      "gitBlobSha1": "03456505df24760a4421043bb67465cabf474714",
+      "sha256": "dceb090ab4e514c3c32baa335c7b51e3b1c37a8d3ab92e3c2c9a25d3340f8ee6",
+      "prodHeadOid": "c9605af1139703b090f1e7e8aa14a1cef7feb052 blob 1168221",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "packages/i18n/messages/web/ja.json",
+      "present": true,
+      "bytes": 1388399,
+      "mtime": "2026-11-24T07:38:47.385Z",
+      "gitBlobSha1": "2df6bb097b39b0526b75c94e1c385d169aad6c44",
+      "sha256": "496e14d6445a70146e3d5d3459b44a5d74fcdc28547d5a27d07dfe2fa7d47288",
+      "prodHeadOid": "7efe8472f8b80f434139f884b672df258d7c1556 blob 1356671",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "packages/i18n/messages/web/ko.json",
+      "present": true,
+      "bytes": 1302467,
+      "mtime": "2026-11-24T07:38:50.349Z",
+      "gitBlobSha1": "17867a72fc06a6b9ba4b18f7e9340b2c075ff168",
+      "sha256": "f73d7e22e91cea422d79dc6927bd70cfeb67bb093a6bd0c5c51cba098e808265",
+      "prodHeadOid": "60d7d43eb23a8876ce866b61bda34ca324c87122 blob 1270738",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "packages/i18n/messages/web/zh-CN.json",
+      "present": true,
+      "bytes": 1176124,
+      "mtime": "2026-11-24T07:38:38.542Z",
+      "gitBlobSha1": "88e4101505a88a8e5e5612c511f1db98f0a4b785",
+      "sha256": "caf9b23a84acda7cfa6622270177e16a55569dc58c9500d351689df41238ab63",
+      "prodHeadOid": "e5bf74ded2af0cbcc4993831e0344866f98ace13 blob 1144427",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "packages/i18n/messages/web/zh-TW.json",
+      "present": true,
+      "bytes": 1167992,
+      "mtime": "2026-11-24T07:38:44.347Z",
+      "gitBlobSha1": "22e9ad09f4299c7a14c9aa1aabf48094c13ce238",
+      "sha256": "3b2e98cae64e8b611f6207811d4bdb34598bb3d4558e3c1f9913d273f0d9d464",
+      "prodHeadOid": "03d6e6b3206a37eea5c10bc595f7fc970005de18 blob 1136829",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "packages/shared/src/constants/points-multiplier-rules-data.ts",
+      "present": true,
+      "bytes": 2674,
+      "mtime": "2026-11-24T02:37:12.470Z",
+      "gitBlobSha1": "5a10de6c27dda517f126d3dfc80bd8a37acd9ddc",
+      "sha256": "dbd282425ce4c9c59d43d8da139b129f12565804fc1ef2b2c182133c0e3a8d8b",
+      "prodHeadOid": "cfd2824bb91e4fd75f1db3f804a22c187822bd03 blob 2596",
+      "class": "E 本机无此文件(prod独有)"
+    },
+    {
+      "rel": "packages/shared/src/constants/points-multiplier-rules.json",
+      "present": true,
+      "bytes": 2922,
+      "mtime": "2026-11-24T02:37:12.469Z",
+      "gitBlobSha1": "9553fa0126946330f7499276c9e49b5cbbd7611e",
+      "sha256": "e5cdbe89408691dc60f2479b3c29d56488b63c16038f70a78bb70ff093259e12",
+      "prodHeadOid": "9ae3202b868bf530acd14c05e01c722cd9c07d4e blob 2847",
+      "class": "E 本机无此文件(prod独有)"
+    },
+    {
+      "rel": "packages/shared/src/ui/__tests__/model-badge-facts.test.ts",
+      "present": true,
+      "bytes": 6644,
+      "mtime": "2026-11-24T02:37:12.466Z",
+      "gitBlobSha1": "d809b0802675cad02671261c4130ad449344bb4f",
+      "sha256": "6343f4844b35ab292a1ecc630f83770473f8d452611e72eed57ca4791596ef39",
+      "prodHeadOid": "6af0cf13c0cf177ee679e42221002baf4ffdfb0a blob 6617",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "packages/shared/src/ui/model-badge-facts.ts",
+      "present": true,
+      "bytes": 6829,
+      "mtime": "2026-11-24T02:37:12.465Z",
+      "gitBlobSha1": "6c799bc1614d6b7ec6e6a9637f5f024405be6e7d",
+      "sha256": "060bdf7d232479c2cbd9cb3aeb2e7a574ca21bbff8db27600b794d1153e2cc1b",
+      "prodHeadOid": "b1fb328b4b06754cd862400c669cb06ab1e57169 blob 6786",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "packages/shared/src/utils/llm-templates.ts",
+      "present": true,
+      "bytes": 8837,
+      "mtime": "2026-11-24T02:37:12.471Z",
+      "gitBlobSha1": "0b40d4904ad3c4f3693f8bffabb8a1cd94cc9702",
+      "sha256": "25200e22844a4ab68ee818e81d20876e2fb695ef8812418e53ffa38ba409ea11",
+      "prodHeadOid": "117934e8dc40bb0132731635bce017e50915916b blob 8712",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "scripts/migrate-llm-providers.mjs",
+      "present": true,
+      "bytes": 20256,
+      "mtime": "2026-11-24T02:37:12.460Z",
+      "gitBlobSha1": "f55028951548afd9867ca6c18da527f675fed196",
+      "sha256": "aa85d45d9e0ab832e5709e2e2eeed146fec1f5ae577af6b51ca447c258042112",
+      "prodHeadOid": "2a0826be8679488172b96c204cb7f1f5b6e652c2 blob 19841",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "scripts/seed-free-providers.mjs",
+      "present": true,
+      "bytes": 25264,
+      "mtime": "2026-11-24T02:37:12.459Z",
+      "gitBlobSha1": "532ca1f7e6d823cd55663ddf6e28333407b4eea5",
+      "sha256": "78596c418346071931556a01be4845853f802b473e333f34d2d782752e4eb8f8",
+      "prodHeadOid": "1d65ed0447790f10343f63e7940920260b97456e blob 25051",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "scripts/sync-downloads.mjs",
+      "present": true,
+      "bytes": 36677,
+      "mtime": "2026-11-24T02:28:31.215Z",
+      "gitBlobSha1": "7f414a3ba0b8894143196f8bea5c2d0be7a7e49e",
+      "sha256": "ca66fac83f3d9a5574a4df2b78d39dc9a7ae8b9525e03cca7aeff9abcbb77717",
+      "prodHeadOid": "8c1af395cb6aefb4c889a0baa76cd51b06fa94cf blob 35356",
+      "class": "D 本机有但内容不同"
+    },
+    {
+      "rel": "scripts/verify-free-providers.mjs",
+      "present": true,
+      "bytes": 12844,
+      "mtime": "2026-11-24T02:38:05.909Z",
+      "gitBlobSha1": "29ee3550c4416e052e6b520948b3f2f2bcd08551",
+      "sha256": "e7a5afdb292dfe38badfbbbbadfcfb0cdc68a9220511c16d510b85bcb1ad3510",
+      "prodHeadOid": "c7c158ef6f39c51e452d22a2fc88422d78e95cfc blob 14727",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "scripts/verify-relay-free-models.mjs",
+      "present": true,
+      "bytes": 18444,
+      "mtime": "2026-11-24T02:37:12.461Z",
+      "gitBlobSha1": "8d278c93b556d3f3dfeb2cbcb6b8cb4987db721d",
+      "sha256": "abbe7b179dacde651fab16a7788f8c7f9ad7577886bff52c63272c7c4111324f",
+      "prodHeadOid": "4a2cb172784131ac2a95ce1eeac0cf8cf9ede5ce blob 18274",
+      "class": "A 本机工作树同内容"
+    },
+    {
+      "rel": "apps/api/src/lib/oauth-config-check.ts",
+      "present": true,
+      "bytes": 6179,
+      "mtime": "2026-11-21T04:51:03.775Z",
+      "gitBlobSha1": "d2a43120e3b7446e29ff9fa3dc83ee70a07b8e46",
+      "sha256": "9ee865a84ac96b7d59a3f307e06d4b19711b44f5e9526a9389f0352ec7bf97f7",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "apps/api/src/plugins/__tests__/cors-origin.test.ts",
+      "present": true,
+      "bytes": 8007,
+      "mtime": "2026-11-14T10:27:53.925Z",
+      "gitBlobSha1": "8134b5278851f7d61baa412ab2a80230da6699bc",
+      "sha256": "773801e2dc03891e0562c83bd13f9929797305d39662a5fd0970e94288156174",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "apps/api/src/routes/public-status.ts.bak2-20261122181701",
+      "present": true,
+      "bytes": 20232,
+      "mtime": "2026-11-22T10:06:54.872Z",
+      "gitBlobSha1": "05af320460c8a3739d3c17adca32773415c31238",
+      "sha256": "727ce53c8f631c1b31961a693f3190fd4a5449a1a08aa0fe76ce0f946cd3a704",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "apps/web/public/images/xiaofang-face.svg",
+      "present": true,
+      "bytes": 5678104,
+      "mtime": "2026-11-15T15:16:29.682Z",
+      "gitBlobSha1": "eb2c152b44bf7c28d2f46b989f78b22068ec2b5c",
+      "sha256": "f139941bdacfbede29f55132fdb0819fcd26f23371800ab51d1a63db44fb6e80",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "apps/web/public/images/xiaofang-lost.svg",
+      "present": true,
+      "bytes": 6448877,
+      "mtime": "2026-11-15T15:16:29.731Z",
+      "gitBlobSha1": "cebad2d4732827e92627e74bbbc923d5fe17d1a1",
+      "sha256": "cbfb1716366a20274a489783e03594cc25087af70502eefbce197ed815a83cda",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "apps/web/public/images/xiaofang-wave.gif",
+      "present": true,
+      "bytes": 2536127,
+      "mtime": "2026-11-15T15:16:29.755Z",
+      "gitBlobSha1": "65813cf1db5ff4e8bdc4be7003bbc3853deda716",
+      "sha256": "cf0009b93b29bdefc3713f6af00f089747d80b54001ec48f4181c1fe1678352a",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "apps/web/public/images/xiaofang.svg",
+      "present": true,
+      "bytes": 6134860,
+      "mtime": "2026-11-15T15:16:29.827Z",
+      "gitBlobSha1": "8618718006daf6b8f2121398d2fb1896502b522d",
+      "sha256": "cce32dfe9127df5129c6202d8b6d58d7b45442d6d40406447b04645d1fdb216f",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "checkin-doubao-before.csv",
+      "present": true,
+      "bytes": 869,
+      "mtime": "2026-11-16T16:41:20.661Z",
+      "gitBlobSha1": "ae388b53e368e6cea41cfde069c99d6c893db420",
+      "sha256": "a41cb3634784b53cd40ead5bb2725b7336bcd5708ed24f2c6ee74f04b9f73732",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "deploy/win/.build-fail-state.json.bak2",
+      "present": true,
+      "bytes": 92,
+      "mtime": "2026-11-22T09:32:25.787Z",
+      "gitBlobSha1": "5bd3c5b75932f296b91e8d33e05aff06995875aa",
+      "sha256": "716d49babd4601644635a9c3331326fa2cb23052317f7029c03c2db476005835",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "deploy/win/lib/waf-signatures.mjs",
+      "present": true,
+      "bytes": 11343,
+      "mtime": "2026-11-24T08:03:18.884Z",
+      "gitBlobSha1": "f0656fe225bc69e42373948640f9843836a13bc9",
+      "sha256": "3415171f18e0fa3c82d2c14efafc6a1951e2399b594a349ab682bae5ce117a47",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "run-q1.bat",
+      "present": true,
+      "bytes": 204,
+      "mtime": "2026-11-23T09:51:10.019Z",
+      "gitBlobSha1": "0d5e7eb4031297f2572e64f30461c6faecd65f15",
+      "sha256": "0d0d7533514338a9a8abdedfce9a84d5845f90a74700be9a4418280266fbed3e",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "scripts/auto-commit-quiet-hidden.vbs",
+      "present": true,
+      "bytes": 978,
+      "mtime": "2026-11-22T05:07:09.390Z",
+      "gitBlobSha1": "344f8d09b8d02ab1d76de6c3630fe15b585ce459",
+      "sha256": "0af2ec5b5870658fbb2c25cef9795c928d821fa2aaf6b719810a8d384f858a7a",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "scripts/auto-commit-quiet.mjs",
+      "present": true,
+      "bytes": 100830,
+      "mtime": "2026-11-15T17:59:24.319Z",
+      "gitBlobSha1": "827cf0b90049bdd09b3fc5ee275a9a0069849c53",
+      "sha256": "da98b14e337075b7ddb287e815e6c6c7482e4472a168b3398257e2529bfbf344",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "scripts/tests/auto-commit-quiet-closed-row-guard.test.mjs",
+      "present": true,
+      "bytes": 8678,
+      "mtime": "2026-11-15T17:59:27.969Z",
+      "gitBlobSha1": "e0d896fbae5dfd1a32e044d508e291d31e544056",
+      "sha256": "a3d92e30a0b1b2c56ad0187b9e490f7760d5a48199532fc05e5971c632655c50",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "scripts/tests/auto-commit-quiet-i18n-split.test.mjs",
+      "present": true,
+      "bytes": 6682,
+      "mtime": "2026-11-21T11:13:25.306Z",
+      "gitBlobSha1": "3b3f8916b1c99caa1b7d61b2e56278e5e619c6ab",
+      "sha256": "73a6338ece35218ac5fddbbb74c24f20d95ae5b6e57b09a7b880bfbd0ae93a88",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "scripts/tests/auto-commit-quiet-ledger-face.test.mjs",
+      "present": true,
+      "bytes": 14206,
+      "mtime": "2026-11-15T17:59:27.973Z",
+      "gitBlobSha1": "89659c03110d6838551104f00c7868d15ba50f34",
+      "sha256": "400c1ec4226e30c63dfde86e277345274f9421d8de5075d97646edc02c6103b3",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "scripts/tests/auto-commit-quiet-ledger.test.mjs",
+      "present": true,
+      "bytes": 55864,
+      "mtime": "2026-11-15T17:59:27.975Z",
+      "gitBlobSha1": "e90f7c131804f2aa58d195a65d8459d51f5a493a",
+      "sha256": "9618bb937270e755457f16ad754de8d9d70e8c1c9ad2f69d7ca515b2c87a1431",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "scripts/tests/auto-commit-quiet-stale-copy.test.mjs",
+      "present": true,
+      "bytes": 22922,
+      "mtime": "2026-11-15T17:59:27.978Z",
+      "gitBlobSha1": "c564de2f0b81c74d6a0cb014b432e82cdc86312e",
+      "sha256": "f12cb73e8254e38b241b6a2eaecf0d86e8e3735e0fe865364c77cd766142993f",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "scripts/tests/auto-commit-quiet-whitelist.test.mjs",
+      "present": true,
+      "bytes": 11737,
+      "mtime": "2026-11-15T17:59:27.980Z",
+      "gitBlobSha1": "de1f4c04ef7a551e84ecbfd64d5c0c545563d86a",
+      "sha256": "153807900b372b1e58396b7112ad2ca7e90ef529ef85873528c293875dd0cc23",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "tmp-q1.sql",
+      "present": true,
+      "bytes": 2284,
+      "mtime": "2026-11-23T09:49:37.457Z",
+      "gitBlobSha1": "0bce586bb8dcbb8d1356c3f0b8730879328323f7",
+      "sha256": "620554ec9f8cf91cc91723af1fbfb96953cd562cd8ebd1f67c7e55090d96ebe2",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "tmp-q2.sql",
+      "present": true,
+      "bytes": 2158,
+      "mtime": "2026-11-23T10:01:32.372Z",
+      "gitBlobSha1": "320bd556c4eacae6d10a35e0832e3c0e9701247a",
+      "sha256": "2427c2f7169480b844669d1ee1892536399cff5065540e9cee41d2b3cbc9fe1a",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "tmp-q3.sql",
+      "present": true,
+      "bytes": 1996,
+      "mtime": "2026-11-23T10:10:03.396Z",
+      "gitBlobSha1": "3ecde15cec82fb73b825b81f285ae23c6fbe09eb",
+      "sha256": "134ee059b0ad0a0a8b9958f65683f32b5efc6705e5bb3ec6f7b17a98fc9a3451",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "tmp-q5.sql",
+      "present": true,
+      "bytes": 2121,
+      "mtime": "2026-11-23T10:41:18.588Z",
+      "gitBlobSha1": "6d7f887e0e407168a2a9a0e764be66ce7df660e3",
+      "sha256": "90875c4764950e5f899aa081b3a42518d2c78b2ed461bb8cf5ab068ace9e7424",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "tmp-q6.sql",
+      "present": true,
+      "bytes": 1752,
+      "mtime": "2026-11-23T10:42:42.673Z",
+      "gitBlobSha1": "4f28d1c5e6e76b4a848c6aecceed42302578fab2",
+      "sha256": "8c32163e449d9724a9876b349e0d385f9391feecdeae1038d2e199d64d72db78",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "tmp-q7.sql",
+      "present": true,
+      "bytes": 759,
+      "mtime": "2026-11-23T10:45:05.383Z",
+      "gitBlobSha1": "ca2ff7eae9ea4720722a0ce7ce1ff02a331bad8b",
+      "sha256": "33cf932829b2a4fbd72e78860c7aaaec64d974945a0b28488c72711ea421c0d2",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "tmp-q8.sql",
+      "present": true,
+      "bytes": 546,
+      "mtime": "2026-11-23T10:50:14.257Z",
+      "gitBlobSha1": "e90de7d248a8f93c79333ca857371effc4ac8024",
+      "sha256": "d37140e3a37a2bcfe8c876fe33fb75ad051e11df60d7603b0512be6bdb42fb25",
+      "prodHeadOid": null,
+      "class": "untracked"
+    },
+    {
+      "rel": "tmp-q9.sql",
+      "present": true,
+      "bytes": 316,
+      "mtime": "2026-11-23T10:51:03.962Z",
+      "gitBlobSha1": "270ef57e02dab96e1557d9e00dbc2dddac19edc2",
+      "sha256": "821fdec33cf0c7652ca735010757f38d6e738818eb2a562ea6647034f357bc5a",
+      "prodHeadOid": null,
+      "class": "untracked"
+    }
+  ]
+}

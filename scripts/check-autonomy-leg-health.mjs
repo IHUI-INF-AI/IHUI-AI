@@ -256,12 +256,22 @@ export function judgeMisattribution(events) {
 const STRUCTURAL_LOCK_RATIO = 0.5
 
 export function judgeRange(events, ticketRows) {
-  if (!ticketRows || ticketRows.length === 0)
+  // null/undefined = 取票口没跑通(status≠0 且无 stdout)⇒ 未判定。
+  // 空数组 = 取票口成功返回空清单(rc=0 且输出「0 行」)⇒ 真读数:无票可封,射程为空。
+  // 此前把两者合并判 unjudged,票全做完的那天会永久顶「派单面取不到」(§12e 恒红门形状)。
+  if (!ticketRows)
     return {
       dim: 'A3-range',
       state: 'unjudged',
-      readout: '派单面取不到 ⇒ 射程判不出',
+      readout: '派单面取不到(取票口未跑通)⇒ 射程判不出',
       next: '先修 plan-tasks 取票口',
+    }
+  if (ticketRows.length === 0)
+    return {
+      dim: 'A3-range',
+      state: 'ok',
+      readout: '派单面 0 行(取票口成功返回空清单)⇒ 无票可封,射程为空',
+      next: '',
     }
   const ledger = events
   const live = Date.now()
@@ -1800,6 +1810,12 @@ export function judgeDispatchClosure(
   const noProgressAll = settledRows.filter(
     (e) => e.settled === 'no-progress' && (!activeTicketKeys || activeTicketKeys.has(e.ticketKey)),
   )
+  // 不在册的历史 no-progress:不顶红,但**必须报数**(§0.3:不把"只报数"写成"没发生过")。
+  // 2026-11-24 立:派单面合法空清单(0 行)时,下面 readout 要能读出"被遮住的存量有多少",
+  // 否则"34 枚不见了"与"34 枚从没发生过"在文本上无法区分。
+  const offRosterNoProgress = settledRows.filter(
+    (e) => e.settled === 'no-progress' && activeTicketKeys && !activeTicketKeys.has(e.ticketKey),
+  ).length
   // 合格线改绑"票行推进 ∪ 绑票键的提交"(2026-11-05,本维出路文案自己点名的那一刀)。
   // 立因:无头会话**结构上没有提交权**(acceptEdits 只放宽写类工具,`git_commit` 属 dangerous ⇒ denied,
   // apps/cli/src/tools/danger-gate.ts),落账由调度侧代做(`artifact-committed` 那一档自带落地自证)。
@@ -1857,7 +1873,7 @@ export function judgeDispatchClosure(
     return {
       dim: 'A7-dispatch-closure',
       state: 'drift',
-      readout: `结算已跑,但 ${noProgress.length} 枚"会话报成功而票行零推进,且该票没有任何绑票键的提交"(已推进 ${advanced.length} 枚${landedButUnadvanced.length ? `;另有 ${landedButUnadvanced.length} 枚已落账未推进,见下一档` : ''})`,
+      readout: `结算已跑,但 ${noProgress.length} 枚"会话报成功而票行零推进,且该票没有任何绑票键的提交"(已推进 ${advanced.length} 枚${landedButUnadvanced.length ? `;另有 ${landedButUnadvanced.length} 枚已落账未推进,见下一档` : ''}${offRosterNoProgress ? `;另有 ${offRosterNoProgress} 枚历史 no-progress 的票已不在册,只报数不顶红` : ''})`,
       next:
         noProgress.map((s) => `${s.ticketKey} :: ${String(s.ticketLine).slice(0, 60)}`).join('\n') +
         '\n出路:这一档里 `artifact-committed` 一枚都没有 ⇒ 工作没进仓。先核该会话末轮实际动作与派发票的权限档(不是改判据措辞);落账腿自己的读数见 A13。',
@@ -1894,7 +1910,7 @@ export function judgeDispatchClosure(
   return {
     dim: 'A7-dispatch-closure',
     state: 'ok',
-    readout: `会话结果档 ${okRows.length} 枚(射程=${results.join('|')})/ 已结算 ${settledRows.length} 条,零"报成功而零推进"${legacy ? `;历史未结算存量 ${legacy} 枚(结算腿生效前的成功,只报数不顶红)` : ''}`,
+    readout: `会话结果档 ${okRows.length} 枚(射程=${results.join('|')})/ 已结算 ${settledRows.length} 条,零"报成功而零推进"${legacy ? `;历史未结算存量 ${legacy} 枚(结算腿生效前的成功,只报数不顶红)` : ''}${offRosterNoProgress ? `;不在册历史 no-progress ${offRosterNoProgress} 枚(票已出册,只报数不顶红)` : ''}`,
     next: '',
   }
 }
@@ -1981,7 +1997,10 @@ async function selfTest() {
     const g = JSON.stringify({ sessionCommandTemplate: 'node ${REPO_ROOT}/scripts/plan-tasks.mjs', ticketWhitelist: ['a'] })
     const evalRoot = ROOT // 真仓根(模块常量),不用盘符字面量
     const allOk = evaluateAll({ repoRoot: evalRoot, gatesText: g, events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] }, ticketRows: [{ key: 'k', text: 'a' }] })
-    const withUnjudged = evaluateAll({ repoRoot: evalRoot, gatesText: g, events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] }, ticketRows: [] })
+    // 造 unjudged 的那一侧用 `ticketRows: null`(取票口没跑通)。不可用 `[]`:
+    // 空数组现在是「取票口成功返回空清单」的真读数,judgeRange 判 ok(见其头注);
+    // 本用例测的仍是"三态不得并桶",三态判定本身一个字没改。
+    const withUnjudged = evaluateAll({ repoRoot: evalRoot, gatesText: g, events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] }, ticketRows: null })
     return allOk.state === 'ok' && withUnjudged.state === 'unjudged' && allOk.summary !== withUnjudged.summary
   })())
   ok('H11 封票射程:封禁中的票真被计入 blocked(键按行文本现算)', (() => {
@@ -2642,6 +2661,71 @@ async function selfTest() {
       )
     })(),
   )
+  ok(
+    'H41 在册面是**合法空清单**(空 Set,不是取不到)⇒ 历史 no-progress 只报数不顶红,且读数不得把存量隐身',
+    (() => {
+      const ev = [
+        {
+          action: 'session-ok',
+          ticketKey: 'k1',
+          ts: '2026-10-31T05:00:00.000Z',
+          ticketLine: 'B9 **某票** 原文',
+        },
+        {
+          action: 'dispatch-settled',
+          ticketKey: 'k1',
+          sourceTs: '2026-10-31T05:00:00.000Z',
+          settled: 'no-progress',
+          ticketLine: 'B9 **某票** 原文',
+        },
+      ]
+      const r = judgeDispatchClosure(ev, {
+        schedulerSource: closureSrc,
+        now: Date.parse('2026-11-01T05:00:00.000Z'),
+        activeTicketKeys: new Set(),
+      })
+      return r.state === 'ok' && r.readout.includes('不在册历史 no-progress 1 枚')
+    })(),
+  )
+  ok(
+    'H41b 有在册票顶红时,出册票的存量也要一并报数(不得只念顶红那一档)',
+    (() => {
+      const ev = [
+        {
+          action: 'session-ok',
+          ticketKey: 'k1',
+          ts: '2026-10-31T05:00:00.000Z',
+          ticketLine: 'B9 在册票',
+        },
+        {
+          action: 'dispatch-settled',
+          ticketKey: 'k1',
+          sourceTs: '2026-10-31T05:00:00.000Z',
+          settled: 'no-progress',
+          ticketLine: 'B9 在册票',
+        },
+        {
+          action: 'session-ok',
+          ticketKey: 'k2',
+          ts: '2026-10-30T05:00:00.000Z',
+          ticketLine: 'B10 出册票',
+        },
+        {
+          action: 'dispatch-settled',
+          ticketKey: 'k2',
+          sourceTs: '2026-10-30T05:00:00.000Z',
+          settled: 'no-progress',
+          ticketLine: 'B10 出册票',
+        },
+      ]
+      const r = judgeDispatchClosure(ev, {
+        schedulerSource: closureSrc,
+        now: Date.parse('2026-11-01T05:00:00.000Z'),
+        activeTicketKeys: new Set(['k1']),
+      })
+      return r.state === 'drift' && r.readout.includes('另有 1 枚历史 no-progress 的票已不在册')
+    })(),
+  )
   // —— A11 产出型维度(2026-11-04 立):腿在跑但闭环零产出必须被量出来 ——
   const a11Ok = judgeClosureOutput({
     inputsOk: true,
@@ -3286,7 +3370,10 @@ async function main() {
       timeout: 180_000,
       encoding: 'utf8',
     })
-    ticketRows = r.status === 0 || r.stdout ? parseTicketRows(r.stdout) : null
+    // 成功(status=0)且**真有输出**才算"读到了派单面";status=0 但 stdout 空 = 取票口没吐出结论,
+    // 按未判定处理(旧的 `status===0 || stdout` 会把空输出读成"0 行",是假绿成因)。
+    const out = String(r.stdout ?? '')
+    ticketRows = r.status === 0 && out.trim() ? parseTicketRows(out) : null
   } catch {
     ticketRows = null
   }
@@ -3322,9 +3409,14 @@ async function main() {
     : null
   const closure = judgeDispatchClosure(events.ok ? events.events : [], {
     schedulerSource: valveSource,
-    // 在册面 = 本次派单面(与 A3 同一份 parseTicketRows 取票口径);取不到(空)⇒ null 保持旧行为
-    activeTicketKeys:
-      ticketRows && ticketRows.length ? new Set(ticketRows.map((r) => ticketKeyOf(r.text))) : null,
+    // 在册面 = 本次派单面(与 A3 同一份 parseTicketRows 取票口径)。
+    // 2026-11-24 修(与 A3 judgeRange 同一课,§0.3 三态不并桶):**取到了但零行**是合法空清单
+    // (至少在册面没有票 ⇒ 历史 no-progress 全不在册 ⇒ 只报数),不得退化成 null 按旧行为全量顶红 ——
+    // 一张早已出册的票会用它几个月前的历史行把尺子永久钉红,逼人学会忽略报警(§12e)。
+    // null/undefined 才是"取不到"(此时不知道在册面,保持旧行为)。
+    activeTicketKeys: Array.isArray(ticketRows)
+      ? new Set(ticketRows.map((r) => ticketKeyOf(r.text)))
+      : null,
   })
   const liveness = judgeLivenessFace({ face: FACE_SEL.face, repoRoot, root: repoRoot })
   const parity = judgeCarrierParityFace({ face: FACE_SEL.face, root: repoRoot })

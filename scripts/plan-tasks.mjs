@@ -50,6 +50,7 @@
  * §5c 溯源水印:本文件受 `scripts/watermark.mjs` 管理。
  */
 
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -3551,6 +3552,42 @@ function main() {
       console.log('❌ 用法错 —— --next-id 需要族名(如 --next-id G):它回答的是下一个空闲的该族编号')
       return 2
     }
+    if (o.face === 'head') {
+      // 2026-11-24:全量档的"下一个空闲号"**只有一份实现** = `scripts/next-plan-id.mjs`(第二出口)。
+      // 它按占用面(台账 ⊕ 归档件 ⊕ 工作树 ⊕ 远端 ⊕ 让位 ⊕ 结清)算,并自带池满/无连续窗的归因
+      // (`describeExhaustion`)。旧写法在这里用"被审面台账"再算一次 max+1 —— 归档件此前整目录
+      // 不在索引里(0 份),窄面对 16 族一律"判不出",而同一时刻 deploy-feedback 的可发探针却能
+      // 发 A50(同一件事两把尺反义,§0.6/§22c)。本层改为派生它的结论,一个判据都不重算。
+      let r
+      try {
+        r = execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'next-plan-id.mjs'), '--family', o.nextId, '--next-only'], {
+          cwd: o.root,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 180_000,
+        })
+      } catch (e) {
+        const code = Number(e?.status ?? 2)
+        const tail = `${e?.stdout ?? ''}\n${e?.stderr ?? ''}`.trim().split(/\r?\n/).filter(Boolean).slice(-4).join('\n')
+        if (tail) console.log(tail)
+        if (code === 1) {
+          console.log(`❌ 拒绝发号 —— ${o.nextId} 族(归因见上方;按 reason 分档给出路,绝不发 >${LEASE_POOL_MAX} 的号)`)
+          return 1
+        }
+        console.log(`⚠️ 无法判定 —— 取号出口判不出:${String(e?.message ?? e).split('\n')[0]}`)
+        return 2
+      }
+      const label = String(r).trim().split(/\r?\n/).filter(Boolean).pop() ?? ''
+      if (!new RegExp(`^${o.nextId}[-_ ]?\\d+$`, 'i').test(label)) {
+        console.log(`⚠️ 无法判定 —— 取号出口末行不是该族编号:${JSON.stringify(label.slice(0, 80))}`)
+        return 2
+      }
+      console.log(
+        `下一个空闲编号 = ${label} (取号出口=scripts/next-plan-id.mjs 现读 ${o.nextId} 族;` +
+          '占用面与池满归因以它为准,本出口零重算)',
+      )
+      return 0
+    }
     let content
     try {
       content = readPlan(o.root, o.face)
@@ -3560,6 +3597,7 @@ function main() {
       console.log(`⚠️ 无法判定 —— ${why}`)
       return 2
     }
+    console.log(`ℹ ${LABEL[o.face]} 面不叠归档件(面纪律),若该族成员只在归档件里 ⇒ 会判不出;要宽面请走全量档`)
     const detail = usedIdsOfPrefix(content, o.nextId)
     const label = nextTaskIdLabel(content, o.nextId)
     if (!detail || label === null) {
