@@ -34,6 +34,13 @@ MAX_TIMEOUT = 1800
 # 超时后 SIGTERM 宽限期(SIGTERM → 等 5s → SIGKILL)
 _GRACE_PERIOD = 5.0
 
+# SIGKILL 之后等待进程真正退出的上限(独立一档,对齐对照方 kill_timeout_ms)。
+# 病灶:原实现 `await proc.wait()` 无界 —— 进程处在 D 态/僵尸或 Proactor 管道未 EOF 时
+# 整条命令链永久悬挂,用户看到"命令卡死、没有结果",而超时事件根本发不出去。
+# 语义与 core.exec_params.IO_DRAIN_TIMEOUT_MS(2000ms)同档;本模块刻意零 app import
+# (见下方宿主说明),故在此定义并在测试中断言与契约常量相等,防两处漂移。
+_KILL_WAIT_TIMEOUT = 2.0
+
 # AIS-008:reader→SSE 的有界缓冲。reader 用 await put,队列满即把背压传回子进程
 # pipe,避免慢客户端时无界堆积(单帧内容已有 PROTOCOL_FRAME_LIMIT_BYTES 上限)。
 _STREAM_QUEUE_MAXSIZE = 512
@@ -349,8 +356,14 @@ async def _cleanup_proc(
     stdout_task: asyncio.Task[None],
     stderr_task: asyncio.Task[None],
     timed_out: bool,
-) -> None:
-    """清理 reader 任务 + 进程(超时 → SIGTERM → grace → SIGKILL)。"""
+) -> bool:
+    """清理 reader 任务 + 进程(超时 → SIGTERM → grace → SIGKILL → 有界等待)。
+
+    Returns:
+        True 表示 SIGKILL 后在 _KILL_WAIT_TIMEOUT 内仍未能确认进程退出
+        (D 态/僵尸/管道未 EOF)。调用方必须如实上报,不得冒充"已终止"。
+    """
+    survived = False
     for t in (stdout_task, stderr_task):
         if not t.done():
             t.cancel()
@@ -367,18 +380,25 @@ async def _cleanup_proc(
                 with contextlib.suppress(ProcessLookupError, OSError):
                     proc.kill()
                 try:
-                    await proc.wait()
-                except Exception as e:
-                    logger.warning("command_streamer._cleanup_proc 进程等待失败: %s", e, exc_info=True)
+                    await asyncio.wait_for(proc.wait(), timeout=_KILL_WAIT_TIMEOUT)
+                except (TimeoutError, Exception) as e:
+                    # 有界:这里绝不再无界 await —— 进程赖着不走也不能拖住结果出口。
+                    survived = proc.returncode is None
+                    logger.warning(
+                        "command_streamer._cleanup_proc SIGKILL 后 %ss 内未确认退出: %s",
+                        _KILL_WAIT_TIMEOUT, e, exc_info=True,
+                    )
         else:
             try:
                 await asyncio.wait_for(proc.wait(), timeout=_GRACE_PERIOD)
             except (TimeoutError, Exception):
                 try:
                     proc.kill()
-                    await proc.wait()
-                except Exception as e:
+                    await asyncio.wait_for(proc.wait(), timeout=_KILL_WAIT_TIMEOUT)
+                except (TimeoutError, Exception) as e:
+                    survived = proc.returncode is None
                     logger.warning("command_streamer._cleanup_proc 进程清理失败: %s", e, exc_info=True)
+    return survived
 
 
 async def stream_command(
@@ -461,6 +481,7 @@ async def stream_command(
     # G-998115(b76-08a):退出归因三态 —— 宿主 watchdog 回收写 watchdog_recycle(首因锁定);
     # 进程自行退出且无宿主归因 ⇒ unexpected(signal crash 与自行 exit 0 都算非预期)。
     termination_kind: str | None = None
+    kill_survived = False
 
     try:
         while sentinels > 0:
@@ -482,15 +503,22 @@ async def stream_command(
                 continue
             yield event
     finally:
-        await _cleanup_proc(proc, stdout_task, stderr_task, timed_out)
+        # 清理必须留在 finally:生成器被提前关闭(客户端断流)时也要回收进程。
+        kill_survived = await _cleanup_proc(proc, stdout_task, stderr_task, timed_out)
 
     duration_ms = (time.monotonic() - start) * 1000
     if timed_out:
+        # 超越对照:强杀后仍在 → 如实报"未能确认终止",绝不冒充"进程已终止"。
+        # 用户据此能区分"超时已清理"与"超时但进程残存需人工介入"。
         yield {
             "type": "timeout",
-            "message": f"命令超时({timeout}s),进程已终止",
+            "message": (
+                f"命令超时({timeout}s),强杀后进程仍存活,需人工核查"
+                if kill_survived else f"命令超时({timeout}s),进程已终止"
+            ),
             "duration_ms": duration_ms,
             "terminationKind": termination_kind or "unexpected",
+            "killSurvived": kill_survived,
         }
     else:
         yield {

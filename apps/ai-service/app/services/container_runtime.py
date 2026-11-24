@@ -85,6 +85,12 @@ CONTAINER_MEMORY_LIMIT = "512m"
 CONTAINER_CPU_LIMIT = "1"
 CONTAINER_PIDS_LIMIT = "64"
 
+# 超时强杀后等待进程真正退出的上限(独立一档,对齐对照方 kill_timeout_ms)。
+# 原实现 kill 后 `await proc.wait()` 无界:进程赖着不走/管道未 EOF 时,整条执行链
+# 永久悬挂,timeout 结局发不出去。与 command_streamer._KILL_WAIT_TIMEOUT 同档,
+# 测试断言两者相等防漂移;本常量随执行器宿主定义,不跨层 import。
+KILL_WAIT_TIMEOUT_SEC = 2.0
+
 
 def _env_flag(name: str) -> bool:
     """显式 opt-in 开关:只认 on/1/true/yes;其余(含缺失/拼错)一律 False。"""
@@ -151,6 +157,8 @@ class ContainerRun:
     image: str = ""
     status: str = "running"  # running / done / error / timeout / cancelled
     execution_env: str = ""  # docker / local-fallback
+    # 超时强杀后进程是否未被确认退出(None=未走超时强杀路径,非超时场景不判定)。
+    kill_survived: bool | None = None
     exit_code: int | None = None
     output: str = ""
     error: str = ""
@@ -613,12 +621,25 @@ class ContainerRuntime:
                     if code != 0:
                         run.error = f"命令退出码非零: {code}"
             except TimeoutError:
-                # 超时强杀:kill 后 wait 让 pump 自然 EOF 收尾
+                # 超时强杀:kill 后有界等待 pump 自然 EOF 收尾。
+                # 不再无界 await —— 进程残存时如实标记,不冒充"已强杀干净"。
                 with contextlib.suppress(ProcessLookupError):
                     proc.kill()
-                await proc.wait()
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=KILL_WAIT_TIMEOUT_SEC)
+                    kill_survived = False
+                except (TimeoutError, Exception):
+                    kill_survived = proc.returncode is None
+                    logger.warning(
+                        "[container_runtime] run=%s SIGKILL 后 %ss 内未确认退出",
+                        run.run_id, KILL_WAIT_TIMEOUT_SEC, exc_info=True,
+                    )
                 run.status = "timeout"
-                run.error = f"执行超时({timeout_sec}s),进程已强杀"
+                run.error = (
+                    f"执行超时({timeout_sec}s),强杀后进程仍存活,需人工核查"
+                    if kill_survived else f"执行超时({timeout_sec}s),进程已强杀"
+                )
+                run.kill_survived = kill_survived
             # shield:pipe 读取被 cancel 会留下未终结的 read transport,
             # loop teardown 阶段 _cancel_all_tasks 将无法完成回收
             await asyncio.shield(asyncio.gather(*pumps, return_exceptions=True))
