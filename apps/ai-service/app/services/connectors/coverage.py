@@ -465,8 +465,15 @@ def api_to_operation(api: dict[str, Any], default_base_url: str = "") -> dict[st
     路径/query/body 统一经 :func:`normalize_path_params` 规范化,确保台账里的
     冒号语法参数能被执行层识别并替换。
     """
-    read = bool(api.get("read"))
+    # HTTP GET 语义恒为幂等读取。台账里少数条目的 ``read`` 误标为 false
+    # (钉钉 51 / 企微 4,实测共 55 条),若照抄会生成 ``action + GET`` 而被
+    # ``ConnectorOperation.validate()`` 判非法 —— custom_http 初始化时静默
+    # 跳过,用户一键接入后 AI 永远调不到这些接口。此处按方法语义纠正:GET
+    # 一律走安全读分支,既让接口进可调用面,又不放宽 base 的写保护门。
+    # 平台若真用 GET 表达写(企微删除成员即 GET),其官方设计本就无二次确认,
+    # 与"读分支 confirm=False"一致,不改变真实请求方法(method 原样透传)。
     method = str(api["method"])
+    read = bool(api.get("read")) or method == "GET"
     if read:
         capability = _read_capability(method, api["path"], api)
         confirm = False
@@ -476,6 +483,12 @@ def api_to_operation(api: dict[str, Any], default_base_url: str = "") -> dict[st
         confirm = True
         disabled = True
     description = str(api.get("scope") or "").strip()
+    # 鉴权提示进描述:AI 经 ais_invoke_connector_operation 调用时要按 auth 选对
+    # 连接器 key。feishu_user 类接口必须用「用户授权」连接器(feishu:user-oauth),
+    # 用 tenant 连接器发必失败。这是给模型的路由线索,不改变实际请求。
+    auth_hint = str(api.get("auth") or "").strip()
+    if auth_hint.endswith(("_user", "_user_access_token", "_user_token")):
+        description = f"[需用户授权:用 {auth_hint} 连接器,先扫码] {description}".strip()
     if api.get("doc_url"):
         description = f"{description} {api['doc_url']}".strip()
     return {

@@ -14,17 +14,26 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
 from ..core.jwt_auth import require_request_user_id
 from ..services import connector_store
 from ..services import connectors as connector_registry
-from ..services.connectors import catalog, coverage, coverage_probe, custom_http, managed, openapi_import
+from ..services.connectors import (
+    catalog,
+    connector_oauth,
+    coverage,
+    coverage_probe,
+    custom_http,
+    managed,
+    openapi_import,
+)
 from ..services.connectors import get_connector
 from ..services.connectors.base import (
     CAPABILITIES,
@@ -60,6 +69,7 @@ SENSITIVE_EXTRA_KEYS = {
     "webhook_url",
     "api_key",
     "private_key",
+    "user_oauth",  # 用户 OAuth 令牌密文(connector_oauth),只回传"已授权"布尔位
 }
 
 
@@ -356,6 +366,192 @@ async def list_connectors(
     except Exception as e:  # noqa: BLE001 - 内部异常降级,不裸抛
         logger.error("获取连接器列表失败: %s", e)
         return _error(500, "获取连接器列表失败,请稍后重试")
+
+
+# ---------------------------------------------------------------------------
+# 用户 OAuth 授权(user_access_token) —— 让 AI 以用户本人身份调用平台 API
+# ---------------------------------------------------------------------------
+
+
+def _oauth_redirect_uri() -> str:
+    """OAuth 回调地址:必须显式配置,且平台应用后台需把同值加入重定向 URL 白名单。
+
+    不猜测对外域名(生产前面有反代/多域名,猜错会让 code 回调到错误 host)。
+    """
+    import os
+
+    return str(os.environ.get("CONNECTOR_OAUTH_REDIRECT_URI") or "").strip()
+
+
+@router.get("/oauth/callback", response_model=None)
+async def oauth_callback(
+    request: Request,
+    code: str = "",
+    state: str = "",
+    error: str = "",
+    error_description: str = "",
+) -> JSONResponse:
+    """平台 OAuth 回调:校验 state → 用 code 换 user_access_token → 加密落库。
+
+    回调是浏览器跳转(无 JWT body),归属靠签名 state 里的 owner。code 只在回调里
+    出现一次;令牌明文只在内存里流转,落库前加密,响应只回"授权成功"不回令牌。
+    """
+    if error or error_description:
+        return JSONResponse(status_code=400, content={"error": error_description or error})
+    if not code or not state:
+        return JSONResponse(status_code=400, content={"error": "缺少 code 或 state"})
+    try:
+        # state 里带 platform,先解出平台再校验(verify_state 内部校验签名+平台+归属+TTL)
+        import base64
+
+        body = state.split(".", 1)[0]
+        payload = json.loads(
+            base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)).decode()
+        )
+        platform = str(payload.get("p") or "")
+        scope = str(payload.get("o") or "")
+        user_id = str(payload.get("u") or "")
+        tenant_id = str(payload.get("t") or "") or None
+        if not platform or not scope or not user_id:
+            raise connector_oauth.ConnectorOAuthError("state 缺少平台/归属/用户")
+        cfg = connector_oauth.provider(platform)
+        connector_oauth.verify_state(state, platform, scope)
+
+        # 应用凭据:优先租户自己的,再回落平台环境(与 managed 同源)
+        cred = managed.credentials(platform, scope=scope)
+        redirect_uri = _oauth_redirect_uri()
+        if not redirect_uri:
+            raise connector_oauth.ConnectorOAuthError("未配置 CONNECTOR_OAUTH_REDIRECT_URI(需与平台应用后台重定向 URL 一致)")
+
+        async def _http_json(url: str, body: dict[str, Any]) -> dict[str, Any]:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(url, json=body)
+                resp.raise_for_status()
+                data = resp.json()
+            return data if isinstance(data, dict) else {}
+
+        token = await connector_oauth.exchange_code(
+            cfg,
+            code,
+            app_id=str(cred.get("app_id") or ""),
+            app_secret=str(cred.get("app_secret") or ""),
+            redirect_uri=redirect_uri,
+            http_json=_http_json,
+        )
+        cipher = connector_oauth.encrypt_user_token(token)
+
+        # 令牌落到与 list/invoke 完全相同的作用域:owner=scope、tenant_id=隔离键。
+        # 个人模式 scope=user_id;租户模式 scope=tenant_id(租户成员共享该入口,
+        # 但令牌是授权人本人的,租户内其他成员能否用由连接器可见性既有规则决定)。
+        key = f"{platform}:user-oauth"
+        rec = connector_store.get(scope, key, tenant_id=tenant_id)
+        if rec is None:
+            tpl = catalog.template_for(platform) or {}
+            spec = {
+                "base_url": str(tpl.get("base_url") or ""),
+                "auth_kind": f"{platform}_user",
+                "auth_name": "Authorization",
+                "auth_scheme": "Bearer",
+                "headers": {},
+                "timeout_s": 15.0,
+                "allow_write": False,
+                "allow_private_hosts": False,
+            }
+            rec = {
+                "key": key,
+                "type": platform,
+                "name": f"{tpl.get('label') or platform} · 用户授权",
+                "app_id": "",
+                "app_secret": "",
+                "extra": {connector_oauth.USER_TOKEN_EXTRA_KEY: cipher},
+                "mode": "preset",
+                "spec": spec,
+                "operations": catalog.default_operations(platform),
+                "enabled": True,
+                "managed": True,
+                "credential_source": str(cred.get("source") or "platform_env"),
+            }
+        else:
+            extra = dict(rec.get("extra") or {})
+            extra[connector_oauth.USER_TOKEN_EXTRA_KEY] = cipher
+            rec["extra"] = extra
+        saved = connector_store.save(scope, rec, tenant_id=tenant_id)
+        if saved is None:
+            raise connector_oauth.ConnectorOAuthError("用户授权凭据保存失败")
+        logger.info("[oauth] 用户授权成功 platform=%s key=%s", platform, key)
+        # 浏览器跳转来的回调(Accept 含 text/html)重定向回前端连接器页,
+        # 免得用户盯着一屏 JSON;API 调用(Accept 缺省)仍拿结构化结果。
+        accept = request.headers.get("accept", "")
+        import os
+
+        ui_redirect = str(os.environ.get("CONNECTOR_OAUTH_UI_REDIRECT") or "").strip()
+        if "text/html" in accept and ui_redirect:
+            return RedirectResponse(url=ui_redirect, status_code=303)
+        return JSONResponse(
+            content={
+                "ok": True,
+                "platform": platform,
+                "connector_key": key,
+                "message": "授权成功,AI 现在可以你的身份调用该平台 API",
+            }
+        )
+    except json.JSONDecodeError:
+        return JSONResponse(status_code=400, content={"error": "state 载荷非法"})
+    except connector_oauth.ConnectorOAuthError as exc:
+        logger.warning("[oauth] 回调拒绝: %s", exc)
+        return JSONResponse(status_code=400, content={"error": str(exc)})
+    except Exception as exc:  # noqa: BLE001
+        logger.error("[oauth] 回调失败: %s", exc)
+        return JSONResponse(status_code=500, content={"error": "用户授权处理失败,请稍后重试"})
+
+
+@router.get("/{platform}/oauth/authorize", response_model=None)
+async def oauth_authorize(
+    platform: str,
+    user_id: str = Depends(require_request_user_id),
+    scope: str = Depends(connector_scope),
+    ctx: ConnectorScope = Depends(connector_context),
+    oauth_scope: str = "",
+    redirect_uri: str = "",
+) -> dict[str, Any] | JSONResponse:
+    """生成平台 OAuth 授权 URL(前端拿到后跳转让用户扫码授权)。
+
+    state 绑定当前用户与平台并签名,回调时校验,防 CSRF。scope 参数可缩小授权范围;
+    缺省由平台返回该应用已申请的全部权限。
+    """
+    try:
+        cfg = connector_oauth.provider(platform)
+        cred = managed.credentials(platform, scope=scope)
+        app_id = str(cred.get("app_id") or "")
+        if not app_id:
+            raise connector_oauth.ConnectorOAuthError("平台应用凭据缺少 app_id")
+        redirect = redirect_uri.strip() or _oauth_redirect_uri()
+        if not redirect:
+            raise connector_oauth.ConnectorOAuthError("未配置 CONNECTOR_OAUTH_REDIRECT_URI(需与平台应用后台重定向 URL 一致)")
+        # state 带全 scope/tenant_id/user_id,回调原样回传,
+        # 使令牌落到与 list/invoke 相同的作用域(否则 AI 看不到也调不到)。
+        state = connector_oauth.make_state(
+            platform, scope, user_id=user_id, tenant_id=str(ctx.tenant_id or "") if ctx else ""
+        )
+        from urllib.parse import urlencode
+
+        params: dict[str, Any] = {
+            cfg.client_id_param: app_id,
+            "redirect_uri": redirect,
+            "response_type": "code",
+            "state": state,
+        }
+        if oauth_scope.strip():
+            params["scope"] = oauth_scope.strip()
+        url = f"{cfg.authorize_url}?{urlencode(params)}"
+        return {"url": url, "state": state, "platform": platform, "expires_in": connector_oauth.STATE_TTL_SECONDS}
+    except connector_oauth.ConnectorOAuthError as exc:
+        return _error(400, str(exc))
+    except Exception as exc:  # noqa: BLE001
+        logger.error("[oauth] 生成授权 URL 失败: %s", exc)
+        return _error(500, "生成授权 URL 失败")
 
 
 @router.get("/catalog", response_model=None)

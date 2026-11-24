@@ -294,6 +294,28 @@ def test_api_to_operation_normalizes_colon_path():
     assert path_param_names(op["path"]) == ["user_id"]
 
 
+def test_get_never_becomes_invalid_action():
+    """台账把 GET 误标 read=false 时(钉钉51+企微4 实测),装车必须走安全读分支。
+
+    否则会生成 ``action + GET`` 被 ``ConnectorOperation.validate()`` 拒绝,
+    custom_http 初始化静默跳过 → 用户一键接入后 AI 永远调不到这些接口。
+    GET 语义恒为幂等读;method 原样透传,不改真实请求。
+    """
+    for api_id, name in (
+        ("dingtalk_query", "查询个人授权记录"),
+        ("wecom_delete", "删除成员"),
+    ):
+        api = _api(api_id, "contact", method="GET", read=False)
+        api["name"] = name
+        op = coverage.api_to_operation(api, "https://x")
+        assert op["method"] == "GET", "真实请求方法不得被改写"
+        assert op["capability"] != "action", "GET 不得落成 action(会被 validate 丢弃)"
+        assert op["confirm"] is False
+        assert op["disabled"] is False
+        # 执行层能真正构造成功(不再静默跳过)= 进可调用面
+        assert ConnectorOperation.from_dict(op).method == "GET"
+
+
 def test_unknown_code_never_available():
     outcome = coverage_probe.classify_outcome("dingtalk", 200, {"errcode": 999999})
     assert outcome["state"] == "error"

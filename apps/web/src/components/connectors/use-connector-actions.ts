@@ -13,6 +13,7 @@ import {
   connectManagedConnector,
   deleteConnector,
   fetchConnectorDoc,
+  getConnectorOAuthAuthorize,
   saveConnectorConfig,
   setConnectorEnabled,
   syncConnector,
@@ -76,6 +77,20 @@ export function useConnectorActions(refresh: () => void) {
     }
   }
 
+  /** 用户扫码授权自己账号:拿平台授权 URL 后整页跳转(回调由后端处理) */
+  const handleUserAuthorize = async (type: string) => {
+    try {
+      const r = await getConnectorOAuthAuthorize(type)
+      if (!r.success || !r.data) {
+        toast.error(r.error ?? t('actionFailed'))
+        return
+      }
+      window.location.href = r.data.url
+    } catch {
+      toast.error(t('actionFailed'))
+    }
+  }
+
   const handleManagedConnect = async (type: string, label: string) => {
     if (connectingType) return
     setConnectingType(type)
@@ -133,7 +148,9 @@ export function useConnectorActions(refresh: () => void) {
       const r = await setConnectorEnabled(entry.key, enabled)
       if (r.success) {
         toast.success(
-          enabled ? t('enableSuccess', { name: entry.name }) : t('disableSuccess', { name: entry.name }),
+          enabled
+            ? t('enableSuccess', { name: entry.name })
+            : t('disableSuccess', { name: entry.name }),
         )
         refresh()
       } else {
@@ -153,7 +170,9 @@ export function useConnectorActions(refresh: () => void) {
         const items = r.data.items ?? []
         if (r.data.ok) {
           setSyncItems((prev) => ({ ...prev, [entry.key]: items }))
-          toast.success(items.length > 0 ? t('syncSuccess', { count: items.length }) : t('syncEmpty'))
+          toast.success(
+            items.length > 0 ? t('syncSuccess', { count: items.length }) : t('syncEmpty'),
+          )
           refresh()
         } else {
           toast.error(r.data.message || t('syncFailed'))
@@ -232,6 +251,7 @@ export function useConnectorActions(refresh: () => void) {
     openEdit,
     handleSave,
     handleManagedConnect,
+    handleUserAuthorize,
     handleCheck,
     handleToggle,
     handleSync,

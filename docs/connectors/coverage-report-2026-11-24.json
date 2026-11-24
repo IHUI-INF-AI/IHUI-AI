@@ -56,6 +56,31 @@
         "企微台账最终：590 API + 79 事件 + 33 非HTTP能力；events 由 3 增至 79（与飞书208/钉钉231同量级）。"
       ],
       "caveat": "本轮补齐的是目录全量性，不是接口可用性探测。探测数据仍为引擎修复前的旧结果，不可直接作为可用性结论；须在能连通服务的环境用修复版引擎重跑。"
+    },
+    "availability_engineering": {
+      "updated_at": "2026-11-24T14:15:00+08:00",
+      "goal": "用户扫码授权自己账号后 AI 都能调得通",
+      "code_changes": [
+        "api_to_operation 将 GET 恒判为安全读语义：修复钉钉51+企微4条被 validate 静默丢弃（3926条 operation 全量零丢弃）",
+        "operation description 注入鉴权提示：feishu_user 类接口标注需用用户授权连接器",
+        "新增 connector_oauth.py：飞书 OAuth 授权URL/state HMAC+TTL CSRF防护/code换token/refresh/user token AES-256-GCM 加密存储",
+        "新增 GET /connectors/{platform}/oauth/authorize 与 GET /connectors/oauth/callback；令牌落 feishu:user-oauth 连接器，作用域与 list/invoke 一致",
+        "custom_http 支持 feishu_user auth_kind：执行时解密注入 user_access_token，临近过期自动刷新，未授权 fail-closed 不回落 tenant 令牌",
+        "前端连接器页加「扫码授权自己账号」按钮 + api-client getConnectorOAuthAuthorize + 5 语言词表"
+      ],
+      "verified": {
+        "pytest": "test_connector_oauth(11) + test_connector_coverage(37) + test_connectors_generic + test_ai_service_bridge = 87 全绿",
+        "full_operations_load": "三平台 3926 API 经 _normalize_api + api_to_operation + ConnectorOperation 零丢弃",
+        "oauth_unit": "state 篡改/过期/错归属全拒；token 加解密往返；执行层注入与 fail-closed；callback 端到端(code换token→加密落库→同scope列到→注入)",
+        "shard_load": "全量分片落库后 3926 operation 全部被 custom_http 加载，零丢失"
+      },
+      "limits": [
+        "钉钉/企微 OAuth 端点未经官方文档核实，provider 显式 disabled，不编造 URL；当前仅飞书可扫码授权",
+        "本地无 FEISHU_APP_ID/SECRET 等平台凭据，未做真实扫码→真实 API 调用的端到端验证；代码链路与单测闭环，真调通需平台管理员配置凭据+重定向白名单后实测",
+        "需配置环境变量 CONNECTOR_OAUTH_REDIRECT_URI（与飞书应用后台重定向URL一致）及可选 CONNECTOR_OAUTH_UI_REDIRECT",
+        "user token 刷新后写回内存副本，本次调用生效；跨重启持久化依赖下次授权/刷新，未做落库回写（改进项）",
+        "覆盖探测仍用 tenant 连接器，user 类接口预判定 need_user_token；新增的 feishu:user-oauth 连接器尚未接入探测面"
+      ]
     }
   },
   "platforms": {

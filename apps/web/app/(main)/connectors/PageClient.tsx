@@ -41,7 +41,11 @@ export default function ConnectorsPageClient() {
   const queryClient = useQueryClient()
   const principalId = useAuthStore((s) => s.user?.id ?? null)
 
-  const { data: list, isLoading, error } = useQuery({
+  const {
+    data: list,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['connectors', 'list', principalId ?? 'anonymous'],
     enabled: allow,
     queryFn: async (): Promise<ConnectorListResponse> => {
@@ -105,6 +109,7 @@ export default function ConnectorsPageClient() {
           connectingType={actions.connectingType}
           onConnect={(type, label) => void actions.handleManagedConnect(type, label)}
           onInvoke={(entry) => actions.setInvokeTarget(entry)}
+          onUserAuthorize={(type) => void actions.handleUserAuthorize(type)}
         />
       )}
 

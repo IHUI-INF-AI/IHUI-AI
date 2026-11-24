@@ -20,7 +20,12 @@ interface ManagedQuickSectionProps {
   connectingType: string | null
   onConnect: (type: string, label: string) => void
   onInvoke: (entry: ConnectorEntry) => void
+  /** 用户 OAuth 扫码授权自己账号(当前仅飞书端点已核实可用) */
+  onUserAuthorize?: (type: string) => void
 }
+
+/** 用户扫码授权入口:仅后端已核实 OAuth 端点的平台可见 */
+const USER_OAUTH_PLATFORMS = new Set(['feishu'])
 
 /** 预置平台一键接入卡片组(托管凭据,用户不填密钥) */
 export function ManagedQuickSection({
@@ -29,6 +34,7 @@ export function ManagedQuickSection({
   connectingType,
   onConnect,
   onInvoke,
+  onUserAuthorize,
 }: ManagedQuickSectionProps) {
   const t = useTranslations('connectors')
 
@@ -71,6 +77,16 @@ export function ManagedQuickSection({
                 <span className="text-[11px] text-muted-foreground">
                   {t('operationCount', { count: tpl.operations.length })}
                 </span>
+                {USER_OAUTH_PLATFORMS.has(tpl.type) && onUserAuthorize ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onUserAuthorize(tpl.type)}
+                    data-testid={`user-oauth-${tpl.type}`}
+                  >
+                    {t('userAuthorize')}
+                  </Button>
+                ) : null}
                 {entry ? (
                   <Button variant="outline" size="sm" onClick={() => onInvoke(entry)}>
                     <Zap className="mr-1.5 h-3.5 w-3.5" />

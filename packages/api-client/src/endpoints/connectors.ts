@@ -457,6 +457,17 @@ export async function connectManagedConnector(
   })
 }
 
+/** 用户 OAuth 授权:拿到跳转 URL,前端 location.href 过去让用户扫码授权自己账号 */
+export async function getConnectorOAuthAuthorize(
+  platform: string,
+  oauthScope = '',
+): Promise<ApiResult<{ url: string; state: string; platform: string; expires_in: number }>> {
+  return fetchApi<{ url: string; state: string; platform: string; expires_in: number }>(
+    `/api/connectors/${encodeURIComponent(platform)}/oauth/authorize`,
+    { params: { oauth_scope: oauthScope } },
+  )
+}
+
 /** 同步连接器数据源,返回条目列表 */
 export async function syncConnector(key: string): Promise<ApiResult<ConnectorSyncResult>> {
   return fetchApi<ConnectorSyncResult>('/api/connectors/sync', {

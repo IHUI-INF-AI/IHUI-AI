@@ -256,6 +256,56 @@ def clear_token_cache(record: dict[str, Any] | None = None) -> None:
             _TOKEN_CACHE.pop(key, None)
 
 
+async def _user_access_token(record: dict[str, Any], platform: str) -> str:
+    """取用户 OAuth user_access_token:解密 → 临近过期则刷新 → 回明文。
+
+    令牌密文存 ``record.extra.user_oauth``(connector_oauth 授权时落库)。
+    fail-closed:未授权/密文损坏/刷新失败一律抛错,绝不回落 tenant 令牌
+    (那会以错误身份调用,产生"看似成功实则错数据"的更坏结果)。
+    """
+    from . import connector_oauth
+
+    try:
+        token = connector_oauth.decrypt_user_token(
+            str((record.get("extra") or {}).get(connector_oauth.USER_TOKEN_EXTRA_KEY) or "")
+        )
+    except connector_oauth.ConnectorOAuthError as exc:
+        raise ConnectorExecutionError(
+            f"该接口需要用户授权(user_access_token),请先完成扫码授权: {exc}"
+        ) from exc
+
+    if connector_oauth.needs_refresh(token):
+        cfg = connector_oauth.provider(platform)
+        app_id = str(record.get("app_id") or "").strip()
+        app_secret = str(record.get("app_secret") or "").strip()
+        if not app_id or not app_secret:
+            raise ConnectorExecutionError("用户令牌已过期,刷新需要应用凭据(app_id/app_secret)")
+        import httpx
+
+        async def _http_json(url: str, body: dict[str, Any]) -> dict[str, Any]:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(url, json=body)
+                resp.raise_for_status()
+                data = resp.json()
+            return data if isinstance(data, dict) else {}
+
+        try:
+            refreshed = await connector_oauth.refresh_user_token(
+                cfg, token, app_id=app_id, app_secret=app_secret, http_json=_http_json
+            )
+        except connector_oauth.ConnectorOAuthError as exc:
+            raise ConnectorExecutionError(f"用户令牌刷新失败,请重新扫码授权: {exc}") from exc
+        # 刷新成功:把新密文写回内存副本(持久化由上层可选取回;此处至少本次调用可用)
+        try:
+            extra = dict(record.get("extra") or {})
+            extra[connector_oauth.USER_TOKEN_EXTRA_KEY] = connector_oauth.encrypt_user_token(refreshed)
+            record["extra"] = extra
+        except Exception:  # noqa: BLE001 - 写回失败不影响本次已拿到的新令牌
+            pass
+        token = refreshed
+    return str(token["access_token"])
+
+
 async def _auth_parts(
     record: dict[str, Any], spec: ConnectorSpec
 ) -> tuple[dict[str, str], dict[str, str]]:
@@ -268,6 +318,12 @@ async def _auth_parts(
     params: dict[str, str] = {}
 
     if kind == "none":
+        return headers, params
+    if kind == "feishu_user":
+        # 用户态令牌:飞书 user_access_token 走 Authorization: Bearer,
+        # 与 tenant 共用 header 但令牌来源完全不同(解密/刷新),不可混用。
+        token = await _user_access_token(record, "feishu")
+        headers[header] = f"Bearer {token}"
         return headers, params
     if kind == "bearer":
         token = secret or str((record.get("extra") or {}).get("token") or "").strip()
