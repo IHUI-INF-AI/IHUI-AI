@@ -499,6 +499,9 @@ def test_managed_multi_tenant_requires_owner_tenant(monkeypatch):
     tenant_b = "22222222-2222-2222-2222-222222222222"
 
     monkeypatch.delenv("CONNECTOR_MANAGED_TENANT_ID", raising=False)
+    # `managed_tenant_id()` 会回退到 API 侧的 PLATFORM_DEFAULT_TENANT_ID；
+    # 本机 .env 已显式设置该值，且 settings 是导入时快照，必须改属性而不是 delenv。
+    monkeypatch.setattr(settings, "platform_default_tenant_id", "")
     st = managed.status("feishu", tenant_a)
     assert st["available"] is False
     assert "未指定归属租户" in st["reason"]

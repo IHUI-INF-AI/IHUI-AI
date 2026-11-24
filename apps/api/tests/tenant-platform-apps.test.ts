@@ -106,6 +106,32 @@ describe('租户平台应用凭据：状态表不含 secret', () => {
     expect(JSON.stringify(statuses)).not.toContain('very-secret')
   })
 
+  it('租户行 enabled=false 时显示已配置但停用，且不回退环境凭据', () => {
+    vi.stubEnv('WECHAT_MP_APP_ID', 'wx-env-should-not-leak')
+    vi.stubEnv('WECHAT_MP_APP_SECRET', 'env-secret-should-not-leak')
+    const statuses = buildTenantPlatformStatuses(
+      [
+        {
+          platform: 'wechat_mp',
+          enabled: false,
+          appId: 'wxcfed1973106a1b31',
+          appSecret: 'enc:v1:tenant-secret',
+          extra: {},
+        },
+      ],
+      true,
+    )
+    const mp = statuses.find((s) => s.platform === 'wechat_mp')!
+    expect(mp).toMatchObject({
+      configured: true,
+      enabled: false,
+      appId: 'wxcfed1973106a1b31',
+      source: 'tenant',
+    })
+    expect(JSON.stringify(statuses)).not.toContain('env-secret-should-not-leak')
+    expect(JSON.stringify(statuses)).not.toContain('tenant-secret')
+  })
+
   it('其他租户没有自己的行时，不会把平台环境凭据显示成可用', () => {
     vi.stubEnv('FEISHU_APP_ID', 'cli_platform_env')
     vi.stubEnv('FEISHU_APP_SECRET', 'platform-secret')
