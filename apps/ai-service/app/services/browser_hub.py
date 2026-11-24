@@ -857,6 +857,13 @@ class BrowserSession:
         # page.on("framenavigated") 只挂一次:多个观众(主面板 + 画中画)共用同一监听,
         # 否则每个观众连接都挂一条,同一次导航会被广播 N 遍。
         self._navigation_listener_registered = False
+        # 2026-11-24:人工节点(phase)通道 —— 与画面/导航同为"多观众"语义。
+        # 自动化侧可在任意时刻把会话标成 waiting(等人接管),所有观众同一刻收到;
+        # phase 是低频状态,不做轮询,只在变更时 fan-out,晚连的观众登记时补发快照。
+        self._phase_handlers: list[
+            Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
+        ] = []
+        self._phase_state: dict[str, Any] = {"phase": "running", "reason": None}
         self._lock = threading.Lock()
         # 2026-11-08 运行时观测:console / network 各有独立环形缓冲,读写线程不同,
         # 由 BrowserEventBuffer 内部锁保护;enable 幂等,失败降级为"观测不可用"。
@@ -1155,6 +1162,51 @@ class BrowserSession:
         """移除一个导航观众(WebSocket 断开时调用);监听本体保留,重连后复用。"""
         if on_nav in self._navigation_handlers:
             self._navigation_handlers.remove(on_nav)
+
+    # ---- 人工节点(phase)----
+    # 状态机只认三档:running(自动化在跑)/ waiting(已停下来等人)/ error。
+    # 这里不做"登录页自动判 gate"那种推断 —— 那是前端按 URL 结构做的提示,
+    # 服务端只承载"谁在什么时候明确说了一句:现在需要人"。
+    _PHASE_VALUES = ("running", "waiting", "error")
+
+    async def set_phase_handler(
+        self, on_phase: Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
+    ) -> None:
+        """登记 phase 观众;登记即补发当前状态,晚连的浮窗不会停在旧状态。"""
+        if on_phase not in self._phase_handlers:
+            self._phase_handlers.append(on_phase)
+        try:
+            await on_phase(dict(self._phase_state))
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.debug(f"[browser_hub] phase 快照发送失败(跳过): {e}")
+
+    async def remove_phase_handler(
+        self, on_phase: Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
+    ) -> None:
+        if on_phase in self._phase_handlers:
+            self._phase_handlers.remove(on_phase)
+
+    async def set_phase(self, phase: str, reason: str | None = None) -> dict[str, Any]:
+        """把会话切到某个人工节点状态,并 fan-out 给所有观众。
+
+        同一状态重复设置不重复广播(自动化轮询式调用不会刷屏);
+        非法值一律归 running,不把未知字符串原样传给前端。
+        """
+        normalized = phase if phase in self._PHASE_VALUES else "running"
+        next_state = {"phase": normalized, "reason": reason}
+        if normalized == self._phase_state.get("phase") and reason == self._phase_state.get("reason"):
+            return dict(self._phase_state)
+        self._phase_state = next_state
+        for handler in tuple(self._phase_handlers):
+            try:
+                await handler(dict(next_state))
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.debug(f"[browser_hub] phase 观众接收失败(跳过): {e}")
+        return dict(next_state)
 
     # ---- 画面流(截图轮询,2026-07-31 改)----
     # 原方案用 CDP Page.startScreencast,但 sync_playwright 的 CDP 事件回调在

@@ -149,6 +149,21 @@ describe('openBrowserPipMonitor:真实浮窗 DOM 与状态流转', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 
+  it('服务端人工节点:phase=waiting 顶掉运行中,phase=running 收回', async () => {
+    const { openBrowserPipMonitor } = await import('../browser-pip')
+    await openBrowserPipMonitor({ sessionId: 'session-3', labels: LABELS })
+    const win = opened!.win
+    const ws = FakeWebSocket.instances[0]!
+    ws.emitOpen()
+    expect(win.document.body.textContent).toContain('Running')
+
+    ws.emitMessage({ type: 'phase', phase: 'waiting', reason: 'login required' })
+    expect(win.document.body.textContent).toContain('Waiting for you')
+
+    ws.emitMessage({ type: 'phase', phase: 'running' })
+    expect(win.document.body.textContent).toContain('Running')
+  })
+
   it('接管:关闭浮窗 → 回调 onHandover/onClose,且不再收帧', async () => {
     const { openBrowserPipMonitor, isBrowserPipOpen } = await import('../browser-pip')
     const onHandover = vi.fn()

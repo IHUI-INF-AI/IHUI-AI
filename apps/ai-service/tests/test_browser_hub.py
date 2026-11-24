@@ -781,6 +781,75 @@ async def test_set_navigation_handler_ignores_non_main_frame():
     await asyncio.sleep(0.05)
 
 
+async def test_set_phase_broadcasts_once_to_all_viewers():
+    """人工节点状态:主面板 + 浮窗同时在线时,两边都收到同一次变更。"""
+    session = _make_session(page=FakePage(url="https://a.com/"))
+    first: list[dict] = []
+    second: list[dict] = []
+
+    async def on_phase_first(state):
+        first.append(state)
+
+    async def on_phase_second(state):
+        second.append(state)
+
+    await session.set_phase_handler(on_phase_first)
+    await session.set_phase_handler(on_phase_second)
+    # 登记时补发快照:晚连的观众立刻对上当前状态
+    assert [s["phase"] for s in first] == ["running"]
+    assert [s["phase"] for s in second] == ["running"]
+
+    await session.set_phase("waiting", "login required")
+    assert first[-1] == {"phase": "waiting", "reason": "login required"}
+    assert second[-1] == {"phase": "waiting", "reason": "login required"}
+
+    # 同值重复设置不重复广播(轮询式调用不会刷屏)
+    await session.set_phase("waiting", "login required")
+    assert len(first) == 2
+    assert len(second) == 2
+
+    await session.set_phase("running")
+    assert first[-1]["phase"] == "running"
+
+
+async def test_set_phase_normalizes_unknown_value():
+    """非法状态不原样透传给前端,一律归 running。"""
+    session = _make_session(page=FakePage(url="https://a.com/"))
+    state = await session.set_phase("pause-ish")
+    assert state == {"phase": "running", "reason": None}
+
+
+async def test_set_phase_viewer_failure_does_not_block_others():
+    """一个观众断开(发送抛错)时,其余观众仍要收到状态。"""
+    session = _make_session(page=FakePage(url="https://a.com/"))
+    good: list[dict] = []
+
+    async def broken(state):
+        raise RuntimeError("ws gone")
+
+    async def on_phase_good(state):
+        good.append(state)
+
+    await session.set_phase_handler(broken)
+    await session.set_phase_handler(on_phase_good)
+    state = await session.set_phase("waiting", "captcha")
+    assert state["phase"] == "waiting"
+    assert good[-1]["phase"] == "waiting"
+
+
+async def test_remove_phase_handler_stops_delivery():
+    session = _make_session(page=FakePage(url="https://a.com/"))
+    got: list[dict] = []
+
+    async def on_phase(state):
+        got.append(state)
+
+    await session.set_phase_handler(on_phase)
+    await session.remove_phase_handler(on_phase)
+    await session.set_phase("waiting")
+    assert [s["phase"] for s in got] == ["running"]
+
+
 async def test_close_detaches_cdp_and_closes_context():
     ctx = FakeContext()
     session = _make_session(context=ctx)

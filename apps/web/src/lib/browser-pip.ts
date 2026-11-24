@@ -377,6 +377,8 @@ export async function openBrowserPipMonitor(
           data?: string
           url?: string
           title?: string
+          phase?: string
+          reason?: string
         }
         if (msg.type === 'frame' && msg.data) {
           img.src = `data:image/jpeg;base64,${msg.data}`
@@ -388,6 +390,10 @@ export async function openBrowserPipMonitor(
             pageTitle.textContent = msg.title
             pageTitle.style.display = ''
           }
+          refresh()
+        } else if (msg.type === 'phase') {
+          // 服务端人工节点状态:自动化说"停下来等人"时,浮窗不用自己猜。
+          phase = msg.phase === 'waiting' || msg.phase === 'error' ? msg.phase : 'running'
           refresh()
         }
       } catch {

@@ -32,6 +32,8 @@ tab_id,`Depends(get_current_user_id)`/WS 的 `verify_access_token` 给出已验�
 WebSocket 协议:
 - 服务端推送: {"type": "frame", "data": "<base64 jpeg>", "metadata": {...}}
 - 服务端推送: {"type": "navigation", "url": "...", "title": "..."}
+- 服务端推送: {"type": "phase", "phase": "running|waiting|error", "reason": "..."}(人工节点状态,变更时广播)
+- 客户端发送: {"type": "phase", "phase": "waiting", "reason": "..."}(自动化声明"停下来等人")
 - 客户端发送: {"type": "mouse", "x": 100, "y": 200, "button": "left", "event_type": "mousePressed"}
 - 客户端发送: {"type": "key", "key": "Enter", "event_type": "keyDown"}
 - 客户端发送: {"type": "wheel", "x": 100, "y": 200, "delta_x": 0, "delta_y": -100}
@@ -416,6 +418,20 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
 
     await stream_session.set_navigation_handler(on_navigation)
 
+    # 人工节点状态:登记时先补发快照(晚连的浮窗立刻对上当前状态),
+    # 之后只在变更时广播 —— 与帧不同,不做轮询。
+    async def on_phase(state: dict[str, Any]) -> None:
+        try:
+            await ws.send_json({
+                "type": "phase",
+                "phase": state.get("phase", "running"),
+                "reason": state.get("reason"),
+            })
+        except Exception as e:
+            logger.debug(f"[browser_hub] 发送 phase 异常: {e}")
+
+    await stream_session.set_phase_handler(on_phase)
+
     # 画面帧回调
     async def on_frame(data_b64: str, metadata: dict[str, Any]) -> None:
         try:
@@ -502,6 +518,12 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
                         int(msg.get("height", 720)),
                     )
                     await ws.send_json({"type": "viewport_result", "data": result})
+                elif msg_type == "phase":
+                    # 自动化侧(或人工确认后的编排层)声明当前是否在等人接管。
+                    state = await session.set_phase(
+                        str(msg.get("phase", "running")), msg.get("reason")
+                    )
+                    await ws.send_json({"type": "phase_result", "data": state})
                 elif msg_type == "ping":
                     await ws.send_json({"type": "pong"})
             except Exception as e:
@@ -515,6 +537,7 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
     finally:
         await stream_session.remove_frame_handler(on_frame)
         await stream_session.remove_navigation_handler(on_navigation)
+        await stream_session.remove_phase_handler(on_phase)
         logger.info(f"[browser_hub] WebSocket 断开: session={session_id}")
 
 
