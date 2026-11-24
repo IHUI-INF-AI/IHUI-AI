@@ -592,14 +592,22 @@ Function .onInit
   ; 手动交互安装/重装不带 /UPDATE，不受影响，仍可由用户显式覆盖安装。
   ${If} $UpdateMode = 1
     ; 不能只信注册表里的旧安装位置：旧更新器可能把 /D 指到另一个仍有 v2 状态的目录，
-    ; 注册表路径过期时会绕过硬闸。两个位置任一存在 state.json 都必须静默中止。
+    ; 注册表路径过期时会绕过硬闸。state.json 只是一份指针，它可能被误删而
+    ; .bak/.tmp/launcher-version.txt 仍在；这些 v2 标记任一存在都必须静默中止，
+    ; 避免旧 /UPDATE 覆盖一个仍可回退的安装。
     StrCpy $R1 "$INSTDIR"
     ReadRegStr $R0 SHCTX "${MANUPRODUCTKEY}" ""
     ${If} $R0 != ""
       StrCpy $R1 "$R0"
     ${EndIf}
     ${If} ${FileExists} "$INSTDIR\state.json"
+    ${OrIf} ${FileExists} "$INSTDIR\state.json.bak"
+    ${OrIf} ${FileExists} "$INSTDIR\state.json.tmp"
+    ${OrIf} ${FileExists} "$INSTDIR\launcher-version.txt"
     ${OrIf} ${FileExists} "$R1\state.json"
+    ${OrIf} ${FileExists} "$R1\state.json.bak"
+    ${OrIf} ${FileExists} "$R1\state.json.tmp"
+    ${OrIf} ${FileExists} "$R1\launcher-version.txt"
       ; 这条路径只可能由旧更新器/旧快捷方式触发，绝不能让终端用户看到任何弹窗。
       ; 不论交互还是静默模式，都只记 DetailPrint，然后立即以退出码 2 结束。
       DetailPrint "v2 state present; installer /UPDATE disabled"

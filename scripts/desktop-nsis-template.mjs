@@ -603,7 +603,13 @@ function assertSilentUpdateGuard(text) {
   if (!block.includes('SetErrorLevel 2')) failures.push('缺少 SetErrorLevel 2')
   if (!block.includes('Quit')) failures.push('缺少无 UI 的 Quit')
   if (!block.includes('"$INSTDIR\\state.json"')) failures.push('未检查 /D 目标目录的 state.json')
+  if (!block.includes('"$INSTDIR\\state.json.bak"')) failures.push('未检查 /D 目标目录的 state.json.bak')
+  if (!block.includes('"$INSTDIR\\state.json.tmp"')) failures.push('未检查 /D 目标目录的 state.json.tmp')
+  if (!block.includes('"$INSTDIR\\launcher-version.txt"')) failures.push('未检查 /D 目标目录的 launcher-version.txt')
   if (!block.includes('"$R1\\state.json"')) failures.push('未检查注册表安装目录的 state.json')
+  if (!block.includes('"$R1\\state.json.bak"')) failures.push('未检查注册表安装目录的 state.json.bak')
+  if (!block.includes('"$R1\\state.json.tmp"')) failures.push('未检查注册表安装目录的 state.json.tmp')
+  if (!block.includes('"$R1\\launcher-version.txt"')) failures.push('未检查注册表安装目录的 launcher-version.txt')
   if (failures.length) {
     console.error(`[desktop-nsis-template] UPDATE-GUARD 回归:${failures.join('；')}`)
     process.exit(1)

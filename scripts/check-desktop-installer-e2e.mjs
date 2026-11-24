@@ -16,7 +16,7 @@
  * 判据：
  *   0. 同名进程在跑时静默安装 exit 5，且该进程仍活着（安装器绝不 KillProcess）；
  *   1. 静默安装 exit 0，state.json 可解析；
- *   2. /S /UPDATE exit 2 且 < 8s；
+ *   2. /S /UPDATE exit 2 且 < 8s；state.json 被误删但 .bak / launcher-version 仍在时同样 exit 2；
  *   3. 非静默 /UPDATE exit 2 且 < 8s（这条最容易把弹窗带回来）；
  *   4. 两次 /UPDATE 后 state.json 逐字节不变；
  *   5. 卸载时同名进程在跑：不杀进程、不继续删除；随后静默卸载 exit 0，目录删除。
@@ -27,6 +27,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -75,6 +76,34 @@ function run(label, exe, args, timeout, expected) {
 }
 
 /**
+ * 子进程退出后释放文件句柄需要时间；直接 rmSync 会偶发 EPERM，
+ * 这里最多重试 1 秒，避免把测试环境抖动误判成安装器残留。
+ */
+function removeDirWithRetry(dir) {
+  for (let i = 0; i < 10; i += 1) {
+    try {
+      rmSync(dir, { recursive: true, force: true })
+      return
+    } catch (error) {
+      if (i === 9) throw error
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100)
+    }
+  }
+}
+
+function killAndWait(child) {
+  try {
+    child.kill('SIGKILL')
+  } catch {
+    // 进程可能已经自行退出。
+  }
+  const until = Date.now() + 2_000
+  while (Date.now() < until && child.exitCode === null) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100)
+  }
+}
+
+/**
  * 安装器不能在“应用还在跑”时替用户 KillProcess。
  * 这里用同名 ping 进程冒充产品进程：静默安装必须 exit 5 且该进程仍活着。
  */
@@ -105,9 +134,9 @@ function runNoKillProbe(setup, installDir, productName, root) {
     if (dummy.exitCode !== null) fail('安装器把正在运行的应用杀掉了', root)
     console.log(`[installer-e2e] PASS 进程在跑不杀进程: exit=${r.status} ${elapsed}ms`)
   } finally {
-    dummy.kill()
-    rmSync(dummyDir, { recursive: true, force: true })
-    rmSync(installDir, { recursive: true, force: true })
+    killAndWait(dummy)
+    removeDirWithRetry(dummyDir)
+    removeDirWithRetry(installDir)
   }
 }
 
@@ -122,6 +151,13 @@ function runNoKillUninstallProbe(uninstaller, installDir, productName, stateFile
   mkdirSync(dummyDir, { recursive: true })
   copyFileSync(join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'ping.exe'), dummyExe)
 
+  // NSIS 卸载器可能在被执行后自行删除/搬走原 uninstall.exe；探针跑一份副本，
+  // 并在探针前把原文件备份到安装目录外，结束后还原，保证真正卸载仍能启动。
+  const probeUninstaller = join(installDir, 'uninstall-probe.exe')
+  const uninstallerBackup = join(root, 'uninstall-original.exe')
+  copyFileSync(uninstaller, uninstallerBackup)
+  copyFileSync(uninstaller, probeUninstaller)
+
   const dummy = spawn(dummyExe, ['-t', '127.0.0.1'], {
     windowsHide: true,
     stdio: 'ignore',
@@ -130,7 +166,7 @@ function runNoKillUninstallProbe(uninstaller, installDir, productName, stateFile
   if (dummy.exitCode !== null) fail('无法启动卸载探针进程', root)
 
   try {
-    const r = spawnSync(uninstaller, ['/S'], {
+    const r = spawnSync(probeUninstaller, ['/S'], {
       timeout: TIMEOUT_UPDATE_MS,
       windowsHide: true,
       stdio: 'ignore',
@@ -141,8 +177,18 @@ function runNoKillUninstallProbe(uninstaller, installDir, productName, stateFile
     if (!existsSync(stateFile)) fail('进程在跑时卸载器仍然继续删除了安装目录', root)
     console.log('[installer-e2e] PASS 卸载时进程在跑不杀进程且不继续删除')
   } finally {
-    dummy.kill()
-    rmSync(dummyDir, { recursive: true, force: true })
+    killAndWait(dummy)
+    removeDirWithRetry(dummyDir)
+    try {
+      rmSync(probeUninstaller, { force: true })
+    } catch {
+      // 探针副本可能仍被临时卸载进程短暂占用；最终卸载断言会暴露残留。
+    }
+    try {
+      copyFileSync(uninstallerBackup, uninstaller)
+    } catch (error) {
+      fail(`探针后无法还原 uninstall.exe：${error.message}`, root)
+    }
   }
 }
 
@@ -199,6 +245,26 @@ try {
   if (after !== before) fail('/UPDATE 后 state.json 被改写', root)
   if (existsSync(join(installDir, 'state.json.tmp'))) fail('/UPDATE 后残留 state.json.tmp', root)
 
+  // v2 标记不止 state.json：主指针被误删、但 .bak 或 launcher-version.txt 仍在时，
+  // 旧 /UPDATE 仍必须被拦截，否则会把一个还能回退的安装直接覆盖。
+  const bakFile = `${stateFile}.bak`
+  const bakBefore = readFileSync(bakFile, 'utf8')
+  rmSync(stateFile)
+  run('静默 /UPDATE（仅 .bak 标记）零弹窗', setup, ['/S', '/UPDATE', `/D=${installDir}`], TIMEOUT_UPDATE_MS, 2)
+  writeFileSync(stateFile, before, 'utf8')
+
+  rmSync(stateFile)
+  rmSync(bakFile)
+  run(
+    '静默 /UPDATE（仅 launcher-version 标记）零弹窗',
+    setup,
+    ['/S', '/UPDATE', `/D=${installDir}`],
+    TIMEOUT_UPDATE_MS,
+    2,
+  )
+  writeFileSync(stateFile, before, 'utf8')
+  writeFileSync(bakFile, bakBefore, 'utf8')
+
   if (!existsSync(uninstaller)) fail('安装目录缺少 uninstall.exe', root)
   runNoKillUninstallProbe(uninstaller, installDir, productName, stateFile, root)
   run('静默卸载', uninstaller, ['/S'], TIMEOUT_INSTALL_MS, 0)
@@ -208,11 +274,14 @@ try {
     while (Date.now() < until && existsSync(installDir)) {
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100)
     }
-    if (existsSync(installDir)) fail('卸载后安装目录仍存在', root)
+    if (existsSync(installDir)) {
+      const left = readdirSync(installDir, { withFileTypes: true }).map((d) => d.name)
+      fail(`卸载后安装目录仍存在，残留: ${left.join(', ') || '(空目录)'}`, root)
+    }
   }
 
   console.log(`[installer-e2e] OK: ${statSync(setup).size} bytes, state current=${state.current}`)
 } finally {
-  rmSync(root, { recursive: true, force: true })
+  removeDirWithRetry(root)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

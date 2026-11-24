@@ -31,7 +31,8 @@
   **同版本原地重装时保留旧 `previous`**，不会把可回退代际写成当前版本自己。
   `pending`/`updates` 属于上一轮更新事务，随显式安装重置。检测到 v2 `state.json` 时，
   安装器 `/UPDATE` 直接以退出码 2 中止（任何模式都不弹窗），防止旧更新链抹掉已暂存版本。
-  硬闸同时检查 `/D` 目标目录与注册表里的原安装目录，过期注册表不能绕过。
+  硬闸同时检查 `/D` 目标目录与注册表里的原安装目录，且不只看 `state.json`：主指针被误删后
+  `.bak` / `.tmp` / `launcher-version.txt` 任一仍在，也按 v2 安装拒绝放行，过期注册表不能绕过。
 - 安装器写 `state.json` 同样走 `.tmp` + `MoveFileEx(REPLACE_EXISTING|WRITE_THROUGH)` 原子替换，
   并在替换前把旧 state 复制为 `.bak`，不会在写失败时留下半截 JSON 或让 Launcher 回退到更早的任意备份。
 - 安装/卸载发现 Launcher、payload 或旧主程序仍在运行时，**绝不杀进程**：静默安装以退出码 5
@@ -45,10 +46,12 @@
 回归门禁：
 
 - `node scripts/desktop-nsis-template.mjs --check` 会拒绝 `/UPDATE` 硬闸里的 `MessageBox`
-  与带字符串的 `Abort`，并强制保留“`/D` 目标 + 注册表目录”双路径识别和退出码 2。
+  与带字符串的 `Abort`，并强制保留 `/D` 目标 + 注册表目录双路径的
+  `state.json` / `.bak` / `.tmp` / `launcher-version.txt` 识别和退出码 2。
 - `node scripts/check-desktop-installer-e2e.mjs --installer <setup.exe>` 做真机
-  同名进程探针（必须 exit 5 且进程仍活着）→ 安装 → 静默/非静默两次 `/UPDATE` → 卸载；
-  任何弹窗都会让子进程超时并判红，任何 KillProcess 都会让探针进程消失并判红。
+  同名进程探针（必须 exit 5 且进程仍活着）→ 安装 → 静默/非静默两次 `/UPDATE`
+  → 删掉主 state、只留 `.bak` 或只留 `launcher-version.txt` 再各跑一次 `/UPDATE`
+  → 卸载；任何弹窗都会让子进程超时并判红，任何 KillProcess 都会让探针进程消失并判红。
 
 ## 一次更新的完整时序
 
