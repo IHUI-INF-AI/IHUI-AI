@@ -1620,7 +1620,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           // 与 around 分支 afterCursor 同口径;stale 空页 turns=[] ⇒ null,交客户端整段重锚。
           prevCursor:
             result.turns.length > 0
-              ? encodeHistoryCursor({ turnOrdinal: result.turns[result.turns.length - 1].turnOrdinal })
+              ? encodeHistoryCursor({ turnOrdinal: result.turns.at(-1)!.turnOrdinal })
               : null,
           // 断点存续性(stale = 游标那一轮已被删除/压缩重编号)。服务端在 stale 时给的是
           // 空页(见 findHistoryTurnPage),客户端据此重锚而不是把两段不相邻的窗口拼起来。

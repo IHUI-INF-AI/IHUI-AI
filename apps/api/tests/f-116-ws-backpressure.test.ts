@@ -376,6 +376,36 @@ describe('F-116 ws-broadcast:超阈值跳过并如实不计入 delivered', () =>
     hz.broadcast('tick', { n: 1 })
     expect(hz.broadcast('tick', { n: 2 })).toEqual({ matched: 0, delivered: 0, gated: 0 })
   })
+
+  // 2026-11-24:notification:state 帧不重放,静默跳过 ⇒ 已读/删除翻转永久不同步。
+  // 关键帧超水位必须断连令客户端重连对账,非关键帧维持"跳过不 close"旧语义。
+  it('notification:state 超水位 ⇒ 断连 + 计数 + 摘线(令客户端重连跑 state-query)', async () => {
+    const hz = await buildBroadcastHarness()
+    const slow = await hz.connect({ bufferedAmount: OVER })
+    const before = hz.broadcast('mcp:status', { state: 'x' })
+    expect(before.delivered).toBe(0) // 普通帧跳过不 close
+    expect(slow.closeCalls).toHaveLength(0)
+
+    const r = hz.broadcast('notification:state', {
+      op: 'read',
+      ids: ['aaaaaaaa-1111-4111-8111-111111111111'],
+      changedBy: 'someone',
+      at: new Date().toISOString(),
+    })
+    expect(slow.sendCalls).toBe(0)
+    expect(slow.closeCalls).toHaveLength(1)
+    expect(slow.closeCalls[0]?.code).toBe(4002)
+    expect(r).toEqual({ matched: 0, delivered: 0, gated: 0 }) // 已摘线
+  })
+
+  it('变异锁:关键帧判定与断连码必须真在投递路径里(抹掉即红)', () => {
+    const src = readFileSync(
+      fileURLToPath(new URL('../src/plugins/ws-broadcast.ts', import.meta.url)),
+      'utf8',
+    )
+    expect(src).toContain("event === 'notification:state' && isWsBackpressured(ws)")
+    expect(src).toContain('notification:state backlog, reconnect to reconcile')
+  })
 })
 
 // ────────────────────────────── ③ ws-chat(房间) ──────────────────────────────

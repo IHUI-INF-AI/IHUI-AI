@@ -28,6 +28,10 @@ import type { NotificationStateEvent } from '@ihui/types'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
 import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
+// 广播连接重连的对账与通知重载连共用同一份:WS 帧不重放,背压跳帧丢的那几档翻转靠
+// 这次重连拉权威快照收敛(服务端在 notification:state 帧背压时会主动断连制造此边沿)。
+// 对账函数在独立模块,避免 use-websocket ↔ use-global-notification 循环 import。
+import { reconcileNotificationState } from '@/hooks/notification-state-reconcile'
 
 /** 就地改 react-query 里所有通知列表缓存的对应行;不命中不新增(它可能是本页不显示的归档行) */
 function patchNotificationListCaches(
@@ -62,6 +66,7 @@ export function useNotificationStateSync(): { connected: boolean; undetermined: 
   const qc = useQueryClient()
   const [undetermined, setUndetermined] = React.useState(0)
   const [connected, setConnected] = React.useState(false)
+  const everConnectedRef = React.useRef(false)
 
   React.useEffect(() => {
     if (!token) return
@@ -94,7 +99,16 @@ export function useNotificationStateSync(): { connected: boolean; undetermined: 
             // 静默失败:角标下次推送/重连再对齐,不把失败冒充已同步
           })
       },
-      onState: (state) => setConnected(state === 'open'),
+      onState: (state) => {
+        const open = state === 'open'
+        const reconnect = open && everConnectedRef.current
+        everConnectedRef.current = everConnectedRef.current || open
+        setConnected(open)
+        // 仅重连边沿触发权威对账:服务端背压跳过 notification:state 帧时会断此连接,
+        // 重连后拉 state-query 把丢的翻转补回来。首连不拉(由通知重载连负责),幂等。
+        if (!reconnect) return
+        void reconcileNotificationState(() => cancelled)
+      },
       onUndetermined: () => setUndetermined((n) => n + 1),
     })
     return () => {

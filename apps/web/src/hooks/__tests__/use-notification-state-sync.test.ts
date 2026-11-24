@@ -27,6 +27,7 @@ const h = vi.hoisted(() => ({
   restoreByIds: vi.fn(),
   deleteByIds: vi.fn(),
   setUnreadCounts: vi.fn(),
+  reconcileNotificationState: vi.fn(async () => undefined),
   hasToken: true,
 }))
 
@@ -53,6 +54,9 @@ vi.mock('@/stores/notification', () => {
   }
 })
 vi.mock('@/lib/api-base-url', () => ({ resolveWsApiBaseUrl: () => 'ws://test' }))
+vi.mock('@/hooks/notification-state-reconcile', () => ({
+  reconcileNotificationState: h.reconcileNotificationState,
+}))
 
 import { useNotificationStateSync } from '../use-notification-state-sync'
 
@@ -71,6 +75,13 @@ function fireStateFrame(evt: {
   const handlers = h.subscribeUserBroadcast.mock.calls[0]?.[1] as
     { 'notification:state'?: (e: { data: typeof evt }) => void } | undefined
   handlers?.['notification:state']?.({ data: evt })
+}
+
+/** 从订阅 handlers 取 onState,驱动广播连接状态机 */
+function fireConnectionState(state: 'idle' | 'connecting' | 'open' | 'closed'): void {
+  const handlers = h.subscribeUserBroadcast.mock.calls[0]?.[1] as
+    { onState?: (s: string) => void } | undefined
+  handlers?.onState?.(state)
 }
 
 const FRAME = {
@@ -144,6 +155,21 @@ describe('useNotificationStateSync — 安装与分派', () => {
     expect(h.close).toHaveBeenCalledTimes(1)
     fireStateFrame({ ...FRAME, op: 'read' })
     expect(h.markAsReadByIds).not.toHaveBeenCalled()
+  })
+
+  // 2026-11-24:广播连接背压跳帧时服务端主动断连 ⇒ 重连边沿必须拉权威快照收敛。
+  it('广播首连不对账(与全仓首连不补一致)', () => {
+    renderHook(() => useNotificationStateSync(), { wrapper })
+    fireConnectionState('open')
+    expect(h.reconcileNotificationState).not.toHaveBeenCalled()
+  })
+
+  it('广播重连 ⇒ 触发权威对账(背压跳帧丢的翻转靠 state-query 收敛)', () => {
+    renderHook(() => useNotificationStateSync(), { wrapper })
+    fireConnectionState('open')
+    fireConnectionState('closed')
+    fireConnectionState('open')
+    expect(h.reconcileNotificationState).toHaveBeenCalledTimes(1)
   })
 
   it('变异锁:按 op 分派+角标服务端真相都真接线(抹掉即红)', () => {

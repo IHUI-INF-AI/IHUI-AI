@@ -27,6 +27,8 @@ const h = vi.hoisted(() => ({
   restoreByIds: vi.fn(),
   deleteByIds: vi.fn(),
   ws: { lastMessage: null as unknown, connected: false },
+  // 权威快照拿本地已知 ids;分片用例直接替换这个数组(>500 条)
+  notifications: [{ id: 'n-missed' }] as Array<{ id: string }>,
 }))
 
 vi.mock('@ihui/api-client', () => ({
@@ -55,8 +57,11 @@ vi.mock('@/stores/notification', () => {
     archiveByIds: h.archiveByIds,
     restoreByIds: h.restoreByIds,
     deleteByIds: h.deleteByIds,
-    // 权威快照拿本地已知 ids;测试里 hydrating 的条目由这里给出
-    notifications: [{ id: 'n-missed' }] as Array<{ id: string }>,
+    // 权威快照拿本地已知 ids;测试里 hydrating 的条目由这里给出。
+    // 用 h 持有的可写数组,便于 >500 分片用例动态塞 ids(默认仍是单条)。
+    get notifications() {
+      return h.notifications
+    },
   }
   return {
     useNotificationStore: Object.assign((sel: (s: typeof state) => unknown) => sel(state), {
@@ -92,6 +97,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   h.ws.connected = false
   h.ws.lastMessage = null
+  h.notifications = [{ id: 'n-missed' }]
   h.getNotifications.mockResolvedValue(okList([]))
   h.getUnreadCount.mockResolvedValue(okCount())
   h.queryNotificationStates.mockResolvedValue({
@@ -305,6 +311,71 @@ describe('useGlobalNotification — 重连补增量', () => {
     expect(h.markAsReadByIds).not.toHaveBeenCalled()
     expect(h.archiveByIds).not.toHaveBeenCalled()
     expect(h.deleteByIds).not.toHaveBeenCalled()
+  })
+
+  // ==================== 2026-11-24:state-query 500 上限真闭合(分片循环) ====================
+  it('本地 1200 ids ⇒ 分 3 片查询,每片 500/500/200,末片翻转也 apply', async () => {
+    const all = Array.from({ length: 1200 }, (_, i) => `n-${i}`)
+    h.notifications = all.map((id) => ({ id }))
+    // 第 501 条(n-500,在第二片)与第 1200 条(n-1199,在第三片)断线期被标已读
+    h.queryNotificationStates.mockImplementation((ids: string[]) =>
+      Promise.resolve({
+        success: true,
+        data: {
+          readIds: ids.filter((id) => id === 'n-500' || id === 'n-1199'),
+          archivedIds: [],
+          deletedIds: [],
+        },
+      }),
+    )
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.queryNotificationStates).toHaveBeenCalledTimes(3))
+    const chunks = h.queryNotificationStates.mock.calls.map((c: unknown[]) => c[0] as string[])
+    expect(chunks.map((c) => c.length)).toEqual([500, 500, 200])
+    expect(chunks[0]?.[0]).toBe('n-0')
+    expect(chunks[1]?.[0]).toBe('n-500')
+    expect(chunks[2]?.[0]).toBe('n-1000')
+    // 两片各自的翻转合并后一次性 apply(此前只查前 500,n-1199 永久拿不到)
+    expect(h.markAsReadByIds).toHaveBeenCalledWith(['n-500', 'n-1199'])
+  })
+
+  it('任一分片失败 ⇒ 整批不 apply(不留半批状态),下次重连重来', async () => {
+    const all = Array.from({ length: 1200 }, (_, i) => `n-${i}`)
+    h.notifications = all.map((id) => ({ id }))
+    h.queryNotificationStates
+      .mockResolvedValueOnce({
+        success: true,
+        data: { readIds: ['n-0'], archivedIds: [], deletedIds: [] },
+      })
+      .mockRejectedValueOnce(new Error('offline on chunk 2'))
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.queryNotificationStates).toHaveBeenCalledTimes(2))
+    // 第一片拿到 n-0 但因第二片失败整批丢弃,不 apply 半批
+    expect(h.markAsReadByIds).not.toHaveBeenCalled()
+  })
+
+  it('变异锁:对账必须分片循环(单 slice(0, LIMIT) 即红)', () => {
+    // 对账逻辑在独立模块 notification-state-reconcile.ts(切断循环 import)
+    const src = readFileSync(resolve(__dirname, '../notification-state-reconcile.ts'), 'utf8')
+    expect(src).toContain('offset += STATE_QUERY_LIMIT')
+    expect(src).toContain('merged.readIds.push')
+    const singleShot = 'getIds().slice(0, STATE_QUERY_LIMIT)'
+    expect(src).not.toContain(singleShot)
+    // 两个 hook 都必须真接这个对账出口(广播重连是背压跳帧的收敛路径)
+    const stateSync = readFileSync(resolve(__dirname, '../use-notification-state-sync.ts'), 'utf8')
+    expect(stateSync).toContain('void reconcileNotificationState(() => cancelled)')
   })
 
   it('首连不对账(只重连边沿;与补增量同一条纪律)', async () => {

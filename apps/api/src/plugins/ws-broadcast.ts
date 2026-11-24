@@ -24,7 +24,11 @@ import fp from 'fastify-plugin'
 import IORedis, { type Redis } from 'ioredis'
 import { wsAuth, WS_CLOSE, WsUserConnectionLimiter } from './ws-helpers.js'
 // F-116:背压闸与写失败感知是唯一单点(阈值 1MB 只在该文件出现一次)
-import { createBackpressureSkipLedger, sendWithBackpressure } from './ws-backpressure.js'
+import {
+  createBackpressureSkipLedger,
+  isWsBackpressured,
+  sendWithBackpressure,
+} from './ws-backpressure.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { config } from '../config/index.js'
 import { allocateChatSyncRev, readChatSyncRev } from '../db/chat-sync-rev-queries.js'
@@ -381,6 +385,26 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
       }
       // F-116:超水位 ⇒ 跳过本帧并保留连接(通知可重拉、房间有回放缓冲);
       // delivered 由真实 send 结论派生,不把"跳过"算成送达。
+      // 2026-11-24 例外:`notification:state` 是权威状态翻转帧(六档),帧不重放,
+      // 客户端对"没收到"无感(onUndetermined 只认收到但认不出的帧)⇒ 静默跳过会让
+      // 已读/归档/删除翻转在该连接上永久不同步。故这类关键帧超水位时主动 close
+      // 制造 onclose → 客户端重连 → POST /notifications/state-query 权威对账收敛。
+      // 不改通用背压阈值,也不绕过水位强发(那会重新打开无界写队列)。
+      if (event === 'notification:state' && isWsBackpressured(ws)) {
+        try {
+          ws.close(4002, 'notification:state backlog, reconnect to reconcile')
+        } catch {
+          // 关闭本身失败也走摘线,不让它中断对其余连接的投递
+        }
+        noteDropped()
+        if (backpressureSkips.record()) {
+          server.log.warn(
+            { userId, skippedFramesTotal: backpressureSkips.total() },
+            'ws-broadcast notification:state 写队列超阈值,已断连令客户端重连对账(首次或超 60s 复读)',
+          )
+        }
+        continue
+      }
       const outcome = sendWithBackpressure(ws, msg, noteDropped)
       if (outcome === 'skipped') {
         if (backpressureSkips.record()) {

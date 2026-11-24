@@ -231,7 +231,12 @@ resync 的客户端契约(2026-10-26,纯函数,不接网络/UI):
    `planChatSyncReconnectNewMessages` 集合差出本地完全未知的新消息 id,一并喂既有
    `resyncChatSyncGaps`(仍由 `mergeChatSyncResyncSnapshot` 唯一裁定内容/rev/终态)。
    首连不补、切会话复位水位、stale 整段重锚;无水位/请求失败静默降级到①,不冒充已对齐。
-   边界:单次增量上限 100 turn,且 history 增量只取 `turnOrdinal IS NOT NULL` 的行。
+   边界:单次 history 请求上限 100 turn,但 2026-11-24 已改为按服务端 `prevCursor`
+   翻页循环(一次重连最多 10 页=1000 turn)累积 ids 一次交 planner;此前只取一页就把
+   水位推到页尾 ⇒ 断线期 >100 turn 的新消息永久漏。水位推进改到 resync 真成功之后
+   (`failed===0`),失败保留旧水位下轮幂等重取;首连锚点失败时重连懒重试,不再冻结
+   整会话。仍只取 `turnOrdinal IS NOT NULL` 的行(写入侧已全部经 withTurnOrdinals /
+   触发器补号,`ai-user-model-chat` 直插点 2026-11-24 亦已补,静态判据钉死)。
    通知侧对偶能力(2026-11-24):`useGlobalNotification` 从真实落库 WS 帧取服务端
    `(id,createdAt)` 水位,重连走 REST `sinceCreatedAt/sinceId` 复合 keyset
    (`created_at > ? OR (created_at = ? AND id > ?)`,双列同序),按页滚动直到水位对齐,
@@ -248,8 +253,20 @@ resync 的客户端契约(2026-10-26,纯函数,不接网络/UI):
    **删除翻转(2026-11-24 第二切片)**:DELETE 两路由落库后发 delete/delete-all 帧
    (delete-all 带清空前落库确切 ids,0 条不发),快照端增返回 `deletedIds` =
    本地已知但本人库已查不到者,web 据此按确切 ids 移除,闭合"已删通知永久残留"。
-   仍不覆盖:非 web 端(mobile/extension)的消费、状态帧本端背压跳帧(由重连快照
-   最终收敛)、单次快照 500 上限。零 DB migration。
+   **2026-11-24 第二切片后的再闭合**:① `state-query` 单次 500 上限不再丢翻转 ——
+   客户端按 500 分片循环查完、合并后一次性 apply,任一分片失败整批不写;此前只查
+   前 500 且本地通知不持久化 ⇒ 第 501+ 条翻转永久拿不到。对账逻辑抽到独立模块
+   `notification-state-reconcile.ts`(避免 use-websocket ↔ use-global-notification 循环
+   import),通知重载连与广播重连共用。② 背压跳帧不再静默 —— 服务端对
+   `notification:state` 帧超水位时主动断连(4002)制造 onclose,广播连接重连边沿触发
+   权威对账收敛;此前慢消费者被跳过该帧且不会 close,翻转在该连接上永久不同步。
+   对账出口仍是 DB 当前值(state-query),事件不重放的本质未变。
+   仍不覆盖:① 非 web 端(mobile/extension)消费 `notification:state` —— RN 广播连接
+   确会收到帧但端内无 handler(静默丢弃),其通知列表靠进页 REST 全量重拉对齐、常驻
+   铃铛角标不随远端翻转更新;extension 无广播出口(MV3 长连不可靠)只做 REST 拉取。
+   二者要接需设备级 vanilla store + Provider 桥接(shared store 是 React Context,
+   模块级 handler 拿不到 setState),属跨层重构,本轮不硬凑。② 通知回填单轮 10 页
+   触顶:水位推到已读位置、下次重连继续(多次收敛,非永久漏)。零 DB migration。
    **仍余 ②(验证面)**:微信开发者工具 / Android 模拟器本机不具备(AGENTS §17),
    端侧回归均为 node(jsdom) 下同一条接线,不冒充真机观感。
    **CLI 平台独占豁免**(§9):主 REPL 会话存 `~/.ihui/sessions/*.json`,与后端
