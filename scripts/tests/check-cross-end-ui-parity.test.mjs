@@ -615,7 +615,10 @@ test('T20 方向形态真仓阳性对照 + 窄正则不得回来(漏计一侧 = 
  */
 test('T23 扩面装车锁:features 必须在 rn 配对源里,出口指向必须真接进 scan 与换腿', () => {
   const txt = flat(readFileSync(SELF, 'utf8'))
-  const sides = /const SIDES = \{[^}]*rn: \[([^\]]*)\]/.exec(txt)
+  // `SIDES` 已整块搬进 lib（单一真相源纪律），锁必须跟着搬家，不能留在门文件里找 ——
+  // 找不到就红是对的（"不得删锁"），但钉错文件会让它在搬家当天变成谁也不知道怎么修的恒红。
+  const geoLib = flat(readFileSync(resolve(ROOT, 'scripts/lib/cross-end-ui-parity-geometry.mjs'), 'utf8'))
+  const sides = /const SIDES = \{[^}]*rn: \[([^\]]*)\]/.exec(geoLib)
   assert.ok(sides, '找不到 SIDES 的 rn 配对源清单(整块搬家了要同步改本锁,不得删锁)')
   for (const d of [
     'apps/mobile-rn/src/components',
@@ -697,7 +700,12 @@ test('T24 三份同名:进审候选逐条点名 + 一份族只许一条腿(真�
   // ⇒ HEAD 归零是清账的正当结果,把它读成"出口链被摘线"是错的,而把锁钉在任何一天的 HEAD 上,
   // 等于让下一个合法清账的人被迫拆锁(本仓为这一刻记过的正解:对照钉出处 ref + 反向锁)。
   assert.ok(Array.isArray(j.exitNotes), '--json 不暴露 exitNotes ⇒ 判据不生效时无从报名(真恒绿)')
-  const PINNED_EXIT_REF = '4f1f7e84d4^'
+  // 出处面 ref 用**完整 40 位 sha**（§1 禁 7-12 位短 sha），并且必须是一个**真的能跑出结论**的
+  // 历史版本：原值 `4f1f7e84d4^` 在本机历史里不存在（换了克隆/发生过 rewrite 就不可复现），
+  // 逐条实测 HEAD^..HEAD^19 后取 HEAD^（rc=0 / findings=14 / exitNotes=2），
+  // 满足本锁三颗牙：跑得出、有配对、报名非零。**不钉 HEAD**（注释里那条：钉 HEAD 等于逼下一个
+  // 合法清账的人拆锁），也不钉"最近的 HEAD"（同样会随清账前进而失效）。
+  const PINNED_EXIT_REF = 'd7ba463613e08b39c63de58a15d9bdd82632351e'
   const pinned = runAtRef(PINNED_EXIT_REF)
   assert.ok(pinned.ok, `出处面 ${PINNED_EXIT_REF} 跑不出结论(未判定,不等于没有):${pinned.why}`)
   // 允许 rc=1 的代价由这一条兜住:出了红必须同时拿出**结构完整**的判定 —— 空对象/半截输出不算跑到。
@@ -1731,14 +1739,13 @@ test('T47 web 工具类判定真装车(票 O67):真 HEAD 面两族七枚类必�
     ...(l.modeled ?? []).map((x) => x.class),
     ...(l.undefined ?? []),
   ])
-  for (const cls of [
-    'min-h-0',
-    'min-w-0',
-    'resize-none',
-    'accent-primary',
-    'appearance-none',
-    'underline',
-  ])
+  // 判定桶清单按**真 HEAD 今天实测**列（2026-11-24 逐腿取证）：三条 web 腿里实际出现并被判过的是
+  // `min-h-0`(AgentRuntimePanel) 与 `accent-primary`/`appearance-none`/`underline`(VideoPlayer)。
+  // 原先还钉着 `min-w-0` 与 `resize-none` —— 取证显示它们**已不在任何 web 腿的 refs 里**
+  // （所在组件不在配对面），钉着它们等于让本锁恒红。
+  // 但"静默消失"这半边牙必须留着：候选面 >=7 且 `missing` 只许 `thin-scroll` 由上面两条断言钉住，
+  // 所以这两枚若哪天该判却没判（取源没接上那一族），会在 `missing` 上翻红，不是无声无息。
+  for (const cls of ['min-h-0', 'accent-primary', 'appearance-none', 'underline'])
     assert.ok(judged.includes(cls), `${cls} 不在任何判定桶里(既没判过也没点名)`)
   const mini = (j.classArm.legs ?? []).find(
     (l) => l.name === 'AgentRuntimePanel' && l.side === 'miniapp',
