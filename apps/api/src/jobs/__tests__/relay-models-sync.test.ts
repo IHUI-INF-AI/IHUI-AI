@@ -85,6 +85,8 @@ import {
   runRelayModelsSyncLoop,
   startRelayModelsSyncScheduler,
   stopRelayModelsSyncScheduler,
+  resolveModelSyncCron,
+  DEFAULT_MODEL_SYNC_CRON,
 } from '../relay-models-sync.js'
 
 afterEach(() => {
@@ -283,11 +285,33 @@ describe('调度器 — cron 形态 + 成对 start/stop', () => {
     mockSchedule.mockReturnValue({ stop: mockStop })
   })
 
-  it('start 注册每 6 小时(50 */6 * * *)Asia/Shanghai 的一枚 cron', () => {
-    startRelayModelsSyncScheduler()
-    expect(mockSchedule).toHaveBeenCalledTimes(1)
-    expect(mockSchedule.mock.calls[0]![0]).toBe('50 */6 * * *')
-    expect(mockSchedule.mock.calls[0]![2]).toEqual({ timezone: 'Asia/Shanghai' })
+  it('start 注册默认 15 分钟(单源 DEFAULT_MODEL_SYNC_CRON)Asia/Shanghai 的一枚 cron', () => {
+    const prev = process.env.RELAY_MODEL_SYNC_CRON
+    delete process.env.RELAY_MODEL_SYNC_CRON
+    try {
+      startRelayModelsSyncScheduler()
+      expect(mockSchedule).toHaveBeenCalledTimes(1)
+      expect(mockSchedule.mock.calls[0]![0]).toBe('*/15 * * * *')
+      expect(mockSchedule.mock.calls[0]![0]).toBe(DEFAULT_MODEL_SYNC_CRON)
+      expect(mockSchedule.mock.calls[0]![2]).toEqual({ timezone: 'Asia/Shanghai' })
+    } finally {
+      if (prev !== undefined) process.env.RELAY_MODEL_SYNC_CRON = prev
+    }
+  })
+
+  it('RELAY_MODEL_SYNC_CRON 覆盖周期;空串/纯空白回落默认(止血覆盖不写成空 cron)', () => {
+    expect(resolveModelSyncCron({ RELAY_MODEL_SYNC_CRON: '5 */2 * * *' })).toBe('5 */2 * * *')
+    expect(resolveModelSyncCron({ RELAY_MODEL_SYNC_CRON: '   ' })).toBe(DEFAULT_MODEL_SYNC_CRON)
+    expect(resolveModelSyncCron({})).toBe(DEFAULT_MODEL_SYNC_CRON)
+    const prev = process.env.RELAY_MODEL_SYNC_CRON
+    process.env.RELAY_MODEL_SYNC_CRON = '2 */3 * * *'
+    try {
+      startRelayModelsSyncScheduler()
+      expect(mockSchedule.mock.calls[0]![0]).toBe('2 */3 * * *')
+    } finally {
+      if (prev === undefined) delete process.env.RELAY_MODEL_SYNC_CRON
+      else process.env.RELAY_MODEL_SYNC_CRON = prev
+    }
   })
 
   it('ENABLE_RELAY_MODEL_SYNC=false 时 start 不注册任何 cron', () => {

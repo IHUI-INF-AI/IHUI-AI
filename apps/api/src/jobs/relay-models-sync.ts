@@ -23,8 +23,10 @@
  *   故为缺行平台自动建父表行时,base_url 仅是满足 NOT NULL 的登记字段(填各平台对话端点常量),
  *   不影响真实转发 —— 登记后既能显示也能真正对话。
  *
- * 调度:每 6 小时(时=50分,错峰于 discovery 的整点批与 trae 的 :30),由 index.ts 注册;
- *   ENABLE_RELAY_MODEL_SYNC=false 禁用;RELAY_MODEL_SYNC_PROVIDERS 覆盖平台列表(逗号分隔)。
+ * 调度:每 15 分钟(准实时上架,上游上新/下架最多等 15 分钟即落地 —— 机主 2026-11-24 定档
+ *   「各平台一有更新就第一时间抓取」);运维止血可用 RELAY_MODEL_SYNC_CRON 覆盖周期表达式;
+ *   由 index.ts 注册;ENABLE_RELAY_MODEL_SYNC=false 禁用;
+ *   RELAY_MODEL_SYNC_PROVIDERS 覆盖平台列表(逗号分隔)。
  */
 
 import cron, { type ScheduledTask } from 'node-cron'
@@ -413,14 +415,27 @@ import { isNull } from 'drizzle-orm'
 
 let scheduledTask: ScheduledTask | null = null
 
+/**
+ * 默认 15 分钟一轮(机主 2026-11-24「各平台一有更新就第一时间抓取」定档)。
+ * 抽取成单源导出:启动日志与测试都读它,杜绝日志写一个周期、实际注册另一个(§0.6)。
+ * RELAY_MODEL_SYNC_CRON 仅作运维止血覆盖(如上游限流时临时降频),空串/纯空白按缺省处理。
+ */
+export const DEFAULT_MODEL_SYNC_CRON = '*/15 * * * *'
+
+export function resolveModelSyncCron(env: NodeJS.ProcessEnv = process.env): string {
+  const override = String(env.RELAY_MODEL_SYNC_CRON ?? '').trim()
+  return override || DEFAULT_MODEL_SYNC_CRON
+}
+
 export function startRelayModelsSyncScheduler(): void {
   if (scheduledTask) return
   if (process.env.ENABLE_RELAY_MODEL_SYNC === 'false') {
     logger.info('[relay-models-sync] disabled by ENABLE_RELAY_MODEL_SYNC=false')
     return
   }
+  const pattern = resolveModelSyncCron()
   scheduledTask = cron.schedule(
-    '50 */6 * * *',
+    pattern,
     async () => {
       try {
         const r = await runRelayModelsSyncLoop()
@@ -438,7 +453,7 @@ export function startRelayModelsSyncScheduler(): void {
     },
     { timezone: 'Asia/Shanghai' },
   )
-  logger.info('[relay-models-sync] scheduler started (cron: "50 */6 * * *" Asia/Shanghai)')
+  logger.info(`[relay-models-sync] scheduler started (cron: "${pattern}" Asia/Shanghai)`)
 }
 
 export function stopRelayModelsSyncScheduler(): void {
