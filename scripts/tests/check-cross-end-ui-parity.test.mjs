@@ -700,12 +700,31 @@ test('T24 三份同名:进审候选逐条点名 + 一份族只许一条腿(真�
   // ⇒ HEAD 归零是清账的正当结果,把它读成"出口链被摘线"是错的,而把锁钉在任何一天的 HEAD 上,
   // 等于让下一个合法清账的人被迫拆锁(本仓为这一刻记过的正解:对照钉出处 ref + 反向锁)。
   assert.ok(Array.isArray(j.exitNotes), '--json 不暴露 exitNotes ⇒ 判据不生效时无从报名(真恒绿)')
-  // 出处面 ref 用**完整 40 位 sha**（§1 禁 7-12 位短 sha），并且必须是一个**真的能跑出结论**的
-  // 历史版本：原值 `4f1f7e84d4^` 在本机历史里不存在（换了克隆/发生过 rewrite 就不可复现），
-  // 逐条实测 HEAD^..HEAD^19 后取 HEAD^（rc=0 / findings=14 / exitNotes=2），
-  // 满足本锁三颗牙：跑得出、有配对、报名非零。**不钉 HEAD**（注释里那条：钉 HEAD 等于逼下一个
-  // 合法清账的人拆锁），也不钉"最近的 HEAD"（同样会随清账前进而失效）。
-  const PINNED_EXIT_REF = 'd7ba463613e08b39c63de58a15d9bdd82632351e'
+  // 出处面 ref **动态探**（2026-11-24 定形）：原值 `4f1f7e84d4^` 本机不存在 ⇒ 死锚；
+  // 换成固定 sha 后又发现它会随**门体改动**失效（`runAtRef` 用当前门判历史树，
+  // 门一改口径，那棵老树就跑不出结论）—— 固定 sha 在这里是把脆弱性钉进测试。
+  // 探测规则（三颗牙一个不减）：从 `HEAD^` 起沿祖先最多探 9 个，取第一个
+  // 「rc=0 ∧ findings 非空 ∧ exitNotes 非空」的提交；一个都探不到 ⇒ 红（不是绿）。
+  // 排除 HEAD 自身，是因为注释里那条：钉 HEAD 等于逼下一个合法清账的人拆锁。
+  const PINNED_EXIT_REF = (() => {
+    const list = git(['rev-list', '--max-count=9', 'HEAD^']).stdout.trim().split('\n').filter(Boolean)
+    for (const ref of list) {
+      const r = runAtRef(ref)
+      if (
+        r.ok &&
+        Array.isArray(r.json?.findings) &&
+        r.json.findings.length > 0 &&
+        Array.isArray(r.json?.exitNotes) &&
+        r.json.exitNotes.length > 0
+      )
+        return ref
+    }
+    return null
+  })()
+  assert.ok(
+    PINNED_EXIT_REF,
+    '沿 HEAD^ 前 9 个祖先都探不到「跑得出结论且有报名」的出处面 ⇒ 出口链判据可能被摘线',
+  )
   const pinned = runAtRef(PINNED_EXIT_REF)
   assert.ok(pinned.ok, `出处面 ${PINNED_EXIT_REF} 跑不出结论(未判定,不等于没有):${pinned.why}`)
   // 允许 rc=1 的代价由这一条兜住:出了红必须同时拿出**结构完整**的判定 —— 空对象/半截输出不算跑到。
