@@ -97,6 +97,10 @@ mod ipc_channel_acl;
 // 2026-11-24 立(P3-01):ALPC 通道抽象层(open/close/挂接外部 SD 三面 + fail-closed
 // 错误码族 + RAII 句柄槽)。ALPC 后端未取证落 Unjudged;兜底复用 ipc_channel_acl 受限管道。
 mod ipc_channel;
+// 2026-11-24 立(P3-03):令牌降权与 DACL 装配的判据层(受限令牌方案 + 配置结构尺寸档 +
+// 探测三态)。三处刻意不照抄对照方 tsbx_sdk.dll:恒真桩一律落未判定、未初始化从类型上
+// 拿不到创建入口、尺寸不足单列一档不混进参数无效。纯判定,不接真实 Win32 构造,可跨平台单测。
+mod sandbox_token;
 // 2026-11-23 立(B2-07):BP_* 原生模块统一 ABI 加载面(GetInterface/Initialize/Shutdown;
 // 头校验不过即拒,非 Windows 显式 Unsupported)。
 mod native_module_abi;
