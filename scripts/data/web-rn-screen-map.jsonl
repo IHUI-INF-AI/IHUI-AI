@@ -508,3 +508,4 @@
 {"web":"settings/tenant-apps","status":"gap","note":"2026-11-23 新增：企业应用凭据是租户管理员在 Web 后台配置的页面（/settings/tenant-apps），移动端登录成员不承载该管理面；gap 记录待后续按需补 RN 管理页。","at":"2026-11-23"}
 {"web":"hr/my-perf","status":"gap","note":"2026-11-24 判过：员工绩效自助页(/hr/my-perf，提交 6241328b，为员工自评/确认/申诉管理面；RN 侧无对应屏(现读 HrAttendanceScreen 仅考勤)，同族 HR 自助页(my-payroll/attendance/leave)按设计走 WebView 门户，本页暂未进门户表、原生零承载 ⇒ 记 gap，不冒充 aligned/portal。","at":"2026-11-24"}
 {"web":"hr/my-training","status":"gap","note":"2026-11-24 判过：我的培训页(/hr/my-training，提交 6241328b)为员工培训记录管理面；RN 侧无对应屏(现读无 Training 相关屏)，同族 HR 自助页按设计走 WebView 门户，本页暂未进门户表、原生零承载 ⇒ 记 gap，不冒充 aligned/portal。","at":"2026-11-24"}
+{"web":"hr/my-expense","status":"gap","note":"2026-11-24 判过：员工报销自助页(/hr/my-expense，十一波新建，提单/票据上传/我的单据进度)；RN 侧无对应屏(现读无 Expense 相关屏)，同族 HR 自助页按设计走 WebView 门户，本页暂未进门户表、原生零承载 ⇒ 记 gap，不冒充 aligned/portal。","at":"2026-11-24"}

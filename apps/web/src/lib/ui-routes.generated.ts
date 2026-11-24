@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: b1c4dc3f835c68cdb5295de6f2f290ec40792866
-// inputsSha256: c062cb6fa56461b470507627f8214e7d0f367996773c81cad2dada244bb9c4c7
+// sourceCommit: 6d46eca1e8a7b91a19dcf9483a049b26ebcc5417
+// inputsSha256: b5936b710894aac6500fbc4dd42308cf67611fe3eb308595d748c9fe253c9936
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -172,7 +172,7 @@
 // input: apps/web/app/(main)/admin/exam/records/page.tsx 66edcb2907e55a9a47d1d60a878233400949c085414f803b81c61bf99098e66b
 // input: apps/web/app/(main)/admin/exchange-rates/page.tsx 339b2cec9cbd529976487ed01b76538f4db15e030a87d0d0c22e46e76021b852
 // input: apps/web/app/(main)/admin/feedbacks/page.tsx 0b8f7f587d4aa6002725aacf6ef4e4daf723e5925ff9238a9d09c85822b7d98d
-// input: apps/web/app/(main)/admin/fin-accounting/page.tsx 5ece833e7b0abc1bfa5145bf5ef5005b3dfe5bfc4795aedd0a8c94c5269412f1
+// input: apps/web/app/(main)/admin/fin-accounting/page.tsx 56873cdccc37983b97691cbe0db48d91f422575b9a50c2edef0f11b843368374
 // input: apps/web/app/(main)/admin/finance-ai/page.tsx 920740d045831ad8cfe97162ef3b0636a52bababfb24d40fcf30c7b75115a31d
 // input: apps/web/app/(main)/admin/github-app/page.tsx d39fce19cc0f920f2ff0b342e5bd5427c08849e625d83164d02f6f17424c83d9
 // input: apps/web/app/(main)/admin/gray-release/page.tsx 9c5c20a621aeacf9952fb5a13794b28d5242cec27ca696ddaef205b212708429
@@ -181,7 +181,7 @@
 // input: apps/web/app/(main)/admin/hr-approval/page.tsx 76e508ab6ec7d3370fb41eb5a3b5d105f1e31d56266574b834a4d31b687aaf46
 // input: apps/web/app/(main)/admin/hr-attendance/page.tsx 528e5df162b97390825fef0107701a0cc3abaedd0ea236df20b33ea185c26d66
 // input: apps/web/app/(main)/admin/hr-data/page.tsx 9a7e33cbbf1eaa69262eadb8f23cbd3b769360601e03fca7a3904a8dd050f1bf
-// input: apps/web/app/(main)/admin/hr-lifecycle/page.tsx 8e3a057e37ca73fd353582bf61452aa35c2885bafc3f0ae4b853c3a3ce2ac83a
+// input: apps/web/app/(main)/admin/hr-lifecycle/page.tsx 9d364344cf07949a619f119e0aea37649f23bc4a2e6297b7fcf82f1c5a8afef1
 // input: apps/web/app/(main)/admin/i18n-dashboard/compare/page.tsx 1f05c1624441780b1d6c27c6e372361fa267e4e05f612352d42ca3f4b1433b75
 // input: apps/web/app/(main)/admin/i18n-dashboard/missing/page.tsx 0ca10935aab8fee788bd1ee4d7eba0a6b17b6e4ed0b9420fc5b828775f2beb7d
 // input: apps/web/app/(main)/admin/i18n-dashboard/page.tsx e3b10d41c8ad7cc21f4b6c86e7604e24d82e04126c1ac0a6b63e795955ce9f6a
@@ -648,8 +648,11 @@
 // input: apps/web/app/(main)/home/page.tsx c363a3b298783696813c1ff6c01ea43d10ac6a57a18ffeb7a2aabf1356e1c93a
 // input: apps/web/app/(main)/hooks/page.tsx c7aed66054b4f50815c7b49434e711bb1b5049c02878b5f1521d6499f663936e
 // input: apps/web/app/(main)/hr/my-attendance/page.tsx 078cf13031d8e1b08e480852f6146b37f996cd96c31b43018c35263c304c0b81
+// input: apps/web/app/(main)/hr/my-expense/page.tsx 62f7b44e803132015ce15693ee87ded35031d602d13b3600b23ee1c1f462d3d9
 // input: apps/web/app/(main)/hr/my-leave/page.tsx ead3570c84df1dd1a3c91e37503ec1393f4db8b05b51e3128a14c1c04216cc9f
 // input: apps/web/app/(main)/hr/my-payroll/page.tsx 753d8c8743503fec6ac84cfb061c528dea8c1967968d0fd301efe0000d5bb21c
+// input: apps/web/app/(main)/hr/my-perf/page.tsx 7d13b6890379b7c28c3c93bcabc9e6f6874064e67cb4f3e7f48b463dfb07ef59
+// input: apps/web/app/(main)/hr/my-training/page.tsx 84559bfb8e78208c7fb47fbddb99b903e002c287004a881e07c98aac2bb6f898
 // input: apps/web/app/(main)/image-gen/favorites/page.tsx 5cdc64e17969f50a89d42e1d7763821495d6e7fa14e850d6f07471ea531184ad
 // input: apps/web/app/(main)/image-gen/gallery/page.tsx 8ff24c38e1380167be980f28ba55573d4454874ecd03e5042036d68148b9b1e7
 // input: apps/web/app/(main)/image-gen/history/page.tsx e15ad1851aad0ab2a2ca45ee43e590aa00a60e546c3ef2b09d2efbdbb885870a
@@ -829,11 +832,11 @@
 // input: apps/web/app/(main)/settings/login-security/page.tsx 41e5976d01b3698a8cd1c9cc0eb42166a4a7df4a320e9f1a2c8097f5b57b80ce
 // input: apps/web/app/(main)/settings/model-record/page.tsx 61e8dab86044ed61293eef313452347a997f01e03fe21b8096362f3e26b5f968
 // input: apps/web/app/(main)/settings/notifications/page.tsx 6826a6d875187dffee897338224cc5c6b5d3169fad791d886c33a00cfd223c3a
-// input: apps/web/app/(main)/settings/page.tsx 3335e5c13a6627ba56ea40918484a76f32c7e76d6d72edf8475825941d64b0c3
+// input: apps/web/app/(main)/settings/page.tsx 2cc8bcc0374a8910620471762a40786fe2d4d51fe02b51a5226744069d3b83df
 // input: apps/web/app/(main)/settings/preferences/page.tsx 230d6d9666fb009f00cc32a5a06d1c95b25c160daccc5d82a5cdb114c2982fcf
 // input: apps/web/app/(main)/settings/privacy/page.tsx b33ffed42f185de95451eea3c278001eeff720cfe99143f2d2a42345649699d6
 // input: apps/web/app/(main)/settings/security-log/page.tsx 46a448161593748b49328a8d778c8dc035384da1f4692ee69fb1099b239388c3
-// input: apps/web/app/(main)/settings/tenant-apps/page.tsx 070be5383b163242005abba842dbd6e1b159c3b40a204288a05a7c44dac91d7c
+// input: apps/web/app/(main)/settings/tenant-apps/page.tsx 23fcec88c27319829b3194970046b8e353395f6eabb1a0d6b2580a1c726cf51e
 // input: apps/web/app/(main)/settings/usage/page.tsx 07ef54b204561a9c6cda33f325410b673cbf1e4e860c54f13da41b576eaf52d5
 // input: apps/web/app/(main)/share/[code]/page.tsx 167c448e4b4a8fc29be5687451d9507f01ee71ce9633cc34fae01875dea45992
 // input: apps/web/app/(main)/share/page.tsx d5df784435de4fdc6af70d10d3c1dedeaa4359289d56e9d4da7778f0acddb552
@@ -960,7 +963,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx bf75df2bfcad093f6ec6405984b9a3fa2e7cba0c353f405066f6809c382bceca
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-23T15:27:02.213Z
+// generatedAt: 2026-11-24T13:33:58.677Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1607,8 +1610,11 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/home', param: false, group: 'home' },
   { path: '/hooks', param: false, group: 'hooks' },
   { path: '/hr/my-attendance', param: false, group: 'hr' },
+  { path: '/hr/my-expense', param: false, group: 'hr' },
   { path: '/hr/my-leave', param: false, group: 'hr' },
   { path: '/hr/my-payroll', param: false, group: 'hr' },
+  { path: '/hr/my-perf', param: false, group: 'hr' },
+  { path: '/hr/my-training', param: false, group: 'hr' },
   { path: '/image-gen', param: false, group: 'image-gen' },
   { path: '/image-gen/favorites', param: false, group: 'image-gen' },
   { path: '/image-gen/gallery', param: false, group: 'image-gen' },

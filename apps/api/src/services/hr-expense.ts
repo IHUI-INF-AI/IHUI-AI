@@ -24,6 +24,7 @@ import { createNotificationIdempotent } from '../db/notification-queries.js'
 import { bizDayKey } from '../utils/biz-day.js'
 import { fromCents, toCents } from './fin-accounting/money.js'
 import { createVoucher } from './fin-accounting/voucher-service.js'
+import { resolveExpenseApproverChain } from './hr-expense-approvers.js'
 
 export const EXPENSE_PAYMENT_METHODS = ['bank', 'cash'] as const
 export type ExpensePaymentMethod = (typeof EXPENSE_PAYMENT_METHODS)[number]
@@ -52,11 +53,21 @@ export function decideNext(
     throw new AppError('不是当前步审批人,无权操作本步', 403, 'EXPENSE_NOT_CURRENT_APPROVER')
   }
   if (action === 'reject') {
-    return { status: 'rejected', currentStep: claim.currentStep, finished: true, nextApprover: null }
+    return {
+      status: 'rejected',
+      currentStep: claim.currentStep,
+      finished: true,
+      nextApprover: null,
+    }
   }
   const next = claim.currentStep + 1
   if (next >= claim.approverChain.length) {
-    return { status: 'approved', currentStep: claim.currentStep, finished: true, nextApprover: null }
+    return {
+      status: 'approved',
+      currentStep: claim.currentStep,
+      finished: true,
+      nextApprover: null,
+    }
   }
   return {
     status: 'submitted',
@@ -99,7 +110,12 @@ export async function findVoucherReuse(fileIds: readonly string[], selfId?: stri
       vouchers: hrExpenseClaim.vouchers,
     })
     .from(hrExpenseClaim)
-    .where(and(isNull(hrExpenseClaim.deletedAt), inArray(hrExpenseClaim.status, ['submitted', 'approved', 'paid'])))
+    .where(
+      and(
+        isNull(hrExpenseClaim.deletedAt),
+        inArray(hrExpenseClaim.status, ['submitted', 'approved', 'paid']),
+      ),
+    )
   const hits: Array<{ fileId: string; claimId: string; title: string }> = []
   for (const row of rows) {
     if (selfId && row.id === selfId) continue
@@ -119,7 +135,11 @@ export interface SubmitExpenseInput {
   title: string
   amount: string
   vouchers: Array<{ fileId: string; name: string; url: string; sha256?: string }>
-  approverChain: string[]
+  /**
+   * 自助面可缺省(2026-11-24 十一波):缺省时按财务权限池自动解析
+   * (见 hr-expense-approvers);管理面路由仍要求显式给链。
+   */
+  approverChain?: string[]
   note?: string | null
 }
 
@@ -127,15 +147,22 @@ export async function submitClaim(input: SubmitExpenseInput, submittedBy: string
   if (!input.vouchers || input.vouchers.length === 0) {
     throw new AppError('报销必须附票据影像(≥1),裸金额提单不入账', 400, 'EXPENSE_NO_VOUCHERS')
   }
-  if (!input.approverChain || input.approverChain.length === 0) {
+  const chain =
+    input.approverChain && input.approverChain.length > 0
+      ? input.approverChain
+      : (await resolveExpenseApproverChain(submittedBy)).userIds
+  if (chain.length === 0) {
     throw new AppError('审批链至少 1 人', 400, 'EXPENSE_EMPTY_CHAIN')
   }
   const cents = toCents(input.amount)
   if (cents <= 0) throw new AppError('报销金额必须大于 0', 400, 'EXPENSE_AMOUNT_INVALID')
-  if (submittedBy && input.approverChain.length === 1 && input.approverChain[0] === submittedBy) {
+  if (submittedBy && chain.length === 1 && chain[0] === submittedBy) {
     throw new AppError('提交人不能是自己单据的唯一审批人(反自批)', 400, 'EXPENSE_SELF_APPROVAL')
   }
-  const [emp] = await db.select({ id: hrEmployee.id }).from(hrEmployee).where(eq(hrEmployee.id, input.employeeId))
+  const [emp] = await db
+    .select({ id: hrEmployee.id })
+    .from(hrEmployee)
+    .where(eq(hrEmployee.id, input.employeeId))
   if (!emp) throw new AppError('报销人不存在', 404, 'EXPENSE_EMPLOYEE_NOT_FOUND')
   const dup = await findVoucherReuse(input.vouchers.map((v) => v.fileId))
   if (dup.length > 0) {
@@ -154,7 +181,7 @@ export async function submitClaim(input: SubmitExpenseInput, submittedBy: string
       title: input.title,
       amount: fromCents(cents),
       vouchers: input.vouchers,
-      approverChain: input.approverChain,
+      approverChain: chain,
       currentStep: 0,
       steps: [],
       status: 'submitted',
@@ -163,11 +190,23 @@ export async function submitClaim(input: SubmitExpenseInput, submittedBy: string
     })
     .returning()
   const first = row!
-  await notifyExpense(first.approverChain[0] ?? null, '有新的报销单待你审批', `${first.title}(¥${first.amount})`, first.id, first)
+  await notifyExpense(
+    first.approverChain[0] ?? null,
+    '有新的报销单待你审批',
+    `${first.title}(¥${first.amount})`,
+    first.id,
+    first,
+  )
   return first
 }
 
-async function notifyExpense(to: string | null | undefined, title: string, content: string, claimId: string, meta: Record<string, unknown>) {
+async function notifyExpense(
+  to: string | null | undefined,
+  title: string,
+  content: string,
+  claimId: string,
+  meta: Record<string, unknown>,
+) {
   if (!to) return
   await createNotificationIdempotent({
     userId: to,
@@ -180,12 +219,20 @@ async function notifyExpense(to: string | null | undefined, title: string, conte
 }
 
 export async function getClaim(id: string) {
-  const [row] = await db.select().from(hrExpenseClaim).where(and(eq(hrExpenseClaim.id, id), isNull(hrExpenseClaim.deletedAt)))
+  const [row] = await db
+    .select()
+    .from(hrExpenseClaim)
+    .where(and(eq(hrExpenseClaim.id, id), isNull(hrExpenseClaim.deletedAt)))
   if (!row) throw new AppError('报销单不存在', 404, 'EXPENSE_NOT_FOUND')
   return row
 }
 
-export async function decideClaim(id: string, actor: string, action: 'approve' | 'reject', comment?: string) {
+export async function decideClaim(
+  id: string,
+  actor: string,
+  action: 'approve' | 'reject',
+  comment?: string,
+) {
   const claim = await getClaim(id)
   const outcome = decideNext(claim, actor, action)
   const now = new Date()
@@ -200,11 +247,23 @@ export async function decideClaim(id: string, actor: string, action: 'approve' |
     .returning()
   const row = updated!
   if (action === 'reject') {
-    await notifyExpense(row.submittedBy, '报销被驳回', `${row.title}:${comment ?? '未填理由'}`, row.id, { action })
+    await notifyExpense(
+      row.submittedBy,
+      '报销被驳回',
+      `${row.title}:${comment ?? '未填理由'}`,
+      row.id,
+      { action },
+    )
   } else if (outcome.finished) {
     await notifyExpense(row.submittedBy, '报销已批准(可付款)', row.title, row.id, { action })
   } else if (outcome.nextApprover) {
-    await notifyExpense(outcome.nextApprover, '有新的报销单待你审批', `${row.title}(¥${row.amount})`, row.id, { action: 'forward' })
+    await notifyExpense(
+      outcome.nextApprover,
+      '有新的报销单待你审批',
+      `${row.title}(¥${row.amount})`,
+      row.id,
+      { action: 'forward' },
+    )
   }
   return row
 }
@@ -215,8 +274,17 @@ export async function payClaim(id: string, method: ExpensePaymentMethod, actor: 
     throw new AppError(`状态 ${claim.status} 不可付款(需先走完审批)`, 409, 'EXPENSE_NOT_APPROVED')
   }
   const now = new Date()
-  await db.update(hrExpenseClaim).set({ status: 'paid', paymentMethod: method, paidAt: now, updatedAt: now }).where(eq(hrExpenseClaim.id, id))
-  await notifyExpense(claim.submittedBy ?? actor, '报销款已支付', `${claim.title}(¥${claim.amount}, ${method})`, id, { action: 'paid' })
+  await db
+    .update(hrExpenseClaim)
+    .set({ status: 'paid', paymentMethod: method, paidAt: now, updatedAt: now })
+    .where(eq(hrExpenseClaim.id, id))
+  await notifyExpense(
+    claim.submittedBy ?? actor,
+    '报销款已支付',
+    `${claim.title}(¥${claim.amount}, ${method})`,
+    id,
+    { action: 'paid' },
+  )
   return getClaim(id)
 }
 
@@ -225,7 +293,8 @@ export async function linkVoucher(id: string, expenseAccountCode: string, userId
   const claim = await getClaim(id)
   if (claim.voucherId && claim.voucherNo) return { ...claim, idempotent: true }
   if (claim.status !== 'paid') throw new AppError('付款后才能入账', 409, 'EXPENSE_NOT_PAID')
-  if (!claim.ledgerId) throw new AppError('报销单未绑定账套,不入账(先补 ledgerId)', 409, 'EXPENSE_NO_LEDGER')
+  if (!claim.ledgerId)
+    throw new AppError('报销单未绑定账套,不入账(先补 ledgerId)', 409, 'EXPENSE_NO_LEDGER')
   const lines = buildExpenseVoucherLines(claim, expenseAccountCode)
   const period = bizDayKey(claim.paidAt ?? new Date()).slice(0, 7)
   const voucher = await createVoucher(
@@ -252,17 +321,30 @@ export async function linkVoucher(id: string, expenseAccountCode: string, userId
 export async function voidClaim(id: string, actor: string | null) {
   const claim = await getClaim(id)
   if (claim.status === 'paid') {
-    throw new AppError('已付款不可作废;要回冲请走红冲凭证入口,留完整痕迹', 409, 'EXPENSE_PAID_NO_VOID')
+    throw new AppError(
+      '已付款不可作废;要回冲请走红冲凭证入口,留完整痕迹',
+      409,
+      'EXPENSE_PAID_NO_VOID',
+    )
   }
   if (claim.status !== 'submitted' && claim.status !== 'approved') {
     throw new AppError(`状态 ${claim.status} 不可作废`, 409, 'EXPENSE_NOT_VOIDABLE')
   }
-  await db.update(hrExpenseClaim).set({ status: 'voided', updatedAt: new Date() }).where(eq(hrExpenseClaim.id, id))
-  await notifyExpense(claim.submittedBy ?? actor, '报销单已作废', claim.title, id, { action: 'void' })
+  await db
+    .update(hrExpenseClaim)
+    .set({ status: 'voided', updatedAt: new Date() })
+    .where(eq(hrExpenseClaim.id, id))
+  await notifyExpense(claim.submittedBy ?? actor, '报销单已作废', claim.title, id, {
+    action: 'void',
+  })
   return getClaim(id)
 }
 
-export async function listClaims(scope: { employeeId?: string; status?: string; ledgerId?: string }) {
+export async function listClaims(scope: {
+  employeeId?: string
+  status?: string
+  ledgerId?: string
+}) {
   const conds = [isNull(hrExpenseClaim.deletedAt)]
   if (scope.employeeId) conds.push(eq(hrExpenseClaim.employeeId, scope.employeeId))
   if (scope.status) conds.push(eq(hrExpenseClaim.status, scope.status))

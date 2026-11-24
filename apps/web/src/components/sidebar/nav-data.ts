@@ -732,7 +732,7 @@ export const PERSONAL_HUB_ITEMS: NavItem[] = [
  * 人事域条目全清单 —— 2026-11-16 用户规范「除自定义/热门外,其他一级分类均为
  * 单入口 + 右侧工作区页」立(/domains/hr 承载)。
  *
- * 员工自助三页(我的考勤 / 我的请假 / 我的工资条)所有登录用户可见;
+ * 员工自助六页(我的考勤/我的请假/我的工资条/我的绩效/我的培训/我的报销)所有登录用户可见;
  * 人事管理 / 人事数据中心两页 adminOnly(HR/管理员)。
  * 数据面:自助页走 /api/hr-attendance/me|my-records|my-leaves 的本人作用域,
  * 绑定仅认显式 user_id(HR 邀请 + 本人同意,见 routes/hr-attendance.ts 注释);
@@ -743,6 +743,12 @@ export const HR_HUB_ITEMS: NavItem[] = [
   { href: '/hr/my-attendance', labelKey: 'hrMyAttendance', icon: CalendarCheck },
   { href: '/hr/my-leave', labelKey: 'hrMyLeave', icon: CalendarDays },
   { href: '/hr/my-payroll', labelKey: 'hrMyPayroll', icon: Wallet },
+  // 2026-11-24 十一波补登记:绩效/培训两页十波已建、报销页十一波新建 —— 三页此前
+  // 只有直达 URL 能到,人事域入口页看不见(页面在、入口不在 = 没装车)。此处按
+  // "员工自助一屏收齐"登记,所有登录用户可见。
+  { href: '/hr/my-perf', labelKey: 'hrMyPerf', icon: Award },
+  { href: '/hr/my-training', labelKey: 'hrMyTraining', icon: GraduationCap },
+  { href: '/hr/my-expense', labelKey: 'hrMyExpense', icon: Receipt },
   { href: '/admin/hr-attendance', labelKey: 'hrAdmin', icon: Users, adminOnly: true },
   { href: '/admin/hr-approval', labelKey: 'hrApproval', icon: ClipboardCheck, adminOnly: true },
   { href: '/admin/hr-data', labelKey: 'hrAdminData', icon: ClipboardCheck, adminOnly: true },

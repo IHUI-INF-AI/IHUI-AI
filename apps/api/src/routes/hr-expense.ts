@@ -30,6 +30,10 @@ import {
   submitClaim,
   voidClaim,
 } from '../services/hr-expense.js'
+import {
+  expenseApproverNames,
+  loadExpenseApproverRoster,
+} from '../services/hr-expense-approvers.js'
 
 const FIN_VIEW = 'finance:ledger:view'
 const FIN_MANAGE = 'finance:ledger:manage'
@@ -63,20 +67,30 @@ const voucherList = z
       fileId: z.string().min(1).max(64),
       name: z.string().min(1).max(255),
       url: z.string().min(1).max(1000),
-      sha256: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
+      sha256: z
+        .string()
+        .regex(/^[a-f0-9]{64}$/i)
+        .optional(),
     }),
   )
   .min(1)
   .max(20)
+const approverChainSchema = z.array(z.string().uuid()).min(1).max(8)
 const submitCore = {
   ledgerId: z.string().uuid().nullable().optional(),
   category: z.enum(EXPENSE_CATEGORIES),
   title: z.string().min(1).max(200),
   amount: money,
   vouchers: voucherList,
-  approverChain: z.array(z.string().uuid()).min(1).max(8),
+  approverChain: approverChainSchema,
   note: z.string().max(500).nullable().optional(),
 }
+/**
+ * 自助提单 schema(2026-11-24 十一波):审批链可省略 —— 员工不该知道同事 UUID,
+ * 缺省时由服务层按财务权限池解析(单一真相源 hr-expense-approvers)。
+ * 管理面 submitCore 保持必填(财务代提时审批链是显式决定的)。
+ */
+const submitSelf = { ...submitCore, approverChain: approverChainSchema.optional() }
 
 async function selfEmployee(userId: string) {
   const [emp] = await db
@@ -90,77 +104,75 @@ async function selfEmployee(userId: string) {
 
 export const hrExpenseRoutes: FastifyPluginAsync = async (server) => {
   // ---------- 员工自助面 ----------
-  server.post(
-    '/my/submit',
-    { preHandler: requireSelf },
-    async (request, reply) => {
-      const parsed = z.object(submitCore).safeParse(request.body)
-      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
-      const userId = userIdOf(request)
-      if (!userId) return reply.status(401).send(error(401, '未登录', 'UNAUTHORIZED'))
-      await guard(reply, async () => {
-        const emp = await selfEmployee(userId)
-        return submitClaim(
-          { ...parsed.data, amount: String(parsed.data.amount), employeeId: emp.id },
-          userId,
-        )
-      })
-    },
-  )
+  server.post('/my/submit', { preHandler: requireSelf }, async (request, reply) => {
+    const parsed = z.object(submitSelf).safeParse(request.body)
+    if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+    const userId = userIdOf(request)
+    if (!userId) return reply.status(401).send(error(401, '未登录', 'UNAUTHORIZED'))
+    await guard(reply, async () => {
+      const emp = await selfEmployee(userId)
+      return submitClaim(
+        { ...parsed.data, amount: String(parsed.data.amount), employeeId: emp.id },
+        userId,
+      )
+    })
+  })
 
-  server.get(
-    '/my',
-    { preHandler: requireSelf },
-    async (request, reply) => {
-      const userId = userIdOf(request)
-      if (!userId) return reply.status(401).send(error(401, '未登录', 'UNAUTHORIZED'))
-      await guard(reply, async () => {
-        const emp = await selfEmployee(userId)
-        const q = request.query as { status?: string }
-        const rows = await listClaims({ employeeId: emp.id, status: q.status })
-        return { list: rows, total: rows.length }
-      })
-    },
-  )
+  server.get('/my/approvers', { preHandler: requireSelf }, async (request, reply) => {
+    const userId = userIdOf(request)
+    if (!userId) return reply.status(401).send(error(401, '未登录', 'UNAUTHORIZED'))
+    await guard(reply, async () => {
+      // 先确认本人有员工档案(与 /my 同口径),再回候选池
+      await selfEmployee(userId)
+      return loadExpenseApproverRoster(userId)
+    })
+  })
+
+  server.get('/my', { preHandler: requireSelf }, async (request, reply) => {
+    const userId = userIdOf(request)
+    if (!userId) return reply.status(401).send(error(401, '未登录', 'UNAUTHORIZED'))
+    await guard(reply, async () => {
+      const emp = await selfEmployee(userId)
+      const q = request.query as { status?: string }
+      const rows = await listClaims({ employeeId: emp.id, status: q.status })
+      // 本人单据的当前审批人姓名(员工看不懂 uuid;查不到时前端回退短 id)
+      const currentIds = rows
+        .map((r) => r.approverChain[r.currentStep] ?? '')
+        .filter((id): id is string => Boolean(id))
+      const names = await expenseApproverNames(currentIds)
+      return {
+        list: rows.map((r) => ({
+          ...r,
+          currentApproverName: names[r.approverChain[r.currentStep] ?? ''] ?? null,
+        })),
+        total: rows.length,
+      }
+    })
+  })
 
   // ---------- 管理面 ----------
-  server.post(
-    '/',
-    { preHandler: requirePermission(FIN_MANAGE) },
-    async (request, reply) => {
-      const parsed = z
-        .object({ ...submitCore, employeeId: z.string().uuid() })
-        .safeParse(request.body)
-      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
-      await guard(reply, () =>
-        submitClaim(
-          { ...parsed.data, amount: String(parsed.data.amount) },
-          userIdOf(request),
-        ),
-      )
-    },
-  )
+  server.post('/', { preHandler: requirePermission(FIN_MANAGE) }, async (request, reply) => {
+    const parsed = z
+      .object({ ...submitCore, employeeId: z.string().uuid() })
+      .safeParse(request.body)
+    if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+    await guard(reply, () =>
+      submitClaim({ ...parsed.data, amount: String(parsed.data.amount) }, userIdOf(request)),
+    )
+  })
 
-  server.get(
-    '/',
-    { preHandler: requirePermission(FIN_VIEW) },
-    async (request, reply) => {
-      const q = request.query as { employeeId?: string; status?: string; ledgerId?: string }
-      await guard(reply, async () => {
-        const rows = await listClaims(q)
-        return { list: rows, total: rows.length }
-      })
-    },
-  )
+  server.get('/', { preHandler: requirePermission(FIN_VIEW) }, async (request, reply) => {
+    const q = request.query as { employeeId?: string; status?: string; ledgerId?: string }
+    await guard(reply, async () => {
+      const rows = await listClaims(q)
+      return { list: rows, total: rows.length }
+    })
+  })
 
-  server.get(
-    '/:id',
-    { preHandler: requirePermission(FIN_VIEW) },
-    async (request, reply) => {
-      const { id } = request.params as { id: string }
-      await guard(reply, () => getClaim(id))
-    },
-  )
+  server.get('/:id', { preHandler: requirePermission(FIN_VIEW) }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    await guard(reply, () => getClaim(id))
+  })
 
   server.post(
     '/:id/decide',
@@ -179,23 +191,24 @@ export const hrExpenseRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  server.post(
-    '/:id/pay',
-    { preHandler: requirePermission(FIN_MANAGE) },
-    async (request, reply) => {
-      const parsed = z.object({ method: z.enum(['bank', 'cash']) }).safeParse(request.body)
-      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
-      const { id } = request.params as { id: string }
-      await guard(reply, () => payClaim(id, parsed.data.method, userIdOf(request)))
-    },
-  )
+  server.post('/:id/pay', { preHandler: requirePermission(FIN_MANAGE) }, async (request, reply) => {
+    const parsed = z.object({ method: z.enum(['bank', 'cash']) }).safeParse(request.body)
+    if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+    const { id } = request.params as { id: string }
+    await guard(reply, () => payClaim(id, parsed.data.method, userIdOf(request)))
+  })
 
   server.post(
     '/:id/link-voucher',
     { preHandler: requirePermission(FIN_MANAGE) },
     async (request, reply) => {
       const parsed = z
-        .object({ expenseAccountCode: z.string().regex(/^\d{4,8}$/).default('5502') })
+        .object({
+          expenseAccountCode: z
+            .string()
+            .regex(/^\d{4,8}$/)
+            .default('5502'),
+        })
         .safeParse(request.body ?? {})
       if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
       const { id } = request.params as { id: string }
