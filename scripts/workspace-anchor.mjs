@@ -268,7 +268,17 @@ function main() {
   }
 
   const v = verify()
-  if (!v.ok) fail(v.why)
+  if (!v.ok) {
+    // --quiet 是自动化链(pnpm postinstall / 部署 root-install)专用档：那些链路的目标是装依赖，
+    // 不是判锚点。锚点入口缺失该由人工复核，不该让整条 install 链 exit 2（2026-11-24 实测：
+    // 生产 root-install 因 `C:\IHUI-AI 不存在` 三连 exit 2，连带 "api 可能滞留旧 dist" 告警）。
+    // 手动跑(不带 --quiet)仍 fail，--verify 仍是 exit 2 —— 人工看到的红一条不少。
+    if (QUIET) {
+      log(`[anchor] warn: ${v.why}（--quiet 档：安装链不因锚点未生效中断；复核请去掉 --quiet 或跑 --verify）`)
+      return
+    }
+    fail(v.why)
+  }
   log(`[anchor] ok: ${ANCHOR} -> ${realpathSync(REPO_ROOT)}`)
 }
 
