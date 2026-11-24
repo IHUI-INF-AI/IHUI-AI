@@ -1,0 +1,587 @@
+# 本地 11 款 AI 客户端全量逆向取证（前端 + 核心 + 后端）
+
+- 日期：2026-11-25
+- 范围：本机已安装的 11 个 AI 客户端 / CLI（Codex、Trae CN、WorkBuddy、Qoder CN、ZCode、Cursor、豆包、DeepSeek Harness、OpenCode、MiniMax Code、商汤小浣熊）
+- 方法：craft-anything 0.5.0 静态取证（未运行任何程序本体、未读取任何用户凭据）
+- 结论性质：静态观察 + 派生结论；所有动态行为一律标注“未运行、未知”
+
+**一页结论**
+
+1. **真正有产品级沙箱的只有 6 个**：Codex（受限令牌 + Job + WFP）、Trae（aiep sbox SDK）、WorkBuddy（session 权限文件 + 审批中心）、豆包（agent_infra 运行时策略 + aiep sbox）、Cursor（Rust `SandboxPolicy`）、MiniMax（Rust `srt-win`）。Qoder、DeepSeek、OpenCode 的桌面包内没有产品级原生沙箱证据，标未知。
+2. **字节系共用一套沙箱 SDK**：Trae 的 `modules\sandbox\` 与豆包的 `app\sbox\` 文件名同构（`aiep_sbox.dll`、`aiep_ipc.dll`、`run_helper.exe`、`sbox_sdk.dll`），只是构建大小不同（2,320KB vs 2,594KB）。
+3. **前端已跑到工具上限之上**：11 张 jsmap 全部未触发 1,500,000 节点上限；最大豆包 465,369 节点 / 1,473,627 边，Cursor 319,057 / 681,140，WorkBuddy 359,769 / 729,926。
+4. **核心层覆盖 25 个实际存在的二进制 + 1 个 `not_found` 记录**：导入/导出/签名/字符串/函数/特征六类证据；Codex 407MB 超单文件工具上限 256MB，只有字符串/导入/函数链，已标注。
+5. **最能落进 IHUI-AI 的六件事**：统一权限决策对象、Windows Job Object 执行器、审批反向通道、preload 暴露面预算、动态通道注册表、运行时策略热更新（详见第 6 节）。
+
+---
+
+## 0. 为什么要推翻上一版
+
+上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了五处纠正，每一条都能被证据账本复核。
+
+**纠正一：把 Electron 主 exe 的 Chromium 安全 API 当成产品自研沙箱。**
+上一版用 `CreateRestrictedToken`、`CreateJobObject`、`CreateProcessAsUserW` 这类导入来证明“某产品有强沙箱”。实测发现，WorkBuddy.exe、Qoder CN.exe、ZCode.exe、Cursor.exe、Trae CN.exe 全部是 Electron 壳，这些 API 属于 Chromium/Electron 出厂能力，**不能归因于产品**。本版把证据分成三层：产品级（Rust/Go helper、.node、主进程 JS）、框架级（Electron/Chromium）、未知级；只有第一层进入结论。
+
+**纠正二：前端图被 cap 截断却写成“全量”。**
+上一版 Cursor 只 examined 500/828、WorkBuddy 3866 模块但节点被截、豆包 618509 节点被丢弃。本版把 `max-nodes` 提到 1,500,000，实测：WorkBuddy 359,769 节点 / 729,926 边、Cursor 319,057 节点 / 681,140 边、豆包 465,369 节点 / 1,473,627 边、Trae 194,266 节点，均未触发节点上限。
+
+**纠正三：Qoder 版本写错。**
+上一版写 Qoder 0.5.14，但 `C:\Qoder CN\Qoder CN.exe` 实际是 0.5.6；`.qoder-versions\0.5.14\` 才是新版本（build-manifest 2026-11-17、Electron 43.8.4）。本版两个版本都取证，明确标注差异。
+
+**纠正四：Codex 的 ConPTY 只写了一句。**
+本版拿到函数级链路：`resolve permission profile token mode`、`TaggedPermissionProfile::{Managed,External}`、`struct NetworkPermissions with 1 element`、`SerializedManagedFileSystemPermissions::Restricted`、`spawned ConPTY is missing its process job`、`Codex Windows Sandbox WFP` 持久化 WFP provider。
+
+**纠正五：没有后端层。**
+本版新增“后端/服务层”：WorkBuddy 的 MCP Host（loopback 随机端口）+ A2A 出站代理、MiniMax 的 `http://127.0.0.1/minimax-desktop/api/v1/*` 本地运行时、ZCode 的 host RPC + Windows Job 控制、OpenCode 的桌面→CLI loopback（4096，监听端未闭环）、Qoder 的 `@qoder-space/application-server` + `peer-transport`。
+
+---
+
+## 1. 方法与口径
+
+### 1.1 工具与参数
+
+所有证据通过 `craft-anything-cli.exe 0.5.0` 产生，写入 case `all-ai-apps-full-2026-11-25.cany`。
+
+前端：`js-app-map`，参数固定为
+`--max-files 400000 --max-file-bytes 67108864 --max-total-bytes 4294967296 --max-nodes 1500000 --limit 50000`。
+
+核心：`core-overview-show --detail summary`、`native-library-calls-list --limit 5000`、`native-offered-symbols-list --limit 5000`、`native-publisher-show`、`native-strings-find --mode regex --limit 5000`（8 组主题正则）、`core-feature-find`（permission / sandbox / credential / pty）、`native-rust-binary-show`、`native-go-binary-show`。
+
+解包：`core-archive-extract --max-bytes 6000000000 --max-files 400000`，8 个 asar 全部解包成功（WorkBuddy 12,226 文件 / 721MB 等）。
+
+### 1.2 三条硬边界
+
+1. **静态**：没有启动任何一个程序，没有触发 IPC、没有连本地端口、没有读取凭据。所有“运行时才会发生”的行为都写“未知”。
+2. **可复核**：每条结论后跟 `ev_…` 证据号；证据 JSON 在 `C:\IHUI-AI\.workbuddy\craft\out\deep\` 下，按目标分目录。
+3. **归因分层**：Electron/Chromium 自带字符串（primordials、blink::、v8::、node::、Copyright Joyent 等）全部剔除后再判断产品能力。
+
+### 1.3 已知工具上限（必须写进结论）
+
+- `core-overview-show` 的函数发现上限 50,000；字符串保留前 200,000 条；间接跳转未解析数会单列。
+- 大文件（>256MB）的 `native-rust-binary-show` 会拒绝；Codex 407MB 因此没有 Rust crate 报告，只有字符串与导入证据。
+- `js-app-map` 的动态 IPC 只能计数、不能还原通道名（各目标 5–816 条不等，逐目标标注）。
+- `webPreferences: dynamic` 的窗口无法静态读出安全值，只能标注。
+
+---
+
+## 2. 安装面矩阵（本轮实测）
+
+| 程序 | 版本 | 主程序 | 主程序大小 | 前端载体 | 前端文件数 | native 模块 |
+|---|---|---|---|---|---|---|
+| Codex | 无版本资源 | `bin\31fb36cfc4b38f05\codex.exe` | 407,428,400 | 无（Rust CLI/TUI） | — | 0 |
+| Trae CN | product 1.107.1 / exe 2.3.103559 | `Trae CN.exe` | 214,715,792 | `resources\app\` | 8,094 | 0（另有 sandbox SDK） |
+| WorkBuddy | 5.11.3 | `WorkBuddy.exe` | 204,590,360 | `resources\app.asar` 172.9MB | 12,226（解包） | 83 |
+| Qoder CN | 0.5.6 / 0.5.14 双版本 | `Qoder CN.exe` | 239,205,896 | `resources\app.asar` 200.6MB / 0.5.14 174.4MB | 5,121 列出 | 24 |
+| ZCode | 3.19.1.10833 | `ZCode.exe` | 246,332,312 | `resources\app.asar` 385.2MB | 30,957 列出 | 17 |
+| Cursor | 3.27.22 | `Cursor.exe` | 235,483,944 | `resources\app\` | 21,000 | 34 |
+| 豆包 | Launcher 2.0.32 | `Doubao.dll`（CEF 宿主） | 335,127,272 | `app\local_webcontents\` | 2,311 | 0（另有 sbox/mcp_helper） |
+| DeepSeek Harness | 0.2.2-rc.5 | `DeepSeek Harness.exe` | 246,341,104 | `resources\app.asar` 209.1MB | 20,300 列出 | 26 |
+| OpenCode | 2.2.7 | `OpenCode.exe` | 246,614,920 | `resources\app.asar` 240.9MB | 11,618 列出 | 4 |
+| MiniMax Code | 3.1.14.220 | `MiniMax Code.exe` | 235,418,560 | `resources\app.asar` 371.9MB | 24,995 列出 | 19 |
+| 商汤小浣熊 | 1.2.3 | `商汤小浣熊.exe` | 222,902,112 | `resources\app.asar` 362.5MB | 3,732 | 11 |
+
+签名面：WorkBuddy / sandbox helpers 为 Tencent Technology (Shenzhen) 签名；Trae 与 agent-tool-host 为北京引力弹弓科技；ZCode 为北京智谱华章；Cursor 与 cursorsandbox 为 Anysphere, Inc.；Qoder、DeepSeek、OpenCode、MiniMax、小浣熊均为主程序有效签名（逐目标小节给出）。
+
+---
+
+## 3. 前端总矩阵
+
+| 目标 | 源模块 | 图节点 | 边 | 函数 | 静态 IPC | 配对 | 仅 handler | 仅 invoker | 动态 IPC | endpoint | 唯一 URL | 窗口 | 暴露键 | 暴露成员 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Cursor | 830 | 319,057 | 681,140 | 300,113 | 33 | 12 | 0 | 2 | 45 | 3,730 | 1,511 | 13 | 21 | 11 |
+| DeepSeek | 17 | 3,129 | 5,931 | 2,778 | 0 | 0 | 0 | 0 | 142 | 17 | 13 | 5 | 11 | 31 |
+| 豆包 (CEF) | 2,295 | 465,369 | 1,473,627 | 398,481 | 0 | 0 | 0 | 0 | 0 | 4,552 | 750 | 0 | 0 | 0 |
+| MiniMax | 1,391 | 124,372 | 330,508 | 112,679 | 54 | 25 | 0 | 14 | 816 | 1,887 | 1,394 | 10 | 35 | 373 |
+| OpenCode | 3,231 | 46,281 | 80,579 | 39,462 | 3 | 1 | 0 | 0 | 5 | 289 | 156 | 3 | 1 | 5 |
+| Qoder 0.5.6 | 637 | 70,256 | — | 67,925 | 0 | 0 | 0 | 0 | 5 | 200 | 96 | 8 | 0 | 0 |
+| Qoder 0.5.14 | 610 | 63,630 | 129,877 | 61,382 | 0 | 0 | 0 | 0 | 8 | 192 | 105 | 10 | 0 | 0 |
+| Trae CN | 343 | 194,266 | — | 181,024 | 71 | 2 | 0 | 12 | 110 | 3,871 | 1,559 | 20 | 5 | 17 |
+| WorkBuddy | 3,866 | 359,769 | 729,926 | 339,157 | 120 | 55 | 11 | 14 | 214 | 3,488 | 1,895 | 20 | 83 | 43 |
+| 小浣熊 | 1,886 | 121,089 | — | 109,542 | 95 | 19 | 38 | 2 | 26 | 1,819 | 1,355 | 10 | 20 | 9 |
+| ZCode | 2,837 | 77,729 | 144,984 | 72,766 | 3 | 2 | 0 | 0 | 423 | 377 | 175 | 10 | 8 | 169 |
+
+读法：**静态 IPC 少不等于能力少**。ZCode 只有 3 条静态通道，但有 423 条运行期拼接的通道；MiniMax 有 816 条动态；DeepSeek 142 条。动态通道名无法静态还原，这是本版明确标注的盲区。
+
+窗口安全：WorkBuddy 有一处 `contextIsolation=false / nodeIntegration=true / sandbox=false`，定位在 `main/index.js:203` 的腾讯文档调试面板（520×720，`DEBUG_PANEL` 分区），不是主 UI；另有一处 `webSecurity=false` 在 `main/main-bootstrap.js:368`。Trae 有 1 处 `sandbox off` + 1 处 `webSecurity off`。Cursor 有 5 处 `contextIsolation/nodeIntegration` 未显式设置（继承 Electron 默认）。其余见逐目标小节。
+
+---
+
+## 4. 逐目标取证
+
+### 4.1 Codex（OpenAI，Rust CLI）
+
+**安装面**：`C:\Users\Administrator\AppData\Local\OpenAI\Codex\bin\31fb36cfc4b38f05\`，四个产品二进制：`codex.exe` 407,428,400 字节、`codex-code-mode-host.exe` 80,724,784、`codex-windows-sandbox-setup.exe` 19,823,408、`codex-command-runner.exe` 8,862,000；另有 `rg.exe`、`node.exe` 24.14、`node_repl.exe`。全部由 `OpenAI OpCo, LLC` 有效签名。
+
+**核心概况**（`ev_9c096652…`）：PE x86_64，函数发现到 50,000 上限、字符串 204,743 条（保留前 200,000）、导入 486 个 / 25 个库。这是本轮唯一一个“主程序即产品逻辑”的目标，导入可以直接归因。
+
+**权限模型是四层结构，不是一句“有沙箱”。**
+
+1. **策略层**：`execpolicy\src\rule.rs`、`execpolicy\src\parser.rs`、`POLICY_BUILTINS_STATICS`，以及 `policy_builder requires Evaluator.extra to be populated`（`ev_52272be7…`，sandbox-setup 字符串）。说明存在独立的 execpolicy 规则解析器，不是简单 allow/deny 列表。
+2. **权限 profile 层**：`struct LegacyPermissionProfile with 2 elements`、`struct variant TaggedPermissionProfile::Managed with 2 elements`、`TaggedPermissionProfile::External`、`struct NetworkPermissions with 1 element`、`struct variant SerializedManagedFileSystemPermissions::Restricted with 2 elements`、`RawFileSystemSandboxEntry with 3 elements`、`resolve permission profile token mode`（`ev_7af3d35e…`，command-runner）。
+3. **Windows 令牌层**：`CreateRestrictedToken`、`AdjustTokenPrivileges`、`CreateProcessAsUserW`、`CreateProcessWithLogonW`、`SetTokenInformation`、`OpenProcessToken`（`ev_1e646b63…`，codex.exe 87 个安全导入里）。
+4. **作业对象 + ConPTY 层**：`windows-sandbox-rs\src\process.rs`、`windows-sandbox-rs\src\bin\command_runner\win.rs`、`spawned ConPTY is missing its process job`、`Local\CodexSandboxReadAcl`、`CreateJobObjectW`、`AssignProcessToJobObject`、`SetInformationJobObject`、`TerminateJobObject`。这句话很关键：**ConPTY 必须挂进 process job**，否则报错。
+5. **网络层**：`Codex Windows Sandbox WFP` 是持久化的 WFP provider 名称，配合 `orchestrator_elevation_check_failed`、`orchestrator_payload_serialize_failed`、`write sandbox users file`、`convert SID failed`、`deny_read_state.rs`，说明沙箱安装器会创建专用用户/SID、写 ACL、注册 WFP 过滤器。
+6. **密钥层**：`&dpapi protect failed for online user:`、`'dpapi protect failed for offline user:`、`CryptProtectData`、`PFXImportCertStore`（sandbox-setup）。DPAPI 只用于沙箱安装器自己的秘密，不是模型凭据。
+
+**后端接口**：codex.exe 里有 `app-server-client\src\remote_websocket.rs`、`ws://127.0.0.1:0`、`127.0.0.1:0`，说明存在 **app-server 的本地 WebSocket 客户端**（端口由内核分配）。这解释了 Codex 桌面壳与 CLI 之间的通信方式，属于后端层证据。
+
+**纠偏**：`codex-code-mode-host.exe` 的 47 条 “sandbox” 字符串全部是 **V8 sandbox**（`V8.SandboxedCppHeapPointersCount`、`Failed to reserve the virtual address space for the V8 sandbox`），与操作系统沙箱无关；上一版若把它算进“沙箱能力”是错的。
+
+**证据锚点**：`ev_9c096652…`（overview）、`ev_1e646b63…`（imports）、`ev_3d496a21…`（permission 字符串）、`ev_7af3d35e…`（command-runner imports）、`ev_52272be7…`（sandbox-setup imports）、`ev_5e0ce2c6…`（publisher）。
+
+---
+
+### 4.2 WorkBuddy（腾讯，Electron + Rust sandbox）
+
+**安装面**：`C:\workbuddy`，5.11.3；`WorkBuddy.exe` 204,590,360 字节；`resources\app.asar` 172,939,770 字节，解包 12,226 文件 / 721MB；`app.asar.unpacked` 下 83 个 `.node/.exe/.dll`。
+
+**前端（`ev_9543bb87…`）**：3,866 源模块 / 4,173 个 JS 文件 / 6,949 个 bundle 模块 / 339,157 函数 / 359,769 图节点 / 729,926 边 / 3,488 条 endpoint（1,895 个唯一 URL）/ 20 个窗口 / 83 个 `contextBridge` 暴露键。静态 IPC 120 条，配对 55 条，11 条只有 handler，14 条只有 invoker，另有 **214 条动态拼接通道**。
+
+IPC 命名本身就把产品能力摊开了：
+
+- `mcp-app-client-message` / `mcp-app-host-message`：MCP App 的双向消息面。
+- `remote-window:close-request` / `confirmClose` / `cancelClose` / `close-ready`：远程窗口关闭四步握手，属于有状态 UI 协议。
+- `software-update:getSnapshot` / `state` / `action` / `contentHeight`：更新器是一个独立的状态机。
+- `browser-tabs:command`、`browser-annotation:command`、`browser-find:action`、`browser-preview-surface:ack`：内嵌浏览器与批注。
+- `buddy-app:read-local-directory`、`read-local-zip`、`watch-debug-directory`、`ensure-https-handler`：本地目录/压缩包读取与自定义 HTTPS handler。
+- `workbuddy:debugCookie:get/save/clear`、`debugTencentDocsEngine:save/clear`、`debugTencentDocsOpenDoc:open`：腾讯文档调试链路。
+- `oneid:postMessage`、`lexiang:message`、`tdoc-import:*`、`tdoc-preview:*`：OneID / 乐享 / 腾讯文档三套外部集成。
+
+**窗口安全要说清楚，不能拿调试面板吓人。**
+`main/index.js:203` 确实创建了一个 `contextIsolation:false, nodeIntegration:true, sandbox:false` 的 `BrowserWindow`，但同一个表达式里写着 `title: "TDoc 调试"`、`width:520,height:720`、`partition: "DEBUG_PANEL"`，并伴随 `createDebugPanelHtmlFile()`（`ev_9543bb87…`，windows 段）。这是腾讯文档登录态调试面板，不是主界面。真正需要关注的是 `main/main-bootstrap.js:368` 的 `webSecurity:false` 窗口，以及 12 个 `webPreferences` 在运行期计算的窗口。
+
+**核心（产品级，不是 Electron 噪声）**：`app.asar.unpacked\cli\vendor\sandbox\5.11.4\` 下两个 Rust helper，均由 Tencent Technology (Shenzhen) 签名：
+
+- `sandbox-cli.exe`（2,431,768 字节，9 个 crate）：`CreateJobObjectW`、`AssignProcessToJobObject`、`SetInformationJobObject`、`QueryInformationJobObject`、`TerminateJobObject`、`CreateNamedPipeW`、`ConnectNamedPipe`，字符串 `SandboxPaths.session(<id>).permission_file`、`permission.json`、`sandbox\src\bin\sandbox_cli.rs`、`sandbox-cli 启动参数:`（`ev_ffba2a7f…`、`ev_6f5ff4ee…`）。
+- `sandbox-center.exe`（10,578,712 字节，28 个 crate）：命名管道服务端 + **安全描述符 ACL**（`ConvertStringSecurityDescriptorToSecurityDescriptorW`、`SetSecurityDescriptorDacl`、`DuplicateTokenEx`、`GetNamedPipeClientProcessId`），字符串 `sandbox-center 启用审批反向通道: approval.callbackAddress=`、`approvedByUser`、`approvalReq`、`approvalQueue/backupQueue/restoreQueue`、`sandbox-center\src\cipher\detect\plaintext.rs`，以及一整套 secret 扫描规则（`1password-secret-key`、`adafruit-api-key`、`generic-credential`）（`ev_78fc8fe4…`、`ev_48f8887d…`、`ev_928ed7f5…`）。
+- Rust crate 指纹：`aes 0.8.4`、`argon2 0.5.3`、`rusqlite 0.40.2` / `libsqlite3-sys 0.38.2`、`windows 0.58.0`、`regex 1.13.1`。说明审批票据做了加密+口令派生，状态落 SQLite。
+- 另有 `betterleaks.exe`（secret 扫描器）与 `resources\im-backend-cmd\im-napi.node`（IM 后端 native 桥）。
+
+**后端/服务层（上一版完全没有）**：`main/server.js` 里是一个 **MCP Host**：
+
+- `tt.createServer(...)` + `e.listen(0, "127.0.0.1")`，端口由内核分配；`discoveryUrl()` 返回 `http://127.0.0.1:${port}${path}`。
+- 路由有注册/注销：`[McpHost] route registered/unregistered`、`MCP route unregistered`、`aborted` 计数。
+- 同一文件还有 **A2A outbound proxy**：`A2A outbound proxy failed to bind loopback`、`discoveryUrl()`；以及 **WecomA2A host**：`[WecomA2A]`、`approvals.declineAll()`、`broker.prewarmAgentTicket`、`a2a.host-managed`。
+- 环境变量白名单直接暴露后端接线：`OCS_LOCAL_MCP`、`TENCENT_DOCS_LOCAL_SERVER`、`editor_sdk_port`、`WORKBUDDY_VLM_CHAT_URL`、`WORKBUDDY_VLM_AUTH_TOKEN`、`CODEBUDDY_REMOTE_AGENTS_URL`、`CODEBUDDY_A2A_OUTBOUND_ENABLED`、`WECOM_CLI_*`。
+- 前端暴露面里还有 `__mcpHostTestApi: getToken, getWBCurrentSessionId`，说明 MCP Host 有测试用取 token 接口（静态可见，是否生产启用未知）。
+- 本地 endpoint 实例：`http://127.0.0.1:39099/mcp`、`http://127.0.0.1:9527`、`http://127.0.0.1:52741/v1/chat/completions`、`http://127.0.0.1:{port}/localapi/save`、`http://localhost:11434/v1/chat/completions`（Ollama 兼容端点）。
+
+**一句话结论**：WorkBuddy 的“前后端”是三层——渲染层（Electron renderer + contextBridge 83 键）、主进程服务层（MCP Host / A2A / WeCom / daemon）、原生沙箱层（Rust cli+center，Job Object + pipe ACL + approval 反向通道）。这三层都有产品级证据，且互相咬合。
+
+**证据锚点**：`ev_9543bb87…`（jsmap）、`ev_7d7f5107…`（WorkBuddy.exe overview）、`ev_c3c3cb42…`（imports）、`ev_78fc8fe4…` / `ev_ffba2a7f…`（两个 sandbox helper imports）、`ev_928ed7f5…` / `ev_f0aa264a…`（Rust 指纹）、`ev_48f8887d…`（approval 字符串）。
+
+---
+
+### 4.3 Trae CN（字节系，VS Code fork + 自研 sandbox SDK）
+
+**安装面**：`C:\Trae CN`，`resources\app` 8,094 文件 / 1,445,772,134 字节。版本有三个平面，必须同时写：安装包记录 3.4.20（旧台账）、`product.json` / `package.json` 1.107.1、`Trae CN.exe` 文件版本 2.3.103559。签名主体：北京引力弹弓科技有限公司。
+
+**前端（`ev_84c1dba4…`）**：343 源模块 / 1,359 JS 文件 / 5,926 bundle 模块 / 181,024 函数 / 194,266 节点 / 3,871 endpoint（1,559 唯一）/ 20 窗口 / 71 静态 IPC（配对只有 1 条，12 条仅 invoker）/ **110 条动态 IPC**。
+
+IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icube-floating-chat:*` 与 `vscode:*` 两个前缀**。
+
+- `icube-floating-chat:*`（约 30 条）：`button-hit-region`、`button-resize`、`button-visibility`、`chat-drag-move/end`、`context-menu`、`cursor-position`、`native-input-mode`、`native-mouse-event`、`toast-placement`、`quick-create`、`task-state`、`update-scale`、`update-theme`。这是一套“悬浮聊天窗”的几何与状态协议，主进程负责像素级定位。
+- `vscode:*`：`getLastWorkspace`（唯一配对）、`getWindowPosition`、`capturePage`、`fetchShellEnv`、`createPtyHostMessageChannelResult`、`iCubeGetNetworkDataResponse`、`iCubeListProcessesResponse`、`iCubeSystemUsageResponse`、`migration:*`。说明它保留了 VS Code 的 window/pty/migration 通道，同时加了 iCube 的系统监控通道。
+- 结论：Trae 的前端增量不在“重写 IDE”，而在“把 AI 对话做成独立浮窗 + 系统监控/进程列表通道”。
+
+**核心（产品级）**：`resources\app\modules\sandbox\` 是一个完整的 sandbox SDK，不是单个 exe：
+
+- `sbox_sdk.dll`（2,320,272）、`unified\vm_sdk.dll`（2,582,928）、`x64\aiep_sbox.dll`（757,648）、`x64\aiep_ipc.dll`（577,424）、`x64\run_helper.exe`（682,384），另有 x86 全套。
+- `trae-sandbox.exe`（1,255,824，Rust 21 crate）：`tokio 1.48`、`winsafe 0.0.19`、`base64 0.22`、`indexmap`、`parking_lot`；字符串 `apps\icube_server_rs\crates\sandbox\src\ffi_sandbox.rs`、`is_sbox_supported`、`SandboxConfigPermissionObjectWireRef`、`process_policy`、`CreateSandboxFailed`、`TRAE Sandbox Error: process launch failed`（`ev_eda58c80…`、`ev_9c74e597…`、`ev_047bfaa1…`）。
+- `agent-tool-host.exe`（101,117,328，独立签名）：安全导入 40 个，含 `CreateJobObjectW`、`AssignProcessToJobObject`、`SetInformationJobObject`、`TerminateJobObject`、`CreateNamedPipeW`、`ConnectNamedPipe`、`SetNamedPipeHandleState`、`AcceptSecurityContext`、`AcquireCredentialsHandleW`、`EncryptMessage`、`DecryptMessage`、`CertVerifyCertificateChainPolicy`（`ev_09d553db…`）。
+- 字符串：`toolhost\services\preview-proxy\src\port_policy.rs`、`allowList`、`denyList`、`binary_payload_policy`、`PermissionDenied`、`TRAE_SANDBOX_NEW_PERMISSION`、`TRAE_REMOTE_SANDBOX_NAME`、`/sandboxes/`、`sandbox_namemanager_host`、`mcp_host_meta_session`、`workroom_credent`（`ev_e4b861da…`）。
+- 一个很能说明设计意图的提示串：`Hint: If the tool supports running outside the sandbox, you should try requesting to run this command outside the sandbox.`
+
+**后端/服务层**：`agent-tool-host.exe` 同时是 toolhost（工具宿主）、preview-proxy（预览代理 + 端口策略）、sandbox 命名管理器。它用 Named Pipe + SSPI（NTLM/Kerberos）做本机鉴权，用 Job Object 做进程树回收，用 `port_policy` 控制预览端口白名单。这是“工具执行后端”，不是 Electron 主进程的一部分。
+
+**证据锚点**：`ev_84c1dba4…`（jsmap）、`ev_09d553db…`（agent-tool-host imports）、`ev_eda58c80…`（trae-sandbox imports）、`ev_047bfaa1…`（Rust 指纹）、`ev_e4b861da…`（toolhost 字符串）、`ev_5a2ca961…`（签名）。
+
+---
+
+### 4.4 Qoder CN（阿里，Electron，双版本并存）
+
+**安装面**：`C:\Qoder CN` 有两套完整前端：根目录 `resources\app.asar` 200,556,966（对应 `Qoder CN.exe` 0.5.6），以及 `.qoder-versions\0.5.14\resources\app.asar` 174,403,011（对应 0.5.14 的 `Qoder CN.exe` 239,205,888，build-manifest 显示 Electron 43.8.4、commit b3ac440、buildTime 2026-11-17T11:43:21Z）。`.qoder-versions\` 下实际并存 0.5.7 / 0.5.12 / 0.5.14 三个版本，根 exe 是 0.5.6。上一版只写 0.5.14，漏了根版本身份，这一版两个都跑。
+
+**0.5.14 前端（`ev_6e0090db…`）**：610 源模块 / 768 JS 文件 / 108 bundle 模块 / 61,382 函数 / 63,630 节点 / 129,877 边 / 192 endpoint（105 唯一）/ 10 窗口 / **0 个静态 IPC** / 8 条动态 / 0 个 contextBridge 暴露键。
+**0.5.6 前端（`ev_15085ef1…`）**：637 模块 / 795 文件 / 198 bundle / 67,925 函数 / 200 endpoint（96 唯一）/ 8 窗口 / 0 静态 IPC / 5 动态。
+
+**0 条静态 IPC 不是“没有 IPC”，而是走了另一套通道。** 主进程模块名给出答案：
+
+- `out/main/remoteSdkDaemonBridge.js`：**远端 SDK daemon 桥**，不是 ipcMain。
+- `out/main/qoderSdkDaemonHookMockPreload.js`：daemon hook 的 mock preload，用于开发/调试。
+- `out/main/pluginHost.js`、`out/preload/pluginViewRuntime.cjs`、`pluginViewDiagramRuntime.cjs`、`mcpAppGuest.cjs`：插件宿主 + MCP App 客座 preload。
+- 依赖表（package.json）：`@qoder-space/application-server`、`@qoder-space/runtime-host-services`、`@qoder-space/peer-transport`、`@qoder-space/collaboration-core`、`@qoder-space/application-sdk-protocol`、`@modelcontextprotocol/client|node|server`、`node-pty`、`ws`、`electron-updater`、`@qoder-ai/qoder-agent-sdk` / `qoder-cn-agent-sdk`（同一包的两个 npm alias，1.0.60-alpha.66）。
+- 结论：Qoder 的应用层是 **application-server + runtime-host-services + peer-transport** 的服务化结构，Electron 只是壳；IPC 走 daemon/peer 传输，静态 ipcMain 自然为 0。
+
+**窗口安全是这批产品里最规范的一档。** 10 个窗口全部显式 `contextIsolation:true`、`nodeIntegration:false`、`sandbox:true`、`webSecurity:true`；只有 1 个 `WebContentsView` 没有显式 contextIsolation（继承默认），1 个窗口 `webPreferences` 运行期计算（`ev_6e0090db…`，windows 段）。
+
+**核心**：`.qoder-versions\0.5.14\Qoder CN.exe`（239,205,888）实测 40,845 函数 / 200,688 字符串 / 1,271 导入 / 58 库，安全导入 131 个——但字符串是 blink::、v8::、cppgc::、`node:electron/js2c/sandbox_bundle` 这类 Electron 内置。**这一条不能当产品沙箱证据**，产品能力在 JS 服务层与 native 模块（24 个 `.node`）。注意：根目录 `Qoder CN.exe` 是 0.5.6（239,205,896），与本条不是同一个文件。
+
+**后端/服务层**：`application-server` + `peer-transport` 是关键。前者是应用服务宿主，后者是 peer 传输层；加上 `session-history`、`session-migration`、`memory-migration`、`artifact-preview`，说明会话/记忆/工件是被服务化的，不是渲染进程直接读写。端点里能看到阿里内部服务：`ali-skill.alibaba-inc.com`、`iservice.alibaba.com`、`modelstudio.console.aliyun.com`、`bailian.console.aliyun.com`、`img.alicdn.com`。
+
+**证据锚点**：`ev_6e0090db…`（0.5.14 jsmap）、`ev_15085ef1…`（0.5.6 jsmap）、`ev_4f5473fe…`（imports）、`ev_07e3697a…`（strings）、`ev_d256efc1…`（签名）。
+
+---
+
+### 4.5 ZCode（智谱，Electron + host RPC）
+
+**安装面**：`C:\ZCode`，`ZCode.exe` 3.19.1.10833 / 246,332,312 字节，`resources\app.asar` 385,193,027 字节（30,957 个列出文件），签名 北京智谱华章科技股份有限公司。`resources\tools\runtime-host\zcode-runtime-host.exe` 只有 179,608 字节，既无 Rust 指纹也无 Go build info，更像一个极薄的 launcher/relay（静态无法判定语言）。
+
+**前端（jsmap `ev_8277c347…`）**：2,837 源模块 / 3,732 JS 文件 / 108 bundle 模块 / 72,766 函数 / 77,729 节点 / 144,984 边 / 377 endpoint（175 唯一）/ 10 窗口 / **3 条静态 IPC** / 423 条动态 / 8 个暴露键 / 169 个暴露成员。
+
+**静态 IPC 只有 3 条，暴露面却有 169 个成员。** 真实通道在 `out/preload/index.cjs`（90 次 `ipcRenderer.invoke/sendSync`）和 host RPC：
+
+- `out/host/index.js` + `chunk-VH3XR3TF.js` 里有 `[rpc:call] ${channelName}.${method} OK (${ms})` / `[rpc:listen] ... subscribed` / `this.channels.get(e.channelName)`，说明是**自研命名通道 RPC**，不是 ipcMain。
+- 同一个 host 里出现 `Windows runtime control closed before Job was confirmed empty`，紧邻 `T.once("error")`、`T.listen(n)`，说明 host 侧对 Windows Job Object 有“必须确认 Job 为空才允许关闭”的约束（jsmap `ev_8277c347…`）。注意：`resources\zcode-runtime-host.exe` 在本机不存在（native 取证的 `not_found`），所以这条是 **JS 层证据**，不是原生二进制证据。
+- `zcode` 暴露 API 的成员表比 IPC 更能说明能力：`connectRemote`、`startWebRemoteControl` / `stopWebRemoteControl` / `getWebRemoteControlStatus`、`bindRemoteWorkspaceSessionContext`、`disposeRemoteSession`、`isDockerAvailable`、`listWSLDistros`、`listDockerContainers`、`listSSHConfigAliases`、`loadMcpFromUserDirectory` / `saveMcpToUserDirectory` / `migrateLegacyCommonMcp`、`selectDirectory` / `selectFiles` / `saveFile`、`printPageToPdf`、`ensureMicrophoneAccess` / `resetMicrophoneAccess`、`captureBrowserGuestPage`。
+- 另有 `zcodePluginSandbox: supportsRetainedMove, setExecutionActive, copyImage, getOwnerWebContentsId, disposeSandbox, consumeUserGesture` 与 `cuaPermissionPanel: prepareDrag, startDrag, notifyDragEnded, onState`。
+
+**插件沙箱是 JS 沙箱，不是 OS 沙箱。** `out/plugin-sandbox/` 下有 `plugin-sandbox-alias.js`、`calendar.js`、`gen-ui.js`、`vendor/d3-7.9.0.min.js`、`visualize.html#inline-2`，配合 `supportsRetainedMove`、`consumeUserGesture`，更像“保留 DOM/手势能力的渲染沙箱”；把它当进程沙箱会误判。
+
+**核心**：`ZCode.exe` 246MB 是 Electron 壳（导入 1,284 / 129 安全导入，字符串仍是 Chromium）。真正的产品依赖在 package.json：`@zcode/server`、`@zcode/rpc`、`@zcode/provider`、`@zcode/provider-node`、`@zcode/services`、`@zcode/shared`、`@zcode/zcode-cua`、`@modelcontextprotocol/client|core|server|ext-apps`、`@napi-rs/keyring 2.1.2`、`node-pty 1.0.0`、`playwright-core 1.59.1`、`ssh2 1.16.0`、`@opentelemetry/*`（OTLP trace/metrics exporter）、`electron-updater 6.8.10`。
+
+**后端/服务层**：`@zcode/server` + `@zcode/rpc` + `@zcode/services` 是服务化内核；`@zcode/rpc` 对应 host 的 `[rpc:call]/[rpc:listen]`。`@opentelemetry/exporter-trace-otlp-proto` 说明有 OTLP 遥测出口。`app-update.yml` 的 provider 是 `generic`，`url: http://localhost:8081` —— 更新源指向本机 8081，这是**本地更新代理**，不是公网 CDN（静态可见，运行时是否改写未知）。
+
+**窗口安全**：10 个窗口里 6 个显式 `sandbox:true`，4 个 “sandbox not set”（继承默认），1 个 `webviewTag:true`，1 个 `webPreferences` 运行期计算。整体比 WorkBuddy 干净，但不如 Qoder 一致。
+
+**证据锚点**：`ev_8277c347…`（jsmap）、`ev_45f1ddb1…`（ZCode.exe imports）、`ev_1b7ff43e…`（permission 字符串）、`ev_36e32080…`（签名）。
+
+---
+
+### 4.6 豆包（字节，CEF + Rust/C++ 混合宿主）
+
+**安装面**：`C:\Program Files\Doubao`，Launcher 2.0.32。`app\local_webcontents` 3,443 文件 / 587.2MB；`app\sbox` 7 文件 / 6MB（`sbox_sdk.dll` 2.59MB、`x64\aiep_sbox.dll` 766KB、`aiep_ipc.dll` 564KB、`run_helper.exe` 666KB，x86 全套）；`app\terminal_conpty`（`OpenConsole.exe` 1.07MB + `conpty.dll`）。核心 DLL：`Doubao.dll` 319.6MB、`liblark.dll` 181.2MB、`cccreator.dll` 83.1MB、`mcp_helper.dll` 15.7MB、`agent_infra.dll` 10.7MB。主体签名：北京春田知韵科技有限公司（字节系）。
+
+**前端是 CEF，不是 Electron（`ev_e0abf81c…`）**：2,295 源模块 / 2,311 JS 文件 / **52,427 个 bundle 模块** / 398,481 函数 / 465,369 节点 / 1,473,627 边 / 4,552 endpoint（750 唯一）/ 85 条路由 / 669 个 storage 键。`extensions` 目录占 2,288 个模块，说明前端内置了大量“浏览器扩展式”能力模块，而不是单体 SPA。
+没有 `ipcMain`/`contextBridge` 概念（CEF 用 message port / JS bridge，这套工具不建模），所以 IPC 栏为 0 不能解读为“没有进程间接口”。
+
+**核心一：Doubao.dll 里嵌了 Deno 运行时权限模型。**
+字符串 `third_party\deno\runtime\permissions\lib.rs`、`vdatetimepermission`、`NotFoundPermissionDenied...` 出现在 permission 主题命中里；同时导入层面有 1,613 个导入 / 153 个安全导入（`CreateRestrictedToken`、`CreateProcessWithTokenW`、`CreateProcessAsUserW`、`DuplicateTokenEx`、`CryptProtectData`、`LsaClose`、`SetFileSecurityW`）。
+沙箱相关字符串是产品级命名：`IsSandboxedProcess`、`SandboxHelper`、`PROCESS_SANDBOX_HELPER`、`is_sandboxed`、`isSandboxed`（`ev_528b9f74…` / `ev_2ef855c8…`）。
+网络栈痕迹：`hickory-resolver 0.25.2`、`encoding WINDOW_UPDATE`、`invalid WINDOW_UPDATE frame`、`recv WINDOW_UPDATE`（HTTP/2）、`RSASSA-PKCS1-v1_5 / RSA-PSS / ECDSA / AES-GCM / HKDF`（rustls/webpki 算法表）。这说明 Doubao.dll 不是纯 C++，而是 C++ + Rust 组件混合。
+
+**核心二：agent_infra.dll 是“本地运行时策略引擎”。**
+字符串直接给出 API 与字段：`local_runtime.runtime_policy`、`local_runtime:runtime_policy:get`、`local_runtime:instance_group:update_permission`、`runtime policy updated, probe_enabled={}, background_limit={}, user_env_timeout_ms={}, runtime_probe_timeout_ms={}, probe_startup_timeout_ms={}`、`sandbox.network_config`、`sandbox.internal_config`、`sandbox_network_audit`、`local_runtime.sandbox_switch_config`、`local_runtime:is_support_no_sandbox`、`sandbox_instance_create`（`ev_5eefd5c0…`）。
+这是一套可热更新的本地运行时策略：网络配置、沙箱开关、探测开关、后台并发限制、超时预算都在策略里。**“is_support_no_sandbox” 这个键说明产品允许按环境关闭沙箱**，这是设计选择，不是漏洞。
+
+**核心三：mcp_helper.dll 是 MCP 进程宿主，用 Job Object 托底。**
+字符串：`process-wrap-9.1.0\src\tokio\job_object.rs`、`JOB_OBJECT_LIMIT`、`wait`、`MCP server executable permission denied`、`OAuth session has no credential checkpoint`、`failed to checkpoint OAuth credentials`、`OAuth credentials rejected; closing the expired MCP session`、`sse stream terminated, no reconnect policy`。
+导入：`CreateJobObjectW`、`AssignProcessToJobObject`、`SetInformationJobObject`、`TerminateJobObject`、`SetNamedPipeHandleState`、`CertVerifyCertificateChainPolicy`。它既管 MCP 子进程生命周期，也管 MCP OAuth 凭据检查点。
+
+**跨产品发现（本轮新证据）**：豆包的 `app\sbox\` 与 Trae 的 `resources\app\modules\sandbox\` 是**同一套 aiep 沙箱 SDK 的不同构建**——文件名完全同构（`sbox_sdk.dll`、`aiep_sbox.dll`、`aiep_ipc.dll`、`run_helper.exe`），豆包 sbox_sdk 2,594KB、Trae 2,320KB。这不是巧合，说明字节系两个产品共享 sandbox 供应链。这一点上一版完全没有。
+
+**证据锚点**：`ev_e0abf81c…`（jsmap）、`ev_528b9f74…` / `ev_2ef855c8…` / `ev_5eefd5c0…`（三个 DLL overview）。
+
+---
+
+### 4.7 DeepSeek Harness（DeepSeek，Electron + cordis 插件内核）
+
+**安装面**：`C:\Apps\DeepSeekHarness`，0.2.2-rc.5；`DeepSeek Harness.exe` 246,341,104；`resources\app.asar` 209,083,008；20,300 个列出文件；26 个 native 模块。
+
+**前端（`ev_ce7bcd8d…`）**：只有 **17 个源模块** / 633 个 JS 文件 / 2,778 函数 / 3,129 节点 / 5,931 边 / 17 条 endpoint / 5 个窗口 / 11 个暴露键。`bundle_modules = 0`，说明它不是 webpack 千 chunk 结构，而是“少量大模块 + 插件装配”。
+
+- `lib/main.js`：38 个 `ipcMain.handle`、5 个 `ipcMain.on`。
+- `lib/preload-app.cjs`：28 个 `ipcRenderer.invoke`、7 个 `contextBridge.exposeInMainWorld`；`preload-welcome.cjs` 8 个 invoke；`preload-mandatory.cjs` 1 个 expose。
+- **静态 IPC 表却是 0，动态 142 条**。原因很直接：通道名由 cordis 插件在运行期注册/拼接，静态图抓不到。这是本目标最大的盲区，也是“静态 IPC 数量不等于接口面”的最强例证。
+- 暴露键：`dsh`、`dshDesktop`、`dshDesktopBoot`、`dshPlatform`、`dshUpdateDialog`、`dshMandatoryUpdate`、`dshWelcome`、`dshOnboarding`、`__DSH_DIRECTORY_PICKER__`、`__DSH_HOST_PATHS__`、`__DSH_LOCALE__`。
+- 窗口：1 个 `WebContentsView` 显式 `contextIsolation:true / nodeIntegration:false / sandbox:true`；2 个 `BrowserWindow` 的 `webPreferences` 运行期计算（`ev_ce7bcd8d…`，windows 段）。
+
+**依赖即架构**：`@deepseek-ai/cordis`（插件/依赖注入内核，workspace 版本）、`@deepseek-ai/dsh-api-gateway`、`ws 8.21`、`electron-updater 6.8.9`、`semver`。`dsh-api-gateway` 是 API 网关，`cordis` 是插件容器；**DeepSeek 的能力面由插件在运行期装配**，这解释了 17 个模块 vs 142 条动态通道。
+
+**后端/服务层**：本地 endpoint 有 `ws://127.0.0.1/*`、`wss://127.0.0.1/*`，说明主进程与渲染/插件之间存在 **loopback WebSocket** 通道（具体端口运行期决定）。`dsh-api-gateway` 负责对外 API 聚合，cordis 负责插件生命周期；两者都不是 Electron IPC。
+
+**核心（已补录）**：`DeepSeek Harness.exe` 实测 1,284 个导入 / 129 个安全导入，字符串全是 `cppgc::`、`gin::`、`node:electron/js2c/sandbox_bundle`、`enable-sandbox` 这类 Electron 内置；签名主体 Hangzhou DeepSeek Artificial Intelligence Co., Ltd.（有效）。**结论：没有产品级原生沙箱/权限证据**，产品能力在 cordis 插件与 JS 主进程（38 个 ipcMain.handle、142 条动态通道）。上一版若用这个 exe 的导入证明“DeepSeek 有沙箱”，同样属于框架级误判。
+
+**证据锚点**：`ev_ce7bcd8d…`（jsmap）。
+
+---
+
+### 4.8 OpenCode（Electron 客户端 + 独立 CLI 后端）
+
+**安装面**：`C:\Users\Administrator\AppData\Local\Programs\ai.opencode.desktop`，2.2.7；`OpenCode.exe` 246,614,920；`resources\app.asar` 240,859,491；`resources\opencode-cli.exe` **265MB**（比主程序还大）；4 个 native 模块。
+
+**前端（`ev_381f0a96…`）**：3,231 源模块 / 5,940 JS 文件 / 39,462 函数 / 46,281 节点 / 80,579 边 / 289 endpoint（156 唯一）/ 3 窗口 / 3 条静态 IPC（1 配对）/ 5 动态 / **只有 1 个暴露键 `electron`（5 个成员）**。
+`out/preload/index.cjs` 只有 1 次 `ipcRenderer.invoke` 与 1 次 `exposeInMainWorld`——这是一个**刻意收窄的 preload 面**，和前几个产品动辄 80 个暴露键形成对比。
+
+**核心：`opencode-cli.exe` 是 Bun 编译的单文件 JS 运行时，不是 Rust/Go。**
+本轮补做了 CLI 的原生取证：41,058 函数 / 200,682 字符串 / 1,284 导入（59 个库），函数表在 6,000,000 条指令处截断（`ev_9f220b64…`）。字符串里同时出现 `JSBundlerPlugin__create returns a non-null protected JSCell` 与 `this indicates a bug in Bun. Please file a GitHub issue.`，以及 ngtcp2/QUIC 常量（`CC_ALGO_BBR`、`DEFAULT_MAX_STREAMS_BIDI`、`TLS_AES_128_GCM_SHA256`）——**Bun + 内置 QUIC/HTTP3 栈**。
+签名主体 **Anomaly Innovations, Inc.**（`C=US, ST=Delaware, L=Dover`，Microsoft ID Verified CS AOC CA 03，有效期 2026-11-08 → 2026-11-11，`signature_check: valid`）。
+
+**后端：4096 端口的真相是“桌面端连本地 CLI”，不是 CLI 里写死 4096。**
+- 桌面 `endpoints` 里 `http://localhost:4096` 出现 **62 次**（`ev_381f0a96…`，local_urls 段），hosts 统计 `localhost(65)`、`127.0.0.1(4)`。
+- CLI 侧定向字符串只命中 `ws://127.0.0.1:`、`http://localhost:`、`tcp:localhost:` 这些**模板**，以及 `http://localhost:3000/`（打包进来的 web 内容噪声）；**没有命中字面端口 4096**（`ev_1360868c…`）。所有 `4096` 命中都是 `DigiCert TLS RSA4096` 与 `base_offset.is_multiple_of(4096)`，与端口无关。
+- 结论：端口 4096 是桌面端拼装的 URL（可能在 asar 的配置/默认值里），CLI 侧只暴露 loopback 客户端模板。**监听实现仍未在源码级定位**，标未知；但“薄壳 + 厚 CLI”的结构已被原生证据确认。
+`hosts` 里还有 `opencode.ai(50)`、`github.com(103)`、`chatgpt.com(3)`、Sentry ingest 域名，说明桌面端同时对接云端与本地。
+
+**依赖极简**：`@zip.js/zip.js`、`electron-context-menu`、`electron-log`、`electron-updater 6.8.9`、`lighthouse 13.4.1`。Lighthouse 说明内置了页面审计/性能评分能力，不是纯聊天壳。
+
+**窗口安全**：主窗口显式 `contextIsolation:true / nodeIntegration:false / sandbox:true`；另 2 个窗口 `webPreferences` 运行期计算（`ev_381f0a96…`）。
+
+**一句话结论**：OpenCode 是“薄桌面壳 + 厚 Bun CLI 服务”的结构；前端只暴露 1 个键，真正的工具/会话能力在 CLI 侧，且 CLI 是 Bun 单文件运行时——这解释了它为什么能把 265MB 全部塞进一个 exe。
+
+**证据锚点**：`ev_381f0a96…`（jsmap）、`ev_9f220b64…`（CLI overview）、`ev_1360868c…`（CLI loopback 字符串）。
+
+---
+
+### 4.9 MiniMax Code（MiniMax，Electron + 多平台 Agent）
+
+**安装面**：`C:\MiniMax Code`，3.1.14.220；`MiniMax Code.exe` 235,418,560；`resources\app.asar` **371,919,371**；19 个 native 模块；另有 `resources\resources\computer-use\0.34.1\win32-x64\minimax-computer-use.exe`（34.9MB）与 `resources\app.asar.unpacked\node_modules\@minimax\mcode-sandbox-runtime\vendor\srt-win\x64\srt-win.exe`（3.08MB）。
+
+**前端（`ev_07220c3a…`）**：1,391 源模块 / 1,860 JS 文件 / 5,159 bundle 模块 / 112,679 函数 / 124,372 节点 / 330,508 边 / 1,887 endpoint（1,394 唯一）/ 10 窗口 / 54 条静态 IPC（25 配对、14 仅 invoker）/ **816 条动态** / 35 个暴露键 / **373 个暴露成员**。
+
+IPC 分组一眼能看出四条业务线：
+
+- **computer-use**：`cu:permission:request`、`cu:permission:status`、`cu:permission:required`、`cu:preview:desktopPermission`、`cu:preview:inspect`、`cu:preview:openDesktopPermissionSettings`、`cu:permission:guide:drag`。这是一套**桌面权限申请/引导/预览**通道，对应 Windows 屏幕捕获与输入注入。
+- **内嵌浏览器**：`browser-webview:agent-pointer`、`interaction`、`prepare-native`、`snapshot`、`native-ready`、`applied`；`embedded-browser:agent-cursor-event`、`comment-bridge-event`。浏览器不是简单 iframe，而是带 agent 光标与快照的原生视图。
+- **小程序容器**：`miniapp:agent-open/reply/observe/session/sessions/tool-request/speech-transcribe`、`miniapp:composer-append`、`host-unsubscribe`。这是一套“小程序 as agent tool”的协议。
+- **模型菜单/PPT 预览**：`model-menu-popup:*`、`ppt-preview-render:prepare/ready/result`。
+
+**后端/服务层**：`@mavis/local-runtime-v2` + `handleLocalRuntimeRequest` 构成一个**进程内本地 API**：
+
+- 调用点直接写 `new Request('http://127.0.0.1/minimax-desktop/api/v1/file/git/invalidate-all', { method:'POST' })`、`http://127.0.0.1/minimax-desktop/api/v1/session/${sessionId}/files?limit=...`、`http://127.0.0.1/minimax-desktop/api/v1/session/${sessionId}`（`ev_07220c3a…` 来源模块 `lifecycle/workspace-git-resume.js`、`modules/document-preview/workspace-authority.js`）。
+- 这不是监听端口，而是 **Request/Response 对象在进程内路由**；但它把接口路径、分页参数、方法都显式化了，等价于一套内部 REST。
+- 远端：`wss://agent.minimax.cn`（18 次）、`wss://agent.minimax.io`、`wss://matrix-overseas-test.xaminim.com`、`ws://mcode.local/`。
+- IM 集成：依赖表里有 `@slack/socket-mode`、`@slack/web-api`、`discord.js`、`@wecom/aibot-node-sdk`、`grammy`（Telegram）。说明 MiniMax Code 支持把 Slack / Discord / 企业微信 / Telegram 当消息入口。
+- `@mavis/oauth-core` + `oauth-lease-protocol` + `remote-control-bridge`：OAuth 租约与远程控制桥。
+
+**核心**：`srt-win.exe` 是 **Rust 沙箱运行时**（16 crate：`rusqlite 0.32.1`、`windows 0.62.2`、`serde_json`、`clap`、`hashbrown`），说明沙箱状态落 SQLite、Win32 调用走 windows-rs（`ev_329fd74c…`）。`minimax-computer-use.exe` 是 CUA 驱动，与 `@trycua/cua-driver 0.34.1` 对应。
+主程序 `MiniMax Code.exe` 本轮补做原生取证：40,796 函数 / 200,691 字符串 / 1,274 导入（58 库），**PE 头里 `pdb_path: electron.exe.pdb`**——这是“Electron 壳”的硬证据，不是推测；签名主体 上海稀宇科技有限公司（`signature_check: valid`）（`ev_bf548618…`、`ev_6cb39bcb…`）。所以 MiniMax 的产品级原生能力只有 `srt-win` / `minimax-computer-use` 两个 helper，主 exe 的 Win32 导入（`CRYPT32`、`WS2_32`、`WINTRUST`、`UIAutomationCore`）属于 Electron/Chromium 出厂依赖。
+
+**窗口安全**：1 个窗口开启 `<webview>` tag，4 个 `webPreferences` 运行期计算，其余未显式设置（`ev_07220c3a…`）。
+
+**证据锚点**：`ev_07220c3a…`（jsmap）、`ev_329fd74c…`（srt-win Rust 指纹）、`ev_bf548618…`（主 exe overview/PDB）、`ev_6cb39bcb…`（主 exe 导入）。
+
+---
+
+### 4.10 商汤小浣熊（SenseTime，Electron + Python ACP Runtime）
+
+**安装面**：`C:\Apps\浣熊`，1.2.3；`商汤小浣熊.exe` 222,902,112；`resources\app.asar` 362,460,116（345.7MB）；11 个 native 模块。`resources` 下还有一整套外置运行时：`box-agent-runtime`、`browser-gateway`、`browser-tools`、`connectors`、`conversation-skills`、`team-document-skills`、`default-pets`、`hyperframes-assets`、`pandoc`、`rg`、`7za`、`elevate.exe`。
+
+**前端（jsmap `ev_fb77c73a…`）**：1,886 源模块 / 1,965 JS 文件 / 5,004 bundle 模块 / 109,542 函数 / 121,089 节点 / 1,819 endpoint（1,355 唯一）/ 10 窗口 / 95 条静态 IPC / **38 条只有 handler、没有检测到调用方** / 2 条仅 invoker / 26 条动态 / 20 个暴露键。
+
+IPC 分组说明它是“能力市场型”客户端：
+
+- `appshot:*`：`capture`、`capture-result`、`get-permission-status`、`get-settings`、`save-settings`、`open-permission-settings`、`request-accessibility-permission`、`request-screen-capture-permission`、`start-hotkey-helper`、`reveal-app-bundle`、`start-app-drag`。这是一套**截图 + 屏幕捕获/辅助功能授权**的完整通道（命名是 macOS 风格，Windows 上做等价映射）。
+- `branding:get-config / save-config / reset-config / updated`：可换品牌配置。
+- `connectors:connect / disconnect / cancel-connect / get-configs / get-states / set-enabled`：连接器生命周期。
+- `browser-tools:install-progress`、`chromium-runtime:progress`、`computer-use:install-progress`、`experts-install-progress`、`scenario-install-progress`、`skill-market-install-progress`：五套“按需安装”的运行时/能力包。
+- `desktop-client:*`：new-task、language-updated、sync-zoom、skill-navigation 等壳层消息。
+
+**核心：`box-agent-acp.exe` 是 PyInstaller 打包的 Python 3.12 应用，不是 Rust/Go。**
+`resources\box-agent-runtime\bin\` 下有 `python312.dll` 6.66MB、`python3.dll`、`base_library.zip` 1.27MB、`_internal\*.pyd`（`unicodedata.pyd`、`_decimal.pyd`、`_ssl.pyd`、`_sqlite3.pyd`、`_cffi_backend.cp312-win_amd64.pyd`）、`libcrypto-3-x64.dll` 7.62MB、`libssl-3-x64.dll`、`sqlite3.dll`，以及 `bin\skills\theme-factory\theme-showcase.pdf`。
+`native-rust-binary-show`（`ev_490fb87d…`）与 `native-go-binary-show`（`ev_c063900c…`）都返回“无指纹”，与 PyInstaller 结构吻合。`native-strings-find` 直接命中 PyInstaller 装载器字符串：`[PYI-%d:%s]`、`_MEIPASS`、`%s\base_library.zip`、`Could not load PyInstaller's embedded PKG archive`、`PyInstallerOnefileHiddenWindow`（`ev_56df0946…`）——**onefile 打包，运行时解包到 `_MEI%d` 临时目录**。
+
+**运行时清单（`resources\box-agent-runtime\manifest.json`，本轮新发现）**：
+
+- `mode: standalone`、`platform: win32`、`arch: x64`、`entry: bin/box-agent-acp.exe`；
+- **`external_python_sandbox: true`**——产品自己声明“外部 Python 沙箱”；
+- `mcp_servers.box-agent-web-extract`：`entry: bin/box-agent-acp.exe`、`args: ["--web-extract-mcp"]`、`transport: stdio`——**同一个 exe 既是 ACP agent runtime，又是一个 stdio MCP server**；
+- `config\` 下带 `analysis_prompt.md`、`code_prompt.md`、`system_prompt.md`、`config-example.yaml`、`isolated-profile-example.yaml`、`mcp-example.json`——提示词与隔离 profile 都是外置可改的；
+- `bin\_internal\IPython\` 说明内置 IPython 内核，不只是“能跑 Python 脚本”。
+
+这解释了为什么它有 `box-agent-runtime\skills\` 这种目录——ACP runtime 自己带技能包，且用 manifest 声明能力边界。
+
+**后端/服务层**：`browser-gateway`、`browser-tools`、`connectors` 三个外置目录对应前端的三类 IPC；`box-agent-acp` 是 Agent Client Protocol 的运行时宿主（进程外）。这属于“主进程 + 外置 Python runtime”的双层结构，不是纯 Electron。
+
+**窗口安全**：1 个窗口 “sandbox not set”，4 个 `webPreferences` 运行期计算，1 个 `<webview>` tag（jsmap `ev_fb77c73a…`，windows 段）。
+
+**证据锚点**：`ev_fb77c73a…`（jsmap）、`ev_56df0946…`（PyInstaller 字符串）、`ev_490fb87d…`（Rust 无指纹）、`ev_c063900c…`（Go 无指纹）。
+
+---
+
+### 4.11 Cursor（Anysphere，VS Code fork + Rust sandbox-helper）
+
+**安装面**：`C:\Users\Administrator\AppData\Local\Programs\cursor`，3.27.22；`Cursor.exe` 235,483,944；`resources\app` 21,000 文件 / 704MB；34 个 native 模块，其中 `file_service.node` 44MB、`crepectl.exe` 23.7MB；`resources\app\resources\helpers\cursorsandbox.exe` 3.3MB。
+
+**前端（`ev_f48ad437…`）**：830 源模块 / 1,863 JS 文件 / **10,850 bundle 模块** / 300,113 函数 / 319,057 节点 / 681,140 边 / 3,730 endpoint（1,511 唯一）/ 13 窗口 / 33 条静态 IPC（12 配对、2 仅 invoker）/ 45 条动态 / 21 个暴露键（11 个成员）。
+目录结构：`molten/` 482 个模块（Cursor 自己的 Electron 主进程宿主层），`extensions/` 288 个（VS Code 扩展宿主），`out/` 60 个。
+
+**核心：cursorsandbox.exe 是产品级 Rust 沙箱，不是 Electron 自带。**
+签名 Anysphere, Inc.，Rust 源码路径 `packages\sandbox-helper\native\sandbox\src\main.rs`，字符串给出策略模型：
+
+- `internally tagged enum SandboxPolicy`
+- `workPolicyStrict`、`networkPolicy`、`networkPolicyStrict`、`system`、`workspace`
+- `sandbox: policy strict enabled; network access disabled`
+- `sandbox: network policy provided but network_access is false`
+- `Error: Failed to apply sandbox:`
+
+导入只有 3 个安全项（`CreateProcessW`、`NtCreateNamedPipeFile`、`WSACleanup`），说明它不靠 Win32 token API 硬编码，而是以“策略枚举 + 网络开关”驱动（具体限制手段静态未解析，标未知）。
+
+**前端能力面**：暴露键是 molten 前缀的 9 个（`moltenCrashReport`、`moltenShell`、`moltenPrefs`、`moltenBootPrefs`、`moltenBootThemes`、`moltenBootKeybindings`、`moltenBootTerminalSettings`、`moltenBootChatMaxWidth`、`moltenBootScreenReader`、`moltenBrowser`、`moltenPerf`、`moltenUpdate`、`moltenHostedShell`、`moltenProcessMemory`、`moltenSystemVersion`、`moltenHomeDir`、`moltenPathForFile`），加上两个 `vscode` 与 `cursorPasskey`。`cursorPasskey` 明确指向凭据/密钥能力；`extensionHostWorkerMain.js` 里 `keyring` 相关命中 349 次（VS Code secret storage 的 keyring 实现）。
+`molten/` 的存在说明 Cursor 把 VS Code 的 workbench 包了一层“molten 宿主”，这与 Trae 的 icube 浮窗是两条不同路线。
+
+**后端/服务层**：`extensions/` = VS Code extension host；`file_service.node` = 独立文件服务；`crepectl.exe` = Cursor 的辅助控制进程；`agent-host-daemon` 相关模块（`daemon` 命中 8 个）说明有常驻 agent host。本地 endpoint 里 `http://localhost:8787/callback`（11 次）是 OAuth 回调，`http://127.0.0.1:9229/json/list` 是调试端口探测，`http://*.cursor.localhost:8001/*` 是本地代理规则。
+
+**窗口安全**：13 个窗口里 5 个 `contextIsolation`/`nodeIntegration` 未显式设置（继承 Electron 默认），5 个 `webPreferences` 运行期计算，2 个 `sandbox` 未设置。这是本轮 Electron 产品里“显式声明率”较低的一档。
+
+**证据锚点**：`ev_f48ad437…`（jsmap）、`ev_fa784c06…`（Cursor.exe imports）、`ev_a5595fe7…`（签名）。
+
+---
+
+## 5. 横向专题：谁真的有产品级能力
+
+这一节只回答一个问题：**把 Electron/Chromium 自带的东西剥掉之后，每个产品还剩下什么。**
+
+### 5.1 权限与审批模型
+
+| 产品 | 权限表达 | 审批/确认 | 执行约束 | 归因 |
+|---|---|---|---|---|
+| Codex | `execpolicy` 规则 + `LegacyPermissionProfile` / `TaggedPermissionProfile::{Managed,External}` + `NetworkPermissions` + `SerializedManagedFileSystemPermissions::Restricted` | 字符串含 `request_permissions`、`sandbox_approval`、`mcp_elicitations` | 受限 token + process job + WFP + 专用 SID/ACL | 产品级（Rust） |
+| WorkBuddy | `SandboxPaths.session(<id>).permission_file` / `permission.json` | `approval.callbackAddress` 反向通道、`approvedByUser`、approval/backup/restore 三队列 | Job Object + 命名管道 ACL + `GetNamedPipeClientProcessId` | 产品级（Rust） |
+| Trae | `SandboxConfigPermissionObjectWireRef`、`process_policy`、`TRAE_SANDBOX_NEW_PERMISSION` | 工具宿主 `approval` 语义 + `PermissionDenied` | Job Object + Named Pipe + SSPI + `port_policy` 白/黑名单 | 产品级（Rust/C++） |
+| 豆包 | `local_runtime:instance_group:update_permission`、`local_runtime.runtime_policy` | 策略字段 `probe_enabled/background_limit/user_env_timeout_ms` | `PROCESS_SANDBOX_HELPER`、`IsSandboxedProcess`、`aiep_sbox` | 产品级（C++/Rust） |
+| Cursor | `internally tagged enum SandboxPolicy`、`workPolicyStrict`、`networkPolicyStrict` | 未发现审批字符串 | `CreateProcessW` + 策略驱动（细节未知） | 产品级（Rust） |
+| MiniMax | `cu:permission:request/status/required`、`cu:preview:desktopPermission` | 桌面权限引导/设置 | `srt-win.exe`（Rust + SQLite） | 产品级（Rust） |
+| ZCode | `zcode:cua-permission-panel-state`、`zcodePluginSandbox` | CU 权限面板 | host 侧 Windows Job 控制（“Job was confirmed empty”） | 产品级（JS/宿主） |
+| 小浣熊 | `appshot:get-permission-status`、`request-screen-capture-permission`、`request-accessibility-permission` | 系统设置跳转 | `box-agent-acp.exe`（Python 3.12） | 产品级（Python） |
+| Qoder | 无产品级权限字符串；窗口 `sandbox:true` | 未发现 | Electron 默认 + application-server | **框架级/未知** |
+| DeepSeek | 无产品级权限字符串；142 条动态 IPC | 未发现 | Electron 默认 + cordis 插件 | **框架级/未知** |
+| OpenCode | 暴露面极小；`SandboxPolicy` 未在桌面包发现 | 未发现 | 推测在 CLI（未闭环） | **未知** |
+
+### 5.2 沙箱实现谱系
+
+- **“受限令牌 + 作业对象 + 网络过滤”派**：Codex 最完整。专用用户/SID（`convert SID failed`、`write sandbox users file`）、`Local\CodexSandboxReadAcl`、WFP provider `Codex Windows Sandbox WFP`、`spawned ConPTY is missing its process job` 四处互相咬合。
+- **“会话权限文件 + 审批中心”派**：WorkBuddy。cli 只负责把进程塞进 Job Object，center 负责管道 ACL 与审批反向通道，`aes/argon2` 保护审批票据。
+- **“共享 SDK”派**：Trae 与豆包都装 `aiep_sbox.dll` / `aiep_ipc.dll` / `run_helper.exe` / `sbox_sdk.dll`，只是构建不同（Trae 2,320KB vs 豆包 2,594KB）。字节系内部复用了同一套 sandbox SDK。
+- **“策略枚举”派**：Cursor 的 `SandboxPolicy` 用 `workPolicyStrict` + `networkPolicyStrict` 表达，而不是堆 Win32 API。
+- **“SQLite 状态机”派**：MiniMax `srt-win` 用 `rusqlite` 存沙箱状态。
+- **“Python 运行时”派**：小浣熊 `box-agent-acp` 是 PyInstaller Python 3.12，自带 skills 目录。
+
+### 5.3 凭据与密钥
+
+| 产品 | 证据 | 性质 |
+|---|---|---|
+| Codex | `dpapi protect failed for online/offline user`、`CryptProtectData`、`PFXImportCertStore`、`~/.aws/credentials`、AWS `CredentialsProviderChain` | 沙箱安装器密钥 + AWS SDK 凭据链（是否实际使用未知） |
+| WorkBuddy | `safeStorage` 1 处、`aes 0.8.4`、`argon2 0.5.3`、secret 扫描规则（1password/adafruit/generic-credential） | 审批票据加密 + 泄露扫描 |
+| Trae | `credential_sync`、`git_token`、`workroom_credent`、`credential_sync` 字段；`keyring` 命中 9 | 工具宿主凭据同步 |
+| Cursor | `cursorPasskey` 暴露键；`extensionHostWorkerMain.js` keyring 349 次 | VS Code secret storage + Passkey |
+| ZCode | `@napi-rs/keyring 2.1.2` | OS keyring |
+| Qoder | 24 个 native 模块；package.json 未直接列 keytar | 未在文件级复现，标未知（上一版“keytar/aoq”结论本轮不采信） |
+| 豆包 | `mcp_helper` 的 `OAuth session has no credential checkpoint`、`failed to checkpoint OAuth credentials`；`BCrypt` | MCP OAuth 凭据检查点 |
+| 小浣熊 | `libcrypto-3-x64.dll` / `libssl-3-x64.dll` / `_ssl.pyd` | Python SSL 栈 |
+
+### 5.4 前后端接口面
+
+| 产品 | 前端形态 | 静态 IPC | 动态 | 暴露键 | 后端载体 |
+|---|---|---|---|---|---|
+| WorkBuddy | Electron | 120（55 配对） | 214 | 83 | `main/server.js` MCP Host + A2A proxy + WeCom A2A + daemon |
+| Cursor | Electron（molten） | 33（12 配对） | 45 | 21 | extension host + file_service.node + crepectl |
+| Trae | Electron（VS Code） | 71（1 配对） | 110 | 5 | agent-tool-host + sandbox SDK + shared process |
+| MiniMax | Electron | 54（25 配对） | 816 | 35（373 成员） | `@mavis/local-runtime-v2` 进程内 REST + wss agent |
+| ZCode | Electron | 3（2 配对） | 423 | 8（169 成员） | `out/host` RPC + `@zcode/server` + runtime-host |
+| 小浣熊 | Electron | 95（19 配对，38 仅 handler） | 26 | 20 | box-agent-runtime（Python ACP） + browser-gateway |
+| 豆包 | CEF | 0（不建模） | 0 | 0 | `agent_infra.dll` 本地运行时策略 + `mcp_helper.dll` MCP 进程宿主 |
+| Qoder | Electron | 0 | 8 | 0 | `application-server` + `peer-transport` + `remoteSdkDaemonBridge` |
+| DeepSeek | Electron | 0 | 142 | 11 | cordis 插件 + `dsh-api-gateway` + loopback WS |
+| OpenCode | Electron | 3（1 配对） | 5 | 1（5 成员） | `opencode-cli.exe` 本地 server（4096，未闭环） |
+| Codex | Rust TUI/CLI | — | — | — | app-server 本地 WebSocket `ws://127.0.0.1:0` |
+
+**读法**：暴露键数量与安全不是线性关系，但 83 个暴露键（WorkBuddy）与 1 个暴露键（OpenCode）代表两种设计哲学：前者把主进程当“能力总线”，后者把 preload 当“最小门”。IHUI-AI 应该选后者作默认，前者只对受信窗口开放。
+
+### 5.5 更新与遥测
+
+- WorkBuddy：`software-update:*` IPC 四件套 + `galileotelemetry.tencent.com`（18）+ `localhost:9411/api/v2/spans`（Zipkin）+ `localhost:4318`（OTLP HTTP）。
+- Trae：`update-available/update-downloaded/before-quit-for-update` + `crashReporter` + `VSCODE_CRASH_REPORTER_PROCESS_TYPE`。
+- ZCode：`app-update.yml` → `url: http://localhost:8081`（本地更新代理）+ `@opentelemetry/exporter-trace-otlp-proto`。
+- Cursor：`downloads.cursor.com`（14）+ `update` 服务 + crashReporter。
+- MiniMax：`electron-updater` + `telemetry` 模块 6 个 + `agent.minimax.cn` wss。
+- 豆包：`mon.zijieapi.com`（631 次，最大外部 host）+ `pc_push.dll`。
+- Qoder：`@arms/rum-electron`（阿里 ARMS 前端监控）+ `@ali/qoder-crash-sdk`。
+- 小浣熊：`app-update:status` IPC + `app-update.yml`。
+- DeepSeek / OpenCode：`electron-updater`；OpenCode 另有 Sentry ingest 域名。
+
+---
+
+## 6. 对 IHUI-AI 的可落地清单
+
+这一节只写“能落到仓里”的东西。落点用包级/目录级路径，避免编造不存在的文件名。
+
+| 借鉴点 | 证据来源 | IHUI-AI 落点 | 验收标准 |
+|---|---|---|---|
+| 统一权限决策对象 | Codex `TaggedPermissionProfile` + `NetworkPermissions`；WorkBuddy `permission.json` + approval；Trae `SandboxConfigPermissionObjectWireRef` | `packages/agent-sdk/src` 定义 `PermissionDecision {scope, kind, sessionId, expiresAt, evidenceRef}`；`apps/api` 暴露 policy 端点；`apps/desktop` 只做 UI | 所有工具调用（含 MCP/内置工具/终端）都必须过同一个 `decide()`；没有 `evidenceRef` 的决策直接拒绝 |
+| Windows 作业对象执行器 | WorkBuddy `sandbox-cli` 的 `CreateJobObjectW/AssignProcessToJobObject/TerminateJobObject`；Codex `spawned ConPTY is missing its process job` | `apps/desktop` 主进程新增 executor 抽象（Job Object + 进程树回收 + 超时） | 子进程退出后 Job 必须为空；CTRL+C/超时/崩溃三场景都不留孤儿进程 |
+| 审批反向通道 | WorkBuddy `approval.callbackAddress` + `approvedByUser` + 三队列；Trae `PermissionDenied` | `apps/desktop` 命名管道（ACL 限制到当前用户）+ `packages/agent-sdk` 审批协议 | 审批请求可追溯到 session；断线后备份/恢复队列不丢请求 |
+| preload 暴露面预算 | OpenCode 1 个键 / 5 成员 vs WorkBuddy 83 键 | `apps/desktop` preload 只暴露一个命名空间对象；禁止直接暴露 `ipcRenderer` | 暴露键 ≤ 20；每个键有 owner 与用途注释；CI 里做预算检查 |
+| 动态 IPC 注册表 | ZCode `[rpc:call]/[rpc:listen]`、423 条动态；Qoder `peer-transport` | `packages/agent-sdk` 做命名通道 RPC（call/listen/subscribe），替代裸 `ipcMain` | 通道名必须来自注册表；未注册通道运行期拒绝并打点 |
+| 本地运行时策略热更新 | 豆包 `local_runtime.runtime_policy`（probe/timeout/background_limit） | `apps/api` 或 `apps/ai-service` 增加 `runtime-policy.json` + 热加载；写入审计 | 策略变更 5 秒内生效；每次变更留 who/when/why；非法字段拒绝整份策略 |
+| MCP Host 回环服务 | WorkBuddy `main/server.js` `listen(0,'127.0.0.1')` + 路由注册/注销 | `apps/api` 提供 MCP Host：随机端口、per-route token、生命周期注销 | 端口不落公网；未注册路由 404；注销后在飞请求被 abort 并计数 |
+| 凭据与 OAuth 检查点 | 豆包 `mcp_helper` OAuth checkpoint；ZCode `@napi-rs/keyring`；Cursor `cursorPasskey` | `packages/auth`：OS keyring + DPAPI 封装；MCP OAuth 存 checkpoint 而非内存 | 明文凭据零落盘；refresh 失败可恢复；退出即清内存副本 |
+| 遥测与本地采集 | WorkBuddy `localhost:4318`（OTLP）+ `9411`（Zipkin）；ZCode OTLP exporter | `monitoring/` 统一 OTLP，默认本地 collector，远端需显式开关 | 默认不外发；PII 字段白名单过滤；采样率可配 |
+| 更新链路 | ZCode `http://localhost:8081` 本地代理；Cursor `downloads.cursor.com` | `apps/desktop` 更新器：签名校验 + 可选本地代理 + 灰度通道 | 安装包签名校验失败即拒绝；本地代理不可用时回退官方源并告警 |
+| 安全基线（窗口） | Qoder 全窗口 `contextIsolation:true/sandbox:true/webSecurity:true`；WorkBuddy 调试面板反例 | `apps/desktop` 统一 `createSecureWindow()` 工厂 | 生产构建禁止 `contextIsolation:false`、`nodeIntegration:true`、`webSecurity:false`；调试窗口独立构建开关 |
+| 多端一致（Web/RN/小程序） | 本轮 11 个产品都在“多入口共享同一后端” | `packages/agent-sdk` 作为唯一协议层；`apps/web`、`apps/mobile-rn`、`apps/miniapp-taro` 复用 | 三端调用同一 `agent-sdk` 方法名与错误码；差异只在 UI 适配层 |
+
+**必须避开的反模式（本轮实测到的）**：
+
+1. WorkBuddy `main/index.js:203` 的调试面板 `contextIsolation:false/nodeIntegration:true`——即便只是调试，也不该进生产包。
+2. WorkBuddy `main/main-bootstrap.js:368` 的 `webSecurity:false`——同源策略关掉后，任何内嵌页面都能读跨域响应。
+3. Trae 的 1 个 `sandbox off` + 1 个 `webSecurity off` 窗口；Cursor 5 个窗口未显式声明安全项。
+4. 83 个 `contextBridge` 暴露键（WorkBuddy）与 373 个暴露成员（MiniMax）——能力总线式 preload 的典型膨胀。
+5. 423 条（ZCode）/816 条（MiniMax）动态 IPC——不可审计面太大，必须用注册表收口。
+
+---
+
+## 7. 局限与未闭环
+
+必须诚实列出来，否则这份报告会重复上一版的问题。
+
+1. **未运行**：所有“运行期行为”均未知。例如 WorkBuddy 的 MCP Host 是否真的在启动时 listen、豆包的 `sandbox_switch_config` 默认值、ZCode 的 8081 更新代理是否启用，都没有实跑验证。
+2. **Codex 407MB 超工具上限**：`native-rust-binary-show` 拒绝 >256MB，Codex 没有 crate 级报告；只有字符串/导入/函数三条证据链。
+3. **OpenCode 监听端未闭环**：`opencode-cli.exe` 已完成原生取证（Bun 单文件、41,058 函数、签名 Anomaly Innovations），CLI 字符串有 `ws://127.0.0.1:` 模板但没有字面 4096；桌面端 62 处 `localhost:4096` 只能证明“连这个地址”，不能证明“CLI 在该端口监听”。
+4. **Qoder 的 keytar/aoq 未复现**：上一版称有 keytar/aoq 原生模块，本轮在 package.json 与 24 个 native 模块清单里没有拿到文件级对应，标未知。
+5. **动态 IPC 只计数**：ZCode 423、MiniMax 816、DeepSeek 142、WorkBuddy 214、Trae 110 条通道名是运行期拼接，静态工具只能计数，不能枚举。
+6. **`webPreferences: dynamic` 无法判定**：多个产品有 4–12 个窗口的 webPreferences 在运行期计算，静态只能标“未知”，不能下“安全/不安全”结论。
+7. **CEF 的豆包没有 IPC 模型**：`js-app-map` 不建模 CEF message port，豆包的 IPC 面为 0 是工具盲区，不是产品事实。
+8. **函数发现上限 50,000**：所有大 PE 的函数表都不完整；`core-overview-show` 已明确 `function_limit`。
+9. **字符串保留前 200,000 条**：超大二进制（Codex 204,743 条）尾部字符串未进入索引。
+10. **签名只验证“文件哈希匹配 + 证书链有效”**，未做吊销/时间戳策略判定。
+
+---
+
+## 8. 证据索引
+
+所有证据 JSON 位于 `C:\IHUI-AI\.workbuddy\craft\out\deep\`：
+
+- `analysis\install-matrix.json`：11 个目标的安装面、主程序版本/大小/hash、asar 大小、native 模块数量。
+- `analysis\frontend-matrix.json`：前端总矩阵（模块/节点/边/endpoint/窗口/IPC/暴露键）。
+- `analysis\backend-<target>.json`：后端模式扫描（http/ws server、ipcMain、contextBridge、safeStorage、MCP/ACP/LSP）。
+- `<target>-jsmap-full.json`：前端全量图（豆包 437MB、WorkBuddy 273MB、Cursor 247MB 等）。
+- `native\<target>\*.json`：核心取证（overview / imports / exports / publisher / strings0-7 / feat0-3）。
+- `analysis\frontend-<target>.json`：前端结构化摘要（IPC、窗口、暴露键、endpoint、模块关键词）。
+- `analysis\evidence-ids.json`：目标 → evidence id 映射；`analysis\evidence-map.json`：证据号 → 摘要/路径。
+
+前端 jsmap 证据号：
+
+| 目标 | evidence id |
+|---|---|
+| Cursor | ev_f48ad437… |
+| DeepSeek | ev_ce7bcd8d… |
+| 豆包 | ev_e0abf81c… |
+| MiniMax | ev_07220c3a… |
+| OpenCode | ev_381f0a96… |
+| Qoder 0.5.6 | ev_15085ef1… |
+| Qoder 0.5.14 | ev_6e0090db… |
+| Trae CN | ev_84c1dba4… |
+| WorkBuddy | ev_9543bb87… |
+| 小浣熊 | ev_fb77c73a… |
+| ZCode | ev_8277c347… |
+
+复现命令（单目标示例）：
+
+```powershell
+$cli = "C:\Users\Administrator\AppData\Local\craft-anything\0.5.0\craft-anything-cli.exe"
+$proj = "C:\IHUI-AI\.workbuddy\craft\all-ai-apps-full-2026-11-25.cany"
+& $cli --project $proj --deep js-app-map --input-path "C:\workbuddy\resources\app.asar" `
+  --max-files 400000 --max-file-bytes 67108864 --max-total-bytes 4294967296 `
+  --max-nodes 1500000 --limit 50000 --output-format json
+```
+
+```powershell
+& $cli --project $proj --deep native-strings-find `
+  "C:\workbuddy\resources\app.asar.unpacked\cli\vendor\sandbox\5.11.4\sandbox-center.exe" `
+  --pattern "approval|permission|policy" --mode regex --limit 5000 --output-format json
+```
+
+---
+
+**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是 11 个程序、8 个 asar 全解包、11 张前端全量图（最大 465,369 节点 / 1,473,627 边）、25 个实际存在的原生二进制（+1 个 not_found）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
