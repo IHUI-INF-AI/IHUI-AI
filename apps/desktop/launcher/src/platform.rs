@@ -88,6 +88,22 @@ fn fnv1a(path: &Path) -> u64 {
     hash
 }
 
+#[cfg(windows)]
+pub fn fatal(message: &str) {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
+
+    let text: Vec<u16> = message.encode_utf16().chain(std::iter::once(0)).collect();
+    let caption: Vec<u16> = "智汇AI".encode_utf16().chain(std::iter::once(0)).collect();
+    // 失败路径没有控制台可读，必须给用户一个原生可见出口。
+    unsafe {
+        MessageBoxW(0, text.as_ptr(), caption.as_ptr(), MB_OK | MB_ICONERROR);
+    }
+}
+
+#[cfg(not(windows))]
+pub fn fatal(message: &str) {
+    eprintln!("{message}");
+}
 #[cfg(not(windows))]
 fn fnv1a(_path: &Path) -> u64 {
     0

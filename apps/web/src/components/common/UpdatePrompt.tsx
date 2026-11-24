@@ -24,7 +24,7 @@ export function UpdatePrompt() {
   const bootstrap = Boolean(status.supported && status.requiresBootstrap && status.available)
   const visible = Boolean(status.supported && status.ready && status.available)
   if (!visible && !bootstrap && !rollbackNotice) return null
-  if (!visible && bootstrap) {
+  if (!visible && bootstrap && !rollbackNotice) {
     return (
       <div
         className="pointer-events-none fixed inset-x-4 bottom-5 z-[70] flex justify-end sm:inset-x-auto sm:right-6 sm:w-[372px]"
@@ -53,7 +53,7 @@ export function UpdatePrompt() {
       </div>
     )
   }
-  if (!visible && rollbackNotice) {
+  if (rollbackNotice) {
     return (
       <div
         className="pointer-events-none fixed inset-x-4 bottom-5 z-[70] flex justify-end sm:inset-x-auto sm:right-6 sm:w-[372px]"
