@@ -6238,6 +6238,7 @@
     "customHint": "사용자 정의 연결: Base URL 과 인증을 입력한 뒤 OpenAPI 가져오기 또는 수동으로 작업을 추가하세요",
     "managedUnavailableHint": "이 채널은 아직 플랫폼 관리자가 활성화하지 않았습니다. 일반 구성원은 설정할 필요가 없으며, 활성화 후 원클릭으로 연결할 수 있습니다.",
     "quickTitle": "원클릭 연결",
+    "userAuthorize": "내 계정 승인",
     "quickHint": "Feishu, DingTalk, WeCom 등은 플랫폼에서 이미 승인되었습니다. QR 스캔이나 앱 자격 증명 없이 원클릭으로 연결할 수 있습니다.",
     "connectNow": "연결",
     "connected": "연결됨",

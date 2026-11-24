@@ -6207,6 +6207,7 @@
     "customHint": "自定义接入:填 Base URL + 鉴权,再用 OpenAPI 导入或手填操作",
     "managedUnavailableHint": "该渠道尚未由平台管理员开通，普通成员无需配置；开通后可一键接入。",
     "quickTitle": "平台一键接入",
+    "userAuthorize": "扫码授权自己账号",
     "quickHint": "飞书、钉钉、企业微信等由平台统一授权，点一下即可接入，不需要扫码或填写应用密钥。",
     "connectNow": "一键接入",
     "connected": "已接入",

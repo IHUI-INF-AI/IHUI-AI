@@ -6238,6 +6238,7 @@
     "customHint": "カスタム接続: Base URL と認証を入力し、OpenAPI 取り込みまたは手動で操作を追加します",
     "managedUnavailableHint": "このチャネルはプラットフォーム管理者がまだ有効化していません。一般メンバーは設定不要で、有効化後はワンクリックで接続できます。",
     "quickTitle": "ワンクリック接続",
+    "userAuthorize": "自分のアカウントを認証",
     "quickHint": "FlyBook、DingTalk、WeCom などはプラットフォーム側で認可済み。QR スキャンやアプリ認証情報の入力は不要で、ワンクリックで接続できます。",
     "connectNow": "接続する",
     "connected": "接続済み",

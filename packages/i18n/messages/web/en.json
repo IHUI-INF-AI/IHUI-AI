@@ -6207,6 +6207,7 @@
     "customHint": "Custom: fill Base URL + auth, then import OpenAPI or add operations manually",
     "managedUnavailableHint": "This channel has not been enabled by the platform administrator. Members do not need to configure anything; it will be available with one click once enabled.",
     "quickTitle": "One-click platform connect",
+    "userAuthorize": "Authorize my account",
     "quickHint": "Feishu, DingTalk, WeCom and other platforms are authorized at platform level. Connect with one click; no QR scan or app credentials required.",
     "connectNow": "Connect",
     "connected": "Connected",
