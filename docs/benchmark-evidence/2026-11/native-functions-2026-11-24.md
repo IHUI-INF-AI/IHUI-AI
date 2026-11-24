@@ -51,6 +51,62 @@
 | WorkBuddy | 两处路径核对 + 枚举 | 待取 | 0 | 未开始 |
 | DeepSeek Harness | 路径纠正（`C:\Apps`）+ 枚举；业务逻辑上一轮已到 JS/TS 面 | 待取 | 0 | 未开始 |
 
+### 0.5 复评补录（2026-11-24 12:30，倒着用证据核判据）
+
+> 触发：对话里一度断言「五大件在本机找不到、函数级分析物理上做不了」。本次实测推翻该结论，
+> 并把取证结论**反过来核 IHUI 现有判据有没有漏**。纪律不变：只读目标目录、不运行目标程序、
+> 不提取凭据；下列均为符号/字符串级**观察**，不把推断写成观察。
+
+**① 五大件路径纠正（原结论错在搜索面开窄）**：五件全部存在，只是不在 `sandbox/x64/` 而在
+`ai-agent/` 与 `ckg/binary/` 下（复现：`find "C:\Trae CN" -maxdepth 6 -type f -iname ...`）：
+
+| 件 | 实际路径 | 字节 |
+|---|---|---|
+| `ai_agent.dll` | `C:\Trae CN\resources\app\modules\ai-agent\ai_agent.dll` | 284,664,208 |
+| `harness.dll` | `...\ai-agent\harness.dll` | 265,971,600 |
+| `toolhost.dll` | `...\ai-agent\toolhost.dll` | 99,944,848 |
+| `agent-tool-host.exe` | `...\ai-agent\bin\agent-tool-host.exe` | 101,117,328 |
+| `libckg.dll` | `...\ckg\binary\libckg.dll` | 39,672,720 |
+
+**② libckg.dll 函数级观察（Go c-shared，非 sqlite-vec 那么简单）**：模块 `ide/ckg/codekg/cmd/server`
+（vcs `417a6ec`，2026-09-22），依赖 `go-sqlcipher`/`gorm`/`grpc`/`sarama`。二进制内可复核串：
+
+- 存储层：`data_storage.SQLiteVecStorageV2`、`SQLite format 3`、表 `%w_rowids(rowid INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT UNIQUE, chunk_id, chunk_offset)`；
+  幂等 upsert `INSERT INTO "%w"."%w_rowid"(rowid,nodeno) VALUES(?1,?2) ON CONFLICT(rowid) DO UPDATE SET nodeno=excluded.nodeno`；
+  函数 `EntityStorage.UpsertUriMeta`、`upsertUriMetaFromExistingUriMeta`。
+- 缺向量计数：`WHERE vte.entityID IS NULL) as missing_vector_entity_count` + `MissingVectorEntityCount` 字段，
+  与 `(SELECT COUNT(*) FROM vector_to_entity) as vector_to_entity_count` 成对出现（缺数/总数对照）。
+- 版本治理（此前未观察）：`consts.StorageVersion`、`GetLocalStorageVersion` / `GetTargetStorageVersion`、
+  `IsVersionMatched(Request{version} → Response{code,error,matched})` —— 客户端/服务端存储版本握手。
+- 本地/远端双路：`HasAlreadyLocalEmbeddingAtDisk` / `HasAlreadyLocalEmbeddingAtRuntime`、
+  `retrieve_by_embedding_prepare` → `local_remote_embedding_selector` → `retrieve_by_embedding_from_remote`；
+  检索结果缓存 `Get/SetEmbeddingSearchResultsFromCache`；嵌入模型 `codekg_bge_m3`。
+
+**③ 四大件函数级观察（内嵌 Python/JS 源码字符串）**：
+
+- 交付队列状态机：`state TEXT NOT NULL CHECK (state IN ('queued','claimed','delivered','cancelled'))`
+  （`ai_agent.dll` / `toolhost.dll` / `agent-tool-host.exe` 均命中）；审批态 `'$.session_notification.status' IN ('pending','approved')`（`harness.dll`）。
+- 命令级超时：`timeout: int = 120` 默认值、`_DBW_PRECHECK_POLL_TIMEOUT` 预检轮询上限、
+  `"message": "timeout waiting precheck"`；具名超时回执 `Timeout after {timeoutMs}ms waiting for selector ...`。
+- 断点续读游标：`reply_user_read_cursor`（含 `plan_item_index` / `message_index`）、
+  `SELECT status, last_cursor_rowid, end_rowid ...`。
+
+**④ 反向核 IHUI 判据结论（本轮真正的产出）**：
+
+| 对照观察 | IHUI 现状（现读） | 判定 |
+|---|---|---|
+| `missing_vector_entity_count` + 总数对照 | `codebase-index-service.ts:322` 注释明写对齐该字段，`IndexIntegrityReason='missing_vectors'`、审计 `degraded` | 已覆盖，无需改 |
+| 1536 维 / HNSW / 租户 / 90 天保留 | `schema/codebase-index.ts` + service 的 1536 校验、pgvector `<=>` ANN | 已覆盖且存储层更强（sqlite-vec → pgvector） |
+| 幂等 upsert（`ON CONFLICT`） | 入库按 `(path,chunk)` 去重、指纹 `v1536:tree-sitter-chunk-v1` 判重建 | 形态不同、语义等价，不照搬 |
+| 存储版本握手 `IsVersionMatched` | 静态配置指纹 `CODE_INDEX_CONFIG_FINGERPRINT`（只服务重建判定） | 非缺口：握手是 C/S 协议，IHUI 单机无此边界；照搬降级 |
+| 交付队列四态 / 审批两态 | `cancelled` 语义在订单/工作流/队列判据中已闭环（域不同） | 非缺口：域不同，能力已具 |
+| 断点续读游标 | WS 通知走 `markAsRead`/`unreadCount`，无 rowid 级断点 | **可选增益**，非对照方独有（通用分页模型），证据不足以判为"漏" |
+
+**结论**：豆包「CKG 这条没的可榨、照学反而降级」的总判断成立；但其「五大件物理上做不了」与
+「P3-04 指纹自报未落」两处**事实错误**已由本轮纠正 —— 五件都在，`orphan_guard.rs` 的
+`VerifyOutcome`/`sha256_of_file`/`verify_artifact` 也已落地（文档 §1 P3-04 与 §2 表中"可选未落"字样过时）。
+本轮不改任何生产代码：取证结论若与现有判据同构或域不同，照搬即违反 §0「重交付结果」。
+
 ---
 
 ## 1. 取证条目（P3-NN，滚动增补）
@@ -90,7 +146,7 @@
   - 观察：两套 SDK 导出面平行；探测函数模板复用；同时产出「原始判定值」与「归一值」；TLS 槽存结果与来源 API 名；失败清空留痕。
   - 推断：SBox 对应作业/容器级、VM 对应微虚拟机级，两接口形态平行可各自独立探测。
   - 未知：判定值与归一值的具体枚举、底层调用了哪些 OS 能力探测 API（在被调子程序内，未展开）；12 个不支持原因码位于 `trae-sandbox.exe` 而非这两个 DLL（上一轮已列）；VM 后端技术仍未知。
-- **IHUI 现状**：`apps\desktop\src-tauri\src\sandbox_sdk.rs` 已有 Job 级 trait 与装配；`Grep "IsVMSupported|microvm|HostCompute"` tauri src → 0 命中；探测结果无 TLS/来源 API 名留痕。结论＝**部分覆盖**：作业级有，VM 平行面与探测留痕缺。
+- **IHUI 现状（2026-11-24 12:30 复评，原结论过时）**：`apps\desktop\src-tauri\src\sandbox_sdk.rs` 已有 Job 级 trait 与装配；`Grep "IsVMSupported|microvm|HostCompute"` tauri src → 0 命中属实（VM 后端实现仍不做，符合最小复现范围）。但「探测结果无来源 API 留痕」**已过时**：提交 `9ed1ebdb` 补入 `ProbeRecord{source_api, raw, state}`（原始判定值 + 归一三态 + 来源 API 名双值留痕）、`ProbeTrace`（不成立/未判定清空、仅成立留痕）、`API_JOB_OBJECT_PROBE` / `API_MICRO_VM_PROBE` 两来源常量 + `log_support_check`，3 个测试钉住。结论＝**双判定值 + 来源留痕已具备**；仅 VM 后端技术仍未知（实现不在本票最小范围）。
 - **落点建议**：`C:\IHUI-AI\apps\desktop\src-tauri\src\sandbox_sdk.rs` 扩展 trait：支持 / 不支持 / 未判定三态 + 来源 API 名留痕；VM 级只留探测桩与原因码。
 - **超越轴**：fail-closed——任一不支持原因码命中即拒绝执行；可测性：探测结果双值（原始/归一）与未判定态均可注入夹具。
 - **最小复现范围**：两套同构 trait + 入参配置分支 + 结果留痕；不做 VM 后端实现。
@@ -126,7 +182,7 @@
   - 观察：两个 napi 方法名、四条构造失败错误串、错误码前缀、源码 sha256 自报导出、Job/互斥/终止 API 集。
   - 推断：`ensureKillOnCloseJob` 把作业句柄 pinned 到进程（关闭句柄触发内核清组）；`isProcessInJob` 提供前置判活查询；sha256 供加载侧校验 addon 完整性。
   - 未知：Job 限制类参数（CPU/内存/断开动作）、业务单例互斥名（二进制内仅见 `Local\RustBacktraceMutex00000000` 回溯互斥）、sha256 比对发生在加载方还是运行时；napi 闭包内部实现因 stripped 未逐函数还原。
-- **IHUI 现状**：`orphan_guard.rs:61` 已 `AssignProcessToJobObject`；`terminal_session.rs` 已 Job 装配 + `TerminateJobObject`；本轮 `Grep "IsProcessInJob" C:\IHUI-AI\apps\desktop\src-tauri\src` → 0 命中（无「目标是否已在 Job」前置查询）。**本票已补（提交 `390022b9`）**：`orphan_guard.rs` 新增 `JobQueryOutcome`（`InJob` / `NotInJob` / `QueryFailed{last_error}` / `Unjudged`）、可注入 `JobQueryAdapter` trait（单测用假适配器断言三态，不在测试里真调系统 API）、纯判定 `classify_probe`、生产实现 `WinJobQueryAdapter`（kernel32 原始 FFI：`OpenProcess` → `IsProcessInJob`（Job 句柄传 null 表示「任意 Job」）→ `CloseHandle`），错误码族前缀对齐 `ERR_AGENT_CLI_WINDOWS_JOB`；非 Windows 落 `Unjudged`、不默认布尔值。`install()` 与 `AssignProcessToJobObject` 一行未动（不重做 Job 装配）。结论＝**Job 兜底 + 前置判活谓词均已具备**；仅「源码指纹自报」仍是可选未落项。
+- **IHUI 现状**：`orphan_guard.rs:61` 已 `AssignProcessToJobObject`；`terminal_session.rs` 已 Job 装配 + `TerminateJobObject`；本轮 `Grep "IsProcessInJob" C:\IHUI-AI\apps\desktop\src-tauri\src` → 0 命中（无「目标是否已在 Job」前置查询）。**本票已补（提交 `390022b9`）**：`orphan_guard.rs` 新增 `JobQueryOutcome`（`InJob` / `NotInJob` / `QueryFailed{last_error}` / `Unjudged`）、可注入 `JobQueryAdapter` trait（单测用假适配器断言三态，不在测试里真调系统 API）、纯判定 `classify_probe`、生产实现 `WinJobQueryAdapter`（kernel32 原始 FFI：`OpenProcess` → `IsProcessInJob`（Job 句柄传 null 表示「任意 Job」）→ `CloseHandle`），错误码族前缀对齐 `ERR_AGENT_CLI_WINDOWS_JOB`；非 Windows 落 `Unjudged`、不默认布尔值。`install()` 与 `AssignProcessToJobObject` 一行未动（不重做 Job 装配）。结论＝**Job 兜底 + 前置判活谓词均已具备**；「源码指纹自报」也**已落地**（`orphan_guard.rs` 的 `VerifyOutcome{Ok,Mismatch,Unjudged}` / `sha256_of_file`（64 KiB 分块）/ `verify_artifact`（白名单空⇒Unjudged 阻断，不是放行）/ `verify_artifact_path`，纯逻辑夹具可测；2026-11-24 12:30 复评修正原"可选未落"表述）。
 - **落点建议**：`C:\IHUI-AI\apps\desktop\src-tauri\src\orphan_guard.rs` 补 `IsProcessInJob` 前置判活谓词；源码指纹自报件作为可选项远期评估。
 - **超越轴**：可测性——判活谓词单独注入假句柄/假进程断言；不重复造 Job 装配（IHUI 已更稳）。
 - **最小复现范围**：`ensure_kill_on_close` + `is_process_in_job` 两个纯谓词；失败错误码族对齐 `ERR_AGENT_CLI_WINDOWS_JOB` 形态。
