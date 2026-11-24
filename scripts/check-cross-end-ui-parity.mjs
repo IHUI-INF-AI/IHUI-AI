@@ -5953,6 +5953,7 @@ export const __test__ = {
   stripComments,
   toPx,
   readGeometry,
+  geometryDeclCheck,
   specTiers,
   cssVarTiers,
   TOKENS_CSS_PATH,

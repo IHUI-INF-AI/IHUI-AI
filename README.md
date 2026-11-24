@@ -63,6 +63,11 @@ Headline claims (same source as the table below, all live-computed): **database 
 WebSocket endpoints · LLMs · multi-platform auto-publishing · test file counts in the generated table below ·
 engineering gates · CI workflows · i18n parity · app and shared packages · compose services**.
 
+Cross-end UI parity across web, mini-program and React Native is enforced by
+[`scripts/check-cross-end-ui-parity.mjs`](./scripts/check-cross-end-ui-parity.mjs) — a blocking gate
+that reconciles geometry, radius and per-element radius anchors over the three ends and fails on any
+divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`.
+
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
@@ -98,7 +103,76 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-24**
+- 🚀 新功能/改进:把 Codex 时间账接入生产 goal 账本与再跑闸 (fa8729b5)
+- 🐞 修复:桥运行中重启也能重置游标，/messages 回传当前 seq 并保留轮询探活兜底 (75c20b44)
+- 🚀 新功能/改进:补齐 Cursor 规则三模式/索引 ignore 与 Codex 时间预算 (507f0217)
+- 🐞 修复:按后端能力收敛管理台入口，iLink 不再展示不可用的联系人/群/朋友圈表单 (a0f5943c)
+- 🐞 修复:轮询心跳刷新“最近轮询”，空闲账号不再显示停滞 (f7c4bc80)
+- 🐞 修复:桥 seq 回退时重置游标，避免桥重装后静默丢信 (8d669603)
+- 📚 文档:更正上轮结论 —— 两端元素名都能归，真缺口是命名体系不同（配对命中 0） (1af4e64a)
+- 🔧 工程/其他:追认 8224dae4 改动 check-dangling-local-imports.mjs (657ca234)
+- 🐞 修复:缺省 HEAD 档同步接第三方排除面 — immutable-exempt: 只清"判据读不出"的 CJS 盲区 10→0 并报数,符号真不存在的 D1 与穿马甲 TS 的 D6 一律照报不豁免(§0.10 不多放一次跳门) (8224dae4)
+- 🐞 修复:iLink 长轮询超时不再写错误态 + 重启恢复在线账号 + 出站消息署名 (fbe85859)
+- 🚀 新功能/改进:复用 Cursor 项目规则层与 Codex 目标 token 预算 (c5a84c0c)
+- 🚀 新功能/改进:我的页视觉精修并统一功能中心卡片层级 (b6f82f9c)
+- 🐞 修复:空 messages 信封不再落空入站消息 (fbc98b51)
+- 📚 文档:「元素×键升级不足」的实测证据与两处裸换算的裁决留痕落进代码 (7dd0f2da)
+- 🐞 修复:待办迁移计数改按账本最大 created_at(账本多于 journal 时不再误判 0 pending 跳过迁移) (57027897)
+- 🚀 新功能/改进:多租户收尾(连接器迁PG+双端运行时租户配置+企业应用页可见性) (889e111e)
+- 🐞 修复:恢复被 guard 合并丢树的微信智联补齐改动 (ffed7886)
+- 🐞 修复:恢复 auth-sso 正确字节并保留 SSO 兑换窗口 90s (0ebb3f09)
+- 🔧 工程/其他:几何锚点按修正后判据的实测重锚（T8 逐条相等锁恢复绿） (c7d1237d)
+- 🐞 修复:BI 分组改投影序号 + SSO 兑换窗口 90s (3ff4a8f6)
+- 🚀 新功能/改进:补齐联系人/群管理/知识库/朋友圈/群发与外部桥 (e9244974)
+- 📚 文档:STATE 补记 archify 3.3.0 升级与 Windows browser-check 根因/修法/验证证据,并更正落地通道两条(工作树模式免 blob proof、锁僵死新判据) (5f00cc7b)
+- 🐞 修复:0x 免费档禁止被目录价回填成正价 (e9411b27)
+- 🚀 新功能/改进:升级 3.3.0 + 修 Windows browser-check 回归(移植 3.2.0 的 taskkill 树杀与 cleanup 重试窗口) - 官方包精简 package.json scripts 8 条,对应脚本文件一并移除;LAND_ALLOW_STALE=1 留痕 - 水印豁免:archify 是 vendored 上游技能包(LICENSE/NOTICE/THIRD_PARTY_NOTICES/UPSTREAM 齐全),注入本地零宽载荷会改动上游字节 - D1 悬空导入豁免:10 处全部指向 vendored CJS(typescript.cjs / deps.cjs),module.exports 非字面量属技术特性,非本仓引入的悬空导入 (a0855704)
+- 🐞 修复:阴影模糊半径不再当盒档 + 差异值附来源位置（InputArea 15→16 重锚） (f8e838b3)
+- 🚀 新功能/改进:几何维每条差别值附来源线索，让「仅单端」读数可回溯 (77a06234)
+- 🐞 修复:几何读数面补 min-*/max-* 四型 + VoiceInput 三档收口(InputArea 16→15) (108bd33b)
+- 🔧 工程/其他:codebase 索引判据不再被后续迁移/方法误伤 (bcbf8f3b)
+- 🐞 修复:几何读数面补 min-*/max-* 四型 + VoiceInput 三档收口(InputArea 16→15) (6bf5ab2b)
+- 🐞 修复:几何读数面补 min-*/max-* 四型 + VoiceInput 三档收口(InputArea 16→15) (7ec66b53)
+- 🐞 修复:几何读数面补 min-*/max-* 四型 + VoiceInput 三档收口(InputArea 16→15) (2e796447)
+- 🔧 工程/其他:close real STUN/TURN, Chrome for Testing native host and npm self-update boundaries (1ee1d1b4)
+- 🐞 修复:几何读数面补 min-*/max-* 四型 + VoiceInput 三档收口(InputArea 16→15) (c998f10d)
+- 🐞 修复:账户动作按钮三档各自显式给描边色 (b1bb5fc4)
+- 🔧 工程/其他:同步 codebase-index 事务测试到三表删除/状态行/边实体返回新形态 (3ac12ff8)
+- 📚 文档:补 OEM 无障碍开启路径说明 + 修 gradle 发行包自愈判据 (97dfe4c1)
+- 🐞 修复:本地联调 dev 启动两处阻断(Cargo 默认运行目标 + 徽标圆角 clamp 浮点倒挂) (2b633332)
+
 **2026-11-23**
+- 🐞 修复:小程序系统提示词补齐为多行输入（跨端同挂 60 最小高） (eed0d648)
+- 🐞 修复:archify 模板读 URL theme 修 viewer/theme-state 恒红 (60f63184)
+- 🐞 修复:小程序系统提示词补齐为多行输入（跨端同挂 60 最小高） (0ad9f179)
+- 🐞 修复:配置价回填保留本地采购成本(取目录价与本地成本最大) (628aca12)
+- 🚀 新功能/改进:租户级平台应用凭据与多企业登录隔离 (c1d52172)
+- 🐞 修复:售价成本下限单源 + 官方 free 不覆盖本地成本(倒挂根治) (48585540)
+- 🐞 修复:上游报错原文当正文渲染 / 0 用量乱码行 / 浮层压状态栏等五处呈现层缺陷 (cb714ec3)
+- 🚀 新功能/改进:我的页深度重构为个人中心结构 (aa775e8a)
+- 🐞 修复:识别 iLink 雪花 message_id 回执 (641b39df)
+- 🚀 新功能/改进:自动重建装车 MCP 工具与候选读取(P0-8 第十四批) (705fac88)
+- 🔧 工程/其他:UserInfoCard 允许差异按实测重锚(几何 4→5 / RD 1→2) (5608093a)
+- 🚀 新功能/改进:惯例协议短链 308 到协议页（商店登记地址不再 404） (7b0f7d90)
+- 🐞 修复:补回 A13 历史快照并收口 lowmem 测试类型导入(门98 悬空归零) (78c1a34a)
+- 🔧 工程/其他:重封 root-guard 清单(git-guardian 47c 补函数后哈希对齐) (d243f050)
+- 🚀 新功能/改进:无障碍自动安装状态可见 + 代点留痕 + 资产体检修复 (199f7444)
+- 🐞 修复:清偿 D163 与 appUpdate 两道存量红门 (432ff99e)
+- 🚀 新功能/改进:自动重建调度层缺省关闭(P0-8 第十三批) (8013104f)
+- 🐞 修复:InputArea 三对同元素分叉收口(展开钮盒/撑高上限/输入行最小高) (3809793a)
+- 🚀 新功能/改进:六类真实边界闭环（Rust/PE DLL/受限管道/PG/Native Messaging/WebRTC/更新 apply） (0fbebe8e)
+- 🔧 工程/其他:追认 47c 门98 悬空引用归零恢复 (09f92ab4)
+- 🐞 修复:补回 merge 位移丢掉的 live-reload/doc-numbers/guardian 寿命函数 (47c26cd5)
+- 🚀 新功能/改进:仓库路径登记面(P0-8 第十二批) (684f8cad)
+- 🐞 修复:非 token 计费模式不参与售价倒挂扫描与回填 (c23df184)
+- 🔧 工程/其他:重封 agents-ironlaw 封条(§0 补商业交付铁律,95982 字节) (a3d2ba53)
+- 📚 文档:§0 补商业交付铁律 —— 卖的是结果不是过程 (8b0d72b3)
+- 🐞 修复:iLink 扫码登录轮询与二维码渲染修复 (d64cd23a)
+- 🔧 工程/其他:重封 agents-ironlaw 封条(§0 补硬判据,95894 字节) (5fe89aee)
+- 📚 文档:§0 核心原则补齐「交付不了真结果等于没有」 (858aa29c)
+- 🔧 工程/其他:重封 agents-ironlaw 封条(§0 补硬判据,95894 字节) (6ced2388)
+- 📚 文档:§0 核心原则补齐硬判据 —— 交付不了真结果等于没有 (4374d8e5)
 - 🐞 修复:我的页收口为单一共享用户卡 (dd4fba38)
 - 🔧 工程/其他:输入框辉光/登录阴影单源收口 + web↔RN 4 屏 aligned 登记 + LoginPopUp 额度收紧 (5d11b000)
 - 🔧 工程/其他:重封 agents-ironlaw 封条(AGENTS.md 95818 字节,门207清偿) (213c7135)
