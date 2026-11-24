@@ -94,11 +94,23 @@ function main() {
     if (!process.env.TAURI_SIGNING_PRIVATE_KEY) {
       throw new Error('缺少 TAURI_SIGNING_PRIVATE_KEY；或显式传 --signature <file>')
     }
-    // 直接调 repo 内 tauri CLI（不依赖全局 PATH），输出 zipPath.sig。
-    run(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['exec', 'tauri', 'signer', 'sign', zipPath], {
+    // 本机优先 repo 内 CLI；纯 Rust CI 没有 apps/web 的 node_modules，回退全局 tauri。
+    const explicitTauri = take(args, '--tauri-bin', '') || process.env.IHUI_TAURI_BIN || ''
+    const localTauri = join(
+      ROOT,
+      'node_modules',
+      '.bin',
+      process.platform === 'win32' ? 'tauri.cmd' : 'tauri',
+    )
+    const signer = explicitTauri
+      ? { cmd: explicitTauri, prefix: [] }
+      : existsSync(localTauri)
+        ? { cmd: process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', prefix: ['exec', 'tauri'] }
+        : { cmd: 'tauri', prefix: [] }
+    run(signer.cmd, [...signer.prefix, 'signer', 'sign', zipPath], {
       cwd: join(ROOT, 'apps', 'desktop'),
       env: process.env,
-      // Windows 的 .cmd 不是 PE 可执行文件，shell:false 会 EINVAL；必须交给 cmd.exe。
+      // Windows 的 .cmd/.bat 不是 PE 可执行文件，shell:false 会 EINVAL；必须交给 cmd.exe。
       shell: process.platform === 'win32',
     })
     if (!existsSync(signaturePath)) throw new Error(`签名未生成：${signaturePath}`)
