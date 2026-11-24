@@ -534,6 +534,13 @@ class CustomHttpConnector:
             raise ConnectorExecutionError(f"能力位非法: {op.capability}")
         if op.capability == "action" and not self.spec.allow_write:
             raise ConnectorExecutionError("该连接器未开启写权限,拒绝执行写操作")
+        # 操作级停用门(2026-11-24):ConnectorOperation.disabled 的注释承诺"默认停用、需显式
+        # opt-in",但执行层此前从不读它 —— 声明与执行漂移。这里按声明 fail-closed:带
+        # disabled=True 的操作一律拒执,连读操作也拒(字段语义是"这条操作停用",不限于写)。
+        # 边界:绝不能把 from_dict 缺省改成 True —— 存量 21 个 operations 与内置模板都没有
+        # 这个键,那样会一次性拒掉全部正常路径;缺省 False 保持不动,只拦显式置 True 的。
+        if op.disabled:
+            raise ConnectorExecutionError(f"操作已停用,拒绝执行: {operation_id}")
         return await self._execute(op, params or {})
 
     async def _execute(

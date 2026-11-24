@@ -2092,7 +2092,19 @@
         }
       ],
       "http_fallback_hit": [],
-      "note": "本次抽样未出现映射表内的平台业务码;HTTP 兜底仅 404→unsupported 命中(feishu 48 条)。need_admin / permission_denied / need_user_token 三档未被真实响应验证。"
+      "note": "本次抽样未出现映射表内的平台业务码;HTTP 兜底仅 404→unsupported 命中(feishu 48 条)。need_admin / permission_denied / need_user_token 三档未被真实响应验证。 【现役映射修正:404/405 已改为 error;上面\"404→unsupported 命中 48 条\"是修复前判定,不能作为接口不支持的证据。】"
+    },
+    "tables_status": "修复前快照(生成于 2026-11-24 03:25 UTC),不可当作现役映射读;现役映射见 apps/ai-service/app/services/connectors/coverage_probe.py 的 _CODE_MAPS / _HTTP_MAP / _HTTP_REASON_HINT。",
+    "current_code_truth": {
+      "source": "apps/ai-service/app/services/connectors/coverage_probe.py:_HTTP_MAP + _CODE_MAPS",
+      "http_fallback": {
+        "401": "need_user_token",
+        "403": "permission_denied",
+        "404": "error",
+        "405": "error"
+      },
+      "http_404_405_reason": "裸 HTTP 404/405 不再映射 unsupported —— 路径参数未填样本值、URL 变更、方法模板不符都不能证明平台不支持该接口;真正 unsupported 只认平台业务码或文档态。",
+      "note": "平台业务码映射表与本报告 tables 一致,仍属仓库内硬编码假设,docs 无平台权威语义文档,本轮抽样也未命中任何一条 ⇒ 语义未获真实响应验证。"
     }
   },
   "postgres": {

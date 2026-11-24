@@ -66,6 +66,13 @@ export function ConnectorInvokeDialog({ entry, open, onOpenChange }: Props) {
 
   const run = async () => {
     if (!entry || !operation || running) return
+    // 操作级停用门(2026-11-24):服务端 custom_http.invoke() 已对 disabled=True 拒执,
+    // 这里前置拦截,避免让用户打一次注定失败的请求再读报错;文案复用既有 disabled 键,
+    // 不新造第五语言。服务端门仍是真相源(绕过 UI 直接调 API 照样被拒)。
+    if (operation.disabled) {
+      toast.error(t('disabled'))
+      return
+    }
     let params: Record<string, unknown> = {}
     if (paramsText.trim()) {
       try {
@@ -135,6 +142,9 @@ export function ConnectorInvokeDialog({ entry, open, onOpenChange }: Props) {
                   <Badge variant={isWrite ? 'destructive' : 'secondary'}>
                     {t(CAPABILITY_LABEL_KEY[operation.capability])}
                   </Badge>
+                  {operation.disabled && (
+                    <Badge variant="destructive">{t('disabled')}</Badge>
+                  )}
                   <span>
                     {operation.method} {operation.path}
                   </span>
@@ -190,7 +200,10 @@ export function ConnectorInvokeDialog({ entry, open, onOpenChange }: Props) {
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('cancel')}
           </Button>
-          <Button onClick={() => void run()} disabled={running || operations.length === 0}>
+          <Button
+            onClick={() => void run()}
+            disabled={running || operations.length === 0 || !!operation?.disabled}
+          >
             {running ? (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
             ) : (
