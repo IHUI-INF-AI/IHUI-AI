@@ -61,6 +61,18 @@ function runJson(cmd, args) {
   return JSON.parse(lines[lines.length - 1])
 }
 
+function runText(cmd, args) {
+  const result = spawnSync(cmd, args, {
+    stdio: ['ignore', 'pipe', 'inherit'],
+    encoding: 'utf8',
+    shell: false,
+    windowsHide: true,
+  })
+  if (result.error) throw result.error
+  if (result.status !== 0) throw new Error(`${cmd} ${args.join(' ')} exit ${result.status}`)
+  return result.stdout.trim()
+}
+
 function main() {
   const args = process.argv.slice(2)
   const exe = resolve(take(args, '--exe'))
@@ -117,6 +129,19 @@ function main() {
     console.log(`[release-v2] minisign ${signaturePath}`)
   }
 
+  const signatureToUse = providedSig || signaturePath
+  // 发布前最后一道：签名必须覆盖当前 zip 字节（不是“.sig 文件存在”）。
+  run(process.execPath, [
+    join(ROOT, 'scripts/desktop-updater-sig-verify.mjs'),
+    '--artifact',
+    zipPath,
+    '--signature',
+    signatureToUse,
+    '--config',
+    join(ROOT, 'apps/desktop/src-tauri/tauri.conf.json'),
+  ])
+  console.log('[release-v2] signature covers zip bytes')
+
   const baseUrl = take(args, '--base-url', '')
   const githubRelease = take(args, '--github-release', '')
   let url = take(args, '--url', '')
@@ -130,7 +155,7 @@ function main() {
     '--zip',
     zipPath,
     '--signature',
-    providedSig || signaturePath,
+    signatureToUse,
     '--url',
     url,
     '--version',
@@ -153,10 +178,32 @@ function main() {
   if (githubRelease) {
     const [repo, tag] = githubRelease.split('@')
     if (!repo || !tag) throw new Error('--github-release 格式应为 OWNER/REPO@tag')
-    run('gh', ['release', 'upload', tag, zipPath, providedSig || signaturePath, feedOut, '--clobber'], {
+    run('gh', ['release', 'upload', tag, zipPath, signatureToUse, feedOut, '--clobber'], {
       cwd: ROOT,
       env: process.env,
     })
+    // feed 一旦烘焙，客户端会立刻按 payload.url 下载；先确认资产真的在 Release 上，
+    // 避免“feed 发了、zip 404”的静默断更。
+    const assetNames = runText('gh', [
+      'release',
+      'view',
+      tag,
+      '-R',
+      repo,
+      '--json',
+      'assets',
+      '--jq',
+      '.assets | map(.name) | join(",")',
+    ])
+    const names = new Set(
+      assetNames
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    )
+    for (const required of [basename(zipPath), basename(signatureToUse), basename(feedOut)]) {
+      if (!names.has(required)) throw new Error(`发布资产缺失：${required}`)
+    }
     console.log(`[release-v2] uploaded to ${repo}@${tag}`)
   }
 
@@ -166,7 +213,7 @@ function main() {
       zip: payload.path,
       size: statSync(zipPath).size,
       sha256: payload.sha256,
-      signature: providedSig || signaturePath,
+      signature: signatureToUse,
       feed: feedOut,
       url,
     }),

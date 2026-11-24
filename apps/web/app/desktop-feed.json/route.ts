@@ -62,6 +62,70 @@ function isValidPayload(p: unknown): p is DesktopFeedPayload {
   )
 }
 
+interface DesktopFeedV2 {
+  schema: 2
+  version: string
+  channel: string
+  rollout: { percent: number }
+  minSupported: string | null
+  revoked: string[]
+  rollbackTo: string | null
+  notes: string
+  payload: {
+    url: string
+    size: number
+    sha256: string
+    signature: string
+    format: 'zip'
+    platform: string
+    minLauncher: string
+  }
+}
+
+/**
+ * v2 是客户端直接拿去下载+验签+切版本的结构，不能像 legacy 那样只判 version。
+ * 字段缺一个，客户端要么下载 404 资产，要么 minisign 解码失败，最后只在
+ * 客户端 console.warn —— 发布侧必须在这里先红。
+ */
+function isValidDesktopFeedV2(value: unknown): value is DesktopFeedV2 {
+  if (!value || typeof value !== 'object') return false
+  const feed = value as Record<string, unknown>
+  const payload = feed.payload as Record<string, unknown> | undefined
+  if (feed.schema !== 2) return false
+  if (typeof feed.version !== 'string' || !/^[0-9A-Za-z.-]{1,64}$/.test(feed.version)) return false
+  if (typeof feed.channel !== 'string' || feed.channel === '') return false
+  if (typeof feed.notes !== 'string') return false
+  if (feed.minSupported !== null && typeof feed.minSupported !== 'string') return false
+  if (feed.rollbackTo !== null && typeof feed.rollbackTo !== 'string') return false
+  if (!Array.isArray(feed.revoked) || !feed.revoked.every((v) => typeof v === 'string'))
+    return false
+  const rollout = feed.rollout as Record<string, unknown> | undefined
+  if (
+    !rollout ||
+    typeof rollout.percent !== 'number' ||
+    !Number.isInteger(rollout.percent) ||
+    rollout.percent < 1 ||
+    rollout.percent > 100
+  ) {
+    return false
+  }
+  if (!payload) return false
+  if (typeof payload.url !== 'string' || !/^https:\/\//i.test(payload.url)) return false
+  if (
+    typeof payload.size !== 'number' ||
+    !Number.isSafeInteger(payload.size) ||
+    payload.size <= 0
+  ) {
+    return false
+  }
+  if (typeof payload.sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(payload.sha256)) return false
+  if (typeof payload.signature !== 'string' || payload.signature.trim() === '') return false
+  if (payload.format !== 'zip') return false
+  if (typeof payload.platform !== 'string' || payload.platform === '') return false
+  if (typeof payload.minLauncher !== 'string' || payload.minLauncher === '') return false
+  return true
+}
+
 /**
  * 烘焙快照的**直链国内优先**(2026-11-21 立,治"每发一版都要人重新烘焙 mac/linux 直链")。
  *
@@ -101,14 +165,19 @@ export async function GET() {
   // v2 优先（2026-11-24）：发版脚本烘焙 schema=2 的签名 zip feed 后，客户端走
   // “后台暂存 → 常驻胶囊 → 点击/下次启动切换”，不再下载安装器、不再退出安装。
   if (DESKTOP_FEED_V2 && DESKTOP_FEED_V2.schema === 2) {
-    const version = String(DESKTOP_FEED_V2.version ?? '')
-    return Response.json(DESKTOP_FEED_V2, {
-      headers: {
-        'Cache-Control': 'public, max-age=300',
-        'X-Desktop-Feed-Version': version,
-        'X-Desktop-Feed-Schema': '2',
-      },
-    })
+    if (!isValidDesktopFeedV2(DESKTOP_FEED_V2)) {
+      // 宁可不发 v2，也不能把坏 feed 推给全量客户端；legacy 分支继续服务老客户端。
+      console.error('[desktop-feed] v2 烘焙快照结构非法，已回退 legacy feed')
+    } else {
+      const version = DESKTOP_FEED_V2.version
+      return Response.json(DESKTOP_FEED_V2, {
+        headers: {
+          'Cache-Control': 'public, max-age=300',
+          'X-Desktop-Feed-Version': version,
+          'X-Desktop-Feed-Schema': '2',
+        },
+      })
+    }
   }
 
   // 优先:部署时烘焙进仓库的发布源快照 —— 生产机本地直读,零运行时外部依赖。

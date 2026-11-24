@@ -59,6 +59,30 @@ function sha256File(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex')
 }
 
+/**
+ * 只判 .sig 文件存在/非空不够：签名可能属于上一版 zip，或 zip 在签名后又被改过。
+ * 用与客户端同一把 tauri.conf.json 公钥验一遍字节配对，feed 才允许生成。
+ */
+function assertSignatureMatchesZip(zip, signature) {
+  const result = spawnSync(
+    process.execPath,
+    [
+      join(ROOT, 'scripts/desktop-updater-sig-verify.mjs'),
+      '--artifact',
+      zip,
+      '--signature',
+      signature,
+      '--config',
+      join(ROOT, 'apps/desktop/src-tauri/tauri.conf.json'),
+    ],
+    { stdio: 'inherit', shell: false, windowsHide: true },
+  )
+  if (result.error) throw result.error
+  if (result.status !== 0) {
+    throw new Error(`签名未覆盖当前 zip 字节：${zip} (${signature})`)
+  }
+}
+
 export function buildFeed({
   zip,
   signature,
@@ -148,6 +172,9 @@ function main() {
   const args = process.argv.slice(2)
   const zip = resolve(take(args, '--zip'))
   const signature = resolve(take(args, '--signature'))
+  if (!existsSync(zip)) throw new Error(`zip 不存在：${zip}`)
+  if (!existsSync(signature)) throw new Error(`签名不存在：${signature}`)
+  assertSignatureMatchesZip(zip, signature)
   const url = take(args, '--url')
   const version = take(args, '--version')
   const feed = buildFeed({

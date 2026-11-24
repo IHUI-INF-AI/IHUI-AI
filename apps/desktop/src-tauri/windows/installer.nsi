@@ -73,6 +73,9 @@ ${StrLoc}
 !define PAYLOADNAME "ihui-app"
 !define MAINBINARYSRCPATH "{{main_binary_path}}"
 !define BUNDLEID "{{bundle_id}}"
+; Launcher 自身版本（不是应用版本）；feed 的 minLauncher 判定读 launcher-version.txt。
+; 改 Launcher 协议/交接码时同步 bump 这里与 launcher/Cargo.toml。
+!define LAUNCHER_VERSION "0.1.0"
 !define COPYRIGHT "{{copyright}}"
 !define OUTFILE "{{out_file}}"
 !define ARCH "{{arch}}"
@@ -528,6 +531,20 @@ Function .onInit
 
   !insertmacro SetContext
 
+  ; IHUI 2026-11-24: v2 更新链拥有 state.json / pending / versions。
+  ; 旧安装器的 /UPDATE 会在 Install Section 无条件重写 state 并删 update-ready/updates，
+  ; 等于把已暂存好的新版本直接抹掉。v1 自动更新在 Windows 已停用，这里再加一道硬闸：
+  ; 只要目标安装目录已有 v2 状态，任何 /UPDATE 直接中止，更新只走应用内胶囊链。
+  ; 手动交互安装/重装不带 /UPDATE，不受影响，仍可由用户显式覆盖安装。
+  ${If} $UpdateMode = 1
+    ReadRegStr $R0 SHCTX "${MANUPRODUCTKEY}" ""
+    ${If} $R0 != ""
+    ${AndIf} ${FileExists} "$R0\state.json"
+      MessageBox MB_OK|MB_ICONSTOP "检测到智汇AI v2 更新状态。请从应用内更新；安装器 /UPDATE 已停用，以免覆盖已暂存的版本。"
+      Abort "v2 state present; installer /UPDATE disabled"
+    ${EndIf}
+  ${EndIf}
+
   ; IHUI 2026-09-21:覆盖升级时尊重用户桌面快捷方式现状。
   ; 背景:仅应用内自动更新器带 /UPDATE(UpdateMode=1,卸载器不删图标、新装不重建);
   ; 手动跑安装包覆盖安装(交互/静默)不带该参数,走「卸载旧版(删桌面图标)→
@@ -755,11 +772,44 @@ Section Install
   Delete "$INSTDIR\${MAINBINARYNAME}.exe"
   Rename "$INSTDIR\versions\${VERSION}\launcher\ihui-launcher.exe" "$INSTDIR\${MAINBINARYNAME}.exe"
   RMDir /r "$INSTDIR\versions\${VERSION}\launcher"
+  ; 覆盖安装保留一次回退代际：把旧 state.json 的 current 读出来写进新 state 的
+  ; previous；解析失败则 previous=null。pending/updates 属于上一轮更新事务，
+  ; 由本次显式安装重置，不能把半截版本当作“待切换”。
+  StrCpy $R6 ""
+  ${If} ${FileExists} "$INSTDIR\state.json"
+    ClearErrors
+    FileOpen $0 "$INSTDIR\state.json" r
+    ${IfNot} ${Errors}
+      ${Do}
+        ClearErrors
+        FileRead $0 $R9
+        ${If} ${Errors}
+          ${Break}
+        ${EndIf}
+        ${StrLoc} $R5 $R9 '"current": "' ">"
+        ${If} $R5 != ""
+          StrCpy $R9 $R9 "" $R5
+          StrCpy $R9 $R9 "" 12
+          ${StrLoc} $R5 $R9 '"' ">"
+          ${If} $R5 != ""
+            StrCpy $R6 $R9 $R5
+          ${EndIf}
+          ${Break}
+        ${EndIf}
+      ${Loop}
+      FileClose $0
+    ${EndIf}
+  ${EndIf}
+  ${If} $R6 == ""
+    StrCpy $R7 "null"
+  ${Else}
+    StrCpy $R7 '"$R6"'
+  ${EndIf}
   FileOpen $0 "$INSTDIR\state.json" w
-  FileWrite $0 '{$\r$\n  "schema": 1,$\r$\n  "current": "${VERSION}",$\r$\n  "previous": null,$\r$\n  "pending": null,$\r$\n  "fail_count": 0,$\r$\n  "last_good_at": 0,$\r$\n  "bad": null$\r$\n}$\r$\n'
+  FileWrite $0 '{$\r$\n  "schema": 1,$\r$\n  "current": "${VERSION}",$\r$\n  "previous": $R7,$\r$\n  "pending": null,$\r$\n  "fail_count": 0,$\r$\n  "last_good_at": 0,$\r$\n  "bad": null$\r$\n}$\r$\n'
   FileClose $0
   FileOpen $0 "$INSTDIR\launcher-version.txt" w
-  FileWrite $0 "0.1.0$\r$\n"
+  FileWrite $0 "${LAUNCHER_VERSION}$\r$\n"
   FileClose $0
   Delete "$INSTDIR\update-ready.json"
   Delete "$INSTDIR\rollback-notice.json"

@@ -13,13 +13,14 @@
 //!
 //! 这里不弹进度窗、不调安装器、不 `std::process::exit` 逼用户退出。
 
+use fs2::FileExt;
 use ihui_launcher::feed::{self, Evaluation, Feed, Verdict};
 use ihui_launcher::state::{app_exe, now_secs, version_dir, State};
 use minisign_verify::{PublicKey, Signature};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -128,6 +129,32 @@ struct StageFlag;
 impl Drop for StageFlag {
     fn drop(&mut self) {
         STAGING.store(false, Ordering::SeqCst);
+    }
+}
+
+/// 跨进程 stage 互斥：AtomicBool 只挡得住同一个 payload 进程里的两次点击，
+/// 挡不住两个实例/壳与设置页并发下载同一个版本。锁文件随进程退出自动释放。
+struct StageLock {
+    file: File,
+}
+
+impl StageLock {
+    fn acquire(root: &Path) -> std::io::Result<Self> {
+        let dir = root.join("updates");
+        fs::create_dir_all(&dir)?;
+        let file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(dir.join(".stage.lock"))?;
+        file.try_lock_exclusive()?;
+        Ok(Self { file })
+    }
+}
+
+impl Drop for StageLock {
+    fn drop(&mut self) {
+        let _ = self.file.unlock();
     }
 }
 
@@ -255,8 +282,27 @@ pub async fn update_v2_stage(app: AppHandle) -> Result<(), String> {
     if STAGING.swap(true, Ordering::SeqCst) {
         return Err("already-staging".into());
     }
+    let ctx = match context(&app) {
+        Ok(ctx) => ctx,
+        Err(err) => {
+            STAGING.store(false, Ordering::SeqCst);
+            return Err(format!("context: {err}"));
+        }
+    };
+    let lock = match StageLock::acquire(&ctx.root) {
+        Ok(lock) => lock,
+        Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+            STAGING.store(false, Ordering::SeqCst);
+            return Err("already-staging".into());
+        }
+        Err(err) => {
+            STAGING.store(false, Ordering::SeqCst);
+            return Err(format!("stage lock: {err}"));
+        }
+    };
     let app_for_task = app.clone();
     tauri::async_runtime::spawn(async move {
+        let _lock = lock;
         let _flag = StageFlag;
         if let Err(err) = stage_inner(&app_for_task).await {
             let code = err.0.clone();
@@ -324,12 +370,60 @@ pub fn update_v2_restart(app: AppHandle) -> Result<(), String> {
         append_log(&root, "restart: handoff exit=42");
         telemetry(&root, "restart", "", "handoff");
     }
-    if std::env::var("IHUI_LAUNCHER_PID").is_ok() {
+    // 只有父 Launcher 还活着，42 才有人接。父进程已退出（用户关掉启动器、
+    // 任务管理器结束、首启失败）时再 exit(42) 就是静默关窗，没人会拉起新版本。
+    if launcher_parent_alive() {
         app.exit(RESTART_EXIT_CODE);
     } else {
+        if let Some(root) = install_root() {
+            append_log(
+                &root,
+                "restart: launcher parent missing, fallback app.restart",
+            );
+            telemetry(&root, "restart", "", "launcher-missing");
+        }
         app.restart();
     }
     Ok(())
+}
+
+#[cfg(windows)]
+fn launcher_parent_alive() -> bool {
+    let Ok(pid) = std::env::var("IHUI_LAUNCHER_PID") else {
+        return false;
+    };
+    let Ok(pid) = pid.parse::<u32>() else {
+        return false;
+    };
+    pid_is_alive(pid)
+}
+
+#[cfg(windows)]
+fn pid_is_alive(pid: u32) -> bool {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Threading::{
+        GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+
+    if pid == 0 {
+        return false;
+    }
+    // SAFETY: 只查询退出码，不写进程；句柄在返回前关闭。
+    unsafe {
+        let Ok(handle) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else {
+            return false;
+        };
+        let mut code = 0u32;
+        let alive = GetExitCodeProcess(handle, &mut code).is_ok() && code == 259; // STILL_ACTIVE
+        let _ = CloseHandle(handle);
+        alive
+    }
+}
+
+#[cfg(not(windows))]
+fn launcher_parent_alive() -> bool {
+    // 非 Windows 没有 Launcher 交接协议；保持原来的环境变量判定。
+    std::env::var("IHUI_LAUNCHER_PID").is_ok()
 }
 
 /// 设置页“退回上一版”：只写 pending，下次启动/点胶囊时由 Launcher 切。
@@ -626,7 +720,14 @@ async fn stage_offer(
                 format!("{} 已存在但不完整", final_dir.display()),
             ));
         }
-        // 上一次已经完整暂存过同一个版本：直接复用，清掉本次 tmp。
+        // 上一次已经完整暂存过同一个版本：复用前必须按磁盘内容重算清单，
+        // 不能只看两个文件存在——半截目录/同号热修包会“更新了但没变化”。
+        verify_manifest_dir(&final_dir, &target, platform_tag()).map_err(|(code, msg)| {
+            (
+                "version-dir-exists".into(),
+                format!("{} 已存在但校验失败: {code}: {msg}", final_dir.display()),
+            )
+        })?;
         let _ = fs::remove_dir_all(&tmp);
         tree.keep();
     } else {
@@ -1013,8 +1114,16 @@ fn extract_zip(
             format!("manifest platform={} target={platform}", manifest.platform),
         ));
     }
-    if manifest.files.len() != extracted.len() {
-        return Err(("manifest".into(), "manifest 文件数与 zip 不一致".into()));
+    verify_manifest_files(&manifest, &extracted)?;
+    Ok(extracted)
+}
+
+fn verify_manifest_files(
+    manifest: &Manifest,
+    actual: &HashMap<String, (String, u64)>,
+) -> Result<(), (String, String)> {
+    if manifest.files.len() != actual.len() {
+        return Err(("manifest".into(), "manifest 文件数与实际目录不一致".into()));
     }
 
     let mut declared = HashSet::new();
@@ -1034,8 +1143,8 @@ fn extract_zip(
         if !feed::is_sha256(&entry.sha256) {
             return Err(("manifest".into(), format!("sha256 非法: {path}")));
         }
-        let Some((actual_hash, actual_size)) = extracted.get(&path) else {
-            return Err(("manifest".into(), format!("zip 缺少文件: {path}")));
+        let Some((actual_hash, actual_size)) = actual.get(&path) else {
+            return Err(("manifest".into(), format!("缺少文件: {path}")));
         };
         if actual_hash != &entry.sha256.to_lowercase() {
             return Err(("manifest".into(), format!("sha256 不匹配: {path}")));
@@ -1044,12 +1153,84 @@ fn extract_zip(
             return Err(("manifest".into(), format!("大小不匹配: {path}")));
         }
     }
-    for path in extracted.keys() {
+    for path in actual.keys() {
         if !declared.contains(path) {
-            return Err(("manifest".into(), format!("zip 多出未声明文件: {path}")));
+            return Err(("manifest".into(), format!("多出未声明文件: {path}")));
         }
     }
-    Ok(extracted)
+    Ok(())
+}
+
+/// 复用已存在的 `versions/<ver>` 前，必须用磁盘内容重算一遍清单。
+/// `extract_zip` 只保证本次 zip 的字节；上次 stage 在 rename 后、写 pending 前
+/// 被杀会留下半截目录，若只看 manifest.json + ihui-app.exe 存在就复用，坏目录
+/// 会被切上去。这里逐文件重算 sha256/大小，并检查未声明文件。
+fn verify_manifest_dir(dir: &Path, target: &str, platform: &str) -> Result<(), (String, String)> {
+    let text = fs::read_to_string(dir.join("manifest.json"))
+        .map_err(|e| ("manifest".into(), format!("读取 manifest 失败: {e}")))?;
+    let manifest: Manifest =
+        serde_json::from_str(&text).map_err(|e| ("manifest".into(), e.to_string()))?;
+    if manifest.schema != 2 {
+        return Err((
+            "manifest".into(),
+            format!("manifest schema={}", manifest.schema),
+        ));
+    }
+    if manifest.version != target {
+        return Err((
+            "manifest".into(),
+            format!("manifest version={} target={target}", manifest.version),
+        ));
+    }
+    if manifest.platform != platform {
+        return Err((
+            "manifest".into(),
+            format!("manifest platform={} target={platform}", manifest.platform),
+        ));
+    }
+
+    let mut actual: HashMap<String, (String, u64)> = HashMap::new();
+    collect_dir_files(dir, "", &mut actual)?;
+    verify_manifest_files(&manifest, &actual)
+}
+
+fn collect_dir_files(
+    dir: &Path,
+    prefix: &str,
+    out: &mut HashMap<String, (String, u64)>,
+) -> Result<(), (String, String)> {
+    let entries = fs::read_dir(dir).map_err(|e| ("disk".into(), e.to_string()))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| ("disk".into(), e.to_string()))?;
+        let name = entry.file_name().to_string_lossy().to_string();
+        let rel = if prefix.is_empty() {
+            name
+        } else {
+            format!("{prefix}/{name}")
+        };
+        let file_type = entry
+            .file_type()
+            .map_err(|e| ("disk".into(), e.to_string()))?;
+        if file_type.is_symlink() {
+            return Err(("manifest".into(), format!("拒绝符号链接: {rel}")));
+        }
+        if file_type.is_dir() {
+            collect_dir_files(&entry.path(), &rel, out)?;
+            continue;
+        }
+        if !file_type.is_file() {
+            return Err(("manifest".into(), format!("不支持的目录项: {rel}")));
+        }
+        if rel == "manifest.json" {
+            continue;
+        }
+        let bytes = fs::read(entry.path()).map_err(|e| ("disk".into(), e.to_string()))?;
+        out.insert(
+            rel,
+            (hex_digest(&Sha256::digest(&bytes)), bytes.len() as u64),
+        );
+    }
+    Ok(())
 }
 
 fn normalize_manifest_path(value: &str) -> Option<String> {
@@ -1363,6 +1544,58 @@ mod tests {
         assert_eq!(found.file_name().unwrap(), "custom-app.exe");
         let _ = fs::remove_dir_all(&root);
     }
+    #[test]
+    fn stage_lock_is_exclusive() {
+        let root = std::env::temp_dir().join(format!(
+            "ihui-stage-lock-{}-{}",
+            std::process::id(),
+            now_secs()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let first = StageLock::acquire(&root).unwrap();
+        assert!(StageLock::acquire(&root).is_err());
+        drop(first);
+        assert!(StageLock::acquire(&root).is_ok());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn pid_liveness_detects_dead_parent() {
+        assert!(pid_is_alive(std::process::id()));
+        assert!(!pid_is_alive(u32::MAX));
+        assert!(!pid_is_alive(0));
+    }
+
+    #[test]
+    fn existing_version_dir_must_match_manifest() {
+        let dir = std::env::temp_dir().join(format!(
+            "ihui-stage-reuse-{}-{}",
+            std::process::id(),
+            now_secs()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let bytes = b"payload-v1";
+        let hash = hex_digest(&Sha256::digest(bytes));
+        fs::write(dir.join("ihui-app.exe"), bytes).unwrap();
+        fs::write(
+            dir.join("manifest.json"),
+            format!(
+                r#"{{"schema":2,"version":"0.1.94","platform":"windows-x86_64","files":[{{"path":"ihui-app.exe","sha256":"{}","size":{}}}]}}"#,
+                hash,
+                bytes.len()
+            ),
+        )
+        .unwrap();
+        assert!(verify_manifest_dir(&dir, "0.1.94", "windows-x86_64").is_ok());
+
+        fs::write(dir.join("ihui-app.exe"), b"tampered").unwrap();
+        assert!(verify_manifest_dir(&dir, "0.1.94", "windows-x86_64").is_err());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn manifest_path_rejects_traversal() {
         assert!(normalize_manifest_path("ihui-app.exe").is_some());

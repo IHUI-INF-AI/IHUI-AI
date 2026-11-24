@@ -304,11 +304,18 @@ fn watch(root: &Path, mut state: State, passthrough: &[String]) -> i32 {
                 );
                 // 起不来等价于启动失败；连续两次后回滚。
                 if let Some(rollback) = force_spawn_failure(&mut state) {
-                    let _ = state.save(root);
+                    if let Err(code) = persist_or_fatal(root, &state, "回滚状态写入失败") {
+                        return code;
+                    }
                     write_rollback_notice(root, &rollback);
                     continue;
                 }
-                let _ = state.save(root);
+                if let Err(err) = state.save(root) {
+                    log::line(
+                        root,
+                        &format!("state save after spawn failure failed: {err}"),
+                    );
+                }
                 return fatal(
                     root,
                     "应用启动失败（进程无法拉起）。请重装或查看日志。",
@@ -391,7 +398,12 @@ fn watch(root: &Path, mut state: State, passthrough: &[String]) -> i32 {
 
         if healthy {
             // 跑起来之后才崩：不自动回滚（可能是用户数据/环境问题），交给下次启动与遥测。
-            let _ = state.save(root);
+            if let Err(err) = state.save(root) {
+                log::line(
+                    root,
+                    &format!("state save after healthy crash failed: {err}"),
+                );
+            }
             log::line(
                 root,
                 &format!("crash-after-healthy: version={} code={code}", state.current),
@@ -407,7 +419,9 @@ fn watch(root: &Path, mut state: State, passthrough: &[String]) -> i32 {
             ),
         );
         if let Some(rollback) = state.mark_failure() {
-            let _ = state.save(root);
+            if let Err(code) = persist_or_fatal(root, &state, "回滚状态写入失败") {
+                return code;
+            }
             write_rollback_notice(root, &rollback);
             log::line(
                 root,
@@ -415,7 +429,9 @@ fn watch(root: &Path, mut state: State, passthrough: &[String]) -> i32 {
             );
             continue;
         }
-        let _ = state.save(root);
+        if let Err(code) = persist_or_fatal(root, &state, "启动失败计数写入失败") {
+            return code;
+        }
         if state.fail_count == 1 {
             log::line(root, "retry: first crash, relaunch same version");
             continue;
@@ -462,6 +478,22 @@ fn spawn_app(root: &Path, version: &str, passthrough: &[String], focus: bool) ->
 
 fn exit_code(status: &ExitStatus) -> i32 {
     status.code().unwrap_or(-1)
+}
+
+/// 回滚/失败计数必须落盘：写不进去时不能只在内存里“回滚过”然后继续。
+/// 装进只读目录时磁盘仍是坏版本指针，下次启动会再次掉进同一个坑。
+fn persist_or_fatal(root: &Path, state: &State, context: &str) -> Result<(), i32> {
+    if let Err(err) = state.save(root) {
+        log::line(root, &format!("{context}: {err}"));
+        return Err(fatal(
+            root,
+            &format!(
+                "{context}。安装目录可能不可写，已停止以免反复启动坏版本。请重装修复权限或查看日志。"
+            ),
+            EXIT_CRASH_NO_ROLLBACK,
+        ));
+    }
+    Ok(())
 }
 
 fn write_rollback_notice(root: &Path, rollback: &Rollback) {
