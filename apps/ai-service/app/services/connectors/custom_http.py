@@ -319,10 +319,13 @@ async def _auth_parts(
 
     if kind == "none":
         return headers, params
-    if kind == "feishu_user":
-        # 用户态令牌:飞书 user_access_token 走 Authorization: Bearer,
-        # 与 tenant 共用 header 但令牌来源完全不同(解密/刷新),不可混用。
-        token = await _user_access_token(record, "feishu")
+    if kind in ("feishu_user", "dingtalk_user"):
+        # 用户态令牌:飞书 user_access_token / 钉钉 userAccessToken 均走
+        # Authorization: Bearer(钉钉 v1.0 REST API 用 Bearer,与老版 oapi 的
+        # access_token query 参数体系不同)。与 tenant 共用 header 但令牌来源
+        # 完全不同(解密/刷新),不可混用。
+        platform = "feishu" if kind == "feishu_user" else "dingtalk"
+        token = await _user_access_token(record, platform)
         headers[header] = f"Bearer {token}"
         return headers, params
     if kind == "bearer":

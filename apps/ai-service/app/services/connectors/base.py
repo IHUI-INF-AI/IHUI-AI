@@ -57,7 +57,8 @@ AUTH_KINDS: tuple[str, ...] = (
     "basic",
     "query",
     "feishu_tenant",
-    "feishu_user",  # 用户 OAuth user_access_token(connector_oauth 授权后注入)
+    "feishu_user",  # 飞书用户 OAuth user_access_token(connector_oauth 授权后注入)
+    "dingtalk_user",  # 钉钉用户 OAuth userAccessToken(connector_oauth 授权后注入)
     "wecom_corp",
     "dingtalk",
     "wechat_mp",

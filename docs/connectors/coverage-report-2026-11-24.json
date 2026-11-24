@@ -58,7 +58,7 @@
       "caveat": "本轮补齐的是目录全量性，不是接口可用性探测。探测数据仍为引擎修复前的旧结果，不可直接作为可用性结论；须在能连通服务的环境用修复版引擎重跑。"
     },
     "availability_engineering": {
-      "updated_at": "2026-11-24T15:45:00+08:00",
+      "updated_at": "2026-11-24T16:20:00+08:00",
       "goal": "用户扫码授权自己账号后 AI 都能调得通",
       "code_changes": [
         "api_to_operation 将 GET 恒判为安全读语义：修复钉钉51+企微4条被 validate 静默丢弃（3926条 operation 全量零丢弃）",
@@ -69,7 +69,11 @@
         "前端连接器页加「扫码授权自己账号」按钮 + api-client getConnectorOAuthAuthorize + 5 语言词表",
         "2026-11-24 第二轮：打通用户授权公网链路 —— ai-service 把 /api/connectors/oauth/callback 加入强制公开清单(精确路径+HMAC state 自证,不受 .env 整串替换影响);新增 8802 thin proxy GET /api/callback/connectors/oauth 只透传 code/state/error 白名单 query、不转发 Authorization;public-paths 加该精确路径的租户豁免",
         "飞书回调页按 state 形状分流：连接器 state(base64url.payload+HMAC sig)只透传给回调代理、绝不进登录换 JWT 流程(那会触发 consent 闸并丢弃 user token);登录 state(32 位 hex)仍走原链路;redirect_uri 复用飞书后台已白名单的 /callback?platform=feishu,平台侧零新增配置",
-        "密钥正规化：.env.production.example 与 ai-service/.env.example 声明 PUBLISH_CREDENTIALS_KEY/LEGACY(此前只降级读本地 data/credentials_key,多实例各读各的 ⇒ 跨实例 token 解不开);新增 scripts/export-publish-credentials-key.mjs 把现存文件密钥原值转 base64 迁移(不重新生成,历史密文仍可读)并支持 --verify"
+        "密钥正规化：.env.production.example 与 ai-service/.env.example 声明 PUBLISH_CREDENTIALS_KEY/LEGACY(此前只降级读本地 data/credentials_key,多实例各读各的 ⇒ 跨实例 token 解不开);新增 scripts/export-publish-credentials-key.mjs 把现存文件密钥原值转 base64 迁移(不重新生成,历史密文仍可读)并支持 --verify",
+        "2026-11-24 第三轮：钉钉用户授权 provider 落地 —— 官方端点核实(授权 login.dingtalk.com/oauth2/auth 带 client_id/scope=openid/prompt=consent;换取/刷新 POST api.dingtalk.com/v1.0/oauth2/userAccessToken,body camelCase clientId/clientSecret/code/grantType/refreshToken,响应 accessToken/refreshToken/expireIn);OAuthProviderConfig 增加 token 请求/响应字段名映射,飞书沿用 snake_case 不变",
+        "新增 dingtalk_user auth_kind：_auth_parts 注入 Authorization: Bearer <userAccessToken>(钉钉 v1.0 REST API 体系,与老版 oapi 的 access_token query 不同);base.py AUTH_KINDS 纳入;dingtalk:user-oauth 连接器可用既有覆盖分片 UI 加载 1141 条带 base_url_override=https://api.dingtalk.com 的新版 API",
+        "企业微信权威核实：OAuth 网页授权只返回 userid/user_ticket(官方「构造网页授权链接」/「获取访问用户身份」),协议**不提供 per-user access_token**,所有企微 API 均以应用 access_token 调用 ⇒ 无法构造「以用户本人身份注入」的链路;wecom provider 保持 disabled 且 disabled_reason 写明协议层原因(不再误标为「端点未核实」),前端不暴露企微扫码入口",
+        "前端 USER_OAUTH_PLATFORMS 放开到 {feishu, dingtalk};回调页按 state 形状分流通用,无需为每个平台新增分支"
       ],
       "verified": {
         "pytest": "test_connector_oauth(11) + test_connector_coverage(37) + test_connectors_generic + test_ai_service_bridge = 87 全绿",
@@ -77,13 +81,14 @@
         "oauth_unit": "state 篡改/过期/错归属全拒；token 加解密往返；执行层注入与 fail-closed；callback 端到端(code换token→加密落库→同scope列到→注入)",
         "shard_load": "全量分片落库后 3926 operation 全部被 custom_http 加载，零丢失",
         "public_callback_chain": "pytest 86 全绿(含 test_connector_oauth_public_callback 4 例：精确路径入强制公开清单/陈旧 .env 不丢回调/不在永不公开根下/handler 无 JWT 依赖) + vitest api 4 例(代理 query 白名单/不转 Authorization/缺参 400/上游错原样回传) + vitest web 3 例(连接器 state 只走代理不进登录/登录 state 反向保护/畸形 state 不误判) + o5 公开面守门 15 例 + check-public-exposure-list consistent 违规 0",
-        "key_migration": "迁移脚本实测：主位置与 repo-root 历史位置确为两把不同的 32 字节密钥；--all 输出 base64、--verify 正向通过/非法值 exit 1；跨实例密文互通由既有 test_credentials_crypto 覆盖"
+        "key_migration": "迁移脚本实测：主位置与 repo-root 历史位置确为两把不同的 32 字节密钥；--all 输出 base64、--verify 正向通过/非法值 exit 1；跨实例密文互通由既有 test_credentials_crypto 覆盖",
+        "dingtalk_oauth": "pytest test_connector_oauth 16 例全绿(含钉钉端点/字段映射、授权URL scope+prompt、真实 exchange_code camelCase→统一形状端到端、dingtalk_user Bearer 注入且无 access_token query) + test_connector_oauth_public_callback 4 + test_connector_coverage 37 + vitest web 3 全绿；企微 provider 显式 disabled 并断言拒绝原因含 per-user"
       },
       "limits": [
-        "钉钉/企微 OAuth 端点未经官方文档核实，provider 显式 disabled，不编造 URL；当前仅飞书可扫码授权",
+        "钉钉 OAuth 已官方核实并启用(授权 login.dingtalk.com/oauth2/auth + 换取 api.dingtalk.com/v1.0/oauth2/userAccessToken);dingtalk:user-oauth 连接器以 Bearer userAccessToken 调新版 API,可用覆盖分片 UI 加载 1141 条带 base_url_override 的新版接口；企业微信协议不提供 per-user access_token(code 只换 userid/user_ticket,API 均用应用身份),用户态注入链路协议层不成立,provider 显式 disabled 并在 disabled_reason 写明,前端不暴露企微扫码入口",
         "飞书应用凭据 FEISHU_APP_ID/FEISHU_APP_SECRET 与回调 FEISHU_REDIRECT_URI=https://bsm.aizhs.top/callback?platform=feishu 均为既有实配；redirect_uri 复用该已白名单地址，平台侧零新增配置",
         "生产多实例部署前须把 PUBLISH_CREDENTIALS_KEY 环境变量落地为同一把 32 字节 base64 密钥（scripts/export-publish-credentials-key.mjs 迁移现存文件密钥，旧值放 LEGACY），否则跨实例 token 解不开；本机为单实例、未做该环境变量的生产注入",
-        "未在本机做真实扫码→真实 API 调用的端到端验证（需真实飞书用户账号交互 + 生产环境变量已落地）；三段链路(前端分流→8802 代理→ai-service 回调)的代码与单测已闭环",
+        "未在本机做真实扫码→真实 API 调用的端到端验证(需真实飞书/钉钉用户账号交互 + 生产 PUBLISH_CREDENTIALS_KEY 落地)；四段链路(前端分流→8802 代理→ai-service 回调→token 落库注入)的代码与单测已闭环",
         "user token 刷新后写回内存副本，本次调用生效；跨重启持久化依赖下次授权/刷新，未做落库回写（改进项）",
         "覆盖探测仍用 tenant 连接器，user 类接口预判定 need_user_token；新增的 feishu:user-oauth 连接器尚未接入探测面"
       ]

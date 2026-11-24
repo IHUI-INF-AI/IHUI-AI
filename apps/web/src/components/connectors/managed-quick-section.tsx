@@ -20,12 +20,17 @@ interface ManagedQuickSectionProps {
   connectingType: string | null
   onConnect: (type: string, label: string) => void
   onInvoke: (entry: ConnectorEntry) => void
-  /** 用户 OAuth 扫码授权自己账号(当前仅飞书端点已核实可用) */
+  /** 用户 OAuth 扫码授权自己账号(飞书/钉钉端点已官方核实) */
   onUserAuthorize?: (type: string) => void
 }
 
-/** 用户扫码授权入口:仅后端已核实 OAuth 端点的平台可见 */
-const USER_OAUTH_PLATFORMS = new Set(['feishu'])
+/**
+ * 用户扫码授权入口:仅后端已核实 OAuth 端点且协议提供 per-user token 的平台可见。
+ * - 飞书:user_access_token(官方 authen/v2/oauth/token)
+ * - 钉钉:userAccessToken(官方 /v1.0/oauth2/userAccessToken)
+ * - 企微:网页授权只回 userid/user_ticket,无 per-user token ⇒ 不可做,不放行。
+ */
+const USER_OAUTH_PLATFORMS = new Set(['feishu', 'dingtalk'])
 
 /** 预置平台一键接入卡片组(托管凭据,用户不填密钥) */
 export function ManagedQuickSection({

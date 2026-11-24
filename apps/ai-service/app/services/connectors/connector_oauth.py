@@ -62,22 +62,44 @@ class OAuthProviderConfig:
     platform: str
     authorize_url: str
     token_url: str
-    # 授权页参数名差异:飞书用 client_id(即 app_id)
+    # 授权页参数名差异:飞书/钉钉用 client_id(即 app_id)
     client_id_param: str
+    # token 端点请求体字段名(飞书 snake_case;钉钉 camelCase)
+    token_client_id_param: str = "client_id"
+    token_secret_param: str = "client_secret"
+    token_grant_param: str = "grant_type"
+    token_code_param: str = "code"
+    token_refresh_param: str = "refresh_token"
+    # token 端点响应字段名(飞书 snake_case;钉钉 camelCase)
+    resp_access_token: str = "access_token"
+    resp_refresh_token: str = "refresh_token"
+    resp_expires_in: str = "expires_in"
     # 换取 token 的 grant_type 值
     exchange_grant_type: str = "authorization_code"
     # 刷新 token 的 grant_type 值
     refresh_grant_type: str = "refresh_token"
+    # 授权页额外固定参数(钉钉需 scope=openid + prompt=consent)
+    authorize_extra_params: tuple[tuple[str, str], ...] = ()
     # 是否启用(端点未经官方文档核实的平台保持 False)
     enabled: bool = False
     docs: str = ""
+    # 未启用原因(区分「端点未核实」与「协议不提供 per-user token」)
+    disabled_reason: str = ""
 
 
-# 端点来源(2026-11-24 WebSearch 官方域实测):
+# 端点来源(2026-11-24 官方文档实测,均为官方域原文):
+# 飞书:
 # - 授权: https://open.feishu.cn/open-apis/authen/v1/authorize
-#   (官方 "Auto login to third-party websites" 原文给出完整 URL)
 # - 换取/刷新: https://open.feishu.cn/open-apis/authen/v2/oauth/token
-#   (官方 "刷新 user_access_token" 页面「基本 HTTP URL」原文)
+#   (官方「刷新 user_access_token」页「基本 HTTP URL」原文)
+# 钉钉:
+# - 授权: https://login.dingtalk.com/oauth2/auth
+#   (官方「获取登录用户的访问凭证」页参数表原文:redirect_uri/response_type=code/
+#    client_id/scope=openid/state/prompt=consent)
+# - 换取/刷新: https://api.dingtalk.com/v1.0/oauth2/userAccessToken
+#   (官方「获取用户token」页原文:POST,body clientId/clientSecret/code/
+#    refreshToken/grantType=authorization_code|refresh_token;
+#    响应 accessToken/refreshToken/expireIn/corpId)
 PROVIDERS: dict[str, OAuthProviderConfig] = {
     "feishu": OAuthProviderConfig(
         platform="feishu",
@@ -87,23 +109,38 @@ PROVIDERS: dict[str, OAuthProviderConfig] = {
         enabled=True,
         docs="https://open.feishu.cn/document/common-capabilities/sso/web-application-sso",
     ),
-    # 钉钉/企微端点尚未在官方文档核实,保持 disabled —— 授权请求显式拒绝,
-    # 绝不用猜测的 URL 让用户扫码跳到错误页面。补齐官方出处后再开。
     "dingtalk": OAuthProviderConfig(
         platform="dingtalk",
-        authorize_url="",
-        token_url="",
+        authorize_url="https://login.dingtalk.com/oauth2/auth",
+        token_url="https://api.dingtalk.com/v1.0/oauth2/userAccessToken",
         client_id_param="client_id",
-        enabled=False,
-        docs="",
+        token_client_id_param="clientId",
+        token_secret_param="clientSecret",
+        token_grant_param="grantType",
+        token_code_param="code",
+        token_refresh_param="refreshToken",
+        resp_access_token="accessToken",
+        resp_refresh_token="refreshToken",
+        resp_expires_in="expireIn",
+        authorize_extra_params=(("scope", "openid"), ("prompt", "consent")),
+        enabled=True,
+        docs="https://open.dingtalk.com/document/orgapp/obtain-identity-credentials",
     ),
+    # 企微 OAuth 网页授权只返回 userid/user_ticket(官方「构造网页授权链接」/
+    # 「获取访问用户身份」页),**不提供 per-user access_token**;所有企微 API 均以
+    # 应用 access_token(/cgi-bin/gettoken)调用。因此无法构造「以用户身份注入」的
+    # user token 链路 —— 保持 disabled,这不是端点未核实,是协议层不成立。
     "wecom": OAuthProviderConfig(
         platform="wecom",
         authorize_url="",
         token_url="",
         client_id_param="appid",
         enabled=False,
-        docs="",
+        disabled_reason=(
+            "企业微信 OAuth 网页授权只返回 userid/user_ticket,协议不提供 per-user "
+            "access_token;API 均以应用身份调用,无法以用户本人身份注入令牌"
+        ),
+        docs="https://developer.work.weixin.qq.com/document/path/91022",
     ),
 }
 
@@ -113,9 +150,8 @@ def provider(platform: str) -> OAuthProviderConfig:
     if cfg is None:
         raise ConnectorOAuthError(f"不支持用户授权的平台: {platform}")
     if not cfg.enabled:
-        raise ConnectorOAuthError(
-            f"{platform} 的用户授权端点尚未经官方文档核实,暂未启用;请使用应用身份凭据"
-        )
+        reason = cfg.disabled_reason or "端点尚未经官方文档核实"
+        raise ConnectorOAuthError(f"{platform} 的用户授权暂未启用:{reason};请使用应用身份凭据")
     return cfg
 
 
@@ -240,42 +276,56 @@ HttpJson = Callable[[str, dict[str, Any]], Coroutine[Any, Any, dict[str, Any]]]
 def build_exchange_body(
     config: OAuthProviderConfig, code: str, *, app_id: str, app_secret: str, redirect_uri: str
 ) -> dict[str, Any]:
-    """构造 code→user_access_token 请求体(飞书 v2)。"""
-    return {
-        "grant_type": config.exchange_grant_type,
-        "client_id": app_id,
-        "client_secret": app_secret,
-        "code": code,
-        "redirect_uri": redirect_uri,
+    """构造 code→user_access_token 请求体。
+
+    字段名按平台 config 映射:飞书 v2 snake_case 且带 redirect_uri;钉钉 v1.0
+    camelCase( ``grantType/clientId/clientSecret/code`` )且**不带** redirect_uri
+    (官方「获取用户token」body 参数表无此字段,多传可能被拒)。
+    """
+    body: dict[str, Any] = {
+        config.token_grant_param: config.exchange_grant_type,
+        config.token_client_id_param: app_id,
+        config.token_secret_param: app_secret,
+        config.token_code_param: code,
     }
+    if config.platform == "feishu":
+        body["redirect_uri"] = redirect_uri
+    return body
 
 
 def build_refresh_body(
     config: OAuthProviderConfig, refresh_token: str, *, app_id: str, app_secret: str
 ) -> dict[str, Any]:
-    """构造 refresh_token→user_access_token 请求体。"""
+    """构造 refresh_token→user_access_token 请求体(字段名按平台映射)。"""
     return {
-        "grant_type": config.refresh_grant_type,
-        "client_id": app_id,
-        "client_secret": app_secret,
-        "refresh_token": refresh_token,
+        config.token_grant_param: config.refresh_grant_type,
+        config.token_client_id_param: app_id,
+        config.token_secret_param: app_secret,
+        config.token_refresh_param: refresh_token,
     }
 
 
-def normalize_token_response(data: dict[str, Any], *, now: float | None = None) -> dict[str, Any]:
-    """把平台 token 响应规范成统一存储形状,带本地过期时间。"""
-    access = str(data.get("access_token") or "")
+def normalize_token_response(
+    data: dict[str, Any], *, config: OAuthProviderConfig | None = None, now: float | None = None
+) -> dict[str, Any]:
+    """把平台 token 响应规范成统一存储形状,带本地过期时间。
+
+    ``config`` 缺省沿用飞书 snake_case(测试与历史调用兼容);钉钉传入自身 config,
+    按 ``accessToken/refreshToken/expireIn`` 取值。
+    """
+    cfg = config
+    access = str(data.get(cfg.resp_access_token if cfg else "access_token") or "")
     if not access:
         raise ConnectorOAuthError("平台未返回 access_token")
     ts = now if now is not None else time.time()
-    expires_in = data.get("expires_in")
+    expires_in = data.get(cfg.resp_expires_in if cfg else "expires_in")
     try:
         expires_in = int(expires_in) if expires_in is not None else 0
     except (TypeError, ValueError):
         expires_in = 0
     return {
         "access_token": access,
-        "refresh_token": str(data.get("refresh_token") or ""),
+        "refresh_token": str(data.get(cfg.resp_refresh_token if cfg else "refresh_token") or ""),
         "expires_at": ts + expires_in if expires_in > 0 else 0,
         "token_type": str(data.get("token_type") or "Bearer"),
         "scope": str(data.get("scope") or ""),
@@ -305,7 +355,7 @@ async def exchange_code(
     data = await http_json(config.token_url, body)
     if not isinstance(data, dict):
         raise ConnectorOAuthError("token 端点返回非对象")
-    return normalize_token_response(data)
+    return normalize_token_response(data, config=config)
 
 
 async def refresh_user_token(
@@ -324,7 +374,7 @@ async def refresh_user_token(
     data = await http_json(config.token_url, body)
     if not isinstance(data, dict):
         raise ConnectorOAuthError("刷新端点返回非对象")
-    refreshed = normalize_token_response(data)
+    refreshed = normalize_token_response(data, config=config)
     if not refreshed.get("refresh_token"):
         refreshed["refresh_token"] = rt
     return refreshed

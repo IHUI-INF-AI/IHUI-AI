@@ -555,6 +555,10 @@ async def oauth_authorize(
             "response_type": "code",
             "state": state,
         }
+        # 平台固定授权参数(钉钉需 scope=openid + prompt=consent);用户显式
+        # 传入的 oauth_scope 优先,可覆盖平台默认 scope。
+        for key, value in cfg.authorize_extra_params:
+            params[key] = value
         if oauth_scope.strip():
             params["scope"] = oauth_scope.strip()
         url = f"{cfg.authorize_url}?{urlencode(params)}"
