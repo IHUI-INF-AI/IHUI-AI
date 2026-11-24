@@ -44,6 +44,13 @@ _ALWAYS_PUBLIC: tuple[str, ...] = (
     "/.well-known/agent.json",
     "/.well-known/agent-card.json",
     "/api/mcp-public/wb-autopilot",
+    # 连接器用户 OAuth 回调(2026-11-24 立):平台授权服务器把浏览器跳回该端点时,
+    # 请求只带 `code`+`state`,没有也不能带用户 JWT。身份与归属完全由 state 的
+    # HMAC 签名自证(connector_oauth.verify_state 校验签名/平台/owner/TTL,
+    # payload 内含 user_id/tenant_id 决定令牌落库作用域),因此该端点自带鉴权,
+    # 匿名穿过本中间件后仍被 state 校验拒掉 —— 变的只是"谁在拒"(与 SELF_AUTHENTICATED
+    # 同型)。精确路径而非目录前缀,不随 connectors router 未来扩端点而放行。
+    "/api/connectors/oauth/callback",
 )
 
 # router 根:该前缀下的任何条目(含精确到端点的写法)都不允许匿名可达

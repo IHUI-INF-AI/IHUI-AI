@@ -141,6 +141,8 @@ import aiExtendedRoutes from './ai-extended.js'
 import engineVoiceRoutes from './engine-voice.js'
 // 签到助手网关代理(2026-10-23 立):/api/checkin/* 透传 ai-service,移动端/桌面端共用
 import checkinProxyRoutes from './checkin-proxy.js'
+// 连接器用户 OAuth 回调代理(2026-11-24 立):/api/callback/connectors/oauth → ai-service
+import connectorOAuthCallbackProxyRoutes from './connector-oauth-callback-proxy.js'
 import { mcpExtendedRoutes } from './mcp-extended.js'
 // 控制帧 get_context_usage / stop_task / seed_read_state 的引擎 RPC 代理(方法白名单)
 import engineControlFrameRoutes from './engine-control-frames.js'
@@ -900,6 +902,9 @@ export function registerRoutes(server: FastifyInstance) {
   // 签到助手网关代理(2026-10-23 立):/api/checkin/* 透传 ai-service(8803),路由自带绝对前缀;
   // L7066:本层 checkAuth 先验会话,下游 401 ⇒ 502/UPSTREAM_AUTH_FAILED(不伪装会话死亡)
   server.register(checkinProxyRoutes)
+  // 连接器用户 OAuth 回调代理(2026-11-24 立):精确路径、免登录免租户;
+  // 身份由 ai-service 侧 state HMAC 自证,本层不注入身份(见该文件头注)。
+  server.register(connectorOAuthCallbackProxyRoutes)
   // MCP 项目管理与集成扩展（projects/integrations）
   server.register(mcpExtendedRoutes, { prefix: '/api' })
   // 引擎控制帧代理（/api/engine/rpc，仅白名单方法透传 ai-service）

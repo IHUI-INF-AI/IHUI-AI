@@ -153,6 +153,9 @@ export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
   '/api/sms/callback/tencent/status',
   '/api/sms/callback/tencent/reply',
   '/api/oauth/',
+  // 连接器用户 OAuth 回调(2026-11-24 立):平台回调不带租户头,身份由 ai-service 侧
+  // state HMAC 自证。只放这一条精确路径,不顺带豁免 /api/callback/ 下其他端点。
+  '/api/callback/connectors/oauth',
   '/api/payments/',
   '/api/ai/callback',
   // 信源入口:同 ai-callback 属"机器回调",调用方不携带租户头(带 HMAC 签名);只放完整路径。

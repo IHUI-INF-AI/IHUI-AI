@@ -24,6 +24,40 @@ interface OAuthCallbackHandlerProps {
 }
 
 /**
+ * 判别连接器用户授权 state（2026-11-24 立）。
+ *
+ * 登录 state = `randomBytes(16).toString('hex')`（32 位 hex，无点）；
+ * 连接器 state = `base64url(payload).base64url(sig)`，payload 含 p/o/u/t/iat/n。
+ * 两者格式互斥，故可在同一个 /callback 页安全分流 —— 复用飞书后台已白名单的
+ * redirect_uri，零新增配置；连接器授权不再误入登录换 JWT 流程（那会触发 consent
+ * 闸且把 user_access_token 用完后丢弃）。
+ *
+ * 这里只做格式判别，穷尽结构要求；真鉴权在 ai-service 侧 verify_state（HMAC 签名 +
+ * 平台/owner/TTL 校验），伪造 state 过不了那一关。
+ */
+function parseConnectorOAuthState(state: string | null): { platform: string } | null {
+  if (!state) return null
+  const parts = state.split('.')
+  if (parts.length !== 2) return null
+  if (!/^[A-Za-z0-9_-]+$/.test(parts[0] ?? '')) return null
+  if (!/^[A-Za-z0-9_-]+$/.test(parts[1] ?? '')) return null
+  try {
+    const raw = (parts[0] ?? '').replace(/-/g, '+').replace(/_/g, '/')
+    const padded = raw + '='.repeat((4 - (raw.length % 4)) % 4)
+    const payload: unknown = JSON.parse(atob(padded))
+    if (!payload || typeof payload !== 'object') return null
+    const record = payload as Record<string, unknown>
+    if (typeof record.p !== 'string' || !record.p) return null
+    if (typeof record.o !== 'string' || !record.o) return null
+    if (typeof record.u !== 'string' || !record.u) return null
+    if (typeof record.iat !== 'number' || !Number.isFinite(record.iat)) return null
+    return { platform: record.p }
+  } catch {
+    return null
+  }
+}
+
+/**
  * 构造后端回调端点路径。
  * - google / apple 有独立端点(历史遗留)
  * - generic 平台从 URL ?platform=xxx 读取,调用 /api/auth/{platform}/callback
@@ -76,6 +110,39 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
       window.location.href = deepLinkUrl
       setStatus('loading')
       return
+    }
+
+    // 连接器用户授权回调:state 形状与登录 state 互斥,识别出来后只把 code/state
+    // 透传给连接器回调代理(→ ai-service 校验 HMAC、换 user token、加密落库)。
+    // 绝不进下面的登录分支:那会触发 oauth-consent 闸并把 token 换 JWT 后丢弃。
+    const connectorState = parseConnectorOAuthState(state)
+    if (connectorState && state) {
+      if (!code) {
+        setStatus('error')
+        setErrorMsg(t('error.missingCode'))
+        return
+      }
+      let cancelled = false
+      fetchApi<{ error?: string }>('/api/callback/connectors/oauth', {
+        params: { code, state },
+      })
+        .then((res) => {
+          if (cancelled) return
+          if (!res.success) {
+            setStatus('error')
+            setErrorMsg(res.error || t('error.loginFailed'))
+            return
+          }
+          setStatus('success')
+        })
+        .catch((e: Error) => {
+          if (cancelled) return
+          setStatus('error')
+          setErrorMsg(e.message || t('error.network'))
+        })
+      return () => {
+        cancelled = true
+      }
     }
 
     const apiPath = buildApiPath(provider, platformParam)
