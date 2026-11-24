@@ -33,6 +33,34 @@ const http = require('http')
 const https = require('https')
 const { execFileSync } = require('child_process')
 
+/**
+ * 下载路径单源(2026-11-24 统一 /downloads)。
+ *
+ * `scripts/data/mobile-download-leg.json` 是移动端对外下载腿的唯一真源:
+ *   siteLegUrlPrefix       → 新地址前缀 /downloads/mobile
+ *   legacySiteLegUrlPrefix → 旧地址前缀 /remote-images/download(只做兼容别名)
+ * 本进程只读这一份配置;物理落点 = <server-root>/downloads/mobile。
+ * 配置读不到时用同值兜底,CDN 不能因一份可选配置缺失而起不来。
+ */
+let MOBILE_LEG = {}
+try {
+  MOBILE_LEG = JSON.parse(
+    fs.readFileSync(
+      path.join(__dirname, '..', 'scripts', 'data', 'mobile-download-leg.json'),
+      'utf8',
+    ),
+  )
+} catch (_) {
+  MOBILE_LEG = {}
+}
+const DOWNLOAD_URL_PREFIX = String(MOBILE_LEG.siteLegUrlPrefix || '/downloads/mobile').replace(
+  /\/+$/,
+  '',
+)
+const LEGACY_DOWNLOAD_URL_PREFIX = String(
+  MOBILE_LEG.legacySiteLegUrlPrefix || '/remote-images/download',
+).replace(/\/+$/, '')
+
 // ====================== PNG 占位图编码辅助(crc32 + chunk 组装) ======================
 
 function crc32(data) {
@@ -48,7 +76,7 @@ function crc32(data) {
 }
 
 function createPlaceholderPng(label, width, height, bgColor) {
-  // 纯色占位 PNG(通过 X-Placeholder header 和 tEXt chunk 标注缺失路径)
+  // 纯色占位 PNG(仅 `?placeholder=1` 调试时返回,通过 X-Placeholder header 和 tEXt chunk 标注缺失路径)
   width = width || 64
   height = height || 64
   const rows = []
@@ -168,8 +196,8 @@ function mimeFor(ext) {
   return MIME[ext.toLowerCase()] || 'application/octet-stream'
 }
 // 占位图只对图片扩展名生效。安装包缺文件时必须真 404:2026-10-29 实测
-// `/remote-images/download/ihui-ai-latest.apk` 缺文件时返回 200 + 156 字节 PNG,
-// 手机浏览器"下载成功"却装不上,而且全链路没有任何失败信号。
+// `/remote-images/download/ihui-ai-latest.apk`(现兼容别名到 `/downloads/mobile/`)缺文件时
+// 返回 200 + 156 字节 PNG,手机浏览器"下载成功"却装不上,而且全链路没有任何失败信号。
 const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.apng'])
 
 /**
@@ -199,6 +227,18 @@ function readReleasePointer(text) {
 function serveStatic(req, res, root) {
   let url = new URL(req.url, 'http://localhost').pathname
   url = decodeURIComponent(url)
+  // 占位图只在显式 `?placeholder=1` 时返回(调试用);默认把缺失当作真 404/410。
+  // 绝不把故障伪装成 200 —— 前端 <Image> 的 onError、监控与 CDN 缓存都只认状态码,
+  // 200 + 灰块会让"文件丢了"这件事在三层(前端/监控/边缘)同时隐身(2026-11-24 机主实报灰块)。
+  const wantsPlaceholder = /[?&]placeholder=1(?:&|$)/.test(req.url || '')
+  /**
+   * 旧下载地址兼容(2026-11-24):`/remote-images/download/*` 内部改写到
+   * `/downloads/mobile/*`,与文件实际移动与否无关 —— 用户手里的旧链接仍 302/下载。
+   * 只精确匹配这一段;`/remote-images/` 下的图片资源原样直出,绝不整棵改道。
+   */
+  if (url === LEGACY_DOWNLOAD_URL_PREFIX || url.startsWith(LEGACY_DOWNLOAD_URL_PREFIX + '/')) {
+    url = DOWNLOAD_URL_PREFIX + url.slice(LEGACY_DOWNLOAD_URL_PREFIX.length)
+  }
   // 安全:禁止路径穿越
   if (url.includes('..')) {
     res.writeHead(403)
@@ -233,40 +273,49 @@ function serveStatic(req, res, root) {
 
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      // 404:尝试作为图片返回占位图
       const ext = path.extname(url)
-      if (IMAGE_EXT.has(ext.toLowerCase())) {
+      // 显式调试请求才给占位图(?placeholder=1);默认一律真 404
+      if (wantsPlaceholder && IMAGE_EXT.has(ext.toLowerCase())) {
         const placeholder = getPlaceholder(url)
         if (placeholder) {
           res.writeHead(200, {
             'Content-Type': 'image/png',
             'Content-Length': placeholder.length,
-            'Cache-Control': 'no-cache',
+            'Cache-Control': 'no-store',
             'X-Placeholder': 'missing-image',
             'X-Missing-Path': url,
           })
           return res.end(placeholder)
         }
       }
-      res.writeHead(404)
+      // 真 404 + no-store:前端 onError 能触发、监控能看见、CDN 不会把"缺"缓存成 24h
+      res.writeHead(404, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Missing-Path': url,
+      })
       return res.end(JSON.stringify({ missing: url, tip: '请上传对应图标到此路径' }))
     }
     if (data.length === 0) {
-      // 空文件:返回占位图
       const ext = path.extname(url)
-      if (IMAGE_EXT.has(ext.toLowerCase())) {
+      if (wantsPlaceholder && IMAGE_EXT.has(ext.toLowerCase())) {
         const placeholder = getPlaceholder(url)
         if (placeholder) {
           res.writeHead(200, {
             'Content-Type': 'image/png',
             'Content-Length': placeholder.length,
+            'Cache-Control': 'no-store',
             'X-Placeholder': 'empty-file',
           })
           return res.end(placeholder)
         }
       }
       // 空的可分发文件(如上传中断的 .apk)当作不存在:0 字节 200 只会让用户拿到装不上的包
-      res.writeHead(404)
+      res.writeHead(410, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Missing-Path': url,
+      })
       return res.end(JSON.stringify({ missing: url, tip: '文件为 0 字节,请重新上传' }))
     }
     const ext = path.extname(filePath)

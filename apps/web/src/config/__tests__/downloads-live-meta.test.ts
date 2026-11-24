@@ -9,13 +9,17 @@
  *   live(取到真值)/ snapshot(拿不到输入)/ unavailable(拿到了输入且判据不命中)
  * 每一档都有成对夹具 —— 少一档判据分支,对应那条用例就该翻红。
  */
-import { readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { __test__ as liveMeta } from '../downloads-live-meta'
 import { __test__ as liveIo } from '../downloads-live'
+import { preferMirroredDesktopAsset } from '../downloads.config'
+import { DESKTOP_FEED } from '../desktop-feed.generated'
 
 const {
   judgeAppVersionRow,
@@ -58,7 +62,7 @@ describe('judgeAppVersionRow —— 注册表三态', () => {
             version: '0.0.9',
             platform: 'android',
             status: 'latest',
-            downloadUrl: 'https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk',
+            downloadUrl: 'https://www.aizhs.top/downloads/mobile/ihui-ai-latest.apk',
             updatedAt: '2026-10-31T07:00:00Z',
           },
         },
@@ -373,7 +377,7 @@ describe('toDesktopLiveInfo —— desktop 落形只搬展示三件,不把签名
 describe('judgeIpaPointerProbe —— iOS 以"服务自己怎么答"为真值', () => {
   const good = {
     status: 302,
-    location: 'https://www.aizhs.top/remote-images/download/ihui-ai-0.0.9-26110301.ipa',
+    location: 'https://www.aizhs.top/downloads/mobile/ihui-ai-0.0.9-26110301.ipa',
     version: '0.0.9',
     sizeBytes: 42825211,
     contentType: 'application/octet-stream',
@@ -425,7 +429,7 @@ describe('judgeIpaPointerProbe —— iOS 以"服务自己怎么答"为真值', 
       liveMeta.judgeIpaPointerProbe(good, NOW),
     )
     expect(merged.version).toBe('0.0.9')
-    expect(merged.assets[0]?.href).toContain('remote-images/download')
+    expect(merged.assets[0]?.href).toContain('downloads/mobile')
     expect(merged.assets[0]?.href).not.toContain('github.com')
   })
 })
@@ -513,7 +517,7 @@ const APK_ROW_BODY = {
       version: '0.0.9',
       platform: 'android',
       status: 'latest',
-      downloadUrl: 'https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk',
+      downloadUrl: 'https://www.aizhs.top/downloads/mobile/ihui-ai-latest.apk',
       updatedAt: '2026-10-31T07:00:00Z',
     },
   },
@@ -558,7 +562,7 @@ describe('站点腿两臂 —— 本机源站优先,且公网那一跳不得被�
       return legArmRes(String(url))
     }) as unknown as typeof fetch
     const { reading, tried } = await liveIo.probeSiteLeg(
-      '/remote-images/download/ihui-ai-latest.apk',
+      '/downloads/mobile/ihui-ai-latest.apk',
       fetchImpl,
     )
     expect(reading?.status).toBe(302)
@@ -573,7 +577,7 @@ describe('站点腿两臂 —— 本机源站优先,且公网那一跳不得被�
       asked.push(String(url))
       return legArmRes(String(url))
     }) as unknown as typeof fetch
-    await liveIo.probeSiteLeg('/remote-images/download/ihui-ai-latest.ipa', fetchImpl)
+    await liveIo.probeSiteLeg('/downloads/mobile/ihui-ai-latest.ipa', fetchImpl)
     expect(asked.every((u) => u.startsWith('http://127.0.0.1:80'))).toBe(true)
     expect(asked.length).toBe(2)
   })
@@ -585,7 +589,7 @@ describe('站点腿两臂 —— 本机源站优先,且公网那一跳不得被�
       return legArmRes(u)
     }) as unknown as typeof fetch
     const { reading, tried } = await liveIo.probeSiteLeg(
-      '/remote-images/download/ihui-ai-latest.apk',
+      '/downloads/mobile/ihui-ai-latest.apk',
       fetchImpl,
     )
     expect(reading?.status).toBe(302)
@@ -597,7 +601,7 @@ describe('站点腿两臂 —— 本机源站优先,且公网那一跳不得被�
       throw new Error('ETIMEDOUT')
     }) as unknown as typeof fetch
     const { reading, tried } = await liveIo.probeSiteLeg(
-      '/remote-images/download/ihui-ai-latest.apk',
+      '/downloads/mobile/ihui-ai-latest.apk',
       fetchImpl,
     )
     expect(reading).toBeNull()
@@ -650,4 +654,58 @@ describe('applyProbedAssetSize —— 只认正整数体积,其余原样返回',
     expect(applyProbedAssetSize(bare, 123)).toBe(bare)
   })
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+describe('preferMirroredDesktopAsset —— 已镜像桌面包改走 /downloads/desktop,未镜像保持上游', () => {
+  it('四件已核对官方 digest 的 0.1.84 安装包', () => {
+    const names = [
+      'AI_0.1.84_x64-setup.exe',
+      'AI_0.1.84_universal.dmg',
+      'AI_0.1.84_amd64.AppImage',
+      'AI_0.1.84_amd64.deb',
+    ]
+    for (const name of names) {
+      expect(
+        preferMirroredDesktopAsset(
+          `https://github.com/x/y/releases/download/desktop-v0.1.84/${name}`,
+        ),
+      ).toBe(`/downloads/desktop/${name}`)
+    }
+  })
+  it('未镜像的版本/资产保持 GitHub 原链,不把未落地文件改写成 404', () => {
+    const other = 'https://github.com/x/y/releases/download/desktop-v0.1.85/AI_0.1.85_x64-setup.exe'
+    expect(preferMirroredDesktopAsset(other)).toBe(other)
+  })
+})
+
+describe('resolveMirroredDesktop —— 本地四件齐全才算 live,缺一件退回 GitHub 解析', () => {
+  let root = ''
+  let prev: string | undefined
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), 'ihui-desktop-mirror-'))
+    prev = process.env.IHUI_DOWNLOADS_DIR
+    mkdirSync(join(root, 'desktop'), { recursive: true })
+    for (const asset of DESKTOP_FEED.assets) {
+      const name = String(asset.href).split('/').pop() ?? ''
+      writeFileSync(join(root, 'desktop', name), 'x')
+    }
+    process.env.IHUI_DOWNLOADS_DIR = root
+  })
+  afterAll(() => {
+    if (prev === undefined) delete process.env.IHUI_DOWNLOADS_DIR
+    else process.env.IHUI_DOWNLOADS_DIR = prev
+    if (root) rmSync(root, { recursive: true, force: true })
+  })
+  it('四件都在 ⇒ source=live 且 href 全走 /downloads/desktop', () => {
+    const info = liveIo.resolveMirroredDesktop(NOW)
+    expect(info?.source).toBe('live')
+    expect(info?.assets).toHaveLength(DESKTOP_FEED.assets.length)
+    for (const asset of info?.assets ?? []) expect(asset.href).toMatch(/^\/downloads\/desktop\//)
+  })
+  it('缺一件 ⇒ null(交回 GitHub,不把半套镜像说成完整)', () => {
+    const first =
+      String(DESKTOP_FEED.assets[0]?.href ?? '')
+        .split('/')
+        .pop() ?? ''
+    rmSync(join(root, 'desktop', first), { force: true })
+    expect(liveIo.resolveMirroredDesktop(NOW)).toBeNull()
+  })
+})

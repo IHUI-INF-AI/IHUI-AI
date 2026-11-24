@@ -482,7 +482,7 @@ node scripts/release-mobile-rn.mjs --leg ota-preview --execute -m "<本次说明
 
 **手工上传(仅这一步需要人;不需 GitHub/keystore 凭据,只需生产签出副本的写权限)**:
 
-1. 把正式签名 APK 放到生产签出副本 `deploy/server-root/remote-images/download/ihui-ai-<version>-<versionCode>.apk`。
+1. 把正式签名 APK 放到生产签出副本 `deploy/server-root/downloads/mobile/ihui-ai-<version>-<versionCode>.apk`(旧 `/remote-images/download/` 由 cdn-server 别名兼容,仅存量)。
 2. 更新同目录 `ihui-ai-latest.apk.redirect.json` 的 `url`/`version`/`versionCode`/`size`/`sha256`/`publishedAt`(字段以 `publish-mobile-apk.mjs` 写出的为准)。
 3. 从公网回读 `…/ihui-ai-latest.apk` 必须是 302 → 新副本,且目标 `Content-Length` 等于 APK 实际字节数。
 4. 在持钥机器上跑 `node scripts/check-mobile-download-leg.mjs --apk <本地APK>`,必须 exit 0。
@@ -932,9 +932,9 @@ git push origin desktop-v0.1.15
 > - GitHub Actions 页面:Release Desktop → Run workflow → `ref=main` + 输入 `tag=desktop-vX.Y.Z`(workflow 内部用 `inputs.tag` 定位 Release)
 > - 或 API 触发:`POST /repos/IHUI-INF-AI/IHUI-AI/actions/workflows/release-desktop.yml/dispatches`,body `{"ref":"main","inputs":{"tag":"desktop-vX.Y.Z"}}`,需要 GitHub 凭据 token(`git credential fill` 提取 `gho_` token);HTTP 204 = 触发成功,随后到 Actions 页确认新 run 的 3 个构建 job(windows-x64 / macos-universal / linux-x64)均为 in_progress(无早期失败)
 
-3. `release-desktop.yml` 自动执行:3 个构建 job(windows-x64 / macos-universal / linux-x64;macOS universal 一份产物同时覆盖 Apple Silicon 与 Intel)构建 → 上传安装包 + `.sig` 签名包到 Release → `publish-updater-json` 聚合全部平台生成 `latest.json`(仅上传到发版 Release;原"固定 feed tag `desktop-updater-feed`"上传已随 2026-10-05 兜底端点删除移除)→ `sync-downloads` 把产物同步到 `apps/web/public/downloads/` 并作为 artifact 留档(2026-10-17 起 CI 不再自动提交回 main)
+3. `release-desktop.yml` 自动执行:3 个构建 job(windows-x64 / macos-universal / linux-x64;macOS universal 一份产物同时覆盖 Apple Silicon 与 Intel)构建 → 上传安装包 + `.sig` 签名包到 Release → `publish-updater-json` 聚合全部平台生成 `latest.json`(仅上传到发版 Release;原"固定 feed tag `desktop-updater-feed`"上传已随 2026-10-05 兜底端点删除移除)→ `sync-downloads --target=public` 把产物同步到 CI artifact 用的 `apps/web/public/downloads/`(静态导出例外;生产 CDN 根是 `deploy/server-root/downloads/desktop`)
    - **注意**:exe/msi 不入库是 `.gitignore` 的决定(`apps/web/public/downloads/desktop/`),**不是**体积限制 —— 2026-10-18 现读 Windows 安装包约 10 MB(旧句"~230MB 超过 GitHub 单文件 100MB 限制"属 `offlineInstaller` 时代,枚 ac695ce9d7a 改回 embedBootstrapper 后已不成立)。
-4. `sync-downloads` job 同时运行 `scripts/resolve-desktop-download.mjs`,从 GitHub Releases API **动态解析**最新 `desktop-v*` release 的安装包(URL/大小/版本/发布日期),刷新 `apps/web/src/config/desktop-feed.generated.ts` 快照并作为 artifact 留档。Web 下载页(`/download/desktop`)构建期读取该快照渲染下载按钮——**发版后仍需有人跑 `pnpm resolve:desktop-download` 并提交,下载页才会换到新版**(2026-10-17 起 CI 不再自动提交回 main,"自动更新、无需手动"那句已不成立)。
+4. `sync-downloads` job 同时运行 `scripts/resolve-desktop-download.mjs`,从 GitHub Releases API **动态解析**最新 `desktop-v*` release 的安装包(URL/大小/版本/发布日期),刷新 `apps/web/src/config/desktop-feed.generated.ts` 快照并作为 artifact 留档。Web 下载页(`/download/desktop`)构建期读取该快照渲染下载按钮;运行期若 `deploy/server-root/downloads/desktop` 已有对应产物,优先显示 `/downloads/desktop` 本地链,未镜像的版本回落 GitHub Release。**发版后仍需有人跑 `pnpm resolve:desktop-download` 并提交,下载页才会换到新版**(2026-10-17 起 CI 不再自动提交回 main,"自动更新、无需手动"那句已不成立)。
 5. **烘焙更新器第一数据源(必做,漏做则 `/desktop-feed.json` 继续吐旧版)**:等 CI 的 build(含 SignPath 签名与 `.sig` 重算)产出后(**公开更新源只烘焙 CI 产出的包,SignPath 凭据齐备时会自动带 Authenticode**;本机 `release-desktop-local.mjs --allow-unsigned-upload` 的包只作审批前应急下载,不得烘焙进本文件),从**本次 Release** 取 `latest.json`(`gh release download desktop-vX.Y.Z -p latest.json -O .ihui-agent/tmp/latest.json`),再跑全平台烘焙:
 
 ```bash

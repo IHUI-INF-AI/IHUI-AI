@@ -10287,7 +10287,7 @@ export function sweepIosIpaRelay(opts = {}) {
           '',
           '可整改的那一步在执行器打印的整改命令里(register-app-version-latest,幂等,只补登记不重发包)。',
           '若失败的是自证:先 `nssm status IHUI-IMAGE-CDN` 与 `curl -sSI -H "Host: www.aizhs.top" ' +
-            'http://127.0.0.1:80/remote-images/download/ihui-ai-latest.ipa` 看指针有没有转 302。',
+            'http://127.0.0.1:80/downloads/mobile/ihui-ai-latest.ipa` 看指针有没有转 302。',
         ].join('\n'),
         { severity: 'warning', dedupKey: `verdict=fail;held=${held.tier}` },
       )
@@ -11834,7 +11834,7 @@ export function sweepDownloadsLiveHealth(opts = {}) {
       '下一步(按读数逐条,都可当场执行):',
       '  ① 先看是哪条腿:`node scripts/check-downloads-live-health.mjs --json` 的 readings 会给每端 source/reason;',
       '  ② 某端 unavailable ⇒ 查该端发布链有没有登记新值:安卓/鸿蒙查 `app_versions` 注册表与站点腿指针',
-      '     (`curl -sI -H "Host: www.aizhs.top" http://127.0.0.1:80/remote-images/download/ihui-ai-latest.apk`),',
+      '     (`curl -sI -H "Host: www.aizhs.top" http://127.0.0.1:80/downloads/mobile/ihui-ai-latest.apk`),',
       '     iOS 查 `publish-mobile-ipa.mjs` 有没有翻指针,桌面查 GitHub Release `desktop-v*`,CLI 查 npm `ihui-cli` dist-tags;',
       '  ③ 整站 stale ⇒ 部署环是否在构建/切流:`D:/DevEnv/ihui-prod/deploy/win/deploy-loop.log` 尾部;',
       '  ④ sizeBytes=0 ⇒ 站点腿 `IHUI-IMAGE-CDN` 是否在听 127.0.0.1:80(体积由本机臂 HEAD 实物量出来)。',

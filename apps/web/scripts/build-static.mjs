@@ -399,7 +399,11 @@ function runExtensionDownloadSync() {
   }
   const syncResult = spawnSync(
     process.execPath,
-    [path.join(repoRoot, 'scripts', 'sync-downloads.mjs'), '--platform=extension'],
+    [
+      path.join(repoRoot, 'scripts', 'sync-downloads.mjs'),
+      '--platform=extension',
+      '--target=public',
+    ],
     { cwd: repoRoot, stdio: 'inherit', shell: false, env: process.env, windowsHide: true },
   )
   if (syncResult.error || syncResult.status !== 0) {

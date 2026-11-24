@@ -7,7 +7,7 @@
  * APK 下载腿选择(2026-11-04 立)。
  *
  * 现场(手机 2411DRN47C,干净网络,无代理):
- *   `www.aizhs.top/remote-images/download/ihui-ai-latest.apk` 的 302 落到带版本号副本,
+ *   `www.aizhs.top/downloads/mobile/ihui-ai-latest.apk` 的 302 落到带版本号副本,
  *   响应头 `Server: cloudflare` / `CF-RAY: …-LAX` / `cf-cache-status: EXPIRED` —— 国内腿
  *   在 DNS/CDN 上没生效,唯一活着的入口是 Cloudflare 洛杉矶。跟随 302 取 512KB,25s 只
  *   收到 262144B(≈10KB/s),手机侧 30s 直接 0 字节超时。同一台手机打 Gitee API 是

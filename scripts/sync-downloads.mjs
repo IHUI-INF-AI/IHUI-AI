@@ -3,20 +3,23 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * sync-downloads.mjs — 自动化构建同步:复制下载包 + 更新元数据
  *
  * 功能:
  *   1. Desktop — 检测 apps/desktop/src-tauri/target/release/bundle/ 下的安装包
- *      (.exe/.msi/.deb/.AppImage/.dmg),标准化文件名后复制到 apps/web/public/downloads/desktop/
+ *      (.exe/.msi/.deb/.AppImage/.dmg),标准化文件名后复制到 CDN 根 downloads/desktop/
  *   2. Extension — 将 apps/extension/.output/chrome-mv3/ 打包为 ZIP,复制到
- *      apps/web/public/downloads/extension/
- *   3. Manifest — 生成 apps/web/public/downloads/manifest.json 元数据快照(供前端运行时读取)
+ *      CDN 根 downloads/extension/
+ *   3. Manifest — 生成 downloads/manifest.json 元数据快照(供前端运行时读取)
+ *
+ * 落点(2026-11-24 起):默认 `deploy/server-root/downloads`,由 cdn-server 直出
+ * `/downloads/*`,不进 Web 构建包/仓库;静态导出 GH Pages 显式 `--target=public`。
  *
  * 用法:
- *   node scripts/sync-downloads.mjs                  # 默认:同步所有端
+ *   node scripts/sync-downloads.mjs                  # 默认:同步所有端到 CDN 根
+ *   node scripts/sync-downloads.mjs --target=public  # 仅静态导出:落到 apps/web/public/downloads
  *   node scripts/sync-downloads.mjs --dry-run        # 预览模式:只输出将要执行的步骤
  *   node scripts/sync-downloads.mjs --check          # 检查模式:对比源/目标差异
  *   node scripts/sync-downloads.mjs --platform=desktop  # 只同步指定端(desktop/extension)
@@ -34,7 +37,6 @@
  *
  * 守门:脚本本身在 scripts/ 下,符合 §25 豁免(正式工具)。
  */
-import { execSync } from 'node:child_process'
 import { readFile, writeFile, copyFile, stat, readdir, mkdir } from 'node:fs/promises'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { crc32, deflateRawSync } from 'node:zlib'
@@ -56,7 +58,17 @@ const DESKTOP_BUNDLE_DIR = join(PROJECT_ROOT, 'apps/desktop/src-tauri/target/rel
 const DESKTOP_TAURI_CONF = join(PROJECT_ROOT, 'apps/desktop/src-tauri/tauri.conf.json')
 const EXTENSION_OUTPUT_DIR = join(PROJECT_ROOT, 'apps/extension/.output/chrome-mv3')
 const EXTENSION_PKG = join(PROJECT_ROOT, 'apps/extension/package.json')
-const DOWNLOADS_DIR = join(PROJECT_ROOT, 'apps/web/public/downloads')
+/**
+ * 下载实物落点(2026-11-24):默认落 CDN 根,不进 Next/静态导出构建包。
+ *   cdn    → deploy/server-root/downloads(生产由 cdn-server 直出 /downloads/*)
+ *   public → apps/web/public/downloads(仅静态导出 GH Pages 需要,显式 --target=public)
+ * 两种都会生成同一套 manifest/update-files;默认值绝不悄悄回 public。
+ */
+const DOWNLOAD_TARGET = getArg('target') ?? 'cdn'
+const DOWNLOADS_DIR =
+  DOWNLOAD_TARGET === 'public'
+    ? join(PROJECT_ROOT, 'apps/web/public/downloads')
+    : join(PROJECT_ROOT, 'deploy/server-root/downloads')
 const MANIFEST_PATH = join(DOWNLOADS_DIR, 'manifest.json')
 
 // ─── 控制台颜色 + 日志 ──────────────────────────────────────
@@ -97,6 +109,10 @@ const platformFilter = getArg('platform')
 
 // ─── 参数校验与启动日志的档名(纯字面量,无副作用,留在模块作用域)────
 const validPlatforms = ['desktop', 'extension']
+if (DOWNLOAD_TARGET !== 'cdn' && DOWNLOAD_TARGET !== 'public') {
+  console.error(`❌ --target=${DOWNLOAD_TARGET} 不合法;只接受 cdn(默认)或 public`)
+  process.exit(2)
+}
 const mode = dryRun ? 'dry-run' : checkMode ? 'check' : 'sync'
 
 // ─── 工具函数 ────────────────────────────────────────────────
@@ -115,7 +131,9 @@ function formatBytes(bytes) {
     value /= 1024
     unitIndex++
   }
-  return unitIndex === 0 ? `${Math.round(value)} ${units[unitIndex]}` : `${value.toFixed(1)} ${units[unitIndex]}`
+  return unitIndex === 0
+    ? `${Math.round(value)} ${units[unitIndex]}`
+    : `${value.toFixed(1)} ${units[unitIndex]}`
 }
 
 /**
@@ -330,7 +348,10 @@ async function syncDesktop(opts) {
     }
     assets.push({ href, sizeBytes: source.size, format: 'Windows NSIS exe', arch: 'x64' })
   } else {
-    log('warn', `  Desktop NSIS .exe 未找到(版本 ${version})— 需在 Windows 运行 \`pnpm --filter @ihui/desktop build\``)
+    log(
+      'warn',
+      `  Desktop NSIS .exe 未找到(版本 ${version})— 需在 Windows 运行 \`pnpm --filter @ihui/desktop build\``,
+    )
   }
 
   // Windows MSI .msi
@@ -354,7 +375,10 @@ async function syncDesktop(opts) {
     }
     assets.push({ href, sizeBytes: source.size, format: 'Windows MSI', arch: 'x64' })
   } else {
-    log('warn', `  Desktop MSI .msi 未找到(版本 ${version})— 需在 Windows 运行 \`pnpm --filter @ihui/desktop build\``)
+    log(
+      'warn',
+      `  Desktop MSI .msi 未找到(版本 ${version})— 需在 Windows 运行 \`pnpm --filter @ihui/desktop build\``,
+    )
   }
 
   // Linux .deb
@@ -405,7 +429,10 @@ async function syncDesktop(opts) {
     assets.push({ href, sizeBytes: source.size, format: 'Linux AppImage' })
   } else {
     if (existsSync(DESKTOP_BUNDLE_DIR)) {
-      log('warn', `  Desktop .AppImage 未找到 — 需在 Linux 运行 \`pnpm --filter @ihui/desktop build\``)
+      log(
+        'warn',
+        `  Desktop .AppImage 未找到 — 需在 Linux 运行 \`pnpm --filter @ihui/desktop build\``,
+      )
     }
   }
 
@@ -457,7 +484,10 @@ async function syncExtension(opts) {
   log('info', `Extension 同步 → 版本: ${C.bold}${version}${C.reset}`)
 
   if (!existsSync(EXTENSION_OUTPUT_DIR)) {
-    log('warn', `  Extension 源目录不存在: ${EXTENSION_OUTPUT_DIR} — 需运行 \`pnpm --filter @ihui/extension build\``)
+    log(
+      'warn',
+      `  Extension 源目录不存在: ${EXTENSION_OUTPUT_DIR} — 需运行 \`pnpm --filter @ihui/extension build\``,
+    )
     return { version, assets }
   }
 
@@ -481,7 +511,10 @@ async function syncExtension(opts) {
   const needRepack = await checkZipRefreshNeeded(EXTENSION_OUTPUT_DIR, targetPath)
   if (!needRepack) {
     const targetStats = await stat(targetPath)
-    log('info', `  ${C.dim}skip (up to date)${C.reset} ${targetName} (${formatBytes(targetStats.size)})`)
+    log(
+      'info',
+      `  ${C.dim}skip (up to date)${C.reset} ${targetName} (${formatBytes(targetStats.size)})`,
+    )
     assets.push({ href, sizeBytes: targetStats.size, format: 'Chrome MV3 ZIP' })
     return { version, assets }
   }
@@ -594,7 +627,11 @@ async function runCheck() {
   const extensionVersion = await readExtensionVersion()
 
   console.log()
-  console.log(C.bold + '  平台       | 源文件                                    | 目标文件                                  | 状态' + C.reset)
+  console.log(
+    C.bold +
+      '  平台       | 源文件                                    | 目标文件                                  | 状态' +
+      C.reset,
+  )
   console.log('  ' + '-'.repeat(130))
 
   // Desktop NSIS exe
@@ -604,7 +641,12 @@ async function runCheck() {
   // Desktop deb
   await checkDesktopAsset('deb', 'deb', desktopVersion, `IHUI-AI-${desktopVersion}-amd64.deb`)
   // Desktop AppImage
-  await checkDesktopAsset('appimage', 'appimage', desktopVersion, `IHUI-AI-${desktopVersion}.AppImage`)
+  await checkDesktopAsset(
+    'appimage',
+    'appimage',
+    desktopVersion,
+    `IHUI-AI-${desktopVersion}.AppImage`,
+  )
   // Desktop dmg
   await checkDesktopAsset('dmg', 'dmg', desktopVersion, `IHUI-AI-${desktopVersion}.dmg`)
 
@@ -625,7 +667,12 @@ async function runCheck() {
       if (latestSrc > targetStats.mtimeMs) {
         printCheckRow('extension', '.output/chrome-mv3/', extTargetName, 'newer source')
       } else {
-        printCheckRow('extension', '.output/chrome-mv3/', extTargetName, `${C.green}up to date${C.reset}`)
+        printCheckRow(
+          'extension',
+          '.output/chrome-mv3/',
+          extTargetName,
+          `${C.green}up to date${C.reset}`,
+        )
       }
     }
   }
@@ -634,7 +681,12 @@ async function runCheck() {
   console.log('  ' + '-'.repeat(130))
   if (existsSync(MANIFEST_PATH)) {
     const manifestStats = await stat(MANIFEST_PATH)
-    printCheckRow('manifest', '-', 'manifest.json', `${C.green}exists${C.reset} (${formatBytes(manifestStats.size)})`)
+    printCheckRow(
+      'manifest',
+      '-',
+      'manifest.json',
+      `${C.green}exists${C.reset} (${formatBytes(manifestStats.size)})`,
+    )
   } else {
     printCheckRow('manifest', '-', 'manifest.json', `${C.yellow}missing${C.reset}`)
   }
@@ -667,7 +719,12 @@ async function checkDesktopAsset(subDir, ext, version, targetName) {
 
   const targetStats = await stat(targetPath)
   if (source.size !== targetStats.size) {
-    printCheckRow('desktop', source.name, targetName, `size diff (${formatBytes(source.size)} vs ${formatBytes(targetStats.size)})`)
+    printCheckRow(
+      'desktop',
+      source.name,
+      targetName,
+      `size diff (${formatBytes(source.size)} vs ${formatBytes(targetStats.size)})`,
+    )
   } else if (source.mtime > targetStats.mtimeMs) {
     printCheckRow('desktop', source.name, targetName, 'newer source')
   } else {
@@ -682,7 +739,7 @@ async function checkDesktopAsset(subDir, ext, version, targetName) {
  * @param {string} status
  */
 function printCheckRow(platform, source, target, status) {
-  const pad = (s, len) => s.length > len ? s.slice(0, len - 1) + '…' : s.padEnd(len)
+  const pad = (s, len) => (s.length > len ? s.slice(0, len - 1) + '…' : s.padEnd(len))
   console.log(`  ${pad(platform, 10)} | ${pad(source, 40)} | ${pad(target, 40)} | ${status}`)
 }
 
@@ -697,7 +754,8 @@ async function main() {
 ${C.bold}sync-downloads.mjs${C.reset} — 自动化构建同步:复制下载包 + 更新元数据
 
 ${C.bold}用法:${C.reset}
-  node scripts/sync-downloads.mjs                    默认:同步所有端
+  node scripts/sync-downloads.mjs                    默认:同步所有端到 CDN 根
+  node scripts/sync-downloads.mjs --target=public    静态导出:落到 apps/web/public/downloads
   node scripts/sync-downloads.mjs --dry-run          预览模式:只输出将要执行的步骤
   node scripts/sync-downloads.mjs --check            检查模式:对比源/目标差异
   node scripts/sync-downloads.mjs --platform=desktop 只同步指定端(desktop/extension)
@@ -706,10 +764,10 @@ ${C.bold}用法:${C.reset}
 
 ${C.bold}路径映射:${C.reset}
   Desktop 源:  apps/desktop/src-tauri/target/release/bundle/{nsis,msi,deb,appimage,dmg}/
-  Desktop 目标: apps/web/public/downloads/desktop/
+  Desktop 目标: deploy/server-root/downloads/desktop/      (--target=public 时为 apps/web/public/downloads/desktop/)
   Extension 源: apps/extension/.output/chrome-mv3/
-  Extension 目标: apps/web/public/downloads/extension/
-  Manifest:    apps/web/public/downloads/manifest.json
+  Extension 目标: deploy/server-root/downloads/extension/  (--target=public 时为 apps/web/public/downloads/extension/)
+  Manifest:    deploy/server-root/downloads/manifest.json (--target=public 时为 apps/web/public/downloads/manifest.json)
 `)
     process.exit(0)
   }
@@ -719,7 +777,10 @@ ${C.bold}路径映射:${C.reset}
     process.exit(2)
   }
 
-  log('info', `sync-downloads 启动 → 模式: ${C.bold}${mode}${C.reset}${platformFilter ? ` | 端: ${C.bold}${platformFilter}${C.reset}` : ''}${skipBuild ? ' | skip-build' : ''}`)
+  log(
+    'info',
+    `sync-downloads 启动 → 模式: ${C.bold}${mode}${C.reset} | 落点: ${C.bold}${DOWNLOAD_TARGET}${C.reset}${platformFilter ? ` | 端: ${C.bold}${platformFilter}${C.reset}` : ''}${skipBuild ? ' | skip-build' : ''}`,
+  )
 
   const shouldSyncDesktop = !platformFilter || platformFilter === 'desktop'
   const shouldSyncExtension = !platformFilter || platformFilter === 'extension'
@@ -757,7 +818,10 @@ ${C.bold}路径映射:${C.reset}
     if (!verdict.ok) {
       throw new Error(`更新包逐文件自校验失败:${verdict.issues.length} 项不符,已中止发布`)
     }
-    log('ok', `逐文件 sha256 清单已发布: ${join('apps/web/public/downloads', UPDATE_MANIFEST_FILENAME)}(${fileManifest.files.length} 个文件)`)
+    log(
+      'ok',
+      `逐文件 sha256 清单已发布: ${join('apps/web/public/downloads', UPDATE_MANIFEST_FILENAME)}(${fileManifest.files.length} 个文件)`,
+    )
   }
 
   // 汇总
@@ -765,7 +829,10 @@ ${C.bold}路径映射:${C.reset}
   const deskAssetCount = platforms.desktop?.assets.length ?? 0
   const extAssetCount = platforms.extension?.assets.length ?? 0
   if (dryRun) {
-    log('info', `${C.bold}[dry-run]${C.reset} 预览完成:desktop ${deskAssetCount} 个资源 / extension ${extAssetCount} 个资源`)
+    log(
+      'info',
+      `${C.bold}[dry-run]${C.reset} 预览完成:desktop ${deskAssetCount} 个资源 / extension ${extAssetCount} 个资源`,
+    )
   } else {
     log('ok', `同步完成:desktop ${deskAssetCount} 个资源 / extension ${extAssetCount} 个资源`)
   }

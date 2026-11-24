@@ -33,7 +33,10 @@ import { PINNED_DOWNLOAD_URL, PLATFORM_PROFILES } from '../check-app-version-lat
 
 test('单源:默认 URL 来自 scripts/data/mobile-download-leg.json', () => {
   assert.equal(MOBILE_DOWNLOAD_LEG_CONFIG_PATH.endsWith('mobile-download-leg.json'), true)
-  assert.equal(DEFAULT_MOBILE_DOWNLOAD_URL, 'https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk')
+  assert.equal(
+    DEFAULT_MOBILE_DOWNLOAD_URL,
+    'https://www.aizhs.top/downloads/mobile/ihui-ai-latest.apk',
+  )
   assert.equal(resolveMobileDownloadUrl({}).source, MOBILE_DOWNLOAD_LEG_CONFIG_PATH)
 })
 
@@ -54,7 +57,9 @@ test('覆盖优先级:IHUI_MOBILE_DOWNLOAD_URL > NEXT_PUBLIC_DOWNLOAD_APK_URL > 
   assert.equal(both.url, 'https://cdn.example.com/a.apk')
   assert.equal(both.source, 'IHUI_MOBILE_DOWNLOAD_URL')
 
-  const nextOnly = resolveMobileDownloadUrl({ NEXT_PUBLIC_DOWNLOAD_APK_URL: 'https://cdn.example.com/b.apk' })
+  const nextOnly = resolveMobileDownloadUrl({
+    NEXT_PUBLIC_DOWNLOAD_APK_URL: 'https://cdn.example.com/b.apk',
+  })
   assert.equal(nextOnly.url, 'https://cdn.example.com/b.apk')
   assert.equal(nextOnly.source, 'NEXT_PUBLIC_DOWNLOAD_APK_URL')
 })
@@ -71,7 +76,15 @@ test('本机/内网 URL 判 skipped,不触网', () => {
     const c = classifyDownloadUrl(url)
     assert.equal(c.kind, 'local', url)
   }
-  assert.equal(classifyDownloadUrl('https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk').kind, 'public')
+  assert.equal(
+    classifyDownloadUrl('https://www.aizhs.top/downloads/mobile/ihui-ai-latest.apk').kind,
+    'public',
+  )
+  // 旧地址仍可下载(CDN 别名),URL 分类不应把它打成非法
+  assert.equal(
+    classifyDownloadUrl('https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk').kind,
+    'public',
+  )
   assert.equal(classifyDownloadUrl('not-a-url').kind, 'invalid')
 })
 
@@ -110,20 +123,30 @@ test('证书基准三值:官网腿对/错、Play 两值未测跳过、已测才�
   assert.match(forged.reason, new RegExp(SITE_APK_CERT_SHA256))
   assert.equal(judgeLegCertDigest('siteApk', { actual: '' }).state, 'fail')
 
-  // Play 两值当前未实测 ⇒ null ⇒ skipped,且点名待 Play Console 量取;不判绿
-  assert.equal(PLAY_UPLOAD_KEY_CERT_SHA256, '')
-  assert.equal(PLAY_APP_SIGNING_CERT_SHA256, '')
-  for (const leg of ['playUploadKey', 'playAppSigning']) {
-    const skipped = judgeLegCertDigest(leg, { actual: SITE_APK_CERT_SHA256 })
-    assert.equal(skipped.state, 'skipped', `${leg} 未测不得判绿`)
-    assert.match(skipped.reason, /待 Play Console 量取/)
+  // Play 两值按现读单源判:未测(null)⇒ skipped;已测 ⇒ 只认本腿自己的值,不许跨腿互校
+  for (const [leg, baseline] of [
+    ['playUploadKey', PLAY_UPLOAD_KEY_CERT_SHA256],
+    ['playAppSigning', PLAY_APP_SIGNING_CERT_SHA256],
+  ]) {
+    if (baseline === '') {
+      const skipped = judgeLegCertDigest(leg, { actual: SITE_APK_CERT_SHA256 })
+      assert.equal(skipped.state, 'skipped', `${leg} 未测不得判绿`)
+      assert.match(skipped.reason, /待 Play Console 量取/)
+    } else {
+      assert.match(baseline, /^[0-9a-f]{64}$/, `${leg} 已测值必须是完整 sha256`)
+      assert.equal(judgeLegCertDigest(leg, { actual: baseline }).state, 'ok')
+      assert.equal(judgeLegCertDigest(leg, { actual: SITE_APK_CERT_SHA256 }).state, 'fail')
+    }
   }
 
   // 已测形态(夹具):本腿值参与比对,与官网值不同也不得跨腿互校
   const measured = 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90'
   const baseline = { label: 'Play 上传密钥证书', sha256: measured, display: 'A1:B2:C3:D4…' }
   assert.equal(judgeLegCertDigest('playUploadKey', { actual: measured, baseline }).state, 'ok')
-  assert.equal(judgeLegCertDigest('playUploadKey', { actual: SITE_APK_CERT_SHA256, baseline }).state, 'fail')
+  assert.equal(
+    judgeLegCertDigest('playUploadKey', { actual: SITE_APK_CERT_SHA256, baseline }).state,
+    'fail',
+  )
 })
 
 test('退出码:fail 优先于 skip;只有 skip 也不绿', () => {

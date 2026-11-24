@@ -362,6 +362,15 @@ const nextConfig: NextConfig = {
     //   否则生产环境前端 /api/* 请求 404。因此移除 NODE_ENV 条件,始终启用(静态导出时 rewrites 本身不生效,无副作用)。
     return {
       beforeFiles: [
+        // 2026-11-24 下载命名空间统一:所有可下载产物走 /downloads/*,由本机
+        // cdn-server 从 server-root/downloads 直出(不进 Next 构建包、不入仓)。
+        // 必须放 beforeFiles 且先于 public 静态解析,否则会命中历史 public/downloads。
+        // 旧 /remote-images/download/* 不在这里加第二条规则:由 cdn-server 内部别名到
+        // /downloads/mobile,确保用户手里的旧链接仍可用,且只改这一段、不碰图片。
+        {
+          source: '/downloads/:path*',
+          destination: 'http://127.0.0.1:80/downloads/:path*',
+        },
         // 2026-09-07 修复图片出图:小程序/前端引用 /remote-images/* 真图,经本机
         // :80 cdn-server.js 实时读盘直出(而非 web 静态 public 的构建快照,后者不含
         // 该目录导致公网 404)。须放最前,优先于一切 /api 等规则,避免被后续吞掉。

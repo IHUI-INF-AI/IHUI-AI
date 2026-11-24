@@ -770,6 +770,15 @@ $env:EXPO_PUBLIC_IHUI_CLIENT_SIGN_SECRET = $ClientSignSecret
 $cfp = $ClientSignSecret.Substring(0, 8) + '…' + $ClientSignSecret.Substring($ClientSignSecret.Length - 4)
 Write-Host "  已注入 EXPO_PUBLIC_IHUI_CLIENT_SIGN_SECRET(来源:$ClientSignSrc,指纹 $cfp,appId=ihui-app)" -ForegroundColor Green
 
+# Metro transform 缓存键不含 EXPO_PUBLIC_* 的值(2026-11-24 实测):只改 env 不碰源码时,
+# bundle 会沿用上一次构建的旧字面量 ⇒ 新版版本号/签名密钥根本没进包,直到 [3.5] 回读才判红。
+# 发版是低频动作,每次清一次缓存换取「回读即真相」,比赌缓存命中可靠。
+$MetroCache = Join-Path $env:TEMP 'metro-cache'
+if (Test-Path -LiteralPath $MetroCache) {
+  Remove-Item -LiteralPath $MetroCache -Recurse -Force -ErrorAction Stop
+  Write-Host "  已清 Metro transform 缓存: $MetroCache" -ForegroundColor Gray
+}
+
 Write-Host "`n===== [3/5] gradlew assembleRelease + bundleRelease (versionName=$VersionName versionCode=$VersionCode) =====" -ForegroundColor Cyan
 Write-Host "  ABI: $($abiArg -replace '^.*=','')"
 if (-not (Test-Path $Gradle)) { throw "gradlew 不存在: $Gradle (请先 expo prebuild)" }
@@ -1008,7 +1017,7 @@ if ($NoPublish) {
     }
     # 站点腿 + latest 登记只认生产 checkout 的落点。出包机没有那份落点时(2026-11-05 实测),
     # 走远程腿把包送进生产 checkout 由同一支发布链执行;两条路都以"公网 latest 切到本次版本"收尾。
-    $LocalProdDownload = Join-Path $RepoRoot 'deploy/server-root/remote-images/download'
+    $LocalProdDownload = Join-Path $RepoRoot 'deploy/server-root/downloads/mobile'
     if (Test-Path $LocalProdDownload) {
       $pubArgs = @('scripts/publish-mobile-apk.mjs', '--apk', $Apk, '--version', $VersionName, '--version-code', [string]$VersionCode)
       if ($FastUrl) { $pubArgs += @('--download-url', $FastUrl) }

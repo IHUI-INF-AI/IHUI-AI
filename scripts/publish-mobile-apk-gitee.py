@@ -7,7 +7,7 @@
 把**官网签名** APK 同步到 Gitee 国内腿(固定 tag ⇒ 对外 URL 恒定)。
 
 为什么必须独立一支脚本(2026-11-04 现网取证后的补腿):
-- 站点腿 `www.aizhs.top/remote-images/download/ihui-ai-latest.apk` 的 302 实际落在
+- 站点腿 `www.aizhs.top/downloads/mobile/ihui-ai-latest.apk` 的 302 实际落在
   Cloudflare 洛杉矶(`Server: cloudflare` / `CF-RAY …-LAX` / `cf-cache-status: EXPIRED`),
   跟随重定向取 512KB 25s 只到 262144B;手机侧 30s 0 字节超时。同机 Gitee 是
   `200 / ttfb 0.32s / 180.76.199.13`。
@@ -461,14 +461,24 @@ def main(argv=None):
 
     attachments = g.api(f"{base}/releases/{rid}/attach_files") or []
     old_ids = [a["id"] for a in attachments if a.get("name") == cfg["latestKey"] and a.get("id")]
-    if not g.upload(rid, args.apk, cfg["latestKey"]):
-        return EXIT_FAIL
-    # 先传新、再删旧:同名直链永取第一个附件,顺序反了用户会拿到旧包。
-    for old_id in old_ids:
-        g.api(f"{base}/releases/{rid}/attach_files/{old_id}", "DELETE")
+    # Gitee 单附件上限 100MB:整包超过就传不上去(POST 回 400 Bad Request)。
+    # 这一档不许当成 ok,也不许当成 fail —— 整包腿由站点腿承担,国内腿由分片腿承载,故显式记 n/a。
+    MAX_SINGLE_ATTACH = 100 * 1024 * 1024
+    if size > MAX_SINGLE_ATTACH:
+        if parts_count <= 0:
+            print(f"❌ 整包 {size}B 超单附件上限 {MAX_SINGLE_ATTACH}B 且未启用分片(--parts) ⇒ 这条腿无处承载")
+            return EXIT_FAIL
+        state, reason = "n/a", f"整包 {size}B 超 Gitee 单附件上限 {MAX_SINGLE_ATTACH}B,改由分片腿承载"
+        print(f"[verify] 单文件腿 {state}: {reason}")
+    else:
+        if not g.upload(rid, args.apk, cfg["latestKey"]):
+            return EXIT_FAIL
+        # 先传新、再删旧:同名直链永取第一个附件,顺序反了用户会拿到旧包。
+        for old_id in old_ids:
+            g.api(f"{base}/releases/{rid}/attach_files/{old_id}", "DELETE")
 
-    state, reason = judge_upload_verification(head_content_length(url), size)
-    print(f"[verify] 单文件腿 {state}: {reason}")
+        state, reason = judge_upload_verification(head_content_length(url), size)
+        print(f"[verify] 单文件腿 {state}: {reason}")
 
     # ── 多分片腿(0.0.12+ 客户端走这条)────────────────────────────────────
     parts_state, parts_reason = "ok", "未启用"
@@ -533,7 +543,9 @@ def main(argv=None):
 
     if state == "fail" or parts_state == "fail":
         return EXIT_FAIL
-    if state != "ok" or parts_state != "ok":
+    # 单文件腿的合法成功形态有两种:ok(整包真传上去) / n/a(整包超上限、由分片腿承载)。
+    single_ok = state == "ok" or (state == "n/a" and parts_state == "ok")
+    if not single_ok or parts_state != "ok":
         # 私有仓库的附件对外不可读:判据两条同时成立才降级(独立退出码 3),缺一条照旧未判定。
         # ① Gitee 明说 private=True;② 本次要发的每个名字都真在 release 附件清单里(上传确实成功)。
         # 没传上去绝不算过 —— 那正是 2026-11-05 记下的"静默只发站点腿"。
@@ -544,7 +556,7 @@ def main(argv=None):
         except Exception as e:
             print(f"[verify] 仓库可见性取不到: {e}")
         if is_private:
-            need = {cfg["latestKey"]}
+            need = set() if state == "n/a" else {cfg["latestKey"]}
             if parts_count > 0:
                 need |= {p["name"] for p in parts} | {PARTS_MANIFEST_ASSET}
             try:
@@ -561,7 +573,10 @@ def main(argv=None):
                 return EXIT_PRIVATE_REPO
         print("⚠️ 国内腿未判定(不记绿):单文件腿或分片腿没量到")
         return EXIT_UNDETERMINED
-    print(f"✅ 国内腿已就绪: {url}")
+    if state == "n/a":
+        print("✅ 国内腿已就绪(分片腿):整包超单附件上限,整包下载走站点腿")
+    else:
+        print(f"✅ 国内腿已就绪: {url}")
     if parts_count > 0:
         print(f"✅ 多分片已就绪: {parts_count} 份 + {url.rsplit('/', 1)[0]}/{PARTS_MANIFEST_ASSET}")
     return EXIT_OK

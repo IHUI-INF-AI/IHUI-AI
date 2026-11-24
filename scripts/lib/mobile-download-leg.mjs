@@ -4,7 +4,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * mobile-download-leg.mjs — Android 对外下载腿的唯一事实源(2026-11-03 立,P1 发布线收尾)
+ * mobile-download-leg.mjs — 移动端(Android/iOS)对外下载腿的唯一事实源(2026-11-03 立,P1 发布线收尾)
  *
  * 为什么需要它:固定下载地址曾分散在 publish/register/check/build.ps1/deploy.sh/.env.example
  * 六处各写一份,任何一处改漏都会让"页面写的地址"与"真实产物"分叉。本模块只做一件事:
@@ -44,6 +44,20 @@ export const DOWNLOAD_URL_ENV_KEYS = ['IHUI_MOBILE_DOWNLOAD_URL', 'NEXT_PUBLIC_D
 export const DEFAULT_MOBILE_DOWNLOAD_URL = String(CONFIG.downloadUrl || '').trim()
 export const SITE_LEG_PUBLIC_BASE = String(CONFIG.siteLegPublicBase || '').trim()
 export const SITE_LEG_URL_PREFIX = String(CONFIG.siteLegUrlPrefix || '').trim()
+/**
+ * 旧地址兼容前缀(2026-11-24 统一 /downloads 时保留)。只给 cdn-server/运行时探测器做
+ * “旧链接还能用”的判据;发布侧与新页面一律用 SITE_LEG_URL_PREFIX。
+ */
+export const LEGACY_SITE_LEG_URL_PREFIX = String(CONFIG.legacySiteLegUrlPrefix || '').trim()
+/**
+ * 物理落点直接从 URL 前缀派生:URL `/downloads/mobile` ⇒
+ * `deploy/server-root/downloads/mobile`。不另写一个 RelDir 字面量,避免新老两处漂移。
+ */
+export const SITE_LEG_REL_DIR = join(
+  'deploy',
+  'server-root',
+  ...SITE_LEG_URL_PREFIX.split('/').filter(Boolean),
+)
 export const LATEST_KEY = String(CONFIG.latestKey || '').trim()
 export const MIN_APK_BYTES = Number(CONFIG.minApkBytes) || 50 * 1024 * 1024
 export const SITE_APK_CERT_SHA256 = normalizeCertDigest(CONFIG.siteApkCertSha256)
