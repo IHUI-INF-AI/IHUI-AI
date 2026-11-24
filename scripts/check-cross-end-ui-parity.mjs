@@ -1162,16 +1162,35 @@ export function geometryDeclCheck(jsSrc, dtsSrc) {
   if (typeof jsSrc !== 'string' || typeof dtsSrc !== 'string')
     return { problem: '取不到几何表或其类型声明 ⇒ 未判定', undetermined: true }
   const body = jsSrc.match(/GEOMETRY_PX\s*=\s*\{([\s\S]*?)\n\}/)
-  const union = dtsSrc.match(/export\s+type\s+GeometryStep\s*=\s*([^;]*?)(?:;|$)/m)
-  if (!body || !union)
+  const unionHead = dtsSrc.match(/export\s+type\s+GeometryStep\s*=/)
+  if (!body || !unionHead)
     return {
-      problem: `解析不出几何表${body ? '' : '(GEOMETRY_PX 体)'}或 GeometryStep 联合${union ? '' : '(声明式)'} ⇒ 未判定`,
+      problem: `解析不出几何表${body ? '' : '(GEOMETRY_PX 体)'}或 GeometryStep 联合${unionHead ? '' : '(声明式)'} ⇒ 未判定`,
       undetermined: true,
     }
   const steps = [...body[1].matchAll(/^\s*([A-Za-z_$][\w$]*)\s*:\s*\d+(?:\.\d+)?\s*,?\s*$/gm)].map(
     (m) => m[1],
   )
-  const declared = [...union[1].matchAll(/'([^']+)'/g)].map((m) => m[1])
+  // 联合体**逐行**读:空行(已收档后)即止;只要该行只由引号档名 + `|` + 空白组成就继续收;
+  // 遇到别的字符(注释、隔壁声明)即止。
+  // 为什么不用一条正则截取:`[^;]*?(?:;|$)` 在 `m` 标志下 `$` 是**行尾**而不是文件尾,
+  // prettier 把联合折成多行时只读到第一段 ⇒ 干净 HEAD 恒红(§12e);去掉 `m` 又会把
+  // 下文注释与隔壁同名声明一起吞进来当证据。逐行扫两种形态同判,且只认本声明。
+  const declared = []
+  for (const raw of dtsSrc.slice(unionHead.index + unionHead[0].length).split('\n')) {
+    const t = raw.trim()
+    if (!t) {
+      if (declared.length) break
+      continue
+    }
+    if (t.includes("'") && t.replace(/'[A-Za-z0-9_$]+'/g, '').replace(/[|,]/g, '').trim() === '') {
+      for (const m of t.matchAll(/'([^']+)'/g)) declared.push(m[1])
+      continue
+    }
+    break
+  }
+  if (!declared.length)
+    return { problem: 'GeometryStep 联合读不出任何档名 ⇒ 未判定', undetermined: true }
   const missingInDts = steps.filter((s) => !declared.includes(s))
   const missingInJs = declared.filter((s) => !steps.includes(s))
   if (missingInDts.length + missingInJs.length === 0) return { steps, declared }

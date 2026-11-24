@@ -104,6 +104,11 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-24**
+- 🚀 新功能/改进:规则选择面只读诊断工具 list_project_rules (6936efb2)
+- 📚 文档:更新微信公众号服务号凭据与认证状态 (4508d526)
+- 🐞 修复:补齐 __test__ 的 geometryDeclCheck 导出 + README 点名本门（T70 / T3） (a57fe357)
+- 🚀 新功能/改进:首页首屏重排为问候+发现并移除嵌套滚动 (5ef64a9f)
+- 🚀 新功能/改进:补沙箱 workspace 档与会话级额外可写根侧车（B1-05，17 例） (90213703)
 - 🚀 新功能/改进:把 Codex 时间账接入生产 goal 账本与再跑闸 (fa8729b5)
 - 🐞 修复:桥运行中重启也能重置游标，/messages 回传当前 seq 并保留轮询探活兜底 (75c20b44)
 - 🚀 新功能/改进:补齐 Cursor 规则三模式/索引 ignore 与 Codex 时间预算 (507f0217)
