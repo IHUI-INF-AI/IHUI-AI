@@ -815,10 +815,12 @@ Section Install
   Delete "$INSTDIR\${MAINBINARYNAME}.exe"
   Rename "$INSTDIR\versions\${VERSION}\launcher\ihui-launcher.exe" "$INSTDIR\${MAINBINARYNAME}.exe"
   RMDir /r "$INSTDIR\versions\${VERSION}\launcher"
-  ; 覆盖安装保留一次回退代际：把旧 state.json 的 current 读出来写进新 state 的
-  ; previous；解析失败则 previous=null。pending/updates 属于上一轮更新事务，
-  ; 由本次显式安装重置，不能把半截版本当作“待切换”。
+  ; 覆盖安装保留一次回退代际：把旧 state.json 的 current/previous 读出来，
+  ; 升级/降级时 previous=旧 current；**同版本重装时 previous 必须保留旧 previous**，
+  ; 否则 0.1.93(previous=0.1.92) 原地重装会变成 previous=0.1.93，把可回退代际弄丢。
+  ; pending/updates 属于上一轮更新事务，由本次显式安装重置。
   StrCpy $R6 ""
+  StrCpy $R5 ""
   ${If} ${FileExists} "$INSTDIR\state.json"
     ClearErrors
     FileOpen $0 "$INSTDIR\state.json" r
@@ -829,15 +831,24 @@ Section Install
         ${If} ${Errors}
           ${Break}
         ${EndIf}
-        ${StrLoc} $R5 $R9 '"current": "' ">"
-        ${If} $R5 != ""
-          StrCpy $R9 $R9 "" $R5
+        ${StrLoc} $R4 $R9 '"current": "' ">"
+        ${If} $R4 != ""
+          StrCpy $R9 $R9 "" $R4
           StrCpy $R9 $R9 "" 12
-          ${StrLoc} $R5 $R9 '"' ">"
-          ${If} $R5 != ""
-            StrCpy $R6 $R9 $R5
+          ${StrLoc} $R4 $R9 '"' ">"
+          ${If} $R4 != ""
+            StrCpy $R6 $R9 $R4
           ${EndIf}
-          ${Break}
+        ${Else}
+          ${StrLoc} $R4 $R9 '"previous": "' ">"
+          ${If} $R4 != ""
+            StrCpy $R9 $R9 "" $R4
+            StrCpy $R9 $R9 "" 13
+            ${StrLoc} $R4 $R9 '"' ">"
+            ${If} $R4 != ""
+              StrCpy $R5 $R9 $R4
+            ${EndIf}
+          ${EndIf}
         ${EndIf}
       ${Loop}
       FileClose $0
@@ -845,8 +856,20 @@ Section Install
   ${EndIf}
   ${If} $R6 == ""
     StrCpy $R7 "null"
+  ${ElseIf} $R6 == "${VERSION}"
+    ${If} $R5 != ""
+      StrCpy $R7 '"$R5"'
+    ${Else}
+      StrCpy $R7 "null"
+    ${EndIf}
   ${Else}
     StrCpy $R7 '"$R6"'
+  ${EndIf}
+  ; 保留旧 state 作为 .bak：新 state 万一写坏，Launcher 回退到的是**上一份真实状态**，
+  ; 不是更早某次更新留下的任意备份。
+  ${If} $R6 != ""
+    ClearErrors
+    CopyFiles /SILENT "$INSTDIR\state.json" "$INSTDIR\state.json.bak"
   ${EndIf}
   ClearErrors
   ; 先写 .tmp，再用 MoveFileEx(REPLACE_EXISTING|WRITE_THROUGH) 原子替换。

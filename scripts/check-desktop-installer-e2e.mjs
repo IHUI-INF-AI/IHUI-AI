@@ -20,7 +20,7 @@
  *   4. 两次 /UPDATE 后 state.json 逐字节不变；
  *   5. 静默卸载 exit 0，目录删除。
  */
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -84,10 +84,29 @@ const stateFile = join(installDir, 'state.json')
 try {
   run('静默安装', setup, ['/S', `/D=${installDir}`], TIMEOUT_INSTALL_MS, 0)
   if (!existsSync(stateFile)) fail('安装后没有 state.json', root)
-  const before = readFileSync(stateFile, 'utf8')
-  const state = JSON.parse(before)
+  const installed = readFileSync(stateFile, 'utf8')
+  const state = JSON.parse(installed)
   if (typeof state.current !== 'string' || !state.current) fail('state.json current 非法', root)
 
+  // 同版本原地重装：previous 必须保留旧的上一代，不能被写成 current 自己。
+  const previous = state.current === '0.1.91' ? '0.1.90' : '0.1.91'
+  writeFileSync(
+    stateFile,
+    `${JSON.stringify({ ...state, previous, pending: null, fail_count: 0, bad: null }, null, 2)}\n`,
+    'utf8',
+  )
+  run('同版本重装', setup, ['/S', `/D=${installDir}`], TIMEOUT_INSTALL_MS, 0)
+  const afterReinstall = JSON.parse(readFileSync(stateFile, 'utf8'))
+  if (afterReinstall.current !== state.current) fail('同版本重装后 current 变了', root)
+  if (afterReinstall.previous !== previous)
+    fail(`同版本重装丢了 previous：${afterReinstall.previous} != ${previous}`, root)
+  if (!existsSync(`${stateFile}.bak`)) fail('同版本重装没有保留 state.json.bak', root)
+  const bak = JSON.parse(readFileSync(`${stateFile}.bak`, 'utf8'))
+  if (bak.current !== state.current || bak.previous !== previous)
+    fail('state.json.bak 不是重装前的真实状态', root)
+  if (existsSync(`${stateFile}.tmp`)) fail('同版本重装残留 state.json.tmp', root)
+
+  const before = readFileSync(stateFile, 'utf8')
   run('静默 /UPDATE 零弹窗', setup, ['/S', '/UPDATE', `/D=${installDir}`], TIMEOUT_UPDATE_MS, 2)
   run('非静默 /UPDATE 零弹窗', setup, ['/UPDATE', `/D=${installDir}`], TIMEOUT_UPDATE_MS, 2)
 
