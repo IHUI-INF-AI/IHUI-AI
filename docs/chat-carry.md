@@ -129,7 +129,7 @@ node scripts/chat-carry.mjs --provider workbuddy --from <旧uid> --revive-window
 - `apps/api/scripts/relay-login-local-verified.ts` —— 时序编排(写回前 export、写回后 prepareImport)
 
 **与 Trae 的等价点**:逐条原样、上下文完整、不重新生成、不消耗新号额度、图片以 URL 形式保真(不再是文本线索)、语音转写保留。
-**唯一差别**:最后「选文件导入」一步由用户在豆包设置里点(官方通道要求,没有开放 API;比旧版两条命令+AI 重生成已是量级提升)。任一腿失败只记 note、不翻转切号成败。
+**唯一差别**:最后「选文件导入」一步由用户在豆包设置里点(网页端没有调用方、没有公开开放接口;内部 API 虽可用有效 cookie 触达,但 `import/start` 仍需产品授权码 + 服务端已登记的 `asset_uri`,见下方实测,当前不构成全自动通道;比旧版两条命令+AI 重生成已是量级提升)。任一腿失败只记 note、不翻转切号成败。
 
 **手动生成导入文件**(未走一键入口、或要对旧归档补做):
 
@@ -142,6 +142,20 @@ node scripts/doubao-build-import.mjs --archive <归档目录> --out conversation
 > **格式不确定已双载体兜底**:官方报道确认「导入入口 + 导入后逐条可续聊」,但没逐字说明 ChatGPT 来源收裸 `conversations.json` 还是 ChatGPT 原生 ZIP。本器**两份都产出**(ZIP 用零依赖 store 模式,+CRC 校验,已用 Python `zipfile` 独立验证结构/内容逐字节一致),用户哪个能选选哪个。另据报道还有「导入其他AI应用 / 去对话中导入」备用入口,部分来源无法识别时可走它。这一步是本方案唯一需要用户在豆包 UI 点选的环节。
 >
 > **多模态保真边界(不夸大)**:图片导出的是豆包 CDN 的带签名 URL(实测有效期到 2036 年),不是图片二进制文件;导入后能否渲染取决于豆包导入器对 ChatGPT `image_url` 多模态 part 的支持程度 —— 即便不渲染,`[图片] URL` 文本兜底也保证线索不丢。语音转写同理(纯文本,无音频文件)。
+
+### 2026-11-24 12:45 有效 Cookie 直连实测(旧「未判定」已收敛)
+
+用刚登录的豆包 Profile 2 Cookie(只读副本,全程零明文落盘)直连前端 bundle 里挖出的官方内部 API:
+
+| 接口 | 结果 |
+| --- | --- |
+| `entry/list` / `latest/info` / `config/get` / `summary` / `samantha/conversation/list` | `code=0`,登录态有效 |
+| `import/count` | `source_product=4` → `code=0`(`auth_status=1`,`asset_types=[1,2]`);1/2/3 与 101~106 全部 `no permission` |
+| `import/entry/list` | 当前账号仅暴露 Coze(`native_brand=COZE`,`source_mode=2`,`source_product=4`) |
+| `import/start` | 仅传 `source_product=4, source_mode=2, asset_types=[1,2]`(其余留空)→ `no permission` (710010101);任何非空本机路径/`https`/`file://` 形式的 `asset_uri` 先撞 `common invalid param` (710010202) |
+| `import/authorize` / `get_coze_oauth_code` | 无效 `code` → 710010702;空 `client_id` → 710010703,授权码需 native 侧参数 |
+
+⇒ **结论修正**:此前「cookie 失效,API 直调未判定」已翻案为「有效 cookie 下官方内部 API 可达;但 `import/start` 仍卡产品授权码 + 服务端已登记的资源 URI(cookie 单独不足以全自动)」。网页端仍无 `AGWStartImport` 调用方;桌面端 native 调用链未取到签名。UI 点选仍是目前可靠路径,自动化只做到「文件生成 + 窗口点名」这一层,不夸大。
 
 ### 文本回放兜底(不推荐,仅保留兼容)
 
