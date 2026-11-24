@@ -12495,151 +12495,268 @@
       "slashDiff": {
         "label": "Session changes",
         "description": "Review files the AI changed in this conversation",
-        "keywords": "[\"diff\",\"changes\",\"review\"]"
+        "keywords": [
+          "diff",
+          "changes",
+          "review"
+        ]
       },
       "slashStatus": {
         "label": "Session status",
         "description": "Show model, context usage, permission mode and spend",
-        "keywords": "[\"status\",\"状态\",\"context\"]"
+        "keywords": [
+          "status",
+          "状态",
+          "context"
+        ]
       },
       "slashModel": {
         "label": "Switch model",
         "description": "Open the model selector",
-        "keywords": "[\"model\",\"模型\",\"switch\"]"
+        "keywords": [
+          "model",
+          "模型",
+          "switch"
+        ]
       },
       "slashMcp": {
         "label": "MCP marketplace",
         "description": "Open the MCP server marketplace",
-        "keywords": "[\"mcp\",\"插件\",\"marketplace\"]"
+        "keywords": [
+          "mcp",
+          "插件",
+          "marketplace"
+        ]
       },
       "slashCompact": {
         "label": "Compact context",
         "description": "Compact this conversation's history to free context window",
-        "keywords": "[\"compact\",\"压缩\",\"context\"]"
+        "keywords": [
+          "compact",
+          "压缩",
+          "context"
+        ]
       },
       "steerPrompt": {
         "label": "Steer prompt",
         "description": "Inject the current input as guidance into the running answer",
-        "keywords": "[\"guide\",\"interrupt\",\"steer\"]"
+        "keywords": [
+          "guide",
+          "interrupt",
+          "steer"
+        ]
       },
       "queuePrompt": {
         "label": "Queue prompt",
         "description": "Queue the current input; it sends automatically after the current answer finishes",
-        "keywords": "[\"queue\",\"排队\",\"queue\"]"
+        "keywords": [
+          "queue",
+          "排队",
+          "queue"
+        ]
       },
       "agent": {
         "description": "Manage and dispatch AI agents",
-        "keywords": "[\"agent\",\"调度\",\"agent\"]",
+        "keywords": [
+          "agent",
+          "调度",
+          "agent"
+        ],
         "label": "AI Agents"
       },
       "browser": {
         "description": "Browse the web inside the workspace",
-        "keywords": "[\"browser\",\"网页\",\"browser\"]",
+        "keywords": [
+          "browser",
+          "网页",
+          "browser"
+        ],
         "label": "Built-in Browser"
       },
       "capabilityMarket": {
         "description": "Discover and install capability packs",
-        "keywords": "[\"capability\",\"市场\",\"插件\",\"market\"]",
+        "keywords": [
+          "capability",
+          "市场",
+          "插件",
+          "market"
+        ],
         "label": "Capability Market"
       },
       "codeChanges": {
         "description": "Review workspace code changes",
-        "keywords": "[\"code\",\"变更\",\"改动\",\"diff\"]",
+        "keywords": [
+          "code",
+          "变更",
+          "改动",
+          "diff"
+        ],
         "label": "Code Changes"
       },
       "connectors": {
         "description": "Manage external service connections",
-        "keywords": "[\"connect\",\"external service\",\"connector\"]",
+        "keywords": [
+          "connect",
+          "external service",
+          "connector"
+        ],
         "label": "Connectors"
       },
       "document": {
         "description": "Edit workspace documents",
-        "keywords": "[\"document\",\"编辑\",\"doc\"]",
+        "keywords": [
+          "document",
+          "编辑",
+          "doc"
+        ],
         "label": "Documents"
       },
       "editor": {
         "description": "Open the code editor",
-        "keywords": "[\"editor\",\"code\",\"code\"]",
+        "keywords": [
+          "editor",
+          "code",
+          "code"
+        ],
         "label": "Editor"
       },
       "mcp": {
         "description": "Manage MCP servers and tools",
-        "keywords": "[\"MCP\",\"server\",\"tools\"]",
+        "keywords": [
+          "MCP",
+          "server",
+          "tools"
+        ],
         "label": "MCP Manager"
       },
       "mcpStore": {
         "description": "Browse and install MCP services",
-        "keywords": "[\"MCP\",\"广场\",\"market\",\"store\"]",
+        "keywords": [
+          "MCP",
+          "广场",
+          "market",
+          "store"
+        ],
         "label": "MCP Store"
       },
       "modeAsk": {
         "description": "Switch to Ask mode with tools disabled",
-        "keywords": "[\"Q&A\",\"ask\",\"mode\"]",
+        "keywords": [
+          "Q&A",
+          "ask",
+          "mode"
+        ],
         "label": "Ask mode"
       },
       "modeBuild": {
         "description": "Let the AI build and modify directly",
-        "keywords": "[\"build\",\"模式\",\"build\"]",
+        "keywords": [
+          "build",
+          "模式",
+          "build"
+        ],
         "label": "Build Mode"
       },
       "modePlan": {
         "description": "Plan first, then execute",
-        "keywords": "[\"plan\",\"计划\",\"plan\"]",
+        "keywords": [
+          "plan",
+          "计划",
+          "plan"
+        ],
         "label": "Plan Mode"
       },
       "modeReview": {
         "description": "Review and assess existing code",
-        "keywords": "[\"review\",\"评审\",\"review\"]",
+        "keywords": [
+          "review",
+          "评审",
+          "review"
+        ],
         "label": "Review Mode"
       },
       "modeSpec": {
         "description": "Generate implementations from specs",
-        "keywords": "[\"spec\",\"spec\",\"mode\"]",
+        "keywords": [
+          "spec",
+          "spec",
+          "mode"
+        ],
         "label": "Spec Mode"
       },
       "skill": {
         "description": "Manage and invoke AI skills",
-        "keywords": "[\"Skill\",\"Capability\"]",
+        "keywords": [
+          "Skill",
+          "Capability"
+        ],
         "label": "Skills"
       },
       "terminal": {
         "description": "Open the integrated terminal",
-        "keywords": "[\"Terminal\",\"Command Line\"]",
+        "keywords": [
+          "Terminal",
+          "Command Line"
+        ],
         "label": "Terminal"
       },
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": "[\"AI\",\"World\",\"Apps\"]",
+        "keywords": [
+          "AI",
+          "World",
+          "Apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": "[\"Chat\",\"Conversation\",\"AI\"]",
+        "keywords": [
+          "Chat",
+          "Conversation",
+          "AI"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": "[\"Drama\",\"Video\",\"AI\"]",
+        "keywords": [
+          "Drama",
+          "Video",
+          "AI"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": "[\"Profile\",\"Settings\"]",
+        "keywords": [
+          "Profile",
+          "Settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": "[\"Search\",\"Find\"]",
+        "keywords": [
+          "Search",
+          "Find"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": "[\"Settings\",\"Preferences\"]",
+        "keywords": [
+          "Settings",
+          "Preferences"
+        ],
         "label": "Settings"
       },
       "skillsMarket": {
         "description": "Browse and install self-evolving skills",
-        "keywords": "[\"Skill\",\"Market\"]",
+        "keywords": [
+          "Skill",
+          "Market"
+        ],
         "label": "Skill Market"
       },
       "automations": {
