@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { users } from '@ihui/database'
-import type { UnreadCount } from '@ihui/types'
+import { notificationStateEvent, type UnreadCount } from '@ihui/types'
 import { authenticate } from '../plugins/auth.js'
 import { db } from '../db/index.js'
 import {
@@ -229,6 +229,13 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
     if (!updated) {
       return reply.status(404).send(error(404, '通知不存在'))
     }
+    // 状态翻转广播:本端已乐观更新,别的设备靠这帧同步;构造出口在 @ihui/types 拒坏值。
+    const evt = notificationStateEvent({
+      op: 'read',
+      ids: [updated.id],
+      changedBy: request.userId!,
+    })
+    server.broadcastToUser(request.userId!, evt.event, evt.data)
     return reply.send(success({ notification: updated }))
   })
 
@@ -244,8 +251,17 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-      const updatedCount = await markAllAsRead(request.userId!)
-      return reply.send(success({ updatedCount }))
+      const changedIds = await markAllAsRead(request.userId!)
+      // 只广播真正翻转的 ids;0 条时构造出口会拒空,故跳过(没有状态变化要同步)。
+      if (changedIds.length > 0) {
+        const evt = notificationStateEvent({
+          op: 'read-all',
+          ids: changedIds,
+          changedBy: request.userId!,
+        })
+        server.broadcastToUser(request.userId!, evt.event, evt.data)
+      }
+      return reply.send(success({ updatedCount: changedIds.length }))
     },
   )
 
@@ -271,6 +287,12 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
       if (!archived) {
         return reply.status(404).send(error(404, '通知不存在'))
       }
+      const evt = notificationStateEvent({
+        op: 'archive',
+        ids: [archived.id],
+        changedBy: request.userId!,
+      })
+      server.broadcastToUser(request.userId!, evt.event, evt.data)
       return reply.send(success({ notification: archived }))
     },
   )
@@ -295,6 +317,12 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
       if (!restored) {
         return reply.status(404).send(error(404, '通知不存在'))
       }
+      const evt = notificationStateEvent({
+        op: 'restore',
+        ids: [restored.id],
+        changedBy: request.userId!,
+      })
+      server.broadcastToUser(request.userId!, evt.event, evt.data)
       return reply.send(success({ notification: restored }))
     },
   )

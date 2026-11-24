@@ -293,13 +293,19 @@ export async function markAsRead(id: string, userId: string): Promise<Notificati
   return rows[0]
 }
 
-export async function markAllAsRead(userId: string): Promise<number> {
+/**
+ * 标记全部已读,返回**真正翻转的 id 列表**(不是 count):
+ * 通知状态翻转事件要按 ids 精确同步别的设备,只有 count 就无从知道哪些行变了,
+ * 只能让对端"无条件全量置读"—— 那会把对端本地尚未收到的新通知也洗成已读。
+ * 零 migration:只用既有 id 列 + returning,不改表结构。
+ */
+export async function markAllAsRead(userId: string): Promise<string[]> {
   const rows = await db
     .update(notifications)
     .set({ isRead: true })
     .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)))
-    .returning()
-  return rows.length
+    .returning({ id: notifications.id })
+  return rows.map((r) => r.id)
 }
 
 /**

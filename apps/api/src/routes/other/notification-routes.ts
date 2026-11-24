@@ -13,6 +13,7 @@ import { eq, and, desc } from 'drizzle-orm'
 import { success, error } from '../../utils/response.js'
 import { db, dbRead } from '../../db/index.js'
 import { notifications } from '@ihui/database'
+import { notificationStateEvent } from '@ihui/types'
 import { parseIdParam } from './_shared.js'
 
 export const notificationRoutes: FastifyPluginAsync = async (server) => {
@@ -37,6 +38,13 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(notifications.id, id), eq(notifications.userId, request.userId!)))
       .returning()
     if (!updated) return reply.status(404).send(error(404, '通知不存在'))
+    // 与主通知路由同帧:老客户端走这条写路径时,别的设备也要收到状态翻转。
+    const evt = notificationStateEvent({
+      op: 'read',
+      ids: [updated.id],
+      changedBy: request.userId!,
+    })
+    server.broadcastToUser(request.userId!, evt.event, evt.data)
     return reply.status(201).send(success({ read: true }))
   })
 
@@ -47,6 +55,14 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
       .set({ isRead: true })
       .where(and(eq(notifications.userId, request.userId!), eq(notifications.isRead, false)))
       .returning({ id: notifications.id })
+    if (rows.length > 0) {
+      const evt = notificationStateEvent({
+        op: 'read-all',
+        ids: rows.map((r) => r.id),
+        changedBy: request.userId!,
+      })
+      server.broadcastToUser(request.userId!, evt.event, evt.data)
+    }
     return reply.status(201).send(success({ readCount: rows.length }))
   })
 }

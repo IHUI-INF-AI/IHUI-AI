@@ -141,8 +141,9 @@ describe('notification-queries — 真实 DB 集成测试', () => {
       await createNotification({ userId: user.id, type: 'system', title: 'n2' })
       await createNotification({ userId: user.id, type: 'system', title: 'n3' })
 
-      const count = await markAllAsRead(user.id)
-      expect(count).toBe(3)
+      const ids = await markAllAsRead(user.id)
+      expect(ids.length).toBe(3)
+      expect(new Set(ids).size).toBe(3)
       expect(await countUnread(user.id)).toBe(0)
     })
   })
