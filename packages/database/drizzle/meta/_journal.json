@@ -3236,6 +3236,13 @@
       "when": 1795498800000,
       "tag": "20261124210000_hr_expense_claim",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 466,
+      "when": 1795500000000,
+      "tag": "20261124220000_hr_job_grade",
+      "breakpoints": true
     }
   ]
 }

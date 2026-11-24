@@ -103,6 +103,14 @@ HR_GAP_ROUTES: dict[str, tuple[str, str]] = {
     "expense.pay": ("POST", "/api/hr-expense/:id/pay"),
     "expense.linkVoucher": ("POST", "/api/hr-expense/:id/link-voucher"),
     "expense.void": ("POST", "/api/hr-expense/:id/void"),
+    "grade.list": ("GET", "/api/hr-grade/grades"),
+    "grade.create": ("POST", "/api/hr-grade/grades"),
+    "grade.update": ("PATCH", "/api/hr-grade/grades/:id"),
+    "grade.grant": ("POST", "/api/hr-grade/grant"),
+    "grade.current": ("GET", "/api/hr-grade/current/:employeeId"),
+    "grade.currentBulk": ("POST", "/api/hr-grade/current-bulk"),
+    "grade.history": ("GET", "/api/hr-grade/history/:employeeId"),
+    "grade.distribution": ("GET", "/api/hr-grade/distribution"),
 }
 
 HR_LIFECYCLE_DESCRIPTION = (
@@ -140,6 +148,8 @@ HR_GAP_DESCRIPTION = (
     "非当前步审批人不可操作,提交人不能是自己单的唯一审批人)→ expense.decide 逐级 approve/reject "
     "→ expense.pay(bank/cash)→ expense.linkVoucher 生成正式账凭证(幂等,需账套);"
     "已付款不可作废,要回冲走红冲凭证。"
+    "职级:grade.list/grade.create 字典(level 只排序不定薪),grade.grant 授予"
+    "(promotion/transfer/demotion 留原因,生效日必须晚于当前记录,历史可回放 current/history/distribution)。"
 )
 
 
