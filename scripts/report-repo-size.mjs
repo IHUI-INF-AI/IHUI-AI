@@ -49,6 +49,7 @@ function git(args, cwd) {
     cwd,
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
   })
   if (r.status !== 0) {
