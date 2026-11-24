@@ -21,6 +21,7 @@ import { createHash } from 'node:crypto'
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 
 import { db } from '../db/index.js'
+import { createNotificationIdempotent } from '../db/notification-queries.js'
 import { AppError } from '../errors/AppError.js'
 import {
   hrEmployee,
@@ -391,24 +392,69 @@ export async function generatePayslips(periodMonth: string) {
   return { total: items.length, written: created, skippedAcknowledged: skipped }
 }
 
-/** 推送工资条(generated → pushed);渠道由调用方声明,便于事后追"通过什么告知的" */
+/**
+ * 推送工资条(generated → pushed)。
+ *
+ * 2026-11-24 起"推送"是真投递:每位有站内账号的员工收到一条通知,
+ * 通知幂等键按工资条 id 生成 ⇒ 重复点推送不会刷屏。
+ * 没有账号的人**不冒充已推送**:状态留在 generated,由调用方另行线下告知。
+ */
 export async function pushPayslips(periodMonth: string, channel = 'inapp') {
+  if (channel !== 'inapp') {
+    throw new AppError(
+      '目前只支持站内推送(inapp);邮件/短信渠道未接入,不冒充已送达',
+      400,
+      'PAYSLIP_CHANNEL_UNSUPPORTED',
+    )
+  }
   const rows = await db
-    .select({ id: hrPayslip.id, status: hrPayslip.status })
+    .select({
+      id: hrPayslip.id,
+      status: hrPayslip.status,
+      employeeId: hrPayslip.employeeId,
+      userId: hrEmployee.userId,
+      name: hrEmployee.name,
+      snapshot: hrPayslip.snapshot,
+    })
     .from(hrPayslip)
+    .innerJoin(hrEmployee, eq(hrPayslip.employeeId, hrEmployee.id))
     .where(eq(hrPayslip.periodMonth, periodMonth))
   const pending = rows.filter((r) => r.status === 'generated')
-  if (pending.length === 0) return { pushed: 0, remaining: 0 }
-  await db
-    .update(hrPayslip)
-    .set({ status: 'pushed', channel, pushedAt: new Date(), updatedAt: new Date() })
-    .where(
-      inArray(
-        hrPayslip.id,
-        pending.map((r) => r.id),
-      ),
-    )
-  return { pushed: pending.length, remaining: rows.length - pending.length }
+  const deliverable = pending.filter((r) => r.userId)
+  const noAccount = pending.filter((r) => !r.userId)
+
+  for (const r of deliverable) {
+    const netPay = (r.snapshot as { netPay?: unknown } | null)?.netPay
+    await createNotificationIdempotent({
+      userId: r.userId!,
+      type: 'hr.payslip',
+      title: `${periodMonth} 工资条已发布`,
+      content:
+        netPay === undefined
+          ? '本月工资条已生成,请在「我的薪资」查看明细并签收。'
+          : `本月实发 ¥${String(netPay)},请在「我的薪资」查看明细并签收。`,
+      data: { periodMonth, payslipId: r.id, kind: 'payslip' },
+      idempotencyKey: `payslip:${r.id}:pushed`,
+    })
+  }
+
+  if (deliverable.length > 0) {
+    await db
+      .update(hrPayslip)
+      .set({ status: 'pushed', channel, pushedAt: new Date(), updatedAt: new Date() })
+      .where(
+        inArray(
+          hrPayslip.id,
+          deliverable.map((r) => r.id),
+        ),
+      )
+  }
+  return {
+    pushed: deliverable.length,
+    skippedNoAccount: noAccount.length,
+    remaining: rows.length - deliverable.length,
+    channel,
+  }
 }
 
 /** 员工签收(generated/pushed → acknowledged) */

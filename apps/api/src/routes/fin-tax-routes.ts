@@ -45,6 +45,7 @@ import {
   submitReturn,
   taskApprovalProgress,
 } from '../services/fin-accounting/filing-return-service.js'
+import { deriveFilingTask } from '../services/fin-accounting/filing-derive-service.js'
 
 export const finTaxRoutes: FastifyPluginAsync = async (server) => {
   // ============================ 税种核定 ============================
@@ -226,6 +227,16 @@ export const finTaxRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
       const { id } = request.params as { id: string }
       await guard(reply, () => updateFilingTask(id, parsed.data))
+    },
+  )
+
+  // 申报取数:账套 + 发票台账 → 任务的计税依据/应纳税额(幂等,每次按当前数据重算)
+  server.post(
+    '/filing-tasks/:id/derive',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      await guard(reply, () => deriveFilingTask(id, userIdOf(request)))
     },
   )
 

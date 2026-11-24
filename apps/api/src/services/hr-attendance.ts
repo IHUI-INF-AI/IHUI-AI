@@ -34,6 +34,7 @@ import {
   isPastHm as isPastHmSafe,
 } from '@ihui/attendance-core'
 import { db } from '../db/index.js'
+import { autoIncreaseOnHire } from './hr-social-change.js'
 import { bizDayKey, shiftBizDayKey } from '../utils/biz-day.js'
 import { logger } from '../utils/logger.js'
 import { AppError } from '../errors/AppError.js'
@@ -586,6 +587,10 @@ export async function createHrEmployee(params: {
       idNumber: params.idNumber ?? null,
     })
     .returning()
+  // 入职即挂社保增员待办(幂等;未配置参保地也会落 pending 并由 note 点名缺配置)
+  if (row) {
+    await autoIncreaseOnHire(row.id, row.hireDate ?? new Date().toISOString().slice(0, 10), null)
+  }
   return row
 }
 

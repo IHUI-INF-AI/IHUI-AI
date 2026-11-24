@@ -148,10 +148,14 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
             "工资表",
             "薪资周期",
             "工资审批",
+            "年终奖",
+            "经济补偿",
+            "排班",
             "payroll",
         ),
         tools=(
             "hr_payroll_calc",
+            "hr_gap_ops",
             "hr_insurance_readiness",
             "hr_payout_ops",
             "hr_my_payroll",
@@ -174,7 +178,9 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
             "month-closed (hr_attendance_monthly) and each employee needs a salary config — "
             "employees skipped for missing config are counted by skippedNoConfig, never guessed. "
             "The period moves to 'calculated'; approval stays a human action — "
-            "never change approval status on your own. After approval, payout runs through "
+            "never change approval status on your own. Approval trace goes through "
+            "hr_gap_ops payroll.submit / payroll.review (submitter cannot approve their own run). "
+            "After approval, payout runs through "
             "hr_payout_ops: batch.build(month) -> batch.export (CSV text + sha256) -> "
             "batch.submit (handed to bank) -> batch.paid (period becomes paid) -> "
             "payslip.generate / payslip.push. Never export a batch that is already paid; "
@@ -182,6 +188,10 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
             "For the bookkeeping handoff voucher "
             "(计提/发放 entries) call ai_payroll_handoff, which requires the period to be "
             "approved. All amounts are Decimal strings: display them verbatim, never recompute. "
+            "Shift scheduling, annual-bonus separate taxation and severance also go through "
+            "hr_gap_ops (shift.create/assign/calendar, bonus.calc/create, severance.calc/create); "
+            "severance needs hireDate + lastWorkDate + monthlyAvgWage + localAvgMonthlyWage — "
+            "never guess the local average wage. "
             "For company-wide attendance checks use api_endpoints_search / api_endpoint_call "
             "(hr:attendance:view), not the self-service hr_my_attendance."
         ),
@@ -251,6 +261,7 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
         ),
         tools=(
             "hr_lifecycle_ops",
+            "hr_gap_ops",
             "parse_document",
             "create_artifact",
             "generate_report",

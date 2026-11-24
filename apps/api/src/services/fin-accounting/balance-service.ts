@@ -23,6 +23,7 @@ import {
   finVoucher,
   finVoucherLine,
   finLedger,
+  finYearEnd,
 } from '@ihui/database'
 import { fromCents, toCents } from './money.js'
 import { getLedger } from './ledger-service.js'
@@ -659,6 +660,30 @@ export async function reopenPeriod(ledgerId: string, period: string, userId?: st
         updatedAt: new Date(),
       })
       .where(eq(finPeriodClose.id, close.id))
+    // 反结账 12 月必须同时撤销年结:年结凭证开在次年 1 月,不清掉就会留下
+    // 「12 月已重开但 3103 已被转走」的断链。年结台账同步标记 reopened。
+    if (period.endsWith('-12')) {
+      const year = Number(period.slice(0, 4))
+      await tx
+        .update(finVoucher)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(
+          and(
+            eq(finVoucher.ledgerId, ledgerId),
+            eq(finVoucher.sourceRef, `year-end:${ledgerId}:${year}`),
+            isNull(finVoucher.deletedAt),
+          ),
+        )
+      await tx
+        .update(finYearEnd)
+        .set({
+          status: 'reopened',
+          reopenedBy: userId ?? null,
+          reopenedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(and(eq(finYearEnd.ledgerId, ledgerId), eq(finYearEnd.year, year)))
+    }
     await tx
       .delete(finAccountBalance)
       .where(and(eq(finAccountBalance.ledgerId, ledgerId), eq(finAccountBalance.period, period)))

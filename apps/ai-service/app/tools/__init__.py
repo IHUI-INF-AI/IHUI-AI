@@ -36,8 +36,10 @@ from .finance_ops_tools import (
     finance_tax_ops,
 )
 from .hr_ops_tools import (
+    HR_GAP_DESCRIPTION,
     HR_LIFECYCLE_DESCRIPTION,
     HR_PAYOUT_DESCRIPTION,
+    hr_gap_ops,
     hr_lifecycle_ops,
     hr_payout_ops,
 )
@@ -103,6 +105,7 @@ __all__ = [
     "finance_tax_ops",
     "hr_lifecycle_ops",
     "hr_payout_ops",
+    "hr_gap_ops",
     "FINANCE_LEDGER_DESCRIPTION",
     "FINANCE_TAX_DESCRIPTION",
     "HR_LIFECYCLE_DESCRIPTION",

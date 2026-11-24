@@ -81,6 +81,19 @@ import {
   reviewSummary,
   submitReview,
 } from '../services/fin-accounting/review-service.js'
+import {
+  getCashFlowStatement,
+  getDetailLedger,
+  getGeneralLedger,
+  getJournal,
+} from '../services/fin-accounting/ledger-report-service.js'
+import { closeYear, getYearEnd, listYearEnds } from '../services/fin-accounting/year-end-service.js'
+import {
+  addVoucherAttachment,
+  listVoucherAttachments,
+  removeVoucherAttachment,
+} from '../services/fin-accounting/voucher-attachment-service.js'
+import { verifyInvoice } from '../services/fin-accounting/invoice-verify-service.js'
 
 // 共享 schema/helper 在 fin-accounting-shared.ts(拆自本文件的 99~236 行)
 import {
@@ -316,6 +329,48 @@ export const finAccountingRoutes: FastifyPluginAsync = async (server) => {
     await guard(reply, () => getVoucher(id))
   })
 
+  // 凭证附件:文件本体走 /api/files/upload/form,这里只挂引用与指纹
+  server.get(
+    '/vouchers/:id/attachments',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      await guard(reply, () => listVoucherAttachments(id))
+    },
+  )
+
+  server.post(
+    '/vouchers/:id/attachments',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          fileId: z.string().min(1).max(64),
+          name: z.string().min(1).max(255),
+          url: z.string().min(1).max(1000),
+          mimeType: z.string().max(128).optional(),
+          size: z.number().int().min(0).optional(),
+          sha256: z
+            .string()
+            .regex(/^[a-f0-9]{64}$/i)
+            .optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => addVoucherAttachment(id, parsed.data, userIdOf(request)))
+    },
+  )
+
+  server.delete(
+    '/vouchers/:id/attachments/:attachmentId',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const { id, attachmentId } = request.params as { id: string; attachmentId: string }
+      await guard(reply, () => removeVoucherAttachment(id, attachmentId))
+    },
+  )
+
   server.patch(
     '/vouchers/:id',
     { preHandler: requirePermission(MANAGE) },
@@ -414,6 +469,57 @@ export const finAccountingRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
+  // ============================ 账簿报表 ============================
+  server.get(
+    '/ledgers/:id/detail-ledger',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { accountCode?: string; periodFrom?: string; periodTo?: string }
+      const { id } = request.params as { id: string }
+      if (!q.accountCode || !q.periodFrom || !q.periodTo) {
+        return badRequest(reply, 'accountCode / periodFrom / periodTo 必填')
+      }
+      await guard(reply, () => getDetailLedger(id, q.accountCode!, q.periodFrom!, q.periodTo!))
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/general-ledger',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { period?: string }
+      const { id } = request.params as { id: string }
+      await guard(reply, async () =>
+        getGeneralLedger(id, q.period ?? (await getLedger(id)).currentPeriod),
+      )
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/journal',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { periodFrom?: string; periodTo?: string; limit?: string }
+      const { id } = request.params as { id: string }
+      if (!q.periodFrom || !q.periodTo) return badRequest(reply, 'periodFrom / periodTo 必填')
+      await guard(reply, () =>
+        getJournal(id, q.periodFrom!, q.periodTo!, q.limit ? Number(q.limit) : undefined),
+      )
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/cash-flow',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { period?: string }
+      const { id } = request.params as { id: string }
+      await guard(reply, async () =>
+        getCashFlowStatement(id, q.period ?? (await getLedger(id)).currentPeriod),
+      )
+    },
+  )
+
   // ============================ 结账 ============================
   server.post(
     '/ledgers/:id/close',
@@ -422,7 +528,17 @@ export const finAccountingRoutes: FastifyPluginAsync = async (server) => {
       const parsed = z.object({ period: PERIOD }).safeParse(request.body)
       if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
       const { id } = request.params as { id: string }
-      await guard(reply, () => closePeriod(id, parsed.data.period, userIdOf(request)))
+      const period = parsed.data.period
+      await guard(reply, async () => {
+        const closed = await closePeriod(id, period, userIdOf(request))
+        // 12 月结账成功后自动年结:3103 本年利润→3104 利润分配,并冻结年初快照。
+        if (period.endsWith('-12')) {
+          const year = Number(period.slice(0, 4))
+          const yearEnd = await closeYear(id, year, userIdOf(request))
+          return { ...closed, yearEnd }
+        }
+        return closed
+      })
     },
   )
 
@@ -443,6 +559,38 @@ export const finAccountingRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       await guard(reply, () => getPeriodStatus(id))
+    },
+  )
+
+  // ============================ 年结 ============================
+  server.post(
+    '/ledgers/:id/year-end',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({ year: z.number().int().min(2000).max(2100) })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => closeYear(id, parsed.data.year, userIdOf(request)))
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/year-ends',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      await guard(reply, () => listYearEnds(id))
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/year-end/:year',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const { id, year } = request.params as { id: string; year: string }
+      await guard(reply, () => getYearEnd(id, Number(year)))
     },
   )
 
@@ -541,6 +689,20 @@ export const finAccountingRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       await guard(reply, () => deleteInvoice(id))
+    },
+  )
+
+  // 发票验真:本地勾稽必做;外部查验源未接时落 unavailable,不冒充 verified
+  server.post(
+    '/invoices/:id/verify',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({ providerId: z.string().max(50).optional() })
+        .safeParse(request.body ?? {})
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => verifyInvoice(id, parsed.data.providerId))
     },
   )
 

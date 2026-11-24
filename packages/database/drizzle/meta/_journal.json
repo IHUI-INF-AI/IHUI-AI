@@ -3166,6 +3166,20 @@
       "when": 1795483800000,
       "tag": "20261124120000_connector_instances",
       "breakpoints": true
+    },
+    {
+      "idx": 456,
+      "version": "7",
+      "when": 1795489054875,
+      "tag": "0456_fin_gap_close",
+      "breakpoints": true
+    },
+    {
+      "idx": 457,
+      "version": "7",
+      "when": 1795490031597,
+      "tag": "0457_hr_gap_close",
+      "breakpoints": true
     }
   ]
 }

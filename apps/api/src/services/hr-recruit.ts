@@ -17,6 +17,7 @@ import { AppError } from '../errors/AppError.js'
 import { hrCandidate, hrDepartment, hrEmployee, hrInterview, hrJobOpening } from '@ihui/database'
 
 import { canTransitCandidate, fmtDate } from './hr-lifecycle-core.js'
+import { autoIncreaseOnHire } from './hr-social-change.js'
 // 合同草稿的创建口径与在职期共用一份实现(offer → 员工 + 合同不能有两套默认值)
 import { createContract } from './hr-lifecycle.js'
 
@@ -349,6 +350,9 @@ export async function hireCandidate(candidateId: string, input: HireInput) {
     .returning()
 
   if (!emp) throw new AppError('员工创建失败', 500, 'HR_EMPLOYEE_CREATE_FAILED')
+
+  // 录用入职 → 社保增员待办(与手工建员工同一口径,幂等)
+  await autoIncreaseOnHire(emp.id, hireDate, null)
 
   const contract = await createContract({
     employeeId: emp.id,

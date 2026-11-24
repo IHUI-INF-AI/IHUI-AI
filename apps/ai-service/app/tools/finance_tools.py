@@ -39,6 +39,9 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
+# 浏览器点位包(2026-11-24):目标 → 入口/候选定位器/探测顺序/回执/红线
+from .browser_playbooks import build_point_pack
+
 logger = logging.getLogger(__name__)
 
 # 项目根与产物目录:与 chart_tools/report_tools 同构(app/tools -> app -> ai-service -> apps -> 仓根)
@@ -1462,6 +1465,44 @@ PLATFORM_TARGETS: dict[str, dict[str, Any]] = {
             _client_step("computer_keyboard_type", "录入人员与基数信息"),
         ],
     },
+    "housing_fund": {
+        "label": "住房公积金·单位网厅增减员与汇缴",
+        "portal_keys": ("housing_fund_portal", "province"),
+        "preconditions": [
+            "单位公积金账户已登录(验证码/人脸由经办人完成)",
+            "增减员以 hr_social_insurance_change 台账为底稿,人数差异必须点名",
+        ],
+        "steps": [
+            _browser_step(
+                "browser_navigate",
+                "进入单位公积金网厅(地址由用户提供 housing_fund_portal)",
+                {"url": "{housing_fund_portal}"},
+                "登录态页面可达",
+            ),
+            _browser_step(
+                "browser_extract_dom",
+                "定位「人员变更(开户/启封/封存/转移)」与「汇缴」入口",
+                {"selector": _LOCATE_PLACEHOLDER},
+            ),
+            _browser_step(
+                "browser_type_text",
+                "按台账逐人填列缴存基数与比例",
+                {"selector": _LOCATE_PLACEHOLDER},
+                "与公积金费率配置一致",
+            ),
+        ],
+        "submit": {
+            "surface": "browser",
+            "tool": "browser_click_element",
+            "intent": "最终「申报提交/汇缴确认」",
+            "args": {"selector": _LOCATE_PLACEHOLDER},
+        },
+        "step_client_alt": [
+            _client_step("computer_screenshot_screen", "读取公积金客户端当前界面状态"),
+            _client_step("computer_mouse_click", "按截图进入人员变更", "进入变更页"),
+            _client_step("computer_keyboard_type", "录入人员与缴存基数"),
+        ],
+    },
 }
 
 #: 两种发起默认目标集:代账先取数legs,报税先申报legs(social/medical 两侧都含)
@@ -1471,6 +1512,7 @@ _AUTOMATION_DEFAULT_TARGETS: dict[str, tuple[str, ...]] = {
         "bank_statement",
         "social_insurance",
         "medical_insurance",
+        "housing_fund",
     ),
     "tax": (
         "etax_vat_declaration",
@@ -1478,6 +1520,7 @@ _AUTOMATION_DEFAULT_TARGETS: dict[str, tuple[str, ...]] = {
         "etax_iit_declaration",
         "social_insurance",
         "medical_insurance",
+        "housing_fund",
         "etax_invoice_ledger",
     ),
 }
@@ -1574,6 +1617,16 @@ def _automation_plan(kind: str, arguments: dict[str, Any], state: dict[str, Any]
             "preconditions": list(spec.get("preconditions", [])),
             "steps": steps,
         }
+        # 结构化点位包:入口/候选定位器/探测顺序/期望态/回执/红线;与步骤叙述并存
+        point_facts: dict[str, Any] = {"period": period, **portal}
+        if detail and tid in ("etax_vat_declaration", "etax_cit_quarterly", "etax_iit_declaration"):
+            mapped = _draft_values_for_target(detail, tid)
+            if mapped:
+                point_facts["values_to_fill"] = json.dumps(mapped, ensure_ascii=False)
+        try:
+            target["point_pack"] = build_point_pack(tid, point_facts)
+        except ValueError as exc:
+            target["point_pack_error"] = str(exc)
         if spec.get("step_client_alt"):
             target["client_surface_steps"] = list(spec["step_client_alt"])
         submit = spec.get("submit")

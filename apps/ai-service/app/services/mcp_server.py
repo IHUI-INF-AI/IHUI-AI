@@ -10307,6 +10307,9 @@ from ..tools import (  # noqa: E402
     finance_tax_ops as _finance_tax_ops,
 )
 from ..tools import (  # noqa: E402
+    hr_gap_ops as _hr_gap_ops,
+)
+from ..tools import (  # noqa: E402
     hr_lifecycle_ops as _hr_lifecycle_ops,
 )
 from ..tools import (  # noqa: E402
@@ -10317,6 +10320,7 @@ from ..tools.finance_ops_tools import (  # noqa: E402
     FINANCE_TAX_DESCRIPTION,
 )
 from ..tools.hr_ops_tools import (  # noqa: E402
+    HR_GAP_DESCRIPTION,
     HR_LIFECYCLE_DESCRIPTION,
     HR_PAYOUT_DESCRIPTION,
 )
@@ -17899,6 +17903,27 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        # 动作型人事补口工具(2026-11-24 立):排班/社保增减员/年终奖/经济补偿/算薪复核
+        name="hr_gap_ops",
+        description=HR_GAP_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "动作名(如 shift.assign / social.submit / bonus.calc / severance.calc / payroll.review)",
+                },
+                "payload": {
+                    "type": "object",
+                    "description": "该动作的参数对象;路径参数(id/employeeId)放同名键",
+                    "additionalProperties": True,
+                },
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         # 财务部五腿·AI 一键报销(2026-11-13 立):入参口径单源 = AI_REIMBURSEMENT_DESCRIPTION
         name="ai_reimbursement",
         description=AI_REIMBURSEMENT_DESCRIPTION,
@@ -19934,6 +19959,8 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "finance_tax_ops": _finance_tax_ops,
     "hr_lifecycle_ops": _hr_lifecycle_ops,
     "hr_payout_ops": _hr_payout_ops,
+    # 人事补口(2026-11-24 立):排班/社保增减员/年终奖/经济补偿/算薪复核
+    "hr_gap_ops": _hr_gap_ops,
     # 财务部五腿扩展(2026-11-13 立):一键报销 / 社保医保精算 / 个税专项附加
     "ai_reimbursement": _ai_reimbursement,
     "social_insurance_calc": _social_insurance_calc,

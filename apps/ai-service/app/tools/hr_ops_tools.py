@@ -69,6 +69,33 @@ HR_PAYOUT_ROUTES: dict[str, tuple[str, str]] = {
     "summary": ("GET", "/api/hr-payout/summary"),
 }
 
+# 人事补口(2026-11-24):排班 / 社保增减员 / 年终奖 / 经济补偿 / 算薪复核
+HR_GAP_ROUTES: dict[str, tuple[str, str]] = {
+    "shift.list": ("GET", "/api/hr-shift/shifts"),
+    "shift.create": ("POST", "/api/hr-shift/shifts"),
+    "shift.update": ("PATCH", "/api/hr-shift/shifts/:id"),
+    "shift.delete": ("DELETE", "/api/hr-shift/shifts/:id"),
+    "shift.assign": ("POST", "/api/hr-shift/assignments"),
+    "shift.assignments": ("GET", "/api/hr-shift/assignments"),
+    "shift.calendar": ("GET", "/api/hr-shift/calendar"),
+    "shift.assignment.delete": ("DELETE", "/api/hr-shift/assignments/:id"),
+    "social.list": ("GET", "/api/hr-shift/social-changes"),
+    "social.create": ("POST", "/api/hr-shift/social-changes"),
+    "social.summary": ("GET", "/api/hr-shift/social-changes/summary"),
+    "social.submit": ("POST", "/api/hr-shift/social-changes/:id/submit"),
+    "social.accepted": ("POST", "/api/hr-shift/social-changes/:id/accepted"),
+    "social.failed": ("POST", "/api/hr-shift/social-changes/:id/failed"),
+    "bonus.calc": ("POST", "/api/hr-comp/bonus/calc"),
+    "bonus.create": ("POST", "/api/hr-comp/bonus-payments"),
+    "bonus.list": ("GET", "/api/hr-comp/bonus-payments"),
+    "severance.calc": ("POST", "/api/hr-comp/severance/calc"),
+    "severance.create": ("POST", "/api/hr-comp/severance-records"),
+    "severance.list": ("GET", "/api/hr-comp/severance-records"),
+    "payroll.submit": ("POST", "/api/hr-comp/payroll/submit"),
+    "payroll.review": ("POST", "/api/hr-comp/payroll/review"),
+    "payroll.trail": ("GET", "/api/hr-comp/payroll/review-trail"),
+}
+
 HR_LIFECYCLE_DESCRIPTION = (
     "人事生命周期动作入口(调 apps/api /api/hr-lifecycle,权限 RBAC 现问)。"
     "action 取值:" + ", ".join(sorted(HR_LIFECYCLE_ROUTES)) + "。"
@@ -89,6 +116,17 @@ HR_PAYOUT_DESCRIPTION = (
     "→ batch.submit(标记已交银行)→ batch.paid(到账,周期同步 paid)"
     "→ payslip.generate → payslip.push → payslip.acknowledge。"
     "已到账批次不能再导出;缺卡号的人进 missingAccounts,不阻断整批。"
+    "payslip.push 现在会真发站内通知(幂等),没有账号的人不会被标成已推送。"
+)
+
+HR_GAP_DESCRIPTION = (
+    "人事补口动作入口(调 /api/hr-shift 与 /api/hr-comp)。"
+    "action 取值:" + ", ".join(sorted(HR_GAP_ROUTES)) + "。"
+    "排班:shift.create(班次定义)→ shift.assign(人+日期数组+shiftId)→ shift.calendar(月历);"
+    "日结会优先取当日排班。社保:入职/离职已自动落 pending 增减员,social.submit/accepted/failed 回填平台回执;"
+    "奖金:bonus.calc 先试算(单独计税),bonus.create 落台账;"
+    "补偿:severance.calc 需 hireDate/lastWorkDate/monthlyAvgWage/localAvgMonthlyWage 四个事实,缺一不猜;"
+    "复核:payroll.submit 提交留痕,payroll.review 批准/退回(提交人不得自批)。"
 )
 
 
@@ -100,4 +138,9 @@ async def hr_lifecycle_ops(arguments: Any) -> dict[str, Any]:  # noqa: ARG001
 async def hr_payout_ops(arguments: Any) -> dict[str, Any]:  # noqa: ARG001
     """发薪闭环动作。"""
     return await dispatch("hr_payout_ops", arguments, HR_PAYOUT_ROUTES)
+
+
+async def hr_gap_ops(arguments: Any) -> dict[str, Any]:  # noqa: ARG001
+    """排班/社保增减员/年终奖/经济补偿/算薪复核动作(2026-11-24 补口)。"""
+    return await dispatch("hr_gap_ops", arguments, HR_GAP_ROUTES)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

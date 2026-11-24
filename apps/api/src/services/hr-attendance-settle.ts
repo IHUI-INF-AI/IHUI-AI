@@ -17,6 +17,7 @@ import {
   hrShift,
 } from '@ihui/database'
 import { db } from '../db/index.js'
+import { loadShiftAssignments } from './hr-shift.js'
 import { logger } from '../utils/logger.js'
 import { AppError } from '../errors/AppError.js'
 
@@ -166,6 +167,9 @@ export async function buildDailyAttendance(params: {
     .where(and(isNull(hrShift.deletedAt), eq(hrShift.status, 'enabled')))
   const shiftByDept = new Map(shifts.map((s) => [s.departmentId, s]))
 
+  // 排班优先:人 × 日 指定了班次就用它;没排班才回落部门默认班次(多班次/调班从此有落点)
+  const assignmentByEmpDate = await loadShiftAssignments(empIds, start, end)
+
   // 一次性取回该月所有原始单据,避免逐日 N+1
   const records = await db
     .select()
@@ -223,7 +227,6 @@ export async function buildDailyAttendance(params: {
   const rows: (typeof hrAttendanceDaily.$inferInsert)[] = []
   for (const emp of employees) {
     const rule = ruleByDept.get(emp.departmentId)
-    const shift = shiftByDept.get(emp.departmentId)
     const workdaysMask = rule?.workdays ?? 127
 
     const cursor = new Date(`${start}T00:00:00Z`)
@@ -238,6 +241,8 @@ export async function buildDailyAttendance(params: {
       }
 
       const isWorkday = isWorkdayByMask(dateKey, workdaysMask)
+      const shift =
+        assignmentByEmpDate.get(`${emp.id}|${dateKey}`) ?? shiftByDept.get(emp.departmentId)
       const record = recordByEmpDate.get(`${emp.id}|${dateKey}`)
       const leave = leaves.find(
         (l) => l.employeeId === emp.id && l.startDate <= dateKey && l.endDate >= dateKey,

@@ -31,6 +31,7 @@ import {
 
 // 招聘看板在拆分出的 hr-recruit.ts(单文件行数门);本文件 lifecycleOverview 消费它
 import { recruitmentSummary } from './hr-recruit.js'
+import { autoDecreaseOnResign } from './hr-social-change.js'
 
 import {
   addDays,
@@ -528,6 +529,13 @@ export async function settleResignation(id: string, checklist: Record<string, bo
     .set({ status: 'terminated', terminateReason: '员工离职', updatedAt: settledAt })
     .where(and(eq(hrContract.employeeId, row.employeeId), eq(hrContract.status, 'signed')))
 
+  // 离职办结 → 社保减员待办(幂等). 账期 = 最后工作日所在月
+  const socialDecrease = await autoDecreaseOnResign(
+    row.employeeId,
+    row.lastWorkDate,
+    row.approvedBy ?? null,
+  )
+
   const certificate = buildResignCertificateText({
     companyName: process.env.HR_COMPANY_NAME?.trim() || '公司',
     employeeName: emp.name,
@@ -540,7 +548,16 @@ export async function settleResignation(id: string, checklist: Record<string, bo
     certificateNo,
     issueDate: fmtDate(settledAt),
   })
-  return { resignation: updated, certificate }
+  return {
+    resignation: updated,
+    certificate,
+    socialInsuranceDecrease: {
+      created: socialDecrease.created,
+      changeId: socialDecrease.change.id,
+      effectiveMonth: socialDecrease.change.effectiveMonth,
+      status: socialDecrease.change.status,
+    },
+  }
 }
 
 export async function listResignations(params: { employeeId?: string; status?: string }) {

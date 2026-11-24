@@ -355,6 +355,8 @@ export * from './hr-approval-flow.js'
 // 人事考勤月结与薪资配置(HR-4):月度汇总 + 计薪周期/明细
 export * from './hr-attendance-monthly.js'
 export * from './hr-salary-config.js'
+// 人事补口(2026-11-24):排班落点 / 社保增减员台账 / 年终奖单独计税 / 经济补偿测算
+export * from './hr-gap-close.js'
 // 考勤导入与核对(HR-5 第 2 期,2026-11-12 立):外部打卡表导入 → 暂存 → 人工裁决 → 落正式日结
 export * from './hr-import.js'
 // 加班记录(HR-5 第 3 期,2026-11-12 立):独立留痕加班单,月度核算汇总进日结

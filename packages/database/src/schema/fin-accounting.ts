@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import {
+  bigint,
   boolean,
   date,
   index,
@@ -372,6 +373,10 @@ export const finInvoice = pgTable(
     /** platform=税局取数 / import=导入 / manual=手工 */
     source: varchar('source', { length: 20 }).default('manual').notNull(),
     sourceRef: varchar('source_ref', { length: 200 }),
+    /** 发票验真:unverified / verified / failed / unavailable(未接外部查验源) */
+    verifyStatus: varchar('verify_status', { length: 20 }).default('unverified').notNull(),
+    verifyMessage: varchar('verify_message', { length: 500 }),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
     remark: text('remark'),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -615,4 +620,89 @@ export const finFilingReturn = pgTable(
 
 export type FinFilingReturn = typeof finFilingReturn.$inferSelect
 export type NewFinFilingReturn = typeof finFilingReturn.$inferInsert
+
+/**
+ * 凭证附件(票据影像)。
+ *
+ * 代账留痕的硬要求:一张凭证背后必须有票(发票/回单/自制单据)。
+ * 文件本体走 /files/upload/form 落盘,这里只存引用与指纹,不做 blob。
+ * 软删除后再补传不冲突(唯一键只约束未删行)。
+ */
+export const finVoucherAttachment = pgTable(
+  'fin_voucher_attachment',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    voucherId: uuid('voucher_id')
+      .notNull()
+      .references(() => finVoucher.id, { onDelete: 'cascade' }),
+    ledgerId: uuid('ledger_id')
+      .notNull()
+      .references(() => finLedger.id, { onDelete: 'cascade' }),
+    /** 上传接口返回的 fileId(不代表文件已永久保存,仅引用) */
+    fileId: varchar('file_id', { length: 64 }).notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    url: varchar('url', { length: 1000 }).notNull(),
+    mimeType: varchar('mime_type', { length: 128 }).default('application/octet-stream').notNull(),
+    size: bigint('size', { mode: 'number' }).default(0).notNull(),
+    /** 客户端上报的 sha256(用于去重与"同一张票贴两张凭证"识别) */
+    sha256: varchar('sha256', { length: 64 }),
+    uploadedBy: uuid('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => ({
+    fileUq: uniqueIndex('uq_fin_voucher_attachment_file')
+      .on(t.ledgerId, t.fileId)
+      .where(sql`${t.deletedAt} IS NULL`),
+    voucherIdx: index('ix_fin_voucher_attachment_voucher').on(t.voucherId),
+  }),
+)
+
+/**
+ * 年结台账(2026-11-24 立)。
+ *
+ * 年结只做两件确定性的事:
+ *   1. 把 12 月 31 日仍挂账的 3103 本年利润转入 3104 利润分配(凭证开在次年 1 月 1 日,
+ *      因为已结账期间拒绝任何写入);
+ *   2. 冻结一份"次年年初余额快照"供备查/导出。
+ * 账务引擎按连续账滚动(期初只在启用期读一次),所以不写次年 fin_opening_balance ——
+ * 写了也不会被计算,反而会让两套口径打架。快照只存在本表。
+ */
+export const finYearEnd = pgTable(
+  'fin_year_end',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    ledgerId: uuid('ledger_id')
+      .notNull()
+      .references(() => finLedger.id, { onDelete: 'cascade' }),
+    /** 被年结的会计年度,如 2026 */
+    year: integer('year').notNull(),
+    /** closed=已年结 / reopened=因反结账撤销 */
+    status: varchar('status', { length: 20 }).default('closed').notNull(),
+    /** 年结前 3103 本年利润余额(正=亏损/借,负=盈利/贷) */
+    profitBalance: numeric('profit_balance', { precision: 16, scale: 2 }).default('0.00').notNull(),
+    /** 实际结转金额(绝对值) */
+    transferAmount: numeric('transfer_amount', { precision: 16, scale: 2 })
+      .default('0.00')
+      .notNull(),
+    voucherId: uuid('voucher_id').references(() => finVoucher.id, { onDelete: 'set null' }),
+    voucherNo: varchar('voucher_no', { length: 30 }),
+    /** 次年年初余额快照:{ rows:[{code,name,debit,credit}], takenAt } */
+    openingSnapshot: jsonb('opening_snapshot').$type<Record<string, unknown>>(),
+    closedBy: uuid('closed_by').references(() => users.id, { onDelete: 'set null' }),
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+    reopenedBy: uuid('reopened_by').references(() => users.id, { onDelete: 'set null' }),
+    reopenedAt: timestamp('reopened_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    yearUq: uniqueIndex('uq_fin_year_end_ledger_year').on(t.ledgerId, t.year),
+  }),
+)
+
+export type FinVoucherAttachment = typeof finVoucherAttachment.$inferSelect
+export type NewFinVoucherAttachment = typeof finVoucherAttachment.$inferInsert
+export type FinYearEnd = typeof finYearEnd.$inferSelect
+export type NewFinYearEnd = typeof finYearEnd.$inferInsert
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

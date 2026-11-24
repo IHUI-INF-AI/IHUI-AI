@@ -221,6 +221,9 @@ import { hrLifecycleRoutes } from './hr-lifecycle.js'
 // 薪资配置录入(2026-11-13 立):员工薪资/地区社保费率/个税专项 —— 算薪的前置数据入口。
 // 之前只建了路由文件没挂载,导致算薪永远缺配置、只能绕过 HTTP 直接改库。
 import { hrSalaryConfigRoutes } from './hr-salary-config.js'
+// 人事补口(2026-11-24 立):排班落点/社保增减员台账/年终奖单独计税/经济补偿/算薪复核留痕
+import { hrShiftSocialRoutes } from './hr-shift-social.js'
+import { hrCompRoutes } from './hr-comp.js'
 // 财务代账账套(RP-48,2026-11-23 立):客户/账套/科目/期初/凭证/余额/结账/报表。
 // 与 AI 工具的分工:工具负责算,本路由负责把结果落成可跨期连续的账。
 import { finAccountingRoutes } from './fin-accounting.js'
@@ -1031,6 +1034,10 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(hrLifecycleRoutes, { prefix: '/api/hr-lifecycle' })
   // 薪资配置(2026-11-13 立):员工薪资 / 地区社保公积金费率 / 个税专项附加扣除
   server.register(hrSalaryConfigRoutes, { prefix: '/api/hr-salary-config' })
+  // 人事补口(2026-11-24):班次/排班月历 + 社保公积金增减员台账
+  server.register(hrShiftSocialRoutes, { prefix: '/api/hr-shift' })
+  // 人事补口(2026-11-24):年终奖单独计税 / 经济补偿测算 / 算薪复核留痕
+  server.register(hrCompRoutes, { prefix: '/api/hr-comp' })
   // 财务代账账套(RP-48,2026-11-23 立):账套骨架 + 凭证过账 + 余额/报表 + 结账
   server.register(finAccountingRoutes, { prefix: '/api/fin-accounting' })
   // 流程待办(HR-6 第 4 期,2026-11-13 立):需人工决策的点 → 可认领/可结清的条目

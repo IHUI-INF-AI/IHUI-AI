@@ -82,6 +82,18 @@ export const hrPayrollPeriod = pgTable(
     payrollSheetFileId: uuid('payroll_sheet_file_id').references(() => files.id),
     closedAt: timestamp('closed_at', { withTimezone: true }),
     operatorId: uuid('operator_id').references(() => users.id),
+    /**
+     * 算薪审批留痕(2026-11-24 加):此前 /status 直接改状态,谁提的、谁批的、
+     * 为什么退回一概无记录 —— 出了争议无法复盘。以下列只在 submit/review 写入。
+     */
+    submittedBy: uuid('submitted_by').references(() => users.id, { onDelete: 'set null' }),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
+    reviewedBy: uuid('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    /** 审批意见(批准说明) */
+    reviewNote: varchar('review_note', { length: 500 }),
+    /** 退回原因(rejected 必填,重算后清空) */
+    rejectedReason: varchar('rejected_reason', { length: 500 }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

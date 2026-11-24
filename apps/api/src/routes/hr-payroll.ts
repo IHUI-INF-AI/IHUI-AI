@@ -159,7 +159,13 @@ export const hrPayrollRoutes: FastifyPluginAsync = async (server) => {
         reply.status(409).send(error(409, '已发放的周期不可回退状态', 'PAYROLL_PERIOD_PAID_LOCKED'))
         return
       }
-      const changed = { status: parsedStatus.data.status }
+      const userId = (request.user as { id?: string } | undefined)?.id ?? null
+      const changed: Record<string, unknown> = { status: parsedStatus.data.status }
+      // 直接置 approved 也要留痕:谁批的、什么时候。退回原因走 /api/hr-comp/payroll/review。
+      if (parsedStatus.data.status === 'approved') {
+        changed.reviewedBy = userId
+        changed.reviewedAt = new Date()
+      }
       const [updated] = await db
         .update(hrPayrollPeriod)
         .set({ ...changed, updatedAt: new Date() })

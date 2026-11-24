@@ -15,6 +15,7 @@ import {
   Layers,
   Landmark,
   Percent,
+  ListChecks,
 } from 'lucide-react'
 
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -31,6 +32,7 @@ import { ClientOps } from './client-ops'
 import { PeriodStatusCard } from './period-status'
 import { StatementBulkCard } from './statement-bulk'
 import { LedgerOpsCard } from './ledger-ops'
+import { GapTab } from './gap-tab'
 
 /**
  * 财务账套(2026-11-23 立):客户 → 账套 → 凭证/复核 → 报表/结账 → 税务申报。
@@ -39,7 +41,7 @@ import { LedgerOpsCard } from './ledger-ops'
  * 月度结账、申报日历全靠手工调 API。本页把"会计每月真正要做的一条线"按顺序排开。
  */
 
-type TabKey = 'clients' | 'ledger' | 'vouchers' | 'docs' | 'reports' | 'taxprofile' | 'tax'
+type TabKey = 'clients' | 'ledger' | 'vouchers' | 'docs' | 'reports' | 'taxprofile' | 'tax' | 'gap'
 
 export default function FinAccountingPage() {
   const t = useTranslations('finAccounting')
@@ -68,6 +70,7 @@ export default function FinAccountingPage() {
     { key: 'reports', label: t('tabReports'), icon: BarChart3 },
     { key: 'taxprofile', label: t('tabTaxProfiles'), icon: Percent },
     { key: 'tax', label: t('tabTax'), icon: ReceiptText },
+    { key: 'gap', label: '账簿/年结', icon: ListChecks },
   ]
 
   return (
@@ -129,6 +132,7 @@ export default function FinAccountingPage() {
             <FilingReturnReview clients={clients} />
           </div>
         )}
+        {tab === 'gap' && <GapTab ledgers={ledgers} />}
       </HasPermi>
     </FeaturePageShell>
   )
