@@ -89,6 +89,148 @@ pub fn install() -> Option<OrphanGuard> {
 }
 
 // ---------------------------------------------------------------------------
+// P3-04:前置判活谓词 —— 目标进程是否已在某个 Job 内
+// (对照 WorkBuddy job-object.node 的 `isProcessInJob`;不重复造 Job 装配)
+// ---------------------------------------------------------------------------
+
+/// 对照方错误码族前缀(`ERR_AGENT_CLI_WINDOWS_JOB`,见 P3-04 证据串)。
+pub const JOB_ERROR_CODE_PREFIX: &str = "ERR_AGENT_CLI_WINDOWS_JOB";
+
+/// Job 查询三态 + 未判定。查询失败**不默认** true / false(§0.3 没判不写成判过)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JobQueryOutcome {
+    InJob,
+    NotInJob,
+    /// FFI 调用失败(打不开进程 / `IsProcessInJob` 返回 0),附 `GetLastError`。
+    QueryFailed { last_error: u32 },
+    /// 平台不支持 / 未取证:不冒充「在 Job」或「不在 Job」。
+    Unjudged { reason: &'static str },
+}
+
+impl JobQueryOutcome {
+    /// 对齐对照方错误码族形态的机器可读码。
+    pub fn error_code(&self) -> String {
+        match self {
+            JobQueryOutcome::InJob | JobQueryOutcome::NotInJob => {
+                format!("{JOB_ERROR_CODE_PREFIX}:OK")
+            }
+            JobQueryOutcome::QueryFailed { last_error } => {
+                format!("{JOB_ERROR_CODE_PREFIX}:QUERY_FAILED:{last_error}")
+            }
+            JobQueryOutcome::Unjudged { .. } => format!("{JOB_ERROR_CODE_PREFIX}:UNJUDGED"),
+        }
+    }
+
+    /// 布尔投影;`QueryFailed` / `Unjudged` 一律 `None`(失败不给默认值)。
+    pub fn is_in_job(&self) -> Option<bool> {
+        match self {
+            JobQueryOutcome::InJob => Some(true),
+            JobQueryOutcome::NotInJob => Some(false),
+            _ => None,
+        }
+    }
+}
+
+/// 适配器返回的原始探针结果(可注入;测试不真调系统 API)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JobProbe {
+    InJob,
+    NotInJob,
+    Failed { last_error: u32 },
+}
+
+/// 可注入的 Job 查询适配层:生产实现走 kernel32 原始 FFI;测试放假适配器。
+pub trait JobQueryAdapter {
+    fn query(&self, pid: u32) -> JobProbe;
+}
+
+/// 纯判定:把适配器原始结果归一到三态 + 未判定。失败不落默认布尔。
+fn classify_probe(probe: JobProbe) -> JobQueryOutcome {
+    match probe {
+        JobProbe::InJob => JobQueryOutcome::InJob,
+        JobProbe::NotInJob => JobQueryOutcome::NotInJob,
+        JobProbe::Failed { last_error } => JobQueryOutcome::QueryFailed { last_error },
+    }
+}
+
+/// 注入式查询出口(测试用假适配器断言三态,不触系统 API)。
+pub fn query_with(adapter: &dyn JobQueryAdapter, pid: u32) -> JobQueryOutcome {
+    classify_probe(adapter.query(pid))
+}
+
+#[cfg(windows)]
+mod win_job_query {
+    use super::{JobProbe, JobQueryAdapter};
+
+    const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn OpenProcess(
+            dw_desired_access: u32,
+            b_inherit_handle: i32,
+            dw_process_id: u32,
+        ) -> *mut std::ffi::c_void;
+        fn IsProcessInJob(
+            h_process: *mut std::ffi::c_void,
+            h_job: *mut std::ffi::c_void,
+            result: *mut i32,
+        ) -> i32;
+        fn CloseHandle(h_object: *mut std::ffi::c_void) -> i32;
+        fn GetLastError() -> u32;
+    }
+
+    /// 生产 FFI 适配层:`OpenProcess` 取句柄 → `IsProcessInJob`(Job 传 null = 任意 Job)
+    /// → 立即 `CloseHandle`。
+    pub struct WinJobQueryAdapter;
+
+    impl JobQueryAdapter for WinJobQueryAdapter {
+        fn query(&self, pid: u32) -> JobProbe {
+            unsafe {
+                let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+                if handle.is_null() {
+                    return JobProbe::Failed {
+                        last_error: GetLastError(),
+                    };
+                }
+                let mut in_job: i32 = 0;
+                let ok = IsProcessInJob(handle, std::ptr::null_mut(), &mut in_job);
+                CloseHandle(handle);
+                if ok == 0 {
+                    return JobProbe::Failed {
+                        last_error: GetLastError(),
+                    };
+                }
+                if in_job != 0 {
+                    JobProbe::InJob
+                } else {
+                    JobProbe::NotInJob
+                }
+            }
+        }
+    }
+}
+
+/// 前置判活谓词:目标进程是否已在某个 Job 内。
+///
+/// Windows 走 `IsProcessInJob` 原始 FFI(kernel32;句柄经 `OpenProcess` 取,查询完即关闭);
+/// 非 Windows 无作业概念 ⇒ `Unjudged`,**不得**默认 true / false。
+///
+/// 本函数只做前置查询;Job 装配(`install()` / `AssignProcessToJobObject`)一行不动。
+pub fn is_process_in_job(pid: u32) -> JobQueryOutcome {
+    #[cfg(windows)]
+    {
+        query_with(&win_job_query::WinJobQueryAdapter, pid)
+    }
+    #[cfg(not(windows))]
+    {
+        JobQueryOutcome::Unjudged {
+            reason: "POSIX 无 Windows Job 对象概念;本平台未取证等价判据",
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // 机制二:原生件 sha256 白名单验签(跨平台,判据纯函数可单测)
 // ---------------------------------------------------------------------------
 
@@ -234,6 +376,65 @@ mod tests {
     fn sha256_of_missing_file_is_none() {
         let out = sha256_of_file(Path::new("Z:/definitely/not/here.bin"));
         assert!(out.is_none());
+    }
+
+    struct FakeAdapter {
+        probe: JobProbe,
+    }
+
+    impl JobQueryAdapter for FakeAdapter {
+        fn query(&self, _pid: u32) -> JobProbe {
+            self.probe
+        }
+    }
+
+    #[test]
+    fn classify_in_job() {
+        let out = query_with(
+            &FakeAdapter {
+                probe: JobProbe::InJob,
+            },
+            1234,
+        );
+        assert_eq!(out, JobQueryOutcome::InJob);
+        assert_eq!(out.is_in_job(), Some(true));
+        assert!(out.error_code().starts_with(JOB_ERROR_CODE_PREFIX));
+    }
+
+    #[test]
+    fn classify_not_in_job() {
+        let out = query_with(
+            &FakeAdapter {
+                probe: JobProbe::NotInJob,
+            },
+            1234,
+        );
+        assert_eq!(out, JobQueryOutcome::NotInJob);
+        assert_eq!(out.is_in_job(), Some(false));
+    }
+
+    #[test]
+    fn classify_query_failed_keeps_last_error_and_no_default_bool() {
+        let out = query_with(
+            &FakeAdapter {
+                probe: JobProbe::Failed { last_error: 5 },
+            },
+            1234,
+        );
+        assert_eq!(out, JobQueryOutcome::QueryFailed { last_error: 5 });
+        // 失败不得投影成默认布尔。
+        assert_eq!(out.is_in_job(), None);
+        assert_eq!(
+            out.error_code(),
+            format!("{JOB_ERROR_CODE_PREFIX}:QUERY_FAILED:5")
+        );
+    }
+
+    #[test]
+    fn unjudged_does_not_project_default_bool() {
+        let out = JobQueryOutcome::Unjudged { reason: "test" };
+        assert_eq!(out.is_in_job(), None);
+        assert_eq!(out.error_code(), format!("{JOB_ERROR_CODE_PREFIX}:UNJUDGED"));
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

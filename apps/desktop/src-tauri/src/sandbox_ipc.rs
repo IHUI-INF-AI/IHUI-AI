@@ -66,21 +66,29 @@ pub fn sandbox_tiers() -> Vec<&'static str> {
 
 /// B2-02：IPC 安全描述符自检。真实创建一次「当前用户 + SYSTEM」两条 ACE 的命名管道，
 /// 再立即关闭；传进来的 SID 必须先过形状校验，失败返回原因而不是退回裸管道。
+/// `transport` / `alpc_status` 来自 `ipc_channel` 抽象层的传输探测（P3-01 装车入口）。
 #[derive(Debug, Serialize)]
 pub struct IpcAclReply {
     pub ok: bool,
     pub sddl: String,
     pub detail: String,
+    /// 实际兜底传输：`pipe-dacl` / `none`。
+    pub transport: String,
+    /// ALPC 后端状态：`unjudged` / `unsupported`。
+    pub alpc_status: String,
 }
 
 #[tauri::command]
 pub fn ipc_channel_selftest(user_sid: String) -> IpcAclReply {
     let leaf = format!("ihui-ipc-{}-{}", std::process::id(), chrono_like_millis());
     let report = crate::ipc_channel_acl::selftest(&user_sid, &leaf);
+    let transport = crate::ipc_channel::probe_transport(&user_sid, &leaf);
     IpcAclReply {
         ok: report.ok,
         sddl: report.sddl,
         detail: report.detail,
+        transport: transport.transport.to_string(),
+        alpc_status: transport.alpc_status.to_string(),
     }
 }
 
