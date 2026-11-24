@@ -31,6 +31,8 @@ interface NotificationState {
   archiveByIds: (ids: string[]) => void
   /** 按服务端下发的确切 id 批量恢复(清 archivedAt) */
   restoreByIds: (ids: string[]) => void
+  /** 按服务端下发的确切 id 批量移除(删除翻转广播/重连快照用);角标以服务端为准不由本地重算 */
+  deleteByIds: (ids: string[]) => void
   markAllAsRead: () => void
   setMessages: (messages: MessageItem[]) => void
   addMessage: (msg: MessageItem) => void
@@ -118,6 +120,17 @@ export const useNotificationStore = create<NotificationState>()(
               target.has(n.id) && n.archivedAt ? { ...n, archivedAt: null } : n,
             ),
           }
+        }),
+
+      // 删除翻转(2026-11-24):只按服务端确切 ids 从本地列表移除,不重算角标
+      // (角标真相源是服务端 unread-count,调用方随后 getUnreadCount 覆盖)。
+      // delete-all 帧也带确切 ids,同样按 ids 过滤 —— 不用无条件清空,那会误删
+      // 本地尚未收到的新通知。本地没有的 id 不猜、不新增。
+      deleteByIds: (ids) =>
+        set((s) => {
+          if (ids.length === 0) return s
+          const target = new Set(ids)
+          return { notifications: s.notifications.filter((n) => !target.has(n.id)) }
         }),
 
       markAllAsRead: () =>

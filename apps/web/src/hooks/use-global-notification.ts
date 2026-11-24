@@ -91,15 +91,16 @@ async function hydrateSinceWatermark(
 }
 
 /**
- * 重连权威状态对账:WS 帧不重放,断线期别的设备对**已有**通知的已读/归档翻转,
- * createdAt 水位补增量拿不到。拿本地已知的 ids 问服务端此刻真相,按确切 ids 应用翻转。
+ * 重连权威状态对账:WS 帧不重放,断线期别的设备对**已有**通知的已读/归档/删除翻转,
+ * createdAt 水位补增量拿不到。拿本地已知的 ids 问服务端此刻真相,按确切 ids 应用
+ * (deletedIds = 本地已知但服务端库里已不存在者 ⇒ 移除)。
  * 单次上限 500(与后端 stateQuerySchema 同限),超出只查前 500 并诚实截断,不冒充全量对齐。
  */
 const STATE_QUERY_LIMIT = 500
 
 async function reconcileStateOnReconnect(
   getIds: () => string[],
-  apply: (res: { readIds: string[]; archivedIds: string[] }) => void,
+  apply: (res: { readIds: string[]; archivedIds: string[]; deletedIds: string[] }) => void,
   isCancelled: () => boolean,
 ): Promise<void> {
   const ids = getIds().slice(0, STATE_QUERY_LIMIT)
@@ -217,6 +218,8 @@ export function useGlobalNotification(): UseGlobalNotificationReturn {
             const store = useNotificationStore.getState()
             if (state.readIds.length > 0) store.markAsReadByIds(state.readIds)
             if (state.archivedIds.length > 0) store.archiveByIds(state.archivedIds)
+            // 删除翻转兜底:断线期被删的通知靠快照 deletedIds 移除(WS 帧不重放)
+            if (state.deletedIds.length > 0) store.deleteByIds(state.deletedIds)
           },
           () => cancelled,
         )

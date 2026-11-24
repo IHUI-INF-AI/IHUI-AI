@@ -35,6 +35,8 @@ const {
   mockCountUnread,
   mockFindByUser,
   mockQueryStateIds,
+  mockDeleteOne,
+  mockDeleteAll,
 } = vi.hoisted(() => ({
   mockMarkAsRead: vi.fn(),
   mockMarkAllAsRead: vi.fn(),
@@ -42,7 +44,9 @@ const {
   mockRestore: vi.fn(),
   mockCountUnread: vi.fn(async () => 0),
   mockFindByUser: vi.fn(async () => ({ list: [], total: 0 })),
-  mockQueryStateIds: vi.fn(async () => ({ readIds: [], archivedIds: [] })),
+  mockQueryStateIds: vi.fn(async () => ({ readIds: [], archivedIds: [], deletedIds: [] })),
+  mockDeleteOne: vi.fn(),
+  mockDeleteAll: vi.fn(),
 }))
 
 vi.mock('@ihui/auth', () => ({
@@ -97,8 +101,8 @@ vi.mock('../src/db/notification-queries.js', () => ({
   markAllAsRead: mockMarkAllAsRead,
   archiveNotification: mockArchive,
   restoreNotification: mockRestore,
-  deleteNotification: vi.fn(),
-  deleteAllNotifications: vi.fn(),
+  deleteNotification: mockDeleteOne,
+  deleteAllNotifications: mockDeleteAll,
   findConversations: vi.fn(async () => ({ list: [], total: 0 })),
   findMessagesBetween: vi.fn(async () => []),
   createMessage: vi.fn(),
@@ -257,12 +261,12 @@ describe('POST /notifications/state-query 权威快照边界', () => {
   let app: FastifyInstance
   beforeEach(async () => {
     vi.clearAllMocks()
-    mockQueryStateIds.mockResolvedValue({ readIds: [], archivedIds: [] })
+    mockQueryStateIds.mockResolvedValue({ readIds: [], archivedIds: [], deletedIds: [] })
     app = await buildApp()
   })
 
   it('带合法 ids 回服务端真相子集,不泄漏未传入的 id', async () => {
-    mockQueryStateIds.mockResolvedValue({ readIds: [N1], archivedIds: [] })
+    mockQueryStateIds.mockResolvedValue({ readIds: [N1], archivedIds: [], deletedIds: [] })
     const res = await app.inject({
       method: 'POST',
       url: '/api/notifications/state-query',
@@ -270,8 +274,22 @@ describe('POST /notifications/state-query 权威快照边界', () => {
       payload: { ids: [N1] },
     })
     expect(res.statusCode).toBe(200)
-    expect(res.json().data).toEqual({ readIds: [N1], archivedIds: [] })
+    expect(res.json().data).toEqual({ readIds: [N1], archivedIds: [], deletedIds: [] })
     expect(mockQueryStateIds).toHaveBeenCalledWith(USER_A, [N1])
+  })
+
+  it('deletedIds 原样透出(断线期被删的确切 ids,消费端据此移除)', async () => {
+    const deleted = ['22222222-2222-4222-8222-222222222222']
+    mockQueryStateIds.mockResolvedValue({ readIds: [], archivedIds: [], deletedIds: deleted })
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/notifications/state-query',
+      headers: AUTH_HEADER,
+      payload: { ids: [N1, ...deleted] },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.deletedIds).toEqual(deleted)
+    expect(mockQueryStateIds).toHaveBeenCalledWith(USER_A, [N1, ...deleted])
   })
 
   it('空 ids 合法(本地无通知,无需对账)', async () => {
@@ -282,7 +300,7 @@ describe('POST /notifications/state-query 权威快照边界', () => {
       payload: { ids: [] },
     })
     expect(res.statusCode).toBe(200)
-    expect(res.json().data).toEqual({ readIds: [], archivedIds: [] })
+    expect(res.json().data).toEqual({ readIds: [], archivedIds: [], deletedIds: [] })
   })
 
   it('半 uuid / 非 uuid id 直接 400(不静默 strip)', async () => {
@@ -320,6 +338,74 @@ describe('POST /notifications/state-query 权威快照边界', () => {
     })
     expect(res.statusCode).toBe(401)
     expect(mockQueryStateIds).not.toHaveBeenCalled()
+  })
+})
+
+describe('DELETE 删除翻转广播 + db 快照 deletedIds', () => {
+  let app: FastifyInstance
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    mockDeleteOne.mockResolvedValue(notifRow(N1))
+    mockDeleteAll.mockResolvedValue([N1])
+    app = await buildApp()
+  })
+
+  it('单条删除:成功发 delete 帧,ids 来自落库结果', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/notifications/${N1}`,
+      headers: AUTH_HEADER,
+    })
+    expect(res.statusCode).toBe(200)
+    const frames = parsedStateFrames()
+    expect(frames).toHaveLength(1)
+    expect(frames[0].data.op).toBe('delete')
+    expect(frames[0].data.ids).toEqual([N1])
+    expect(frames[0].data.changedBy).toBe(USER_A)
+  })
+
+  it('单条删除 404 不发帧(写库没成功却广播=伪造删除)', async () => {
+    mockDeleteOne.mockResolvedValue(undefined)
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/notifications/${N1}`,
+      headers: AUTH_HEADER,
+    })
+    expect(res.statusCode).toBe(404)
+    expect(parsedStateFrames()).toHaveLength(0)
+  })
+
+  it('清空:发 delete-all 帧,ids 是被删的确切 ids,deletedCount 仍兼容', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/notifications',
+      headers: AUTH_HEADER,
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.deletedCount).toBe(1)
+    const frames = parsedStateFrames()
+    expect(frames).toHaveLength(1)
+    expect(frames[0].data.op).toBe('delete-all')
+    expect(frames[0].data.ids).toEqual([N1])
+  })
+
+  it('清空 0 条不发帧(构造出口拒空)', async () => {
+    mockDeleteAll.mockResolvedValue([])
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/notifications',
+      headers: AUTH_HEADER,
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.deletedCount).toBe(0)
+    expect(parsedStateFrames()).toHaveLength(0)
+  })
+
+  it('变异锁:DELETE 两路由都真调用 broadcast,且两档 op 都在源码', () => {
+    const src = readFileSync(resolve(__dirname, '../src/routes/notifications.ts'), 'utf8')
+    expect(src).toContain("op: 'delete'")
+    expect(src).toContain("op: 'delete-all'")
+    expect(src).toContain('deletedIds.length')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

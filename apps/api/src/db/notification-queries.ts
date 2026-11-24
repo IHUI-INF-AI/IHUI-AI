@@ -296,8 +296,8 @@ export async function countUnread(userId: string): Promise<number> {
 export async function queryNotificationStateIds(
   userId: string,
   ids: string[],
-): Promise<{ readIds: string[]; archivedIds: string[] }> {
-  if (ids.length === 0) return { readIds: [], archivedIds: [] }
+): Promise<{ readIds: string[]; archivedIds: string[]; deletedIds: string[] }> {
+  if (ids.length === 0) return { readIds: [], archivedIds: [], deletedIds: [] }
   const rows = await db
     .select({
       id: notifications.id,
@@ -308,11 +308,17 @@ export async function queryNotificationStateIds(
     .where(and(eq(notifications.userId, userId), inArray(notifications.id, ids)))
   const readIds: string[] = []
   const archivedIds: string[] = []
+  const found = new Set<string>()
   for (const row of rows) {
+    found.add(row.id)
     if (row.isRead) readIds.push(row.id)
     if (row.archivedAt) archivedIds.push(row.id)
   }
-  return { readIds, archivedIds }
+  // 删除翻转(2026-11-24 第二切片):传入的本地已知 ids 中,在本人库里已查不到的即为被删。
+  // where 带 userId ⇒ 只在本人的行集里判存在;返回的是「传入但本人库查不到」的确切 ids,
+  // 消费端据此本地移除。不泄露别人的任何字段(只回 id 本身,且是客户端自己传来的 id)。
+  const deletedIds = ids.filter((id) => !found.has(id))
+  return { readIds, archivedIds, deletedIds }
 }
 
 export async function markAsRead(id: string, userId: string): Promise<Notification | undefined> {
@@ -386,12 +392,14 @@ export async function deleteNotification(
  * 归属过滤是**唯一**的 where 条件 —— 漏掉 userId 就是把全表通知删光,
  * 所以这里与 markAllAsRead/deleteNotification 保持同口径:必须带 userId。
  */
-export async function deleteAllNotifications(userId: string): Promise<number> {
+export async function deleteAllNotifications(userId: string): Promise<string[]> {
   const rows = await db
     .delete(notifications)
     .where(eq(notifications.userId, userId))
     .returning({ id: notifications.id })
-  return rows.length
+  // 返回被删的确切 ids:路由层据此广播 delete-all,消费端按 ids 精确移除,
+  // 不把本地尚未收到的新通知一起洗掉(与 read-all 同口径)。
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================

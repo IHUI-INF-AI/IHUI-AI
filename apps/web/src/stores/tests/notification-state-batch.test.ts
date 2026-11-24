@@ -59,11 +59,25 @@ describe('通知批量翻转 API', () => {
     ).toBeNull()
   })
 
+  it('deleteByIds 只移除命中 id,不重算角标,本地没有的 id 不误伤', () => {
+    useNotificationStore.getState().deleteByIds(['n-1', 'n-ghost'])
+    const rows = useNotificationStore.getState().notifications
+    expect(rows.map((r) => r.id)).toEqual(['n-2', 'n-3'])
+    expect(useNotificationStore.getState().unreadCount).toBe(7)
+  })
+
+  it('deleteByIds 幂等:重复移除同一 id 不报错', () => {
+    useNotificationStore.getState().deleteByIds(['n-1'])
+    useNotificationStore.getState().deleteByIds(['n-1'])
+    expect(useNotificationStore.getState().notifications).toHaveLength(2)
+  })
+
   it('空 ids 是一等公民(不写库不改状态)', () => {
     const before = useNotificationStore.getState().notifications
     useNotificationStore.getState().markAsReadByIds([])
     useNotificationStore.getState().archiveByIds([])
     useNotificationStore.getState().restoreByIds([])
+    useNotificationStore.getState().deleteByIds([])
     expect(useNotificationStore.getState().notifications).toBe(before)
   })
 })

@@ -366,6 +366,13 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
     if (!deleted) {
       return reply.status(404).send(error(404, '通知不存在'))
     }
+    // 删除翻转广播:别的设备/标签页据这帧精确移除本地该 id;本端回声静默对账。
+    const evt = notificationStateEvent({
+      op: 'delete',
+      ids: [deleted.id],
+      changedBy: request.userId!,
+    })
+    server.broadcastToUser(request.userId!, evt.event, evt.data)
     return reply.send(success({ id: parsed.data.id }))
   })
 
@@ -384,8 +391,17 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-      const deletedCount = await deleteAllNotifications(request.userId!)
-      return reply.send(success({ deletedCount }))
+      const deletedIds = await deleteAllNotifications(request.userId!)
+      // 0 条时构造出口会拒空 ids,故跳过(没有删除发生要同步);>0 按确切 ids 广播。
+      if (deletedIds.length > 0) {
+        const evt = notificationStateEvent({
+          op: 'delete-all',
+          ids: deletedIds,
+          changedBy: request.userId!,
+        })
+        server.broadcastToUser(request.userId!, evt.event, evt.data)
+      }
+      return reply.send(success({ deletedCount: deletedIds.length }))
     },
   )
 

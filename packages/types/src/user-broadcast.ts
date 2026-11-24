@@ -590,7 +590,17 @@ export function messageTerminalEvent(input: {
 // ===================== notification:state(通知状态翻转 2026-11-24)=====================
 
 /** 通知状态翻转的操作档位;封闭集,新增须同步 isNotificationStateOp 与消费端分派 */
-export const NOTIFICATION_STATE_OPS = ['read', 'archive', 'restore', 'read-all'] as const
+export const NOTIFICATION_STATE_OPS = [
+  'read',
+  'archive',
+  'restore',
+  'read-all',
+  // 删除翻转(2026-11-24 第二切片):物理删除不可追认,但别的设备删了本端必须同步移除。
+  // delete 带被删的确切 ids;delete-all 带清空前在库的全部 ids(0 条时不发帧,由构造出口拒空)。
+  // 两档都按 ids 精确移除,不让本地尚未收到的新通知被误删。
+  'delete',
+  'delete-all',
+] as const
 export type NotificationStateOp = (typeof NOTIFICATION_STATE_OPS)[number]
 
 export function isNotificationStateOp(v: unknown): v is NotificationStateOp {

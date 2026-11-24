@@ -22,10 +22,17 @@ import {
 const AT = '2026-11-24T06:00:00.000Z'
 
 describe('notification:state A 构造出口在位且拒坏值', () => {
-  it('封闭集恰为四档', () => {
-    expect([...NOTIFICATION_STATE_OPS].sort()).toEqual(['archive', 'read', 'read-all', 'restore'])
+  it('封闭集恰为六档(删除两档已纳入)', () => {
+    expect([...NOTIFICATION_STATE_OPS].sort()).toEqual([
+      'archive',
+      'delete',
+      'delete-all',
+      'read',
+      'read-all',
+      'restore',
+    ])
     for (const op of NOTIFICATION_STATE_OPS) expect(isNotificationStateOp(op)).toBe(true)
-    expect(isNotificationStateOp('delete')).toBe(false)
+    expect(isNotificationStateOp('bogus')).toBe(false)
   })
 
   it('正向:read 帧逐字成形,ids 去重且默认 at 为合法 ISO', () => {
@@ -47,9 +54,23 @@ describe('notification:state A 构造出口在位且拒坏值', () => {
     expect(evt.data.ids).toEqual(['n-1'])
   })
 
+  it('删除两档正向成形,delete-all 仍带确切 ids 不做无条件清空', () => {
+    const del = notificationStateEvent({ op: 'delete', ids: ['n-2'], changedBy: 'u-1', at: AT })
+    expect(del.data.op).toBe('delete')
+    expect(del.data.ids).toEqual(['n-2'])
+    const delAll = notificationStateEvent({
+      op: 'delete-all',
+      ids: ['n-2', 'n-1'],
+      changedBy: 'u-1',
+      at: AT,
+    })
+    expect(delAll.data.op).toBe('delete-all')
+    expect(delAll.data.ids).toEqual(['n-2', 'n-1'])
+  })
+
   it('反向:未知 op / 空 changedBy / 空 ids / 空 id / 坏时间 都抛', () => {
     expect(() =>
-      notificationStateEvent({ op: 'delete' as never, ids: ['n-1'], changedBy: 'u-1' }),
+      notificationStateEvent({ op: 'bogus' as never, ids: ['n-1'], changedBy: 'u-1' }),
     ).toThrow()
     expect(() => notificationStateEvent({ op: 'read', ids: ['n-1'], changedBy: '' })).toThrow()
     expect(() => notificationStateEvent({ op: 'read', ids: [], changedBy: 'u-1' })).toThrow()
@@ -86,9 +107,16 @@ describe('notification:state C 解析侧与构造侧同一套规则', () => {
     expect(parseUserBroadcastFrame({ event: evt.event, data: evt.data })).toEqual(evt)
   })
 
+  it('删除帧 parse 侧接受(构造与守卫同源扩档)', () => {
+    for (const op of ['delete', 'delete-all'] as const) {
+      const evt = notificationStateEvent({ op, ids: ['n-1'], changedBy: 'u-1', at: AT })
+      expect(parseUserBroadcastFrame({ event: evt.event, data: evt.data })).toEqual(evt)
+    }
+  })
+
   it('构造侧拒的坏值,parse 侧同样拦', () => {
     const bad = [
-      { op: 'delete', ids: ['n-1'], changedBy: 'u-1', at: AT },
+      { op: 'bogus', ids: ['n-1'], changedBy: 'u-1', at: AT },
       { op: 'read', ids: [], changedBy: 'u-1', at: AT },
       { op: 'read', ids: ['n-1', 'n-1'], changedBy: 'u-1', at: AT },
       { op: 'read', ids: ['n-1'], changedBy: '', at: AT },

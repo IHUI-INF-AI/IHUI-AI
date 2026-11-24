@@ -14,7 +14,8 @@
  *
  * 三条纪律:
  *  ① **按服务端 ids 精确应用**:不用"无条件全量置读" —— 那会把本地尚未收到的新通知
- *     也洗成已读。`read-all` 帧也带确切 ids,同样按 ids 应用。
+ *     也洗成已读。`read-all` 帧也带确切 ids,同样按 ids 应用;删除两档同样按 ids
+ *     精确移除,不用"无条件全量清空"。
  *  ② **角标取服务端真相**:翻转后重新 getUnreadCount 覆盖,不靠本地条目数重算
  *     (归档行的口径与本地列表不一致,本地重算会把两者互相掩盖)。
  *  ③ **回声不误报**:帧会发给本人全部连接(含发起端),发起端本地已是新值;
@@ -38,6 +39,10 @@ function patchNotificationListCaches(
     { queryKey: ['notifications', 'list'] },
     (old) => {
       if (!old || !Array.isArray(old.list)) return old
+      // 删除翻转:按确切 ids 移除,不用无条件清空(那会误删本地尚未收到的新通知)
+      if (evt.data.op === 'delete' || evt.data.op === 'delete-all') {
+        return { ...old, list: old.list.filter((row) => !ids.has(row.id)) }
+      }
       return {
         ...old,
         list: old.list.map((row) => {
@@ -74,6 +79,7 @@ export function useNotificationStateSync(): { connected: boolean; undetermined: 
         if (op === 'read' || op === 'read-all') store.markAsReadByIds(ids)
         else if (op === 'archive') store.archiveByIds(ids)
         else if (op === 'restore') store.restoreByIds(ids)
+        else if (op === 'delete' || op === 'delete-all') store.deleteByIds(ids)
         // 缓存就地改 + 角标取服务端真相:两条都不等 UI 自己数条目
         patchNotificationListCaches(qc, evt)
         void getUnreadCount()

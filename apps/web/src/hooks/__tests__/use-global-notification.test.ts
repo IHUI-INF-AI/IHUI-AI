@@ -25,6 +25,7 @@ const h = vi.hoisted(() => ({
   markAsReadByIds: vi.fn(),
   archiveByIds: vi.fn(),
   restoreByIds: vi.fn(),
+  deleteByIds: vi.fn(),
   ws: { lastMessage: null as unknown, connected: false },
 }))
 
@@ -53,6 +54,7 @@ vi.mock('@/stores/notification', () => {
     markAsReadByIds: h.markAsReadByIds,
     archiveByIds: h.archiveByIds,
     restoreByIds: h.restoreByIds,
+    deleteByIds: h.deleteByIds,
     // 权威快照拿本地已知 ids;测试里 hydrating 的条目由这里给出
     notifications: [{ id: 'n-missed' }] as Array<{ id: string }>,
   }
@@ -94,7 +96,7 @@ beforeEach(() => {
   h.getUnreadCount.mockResolvedValue(okCount())
   h.queryNotificationStates.mockResolvedValue({
     success: true,
-    data: { readIds: [], archivedIds: [] },
+    data: { readIds: [], archivedIds: [], deletedIds: [] },
   })
 })
 
@@ -260,7 +262,7 @@ describe('useGlobalNotification — 重连补增量', () => {
   it('重连补增量后按本地 ids 对账权威已读/归档并按确切 ids 翻转', async () => {
     h.queryNotificationStates.mockResolvedValue({
       success: true,
-      data: { readIds: ['n-missed'], archivedIds: ['n-missed'] },
+      data: { readIds: ['n-missed'], archivedIds: ['n-missed'], deletedIds: [] },
     })
     const { rerender } = renderHook(() => useGlobalNotification())
     h.ws.connected = true
@@ -272,6 +274,22 @@ describe('useGlobalNotification — 重连补增量', () => {
     await waitFor(() => expect(h.queryNotificationStates).toHaveBeenCalledWith(['n-missed']))
     expect(h.markAsReadByIds).toHaveBeenCalledWith(['n-missed'])
     expect(h.archiveByIds).toHaveBeenCalledWith(['n-missed'])
+  })
+
+  it('权威快照 deletedIds ⇒ 按确切 ids 移除断线期被删的通知', async () => {
+    h.queryNotificationStates.mockResolvedValue({
+      success: true,
+      data: { readIds: [], archivedIds: [], deletedIds: ['n-missed'] },
+    })
+    const { rerender } = renderHook(() => useGlobalNotification())
+    h.ws.connected = true
+    rerender()
+    h.ws.connected = false
+    rerender()
+    h.ws.connected = true
+    rerender()
+    await waitFor(() => expect(h.deleteByIds).toHaveBeenCalledWith(['n-missed']))
+    expect(h.markAsReadByIds).not.toHaveBeenCalled()
   })
 
   it('权威快照失败 ⇒ 静默,不翻转、不冒充已对齐', async () => {
@@ -286,6 +304,7 @@ describe('useGlobalNotification — 重连补增量', () => {
     await waitFor(() => expect(h.queryNotificationStates).toHaveBeenCalledTimes(1))
     expect(h.markAsReadByIds).not.toHaveBeenCalled()
     expect(h.archiveByIds).not.toHaveBeenCalled()
+    expect(h.deleteByIds).not.toHaveBeenCalled()
   })
 
   it('首连不对账(只重连边沿;与补增量同一条纪律)', async () => {

@@ -25,6 +25,7 @@ const h = vi.hoisted(() => ({
   markAsReadByIds: vi.fn(),
   archiveByIds: vi.fn(),
   restoreByIds: vi.fn(),
+  deleteByIds: vi.fn(),
   setUnreadCounts: vi.fn(),
   hasToken: true,
 }))
@@ -44,6 +45,7 @@ vi.mock('@/stores/notification', () => {
     markAsReadByIds: h.markAsReadByIds,
     archiveByIds: h.archiveByIds,
     restoreByIds: h.restoreByIds,
+    deleteByIds: h.deleteByIds,
     setUnreadCounts: h.setUnreadCounts,
   }
   return {
@@ -61,7 +63,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 /** 从订阅 handlers 取 notification:state 回调并驱动一帧 */
 function fireStateFrame(evt: {
-  op: 'read' | 'read-all' | 'archive' | 'restore'
+  op: 'read' | 'read-all' | 'archive' | 'restore' | 'delete' | 'delete-all'
   ids: string[]
   changedBy: string
   at: string
@@ -116,6 +118,18 @@ describe('useNotificationStateSync — 安装与分派', () => {
     expect(h.markAsReadByIds).not.toHaveBeenCalled()
   })
 
+  it('delete / delete-all 都按确切 ids 移除,不用无条件清空', () => {
+    renderHook(() => useNotificationStateSync(), { wrapper })
+    fireStateFrame({ ...FRAME, op: 'delete' })
+    fireStateFrame({ ...FRAME, op: 'delete-all' })
+    expect(h.deleteByIds).toHaveBeenCalledTimes(2)
+    expect(h.deleteByIds).toHaveBeenCalledWith(FRAME.ids)
+    // 删除帧绝不走其余三种翻转 API
+    expect(h.markAsReadByIds).not.toHaveBeenCalled()
+    expect(h.archiveByIds).not.toHaveBeenCalled()
+    expect(h.restoreByIds).not.toHaveBeenCalled()
+  })
+
   it('翻转后重新取服务端未读真相覆盖角标', async () => {
     renderHook(() => useNotificationStateSync(), { wrapper })
     fireStateFrame({ ...FRAME, op: 'read' })
@@ -137,7 +151,9 @@ describe('useNotificationStateSync — 安装与分派', () => {
     const markers = [
       "evt.data.op === 'archive'",
       "evt.data.op === 'restore'",
+      "op === 'delete' || op === 'delete-all'",
       'markAsReadByIds(ids)',
+      'deleteByIds(ids)',
       'getUnreadCount()',
       'patchNotificationListCaches(qc, evt)',
     ]

@@ -87,11 +87,14 @@ export async function getNotificationDetail(id: string): Promise<ApiResult<Notif
  */
 export async function queryNotificationStates(
   ids: string[],
-): Promise<ApiResult<{ readIds: string[]; archivedIds: string[] }>> {
-  return fetchApi<{ readIds: string[]; archivedIds: string[] }>('/api/notifications/state-query', {
-    method: 'POST',
-    body: JSON.stringify({ ids }),
-  })
+): Promise<ApiResult<{ readIds: string[]; archivedIds: string[]; deletedIds: string[] }>> {
+  return fetchApi<{ readIds: string[]; archivedIds: string[]; deletedIds: string[] }>(
+    '/api/notifications/state-query',
+    {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    },
+  )
 }
 
 // 创建通知(管理员) —— 2026-09-28 门 8 死调用清账:删除。

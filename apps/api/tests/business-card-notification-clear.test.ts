@@ -186,9 +186,9 @@ vi.mock('../src/db/index.js', () => {
 // notification-queries **部分**桩:路由层测试用 deleteAllNotifications 录实参;
 // 但"路由把 userId 传对了"并不等于"查询真的按 userId 过滤了" —— 后者由下面
 // describe('deleteAllNotifications 本体') 直接打真函数验(那一组不桩它)。
-const actualNotificationQueries = await vi.importActual<
-  typeof NotificationQueriesModule
->('../src/db/notification-queries.js')
+const actualNotificationQueries = await vi.importActual<typeof NotificationQueriesModule>(
+  '../src/db/notification-queries.js',
+)
 
 vi.mock('../src/db/notification-queries.js', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
@@ -428,6 +428,11 @@ describe('补缺口 ② DELETE /api/notifications — 按 userId 清空全部通
       addRule: vi.fn(),
       preHandler: vi.fn(() => async () => {}),
     } as never)
+    // DELETE 清空/单条成功后会广播状态翻转帧;测试实例补同形桩(不断言帧,只保路由不 500)。
+    server.decorate(
+      'broadcastToUser',
+      vi.fn(() => ({ matched: 0, delivered: 0, gated: 0 })),
+    )
     // prefix 必须与生产一致(index.ts:535 是 { prefix: '/api' })
     await server.register(notificationRoutes, { prefix: PREFIX })
     await server.ready()
@@ -443,7 +448,7 @@ describe('补缺口 ② DELETE /api/notifications — 按 userId 清空全部通
     whereCalls.length = 0
     mockAuthenticate.mockReset()
     mockDeleteAllNotifications.mockReset()
-    mockDeleteAllNotifications.mockResolvedValue(2)
+    mockDeleteAllNotifications.mockResolvedValue(['n1', 'n2'])
   })
 
   it('未登录 → 401,且一次都不该碰库', async () => {
@@ -476,7 +481,7 @@ describe('补缺口 ② DELETE /api/notifications — 按 userId 清空全部通
 
   it('空集合(本就无通知)也返 200 + 0,不报错(幂等清空)', async () => {
     mockAuthed()
-    mockDeleteAllNotifications.mockResolvedValue(0)
+    mockDeleteAllNotifications.mockResolvedValue([])
     const res = await server.inject({ method: 'DELETE', url: `${PREFIX}/notifications` })
     expect(res.statusCode).toBe(200)
     expect(res.json().data.deletedCount).toBe(0)
@@ -530,10 +535,10 @@ describe('deleteAllNotifications 本体 — 查询必须真的按 userId 过滤'
     whereCalls.length = 0
   })
 
-  it('返回删除条数', async () => {
+  it('返回被删的确切 ids(路由据此广播 delete-all)', async () => {
     enqueue([{ id: 'n1' }, { id: 'n2' }])
-    const n = await actualNotificationQueries.deleteAllNotifications(USER_ID)
-    expect(n).toBe(2)
+    const ids = await actualNotificationQueries.deleteAllNotifications(USER_ID)
+    expect(ids).toEqual(['n1', 'n2'])
   })
 
   it('WHERE 命中 notifications.userId 且值 === 传入的 userId', async () => {
