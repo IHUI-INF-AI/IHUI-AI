@@ -575,15 +575,38 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
           })
           .onConflictDoNothing()
           .returning({ id: chatConversations.id })
-        // 镜像消息(2026-11-24):web / RN 打开这条跨端会话时不该是空对话 —— 小程序这张
-        // 历史表存的是用户原话(content),落一条 user 消息后对端就能看到「问的是什么」。
-        // 只在本轮**新建**会话时插(重复同步走冲突路径,不再补第二份)。
+        // 镜像消息(2026-11-24):web / RN 打开这条跨端会话时不该是空对话。
+        // 一问一答都补 —— user 取自请求体(分支 A 的 messages 末条 user / 分支 B 的 message),
+        // assistant 取自本轮 LLM 回复。只在本轮**新建**会话时插(重复同步走冲突路径,不补第二份)。
         const newConvId = insertedConv[0]?.id
-        if (newConvId && replyContent) {
-          await db
-            .insert(chatMessages)
-            .values({ conversationId: newConvId, role: 'user', content: replyContent })
-            .onConflictDoNothing()
+        if (newConvId) {
+          const raw = data as {
+            message?: unknown
+            messages?: Array<{ role?: string; content?: unknown }>
+          }
+          let userText: string | undefined
+          if (typeof raw.message === 'string') {
+            userText = raw.message
+          } else {
+            const arr = raw.messages ?? []
+            for (let i = arr.length - 1; i >= 0; i -= 1) {
+              const m = arr[i]
+              if (m?.role === 'user' && typeof m.content === 'string') {
+                userText = m.content
+                break
+              }
+            }
+          }
+          const rows: Array<{ conversationId: string; role: string; content: string }> = []
+          if (userText && userText.trim()) {
+            rows.push({ conversationId: newConvId, role: 'user', content: userText })
+          }
+          if (replyContent) {
+            rows.push({ conversationId: newConvId, role: 'assistant', content: replyContent })
+          }
+          if (rows.length > 0) {
+            await db.insert(chatMessages).values(rows).onConflictDoNothing()
+          }
         }
       } catch (err) {
         request.log.warn({ err }, '小程序会话同步落库失败(不影响历史写入)')

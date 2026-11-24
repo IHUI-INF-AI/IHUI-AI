@@ -50,6 +50,7 @@ function undetermined(msg) {
 const args = process.argv.slice(2)
 const APPLY = args.includes('--apply')
 const VERIFY = args.includes('--verify')
+const ROLLBACK = args.includes('--rollback')
 
 const url = readDatabaseUrl()
 if (!url) undetermined('三处 .env 都找不到 DATABASE_URL')
@@ -80,6 +81,30 @@ async function scan() {
   return { total: rows.length, empty, filled, dangling }
 }
 
+if (ROLLBACK) {
+  if (!fs.existsSync(LEDGER)) {
+    console.log('[mirror-msg] 台账不存在，无可回滚')
+    await sql.end()
+    process.exit(0)
+  }
+  const lines = fs.readFileSync(LEDGER, 'utf8').split('\n').filter(Boolean)
+  const ids = [...new Set(lines.map((l) => JSON.parse(l).conversationId))]
+  let removed = 0
+  for (const id of ids) {
+    // 只删「该会话恰好 1 条消息」这一形态：那是本器物补的那份,真人写入的多轮消息一条不碰
+    const res = await sql`
+      delete from chat_messages
+      where conversation_id = ${id}
+        and (select count(*) from chat_messages m where m.conversation_id = ${id}) = 1
+      returning id
+    `
+    removed += res.length
+  }
+  console.log(`[mirror-msg] 回滚：台账 ${ids.length} 个会话，删除 assistant 单条 ${removed} 条`)
+  await sql.end()
+  process.exit(0)
+}
+
 if (VERIFY) {
   const s = await scan()
   console.log(
@@ -108,9 +133,11 @@ let done = 0
 fs.mkdirSync(path.dirname(LEDGER), { recursive: true })
 for (const r of s.empty) {
   const content = String(r.content)
+  // 存量只能补 AI 回复:小程序历史表 content 存的是 llmResult.content(assistant),
+  // 用户原话当时没落库 ⇒ 这里补 role='assistant',不冒充 user(新写入路径两问一答都补)。
   await sql`
     insert into chat_messages (conversation_id, role, content, created_at)
-    values (${r.conversation_id}, 'user', ${content}, ${r.src_created_at ?? new Date()})
+    values (${r.conversation_id}, 'assistant', ${content}, ${r.src_created_at ?? new Date()})
   `
   fs.appendFileSync(
     LEDGER,
