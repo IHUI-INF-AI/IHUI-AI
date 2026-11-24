@@ -481,7 +481,7 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
         })
         continue
       }
-      if (px > 0 && px <= MAX_GEO_PX) push(px, dimOfKey(key), it.at)
+      if (px > 0 && px <= MAX_GEO_PX) push(px, dimOfKey(key), m.index)
     }
     const alias = {}
     for (const m of code.matchAll(
