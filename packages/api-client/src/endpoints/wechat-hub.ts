@@ -393,6 +393,19 @@ export async function runWechatGroupAction(
   return res.data
 }
 
+/** POST /api/wechat-hub/accounts/:id/chat/switch */
+export async function switchWechatChat(
+  accountId: string,
+  title: string,
+): Promise<WechatActionResult> {
+  const res = await fetchApi<WechatActionResult>(`/wechat-hub/accounts/${accountId}/chat/switch`, {
+    method: 'POST',
+    body: JSON.stringify({ title }),
+  })
+  if (!res.success) throw new Error(res.error || '切换微信会话失败')
+  return res.data
+}
+
 /** POST /api/wechat-hub/accounts/:id/moments */
 export async function publishWechatMoment(
   accountId: string,

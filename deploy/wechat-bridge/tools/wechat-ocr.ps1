@@ -8,10 +8,13 @@
 # 不注入、不读内存、不改微信文件；窗口隐藏时 -AutoShow 会从托盘找回并还原，否则报 ok=false。
 
 param(
-  [ValidateSet('status', 'read')]
+  [ValidateSet('status', 'read', 'search', 'click', 'switch')]
   [string]$Mode = 'read',
   [string]$ImagePath = '',
   [string]$JsonPath = '',
+  [string]$Title = '',
+  [int]$X = 0,
+  [int]$Y = 0,
   [switch]$AutoShow
 )
 
@@ -35,6 +38,19 @@ public class WeChatOcrWin {
   [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hWnd, int cmd);
   [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
   [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr hWnd, IntPtr hdc, uint flags);
+  [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
+  [DllImport("user32.dll")] static extern int GetSystemMetrics(int i);
+  [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
+  [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
+  [DllImport("user32.dll")] static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+  [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")] static extern IntPtr SetActiveWindow(IntPtr hWnd);
+  [DllImport("user32.dll")] static extern IntPtr SetFocus(IntPtr hWnd);
+  [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+  [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] static extern void mouse_event(uint flags, int dx, int dy, uint data, UIntPtr extra);
+  [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
 
   [StructLayout(LayoutKind.Sequential)]
   public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
@@ -92,8 +108,111 @@ public class WeChatOcrWin {
     }
     return true;
   }
+
+  public static void MakeAware() { SetProcessDPIAware(); }
+
+  public static int[] Rect(IntPtr h) {
+    RECT r;
+    if (!GetWindowRect(h, out r)) return new int[] { 0, 0, 0, 0 };
+    return new int[] { r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top };
+  }
+
+  public static int[] Fit(IntPtr h) {
+    RECT r;
+    if (!GetWindowRect(h, out r)) return new int[] { 0, 0, 0, 0 };
+    int screenW = GetSystemMetrics(0);
+    int screenH = GetSystemMetrics(1);
+    int left = r.Left;
+    int top = r.Top;
+    int targetW = 1240;
+    int targetH = 1120;
+    if (left + targetW > screenW) left = 20;
+    if (top + targetH > screenH) top = 20;
+    if (r.Right - r.Left != targetW || r.Bottom - r.Top != targetH || left != r.Left || top != r.Top) {
+      SetWindowPos(h, IntPtr.Zero, left, top, targetW, targetH, 0x0004);
+      GetWindowRect(h, out r);
+    }
+    return new int[] { r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top };
+  }
+
+  public static string Focus(IntPtr h, bool topMost) {
+    uint pid;
+    uint tid = GetWindowThreadProcessId(h, out pid);
+    uint cur = GetCurrentThreadId();
+    AttachThreadInput(cur, tid, true);
+    ShowWindow(h, 9);
+    if (topMost) SetWindowPos(h, new IntPtr(-1), 0, 0, 0, 0, 0x0040 | 0x0001 | 0x0002);
+    SetForegroundWindow(h);
+    SetActiveWindow(h);
+    SetFocus(h);
+    AttachThreadInput(cur, tid, false);
+    System.Threading.Thread.Sleep(600);
+    StringBuilder title = new StringBuilder(256);
+    GetWindowText(GetForegroundWindow(), title, 256);
+    return title.ToString();
+  }
+
+  public static void Untop(IntPtr h) {
+    SetWindowPos(h, new IntPtr(-2), 0, 0, 0, 0, 0x0040 | 0x0001 | 0x0002);
+  }
+
+  public static bool CaptureRect(IntPtr h, string path) {
+    int[] r = Rect(h);
+    if (r[2] <= 0 || r[3] <= 0) return false;
+    System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(r[2], r[3]);
+    using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(bmp)) {
+      g.CopyFromScreen(r[0], r[1], 0, 0, new System.Drawing.Size(r[2], r[3]));
+    }
+    bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+    bmp.Dispose();
+    return true;
+  }
+
+  public static bool Click(int x, int y) {
+    if (!SetCursorPos(x, y)) return false;
+    System.Threading.Thread.Sleep(200);
+    mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
+    System.Threading.Thread.Sleep(80);
+    mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+    return true;
+  }
+
+  public static void Paste() {
+    keybd_event(0x11, 0, 0, UIntPtr.Zero);
+    keybd_event(0x56, 0, 0, UIntPtr.Zero);
+    keybd_event(0x56, 0, 2, UIntPtr.Zero);
+    keybd_event(0x11, 0, 2, UIntPtr.Zero);
+  }
+
+  public static void Clear() {
+    keybd_event(0x11, 0, 0, UIntPtr.Zero);
+    keybd_event(0x41, 0, 0, UIntPtr.Zero);
+    keybd_event(0x41, 0, 2, UIntPtr.Zero);
+    keybd_event(0x11, 0, 2, UIntPtr.Zero);
+    System.Threading.Thread.Sleep(120);
+    keybd_event(0x08, 0, 0, UIntPtr.Zero);
+    keybd_event(0x08, 0, 2, UIntPtr.Zero);
+    keybd_event(0x08, 0, 0, UIntPtr.Zero);
+    keybd_event(0x08, 0, 2, UIntPtr.Zero);
+  }
+
+  public static void CtrlF() {
+    keybd_event(0x11, 0, 0, UIntPtr.Zero);
+    keybd_event(0x46, 0, 0, UIntPtr.Zero);
+    keybd_event(0x46, 0, 2, UIntPtr.Zero);
+    keybd_event(0x11, 0, 2, UIntPtr.Zero);
+  }
+
+  public static void Esc() {
+    keybd_event(0x1B, 0, 0, UIntPtr.Zero);
+    keybd_event(0x1B, 0, 2, UIntPtr.Zero);
+  }
 }
 '@
+
+# DPI 感知必须在取窗口矩形之前：否则 175% 缩放下 GetWindowRect 只返回逻辑尺寸，
+# 截图和 OCR、点击坐标都会缩水，窗口看起来"被遮挡"。
+[void][WeChatOcrWin]::MakeAware()
 
 function Get-WindowInfo {
   $h = [WeChatOcrWin]::FindMain()
@@ -187,6 +306,202 @@ function Read-OcrLines($path) {
 }
 
 $info = Get-WindowInfo
+
+if ($Mode -eq 'click') {
+  if (-not $info.ok) { Write-Payload $info; exit 2 }
+  $h = [IntPtr]$info.hwnd
+  $fg = [WeChatOcrWin]::Focus($h, $true)
+  $clicked = [WeChatOcrWin]::Click($X, $Y)
+  Start-Sleep -Milliseconds 900
+  [WeChatOcrWin]::Untop($h)
+  Write-Payload ([ordered]@{ ok = $clicked; x = $X; y = $Y; foreground = $fg })
+  exit $(if ($clicked) { 0 } else { 3 })
+}
+
+if ($Mode -eq 'search') {
+  if (-not $info.ok) { Write-Payload $info; exit 2 }
+  if (-not $Title) {
+    Write-Payload ([ordered]@{ ok = $false; reason = 'search 模式必须提供 -Title' })
+    exit 2
+  }
+  $h = [IntPtr]$info.hwnd
+  [void][WeChatOcrWin]::Focus($h, $true)
+  Start-Sleep -Milliseconds 200
+  [void][WeChatOcrWin]::Fit($h)
+  $rect = [WeChatOcrWin]::Rect($h)
+  $left = $rect[0]
+  $top = $rect[1]
+  $width = $rect[2]
+  $height = $rect[3]
+  # 搜索控件固定在窗口左上：宽窗收成放大镜图标时中心约 (277,95)，窄窗搜索框也覆盖该点。
+  $searchX = $left + 277
+  $searchY = $top + 95
+  [void][WeChatOcrWin]::Click($searchX, $searchY)
+  Start-Sleep -Milliseconds 4000
+  Set-Clipboard -Value $Title
+  [WeChatOcrWin]::Paste()
+  Start-Sleep -Milliseconds 1500
+
+  $rectPath = $ImagePath
+  if (-not $rectPath) { $rectPath = Join-Path $env:TEMP 'wechat-ocr-search.png' }
+  $dir = Split-Path -Parent $rectPath
+  if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+  if (-not [WeChatOcrWin]::CaptureRect($h, $rectPath)) {
+    [WeChatOcrWin]::Untop($h)
+    Write-Payload ([ordered]@{ ok = $false; reason = '截图失败' })
+    exit 3
+  }
+  $lines = Read-OcrLines $rectPath
+  [WeChatOcrWin]::Untop($h)
+  Write-Payload ([ordered]@{
+    ok = $true
+    left = $left
+    top = $top
+    width = $width
+    height = $height
+    image = $rectPath
+    typed = $Title
+    searchX = $searchX
+    searchY = $searchY
+    lines = $lines
+  })
+  exit 0
+}
+
+if ($Mode -eq 'switch') {
+  if (-not $info.ok) { Write-Payload $info; exit 2 }
+  if (-not $Title) {
+    Write-Payload ([ordered]@{ ok = $false; reason = 'switch 模式必须提供 -Title' })
+    exit 2
+  }
+  $h = [IntPtr]$info.hwnd
+  [void][WeChatOcrWin]::Focus($h, $true)
+  Start-Sleep -Milliseconds 200
+  [void][WeChatOcrWin]::Fit($h)
+  $rect = [WeChatOcrWin]::Rect($h)
+  $left = $rect[0]
+  $top = $rect[1]
+  $width = $rect[2]
+  $height = $rect[3]
+  $needle = ($Title -replace '[^\p{L}\p{N}]', '').ToLower()
+  $matchKey = if ($needle.Length -gt 6) { $needle.Substring(0, 6) } else { $needle }
+
+  # 先看当前聊天标题和左侧会话列表：能直接点到的会话不走搜索，避免点开网页搜索结果。
+  $listPath = Join-Path $env:TEMP 'wechat-ocr-switch-list.png'
+  $listLine = $null
+  if ([WeChatOcrWin]::Capture($h, $listPath)) {
+    $listLines = Read-OcrLines $listPath
+    $headerLine = $listLines | Where-Object { $_.x -gt ($width * 0.08) -and $_.y -lt ($height * 0.12) } |
+      Where-Object {
+        $norm = ($_.text -replace '[^\p{L}\p{N}]', '').ToLower() -replace '0', 'o' -replace '1', 'l'
+        $norm -eq $matchKey -or ($norm.StartsWith($matchKey) -and $norm.Length -le ($matchKey.Length + 6))
+      } | Select-Object -First 1
+    $current = [bool]$headerLine
+    if ($current) {
+      [WeChatOcrWin]::Untop($h)
+      Write-Payload ([ordered]@{ ok = $true; opened = $true; method = 'current'; typed = $Title; image = $listPath; lines = $listLines })
+      exit 0
+    }
+    $listLine = $listLines | Where-Object {
+      $norm = ($_.text -replace '[^\p{L}\p{N}]', '').ToLower() -replace '0', 'o' -replace '1', 'l'
+      $_.x -lt ($width * 0.32) -and $_.y -gt ($height * 0.08) -and $norm.Contains($matchKey)
+    } | Sort-Object y | Select-Object -First 1
+    # 微信可以处在「只显示聊天」的单栏模式：左侧会话列表不可见，先点返回键回到列表再找。
+    $hasHeader = $listLines | Where-Object {
+      $_.x -gt ($width * 0.08) -and $_.x -lt ($width * 0.65) -and $_.y -lt ($height * 0.12)
+    } | Select-Object -First 1
+    if (-not $listLine -and $hasHeader) {
+      [void][WeChatOcrWin]::Click($left + 143, $top + 83)
+      Start-Sleep -Milliseconds 900
+      [void][WeChatOcrWin]::Capture($h, $listPath)
+      $listLines = Read-OcrLines $listPath
+      $listLine = $listLines | Where-Object {
+        $norm = ($_.text -replace '[^\p{L}\p{N}]', '').ToLower() -replace '0', 'o' -replace '1', 'l'
+        $_.x -lt ($width * 0.32) -and $_.y -gt ($height * 0.08) -and $norm.Contains($matchKey)
+      } | Sort-Object y | Select-Object -First 1
+    }
+  }
+  if ($listLine) {
+    $hitX = $left + [int][Math]::Round([Math]::Min($listLine.x + $listLine.w / 2, $width * 0.3))
+    $hitY = $top + [int][Math]::Round($listLine.y + $listLine.h / 2)
+    [void][WeChatOcrWin]::Click($hitX, $hitY)
+    Start-Sleep -Milliseconds 1500
+    [WeChatOcrWin]::Untop($h)
+    $rectPath = $ImagePath
+    if (-not $rectPath) { $rectPath = Join-Path $env:TEMP 'wechat-ocr-switch.png' }
+    $dir = Split-Path -Parent $rectPath
+    if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    [void][WeChatOcrWin]::Capture($h, $rectPath)
+    $lines = Read-OcrLines $rectPath
+    Write-Payload ([ordered]@{
+      ok = $true; opened = $true; method = 'list'; image = $rectPath; listImage = $listPath
+      typed = $Title; hitX = $hitX; hitY = $hitY; lines = $lines
+    })
+    exit 0
+  }
+
+  $searchX = $left + 277
+  $searchY = $top + 95
+  [void][WeChatOcrWin]::Click($searchX, $searchY)
+  Start-Sleep -Milliseconds 4000
+  Set-Clipboard -Value $Title
+  [WeChatOcrWin]::Paste()
+  Start-Sleep -Milliseconds 1800
+
+  $probePath = Join-Path $env:TEMP 'wechat-ocr-switch-probe.png'
+  if (-not [WeChatOcrWin]::CaptureRect($h, $probePath)) {
+    [WeChatOcrWin]::Untop($h)
+    Write-Payload ([ordered]@{ ok = $false; reason = '搜索截图失败' })
+    exit 3
+  }
+  $probeLines = Read-OcrLines $probePath
+  # 只取「搜索网络结果」标题之下的行，避开输入框和「最近在搜」历史；OCR 有 0/O、1/l 混淆，先归一化。
+  $label = $probeLines | Where-Object { $_.text -match '搜索.*结果|网络结果' } | Sort-Object y | Select-Object -First 1
+  $minY = if ($label) { $label.y + 18 } else { $height * 0.2 }
+  $resultLine = $probeLines | Where-Object {
+    $norm = ($_.text -replace '[^\p{L}\p{N}]', '').ToLower() -replace '0', 'o' -replace '1', 'l'
+    $_.y -gt $minY -and $_.x -lt ($width * 0.55) -and $norm.Contains($matchKey)
+  } | Sort-Object y | Select-Object -First 1
+  if (-not $resultLine) {
+    [WeChatOcrWin]::Untop($h)
+    Write-Payload ([ordered]@{ ok = $false; reason = '未找到目标会话搜索结果'; image = $probePath; lines = $probeLines })
+    exit 4
+  }
+  $hitX = $left + [int][Math]::Round($resultLine.x + [Math]::Min(80, $resultLine.w / 2))
+  $hitY = $top + [int][Math]::Round($resultLine.y + $resultLine.h / 2)
+  [void][WeChatOcrWin]::Click($hitX, $hitY)
+  Start-Sleep -Milliseconds 2200
+  [WeChatOcrWin]::Untop($h)
+
+  $rectPath = $ImagePath
+  if (-not $rectPath) { $rectPath = Join-Path $env:TEMP 'wechat-ocr-switch.png' }
+  $dir = Split-Path -Parent $rectPath
+  if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+  if (-not [WeChatOcrWin]::Capture($h, $rectPath)) {
+    Write-Payload ([ordered]@{ ok = $false; reason = '切换后截图失败'; image = $probePath; hitX = $hitX; hitY = $hitY })
+    exit 3
+  }
+  $lines = Read-OcrLines $rectPath
+  Write-Payload ([ordered]@{
+    ok = $true
+    left = $left
+    top = $top
+    width = $width
+    height = $height
+    image = $rectPath
+    probe = $probePath
+    typed = $Title
+    hitX = $hitX
+    hitY = $hitY
+    opened = [bool]($lines | Where-Object {
+      $norm = ($_.text -replace '[^\p{L}\p{N}]', '').ToLower() -replace '0', 'o' -replace '1', 'l'
+      $_.y -lt ($height * 0.12) -and ($norm -eq $matchKey -or ($norm.StartsWith($matchKey) -and $norm.Length -le ($matchKey.Length + 6)))
+    })
+    lines = $lines
+  })
+  exit 0
+}
+
 if ($Mode -eq 'status') {
   Write-Payload $info
   exit $(if ($info.ok) { 0 } else { 2 })
@@ -217,11 +532,14 @@ $width = $bmp.Width
 $height = $bmp.Height
 $bmp.Dispose()
 $lines = Read-OcrLines $rectPath
+$rect = [WeChatOcrWin]::Rect($h)
 Write-Payload ([ordered]@{
   ok = $true
   visible = $true
   hwnd = $h.ToInt64()
   title = '微信'
+  left = $rect[0]
+  top = $rect[1]
   width = $width
   height = $height
   image = $rectPath

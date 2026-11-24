@@ -30,7 +30,9 @@ let previousChatTitle = null
 let baselineDone = false
 let counter = 0
 
-function runScript(mode) {
+function runScript(mode, options = {}) {
+  const imagePath = options.imagePath ?? FRAME
+  const jsonPath = options.jsonPath ?? RESULT
   const args = [
     '-NoProfile',
     '-ExecutionPolicy',
@@ -40,19 +42,24 @@ function runScript(mode) {
     '-Mode',
     mode,
     '-ImagePath',
-    FRAME,
+    imagePath,
     '-JsonPath',
-    RESULT,
+    jsonPath,
   ]
+  if (options.title) args.push('-Title', options.title)
   if (AUTO_SHOW) args.push('-AutoShow')
   return new Promise((resolve, reject) => {
     execFile(
       POWERSHELL,
       args,
-      { timeout: 30_000, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
+      {
+        timeout: mode === 'switch' ? 90_000 : 30_000,
+        maxBuffer: 8 * 1024 * 1024,
+        windowsHide: true,
+      },
       async (error, _stdout, stderr) => {
         try {
-          const raw = await readFile(RESULT, 'utf8')
+          const raw = await readFile(jsonPath, 'utf8')
           const parsed = JSON.parse(raw)
           if (!parsed || typeof parsed !== 'object') throw new Error('OCR 返回非对象')
           if (!error) return resolve(parsed)
@@ -270,8 +277,43 @@ export function createDriver() {
       return fresh.map((message) => toEvent(parsed.chatTitle, message.text))
     },
 
-    async action(action) {
-      return { status: 'unsupported', reason: `OCR 只读驱动不支持动作 ${action}` }
+    async action(action, payload = {}) {
+      if (action !== 'chat.switch') {
+        return { status: 'unsupported', reason: `OCR 只读驱动不支持动作 ${action}` }
+      }
+      const title = typeof payload.title === 'string' ? payload.title.trim() : ''
+      if (!title) {
+        return { status: 'failed', reason: 'chat.switch 需要 title' }
+      }
+      const resultPath = join(MEDIA_DIR, 'wechat-switch.json')
+      const imagePath = join(MEDIA_DIR, 'wechat-switch.png')
+      try {
+        const frame = await runScript('switch', { title, imagePath, jsonPath: resultPath })
+        if (frame.ok !== true || frame.opened !== true) {
+          return {
+            status: 'failed',
+            reason: typeof frame.reason === 'string' ? frame.reason : '未能切换到目标会话',
+            data: { title, opened: frame.opened === true },
+          }
+        }
+        // 切换后必须重建基线：否则新会话里的历史消息会被当成新入站消息重复入库。
+        baselineDone = false
+        previousBlocks = []
+        previousChatTitle = null
+        return {
+          status: 'accepted',
+          data: {
+            title,
+            opened: true,
+            method: typeof frame.method === 'string' ? frame.method : 'search',
+          },
+        }
+      } catch (e) {
+        return {
+          status: 'failed',
+          reason: e instanceof Error ? e.message : '切换会话失败',
+        }
+      }
     },
   }
 }

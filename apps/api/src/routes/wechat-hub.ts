@@ -28,7 +28,12 @@ import { wechatHubManager } from '../services/wechat-hub/manager.js'
 import { listContacts, listGroupMembers } from '../services/wechat-hub/contacts.js'
 import { listRules } from '../services/wechat-hub/automation.js'
 import { getSchedule } from '../services/wechat-hub/digest.js'
-import { publishMoment, runGroupAction, syncContacts } from '../services/wechat-hub/operations.js'
+import {
+  publishMoment,
+  runGroupAction,
+  switchChat,
+  syncContacts,
+} from '../services/wechat-hub/operations.js'
 import { broadcast } from '../services/wechat-hub/broadcast.js'
 import { searchKnowledge } from '../services/wechat-hub/knowledge.js'
 import { answerError, requireUserId } from './wechat-hub-route-utils.js'
@@ -99,6 +104,10 @@ const mcpCallSchema = z.object({
 })
 
 const groupActionNameSchema = z.enum(['create', 'invite', 'kick', 'rename', 'announce'])
+
+const switchChatSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+})
 
 const broadcastKindSchema = z.enum(['text', 'image', 'file', 'link', 'card'])
 
@@ -213,6 +222,18 @@ const MCP_TOOLS: WechatMcpTool[] = [
         query: { type: 'string' },
       },
       required: ['accountId'],
+    },
+  },
+  {
+    name: 'wechat_switch_chat',
+    description: '把微信当前打开的会话切换到指定标题（仅 OCR/RPA 类本地桥驱动可用）。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        accountId: { type: 'string' },
+        title: { type: 'string', minLength: 1, maxLength: 120 },
+      },
+      required: ['accountId', 'title'],
     },
   },
   {
@@ -529,6 +550,21 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
+  server.post<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/chat/switch',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const body = parseOrThrow(switchChatSchema, request.body)
+        return reply.send(
+          success(await switchChat(requireUserId(request), request.params.id, body.title)),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
   server.post('/wechat-hub/send', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     try {
@@ -675,6 +711,14 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
         case 'wechat_get_digest_schedule': {
           const accountId = readArg(args, 'accountId')
           return reply.send(success(await getSchedule(userId, accountId)))
+        }
+        case 'wechat_switch_chat': {
+          const accountId = readArg(args, 'accountId')
+          return reply.send(
+            success(
+              await switchChat(userId, accountId, typeof args.title === 'string' ? args.title : ''),
+            ),
+          )
         }
         case 'wechat_sync_contacts': {
           const accountId = readArg(args, 'accountId')

@@ -40,6 +40,7 @@ import {
   saveWechatDigestSchedule,
   searchWechatKnowledge,
   sendWechatMessage,
+  switchWechatChat,
   syncWechatContacts,
   updateWechatAutoReplyRule,
   updateWechatContact,
@@ -172,6 +173,8 @@ export const wechatHubApi = {
     call(() => deleteWechatRemoteContact(id, contactId), '删除远端联系人失败'),
   runGroupAction: (id: string, input: WechatGroupActionInput): Promise<WechatActionResult> =>
     call(() => runWechatGroupAction(id, input), '微信群动作失败'),
+  switchChat: (id: string, title: string): Promise<WechatActionResult> =>
+    call(() => switchWechatChat(id, title), '切换微信会话失败'),
   publishMoment: (id: string, input: WechatMomentInput): Promise<WechatActionResult> =>
     call(() => publishWechatMoment(id, input), '发布朋友圈失败'),
   knowledge: (id: string): Promise<WechatKnowledgeDocView[]> =>

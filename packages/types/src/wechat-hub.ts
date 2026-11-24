@@ -252,6 +252,7 @@ export type WechatBridgeAction =
   | 'group.rename'
   | 'group.announce'
   | 'moment.publish'
+  | 'chat.switch'
 
 /** 桥动作结果；data 由桥原样返回，平台侧只做展示与审计。 */
 export interface WechatActionResult {

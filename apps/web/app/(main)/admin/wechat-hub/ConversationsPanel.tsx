@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Loader2, MessageSquare, RefreshCw, Users } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
@@ -54,8 +54,15 @@ function MessageBubble({ message }: { message: WechatMessageView }) {
   )
 }
 
-export default function ConversationsPanel({ accountId }: { accountId: string }) {
+export default function ConversationsPanel({
+  accountId,
+  readOnly,
+}: {
+  accountId: string
+  readOnly?: boolean
+}) {
   const [conversationId, setConversationId] = React.useState<string | null>(null)
+  const [switchNotice, setSwitchNotice] = React.useState<string | null>(null)
 
   const conversationsQuery = useQuery({
     queryKey: ['wechat-hub', 'conversations', accountId],
@@ -66,6 +73,20 @@ export default function ConversationsPanel({ accountId }: { accountId: string })
     queryKey: ['wechat-hub', 'messages', accountId, conversationId],
     queryFn: () => wechatHubApi.messages(accountId, conversationId, 200),
     refetchInterval: 10_000,
+  })
+
+  const switchMutation = useMutation({
+    mutationFn: (title: string) => wechatHubApi.switchChat(accountId, title),
+    onSuccess: (result, title) => {
+      setSwitchNotice(
+        result.ok ? `已切换到「${title}」` : result.reason || '切换失败，请确认微信窗口可见',
+      )
+      setTimeout(() => setSwitchNotice(null), 4000)
+    },
+    onError: (error) => {
+      setSwitchNotice(error instanceof Error ? error.message : '切换会话失败')
+      setTimeout(() => setSwitchNotice(null), 4000)
+    },
   })
 
   React.useEffect(() => {
@@ -154,17 +175,33 @@ export default function ConversationsPanel({ accountId }: { accountId: string })
                 {selected ? selected.platformChatId : '最近 200 条'}
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => void messagesQuery.refetch()}
-              disabled={messagesQuery.isFetching}
-            >
-              <RefreshCw
-                className={cn('h-3.5 w-3.5', messagesQuery.isFetching && 'animate-spin')}
-              />
-            </Button>
+            <div className="flex items-center gap-2">
+              {readOnly && selected ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => switchMutation.mutate(selected.title || selected.platformChatId)}
+                  disabled={switchMutation.isPending}
+                >
+                  {switchMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : null}
+                  切到微信
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => void messagesQuery.refetch()}
+                disabled={messagesQuery.isFetching}
+              >
+                <RefreshCw
+                  className={cn('h-3.5 w-3.5', messagesQuery.isFetching && 'animate-spin')}
+                />
+              </Button>
+            </div>
           </div>
+          {switchNotice ? <p className="text-xs text-muted-foreground">{switchNotice}</p> : null}
           {messagesQuery.isError ? (
             <Alert
               variant="danger"

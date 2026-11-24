@@ -222,6 +222,14 @@ async function handle(req, res) {
             error: result.reason ?? '不支持',
           })
         }
+        if (result?.status === 'failed') {
+          return json(res, 200, {
+            ok: false,
+            status: 'failed',
+            error: result.reason ?? '动作失败',
+            data: result.data ?? {},
+          })
+        }
         return json(res, 200, { ok: true, data: result?.data ?? {} })
       } catch (e) {
         return json(res, 502, { ok: false, error: e instanceof Error ? e.message : '动作失败' })

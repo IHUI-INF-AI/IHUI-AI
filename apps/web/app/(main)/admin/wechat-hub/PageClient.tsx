@@ -183,7 +183,7 @@ export default function PageClient() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="conversations" className="mt-3">
-            <ConversationsPanel accountId={selected.id} />
+            <ConversationsPanel accountId={selected.id} readOnly={readOnlyOcr} />
           </TabsContent>
           <TabsContent value="contacts" className="mt-3">
             <ContactsPanel

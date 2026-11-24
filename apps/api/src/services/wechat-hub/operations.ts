@@ -322,4 +322,21 @@ export async function publishMoment(
     mediaUrls: input.mediaUrls ?? [],
   })
 }
+
+/**
+ * 切换微信当前打开会话；仅 OCR/RPA 类 bridge 驱动实现。
+ * 只接受标题，不传平台 chatId —— 驱动侧按微信界面搜索/会话列表定位。
+ */
+export async function switchChat(
+  userId: string,
+  accountId: string,
+  title: string,
+): Promise<WechatActionResult> {
+  await assertAccountForUser(userId, accountId)
+  const trimmed = title.trim()
+  if (!trimmed) {
+    throw new AppError('切换会话缺少 title', 400, 'WECHAT_CHAT_TITLE_REQUIRED')
+  }
+  return wechatHubManager.performAction(userId, accountId, 'chat.switch', { title: trimmed })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
