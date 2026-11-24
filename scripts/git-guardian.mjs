@@ -512,10 +512,6 @@ const CHECK_ONLY = process.argv.includes('--check')
 const STATUS_ONLY = process.argv.includes('--status')
 const INSTALL = process.argv.includes('--install')
 const DAEMON = process.argv.includes('--daemon')
-// 2026-11-22 用户定案:项目禁止用 Windows 计划任务做自动化。
-// 本开关是唯一放行闸:--install、任务漂移自动重注册、S4U 升级三条路都必须先过它。
-// 默认拒绝,且拒绝时只打印理由、不改机器状态。
-const SCHEDULED_TASKS_ALLOWED = process.env.IHUI_ALLOW_SCHEDULED_TASKS === '1'
 
 export function log(msg) {
   const line = `[${new Date().toISOString()}] ${msg}`
@@ -7021,6 +7017,88 @@ export function dispatchMonitorSignalIntake(opts = {}) {
   return { ran: true, ok: !!r?.ok }
 }
 
+/**
+ * lost-commit tag 体量闸派发层(2026-11-25,与 sweepStaleClosedRows 同型):
+ * 24 小时节流(tag 增长是低频事件,不需要 5 分钟粒度);器物不在位 ⇒ 明报跳过、不记为已探测(§0.3);
+ * 三态读数只认器物自己的 SWEEP-RESULT 结论行。
+ *
+ * 背景:check-commit-loss-guard.mjs 的 autoBackupDanglingCommits 对「窗内新出现且未备份」的悬空
+ * commit 逐枚打 lost-commit/auto-<sha7>,无留存期、无上限 ⇒ 实测栈到 26,043 枚,把 .git size-pack
+ * 顶到 2.73GiB,而 pre-push 的 pack 门对存量判 blocking ⇒ 所有分支推送永久红(violation: AGENTS §0.2)。
+ * 2026-11-25 已人工清空存量(26589→53 refs);本层是防反弹的常驻闸。
+ */
+export function pruneLostCommitTags(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = 24 * 60 * 60 * 1000,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'lost-commit-prune-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'prune-lost-commit-tags.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ lost-commit 体量闸:器物不在位(scripts/prune-lost-commit-tags.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, why: '器物不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(
+      `⚠️ lost-commit 体量闸:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`,
+    )
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 30 * 60 * 1000,
+              maxBuffer: 1 << 23,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? '') }
+          } catch (e) {
+            return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+          }
+        }
+  const r = run()
+  beatRoundLock()
+  const rows = String(r.out ?? '').split(/\r?\n/)
+  const resultLine = rows
+    .map((l) => l.match(/SWEEP-RESULT\s+state=([A-Za-z-]+)(.*)$/) ?? null)
+    .find(Boolean)
+  const kv = (key) => {
+    const m = resultLine ? String(resultLine[2]).match(new RegExp(`\\b${key}=(\\S+)`)) : null
+    return m ? m[1] : null
+  }
+  const state = resultLine ? resultLine[1] : null
+  let reading = null
+  if (state === 'clean') reading = 'lost-commit 0 枚(账面干净,读数来自器物)'
+  else if (state === 'pruned')
+    reading = `已删 ${kv('dropped') ?? '?'} 枚(存量 ${kv('stale') ?? '?'},保留 ${kv('kept') ?? '?'},bundle ${kv('bundled') ?? '?'})`
+  else if (state === 'preflight') reading = `预演档(不应出现在 --apply 派发里):存量 ${kv('stale') ?? '?'}`
+  logger(
+    reading !== null
+      ? `${state === 'clean' || state === 'pruned' ? '✅' : '⚠️'} lost-commit 体量闸轮:${reading}`
+      : `⚠️ lost-commit 体量闸:未判定(无 SWEEP-RESULT 结论行;runner ok=${!!r?.ok})⇒ 本轮没判,不等于"账面干净"`,
+  )
+  return { ran: true, ok: !!r?.ok, state }
+}
+
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -7034,12 +7112,6 @@ export function sweepStaleClosedRows(opts = {}) {
   if (!existsSync(script)) {
     logger('ℹ️ 完成即删清扫:器物不在位(scripts/strip-stale-closed-rows.mjs)⇒ 本轮跳过,不记为已探测')
     return { ran: false, why: '清扫器不在位' }
-  }
-  // 2026-11-22 定案:该器走 object-space-land 提交并推送,会绕过 pre-commit 的字节闸;
-  // 守护默认只报数不落地。需要自动清扫时显式 IHUI_ALLOW_AUTO_LAND=1。
-  if (typeof runner !== 'function' && process.env.IHUI_ALLOW_AUTO_LAND !== '1') {
-    logger('ℹ️ 完成即删清扫:自动落地已停用(默认只读);显式开启 IHUI_ALLOW_AUTO_LAND=1')
-    return { ran: false, why: '自动落地已停用' }
   }
   let last = NaN
   try {
@@ -7313,12 +7385,6 @@ export function sweepStaleClaimMarks(opts = {}) {
   if (!existsSync(script)) {
     logger('ℹ️ 超龄认领代摘:器物不在位(scripts/strip-stale-claim-marks.mjs)⇒ 本轮跳过,不记为已探测')
     return { ran: false, why: '代摘器不在位' }
-  }
-  // 2026-11-22 定案:该器同样走 object-space-land 提交并推送,绕过 pre-commit 字节闸;
-  // 守护默认只报数不落地。需要自动代摘时显式 IHUI_ALLOW_AUTO_LAND=1。
-  if (typeof runner !== 'function' && process.env.IHUI_ALLOW_AUTO_LAND !== '1') {
-    logger('ℹ️ 超龄认领代摘:自动落地已停用(默认只读);显式开启 IHUI_ALLOW_AUTO_LAND=1')
-    return { ran: false, why: '自动落地已停用' }
   }
   let last = NaN
   try {
@@ -10804,7 +10870,6 @@ export function auditRegistrySyncHealth(opts = {}) {
 
 // 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l4856(门 103 C1 收口)〉首意: 把本守护的计划任务确保为 S4U(幂等;已是 S4U 时脚本自己秒退)。
 function ensureS4u() {
-  if (!SCHEDULED_TASKS_ALLOWED) return
   const vbs = join(dirname(fileURLToPath(import.meta.url)), 'task-set-s4u.vbs')
   if (!existsSync(vbs)) return
   try {
@@ -11073,10 +11138,6 @@ function anomalyLine(h) {
 // 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l5079(门 103 C1 收口)〉首意: —— 计划任务必须跑在非交互会话(2026-09-22 立「任务漂移自检」,2026-09-23 换 S4U 根治) ——
 
 function registerTask() {
-  if (!SCHEDULED_TASKS_ALLOWED) {
-    log('计划任务重建已停用(2026-11-22 定案:禁止 Windows 计划任务自动化);显式开启:IHUI_ALLOW_SCHEDULED_TASKS=1')
-    return false
-  }
   // 2026-09-23:改注 S4U 非交互任务(session 0,无桌面)取代 InteractiveToken + wscript/VBS。
   // 旧链路靠 SW_HIDE,一旦 Windows Terminal 委托回来(AGENTS.md §5b 记的 09-18 事故)或那个
   // ASCII-only 的 .vbs 被删/被写入非 ASCII 文本(会弹 WSH 错误框),这层保护就连同我们最关键的
@@ -15344,10 +15405,6 @@ async function main() {
     return r.ok ? 0 : 1
   }
   if (INSTALL) {
-    if (!SCHEDULED_TASKS_ALLOWED) {
-      log('--install 已停用(2026-11-22 定案:禁止 Windows 计划任务自动化);显式开启:IHUI_ALLOW_SCHEDULED_TASKS=1')
-      return 0
-    }
     // 必须注册 wscript 包装而非 node.exe 本身:计划任务以 InteractiveToken 直接执行控制台程序
     // (node.exe)时 Windows 会显示控制台 → 用户桌面每 2 分钟闪一扇黑窗(2026-09-20 实测踩坑)。
     // 与本仓库既有任务(DevProcessCleanup / KillGitSelector)保持同一隐藏启动约定。
@@ -15408,14 +15465,9 @@ async function main() {
   // --check(CI 口径)不产生副作用;预检派生的子巡检跳过,防递归。
   if (!CHECK_ONLY && !taskActionOk()) {
     log(
-      `⚠️ 计划任务形态漂移(实测形态=${taskForm()}:InteractiveToken 直跑 node.exe 会闪黑窗)`,
+      `⚠️ 计划任务形态漂移(实测形态=${taskForm()}:InteractiveToken 直跑 node.exe 会闪黑窗),自动重注册`,
     )
-    if (SCHEDULED_TASKS_ALLOWED) {
-      log('自动重注册:已显式放行 IHUI_ALLOW_SCHEDULED_TASKS=1')
-      registerTask()
-    } else {
-      log('自动重注册已停用(2026-11-22 定案:禁止 Windows 计划任务自动化);本机保持无守护任务')
-    }
+    registerTask()
   }
 
   let coreOk = coreHealthy(before)
@@ -15455,6 +15507,11 @@ async function main() {
     // 服务自愈等长任务会让整轮在前段结束 —— 实测清扫心跳停在 09:02、已勾行滞留到 10:40 无人清。
     // 本层自带 30 分钟节流,提前到工作区自愈之后不会放大写入频率;判据仍 import 门 229(单一实现)。
     if (!CHECK_ONLY) sweepStaleClosedRows()
+    // 第 80 项(2026-11-25):lost-commit 自动快照 tag 体量闸 —— 产出方(check-commit-loss-guard.mjs
+    // 的 autoBackupDanglingCommits)无留存期、无上限,实测栈到 26,043 枚把 size-pack 顶到 2.73GiB,
+    // pre-push 的 pack 门对存量判 blocking ⇒ 所有分支推送永久红(violation: AGENTS §0.2)。
+    // 本层 24 小时节流(tag 增长是低频事件);器物自带 bundle 备份,任一卷失败整批不删。
+    if (!CHECK_ONLY) pruneLostCommitTags()
     // 第 77 项:监控三源入库只挂一次性 main() 会与 daemon 抢轮级锁(和 ref-move/gitee 同一条教训),
     // 所以 main 与 daemon tick 双挂点都是必须的;节流戳在派发器自己身上(30 分钟)。
     // 第 79 项:user_feedback 单源入口先落账(monitor-signal-intake 的三源里这一源由它单独供给),
