@@ -255,6 +255,11 @@ async def investigate_codebase(
             "read_only": True,
         }
 
+    # ---- 访问面:`.cursorignore` 命中 = AI 不许读 ----
+    from .read_access import AccessGuard, filter_denied_items
+
+    access_guard = AccessGuard([str(root)])
+
     # ---- 腿 1:词法(既有 rg_fallback_parity 出口,默认不起 rg 子进程) ----
     files: list[str] = []
     enum_prov: EnumerationProvenance | None = None
@@ -292,11 +297,33 @@ async def investigate_codebase(
                 "degraded_reason": enum_prov.degraded_reason,
             }
 
-    if not enumerate_failed and files:
+    # 枚举只拿到"名字"是允许的(文件名可见);按内容扫描前必须把 `.cursorignore`
+    # 命中的文件整批摘掉,不能先读进来再丢弃命中 —— 那已经是一次真实读取。
+    files_for_scan: list[str] = []
+    denied_files = 0
+    if not enumerate_failed:
+        for rel in files:
+            abs_path = root / rel.replace("/", os.sep)
+            if access_guard.denial_for_resolved(abs_path) is not None:
+                denied_files += 1
+                continue
+            files_for_scan.append(rel)
+        if denied_files:
+            legs.setdefault("lexical", {})["access_denied_files"] = denied_files
+        if files and not files_for_scan:
+            legs["lexical"] = {
+                "status": "undetermined",
+                "enumerated_files": len(files),
+                "access_denied_files": denied_files,
+                "reason": "候选文件全部被 .cursorignore 排除,不能把过滤后的空集说成空仓",
+            }
+            missing_inputs.append("未被 .cursorignore 排除的可读候选文件")
+
+    if not enumerate_failed and files_for_scan:
         try:
             scan: ContentScanResult = resolved_deps.content_search(
                 root,
-                files=files,
+                files=files_for_scan,
                 needle=query,
                 max_results=max_results,
                 prefer_rg=False,
@@ -376,6 +403,13 @@ async def investigate_codebase(
             }
             missing_inputs.append("语义检索通道可用(codebase_indexer.search 未返回结论)")
         else:
+            # 旧索引残留同样可能在 `.cursorignore` 写定后仍返回分块;出口再判一次。
+            chunks, _denied_samples, denied_chunks = filter_denied_items(
+                chunks,
+                roots=[str(root)],
+                path_of=lambda c: str(c.get("filePath") or c.get("file_path") or "")
+                or None,
+            )
             if chunks:
                 legs["semantic"] = {"status": "hits", "count": len(chunks)}
                 for ch in chunks[:max_results]:
@@ -422,6 +456,13 @@ async def investigate_codebase(
                         [],
                     )
                 )
+            if denied_chunks:
+                legs.setdefault("semantic", {})["access_denied_chunks"] = denied_chunks
+                if not chunks:
+                    legs["semantic"]["status"] = "undetermined"
+                    legs["semantic"]["reason"] = (
+                        f"{denied_chunks} 条语义切片被 .cursorignore 排除,不能把过滤后的空集判成空仓"
+                    )
 
     # ---- 腿 3:Repo Wiki(只读缓存;生成会写盘+出网,只读契约下绝不触发) ----
     if not include_wiki:

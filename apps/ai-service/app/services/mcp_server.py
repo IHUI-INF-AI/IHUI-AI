@@ -2008,6 +2008,7 @@ def _search_codebase_keyword_sync(
     code_exts: set[str], ignored_dirs: set[str], symbol_patterns: dict[str, Any],
     on_walk_error: Callable[[OSError], None] | None = None,
     on_unread_file: Callable[[], None] | None = None,
+    should_skip: Callable[[str], bool] | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """同步执行关键词腿:os.walk + 一次性 git check-ignore + 文件读取/符号匹配。
 
@@ -2064,6 +2065,10 @@ def _search_codebase_keyword_sync(
                     continue
 
             fpath = os.path.join(dirpath, fname)
+            if should_skip is not None and should_skip(fpath):
+                # `.cursorignore` 命中 = AI 不许读:连读进来做词法匹配这一步都不做,
+                # 否则"结果被过滤"只是把泄露延后到下一次 preview。
+                continue
             try:
                 with open(fpath, encoding="utf-8", errors="ignore") as f:
                     content = f.read()
@@ -2538,6 +2543,21 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             "errorCode": "PATH_NOT_ALLOWED",
         }
     path = path_info
+    # `.cursorignore` 的检索面执行权:旧索引可能仍残留命中分块,所以不能只在
+    # 建索引时剪 —— 两腿出口都按当前规则再判一次,关闭"规则已写、旧片还搜得到"。
+    from .read_access import AccessGuard, filter_denied_items
+
+    access_roots = list(
+        dict.fromkeys(
+            [str(Path(path).resolve(strict=False)), *_get_workspace_roots(), *list(_active_extra_roots())]
+        )
+    )
+    access_guard = AccessGuard(access_roots)
+
+    def _note_access_denied(count: int) -> None:
+        if count:
+            stats["cursorignore_denied"] = int(stats.get("cursorignore_denied", 0)) + count
+
     stages.record(
         "validate",
         "ok",
@@ -2639,6 +2659,16 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                     detail=f"status={lazy.status}: {lazy.reason}",
                 )
             leg_matches: list[dict[str, Any]] = []
+            # 旧索引残留的最后一道闸:建索引时剪过的路径,这里按当前 `.cursorignore`
+            # 再判一次;规则文件坏掉时 `filter_denied_items` 整批 fail-closed。
+            semantic_results, _denied_samples, denied_count = filter_denied_items(
+                semantic_results,
+                roots=access_roots,
+                path_of=lambda r: str(
+                    r.get("filePath") or r.get("file_path") or ""
+                ) or None,
+            )
+            _note_access_denied(denied_count)
             # Z37:符号档不在本侧补 topK 那一刀。api 的 `rowBudget()` 早把该档的取回预算
             # 脱钩出 topK(Z36 单源 = SYMBOL_SCOPED_ROW_CAP),这里再 `[:max_results]`
             # 就是把刚摆正的次序重新削成「先截后滤」(§0.6:预算只许那份判据算一次)。
@@ -2738,12 +2768,22 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                 nonlocal unread_files
                 unread_files += 1
 
+            denied_files = 0
+
+            def _should_skip_keyword_file(abs_path: str) -> bool:
+                nonlocal denied_files
+                if access_guard.denial_for_resolved(abs_path) is not None:
+                    denied_files += 1
+                    return True
+                return False
+
             matches, count = await asyncio.to_thread(
                 _search_codebase_keyword_sync,
                 root, query, pattern, max_results, symbol_type,
                 _CODE_EXTS, _IGNORED_DIRS, _SYMBOL_PATTERNS,
-                _on_walk_error, _on_unread_file,
+                _on_walk_error, _on_unread_file, _should_skip_keyword_file,
             )
+            _note_access_denied(denied_files)
             note = None
             if unread_dirs or unread_files:
                 note = (
@@ -6379,6 +6419,17 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
             rp for rp in _rel_all if os.path.splitext(rp)[1].lower() not in _IGNORED_EXTS
         ]
 
+        # `.cursorignore` 命中 = AI 不许读:文件名/目录名仍可见(fuzzy 档不剪),
+        # 但**按内容回读**的那条路必须在 open() 之前剪掉,否则 preview 会把内容带出去。
+        from .read_access import AccessGuard
+
+        _access_roots = list(
+            dict.fromkeys(
+                [str(root), *_get_workspace_roots(), *list(_active_extra_roots())]
+            )
+        )
+        _access_guard = AccessGuard(_access_roots)
+
         # 模糊文件名搜索(2026-09-18 第十一批,遵循统一工程规范):
         # query 作为子序列模式对相对路径评分排序(fzf 语义:连续命中/词首加分)
         if fuzzy and query:
@@ -6423,10 +6474,20 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
             }
 
         query_lower = query.lower() if query else None
+        access_denied_files = 0
+        searchable_content = searchable
+        if query_lower:
+            searchable_content = []
+            for rel_path in searchable:
+                fpath = os.path.join(str(root), *rel_path.split("/"))
+                if _access_guard.denial_for_resolved(fpath) is not None:
+                    access_denied_files += 1
+                    continue
+                searchable_content.append(rel_path)
         count = 0
         unread_files = 0
         # V3 #75:同一个工具的第二处遍历,现共用上面那一次枚举的结果(原先两份 os.walk)。
-        for rel_path in searchable:
+        for rel_path in searchable_content:
             fname = rel_path.rsplit("/", 1)[-1]
             if count >= max_results:
                 break
@@ -6484,6 +6545,11 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
             f"在 {path} 下找到 {len(matches)} 个匹配文件"
             + ("(已截断)" if count >= max_results else "")
         )
+        if access_denied_files:
+            message += (
+                f";{access_denied_files} 个文件被 .cursorignore 跳过"
+                "(命中即不读内容)"
+            )
         # 「没找到」与「没查到」是两件事:枚举/读取有缺口时,零命中不能报成成功,
         # 也不能再给"放宽 pattern"这类误导性建议(缺口不在 pattern 上)。
         # 但**通道降级不等于结果有缺口**:rg 缺失/坏掉时走 python-walk 完整遍历,
@@ -6516,6 +6582,7 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
             "enum_degraded": _enum_prov.degraded_reason,
             "message": message,
             "ok": not (incomplete and not matches),
+            **({"cursorignore_denied": access_denied_files} if access_denied_files else {}),
         }
     except Exception as e:
         return {

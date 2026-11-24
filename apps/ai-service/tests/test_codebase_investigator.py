@@ -430,4 +430,58 @@ async def test_determinism_two_runs_identical(tmp_path):
     r1 = await ci.investigate_codebase(args, deps=deps())
     r2 = await ci.investigate_codebase(args, deps=deps())
     assert r1 == r2
+
+
+async def test_cursorignore_filters_lexical_and_stale_semantic(tmp_path):
+    """`.cursorignore` 命中:词法腿不得按内容读它,旧索引语义切片也不得进 findings。"""
+    (tmp_path / ".cursorignore").write_text("secret.py\n", encoding="utf-8")
+    (tmp_path / "visible.py").write_text(
+        "def visible_symbol():\n    return 1\n", encoding="utf-8"
+    )
+    recorder: dict[str, Any] = {}
+    deps = _fake_deps(
+        files=["secret.py", "visible.py"],
+        hits=[rgp.ContentHit(path="visible.py", line_numbers=[1])],
+        semantic_result=[
+            {"filePath": "secret.py", "symbolName": "leaky", "content": "TOP_SECRET"},
+            {"filePath": "visible.py", "symbolName": "visible_symbol",
+             "content": "def visible_symbol():", "score": 0.9},
+        ],
+        wiki_cache=None,
+        recorder=recorder,
+    )
+    result = await ci.investigate_codebase(
+        {"intent": "visible_symbol", "path": str(tmp_path), "__user_id": "u-1"},
+        deps=deps,
+    )
+    assert recorder["content"][0]["files"] == ["visible.py"]
+    anchors = [
+        anchor
+        for finding in result["findings"]
+        for anchor in finding["anchors"]
+    ]
+    assert [anchor["path"] for anchor in anchors] == ["visible.py", "visible.py"]
+    assert "TOP_SECRET" not in str(result)
+    assert result["legs"]["lexical"]["access_denied_files"] == 1
+    assert result["legs"]["semantic"]["access_denied_chunks"] == 1
+
+
+async def test_cursorignore_all_denied_is_unjudged_not_empty(tmp_path):
+    """全部候选被拒 ⇒ 不得报"查过了,没有";两条腿都要点名是规则剪掉的。"""
+    (tmp_path / ".cursorignore").write_text("secret.py\n", encoding="utf-8")
+    deps = _fake_deps(
+        files=["secret.py"],
+        semantic_result=[
+            {"filePath": "secret.py", "symbolName": "leaky", "content": "TOP_SECRET"},
+        ],
+        wiki_cache=None,
+    )
+    result = await ci.investigate_codebase(
+        {"intent": "secret", "path": str(tmp_path), "__user_id": "u-1"},
+        deps=deps,
+    )
+    assert result["status"] == "unjudged"
+    assert result["legs"]["lexical"]["status"] == "undetermined"
+    assert result["legs"]["semantic"]["status"] == "undetermined"
+    assert "TOP_SECRET" not in str(result)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

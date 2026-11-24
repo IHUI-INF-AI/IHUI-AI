@@ -24,7 +24,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -73,6 +73,106 @@ def load_access_ignore(root: Path) -> IgnoreSet:
     return _load_cached(str(root), (stat.st_mtime_ns, stat.st_size))
 
 
+class AccessGuard:
+    """一次装载、多次判定的访问闸。
+
+    检索/枚举面按**同一批根**连续判几千条路径,逐条 `check_access()` 会重复
+    stat 规则文件;这里把每个根的 `IgnoreSet` 装一次,之后只做纯正则求值。
+    规则文件在长扫描中途被改,本闸保持扫描开始时的快照 —— 与一次工具调用的
+    输入一致,下一次工具调用重新装载。
+    """
+
+    __slots__ = ("roots", "_sets")
+
+    def __init__(self, roots: Sequence[str | os.PathLike[str]]) -> None:
+        resolved: list[Path] = []
+        for raw in roots:
+            try:
+                root = Path(raw).resolve(strict=False)
+            except OSError:
+                continue
+            if root not in resolved:
+                resolved.append(root)
+        self.roots = tuple(resolved)
+        self._sets = tuple(load_access_ignore(root) for root in self.roots)
+
+    @staticmethod
+    def _denial(
+        root: Path, rel: str, ignore: IgnoreSet
+    ) -> AccessDenial | None:
+        if ignore.errors:
+            return AccessDenial(root=root, rel=rel, rule=None, errors=tuple(ignore.errors))
+        denied, rule = is_ignored(normalize_rel_path(rel), ignore)
+        if not denied:
+            return None
+        return AccessDenial(root=root, rel=rel, rule=rule, errors=())
+
+    def denial_for_resolved(
+        self, resolved_path: str | os.PathLike[str]
+    ) -> AccessDenial | None:
+        resolved = Path(resolved_path).resolve(strict=False)
+        for root, ignore in zip(self.roots, self._sets, strict=True):
+            if not resolved.is_relative_to(root):
+                continue
+            try:
+                rel = resolved.relative_to(root).as_posix()
+            except ValueError:
+                continue
+            denial = self._denial(root, rel, ignore)
+            if denial is not None:
+                return denial
+        return None
+
+    def denial_for_relative(self, rel: str) -> AccessDenial | None:
+        """索引切片只带仓库相对路径时使用;逐个根按同一相对路径求值。"""
+        norm = normalize_rel_path(rel)
+        for root, ignore in zip(self.roots, self._sets, strict=True):
+            denial = self._denial(root, norm, ignore)
+            if denial is not None:
+                return denial
+        return None
+
+    def denial_for_path(self, raw_path: str | os.PathLike[str]) -> AccessDenial | None:
+        raw = os.fspath(raw_path)
+        if not raw.strip():
+            return None
+        path = Path(raw)
+        if path.is_absolute():
+            return self.denial_for_resolved(path)
+        return self.denial_for_relative(raw)
+
+
+def filter_denied_items[T](
+    items: Iterable[T],
+    *,
+    roots: Sequence[str | os.PathLike[str]],
+    path_of: Callable[[T], str | os.PathLike[str] | None],
+    max_denied: int = 20,
+) -> tuple[list[T], list[AccessDenial], int]:
+    """过滤被 `.cursorignore` 拒绝的条目。
+
+    返回 `(保留项, 拒绝样本, 拒绝总数)`。样本有上限,计数不截断 ——
+    检索面要能报"这次滤掉了几条",又不能把上千条拒绝清单塞进上下文。
+    """
+    guard = AccessGuard(roots)
+    kept: list[T] = []
+    denied: list[AccessDenial] = []
+    denied_count = 0
+    for item in items:
+        raw = path_of(item)
+        if raw is None:
+            kept.append(item)
+            continue
+        denial = guard.denial_for_path(raw)
+        if denial is None:
+            kept.append(item)
+            continue
+        denied_count += 1
+        if len(denied) < max_denied:
+            denied.append(denial)
+    return kept, denied, denied_count
+
+
 def check_access(root: Path, rel: str) -> tuple[bool, IgnoreRule | None, list[str]]:
     """返回 (是否拒绝, 命中的规则, 规则文件错误清单)。
 
@@ -91,27 +191,17 @@ def access_denied_for_resolved(
     resolved_path: str | os.PathLike[str], roots: Sequence[str]
 ) -> AccessDenial | None:
     """绝对路径 → 落在哪个根下、相对路径、拒绝出处;未命中返回 None。"""
-    resolved = Path(resolved_path).resolve(strict=False)
-    for raw_root in roots:
-        root = Path(raw_root).resolve(strict=False)
-        if not resolved.is_relative_to(root):
-            continue
-        try:
-            rel = resolved.relative_to(root).as_posix()
-        except ValueError:
-            continue
-        denied, rule, errors = check_access(root, rel)
-        if denied:
-            return AccessDenial(root=root, rel=rel, rule=rule, errors=tuple(errors))
-    return None
+    return AccessGuard(roots).denial_for_resolved(resolved_path)
 
 
 __all__ = [
     "ACCESS_IGNORE_FILENAMES",
     "CURSORIGNORE_FILENAME",
     "AccessDenial",
+    "AccessGuard",
     "access_denied_for_resolved",
     "check_access",
+    "filter_denied_items",
     "load_access_ignore",
 ]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

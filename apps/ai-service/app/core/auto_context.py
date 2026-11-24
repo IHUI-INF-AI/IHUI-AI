@@ -157,6 +157,30 @@ async def auto_retrieve(
         return []
     normalized: list[dict[str, Any]] = []
     used_chars = 0
+    # `.cursorignore` 的注入面执行权:语义腿可能命中**旧索引残留**分块,本地目录腿
+    # 也可能把被拒路径当候选。这里按当前规则再判一次,拒掉的块不进 system 提示。
+    if workspace_path:
+        from ..services.read_access import AccessGuard
+
+        guard = AccessGuard([workspace_path])
+
+        def _allowed(raw: Any) -> bool:
+            if not isinstance(raw, dict):
+                return True
+            raw_path = raw.get("filePath") or raw.get("file_path") or raw.get("path")
+            if not raw_path:
+                return True
+            return guard.denial_for_path(str(raw_path)) is None
+
+        kept_semantic = [c for c in (raw_chunks or []) if _allowed(c)]
+        kept_local = [c for c in (local_raw or []) if _allowed(c)]
+        denied_count = (len(raw_chunks or []) - len(kept_semantic)) + (
+            len(local_raw or []) - len(kept_local)
+        )
+        if denied_count:
+            logger.info("auto_context 按 .cursorignore 滤掉 %d 条分块", denied_count)
+        raw_chunks, local_raw = kept_semantic, kept_local
+
     seen: set[tuple[str, int | None]] = set()
     for raw in [*(raw_chunks or []), *local_raw]:
         if not isinstance(raw, dict):

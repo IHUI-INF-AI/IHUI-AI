@@ -11,7 +11,11 @@ from pathlib import Path
 import pytest
 
 from app.services import mcp_server
-from app.services.read_access import access_denied_for_resolved, check_access
+from app.services.read_access import (
+    access_denied_for_resolved,
+    check_access,
+    filter_denied_items,
+)
 
 
 def _write_rule(root: Path, text: str) -> None:
@@ -116,4 +120,61 @@ async def test_apply_patch_set_rejects_ignored_path(
     assert result["status"] == "rejected"
     assert result["errorCode"] == "CURSORIGNORE_DENIED"
     assert not (tmp_path / "secret.txt").exists()
+
+
+def test_filter_denied_items_keeps_allowed_and_counts_denied(tmp_path: Path) -> None:
+    _write_rule(tmp_path, "secret/*\n*.key\n")
+    items = [
+        {"path": "src/main.py"},
+        {"path": "secret/a.py"},
+        {"path": "certs/private.key"},
+        {"path": str(tmp_path / "secret" / "b.py")},
+    ]
+    kept, samples, count = filter_denied_items(
+        items, roots=[str(tmp_path)], path_of=lambda item: item["path"]
+    )
+    assert kept == [{"path": "src/main.py"}]
+    assert count == 3
+    assert samples and all(sample.rule is not None for sample in samples)
+
+
+@pytest.mark.asyncio
+async def test_file_search_content_does_not_read_cursorignored_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_rule(tmp_path, "secret.py\n")
+    (tmp_path / "secret.py").write_text("NEEDLE_IN_SECRET\n", encoding="utf-8")
+    (tmp_path / "visible.py").write_text("NEEDLE_IN_VISIBLE\n", encoding="utf-8")
+    monkeypatch.setattr(mcp_server, "_get_workspace_roots", lambda: [str(tmp_path)])
+    monkeypatch.setattr(mcp_server, "_active_extra_roots", lambda: ())
+
+    result = await mcp_server._tool_file_search(
+        {"query": "NEEDLE", "path": str(tmp_path)}
+    )
+    assert result["ok"] is True
+    assert [m["file"] for m in result["matches"]] == ["visible.py"]
+    assert "NEEDLE_IN_SECRET" not in str(result)
+    assert result["cursorignore_denied"] == 1
+
+
+@pytest.mark.asyncio
+async def test_search_codebase_does_not_return_cursorignored_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_rule(tmp_path, "secret.py\n")
+    (tmp_path / "secret.py").write_text(
+        "def needle_secret():\n    return 1\n", encoding="utf-8"
+    )
+    (tmp_path / "visible.py").write_text(
+        "def needle_visible():\n    return 2\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(mcp_server, "_get_workspace_roots", lambda: [str(tmp_path)])
+    monkeypatch.setattr(mcp_server, "_active_extra_roots", lambda: ())
+
+    result = await mcp_server._tool_search_codebase(
+        {"query": "needle", "path": str(tmp_path), "use_semantic": False}
+    )
+    assert result["ok"] is True
+    assert [m["file"] for m in result["matches"]] == ["visible.py"]
+    assert result["stats"]["cursorignore_denied"] == 1
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

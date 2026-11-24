@@ -28,6 +28,9 @@ def _fake_indexer(monkeypatch, results):
         async def search(self, query, repo_id=None, language=None, top_k=10, api_token=None):
             return results[:top_k]
 
+        def load_catalog(self, repo_id, root):
+            return None
+
     monkeypatch.setattr(ci, "codebase_indexer", _Fake(), raising=False)
 
 
@@ -50,6 +53,34 @@ async def test_auto_retrieve_hits(ac, monkeypatch):
     assert chunks[0]["file_path"] == "apps/web/src/a.tsx"
     block = ac.format_auto_context_block(chunks)
     assert block is not None and "[auto-context]" in block and "a.tsx:10" in block
+
+
+@pytest.mark.asyncio
+async def test_auto_retrieve_drops_cursorignored_stale_chunk(ac, monkeypatch, tmp_path):
+    """旧索引残留仍带 secret.ts 分块,但当前 .cursorignore 不让它进 system 提示。"""
+    (tmp_path / ".cursorignore").write_text("secret.ts\n", encoding="utf-8")
+    _fake_indexer(
+        monkeypatch,
+        [
+            {
+                "file_path": "secret.ts",
+                "line_start": 1,
+                "content": "TOP_SECRET_SHOULD_NOT_APPEAR",
+                "score": 0.9,
+            },
+            {
+                "file_path": "visible.ts",
+                "line_start": 1,
+                "content": "export const ok = 1;",
+                "score": 0.8,
+            },
+        ],
+    )
+    chunks = await ac.auto_retrieve(
+        "如何实现用户认证逻辑", workspace_path=str(tmp_path), session_id="s1"
+    )
+    assert [chunk["file_path"] for chunk in chunks] == ["visible.ts"]
+    assert "TOP_SECRET_SHOULD_NOT_APPEAR" not in str(chunks)
 
 
 @pytest.mark.asyncio
