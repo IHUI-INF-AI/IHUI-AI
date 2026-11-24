@@ -592,6 +592,18 @@ jobs:
             -o -name '*.dmg' -o -name '*.exe' -o -name '*.msi' -o -name '*.app.tar.gz' \) 2>/dev/null | wc -l | tr -d ' ')
           echo "platform=${{ matrix.label }} 应有目标齐备;产物总数 $TOTAL"
 
+      # 2026-11-24 真实事故回归：旧 /UPDATE 硬闸把 MessageBox 放在 .onInit，静默安装永久挂住。
+      # 本步用真安装→两次 /UPDATE→卸载，任何弹窗都会让子进程超时，直接判红。
+      - name: Verify installer /UPDATE has no UI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = Get-ChildItem -Path 'apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe' -File |
+            Select-Object -First 1
+          if (-not $setup) { throw '找不到 NSIS 安装包，无法执行 /UPDATE 零弹窗回归' }
+          node scripts/check-desktop-installer-e2e.mjs --installer $setup.FullName
+
       # ---------- SignPath Authenticode 签名(仅 Windows;凭据齐备才启用) ----------
       # 时序:必须在 tauri 打包之后、"Fallback upload … --clobber" 把资产推上 Release 之前。
       # 桌面端特有的一条硬约束:Tauri 自动更新用 minisign `.sig` 校验安装包**字节**

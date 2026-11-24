@@ -36,6 +36,13 @@
 - 全新安装的默认目录会做一次真实写探针；`D:\software` 等归集目录对当前用户不可写时，
   自动回退 `%LOCALAPPDATA%\Programs\<产品名>`，不会等到复制载荷才失败。
 
+回归门禁：
+
+- `node scripts/desktop-nsis-template.mjs --check` 会拒绝 `/UPDATE` 硬闸里的 `MessageBox`
+  与带字符串的 `Abort`，并强制保留“`/D` 目标 + 注册表目录”双路径识别和退出码 2。
+- `node scripts/check-desktop-installer-e2e.mjs --installer <setup.exe>` 做真机
+  安装 → 静默/非静默两次 `/UPDATE` → 卸载；任何弹窗都会让子进程超时并判红。
+
 ## 一次更新的完整时序
 
 1. 前端 `useUpdateReady` 启动/每 4 小时/窗口重新可见时拉 feed。
