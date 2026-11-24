@@ -425,6 +425,46 @@ def _oauth_redirect_uri() -> str:
     return ""
 
 
+# 站点默认回调基址:与 .env.production.example 既有的
+# NEXT_PUBLIC_FEISHU_REDIRECT_URI / NEXT_PUBLIC_DINGTALK_REDIRECT_URI 同源(开放平台后台
+# 「重定向 URL」白名单登记的就是 https://aizhs.top/callback?platform=<platform>)。
+# 仅作最后兜底:生产 ai-service 的 .env 未把这些变量同步进 os.environ,旧实现会在
+# authorize 直接报「未配置回调地址」;此默认让已配好的平台开箱即用。
+_OAUTH_SITE_BASE = "https://aizhs.top"
+
+
+def _resolve_oauth_redirect_uri(platform: str, cred: dict[str, Any] | None = None) -> str:
+    """按平台解析回调地址 —— authorize 与 callback 必须逐字相等,否则平台拒换 code。
+
+    优先级(高→低):
+      1. 租户/平台凭据 ``extra.redirect_uri``:生产钉钉租户凭据已带该值,飞书租户
+         可同样配自己的开放平台回调,无需改服务环境;
+      2. 平台专属环境变量 ``<PLATFORM>_REDIRECT_URI`` / ``NEXT_PUBLIC_<PLATFORM>_REDIRECT_URI``:
+         兼容既有部署习惯(如 NEXT_PUBLIC_FEISHU_REDIRECT_URI);
+      3. 连接器通用配置 :func:`_oauth_redirect_uri`(CONNECTOR_OAUTH_REDIRECT_URI 等);
+      4. 站点默认 ``https://aizhs.top/callback?platform=<platform>``。
+
+    刻意保留 :func:`_oauth_redirect_uri` 的无参签名:既有测试与部署直接 mock/调用它,
+    在新解析链里把它作为一环,而不是替换,避免破坏「配置即复用」的既有语义。
+    """
+    if cred:
+        extra = cred.get("extra") or {}
+        value = str((extra.get("redirect_uri") if isinstance(extra, dict) else "") or "").strip()
+        if value:
+            return value
+    import os
+
+    upper = platform.upper()
+    for name in (f"{upper}_REDIRECT_URI", f"NEXT_PUBLIC_{upper}_REDIRECT_URI"):
+        value = str(os.environ.get(name) or "").strip()
+        if value:
+            return value
+    generic = _oauth_redirect_uri()
+    if generic:
+        return generic
+    return f"{_OAUTH_SITE_BASE}/callback?platform={platform}"
+
+
 @router.get("/oauth/callback", response_model=None)
 async def oauth_callback(
     request: Request,
@@ -461,7 +501,7 @@ async def oauth_callback(
 
         # 应用凭据:优先租户自己的,再回落平台环境(与 managed 同源)
         cred = managed.credentials(platform, scope=scope)
-        redirect_uri = _oauth_redirect_uri()
+        redirect_uri = _resolve_oauth_redirect_uri(platform, cred)
         if not redirect_uri:
             raise connector_oauth.ConnectorOAuthError("未配置 OAuth 回调地址：请设置 FEISHU_REDIRECT_URI（生产示例已配）或 CONNECTOR_OAUTH_REDIRECT_URI")
 
@@ -569,7 +609,7 @@ async def oauth_authorize(
         app_id = str(cred.get("app_id") or "")
         if not app_id:
             raise connector_oauth.ConnectorOAuthError("平台应用凭据缺少 app_id")
-        configured_redirect = _oauth_redirect_uri()
+        configured_redirect = _resolve_oauth_redirect_uri(platform, cred)
         supplied_redirect = redirect_uri.strip()
         # 回调端点硬编码 _oauth_redirect_uri():authorize 若放行任意 redirect_uri,
         # 授权码会被发往该地址,而 token 换取仍用另一地址 —— 平台按 redirect_uri

@@ -963,3 +963,157 @@ def test_oauth_redirect_reuses_existing_feishu_config(monkeypatch):
     monkeypatch.delenv("CONNECTOR_OAUTH_REDIRECT_URI")
     monkeypatch.delenv("NEXT_PUBLIC_FEISHU_REDIRECT_URI")
     assert router_mod._oauth_redirect_uri() == ""
+
+
+# ---------------------------------------------------------------------------
+# 按平台解析回调地址:凭据 extra → 平台 env → 通用 env → 站点默认
+# 生产根因:ai-service 的 .env 未把 NEXT_PUBLIC_* 同步进 os.environ,旧实现
+# 只读 _oauth_redirect_uri() → authorize 必报「未配置回调地址」。
+# ---------------------------------------------------------------------------
+
+
+def _clean_redirect_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in (
+        "CONNECTOR_OAUTH_REDIRECT_URI",
+        "FEISHU_REDIRECT_URI",
+        "NEXT_PUBLIC_FEISHU_REDIRECT_URI",
+        "DINGTALK_REDIRECT_URI",
+        "NEXT_PUBLIC_DINGTALK_REDIRECT_URI",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_resolve_redirect_tenant_credential_extra_wins(monkeypatch):
+    """生产钉钉租户凭据 extra.redirect_uri 必须优先 —— 无需改服务环境即可授权。"""
+    from app.routers import connectors as router_mod
+
+    _clean_redirect_env(monkeypatch)
+    monkeypatch.setenv("FEISHU_REDIRECT_URI", "https://env.example.com/callback?platform=dingtalk")
+    cred = {
+        "app_id": "dingkey",
+        "app_secret": "sec",
+        "extra": {"redirect_uri": "https://aizhs.top/callback?platform=dingtalk"},
+    }
+    assert router_mod._resolve_oauth_redirect_uri("dingtalk", cred) == (
+        "https://aizhs.top/callback?platform=dingtalk"
+    )
+
+
+def test_resolve_redirect_platform_env_then_generic_then_site_default(monkeypatch):
+    """四级优先级逐层验证,且站点默认按平台区分(飞书/钉钉不串台)。"""
+    from app.routers import connectors as router_mod
+
+    _clean_redirect_env(monkeypatch)
+    # 4) 站点默认
+    assert router_mod._resolve_oauth_redirect_uri("feishu") == (
+        "https://aizhs.top/callback?platform=feishu"
+    )
+    assert router_mod._resolve_oauth_redirect_uri("dingtalk") == (
+        "https://aizhs.top/callback?platform=dingtalk"
+    )
+    # 3) 通用 env
+    monkeypatch.setenv("CONNECTOR_OAUTH_REDIRECT_URI", "https://generic.example.com/cb")
+    assert router_mod._resolve_oauth_redirect_uri("feishu") == "https://generic.example.com/cb"
+    monkeypatch.delenv("CONNECTOR_OAUTH_REDIRECT_URI")
+    # 2) 平台专属 env 覆盖站点默认
+    monkeypatch.setenv("NEXT_PUBLIC_DINGTALK_REDIRECT_URI", "https://dt.example.com/callback?platform=dingtalk")
+    assert router_mod._resolve_oauth_redirect_uri("dingtalk") == (
+        "https://dt.example.com/callback?platform=dingtalk"
+    )
+    # 飞书不受钉钉 env 影响(平台不串台)
+    assert router_mod._resolve_oauth_redirect_uri("feishu") == (
+        "https://aizhs.top/callback?platform=feishu"
+    )
+
+
+@pytest.mark.asyncio
+async def test_authorize_uses_resolved_redirect_even_without_env(monkeypatch):
+    """端到端:无 env 配置时 authorize 仍产出可授权 URL(生产零配置可用)。"""
+    from urllib.parse import parse_qs, urlparse
+
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient
+
+    from app.core.jwt_auth import require_request_user_id
+    from app.routers import connectors as router_mod
+    from app.routers.connectors import connector_scope
+    from app.services.connectors import managed
+
+    _clean_redirect_env(monkeypatch)
+    monkeypatch.setattr(
+        managed,
+        "credentials",
+        lambda platform, scope=None: {
+            "app_id": "cli_prod",
+            "app_secret": "sec",
+            "source": "platform_env",
+            "extra": {},
+        },
+    )
+
+    app = FastAPI()
+    app.include_router(router_mod.router, prefix="/api")
+    app.dependency_overrides[require_request_user_id] = lambda: "user-1"
+    app.dependency_overrides[connector_scope] = lambda: "tenant-A"
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/api/connectors/feishu/oauth/authorize")
+    assert resp.status_code == 200, resp.text
+    qs = parse_qs(urlparse(resp.json()["url"]).query)
+    assert qs["redirect_uri"] == ["https://aizhs.top/callback?platform=feishu"]
+    assert "offline_access" in qs["scope"][0].split()
+
+
+@pytest.mark.asyncio
+async def test_callback_uses_resolved_redirect_from_credential_extra(monkeypatch):
+    """回调换取 code 时用的 redirect_uri 必须与 authorize 同源(凭据 extra),否则平台拒换。"""
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient
+
+    from app.core.jwt_auth import require_request_user_id
+    from app.routers import connectors as router_mod
+    from app.routers.connectors import connector_scope
+    from app.services import connector_store
+    from app.services.connectors import managed
+    from tests._connector_fake import FakeSession
+
+    _clean_redirect_env(monkeypatch)
+    fake = FakeSession()
+    monkeypatch.setattr(connector_store, "_pg_session", lambda: fake)
+    monkeypatch.setattr(
+        managed,
+        "credentials",
+        lambda platform, scope=None: {
+            "app_id": "cli_x",
+            "app_secret": "sec",
+            "source": "platform_env",
+            "extra": {"redirect_uri": "https://aizhs.top/callback?platform=feishu"},
+        },
+    )
+
+    captured: dict[str, Any] = {}
+
+    async def fake_exchange(cfg, code, *, app_id, app_secret, redirect_uri, http_json):
+        captured["redirect_uri"] = redirect_uri
+        return {
+            "access_token": "u-ok",
+            "refresh_token": "r-ok",
+            "expires_at": 9999999999,
+            "token_type": "Bearer",
+            "scope": "",
+        }
+
+    monkeypatch.setattr(router_mod.connector_oauth, "exchange_code", fake_exchange)
+
+    app = FastAPI()
+    app.include_router(router_mod.router, prefix="/api")
+    app.dependency_overrides[require_request_user_id] = lambda: "user-1"
+    app.dependency_overrides[connector_scope] = lambda: "user-1"
+
+    state = oauth.make_state("feishu", "user-1", user_id="user-1", tenant_id="")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get(
+            "/api/connectors/oauth/callback", params={"code": "c", "state": state}
+        )
+    assert resp.status_code == 200, resp.text
+    assert captured["redirect_uri"] == "https://aizhs.top/callback?platform=feishu"
