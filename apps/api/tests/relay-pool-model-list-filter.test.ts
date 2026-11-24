@@ -97,7 +97,10 @@ import { registerAllRelayAdapters } from '../src/services/upstream-adapters/inde
 // 之后 fetchUpstreamModelIds 内部的 registerAllRelayAdapters() 是 no-op,不会顶掉假适配器。
 registerAllRelayAdapters()
 let detailedResult: RelayModelListResult = { ok: false }
+// 按号 id 定制结果(测"坏号被好号顶上"):未命中则回落 detailedResult。
+let detailedById: Map<string, RelayModelListResult> = new Map()
 let detailedCalls = 0
+const probedIds: string[] = []
 registerRelayAdapter({
   providerCode: 'trae',
   buildChatRequest: () => {
@@ -107,9 +110,12 @@ registerRelayAdapter({
   translateNonStream: (_c, b) => b as Record<string, unknown>,
   checkHealth: async () => ({ ok: true }),
   isAuthFailure: () => false,
-  listModelsDetailed: async () => {
+  listModelsDetailed: async (ctx) => {
     detailedCalls += 1
-    return detailedResult
+    const id = (ctx as { row?: { id?: string } })?.row?.id ?? ''
+    probedIds.push(id)
+    const rr = detailedById.get(id) ?? detailedResult
+    return rr
   },
 } as unknown as RelayUpstreamAdapter)
 
@@ -152,7 +158,9 @@ beforeEach(() => {
   presetRows = []
   accountRows = [poolAccount('acct-filter')]
   detailedResult = { ok: false }
+  detailedById = new Map()
   detailedCalls = 0
+  probedIds.length = 0
   resetPoolModelHealthForTest()
 })
 
@@ -244,6 +252,63 @@ describe('listUserPoolModels 连通过滤', () => {
     const second = await listUserPoolModels('u-cache')
     expect(detailedCalls).toBe(1)
     expect(second.map((m) => m.id)).toEqual(['Doubao-A'])
+  })
+})
+
+describe('候选号逐个探测(2026-11-25:坏号被好号顶上)', () => {
+  function accountEx(
+    id: string,
+    o: { health?: string; credV?: number; exp?: Date | null } = {},
+  ): unknown {
+    const base = poolAccount(id) as Record<string, unknown>
+    return {
+      ...base,
+      healthStatus: o.health ?? 'healthy',
+      credVersion: o.credV ?? 0,
+      tokenExpiresAt: o.exp === undefined ? FUTURE : o.exp,
+    }
+  }
+
+  it('首枚坏号 ok=false、次枚好号 ok=true:好号清单照出,整平台不再被坏号隐藏', async () => {
+    // 复刻线上 doubao:健康号里混着坏 cookie,适配器对那枚报 ok=false
+    presetRows = [{ providerCode: 'trae', modelId: 'Good-Model', displayName: '好模型' }]
+    accountRows = [accountEx('bad', { credV: 99 }), accountEx('good', { credV: 1 })]
+    detailedById.set('bad', { ok: false, error: 'bad cookie' })
+    detailedById.set('good', { ok: true, models: [{ id: 'Good-Model' }] })
+    const items = await listUserPoolModels('u-fallback', { refresh: true })
+    expect(items.map((m) => m.id)).toEqual(['Good-Model'])
+    // 坏号先被试(credV 高),失败后好号顶上
+    expect(probedIds).toEqual(['bad', 'good'])
+  })
+
+  it('全部候选 ok=false:整平台仍 fail-closed 不返回', async () => {
+    presetRows = [{ providerCode: 'trae', modelId: 'Any', displayName: '任意' }]
+    accountRows = [accountEx('b1'), accountEx('b2'), accountEx('b3'), accountEx('b4')]
+    detailedResult = { ok: false }
+    const items = await listUserPoolModels('u-all-bad', { refresh: true })
+    expect(items).toEqual([])
+    // 上限 3 枚:第 4 枚不试,不把选择器拖到十几秒
+    expect(probedIds).toHaveLength(3)
+  })
+
+  it('明确空清单(ok=true ids=[])即停止:不拿别的号覆盖「上游确实没模型」', async () => {
+    presetRows = [{ providerCode: 'trae', modelId: 'X', displayName: 'X' }]
+    accountRows = [accountEx('empty', { credV: 99 }), accountEx('other', { credV: 1 })]
+    detailedById.set('empty', { ok: true, models: [] })
+    detailedById.set('other', { ok: true, models: [{ id: 'X' }] })
+    const items = await listUserPoolModels('u-empty-stop', { refresh: true })
+    expect(items).toEqual([])
+    expect(probedIds).toEqual(['empty'])
+  })
+
+  it('健康度排序:healthy 号排在 down 号之前(即便 down 号票面更新)', async () => {
+    accountRows = [
+      accountEx('down', { health: 'down', credV: 99, exp: FUTURE }),
+      accountEx('healthy', { health: 'healthy', credV: 1, exp: FUTURE }),
+    ]
+    detailedResult = { ok: true, models: [{ id: 'Any' }] }
+    await listUserPoolModels('u-health-sort', { refresh: true })
+    expect(probedIds[0]).toBe('healthy')
   })
 })
 

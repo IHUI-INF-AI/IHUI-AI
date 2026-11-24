@@ -2488,31 +2488,80 @@ async function fetchUpstreamModelIds(
     })
     const raced = await Promise.race([task().catch(() => null), timeout])
     if (!raced) return { ok: false, ids: [] }
-    return { ok: true, ids: [...new Set(raced.ids)] }
+    // 透传 task 的 ok(2026-11-25 根治):detailed.ok=false 时 task 返回 {ok:false},
+    // 此前无条件包成 ok=true ⇒ "取不到"被冒充"明确空清单",fail-closed 的交集判据
+    // 据此把该平台全部预置模型当「上游已下架」隐藏(qoder CLI 未登录时整家消失即此因)。
+    return { ok: raced.ok, ids: [...new Set(raced.ids)] }
   } catch {
     return { ok: false, ids: [] }
   }
 }
 
 /**
+ * 一次上游清单探测最多消耗的候选号数(2026-11-25 立)。
+ * 健康号优先排序后逐个试;上限防止一枚号的坏 cookie 把选择器拖到十几秒。
+ * 实测 doubao 10 枚号里有的 cookie 损坏、trae 17 枚里有的会话失效 —— 选第一枚
+ * 撞上坏号就整平台 fail-closed 隐藏,尽管同平台其他号完全可用。
+ */
+const POOL_MODEL_PROBE_MAX_ACCOUNTS = 3
+
+/**
+ * 候选号健康度排序(好号优先):健康 > 非 down,cred_version 高优先,票面新优先。
+ * 只排传入的可调度号,不改变归属;纯粹决定"先拿哪枚号去试清单"。
+ */
+function sortModelProbeAccounts(rows: AiRelayAccountPool[]): AiRelayAccountPool[] {
+  return [...rows].sort((a, b) => {
+    const healthyDelta =
+      (b.healthStatus === 'healthy' ? 1 : 0) - (a.healthStatus === 'healthy' ? 1 : 0)
+    if (healthyDelta !== 0) return healthyDelta
+    const credDelta = (b.credVersion ?? 0) - (a.credVersion ?? 0)
+    if (credDelta !== 0) return credDelta
+    const aExp = a.tokenExpiresAt instanceof Date ? a.tokenExpiresAt.getTime() : 0
+    const bExp = b.tokenExpiresAt instanceof Date ? b.tokenExpiresAt.getTime() : 0
+    return bExp - aExp
+  })
+}
+
+/**
+ * 跨候选号拉清单:健康号优先,逐个试到成功或明确空清单为止(2026-11-25 立)。
+ *
+ * 根因:清单语义与"具体哪枚号"无关,但号的凭据/会话质量参差 —— 同一平台选到坏 cookie
+ * (doubao)/失效会话(trae)的号会 ok=false,而别的号能正常拿到清单。此前只取第一枚,
+ * 撞上坏号 ⇒ 整平台 fail-closed 隐藏,尽管好号就在同一个号池里。改为逐个试。
+ *
+ * 纪律:
+ * - 某枚 ok=true(含明确空清单 ids=[])即视为成功并停止 —— 不拿别的号覆盖"上游确实没模型";
+ * - 全部候选都 ok=false 才返回 ok=false(「取不到 ≠ 没模型」,调用方据此整块跳过、不判下架);
+ * - 永不抛(单枚失败由 fetchUpstreamModelIds 吞掉)。
+ */
+async function fetchUpstreamModelIdsAcrossAccounts(
+  providerCode: RelayProviderCode,
+  rows: AiRelayAccountPool[],
+): Promise<{ ok: boolean; ids: string[] }> {
+  for (const row of sortModelProbeAccounts(rows).slice(0, POOL_MODEL_PROBE_MAX_ACCOUNTS)) {
+    const r = await fetchUpstreamModelIds(providerCode, row)
+    if (r.ok) return r
+  }
+  return { ok: false, ids: [] }
+}
+
+/**
  * 按平台现拉上游模型清单(2026-11-18 立,供模型目录自动同步腿复用)。
  *
  * 与 listUserPoolModels 同一份判据 fetchUpstreamModelIds(§0.6 不各写一份适配器调用):
- * 内部选一枚代表号(清单语义是「这平台有哪些模型」,与具体哪枚号无关),现拉上游。
+ * 内部按健康度逐个试可调度号(见 fetchUpstreamModelIdsAcrossAccounts),清单语义与哪枚号无关。
  * 平台非中继 / 无可调度号 ⇒ ok=false(调用方据此整块跳过,绝不据此判下架)。
  */
 export async function fetchUpstreamModelIdsForProvider(
   providerCode: RelayProviderCode,
 ): Promise<{ ok: boolean; ids: string[] }> {
   const { accountSchedulableCondition } = await import('./relay-account-pool-scheduler.js')
-  const [row] = await dbRead
+  const rows = await dbRead
     .select()
     .from(aiRelayAccountPool)
     .where(and(eq(aiRelayAccountPool.providerCode, providerCode), accountSchedulableCondition()))
-    .orderBy(aiRelayAccountPool.providerCode)
-    .limit(1)
-  if (!row) return { ok: false, ids: [] }
-  return fetchUpstreamModelIds(providerCode, row)
+  if (rows.length === 0) return { ok: false, ids: [] }
+  return fetchUpstreamModelIdsAcrossAccounts(providerCode, rows)
 }
 
 /**
@@ -2575,12 +2624,17 @@ export async function listUserPoolModels(
     .orderBy(aiRelayAccountPool.providerCode)
   if (accounts.length === 0) return []
 
-  // 每平台只留一枚代表号去拉清单:清单语义是「这平台有哪些模型」,与具体哪枚号无关
-  const byProvider = new Map<string, { row: AiRelayAccountPool; count: number }>()
+  // 每平台保留全部可调度号:清单语义是「这平台有哪些模型」,与具体哪枚号无关,
+  // 但号的凭据/会话质量参差(2026-11-25: doubao 坏 cookie / trae 失效会话实测),
+  // 拉清单时按健康度逐个试(见 fetchUpstreamModelIdsAcrossAccounts),好号自动顶上坏号。
+  // count 仍记该平台可调度号总数(给选择器做 accountCount 展示)。
+  const byProvider = new Map<string, { rows: AiRelayAccountPool[]; count: number }>()
   for (const row of accounts) {
     const hit = byProvider.get(row.providerCode)
-    if (hit) hit.count += 1
-    else byProvider.set(row.providerCode, { row, count: 1 })
+    if (hit) {
+      hit.count += 1
+      hit.rows.push(row)
+    } else byProvider.set(row.providerCode, { rows: [row], count: 1 })
   }
 
   const providers = [...byProvider.keys()]
@@ -2629,7 +2683,7 @@ export async function listUserPoolModels(
         return
       }
       const info = isRelayProviderCode(code)
-        ? await fetchUpstreamModelIds(code, hit.row)
+        ? await fetchUpstreamModelIdsAcrossAccounts(code, hit.rows)
         : { ok: false, ids: [] as string[] }
       upstreamByProvider.set(code, info)
     }),
