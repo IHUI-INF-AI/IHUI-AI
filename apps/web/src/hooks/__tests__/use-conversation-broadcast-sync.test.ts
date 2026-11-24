@@ -326,6 +326,137 @@ describe('useConversationBroadcastSync — 票71 消息面接线', () => {
     expect(historyMock.mock.calls.some((c) => c[1]?.direction === 'newer')).toBe(false)
   })
 
+  // ==================== 2026-11-24:水位先行永久漏 + 100 turn 分页闭合 ====================
+  it('重连一次补 >100 turn:按 prevCursor 翻页累积 ids,不只是第一页', async () => {
+    storeState.chatSync = syncStateOf([])
+    // newest 锚点 = turn 0;newer 第一页 100 turn(hasMore),第二页 2 turn(末页)
+    let newerCalls = 0
+    historyMock.mockImplementation((_id: string, params: { direction?: string; cursor?: string }) => {
+      if (params.direction === 'newest') {
+        return Promise.resolve({
+          success: true,
+          data: { turns: [], nextCursor: null, prevCursor: 'cursor-0', cursorState: { status: 'ok' } },
+        })
+      }
+      newerCalls += 1
+      if (newerCalls === 1) {
+        expect(params.cursor).toBe('cursor-0')
+        const turns = Array.from({ length: 100 }, (_, i) => ({
+          turnOrdinal: i + 1,
+          messages: [{ id: `new-${i + 1}` }],
+        }))
+        return Promise.resolve({
+          success: true,
+          data: { turns, nextCursor: null, prevCursor: 'cursor-100', hasMore: true, cursorState: { status: 'ok' } },
+        })
+      }
+      expect(params.cursor).toBe('cursor-100')
+      return Promise.resolve({
+        success: true,
+        data: {
+          turns: [
+            { turnOrdinal: 101, messages: [{ id: 'new-101' }] },
+            { turnOrdinal: 102, messages: [{ id: 'new-102' }] },
+          ],
+          nextCursor: null,
+          prevCursor: 'cursor-102',
+          hasMore: false,
+          cursorState: { status: 'ok' },
+        },
+      })
+    })
+    renderHook(() => useConversationBroadcastSync())
+    await waitFor(() => expect(historyMock).toHaveBeenCalledTimes(1))
+    emitConnectionState('open')
+    emitConnectionState('closed')
+    emitConnectionState('open')
+    // 两页 ids 一次交给 planner ⇒ 单次 resync 拿到全部 102 个新消息坐标
+    await waitFor(() => expect(resyncMock).toHaveBeenCalledTimes(1))
+    expect(resyncMock.mock.calls[0]?.[0].messageIds).toHaveLength(102)
+    expect(resyncMock.mock.calls[0]?.[0].messageIds).toContain('new-102')
+    expect(historyMock.mock.calls.filter((c) => c[1]?.direction === 'newer')).toHaveLength(2)
+  })
+
+  it('resync 失败(failed>0)⇒ 水位不推进,下轮重连幂等重取同一批', async () => {
+    storeState.chatSync = syncStateOf([])
+    historyMock.mockImplementation((_id: string, params: { direction?: string }) =>
+      Promise.resolve({
+        success: true,
+        data: {
+          turns: params.direction === 'newer' ? [{ turnOrdinal: 7, messages: [{ id: 'm-new' }] }] : [],
+          nextCursor: null,
+          prevCursor: params.direction === 'newest' ? 'cursor-0' : 'cursor-7',
+          hasMore: false,
+          cursorState: { status: 'ok' },
+        },
+      }),
+    )
+    resyncMock.mockResolvedValueOnce({ attempted: 1, merged: 0, dropped: 0, failed: 1 })
+    renderHook(() => useConversationBroadcastSync())
+    await waitFor(() => expect(historyMock).toHaveBeenCalledTimes(1))
+    // 第一次重连:resync 失败 ⇒ 水位停在 cursor-0
+    emitConnectionState('open')
+    emitConnectionState('closed')
+    emitConnectionState('open')
+    await waitFor(() => expect(resyncMock).toHaveBeenCalledTimes(1))
+    // 第二次重连:应以同一个 cursor-0 重取(而非失败页的 cursor-7)
+    emitConnectionState('closed')
+    emitConnectionState('open')
+    await waitFor(() =>
+      expect(
+        historyMock.mock.calls.filter(
+          (c) => c[1]?.direction === 'newer' && c[1]?.cursor === 'cursor-0',
+        ).length,
+      ).toBe(2),
+    )
+  })
+
+  it('首连锚点失败 ⇒ 重连时懒重试锚点,成功后补增量(不再冻结整会话)', async () => {
+    storeState.chatSync = syncStateOf([])
+    let anchorCalls = 0
+    historyMock.mockImplementation((_id: string, params: { direction?: string }) => {
+      if (params.direction === 'newest') {
+        anchorCalls += 1
+        // 第一次(首连)失败,第二次(重连懒重试)成功
+        return Promise.resolve(
+          anchorCalls === 1
+            ? { success: false, data: null }
+            : {
+                success: true,
+                data: { turns: [], nextCursor: null, prevCursor: 'cursor-lazy', cursorState: { status: 'ok' } },
+              },
+        )
+      }
+      return Promise.resolve({
+        success: true,
+        data: {
+          turns: [{ turnOrdinal: 7, messages: [{ id: 'm-lazy-new' }] }],
+          nextCursor: null,
+          prevCursor: 'cursor-7',
+          hasMore: false,
+          cursorState: { status: 'ok' },
+        },
+      })
+    })
+    renderHook(() => useConversationBroadcastSync())
+    await waitFor(() => expect(anchorCalls).toBe(1))
+    emitConnectionState('open')
+    emitConnectionState('closed')
+    emitConnectionState('open')
+    await waitFor(() => expect(resyncMock).toHaveBeenCalledTimes(1))
+    expect(resyncMock.mock.calls[0]?.[0].messageIds).toContain('m-lazy-new')
+    expect(anchorCalls).toBe(2)
+  })
+
+  it('变异锁:水位推进必须在 resync 成功之后(先写水位再 fire-and-forget 即红)', () => {
+    const src = readFileSync(resolve(__dirname, '../use-conversation-broadcast-sync.ts'), 'utf8')
+    expect(src).toContain('if (cancelled || outcome.failed > 0) return')
+    expect(src).toContain('RECONNECT_HISTORY_MAX_PAGES')
+    // 反向:不得存在"先写 historyCursorRef.current = delta.nextCursor 再 void resync"的旧序
+    const oldOrder = 'historyCursorRef.current = delta.nextCursor\n          if (delta.ids.length === 0) return'
+    expect(src).not.toContain(oldOrder)
+  })
+
   it('变异锁:全新消息补拉必须真走 history newer + 集合差 planner(抹掉即红)', () => {
     const src = readFileSync(resolve(__dirname, '../use-conversation-broadcast-sync.ts'), 'utf8')
     const planner = 'planChatSyncReconnectNewMessages({'

@@ -144,6 +144,12 @@ describe('D35:所有写入 chat_messages 的生产路径必须产出 turn_ordina
     expect(violationsOf([...patrol, ...imported])).toHaveLength(0)
   })
 
+  it('小程序会话同步直插点(ai-user-model-chat)也带 turnOrdinal(2026-11-24 补)', () => {
+    const miniappSync = sites.filter((s) => s.file.endsWith('routes/ai-user-model-chat.ts'))
+    expect(miniappSync).toHaveLength(1)
+    expect(violationsOf(miniappSync)).toHaveLength(0)
+  })
+
   it('第一段的 chat-queries 三个写入点仍带 turnOrdinal(不得被后续改动摘掉)', () => {
     const queries = sites.filter((s) => s.file.endsWith('db/chat-queries.ts'))
     expect(queries.length).toBeGreaterThanOrEqual(3)

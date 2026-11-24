@@ -1614,6 +1614,14 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           limit,
           hasMore: result.hasMore,
           nextCursor: result.nextCursor ? encodeHistoryCursor(result.nextCursor) : null,
+          // 2026-11-24:普通分页也必须回 prevCursor —— 断线补增量消息走的就是这条
+          // 分支(非 around),此前只有 around 回 ⇒ web hook 读到 undefined,第二半
+          // 「断线全新消息」补拉永远降级空跑。值 = 页内最大轮(turns 恒升序,at(-1)),
+          // 与 around 分支 afterCursor 同口径;stale 空页 turns=[] ⇒ null,交客户端整段重锚。
+          prevCursor:
+            result.turns.length > 0
+              ? encodeHistoryCursor({ turnOrdinal: result.turns[result.turns.length - 1].turnOrdinal })
+              : null,
           // 断点存续性(stale = 游标那一轮已被删除/压缩重编号)。服务端在 stale 时给的是
           // 空页(见 findHistoryTurnPage),客户端据此重锚而不是把两段不相邻的窗口拼起来。
           cursorState: result.cursorState,

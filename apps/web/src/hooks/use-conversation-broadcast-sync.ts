@@ -250,8 +250,10 @@ function fireOnceNotice(evt: ConversationUpdatedEvent, fields: ConversationMetaF
   toast.info(tc('meta.changedElsewhere', { field: label, value }))
 }
 
-/** 一次重连最多补这么多 turn 的新消息;超出即停,不把「还没补完」冒充已对齐 */
+/** 单次 history 请求的 turn 页大小(服务端上限 100) */
 const RECONNECT_HISTORY_LIMIT = 100
+/** 一次重连最多翻这么多页(100 turn/页 ⇒ 1000 turn);触顶保留水位但不冒充已对齐 */
+const RECONNECT_HISTORY_MAX_PAGES = 10
 
 /**
  * 建立会话级 history 水位。`prevCursor` 是服务端给出的「窗口内最大轮」,专配
@@ -278,28 +280,43 @@ async function anchorHistoryWatermark(
 /**
  * 按水位取断线期**新增**的 turn,只做传输与提取:候选 ids 交给契约 planner 判「本地是否见过」,
  * 真正的内容/rev 裁定仍由 resync 编排 + store 承担(§22c 不复制判据)。
- * `null` = 请求失败/已取消 ⇒ 静默降级,不冒充对齐;stale = 锚点消失 ⇒ 调用方整段重锚。
+ *
+ * 翻页直到 `hasMore=false` 或页预算触顶:此前单页 100 turn 触顶即停、水位却推到页尾 ⇒
+ * 断线期 >100 turn 的新消息永久漏(下轮从页尾之后开始)。现在累积所有页 ids,水位只在
+ * 一页真正读完(非空且 prevCursor 前进)后推进到该页尾;任何一页失败 ⇒ 整批 null(静默降级,
+ * 水位不动 ⇒ 下轮幂等重取);stale ⇒ 整段重锚。
+ *
+ * `capped=true` = 页预算触顶但仍有更多 ⇒ 调用方保留已推到的水位、如实标注未对齐,
+ * 下次重连从该水位继续,不冒充"已补齐"。
  */
 async function fetchReconnectNewMessageIds(
   conversationId: string,
   cursor: string,
   isCancelled: () => boolean,
-): Promise<{ ids: string[]; nextCursor: string | null; stale: boolean } | null> {
+): Promise<{ ids: string[]; nextCursor: string | null; stale: boolean; capped: boolean } | null> {
+  const ids: string[] = []
+  let pageCursor = cursor
   try {
-    const res = await getConversationHistory(conversationId, {
-      direction: 'newer',
-      cursor,
-      limit: RECONNECT_HISTORY_LIMIT,
-    })
-    if (isCancelled() || !res.success || !res.data) return null
-    if (res.data.cursorState?.status === 'stale') {
-      return { ids: [], nextCursor: null, stale: true }
+    for (let page = 0; page < RECONNECT_HISTORY_MAX_PAGES; page += 1) {
+      const res = await getConversationHistory(conversationId, {
+        direction: 'newer',
+        cursor: pageCursor,
+        limit: RECONNECT_HISTORY_LIMIT,
+      })
+      if (isCancelled() || !res.success || !res.data) return null
+      if (res.data.cursorState?.status === 'stale') {
+        return { ids: [], nextCursor: null, stale: true, capped: false }
+      }
+      ids.push(...res.data.turns.flatMap((turn) => turn.messages.map((message) => message.id)))
+      const pageEnd = res.data.prevCursor ?? pageCursor
+      const hasMore = res.data.hasMore === true && pageEnd !== pageCursor
+      pageCursor = pageEnd
+      if (!hasMore) {
+        return { ids, nextCursor: pageCursor, stale: false, capped: false }
+      }
     }
-    return {
-      ids: res.data.turns.flatMap((turn) => turn.messages.map((message) => message.id)),
-      nextCursor: res.data.prevCursor ?? cursor,
-      stale: false,
-    }
+    // 页预算耗尽仍有更多:水位停在最后一页读到的位置(已读页不丢),如实标 capped
+    return { ids, nextCursor: pageCursor, stale: false, capped: true }
   } catch {
     return null
   }
@@ -409,9 +426,17 @@ export function useConversationBroadcastSync(): {
         // 第二半:本地 rev 账本里根本没有的「断线期全新消息」。用会话级 history 水位取
         // 增量 ids,再由 planChatSyncReconnectNewMessages 集合差出未知坐标,喂同一个
         // resync 编排。无水位 / 请求失败 ⇒ 静默降级到第一半,不冒充已对齐。
-        const cursor = historyCursorRef.current
-        if (!cursor) return
         void (async () => {
+          // 建立水位那一次若在途失败(cursor 仍 null),重连时懒重试一次 —— 此前一次性
+          // 失败会冻结整个会话的后续重连,第二半永远空跑(探查 2026-11-24 实证)。
+          let cursor = historyCursorRef.current
+          if (!cursor) {
+            cursor = await anchorHistoryWatermark(id, () => cancelled)
+            if (cancelled) return
+            if (cursor) historyCursorRef.current = cursor
+          }
+          if (!cursor) return
+
           const delta = await fetchReconnectNewMessageIds(id, cursor, () => cancelled)
           if (cancelled || !delta) return
           if (delta.stale) {
@@ -420,20 +445,34 @@ export function useConversationBroadcastSync(): {
             historyCursorRef.current = await anchorHistoryWatermark(id, () => cancelled)
             return
           }
-          historyCursorRef.current = delta.nextCursor
-          if (delta.ids.length === 0) return
+          // 无新消息 / 全部本地已知:没有 resync 要发,水位确认到本页尾即可。
+          // capped=true 表示页预算触顶但已读页的 ids 都拿到了,水位推进到已读页尾,
+          // 下轮重连从该点继续 —— 推进有据、但不冒充"已补齐"。
+          if (delta.ids.length === 0) {
+            historyCursorRef.current = delta.nextCursor
+            return
+          }
           const fresh = useChatStore.getState().chatSync
           const newPlan = planChatSyncReconnectNewMessages({
             state: fresh,
             conversationId: id,
             candidateMessageIds: delta.ids,
           })
-          if (!newPlan.needed) return
-          void resyncChatSyncGaps({
+          if (!newPlan.needed) {
+            historyCursorRef.current = delta.nextCursor
+            return
+          }
+          // 水位推进的唯一时机 = resync 真成功之后。此前先写水位再 fire-and-forget,
+          // 快照一旦失败/重试耗尽,这些新消息的坐标已被水位越过 ⇒ 永久漏(下轮从页尾
+          // 之后开始)。现在 failed>0 时保留旧水位,下轮幂等重取;dropped(404/409 已删)
+          // 不算失败,可推进;取消则整批让路。
+          const outcome = await resyncChatSyncGaps({
             conversationId: id,
             messageIds: newPlan.requests.map((r) => r.messageId),
             isCancelled: () => cancelled,
           })
+          if (cancelled || outcome.failed > 0) return
+          historyCursorRef.current = delta.nextCursor
         })()
       },
     })

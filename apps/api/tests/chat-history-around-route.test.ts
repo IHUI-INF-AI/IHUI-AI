@@ -270,4 +270,104 @@ describe('GET /conversations/:id/history?around=(差距⑤ 居中窗口)', () =>
     })
   })
 })
+
+/**
+ * 2026-11-24:普通分页分支的 `prevCursor` 死代码修复。
+ *
+ * 此前只有 around 分支回 prevCursor,而断线补增量消息走的是普通分页 —— web hook
+ * 读 `res.data.prevCursor` 恒 null,第二半「断线全新消息」补拉永远是降级空跑。
+ * 这里钉死:普通分页(newest / newer / stale)都必须回 prevCursor(页内最大轮,
+ * 与 around 的 afterCursor 同口径),否则 web 侧测试 mock 自造字段的假绿会重现。
+ */
+describe('GET /conversations/:id/history(普通分页) — prevCursor 反向断点', () => {
+  let server: Awaited<ReturnType<typeof Fastify>>
+  beforeAll(async () => {
+    const app = Fastify()
+    await app.register(chatRoutes)
+    await app.ready()
+    server = app
+  })
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('newest 单轮:hasMore=false 也回 prevCursor=该轮(锚点不能因末页而缺)', async () => {
+    authAsOwner()
+    mockFindHistoryTurnPage.mockResolvedValueOnce({
+      turns: [{ turnOrdinal: 7, messages: [mockMsg(1, 7)] }],
+      nextCursor: null,
+      hasMore: false,
+      cursorState: { status: 'ok' as const },
+    })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/conversations/${CONV_ID}/history`,
+      query: { direction: 'newest', limit: '1' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.prevCursor).toBe(b64(7))
+  })
+
+  it('newest 多轮:prevCursor 取页内最大轮(turns 升序,at(-1)),不是 nextCursor 的最小轮', async () => {
+    authAsOwner()
+    mockFindHistoryTurnPage.mockResolvedValueOnce({
+      turns: [
+        { turnOrdinal: 3, messages: [mockMsg(1, 3)] },
+        { turnOrdinal: 7, messages: [mockMsg(2, 7)] },
+        { turnOrdinal: 9, messages: [mockMsg(3, 9)] },
+      ],
+      nextCursor: { turnOrdinal: 3 },
+      hasMore: true,
+      cursorState: { status: 'ok' as const },
+    })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/conversations/${CONV_ID}/history`,
+      query: { direction: 'newest', limit: '3' },
+    })
+    expect(res.statusCode).toBe(200)
+    const data = res.json().data
+    expect(data.nextCursor).toBe(b64(3))
+    expect(data.prevCursor).toBe(b64(9))
+  })
+
+  it('newer 续读:prevCursor=页内最大轮,可作下一页 cursor 透明回传', async () => {
+    authAsOwner()
+    mockFindHistoryTurnPage.mockResolvedValueOnce({
+      turns: [
+        { turnOrdinal: 11, messages: [mockMsg(1, 11)] },
+        { turnOrdinal: 12, messages: [mockMsg(2, 12)] },
+      ],
+      nextCursor: { turnOrdinal: 12 },
+      hasMore: true,
+      cursorState: { status: 'ok' as const },
+    })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/conversations/${CONV_ID}/history`,
+      query: { direction: 'newer', cursor: b64(10), limit: '2' },
+    })
+    expect(res.statusCode).toBe(200)
+    const data = res.json().data
+    expect(data.prevCursor).toBe(b64(12))
+    expect(data.nextCursor).toBe(b64(12))
+  })
+
+  it('stale 空页:prevCursor=null(半真窗口不发明断点,交给客户端整段重锚)', async () => {
+    authAsOwner()
+    mockFindHistoryTurnPage.mockResolvedValueOnce({
+      turns: [],
+      nextCursor: null,
+      hasMore: false,
+      cursorState: { status: 'stale', reason: 'anchor-missing' },
+    })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/conversations/${CONV_ID}/history`,
+      query: { direction: 'newer', cursor: b64(10), limit: '2' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.prevCursor).toBeNull()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

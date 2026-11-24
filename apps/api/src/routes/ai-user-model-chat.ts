@@ -11,6 +11,10 @@ import { recordAiCost } from '../plugins/ai-cost.js'
 import { success, error } from '../utils/response.js'
 import { zhsAiUserModelChatConfig, zhsAiUserModelChatHistory } from '@ihui/database'
 import { chatConversations, chatConversationGroups, chatMessages } from '@ihui/database'
+// D35:本路由的小程序会话同步是绕过 service 的 chat_messages 直插 —— turn_ordinal 必须
+// 走唯一语义出口 withTurnOrdinals(与 conversation-import 同款),否则行对 turn 分片端点
+// 不可见(见 apps/api/tests/chat-messages-insert-paths.test.ts 的静态判据)。
+import { withTurnOrdinals } from '../services/turn-ordinal.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 import { maskKey } from './v1-shared.js'
 import { safeFetch, assertSafeFetchUrl } from '../utils/ssrf-guard.js'
@@ -613,7 +617,20 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
             rows.push({ conversationId: newConvId, role: 'assistant', content: replyContent })
           }
           if (rows.length > 0) {
-            await db.insert(chatMessages).values(rows).onConflictDoNothing()
+            // withTurnOrdinals 按写入顺序算 user 开新轮 / assistant 沿用当前轮,值块里
+            // 必须字面出现 turnOrdinal 标识(静态判据剥注释后匹配,不能靠函数名冒充)。
+            const orderedRows = withTurnOrdinals(rows)
+            await db
+              .insert(chatMessages)
+              .values(
+                orderedRows.map((row) => ({
+                  conversationId: row.conversationId,
+                  role: row.role,
+                  content: row.content,
+                  turnOrdinal: row.turnOrdinal,
+                })),
+              )
+              .onConflictDoNothing()
           }
         }
       } catch (err) {
