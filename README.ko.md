@@ -2227,6 +2227,16 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-24**
+- 🔧 기타:prod 外来改动 v3 快照入库(9 文件 zip 103103B + MANIFEST 逐条 sha256;2GB .git-broken/退役回滚目录/两枚凭据探测脚本按体积与敏感性移存仓外 D:\DevEnv\ihui-prod-orphans-20261124c) (b3ea0ff2af)
+- 🔧 기타:恢复 a8845a4aca 误删的 23728 个文件(索引未 checkout 导致整树清空),并带上 workspace-anchor 的净面/服务账户修正;恢复面 = f42867da24 原树 + 该文件改动 (e4a946b41a)
+- 🐞 수정:导出面/服务账户不再把锚点安装判死 —— 非 git 工作树直接跳过(exit 0),缺 Startup 目录跳过而非 fail;--verify 仍 exit 2 未判定。根因:净面 postinstall 链尾调用本脚本在 SYSTEM 下 exit 2 ⇒ 净面 install 失败 ⇒ 部署回退共享工作树 ⇒ type check 撞在飞代码(2026-11-24 实测) (a8845a4aca)
+- 🐞 수정:用户OAuth回调地址按平台解析——凭据extra→平台env→通用env→站点默认;修生产未配FEISHU_REDIRECT_URI致authorize恒400;authorize/callback同源防拒换code;+4测试(27全绿)+两处变异验证 (a8896c2903)
+- 🚀 기능/개선:把本机五程序取证结论转成五项可验证强化 (e0a23e0309)
+- 🐞 수정:/UPDATE 硬闸覆盖 .bak/.tmp/launcher 标记，E2E 清理句柄 (eba918dac5)
+- 🐞 수정:号池/直连双引擎所有权仲裁,禁止 Python 引擎删除 relay 自动登记模型 (5f060ea9bd)
+- 🐞 수정:报销审批人池剔除本人 + 票据上传返回形状对齐 (1650611e80)
+- 🐞 수정:报销审批人池剔除本人 + 票据上传返回形状对齐 (87fa9140fd)
+- 🐞 수정:lessons_difficulty 迁移补真水印载荷(clean+inject:PLACEHOLDER 残迹->可解码载荷,sha 5b972273),语义按远端版保留 COMMENT ON COLUMN;账本 hash 同步为该值 (2364914c28)
 - 🔧 기타:构建前强制校验 NSIS 模板/补丁一致性 (c8a342e32f)
 - 🐞 수정:WebView2 失败路径静默退出 6，交互只提示一次 (4cdc0eb545)
 - 🔧 기타:v2 版本语义/300MB 上限/URL/签名结构判据 (d929ade27e)
