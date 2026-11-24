@@ -132,12 +132,20 @@ export async function loadExpenseApproverRoster(
     return { candidates: [], defaultChain: [], warnings: ['no-approver'] }
   }
 
-  const activeRows = await db
+  const activeAll = await db
     .select({ id: users.id, nickname: users.nickname, username: users.username })
     .from(users)
     .where(and(inArray(users.id, allIds), eq(users.status, 1)))
+  /**
+   * 2026-11-24 真库验证修正:此前只在默认链里排除本人,candidates 仍把自己回给页面
+   * ⇒ 页面上"自己"是一枚可点的审批人,点下去提交后才被 EXPENSE_SELF_APPROVAL 挡回。
+   * 反自批要前移到候选池:本人不进 candidates,只留一条 self-excluded 说明。
+   */
+  const selfInPool = selfUserId ? activeAll.some((r) => r.id === selfUserId) : false
+  const baseWarnings = selfInPool ? ['self-excluded'] : []
+  const activeRows = selfUserId ? activeAll.filter((r) => r.id !== selfUserId) : activeAll
   if (activeRows.length === 0) {
-    return { candidates: [], defaultChain: [], warnings: ['no-approver'] }
+    return { candidates: [], defaultChain: [], warnings: [...baseWarnings, 'no-approver'] }
   }
 
   const names = await expenseApproverNames(activeRows.map((r) => r.id))
@@ -146,8 +154,10 @@ export async function loadExpenseApproverRoster(
     name: names[u.id] ?? u.nickname ?? u.username ?? u.id.slice(0, 8),
     source: permIds.has(u.id) ? 'finance' : 'admin',
   }))
-  const chain = buildExpenseApproverChain(candidates, selfUserId, 1)
-  return { candidates, defaultChain: chain.userIds, warnings: chain.warnings }
+  // 本人已在上面剔出,纯核这里不再传 selfUserId(否则会重复记一条 self-excluded)
+  const chain = buildExpenseApproverChain(candidates, null, 1)
+  const warnings = [...new Set([...baseWarnings, ...chain.warnings])]
+  return { candidates, defaultChain: chain.userIds, warnings }
 }
 
 /**

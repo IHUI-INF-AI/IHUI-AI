@@ -88,11 +88,25 @@ export function ClaimForm({ roster, onSubmitted }: { roster?: Roster; onSubmitte
       for (const file of Array.from(files)) {
         const form = new FormData()
         form.append('file', file)
-        const up = await api<{ id: string; name: string; path: string; sha256?: string }>(
-          '/api/files/upload/form',
-          { method: 'POST', body: form },
-        )
-        added.push({ fileId: up.id, name: up.name ?? file.name, url: up.path, sha256: up.sha256 })
+        /**
+         * 2026-11-24 真库实测修正:POST /api/files/upload/form 回的是
+         * `{ file: { id, name, size, mimeType, path, uploadedBy } }`(files.ts:299),
+         * 不是扁平对象、也没有 sha256 —— 按扁平读时 `up.id` 恒为 undefined,
+         * 提交被 zod 判 "expected string, received undefined"。两种形状都接住。
+         */
+        type Uploaded = { id: string; name?: string; path: string; sha256?: string }
+        const up = await api<Uploaded & { file?: Uploaded }>('/api/files/upload/form', {
+          method: 'POST',
+          body: form,
+        })
+        const meta = up.file ?? up
+        if (!meta?.id || !meta.path) throw new Error(`${file.name}: 上传返回缺少文件标识`)
+        added.push({
+          fileId: meta.id,
+          name: meta.name ?? file.name,
+          url: meta.path,
+          sha256: meta.sha256,
+        })
       }
     } catch (e) {
       toast.error((e as Error).message)
