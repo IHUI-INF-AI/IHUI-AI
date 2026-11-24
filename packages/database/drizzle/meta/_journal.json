@@ -3201,6 +3201,34 @@
       "when": 1795496400000,
       "tag": "20261124180000_ai_model_chat_history_archived",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 461,
+      "when": 1795417200000,
+      "tag": "20261123170000_fin_filing_return",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 462,
+      "when": 1795489054875,
+      "tag": "0456_fin_gap_close",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 463,
+      "when": 1795490031597,
+      "tag": "0457_hr_gap_close",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 464,
+      "when": 1795497000000,
+      "tag": "20261124200000_fin_fixed_assets",
+      "breakpoints": true
     }
   ]
 }

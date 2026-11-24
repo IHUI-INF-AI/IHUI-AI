@@ -705,4 +705,57 @@ export type FinVoucherAttachment = typeof finVoucherAttachment.$inferSelect
 export type NewFinVoucherAttachment = typeof finVoucherAttachment.$inferInsert
 export type FinYearEnd = typeof finYearEnd.$inferSelect
 export type NewFinYearEnd = typeof finYearEnd.$inferInsert
+
+/**
+ * 固定资产卡片(2026-11-24 补口)。
+ *
+ * 此前"折旧"只是一条分录模板:没有资产卡片,月折旧全靠人手写凭证,代账最容易被问的
+ * "台账在哪里"拿不出来。本表只存卡片事实(原值/开始期/使用寿命/残值率/费用科目),
+ * 月折旧额由 fixed-asset-service 按直线法现算并以凭证入账(幂等按批次 sourceRef)。
+ */
+export const finFixedAsset = pgTable(
+  'fin_fixed_asset',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    ledgerId: uuid('ledger_id')
+      .notNull()
+      .references(() => finLedger.id, { onDelete: 'cascade' }),
+    /** 资产编号(账套内唯一,如 GD-2026-001) */
+    code: varchar('code', { length: 40 }).notNull(),
+    name: varchar('name', { length: 200 }).notNull(),
+    /** 类别仅做台账展示口径,不做判据 */
+    category: varchar('category', { length: 40 }).default('other').notNull(),
+    originalCost: numeric('original_cost', { precision: 16, scale: 2 }).notNull(),
+    /** 开始计提期间 YYYY-MM(当月即计提) */
+    startPeriod: varchar('start_period', { length: 7 }).notNull(),
+    /** 预计使用月数 */
+    usefulMonths: integer('useful_months').notNull(),
+    /** 残值率 0~0.2 小数(如 5% = 0.05) */
+    salvageRate: numeric('salvage_rate', { precision: 6, scale: 4 }).default('0.0500').notNull(),
+    /** 折旧费用借方科目(默认 5502 管理费用,生产用设备可挂 5101 制造费用等) */
+    expenseAccountCode: varchar('expense_account_code', { length: 16 }).default('5502').notNull(),
+    /** 累计折旧贷方科目,固定走 1602,留字段只为口径显式 */
+    depreciationAccountCode: varchar('depreciation_account_code', { length: 16 })
+      .default('1602')
+      .notNull(),
+    /** active=在用 / disposed=已处置 */
+    status: varchar('status', { length: 20 }).default('active').notNull(),
+    /** 处置生效期间(该期间起不再计提) */
+    disposalPeriod: varchar('disposal_period', { length: 7 }),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => ({
+    codeUq: uniqueIndex('uq_fin_fixed_asset_ledger_code')
+      .on(t.ledgerId, t.code)
+      .where(sql`${t.deletedAt} IS NULL`),
+    ledgerIdx: index('ix_fin_fixed_asset_ledger').on(t.ledgerId, t.status),
+  }),
+)
+
+export type FinFixedAsset = typeof finFixedAsset.$inferSelect
+export type NewFinFixedAsset = typeof finFixedAsset.$inferInsert
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

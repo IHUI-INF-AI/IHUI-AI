@@ -62,6 +62,7 @@ author: IHUI-AI
 - 银行流水导出 → 银行流水对账（`finance_ledger_ops`）。
 - 社保/公积金增减员：先读 `hr_gap_ops social.list`（台账 `hr_social_insurance_change`），平台报完用 `social.submit` 回填 `platformRef`，受理后用 `social.accepted`；退回用 `social.failed` 写原因。
 - 申报回执：把受理号/截图路径写回任务备注；没有回执一律 `receipt_missing`，不得宣称“已申报成功”。
+- 账→表取数已打通确定性链路：`finance_tax_ops` 的 `filing.task.derive` / `filing.deriveBulk`（VAT/附加/印花/企所从账票推导；IIT 从**已批准工资批次**回流，未批工资直接 fail-closed）。月折旧走 `finance_ledger_ops` 的 `asset.depreciationPreview`→`asset.depreciate`（批次幂等），到期提醒由每日 job 自动发站内信，可用 `filing.remindNow` 手动补跑。
 
 ## 失败与续跑
 

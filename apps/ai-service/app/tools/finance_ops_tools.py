@@ -58,6 +58,16 @@ FINANCE_LEDGER_ROUTES: dict[str, tuple[str, str]] = {
     "period.yearEnd": ("POST", "/api/fin-accounting/ledgers/:id/year-end"),
     "period.yearEnds": ("GET", "/api/fin-accounting/ledgers/:id/year-ends"),
     "period.list": ("GET", "/api/fin-accounting/ledgers/:id/periods"),
+    "period.closeBulk": ("POST", "/api/fin-accounting/bulk/close-period"),
+    "asset.list": ("GET", "/api/fin-accounting/ledgers/:id/assets"),
+    "asset.summary": ("GET", "/api/fin-accounting/ledgers/:id/assets/summary"),
+    "asset.create": ("POST", "/api/fin-accounting/ledgers/:id/assets"),
+    "asset.get": ("GET", "/api/fin-accounting/assets/:assetId"),
+    "asset.update": ("PATCH", "/api/fin-accounting/assets/:assetId"),
+    "asset.dispose": ("POST", "/api/fin-accounting/assets/:assetId/dispose"),
+    "asset.depreciationPreview": ("GET", "/api/fin-accounting/ledgers/:id/assets/depreciation-preview"),
+    "asset.depreciate": ("POST", "/api/fin-accounting/ledgers/:id/assets/depreciate"),
+    "report.auxLedger": ("GET", "/api/fin-accounting/ledgers/:id/aux-report"),
     "attachment.list": ("GET", "/api/fin-accounting/vouchers/:id/attachments"),
     "attachment.add": ("POST", "/api/fin-accounting/vouchers/:id/attachments"),
     "attachment.remove": ("DELETE", "/api/fin-accounting/vouchers/:id/attachments/:attachmentId"),
@@ -99,6 +109,8 @@ FINANCE_TAX_ROUTES: dict[str, tuple[str, str]] = {
     "filing.task.derive": ("POST", "/api/fin-accounting/filing-tasks/:id/derive"),
     "filing.deadlines": ("GET", "/api/fin-accounting/filing/deadlines"),
     "filing.summary": ("GET", "/api/fin-accounting/filing/summary"),
+    "filing.deriveBulk": ("POST", "/api/fin-accounting/filing-tasks/bulk-derive"),
+    "filing.remindNow": ("POST", "/api/fin-accounting/filing/deadlines/remind"),
 }
 
 FINANCE_LEDGER_DESCRIPTION = (

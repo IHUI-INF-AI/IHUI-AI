@@ -58,6 +58,7 @@ import {
 import { startImageTaskWorker, stopImageTaskWorker } from './workers/image-task-worker.js'
 import { startBackupCronScheduler, stopBackupCronScheduler } from './jobs/backup-jobs-cron.js'
 import { startHrJobsScheduler, stopHrJobsScheduler } from './jobs/hr-jobs-cron.js'
+import { startFinFilingCronScheduler, stopFinFilingCronScheduler } from './jobs/fin-filing-cron.js'
 import {
   startHrApprovalEscalationScheduler,
   stopHrApprovalEscalationScheduler,
@@ -339,6 +340,9 @@ function startBackgroundSchedulers(server: Awaited<ReturnType<typeof buildServer
   // 启动人事定时任务调度(HR-1,2026-11-11 立:每日补缺勤/每日异常汇总/每月部门统计;ENABLE_HR_JOBS=false 禁用)
   startHrJobsScheduler()
 
+  // 启动申报到期提醒调度(2026-11-24 立:每日 09:05 扫临期/逾期任务发站内信,按任务×业务日幂等;ENABLE_FIN_JOBS=false 禁用)
+  startFinFilingCronScheduler()
+
   // 启动审批超时升级调度(HR-3,2026-11-11 立:每 30 分钟扫 due_at 过期实例升级;ENABLE_HR_APPROVAL_ESCALATION=false 禁用)
   startHrApprovalEscalationScheduler()
 
@@ -474,6 +478,7 @@ async function start() {
       syncStopPhase('stopImageTaskWorker', stopImageTaskWorker),
       syncStopPhase('stopBackupCronScheduler', stopBackupCronScheduler),
       syncStopPhase('stopHrJobsScheduler', stopHrJobsScheduler),
+      syncStopPhase('stopFinFilingCronScheduler', stopFinFilingCronScheduler),
       syncStopPhase('stopHrApprovalEscalationScheduler', stopHrApprovalEscalationScheduler),
       syncStopPhase('stopAiTaskCronScheduler', stopAiTaskCronScheduler),
       syncStopPhase('stopPricingGuardScheduler', stopPricingGuardScheduler),

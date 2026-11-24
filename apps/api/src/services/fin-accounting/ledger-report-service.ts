@@ -13,7 +13,7 @@
  * 结果里带 method='direct_simplified' 与 warnings,前端必须原样展示口径说明。
  */
 
-import { and, asc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm'
 
 import { db } from '../../db/index.js'
 import { finAccount, finLedger, finVoucher, finVoucherLine } from '@ihui/database'
@@ -396,4 +396,93 @@ export async function getCashFlowStatement(ledgerId: string, period: string) {
     warnings,
   }
 }
+
+/** 辅助核算维度封闭集(与科目模板 aux 词族、凭证录入校验同源;新增维度需三处同批)。 */
+export const AUX_DIMS = ['customer', 'employee', 'department', 'project'] as const
+export type AuxDim = (typeof AUX_DIMS)[number]
+
+/**
+ * 辅助核算汇总(纯核,测试单钉):同一 value 的借/贷以分累加,净额 = 借 - 贷。
+ * 借贷方向语义与科目无关(展示层按科目方向定"余额方向")。
+ */
+export function aggregateAuxRows(
+  rows: ReadonlyArray<{ value: string; direction: 'debit' | 'credit'; cents: number }>,
+): Array<{ value: string; debit: number; credit: number; net: number }> {
+  const byValue = new Map<string, { debit: number; credit: number }>()
+  for (const r of rows) {
+    const cur = byValue.get(r.value) ?? { debit: 0, credit: 0 }
+    if (r.direction === 'debit') cur.debit += r.cents
+    else cur.credit += r.cents
+    byValue.set(r.value, cur)
+  }
+  return [...byValue.entries()]
+    .map(([value, v]) => ({ value, debit: v.debit, credit: v.credit, net: v.debit - v.credit }))
+    .sort((a, b) => Math.abs(b.net) - Math.abs(a.net))
+}
+
+/**
+ * 辅助核算明细账/汇总表:一段期间已过账分录按维度值聚合。
+ * 报表口径说明:净额按"借-贷"原样给出,不代表科目性质余额(应收应付方向由使用者按科目判断)。
+ */
+export async function getAuxiliaryBalances(
+  ledgerId: string,
+  dim: string,
+  periodFrom: string,
+  periodTo: string,
+) {
+  await loadLedger(ledgerId)
+  periodBounds(periodFrom, periodTo)
+  if (!AUX_DIMS.includes(dim as AuxDim)) {
+    throw new AppError(`dim 必须是 ${AUX_DIMS.join('/')} 之一`, 400, 'FIN_AUX_DIM_INVALID')
+  }
+  const raw = await db
+    .select({
+      value: sql<string>`${finVoucherLine.aux} ->> ${dim}`,
+      direction: finVoucherLine.direction,
+      amount: finVoucherLine.amount,
+      accountCode: finVoucherLine.accountCode,
+      accountName: finVoucherLine.accountName,
+    })
+    .from(finVoucherLine)
+    .innerJoin(finVoucher, eq(finVoucherLine.voucherId, finVoucher.id))
+    .where(
+      and(
+        eq(finVoucher.ledgerId, ledgerId),
+        eq(finVoucher.status, 'posted'),
+        isNull(finVoucher.deletedAt),
+        gte(finVoucher.period, periodFrom),
+        lte(finVoucher.period, periodTo),
+        sql`${finVoucherLine.aux} ? ${dim}`,
+      ),
+    )
+  const agg = aggregateAuxRows(
+    raw
+      .filter((r) => r.value !== null && r.value !== '')
+      .map((r) => ({
+        value: r.value as string,
+        direction: r.direction as 'debit' | 'credit',
+        cents: toCents(r.amount),
+      })),
+  )
+  const accountSet = new Map<string, string>()
+  for (const r of raw) {
+    if (!accountSet.has(r.accountCode)) accountSet.set(r.accountCode, r.accountName)
+  }
+  const out = agg.map((a) => ({
+    value: a.value,
+    debit: fromCents(a.debit),
+    credit: fromCents(a.credit),
+    net: fromCents(a.net),
+  }))
+  return {
+    ledgerId,
+    dim,
+    periodFrom,
+    periodTo,
+    accounts: [...accountSet.entries()].map(([code, name]) => ({ code, name })),
+    rows: out,
+    note: '净额=借-贷(分口径汇总);展示时请结合科目方向理解余额性质',
+  }
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

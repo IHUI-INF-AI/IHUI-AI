@@ -17,7 +17,15 @@
 import { and, eq, gte, isNull, lte } from 'drizzle-orm'
 
 import { db } from '../../db/index.js'
-import { finClient, finFilingTask, finInvoice, finLedger, finTaxProfile } from '@ihui/database'
+import {
+  finClient,
+  finFilingTask,
+  finInvoice,
+  finLedger,
+  finTaxProfile,
+  hrPayrollItem,
+  hrPayrollPeriod,
+} from '@ihui/database'
 import { AppError } from '../../errors/AppError.js'
 import { fromCents, toCents } from './money.js'
 import { buildIncomeStatement, computeTrialBalance } from './balance-service.js'
@@ -281,6 +289,58 @@ async function deriveCit(
 }
 
 /**
+ * 个税(IIT)从 HR 工资批次确定性回流(2026-11-24 二波,补 P1#5 末段串联)。
+ * 口径:只认 status = approved/paid 的当期批次(未批工资不算税 base);
+ * 应纳税额 = 逐人 incomeTax(累计预扣法在算薪引擎已实现,这里只做汇总,不复算税率表)。
+ * 纯聚合函数单测钉死;没有已批批次 ⇒ fail-closed,指回算薪链路而不猜数。
+ */
+export function sumPayrollTaxRows(
+  rows: ReadonlyArray<{ taxableIncome: string; incomeTax: string }>,
+): { baseCents: number; taxCents: number; headcount: number } {
+  let baseCents = 0
+  let taxCents = 0
+  for (const r of rows) {
+    baseCents += toCents(r.taxableIncome)
+    taxCents += toCents(r.incomeTax)
+  }
+  return { baseCents, taxCents, headcount: rows.length }
+}
+
+async function deriveIit(period: string) {
+  const [periodRow] = await db
+    .select()
+    .from(hrPayrollPeriod)
+    .where(eq(hrPayrollPeriod.periodMonth, period))
+  if (!periodRow || (periodRow.status !== 'approved' && periodRow.status !== 'paid')) {
+    throw new AppError(
+      `个税取数需要 ${period} 的工资批次处于已批准/已发放状态(当前:${periodRow ? periodRow.status : '无批次'});请先跑完算薪与复核再取数`,
+      409,
+      'FIN_DERIVE_IIT_NO_PAYROLL',
+    )
+  }
+  const rows = await db
+    .select({
+      taxableIncome: hrPayrollItem.taxableIncome,
+      incomeTax: hrPayrollItem.incomeTax,
+      employeeId: hrPayrollItem.employeeId,
+    })
+    .from(hrPayrollItem)
+    .where(eq(hrPayrollItem.periodId, periodRow.id))
+  const agg = sumPayrollTaxRows(rows)
+  if (agg.headcount === 0) {
+    throw new AppError(`${period} 工资批次已批准但没有明细行,无法取数`, 409, 'FIN_DERIVE_IIT_EMPTY')
+  }
+  return {
+    taxableBase: fromCents(Math.max(0, agg.baseCents)),
+    taxAmount: fromCents(Math.max(0, agg.taxCents)),
+    sources: [`HR 工资批次 ${period}(${periodRow.status})共 ${agg.headcount} 人,计税依据/税额逐人汇总`],
+    warnings: [
+      '汇总数与扣缴端明细可能有个别差异(离职补发/更正申报),正式提交前按人比对;申报提交仍须人工点提交闸',
+    ],
+  }
+}
+
+/**
  * 给申报任务取数(幂等:可反复跑,每次按当前账/票重算)。
  * 已提交/已受理的任务拒绝重算 —— 否则会把"已经报出去的数"改掉。
  */
@@ -301,11 +361,14 @@ export async function deriveFilingTask(taskId: string, _userId?: string | null) 
   if (!profile) throw new AppError('税种核定不存在', 404, 'FIN_TAX_PROFILE_NOT_FOUND')
   const [client] = await db.select().from(finClient).where(eq(finClient.id, task.clientId))
   if (!client) throw new AppError('客户不存在', 404, 'FIN_CLIENT_NOT_FOUND')
-  if (!task.ledgerId) {
+  // IIT 从 HR 工资批次回流,不依赖账套;其余税种的取数器都要账套
+  if (!task.ledgerId && task.taxType !== 'IIT') {
     throw new AppError('申报任务未绑定账套,无法取数(先 bind-ledger)', 409, 'FIN_DERIVE_NO_LEDGER')
   }
-  const [ledger] = await db.select().from(finLedger).where(eq(finLedger.id, task.ledgerId))
-  if (!ledger) throw new AppError('账套不存在', 404, 'FIN_LEDGER_NOT_FOUND')
+  if (task.ledgerId) {
+    const [ledger] = await db.select().from(finLedger).where(eq(finLedger.id, task.ledgerId))
+    if (!ledger) throw new AppError('账套不存在', 404, 'FIN_LEDGER_NOT_FOUND')
+  }
 
   const info = parsePeriod(task.period)
   const taxpayerType = (profile.taxpayerType ?? client.taxpayerType) as 'general' | 'small'
@@ -321,7 +384,7 @@ export async function deriveFilingTask(taskId: string, _userId?: string | null) 
 
   switch (task.taxType) {
     case 'VAT': {
-      const r = await deriveVat(task.ledgerId, info, taxpayerType, rate, profile.filingCycle)
+      const r = await deriveVat(task.ledgerId!, info, taxpayerType, rate, profile.filingCycle)
       result = {
         taxableBase: r.taxableBase,
         taxAmount: r.taxAmount,
@@ -336,13 +399,13 @@ export async function deriveFilingTask(taskId: string, _userId?: string | null) 
       break
     }
     case 'STAMP': {
-      const r = await deriveStamp(task.ledgerId, info, taxpayerType, rate)
+      const r = await deriveStamp(task.ledgerId!, info, taxpayerType, rate)
       result = r
       break
     }
     case 'CIT': {
       const r = await deriveCit(
-        task.ledgerId,
+        task.ledgerId!,
         info,
         profile.collectionMethod,
         taxpayerType,
@@ -352,12 +415,12 @@ export async function deriveFilingTask(taskId: string, _userId?: string | null) 
       result = r
       break
     }
-    case 'IIT':
-      throw new AppError(
-        '个税申报需要扣缴端数据(自然人电子税务局),本系统未接扣缴端;请在薪资域生成工资表或手工填入任务',
-        409,
-        'FIN_DERIVE_IIT_UNSUPPORTED',
-      )
+    case 'IIT': {
+      const r = await deriveIit(task.period)
+      result = r
+      break
+    }
+
     default:
       throw new AppError(
         `${task.taxType} 暂无确定性取数器(房产税/土地使用税/车船税/消费税/文化事业费按台账或手工填)`,
@@ -383,7 +446,7 @@ export async function deriveFilingTask(taskId: string, _userId?: string | null) 
       ...result,
       period: task.period,
       taxType: task.taxType,
-      ledgerId: task.ledgerId,
+      ledgerId: task.ledgerId ?? null,
       computedAt: new Date().toISOString(),
     },
   }

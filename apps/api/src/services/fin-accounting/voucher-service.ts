@@ -34,14 +34,14 @@ export interface VoucherInput {
   period: string
   voucherDate: string
   summary?: string | undefined
-  source?: 'manual' | 'auto' | 'import' | 'payroll' | 'closing' | 'reverse' | undefined
+  source?: 'manual' | 'auto' | 'import' | 'payroll' | 'closing' | 'reverse' | 'asset-dep' | undefined
   sourceRef?: string | undefined
   post?: boolean | undefined
   lines: VoucherLineInput[]
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-const VOUCHER_SOURCES = ['manual', 'auto', 'import', 'payroll', 'closing', 'reverse'] as const
+const VOUCHER_SOURCES = ['manual', 'auto', 'import', 'payroll', 'closing', 'reverse', 'asset-dep'] as const
 
 async function assertPeriodOpen(ledgerId: string, period: string): Promise<void> {
   assertPeriod(period, 'period')

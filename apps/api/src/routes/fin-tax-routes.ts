@@ -13,6 +13,8 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 
 import { requirePermission } from '../plugins/require-permission.js'
+import { AppError } from '../errors/AppError.js'
+import { success } from '../utils/response.js'
 import {
   bindLedger,
   deactivateTaxProfile,
@@ -46,6 +48,7 @@ import {
   taskApprovalProgress,
 } from '../services/fin-accounting/filing-return-service.js'
 import { deriveFilingTask } from '../services/fin-accounting/filing-derive-service.js'
+import { remindFilingDeadlinesNow } from '../services/fin-filing-watch.js'
 
 export const finTaxRoutes: FastifyPluginAsync = async (server) => {
   // ============================ 税种核定 ============================
@@ -237,6 +240,50 @@ export const finTaxRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       await guard(reply, () => deriveFilingTask(id, userIdOf(request)))
+    },
+  )
+
+  // 多客户批量取数:逐条独立成败,missedIds 是被拒清单(不回充成功数)
+  server.post(
+    '/filing-tasks/bulk-derive',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({ taskIds: z.array(z.string().uuid()).min(1).max(200) })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const results = await Promise.all(
+        parsed.data.taskIds.map(async (taskId) => {
+          try {
+            const r = await deriveFilingTask(taskId, userIdOf(request))
+            return {
+              taskId,
+              ok: true,
+              taxableBase: r.task.taxableBase,
+              taxAmount: r.task.taxAmount,
+            }
+          } catch (e) {
+            return {
+              taskId,
+              ok: false,
+              code: e instanceof AppError ? e.errorCode : 'UNKNOWN',
+              message: e instanceof Error ? e.message : String(e),
+            }
+          }
+        }),
+      )
+      const succeeded = results.filter((r) => r.ok).map((r) => r.taskId)
+      const missedIds = results.filter((r) => !r.ok).map((r) => r.taskId)
+      return success({ total: results.length, succeeded, missedIds, results })
+    },
+  )
+
+  // 到期提醒手动触发(与每日 09:05 cron 同幂等键;重复点不重发)
+  server.post(
+    '/filing/deadlines/remind',
+    { preHandler: requirePermission(MANAGE) },
+    async (_request, reply) => {
+      await guard(reply, () => remindFilingDeadlinesNow())
     },
   )
 

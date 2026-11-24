@@ -15,6 +15,8 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 
 import { requirePermission } from '../plugins/require-permission.js'
+import { AppError } from '../errors/AppError.js'
+import { success } from '../utils/response.js'
 import {
   archiveClient,
   createAccount,
@@ -86,6 +88,7 @@ import {
   getDetailLedger,
   getGeneralLedger,
   getJournal,
+  getAuxiliaryBalances,
 } from '../services/fin-accounting/ledger-report-service.js'
 import { closeYear, getYearEnd, listYearEnds } from '../services/fin-accounting/year-end-service.js'
 import {
@@ -94,6 +97,16 @@ import {
   removeVoucherAttachment,
 } from '../services/fin-accounting/voucher-attachment-service.js'
 import { verifyInvoice } from '../services/fin-accounting/invoice-verify-service.js'
+import {
+  assetSummary,
+  createAsset,
+  disposeAsset,
+  getAsset,
+  listAssets,
+  postPeriodDepreciation,
+  previewPeriodDepreciation,
+  updateAsset,
+} from '../services/fin-accounting/fixed-asset-service.js'
 
 // 共享 schema/helper 在 fin-accounting-shared.ts(拆自本文件的 99~236 行)
 import {
@@ -108,6 +121,7 @@ import {
   invoiceBody,
   ledgerBody,
   lineBody,
+  money,
   openingBody,
   statementBody,
   userIdOf,
@@ -520,7 +534,189 @@ export const finAccountingRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // ============================ 结账 ============================
+  // ============================ 辅助核算台账 ============================
+  server.get(
+    '/ledgers/:id/aux-report',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { dim?: string; periodFrom?: string; periodTo?: string }
+      const { id } = request.params as { id: string }
+      if (!q.dim || !q.periodFrom || !q.periodTo) {
+        return badRequest(reply, 'dim / periodFrom / periodTo 必填')
+      }
+      await guard(reply, () => getAuxiliaryBalances(id, q.dim!, q.periodFrom!, q.periodTo!))
+    },
+  )
+
+  // ============================ 固定资产台账与折旧 ============================
+  server.get(
+    '/ledgers/:id/assets',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { status?: string }
+      const { id } = request.params as { id: string }
+      const st = q.status === 'active' || q.status === 'disposed' ? q.status : undefined
+      await guard(reply, async () => {
+        const assets = await listAssets(id, st)
+        return { assets, count: assets.length }
+      })
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/assets/summary',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      await guard(reply, async () => {
+        const ledger = await getLedger(id)
+        return assetSummary(id, ledger.currentPeriod)
+      })
+    },
+  )
+
+  server.post(
+    '/ledgers/:id/assets',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          code: z.string().min(1).max(40),
+          name: z.string().min(1).max(200),
+          category: z.string().max(40).optional(),
+          originalCost: money,
+          startPeriod: PERIOD,
+          usefulMonths: z.number().int().min(1).max(600),
+          salvageRate: z.number().min(0).max(0.2).optional(),
+          expenseAccountCode: z.string().regex(/^\d{4,8}$/).optional(),
+          note: z.string().max(500).nullable().optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, async () => {
+        await getLedger(id)
+        return createAsset(
+          id,
+          {
+            ...parsed.data,
+            originalCost: String(parsed.data.originalCost),
+            salvageRate: parsed.data.salvageRate?.toFixed(4),
+          },
+          userIdOf(request),
+        )
+      })
+    },
+  )
+
+  server.get(
+    '/assets/:assetId',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const { assetId } = request.params as { assetId: string }
+      await guard(reply, () => getAsset(assetId))
+    },
+  )
+
+  server.patch(
+    '/assets/:assetId',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          name: z.string().min(1).max(200).optional(),
+          category: z.string().max(40).optional(),
+          originalCost: money.optional(),
+          startPeriod: PERIOD.optional(),
+          usefulMonths: z.number().int().min(1).max(600).optional(),
+          expenseAccountCode: z.string().regex(/^\d{4,8}$/).optional(),
+          note: z.string().max(500).nullable().optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { assetId } = request.params as { assetId: string }
+      const { originalCost, ...rest } = parsed.data
+      await guard(reply, () =>
+        updateAsset(assetId, originalCost === undefined ? rest : { ...rest, originalCost: String(originalCost) }),
+      )
+    },
+  )
+
+  server.post(
+    '/assets/:assetId/dispose',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z.object({ disposalPeriod: PERIOD }).safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { assetId } = request.params as { assetId: string }
+      await guard(reply, () => disposeAsset(assetId, parsed.data.disposalPeriod))
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/assets/depreciation-preview',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { period?: string }
+      const { id } = request.params as { id: string }
+      await guard(reply, async () =>
+        previewPeriodDepreciation(id, q.period ?? (await getLedger(id)).currentPeriod),
+      )
+    },
+  )
+
+  server.post(
+    '/ledgers/:id/assets/depreciate',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z.object({ period: PERIOD }).safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => postPeriodDepreciation(id, parsed.data.period, userIdOf(request)))
+    },
+  )
+
+  // ============================ 结账(批量编排入口) ============================
+  // 多客户逐条独立成败,一条失败不回滚其余;每条给出真值(成功 id / 错误码)。
+  server.post(
+    '/bulk/close-period',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          ledgerIds: z.array(z.string().uuid()).min(1).max(100),
+          period: PERIOD,
+        })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { ledgerIds, period } = parsed.data
+      const results = await Promise.all(
+        ledgerIds.map(async (ledgerId) => {
+          try {
+            const closed = await closePeriod(ledgerId, period, userIdOf(request))
+            let yearEnd = null
+            if (period.endsWith('-12')) {
+              yearEnd = await closeYear(ledgerId, Number(period.slice(0, 4)), userIdOf(request))
+            }
+            return { ledgerId, ok: true, closed, yearEnd }
+          } catch (e) {
+            return {
+              ledgerId,
+              ok: false,
+              code: e instanceof AppError ? e.errorCode : 'UNKNOWN',
+              message: e instanceof Error ? e.message : String(e),
+            }
+          }
+        }),
+      )
+      const succeeded = results.filter((r) => r.ok).map((r) => r.ledgerId)
+      const missedIds = results.filter((r) => !r.ok).map((r) => r.ledgerId)
+      return reply.send(
+        success({ period, total: results.length, succeeded, missedIds, results }),
+      )
+    },
+  )
+
   server.post(
     '/ledgers/:id/close',
     { preHandler: requirePermission(MANAGE) },
