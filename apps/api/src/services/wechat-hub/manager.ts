@@ -47,7 +47,12 @@ import { logger } from '../../utils/logger.js'
 import { runAnalysis } from './analysis-runner.js'
 import { BridgeAdapter } from './bridge-adapter.js'
 import { HUB_LOGGER, buildContext, createAdapter, loadRuntime } from './adapter-factory.js'
-import type { WechatAdapter, WechatInboundEvent, WechatSendOptions } from './types.js'
+import type {
+  WechatAdapter,
+  WechatBridgeArchiveRead,
+  WechatInboundEvent,
+  WechatSendOptions,
+} from './types.js'
 import { localRejected } from './types.js'
 import {
   BACKEND_CAPABILITIES,
@@ -452,6 +457,34 @@ export class WechatHubManager {
       result.ok ? undefined : (result.reason ?? undefined),
     )
     return result
+  }
+
+  /** 透传读桥本地归档；后端不支持或桥失败时返回 ok:false + 原因，不抛 500。 */
+  async readMomentArchive(
+    userId: string,
+    accountId: string,
+    limit: number,
+  ): Promise<WechatBridgeArchiveRead> {
+    await this.assertAccount(userId, accountId)
+    const adapter = this.adapters.get(accountId)
+    if (!adapter?.readMomentArchive) {
+      return {
+        ok: false,
+        total: 0,
+        moments: [],
+        reason: '当前后端不支持归档读取，请使用 bridge 后端',
+      }
+    }
+    try {
+      return await adapter.readMomentArchive(limit)
+    } catch (e) {
+      return {
+        ok: false,
+        total: 0,
+        moments: [],
+        reason: e instanceof Error ? e.message : '桥归档读取失败',
+      }
+    }
   }
 
   async analyze(

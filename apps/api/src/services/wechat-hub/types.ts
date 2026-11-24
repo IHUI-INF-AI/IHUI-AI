@@ -96,6 +96,14 @@ export interface WechatAdapterContext {
   logger: WechatHubLogger
 }
 
+/** 桥本地归档读取结果；适配器只做协议归一化，不做账号归属校验。 */
+export interface WechatBridgeArchiveRead {
+  ok: boolean
+  total: number
+  moments: Record<string, unknown>[]
+  reason: string | null
+}
+
 export interface WechatAdapter {
   readonly backend: WechatBackend
   /** 建立连接：iLink 生成二维码；bridge 探活；mock 直接 online */
@@ -117,6 +125,8 @@ export interface WechatAdapter {
     action: WechatBridgeAction,
     payload: Record<string, unknown>,
   ): Promise<WechatActionResult>
+  /** bridge 后端读本地归档 JSONL；iLink/mock 不实现。 */
+  readMomentArchive?(limit: number): Promise<WechatBridgeArchiveRead>
 }
 
 export function localRejected(reason: string, rejectedBy: string): WechatSendResult {

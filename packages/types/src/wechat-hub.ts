@@ -366,6 +366,27 @@ export interface WechatGroupMembersSyncResult {
   result: WechatActionResult
 }
 
+/**
+ * 朋友圈遍历终止原因。
+ *
+ * 必须区分清楚，不能把「抓到 30 页上限」当成失败：
+ *  - page-limit      达到 maxPages 上限，后面很可能还有数据
+ *  - scroll-stalled  滚轮没能改变页面（未定位到遮挡窗口）
+ *  - occluded        微信窗口被其它窗口遮挡，后台滚轮无效
+ *  - no-more-data    已经翻到朋友圈底部，确实没有更多
+ *  - no-content      页面抓到了，但 OCR 没识别到正文（图片动态等）
+ *  - error           驱动/截图/脚本失败
+ *  - unsupported     当前后端不支持朋友圈遍历
+ */
+export type WechatMomentStopReason =
+  | 'page-limit'
+  | 'scroll-stalled'
+  | 'occluded'
+  | 'no-more-data'
+  | 'no-content'
+  | 'error'
+  | 'unsupported'
+
 /** 朋友圈发布入参 */
 export interface WechatMomentInput {
   text: string
@@ -390,6 +411,20 @@ export interface WechatMomentView {
   createdAt: number | null
   source: string
   page?: number
+  /**
+   * 作者是否真的映射到了已知联系人/群成员。
+   * OCR 拿不到 wxid 时这里是 false，authorName 只是 OCR 文本，不是平台身份。
+   */
+  authorResolved?: boolean
+}
+
+export interface WechatMomentArchiveStat {
+  /** 本次新归档条数 */
+  added: number
+  /** 本次命中去重、只更新计数/时间的条数 */
+  updated: number
+  /** 归档层当前总条数 */
+  total: number
 }
 
 export interface WechatMomentFetchResult {
@@ -397,9 +432,56 @@ export interface WechatMomentFetchResult {
   fetched: number
   pages: number
   source: string | null
+  /**
+   * 兼容字段：只要有「页数上限 / 滚轮停滞 / 页面不足」就为 true。
+   * 判断展示语义请优先看 stopReason 与 limitReached，不要用 partial 一刀切。
+   */
   partial: boolean
+  /** 遍历终止原因；未知时为 null */
+  stopReason: WechatMomentStopReason | null
+  /** 是否是因为达到 maxPages 上限而停下；true 时后续很可能还有数据 */
+  limitReached: boolean
+  /** 遮挡导致后台滚轮无效时，桥报告的遮挡窗口标题 */
+  occludedBy: string | null
   reason: string | null
   result: WechatActionResult
+  /** 桥每次成功抓取后写本地归档的统计；后端未实现时缺省 */
+  archive?: WechatMomentArchiveStat
+}
+
+/** 归档里的一条动态：桥落盘/数据库落库后的稳定形态 */
+export interface WechatMomentArchiveItemView {
+  id: string
+  authorId: string | null
+  authorName: string
+  authorResolved: boolean
+  content: string
+  mediaUrls: string[]
+  createdAt: number | null
+  source: string
+  /** 首次抓到的时间（ISO） */
+  firstSeenAt: string
+  /** 最近一次抓到的时间（ISO） */
+  lastSeenAt: string
+  /** 被重复抓到的次数 */
+  seenCount: number
+  page?: number
+}
+
+/** 归档查询结果；storage 说明这次读的是数据库还是桥本地 JSONL */
+export interface WechatMomentArchiveView {
+  storage: 'database' | 'bridge' | 'none'
+  total: number
+  moments: WechatMomentArchiveItemView[]
+  limit: number
+  /** storage 非 database 时说明降级原因；正常为 null */
+  reason: string | null
+}
+
+/** 归档查询入参 */
+export interface WechatMomentArchiveInput {
+  /** 最多返回多少条，默认 50，上限 500 */
+  limit?: number
 }
 
 /** 群发入参：targets 与 tags 二选一；都不给时取全部未拉黑联系人。 */

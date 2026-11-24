@@ -1,4 +1,8 @@
 .bridge-queue.jsonl
 .bridge-test-queue.jsonl
+.bridge-ocr/
+.bridge-test-archive.jsonl
+.bridge-members.json
+.bridge-test-members.json
 .bridge-media/
 node_modules/

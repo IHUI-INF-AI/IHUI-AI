@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { loadMemberMap, resolveMember, localMemberId } from '../members-map.mjs'
 
 const ROOT = dirname(fileURLToPath(import.meta.url))
 const SCRIPT = process.env.BRIDGE_OCR_SCRIPT ?? join(ROOT, '..', 'tools', 'wechat-ocr.ps1')
@@ -34,6 +35,29 @@ let baselineDone = false
 let counter = 0
 /** 一旦某一帧识别出群昵称，就记住这个会话是群；避免昵称行被 OCR 漏掉时把群消息降级成私聊。 */
 const groupChats = new Set()
+/** 启动时加载的昵称 → memberId 映射；未命中时回退稳定本地哈希。 */
+let memberMap = { members: [] }
+/** 脚本帧可能直接给出停止语义；其余值走解析层回退推导。 */
+const STOP_REASONS = new Set([
+  'occluded',
+  'scroll-stalled',
+  'page-limit',
+  'no-more-data',
+  'error',
+  'no-content',
+])
+
+/**
+ * 停止语义回退推导：帧未给 stopReason 时，按页数/动态数判定。
+ * 抓满上限 → page-limit；抓到页但没有正文 → no-content；其余 → no-more-data。
+ */
+function deriveStopReason({ frameStopReason, pages, maxPages, momentCount }) {
+  if (frameStopReason && STOP_REASONS.has(frameStopReason)) return frameStopReason
+  const limit = Number(maxPages) || 3
+  if (Number.isFinite(pages) && pages >= limit) return 'page-limit'
+  if (pages > 0 && (momentCount ?? 0) === 0) return 'no-content'
+  return 'no-more-data'
+}
 
 function runScript(mode, options = {}) {
   const imagePath = options.imagePath ?? FRAME
@@ -364,16 +388,6 @@ function chatIdOf(title) {
   return `ocr:${hash}`
 }
 
-/** 群内发送人没有 wxid 可读，只能把「群标题 + 昵称」哈希成稳定本地成员 id。 */
-function memberIdOf(chatTitle, senderName) {
-  if (!senderName) return 'ocr:member:unknown'
-  const hash = createHash('sha256')
-    .update(`${stableChatKey(chatTitle)}\u0000${senderName}`)
-    .digest('hex')
-    .slice(0, 12)
-  return `ocr:member:${hash}`
-}
-
 /** 朋友圈里的时间/互动文案，不能混进正文。 */
 function isMomentMeta(text) {
   return (
@@ -583,11 +597,20 @@ function parseMomentPages(payload) {
       })
     }
   }
+  const maxPagesNum = Number(payload?.maxPages) || 3
+  const stopReason = deriveStopReason({
+    frameStopReason: payload?.stopReason,
+    pages: pages.length,
+    maxPages: maxPagesNum,
+    momentCount: moments.length,
+  })
   return {
     moments,
     pages: pages.length,
     embedded,
-    partial: pages.length > 0 && pages.length >= (Number(payload?.maxPages) || 3),
+    partial: pages.length > 0 && pages.length >= maxPagesNum,
+    stopReason,
+    limitReached: stopReason === 'page-limit',
   }
 }
 
@@ -596,17 +619,35 @@ function toEvent(chatTitle, text, options = {}) {
   const chatId = chatIdOf(chatTitle)
   const isGroup = options.isGroup === true
   const senderName = isGroup ? options.senderName || '未知群成员' : chatTitle || '当前会话'
+  if (!isGroup) {
+    // 私聊事件不受成员映射影响，字段保持旧版契约。
+    return {
+      id: `ocr-${Date.now()}-${counter}`,
+      chatId,
+      sender: chatId,
+      senderName,
+      type: 'text',
+      content: text,
+      timestamp: Date.now(),
+      chatTitle,
+      isGroup,
+      chatType: 'private',
+    }
+  }
+  const resolved = resolveMember(memberMap, chatTitle, options.senderName ?? '')
   return {
     id: `ocr-${Date.now()}-${counter}`,
     chatId,
-    sender: isGroup ? memberIdOf(chatTitle, options.senderName ?? '') : chatId,
-    senderName,
+    sender: resolved.memberId,
+    senderName: resolved.senderName,
+    senderResolved: resolved.resolved,
+    senderSource: resolved.source,
     type: 'text',
     content: text,
     timestamp: Date.now(),
     chatTitle,
     isGroup,
-    chatType: isGroup ? 'group' : 'private',
+    chatType: 'group',
   }
 }
 
@@ -619,9 +660,13 @@ export const __test__ = {
   isGroupTitle,
   stableChatKey,
   parseMomentPages,
+  deriveStopReason,
+  resolveMember,
+  localMemberId,
 }
 
-export function createDriver() {
+export async function createDriver() {
+  memberMap = await loadMemberMap()
   return {
     async status() {
       try {
@@ -709,10 +754,20 @@ export function createDriver() {
             return {
               status: 'failed',
               reason: typeof frame.reason === 'string' ? frame.reason : '朋友圈遍历失败',
+              stopReason: STOP_REASONS.has(frame.stopReason) ? frame.stopReason : 'error',
               data: { title: '朋友圈' },
             }
           }
           const parsed = parseMomentPages({ ...frame, maxPages })
+          const stopReason = deriveStopReason({
+            frameStopReason: frame.stopReason,
+            pages: parsed.pages,
+            maxPages,
+            momentCount: parsed.moments.length,
+          })
+          const limitReached = frame.limitReached === true || stopReason === 'page-limit'
+          const occludedBy =
+            typeof frame.occludedBy === 'string' && frame.occludedBy ? frame.occludedBy : null
           return {
             status: 'accepted',
             data: {
@@ -722,6 +777,9 @@ export function createDriver() {
               moments: parsed.moments,
               embedded: parsed.embedded,
               partial: frame.partial === true || parsed.partial,
+              stopReason,
+              limitReached,
+              occludedBy,
               reason:
                 typeof frame.reason === 'string' && frame.reason
                   ? frame.reason

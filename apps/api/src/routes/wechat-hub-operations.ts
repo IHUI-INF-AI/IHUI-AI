@@ -14,6 +14,7 @@ import { parseOrThrow, success } from '../utils/response.js'
 import {
   deleteContact,
   fetchMoments,
+  listMomentArchive,
   publishMoment,
   runGroupAction,
   syncContacts,
@@ -36,6 +37,10 @@ const momentSchema = z.object({
 const momentFetchSchema = z.object({
   maxPages: z.coerce.number().int().min(1).max(30).optional(),
   id: z.coerce.number().int().min(0).optional(),
+})
+
+const momentArchiveQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).optional(),
 })
 
 export const wechatHubOperationsRoutes: FastifyPluginAsync = async (server) => {
@@ -94,6 +99,21 @@ export const wechatHubOperationsRoutes: FastifyPluginAsync = async (server) => {
         const input = parseOrThrow(momentFetchSchema, request.body ?? {})
         return reply.send(
           success(await fetchMoments(requireUserId(request), request.params.id, input)),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.get<{ Params: { id: string }; Querystring: { limit?: number } }>(
+    '/wechat-hub/accounts/:id/moments/archive',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const query = parseOrThrow(momentArchiveQuerySchema, request.query)
+        return reply.send(
+          success(await listMomentArchive(requireUserId(request), request.params.id, query)),
         )
       } catch (e) {
         return answerError(reply, e)

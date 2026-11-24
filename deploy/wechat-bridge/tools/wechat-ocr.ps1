@@ -58,9 +58,13 @@ public class WeChatOcrWin {
   [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
   [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr parent, EnumWindowsProc cb, IntPtr lParam);
   [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+  [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(POINT point);
+  [DllImport("user32.dll")] static extern IntPtr GetAncestor(IntPtr hWnd, uint flags);
 
   [StructLayout(LayoutKind.Sequential)]
   public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+  [StructLayout(LayoutKind.Sequential)]
+  public struct POINT { public int X; public int Y; }
 
   // 微信 4.2 主窗口类名是 Qt51514QWindowIcon（早期文档写的 mmui::MainWindow 已过时）。
   // 托盘隐藏后 Get-Process.MainWindowHandle 为 0，必须用 EnumWindows 找隐藏主窗，
@@ -184,6 +188,25 @@ public class WeChatOcrWin {
     RECT r;
     if (!GetWindowRect(h, out r)) return new int[] { 0, 0, 0, 0 };
     return new int[] { r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top };
+  }
+
+  // 诊断后台滚轮为什么没反应：检查目标点最上层窗口是不是微信之外的窗口。
+  // 返回遮挡窗口标题/类名；微信自身或其子窗在最上层时返回空字符串。
+  public static string CoveringWindow(IntPtr expected, int screenX, int screenY) {
+    POINT p;
+    p.X = screenX;
+    p.Y = screenY;
+    IntPtr hit = WindowFromPoint(p);
+    if (hit == IntPtr.Zero) return "";
+    IntPtr hitRoot = GetAncestor(hit, 2);
+    IntPtr expectedRoot = GetAncestor(expected, 2);
+    if (hitRoot == expectedRoot) return "";
+    StringBuilder title = new StringBuilder(256);
+    StringBuilder cls = new StringBuilder(256);
+    GetWindowText(hitRoot, title, 256);
+    GetClassName(hitRoot, cls, 256);
+    string name = title.ToString();
+    return string.IsNullOrEmpty(name) ? cls.ToString() : name;
   }
 
   public static int[] Fit(IntPtr h) {
@@ -517,12 +540,27 @@ function Test-EmbeddedMomentsPage($lines, $w, $hgt) {
   $nav = $lines | Where-Object {
     $_.text -match '^(朋友圈|发现)$' -and $_.x -lt ($w * 0.28) -and $_.y -gt ($hgt * 0.05)
   } | Select-Object -First 1
-  if (-not $nav) { return $false }
   $feed = @($lines | Where-Object {
     $_.x -gt ($w * 0.35) -and $_.y -gt ($hgt * 0.1) -and
       (($_.text -replace '\s', '').Length -ge 2)
   })
-  if ($feed.Count -ge 2) { return $true }
+  # 宽窗/大字号时 OCR 可能漏掉左栏「朋友圈」，但仍能识别左上角「小程序」等入口；
+  # 左侧有微信导航词 + 右侧动态正文，就按已打开处理，避免把页面误判成未打开。
+  $sidebar = @($lines | Where-Object {
+    $_.x -lt ($w * 0.3) -and
+      $_.text -match '^(发现|朋友圈|视频号|视颜号|搜一搜|游戏|小程序|@小程序|DO号)$'
+  })
+  if (($nav -or $sidebar.Count -ge 1) -and $feed.Count -ge 2) { return $true }
+  # 窗口较矮时封面会把时间线压到视口以下，第一屏可能只有封面大字和左栏「朋友圈」。
+  # 已选中「朋友圈」且右侧至少有一行文字，就按已打开处理；滚动后会补出动态正文。
+  $momentsNav = $lines | Where-Object {
+    $_.text -match '^朋友圈$' -and $_.x -lt ($w * 0.28) -and $_.y -gt ($hgt * 0.05)
+  } | Select-Object -First 1
+  $coverText = @($lines | Where-Object {
+    $_.x -gt ($w * 0.35) -and $_.y -gt ($hgt * 0.03) -and
+      (($_.text -replace '\s', '').Length -ge 2)
+  })
+  if ($momentsNav -and $coverText.Count -ge 1) { return $true }
   return [bool]($lines | Where-Object {
     $_.text -match '^全文$' -and $_.x -gt ($w * 0.35)
   } | Select-Object -First 1)
@@ -597,23 +635,15 @@ if ($Mode -eq 'moments') {
   if ($width -lt 600 -or $height -lt 500) {
     if (-not $Background) { [WeChatOcrWin]::Untop($h) }
     if ($Background) { [WeChatOcrWin]::FinishBackground($h, $bgState) }
-    Write-Payload ([ordered]@{ ok = $false; reason = "微信窗口尺寸异常 ${width}x${height}" })
+    Write-Payload ([ordered]@{ ok = $false; reason = "微信窗口尺寸异常 ${width}x${height}"; stopReason = 'error'; limitReached = $false })
     exit 5
   }
-  $mh = [WeChatOcrWin]::FindByTitle('朋友圈')
+  $mh = [IntPtr]::Zero
   $embedded = $false
-  if ($mh -ne [IntPtr]::Zero) {
-    # 用户已经手动打开朋友圈时直接用，不再要求识别左侧导航。
-    if ($Background) {
-      $mhState = [WeChatOcrWin]::BackgroundState($mh)
-      if ($mhState -ne 1) { [WeChatOcrWin]::ShowBehind($mh) }
-    } else {
-      [void][WeChatOcrWin]::Focus($mh, $true)
-    }
-    Start-Sleep -Milliseconds 500
-  } elseif ($Background) {
+  if ($Background) {
     # 后台模式不点导航、不移动鼠标：先看主窗是不是已经停在内嵌朋友圈页。
-    # 4.2 的朋友圈嵌在主窗里，没有独立「朋友圈」窗口，不能直接判失败。
+    # 4.2 的朋友圈嵌在主窗里，不能先信 FindByTitle：可能命中残留的小「朋友圈」窗，
+    # 截到只有封面的半页，滚轮也推不动；主窗能识别出动态正文时优先用主窗。
     $mainPath = Join-Path $env:TEMP 'wechat-ocr-moments-main-bg.png'
     $mainLines = @()
     if ([WeChatOcrWin]::Capture($h, $mainPath)) {
@@ -624,21 +654,32 @@ if ($Mode -eq 'moments') {
       $mh = $h
       $embedded = $true
     } else {
-      [WeChatOcrWin]::FinishBackground($h, $bgState)
-      Write-Payload ([ordered]@{
-        ok = $false
-        reason = '朋友圈未打开；后台模式不会自动点左侧导航（会移动鼠标/抢焦点）。请先在微信里打开朋友圈，再后台遍历；需要自动导航请去掉 -Background。'
-        width = $width
-        height = $height
-        background = $true
-      })
-      exit 4
+      $mh = [WeChatOcrWin]::FindByTitle('朋友圈')
+      if ($mh -ne [IntPtr]::Zero) {
+        $mhState = [WeChatOcrWin]::BackgroundState($mh)
+        if ($mhState -ne 1) { [WeChatOcrWin]::ShowBehind($mh) }
+        Start-Sleep -Milliseconds 500
+      } else {
+        [WeChatOcrWin]::FinishBackground($h, $bgState)
+        Write-Payload ([ordered]@{
+          ok = $false
+          reason = '朋友圈未打开；后台模式不会自动点左侧导航（会移动鼠标/抢焦点）。请先在微信里打开朋友圈，再后台遍历；需要自动导航请去掉 -Background。'
+          stopReason = 'error'
+          limitReached = $false
+          width = $width
+          height = $height
+          image = $mainPath
+          lines = $mainLines.Count
+          background = $true
+        })
+        exit 4
+      }
     }
   } else {
     $mainPath = Join-Path $env:TEMP 'wechat-ocr-moments-main.png'
     if (-not [WeChatOcrWin]::Capture($h, $mainPath)) {
       [WeChatOcrWin]::Untop($h)
-      Write-Payload ([ordered]@{ ok = $false; reason = '朋友圈入口截图失败' })
+      Write-Payload ([ordered]@{ ok = $false; reason = '朋友圈入口截图失败'; stopReason = 'error'; limitReached = $false })
       exit 3
     }
     $mainLines = Read-OcrLines $mainPath
@@ -659,6 +700,8 @@ if ($Mode -eq 'moments') {
         Write-Payload ([ordered]@{
           ok = $false
           reason = '没有识别到左侧「发现」页签（UIA 未返回按钮）；请确认微信主窗口已展开'
+          stopReason = 'error'
+          limitReached = $false
           width = $width
           height = $height
           image = $mainPath
@@ -672,7 +715,7 @@ if ($Mode -eq 'moments') {
       Start-Sleep -Milliseconds 1800
       if (-not [WeChatOcrWin]::Capture($h, $mainPath)) {
         [WeChatOcrWin]::Untop($h)
-        Write-Payload ([ordered]@{ ok = $false; reason = '发现页截图失败' })
+        Write-Payload ([ordered]@{ ok = $false; reason = '发现页截图失败'; stopReason = 'error'; limitReached = $false })
         exit 3
       }
       $mainLines = Read-OcrLines $mainPath
@@ -687,6 +730,8 @@ if ($Mode -eq 'moments') {
       Write-Payload ([ordered]@{
         ok = $false
         reason = '已点开「发现」页，但没有识别到「朋友圈」入口；请确认微信主窗口已展开'
+        stopReason = 'error'
+        limitReached = $false
         width = $width
         height = $height
         image = $mainPath
@@ -709,10 +754,14 @@ if ($Mode -eq 'moments') {
   # 后台也能真正翻页：微信 4.2 的 Qt 内容画在 MMUIRenderSubWindowHW 子窗里，
   # 对子窗 SendMessage WM_MOUSEWHEEL 不需要前台、不移动鼠标、不抢焦点。
   # 每一页 OCR 后比对文本签名，滚不动就停，避免把同一页重复算成多页。
+  $probeX = $left + [int][Math]::Round($width * 0.7)
+  $probeY = $top + [int][Math]::Round($height * 0.8)
+  $occludedBy = [WeChatOcrWin]::CoveringWindow($mh, $probeX, $probeY)
   $pageCount = [Math]::Min([Math]::Max($MaxPages, 1), 30)
   $pages = @()
   $lastSignature = $null
   $scrollStalled = $false
+  $captureFailed = $false
   for ($page = 1; $page -le $pageCount; $page++) {
     $pagePath = if ($ImagePath) {
       [System.IO.Path]::Combine(
@@ -722,7 +771,7 @@ if ($Mode -eq 'moments') {
     } else {
       Join-Path $env:TEMP "wechat-ocr-moments-page$page.png"
     }
-    if (-not [WeChatOcrWin]::Capture($mh, $pagePath)) { break }
+    if (-not [WeChatOcrWin]::Capture($mh, $pagePath)) { $captureFailed = $true; break }
     $pageRect = [WeChatOcrWin]::Rect($mh)
     $pageWidth = $pageRect[2]
     $pageHeight = $pageRect[3]
@@ -763,13 +812,34 @@ if ($Mode -eq 'moments') {
     [WeChatOcrWin]::Untop($h)
   }
   if ($pages.Count -eq 0) {
-    Write-Payload ([ordered]@{ ok = $false; reason = '朋友圈窗口截图/OCR 没有产出任何页面' })
+    Write-Payload ([ordered]@{
+      ok = $false
+      reason = '朋友圈窗口截图/OCR 没有产出任何页面'
+      stopReason = 'error'
+      limitReached = $false
+      occludedBy = $occludedBy
+    })
     exit 6
   }
+  # 停止语义：page-limit 是抓满上限，不能写成失败；其余停滞/遮挡/到底各自独立成类。
+  $stopReason = if ($captureFailed) {
+    'error'
+  } elseif ($scrollStalled) {
+    if ($occludedBy) { 'occluded' } else { 'scroll-stalled' }
+  } elseif ($pages.Count -ge $pageCount) {
+    'page-limit'
+  } else {
+    'no-more-data'
+  }
+  $limitReached = [bool]($stopReason -eq 'page-limit')
   $reason = if ($scrollStalled) {
-    '后台滚轮没有改变页面，可能已到朋友圈底部或当前版本不响应'
+    if ($occludedBy) {
+      "后台滚轮没有改变页面：朋友圈被「$occludedBy」窗口遮挡，请把微信露出后再后台遍历"
+    } else {
+      '后台滚轮没有改变页面，可能已到朋友圈底部或当前版本不响应'
+    }
   } elseif ($Background) {
-    '后台已抓取多页；图片、点赞、评论可能缺失'
+    "后台已抓取 $($pages.Count) 页；图片、点赞、评论可能缺失"
   } elseif ($pages.Count -lt $pageCount) {
     '前台遍历提前结束'
   } else {
@@ -782,6 +852,9 @@ if ($Mode -eq 'moments') {
     embedded = $embedded
     background = [bool]$Background
     partial = [bool]($scrollStalled -or ($pages.Count -lt $pageCount))
+    stopReason = $stopReason
+    limitReached = $limitReached
+    occludedBy = $occludedBy
     reason = $reason
     width = $width
     height = $height

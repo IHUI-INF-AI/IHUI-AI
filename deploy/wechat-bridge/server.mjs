@@ -19,9 +19,11 @@
 import { createServer } from 'node:http'
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isMomentMessage, mergeMoments, nextMomentCursor, parseMomentMessage } from './moments.mjs'
+import { appendMomentArchive, readMomentArchive } from './moments-archive.mjs'
+import { loadMemberMap, mergeMemberMap, saveMemberMap } from './members-map.mjs'
 
 const ROOT = dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.BRIDGE_PORT ?? 8848)
@@ -32,6 +34,13 @@ const QUEUE_FILE = process.env.BRIDGE_QUEUE_FILE ?? join(ROOT, '.bridge-queue.js
 const MAX_QUEUE = Number(process.env.BRIDGE_MAX_QUEUE ?? 5000)
 const MOMENTS_FILE = process.env.BRIDGE_MOMENTS_FILE ?? join(ROOT, '.bridge-moments.jsonl')
 const MAX_MOMENTS = Number(process.env.BRIDGE_MAX_MOMENTS ?? 500)
+const MOMENT_ARCHIVE_FILE = (() => {
+  const raw = String(
+    process.env.BRIDGE_MOMENT_ARCHIVE ?? join(ROOT, '.bridge-ocr', 'moments-archive.jsonl'),
+  ).trim()
+  if (!raw || raw === '0' || raw.toLowerCase() === 'off') return ''
+  return resolve(ROOT, raw)
+})()
 const MOMENT_WAIT_MS = Math.min(
   Math.max(Number(process.env.BRIDGE_MOMENT_WAIT_MS ?? 3500), 500),
   15_000,
@@ -44,6 +53,7 @@ const seenIds = new Set()
 let momentSeq = 0
 let momentQueue = []
 const seenMomentIds = new Set()
+let memberMap = { members: [] }
 
 async function loadDriver() {
   if (DRIVER_NAME === 'wcfhttp') {
@@ -210,6 +220,9 @@ async function runMomentFetch(body) {
   let pages = 0
   let source = DRIVER_NAME
   let extraReason = ''
+  let stopReason = ''
+  let limitReached = false
+  let occludedBy = null
   for (let page = 0; page < maxPages; page += 1) {
     const before = momentSeq
     const result = await driver.action('moment.fetch', {
@@ -217,7 +230,20 @@ async function runMomentFetch(body) {
       id: cursor,
       maxPages,
     })
-    if (result?.status === 'unsupported' || result?.status === 'failed') return result
+    if (result?.status === 'unsupported') {
+      return {
+        ...result,
+        stopReason: 'unsupported',
+        data: { ...(result.data ?? {}), stopReason: 'unsupported' },
+      }
+    }
+    if (result?.status === 'failed') {
+      return {
+        ...result,
+        stopReason: 'error',
+        data: { ...(result.data ?? {}), stopReason: 'error' },
+      }
+    }
     const data = result?.data && typeof result.data === 'object' ? result.data : {}
     if (typeof data.source === 'string' && data.source) source = data.source
     if (typeof data.reason === 'string' && data.reason) extraReason = data.reason
@@ -226,6 +252,11 @@ async function runMomentFetch(body) {
     if (typeof data.pages === 'number' && Number.isFinite(data.pages)) {
       pages = Math.max(pages, data.pages)
     }
+    // OCR 驱动单次调用已完成多页遍历，直接沿用它给出的停止语义；
+    // wcfhttp 循环路径没有驱动级 stopReason，循环结束后按页数/回调结果自己判定。
+    if (typeof data.stopReason === 'string' && data.stopReason) stopReason = data.stopReason
+    if (data.limitReached === true) limitReached = true
+    if (typeof data.occludedBy === 'string' && data.occludedBy) occludedBy = data.occludedBy
     // OCR 驱动自己完成了多页遍历；wcfhttp 则只负责 /pyq 刷新，等回调并翻下一页。
     if (data.paging === 'driver' || data.requiresCallback !== true) break
     await waitForMoments(before)
@@ -236,6 +267,24 @@ async function runMomentFetch(body) {
     if (!next || next === cursor) break
     cursor = next
   }
+  if (!stopReason) {
+    if (pages >= maxPages) {
+      stopReason = 'page-limit'
+      limitReached = true
+    } else {
+      stopReason = 'no-more-data'
+    }
+  }
+  const archive = { added: 0, updated: 0, total: 0 }
+  let archiveError = ''
+  if (MOMENT_ARCHIVE_FILE) {
+    try {
+      Object.assign(archive, await appendMomentArchive(all, MOMENT_ARCHIVE_FILE))
+    } catch (e) {
+      archiveError = e instanceof Error ? e.message : '朋友圈归档写入失败'
+      console.error('[wechat-bridge] 朋友圈归档失败:', archiveError)
+    }
+  }
   return {
     status: 'accepted',
     data: {
@@ -244,6 +293,11 @@ async function runMomentFetch(body) {
       pages,
       source,
       partial: pages >= maxPages,
+      stopReason,
+      limitReached,
+      occludedBy,
+      archive,
+      archiveError: archiveError || undefined,
       reason:
         all.length > 0
           ? extraReason || undefined
@@ -263,7 +317,17 @@ async function handle(req, res) {
       ok: true,
       service: 'ihui-wechat-bridge',
       driver: DRIVER_NAME,
-      endpoints: ['/status', '/messages', '/moments', '/send', '/action', '/typing', '/ingest'],
+      endpoints: [
+        '/status',
+        '/messages',
+        '/moments',
+        '/moments/archive',
+        '/members/map',
+        '/send',
+        '/action',
+        '/typing',
+        '/ingest',
+      ],
     })
   }
 
@@ -313,6 +377,27 @@ async function handle(req, res) {
     })
   }
 
+  if (req.method === 'GET' && path === '/members/map') {
+    if (!authorized(req, queryAuth)) return json(res, 401, { ok: false, error: 'unauthorized' })
+    return json(res, 200, { ok: true, members: memberMap.members })
+  }
+
+  if (req.method === 'GET' && path === '/moments/archive') {
+    if (!authorized(req, queryAuth)) return json(res, 401, { ok: false, error: 'unauthorized' })
+    if (!MOMENT_ARCHIVE_FILE)
+      return json(res, 200, { ok: true, total: 0, moments: [], disabled: true })
+    const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 500), 1), 1000)
+    try {
+      const archive = await readMomentArchive(MOMENT_ARCHIVE_FILE, limit)
+      return json(res, 200, { ok: true, ...archive })
+    } catch (e) {
+      return json(res, 500, {
+        ok: false,
+        error: e instanceof Error ? e.message : '朋友圈归档读取失败',
+      })
+    }
+  }
+
   if (req.method === 'POST') {
     let body
     try {
@@ -347,6 +432,13 @@ async function handle(req, res) {
         }
       }
       return json(res, 200, { ok: true, ingested, moments, seq, momentSeq })
+    }
+
+    if (path === '/members/map') {
+      const incoming = Array.isArray(body.members) ? body : { members: Array.isArray(body) ? body : [] }
+      memberMap = mergeMemberMap(memberMap, incoming)
+      memberMap = await saveMemberMap(memberMap)
+      return json(res, 200, { ok: true, members: memberMap.members })
     }
 
     if (path === '/send') {
@@ -399,6 +491,7 @@ async function handle(req, res) {
 driver = await loadDriver()
 await loadQueue()
 await loadMoments()
+memberMap = await loadMemberMap()
 
 /** 可选轮询：OCR 等拉取型驱动主动产出入站消息，复用 /ingest 的去重与队列。 */
 function startDriverPoll() {

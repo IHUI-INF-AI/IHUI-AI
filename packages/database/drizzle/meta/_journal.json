@@ -3264,6 +3264,13 @@
       "when": 1795503000000,
       "tag": "20261124250000_finance_ledger_permissions",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 470,
+      "when": 1795503600000,
+      "tag": "20261125120000_wechat_hub_moments",
+      "breakpoints": true
     }
   ]
 }

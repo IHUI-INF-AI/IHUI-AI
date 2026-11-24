@@ -34,6 +34,7 @@ import type {
 import type {
   WechatAdapter,
   WechatAdapterContext,
+  WechatBridgeArchiveRead,
   WechatInboundEvent,
   WechatMediaInput,
   WechatSendOptions,
@@ -535,6 +536,56 @@ export class BridgeAdapter implements WechatAdapter {
         status: 'failed',
         data: {},
         reason: e instanceof Error ? e.message : '桥动作失败',
+      }
+    }
+  }
+
+  /** 读桥本地 JSONL 归档；带 token(Authorization)与 secret(query)双凭证，60s 超时。 */
+  async readMomentArchive(limit: number): Promise<WechatBridgeArchiveRead> {
+    if (!this.baseUrl) {
+      return { ok: false, total: 0, moments: [], reason: 'bridge 缺少 baseUrl' }
+    }
+    try {
+      const capped = Math.min(Math.max(Math.trunc(Number(limit)) || 50, 1), 500)
+      const query = [`limit=${encodeURIComponent(capped)}`]
+      if (this.token) query.push(`secret=${encodeURIComponent(this.token)}`)
+      const response = await fetch(`${this.baseUrl}/moments/archive?${query.join('&')}`, {
+        headers: this.headers(),
+        signal: AbortSignal.timeout(60_000),
+      })
+      const text = await response.text()
+      if (!response.ok) {
+        return {
+          ok: false,
+          total: 0,
+          moments: [],
+          reason: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+        }
+      }
+      const parsed: unknown = JSON.parse(text)
+      const root = asRecord(parsed) ?? {}
+      if (root.ok === false) {
+        return {
+          ok: false,
+          total: 0,
+          moments: [],
+          reason: asString(root.error) ?? asString(root.message) ?? '桥拒绝归档读取',
+        }
+      }
+      const moments = Array.isArray(root.moments)
+        ? root.moments
+            .map((item) => asRecord(item))
+            .filter((item): item is JsonRecord => item !== null)
+        : []
+      const total =
+        typeof root.total === 'number' && Number.isFinite(root.total) ? root.total : moments.length
+      return { ok: true, total, moments, reason: null }
+    } catch (e) {
+      return {
+        ok: false,
+        total: 0,
+        moments: [],
+        reason: e instanceof Error ? e.message : '桥归档读取失败',
       }
     }
   }
