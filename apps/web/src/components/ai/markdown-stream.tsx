@@ -159,17 +159,47 @@ function useCopy() {
     }
   }, [])
   const copy = React.useCallback((text: string) => {
-    navigator.clipboard
-      ?.writeText(text)
-      .then(() => {
-        setCopied(true)
-        // 再次复制先清旧句柄,保证任一时刻至多一个回退 timer
-        if (copyTimerRef.current !== null) {
-          window.clearTimeout(copyTimerRef.current)
-        }
-        copyTimerRef.current = window.setTimeout(() => setCopied(false), 1500)
+    // 竞品对标(Cursor appmap:125 处 clipboard effects):桌面走主进程 API、Web/扩展走
+    // 浏览器 API 且带降级。我们已有 @/hooks/use-clipboard 双通道,但本组件是用户最高频
+    // 的「复制代码」入口,此前只调 navigator.clipboard.writeText、.catch(() => {}) 静默吞,
+    // 非 HTTPS / 权限被拒 / 移动端 WebView 里点了没反应。这里内嵌同款 legacy 降级,
+    // 保留本组件 1.5s 回退 timer + 卸载清理契约(G-834)不变,不引入 hook 的 2s 语义。
+    const markCopied = () => {
+      setCopied(true)
+      // 再次复制先清旧句柄,保证任一时刻至多一个回退 timer
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current)
+      }
+      copyTimerRef.current = window.setTimeout(() => setCopied(false), 1500)
+    }
+    const legacyCopy = (): boolean => {
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        const ok = document.execCommand('copy')
+        document.body.removeChild(textarea)
+        return ok
+      } catch {
+        return false
+      }
+    }
+    const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
+    if (!clipboard?.writeText) {
+      // 非安全上下文(navigator.clipboard 缺失)→ 直接走 legacy
+      if (legacyCopy()) markCopied()
+      return
+    }
+    clipboard
+      .writeText(text)
+      .then(markCopied)
+      .catch(() => {
+        // 权限拒绝 / 写入抛错 → 降级;仍失败则保持 copied=false,不谎报成功
+        if (legacyCopy()) markCopied()
       })
-      .catch(() => {})
   }, [])
   return { copied, copy }
 }

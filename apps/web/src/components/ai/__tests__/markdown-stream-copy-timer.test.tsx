@@ -141,5 +141,55 @@ describe('MarkdownStream「已复制」timer 生命周期(G-834)', () => {
     unmount()
     expect(cleared).toContain(scheduled[1])
   })
+
+  // ── 剪贴板双通道降级(对标竞品 125 处 clipboard effects 的环境分通道) ──
+  // 此前主路径只调 navigator.clipboard.writeText、失败 .catch(() => {}) 静默吞,
+  // 非 HTTPS / 权限拒绝 / 移动端 WebView 里「复制代码」点了没反应。
+
+  it('无 Clipboard API(非安全上下文)⇒ 走 legacy execCommand 且如实标记已复制', async () => {
+    const execCommand = vi.fn().mockReturnValue(true)
+    Object.defineProperty(document, 'execCommand', { value: execCommand, configurable: true })
+    // jsdom 的 textarea.select 存在但不改 selection;legacy 只依赖 execCommand 返回值
+    Object.defineProperty(navigator, 'clipboard', {
+      value: undefined,
+      configurable: true,
+    })
+    const { scheduled } = installTimerSpies()
+    const { container } = render(<MarkdownStream content={plainTextBlock} />)
+    await clickCopy(container)
+
+    expect(writeText).not.toHaveBeenCalled()
+    expect(execCommand).toHaveBeenCalledWith('copy')
+    // 真正复制成功才挂「已复制」timer,不谎报也不静默
+    expect(scheduled).toHaveLength(1)
+  })
+
+  it('writeText 权限被拒 ⇒ 降级 execCommand 成功,不误报失败也不静默', async () => {
+    const execCommand = vi.fn().mockReturnValue(true)
+    Object.defineProperty(document, 'execCommand', { value: execCommand, configurable: true })
+    writeText.mockRejectedValueOnce(new Error('NotAllowedError'))
+    const { scheduled } = installTimerSpies()
+    const { container } = render(<MarkdownStream content={plainTextBlock} />)
+    await clickCopy(container)
+    // 冲掉 .catch → legacy 的微任务链
+    await act(async () => {})
+
+    expect(writeText).toHaveBeenCalledTimes(1)
+    expect(execCommand).toHaveBeenCalledWith('copy')
+    expect(scheduled).toHaveLength(1)
+  })
+
+  it('两条通道都失败 ⇒ 不挂「已复制」timer(不谎报成功)', async () => {
+    const execCommand = vi.fn().mockReturnValue(false)
+    Object.defineProperty(document, 'execCommand', { value: execCommand, configurable: true })
+    writeText.mockRejectedValueOnce(new Error('NotAllowedError'))
+    const { scheduled } = installTimerSpies()
+    const { container } = render(<MarkdownStream content={plainTextBlock} />)
+    await clickCopy(container)
+    await act(async () => {})
+
+    expect(execCommand).toHaveBeenCalledWith('copy')
+    expect(scheduled).toHaveLength(0)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
