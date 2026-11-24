@@ -847,8 +847,16 @@ class BrowserSession:
         self._cdp: Any | None = None  # sync CDPSession
         self._screencast_running = False
         self._screenshot_task: asyncio.Task[None] | None = None  # 截图轮询后台 task
-        self._on_frame: Callable[[str, dict[str, Any]], Coroutine[Any, Any, None]] | None = None
-        self._on_navigation: Callable[[str, str | None], Coroutine[Any, Any, None]] | None = None
+        # 2026-11-24:画面观众从"单回调"改为"回调列表"—— 主工作面板与画中画浮窗
+        # 可能同时在看同一个 tab;单回调会被后连的观众覆盖,先连的随即断流。
+        # 截图仍只跑一条循环(同一帧 fan-out 给所有观众),CPU 不随观众数线性增长。
+        self._frame_handlers: list[Callable[[str, dict[str, Any]], Coroutine[Any, Any, None]]] = []
+        self._navigation_handlers: list[
+            Callable[[str, str | None], Coroutine[Any, Any, None]]
+        ] = []
+        # page.on("framenavigated") 只挂一次:多个观众(主面板 + 画中画)共用同一监听,
+        # 否则每个观众连接都挂一条,同一次导航会被广播 N 遍。
+        self._navigation_listener_registered = False
         self._lock = threading.Lock()
         # 2026-11-08 运行时观测:console / network 各有独立环形缓冲,读写线程不同,
         # 由 BrowserEventBuffer 内部锁保护;enable 幂等,失败降级为"观测不可用"。
@@ -1115,22 +1123,38 @@ class BrowserSession:
         """注册导航事件回调(页面加载完成时触发)。
 
         on_nav: async 函数(url, title) -> None,在 main loop 执行。
+        多个观众可同时登记;同一回调重复登记不重复触发。
         """
-        self._on_navigation = on_nav
+        if on_nav not in self._navigation_handlers:
+            self._navigation_handlers.append(on_nav)
+        if self._navigation_listener_registered:
+            return
 
         def _register() -> None:
             def _on_frame_navigated(frame: Any) -> None:
                 try:
                     if frame == self._page.main_frame:
                         url = self._page.url
-                        handler = self._on_navigation
-                        if handler:
+                        for handler in tuple(self._navigation_handlers):
                             # title 在 sync 线程取可能为空,延迟到 main loop 取
                             self._schedule_coro(handler(url, None))
                 except Exception as e:
                     logger.debug(f"[browser_hub] navigation 回调异常: {e}")
             self._page.on("framenavigated", _on_frame_navigated)
-        await self._run_sync(_register)
+        # 先置位再 await:两个观众同时接入时,第二个在 _run_sync 让出期间不会再挂一条监听。
+        self._navigation_listener_registered = True
+        try:
+            await self._run_sync(_register)
+        except Exception:
+            self._navigation_listener_registered = False
+            raise
+
+    async def remove_navigation_handler(
+        self, on_nav: Callable[[str, str | None], Coroutine[Any, Any, None]]
+    ) -> None:
+        """移除一个导航观众(WebSocket 断开时调用);监听本体保留,重连后复用。"""
+        if on_nav in self._navigation_handlers:
+            self._navigation_handlers.remove(on_nav)
 
     # ---- 画面流(截图轮询,2026-07-31 改)----
     # 原方案用 CDP Page.startScreencast,但 sync_playwright 的 CDP 事件回调在
@@ -1146,8 +1170,12 @@ class BrowserSession:
         on_frame: async 函数(data_b64: str, metadata: dict) -> None,在 main loop 执行。
         - data_b64: base64 编码的 JPEG 图片
         - metadata: {"deviceWidth": ..., "deviceHeight": ...}(从 viewport 推导)
+
+        每个观众登记一个回调;首个观众负责拉起后台截图循环,后续观众共用同一条循环。
+        重复登记同一回调不会重复收帧。
         """
-        self._on_frame = on_frame
+        if on_frame not in self._frame_handlers:
+            self._frame_handlers.append(on_frame)
         if self._screencast_running:
             return
         self._screencast_running = True
@@ -1168,9 +1196,15 @@ class BrowserSession:
                     "deviceWidth": vp.get("width", 1280) if vp else 1280,
                     "deviceHeight": vp.get("height", 720) if vp else 720,
                 }
-                handler = self._on_frame
-                if handler:
-                    await handler(data_b64, metadata)
+                # fan-out:tick 内先取快照再逐个 await —— 观众中途断开(await 期间
+                # remove_frame_handler 改列表)不会让本帧漏发给其余观众。
+                for handler in tuple(self._frame_handlers):
+                    try:
+                        await handler(data_b64, metadata)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as e:
+                        logger.debug(f"[browser_hub] 观众收帧失败(跳过): {e}")
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -1184,11 +1218,14 @@ class BrowserSession:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._screenshot_task
             self._screenshot_task = None
-        self._on_frame = None
+        self._frame_handlers.clear()
 
     async def remove_frame_handler(self, on_frame: Callable[..., Any]) -> None:
-        """移除指定的 frame handler(WebSocket 断开时调用)。"""
-        await self.stop_screencast()
+        """移除指定观众;最后一个观众离开时才停流(WebSocket 断开时调用)。"""
+        if on_frame in self._frame_handlers:
+            self._frame_handlers.remove(on_frame)
+        if not self._frame_handlers:
+            await self.stop_screencast()
 
     # ---- CDP 输入事件(鼠标/键盘/滚轮)----
     async def dispatch_mouse(

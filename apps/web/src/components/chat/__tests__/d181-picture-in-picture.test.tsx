@@ -25,13 +25,18 @@ vi.mock('next-intl', () => ({
 }))
 
 const PIP_KEYS = [
-  'sectionLabel',
   'title',
-  'hideInSession',
-  'hideInAllSessions',
-  'updateFailed',
   'emptyState',
   'openWindow',
+  'readOnly',
+  'handover',
+  'statusConnecting',
+  'statusRunning',
+  'statusWaiting',
+  'statusGate',
+  'statusError',
+  'statusStalled',
+  'tooSmall',
 ] as const
 
 beforeEach(() => {
@@ -86,7 +91,9 @@ describe('D181 能力层:Document Picture-in-Picture 开窗', () => {
       expect(isDocumentPictureInPictureSupported()).toBe(true)
       openPictureInPictureWindow({ title: 'PIP-T', emptyState: 'PIP-E' })
       await vi.waitFor(() => expect(requestWindow).toHaveBeenCalledTimes(1))
-      expect(pipWin.document.title).toBe('PIP-T')
+      // 2026-11-24:开窗落到 @/lib/browser-pip 的 async 链路(requestWindow → 写标题/空态),
+      // 断言要等到文案真正落地,不能只看 requestWindow 已调用。
+      await vi.waitFor(() => expect(pipWin.document.title).toBe('PIP-T'))
       expect(pipWin.document.body.textContent).toBe('PIP-E')
     } finally {
       pipWin.closed = true
@@ -114,7 +121,7 @@ describe('D181 锚点层:面板溢出菜单入口', () => {
 describe('D181 词包层:aiChat.pictureInPicture 五语言直锁', () => {
   const LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko'] as const
   for (const locale of LOCALES) {
-    it(`${locale}:七键齐全且非空`, () => {
+    it(`${locale}:十二键齐全且非空`, () => {
       const m = JSON.parse(
         readFileSync(
           resolve(process.cwd(), `../../packages/i18n/messages/web/${locale}.json`),

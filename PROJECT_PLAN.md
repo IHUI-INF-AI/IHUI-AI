@@ -10,6 +10,11 @@
 
 - [ ] 五程序原生深水「明确不做」（等拍板@2026-11-24/DOUBAO）：P0-1 审批语义收敛——不采纳，IHUI 的 never 是免审放行、对照方 never 是确定性拒绝，两者方向相反，改名收益低于迁移风险；B3-10 硬件专用键盘钩子——不照搬，改走全局快捷键配置化；B2-07 常驻原生模块 ABI、B3-09 RTC 原生桥——远期，本仓无消费点。证据见 docs/benchmark-evidence/2026-11/native-functions-2026-11-24.md 与 qoder-dsh-deep-2026-11-24.md
 
+- [x] 浏览器画中画监看（对齐 TRAE 画中画模式，代码完成@2026-11-24/MainAgent）
+  - 目标：AI/人工的浏览器任务放进只读浮窗监看——主窗口鼠标与焦点不被抢；状态条自检（连接中/运行中/登录闸/断流/窗口过小）；需要人时点「接管」切回主面板。
+  - 实现：Document Picture-in-Picture 浮窗 + 独立 WebSocket 收帧（不依赖主面板存活）；Browser Hub 的帧/导航回调由单观众改为多观众 fan-out，主面板与浮窗可同时看同一会话，任一观众断开不影响其余。
+  - 验收：web 侧 14 例纯逻辑 + 2 例浮窗运行时（jsdom iframe 冒充 PiP 窗口 + FakeWebSocket）；ai-service 67 例；五语言 11 键；typecheck/lint/水印通过。
+
 - [x] 桌面端稳定 Launcher + v2 后台更新链（代码完成@2026-11-24/MainAgent；生产签名/真实首装验收是发布门禁）
   - 目标：运行中零打断、签名 zip 暂存、常驻重启胶囊、自动回滚、feed v2 灰度/撤版、遥测漏斗。
   - 验收：Launcher 单测 + 故障注入、update_v2 zip 往返、NSIS 装机布局、旧更新 UI 删除、全量门禁。

@@ -397,6 +397,11 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
     await ws.accept()
     logger.info(f"[browser_hub] WebSocket 连接: session={session_id}")
 
+    # 2026-11-24:观众只登记在"握手时那个会话"上。循环里 session 可能因风控墙
+    # 重建被换成新对象,finally 若按新对象摘回调,旧对象上的回调就成了永远收不到
+    # 帧的僵尸(还会让新对象误停别人的流)。
+    stream_session = session
+
     # 导航监听:页面加载完成后推送导航事件
     # (set_navigation_handler 在 executor 线程注册 sync page.on,
     #  回调通过 run_coroutine_threadsafe 传递到 main loop 执行)
@@ -409,7 +414,7 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
         except Exception:
             pass
 
-    await session.set_navigation_handler(on_navigation)
+    await stream_session.set_navigation_handler(on_navigation)
 
     # 画面帧回调
     async def on_frame(data_b64: str, metadata: dict[str, Any]) -> None:
@@ -427,7 +432,7 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
             logger.debug(f"[browser_hub] 发送 frame 异常: {e}")
 
     # 启动推流
-    await session.start_screencast(on_frame)
+    await stream_session.start_screencast(on_frame)
 
     # 接收客户端事件
     try:
@@ -508,7 +513,8 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
     except Exception as e:
         logger.exception(f"[browser_hub] WebSocket 异常: {e}")
     finally:
-        await session.remove_frame_handler(on_frame)
+        await stream_session.remove_frame_handler(on_frame)
+        await stream_session.remove_navigation_handler(on_navigation)
         logger.info(f"[browser_hub] WebSocket 断开: session={session_id}")
 
 

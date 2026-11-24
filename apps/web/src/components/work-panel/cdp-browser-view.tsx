@@ -32,6 +32,7 @@ import {
   Copy,
   ExternalLink,
   MousePointerClick,
+  PictureInPicture2,
 } from 'lucide-react'
 
 import { AnnotationStylePanel, type PickedVisualElement } from './annotation-style-panel'
@@ -41,6 +42,13 @@ import { useAuthStore } from '@/stores/auth'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { MENU_ITEM_CLASS, MENU_ITEM_ICON_CLASS } from '@/lib/menu-item'
 import { boundedAppend, droppedNotice } from '@/lib/bounded-append'
+import {
+  closeBrowserPip,
+  isBrowserPipOpen,
+  isDocumentPictureInPictureSupported,
+  openBrowserPipMonitor,
+} from '@/lib/browser-pip'
+import { useBrowserPipLabels } from '@/hooks/use-browser-pip-labels'
 
 /** 层栈 id(见 @/lib/overlay-stack):画布右键菜单浮层 */
 const CDP_CTX_MENU_OVERLAY_ID = 'cdp-browser-view-ctx-menu'
@@ -290,6 +298,24 @@ export function CdpBrowserView({
 
   // 开发者工具(2026-08-17):控制台日志 + JS 执行(类似 F12)
   const [devToolsOpen, setDevToolsOpen] = React.useState(false)
+  // 2026-11-24:画中画监看 —— 只读浮窗,独立 WS 收帧,不抢主窗口输入
+  const [pipSupported, setPipSupported] = React.useState(false)
+  const [pipOn, setPipOn] = React.useState(false)
+  const pipSessionRef = React.useRef<string | null>(null)
+  const pipLabels = useBrowserPipLabels()
+  React.useEffect(() => {
+    pipSessionRef.current = null
+    setPipSupported(isDocumentPictureInPictureSupported())
+  }, [])
+  // 切 tab(sessionId 变更)时关掉旧会话的浮窗;组件卸载(面板收起)不动浮窗 ——
+  // 浮窗独立收帧,面板关掉后仍要能看。
+  React.useEffect(() => {
+    if (pipSessionRef.current && pipSessionRef.current !== sessionId) {
+      closeBrowserPip()
+      pipSessionRef.current = null
+      setPipOn(false)
+    }
+  }, [sessionId])
   const [jsCode, setJsCode] = React.useState('')
   const [jsResult, setJsResult] = React.useState('')
   const [consoleBuf, setConsoleBuf] = React.useState<{ logs: string[]; dropped: number }>({
@@ -700,6 +726,33 @@ export function CdpBrowserView({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- next-intl 4.13.4 的 t 每次渲染换新引用(实测 same=false),补进依赖会让本 effect 每渲染重跑
   }, [onBack, onForward, onReload, onOpenExternal, currentUrl, copied, handleCopyUrl])
 
+  const handleTogglePip = React.useCallback(() => {
+    if (isBrowserPipOpen()) {
+      closeBrowserPip()
+      pipSessionRef.current = null
+      setPipOn(false)
+      return
+    }
+    void openBrowserPipMonitor({
+      sessionId,
+      labels: pipLabels,
+      onHandover: () => {
+        pipSessionRef.current = null
+        setPipOn(false)
+        canvasRef.current?.focus()
+      },
+      onClose: () => {
+        pipSessionRef.current = null
+        setPipOn(false)
+      },
+    }).then((handle) => {
+      if (handle) {
+        pipSessionRef.current = sessionId
+        setPipOn(true)
+      }
+    })
+  }, [pipLabels, sessionId])
+
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-background">
       <canvas
@@ -765,6 +818,24 @@ export function CdpBrowserView({
         <MousePointerClick className="h-3 w-3 shrink-0" />
         {tv('pickElement')}
       </button>
+      {/* 2026-11-24:画中画监看 —— 浮窗只读,点「接管」回主面板操作 */}
+      {pipSupported && (
+        <button
+          type="button"
+          onClick={handleTogglePip}
+          aria-pressed={pipOn}
+          aria-label={pipOn ? t('pipMonitorActive') : t('pipMonitor')}
+          data-testid="cdp-pip-toggle"
+          className={`absolute right-2 top-[68px] z-20 inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-[10px] shadow-elevation-sm transition-colors ${
+            pipOn
+              ? 'border-stroke-selected bg-cta text-cta-foreground'
+              : 'border-border bg-background/90 text-muted-foreground hover:bg-accent hover:text-foreground'
+          }`}
+        >
+          <PictureInPicture2 className="h-3 w-3 shrink-0" />
+          {pipOn ? t('pipMonitorActive') : t('pipMonitor')}
+        </button>
+      )}
       {picked && (
         <AnnotationStylePanel
           element={picked}

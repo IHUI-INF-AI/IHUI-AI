@@ -599,7 +599,7 @@ async def test_screencast_start_stop():
     await session.stop_screencast()
     assert session._screencast_running is False
     assert session._screenshot_task is None
-    assert session._on_frame is None
+    assert session._frame_handlers == []
 
 
 async def test_screencast_loop_sends_frames():
@@ -636,18 +636,62 @@ async def test_screencast_start_is_idempotent():
 
     await session.start_screencast(h1)
     task1 = session._screenshot_task
+    # 同一回调重复登记不重复收帧
+    await session.start_screencast(h1)
+    assert session._frame_handlers == [h1]
+    # 第二个观众共用同一条截图循环
     await session.start_screencast(h2)
     assert session._screenshot_task is task1  # 未新建后台任务
     assert session._screencast_running is True
-    assert session._on_frame is h2
+    assert session._frame_handlers == [h1, h2]
     await session.stop_screencast()
+
+
+async def test_multiple_frame_handlers_receive_same_frame():
+    page = FakePage(viewport={"width": 800, "height": 600})
+    session = _make_session(page=page)
+    got_first: list[tuple[str, dict]] = []
+    got_pip: list[tuple[str, dict]] = []
+
+    async def h_first(data, meta):
+        got_first.append((data, meta))
+
+    async def h_pip(data, meta):
+        got_pip.append((data, meta))
+
+    await session.start_screencast(h_first)
+    await session.start_screencast(h_pip)
+    for _ in range(200):
+        if got_first and got_pip:
+            break
+        await asyncio.sleep(0.01)
+
+    assert got_first, "主视图观众未收到帧"
+    assert got_pip, "画中画观众未收到帧"
+    assert got_first[0] == got_pip[0], "同一 tick 的帧应发给所有观众"
+
+    # 一个观众离开,其余观众继续收帧
+    await session.remove_frame_handler(h_first)
+    assert session._screencast_running is True
+    assert session._frame_handlers == [h_pip]
+    count = len(got_pip)
+    for _ in range(200):
+        if len(got_pip) > count:
+            break
+        await asyncio.sleep(0.01)
+    assert len(got_pip) > count, "移除一个观众后剩余观众断流"
+
+    # 最后一个观众离开才停流
+    await session.remove_frame_handler(h_pip)
+    assert session._screencast_running is False
+    assert session._frame_handlers == []
 
 
 async def test_stop_screencast_no_task():
     session = _make_session()
     await session.stop_screencast()
     assert session._screenshot_task is None
-    assert session._on_frame is None
+    assert session._frame_handlers == []
 
 
 async def test_remove_frame_handler_stops_screencast():
@@ -659,7 +703,7 @@ async def test_remove_frame_handler_stops_screencast():
     await session.start_screencast(h)
     await session.remove_frame_handler(h)
     assert session._screencast_running is False
-    assert session._on_frame is None
+    assert session._frame_handlers == []
 
 
 # ---------------------------------------------------------------------------
@@ -682,6 +726,47 @@ async def test_set_navigation_handler_fires_on_main_frame():
     page.on_handlers["framenavigated"][0](page.main_frame)
     await asyncio.wait_for(event.wait(), 2)
     assert triggered == [("https://a.com/", None)]
+
+
+async def test_multiple_navigation_handlers_fire_once_each():
+    """主面板 + 画中画同时登记导航:两者都收到,且同一次导航不重复广播。"""
+    page = FakePage(url="https://a.com/")
+    session = _make_session(page=page)
+    first: list[tuple[str, str | None]] = []
+    second: list[tuple[str, str | None]] = []
+    done = asyncio.Event()
+
+    async def on_nav_first(url, title):
+        first.append((url, title))
+        if first and second:
+            done.set()
+
+    async def on_nav_second(url, title):
+        second.append((url, title))
+        if first and second:
+            done.set()
+
+    await session.set_navigation_handler(on_nav_first)
+    await session.set_navigation_handler(on_nav_second)
+    # 第二个观众接入不应重复挂 page.on 监听
+    assert len(page.on_handlers["framenavigated"]) == 1
+    page.on_handlers["framenavigated"][0](page.main_frame)
+    await asyncio.wait_for(done.wait(), 2)
+    assert first == [("https://a.com/", None)]
+    assert second == [("https://a.com/", None)]
+
+    # 一个观众离开,另一个继续收
+    await session.remove_navigation_handler(on_nav_first)
+    trigger = asyncio.Event()
+
+    async def _once_more(url, title):
+        trigger.set()
+
+    # 重新挂一个（模拟重连的观众）
+    await session.set_navigation_handler(_once_more)
+    page.on_handlers["framenavigated"][0](page.main_frame)
+    await asyncio.wait_for(trigger.wait(), 2)
+    assert len(second) == 2
 
 
 async def test_set_navigation_handler_ignores_non_main_frame():

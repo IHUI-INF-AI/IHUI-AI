@@ -45,6 +45,9 @@ import {
   isDocumentPictureInPictureSupported,
   openPictureInPictureWindow,
 } from '@/components/chat/picture-in-picture-section'
+import { openBrowserPipMonitor } from '@/lib/browser-pip'
+import { useBrowserPipLabels } from '@/hooks/use-browser-pip-labels'
+import { useWorkPanelStore } from '@/stores/work-panel'
 import { cn } from '@/lib/utils'
 import {
   MENU_ITEM_CHECK_CLASS,
@@ -475,6 +478,36 @@ export function AISidePanel() {
   React.useEffect(() => {
     setPipSupported(isDocumentPictureInPictureSupported())
   }, [])
+  const pipLabels = useBrowserPipLabels()
+  // 2026-11-24:有活跃 CDP 会话就接实时画面,没有才回落 D181 的空态窗。
+  // 「接管」把右侧工作面切回该 tab 并展开面板(浮窗此时已关掉,输入回到主窗口)。
+  const openPipFromPanel = React.useCallback(() => {
+    const state = useWorkPanelStore.getState()
+    const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId)
+    const cdpTab =
+      activeTab && activeTab.state.mode === 'cdp' && activeTab.state.sessionId
+        ? activeTab
+        : state.tabs.find((tab) => tab.state.mode === 'cdp' && tab.state.sessionId)
+    const targetSessionId = cdpTab?.state.sessionId ?? null
+    if (!cdpTab || !targetSessionId) {
+      openPictureInPictureWindow({
+        title: tc('pictureInPicture.title'),
+        emptyState: tc('pictureInPicture.emptyState'),
+      })
+      return
+    }
+    const targetTabId = cdpTab.id
+    void openBrowserPipMonitor({
+      sessionId: targetSessionId,
+      title: cdpTab.title,
+      labels: pipLabels,
+      onHandover: () => {
+        const latest = useWorkPanelStore.getState()
+        if (latest.tabs.some((tab) => tab.id === targetTabId)) latest.setActiveTab(targetTabId)
+        latest.openPanel()
+      },
+    })
+  }, [pipLabels, tc])
   const tcommon = useTranslations('common')
   // 登录态门(与 settings 页同型):未就绪/未登录不发注定 401 的会话历史请求,消息区改显登录引导
   const tGate = useTranslations('chatHistory')
@@ -2921,12 +2954,7 @@ export function AISidePanel() {
                         <DropdownMenu.Item
                           data-testid="ai-panel-open-pip"
                           className={MENU_ITEM_CLASS}
-                          onSelect={() =>
-                            openPictureInPictureWindow({
-                              title: tc('pictureInPicture.title'),
-                              emptyState: tc('pictureInPicture.emptyState'),
-                            })
-                          }
+                          onSelect={() => openPipFromPanel()}
                         >
                           <PictureInPicture2 className={MENU_ITEM_ICON_CLASS} />
                           <span className="truncate">{tc('pictureInPicture.openWindow')}</span>
