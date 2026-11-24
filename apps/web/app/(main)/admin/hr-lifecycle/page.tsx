@@ -14,6 +14,10 @@ import {
   LogOut,
   Banknote,
   ClipboardList,
+  Layers,
+  Target,
+  GraduationCap,
+  ReceiptText,
 } from 'lucide-react'
 
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -25,6 +29,10 @@ import { ContractOps } from './contract-ops'
 import { RecruitOps } from './recruit-ops'
 import { BankCard } from './bank-card'
 import { CompTab } from './comp-tab'
+import { GradeTab } from './grade-tab'
+import { PerfTab } from './perf-tab'
+import { TrainingTab } from './training-tab'
+import { ExpenseTab } from './expense-tab'
 
 /**
  * 人事生命周期(2026-11-23 立):入职前(招聘) → 合同/试用 → 离职 → 发薪闭环。
@@ -33,10 +41,11 @@ import { CompTab } from './comp-tab'
  * 代发文件要手工拼 —— 这里把"一个员工从候选到离场"的链路收进一页。
  */
 
-type TabKey = 'board' | 'contracts' | 'recruit' | 'interview' | 'resign' | 'payout' | 'comp'
+type TabKey = 'board' | 'contracts' | 'recruit' | 'interview' | 'resign' | 'payout' | 'comp' | 'grade' | 'perf' | 'training' | 'expense'
 
 export default function HrLifecyclePage() {
   const t = useTranslations('hrLifecycle')
+  const tG = useTranslations('hrGap')
   const [tab, setTab] = React.useState<TabKey>('board')
 
   const tabs: Array<{
@@ -51,6 +60,10 @@ export default function HrLifecyclePage() {
     { key: 'resign', label: t('tabResign'), icon: LogOut },
     { key: 'payout', label: t('tabPayout'), icon: Banknote },
     { key: 'comp', label: '排班/奖金/补偿', icon: ClipboardList },
+    { key: 'grade', label: tG('tabGrade'), icon: Layers },
+    { key: 'perf', label: tG('tabPerf'), icon: Target },
+    { key: 'training', label: tG('tabTraining'), icon: GraduationCap },
+    { key: 'expense', label: tG('tabExpense'), icon: ReceiptText },
   ]
 
   return (
@@ -108,6 +121,10 @@ export default function HrLifecyclePage() {
           </div>
         )}
         {tab === 'comp' && <CompTab />}
+        {tab === 'grade' && <GradeTab />}
+        {tab === 'perf' && <PerfTab />}
+        {tab === 'training' && <TrainingTab />}
+        {tab === 'expense' && <ExpenseTab />}
       </HasPermi>
     </FeaturePageShell>
   )
