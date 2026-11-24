@@ -94,6 +94,15 @@ HR_GAP_ROUTES: dict[str, tuple[str, str]] = {
     "payroll.submit": ("POST", "/api/hr-comp/payroll/submit"),
     "payroll.review": ("POST", "/api/hr-comp/payroll/review"),
     "payroll.trail": ("GET", "/api/hr-comp/payroll/review-trail"),
+    "expense.submit": ("POST", "/api/hr-expense/"),
+    "expense.mySubmit": ("POST", "/api/hr-expense/my/submit"),
+    "expense.my": ("GET", "/api/hr-expense/my"),
+    "expense.list": ("GET", "/api/hr-expense/"),
+    "expense.get": ("GET", "/api/hr-expense/:id"),
+    "expense.decide": ("POST", "/api/hr-expense/:id/decide"),
+    "expense.pay": ("POST", "/api/hr-expense/:id/pay"),
+    "expense.linkVoucher": ("POST", "/api/hr-expense/:id/link-voucher"),
+    "expense.void": ("POST", "/api/hr-expense/:id/void"),
 }
 
 HR_LIFECYCLE_DESCRIPTION = (
@@ -127,6 +136,10 @@ HR_GAP_DESCRIPTION = (
     "奖金:bonus.calc 先试算(单独计税),bonus.create 落台账;"
     "补偿:severance.calc 需 hireDate/lastWorkDate/monthlyAvgWage/localAvgMonthlyWage 四个事实,缺一不猜;"
     "复核:payroll.submit 提交留痕,payroll.review 批准/退回(提交人不得自批)。"
+    "报销:expense.mySubmit(自助,服务端认本人档案)或 expense.submit(管理代提,必须附票据影像+审批链,"
+    "非当前步审批人不可操作,提交人不能是自己单的唯一审批人)→ expense.decide 逐级 approve/reject "
+    "→ expense.pay(bank/cash)→ expense.linkVoucher 生成正式账凭证(幂等,需账套);"
+    "已付款不可作废,要回冲走红冲凭证。"
 )
 
 

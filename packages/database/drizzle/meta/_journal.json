@@ -3229,6 +3229,13 @@
       "when": 1795497000000,
       "tag": "20261124200000_fin_fixed_assets",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 465,
+      "when": 1795498800000,
+      "tag": "20261124210000_hr_expense_claim",
+      "breakpoints": true
     }
   ]
 }
