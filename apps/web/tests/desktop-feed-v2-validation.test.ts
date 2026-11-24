@@ -12,7 +12,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { isValidDesktopFeedV2 } from '../app/desktop-feed.json/route'
+import { isValidDesktopFeedV2 } from '../src/config/desktop-feed-v2-validation'
 
 const SHA = 'a'.repeat(64)
 
@@ -87,9 +87,16 @@ describe('isValidDesktopFeedV2', () => {
   })
 
   it('url 必须 https、sha256 必须 64 位、签名不能为空', () => {
-    const badUrl = validFeed()
-    badUrl.payload.url = 'http://example.com/a.zip'
-    expect(isValidDesktopFeedV2(badUrl)).toBe(false)
+    for (const url of [
+      'http://example.com/a.zip',
+      'https://user:pass@example.com/a.zip',
+      'https:///a.zip',
+      'https://example.com/a.zip#frag',
+    ]) {
+      const feed = validFeed()
+      feed.payload.url = url
+      expect(isValidDesktopFeedV2(feed)).toBe(false)
+    }
 
     const badSha = validFeed()
     badSha.payload.sha256 = 'abc'

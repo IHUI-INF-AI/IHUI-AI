@@ -48,6 +48,7 @@ import {
   resolveDesktopFeedForUpdater,
 } from '@/config/desktop-feed-live'
 import type { DesktopFeedPayload } from '@/config/desktop-feed-payload'
+import { isValidDesktopFeedV2 } from '@/config/desktop-feed-v2-validation'
 
 // ISR 10 分钟:新发版能较快推给客户端,又远低于 GitHub 公开 API 的 60 req/h 限流。
 export const revalidate = 600
@@ -60,88 +61,6 @@ function isValidPayload(p: unknown): p is DesktopFeedPayload {
     !!(p as DesktopFeedPayload).platforms &&
     typeof (p as DesktopFeedPayload).platforms === 'object'
   )
-}
-
-interface DesktopFeedV2 {
-  schema: 2
-  version: string
-  channel: string
-  rollout: { percent: number }
-  minSupported: string | null
-  revoked: string[]
-  rollbackTo: string | null
-  notes: string
-  payload: {
-    url: string
-    size: number
-    sha256: string
-    signature: string
-    format: 'zip'
-    platform: string
-    minLauncher: string
-  }
-}
-
-/**
- * v2 是客户端直接拿去下载+验签+切版本的结构，不能像 legacy 那样只判 version。
- * 字段缺一个，客户端要么下载 404 资产，要么 minisign 解码失败，最后只在
- * 客户端 console.warn —— 发布侧必须在这里先红。
- */
-export function isValidDesktopFeedV2(value: unknown): value is DesktopFeedV2 {
-  if (!value || typeof value !== 'object') return false
-  const feed = value as Record<string, unknown>
-  const payload = feed.payload as Record<string, unknown> | undefined
-  // 版本号必须至少含一个数字：`latest` 这类纯字母虽然能过旧的字符集，
-  // 但客户端会拿它做版本比较，属于“结构合法、语义非法”的坏 feed。
-  const VERSION_RE = /^(?=.*\d)[0-9A-Za-z.-]{1,64}$/
-  // 必须与客户端 update_v2.rs 的上限一致：客户端会在超过 300MB 时直接拒收，
-  // 发布侧若放行，线上表现就是“feed 有效但永远下载失败”。
-  const MAX_PAYLOAD_BYTES = 300 * 1024 * 1024
-  if (feed.schema !== 2) return false
-  if (typeof feed.version !== 'string' || !VERSION_RE.test(feed.version)) return false
-  if (typeof feed.channel !== 'string' || feed.channel === '') return false
-  if (typeof feed.notes !== 'string') return false
-  if (
-    feed.minSupported !== null &&
-    (typeof feed.minSupported !== 'string' || !VERSION_RE.test(feed.minSupported))
-  )
-    return false
-  if (
-    feed.rollbackTo !== null &&
-    (typeof feed.rollbackTo !== 'string' || !VERSION_RE.test(feed.rollbackTo))
-  )
-    return false
-  if (
-    !Array.isArray(feed.revoked) ||
-    !feed.revoked.every((v) => typeof v === 'string' && VERSION_RE.test(v))
-  )
-    return false
-  const rollout = feed.rollout as Record<string, unknown> | undefined
-  if (
-    !rollout ||
-    typeof rollout.percent !== 'number' ||
-    !Number.isInteger(rollout.percent) ||
-    rollout.percent < 1 ||
-    rollout.percent > 100
-  ) {
-    return false
-  }
-  if (!payload) return false
-  if (typeof payload.url !== 'string' || !/^https:\/\//i.test(payload.url)) return false
-  if (
-    typeof payload.size !== 'number' ||
-    !Number.isSafeInteger(payload.size) ||
-    payload.size <= 0 ||
-    payload.size > MAX_PAYLOAD_BYTES
-  ) {
-    return false
-  }
-  if (typeof payload.sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(payload.sha256)) return false
-  if (typeof payload.signature !== 'string' || payload.signature.trim() === '') return false
-  if (payload.format !== 'zip') return false
-  if (typeof payload.platform !== 'string' || payload.platform === '') return false
-  if (typeof payload.minLauncher !== 'string' || !VERSION_RE.test(payload.minLauncher)) return false
-  return true
 }
 
 /**
