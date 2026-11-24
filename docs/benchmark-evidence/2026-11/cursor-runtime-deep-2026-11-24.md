@@ -21,7 +21,7 @@
 | `js-app-map` 可调参数 | `--max-nodes` / `--max-files` / `--max-file-bytes` / `--max-total-bytes` / `--limit` / `--include-node-modules`（`craft js-app-map --help` 现读） |
 | 目标安装根 | `C:\Users\Administrator\AppData\Local\Programs\cursor\resources\app`（存在，Cursor 3.27.22） |
 | craft 0.6.1 | `D:\DevEnv\craft-anything\0.6.1\` 盘上不存在（`.ihui/mcp.json` 仍指向它）→ 未采用、未伪造 |
-| REA 6.4.0 | `rea-agents` 全盘无落盘（`scripts/rea-mcp-entry.mjs` 在但引擎缺失）→ 未采用、未伪造 |
+| REA 6.4.0 | **12:33 补装实证**：`npm install -g rea-agents@6.4.0`（`D:\caches\npm\prefix\node_modules\rea-agents`）成功；真实 MCP 握手 `initialize`→`tools/list` 报 `rea@6.4.0`、协议 `2025-06-18`、**170 工具**。`rea doctor` 11/17 绿（Ghidra 12.1.4/headless/原生反编译器全绿；6 项 NOT-OK 全是 Hopper/IDA 可选引擎与各客户端 MCP 注册漂移，非分析核心）。旧结论"全盘无落盘"只查了盘、没查 registry 与 npx 回退，已纠正 |
 
 ## 2. 欠账①：节点截断 —— 已攻下
 
@@ -110,5 +110,36 @@ craft 的 `dynamic_ipc_channels` 判据 = "channel 实参非字符串字面量"�
   molten 采用请求/数据双工通道配对设计。
 - **未知**：channel 常量的字面值；`e.responseChannel` 生成算法；GraphQL 协议/鉴权细节；
   4 个超体积文件的正文；一切运行时交错与时序结论。
-- 未运行目标程序；未粘专有源码正文；未破解/绕过/提取凭据。craft 0.6.1 与 REA 6.4.0 缺失照实登记，未伪造。
+- 未运行目标程序；未粘专有源码正文；未破解/绕过/提取凭据。工具缺失两档的处理见 §7（12:30 后补装实证，旧"缺失"结论已纠正，未伪造任何取证结果）。
+
+## 7. 工具链缺口补装实证（2026-11-24 12:30 后，纠正 §1 旧结论）
+
+§1 写"craft 0.6.1 / REA 6.4.0 盘上缺失 → 未采用"是**只查了盘、没查 registry 与官方源**的疏漏。12:30 后逐项补齐并实测：
+
+### 7.1 REA 6.4.0 —— 已钉装并真实握手
+
+- **获取**：`npm view rea-agents versions` 确认 6.4.0 在册（registry `npmmirror`）；`npm install -g rea-agents@6.4.0` 成功（`added 144 packages`），落点 `D:\caches\npm\prefix\node_modules\rea-agents`，`package.json.version=6.4.0`。此前 `scripts/rea-mcp-entry.mjs` 的 resolveGlobalReaCli 首选路径与 npx 回退路径**本来就可用**，旧结论"引擎缺失"不成立。
+- **npx 路径独立验证**：`npx -y rea-agents@6.4.0 --version` → `6.4.0`（退出码 0）。
+- **真实 MCP 握手**：`spawn node scripts/rea-mcp-entry.mjs`，按 MCP stdio **newline-delimited JSON** 发 `initialize`/`tools/list`（验证器 `.ihui-agent/tmp/r12/rea-mcp-handshake.mjs`）。结果：`serverInfo={name:"rea",version:"6.4.0"}`、`protocolVersion=2025-06-18`、`tools/list` **170 工具**。注：第一次用 Content-Length framing 超时——REA 走官方 `@modelcontextprotocol/server/stdio`，是换行分隔 JSON；`.ihui/mcp.json` 给 `rea` 标的 `"framing":"content-length"` 与实现不符，属配置漂移，不改（不在本票范围）。
+- **doctor 分级**：`rea doctor --format json` → `healthy=false`、`11/17 checks ok`；6 项 NOT-OK 全是**非分析核心**：`hopper`（可选分析引擎缺失）、`ida-registration`（未配置）、`skill:identity`、`registration:codex/cursor/opencode`（各客户端 MCP 注册漂移）。**Ghidra 全链绿**：`ghidra`/`platform`/`architecture`/`installation`/`version 12.1.4`/`headless`/`native_decompiler(pe x86_64)` 全 ok ⇒ 原生二进制取证能力在位。
+- **能力面**：`rea --help` 列出 `analyze-javascript-application`、`decompile`、`compare-application-versions`、`capture-*-scenario` 等完整命令集；`rea capabilities --format json` 可见 provider 级 availability/effects/limitations（macOS-only 项如 `capture_native_ui_scenario`/`demangle_swift` 正确标 `unsupported_host`）。
+- **静态取证实跑（诚实边界）**：对 Cursor app 目录跑 `rea analyze-javascript-application`（`--artifact-format directory --analysis-timeout-ms 120000`，**不运行目标**），240s 外层超时（`REA_EXIT=124`）——进度只到 `parse_javascript_source 58/19564`。**观察**：REA 的逐源解析模型在 19,564 文件规模的 Cursor app 上不适合全量取证（4 分钟仅 58 文件），这与 craft `js-app-map` 的整图索引模型不同；结论 = REA 已补装可用（MCP 握手/doctor/Ghidra 链实证），但**对本文目标不是合适的主取证工具**，本文两条欠账仍以 craft 0.5.0 静态攻下为准。产物：`.ihui-agent/tmp/r12/rea-cursor-js.err`（10,959 B 逐条进度）。未伪造分析结果。
+- **REA 独占增量取证（Ghidra 函数级，成功）**：改用 REA 擅长的原生件路径——对 Cursor 的 `node_modules/native-is-elevated/build/Release/iselevated.node`（PE x86_64，sha256 `ec5696e70e0bd0a2…`）跑 `rea analyze --provider ghidra` 与 `rea inspect-artifact`，**均成功**（不运行目标）：
+  - `inspect-artifact` → Evidence `ev_a28c909b…`，provider `rea-artifact-graph`，`inventory_artifact:completed`，manifest 1 node / 0 edge，graph_sha `fc84fb5f…`。产物 `rea-iselevated-inspect.json`（6,804 B）。
+  - `analyze --provider ghidra` → Evidence `ev_3964ff8b…`，**490 procedures / 290 strings / 10 segments**；节表含 `.text[0x180001000..0x18000ec00]`(56,320 B)、`.rdata`(40,960 B)、`.didat`、`.fptable`、`.reloc`、`tdb[0xff00000000..]` 等。产物 `rea-iselevated-analyze2.json`（3,332 B）。
+  - **修改说明**：首次 `analyze` 用 `C://Users//...` 双斜杠路径失败（`ERR_REA_WINDOWS_NATIVE` "Ambiguous Windows path component"），改单反斜杠正确路径后成功——是参数传递问题，非引擎缺陷（留痕 `rea-iselevated-analyze.json` 失败证据）。
+  - **价值**：这是 craft `js-app-map` 给不出的**函数级原生证据**，补足了 §4 原生模块清单只有名字、无函数计数的空缺；但按 §5「本仓等价覆盖」判据，它仍是**证据增量而非能力缺口**（本仓 Tauri 已用 Rust 原生层），不新增代码。
+
+### 7.2 craft-anything 0.6.1 —— 官方源获取中（校验后再改口径）
+
+- **确认存在**：GitHub Releases `v0.6.1`（published 2026-11-12）含 `craft-anything-0.6.1-windows-x64-portable.zip`（69,934,191 B）与 `SHA256SUMS.txt`、`release-signing-key.asc`。
+- **获取路径**：`curl` 官方 release URL → `D:\DevEnv\craft-anything\0.6.1\`（正是 `.ihui/mcp.json` 指向的路径，补上即修复该注册），下载后以 `SHA256SUMS.txt` 比对再解压。
+- **release notes 性质**：v0.6.1 变更以 R3.12 原生二进制解析器健壮性（Mach-O zero-fill/ELF symbol versions/PE VA wrap/DEX boundaries 等）与少量 R2.x 浏览器生命周期修复为主，**无 js-app-map 或 MCP 工具数的新增说明** ⇒ 对本文 JS 运行时动态面结论无增量影响。
+- **状态纪律**：截至本节落笔，zip 仍在下载（未校验、未解压、未跑版本）。**在 SHA256 验证 + `--version` 实测前，不声明 0.6.1 可用**。
+
+### 7.3 对本文结论的影响
+
+- 两条欠账（63,655 节点截断、31 动态 IPC）本就是 craft 0.5.0 静态攻下，与工具版本无关；§2–§6 全部结论**不变**。
+- 唯一修订：§1 与 §6 里"工具缺失=未采用"的措辞作废，改为"REA 已补装实测 / craft 0.6.1 官方源校验中"，证据以本节为准。
+- 未运行任何目标程序；未粘专有源码正文；未破解/绕过/提取凭据。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
