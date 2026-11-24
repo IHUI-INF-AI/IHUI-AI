@@ -33,6 +33,7 @@ import {
   type MessageCreatedEvent,
   type MessagePatchedEvent,
   type MessageTerminalEvent,
+  type NotificationStateEvent,
   type UserBroadcastEvent,
   type UserBroadcastEventName,
 } from '@ihui/types'
@@ -112,6 +113,11 @@ export interface UserBroadcastHandlers {
   'message:patched'?: (evt: MessagePatchedEvent) => void
   /** 终态帧(v2):载荷就是契约的 `ChatMessageTerminalEvent`,唯一消费出口仍是 store 的 applyChatSync。 */
   'message:terminal'?: (evt: MessageTerminalEvent) => void
+  /**
+   * 通知状态翻转(2026-11-24):与 createdAt 水位补增量正交的独立事件。
+   * 消费出口 = web 通知 store 的批量翻转 API,不塞进 /ws/notifications 的新通知适配器。
+   */
+  'notification:state'?: (evt: NotificationStateEvent) => void
   /** 收到对象形态但解不出已知事件的帧 ⇒ 「未判定」,必须计数/点名,不得静默丢弃 */
   onUndetermined?: (raw: unknown) => void
   /** 连接状态变化(`'injected'` 档恒为 `idle`,因为它不拥有连接) */
@@ -439,6 +445,8 @@ export const USER_BROADCAST_SUBSCRIBABLE_EVENTS: readonly UserBroadcastEventName
   'message:patched',
   // 票71 terminal 切片(2026-10-26):终态独立帧
   'message:terminal',
+  // 通知状态翻转(2026-11-24):与 USER_BROADCAST_EVENT_NAMES 等值(d153 测试硬断言)
+  'notification:state',
 ]
 
 // ===================== 宿主绑定工厂(端内适配器的唯一入口) =====================

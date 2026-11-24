@@ -64,6 +64,10 @@ export const USER_BROADCAST_EVENT_NAMES = [
   'message:patched',
   // 票71 terminal 切片(2026-10-26):终态是新帧而非 patched 的可选字段,载体同样只做声明。
   'message:terminal',
+  // 通知状态翻转(2026-11-24):断线期别的设备把通知标已读/归档,本端 createdAt 水位
+  // 只补「新增行」收不到翻转。走本通道(与 createdAt 补增量正交的独立事件),
+  // 不塞进 /ws/notifications 的 {type:'notification'} 信封(那是新通知专用)。
+  'notification:state',
 ] as const
 
 export type UserBroadcastEventName = (typeof USER_BROADCAST_EVENT_NAMES)[number]
@@ -583,6 +587,65 @@ export function messageTerminalEvent(input: {
   return { event: 'message:terminal', data }
 }
 
+// ===================== notification:state(通知状态翻转 2026-11-24)=====================
+
+/** 通知状态翻转的操作档位;封闭集,新增须同步 isNotificationStateOp 与消费端分派 */
+export const NOTIFICATION_STATE_OPS = ['read', 'archive', 'restore', 'read-all'] as const
+export type NotificationStateOp = (typeof NOTIFICATION_STATE_OPS)[number]
+
+export function isNotificationStateOp(v: unknown): v is NotificationStateOp {
+  return typeof v === 'string' && (NOTIFICATION_STATE_OPS as readonly string[]).includes(v)
+}
+
+/**
+ * `notification:state` 载荷。
+ *
+ * `ids` 是本帧真正翻转的通知 id(落库结果,不照抄请求体);read-all 用 `op='read-all'`
+ * 表示"服务端全部标已读",但仍带 ids —— 消费端按 ids 精确应用,不用"无条件全量置读"
+ * 洗掉本地尚未收到的新通知。
+ * `changedBy` 必填:区分本端回声与别的设备改的,前者静默对账、后者可一次性提示。
+ */
+export interface NotificationStateData {
+  op: NotificationStateOp
+  ids: string[]
+  changedBy: string
+  /** ISO 8601;取库侧写时刻(无 updatedAt 列时取服务端 now()),同 id 以最新为准 */
+  at: string
+}
+
+export interface NotificationStateEvent {
+  event: 'notification:state'
+  data: NotificationStateData
+}
+
+/** 生产侧构造 `notification:state` 的唯一出口;在构造点就拒坏值,不推给消费端判未判定 */
+export function notificationStateEvent(input: {
+  op: NotificationStateOp
+  ids: readonly string[]
+  changedBy: string
+  at?: Date | string
+}): NotificationStateEvent {
+  if (!isNotificationStateOp(input.op)) {
+    throw new Error(`notificationStateEvent: 未知 op ${String(input.op)}`)
+  }
+  if (!input.changedBy) throw new Error('notificationStateEvent: changedBy 不得为空(无从判回声)')
+  const ids = Array.from(new Set(input.ids))
+  if (ids.length === 0) throw new Error('notificationStateEvent: ids 去重后为空')
+  if (!ids.every((id) => typeof id === 'string' && id.length > 0)) {
+    throw new Error('notificationStateEvent: ids 必须全是非空字符串')
+  }
+  const data: NotificationStateData = {
+    op: input.op,
+    ids,
+    changedBy: input.changedBy,
+    at:
+      input.at === undefined
+        ? new Date().toISOString()
+        : toIsoAt('notificationStateEvent', input.at),
+  }
+  return { event: 'notification:state', data }
+}
+
 function toIsoAt(fn: string, at: Date | string): string {
   const iso = typeof at === 'string' ? at : at.toISOString()
   if (Number.isNaN(Date.parse(iso))) throw new Error(`${fn}: at 不是时间:${iso}`)
@@ -601,6 +664,7 @@ export type UserBroadcastEvent =
   | MessageCreatedEvent
   | MessagePatchedEvent
   | MessageTerminalEvent
+  | NotificationStateEvent
 
 /** 传输线上的裸帧形态:`/ws/broadcast` 推送的就是这个对象 */
 export interface UserBroadcastFrame {
@@ -680,6 +744,23 @@ function isCheckpointAvailabilityData(v: unknown): v is CheckpointAvailabilityDa
 }
 
 /** 事件名 → 值判据的唯一映射(新增事件名而不在此登记 ⇒ TS 报错,联合不会静默扩宽) */
+/** `notification:state` 的字段判据(与构造出口同源同规则) */
+function isNotificationStateData(v: unknown): v is NotificationStateData {
+  if (typeof v !== 'object' || v === null) return false
+  const d = v as Record<string, unknown>
+  if (!isNotificationStateOp(d.op)) return false
+  if (typeof d.changedBy !== 'string' || d.changedBy.length === 0) return false
+  if (typeof d.at !== 'string' || Number.isNaN(Date.parse(d.at))) return false
+  if (!Array.isArray(d.ids)) return false
+  const ids = d.ids as unknown[]
+  if (ids.length === 0) return false
+  if (!ids.every((id) => typeof id === 'string' && id.length > 0)) return false
+  if (new Set(ids as string[]).size !== ids.length) return false
+  // 主体不得从载荷进来(AGENTS §5),与其余事件同一条纪律
+  if ('userId' in d || 'user_id' in d) return false
+  return true
+}
+
 const DATA_GUARDS: Record<UserBroadcastEventName, (v: unknown) => boolean> = {
   'conversation:updated': isConversationUpdatedData,
   'mcp:status': isMcpStatusData,
@@ -691,6 +772,7 @@ const DATA_GUARDS: Record<UserBroadcastEventName, (v: unknown) => boolean> = {
   'message:created': isMessageCreatedData,
   'message:patched': isMessagePatchedData,
   'message:terminal': isMessageTerminalData,
+  'notification:state': isNotificationStateData,
 }
 
 /**
