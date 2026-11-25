@@ -15,7 +15,7 @@
  *  - POST /probe        探测 URL 是否可 iframe 嵌入
  */
 
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error, parseOrThrow } from '../utils/response.js'
@@ -138,5 +138,54 @@ export const browserRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(502).send(error(502, `ai-service 连接失败: ${msg.slice(0, 200)}`))
     }
   })
+
+  // -------------------------------------------------------------------------
+  // /task-templates - 画中画监看模板 CRUD(转发到 ai-service)
+  // 2026-11-26:模板接口注册在 ai-service(FastAPI) /api/browser/task-templates,
+  // 生产公网 /api/* 由 api-router 直接打到 api-service，不经 Next rewrites；
+  // 因此必须在 api-service 这一层补同源转发，否则桌面端编辑器恒 404。
+  // -------------------------------------------------------------------------
+  server.get('/task-templates', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const resp = await aiServiceFetch(request, '/api/browser/task-templates', { method: 'GET' })
+    return forwardTemplateResponse(resp, reply, '模板目录读取失败')
+  })
+
+  server.post('/task-templates', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const resp = await aiServiceFetch(request, '/api/browser/task-templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request.body ?? {}),
+    })
+    return forwardTemplateResponse(resp, reply, '模板保存失败')
+  })
+
+  server.delete('/task-templates/:templateId', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const templateId = (request.params as { templateId: string }).templateId
+    const resp = await aiServiceFetch(
+      request,
+      `/api/browser/task-templates/${encodeURIComponent(templateId)}`,
+      { method: 'DELETE' },
+    )
+    return forwardTemplateResponse(resp, reply, '模板删除失败')
+  })
+}
+
+/**
+ * 模板 CRUD 的公共转发出口：ai-service 已经返回 `{code,message,data}` 信封，
+ * 成功时原样透传，失败时保留上游状态码与信封，前端 fetchApi 才能拿到同一契约。
+ */
+async function forwardTemplateResponse(
+  resp: Response,
+  reply: FastifyReply,
+  fallbackMessage: string,
+) {
+  const json = (await resp.json().catch(() => null)) as Record<string, unknown> | null
+  if (!resp.ok) {
+    return reply.status(resp.status).send(json ?? error(resp.status, fallbackMessage))
+  }
+  return reply.send(json ?? error(502, fallbackMessage))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
