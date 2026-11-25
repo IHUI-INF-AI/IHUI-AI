@@ -1858,7 +1858,9 @@ export default function P() {
       const r = A(
         'const x = (\n  <select\n    value={k}\n    onChange={f}\n    className="h-7 rounded-md border bg-card px-1.5"\n  />\n)',
       )
-      return r.undetermined.length === 0 && r.violations[0]?.role === 'control' && r.violations[0]?.evidence !== 'weak'
+      // 2026-11-26 起 control 与 chip 同为 md=6px,原来"md 必判红"的前提失效:
+      // 改为断言这处取用被归到 control 且合规,同时 select 标签本身提供了强证据。
+      return r.undetermined.length === 0 && r.violations.length === 0 && r.compliant === 1 && r.identityEvidence >= 1
     })(),
   )
   t(
