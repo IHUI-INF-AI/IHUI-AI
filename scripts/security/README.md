@@ -183,6 +183,8 @@ curl.exe -i -H "Accept: text/html" http://<边缘回源IP>:8801/   # 浏览器�
 | `IHUI-Security-Account-Watch`   | 每 15 分钟     | SYSTEM                                                |
 | `IHUI-Security-Service-Watch`   | 每 30 分钟     | SYSTEM                                                |
 | `IHUI-Security-Evidence-Intake` | 每 2 分钟      | SYSTEM · 吸收告知日志里已开票未入链的编号             |
+| `IHUI-Security-Audit-Policy`    | 每 6 小时      | SYSTEM · 审计策略被关时下游全是「空窗假绿」           |
+| `IHUI-Security-Event-Intake`    | 每 15 分钟     | SYSTEM · Security 日志只留 4.6h,抽取间隔=最坏丢失窗口 |
 
 > **`IHUI-AI auto-evolve` 的预期形态（2026-11-26 实测定档，改回旧形态即属回归）**：`TimeTrigger` + `Repetition/PT1H`（**不写 `Duration`**）+ `S4U` + `StartWhenAvailable=true` + Action 直接钉 `D:\DevEnv\runtimes\node22-lts\node.exe "…\scripts\auto-evolve.mjs" --once`（WorkingDirectory=仓根）。四个「为什么」都踩过：① 旧定义是 `LogonTrigger`，无人登录时 `Next Run Time` 恒 `N/A` ⇒ **从不自动跑，而 `Last Result` 一直是 0**（派单不该等人登录）；② 旧定义 `InteractiveToken`，自动触发拿不到交互会话令牌（`id=101` / `2147943568`=`0x80070490`）⇒ 每小时都在触发、每次都起不来；③ 旧 Action 经 `auto-evolve-hidden.vbs` 间接启动，VBS 在 `IHUI_NODE_BIN` 为空时回落到裸 `node.exe` 交给 PATH，而本机 node 只在**用户** PATH 里、S4U 不保证继承 ⇒ 静默失败（`Last Result` 照样 0）；④ 写 `Duration` 会在窗口到期后永久停摆。**实测判据**：`Last Run Time` 是自动时刻（不是手动补跑）、事件 `id=201` 的操作是 node 绝对路径、台账 `.ihui-agent/state/auto-evolve-ledger.jsonl` 新增一条 `dispatch`、`Next Run Time` 已排到下一小时。
 
