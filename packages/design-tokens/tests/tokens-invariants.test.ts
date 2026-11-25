@@ -100,7 +100,7 @@ describe('圆角档位表:档位取值 + 表内派生算术', () => {
 })
 
 describe('几何档投影:dp 与 rpx 必须由同一张表派生', () => {
-  it('取值冻结:全十五档(tapBox 36 / fabBox 56 / glyphMd 20 / controlBox 32 / controlGlyph 14 / glyphSm 16 / textCaption 11 / textLabel 12 / textBody 14 / textStrong 15 / drawerWidth 160(2026-11-07 与 web SIDEBAR_WIDTH 同值)/ sidebarMaxWidth 180 / sidebarCollapsedWidth 60 / previewShellWidth 430 / runtimePanelScrollMaxHeight 320)', () => {
+  it('取值冻结:全十六档(tapBox 36 / touchTarget 44 / fabBox 56 / glyphMd 20 / controlBox 32 / controlGlyph 14 / glyphSm 16 / textCaption 11 / textLabel 12 / textBody 14 / textStrong 15 / drawerWidth 160(2026-11-07 与 web SIDEBAR_WIDTH 同值)/ sidebarMaxWidth 180 / sidebarCollapsedWidth 60 / previewShellWidth 430 / runtimePanelScrollMaxHeight 320)', () => {
     // 2026-09-27:controlBox/controlGlyph 是几何收敛(a464b7d9c)按"先在本表落一档(带取值依据)"
     // 规程新增的档;2026-09-29 再随 O81 票(ca3f2cff31 补 glyphSm、8f24ec85f7 补 textCaption/
     // textLabel/textBody/textStrong/drawerWidth)钉全**十档**;2026-10-15 补 previewShellWidth
@@ -113,8 +113,11 @@ describe('几何档投影:dp 与 rpx 必须由同一张表派生', () => {
     // sidebarCollapsedWidth 管折叠态;表里有几档就钉几档,漏钉即给下一次静默改值留口子)。
     // 2026-11-07 19:57 机主最终定档:drawerWidth 锁定 160,三端统一(web 160px / RN 160dp /
     // 小程序 320rpx);当日 19:13 的 120 中间档已废止,**此后不再改动本值**。
+    // 2026-11-26 补 touchTarget 44(ef188289 为 page-spec 的 TOUCH_TARGET_MIN_PX 补档,
+    // 本行未跟随 ⇒ mobile-release-gate 的 design-tokens 用例红;与 tapBox 36 不同事,不得合并)。
     expect(GEOMETRY_PX).toEqual({
       tapBox: 36,
+      touchTarget: 44,
       fabBox: 56,
       glyphMd: 20,
       controlBox: 32,

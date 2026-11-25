@@ -72,7 +72,7 @@ pub struct TrayMenuItem {
     pub group: u8,
 }
 
-pub const TRAY_MENU_ITEMS: [TrayMenuItem; 9] = [
+pub const TRAY_MENU_ITEMS: [TrayMenuItem; 10] = [
     TrayMenuItem { id: "new_chat", label_index: 0, group: 0 },
     TrayMenuItem { id: "show", label_index: 1, group: 1 },
     TrayMenuItem { id: "hide", label_index: 2, group: 1 },
@@ -84,6 +84,10 @@ pub const TRAY_MENU_ITEMS: [TrayMenuItem; 9] = [
     // tray_menu_labels() 的「窗口置顶(切换)」;默认菜单里就该有它(不是操作员专属):
     // 桌面端加载的是线上页,图钉按钮要等前端发版,托盘这条是用户当场可用的入口。
     TrayMenuItem { id: "always_on_top", label_index: 6, group: 2 },
+    // 2026-11-26:G4「本机执行器」开关(托盘入口)。勾选态 = 本机常驻执行器在跑,
+    // 点一下 = 起/停(与设置页那张卡片同一个 Rust 函数,不是第二套实现)。
+    // 默认可见:手机派单要能落到这台电脑,用户不开窗也该看到它跑没跑。
+    TrayMenuItem { id: "device_executor", label_index: 9, group: 2 },
     TrayMenuItem { id: "quit", label_index: 7, group: 3 },
     // 2026-11-11:操作员专属项。**默认不进 default 列表**(见 default_tray_menu_items),
     // 需在 <app_config_dir>/desktop-behavior.json 的 tray_menu_items 里显式加
@@ -100,6 +104,10 @@ pub const TRAY_MENU_ALWAYS_ON_TOP_ID: &str = "always_on_top";
 
 /// 操作员专属托盘项 id:拉起本机号池切号器(见 lib.rs 的 spawn_relay_switch)。
 pub const TRAY_MENU_RELAY_SWITCH_ID: &str = "relay_switch";
+
+/// G4 本机执行器托盘项 id(2026-11-26 立):勾选态 = 常驻执行器在跑,
+/// 点击 = 起/停(落 `device_executor::start_executor` / `stop_executor`)。
+pub const TRAY_MENU_DEVICE_EXECUTOR_ID: &str = "device_executor";
 
 /// 这一项是否**只对操作员有意义**、因而不该出现在默认菜单里。
 ///
@@ -265,6 +273,20 @@ pub fn normalize_prefs(prefs: DesktopPrefs) -> DesktopPrefs {
             .unwrap_or(kept.len());
         kept.insert(insert_at, TRAY_MENU_ALWAYS_ON_TOP_ID.to_string());
     }
+
+    // 2026-11-26 迁移:「本机执行器」是 G4 新登记项,旧配置里同样不可能有它。
+    // 与置顶同一条出路(缺就补在 quit 前,幂等);空表仍维持"只留 quit"语义。
+    if had_items_before_quit_fill && !kept.iter().any(|id| id == TRAY_MENU_DEVICE_EXECUTOR_ID) {
+        log::debug!(
+            "[desktop-prefs] 迁移:托盘菜单补入「{TRAY_MENU_DEVICE_EXECUTOR_ID}」项(本版新登记,旧配置里不可能有)"
+        );
+        let insert_at = kept
+            .iter()
+            .position(|id| id == TRAY_MENU_QUIT_ID)
+            .unwrap_or(kept.len());
+        kept.insert(insert_at, TRAY_MENU_DEVICE_EXECUTOR_ID.to_string());
+    }
+
     prefs.tray_menu_items = kept;
 
     prefs
@@ -479,8 +501,8 @@ mod tests {
         assert_eq!(d.tray_menu_items, default_tray_menu_items());
         assert_eq!(
             d.tray_menu_items.len(),
-            8,
-            "默认菜单 = 历史 7 项 + 2026-11-18「窗口置顶(切换)」"
+            9,
+            "默认菜单 = 历史 7 项 + 置顶(2026-11-18) + 本机执行器(2026-11-26)"
         );
         // 置顶是"盖住别人"的开关:默认必须是关,不能有第二个默认值(2026-11-18 立)
         assert!(!d.always_on_top, "always_on_top 默认必须是 false");
@@ -646,32 +668,31 @@ mod tests {
                 "show".to_string(),
                 "hide".to_string(),
                 TRAY_MENU_ALWAYS_ON_TOP_ID.to_string(),
+                TRAY_MENU_DEVICE_EXECUTOR_ID.to_string(),
                 "quit".to_string()
             ],
-            "未知项要被丢掉、quit 补到末尾、本版新项(always_on_top)补在 quit 之前、其余顺序不变"
+            "未知项要被丢掉、quit 补到末尾、两枚新登记项补在 quit 之前、其余顺序不变"
         );
     }
 
     #[test]
     fn invariant2_leaves_a_legal_menu_untouched() {
-        // 反面对照:已经含 quit、且已含本版新项(always_on_top)的列表不得被改动 ——
+        // 反面对照:已含 quit、且已含全部新登记项的列表不得被改动 ——
         // 迁移是"缺则补",不是"每次重排"。
         let input = DesktopPrefs {
             tray_menu_items: vec![
                 "quit".into(),
                 "new_chat".into(),
                 TRAY_MENU_ALWAYS_ON_TOP_ID.into(),
+                TRAY_MENU_DEVICE_EXECUTOR_ID.into(),
             ],
             ..DesktopPrefs::default()
         };
-        let normalized = normalize_prefs(input);
+        let normalized = normalize_prefs(input.clone());
         assert_eq!(
             normalized.tray_menu_items,
-            vec![
-                "quit".to_string(),
-                "new_chat".to_string(),
-                TRAY_MENU_ALWAYS_ON_TOP_ID.to_string()
-            ]
+            input.tray_menu_items,
+            "已合法的菜单原样不动(不重排、不重复补项)"
         );
         assert_eq!(normalized.tray_menu_items.iter().filter(|id| *id == "quit").count(), 1);
     }
@@ -692,9 +713,10 @@ mod tests {
                 "show".to_string(),
                 "hide".to_string(),
                 TRAY_MENU_ALWAYS_ON_TOP_ID.to_string(),
+                TRAY_MENU_DEVICE_EXECUTOR_ID.to_string(),
                 "quit".to_string()
             ],
-            "缺项必须补在 quit 之前"
+            "两枚新登记项都必须补在 quit 之前(与登记表同序)"
         );
         // 幂等:再归一一次不得长出第二份。
         let again = normalize_prefs(normalized.clone());
@@ -750,8 +772,8 @@ mod tests {
         );
         assert_eq!(
             defaults.len(),
-            8,
-            "默认托盘项 = 历史 7 项 + 2026-11-18「窗口置顶(切换)」;改这里必须同笔说明来由"
+            9,
+            "默认托盘项 = 历史 7 项 + 置顶(2026-11-18) + 本机执行器(2026-11-26);改这里必须同笔说明来由"
         );
         assert!(
             tray_menu_item(TRAY_MENU_RELAY_SWITCH_ID).is_some(),

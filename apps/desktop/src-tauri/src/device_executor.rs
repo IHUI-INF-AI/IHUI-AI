@@ -16,6 +16,11 @@
 use serde::Serialize;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
+
+use tauri::menu::CheckMenuItem;
+use tauri::{AppHandle, Manager, Wry};
 
 /// Windows 计划任务名（与 CLI `ihui device install` 同名；本模块读的正是那份注册）
 pub const DEVICE_EXECUTOR_TASK: &str = "IHUI-Device-Executor";
@@ -251,6 +256,102 @@ pub fn stop_executor() -> Result<DeviceExecutorStatus, String> {
         }
     }
     Ok(read_status())
+}
+
+// ===== 托盘勾选态（G4，2026-11-26）=====
+//
+// 托盘是**不开窗也看得见**的入口：勾选 = 常驻执行器在跑。三件事：
+//  1. `build_tray` 建菜单时把 CheckMenuItem 交到这里保存（重建托盘会换新句柄）；
+//  2. 点击 = 翻转（起/停），失败只写日志并立刻把勾选态对齐真实进程 —— 不假装成功；
+//  3. 15s 一次对齐：进程可能被系统/崩溃/用户在命令行拉起或杀掉，勾选态不能靠"上次点了什么"。
+
+#[derive(Default)]
+pub struct TrayItemState {
+    pub item: Mutex<Option<CheckMenuItem<Wry>>>,
+    pub watch_started: AtomicBool,
+}
+
+/// 保存当前托盘里的「本机执行器」勾选项（build_tray 每次重建都调，覆盖旧句柄）
+pub fn store_tray_item(app: &AppHandle, item: CheckMenuItem<Wry>) {
+    if let Some(state) = app.try_state::<TrayItemState>() {
+        if let Ok(mut guard) = state.item.lock() {
+            *guard = Some(item);
+        }
+        return;
+    }
+    let state = TrayItemState::default();
+    if let Ok(mut guard) = state.item.lock() {
+        *guard = Some(item);
+    }
+    app.manage(state);
+}
+
+fn set_tray_checked(app: &AppHandle, running: bool) {
+    if let Some(state) = app.try_state::<TrayItemState>() {
+        if let Ok(guard) = state.item.lock() {
+            if let Some(item) = guard.as_ref() {
+                let _ = item.set_checked(running);
+            }
+        }
+    }
+}
+
+/// 托盘上的静默失败 = "点了没用"：把原因用非阻塞对话框说清楚（同 relay 失败的处理）。
+fn notify_tray_failure(app: &AppHandle, msg: &str) {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+    log::warn!("[device-executor] {msg}");
+    app.dialog()
+        .message(msg)
+        .title("本机执行器")
+        .kind(MessageDialogKind::Warning)
+        .show(|_| {});
+}
+
+/// 点击托盘项：翻转常驻状态。失败说清原因 + 立刻对齐真实进程（勾选态不假绿）。
+pub fn toggle_from_tray(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let running = matches!(
+            tauri::async_runtime::spawn_blocking(read_status).await,
+            Ok(s) if s.running
+        );
+        let outcome = if running {
+            tauri::async_runtime::spawn_blocking(stop_executor).await
+        } else {
+            tauri::async_runtime::spawn_blocking(start_executor).await
+        };
+        match outcome {
+            Ok(Ok(_)) => {}
+            Ok(Err(msg)) => notify_tray_failure(&app, &msg),
+            Err(e) => notify_tray_failure(&app, &format!("托盘开关任务失败: {e}")),
+        }
+        let now_running = matches!(
+            tauri::async_runtime::spawn_blocking(read_status).await,
+            Ok(s) if s.running
+        );
+        set_tray_checked(&app, now_running);
+    });
+}
+
+/// 只启动一次的对齐循环（build_tray 可能被调用多次：重建托盘不重复起 loop）
+pub fn spawn_tray_watch(app: &AppHandle) {
+    let Some(state) = app.try_state::<TrayItemState>() else {
+        return;
+    };
+    if state.watch_started.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+            let running = matches!(
+                tauri::async_runtime::spawn_blocking(read_status).await,
+                Ok(s) if s.running
+            );
+            set_tray_checked(&app, running);
+        }
+    });
 }
 
 // ===== Tauri commands（渲染端只拿状态，不传命令/路径）=====
