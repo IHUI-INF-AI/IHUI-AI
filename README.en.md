@@ -99,6 +99,14 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-25**
+- 🚀 Feature/Improvement:检查点等待超时只读信号,绝不自动恢复 (53c279bc)
+- 📚 Docs:Codex 400 crate 清单 + OpenCode serve 实跑鉴权验证 (18944bb7)
+- 📚 Docs:修正 Qoder 版本同构表述，标注动态 IPC 差异 (2a590d69)
+- 📚 Docs:Qoder 四 exe 同壳证据与版本矩阵补齐 (2d0bbb63)
+- 📚 Docs:Qoder 四版本全图、OpenCode serve 启动链、WorkBuddy 9527 归因 (a1b450a6)
+- 🐞 Fix:守门脚本自指 R3 误判修正 (491461dd)
+- 🚀 Feature/Improvement:三方方案许可证审计+字段可得性能力位+群成员映射自动下发+许可证边界守门 (b2d482e4)
+- 📚 Docs:四语最近更新补 WS 路由测试 (cfecf220)
 - 🔧 Chore/Other:补 WS 任务消息路由往返,路由测试 7 例 (a9028bf4)
 - 📚 Docs:四语最近更新补 Rust 测试口径修正 (d5eb0599)
 - 🔧 Chore/Other:修两处既存测试口径,全 lib 569 转绿 (53cbda8f)
