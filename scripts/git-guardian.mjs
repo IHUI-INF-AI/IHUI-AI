@@ -13047,8 +13047,12 @@ export function auditPushChannel(opts = {}) {
   beatRoundLock()
   const stdout = String(r.out ?? r.stdout ?? '')
   const stderr = String(r.err ?? r.stderr ?? '')
+  // 器件把诊断写 stderr(console.error)、stdout 留空时,只取 stdout 会让告警正文变成
+  // 「判据当场判阻塞 —— 」后面什么都没有(2026-11-25 05:44Z 实测那条就是这么来的),
+  // 收信人拿不到可整改的读数(§5e-1 告警可整改性准入)。这里合并两路再取最后一条非空行。
   const lastLine =
-    stdout
+    [stdout, stderr]
+      .join('\n')
       .split(/\r?\n/)
       .map((s) => s.trim())
       .filter(Boolean)
@@ -13065,8 +13069,10 @@ export function auditPushChannel(opts = {}) {
   notify(
     'push-channel',
     `本地 main 的推送通道不健康(git-guardian 巡检实跑 scripts/check-push-sync.mjs,rc=1)。\n` +
-      `现读结论(判据自己的话,本器不复述判据):\n${stdout.slice(-500)}\n` +
-      `出路:node scripts/git-sync-converge.mjs --rounds 1(索引层合并,零触碰他人未提交文件);` +
+      `现读结论(判据自己的话,本器不复述判据):\n${[stdout, stderr].join('\n').trim().slice(-600) || '(stdout 与 stderr 都是空的 —— 判据既不写结论也不写原因,这本身就是判据缺陷)'}\n` +
+      `出路:node scripts/git-sync-converge.mjs --rounds 1(索引层合并,零触碰他人未提交文件)。` +
+      `若它报 "merge-base 失败",说明本地 main 与远端 main **无共同祖先**(两条独立历史),` +
+      `收敛器在该形态下无法自动收口 ⇒ 需机主裁定这两条历史如何合并(或明确弃用其中一条),勿强推。` +
       `本仓规约禁止手工 fetch/merge/push 循环与强推。`,
     // 身份 = 腿名(§5e-1):原先只靠 name+detail,而 detail 尾部是判据原话(stdout 末 500 字),
     // 同一故障的措辞/读数一变就是新身份 ⇒ 10 分钟一轮会绕成窗口外连发。
