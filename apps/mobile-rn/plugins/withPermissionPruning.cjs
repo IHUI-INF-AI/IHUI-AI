@@ -17,7 +17,9 @@
  * 这里同时做两件事:① 从当前 manifest 里删掉该条;② 追加 `tools:node="remove"`,
  * 让 manifest merger 在依赖库又把同名权限带回来时仍然摘得掉(只删不防 = 下次 autolinking 又长回来)。
  */
-const { withAndroidManifest } = require('@expo/config-plugins')
+const { withAndroidManifest, withFinalizedMod } = require('@expo/config-plugins')
+const fs = require('node:fs')
+const path = require('node:path')
 
 /** 默认摘除集:全部满足"危险/受通报权限 ∧ 仓内零引用"两条,新增项要附证据再进表。 */
 const DEFAULT_PRUNED = Object.freeze([
@@ -44,6 +46,32 @@ const DEFAULT_PRUNED = Object.freeze([
 
 const NAME = 'android:name'
 const TOOLS_NODE = 'tools:node'
+const LEGACY_STORAGE_ATTR = 'android:requestLegacyExternalStorage'
+
+/**
+ * Android 10 的 requestLegacyExternalStorage 在 targetSdk 36 上已不生效,
+ * 却仍会出现在合并清单的 application 属性里,商店/隐私扫描器会把它当成
+ * "仍想走旧存储模型"的证据。它换不来任何功能,摘掉比解释便宜。
+ */
+function pruneLegacyStorage(manifest) {
+  const app = (manifest.application ?? [])[0]
+  if (!app?.$ || !(LEGACY_STORAGE_ATTR in app.$)) return false
+  delete app.$[LEGACY_STORAGE_ATTR]
+  return true
+}
+
+/**
+ * 模板会在 config plugin 阶段之后才写入 application 属性,单靠 withAndroidManifest
+ * 摘不到(2026-11-26 实测:插件回执没报 legacy,生成后的 xml 仍带该属性)。
+ * 因此再挂危险修改器,在所有 manifest mod 落盘后按最终文件摘一次。
+ */
+function pruneLegacyStorageFile(manifestPath) {
+  const raw = fs.readFileSync(manifestPath, 'utf8')
+  const next = raw.replace(/\s+android:requestLegacyExternalStorage="[^"]*"/, '')
+  if (next === raw) return false
+  fs.writeFileSync(manifestPath, next)
+  return true
+}
 
 function prune(manifest, pruned) {
   // @expo/config-plugins 的 manifest 条目形状是 `{ $: { 'android:name': … } }`,属性住在 `$` 下。
@@ -66,17 +94,30 @@ function prune(manifest, pruned) {
 
 module.exports = function withPermissionPruning(config, props = {}) {
   const pruned = Array.isArray(props.prune) && props.prune.length ? props.prune : [...DEFAULT_PRUNED]
-  return withAndroidManifest(config, (cfg) => {
+  const withManifestPruned = withAndroidManifest(config, (cfg) => {
     if (!cfg.modResults?.manifest) return cfg
     const { removed } = prune(cfg.modResults.manifest, pruned)
-    if (removed > 0) {
+    const legacyRemoved = pruneLegacyStorage(cfg.modResults.manifest)
+    if (removed > 0 || legacyRemoved) {
       // prebuild 期的可见回执:这格被摘过就必须说出来,否则下一次审计只看到"manifest 里没有",
       // 分不清"本来就没有"与"被摘掉了"—— 后者是需要在商店材料里同步的。
-      console.info(`[withPermissionPruning] 从 manifest 摘除 ${removed} 条未使用危险权限:${pruned.join(', ')}`)
+      console.info(
+        `[withPermissionPruning] 从 manifest 摘除 ${removed} 条未使用危险权限${legacyRemoved ? ' + requestLegacyExternalStorage' : ''}:${pruned.join(', ')}`,
+      )
     }
     return cfg
   })
+  return withFinalizedMod(withManifestPruned, [
+    'android',
+    async (cfg) => {
+      const manifestPath = path.join(cfg.modRequest.platformProjectRoot, 'app', 'src', 'main', 'AndroidManifest.xml')
+      if (fs.existsSync(manifestPath) && pruneLegacyStorageFile(manifestPath)) {
+        console.info('[withPermissionPruning] 从最终 manifest 摘除 requestLegacyExternalStorage')
+      }
+      return cfg
+    },
+  ])
 }
 
-module.exports.__test__ = { DEFAULT_PRUNED, prune }
+module.exports.__test__ = { DEFAULT_PRUNED, prune, pruneLegacyStorage, pruneLegacyStorageFile, LEGACY_STORAGE_ATTR }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -158,11 +158,7 @@ export default function BusinessCardScreen() {
   // 定制名片(对齐原项目 business-card 页 onUploadClick:选图上传 → 提交名片 → 刷新列表)
   const onCustomize = async () => {
     try {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
-      if (!perm.granted) {
-        appAlert(t('home.pubTip'), t('businesscard.needAlbum'))
-        return
-      }
+      // 系统 Photo Picker 不需要相册全量权限,直接拉起即可
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         quality: 0.85,

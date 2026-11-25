@@ -83,11 +83,7 @@ export default function StudyPublishScreen() {
   }, [])
 
   const pickImage = useCallback(async (): Promise<string> => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (status !== 'granted') {
-      appAlert(t('home.pubTip'), t('home.pubPermAlbumImage'))
-      return ''
-    }
+    // 系统 Photo Picker 不需要相册全量权限,直接拉起即可(vivo 0.0.29 权限审核要求)
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -105,11 +101,7 @@ export default function StudyPublishScreen() {
   }, [t])
 
   const pickVideo = useCallback(async (): Promise<string> => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (status !== 'granted') {
-      appAlert(t('home.pubTip'), t('home.pubPermAlbumVideo'))
-      return ''
-    }
+    // 系统 Photo Picker 不需要相册全量权限,直接拉起即可(vivo 0.0.29 权限审核要求)
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Videos,
       allowsEditing: true,
