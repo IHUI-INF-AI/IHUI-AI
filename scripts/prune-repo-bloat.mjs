@@ -24,7 +24,10 @@
  *      （2026-11-25 干跑实测：8 条并被判孤 ref，实际全是 11-22 之后的活跃线）。
  *   ③ 处置范围（最小面）：
  *      - refs/tags/* 旧历史 ⇒ 先逐卷 bundle + verify，全成功才删（任一卷失败整批不删）
- *      - refs/remotes/* 一律不自动删（远端仍在的下次 fetch 会回来），只报数并提示 `git fetch --prune`
+ *      - refs/remotes/* 旧历史 ⇒ 直接删本地跟踪副本。fetch 无法用负向 refspec 排除
+ *        （2026-11-25 实测 `git config --add remote.origin.fetch '-refs/heads/dependabot/*'`
+ *        会让每条 fetch 报 `fatal: invalid refspec` ⇒ 只能事后清）；远端仍有该分支的下次
+ *        fetch 会再拉回，但本器每 6 小时一轮保证不会长期驻留 1.6GB 级旧历史。
  *      - objects/pack/*.keep 超龄（默认 2h）⇒ 删
  *   ④ 超阈值但无旧历史孤 ref ⇒ state=over-budget，只告警（主线真内容变大，绝不自动删）
  *
@@ -153,7 +156,7 @@ for (const o of parallel.sort((a, b) => b.bytes - a.bytes).slice(0, 10)) {
 const legacyTags = legacy.filter((o) => o.ref.startsWith('refs/tags/')).sort((a, b) => b.bytes - a.bytes)
 const legacyRemotes = legacy.filter((o) => o.ref.startsWith('refs/remotes/')).sort((a, b) => b.bytes - a.bytes)
 if (legacyRemotes.length) {
-  console.log(`ℹ️  ${legacyRemotes.length} 条旧历史远端跟踪副本不自动删（只提示）：远端已删的用 \`git fetch origin --prune\` 清`)
+  console.log(`🗑  ${legacyRemotes.length} 条旧历史远端跟踪副本将删本地(远端仍有的下次 fetch 会回来,由下一轮再清)`)
 }
 
 // ── 3. .keep 超龄扫描 ──
@@ -171,13 +174,13 @@ try {
 console.log(`🔒 超龄 .keep = ${staleKeeps.length} 个（阈值 ${KEEP_STALE_HOURS}h）`)
 for (const k of staleKeeps) console.log(`   ${k.ageH.toFixed(1)}h  ${k.name}`)
 
-if (!legacyTags.length && !staleKeeps.length) {
-  console.log('⚠️  超预算但无旧历史 tag、无超龄 .keep ⇒ 主线真内容变大，只告警、不自动删（需人裁）')
+if (!legacyTags.length && !legacyRemotes.length && !staleKeeps.length) {
+  console.log('⚠️  超预算但无旧历史 ref、无超龄 .keep ⇒ 主线真内容变大，只告警、不自动删（需人裁）')
   console.log(`SWEEP-RESULT state=over-budget sizeMb=${beforeMb.toFixed(1)} orphans=${legacy.length} dropped=0`)
   process.exit(3)
 }
 
-console.log(`🧹 计划处置：旧历史 tag ${legacyTags.length} 枚；解 .keep ${staleKeeps.length} 个`)
+console.log(`🧹 计划处置：旧历史 tag ${legacyTags.length} 枚 + 旧历史 remote ${legacyRemotes.length} 条；解 .keep ${staleKeeps.length} 个`)
 
 if (!APPLY) {
   console.log('（dry-run，未改动；加 --apply 落盘）')
@@ -202,10 +205,11 @@ if (legacyTags.length) {
   }
 }
 
-if (legacyTags.length) {
-  const stdin = legacyTags.map((r) => `delete ${r.ref}`).join('\n') + '\n'
+const allDrop = [...legacyTags.map((r) => r.ref), ...legacyRemotes.map((r) => r.ref)]
+if (allDrop.length) {
+  const stdin = allDrop.map((r) => `delete ${r}`).join('\n') + '\n'
   if (gitTry(['update-ref', '--stdin'], { input: stdin }) === null) die(1, '删 ref 失败（update-ref --stdin 报错）')
-  console.log(`   ✓ 已删 ${legacyTags.length} 枚旧历史 tag`)
+  console.log(`   ✓ 已删 ${allDrop.length} 条旧历史 ref（tag ${legacyTags.length} + remote ${legacyRemotes.length}）`)
 }
 
 for (const k of staleKeeps) {
@@ -241,7 +245,7 @@ writeFileSync(
       savedMb: Number(savedMb.toFixed(2)),
       cutoff: new Date(cutoffMs).toISOString(),
       droppedLegacyTags: legacyTags.map((r) => r.ref),
-      reportedLegacyRemotes: legacyRemotes.map((r) => r.ref),
+      droppedLegacyRemotes: legacyRemotes.map((r) => r.ref),
       keptParallel: parallel.map((r) => r.ref),
       bundledTags: bundled,
       staleKeeps: staleKeeps.map((k) => k.name),
@@ -253,7 +257,7 @@ writeFileSync(
 
 console.log(`✅ 回收 ${savedMb.toFixed(1)} MB：${beforeMb.toFixed(1)} → ${afterMb.toFixed(1)} MB`)
 console.log(
-  `SWEEP-RESULT state=pruned sizeMb=${afterMb.toFixed(1)} orphans=${legacy.length + parallel.length} dropped=${legacyTags.length} bundled=${bundled}`,
+  `SWEEP-RESULT state=pruned sizeMb=${afterMb.toFixed(1)} orphans=${legacy.length + parallel.length} dropped=${allDrop.length} bundled=${bundled}`,
 )
 if (afterMb > ALERT_MB) {
   console.log(`⚠️  重打包后仍 ${afterMb.toFixed(1)} MB > ${ALERT_MB} MB ⇒ 主线真内容偏大，需人裁`)
