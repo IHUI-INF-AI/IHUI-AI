@@ -14,6 +14,8 @@ import {
 import { Badge } from '@/components/data'
 import { Button } from '@ihui/ui-react'
 
+import { PlatformIcon } from './platform-icon'
+
 interface ManagedQuickSectionProps {
   templates: ConnectorCatalogItem[]
   installed: Map<string, ConnectorEntry>
@@ -67,6 +69,7 @@ export function ManagedQuickSection({
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-1.5">
+                    <PlatformIcon type={tpl.type} size={18} />
                     <span className="text-label font-semibold text-foreground">{tpl.label}</span>
                     {entry ? (
                       <Badge variant="success">{t('connected')}</Badge>

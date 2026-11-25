@@ -6,22 +6,15 @@
 
 import { useTranslations } from 'next-intl'
 import {
-  BookOpen,
-  Building2,
   Clock,
   FileText,
   Loader2,
-  Megaphone,
-  MessageCircle,
-  Plug,
   RefreshCw,
-  Send,
   Settings2,
   ShieldCheck,
   Trash2,
   Zap,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 
 import {
   type ConnectorCapability,
@@ -32,16 +25,7 @@ import { Badge } from '@/components/data'
 import { Button, Switch } from '@ihui/ui-react'
 
 import { CAPABILITY_LABEL_KEY } from './connector-utils'
-
-/** 连接器类型 -> 图标 */
-const TYPE_ICON: Record<string, LucideIcon> = {
-  yuque: BookOpen,
-  feishu: Send,
-  wecom: Building2,
-  dingtalk: MessageCircle,
-  wechat_mp: Megaphone,
-  custom: Plug,
-}
+import { PlatformIcon } from './platform-icon'
 
 interface ConnectorCardProps {
   entry: ConnectorEntry
@@ -74,7 +58,6 @@ export function ConnectorCard({
   onDelete,
 }: ConnectorCardProps) {
   const t = useTranslations('connectors')
-  const Icon = TYPE_ICON[entry.type] ?? Plug
   const caps = Object.entries(entry.operation_capabilities ?? {}).filter(
     ([, present]) => present,
   ) as [ConnectorCapability, boolean][]
@@ -83,7 +66,7 @@ export function ConnectorCard({
     <div className="flex flex-col gap-2.5 ui-card rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20">
       <div className="flex items-start gap-2.5">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-          <Icon className="h-5 w-5" />
+          <PlatformIcon type={entry.type} size={22} />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-1.5">

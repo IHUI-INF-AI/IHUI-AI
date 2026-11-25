@@ -1,0 +1,41 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { describe, expect, it } from 'vitest'
+
+const read = (rel: string) => readFileSync(resolve(__dirname, rel), 'utf8')
+
+describe('连接器平台品牌图标(2026-11-25)', () => {
+  it('三大平台映射到项目已有的官方 SVG,不用通用图标冒充品牌', () => {
+    const icon = read('../platform-icon.tsx')
+    expect(icon).toContain("feishu: '/images/oauth-providers/feishu.svg'")
+    expect(icon).toContain("dingtalk: '/images/oauth-providers/dingtalk.svg'")
+    expect(icon).toContain("wecom: '/images/oauth-providers/wecom.svg'")
+    expect(icon).toContain('<Image')
+  })
+
+  it('快捷接入区在标题前渲染品牌图标', () => {
+    const quick = read('../managed-quick-section.tsx')
+    expect(quick).toContain("import { PlatformIcon } from './platform-icon'")
+    expect(quick.indexOf('<PlatformIcon type={tpl.type}')).toBeLessThan(
+      quick.indexOf('{tpl.label}'),
+    )
+  })
+
+  it('已安装卡片用品牌图标替换了 Lucide 通用图标', () => {
+    const card = read('../connector-card.tsx')
+    expect(card).toContain("import { PlatformIcon } from './platform-icon'")
+    expect(card).toContain('<PlatformIcon type={entry.type}')
+    expect(card).not.toContain('TYPE_ICON')
+  })
+
+  it('变异锁:任一平台映射或渲染点被抹掉即红', () => {
+    const icon = read('../platform-icon.tsx')
+    const mutated = icon.replace("feishu: '/images/oauth-providers/feishu.svg'", '')
+    expect(mutated).not.toBe(icon)
+    const quick = read('../managed-quick-section.tsx').replace('<PlatformIcon type={tpl.type}', '')
+    expect(quick).not.toContain('<PlatformIcon type={tpl.type}')
+  })
+})
