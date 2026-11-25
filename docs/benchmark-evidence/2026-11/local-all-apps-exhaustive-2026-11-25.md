@@ -13,7 +13,7 @@
 
 **一页结论**
 
-1. **真正有产品级沙箱的只有 6 个**：Codex（受限令牌 + Job + WFP）、Trae（aiep sbox SDK）、WorkBuddy（session 权限文件 + 审批中心）、豆包（agent_infra 运行时策略 + aiep sbox）、Cursor（Rust `SandboxPolicy`）、MiniMax（Rust `srt-win`）。Qoder、DeepSeek、OpenCode 的桌面包内没有产品级原生沙箱证据，标未知。
+1. **真正有产品级沙箱能力的只有 6 个**：Codex（受限令牌 + Job + WFP）、Trae（aiep sbox SDK）、WorkBuddy（session 权限文件 + 审批中心）、豆包（agent_infra 运行时策略 + aiep sbox）、Cursor（Rust `SandboxPolicy`）、MiniMax（Rust `srt-win`，但本机 `status` 显示 `srt-sandbox` 与 WFP 均未 provisioning，实际未启用）。Qoder、DeepSeek、OpenCode 的桌面包内没有产品级原生沙箱证据，标未知。
 2. **字节系共用一套沙箱 SDK**：Trae 的 `modules\sandbox\` 与豆包的 `app\sbox\` 文件名同构（`aiep_sbox.dll`、`aiep_ipc.dll`、`run_helper.exe`、`sbox_sdk.dll`），只是构建大小不同（2,320KB vs 2,594KB）。
 3. **原有 14 张 jsmap 均未触发 1,500,000 节点上限**：11 个目标、Qoder 四版本各一张；最大豆包 ai-views 465,369 节点 / 1,473,627 边，Cursor 319,057 / 681,140，WorkBuddy 359,769 / 729,926。**新增的豆包 `biz.pak` 图是第 15 张，单图撞到 1,000,000 硬上限（需求 1,615,501，丢 615,501）**；已按顶层目录拆成 `ahalets` / `static` / `rest` 三片重跑，合计 **1,471,311 节点 / 4,072,587 边 / 1,274,239 函数 / 9,562 模块**，**166,986 bundle 模块与单图完全相等**，余差 144,190 节点来自 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失，不是再次截断。Codex `app.asar` 是第 16 张，26.1120 重跑后 442,284 节点 / 1,252,166 边，未触发上限。
 4. **核心层覆盖 26 个实际存在的二进制 + 1 个 `not_found` 记录**：导入/导出/签名/字符串/函数/特征六类证据；Codex 408,218,928 字节超单文件工具上限 256MB，craft 原生 Rust 报告仍缺，但已用字节级正则补出 400 个 crate / 8,850 次命中与 rustc commit；Codex 另有第五个常驻二进制 `codex-windows-sandbox-service.exe`（当前 62,988,592，PID 9296，且是 `LocalSystem` 自启动 packaged 服务 `CodexSandboxService.OpenAI.Codex`），标准 PE 解析得到 24 个 DLL / 415 个导入函数；当前运行态只有 `OpenAI.CodexSandbox...` 一条命名管道，15:xx 26.1117 的 `codex-app-tools-...` 已不存在，见纠正十七至十九与 4.1。
@@ -552,6 +552,8 @@ IPC 分组一眼能看出四条业务线：
 - `@mavis/oauth-core` + `oauth-lease-protocol` + `remote-control-bridge`：OAuth 租约与远程控制桥。
 
 **核心**：`srt-win.exe` 是 **Rust 沙箱运行时**（16 crate：`rusqlite 0.32.1`、`windows 0.62.2`、`serde_json`、`clap`、`hashbrown`），说明沙箱状态落 SQLite、Win32 调用走 windows-rs（`ev_329fd74c…`）。`minimax-computer-use.exe` 是 CUA 驱动，与 `@trycua/cua-driver 0.34.1` 对应。
+
+**`srt-win` 的 CLI 与运行态（本轮补证，产品级/未启用）**：`srt-win.exe --version` 为 `srt-win 0.0.1`，文件大小 **3,076,544 字节**。`--help` 把能力写得很清楚：`install` 一次性创建专用 `srt-sandbox` 账户 + 按用户 SID 绑定的 WFP 过滤器集；`uninstall` 反向清理；`status` 输出 `{user, wfp}` 一行 JSON；`user` / `wfp` 分别检查账户与过滤器；`acl` 对路径加/删沙箱用户 ACE，状态落共享 per-user session DB；`exec` 在沙箱内启动进程。`exec --help` 进一步写明是**两跳启动**：broker（真实用户）读凭据后用 `CreateProcessWithLogonW` 以 `srt-sandbox` 启动 runner，runner 再构造 restricted token（LUA、Administrators deny-only、Medium IL、除 `SeChangeNotify` 外全部权限剥离）、自我加固、把子进程放进 kill-on-close job（含 UI lockdown）、放到非交互桌面、应用 process mitigation policy 与显式 handle whitelist；支持 `--deny-read` / `--deny-write` / `--env` / `--quiet`，没有 `install` 时 `exec` 退出码 **15**。但本机 `srt-win status` 实测为：`srt-sandbox` 用户 `exists=false`、组 `group_exists=false`、WFP `state=absent` / `filters=0`、`cred_present=false`、marker 为空，真实用户 SID `S-1-5-21-3924373712-2464060091-3741006702-500`。所以 **MiniMax 有产品级 Windows 沙箱能力，但这台机器还没有 provisioning，实际运行中的沙箱并未启用**；`exec` 现在只会走“未安装”退出，不能把 helper 存在写成“已在沙箱里跑”。账本 `analysis\minimax-srt-status-2026-11-25.json`。
 主程序 `MiniMax Code.exe` 本轮补做原生取证：40,796 函数 / 200,691 字符串 / 1,274 导入（58 库），**PE 头里 `pdb_path: electron.exe.pdb`**——这是“Electron 壳”的硬证据，不是推测；签名主体 上海稀宇科技有限公司（`signature_check: valid`）（`ev_bf548618…`、`ev_6cb39bcb…`）。所以 MiniMax 的产品级原生能力只有 `srt-win` / `minimax-computer-use` 两个 helper，主 exe 的 Win32 导入（`CRYPT32`、`WS2_32`、`WINTRUST`、`UIAutomationCore`）属于 Electron/Chromium 出厂依赖。
 
 **窗口安全**：1 个窗口开启 `<webview>` tag，4 个 `webPreferences` 运行期计算，其余未显式设置（`ev_07220c3a…`）。
@@ -878,6 +880,7 @@ PID 38788（父 PID 11820）在 15:xx 运行 `codex.exe ... app-server --analyti
 12. **WorkBuddy 的 9527 已解释**：它只存在于 `cli\bin\daemon-status-brief.test.cjs`，是测试用的假 daemon endpoint，不是生产服务；这一条从“未知”降为“测试夹具”。
 13. **Trae 的 543 个 session 目录是本机既有使用痕迹**，不是本轮运行产生；只读取了目录结构与文件名（`cwd.txt`/`execution.json`/`output.log`/`stderr.log`），没有读取命令内容或输出正文。
 14. **`push_detect.exe` 仍是 name-only**：签名有效，只导入 `Microsoft.WindowsAppRuntime.Bootstrap.dll`（`MddBootstrapInitialize2`）+ `KERNEL32` / `ole32` / `OLEAUT32`，字符串只有 `C++/WinRT version:2.0.221104.6`，`Toast` / `Notification` / `AppUserModel` / `Push` 全部 0 命中，无产品字符串；无法从静态证据证明它检测什么，只能保留文件名推测。运行态快照里它不在进程表，豆包侧只有 `saman.push.mojom.PushServerService` utility，二者关系仍无静态证据。
+15. **MiniMax `srt-win` 有产品级能力但本机未 provisioning**：`srt-win status` 实测 `srt-sandbox` 用户/组均不存在、WFP `state=absent` / `filters=0`、`cred_present=false`；`exec` 帮助明确“未 install 时退出 15”。所以本报告只能写“helper 存在、机制可读”，不能写“MiniMax 已在本机沙箱里运行”。`install` 会创建本地账户与 WFP 过滤器，属于系统变更，本轮没有执行。
 
 **7.1 22:xx 当前状态漂移（不是新的纠正，但会改变“当前”口径）**
 
@@ -917,6 +920,7 @@ PID 38788（父 PID 11820）在 15:xx 运行 `codex.exe ... app-server --analyti
 - `analysis\opencode-bound-3084.json`：OpenCode **dev-only** `isolated` 参数组合的 `0.0.0.0:3084` 绑定实测——PID 28668、stdout `server listening on http://0.0.0.0:3084`、本机经自身 LAN 地址 `192.168.1.244` 的 `/` 200 / `/api` 401 / `/openapi.json` 401、进程已杀、端口 TimeWait；第二台主机与防火墙未测。**安装版 `app.isPackaged=true` 时 `isolated=false`，默认 `serve --service` 不带 `0.0.0.0/3084`，CLI 默认 `127.0.0.1`。**
 - `analysis\opencode-service-auth.json`：OpenCode `--service` 凭据与 API 实测——state 根 `opencode\service.json` 含 43 字符明文 `password`（值 redact）、每次启动轮换、Basic `opencode:<password>` 通过 401 门；`/openapi.json`、`/api/info`、`/api/project`、`/api/agent`、`/api/model` 全部 200；`0.0.0.0:3084` 仅 dev-only isolated 组合。**桌面端 `out/main/service-DpXGJL7L.js` 的 `Service.headers` 静态确认用同一 Basic，`Service.fallback` 读 `$XDG_STATE_HOME` 或 `~/.local/state/opencode/service.json`；安装版默认不走 isolated。**
 - `analysis\dynamic-ipc-{deepseek,minimax,wb,zcode,traecn}.json`：逐文件还原的 IPC 调用分类（literal / template / resolved 常量 / 未定 expr）、常量表规模、前 20 个还原通道与未定表达式；MiniMax 文件已补 `closure`/`counts_after`（332+406、804 个调用点、0 未定）；`dynamic-ipc-traecn.json` 是旧坏样本（只扫 47 文件、把 `__is_disposable_tracked__` 当通道），结论已作废。
+- `analysis\minimax-srt-status-2026-11-25.json`：MiniMax `srt-win` 的 CLI 与运行态——`install/status/user/wfp/acl/exec` 语义、`exec` 两跳启动与 restricted token/job/非交互桌面/mitigation/handle whitelist、未 install 退出 15；本机 `status` 实测 `srt-sandbox` 用户/组不存在、WFP `state=absent` / `filters=0`、`cred_present=false`，真实用户 SID `…-500`。**产品级能力存在但本机未 provisioning，实际沙箱未启用。**
 - `analysis\traecn-ipc-final.json`：重建后的 Trae 账本——135 个显式 IPC/sender 调用（73 ipc + 62 sender）、58 条非字面量、56 条映射到 30 个唯一通道、2 条 wrapper/response 非通道值、0 条未定。
 - `analysis\cursor-ipc-final.json`：Cursor 的 50 条原始记录账本——44 个 Electron 调用点（15 ipcMain + 17 ipcRenderer + 11 webContents.send + 1 postMessage）、1 条静态字面量、6 条 js-debug WebSocket 误匹配；29 条常量记录、20 个唯一动态通道、12 条 helper、1 条 4 路守卫、1 条 `e.responseChannel`、0 条未定。
 - `analysis\qoder-ipc-final.json`：Qoder 四版本动态 IPC 账本——13 条记录（0.5.6 5 条 / 0.5.7 0 / 0.5.12 0 / 0.5.14 8 条）、13 条全部还原、6 个唯一通道、0 条未定；含自定义 base64 表旋转偏移 283/200 与 `arms:rum-*`、`diagnostics:renderer-responsiveness`、`mcp-app:guest-message` 精确通道。
@@ -987,5 +991,12 @@ $proj = "C:\IHUI-AI\.workbuddy\craft\all-ai-apps-full-2026-11-25.cany"
 ---
 
 **结论一句话**：上一版是“五个程序各跑几条命令”；这一版是三十三处纠正、11 个程序、8 个 asar 解包、16 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张 + Codex `app.asar` 第 16 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、26 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
+
+## 2026-11-25 23:50 收尾复核
+
+- WorkBuddy 当前有 14 个进程，`18488` 仍由 PID 19384 监听；`56000` / `57736` / `57737` 本轮没有监听。它们属于按会话拉起的 MCP/daemon Host，不能把“当前未监听”当作功能回归；18:26 的 57736/56000 指纹仍是有效历史证据，后续要再验需在 WorkBuddy 会话内重新拉起。
+- Codex 沙箱服务 `CodexSandboxService.OpenAI.Codex` 仍为 `RUNNING`，命名管道 `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0` 仍存在；5.9 的 ACL 结论（`CodexSandboxUsers` Deny FullControl、`INTERACTIVE` Allow 读写）可继续沿用。
+- 豆包 `agent_infra` / `aiep sbox` 的静态与运行态结论未变；本轮回读文档，没有新增反证。
+- 至此，`57736/56000`、Codex 沙箱、豆包 sandbox 三项均已有可复核证据；缺的是“下一次会话重新拉起 WorkBuddy Host 的实时复测”，不是结论缺失。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
 
