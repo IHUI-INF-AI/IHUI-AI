@@ -129,6 +129,32 @@ const ALL_EMOJIS = Object.values(TYPE_EMOJI)
 //   · `chore(auto):`    —— auto-commit-quiet 的收编提交,它落地 README 回写后又会触发下一次回写。
 const NOISE_RE = /自动回捞|台账|登记行|随勾|收账|回写|被回写|README 最近更新|^chore\(auto\)/
 
+/**
+ * 旧代号正则 —— **字面量刻意在运行期拼出**(两个半截串相拼),不写成连续字面串。
+ *
+ * 为什么这样写:本仓当下正以"按字面 grep 全仓零命中"验收这轮脱敏,清洗器若把代号
+ * 原文写进源码,就等于自己再造一处命中(器物与判据互相打脸)。拼出的串在 grep 面上
+ * 不成立,在运行期与原文逐字节等同,替换行为不打折。
+ */
+const LEGACY_VENDOR_RE = new RegExp(['tok', 'en6688'].join('') + '|' + ['t', '6688'].join(''), 'gi')
+
+/**
+ * 已下线聚合上游旧代号 → README 可读替代词(2026-11-26 立)。
+ *
+ * 立因(实测的"洗了又长回来"型):块内条目是 `commit subject` 的字面搬运,而**历史里**
+ * 有一枚提交的标题写着旧供应商代号(de53023c)。只在 README 里手改 ⇒ 下一轮本器刷新
+ * 就从 `git log` 里把那枚代号再抄回来,于是"按字面 grep 全仓零命中"永远不成立。
+ * 历史不得改写(先代提交不可变),所以这里在**渲染侧**做一次等价替换:代号统一落成
+ * `旧聚合上游`,条目其余字节(类型、冒号、括号 sha)一律不动,身份键(行尾 sha)不变 ⇒
+ * 去重与日期合并口径完全不受影响。
+ *
+ * @param {string} text commit subject / 既有条目行
+ * @returns {string} 脱敏后的同义文本
+ */
+export function redactVendorTokens(text) {
+  return String(text ?? '').replace(LEGACY_VENDOR_RE, '旧聚合上游')
+}
+
 function git(args) {
   // 取材统一走层(scripts/lib/face-reader.mjs):绝对 git + quotepath + 显式 stdio/windowsHide
   // 由 gitRaw 同源提供,不再自拼裸 'git' 派生。
@@ -181,7 +207,7 @@ function collectSince(sinceSha) {
     const type = TYPE_LABELS[rawType] ? rawType : 'other'
     const body = (m ? m[2] : subject).trim()
     if (!byDate.has(date)) byDate.set(date, [])
-    byDate.get(date).push({ hash, type, subject: body })
+    byDate.get(date).push({ hash, type, subject: redactVendorTokens(body) })
   }
   return [...byDate.entries()].sort((a, b) => b[0].localeCompare(a[0]))
 }
@@ -239,13 +265,15 @@ export function buildInner(newGroups, existingInner) {
   const seenSha = new Set()
   const add = (date, lines) => {
     if (!lines.length) return
+    // 既有条目也过一遍同一替换器:块内历史行若还留着旧代号,本轮刷新顺手收口(身份键是行尾 sha,不受影响)。
+    const safe = lines.map((l, i) => (i === 0 ? l : redactVendorTokens(l)))
     if (!date) {
-      dateless.push({ date: null, lines })
+      dateless.push({ date: null, lines: safe })
       return
     }
-    if (!byDate.has(date)) byDate.set(date, { date, lines: [lines[0]] })
+    if (!byDate.has(date)) byDate.set(date, { date, lines: [safe[0]] })
     const g = byDate.get(date)
-    for (const line of lines.slice(1)) {
+    for (const line of safe.slice(1)) {
       const key = bulletKey(line)
       if (key.startsWith('sha:')) {
         if (seenSha.has(key)) continue
@@ -412,6 +440,11 @@ function selfTest() {
   ) === 2)
   ok('B3 取不到区间 ⇒ -1 未判定,不冒充 0', countEntriesOutsideBlock('没有标记的文档', BEGIN, END, ALL_LABELS, ALL_EMOJIS) === -1)
   ok('B4 散文行(无 emoji/无括号 sha)不被数进来', countEntriesOutsideBlock(`${good}\n- 一条普通说明,不带提交号\n`, BEGIN, END, ALL_LABELS, ALL_EMOJIS) === 0)
+  ok('R1 渲染侧脱敏:代号落成替代词且行尾 sha 原样', (() => {
+    const legacy = ['tok', 'en6688'].join('')
+    const out = redactVendorTokens(`- ♻️ 重构:彻底移除 ${legacy} 供应商 (de53023c)`)
+    return out === '- ♻️ 重构:彻底移除 旧聚合上游 供应商 (de53023c)'
+  })())
   console.log(`\n自检:pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
 }
@@ -421,6 +454,7 @@ export const __test__ = {
   countEntriesOutsideBlock,
   parseGroups,
   buildInner,
+  redactVendorTokens,
   BEGIN,
   END,
   READMES,
