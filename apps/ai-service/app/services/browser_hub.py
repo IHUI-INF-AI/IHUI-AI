@@ -987,7 +987,10 @@ class BrowserSession:
         _ACTIVE_SESSIONS.add(self)
         self._cdp: Any | None = None  # sync CDPSession
         self._screencast_running = False
-        self._screenshot_task: asyncio.Task[None] | None = None  # 截图轮询后台 task
+        self._screenshot_task: asyncio.Task[None] | None = None  # 推流后台 task
+        # CDP screencast:同步回调只入队,主 loop ack + fan-out;监听只挂一次。
+        self._screencast_frame_queue: asyncio.Queue[dict[str, Any]] | None = None
+        self._screencast_listener_registered = False
         # 2026-11-24:画面观众从"单回调"改为"回调列表"—— 主工作面板与画中画浮窗
         # 可能同时在看同一个 tab;单回调会被后连的观众覆盖,先连的随即断流。
         # 截图仍只跑一条循环(同一帧 fan-out 给所有观众),CPU 不随观众数线性增长。
@@ -1611,22 +1614,25 @@ class BrowserSession:
         elif self._phase_source == "auto" and self._phase_state.get("phase") == "gate":
             await self.set_phase("running", None, source="auto")
 
-    # ---- 画面流(截图轮询,2026-07-31 改)----
-    # 原方案用 CDP Page.startScreencast,但 sync_playwright 的 CDP 事件回调在
-    # playwright 后台线程触发,在回调里调 cdp.send("Page.screencastFrameAck") 会阻塞
-    # (等 transport 空闲,但 transport 正在处理回调)→ 死锁,第一帧延迟 25s+ 且后续帧丢失。
-    # 改用定时 page.screenshot 轮询:在 main loop 起后台 task,每次通过 run_in_executor
-    # 在 executor 线程截图(不依赖 CDP 事件回调)。对扫码登录场景 ~3fps 足够。
+    # ---- 画面流(CDP Page.startScreencast,2026-11-26 重塑)----
+    # 旧方案是 page.screenshot 每 0.3s 轮询(~3fps),这版改成 CDP screencast:
+    # 只在页面真正重绘时出帧,动态页面可到 20-30fps,静态页面不空转。
+    #
+    # 关键是不能在 sync_playwright 的 CDP 事件回调里直接 ack —— 那会等 transport
+    # 空闲,而 transport 正在处理回调,首帧就会卡 25s+。这里回调只把帧塞进
+    # asyncio 队列(线程安全地 call_soon_threadsafe),ack 由主循环在回调返回后
+    # 通过 executor 发送;帧按"ack 全部、只广播最新一帧"处理,避免观众慢时堆积。
+    # screencast 启动失败时自动回落到 screenshot 轮询,不影响会话可用性。
     async def start_screencast(
         self, on_frame: Callable[[str, dict[str, Any]], Coroutine[Any, Any, None]]
     ) -> None:
-        """开始推流截图帧(定时轮询 page.screenshot)。
+        """开始推流 CDP 画面帧。
 
         on_frame: async 函数(data_b64: str, metadata: dict) -> None,在 main loop 执行。
         - data_b64: base64 编码的 JPEG 图片
-        - metadata: {"deviceWidth": ..., "deviceHeight": ...}(从 viewport 推导)
+        - metadata: {"deviceWidth": ..., "deviceHeight": ...}(取自 screencast 事件)
 
-        每个观众登记一个回调;首个观众负责拉起后台截图循环,后续观众共用同一条循环。
+        每个观众登记一个回调;首个观众负责拉起后台循环,后续观众共用同一条循环。
         重复登记同一回调不会重复收帧。
         """
         if on_frame not in self._frame_handlers:
@@ -1634,16 +1640,182 @@ class BrowserSession:
         if self._screencast_running:
             return
         self._screencast_running = True
-        self._screenshot_task = asyncio.create_task(self._screenshot_loop())
-        logger.info(f"[browser_hub] session {self.session_id} 截图轮询已启动")
+        self._screencast_frame_queue = asyncio.Queue()
+        try:
+            await self._start_cdp_screencast()
+            self._screenshot_task = asyncio.create_task(self._cdp_screencast_loop())
+            logger.info(
+                f"[browser_hub] session {self.session_id} CDP screencast 已启动"
+            )
+        except Exception as e:
+            # FakePage/旧浏览器/权限受限时不让整个监看挂掉:退回截图轮询。
+            logger.warning(
+                f"[browser_hub] CDP screencast 启动失败,回落截图轮询: {e}"
+            )
+            self._screencast_frame_queue = None
+            self._screenshot_task = asyncio.create_task(self._screenshot_loop())
+
+    def _enqueue_screencast_frame(self, params: dict[str, Any]) -> None:
+        """主 loop 回调:把同步 CDP 线程送来的帧放进 asyncio 队列。"""
+        if not self._screencast_running:
+            return
+        queue = self._screencast_frame_queue
+        if queue is None:
+            return
+        try:
+            queue.put_nowait(params)
+        except asyncio.QueueFull:
+            # 队列无界;这里只兜底未来改有界时丢帧不抛。
+            pass
+
+    async def _start_cdp_screencast(self) -> None:
+        loop = asyncio.get_running_loop()
+
+        def _sync_start() -> None:
+            cdp = self._ensure_cdp()
+            if not self._screencast_listener_registered:
+                def _on_frame(params: dict[str, Any]) -> None:
+                    try:
+                        loop.call_soon_threadsafe(
+                            self._enqueue_screencast_frame, params or {}
+                        )
+                    except RuntimeError:
+                        # 主 loop 已关闭,忽略迟到的帧。
+                        return
+
+                cdp.on("Page.screencastFrame", _on_frame)
+                self._screencast_listener_registered = True
+            cdp.send(
+                "Page.startScreencast",
+                {
+                    "format": "jpeg",
+                    "quality": 62,
+                    "maxWidth": 1280,
+                    "maxHeight": 720,
+                    "everyNthFrame": 1,
+                },
+            )
+
+        await self._run_sync(_sync_start)
+
+    async def _ack_screencast_frame(self, session_id: Any) -> None:
+        def _sync_ack() -> None:
+            self._ensure_cdp().send(
+                "Page.screencastFrameAck", {"sessionId": session_id}
+            )
+
+        await self._run_sync(_sync_ack)
+
+    async def _fanout_frame(
+        self, data_b64: str, metadata: dict[str, Any]
+    ) -> None:
+        for handler in tuple(self._frame_handlers):
+            try:
+                await handler(data_b64, metadata)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.debug(f"[browser_hub] 观众收帧失败(跳过): {e}")
+
+    @staticmethod
+    def _screencast_payload(params: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
+        data = params.get("data")
+        if not isinstance(data, str) or not data:
+            return None
+        meta = params.get("metadata") or {}
+        if not isinstance(meta, dict):
+            meta = {}
+        width = meta.get("deviceWidth")
+        height = meta.get("deviceHeight")
+        try:
+            width = int(width)
+            height = int(height)
+        except (TypeError, ValueError):
+            width, height = 1280, 720
+        return data, {
+            "deviceWidth": max(1, width),
+            "deviceHeight": max(1, height),
+        }
+
+    async def _pump_screencast_events(self) -> None:
+        """让 sync_playwright 的 CDP 事件队列有机会被派发。
+
+        `Page.startScreencast` 的事件不是后台自动冲刷的:sync API 只有在调用
+        Playwright 方法时才会推进 dispatcher。`wait_for_timeout(0)` 是一个零等待
+        的调用,能把 screencastFrame 事件泵出来,又不会真的占用 executor 时间。
+        """
+
+        def _sync_pump() -> None:
+            self._page.wait_for_timeout(0)
+
+        await self._run_sync(_sync_pump)
+
+    async def _cdp_screencast_loop(self) -> None:
+        """主 loop:ack 全部到达帧,只把最新一帧 fan-out 给观众。"""
+        queue = self._screencast_frame_queue
+        if queue is None:
+            return
+        last: tuple[str, dict[str, Any]] | None = None
+        last_broadcast = 0.0
+        while self._screencast_running:
+            try:
+                first = await asyncio.wait_for(queue.get(), timeout=0.02)
+            except TimeoutError:
+                # 静态页面不会自己出新帧;泵一次 CDP 事件队列,并每 2s 重播
+                # 最后一帧,避免前端 15s 判 stalled。
+                try:
+                    await self._pump_screencast_events()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    logger.debug(f"[browser_hub] screencast pump 失败: {e}")
+                if last is not None and time.monotonic() - last_broadcast >= 2.0:
+                    await self._fanout_frame(*last)
+                    last_broadcast = time.monotonic()
+                continue
+            except asyncio.CancelledError:
+                raise
+
+            # 把当前已有帧全部取完并逐帧 ack;只广播最后一帧。ack 不能少,
+            # 否则 Chrome 会停在等 ack 的状态,后续不再出帧。
+            frames = [first]
+            while True:
+                try:
+                    frames.append(queue.get_nowait())
+                except asyncio.QueueEmpty:
+                    break
+            for params in frames:
+                sid = params.get("sessionId")
+                try:
+                    await self._ack_screencast_frame(sid)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    logger.debug(f"[browser_hub] screencast ack 失败: {e}")
+            payload = None
+            for params in frames:
+                candidate = self._screencast_payload(params)
+                if candidate is not None:
+                    payload = candidate
+            if payload is not None:
+                last = payload
+                await self._fanout_frame(*payload)
+                last_broadcast = time.monotonic()
+            # ack 后 Chrome 才会继续出下一帧;这里再泵一次让下一批事件进来。
+            try:
+                await self._pump_screencast_events()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.debug(f"[browser_hub] screencast pump 失败: {e}")
 
     async def _screenshot_loop(self) -> None:
-        """后台截图循环(在 main loop 运行,截图操作在 executor 线程执行)。"""
+        """兜底截图循环(在 main loop 运行,截图操作在 executor 线程执行)。"""
         import base64 as _base64
         while self._screencast_running:
             try:
                 def _sync_shot() -> bytes:
-                    return self._page.screenshot(type="jpeg", quality=70)
+                    return self._page.screenshot(type="jpeg", quality=60)
                 jpeg_bytes = await self._run_sync(_sync_shot)
                 data_b64 = _base64.b64encode(jpeg_bytes).decode("ascii")
                 vp = self._page.viewport_size  # {"width": ..., "height": ...}
@@ -1651,28 +1823,29 @@ class BrowserSession:
                     "deviceWidth": vp.get("width", 1280) if vp else 1280,
                     "deviceHeight": vp.get("height", 720) if vp else 720,
                 }
-                # fan-out:tick 内先取快照再逐个 await —— 观众中途断开(await 期间
-                # remove_frame_handler 改列表)不会让本帧漏发给其余观众。
-                for handler in tuple(self._frame_handlers):
-                    try:
-                        await handler(data_b64, metadata)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception as e:
-                        logger.debug(f"[browser_hub] 观众收帧失败(跳过): {e}")
+                await self._fanout_frame(data_b64, metadata)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 logger.warning(f"[browser_hub] 截图循环异常: {e}")
-            await asyncio.sleep(0.3)  # ~3fps
+            await asyncio.sleep(0.08)  # 兜底 ~10fps
 
     async def stop_screencast(self) -> None:
+        was_running = self._screencast_running
         self._screencast_running = False
         if self._screenshot_task:
             self._screenshot_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._screenshot_task
             self._screenshot_task = None
+        if was_running:
+            try:
+                await self._run_sync(
+                    lambda: self._ensure_cdp().send("Page.stopScreencast")
+                )
+            except Exception as e:
+                logger.debug(f"[browser_hub] 停止 screencast 失败(忽略): {e}")
+        self._screencast_frame_queue = None
         self._frame_handlers.clear()
 
     async def remove_frame_handler(self, on_frame: Callable[..., Any]) -> None:
