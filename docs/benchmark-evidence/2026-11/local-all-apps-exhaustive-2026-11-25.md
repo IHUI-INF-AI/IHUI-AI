@@ -383,6 +383,7 @@ helper 侧另有 `DoubaoLinkRouter.exe`（2,952,080，ProductName `Doubao Link R
 **核心二：agent_infra.dll 是“本地运行时策略引擎”。**
 字符串直接给出 API 与字段：`local_runtime.runtime_policy`、`local_runtime:runtime_policy:get`、`local_runtime:instance_group:update_permission`、`runtime policy updated, probe_enabled={}, background_limit={}, user_env_timeout_ms={}, runtime_probe_timeout_ms={}, probe_startup_timeout_ms={}`、`sandbox.network_config`、`sandbox.internal_config`、`sandbox_network_audit`、`local_runtime.sandbox_switch_config`、`local_runtime:is_support_no_sandbox`、`sandbox_instance_create`（`ev_5eefd5c0…`）。
 这是一套可热更新的本地运行时策略：网络配置、沙箱开关、探测开关、后台并发限制、超时预算都在策略里。**“is_support_no_sandbox” 这个键说明产品允许按环境关闭沙箱**，这是设计选择，不是漏洞。
+补证：`LocalRuntimeModule::UpdateSandboxSwitchConfig` 的 JSON 结构字段是 `sandbox_switch_enabled` / `health_records`，云配置节名是 `saman_sandbox_switch_config`，总节是 `saman_sandbox_config`；错误路径明确写 `sandbox switch config property rejected, json_bytes={}`。本地 DLL 只有 schema 与更新入口，没有默认布尔值；默认值来自云配置或调用方，未运行验证。
 
 **核心三：mcp_helper.dll 是 MCP 进程宿主，用 Job Object 托底。**
 字符串：`process-wrap-9.1.0\src\tokio\job_object.rs`、`JOB_OBJECT_LIMIT`、`wait`、`MCP server executable permission denied`、`OAuth session has no credential checkpoint`、`failed to checkpoint OAuth credentials`、`OAuth credentials rejected; closing the expired MCP session`、`sse stream terminated, no reconnect policy`。
@@ -655,6 +656,7 @@ IPC 分组说明它是“能力市场型”客户端：
 | Doubao `PushServerService`（18744） | 96 | `pc_push.dll`、`PushNotificationsLongRunningTask.ProxyStub.dll`、`Doubao.dll` | `push_detect.exe` | 推送服务实际用 `pc_push.dll`；`push_detect` 仍是独立 name-only exe |
 | Doubao main（28736） | 161 | `Doubao.dll`、`doubao_elf.dll` | `mcp_helper.dll`、`pip_remote.dll`、`aiep_ipc.dll` | MCP helper、PIP Remote、AIEP IPC 在当前主进程未加载；按需/子进程加载未定 |
 | WorkBuddy main（22984） | 135 | `WeComAgentConfirmSDK.dll` | `sandbox-cli.exe`、`sandbox-center.exe` | 企微确认 SDK 常驻；沙箱 helper 是独立 exe，空闲态不驻留 |
+| Codex Windows 沙箱服务（33980） | 50 | `codex-windows-sandbox-service.exe` | — | 常驻服务确实以 50 个模块运行；仍未证明每次工具调用都由它执行 |
 
 **边界**：模块枚举是点时刻；缺模块不等于功能不存在，只说明当时未加载。`push_detect.exe` 是独立可执行，不会出现在 `Doubao.exe` 的模块表里；它的角色仍不能由模块表判定。
 
@@ -723,7 +725,7 @@ IPC 分组说明它是“能力市场型”客户端：
 - `analysis\backend-<target>.json`：后端模式扫描（http/ws server、ipcMain、contextBridge、safeStorage、MCP/ACP/LSP）。
 - `analysis\backend-qoder-all.json`：Qoder 四版本 asar 后端扫描——`mcpServer` 665 / 665 / 629 / 629（`out/main/electronMain.js` 123 / 123 / 129 / 129，agent-sdk 各 37）、`http.createServer` 8 / 8 / 6 / 6、0.5.12/0.5.14 的 `WebSocketServer` 1、`ipcMain`/`expose`/`safeStorage`/`keytar` 均 0；启动与否未运行验证。
 - `analysis\runtime-snapshot-2026-11-25.json`：2026-11-25 15:26 运行态快照——41 个目标进程、9 个本地监听、相关命名管道；含 WorkBuddy `18488`/`56000`/`57736`/`57737`/`57740`/`63423`、豆包 `49853`/`61167` 与 `aha-agent-tool-ipc`/`PipMain`/`PipSDK` 管道、Qoder `55346` 属测试桥而非 application-server 的判定。
-- `analysis\runtime-modules-2026-11-25.json`：运行态模块枚举——Qoder 0.5.14 的 41 / 47 个模块中 0 AOQ/keytar/Opus/FFmpeg；豆包 `AgentInfraProcess` 加载 `agent_infra.dll` / `pip_sdk.dll` 但 0 `pip_remote.dll`，`PushServerService` 加载 `pc_push.dll`；WorkBuddy 主进程加载 `WeComAgentConfirmSDK.dll`，沙箱 helper 为独立 exe、空闲态未驻留。
+- `analysis\runtime-modules-2026-11-25.json`：运行态模块枚举——Qoder 0.5.14 的 41 / 47 个模块中 0 AOQ/keytar/Opus/FFmpeg；豆包 `AgentInfraProcess` 加载 `agent_infra.dll` / `pip_sdk.dll` 但 0 `pip_remote.dll`，`PushServerService` 加载 `pc_push.dll`；WorkBuddy 主进程加载 `WeComAgentConfirmSDK.dll`，沙箱 helper 为独立 exe、空闲态未驻留；Codex Windows 沙箱服务（33980）以 50 个模块运行。
 - `<target>-jsmap-full.json`：前端全量图（豆包 ai-views 437MB、WorkBuddy 273MB、Cursor 247MB 等）；豆包主应用 `biz.pak` 的 1.04GB 图见下一组条目。
 - `native\<target>\*.json`：核心取证（overview / imports / exports / publisher / strings0-7 / feat0-3）。
 - `native\codex\crates.json`：Codex 407MB 二进制的 400 个 crate 路径清单（含 40 个高频项与 79 个安全/网络相关项）。
