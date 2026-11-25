@@ -9595,6 +9595,7 @@
       "pin": "置顶",
       "unpin": "取消置顶",
       "reconnect": "重新连接",
+      "close": "关闭",
       "expandTask": "展开任务详情",
       "collapseTask": "收起任务详情",
       "title": "画中画",

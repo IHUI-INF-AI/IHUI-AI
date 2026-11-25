@@ -41,6 +41,7 @@ const LABELS: BrowserPipLabels = {
   pin: 'Pin on top',
   unpin: 'Unpin',
   reconnect: 'Reconnect',
+  close: 'Close',
   expandTask: 'Expand task details',
   collapseTask: 'Collapse task details',
   checkpointLabels: { ck_payment_confirm_pay: 'Confirm before payment' },
