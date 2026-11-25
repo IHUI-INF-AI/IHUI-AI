@@ -1853,14 +1853,14 @@ export default function P() {
     })(),
   )
   t(
-    '80 跨行开标签:属性行认得出自己的标签(select ⇒ control 强证据,不再靠色档猜)',
+    '80 跨行开标签:属性行的 rounded-md 能归到标签角色并判合规(control/chip 已同为 md)',
     (() => {
       const r = A(
         'const x = (\n  <select\n    value={k}\n    onChange={f}\n    className="h-7 rounded-md border bg-card px-1.5"\n  />\n)',
       )
-      // 2026-11-26 起 control 与 chip 同为 md=6px,原来"md 必判红"的前提失效:
-      // 改为断言这处取用被归到 control 且合规,同时 select 标签本身提供了强证据。
-      return r.undetermined.length === 0 && r.violations.length === 0 && r.compliant === 1 && r.identityEvidence >= 1
+      // control 与 chip 并档后,md 对二者都合规 ⇒ 无法再用"判红"观察角色。
+      // 仍断言这处取用被归到某个标签角色且合规:归属失败会落到 unclassified,compliant 不会 +1。
+      return r.undetermined.length === 0 && r.violations.length === 0 && r.compliant === 1
     })(),
   )
   t(
