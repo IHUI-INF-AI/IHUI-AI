@@ -31,6 +31,11 @@ import {
   resolveRouterMaxConnections,
 } from './lib/edge-admission.mjs'
 import { applySecurityHeaders, resolveSecurityHeaderMode } from './lib/response-security.mjs'
+import { inspectBody, inspectRequest, resolveWafMode, summarizeHits } from './lib/waf-signatures.mjs'
+import { shouldSniff, sniffBody, createRollingScanner } from './lib/body-sniff.mjs'
+import { buildNotice, renderNotice, renderMinimal } from './lib/block-notice.mjs'
+import { createNoticeLedger, createNoticeWriter } from './lib/notice-ledger.mjs'
+import { identifyTool } from './lib/tool-fingerprint.mjs'
 
 // ── 通用化(2026-10-28 生产席:web 蓝绿复用同一份 router,不落第二份反代实现)────────
 // 立因:web 走蓝绿也要一个"常驻监听 + 原子切流"的入口层,而另写一份 router 就是第二个真相源
@@ -143,10 +148,184 @@ function logRateLimited(ip, verdict) {
   log('warn', 'rate limited', { ip, retryAfterSec: verdict.retryAfterSec })
 }
 
+// ── 载荷级 WAF(2026-11-24 立,第四层)──────────────────────────────────────
+// 前三层只看「谁在发、发多快」,不看「发了什么」:带正确回源密钥(或任意直连)的请求里
+// 塞 union select / <script> / ../../ 会原样直达上游。判据在 lib/waf-signatures.mjs
+// (纯函数,逐条用例钉住);这里只负责接线与日志。
+//
+// 默认 enforce:高危规则(注入/穿越/扫描器/恶意方法)直接 403;medium 规则只记录。
+// 误报排查时用 IHUI_WAF_MODE=observe 降级(只记不拦),不要用 off —— off 等于整层消失。
+const WAF_MODE = resolveWafMode(process.env.IHUI_WAF_MODE)
+const WAF_LOG_INTERVAL_MS = 10_000
+const wafLogAt = new Map()
+let wafBlocked = 0
+
+/** 日志节流同限流:被刷时每 IP 10s 一条,且只记 path 不记 query(不把攻击载荷写回日志)。 */
+function logWaf(ip, waf, url) {
+  const t = Date.now()
+  const last = wafLogAt.get(ip) ?? 0
+  if (t - last < WAF_LOG_INTERVAL_MS) return
+  wafLogAt.set(ip, t)
+  if (wafLogAt.size > 10_000) wafLogAt.clear()
+  log('warn', waf.action === 'block' ? 'waf blocked' : 'waf observed', {
+    mode: WAF_MODE,
+    ip,
+    rules: summarizeHits(waf.hits),
+    path: String(url ?? '').split('?')[0].slice(0, 200),
+    blockedTotal: wafBlocked,
+  })
+}
+
+// ── 拦截告知(2026-11-24;二轮:计数 + 批量落盘)──────────────────────────
+const NOTICE_LOG = process.env.IHUI_BLOCK_NOTICE_LOG || 'D:\\DevEnv\\logs\\block-notice.jsonl'
+// 计数从日志尾部重建:router 重启不该让老对手回到"第一次"——那等于每次重启都把账清空。
+const noticeLedger = createNoticeLedger({ logPath: NOTICE_LOG })
+// 批量写:初版每个 403 一次 appendFileSync,500rps 就是 500 次/秒同步 IO,
+// 攻击者用请求量就能把拒绝路径拖成瓶颈 —— 这是自己给自己造的 DoS 放大面。
+const noticeWriter = createNoticeWriter({ logPath: NOTICE_LOG })
+process.on('exit', () => noticeWriter.flush())
+
+// 封禁台账 60s 缓存:在册是"终局信息",告诉对方"你已在册、到期 X"比任何劝阻都实。
+// 反直觉但真实:被封的 IP 在防火墙层就被丢了,理论上到不了这里 —— 一旦它到了,
+// 说明规则没生效或只生效了一半,那更该把这件事明说。
+const BLOCKLIST_PATH = process.env.IHUI_BLOCKLIST_PATH || 'D:\\IHUI-AI\\.ihui-agent\\state\\attack-blocklist.json'
+const BLOCKLIST_TTL_MS = 60_000
+let blocklistCache = { at: 0, entries: {} }
+
+function bannedState(ip) {
+  const now = Date.now()
+  if (now - blocklistCache.at > BLOCKLIST_TTL_MS) {
+    try {
+      const j = JSON.parse(fs.readFileSync(BLOCKLIST_PATH, 'utf8'))
+      blocklistCache = { at: now, entries: j?.entries ?? {} }
+    } catch {
+      // 读不到就沿用上一份快照:宁可用旧账,也不要在拒绝路径上抛异常
+      blocklistCache = { at: now, entries: blocklistCache.entries }
+    }
+  }
+  const e = blocklistCache.entries?.[ip]
+  if (!e || e.applied === false) return null
+  return { expiresAt: e.expiresAt ?? e.expires ?? null }
+}
+
+/** 落一条「已告知」记录:对外文案说"已取证"必须有这条撑着,否则就是空口威慑。 */
+function recordNotice(notice, ip, url) {
+  noticeWriter.push({
+    ts: notice.at,
+    ref: notice.ref,
+    status: notice.status,
+    reason: notice.reason,
+    ip,
+    attempt: notice.attempt,
+    // 工具名必须落盘:文案里写了"已记进本次证据",不留这一笔就是空口威慑。
+    // 名字来自白名单常量(不是请求原文),可以安全落盘。
+    tool: notice.tool?.name ?? null,
+    // 是否降级成最小版:复盘时要能回答"高压时降级到底生效了没有"
+    minimal: notice.minimal === true,
+    // 只记长度,不记原文:path 里可能就带攻击载荷,写回日志等于二次传播
+    pathLen: String(url ?? '').length,
+  })
+}
+
+// 拒绝速率窗口:告诉攻击者"你被记住了"是有代价的 —— 完整版 3.4KB,他发 1 字节就换走。
+// 高压时降级到 218 字节最小版(编号/次数/落点句一个字不删),不给对手当放大器。
+const NOTICE_FULL_RPS = Number(process.env.IHUI_NOTICE_FULL_RPS || 40)
+const denyStamps = []
+function noticeUnderPressure() {
+  const now = Date.now()
+  while (denyStamps.length && now - denyStamps[0] >= 1000) denyStamps.shift()
+  denyStamps.push(now)
+  if (denyStamps.length > 100_000) denyStamps.splice(0, denyStamps.length - 1024)
+  return denyStamps.length > NOTICE_FULL_RPS
+}
+
+/**
+ * WS 握手的拒绝出口。**与 HTTP 同源,不另开一套话术**。
+ *
+ * 立因(2026-11-24 自检):`socket.end(buildRejectionFrame(403,'waf'))` 是第 4 条拒绝路径,
+ * 它只回一个 `{"code":403,"message":"waf"}` —— 既没送那句话,还把"你撞的是哪一道"直接
+ * 告诉了对手。WS 是扫描器很爱走的通道,漏掉它等于给对手留一扇没贴告示的门。
+ */
+function denyUpgrade(socket, status, reason, retryAfterSec = 0) {
+  const ip = socket.remoteAddress || ''
+  try {
+    const { attempt, prevRef } = noticeLedger.peek(ip)
+    const notice = buildNotice({
+      ip,
+      path: '(ws-upgrade)',
+      reason,
+      status,
+      attempt,
+      prevRef,
+      tool: identifyTool('', {}),
+      banned: bannedState(ip),
+    })
+    // WS 一律最小版:握手层高频,完整 HTML 在这里毫无意义还放大出口
+    const out = renderMinimal(notice)
+    notice.minimal = true
+    noticeLedger.commit(ip, notice.ref)
+    recordNotice(notice, ip, '(ws-upgrade)')
+    socket.end(buildRejectionFrame(status, reason, retryAfterSec, { text: out.body.toString('utf8'), headers: out.headers }))
+  } catch {
+    try {
+      socket.end(buildRejectionFrame(status, reason))
+    } catch {
+      /* 对端已断 */
+    }
+  }
+}
+
+/** 统一拒绝出口:403/429 都由这里出,保证每个被拦的请求收到同一套告知。
+ *
+ * 这里必须自己兜住异常:拒绝路径是攻击者可以直接触发的代码,
+ * 它一旦抛出去就是「打一个 403 把 router 打崩」——实测已发生过一次
+ * (中文塞进响应头 ⇒ ERR_INVALID_CHAR ⇒ 进程退出)。文案渲染出任何问题,
+ * 都退回最小 ASCII 403,绝不让进程陪葬。
+ */
+function denyWithNotice(req, res, status, reason, extraHeaders = {}) {
+  const ip = req.socket.remoteAddress || ''
+  try {
+    // peek → build → commit 的顺序不能反:prevRef 必须是"上一次"的编号,
+    // 先把本次 commit 掉,引用的就成了自己。
+    const { attempt, prevRef } = noticeLedger.peek(ip)
+    const notice = buildNotice({
+      ip,
+      path: req.url,
+      reason,
+      status,
+      attempt,
+      prevRef,
+      // 这两样都是"对方自己就能核对的事实":工具特征写在 UA 里,封禁到期写在防火墙规则里
+      tool: identifyTool(req.headers?.['user-agent'] ?? '', req.headers ?? {}),
+      banned: bannedState(ip),
+    })
+    // 429 一律降级(限流语义本身就是"你太快了"),403 只在全局高压时降级。
+    // 判在前、渲染在后:这个顺序决定了本次也计入压力,不会"最后一条永远是大响应"。
+    const minimal = status === 429 || noticeUnderPressure()
+    const out = minimal ? renderMinimal(notice) : renderNotice(req.headers.accept || '', notice)
+    notice.minimal = minimal
+    noticeLedger.commit(ip, notice.ref)
+    recordNotice(notice, ip, req.url)
+    res.writeHead(status, { ...out.headers, ...extraHeaders })
+    res.end(out.body)
+  } catch {
+    const fallback = Buffer.from(
+      status === 429 ? '{"code":429,"message":"too many requests"}' : '{"code":403,"message":"forbidden"}',
+    )
+    try {
+      if (!res.headersSent) {
+        res.writeHead(status, { 'content-type': 'application/json', 'content-length': fallback.length })
+      }
+      res.end(fallback)
+    } catch {
+      /* 对端已断,无从告知 */
+    }
+  }
+}
+
 log('info', 'router started', {
   listen: `${LISTEN_HOST}:${LISTEN_PORT}`,
-  state: STATE_FILE,
-  active: state.active,
+  state: STATE_FILE,  active: state.active,
   upstream: state[state.active],
   source: state.source,
   rateLimit: RATE_LIMIT.enabled ? `${RATE_LIMIT.rps}rps/${RATE_LIMIT.burst}burst` : 'off',
@@ -162,6 +341,8 @@ log('info', 'router started', {
         : `${EDGE_MODE}(缺 IHUI_EDGE_SECRET ⇒ 实际不拦)`,
   // 同样报出:运维要能确认「API 响应安全头到底补没补」,以及是否因 web 实例而自动跳过。
   securityHeaders: ADD_SECURITY_HEADERS ? 'on' : 'off',
+  // WAF 档位必须报出来:observe 与 enforce 只差一个拦截分支,日志里必须能分辨。
+  waf: WAF_MODE,
 })
 
 // 状态文件变化即热切换；1s 轮询足以让部署脚本「写完即生效」，又不必依赖 fs.watch 的
@@ -199,7 +380,7 @@ function sendJson(res, status, body) {
 }
 
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   // 运维探针：给部署脚本确认「路由在跑、当前是哪一色」。
   //
   // 2026-10-29 加固:原注释写「仅本机可达（监听 127.0.0.1）」,那只对 API router 成立 ——
@@ -234,10 +415,58 @@ const server = http.createServer((req, res) => {
     } else if (verdict.action === 'deny') {
       edgeGuardDenied += 1
       logEdgeGuard(verdict.reason, ip)
-      const body = Buffer.from(JSON.stringify({ code: 403, message: 'forbidden' }))
-      res.writeHead(403, { 'content-type': 'application/json', 'content-length': body.length })
-      res.end(body)
+      denyWithNotice(req, res, 403, `edge-guard:${verdict.reason}`)
       return
+    }
+  }
+  // 载荷级 WAF:回源鉴权只认「是不是边缘」,这里认「发的是什么」——
+  // 带正确密钥的伪造请求、或边缘放行过来的扫描器,在这一层被拦。
+  // 放在限流之前:被 WAF 判死的请求不该再消耗一个令牌(便宜的先做,与上面两道同序)。
+  // 体重放:`sniffBody` 在 `end` 分支拿不到放回的机会(流已结束),由转发层整段补写。
+  // 声明在块外 —— 写在块内转发层读不到,chunked 小体就会以空体送上游。
+  let bodyReplay = null
+  // 体流式扫描(2026-11-25 补):大体与 chunked 走这条 —— 它只旁听 data、不消费原流,
+  // 因此把 8192 那个"载荷藏在大体后面就绕过"的上限抬掉了。
+  let bodyScanner = null
+  if (WAF_MODE !== 'off') {
+    // 体嗅探(2026-11-25 立):改造前 WAF 只看 URL / UA / method,POST 里的载荷整层看不见 ——
+    // 只要把注入放进 JSON/form 体里,前 21 条规则一条都不会命中。
+    // 有界读取的铁律写在 lib/body-sniff.mjs 头注,这里只负责接线:
+    //   · 小体 ⇒ 转发前整段读到再判,命中就 403,上游什么都收不到;
+    //   · 大体/chunked ⇒ 转发中滚动判,命中就断上游(请求未完成,上游不会当成有效调用);
+    //   · 任何异常都吞掉并回落 null —— 这一层绝不能因为"想多扫一眼"把正常请求打坏。
+    let body = null
+    try {
+      const sniff = shouldSniff(req.headers)
+      if (sniff.sniff) {
+        if (sniff.stream) {
+          bodyScanner = createRollingScanner({ inspect: inspectBody })
+        } else {
+          const r = await sniffBody(req, { expected: sniff.expected })
+          body = r.text
+          if (r.why === 'end' && r.bytes) bodyReplay = r.merged
+        }
+      }
+    } catch {
+      body = null
+      bodyScanner = null
+    }
+    const waf = inspectRequest({ method: req.method, url: req.url, headers: req.headers, body })
+    if (waf.action === 'block') {
+      wafBlocked += 1
+      logWaf(req.socket.remoteAddress || '', waf, req.url)
+      if (WAF_MODE === 'enforce') {
+        // 拒了就要把没消费的请求体丢掉,否则 keep-alive 复用这条连接时脏字节会串到下一条请求。
+        try {
+          req.resume()
+        } catch {
+          /* 已结束就没什么可丢的 */
+        }
+        denyWithNotice(req, res, 403, 'waf')
+        return
+      }
+    } else if (waf.action === 'observe') {
+      logWaf(req.socket.remoteAddress || '', waf, req.url)
     }
   }
   if (limiter) {
@@ -250,18 +479,12 @@ const server = http.createServer((req, res) => {
       const verdict = limiter.check(ip)
       if (!verdict.allowed) {
         logRateLimited(ip, verdict)
-        const body = Buffer.from(JSON.stringify({ code: 429, message: 'too many requests' }))
-        res.writeHead(429, {
-          'content-type': 'application/json',
-          'content-length': body.length,
-          'retry-after': String(verdict.retryAfterSec),
-        })
-        res.end(body)
+        denyWithNotice(req, res, 429, 'rate-limit', { 'retry-after': String(verdict.retryAfterSec) })
         return
       }
     }
   }
-  proxyHttp(req, res, 0, edgeReason)
+  proxyHttp(req, res, 0, edgeReason, bodyReplay, bodyScanner)
 })
 
 // 慢速攻击面收口(2026-10-29):Node 默认 headersTimeout=60s / requestTimeout=300s,
@@ -273,13 +496,17 @@ server.requestTimeout = 120_000
 // 连接数硬顶(2026-10-29):常量见文件上方 MAX_CONNECTIONS(启动日志已报出)。
 server.maxConnections = MAX_CONNECTIONS
 
-function proxyHttp(req, res, attempt, edgeReason = 'off') {
+function proxyHttp(req, res, attempt, edgeReason = 'off', replay = null, bodyScanner = null) {
   const ports = upstreams()
   const port = ports[attempt]
   if (!port) {
     sendJson(res, 502, { code: 502, message: 'api upstream unavailable' })
     return
   }
+
+  // 体流式判定命中后,这条请求已经"判死":后面的代理错误、上游响应都不该再改判。
+  // 声明在 upReq 之前 —— 它的监听器全都要看见这个标志。
+  let wafMidBlocked = false
 
   const upReq = http.request({
     host: UPSTREAM_HOST,
@@ -301,12 +528,20 @@ function proxyHttp(req, res, attempt, edgeReason = 'off') {
   })
 
   upReq.on('response', (upRes) => {
+    if (wafMidBlocked) {
+      // 已经按体命中判死了(我们主动断了上游),这条响应是竞态里漏出来的,不再往下游送。
+      upRes.resume()
+      return
+    }
     // 补安全响应头(变更 C):只补上游没设的,不覆盖 api 自身已设的安全头。
     res.writeHead(upRes.statusCode || 502, applySecurityHeaders(upRes.headers, ADD_SECURITY_HEADERS))
     upRes.pipe(res)
   })
 
   upReq.on('error', (err) => {
+    // 断上游是我们自己做的,这个 error 是那一下的副产物 —— 不能当成代理故障再回 502,
+    // 否则 403 告知页会被一个 502 覆盖掉(或者反过来写两次头)。
+    if (wafMidBlocked) return
     // 连接被拒 = 请求还没进入应用，重放到另一色是安全的；POST 也可（未产生副作用）。
     // 但只重放一次，且只针对连接级错误 —— 已经建立连接后的 reset 不重放，避免重复下单。
     if ((err.code === 'ECONNREFUSED' || err.code === 'EHOSTUNREACH') && attempt === 0) {
@@ -315,7 +550,9 @@ function proxyHttp(req, res, attempt, edgeReason = 'off') {
         secondary: ports[1],
         url: req.url,
       })
-      proxyHttp(req, res, 1, edgeReason)
+      // replay 必须一起带过去:body 已被嗅探读走(原流已 end),不带就是让重放那次发空体。
+      // scanner 同样要带:不带等于"首色一拒连,体规则对这次重试就整层失效"。
+      proxyHttp(req, res, 1, edgeReason, replay, bodyScanner)
       return
     }
     log('error', 'proxy error', { port, url: req.url, code: err.code, message: err.message })
@@ -325,6 +562,56 @@ function proxyHttp(req, res, attempt, edgeReason = 'off') {
   res.on('close', () => {
     if (!res.writableEnded) upReq.destroy()
   })
+  // 体流式判定(2026-11-25 补):只**旁听** data,不消费原流 —— 所以不存在"读完放不回去"。
+  // 命中时上游可能已收到一部分体,但请求没有写完,上游不会把它当成一次有效调用;
+  // 不断开的话,藏在 8192 之后的载荷会照常进入业务层 —— 那正是这条路线要堵的口子。
+  if (bodyScanner) {
+    req.on('data', (chunk) => {
+      if (wafMidBlocked) return
+      let hits = null
+      try {
+        hits = bodyScanner.push(chunk)
+      } catch {
+        return
+      }
+      if (!hits || !hits.length) return
+      if (WAF_MODE !== 'enforce') {
+        // observe 档:只留证据,让请求照常跑完(与整段判定那一档同形)。
+        logWaf(req.socket.remoteAddress || '', { action: 'block', hits }, req.url)
+        return
+      }
+      wafMidBlocked = true
+      wafBlocked += 1
+      logWaf(req.socket.remoteAddress || '', { action: 'block', hits }, req.url)
+      try {
+        upReq.destroy()
+      } catch {
+        /* 已断就不用再断 */
+      }
+      try {
+        req.resume()
+      } catch {
+        /* 已结束就没什么可丢的 */
+      }
+      if (res.headersSent) return
+      denyWithNotice(req, res, 403, 'waf')
+    })
+  }
+  // 整段重放(2026-11-25):嗅探把 body 读完时原流已 `end`,`unshift` 无处可放 ——
+  // 不补这一步,chunked 的小请求会以空体到上游(改造前是完整的,这就是回归)。
+  //
+  // 这里**不能**再 `req.pipe(upReq)`:原流已经 end,`end` 事件早就错过,pipe 就永远等不到
+  // 结束信号 ⇒ upReq 不会 end ⇒ 上游一直挂着,请求直接死在那里(实测第一版就是这么挂住的)。
+  // 整段字节都在 replay 里,写完直接 end,语义等价于"把整条流灌过去再关"。
+  if (replay && replay.length) {
+    try {
+      upReq.write(replay)
+      upReq.end()
+    } catch {
+      /* 写失败交给下面 upReq 的 error 分支,不在这里改判 */
+    }
+    return
+  }
   req.pipe(upReq)
 }
 
@@ -363,7 +650,7 @@ server.on('upgrade', (req, socket, head) => {
       url: req.url,
     })
     try {
-      socket.end(buildRejectionFrame(admission.status, admission.reason, admission.retryAfterSec))
+      denyUpgrade(socket, admission.status, admission.reason, admission.retryAfterSec)
     } catch {
       /* 对端已断,下面统一销毁 */
     }
@@ -374,6 +661,27 @@ server.on('upgrade', (req, socket, head) => {
   // 不记的话,直连攻击者只要改走 WS 就能在 observe 统计里彻底隐身。
   if (EDGE_MODE !== 'off' && admission.edgeReason !== 'match' && admission.edgeReason !== 'loopback') {
     logEdgeGuard(admission.edgeReason, req.socket.remoteAddress || '')
+  }
+
+  // WS 握手同样过 WAF:否则攻击者只要在请求行写 Upgrade,就能把这一层整层绕开 ——
+  // 与 2026-10-29「回源鉴权/限流被 upgrade 分支整层绕过」同型缺口,这次在接线时就堵上。
+  if (WAF_MODE !== 'off') {
+    const waf = inspectRequest({ method: req.method, url: req.url, headers: req.headers })
+    if (waf.action === 'block') {
+      wafBlocked += 1
+      logWaf(req.socket.remoteAddress || '', waf, req.url)
+      if (WAF_MODE === 'enforce') {
+        try {
+          denyUpgrade(socket, 403, 'waf')
+        } catch {
+          /* 对端已断,下面统一销毁 */
+        }
+        socket.destroy()
+        return
+      }
+    } else if (waf.action === 'observe') {
+      logWaf(req.socket.remoteAddress || '', waf, req.url)
+    }
   }
 
   const port = upstreams()[0]

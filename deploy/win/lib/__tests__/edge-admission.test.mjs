@@ -193,7 +193,24 @@ test('拒绝帧是合法 HTTP 响应,且 content-length 按字节数(非字符�
   assert.match(head, /connection: close/)
   const declared = Number(/content-length: (\d+)/.exec(head)?.[1])
   assert.equal(declared, Buffer.byteLength(body), 'content-length 必须等于 body 字节数')
-  assert.deepEqual(JSON.parse(body), { code: 403, message: 'edge-guard' })
+  // 2026-11-24 改判:body 不再回内部 reason —— `edge-guard:secret-mismatch` 这类原文
+  // 等于告诉对手「你撞的是哪一道、差在哪」,是绕过说明书。送话走第 4 参 opts.text。
+  assert.deepEqual(JSON.parse(body), { code: 403, message: 'forbidden' })
+  assert.equal(body.includes('edge-guard'), false, '内部原因不得外泄到响应体')
+})
+
+test('拒绝帧可承载告知话术:content-length 按 UTF-8 字节,头值非 ASCII 一律被丢弃', () => {
+  const text = '别妄想攻击。\nAbandon the attempt.'
+  const frame = buildRejectionFrame(403, 'waf', 0, {
+    text,
+    headers: { 'x-ihui-evidence': 'EV-CE7CA26D33', 'x-bad': '中文头会炸', 'content-type': 'text/plain; charset=utf-8' },
+  })
+  const [head, body] = frame.split('\r\n\r\n')
+  assert.equal(Number(/content-length: (\d+)/.exec(head)?.[1]), Buffer.byteLength(body), '中文正文必须按字节数,不是字符数')
+  assert.equal(body, text)
+  assert.match(head, /x-ihui-evidence: EV-CE7CA26D33/)
+  assert.doesNotMatch(head, /x-bad/, '非 ASCII 头值必须在源头挡掉,不能带出去')
+  assert.equal(frame.includes('waf'), false, '话术帧同样不得泄露内部原因')
 })
 
 test('429 帧带 Retry-After;403 帧不带(带 0 等于教客户端立刻重试)', () => {
@@ -227,7 +244,6 @@ test('连接数硬顶:非法值一律回落默认上限,绝不变成无上限', 
   assert.equal(resolveRouterMaxConnections(undefined), 10_000)
   assert.equal(resolveRouterMaxConnections(Infinity), 10_000)
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // ── 客户端 IP 归一(2026-10-29 第四层)────────────────────────────────────
 //
@@ -466,3 +482,4 @@ test('反向对照:回环对端 + CF-Connecting-IP(cloudflared 隧道)⇒ 仍采
   assert.equal(out['x-forwarded-for'], PUBLIC_IP, '隧道形态照旧采信 CF 头')
   assert.equal(out['cf-connecting-ip'], undefined, '可伪造头仍要删掉')
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

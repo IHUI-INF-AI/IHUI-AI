@@ -113,14 +113,26 @@ export function decideUpgradeAdmission({
  * @param {number} [retryAfterSec]
  * @returns {string}
  */
-export function buildRejectionFrame(status, reason, retryAfterSec = 0) {
-  const body = JSON.stringify({ code: status, message: reason })
-  const lines = [
-    `HTTP/1.1 ${status} ${status === 403 ? 'Forbidden' : 'Too Many Requests'}`,
-    'content-type: application/json',
-    `content-length: ${Buffer.byteLength(body)}`,
-    'connection: close',
-  ]
+export function buildRejectionFrame(status, reason, retryAfterSec = 0, opts = {}) {
+  // 对外 body 不回内部 reason(2026-11-24 加固):`edge-guard:secret-mismatch` 这种原文
+  // 等于告诉对手"你撞的是哪一道、差在哪",是绕过说明书。要送话时由 router 传 opts.text,
+  // 那段话里只有编号与态度,没有一个字涉及规则细节。
+  const body =
+    typeof opts.text === 'string' && opts.text
+      ? opts.text
+      : JSON.stringify({ code: status, message: status === 403 ? 'forbidden' : 'too many requests' })
+  const lines = [`HTTP/1.1 ${status} ${status === 403 ? 'Forbidden' : 'Too Many Requests'}`]
+  if (opts.headers) {
+    for (const [k, v] of Object.entries(opts.headers)) {
+      // 头值必须全 ASCII:中文进头会让 Node/客户端两侧都出问题,这里直接挡在源头
+      if (/^[\x20-\x7E]*$/.test(String(v))) lines.push(`${k.toLowerCase()}: ${v}`)
+    }
+  }
+  // content-type 不能漏:漏了 WS/脚本客户端会把 body 当二进制,反而看不出我们说了什么
+  const hasCt = opts.headers && Object.keys(opts.headers).some((k) => k.toLowerCase() === 'content-type')
+  if (!hasCt) lines.push(`content-type: ${opts.text ? 'text/plain; charset=utf-8' : 'application/json'}`)
+  lines.push(`content-length: ${Buffer.byteLength(body)}`, 'connection: close')
+  // 429 必须带 Retry-After(带 0 等于教客户端立刻重试,所以 0 不写)
   if (retryAfterSec > 0) lines.push(`retry-after: ${retryAfterSec}`)
   return `${lines.join('\r\n')}\r\n\r\n${body}`
 }
