@@ -72,6 +72,7 @@ const settingsSchema = z.object({
   commandsEnabled: z.boolean().optional(),
   commandsInGroup: z.boolean().optional(),
   disabledCommands: z.array(z.string().min(1).max(40)).max(30).optional(),
+  agentModel: z.string().max(80).optional(),
 })
 
 const webhookTestSchema = z.object({

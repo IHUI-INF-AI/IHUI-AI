@@ -147,6 +147,10 @@ export async function updateWechatSettings(
     blockedWords?: string[]
     rateLimitPerMinute?: number
     outboundWebhookUrl?: string
+    agentModel?: string
+    commandsEnabled?: boolean
+    commandsInGroup?: boolean
+    disabledCommands?: string[]
   },
 ): Promise<WechatAccountView> {
   const res = await fetchApi<WechatAccountView>(`/wechat-hub/accounts/${accountId}/settings`, {
