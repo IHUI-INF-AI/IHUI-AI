@@ -26,6 +26,28 @@ export interface MomentArchiveUpsertInput {
   createdAt: number | null
   source: string
   page: number | undefined
+  /** 界面相对时间原文；仅合法非空字符串时随归档写进 metadata */
+  timeText?: string
+  /** 界面图片数量；仅正整数时随归档写进 metadata */
+  imageCount?: number
+  /** 评论原文行；仅非空字符串数组时随归档写进 metadata */
+  commentTexts?: string[]
+}
+
+/**
+ * 把已在服务层校验过的三项摘要收进既有 metadata jsonb：缺省键不写入，
+ * 避免在归档行里留下空串 / 0 / 空数组这类占位值。
+ */
+function momentMetadata(m: MomentArchiveUpsertInput): Record<string, unknown> {
+  const metadata: Record<string, unknown> = {}
+  if (typeof m.timeText === 'string' && m.timeText.length > 0) metadata.timeText = m.timeText
+  if (typeof m.imageCount === 'number' && Number.isInteger(m.imageCount) && m.imageCount > 0) {
+    metadata.imageCount = m.imageCount
+  }
+  if (Array.isArray(m.commentTexts) && m.commentTexts.length > 0) {
+    metadata.commentTexts = m.commentTexts
+  }
+  return metadata
 }
 
 export interface MomentArchiveStat {
@@ -80,7 +102,7 @@ export async function upsertMoments(
         createdAt: m.createdAt,
         source: m.source,
         page: m.page ?? null,
-        metadata: {},
+        metadata: momentMetadata(m),
       })),
     )
     .onConflictDoUpdate({
@@ -94,6 +116,7 @@ export async function upsertMoments(
         authorId: sql`COALESCE(${wechatHubMoments.authorId}, excluded.author_id)`,
         mediaUrls: sql`CASE WHEN jsonb_array_length(excluded.media_urls) > jsonb_array_length(${wechatHubMoments.mediaUrls}) THEN excluded.media_urls ELSE ${wechatHubMoments.mediaUrls} END`,
         createdAt: sql`COALESCE(${wechatHubMoments.createdAt}, excluded.created_at)`,
+        metadata: sql`${wechatHubMoments.metadata} || excluded.metadata`,
       },
     })
 

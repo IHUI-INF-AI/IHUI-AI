@@ -416,6 +416,15 @@ export interface WechatMomentView {
    * OCR 拿不到 wxid 时这里是 false，authorName 只是 OCR 文本，不是平台身份。
    */
   authorResolved?: boolean
+  /**
+   * 界面上读到的相对时间原文（如「5分钟前」「昨天」）。
+   * 只保留原文，不折算成时间戳：换算规则不可靠，宁可让上层自己判断。
+   */
+  timeText?: string
+  /** 界面上读到的图片数量；只有数量，没有图片二进制或链接 */
+  imageCount?: number
+  /** 评论区里读到的原文行；未映射评论作者，也不代表点赞 */
+  commentTexts?: string[]
 }
 
 export interface WechatMomentArchiveStat {

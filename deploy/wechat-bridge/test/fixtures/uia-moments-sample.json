@@ -1,0 +1,233 @@
+{
+  "ok": true,
+  "mode": "uia",
+  "driver": "uia",
+  "pages": 1,
+  "maxPages": 30,
+  "stopReason": "no-more-data",
+  "limitReached": false,
+  "occludedBy": null,
+  "reason": "fixture：全假示例数据，仅供解析器测试；作者、正文、评论、时间均为虚构",
+  "window": {
+    "main": 0,
+    "render": 0,
+    "class": "Qt51514QWindowIcon"
+  },
+  "pageSignatures": ["0000000000000000000000000000000000000001"],
+  "total": 6,
+  "elapsedMs": 1234,
+  "items": [
+    {
+      "page": 1,
+      "index": 0,
+      "role": "moment",
+      "name": "示例用户甲\n周末去郊外露营，晒一晒新近整理的装备清单。\n3 张图片\n昨天 18:24",
+      "lines": [
+        "示例用户甲",
+        "周末去郊外露营，晒一晒新近整理的装备清单。",
+        "3 张图片",
+        "昨天 18:24"
+      ],
+      "controlType": "ListItem",
+      "className": "mmui::TimelineGridImageCell",
+      "bounds": { "x": 340, "y": 120, "w": 760, "h": 210 },
+      "children": [
+        {
+          "controlType": "Text",
+          "role": "author",
+          "name": "示例用户甲",
+          "className": "mmui::XTextView",
+          "lines": ["示例用户甲"]
+        },
+        {
+          "controlType": "Text",
+          "role": "body",
+          "name": "周末去郊外露营，晒一晒新近整理的装备清单。",
+          "className": "mmui::XTextView",
+          "lines": ["周末去郊外露营，晒一晒新近整理的装备清单。"]
+        },
+        {
+          "controlType": "Text",
+          "role": "media",
+          "name": "3 张图片",
+          "className": "mmui::XTextView",
+          "lines": ["3 张图片"]
+        },
+        {
+          "controlType": "Text",
+          "role": "time",
+          "name": "昨天 18:24",
+          "className": "mmui::XTextView",
+          "lines": ["昨天 18:24"]
+        },
+        {
+          "controlType": "ListItem",
+          "role": "comment",
+          "name": "示例用户乙：这套帐篷看着很结实。",
+          "className": "mmui::TimelineCommentCell",
+          "lines": ["示例用户乙：这套帐篷看着很结实。"]
+        },
+        {
+          "controlType": "ListItem",
+          "role": "comment",
+          "name": "示例用户丙：求装备清单链接。",
+          "className": "mmui::TimelineCommentCell",
+          "lines": ["示例用户丙：求装备清单链接。"]
+        },
+        {
+          "controlType": "Text",
+          "role": "noise",
+          "name": "余下0条",
+          "className": "mmui::TimelineRemaining",
+          "lines": ["余下0条"]
+        },
+        {
+          "controlType": "Text",
+          "role": "noise",
+          "name": "下一条动态",
+          "className": "mmui::TimelineNext",
+          "lines": ["下一条动态"]
+        }
+      ]
+    },
+    {
+      "page": 1,
+      "index": 1,
+      "role": "moment",
+      "name": "示例用户丁\n随手记一段日常感悟，不配图也不标时间。",
+      "lines": ["示例用户丁", "随手记一段日常感悟，不配图也不标时间。"],
+      "controlType": "ListItem",
+      "className": "mmui::TimelineContentCell",
+      "bounds": { "x": 340, "y": 360, "w": 760, "h": 96 },
+      "children": [
+        {
+          "controlType": "Text",
+          "role": "author",
+          "name": "示例用户丁",
+          "className": "mmui::XTextView",
+          "lines": ["示例用户丁"]
+        },
+        {
+          "controlType": "Text",
+          "role": "body",
+          "name": "随手记一段日常感悟，不配图也不标时间。",
+          "className": "mmui::XTextView",
+          "lines": ["随手记一段日常感悟，不配图也不标时间。"]
+        },
+        {
+          "controlType": "Text",
+          "role": "noise",
+          "name": "下一条动态",
+          "className": "mmui::TimelineNext",
+          "lines": ["下一条动态"]
+        }
+      ]
+    },
+    {
+      "page": 1,
+      "index": 2,
+      "role": "moment",
+      "name": "示例用户戊",
+      "lines": ["示例用户戊"],
+      "controlType": "ListItem",
+      "className": "mmui::TimelineContentCell",
+      "bounds": { "x": 340, "y": 490, "w": 760, "h": 64 },
+      "children": [
+        {
+          "controlType": "Text",
+          "role": "author",
+          "name": "示例用户戊",
+          "className": "mmui::XTextView",
+          "lines": ["示例用户戊"]
+        },
+        {
+          "controlType": "Text",
+          "role": "body",
+          "name": "",
+          "className": "mmui::XTextView",
+          "lines": []
+        }
+      ]
+    },
+    {
+      "page": 1,
+      "index": 3,
+      "role": "marker",
+      "name": "评论区",
+      "lines": ["评论区"],
+      "controlType": "ListItem",
+      "className": "mmui::TimelineCell",
+      "bounds": { "x": 340, "y": 580, "w": 760, "h": 24 },
+      "children": []
+    },
+    {
+      "page": 1,
+      "index": 4,
+      "role": "cover",
+      "name": "",
+      "lines": [],
+      "controlType": "ListItem",
+      "className": "mmui::TimelineCell",
+      "bounds": { "x": 340, "y": 620, "w": 760, "h": 120 },
+      "children": []
+    },
+    {
+      "page": 1,
+      "index": 5,
+      "role": "moment",
+      "name": "11月24日 09:30\n包含 5 张图片\n脏数据正文第一行\n脏数据正文第二行",
+      "lines": ["11月24日 09:30", "包含 5 张图片", "脏数据正文第一行", "脏数据正文第二行"],
+      "controlType": "ListItem",
+      "className": "mmui::TimelineContentCell",
+      "bounds": { "x": 340, "y": 760, "w": 760, "h": 120 },
+      "children": [
+        "not-an-object",
+        {
+          "controlType": "ListItem",
+          "role": "cover",
+          "name": "",
+          "className": "mmui::TimelineCover",
+          "lines": [],
+          "children": []
+        },
+        {
+          "controlType": "ListItem",
+          "role": "body",
+          "name": "脏数据正文第一行\n脏数据正文第二行",
+          "className": "mmui::XTextView",
+          "lines": ["脏数据正文第一行", "脏数据正文第二行"]
+        },
+        {
+          "controlType": "Text",
+          "role": "marker",
+          "name": "评论区",
+          "className": "mmui::TimelineCommentSection",
+          "lines": [],
+          "children": [
+            {
+              "controlType": "ListItem",
+              "role": "comment",
+              "name": "嵌套行评论",
+              "className": "mmui::TimelineCommentCell",
+              "lines": ["嵌套行评论"]
+            }
+          ]
+        },
+        {
+          "controlType": "Text",
+          "role": "noise",
+          "name": "余下0条",
+          "className": "mmui::TimelineRemaining",
+          "lines": ["余下0条"]
+        },
+        {
+          "controlType": "Button",
+          "role": "other",
+          "name": "赞",
+          "className": "LikeButton",
+          "lines": ["赞"]
+        }
+      ]
+    }
+  ]
+}

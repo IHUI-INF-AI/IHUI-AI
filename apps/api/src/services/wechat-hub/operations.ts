@@ -57,6 +57,11 @@ function asStringArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === 'string' && item.length > 0)
 }
 
+/** 仅接受正整数；0、负数、小数、NaN、Infinity 一律归 undefined，不拿 0 占位。 */
+function asPositiveInt(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined
+}
+
 function readList(data: Record<string, unknown>): JsonRecord[] {
   const candidates = [data.contacts, data.list, data.items, data.members]
   for (const candidate of candidates) {
@@ -506,6 +511,9 @@ function readMoment(raw: JsonRecord): WechatMomentView | null {
   const createdAt =
     typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt) ? raw.createdAt : null
   const page = typeof raw.page === 'number' && Number.isFinite(raw.page) ? raw.page : undefined
+  const timeText = asString(raw.timeText)
+  const imageCount = asPositiveInt(raw.imageCount)
+  const commentTexts = asStringArray(raw.commentTexts)
   return {
     id,
     authorId: asString(raw.authorId),
@@ -516,6 +524,9 @@ function readMoment(raw: JsonRecord): WechatMomentView | null {
     createdAt,
     source: asString(raw.source) ?? 'bridge',
     page,
+    ...(timeText !== null ? { timeText } : {}),
+    ...(imageCount !== undefined ? { imageCount } : {}),
+    ...(commentTexts.length > 0 ? { commentTexts } : {}),
   }
 }
 
@@ -641,6 +652,9 @@ export async function fetchMoments(
           createdAt: moment.createdAt,
           source: moment.source,
           page: moment.page,
+          ...(moment.timeText !== undefined ? { timeText: moment.timeText } : {}),
+          ...(moment.imageCount !== undefined ? { imageCount: moment.imageCount } : {}),
+          ...(moment.commentTexts !== undefined ? { commentTexts: moment.commentTexts } : {}),
         })),
       )
     } catch (e) {

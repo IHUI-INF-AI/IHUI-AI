@@ -24,7 +24,7 @@ import {
 import { Alert } from '@/components/feedback'
 import type { WechatActionResult, WechatMomentFetchResult } from '@ihui/types'
 import { wechatHubApi } from './wechat-hub-api'
-import { describeMomentFetchStatus, formatMomentFields } from './moment-status'
+import { describeMomentFetchStatus, formatMomentExtra, formatMomentFields } from './moment-status'
 import MomentArchivePanel from './MomentArchivePanel'
 
 function momentTime(value: number | null): string {
@@ -171,22 +171,26 @@ export default function MomentCard({ accountId }: { accountId: string }) {
           ) : null}
           {fetchResult && fetchResult.moments.length > 0 ? (
             <div className="max-h-64 space-y-2 overflow-auto pr-1">
-              {fetchResult.moments.map((moment) => (
-                <div key={moment.id} className="rounded-sm bg-muted/40 p-2 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium">{moment.authorName}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {momentTime(moment.createdAt)}
-                    </span>
+              {fetchResult.moments.map((moment) => {
+                const extra = formatMomentExtra(moment)
+                return (
+                  <div key={moment.id} className="rounded-sm bg-muted/40 p-2 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{moment.authorName}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {momentTime(moment.createdAt)}
+                      </span>
+                    </div>
+                    <p className="mt-1 whitespace-pre-wrap break-words">{moment.content}</p>
+                    {moment.mediaUrls.length > 0 ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {moment.mediaUrls.length} 张图片
+                      </p>
+                    ) : null}
+                    {extra ? <p className="mt-1 text-xs text-muted-foreground">{extra}</p> : null}
                   </div>
-                  <p className="mt-1 whitespace-pre-wrap break-words">{moment.content}</p>
-                  {moment.mediaUrls.length > 0 ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {moment.mediaUrls.length} 张图片
-                    </p>
-                  ) : null}
-                </div>
-              ))}
+                )
+              })}
             </div>
           ) : null}
         </div>

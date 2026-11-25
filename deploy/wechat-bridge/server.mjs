@@ -68,6 +68,10 @@ async function loadDriver() {
     const mod = await import('./drivers/ocr-readonly.mjs')
     return mod.createDriver()
   }
+  if (DRIVER_NAME === 'uia') {
+    const mod = await import('./drivers/uia-readonly.mjs')
+    return mod.createDriver()
+  }
   if (DRIVER_NAME !== 'mock') throw new Error(`未知 BRIDGE_DRIVER：${DRIVER_NAME}`)
   const mod = await import('./drivers/mock.mjs')
   return mod.createDriver()
@@ -249,6 +253,51 @@ function deriveMomentFields(moments) {
   }
 }
 
+/** UIA 失败判定：抛错已在上层包成 failed；ok=false / 0 条且 stopReason=error 都算失败。 */
+function isUiaFailure(result) {
+  if (!result || typeof result !== 'object') return true
+  if (result.status === 'failed') return true
+  const data = result.data && typeof result.data === 'object' ? result.data : {}
+  const moments = Array.isArray(data.moments) ? data.moments : []
+  if (moments.length === 0 && data.stopReason === 'error') return true
+  return false
+}
+
+/** BRIDGE_UIA_FALLBACK=off 关闭回退；默认 UIA 失败后自动落到 OCR 驱动。 */
+const UIA_FALLBACK_ENABLED = process.env.BRIDGE_UIA_FALLBACK !== 'off'
+let ocrFallbackDriver = null
+let ocrFallbackLoading = null
+
+async function ensureOcrFallbackDriver() {
+  if (ocrFallbackDriver) return ocrFallbackDriver
+  if (!ocrFallbackLoading) {
+    ocrFallbackLoading = import('./drivers/ocr-readonly.mjs').then((mod) => mod.createDriver())
+  }
+  ocrFallbackDriver = await ocrFallbackLoading
+  return ocrFallbackDriver
+}
+
+/** UIA 失败后回退 OCR；OCR 同样失败时返回 null，保留原始失败结果，绝不假装 UIA 成功。 */
+async function fallbackToOcr(body, maxPages, cursor, reason) {
+  const ocr = await ensureOcrFallbackDriver()
+  let result
+  try {
+    result = await ocr.action('moment.fetch', { ...body, id: cursor, maxPages })
+  } catch (e) {
+    result = {
+      status: 'failed',
+      reason: e instanceof Error ? e.message : 'OCR 回退失败',
+      data: { stopReason: 'error' },
+    }
+  }
+  if (result?.status === 'failed') return null
+  const data = result?.data && typeof result.data === 'object' ? result.data : {}
+  if (Array.isArray(data.moments) && data.moments.length === 0 && data.stopReason === 'error') {
+    return null
+  }
+  return { result, fallback: { from: 'uia', to: 'ocr', reason } }
+}
+
 async function runMomentFetch(body) {
   if (!driver.action) return { status: 'unsupported', reason: '驱动不支持动作' }
   const maxPages = Math.min(Math.max(Number(body.maxPages ?? 3) || 3, 1), 30)
@@ -260,13 +309,31 @@ async function runMomentFetch(body) {
   let stopReason = ''
   let limitReached = false
   let occludedBy = null
+  let fallback = null
   for (let page = 0; page < maxPages; page += 1) {
     const before = momentSeq
-    const result = await driver.action('moment.fetch', {
-      ...body,
-      id: cursor,
-      maxPages,
-    })
+    let result
+    try {
+      result = await driver.action('moment.fetch', {
+        ...body,
+        id: cursor,
+        maxPages,
+      })
+    } catch (e) {
+      result = {
+        status: 'failed',
+        reason: e instanceof Error ? e.message : '动作抛错',
+        data: { stopReason: 'error' },
+      }
+    }
+    if (DRIVER_NAME === 'uia' && UIA_FALLBACK_ENABLED && isUiaFailure(result)) {
+      const reason = result?.reason || 'UIA 驱动未返回可用朋友圈数据'
+      const fb = await fallbackToOcr(body, maxPages, cursor, reason)
+      if (fb) {
+        fallback = fb.fallback
+        result = fb.result
+      }
+    }
     if (result?.status === 'unsupported') {
       return {
         ...result,
@@ -334,6 +401,7 @@ async function runMomentFetch(body) {
       limitReached,
       occludedBy,
       fields: deriveMomentFields(all),
+      fallback: fallback ?? undefined,
       archive,
       archiveError: archiveError || undefined,
       reason:
@@ -583,5 +651,5 @@ function shutdown() {
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
 
-export const __test__ = { deriveMomentFields }
+export const __test__ = { deriveMomentFields, isUiaFailure }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

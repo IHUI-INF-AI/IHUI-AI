@@ -9,7 +9,11 @@
  * no-content / error / unsupported / null；limitReached 与 occludedBy 随行。
  * page-limit 与 limitReached 一律归成功态，不允许渲染成失败或部分失败。
  */
-import type { WechatMomentFieldAvailability, WechatMomentStopReason } from '@ihui/types'
+import type {
+  WechatMomentFieldAvailability,
+  WechatMomentStopReason,
+  WechatMomentView,
+} from '@ihui/types'
 
 /** 与 @/components/feedback 的 Alert variant 对齐的可告警档位。 */
 export type MomentStatusTone = 'success' | 'warning' | 'danger'
@@ -128,4 +132,34 @@ export function formatMomentFields(
   ]
   const tail = fields.reason ? `；${fields.reason}` : ''
   return `字段可得性：${segments.join('、')}${tail}`
+}
+
+/** 仅当图片数量为正整数时保留；0、负数、小数、非数字一律不展示。 */
+function positiveImageCount(moment: WechatMomentView): number | undefined {
+  const value = moment.imageCount
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined
+}
+
+/** 仅保留非空评论行；非字符串元素与空串过滤掉。 */
+function validCommentTexts(moment: WechatMomentView): string[] {
+  if (!Array.isArray(moment.commentTexts)) return []
+  return moment.commentTexts.filter(
+    (item): item is string => typeof item === 'string' && item.trim().length > 0,
+  )
+}
+
+/**
+ * 单条动态的摘要行：图片数量 · 相对时间 · 评论条数，按这个顺序用「 · 」拼接。
+ * 任一项缺失或为脏值都自动不显示；三项都没有时返回 null，由调用方决定是否渲染。
+ */
+export function formatMomentExtra(moment: WechatMomentView | null | undefined): string | null {
+  if (!moment) return null
+  const segments: string[] = []
+  const imageCount = positiveImageCount(moment)
+  if (imageCount !== undefined) segments.push(`${imageCount} 张图片`)
+  const timeText = typeof moment.timeText === 'string' ? moment.timeText.trim() : ''
+  if (timeText) segments.push(timeText)
+  const comments = validCommentTexts(moment)
+  if (comments.length > 0) segments.push(`${comments.length} 条评论`)
+  return segments.length > 0 ? segments.join(' · ') : null
 }

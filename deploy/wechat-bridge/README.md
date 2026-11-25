@@ -40,6 +40,7 @@ node server.mjs
 ```bash
 node test/smoke.mjs
 node test/ocr-dedupe.mjs   # OCR 变体去重/追加消息/重复短句/窗口缩放/单栏解析/2 倍补标题/群昵称拆分/2 倍补群昵称/朋友圈切块/内嵌朋友圈过滤/深层噪声/标题全文合并
+node test/uia-driver.mjs   # UIA 控件树解析/图片计数/时间原文/作者与评论边界/id 稳定/字段派生/回退失败判定/强制失败
 node test/moments.mjs      # 朋友圈 type=0 XML 解析/去重/下一页游标
 node test/moments-archive.mjs # 朋友圈归档去重/重复计数/作者回退合并/读取上限
 ```
@@ -61,7 +62,7 @@ node server.mjs
 | `BRIDGE_PORT`           | `8848`                              | 桥监听端口                                                                                 |
 | `BRIDGE_HOST`           | `127.0.0.1`                         | 桥监听地址                                                                                 |
 | `BRIDGE_SECRET`         | 空                                  | 非空时 `/status` `/messages` `/moments` `/moments/archive` `/send` `/action` 都要带 Bearer |
-| `BRIDGE_DRIVER`         | `mock`                              | `mock`、`wcfhttp` 或 `ocr`                                                                 |
+| `BRIDGE_DRIVER`         | `mock`                              | `mock`、`wcfhttp`、`ocr` 或 `uia`                                                          |
 | `WCFHTTP_BASE_URL`      | `http://127.0.0.1:9999`             | wcfhttp 地址                                                                               |
 | `WCFHTTP_PATHS`         | 内置                                | JSON 覆盖各接口路径，适配不同 wcfhttp 版本                                                 |
 | `WCFHTTP_HISTORY_DB`    | 自动探测                            | 历史消息所在库名，如 `MSG0.db`；不填时 `/dbs` 里找含 `MSG` 的库                            |
@@ -109,18 +110,30 @@ node server.mjs
 
 切换的工程细节：列表会上下滚动逐屏查找（先上后下），窗口会先 `Fit` 到 1240×1120 并保持置顶；宽窗列表+聊天布局下正常 OCR 常漏掉深色标题，脚本只在这一情形补一次 2 倍放大 OCR 拿标题；群标题人数后带 `@v` 这类 OCR 噪点仍按群处理，正常 OCR 漏掉浅色群昵称时也会补一次 2 倍放大 OCR 专门找昵称，但不会把放大后的列表行当正文；搜索若打开内置浏览器而不是目标会话，会返回 `ok:false`，不伪造成功。`-Mode ocr` / `-Mode windows` 是诊断入口，分别只跑 OCR / 只列微信窗口。
 
+## 接微信 4.x（只读 UIA）
+
+`BRIDGE_DRIVER=uia` 时，驱动调用 `tools/wechat-uia.ps1 -Mode moments -MaxPages N -OutFile <json>` 遍历朋友圈 UIA 控件树，把结构化帧写到 `-OutFile`；与 OCR 驱动一样不注入、不读内存、不改微信文件。帧顶层含 `ok、mode、pages、maxPages、stopReason、limitReached、occludedBy、reason、items[]、pageSignatures[]、total、elapsedMs`，每条 `item` 含 `page、index、name、lines[]、controlType、className、bounds、children[]`，子控件可带 `role`（cover/marker/moment/body/author/media/time/comment/noise 之类）。
+
+解析保持保守：图片数量只认明确的「N 张图片」计数行，只保留数量、不下载二进制或链接；时间只保留界面原文（几分钟前/小时前/昨天/星期/月日/时分），不折算时间戳；作者取首行，必须非时间行、非图片行、长度合理，否则留空并标 `authorResolved=false`；评论只取「评论区」节点子树内的条目原文，正文、「余下0条」「下一条动态」、封面空节点和点赞按钮绝不当评论。有 `role` 时优先按 role 判槽位，没有 role 再按 className/文案规则兜底；空白封面 ListItem、「余下0条」「下一条动态」这类非动态节点直接标为噪声，不会变成一条朋友圈。动态 id 由 `author|content|timeText|imageCount` 的 sha256 前 12 位生成，跨页去重稳定；每条动态带 `timeText`、`imageCount`、`commentTexts`。字段可得性恒为 `media=false`（只有图片数量，没有二进制或链接）、`likes=false`（界面没有点赞控件可读）、`authorIdentity=false`（昵称无法映射 wxid），`comments` 仅在真实读到评论条目时为 true。
+
+UIA 驱动失败（抛错、`ok=false`、或 0 条且 `stopReason=error`）且 `BRIDGE_UIA_FALLBACK` 不为 `off` 时，桥自动回退 OCR 驱动的 `moment.fetch`；返回 `data.fallback={from:'uia',to:'ocr',reason}`，`source='ocr'`，不会把回退结果伪装成 UIA 成功。`BRIDGE_UIA_FORCE_FAIL=1` 可在不碰微信的情况下强制走回退路径，专供测试。归档写入、30 页上限与 `stopReason` 语义沿用既有实现，UIA 路径不改这些语义。
+
 新增环境变量：
 
 | 变量                    | 默认                   | 说明                                                                             |
 | ----------------------- | ---------------------- | -------------------------------------------------------------------------------- |
-| `BRIDGE_DRIVER`         | `mock`                 | 增加 `ocr`（微信 4.x 只读截图 + OCR）                                            |
+| `BRIDGE_DRIVER`         | `mock`                 | 增加 `ocr`（只读截图 + OCR）、`uia`（只读 UIA 控件树）                           |
 | `BRIDGE_DRIVER_POLL_MS` | `5000`                 | 拉取型驱动的轮询间隔                                                             |
 | `OCR_BACKGROUND`        | `1`                    | 普通轮询用 PrintWindow 后台截图，不置顶/不抢焦点；隐藏或最小化时只放到底部再恢复 |
 | `OCR_AUTO_SHOW`         | `0`                    | 仅显式交互（搜索/切换）需要时再还原窗口；普通轮询保持 `0`，不弹窗                |
 | `OCR_MOMENTS_AUTO_SHOW` | `0`                    | 朋友圈遍历默认后台复用已打开窗口；`1` 才允许自动点导航并还原微信（会抢焦点）     |
 | `OCR_EMIT_EXISTING`     | `0`                    | 调试用：首次轮询也把当前会话已有消息推入队                                       |
 | `BRIDGE_OCR_SCRIPT`     | `tools/wechat-ocr.ps1` | OCR 脚本路径                                                                     |
-| `BRIDGE_OCR_POWERSHELL` | 系统 PowerShell 5.1    | 必须用 5.1，WinRT OCR 在 PowerShell 7 不可用                                     |
+| `BRIDGE_OCR_POWERSHELL` | 系统 PowerShell 5.1    | 必须用 5.1，WinRT OCR 在 PowerShell 7 不可用；UIA 驱动复用同一变量               |
+| `BRIDGE_UIA_SCRIPT`     | `tools/wechat-uia.ps1` | UIA 脚本路径                                                                     |
+| `BRIDGE_UIA_DIR`        | `.bridge-uia`          | UIA 帧 JSON 落盘目录                                                             |
+| `BRIDGE_UIA_FALLBACK`   | `on`                   | `uia` 失败后自动回退 OCR；`off` 关闭回退                                         |
+| `BRIDGE_UIA_FORCE_FAIL` | `0`                    | `1` 时 UIA 驱动直接失败、不触碰微信，专供回退测试                                |
 
 ## 在 IHUI 里挂账号
 

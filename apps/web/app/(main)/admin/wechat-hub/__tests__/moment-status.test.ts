@@ -6,8 +6,12 @@
  * 朋友圈停止原因 → 展示语义映射单测：封闭集逐档对账，page-limit / limitReached 必须成功态。
  */
 import { describe, expect, it } from 'vitest'
-import type { WechatMomentFieldAvailability, WechatMomentStopReason } from '@ihui/types'
-import { describeMomentFetchStatus, formatMomentFields } from '../moment-status'
+import type {
+  WechatMomentFieldAvailability,
+  WechatMomentStopReason,
+  WechatMomentView,
+} from '@ihui/types'
+import { describeMomentFetchStatus, formatMomentExtra, formatMomentFields } from '../moment-status'
 
 /** 运行时封闭集（联合类型在编译期，遍历须有一份值列表）。 */
 const ALL_REASONS: WechatMomentStopReason[] = [
@@ -161,5 +165,71 @@ describe('moment-status / 字段可得性文案', () => {
     expect(text).toContain('评论不可得')
     expect(text).toContain('作者身份不可得')
     expect(text).toContain('点赞、评论、作者身份均不可得')
+  })
+})
+
+describe('moment-status / 单条动态摘要', () => {
+  function moment(overrides: Partial<WechatMomentView>): WechatMomentView {
+    return {
+      id: 'sns-1',
+      authorId: null,
+      authorName: '张三',
+      content: '一条动态',
+      mediaUrls: [],
+      createdAt: null,
+      source: 'ocr',
+      ...overrides,
+    }
+  }
+
+  it('三项齐全时按图片 · 时间 · 评论顺序拼接', () => {
+    const text = formatMomentExtra(
+      moment({
+        imageCount: 3,
+        timeText: '5分钟前',
+        commentTexts: ['第一条评论', '第二条评论'],
+      }),
+    )
+    expect(text).toBe('3 张图片 · 5分钟前 · 2 条评论')
+  })
+
+  it('只有图片时只展示图片数量', () => {
+    expect(formatMomentExtra(moment({ imageCount: 3 }))).toBe('3 张图片')
+  })
+
+  it('只有时间时只展示相对时间原文', () => {
+    expect(formatMomentExtra(moment({ timeText: '昨天' }))).toBe('昨天')
+  })
+
+  it('只有评论时只展示评论条数', () => {
+    expect(formatMomentExtra(moment({ commentTexts: ['这条写得好'] }))).toBe('1 条评论')
+  })
+
+  it('三项都缺失时返回 null，不补造占位文案', () => {
+    expect(formatMomentExtra(moment({}))).toBeNull()
+    expect(formatMomentExtra(null)).toBeNull()
+    expect(formatMomentExtra(undefined)).toBeNull()
+  })
+
+  it('脏值一律不显示：空串时间、非正整数图片、含非字符串评论都被过滤', () => {
+    const text = formatMomentExtra(
+      moment({
+        timeText: '   ',
+        imageCount: -2,
+        commentTexts: [123, '', null, undefined] as unknown as string[],
+      }),
+    )
+    expect(text).toBeNull()
+  })
+
+  it('混排时只保留合法项，脏值被剔除后不影响其余展示', () => {
+    const text = formatMomentExtra(
+      moment({
+        imageCount: 0,
+        timeText: '5分钟前',
+        commentTexts: ['有效评论', 456, ''] as unknown as string[],
+      }),
+    )
+    expect(text).toBe('5分钟前 · 1 条评论')
   })
 })
