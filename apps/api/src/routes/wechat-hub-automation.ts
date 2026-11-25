@@ -91,6 +91,7 @@ const askSchema = z.object({
 const jobPayloadSchema = z.object({
   text: z.string().max(5_000).optional(),
   mediaUrl: z.string().max(2_000).optional(),
+  mediaUrls: z.array(z.string().min(1).max(2_000)).max(9).optional(),
   targets: z.array(z.string().min(1).max(255)).max(100).optional(),
   tags: z.array(z.string().min(1).max(40)).max(30).optional(),
   reportKind: z.enum(['annual', 'pair', 'group']).optional(),
@@ -100,7 +101,7 @@ const jobPayloadSchema = z.object({
 
 const jobSchema = z.object({
   id: z.string().min(1).max(64).optional(),
-  kind: z.enum(['broadcast', 'report']),
+  kind: z.enum(['broadcast', 'report', 'moment']),
   enabled: z.boolean().optional(),
   hour: z.coerce.number().int().min(0).max(23).optional(),
   minute: z.coerce.number().int().min(0).max(59).optional(),

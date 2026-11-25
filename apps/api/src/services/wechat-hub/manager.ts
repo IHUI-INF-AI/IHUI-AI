@@ -85,6 +85,7 @@ import {
 } from './queries.js'
 import { recordInboundContact, syncGroupMembers } from './contacts.js'
 import { normalizeOutboundWebhookUrl, sendOutboundWebhook } from './webhook-outbound.js'
+import { mergeSettingsMetadata, type WechatSettingsPatch } from './settings-merge.js'
 import { runAutoReply } from './automation.js'
 import { runCommand } from './commands.js'
 import {
@@ -250,45 +251,10 @@ export class WechatHubManager {
   async updateSettings(
     userId: string,
     accountId: string,
-    patch: {
-      allowlistEnabled?: boolean
-      allowedTargets?: string[]
-      blockedWords?: string[]
-      rateLimitPerMinute?: number
-      outboundWebhookUrl?: string
-      /** 斜杠指令总开关；默认关闭 */
-      commandsEnabled?: boolean
-      /** 群聊里是否响应指令；默认关闭，避免群成员消耗模型额度 */
-      commandsInGroup?: boolean
-      /** 单条指令黑名单，例如 ['report'] */
-      disabledCommands?: string[]
-    },
+    patch: WechatSettingsPatch & { allowlistEnabled?: boolean },
   ): Promise<WechatAccountView> {
     const row = await this.assertAccount(userId, accountId)
-    const metadata: JsonRecord = { ...asRecord(row.metadata) }
-    if (patch.allowedTargets) metadata.allowedTargets = patch.allowedTargets
-    if (patch.blockedWords) metadata.blockedWords = patch.blockedWords
-    if (patch.rateLimitPerMinute !== undefined) {
-      metadata.rateLimitPerMinute = Math.max(1, Math.min(120, patch.rateLimitPerMinute))
-    }
-    if (patch.outboundWebhookUrl !== undefined) {
-      const normalized = normalizeOutboundWebhookUrl(patch.outboundWebhookUrl)
-      if (normalized) metadata.outboundWebhookUrl = normalized
-      else delete metadata.outboundWebhookUrl
-    }
-    if (
-      patch.commandsEnabled !== undefined ||
-      patch.commandsInGroup !== undefined ||
-      patch.disabledCommands !== undefined
-    ) {
-      const current = asRecord(metadata.commands)
-      metadata.commands = {
-        enabled: patch.commandsEnabled ?? current.enabled === true,
-        groupEnabled: patch.commandsInGroup ?? current.groupEnabled === true,
-        disabled:
-          patch.disabledCommands ?? (Array.isArray(current.disabled) ? current.disabled : []),
-      }
-    }
+    const metadata = mergeSettingsMetadata(row.metadata, patch)
     const updated = await db
       .update(wechatHubAccounts)
       .set({
@@ -942,8 +908,12 @@ export class WechatHubManager {
         )
         return
       }
-      const outcome = await runAutoReply(ownerUserId, accountId, event, (input) =>
-        this.send(ownerUserId, input),
+      const outcome = await runAutoReply(
+        ownerUserId,
+        accountId,
+        event,
+        (input) => this.send(ownerUserId, input),
+        { model: asString(asRecord(asRecord(rows[0]?.metadata)?.agent)?.model) ?? undefined },
       )
       if (!outcome) return
       await this.writeAction(

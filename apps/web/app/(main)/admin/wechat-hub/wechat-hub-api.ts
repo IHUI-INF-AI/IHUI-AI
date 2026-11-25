@@ -150,6 +150,10 @@ export const wechatHubApi = {
       blockedWords?: string[]
       rateLimitPerMinute?: number
       outboundWebhookUrl?: string
+      agentModel?: string
+      commandsEnabled?: boolean
+      commandsInGroup?: boolean
+      disabledCommands?: string[]
     },
   ): Promise<WechatAccountView> => call(() => updateWechatSettings(id, patch), '保存设置失败'),
   testOutboundWebhook: (id: string, url?: string): Promise<void> =>
