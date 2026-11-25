@@ -3685,13 +3685,17 @@
   animation: agent-laser-sweep 2.4s linear infinite;
 }
 
-/* --laser-offset = 该段沿路径的起点(单位:%);所有段同速前进 ⇒ 拼成一个整体在跑。 */
+/* --laser-offset = 该段沿路径的起点(单位:%);所有段同速前进 ⇒ 拼成一个整体在跑。
+ * 2026-11-26 修复:两端必须都是长度类型(<length>),不能一端是 var() 裸数字、另一端是 calc()。
+ * 旧写法 from: var(--laser-offset,0)(解析为 <number>) / to: calc(... - 100)(<length>),
+ * 两端计算类型不一致 ⇒ 浏览器判定不可插值、退化为 discrete,光环只在动画半程跳一下而非连续旋转。
+ * 用 `* 1px` 把两端都显式变成长度,即可连续插值(Chromium 实测 dashoffset 逐帧推进)。 */
 @keyframes agent-laser-sweep {
   from {
-    stroke-dashoffset: var(--laser-offset, 0);
+    stroke-dashoffset: calc(var(--laser-offset, 0) * 1px);
   }
   to {
-    stroke-dashoffset: calc(var(--laser-offset, 0) - 100);
+    stroke-dashoffset: calc((var(--laser-offset, 0) - 100) * 1px);
   }
 }
 
