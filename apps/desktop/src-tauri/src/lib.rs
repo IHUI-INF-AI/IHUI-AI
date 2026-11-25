@@ -71,6 +71,10 @@ mod operator;
 // plugin-store 路径越权修复:远程面只保留 store_read_entry/store_write_entry,
 // 路径经 resolve_store_path 拒绝对路径/`..` 并 canonicalize 断言落在 app_data_dir(见模块文档)。
 mod store_path;
+
+// G4(2026-11-26):跨设备执行器的本机托管 —— 桌面端一键开关本机常驻执行器。
+// 执行逻辑仍在 CLI(`ihui device start`),这里只读状态/拉起/停止。
+mod device_executor;
 // 2026-11-15 立(四程序独立分析 T3§A/T4§A):终端执行会话执行层——跨平台 PTY(std)+
 // 环形缓冲封顶 + 进程树清理(Windows Job Object / POSIX 进程组)。执行层只用 std,
 // 可 `rustc --test` 单独跑单测;胶水在 terminal_ipc.rs,本文件只接线。
@@ -5762,6 +5766,10 @@ pub fn run() {
             browser_bookmarks::embedded_browser_clear_history,
             browser_bookmarks::embedded_browser_import_system_bookmarks,
             browser_bookmarks::embedded_browser_record_history,
+            // G4:跨设备执行器状态/开关(渲染端只拿状态,不传命令与路径)
+            device_executor::device_executor_status,
+            device_executor::device_executor_start,
+            device_executor::device_executor_stop,
             get_admin_window_info,
             toggle_devtools,
             quit_app,

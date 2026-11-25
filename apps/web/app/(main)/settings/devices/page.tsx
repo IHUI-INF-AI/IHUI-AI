@@ -58,6 +58,7 @@ import { useAuthStore } from '@/stores/auth'
 
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { Alert, confirmDialog } from '@/components/feedback'
+import { DeviceExecutorCard } from '@/components/settings/device-executor-card'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 
@@ -864,6 +865,8 @@ export default function DevicesPage() {
           ) : null}
         </CardContent>
       </Card>
+      {/* 桌面端独占:本机常驻执行器的一键开关(浏览器里该组件自身返回 null) */}
+      <DeviceExecutorCard />
     </div>
   )
 }
