@@ -525,7 +525,7 @@ export async function resolveAiCost(input: {
  * - 若模型无定价配置，回退 0 成本并记录 warning。
  * - 若 input.tenantId 未提供且 input.userId 存在，自动从 tenant_members 解析租户归属。
  * - **单点桥接 Prometheus `business_ai_*`**:本函数是 AI 成本/用量的唯一收口。
- * - 返回值是与落库**完全相同**的 cost（分），供调用方扣钱包，禁止两处各算一遍。
+ * - 返回值是与落库**完全相同**的 cost（分），供调用方记录/对账，禁止两处各算一遍。
  */
 export async function recordAiCost(
   input: CostRecordInput,

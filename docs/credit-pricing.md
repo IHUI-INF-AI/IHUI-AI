@@ -74,6 +74,7 @@
 
 - `billing_mode = 'per_image'` → `per_unit_price` 的单位是 **分/张**；
 - `billing_mode = 'per_video'` → `per_unit_price` 的单位是 **分/次或分/秒**，由 `video_unit` 决定；
+- `cost_unit_price` 是平台上游成本价（分/张、分/秒或分/次），只用于 `ai_cost_records` 毛利核算，不参与用户扣分；
 - 1 积分 = 1 分钱，因此 `per_unit_price` 直接按 1:1 转成积分，**不再乘 `points_multiplier`**（媒体零售价本身已含毛利，再乘一次等于重复加价）。
 
 实现：`apps/api/src/services/media-billing.ts` 读取当前生效的 `ai_pricing` 行，交给纯模块 `media-billing-pricing.ts` 报价。
@@ -115,6 +116,8 @@
 - 上游产物已交付、但预检后余额被并发花掉时，扣到 0 并返回实扣数；差额写日志供对账，不产生负余额。
 - 同一 `user_id + 'ai_media' + reference_id` 只允许一条 `spend` 流水，由部分唯一索引 `ux_point_transactions_media_settlement_ref` 兜底；重复回调返回 `alreadySettled`，调用方按 0 处理。
 - 预检 402 统一带 `errorCode='INSUFFICIENT_POINTS'` 与本次报价结构，前端不需要解析中文文案。
+- 平台成本价 `cost_unit_price` 已配置时，`chargeMediaPoints` 在积分结算后按实际计价单位写 `ai_cost_records`（`requestType=media_*`、`cost` 为分）；未配置则跳过，不伪造 0 成本。
+- `cost_unit_price` 只在管理端 `/api/admin/ai-pricing/list` 返回，公开 `/api/ai-pricing` 不暴露内部成本。
 
 ---
 
@@ -171,7 +174,8 @@
 
 - LLM 的 `costCents` 由 `resolveAiCost` 按 `ai_pricing` 解析，写入 `ai_cost_records`；`requestType` 区分 `llm_chat`（普通代理 / LangChain Agent / 流式回调）、`crew`、`crew_session`、`stock_analysis`、`career-advice`、`coze_workflow_chat`。
 - 用户积分由 `computeLlmPoints` 按模型倍率另算；同一个请求的“平台成本”和“用户扣分”不再要求相等。
-- 媒体当前只有用户售价 `ai_pricing.per_unit_price`，没有独立的上游成本列，因此媒体成本暂未写入 `ai_cost_records`；上线媒体毛利报表前需补成本字段，不能直接把售价当成本。
+- 媒体成本：`ai_pricing.cost_unit_price` 已配置时，`chargeMediaPoints` 在积分结算后按实际单位写 `ai_cost_records`；未配置时不写，避免把售价当成本。
+- 媒体成本账与积分账互不阻塞：成本写失败只记日志，产物已交付不回收；重复回调命中积分幂等时不重复写成本。
 
 ---
 
@@ -184,7 +188,9 @@
 | 媒体上游失败 | 不扣分；成功后按报价扣 |
 | 媒体余额不足 | 调用前返回 402，带 `errorCode / required / units / applied_units / unit_points / price_source` |
 | 媒体成功后余额被并发花掉 | 部分结算：扣到 0，返回实扣数并记录 `shortfall`，不产生负余额 |
-| 媒体重复回调同 `referenceId` | `ai_media` 结算幂等，重复返回 `alreadySettled`，不二次扣费 |
+| 媒体重复回调同 `referenceId` | `ai_media` 结算幂等，重复返回 `alreadySettled`，不二次扣费，也不再重复写成本 |
+| 媒体成本价未配置 | 不写 `ai_cost_records`，不伪造 0 成本；配置后下一笔即生效 |
+| 媒体成本落账失败 | 不回滚产物、不影响积分结算，记录日志由对账处理 |
 | AI 预检余额不足 | 同步入口返回 402/明确错误，不发起上游调用 |
 | 上游已产生成本但余额不足 | 部分结算：扣到 0，返回 `shortfall` 并记账审计，不产生负余额 |
 | 异步回调重复投递 | 同一 `user_id + source + reference_id` 已结算则直接返回 `alreadySettled`，不重复扣 |
@@ -211,5 +217,5 @@
 | --- | --- |
 | 2026-07-31 | 初版立稿（LLM 倍率计费） |
 | 2026-11-25 | 媒体计价收口到 `ai_pricing` 单一真源；新增按秒计费与 MAGI-2 定价；新增钱包→积分兑换桥；修正 LLM 取整、每日赠送、无 usage 跳过等口径；移除未落地的注册送/会员送/9.9 买积分描述 |
-| 2026-11-26 | 剩余 AI 入口（普通 LLM 代理 / LangChain Agent / Crew / AI 回调 / 股票 / 生涯建议 / Coze）全部迁到 AI 积分；新增 `settlePointsUsage` 部分结算与幂等；平台成本与用户积分正式分账；媒体显式 0 价生效；Goal 水位改读积分；媒体扣分改部分结算并补 `ai_media` 并发幂等索引 |
+| 2026-11-26 | 剩余 AI 入口（普通 LLM 代理 / LangChain Agent / Crew / AI 回调 / 股票 / 生涯建议 / Coze）全部迁到 AI 积分；新增 `settlePointsUsage` 部分结算与幂等；平台成本与用户积分正式分账；媒体显式 0 价生效；Goal 水位改读积分；媒体扣分改部分结算并补 `ai_media` 并发幂等索引；新增 `ai_pricing.cost_unit_price` 并接媒体成本账 |
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

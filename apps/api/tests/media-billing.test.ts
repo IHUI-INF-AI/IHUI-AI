@@ -112,5 +112,27 @@ describe('quoteMediaPoints — 兜底与边界', () => {
     expect(Number.isInteger(q.points)).toBe(true)
     expect(q.points).toBe(21)
   })
+
+  it('平台成本价按实际计价单位计算,未配置返回 null', () => {
+    const image = quoteMediaPoints({
+      category: 'image',
+      units: 2,
+      pricing: { billingMode: 'per_image', perUnitPrice: 20, costUnitPrice: 12, videoUnit: null },
+    })
+    expect(image.costCents).toBe(24)
+
+    const video = quoteMediaPoints({
+      category: 'video',
+      units: 30,
+      pricing: { billingMode: 'per_video', perUnitPrice: 74, costUnitPrice: 50, videoUnit: 'second' },
+    })
+    expect(video.costCents).toBe(1500)
+
+    const unset = quoteMediaPoints({
+      category: 'image',
+      pricing: { billingMode: 'per_image', perUnitPrice: 20, videoUnit: null },
+    })
+    expect(unset.costCents).toBeNull()
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

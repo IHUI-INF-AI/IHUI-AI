@@ -9,7 +9,13 @@
  *  - full:/images/xiaofang-assets/xiaofang.png        全身,用于空态 / 加载 / banner
  *  - face:/images/xiaofang-assets/xiaofang-face.png   笑脸头像,用于 24–96px 小尺寸位
  *  - lost:/images/xiaofang-assets/xiaofang-lost.png   疑问表情,用于 404
- *  - wave:/images/xiaofang-assets/xiaofang-wave.gif   原始招手动图,用于需要"打招呼"的空态
+ *  - wave:/images/xiaofang-assets/xiaofang-wave.webp  招手动图(动态 WebP),用于需要"打招呼"的空态
+ *
+ * 2026-11-26 wave 由 GIF 改动态 WebP:原 xiaofang-wave.gif 在"62 帧/918KB 过入库门"那步
+ * 压扁了透明通道(黑底不透明,全片仅 0.04% 像素透明),空态上直接显出一块纯黑底。
+ * 现改为从原图「动图透明底压缩/招手.gif」(400×267,124 帧)重出:288×192(=144px 展示位 2x)、
+ * 120 帧/40ms/无限循环、8-bit alpha(半透明边缘 1.5%),1.0MB。GIF 只支持 1-bit 透明,
+ * 边缘会出硬锯齿,故不再回退 GIF。
  *
  * 2026-11-25 外挂化:位图从 git 跟踪移到 git 外目录,经 www.aizhs.top 的
  * TencentEdgeOne CDN 网络加载(Cache-Control: public, max-age=86400),不再占仓库空间。
@@ -19,7 +25,7 @@
  * 资产取自百度网盘共享空间 `AI设计部/logo、小方/小方表情包/`:
  *  - full/face 源自「微笑.png」(全身 + 头部裁切);
  *  - lost 源自「疑问.png」;
- *  - wave 源自「动图透明底压缩/招手.gif」(400×267,124 帧,原样落地)。
+ *  - wave 源自「动图透明底压缩/招手.gif」(400×267,124 帧;按展示位等比重采样为 288×192 的动态 WebP)。
  * 全部保留设计原图的 3D 渲染质感与透明底,不做矢量描摹(trace 会掉质感),
  * 造型与配色以设计原图为准,不做手绘改形。
  *
@@ -37,10 +43,10 @@ const XIAOFANG_SRC: Record<XiaofangVariant, string> = {
   full: '/images/xiaofang-assets/xiaofang.png?v=20261125b',
   face: '/images/xiaofang-assets/xiaofang-face.png?v=20261125b',
   lost: '/images/xiaofang-assets/xiaofang-lost.png?v=20261125b',
-  wave: '/images/xiaofang-assets/xiaofang-wave.gif?v=20261125b',
+  wave: '/images/xiaofang-assets/xiaofang-wave.webp?v=20261126a',
 }
 
-/** 动图是 400×267 横版,其余为方形;size 统一表示宽度。 */
+/** 动图是 400×267 横版(成品 288×192,比例一致),其余为方形;size 统一表示宽度。 */
 const XIAOFANG_ASPECT: Record<XiaofangVariant, number> = {
   full: 1,
   face: 1,

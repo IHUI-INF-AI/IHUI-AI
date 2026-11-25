@@ -26,6 +26,8 @@ export interface MediaPricingSnapshot {
   billingMode: string
   perUnitPrice: number | null
   videoUnit: string | null
+  /** 平台上游成本价(分/单位),仅用于成本账;null = 未配置 */
+  costUnitPrice?: number | null
 }
 
 /** 单次媒体生成的报价结果。 */
@@ -38,6 +40,8 @@ export interface MediaPointsQuote {
   appliedUnits: number
   /** 单位价(分/单位),用于流水与排查 */
   unitPricePoints: number
+  /** 平台上游成本(分);null = 未配置成本价,不写 ai_cost_records */
+  costCents: number | null
   /** 报价来源:命中 ai_pricing 还是回落兜底表 */
   source: 'ai_pricing' | 'fallback'
   category: MediaCategory
@@ -62,6 +66,14 @@ export const MEDIA_FALLBACK_UNIT_POINTS: Readonly<Record<MediaCategory, number>>
 function normalizeUnits(units: number | undefined): number {
   if (typeof units !== 'number' || !Number.isFinite(units) || units <= 0) return 1
   return Math.floor(units)
+}
+
+/** 平台成本价 → 分;未配置/非法返回 null,0 是合法成本价。 */
+function computeCostCents(costUnitPrice: number | null | undefined, units: number): number | null {
+  if (typeof costUnitPrice !== 'number' || !Number.isFinite(costUnitPrice) || costUnitPrice < 0) {
+    return null
+  }
+  return Math.round(costUnitPrice * units * 1e6) / 1e6
 }
 
 /** 纯兜底报价(不读库),供测试与无定价行场景使用。 */
@@ -91,6 +103,7 @@ export function quoteMediaPoints(input: {
       units,
       appliedUnits: 0,
       unitPricePoints: 0,
+      costCents: null,
       source: 'fallback',
       category,
       free: true,
@@ -105,6 +118,7 @@ export function quoteMediaPoints(input: {
         units,
         appliedUnits: units,
         unitPricePoints: perUnit,
+        costCents: computeCostCents(pricing.costUnitPrice, units),
         source: 'ai_pricing',
         category,
         free: false,
@@ -117,6 +131,7 @@ export function quoteMediaPoints(input: {
         units,
         appliedUnits,
         unitPricePoints: perUnit,
+        costCents: computeCostCents(pricing.costUnitPrice, appliedUnits),
         source: 'ai_pricing',
         category,
         free: false,
@@ -131,6 +146,7 @@ export function quoteMediaPoints(input: {
     units,
     appliedUnits,
     unitPricePoints,
+    costCents: null,
     source: 'fallback',
     category,
     free: false,

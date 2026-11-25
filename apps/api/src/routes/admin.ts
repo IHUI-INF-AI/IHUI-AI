@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyPluginAsync } from 'fastify'
-import { type SQL as DrizzleSQL, sql, and, eq, gte, lt } from 'drizzle-orm'
+import { type SQL as DrizzleSQL, sql, and, eq, gte, lt, asc, ilike } from 'drizzle-orm'
 import { z } from 'zod'
 import { requireAdminRouteGuard } from '../plugins/require-permission.js'
 import {
@@ -50,7 +50,7 @@ import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { repricePlaceholderModels } from '../services/model-price-resolver.js'
 import { hashPassword } from '../utils/password-crypto.js'
 import { db } from '../db/index.js'
-import { orders, users, projects } from '@ihui/database'
+import { orders, users, projects, aiPricing } from '@ihui/database'
 import { toUserFriendlyMessage } from '@ihui/shared'
 
 // =============================================================================
@@ -481,6 +481,58 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
+  // GET /ai-pricing/list - 管理端定价列表(含平台成本价,禁止走公开 /api/ai-pricing)
+  server.get(
+    '/ai-pricing/list',
+    {
+      schema: {
+        summary: '管理端定价列表(含平台成本价)',
+        description: '仅管理员可见:costUnitPrice 属于内部成本,不得出现在公开定价接口。',
+        tags: ['admin'],
+      },
+    },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          page: z.coerce.number().int().min(1).default(1),
+          pageSize: z.coerce.number().int().min(1).max(100).default(20),
+          search: z.transform(emptyToUndefined).pipe(z.string().trim().optional()),
+        })
+        .safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { page, pageSize, search } = parsed.data
+      const offset = (page - 1) * pageSize
+      const where = search ? ilike(aiPricing.modelId, `%${search}%`) : undefined
+      const rows = await db
+        .select({
+          id: aiPricing.id,
+          modelId: aiPricing.modelId,
+          inputTokenPrice: aiPricing.inputTokenPrice,
+          outputTokenPrice: aiPricing.outputTokenPrice,
+          billingMode: aiPricing.billingMode,
+          perUnitPrice: aiPricing.perUnitPrice,
+          costUnitPrice: aiPricing.costUnitPrice,
+          tieredCallPrices: aiPricing.tieredCallPrices,
+          videoUnit: aiPricing.videoUnit,
+          currency: aiPricing.currency,
+          effectiveAt: aiPricing.effectiveAt,
+        })
+        .from(aiPricing)
+        .where(where)
+        .orderBy(asc(aiPricing.modelId))
+        .limit(pageSize)
+        .offset(offset)
+      const countRows = await db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(aiPricing)
+        .where(where)
+      const total = countRows[0]?.c ?? 0
+      return reply.send(success({ items: rows, total, page, pageSize }))
+    },
+  )
+
   // POST /ai-pricing/upsert - 模型定价写入(多模态计费 2026-09-13:四模式全字段)
   server.post(
     '/ai-pricing/upsert',
@@ -490,7 +542,8 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         description:
           'billingMode=token 时用 input/outputTokenPrice(分/千token);' +
           'per_call 用 tieredCallPrices 三档(分/次);' +
-          'per_image 用 perUnitPrice(分/张);per_video 用 perUnitPrice(分/次或分/秒,videoUnit)',
+          'per_image 用 perUnitPrice(分/张);per_video 用 perUnitPrice(分/次或分/秒,videoUnit);' +
+          '媒体行的 costUnitPrice 是平台上游成本价(分/单位),不填则不写成本账',
         tags: ['admin'],
         body: {
           type: 'object',
@@ -504,6 +557,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
               enum: ['token', 'per_call', 'per_image', 'per_video'],
             },
             perUnitPrice: { type: ['number', 'null'], minimum: 0 },
+            costUnitPrice: { type: ['number', 'null'], minimum: 0 },
             tieredCallPrices: {
               type: ['object', 'null'],
               properties: {
@@ -529,6 +583,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
           outputTokenPrice?: number
           billingMode?: 'token' | 'per_call' | 'per_image' | 'per_video'
           perUnitPrice?: number | null
+          costUnitPrice?: number | null
           tieredCallPrices?: { le256k: number; mid: number; gt512k: number } | null
           videoUnit?: 'call' | 'second' | null
           currency?: string
@@ -558,6 +613,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
           outputTokenPrice: b.outputTokenPrice ?? 0,
           billingMode,
           perUnitPrice: b.perUnitPrice ?? null,
+          costUnitPrice: b.costUnitPrice === undefined ? undefined : b.costUnitPrice,
           tieredCallPrices: b.tieredCallPrices ?? null,
           videoUnit: b.videoUnit ?? null,
           currency: b.currency,

@@ -1,0 +1,3 @@
+-- 媒体平台成本价与用户零售价分离:cost_unit_price 单位分/单位(分/张、分/秒或分/次)。
+-- 允许为空:未配置成本的模型继续只记用户积分,不伪造 0 成本行。
+ALTER TABLE ai_pricing ADD COLUMN IF NOT EXISTS cost_unit_price numeric(18, 6);
