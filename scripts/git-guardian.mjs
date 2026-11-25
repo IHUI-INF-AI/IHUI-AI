@@ -7981,8 +7981,9 @@ export async function sweepDanglingCommitAutotag(opts = {}) {
         `${String(res.why || '').slice(0, 400)}\n` +
         `可整改动作:① 未判定 ⇒ 先让 node scripts/check-commit-loss-guard.mjs --filter-stash 能跑通` +
         `(fsck 判定面取不到即此型);② 撞名 ⇒ 该枚仍未保活,人工给一枚不同名的 lost-commit/<name> tag` +
-        `(本器绝不覆盖别人的 tag);③ push=failed ⇒ 后台补推 ` +
-        `IHUI_TAG_PUSH_CHUNK=20 node scripts/sync-lost-commit-tags.mjs --auto-push --force。` +
+        `(本器绝不覆盖别人的 tag);③ push=failed ⇒ 本仓 2026-11-22 已定案停用 tag 自动推送` +
+        `(--auto-push 会直接报错退出,照跑必失败),远端备份改走冷归档 ` +
+        `node scripts/sync-lost-commit-tags.mjs --bundle-archive=<仓库外目录> --if-changed;` +
         `本器只加不减:绝不删 tag、绝不 git gc(AGENTS §29 把 GC 归人工)。`,
       {
         dedupKey: `dangling-autotag;state=${res.state};push=${res.push};conflicts=${res.conflicts > 0 ? 'yes' : 'no'}`,

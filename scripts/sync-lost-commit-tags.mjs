@@ -1277,6 +1277,56 @@ function autoPushMode() {
     }
     missing = keep
   }
+  // 2026-11-25 立「备份族推送体积闸」:备份族(lost-commit/*、backup/*)按语义跳过血统检查
+  // ("丢了也要备份"),但一枚指向旧历史的 tag 会让 origin 一次性新增整条旧历史。
+  // 本轮实测:本地 1.73GiB 里 1.6GB 正是 648 枚此类 tag 指向的旧历史,而 origin 全程只有 171MB。
+  // 判据 = `git rev-list --objects <peeled> --not --remotes --disk-usage`(Git 2.56 输出纯字节数,
+  // 2026-11-25 实测确认),语义即"推这一枚会让远端新增多少字节";单枚超
+  // IHUI_TAG_PUSH_MAX_MB(默认 50MB)⇒ 隔离,只留本地 + 走 --bundle-archive 冷归档做远端备份。
+  // 取不到体积 ⇒ 同样隔离:§0.3「没判」绝不写成「判过」,失效方向是多要一次定向说明。
+  const sizeQuarantine = []
+  {
+    const maxBytes = envPositiveInt('IHUI_TAG_PUSH_MAX_MB', 50) * 1024 * 1024
+    const survivors = []
+    for (const t of missing) {
+      if (!isBackupNamespace(t)) { survivors.push(t); continue }
+      const peeled = localMap.get(t) || ''
+      let bytes = null
+      if (peeled) {
+        try {
+          const out = String(
+            runGit(['rev-list', '--objects', peeled, '--not', '--remotes', '--disk-usage']),
+          ).trim()
+          if (/^\d+$/.test(out)) bytes = Number(out)
+        } catch {
+          bytes = null
+        }
+      }
+      if (bytes === null) {
+        sizeQuarantine.push([t, '取不到远端之外增量体积(未判定)'])
+        continue
+      }
+      if (bytes > maxBytes) {
+        sizeQuarantine.push([t, `远端之外新增 ${(bytes / 1048576).toFixed(1)}MB > ${(maxBytes / 1048576).toFixed(0)}MB`])
+        continue
+      }
+      survivors.push(t)
+    }
+    missing = survivors
+  }
+  if (sizeQuarantine.length > 0) {
+    console.log(
+      `${C.yellow}🪶 备份族体积闸隔离 ${sizeQuarantine.length} 枚(不推远端;本地 tag 仍防 gc,远端备份走 --bundle-archive):${C.reset} ${sizeQuarantine
+        .slice(0, LIST_CAP)
+        .map(([t, r]) => `${t}〔${r}〕`)
+        .join(', ')}${sizeQuarantine.length > LIST_CAP ? ` …另有 ${sizeQuarantine.length - LIST_CAP} 枚` : ''}`,
+    )
+    if (missing.length === 0) {
+      console.log(`${C.dim}过滤后无可推项,本轮结束。${C.reset}`)
+      writeThrottleStamp(marker, Date.now())
+      process.exit(refusal ? 1 : 0)
+    }
+  }
   if (ancestryQuarantine.length > 0) {
     console.log(
       `${C.yellow}⚔ 必拦项已隔离 ${ancestryQuarantine.length} 枚(不拖累本批;建议归口 lost-commit/*、改器件命名或由器件自管远端面):${C.reset} ${ancestryQuarantine

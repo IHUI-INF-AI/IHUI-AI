@@ -16,7 +16,7 @@
 1. **真正有产品级沙箱的只有 6 个**：Codex（受限令牌 + Job + WFP）、Trae（aiep sbox SDK）、WorkBuddy（session 权限文件 + 审批中心）、豆包（agent_infra 运行时策略 + aiep sbox）、Cursor（Rust `SandboxPolicy`）、MiniMax（Rust `srt-win`）。Qoder、DeepSeek、OpenCode 的桌面包内没有产品级原生沙箱证据，标未知。
 2. **字节系共用一套沙箱 SDK**：Trae 的 `modules\sandbox\` 与豆包的 `app\sbox\` 文件名同构（`aiep_sbox.dll`、`aiep_ipc.dll`、`run_helper.exe`、`sbox_sdk.dll`），只是构建大小不同（2,320KB vs 2,594KB）。
 3. **前端已跑到工具上限之上**：14 张 jsmap（11 个目标，Qoder 四版本各一张）全部未触发 1,500,000 节点上限；最大豆包 465,369 节点 / 1,473,627 边，Cursor 319,057 / 681,140，WorkBuddy 359,769 / 729,926。
-4. **核心层覆盖 25 个实际存在的二进制 + 1 个 `not_found` 记录**：导入/导出/签名/字符串/函数/特征六类证据；Codex 407MB 超单文件工具上限 256MB，craft 原生 Rust 报告仍缺，但已用字节级正则补出 400 个 crate 与 rustc commit。
+4. **核心层覆盖 25 个实际存在的二进制 + 1 个 `not_found` 记录**：导入/导出/签名/字符串/函数/特征六类证据；Codex 407MB 超单文件工具上限 256MB，只有字符串/导入/函数链，已标注。
 5. **最能落进 IHUI-AI 的六件事**：统一权限决策对象、Windows Job Object 执行器、审批反向通道、preload 暴露面预算、动态通道注册表、运行时策略热更新（详见第 6 节）。
 
 ---
@@ -38,7 +38,7 @@
 本版拿到函数级链路：`resolve permission profile token mode`、`TaggedPermissionProfile::{Managed,External}`、`struct NetworkPermissions with 1 element`、`SerializedManagedFileSystemPermissions::Restricted`、`spawned ConPTY is missing its process job`、`Codex Windows Sandbox WFP` 持久化 WFP provider。
 
 **纠正五：没有后端层。**
-本版新增“后端/服务层”：WorkBuddy 的 MCP Host（loopback 随机端口）+ A2A 出站代理、MiniMax 的 `http://127.0.0.1/minimax-desktop/api/v1/*` 本地运行时、ZCode 的 host RPC + Windows Job 控制、OpenCode 的 `opencode-cli serve --service`（isolated 3084，4096 仅为 Add Server 占位；已实跑 v2.2.7，Web UI 200、API 无凭据 401）、Qoder 的 `@qoder-space/application-server` + `peer-transport`。
+本版新增“后端/服务层”：WorkBuddy 的 MCP Host（loopback 随机端口）+ A2A 出站代理、MiniMax 的 `http://127.0.0.1/minimax-desktop/api/v1/*` 本地运行时、ZCode 的 host RPC + Windows Job 控制、OpenCode 的 `opencode-cli serve --service`（isolated 3084，4096 仅为 Add Server 占位）、Qoder 的 `@qoder-space/application-server` + `peer-transport`。
 
 ---
 
@@ -64,7 +64,7 @@
 ### 1.3 已知工具上限（必须写进结论）
 
 - `core-overview-show` 的函数发现上限 50,000；字符串保留前 200,000 条；间接跳转未解析数会单列。
-- 大文件（>256MB）的 `native-rust-binary-show` 会拒绝；Codex 407MB 因此没有 craft 原生 crate 报告，改用字节级 cargo 路径正则补出 400 个 crate（8,839 次命中）与 rustc commit，详见 4.1。
+- 大文件（>256MB）的 `native-rust-binary-show` 会拒绝；Codex 407MB 因此没有 Rust crate 报告，只有字符串与导入证据。
 - `js-app-map` 的动态 IPC 只能计数、不能还原通道名（各目标 5–816 条不等，逐目标标注）。
 - `webPreferences: dynamic` 的窗口无法静态读出安全值，只能标注。
 
@@ -122,13 +122,6 @@
 **Windows 包层（本轮补充）**：已注册 `OpenAI.Codex 26.1117.4957.0`；同机另有 `OpenAI.Codex_26.1120.5083.0` 目录（未注册/待切换）。两个 `PrimaryRuntime`：`v26-1119-907-0` 与 `v26-1123-915-0`。`app\Codex.exe` 只是 20,272 字节的启动 stub，真正的 407MB 主程序在 `app\resources\codex.exe`——这一点很容易被误读成“Codex 只有 20KB”。
 
 **核心概况**（`ev_9c096652…`）：PE x86_64，函数发现到 50,000 上限、字符串 204,743 条（保留前 200,000）、导入 486 个 / 25 个库。这是本轮唯一一个“主程序即产品逻辑”的目标，导入可以直接归因。
-
-**Rust crate 层（本轮补证，绕开 256MB 上限）**：craft 的 `native-rust-binary-show` 直接拒绝 407,428,400 字节，于是对同一文件做字节级 cargo 路径正则（`registry\src\<index>\<crate>-<version>\`），命中 **8,839 次、去重 400 个 crate**，rustc commit `58cf8f9c35b355199727627d07ae34a4e2846d67`，另有 5 个 git checkout（`bc589d6`/`4253de9`/`b11a40d`/`b211201`/`7447c42`）。两个已安装包（26.1117 / 26.1120）都是 400 个 crate、8,839 / 8,850 次命中、同一 rustc commit，说明 26.1120 是 patch 级重建而非大版本换代。79 个安全/网络相关 crate 里，有四组值得注意：
-- `starlark 0.14.2` + `starlark_syntax 0.14.2`（210 + 12 次引用）：与 execpolicy 的 `rule.rs`/`parser.rs` 互相印证，**Starlark 很可能就是策略 DSL 的求值器**。这是依赖清单，不是调用点证明。
-- `rama-http-core 0.3.0-alpha.4` 及 `rama-tcp/net/dns/tls-rustls/socks5/http-backend/http`：一整套自建 Rust 代理/HTTP 栈，不是单纯 `reqwest`。
-- `aws-config 1.8.12` / `aws-sdk-signin 1.2.0` / `aws-sdk-ssooidc 1.93.0` / `aws-sdk-sts 1.95.0` / `aws-lc-rs 1.18.1`：AWS 登录、SSO、STS 这条链，配合 `oauth2 5.0.0`。
-- `quinn 0.11.9` / `quinn-proto`、`tonic 0.14.3`、`rustls 0.23.46`、`hickory-resolver 0.25.2`、`opentelemetry-otlp 0.31.0`：QUIC、gRPC、TLS、DNS、OTLP 遥测。
-完整清单在 `out\deep\native\codex\crates.json`（top 40 + 79 个安全相关项）。**限制**：路径存在只证明该 crate 被编译进二进制，不证明对应功能已启用；没有 `.dep-v0` 审计清单，也没有 demangled symbol 表。
 
 **权限模型是四层结构，不是一句“有沙箱”。**
 
@@ -345,12 +338,6 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 - `out\main\index.js` 里另有 `desktop-rpc-port`，说明桌面↔CLI 还有一条 RPC 通道。
 - 结论更新：**桌面端确实会拉起 `opencode-cli serve`**；隔离模式固定 3084 且绑 `0.0.0.0`，普通模式端口由上层分配。4096 与这个启动链路无关，仍只是 Add Server 占位。
 
-**运行验证（本轮补证，不是静态推测）**：
-- `opencode-cli.exe --version` 返回 `opencode v2.2.7`；`serve --help` 明确列出 `--hostname`、`--port`、`--cors`（可重复）、`--service`、`--stdio`，以及全局 `--log-level` / `--print-logs`。
-- 以隔离的 `XDG_STATE_HOME` 启动 `serve --service --hostname 127.0.0.1 --port 4601`，6 秒后 `GET /` 返回 **200 / 9,162 字节 / text/html**，是 v2 Web UI；`GET /api` 与 `GET /openapi.json` 均返回 **401**，说明 API 鉴权生效，不是裸奔。`/config`、`/session`、`/health` 等未注册路径返回同一个 SPA HTML（200），是前端 fallback，不能当成真实 API。
-- 普通 `serve`（不加 `--service`）在 stdout 打印 `server listening on ...` 与一次性 `server password ...`；`--service` 模式只打印监听地址，未观察到密码行——**桌面端用什么方式把凭据交给服务端，仍未闭环，标未知**。
-- 三个测试进程均已被杀，4599/4600/4601 端口确认关闭；全程只发 GET，没有调用写接口。记录在 `out\deep\native\opencode\runtime-serve.json`。
-
 **依赖极简**：`@zip.js/zip.js`、`electron-context-menu`、`electron-log`、`electron-updater 6.8.9`、`lighthouse 13.4.1`。Lighthouse 说明内置了页面审计/性能评分能力，不是纯聊天壳。
 
 **窗口安全**：主窗口显式 `contextIsolation:true / nodeIntegration:false / sandbox:true`；另 2 个窗口 `webPreferences` 运行期计算（`ev_381f0a96…`）。
@@ -563,9 +550,9 @@ IPC 分组说明它是“能力市场型”客户端：
 
 必须诚实列出来，否则这份报告会重复上一版的问题。
 
-1. **除 OpenCode 外，其余程序未运行**：所有“运行期行为”仍未知。例如 WorkBuddy 的 MCP Host 是否真的在启动时 listen、豆包的 `sandbox_switch_config` 默认值、ZCode 的 8081 更新代理是否启用，都没有实跑验证。OpenCode 已补 `serve` 实跑（监听成功、Web UI 200、API 401）。
-2. **Codex 407MB 超工具上限**：`native-rust-binary-show` 拒绝 >256MB，因此没有 craft 原生 Rust 报告；本轮用字节级 cargo 路径正则补出 400 个 crate、rustc commit、5 个 git checkout，但没有 demangled symbols 与 `.dep-v0` 审计清单，crate 归属仍不是 craft 官方口径。
-3. **OpenCode 已运行验证，但凭据传递仍未知**：`opencode-cli.exe` 2.2.7 的 `serve` 能监听并返回 Web UI；`/api` 与 `/openapi.json` 无凭据返回 401；普通模式 stdout 打印一次性 `server password`，`--service` 模式未观察到密码行。桌面端如何注入凭据、`--stdio` 模式行为、长期运行稳定性都未验证。`localhost:4096` 已证实只是 `dialog.server.add.placeholder` 的默认占位。
+1. **未运行**：所有“运行期行为”均未知。例如 WorkBuddy 的 MCP Host 是否真的在启动时 listen、豆包的 `sandbox_switch_config` 默认值、ZCode 的 8081 更新代理是否启用，都没有实跑验证。
+2. **Codex 407MB 超工具上限**：`native-rust-binary-show` 拒绝 >256MB，Codex 没有 crate 级报告；只有字符串/导入/函数三条证据链。
+3. **OpenCode 服务端已定位启动方式，未运行验证**：`opencode-cli.exe` 是 Bun 单文件（41,058 函数、签名 Anomaly Innovations）；桌面主进程明确以 `serve --service` 拉起 CLI，isolated 模式 `--hostname 0.0.0.0 --port 3084`，普通模式端口由上层分配。`localhost:4096` 已证实只是 `dialog.server.add.placeholder` 的默认占位（多语言重复 62 次）。未实跑，所以监听是否成功、鉴权方式仍未知。
 4. **Qoder 的 keytar/aoq 已文件级确认**：`keytar.node` 707,584 与 `aoq_node_ext.node` 253,952 在 0.5.6/0.5.14 两个版本中都存在；但 aoq 的具体用途（播放器/会议 SDK）只按 DLL 名称推断，未运行验证。上一轮“未复现”的写法已撤销。
 5. **动态 IPC 只计数**：ZCode 423、MiniMax 816、DeepSeek 142、WorkBuddy 214、Trae 110 条通道名是运行期拼接，静态工具只能计数，不能枚举。
 6. **`webPreferences: dynamic` 无法判定**：多个产品有 4–12 个窗口的 webPreferences 在运行期计算，静态只能标“未知”，不能下“安全/不安全”结论。
@@ -588,8 +575,6 @@ IPC 分组说明它是“能力市场型”客户端：
 - `analysis\backend-<target>.json`：后端模式扫描（http/ws server、ipcMain、contextBridge、safeStorage、MCP/ACP/LSP）。
 - `<target>-jsmap-full.json`：前端全量图（豆包 437MB、WorkBuddy 273MB、Cursor 247MB 等）。
 - `native\<target>\*.json`：核心取证（overview / imports / exports / publisher / strings0-7 / feat0-3）。
-- `native\codex\crates.json`：Codex 407MB 二进制的 400 个 crate 路径清单（含 40 个高频项与 79 个安全/网络相关项）。
-- `native\opencode\runtime-serve.json`：OpenCode `serve` 实跑记录（版本、help flags、HTTP 状态、鉴权 401、端口关闭确认，密码值不落盘）。
 - `analysis\frontend-<target>.json`：前端结构化摘要（IPC、窗口、暴露键、endpoint、模块关键词）。
 - `analysis\evidence-ids.json`：目标 → evidence id 映射；`analysis\evidence-map.json`：证据号 → 摘要/路径。
 
