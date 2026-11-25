@@ -377,6 +377,107 @@ pub async fn device_executor_stop() -> Result<DeviceExecutorStatus, String> {
         .map_err(|e| format!("停止执行器失败: {e}"))?
 }
 
+/// 主机名（自助接入时的默认设备名；带后缀在设置页拼，避免与 CLI 已配对行撞名）
+#[tauri::command]
+pub fn device_executor_host_name() -> String {
+    std::env::var("COMPUTERNAME")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "desktop".to_string())
+}
+
+/// 弹原生目录选择（工作区白名单的落点；取消返回 Err 让前端区分"没选"）。
+fn pick_workspace(app: &AppHandle) -> Result<String, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let picked = app
+        .dialog()
+        .file()
+        .set_title("选择本机执行器的工作区目录")
+        .blocking_pick_folder();
+    match picked {
+        Some(path) => path
+            .into_path()
+            .map(|p| p.to_string_lossy().to_string())
+            .map_err(|e| format!("目录路径不可用: {e}")),
+        None => Err("已取消选择工作区".to_string()),
+    }
+}
+
+/**
+ * G5(2026-11-26)自助接入：把**已登录会话**签发的设备令牌交给 CLI 落盘，不需要配对码。
+ *
+ * 桌面端刻意不自己写 `~/.ihui/device.json`：那份凭证的指纹与工作区白名单只有 CLI 有
+ * 唯一实现（写第二份必然漂移）。这里只做 CLI 做不了的三件事：
+ *  1. 原生目录选择（工作区白名单的落点）；
+ *  2. 令牌经 **stdin** 交给 CLI（不进 argv，进程列表里看不到）；
+ *  3. 成功后立刻读回真实状态，让 UI 看到"已配对 / 是否在跑"。
+ *
+ * `payload` 是前端拼的 JSON（device_id / device_token / name / api_url），Rust 不解析业务字段，
+ * 只做长度闸（>8KB 直接拒）——字段语义的唯一真相源在 CLI 的 adopt 命令。
+ */
+#[tauri::command]
+pub async fn device_executor_adopt(
+    app: AppHandle,
+    payload: String,
+    workspace: Option<String>,
+) -> Result<DeviceExecutorStatus, String> {
+    if payload.len() > 8 * 1024 {
+        return Err("接入载荷过大(>8KB),已拒绝".to_string());
+    }
+    let chosen = match workspace.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
+        Some(dir) => dir,
+        None => {
+            let app_for_pick = app.clone();
+            tauri::async_runtime::spawn_blocking(move || pick_workspace(&app_for_pick))
+                .await
+                .map_err(|e| format!("目录选择任务失败: {e}"))??
+        }
+    };
+    if !std::path::Path::new(&chosen).is_dir() {
+        return Err(format!("工作区不存在或不是目录: {chosen}"));
+    }
+    let ihui = find_ihui().ok_or_else(|| {
+        "找不到 ihui 命令(先装 CLI: npm i -g @ihui/cli)".to_string()
+    })?;
+    let payload_for_child = payload.clone();
+    let dir = chosen.clone();
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let mut cmd = hidden_command(&ihui);
+        cmd.arg("device")
+            .arg("adopt")
+            .arg("--workspace")
+            .arg(&dir)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| format!("启动 ihui device adopt 失败: {e}"))?;
+        if let Some(mut stdin) = child.stdin.take() {
+            use std::io::Write;
+            stdin
+                .write_all(payload_for_child.as_bytes())
+                .map_err(|e| format!("写入设备令牌失败: {e}"))?;
+        }
+        let out = child
+            .wait_with_output()
+            .map_err(|e| format!("等待 adopt 退出失败: {e}"))?;
+        if !out.status.success() {
+            let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            return Err(if err.is_empty() {
+                "ihui device adopt 失败(无 stderr 输出)".to_string()
+            } else {
+                err
+            });
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("接入任务失败: {e}"))??;
+    Ok(read_status())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

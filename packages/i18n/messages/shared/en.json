@@ -1340,7 +1340,9 @@
       "executorStart": "Start",
       "executorStop": "Stop",
       "executorRefresh": "Refresh status",
-      "executorUnpaired": "This computer is not connected yet: generate an 8-digit code under “Pair code”, then run ihui device pair <code> in a terminal.",
+      "executorEnable": "Enable",
+
+      "executorUnpaired": "This computer is not connected yet. Click “Enable” to authorize it — no pairing code needed.",
       "executorUnsupported": "Device executor is only available on the Windows desktop app.",
       "executorTaskRegistered": "Launch at login registered",
       "approvalTitle": "Execution plan",
@@ -3077,6 +3079,7 @@
       "mcpRequiresApproval": "MCP annotations require approval",
       "taintEgressGate": "Session taint: network access needs approval",
       "policyRequiresApproval": "Policy requires approval",
+      "approvalPolicyDeny": "Policy denies execution",
       "policySkipsApproval": "Policy skips approval",
       "guardianReviewSuggested": "Review suggests a safer alternative",
       "guardianReviewAlternativeApplied": "Safer alternative applied"

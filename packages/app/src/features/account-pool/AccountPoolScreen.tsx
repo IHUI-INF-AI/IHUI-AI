@@ -133,7 +133,7 @@ export function AccountPoolScreen({
         )}
 
         <View style={styles.card}>
-          <View style={styles.rowHead}>
+          <View style={styles.cardHead}>
             <Plus size={16} color={tk.text.secondary} />
             <Text style={styles.cardTitle}>{t('accountPool.add')}</Text>
           </View>
@@ -183,7 +183,7 @@ export function AccountPoolScreen({
             disabled={!canSave}
             onPress={onSave}
           >
-            <Text style={styles.submitText}>
+            <Text style={[styles.submitText, !canSave ? styles.submitTextOff : null]}>
               {submitting ? t('accountPool.adding') : t('accountPool.save')}
             </Text>
           </TouchableOpacity>
