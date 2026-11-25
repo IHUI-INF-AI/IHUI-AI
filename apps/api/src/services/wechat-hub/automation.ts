@@ -253,6 +253,7 @@ export async function runAutoReply(
   accountId: string,
   event: WechatInboundEvent,
   send: (input: WechatSendInput) => Promise<WechatSendResult>,
+  options?: { model?: string },
 ): Promise<{ rule: WechatAutoReplyRuleView; result: WechatSendResult } | null> {
   await assertAccountForUser(userId, accountId)
   if (event.senderId && (await isContactBlocked(accountId, event.senderId))) return null
@@ -287,7 +288,7 @@ export async function runAutoReply(
     if (claimed.length === 0) continue
     let replyText = rule.replyText
     if (rule.matchType === 'agent') {
-      replyText = await generateAgentReply(userId, accountId, event, rule)
+      replyText = await generateAgentReply(userId, accountId, event, rule, { model: options?.model })
       if (replyText.length === 0) continue
     } else if (replyText.includes('{{knowledge}}')) {
       const knowledge = await knowledgeReply(userId, accountId, event.content, 3).catch(() => '')
@@ -341,7 +342,7 @@ export async function generateAgentReply(
   accountId: string,
   event: WechatInboundEvent,
   rule: WechatAutoReplyRuleView,
-  options?: { appendCurrent?: boolean },
+  options?: { appendCurrent?: boolean; model?: string },
 ): Promise<string> {
   const conversationRows = await dbRead
     .select({ id: wechatHubConversations.id })
@@ -397,13 +398,14 @@ export async function generateAgentReply(
     .filter(Boolean)
     .join('\n')
 
+  const effectiveModel = options?.model ?? AGENT_MODEL
   const response = await aiServiceSystemFetch(
     '/api/v1/ai/llm/complete',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...(AGENT_MODEL ? { model: AGENT_MODEL } : {}),
+        ...(effectiveModel ? { model: effectiveModel } : {}),
         messages: [{ role: 'system', content: systemPrompt }, ...history],
         temperature: 0.6,
         max_tokens: AGENT_MAX_TOKENS,

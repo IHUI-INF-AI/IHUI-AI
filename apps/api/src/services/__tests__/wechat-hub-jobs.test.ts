@@ -17,6 +17,7 @@ const hoisted = vi.hoisted(() => ({
   broadcast: vi.fn(),
   report: vi.fn(),
   send: vi.fn(),
+  moment: vi.fn(),
 }))
 
 vi.mock('../../db/index.js', () => ({
@@ -29,6 +30,7 @@ vi.mock('../wechat-hub/guards.js', () => ({
 vi.mock('../wechat-hub/broadcast.js', () => ({ broadcast: hoisted.broadcast }))
 vi.mock('../wechat-hub/reports.js', () => ({ buildReport: hoisted.report }))
 vi.mock('../wechat-hub/manager.js', () => ({ wechatHubManager: { send: hoisted.send } }))
+vi.mock('../wechat-hub/operations.js', () => ({ publishMoment: hoisted.moment }))
 
 import { isJobDue, runDueJobs, saveJob } from '../wechat-hub/jobs'
 import type { WechatJobView } from '@ihui/types'
@@ -70,6 +72,7 @@ beforeEach(() => {
   hoisted.broadcast.mockReset()
   hoisted.report.mockReset()
   hoisted.send.mockReset()
+  hoisted.moment.mockReset()
   hoisted.updateSet.mockReturnValue({ where: () => chain(undefined) })
 })
 
@@ -132,6 +135,15 @@ describe('saveJob', () => {
     await expect(saveJob('u1', 'acc-1', { kind: 'report', payload: {} })).rejects.toMatchObject({
       errorCode: 'WECHAT_JOB_NO_REPORT_KIND',
     })
+    await expect(saveJob('u1', 'acc-1', { kind: 'moment', payload: {} })).rejects.toMatchObject({
+      errorCode: 'WECHAT_JOB_EMPTY_MOMENT',
+    })
+    // 只发图不写字是合法的
+    const saved = await saveJob('u1', 'acc-1', {
+      kind: 'moment',
+      payload: { mediaUrls: ['https://a.jpg'] },
+    })
+    expect(saved.kind).toBe('moment')
   })
 })
 
@@ -181,6 +193,59 @@ describe('runDueJobs', () => {
     const results = await runDueJobs(NOW)
     expect(results).toHaveLength(0)
     expect(hoisted.updateSet).not.toHaveBeenCalled()
+  })
+
+  it('定时朋友圈到点调 publishMoment，正文与媒体原样透传', async () => {
+    hoisted.select.mockReturnValueOnce(
+      chain([
+        {
+          id: 'acc-1',
+          userId: 'u1',
+          metadata: {
+            jobs: [
+              job({
+                id: 'job-moment',
+                kind: 'moment',
+                payload: { text: '周末见', mediaUrls: ['https://a.jpg', 'https://b.mp4'] },
+              }),
+            ],
+          },
+        },
+      ]),
+    )
+    hoisted.moment.mockResolvedValueOnce({ ok: true, reason: null })
+
+    const results = await runDueJobs(NOW)
+
+    expect(results).toHaveLength(1)
+    expect(results[0]).toMatchObject({ jobId: 'job-moment', ok: true })
+    expect(hoisted.moment).toHaveBeenCalledTimes(1)
+    const [, accountId, input] = hoisted.moment.mock.calls[0] as [
+      string,
+      string,
+      { text: string; mediaUrls: string[] },
+    ]
+    expect(accountId).toBe('acc-1')
+    expect(input.text).toBe('周末见')
+    expect(input.mediaUrls).toEqual(['https://a.jpg', 'https://b.mp4'])
+  })
+
+  it('朋友圈发布失败只记该任务，不算成功', async () => {
+    hoisted.select.mockReturnValueOnce(
+      chain([
+        {
+          id: 'acc-1',
+          userId: 'u1',
+          metadata: {
+            jobs: [job({ id: 'job-moment', kind: 'moment', payload: { text: '周末见' } })],
+          },
+        },
+      ]),
+    )
+    hoisted.moment.mockResolvedValueOnce({ ok: false, reason: '账号离线' })
+
+    const results = await runDueJobs(NOW)
+    expect(results[0]).toMatchObject({ jobId: 'job-moment', ok: false, detail: '账号离线' })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

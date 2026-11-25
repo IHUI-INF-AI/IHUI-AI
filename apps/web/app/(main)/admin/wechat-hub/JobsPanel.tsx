@@ -40,6 +40,9 @@ function describe(job: WechatJobView): string {
           : '年度报告'
     return `${day} ${time} · 生成${kindLabel}并推送到 ${job.payload.targets?.[0] ?? '（未设目标）'}`
   }
+  if (job.kind === 'moment') {
+    return `${day} ${time} · 发布朋友圈（${job.payload.mediaUrls?.length ?? 0} 个媒体）`
+  }
   const scope = job.payload.targets?.length
     ? `${job.payload.targets.length} 个指定目标`
     : job.payload.tags?.length
@@ -50,12 +53,13 @@ function describe(job: WechatJobView): string {
 
 export default function JobsPanel({ accountId }: { accountId: string }) {
   const qc = useQueryClient()
-  const [kind, setKind] = React.useState<'broadcast' | 'report'>('broadcast')
+  const [kind, setKind] = React.useState<'broadcast' | 'report' | 'moment'>('broadcast')
   const [hour, setHour] = React.useState('9')
   const [minute, setMinute] = React.useState('30')
   const [weekly, setWeekly] = React.useState('every')
   const [text, setText] = React.useState('')
   const [targets, setTargets] = React.useState('')
+  const [mediaUrls, setMediaUrls] = React.useState('')
   const [reportKind, setReportKind] = React.useState<'annual' | 'pair' | 'group'>('annual')
   const [message, setMessage] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -76,13 +80,21 @@ export default function JobsPanel({ accountId }: { accountId: string }) {
         .split(/[\s,，]/)
         .map((item) => item.trim())
         .filter(Boolean)
+      const mediaList = mediaUrls
+        .split(/[\s,，]/)
+        .map((item) => item.trim())
+        .filter(Boolean)
       return wechatHubApi.saveJob(accountId, {
         kind,
         hour: Number(hour),
         minute: Number(minute),
         weekly: weekly === 'every' ? null : Number(weekly),
         payload:
-          kind === 'report' ? { reportKind, targets: targetList } : { text, targets: targetList },
+          kind === 'report'
+            ? { reportKind, targets: targetList }
+            : kind === 'moment'
+              ? { text, mediaUrls: mediaList }
+              : { text, targets: targetList },
       })
     },
     onSuccess: (job) => {
@@ -145,7 +157,9 @@ export default function JobsPanel({ accountId }: { accountId: string }) {
               <Label>任务类型</Label>
               <Select
                 value={kind}
-                onValueChange={(value) => setKind(value === 'report' ? 'report' : 'broadcast')}
+                onValueChange={(value) =>
+                  setKind(value === 'report' ? 'report' : value === 'moment' ? 'moment' : 'broadcast')
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -153,6 +167,7 @@ export default function JobsPanel({ accountId }: { accountId: string }) {
                 <SelectContent>
                   <SelectItem value="broadcast">定时群发</SelectItem>
                   <SelectItem value="report">定时报告</SelectItem>
+                  <SelectItem value="moment">定时朋友圈</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -185,18 +200,7 @@ export default function JobsPanel({ accountId }: { accountId: string }) {
             </div>
           </div>
 
-          {kind === 'broadcast' ? (
-            <div className="space-y-1">
-              <Label>群发正文</Label>
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                rows={3}
-                className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm"
-                placeholder="到点发给每个目标；单条超过 4500 字会被截断"
-              />
-            </div>
-          ) : (
+          {kind === 'report' ? (
             <div className="space-y-1">
               <Label>报告类型</Label>
               <Select
@@ -215,6 +219,21 @@ export default function JobsPanel({ accountId }: { accountId: string }) {
                 </SelectContent>
               </Select>
             </div>
+          ) : (
+            <div className="space-y-1">
+              <Label>{kind === 'moment' ? '朋友圈正文' : '群发正文'}</Label>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={3}
+                className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm"
+                placeholder={
+                  kind === 'moment'
+                    ? '到点发布到朋友圈；可只发图不写文字'
+                    : '到点发给每个目标；单条超过 4500 字会被截断'
+                }
+              />
+            </div>
           )}
 
           <div className="space-y-1">
@@ -225,6 +244,17 @@ export default function JobsPanel({ accountId }: { accountId: string }) {
               placeholder="wxid_xxx, 群名或会话标识"
             />
           </div>
+
+          {kind === 'moment' ? (
+            <div className="space-y-1">
+              <Label>朋友圈媒体地址（可选，最多 9 个，逗号或换行分隔）</Label>
+              <Input
+                value={mediaUrls}
+                onChange={(e) => setMediaUrls(e.target.value)}
+                placeholder="https://...jpg, https://...mp4，本地路径需在桥的媒体根内"
+              />
+            </div>
+          ) : null}
 
           <div className="flex flex-wrap items-center gap-2">
             <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
