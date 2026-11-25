@@ -452,7 +452,7 @@ const MCP_TOOLS: WechatMcpTool[] = [
       type: 'object',
       properties: {
         accountId: { type: 'string' },
-        maxPages: { type: 'number', description: '1-10，默认 3' },
+        maxPages: { type: 'number', description: '1-30，默认 3' },
         id: { type: 'number', description: 'wcfhttp 起始朋友圈 id，0 为最新页' },
       },
       required: ['accountId'],
@@ -1012,7 +1012,7 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
           return reply.send(
             success(
               await fetchMoments(userId, accountId, {
-                maxPages: readOptionalNumber(args, 'maxPages', 3, 10),
+                maxPages: readOptionalNumber(args, 'maxPages', 3, 30),
                 id: typeof args.id === 'number' && Number.isFinite(args.id) ? args.id : undefined,
               }),
             ),
