@@ -116,9 +116,11 @@ interface MessageListProps {
   loadingMoreHistory?: boolean
   /** #8 滚动到顶部时触发加载更多历史消息 */
   onLoadMoreHistory?: () => void
-  /** P4-2: fallback 通知(主模型失败切换到备用模型时非 null,展示横幅) */
+  /** P4-2: fallback 通知(主模型失败切换到备用模型时非 null)。
+   *  2026-11-26 起**仅供调用方兼容**:本层不再渲染任何横幅/交代行(换腿对用户无感),
+   *  事件仍由 use-chat 收下并上报,值到此为止。 */
   fallbackNotice?: FallbackEvent | null
-  /** P4-2: 清除 fallback 通知(用户点击横幅关闭按钮时调用) */
+  /** P4-2: 清除 fallback 通知(同上,已无渲染位,保留签名免改调用方) */
   onClearFallbackNotice?: () => void
   /** Phase 18.2: SubAgent 活动列表(2026-07-28,可选覆盖 useChatStore 内部读取)
    *  对话流 inline 渲染在最后一条 AI 消息下方(而非 AI 面板底部)。
