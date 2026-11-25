@@ -273,6 +273,15 @@ export const WEB_PORTAL_SECTIONS = [
         domain: 'self-media',
         fallbackLabel: '发布日历',
       },
+      // 2026-11-26 取证(未建条目,故此处不引用任何新 titleKey):以下四条移动端应按同族走
+      // WebView 门户承载 —— hr/my-perf、hr/my-training、hr/my-expense(web src/components/sidebar/
+      // nav-data.ts HR_HUB_ITEMS 现读三条不带 adminOnly,注释即「所有登录用户可见」;后端 self
+      // 作用域端点已就位 GET /api/hr-perf/my/reviews、/api/hr-training/my/enrollments、/api/hr-expense/my)、
+      // 以及 publish/account-pool(2026-11-25 新建,页面零 admin 门槛)。
+      // 受阻根因:守门 256(blocking·绝对零容忍)要求门户表每个 webViewPortal.* titleKey 必须在
+      // 两端×五语言十份词包齐备,而 packages/i18n/messages/ 全域此刻被并行会话 staged 占用
+      // (AGENTS §12 禁止覆盖他席现场、禁止把他席在飞内容裹进本笔提交)⇒ 本笔只留取证不落地,
+      // 出路 = 词包面结清后跑唯一写入口 node scripts/add-web-portal-entries.mjs --routes-file <清单> --apply。
       {
         key: 'self-media-tasks',
         titleKey: 'webViewPortal.mediaTasks',
