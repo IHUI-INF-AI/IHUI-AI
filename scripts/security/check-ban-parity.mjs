@@ -36,9 +36,12 @@ const skipEdge = process.argv.includes('--no-edge')
 
 /** netsh 输出走控制台码页(本机 936):必须 chcp 65001,否则中文表头会被 Node 按 utf8 读成乱码。 */
 function readFirewallText() {
+  // 实测这台机 netsh 遍历 13577 条规则要 103–139s(PowerShell 侧计时三次)。
+  // 原来给 60s 正好卡在边缘 —— 偶发 ETIMEDOUT 就把整条判据打成 undetermined,
+  // 派发器跟着记 undetermined,看起来像判据坏了。留足余量。
   const r = spawnSync('cmd', ['/c', 'chcp 65001 >nul && netsh advfirewall firewall show rule name=all'], {
     encoding: 'utf8',
-    timeout: 60000,
+    timeout: 180000,
     windowsHide: true,
     maxBuffer: 32 * 1024 * 1024,
   })
