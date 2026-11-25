@@ -26,7 +26,7 @@ import {
 const HEIGHT_CLASS: Record<number, string> = { 36: 'h-9' }
 // 键必须与 input-spec 的档位一致：spec 定的是 'sm'，这里只能写 sm，
 // 之前写成 md 会让 RADIUS_CLASS['sm'] 恒为 undefined，全站 Input 静默丢圆角。
-const RADIUS_CLASS: Record<typeof INPUT_RADIUS_TIER, string> = { sm: 'rounded-md' }
+const RADIUS_CLASS: Record<typeof INPUT_RADIUS_TIER, string> = { md: 'rounded-md' }
 const PADDING_X_CLASS: Record<number, string> = { 12: 'px-3' }
 const TEXT_CLASS: Record<typeof INPUT_TEXT_TIER, string> = { sm: 'text-sm' }
 const BORDER_WIDTH_CLASS: Record<number, string> = { 1: 'border' }
