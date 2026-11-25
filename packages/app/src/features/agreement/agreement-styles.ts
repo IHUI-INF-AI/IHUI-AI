@@ -37,14 +37,14 @@ export function createAgreementStyles(tk: AppThemeTokens) {
       lineHeight: rnType.strong.lineHeight,
     },
     headingH1: {
-      fontSize: 20,
-      lineHeight: 28,
+      fontSize: rnType.heading.size,
+      lineHeight: rnType.headingSm.lineHeight,
       fontWeight: '700',
       color: tk.text.primary,
     },
     headingH2: {
-      fontSize: 15,
-      lineHeight: 22,
+      fontSize: rnType.strong.size,
+      lineHeight: rnType.strong.lineHeight,
       fontWeight: '500',
       color: tk.text.primary,
     },

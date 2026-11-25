@@ -171,7 +171,7 @@ function createStyles(tk: AppThemeTokens) {
     footer: {
       fontSize: rnType.caption.size,
       color: tk.text.medium,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
       paddingHorizontal: rnSpacing.xs,
       paddingVertical: rnSpacing.md,
     },

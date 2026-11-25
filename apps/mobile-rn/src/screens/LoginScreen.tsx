@@ -1488,7 +1488,7 @@ const styles = StyleSheet.create({
   },
   carrierWebClose: {
     fontSize: 26,
-    lineHeight: 30,
+    lineHeight: rnType.headline.lineHeight,
     fontWeight: '500',
     textAlign: 'center',
   },
