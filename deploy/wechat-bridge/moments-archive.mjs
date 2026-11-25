@@ -59,7 +59,28 @@ function archiveId(moment) {
 function normalizeRecord(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   const content = textOf(value.content)
-  if (!content) return null
+  const mediaUrls = stringArray(value.mediaUrls)
+  const likeUsers = stringArray(value.likeUsers)
+  const likeUserIds = stringArray(value.likeUserIds)
+  const commentsData = Array.isArray(value.commentsData)
+    ? value.commentsData
+        .filter((item) => item && typeof item === 'object' && textOf(item.content))
+        .map((item) => ({
+          username: textOf(item.username) || undefined,
+          nickname: textOf(item.nickname) || undefined,
+          content: textOf(item.content),
+          createTime:
+            typeof item.createTime === 'number' && Number.isFinite(item.createTime)
+              ? item.createTime
+              : null,
+          commentId: textOf(item.commentId) || null,
+          refCommentId: textOf(item.refCommentId) || null,
+        }))
+    : []
+  const hasLikes = value.likes === true || likeUsers.length > 0
+  const hasComments = value.comments === true || commentsData.length > 0
+  // 纯图片/纯点赞动态也可能没有正文：DB 路线要保留，不再只认正文。
+  if (!content && mediaUrls.length === 0 && !hasLikes && !hasComments) return null
   const authorId = textOf(value.authorId) || null
   return {
     id: textOf(value.id) || archiveId(value),
@@ -67,10 +88,15 @@ function normalizeRecord(value) {
     authorResolved: authorId !== null,
     authorName: textOf(value.authorName) || '朋友圈好友',
     content,
-    mediaUrls: stringArray(value.mediaUrls),
+    mediaUrls,
     createdAt: numberOrNull(value.createdAt),
     source: textOf(value.source) || 'ocr',
     page: typeof value.page === 'number' && Number.isFinite(value.page) ? value.page : null,
+    ...(likeUsers.length > 0 ? { likeUsers } : {}),
+    ...(likeUserIds.length > 0 ? { likeUserIds } : {}),
+    ...(commentsData.length > 0 ? { commentsData } : {}),
+    likes: hasLikes,
+    comments: hasComments,
     firstSeenAt: textOf(value.firstSeenAt) || textOf(value.lastSeenAt) || new Date().toISOString(),
     lastSeenAt: textOf(value.lastSeenAt) || new Date().toISOString(),
     seenCount:
@@ -188,6 +214,17 @@ export async function appendMomentArchive(moments, filePath) {
     }
     if (item.mediaUrls.length > previous.mediaUrls.length) previous.mediaUrls = item.mediaUrls
     if (item.createdAt && !previous.createdAt) previous.createdAt = item.createdAt
+    if (item.likeUsers?.length > (previous.likeUsers?.length ?? 0)) {
+      previous.likeUsers = item.likeUsers
+    }
+    if (item.likeUserIds?.length > (previous.likeUserIds?.length ?? 0)) {
+      previous.likeUserIds = item.likeUserIds
+    }
+    if (item.commentsData?.length > (previous.commentsData?.length ?? 0)) {
+      previous.commentsData = item.commentsData
+    }
+    if (item.likes === true) previous.likes = true
+    if (item.comments === true) previous.comments = true
     updated += 1
   }
 

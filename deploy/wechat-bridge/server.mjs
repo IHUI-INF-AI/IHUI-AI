@@ -30,6 +30,8 @@ const PORT = Number(process.env.BRIDGE_PORT ?? 8848)
 const HOST = process.env.BRIDGE_HOST ?? '127.0.0.1'
 const SECRET = process.env.BRIDGE_SECRET ?? ''
 const DRIVER_NAME = process.env.BRIDGE_DRIVER ?? 'mock'
+/** 朋友圈单独驱动：默认跟随 BRIDGE_DRIVER；显式设 db 时只替换朋友圈路线，聊天仍走原驱动。 */
+const MOMENT_DRIVER_NAME = process.env.BRIDGE_MOMENT_DRIVER?.trim() || DRIVER_NAME
 const QUEUE_FILE = process.env.BRIDGE_QUEUE_FILE ?? join(ROOT, '.bridge-queue.jsonl')
 const MAX_QUEUE = Number(process.env.BRIDGE_MAX_QUEUE ?? 5000)
 const MOMENTS_FILE = process.env.BRIDGE_MOMENTS_FILE ?? join(ROOT, '.bridge-moments.jsonl')
@@ -51,6 +53,7 @@ const IS_MAIN = process.argv[1]
   : false
 
 let driver = null
+let momentDriver = null
 let seq = 0
 let queue = []
 const seenIds = new Set()
@@ -72,9 +75,43 @@ async function loadDriver() {
     const mod = await import('./drivers/uia-readonly.mjs')
     return mod.createDriver()
   }
+  if (DRIVER_NAME === 'db') {
+    const mod = await import('./drivers/db-sidecar.mjs')
+    return mod.createDriver()
+  }
   if (DRIVER_NAME !== 'mock') throw new Error(`未知 BRIDGE_DRIVER：${DRIVER_NAME}`)
   const mod = await import('./drivers/mock.mjs')
   return mod.createDriver()
+}
+
+/** 朋友圈驱动与聊天驱动解耦：db sidecar 只接管 moment.fetch，默认仍走原驱动。 */
+async function loadMomentDriver() {
+  if (MOMENT_DRIVER_NAME === DRIVER_NAME) {
+    if (!driver) driver = await loadDriver()
+    return driver
+  }
+  if (MOMENT_DRIVER_NAME === 'db') {
+    const mod = await import('./drivers/db-sidecar.mjs')
+    return mod.createDriver()
+  }
+  if (MOMENT_DRIVER_NAME === 'uia') {
+    const mod = await import('./drivers/uia-readonly.mjs')
+    return mod.createDriver()
+  }
+  if (MOMENT_DRIVER_NAME === 'ocr') {
+    const mod = await import('./drivers/ocr-readonly.mjs')
+    return mod.createDriver()
+  }
+  if (MOMENT_DRIVER_NAME === 'wcfhttp') {
+    const mod = await import('./drivers/wcfhttp.mjs')
+    return mod.createDriver()
+  }
+  throw new Error(`未知 BRIDGE_MOMENT_DRIVER：${MOMENT_DRIVER_NAME}`)
+}
+
+async function ensureMomentDriver() {
+  if (!momentDriver) momentDriver = await loadMomentDriver()
+  return momentDriver
 }
 
 async function loadQueue() {
@@ -246,10 +283,7 @@ function deriveMomentFields(moments) {
     likes,
     comments,
     authorIdentity,
-    reason:
-      missing.length === 0
-        ? null
-        : `当前驱动只返回正文：${missing.join('、')}均不可得`,
+    reason: missing.length === 0 ? null : `当前驱动只返回正文：${missing.join('、')}均不可得`,
   }
 }
 
@@ -299,12 +333,13 @@ async function fallbackToOcr(body, maxPages, cursor, reason) {
 }
 
 async function runMomentFetch(body) {
-  if (!driver.action) return { status: 'unsupported', reason: '驱动不支持动作' }
+  const momentSource = await ensureMomentDriver()
+  if (!momentSource?.action) return { status: 'unsupported', reason: '驱动不支持动作' }
   const maxPages = Math.min(Math.max(Number(body.maxPages ?? 3) || 3, 1), 30)
   let cursor = Number(body.id ?? 0) || 0
   let all = []
   let pages = 0
-  let source = DRIVER_NAME
+  let source = MOMENT_DRIVER_NAME
   let extraReason = ''
   let stopReason = ''
   let limitReached = false
@@ -314,7 +349,7 @@ async function runMomentFetch(body) {
     const before = momentSeq
     let result
     try {
-      result = await driver.action('moment.fetch', {
+      result = await momentSource.action('moment.fetch', {
         ...body,
         id: cursor,
         maxPages,
@@ -326,7 +361,7 @@ async function runMomentFetch(body) {
         data: { stopReason: 'error' },
       }
     }
-    if (DRIVER_NAME === 'uia' && UIA_FALLBACK_ENABLED && isUiaFailure(result)) {
+    if (MOMENT_DRIVER_NAME === 'uia' && UIA_FALLBACK_ENABLED && isUiaFailure(result)) {
       const reason = result?.reason || 'UIA 驱动未返回可用朋友圈数据'
       const fb = await fallbackToOcr(body, maxPages, cursor, reason)
       if (fb) {
@@ -541,7 +576,9 @@ async function handle(req, res) {
     }
 
     if (path === '/members/map') {
-      const incoming = Array.isArray(body.members) ? body : { members: Array.isArray(body) ? body : [] }
+      const incoming = Array.isArray(body.members)
+        ? body
+        : { members: Array.isArray(body) ? body : [] }
       memberMap = mergeMemberMap(memberMap, incoming)
       memberMap = await saveMemberMap(memberMap)
       return json(res, 200, { ok: true, members: memberMap.members })
@@ -569,6 +606,7 @@ async function handle(req, res) {
             ok: false,
             status: 'unsupported',
             error: result.reason ?? '不支持',
+            reason: result.reason ?? '不支持',
           })
         }
         if (result?.status === 'failed') {
@@ -576,6 +614,7 @@ async function handle(req, res) {
             ok: false,
             status: 'failed',
             error: result.reason ?? '动作失败',
+            reason: result.reason ?? '动作失败',
             data: result.data ?? {},
           })
         }
@@ -638,7 +677,9 @@ if (IS_MAIN) {
   })
 
   server.listen(PORT, HOST, () => {
-    console.log(`[wechat-bridge] listening on http://${HOST}:${PORT} driver=${DRIVER_NAME}`)
+    console.log(
+      `[wechat-bridge] listening on http://${HOST}:${PORT} driver=${DRIVER_NAME} moment=${MOMENT_DRIVER_NAME}`,
+    )
     startDriverPoll()
   })
 }

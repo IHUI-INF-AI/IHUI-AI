@@ -402,6 +402,16 @@ export interface WechatMomentFetchInput {
 }
 
 /** 一条朋友圈动态；OCR 来源可能没有 createdAt/mediaUrls。 */
+export interface WechatMomentCommentView {
+  /** 评论者 wxid；DB sidecar 可拿到，OCR/UIA 通常为空 */
+  username?: string
+  nickname?: string
+  content: string
+  createTime?: number | null
+  commentId?: string | null
+  refCommentId?: string | null
+}
+
 export interface WechatMomentView {
   id: string
   authorId: string | null
@@ -425,6 +435,26 @@ export interface WechatMomentView {
   imageCount?: number
   /** 评论区里读到的原文行；未映射评论作者，也不代表点赞 */
   commentTexts?: string[]
+  /** DB sidecar：真实点赞名单（昵称或 wxid） */
+  likeUsers?: string[]
+  /** DB sidecar：点赞者 wxid 名单（可为空） */
+  likeUserIds?: string[]
+  /** DB sidecar：点赞字段是否真实可得 */
+  likes?: boolean
+  /** DB sidecar：评论字段是否真实可得 */
+  comments?: boolean
+  /** DB sidecar：带作者/时间的评论结构 */
+  commentsData?: WechatMomentCommentView[]
+  /** DB sidecar：视频数量 */
+  videoCount?: number
+  /** DB sidecar：ISO 时间，仅作为 createdAt 的可读副本 */
+  createdAtIso?: string
+  /** DB sidecar 可选图片落盘目录；未开启下载时不返回 */
+  mediaLocalDir?: string
+  /** DB sidecar 是否至少成功落盘一个媒体 */
+  mediaDownloaded?: boolean
+  /** DB sidecar 图片落盘失败原因；票据过期/占位图时出现 */
+  mediaDownloadError?: string
 }
 
 export interface WechatMomentArchiveStat {
@@ -496,6 +526,14 @@ export interface WechatMomentArchiveItemView {
   /** 被重复抓到的次数 */
   seenCount: number
   page?: number
+  /** DB sidecar 真实点赞名单；OCR/UIA 归档时缺省 */
+  likeUsers?: string[]
+  /** DB sidecar 点赞者 wxid 名单 */
+  likeUserIds?: string[]
+  /** DB sidecar 真实评论结构；OCR/UIA 归档时缺省 */
+  commentsData?: WechatMomentCommentView[]
+  likes?: boolean
+  comments?: boolean
 }
 
 /** 归档查询结果；storage 说明这次读的是数据库还是桥本地 JSONL */

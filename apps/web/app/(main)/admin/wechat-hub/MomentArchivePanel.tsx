@@ -96,7 +96,13 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 被抓到 {moment.seenCount} 次
-                {moment.mediaUrls.length > 0 ? ` · ${moment.mediaUrls.length} 张图片` : ''}
+                {moment.mediaUrls.length > 0 ? ` · ${moment.mediaUrls.length} 个媒体` : ''}
+                {moment.likeUsers && moment.likeUsers.length > 0
+                  ? ` · 点赞 ${moment.likeUsers.length} 人`
+                  : ''}
+                {moment.commentsData && moment.commentsData.length > 0
+                  ? ` · 评论 ${moment.commentsData.length} 条`
+                  : ''}
               </p>
             </div>
           ))}

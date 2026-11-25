@@ -20,6 +20,7 @@ import type {
   WechatMomentArchiveItemView,
   WechatMomentArchiveStat,
   WechatMomentArchiveView,
+  WechatMomentCommentView,
   WechatMomentFetchInput,
   WechatMomentFetchResult,
   WechatMomentFieldAvailability,
@@ -504,15 +505,44 @@ export async function publishMoment(
   })
 }
 
+function readMomentComments(raw: unknown): WechatMomentCommentView[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item) => asRecord(item))
+    .filter((item): item is JsonRecord => item !== null)
+    .map((item) => ({
+      ...(asString(item.username) ? { username: asString(item.username) as string } : {}),
+      ...(asString(item.nickname) ? { nickname: asString(item.nickname) as string } : {}),
+      content: asString(item.content) ?? '',
+      ...(typeof item.createTime === 'number' && Number.isFinite(item.createTime)
+        ? { createTime: item.createTime }
+        : {}),
+      ...(asString(item.commentId) ? { commentId: asString(item.commentId) as string } : {}),
+      ...(asString(item.refCommentId)
+        ? { refCommentId: asString(item.refCommentId) as string }
+        : {}),
+    }))
+    .filter((item) => item.content.length > 0)
+}
+
 function readMoment(raw: JsonRecord): WechatMomentView | null {
   const id = asString(raw.id)
-  const content = asString(raw.content)
-  if (!id || !content) return null
+  const content = asString(raw.content) ?? ''
+  const mediaUrls = asStringArray(raw.mediaUrls)
+  const likeUsers = asStringArray(raw.likeUsers)
+  const likeUserIds = asStringArray(raw.likeUserIds)
+  const commentsData = readMomentComments(raw.commentsData)
+  const hasLikes = raw.likes === true || likeUsers.length > 0
+  const hasComments = raw.comments === true || commentsData.length > 0
+  // DB sidecar 可能返回纯图片/纯点赞动态；只丢弃真正空白的行。
+  if (!id || (content.length === 0 && mediaUrls.length === 0 && !hasLikes && !hasComments))
+    return null
   const createdAt =
     typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt) ? raw.createdAt : null
   const page = typeof raw.page === 'number' && Number.isFinite(raw.page) ? raw.page : undefined
   const timeText = asString(raw.timeText)
   const imageCount = asPositiveInt(raw.imageCount)
+  const videoCount = asPositiveInt(raw.videoCount)
   const commentTexts = asStringArray(raw.commentTexts)
   return {
     id,
@@ -520,13 +550,31 @@ function readMoment(raw: JsonRecord): WechatMomentView | null {
     authorName: asString(raw.authorName) ?? '未知好友',
     authorResolved: raw.authorResolved === true,
     content,
-    mediaUrls: asStringArray(raw.mediaUrls),
+    mediaUrls,
     createdAt,
     source: asString(raw.source) ?? 'bridge',
     page,
     ...(timeText !== null ? { timeText } : {}),
     ...(imageCount !== undefined ? { imageCount } : {}),
-    ...(commentTexts.length > 0 ? { commentTexts } : {}),
+    ...(videoCount !== undefined ? { videoCount } : {}),
+    ...(commentTexts.length > 0
+      ? { commentTexts }
+      : commentsData.length > 0
+        ? { commentTexts: commentsData.map((item) => item.content) }
+        : {}),
+    ...(likeUsers.length > 0 ? { likeUsers } : {}),
+    ...(likeUserIds.length > 0 ? { likeUserIds } : {}),
+    ...(hasLikes ? { likes: true } : {}),
+    ...(hasComments ? { comments: true } : {}),
+    ...(commentsData.length > 0 ? { commentsData } : {}),
+    ...(asString(raw.createdAtIso) ? { createdAtIso: asString(raw.createdAtIso) as string } : {}),
+    ...(asString(raw.mediaLocalDir)
+      ? { mediaLocalDir: asString(raw.mediaLocalDir) as string }
+      : {}),
+    ...(raw.mediaDownloaded === true ? { mediaDownloaded: true } : {}),
+    ...(asString(raw.mediaDownloadError)
+      ? { mediaDownloadError: asString(raw.mediaDownloadError) as string }
+      : {}),
   }
 }
 
@@ -561,10 +609,17 @@ function momentKeyOf(moment: WechatMomentView): string {
   return `h:${digest}`
 }
 
-/** 桥本地归档记录归一化成对外视图；缺正文的脏行丢弃。 */
+/** 桥本地归档记录归一化成对外视图；只丢弃真正空白的行。 */
 function readArchiveItem(raw: JsonRecord, index: number): WechatMomentArchiveItemView | null {
-  const content = asString(raw.content)
-  if (!content) return null
+  const content = asString(raw.content) ?? ''
+  const mediaUrls = asStringArray(raw.mediaUrls)
+  const likeUsers = asStringArray(raw.likeUsers)
+  const likeUserIds = asStringArray(raw.likeUserIds)
+  const commentsData = readMomentComments(raw.commentsData)
+  const hasLikes = raw.likes === true || likeUsers.length > 0
+  const hasComments = raw.comments === true || commentsData.length > 0
+  // 纯图片/纯点赞归档也要能展示；只丢弃真正空白的行。
+  if (content.length === 0 && mediaUrls.length === 0 && !hasLikes && !hasComments) return null
   const now = new Date().toISOString()
   const page = typeof raw.page === 'number' && Number.isFinite(raw.page) ? raw.page : undefined
   return {
@@ -573,7 +628,7 @@ function readArchiveItem(raw: JsonRecord, index: number): WechatMomentArchiveIte
     authorName: asString(raw.authorName) ?? '朋友圈好友',
     authorResolved: raw.authorResolved === true,
     content,
-    mediaUrls: asStringArray(raw.mediaUrls),
+    mediaUrls,
     createdAt:
       typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt) ? raw.createdAt : null,
     source: asString(raw.source) ?? 'bridge',
@@ -584,6 +639,11 @@ function readArchiveItem(raw: JsonRecord, index: number): WechatMomentArchiveIte
         ? Math.max(1, Math.floor(raw.seenCount))
         : 1,
     ...(page !== undefined ? { page } : {}),
+    ...(likeUsers.length > 0 ? { likeUsers } : {}),
+    ...(likeUserIds.length > 0 ? { likeUserIds } : {}),
+    ...(hasLikes ? { likes: true } : {}),
+    ...(hasComments ? { comments: true } : {}),
+    ...(commentsData.length > 0 ? { commentsData } : {}),
   }
 }
 
@@ -655,6 +715,11 @@ export async function fetchMoments(
           ...(moment.timeText !== undefined ? { timeText: moment.timeText } : {}),
           ...(moment.imageCount !== undefined ? { imageCount: moment.imageCount } : {}),
           ...(moment.commentTexts !== undefined ? { commentTexts: moment.commentTexts } : {}),
+          ...(moment.likeUsers !== undefined ? { likeUsers: moment.likeUsers } : {}),
+          ...(moment.likeUserIds !== undefined ? { likeUserIds: moment.likeUserIds } : {}),
+          ...(moment.commentsData !== undefined ? { commentsData: moment.commentsData } : {}),
+          ...(moment.likes === true ? { likes: true } : {}),
+          ...(moment.comments === true ? { comments: true } : {}),
         })),
       )
     } catch (e) {

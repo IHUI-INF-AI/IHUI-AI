@@ -12,7 +12,7 @@
 
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { wechatHubMoments } from '@ihui/database'
-import type { WechatMomentArchiveItemView } from '@ihui/types'
+import type { WechatMomentArchiveItemView, WechatMomentCommentView } from '@ihui/types'
 import { db, dbRead } from '../../db/index.js'
 
 /** 单条待归档动态（由 operations 从桥返回的 WechatMomentView 归一化而来）。 */
@@ -32,6 +32,14 @@ export interface MomentArchiveUpsertInput {
   imageCount?: number
   /** 评论原文行；仅非空字符串数组时随归档写进 metadata */
   commentTexts?: string[]
+  /** DB sidecar 真实点赞名单 */
+  likeUsers?: string[]
+  /** DB sidecar 点赞者 wxid 名单 */
+  likeUserIds?: string[]
+  /** DB sidecar 带作者/时间的评论结构 */
+  commentsData?: WechatMomentCommentView[]
+  likes?: boolean
+  comments?: boolean
 }
 
 /**
@@ -47,6 +55,17 @@ function momentMetadata(m: MomentArchiveUpsertInput): Record<string, unknown> {
   if (Array.isArray(m.commentTexts) && m.commentTexts.length > 0) {
     metadata.commentTexts = m.commentTexts
   }
+  if (Array.isArray(m.likeUsers) && m.likeUsers.length > 0) {
+    metadata.likeUsers = m.likeUsers
+  }
+  if (Array.isArray(m.likeUserIds) && m.likeUserIds.length > 0) {
+    metadata.likeUserIds = m.likeUserIds
+  }
+  if (Array.isArray(m.commentsData) && m.commentsData.length > 0) {
+    metadata.commentsData = m.commentsData
+  }
+  if (m.likes === true) metadata.likes = true
+  if (m.comments === true) metadata.comments = true
   return metadata
 }
 
@@ -134,19 +153,65 @@ export async function listMomentsArchive(
     .where(eq(wechatHubMoments.accountId, accountId))
     .orderBy(desc(wechatHubMoments.lastSeenAt))
     .limit(limit)
-  return rows.map((row) => ({
-    id: row.id,
-    authorId: row.authorId,
-    authorName: row.authorName,
-    authorResolved: row.authorResolved,
-    content: row.content,
-    mediaUrls: (row.mediaUrls as string[]) ?? [],
-    createdAt: row.createdAt,
-    source: row.source,
-    firstSeenAt: row.firstSeenAt.toISOString(),
-    lastSeenAt: row.lastSeenAt.toISOString(),
-    seenCount: row.seenCount,
-    ...(row.page !== null && row.page !== undefined ? { page: row.page } : {}),
-  }))
+  return rows.map((row) => {
+    const metadata = (row.metadata ?? {}) as Record<string, unknown>
+    const likeUsers = Array.isArray(metadata.likeUsers)
+      ? metadata.likeUsers.filter(
+          (item): item is string => typeof item === 'string' && item.trim().length > 0,
+        )
+      : []
+    const likeUserIds = Array.isArray(metadata.likeUserIds)
+      ? metadata.likeUserIds.filter(
+          (item): item is string => typeof item === 'string' && item.trim().length > 0,
+        )
+      : []
+    const commentsData = Array.isArray(metadata.commentsData)
+      ? metadata.commentsData
+          .filter(
+            (item): item is Record<string, unknown> =>
+              typeof item === 'object' && item !== null && !Array.isArray(item),
+          )
+          .map((item) => ({
+            ...(typeof item.username === 'string' && item.username
+              ? { username: item.username }
+              : {}),
+            ...(typeof item.nickname === 'string' && item.nickname
+              ? { nickname: item.nickname }
+              : {}),
+            content: typeof item.content === 'string' ? item.content : '',
+            ...(typeof item.createTime === 'number' && Number.isFinite(item.createTime)
+              ? { createTime: item.createTime }
+              : {}),
+            ...(typeof item.commentId === 'string' && item.commentId
+              ? { commentId: item.commentId }
+              : {}),
+            ...(typeof item.refCommentId === 'string' && item.refCommentId
+              ? { refCommentId: item.refCommentId }
+              : {}),
+          }))
+          .filter((item) => item.content.length > 0)
+      : []
+    const hasLikes = metadata.likes === true || likeUsers.length > 0
+    const hasComments = metadata.comments === true || commentsData.length > 0
+    return {
+      id: row.id,
+      authorId: row.authorId,
+      authorName: row.authorName,
+      authorResolved: row.authorResolved,
+      content: row.content,
+      mediaUrls: (row.mediaUrls as string[]) ?? [],
+      createdAt: row.createdAt,
+      source: row.source,
+      firstSeenAt: row.firstSeenAt.toISOString(),
+      lastSeenAt: row.lastSeenAt.toISOString(),
+      seenCount: row.seenCount,
+      ...(row.page !== null && row.page !== undefined ? { page: row.page } : {}),
+      ...(likeUsers.length > 0 ? { likeUsers } : {}),
+      ...(likeUserIds.length > 0 ? { likeUserIds } : {}),
+      ...(hasLikes ? { likes: true } : {}),
+      ...(hasComments ? { comments: true } : {}),
+      ...(commentsData.length > 0 ? { commentsData } : {}),
+    }
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

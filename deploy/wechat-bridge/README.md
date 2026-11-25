@@ -57,24 +57,33 @@ node server.mjs
 
 环境变量：
 
-| 变量                    | 默认                                | 说明                                                                                       |
-| ----------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------ |
-| `BRIDGE_PORT`           | `8848`                              | 桥监听端口                                                                                 |
-| `BRIDGE_HOST`           | `127.0.0.1`                         | 桥监听地址                                                                                 |
-| `BRIDGE_SECRET`         | 空                                  | 非空时 `/status` `/messages` `/moments` `/moments/archive` `/send` `/action` 都要带 Bearer |
-| `BRIDGE_DRIVER`         | `mock`                              | `mock`、`wcfhttp`、`ocr` 或 `uia`                                                          |
-| `WCFHTTP_BASE_URL`      | `http://127.0.0.1:9999`             | wcfhttp 地址                                                                               |
-| `WCFHTTP_PATHS`         | 内置                                | JSON 覆盖各接口路径，适配不同 wcfhttp 版本                                                 |
-| `WCFHTTP_HISTORY_DB`    | 自动探测                            | 历史消息所在库名，如 `MSG0.db`；不填时 `/dbs` 里找含 `MSG` 的库                            |
-| `WCFHTTP_HISTORY_SQL`   | 内置                                | 覆盖历史消息 SQL；支持 `{{limit}}` 占位，默认读 `MSG` 表按 `CreateTime` 倒序               |
-| `BRIDGE_QUEUE_FILE`     | `.bridge-queue.jsonl`               | 入站队列落盘位置                                                                           |
-| `BRIDGE_MOMENTS_FILE`   | `.bridge-moments.jsonl`             | 朋友圈队列落盘位置                                                                         |
-| `BRIDGE_MAX_MOMENTS`    | `500`                               | 朋友圈内存/落盘上限                                                                        |
-| `BRIDGE_MOMENT_ARCHIVE` | `.bridge-ocr/moments-archive.jsonl` | 朋友圈历史归档 JSONL；设为 `0` 或 `off` 可关闭                                             |
-| `BRIDGE_MAX_ARCHIVE`    | `5000`                              | 归档最多保留条数，超出按最后出现时间淘汰旧条目                                             |
-| `BRIDGE_MEMBER_MAP`     | `.bridge-members.json`              | 群昵称 → memberId 映射文件路径；`POST /members/map` 合并写入，启动时加载                   |
-| `BRIDGE_MOMENT_WAIT_MS` | `3500`                              | wcfhttp `/pyq` 后等待 `type=0` 回调的时间，500-15000ms                                     |
-| `BRIDGE_MAX_QUEUE`      | `5000`                              | 队列最多保留条数                                                                           |
+| 变量                       | 默认                                | 说明                                                                                       |
+| -------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------ |
+| `BRIDGE_PORT`              | `8848`                              | 桥监听端口                                                                                 |
+| `BRIDGE_HOST`              | `127.0.0.1`                         | 桥监听地址                                                                                 |
+| `BRIDGE_SECRET`            | 空                                  | 非空时 `/status` `/messages` `/moments` `/moments/archive` `/send` `/action` 都要带 Bearer |
+| `BRIDGE_DRIVER`            | `mock`                              | `mock`、`wcfhttp`、`ocr` 或 `uia`                                                          |
+| `BRIDGE_MOMENT_DRIVER`     | 跟随 `BRIDGE_DRIVER`                | 单独指定朋友圈驱动；可设 `db`，聊天仍由 `BRIDGE_DRIVER` 负责                               |
+| `BRIDGE_DB_SIDECAR`        | `off`                               | 只有设为 `on` 才允许调用 DB sidecar；默认关闭，显式授权后才读本地 `sns.db`                 |
+| `BRIDGE_DB_PYTHON`         | `python`                            | DB sidecar 的独立 venv Python；不要把第三方包装进本仓                                      |
+| `BRIDGE_DB_DIR`            | 空                                  | 微信 `xwechat_files` 根目录                                                                |
+| `BRIDGE_DB_ACCOUNT`        | 空                                  | 账号目录名，如 `ok502319984_e7c6`                                                          |
+| `BRIDGE_DB_WORKDIR`        | 空                                  | DB sidecar 解密工作缓存目录                                                                |
+| `BRIDGE_DB_MEDIA_DIR`      | 空                                  | 可选图片落盘目录；qpic 票据过期时 sidecar 只报错，不写占位图                               |
+| `BRIDGE_DB_MEDIA_DOWNLOAD` | `0`                                 | 设为 `1` 才尝试下载媒体；仍只保留真实图片，占位图拒绝落盘                                  |
+| `BRIDGE_DB_LIMIT`          | `0`                                 | DB sidecar 最多导出多少条；`0` 为全量                                                      |
+| `WCFHTTP_BASE_URL`         | `http://127.0.0.1:9999`             | wcfhttp 地址                                                                               |
+| `WCFHTTP_PATHS`            | 内置                                | JSON 覆盖各接口路径，适配不同 wcfhttp 版本                                                 |
+| `WCFHTTP_HISTORY_DB`       | 自动探测                            | 历史消息所在库名，如 `MSG0.db`；不填时 `/dbs` 里找含 `MSG` 的库                            |
+| `WCFHTTP_HISTORY_SQL`      | 内置                                | 覆盖历史消息 SQL；支持 `{{limit}}` 占位，默认读 `MSG` 表按 `CreateTime` 倒序               |
+| `BRIDGE_QUEUE_FILE`        | `.bridge-queue.jsonl`               | 入站队列落盘位置                                                                           |
+| `BRIDGE_MOMENTS_FILE`      | `.bridge-moments.jsonl`             | 朋友圈队列落盘位置                                                                         |
+| `BRIDGE_MAX_MOMENTS`       | `500`                               | 朋友圈内存/落盘上限                                                                        |
+| `BRIDGE_MOMENT_ARCHIVE`    | `.bridge-ocr/moments-archive.jsonl` | 朋友圈历史归档 JSONL；设为 `0` 或 `off` 可关闭                                             |
+| `BRIDGE_MAX_ARCHIVE`       | `5000`                              | 归档最多保留条数，超出按最后出现时间淘汰旧条目                                             |
+| `BRIDGE_MEMBER_MAP`        | `.bridge-members.json`              | 群昵称 → memberId 映射文件路径；`POST /members/map` 合并写入，启动时加载                   |
+| `BRIDGE_MOMENT_WAIT_MS`    | `3500`                              | wcfhttp `/pyq` 后等待 `type=0` 回调的时间，500-15000ms                                     |
+| `BRIDGE_MAX_QUEUE`         | `5000`                              | 队列最多保留条数                                                                           |
 
 驱动同时兼容两种常见 wcfhttp：PascalCase 的 `/api/GetContacts`、`/api/SendText`，以及 yuxiaoli/wcf-http 的 `/contacts`、`/text`、`/chatroom-member`。前者 404/405 时自动降级到后者；群创建、群改名、删好友仍需要 PascalCase 版本。
 
@@ -134,6 +143,22 @@ UIA 驱动失败（抛错、`ok=false`、或 0 条且 `stopReason=error`）且 `
 | `BRIDGE_UIA_DIR`        | `.bridge-uia`          | UIA 帧 JSON 落盘目录                                                             |
 | `BRIDGE_UIA_FALLBACK`   | `on`                   | `uia` 失败后自动回退 OCR；`off` 关闭回退                                         |
 | `BRIDGE_UIA_FORCE_FAIL` | `0`                    | `1` 时 UIA 驱动直接失败、不触碰微信，专供回退测试                                |
+
+## 可选：本地 DB sidecar（默认关闭，显式授权）
+
+UIA/OCR 拿不到图片 URL、点赞、评论、折叠全文和作者 wxid 时，可另起独立 DB sidecar。它不 vendor 第三方包，只在外部 venv 安装 `wechatauto-replica`，通过 `BRIDGE_MOMENT_DRIVER=db` 接管朋友圈；聊天仍走原 `BRIDGE_DRIVER`。默认 `BRIDGE_DB_SIDECAR=off`，不设 `on` 时驱动直接返回 `unsupported`，绝不自动读库。
+
+```powershell
+$env:BRIDGE_DRIVER='ocr'
+$env:BRIDGE_MOMENT_DRIVER='db'
+$env:BRIDGE_DB_SIDECAR='on'
+$env:BRIDGE_DB_PYTHON='C:\caches\temp\wxauto-venv\Scripts\python.exe'
+$env:BRIDGE_DB_DIR='C:\Users\<user>\Documents\xwechat_files'
+$env:BRIDGE_DB_ACCOUNT='<account_dir>'
+node server.mjs
+```
+
+完整安全边界、venv 安装和图片落盘说明见 `deploy/wechat-db-sidecar/README.md`。DB sidecar 会读取微信进程内存中的 SQLCipher 密钥并解密本地库，属于强授权操作；只允许本人账号、本机离线环境使用。图片 URL 的 qpic 票据可能过期并返回「暂时无法查看」占位图，sidecar 会拒绝写入占位图并把失败计入 `mediaDownloadErrors`，不会拿占位图冒充真实照片。
 
 ## 在 IHUI 里挂账号
 

@@ -184,7 +184,32 @@ export default function MomentCard({ accountId }: { accountId: string }) {
                     <p className="mt-1 whitespace-pre-wrap break-words">{moment.content}</p>
                     {moment.mediaUrls.length > 0 ? (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {moment.mediaUrls.length} 张图片
+                        {moment.mediaUrls.length} 个媒体
+                        {moment.imageCount ? ` · ${moment.imageCount} 张图片` : ''}
+                        {moment.videoCount ? ` · ${moment.videoCount} 段视频` : ''}
+                      </p>
+                    ) : null}
+                    {moment.mediaDownloadError ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        图片未落盘：{moment.mediaDownloadError}
+                      </p>
+                    ) : null}
+                    {moment.likeUsers && moment.likeUsers.length > 0 ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        点赞：{moment.likeUsers.slice(0, 6).join('、')}
+                        {moment.likeUsers.length > 6 ? ` 等 ${moment.likeUsers.length} 人` : ''}
+                      </p>
+                    ) : null}
+                    {moment.commentsData && moment.commentsData.length > 0 ? (
+                      <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
+                        评论：
+                        {moment.commentsData
+                          .slice(0, 4)
+                          .map((item) => item.content)
+                          .join(' / ')}
+                        {moment.commentsData.length > 4
+                          ? ` 等 ${moment.commentsData.length} 条`
+                          : ''}
                       </p>
                     ) : null}
                     {extra ? <p className="mt-1 text-xs text-muted-foreground">{extra}</p> : null}

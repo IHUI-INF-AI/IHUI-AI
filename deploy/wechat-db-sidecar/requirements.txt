@@ -1,0 +1,3 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# 第三方可选依赖：只安装到独立 venv，不 vendor 进本仓。
+wechatauto-replica==1.3.0.2

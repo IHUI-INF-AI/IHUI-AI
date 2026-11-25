@@ -148,9 +148,17 @@ function validCommentTexts(moment: WechatMomentView): string[] {
   )
 }
 
+/** DB sidecar 点赞名单；OCR/UIA 不返回时为空。 */
+function validLikeUsers(moment: WechatMomentView): string[] {
+  if (!Array.isArray(moment.likeUsers)) return []
+  return moment.likeUsers.filter(
+    (item): item is string => typeof item === 'string' && item.trim().length > 0,
+  )
+}
+
 /**
- * 单条动态的摘要行：图片数量 · 相对时间 · 评论条数，按这个顺序用「 · 」拼接。
- * 任一项缺失或为脏值都自动不显示；三项都没有时返回 null，由调用方决定是否渲染。
+ * 单条动态的摘要行：图片数量 · 相对时间 · 点赞人数 · 评论条数，按这个顺序用「 · 」拼接。
+ * 任一项缺失或为脏值都自动不显示；四项都没有时返回 null，由调用方决定是否渲染。
  */
 export function formatMomentExtra(moment: WechatMomentView | null | undefined): string | null {
   if (!moment) return null
@@ -159,6 +167,8 @@ export function formatMomentExtra(moment: WechatMomentView | null | undefined): 
   if (imageCount !== undefined) segments.push(`${imageCount} 张图片`)
   const timeText = typeof moment.timeText === 'string' ? moment.timeText.trim() : ''
   if (timeText) segments.push(timeText)
+  const likes = validLikeUsers(moment)
+  if (likes.length > 0) segments.push(`${likes.length} 人点赞`)
   const comments = validCommentTexts(moment)
   if (comments.length > 0) segments.push(`${comments.length} 条评论`)
   return segments.length > 0 ? segments.join(' · ') : null
