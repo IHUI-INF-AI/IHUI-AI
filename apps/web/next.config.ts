@@ -224,6 +224,13 @@ const nextConfig: NextConfig = {
     return config
   },
   experimental: {
+    // 2026-11-25 朋友圈全量遍历:Next dev 的 rewrite 反代默认 30s 超时
+    // (next/dist/server/lib/router-utils/proxy-request.js 的 `proxyTimeout || 30000`)。
+    // DB sidecar 导出 715 条并校验媒体常超过 30s,会在 Next 这一层先返回 500
+    // 「Internal Server Error」,前端根本等不到 API 的 360s 预算。
+    // 这里放到 400s,覆盖 API 的 moment.fetch 360s；生产 /api/* 由 nginx 直连
+    // API,不经过这条 dev rewrite。
+    proxyTimeout: 400_000,
     // 2026-09-07 构建缓解:关闭 Next 前端 CSS 压缩(lightningcss)。
     // 说明:实测 Tailwind v4 会把多份导入展开成一条 ~271KB 单行 CSS,前端 CSS 管线
     // (lightningcss,与 Turbopack/webpack 无关)偶发在此巨行上报假性 "Unexpected token
