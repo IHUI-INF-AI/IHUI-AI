@@ -18,6 +18,12 @@
  * 修复:SW_BUILD_ID 由构建期注入(见 scripts/stamp-sw-version.mjs),每次部署唯一,
  * 保证 sw.js 字节必变 ⇒ 必然触发更新 ⇒ activate 里清掉旧 cache。
  * 若该占位符未被替换(本地直开 / 未走构建脚本),退化为带时间戳的兜底值而不是固定串。
+ *
+ * ⚠️ push 订阅腿的现状(2026-11-26 实测,别读错):本文件里的 `push` 监听**目前没有触发源** ——
+ * 前端全仓 0 处 `pushManager.subscribe`、服务端 0 处 web-push/VAPID 发送,所以"关闭标签页
+ * 还能响"在浏览器里并不成立(桌面 App 只要进程在、网页只要标签页在,都由页面内铃声负责)。
+ * 监听本体保留并已把"有可见窗口 ⇒ silent"的防双响逻辑做对:将来接入 VAPID 订阅时直接生效,
+ * 不需要再改这里。谁要宣称"关页也响",先补齐 subscribe + 服务端 web-push 两条腿再改这句话。
  */
 /*
  * SW_BUILD_ID 由构建期注入(见 scripts/stamp-sw-version.mjs)。
