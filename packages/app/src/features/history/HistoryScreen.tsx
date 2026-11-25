@@ -6,6 +6,7 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
+import { History } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { HistoryItem, HistoryScreenProps, HistoryTargetType } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
@@ -71,7 +72,11 @@ export function HistoryScreen({
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {items.length === 0 ? (
-            <EmptyState title={t('history.empty')} colorScheme={colorScheme} />
+            <EmptyState
+              icon={<History size={26} color={tk.text.secondary} />}
+              title={t('history.empty')}
+              colorScheme={colorScheme}
+            />
           ) : (
             items.map((item: HistoryItem) => (
               <PressableCard

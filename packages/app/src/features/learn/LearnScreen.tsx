@@ -114,7 +114,11 @@ export function LearnScreen({
           <View style={styles.section}>
             {renderSectionHeader('学习路径', onOpenBrowse)}
             {paths.length === 0 ? (
-              <EmptyState title={t('learnMapPage.empty')} colorScheme={colorScheme} />
+              <EmptyState
+                icon={<BookOpen size={26} color={tk.text.secondary} />}
+                title={t('learnMapPage.empty')}
+                colorScheme={colorScheme}
+              />
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.horizontalList}>
@@ -170,7 +174,11 @@ export function LearnScreen({
           <View style={styles.section}>
             {renderSectionHeader('推荐课程', onOpenBrowse)}
             {recommended.length === 0 ? (
-              <EmptyState title="暂无推荐" colorScheme={colorScheme} />
+              <EmptyState
+                icon={<BookOpen size={26} color={tk.text.secondary} />}
+                title="暂无推荐"
+                colorScheme={colorScheme}
+              />
             ) : (
               <View style={styles.courseList}>
                 {recommended.map((item) => {
@@ -289,7 +297,7 @@ function createStyles(tk: AppThemeTokens) {
       width: 140,
       borderRadius: rnRadius.lg,
       overflow: 'hidden',
-      backgroundColor: tk.surface.light,
+      backgroundColor: tk.surface.card,
     } as ViewStyle,
     pathCover: {
       width: '100%',
@@ -336,7 +344,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       borderRadius: rnRadius.lg,
       overflow: 'hidden',
-      backgroundColor: tk.surface.light,
+      backgroundColor: tk.surface.card,
     } as ViewStyle,
     courseImageWrap: {
       width: 110,

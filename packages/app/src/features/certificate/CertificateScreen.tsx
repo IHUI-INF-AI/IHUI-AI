@@ -6,6 +6,7 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { View, Text, ScrollView, RefreshControl, StyleSheet } from 'react-native'
+import { Award } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CertificateItem, CertificateScreenProps, CertificateStatus } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
@@ -78,6 +79,7 @@ export function CertificateScreen({
         >
           {items.length === 0 ? (
             <EmptyState
+              icon={<Award size={26} color={tk.text.secondary} />}
               title={t('certificate.download.noCertificates')}
               colorScheme={colorScheme}
             />
