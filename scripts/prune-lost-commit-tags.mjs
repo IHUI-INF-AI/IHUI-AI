@@ -29,6 +29,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { gitRaw } from './lib/face-reader.mjs'
+import { pruneBundles } from './lib/bundle-retain.mjs'
 
 const ROOT = resolve(process.cwd())
 const APPLY = process.argv.includes('--apply')
@@ -43,6 +44,9 @@ const argOf = (name, dflt) => {
 const MAX_KEEP = argOf('--max-keep', 50)
 const KEEP_DAYS = argOf('--keep-days', 3)
 const BUNDLE_CHUNK = 200
+// 仓外归档保留份数（2026-11-25，与 prune-repo-bloat 同源口径）：只把 bundle 挪出仓库
+// 不老化 = 把膨胀换了个位置。
+const BUNDLE_RETAIN = argOf('--bundle-retain', Number(process.env.IHUI_BUNDLE_RETAIN ?? 3))
 const STATE_DIR = join(ROOT, '.ihui-agent', 'state', 'lost-commit-prune')
 // 2026-11-25 立（与 prune-repo-bloat.mjs 同源口径）：旧历史 bundle 可达 GB 级，落进仓库工作树
 // 属纯磁盘膨胀（虽被 .gitignore 的 *.bundle 挡在 git 之外）。默认落仓外兄弟目录。
@@ -159,6 +163,12 @@ for (let i = 0; i < dropUnreach.length; i += BUNDLE_CHUNK) {
   if (gitTry(args, { timeout: 1_800_000 }) === null) die(1, `bundle 失败（${chunk.length} 枚）⇒ 整批不删`)
   if (gitTry(['bundle', 'verify', file]) === null) die(1, `bundle 复核失败（${file}）⇒ 整批不删`)
   bundled += chunk.length
+}
+// 仓外冷归档老化（2026-11-25）：只在新 bundle 已写成功并 verify 之后调用。
+{
+  const aged = pruneBundles(BUNDLE_DIR, { retain: BUNDLE_RETAIN })
+  if (aged.removed.length) console.log(`   ✓ 仓外归档老化：保留最近 ${BUNDLE_RETAIN} 份，删 ${aged.removed.length} 份更老的`)
+  if (aged.skipped) console.log(`   ℹ️ 仓外归档老化未判定：${aged.skipped}`)
 }
 
 const dropAll = [...dropReach, ...dropUnreach]
