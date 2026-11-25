@@ -1390,6 +1390,32 @@ async def test_task_and_checkpoint_multi_viewer_snapshots():
     assert checkpoint_events[-1]["progress"]["total"] == 2
 
 
+async def test_checkpoint_waiting_times_out_without_auto_resume(monkeypatch):
+    """超时只广播 timed_out,phase 仍 waiting、检查点仍 active,必须人点继续。"""
+    monkeypatch.setattr(bh, "CHECKPOINT_WAIT_TIMEOUT_SECONDS", 1.2)
+    session = _make_session(page=FakePage(url="https://a.com/"))
+    events: list[dict] = []
+
+    async def on_checkpoint(state):
+        events.append(state)
+
+    await session.set_checkpoint_handler(on_checkpoint)
+    await session.start_task(_task_payload())
+    await session.enter_checkpoint("checkout")
+    assert events[-1]["checkpoint"]["timed_out"] is False
+    assert session._phase_state["phase"] == "waiting"
+
+    await asyncio.sleep(1.5)
+    assert events[-1]["checkpoint"]["timed_out"] is True
+    assert events[-1]["checkpoint"]["status"] == "active"
+    assert session._phase_state["phase"] == "waiting"
+    assert session._task["checkpoints"][0]["status"] == "active"
+
+    await session.resume_checkpoint("checkout")
+    assert session._task["checkpoints"][0]["status"] == "done"
+    assert session._phase_state["phase"] == "running"
+
+
 async def test_clear_task_and_close_reset_task_state():
     session = _make_session(page=FakePage(url="https://a.com/"))
     await session.start_task(_task_payload())

@@ -84,6 +84,8 @@ export interface BrowserPipCheckpoint {
   status: BrowserPipCheckpointStatus
   enteredAt: string | null
   doneAt: string | null
+  /** 服务端只读信号:等待超过上限;仍保持 active,绝不自动恢复。 */
+  timedOut: boolean
 }
 
 export interface BrowserPipTask {
@@ -137,6 +139,7 @@ export function normalizeBrowserPipTask(raw: unknown): BrowserPipTask | null {
       status: normalizeCheckpointStatus(cp.status),
       enteredAt: asString(cp.entered_at ?? cp.enteredAt) || null,
       doneAt: asString(cp.done_at ?? cp.doneAt) || null,
+      timedOut: cp.timed_out === true || cp.timedOut === true,
     })
   }
   if (checkpoints.length === 0) return null

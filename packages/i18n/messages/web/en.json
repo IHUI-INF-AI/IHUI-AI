@@ -9560,6 +9560,7 @@
     ,
       "checkpointProgress": "Checkpoint {done}/{total}",
       "checkpointWaiting": "Waiting for you: {label}",
+      "checkpointTimeout": "Waiting timed out: {label}. Take over recommended",
       "continueLabel": "Done, continue",
       "taskFailed": "Action not delivered; retry or take over",
       "templateMenuLabel": "Watch by template",

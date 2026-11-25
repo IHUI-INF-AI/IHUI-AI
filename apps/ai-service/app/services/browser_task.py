@@ -32,6 +32,11 @@ MAX_LABEL_KEY_CHARS = 48
 MAX_MATCH_CHARS = 24
 MAX_TEMPLATE_ID_CHARS = 32
 
+#: 检查点等待超过这个时长就标记 `timed_out`,但**绝不自动恢复**:
+#: 人工确认不能因为等得久就被机器代签。超时只改变展示与审计信号,
+#: 仍由人点「已处理,继续」或接管。
+CHECKPOINT_WAIT_TIMEOUT_SECONDS = 15 * 60
+
 #: 检查点 id / 模板 id 共用的安全字符集。只允许小写,避免大小写两套 id 指向同一项。
 _ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 
@@ -54,6 +59,17 @@ class TaskValidationError(ValueError):
 
 def _now_iso() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _parse_iso(value: object) -> datetime | None:
+    """解析任务里的 ISO 时间;坏值返回 None,不让一条脏时间打断快照。"""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed
 
 
 def _normalize_id(raw: object, *, field: str, code: str) -> str:
@@ -215,6 +231,58 @@ def normalize_task(payload: object) -> dict[str, Any]:
     }
 
 
+def checkpoint_timed_out(
+    checkpoint: dict[str, Any] | None,
+    *,
+    now: datetime | None = None,
+    timeout_seconds: float = CHECKPOINT_WAIT_TIMEOUT_SECONDS,
+) -> bool:
+    """active 检查点是否已超过等待上限;从不改变状态。"""
+    if not checkpoint or checkpoint.get("status") != CHECKPOINT_ACTIVE:
+        return False
+    entered = _parse_iso(checkpoint.get("entered_at"))
+    if entered is None:
+        return False
+    current = now or datetime.now(UTC)
+    return (current - entered).total_seconds() >= timeout_seconds
+
+
+def checkpoint_wait_remaining(
+    checkpoint: dict[str, Any] | None,
+    *,
+    now: datetime | None = None,
+    timeout_seconds: float = CHECKPOINT_WAIT_TIMEOUT_SECONDS,
+) -> float | None:
+    """距超时还剩几秒;不是 active/没有进入时间就返回 None,已超时返回 0。"""
+    if not checkpoint or checkpoint.get("status") != CHECKPOINT_ACTIVE:
+        return None
+    entered = _parse_iso(checkpoint.get("entered_at"))
+    if entered is None:
+        return None
+    current = now or datetime.now(UTC)
+    return max(0.0, timeout_seconds - (current - entered).total_seconds())
+
+
+def checkpoint_snapshot(
+    checkpoint: dict[str, Any],
+    *,
+    timeout_seconds: float = CHECKPOINT_WAIT_TIMEOUT_SECONDS,
+) -> dict[str, Any]:
+    """单个检查点的对外快照;`timed_out` 是派生值,不写回会话状态。"""
+    return {
+        "id": checkpoint.get("id"),
+        "label": checkpoint.get("label"),
+        "label_key": checkpoint.get("label_key"),
+        "match": checkpoint.get("match"),
+        "status": checkpoint.get("status", CHECKPOINT_PENDING),
+        "entered_at": checkpoint.get("entered_at"),
+        "done_at": checkpoint.get("done_at"),
+        "timed_out": checkpoint_timed_out(
+            checkpoint, timeout_seconds=timeout_seconds
+        ),
+    }
+
+
 def task_snapshot(task: dict[str, Any] | None) -> dict[str, Any] | None:
     """返回可 JSON 序列化的任务快照(深拷贝,不让调用方改到会话内状态)。"""
     if not task:
@@ -225,16 +293,7 @@ def task_snapshot(task: dict[str, Any] | None) -> dict[str, Any] | None:
         "goal": task.get("goal"),
         "requirements": [str(item) for item in task.get("requirements") or []],
         "checkpoints": [
-            {
-                "id": cp.get("id"),
-                "label": cp.get("label"),
-                "label_key": cp.get("label_key"),
-                "match": cp.get("match"),
-                "status": cp.get("status", CHECKPOINT_PENDING),
-                "entered_at": cp.get("entered_at"),
-                "done_at": cp.get("done_at"),
-            }
-            for cp in task.get("checkpoints") or []
+            checkpoint_snapshot(cp) for cp in task.get("checkpoints") or []
         ],
         "status": task.get("status", TASK_ACTIVE),
         "created_at": task.get("created_at"),

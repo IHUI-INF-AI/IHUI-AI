@@ -58,6 +58,7 @@ export interface BrowserPipLabels extends BrowserPipBaseLabels {
   /** 检查点任务条 */
   checkpointProgress: (done: number, total: number) => string
   checkpointWaiting: (label: string) => string
+  checkpointTimeout: (label: string) => string
   continueLabel: string
   taskFailed: string
   /** 内置检查点 label_key → 本地化文案;缺省时回退服务端 label。 */
@@ -414,7 +415,9 @@ export async function openBrowserPipMonitor(
     const activeCheckpoint = taskView?.active ?? null
     const statusLabel =
       status.kind === 'waiting' && activeCheckpoint
-        ? labels.checkpointWaiting(checkpointText(activeCheckpoint))
+        ? activeCheckpoint.timedOut
+          ? labels.checkpointTimeout(checkpointText(activeCheckpoint))
+          : labels.checkpointWaiting(checkpointText(activeCheckpoint))
         : textFor(status.kind, status.stalledSeconds)
     statusText.textContent = statusLabel
     syncContinue()

@@ -33,6 +33,7 @@ const LABELS: BrowserPipLabels = {
   tooSmall: 'Window too small',
   checkpointProgress: (done, total) => `Checkpoint ${done}/${total}`,
   checkpointWaiting: (label) => `Waiting for you: ${label}`,
+  checkpointTimeout: (label) => `Waiting timed out: ${label}`,
   continueLabel: 'Done, continue',
   taskFailed: 'Action not delivered',
   checkpointLabels: { ck_payment_confirm_pay: 'Confirm before payment' },
@@ -234,6 +235,36 @@ describe('openBrowserPipMonitor:真实浮窗 DOM 与状态流转', () => {
       phase: 'running',
     })
     expect((continueBtn as HTMLElement).style.display).toBe('none')
+  })
+
+  it('检查点等待超时:只换提示文案,「继续」仍然可用', async () => {
+    const { openBrowserPipMonitor } = await import('../browser-pip')
+    const handle = await openBrowserPipMonitor({ sessionId: 'session-timeout', labels: LABELS })
+    const win = opened!.win
+    FakeWebSocket.instances[0]!.emitOpen()
+
+    handle!.setTask({
+      task_id: 'task_timeout',
+      goal: '完成支付',
+      checkpoints: [
+        {
+          id: 'pay',
+          label: '付款前确认',
+          status: 'active',
+          entered_at: '2026-11-25T00:00:00Z',
+          timed_out: true,
+        },
+      ],
+    })
+    handle!.setPhase('waiting')
+
+    expect(win.document.body.textContent).toContain('Waiting timed out: 付款前确认')
+    expect(win.document.body.textContent).not.toContain('Waiting for you: 付款前确认')
+    const continueBtn = Array.from(win.document.querySelectorAll('button')).find(
+      (candidate) => candidate.textContent === 'Done, continue',
+    )
+    expect(continueBtn).toBeTruthy()
+    expect((continueBtn as HTMLElement).style.display).not.toBe('none')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

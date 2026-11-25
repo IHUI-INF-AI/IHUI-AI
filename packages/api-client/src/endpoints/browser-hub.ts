@@ -147,10 +147,13 @@ export interface BrowserTaskTemplate {
 export interface BrowserTaskCheckpoint {
   id: string
   label: string
+  label_key: string | null
   match: string | null
   status: 'pending' | 'active' | 'done'
   entered_at: string | null
   done_at: string | null
+  /** 服务端派生:超过等待上限;仍保持 active,不会自动恢复。 */
+  timed_out: boolean
 }
 
 /** 会话内任务快照 */

@@ -57,8 +57,12 @@ from playwright.sync_api import (
 
 from ..core.logging import get_logger
 from .browser_task import (
+    CHECKPOINT_WAIT_TIMEOUT_SECONDS,
     TaskValidationError,
     active_checkpoint,
+    checkpoint_snapshot,
+    checkpoint_timed_out,
+    checkpoint_wait_remaining,
     first_unfinished_match,
     mark_checkpoint_active,
     mark_checkpoint_done,
@@ -989,6 +993,7 @@ class BrowserSession:
         # 检查点进入 = phase waiting(source=checkpoint),只有 resume 能解除,
         # ask_user_question / gate 的自动状态不能把它顶掉。
         self._task: dict[str, Any] | None = None
+        self._checkpoint_timeout_task: asyncio.Task[None] | None = None
         self._task_handlers: list[
             Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
         ] = []
@@ -1369,15 +1374,43 @@ class BrowserSession:
             except Exception as e:
                 logger.debug(f"[browser_hub] task 观众接收失败(跳过): {e}")
 
+    def _cancel_checkpoint_timeout(self) -> None:
+        task = self._checkpoint_timeout_task
+        self._checkpoint_timeout_task = None
+        if task is not None and not task.done():
+            task.cancel()
+
+    def _schedule_checkpoint_timeout(self, checkpoint: dict[str, Any] | None) -> None:
+        """给 active 检查点挂一次性超时提醒;只广播 timed_out,绝不自动恢复。"""
+        self._cancel_checkpoint_timeout()
+        remaining = checkpoint_wait_remaining(
+            checkpoint, timeout_seconds=CHECKPOINT_WAIT_TIMEOUT_SECONDS
+        )
+        if remaining is None or remaining <= 0:
+            return
+        self._checkpoint_timeout_task = asyncio.create_task(
+            self._checkpoint_timeout_watch(str(checkpoint.get("id")), remaining + 0.05)
+        )
+
+    async def _checkpoint_timeout_watch(self, checkpoint_id: str, delay: float) -> None:
+        try:
+            await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            return
+        active = active_checkpoint(self._task)
+        if active is None or str(active.get("id")) != checkpoint_id:
+            return
+        if not checkpoint_timed_out(
+            active, timeout_seconds=CHECKPOINT_WAIT_TIMEOUT_SECONDS
+        ):
+            return
+        await self._broadcast_checkpoint(active)
+
     async def _broadcast_checkpoint(self, checkpoint: dict[str, Any]) -> None:
         state = {
-            "checkpoint": {
-                "id": checkpoint.get("id"),
-                "label": checkpoint.get("label"),
-                "status": checkpoint.get("status"),
-                "entered_at": checkpoint.get("entered_at"),
-                "done_at": checkpoint.get("done_at"),
-            },
+            "checkpoint": checkpoint_snapshot(
+                checkpoint, timeout_seconds=CHECKPOINT_WAIT_TIMEOUT_SECONDS
+            ),
             "task": task_snapshot(self._task),
             "progress": task_progress(self._task),
         }
@@ -1392,6 +1425,7 @@ class BrowserSession:
     async def start_task(self, payload: object) -> dict[str, Any]:
         """绑定任务模板。非法载荷抛 TaskValidationError,由路由转 400。"""
         task = normalize_task(payload)
+        self._cancel_checkpoint_timeout()
         self._task = task
         # 旧任务的检查点等待不能带到新任务上:新任务从 running 起跑。
         if self._phase_state.get("phase") == "waiting" and str(
@@ -1404,6 +1438,7 @@ class BrowserSession:
         return snapshot
 
     async def clear_task(self) -> None:
+        self._cancel_checkpoint_timeout()
         self._task = None
         if self._phase_state.get("phase") == "waiting" and str(
             self._phase_state.get("reason") or ""
@@ -1423,12 +1458,11 @@ class BrowserSession:
         active = active_checkpoint(self._task)
         if active is not None and str(active.get("id")) == str(checkpoint_id):
             # 幂等:自动化轮询式调用不会把同一个检查点反复广播成新事件。
+            self._schedule_checkpoint_timeout(active)
             return {
-                "checkpoint": {
-                    "id": active.get("id"),
-                    "label": active.get("label"),
-                    "status": active.get("status"),
-                },
+                "checkpoint": checkpoint_snapshot(
+                    active, timeout_seconds=CHECKPOINT_WAIT_TIMEOUT_SECONDS
+                ),
                 "task": task_snapshot(self._task),
             }
         checkpoint = mark_checkpoint_active(self._task, checkpoint_id)
@@ -1438,13 +1472,12 @@ class BrowserSession:
             reason or f"checkpoint:{label}",
             source="checkpoint",
         )
+        self._schedule_checkpoint_timeout(checkpoint)
         await self._broadcast_checkpoint(checkpoint)
         return {
-            "checkpoint": {
-                "id": checkpoint.get("id"),
-                "label": checkpoint.get("label"),
-                "status": checkpoint.get("status"),
-            },
+            "checkpoint": checkpoint_snapshot(
+                checkpoint, timeout_seconds=CHECKPOINT_WAIT_TIMEOUT_SECONDS
+            ),
             "task": task_snapshot(self._task),
         }
 
@@ -1458,6 +1491,7 @@ class BrowserSession:
             if active is None:
                 raise TaskValidationError("checkpoint_not_active", "当前没有等待中的检查点")
             target = str(active.get("id"))
+        self._cancel_checkpoint_timeout()
         checkpoint = mark_checkpoint_done(self._task, target)
         if self._phase_state.get("phase") == "waiting" and str(
             self._phase_state.get("reason") or ""
@@ -1470,11 +1504,9 @@ class BrowserSession:
                 await self.set_phase("running", None, source="checkpoint")
         await self._broadcast_checkpoint(checkpoint)
         return {
-            "checkpoint": {
-                "id": checkpoint.get("id"),
-                "label": checkpoint.get("label"),
-                "status": checkpoint.get("status"),
-            },
+            "checkpoint": checkpoint_snapshot(
+                checkpoint, timeout_seconds=CHECKPOINT_WAIT_TIMEOUT_SECONDS
+            ),
             "task": task_snapshot(self._task),
         }
 
@@ -1699,6 +1731,7 @@ class BrowserSession:
     # ---- 关闭 ----
     async def close(self) -> None:
         """关闭会话。"""
+        self._cancel_checkpoint_timeout()
         self._task = None
         await self.stop_screencast()
         def _sync_close() -> None:

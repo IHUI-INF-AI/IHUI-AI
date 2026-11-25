@@ -9560,6 +9560,7 @@
     ,
       "checkpointProgress": "檢查點 {done}/{total}",
       "checkpointWaiting": "等待確認：{label}",
+      "checkpointTimeout": "等待逾時：{label}，建議接管",
       "continueLabel": "已處理，繼續",
       "taskFailed": "操作未送達，請重試或接管",
       "templateMenuLabel": "依範本監看",

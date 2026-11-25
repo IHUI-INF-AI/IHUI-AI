@@ -31,6 +31,7 @@ export function useBrowserPipLabels(): BrowserPipLabels {
     checkpointProgress: (done: number, total: number) =>
       t('checkpointProgress', { done, total }),
     checkpointWaiting: (label: string) => t('checkpointWaiting', { label }),
+    checkpointTimeout: (label: string) => t('checkpointTimeout', { label }),
     continueLabel: t('continueLabel'),
     taskFailed: t('taskFailed'),
     checkpointLabels: {

@@ -9595,6 +9595,7 @@
     ,
       "checkpointProgress": "チェックポイント {done}/{total}",
       "checkpointWaiting": "確認待ち：{label}",
+      "checkpointTimeout": "待機タイムアウト：{label}。引き継ぎを推奨",
       "continueLabel": "完了、続行",
       "taskFailed": "操作が届きません。再試行するか引き継いでください",
       "templateMenuLabel": "テンプレートで監視",

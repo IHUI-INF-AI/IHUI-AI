@@ -9584,6 +9584,7 @@
     ,
       "checkpointProgress": "检查点 {done}/{total}",
       "checkpointWaiting": "等待确认：{label}",
+      "checkpointTimeout": "等待超时：{label}，建议接管",
       "continueLabel": "已处理，继续",
       "taskFailed": "操作未送达，请重试或接管",
       "templateMenuLabel": "按模板监看",

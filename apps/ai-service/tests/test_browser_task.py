@@ -5,15 +5,21 @@
 """任务模板与检查点纯逻辑测试(2026-11-25)。"""
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from app.services.browser_task import (
     CHECKPOINT_ACTIVE,
     CHECKPOINT_DONE,
+    CHECKPOINT_WAIT_TIMEOUT_SECONDS,
     BUILTIN_TASK_TEMPLATES,
     TaskValidationError,
     active_checkpoint,
     checkpoint_matches_url,
+    checkpoint_snapshot,
+    checkpoint_timed_out,
+    checkpoint_wait_remaining,
     find_checkpoint,
     first_unfinished_match,
     list_task_templates,
@@ -147,6 +153,38 @@ def test_first_unfinished_match_skips_done():
     assert hit["id"] == "export"
     mark_checkpoint_done(task, "export")
     assert first_unfinished_match(task, "https://a.com/export") is None
+
+
+def test_checkpoint_timeout_is_derived_and_never_auto_resumes():
+    task = normalize_task(_payload())
+    mark_checkpoint_active(task, "export")
+    cp = find_checkpoint(task, "export")
+    assert cp is not None
+
+    # 刚进入:未超时,仍有剩余
+    cp["entered_at"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert checkpoint_timed_out(cp) is False
+    assert (checkpoint_wait_remaining(cp) or 0) > 0
+
+    # 超过上限:只变 timed_out 派生位,状态仍是 active、进度仍是 0
+    cp["entered_at"] = (
+        datetime.now(UTC) - timedelta(seconds=CHECKPOINT_WAIT_TIMEOUT_SECONDS + 5)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert checkpoint_timed_out(cp) is True
+    assert checkpoint_wait_remaining(cp) == 0.0
+    assert cp["status"] == CHECKPOINT_ACTIVE
+    assert active_checkpoint(task)["id"] == "export"
+    assert task_progress(task) == {"done": 0, "total": 2}
+    snapshot = task_snapshot(task)
+    assert snapshot is not None
+    assert snapshot["checkpoints"][0]["timed_out"] is True
+    assert snapshot["checkpoints"][0]["status"] == CHECKPOINT_ACTIVE
+    assert checkpoint_snapshot(cp)["timed_out"] is True
+
+    # 非 active(即使进入时间很旧)不算超时:只看正在等人的那一项
+    cp["status"] = CHECKPOINT_DONE
+    assert checkpoint_timed_out(cp) is False
+    assert checkpoint_wait_remaining(cp) is None
 
 
 def test_unknown_checkpoint_errors():
