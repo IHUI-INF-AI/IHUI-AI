@@ -56,6 +56,9 @@ _STOP = threading.Event()
 _THREAD: threading.Thread | None = None
 _LAST_TICK_AT: datetime | None = None
 _LAST_ERROR: str | None = None
+# 账号池结构 reconcile 的节流:新账号(手工建/API 建/扫码新增)最多 5 分钟内进池。
+_LAST_POOL_RECONCILE: datetime | None = None
+_POOL_RECONCILE_SECONDS = 300
 
 STATUS_UNKNOWN = "unknown"
 STATUS_HEALTHY = "healthy"
@@ -678,10 +681,24 @@ async def _due_accounts(conn: asyncpg.Connection, limit: int = 50) -> list[int]:
 
 async def tick_once(*, limit: int = 30) -> dict[str, Any]:
     """跑一轮:补状态行 → 取到期账号 → 并发体检。单测直接调这个,不依赖线程。"""
+    global _LAST_POOL_RECONCILE
     cfg = config()
     conn = await get_db_conn()
     try:
         await ensure_tables(conn)
+        # 新账号可能来自手工建号/API/扫码,不重启也要在 5 分钟内进池。
+        # 只做结构 reconcile,不改变任何已存在的成员优先级/策略。
+        now = _utc_now()
+        if (
+            _LAST_POOL_RECONCILE is None
+            or (now - _LAST_POOL_RECONCILE).total_seconds() >= _POOL_RECONCILE_SECONDS
+        ):
+            try:
+                from app.services.publish.account_pool import bootstrap_all_users
+                await bootstrap_all_users(conn)
+                _LAST_POOL_RECONCILE = now
+            except Exception as e:  # noqa: BLE001
+                logger.warning("[session-keeper] 周期账号池 reconcile 失败(下轮重试): %s", e)
         inserted = await ensure_states(conn)
         ids = await _due_accounts(conn, limit=limit)
     finally:
