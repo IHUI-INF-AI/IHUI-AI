@@ -24,7 +24,7 @@
 
 ## 0. 为什么要推翻上一版
 
-上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了十四处纠正，每一条都能被证据账本复核。
+上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了十五处纠正，每一条都能被证据账本复核。
 
 **纠正一：把 Electron 主 exe 的 Chromium 安全 API 当成产品自研沙箱。**
 上一版用 `CreateRestrictedToken`、`CreateJobObject`、`CreateProcessAsUserW` 这类导入来证明“某产品有强沙箱”。实测发现，WorkBuddy.exe、Qoder CN.exe、ZCode.exe、Cursor.exe、Trae CN.exe 全部是 Electron 壳，这些 API 属于 Chromium/Electron 出厂能力，**不能归因于产品**。本版把证据分成三层：产品级（Rust/Go helper、.node、主进程 JS）、框架级（Electron/Chromium）、未知级；只有第一层进入结论。
@@ -67,6 +67,9 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 
 **纠正十四：Qoder 的 `aoq` 不是“播放器 SDK”，是阿里云 RTC 引擎；随包携带但当前 app 代码 0 引用。**
 `aoq-electron-sdk` 实际是 `optionalDependencies` 从 `registry.anpm.alibaba-inc.com` 拉的 `1.2.0-57793950`，包元数据 `repository=gitlab.alibaba-inc.com:NLS-RTC-Service/aoq-client-sdk.git`、`description=AoqClientSdk for Electron (NAPI addon + TypeScript API)`。`ts/IAoqClientEngine.ts` 有 **43 个引擎方法**（`createEngine`、`connect`、`startAudioCapture`、`startVideoCapture`、`enableAudioFrameObserver`、`enableVideoFrameObserver`、`sendDataMsg` 等），`ts/Types.ts` 的 `IAoqElectronBridge` 有 **45 个 NAPI 桥方法**；`AoqConnectConfig` 必填 `token` / `sid` / `relayEndpoints`，可带 `certFingerprint` / `workspaceIdHash`，发布/订阅 `audio` / `video` / `data` 三类 track。原生四件套是 `AoqClientSdk.dll` 14,688,776、`aoq_node_ext.node` 253,952、`PluginOpus.dll` 730,112、`alivcffmpeg.dll` 4,093,448；DLL 字符串含 `Ali_RTC`、`rtc_core` 424 处、`apsara-video-client`、`cloud-config-service.rtc.aliyuncs.com`、`vod.cn-hangzhou.aliyuncs.com`、`vpp-license-proxy.aliyuncs.com`，源码路径是 `aoq-client-sdk\rtc_core\...`，不是播放器壳。**四个版本都带这套原生文件**：0.5.6 / 0.5.7 / 0.5.12 / 0.5.14 的 `AoqClientSdk.dll` 分别为 14,688,776 / 14,688,768 / 14,688,768 / 14,688,776，四个 SHA256 各不相同。但对四个版本的 asar 内全部 JS/TS/JSON（4,374 / 4,374 / 4,286 / 4,286 个文件，排除 `node_modules/aoq-electron-sdk` 自身）扫描，`aoq-electron-sdk` / `AoqSdk` / `AoqClientEngine` / `aoq_node_ext` 合计只命中 **1 次，且就在根 `package.json` 的 `optionalDependencies` 声明里**，**0 个 app import/require，SDK 目录之外 0 个路径含 `aoq`**；`AoqClientEngineInternal.ts` 的 `const AoqNode = loadNative()` 是模块级，只有被 import 时才加载 `.node`。结论：它是**随包携带、当前静态不可达的 RTC 能力**，不是桌面 IPC 通道（通道增量 0），也不是“已启用的播放器”；若被未来代码路径 import，能力是麦克风/摄像头采集、音视频裸帧观察、Aliyun RTC relay（token/sid 鉴权）与 data channel。启用条件未知，不写成已使用。账本：`analysis\qoder-aoq-sdk.json`。
+
+**纠正十五：`DoubaoLinkRouter.exe` 不是“疑似 URL 路由”，是 Aha/Saman 的协议链接路由器；上一版把 Chromium/perfetto 的 `http/ws/wss` 字符串误当成网络证据。**
+`DoubaoLinkRouter.exe` 2,952,080 字节，ProductName `Doubao Link Router`、FileVersion `2.37.16.0`、公司 北京春田知韵科技有限公司，签名有效，SHA256 `26B8838C7A20377E165FD04CA87FCB6C639E604B601E639A254DC58B98489E1D`。源码路径是 `..\..\aha\saman\link_router\router_app\router_main_win.cc`、`router_app.cc`、`component\route_event_store.cc`；常量里有 `doubao:/`、`doubaoap`、`/open-ur` 前缀，注册表 `Software\Doubao` / `Software\DoubaoWork`，目标可执行 `Doubao.exe` / `DoubaoWork.exe`，选择字段 `preferred_client` 加 `doubao_installed` / `doubao_compatible` / `doubao_running` / `doubao_foreground` 与 `work_installed` / `work_compatible` / `work_running` / `work_foreground`，日志字段 `LinkRouter result=` / `target=` / `reason=` / `event_id_created=`。导入表只有 `SHELL32` / `USER32` / `ADVAPI32` / `dbghelp` / `KERNEL32` / `USERENV` / `WINMM` / `SHLWAPI` / `ole32` / WinRT，**没有 `WS2_32` / `WINHTTP` / `WININET`**；所以 `http/ws/wss`、`localhost`、`server` 是 Chromium/perfetto/gurl 资产串，不是它起服务。它是默认协议/链接分流器：按安装、兼容、运行、前台状态和 `preferred_client` 在豆包与豆包 Work 之间选目标并转发链接，**不新增桌面 IPC 通道**。协议注册与启用条件未运行验证。`push_detect.exe` 仍只按名：签名有效、只导入 `Microsoft.WindowsAppRuntime.Bootstrap.dll` + `KERNEL32` / `ole32` / `OLEAUT32`，无产品字符串，不升格为结论。账本：`analysis\doubao-link-router.json`。
 
 ---
 
@@ -361,7 +364,7 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 **后端层：本地 RPC、WebSocket、MCP、代理、PIP 五套都在。**
 `Doubao.dll` 的 `agent_tool_ipc_named_pipe_transport.cc` 写明 Agent Tool RPC Server：命名管道 `\\.\pipe\aha-agent-tool-ipc-`、TCP fallback `127.0.0.1:<ephemeral>`、`AgentToolIpcAuthOnlyLocal`、开关 `enable-agent-tool-ipc`，并有 `OnPrimaryAcceptComplete` / `SchedulePrimaryListenerRecovery` 的降级恢复逻辑。`app_proxy_transport_websocket_server_socket_factory.cc` 在 `127.0.0.1` 起 WebSocket，走 `app_share_protocol` 的 HMAC 加密。`mcp_helper.dll` 有 `STDIO MCP initialize`、`OAuth loopback callback`、`HTTP startup lifecycle was retired`，说明 MCP 走 stdio，HTTP 只用于 OAuth 回调绑定。`secure-proxy-ipc64.dll` 要求 `pipe://NAME` 的 interceptor endpoint；`sbox\x64\aiep_ipc.dll`、`vm_sdk\x64\aiep_ipc.dll` 是 AIEP 沙箱 IPC 的两套构建。
 PIP 是独立的一套：`pip_main.exe` 3,208,592 字节带 `aha_pip\src\pip_ipc\named_pipe_ipc_server.cc` / `named_pipe_ipc_client.cc`、`PipMainPipeName_{}`、`PipSDKPipeName_{}`、`PipRemotePipeName_{}` 三条命名管道族，并用 `GetNamedPipeClientProcessId` 校验对端；`pip_remote.dll`、`connect_to_shadow_session_client.cc`、`shadow_session_credential_precheck.cc`、`shadow_session_guard.cc`、`rdp_host.cc`、`credential_guard.cc`、`key_stroke.cc` 按文件名指向远程/影子会话、键鼠注入、凭据保护，和 `aha-agent-tool-ipc-`、Neotix ShellAPI 三条通道互相独立。静态可见，启用条件未运行验证。
-helper 侧另有 `DoubaoLinkRouter.exe`（2,952,080，含 `http/ws/wss`、`localhost`、`server` 字面量，按名疑似 URL/协议路由）、`file_search_host.exe`（3,093,904，`--agent-infra-host-config`）、`file_utils_host.exe`（4,985,232，同参数族）、`ghelper.exe`（4,161,424，`GhostHelperService` + `\\.\pipe\crashpad_%lu_`）、`ttdaemon.exe`（277,392，PDB 路径 `C:\79014\CCCreator\proj\cmake\sln_x64_Release\bin\Release\ttdaemon.pdb`，属 CCCreator 守护进程）、`Doubao_proxy.exe`（2,280,336）、`Doubao_browser_proxy.exe`（2,409,872）、`push_detect.exe`（191,376，仅通用字符串，按名疑似推送检测）；`file_*_host` 是 agent infra 的工具宿主，不是聊天 RPC 服务端。
+helper 侧另有 `DoubaoLinkRouter.exe`（2,952,080，ProductName `Doubao Link Router` 2.37.16.0，Aha/Saman `link_router`，按 `doubao:/` / `doubaoap` 前缀在 `Doubao.exe` / `DoubaoWork.exe` 间分流，导入表无网络 DLL；不是 HTTP/WS 服务，详见纠正十五）、`file_search_host.exe`（3,093,904，`--agent-infra-host-config`）、`file_utils_host.exe`（4,985,232，同参数族）、`ghelper.exe`（4,161,424，`GhostHelperService` + `\\.\pipe\crashpad_%lu_`）、`ttdaemon.exe`（277,392，PDB 路径 `C:\79014\CCCreator\proj\cmake\sln_x64_Release\bin\Release\ttdaemon.pdb`，属 CCCreator 守护进程）、`Doubao_proxy.exe`（2,280,336）、`Doubao_browser_proxy.exe`（2,409,872）、`push_detect.exe`（191,376，签名有效、只导入 WinAppSDK bootstrap + `KERNEL32` / `ole32` / `OLEAUT32`，无产品字符串，仍按名疑似推送检测）；`file_*_host` 是 agent infra 的工具宿主，不是聊天 RPC 服务端。
 
 **核心一：Doubao.dll 里嵌了 Deno 运行时权限模型。**
 字符串 `third_party\deno\runtime\permissions\lib.rs`、`vdatetimepermission`、`NotFoundPermissionDenied...` 出现在 permission 主题命中里；同时导入层面有 1,613 个导入 / 153 个安全导入（`CreateRestrictedToken`、`CreateProcessWithTokenW`、`CreateProcessAsUserW`、`DuplicateTokenEx`、`CryptProtectData`、`LsaClose`、`SetFileSecurityW`）。
@@ -670,6 +673,7 @@ IPC 分组说明它是“能力市场型”客户端：
 11. **Qoder 四个版本已全部补图，exe 也补了 overview**：0.5.6 与 0.5.7 主结构一致（637 模块 / 202 endpoint），0.5.12 与 0.5.14 主结构一致（610 模块 / 192 endpoint）；0.5.7 与 0.5.12 的 exe overview 与 0.5.14 完全一致，确认 0.5.7–0.5.14 共用同一 Electron 壳代码。动态 IPC 5/0/0/8 已全部还原到 6 个唯一通道，0.5.14 比 0.5.6 多的是 `mcp-app:guest-message` 的 3 条 guest preload 调用，不是未知运行期拼接。
 12. **WorkBuddy 的 9527 已解释**：它只存在于 `cli\bin\daemon-status-brief.test.cjs`，是测试用的假 daemon endpoint，不是生产服务；这一条从“未知”降为“测试夹具”。
 13. **Trae 的 543 个 session 目录是本机既有使用痕迹**，不是本轮运行产生；只读取了目录结构与文件名（`cwd.txt`/`execution.json`/`output.log`/`stderr.log`），没有读取命令内容或输出正文。
+14. **`push_detect.exe` 仍是 name-only**：签名有效，只导入 `Microsoft.WindowsAppRuntime.Bootstrap.dll` + `KERNEL32` / `ole32` / `OLEAUT32`，没有产品字符串；无法从静态证据证明它检测什么，只能保留文件名推测，不写成结论。
 
 ---
 
@@ -702,6 +706,7 @@ IPC 分组说明它是“能力市场型”客户端：
 - `doubao-ahalets-jsmap.json` / `doubao-static-jsmap.json` / `doubao-rest-jsmap.json`：`biz.pak` 的三片重跑图——ahalets 5,907 模块 / 832,342 节点 / 2,227,188 边 / 744,765 函数、static 3,597 / 628,680 / 1,821,726 / 519,774、rest 58 / 10,289 / 23,673 / 9,700；合计 1,471,311 节点 / 4,072,587 边 / 1,274,239 函数，166,986 bundle 模块与单图完全相等。
 - `doubao-pak\`：从 `biz.pak` 解出的 10,029 个资源（7,837 JS / 1,125 CSS / 369 HTML / 212 SVG / 15 JSON / 460 二进制），按 manifest 的原始路径落盘。
 - `analysis\doubao-native-tokens.json`：`Doubao.dll`、`liblark.dll`、`agent_infra.dll`、`mcp_helper.dll`、`aiep_ipc.dll`、`secure-proxy-ipc64.dll`、`AhaMuleLocalSDK.dll`、`vm_sdk.dll`、`sbox_sdk.dll` 的 `Neotix` / `neotixChannel` / `SHELL_API_IPC_EVENT` / `\\\\.\\pipe\\` / `MCP` / `127.0.0.1` 命中与上下文。
+- `analysis\doubao-link-router.json`：`DoubaoLinkRouter.exe` 账本——ProductName/版本/签名/SHA256、Aha/Saman 源码路径、`doubao:/`/`doubaoap`/`/open-ur` 前缀、`Software\Doubao`/`Software\DoubaoWork` 注册表、`Doubao.exe`/`DoubaoWork.exe` 目标、客户选择与遥测字段、10 个导入 DLL 且 0 个网络 DLL；附 `push_detect.exe` 的 WinAppSDK bootstrap 与 name-only 记录。
 - `analysis\zcode-channel-map.json`：从 `out/preload/index.cjs` 的 `var v={...}` 解析出的 169 项 `zcode:*` 通道表。
 - `analysis\dynamic-ipc-zcode-resolved.json`：ZCode 早期 215 条已还原调用（169 个唯一通道）与 12 条别名；最终闭环结果在 `dynamic-ipc-zcode-final.json`（227/227、180 唯一、0 未定）。
 - `analysis\dynamic-ipc-wb-final.json`：WorkBuddy main 侧 115 条 `ipcMain` 注册的最终分类（82 resolved/const + 29 template + 4 helper 形参，0 未定）。
@@ -752,5 +757,5 @@ $proj = "C:\IHUI-AI\.workbuddy\craft\all-ai-apps-full-2026-11-25.cany"
 
 ---
 
-**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是十四处纠正、11 个程序、8 个 asar 解包、15 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、25 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
+**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是十五处纠正、11 个程序、8 个 asar 解包、15 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、25 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
