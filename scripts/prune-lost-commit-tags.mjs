@@ -38,8 +38,10 @@ const argOf = (name, dflt) => {
   const raw = Number(process.argv[i + 1])
   return Number.isFinite(raw) && raw > 0 ? raw : dflt
 }
-const MAX_KEEP = argOf('--max-keep', 500)
-const KEEP_DAYS = argOf('--keep-days', 7)
+// 2026-11-25 收紧：原默认 500/7 天过宽 —— 实测 551 枚 lost-commit tag 就钉住 1.6 GB 旧历史。
+// 现口径：只留最近 50 枚 ∪ 最近 3 天（正常波动一个提交窗口足够），其余 bundle 后清。
+const MAX_KEEP = argOf('--max-keep', 50)
+const KEEP_DAYS = argOf('--keep-days', 3)
 const BUNDLE_CHUNK = 200
 const STATE_DIR = join(ROOT, '.ihui-agent', 'state', 'lost-commit-prune')
 
