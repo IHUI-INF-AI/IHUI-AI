@@ -2227,6 +2227,7 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🔧 기타:零命中收口——README 变更日志与 3 份已入库迁移头注旧代号脱敏 (2524ff00)
 - 🚀 기능/개선:换号交代只对「我的号池」可见 —— 平台/auto 继续无感 (8d59bb18)
 - 🚀 기능/개선:WS 不可用时用同源截图轮询兜底，避免画面永久断开 (ecb90832)
 - 🐞 수정:智能体头像相对路径补全站点底座URL (f2db5376)
