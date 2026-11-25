@@ -825,7 +825,7 @@
       "loginRequired": "먼저 로그인 후 이용해 주세요",
       "recharge": "충전하기",
       "subtitle": "언제든지 AI 서비스를 제공합니다",
-      "tokenBalance": "Token 잔액:{n}"
+      "tokenBalance": "남은 포인트: {n}"
     },
     "materialPopup": {
       "empty": "자료 없음",
@@ -3717,7 +3717,7 @@
     "view4": "잔액과 충전 보기"
   },
   "communityMyAgents": {
-    "mine1": "내 AI 앱",
+    "mine1": "내 에이전트",
     "mine2": "내 AI 직원"
   },
   "shareCenterItem": {

@@ -340,7 +340,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
       padding: rnSpacingFor.cardPad,
       gap: rnSpacing.sm,

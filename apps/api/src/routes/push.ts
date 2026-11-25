@@ -173,7 +173,10 @@ export const pushRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /push/provider - 查询当前推送 provider
   server.get('/push/provider', async (_request, reply) => {
-    return reply.send(success({ provider: detectPushProvider() }))
+    // expo 不占 provider 名：它按 **token 形态**（ExponentPushToken[...]）分流，无需自持
+    // FCM 私钥即可用。单独给出 expo=true，否则只注册了 Expo token 的管理端会看到
+    // provider=stub 而误判"没有通道"（SDB-47 的 fail-closed 口径不能被误读成没配置）。
+    return reply.send(success({ provider: detectPushProvider(), expo: true }))
   })
 
   // GET /push/templates - 客户端可订阅的微信小程序订阅消息模板列表

@@ -64,6 +64,8 @@ describe('push routes', () => {
     const body = JSON.parse(res.body)
     expect(body.code).toBe(0)
     expect(body.data.provider).toBe('stub')
+    // Expo 托管腿按 token 形态分流，不占 provider 名，但要能被读到（否则误判"无通道"）
+    expect(body.data.expo).toBe(true)
   })
 
   it('POST /api/push/devices/register 未登录返回 401', async () => {
