@@ -15,7 +15,7 @@
 
 1. **真正有产品级沙箱的只有 6 个**：Codex（受限令牌 + Job + WFP）、Trae（aiep sbox SDK）、WorkBuddy（session 权限文件 + 审批中心）、豆包（agent_infra 运行时策略 + aiep sbox）、Cursor（Rust `SandboxPolicy`）、MiniMax（Rust `srt-win`）。Qoder、DeepSeek、OpenCode 的桌面包内没有产品级原生沙箱证据，标未知。
 2. **字节系共用一套沙箱 SDK**：Trae 的 `modules\sandbox\` 与豆包的 `app\sbox\` 文件名同构（`aiep_sbox.dll`、`aiep_ipc.dll`、`run_helper.exe`、`sbox_sdk.dll`），只是构建大小不同（2,320KB vs 2,594KB）。
-3. **原有 14 张 jsmap 均未触发 1,500,000 节点上限**：11 个目标、Qoder 四版本各一张；最大豆包 ai-views 465,369 节点 / 1,473,627 边，Cursor 319,057 / 681,140，WorkBuddy 359,769 / 729,926。**新增的豆包 `biz.pak` 图是第 15 张，撞到 1,000,000 硬上限并丢弃 615,501 节点**，这条单独标截断，不能算“全量”。
+3. **原有 14 张 jsmap 均未触发 1,500,000 节点上限**：11 个目标、Qoder 四版本各一张；最大豆包 ai-views 465,369 节点 / 1,473,627 边，Cursor 319,057 / 681,140，WorkBuddy 359,769 / 729,926。**新增的豆包 `biz.pak` 图是第 15 张，单图撞到 1,000,000 硬上限（需求 1,615,501，丢 615,501）**；已按顶层目录拆成 `ahalets` / `static` / `rest` 三片重跑，合计 **1,471,311 节点 / 4,072,587 边 / 1,274,239 函数 / 9,562 模块**，**166,986 bundle 模块与单图完全相等**，余差 144,190 节点来自 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失，不是再次截断。
 4. **核心层覆盖 25 个实际存在的二进制 + 1 个 `not_found` 记录**：导入/导出/签名/字符串/函数/特征六类证据；Codex 407MB 超单文件工具上限 256MB，craft 原生 Rust 报告仍缺，但已用字节级正则补出 400 个 crate 与 rustc commit。
 5. **最能落进 IHUI-AI 的六件事**：统一权限决策对象、Windows Job Object 执行器、审批反向通道、preload 暴露面预算、动态通道注册表、运行时策略热更新（详见第 6 节）。
 
@@ -23,13 +23,13 @@
 
 ## 0. 为什么要推翻上一版
 
-上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了十二处纠正，每一条都能被证据账本复核。
+上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了十三处纠正，每一条都能被证据账本复核。
 
 **纠正一：把 Electron 主 exe 的 Chromium 安全 API 当成产品自研沙箱。**
 上一版用 `CreateRestrictedToken`、`CreateJobObject`、`CreateProcessAsUserW` 这类导入来证明“某产品有强沙箱”。实测发现，WorkBuddy.exe、Qoder CN.exe、ZCode.exe、Cursor.exe、Trae CN.exe 全部是 Electron 壳，这些 API 属于 Chromium/Electron 出厂能力，**不能归因于产品**。本版把证据分成三层：产品级（Rust/Go helper、.node、主进程 JS）、框架级（Electron/Chromium）、未知级；只有第一层进入结论。
 
 **纠正二：前端图被 cap 截断却写成“全量”。**
-上一版 Cursor 只 examined 500/828、WorkBuddy 3866 模块但节点被截、豆包 618509 节点被丢弃。本版把 `max-nodes` 提到 1,500,000，实测：WorkBuddy 359,769 节点 / 729,926 边、Cursor 319,057 节点 / 681,140 边、豆包 ai-views 465,369 节点 / 1,473,627 边、Trae 194,266 节点，均未触发节点上限；**豆包 `biz.pak` 是第 15 张图，另撞 1,000,000 硬上限丢 615,501 节点**，所以“豆包前端”必须分成两张图读。
+上一版 Cursor 只 examined 500/828、WorkBuddy 3866 模块但节点被截、豆包 618509 节点被丢弃。本版把 `max-nodes` 提到 1,500,000，实测：WorkBuddy 359,769 节点 / 729,926 边、Cursor 319,057 节点 / 681,140 边、豆包 ai-views 465,369 节点 / 1,473,627 边、Trae 194,266 节点，均未触发节点上限；**豆包 `biz.pak` 是第 15 张图，单图另撞 1,000,000 硬上限丢 615,501 节点，已拆成 `ahalets` / `static` / `rest` 三片重跑，合计 1,471,311 节点，不再有 1M 截断**。所以“豆包前端”必须分成 ai-views、biz.pak 主图（三片）来读，不能再用一张单图当全量。
 
 **纠正三：Qoder 版本写错。**
 上一版写 Qoder 0.5.14，但 `C:\Qoder CN\Qoder CN.exe` 实际是 0.5.6；`.qoder-versions\0.5.14\` 才是新版本（build-manifest 2026-11-17、Electron 43.8.4）。本版两个版本都取证，明确标注差异。
@@ -38,7 +38,7 @@
 本版拿到函数级链路：`resolve permission profile token mode`、`TaggedPermissionProfile::{Managed,External}`、`struct NetworkPermissions with 1 element`、`SerializedManagedFileSystemPermissions::Restricted`、`spawned ConPTY is missing its process job`、`Codex Windows Sandbox WFP` 持久化 WFP provider。
 
 **纠正五：没有后端层。**
-本版新增“后端/服务层”：WorkBuddy 的 MCP Host（loopback 随机端口）+ A2A 出站代理、MiniMax 的 `http://127.0.0.1/minimax-desktop/api/v1/*` 本地运行时、ZCode 的 host RPC + Windows Job 控制、OpenCode 的 `opencode-cli serve --service`（isolated 3084，4096 仅为 Add Server 占位；已实跑 v2.2.7，Web UI 200、API 无凭据 401）、Qoder 的 `@qoder-space/application-server` + `peer-transport`。
+本版新增“后端/服务层”：WorkBuddy 的 MCP Host（loopback 随机端口）+ A2A 出站代理、MiniMax 的 `http://127.0.0.1/minimax-desktop/api/v1/*` 本地运行时、ZCode 的 host RPC + Windows Job 控制、OpenCode 的 `opencode-cli serve --service`（isolated 3084，4096 仅为 Add Server 占位；已实跑 v2.2.7，Web UI 200、API 无凭据 401）、Qoder 的 `@qoder-space/application-server` + `peer-transport`、豆包的 Agent Tool 命名管道 + app proxy WebSocket + PIP 三族命名管道（详见纠正十三）。
 
 **纠正六：把“枚举常量引用”误判成“运行期拼接”。**
 工具把“首参不是字符串字面量”一律记为 dynamic，导致 DeepSeek 142 条、MiniMax 816 条被写成“运行期拼接、不可还原”。逐文件还原后：DeepSeek 源码只有 **116 个** `ipcMain/ipcRenderer` 调用点，其中 **102 条业务调用**（43 主进程 + 59 preload/renderer）落到 **54 个唯一常量通道**（`DESKTOP_IPC` 34 + `PLATFORM_IPC` 5 + `WELCOME_IPC` 9 + `MANDATORY_IPC` 3 + `UPDATE_DIALOG_IPC` 3），另有 14 条 `removeHandler/off` 解绑清理；142 与 102 的差额是 **40 条工具侧重复条目**，与 40 个 `ipcRenderer.invoke` 数量一致，源码里不存在第 103–142 个独立调用点。MiniMax 的 6 条主进程变量 + 8 条 renderer 变量也已全部回填：主进程 **332 条**、renderer **406 条**，源码共 **804 个调用点、0 条未定**；816 与 804 的 12 条差额是工具侧重复条目。ZCode 与 WorkBuddy 已在本轮闭环：ZCode 本地 227 个调用点全部还原为 180 个通道、0 条未定；WorkBuddy main 侧 115 条注册全部归因，12 个 `require_*` 别名全回填。
@@ -59,7 +59,10 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 源码里是 34 个非字面量调用点：16 个落到 11 个固定通道，3 个模板记录形成 2 个族（feedback 三成员、browser-overlay 按 owner），1 个 `VOICE_INPUT_CHANNELS` 清理循环覆盖 7 条 `voice-input:*`，14 个是 helper/cleanup 形参。34 与 26 的 8 条差额是清理调用被工具排除，**0 个未知通道**。
 
 **纠正十二：豆包不是 CEF，上一版“全量前端”只覆盖了 ai-views，漏掉 biz.pak 里 7,837 个 JS。**
-`Doubao.dll` 导出 `ChromeMain`，安装清单是 Chromium `147.0.7727.149`；宿主是 Aha/Neotix，不是 CEF。上一版 jsmap 只读了 `local_webcontents` 的 2,311/3,442 个直接文件，得到 2,295 模块 / 465,369 节点 / 1,473,627 边，**恰好等于 `extensions\ai-views` 的 2,282 个 JS**，没有进入 `biz.pak`。本轮解包 `biz.pak` 196,549,135 字节、10,029 个资源（7,837 JS / 1,125 CSS / 369 HTML / 212 SVG / 15 JSON），重建图 **9,797 模块 / 166,986 bundle 模块 / 881,872 函数 / 2,928,056 边 / 8,988 endpoint（1,231 唯一）/ 335 路由**；1,000,000 节点硬上限丢弃 615,501 节点，已标为截断。工具在 pak 图上报的 2 条 IPC（`getScrollInfo` / `postMessageSync`）是 SDK 方法名误匹配，不是原生通道。真正的原生面是 **Neotix ShellAPI 的 848 个 `neotix::<namespace>::<method>` 方法 / 98 个命名空间**。
+`Doubao.dll` 导出 `ChromeMain`，安装清单是 Chromium `147.0.7727.149`；宿主是 Aha/Neotix，不是 CEF。上一版 jsmap 只读了 `local_webcontents` 的 2,311/3,442 个直接文件，得到 2,295 模块 / 465,369 节点 / 1,473,627 边，**恰好等于 `extensions\ai-views` 的 2,282 个 JS**，没有进入 `biz.pak`。本轮解包 `biz.pak` 196,549,135 字节、10,029 个资源（7,837 JS / 1,125 CSS / 369 HTML / 212 SVG / 15 JSON），单图重建 **9,797 模块 / 166,986 bundle 模块 / 881,872 函数 / 2,928,056 边 / 8,988 endpoint（1,231 唯一）/ 335 路由**；单图撞 1,000,000 节点硬上限，需求 1,615,501、丢 615,501。随后按顶层目录拆成 `ahalets`（5,907 模块 / 832,342 节点）、`static`（3,597 / 628,680）、`rest`（58 / 10,289）三片重跑，**合计 9,562 模块 / 1,471,311 节点 / 4,072,587 边 / 1,274,239 函数 / 8,973 endpoint / 335 路由**；**166,986 bundle 模块与单图完全相等**，节点比单图推算需求少 144,190，差在 235 个单图额外计入的模块（资产/非 JS 口径）和跨片不生成跨文件边，不是新的截断。工具在 pak 图上报的 2 条 IPC（`getScrollInfo` / `postMessageSync`）是 SDK/Lynx 方法名误匹配，不是原生通道。真正的原生面是 **Neotix ShellAPI 的 848 个 `neotix::<namespace>::<method>` 方法 / 98 个命名空间**。
+
+**纠正十三：上一版把豆包后端只写成聊天 RPC，漏了 PIP 远程会话子系统。**
+`pip_main.exe` 3,208,592 字节自带 `aha_pip\src\pip_ipc\named_pipe_ipc_server.cc` / `named_pipe_ipc_client.cc`、`PipMainPipeName_{}`、`PipSDKPipeName_{}`、`PipRemotePipeName_{}` 三条命名管道族，并用 `GetNamedPipeClientProcessId` 校验对端进程；同目录 `pip_remote.dll`、`connect_to_shadow_session_client.cc`、`shadow_session_credential_precheck.cc`、`shadow_session_guard.cc`、`rdp_host.cc`、`credential_guard.cc`、`key_stroke.cc` —— 按源码文件名，它不是普通 helper，而是远程/影子会话、键鼠注入、凭据保护一整套子系统。它和 Agent Tool 的 `\\.\pipe\aha-agent-tool-ipc-`、Neotix ShellAPI 是三条独立通道，不能只写一条。静态可见，启用条件未运行验证。
 
 ---
 
@@ -118,7 +121,11 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 | Cursor | 830 | 319,057 | 681,140 | 300,113 | 33 | 12 | 0 | 2 | 45（43 可归因/0 未定） | 3,730 | 1,511 | 13 | 21 | 11 |
 | DeepSeek | 17 | 3,129 | 5,931 | 2,778 | 0 | 0 | 0 | 0 | 142（102 调用/54 通道） | 17 | 13 | 5 | 11 | 31 |
 | 豆包 ai-views | 2,295 | 465,369 | 1,473,627 | 398,481 | 0 | 0 | 0 | 0 | 0 | 4,552 | 750 | 0 | 0 | 0 |
-| 豆包 biz.pak | 9,797 | 1,000,000（丢 615,501） | 2,928,056 | 881,872 | 2（SDK 方法误匹配） | 0 | 0 | 2 | 0 | 8,988 | 1,231 | 0 | 0 | 0 |
+| 豆包 biz.pak（三片） | 9,562 | 1,471,311 | 4,072,587 | 1,274,239 | 2（SDK 方法误匹配） | 0 | 0 | 2 | 0 | 8,973 | 1,231（单图口径） | 0 | 0 | 0 |
+
+豆包 `biz.pak` 的单图读数是 **9,797 模块 / 1,000,000 节点（需求 1,615,501，丢 615,501）/ 2,928,056 边 / 881,872 函数**；表内三片是分片重跑后的结果，不是单图子集相加。`ahalets` 5,907 / 832,342、`static` 3,597 / 628,680、`rest` 58 / 10,289；三片 `bundle_modules` 合计 166,986，与单图完全相等，说明 7,837 个 JS 的 bundle 面已全部进入；节点少 144,190 是 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失。三片 `endpoint` 合计 8,973，跨片 `(api,url)` 去重 885；单图 1,231 是工具自身口径，二者不能直接相减。详见 `analysis\doubao-pak-shards.json`。
+
+读法：**静态 IPC 少不等于能力少**。
 | MiniMax | 1,391 | 124,372 | 330,508 | 112,679 | 54 | 25 | 0 | 14 | 816（332+406/0 未定） | 1,887 | 1,394 | 10 | 35 | 373 |
 | OpenCode | 3,231 | 46,281 | 80,579 | 39,462 | 3 | 1 | 0 | 0 | 5（3 唯一/0 未定） | 289 | 156 | 3 | 1 | 5 |
 | Qoder 0.5.6 | 637 | 70,256 | — | 67,925 | 0 | 0 | 0 | 0 | 5（5 已归因/0 未定） | 200 | 96 | 8 | 0 | 0 |
@@ -130,7 +137,7 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 | 小浣熊 | 1,886 | 121,089 | — | 109,542 | 95 | 19 | 38 | 2 | 26（34 非字面量/0 未定） | 1,819 | 1,355 | 10 | 20 | 9 |
 | ZCode | 2,837 | 77,729 | 144,984 | 72,766 | 3 | 2 | 0 | 0 | 423（227 全还原·180 唯一） | 377 | 175 | 10 | 8 | 169 |
 
-读法：**静态 IPC 少不等于能力少**。ZCode 只有 3 条静态通道，423 条工具计数经本地 227 个调用点逐条回填，得到 **227/227 已还原、180 个唯一通道、0 条未定**；WorkBuddy 的 214 条里 main 侧 **115 条注册全部归因**（81 常量/别名 + 29 模板 + 4 helper 形参 + 1 内部通道），12 个 `require_*` 别名全部回填；MiniMax 的 6+8 条变量也已回填，主进程 332 条 + renderer 406 条、源码 804 个调用点、0 条未定；DeepSeek 的 142 条经源码复核只有 **102 条业务调用 + 14 条清理**，业务调用全部落到 **54 个常量通道**，40 条差额是工具侧重复条目；Trae 的 58 条非字面量已归到 30 个通道，0 条未定；Cursor 的 45 条经 44 个 Electron 调用点复核，43 条非字面量里 29 条落 20 个通道、12 条 helper、1 条 4 路守卫、1 条运行期 payload、0 个未知常量，差额 2 条来自 js-debug 的 WebSocket `send` 误匹配；Qoder 四版本 5/0/0/8 共 13 条动态已全部解码到 6 个唯一通道（`diagnostics:renderer-responsiveness`、四个 `arms:rum-*`、`mcp-app:guest-message`），0 条未定；OpenCode 5 条动态全部跨文件配对回 3 个已有静态通道，0 条未定；小浣熊 34 个非字面量里 16 个落到 11 个固定通道、3 个模板族、1 个 7 通道清理循环、14 个 helper，0 条未定；豆包的两张图不能相加：ai-views 2,295 模块是扩展，biz.pak 9,797 模块才是主应用，后者撞 1M 节点硬上限丢 615,501 节点，它报的 2 条 IPC 是 `getScrollInfo` / `postMessageSync` 方法名误匹配，真正原生面是 Neotix 848 个方法。**“动态”这个字段必须逐目标复核，不能直接当成不可审计面。**
+读法：**静态 IPC 少不等于能力少**。ZCode 只有 3 条静态通道，423 条工具计数经本地 227 个调用点逐条回填，得到 **227/227 已还原、180 个唯一通道、0 条未定**；WorkBuddy 的 214 条里 main 侧 **115 条注册全部归因**（81 常量/别名 + 29 模板 + 4 helper 形参 + 1 内部通道），12 个 `require_*` 别名全部回填；MiniMax 的 6+8 条变量也已回填，主进程 332 条 + renderer 406 条、源码 804 个调用点、0 条未定；DeepSeek 的 142 条经源码复核只有 **102 条业务调用 + 14 条清理**，业务调用全部落到 **54 个常量通道**，40 条差额是工具侧重复条目；Trae 的 58 条非字面量已归到 30 个通道，0 条未定；Cursor 的 45 条经 44 个 Electron 调用点复核，43 条非字面量里 29 条落 20 个通道、12 条 helper、1 条 4 路守卫、1 条运行期 payload、0 个未知常量，差额 2 条来自 js-debug 的 WebSocket `send` 误匹配；Qoder 四版本 5/0/0/8 共 13 条动态已全部解码到 6 个唯一通道（`diagnostics:renderer-responsiveness`、四个 `arms:rum-*`、`mcp-app:guest-message`），0 条未定；OpenCode 5 条动态全部跨文件配对回 3 个已有静态通道，0 条未定；小浣熊 34 个非字面量里 16 个落到 11 个固定通道、3 个模板族、1 个 7 通道清理循环、14 个 helper，0 条未定；豆包的两张图不能相加：ai-views 2,295 模块是扩展，biz.pak 才是主应用；单图 9,797 模块撞 1M 节点硬上限丢 615,501，三片重跑后 9,562 模块 / 1,471,311 节点 / 4,072,587 边 / 1,274,239 函数，166,986 bundle 模块与单图完全相等，余差 144,190 节点是 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失，不是新截断；它报的 2 条 IPC 是 `getScrollInfo` / `postMessageSync` 方法名误匹配，真正原生面是 Neotix 848 个方法。**“动态”这个字段必须逐目标复核，不能直接当成不可审计面。**
 
 窗口安全：WorkBuddy 有一处 `contextIsolation=false / nodeIntegration=true / sandbox=false`，定位在 `main/index.js:203` 的腾讯文档调试面板（520×720，`DEBUG_PANEL` 分区），不是主 UI；另有一处 `webSecurity=false` 在 `main/main-bootstrap.js:368`。Trae 有 1 处 `sandbox off` + 1 处 `webSecurity off`。Cursor 有 5 处 `contextIsolation/nodeIntegration` 未显式设置（继承 Electron 默认）。其余见逐目标小节。
 
@@ -306,9 +313,9 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 
 **安装面**：`C:\Program Files\Doubao`，Launcher 2.0.32。`app\local_webcontents` 3,443 文件 / 615,752,388 字节；其中 `biz.pak` 196,549,135、`resources.pak` 14,760,956、`apps\doubao-office\doubao_office.pak` 119,619,240、`extensions\ai-views` 2,588 文件 / 153,044,370。`app\sbox` 7 文件 / 6,279,920 字节（`sbox_sdk.dll` 2,656,144、`x64\aiep_sbox.dll` 784,272、`x64\aiep_ipc.dll` 577,424、`run_helper.exe` 682,384，x86 全套）；`app\terminal_conpty`（`OpenConsole.exe` 1,066,296 + `conpty.dll` 109,920）。核心 DLL：`Doubao.dll` 335,086,992（15 个导出，含 `ChromeMain`）、`liblark.dll` 190,019,984、`cccreator.dll` 87,105,424、`mcp_helper.dll` 16,500,624、`agent_infra.dll` 10,776,976。主体签名：北京春田知韵科技有限公司（字节系）。
 
-**前端有两张图，上一版只交了第一张。**
-第一张 `ev_e0abf81c…` 覆盖 `local_webcontents` 的直接文件（2,311/3,442，partial）：2,295 源模块 / 2,282 个 JS / 52,427 bundle 模块 / 398,481 函数 / 465,369 节点 / 1,473,627 边 / 4,552 endpoint（750 唯一）/ 85 路由 / 669 storage 键。这 2,282 个 JS 恰好是 `extensions\ai-views` 的全部，说明它不是“豆包全量”，是 AI 侧栏扩展。
-第二张 `ev_313f5b47…` 才是主应用：解 `biz.pak` 的 10,029 个资源（7,837 JS / 1,125 CSS / 369 HTML / 212 SVG / 15 JSON / 460 二进制），得到 **9,797 模块 / 166,986 bundle 模块 / 881,872 函数 / 2,928,056 边 / 8,988 endpoint（1,231 唯一）/ 335 路由**。这张图撞到 1,000,000 节点硬上限，丢弃 615,501 节点，已标截断；`biz.pak` 的 7,837 JS 与 369 HTML 共 8,206 个文本资源，再加 ai-views 的 2,282 JS 与 entry/worklet/RPA，前端取证不再是 2,295 个模块的单图。
+**前端是“扩展图 + 主应用图（三片）”，上一版只交了扩展图。**
+第一张 `ev_e0abf81c…` 覆盖 `local_webcontents` 的直接文件（2,311/3,442，partial）：2,295 源模块 / 2,282 个 JS / 52,427 bundle 模块 / 398,481 函数 / 465,369 节点 / 1,473,627 边 / 4,552 endpoint（750 唯一）/ 85 路由 / 669 storage 键。这 2,282 个 JS 恰好是 `extensions\ai-views` 的全部，说明它不是“豆包全量”，是 AI 侧栏扩展。`local_webcontents` 3,443 个文件里只有 2,291 个 JS，图的 2,311 个 examined 已覆盖全部 JS；其余 1,131 个未解析是 CSS 747 / TXT 309 / SVG 57 / JSON 16 等资源，不是 JS 漏读。
+第二张 `ev_313f5b47…` 才是主应用：解 `biz.pak` 的 10,029 个资源（7,837 JS / 1,125 CSS / 369 HTML / 212 SVG / 15 JSON / 460 二进制），单图 **9,797 模块 / 166,986 bundle 模块 / 881,872 函数 / 2,928,056 边 / 8,988 endpoint（1,231 唯一）/ 335 路由**；单图撞 1,000,000 节点硬上限（需求 1,615,501，丢 615,501）。随后按顶层目录拆三片重跑：`ahalets` 5,907 模块 / 832,342 节点 / 2,227,188 边 / 744,765 函数、`static` 3,597 / 628,680 / 1,821,726 / 519,774、`rest` 58 / 10,289 / 23,673 / 9,700；**合计 9,562 模块 / 1,471,311 节点 / 4,072,587 边 / 1,274,239 函数 / 8,973 endpoint / 335 路由**。**166,986 bundle 模块与单图完全相等**，三片 JS 源文件 4,182 + 3,597 + 58 = 7,837 与解包 JS 总数逐个对齐，JS 面无漏读；节点少 144,190 是 235 个单图额外计入的模块（资产/非 JS 口径）和跨片不生成跨文件边，不是新截断。`biz.pak` 的 7,837 JS 与 369 HTML 共 8,206 个文本资源，再加 ai-views 的 2,282 JS 与 entry/worklet/RPA，前端取证不再是 2,295 个模块的单图。
 工具在 pak 图上报的 2 条 IPC 是 **假阳性**：`getScrollInfo`（`doubao-apps-framework.template.js:44` 的 `.invoke`）和 `postMessageSync`（`doubao-apps-api.template.js:1` 的 `.invoke`）都是 SDK 方法名，不是原生通道。
 
 **IPC 一：Neotix ShellAPI 是真正的产品级原生桥（`ev_313f5b47…` / `ev_2ef855c8…`）。**
@@ -323,8 +330,10 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 **IPC 四：2 个 audio API 是能力门控，不是未知。**
 前端 `static/js/async/nn.aff2f600a8.js` 的 `isUnsupportedSystemAudioCaptureError(o)` 明确判断 `o.name==="ShellapiCommonError" && o.value===8`；catch 后 `showSystemAudioPermissionToast("View_Doubao_Recording_SysAudioUnsupportedUpgrade_Toast")`。`2w.8a331f2839.js` 的 `system.getSystemAudioCaptureAccess` 是同一套调用。当前 `Doubao.dll` 的 `audioRecorder` 45 个原生方法里只有 `voixcapEnableSystemAudioCapture`、`voixcapGetSystemMediaDeviceInfo`，没有这两个新名字；旧原生会返回 8，前端降级成升级提示。同目录 `biz\env.json` 记录 `ScmProductionVersion=1.0.10.1222`、`ScmBuildCommitId=4253f776…`，而 `Doubao.dll` 里找不到这两个串，说明 web bundle 是独立构建。**这不是漏洞，也不是未知通道；它是前端 bundle 与原生 DLL 的版本门控，0 条未定。**
 
-**后端层：本地 RPC、WebSocket、MCP、代理四套都在。**
+**后端层：本地 RPC、WebSocket、MCP、代理、PIP 五套都在。**
 `Doubao.dll` 的 `agent_tool_ipc_named_pipe_transport.cc` 写明 Agent Tool RPC Server：命名管道 `\\.\pipe\aha-agent-tool-ipc-`、TCP fallback `127.0.0.1:<ephemeral>`、`AgentToolIpcAuthOnlyLocal`、开关 `enable-agent-tool-ipc`，并有 `OnPrimaryAcceptComplete` / `SchedulePrimaryListenerRecovery` 的降级恢复逻辑。`app_proxy_transport_websocket_server_socket_factory.cc` 在 `127.0.0.1` 起 WebSocket，走 `app_share_protocol` 的 HMAC 加密。`mcp_helper.dll` 有 `STDIO MCP initialize`、`OAuth loopback callback`、`HTTP startup lifecycle was retired`，说明 MCP 走 stdio，HTTP 只用于 OAuth 回调绑定。`secure-proxy-ipc64.dll` 要求 `pipe://NAME` 的 interceptor endpoint；`sbox\x64\aiep_ipc.dll`、`vm_sdk\x64\aiep_ipc.dll` 是 AIEP 沙箱 IPC 的两套构建。
+PIP 是独立的一套：`pip_main.exe` 3,208,592 字节带 `aha_pip\src\pip_ipc\named_pipe_ipc_server.cc` / `named_pipe_ipc_client.cc`、`PipMainPipeName_{}`、`PipSDKPipeName_{}`、`PipRemotePipeName_{}` 三条命名管道族，并用 `GetNamedPipeClientProcessId` 校验对端；`pip_remote.dll`、`connect_to_shadow_session_client.cc`、`shadow_session_credential_precheck.cc`、`shadow_session_guard.cc`、`rdp_host.cc`、`credential_guard.cc`、`key_stroke.cc` 按文件名指向远程/影子会话、键鼠注入、凭据保护，和 `aha-agent-tool-ipc-`、Neotix ShellAPI 三条通道互相独立。静态可见，启用条件未运行验证。
+helper 侧另有 `DoubaoLinkRouter.exe`（2,952,080，含 `http/ws/wss`、`localhost`、`server` 字面量，按名疑似 URL/协议路由）、`file_search_host.exe`（3,093,904，`--agent-infra-host-config`）、`file_utils_host.exe`（4,985,232，同参数族）、`ghelper.exe`（4,161,424，`GhostHelperService` + `\\.\pipe\crashpad_%lu_`）、`ttdaemon.exe`（277,392，PDB 路径 `C:\79014\CCCreator\proj\cmake\sln_x64_Release\bin\Release\ttdaemon.pdb`，属 CCCreator 守护进程）、`Doubao_proxy.exe`（2,280,336）、`Doubao_browser_proxy.exe`（2,409,872）、`push_detect.exe`（191,376，仅通用字符串，按名疑似推送检测）；`file_*_host` 是 agent infra 的工具宿主，不是聊天 RPC 服务端。
 
 **核心一：Doubao.dll 里嵌了 Deno 运行时权限模型。**
 字符串 `third_party\deno\runtime\permissions\lib.rs`、`vdatetimepermission`、`NotFoundPermissionDenied...` 出现在 permission 主题命中里；同时导入层面有 1,613 个导入 / 153 个安全导入（`CreateRestrictedToken`、`CreateProcessWithTokenW`、`CreateProcessAsUserW`、`DuplicateTokenEx`、`CryptProtectData`、`LsaClose`、`SetFileSecurityW`）。
@@ -341,7 +350,7 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 
 **跨产品发现（本轮新证据）**：豆包的 `app\sbox\` 与 Trae 的 `resources\app\modules\sandbox\` 是**同一套 aiep 沙箱 SDK 的不同构建**——文件名完全同构（`sbox_sdk.dll`、`aiep_sbox.dll`、`aiep_ipc.dll`、`run_helper.exe`），豆包 sbox_sdk 2,656,144 / 2.1.17.0、Trae 2,320,272 / 1.16.0.0。这不是巧合，说明字节系两个产品共享 sandbox 供应链。
 
-**证据锚点**：`ev_e0abf81c…`（ai-views jsmap）、`ev_313f5b47…`（biz.pak jsmap）、`ev_528b9f74…` / `ev_2ef855c8…` / `ev_5eefd5c0…`（三个 DLL overview）、`analysis\doubao-ipc-final.json`（848 项 Neotix 注册表 + 41 条 LarkAPI + 259 个 applet API）。
+**证据锚点**：`ev_e0abf81c…`（ai-views jsmap）、`ev_313f5b47…`（biz.pak 单图 jsmap）、`analysis\doubao-pak-shards.json`（ahalets/static/rest 三片统计与差账）、`ev_528b9f74…` / `ev_2ef855c8…` / `ev_5eefd5c0…`（三个 DLL overview）、`analysis\doubao-ipc-final.json`（848 项 Neotix 注册表 + 41 条 LarkAPI + 259 个 applet API）、`_work\doubao_helpers_scan.py`（9 个 helper exe 的字符串扫描，可复现 PIP/agent_infra/crashpad 证据）。
 
 ---
 
@@ -562,7 +571,7 @@ IPC 分组说明它是“能力市场型”客户端：
 | MiniMax | Electron | 54（25 配对） | 816（332+406/0 未定） | 35（373 成员） | `@mavis/local-runtime-v2` 进程内 REST + wss agent |
 | ZCode | Electron | 3（2 配对） | 423（227 全还原·180 唯一） | 8（169 成员） | `out/host` RPC + `@zcode/server` + runtime-host |
 | 小浣熊 | Electron | 95（19 配对，38 仅 handler） | 26（11 固定/2 族/0 未定） | 20 | box-agent-runtime（Python ACP） + browser-gateway |
-| 豆包 | Chromium 147 | 2 条（SDK 方法误匹配） | 0（另 41 条 LarkAPI/848 个 Neotix 原生方法） | 0 | `agent_infra.dll` 本地运行时策略 + `mcp_helper.dll` MCP 进程宿主 + Agent tool IPC 命名管道 |
+| 豆包 | Chromium 147 | 2 条（SDK/Lynx 方法误匹配） | 0（另 41 条 LarkAPI/848 个 Neotix 原生方法） | 0 | `agent_infra.dll` 本地运行时策略 + `mcp_helper.dll` MCP 进程宿主 + Agent tool IPC 命名管道 + PIP `PipMain/PipSDK/PipRemote` 三族命名管道 |
 | Qoder | Electron | 0 | 8（5 主进程 + 3 guest/0 未定） | 0 | `application-server` + `peer-transport` + `remoteSdkDaemonBridge` |
 | DeepSeek | Electron | 0 | 142（102 调用/54 常量） | 11 | cordis 插件 + `dsh-api-gateway` + loopback WS |
 | OpenCode | Electron | 3（1 配对） | 5（3 唯一/0 未定） | 1（5 成员） | 桌面主进程拉起 `opencode-cli serve --service`；isolated 3084，普通模式动态端口；4096 仅为 Add Server 占位 |
@@ -601,6 +610,7 @@ IPC 分组说明它是“能力市场型”客户端：
 | 凭据与 OAuth 检查点 | 豆包 `mcp_helper` OAuth checkpoint；ZCode `@napi-rs/keyring`；Cursor `cursorPasskey` | `packages/auth`：OS keyring + DPAPI 封装；MCP OAuth 存 checkpoint 而非内存 | 明文凭据零落盘；refresh 失败可恢复；退出即清内存副本 |
 | 遥测与本地采集 | WorkBuddy `localhost:4318`（OTLP）+ `9411`（Zipkin）；ZCode OTLP exporter | `monitoring/` 统一 OTLP，默认本地 collector，远端需显式开关 | 默认不外发；PII 字段白名单过滤；采样率可配 |
 | 更新链路 | ZCode `http://localhost:8081` 本地代理；Cursor `downloads.cursor.com` | `apps/desktop` 更新器：签名校验 + 可选本地代理 + 灰度通道 | 安装包签名校验失败即拒绝；本地代理不可用时回退官方源并告警 |
+| 通道域隔离 | 豆包 Agent Tool `\\.\pipe\aha-agent-tool-ipc-`、Neotix ShellAPI、PIP `PipMain/PipSDK/PipRemote` 三族命名管道并存但用途分离 | `packages/agent-sdk` 按 domain 划 RPC（agent / ui / remote-session），每条通道独立 ACL 与版本号 | 跨 domain 不能复用通道名；每个 domain 有独立健康检查与关闭开关；审计日志按 domain 分表 |
 | 安全基线（窗口） | Qoder 全窗口 `contextIsolation:true/sandbox:true/webSecurity:true`；WorkBuddy 调试面板反例 | `apps/desktop` 统一 `createSecureWindow()` 工厂 | 生产构建禁止 `contextIsolation:false`、`nodeIntegration:true`、`webSecurity:false`；调试窗口独立构建开关 |
 | 多端一致（Web/RN/小程序） | 本轮 11 个产品都在“多入口共享同一后端” | `packages/agent-sdk` 作为唯一协议层；`apps/web`、`apps/mobile-rn`、`apps/miniapp-taro` 复用 | 三端调用同一 `agent-sdk` 方法名与错误码；差异只在 UI 适配层 |
 
@@ -625,7 +635,7 @@ IPC 分组说明它是“能力市场型”客户端：
 4. **Qoder 的 keytar/aoq 已文件级确认**：`keytar.node` 707,584 与 `aoq_node_ext.node` 253,952 在 0.5.6/0.5.14 两个版本中都存在；但 aoq 的具体用途（播放器/会议 SDK）只按 DLL 名称推断，未运行验证。上一轮“未复现”的写法已撤销。
 5. **动态 IPC 计数必须逐目标复核**：ZCode 423、MiniMax 816、DeepSeek 142、WorkBuddy 214、Trae 110、Cursor 45 是工具的“非字面量首参”计数，不等于运行期拼接。已还原：DeepSeek 源码 116 个调用点（102 业务 + 14 清理），102 条业务调用落到 54 个常量通道，142 与 102 的 40 条差额是工具侧重复条目；MiniMax 6+8 条变量全部回填为主进程 332 + renderer 406，源码 804 个调用点、0 条未定；WorkBuddy main 侧 115 条注册全部归因（81 常量/别名 + 29 模板 + 4 helper 形参 + 1 内部通道），12 个 `require_*` 别名全回填；ZCode 本地 227 个调用点 227/227 还原为 180 个唯一通道、0 条未定，423 与 227 的差额来自 node_modules/其他 bundle；Trae 真实 app 树 73 个 ipc +62 个 sender，58 条非字面量中 56 条落到 30 个唯一通道、2 条是 wrapper/response 非通道值、0 条未定；Cursor 44 个 Electron 调用点中 43 条非字面量，29 条落 20 个唯一通道、12 条 helper、1 条 4 路守卫、1 条运行期 payload、0 个未知常量，45 与 43 的 2 条差额落在 js-debug 的 WebSocket `.send` 泛化匹配。
 6. **`webPreferences: dynamic` 无法判定**：多个产品有 4–12 个窗口的 webPreferences 在运行期计算，静态只能标“未知”，不能下“安全/不安全”结论。
-7. **豆包 0 条未定，2 个 audio API 是版本门控**：Neotix ShellAPI 的 848 个原生方法已从 `Doubao.dll` 抽出，LarkAPI.ipc 的 41 个调用点已归到 3 个通道；`AppletBridge` 已定性为 Lynx native module 协议，259 个 `doubao.*`/`applet.*` 是模块方法名、不是 IPC 通道，对桌面通道面增量为 0。`audioRecorder.getSystemAudioCaptureAccess` 与 `openSystemAudioCapturePermissionSettings` 在当前 `Doubao.dll` 里没有同名原生方法，但前端 `nn.aff2f600a8.js` 用 `ShellapiCommonError.value===8` 判断后弹 `SysAudioUnsupportedUpgrade` 提示，属于旧原生上的降级门控，不是未知通道。
+7. **豆包 0 条未定，但图仍有“分片差账”**：Neotix ShellAPI 的 848 个原生方法已从 `Doubao.dll` 抽出，LarkAPI.ipc 的 41 个调用点已归到 3 个通道；`AppletBridge` 已定性为 Lynx native module 协议，259 个 `doubao.*`/`applet.*` 是模块方法名、不是 IPC 通道，对桌面通道面增量为 0。`audioRecorder.getSystemAudioCaptureAccess` 与 `openSystemAudioCapturePermissionSettings` 在当前 `Doubao.dll` 里没有同名原生方法，但前端 `nn.aff2f600a8.js` 用 `ShellapiCommonError.value===8` 判断后弹 `SysAudioUnsupportedUpgrade` 提示，属于旧原生上的降级门控，不是未知通道。`biz.pak` 三片合计 1,471,311 节点，比单图推算需求 1,615,501 少 144,190，差在 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失；**不是新的节点截断，但也不是与单图逐节点等价**。PIP 子系统的命名管道族只做静态字符串取证，启用条件、对端进程、是否默认监听都未运行验证。
 8. **函数发现上限 50,000**：所有大 PE 的函数表都不完整；`core-overview-show` 已明确 `function_limit`。
 9. **字符串保留前 200,000 条**：超大二进制（Codex 204,743 条）尾部字符串未进入索引。
 10. **签名只验证“文件哈希匹配 + 证书链有效”**，未做吊销/时间戳策略判定。
@@ -652,11 +662,13 @@ IPC 分组说明它是“能力市场型”客户端：
 - `analysis\qoder-ipc-final.json`：Qoder 四版本动态 IPC 账本——13 条记录（0.5.6 5 条 / 0.5.7 0 / 0.5.12 0 / 0.5.14 8 条）、13 条全部还原、6 个唯一通道、0 条未定；含自定义 base64 表旋转偏移 283/200 与 `arms:rum-*`、`diagnostics:renderer-responsiveness`、`mcp-app:guest-message` 精确通道。
 - `analysis\opencode-ipc-final.json`：OpenCode 的 5 条动态 IPC——`vi`/`Vr` 主进程发送、`t`/`n`/`r` preload 监听/调用，全部配对回 `opencode:drag-cancel`、`desktop-rpc-port`、`desktop-window-snapshot` 3 个已有静态通道，0 条未定。
 - `analysis\xhz-ipc-final.json`：小浣熊 34 个非字面量 IPC 账本——16 个固定通道记录（11 个唯一）、3 个模板记录（feedback 3 成员 / browser-overlay 按 owner）、1 个 `VOICE_INPUT_CHANNELS` 7 通道清理循环、14 个 helper/cleanup 形参、0 条未定。
-- `analysis\doubao-ipc-final.json`：豆包原生桥总账——848 个 Neotix 原生方法 / 98 个命名空间、111 个字面量调用点 / 52 个方法（50 命中 + 2 个版本门控）、41 个 LarkAPI.ipc 调用点 / 3 个通道（`DOC_IFRAME_REMOVE` 28、`DOC_IFRAME_PUSH` 7、`COMMAND` 4）、259 个 applet API 名 / 659 次引用 / 145 文件，另含 Agent Tool IPC 命名管道、app proxy WebSocket、MCP stdio、secure-proxy 后端记录。
+- `analysis\doubao-ipc-final.json`：豆包原生桥总账——848 个 Neotix 原生方法 / 98 个命名空间、111 个字面量调用点 / 52 个方法（50 命中 + 2 个版本门控）、41 个 LarkAPI.ipc 调用点 / 3 个通道（`DOC_IFRAME_REMOVE` 28、`DOC_IFRAME_PUSH` 7、`COMMAND` 4）、259 个 applet API 名 / 659 次引用 / 145 文件，另含 Agent Tool IPC 命名管道、app proxy WebSocket、MCP stdio、secure-proxy、PIP 三族命名管道后端记录，以及 `biz.pak` 三片统计。
+- `analysis\doubao-pak-shards.json`：豆包 `biz.pak` 三片重跑账本——ahalets 5,907 / 832,342、static 3,597 / 628,680、rest 58 / 10,289；合计 9,562 模块 / 1,471,311 节点 / 4,072,587 边 / 1,274,239 函数 / 8,973 endpoint / 335 路由 / 166,986 bundle 模块；含与单图的逐项差账、2 条 IPC 的 Lynx 方法解码。
 - `analysis\doubao-neotix-apis.json`：从 `Doubao.dll` 抽出的 848 个 `neotix::<namespace>::<method>` 注册表（98 个命名空间，`cloudComputer` 48、`audioRecorder` 45、`computerUse` 34、`system` 32、`sandbox` 31）。
 - `analysis\doubao-larkipc-allcalls.json`：41 个 `LarkAPI.ipc` 调用点原文——28 个 `DOC_IFRAME_REMOVE`、7 个 `DOC_IFRAME_PUSH`、4 个 `COMMAND`（含 `EXPORT_SIGNATURE_TO_DOCX`、`CLOSE_MESSENGER_APP_CHAT_WINDOW_TABS`、`CLOSE_MESSENGER_URGENT_CARDS`）、2 个 `getCurrentId`，0 条未定。
 - `analysis\doubao-applet-apis.json`：259 个 `doubao.*` / `applet.*` 字面量 API（185 + 74）与 659 次引用、145 个文件；含 `doubao.callMcpTool`、`applet.invokeTool`、`doubao.setStorage`、`applet.subscribeEvent`。
-- `doubao-pak-jsmap-full.json`：豆包 `biz.pak` 解包后的主前端图，9,797 模块 / 166,986 bundle 模块 / 881,872 函数 / 2,928,056 边 / 8,988 endpoint（1,231 唯一）/ 335 路由；1,000,000 节点硬上限丢弃 615,501 节点，`ipc_channels=2` 是 `getScrollInfo`/`postMessageSync` 方法名误匹配。
+- `doubao-pak-jsmap-full.json`：豆包 `biz.pak` 解包后的单张主前端图，9,797 模块 / 166,986 bundle 模块 / 881,872 函数 / 2,928,056 边 / 8,988 endpoint（1,231 唯一）/ 335 路由；1,000,000 节点硬上限丢弃 615,501 节点，`ipc_channels=2` 是 `getScrollInfo`/`postMessageSync` 方法名误匹配。
+- `doubao-ahalets-jsmap.json` / `doubao-static-jsmap.json` / `doubao-rest-jsmap.json`：`biz.pak` 的三片重跑图——ahalets 5,907 模块 / 832,342 节点 / 2,227,188 边 / 744,765 函数、static 3,597 / 628,680 / 1,821,726 / 519,774、rest 58 / 10,289 / 23,673 / 9,700；合计 1,471,311 节点 / 4,072,587 边 / 1,274,239 函数，166,986 bundle 模块与单图完全相等。
 - `doubao-pak\`：从 `biz.pak` 解出的 10,029 个资源（7,837 JS / 1,125 CSS / 369 HTML / 212 SVG / 15 JSON / 460 二进制），按 manifest 的原始路径落盘。
 - `analysis\doubao-native-tokens.json`：`Doubao.dll`、`liblark.dll`、`agent_infra.dll`、`mcp_helper.dll`、`aiep_ipc.dll`、`secure-proxy-ipc64.dll`、`AhaMuleLocalSDK.dll`、`vm_sdk.dll`、`sbox_sdk.dll` 的 `Neotix` / `neotixChannel` / `SHELL_API_IPC_EVENT` / `\\\\.\\pipe\\` / `MCP` / `127.0.0.1` 命中与上下文。
 - `analysis\zcode-channel-map.json`：从 `out/preload/index.cjs` 的 `var v={...}` 解析出的 169 项 `zcode:*` 通道表。
@@ -709,5 +721,5 @@ $proj = "C:\IHUI-AI\.workbuddy\craft\all-ai-apps-full-2026-11-25.cany"
 
 ---
 
-**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是十二处纠正、11 个程序、8 个 asar 解包、15 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张，后者撞 1,000,000 节点硬上限丢 615,501 节点）、25 个实际存在的原生二进制（+1 个 not_found）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
+**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是十三处纠正、11 个程序、8 个 asar 解包、15 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、25 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
