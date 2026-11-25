@@ -35,6 +35,7 @@ import {
 } from '@ihui/rn-app'
 import { resolveVipIndexFeatures } from '@ihui/rn-app/features/vip/view-model'
 import { apiFailureToText } from '@ihui/shared/utils'
+import { vipBenefitLabel } from '@ihui/shared/constants'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import { BottomPopup } from '../components/BottomPopup'
 import { appAlert, BottomPops } from '../components/BottomPops'
@@ -77,13 +78,15 @@ function normalizeBenefits(raw: unknown): string[] {
   const out: string[] = []
   for (const item of raw) {
     if (typeof item === 'string') {
-      const text = item.trim()
-      if (text) out.push(text)
+      // 2026-11-26 修:数据库 vip_levels.benefits 存的是英文 key(unlimitedChat /
+      // testPaymentFlow …),接口原样下发,此前直接当标题渲染 ⇒「权益详情」露出裸键名。
+      // 中文标签统一走共享层 VIP_BENEFIT_LABELS;未知 key 原样返回,不造词。
+      if (item.trim()) out.push(vipBenefitLabel(item))
       continue
     }
     if (item && typeof item === 'object') {
       const name = (item as { name?: unknown }).name
-      if (typeof name === 'string' && name.trim()) out.push(name.trim())
+      if (typeof name === 'string' && name.trim()) out.push(vipBenefitLabel(name))
     }
   }
   return out
