@@ -56,6 +56,7 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  statSync,
   unlinkSync,
   writeFileSync,
   writeSync,
@@ -220,13 +221,28 @@ export function sweepStale(indexDir, { isAlive = isPidAlive, now = Date.now() } 
     return removed
   }
   for (const name of names) {
+    const full = join(indexDir, name)
     const m = INDEX_NAME_RE.exec(name)
-    if (!m) continue
-    const pid = Number(m[1])
-    const mtimeMs = Number(m[2])
-    if (isAlive(pid) && now - mtimeMs < STALE_AGE_MS) continue
+    if (m) {
+      const pid = Number(m[1])
+      const mtimeMs = Number(m[2])
+      if (isAlive(pid) && now - mtimeMs < STALE_AGE_MS) continue
+    } else {
+      // 2026-11-25 立「非本器命名兜底」：本目录里除本器产物外还散落着一次性/手工造的索引副本
+      // （a15b.idx / g65c.idx / sign-*.idx / adjudicate-v2-*.idx / debris2-* 等）。旧实现
+      // 对这族直接 continue ⇒ 它们永远不会被清：本轮实测堆积 15 个 / 31.7MB，最老 11-04。
+      // 这族没有 pid/时间戳可解析，改按文件自身 mtime 兜底 —— 超 STALE_AGE_MS(24h) 即清；
+      // 活跃使用者会持续刷新 mtime，天然落在射程外（与 prune-repo-bloat 的 mtime 判据同源）。
+      let st
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      if (now - st.mtimeMs < STALE_AGE_MS) continue
+    }
     try {
-      rmSync(join(indexDir, name), { recursive: true, force: true })
+      rmSync(full, { recursive: true, force: true })
       removed.push(name)
     } catch {
       /* 别人正删/权限抖动:下次再来,绝不升级成阻断 */

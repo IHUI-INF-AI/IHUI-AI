@@ -16,7 +16,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, utimesSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -538,6 +538,29 @@ test('⑥ 单元:命名唯一、只按死 pid/超龄 sweep、子进程 env 剥 G
     assert.equal('GIT_DIR' in env, false)
     assert.equal('GIT_WORK_TREE' in env, false)
     assert.equal(env.KEEP, '1')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑥b 单元:非本器命名的一次性索引副本按 mtime 兜底清理', () => {
+  const dir = makeRepo('iso-git-manual-')
+  try {
+    const gitDir = iso.gitDirOf(dir, iso.childEnv(''))
+    const indexDir = join(gitDir, INDEX_DIR_NAME)
+    mkdirSync(indexDir, { recursive: true })
+    // 手工/一次性命名(不匹配 <pid>-<ms>-<rand>):旧实现对这族直接 continue ⇒ 永不被清;
+    // 本轮实测该目录堆积 15 个 / 31.7MB,最老 11-04,正是这条通道。
+    const staleManual = join(indexDir, 'manual-old.idx')
+    const freshManual = join(indexDir, 'manual-new.idx')
+    writeFileSync(staleManual, 'x')
+    writeFileSync(freshManual, 'x')
+    const past = new Date(Date.now() - 5 * 24 * 3600 * 1000)
+    utimesSync(staleManual, past, past)
+    const removed = iso.sweepStale(indexDir)
+    assert.deepEqual(removed, ['manual-old.idx'], '非本器命名超龄的应清')
+    assert.equal(existsSync(staleManual), false)
+    assert.equal(existsSync(freshManual), true, 'mtime 新鲜的必须留下(活跃使用者会持续刷新 mtime)')
   } finally {
     rmScratch(dir)
   }
