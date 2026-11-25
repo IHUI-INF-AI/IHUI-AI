@@ -5,18 +5,17 @@
 /**
  * 记住账号 + 账号历史 + 自动登录 凭据管理(票 #27 web 端收口,2026-09-29)
  *
- * 本文件**不再持久化口令**。旧版把 `{account, password}` 经
- * `base64(encodeURIComponent(JSON))` 写 localStorage —— base64 是编码不是加密,
- * 一步可还原。而浏览器没有能给普通网页"任意保存第三方站点口令、事后再静默取回"的
- * OS 级安全存储(Web Credentials / PasswordCredential 只服务于浏览器自动填充与
- * 联合登录,页面 JS 拿不到静默读取的能力),所以"把 base64 换成 AES"同样不解决问题:
- * 密钥只能落在同一 origin 的存储里,XSS / 同源脚本 / 读到磁盘的进程拿得到密文
- * 就拿得到钥匙 —— 与不加密等价。
+ * 账号本身不是机密,继续用共享编码器写 localStorage;口令只在用户显式勾选
+ * 「记住密码」时交给 `remembered-password-vault.ts` 的 AES-GCM 保险箱,不再以明文
+ * 或 base64 形式落 localStorage。保险箱的密钥是非导出 CryptoKey,存在 IndexedDB;
+ * 只拿到 localStorage 密文的离线读取拿不到口令原文。WebCrypto/IndexedDB 不可用时
+ * **不落盘**,绝不退回明文。
  *
- * 自动登录不需要口令:refresh token 静默续期早已承担这件事
+ * 自动登录不再依赖这里的明文口令:refresh token 静默续期承担长期登录
  * (`apps/web/src/hooks/use-auth-bootstrap.ts` 靠 httpOnly refresh cookie 调
  * `/auth/refresh`;运行中 401 由 `@ihui/api-client` 的 fetchApi 自动续期)。
- * 口令在换到 token 之后就没有存在本地的理由,于是本地也不该留它。
+ * 用户勾选「记住密码」后,表单在挂载/账号变化时异步解密回填;该口令只存在内存与
+ * 加密记录里。
  *
  * 记录形态 / key 名 / 历史上限的唯一真相在 `@ihui/shared`(RN / 小程序用同一份实现):
  * - 编解码:`@ihui/shared/auth/remembered-account`(纯函数,结构上写不出口令字段)
@@ -24,11 +23,9 @@
  * 本文件只保留 web/extension 的平台运输层:localStorage 读写 + 认出**历史 base64
  * 传输形态**并把它就地改写成"只含账号"的 JSON(迁移义务 —— 不是"新写入才干净")。
  *
- * "记住账号"(登录历史下拉 + 账号回填)完整保留:账号不是机密,删掉是功能倒退;
- * 删掉的只有口令那一半。
- *
  * 存储格式(localStorage,btoa/atob 可用)
  * - ihui-remember-credentials: {"account"} —— **永远不含 password**(历史 base64 形态读到即抹)
+ * - ihui-remember-password-v2: {v:2, account, iv, data} —— 仅密文;密钥在 IndexedDB
  * - ihui-auto-login: '1' / '0'
  * - ihui-login-history: string[](最多 LOGIN_HISTORY_MAX 个,不含口令;历史 base64 形态仍可读)
  */
@@ -44,6 +41,12 @@ import {
   LOGIN_HISTORY_STORAGE_KEY,
   REMEMBERED_ACCOUNT_STORAGE_KEY,
 } from '@ihui/shared/constants/storage-keys'
+import {
+  clearRememberedPassword as clearVaultPassword,
+  getRememberedPasswordForAccount as getVaultPasswordForAccount,
+  hasRememberedPasswordForAccount as hasVaultPasswordForAccount,
+  saveRememberedPasswordForAccount as saveVaultPasswordForAccount,
+} from './remembered-password-vault'
 
 export interface RememberedCredentials {
   account: string
@@ -51,21 +54,11 @@ export interface RememberedCredentials {
 }
 
 /**
- * 用户**显式勾选"记住密码"**时才写入的口令 key(2026-10-17 用户决策:在浏览器自带
- * 记忆之外,项目自身也要"记住密码"免重填)。
- *
- * 与 `REMEMBERED_ACCOUNT_STORAGE_KEY` **刻意分离**:那把 key 由共享编码器生成,结构上
- * 永远不含口令字段;口令绝不写进它。这把 key 只在用户主动勾选后写入 `{account, password}`,
- * 用途是"免重填 + 自动登录回填",不是安全存储(仍是 JSON 明文,见文件头安全说明);
- * 不勾选时这把 key 恒为空。换号登录且未勾选时会被 `saveRememberedCredentials` 清空,
- * 避免把上一个账号的口令填进新账号。
+ * 用户**显式勾选"记住密码"**时才写入的口令。口令不再进 localStorage 明文 key,
+ * 统一交给 `remembered-password-vault.ts` 的 AES-GCM 保险箱;不勾选时只留账号。
+ * 换号登录且未勾选时会被 `saveRememberedCredentials` 清空口令记录,避免把上一个
+ * 账号的口令填进新账号。
  */
-const REMEMBERED_PASSWORD_STORAGE_KEY = 'ihui-remember-password' as const
-
-interface RememberedPasswordRecord {
-  account: string
-  password: string
-}
 
 /** 解出历史传输形态 `btoa(unescape(encodeURIComponent(text)))`;非 base64 ⇒ null。 */
 function decodeLegacyTransport(raw: string): string | null {
@@ -90,10 +83,10 @@ function readItem(key: string): string | null {
 
 /**
  * 写盘的只有账号。`_password` 入参只为保留调用方与跨端 `CredentialStorage` 接口的形状,
- * 值被**丢弃**:web 没有任何可放它的地方(见文件头),自动登录由 token 续期承担。
+ * 值被**丢弃**:口令由下面的显式「记住密码」路径单独加密保存,不走这里。
  *
- * 2026-10-17 起本函数同时**清掉显式口令 key**:它走的是登录成功但"未勾选记住密码"的
- * 分支,语义 = 用户本次不想记口令;账号历史(ihui-login-history)与账号回填 key 都不受影响。
+ * 本函数同时**清掉已记住的口令**:它走的是登录成功但"未勾选记住密码"的分支,
+ * 语义 = 用户本次不想记口令;账号历史(ihui-login-history)与账号回填 key 都不受影响。
  */
 export function saveRememberedCredentials(account: string, _password: string): void {
   try {
@@ -101,69 +94,47 @@ export function saveRememberedCredentials(account: string, _password: string): v
   } catch {
     // 静默失败
   }
-  clearRememberedPassword()
+  clearVaultPassword()
 }
 
 /**
- * 勾选"记住密码"后的写入路径(2026-10-17 立):账号照旧走"只含账号"的 key(历史下拉 /
- * 回填数据源不变),口令另存到独立的 `REMEMBERED_PASSWORD_STORAGE_KEY`。
+ * 勾选"记住密码"后的写入路径:账号照旧走"只含账号"的 key(历史下拉 / 回填数据源
+ * 不变),口令进 AES-GCM 保险箱。返回是否成功落盘(WebCrypto/IndexedDB 不可用 ⇒ false,
+ * 不退回明文)。
  */
-export function saveRememberedCredentialsWithPassword(account: string, password: string): void {
+export async function saveRememberedCredentialsWithPassword(
+  account: string,
+  password: string,
+): Promise<boolean> {
   persistRememberedAccount(account)
-  if (!password) return
-  try {
-    const record: RememberedPasswordRecord = { account, password }
-    localStorage.setItem(REMEMBERED_PASSWORD_STORAGE_KEY, JSON.stringify(record))
-  } catch {
-    // 静默失败
+  if (!password) {
+    clearVaultPassword()
+    return false
   }
+  return saveVaultPasswordForAccount(account, password)
 }
 
-/** 读回某账号对应的显式口令;账号不匹配 / 无记录 / 损坏一律返回 ''(换号不回吐旧口令)。 */
-export function getRememberedPasswordForAccount(account: string): string {
-  return readRememberedPasswordForAccount(account.trim())
+/** 同步判断某账号是否有加密口令记录(不解密,用于勾选框默认态)。 */
+export function hasRememberedPasswordForAccount(account: string): boolean {
+  return hasVaultPasswordForAccount(account)
 }
 
-/** 读回某账号对应的显式口令;账号不匹配 / 无记录 / 损坏一律返回 ''(换号不回吐旧口令)。 */
-function readRememberedPasswordForAccount(account: string): string {
-  const raw = readItem(REMEMBERED_PASSWORD_STORAGE_KEY)
-  if (!raw) return ''
-  try {
-    const rec = JSON.parse(raw) as Partial<RememberedPasswordRecord>
-    if (
-      rec &&
-      typeof rec.account === 'string' &&
-      rec.account === account &&
-      typeof rec.password === 'string'
-    ) {
-      return rec.password
-    }
-    return ''
-  } catch {
-    return ''
-  }
-}
-
-function clearRememberedPassword(): void {
-  try {
-    localStorage.removeItem(REMEMBERED_PASSWORD_STORAGE_KEY)
-  } catch {
-    // 静默失败
-  }
+/**
+ * 读回某账号对应的口令(异步解密);账号不匹配 / 无记录 / 解密失败一律返回 ''
+ * (换号不回吐旧口令)。历史明文记录会在此处迁移到保险箱并删除明文。
+ */
+export function getRememberedPasswordForAccount(account: string): Promise<string> {
+  return getVaultPasswordForAccount(account)
 }
 
 /**
  * 读回记住的账号;读到旧形态(带口令的记录或 base64 传输)时**就地抹掉口令**。
  *
- * 默认(不传参 / `keepPassword=false`)返回值的 `password` 恒为 '' —— 这不是"没找到口令",
- * 是"这一端默认不提供口令"。PasswordLoginForm 的自动提交 effect 据此自然短路,自动登录走
- * use-auth-bootstrap 的静默续期,不再重放账密。
- *
- * `keepPassword=true`(2026-10-17 G-322):用户之前勾选过"记住密码"时,把与当前账号匹配的
- * 显式口令一并回吐(供勾选框默认值与自动登录回填);未勾选 / 换号不匹配时仍为 ''。
+ * 返回值的 `password` 恒为 '' —— 口令已改为 AES-GCM 保险箱,无法同步解密;
+ * 需要口令的调用方用下面的 `loadRememberedCredentialsWithPassword()`。
  */
 export function loadRememberedCredentials(
-  options: { keepPassword?: boolean } = {},
+  _options: { keepPassword?: boolean } = {},
 ): RememberedCredentials | null {
   const raw = readItem(REMEMBERED_ACCOUNT_STORAGE_KEY)
   if (!raw) return null
@@ -175,12 +146,19 @@ export function loadRememberedCredentials(
     if (decoded.carriedPlaintextPassword || !direct) {
       persistRememberedAccount(decoded.account)
     }
-    const password = options.keepPassword ? readRememberedPasswordForAccount(decoded.account) : ''
-    return { account: decoded.account, password }
+    return { account: decoded.account, password: '' }
   }
   // 解不出的垃圾记录:key 归本库所有,且旧形态可能含口令 ⇒ 删除是唯一安全方向
   clearRememberedCredentials()
   return null
+}
+
+/** 异步版:账号同步读出,口令经保险箱解密;无记录/解不开时 password 为 ''。 */
+export async function loadRememberedCredentialsWithPassword(): Promise<RememberedCredentials | null> {
+  const remembered = loadRememberedCredentials()
+  if (!remembered) return null
+  const password = await getRememberedPasswordForAccount(remembered.account)
+  return { account: remembered.account, password }
 }
 
 /** 落盘的只有账号 —— 写出去的文本由共享出口生成,结构上没有 `password` 这个字段。 */
@@ -198,6 +176,7 @@ export function clearRememberedCredentials(): void {
   } catch {
     // 静默失败
   }
+  clearVaultPassword()
 }
 
 /* ========== 自动登录 ========== */

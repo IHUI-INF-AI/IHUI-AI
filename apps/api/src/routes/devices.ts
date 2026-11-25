@@ -312,6 +312,30 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // POST /api/devices/self-token - 登录态自助签发设备令牌(G5 桌面端,无配对码)
+  // 与 pair-exchange 共用注册/签名实现;区别只在于凭据是已认证的人 JWT。
+  server.post('/devices/self-token', async (request, reply) => {
+    const userId = await requireUser(request, reply)
+    if (!userId) return
+    const parsed = z
+      .object({
+        name: z.string().min(1).max(255),
+        os: z.string().max(128).optional().nullable(),
+      })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const { deviceToken, device } = await issueSelfDeviceToken({ userId, ...parsed.data })
+      return reply.send(
+        success({ device_id: device.id, device_token: deviceToken, name: device.name }),
+      )
+    } catch (e) {
+      return replyServiceError(reply, e)
+    }
+  })
+
   // GET /api/devices - 当前用户设备列表(附 online:last_seen_at 距今 <90s)
   server.get('/devices', async (request, reply) => {
     const userId = await requireUser(request, reply)
@@ -329,32 +353,6 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
     const device = await revokeDevice(userId, id)
     if (!device) return reply.status(404).send(error(404, '设备不存在'))
     return reply.send(success({ id: device.id, revoked: true }))
-  })
-
-  // POST /api/devices/self-token - 已登录客户端自助接入(G5,2026-11-26)
-  // 桌面端/网页端「启用本机执行器」走这里:登录态即凭据,不再要 8 位配对码。
-  // 配对码只留给没有登录态的机器(纯 CLI / 服务器 / 另一台电脑)。
-  server.post('/devices/self-token', async (request, reply) => {
-    const userId = await requireUser(request, reply)
-    if (!userId) return
-    const parsed = z
-      .object({
-        name: z.string().min(1).max(255),
-        os: z.string().max(128).optional().nullable(),
-        capabilities: capabilitiesSchema,
-      })
-      .safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    try {
-      const { device, deviceToken } = await issueSelfDeviceToken({ userId, ...parsed.data })
-      return reply.send(
-        success({ device_id: device.id, device_token: deviceToken, name: device.name }),
-      )
-    } catch (e) {
-      return replyServiceError(reply, e)
-    }
   })
 
   // POST /api/devices/pair-code - 签发 6 位数字配对码(明文只在此响应出现一次)

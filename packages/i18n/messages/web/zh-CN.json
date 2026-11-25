@@ -15165,7 +15165,10 @@
       "symbolPlaceholder": "股票代码，如 AAPL 或 600519",
       "time": "时间",
       "title": "AI 股票分析",
-      "tokenBalance": "AI 积分余额", "permanent": "永久积分", "daily": "今日赠送", "dailyHint": "每日赠送 100 积分，当天有效",
+      "tokenBalance": "AI 积分余额",
+      "permanent": "永久积分",
+      "daily": "今日赠送",
+      "dailyHint": "每日赠送 100 积分，当天有效",
       "tokensUsed": "Token 消耗",
       "total": "总额",
       "used": "已用",
@@ -22953,7 +22956,8 @@
     "dataVisibility": "数据可见性",
     "dataVisibilityDesc": "控制谁可以查看您的个人资料信息",
     "desc": {
-      "notificationSound": "接收通知时播放声音"
+      "notificationSound": "接收通知时播放声音",
+      "notificationRingtone": "收到新通知时播放所选铃声"
     },
     "device": {
       "empty": "暂无登录设备",
@@ -23132,7 +23136,8 @@
       "title": "IP 白名单"
     },
     "labels": {
-      "notificationSound": "通知声音"
+      "notificationSound": "通知声音",
+      "notificationRingtone": "通知铃声"
     },
     "langZh": "中文",
     "llmConfigsDesc": "配置大语言模型提供商与参数",
@@ -23395,7 +23400,18 @@
     "devices": {
       "navTitle": "设备管理",
       "navDesc": "查看已登录的设备并管理会话"
-    }
+    },
+    "ringtoneNames": {
+      "dingdong": "门铃",
+      "tritone": "上扬三音",
+      "waterdrop": "水滴",
+      "doublebell": "双响铃",
+      "bubble": "气泡",
+      "marimba": "木琴",
+      "chime": "和弦铃",
+      "knock": "轻敲"
+    },
+    "ringtonePreview": "试听"
   },
   "shareContentPage": {
     "aiGenerated": "智汇 AI 生成",
@@ -31454,4 +31470,3 @@
     "uploading": "上传中…"
   }
 }
-

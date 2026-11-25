@@ -128,6 +128,26 @@ export async function registerDevice(input: {
   return rows[0]!
 }
 
+/**
+ * G5 桌面端自助接入:登录态直接签发设备令牌,不再要求手机抄 8 位配对码。
+ *
+ * 与 `exchangePairCode` 共用 `registerDevice` + `signDeviceToken`,所以设备行、
+ * 令牌校验与配对路径完全同构;区别只是"凭据"从一次性配对码换成已认证的人 JWT。
+ * 设备指纹仍由 CLI 在 adopt 时绑定,这里不代算(全仓唯一指纹实现不在 API)。
+ */
+export async function issueSelfDeviceToken(input: {
+  userId: string
+  name: string
+  os?: string | null
+}): Promise<{ deviceToken: string; device: Device }> {
+  const device = await registerDevice({
+    userId: input.userId,
+    name: input.name,
+    os: input.os,
+  })
+  return { deviceToken: signDeviceToken(device.id), device }
+}
+
 /** 当前用户设备列表(不含已撤销),附 online 判定 */
 export async function listDevices(userId: string): Promise<Array<Device & { online: boolean }>> {
   const rows = await db
@@ -146,43 +166,6 @@ export async function revokeDevice(userId: string, deviceId: string): Promise<De
     .where(and(eq(devices.id, deviceId), eq(devices.userId, userId), isNull(devices.revokedAt)))
     .returning()
   return rows[0] ?? null
-}
-
-/**
- * G5(2026-11-26)已登录客户端自助接入:桌面端「启用本机执行器」不再要配对码。
- *
- * 与 pair-exchange 的分工讲清楚:那条是给**没有登录态**的机器(纯 CLI / 无 GUI 服务器 /
- * 另一台没装客户端的电脑),码就是那台机器唯一的凭据来源;这条给"发请求的会话本身
- * 就是本人"的客户端 —— 登录态已是最强凭据,再让用户从手机抄一串 8 位码到本机,
- * 等于把能自动的步骤推给人做。
- *
- * 边界(为什么不无条件签发):
- * - 签出的只是**设备令牌**(只能调 /devices/* 设备端点:心跳/认领/写回),拿不到会话与消息;
- * - 已绑定配对指纹的同名设备行**拒绝签发**:否则任何登录会话都能替一台已配对机器换令牌,
- *   指纹那层"重放防偷渡"就形同虚设。换名或先在设备列表撤销旧设备即可;
- * - 新行不写 fingerprint,保持"未绑定"⇒ 指纹闸按存量设备旧行为跳过。
- */
-export async function issueSelfDeviceToken(input: {
-  userId: string
-  name: string
-  os?: string | null
-  capabilities?: DeviceCapabilities | null
-}): Promise<{ device: Device; deviceToken: string }> {
-  const device = await registerDevice({
-    userId: input.userId,
-    name: input.name,
-    os: input.os ?? null,
-    capabilities: input.capabilities ?? null,
-    fingerprint: null,
-  })
-  if (device.fingerprint) {
-    throw new AppError(
-      '该设备名已绑定配对指纹,请换一个设备名,或先在设备列表撤销旧设备',
-      409,
-      'DEVICE_NAME_BOUND',
-    )
-  }
-  return { device, deviceToken: signDeviceToken(device.id) }
 }
 
 /** 签发 8 位数字配对码(TTL 5 分钟、单次使用、每用户 10 次/小时)。
