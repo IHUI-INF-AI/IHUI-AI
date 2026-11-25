@@ -1148,6 +1148,18 @@
     "catCopyShort": "文案"
   },
   "drawer": {
+    "search": "搜索对话",
+    "multiSelect": "切换任务多选模式",
+    "filterLabel": "按文件夹筛选",
+    "sortPinnedFirst": "置顶优先",
+    "sortByTime": "按时间排序",
+    "selectAll": "全选",
+    "invertSelection": "反选",
+    "moveToFolder": "移动所选到分组",
+    "batchArchive": "批量归档",
+    "batchUnarchive": "批量取消归档",
+    "batchDelete": "批量删除",
+    "cancelSelection": "取消选择",
     "newChat": "新建任务",
     "history": "历史对话",
     "noHistory": "暂无历史对话",
@@ -2538,7 +2550,7 @@
   "devices": {
     "title": "设备管理",
     "pairTitle": "配对码",
-    "pairHint": "在要连接的设备上输入以下 6 位码完成配对;码 5 分钟内有效且仅可使用一次。",
+    "pairHint": "只给没有登录态的机器用(纯命令行 / 服务器):在目标机器执行 ihui device pair <码>。本机桌面端不需要配对码,点上方「一键启用」即可。",
     "pairGenerate": "生成配对码",
     "pairRegenerate": "重新生成",
     "pairFailed": "配对码生成失败",
@@ -2589,8 +2601,9 @@
     "executorStop": "停止",
     "executorRefresh": "刷新状态",
     "executorEnable": "一键启用",
-
     "executorUnpaired": "这台电脑还没接入。点「一键启用」授权本机执行(不需要配对码)。",
+    "executorNeedLogin": "登录状态已失效,请重新登录后再启用。",
+    "executorChangeWorkspace": "重新选择工作区",
     "executorUnsupported": "当前平台不支持本机执行器(仅 Windows 桌面端)。",
     "executorTaskRegistered": "已注册开机自启",
     "approvalTitle": "执行计划",

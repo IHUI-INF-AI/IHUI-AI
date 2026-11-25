@@ -684,6 +684,15 @@ const ONE_SIDED_FACTS: ReadonlyArray<OneSidedFact> = [
     why: 'A 录音波形:小程序本组件无录音态',
   },
   {
+    value: 4,
+    dimension: 'geometry',
+    owner: 'mobile-rn',
+    kind: 'A',
+    anchor: /const CONTAINER_PADDING_VERTICAL = 4\b/,
+    otherAnchor: /CONTAINER_PADDING_VERTICAL/,
+    why: 'A 输入壳上下内衬 4:小程序同容器走自己的 token 内衬,无同名常量',
+  },
+  {
     value: 10,
     dimension: 'geometry',
     owner: 'mobile-rn',

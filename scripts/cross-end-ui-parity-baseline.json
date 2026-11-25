@@ -88,16 +88,8 @@
       "until": "2027-03-27"
     },
     "NavBar": {
-      "reason": "2026-11-04 收敛:小程序 NavBar 补 subtitle 一支(fe50a4123d,门 285 B3 属性对齐 RN),双行行高 56 / 副标题字号 12 / 上距 2 已两端真引用,从单侧账撤下并登记进共用清单(门 SL NavBar 5→2,counts 7→4);行高 44 是 RN 自测量、小程序走微信胶囊 menuButton.height+8(平台量);32 是 RN 空侧占位块,小程序用 absolute 悬浮钮居中,无占位元素;4 是 hitSlop 命中扩张通道;13 = 胶囊兜底对象 `{ top: 26, height: 32 }` 的量纲误读(该对象是逻辑 px,经 utils/rpx.ts 的 px() 落成真 CSS px,门按小程序裸数字=rpx 折半读成 13;对面无对应元素,状态栏由 App.tsx SafeAreaView 单点注入)。圆角 RD 4 同属单侧:小程序 ai-home「加入社区群」胶囊的 rnRadius.sm,RN 无该带边框 CTA。更正@2026-10-27:旧文案「px() 通道门读不到」与现读矛盾(门确实读到了这一行,只是量纲读错),已删。",
+      "reason": "2026-11-04 收敛:小程序 NavBar 补 subtitle 一支(fe50a4123d,门 285 B3 属性对齐 RN),双行行高 56 / 副标题字号 12 / 上距 2 已两端真引用,从单侧账撤下并登记进共用清单(门 SL NavBar 5→2,counts 7→4)。2026-11-26 现读:小程序 NavBar 行高兜底已改为 import 共享 `NAVBAR_ROW_HEIGHT_PX`(44),该档从单侧账撤下并进共用清单,SL 仅余 32;32 是 RN 空侧占位块,小程序用 absolute 悬浮钮居中,无占位元素;4 是 hitSlop 命中扩张通道;13 = 胶囊兜底对象 `{ top: 26, height: 32 }` 的量纲误读(该对象是逻辑 px,经 utils/rpx.ts 的 px() 落成真 CSS px,门按小程序裸数字=rpx 折半读成 13;对面无对应元素,状态栏由 App.tsx SafeAreaView 单点注入)。圆角 RD 4 同属单侧:小程序 ai-home「加入社区群」胶囊的 rnRadius.sm,RN 无该带边框 CTA。更正@2026-10-27:旧文案「px() 通道门读不到」与现读矛盾(门确实读到了这一行,只是量纲读错),已删。",
       "singleEndTiers": [
-        {
-          "tier": "NAVBAR_ROW_HEIGHT_PX",
-          "side": "rn",
-          "kind": "mechanism-variant",
-          "element": "页头行高 44",
-          "reason": "RN 页头是固定行高档;小程序行高由微信胶囊实测推导(menuButton.height + 8),是平台量而不是一个可补的盒 —— 两端不是同一元素取两档。",
-          "until": "2027-03-27"
-        },
         {
           "tier": "NAVBAR_SIDE_PLACEHOLDER_PX",
           "side": "rn",
@@ -301,14 +293,6 @@
           "until": "2027-03-27"
         },
         {
-          "tier": "INPUT_AREA_INPUT_MIN_HEIGHT_PX",
-          "side": "rn",
-          "kind": "mechanism-variant",
-          "element": "输入行/语音区最小高 48",
-          "reason": "小程序 ai-home 对应位置是高 22 的紧凑条,且 22 这一档两端共享 —— 变体契约分叉。",
-          "until": "2027-03-27"
-        },
-        {
           "tier": "INPUT_AREA_SHELL_PADDING_V_PX",
           "side": "rn",
           "kind": "element-absent",
@@ -349,14 +333,6 @@
           "until": "2027-03-27"
         },
         {
-          "tier": "INPUT_AREA_INPUT_MAX_HEIGHT_PX",
-          "side": "rn",
-          "kind": "mechanism-variant",
-          "element": "输入框自动撑高上限 120",
-          "reason": "与小程序 ai-home 的 250(可放大到全屏)是变体契约分叉,取任一端都会破另一端的版。",
-          "until": "2027-03-27"
-        },
-        {
           "tier": "INPUT_AREA_LEGACY_SHADOW_OFFSET_PX",
           "side": "rn",
           "kind": "element-absent",
@@ -394,14 +370,6 @@
           "kind": "cross-file-consumption",
           "element": "框内发送钮/麦克风方盒 32",
           "reason": "值就是 GEOMETRY_PX.controlBox;小程序 ai-home 同一枚钮经 geometry 的 controlBox 取同档,文本上不引本常数 ⇒ 呈现为单侧引用,不是两端不同值。",
-          "until": "2027-03-27"
-        },
-        {
-          "tier": "INPUT_AREA_EXPAND_BTN_BOX_PX",
-          "side": "miniapp",
-          "kind": "element-absent",
-          "element": "框内放大/切换钮盒 40",
-          "reason": "RN 的框内放大变体已随 2026-11-04 props-parity 批删除(当前文件零引用);小程序 search-right / search-suo 仍在。",
           "until": "2027-03-27"
         },
         {

@@ -430,7 +430,8 @@ function createStyles(tk: AppThemeTokens) {
     errorText: { fontSize: rnType.bodySm.size, color: tk.danger.deepText },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     textButton: { paddingVertical: rnSpacing.xs, paddingHorizontal: rnSpacing.sm },
-    statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
+    // 2026-11-25(C9):statGrid 卡片间距统一 cardGap 12(rnSpacing.md),原 8 与其它统计栅格不同档
+    statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.md },
     statCard: {
       minWidth: 96,
       width: '48%',
@@ -438,7 +439,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
       gap: rnSpacing['2xs'],
     },
@@ -448,7 +449,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
       gap: rnSpacing.sm,
     },

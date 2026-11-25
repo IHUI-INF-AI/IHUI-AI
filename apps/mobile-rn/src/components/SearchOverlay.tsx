@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadiusFor.popover,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     // 投影:搜索浮层 → 档位 lg(原 8/.12/16 + elevation 8,对应 web ui-popover 阴影档)
     ...ELEVATION_STEPS.lg,
     // 面板内左右留白(web SearchInput wrapperClassName p-1.5 ≈ 6px + 面板 p-1 的合成量级)
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
     padding: rnSpacing.md,
     borderRadius: rnRadiusFor.card,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     backgroundColor: tokens.surface.card,
   },
   cardPressed: {

@@ -6,7 +6,7 @@
  * 步骤决策(D55 / G-66)词汇表 —— 跨端单一真相源。
  *
  * 数据来源:`apps/ai-service` 的 `_derive_step_decision()`(从结果可见路径推导)与
- * `_decision_hints`(auto 免审批等不可见路径手工写入),两处合计 24 个字面量。
+ * `_decision_hints`(auto 免审批等不可见路径手工写入),两处合计 25 个字面量。
  * 本模块只认**全集**,不另建第二套枚举(后端新增字面量时由用例与守门 57 一起逼齐)。
  *
  * 纪律:
@@ -35,6 +35,8 @@ export const STEP_DECISIONS = [
   'mcp_annotations_require_approval',
   'taint_egress_gate',
   'approval_policy_always',
+  // 工具级审批策略 deny:本会问人的一律确定性拒绝(agent_loop_v2 写 _decision_hints)
+  'approval_policy_deny',
   'approval_policy_never',
   'guardian_review_suggested',
   'guardian_review_alternative_applied',
@@ -71,6 +73,7 @@ const DECISION_WORD_KEY: Record<StepDecision, string> = {
   mcp_annotations_require_approval: 'decision.mcpRequiresApproval',
   taint_egress_gate: 'decision.taintEgressGate',
   approval_policy_always: 'decision.policyRequiresApproval',
+  approval_policy_deny: 'decision.approvalPolicyDeny',
   approval_policy_never: 'decision.policySkipsApproval',
   guardian_review_suggested: 'decision.guardianReviewSuggested',
   guardian_review_alternative_applied: 'decision.guardianReviewAlternativeApplied',
@@ -101,6 +104,8 @@ const DECISION_STATE: Record<StepDecision, StepDecisionState> = {
   // 与 mcp_annotations_require_approval 同属"还没跑,在等人点头" ⇒ needsUser
   taint_egress_gate: 'needsUser',
   approval_policy_always: 'needsUser',
+  // 与 never 反向:本会问人的一律确定性拒绝 ⇒ 工具未执行,同拒绝面
+  approval_policy_deny: 'rejected',
   // 后端 `never` 指的是"永不弹窗"(agent_loop_v2.py 置 needs_approval=False 后照常执行),
   // 不是"永不允许"。曾按字面把它归进 rejected + 「策略禁止执行」,于是界面在工具真的
   // 跑完之后告诉用户"被拒绝了" —— 改回来之前先读那两行。

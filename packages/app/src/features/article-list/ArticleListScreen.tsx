@@ -37,6 +37,55 @@ export type { ArticleListItem, ArticleListScreenProps }
 const SKELETON_COUNT = 5
 
 /**
+ * `formatToParts` 结果按 **年/月/日** 重排成 `YYYY/MM/DD`。
+ *
+ * 为什么不直接 `format()`:Hermes(Android) 会把 `zh-CN` 的短日期排成 `11/22/2026`(2026-11-23 实机
+ * 实测,见 `docs/engineering/mobile-page-audit-2026-11-23.md`),同仓种的屏因此与 web/小程序对不上。
+ * 取 parts 重排后三端同为 `2026/11/22`。缺任一段返回 null,由调用方回退。
+ */
+export function assembleArticleDate(
+  parts: readonly { type: string; value: string }[],
+): string | null {
+  const year = parts.find((p) => p.type === 'year')?.value
+  const month = parts.find((p) => p.type === 'month')?.value
+  const day = parts.find((p) => p.type === 'day')?.value
+  if (!year || !month || !day) return null
+  const pad2 = (v: string) => (v.length === 1 ? `0${v}` : v)
+  return `${year}/${pad2(month)}/${pad2(day)}`
+}
+
+/**
+ * ISO → `YYYY/MM/DD`(空值/非法值给 `-`)。
+ *
+ * formatter 选项与 `@ihui/shared` 的 `getFormatters().dateOnlyFormatter` **逐项同档**
+ * (timeZone `Asia/Shanghai` + year/month/day 均 2-digit 以上精度),不另立一套时间口径;
+ * `formatToParts` 在旧引擎上缺失时回退其原样输出。
+ */
+function formatArticleDate(value?: string | null): string {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '-'
+  try {
+    const parts = new Intl.DateTimeFormat('zh-CN', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(d)
+    const assembled = assembleArticleDate(parts)
+    if (assembled) return assembled
+  } catch {
+    // formatToParts 不可用:落到下面共享 formatter 原样输出
+  }
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d)
+}
+
+/**
  * 文章列表共享屏 — props 注入式跨端组件
  *
  * 平台无关:负责渲染 header(返回 + 标题)+ 加载态(骨架屏)+ 错误态(重试)
@@ -182,7 +231,7 @@ export function ArticleListScreen({
                 <View style={styles.metaRow}>
                   <Text style={styles.author}>{pinned.author}</Text>
                   <Text style={styles.meta}>
-                    {t('articleList.views', { count: pinned.views })} · {pinned.publishedAt}
+                    {t('articleList.views')} {pinned.views} · {formatArticleDate(pinned.publishedAt)}
                   </Text>
                 </View>
               </PressableCard>
@@ -235,7 +284,7 @@ export function ArticleListScreen({
                 <View style={styles.metaRow}>
                   <Text style={styles.author}>{item.author}</Text>
                   <Text style={styles.meta}>
-                    {t('articleList.views', { count: item.views })} · {item.publishedAt}
+                    {t('articleList.views')} {item.views} · {formatArticleDate(item.publishedAt)}
                   </Text>
                 </View>
                 {item.source ? <Text style={styles.sourceText}>{item.source}</Text> : null}
@@ -282,7 +331,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: 'transparent',
-      backgroundColor: tk.surface.light,
+      backgroundColor: tk.surface.card,
     },
     pinnedBadge: {
       alignSelf: 'flex-start',
@@ -319,7 +368,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: 'transparent',
-      backgroundColor: tk.surface.light,
+      backgroundColor: tk.surface.card,
     },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     metaRow: {
