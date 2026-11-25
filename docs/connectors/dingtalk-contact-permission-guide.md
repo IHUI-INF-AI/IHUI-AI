@@ -29,7 +29,8 @@
 
 1. 用**企业管理员账号**登录钉钉开发者后台：<https://open.dingtalk.com/> → 右上角「开发者后台」。
 2. 左侧「应用开发」→「钉钉应用」→ 找到本平台配置的那个企业内部应用（即 `tenant_platform_apps` 里钉钉平台绑定的 `clientId` 对应应用），点击进入应用详情。
-   - 不确定是哪个应用：到平台管理后台 / 数据库核对钉钉应用的 Client ID（AppKey），与开发者后台「基础信息 → 凭证与基础信息」里的 Client ID 逐一比对，**不要申请到别的应用上**。
+   - **本平台钉钉应用 Client ID（AppKey）已查明 = `dingojemqcxfzr2f5xzd`**（2026-11-25 现读生产/本地 `tenant_platform_apps.app_id`，平台 `dingtalk` 行；配套 `agent_id=4012380713`、`robot_code=dingojemqcxfzr2f5xzd`）。在开发者后台「基础信息 → 凭证与基础信息」里按此 Client ID 定位应用，**不要申请到别的应用上**。
+   - 该应用的回调地址已配置为 `https://aizhs.top/callback?platform=dingtalk`，无需再改。
 3. 应用详情左侧 →「权限管理」→ 切到「通讯录管理」页签。
 4. 在权限列表里勾选 **「成员信息读权限」**（新版服务端 API 权限点 Code 为 `Contact.User.Read`；旧版界面可能显示为「企业员工手机号信息和邮箱等个人信息」）。
    - 找不到时，用权限管理页的搜索框直接搜 `Contact.User.Read` 或「成员信息读」。
@@ -89,6 +90,19 @@ curl -s 'https://api.dingtalk.com/v1.0/contact/users/<unionId>' \
 
 ---
 
-**状态**：本指南的代码侧（用户 OAuth、令牌注入、回调、续期）已全部实现并测试通过；
-**待用户侧动作**：企业管理员按第二节在钉钉后台申请 `Contact.User.Read`，完成后按第三节验证。
-此权限属于钉钉平台侧授权，平台无法代为申请。
+## 五、现读状态快照（2026-11-25 实测）
+
+| 检查面 | 实测结果 | 结论 |
+| --- | --- | --- |
+| 平台代码链路 | `catalog_data/dingtalk_api_ledger.json` 有 `dingtalk_contact_api_dingtalk_retrieve_user_information`（scope=`Contact.User.Read`）；`custom_http.py` 用 `x-acs-dingtalk-access-token` 注入；OAuth/刷新/回调全实现 | 代码侧完备，无需改 |
+| 生产钉钉应用配置 | `tenant_platform_apps` 的 `dingtalk` 行 enabled=true、secret 已设、回调 `https://aizhs.top/callback?platform=dingtalk` | 配置就绪 |
+| 本机钉钉 CLI 授权 | `dws contact +me` 成功返回当前用户（李春川）姓名/userId/手机/部门；`dws contact dept search` 可正常读组织 | **本机 dws 链路的通讯录读权限是通的**（这条链路是钉钉 CLI 自身授权，与下方平台连接器链路互相独立） |
+| 平台连接器用户授权 | 生产与本地 `oauth_users` 的 `provider='dingtalk'` 行数 = **0** | **从无用户走完平台侧钉钉扫码授权**，平台链路里不存在 userAccessToken，第三节验证的前提尚未建立 |
+| 钉钉开放平台后台登录态 | 内置浏览器打开 `open.dingtalk.com/console` 被重定向回首页，无已登录管理员标签页，无外部浏览器扩展 | 当前环境无企业管理员登录态 |
+
+**因此这一步存在两个互不相同的真人动作，AI 均无法代劳（缺管理员登录态 / 缺真人扫码）：**
+
+1. **管理员在钉钉开放平台后台给应用 `dingojemqcxfzr2f5xzd` 申请 `Contact.User.Read`**（第二节）——须企业管理员账号登录后台勾选并提交，等钉钉审批。
+2. **用户本人在平台连接器页用钉钉扫码授权**（第三节 3.2）——目前生产库 0 条授权记录，授权后才会产生 userAccessToken。
+
+AI 侧已完成：链路核验、应用 Client ID 查明并写入本文档、临时探针清理。两项真人动作完成后，按第三节验证即可。
