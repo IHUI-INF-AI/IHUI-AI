@@ -20,6 +20,7 @@ import {
   saveRememberedCredentialsWithPassword,
   loadRememberedCredentials,
   getRememberedPasswordForAccount,
+  hasRememberedPasswordForAccount,
   loadAutoLogin,
   saveAutoLogin,
   saveLoginHistory,
@@ -114,22 +115,21 @@ export function PasswordLoginForm({
   enableCredentialPersistence = false,
   canAutoSubmitCredentials,
 }: PasswordLoginFormProps) {
-  // 2026-10-17 用户决策:在支持浏览器自带记住密码的前提下,项目自身也要"记住密码"免重填。
-  // 启用持久化时,从 localStorage 预读记住的账号 + 口令(keepPassword=true 把盘上
-  // 口令字段交回调用方,自动登录回填;用户未勾选"记住密码"时盘上口令为空,
-  // 账号回填仍走默认路径保证历史下拉可用)。
+  // 2026-11-26 安全升级:账号可以同步预读;口令只在 AES-GCM 保险箱里,不能同步解密,
+  // 所以初始 password 为空,由下方挂载 effect 异步回填。rememberPassword 的默认态
+  // 由"该账号是否有加密/待迁移记录"同步判断,避免先把勾选框渲染成未勾选。
   const remembered = React.useMemo(
-    () => (enableCredentialPersistence ? loadRememberedCredentials({ keepPassword: true }) : null),
+    () => (enableCredentialPersistence ? loadRememberedCredentials() : null),
     [enableCredentialPersistence],
   )
   const [account, setAccount] = React.useState(remembered?.account ?? '')
-  const [password, setPassword] = React.useState(remembered?.password ?? '')
-  // "记住密码"勾选:默认值取自盘上口令是否存在(显式记住密码形态 = 盘上有口令),
-  // 让勾选状态与落盘内容保持一致。用户取消勾选时不删盘上口令(避免把账号历史下拉
-  // 数据源清掉,账号回填"有时不存"的旧 bug 不复现);勾选则下次登录成功后
-  // 调 `saveRememberedCredentialsWithPassword` 把口令一起写盘。
+  const [password, setPassword] = React.useState('')
+  // "记住密码"勾选:默认值取自该账号是否有加密口令记录(含历史明文记录;挂载后会迁移)。
+  // 用户取消勾选时不删账号历史,但本次登录成功会清掉口令记录,语义一致。
   const [rememberPassword, setRememberPassword] = React.useState(
-    remembered?.password ? true : false,
+    remembered?.account
+      ? hasRememberedPasswordForAccount(remembered.account)
+      : false,
   )
   // 记住账号回填恒开:每次登录成功都写 ihui-remember-credentials(默认只含账号),
   // 勾选"记住密码"时改走显式口令写入路径;与账号历史下拉完全解耦(下拉读
@@ -148,11 +148,39 @@ export function PasswordLoginForm({
   /** 自动登录提交标记:绕过 agreement 检查(agreed 默认 false 会阻止自动提交) */
   const isAutoLoginRef = React.useRef(false)
   /** 上一次渲染看到的账号值(用来区分“账号变了”与“只是清空了口令”) */
-  const previousAccountRef = React.useRef('')
+  const previousAccountRef = React.useRef(remembered?.account?.trim() ?? '')
+  /** 口令来源:'stored'=保险箱回填,'user'=用户手输;换号只清前者,不误删用户输入。 */
+  const passwordSourceRef = React.useRef<'stored' | 'user' | ''>('')
+  /** 异步解密请求序号:账号快速切换时,旧请求的结果不得覆盖新账号。 */
+  const passwordRequestRef = React.useRef(0)
+  /** 本次挂载是否成功从保险箱读回口令;自动登录只在这个前提下提交。 */
+  const hydratedPasswordRef = React.useRef(false)
+  /** 自动登录只触发一次,避免口令 state 变化导致重复 requestSubmit。 */
+  const autoSubmittedRef = React.useRef(false)
+
+  // 挂载/账号初始值就绪后,异步解密一次口令。历史明文记录会在这一步迁移到保险箱
+  // 并删除明文 key;迁移失败也至少让本次自动回填可用。
+  React.useEffect(() => {
+    if (!enableCredentialPersistence) return
+    const initialAccount = remembered?.account?.trim() ?? ''
+    if (!initialAccount) return
+    const requestId = ++passwordRequestRef.current
+    let cancelled = false
+    void getRememberedPasswordForAccount(initialAccount).then((stored) => {
+      if (cancelled || requestId !== passwordRequestRef.current) return
+      if (!stored) return
+      hydratedPasswordRef.current = true
+      passwordSourceRef.current = 'stored'
+      setPassword((prev) => prev || stored)
+      setRememberPassword(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [enableCredentialPersistence, remembered?.account])
 
   // 2026-11-26 用户要求:勾选「记住密码」后,输入完账号即自动回填口令。
-  // 旧实现只在组件挂载时读一次 localStorage;SSR 首帧/localStorage 晚写/用户先清空
-  // 账号再重输时,口令不会跟着账号出现。这里按「账号变化」触发一次读取:
+  // 口令来自异步保险箱;账号快速切换时用请求序号丢弃过期结果。
   // - 仅记住密码开启时生效,不替未勾选的用户保存或回填口令;
   // - 口令框已有内容时不覆盖,避免把用户新输入的口令冲掉;
   // - 只在账号本身变化时尝试,用户单独清空口令后不会又被强行填回来。
@@ -160,17 +188,26 @@ export function PasswordLoginForm({
     const normalized = account.trim()
     const accountChanged = normalized !== previousAccountRef.current
     previousAccountRef.current = normalized
+    // 换号时只清由保险箱回填的旧口令,用户自己敲进来的内容不替他清。
+    if (accountChanged && password && passwordSourceRef.current === 'stored') {
+      passwordSourceRef.current = ''
+      setPassword('')
+    }
     if (!enableCredentialPersistence || !rememberPassword) {
       // 记住密码关闭时把基线清空:用户先输账号、后勾选复选框,也应被视为一次账号变化。
       previousAccountRef.current = ''
+      passwordRequestRef.current += 1
       return
     }
     if (!normalized || !accountChanged) return
-    if (password) return
-    const stored = getRememberedPasswordForAccount(normalized)
-    if (stored) {
-      setPassword(stored)
-    }
+    if (password && passwordSourceRef.current === 'user') return
+    const requestId = ++passwordRequestRef.current
+    void getRememberedPasswordForAccount(normalized).then((stored) => {
+      if (requestId !== passwordRequestRef.current) return
+      if (!stored) return
+      passwordSourceRef.current = 'stored'
+      setPassword((prev) => prev || stored)
+    })
   }, [account, enableCredentialPersistence, rememberPassword, password])
 
   // 加载图形验证码
@@ -193,23 +230,17 @@ export function PasswordLoginForm({
     if (captchaEnabled) void refreshCaptcha()
   }, [captchaEnabled, refreshCaptcha])
 
-  // 自动登录:加载时 autoLogin 为 true 且已有记住的凭据,则自动提交表单。
-  // canAutoSubmitCredentials 排在最前:持久标志只说明"用户勾过自动登录",它压不过
-  // "用户刚刚主动点了退出"——后者必须由调用方那侧的登出标记回答(见 props 注释)。
-  //
-  // 2026-09-29 票 #27 收口后:loadRememberedCredentials({ keepPassword: true }) 的盘上
-  // 口令只在用户勾选"记住密码" + saveRememberedCredentialsWithPassword 时才非空,
-  // 不勾选路径盘上口令恒为 '',下面 `!remembered?.password` 一条天然短路,本 effect
-  // 不再可能重放账密。用户勾选后,盘上有口令 + autoLogin=true 本 effect 自动提交账密。
-  //
-  // effect 与判据位序**刻意保留** —— 它是 canAutoSubmitCredentials 必填契约的落点
-  // (apps/web auto-submit-gate-wiring 钉住),也是"未来任何人重新给这里喂一个口令源"
-  // 时必然路过的闸口。
+  // 自动登录:口令异步回填完成后,若 autoLogin=true 且调用方允许自动提交,则提交一次。
+  // canAutoSubmitCredentials 排在最前:持久标志压不过"用户刚刚主动点了退出"。
+  // hydratedPasswordRef 确保只重放本次从保险箱读回的口令,不把用户手输的账密自动提交。
   React.useEffect(() => {
+    if (autoSubmittedRef.current) return
     if (!canAutoSubmitCredentials()) return
     if (!enableCredentialPersistence) return
     if (!autoLogin) return
-    if (!remembered?.account || !remembered?.password) return
+    if (!remembered?.account || !account || !password) return
+    if (!hydratedPasswordRef.current) return
+    autoSubmittedRef.current = true
     // 标记自动登录提交,onsubmit 中绕过 agreement 检查
     isAutoLoginRef.current = true
     // 延迟执行让 UI 先渲染,用户看到表单闪过后自动提交
@@ -217,7 +248,14 @@ export function PasswordLoginForm({
       formRef.current?.requestSubmit()
     }, 300)
     return () => clearTimeout(timer)
-  }, []) // 仅 mount 时执行一次
+  }, [
+    account,
+    autoLogin,
+    canAutoSubmitCredentials,
+    enableCredentialPersistence,
+    password,
+    remembered?.account,
+  ])
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -256,18 +294,16 @@ export function PasswordLoginForm({
         if (captchaEnabled) await refreshCaptcha()
         return
       }
-      // 记住账号(2026-10-17 解耦 + 显式"记住密码"开关):
+      // 记住账号(口令与账号分离):
       // - 每次登录成功都写账号历史(ihui-login-history,含去重/置顶/截断)
-      // - 勾选"记住密码":账号 + 口令一起落盘(saveRememberedCredentialsWithPassword),
-      //   同时 saveAutoLogin(true) 把自动登录标志写盘,下次加载时自动提交 effect
-      //   读到盘上口令(keepPassword=true)即自动回填账密,不再短路
-      // - 不勾选:只记账号,口令永不落盘(saveRememberedCredentials 默认路径丢弃口令),
-      //   saveAutoLogin(false) 清掉自动登录标志,自动登录由 refresh token 静默续期承担
+      // - 勾选"记住密码":账号 + 口令交给 AES-GCM 保险箱;只有加密落盘成功才把
+      //   autoLogin 置 true,避免下次挂载读不到口令却仍尝试自动提交
+      // - 不勾选:只记账号,并清掉旧口令记录;自动登录由 refresh token 静默续期承担
       if (enableCredentialPersistence) {
         saveLoginHistory(account)
         if (rememberPassword) {
-          saveRememberedCredentialsWithPassword(account, password)
-          saveAutoLogin(true)
+          const saved = await saveRememberedCredentialsWithPassword(account, password)
+          saveAutoLogin(saved)
         } else {
           saveRememberedCredentials(account, password)
           saveAutoLogin(false)
@@ -374,7 +410,10 @@ export function PasswordLoginForm({
             placeholder={t('auth.passwordPlaceholder')}
             className={cn('h-10 pr-10', inputClassName)}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              passwordSourceRef.current = 'user'
+              setPassword(e.target.value)
+            }}
             disabled={submitting}
             data-testid="login-password-input"
           />

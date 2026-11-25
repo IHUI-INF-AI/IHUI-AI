@@ -35,7 +35,9 @@ function row(metadata: Record<string, unknown>) {
 }
 
 function mockSelect(rows: unknown[]) {
-  const limit = vi.fn(async () => rows)
+  // listMomentsArchive 为了稳定分页会链式调用 .limit().offset();mock 必须还原整条链。
+  const offset = vi.fn(async () => rows)
+  const limit = vi.fn(() => ({ offset }))
   const orderBy = vi.fn(() => ({ limit }))
   const where = vi.fn(() => ({ orderBy }))
   const from = vi.fn(() => ({ where }))
