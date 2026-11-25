@@ -492,6 +492,49 @@ def _items_of(extracted: Any) -> list[dict[str, str]]:
 
 
 # ---------------------------------------------------------------------------
+# HTTP 200 下的平台业务码判失败
+# ---------------------------------------------------------------------------
+
+# 只对约定"0=成功"的四大平台做业务码判定。custom/yuque/空 等来源的请求体
+# 可能用 code=200 / code=1 表示成功,或压根是别的结构,一律跳过以免误伤。
+_BUSINESS_CODE_PLATFORMS = frozenset({"feishu", "dingtalk", "wecom", "wechat_mp"})
+
+
+def _platform_error(body: Any, platform: str) -> tuple[int, str] | None:
+    """从响应体提取"HTTP 200 但业务失败"的错误码与信息;成功/无码返回 None。
+
+    与 ``coverage_probe._extract_code`` 对齐:飞书取 ``code``,其余取 ``errcode``
+    (取不到则回退到另一个键)。保守判定,只认**整数型非 0**码:
+
+    - 非 dict、取不到码、``int(raw)`` 转不了(如 "ok")→ None,不判失败;
+    - 0 / "0" / None 是成功码(与 ``_SUCCESS_CODES`` 一致)→ None;
+    - bool 是 int 子类,True/False 不当错误码;
+    - 数字字符串(如 "48001")可转,按错误处理。
+    """
+    if not isinstance(body, dict):
+        return None
+    if platform == "feishu":
+        raw = body.get("code", body.get("errcode"))
+    else:
+        raw = body.get("errcode", body.get("code"))
+    if raw is None or isinstance(raw, bool):
+        return None
+    try:
+        code = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if code == 0:
+        return None
+    msg = ""
+    for key in ("message", "msg", "errmsg"):
+        value = body.get(key)
+        if isinstance(value, str) and value.strip():
+            msg = value.strip()
+            break
+    return code, msg
+
+
+# ---------------------------------------------------------------------------
 # 执行入口
 # ---------------------------------------------------------------------------
 
@@ -645,6 +688,22 @@ class CustomHttpConnector:
                 operation_id=op.id,
                 data=payload,
             )
+
+        # HTTP 200 + 平台业务错误码(鉴权失败/限流/缺权限等)一度被当成成功返回,
+        # AI 拿到 ok=True 的错误 JSON 会误判调用成功。只在已知平台做这一步:
+        # 成功码 0/"0"/无码、字符串型 message code 都不判失败(见 _platform_error)。
+        platform = str(self.record.get("type") or "")
+        if platform in _BUSINESS_CODE_PLATFORMS:
+            platform_err = _platform_error(payload, platform)
+            if platform_err is not None:
+                code, msg = platform_err
+                raise _PartialFailure(
+                    f"平台返回错误码 {code}: {msg}",
+                    status=resp.status_code,
+                    capability=op.capability,
+                    operation_id=op.id,
+                    data=payload,
+                )
 
         extracted = _extract(payload, op.response_path) if op.response_path else payload
 
