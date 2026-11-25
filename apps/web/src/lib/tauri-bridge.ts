@@ -57,6 +57,24 @@ export async function setWindowTitle(title: string): Promise<void> {
   await getCurrentWindow().setTitle(title)
 }
 
+/**
+ * 打开桌面端 AI 画中画监看窗 —— 2026-11-25 立。
+ *
+ * 不是内嵌浏览器小窗:新窗口加载 `/browser-pip?session=<id>`,由那个页面自己连
+ * Browser Hub WS,拿帧/任务条/检查点/phase,因此桌面端也能看到与网页版同源的
+ * 只读监看和「已处理,继续」,而不是把 Browser Hub 任务硬塞进本地浏览器。
+ */
+export async function openAiPipWindow(sessionId: string, accessToken: string): Promise<void> {
+  requireTauri()
+  await invoke('open_browser_pip_window', { sessionId, accessToken })
+}
+
+/** 关闭桌面端 AI 画中画监看窗(主窗按钮再次点击时用)。 */
+export async function closeAiPipWindow(): Promise<void> {
+  if (!isTauri()) return
+  await invoke('close_browser_pip_window')
+}
+
 /** 非 Tauri 环境统一抛错(用于文件读写等无安全默认值的场景)。 */
 function requireTauri(): void {
   if (!isTauri()) {

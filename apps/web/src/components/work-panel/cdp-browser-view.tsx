@@ -49,6 +49,7 @@ import {
   openBrowserPipMonitor,
 } from '@/lib/browser-pip'
 import { useBrowserPipLabels } from '@/hooks/use-browser-pip-labels'
+import { isTauri, openAiPipWindow, closeAiPipWindow } from '@/lib/tauri-bridge'
 
 /** 层栈 id(见 @/lib/overlay-stack):画布右键菜单浮层 */
 const CDP_CTX_MENU_OVERLAY_ID = 'cdp-browser-view-ctx-menu'
@@ -302,10 +303,43 @@ export function CdpBrowserView({
   const [pipSupported, setPipSupported] = React.useState(false)
   const [pipOn, setPipOn] = React.useState(false)
   const pipSessionRef = React.useRef<string | null>(null)
+  const nativePipRef = React.useRef(false)
   const pipLabels = useBrowserPipLabels()
   React.useEffect(() => {
     pipSessionRef.current = null
-    setPipSupported(isDocumentPictureInPictureSupported())
+    // Tauri 内 Document PiP 不支持,但独立 AI 画中画窗支持;两次能力探测合并,
+    // 按钮不再因为浏览器 API 缺失而消失。
+    setPipSupported(isTauri() || isDocumentPictureInPictureSupported())
+  }, [])
+  React.useEffect(() => {
+    if (!isTauri()) return
+    let disposed = false
+    const unlisteners: Array<() => void> = []
+    void Promise.all([
+      import('@tauri-apps/api/event').then(({ listen }) =>
+        listen('browser-pip://closed', () => {
+          nativePipRef.current = false
+          setPipOn(false)
+        }),
+      ),
+      import('@tauri-apps/api/event').then(({ listen }) =>
+        listen('browser-pip://handover', () => {
+          nativePipRef.current = false
+          setPipOn(false)
+          canvasRef.current?.focus()
+        }),
+      ),
+    ]).then((listeners) => {
+      if (disposed) {
+        listeners.forEach((unlisten) => unlisten())
+      } else {
+        unlisteners.push(...listeners)
+      }
+    })
+    return () => {
+      disposed = true
+      unlisteners.forEach((unlisten) => unlisten())
+    }
   }, [])
   // 切 tab(sessionId 变更)时关掉旧会话的浮窗;组件卸载(面板收起)不动浮窗 ——
   // 浮窗独立收帧,面板关掉后仍要能看。
@@ -313,6 +347,11 @@ export function CdpBrowserView({
     if (pipSessionRef.current && pipSessionRef.current !== sessionId) {
       closeBrowserPip()
       pipSessionRef.current = null
+      setPipOn(false)
+    }
+    if (nativePipRef.current) {
+      void closeAiPipWindow()
+      nativePipRef.current = false
       setPipOn(false)
     }
   }, [sessionId])
@@ -727,6 +766,27 @@ export function CdpBrowserView({
   }, [onBack, onForward, onReload, onOpenExternal, currentUrl, copied, handleCopyUrl])
 
   const handleTogglePip = React.useCallback(() => {
+    if (isTauri()) {
+      // 桌面端:Document PiP 在 WebView2 内不可用,改开独立 AI 画中画窗。
+      // 该窗口加载 /browser-pip?session=<id>,自己连 Browser Hub,任务条/检查点/
+      // 「已处理,继续」都在;主窗按钮只负责开/关。
+      if (nativePipRef.current) {
+        void closeAiPipWindow().then(() => {
+          nativePipRef.current = false
+          setPipOn(false)
+        }).catch(() => {
+          /* 窗口已不在时保持按钮原态,由 closed 事件兜底 */
+        })
+      } else {
+        void openAiPipWindow(sessionId, useAuthStore.getState().token ?? '').then(() => {
+          nativePipRef.current = true
+          setPipOn(true)
+        }).catch(() => {
+          /* 打开失败不置 active;主面板继续可用 */
+        })
+      }
+      return
+    }
     if (isBrowserPipOpen()) {
       closeBrowserPip()
       pipSessionRef.current = null

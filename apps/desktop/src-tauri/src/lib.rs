@@ -25,6 +25,9 @@ mod doubao_web_login;
 // 2026-10-16 立:项目内嵌浏览器(自绘工具条 + 地址栏 + Chrome UA 的 WebView2 窗口)。
 // 签到网页登录、SSO 兜底窗等"需要在浏览器里走一趟"的场景统一用它,不再外部拉 Chrome。
 mod embedded_browser;
+// 2026-11-25 立:AI 画中画监看窗(独立 Tauri 窗加载 Web /browser-pip,接 Browser Hub
+// 的帧/任务条/检查点/phase;与 embedded_browser 的本地浏览器小窗分属两条产品线)。
+mod browser_pip_window;
 mod store_browser;
 // 2026-10-17 立:内嵌浏览器「完整浏览器」能力——书签管理/最近历史/从 Chrome/Edge 导入书签。
 // 数据落 app_data_dir(持久化,区别于内存标签会话);纯函数(Chrome 书签解析/去重/历史)
@@ -5743,6 +5746,8 @@ pub fn run() {
             embedded_browser::embedded_browser_new_tab,
             embedded_browser::embedded_browser_devtools,
             embedded_browser::embedded_browser_pip,
+            browser_pip_window::open_browser_pip_window,
+            browser_pip_window::close_browser_pip_window,
             store_browser::store_account_open,
             store_browser::store_account_url,
             store_browser::store_account_session,

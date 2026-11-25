@@ -378,7 +378,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // 2026-08-04 修复:此前 /login?method=qr&embed=true 被 GlobalShell 包裹,
   // 导致 iframe 加载的页面显示首页导航 + 任务列表,二维码面板被布局覆盖不可见。
   // 放在所有 hooks 之后,避免违反 React hooks 规则(条件 return 不能在 hooks 调用之前)。
-  if (pathname === '/login') {
+  if (pathname === '/login' || pathname === '/browser-pip') {
     return <TooltipProvider>{children}</TooltipProvider>
   }
 
