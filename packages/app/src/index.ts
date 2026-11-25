@@ -1418,3 +1418,14 @@ export type {
   FinanceAiProgressStep,
   AutomationTargetId,
 } from './features/finance-ai/FinanceAiHubScreen'
+
+// 屏幕状态四件套(骨架 / 空态 / 错误重试 / 按压卡):此前**没有从包出口导出**,
+// `exports` 通配也只有 `./features/*`,所以端内 `import ... from '@ihui/rn-app'` 取不到它们
+// —— 实测 apps/mobile-rn 全目录对该文件零消费方,空态于是各屏各写一行灰字(2026-11-26)。
+export { EmptyState, ErrorState, PressableCard, ScreenSkeleton } from './components/ScreenStates'
+export type {
+  EmptyStateProps,
+  ErrorStateProps,
+  PressableCardProps,
+  ScreenSkeletonProps,
+} from './components/ScreenStates'

@@ -28,7 +28,7 @@ import {
 } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { ChevronRight, Search } from 'lucide-react-native'
+import { ChevronRight, Hash, Search } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
 import {
   getRnTokens,
@@ -38,7 +38,7 @@ import {
   rnSpacing,
   taroSpacing,
 } from '@ihui/design-tokens'
-import { TextField, CategoryInlineBar } from '@ihui/rn-app'
+import { CategoryInlineBar, EmptyState, TextField } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
@@ -228,9 +228,15 @@ export function TopicListScreen() {
               <Text style={styles.emptyText}>{t('topic.list.loading')}</Text>
             </View>
           ) : (
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>{t('topic.list.empty')}</Text>
-            </View>
+            // 2026-11-26:此前这里是裸 <Text> 一行灰字(实拍 topics 页只有「暂无话题」),
+            // 而同端 circle 用的是图标+文案+按钮、「我的创作」是图标+灰字 —— 三种空态形态。
+            // 改接共享 ScreenStates.EmptyState(它此前没从 @ihui/rn-app 出口导出,端内 import
+            // 不进来,所以几乎没人用)。外层原 styles.center 随之去掉:该组件自带居中与最小高度。
+            <EmptyState
+              icon={<Hash size={18} color={tk.text.secondary} />}
+              title={t('topic.list.empty')}
+              colorScheme={resolvedTheme}
+            />
           )
         }
         ListFooterComponent={
