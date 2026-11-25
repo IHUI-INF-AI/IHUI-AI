@@ -11476,6 +11476,7 @@
       "exportPdf": "匯出 PDF"
     },
     "fallbackNotice": "已切換到備用模型 {backup}(原模型 {primary} 暫時不可用)",
+    "fallbackAccountSwitch": "本次由備用帳號 {backup} 作答(帳號 {primary} 出現限流或額度不足,已自動換號)",
     "fallbackNoticeQuota": "本次由 {backup} 作答({primary} 所屬廠商帳號額度已用盡,已自動改道同族可用模型)",
     "interruptedNotice": "此回答已中斷，內容可能不完整",
     "interruptedNoticeUserCancelled": "你取消了此回答，內容可能不完整",

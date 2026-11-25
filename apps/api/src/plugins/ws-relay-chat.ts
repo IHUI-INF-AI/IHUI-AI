@@ -223,6 +223,17 @@ export const wsRelayChat: FastifyPluginAsync = async (server) => {
           }
 
           if (stream) {
+            // 换号交代(2026-11-26):账号池里换过号才发这一帧,前端只在「我的号池」通道渲染。
+            // 放在 start 之后、chunk 之前:横幅要早于正文出现,不与流式内容抢位。
+            if (result.accountSwitch) {
+              safeSend(socket, {
+                type: 'fallback',
+                id,
+                primaryModel: result.accountSwitch.fromName,
+                backupModel: result.accountSwitch.toName,
+                reason: 'account_switch',
+              })
+            }
             await pipeChannelStream(result.response, {
               writeLine: (line: string) => {
                 // SSE 行形如 `data: {...}`;剥前缀后原样交客户端,由客户端自己 parse

@@ -1816,6 +1816,9 @@ export function createSendMessage(
           onDone: streamOpts.onDone,
           // 号池错误只给一句人话给既有错误卡;errorCode 由上层文案兜底(formatSSEError)
           onError: (msg) => streamOpts.onError?.(msg),
+          // 换号交代(2026-11-26):只在本轮真走过「我的号池」通道时出现,平台/auto 腿不发这一帧。
+          // 落到既有 fallbackNotice 状态(MessageList 只在 pool 通道渲染横幅),数据面与埋点继续复用。
+          onFallback: (event) => setFallbackNotice(event),
           onToolStart: (call, args) => {
             chatStore.getState().addToolCall(assistantId, {
               id: call.id,
