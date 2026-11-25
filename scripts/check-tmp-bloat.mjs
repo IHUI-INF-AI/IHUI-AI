@@ -308,9 +308,11 @@ function conclusionLine(r) {
   // totalState 必须排在 state= 之后:git-guardian 的 auditTmpBloat 用
   // `/...kept=(\d+))?\s+state=([A-Za-z]+)/` 解析,插在中间会让整行匹配失败
   // (哨兵照跑但"读不出来",等于没装车)。
+  // 取 r.totalState(由 main 算好放进 snap);万一某条调用没带(老形状),就地算一次兜底。
+  const totalState = r.totalState ?? stateOf([], [], r.totalBytes)
   return `TMP-BLOAT files=${r.files} total=${fmtMb(r.totalBytes)} MB max=${fmtMb(r.maxBytes)} MB ` +
     `over50=${r.over50.length} over20=${r.over20.length} kept=${(r.kept || []).length} ` +
-    `state=${r.state} totalState=${stateOf([], [], r.totalBytes)}`
+    `state=${r.state} totalState=${totalState}`
 }
 
 /** 台账读不到 / 坏 ⇒ 不豁免(方向是多喊一次),但要把原因带进读数,不许静默。 */
@@ -352,6 +354,10 @@ async function main() {
   const r = classify(entries)
   const keep = loadKeep()
   const split = applyKeep(r, keep.entries)
+  // 总量维判档只算一次：结论行与机读快照都取它，避免两处各算一遍（§0.6 单一真相源）。
+  // 快照必须带上总量档与两条阈值 —— 只写单枚两档时，读快照的人会以为这块只有单枚一维，
+  // 而"7.3GB 全判 ok"那次的教训正是"总量根本没人算"。
+  const totalState = stateOf([], [], r.totalBytes)
   const snap = {
     checkedAt: new Date().toISOString(),
     files: r.files,
@@ -367,6 +373,9 @@ async function main() {
     state: split.state,
     alarmMb: ALARM_MB,
     watchMb: WATCH_MB,
+    totalAlarmMb: TOTAL_ALARM_MB,
+    totalWatchMb: TOTAL_WATCH_MB,
+    totalState,
   }
   writeState(snap)
 
