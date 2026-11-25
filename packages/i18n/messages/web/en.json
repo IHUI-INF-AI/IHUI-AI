@@ -53,14 +53,14 @@
         "desc": "Self-evolving skills: install, rate and subscribe"
       },
       "connectors": {
-        "title": "CN Connectors",
+        "title": "Connectors",
         "desc": "Connect Yuque, Feishu, WeCom and DingTalk document sources"
       }
     },
     "bundles": {
       "contentCreator": {
         "title": "Content Creator Bundle",
-        "desc": "A combined entry for the writing and publishing workflow: AI skills, skill market and CN connectors"
+        "desc": "A combined entry for the writing and publishing workflow: AI skills, skill market and connectors"
       },
       "developerExtension": {
         "title": "Developer Extension Bundle",
@@ -6106,7 +6106,7 @@
     }
   },
   "connectors": {
-    "title": "Chinese Connectors",
+    "title": "Connectors",
     "subtitle": "Connect Yuque / Feishu / WeCom / DingTalk so conversations can read docs from Chinese knowledge platforms",
     "count": "{count} connectors",
     "add": "Add connector",
@@ -9566,6 +9566,7 @@
       "links": "Links"
     },
     "pictureInPicture": {
+      "autoMonitor": "Auto-monitor new sessions",
       "task": "Task",
       "pin": "Pin on top",
       "unpin": "Unpin",

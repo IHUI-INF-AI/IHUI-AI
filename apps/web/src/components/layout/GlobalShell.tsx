@@ -37,6 +37,7 @@ import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getPanelBucket, readViewportWidth } from '@/lib/ai-panel-bucket'
 import { useMounted } from '@/hooks/use-mounted'
+import { useAutoAiPip } from '@/hooks/use-auto-ai-pip'
 import { useAuthStore } from '@/stores/auth'
 import { NavLoadingOverlay } from '@/components/common/NavLoadingOverlay'
 import { useNativeShortcuts } from '@/hooks/use-native-shortcuts'
@@ -220,6 +221,9 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // 2026-08-17 工作展示区折叠:true 时隐藏 work-area,AI 面板占满右侧(用户需求)
   const workAreaCollapsed = useAiPanelStore((s) => s.workAreaCollapsed)
   const currentUserId = useAuthStore((s) => s.user?.id)
+  // 2026-11-25:TRAE 同款「AI 一开浏览器小窗自动出现」;基线之外的 Browser Hub
+  // 新会话会开原生监看窗。只在 Tauri + 已登录时工作(见 hook 内注释)。
+  useAutoAiPip()
   // 2026-09-13 性能修复:此处**不要**订阅 useNavigationStore 的 pending。
   // GlobalShell 包着整棵路由树(children),在这里订阅会让每次点击侧栏都重渲染全站,
   // 实测给 click→pushState 增加 85ms 并产生 56ms 首帧同步长任务。

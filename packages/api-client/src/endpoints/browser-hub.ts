@@ -51,6 +51,19 @@ export interface BrowserNavigateResult {
   [key: string]: unknown
 }
 
+/** Browser Hub 会话列表(2026-11-25 补:桌面自动监看需要发现服务端新会话) */
+export interface BrowserSessionList {
+  session_ids: string[]
+  count: number
+}
+
+/** 列出当前用户所有 Browser Hub 会话 */
+export async function listBrowserSessions(): Promise<ApiResult<BrowserSessionList>> {
+  return fetchApi<BrowserSessionList>('/api/browser/sessions', {
+    method: 'GET',
+  })
+}
+
 /** 创建浏览器会话(每个会话=独立 BrowserContext + Page) */
 export async function createBrowserSession(
   req: CreateBrowserSessionRequest = {},
@@ -195,12 +208,11 @@ export async function bindBrowserTask(
   sessionId: string,
   req: BindBrowserTaskRequest,
 ): Promise<ApiResult<{ task: BrowserTaskSnapshot }>> {
-  return fetchApi<{ task: BrowserTaskSnapshot }>(
-    `/api/browser/sessions/${sessionId}/task`,
-    { method: 'POST', body: JSON.stringify(req) },
-  )
+  return fetchApi<{ task: BrowserTaskSnapshot }>(`/api/browser/sessions/${sessionId}/task`, {
+    method: 'POST',
+    body: JSON.stringify(req),
+  })
 }
-
 
 /**
  * 构建 Browser Hub WebSocket URL。
