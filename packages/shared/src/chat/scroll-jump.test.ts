@@ -4,48 +4,73 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { JUMP_FAR_THRESHOLD, computeJumpVisibility, shouldShowJumpLatest } from './scroll-jump'
+import {
+  JUMP_FAR_THRESHOLD,
+  computeJumpVisibility,
+  shouldShowJumpLatest,
+  type ScrollJumpGeometry,
+} from './scroll-jump'
+
+const geo = (over: Partial<ScrollJumpGeometry> = {}): ScrollJumpGeometry => ({
+  scrollTop: 0,
+  contentHeight: 5000,
+  viewportHeight: 600,
+  ...over,
+})
 
 describe('跳顶/跳底显隐判据(三端唯一真相源)', () => {
-  it('阈值取 D3 定档 800,且导出名与 web 侧既有引用保持同源', () => {
+  it('阈值取 D3 定档 800', () => {
     expect(JUMP_FAR_THRESHOLD).toBe(800)
   })
 
-  it('刚过阈值才亮:800 不算远离,801 才算(两侧都是严格不等)', () => {
-    const exactly = computeJumpVisibility(800, 5000, 600)
-    expect(exactly.isFarFromTop).toBe(false)
-    const justPast = computeJumpVisibility(801, 5000, 600)
-    expect(justPast.isFarFromTop).toBe(true)
+  it('两侧都是严格不等:800 不亮,801 才亮', () => {
+    expect(computeJumpVisibility(geo({ scrollTop: 800 })).isFarFromTop).toBe(false)
+    expect(computeJumpVisibility(geo({ scrollTop: 801 })).isFarFromTop).toBe(true)
   })
 
-  it('距底按 scrollHeight - scrollTop - clientHeight 算,贴底时为 0 不亮', () => {
-    const v = computeJumpVisibility(4400, 5000, 600)
+  it('贴底时距底为 0 ⇒ 不亮跳到最新,但仍算远离顶部', () => {
+    const v = computeJumpVisibility(geo({ scrollTop: 4400 })) // 5000-600-4400=0
     expect(v.isFarFromBottom).toBe(false)
     expect(v.isFarFromTop).toBe(true)
   })
 
-  it('距底同样要跨过 800;800 不亮,801 才亮', () => {
-    const edge = computeJumpVisibility(1000, 2400, 600) // 距底恰为 800
-    expect(edge.isFarFromBottom).toBe(false)
-    const past = computeJumpVisibility(1000, 2401, 600) // 距底 801
-    expect(past.isFarFromBottom).toBe(true)
+  it('距底同样 800 不亮、801 才亮', () => {
+    expect(
+      computeJumpVisibility(geo({ scrollTop: 1000, contentHeight: 2400 })).isFarFromBottom,
+    ).toBe(false)
+    expect(
+      computeJumpVisibility(geo({ scrollTop: 1000, contentHeight: 2401 })).isFarFromBottom,
+    ).toBe(true)
+  })
+
+  it('距底算法与 scroll-authority 的 distanceToBottom 同式:内容不足一屏取 0,不得算出负距离', () => {
+    const v = computeJumpVisibility(geo({ scrollTop: 0, contentHeight: 300, viewportHeight: 600 }))
+    expect(v.isFarFromBottom).toBe(false)
   })
 
   it('弹性回弹的负 scrollTop 不得被判成「远离顶部」(移动端实测形态)', () => {
-    const v = computeJumpVisibility(-120, 5000, 600)
+    const v = computeJumpVisibility(geo({ scrollTop: -120 }))
     expect(v.isFarFromTop).toBe(false)
-    // 负偏移时按 0 记账,距底应等于整个可滚范围 ⇒ 亮「跳到最新」
     expect(v.isFarFromBottom).toBe(true)
   })
 
-  it('垃圾输入(NaN/Infinity/负尺寸)一律不亮,不得把坏读数渲染成可点按钮', () => {
-    const v = computeJumpVisibility(Number.NaN, Number.POSITIVE_INFINITY, -300)
-    expect(v).toEqual({ isFarFromTop: false, isFarFromBottom: false })
+  it('垃圾输入(NaN/Infinity/负尺寸)一律不亮,坏读数不得渲染成可点按钮', () => {
+    expect(
+      computeJumpVisibility(
+        geo({
+          scrollTop: Number.NaN,
+          contentHeight: Number.POSITIVE_INFINITY,
+          viewportHeight: -300,
+        }),
+      ),
+    ).toEqual({
+      isFarFromTop: false,
+      isFarFromBottom: false,
+    })
   })
 
-  it('调用方可覆盖阈值(为后续各端按视口高度分档留口,不改默认值)', () => {
-    const v = computeJumpVisibility(300, 5000, 600, 200)
-    expect(v.isFarFromTop).toBe(true)
+  it('调用方可覆盖阈值(为各端按视口高度分档留口,不改默认值)', () => {
+    expect(computeJumpVisibility(geo({ scrollTop: 300 }), 200).isFarFromTop).toBe(true)
   })
 })
 

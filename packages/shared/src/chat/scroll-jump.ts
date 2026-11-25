@@ -16,6 +16,13 @@
 /** 距顶/距底超过该阈值才显示对应按钮(任务 D3 定档 800px;三端同值)。 */
 export const JUMP_FAR_THRESHOLD = 800
 
+/** 滚动几何(与 web 侧 `ScrollMetrics` 同形:内容高 / 视口高 / 当前位)。 */
+export interface ScrollJumpGeometry {
+  readonly scrollTop: number
+  readonly contentHeight: number
+  readonly viewportHeight: number
+}
+
 export interface JumpVisibility {
   isFarFromTop: boolean
   isFarFromBottom: boolean
@@ -24,28 +31,29 @@ export interface JumpVisibility {
 /**
  * 由滚动几何量计算两枚按钮的显隐。
  *
- *  - isFarFromTop      = scrollTop > threshold
- *  - isFarFromBottom   = (scrollHeight - scrollTop - clientHeight) > threshold
+ *  - isFarFromTop    = scrollTop > threshold
+ *  - isFarFromBottom = max(0, contentHeight - viewportHeight - scrollTop) > threshold
+ *
+ * 距底算法与 web `scroll-authority.ts` 的 `distanceToBottom()` 逐字同式(内容不足一屏时取 0),
+ * 这样"是否该亮跳到最新"与"是否算贴底"读的是同一个距离,不会出现两把尺子。
  *
  * 纪律:纯函数,不读 DOM、不接事件对象 —— 各端的事件形状差异(RN 原生 contentOffset /
- * 小程序 detail / web scroll 事件)由调用方折算成这三个数后传入,折算本身不归本文件管
- * (web 那份已有 `readScrollEventTop` 同型收口)。
+ * 小程序 detail / web scroll 事件)由调用方折算成这三个数后传入,折算本身不归本文件管。
  *
- * 负值输入按 0 处理:滚动弹性回弹期间 contentOffset 可能为负,不得因此把"在顶部"
- * 判成"远离顶部"。
+ * fail-closed:负 scrollTop(移动端弹性回弹会真出现)按 0 记账,不得把"在顶部"判成"远离顶部";
+ * NaN/Infinity/非正尺寸一律判不亮 —— 坏读数不允许渲染成可点按钮。
  */
 export function computeJumpVisibility(
-  scrollTop: number,
-  scrollHeight: number,
-  clientHeight: number,
+  geometry: ScrollJumpGeometry,
   threshold: number = JUMP_FAR_THRESHOLD,
 ): JumpVisibility {
-  const top = Number.isFinite(scrollTop) && scrollTop > 0 ? scrollTop : 0
-  const height = Number.isFinite(scrollHeight) && scrollHeight > 0 ? scrollHeight : 0
-  const view = Number.isFinite(clientHeight) && clientHeight > 0 ? clientHeight : 0
-  const distanceFromBottom = height - top - view
+  const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
+  const scrollTop = Math.max(0, num(geometry.scrollTop))
+  const contentHeight = Math.max(0, num(geometry.contentHeight))
+  const viewportHeight = Math.max(0, num(geometry.viewportHeight))
+  const distanceFromBottom = Math.max(0, contentHeight - viewportHeight - scrollTop)
   return {
-    isFarFromTop: top > threshold,
+    isFarFromTop: scrollTop > threshold,
     isFarFromBottom: distanceFromBottom > threshold,
   }
 }
