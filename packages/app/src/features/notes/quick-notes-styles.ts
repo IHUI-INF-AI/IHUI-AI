@@ -66,8 +66,6 @@ export function createQuickNotesStyles(tk: AppThemeTokens) {
     archivedDotOn: { backgroundColor: tk.brandAccent.deep, borderColor: tk.brandAccent.deep },
     archivedToggleText: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     list: { flex: 1, paddingHorizontal: rnSpacing.md },
-    empty: { paddingVertical: rnSpacing['4xl'], alignItems: 'center' },
-    emptyText: { fontSize: rnType.body.size, color: tk.text.medium },
     card: {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,

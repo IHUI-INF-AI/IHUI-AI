@@ -19,10 +19,12 @@ import {
   Pencil,
   Plus,
   Search,
+  StickyNote,
   Trash2,
 } from 'lucide-react-native'
 import { getTokens, type AppThemeMode } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
 import { QuickNoteEditor } from './QuickNoteEditor'
 import { createQuickNotesStyles, formatQuickNoteStamp } from './quick-notes-styles'
@@ -129,9 +131,13 @@ export function QuickNotesScreen({
         data={notes}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>{t('quickNotes.empty')}</Text>
-          </View>
+          <EmptyState
+            icon={<StickyNote size={26} color={tk.text.secondary} />}
+            title={t('quickNotes.empty')}
+            actionLabel={t('quickNotes.new')}
+            onAction={onStartCreate}
+            colorScheme={colorScheme}
+          />
         }
         renderItem={({ item }) => (
           <View style={styles.card}>

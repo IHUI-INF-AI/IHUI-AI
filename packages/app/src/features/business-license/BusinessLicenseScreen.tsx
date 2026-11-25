@@ -114,7 +114,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     content: { padding: rnSpacing.md, paddingBottom: rnSpacing['2xl'], gap: rnSpacing.md },
     card: {
-      backgroundColor: tk.surface.light,
+      backgroundColor: tk.surface.card,
       borderRadius: rnRadius.lg,
       overflow: 'hidden',
       padding: rnSpacing.md,

@@ -19,6 +19,7 @@ import type { TFunction } from '../../types'
 import { getTokens } from '../../theme/tokens'
 import type { AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState } from '../../components/ScreenStates'
 import { ListPager } from '../student/ListPager'
 import type { ListPagerStyles } from '../student/ListPager'
 
@@ -104,7 +105,7 @@ function createArtifactsStyles(tk: AppThemeTokens) {
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     desc: { fontSize: rnType.label.size, color: tk.text.secondary },
     card: {
-      backgroundColor: tk.surface.light,
+      backgroundColor: tk.surface.card,
       borderRadius: rnRadius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: 'transparent',
@@ -313,9 +314,11 @@ export function ArtifactsScreen({
               <Text style={styles.emptyText}>{t('artifacts.loading')}</Text>
             </View>
           ) : items.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>{t('artifacts.empty')}</Text>
-            </View>
+            <EmptyState
+              icon={<PackageOpen size={26} color={tk.text.secondary} />}
+              title={t('artifacts.empty')}
+              colorScheme={colorScheme}
+            />
           ) : (
             <>
               {items.map(renderItem)}
