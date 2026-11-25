@@ -140,7 +140,6 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: 'transparent',
       marginBottom: rnSpacing.sm,
     },
     titleRow: {
