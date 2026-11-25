@@ -872,7 +872,20 @@ function ScrollViewInner(props: RNBaseProps, ref: ForwardedRef<ScrollViewHandle>
       onScrollToLower={props.onEndReached as ScrollToLowerEventHandler}
     >
       {props.refreshControl as ReactNode}
-      <View style={props.contentContainerStyle as ViewStyle}>{props.children}</View>
+      {/* 2026-11-26 修:内容容器必须跟着 horizontal 走 row。
+          此前只把 flexDirection:'row' 设在 ScrollView 本身,而子项全落在这一层 <View>
+          (它的 base 是 VIEW_BASE 的 column) ⇒ 任何横向列表在小程序端都会**竖排堆叠**,
+          实测形态就是订单页「全部/待支付/待收货/已完成/已退款」五个筛选项竖着排成一列。
+          RN 的语义里 horizontal ScrollView 的 contentContainer 本身就是 row,这里对齐;
+          调用方 contentContainerStyle 放在后面 ⇒ 它显式写 column 时仍然赢。 */}
+      <View
+        style={[
+          horizontal ? ({ flexDirection: 'row' } as ViewStyle) : null,
+          props.contentContainerStyle as StyleProp<ViewStyle>,
+        ]}
+      >
+        {props.children}
+      </View>
     </TaroScrollView>
   )
   /**

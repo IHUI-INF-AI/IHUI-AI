@@ -110,6 +110,20 @@ curl.exe -i http://<边缘回源IP>:8801/            # 无边缘密钥 ⇒ 403 +
 curl.exe -i -H "Accept: text/html" http://<边缘回源IP>:8801/   # 浏览器形态
 ```
 
+## 账号锁定策略（本机前提登记，2026-11-26 立）
+
+**当前取值：`Lockout threshold = Never`（阈值 0，永不锁定）。这是有意的，不是漏配。**
+
+立因（2026-11-26 凌晨真实事故取证）：Windows 的失败计数**不分来源**——隧道侧 `sshd-session.exe` 的 publickey 失败（24h 内 225 次）、本机自动化 Chrome 的 Type 2 Negotiate 失败（24h 内 43 次）都计入 `Administrator` 的同一个计数器。02:29 与 02:48 两次 4740 就是这样把账号锁死，连带所有 S4U 计划任务 `LogonUserS4U` 报 `0x80070775`（win32 **1909 账号已锁定**），`Last Result` 恒 0、`Status` 恒 Ready——外观完全正常，实际一条都没跑。**任何人只要能连到 sshd，就能给本机账号"投票"锁死它**，而密码认证早已关闭（`PasswordAuthentication no`，24h 密码成功 0 次），所以锁定策略唯一的效果就是远程可触发的 DoS。
+
+**该取值成立的三条前提**（任一条被打破就必须重新评估，不能继续沿用）：
+
+1. `fDenyTSConnections` 虽为 0，但 **3389 无监听** —— RDP 没有对外提供密码登录面。
+2. sshd **`PasswordAuthentication no`**，只留公钥 —— 密码暴破不可能成功，锁定对"防猜中"已无收益。
+3. Chrome 集成认证已整机关闭（`HKLM\SOFTWARE\Policies\Google\Chrome` 两条：`AuthServerAllowlist=''`、`AuthNegotiateDelegateAllowlist=''`）—— 从源头不再产生 Type 2 4625。
+
+**判据联动**：`check-account-lockout.mjs` 读 `secedit /export` 的 `LockoutBadCount`（不用 `net accounts`——它写管道走 OEM 码页，中文会被读成乱码）。阈值 0 时同组 4625 突发只记 `observations` 不判 breach（无锁定后果），**4740 仍判红**（策略被别处改回时不放过）；阈值 >0 时沿用突发判红并额外点名 DoS 面；读不到 ⇒ undetermined，判据按 ENABLED 保守判，不冒绿。
+
 ## 边界（写死，不要越）
 
 - **只做阻断、取证、上报**。不对攻击源发起反向攻击或侵入（违法，且会把受害方变成加害方）。

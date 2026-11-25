@@ -656,16 +656,28 @@ async def lifespan(app: FastAPI) -> Any:
     )
     # 2026-11-26 修复(auto 自愈):auto 首选切到 agnes/agnes-3.0-flash 后,原配置里
     # 没有任何以它为 primary 的转移项 => 上游一挂就整条请求失败,用户只看到错误卡。
-    # 补一条真链:agnes-3.0 -> agnes-2.5 -> gemini-4-hydrogen -> qwen-plus
-    # (四档均为本部署实测 _resolve 拿得到凭据的模型;其余 provider 的库内 key 是
-    #  sk-p 占位符,被 key-fallback 判为未配置,不能进链,否则等于把请求丢进死胡同)
+    # 链的排序按**当天真机探针**而不是按"name 看起来对":
+    #   agnes-3.0 ✓ / agnes-2.5 ✓ / xai grok-4.20 ✓ 都当场回了 '2';
+    #   qwen-plus-2025-09-11 实测 401(AuthenticationError) ⇒ 移出链,留着只会白等;
+    #   gemini-4-hydrogen 实测 timeout ⇒ 降到末位,保留为极端场景的最后一搏。
     fallback_router.configure(
         "agnes/agnes-3.0-flash",
         {
             "fallbacks": [
                 "agnes/agnes-2.5-flash",
+                "xai/grok-4.20-0309-non-reasoning",
                 "gemini/gemini-4-hydrogen",
-                "qwen/qwen-plus-2025-09-11",
+            ],
+            "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
+        },
+    )
+    fallback_router.configure(
+        "xai/grok-4.20-0309-non-reasoning",
+        {
+            "fallbacks": [
+                "agnes/agnes-3.0-flash",
+                "agnes/agnes-2.5-flash",
+                "gemini/gemini-4-hydrogen",
             ],
             "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
         },
@@ -673,17 +685,33 @@ async def lifespan(app: FastAPI) -> Any:
     fallback_router.configure(
         "gemini/gemini-4-hydrogen",
         {
-            "fallbacks": ["agnes/agnes-3.0-flash", "qwen/qwen-plus-2025-09-11"],
+            "fallbacks": [
+                "agnes/agnes-3.0-flash",
+                "agnes/agnes-2.5-flash",
+                "xai/grok-4.20-0309-non-reasoning",
+            ],
             "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
         },
     )
-    fallback_router.configure(
-        "qwen/qwen-plus-2025-09-11",
-        {
-            "fallbacks": ["agnes/agnes-3.0-flash", "gemini/gemini-4-hydrogen"],
-            "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
-        },
-    )
+    # 2026-11-26 补(默认链第二档):auto 候选头部是
+    # [settings.litellm_model, settings.litellm_fallback_model],
+    # 第二位当前是 openrouter 的免费预览位。免费位额度/限流波动大,挂掉时若没有以它为
+    # primary 的转移项,请求就停在第二个候选上 => 用户再次看到错误卡。
+    # 这里给它配一条落到 agnes 的链,保证「第二位挂了也有人接」。
+    for _auto_second in filter(None, [settings.litellm_fallback_model]):
+        _auto_second = str(_auto_second).strip()
+        if _auto_second and _auto_second != settings.litellm_model:
+            fallback_router.configure(
+                _auto_second,
+                {
+                    "fallbacks": ["agnes/agnes-3.0-flash", "agnes/agnes-2.5-flash"],
+                    "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
+                },
+            )
+            logger.info(
+                "[fallback_router] auto 第二档 %s -> agnes-3.0 -> agnes-2.5",
+                _auto_second,
+            )
     logger.info(
         "[fallback_router] configured: agnes 双档互备(2.5 <-> 2.0,末位 pollinations)"
         " + gpt-4o -> agnes 兜底 + 默认链 gemini-3.8-flash <-> @cf/glm-4.7-flash 互备(D208)"

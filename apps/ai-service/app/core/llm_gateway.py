@@ -1251,6 +1251,15 @@ def _assemble_auto_candidates(
 # 显式指定仍可走(手工选择行为不变)。
 _AUTO_ROUTE_EXCLUDED = ("gpt-4o", "openai/gpt-4o", "llm7/gpt-oss:20b")
 
+# 失败可转移错误码(2026-11-26 立):auto / 首选模型出问题时,只要还没吐字,
+# 就交给 FallbackRouter 换下一个 —— 不再只认 LLM_ERROR。
+# MODEL_NOT_CONFIGURED:provider key 缺失或占位符,换一个能解析 key 的模型即可恢复;
+# PROVIDER_NOT_IMPLEMENTED:该厂未实现,同属「这个不行换下一个」语义。
+# 只放宽 FallbackRouter 的入闸;ComboRouter 仍是显式配置链,闸门不变。
+_STREAM_FALLBACK_TRIGGER_CODES: frozenset[str] = frozenset(
+    {"LLM_ERROR", "MODEL_NOT_CONFIGURED", "PROVIDER_NOT_IMPLEMENTED"}
+)
+
 
 def _default_model_chain() -> list[str]:
     """默认模型链(首选 + 同族兜底,D208 2026-10-01)。
@@ -3128,7 +3137,7 @@ class LLMGateway:
             # 额度耗尽时即使没配静态 fallbacks 也要进(候选由替代通道动态补齐)
             quota_exhausted_hit = False
             if (
-                err_code == "LLM_ERROR"
+                err_code in _STREAM_FALLBACK_TRIGGER_CODES
                 and not _skip_fallback
                 and (fallback_router._configs or is_quota_exhaustion_error(e))
             ):
@@ -4567,7 +4576,7 @@ class LLMGateway:
             # 流式 fallback:仅在未发送任何 chunk 时尝试 fallback provider
             # (已发送 chunk 不可撤回,无法中途切换 provider)
             if (
-                err_code == "LLM_ERROR"
+                err_code in _STREAM_FALLBACK_TRIGGER_CODES
                 and not accumulated_content
                 and not accumulated_reasoning
                 and (fallback_router._configs or is_quota_exhaustion_error(e))

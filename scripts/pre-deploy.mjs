@@ -21,6 +21,7 @@
  *   9. MIGRATION_GAP_REPORT.md 缺失数 ≤ 上限(如有)
  *  10. Git 工作区状态(uncommitted 改动只警告不阻断)
  *  11. packages/* dist 产物与源码同步(node scripts/check-stale-dist.mjs --strict)
+ *  12. 小方外挂品牌资产完整性(node scripts/check-xiaofang-assets.mjs;目录不在位判 SKIP 不判红)
  *
  * 用法:
  *   node scripts/pre-deploy.mjs                # 全量硬性门禁
@@ -583,6 +584,32 @@ function checkStaleDist() {
 }
 
 // =====================================================
+// 12. 小方外挂品牌资产完整性(透明底不可被压扁)
+// =====================================================
+/**
+ * 立因(2026-11-26 实测事故):wave 招手动图在「压到 62 帧 / 918KB 过 2MB 入库门」那一步被压掉 alpha,
+ * 线上空态直接显示纯黑底;而该目录被 .gitignore 忽略、不入 git ⇒ 坏版本被放回来时 git 侧零感知。
+ * 判据与实现一律在 scripts/check-xiaofang-assets.mjs(同一件事不抄两把尺子);本项只负责接线与归类。
+ * 目录不在位(净面构建 / 纯 git 克隆 / CI)是**正常**的 —— 判 SKIP 记 warn,绝不因此红。
+ */
+function checkXiaofangAssets() {
+  header('12. 小方外挂品牌资产完整性 (public/images/xiaofang-assets)')
+  const assetDir = join(ROOT, 'apps/web/public/images/xiaofang-assets')
+  if (!existsSync(assetDir)) {
+    recordStatus('warn', '资产目录不在本工作树', 'SKIP:外挂目录不入 git,净面/CI 属正常')
+    return
+  }
+  const r = run(`node scripts/check-xiaofang-assets.mjs --root "${assetDir}"`)
+  if (r.ok) {
+    recordStatus('ok', 'scripts/check-xiaofang-assets.mjs', 'wave 双件透明底 + 三张 PNG 全部在位且合规')
+    return
+  }
+  recordStatus('fail', 'scripts/check-xiaofang-assets.mjs', `exit ${r.code ?? '?'} —— 修复:按输出重出成品,勿回退被压扁的坏版`)
+  const tail = (r.stdout || '').split('\n').filter(Boolean).slice(-10).join('\n')
+  if (tail) console.log(C.dim + tail + C.reset)
+}
+
+// =====================================================
 // 主流程
 // =====================================================
 async function main() {
@@ -609,6 +636,7 @@ async function main() {
   checkMigrationGapReport()
   checkGitStatus()
   checkStaleDist()
+  checkXiaofangAssets()
 
   // ============ 汇总 ============
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1)

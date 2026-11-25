@@ -19,6 +19,8 @@
  */
 
 /** 已在 `vip.benefitList.*` 登记译名的键(五语言齐备,见 packages/i18n/messages) */
+import { VIP_BENEFIT_LABELS } from '../constants/vip-benefits'
+
 export const VIP_TRANSLATED_BENEFIT_KEYS = [
   'unlimitedChat',
   'exclusiveModel',
@@ -27,6 +29,23 @@ export const VIP_TRANSLATED_BENEFIT_KEYS = [
 ] as const
 
 export type VipTranslatedBenefitKey = (typeof VIP_TRANSLATED_BENEFIT_KEYS)[number]
+
+/**
+ * 展示名解析:五语译名优先 → 中文共享标签兜底 → 原键透出。
+ *
+ * 2026-11-26 补的第二道兜底:库内 `benefits` 实际有 16 个键,而 `vip.benefitList.*`
+ * 只登记了上面 4 个 ⇒ 其余 12 个(含 `testPaymentFlow`)此前**原样透出裸键名**,
+ * 小程序 VIP 页「权益详情」实测就是这么露的。中文标签统一取自
+ * `constants/vip-benefits` 的 VIP_BENEFIT_LABELS(单一真相源),端内不另拼。
+ * 退化语言包会把 key 原样返回 ⇒ 同样退回中文标签,不显示 `vip.benefitList.xxx`。
+ */
+function benefitDisplayName(key: string, t: (k: string) => string): string {
+  if (isTranslatedVipBenefitKey(key)) {
+    const translated = t(`vip.benefitList.${key}`)
+    if (translated && translated !== `vip.benefitList.${key}`) return translated
+  }
+  return VIP_BENEFIT_LABELS[key] ?? key
+}
 
 /** 会员档位行(服务端实际返回形状;`benefits` 保真为 unknown,由本文件判定) */
 export interface VipLevelRow {
@@ -70,7 +89,7 @@ export function toVipBenefitItems(
       .filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
       .map((entry) => ({
         id: `${row.id}:${entry}`,
-        name: isTranslatedVipBenefitKey(entry) ? t(`vip.benefitList.${entry}`) : entry,
+        name: benefitDisplayName(entry, t),
         desc: '',
         ...(level ? { level } : {}),
       }))

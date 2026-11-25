@@ -25,7 +25,8 @@
  *   node scripts/security/check-account-lockout.mjs --window-min 30
  */
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, existsSync, mkdirSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -33,7 +34,9 @@ import {
   judgeAccountLockout,
   remediationForLockout,
   enrichProcessByPid,
+  parseLockoutThreshold,
   LOCKOUT_STATE,
+  LOCKOUT_POLICY,
   DEFAULT_WINDOW_MIN,
 } from './lib/account-lockout.mjs'
 
@@ -150,6 +153,38 @@ function sendAlert(result, remediation) {
   }
 }
 
+/**
+ * 导出本机安全策略并读锁定阈值。
+ * 走 `secedit`(ASCII inf,无 OEM 码页问题);`net accounts` 只作兜底。
+ * 两侧都取不到 ⇒ undetermined(策略未知时 judge 按 ENABLED 保守判,不冒绿)。
+ */
+function readLockoutPolicy() {
+  if (process.platform !== 'win32') {
+    return { state: LOCKOUT_POLICY.UNDETERMINED, threshold: null, raw: '' }
+  }
+  const inf = join(tmpdir(), `ihui-secpol-${process.pid}-${Date.now()}.inf`)
+  try {
+    run('secedit', ['/export', '/cfg', inf, '/areas', 'SECURITYPOLICY'], 30_000)
+    const buf = readFileSync(inf)
+    const isUtf16 = buf.length > 1 && buf[0] === 0xff && buf[1] === 0xfe
+    const parsed = parseLockoutThreshold(isUtf16 ? buf.toString('utf16le') : buf.toString('latin1'))
+    if (parsed.state !== LOCKOUT_POLICY.UNDETERMINED) return parsed
+  } catch {
+    /* 落到 net accounts 兜底 */
+  } finally {
+    try {
+      rmSync(inf, { force: true })
+    } catch {
+      /* 临时件清不掉不影响判定 */
+    }
+  }
+  try {
+    return parseLockoutThreshold(run('net', ['accounts'], 20_000))
+  } catch {
+    return { state: LOCKOUT_POLICY.UNDETERMINED, threshold: null, raw: '' }
+  }
+}
+
 function main(argv = process.argv.slice(2)) {
   const json = argv.includes('--json')
   const alert = argv.includes('--alert')
@@ -157,13 +192,17 @@ function main(argv = process.argv.slice(2)) {
   const windowMin = Number(argv[wi + 1]) > 0 ? Number(argv[wi + 1]) : DEFAULT_WINDOW_MIN
 
   const collected = collect(windowMin)
+  const lockoutPolicy = readLockoutPolicy()
 
   let result
   if (collected.fetchError) {
-    result = judgeAccountLockout({ events: null, fetchError: collected.fetchError }, { now: Date.now(), windowMin })
+    result = judgeAccountLockout(
+      { events: null, fetchError: collected.fetchError },
+      { now: Date.now(), windowMin, lockoutPolicy },
+    )
   } else {
     const events = enrichProcessByPid(collected.events, collected.pidMap)
-    result = judgeAccountLockout({ events }, { now: Date.now(), windowMin })
+    result = judgeAccountLockout({ events }, { now: Date.now(), windowMin, lockoutPolicy })
   }
 
   const remediation = remediationForLockout(result)
@@ -175,6 +214,8 @@ function main(argv = process.argv.slice(2)) {
     total4740: result.total4740,
     total4625: result.total4625,
     breaches: result.breaches,
+    observations: result.observations,
+    policy: result.policy,
     storm: result.storm,
     reason: result.reason,
   })
@@ -192,14 +233,19 @@ function main(argv = process.argv.slice(2)) {
       byUser: result.byUser,
       byLogonType: result.byLogonType,
       storm: result.storm,
+      observations: result.observations,
+      policy: result.policy,
       remediation,
     }))
   } else {
     const mark = result.state === 'ok' ? '✓' : result.state === 'breach' ? '✗' : '?'
     console.log(`${mark} ${result.state} — ${result.reason}`)
+    const t = result.policy.threshold
+    console.log(`   锁定策略: ${result.policy.state}` + (t === null || t === undefined ? '' : `(阈值 ${t})`))
     for (const g of result.groups) {
       console.log(`   [${g.count}次] ${g.processName} 用户=${g.targetUser} 类型=${g.logonType} ${g.statusLabel}`)
     }
+    for (const o of result.observations) console.log(`   · ${o}`)
     for (const s of remediation) console.log(`   → ${s}`)
   }
 

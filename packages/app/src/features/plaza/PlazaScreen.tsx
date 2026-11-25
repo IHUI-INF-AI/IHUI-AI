@@ -443,11 +443,13 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
       textAlign: 'center',
     } as TextStyle,
-    // 强调行(对齐原项目 empty .font_big:40rpx bold #847CFF)
+    // 强调行:原项目 empty .font_big 是 40rpx bold #847CFF(紫),整段搬进本仓后,在暗档深底上
+    // 就是一块扎眼的蓝紫发光体(2026-11-26 实拍 plaza2-dark 取证),与全站「黑白反转 + 品牌 CTA」
+    // 体系正面冲突。归位到 ink 档:强调靠字号与字重,不靠色相。
     emptyTextStrong: {
       fontSize: rnType.heading.size,
       fontWeight: '700',
-      color: tk.brandAccent.deep,
+      color: tk.text.primary,
       textAlign: 'center',
     } as TextStyle,
     emptyBtn: {
