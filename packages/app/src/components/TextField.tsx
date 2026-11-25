@@ -4,6 +4,12 @@
 
 import { useState, type ComponentPropsWithRef } from 'react'
 import { TextInput, type StyleProp, type TextStyle } from 'react-native'
+import { rnRadius } from '@ihui/design-tokens'
+import {
+  INPUT_HEIGHT_PX,
+  INPUT_PADDING_X_PX,
+  INPUT_RADIUS_TIER,
+} from '@ihui/shared/ui/input-spec'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
 
 /**
@@ -19,9 +25,9 @@ import { getTokens, type AppThemeMode } from '../theme/tokens'
  * 对账门只能证明"两端都有聚焦",证不了"两端取同一档"。
  *
  * 三档取色与 web 逐字同形,不是近似:
- *  - 常态:1px 描边、颜色透明 —— 占位恒定,聚焦时只换颜色,**不产生 1px 布局跳动**
+ *  - 常态:1px `stroke.field` 描边 + control 圆角 + 内边距,聚焦只换描边颜色、几何不变
  * (web 的 `border border-stroke-field` → `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus` 也是换色不换宽);
- *    调用方自带描边时排在后面,直接覆盖这一档,不会被本组件改写。
+ *    调用方自带描边/内边距时排在后面,直接覆盖这一档,不会被本组件改写。
  *  - 聚焦:`tokens.stroke.focus` 墨档(亮 #000000 / 暗 #FFFFFF,随主题反转)。
  *    这是 AGENTS §4"描边不得取墨档"的**唯一例外位**(聚焦态),守门 83 的 R8 按
  *    `focused ? …` 条件形态放行 —— 所以这里必须写成三元,不得改成 `&&` 短路
@@ -45,9 +51,19 @@ export type TextFieldProps = Omit<
   onBlur?: ComponentPropsWithRef<typeof TextInput>['onBlur']
 }
 
-/** 常态描边占位:宽度恒定、颜色透明,聚焦只换颜色 ⇒ 零布局跳动 */
+/** 常态描边占位:宽度恒定,颜色由主题按 stroke 角色给,聚焦只换颜色 ⇒ 零布局跳动。
+ *  静息色 = `stroke.field`(输入框专用描边角色,rgba(0,0,0,.14) / 暗 rgba(255,255,255,.16));
+ *  此前是 `transparent` ⇒ 全仓 209 处 TextField 在页面上没有任何可见轮廓(2026-11-26 逐页截图实测),
+ *  调用方除非自己补底色,否则用户看不出哪里能输入。 */
 const RESTING_BORDER: TextStyle = {
   borderWidth: 1,
+  // 以下三档几何此前完全缺失(输入区文字贴边框、方角与全站 rounded-sm..2xl 体系不协调)。
+  // 取值一律读 @ihui/shared/ui/input-spec —— 与 web 壳(ui-react)和 RN 规范壳(ui-native)
+  // 同一份常量,不再由本组件另定一套(AGENTS §0.6 单一真相源)。
+  // 纵向内边距按 spec 的口径「不下沉」:高度已由 INPUT_HEIGHT_PX 单点定档。
+  minHeight: INPUT_HEIGHT_PX,
+  paddingHorizontal: INPUT_PADDING_X_PX,
+  borderRadius: rnRadius[INPUT_RADIUS_TIER],
   borderColor: 'transparent',
   // RN Web 的 TextInput 在 :focus-visible 上自带浏览器 outline(默认 auto 深色),
   // 会与下面自绘的聚焦描边叠成第二圈 —— 全屏展开态里就是那圈被读成"黑色描边"的线。
@@ -73,7 +89,7 @@ export function TextField({
     <TextInput
       {...rest}
       style={[
-        RESTING_BORDER,
+        { ...RESTING_BORDER, borderColor: tk.stroke.field },
         style,
         focused ? { borderColor: tk.stroke.focus } : null,
         focused ? focusedStyle : null,

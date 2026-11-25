@@ -10,7 +10,16 @@ import type { AppThemeTokens } from '../../theme/tokens'
 export function createAccountPoolStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: rnSpacing.lg, paddingTop: rnSpacing.sm, gap: rnSpacing['2xs'] },
+    /* 返回键与标题同一行:BackChevron 自带 36dp 命中区,标题跟在它右侧。
+       原写法只给了 gap 没给 flexDirection ⇒ 默认 column,返回键被顶到标题上方单独占一行,
+       与圈子/话题等页的「左返回 + 标题」形态不一致(2026-11-26 逐页截图实测)。 */
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing.lg,
+      paddingTop: rnSpacing.sm,
+      gap: rnSpacing.sm,
+    },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     subtitle: {
       fontSize: rnType.label.size,
@@ -18,17 +27,27 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
       lineHeight: rnType.bodySm.lineHeight,
     },
     body: { padding: rnSpacing.lg, gap: rnSpacing.md, paddingBottom: rnSpacing['4xl'] },
+    /* 卡片面取 surface.card 而非 surface.light:两档亮值同为纯白(亮档零变化),
+       但暗档 surface.light 与页面底 surface.bg 的 RGB 只差 2 级 ⇒ 卡片轮廓看不见;
+       surface.card 暗档比底深约 10 级,卡面才立得起来。 */
     card: {
-      backgroundColor: tk.surface.light,
+      backgroundColor: tk.surface.card,
       borderRadius: rnRadius.lg,
       padding: rnSpacing.md,
       gap: rnSpacing.sm,
     },
+    /** 统计行:图标在左、数字贴右(需要 space-between) */
     rowHead: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: rnSpacing.sm,
+    },
+    /** 「添加账号」这类小标题:图标与文字必须紧邻,不能各据一端 */
+    cardHead: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing['xs-loose'],
     },
     cardTitle: {
       fontSize: rnType.strong.size,
@@ -89,8 +108,11 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
-    submitOff: { opacity: 0.5 },
+    /* 禁用态换底色+换字色,不用整体 opacity:半透明会让底与字同时变灰,
+       亮档实测落成「灰底白字」(对比约 2.3:1,WCAG 不合格)。 */
+    submitOff: { backgroundColor: tk.surface.muted },
     submitText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
+    submitTextOff: { color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
