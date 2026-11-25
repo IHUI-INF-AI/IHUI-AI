@@ -51,7 +51,6 @@ if [ "$1" = "committed" ]; then
 fi
 
 [ "$1" = "prepared" ] || exit 0
-[ "${IHUI_ALLOW_STASH:-0}" = "1" ] && exit 0
 
 ZERO=0000000000000000000000000000000000000000
 while read -r _old _new ref; do
@@ -70,7 +69,13 @@ while read -r _old _new ref; do
       } >&2
       exit 1
       ;;
-    refs/stash) ;;
+    # 2026-11-25 收紧:IHUI_ALLOW_STASH=1 原先在判据前整体 exit 0,把 history-guard
+    # 一起放行了 —— 实测 `IHUI_ALLOW_STASH=1 git tag lost-commit/x` exit=0 且 tag 落地。
+    # 一个"清理 stash"的逃生阀不该顺手开掉历史 tag 的闸,现下沉到 refs/stash 分支内,
+    # 该变量从此只放行 stash,history-guard 段永远生效。
+    refs/stash)
+      [ "${IHUI_ALLOW_STASH:-0}" = "1" ] && continue
+      ;;
     *) continue ;;
   esac
 
