@@ -20,7 +20,11 @@
 
 
 ## 号段租约登记区(取号器专用,千段租约制)
+- [x] RP-28 〔千段租约〕 本机=lichunchuan-a47da79b 段=RP-19~RP-28(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 - [x] RP-10 〔千段租约〕 本机=lichunchuan-a47da79b 段=RP-1~RP-10(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 
 - [ ] RP-8 对标落地 L05/P1 动态 IPC 注册表：call/listen/subscribe 命名通道 RPC 替代裸 ipcMain，通道名必须来自注册表，未注册通道运行期拒绝并打点且测试覆盖（落点 packages/agent-sdk RPC 层+api websocket+审计日志）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
 - [ ] RP-9 对标落地 L06/P1 本地运行时策略热更新：runtime-policy.json（probe/timeout/background_limit）+热加载+who/when/why 变更审计，非法字段整份拒绝，变更 5 秒内生效（落点 apps/api/src/config 或 ai-service+策略校验 schema）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
+
+- [ ] RP-19 对标落地 L08/P1 MCP Host 回环服务：listen(0,'127.0.0.1')+per-route token+生命周期注销，未注册路由 404，注销后在飞请求 abort 并计数，端口不落公网（落点 apps/api/services/mcp-extended.ts+v1-mcp-gateway.ts）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
+- [ ] RP-20 对标落地 L10/P1 遥测本地默认：默认本地 OTLP collector、远端需显式开关，PII/凭据/命令行参数白名单过滤，敏感命令只打类型与规则命中不写原文，采样率可配（落点 monitoring/otel-collector+api telemetry/log-sanitizer；注意与 §5e 邮件单通道口径不冲突）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
