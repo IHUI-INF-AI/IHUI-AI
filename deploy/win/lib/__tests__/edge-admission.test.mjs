@@ -25,6 +25,7 @@ import {
   normalizeIpLiteral,
   resolveEdgeClientIp,
   resolveRouterMaxConnections,
+  resolveUpgradeTarget,
 } from '../edge-admission.mjs'
 
 const SECRET = 'unit-test-secret'
@@ -481,5 +482,45 @@ test('反向对照:回环对端 + CF-Connecting-IP(cloudflared 隧道)⇒ 仍采
   })
   assert.equal(out['x-forwarded-for'], PUBLIC_IP, '隧道形态照旧采信 CF 头')
   assert.equal(out['cf-connecting-ip'], undefined, '可伪造头仍要删掉')
+})
+
+// ── WS 上游选择:浏览器画中画必须走 ai-service(2026-11-26)──────────────────
+// 线上实测:两个蓝绿 router 都把 /api/browser/ws 当普通 upgrade 转给当前配色,
+// 被 Next.js / Node API 回 404,画中画永远"画面已断开"。下面三条用例把接线钉住。
+
+test('browser-ws 路径 ⇒ 固定转 ai-service 的 8803,不跟蓝绿配色走', () => {
+  const hit = resolveUpgradeTarget({
+    url: '/api/browser/ws/f86d96c4-e8c0-4038-b8e2-fb0c2f293fbc?token=secret',
+    activePort: 8852,
+    browserWsPort: 8803,
+  })
+  assert.deepEqual(hit, { port: 8803, host: '127.0.0.1', target: 'browser-ws' })
+})
+
+test('反向对照:其他 upgrade 路径照旧走当前配色(不能被 browser-ws 分支扩大)', () => {
+  for (const url of ['/api/agent/stream', '/browser-ish/ws/abc', '/api/browser/sessions']) {
+    const hit = resolveUpgradeTarget({ url, activePort: 8852, browserWsPort: 8803 })
+    assert.equal(hit.port, 8852, `${url} 必须留在蓝绿入口`)
+    assert.equal(hit.target, 'active-color')
+  }
+})
+
+test('缺省/关闭 browser-ws 端口 ⇒ 缺省仍 8803;显式非法值退回旧路径', () => {
+  const fallback = resolveUpgradeTarget({
+    url: '/api/browser/ws/abc',
+    activePort: 8851,
+  })
+  assert.equal(fallback.port, 8803, '缺省就是本机 ai-service 端口')
+  assert.equal(fallback.target, 'browser-ws')
+
+  for (const browserWsPort of [0, -1, 3.5]) {
+    const hit = resolveUpgradeTarget({
+      url: '/api/browser/ws/abc',
+      activePort: 8851,
+      browserWsPort,
+    })
+    assert.equal(hit.port, 8851)
+    assert.equal(hit.target, 'active-color')
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
