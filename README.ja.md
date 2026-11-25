@@ -2227,8 +2227,8 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-25**
-- 🚀 機能/改善:检查点等待超时只读信号,绝不自动恢复 (53c279bc)
-- 📚 ドキュメント:Codex 400 crate 清单 + OpenCode serve 实跑鉴权验证 (18944bb7)
+- 🔧 その他:root-guard 按 4d663de7 面重封 10 条(git-guardian 换指纹 492b12bbf88e) (30e28e09)
+- 🐞 修正:对象库体积护栏常驻化(prune-repo-bloat) + lost-commit 闸收紧到 50/3 (845685a8)
 - 📚 ドキュメント:修正 Qoder 版本同构表述，标注动态 IPC 差异 (2a590d69)
 - 📚 ドキュメント:Qoder 四 exe 同壳证据与版本矩阵补齐 (2d0bbb63)
 - 📚 ドキュメント:Qoder 四版本全图、OpenCode serve 启动链、WorkBuddy 9527 归因 (a1b450a6)

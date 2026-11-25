@@ -7099,6 +7099,89 @@ export function pruneLostCommitTags(opts = {}) {
   return { ran: true, ok: !!r?.ok, state }
 }
 
+/**
+ * 对象库体积护栏派发层(2026-11-25,与 pruneLostCommitTags 同型):
+ * 6 小时节流(体积增长是低频事件,不需要 5 分钟粒度);器物不在位 ⇒ 明报跳过、不记为已探测(§0.3);
+ * 三态读数只认器物自己的 SWEEP-RESULT 结论行。
+ *
+ * 背景(2026-11-25 实测):仓库重做(11-22 历史压平)后 .git size-pack 仍是 1.73GiB,而真正可达
+ * 内容只有 201MiB —— 4 条 origin/dependabot 远端副本(各 1.60GB)、45 枚 desktop-v* 发布 tag
+ * (各回溯 1,556MB)、6 条 archive/checkpoint/ihui-backup 快照 tag(各 1.2~1.4GB)全部指向重建前
+ * 旧历史;另 2 个 pack 带 `fetch-pack 25040/47660 on 服务器` 的中断残留 .keep,让 git repack
+ * 永久跳过它们(所以前一轮 repack 跑了 1247 秒也没清掉 684.8MB 旧包)。
+ * 器物判据的关键一维:非主线可达 ∧ **tip 早于基线最老提交(重建点)** 才算旧历史;只按 merge-base
+ * 判会把 feat/*、ios-nightly 这类重建后的并行活跃线误判成孤 ref(干跑实测 8 条全中此坑)。
+ */
+export function pruneRepoBloat(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = 6 * 60 * 60 * 1000,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'repo-bloat-prune-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'prune-repo-bloat.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 对象库体积护栏:器物不在位(scripts/prune-repo-bloat.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 对象库体积护栏:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 60 * 60 * 1000,
+              maxBuffer: 1 << 24,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? '') }
+          } catch (e) {
+            return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+          }
+        }
+  const r = run()
+  beatRoundLock()
+  const rows = String(r.out ?? '').split(/\r?\n/)
+  const resultLine = rows
+    .map((l) => l.match(/SWEEP-RESULT\s+state=([A-Za-z-]+)(.*)$/) ?? null)
+    .find(Boolean)
+  const kv = (key) => {
+    const m = resultLine ? String(resultLine[2]).match(new RegExp(`\\b${key}=(\\S+)`)) : null
+    return m ? m[1] : null
+  }
+  const state = resultLine ? resultLine[1] : null
+  let reading = null
+  if (state === 'clean') reading = `size-pack ${kv('sizeMb') ?? '?'}MB 在预算内(读数来自器物)`
+  else if (state === 'pruned')
+    reading = `已回收 ⇒ 现 ${kv('sizeMb') ?? '?'}MB(扫到非主线 ref ${kv('orphans') ?? '?'} 条,删 ${kv('dropped') ?? '?'} 枚,bundle ${kv('bundled') ?? '?'})`
+  else if (state === 'over-budget') reading = `⚠️ 超预算但无旧历史孤 ref ⇒ 主线真内容偏大,需人裁(未自动删)`
+  else if (state === 'preflight') reading = `预演档(不应出现在 --apply 派发里):size-pack ${kv('sizeMb') ?? '?'}MB`
+  else if (state === 'undetermined' || state === 'refused') reading = `器物判「未判定/拒绝」⇒ 本轮没判,不等于账面干净`
+  logger(
+    reading !== null
+      ? `${state === 'clean' || state === 'pruned' ? '✅' : '⚠️'} 对象库体积护栏轮:${reading}`
+      : `⚠️ 对象库体积护栏:未判定(无 SWEEP-RESULT 结论行;runner ok=${!!r?.ok})⇒ 本轮没判,不等于"账面干净"`,
+  )
+  return { ran: true, ok: !!r?.ok, state }
+}
+
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -7898,8 +7981,9 @@ export async function sweepDanglingCommitAutotag(opts = {}) {
         `${String(res.why || '').slice(0, 400)}\n` +
         `可整改动作:① 未判定 ⇒ 先让 node scripts/check-commit-loss-guard.mjs --filter-stash 能跑通` +
         `(fsck 判定面取不到即此型);② 撞名 ⇒ 该枚仍未保活,人工给一枚不同名的 lost-commit/<name> tag` +
-        `(本器绝不覆盖别人的 tag);③ push=failed ⇒ 后台补推 ` +
-        `IHUI_TAG_PUSH_CHUNK=20 node scripts/sync-lost-commit-tags.mjs --auto-push --force。` +
+        `(本器绝不覆盖别人的 tag);③ push=failed ⇒ 本仓 2026-11-22 已定案停用 tag 自动推送` +
+        `(--auto-push 会直接报错退出,照跑必失败),远端备份改走冷归档 ` +
+        `node scripts/sync-lost-commit-tags.mjs --bundle-archive=<仓库外目录> --if-changed;` +
         `本器只加不减:绝不删 tag、绝不 git gc(AGENTS §29 把 GC 归人工)。`,
       {
         dedupKey: `dangling-autotag;state=${res.state};push=${res.push};conflicts=${res.conflicts > 0 ? 'yes' : 'no'}`,
@@ -15512,6 +15596,11 @@ async function main() {
     // pre-push 的 pack 门对存量判 blocking ⇒ 所有分支推送永久红(violation: AGENTS §0.2)。
     // 本层 24 小时节流(tag 增长是低频事件);器物自带 bundle 备份,任一卷失败整批不删。
     if (!CHECK_ONLY) pruneLostCommitTags()
+    // 第 81 项(2026-11-25):对象库体积护栏 —— 重建/force-push 之后最容易残留「指向旧历史的 ref」
+    // (dependabot 远端副本、desktop-v* 发布 tag、archive/checkpoint 快照 tag 各钉住 1.2~1.6GB),
+    // 再加 fetch 中断留下的 .keep 会让 repack 永久跳过旧包。器物超 400MB 才动手、只清「tip 早于
+    // 基线最老提交」的旧历史 tag(先 bundle 逐卷 verify),并行活跃线与主线内容一律不碰;6 小时节流。
+    if (!CHECK_ONLY) pruneRepoBloat()
     // 第 77 项:监控三源入库只挂一次性 main() 会与 daemon 抢轮级锁(和 ref-move/gitee 同一条教训),
     // 所以 main 与 daemon tick 双挂点都是必须的;节流戳在派发器自己身上(30 分钟)。
     // 第 79 项:user_feedback 单源入口先落账(monitor-signal-intake 的三源里这一源由它单独供给),

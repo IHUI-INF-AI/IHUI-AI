@@ -130,7 +130,6 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - ♻️ 重构:候选池排序与反自批抽为纯核并补 7 例回归(真库验证暴露的两处缺口) (bb1189a6)
 - 📚 文档:更正五程序取证报告4.3落地状态——2项FULLY_WIRED+3项按fail-closed设计的能力层交付,补4.4四路接线审计 (e4603505)
 - 🐞 修复:report-repo-size.git()补显式stdio(ignore/pipe/pipe),消门193 EBUSY真实红(全局blocking门红会阻塞所有席位推送);仅补属性名,判据/脚本行为不变 (7b592ba4)
-
 **2026-11-24**
 - 🚀 新功能/改进:人工节点通道——Browser Hub phase 多观众广播，浮窗消费 waiting/error（71+27 测试） (acf10c1d)
 - 🔧 工程/其他:命令关键词 keywords 归一为数组(代码 t.raw as string[]) —— 键路径消失0行、元素集合等价,仅恢复祖先 00aff360c 的数组形态;陈旧守卫显式放行;重量门为存量债,本票新增仅两文件形态归一 (28ec1787)
@@ -1206,3 +1205,5 @@ Headline claims (same source as the table below, all live-computed): **624 table
 - 🐞 修复:报销审批人池剔除本人 + 票据上传返回形状对齐 (1650611e80)
 - 🐞 修复:报销审批人池剔除本人 + 票据上传返回形状对齐 (87fa9140fd)
 - 🐞 修复:lessons_difficulty 迁移补真水印载荷(clean+inject:PLACEHOLDER 残迹->可解码载荷,sha 5b972273),语义按远端版保留 COMMENT ON COLUMN;账本 hash 同步为该值 (2364914c28)
+- 🔧 工程/其他:root-guard 按 4d663de7 面重封 10 条(git-guardian 换指纹 492b12bbf88e) (30e28e09)
+- 🐞 修复:对象库体积护栏常驻化(prune-repo-bloat) + lost-commit 闸收紧到 50/3 (845685a8)
