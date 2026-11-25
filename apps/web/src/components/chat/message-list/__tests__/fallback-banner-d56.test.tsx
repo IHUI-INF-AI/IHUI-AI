@@ -57,6 +57,19 @@ describe('FallbackBanner D56① 续跑询问', () => {
     expect(document.body.textContent).toContain('fallbackNotice')
   })
 
+  // 2026-11-26(用户定档):「我的号池」通道换号要交代 —— reason=account_switch 走账号口径文案,
+  // 不能被普通模型换腿的 fallbackNotice 兜住(两条文案语义不同:一条换号,一条换模型)。
+  it('reason=account_switch → 走 fallbackAccountSwitch 账号口径,而不是 fallbackNotice', () => {
+    render(
+      <FallbackBanner
+        fallbackNotice={{ primaryModel: '号A', backupModel: '号B', reason: 'account_switch' }}
+        t={makeT()}
+      />,
+    )
+    expect(document.body.textContent).toContain('fallbackAccountSwitch')
+    expect(document.body.textContent).not.toContain('fallbackNotice')
+  })
+
   it('心智边界:续跑区明示免费仍可用,且全树不暗示充值', () => {
     render(
       <FallbackBanner fallbackNotice={notice()} t={makeT()} resumePrompt={{ visible: true }} />,

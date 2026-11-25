@@ -185,6 +185,8 @@ export interface PoolToolLoopOptions {
   /** 某个工具执行结束 */
   onToolEnd?: (call: RelayToolCall, ok: boolean, output: string) => void
   onError: (message: string) => void
+  /** 号池换号交代(2026-11-26):透传给 streamRelayChat,只在「我的号池」通道出现 */
+  onFallback?: (event: { primaryModel: string; backupModel: string; reason: string }) => void
   onUsage?: (usage: { promptTokens: number; completionTokens: number; totalTokens: number }) => void
   /** 全部轮次结束(只回调一次;单轮纯对话也走这里) */
   onDone?: () => void
@@ -229,6 +231,7 @@ export async function runPoolToolLoop(opts: PoolToolLoopOptions): Promise<void> 
         opts.onDelta(delta)
       },
       ...(opts.onUsage ? { onUsage: opts.onUsage } : {}),
+      ...(opts.onFallback ? { onFallback: opts.onFallback } : {}),
       onToolCalls: (calls) => {
         roundCalls = calls
       },
