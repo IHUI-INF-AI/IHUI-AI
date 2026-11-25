@@ -385,4 +385,63 @@ test('缺失条目的下一步不是「补跑一条不存在的任务」', () =>
   assert.match(steps[0], /已没有这条任务|改名|重建/)
   assert.doesNotMatch(steps[0], /立即补跑/)
 })
+
+/* ── 第二十五件:启动失败 = 登录失败(2026-11-26) ───────────────────────── */
+
+test('启动失败(LogonUserS4U)⇒ breach:Last Result 还是 0 也必须咬住', () => {
+  /* 真实事故:2026-11-26 02:29 Administrator 被锁,三个 S4U 任务每 2 分钟失败一次,
+     而 Last Result 全程 0、Status 仍是 Ready —— 只看 CSV 判不出来。 */
+  const r = classifyTask(
+    t({
+      lastRun: new Date(NOW - 2 * MIN).toISOString(),
+      lastResult: 0,
+      status: 'Ready',
+      startFailures: 7,
+    }),
+    { now: NOW, startFailureWindowMin: 30 },
+  )
+  assert.equal(r.verdict, 'breach')
+  assert.match(r.reason, /启动失败/)
+  assert.match(r.reason, /0/)
+})
+
+test('启动失败判据排在「过期未跑」之前:任务还没到期也先报确切原因', () => {
+  /* 6 小时节律的任务,启动失败后距上次运行才几分钟,「2.5×间隔」要 15 小时后才咬住 */
+  const r = classifyTask(
+    t({ lastRun: new Date(NOW - 5 * MIN).toISOString(), lastResult: 0, status: 'Ready', intervalMin: 360, startFailures: 1 }),
+    { now: NOW },
+  )
+  assert.equal(r.verdict, 'breach')
+  assert.match(r.reason, /启动失败/)
+})
+
+test('没有启动失败记录时不判该维:同类任务照常是 ok', () => {
+  const r = classifyTask(t({ lastRun: new Date(NOW - 2 * MIN).toISOString(), lastResult: 0, startFailures: 0 }), { now: NOW })
+  assert.equal(r.verdict, 'ok')
+})
+
+test('启动失败条目的下一步不是「补跑」:账号还锁着,补跑只会续期', () => {
+  const result = judgeSchedulerHealth(
+    [t({ name: 'IHUI-AI git-guardian', lastResult: 0, startFailures: 3 })],
+    { now: NOW },
+  )
+  const steps = remediationForScheduler(result)
+  assert.equal(steps.length, 1)
+  assert.match(steps[0], /锁定|SYSTEM/)
+  assert.doesNotMatch(steps[0], /立即补跑/)
+})
+
+test('InteractiveToken 告警的下一步是换令牌模型,不是「已禁用」', () => {
+  const result = judgeSchedulerHealth(
+    [t({ name: 'IHUI-Qoder-Session-Sync', lastResult: 0, logonType: 'InteractiveToken', repeatEvery: '0 Hour(s), 1 Minute(s)', nextRun: '2026-11-26 03:00:00', lastRun: new Date(NOW - 2 * MIN).toISOString() })],
+    { now: NOW },
+  )
+  assert.equal(result.state, SCHEDULER_STATE.OK) /* 单条 warn 不升级总态 */
+  const steps = remediationForScheduler(result)
+  assert.equal(steps.length, 1)
+  assert.match(steps[0], /S4U|SYSTEM/)
+  assert.doesNotMatch(steps[0], /disabledIntent/)
+})
+
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

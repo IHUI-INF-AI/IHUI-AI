@@ -219,6 +219,57 @@ function enrichRepetition(task, declared) {
 const FRESH_MS = 2 * 3600 * 1000
 
 /**
+ * 「启动失败」窗口(分钟)。2026-11-26 立。
+ *
+ * 为什么要单独取事件而不是看 CSV:`LogonUserS4U` 失败的任务**压根没起来**,
+ * 于是 `Last Result` 保留上一次的 0、`Status` 还是 `Ready` —— 光看 CSV 完全正常。
+ * 实测本机 02:29 Administrator 被锁,三个 S4U 任务每 2 分钟失败一次,
+ * 而 `Last Result` 恒 0;靠「距上次运行过期」(2.5×间隔)要 5 分钟后才咬住,
+ * 6 小时节律的任务要等 15 小时 —— 那段时间里整条安全链是瞎的。
+ */
+const START_FAILURE_WINDOW_MIN = 30
+
+/**
+ * 读 Task Scheduler 操作日志的 id=104(「无法登录」)/ id=101(「无法启动」),
+ * 按任务名聚合次数。返回 Map<taskName, count>;取不到返回 null(不记绿)。
+ */
+function readStartFailures(windowMin = START_FAILURE_WINDOW_MIN) {
+  const script = [
+    'chcp 65001 >$null',
+    `$since=(Get-Date).AddMinutes(-${windowMin})`,
+    '$out=@{}',
+    "$ids=@(104,101)",
+    "foreach($id in $ids){",
+    "  $ev=Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-TaskScheduler/Operational'; Id=$id; StartTime=$since} -ErrorAction SilentlyContinue",
+    '  foreach($e in $ev){',
+    '    try{ $x=[xml]$e.ToXml() } catch { continue }',
+    "    $n=($x.Event.EventData.Data|Where-Object{$_.Name -eq 'UserName'}).'#text'",
+    "    if(-not $n){ $n=($x.Event.EventData.Data|Where-Object{$_.Name -eq 'TaskName'}).'#text' }",
+    '    if(-not $n){ continue }',
+    '    $n=$n.TrimStart([char]0x5C)',
+    '    if($out.ContainsKey($n)){ $out[$n]=$out[$n]+1 } else { $out[$n]=1 }',
+    '  }',
+    '}',
+    'if($out.Count -gt 0){ $out | ConvertTo-Json -Compress }',
+  ].join('\n')
+  try {
+    const raw = run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], 120_000)
+    const txt = String(raw || '').trim()
+    if (!txt) return new Map()
+    const j = JSON.parse(txt.split(/\r?\n/).slice(-1)[0])
+    const m = new Map()
+    for (const [k, v] of Object.entries(j || {})) {
+      const n = Number(v)
+      if (Number.isFinite(n) && n > 0) m.set(k, n)
+    }
+    return m
+  } catch {
+    /* 取不到不瞎猜:null ⇒ 这一维不判(其余维照判) */
+    return null
+  }
+}
+
+/**
  * 对一条任务补触发类型 / Interval / 注册时间。
  * 只有「不新鲜」的才取 XML:结果非 0、或上次运行已超 2 小时 —— 这些才有判过期与判从未运行的需要。
  * 取 XML 失败不瞎猜:留 trigger 空 ⇒ 判据走 undetermined 分支。
@@ -379,7 +430,17 @@ function main() {
     if (!base.some((t) => t.name === n)) entries.push({ name: n, declaredButMissing: true })
   }
 
-  const result = judgeSchedulerHealth(entries, { now })
+  /* 启动失败维(第二十五件,2026-11-26):把 id=104/101 的次数挂到条目上。
+     取不到 ⇒ 不挂(这一维不判,其余维照判)。 */
+  const startFails = readStartFailures(START_FAILURE_WINDOW_MIN)
+  if (startFails) {
+    for (const e of entries) {
+      const n = startFails.get(e.name)
+      if (n) e.startFailures = n
+    }
+  }
+
+  const result = judgeSchedulerHealth(entries, { now, startFailureWindowMin: START_FAILURE_WINDOW_MIN })
   const remediation = remediationForScheduler(result)
 
   appendLedger({

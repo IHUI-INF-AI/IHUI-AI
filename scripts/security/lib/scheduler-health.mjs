@@ -291,6 +291,23 @@ export function classifyTask(entry, opts = {}) {
     return { name, verdict: cad.verdict, reason: cad.reason }
   }
 
+  /* ①d 启动失败 = 登录失败(2026-11-26 立,第二十五件)。必须排在「尚未运行/过期未跑」之前:
+     `LogonUserS4U` 失败的任务**压根没被创建**,于是 `Last Result` 保留上一次的 0、
+     `Status` 仍是 `Ready` —— 只看 CSV 判不出来,靠「距上次运行过期」要等 2.5×间隔。
+     实测 2026-11-26 02:29 Administrator 被锁,三个 S4U 任务每 2 分钟失败一次,
+     `Last Result` 全程 0,直到 6 分钟后「过期」才咬住;6 小时节律的任务要等 15 小时。 */
+  const startFailures = Number(entry?.startFailures)
+  if (Number.isFinite(startFailures) && startFailures > 0) {
+    const win = Number(opts.startFailureWindowMin) > 0 ? Number(opts.startFailureWindowMin) : 30
+    return {
+      name,
+      verdict: 'breach',
+      reason: `近 ${win} 分钟内启动失败 ${startFailures} 次(LogonUserS4U: 运行账号被锁或凭据失效);Last Result 仍为 ${Number(
+        entry.lastResult
+      )},光看返回码看不见 —— 先核账号锁定状态再谈任务本身`,
+    }
+  }
+
   /* ② 尚未运行:要分「还没到点」与「该跑没跑」。 */
   if (lastResult === 267011 || isNeverRunStamp(lastRunMs)) {
     const isBoot = /boot/i.test(trigger)
@@ -368,6 +385,10 @@ export function remediationForScheduler(result) {
   const missing = new Set(
     (result?.rows || []).filter((r) => (r.reason || '').includes('枚举不到')).map((r) => r.name),
   )
+  /* 「启动失败 = 登录失败」这一型的下一步也不是补跑:账号还锁着,补跑只会再失败一次并把锁定续期。 */
+  const logonFail = new Set(
+    (result?.rows || []).filter((r) => (r.reason || '').includes('启动失败')).map((r) => r.name),
+  )
   const repeatHint =
     '若 Last Result=0 且 Status=Ready,再查 schtasks /query /tn "\\<name>" /xml:看 <Repetition> 是否带 <Duration>(短于服役期必死)、Next Run Time 是否已 N/A、触发器是否从 TimeTrigger 变成了 LogonTrigger/BootTrigger'
   for (const name of result?.breaches || []) {
@@ -377,11 +398,25 @@ export function remediationForScheduler(result) {
       )
       continue
     }
+    if (logonFail.has(name)) {
+      out.push(
+        `${name}: 任务没起来是因为运行账号登录失败(LogonUserS4U,错误 0x80070775/1909 = 账号已锁定)—— 先停掉失败来源、等锁定窗口(默认 10 分钟)过期再 schtasks /run;账号还锁着时补跑只会再失败一次并把锁定续期。根治口径:关键哨兵改用 SYSTEM(S-1-5-18)运行,它的登录不受交互账号锁定影响`,
+      )
+      continue
+    }
     out.push(
       `${name}: schtasks /run /tn "\\${name}" 立即补跑;仍失败则 schtasks /query /tn "\\${name}" /fo LIST /v 核对 Last Result 与 Task To Run 实际路径;${repeatHint}`,
     )
   }
   for (const name of result?.warns || []) {
+    /* 警告有两种成因,下一步完全不同:拿「已禁用」的话去治「InteractiveToken」等于指错路。 */
+    const row = (result?.rows || []).find((r) => r.name === name) || {}
+    if ((row.reason || '').includes('InteractiveToken')) {
+      out.push(
+        `${name}: 现在是 InteractiveToken,只在有交互会话时能跑(锁屏/RDP 断开那一轮起不来);改成 S4U 或 SYSTEM —— schtasks /change /tn "\\${name}" /RU SYSTEM 后核对 Task To Run 的实际路径是否仍可读`,
+      )
+      continue
+    }
     out.push(
       `${name}: 已禁用但未标记有意停用;确认后要么启用,要么在 scripts/data/scheduler-roster.json 记 disabledIntent`,
     )
