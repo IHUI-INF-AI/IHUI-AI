@@ -27,6 +27,7 @@
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
 import { isProductionGuard } from '../../config/index.js'
+import { redactCredentialText } from '../../utils/redact-credential-text.js'
 import type {
   AdapterAccountContext,
   AdapterCallOptions,
@@ -167,7 +168,9 @@ function buildWebHeaders(jwt: string, accept: 'json' | 'sse'): Record<string, st
 export class TraeAuthFailureError extends Error {
   readonly statusCode: number
   constructor(statusCode: number, detail?: string) {
-    super(`Trae 上游鉴权失败(HTTP ${statusCode})${detail ? `: ${detail.slice(0, 300)}` : ''}`)
+    super(
+      `Trae 上游鉴权失败(HTTP ${statusCode})${detail ? `: ${redactUpstreamSummary(detail).slice(0, 300)}` : ''}`,
+    )
     this.name = 'TraeAuthFailureError'
     this.statusCode = statusCode
   }
@@ -1130,12 +1133,13 @@ export type FailureKind =
   | 'client'
   | 'network'
 
-/** 消息摘要里的敏感值打码(token/cookie 等键值);正文只保留可读片段 */
+/** 消息摘要里的敏感值打码:先按键值盖 token/cookie,再过日志面唯一出口(盖 Bearer/JWT/sk- 等) */
 function redactUpstreamSummary(text: string): string {
-  return text.replace(
+  const keyed = text.replace(
     /("?(?:access_token|refresh_token|token|cookie|authorization)"?\s*[:=]\s*"?)([^"\s,;}]+)/gi,
     '$1***',
   )
+  return redactCredentialText(keyed)
 }
 
 /**
