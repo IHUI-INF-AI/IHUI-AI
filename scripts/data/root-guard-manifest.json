@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-25T02:53:06.584Z",
+  "sealedAt": "2026-11-25T03:07:32.577Z",
   "sealedBy": "root-guard --seal",
-  "reason": "git-guardian 新增 pruneRepoBloat 派发层与主循环挂点(对象库体积护栏), 需按新面重封",
+  "reason": "悬空保活告警的整改建议原指向 2026-11-22 已停用的 --auto-push(照跑必失败,AGENTS 0.8 不许写跑不通的出路),改走 --bundle-archive 冷归档; 顺带本次已给 --auto-push 加备份族体积闸",
   "targets": [
     {
       "id": "guardian-runner",
@@ -28,7 +28,7 @@
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "492b12bbf88ea64e79d55ca42feaa0e715ff78034653afb87d4edf849ac28d26"
+      "sha256": "3b2e7f2a3618f58b341a83e905ce78caf5f8e8e109ddc78424d86a75347cbb85"
     },
     {
       "id": "gate-scope",
