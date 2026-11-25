@@ -24,6 +24,7 @@ import type {
 import { ELEVATION_STEPS, rnRadius, rnCssLight, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
+import { payModeLabel, providerDisplayName } from './provider-mappings'
 
 /** 模型广场共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ModelPlazaItem, ModelPlazaProvider, ModelPlazaScreenProps }
@@ -156,7 +157,7 @@ export function ModelPlazaScreen({
                   <Text style={styles.providerTabIconText}>{ic.letter}</Text>
                 </View>
                 <Text style={[styles.providerText, active && styles.providerTextActive]}>
-                  {p.name}
+                  {providerDisplayName(p.id)}
                 </Text>
               </TouchableOpacity>
             )
@@ -166,7 +167,7 @@ export function ModelPlazaScreen({
 
       {currentProvider ? (
         <View style={styles.providerHeader}>
-          <Text style={styles.providerName}>{currentProvider.name}</Text>
+          <Text style={styles.providerName}>{providerDisplayName(currentProvider.id)}</Text>
           <Text style={styles.providerMeta}>
             {t('modelPlaza.providerTotal', { count: currentProvider.total })}
           </Text>
@@ -264,7 +265,7 @@ export function ModelPlazaScreen({
                     <Text style={styles.cardTagText}>{tag}</Text>
                   </View>
                 ))}
-                {item.payMode ? <Text style={styles.payMode}>{item.payMode}</Text> : null}
+                {item.payMode ? <Text style={styles.payMode}>{payModeLabel(item.payMode)}</Text> : null}
               </View>
             </PressableCard>
           )
