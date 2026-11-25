@@ -203,6 +203,7 @@ export async function listMomentsArchive(
     const hasComments = metadata.comments === true || commentsData.length > 0
     return {
       id: row.id,
+      momentKey: row.momentKey,
       authorId: row.authorId,
       authorName: row.authorName,
       authorResolved: row.authorResolved,

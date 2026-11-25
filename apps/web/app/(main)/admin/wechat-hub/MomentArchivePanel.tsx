@@ -111,7 +111,7 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
                 </p>
               ) : null}
               {moment.mediaLocalDir ? (
-                <MomentLocalMedia accountId={accountId} momentId={moment.id} />
+                <MomentLocalMedia accountId={accountId} momentId={moment.momentKey ?? moment.id} />
               ) : null}
             </div>
           ))}

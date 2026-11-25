@@ -622,8 +622,10 @@ function readArchiveItem(raw: JsonRecord, index: number): WechatMomentArchiveIte
   if (content.length === 0 && mediaUrls.length === 0 && !hasLikes && !hasComments) return null
   const now = new Date().toISOString()
   const page = typeof raw.page === 'number' && Number.isFinite(raw.page) ? raw.page : undefined
+  const id = asString(raw.id) ?? `bridge-moment-${index}`
   return {
-    id: asString(raw.id) ?? `bridge-moment-${index}`,
+    id,
+    momentKey: asString(raw.momentKey) ?? id,
     authorId: asString(raw.authorId),
     authorName: asString(raw.authorName) ?? '朋友圈好友',
     authorResolved: raw.authorResolved === true,

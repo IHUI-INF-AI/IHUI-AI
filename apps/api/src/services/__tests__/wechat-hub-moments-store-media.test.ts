@@ -18,6 +18,7 @@ import { listMomentsArchive } from '../wechat-hub/moments-store'
 function row(metadata: Record<string, unknown>) {
   return {
     id: 'row-1',
+    momentKey: 'sns-1',
     authorId: 'wxid_a',
     authorName: '张三',
     authorResolved: true,
@@ -55,6 +56,7 @@ describe('朋友圈归档读取层媒体字段', () => {
       }),
     ])
     const items = await listMomentsArchive('account-1', 50)
+    expect(items[0]?.momentKey).toBe('sns-1')
     expect(items[0]?.mediaLocalDir).toBe('C:\\caches\\temp\\wechat-db-media\\m-1')
     expect(items[0]?.mediaDownloaded).toBe(true)
   })
