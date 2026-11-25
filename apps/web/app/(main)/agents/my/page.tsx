@@ -120,7 +120,7 @@ export default function MyAgentsPage() {
             key={f.value}
             onClick={() => setStatus(f.value)}
             className={cn(
-              'rounded-sm px-3 py-1 text-label font-medium transition-colors',
+              'rounded-md px-3 py-1 text-label font-medium transition-colors',
               status === f.value
                 ? 'bg-cta text-cta-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-accent',

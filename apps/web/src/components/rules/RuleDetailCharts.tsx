@@ -94,11 +94,11 @@ function SatisfactionPie({ positive, total }: { positive: number; total: number 
       </svg>
       <div className="space-y-0.5 text-[10px]">
         <p className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-green-500/50" />
+          <span className="inline-block h-2 w-2 rounded-md bg-green-500/50" />
           {t('positiveCount', { n: positive })}
         </p>
         <p className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-red-500/30" />
+          <span className="inline-block h-2 w-2 rounded-md bg-red-500/30" />
           {t('negativeCount', { n: negative })}
         </p>
         <p className="text-muted-foreground">{t('totalRows', { n: total })}</p>

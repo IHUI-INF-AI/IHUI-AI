@@ -208,7 +208,7 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
                 y={COIN_SIZE / 2 - 19}
                 width={11}
                 height={11}
-                rx={rnRadius.sm}
+                rx={rnRadius.md}
                 fill={tokens.gray[50]}
                 fillOpacity={0.45}
               />
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     alignSelf: 'stretch',
     height: BUTTON_HEIGHT,
-    borderRadius: rnRadius.sm, // 角色档 control=sm(守门 150;存量 IntroducePopup.xl 有锚点赦免,新代码必须走档)
+    borderRadius: rnRadius.md, // 角色档 control=md(6px)(守门 150;存量 IntroducePopup.xl 有锚点赦免,新代码必须走档)
     backgroundColor: tokens.brand.cta,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: rnRadius.sm, // 与外盒同档(面层超出盒圆角会穿帮)
+    borderRadius: rnRadius.md, // 与外盒同档(面层超出盒圆角会穿帮)
   } as ViewStyle,
   buttonPressed: {
     opacity: 0.7,

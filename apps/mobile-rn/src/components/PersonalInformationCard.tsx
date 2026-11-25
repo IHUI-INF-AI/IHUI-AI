@@ -207,14 +207,14 @@ const styles = StyleSheet.create({
   avatar: {
     width: AVATAR_WIDTH,
     height: AVATAR_HEIGHT,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   } as ImageStyle,
   // 无头像 URL 时的 initials 兜底:品牌色底 + 深色文字,深/浅色模式均可见
   avatarFallback: {
     width: AVATAR_WIDTH,
     height: AVATAR_HEIGHT,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

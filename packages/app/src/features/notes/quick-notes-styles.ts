@@ -35,7 +35,7 @@ export function createQuickNotesStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     addBtnText: { color: tk.brand.ctaForeground, fontSize: rnType.body.size, fontWeight: '600' },
@@ -99,7 +99,7 @@ export function createQuickNotesStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['xs-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     insertBtnText: {
@@ -112,7 +112,7 @@ export function createQuickNotesStyles(tk: AppThemeTokens) {
       height: 32,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
   })
@@ -153,14 +153,14 @@ export function createQuickNoteEditorStyles(tk: AppThemeTokens) {
     cancelBtn: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     cancelBtnText: { color: tk.text.secondary, fontSize: rnType.body.size },
     saveBtn: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     saveBtnText: { color: tk.brand.ctaForeground, fontSize: rnType.body.size, fontWeight: '600' },

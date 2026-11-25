@@ -22,8 +22,9 @@ import { readN8nBaseUrl, n8nBaseHint } from '../../utils/n8n-env.js'
 // F-117:webhookPath 只允许站内相对路径;构造与复核住在唯一出口,禁止本文件再拼基址。
 import { buildN8nWebhookUrl, isSafeN8nWebhookPath } from '../../utils/n8n-webhook-url.js'
 import { db } from '../../db/index.js'
-import { resolveAiCost } from '../../plugins/ai-cost.js'
+import { resolveAiCost, recordAiCost } from '../../plugins/ai-cost.js'
 import { resolveDefaultChatModel } from '../../utils/retired-providers.js'
+import { ensureLlmPointsBalance, settleLlmPointsUsage } from '../../services/ai-points-billing.js'
 import {
   createVideoTask,
   findVideoTasksByUser,
@@ -49,6 +50,7 @@ import {
   genId,
 } from './_shared.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
+import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
 
 // 即梦视频官方参数(火山引擎 CVSync2AsyncSubmitTask:req_key/seed/video_quality/duration/aspect_ratio/i2v_align 等)
 const jimengVideoBody = z.object({
@@ -612,6 +614,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       if (!body.prompt) return reply.status(400).send(error(400, 'prompt 为必填'))
       const keys = requireVendorKeys('jimeng4', reply)
       if (!keys) return
+      if (!(await ensureMediaPointsBalance(request, reply, 'jimeng4', 'image', 1))) return
       const submitBody: Record<string, unknown> = {
         req_key: 'jimeng_t2i_v40',
         prompt: body.prompt,
@@ -653,6 +656,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
           ? (finalData!.image_urls as string[])
           : []
         recordUsage(request.userId!, 'jimeng4')
+        await chargeMediaPoints(request, 'jimeng4', 'image', 1, `jimeng4-image:${request.id}`)
         return reply.send(success({ image_urls: imageUrls, request_id: data.request_id }))
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -676,6 +680,9 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = jimengVideoBody.parse(request.body)
       const keys = requireVendorKeys('jimeng4', reply)
       if (!keys) return
+      const billingUnits = Math.max(1, body.duration ?? 5)
+      if (!(await ensureMediaPointsBalance(request, reply, body.model, 'video', billingUnits)))
+        return
       const submitBody: Record<string, unknown> = {
         req_key: body.model,
         prompt: body.prompt,
@@ -722,6 +729,13 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
           result: JSON.stringify({ req_key: body.model }),
         })
         recordUsage(request.userId!, 'jimeng4')
+        await chargeMediaPoints(
+          request,
+          body.model,
+          'video',
+          billingUnits,
+          `jimeng4-video:${request.id}`,
+        )
         return reply.send(success({ taskId: row.id, status: 'accepted' }))
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -914,7 +928,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // ==========================================================================
-  // 11. Coze workflow + WebSocket 推送 + token 扣费
+  // 11. Coze workflow + WebSocket 推送 + AI 积分计费
   // ==========================================================================
 
   // POST /coze/workflow/chat
@@ -923,7 +937,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: 'Coze 工作流对话',
-        description: '通过 Coze workflow 进行对话,推送通知 + 写入历史 + token 扣费',
+        description: '通过 Coze workflow 进行对话,推送通知 + 写入历史 + AI 积分计费',
         tags: ['AI', 'Coze'],
         body: cozeWorkflowChatBody,
       }),
@@ -940,6 +954,10 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       const chatId = body.chatId ?? genId('coze')
       const sessionId = body.sessionId ?? genId('session')
       const projectId = body.projectId ?? 0
+      // Coze 的定价模型只用于积分/成本换算;上游工作流本身不变。
+      const pricingModel = process.env.COZE_PRICING_MODEL?.trim() || resolveDefaultChatModel()
+      const promptEstimate = Math.ceil(body.text.length / 4)
+      if (!(await ensureLlmPointsBalance(request, reply, pricingModel, promptEstimate, 0))) return
       try {
         server.pushNotification(userId, {
           type: 'coze_workflow',
@@ -998,27 +1016,47 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
         } catch {
           /* ignore */
         }
-        // F-203(口径 B):按定价把字符估算折算成成本(分),不再用 ceil(chars/1000) 当分。
-        // 费率来源:ai_pricing / pricing_rules(经 resolveAiCost);模型取 COZE_PRICING_MODEL,
-        // 未配置时沿用平台默认对话模型(与 crew 计费同一解析入口)。
+        // 2026-11-26: 用户积分按倍率扣,平台成本单独记 ai_cost_records。
         const promptTokens = Math.ceil(body.text.length / 4)
         const completionTokens = Math.ceil(answerContent.length / 4)
         try {
-          const tokenBalance = server.tokenBalance
-          if (tokenBalance) {
-            const pricingModel = process.env.COZE_PRICING_MODEL?.trim() || resolveDefaultChatModel()
-            const actual = await resolveAiCost({
-              model: pricingModel,
-              promptTokens,
-              completionTokens,
-            })
-            const costCents = Math.ceil(actual.cost)
-            if (costCents > 0) {
-              await tokenBalance.deductTokens(userId, costCents, 'coze_workflow_chat')
-            }
+          const actual = await resolveAiCost({
+            model: pricingModel,
+            promptTokens,
+            completionTokens,
+          })
+          await recordAiCost({
+            userId,
+            model: pricingModel,
+            provider: pricingModel.includes('/') ? pricingModel.split('/')[0]! : 'unknown',
+            promptTokens,
+            completionTokens,
+            totalTokens: promptTokens + completionTokens,
+            requestType: 'coze_workflow_chat',
+            cost: Math.ceil(actual.cost),
+            currency: actual.currency,
+          })
+        } catch {
+          /* 成本记账失败不阻塞 */
+        }
+        try {
+          const settlement = await settleLlmPointsUsage({
+            userId,
+            modelId: pricingModel,
+            promptTokens,
+            completionTokens,
+            source: 'coze_workflow_chat',
+            description: 'Coze 工作流对话',
+            referenceId: `coze:${chatId}`,
+          })
+          if (settlement.shortfall > 0) {
+            request.log.warn(
+              { userId, chatId, points: settlement.quote.points, deducted: settlement.deducted },
+              'Coze workflow 积分不足,已部分扣费',
+            )
           }
         } catch {
-          /* 扣费失败不阻塞 */
+          /* 积分结算失败不阻塞 */
         }
         try {
           await db.execute(sql`
@@ -1100,6 +1138,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
         return reply
           .status(503)
           .send(error(503, 'Kling 服务未配置(KLING_ACCESS_KEY/KLING_SECRET_KEY)'))
+      if (!(await ensureMediaPointsBalance(request, reply, 'kling-identify', 'video', 1))) return
       const reqBody: Record<string, unknown> = body.videoId
         ? { video_id: body.videoId }
         : { video_url: body.videoUrl }
@@ -1120,6 +1159,13 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
             .status(502)
             .send(error(502, `Kling 人脸识别失败: ${data.message ?? resp.status}`))
         recordUsage(request.userId!, 'kling')
+        await chargeMediaPoints(
+          request,
+          'kling-identify',
+          'video',
+          1,
+          `kling-identify:${request.id}`,
+        )
         return reply.send(success(data.data ?? {}))
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -1143,6 +1189,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = klingTaskCreateBody.parse(request.body)
       const jwt = await klingJwt()
       if (!jwt) return reply.status(503).send(error(503, 'Kling 服务未配置'))
+      if (!(await ensureMediaPointsBalance(request, reply, 'kling-lip-sync', 'video', 5))) return
       const createBody: Record<string, unknown> = {
         session_id: body.sessionId,
         face_choose: body.faceChoose,
@@ -1221,13 +1268,13 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
           const videoUrl = videos[0]?.url as string | undefined
           if (videoUrl && !owner.charged) {
             owner.charged = true // 先占位,避免并发轮询重复扣费
-            try {
-              const tokenBalance = server.tokenBalance
-              if (tokenBalance)
-                await tokenBalance.deductTokens(request.userId!, 1500, 'kling_lip_sync')
-            } catch {
-              owner.charged = false // 扣费失败允许下次重试
-            }
+            await chargeMediaPoints(
+              request,
+              'kling-lip-sync',
+              'video',
+              5,
+              `kling-lip-sync:${taskId}`,
+            )
           }
         }
         recordUsage(request.userId!, 'kling')

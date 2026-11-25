@@ -270,7 +270,7 @@ function CreateComboDialog({
               placeholder={'kimi-k2\nglm-4-flash\ndeepseek-chat'}
               rows={4}
               required
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             />
           </div>
           {strategy === 'fusion' && (

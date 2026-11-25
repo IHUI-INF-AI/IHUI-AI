@@ -86,7 +86,7 @@ function QuestRow({
         <span
           data-testid={`my-quests-status-${quest.goalId}`}
           className={cn(
-            'shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+            'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
             statusTone(quest.status),
           )}
         >
@@ -119,13 +119,13 @@ function QuestRow({
             }
           }}
           placeholder={t('assessmentPlaceholder')}
-          className="font-[weight:inherit] min-w-0 flex-1 rounded-sm border bg-transparent px-2 py-1 text-label outline-none placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+          className="font-[weight:inherit] min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1 text-label outline-none placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
         />
         <button
           type="button"
           data-testid={`my-quests-assess-add-${quest.goalId}`}
           onClick={submit}
-          className="font-[weight:inherit] flex shrink-0 items-center gap-0.5 rounded-sm border border-input px-2 py-1 text-label transition-colors hover:bg-accent"
+          className="font-[weight:inherit] flex shrink-0 items-center gap-0.5 rounded-md border border-input px-2 py-1 text-label transition-colors hover:bg-accent"
         >
           {t('addAssessment')}
         </button>
@@ -197,7 +197,7 @@ export function MyQuestsBoard({
                 key={status}
                 data-testid={`my-quests-count-${status}`}
                 className={cn(
-                  'rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+                  'rounded-md px-1.5 py-0.5 text-[10px] font-medium',
                   statusTone(status),
                 )}
               >

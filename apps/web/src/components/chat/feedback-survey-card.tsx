@@ -111,7 +111,7 @@ export function FeedbackSurveyCard({
             data-feedback-answer={option}
             onClick={() => setAnswer(option)}
             className={cn(
-              'rounded-sm px-1.5 py-0.5 text-[11px] transition-colors',
+              'rounded-md px-1.5 py-0.5 text-[11px] transition-colors',
               answer === option
                 ? 'bg-primary/15 text-primary'
                 : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -128,7 +128,7 @@ export function FeedbackSurveyCard({
         onChange={(e) => setComment(e.target.value)}
         placeholder={t(FEEDBACK_SURVEY_STATE.commentKey)}
         aria-label={t(FEEDBACK_SURVEY_STATE.commentKey)}
-        className="h-7 rounded-sm bg-background px-1.5 text-[11px] outline-none placeholder:text-muted-foreground/60"
+        className="h-7 rounded-md bg-background px-1.5 text-[11px] outline-none placeholder:text-muted-foreground/60"
         data-feedback-comment="true"
       />
 
@@ -139,7 +139,7 @@ export function FeedbackSurveyCard({
           disabled={answer === null}
           data-feedback-action="submit"
           className={cn(
-            'rounded-sm px-1.5 py-0.5 text-[11px] transition-colors',
+            'rounded-md px-1.5 py-0.5 text-[11px] transition-colors',
             answer === null
               ? 'cursor-not-allowed bg-muted/40 text-muted-foreground/50'
               : 'bg-primary/15 text-primary hover:bg-primary/25',
@@ -152,7 +152,7 @@ export function FeedbackSurveyCard({
           type="button"
           onClick={() => submit(true)}
           data-feedback-action="dismiss"
-          className="rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+          className="rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
         >
           {t(FEEDBACK_SURVEY_STATE.dismissKey)}
         </button>

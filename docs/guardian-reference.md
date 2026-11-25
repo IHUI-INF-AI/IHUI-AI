@@ -1135,7 +1135,7 @@
 
 ```
 
-  💡 圆角档位唯一真相源 = packages/design-tokens/src/radius.js(xs2/sm4/md6/lg8/xl12/2xl16)。
+  💡 圆角档位唯一真相源 = packages/design-tokens/src/radius.js(xs2/md6/lg8/xl12/2xl16)。
      RN/内联 style : borderRadius: rnRadius.lg      (import { rnRadius } from '@ihui/design-tokens')
      CSS/SCSS      : border-radius: var(--radius-lg)
      类名          : rounded-lg(禁止 rounded-[24rpx] 这类任意值)
@@ -3309,7 +3309,7 @@ node 正文搬进 scripts/lib/<hook>-hook.js,钩子文件只留 sh 薄壳(样板
 
   这道门问的不是"有没有绕档位表写死数字"(那是守门 77),而是"这一类元素取了角色表里的哪一档"。
   修法只有一个:改成 packages/design-tokens/src/radius.js 的 RADIUS_ROLES 指定的那一档
-  (tiny→xs / control→sm / chip→md / card→lg / panel→xl / hero→2xl)。
+  (tiny→xs / control→md / chip→md / card→lg / panel→xl / hero→2xl)。
   确属新元素类别 ⇒ 先在 RADIUS_ROLES 加角色并同笔给出消费方,不得为消红放宽判据。
   圆角豁免通道已整体废除(2026-09-29 O81 票㊵):标记不改变任何结论,而写标记本身由守门 77 的 B8 判红。
   自验:node scripts/check-radius-role-conformance.mjs --files <你改的文件>;

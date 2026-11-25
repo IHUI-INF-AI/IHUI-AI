@@ -131,7 +131,7 @@ export function renderShareHtml(markdown: string, hash: string, title: string, q
   h3 { margin-top: 1.5rem; border-left: 3px solid ${DOC_BRAND}; padding-left: 0.6rem; }
   p, .md-list, .md-quote, .md-table { color: ${DOC_TEXT_BODY}; }
   .md-list { padding-left: 1.5rem; }
-  .md-quote { background: ${DOC_BG_HOVER}; border-radius: ${RADIUS_CSS_PX.sm}; padding: 0.6rem 0.9rem; margin: 1rem 0; }
+  .md-quote { background: ${DOC_BG_HOVER}; border-radius: ${RADIUS_CSS_PX.md}; padding: 0.6rem 0.9rem; margin: 1rem 0; }
   .md-link { color: ${DOC_BRAND}; }
   .md-media-ref { color: ${DOC_TEXT_MUTED}; font-size: 0.9em; }
   .md-collapse summary { cursor: pointer; color: ${DOC_TEXT_MUTED}; font-size: 0.85rem; }

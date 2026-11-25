@@ -26,8 +26,8 @@ describe('XUI-086 钱包流水 opType 展示（文案 + 符号 + 颜色）', () 
     expect(meta.colorClass).toContain('red')
   })
 
-  it('2 过期清零 / 3 退款扣回 / 4 Relay 转账：均为负号、红色', () => {
-    for (const opType of [2, 3, 4]) {
+  it('2 过期清零 / 3 退款扣回 / 4 Relay 转账 / 7 兑换积分：均为负号、红色', () => {
+    for (const opType of [2, 3, 4, 7]) {
       const meta = resolveWalletFlowMeta(opType, 100)
       expect(meta.sign).toBe('negative')
       expect(meta.colorClass).toContain('red')
@@ -35,6 +35,7 @@ describe('XUI-086 钱包流水 opType 展示（文案 + 符号 + 颜色）', () 
     expect(resolveWalletFlowMeta(2, 100).labelKey).toBe('flowExpire')
     expect(resolveWalletFlowMeta(3, 100).labelKey).toBe('flowRefund')
     expect(resolveWalletFlowMeta(4, 100).labelKey).toBe('flowRelayRecharge')
+    expect(resolveWalletFlowMeta(7, 100).labelKey).toBe('flowPointsExchange')
   })
 
   it('5 管理员调整：按数量符号决定正负', () => {
@@ -60,7 +61,7 @@ describe('XUI-086 钱包流水 opType 展示（文案 + 符号 + 颜色）', () 
   })
 
   it('未知值：中性兜底，不默认收入/支出，绝不显示成充值', () => {
-    for (const opType of [99, -1, 7]) {
+    for (const opType of [99, -1, 8]) {
       const meta = resolveWalletFlowMeta(opType, 500000)
       expect(meta).toMatchObject({ labelKey: 'flowOther', sign: 'neutral', kind: 'other' })
       expect(meta.colorClass).toBe('text-muted-foreground')
@@ -74,6 +75,7 @@ describe('XUI-086 钱包流水 opType 展示（文案 + 符号 + 颜色）', () 
     )
     expect(schema).toContain('3=退款扣回')
     expect(schema).toContain('4=Relay')
+    expect(schema).toContain('7=兑换AI积分')
     expect(schema).not.toContain('4=佣金')
   })
 
@@ -125,10 +127,13 @@ describe('XUI-086 钱包流水 opType 展示（文案 + 符号 + 颜色）', () 
     expect(mini).not.toMatch(/opType\s*===\s*\d\s*[?:]/)
   })
 
-  it('五个语言包（web + shared）都有 add 文案键，6 有独立配额键', () => {
+  it('五个语言包（web + shared）都有钱包文案键，7 有兑换积分键', () => {
     for (const locale of LOCALES) {
       const web = JSON.parse(
-        readFileSync(join(REPO_ROOT, 'packages', 'i18n', 'messages', 'web', `${locale}.json`), 'utf8'),
+        readFileSync(
+          join(REPO_ROOT, 'packages', 'i18n', 'messages', 'web', `${locale}.json`),
+          'utf8',
+        ),
       ) as { wallet?: Record<string, string> }
       const shared = JSON.parse(
         readFileSync(
@@ -144,6 +149,7 @@ describe('XUI-086 钱包流水 opType 展示（文案 + 符号 + 颜色）', () 
         'flowRelayRecharge',
         'flowAdminAdjust',
         'flowQuota',
+        'flowPointsExchange',
         'flowOther',
       ]) {
         expect(web.wallet?.[key], `web.${locale}.${key}`).toBeTruthy()

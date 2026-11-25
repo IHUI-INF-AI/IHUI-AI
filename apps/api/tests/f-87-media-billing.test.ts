@@ -7,7 +7,7 @@
  *
  * 病灶:/openai/images、/openai/speech、/openai/transcriptions、/openai/responses
  *       四条平台 Key 代理只 recordUsage 不扣分,零积账号可无限调用付费上游。
- * 判据:四条 handler 都有余额闸;无 token usage 的媒体端点按 points-guard 固定单价结算,
+ * 判据:四条 handler 都有余额闸;无 token usage 的媒体端点按 ai_pricing 单一报价结算,
  *       有 usage 的文本端点仍按 input/output tokens 结算。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -15,12 +15,29 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const mocks = vi.hoisted(() => ({
-  spendPoints: vi.fn(async () => {}),
-  findUserPoints: vi.fn(async () => ({ points: 100 })),
+  settleLlmPointsUsage: vi.fn(async () => ({
+    deducted: 5,
+    remaining: 0,
+    shortfall: 0,
+    alreadySettled: false,
+    quote: { points: 5 },
+  })),
+  recordAiCost: vi.fn(async () => ({ cost: 1, currency: 'CNY' })),
 }))
 
-vi.mock('../src/services/points-service.js', () => ({ spendPoints: mocks.spendPoints }))
-vi.mock('../src/db/gamification-queries.js', () => ({ findUserPoints: mocks.findUserPoints }))
+vi.mock('../src/services/ai-points-billing.js', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    settleLlmPointsUsage: mocks.settleLlmPointsUsage,
+    ensureLlmPointsBalance: vi.fn(async () => true),
+  }
+})
+vi.mock('../src/plugins/ai-cost.js', () => ({
+  recordAiCost: mocks.recordAiCost,
+  resolveAiCost: vi.fn(),
+}))
+vi.mock('../src/db/gamification-queries.js', () => ({ findUserPoints: vi.fn() }))
 vi.mock('../src/services/vendor-caller-service.js', () => ({ callVendor: vi.fn() }))
 vi.mock('../src/routes/ai-vendors/_shared.js', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
@@ -38,20 +55,22 @@ const request = { userId: 'u-1', id: 'req-1' }
 
 describe('F-87 平台 Key 媒体端点必须计费', () => {
   beforeEach(() => {
-    mocks.spendPoints.mockClear()
+    mocks.settleLlmPointsUsage.mockClear()
+    mocks.recordAiCost.mockClear()
   })
 
-  it('四条媒体 handler 都有余额闸:token 端点 3 处 + 媒体端点 4 处', () => {
-    // chat / embeddings / responses 走 model 倍率闸;images / speech / transcriptions /
-    // GET responses/:id 走不看 model 名的固定闸(免费模型名不能绕过)。
+  it('四条媒体 handler 都有余额闸:token 端点 3 处 + 媒体端点 3 处 + 读取闸 1 处', () => {
+    // chat / embeddings / responses 走 model 倍率闸;images / speech / transcriptions
+    // 走按本次报价的媒体闸;GET responses/:id 只做零积读取闸。
     expect(source.match(/ensurePointsBalance\(request, reply,/g) ?? []).toHaveLength(3)
-    expect(source.match(/ensurePointsAvailable\(request, reply\)/g) ?? []).toHaveLength(4)
+    expect(source.match(/ensureMediaPointsBalance\(/g) ?? []).toHaveLength(3)
+    expect(source.match(/ensurePointsAvailable\(request, reply\)/g) ?? []).toHaveLength(1)
   })
 
-  it('结算口径单一:token 端点 3 处 chargePointsForCall,媒体端点 3 处 chargeFlatPoints', () => {
+  it('结算口径单一:token 端点 3 处 chargePointsForCall,媒体端点 3 处 chargeMediaPoints', () => {
     expect(source.match(/chargePointsForCall\(request,/g) ?? []).toHaveLength(3)
-    // images / speech / transcriptions 无 token usage,必须按固定单价扣费。
-    expect(source.match(/chargeFlatPoints\(/g) ?? []).toHaveLength(3)
+    // images / speech / transcriptions 无 token usage,必须走 ai_pricing 媒体报价。
+    expect(source.match(/chargeMediaPoints\(/g) ?? []).toHaveLength(3)
   })
 
   it('Responses API 的 input_tokens/output_tokens 能结算', async () => {
@@ -61,13 +80,20 @@ describe('F-87 平台 Key 媒体端点必须计费', () => {
       { usage: { input_tokens: 1000, output_tokens: 500 } },
       'req-1',
     )
-    expect(mocks.spendPoints).toHaveBeenCalledTimes(1)
-    const [userId, amount, kind, reason, ref] = mocks.spendPoints.mock.calls[0] as unknown[]
-    expect(userId).toBe('u-1')
-    expect(amount).toBe(5) // ceil(1500/1000 * 3)
-    expect(kind).toBe('ai_call')
-    expect(String(reason)).toContain('tokens=1500')
-    expect(ref).toBe('req-1')
+    expect(mocks.settleLlmPointsUsage).toHaveBeenCalledTimes(1)
+    expect(mocks.settleLlmPointsUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u-1',
+        modelId: 'gpt-4o',
+        promptTokens: 1000,
+        completionTokens: 500,
+        source: 'llm_chat',
+        referenceId: 'req-1',
+      }),
+    )
+    expect(mocks.recordAiCost).toHaveBeenCalledWith(
+      expect.objectContaining({ promptTokens: 1000, completionTokens: 500, totalTokens: 1500 }),
+    )
   })
 
   it('OpenAI 经典 prompt_tokens/completion_tokens 口径不受影响', async () => {
@@ -77,8 +103,11 @@ describe('F-87 平台 Key 媒体端点必须计费', () => {
       { usage: { prompt_tokens: 1000, completion_tokens: 500 } },
       'req-1',
     )
-    expect(mocks.spendPoints).toHaveBeenCalledTimes(1)
-    expect((mocks.spendPoints.mock.calls[0] as unknown[])[1]).toBe(5)
+    expect(mocks.settleLlmPointsUsage).toHaveBeenCalledTimes(1)
+    expect(mocks.settleLlmPointsUsage.mock.calls[0]?.[0]).toMatchObject({
+      promptTokens: 1000,
+      completionTokens: 500,
+    })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

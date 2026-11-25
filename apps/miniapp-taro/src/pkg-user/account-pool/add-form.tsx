@@ -56,7 +56,7 @@ export function AddForm({ t, draft, busy, onChange, onSave, onCancel }: AddFormP
       </View>
       <Text className={labelCls}>{t('accountPool.name')}</Text>
       <Input
-        className="mt-[12rpx] rounded-sm"
+        className="mt-[12rpx] rounded-md"
         style={INPUT_STYLE}
         value={draft.name}
         placeholder={t('accountPool.namePlaceholder')}
@@ -64,7 +64,7 @@ export function AddForm({ t, draft, busy, onChange, onSave, onCancel }: AddFormP
       />
       <Text className={labelCls}>{t('accountPool.token')}</Text>
       <Input
-        className="mt-[12rpx] rounded-sm"
+        className="mt-[12rpx] rounded-md"
         style={INPUT_STYLE}
         value={draft.token}
         placeholder={t('accountPool.token')}
@@ -74,7 +74,7 @@ export function AddForm({ t, draft, busy, onChange, onSave, onCancel }: AddFormP
         {t('accountPool.refreshToken')}（{t('accountPool.optional')}）
       </Text>
       <Input
-        className="mt-[12rpx] rounded-sm"
+        className="mt-[12rpx] rounded-md"
         style={INPUT_STYLE}
         value={draft.refreshToken}
         placeholder={t('accountPool.optional')}

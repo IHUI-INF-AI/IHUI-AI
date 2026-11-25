@@ -52,7 +52,7 @@ export function TokenStream({ tokens, connected, running }: Props) {
           </span>
         ) : (
           <span className="flex items-center gap-1 text-muted-foreground">
-            <span className="h-1.5 w-1.5 rounded-sm bg-muted-foreground/50" /> {t('notRunning')}
+            <span className="h-1.5 w-1.5 rounded-md bg-muted-foreground/50" /> {t('notRunning')}
           </span>
         )}
         <span className="text-label text-muted-foreground tabular-nums">

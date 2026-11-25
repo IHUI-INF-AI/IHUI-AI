@@ -149,7 +149,7 @@ export const BatchHeader = React.memo(function BatchHeader({
           <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground/90">
             {title}
           </span>
-          <span className="inline-flex items-center gap-0.5 rounded-sm bg-muted px-1 py-0.5 text-[10px] text-muted-foreground/80">
+          <span className="inline-flex items-center gap-0.5 rounded-md bg-muted px-1 py-0.5 text-[10px] text-muted-foreground/80">
             <Users className="h-2.5 w-2.5" aria-hidden />
             {completedCount}/{agentCount}
             {runningCount > 0 && status === 'running' && (

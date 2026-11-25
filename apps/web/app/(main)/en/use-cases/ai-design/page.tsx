@@ -333,7 +333,7 @@ export default function AiDesignPage() {
             </Link>
             <Link
               href="/use-cases"
-              className="inline-flex h-11 items-center justify-center rounded-sm border border-input bg-background px-8 text-body font-medium hover:bg-accent"
+              className="inline-flex h-11 items-center justify-center rounded-md border border-input bg-background px-8 text-body font-medium hover:bg-accent"
             >
               View other use cases <ArrowRight className="ml-2 h-4 w-4" />
             </Link>

@@ -361,7 +361,7 @@ function createStyles(tk: AppThemeTokens) {
     checkbox: {
       width: 18,
       height: 18,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',
@@ -393,7 +393,7 @@ function createStyles(tk: AppThemeTokens) {
     buyBtn: {
       minWidth: 140,
       height: 46,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: baseTokens.vip.gold,

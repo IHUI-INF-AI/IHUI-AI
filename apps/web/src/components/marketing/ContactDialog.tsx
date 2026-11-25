@@ -69,7 +69,7 @@ export function ContactDialog({
               alt={t('contactWechat')}
               width={64}
               height={64}
-              className="h-16 w-16 rounded-sm border bg-background object-contain"
+              className="h-16 w-16 rounded-md border bg-background object-contain"
               loading="lazy"
               decoding="async"
             />

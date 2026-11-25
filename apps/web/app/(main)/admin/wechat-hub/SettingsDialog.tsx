@@ -121,7 +121,7 @@ export default function SettingsDialog({
               value={allowedTargets}
               onChange={(e) => setAllowedTargets(e.target.value)}
               rows={3}
-              className="w-full rounded-sm border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+              className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
               placeholder={'wxid_xxx\nroom_xxx'}
             />
             <p className="text-xs text-muted-foreground">
@@ -135,7 +135,7 @@ export default function SettingsDialog({
               value={blockedWords}
               onChange={(e) => setBlockedWords(e.target.value)}
               rows={3}
-              className="w-full rounded-sm border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+              className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
               placeholder="刷单&#10;返利"
             />
           </div>

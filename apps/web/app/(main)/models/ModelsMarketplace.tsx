@@ -322,7 +322,7 @@ export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('market.searchPlaceholder')}
-            className="h-10 w-full rounded-sm border border-input bg-background pl-9 pr-3 text-body text-foreground transition-colors placeholder:text-muted-foreground/70 focus:border-border focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus dark:bg-input/30"
+            className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-body text-foreground transition-colors placeholder:text-muted-foreground/70 focus:border-border focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus dark:bg-input/30"
           />
         </div>
 
@@ -554,7 +554,7 @@ function FilterChip({
       type="button"
       onClick={onClick}
       className={cn(
-        'inline-flex h-7 items-center gap-1 rounded-sm border px-2.5 text-label font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
+        'inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-label font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
         active
           ? 'border-brand-accent-deep bg-cta text-cta-foreground'
           : 'border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground',

@@ -234,7 +234,7 @@ function PartialDiffPreview({ text }: { text: string }) {
     <pre
       ref={ref}
       data-testid="tool-call-partial-diff"
-      className="m-0 mt-1 max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-sm bg-background/70 p-1.5 font-mono text-[11px] leading-4"
+      className="m-0 mt-1 max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-md bg-background/70 p-1.5 font-mono text-[11px] leading-4"
     >
       {text}
       <span
@@ -948,9 +948,9 @@ export function MessageContent({
             {message.citations.map((c, i) => (
               <span
                 key={`${c.source}_${i}`}
-                className="inline-flex max-w-full items-center gap-1 rounded-sm border border-stroke-default bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                className="inline-flex max-w-full items-center gap-1 rounded-md border border-stroke-default bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground"
               >
-                <span className="rounded-sm bg-muted px-1 py-px text-[9px] font-medium">
+                <span className="rounded-md bg-muted px-1 py-px text-[9px] font-medium">
                   {c.source}
                 </span>
                 <span className="truncate">{c.label}</span>

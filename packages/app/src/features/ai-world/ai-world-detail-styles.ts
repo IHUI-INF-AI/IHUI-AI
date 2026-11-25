@@ -59,7 +59,7 @@ export function createAiWorldDetailStyles(tk: AppThemeTokens) {
       gap: 5,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: 5,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.muted,

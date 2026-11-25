@@ -172,7 +172,7 @@ function createStyles(tk: AppThemeTokens) {
     successText: { ...rnType.body, color: tk.success.deepText, marginBottom: rnSpacing.sm },
     saveBtn: {
       marginTop: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       height: 50,
       alignItems: 'center',
       justifyContent: 'center',

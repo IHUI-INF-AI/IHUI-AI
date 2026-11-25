@@ -335,7 +335,7 @@ function PieChart({
       <div className="flex-1 min-w-0 space-y-1">
         {data.map((d, i) => (
           <div key={i} className="flex items-center gap-1.5 text-[11px]">
-            <span className={cn('h-2 w-2 rounded-sm', d.color)} />
+            <span className={cn('h-2 w-2 rounded-md', d.color)} />
             <span className="flex-1 truncate">{d.platform}</span>
             <span className="text-muted-foreground">{((d.count / total) * 100).toFixed(0)}%</span>
           </div>
@@ -361,9 +361,9 @@ function BarChart({ data }: { data: ReadonlyArray<{ reason: string; count: numbe
           <span className="w-32 shrink-0 truncate text-right text-[11px] text-muted-foreground">
             {d.reason}
           </span>
-          <div className="h-4 flex-1 overflow-hidden rounded-sm bg-muted">
+          <div className="h-4 flex-1 overflow-hidden rounded-md bg-muted">
             <div
-              className="h-full rounded-sm bg-primary/70 transition-all"
+              className="h-full rounded-md bg-primary/70 transition-all"
               style={{ width: `${(d.count / max) * 100}%` }}
             />
           </div>

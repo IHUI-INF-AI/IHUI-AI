@@ -187,7 +187,7 @@ export function TwoFactorAuth() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span
-                className={`inline-flex h-2.5 w-2.5 rounded-sm ${enabled ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`}
+                className={`inline-flex h-2.5 w-2.5 rounded-md ${enabled ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`}
               />
               <span className="font-[weight:inherit] text-body">
                 {enabled ? t('twofa.enabled') : t('twofa.disabled')}

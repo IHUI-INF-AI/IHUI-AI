@@ -72,7 +72,7 @@
  *    小程序 32        IA_ROBOT_ICON_INK_PX        行内矢量;RN 同一位置是 absolute 位图装饰,不同媒介
  *    RN 107/110/9/-8  IA_ROBOT_DECOR_*            位图装饰布局盒与贴位;小程序无 absolute 装饰层
  *    RN 10/3          IA_RECHARGE_CAPSULE_PAD_*   实底胶囊可见内衬;小程序是纯文字链,无胶囊本体
- *    RN 4(圆角)      tokenButton `rnRadius.sm`    同上,胶囊本体小程序没有 ⇒ radiusCount 1
+ *    RN 4(圆角)      tokenButton `rnRadius.md`    同上,胶囊本体小程序没有 ⇒ radiusCount 1
  *  B 同一元素两端按**已裁决**的变体契约取不同档:本族 **0 枚** —— 11 枚两端共用档(10 枚 `_PX`
  *    + IA_HEADING_FONT_WEIGHT)已全部引本表且同值,不存在"同元素取不同值"可收敛的档。
  *    (充值"纯文字链 vs 实底胶囊"是设计定夺项,已登记在头注 waivers,不是 B 的取值分叉。)

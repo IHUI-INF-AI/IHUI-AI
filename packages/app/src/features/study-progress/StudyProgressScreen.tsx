@@ -161,7 +161,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.md,
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
   })

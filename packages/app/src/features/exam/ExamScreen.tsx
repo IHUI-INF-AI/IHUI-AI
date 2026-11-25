@@ -231,7 +231,7 @@ function createStyles(tk: AppThemeTokens) {
     startBtn: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     startBtnDisabled: { backgroundColor: tk.border.light },

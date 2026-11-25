@@ -853,7 +853,7 @@ const styles = StyleSheet.create({
   entryButton: {
     flex: 1,
     paddingVertical: ENTRY_BUTTON_PADDING_V,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -969,7 +969,7 @@ const styles = StyleSheet.create({
   subscribeButton: {
     width: '100%',
     height: '100%',
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: ACCENT_COLOR,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1105,7 +1105,7 @@ const styles = StyleSheet.create({
   qrCloseButton: {
     width: '100%',
     height: '100%',
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: ACCENT_COLOR,
     alignItems: 'center',
     justifyContent: 'center',

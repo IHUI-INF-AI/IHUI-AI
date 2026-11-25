@@ -23,7 +23,7 @@ export function MiniChart({ data, labels, height = 120, className }: MiniChartPr
           <Tooltip key={`bar-${i}`} content={labels?.[i] ? `${labels[i]}: ${v}` : String(v)}>
             <div className="group relative flex-1">
               <div
-                className="absolute bottom-0 w-full rounded-sm bg-primary/70 transition-colors group-hover:bg-primary"
+                className="absolute bottom-0 w-full rounded-md bg-primary/70 transition-colors group-hover:bg-primary"
                 style={{ height: `${(v / max) * 100}%`, minHeight: v > 0 ? 2 : 0 }}
               />
             </div>

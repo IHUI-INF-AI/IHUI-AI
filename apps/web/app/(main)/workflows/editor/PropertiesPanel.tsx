@@ -100,7 +100,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
               value={step.input ?? ''}
               onChange={(e) => setStr('input', e.target.value)}
               rows={3}
-              className="flex w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-label shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+              className="flex w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-label shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             />
           </div>
         )}
@@ -133,7 +133,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
                 value={step.input ?? ''}
                 onChange={(e) => setStr('input', e.target.value)}
                 rows={3}
-                className="flex w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-label shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                className="flex w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-label shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
               />
             </div>
           </>
@@ -194,7 +194,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
               type="checkbox"
               checked={step.continueOnFail ?? false}
               onChange={(e) => update({ continueOnFail: e.target.checked })}
-              className="h-3.5 w-3.5 rounded-sm border-input"
+              className="h-3.5 w-3.5 rounded-md border-input"
             />
             <Label htmlFor="prop-continue" className="text-label">
               {t('editor.continueOnFail')}

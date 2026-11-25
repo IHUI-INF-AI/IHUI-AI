@@ -299,7 +299,7 @@ function createStyles(tk: AppThemeTokens) {
     compareBtn: {
       paddingHorizontal: rnSpacing.md,
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.brandAccent.deep,
       alignItems: 'center',

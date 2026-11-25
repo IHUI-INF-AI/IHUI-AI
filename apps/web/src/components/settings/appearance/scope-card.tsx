@@ -71,7 +71,7 @@ export function ScopeCard() {
       desc={t('scopeDesc')}
       testId="appearance-scope"
     >
-      <div className="space-y-2 rounded-sm border p-3">
+      <div className="space-y-2 rounded-md border p-3">
         <div className="flex items-center justify-between gap-3">
           <span className="text-body font-medium">{t('workspaceCurrent')}</span>
           <span
@@ -131,7 +131,7 @@ export function ScopeCard() {
         </div>
       </div>
 
-      <div className="space-y-2 rounded-sm border p-3">
+      <div className="space-y-2 rounded-md border p-3">
         <div className="flex items-center justify-between gap-3">
           <span className="text-body font-medium">{t('messageStylesLabel')}</span>
           <span className="text-label text-muted-foreground">{messageOverrideCount}</span>
@@ -155,7 +155,7 @@ export function ScopeCard() {
         </div>
       </div>
 
-      <div className="space-y-2 rounded-sm border p-3">
+      <div className="space-y-2 rounded-md border p-3">
         <ToggleField
           label={t('cloudSyncEnable')}
           hint={isAuthenticated ? t('cloudSyncHint') : t('syncLoginRequired')}

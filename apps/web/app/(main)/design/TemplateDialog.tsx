@@ -89,7 +89,7 @@ export function TemplateDialog({ open, onClose, onApplyTemplate }: TemplateDialo
                 padding: 10,
                 textAlign: 'left',
                 border: '1px solid var(--border)',
-                borderRadius: rnRadius.sm,
+                borderRadius: rnRadius.md,
                 background: 'var(--card)',
                 cursor: 'pointer',
                 color: 'var(--text, inherit)',

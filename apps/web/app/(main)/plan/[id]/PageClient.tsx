@@ -272,7 +272,7 @@ export default function PlanDetailPage() {
             value={plan.status}
             onChange={(e) => handlePlanStatusChange(e.target.value as PlanDocument['status'])}
             className={cn(
-              'h-7 cursor-pointer rounded-sm border-0 px-2.5 text-label font-medium outline-none',
+              'h-7 cursor-pointer rounded-md border-0 px-2.5 text-label font-medium outline-none',
               PLAN_STATUS_COLOR[plan.status],
             )}
             aria-label="计划状态"
@@ -298,7 +298,7 @@ export default function PlanDetailPage() {
               {plan.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-sm bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
+                  className="rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                 >
                   {tag}
                 </span>

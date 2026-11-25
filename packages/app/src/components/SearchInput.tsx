@@ -14,8 +14,8 @@
  *   录音中背景 success.lightest + 边框 success.DEFAULT,提示切换为「松开结束」
  * - 容器:圆角输入井(h 40 / paddingHorizontal 12 / 角色档 control→sm(4) / bgColor surface.muted
  *   / borderWidth 1 + borderColor border.light / gap 8),对齐全项目搜索框统一规范
- *   (web 基准:packages/ui-react/src/components/search-input.tsx 的 rounded-sm;
- *   小程序基准:apps/miniapp-taro/src/components/SearchBar.tsx 的 rounded-sm。
+ *   (web 基准:packages/ui-react/src/components/search-input.tsx 的 rounded-md;
+ *   小程序基准:apps/miniapp-taro/src/components/SearchBar.tsx 的 rounded-md。
  *   2026-09-29 本端此前写的是 lg(8),即"两端各自收口"留下的第三档,已随角色表收为 control)
  * - 聚焦态:borderColor brand.DEFAULT 高亮
  *

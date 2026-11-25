@@ -249,7 +249,7 @@ export function IssueBindDialog({
         {current && (
           <div
             data-testid="issue-bind-current"
-            className="flex items-center gap-1.5 rounded-sm bg-muted px-2 py-1.5 text-label"
+            className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-1.5 text-label"
           >
             <Link2 className="h-3 w-3 shrink-0 text-primary" aria-hidden />
             <a
@@ -288,7 +288,7 @@ export function IssueBindDialog({
                 onClick={() => setProvider(p)}
                 data-testid={`issue-provider-${p}`}
                 className={cn(
-                  'rounded-sm px-2 py-1 text-label transition-colors',
+                  'rounded-md px-2 py-1 text-label transition-colors',
                   provider === p
                     ? 'bg-primary/10 font-medium text-primary'
                     : 'text-muted-foreground hover:bg-muted',
@@ -334,9 +334,9 @@ export function IssueBindDialog({
               onClick={() => bindMutation.mutate(item)}
               disabled={bindMutation.isPending}
               data-testid={`issue-search-item-${item.id}`}
-              className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-label transition-colors hover:bg-muted"
+              className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-label transition-colors hover:bg-muted"
             >
-              <span className="shrink-0 rounded-sm bg-muted px-1 text-[10px] uppercase leading-4 text-muted-foreground">
+              <span className="shrink-0 rounded-md bg-muted px-1 text-[10px] uppercase leading-4 text-muted-foreground">
                 {item.provider}
               </span>
               <span className="min-w-0 flex-1 truncate">{item.title}</span>

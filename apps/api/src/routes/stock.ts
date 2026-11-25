@@ -25,7 +25,7 @@ const historySchema = z.object({
 })
 
 const stockRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
-  // Token 余额查询
+  // AI 积分余额查询
   server.get('/token-balance', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
     const result = await getTokenBalance(server.tokenBalance, req.userId)
@@ -44,7 +44,7 @@ const stockRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.status(201).send(success(result))
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      const statusCode = /Token 余额不足|Token 扣减失败/.test(msg) ? 402 : 400
+      const statusCode = /积分不足|扣费失败/.test(msg) ? 402 : 400
       return reply.status(statusCode).send(error(statusCode, msg))
     }
   })

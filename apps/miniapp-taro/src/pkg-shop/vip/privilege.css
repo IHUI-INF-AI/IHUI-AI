@@ -172,7 +172,7 @@
   color: var(--color-cta-foreground);
   font-size: var(--text-title);
   font-weight: 600;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: none;
   text-align: center;
 }
@@ -239,7 +239,7 @@
   color: var(--color-cta-foreground);
   font-size: var(--text-strong);
   font-weight: 600;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: none;
   text-align: center;
 }
@@ -255,7 +255,7 @@
 }
 .matrix-row.header-row {
   background: var(--color-gold-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .matrix-cell {
   flex: 1;

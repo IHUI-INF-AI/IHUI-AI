@@ -101,7 +101,7 @@ export function ModeSwitcher({
             variant === 'row'
               ? COMPOSER_MENU_ROW_CLASS
               : cn(
-                  'mode-switcher-trigger flex h-8 shrink-0 items-center gap-1 rounded-sm px-2 text-label font-medium transition-colors',
+                  'mode-switcher-trigger flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-label font-medium transition-colors',
                   'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                   'disabled:cursor-not-allowed disabled:opacity-50',
                 ),

@@ -92,7 +92,7 @@ export default function StudyPublish() {
           input 语言:border light / radius 12dp→24rpx / h 50dp→100rpx / px 12dp→24rpx / bg surface.muted / 字号 16dp→32rpx;提交按钮 h 50dp→100rpx / radius 15dp→30rpx */}
       <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[180rpx] flex flex-col gap-[28rpx]">
         <FocusInput
-          className="h-[100rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-sm text-title text-foreground"
+          className="h-[100rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-md text-title text-foreground"
           placeholder={t('study.publish.titlePlaceholder')}
           maxlength={50}
           value={title}
@@ -101,7 +101,7 @@ export default function StudyPublish() {
 
         <View className="flex flex-col gap-[12rpx]">
           <FocusTextarea
-            className="w-full min-h-[160rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-sm text-title text-foreground"
+            className="w-full min-h-[160rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-md text-title text-foreground"
             placeholder={t('study.publish.contentPlaceholder')}
             maxlength={2000}
             value={content}
@@ -147,7 +147,7 @@ export default function StudyPublish() {
             </View>
           </Picker>
           <FocusInput
-            className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-body text-foreground"
+            className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-md text-body text-foreground"
             placeholder={t('study.publish.tagsPlaceholder')}
             value={tags}
             onInput={(e) => setTags(e.detail.value)}
@@ -155,7 +155,7 @@ export default function StudyPublish() {
         </View>
 
         <Button
-          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-sm text-title font-semibold text-center"
+          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-md text-title font-semibold text-center"
           loading={saving}
           onClick={submit}
           disabled={saving}

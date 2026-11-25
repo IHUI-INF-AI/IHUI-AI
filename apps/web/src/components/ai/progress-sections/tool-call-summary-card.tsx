@@ -244,7 +244,7 @@ function StatChip({
   return (
     <Tooltip content={label}>
       <span
-        className="inline-flex h-4 min-w-4 shrink-0 items-center gap-1 rounded-sm bg-muted/50 px-1 text-[11px] leading-none tabular-nums text-foreground"
+        className="inline-flex h-4 min-w-4 shrink-0 items-center gap-1 rounded-md bg-muted/50 px-1 text-[11px] leading-none tabular-nums text-foreground"
         aria-label={label}
         data-testid={testId}
       >
@@ -359,7 +359,7 @@ function CategoryCard({ run, t, tStatus, toolDisplayKeyFn }: CategoryCardProps) 
       defaultOpen={initialOpen}
       data-testid={`tool-call-category-${run.categoryKey}`}
     >
-      <div className="space-y-0.5 rounded-sm bg-muted/15 px-2 py-0.5 text-[11px]">
+      <div className="space-y-0.5 rounded-md bg-muted/15 px-2 py-0.5 text-[11px]">
         {run.tools.map((tool, i) => {
           const dk = toolDisplayKeyFn(tool.toolName)
           return (
@@ -444,7 +444,7 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
       // 流式中已有 toolCalls 但未到 summary 阶段:显示轻量"统计中..."提示
       return (
         <div
-          className="mx-1.5 mt-1.5 rounded-sm border border-stroke-subtle bg-muted/15 px-2 py-0.5"
+          className="mx-1.5 mt-1.5 rounded-md border border-stroke-subtle bg-muted/15 px-2 py-0.5"
           data-testid={testId ?? 'tool-call-summary-card'}
           data-state="streaming"
         >
@@ -577,7 +577,7 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
             effectiveSummary.totalDurationMs > 0 && (
               <Tooltip content={t('toolSummaryDuration')}>
                 <span
-                  className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 py-0.5 text-[11px] tabular-nums text-foreground"
+                  className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-muted/50 px-1 py-0.5 text-[11px] tabular-nums text-foreground"
                   aria-label={t('toolSummaryDuration')}
                   data-testid="tool-call-summary-chip-duration"
                 >

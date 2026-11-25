@@ -315,7 +315,7 @@ export function BackgroundAgentsPanel({
                           <Link
                             href={agent.takeoverHref}
                             data-testid={`bg-task-takeover-${agent.agent_id}`}
-                            className="rounded-sm px-2 py-0.5 text-label text-primary transition-colors hover:underline"
+                            className="rounded-md px-2 py-0.5 text-label text-primary transition-colors hover:underline"
                           >
                             {t('takeover')}
                           </Link>

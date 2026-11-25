@@ -993,7 +993,7 @@ const styles = StyleSheet.create({
   modelStartBtn: {
     paddingHorizontal: rpx(taroSpacing['sm-loose']),
     paddingVertical: rpx(8),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
   },
   modelStartBtnText: {
@@ -1007,7 +1007,7 @@ const styles = StyleSheet.create({
     marginHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(10),
     alignItems: 'center',
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.card,
   },
   loadMoreText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },

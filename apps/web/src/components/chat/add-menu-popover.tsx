@@ -279,7 +279,7 @@ export function AddMenuPopover(props: {
           className={cn(
             // 第三轮(2026-11-04):底栏只保留 [+ / 模型 / 发送],+ 收敛为纯图标 32px,
             // 与同排图标按钮同规格;菜单语义由 aria-label / Tooltip 承载。
-            'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm px-0 leading-none',
+            'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md px-0 leading-none',
             'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             'disabled:cursor-not-allowed disabled:opacity-50',
             'hover:-translate-y-px',

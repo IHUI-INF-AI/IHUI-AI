@@ -131,7 +131,7 @@ export default function CostDashboardPage() {
             <button
               key={g}
               onClick={() => setGranularity(g)}
-              className={`rounded-sm border px-3 py-1 text-body transition ${
+              className={`rounded-md border px-3 py-1 text-body transition ${
                 granularity === g
                   ? 'border-stroke-selected bg-primary/10 text-primary'
                   : 'hover:bg-muted'
@@ -315,7 +315,7 @@ export default function CostDashboardPage() {
           <h2 className="mb-3 flex items-center gap-2 text-body font-semibold">
             <AlertTriangle className="h-4 w-4" /> {t('budgetEvents')}
             <Tooltip content={t('budgetEventsHint')}>
-              <span className="cursor-help rounded-sm border px-1.5 text-[10px] font-normal leading-4 text-muted-foreground">
+              <span className="cursor-help rounded-md border px-1.5 text-[10px] font-normal leading-4 text-muted-foreground">
                 ?
               </span>
             </Tooltip>

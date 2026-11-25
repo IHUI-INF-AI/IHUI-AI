@@ -22,7 +22,7 @@
 .license-image {
   width: 100%;
   display: block;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .license-fallback {
@@ -31,7 +31,7 @@
   justify-content: center;
   height: 400rpx;
   background: var(--color-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .license-fallback-text {

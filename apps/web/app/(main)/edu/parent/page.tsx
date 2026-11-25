@@ -358,7 +358,7 @@ function ChildrenListView({
         <button
           key={child.bindingId}
           onClick={() => onSelectChild(child.studentId)}
-          className="group rounded-sm border border-input bg-card p-3 text-left transition-colors hover:bg-accent"
+          className="group rounded-md border border-input bg-card p-3 text-left transition-colors hover:bg-accent"
         >
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-body font-bold text-primary">
@@ -412,7 +412,7 @@ function ChildDetailView({
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-accent"
+          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
@@ -716,8 +716,8 @@ function BillsView({ childId }: { childId: string }) {
                 <span
                   className={
                     ledger && ledger.arrears > 0
-                      ? 'rounded-sm bg-destructive/10 px-2 py-0.5 text-label font-medium text-destructive'
-                      : 'rounded-sm bg-muted px-2 py-0.5 text-label text-muted-foreground'
+                      ? 'rounded-md bg-destructive/10 px-2 py-0.5 text-label font-medium text-destructive'
+                      : 'rounded-md bg-muted px-2 py-0.5 text-label text-muted-foreground'
                   }
                 >
                   {ledger
@@ -1219,7 +1219,7 @@ function BindingsManagement() {
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                   setRelationship(e.target.value)
                 }
-                className="flex h-10 w-full rounded-sm border border-input bg-background px-3 py-2 text-body focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-body focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
               >
                 {RELATIONSHIP_OPTIONS.map((value) => (
                   <option key={value} value={value}>
@@ -1288,7 +1288,7 @@ function BindingsManagement() {
                         <Tooltip content={t('actionConfirm')}>
                           <button
                             onClick={() => confirmMutation.mutate(b.id)}
-                            className="rounded-sm p-2 text-emerald-600 transition-colors hover:bg-emerald-50"
+                            className="rounded-md p-2 text-emerald-600 transition-colors hover:bg-emerald-50"
                           >
                             <CheckCircle2 className="h-4 w-4" />
                           </button>
@@ -1296,7 +1296,7 @@ function BindingsManagement() {
                         <Tooltip content={t('actionReject')}>
                           <button
                             onClick={() => rejectMutation.mutate(b.id)}
-                            className="rounded-sm p-2 text-red-600 transition-colors hover:bg-red-50"
+                            className="rounded-md p-2 text-red-600 transition-colors hover:bg-red-50"
                           >
                             <XCircle className="h-4 w-4" />
                           </button>
@@ -1306,7 +1306,7 @@ function BindingsManagement() {
                     <Tooltip content={t('actionDelete')}>
                       <button
                         onClick={() => setShowDeleteId(b.id)}
-                        className="rounded-sm p-2 text-muted-foreground transition-colors hover:bg-accent"
+                        className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

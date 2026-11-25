@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   actionBtn: {
     paddingHorizontal: rnSpacing.lg,
     paddingVertical: rnSpacing.sm,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
   },
   actionText: {

@@ -131,7 +131,7 @@ export function ConversationFolderAdmin() {
             <li
               key={f.id}
               data-testid={`org-admin-row-${f.id}`}
-              className="flex items-center gap-1 rounded-sm border px-1.5 py-1"
+              className="flex items-center gap-1 rounded-md border px-1.5 py-1"
             >
               {editingId === f.id ? (
                 <>
@@ -147,7 +147,7 @@ export function ConversationFolderAdmin() {
                     aria-label={t('confirmRenameAria')}
                     data-testid={`org-admin-rename-save-${f.id}`}
                     onClick={() => commitRename(f)}
-                    className="inline-flex shrink-0 items-center rounded-sm p-1 hover:bg-accent"
+                    className="inline-flex shrink-0 items-center rounded-md p-1 hover:bg-accent"
                   >
                     <Check className="h-3.5 w-3.5" />
                   </button>
@@ -156,7 +156,7 @@ export function ConversationFolderAdmin() {
                     aria-label={t('cancelRenameAria')}
                     data-testid={`org-admin-rename-cancel-${f.id}`}
                     onClick={() => setEditingId(null)}
-                    className="inline-flex shrink-0 items-center rounded-sm p-1 hover:bg-accent"
+                    className="inline-flex shrink-0 items-center rounded-md p-1 hover:bg-accent"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -174,7 +174,7 @@ export function ConversationFolderAdmin() {
                     disabled={pendingId === f.id}
                     onClick={() => void run(f.id, () => togglePinFolder(userId, f.id))}
                     className={cn(
-                      'inline-flex shrink-0 items-center rounded-sm p-1 transition-colors hover:bg-accent',
+                      'inline-flex shrink-0 items-center rounded-md p-1 transition-colors hover:bg-accent',
                       f.pinned ? 'text-foreground' : 'text-muted-foreground',
                     )}
                   >
@@ -190,7 +190,7 @@ export function ConversationFolderAdmin() {
                       setDraft(f.name)
                       clearRow(f.id)
                     }}
-                    className="inline-flex shrink-0 items-center rounded-sm p-1 text-muted-foreground hover:bg-accent"
+                    className="inline-flex shrink-0 items-center rounded-md p-1 text-muted-foreground hover:bg-accent"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
@@ -200,7 +200,7 @@ export function ConversationFolderAdmin() {
                     data-testid={`org-admin-delete-${f.id}`}
                     disabled={pendingId === f.id}
                     onClick={() => void run(f.id, () => deleteFolder(userId, f.id))}
-                    className="inline-flex shrink-0 items-center rounded-sm p-1 text-muted-foreground hover:bg-accent hover:text-destructive"
+                    className="inline-flex shrink-0 items-center rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-destructive"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

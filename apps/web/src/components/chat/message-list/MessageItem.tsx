@@ -1454,7 +1454,7 @@ const MessageItem = React.memo(function MessageItem({
       <div
         className={cn(
           isUser
-            ? 'relative rounded-lg rounded-br-sm bg-muted-soft px-4 py-2.5 text-foreground'
+            ? 'relative rounded-lg rounded-br-md bg-muted-soft px-4 py-2.5 text-foreground'
             : 'w-full text-left',
         )}
         style={isUser ? { maxWidth: 'var(--chat-user-bubble-width, 85%)' } : undefined}
@@ -2210,7 +2210,7 @@ const MessageItem = React.memo(function MessageItem({
             type="button"
             onClick={handleQuoteSelection}
             data-testid={`message-quote-selection-${m.id}`}
-            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground shadow-elevation-sm transition-colors hover:border-stroke-strong hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-label text-muted-foreground shadow-elevation-sm transition-colors hover:border-stroke-strong hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           >
             <Quote className="h-3 w-3" aria-hidden />
             <span>{t('quoteSelection')}</span>
@@ -2219,7 +2219,7 @@ const MessageItem = React.memo(function MessageItem({
             type="button"
             onClick={handleAddSelectionAttachment}
             data-testid={`message-selection-attachment-${m.id}`}
-            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground shadow-elevation-sm transition-colors hover:border-stroke-strong hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-label text-muted-foreground shadow-elevation-sm transition-colors hover:border-stroke-strong hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           >
             <Paperclip className="h-3 w-3" aria-hidden />
             <span>{t('selectionActions.addAsAttachment')}</span>
@@ -2228,7 +2228,7 @@ const MessageItem = React.memo(function MessageItem({
             type="button"
             onClick={handleAnnotateSelection}
             data-testid={`message-selection-annotate-${m.id}`}
-            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground shadow-elevation-sm transition-colors hover:border-stroke-strong hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-label text-muted-foreground shadow-elevation-sm transition-colors hover:border-stroke-strong hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           >
             <PenLine className="h-3 w-3" aria-hidden />
             <span>{t('selectionAnnotations.add')}</span>
@@ -2291,7 +2291,7 @@ const MessageItem = React.memo(function MessageItem({
               rows={5}
               data-testid={`message-edit-textarea-${m.id}`}
               className={cn(
-                'w-full resize-y rounded-sm border border-border bg-background px-3 py-2 text-body',
+                'w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-body',
                 'text-foreground placeholder:text-muted-foreground',
                 ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
               )}
@@ -2363,7 +2363,7 @@ const MessageItem = React.memo(function MessageItem({
               rows={8}
               data-testid={`message-ai-edit-textarea-${m.id}`}
               className={cn(
-                'w-full resize-y rounded-sm border border-border bg-background px-3 py-2 text-body',
+                'w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-body',
                 'text-foreground placeholder:text-muted-foreground',
                 ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
               )}

@@ -13,7 +13,7 @@
  *   - RangeField :带数值读数的滑杆(字号/宽度这类连续值);
  *   - ToggleField:说明 + Switch 的单行开关。
  *
- * 视觉沿用 ThemeCard/FoldPolicyCard 的既有口径(rounded-sm 边框 + 选中 primary 底),
+ * 视觉沿用 ThemeCard/FoldPolicyCard 的既有口径(rounded-md 边框 + 选中 primary 底),
  * 不引入第二套设置页样式。
  */
 
@@ -93,7 +93,7 @@ export function OptionGrid<T extends string>({
             onClick={() => onChange(option.value)}
             data-testid={testIdPrefix ? `${testIdPrefix}-${option.value}` : undefined}
             className={cn(
-              'flex flex-col items-center justify-center gap-0.5 rounded-sm border px-2 py-2.5 text-body transition-colors',
+              'flex flex-col items-center justify-center gap-0.5 rounded-md border px-2 py-2.5 text-body transition-colors',
               active
                 ? 'border-brand-accent-deep bg-primary/5 text-primary'
                 : 'hover:bg-accent hover:text-accent-foreground',

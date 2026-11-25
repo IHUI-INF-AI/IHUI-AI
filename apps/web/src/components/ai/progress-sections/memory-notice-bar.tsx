@@ -49,7 +49,7 @@ export const MemoryNoticeBar = React.memo(function MemoryNoticeBar({
       headerExtra={
         <Link
           href="/memory-manager"
-          className="inline-flex items-center gap-1 rounded-sm px-1 py-px text-[10px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+          className="inline-flex items-center gap-1 rounded-md px-1 py-px text-[10px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
           data-testid="memory-notice-manage"
         >
           <Settings2 className="h-2.5 w-2.5 shrink-0" />

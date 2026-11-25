@@ -270,7 +270,7 @@ function createStyles(tk: AppThemeTokens) {
     tipText: { fontSize: rnType.body.size, color: tk.danger.deepText, marginBottom: rnSpacing.md },
     submitBtn: {
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

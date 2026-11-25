@@ -40,7 +40,7 @@ export function ThemeCard({ t, mounted, theme, onSelect }: Props) {
                 key={item.key}
                 onClick={() => onSelect(item.key)}
                 className={cn(
-                  'flex flex-col items-center gap-2 rounded-sm border p-3 text-body transition-colors',
+                  'flex flex-col items-center gap-2 rounded-md border p-3 text-body transition-colors',
                   active
                     ? 'border-brand-accent-deep bg-primary/5 text-primary'
                     : 'hover:bg-accent hover:text-accent-foreground',

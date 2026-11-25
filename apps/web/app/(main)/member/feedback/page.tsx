@@ -121,7 +121,7 @@ export default function MemberFeedbackPage() {
             key={v}
             onClick={() => setTab(v)}
             className={cn(
-              'flex-1 rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
+              'flex-1 rounded-md px-3 py-1.5 text-body font-medium transition-colors',
               tab === v
                 ? 'bg-background text-foreground shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -191,7 +191,7 @@ export default function MemberFeedbackPage() {
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value as FeedbackType)}
-                  className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-body"
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-body"
                 >
                   {Object.entries(typeLabel).map(([v, l]) => (
                     <option key={v} value={v}>
@@ -217,7 +217,7 @@ export default function MemberFeedbackPage() {
                   placeholder={t('contentPlaceholder')}
                   required
                   rows={4}
-                  className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body"
+                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-body"
                 />
               </div>
               <div className="space-y-1">

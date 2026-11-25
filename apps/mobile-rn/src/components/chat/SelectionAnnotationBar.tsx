@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
     gap: rpx(6),
     paddingHorizontal: rpx(taroSpacing['xs-loose']),
     paddingVertical: rpx(6),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   badge: {
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: rpx(36),
     height: rpx(36),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   panel: {
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     height: rpx(56),
     paddingHorizontal: rpx(taroSpacing['xs-loose']),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.medium,
     backgroundColor: tokens.surface.bg,
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     height: rpx(56),
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   addBtnText: {

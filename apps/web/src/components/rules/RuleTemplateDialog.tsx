@@ -105,7 +105,7 @@ function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
               >
                 <div className="flex items-center gap-2">
                   <span className="truncate text-body font-medium">{template.name}</span>
-                  <span className="shrink-0 rounded-sm bg-muted px-2 py-1 text-[10px] text-muted-foreground">
+                  <span className="shrink-0 rounded-md bg-muted px-2 py-1 text-[10px] text-muted-foreground">
                     {matchTypeLabel(template.matchType)}
                   </span>
                   <Badge
@@ -127,7 +127,7 @@ function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
                   {template.description}
                 </p>
                 <div className="flex items-center justify-between gap-2">
-                  <code className="truncate rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  <code className="truncate rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                     {template.pattern}
                   </code>
                   <Button

@@ -256,7 +256,7 @@ function createStyles(tk: AppThemeTokens) {
     searchRow: { marginHorizontal: rnSpacing.lg, marginTop: rnSpacing['sm-loose'] },
     searchInput: {
       height: 40,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -332,7 +332,7 @@ function createStyles(tk: AppThemeTokens) {
       marginLeft: 'auto',
       paddingHorizontal: rnSpacing.md,
       height: 28,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -428,7 +428,7 @@ function createStyles(tk: AppThemeTokens) {
     enterBtn: {
       marginTop: rnSpacing.lg,
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

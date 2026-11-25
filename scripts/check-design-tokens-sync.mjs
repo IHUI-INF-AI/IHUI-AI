@@ -201,7 +201,7 @@ function stripComments(text) {
 }
 
 // P1-C 扩展:匹配所有 design-tokens 变量(原仅 --color-)
-// --radius 可无后缀(--radius)或有后缀(--radius-sm),用 radius[\w-]* 覆盖两种
+// --radius 可无后缀(--radius)或有后缀(--radius-md),用 radius[\w-]* 覆盖两种
 // 其余 6 类均要求前缀+后缀:color-/chart-/font-/animate-/z-/shadow-
 const DESIGN_TOKEN_VAR_RE =
   /(--(?:radius[\w-]*|color-[\w-]+|chart-[\w-]+|font-[\w-]+|animate-[\w-]+|z-[\w-]+|shadow-[\w-]+))\s*:\s*([^;]+);/g

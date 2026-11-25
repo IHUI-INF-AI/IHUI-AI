@@ -247,7 +247,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       gap: rnSpacing.sm,
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     followBtnOn: {
@@ -271,7 +271,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       gap: rnSpacing.sm,
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,

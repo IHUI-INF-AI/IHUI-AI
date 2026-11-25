@@ -160,7 +160,7 @@ function CronSection({ items }: { items: CronJobItem[] }) {
                   </p>
                 </div>
                 {c.enabled && (
-                  <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-label text-primary">
+                  <span className="rounded-md bg-primary/10 px-2 py-0.5 text-label text-primary">
                     {t('enabled')}
                   </span>
                 )}

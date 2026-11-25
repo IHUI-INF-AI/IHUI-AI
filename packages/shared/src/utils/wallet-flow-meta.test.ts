@@ -16,12 +16,13 @@ describe('wallet-flow-meta 唯一表', () => {
     })
   })
 
-  it('1 扣减 / 2 过期 / 3 退款扣回 / 4 Relay 转账：负、金额、红', () => {
+  it('1 扣减 / 2 过期 / 3 退款扣回 / 4 Relay 转账 / 7 兑换积分：负、金额、红', () => {
     const cases: Array<[number, string, string]> = [
       [1, 'flowDeduct', 'deduct'],
       [2, 'flowExpire', 'expire'],
       [3, 'flowRefund', 'refund'],
       [4, 'flowRelayRecharge', 'relay'],
+      [7, 'flowPointsExchange', 'pointsExchange'],
     ]
     for (const [opType, labelKey, kind] of cases) {
       const meta = resolveWalletFlowMeta(opType, 100)
@@ -47,7 +48,7 @@ describe('wallet-flow-meta 唯一表', () => {
   })
 
   it('未知 opType：中性兜底，不默认收入/支出', () => {
-    for (const opType of [99, -1, 7]) {
+    for (const opType of [99, -1, 8]) {
       const meta = resolveWalletFlowMeta(opType, 100)
       expect(meta).toMatchObject({ labelKey: 'flowOther', sign: 'neutral', kind: 'other' })
       expect(meta.colorClass).toBe('text-muted-foreground')

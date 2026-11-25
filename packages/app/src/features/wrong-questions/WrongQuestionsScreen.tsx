@@ -369,7 +369,7 @@ function createStyles(tk: AppThemeTokens) {
     actionText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.secondary },
     moreBtn: {
       height: 40,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',

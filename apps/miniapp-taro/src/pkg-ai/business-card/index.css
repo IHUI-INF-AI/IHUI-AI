@@ -73,7 +73,7 @@
   background: transparent;
   color: var(--color-text-medium);
   font-size: var(--text-body);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: 2rpx solid var(--color-stroke-default);
 }
 .action-btn::after {

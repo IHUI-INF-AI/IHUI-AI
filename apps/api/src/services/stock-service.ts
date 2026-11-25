@@ -7,7 +7,7 @@
  * 迁移自旧架构 services/stock_analyse_service.py。
  *
  * 真实实现：
- * 1. Token 余额通过 token-balance-service 插件（server.tokenBalance）扣减
+ * 1. 调用前按 AI 积分做预检,成功后按真实 token 走 settleLlmPointsUsage 结算
  * 2. AI 模型调用走 OpenAI 兼容 API（STOCK_API_KEY / STOCK_API_BASE / STOCK_MODEL_ID）
  * 3. 分析记录持久化到 stock_analyses 表
  */
@@ -16,7 +16,9 @@ import { and, count, desc, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { stockAnalyses } from '@ihui/database'
 import type { TokenBalanceService } from '../plugins/token-balance-service.js'
-import { resolveAiCost } from '../plugins/ai-cost.js'
+import { resolveAiCost, recordAiCost } from '../plugins/ai-cost.js'
+import { getSpendableBalance } from './daily-credits.js'
+import { quoteLlmPoints, settleLlmPointsUsage } from './ai-points-billing.js'
 import { degradedMode, getBulkhead } from '../plugins/resilience-extended.js'
 import { logger } from '../utils/logger.js'
 
@@ -24,7 +26,7 @@ export interface StockAnalysisRequest {
   symbol: string
   question: string
   conversationId?: string
-  /** 用户 ID，用于 Token 扣费与历史归属 */
+  /** 用户 ID，用于 AI 积分结算与历史归属 */
   userId?: string
 }
 
@@ -39,8 +41,11 @@ export interface StockAnalysisResult {
 }
 
 export interface TokenBalance {
-  total: number
-  used: number
+  /** 永久积分(充值/兑换/奖励,不随日界变化) */
+  permanent: number
+  /** 今日赠送剩余(当天有效) */
+  daily: number
+  /** 当前可用积分 = permanent + daily */
   remaining: number
 }
 
@@ -156,43 +161,19 @@ function fallbackAnalysis(
 // ---------------------------------------------------------------------------
 
 /**
- * 查询 Token 余额。
- * 传入 tokenBalance 服务与 userId 时从服务读取真实余额；否则返回默认值。
+ * 查询 Stock 分析可用余额。
+ * 2026-11-26 起返回 AI 积分余额(永久 + 当日赠送),不再返回钱包分。
  */
 export async function getTokenBalance(
-  tokenBalance?: TokenBalanceService,
+  _tokenBalance?: TokenBalanceService,
   userId?: string,
 ): Promise<TokenBalance> {
-  if (tokenBalance && userId) {
-    try {
-      const info = await tokenBalance.getBalance(userId)
-      return {
-        total: info.monthlyQuota,
-        used: Math.max(0, info.monthlyQuota - info.balance),
-        remaining: info.balance,
-      }
-    } catch {
-      // 查询失败降级返回默认
-    }
-  }
-  return { total: 10000, used: 0, remaining: 10000 }
-}
-
-/**
- * 校验 Token 余额是否充足。
- * 未传入服务或 userId 时不拦截（降级放行）。
- */
-export async function checkTokenBalance(
-  required: number,
-  tokenBalance?: TokenBalanceService,
-  userId?: string,
-): Promise<boolean> {
-  if (!tokenBalance || !userId) return true
-  try {
-    const info = await tokenBalance.getBalance(userId)
-    return info.balance >= required
-  } catch {
-    return true
+  if (!userId) return { permanent: 0, daily: 0, remaining: 0 }
+  const balance = await getSpendableBalance(userId)
+  return {
+    permanent: balance.permanent,
+    daily: balance.daily,
+    remaining: balance.available,
   }
 }
 
@@ -233,7 +214,7 @@ async function persistAnalysis(
  */
 export async function executeStockAnalysis(
   req: StockAnalysisRequest,
-  tokenBalance?: TokenBalanceService,
+  _tokenBalance?: TokenBalanceService,
 ): Promise<StockAnalysisResult> {
   const cfg = getStockAIConfig()
   const isConfigured = !!cfg.apiKey && !!process.env.STOCK_API_BASE
@@ -251,52 +232,31 @@ export async function executeStockAnalysis(
     }
   }
 
-  // F-203(口径 B):钱包单位是分,不能拿 token 估算数直接扣。
-  // 预估按 prompt 侧 token 折算成成本(分);预扣与失败退还都用这个分金额。
-  const estimatedTokens = Math.ceil(req.question.length / 4) + 800 // 输入 + 输出估算
-  const estimated = await resolveAiCost({
-    model: cfg.modelId,
-    promptTokens: estimatedTokens,
-    completionTokens: 0,
+  // 2026-11-26: Stock 分析只扣 AI 积分,不再预扣钱包。
+  // 预估按输入 + 固定输出上限折算积分;模型免费(0 倍率)时直接放行。
+  const inputTokens = Math.ceil(req.question.length / 4)
+  const estimatedCompletionTokens = 800
+  const quote = await quoteLlmPoints({
+    modelId: cfg.modelId,
+    promptTokens: inputTokens,
+    completionTokens: estimatedCompletionTokens,
   })
-  const estimatedCents = Math.ceil(estimated.cost)
-
-  // 1. 余额校验 + 预扣(单位:分)
-  if (tokenBalance && req.userId && estimatedCents > 0) {
-    const ok = await checkTokenBalance(estimatedCents, tokenBalance, req.userId)
-    if (!ok) {
-      const info = await tokenBalance.getBalance(req.userId).catch(() => ({ balance: 0 }))
-      throw new Error(`余额不足: 需要 ${estimatedCents} 分, 剩余 ${info.balance} 分`)
-    }
-    const deduct = await tokenBalance.deductTokens(
-      req.userId,
-      estimatedCents,
-      `stock_analysis:${req.symbol}`,
-    )
-    if (!deduct.success) {
-      throw new Error(`扣费失败: 余额不足, 剩余 ${deduct.remaining} 分`)
+  if (req.userId && quote.points > 0) {
+    const balance = await getSpendableBalance(req.userId)
+    if (balance.available < quote.points) {
+      throw new Error(`积分不足: 需要 ${quote.points} 积分, 剩余 ${balance.available} 积分`)
     }
   }
 
   // 2. 调用真实 AI 模型（调用失败时降级为本地分析；Bulkhead 限制并发）
-  // P1 资金链路修复(2026-08-02 Bug A7):AI 失败降级到本地分析,但 token 已扣减不退还,
-  // 导致用户付费却没拿到 AI 结果。在 onError 回调中退还 token(fire-and-forget,
-  // 退款失败只记日志不阻断主流程)。degradedMode 不 await onError,但退款会被触发。
+  // 降级为本地分析时上游没有产生 AI 成本,不扣积分、不记成本。
+  let degraded = false
   const ai = await degradedMode(
     () => getBulkhead('stock-ai', 5, 20).execute(() => callStockAIModel(req.symbol, req.question)),
     fallbackAnalysis(req.symbol, req.question),
     (err) => {
+      degraded = true
       logger.error('[stock-service] AI 模型调用失败, 降级为本地分析', { error: err.message })
-      // AI 失败退还已预扣的分;幂等键含 symbol + 时间戳,rechargeTokens 内部 unique 索引兜底
-      if (tokenBalance && req.userId && estimatedCents > 0) {
-        const refundReason = `stock_refund:${req.symbol}:${Date.now()}`
-        tokenBalance.rechargeTokens(req.userId, estimatedCents, refundReason).catch((refundErr) =>
-          logger.error('[stock-service] 预扣退还失败', {
-            userId: req.userId,
-            error: (refundErr as Error).message,
-          }),
-        )
-      }
     },
   )
 
@@ -308,7 +268,52 @@ export async function executeStockAnalysis(
     createdAt: new Date(),
   }
 
-  // 3. DB 持久化（失败不影响返回）
+  // 3. 两本账分开:用户积分按倍率扣;平台成本按真实价格记 ai_cost_records。
+  if (!degraded && req.userId && ai.tokensUsed > 0) {
+    const completionTokens = Math.max(0, ai.tokensUsed - inputTokens)
+    try {
+      const settlement = await settleLlmPointsUsage({
+        userId: req.userId,
+        modelId: cfg.modelId,
+        promptTokens: inputTokens,
+        completionTokens,
+        source: 'stock_analysis',
+        description: `Stock ${req.symbol}`,
+      })
+      if (settlement.shortfall > 0) {
+        logger.warn('[stock-service] 积分不足,已部分扣费', {
+          userId: req.userId,
+          points: settlement.quote.points,
+          deducted: settlement.deducted,
+        })
+      }
+    } catch (err) {
+      logger.error('[stock-service] 积分结算失败', { error: (err as Error).message })
+    }
+
+    try {
+      const actual = await resolveAiCost({
+        model: cfg.modelId,
+        promptTokens: inputTokens,
+        completionTokens,
+      })
+      await recordAiCost({
+        userId: req.userId,
+        model: cfg.modelId,
+        provider: 'stock',
+        promptTokens: inputTokens,
+        completionTokens,
+        totalTokens: ai.tokensUsed,
+        requestType: 'stock_analysis',
+        cost: Math.ceil(actual.cost),
+        currency: actual.currency,
+      })
+    } catch (err) {
+      logger.error('[stock-service] AI 成本记账失败', { error: (err as Error).message })
+    }
+  }
+
+  // 4. DB 持久化（失败不影响返回）
   await persistAnalysis(req, result, cfg.modelId)
 
   return result

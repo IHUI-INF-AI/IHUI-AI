@@ -104,7 +104,7 @@ export function LinkPreviewCard({
         type="button"
         onClick={onDismiss}
         aria-label={t('dismiss')}
-        className="shrink-0 rounded-sm p-0.5 text-muted-foreground/60 transition-colors hover:text-foreground"
+        className="shrink-0 rounded-md p-0.5 text-muted-foreground/60 transition-colors hover:text-foreground"
       >
         <X className="h-3.5 w-3.5" aria-hidden />
       </button>

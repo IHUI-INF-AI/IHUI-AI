@@ -475,7 +475,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 160, // rpx(320)
       minWidth: 100, // rpx(200)
       minHeight: 100, // rpx(200)
-      borderRadius: rnRadius.sm, // 历史 8rpx
+      borderRadius: rnRadius.md, // 历史 8rpx
       backgroundColor: tk.gray[100],
     },
     mediaRow: {

@@ -185,7 +185,7 @@
   background: var(--color-cta);
   color: var(--color-cta-foreground);
   font-size: var(--text-title);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;

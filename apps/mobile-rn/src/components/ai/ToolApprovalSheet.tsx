@@ -691,7 +691,7 @@ const styles = StyleSheet.create({
   scopeOption: {
     paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(10),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -699,7 +699,7 @@ const styles = StyleSheet.create({
   scopeOptionActive: {
     paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(10),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.muted,
@@ -720,13 +720,13 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     gap: rpx(8),
   },
-  // 输入控件档 = rnRadius.sm;常态描边取 border.light(墨档只允许出现在聚焦态,
+  // 输入控件档 = rnRadius.md;常态描边取 border.light(墨档只允许出现在聚焦态,
   // 而聚焦态由 @ihui/rn-app 的 TextField 内部给出,端内不再手写第二份聚焦状态)
   reasonInput: {
     minHeight: rpx(88),
     paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(10),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.inputBg,
@@ -743,7 +743,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: rpx(22),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.light,
   },
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: rpx(22),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
   },
   approveText: {

@@ -149,7 +149,7 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
             {(Object.keys(STATUS_COLOR) as TaskStatus[]).map((s) => (
               <span key={s} className="flex items-center gap-1">
-                <span className={cn('h-2 w-2 rounded-sm', STATUS_COLOR[s])} />
+                <span className={cn('h-2 w-2 rounded-md', STATUS_COLOR[s])} />
                 {t(`calendar.${s}` as never)}
               </span>
             ))}
@@ -203,12 +203,12 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
                       draggable
                       onDragStart={() => setDraggedId(task.id)}
                       className={cn(
-                        'flex items-center gap-1 truncate rounded-sm bg-muted/40 px-1 py-0.5 text-[9px]',
+                        'flex items-center gap-1 truncate rounded-md bg-muted/40 px-1 py-0.5 text-[9px]',
                         STATUS_BADGE[task.status],
                       )}
                     >
                       <span
-                        className={cn('h-1.5 w-1.5 shrink-0 rounded-sm', STATUS_COLOR[task.status])}
+                        className={cn('h-1.5 w-1.5 shrink-0 rounded-md', STATUS_COLOR[task.status])}
                       />
                       <span className="truncate">{task.title}</span>
                     </div>

@@ -213,7 +213,7 @@ export function InputStatusSlot({
             data-testid="input-status-slot-badge"
             aria-label={t('statusSlot.moreNotices', { count: others.length })}
             onClick={() => setPanelOpen((v) => !v)}
-            className="inline-flex h-4 min-w-4 items-center justify-center rounded-sm bg-muted px-1 text-[10px] font-semibold leading-none text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-muted px-1 text-[10px] font-semibold leading-none text-muted-foreground transition-colors hover:text-foreground"
           >
             +{others.length}
           </button>

@@ -328,7 +328,7 @@ export default function PageClient({
                     variant="primary"
                     disabled={busy || !folderRoot.trim()}
                     onClick={() => void addFolder()}
-                    className="font-[weight:inherit] rounded-sm px-3 py-2 text-body"
+                    className="font-[weight:inherit] rounded-md px-3 py-2 text-body"
                   >
                     {t('registerFolder')}
                   </Button>
@@ -336,7 +336,7 @@ export default function PageClient({
                     variant="outline"
                     disabled={busy || !(folders?.folders.length ?? 0)}
                     onClick={() => void scanAllFolders()}
-                    className="font-[weight:inherit] rounded-sm px-3 py-2 text-body transition-colors hover:bg-accent"
+                    className="font-[weight:inherit] rounded-md px-3 py-2 text-body transition-colors hover:bg-accent"
                   >
                     {t('scanFolders')}
                   </Button>
@@ -384,7 +384,7 @@ export default function PageClient({
                           variant={watching ? 'primary' : 'outline'}
                           disabled={busy}
                           onClick={() => void toggleWatch(folder.root, !watching)}
-                          className="font-[weight:inherit] rounded-sm px-2 py-0.5 text-label transition-colors hover:bg-accent"
+                          className="font-[weight:inherit] rounded-md px-2 py-0.5 text-label transition-colors hover:bg-accent"
                         >
                           {t('watchFolder')}
                         </Button>
@@ -392,7 +392,7 @@ export default function PageClient({
                           variant="outline"
                           disabled={busy}
                           onClick={() => void removeFolder(folder.root)}
-                          className="font-[weight:inherit] rounded-sm px-2 py-0.5 text-label transition-colors hover:bg-accent"
+                          className="font-[weight:inherit] rounded-md px-2 py-0.5 text-label transition-colors hover:bg-accent"
                         >
                           {t('removeFolder')}
                         </Button>
@@ -431,7 +431,7 @@ export default function PageClient({
               variant="primary"
               disabled={busy || !docPath.trim() || !docContent.trim()}
               onClick={() => void addDocument()}
-              className="font-[weight:inherit] rounded-sm px-3 py-2 text-body"
+              className="font-[weight:inherit] rounded-md px-3 py-2 text-body"
             >
               {t('add')}
             </Button>
@@ -439,7 +439,7 @@ export default function PageClient({
               variant="outline"
               disabled={busy || !docPath.trim()}
               onClick={() => void removeDocument()}
-              className="font-[weight:inherit] rounded-sm px-3 py-2 text-body transition-colors hover:bg-accent"
+              className="font-[weight:inherit] rounded-md px-3 py-2 text-body transition-colors hover:bg-accent"
             >
               {t('remove')}
             </Button>
@@ -466,7 +466,7 @@ export default function PageClient({
                   type="button"
                   aria-pressed={extFilter === key}
                   onClick={() => setExtFilter(key)}
-                  className={`font-[weight:inherit] rounded-sm border px-2 py-1 text-label transition-colors ${
+                  className={`font-[weight:inherit] rounded-md border px-2 py-1 text-label transition-colors ${
                     extFilter === key
                       ? 'border-stroke-selected bg-cta text-cta-foreground'
                       : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -480,7 +480,7 @@ export default function PageClient({
               variant={mode === 'quick' ? 'primary' : 'outline'}
               disabled={busy || !query.trim()}
               onClick={() => void runQuick()}
-              className="font-[weight:inherit] rounded-sm px-3 py-1.5 text-body transition-colors hover:bg-accent"
+              className="font-[weight:inherit] rounded-md px-3 py-1.5 text-body transition-colors hover:bg-accent"
             >
               {t('quick')}
             </Button>
@@ -488,7 +488,7 @@ export default function PageClient({
               variant={mode === 'deep' ? 'primary' : 'outline'}
               disabled={busy || !query.trim()}
               onClick={() => void runDeep()}
-              className="font-[weight:inherit] rounded-sm px-3 py-1.5 text-body transition-colors hover:bg-accent"
+              className="font-[weight:inherit] rounded-md px-3 py-1.5 text-body transition-colors hover:bg-accent"
             >
               {t('deep')}
             </Button>
@@ -496,7 +496,7 @@ export default function PageClient({
               variant="outline"
               disabled={busy || !deep?.results.length}
               onClick={() => void runFuse()}
-              className="font-[weight:inherit] rounded-sm px-3 py-1.5 text-body transition-colors hover:bg-accent"
+              className="font-[weight:inherit] rounded-md px-3 py-1.5 text-body transition-colors hover:bg-accent"
             >
               {t('fuse')}
             </Button>

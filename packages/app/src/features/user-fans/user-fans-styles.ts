@@ -65,7 +65,7 @@ export function createUserFansStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       height: 32,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     btnDisabled: { opacity: 0.5 },
@@ -76,7 +76,7 @@ export function createUserFansStyles(tk: AppThemeTokens) {
     },
     moreBtn: {
       height: 40,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',

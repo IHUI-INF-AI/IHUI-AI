@@ -447,7 +447,7 @@ function createStyles(tokens: AppThemeTokens) {
     removeButton: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.muted,
     },
     removeText: {

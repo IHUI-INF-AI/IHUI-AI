@@ -256,7 +256,7 @@ export default function VideoPage() {
             {t(currentVendor.descKey)}
           </Text>
           <FocusTextarea
-            className="w-full min-h-[192rpx] p-[24rpx] text-label bg-transparent border border-border rounded-sm box-border"
+            className="w-full min-h-[192rpx] p-[24rpx] text-label bg-transparent border border-border rounded-md box-border"
             placeholder={t('ai.video.promptPlaceholder')}
             maxlength={500}
             value={prompt}
@@ -288,7 +288,7 @@ export default function VideoPage() {
             ))}
           </View>
           <Button
-            className="mt-[24rpx] w-full h-[88rpx] leading-[88rpx] rounded-sm text-label font-medium bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] disabled:opacity-60"
+            className="mt-[24rpx] w-full h-[88rpx] leading-[88rpx] rounded-md text-label font-medium bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] disabled:opacity-60"
             disabled={!prompt || status === 'pending' || status === 'running'}
             onClick={onGenerate}
           >
@@ -311,13 +311,13 @@ export default function VideoPage() {
             {resultUrl ? (
               <View className="flex gap-[16rpx] mt-[24rpx]">
                 <Button
-                  className="flex-1 h-[80rpx] leading-[80rpx] text-label rounded-sm border border-border bg-transparent text-muted-foreground"
+                  className="flex-1 h-[80rpx] leading-[80rpx] text-label rounded-md border border-border bg-transparent text-muted-foreground"
                   onClick={onDownload}
                 >
                   {t('ai.video.download')}
                 </Button>
                 <Button
-                  className="flex-1 h-[80rpx] leading-[80rpx] text-label rounded-sm border border-border bg-transparent text-muted-foreground"
+                  className="flex-1 h-[80rpx] leading-[80rpx] text-label rounded-md border border-border bg-transparent text-muted-foreground"
                   onClick={onShare}
                   openType="share"
                 >

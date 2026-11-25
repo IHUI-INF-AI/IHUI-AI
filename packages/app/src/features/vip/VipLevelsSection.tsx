@@ -155,7 +155,7 @@ function createStyles(tk: AppThemeTokens) {
     purchaseBtn: {
       marginTop: rnSpacing.md,
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: VIP_GOLD,
       alignItems: 'center',
       justifyContent: 'center',

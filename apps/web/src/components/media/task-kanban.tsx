@@ -214,7 +214,7 @@ function TaskKanbanCard({
         <img
           src={toMediaImageUrl(imageThumb)}
           alt={task.message || 'media'}
-          className="max-h-24 w-full rounded-sm border border-stroke-subtle object-cover"
+          className="max-h-24 w-full rounded-md border border-stroke-subtle object-cover"
         />
       )}
       {!imageThumb && urls.video_url && (
@@ -234,7 +234,7 @@ function TaskKanbanCard({
         {canJump && (
           <Link
             href={`/chat?conversationId=${encodeURIComponent(task.chat_id!)}`}
-            className="inline-flex items-center gap-1 rounded-sm border border-stroke-subtle px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-md border border-stroke-subtle px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
             data-testid={`kanban-jump-${task.task_id || task.id}`}
           >
             <ExternalLink className="h-2.5 w-2.5" />
@@ -247,7 +247,7 @@ function TaskKanbanCard({
             type="button"
             onClick={() => onCancel(task.task_id)}
             disabled={cancelling}
-            className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
             data-testid={`kanban-cancel-${task.task_id || task.id}`}
           >
             {cancelling ? (
@@ -263,7 +263,7 @@ function TaskKanbanCard({
           onClick={() => onDelete(task.task_id)}
           disabled={deleting}
           aria-label={t('delete')}
-          className="inline-flex items-center rounded-sm p-0.5 text-muted-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+          className="inline-flex items-center rounded-md p-0.5 text-muted-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
           data-testid={`kanban-delete-${task.task_id || task.id}`}
         >
           {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}

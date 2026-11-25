@@ -156,7 +156,7 @@ function createStyles(tk: AppThemeTokens) {
     actions: { gap: rnSpacing['sm-loose'] } as ViewStyle,
     primaryBtn: {
       backgroundColor: tk.brand.cta,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingVertical: rnSpacing['md-loose'],
       alignItems: 'center',
     } as ViewStyle,
@@ -166,7 +166,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.brand.ctaForeground,
     } as TextStyle,
     secondaryBtn: {
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingVertical: rnSpacing.md,
       alignItems: 'center',
       backgroundColor: tk.surface.card,

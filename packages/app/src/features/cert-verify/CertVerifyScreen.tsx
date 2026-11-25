@@ -112,7 +112,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: rnType.title.size,
@@ -122,7 +122,7 @@ function createStyles(tk: AppThemeTokens) {
     verifyBtn: {
       marginTop: rnSpacing.lg,
       paddingVertical: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },

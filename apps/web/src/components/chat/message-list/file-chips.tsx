@@ -151,8 +151,8 @@ export function MessageFileChips({ toolCalls }: MessageFileChipsProps) {
             aria-label={ref.action ? `${actionText[ref.action]} ${ref.path}` : ref.path}
             data-testid={`file-chip-${ref.name}`}
             className={cn(
-              // 圆角/内距与 StreamTag 同档(rounded-sm + px-1 py-px + 11px + leading-none)
-              'inline-flex max-w-full items-center gap-1 rounded-sm border border-stroke-subtle px-1 py-px',
+              // 圆角/内距与 StreamTag 同档(rounded-md + px-1 py-px + 11px + leading-none)
+              'inline-flex max-w-full items-center gap-1 rounded-md border border-stroke-subtle px-1 py-px',
               'text-[11px] leading-none transition-colors hover:bg-muted/60',
             )}
           >

@@ -1,20 +1,16 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
-// F-203 夹具(口径 B:按真实成本折算后扣费)。
+// F-203 / 2026-11-26:Crew 子 LLM 只扣 AI 积分,钱包不再直接支付 AI 调用。
 //
-// 钱包 user_margins.token_quantity 的单位是「分」。一条 5000 token 的回复不能扣 5000 分(¥50),
-// 必须先经 ai_pricing(分/千 token)折算成成本,再扣同一个数进钱包与 ai_cost_records。
+// 两本账分开:
+// - 用户积分按模型倍率扣(user_points);
+// - 平台真实成本按 ai_pricing 记 ai_cost_records。
 //
-// 本夹具 mock 定价: prompt 300 分/千 token、completion 600 分/千 token。
-// 改前(把 token 当分):usage 100 ⇒ 扣 100 分;改后:usage 100(40/60) ⇒ 48 分。
+// 本夹具 mock 倍率结算:100 token ⇒ 50 积分,150 ⇒ 75,50 ⇒ 25。
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const store = vi.hoisted(() => ({
-  wallet: 0,
-  flows: [] as Array<{ amount: number; balanceAfter: number }>,
+  points: 0,
+  settlements: [] as Array<{ points: number; deducted: number; remaining: number; shortfall: number }>,
   costs: [] as Array<{
     userId: string
     totalTokens: number
@@ -29,68 +25,16 @@ const mocks = vi.hoisted(() => ({
   aiServiceFetch: vi.fn(),
   resolveAiCost: vi.fn(),
   recordAiCost: vi.fn(),
+  getSpendableBalance: vi.fn(),
+  quoteLlmPoints: vi.fn(),
+  settleLlmPointsUsage: vi.fn(),
 }))
-
-const selectChain = () => {
-  const rows = [{ tokenQuantity: store.wallet }]
-  const p = Promise.resolve(rows)
-  const chain: Record<string, unknown> = {}
-  chain.from = () => chain
-  chain.where = () => chain
-  // 同时支持 await limit(1) 与 limit(1).for('update')(settleWalletUsage 走行锁)
-  chain.limit = () => ({ then: p.then.bind(p), for: () => p })
-  return chain
-}
-
-const TX = {
-  select: selectChain,
-  update: () => ({
-    set: (values: Record<string, unknown>) => ({
-      where: () => ({
-        returning: async () => {
-          const vals = (values.tokenQuantity as { vals?: unknown[] } | undefined)?.vals ?? []
-          const amount = Number(vals.find((v) => typeof v === 'number') ?? 0)
-          if (store.wallet < amount) return []
-          store.wallet -= amount
-          return [{ tokenQuantity: store.wallet }]
-        },
-      }),
-    }),
-  }),
-  execute: (q: { vals?: unknown[] }) => {
-    const nums = (q.vals ?? []).filter((v): v is number => typeof v === 'number')
-    // op_type=1 是模板字面量,占位参数顺序: userId, quantity, balanceAfter, remark, relatedOrderNo
-    store.flows.push({ amount: nums[0] ?? 0, balanceAfter: nums[1] ?? 0 })
-    return Promise.resolve([])
-  },
-}
 
 vi.mock('../src/db/index.js', () => ({
   registerPoolTrackerCleanup: vi.fn(),
-  db: {
-    transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(TX),
-    select: TX.select,
-    update: TX.update,
-    execute: TX.execute,
-  },
-  dbRead: { select: TX.select, execute: TX.execute },
+  db: {},
+  dbRead: {},
 }))
-
-vi.mock('@ihui/database', () => ({
-  userMargins: 'userMargins',
-  users: 'users',
-  tokenFlows: 'tokenFlows',
-}))
-
-vi.mock('drizzle-orm', () => ({
-  sql: Object.assign(
-    (strings: TemplateStringsArray, ...vals: unknown[]) => ({ sql: strings.join('?'), vals }),
-    { raw: (s: string) => s },
-  ),
-  and: (...xs: unknown[]) => ({ op: 'and', xs }),
-  eq: (col: unknown, val: unknown) => ({ op: 'eq', col, val }),
-}))
-
 vi.mock('../src/config/index.js', () => ({
   config: { AI_SERVICE_URL: 'http://ai-service:8000' },
 }))
@@ -101,6 +45,13 @@ vi.mock('../src/utils/ai-service-fetch.js', () => ({ aiServiceFetch: mocks.aiSer
 vi.mock('../src/plugins/ai-cost.js', () => ({
   resolveAiCost: mocks.resolveAiCost,
   recordAiCost: mocks.recordAiCost,
+}))
+vi.mock('../src/services/daily-credits.js', () => ({
+  getSpendableBalance: mocks.getSpendableBalance,
+}))
+vi.mock('../src/services/ai-points-billing.js', () => ({
+  quoteLlmPoints: mocks.quoteLlmPoints,
+  settleLlmPointsUsage: mocks.settleLlmPointsUsage,
 }))
 vi.mock('../src/services/clawdbot/logger.js', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -116,11 +67,10 @@ vi.mock('../src/utils/response.js', () => ({ success: (data: unknown) => ({ data
 const { callRealLlm } = await import('../src/services/crew-llm-adapter.js')
 
 beforeEach(() => {
-  store.wallet = 1000
-  store.flows.length = 0
+  store.points = 1000
+  store.settlements.length = 0
   store.costs.length = 0
   store.usageQueue = [100, 150, 50]
-  // 定价:prompt 300 分/千 token,completion 600 分/千 token
   mocks.resolveAiCost.mockReset()
   mocks.resolveAiCost.mockImplementation(
     async (input: { promptTokens: number; completionTokens: number }) => ({
@@ -134,6 +84,35 @@ beforeEach(() => {
     store.costs.push(input)
     return { cost: input.cost ?? 0, currency: 'CNY' }
   })
+  mocks.getSpendableBalance.mockReset().mockImplementation(async () => ({
+    permanent: store.points,
+    daily: 0,
+    available: store.points,
+  }))
+  mocks.quoteLlmPoints.mockReset().mockImplementation(
+    async (input: { promptTokens: number; completionTokens: number }) => ({
+      promptTokens: input.promptTokens,
+      completionTokens: input.completionTokens,
+      totalTokens: input.promptTokens + input.completionTokens,
+      multiplier: 10,
+      points: Math.ceil((input.promptTokens + input.completionTokens) / 2),
+    }),
+  )
+  mocks.settleLlmPointsUsage.mockReset().mockImplementation(
+    async (input: { promptTokens: number; completionTokens: number }) => {
+      const quote = await mocks.quoteLlmPoints(input)
+      const deducted = Math.min(store.points, quote.points)
+      const shortfall = quote.points - deducted
+      store.points -= deducted
+      store.settlements.push({
+        points: quote.points,
+        deducted,
+        remaining: store.points,
+        shortfall,
+      })
+      return { deducted, remaining: store.points, shortfall, alreadySettled: false, quote }
+    },
+  )
   mocks.aiServiceFetch.mockReset()
   mocks.aiServiceFetch.mockImplementation(async () => ({
     ok: true,
@@ -149,8 +128,8 @@ beforeEach(() => {
   }))
 })
 
-describe('F-203 Crew 子 LLM 计费(按成本折算,单位分)', () => {
-  it('3 次调用:按 ai_pricing 折算成本扣钱包,流水与 ai_cost_records 同一个数', async () => {
+describe('Crew 子 LLM 积分计费', () => {
+  it('3 次调用按倍率扣积分,平台成本记 ai_cost_records', async () => {
     for (let i = 0; i < 3; i++) {
       await callRealLlm({
         messages: [{ role: 'user', content: `第${i}次` }],
@@ -159,37 +138,35 @@ describe('F-203 Crew 子 LLM 计费(按成本折算,单位分)', () => {
       })
     }
 
-    // 100/150/50 token ⇒ 48/72/24 分(不再是 100/150/50)
-    expect(store.flows.map((f) => f.amount)).toEqual([48, 72, 24])
-    expect(store.flows.map((f) => f.balanceAfter)).toEqual([952, 880, 856])
-    expect(store.wallet).toBe(856)
-    // 扣费与账本同源:钱包扣的 == ai_cost_records.cost
+    expect(store.settlements.map((s) => s.points)).toEqual([50, 75, 25])
+    expect(store.settlements.map((s) => s.remaining)).toEqual([950, 875, 850])
+    expect(store.points).toBe(850)
+    // 平台成本与用户积分不是同一个数
     expect(store.costs.map((c) => c.cost)).toEqual([48, 72, 24])
-    expect(store.costs.map((c) => c.cost)).toEqual(store.flows.map((f) => f.amount))
     expect(store.costs.map((c) => c.totalTokens)).toEqual([100, 150, 50])
-    expect(store.costs.map((c) => JSON.parse(c.metadata!).billing.billingShortfallCents)).toEqual([
+    expect(store.costs.map((c) => JSON.parse(c.metadata!).billing.billingShortfallPoints)).toEqual([
       0, 0, 0,
     ])
   })
 
-  it('零余额:预检 402,不发起上游调用、不落成本/流水', async () => {
-    store.wallet = 0
+  it('零积分:预检 402,不发起上游调用、不落成本', async () => {
+    store.points = 0
 
     await expect(
       callRealLlm({
-        messages: [{ role: 'user', content: '零余额' }],
+        messages: [{ role: 'user', content: '零积分' }],
         userId: 'u1',
         sessionId: 's1',
       }),
-    ).rejects.toMatchObject({ statusCode: 402, errorCode: 'INSUFFICIENT_BALANCE' })
+    ).rejects.toMatchObject({ statusCode: 402, errorCode: 'INSUFFICIENT_POINTS' })
 
     expect(mocks.aiServiceFetch).not.toHaveBeenCalled()
     expect(store.costs).toHaveLength(0)
-    expect(store.flows).toHaveLength(0)
+    expect(store.settlements).toHaveLength(0)
   })
 
-  it('余额 > 0 但低于预估成本:同样 402(阈值是预估成本,不是 > 0)', async () => {
-    store.wallet = 10 // 预估:100 个中文字 ≈ 100 token ⇒ 30 分
+  it('积分低于预估:同样 402(阈值是预估积分,不是 > 0)', async () => {
+    store.points = 10
     const longMessage = '长'.repeat(100)
 
     await expect(
@@ -198,15 +175,15 @@ describe('F-203 Crew 子 LLM 计费(按成本折算,单位分)', () => {
         userId: 'u1',
         sessionId: 's1',
       }),
-    ).rejects.toMatchObject({ statusCode: 402, errorCode: 'INSUFFICIENT_BALANCE' })
+    ).rejects.toMatchObject({ statusCode: 402, errorCode: 'INSUFFICIENT_POINTS' })
 
     expect(mocks.aiServiceFetch).not.toHaveBeenCalled()
-    expect(store.wallet).toBe(10)
+    expect(store.points).toBe(10)
   })
 
-  it('运行中耗尽:按成本扣到 0,欠额入 ai_cost_records,后续被预检拒绝', async () => {
-    store.wallet = 20
-    store.usageQueue = [100] // 实际成本 48 分 > 余额 20 分
+  it('运行中积分耗尽:扣到 0,欠额入 ai_cost_records,后续被预检拒绝', async () => {
+    store.points = 20
+    store.usageQueue = [100]
 
     const first = await callRealLlm({
       messages: [{ role: 'user', content: '刚够一半' }],
@@ -215,30 +192,29 @@ describe('F-203 Crew 子 LLM 计费(按成本折算,单位分)', () => {
     })
 
     expect(first.content).toBe('ok')
-    expect(store.wallet).toBe(0)
-    expect(store.flows).toEqual([{ amount: 20, balanceAfter: 0 }])
-
-    // 欠额不是只打日志:整笔成本与差额都在可审计的成本记录里
+    expect(store.points).toBe(0)
+    expect(store.settlements).toEqual([
+      { points: 50, deducted: 20, remaining: 0, shortfall: 30 },
+    ])
     expect(store.costs).toHaveLength(1)
     expect(store.costs[0]!.cost).toBe(48)
     const meta = JSON.parse(store.costs[0]!.metadata!)
     expect(meta.sessionId).toBe('s1')
     expect(meta.billing).toEqual({
-      walletDeductedCents: 20,
-      walletBalanceAfterCents: 0,
-      billingShortfallCents: 28,
+      pointsDeducted: 20,
+      pointsBalanceAfter: 0,
+      billingShortfallPoints: 30,
+      pointsQuote: 50,
+      pointsMultiplier: 10,
     })
 
-    // 第二次:余额 0,预检 402,上游调用数仍为 1
-    store.usageQueue = [10]
     await expect(
       callRealLlm({
         messages: [{ role: 'user', content: '再来一次' }],
         userId: 'u1',
         sessionId: 's1',
       }),
-    ).rejects.toMatchObject({ statusCode: 402, errorCode: 'INSUFFICIENT_BALANCE' })
+    ).rejects.toMatchObject({ statusCode: 402, errorCode: 'INSUFFICIENT_POINTS' })
     expect(mocks.aiServiceFetch).toHaveBeenCalledTimes(1)
   })
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

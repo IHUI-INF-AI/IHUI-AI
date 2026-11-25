@@ -73,7 +73,7 @@ export default function AgreementPage() {
             key={tab.key}
             onClick={() => setActiveType(tab.key)}
             className={cn(
-              'flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
+              'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-body font-medium transition-colors',
               activeType === tab.key
                 ? 'bg-background text-foreground shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground',

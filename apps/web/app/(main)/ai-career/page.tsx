@@ -143,7 +143,7 @@ export default function AICareerPage() {
           key={opt}
           type="button"
           onClick={() => onChange(opt)}
-          className={`rounded-sm border px-3 py-1.5 text-body transition-colors ${
+          className={`rounded-md border px-3 py-1.5 text-body transition-colors ${
             value === opt
               ? 'border-brand-accent-deep bg-cta text-cta-foreground'
               : 'border-border hover:bg-muted'

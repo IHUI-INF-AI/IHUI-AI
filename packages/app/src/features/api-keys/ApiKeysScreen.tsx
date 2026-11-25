@@ -474,7 +474,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       height: 42,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       color: tk.text.primary,
@@ -512,7 +512,7 @@ function createStyles(tk: AppThemeTokens) {
     permTextOn: { color: tk.brandAccent.foreground, fontWeight: '600' },
     button: {
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -527,7 +527,7 @@ function createStyles(tk: AppThemeTokens) {
     outlineButton: {
       height: 36,
       paddingHorizontal: rnSpacing.lg,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',
@@ -538,7 +538,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['sm-loose'],
       paddingHorizontal: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.bg,
     },
     rowHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
@@ -588,7 +588,7 @@ function createStyles(tk: AppThemeTokens) {
     usageBox: {
       marginTop: rnSpacing.xs,
       padding: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -606,7 +606,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       paddingVertical: rnSpacing['xs-loose'],
       paddingHorizontal: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.bg,
     },
     secretRow: { flexDirection: 'row', gap: rnSpacing.sm },

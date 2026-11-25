@@ -62,7 +62,7 @@ export const ROLE_STEMS = {
       'radio',
       'fab',
     ],
-    evidence: 'Button / IconButton / SearchInput / Switch / 悬浮 FAB —— 控件档 sm',
+    evidence: 'Button / IconButton / SearchInput / Switch / 悬浮 FAB —— 控件档 md(2026-11-26 起 4px 档已删除)',
   },
   chip: {
     stems: ['chip', 'tag', 'badge', 'pill'],
@@ -429,7 +429,7 @@ export function declarationRanges(codeSource) {
      * C5 组件名档于是对"带解构 props 的组件"(React 组件的多数写法)**永久不生效**。
      * 症状是两个互补计数同时为 0(「按组件名判 0 处 / 名字给不出唯一角色而不启用 0 处」),
      * 读起来像"这一族都判不出",实际上是判据根本没跑 —— 2026-09-29 由一枚真缺陷
-     * (`RetryButton.tsx` 的 `rounded-md` 应为 control=sm)反手抓出。
+     * (`RetryButton.tsx` 的 `rounded-md` 应为 control=md)反手抓出。
      *
      * 深度按 `( [ {` **一起**算,而不是只算圆括号:`const X = ({a}) => {…}` 的参数括号包在
      * 圆括号里、`const TEMPLATES = {…}` 的开括号深度 0 即命中(与旧行为逐字同结果)。

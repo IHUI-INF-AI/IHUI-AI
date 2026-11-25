@@ -462,7 +462,7 @@ function ToolArtifactMountBlock({
   const expanded = preview.length > 0
 
   return (
-    <div className="rounded-sm border border-stroke-subtle bg-muted/20 px-2 py-1.5">
+    <div className="rounded-md border border-stroke-subtle bg-muted/20 px-2 py-1.5">
       <div className="flex items-center gap-1.5">
         <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="text-[10px] font-medium text-muted-foreground">
@@ -474,7 +474,7 @@ function ToolArtifactMountBlock({
           data-testid="tool-artifact-preview"
           disabled={busy !== 'idle'}
           onClick={handlePreview}
-          className="ml-auto inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/5 disabled:opacity-60"
+          className="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/5 disabled:opacity-60"
         >
           {busy === 'loading' ? (
             <Loader2 className="h-3 w-3 animate-spin" />
@@ -488,7 +488,7 @@ function ToolArtifactMountBlock({
           data-testid="tool-artifact-open"
           disabled={busy !== 'idle'}
           onClick={handleOpen}
-          className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary/5 disabled:opacity-60"
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary/5 disabled:opacity-60"
         >
           <ExternalLink className="h-3 w-3" />
           {t('toolOutputOpen')}
@@ -497,7 +497,7 @@ function ToolArtifactMountBlock({
       {expanded && (
         <pre
           data-testid="tool-artifact-preview-body"
-          className="mt-1 max-h-[320px] overflow-auto rounded-sm bg-background/60 p-2 text-[11px] leading-relaxed whitespace-pre-wrap break-all"
+          className="mt-1 max-h-[320px] overflow-auto rounded-md bg-background/60 p-2 text-[11px] leading-relaxed whitespace-pre-wrap break-all"
         >
           {preview}
         </pre>
@@ -510,7 +510,7 @@ function ToolArtifactMountBlock({
               data-testid="tool-artifact-more"
               disabled={busy !== 'idle'}
               onClick={handleMore}
-              className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/5 disabled:opacity-60"
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/5 disabled:opacity-60"
             >
               {busy === 'fetching' ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
               {t('toolOutputMore')}
@@ -555,7 +555,7 @@ function CitationsBlock({ citations }: { citations: string[] }) {
         {shown.map((c) => {
           const url = c.match(CITATION_URL_RE)?.[0]
           const chipCls =
-            'rounded-sm border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[10px] leading-4 text-amber-700 dark:text-amber-400'
+            'rounded-md border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[10px] leading-4 text-amber-700 dark:text-amber-400'
           return url ? (
             <Tooltip key={c} content={url}>
               <a
@@ -599,7 +599,7 @@ function ArtifactPathCard({
       <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
         {t('chartGenerated')}
       </p>
-      <div className="rounded-sm border border-stroke-subtle bg-muted/30 p-2">
+      <div className="rounded-md border border-stroke-subtle bg-muted/30 p-2">
         <div className="flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-1.5 text-[10px] font-medium text-foreground/80">
             <BarChart3 className="h-3.5 w-3.5 shrink-0 text-primary" />
@@ -609,7 +609,7 @@ function ArtifactPathCard({
             type="button"
             onClick={() => void copy(filePath)}
             data-testid="tool-call-copy-path"
-            className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-stroke-subtle bg-background/80 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-stroke-subtle bg-background/80 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
           >
             {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
             <span>{copied ? t('pathCopied') : t('copyPath')}</span>
@@ -675,7 +675,7 @@ function ChartArtifactBlock({
       <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
         {t('chartGenerated')}
       </p>
-      <div className="overflow-hidden rounded-sm border border-stroke-subtle bg-white">
+      <div className="overflow-hidden rounded-md border border-stroke-subtle bg-white">
         {tokenLoading || !iframeSrc ? (
           <div className="flex h-[280px] w-full items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -849,7 +849,7 @@ function PresentedFilesBlock({ files }: { files: PresentedFileEntry[] }) {
   return (
     <div data-testid="tool-call-presented-files" className="space-y-1.5">
       <StreamLabel>{t('presentedTitle', { count: files.length })}</StreamLabel>
-      <div className="divide-y divide-stroke-subtle overflow-hidden rounded-sm border border-stroke-subtle">
+      <div className="divide-y divide-stroke-subtle overflow-hidden rounded-md border border-stroke-subtle">
         {files.map((file) => (
           <button
             key={file.path}
@@ -1000,7 +1000,7 @@ function ImageResultBlock({
   }, [imageUrl, fileName, copy])
 
   const actionBtn =
-    'inline-flex items-center gap-1 rounded-sm border border-stroke-subtle bg-background/80 px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground'
+    'inline-flex items-center gap-1 rounded-md border border-stroke-subtle bg-background/80 px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground'
 
   // D64 ②:画廊只在「多图 ∧ 当前图确在画廊内」时启用 —— 轮询取件的图片可能不在
   // 宿主画廊里(宿主只收集 tc.image_url),那时退回单图模式,绝不显示成别张图。
@@ -1224,7 +1224,7 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
   }, [videoUrl, fileName, copy])
 
   const actionBtn =
-    'inline-flex items-center gap-1 rounded-sm border border-stroke-subtle bg-background/80 px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground'
+    'inline-flex items-center gap-1 rounded-md border border-stroke-subtle bg-background/80 px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground'
 
   return (
     <div className="space-y-2">
@@ -1438,14 +1438,14 @@ function PendingTaskBlock({
         {t('pendingTaskSubmitted', { tool: toolLabel })}
       </p>
       <div className="flex items-center gap-1.5">
-        <code className="block min-w-0 flex-1 truncate rounded-sm bg-muted/40 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+        <code className="block min-w-0 flex-1 truncate rounded-md bg-muted/40 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
           {taskId}
         </code>
         <button
           type="button"
           onClick={onRefresh}
           disabled={checking}
-          className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-stroke-subtle px-1.5 py-0.5 text-[11px] text-primary hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-stroke-subtle px-1.5 py-0.5 text-[11px] text-primary hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {checking ? (
             <>
@@ -1557,7 +1557,7 @@ function DeleteSummaryBlock({ paths, recursive }: { paths: string[]; recursive: 
           <li
             key={p}
             data-testid="tool-call-delete-path"
-            className="truncate rounded-sm bg-background/60 px-1.5 py-0.5 font-mono text-label leading-relaxed text-foreground/80"
+            className="truncate rounded-md bg-background/60 px-1.5 py-0.5 font-mono text-label leading-relaxed text-foreground/80"
           >
             {p}
           </li>
@@ -1981,7 +1981,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
                         type="button"
                         aria-label={rowTitle}
                         data-testid="tool-call-image-preview"
-                        className="w-fit overflow-hidden rounded-sm border border-stroke-subtle"
+                        className="w-fit overflow-hidden rounded-md border border-stroke-subtle"
                         onClick={() => {
                           try {
                             const base64 = imagePreview.slice(imagePreview.indexOf(',') + 1)
@@ -2024,7 +2024,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
             <button
               type="button"
               onClick={handleOpenInWorkPanel}
-              className="inline-flex items-center gap-1 rounded-sm border border-stroke-subtle bg-background/80 px-2 py-1 text-[10px] hover:bg-muted/40"
+              className="inline-flex items-center gap-1 rounded-md border border-stroke-subtle bg-background/80 px-2 py-1 text-[10px] hover:bg-muted/40"
             >
               <ExternalLink className="h-3 w-3" />
               <span>{t('openInWorkPanel')}</span>

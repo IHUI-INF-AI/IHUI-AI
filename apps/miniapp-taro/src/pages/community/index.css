@@ -80,7 +80,7 @@
   height: 44rpx;
   padding: 0 var(--spacing-xs) 0 3rpx;
   line-height: 44rpx;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: 1px solid transparent;
   font-size: var(--text-caption);
   white-space: nowrap;
@@ -303,7 +303,7 @@
 .recent-item .agent-avatar {
   width: var(--spacing-4xl);
   height: var(--spacing-4xl);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   margin-bottom: var(--spacing-xs-loose);
   background: var(--color-muted);
 }
@@ -313,7 +313,7 @@
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   width: var(--spacing-4xl);
   height: var(--spacing-4xl);
   margin-bottom: var(--spacing-xs-loose);
@@ -387,7 +387,7 @@
 .my-item .agent-avatar {
   width: var(--spacing-4xl);
   height: var(--spacing-4xl);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   margin-bottom: var(--spacing-xs-loose);
   background: var(--color-muted);
 }
@@ -397,7 +397,7 @@
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   width: var(--spacing-4xl);
   height: var(--spacing-4xl);
   margin-bottom: var(--spacing-xs-loose);

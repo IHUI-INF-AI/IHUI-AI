@@ -94,7 +94,7 @@ export function CustomThemeCard() {
         const palette = theme[mode]
         const primaryFg = contrastForeground(palette.primary)
         return (
-          <div key={mode} className="space-y-3 rounded-sm border p-3">
+          <div key={mode} className="space-y-3 rounded-md border p-3">
             <div className="flex items-center gap-2 text-body font-medium">
               {mode === 'light' ? (
                 <Sun className="h-4 w-4" aria-hidden="true" />
@@ -115,7 +115,7 @@ export function CustomThemeCard() {
                       onChange={(event) => updatePalette(mode, key, event.target.value)}
                       aria-label={`${mode} ${paletteLabels[key]}`}
                       data-testid={`appearance-custom-${mode}-${key}`}
-                      className="h-7 w-9 cursor-pointer rounded-sm border bg-transparent p-0.5"
+                      className="h-7 w-9 cursor-pointer rounded-md border bg-transparent p-0.5"
                     />
                     <span className="w-16 font-mono text-[11px] uppercase text-muted-foreground">
                       {palette[key]}
@@ -127,7 +127,7 @@ export function CustomThemeCard() {
 
             {/* 实时预览:直接用当前色板渲染,不受明暗主题影响 */}
             <div
-              className="flex flex-wrap items-center gap-2 rounded-sm border p-2.5"
+              className="flex flex-wrap items-center gap-2 rounded-md border p-2.5"
               style={{
                 background: palette.background,
                 color: palette.foreground,
@@ -135,7 +135,7 @@ export function CustomThemeCard() {
               }}
             >
               <span
-                className="rounded-sm px-2.5 py-1 text-label font-medium"
+                className="rounded-md px-2.5 py-1 text-label font-medium"
                 style={{ background: palette.primary, color: primaryFg }}
               >
                 {t('themePreviewPrimary')}

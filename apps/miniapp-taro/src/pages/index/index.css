@@ -187,7 +187,7 @@
   margin-right: var(--spacing-xs-loose);
   flex-shrink: 0;
   padding: var(--spacing-xs-loose) var(--spacing-sm-loose);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-muted);
   cursor: pointer;
   transition: all 0.3s ease;
@@ -249,7 +249,7 @@
   height: 50rpx;
   z-index: 1000;
   background: var(--color-card);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;

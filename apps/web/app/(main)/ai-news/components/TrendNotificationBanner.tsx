@@ -160,7 +160,7 @@ export function TrendNotificationBanner() {
           {formatRelativeTime(latest.lastSeenAt, locale)}
         </span>
         {growthPct !== null ? (
-          <span className="shrink-0 rounded-sm bg-orange-500/15 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-orange-700 dark:text-orange-300">
+          <span className="shrink-0 rounded-md bg-orange-500/15 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-orange-700 dark:text-orange-300">
             +{growthPct}%
           </span>
         ) : null}
@@ -168,7 +168,7 @@ export function TrendNotificationBanner() {
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-label={expanded ? t('feed.trendNotifyCollapse') : t('feed.trendNotifyExpand')}
-          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-orange-600 transition-colors hover:bg-orange-500/15 dark:text-orange-400"
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-orange-600 transition-colors hover:bg-orange-500/15 dark:text-orange-400"
         >
           {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
@@ -212,7 +212,7 @@ export function TrendNotificationBanner() {
                     href={n.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex flex-1 items-center gap-1.5 rounded-sm px-1 py-0.5 transition-colors hover:bg-orange-500/10"
+                    className="flex flex-1 items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors hover:bg-orange-500/10"
                   >
                     {inner}
                   </a>

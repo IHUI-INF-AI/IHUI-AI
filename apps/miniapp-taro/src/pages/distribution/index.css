@@ -48,7 +48,7 @@
   line-height: 80rpx;
   text-align: center;
   font-size: var(--text-body);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: none;
   padding: 0;
   background: var(--color-cta);
@@ -104,7 +104,7 @@
   height: var(--spacing-4xl);
   background: var(--color-muted);
   border: 1px solid var(--color-stroke-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: 0 var(--spacing-md);
   font-size: var(--text-body);
   color: var(--color-foreground);
@@ -127,7 +127,7 @@
   color: var(--color-cta-foreground);
   font-size: var(--text-strong);
   font-weight: 600;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .dist-verify-btn:active {
   opacity: 0.85;

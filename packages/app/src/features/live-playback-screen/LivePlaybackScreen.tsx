@@ -195,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
     playBtn: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     playBtnDisabled: { backgroundColor: tk.border.medium },
@@ -238,7 +238,7 @@ function createStyles(tk: AppThemeTokens) {
     closeBtn: {
       marginTop: rnSpacing.md,
       paddingVertical: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },

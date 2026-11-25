@@ -15109,7 +15109,7 @@
       "error": "分析失敗",
       "history": "歷史分析",
       "mockWarning": "分析服務暫未配置，當前為演示模式",
-      "needBalance": "Token 餘額不足，請充值後重試",
+      "needBalance": "AI 積分不足，請儲值或兌換後重試",
       "noHistory": "暫無分析記錄",
       "question": "問題",
       "questionPlaceholder": "輸入你的問題，例如：分析這只股票最近的走勢和風險",
@@ -15120,7 +15120,7 @@
       "symbolPlaceholder": "股票代碼，如 AAPL 或 600519",
       "time": "時間",
       "title": "AI 股票分析",
-      "tokenBalance": "Token 餘額",
+      "tokenBalance": "AI 積分餘額", "permanent": "永久積分", "daily": "今日贈送", "dailyHint": "每日贈送 100 積分，當天有效",
       "tokensUsed": "Token 消耗",
       "total": "總額",
       "used": "已用",
@@ -21752,7 +21752,9 @@
       "uploadFileHint": "支持 docx/pdf/圖片/視頻,拖拽或點擊上傳",
       "uploadSuccess": "已上傳: {filename}",
       "uploadedHint": "文件已上傳,可重新選擇替換",
-      "uploading": "上傳中..."
+      "uploading": "上傳中...",
+      "usePool": "使用賬號池",
+      "usePoolHint": "由系統自動分配可用賬號,無需手動選擇"
     },
     "platforms": {
       "36kr": "36氪",
@@ -24256,6 +24258,15 @@
     "purchase": "購買會員"
   },
   "wallet": {
+    "flowRecharge": "充值",
+    "flowDeduct": "扣減",
+    "flowExpire": "過期",
+    "flowRefund": "退款扣回",
+    "flowRelayRecharge": "轉帳至 API Key",
+    "flowAdminAdjust": "管理員調整",
+    "flowQuota": "配額類變動",
+    "flowPointsExchange": "兌換 AI 積分",
+    "flowOther": "其他變動",
     "autoTopUp": {
       "title": "自動儲值",
       "description": "餘額低於門檻時,自動儲值到目標餘額。",

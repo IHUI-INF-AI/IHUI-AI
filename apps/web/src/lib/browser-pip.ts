@@ -249,7 +249,7 @@ export async function openBrowserPipMonitor(
   const dot = makeEl(
     doc,
     'span',
-    'width:7px;height:7px;border-radius:999px;background:#9aa3af;flex:none',
+    'width:7px;height:7px;border-radius:50%;background:#9aa3af;flex:none',
   )
   const statusText = makeEl(
     doc,
@@ -315,7 +315,7 @@ export async function openBrowserPipMonitor(
   const banner = makeEl(
     doc,
     'div',
-    'position:absolute;left:8px;right:8px;bottom:8px;display:none;padding:6px 8px;border-radius:6px;font-size:10px;line-height:1.45;white-space:normal;pointer-events:none',
+    'position:absolute;left:8px;right:8px;bottom:8px;display:none;padding:6px 8px;border-radius:var(--radius-md,6px);font-size:10px;line-height:1.45;white-space:normal;pointer-events:none',
   )
   stage.append(canvas, placeholder, banner)
 
@@ -332,20 +332,20 @@ export async function openBrowserPipMonitor(
   const readOnlyBadge = makeEl(
     doc,
     'span',
-    'flex:none;padding:1px 5px;border:1px solid rgba(255,255,255,0.16);border-radius:4px;font-size:9px;color:#9aa3af',
+    'flex:none;padding:1px 5px;border:1px solid rgba(255,255,255,0.16);border-radius:var(--radius-md,6px);font-size:9px;color:#9aa3af',
   )
   readOnlyBadge.textContent = labels.readOnly
   const continueBtn = makeEl(
     doc,
     'button',
-    'display:none;flex:none;border:0;border-radius:5px;padding:3px 9px;background:#f59e0b;color:#111827;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit',
+    'display:none;flex:none;border:0;border-radius:var(--radius-md,6px);padding:3px 9px;background:#f59e0b;color:#111827;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit',
   )
   continueBtn.type = 'button'
   continueBtn.textContent = labels.continueLabel
   const handover = makeEl(
     doc,
     'button',
-    'flex:none;border:0;border-radius:5px;padding:3px 10px;background:#e5e7eb;color:#0f1115;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit',
+    'flex:none;border:0;border-radius:var(--radius-md,6px);padding:3px 10px;background:#e5e7eb;color:#0f1115;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit',
   )
   handover.type = 'button'
   handover.textContent = labels.handover

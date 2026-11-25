@@ -104,7 +104,7 @@ export default function Comment({
       {inputVisible && (
         <View className="flex items-center px-md py-sm bg-card mt-sm">
           <FocusInput
-            className="flex-1 px-md py-sm text-body bg-muted rounded-sm"
+            className="flex-1 px-md py-sm text-body bg-muted rounded-md"
             placeholder={tt('comment.placeholder', '写评论...')}
             value={inputValue}
             onInput={(e) => onInput?.(e.detail.value)}

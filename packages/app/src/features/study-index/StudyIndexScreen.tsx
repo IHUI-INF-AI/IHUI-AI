@@ -452,7 +452,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     searchInput: {
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: rnSpacing.md,
@@ -631,7 +631,7 @@ function createStyles(tk: AppThemeTokens) {
     gridAvatar: {
       width: 12,
       height: 12,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       marginRight: rnSpacing.sm,
     } as ImageStyle,
     gridAuthor: {

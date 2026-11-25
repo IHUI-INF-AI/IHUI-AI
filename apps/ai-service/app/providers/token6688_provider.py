@@ -143,6 +143,7 @@ class Token6688Provider(OpenAIProvider):
         *,
         headers: dict[str, str] | None = None,
         json: dict[str, Any] | None = None,
+        request_meta: Any | None = None,
         _retried: bool = False,
     ) -> dict[str, Any]:
         """覆盖:429/5xx 按 Retry-After 退避重试 1 次 + error.code/error.type 细化。
@@ -152,7 +153,9 @@ class Token6688Provider(OpenAIProvider):
         429 带 Retry-After 头(或响应体 retry_after 秒数);402=余额不足(整单预冻结)。
         """
         try:
-            return await super()._request(method, url, headers=headers, json=json)
+            return await super()._request(
+                method, url, headers=headers, json=json, request_meta=request_meta,
+            )
         except ProviderError as e:
             status = getattr(e, "status_code", None) or 0
             retriable = status == 429 or status >= 500
@@ -168,7 +171,10 @@ class Token6688Provider(OpenAIProvider):
                 raise self._enrich_error(e) from e
             logger.warning("Token6688 %s 于 %s,%ss 后重试 1 次", status, url, delay)
             await asyncio.sleep(delay)
-            return await self._request(method, url, headers=headers, json=json, _retried=True)
+            return await self._request(
+                method, url, headers=headers, json=json,
+                request_meta=request_meta, _retried=True,
+            )
 
     @staticmethod
     def _enrich_error(e: ProviderError) -> ProviderError:

@@ -61,7 +61,7 @@ const LANDING_HTML = `<!DOCTYPE html>
     --accent-text: ${DOC_BG};
     --price: ${DOC_TEXT_STRONG};
     --radius: 12px;
-    --radius-sm: 8px;
+    --radius-lg: 8px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -91,7 +91,7 @@ const LANDING_HTML = `<!DOCTYPE html>
   .hero h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 12px; }
   .hero p { font-size: 16px; color: var(--text-muted); max-width: 560px; margin: 0 auto; }
   .hero .badges { margin-top: 16px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-  .hero .badge { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 12px; font-size: 13px; color: var(--text-muted); }
+  .hero .badge { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 4px 12px; font-size: 13px; color: var(--text-muted); }
 
   /* Pricing */
   .pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; padding: 24px 0 64px; }
@@ -120,7 +120,7 @@ const LANDING_HTML = `<!DOCTYPE html>
     background: var(--accent);
     color: var(--accent-text);
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-lg);
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
@@ -154,7 +154,7 @@ const LANDING_HTML = `<!DOCTYPE html>
     padding: 10px 12px;
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-lg);
     font-size: 14px;
     color: var(--text);
     outline: none;
@@ -166,7 +166,7 @@ const LANDING_HTML = `<!DOCTYPE html>
     flex: 1;
     padding: 10px 16px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-lg);
     font-size: 14px;
     cursor: pointer;
     background: var(--bg-card);
@@ -182,7 +182,7 @@ const LANDING_HTML = `<!DOCTYPE html>
     background: var(--accent);
     color: var(--accent-text);
     padding: 12px 24px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-lg);
     font-size: 14px;
     z-index: 200;
     opacity: 0;
@@ -192,11 +192,11 @@ const LANDING_HTML = `<!DOCTYPE html>
   .toast.show { opacity: 1; }
 
   /* Promo banner */
-  .promo { display: inline-block; background: var(--accent); color: var(--accent-text); border-radius: var(--radius-sm); padding: 6px 14px; font-size: 13px; font-weight: 600; margin-top: 14px; }
+  .promo { display: inline-block; background: var(--accent); color: var(--accent-text); border-radius: var(--radius-lg); padding: 6px 14px; font-size: 13px; font-weight: 600; margin-top: 14px; }
 
   /* Trust bar */
   .trust-bar { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; padding: 8px 0 32px; }
-  .trust-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 14px; font-size: 13px; color: var(--text-muted); }
+  .trust-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 8px 14px; font-size: 13px; color: var(--text-muted); }
 
   /* FAQ */
   .faq { padding: 24px 0 64px; }
@@ -231,7 +231,7 @@ const LANDING_HTML = `<!DOCTYPE html>
   .payment-badges { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
   .pay-badge {
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-lg);
     padding: 8px 14px;
     font-size: 13px;
     font-weight: 500;

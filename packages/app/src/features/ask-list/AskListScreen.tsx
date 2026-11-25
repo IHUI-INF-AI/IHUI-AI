@@ -108,7 +108,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.md,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     header: {

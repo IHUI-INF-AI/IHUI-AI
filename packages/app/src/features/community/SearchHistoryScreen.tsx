@@ -143,7 +143,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
     },

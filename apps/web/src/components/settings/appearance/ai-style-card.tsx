@@ -24,7 +24,7 @@ import { OptionGrid, SectionCard, ToggleField } from './controls'
 
 /** 三处 textarea 共用同一套外观,不重复写 class */
 const TEXTAREA_CLASS =
-  'w-full resize-y rounded-sm border bg-transparent px-3 py-2 text-body outline-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus'
+  'w-full resize-y rounded-md border bg-transparent px-3 py-2 text-body outline-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus'
 
 export function AiStyleCard() {
   const t = useTranslations('appearanceSettings')
@@ -248,7 +248,7 @@ export function AiStyleCard() {
           </Button>
         </div>
         <pre
-          className="max-h-48 overflow-auto whitespace-pre-wrap rounded-sm border bg-muted/30 p-3 font-mono text-[12px] leading-relaxed text-muted-foreground"
+          className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-3 font-mono text-[12px] leading-relaxed text-muted-foreground"
           data-testid="appearance-directive-preview"
         >
           {directive || t('directiveEmpty')}

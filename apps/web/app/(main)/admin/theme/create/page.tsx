@@ -55,7 +55,7 @@ function ColorField({
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 w-10 cursor-pointer rounded-sm border border-input bg-transparent"
+          className="h-8 w-10 cursor-pointer rounded-md border border-input bg-transparent"
         />
         <Input
           value={value}
@@ -156,7 +156,7 @@ export default function CreateThemePage() {
               <select
                 value={form.font}
                 onChange={(e) => set('font', e.target.value)}
-                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-body"
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-body"
               >
                 {FONTS.map((f) => (
                   <option key={f} value={f}>

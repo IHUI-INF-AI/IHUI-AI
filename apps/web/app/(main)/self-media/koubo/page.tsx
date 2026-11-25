@@ -414,7 +414,7 @@ export default function KouboPage() {
                   <button
                     type="button"
                     onClick={() => applyHistory(h)}
-                    className="block w-full cursor-pointer rounded-sm px-2 py-1.5 text-left text-label transition-colors hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                    className="block w-full cursor-pointer rounded-md px-2 py-1.5 text-left text-label transition-colors hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
                   >
                     <div className="truncate font-medium">{h.title}</div>
                     <div className="mt-0.5 flex items-center gap-1.5 text-muted-foreground">

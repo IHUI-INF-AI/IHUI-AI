@@ -17,7 +17,7 @@ import {
   getDailyCreditState,
   getSpendableBalance,
 } from '../src/services/daily-credits.js'
-import { spendPoints } from '../src/services/points-service.js'
+import { spendPoints, settlePointsUsage } from '../src/services/points-service.js'
 import { bizDayKey } from '../src/utils/biz-day.js'
 
 async function createTestUser(phone: string) {
@@ -158,6 +158,88 @@ describe('每日赠送额度 — 真实 DB 语义', () => {
     const after = await ensureDailyCreditRow(user.id)
     expect(after.points).toBe(180)
     expect(after.dailyPoints).toBe(100)
+  })
+
+  it('AI 结算余额不足：扣到 0 并返回 shortfall，流水只记实扣金额', async () => {
+    const user = await createTestUser('13911110009')
+    await ensureDailyCreditRow(user.id)
+    await setDailyState(user.id, { points: 500, dailyPoints: 30, date: bizDayKey() })
+
+    const result = await settlePointsUsage({
+      userId: user.id,
+      amount: 600,
+      source: 'llm_chat',
+      referenceId: 'req-partial-1',
+      description: 'test-partial',
+    })
+    expect(result).toEqual({
+      deducted: 530,
+      remaining: 0,
+      shortfall: 70,
+      alreadySettled: false,
+    })
+    const after = await ensureDailyCreditRow(user.id)
+    expect(after.dailyPoints).toBe(0)
+    expect(after.points).toBe(0)
+    // total_spent 只累计永久余额扣减，赠送的 30 不进财务口径
+    expect(after.totalSpent).toBe(500)
+    const txns = await db.execute(
+      sql`SELECT amount, balance_after FROM point_transactions WHERE user_id = ${user.id}`,
+    )
+    expect(txns).toHaveLength(1)
+    expect(Number(txns[0]?.amount)).toBe(-530)
+    expect(Number(txns[0]?.balance_after)).toBe(0)
+  })
+
+  it('AI 结算幂等：同一 referenceId 重放不重复扣，返回 alreadySettled', async () => {
+    const user = await createTestUser('13911110010')
+    await ensureDailyCreditRow(user.id)
+    await setDailyState(user.id, { points: 200, dailyPoints: 100, date: bizDayKey() })
+
+    const first = await settlePointsUsage({
+      userId: user.id,
+      amount: 60,
+      source: 'llm_chat',
+      referenceId: 'req-idem-1',
+    })
+    expect(first).toMatchObject({ deducted: 60, remaining: 240, shortfall: 0, alreadySettled: false })
+
+    const second = await settlePointsUsage({
+      userId: user.id,
+      amount: 60,
+      source: 'llm_chat',
+      referenceId: 'req-idem-1',
+    })
+    expect(second).toMatchObject({ deducted: 60, remaining: 240, shortfall: 0, alreadySettled: true })
+
+    const after = await ensureDailyCreditRow(user.id)
+    expect(after.dailyPoints).toBe(40)
+    expect(after.points).toBe(200)
+    const count = await db.execute(
+      sql`SELECT COUNT(*)::int AS n FROM point_transactions WHERE user_id = ${user.id}`,
+    )
+    expect(Number(count[0]?.n)).toBe(1)
+  })
+
+  it('AI 结算并发同一 referenceId 只扣一次', async () => {
+    const user = await createTestUser('13911110011')
+    await ensureDailyCreditRow(user.id)
+    await setDailyState(user.id, { points: 0, dailyPoints: 100, date: bizDayKey() })
+
+    const results = await Promise.all(
+      Array.from({ length: 2 }, () =>
+        settlePointsUsage({
+          userId: user.id,
+          amount: 60,
+          source: 'llm_chat',
+          referenceId: 'req-concurrent-1',
+        }),
+      ),
+    )
+    expect(results.reduce((sum, item) => sum + (item.alreadySettled ? 0 : item.deducted), 0)).toBe(60)
+    expect(results.filter((item) => item.alreadySettled)).toHaveLength(1)
+    const after = await ensureDailyCreditRow(user.id)
+    expect(after.dailyPoints).toBe(40)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

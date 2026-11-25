@@ -109,7 +109,7 @@ export function AgentsMdGenerator({ workspacePath }: AgentsMdGeneratorProps) {
           onClick={handleGenerate}
           disabled={busy !== null}
           className={cn(
-            'mt-2 flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-label text-foreground transition-colors hover:bg-muted/40',
+            'mt-2 flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-label text-foreground transition-colors hover:bg-muted/40',
             busy !== null && 'cursor-not-allowed opacity-60',
           )}
         >
@@ -136,7 +136,7 @@ export function AgentsMdGenerator({ workspacePath }: AgentsMdGeneratorProps) {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             spellCheck={false}
-            className="h-40 w-full resize-y rounded-sm border border-border bg-background p-2 font-mono text-[11px] text-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+            className="h-40 w-full resize-y rounded-md border border-border bg-background p-2 font-mono text-[11px] text-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           />
           <div className="flex gap-2">
             <button
@@ -144,7 +144,7 @@ export function AgentsMdGenerator({ workspacePath }: AgentsMdGeneratorProps) {
               onClick={handleWrite}
               disabled={busy !== null || !draft.trim()}
               className={cn(
-                'flex items-center gap-1.5 rounded-sm bg-cta px-3 py-1.5 text-label text-cta-foreground transition-colors hover:bg-cta/90',
+                'flex items-center gap-1.5 rounded-md bg-cta px-3 py-1.5 text-label text-cta-foreground transition-colors hover:bg-cta/90',
                 (busy !== null || !draft.trim()) && 'cursor-not-allowed opacity-60',
               )}
             >
@@ -155,7 +155,7 @@ export function AgentsMdGenerator({ workspacePath }: AgentsMdGeneratorProps) {
               type="button"
               onClick={handleDiscard}
               disabled={busy !== null}
-              className="rounded-sm border border-border px-3 py-1.5 text-label text-muted-foreground transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-md border border-border px-3 py-1.5 text-label text-muted-foreground transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {t('agentsMd.discard')}
             </button>

@@ -310,7 +310,7 @@ export const TimelineTab = React.memo(function TimelineTab({
               aria-controls={`tab-panel-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-sm px-2 py-0.5 text-[10px] font-medium transition-colors',
+                'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',
                 active
                   ? 'bg-background text-foreground shadow-elevation-sm'
                   : 'text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground',
@@ -324,7 +324,7 @@ export const TimelineTab = React.memo(function TimelineTab({
         })}
         {events.length > 0 && (
           <span
-            className="ml-auto shrink-0 rounded-sm bg-muted px-1 text-[10px] tabular-nums text-muted-foreground/80"
+            className="ml-auto shrink-0 rounded-md bg-muted px-1 text-[10px] tabular-nums text-muted-foreground/80"
             data-testid="timeline-total-count"
           >
             {events.length}
@@ -348,7 +348,7 @@ export const TimelineTab = React.memo(function TimelineTab({
                 aria-pressed={active}
                 onClick={() => setFilterType(f.id)}
                 className={cn(
-                  'inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-[10px] tabular-nums transition-colors',
+                  'inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[10px] tabular-nums transition-colors',
                   active
                     ? 'border-border bg-accent/30 text-foreground'
                     : 'border-transparent text-muted-foreground/70 hover:border-stroke-subtle hover:bg-accent/20 hover:text-foreground',
@@ -359,7 +359,7 @@ export const TimelineTab = React.memo(function TimelineTab({
                 <span>{safeT(t, f.key, f.fallback)}</span>
                 <span
                   className={cn(
-                    'shrink-0 rounded-sm px-0.5 text-[9px]',
+                    'shrink-0 rounded-md px-0.5 text-[9px]',
                     active
                       ? 'bg-accent/40 text-foreground/80'
                       : 'bg-muted text-muted-foreground/70',
@@ -435,7 +435,7 @@ export const TimelineTab = React.memo(function TimelineTab({
               onClick={onExportMarkdown}
               aria-label={exported ? t('copied') : t('timelineExport')}
               className={cn(
-                'absolute right-7 top-1/2 inline-flex h-3.5 w-3.5 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground',
+                'absolute right-7 top-1/2 inline-flex h-3.5 w-3.5 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground',
                 exported && 'text-emerald-500',
               )}
               data-testid="timeline-export-md"

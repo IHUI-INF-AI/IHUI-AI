@@ -173,7 +173,7 @@ export const STREAM_ROW_CLASS = 'flex h-6 w-full items-center gap-1.5 px-1 text-
  */
 export const STREAM_HEADER_ROW_CLASS = cn(
   STREAM_ROW_CLASS,
-  'rounded-sm text-left text-foreground',
+  'rounded-md text-left text-foreground',
   'transition-colors focus-visible:bg-muted/20 focus-visible:outline-none',
 )
 
@@ -196,7 +196,7 @@ export const STREAM_HEADER_ROW_CLASS = cn(
 export const STREAM_RUNNING_TEXT_CLASS = 'text-sweep'
 
 export const STREAM_HEADER_ACTION_CLASS =
-  'inline-flex h-full w-6 shrink-0 items-center justify-center rounded-sm text-foreground transition-colors hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:pointer-events-none disabled:opacity-50'
+  'inline-flex h-full w-6 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:pointer-events-none disabled:opacity-50'
 
 /**
  * 组内正文左让位唯一档(2026-11-16 立):StreamGroup 的引导线占 `left-[7px]`,
@@ -694,7 +694,7 @@ export function StreamCode({
     <pre
       ref={ref}
       className={cn(
-        'max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-sm bg-background/60 p-1.5 font-mono text-label leading-relaxed text-foreground/75',
+        'max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-md bg-background/60 p-1.5 font-mono text-label leading-relaxed text-foreground/75',
         // 流式进行中:左侧 accent 边(teal)强化"正在生成"的视觉锚点;非流式保持中性无边
         streaming && 'border-l-2 border-l-teal-500/60 dark:border-l-teal-400/60',
         className,

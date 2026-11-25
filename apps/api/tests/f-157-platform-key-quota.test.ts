@@ -12,6 +12,9 @@ const mocks = vi.hoisted(() => ({
   checkBudget: vi.fn(),
   getBalance: vi.fn(),
   deductTokens: vi.fn(),
+  getSpendableBalance: vi.fn(),
+  quoteLlmPoints: vi.fn(),
+  settleLlmPointsUsage: vi.fn(),
 }))
 
 vi.mock('../src/plugins/auth.js', () => ({
@@ -42,6 +45,34 @@ vi.mock('../src/plugins/token-balance-service.js', () => ({
 vi.mock('../src/plugins/ai-cost.js', () => ({
   resolveAiCost: mocks.resolveAiCost,
   recordAiCost: mocks.recordAiCost,
+}))
+
+vi.mock('../src/services/daily-credits.js', () => ({
+  getSpendableBalance: mocks.getSpendableBalance,
+}))
+
+vi.mock('../src/services/ai-points-billing.js', () => ({
+  quoteLlmPoints: mocks.quoteLlmPoints,
+  settleLlmPointsUsage: mocks.settleLlmPointsUsage,
+  ensureLlmPointsBalance: async (
+    _request: unknown,
+    reply: { status: (code: number) => { send: (body: unknown) => void } },
+    modelId: string,
+    promptTokens: number,
+    completionTokens = 0,
+  ) => {
+    const quote = await mocks.quoteLlmPoints({ modelId, promptTokens, completionTokens })
+    const balance = await mocks.getSpendableBalance()
+    if (quote.points > balance.available) {
+      reply.status(402).send({
+        code: 402,
+        message: '积分不足,请充值或兑换积分后重试',
+        data: { balance: balance.available, required: quote.points },
+      })
+      return false
+    }
+    return true
+  },
 }))
 
 vi.mock('../src/services/context-manager-service.js', () => ({
@@ -134,6 +165,31 @@ describe('F-157 平台 Key 大模型调用必须计量并受用户额度约束',
       isPromotionPeriod: false,
     })
     mocks.deductTokens.mockReset().mockResolvedValue({ success: true, remaining: 99_999 })
+    mocks.getSpendableBalance.mockReset().mockResolvedValue({
+      permanent: 100_000,
+      daily: 0,
+      available: 100_000,
+    })
+    mocks.quoteLlmPoints.mockReset().mockResolvedValue({
+      promptTokens: 1,
+      completionTokens: 0,
+      totalTokens: 1,
+      multiplier: 10,
+      points: 1,
+    })
+    mocks.settleLlmPointsUsage.mockReset().mockResolvedValue({
+      deducted: 1,
+      remaining: 99_999,
+      shortfall: 0,
+      alreadySettled: false,
+      quote: {
+        promptTokens: 20,
+        completionTokens: 30,
+        totalTokens: 50,
+        multiplier: 10,
+        points: 1,
+      },
+    })
   })
 
   const upstreamJson = (body: unknown, status = 200): Response =>
@@ -158,7 +214,7 @@ describe('F-157 平台 Key 大模型调用必须计量并受用户额度约束',
       payload: CAPABILITY_PAYLOAD,
     })
 
-  it('① career-advice 额度充足:放行并计量(成本记账 + 钱包扣同一个数)', async () => {
+  it('① career-advice 额度充足:放行并计量(平台成本 + 用户积分两本账)', async () => {
     fetchMock.mockResolvedValueOnce(
       upstreamJson({
         content: '个性化生涯建议正文',
@@ -192,28 +248,30 @@ describe('F-157 平台 Key 大模型调用必须计量并受用户额度约束',
     expect(record.totalTokens).toBe(50)
     expect(record.requestType).toBe('career-advice')
 
-    // 扣费:钱包扣的与记账同一个数(分)
-    expect(mocks.deductTokens).toHaveBeenCalledWith('f157-user', 1, 'ai_career_advice')
+    // 用户积分按倍率扣;平台真实成本另记 ai_cost_records
+    expect(mocks.settleLlmPointsUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'f157-user',
+        modelId: 'agnes/agnes-2.5-flash',
+        promptTokens: 20,
+        completionTokens: 30,
+        source: 'ai_career_advice',
+      }),
+    )
+    expect(mocks.deductTokens).not.toHaveBeenCalled()
   })
 
-  it('② career-advice 余额不足:402 且不发起上游调用', async () => {
-    mocks.getBalance.mockResolvedValue({
-      userId: 'f157-user',
-      balance: 0,
-      vipLevel: 0,
-      monthlyQuota: 1000,
-      discountRate: 1,
-      isPromotionPeriod: false,
-    })
+  it('② career-advice 积分不足:402 且不发起上游调用', async () => {
+    mocks.getSpendableBalance.mockResolvedValue({ permanent: 0, daily: 0, available: 0 })
 
     const res = await callCareerAdvice()
     expect(res.statusCode).toBe(402)
     const body = res.json() as { code: number; errorCode?: string }
     expect(body.code).toBe(402)
-    expect(body.errorCode).toBe('INSUFFICIENT_BALANCE')
+    expect(body.errorCode).toBeUndefined()
     expect(fetchMock).not.toHaveBeenCalled()
     expect(mocks.recordAiCost).not.toHaveBeenCalled()
-    expect(mocks.deductTokens).not.toHaveBeenCalled()
+    expect(mocks.settleLlmPointsUsage).not.toHaveBeenCalled()
   })
 
   it('③ career-advice 日配额用尽:402 且不发起上游调用', async () => {
@@ -225,10 +283,10 @@ describe('F-157 平台 Key 大模型调用必须计量并受用户额度约束',
     expect(body.code).toBe(402)
     expect(body.errorCode).toBe('DAILY_QUOTA_EXHAUSTED')
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(mocks.getBalance).not.toHaveBeenCalled()
+    expect(mocks.getSpendableBalance).not.toHaveBeenCalled()
   })
 
-  it('④ capabilities/invoke 额度充足:放行并计量(余额预检 + 结算 + 记账)', async () => {
+  it('④ capabilities/invoke 额度充足:放行并计量(积分预检 + 结算 + 成本记账)', async () => {
     fetchMock.mockResolvedValueOnce(
       upstreamJson({
         content: '真实能力结果',
@@ -242,20 +300,20 @@ describe('F-157 平台 Key 大模型调用必须计量并受用户额度约束',
     expect(res.statusCode).toBe(200)
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(mocks.checkBudget).toHaveBeenCalledWith('user', 'f157-user')
-    expect(mocks.getWalletBalance).toHaveBeenCalledWith('f157-user')
-    expect(mocks.settleWalletUsage).toHaveBeenCalledTimes(1)
+    expect(mocks.getSpendableBalance).toHaveBeenCalledWith('f157-user')
+    expect(mocks.settleLlmPointsUsage).toHaveBeenCalledTimes(1)
     expect(mocks.recordAiCost).toHaveBeenCalledTimes(1)
     expect((mocks.recordAiCost.mock.calls[0]![0] as { userId: string }).userId).toBe('f157-user')
   })
 
-  it('⑤ capabilities/invoke 余额不足:402 且不发起上游调用', async () => {
-    mocks.getWalletBalance.mockResolvedValue(0)
+  it('⑤ capabilities/invoke 积分不足:402 且不发起上游调用', async () => {
+    mocks.getSpendableBalance.mockResolvedValue({ permanent: 0, daily: 0, available: 0 })
 
     const res = await callCapability()
     expect(res.statusCode).toBe(402)
     const body = res.json() as { code: number; errorCode?: string }
     expect(body.code).toBe(402)
-    expect(body.errorCode).toBe('INSUFFICIENT_BALANCE')
+    expect(body.errorCode).toBe('INSUFFICIENT_POINTS')
     expect(fetchMock).not.toHaveBeenCalled()
     expect(mocks.recordAiCost).not.toHaveBeenCalled()
   })
@@ -269,7 +327,7 @@ describe('F-157 平台 Key 大模型调用必须计量并受用户额度约束',
     expect(body.code).toBe(402)
     expect(body.errorCode).toBe('DAILY_QUOTA_EXHAUSTED')
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(mocks.getWalletBalance).not.toHaveBeenCalled()
+    expect(mocks.getSpendableBalance).not.toHaveBeenCalled()
     expect(mocks.recordAiCost).not.toHaveBeenCalled()
   })
 })

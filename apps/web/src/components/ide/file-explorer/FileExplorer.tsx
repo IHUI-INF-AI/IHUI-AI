@@ -37,7 +37,7 @@ function highlightMatch(name: string, term: string) {
   return (
     <>
       {name.slice(0, idx)}
-      <span className="rounded-sm bg-yellow-500/30 text-foreground">
+      <span className="rounded-md bg-yellow-500/30 text-foreground">
         {name.slice(idx, idx + term.length)}
       </span>
       {name.slice(idx + term.length)}
@@ -252,7 +252,7 @@ export function FileExplorer() {
               ? t('fileExplorer.fileNamePlaceholder')
               : t('fileExplorer.folderNamePlaceholder')
           }
-          className="w-full rounded-sm border border-border bg-background px-2 py-0.5 text-label focus:outline-none"
+          className="w-full rounded-md border border-border bg-background px-2 py-0.5 text-label focus:outline-none"
         />
       </div>
     )
@@ -266,7 +266,7 @@ export function FileExplorer() {
             key={tab}
             onClick={() => setSubTab(tab)}
             className={cn(
-              'rounded-sm px-2 py-0.5 text-label transition-colors duration-150',
+              'rounded-md px-2 py-0.5 text-label transition-colors duration-150',
               subTab === tab
                 ? 'bg-muted text-foreground'
                 : 'text-muted-foreground hover:text-foreground',
@@ -294,7 +294,7 @@ export function FileExplorer() {
               }}
               disabled={!workspacePath}
               aria-label={t('fileExplorer.newFile')}
-              className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
             >
               <FilePlus className="h-3.5 w-3.5" />
             </button>
@@ -307,7 +307,7 @@ export function FileExplorer() {
               }}
               disabled={!workspacePath}
               aria-label={t('fileExplorer.newFolder')}
-              className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
             >
               <FolderPlus className="h-3.5 w-3.5" />
             </button>
@@ -316,7 +316,7 @@ export function FileExplorer() {
             <button
               onClick={() => void fetchFileTree()}
               aria-label={t('fileExplorer.refresh')}
-              className="rounded-sm p-1 text-muted-foreground hover:bg-muted/50"
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted/50"
             >
               <RefreshCw className="h-3.5 w-3.5" />
             </button>
@@ -361,7 +361,7 @@ export function FileExplorer() {
                       e.stopPropagation()
                       setMenuPos({ x: e.clientX, y: e.clientY, node })
                     }}
-                    className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-label hover:bg-muted/50"
+                    className="flex cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 text-label hover:bg-muted/50"
                   >
                     <Icon className={cn('h-3.5 w-3.5 shrink-0', getFileColor(node.name))} />
                     {isRenaming ? (
@@ -379,7 +379,7 @@ export function FileExplorer() {
                             setRenamingNode(null)
                           }
                         }}
-                        className="w-full rounded-sm border border-border bg-background px-1 text-label focus:outline-none"
+                        className="w-full rounded-md border border-border bg-background px-1 text-label focus:outline-none"
                       />
                     ) : isDeleting ? (
                       <div className="flex flex-1 items-center gap-1">
@@ -391,7 +391,7 @@ export function FileExplorer() {
                             e.stopPropagation()
                             void handleDelete()
                           }}
-                          className="rounded-sm bg-red-500 px-1.5 py-0.5 text-label text-white hover:bg-red-600"
+                          className="rounded-md bg-red-500 px-1.5 py-0.5 text-label text-white hover:bg-red-600"
                         >
                           {t('fileExplorer.confirm')}
                         </button>
@@ -400,7 +400,7 @@ export function FileExplorer() {
                             e.stopPropagation()
                             setDeletingNode(null)
                           }}
-                          className="rounded-sm px-1.5 py-0.5 text-label text-muted-foreground hover:bg-muted"
+                          className="rounded-md px-1.5 py-0.5 text-label text-muted-foreground hover:bg-muted"
                         >
                           {t('fileExplorer.cancel')}
                         </button>

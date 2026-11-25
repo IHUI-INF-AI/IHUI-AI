@@ -359,7 +359,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       alignSelf: 'center',
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.inputBg,
@@ -399,7 +399,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     taskErrBox: { gap: rnSpacing['2xs'] },
     jsonLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.secondary },
     jsonBox: {
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       padding: rnSpacing.sm,
     },

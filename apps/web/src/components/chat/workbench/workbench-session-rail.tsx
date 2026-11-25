@@ -148,7 +148,7 @@ export function WorkbenchSessionRail({ items, selectedId, onSelect }: WorkbenchS
                         setMenuOpenId(item.id)
                       }}
                       className={cn(
-                        'group flex w-full items-center gap-2 rounded-sm border-l-2 py-2 pl-2.5 pr-1 text-left text-body transition-colors',
+                        'group flex w-full items-center gap-2 rounded-md border-l-2 py-2 pl-2.5 pr-1 text-left text-body transition-colors',
                         ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
                         'motion-reduce:transition-none',
                         selected
@@ -279,7 +279,7 @@ function RailRowMenu({
         <button
           type="button"
           aria-label={t('actions.menu')}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         >
           <MoreVertical className="h-3.5 w-3.5" aria-hidden />
         </button>

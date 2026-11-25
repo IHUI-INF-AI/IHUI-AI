@@ -234,7 +234,7 @@ export function ResourcesScreen() {
           <Text className="mb-3 text-sm text-neutral-600 dark:text-neutral-300">{error}</Text>
           <TouchableOpacity
             onPress={() => void load()}
-            className="rounded-sm bg-neutral-900 px-4 py-2"
+            className="rounded-md bg-neutral-900 px-4 py-2"
           >
             <Text className="text-sm text-neutral-50">{t('common.retry')}</Text>
           </TouchableOpacity>
@@ -288,7 +288,7 @@ export function ResourcesScreen() {
           <TouchableOpacity
             disabled={loadingMore}
             onPress={() => void onLoadMore()}
-            className="mx-4 mb-6 items-center rounded-sm border border-neutral-300 py-2 dark:border-neutral-700"
+            className="mx-4 mb-6 items-center rounded-md border border-neutral-300 py-2 dark:border-neutral-700"
           >
             <Text className="text-xs text-neutral-700 dark:text-neutral-300">
               {loadingMore ? t('common.loading') : t('resources.loadMore')}
@@ -362,7 +362,7 @@ export function ResourcesScreen() {
           <TouchableOpacity
             disabled={downloading}
             onPress={() => onDownload(resource)}
-            className="mx-4 mb-6 items-center rounded-sm bg-neutral-900 py-2.5 dark:bg-neutral-100"
+            className="mx-4 mb-6 items-center rounded-md bg-neutral-900 py-2.5 dark:bg-neutral-100"
           >
             <Text className="text-sm text-neutral-50 dark:text-neutral-900">
               {t('resources.download')}
@@ -393,7 +393,7 @@ export function ResourcesScreen() {
               onChangeText={setSearch}
               placeholder={t('resources.searchPlaceholder')}
               placeholderTextColor={tokens.text.secondary}
-              className="h-9 rounded-sm border border-neutral-200 bg-white px-3 text-sm text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
+              className="h-9 rounded-md border border-neutral-200 bg-white px-3 text-sm text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
             />
           </View>
 
@@ -401,7 +401,7 @@ export function ResourcesScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-4 pb-2">
               <TouchableOpacity
                 onPress={() => setCategoryId('all')}
-                className={`mr-2 rounded-sm px-3 py-1.5 ${
+                className={`mr-2 rounded-md px-3 py-1.5 ${
                   categoryId === 'all'
                     ? 'bg-neutral-900 dark:bg-neutral-100'
                     : 'bg-neutral-200 dark:bg-neutral-800'
@@ -423,7 +423,7 @@ export function ResourcesScreen() {
                   <TouchableOpacity
                     key={category.id}
                     onPress={() => setCategoryId(category.id)}
-                    className={`mr-2 rounded-sm px-3 py-1.5 ${
+                    className={`mr-2 rounded-md px-3 py-1.5 ${
                       active
                         ? 'bg-neutral-900 dark:bg-neutral-100'
                         : 'bg-neutral-200 dark:bg-neutral-800'

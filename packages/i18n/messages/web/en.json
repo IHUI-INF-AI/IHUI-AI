@@ -15100,7 +15100,7 @@
       "error": "Analysis failed",
       "history": "History",
       "mockWarning": "Analysis service not configured, demo mode",
-      "needBalance": "Insufficient token balance",
+      "needBalance": "Insufficient AI points. Top up or convert points and try again.",
       "noHistory": "No analysis yet",
       "question": "Question",
       "questionPlaceholder": "Your question, e.g. analyze recent trend and risks",
@@ -15111,7 +15111,7 @@
       "symbolPlaceholder": "Symbol, e.g. AAPL or 600519",
       "time": "Time",
       "title": "AI Stock Analysis",
-      "tokenBalance": "Token Balance",
+      "tokenBalance": "AI Points Balance", "permanent": "Permanent", "daily": "Daily grant", "dailyHint": "100 daily points expire at the end of the day",
       "tokensUsed": "Tokens used",
       "total": "Total",
       "used": "Used",
@@ -21592,7 +21592,9 @@
       "uploadFileHint": "Supports docx/pdf/image/video, drag or click to upload",
       "uploadSuccess": "Uploaded: {filename}",
       "uploadedHint": "File uploaded. Click to replace.",
-      "uploading": "Uploading..."
+      "uploading": "Uploading...",
+      "usePool": "Use account pool",
+      "usePoolHint": "Let the system assign available accounts automatically"
     },
     "platforms": {
       "36kr": "36Kr",
@@ -24096,6 +24098,15 @@
     "purchase": "Purchase membership"
   },
   "wallet": {
+    "flowRecharge": "Recharge",
+    "flowDeduct": "Deduct",
+    "flowExpire": "Expired",
+    "flowRefund": "Refund clawback",
+    "flowRelayRecharge": "Transfer to API key",
+    "flowAdminAdjust": "Admin adjustment",
+    "flowQuota": "Quota change",
+    "flowPointsExchange": "Exchange for AI credits",
+    "flowOther": "Other",
     "autoTopUp": {
       "title": "Auto top-up",
       "description": "Automatically top up to the target balance when your balance falls below the threshold.",

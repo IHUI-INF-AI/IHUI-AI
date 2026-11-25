@@ -181,7 +181,7 @@ function NextStepsCardBase({
           type="button"
           onClick={handleDismiss}
           aria-label={dismissLabel}
-          className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="inline-flex h-4 w-4 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           data-testid={`${testId}-dismiss`}
         >
           <X className="h-3 w-3" />
@@ -193,7 +193,7 @@ function NextStepsCardBase({
             key={s.key}
             type="button"
             onClick={() => handleSuggestionClick(s.label)}
-            className="flex w-full items-center gap-1.5 rounded-sm border border-stroke-subtle bg-background px-2 py-1 text-left text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="flex w-full items-center gap-1.5 rounded-md border border-stroke-subtle bg-background px-2 py-1 text-left text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             data-testid={`${testId}-suggestion-${s.key}`}
           >
             <s.icon className="h-3 w-3 shrink-0 text-primary" aria-hidden />

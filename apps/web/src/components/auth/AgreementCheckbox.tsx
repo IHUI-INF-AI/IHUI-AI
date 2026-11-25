@@ -19,7 +19,7 @@ interface AgreementCheckboxProps {
  * IHUI AI Auth 统一协议复选框(2026-07-20 立)
  *
  * 替代 LoginFormContent / RegisterFormContent 里两份重复实现。
- * - 16x16 方形 rounded-[4px] 边框,hover 描边加深,勾选用 Check 图标(strokeWidth=3)
+ * - 16x16 方形 rounded-md 边框,hover 描边加深,勾选用 Check 图标(strokeWidth=3)
  * - 文字部分:前缀 + 蓝色链接(用户协议、隐私政策),target="_blank"
  * - 视觉规范符合 §4 极简扁平
  * - 完整 a11y:role="checkbox" + aria-checked + tabIndex + onKeyDown(Space/Enter) + 内嵌 sr-only input
@@ -34,7 +34,7 @@ export function AgreementCheckbox({ checked, onChange, error }: AgreementCheckbo
           onChange(!checked)
         }}
         className={[
-          'mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-all duration-200',
+          'mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-md border transition-all duration-200',
           error
             ? 'border-destructive'
             : checked

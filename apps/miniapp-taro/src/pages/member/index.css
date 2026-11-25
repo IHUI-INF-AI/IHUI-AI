@@ -291,7 +291,7 @@
   line-height: 100rpx;
   font-size: var(--text-title); /* RN 16 → 32rpx */
   font-weight: 700;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .member-cta-outlined {
   background: transparent;
@@ -392,14 +392,14 @@
   width: 100%;
   height: var(--spacing-sm);
   background: var(--color-stroke-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 .member-progress-fill {
   height: 100%;
   /* 金色进度填充收敛至 token(品牌灰蓝) */
   background: linear-gradient(90deg, var(--color-warning), var(--color-brand-accent));
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   transition: width 0.3s ease;
 }
 .member-progress-hint {

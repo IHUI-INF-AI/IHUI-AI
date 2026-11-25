@@ -14,7 +14,7 @@
  * 因此 e2e 的 testid / aria / 点击路径全部保留。
  */
 export const COMPOSER_MENU_ROW_CLASS =
-  'flex h-8 w-full min-w-0 items-center gap-2 rounded-sm px-2.5 text-left text-label font-normal text-popover-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-50'
+  'flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-2.5 text-left text-label font-normal text-popover-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-50'
 
 /** 设置行左侧图标(与菜单项图标同规格 14px,muted) */
 export const COMPOSER_MENU_ROW_ICON_CLASS = 'h-3.5 w-3.5 shrink-0 text-muted-foreground'

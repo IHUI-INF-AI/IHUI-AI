@@ -463,7 +463,7 @@ export function UnifiedTaskDashboard() {
             type="button"
             onClick={() => setSourceFilter(s)}
             className={cn(
-              'rounded-sm border px-2 py-0.5 text-[10px] transition-colors',
+              'rounded-md border px-2 py-0.5 text-[10px] transition-colors',
               sourceFilter === s
                 ? 'border-brand-accent-deep bg-primary/10 text-primary'
                 : 'border-border text-muted-foreground hover:bg-muted',
@@ -767,7 +767,7 @@ export function UnifiedTaskDashboard() {
                       key={task.id}
                       type="button"
                       className={cn(
-                        'flex w-full items-center gap-1.5 rounded-sm px-2 py-1 text-left text-label hover:bg-muted',
+                        'flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-label hover:bg-muted',
                         picked && 'bg-sky-500/10',
                       )}
                       onClick={() => toggleMention(task)}

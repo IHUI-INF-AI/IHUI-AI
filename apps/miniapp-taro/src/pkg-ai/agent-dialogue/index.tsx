@@ -662,7 +662,7 @@ export default function AgentDialogue() {
       </ScrollView>
       <View className="fixed bottom-0 left-0 right-0 flex items-center gap-[16rpx] pt-[16rpx] px-[20rpx] pb-[calc(env(safe-area-inset-bottom)+16rpx)] bg-card z-[100]">
         <FocusInput
-          className="flex-1 h-[100rpx] px-[24rpx] text-title text-foreground bg-[var(--color-muted)] border border-[var(--color-border)] rounded-sm"
+          className="flex-1 h-[100rpx] px-[24rpx] text-title text-foreground bg-[var(--color-muted)] border border-[var(--color-border)] rounded-md"
           placeholderStyle="color: var(--color-text-tertiary)"
           value={inputContent}
           placeholder={tt('agentDialogue.inputPlaceholder', '输入消息…')}

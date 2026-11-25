@@ -1546,7 +1546,8 @@ export async function selfTest(repoRoot = ROOT) {
   })())
   t('34b 组件标签是强证据,压过颜色类名', A('const s = <Button className="bg-card rounded-xl" />').violations[0]?.role === 'control')
   t('34c 同行两个 { 必须认到嵌套样式键(只认第一个 = 整族静默失证据)', A('const s = { card: { borderRadius: rnRadius.xl } }').violations[0]?.role === 'card')
-  t('35 控件取 md ⇒ 判红(control 应为 sm)', A('const s = { primaryButton: { borderRadius: rnRadius.md } }').violations[0]?.role === 'control')
+  t('35 控件取 md ⇒ 合规(2026-11-26 起 control 与 chip 同档)', A('const s = { primaryButton: { borderRadius: rnRadius.md } }').compliant === 1)
+  t('35b 控件取 lg ⇒ 判红(control 已并到 md=6px)', A('const s = { primaryButton: { borderRadius: rnRadius.lg } }').violations[0]?.role === 'control')
   t('36 头词元规则:cardHeader 不算卡片(子部件不判)', A('const s = { cardHeader: { borderRadius: rnRadius.xl } }').unclassified.length === 1)
   t('37 词元而非子串:stage 不得被读成 tag', A('const s = { stage: { borderRadius: rnRadius.xl } }').unclassified.length === 1)
   t('38 两个类别信号 ⇒ 未判定 role-conflict,不猜一边', (() => {
@@ -1673,7 +1674,7 @@ export async function selfTest(repoRoot = ROOT) {
       "export default function RetryButton({ text = 'x', onClick }: P) {\n  return (\n    <View\n      className=\"rounded-md\"\n    />\n  )\n}\n"
     t('DR1 解构 props 的组件:函数体内的行必须归属到该组件(旧写法在这里返回 null)', span(destructure, 5) === 'RetryButton', '实得 ' + String(span(destructure, 5)))
     t('DR2 反向:函数体**外**的行不得被认领(区间不是越大越好)', span(destructure, 9) === null, '实得 ' + String(span(destructure, 9)))
-    const arrow = "const SearchInput = ({ a }: P): JSX.Element => {\n  return <View className=\"rounded-sm\" />\n}\n"
+    const arrow = "const SearchInput = ({ a }: P): JSX.Element => {\n  return <View className=\"rounded-md\" />\n}\n"
     t('DR3 箭头函数 + 括号包参数:同样要跳过参数表', span(arrow, 2) === 'SearchInput', '实得 ' + String(span(arrow, 2)))
     const objLit = "const TEMPLATES = {\n  a: { x: 1 },\n}\n"
     t('DR4 PascalCase 常量对象的新旧同结果(只放宽不收紧:旧区间必须被新版覆盖)', span(objLit, 2) === 'TEMPLATES', '实得 ' + String(span(objLit, 2)))
@@ -1852,12 +1853,14 @@ export default function P() {
     })(),
   )
   t(
-    '80 跨行开标签:属性行认得出自己的标签(select ⇒ control 强证据,不再靠色档猜)',
+    '80 跨行开标签:属性行的 rounded-md 能归到标签角色并判合规(control/chip 已同为 md)',
     (() => {
       const r = A(
         'const x = (\n  <select\n    value={k}\n    onChange={f}\n    className="h-7 rounded-md border bg-card px-1.5"\n  />\n)',
       )
-      return r.undetermined.length === 0 && r.violations[0]?.role === 'control' && r.violations[0]?.evidence !== 'weak'
+      // control 与 chip 并档后,md 对二者都合规 ⇒ 无法再用"判红"观察角色。
+      // 仍断言这处取用被归到某个标签角色且合规:归属失败会落到 unclassified,compliant 不会 +1。
+      return r.undetermined.length === 0 && r.violations.length === 0 && r.compliant === 1
     })(),
   )
   t(
@@ -1941,7 +1944,7 @@ export default function P() {
     return r.dimsUndetermined >= 1 && r.trueCircle === 0 && r.violations.length === 0
   })())
   t('111 短边低于可点尺寸(60×8 指示条)⇒ 只进队列不判红 —— §4 明令装饰族不得方档化', (() => {
-    const r = A5('const s = { card: { width: 60, height: 8, borderRadius: rnRadius.sm } }', 'x/Thin.tsx')
+    const r = A5('const s = { card: { width: 60, height: 8, borderRadius: rnRadius.md } }', 'x/Thin.tsx')
     return r.capsuleFindings.length === 1 && r.violations.length === 0
   })())
   /**
@@ -1991,7 +1994,7 @@ export default function P() {
     'export function ConfigPanel() {',
     '  return (',
     '    <div className="rounded-xl">',
-    '      <span className="rounded-sm" />',
+    '      <span className="rounded-md" />',
     '    </div>',
     '  )',
     '}',
@@ -2005,7 +2008,7 @@ export default function P() {
     const v = r.violations.find((x) => x.via === 'component')
     return v?.role === 'panel' && v?.expectedStep === 'xl' && v?.line === 3
   })())
-  t('91 C5 只在 JSX **根**启用:子元素不得吃组件名(rounded-sm 不该被顶成 panel)', (() => {
+  t('91 C5 只在 JSX **根**启用:子元素不得吃组件名(rounded-md 不该被顶成 panel)', (() => {
     const r = A5(C5_ROOT, 'x/ConfigPanel.tsx')
     return !r.violations.some((v) => v.line === 4) && r.undetermined.length === 0
   })())
@@ -2024,7 +2027,7 @@ export default function P() {
     ].join('\n')
     const r = A5(src, 'x/ConfigPanel.tsx')
     const v = r.violations.find((x) => x.line === 9)
-    return v?.role === 'control' && v?.expectedStep === 'sm' && v?.via !== 'component'
+    return v?.role === 'control' && v?.expectedStep === 'md' && v?.via !== 'component'
   })())
   t('92b C5 内联小组件无标签证据时,按**自己的**组件名判 control(而非外层 ConfigPanel 的 panel)', (() => {
     const src = [
@@ -2404,12 +2407,12 @@ export default function P() {
     ].join('\n')
     const r = A(src)
     const v = r.violations.find((x) => x.role === 'control')
-    /** 反臂:同一段里按钮若真取 sm,必须判合规 —— 只钉"判红"不钉"判对",恒红也算通过。 */
-    const ok = A(src.replace('rounded-xl', 'rounded-sm')).violations.length === 0
+    /** 反臂:同一段里按钮若真取 md,必须判合规 —— 只钉"判红"不钉"判对",恒红也算通过。 */
+    const ok = A(src.replace('rounded-xl', 'rounded-md')).violations.length === 0
     return (
       !!v &&
       v.form === 'rounded-xl' &&
-      v.expectedStep === 'sm' &&
+      v.expectedStep === 'md' &&
       v.line === 8 &&
       ok
     )

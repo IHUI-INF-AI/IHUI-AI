@@ -279,7 +279,7 @@ function createStyles(tk: AppThemeTokens) {
     cover: {
       width: 96,
       height: 68,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     coverFallback: {

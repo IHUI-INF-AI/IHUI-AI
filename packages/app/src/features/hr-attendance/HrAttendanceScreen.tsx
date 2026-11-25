@@ -219,7 +219,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.body.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: rnSpacing['sm-loose'],

@@ -123,7 +123,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: rnType.title.size,
@@ -133,7 +133,7 @@ function createStyles(tk: AppThemeTokens) {
     createBtn: {
       marginTop: rnSpacing.lg,
       paddingVertical: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
@@ -158,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
     shareBtnWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.md },
     shareBtn: {
       paddingVertical: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },

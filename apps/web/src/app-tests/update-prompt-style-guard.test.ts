@@ -105,9 +105,9 @@ describe('桌面更新提示视觉守卫', () => {
     expect(promptCode).toMatch(/flex w-full items-center gap-2/)
   })
 
-  it('卡内按钮圆角跟卡内其它容器同为 8px,不得用 rounded-sm 直角块', () => {
-    // 卡片 rounded-xl(12px)、状态条/图标容器 rounded-lg(8px),按钮却是 rounded-sm(4px)
-    expect(promptCode).not.toMatch(/rounded-sm[^"']*transition-colors/)
+  it('卡内按钮圆角跟卡内其它容器同为 8px,不得用 rounded-md 直角块', () => {
+    // 卡片 rounded-xl(12px)、状态条/图标容器 rounded-lg(8px),按钮却是 rounded-md(4px)
+    expect(promptCode).not.toMatch(/rounded-md[^"']*transition-colors/)
     expect(promptCode).toMatch(/h-8 flex-1 rounded-lg border border-border/)
     expect(promptCode).toMatch(/h-8 flex-1 rounded-lg bg-cta/)
   })

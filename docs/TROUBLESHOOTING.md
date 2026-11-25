@@ -270,7 +270,7 @@ pre-commit 共 23 项守门(完整清单见 [AGENTS.md §守门脚本速查](../
 | 7 | `check-dedupe.mjs` | 依赖版本碎片化 | `pnpm --filter <包> add <dep>@<统一版本>` |
 | 8 | `check-api-routes.mjs` | 前后端路由不一致 | 补齐缺失的路由定义(api 或 web) |
 | 9 | `check-safe-parse.mjs`(warn-only) | `JSON.parse` 裸调无 try-catch | 包 `try-catch` 或用 `safeParse` |
-| 11 | `check-rounded-full.mjs` | 容器用了 `rounded-full` | 改用尺寸梯度 `rounded-sm/md/lg/xl`(见 [AGENTS.md §4](../AGENTS.md)) |
+| 11 | `check-rounded-full.mjs` | 容器用了 `rounded-full` | 改用尺寸梯度 `rounded-xs/md/lg/xl/2xl`(见 [AGENTS.md §4](../AGENTS.md));4px `sm` 档已删除 |
 | 12 | `check-delivery-report-consistency.mjs` | 交付报告自相矛盾 | 删除"无后续建议"或删除 P1-P5 遗留项 |
 | 13b | `check-project-plan-size.mjs` | `PROJECT_PLAN.md` > 50KB | 按 [AGENTS.md §1「完成即删」](../AGENTS.md) 把已结清登记行整行删除(不写归档件);出口器 `scripts/live-doc-edit.mjs` 写盘闸默认转删行,归并走 `node scripts/plan-tasks-merge.mjs --heal --commit` |
 | 13c | (已退役 2026-10-16,2026-10-29 摘净) | 归档机制整体下线:门体、其镜像测试与自动归档器已从 HEAD 移除,`scripts/guardian-runner.mjs` 无 13c 注册条目 | 不提供命令,也不提供恢复动作;现行口径 = 结清即整行删除(见 [AGENTS.md §1「完成即删」](../AGENTS.md)),防误删维由守门 71 `scripts/check-plan-line-loss.mjs` 承接 |

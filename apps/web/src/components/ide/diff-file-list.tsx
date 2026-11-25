@@ -205,7 +205,7 @@ export function DiffFileList({
                 type="button"
                 onClick={onMarkAllReviewed}
                 disabled={reviewedCount >= diffFiles.length}
-                className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                 data-testid="diff-review-mark-all"
               >
                 <ListChecks className="h-3 w-3" aria-hidden />
@@ -216,7 +216,7 @@ export function DiffFileList({
               <button
                 type="button"
                 onClick={onClearReviewed}
-                className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-muted/60 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted/60 hover:text-foreground"
                 data-testid="diff-review-clear"
               >
                 <EyeOff className="h-3 w-3" aria-hidden />
@@ -328,7 +328,7 @@ function FileRow({
         <button
           type="button"
           onClick={() => (onRetryRender ?? (() => void fetchDiffFiles()))()}
-          className="shrink-0 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-muted/60"
+          className="shrink-0 rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted/60"
           data-testid={`diff-render-retry-${file.id}`}
         >
           <span>{t('diffReview.retry')}</span>
@@ -407,7 +407,7 @@ function FileRow({
             aria-label={reviewed ? t('diffReview.markAsUnviewed') : t('diffReview.markAsViewed')}
             aria-pressed={reviewed}
             className={cn(
-              'shrink-0 rounded-sm p-0.5 transition-colors',
+              'shrink-0 rounded-md p-0.5 transition-colors',
               reviewed
                 ? 'text-green-600 dark:text-green-400'
                 : 'text-muted-foreground/40 hover:bg-muted/60 hover:text-foreground',

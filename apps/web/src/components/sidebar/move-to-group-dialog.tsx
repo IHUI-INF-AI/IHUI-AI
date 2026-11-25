@@ -82,7 +82,7 @@ export function MoveToGroupDialog({
             onClick={() => setSelected(null)}
             data-testid="move-target-none"
             className={cn(
-              'font-[weight:inherit] flex w-full items-center gap-1.5 rounded-sm border px-2 py-1.5 text-left text-label transition-colors',
+              'font-[weight:inherit] flex w-full items-center gap-1.5 rounded-md border px-2 py-1.5 text-left text-label transition-colors',
               selected === null && !newInput.trim()
                 ? 'border-brand-accent-deep bg-primary/5'
                 : 'hover:bg-muted',
@@ -97,7 +97,7 @@ export function MoveToGroupDialog({
               <div
                 key={folder}
                 className={cn(
-                  'flex items-center gap-1 rounded-sm border pr-1 transition-colors',
+                  'flex items-center gap-1 rounded-md border pr-1 transition-colors',
                   selected === folder && !newInput.trim()
                     ? 'border-brand-accent-deep bg-primary/5'
                     : 'hover:bg-muted',
@@ -122,7 +122,7 @@ export function MoveToGroupDialog({
                   data-testid={`move-dialog-pin-toggle-${folder}`}
                   onClick={() => onTogglePin(folder)}
                   className={cn(
-                    'flex h-5 w-5 shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-accent hover:text-accent-foreground',
+                    'flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground',
                     pinned ? 'text-primary' : 'text-muted-foreground',
                   )}
                 >

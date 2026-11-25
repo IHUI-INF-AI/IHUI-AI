@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     minHeight: 140,
     paddingHorizontal: rnSpacing.md,
     paddingVertical: rnSpacing.sm,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.medium,
     backgroundColor: tokens.surface.inputBg,
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     paddingHorizontal: rnSpacing.md,
     paddingVertical: rnSpacing['xs-loose'],
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.medium,
   },
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     gap: rnSpacing['2xs'],
     paddingHorizontal: rnSpacing.md,
     paddingVertical: rnSpacing['xs-loose'],
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
   },
   successText: {

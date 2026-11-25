@@ -46,7 +46,7 @@ export function ByokIncomeChart({ data, loading }: Props) {
               {Array.from({ length: 30 }).map((_, i) => (
                 <div
                   key={i}
-                  className="flex-1 animate-pulse rounded-sm bg-muted"
+                  className="flex-1 animate-pulse rounded-md bg-muted"
                   style={{ height: '40%' }}
                 />
               ))}
@@ -67,8 +67,8 @@ export function ByokIncomeChart({ data, loading }: Props) {
                     <div
                       className={
                         isHover
-                          ? 'w-full rounded-sm bg-emerald-500 dark:bg-emerald-400'
-                          : 'w-full rounded-sm bg-emerald-300/70 dark:bg-emerald-700/70'
+                          ? 'w-full rounded-md bg-emerald-500 dark:bg-emerald-400'
+                          : 'w-full rounded-md bg-emerald-300/70 dark:bg-emerald-700/70'
                       }
                       style={{ height: `${h}%`, marginTop: 'auto' }}
                     />

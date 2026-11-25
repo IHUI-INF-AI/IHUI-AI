@@ -736,7 +736,7 @@ function createStyles(tk: AppThemeTokens) {
     searchRow: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     searchInput: {
       height: 40,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -803,7 +803,7 @@ function createStyles(tk: AppThemeTokens) {
       marginLeft: rnSpacing.sm,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.DEFAULT,
     },
     viewSubordinatesText: { fontSize: rnType.badge.size, color: tk.brand.foreground },
@@ -852,7 +852,7 @@ function createStyles(tk: AppThemeTokens) {
     treeRetryBtn: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.success.light,
     },
     treeRetryBtnPressed: { opacity: 0.7 },
@@ -907,7 +907,7 @@ function createStyles(tk: AppThemeTokens) {
     modalItem: {
       paddingVertical: rnSpacing.md,
       paddingHorizontal: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
     },
     modalItemActive: { backgroundColor: tk.surface.muted },
     modalItemText: { fontSize: rnType.body.size, color: tk.text.primary },

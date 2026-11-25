@@ -27,7 +27,7 @@ export type StudyRecordRow = StudyRecord & {
 
 export type RecordStatus = 'completed' | 'in_progress' | 'paused'
 
-const STATUS_BASE = 'text-badge leading-[normal] font-semibold py-[8rpx] px-[16rpx] rounded-sm'
+const STATUS_BASE = 'text-badge leading-[normal] font-semibold py-[8rpx] px-[16rpx] rounded-md'
 const META_TEXT = 'text-caption leading-[normal] text-[var(--color-text-tertiary)]'
 
 /** 三态派生:100% 已完成 / 有进度进行中 / 零进度已暂停(对齐 RN statusLabel 三档) */

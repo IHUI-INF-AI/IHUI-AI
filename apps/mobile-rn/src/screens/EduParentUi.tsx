@@ -79,7 +79,7 @@ export function createParentStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.lg,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,

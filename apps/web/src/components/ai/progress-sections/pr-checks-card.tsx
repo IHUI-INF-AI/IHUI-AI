@@ -125,7 +125,7 @@ export function PrChecksCard({
             <li key={check.name} className="flex items-center gap-1.5 text-[11px]">
               <Tooltip content={stateLabel[check.state]}>
                 <span
-                  className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted/50 text-[10px] leading-none"
+                  className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-muted/50 text-[10px] leading-none"
                   aria-label={stateLabel[check.state]}
                   data-check-state={check.state}
                 >
@@ -146,7 +146,7 @@ export function PrChecksCard({
               type="button"
               onClick={() => onAction(action)}
               data-action={action}
-              className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               {actionLabel[action]}
             </button>

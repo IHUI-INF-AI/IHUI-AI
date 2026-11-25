@@ -316,7 +316,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     customInput: {
       backgroundColor: tk.surface.muted,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: rnSpacing['md-loose'],
@@ -357,7 +357,7 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: rnSpacing['sm-loose'],
       marginBottom: rnSpacing.md,
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

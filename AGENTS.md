@@ -3,7 +3,6 @@
   Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
-
 # AGENTS.md — IHUI-AI 项目 Agent 指南
 > 作用域:本仓仓库根目录及其所有子目录。**根由当次实测取,本文不写盘符**(`git rev-parse --show-toplevel`,脚本按自身位置推导——§15)。旧值在这里写死过 `G:/IHUI-AI`,而同一行下一条就要求"不得把本文当本机事实" —— 这处自相矛盾的代价在 2026-11-05 被量到:自主派发环 68 份会话转录里 19 份按 `G:/` 拼路径,检索因此全空、整班零写盘。凡「盘符 / gitdir 形态 / 远端 URL / 代理 / 服务承载体(nssm·计划任务·daemon) / PowerShell 解释器身份 / TEMP」七类机器事实,**每次使用前按当次实测取值**,不得把本文或另一台机的现状当本机事实写进判据。
 <!-- 2026-11-20 门207清偿第1批·区甲:历史归档指针 共2行整行逐字移入.ihui-agent/archive/AGENTS_trim-2026-11-20.md -->
@@ -62,7 +61,7 @@
 - **高对比**:三套高对比机制必须同时覆盖 `input` / `border-medium` / `stroke-*` 三组,缺一组即等于高对比下描边消失。
 - **禁回潮**:`border-border/N` 已清零,不得再写;旧名 `--color-border` / `--color-input` / `--color-border-medium` 仅作底层别名,新代码一律取角色名。守门 `check-border-system.mjs`(323)。
 ### 圆角单一源头(强制)
-- 唯一真相源 `packages/design-tokens/src/radius.js`:`RADIUS_STEPS` = xs 2 / sm 4 / md 6 / lg 8 / xl 12 / 2xl 16(px);角色档 `RADIUS_ROLES` = tiny→xs / control→sm / chip→md / card→lg / panel→xl / hero→2xl,新增角色必须同笔有消费方。取用形态:web/Tailwind 用 `rounded-xs..2xl` 与 `var(--radius-*)`;RN 用 `rnRadius.<step>` / `rnRadiusFor.<角色>`;CSS 用 `var(--radius-*)`;**禁止** px/rpx 字面量、`rounded-[任意值]`、字符串形态 `borderRadius:'8px'`、本地 `*_RADIUS` 常量。SVG 内联写 `rx={rnRadius.xs}`;生成式 HTML/CSS 字符串用 `RADIUS_CSS_PX` 插值。**B6 引用 `rnRadius`、`rnRadiusFor`、`RADIUS_CSS_PX` 却未在本文件 import ⇒ 判红**(悬空标识符 typecheck 与 HEAD 门双盲)。真圆/胶囊靠量出来的形状不靠标记:半径一刀切 ≤2xl;胶囊判红三条件 = 盒形只取自身属性区 + 非正方盒 + 短边 ≥16px;细于 16px 的进度条/骨架/指示点只开队列不判。守门:`check-radius-single-source.mjs`(77)三判据 A 档位表对账 / B 端内取用 / C 覆盖面;`check-radius-role-conformance.mjs` 角色档;`check-rounded-full.mjs`(11)容器纯圆。
+- 唯一真相源 `packages/design-tokens/src/radius.js`:`RADIUS_STEPS` = xs 2 / md 6 / lg 8 / xl 12 / 2xl 16(px;2026-11-26 删除 4px 档);角色档 `RADIUS_ROLES` = tiny→xs / control→md / chip→md / card→lg / panel→xl / hero→2xl,新增角色必须同笔有消费方。取用形态:web/Tailwind 用 `rounded-xs..2xl` 与 `var(--radius-*)`;RN 用 `rnRadius.<step>` / `rnRadiusFor.<角色>`;CSS 用 `var(--radius-*)`;**禁止** `rounded-sm`(4px 档已删除)、px/rpx 字面量、`rounded-[任意值]`、字符串形态 `borderRadius:'8px'`、本地 `*_RADIUS` 常量。SVG 内联写 `rx={rnRadius.xs}`;生成式 HTML/CSS 字符串用 `RADIUS_CSS_PX` 插值。**B6 引用 `rnRadius`、`rnRadiusFor`、`RADIUS_CSS_PX` 却未在本文件 import ⇒ 判红**(悬空标识符 typecheck 与 HEAD 门双盲)。真圆/胶囊靠量出来的形状不靠标记:半径一刀切 ≤2xl;胶囊判红三条件 = 盒形只取自身属性区 + 非正方盒 + 短边 ≥16px;细于 16px 的进度条/骨架/指示点只开队列不判。守门:`check-radius-single-source.mjs`(77)三判据 A 档位表对账 / B 端内取用 / C 覆盖面;`check-radius-role-conformance.mjs` 角色档;`check-rounded-full.mjs`(11)容器纯圆。
 ### Button 高度档位守门(强制)
 - `@ihui/ui-react` 的 `<Button>` 禁止 className `h-*`/`w-*` 覆盖,必须用 `size` 档(xs 28 / sm 32 / default 36 / lg 40 / icon-2xs 28 / icon-xs·icon-sm·icon 32);新高度先在 `button.tsx` size 表立档。守门 `check-button-height.mjs`(档位清单动态解析)。
 ### 中文字体 + 图标垂直对齐(强制)

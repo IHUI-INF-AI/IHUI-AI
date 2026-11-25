@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   plusButton: {
     width: rnGeometry.controlBox,
     height: rnGeometry.controlBox,
-    borderRadius: rnRadius.sm, // control 档 sm(4)(RADIUS_ROLES:control→sm)
+    borderRadius: rnRadius.md, // control 档 sm(4)(RADIUS_ROLES:control→sm)
     alignItems: 'center',
     justifyContent: 'center',
   },

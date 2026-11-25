@@ -54,7 +54,7 @@ export function Tag({
           type="button"
           onClick={onClose}
           aria-label={t('closeTag')}
-          className="ml-0.5 inline-flex items-center rounded-sm hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+          className="ml-0.5 inline-flex items-center rounded-md hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         >
           <X className="h-3 w-3" />
         </button>

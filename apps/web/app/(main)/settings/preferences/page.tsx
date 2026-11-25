@@ -104,7 +104,7 @@ export default function PreferencesPage() {
                     key={item.key}
                     onClick={() => setTheme(item.key)}
                     className={cn(
-                      'flex flex-col items-center gap-2 rounded-sm border p-3 text-body transition-colors',
+                      'flex flex-col items-center gap-2 rounded-md border p-3 text-body transition-colors',
                       active
                         ? 'border-brand-accent-deep bg-primary/5 text-primary'
                         : 'hover:bg-accent hover:text-accent-foreground',
@@ -135,7 +135,7 @@ export default function PreferencesPage() {
                     key={item.key}
                     onClick={() => switchLocale(item.key)}
                     className={cn(
-                      'flex items-center justify-center gap-2 rounded-sm border p-3 text-body transition-colors',
+                      'flex items-center justify-center gap-2 rounded-md border p-3 text-body transition-colors',
                       active
                         ? 'border-brand-accent-deep bg-primary/5 text-primary'
                         : 'hover:bg-accent hover:text-accent-foreground',

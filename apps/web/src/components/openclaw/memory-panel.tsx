@@ -137,7 +137,7 @@ export function MemoryPanel() {
                   key={m.id}
                   className="flex items-start gap-2 rounded-md border border-border bg-background px-3 py-2 text-body"
                 >
-                  <span className="shrink-0 rounded-sm bg-primary/10 px-1.5 py-0.5 text-label text-primary">
+                  <span className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-label text-primary">
                     {m.type === 'fact'
                       ? t('typeFact')
                       : m.type === 'preference'

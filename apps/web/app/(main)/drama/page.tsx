@@ -194,7 +194,7 @@ export default function DramaPage() {
               />
             </div>
             <textarea
-              className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus placeholder:text-muted-foreground"
+              className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus placeholder:text-muted-foreground"
               placeholder={t('lineRewrite.contentPlaceholder')}
               value={content}
               onChange={(e) => setContent(e.target.value)}

@@ -280,7 +280,7 @@ function HookFailureRow({
             onClick={() => onAction(knownAction, record)}
             data-testid="hook-failure-action"
             data-hook-action={knownAction}
-            className="inline-flex items-center gap-1 rounded-sm bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <Wrench className="h-3 w-3" aria-hidden="true" />
             <span>{t(`action.${knownAction}`)}</span>

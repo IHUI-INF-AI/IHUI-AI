@@ -348,7 +348,7 @@ export function CodeEditorPane() {
               <div className="absolute bottom-2 right-3 z-10 flex items-center gap-0.5 rounded-md border border-border bg-background/95 px-1 py-0.5 shadow-elevation-sm">
                 <button
                   onClick={() => setFontSize((s) => Math.max(MIN_FONT_SIZE, s - 1))}
-                  className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                   aria-label={t('codeEditor.zoomOut')}
                 >
                   <Minus className="h-3 w-3" />
@@ -358,7 +358,7 @@ export function CodeEditorPane() {
                 </span>
                 <button
                   onClick={() => setFontSize((s) => Math.min(MAX_FONT_SIZE, s + 1))}
-                  className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                   aria-label={t('codeEditor.zoomIn')}
                 >
                   <Plus className="h-3 w-3" />
@@ -367,7 +367,7 @@ export function CodeEditorPane() {
                 <button
                   onClick={() => setAttributionEnabled((v) => !v)}
                   className={cn(
-                    'flex items-center gap-0.5 rounded-sm px-1 py-0.5 text-label',
+                    'flex items-center gap-0.5 rounded-md px-1 py-0.5 text-label',
                     attributionEnabled
                       ? 'text-foreground hover:bg-muted'
                       : 'text-muted-foreground hover:bg-muted',

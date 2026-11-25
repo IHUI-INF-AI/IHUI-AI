@@ -251,7 +251,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
                   setConnectionError(null)
                   setRetryKey((k) => k + 1)
                 }}
-                className="ml-2 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-primary hover:bg-accent/40"
+                className="ml-2 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-primary hover:bg-accent/40"
               >
                 <RotateCw className="h-2.5 w-2.5" aria-hidden /> {t('retry')}
               </button>
@@ -263,7 +263,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
             </span>
           ) : (
             <span className="flex items-center gap-1 text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-sm bg-muted-foreground/50" />
+              <span className="h-1.5 w-1.5 rounded-md bg-muted-foreground/50" />
               {t('notRunning')}
             </span>
           )}
@@ -293,7 +293,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
               <button
                 type="button"
                 onClick={() => setRetryKey((k) => k + 1)}
-                className="mt-3 inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[11px] hover:bg-accent/40"
+                className="mt-3 inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-accent/40"
               >
                 <RotateCw className="h-3 w-3" aria-hidden /> {t('retry')}
               </button>

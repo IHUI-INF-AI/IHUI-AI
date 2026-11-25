@@ -129,7 +129,7 @@ export function ErrorHeatmap({ agentId, timeRange, refreshKey }: ErrorHeatmapPro
                       return (
                         <div
                           key={`${t}|${tool}`}
-                          className={`relative h-6 rounded-sm border border-stroke-subtle ${cellColor(count)} cursor-default transition-colors hover:ring-1 hover:ring-stroke-focus`}
+                          className={`relative h-6 rounded-md border border-stroke-subtle ${cellColor(count)} cursor-default transition-colors hover:ring-1 hover:ring-stroke-focus`}
                           onMouseEnter={() => setHover({ time: t, tool })}
                           onMouseLeave={() => setHover(null)}
                         >
@@ -149,15 +149,15 @@ export function ErrorHeatmap({ agentId, timeRange, refreshKey }: ErrorHeatmapPro
             <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
               <span>错误密度:</span>
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-3 rounded-sm bg-red-500/25" />
+                <span className="inline-block h-2 w-3 rounded-md bg-red-500/25" />
                 1-2
               </span>
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-3 rounded-sm bg-red-500/50" />
+                <span className="inline-block h-2 w-3 rounded-md bg-red-500/50" />
                 3-5
               </span>
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-3 rounded-sm bg-red-600/80" />
+                <span className="inline-block h-2 w-3 rounded-md bg-red-600/80" />
                 6+
               </span>
             </div>

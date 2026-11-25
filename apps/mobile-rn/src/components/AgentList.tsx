@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   icon: {
     width: 20,
     height: 20,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   iconFallback: {
     backgroundColor: tokens.surface.muted,

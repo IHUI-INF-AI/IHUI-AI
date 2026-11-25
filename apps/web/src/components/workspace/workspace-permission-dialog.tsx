@@ -179,7 +179,7 @@ export function WorkspacePermissionDialog({
                   type="button"
                   onClick={() => setSelectedMode(opt.value)}
                   className={cn(
-                    'flex items-start gap-3 rounded-sm border p-3 text-left transition-colors',
+                    'flex items-start gap-3 rounded-md border p-3 text-left transition-colors',
                     isSel
                       ? 'outline outline-1 outline-border bg-primary/5'
                       : 'border-border hover:bg-muted/40',
@@ -201,7 +201,7 @@ export function WorkspacePermissionDialog({
                     <div className="flex items-center gap-2">
                       <span className="text-body font-medium">{tierText.title}</span>
                       {opt.risk === 'high' && (
-                        <span className="rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                        <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
                           {t('highRisk')}
                         </span>
                       )}
@@ -224,7 +224,7 @@ export function WorkspacePermissionDialog({
               <div className="font-[weight:inherit] flex items-center gap-2 text-body">
                 <ShieldCheck className="h-4 w-4 text-emerald-500" />
                 <span className="font-medium">{t('whitelistRules')}</span>
-                <span className="font-[weight:inherit] rounded-sm bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
+                <span className="font-[weight:inherit] rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                   {rulesData?.rules.length ?? 0}
                 </span>
               </div>
@@ -360,7 +360,7 @@ function RulesEditor({
         <select
           value={newRuleType}
           onChange={(e) => setNewRuleType(e.target.value as PermissionRuleType)}
-          className="font-[weight:inherit] rounded-sm border border-input bg-transparent px-2 py-1.5 text-label transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+          className="font-[weight:inherit] rounded-md border border-input bg-transparent px-2 py-1.5 text-label transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         >
           <option value="path">{t('ruleType.path')}</option>
           <option value="command">{t('ruleType.command')}</option>
@@ -378,7 +378,7 @@ function RulesEditor({
         <select
           value={newDecision}
           onChange={(e) => setNewDecision(e.target.value as PermissionDecision)}
-          className="font-[weight:inherit] rounded-sm border border-input bg-transparent px-2 py-1.5 text-label transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+          className="font-[weight:inherit] rounded-md border border-input bg-transparent px-2 py-1.5 text-label transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         >
           <option value="allow">{t('decision.allow')}</option>
           <option value="deny">{t('decision.deny')}</option>
@@ -414,7 +414,7 @@ function RulesEditor({
             >
               <span
                 className={cn(
-                  'rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+                  'rounded-md px-1.5 py-0.5 text-[10px] font-medium',
                   rule.decision === 'allow'
                     ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                     : 'bg-destructive/10 text-destructive',
@@ -422,12 +422,12 @@ function RulesEditor({
               >
                 {rule.decision === 'allow' ? t('decision.allow') : t('decision.deny')}
               </span>
-              <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                 {t(RULE_TYPE_KEY[rule.ruleType] ?? 'ruleType.unknown')}
               </span>
               <span className="min-w-0 flex-1 truncate font-mono">{rule.pattern}</span>
               {rule.builtin && (
-                <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                   {t('builtin')}
                 </span>
               )}

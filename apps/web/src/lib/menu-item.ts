@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils'
  *  - 行内直属 svg 统一 14px,避免再出现 24px / 14px 两套图标尺寸。
  */
 export const MENU_ITEM_BASE_CLASS =
-  'flex w-full min-w-0 cursor-default select-none items-center gap-2 rounded-sm text-left text-label text-popover-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus-visible:outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 [&>svg]:size-3.5 [&>svg]:shrink-0'
+  'flex w-full min-w-0 cursor-default select-none items-center gap-2 rounded-md text-left text-label text-popover-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus-visible:outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 [&>svg]:size-3.5 [&>svg]:shrink-0'
 
 /** 标准菜单行(左右 10px / 上下 6px):下拉项、自绘 menuitem 一律用它 */
 export const MENU_ITEM_CLASS = cn(MENU_ITEM_BASE_CLASS, 'px-2.5 py-1.5')

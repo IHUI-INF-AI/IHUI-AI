@@ -39,7 +39,7 @@ export function CompactionBoundaryReview({ conversationId }: { conversationId: s
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        className="flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left font-medium text-foreground transition-colors hover:bg-accent"
+        className="flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left font-medium text-foreground transition-colors hover:bg-accent"
         data-testid="compaction-boundary-toggle"
       >
         {open ? (
@@ -60,14 +60,14 @@ export function CompactionBoundaryReview({ conversationId }: { conversationId: s
             return (
               <div
                 key={key}
-                className="rounded-sm bg-background/60 px-2 py-1 text-[11px]"
+                className="rounded-md bg-background/60 px-2 py-1 text-[11px]"
                 data-testid={`compaction-boundary-anchor-${key}`}
               >
                 <div className="flex items-baseline gap-1.5 text-muted-foreground">
                   <span className="shrink-0">{BOUNDARY_ANCHOR_LABELS[key]}</span>
                   {row ? (
                     <>
-                      <span className="shrink-0 rounded-sm bg-muted px-1">{row.role}</span>
+                      <span className="shrink-0 rounded-md bg-muted px-1">{row.role}</span>
                       <span className="shrink-0 tabular-nums">#{row.index}</span>
                     </>
                   ) : (

@@ -67,7 +67,7 @@ export function PresetCard() {
         <span className="text-body font-medium">{t('presetsBuiltinTitle')}</span>
         <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
           {BUILT_IN_APPEARANCE_PRESETS.map((preset) => (
-            <div key={preset.id} className="flex flex-col gap-1.5 rounded-sm border p-2.5">
+            <div key={preset.id} className="flex flex-col gap-1.5 rounded-md border p-2.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-body font-medium">{t(preset.nameKey)}</span>
                 <Button
@@ -101,7 +101,7 @@ export function PresetCard() {
             {presets.map((preset) => (
               <li
                 key={preset.id}
-                className="flex items-center justify-between gap-2 rounded-sm border px-2.5 py-1.5"
+                className="flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5"
               >
                 <span className="min-w-0 flex-1 truncate text-body" title={preset.name}>
                   {preset.name}

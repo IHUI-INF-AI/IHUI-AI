@@ -91,7 +91,7 @@ export function FreeAiContent() {
             <ol className="mb-4 flex-1 space-y-2">
               {card.steps.map((step) => (
                 <li key={step} className="flex items-start gap-2 text-label leading-relaxed">
-                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted text-[10px] font-semibold">
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-muted text-[10px] font-semibold">
                     {card.steps.indexOf(step) + 1}
                   </span>
                   <span className="text-muted-foreground">{t(step)}</span>

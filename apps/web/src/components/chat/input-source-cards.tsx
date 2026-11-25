@@ -82,7 +82,7 @@ export function SnapshotSourceCard({
         </span>
       ) : null}
       {guideNeeded ? (
-        <div className="rounded-sm bg-primary/5 px-2 py-1" data-snapshot-guide="first-run">
+        <div className="rounded-md bg-primary/5 px-2 py-1" data-snapshot-guide="first-run">
           <p className="text-label font-medium text-primary">{t('firstRunGuideTitle')}</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">{t('firstRunGuideBody')}</p>
         </div>
@@ -97,7 +97,7 @@ export function SnapshotSourceCard({
           type="button"
           onClick={onToggle}
           data-action={view.actionKey}
-          className="self-start rounded-sm bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="self-start rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           {t(view.actionKey)}
         </button>
@@ -151,7 +151,7 @@ export function QueueCommandCard({
             data-command={cmd.id}
             data-command-semantic={cmd.semantic}
             title={t(cmd.descKey)}
-            className="flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-left text-label text-foreground transition-colors hover:bg-accent disabled:cursor-default disabled:hover:bg-transparent"
+            className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-label text-foreground transition-colors hover:bg-accent disabled:cursor-default disabled:hover:bg-transparent"
           >
             <span data-command-label={cmd.id}>{t(cmd.labelKey)}</span>
           </button>
@@ -224,7 +224,7 @@ export function MemoryRefCard({
       </div>
       {goal ? (
         <div
-          className="flex items-center gap-1 rounded-sm bg-primary/5 px-2 py-1 text-label text-primary"
+          className="flex items-center gap-1 rounded-md bg-primary/5 px-2 py-1 text-label text-primary"
           data-goal-achieved={goal.labelKey}
         >
           {t(goal.labelKey, { totalTime: goal.values.totalTime })}

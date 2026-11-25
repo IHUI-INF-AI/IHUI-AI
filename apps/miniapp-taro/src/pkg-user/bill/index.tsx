@@ -270,7 +270,7 @@ export default function Bill() {
                     <Text className="flex-1 truncate text-title font-semibold text-foreground">
                       {item.className}
                     </Text>
-                    <View className="shrink-0 rounded-sm bg-[var(--color-muted)] px-[12rpx] py-[4rpx]">
+                    <View className="shrink-0 rounded-md bg-[var(--color-muted)] px-[12rpx] py-[4rpx]">
                       <Text className="text-caption text-[var(--color-text-tertiary)]">
                         {codeText(ENROLL_STATUS_KEY, item.status)}
                       </Text>
@@ -376,7 +376,7 @@ export default function Bill() {
         {/* 底部说明 */}
         <View className="mt-[32rpx] px-[40rpx] text-center">
           <Button
-            className="h-[72rpx] rounded-sm text-body-sm leading-[72rpx]" /* 控件档 sm:项目不允许胶囊 */
+            className="h-[72rpx] rounded-md text-body-sm leading-[72rpx]" /* 控件档 md(6px):项目不允许胶囊 */
             plain
             onClick={() => void onSubscribe()}
           >

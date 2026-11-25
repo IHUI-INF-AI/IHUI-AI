@@ -83,12 +83,12 @@ export function isApprovalResolvable(event: ToolApprovalEvent | null): boolean {
 const BUTTON_BY_KIND: Record<ApprovalButtonKind, { className: string; labelKey: string }> = {
   approve: {
     labelKey: 'agent.approve',
-    className: 'rounded-sm border-none bg-cta px-2.5 py-1 text-xs font-medium text-cta-foreground',
+    className: 'rounded-md border-none bg-cta px-2.5 py-1 text-xs font-medium text-cta-foreground',
   },
   reject: {
     labelKey: 'agent.reject',
     className:
-      'rounded-sm border border-destructive bg-transparent px-2.5 py-1 text-xs font-medium text-destructive',
+      'rounded-md border border-destructive bg-transparent px-2.5 py-1 text-xs font-medium text-destructive',
   },
 }
 
@@ -143,7 +143,7 @@ export function ToolApprovalBanner({ event, onResolve }: ToolApprovalBannerProps
       </div>
       {/* 参数预览:后端已截断 200 字符,再超长靠 CSS 截(line-clamp + break-all)。
           禁止用 title 属性补全文 —— 原生提示窗样式不受控(AGENTS §4 禁用原生提示窗) */}
-      <pre className="m-0 mt-1 line-clamp-4 break-all rounded-sm bg-background/70 p-1.5 font-mono text-[10px] leading-4 whitespace-pre-wrap">
+      <pre className="m-0 mt-1 line-clamp-4 break-all rounded-md bg-background/70 p-1.5 font-mono text-[10px] leading-4 whitespace-pre-wrap">
         {event.argsPreview}
       </pre>
       <div className="mt-2 flex items-center gap-1.5">

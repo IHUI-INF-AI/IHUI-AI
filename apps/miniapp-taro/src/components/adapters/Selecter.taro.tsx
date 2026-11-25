@@ -114,8 +114,8 @@ const viewStyles = {
     border: `1px solid ${active ? tk.brandAccent.deep : tk.border.medium}`,
     width: toRpx(w),
     height: toRpx(h),
-    // 13–20px 装饰小盒 = control→sm(4),与 RN 侧 rnRadius.sm 同档
-    borderRadius: 'var(--radius-sm)',
+    // 13–20px 装饰小盒 = control→sm(4),与 RN 侧 rnRadius.md 同档
+    borderRadius: 'var(--radius-md)',
   }),
   backBtn: (): CSSProperties => ({
     display: 'inline-flex',
@@ -124,7 +124,7 @@ const viewStyles = {
     paddingLeft: toRpx(8),
     paddingRight: toRpx(8),
     height: toRpx(25),
-    borderRadius: 'var(--radius-sm)',
+    borderRadius: 'var(--radius-md)',
     marginRight: toRpx(10),
     flexShrink: 0,
     border: '1px solid',

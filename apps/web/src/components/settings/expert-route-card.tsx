@@ -90,7 +90,7 @@ export function ExpertRouteCard() {
                 aria-pressed={isActive}
                 data-testid={`expert-route-option-${m}`}
                 className={cn(
-                  'font-[weight:inherit] flex flex-col items-center gap-1.5 rounded-sm border p-3 text-body transition-colors',
+                  'font-[weight:inherit] flex flex-col items-center gap-1.5 rounded-md border p-3 text-body transition-colors',
                   isActive
                     ? 'border-brand-accent-deep bg-primary/5 text-primary'
                     : 'hover:bg-accent hover:text-accent-foreground',
@@ -101,7 +101,7 @@ export function ExpertRouteCard() {
                   {t(m)}
                   {isActive && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
                   {m === DEFAULT_MODE && expertAutoRoute === null && !envLocked && (
-                    <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
+                    <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
                       {t('default')}
                     </span>
                   )}

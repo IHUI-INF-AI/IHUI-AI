@@ -5,6 +5,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
+import { rnRadius } from '@ihui/design-tokens'
 
 /** 彗尾由 N 枚首尾相接的短段拼成:同一描边色,靠宽度与不透明度逐级衰减 ⇒ 连续渐隐而不是几块色斑。
  *  段长按 pathLength=100 归一(按钮周长恒等 100 单位),任何尺寸按钮都成立。 */
@@ -28,7 +29,7 @@ const TAIL_SEGMENTS = Array.from({ length: 14 }, (_, i) => {
  *
  * 形态约束:
  *  - 只画外沿:SVG 描边贴在按钮四边(inset -2px),按钮文案区不吃光、不铺底;
- *  - 圆角跟按钮同档(--radius-sm),不是方形框;
+ *  - 圆角跟按钮同档(--radius-md),不是方形框;
  *  - 不拦截点击:pointer-events: none,光环在按钮之上也不影响下拉展开;
  *  - 不用 mask-image(§4 禁渐变遮罩),光带靠 stroke-dasharray 沿闭合路径流动;
  *  - 配色只取品牌强调档(brand-accent / brand-accent-deep),明暗两套由 tokens.css 供给;
@@ -49,7 +50,7 @@ export function LaserHaloRing({ active }: { active: boolean }) {
         y={1}
         width="98%"
         height="98%"
-        rx={4}
+        rx={rnRadius.md}
         pathLength={100}
       />
       {/* 1..N 号彗尾段:首尾严格相接(间距为 0),宽度与不透明度沿尾向衰减 */}
@@ -68,7 +69,7 @@ export function LaserHaloRing({ active }: { active: boolean }) {
           y={1}
           width="98%"
           height="98%"
-          rx={4}
+          rx={rnRadius.md}
           pathLength={100}
           strokeDasharray={`${SEGMENT_LEN} ${100 - SEGMENT_LEN}`}
         />

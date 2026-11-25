@@ -106,7 +106,7 @@ export default function ContactsPanel({
             </Button>
           </div>
           {backend === 'ilink' || readOnly ? (
-            <p className="rounded-sm bg-muted px-3 py-2 text-xs text-muted-foreground">
+            <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
               {readOnly
                 ? '截图 OCR 只读接入不提供平台联系人同步/删除；备注、标签与屏蔽只存本地，入站时自动归档。'
                 : 'iLink 官方通道不提供平台联系人同步/删除；备注、标签与屏蔽只存本地，入站时自动归档。'}
@@ -142,7 +142,7 @@ export default function ContactsPanel({
                       {item.remark || item.displayName || item.platformUserId}
                     </span>
                     {item.blocked ? (
-                      <span className="ml-auto rounded-sm bg-danger/10 px-1.5 py-0.5 text-[10px] text-danger">
+                      <span className="ml-auto rounded-md bg-danger/10 px-1.5 py-0.5 text-[10px] text-danger">
                         已屏蔽
                       </span>
                     ) : null}

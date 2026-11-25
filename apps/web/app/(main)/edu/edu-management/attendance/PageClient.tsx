@@ -1204,7 +1204,7 @@ export default function AttendancePage() {
                         <div key={s.value} className="space-y-1">
                           <div className="flex items-center justify-between text-label">
                             <span className="flex items-center gap-1.5">
-                              <span className={cn('inline-block h-2 w-2 rounded-sm', s.color)} />
+                              <span className={cn('inline-block h-2 w-2 rounded-md', s.color)} />
                               {t(s.labelKey)}
                             </span>
                             <span className="text-muted-foreground">
@@ -1213,7 +1213,7 @@ export default function AttendancePage() {
                           </div>
                           <div className="h-2 w-full overflow-hidden rounded-xs bg-muted">
                             <div
-                              className={cn('h-full rounded-sm transition-all', s.color)}
+                              className={cn('h-full rounded-md transition-all', s.color)}
                               style={{ width: `${pct}%` }}
                             />
                           </div>

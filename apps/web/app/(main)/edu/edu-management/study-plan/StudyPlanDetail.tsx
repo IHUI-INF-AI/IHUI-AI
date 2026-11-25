@@ -337,7 +337,7 @@ export function StudyPlanDetail({
                             role="button"
                             tabIndex={0}
                             className={cn(
-                              'group flex cursor-pointer items-start gap-1 rounded-sm px-2 py-1 text-label transition-colors hover:bg-accent',
+                              'group flex cursor-pointer items-start gap-1 rounded-md px-2 py-1 text-label transition-colors hover:bg-accent',
                               item.completed && 'opacity-50',
                             )}
                             onClick={() => onEditItem(item)}

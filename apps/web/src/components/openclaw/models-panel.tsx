@@ -54,7 +54,7 @@ export function ModelsPanel() {
                     )}
                   </div>
                   {m.context_length !== undefined && (
-                    <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-label text-primary">
+                    <span className="rounded-md bg-primary/10 px-2 py-0.5 text-label text-primary">
                       {m.context_length}
                     </span>
                   )}

@@ -161,7 +161,7 @@ function createStyles(tk: AppThemeTokens) {
     statusUnknown: { color: tk.text.medium, backgroundColor: tk.surface.muted },
     settingButton: {
       flexShrink: 0,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,

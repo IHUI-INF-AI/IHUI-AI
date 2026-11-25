@@ -198,7 +198,7 @@ export function AutoTopupSettings({
           aria-label={t('target.ariaLabel')}
           aria-invalid={targetValidation.errorKey !== null}
           data-target-input="true"
-          className="rounded-sm border border-input bg-background px-2 py-1 text-label"
+          className="rounded-md border border-input bg-background px-2 py-1 text-label"
         />
         <p className="text-[11px] text-muted-foreground" data-target-helper="true">
           {t('target.helper')}
@@ -230,7 +230,7 @@ export function AutoTopupSettings({
           aria-label={t('threshold.ariaLabel')}
           aria-invalid={thresholdValidation.errorKey !== null}
           data-threshold-input="true"
-          className="rounded-sm border border-input bg-background px-2 py-1 text-label"
+          className="rounded-md border border-input bg-background px-2 py-1 text-label"
         />
         <p className="text-[11px] text-muted-foreground" data-threshold-helper="true">
           {t('threshold.helper')}
@@ -253,7 +253,7 @@ export function AutoTopupSettings({
             onClick={onSave}
             disabled={busy || !targetValidation.ok || !thresholdValidation.ok}
             data-action="save"
-            className="rounded-sm bg-muted/50 px-2 py-1 text-[11px] transition-colors hover:bg-muted"
+            className="rounded-md bg-muted/50 px-2 py-1 text-[11px] transition-colors hover:bg-muted"
           >
             {t('save.action')}
           </button>
@@ -264,7 +264,7 @@ export function AutoTopupSettings({
         <div
           role="alert"
           data-failure={failureInfo.messageKey}
-          className="flex flex-col gap-1 rounded-sm border border-destructive/30 p-2"
+          className="flex flex-col gap-1 rounded-md border border-destructive/30 p-2"
         >
           <span className="text-[11px] font-medium text-destructive">
             {t('immediateTopUpFailure.title')}
@@ -280,7 +280,7 @@ export function AutoTopupSettings({
                 data-action={action}
                 data-recovery-key={failureActionKey(action)}
                 onClick={() => onAction?.(action)}
-                className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[11px] transition-colors hover:bg-muted"
+                className="rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] transition-colors hover:bg-muted"
               >
                 {action === 'updatePaymentMethod'
                   ? t('immediateTopUpFailure.updatePaymentMethod')
@@ -306,7 +306,7 @@ export function AutoTopupSettings({
               type="button"
               data-dialog-confirm="true"
               onClick={onConfirm}
-              className="rounded-sm bg-amber-600/90 px-2 py-1 text-[11px] text-white transition-colors hover:bg-amber-600"
+              className="rounded-md bg-amber-600/90 px-2 py-1 text-[11px] text-white transition-colors hover:bg-amber-600"
             >
               {t('dialog.confirm')}
             </button>
@@ -314,7 +314,7 @@ export function AutoTopupSettings({
               type="button"
               data-dialog-cancel="true"
               onClick={() => dispatch({ action: 'cancel' })}
-              className="rounded-sm bg-muted/50 px-2 py-1 text-[11px] transition-colors hover:bg-muted"
+              className="rounded-md bg-muted/50 px-2 py-1 text-[11px] transition-colors hover:bg-muted"
             >
               {t('dialog.cancel')}
             </button>

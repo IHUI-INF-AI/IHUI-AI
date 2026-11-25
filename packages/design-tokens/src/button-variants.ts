@@ -61,10 +61,10 @@ export const SHARED_BUTTON_VARIANT_CLASSES: Record<ButtonBaseVariant, string> = 
 
 /**
  * 共享 size 档(2 档)。取值口径同上。
- * sm 两端同为 h-8 px-3(web 另追加 rounded-sm text-xs);
+ * sm 两端同为 h-8 px-3(web 另追加 rounded-md text-xs);
  * lg 于 2026-10-10 收编为 `h-10 px-8`(以 web 为基准 —— web 的 Button 高度档位定稿就是
  * xs 28 / sm 32 / default 36 / lg 40,RN 此前的 h-12=48 不在这套定稿上)。
- * **两处未随本档统一、如实登记**:① 圆角 —— web 在 lg 追加 `rounded-sm`(4px)而 RN 的基座是
+ * **两处未随本档统一、如实登记**:① 圆角 —— web 在 lg 追加 `rounded-md`(4px)而 RN 的基座是
  * `rounded-md`(6px),归"圆角角色档统一批"(守门 150/77 的地盘),不在本票顺手改;
  * ② 字号 —— RN 的文字尺寸由内部 <Text> 控制,size 档只作用在盒上,属平台结构差异。
  */

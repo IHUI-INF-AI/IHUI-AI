@@ -74,7 +74,7 @@ export function AiModelDialog({
                 id="apiFormat"
                 value={form.apiFormat}
                 onChange={(e) => setForm({ ...form, apiFormat: e.target.value })}
-                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
               >
                 {API_FORMATS.map((f) => (
                   <option key={f.value} value={f.value}>

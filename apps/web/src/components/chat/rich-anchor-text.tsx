@@ -36,7 +36,7 @@ import {
  */
 export type RichAnchorComponents = Record<RichAnchorTag, (chunks: ReactNode) => ReactNode>
 
-const CODE_CLASS = 'rounded-sm bg-muted px-1 py-0.5 font-mono text-[0.85em]'
+const CODE_CLASS = 'rounded-md bg-muted px-1 py-0.5 font-mono text-[0.85em]'
 const LINK_CLASS = 'text-primary underline underline-offset-2'
 
 /** 与 MarkdownStream 的 MarkdownLink 同一套协议白名单(不另造一份判据) */

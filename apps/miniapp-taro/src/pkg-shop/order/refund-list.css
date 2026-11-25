@@ -138,7 +138,7 @@
   padding: var(--spacing-sm) var(--spacing-sm-loose);
   background: var(--color-success-tint);
   border: 2rpx solid var(--color-success-tint-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-label);
   color: var(--color-success);
 }
@@ -157,7 +157,7 @@
   color: var(--color-muted-foreground);
   background: var(--color-background);
   border: 2rpx solid var(--color-stroke-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .refund-action-primary {
   color: var(--color-primary);

@@ -213,8 +213,8 @@ describe('L3 徽章族圆角与配色同档', () => {
   })
 
   it('有牙:同一 helper 喂 sm / xs 的构造块必须报出非 md', () => {
-    const bad = `paddingLeft: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_X_PX), borderRadius: rnRadius.sm,`
-    expect(badgeRadius(bad)).toEqual([{ pad: 'price', radius: 'rnRadius.sm' }])
+    const bad = `paddingLeft: toUnit(MODEL_LIST_PRICE_BADGE_PADDING_X_PX), borderRadius: rnRadius.md,`
+    expect(badgeRadius(bad)).toEqual([{ pad: 'price', radius: 'rnRadius.md' }])
     const ok = `paddingLeft: toUnit(MODEL_LIST_BADGE_PADDING_X_PX), borderRadius: rnRadius.md,`
     expect(badgeRadius(ok)).toEqual([{ pad: 'rank', radius: 'rnRadius.md' }])
   })

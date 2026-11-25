@@ -188,7 +188,7 @@ function createStyles(tk: AppThemeTokens) {
     modeBtn: {
       flex: 1,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
     modeBtnActive: { backgroundColor: tk.brand.cta },
@@ -257,7 +257,7 @@ function createStyles(tk: AppThemeTokens) {
       maxHeight: 100,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: rnType.title.size,
@@ -268,7 +268,7 @@ function createStyles(tk: AppThemeTokens) {
     sendBtn: {
       paddingHorizontal: rnSpacing.lg,
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -278,7 +278,7 @@ function createStyles(tk: AppThemeTokens) {
     clearBtn: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
     clearText: { color: tk.text.medium, fontSize: rnType.body.size },

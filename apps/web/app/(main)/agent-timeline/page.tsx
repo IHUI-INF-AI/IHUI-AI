@@ -173,12 +173,12 @@ export default function AgentTimelinePage() {
           onChange={(e) => setSessionId(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void load(sessionId)}
           placeholder={t('sessionIdPlaceholder')}
-          className="flex-1 rounded-sm border bg-background px-3 py-2 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+          className="flex-1 rounded-md border bg-background px-3 py-2 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
         />
         <button
           onClick={() => void load(sessionId)}
           disabled={loading || !sessionId.trim()}
-          className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-body font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-md bg-cta px-4 py-2 text-body font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           {t('load')}
@@ -255,7 +255,7 @@ export default function AgentTimelinePage() {
                     <button
                       onClick={() => setExpanded((p) => (p === ev.ref_id ? null : ev.ref_id))}
                       className={cn(
-                        'w-full rounded-sm border p-3 text-left transition',
+                        'w-full rounded-md border p-3 text-left transition',
                         isError
                           ? 'border-destructive/40 hover:bg-destructive/5'
                           : 'hover:bg-muted/40',

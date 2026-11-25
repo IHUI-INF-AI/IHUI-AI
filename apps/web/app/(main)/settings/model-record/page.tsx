@@ -259,7 +259,7 @@ export default function ModelRecordPage() {
             <select
               value={kind}
               onChange={onKindChange}
-              className="h-9 rounded-sm border border-input bg-background px-3 text-body outline-none"
+              className="h-9 rounded-md border border-input bg-background px-3 text-body outline-none"
               aria-label={t('modelRecordAlgorithmType')}
             >
               <option value="">{t('modelRecordKindAll')}</option>
@@ -269,7 +269,7 @@ export default function ModelRecordPage() {
             <select
               value={batch}
               onChange={onBatchChange}
-              className="h-9 max-w-[200px] rounded-sm border border-input bg-background px-3 text-body outline-none"
+              className="h-9 max-w-[200px] rounded-md border border-input bg-background px-3 text-body outline-none"
               aria-label={t('modelRecordBatch')}
             >
               <option value="">{t('modelRecordFilterAllBatch')}</option>
@@ -338,8 +338,8 @@ export default function ModelRecordPage() {
                               aria-label={copied ? t('modelRecordCopied') : t('modelRecordCopy')}
                               className={
                                 copied
-                                  ? 'ml-0.5 inline-flex h-6 items-center gap-1 rounded-sm px-1.5 text-[11px] font-normal text-emerald-600 transition-colors dark:text-emerald-400'
-                                  : 'ml-0.5 inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
+                                  ? 'ml-0.5 inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] font-normal text-emerald-600 transition-colors dark:text-emerald-400'
+                                  : 'ml-0.5 inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
                               }
                             >
                               {copied ? (

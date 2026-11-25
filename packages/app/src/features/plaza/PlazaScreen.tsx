@@ -402,7 +402,7 @@ function createStyles(tk: AppThemeTokens) {
     searchInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['md-loose'],
@@ -454,7 +454,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.md,
       paddingHorizontal: rnSpacing['2xl'],
       paddingVertical: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     } as ViewStyle,
     emptyBtnText: {
@@ -551,7 +551,7 @@ function createStyles(tk: AppThemeTokens) {
     chatBtn: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     } as ViewStyle,
     chatBtnPressed: {

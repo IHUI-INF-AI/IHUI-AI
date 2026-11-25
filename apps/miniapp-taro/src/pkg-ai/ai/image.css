@@ -66,7 +66,7 @@
   min-height: 120rpx;
   padding: var(--spacing-sm-loose);
   background: var(--color-background);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-body);
   box-sizing: border-box;
 }
@@ -84,7 +84,7 @@
 .size {
   padding: var(--spacing-xs) var(--spacing-sm);
   border: 2rpx solid var(--color-stroke-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
@@ -95,7 +95,7 @@
 .btn {
   background: var(--color-cta);
   color: var(--color-cta-foreground);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-body);
   padding: 0 var(--spacing-lg);
 }

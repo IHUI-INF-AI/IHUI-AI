@@ -16,7 +16,7 @@ export default function NotificationSaveBar({ saving, onSave }: NotificationSave
   return (
     <View className="mx-[20rpx] mt-[32rpx]">
       <View
-        className={`flex h-[100rpx] items-center justify-center rounded-sm ${
+        className={`flex h-[100rpx] items-center justify-center rounded-md ${
           saving ? 'bg-[var(--color-muted)]' : 'bg-cta'
         }`}
         onClick={() => {

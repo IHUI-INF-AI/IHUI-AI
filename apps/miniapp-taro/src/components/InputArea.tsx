@@ -789,7 +789,7 @@ export default function InputArea({
                       因为两端的"展开面板"高亮此前一端有一端无)。 */}
                   <View
                     className={cn(
-                      'ui-control flex items-center justify-center rounded-sm',
+                      'ui-control flex items-center justify-center rounded-md',
                       isShowIcon ? 'bg-cta text-cta-foreground' : '',
                     )}
                     style={{
@@ -827,7 +827,7 @@ export default function InputArea({
                   <View
                     ariaRole="button"
                     ariaLabel={t('chat.send')}
-                    className="flex items-center justify-center ml-sm rounded-sm bg-cta text-cta-foreground"
+                    className="flex items-center justify-center ml-sm rounded-md bg-cta text-cta-foreground"
                     style={{
                       width: rpx(taroGeometry.controlBox),
                       height: rpx(taroGeometry.controlBox),
@@ -878,7 +878,7 @@ export default function InputArea({
           <View
             ariaRole="button"
             ariaLabel={t(mode === 'text' ? 'aiMultimodal.audioMode' : 'aiMultimodal.textMode')}
-            className={`w-9 h-9 flex items-center justify-center rounded-sm ${mode === 'voice' ? 'text-primary' : 'text-muted-foreground'}`}
+            className={`w-9 h-9 flex items-center justify-center rounded-md ${mode === 'voice' ? 'text-primary' : 'text-muted-foreground'}`}
             onClick={toggleMode}
             hoverClass="opacity-60"
           >
@@ -894,7 +894,7 @@ export default function InputArea({
 
         {mode === 'text' ? (
           <View
-            className="flex-1 bg-muted rounded-sm px-md py-sm flex items-center"
+            className="flex-1 bg-muted rounded-md px-md py-sm flex items-center"
             // 输入行最小高 = INPUT_AREA_INPUT_MIN_HEIGHT_PX(48) —— 与 RN 卡片输入行 MIN_INPUT_HEIGHT
             // 同一枚档。收编前 className 写 `min-h-10`(=40,Tailwind 刻度),两端同元素差 8px;
             // 且 `min-h-*` 不在几何维的刻度档正则里 ⇒ 该值此前根本没进读数面(门 128 读成"仅 RN 档 48")。
@@ -928,7 +928,7 @@ export default function InputArea({
           </View>
         ) : (
           <View
-            className={`flex-1 min-h-10 mx-sm rounded-sm flex items-center justify-center text-body ${recording ? 'bg-[var(--color-danger-light)] text-destructive' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
+            className={`flex-1 min-h-10 mx-sm rounded-md flex items-center justify-center text-body ${recording ? 'bg-[var(--color-danger-light)] text-destructive' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
             onTouchStart={handleVoiceStart}
             onTouchEnd={handleVoiceEnd}
             onTouchCancel={handleVoiceCancel}
@@ -941,11 +941,11 @@ export default function InputArea({
 
         <View className="flex items-center ml-sm flex-shrink-0">
           {mode === 'text' ? (
-            // 开关钮载体 = 矢量(AGENTS §4「UI 图标一律用矢量图标库,禁止 emoji 充当图标」);命中盒 w-9 h-9 / 圆角档 rounded-sm / 开合两态色档与原字符实现同档,墨迹取本文件既有具名档 ⇒ 不新增端内数字
+            // 开关钮载体 = 矢量(AGENTS §4「UI 图标一律用矢量图标库,禁止 emoji 充当图标」);命中盒 w-9 h-9 / 圆角档 rounded-md / 开合两态色档与原字符实现同档,墨迹取本文件既有具名档 ⇒ 不新增端内数字
             <View
               ariaRole="button"
               ariaLabel={t('common.actions')}
-              className={`min-w-[88rpx] min-h-[88rpx] flex items-center justify-center rounded-sm ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`}
+              className={`min-w-[88rpx] min-h-[88rpx] flex items-center justify-center rounded-md ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`}
               hoverClass="opacity-60"
               onClick={toggleEmoji}
             >
@@ -961,7 +961,7 @@ export default function InputArea({
             <View
               ariaRole="button"
               ariaLabel={t('a11y.addAttachment')}
-              className="w-9 h-9 flex items-center justify-center rounded-sm text-muted-foreground"
+              className="w-9 h-9 flex items-center justify-center rounded-md text-muted-foreground"
               onClick={handleUploadToggle}
               hoverClass="opacity-60"
             >
@@ -977,7 +977,7 @@ export default function InputArea({
         {mode === 'text' ? (
           // active:bg-primary 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈
           <View
-            className={`ml-sm px-lg h-9 leading-9 rounded-sm text-body flex-shrink-0 ${canSend ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'}`}
+            className={`ml-sm px-lg h-9 leading-9 rounded-md text-body flex-shrink-0 ${canSend ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'}`}
             onClick={handleSend}
             hoverClass="opacity-60"
           >

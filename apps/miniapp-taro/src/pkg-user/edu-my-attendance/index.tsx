@@ -184,7 +184,7 @@ export default function Page() {
             {echo?.status ? ` (${st(echo.status)})` : ''}
           </Text>
           <Input
-            className="rounded-sm border border-border bg-card px-md py-sm text-body text-foreground"
+            className="rounded-md border border-border bg-card px-md py-sm text-body text-foreground"
             value={remark}
             // 备注占位符取通用单源键 share.remarkPlaceholder(本端五语言在册),
             // 不在 eduMyAttendance 下再抄一份同义串(§0.6 单一真相源 / §19 禁第二份真相)。

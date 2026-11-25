@@ -40,7 +40,7 @@ export function DownloadDetailHeader({
             <h1 className="flex items-center gap-2 text-heading font-semibold text-foreground">
               <span>{label}</span>
               {meta.version && (
-                <span className="rounded-sm bg-muted px-1.5 py-0.5 text-label font-medium text-muted-foreground">
+                <span className="rounded-md bg-muted px-1.5 py-0.5 text-label font-medium text-muted-foreground">
                   v{meta.version}
                 </span>
               )}

@@ -126,7 +126,7 @@ export function KnowledgeItemList({ space }: { space: KnowledgeSpaceDTO }) {
                 key={k || 'kind-all'}
                 type="button"
                 onClick={() => setKindFilter(k)}
-                className={`rounded-sm px-2 py-1 text-label ${
+                className={`rounded-md px-2 py-1 text-label ${
                   kindFilter === k ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'
                 }`}
               >
@@ -138,7 +138,7 @@ export function KnowledgeItemList({ space }: { space: KnowledgeSpaceDTO }) {
                 key={s || 'status-all'}
                 type="button"
                 onClick={() => setStatusFilter(s)}
-                className={`rounded-sm px-2 py-1 text-label ${
+                className={`rounded-md px-2 py-1 text-label ${
                   statusFilter === s
                     ? 'bg-cta text-cta-foreground'
                     : 'bg-muted text-muted-foreground'

@@ -149,7 +149,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     imageBase: {
       width: '100%',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
     },
     imageFallback: {
       height: 260,

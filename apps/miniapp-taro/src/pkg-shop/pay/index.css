@@ -158,13 +158,13 @@
   font-size: var(--text-label);
   color: var(--color-success);
   border: 2rpx solid var(--color-success);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .py-radio {
   width: 36rpx;
   height: 36rpx;
   border: 2rpx solid var(--color-stroke-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-secondary);
   display: flex;
   align-items: center;

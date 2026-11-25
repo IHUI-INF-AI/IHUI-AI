@@ -224,7 +224,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({
   }
 
   return (
-    <div className="rounded-sm transition-colors hover:bg-accent/40">
+    <div className="rounded-md transition-colors hover:bg-accent/40">
       <div
         className={cn('flex items-center gap-1.5 px-1 py-0.5', hasDetail && 'cursor-pointer')}
         onClick={toggleExpand}
@@ -260,7 +260,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({
         {/* v15: 类别徽章(对齐 AI 工作台)— read/search/write/exec 紧凑色标 */}
         <span
           className={cn(
-            'shrink-0 rounded-sm px-1 text-[10px] font-medium uppercase tracking-wider',
+            'shrink-0 rounded-md px-1 text-[10px] font-medium uppercase tracking-wider',
             CATEGORY_BADGE_CLS[cat],
           )}
           data-testid={`tool-cat-${tool.id}`}
@@ -279,7 +279,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({
         {stepLabel && (
           <Tooltip content={stepLabel}>
             <span
-              className="max-w-28 shrink-0 truncate rounded-sm bg-primary/5 px-1 text-[10px] text-primary/80"
+              className="max-w-28 shrink-0 truncate rounded-md bg-primary/5 px-1 text-[10px] text-primary/80"
               data-testid={`tool-step-${tool.id}`}
             >
               {stepLabel}
@@ -296,7 +296,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({
         {/* #23 撤回未执行工具卡(2026-09-13 立):cancelled 状态显示撤回徽章 */}
         {tool.status === 'cancelled' && (
           <span
-            className="shrink-0 rounded-sm bg-muted px-1 text-[10px] text-muted-foreground"
+            className="shrink-0 rounded-md bg-muted px-1 text-[10px] text-muted-foreground"
             data-testid={`tool-revoked-${tool.id}`}
           >
             {t('tools.revoked')}
@@ -326,7 +326,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({
                       data-testid={`tool-copy-args-${tool.id}`}
                     />
                   </div>
-                  <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-muted/60 p-1 font-mono text-[11px] text-muted-foreground/90">
+                  <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-1 font-mono text-[11px] text-muted-foreground/90">
                     {truncateForDisplay(formatArgsJson(tool.args))}
                   </pre>
                 </div>
@@ -345,7 +345,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({
                   </div>
                   <pre
                     className={cn(
-                      'mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm p-1 font-mono text-[11px]',
+                      'mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-md p-1 font-mono text-[11px]',
                       tool.status === 'error'
                         ? 'bg-red-500/10 text-red-500/90'
                         : 'bg-muted/60 text-muted-foreground/90',
@@ -365,7 +365,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({
                       data-testid={`tool-copy-error-${tool.id}`}
                     />
                   </div>
-                  <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-red-500/10 p-1 font-mono text-[11px] text-red-500/90">
+                  <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-md bg-red-500/10 p-1 font-mono text-[11px] text-red-500/90">
                     {tool.error}
                   </pre>
                 </div>
@@ -523,7 +523,7 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
                   onClick={() => setStatusFilter(f)}
                   aria-pressed={statusFilter === f}
                   className={cn(
-                    'rounded-sm px-1 py-0.5 text-[11px] transition-colors',
+                    'rounded-md px-1 py-0.5 text-[11px] transition-colors',
                     statusFilter === f
                       ? 'bg-primary/10 text-primary'
                       : 'text-muted-foreground/60 hover:bg-accent/40 hover:text-foreground',

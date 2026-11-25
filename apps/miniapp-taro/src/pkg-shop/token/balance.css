@@ -65,7 +65,7 @@
   justify-content: center;
   height: 60rpx;
   padding: 0 var(--spacing-md-loose);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   box-sizing: border-box;
   background: var(--color-card);
   text-align: center;

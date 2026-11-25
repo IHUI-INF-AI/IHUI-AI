@@ -42,6 +42,7 @@ import {
   type UsageStat,
 } from './_shared.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
+import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
 
 const hunyuan3dSubmitBody = z.object({
   Prompt: z.string().optional(),
@@ -134,6 +135,7 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, 'Prompt / ImageBase64 / ImageUrl 至少提供一个'))
       const keys = requireVendorKeys('tencent', reply)
       if (!keys) return
+      if (!(await ensureMediaPointsBalance(request, reply, 'hunyuan3d', 'video_compose', 1))) return
       const params: Record<string, unknown> = {}
       if (body.Prompt) params.Prompt = body.Prompt
       if (body.ImageBase64) params.ImageBase64 = body.ImageBase64
@@ -180,6 +182,7 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
           status: 'PENDING',
         })
         recordUsage(request.userId!, 'tencent')
+        await chargeMediaPoints(request, 'hunyuan3d', 'video_compose', 1, `hunyuan3d:${request.id}`)
         return reply.send(success({ JobId: jobId, taskId: task.taskId }))
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -320,6 +323,7 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
       if (!body.prompt) return reply.status(400).send(error(400, 'prompt 为必填'))
       const keys = requireVendorKeys('volcengine', reply)
       if (!keys) return
+      if (!(await ensureMediaPointsBalance(request, reply, 'jimeng_t2i_v40', 'image', 1))) return
       const submitBody: Record<string, unknown> = {
         req_key: 'jimeng_t2i_v40',
         prompt: body.prompt,
@@ -363,6 +367,13 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
           ? (finalData!.image_urls as string[])
           : []
         recordUsage(request.userId!, 'volcengine')
+        await chargeMediaPoints(
+          request,
+          'jimeng_t2i_v40',
+          'image',
+          1,
+          `volcengine-jimeng-image:${request.id}`,
+        )
         return reply.send(success({ image_urls: imageUrls, request_id: data.request_id }))
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -387,6 +398,7 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
       if (!body.prompt) return reply.status(400).send(error(400, 'prompt 为必填'))
       const keys = requireVendorKeys('volcengine', reply)
       if (!keys) return
+      if (!(await ensureMediaPointsBalance(request, reply, 'jimeng_t2i_v31', 'image', 1))) return
       try {
         const signed = volcengineSign(
           { Action: 'CVProcess', Version: '2022-08-31' },
@@ -402,6 +414,13 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
         const data = await resp.json().catch(() => ({}))
         if (!resp.ok) return reply.status(502).send(error(502, `火山引擎调用失败: ${resp.status}`))
         recordUsage(request.userId!, 'volcengine')
+        await chargeMediaPoints(
+          request,
+          'jimeng_t2i_v31',
+          'image',
+          1,
+          `volcengine-jimeng-generate:${request.id}`,
+        )
         return reply.send(success(data))
       } catch (e) {
         return reply.status(502).send(error(502, `火山引擎调用异常: ${(e as Error).message}`))
@@ -426,6 +445,11 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = volcVisualBody.parse(request.body)
       const keys = requireVendorKeys('volcengine', reply)
       if (!keys) return
+      const isVideo = /(t2v|i2v|v2v|video|animate|motion)/i.test(reqKey)
+      const billingCategory = isVideo ? 'video' : 'image'
+      const billingUnits = isVideo ? 5 : 1
+      if (!(await ensureMediaPointsBalance(request, reply, reqKey, billingCategory, billingUnits)))
+        return
       const submitBody: Record<string, unknown> = {
         req_key: reqKey,
         prompt: body.prompt ?? '',
@@ -455,6 +479,13 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
         if (!final) return
         const finalData = final.data as Record<string, unknown> | undefined
         recordUsage(request.userId!, 'volcengine')
+        await chargeMediaPoints(
+          request,
+          reqKey,
+          billingCategory,
+          billingUnits,
+          `volcengine-visual:${request.id}`,
+        )
         return reply.send(
           success({ video_url: finalData?.video_url ?? '', request_id: data.request_id }),
         )
@@ -481,6 +512,19 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
       if (!body.req_key) return reply.status(400).send(error(400, 'req_key 为必填'))
       const keys = requireVendorKeys('volcengine', reply)
       if (!keys) return
+      const isVideo = /(t2v|i2v|v2v|video|animate|motion)/i.test(body.req_key)
+      const billingCategory = isVideo ? 'video' : 'image'
+      const billingUnits = isVideo ? 5 : 1
+      if (
+        !(await ensureMediaPointsBalance(
+          request,
+          reply,
+          body.req_key,
+          billingCategory,
+          billingUnits,
+        ))
+      )
+        return
       try {
         const signed = volcengineSign(
           { Action: 'CVProcess', Version: '2022-08-31' },
@@ -496,6 +540,13 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
         const data = await resp.json().catch(() => ({}))
         if (!resp.ok) return reply.status(502).send(error(502, `火山引擎调用失败: ${resp.status}`))
         recordUsage(request.userId!, 'volcengine')
+        await chargeMediaPoints(
+          request,
+          body.req_key,
+          billingCategory,
+          billingUnits,
+          `volcengine-jimeng4:${request.id}`,
+        )
         return reply.send(success(data))
       } catch (e) {
         return reply.status(502).send(error(502, `火山引擎调用异常: ${(e as Error).message}`))
@@ -683,6 +734,7 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
       const vendor = body.vendor ?? 'doubao'
       const vendorCfg = VENDORS[vendor]
       if (!vendorCfg) return reply.status(400).send(error(400, `不支持的厂商: ${vendor}`))
+      if (!(await ensureMediaPointsBalance(request, reply, 'voice-clone', 'voiceprint', 1))) return
       const data = await callVendor(vendor, `${vendorCfg.baseUrl}/v1/voice/clone`, reply, {
         method: 'POST',
         body: JSON.stringify({ voice_name: body.voiceName, audio_url: body.audioUrl }),
@@ -698,6 +750,8 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
         createdAt: Date.now(),
       }
       timbreStore.set(timbre.timbreId, timbre)
+      recordUsage(request.userId!, vendor)
+      await chargeMediaPoints(request, 'voice-clone', 'voiceprint', 1, `timbre-clone:${request.id}`)
       return reply.send(success(timbre))
     },
   )
@@ -784,6 +838,7 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const body = watermarkImageBody.parse(request.body)
       if (!body.imageUrl) return reply.status(400).send(error(400, 'imageUrl 为必填'))
+      if (!(await ensureMediaPointsBalance(request, reply, 'watermark-image', 'image', 1))) return
       const data = await callVendor(
         'dashscope',
         'https://dashscope.aliyuncs.com/api/v1/services/aigc/image-outpainting/image-synthesis',
@@ -798,6 +853,14 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
         },
       )
       if (data === null) return
+      recordUsage(request.userId!, 'dashscope')
+      await chargeMediaPoints(
+        request,
+        'watermark-image',
+        'image',
+        1,
+        `watermark-image:${request.id}`,
+      )
       return reply.send(success(data))
     },
   )
@@ -817,6 +880,7 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const body = watermarkVideoBody.parse(request.body)
       if (!body.videoUrl) return reply.status(400).send(error(400, 'videoUrl 为必填'))
+      if (!(await ensureMediaPointsBalance(request, reply, 'watermark-video', 'video', 5))) return
       const data = await callVendor(
         'dashscope',
         'https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis',
@@ -831,6 +895,14 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
         },
       )
       if (data === null) return
+      recordUsage(request.userId!, 'dashscope')
+      await chargeMediaPoints(
+        request,
+        'watermark-video',
+        'video',
+        5,
+        `watermark-video:${request.id}`,
+      )
       const task = createTask(request.userId!, 'dashscope', 'watermark-video', data)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },

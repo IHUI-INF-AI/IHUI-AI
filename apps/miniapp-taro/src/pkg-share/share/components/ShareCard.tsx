@@ -90,7 +90,7 @@ export default function ShareCard() {
         />
       </View>
       <View
-        className={`mt-[24rpx] flex h-[88rpx] items-center justify-center rounded-sm text-strong font-semibold ${
+        className={`mt-[24rpx] flex h-[88rpx] items-center justify-center rounded-md text-strong font-semibold ${
           loading
             ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]'
             : 'bg-cta text-cta-foreground'
@@ -122,7 +122,7 @@ export default function ShareCard() {
       ) : null}
       {result ? (
         <View
-          className="mt-[24rpx] flex h-[88rpx] items-center justify-center rounded-sm bg-cta text-strong font-semibold text-cta-foreground"
+          className="mt-[24rpx] flex h-[88rpx] items-center justify-center rounded-md bg-cta text-strong font-semibold text-cta-foreground"
           hoverClass="opacity-70"
           onClick={onShare}
         >

@@ -433,7 +433,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
                           +{task.reward_credit}
                         </Text>
                       ) : null}
-                      <Text className="rounded-sm bg-muted px-[10rpx] py-[4rpx] text-caption leading-[normal] text-muted-foreground">
+                      <Text className="rounded-md bg-muted px-[10rpx] py-[4rpx] text-caption leading-[normal] text-muted-foreground">
                         {task.status ?? '—'}
                       </Text>
                     </View>

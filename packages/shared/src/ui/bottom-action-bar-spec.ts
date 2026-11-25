@@ -67,9 +67,9 @@
  *
  * B 同一元素、两端各取一档(产品裁决面,不收敛;取任一端都会改另一端观感):
  *   44(输入行最小高)  RN INPUT_MIN_HEIGHT=44 ↔ 小程序 default 变体 py-2 + leading-5(≈36)
- *   半径 16           RN 输入框/发送钮 rnRadius['2xl']=16 ↔ 小程序同元素 rounded-sm(4)
+ *   半径 16           RN 输入框/发送钮 rnRadius['2xl']=16 ↔ 小程序同元素 rounded-md(4)
  *   注:44 在台账里只计 1 档(值),它同时承载 A(旧模式按钮)与 B(输入行高)两个成因,
- *   故在事实表里记为 A/B 混合;半径 16 就是 RD 维的"仅 RN 16",与小程序 rounded-sm 同元素。
+ *   故在事实表里记为 A/B 混合;半径 16 就是 RD 维的"仅 RN 16",与小程序 rounded-md 同元素。
  *
  * C 同槽位、两端各由自身机制决定:
  *   6(小程序)  chip 纵向内衬 12rpx(=6) ↔ RN 固定高 TOGGLE_CHIP_HEIGHT=32

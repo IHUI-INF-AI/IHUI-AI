@@ -155,7 +155,7 @@ export default async function SkillsPage() {
         <input
           type="search"
           placeholder={t('skills.searchPlaceholder')}
-          className="h-10 w-full rounded-sm border border-input bg-background pl-9 pr-3 text-body text-foreground transition-colors placeholder:text-muted-foreground/70 focus:border-border focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus dark:bg-input/30"
+          className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-body text-foreground transition-colors placeholder:text-muted-foreground/70 focus:border-border focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus dark:bg-input/30"
         />
       </div>
 
@@ -167,8 +167,8 @@ export default async function SkillsPage() {
             type="button"
             className={
               i === 0
-                ? 'h-8 rounded-sm border border-brand-accent-deep bg-cta px-3 text-label font-medium text-cta-foreground'
-                : 'h-8 rounded-sm border border-border bg-background px-3 text-label font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
+                ? 'h-8 rounded-md border border-brand-accent-deep bg-cta px-3 text-label font-medium text-cta-foreground'
+                : 'h-8 rounded-md border border-border bg-background px-3 text-label font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
             }
           >
             {t(c)}
@@ -205,7 +205,7 @@ export default async function SkillsPage() {
                       </span>
                       <button
                         type="button"
-                        className="rounded-sm border border-border bg-background px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-cta hover:text-cta-foreground"
+                        className="rounded-md border border-border bg-background px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-cta hover:text-cta-foreground"
                       >
                         {t('skills.install')}
                       </button>
@@ -234,7 +234,7 @@ export default async function SkillsPage() {
                   <span className="text-[10px] text-muted-foreground">{s.installs}</span>
                   <button
                     type="button"
-                    className="rounded-sm border border-border bg-background px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-cta hover:text-cta-foreground"
+                    className="rounded-md border border-border bg-background px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-cta hover:text-cta-foreground"
                   >
                     {t('skills.install')}
                   </button>

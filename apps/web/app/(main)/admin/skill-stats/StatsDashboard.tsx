@@ -310,7 +310,7 @@ export default function StatsDashboard() {
                             {skill.tags.slice(0, 3).map((tag) => (
                               <span
                                 key={tag}
-                                className="inline-block rounded-sm bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                                className="inline-block rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
                               >
                                 {tag}
                               </span>

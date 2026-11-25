@@ -176,7 +176,7 @@ export default function AgentWorkbenchPage() {
                 type="button"
                 onClick={() => setViewMode('management')}
                 className={cn(
-                  'flex items-center gap-1 rounded-sm px-2.5 py-1 text-label transition-colors',
+                  'flex items-center gap-1 rounded-md px-2.5 py-1 text-label transition-colors',
                   viewMode === 'management'
                     ? 'bg-cta text-cta-foreground'
                     : 'text-muted-foreground hover:text-foreground',
@@ -188,7 +188,7 @@ export default function AgentWorkbenchPage() {
                 type="button"
                 onClick={() => setViewMode('runtime')}
                 className={cn(
-                  'flex items-center gap-1 rounded-sm px-2.5 py-1 text-label transition-colors',
+                  'flex items-center gap-1 rounded-md px-2.5 py-1 text-label transition-colors',
                   viewMode === 'runtime'
                     ? 'bg-cta text-cta-foreground'
                     : 'text-muted-foreground hover:text-foreground',

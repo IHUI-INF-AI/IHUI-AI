@@ -108,7 +108,7 @@ export default function WorkspacePermissionsPage() {
                     <p className="text-body font-medium truncate">{perm.name}</p>
                     <span
                       className={cn(
-                        'rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+                        'rounded-md px-1.5 py-0.5 text-[10px] font-medium',
                         perm.mode === 'bypass-permissions'
                           ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                           : perm.mode === 'accept-edits'

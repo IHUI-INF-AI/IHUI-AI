@@ -88,7 +88,7 @@ function ToolChip({ tool, onRemove }: { tool: SelectedToolItem; onRemove?: (id: 
             type="button"
             onClick={() => onRemove(tool.id)}
             aria-label={t('removeTool', { name: tool.name })}
-            className="ml-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-sm hover:bg-foreground/10"
+            className="ml-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-md hover:bg-foreground/10"
           >
             <X className="h-3 w-3" />
           </button>

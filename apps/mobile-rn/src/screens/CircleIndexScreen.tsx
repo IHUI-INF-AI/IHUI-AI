@@ -614,7 +614,7 @@ const createStyles = (tk: RnThemeTokens) =>
     emptyBtn: {
       paddingHorizontal: rpx(taroSpacing.xl),
       paddingVertical: rpx(16),
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     emptyBtnText: {
@@ -632,7 +632,7 @@ const createStyles = (tk: RnThemeTokens) =>
       bottom: rpx(64),
       width: rpx(104),
       height: rpx(104),
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

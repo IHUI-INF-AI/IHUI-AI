@@ -53,7 +53,7 @@ export function DiffPreview({
             <span className="text-label font-medium text-muted-foreground">{filename}</span>
           )}
           {language && (
-            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
+            <span className="rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
               {language}
             </span>
           )}

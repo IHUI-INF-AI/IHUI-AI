@@ -562,7 +562,7 @@ export default function VipBenefitsPopup({
                 />
                 <Image
                   className="block mx-auto"
-                  style={{ width: '100%', borderRadius: rnRadius.sm }}
+                  style={{ width: '100%', borderRadius: rnRadius.md }}
                   src={erweimaImg}
                   mode="widthFix"
                   showMenuByLongpress

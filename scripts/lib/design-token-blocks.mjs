@@ -114,7 +114,7 @@ export function collectVars(css, selectors) {
  *
  * 与 `collectVars` 的分工:`collectVars` 回答"块里有哪些声明"(全部 `--*`),本出口回答
  * "其中哪些属于 design-token 族",所以调用方是**先取声明再筛档名**,不是各写一份块解析。
- * @param {string} name 声明名(如 `--color-bg`、`--radius-sm`)
+ * @param {string} name 声明名(如 `--color-bg`、`--radius-md`)
  * @returns {boolean}
  */
 const DESIGN_TOKEN_NAME_RE =

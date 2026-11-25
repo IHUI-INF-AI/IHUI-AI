@@ -86,7 +86,7 @@ function styles(tk: ReturnType<typeof getTokens>) {
     btn: {
       marginHorizontal: rnSpacing.lg,
       marginTop: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,

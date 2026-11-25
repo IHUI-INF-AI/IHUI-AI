@@ -117,7 +117,7 @@ export function ResourceForm({
             onChange={(e) => setIntro(e.target.value)}
             placeholder={t('fields.intro.placeholder')}
             rows={3}
-            className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           />
         </div>
 
@@ -194,7 +194,7 @@ export function ResourceForm({
         <div className="space-y-2">
           <Label>{t('fields.file.label')}</Label>
           {fileName ? (
-            <div className="flex items-center justify-between rounded-sm border border-input px-3 py-2">
+            <div className="flex items-center justify-between rounded-md border border-input px-3 py-2">
               <span className="flex items-center gap-2 text-body">
                 <FileText className="h-4 w-4 text-primary" />
                 {fileName}
@@ -209,7 +209,7 @@ export function ResourceForm({
               </button>
             </div>
           ) : (
-            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-sm border border-dashed border-input px-3 py-6 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-primary">
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-input px-3 py-6 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-primary">
               <Upload className="h-5 w-5" />
               {uploadPending ? t('fields.file.uploading') : t('fields.file.select')}
               <input

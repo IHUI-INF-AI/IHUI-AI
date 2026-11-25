@@ -38,7 +38,7 @@
   color: var(--color-primary);
   background: var(--color-stroke-default);
   border: 2rpx solid var(--color-text-tertiary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .cal-today-btn {
   padding: var(--spacing-xs) var(--spacing-sm-loose);
@@ -46,7 +46,7 @@
   color: var(--color-muted-foreground);
   background: var(--color-card);
   border: 2rpx solid var(--color-stroke-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 /* ===== 统计 ===== */
@@ -111,7 +111,7 @@
   width: 10rpx;
   height: 10rpx;
   background: var(--color-primary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   margin-top: 6rpx;
 }
 
@@ -133,7 +133,7 @@
   width: 100%;
   height: 220rpx;
   background: var(--color-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .cal-card-row {
   display: flex;
@@ -178,7 +178,7 @@
   padding: var(--spacing-xs-loose) 0;
   text-align: center;
   font-size: var(--text-body-sm);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .cal-action-upcoming {
   color: var(--color-primary);

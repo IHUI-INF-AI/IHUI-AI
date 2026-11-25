@@ -456,7 +456,7 @@ function DispatchForm({
           onChange={(e) => setGoal(e.target.value)}
           rows={2}
           placeholder={t('taskGoalPlaceholder')}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+          className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
         />
       </Field>
       <div className="grid grid-cols-2 gap-3">
@@ -505,7 +505,7 @@ function DispatchForm({
               type="button"
               onClick={() => setPriority(o.value)}
               className={
-                'flex-1 rounded-sm border px-2 py-1 text-[11px] font-medium transition-colors ' +
+                'flex-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors ' +
                 (priority === o.value
                   ? `border-foreground/20 ${o.color}`
                   : 'border-border bg-background text-muted-foreground hover:bg-muted')
@@ -522,7 +522,7 @@ function DispatchForm({
           onChange={(e) => setAffectedFilesText(e.target.value)}
           rows={3}
           placeholder={'d:\\path\\to\\file1\nd:\\path\\to\\file2'}
-          className="w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-1.5 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+          className="w-full resize-y rounded-md border border-input bg-transparent px-2.5 py-1.5 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
         />
       </Field>
       <Field label={t('fields.forbidden')}>
@@ -530,7 +530,7 @@ function DispatchForm({
           value={forbiddenText}
           onChange={(e) => setForbiddenText(e.target.value)}
           rows={2}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+          className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
         />
       </Field>
       <Field label={t('fields.verifyCommands')}>
@@ -539,7 +539,7 @@ function DispatchForm({
           onChange={(e) => setVerifyCommandsText(e.target.value)}
           rows={2}
           placeholder={'pnpm --filter @ihui/api typecheck'}
-          className="w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-1.5 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+          className="w-full resize-y rounded-md border border-input bg-transparent px-2.5 py-1.5 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
         />
       </Field>
       <Field label={t('fields.constraints')} required>
@@ -547,7 +547,7 @@ function DispatchForm({
           value={constraints}
           onChange={(e) => setConstraints(e.target.value)}
           rows={2}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+          className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
         />
       </Field>
       <Field label={t('fields.deliverables')} required>
@@ -555,7 +555,7 @@ function DispatchForm({
           value={deliverables}
           onChange={(e) => setDeliverables(e.target.value)}
           rows={2}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+          className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
         />
       </Field>
       {/* DAG 编辑器 */}
@@ -565,7 +565,7 @@ function DispatchForm({
             type="checkbox"
             checked={enableDag}
             onChange={(e) => setEnableDag(e.target.checked)}
-            className="h-3 w-3 rounded-sm"
+            className="h-3 w-3 rounded-md"
           />
           <span>{t('dagTitle')}</span>
         </label>
@@ -577,7 +577,7 @@ function DispatchForm({
                 <button
                   type="button"
                   onClick={addDagNode}
-                  className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
+                  className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
                 >
                   {t('dagAddNode')}
                 </button>
@@ -592,7 +592,7 @@ function DispatchForm({
                   <select
                     value={node.agentRole}
                     onChange={(e) => updateDagNode(node.id, 'agentRole', e.target.value)}
-                    className="h-6 w-24 rounded-sm border border-input bg-transparent px-1 text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                    className="h-6 w-24 rounded-md border border-input bg-transparent px-1 text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
                   >
                     {ROLE_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -605,12 +605,12 @@ function DispatchForm({
                     value={node.task}
                     onChange={(e) => updateDagNode(node.id, 'task', e.target.value)}
                     placeholder={t('taskDescPlaceholder')}
-                    className="h-6 flex-1 rounded-sm border border-input bg-transparent px-1.5 text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                    className="h-6 flex-1 rounded-md border border-input bg-transparent px-1.5 text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
                   />
                   <button
                     type="button"
                     onClick={() => removeDagNode(node.id)}
-                    className="rounded-sm border border-border bg-background px-1 py-0.5 text-[10px] text-red-500 hover:bg-red-500/10"
+                    className="rounded-md border border-border bg-background px-1 py-0.5 text-[10px] text-red-500 hover:bg-red-500/10"
                     aria-label={t('dagRemoveNode')}
                   >
                     <X className="h-3 w-3" aria-hidden="true" />
@@ -625,7 +625,7 @@ function DispatchForm({
                   type="button"
                   onClick={addDagEdge}
                   disabled={dagNodes.length < 2}
-                  className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted disabled:opacity-40"
+                  className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted disabled:opacity-40"
                 >
                   {t('dagAddEdge')}
                 </button>
@@ -635,7 +635,7 @@ function DispatchForm({
                   <select
                     value={edge.from}
                     onChange={(e) => updateDagEdge(idx, 'from', e.target.value)}
-                    className="h-6 w-20 rounded-sm border border-input bg-transparent px-1 text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                    className="h-6 w-20 rounded-md border border-input bg-transparent px-1 text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
                   >
                     {dagNodes.map((n) => (
                       <option key={n.id} value={n.id}>
@@ -647,7 +647,7 @@ function DispatchForm({
                   <select
                     value={edge.to}
                     onChange={(e) => updateDagEdge(idx, 'to', e.target.value)}
-                    className="h-6 w-20 rounded-sm border border-input bg-transparent px-1 text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                    className="h-6 w-20 rounded-md border border-input bg-transparent px-1 text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
                   >
                     {dagNodes.map((n) => (
                       <option key={n.id} value={n.id}>
@@ -660,12 +660,12 @@ function DispatchForm({
                     value={edge.condition}
                     onChange={(e) => updateDagEdge(idx, 'condition', e.target.value)}
                     placeholder={t('conditionPlaceholder')}
-                    className="h-6 flex-1 rounded-sm border border-input bg-transparent px-1.5 font-mono text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                    className="h-6 flex-1 rounded-md border border-input bg-transparent px-1.5 font-mono text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
                   />
                   <button
                     type="button"
                     onClick={() => removeDagEdge(idx)}
-                    className="rounded-sm border border-border bg-background px-1 py-0.5 text-[10px] text-red-500 hover:bg-red-500/10"
+                    className="rounded-md border border-border bg-background px-1 py-0.5 text-[10px] text-red-500 hover:bg-red-500/10"
                     aria-label={t('dagRemoveEdge')}
                   >
                     <X className="h-3 w-3" aria-hidden="true" />
@@ -689,7 +689,7 @@ function DispatchForm({
                   type="button"
                   onClick={() => setMaxAttempts(n)}
                   className={
-                    'h-6 w-6 rounded-sm border text-[11px] font-medium transition-colors ' +
+                    'h-6 w-6 rounded-md border text-[11px] font-medium transition-colors ' +
                     (maxAttempts === n
                       ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
                       : 'border-border bg-background text-muted-foreground hover:bg-muted')
@@ -709,7 +709,7 @@ function DispatchForm({
                 step={100}
                 value={delayMs}
                 onChange={(e) => setDelayMs(Math.max(0, parseInt(e.target.value || '0', 10)))}
-                className="h-6 w-16 rounded-sm border border-input bg-transparent px-1.5 text-[11px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                className="h-6 w-16 rounded-md border border-input bg-transparent px-1.5 text-[11px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
               />
               <span className="text-[11px] text-muted-foreground">ms</span>
             </div>
@@ -723,7 +723,7 @@ function DispatchForm({
             type="checkbox"
             checked={enableQuotas}
             onChange={(e) => setEnableQuotas(e.target.checked)}
-            className="h-3 w-3 rounded-sm"
+            className="h-3 w-3 rounded-md"
           />
           <span>{t('quotasSection')}</span>
         </label>
@@ -737,7 +737,7 @@ function DispatchForm({
                 step={1000}
                 value={timeoutMs}
                 onChange={(e) => setTimeoutMs(Math.max(1000, parseInt(e.target.value || '0', 10)))}
-                className="h-6 w-full rounded-sm border border-input bg-transparent px-1.5 text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                className="h-6 w-full rounded-md border border-input bg-transparent px-1.5 text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
               />
             </div>
             <div>
@@ -748,7 +748,7 @@ function DispatchForm({
                 step={1000}
                 value={tokenQuota}
                 onChange={(e) => setTokenQuota(Math.max(1000, parseInt(e.target.value || '0', 10)))}
-                className="h-6 w-full rounded-sm border border-input bg-transparent px-1.5 text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                className="h-6 w-full rounded-md border border-input bg-transparent px-1.5 text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
               />
             </div>
             <div>
@@ -761,7 +761,7 @@ function DispatchForm({
                 onChange={(e) =>
                   setQuotaRetries(Math.min(3, Math.max(0, parseInt(e.target.value || '0', 10))))
                 }
-                className="h-6 w-full rounded-sm border border-input bg-transparent px-1.5 text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                className="h-6 w-full rounded-md border border-input bg-transparent px-1.5 text-[10px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
               />
             </div>
           </div>
@@ -835,7 +835,7 @@ function AutoPlanPanel() {
           onChange={(e) => setTask(e.target.value)}
           rows={3}
           placeholder={t('examplePlaceholder')}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+          className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
         />
       </Field>
       <Field label={t('fields.constraintsOptional')}>
@@ -847,7 +847,7 @@ function AutoPlanPanel() {
             max={20}
             value={maxAgents}
             onChange={(e) => setMaxAgents(e.target.value ? parseInt(e.target.value, 10) : '')}
-            className="h-6 w-16 rounded-sm border border-input bg-transparent px-1.5 text-[11px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+            className="h-6 w-16 rounded-md border border-input bg-transparent px-1.5 text-[11px] focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           />
         </div>
       </Field>
@@ -862,7 +862,7 @@ function AutoPlanPanel() {
       {result && (
         <div className="space-y-2 rounded-lg border border-border bg-card px-2.5 py-2">
           <div className="flex items-center gap-2">
-            <span className="rounded-sm bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-400">
+            <span className="rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-400">
               {result.orchestration}
             </span>
             <span className="text-[11px] text-muted-foreground">
@@ -1051,7 +1051,7 @@ function CustomRolesPanel() {
           onChange={(e) => setAutoGenTask(e.target.value)}
           rows={2}
           placeholder={t('roleDescPlaceholder')}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2 py-1.5 text-[11px] placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+          className="w-full resize-none rounded-md border border-input bg-transparent px-2 py-1.5 text-[11px] placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
         />
         <Button
           size="sm"
@@ -1073,7 +1073,7 @@ function CustomRolesPanel() {
             setEditingRole(null)
             setShowForm(true)
           }}
-          className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
+          className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
         >
           {t('manualCreate')}
         </button>
@@ -1102,14 +1102,14 @@ function CustomRolesPanel() {
                       setEditingRole(role)
                       setShowForm(true)
                     }}
-                    className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
+                    className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
                   >
                     {t('edit')}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDelete(role.id)}
-                    className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-500/10"
+                    className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-500/10"
                   >
                     {tcommon('delete')}
                   </button>
@@ -1123,7 +1123,7 @@ function CustomRolesPanel() {
                   {role.skills.map((s) => (
                     <span
                       key={s}
-                      className="rounded-sm bg-muted px-1 py-0.5 text-[10px] text-muted-foreground"
+                      className="rounded-md bg-muted px-1 py-0.5 text-[10px] text-muted-foreground"
                     >
                       {s}
                     </span>
@@ -1216,7 +1216,7 @@ function CustomRoleForm({
           value={systemPrompt}
           onChange={(e) => setSystemPrompt(e.target.value)}
           rows={4}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+          className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-label focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
         />
       </Field>
       <Field label={t('fields.skills')}>

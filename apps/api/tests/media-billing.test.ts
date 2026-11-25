@@ -3,83 +3,114 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 媒体生成计费定价单测(2026-11-21 立,**不连库**)。
+ * 媒体生成定价单测(2026-11-25 收口后,**不连库**)。
  *
- * 立因:图像/视频上游从不返回 token 用量,按 token 扣分那条链路对媒体恒为 0,
- * 等于白送。补了"按张/次"的定价后,公式一旦被误改就是真金白银的漏收或错收 ——
- * 必须有判据钉住。本测试只 import 两个纯模块,不触碰 db/points(测试隔离铁律)。
+ * 钉住三件事:
+ *   1. `ai_pricing` 的 per_image/per_video 分价直接 1:1 转积分,不再乘模型倍率;
+ *   2. 按次视频恒算 1 次、按秒视频必须按真实 duration;
+ *   3. 无定价行时回落统一兜底表,免费模型仍 0 积分。
  */
 import { describe, expect, it } from 'vitest'
-import { inferPointsMultiplier } from '../src/services/points-multiplier.js'
 import {
-  MEDIA_UNIT_POINTS,
-  estimateMediaPoints,
+  MEDIA_FALLBACK_UNIT_POINTS,
+  estimateFallbackMediaPoints,
+  quoteMediaPoints,
 } from '../src/services/media-billing-pricing.js'
 
-describe('媒体定价单位', () => {
-  it('图像按张 3 积分、视频按次 12 积分,且表被冻结', () => {
-    expect(MEDIA_UNIT_POINTS.image).toBe(3)
-    expect(MEDIA_UNIT_POINTS.video).toBe(12)
-    expect(Object.isFrozen(MEDIA_UNIT_POINTS)).toBe(true)
+describe('媒体兜底单位价', () => {
+  it('图片/视频/音频/声纹/视频合成各只有一档,且表被冻结', () => {
+    expect(MEDIA_FALLBACK_UNIT_POINTS.image).toBe(20)
+    expect(MEDIA_FALLBACK_UNIT_POINTS.video).toBe(20)
+    expect(MEDIA_FALLBACK_UNIT_POINTS.audio).toBe(2)
+    expect(MEDIA_FALLBACK_UNIT_POINTS.voiceprint).toBe(2)
+    expect(MEDIA_FALLBACK_UNIT_POINTS.video_compose).toBe(30)
+    expect(Object.isFrozen(MEDIA_FALLBACK_UNIT_POINTS)).toBe(true)
   })
 })
 
-describe('estimateMediaPoints 公式', () => {
-  it('agnes 免费档(flash ⇒ 1x)按张/次原价', () => {
-    expect(inferPointsMultiplier('agnes-image-2.5-flash')).toBe(1)
-    expect(inferPointsMultiplier('agnes-video-2.5-flash')).toBe(1)
-    expect(estimateMediaPoints('agnes-image-2.5-flash', 'image')).toBe(3)
-    expect(estimateMediaPoints('agnes-video-2.5-flash', 'video')).toBe(12)
+describe('quoteMediaPoints — ai_pricing 命中', () => {
+  it('per_image 20 分/张直接转 20 积分,多张线性累加', () => {
+    const pricing = { billingMode: 'per_image', perUnitPrice: 20, videoUnit: null }
+    expect(quoteMediaPoints({ category: 'image', pricing }).points).toBe(20)
+    expect(quoteMediaPoints({ category: 'image', units: 2, pricing }).points).toBe(40)
+    expect(quoteMediaPoints({ category: 'image', units: 10, pricing }).points).toBe(200)
+    expect(quoteMediaPoints({ category: 'image', pricing }).source).toBe('ai_pricing')
   })
 
-  it('标准档(sonnet ⇒ 3x)按倍数放大', () => {
-    expect(inferPointsMultiplier('claude-3-sonnet')).toBe(3)
-    expect(estimateMediaPoints('claude-3-sonnet', 'image')).toBe(9)
-    expect(estimateMediaPoints('claude-3-sonnet', 'video')).toBe(36)
+  it('per_video call 60 分/次:无论传多少秒都只算 1 次', () => {
+    const pricing = { billingMode: 'per_video', perUnitPrice: 60, videoUnit: 'call' }
+    expect(quoteMediaPoints({ category: 'video', units: 1, pricing }).points).toBe(60)
+    expect(quoteMediaPoints({ category: 'video', units: 30, pricing }).points).toBe(60)
+    expect(quoteMediaPoints({ category: 'video', units: 30, pricing }).appliedUnits).toBe(1)
   })
 
-  it('免费模型(0x)一律 0 积分,不因媒体计费变成收费', () => {
-    expect(inferPointsMultiplier('ollama/llama3')).toBe(0)
-    expect(estimateMediaPoints('ollama/llama3', 'image')).toBe(0)
-    expect(estimateMediaPoints('ollama/llama3', 'video')).toBe(0)
-    expect(estimateMediaPoints('pollinations/flux', 'image')).toBe(0)
+  it('per_video second 74 分/秒:30 秒 = 2220 积分', () => {
+    const pricing = { billingMode: 'per_video', perUnitPrice: 74, videoUnit: 'second' }
+    const q = quoteMediaPoints({ category: 'video', units: 30, pricing })
+    expect(q.points).toBe(2220)
+    expect(q.appliedUnits).toBe(30)
+    expect(q.unitPricePoints).toBe(74)
+    expect(q.source).toBe('ai_pricing')
+  })
+})
+
+describe('quoteMediaPoints — 兜底与边界', () => {
+  it('无定价行:图片 20/张、视频 20/次、音频 2/次、视频合成 30/次', () => {
+    expect(estimateFallbackMediaPoints('image')).toBe(20)
+    expect(estimateFallbackMediaPoints('image', 3)).toBe(60)
+    expect(estimateFallbackMediaPoints('video')).toBe(20)
+    expect(estimateFallbackMediaPoints('video', 30)).toBe(20)
+    expect(estimateFallbackMediaPoints('audio')).toBe(2)
+    expect(estimateFallbackMediaPoints('voiceprint')).toBe(2)
+    expect(estimateFallbackMediaPoints('video_compose')).toBe(30)
   })
 
-  it('多张/多次按 units 线性累加', () => {
-    expect(estimateMediaPoints('agnes-image-2.5-flash', 'image', 2)).toBe(6)
-    expect(estimateMediaPoints('agnes-image-2.5-flash', 'image', 4)).toBe(12)
-    expect(estimateMediaPoints('agnes-video-2.5-flash', 'video', 3)).toBe(36)
-    // 上游单次最多 n=10 张:一次请求必须按 10 张扣(按 1 张扣等于漏收 9 张的钱)
-    expect(estimateMediaPoints('agnes-image-2.5-flash', 'image', 10)).toBe(30)
+  it('免费模型 0 积分', () => {
+    expect(
+      quoteMediaPoints({
+        category: 'image',
+        free: true,
+        pricing: { billingMode: 'per_image', perUnitPrice: 20, videoUnit: null },
+      }).points,
+    ).toBe(0)
   })
 
-  it('units 非法(0/负数/NaN/Infinity)按 1 计,绝不产生 0 元或负数扣费', () => {
-    expect(estimateMediaPoints('agnes-image-2.5-flash', 'image', 0)).toBe(3)
-    expect(estimateMediaPoints('agnes-image-2.5-flash', 'image', -5)).toBe(3)
-    expect(estimateMediaPoints('agnes-image-2.5-flash', 'image', Number.NaN)).toBe(3)
-    expect(estimateMediaPoints('agnes-image-2.5-flash', 'image', Number.POSITIVE_INFINITY)).toBe(3)
+  it('显式 0 价媒体行必须被尊重,不能回落成兜底价', () => {
+    const imageZero = quoteMediaPoints({
+      category: 'image',
+      pricing: { billingMode: 'per_image', perUnitPrice: 0, videoUnit: null },
+    })
+    expect(imageZero.points).toBe(0)
+    expect(imageZero.source).toBe('ai_pricing')
+
+    const videoZero = quoteMediaPoints({
+      category: 'video',
+      units: 30,
+      pricing: { billingMode: 'per_video', perUnitPrice: 0, videoUnit: 'second' },
+    })
+    expect(videoZero.points).toBe(0)
+    expect(videoZero.source).toBe('ai_pricing')
+    expect(videoZero.appliedUnits).toBe(30)
   })
 
-  it('未知/空模型名按默认经济档(1x),不会因空串变成免费', () => {
-    expect(inferPointsMultiplier('')).toBe(1)
-    expect(estimateMediaPoints('', 'image')).toBe(3)
-    expect(estimateMediaPoints('  ', 'video')).toBe(12)
-    expect(estimateMediaPoints('some-unknown-media-model', 'image')).toBe(3)
+  it('定价模式不匹配时回落兜底表,不误用 token 价', () => {
+    const pricing = { billingMode: 'token', perUnitPrice: 100, videoUnit: null }
+    expect(quoteMediaPoints({ category: 'image', pricing }).points).toBe(20)
+    expect(quoteMediaPoints({ category: 'video', pricing }).points).toBe(20)
+  })
+
+  it('units 非法(0/负数/NaN/Infinity)按 1 计', () => {
+    expect(estimateFallbackMediaPoints('image', 0)).toBe(20)
+    expect(estimateFallbackMediaPoints('image', -5)).toBe(20)
+    expect(estimateFallbackMediaPoints('image', Number.NaN)).toBe(20)
+    expect(estimateFallbackMediaPoints('image', Number.POSITIVE_INFINITY)).toBe(20)
   })
 
   it('结果恒为整数(ceil 收口,不出现小数积分)', () => {
-    for (const model of [
-      'agnes-image-2.5-flash',
-      'agnes-video-2.5-flash',
-      'claude-3-sonnet',
-      'ihui/glm-5.3',
-    ]) {
-      for (const cat of ['image', 'video'] as const) {
-        const n = estimateMediaPoints(model, cat, 1)
-        expect(Number.isInteger(n)).toBe(true)
-        expect(n).toBeGreaterThanOrEqual(0)
-      }
-    }
+    const pricing = { billingMode: 'per_image', perUnitPrice: 20.4, videoUnit: null }
+    const q = quoteMediaPoints({ category: 'image', pricing })
+    expect(Number.isInteger(q.points)).toBe(true)
+    expect(q.points).toBe(21)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

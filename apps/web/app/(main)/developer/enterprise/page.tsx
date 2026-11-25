@@ -293,7 +293,7 @@ export default function DeveloperEnterprisePage() {
           </p>
           <div className="grid gap-2 min-[640px]:grid-cols-2">
             <select
-              className="rounded-sm border bg-background px-3 py-2 text-body"
+              className="rounded-md border bg-background px-3 py-2 text-body"
               value={invoice.orderId}
               onChange={(e) => setInvoice({ ...invoice, orderId: e.target.value })}
               aria-label="选择已支付订单"
@@ -306,7 +306,7 @@ export default function DeveloperEnterprisePage() {
               ))}
             </select>
             <select
-              className="rounded-sm border bg-background px-3 py-2 text-body"
+              className="rounded-md border bg-background px-3 py-2 text-body"
               value={invoice.invoiceType}
               onChange={(e) => setInvoice({ ...invoice, invoiceType: e.target.value })}
               aria-label="发票类型"
@@ -368,7 +368,7 @@ export default function DeveloperEnterprisePage() {
           </p>
           <div className="grid gap-2 min-[640px]:grid-cols-2">
             <select
-              className="rounded-sm border bg-background px-3 py-2 text-body"
+              className="rounded-md border bg-background px-3 py-2 text-body"
               value={voucher.orderNo}
               onChange={(e) => setVoucher({ ...voucher, orderNo: e.target.value })}
               aria-label="选择待支付订单"

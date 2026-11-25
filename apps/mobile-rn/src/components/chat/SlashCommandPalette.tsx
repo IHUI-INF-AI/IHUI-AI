@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     gap: rpx(16),
     paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(20),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   itemHighlighted: {

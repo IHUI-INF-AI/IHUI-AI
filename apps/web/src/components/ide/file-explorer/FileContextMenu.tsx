@@ -30,14 +30,14 @@ export function FileContextMenu({ x, y, onRename, onDelete }: FileContextMenuPro
       <div className="flex flex-col gap-1">
         <button
           onClick={onRename}
-          className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left hover:bg-muted"
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-muted"
         >
           <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <span>{t('fileExplorer.rename')}</span>
         </button>
         <button
           onClick={onDelete}
-          className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-red-500 hover:bg-muted"
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-red-500 hover:bg-muted"
         >
           <Trash2 className="h-3.5 w-3.5 shrink-0" />
           <span>{t('fileExplorer.delete')}</span>

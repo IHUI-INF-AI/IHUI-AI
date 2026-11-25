@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
   toolDiffBlock: {
     marginTop: rpx(2),
     padding: rpx(8),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
     gap: rpx(4),
   },

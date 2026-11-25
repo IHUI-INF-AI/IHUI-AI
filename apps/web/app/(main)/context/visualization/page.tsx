@@ -49,7 +49,7 @@ export default function ContextVisualizationPage() {
         <button
           type="button"
           onClick={() => void vizQ.refetch()}
-          className="inline-flex items-center gap-1 rounded-sm px-2 py-1 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <RotateCw className="h-3 w-3" />
           刷新
@@ -66,7 +66,7 @@ export default function ContextVisualizationPage() {
               value={conversationId}
               onChange={(e) => setConversationId(e.target.value)}
               placeholder="输入 conversationId(留空查全部)"
-              className="h-8 flex-1 rounded-sm border border-input bg-transparent px-2.5 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+              className="h-8 flex-1 rounded-md border border-input bg-transparent px-2.5 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             />
           </div>
         </CardContent>
@@ -124,7 +124,7 @@ export default function ContextVisualizationPage() {
                         key={`${e.timestamp}-${i}`}
                         className="flex items-center gap-3 rounded-lg border bg-card p-2.5"
                       >
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-amber-100 text-label font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-amber-100 text-label font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
                           {(ratio * 100).toFixed(0)}%
                         </div>
                         <div className="min-w-0 flex-1">

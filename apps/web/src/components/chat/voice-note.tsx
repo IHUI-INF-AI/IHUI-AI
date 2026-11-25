@@ -766,7 +766,7 @@ export function VoiceNote({
                           data-testid="voice-note-group-editor"
                         >
                           <input
-                            className="min-w-0 flex-1 rounded-sm border bg-background px-1.5 py-0.5 text-label"
+                            className="min-w-0 flex-1 rounded-md border bg-background px-1.5 py-0.5 text-label"
                             value={groupDraft}
                             onChange={(e) => setGroupDraft(e.target.value)}
                             onKeyDown={(e) => {

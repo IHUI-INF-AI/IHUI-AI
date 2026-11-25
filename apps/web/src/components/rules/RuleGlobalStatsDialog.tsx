@@ -139,7 +139,7 @@ function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
                       <span className="font-[weight:inherit] min-w-0 flex-1 truncate text-label">
                         {r.name}
                       </span>
-                      <span className="shrink-0 rounded-sm bg-blue-500/10 px-1 text-[10px] text-blue-600">
+                      <span className="shrink-0 rounded-md bg-blue-500/10 px-1 text-[10px] text-blue-600">
                         {t('timesCount', { n: r.matchCount })}
                       </span>
                     </div>

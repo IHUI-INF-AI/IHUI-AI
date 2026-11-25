@@ -137,13 +137,13 @@ export default function MemoryDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={cn(
-                'rounded-sm px-2 py-0.5 text-[11px] font-medium',
+                'rounded-md px-2 py-0.5 text-[11px] font-medium',
                 typeOpt?.color ?? 'bg-muted text-muted-foreground',
               )}
             >
               {typeOpt?.label ?? entry.type}
             </span>
-            <span className="rounded-sm bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+            <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
               {scopeOpt?.label ?? entry.scope}
             </span>
             <span className="text-[11px] text-muted-foreground/70">来源:{entry.source}</span>

@@ -233,7 +233,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
       paddingHorizontal: rnSpacing.md,
       height: 36,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
     searchInput: {

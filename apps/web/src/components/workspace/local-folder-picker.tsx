@@ -357,7 +357,7 @@ function PathNav({
       {crumbs.length > 0 && (
         <>
           <span className="select-none text-muted-foreground/30">/</span>
-          <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
+          <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-md [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
             {crumbs.map((bc, idx) => {
               const isLast = idx === crumbs.length - 1
               return (
@@ -369,7 +369,7 @@ function PathNav({
                         type="button"
                         onClick={() => onNavigate(bc.path)}
                         className={cn(
-                          'inline-flex h-6 max-w-[12rem] shrink-0 items-center truncate rounded-sm px-1.5 text-label transition-colors',
+                          'inline-flex h-6 max-w-[12rem] shrink-0 items-center truncate rounded-md px-1.5 text-label transition-colors',
                           isLast
                             ? 'font-medium text-foreground'
                             : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -446,7 +446,7 @@ function EntryRow({ entry, isSelected, onSelect, onOpen }: EntryRowProps) {
             onDoubleClick={() => onOpen(entry)}
             data-selected={isSelected}
             className={cn(
-              'font-[weight:inherit] group flex w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-body transition-colors',
+              'font-[weight:inherit] group flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-body transition-colors',
               isSelected ? 'bg-amber-500/15 text-foreground' : 'text-foreground hover:bg-muted/60',
             )}
           >
@@ -1003,7 +1003,7 @@ export function LocalFolderPicker({
                 role="listbox"
                 aria-label={t('title')}
                 onKeyDown={handleListKeyDown}
-                className="max-h-72 space-y-0.5 overflow-y-auto p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30"
+                className="max-h-72 space-y-0.5 overflow-y-auto p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-md [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30"
               >
                 {browsing ? (
                   <li>
@@ -1071,7 +1071,7 @@ export function LocalFolderPicker({
                     if (browseError) void refetchBrowse()
                     else openMutation.reset()
                   }}
-                  className="inline-flex h-5 shrink-0 items-center gap-1 rounded-sm border border-destructive/30 bg-background px-1.5 text-[10px] font-medium text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground"
+                  className="inline-flex h-5 shrink-0 items-center gap-1 rounded-md border border-destructive/30 bg-background px-1.5 text-[10px] font-medium text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground"
                 >
                   <RefreshCw className="h-2.5 w-2.5" />
                   {t('retry')}
@@ -1096,7 +1096,7 @@ export function LocalFolderPicker({
                 <button
                   type="button"
                   onClick={() => setNativeHint(null)}
-                  className="inline-flex h-5 shrink-0 items-center justify-center rounded-sm text-amber-700/70 transition-colors hover:bg-amber-500/15 hover:text-amber-700 dark:text-amber-400"
+                  className="inline-flex h-5 shrink-0 items-center justify-center rounded-md text-amber-700/70 transition-colors hover:bg-amber-500/15 hover:text-amber-700 dark:text-amber-400"
                   aria-label={t('cancel')}
                 >
                   <X className="h-3 w-3" />

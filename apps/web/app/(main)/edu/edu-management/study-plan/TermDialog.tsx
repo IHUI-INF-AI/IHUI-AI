@@ -135,7 +135,7 @@ export function TermDialog({
           <label className="flex items-center gap-2 text-body">
             <input
               type="checkbox"
-              className="h-4 w-4 rounded-sm border-gray-300"
+              className="h-4 w-4 rounded-md border-gray-300"
               checked={isCurrent}
               onChange={(e) => setIsCurrent(e.target.checked)}
             />

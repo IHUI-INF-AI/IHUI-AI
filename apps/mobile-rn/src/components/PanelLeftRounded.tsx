@@ -10,7 +10,7 @@
  * open=false 箭头朝左(web 展开态侧边栏的可见图标);open=true 箭头朝右(web 折叠态展开动作)。
  * NavBar 各屏抽屉触发钮取 open=false,替换原 lucide Menu 汉堡图标(2026-10-15 用户定:
  * 抽屉钮图标须与 web 端侧边栏图标完全一致,且不显示「菜单」文字)。
- * rx 走 rnRadius.sm 档(勿写死 4);RN SVG 无 currentColor,墨迹色由调用方注入
+ * rx 走 rnRadius.md 档(勿写死 4);RN SVG 无 currentColor,墨迹色由调用方注入
  * (NavBarActionButton 传 tokens.text.secondary,与 web 端 text-foreground/80 语义对齐)。
  *
  * 2026-10-18 与 web 端美化同步(几何逐值一致,web 侧注释见 SidebarHeader.tsx):
@@ -42,7 +42,7 @@ export function PanelLeftRounded({ size = 20, color, open = false }: PanelLeftRo
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <Rect width={18} height={18} x={3} y={3} rx={rnRadius.sm} />
+      <Rect width={18} height={18} x={3} y={3} rx={rnRadius.md} />
       <Path d="M7.5 8.5v7" strokeWidth={2.5} />
       {open ? <Path d="m13.75 8.5 3.5 3.5-3.5 3.5" /> : <Path d="m17.25 8.5-3.5 3.5 3.5 3.5" />}
     </Svg>

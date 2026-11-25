@@ -1121,7 +1121,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   // 模型钮(工具条内:ghost 无边框无底色,与 web ModelSelector 触发钮同形)。
-  // 2026-11-23 用户定档:对齐 web h-8 / rounded-sm / px-2 / text-sm font-medium,未选中时
+  // 2026-11-23 用户定档:对齐 web h-8 / rounded-md / px-2 / text-sm font-medium,未选中时
   // Sparkles +「自动」;32 高与加号/发送同档,截断 160(web max-w-40),不再套灰框。
   // 模型钮与「× 清除」同行(两者并列,× 不嵌进钮内 —— 防止点 × 冒泡出选择面板)
   modelRow: {
@@ -1283,7 +1283,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     // 角色档 control(按钮)→ sm(4)。44dp 边长的半数是 22,所以本档不是正圆;
-    // 小程序端同位发送钮本就是 rounded-lg/rounded-sm 一族,从未取过 12。
+    // 小程序端同位发送钮本就是 rounded-lg/rounded-md 一族,从未取过 12。
     borderRadius: rnRadiusFor.control,
     // 同 sendInShell:主 CTA 实底走 brand.cta,不得取端内自造的 gray[900]
     backgroundColor: tokens.brand.cta, // 图标钮,前景在同一元素的 <Send color={tokens.brand.ctaForeground}/>

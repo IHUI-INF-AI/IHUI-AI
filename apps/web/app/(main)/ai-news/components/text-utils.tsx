@@ -42,7 +42,7 @@ export function highlight(text: string, query: string): React.ReactNode {
     part.toLowerCase() === q.toLowerCase() ? (
       <mark
         key={i}
-        className="rounded-sm bg-yellow-200/70 px-0.5 text-foreground dark:bg-yellow-500/30"
+        className="rounded-md bg-yellow-200/70 px-0.5 text-foreground dark:bg-yellow-500/30"
       >
         {part}
       </mark>

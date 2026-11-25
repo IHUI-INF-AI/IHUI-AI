@@ -36,7 +36,7 @@ export function DiffCommentsBar() {
           type="button"
           onClick={clearDiffComments}
           aria-label={t('diffComment.remove')}
-          className="shrink-0 rounded-sm p-0.5 transition-colors hover:bg-amber-500/15"
+          className="shrink-0 rounded-md p-0.5 transition-colors hover:bg-amber-500/15"
           data-testid="diff-comments-bar-clear"
         >
           <X className="h-3 w-3" />

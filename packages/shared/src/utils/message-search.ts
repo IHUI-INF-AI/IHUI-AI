@@ -53,7 +53,7 @@ export function searchMessages(
  *  - 无匹配 → 返回原文(已 HTML 转义)
  *  - 多个匹配全部高亮
  *  - 返回值需用 dangerouslySetInnerHTML 注入,调用方需确保 query 来自可信输入
- *  - 标签样式:rounded-sm(非 rounded-full,符合 AGENTS.md §4 圆角守门)
+ *  - 标签样式:rounded-md(非 rounded-full,符合 AGENTS.md §4 圆角守门)
  *  - 文本先 HTML 转义,query 也 HTML 转义后再匹配,保证 < > 等字符可搜索 + 防 XSS */
 export function highlightMatch(text: string, query: string): string {
   const trimmed = query.trim()
@@ -63,7 +63,7 @@ export function highlightMatch(text: string, query: string): string {
   const pattern = new RegExp(`(${escapeRegExp(escapedQuery)})`, 'gi')
   return escapedText.replace(
     pattern,
-    '<mark class="bg-yellow-200 dark:bg-yellow-700 rounded-sm px-0.5">$1</mark>',
+    '<mark class="bg-yellow-200 dark:bg-yellow-700 rounded-md px-0.5">$1</mark>',
   )
 }
 

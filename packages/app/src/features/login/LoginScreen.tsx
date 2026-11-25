@@ -97,7 +97,7 @@ const imageStyles = StyleSheet.create({
   qrPlatformIcon: {
     width: 20,
     height: 20,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   logoImage: {
     width: 53,
@@ -1110,7 +1110,7 @@ function QrTabContent({ t, styles, tk, qrConfig, qrPlatforms, renderQrPanel }: Q
                       {
                         width: 20,
                         height: 20,
-                        borderRadius: rnRadius.sm,
+                        borderRadius: rnRadius.md,
                         alignItems: 'center',
                         justifyContent: 'center',
                         backgroundColor: tk.text.secondary,
@@ -1708,7 +1708,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       height: 40,
       borderWidth: 1,
       borderColor: inputBorder,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.md,
       fontSize: rnType.body.size,
       color: tk.text.primary,
@@ -1810,7 +1810,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     sendCodeBtn: {
       height: 40,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: inputBorder,
       backgroundColor: surface,
@@ -1857,7 +1857,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     checkbox: {
       width: 16,
       height: 16,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       marginTop: rnSpacing['2xs'],
       alignItems: 'center',
@@ -1954,7 +1954,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     // 与其他通用主按钮同语义;文字取主题反色 onBrandText(黑底白字/白底黑字)
     loginBtn: {
       height: 40,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1975,7 +1975,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     wechatLoginBtn: {
       flexDirection: 'row',
       height: 40,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: OAUTH_BRAND_COLORS.wechat,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1997,7 +1997,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     ssoBtn: {
       height: 38,
       marginTop: rnSpacing['xl'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: inputBorder,
       alignItems: 'center',
@@ -2111,7 +2111,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     qrRefreshBtn: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: surface,
@@ -2134,7 +2134,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
     },
-    // web 端默认态:rounded-[4px] px-2 py-1.5 text-xs text-muted-foreground(无边框无背景)
+    // web 端默认态:rounded-md px-2 py-1.5 text-xs text-muted-foreground(无边框无背景)
     // 用 flex: 1 + flexBasis: 0 + minWidth: 0 强制等宽
     // minWidth: 0 是关键 — RN-web/CSS flexbox 默认 min-width: auto,会被内容撑宽,
     // 设置 minWidth: 0 后 flex 子元素严格等分剩余空间,不受内容(图标+文字)影响
@@ -2148,7 +2148,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       gap: rnSpacing.xs,
       paddingVertical: rnSpacing['xs-loose'],
       paddingHorizontal: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: 'transparent',
       overflow: 'hidden',
     },
@@ -2189,7 +2189,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     qrOpenWebBtn: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.brandAccent.deep,
       backgroundColor: tk.brand.cta,

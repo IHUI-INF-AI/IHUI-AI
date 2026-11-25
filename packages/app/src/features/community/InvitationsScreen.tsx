@@ -247,7 +247,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     generateText: { color: tk.brand.ctaForeground, fontSize: rnType.body.size, fontWeight: '600' },
@@ -289,7 +289,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
     },
     badgeUnused: {
       fontSize: rnType.caption.size,
@@ -323,7 +323,7 @@ function createStyles(tk: AppThemeTokens) {
     copyBtn: {
       marginTop: rnSpacing.sm,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',
@@ -331,7 +331,7 @@ function createStyles(tk: AppThemeTokens) {
     copyBtnDisabled: {
       marginTop: rnSpacing.sm,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       alignItems: 'center',

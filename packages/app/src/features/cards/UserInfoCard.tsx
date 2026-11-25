@@ -191,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
     followBtn: {
       backgroundColor: tk.brand.cta,
       // 角色档 control(按钮)→ sm(4),与 apps/mobile-rn 那一份的登录/充值钮同档
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['xs-loose'],
     },
@@ -200,7 +200,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.medium,
       // 角色档 control(按钮)→ sm(4),与实底态 followBtn 同档(两态必须同形)
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['xs-loose'],
     },

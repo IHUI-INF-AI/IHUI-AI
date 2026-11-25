@@ -139,7 +139,7 @@ function RuleEditDialog() {
                 id="rule-scope"
                 value={scope}
                 onChange={(e) => setScope(e.target.value as RuleScope)}
-                className="font-[weight:inherit] mt-0.5 w-full rounded-sm border border-border bg-background px-2 py-1 text-label outline-none"
+                className="font-[weight:inherit] mt-0.5 w-full rounded-md border border-border bg-background px-2 py-1 text-label outline-none"
               >
                 {SCOPE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -179,7 +179,7 @@ function RuleEditDialog() {
                 id="rule-match-type"
                 value={matchType}
                 onChange={(e) => setMatchType(e.target.value as RuleMatchType)}
-                className="font-[weight:inherit] mt-0.5 w-full rounded-sm border border-border bg-background px-2 py-1 text-label outline-none"
+                className="font-[weight:inherit] mt-0.5 w-full rounded-md border border-border bg-background px-2 py-1 text-label outline-none"
               >
                 {MATCH_TYPE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -218,7 +218,7 @@ function RuleEditDialog() {
             onChange={(e) => setContent(e.target.value)}
             placeholder={t('contentPlaceholder')}
             rows={6}
-            className="font-[weight:inherit] thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-label leading-relaxed outline-none focus:border-foreground/20"
+            className="font-[weight:inherit] thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-label leading-relaxed outline-none focus:border-foreground/20"
           />
         </div>
         <div className="flex items-center justify-end gap-2">

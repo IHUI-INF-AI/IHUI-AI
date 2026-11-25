@@ -244,7 +244,7 @@ function createStyles(tk: AppThemeTokens) {
     checkbox: {
       width: 18,
       height: 18,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',

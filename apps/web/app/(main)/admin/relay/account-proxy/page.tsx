@@ -446,7 +446,7 @@ export default function AccountProxyPage() {
                 />
                 <button
                   type="button"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
                   onClick={() => setVisible((v) => !v)}
                   aria-label={visible ? '隐藏代理地址' : '显示代理地址'}
                 >

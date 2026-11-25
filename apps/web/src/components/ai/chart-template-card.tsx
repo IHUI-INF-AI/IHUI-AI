@@ -69,7 +69,7 @@ function color(i: number): string {
 function Svg({ children, isDark }: { children: React.ReactNode; isDark: boolean }) {
   return (
     <svg viewBox={`0 0 ${W} ${H}`} role="img" className="h-auto w-full" data-chart-template-svg>
-      <rect x={0} y={0} width={W} height={H} fill={chartBg(isDark)} rx={rnRadius.sm} />
+      <rect x={0} y={0} width={W} height={H} fill={chartBg(isDark)} rx={rnRadius.md} />
       {children}
     </svg>
   )
@@ -78,7 +78,7 @@ function Svg({ children, isDark }: { children: React.ReactNode; isDark: boolean 
 function Empty({ isDark }: { isDark: boolean }) {
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" data-chart-template-empty>
-      <rect x={0} y={0} width={W} height={H} fill={chartBg(isDark)} rx={rnRadius.sm} />
+      <rect x={0} y={0} width={W} height={H} fill={chartBg(isDark)} rx={rnRadius.md} />
       <text x={W / 2} y={H / 2} textAnchor="middle" fontSize="11" fill={chartText(isDark)}>
         --
       </text>

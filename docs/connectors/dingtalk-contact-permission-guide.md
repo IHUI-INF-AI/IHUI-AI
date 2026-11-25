@@ -182,13 +182,19 @@ AI 侧已完成：链路核验、应用 Client ID 查明、后台权限状态现
 >
 > **教训**：任何"授权/凭据落库"验证，必须确认**落在用户真正访问的那套库**（生产库），而不是开发机本地库。本地 `curl 127.0.0.1` 验证通过 ≠ 公网用户可用。判据：现读生产机 `connector_instances` 有记录 + 生产密钥能解密 + 生产端以用户身份调目标接口 200（见 7.3）。
 
+> **⚠️ 二次坑：生产部署会轮换 credentials_key，旧密文失效（2026-11-26 00:50 补记）**
+>
+> 落库后约 1 小时复查，生产端解密报"密钥不匹配或密文损坏"。根因：生产 `apps/ai-service/data/credentials_key` 在部署环中被重建（指纹变了，`2dd8e4d6 → 26b9d533`），之前用它加密的 `user_oauth` 密文随之失效（自加解密往返正常，只是库里旧密文对不上新密钥）。**修复**：从仍有效的本地 token 重新取明文，用**生产当前密钥**再加密落库一次；回读解密 OK、以用户身份调通讯录 HTTP 200 复验通过。
+>
+> **运维判据**：`decrypt_user_token()` fail-closed（密钥不匹配直接抛错）。每次生产部署/密钥轮换后，任何用旧密钥加密的凭据（user_oauth / app_secret）都可能失效，需复查。持续可用性由 invoke 链路的 `_make_refresh_persister` 保障：token 刷新后用**当时密钥**重新加密回写，新密文自洽；但刷新前若密钥已轮换、旧 refresh_token 密文解不开则无法刷新——此时需重新授权或重新落库。
+
 ### 7.3 端到端验证：「AI 以本人身份调通讯录」成功
 
 用落库的**用户 userAccessToken**（非应用 token）实测钉钉新版接口：
 
 | 验证 | 结果 | 判定 |
 | --- | --- | --- |
-| 以用户 token 调 `/v1.0/oauth2/userinfo` | **HTTP 200**，拿到本人 `unionId=UhE62XV5MoKtr9...` | 用户身份令牌有效 |
+| 以用户 token 调 `/v1.0/oauth2/userinfo` | **HTTP 200**，拿到本人 `unionId=UhE62XV5MoKtr9...`（历史快照；**该端点后经复查已下线**，详见 9.1，现行改用 `/contact/users/me`） | 用户身份令牌有效 |
 | 以用户 token 调 `GET /v1.0/contact/users/{unionId}`（scope=`Contact.User.Read`，即任务目标 operation） | **HTTP 200**，返回 `nick/unionId/avatarUrl/openId/mobile/stateCode/visitor` | ✅ **AI 已能以本人身份成功调用通讯录接口，任务验收达成** |
 | 对照：以用户 token 调 `/contact/users/search` | 403 `requiredScopes:["qyapi_addresslist_search"]` | 该 search 是旧版 scope、应用未开，与 `Contact.User.Read` 无关；改用详情接口即用 |
 
@@ -207,3 +213,45 @@ AI 侧已完成：链路核验、应用 Client ID 查明、后台权限状态现
 ### 8.1 state 有效期（`STATE_TTL_SECONDS=600`）
 
 手写/脚本生成的合法 state（用生产 `connector_oauth.make_state`，密钥从 `CREDENTIALS_ENCRYPTION_KEY` 派生）只有 **10 分钟** TTL；生成后拖延过久再回调会被 `verify_state` 判「state 已过期或时间异常」，日志乱码看起来像「签名校验失败」，实为过期。生成 state 后应立即完成授权回调；调试中断要重新生成。state 的 `owner(o)` 必须非空且等于落库作用域（个人模式=`user_id`），否则 callback 第 540 行直接拒。
+
+
+---
+
+## 九、2026-11-26 00:18-00:30 真人授权复查（三个反直觉陷阱）
+
+李总在回调页完成授权后要求"点完了 你看"。复查确认**授权已真正落库、端到端可用**，但排障途中连踩三个反直觉坑，记此备查：
+
+| 现象 | 误判 | 真相 |
+| --- | --- | --- |
+| 回调页回到主站首页、显示「请先登录」 | 以为前端没转发 code、授权失败 | 前端 `OAuthCallbackHandler` 无平台登录态时不展示结果，但**后端 callback 已执行并落库**。判据是查库 `updated_at`，不是看页面提示 |
+| 拿回调 URL 里的 code 再直调一次 callback → 500「用户授权处理失败」 | 以为 token 没落库 | 钉钉 `authCode` **一次性**；前端那次已消费，二次调用在 `userAccessToken` 换 token 时返回 400（`[oauth] 回调失败: Client error '400 Bad Request'`），属正常重复消费，**不影响已落库 token** |
+| 用生产 venv + 密钥文件 `data/credentials_key` 解密 `user_oauth` → `InvalidTag` | 以为密文损坏、要重新授权 | 生产服务由 NSSM `AppEnvironmentExtra` 注入 **`PUBLISH_CREDENTIALS_KEY`**（优先级高于密钥文件）。ssh 脚本进程没继承该环境变量 ⇒ 回退到密钥文件（指纹 `26b9d5332dd3`）⇒ 与加密主密钥（指纹 `f727973d…`）不匹配。**验证脚本必须注入同一个 `PUBLISH_CREDENTIALS_KEY` 才能解密** |
+
+### 9.1 复查实测结论（生产库 + 生产密钥）
+
+- 生产库 `dingtalk:user-oauth`（owner=None，租户 `17568535-...`）`updated_at=2026-11-25T16:19:27Z`（本地 00:19:27），`extra.user_oauth` 有 `enc:user-oauth:v1:` 密文。
+- 注入 NSSM 的 `PUBLISH_CREDENTIALS_KEY` 后解密成功：`DECRYPT_OK=True has_refresh=True`，访问令牌 2h 有效期。
+- **端到端验收**：以用户 token 调 `GET /v1.0/contact/users/me`（新版钉钉**没有** `/v1.0/oauth2/userinfo`，该端点返回 `InvalidAction.NotFound`，别再照旧文档用）→ **HTTP 200**，返回本人 `unionId=UhE62XV5MoKtr9RPZMETqQiEiE`、`nick`、`mobile=186****9808`、`openId`、`avatarUrl`。AI 以本人身份读通讯录能力确认可用。
+- `GET /v1.0/contact/users/{unionId}` 的 unionId 必须**完整**，截断前缀会 `invalidParameter.user.notFound`；`/contact/users/me` 无需 unionId，最省事。
+
+### 9.2 生产凭据验证正确姿势（下次照抄）
+
+1. 生产服务密钥**不在密钥文件**，在 NSSM：`Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\IHUI-AI-SERVICE\Parameters' -Name AppEnvironmentExtra` 取 `PUBLISH_CREDENTIALS_KEY`。
+2. 解密/端到端脚本，进程内先 `os.environ["PUBLISH_CREDENTIALS_KEY"]=<上面的值>`，**再** import `credentials_crypto`（进程级单例，import 时锁定密钥）。
+3. 生产 `connector_store` 路径是 `app.services.connector_store`（不是 `app.services.connectors.connector_store`），用 `importlib.import_module` 避包导出差异。
+4. 验证用户身份连接器读能力直接用 `/v1.0/contact/users/me`，header `x-acs-dingtalk-access-token: <userAccessToken>`，200 + 本人 unionId 即达标。
+
+### 9.3 2026-11-26 01:21 复查：token 自动 refresh 健康 + 密钥轮换隐患修复
+
+- **refresh 链路健康**：时隔 1h（`updated_at` 从 00:19 → 00:50 UTC 16:50）复查，token 已被平台自动刷新（新 2h 有效期、带 refresh_token），**无需用户重新扫码**。`connector_oauth` 的刷新回写链路在生产 daemon 下正常工作。
+- **发现隐患并修复**：刷新回写的密文被日志警告「由解密环第 1 把旧密钥解开（主密钥不匹配）」——根因是 NSSM 主密钥已轮换为 `PUBLISH_CREDENTIALS_KEY`（指纹 `f727973d…`），而历史密文用密钥文件 `data/credentials_key`（指纹 `26b9d5332dd3`）加密，该旧密钥只留在解密环里。若哪天清理解密环旧密钥，钉钉凭据会作废、逼用户重扫码。
+- **修复**：进程注入新主密钥 → `decrypt_user_token` 解出明文 → `credentials_crypto.encrypt()`（用主密钥单例）重加密 → `connector_store.save(None, rec, tenant_id=...)` 整条覆盖写回 `extra.user_oauth`。独立进程验证 `PRIMARY_DECRYPT_OK`（主密钥直接解开、不再走 ring）。**教训：轮换密钥后要把所有用户 OAuth 密文 rewrap 到新主密钥，别只靠解密环续命。**
+
+### 9.4 2026-11-26 01:42 决定性验证：主动 refresh→落库→端到端全通（免扫码坐实）
+
+李总要求"完整收尾、直到没有后续建议"。复查时发现 token 此刻**已过期**（`expires_at=01:25:09`，晚于它 11 分钟），直接解密调 `/contact/users/me` 返回 `400 InvalidAuthentication`——一度疑似"refresh 链路其实没工作、updated_at 变化只是授权 callback 在写"。做了一次**决定性主动 refresh 验证**，结论：链路完全健康，坐实免扫码。
+
+- **refresh 凭据来源（关键）**：`dingtalk:user-oauth` 这条记录 `managed=True` 但 `type=''`（旧记录），用 `managed.hydrate(rec)` 会因空 type 报「钉钉连接器不支持预置模板」——**别走 hydrate**。正确姿势与 callback 同源：`managed.credentials("dingtalk", scope=TENANT)`（本次 `source=tenant`，取自租户平台应用凭据 `tenant_platform_apps`），callback 当初就是用它换到 token 的。
+- **主动 refresh 正确姿势（同进程完成，refresh_token 单次有效绝不能分两步）**：`provider("dingtalk")` + `refresh_user_token(cfg, old_tok, app_id, app_secret, http_json)` → `encrypt_user_token(new_tok)` → `save(None, rec, tenant_id=TENANT)` 覆盖 → 回读 `needs_refresh=False` → 端到端 `/contact/users/me`。
+- **实测结果**：`NEW_SECS_LEFT=7200`（满 2h）、带新 refresh_token、`SAVED`、`REREAD_NEEDS_REFRESH=False`、`CONTACT_HTTP=200` + 本人 unionId。**access_token 2h 过期是正常寿命，过期后由调用侧 `custom_http._user_access_token` 懒刷新（`needs_refresh` 提前 `REFRESH_SKEW_SECONDS=300s` 触发）+ `_make_refresh_persister` 回调落库，链路已端到端验证可用。李总无需重新扫码。**
+- **排障副产物**：`git ls-remote` 秒通证明网络层正常，push 卡的是对象传输 + pre-push 全量门（typecheck ~270s），非凭据/断网。

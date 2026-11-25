@@ -45,11 +45,11 @@ export function VersionDiffDialog({
 
         <div className="flex items-center gap-4 pb-3 text-label text-muted-foreground">
           <div className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm bg-red-400/70" />
+            <span className="inline-block h-2.5 w-2.5 rounded-md bg-red-400/70" />
             <span>旧版: {oldVersion.version}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm bg-green-500/70" />
+            <span className="inline-block h-2.5 w-2.5 rounded-md bg-green-500/70" />
             <span>新版: {newVersion.version}</span>
           </div>
         </div>

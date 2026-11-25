@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   },
   opBtn: {
     padding: rpx(4),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   opBtnMuted: {
     opacity: 0.4,
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
     paddingVertical: rpx(6),
     paddingHorizontal: rpx(taroSpacing['xs-loose']),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.inputBg,
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   textBtn: {
     paddingVertical: rpx(6),
     paddingHorizontal: rpx(taroSpacing.xs),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   textBtnPressed: {
     backgroundColor: tokens.surface.muted,

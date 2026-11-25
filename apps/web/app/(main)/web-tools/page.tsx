@@ -148,7 +148,7 @@ export default function WebToolsPage() {
                   setError(null)
                 }}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-body font-medium',
+                  'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-body font-medium',
                   tool === k
                     ? 'bg-cta text-cta-foreground'
                     : 'bg-muted text-muted-foreground hover:bg-accent',
@@ -169,7 +169,7 @@ export default function WebToolsPage() {
               if (e.key === 'Enter' && !running) void run()
             }}
             placeholder={t('urlPlaceholder')}
-            className="h-9 flex-1 rounded-sm border border-input bg-background px-3 text-body outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-body outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           />
           <Button size="default" disabled={running} onClick={() => void run()}>
             {running ? (
@@ -189,7 +189,7 @@ export default function WebToolsPage() {
                 value={maxChars}
                 onChange={(e) => setMaxChars(e.target.value)}
                 inputMode="numeric"
-                className="h-7 w-20 rounded-sm border border-input bg-background px-2 text-label"
+                className="h-7 w-20 rounded-md border border-input bg-background px-2 text-label"
               />
             </label>
           )}
@@ -212,7 +212,7 @@ export default function WebToolsPage() {
                   value={maxLinks}
                   onChange={(e) => setMaxLinks(e.target.value)}
                   inputMode="numeric"
-                  className="h-7 w-20 rounded-sm border border-input bg-background px-2 text-label"
+                  className="h-7 w-20 rounded-md border border-input bg-background px-2 text-label"
                 />
               </label>
               <label className="flex items-center gap-1.5">
@@ -236,7 +236,7 @@ export default function WebToolsPage() {
               onChange={(e) => setFieldsText(e.target.value)}
               rows={4}
               placeholder={t('fieldsPlaceholder')}
-              className="w-full rounded-sm border border-input bg-background px-3 py-2 font-mono text-label outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-label outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             />
             <p className="text-[10px] text-muted-foreground">{t('fieldsHint')}</p>
           </div>

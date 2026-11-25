@@ -29,6 +29,7 @@ import {
   type FastifyPluginAsync,
 } from './_shared.js'
 import { MEDIA_BASE64_BODY_LIMIT, MEDIA_FILE_UPLOAD_BODY_LIMIT } from '../../config/body-limits.js'
+import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
 
 // ============ AssemblyAI 官方转写参数(audio_url/speech_model/language_code 等) ============
 const assemblyaiBody = z.object({
@@ -88,6 +89,31 @@ function mapReplicateStatus(st: string | undefined): 'running' | 'succeeded' | '
   return 'running' // starting / processing
 }
 
+/**
+ * Replicate 是通用推理平台,同一个端点既能跑 LLM 也能跑图像/视频/音频。
+ * 不能把所有 prediction 都按媒体扣(否则文本模型会被多扣 20 分),
+ * 这里只对明确像媒体的模型/输入分档;文本模型返回 null = 不计媒体费。
+ */
+function replicateBilling(body: {
+  model?: string
+  version?: string
+  input?: Record<string, unknown>
+}): { category: 'image' | 'video' | 'audio'; units: number } | null {
+  const modelId = `${body.model ?? ''} ${body.version ?? ''}`.toLowerCase()
+  if (/(llama|mistral|gemini|claude|gpt|deepseek|qwen|phi|text|embedding|rerank)/.test(modelId)) {
+    return null
+  }
+  const input = body.input ?? {}
+  if ('messages' in input) return null
+  if ('video' in input || 'duration' in input || 'fps' in input || 'num_frames' in input) {
+    return { category: 'video', units: 5 }
+  }
+  if ('audio' in input || 'music' in input || 'tts' in input) {
+    return { category: 'audio', units: 1 }
+  }
+  return { category: 'image', units: 1 }
+}
+
 export const extendedMediaVendorRoutes4: FastifyPluginAsync = async (server) => {
   // ============ 音频:AssemblyAI STT(异步创建 + 轮询) ============
   server.post(
@@ -109,21 +135,37 @@ export const extendedMediaVendorRoutes4: FastifyPluginAsync = async (server) => 
       const body = assemblyaiBody.parse(request.body)
       const key = requireVendorKey('assemblyai', reply)
       if (!key) return
+      const model = body.speech_model ?? 'assemblyai'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
       const payload: Record<string, unknown> = { audio_url: body.audio_url }
       if (body.speech_model) payload.speech_model = body.speech_model
       if (body.language_code) payload.language_code = body.language_code
-      for (const b of ['punctuate', 'format_text', 'dual_channel', 'speaker_labels', 'language_detection', 'filter_profanity', 'redact_pii'] as const) {
+      for (const b of [
+        'punctuate',
+        'format_text',
+        'dual_channel',
+        'speaker_labels',
+        'language_detection',
+        'filter_profanity',
+        'redact_pii',
+      ] as const) {
         if (body[b] !== undefined) payload[b] = body[b]
       }
       if (body.speakers_expected !== undefined) payload.speakers_expected = body.speakers_expected
       if (body.webhook_url) payload.webhook_url = body.webhook_url
-      const data = await callVendor('assemblyai', `${VENDORS.assemblyai!.baseUrl}/v2/transcript`, reply, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      })
+      const data = await callVendor(
+        'assemblyai',
+        `${VENDORS.assemblyai!.baseUrl}/v2/transcript`,
+        reply,
+        {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        },
+      )
       if (data === null) return
       const task = createTask(request.userId!, 'assemblyai', 'audio', data)
       recordUsage(request.userId!, 'assemblyai')
+      await chargeMediaPoints(request, model, 'audio', 1, `assemblyai:${request.id}`)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },
   )
@@ -147,9 +189,7 @@ export const extendedMediaVendorRoutes4: FastifyPluginAsync = async (server) => 
       if (!task || task.vendor !== 'assemblyai' || task.userId !== request.userId) {
         return reply.status(404).send(error(404, '任务不存在'))
       }
-      const upstreamId = String(
-        (task.result as { id?: string } | undefined)?.id ?? '',
-      )
+      const upstreamId = String((task.result as { id?: string } | undefined)?.id ?? '')
       const upstream = await callVendor(
         'assemblyai',
         `${VENDORS.assemblyai!.baseUrl}/v2/transcript/${upstreamId}`,
@@ -157,7 +197,10 @@ export const extendedMediaVendorRoutes4: FastifyPluginAsync = async (server) => 
         { method: 'GET' },
       )
       if (upstream) {
-        task.result = { ...(task.result as Record<string, unknown>), ...(upstream as Record<string, unknown>) }
+        task.result = {
+          ...(task.result as Record<string, unknown>),
+          ...(upstream as Record<string, unknown>),
+        }
         const st = (upstream as { status?: string }).status
         task.status = mapAssemblyStatus(st)
       }
@@ -188,14 +231,22 @@ export const extendedMediaVendorRoutes4: FastifyPluginAsync = async (server) => 
       const file = await request.file()
       if (!file) return reply.status(400).send(error(400, '缺少音频文件(字段名 file)'))
       const buffer = await file.toBuffer()
+      const model = body.model_id ?? 'scribe_v1'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
       const form = new FormData()
-      form.append('file', new Blob([new Uint8Array(buffer)], { type: file.mimetype }), file.filename)
-      form.append('model_id', body.model_id ?? 'scribe_v1')
+      form.append(
+        'file',
+        new Blob([new Uint8Array(buffer)], { type: file.mimetype }),
+        file.filename,
+      )
+      form.append('model_id', model)
       if (body.language_code) form.append('language_code', body.language_code)
       if (body.diarize !== undefined) form.append('diarize', String(body.diarize))
-      if (body.timestamps_granularity) form.append('timestamps_granularity', body.timestamps_granularity)
+      if (body.timestamps_granularity)
+        form.append('timestamps_granularity', body.timestamps_granularity)
       if (body.num_speakers !== undefined) form.append('num_speakers', String(body.num_speakers))
-      if (body.tag_audio_events !== undefined) form.append('tag_audio_events', String(body.tag_audio_events))
+      if (body.tag_audio_events !== undefined)
+        form.append('tag_audio_events', String(body.tag_audio_events))
       if (body.file_format) form.append('file_format', body.file_format)
       try {
         const resp = await fetchWithTimeout(
@@ -209,11 +260,17 @@ export const extendedMediaVendorRoutes4: FastifyPluginAsync = async (server) => 
         )
         const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
         if (!resp.ok) {
-          return reply.status(502).send(
-            error(502, `ElevenLabs 调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 400)}`),
-          )
+          return reply
+            .status(502)
+            .send(
+              error(
+                502,
+                `ElevenLabs 调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 400)}`,
+              ),
+            )
         }
         recordUsage(request.userId!, 'elevenlabs')
+        await chargeMediaPoints(request, model, 'audio', 1, `elevenlabs-stt:${request.id}`)
         return reply.send(success(data))
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -277,6 +334,13 @@ export const extendedMediaVendorRoutes4: FastifyPluginAsync = async (server) => 
       if (!body.version && !body.model) {
         return reply.status(400).send(error(400, 'version 与 model(owner/name) 必须二选一'))
       }
+      const billing = replicateBilling(body)
+      const model = body.model ?? body.version ?? 'replicate'
+      if (
+        billing &&
+        !(await ensureMediaPointsBalance(request, reply, model, billing.category, billing.units))
+      )
+        return
       const input = body.input ?? {}
       const payload: Record<string, unknown> = { input }
       if (body.webhook) payload.webhook = body.webhook
@@ -290,7 +354,19 @@ export const extendedMediaVendorRoutes4: FastifyPluginAsync = async (server) => 
       })
       if (data === null) return
       const raw = data as Record<string, unknown>
-      if (mapReplicateStatus(raw.status as string | undefined) === 'succeeded' || (raw.error && raw.status === 'failed')) {
+      if (billing) {
+        await chargeMediaPoints(
+          request,
+          model,
+          billing.category,
+          billing.units,
+          `replicate:${request.id}`,
+        )
+      }
+      if (
+        mapReplicateStatus(raw.status as string | undefined) === 'succeeded' ||
+        (raw.error && raw.status === 'failed')
+      ) {
         recordUsage(request.userId!, 'replicate')
         return reply.send(success(data))
       }
@@ -320,9 +396,7 @@ export const extendedMediaVendorRoutes4: FastifyPluginAsync = async (server) => 
       if (!task || task.vendor !== 'replicate' || task.userId !== request.userId) {
         return reply.status(404).send(error(404, '任务不存在'))
       }
-      const upstreamId = String(
-        (task.result as { id?: string } | undefined)?.id ?? '',
-      )
+      const upstreamId = String((task.result as { id?: string } | undefined)?.id ?? '')
       const upstream = await callVendor(
         'replicate',
         `${VENDORS.replicate!.baseUrl}/predictions/${upstreamId}`,
@@ -330,7 +404,10 @@ export const extendedMediaVendorRoutes4: FastifyPluginAsync = async (server) => 
         { method: 'GET' },
       )
       if (upstream) {
-        task.result = { ...(task.result as Record<string, unknown>), ...(upstream as Record<string, unknown>) }
+        task.result = {
+          ...(task.result as Record<string, unknown>),
+          ...(upstream as Record<string, unknown>),
+        }
         const st = (upstream as { status?: string }).status
         task.status = mapReplicateStatus(st)
       }

@@ -123,7 +123,7 @@ export function AgentResultFooter({
       <div className="flex items-center gap-1.5">
         {(isRunning || isPaused) && (
           <span
-            className="inline-flex h-6 items-center rounded-sm bg-muted px-2 text-[10px] font-medium text-muted-foreground"
+            className="inline-flex h-6 items-center rounded-md bg-muted px-2 text-[10px] font-medium text-muted-foreground"
             data-testid="agent-pane-phase"
             data-phase={isPaused ? 'paused' : 'running'}
           >
@@ -134,7 +134,7 @@ export function AgentResultFooter({
           type="button"
           onClick={onStop}
           disabled={!isRunning}
-          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="agent-pane-stop-btn"
         >
           <Square className="h-3 w-3" aria-hidden />
@@ -146,7 +146,7 @@ export function AgentResultFooter({
             onClick={onPause}
             disabled={!pauseAvailable || pending !== null}
             aria-busy={pending === 'pause' || undefined}
-            className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
             data-testid="agent-pane-pause-btn"
           >
             <Pause className="h-3 w-3" aria-hidden />
@@ -159,7 +159,7 @@ export function AgentResultFooter({
             onClick={onResume}
             disabled={pending !== null}
             aria-busy={pending === 'resume' || undefined}
-            className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
             data-testid="agent-pane-resume-btn"
           >
             <Play className="h-3 w-3" aria-hidden />
@@ -170,7 +170,7 @@ export function AgentResultFooter({
           type="button"
           onClick={onClear}
           disabled={isRunning}
-          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="agent-pane-clear-btn"
         >
           <Trash2 className="h-3 w-3" aria-hidden />

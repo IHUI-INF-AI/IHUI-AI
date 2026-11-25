@@ -156,7 +156,7 @@
   margin-top: var(--spacing-sm);
   padding: var(--spacing-2xs) var(--spacing-xs-loose);
   background: var(--color-card);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .cd-topic-text {
   font-size: var(--text-caption);
@@ -293,7 +293,7 @@
   padding: 0 var(--spacing-md);
   background: var(--color-muted);
   border: 2rpx solid var(--color-stroke-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-body);
   color: var(--color-foreground);
 }

@@ -497,7 +497,7 @@ function ImagePreview({
     )
 
   const toolBtn =
-    'inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none'
+    'inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none'
 
   return (
     <div

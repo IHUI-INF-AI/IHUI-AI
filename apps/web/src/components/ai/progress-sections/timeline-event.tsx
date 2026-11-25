@@ -488,7 +488,7 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
       )}
       {depth === 0 && (
         <div
-          className={cn('absolute left-0 top-0 h-full w-0.5 rounded-l-sm', typeCls.bar)}
+          className={cn('absolute left-0 top-0 h-full w-0.5 rounded-l-md', typeCls.bar)}
           aria-hidden
         />
       )}
@@ -597,7 +597,7 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
               )}
               {evidence!.diff && (
                 <div
-                  className="overflow-hidden rounded-sm border border-stroke-subtle"
+                  className="overflow-hidden rounded-md border border-stroke-subtle"
                   data-testid="timeline-evidence-diff"
                 >
                   <div className="truncate bg-muted/30 px-1.5 py-0.5 text-[9px] text-muted-foreground/60">
@@ -622,7 +622,7 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
                   {evidence!.test.exit_code !== null && (
                     <span
                       className={cn(
-                        'rounded-sm px-1',
+                        'rounded-md px-1',
                         evidence!.test.exit_code === 0
                           ? 'bg-emerald-500/10 text-emerald-600'
                           : 'bg-destructive/10 text-destructive',
@@ -656,7 +656,7 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
                       onClick={handleRollback}
                       disabled={!evidence!.rollback.available || rollbackState === 'rolling'}
                       data-testid="timeline-evidence-rollback"
-                      className="inline-flex cursor-pointer items-center gap-1 rounded-sm border border-stroke-subtle px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/30 disabled:cursor-default disabled:opacity-50"
+                      className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-stroke-subtle px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/30 disabled:cursor-default disabled:opacity-50"
                     >
                       {rollbackState === 'rolling' ? (
                         <Loader2 className="h-2.5 w-2.5 animate-spin" aria-hidden />
@@ -673,7 +673,7 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
               )}
               {evidence!.conflict && (
                 <div
-                  className="rounded-sm border border-destructive/30 bg-destructive/5 px-1.5 py-1 text-[10px]"
+                  className="rounded-md border border-destructive/30 bg-destructive/5 px-1.5 py-1 text-[10px]"
                   data-testid="timeline-evidence-conflict"
                 >
                   <div className="font-medium text-destructive">

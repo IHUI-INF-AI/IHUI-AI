@@ -186,7 +186,7 @@ export function ConnectorAuthCard({
 
 /**
  * 与 web 端类名档的对应(p-3=12 / gap-1.5=6 / gap-2=8 / gap-1=4 / px-1.5 py-0.5=6×2 /
- * text-xs=12 / text-[11px]=11 / rounded-md=rnRadius.md / rounded-sm=rnRadius.sm)。
+ * text-xs=12 / text-[11px]=11 / rounded-md=rnRadius.md / rounded-md=rnRadius.md)。
  * 颜色一律取主题 token,不落新色值:`bg-muted/30`→surface.muted、
  * `bg-muted/50`→border.light(chip 底,深浅两态各自翻转)、`text-muted-foreground`→text.tertiary、
  * `text-emerald-600 / dark:text-emerald-500`→light 取 success.deep、dark 取 success.DEFAULT
@@ -260,7 +260,7 @@ function createStyles(tk: AppThemeTokens) {
       alignSelf: 'flex-start',
     },
     moreInfo: {
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['2xs'],
     },

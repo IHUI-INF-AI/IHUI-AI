@@ -214,7 +214,7 @@ export default function CourseDetailPage() {
                             setPlayError(false)
                           }}
                           className={cn(
-                            'flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-body transition-colors',
+                            'flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-body transition-colors',
                             activeSection?.id === sec.id
                               ? 'bg-primary/10 text-primary'
                               : 'hover:bg-accent/50',

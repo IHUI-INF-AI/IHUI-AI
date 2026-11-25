@@ -181,7 +181,7 @@ export default function VoiceSttPage() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex w-full flex-col items-center justify-center gap-2 rounded-sm border-2 border-dashed border-muted-foreground/30 py-10 text-center transition-colors hover:border-stroke-strong hover:bg-accent"
+              className="flex w-full flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-muted-foreground/30 py-10 text-center transition-colors hover:border-stroke-strong hover:bg-accent"
             >
               <Upload className="h-8 w-8 text-muted-foreground" />
               <span className="text-body font-medium">{t('selectFile')}</span>
@@ -197,7 +197,7 @@ export default function VoiceSttPage() {
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
               disabled={loading}
-              className="flex h-9 w-full max-w-xs rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-9 w-full max-w-xs rounded-md border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-50"
             >
               {LANGUAGE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -241,7 +241,7 @@ export default function VoiceSttPage() {
                 readOnly
                 value={result.text}
                 rows={8}
-                className="flex w-full resize-y rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                className="flex w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
               />
             </div>
             {result.model && (

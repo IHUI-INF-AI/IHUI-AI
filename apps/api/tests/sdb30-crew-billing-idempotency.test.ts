@@ -11,7 +11,7 @@
  *
  * 现口径(F-203 口径 B 定案后):结算点已从「路由终态事件」下移到
  * `crew-llm-adapter.callRealLlm` 的**每次真实调用**——这本身就是「用量发生单元」,
- * 所以这里直接驱动真实的 orchestrator + adapter,用假钱包记录结算流水来钉语义:
+ * 所以这里直接驱动真实的 orchestrator + adapter,用假积分结算记录流水来钉语义:
  *   - 新 runId ⇒ 新的一批真实调用 ⇒ 再结算一次(①);
  *   - 同一 runId 的终态事件只是报告,不产生额外结算(②);
  *   - 取消前已发生的调用照常结算,取消后不再发起调用(③);
@@ -25,7 +25,7 @@ import type { CrewStreamEvent } from '../src/services/crew-orchestrator.js'
 const store = vi.hoisted(() => ({
   sessionStatus: 'pending',
   terminalWrites: [] as string[],
-  settles: [] as Array<{ userId: string; amount: number; reason?: string; idempotencyKey?: string }>,
+  settles: [] as Array<{ userId: string; amount: number; source?: string }>,
   costs: [] as Array<{ totalTokens: number; requestType: string }>,
   usageQueue: [] as number[],
   upstreamCalls: 0,
@@ -51,6 +51,14 @@ vi.mock('@ihui/database', () => ({
   // 2026-11-19 补:上游导出里新增 users,手抄 mock 缺它 ⇒ 模块加载期整片崩。
   // 纯表身份桩(列对象按属性名缓存,保证 eq(users.id) 两次取值同引用)。
   users: new Proxy({} as Record<string, unknown>, {
+    get: (cache, prop) =>
+      (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
+  }),
+  userPoints: new Proxy({} as Record<string, unknown>, {
+    get: (cache, prop) =>
+      (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
+  }),
+  pointTransactions: new Proxy({} as Record<string, unknown>, {
     get: (cache, prop) =>
       (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
   }),
@@ -138,6 +146,38 @@ vi.mock('../src/plugins/ai-cost.js', () => ({
   resolveAiCost: mocks.resolveAiCost,
   recordAiCost: mocks.recordAiCost,
 }))
+vi.mock('../src/services/daily-credits.js', () => ({
+  getSpendableBalance: vi.fn(async () => ({ available: 1_000_000, permanent: 1_000_000, daily: 0 })),
+}))
+vi.mock('../src/services/ai-points-billing.js', () => ({
+  quoteLlmPoints: vi.fn(async (input: { promptTokens: number; completionTokens: number }) => {
+    const totalTokens = input.promptTokens + input.completionTokens
+    const points = Math.max(1, Math.ceil(totalTokens / 1000))
+    return { ...input, totalTokens, multiplier: 1, points }
+  }),
+  settleLlmPointsUsage: vi.fn(async (input: {
+    userId: string
+    source: string
+    promptTokens: number
+    completionTokens: number
+  }) => {
+    const points = Math.max(1, Math.ceil((input.promptTokens + input.completionTokens) / 1000))
+    store.settles.push({ userId: input.userId, amount: points, source: input.source })
+    return {
+      deducted: points,
+      remaining: 1_000_000 - points,
+      shortfall: 0,
+      alreadySettled: false,
+      quote: {
+        promptTokens: input.promptTokens,
+        completionTokens: input.completionTokens,
+        totalTokens: input.promptTokens + input.completionTokens,
+        multiplier: 1,
+        points,
+      },
+    }
+  }),
+}))
 vi.mock('../src/plugins/token-balance-service.js', () => ({
   getWalletBalance: mocks.getWalletBalance,
   settleWalletUsage: mocks.settleWalletUsage,
@@ -217,8 +257,8 @@ describe('SDB-30 计费幂等键按「单次执行的用量单元」而非 sessi
 
     // 两次执行各 5 次真实调用 ⇒ 各 5 笔结算,第二次不再被会话级幂等键吃掉
     expect(store.settles).toHaveLength(10)
-    expect(store.settles.slice(0, 5).map((s) => s.amount)).toEqual([10, 12, 14, 16, 18])
-    expect(store.settles.slice(5).map((s) => s.amount)).toEqual([10, 10, 10, 10, 10])
+    expect(store.settles.slice(0, 5).map((s) => s.amount)).toEqual([1, 1, 1, 1, 1])
+    expect(store.settles.slice(5).map((s) => s.amount)).toEqual([1, 1, 1, 1, 1])
     expect(store.settles.every((s) => s.userId === 'user-u')).toBe(true)
   })
 
@@ -257,7 +297,7 @@ describe('SDB-30 计费幂等键按「单次执行的用量单元」而非 sessi
 
     expect(store.upstreamCalls).toBe(1)
     expect(store.settles).toHaveLength(1)
-    expect(store.settles[0]!.amount).toBe(10) // 100 token × 0.1 分
+    expect(store.settles[0]!.amount).toBe(1) // 100 token → 1 积分(×1 倍率)
     expect(store.terminalWrites.at(-1)).toBe('cancelled')
   })
 

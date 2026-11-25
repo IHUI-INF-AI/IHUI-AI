@@ -256,7 +256,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     withdrawBtn: {
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -330,7 +330,7 @@ function createStyles(tk: AppThemeTokens) {
     copyBtn: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.brandAccent.deep,
       backgroundColor: tk.surface.light,

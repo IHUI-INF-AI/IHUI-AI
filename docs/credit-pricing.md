@@ -4,156 +4,212 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
 
-# 模型积分计价方案
+# 模型积分计价方案（2026-11-26 收口版）
 
-> 目标:为每条 LLM 调用建立可量化、可管控、可兜底的积分消耗规则,既支撑 SaaS 多租户计费,也兼容社区免费额度。
-> 配套 DB 字段:`ai_model_config_models.points_multiplier numeric(5,2) default 1.00`。
-> 管理端入口:`/admin/ai-models`(每个模型的"积分消耗倍数"下拉)。
+> 本文只写**线上真实生效**的口径。历史文档里的“注册送 1000”“Pro 每月送 10,000 积分”“¥9.9 买 1000 积分”均未落地，已从本文移除；产品文案不应再引用。
 
----
+## 一、先记住三条单位
 
-## 一、计费公式
+| 单位 | 含义 | 用在哪 |
+| --- | --- | --- |
+| **积分** | 1 积分 = 1 分钱（¥0.01） | 用户侧扣费、流水、余额展示 |
+| **分** | 人民币分，`user_margins.token_quantity` 的记账单位 | 钱包充值 / 提现 / 兑换 |
+| **token** | LLM 的输入+输出 token | 仅 LLM 按 token 计费时使用 |
 
-```
-扣分 = (输入 token + 输出 token) / 1000 × points_multiplier × 1 积分基准
-```
-
-- **token 总量** = `usage.prompt_tokens + usage.completion_tokens`(由 LLM 响应体返回)。
-- **points_multiplier**:模型级倍数,5 档可选(0 / 1 / 3 / 10 / 30),DB 默认 1.00。
-- **1 积分基准**:1 积分 = 1000 token × 1 倍数,与 monetization.md 的 SaaS 订阅额度换算一致。
-- **结果取整**:向下取整到 2 位小数(`floor(扣分 × 100) / 100`),避免微小扣分放大误差。
-
-**示例**:
-- GPT-4o(标准 ×3),输入 800 token + 输出 200 token → `(800+200)/1000 × 3 × 1 = 3 积分`
-- DeepSeek-Chat(经济 ×1),输入 5000 token + 输出 1000 token → `(5000+1000)/1000 × 1 × 1 = 6 积分`
-- Ollama 本地模型(免费 ×0),任意 token → `0 积分`
+对 LLM 另有一条换算：**1 积分 = 1000 token × 1 倍模型倍率**。这句话只适用于 LLM，不适用于图片/视频/语音。
 
 ---
 
-## 二、5 档倍数梯度表
+## 二、LLM 计费
 
-| 倍数档位 | `points_multiplier` | 单次 1K token 扣分 | 推荐场景 | 模型示例 |
-| --- | --- | --- | --- | --- |
-| **免费** | 0 | 0 积分 | 本地模型 / 内测免费 / 教学体验 | `ollama/llama3` / `deepseek-free-tier` |
-| **经济** | 1 | 1 积分 | 大流量基础场景 / 国产高性价比模型 | `deepseek-chat` / `qwen-turbo` / `gpt-4o-mini` |
-| **标准** | 3 | 3 积分 | 主力对话模型 / 性价比均衡 | `gpt-4o` / `claude-3-5-sonnet` / `gemini-1.5-pro` |
-| **高级** | 10 | 10 积分 | 复杂推理 / 长上下文 / 高质量场景 | `claude-opus-4` / `gpt-4-turbo` / `gemini-1.5-pro-1M` |
-| **旗舰** | 30 | 30 积分 | 顶级推理 / 多模态 / 企业关键链路 | `gpt-4o-flagship` / `claude-opus-flagship` / `gemini-ultra` |
+### 2.1 公式
 
-> 倍数由管理员在 `/admin/ai-models` 编辑,选项固定为 5 档(下拉选择,不允许自由输入,避免误填 9999 等极端值)。
+\[
+\text{扣分} = \left\lceil \frac{\text{prompt\_tokens} + \text{completion\_tokens}}{1000} \times \text{points\_multiplier} \right\rceil
+\]
+
+- 实现：统一在 `apps/api/src/services/ai-points-billing.ts` 的 `computeLlmPoints` / `quoteLlmPoints` / `settleLlmPointsUsage`；`proxy-llm.ts`、AI 回调 worker、Crew 子 LLM、股票分析、生涯建议、Coze workflow 共用这一份换算。
+- 结果 **向上取整**（`Math.ceil`），不是向下取整、不保留小数。
+- `points_multiplier` 来自 `ai_model_config_models.points_multiplier`；未配置时按模型名关键词推断，最终兜底 1。
+- 固定档位：`0 / 1 / 3 / 10 / 30`。
+- `multiplier = 0` 的模型不扣分。
+- 响应里没有 `usage`、或 token 总量为 0 时**跳过扣分**，不按 `max_tokens` 估算。
+- 同步调用在返回前结算；异步回调在拿到真实 usage 后结算。预检只查余额，不预扣、不冻结。
+- 已产生上游成本但余额不足时走**部分结算**：余额扣到 0，差额返回 `shortfall` 记入日志/任务 metadata，不把余额扣成负数。
+
+### 2.2 余额预检
+
+- LLM 调用前按 **prompt 侧估算积分** 做预检，不按 `max_tokens` 预估、不冻结；余额不足直接 402，不发起上游调用。
+- 真正的扣减仍以响应里的真实 usage 为准；预检只是“够不够开工”，不是最终账单。
+- 可用余额 = `user_points.points`（永久）+ 当日剩余的 `daily_points`。
+- 每日赠送 `DAILY_GRANT_POINTS = 100`，按 Asia/Shanghai 业务日懒发放；跨日未用完的部分清零，不结转。
+- 消费时优先扣当日赠送，再扣永久积分。
+
+### 2.3 示例
+
+- GPT-4o（×3），输入 800 + 输出 200 token → `ceil(1000/1000 × 3) = 3 积分`
+- DeepSeek-Chat（×1），输入 5000 + 输出 1000 token → `ceil(6000/1000 × 1) = 6 积分`
+- Ollama 本地模型（×0）→ 0 积分
+
+### 2.4 已迁到积分账的 AI 入口
+
+| 入口 | 结算 source | 平台成本 |
+| --- | --- | --- |
+| 普通 LLM 代理（含 LangChain Agent） | `llm_chat` | `ai_cost_records` |
+| AI 回调 worker | `llm_chat` | `ai_cost_records` |
+| Crew 子 LLM | `crew_llm` | `ai_cost_records` |
+| 股票分析 | `stock_analysis` | `ai_cost_records` |
+| 生涯建议 | `ai_career_advice` | `ai_cost_records` |
+| Coze workflow | `coze_workflow_chat` | `ai_cost_records` |
+
+以上入口全部只扣 `user_points`，不再调用 `token-balance-service` 扣钱包。钱包只保留充值、提现、Relay/API Key 这类现金场景。
 
 ---
 
-## 三、积分来源
+## 三、媒体计费（图片 / 视频 / 语音 / 声纹 / 视频合成）
 
-| 来源 | 表 | 字段 | 说明 |
+### 3.1 单一真源
+
+媒体不再使用 `FLAT_POINTS`，也不再使用“3/12 积分 + 模型倍率”的第二套价。唯一线上价来自 `ai_pricing`：
+
+- `billing_mode = 'per_image'` → `per_unit_price` 的单位是 **分/张**；
+- `billing_mode = 'per_video'` → `per_unit_price` 的单位是 **分/次或分/秒**，由 `video_unit` 决定；
+- 1 积分 = 1 分钱，因此 `per_unit_price` 直接按 1:1 转成积分，**不再乘 `points_multiplier`**（媒体零售价本身已含毛利，再乘一次等于重复加价）。
+
+实现：`apps/api/src/services/media-billing.ts` 读取当前生效的 `ai_pricing` 行，交给纯模块 `media-billing-pricing.ts` 报价。
+
+### 3.2 按次 vs 按秒
+
+- `video_unit = 'call'`：一次视频生成无论传多少秒，都只算 1 次，扣 `per_unit_price`。
+- `video_unit = 'second'`：`units` 必须传真实时长秒数，扣 `ceil(per_unit_price × 秒数)`。
+- 图片 `units` = 张数；语音/声纹/视频合成按次，`units = 1`。
+- 结果一律 `ceil` 到整数积分，不出现小数或负数。
+
+### 3.3 兜底价
+
+只有 `ai_pricing` 没有对应定价行、或 `billing_mode` 与媒体类别不匹配时，才回落到下表（积分/单位）：
+
+| 类别 | 兜底价 |
+| --- | --- |
+| 图片 | 20 / 张 |
+| 视频 | 20 / 次（按次兜底，不按秒） |
+| 语音 | 2 / 次 |
+| 声纹 | 2 / 次 |
+| 视频合成 | 30 / 次 |
+
+免费模型（`ollama/*`、`pollinations/*` 等）在没有显式媒体定价行时保持 0 积分。
+
+### 3.4 MAGI-2
+
+- 模型别名：`magi-2` / `magi-2-preview` / `magi-2-preview-latest`。
+- 计费模式：`per_video`、`video_unit = 'second'`、`per_unit_price = 74.000000` 分/秒。
+- 30 秒约 **2,220 积分**（¥22.20）。
+- 定价依据：Sand.ai 官方 0.08 USD/秒，按汇率约 7.1 折算上游约 ¥17.04/30 秒，留约 30% 毛利。
+- 迁移：`packages/database/drizzle/20261125150000_magi2_video_pricing.sql`。
+
+> 公开 API 目前尚未新增 MAGI-2 专用视频路由；本定价行服务于已接入 `apps/ai-service` 的 `magi2_provider` 及其上游调用链路。
+
+### 3.5 结算幂等与部分扣减
+
+- 媒体扣分统一走 `settlePointsUsage(source='ai_media', referenceId=...)`，不再用“余额不足就整笔放弃”的 `spendPoints`。
+- 上游产物已交付、但预检后余额被并发花掉时，扣到 0 并返回实扣数；差额写日志供对账，不产生负余额。
+- 同一 `user_id + 'ai_media' + reference_id` 只允许一条 `spend` 流水，由部分唯一索引 `ux_point_transactions_media_settlement_ref` 兜底；重复回调返回 `alreadySettled`，调用方按 0 处理。
+- 预检 402 统一带 `errorCode='INSUFFICIENT_POINTS'` 与本次报价结构，前端不需要解析中文文案。
+
+---
+
+## 四、三本账的边界
+
+系统里确实有三本账，但它们是**分工**，不是三套互不相干的价：
+
+| 账本 | 表 / 字段 | 作用 | 不做什么 |
 | --- | --- | --- | --- |
-| 用户积分余额 | `user_points`(gamification schema) | `points` | 用户当前可用积分,扣分直接从此字段递减 |
-| 签到 / 任务奖励 | `point_records` | `change` | 每日签到、任务完成、活动奖励等正向流水 |
-| 兑换商城消耗 | `point_redeem_items` | `points_cost` | 兑换商品时扣分(独立于 LLM 计费链路) |
-| SaaS 订阅赠送 | `vip_subscriptions` | `granted_points` | Pro / 企业版每月赠送积分,计入 `user_points` |
+| **用户积分账** | `user_points.points` + `daily_points` | 用户实际可用的 AI 积分，扣费直接从这里减 | 不记录人民币充值 |
+| **钱包账** | `user_margins.token_quantity` | 人民币余额（单位分），负责充值、提现、Relay 转账 | 不直接当 AI 积分扣 |
+| **成本账** | LLM: `ai_cost_records`；媒体: `ai_pricing` 售价行 | 平台算上游成本、毛利、对账 | 不直接决定用户扣多少积分 |
 
-> 积分账户体系由 `packages/database/src/schema/gamification.ts` 维护,API 端通过 `POST /api/v1/llm/chat` 链路调用前查询余额,调用后扣减。
+过去的断点是：钱包和积分之间没有兑换桥，用户充了钱却用不了 AI；媒体同时存在多套价；用户扣分与 `ai_pricing` 成本不连；Crew/回调/股票/生涯/Coze 仍走钱包扣费。现在补齐为：
 
----
+1. **单一媒体价**：用户扣分直接读 `ai_pricing`，成本账与用户账使用同一行价格。
+2. **AI 只走积分**：所有 AI 入口统一走 `ai-points-billing`，不再从钱包扣 AI 用量。
+3. **两本账分离**：用户积分与平台成本各记各的；LLM 成本进 `ai_cost_records`，不再要求“扣钱包数 = 成本数”。
+4. **部分结算**：上游已产生成本、用户余额不足时扣到 0，差额留审计，不产生负余额。
+5. **钱包 → 积分桥**：`POST /api/wallet/convert-to-points`，1 分 = 1 积分，事务内扣钱包、加积分、写双向流水。
+6. **余额口径统一**：所有“够不够付”的判断都走 `getSpendableBalance`（永久 + 当日赠送），不再只看 `points`。
 
-## 四、扣分时机
+### 4.1 钱包兑换 API
 
-```
-用户发起 LLM 调用
-  ├─ 1. 预检:查询模型 points_multiplier + 用户积分余额
-  ├─ 2. 估算最大扣分 = (max_tokens 限制) × multiplier / 1000
-  ├─ 3. 余额不足 → 触发兜底策略(见第五节)
-  ├─ 4. 余额充足 → 调用 LLM(stream / non-stream)
-  ├─ 5. LLM 成功返回 → 读取 usage.prompt_tokens + completion_tokens
-  ├─ 6. 计算实际扣分 = (prompt + completion) / 1000 × multiplier
-  └─ 7. 事务扣减 user_points.points + 写入 point_records(change = -扣分, reason = 'llm_call')
-```
+- 路由：`apps/api/src/routes/wallet.ts` 的 `POST /convert-to-points`，需登录。
+- 请求体：
 
-- **扣分时机**:LLM 调用**完成后**按实际 `usage.token` 扣分,**不预扣**(避免失败后回滚复杂度)。
-- **流式调用**:在 SSE done 事件中获取 `usage`,在 done 之后再扣分;若 LLM 未返回 usage,降级为按 `max_tokens` 估算扣分。
-- **缓存命中**:命中缓存的响应**不扣分**(避免重复计费),命中逻辑见 `apps/ai-service` 的 60% 缓存层。
-
----
-
-## 五、兜底策略(积分不足)
-
-```
-LLM 调用前发现 估算扣分 > 用户积分余额
-  ├─ 优先策略 A:降级到 zero_cost 模型(points_multiplier = 0)
-  │   ├─ 查询当前 provider_code 下所有 multiplier = 0 且 enabled = true 的模型
-  │   ├─ 优先选 sortOrder 最小的,保证用户体验稳定
-  │   └─ 降级响应 header 加 `X-Credit-Downgraded: 1` + `X-Original-Model: <原模型>`
-  ├─ 次选策略 B:无 zero_cost 模型可用 → 返回 402 Payment Required
-  │   ├─ 响应体:{ code: 402, message: "积分不足,请签到 / 兑换 / 升级 VIP", data: { required, balance } }
-  │   └─ 前端弹出"积分不足"对话框,引导签到 / 兑换 / 升级
-  └─ 兜底策略 C:管理员可配置"全局免费兜底模型"(env: `LLM_FALLBACK_MODEL_ID`)
-      └─ 兜底模型固定 zero_cost,所有租户共享,避免完全无法使用
+```json
+{ "amount": 100, "idempotencyKey": "..." }
 ```
 
-- **降级可见**:前端需在消息气泡下方提示"本次调用已降级到 `<模型名>`(积分不足)",不静默降级。
-- **降级频率**:同一用户 24 小时内降级 ≥ 10 次 → 触发引导升级 VIP 的强提示。
-- **管理员可关闭兜底**:env `LLM_CREDIT_FALLBACK_ENABLED=false` 时,积分不足直接返回 402,不降级。
+- `amount`：整数，100–1,000,000（最低 ¥1）。
+- `idempotencyKey`：可选，1–32 字符；不传时用 `request.id`。
+- 兑换率：1 分 = 1 积分，只允许 wallet → points，不允许反向。
+- 事务与幂等：
+  - `SELECT ... FOR UPDATE` 锁 `user_margins` 行；
+  - 扣 `token_quantity` 时带 `>= amount` 条件；
+  - 加 `user_points.points`，不碰 `total_earned` / `experience`；
+  - 写 `point_transactions(type='transfer', source='wallet_exchange')`；
+  - 写 `token_flows(op_type=7, quantity=-amount)`；
+  - 部分唯一索引 `ux_point_transactions_wallet_exchange_user_ref` 保证同一幂等键只兑换一次。
+- 前端入口：`apps/web/app/(main)/wallet/page.tsx` 的“钱包余额兑换 AI 积分”卡片。
+
+### 4.2 永久积分从哪来
+
+- 订单消费返还：`floor(order.amount / 100)`（1 元 = 1 积分）。
+- 签到、任务、邀请、活动奖励。
+- 管理员手动调整。
+- 钱包兑换（本版新增，`type='transfer'`，不计入“消费”统计）。
+
+> `vip_subscriptions.granted_points` 在 schema 中不存在；会员权益只发 AI 预算/配额，不直接发积分。注册流程也不送 1000 积分。
+
+### 4.3 成本账现状
+
+- LLM 的 `costCents` 由 `resolveAiCost` 按 `ai_pricing` 解析，写入 `ai_cost_records`；`requestType` 区分 `llm_chat`（普通代理 / LangChain Agent / 流式回调）、`crew`、`crew_session`、`stock_analysis`、`career-advice`、`coze_workflow_chat`。
+- 用户积分由 `computeLlmPoints` 按模型倍率另算；同一个请求的“平台成本”和“用户扣分”不再要求相等。
+- 媒体当前只有用户售价 `ai_pricing.per_unit_price`，没有独立的上游成本列，因此媒体成本暂未写入 `ai_cost_records`；上线媒体毛利报表前需补成本字段，不能直接把售价当成本。
 
 ---
 
-## 六、失败不扣分(事务保护)
+## 五、失败与并发
 
-| 失败场景 | 处理 | 扣分 |
-| --- | --- | --- |
-| LLM 调用 HTTP 5xx / 超时 | 不扣分,记录 `llm_call_logs.status = 'failed'` | 0 积分 |
-| LLM 调用返回 4xx(鉴权 / 限流) | 不扣分,记录错误 | 0 积分 |
-| LLM 调用成功但 `usage` 缺失 | 降级按 `max_tokens` 估算扣分 | 估算值 |
-| 扣减积分时 DB 事务失败 | 整个调用回滚,**不写入响应**,返回 500 | 0 积分 |
-| `point_records` 写入失败但 `user_points` 已扣 | 后台对账任务每小时修复(以 `user_points` 为准) | 已扣 |
-
-**事务边界**:`扣减 user_points + 写入 point_records` 必须在同一 Drizzle 事务中,任一失败全部回滚,确保积分账户一致性。
-
-**对账任务**:`apps/api/src/jobs/credit-reconcile.job.ts`(每小时执行),扫描最近 1 小时 `llm_call_logs` 与 `point_records`,发现不一致:
-- `point_records` 有记录但 `llm_call_logs.status = 'failed'` → 退回积分(`point_records.change = +退回值`)
-- `llm_call_logs.status = 'success'` 但无对应 `point_records` → 补扣分(写 `point_records.change = -补扣值`)
-
----
-
-## 七、管理端能力
-
-### 7.1 编辑倍数
-
-入口:`/admin/ai-models` → 编辑 / 新增模型对话框 → "积分消耗倍数"下拉。
-
-- 5 档固定选项,不允许自由输入。
-- 默认值 1(经济档)。
-- 修改后立即生效(下次 LLM 调用即按新倍数扣分)。
-- 不影响历史 `point_records`(已扣分记录不补扣 / 不退回)。
-
-### 7.2 查看扣分流水
-
-- `/admin/points/records`:查看所有用户积分流水(支持按 `reason = 'llm_call'` 筛选)。
-- `/admin/llm/call-logs`:查看 LLM 调用日志,含 `tokens_used` / `points_cost` / `model_id`。
-
-### 7.3 全局配置
-
-| 环境变量 | 默认 | 说明 |
-| --- | --- | --- |
-| `LLM_CREDIT_FALLBACK_ENABLED` | `true` | 积分不足时是否降级到 zero_cost 模型 |
-| `LLM_FALLBACK_MODEL_ID` | (空) | 全局免费兜底模型 ID(空则按 provider 内 zero_cost 模型选) |
-| `LLM_CREDIT_DOWNGRADE_LIMIT` | `10` | 24 小时内降级次数上限,超过触发 VIP 升级强提示 |
-| `LLM_CREDIT_RECONCILE_INTERVAL` | `3600` | 对账任务执行间隔(秒) |
+| 场景 | 行为 |
+| --- | --- |
+| LLM 上游 5xx / 超时 / 4xx | 不扣分 |
+| LLM 成功但无 `usage` | 跳过扣分（不估算） |
+| 媒体上游失败 | 不扣分；成功后按报价扣 |
+| 媒体余额不足 | 调用前返回 402，带 `errorCode / required / units / applied_units / unit_points / price_source` |
+| 媒体成功后余额被并发花掉 | 部分结算：扣到 0，返回实扣数并记录 `shortfall`，不产生负余额 |
+| 媒体重复回调同 `referenceId` | `ai_media` 结算幂等，重复返回 `alreadySettled`，不二次扣费 |
+| AI 预检余额不足 | 同步入口返回 402/明确错误，不发起上游调用 |
+| 上游已产生成本但余额不足 | 部分结算：扣到 0，返回 `shortfall` 并记账审计，不产生负余额 |
+| 异步回调重复投递 | 同一 `user_id + source + reference_id` 已结算则直接返回 `alreadySettled`，不重复扣 |
+| 扣分事务失败 | 已生成响应不回滚；记录日志，由对账/人工处理 |
+| 同 `referenceId` 重复扣分 | 媒体扣分按 `referenceId` 幂等，不重复扣 |
+| 钱包兑换并发同 key | 行锁 + 部分唯一索引，只成功一次 |
+| 钱包兑换余额不足 | 抛 `INSUFFICIENT_WALLET_BALANCE`，不产生半截账 |
 
 ---
 
-## 八、与其他规则的关系
+## 六、管理端与排查
 
-- **与 monetization.md 的关系**:本方案是 monetization "API 计费"收入流的具体实现,积分 = 1 分钱(¥0.01)的内部记账单位,支持 SaaS 订阅赠送 / 单独购买 / 兑换商城。
-- **与 RBAC 的关系**:管理员(`role_id >= 1`)才能编辑倍数;普通用户只能查看自己的扣分流水。
-- **与多租户的关系**:`user_points` 按 `tenant_id` 隔离,跨租户不互相影响;`points_multiplier` 是模型级全局配置,不按租户区分(如需按租户定制,后续扩展 `tenant_model_overrides` 表)。
-- **与缓存层的关系**:命中缓存的响应不扣分,但 `llm_call_logs` 仍记录(`status = 'cache_hit'`),便于成本分析。
+- 模型倍率：`/admin/ai-models` → “积分消耗倍数”下拉，固定 5 档。
+- 积分流水：`/admin/points/records`，可按 `reason` 筛选。
+- LLM 调用日志：`/admin/llm/call-logs`。
+- 媒体定价：`ai_pricing` 表；新模型上线必须先补定价行，否则会走兜底价。
+- 钱包流水：`token_flows.op_type` 的 7 表示“兑换 AI 积分”，前端统一由 `packages/shared/src/utils/wallet-flow-meta.ts` 解释。
 
 ---
 
-## 九、变更日志
+## 七、变更日志
 
-| 日期 | 变更 | 备注 |
-| --- | --- | --- |
-| 2026-07-31 | 初版立稿 | DB schema 已新增 `points_multiplier` 字段,admin AI 模型管理页已支持编辑 |
+| 日期 | 变更 |
+| --- | --- |
+| 2026-07-31 | 初版立稿（LLM 倍率计费） |
+| 2026-11-25 | 媒体计价收口到 `ai_pricing` 单一真源；新增按秒计费与 MAGI-2 定价；新增钱包→积分兑换桥；修正 LLM 取整、每日赠送、无 usage 跳过等口径；移除未落地的注册送/会员送/9.9 买积分描述 |
+| 2026-11-26 | 剩余 AI 入口（普通 LLM 代理 / LangChain Agent / Crew / AI 回调 / 股票 / 生涯建议 / Coze）全部迁到 AI 积分；新增 `settlePointsUsage` 部分结算与幂等；平台成本与用户积分正式分账；媒体显式 0 价生效；Goal 水位改读积分；媒体扣分改部分结算并补 `ai_media` 并发幂等索引 |
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

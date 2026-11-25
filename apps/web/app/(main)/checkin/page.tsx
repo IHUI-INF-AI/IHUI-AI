@@ -1769,7 +1769,7 @@ export default function CheckinPage() {
       aria-label={t('filterAll')}
       value={value ?? 'all'}
       onChange={(e) => onChange(e.target.value === 'all' ? null : Number(e.target.value))}
-      className="h-8 rounded-sm border bg-background px-2 text-label"
+      className="h-8 rounded-md border bg-background px-2 text-label"
     >
       <option value="all">{t('filterAll')}</option>
       {accounts.map((account) => (
@@ -2123,7 +2123,7 @@ export default function CheckinPage() {
                       e.target.value as 'all' | 'trae' | 'workbuddy' | 'qoder' | 'minimax',
                     )
                   }
-                  className="h-8 rounded-sm border bg-background px-2 text-label"
+                  className="h-8 rounded-md border bg-background px-2 text-label"
                 >
                   <option value="all">{t('platformAll')}</option>
                   <option value="trae">{t('platformTrae')}</option>
@@ -2137,7 +2137,7 @@ export default function CheckinPage() {
                     aria-label={t('filterGroupAll')}
                     value={groupFilter}
                     onChange={(e) => setGroupFilter(e.target.value)}
-                    className="h-8 rounded-sm border bg-background px-2 text-label"
+                    className="h-8 rounded-md border bg-background px-2 text-label"
                   >
                     <option value="all">{t('filterGroupAll')}</option>
                     {distinctGroups.map((g) => (
@@ -2558,7 +2558,7 @@ export default function CheckinPage() {
                             {
                               type: 'bar',
                               data: board.ranked.map((r) => r.credits),
-                              itemStyle: { borderRadius: rnRadius.sm },
+                              itemStyle: { borderRadius: rnRadius.md },
                             },
                           ],
                         }}
@@ -2665,7 +2665,7 @@ export default function CheckinPage() {
             {desktop ? (
               <div
                 data-testid="smart-scan-block"
-                className="space-y-2 rounded-sm border bg-muted/40 p-3"
+                className="space-y-2 rounded-md border bg-muted/40 p-3"
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-body font-medium">{t('addSmartTitle')}</p>
@@ -2809,7 +2809,7 @@ export default function CheckinPage() {
                     onChange={(e) =>
                       setAddPlatform(e.target.value as 'trae' | 'workbuddy' | 'qoder' | 'minimax')
                     }
-                    className="h-9 w-full rounded-sm border bg-background px-2 text-body"
+                    className="h-9 w-full rounded-md border bg-background px-2 text-body"
                   >
                     <option value="trae">{t('platformTrae')}</option>
                     <option value="workbuddy">{t('platformWorkbuddy')}</option>
@@ -2835,7 +2835,7 @@ export default function CheckinPage() {
                     onChange={(e) => setJwt(e.target.value)}
                     rows={4}
                     placeholder={t('jwtPlaceholder')}
-                    className="w-full resize-y rounded-sm border bg-background p-2 text-label outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                    className="w-full resize-y rounded-md border bg-background p-2 text-label outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -2846,7 +2846,7 @@ export default function CheckinPage() {
                     onChange={(e) => setDeviceMapText(e.target.value)}
                     rows={3}
                     placeholder={t('deviceMapPlaceholder')}
-                    className="w-full resize-y rounded-sm border bg-background p-2 text-label outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                    className="w-full resize-y rounded-md border bg-background p-2 text-label outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -2898,7 +2898,7 @@ export default function CheckinPage() {
                 onChange={(e) => setJwtText(e.target.value)}
                 rows={4}
                 placeholder={t('jwtPlaceholder')}
-                className="w-full resize-y rounded-sm border bg-background p-2 text-label outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                className="w-full resize-y rounded-md border bg-background p-2 text-label outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
               />
             </div>
             {jwtFormError && (
@@ -2980,7 +2980,7 @@ export default function CheckinPage() {
                 value={deviceMapEditText}
                 onChange={(e) => setDeviceMapEditText(e.target.value)}
                 rows={10}
-                className="w-full resize-y rounded-sm border bg-background p-2 font-mono text-label outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                className="w-full resize-y rounded-md border bg-background p-2 font-mono text-label outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
               />
             </div>
             {deviceMapFormError && (
@@ -3181,7 +3181,7 @@ export default function CheckinPage() {
                 本页入库(cookie jar 归应用,无需粘贴);下级入口 = 系统默认浏览器
                 打开(浏览器安全隔离,应用读不到它的 Cookie,需手动粘贴导入,
                 粘贴时同样先探测账号再入库) */}
-            <div className="space-y-2 rounded-sm border bg-muted/40 p-3">
+            <div className="space-y-2 rounded-md border bg-muted/40 p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-body font-medium">{t('captureWbWebTitle')}</p>
@@ -3298,7 +3298,7 @@ export default function CheckinPage() {
                             setWbTokenDrafts((prev) => ({ ...prev, [key]: e.target.value }))
                           }
                           placeholder={t('captureWbTokenPlaceholder')}
-                          className="ml-6 h-8 w-[calc(100%-1.5rem)] rounded-sm border bg-background px-2 font-mono text-label"
+                          className="ml-6 h-8 w-[calc(100%-1.5rem)] rounded-md border bg-background px-2 font-mono text-label"
                         />
                       )}
                     </div>

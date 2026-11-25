@@ -24,11 +24,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@ihui/ui-react'
-import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { Alert } from '@/components/feedback'
 import { BackButton, Empty, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
-import { cn } from '@/lib/utils'
 
 /** 单次分析结果（与后端 StockAnalysisResult 对应；createdAt 经 JSON 序列化为 ISO 字符串） */
 interface StockAnalysisResult {
@@ -41,10 +39,10 @@ interface StockAnalysisResult {
   mock?: boolean
 }
 
-/** Token 余额 */
+/** AI 积分余额 */
 interface TokenBalance {
-  total: number
-  used: number
+  permanent: number
+  daily: number
   remaining: number
 }
 
@@ -119,10 +117,9 @@ export default function StockAnalysePage() {
   })
 
   const balance = balanceQuery.data
-  const balanceTotal = balance?.total ?? 0
-  const balanceUsed = balance?.used ?? 0
+  const balancePermanent = balance?.permanent ?? 0
+  const balanceDaily = balance?.daily ?? 0
   const balanceRemaining = balance?.remaining ?? 0
-  const usedPct = balanceTotal > 0 ? clampPercent((balanceUsed / balanceTotal) * 100) : 0
 
   const canAnalyse = symbol.trim().length > 0 && question.trim().length > 0 && !analysing
   const isMock = Boolean(result?.mock || result?.error)
@@ -172,7 +169,7 @@ export default function StockAnalysePage() {
         <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      {/* Token 余额卡 */}
+      {/* AI 积分余额卡 */}
       <Card>
         <CardHeader className="flex-row items-center gap-2 space-y-0">
           <Coins className="h-5 w-5 text-primary" />
@@ -180,22 +177,22 @@ export default function StockAnalysePage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {!allow ? (
-            <AuthGatePrompt message="请先登录后查看代币余额" />
+            <AuthGatePrompt message="请先登录后查看 AI 积分余额" />
           ) : balanceQuery.isError ? (
             <Alert variant="danger" description={(balanceQuery.error as Error).message} />
           ) : (
             <>
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-md bg-muted/50 p-3">
-                  <p className="text-label text-muted-foreground">{t('total')}</p>
+                  <p className="text-label text-muted-foreground">{t('permanent')}</p>
                   <p className="mt-0.5 text-lg font-semibold">
-                    {balanceQuery.isLoading ? '—' : balanceTotal.toLocaleString()}
+                    {balanceQuery.isLoading ? '—' : balancePermanent.toLocaleString()}
                   </p>
                 </div>
                 <div className="rounded-md bg-muted/50 p-3">
-                  <p className="text-label text-muted-foreground">{t('used')}</p>
+                  <p className="text-label text-muted-foreground">{t('daily')}</p>
                   <p className="mt-0.5 text-lg font-semibold">
-                    {balanceQuery.isLoading ? '—' : balanceUsed.toLocaleString()}
+                    {balanceQuery.isLoading ? '—' : balanceDaily.toLocaleString()}
                   </p>
                 </div>
                 <div className="rounded-md bg-muted/50 p-3">
@@ -205,21 +202,7 @@ export default function StockAnalysePage() {
                   </p>
                 </div>
               </div>
-              <div
-                className="h-2 w-full overflow-hidden rounded-xs bg-muted"
-                role="progressbar"
-                aria-valuenow={Math.round(usedPct)}
-                aria-valuemin={0}
-                aria-valuemax={100}
-              >
-                <div
-                  className={cn(
-                    'h-full rounded transition-all',
-                    usedPct >= 90 ? 'bg-rose-500' : usedPct >= 60 ? 'bg-amber-500' : 'bg-primary',
-                  )}
-                  style={{ width: `${usedPct}%` }}
-                />
-              </div>
+              <p className="text-label text-muted-foreground">{t('dailyHint')}</p>
             </>
           )}
         </CardContent>
@@ -249,7 +232,7 @@ export default function StockAnalysePage() {
               placeholder={t('questionPlaceholder')}
               maxLength={QUESTION_MAX_LENGTH}
               rows={4}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-50"
             />
             <p className="text-right text-label text-muted-foreground">
               {question.length}/{QUESTION_MAX_LENGTH}
@@ -340,7 +323,7 @@ export default function StockAnalysePage() {
                   <button
                     type="button"
                     onClick={() => openDetail(item)}
-                    className="flex w-full items-center gap-3 rounded-sm px-2 py-2.5 text-left transition-colors hover:bg-accent"
+                    className="flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors hover:bg-accent"
                   >
                     <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 font-mono text-label">
                       {item.symbol}

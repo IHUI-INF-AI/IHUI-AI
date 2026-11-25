@@ -48,7 +48,7 @@ export const userPoints = pgTable('user_points', {
 
 /**
  * 积分流水表。
- * type: 'earn' | 'spend'。amount 正数 earn / 负数 spend。
+ * type: 'earn' | 'spend' | 'transfer'。amount 正数 earn/transfer 入账、负数 spend 出账。
  * balance_after 记录操作后余额；source 标识来源；reference_id 关联资源（如签到记录 id）。
  * 索引 ix_point_transactions_user_created_at 同时服务按日消耗聚合（credits-usage-service，
  * user_id 等值 + created_at 区间）与流水端点的 user_id + created_at 倒序分页；
@@ -77,6 +77,20 @@ export const pointTransactions = pgTable(
     redeemUserRefUnique: uniqueIndex('ux_point_transactions_redeem_user_ref')
       .on(t.userId, t.referenceId)
       .where(sql`${t.source} = 'redeem' AND ${t.referenceId} IS NOT NULL`),
+    // 钱包→AI 积分兑换的并发兜底:同一用户同一幂等键只允许一条 transfer 流水。
+    walletExchangeUserRefUnique: uniqueIndex('ux_point_transactions_wallet_exchange_user_ref')
+      .on(t.userId, t.referenceId)
+      .where(sql`${t.source} = 'wallet_exchange' AND ${t.referenceId} IS NOT NULL`),
+    // AI 用量积分结算的并发兜底:同一用户 + source + reference_id 只允许一条 spend 流水。
+    // 只覆盖带稳定 referenceId 的入口(callback / career / coze);crew/stock 无 ref,靠调用点天然单次。
+    aiSettlementRefUnique: uniqueIndex('ux_point_transactions_ai_settlement_ref')
+      .on(t.userId, t.source, t.referenceId)
+      .where(sql`${t.type} = 'spend' AND ${t.source} IN ('llm_chat', 'crew_llm', 'stock_analysis', 'ai_career_advice', 'coze_workflow_chat') AND ${t.referenceId} IS NOT NULL`),
+    // 媒体生成结算的并发兜底:同一用户 + ai_media + reference_id 只允许一条 spend 流水。
+    // 与上面的 AI 结算索引分开,避免把媒体 source 塞进 LLM 口径后误伤其他 source。
+    mediaSettlementRefUnique: uniqueIndex('ux_point_transactions_media_settlement_ref')
+      .on(t.userId, t.source, t.referenceId)
+      .where(sql`${t.type} = 'spend' AND ${t.source} = 'ai_media' AND ${t.referenceId} IS NOT NULL`),
   }),
 )
 

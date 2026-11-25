@@ -214,7 +214,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
             type="button"
             onClick={handleClear}
             disabled={status === 'running' || status === 'paused'}
-            className="rounded-sm px-2 py-1 text-label transition-colors hover:bg-accent disabled:opacity-40"
+            className="rounded-md px-2 py-1 text-label transition-colors hover:bg-accent disabled:opacity-40"
           >
             {t('clear')}
           </button>
@@ -339,7 +339,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
               placeholder={t('placeholder')}
               disabled={status === 'running' || status === 'paused'}
               rows={2}
-              className="min-w-0 flex-1 resize-none rounded-sm border border-border bg-background px-2.5 py-1.5 text-body placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus disabled:opacity-50"
+              className="min-w-0 flex-1 resize-none rounded-md border border-border bg-background px-2.5 py-1.5 text-body placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus disabled:opacity-50"
             />
             {/* 硬停(掐断本地流)与暂停(服务端在安全点停住循环)是两件事,所以两个动作
                 各留各的入口:运行中额外给一枚紧凑停止钮,主钮则分岔成 暂停 / 继续 / 执行。 */}
@@ -348,7 +348,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                 type="button"
                 onClick={handleStop}
                 aria-label={t('stop')}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-red-500 text-white transition-colors hover:bg-red-600"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-red-500 text-white transition-colors hover:bg-red-600"
               >
                 <Square className="h-3.5 w-3.5" />
               </button>
@@ -358,7 +358,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                 type="button"
                 onClick={handlePause}
                 disabled={pausePending}
-                className="inline-flex h-9 items-center gap-1 rounded-sm bg-cta px-3 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
+                className="inline-flex h-9 items-center gap-1 rounded-md bg-cta px-3 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
               >
                 {pausePending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -372,7 +372,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                 type="button"
                 onClick={handleResume}
                 disabled={pausePending}
-                className="inline-flex h-9 items-center gap-1 rounded-sm bg-cta px-3 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
+                className="inline-flex h-9 items-center gap-1 rounded-md bg-cta px-3 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
               >
                 {pausePending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -386,7 +386,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                 type="button"
                 onClick={handleSend}
                 disabled={!input.trim()}
-                className="inline-flex h-9 items-center gap-1 rounded-sm bg-cta px-3 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
+                className="inline-flex h-9 items-center gap-1 rounded-md bg-cta px-3 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
               >
                 <Play className="h-3.5 w-3.5" />
                 <span>{t('execute')}</span>

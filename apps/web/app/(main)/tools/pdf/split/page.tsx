@@ -82,7 +82,7 @@ export default function PdfSplitPage() {
               type="button"
               onClick={() => setMode(key)}
               className={cn(
-                'rounded-sm border px-3 py-2 text-body transition-colors',
+                'rounded-md border px-3 py-2 text-body transition-colors',
                 mode === key
                   ? 'border-brand-accent-deep bg-primary/10 text-primary'
                   : 'hover:bg-accent',

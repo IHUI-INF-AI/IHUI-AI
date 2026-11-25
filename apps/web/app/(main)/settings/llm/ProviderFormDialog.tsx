@@ -174,7 +174,7 @@ export function ProviderFormDialog({
               // 模板未就绪:显示加载/错误状态,而不是空下拉(避免用户看到"黑不溜秋一条"无内容下拉)
               <div
                 id="providerCode"
-                className="flex h-9 w-full items-center rounded-sm border border-input bg-muted/30 px-3 text-body text-muted-foreground"
+                className="flex h-9 w-full items-center rounded-md border border-input bg-muted/30 px-3 text-body text-muted-foreground"
               >
                 {templatesError ? (
                   <Tooltip content={templatesError}>
@@ -259,7 +259,7 @@ export function ProviderFormDialog({
                     type="button"
                     onClick={() => setShowKey((s) => !s)}
                     aria-label={showKey ? t('hideKey') : t('showKey')}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
                   >
                     {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   </button>
@@ -364,7 +364,7 @@ export function ProviderFormDialog({
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               placeholder={t('descriptionPlaceholder')}
               rows={2}
-              className="w-full rounded-sm border border-input bg-background px-3 py-1.5 text-body focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-body focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
             />
           </div>
 

@@ -3678,7 +3678,7 @@
   y: 1px;
   width: calc(100% - 2px);
   height: calc(100% - 2px);
-  rx: var(--radius-sm);
+  rx: var(--radius-md);
   fill: none;
   /* 对接边用平头(butt):圆头会在每段末端顶出一颗小圆点,读起来就是"一块一块" */
   stroke-linecap: butt;

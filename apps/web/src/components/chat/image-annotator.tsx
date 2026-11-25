@@ -448,7 +448,7 @@ export function ImageAnnotator({ open, imageUrl, onClose, onApply }: ImageAnnota
                 onClick={() => setColor(option.value)}
                 data-testid={`image-annotator-color-${option.value.slice(1)}`}
                 className={cn(
-                  'h-5 w-5 rounded-sm border border-input transition-shadow',
+                  'h-5 w-5 rounded-md border border-input transition-shadow',
                   option.className,
                   color === option.value && 'ring-2 ring-stroke-focus ring-offset-1',
                 )}
@@ -480,7 +480,7 @@ export function ImageAnnotator({ open, imageUrl, onClose, onApply }: ImageAnnota
                   >
                     <span
                       className={cn(
-                        'w-4 rounded-sm bg-current',
+                        'w-4 rounded-md bg-current',
                         index === 0 ? 'h-px' : index === 1 ? 'h-0.5' : 'h-1',
                       )}
                     />

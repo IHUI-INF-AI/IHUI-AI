@@ -149,7 +149,7 @@ export function ChangeRequestPanel() {
         <button
           type="button"
           onClick={() => void fetchList(path, { force: true })}
-          className="rounded-sm bg-muted px-1.5 py-0.5 text-[11px] hover:bg-accent"
+          className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] hover:bg-accent"
         >
           {t('retry')}
         </button>
@@ -174,7 +174,7 @@ export function ChangeRequestPanel() {
         <button
           type="button"
           onClick={openGithubConfig}
-          className="rounded-sm bg-muted px-1.5 py-0.5 text-[11px] hover:bg-accent"
+          className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] hover:bg-accent"
         >
           {t('connectGithub')}
         </button>
@@ -210,7 +210,7 @@ export function ChangeRequestPanel() {
             data-testid="change-request-refresh"
             disabled={loading || !path}
             onClick={() => void fetchList(path, { force: true })}
-            className="flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
           >
             <RefreshCw className={cn('h-3 w-3', loading && 'animate-spin')} aria-hidden="true" />
           </button>
@@ -219,11 +219,11 @@ export function ChangeRequestPanel() {
 
       {snapshot ? (
         <div className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
-          <span className="rounded-sm bg-muted px-1.5 py-0.5">
+          <span className="rounded-md bg-muted px-1.5 py-0.5">
             {providerLabel[snapshot.provider]}
           </span>
           {snapshot.currentBranch ? (
-            <span className="rounded-sm bg-muted px-1.5 py-0.5 font-mono">
+            <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono">
               {snapshot.currentBranch}
             </span>
           ) : null}
@@ -257,7 +257,7 @@ export function ChangeRequestPanel() {
             data-testid="change-request-create"
             disabled={creating}
             onClick={() => void handleCreate()}
-            className="rounded-sm bg-primary/10 px-2 py-0.5 text-[11px] text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+            className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
           >
             {creating ? t('creating') : t('create')}
           </button>
@@ -289,7 +289,7 @@ function ChangeRequestRow({
   }
   return (
     <li
-      className="flex flex-col gap-0.5 rounded-sm bg-muted/30 px-2 py-1"
+      className="flex flex-col gap-0.5 rounded-md bg-muted/30 px-2 py-1"
       data-testid={`change-request-item-${item.number}`}
       data-current-branch={item.isCurrentBranch ? 'true' : 'false'}
     >
@@ -306,12 +306,12 @@ function ChangeRequestRow({
         >
           {item.title}
         </a>
-        <span className={cn('shrink-0 rounded-sm px-1 py-0.5 text-[10px]', STATE_TONE[item.state])}>
+        <span className={cn('shrink-0 rounded-md px-1 py-0.5 text-[10px]', STATE_TONE[item.state])}>
           {stateLabel}
         </span>
         {item.isCurrentBranch ? (
           <span
-            className="shrink-0 rounded-sm bg-primary/10 px-1 py-0.5 text-[10px] text-primary"
+            className="shrink-0 rounded-md bg-primary/10 px-1 py-0.5 text-[10px] text-primary"
             data-testid={`change-request-current-${item.number}`}
           >
             {currentLabel}

@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     gap: rpx(6),
     paddingHorizontal: rpx(taroSpacing['sm-loose']),
     paddingVertical: rpx(12),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   toolBtnActive: {
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: rpx(taroSpacing['sm-loose']),
     paddingVertical: rpx(14),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
     fontSize: rnType.body.size,
     color: tokens.text.primary,
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   textInputBtn: {
     width: rpx(72),
     height: rpx(72),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   footerBtn: {
     flex: 1,
     height: 48,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',

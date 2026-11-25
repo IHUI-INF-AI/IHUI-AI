@@ -363,14 +363,14 @@ export default function VisitTrackingPage() {
                         </TableCell>
                         <TableCell className="px-3 py-2">
                           <span
-                            className={`inline-flex items-center rounded-sm px-1.5 py-0.5 text-label font-medium ${SCOPE_BADGE_CLASS[row.scope]}`}
+                            className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-label font-medium ${SCOPE_BADGE_CLASS[row.scope]}`}
                           >
                             {SCOPE_LABEL[row.scope]}
                           </span>
                         </TableCell>
                         <TableCell className="px-3 py-2">
                           <span
-                            className={`inline-flex items-center rounded-sm px-1.5 py-0.5 text-label font-medium ${PLATFORM_BADGE_CLASS[row.platform]}`}
+                            className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-label font-medium ${PLATFORM_BADGE_CLASS[row.platform]}`}
                           >
                             {PLATFORM_LABEL[row.platform]}
                           </span>
@@ -383,9 +383,9 @@ export default function VisitTrackingPage() {
                         </TableCell>
                         <TableCell className="px-3 py-2">
                           <div className="flex items-center gap-2">
-                            <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
+                            <div className="h-1.5 flex-1 overflow-hidden rounded-md bg-muted">
                               <div
-                                className="h-full rounded-sm bg-primary/60"
+                                className="h-full rounded-md bg-primary/60"
                                 style={{ width: `${pct}%` }}
                               />
                             </div>

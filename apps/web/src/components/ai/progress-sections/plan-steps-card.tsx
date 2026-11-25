@@ -280,7 +280,7 @@ function SegmentedProgressBar({
                   透明度只会让同一前景色在静帧里读成"颜色不一致";进行中的活信号压在标题文字扫光上 */}
               <div
                 className={cn(
-                  'h-full flex-1 rounded-sm transition-all duration-300 cursor-help',
+                  'h-full flex-1 rounded-md transition-all duration-300 cursor-help',
                   s.error ? 'bg-red-500/70' : STATUS_BAR_CLS[s.status],
                 )}
                 data-testid={`${rootTestId}-segment-${s.id}`}
@@ -434,7 +434,7 @@ function PlanStepItem({
             aria-label={t('plan.copyReasoning')}
             data-testid={`${rootTestId}-copy-reasoning-${s.id}`}
             className={cn(
-              'inline-flex h-6 items-center gap-1 rounded-sm px-1.5 text-label',
+              'inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-label',
               'text-muted-foreground/70 transition-colors',
               'hover:bg-accent/60 hover:text-foreground',
               ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
@@ -455,7 +455,7 @@ function PlanStepItem({
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- li 作为可点击项是常见 UI 模式(列表项跳转),键盘交互由行内 StreamRow 按钮提供
     <li
       className={cn(
-        'group -mx-1 rounded-sm px-1 transition-colors',
+        'group -mx-1 rounded-md px-1 transition-colors',
         // 组间分隔(空隙,非分割线)
         isGroupBoundary && 'mt-1.5',
         // 被对应消息 hover 时反向高亮

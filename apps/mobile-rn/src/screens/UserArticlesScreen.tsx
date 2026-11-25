@@ -271,7 +271,7 @@ function makeStyles() {
       gap: rnSpacing['2xs'],
       height: 34,
       paddingHorizontal: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       backgroundColor: tokens.surface.card,

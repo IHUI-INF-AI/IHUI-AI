@@ -332,7 +332,7 @@
   justify-content: center;
   padding: var(--spacing-sm) var(--spacing-xl);
   background: var(--color-brand);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 /* 对齐 RN emptyBtnText:13dp→26rpx / 600 / surface.card */
@@ -383,7 +383,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-brand);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   z-index: 10;
 }
 

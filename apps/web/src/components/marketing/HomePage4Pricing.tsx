@@ -162,7 +162,7 @@ export function HomePage4Pricing() {
                   ))}
                 </ul>
 
-                <Button asChild className="w-full rounded-sm" size="sm">
+                <Button asChild className="w-full rounded-md" size="sm">
                   <Link href={plan.href}>{t('cta')}</Link>
                 </Button>
               </Card>

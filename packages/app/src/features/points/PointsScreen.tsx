@@ -462,7 +462,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     button: {
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -477,7 +477,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       gap: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.card,
@@ -498,7 +498,7 @@ function createStyles(tk: AppThemeTokens) {
     txOut: { color: tk.danger.deepText },
     moreBtn: {
       height: 40,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',

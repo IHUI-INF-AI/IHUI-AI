@@ -150,7 +150,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
                 onChange={(e) => setArbitrationContext(e.target.value)}
                 placeholder={t('arbitrationContextPlaceholder')}
                 rows={2}
-                className="font-[weight:inherit] thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-label leading-relaxed outline-none focus:border-foreground/20"
+                className="font-[weight:inherit] thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-label leading-relaxed outline-none focus:border-foreground/20"
               />
             </div>
             {conflicts.map((conflict, idx) => (
@@ -161,7 +161,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
                 <div className="flex items-center gap-2">
                   <span
                     className={cn(
-                      'shrink-0 rounded-sm px-2 py-1 text-[10px]',
+                      'shrink-0 rounded-md px-2 py-1 text-[10px]',
                       conflictBadgeClass(conflict.type),
                     )}
                   >
@@ -175,7 +175,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
                       type="button"
                       onClick={() => handleArbitrate(idx, conflict.ruleIds)}
                       disabled={arbitrating !== null || !arbitrationContext.trim()}
-                      className="shrink-0 rounded-sm border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
+                      className="shrink-0 rounded-md border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
                     >
                       {arbitrating === idx ? t('negotiating') : t('llmNegotiate')}
                     </button>
@@ -185,14 +185,14 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
                   {conflict.ruleIds.map((rid) => (
                     <span
                       key={rid}
-                      className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                      className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
                     >
                       {ruleNameMap.get(rid) ?? rid}
                     </span>
                   ))}
                 </div>
                 {arbitrationResults[idx] && (
-                  <div className="space-y-1 rounded-sm bg-muted/50 p-2 text-[10px]">
+                  <div className="space-y-1 rounded-md bg-muted/50 p-2 text-[10px]">
                     <div className="flex items-center gap-1">
                       <Sparkles className="h-3 w-3 text-green-600" />
                       <span className="font-medium">
@@ -202,7 +202,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
                           : t('noneLabel')}
                       </span>
                       {arbitrationResults[idx].degraded && (
-                        <span className="rounded-sm bg-yellow-500/10 px-1 text-yellow-600">
+                        <span className="rounded-md bg-yellow-500/10 px-1 text-yellow-600">
                           {t('degraded')}
                         </span>
                       )}

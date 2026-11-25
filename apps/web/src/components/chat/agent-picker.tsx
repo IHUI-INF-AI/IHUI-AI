@@ -40,7 +40,7 @@ import { usePaneChatStore } from '@/stores/chat-pane-context'
  *  - 与 D12 expert-packs 市场管理面共用同一 persona 数据面,这里**不写死名单**、
  *    **不定义第二份 persona/工具映射**,只消费 `name/description/tools` 投影。
  *  - 不新造下拉体系:复用 `@/components/ui/dropdown-menu`(与 ModelSelector/ModeSwitcher 同族)。
- *  - 胶囊形态与 ModelSelector 触发键同规格(h-8 / rounded-sm / border-input / text-sm),
+ *  - 胶囊形态与 ModelSelector 触发键同规格(h-8 / rounded-md / border-input / text-sm),
  *    保证底栏单行时两枚控件视觉同权。
  */
 export function AgentPicker({ variant = 'pill' }: { variant?: 'pill' | 'row' }) {
@@ -79,7 +79,7 @@ export function AgentPicker({ variant = 'pill' }: { variant?: 'pill' | 'row' }) 
             variant === 'row'
               ? COMPOSER_MENU_ROW_CLASS
               : cn(
-                  'inline-flex h-8 min-w-0 items-center gap-1 rounded-sm border border-input bg-card px-2 text-body font-medium transition-colors',
+                  'inline-flex h-8 min-w-0 items-center gap-1 rounded-md border border-input bg-card px-2 text-body font-medium transition-colors',
                   'hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-60',
                   // 选中专家时主色描边,让"当前不是默认助手"在底栏一眼可见
                   selectedAgentId && 'border-stroke-selected text-primary',
@@ -127,7 +127,7 @@ export function AgentPicker({ variant = 'pill' }: { variant?: 'pill' | 'row' }) 
           // 层级走 floating-layer 唯一源,不再写死 2300。
           NESTED_FLOATING_Z_CLASS,
           'max-h-[60vh] w-fit max-w-[320px] overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-elevation-md',
-          '[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',
+          '[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-md [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',
         )}
       >
         <DropdownMenuItem

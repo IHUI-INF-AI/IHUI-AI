@@ -74,7 +74,7 @@ export default function PointsTasksPage() {
                 type="button"
                 onClick={() => setTab(key)}
                 className={cn(
-                  'rounded-sm px-3 py-1.5 text-body transition-colors',
+                  'rounded-md px-3 py-1.5 text-body transition-colors',
                   tab === key
                     ? 'bg-cta text-cta-foreground'
                     : 'bg-secondary text-secondary-foreground hover:bg-secondary/70',
@@ -130,7 +130,7 @@ export default function PointsTasksPage() {
                         <div className="h-2 flex-1 overflow-hidden rounded-xs bg-secondary">
                           <div
                             className={cn(
-                              'h-full rounded-sm transition-all',
+                              'h-full rounded-md transition-all',
                               task.completed ? 'bg-green-600' : 'bg-primary',
                             )}
                             style={{ width: `${pct}%` }}

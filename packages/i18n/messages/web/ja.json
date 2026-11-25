@@ -15174,7 +15174,7 @@
       "error": "分析失敗",
       "history": "分析履歴",
       "mockWarning": "分析サービス未設定（デモモード）",
-      "needBalance": "トークン残高不足",
+      "needBalance": "AI ポイント不足。チャージまたは交換後にお試しください",
       "noHistory": "履歴なし",
       "question": "質問",
       "questionPlaceholder": "質問を入力（例: 直近のトレンドとリスクを分析）",
@@ -15185,7 +15185,7 @@
       "symbolPlaceholder": "銘柄コード（例: AAPL / 600519）",
       "time": "時間",
       "title": "AI 株価分析",
-      "tokenBalance": "トークン残高",
+      "tokenBalance": "AI ポイント残高", "permanent": "永久ポイント", "daily": "本日付与", "dailyHint": "毎日 100 ポイント付与（当日のみ有効）",
       "tokensUsed": "トークン消費",
       "total": "合計",
       "used": "使用",
@@ -21772,7 +21772,9 @@
       "uploadFileHint": "docx/pdf/画像/動画対応、ドラッグまたはクリックでアップロード",
       "uploadSuccess": "アップロード済み: {filename}",
       "uploadedHint": "ファイルがアップロードされました。再選択で置換できます。",
-      "uploading": "アップロード中..."
+      "uploading": "アップロード中...",
+      "usePool": "アカウントプールを使用",
+      "usePoolHint": "利用可能なアカウントをシステムが自動で割り当てます"
     },
     "platforms": {
       "36kr": "36Kr",
@@ -24349,6 +24351,15 @@
     "purchase": "会員を購入"
   },
   "wallet": {
+    "flowRecharge": "チャージ",
+    "flowDeduct": "減算",
+    "flowExpire": "期限切れ",
+    "flowRefund": "返金取消",
+    "flowRelayRecharge": "APIキーへ振替",
+    "flowAdminAdjust": "管理者調整",
+    "flowQuota": "クォータ変更",
+    "flowPointsExchange": "AIポイントに交換",
+    "flowOther": "その他",
     "autoTopUp": {
       "title": "自動チャージ",
       "description": "残高がしきい値を下回ると、目標残高まで自動チャージします。",

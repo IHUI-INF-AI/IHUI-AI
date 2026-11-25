@@ -85,7 +85,7 @@ export function MentionSearch({
             aria-selected={activeType === t.value}
             onClick={() => onTypeChange(t.value)}
             className={cn(
-              'whitespace-nowrap min-[768px]:shrink-0 rounded-sm px-2.5 py-1 text-label font-medium transition-colors',
+              'whitespace-nowrap min-[768px]:shrink-0 rounded-md px-2.5 py-1 text-label font-medium transition-colors',
               activeType === t.value
                 ? 'bg-cta text-cta-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -112,13 +112,13 @@ export function MentionSearch({
               type="button"
               onClick={() => onSelect?.(m)}
               className={cn(
-                'flex w-full items-start gap-2 rounded-sm px-2.5 py-2 text-left transition-colors hover:bg-accent',
+                'flex w-full items-start gap-2 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-accent',
                 selectedId === m.id && 'bg-accent',
               )}
             >
               <span
                 className={cn(
-                  'mt-0.5 shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+                  'mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
                   TYPE_BADGE[m.type],
                 )}
               >
@@ -130,7 +130,7 @@ export function MentionSearch({
                   <p className="truncate text-label text-muted-foreground">{m.detail}</p>
                 )}
                 {m.insertText && (
-                  <code className="mt-1 inline-block max-w-full truncate rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  <code className="mt-1 inline-block max-w-full truncate rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                     {m.insertText}
                   </code>
                 )}

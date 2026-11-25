@@ -76,7 +76,7 @@ export function EditIntentBar({
       aria-live="polite"
       data-testid="editor-edit-intent-bar"
       className={cn(
-        'absolute right-3 top-2 z-20 flex max-w-[min(420px,calc(100%-1.5rem))] flex-col gap-1 rounded-sm border border-dashed border-stroke-subtle bg-background/95 px-2 py-1.5 text-[11px] shadow-elevation-sm backdrop-blur-sm',
+        'absolute right-3 top-2 z-20 flex max-w-[min(420px,calc(100%-1.5rem))] flex-col gap-1 rounded-md border border-dashed border-stroke-subtle bg-background/95 px-2 py-1.5 text-[11px] shadow-elevation-sm backdrop-blur-sm',
         className,
       )}
     >
@@ -89,7 +89,7 @@ export function EditIntentBar({
           onClick={() => onApplySelected(selected)}
           disabled={selected.length === 0}
           className={cn(
-            'shrink-0 rounded-sm px-1.5 py-0.5 transition-colors',
+            'shrink-0 rounded-md px-1.5 py-0.5 transition-colors',
             selected.length === 0
               ? 'cursor-not-allowed text-muted-foreground/50'
               : 'text-primary hover:bg-accent',
@@ -101,7 +101,7 @@ export function EditIntentBar({
           type="button"
           aria-label={t('cancel')}
           onClick={onDismiss}
-          className="shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="shrink-0 rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <X className="size-3" aria-hidden="true" />
         </button>

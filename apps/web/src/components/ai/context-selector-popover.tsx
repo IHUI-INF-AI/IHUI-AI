@@ -91,7 +91,7 @@ export function ContextSelectorPopover({
                   onClick={() => onSelect(category)}
                   onMouseEnter={() => onHover(idx)}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-body transition-colors',
+                    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body transition-colors',
                     idx === activeIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50',
                   )}
                 >
@@ -163,7 +163,7 @@ export function ContextSelectorChips({ rows, onRemove }: ContextSelectorChipsPro
               data-testid={`mention-chip-remove-${selection.id}`}
               onClick={() => onRemove(selection)}
               aria-label={t('removeChip')}
-              className="ml-0.5 inline-flex shrink-0 items-center rounded-sm text-muted-foreground/70 transition-colors hover:text-foreground"
+              className="ml-0.5 inline-flex shrink-0 items-center rounded-md text-muted-foreground/70 transition-colors hover:text-foreground"
             >
               <X className="h-3 w-3" />
             </button>

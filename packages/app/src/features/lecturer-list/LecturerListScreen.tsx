@@ -256,7 +256,7 @@ function createStyles(tk: AppThemeTokens) {
       margin: rnSpacing.md, // rpx(24)
       paddingHorizontal: rnSpacing.md, // rpx(24)
       height: 36, // rpx(72)
-      borderRadius: rnRadius.sm, // 搜索框是控件 ⇒ control 档 sm(项目不允许胶囊)
+      borderRadius: rnRadius.md, // 搜索框是控件 ⇒ control 档 sm(项目不允许胶囊)
       backgroundColor: tk.surface.card,
     },
     searchInput: {

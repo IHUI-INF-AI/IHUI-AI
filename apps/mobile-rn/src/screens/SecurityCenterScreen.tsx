@@ -581,7 +581,7 @@ function makeStyles() {
     input: {
       height: 42,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
@@ -590,7 +590,7 @@ function makeStyles() {
     },
     button: {
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -627,7 +627,7 @@ function makeStyles() {
     backupBox: {
       marginTop: rnSpacing.sm,
       padding: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.bg,
       gap: rnSpacing['xs-loose'],
     },

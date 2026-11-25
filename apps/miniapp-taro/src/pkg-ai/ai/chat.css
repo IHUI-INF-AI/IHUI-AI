@@ -160,7 +160,7 @@
   height: var(--spacing-4xl);
   padding: 0 var(--spacing-md);
   background: var(--color-background);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-body);
 }
 .send-btn {
@@ -170,7 +170,7 @@
   line-height: 80rpx;
   background: var(--color-cta);
   color: var(--color-cta-foreground);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-body);
 }
 .send-btn.disabled {
@@ -261,7 +261,7 @@
 .material-cover {
   width: var(--spacing-4xl);
   height: var(--spacing-4xl);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   margin-right: var(--spacing-sm);
   background: var(--color-secondary);
 }
@@ -330,7 +330,7 @@
   margin-bottom: var(--spacing-xs-loose);
   padding: var(--spacing-xs-loose) var(--spacing-sm);
   background: var(--color-background);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .reasoning-toggle {
   display: block;
@@ -352,7 +352,7 @@
   padding: var(--spacing-sm) var(--spacing-md);
   margin: var(--spacing-xs-loose) var(--spacing-sm);
   background: var(--color-card);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .tishi-block-icon {
   margin-right: var(--spacing-xs-loose);
@@ -366,7 +366,7 @@
   margin: var(--spacing-xs-loose) var(--spacing-sm);
   padding: var(--spacing-sm-loose);
   background: var(--color-card);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .tishi-title {
   display: flex;
@@ -467,7 +467,7 @@
   padding: var(--spacing-xs) var(--spacing-sm);
   background: var(--color-link-bg);
   color: var(--color-info);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-label);
   display: inline-flex;
   align-items: center;
@@ -819,14 +819,14 @@
   width: 100%;
   height: 36rpx;
   background: var(--color-muted);
-  border-radius: var(--radius-sm); /* 项目不允许胶囊:进度容器取控件档 sm */
+  border-radius: var(--radius-md); /* 项目不允许胶囊:进度容器取控件档 md(6px) */
   overflow: hidden;
   margin-top: var(--spacing-xs);
 }
 .thinking-progress-bar {
   position: relative;
   height: 100%;
-  border-radius: var(--radius-sm); /* 与容器同档(项目不允许胶囊) */
+  border-radius: var(--radius-md); /* 与容器同档(项目不允许胶囊) */
   /*
    * 2026-11-25 修实现遗漏:此前本行只写 `linear-gradient(214deg)` —— **一个色标都没有**,
    * 属无效声明,浏览器/小程序解析器直接丢弃 ⇒ 进度条实际是透明背景,只剩 ::before 的斜纹在动,
@@ -933,7 +933,7 @@
   width: calc(100% - 80rpx);
   max-height: 50vh;
   background: var(--color-card);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: 2rpx;
   overflow: hidden;
   display: flex;
@@ -992,7 +992,7 @@
 .tishi-box-gradient {
   padding: 2rpx;
   background: linear-gradient(81deg, var(--color-text-tertiary) 54%, transparent 126%);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   margin: var(--spacing-xs-loose) var(--spacing-sm);
 }
 .tishi-box-inner {
@@ -1029,7 +1029,7 @@
   font-size: var(--text-body-sm);
   font-weight: bold;
   color: var(--color-foreground);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: 2rpx solid var(--color-stroke-default);
   background: var(--color-card);
   box-shadow: var(--shadow-elevation-sm);

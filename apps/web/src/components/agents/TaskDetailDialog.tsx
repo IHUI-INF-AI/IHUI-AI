@@ -246,7 +246,7 @@ export function TaskDetailDialog({
               data-testid={`task-detail-tab-${key}`}
               onClick={() => setActiveTab(key)}
               className={cn(
-                'rounded-sm px-2.5 py-1 text-label transition-colors',
+                'rounded-md px-2.5 py-1 text-label transition-colors',
                 activeTab === key
                   ? 'bg-accent font-medium text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
@@ -392,7 +392,7 @@ export function TaskDetailDialog({
                         disabled={!isLegal}
                         onClick={() => setTransitionTo(status)}
                         className={cn(
-                          'inline-flex items-center rounded-sm px-2 py-1 text-label font-medium transition-colors',
+                          'inline-flex items-center rounded-md px-2 py-1 text-label font-medium transition-colors',
                           isSelected
                             ? STATUS_BADGE_CLASS[status]
                             : isLegal

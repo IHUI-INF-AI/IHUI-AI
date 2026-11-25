@@ -26,7 +26,7 @@ import {
 } from '@/stores/appearance-scope'
 
 const SELECT_CLASS =
-  'h-7 rounded-sm border bg-transparent px-1.5 text-[11px] text-foreground outline-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus'
+  'h-7 rounded-md border bg-transparent px-1.5 text-[11px] text-foreground outline-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus'
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -59,7 +59,7 @@ export function MessageStyleMenu({ messageId }: { messageId: string }) {
       <summary
         aria-label={t('messageStyleTitle')}
         title={t('messageStyleTitle')}
-        className="inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground [&::-webkit-details-marker]:hidden"
+        className="inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground [&::-webkit-details-marker]:hidden"
       >
         <Palette className="h-4 w-4" aria-hidden="true" />
       </summary>
@@ -70,7 +70,7 @@ export function MessageStyleMenu({ messageId }: { messageId: string }) {
           <button
             type="button"
             onClick={() => clearMessageOverride(messageId)}
-            className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             data-testid={`message-style-reset-${messageId}`}
           >
             <RotateCcw className="h-3 w-3" aria-hidden="true" />

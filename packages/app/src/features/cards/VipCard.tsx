@@ -186,7 +186,7 @@ function createStyles(tk: AppThemeTokens) {
     purchaseBtn: {
       alignSelf: 'flex-start',
       backgroundColor: tk.warning.DEFAULT,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
     },

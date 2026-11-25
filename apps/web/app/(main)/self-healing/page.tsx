@@ -85,7 +85,7 @@ export default function SelfHealingPage() {
             onChange={(e) => setTask(e.target.value)}
             placeholder={t('taskPlaceholder')}
             rows={3}
-            className="w-full rounded-sm border bg-background px-3 py-2 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+            className="w-full rounded-md border bg-background px-3 py-2 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           />
         </div>
         <div>
@@ -97,7 +97,7 @@ export default function SelfHealingPage() {
             value={targetPath}
             onChange={(e) => setTargetPath(e.target.value)}
             placeholder={t('targetPlaceholder')}
-            className="w-full rounded-sm border bg-background px-3 py-2 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+            className="w-full rounded-md border bg-background px-3 py-2 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           />
         </div>
         <div className="flex items-center justify-between">
@@ -105,7 +105,7 @@ export default function SelfHealingPage() {
           <button
             onClick={() => void run()}
             disabled={loading || !task.trim() || !targetPath.trim()}
-            className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-body font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-md bg-cta px-4 py-2 text-body font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             {loading ? t('running') : t('run')}

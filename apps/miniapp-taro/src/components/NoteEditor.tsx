@@ -49,7 +49,7 @@ export default function NoteEditor({
         </View>
 
         <FocusTextarea
-          className="w-full px-md py-sm text-body bg-muted rounded-sm"
+          className="w-full px-md py-sm text-body bg-muted rounded-md"
           style={{ minHeight: '180px' }}
           placeholder={tt('study.notePlaceholder', '记录你的学习心得...')}
           value={content}
