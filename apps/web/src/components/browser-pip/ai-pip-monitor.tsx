@@ -215,10 +215,10 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
     }
     // 独立窗无原生标题栏后,关闭由页面接管;命令走 Rust close() 保留
     // CloseRequested 的几何落盘与 closed 事件,不能只做 window.close()。
-    void closeAiPipWindow().catch(() => {
+    void closeAiPipWindow(sessionId).catch(() => {
       window.close()
     })
-  }, [])
+  }, [sessionId])
 
   const onMinimize = useCallback(() => {
     // 不占任务栏的小窗直接 OS minimize 会失去恢复入口;Rust 把它压成 32px
@@ -464,7 +464,9 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
             title={labels.reconnect}
             className="grid h-6 w-6 place-items-center rounded-md text-slate-400 transition-colors hover:bg-white/10 hover:text-slate-200"
           >
-            <RefreshCw className={`h-3 w-3 ${status.kind === 'connecting' ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`h-3 w-3 ${status.kind === 'connecting' ? 'animate-spin' : ''}`}
+            />
           </button>
           <button
             type="button"
@@ -487,9 +489,7 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
               aria-expanded={false}
               aria-label={labels.expandTask}
               className={`flex h-9 w-full items-center gap-1.5 border-b border-white/[0.06] px-2.5 text-left backdrop-blur-sm transition-colors ${
-                warn
-                  ? 'hover:bg-amber-900/90'
-                  : 'hover:bg-slate-800/90'
+                warn ? 'hover:bg-amber-900/90' : 'hover:bg-slate-800/90'
               }`}
               style={{
                 backgroundColor: warn ? 'rgba(69,26,3,0.92)' : 'rgba(7,10,15,0.92)',

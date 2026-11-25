@@ -64,6 +64,14 @@ from ..services.browser_task import (
     list_task_templates,
     task_from_template,
 )
+from ..services.browser_task_template_store import (
+    TemplateStoreUnread,
+    delete_custom_template,
+    expand_custom_template,
+    get_custom_template,
+    list_custom_templates,
+    upsert_custom_template,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +161,23 @@ class TaskBindRequest(BaseModel):
 class CheckpointRequest(BaseModel):
     action: Literal["enter", "resume"] = Field(..., description="进入或恢复检查点")
     checkpoint_id: str | None = Field(None, description="检查点 id;resume 缺省恢复当前 active")
+
+
+class TaskTemplateRequest(BaseModel):
+    """自定义任务模板的保存载荷(可视化编辑器提交)。
+
+    `id` 为空=新建;带 `id`=更新同一条。目标/要求/检查点/超时仍交给
+    `browser_task.normalize_task` 统一校验,不在这里另写一份规则。
+    """
+
+    id: str | None = Field(None, description="自定义模板 id;新建时省略")
+    name: str = Field(..., description="模板名称(列表展示用)")
+    goal: str = Field(..., description="任务目标")
+    requirements: list[str] = Field(default_factory=list, description="运行要求")
+    checkpoints: list[dict[str, Any]] = Field(..., description="人工检查点")
+    checkpoint_timeout_seconds: int | None = Field(
+        None, description="检查点等待上限(秒),60..3600"
+    )
 
 
 # =============================================================================
@@ -383,9 +408,16 @@ async def reload(
 # =============================================================================
 # 任务模板 / 检查点(2026-11-25)
 # =============================================================================
-def _task_payload(body: TaskBindRequest) -> dict[str, Any]:
-    """模板 id 优先展开;完整字段原样交给服务层再校验(单一真相源)。"""
+def _task_payload(body: TaskBindRequest, user_id: str) -> dict[str, Any]:
+    """模板 id 优先展开;自定义模板按当前用户查,内置模板兜底。"""
     if body.template_id and not body.checkpoints:
+        custom = get_custom_template(user_id, body.template_id)
+        if custom is not None:
+            return expand_custom_template(
+                custom,
+                goal_override=body.goal,
+                checkpoint_timeout_seconds=body.checkpoint_timeout_seconds,
+            )
         return task_from_template(
             body.template_id,
             goal_override=body.goal,
@@ -402,9 +434,49 @@ def _task_denial(exc: TaskValidationError) -> HTTPException:
 async def get_task_templates(
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    """内置任务模板目录(只读)。"""
-    templates = list_task_templates()
+    """任务模板目录:内置只读 + 当前用户自定义。"""
+    builtin = [{**item, "source": "builtin"} for item in list_task_templates()]
+    custom = [
+        {**item, "source": "custom"} for item in list_custom_templates(user_id)
+    ]
+    templates = builtin + custom
     return {"code": 0, "message": "ok", "data": {"templates": templates, "count": len(templates)}}
+
+
+@router.post("/task-templates")
+async def save_task_template(
+    body: TaskTemplateRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """新建/更新自定义模板(可视化编辑器保存入口)。"""
+    try:
+        template = upsert_custom_template(user_id, body.model_dump(exclude_none=True))
+    except TaskValidationError as exc:
+        raise _task_denial(exc) from exc
+    except TemplateStoreUnread as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {
+        "code": 0,
+        "message": "模板已保存",
+        "data": {"template": {**template, "source": "custom"}},
+    }
+
+
+@router.delete("/task-templates/{template_id}")
+async def remove_task_template(
+    template_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """删除当前用户的一条自定义模板;内置模板不可删。"""
+    try:
+        deleted = delete_custom_template(user_id, template_id)
+    except TaskValidationError as exc:
+        raise _task_denial(exc) from exc
+    except TemplateStoreUnread as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail="模板不存在或内置模板不可删除")
+    return {"code": 0, "message": "模板已删除", "data": {"deleted": True}}
 
 
 @router.post("/sessions/{session_id}/task")
@@ -419,7 +491,7 @@ async def bind_task(
     except BrowserTabScopeError as exc:
         raise _tab_scope_denial(exc) from exc
     try:
-        snapshot = await session.start_task(_task_payload(body))
+        snapshot = await session.start_task(_task_payload(body, user_id))
     except TaskValidationError as exc:
         raise _task_denial(exc) from exc
     return {"code": 0, "message": "任务已绑定", "data": {"task": snapshot}}

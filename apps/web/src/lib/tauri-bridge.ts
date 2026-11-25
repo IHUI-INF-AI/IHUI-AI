@@ -69,10 +69,10 @@ export async function openAiPipWindow(sessionId: string, accessToken: string): P
   await invoke('open_browser_pip_window', { sessionId, accessToken })
 }
 
-/** 关闭桌面端 AI 画中画监看窗(主窗按钮再次点击时用)。 */
-export async function closeAiPipWindow(): Promise<void> {
+/** 关闭桌面端 AI 画中画监看窗。传 sessionId 只关该会话;不传则关闭全部。 */
+export async function closeAiPipWindow(sessionId?: string): Promise<void> {
   if (!isTauri()) return
-  await invoke('close_browser_pip_window')
+  await invoke('close_browser_pip_window', { sessionId: sessionId ?? null })
 }
 
 /**

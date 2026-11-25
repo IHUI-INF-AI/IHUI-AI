@@ -141,7 +141,10 @@ class FakeSession:
 
 
 @pytest.fixture
-def route_app(monkeypatch):
+def route_app(monkeypatch, tmp_path):
+    from app.services import browser_task_template_store as template_store
+
+    monkeypatch.setattr(template_store, "_STORE_PATH", tmp_path / "templates.json")
     session = FakeSession()
     monkeypatch.setattr(browser_hub_router.hub, "require_tab", lambda scope: session)
     app = FastAPI()
@@ -172,9 +175,48 @@ async def test_templates_route_returns_all_builtins(api):
         keys = [cp.get("label_key") for cp in template["checkpoints"]]
         assert all(key and key.startswith("ck_") for key in keys)
         assert 60 <= template["checkpoint_timeout_seconds"] <= 3600
+        assert template["source"] == "builtin"
     by_id = {item["id"]: item for item in data["templates"]}
     assert by_id["payment-confirm"]["checkpoint_timeout_seconds"] == 300
     assert by_id["download-export"]["checkpoint_timeout_seconds"] == 1800
+
+
+async def test_template_crud_roundtrip_and_bind(api):
+    payload = {
+        "name": "发票报销核对",
+        "goal": "完成发票报销提交前核对",
+        "requirements": ["金额与发票一致"],
+        "checkpoints": [
+            {"id": "confirm", "label": "提交前确认", "match": "confirm"}
+        ],
+        "checkpoint_timeout_seconds": 600,
+    }
+    created = await api.post("/api/browser/task-templates", json=payload)
+    assert created.status_code == 200
+    template = created.json()["data"]["template"]
+    assert template["id"].startswith("custom-")
+    assert template["source"] == "custom"
+
+    listed = await api.get("/api/browser/task-templates")
+    assert listed.status_code == 200
+    custom = [item for item in listed.json()["data"]["templates"] if item["source"] == "custom"]
+    assert [item["id"] for item in custom] == [template["id"]]
+
+    # 绑定自定义模板时服务端按模板展开目标/要求/检查点
+    bound = await api.post(
+        "/api/browser/sessions/tab-1/task",
+        json={"template_id": template["id"]},
+    )
+    assert bound.status_code == 200
+    task = bound.json()["data"]["task"]
+    assert task["template_id"] == template["id"]
+    assert task["goal"] == payload["goal"]
+    assert [cp["id"] for cp in task["checkpoints"]] == ["confirm"]
+
+    deleted = await api.delete(f"/api/browser/task-templates/{template['id']}")
+    assert deleted.status_code == 200
+    assert deleted.json()["data"]["deleted"] is True
+    assert (await api.delete(f"/api/browser/task-templates/{template['id']}")).status_code == 404
 
 
 async def test_list_sessions_route_returns_string_message_envelope(api, monkeypatch):

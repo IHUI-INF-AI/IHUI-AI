@@ -303,7 +303,9 @@ export function CdpBrowserView({
   const [pipSupported, setPipSupported] = React.useState(false)
   const [pipOn, setPipOn] = React.useState(false)
   const pipSessionRef = React.useRef<string | null>(null)
-  const nativePipRef = React.useRef(false)
+  const nativePipSessionsRef = React.useRef<Set<string>>(new Set())
+  const currentSessionRef = React.useRef(sessionId)
+  currentSessionRef.current = sessionId
   const pipLabels = useBrowserPipLabels()
   React.useEffect(() => {
     pipSessionRef.current = null
@@ -317,15 +319,17 @@ export function CdpBrowserView({
     const unlisteners: Array<() => void> = []
     void Promise.all([
       import('@tauri-apps/api/event').then(({ listen }) =>
-        listen('browser-pip://closed', () => {
-          nativePipRef.current = false
-          setPipOn(false)
+        listen<{ sessionId?: string }>('browser-pip://closed', (event) => {
+          const closed = event.payload?.sessionId
+          if (closed) nativePipSessionsRef.current.delete(closed)
+          setPipOn(nativePipSessionsRef.current.has(currentSessionRef.current))
         }),
       ),
       import('@tauri-apps/api/event').then(({ listen }) =>
-        listen('browser-pip://handover', () => {
-          nativePipRef.current = false
-          setPipOn(false)
+        listen<{ sessionId?: string }>('browser-pip://handover', (event) => {
+          const closed = event.payload?.sessionId
+          if (closed) nativePipSessionsRef.current.delete(closed)
+          setPipOn(nativePipSessionsRef.current.has(currentSessionRef.current))
           canvasRef.current?.focus()
         }),
       ),
@@ -341,19 +345,14 @@ export function CdpBrowserView({
       unlisteners.forEach((unlisten) => unlisten())
     }
   }, [])
-  // 切 tab(sessionId 变更)时关掉旧会话的浮窗;组件卸载(面板收起)不动浮窗 ——
-  // 浮窗独立收帧,面板关掉后仍要能看。
+  // 切 tab(sessionId 变更)只复位当前会话的按钮态;不再关掉其他会话的监看窗。
+  // 多窗后 A 会话的浮窗要能在用户切到 B 时继续看,这是 TRAE 单例浮窗没有的。
   React.useEffect(() => {
     if (pipSessionRef.current && pipSessionRef.current !== sessionId) {
       closeBrowserPip()
       pipSessionRef.current = null
-      setPipOn(false)
     }
-    if (nativePipRef.current) {
-      void closeAiPipWindow()
-      nativePipRef.current = false
-      setPipOn(false)
-    }
+    setPipOn(nativePipSessionsRef.current.has(sessionId))
   }, [sessionId])
   const [jsCode, setJsCode] = React.useState('')
   const [jsResult, setJsResult] = React.useState('')
@@ -770,11 +769,11 @@ export function CdpBrowserView({
       // 桌面端:Document PiP 在 WebView2 内不可用,改开独立 AI 画中画窗。
       // 该窗口加载 /browser-pip?session=<id>,自己连 Browser Hub,任务条/检查点/
       // 「已处理,继续」都在;主窗按钮只负责开/关。
-      if (nativePipRef.current) {
-        void closeAiPipWindow()
+      if (nativePipSessionsRef.current.has(sessionId)) {
+        void closeAiPipWindow(sessionId)
           .then(() => {
-            nativePipRef.current = false
-            setPipOn(false)
+            nativePipSessionsRef.current.delete(sessionId)
+            setPipOn(nativePipSessionsRef.current.has(currentSessionRef.current))
           })
           .catch(() => {
             /* 窗口已不在时保持按钮原态,由 closed 事件兜底 */
@@ -782,8 +781,8 @@ export function CdpBrowserView({
       } else {
         void openAiPipWindow(sessionId, useAuthStore.getState().token ?? '')
           .then(() => {
-            nativePipRef.current = true
-            setPipOn(true)
+            nativePipSessionsRef.current.add(sessionId)
+            setPipOn(nativePipSessionsRef.current.has(currentSessionRef.current))
           })
           .catch(() => {
             /* 打开失败不置 active;主面板继续可用 */

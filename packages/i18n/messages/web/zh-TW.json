@@ -53,14 +53,14 @@
         "desc": "自進化技能市場:安裝、評分與訂閱"
       },
       "connectors": {
-        "title": "中文連接器",
+        "title": "連接器",
         "desc": "接入語雀、飛書、企微、釘釘等中文文檔源"
       }
     },
     "bundles": {
       "contentCreator": {
         "title": "內容創作專家包",
-        "desc": "寫作與發布工作流的組合入口:AI 技能、Skill 市場與中文連接器"
+        "desc": "寫作與發布工作流的組合入口:AI 技能、Skill 市場與連接器"
       },
       "developerExtension": {
         "title": "開發者擴展包",
@@ -6106,7 +6106,7 @@
     }
   },
   "connectors": {
-    "title": "中文連接器",
+    "title": "連接器",
     "subtitle": "接入語雀/飛書/企業微信/釘釘,讓對話能直接讀取中文知識平臺文檔",
     "count": "共 {count} 個連接器",
     "add": "新增連接器",
@@ -8677,30 +8677,6 @@
           "title": "媒體檔案數量超出限制",
           "action": "精簡附件後重試"
         },
-        "MEMORY_DREAM_FAILED": {
-          "title": "記憶夢境整理失敗",
-          "action": "請稍後重試"
-        },
-        "MEMORY_FORGET_FAILED": {
-          "title": "記憶遺忘清理失敗",
-          "action": "請稍後重試"
-        },
-        "MEMORY_PROCEDURAL_SAVE_FAILED": {
-          "title": "工具用法記憶儲存失敗",
-          "action": "請稍後重試"
-        },
-        "MEMORY_RECALL_FAILED": {
-          "title": "記憶檢索失敗",
-          "action": "請稍後重試"
-        },
-        "MEMORY_SAVE_FAILED": {
-          "title": "記憶儲存失敗",
-          "action": "請稍後重試"
-        },
-        "MEMORY_TOPICS_FAILED": {
-          "title": "記憶主題產生失敗",
-          "action": "請稍後重試"
-        },
         "MISSING_DATA": {
           "title": "缺少必填參數",
           "action": "補充參數後重試"
@@ -9590,10 +9566,14 @@
       "links": "連結"
     },
     "pictureInPicture": {
+      "autoMonitor": "自動監看新工作階段",
       "task": "任務",
       "pin": "置頂",
       "unpin": "取消置頂",
       "reconnect": "重新連線",
+      "close": "關閉",
+      "minimize": "最小化",
+      "expandWindow": "展開",
       "expandTask": "展開任務詳情",
       "collapseTask": "收起任務詳情",
       "title": "畫中畫",
@@ -9619,6 +9599,48 @@
       "templateForm": "表單提交確認",
       "templatePayment": "付款確認",
       "templateDownload": "下載核對",
+      "templateEditorMenu": "管理監看範本",
+      "templateEditorTitle": "監看任務範本",
+      "templateEditorHint": "目標、執行要求與人工檢查點都會隨子母畫面任務下發；儲存後可跨裝置使用。",
+      "templateCatalog": "範本目錄",
+      "templateNew": "新增範本",
+      "templateLoading": "正在載入…",
+      "templateLoadFailed": "範本目錄載入失敗",
+      "templateRetry": "重試",
+      "templateCustomBadge": "自訂",
+      "templateBuiltinBadge": "內建",
+      "templateRun": "開啟子母畫面",
+      "templateEdit": "編輯",
+      "templateName": "範本名稱",
+      "templateNamePlaceholder": "例如：發票報銷核對",
+      "templateTimeout": "檢查點等待上限",
+      "templateTimeoutOption": "{minutes} 分鐘",
+      "templateGoal": "任務目標",
+      "templateGoalPlaceholder": "用一句話說清這次要完成什麼",
+      "templateRequirements": "執行要求",
+      "templateAddRequirement": "加一條要求",
+      "templateRequirementPlaceholder": "例如：提交前核對金額",
+      "templateRemoveRequirement": "刪除這條要求",
+      "templateCheckpoints": "人工檢查點",
+      "templateAddCheckpoint": "加一個檢查點",
+      "templateCheckpointId": "檢查點 ID",
+      "templateCheckpointLabel": "檢查點名稱",
+      "templateCheckpointLabelPlaceholder": "例如：付款前確認",
+      "templateCheckpointMatch": "命中路徑/參數（選填）",
+      "templateCheckpointHint": "命中只按 URL 的整段路徑或 query 鍵名相等判斷，不做子字串比對。",
+      "templateRemoveCheckpoint": "刪除這個檢查點",
+      "templateCancel": "取消",
+      "templateSave": "儲存",
+      "templateSaved": "範本已儲存",
+      "templateSaveFailed": "儲存失敗",
+      "templateDeleteFailed": "刪除失敗",
+      "templateDeleted": "範本已刪除",
+      "templateEmptyEditor": "從左側選一條範本編輯，或新增一條。",
+      "templateNameRequired": "請填寫範本名稱",
+      "templateGoalRequired": "請填寫任務目標",
+      "templateCheckpointRequired": "至少保留一個檢查點",
+      "templateCheckpointIdInvalid": "檢查點 ID 只能用小寫字母、數字、_ 和 -",
+      "templateCheckpointLabelRequired": "請填寫檢查點名稱",
       "templateNoSession": "先在工作面板開啟瀏覽器分頁,再依範本監看。",
       "ckLoginHandoffLogin": "登入頁已出現",
       "ckLoginHandoffVerify": "驗證碼已提交",
@@ -15120,10 +15142,7 @@
       "symbolPlaceholder": "股票代碼，如 AAPL 或 600519",
       "time": "時間",
       "title": "AI 股票分析",
-      "tokenBalance": "AI 積分餘額",
-      "permanent": "永久積分",
-      "daily": "今日贈送",
-      "dailyHint": "每日贈送 100 積分，當天有效",
+      "tokenBalance": "AI 積分餘額", "permanent": "永久積分", "daily": "今日贈送", "dailyHint": "每日贈送 100 積分，當天有效",
       "tokensUsed": "Token 消耗",
       "total": "總額",
       "used": "已用",
@@ -20231,6 +20250,7 @@
     "plan": "計劃模式",
     "plaza": "廣場",
     "pluginMarket": "插件市場",
+    "connectors": "連接器",
     "points": "積分",
     "pricing": "定價",
     "publishPlatform": "發布平臺",
@@ -22553,8 +22573,7 @@
     "dataVisibility": "數據可見性",
     "dataVisibilityDesc": "控制誰可以查看您的個人資料信息",
     "desc": {
-      "notificationSound": "接收通知時播放聲音",
-      "notificationRingtone": "收到新通知時播放所選鈴聲"
+      "notificationSound": "接收通知時播放聲音"
     },
     "device": {
       "empty": "暫無登錄設備",
@@ -22733,8 +22752,7 @@
       "title": "IP 白名單"
     },
     "labels": {
-      "notificationSound": "通知聲音",
-      "notificationRingtone": "通知鈴聲"
+      "notificationSound": "通知聲音"
     },
     "langZh": "中文",
     "llmConfigsDesc": "配置大語言模型提供商與參數",
@@ -22997,18 +23015,7 @@
     "devices": {
       "navTitle": "裝置管理",
       "navDesc": "查看已登入的裝置並管理工作階段"
-    },
-    "ringtoneNames": {
-      "dingdong": "門鈴",
-      "tritone": "上揚三音",
-      "waterdrop": "水滴",
-      "doublebell": "雙響鈴",
-      "bubble": "氣泡",
-      "marimba": "木琴",
-      "chime": "和弦鈴",
-      "knock": "輕敲"
-    },
-    "ringtonePreview": "試聽"
+    }
   },
   "shareContentPage": {
     "aiGenerated": "智匯 AI 生成",
@@ -29135,6 +29142,10 @@
     "title": "交易",
     "subtitle": "收益、訂單、支付與會員積分"
   },
+  "personalHub": {
+    "title": "個人中心",
+    "subtitle": "帳戶、收藏、學習與訂閱"
+  },
   "developerHub": {
     "title": "開發者",
     "subtitle": "API、金鑰、用量與除錯工具"
@@ -31062,3 +31073,4 @@
     "uploading": "上傳中…"
   }
 }
+
