@@ -16,10 +16,7 @@ import {
   resetBroadcastNotices,
   type NotificationStateActions,
 } from '../lib/user-broadcast'
-import {
-  applySnapshot,
-  reconcileNotificationState,
-} from '../lib/notification-state-reconcile'
+import { applySnapshot, reconcileNotificationState } from '../lib/notification-state-reconcile'
 import { startRnChatSyncResync, stopRnChatSyncResync } from '../lib/chat-sync-resync'
 import { useNotificationStore } from '../stores/notification'
 
@@ -32,6 +29,11 @@ export interface UseUserBroadcastSyncOptions {
   translate: (key: string, params?: Record<string, string | number>) => string
   /** 本端已有提示口(FloatBox `showToast` 的适配);本文件不新立界面 */
   notify: (message: string) => void
+  /**
+   * 新会话入列表(2026-11-25):另一端新建会话时由承载列表的屏重拉抽屉。
+   * 走 optsRef 传进订阅,不进依赖数组 —— 否则每次渲染新建的回调会让 WS 反复重连。
+   */
+  onConversationCreated?: () => void
 }
 
 /**
@@ -88,6 +90,8 @@ export function useUserBroadcastSync(opts: UseUserBroadcastSyncOptions): void {
       token,
       translate: (key, params) => optsRef.current.translate(key, params),
       notify: (message) => optsRef.current.notify(message),
+      // 新会话:只把事件交给屏(它持列表真相),本层不插行(见 deps 注释)。
+      onConversationCreated: () => optsRef.current.onConversationCreated?.(),
       // 通知状态翻转投影:闭包读 ref,store 对象变化不重建订阅(见上方 ref 注释)。
       notificationStateActions: {
         markAsReadByIds: (ids) => notificationStateRef.current.markAsReadByIds(ids),

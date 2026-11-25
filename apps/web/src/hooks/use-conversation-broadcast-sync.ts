@@ -187,6 +187,27 @@ export function patchConversationCaches(
   return { rowsTouched, cacheMiss }
 }
 
+/**
+ * `conversation:created` 的消费面(2026-11-25):本端列表里**没有这一行**,
+ * 改行器无处可改 —— 只能让列表重新取一次。
+ *
+ * 为什么不做乐观插行:新行的形状(排序键/归档分组/字段集)只有服务端知道全,
+ * 端内按载荷拼一行会渲染出缺字段或错排序的列表项,那比晚一次请求更糟。
+ * 与 D153 updated 的"零 HTTP"验收不冲突 —— 那条判的是"已有行改字段",不是"多一行"。
+ *
+ * @returns 命中的会话列表查询数;0 = 本端没开任何列表视图,无需动作
+ */
+export function refreshConversationLists(qc: QueryClient): number {
+  let hit = 0
+  for (const query of qc.getQueryCache().getAll()) {
+    const key = query.queryKey
+    if (!Array.isArray(key) || key[0] !== 'chat' || key[1] !== 'conversations') continue
+    hit += 1
+    void qc.invalidateQueries({ queryKey: key, exact: true })
+  }
+  return hit
+}
+
 // ===================== 提示条(React 树外的 toast) =====================
 
 /** 已弹过提示的帧指纹(会话|字段|时刻);封顶保留,不做无界增长 */
@@ -380,6 +401,11 @@ export function useConversationBroadcastSync(): {
       })()
     }
     const sub = subscribeUserBroadcast(config, {
+      // 新会话入列表(2026-11-25):本端新建的回声也会走到这里,重取是幂等的;
+      // 不为回声做特判,是因为"列表里到底有没有这一行"只有缓存自己知道,重取两种情况都对。
+      'conversation:created': () => {
+        refreshConversationLists(getQueryClient())
+      },
       'conversation:updated': (evt) => {
         const e = evt as ConversationUpdatedEvent
         // getQueryClient() 在浏览器侧返回的就是 QueryProvider 挂的那一份单例,
