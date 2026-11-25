@@ -236,7 +236,13 @@ AI 侧已完成：链路核验、应用 Client ID 查明、后台权限状态现
 
 ### 9.2 生产凭据验证正确姿势（下次照抄）
 
-1. 生产服务密钥**不在密钥文件**，在 NSSM：`Get-ItemProperty 'HKLM://SYSTEM//CurrentControlSet//Services//IHUI-AI-SERVICE//Parameters' -Name AppEnvironmentExtra` 取 `PUBLISH_CREDENTIALS_KEY`。
+1. 生产服务密钥**不在密钥文件**，在 NSSM：`Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\IHUI-AI-SERVICE\Parameters' -Name AppEnvironmentExtra` 取 `PUBLISH_CREDENTIALS_KEY`。
 2. 解密/端到端脚本，进程内先 `os.environ["PUBLISH_CREDENTIALS_KEY"]=<上面的值>`，**再** import `credentials_crypto`（进程级单例，import 时锁定密钥）。
 3. 生产 `connector_store` 路径是 `app.services.connector_store`（不是 `app.services.connectors.connector_store`），用 `importlib.import_module` 避包导出差异。
 4. 验证用户身份连接器读能力直接用 `/v1.0/contact/users/me`，header `x-acs-dingtalk-access-token: <userAccessToken>`，200 + 本人 unionId 即达标。
+
+### 9.3 2026-11-26 01:21 复查：token 自动 refresh 健康 + 密钥轮换隐患修复
+
+- **refresh 链路健康**：时隔 1h（`updated_at` 从 00:19 → 00:50 UTC 16:50）复查，token 已被平台自动刷新（新 2h 有效期、带 refresh_token），**无需用户重新扫码**。`connector_oauth` 的刷新回写链路在生产 daemon 下正常工作。
+- **发现隐患并修复**：刷新回写的密文被日志警告「由解密环第 1 把旧密钥解开（主密钥不匹配）」——根因是 NSSM 主密钥已轮换为 `PUBLISH_CREDENTIALS_KEY`（指纹 `f727973d…`），而历史密文用密钥文件 `data/credentials_key`（指纹 `26b9d5332dd3`）加密，该旧密钥只留在解密环里。若哪天清理解密环旧密钥，钉钉凭据会作废、逼用户重扫码。
+- **修复**：进程注入新主密钥 → `decrypt_user_token` 解出明文 → `credentials_crypto.encrypt()`（用主密钥单例）重加密 → `connector_store.save(None, rec, tenant_id=...)` 整条覆盖写回 `extra.user_oauth`。独立进程验证 `PRIMARY_DECRYPT_OK`（主密钥直接解开、不再走 ring）。**教训：轮换密钥后要把所有用户 OAuth 密文 rewrap 到新主密钥，别只靠解密环续命。**
