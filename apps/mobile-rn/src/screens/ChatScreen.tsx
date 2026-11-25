@@ -1092,7 +1092,15 @@ export function ChatScreen() {
     },
     [showToast],
   )
-  useUserBroadcastSync({ token: authToken, translate: t, notify: notifyBroadcast })
+  // 新会话广播(2026-11-25):回调住 ref —— loadDrawerConversations 定义在本行之后,
+  // 直接引用会撞 TDZ;而把它写进 useUserBroadcastSync 的依赖会让 WS 每次渲染重连。
+  const reloadDrawerRef = useRef<() => void>(() => {})
+  useUserBroadcastSync({
+    token: authToken,
+    translate: t,
+    notify: notifyBroadcast,
+    onConversationCreated: () => reloadDrawerRef.current(),
+  })
   /**
    * 票 #71:chat 消息面跨端同步。帧由 lib/user-broadcast 投进共享 store(幂等/四态在那里),
    * 本 hook 只把"当前会话"的消息面并进页级 messages:
@@ -1196,6 +1204,13 @@ export function ChatScreen() {
     }
     setDrawerConversationsLoaded(true)
   }, [t])
+
+  // 另一端新建会话(2026-11-25)⇒ 抽屉缓存作废;正开着时立刻重拉(已在看列表的人要马上看到)。
+  // 只动"是否已加载"这一个既有开关,不新造 store,也不和懒加载链路抢先后。
+  reloadDrawerRef.current = () => {
+    setDrawerConversationsLoaded(false)
+    if (drawerVisible) void loadDrawerConversations()
+  }
 
   // Drawer 首次打开时懒加载历史对话
   useEffect(() => {

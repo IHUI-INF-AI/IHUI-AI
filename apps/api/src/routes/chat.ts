@@ -9,6 +9,7 @@ import { sql, and, eq, inArray } from 'drizzle-orm'
 // 事件形态与构造的唯一出口在 @ihui/types(三个消费面共用一份描述),
 // 路由内不得手拼 `{event,data}` 字面量,也不得把"哪些字段真的变了"照抄请求体键名。
 import {
+  conversationCreatedEvent,
   conversationUpdatedEvent,
   isChatSyncRole,
   type ConversationMetaField,
@@ -842,6 +843,27 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           systemPrompt: parsed.data.systemPrompt,
           metadata: parsed.data.metadata,
         })
+
+        // 新会话跨端即时可见(2026-11-25):此前另一端的侧栏要等 staleTime 到期或切窗 refetch,
+        // 手机刚发起的对话在电脑端"看不见"。与 D153 同一纪律:只在写库成功后发;
+        // 广播失败不改响应(下行没到 ≠ 写库失败),只 warn(§5e「失败必须响」)。
+        try {
+          const evt = conversationCreatedEvent({
+            conversationId: conversation.id,
+            title: conversation.title,
+            model: conversation.model ?? null,
+            createdBy: userId,
+            createdAt: conversation.createdAt,
+            updatedAt: conversation.updatedAt,
+            archivedAt: conversation.archivedAt ?? null,
+          })
+          server.broadcastToUser(userId, evt.event, evt.data)
+        } catch (err) {
+          request.log.warn(
+            { err, userId, conversationId: conversation.id },
+            '会话创建广播发射失败(写库已成功,另一端退回下次打开时同步)',
+          )
+        }
 
         return reply
           .status(201)

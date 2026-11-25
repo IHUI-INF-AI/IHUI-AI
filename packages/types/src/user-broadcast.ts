@@ -48,6 +48,11 @@ import {
  */
 export const USER_BROADCAST_EVENT_NAMES = [
   'conversation:updated',
+  // 新会话入列表(2026-11-25):另一端新建的会话此前只能等侧栏 staleTime 到期或切窗
+  // refetch 才出现,手机上发起的对话在电脑端"看不见"。本事件只回答"列表里该多一行",
+  // 会话内容仍走 message:created —— 两件事的动作面分别是"插行"与"改行",不可合并。
+  // 与 updated 相邻:两表逐项比较(d153 用例)要求 api-client 侧同序。
+  'conversation:created',
   'mcp:status',
   'checkpoint:availability',
   // D125(2026-10-23 立,设计稿 docs/d125-session-collab-design.md):协作会话事件族,
@@ -132,6 +137,39 @@ export interface ConversationUpdatedData {
 export interface ConversationUpdatedEvent {
   event: 'conversation:updated'
   data: ConversationUpdatedData
+}
+
+// ===================== conversation:created =====================
+
+/**
+ * `conversation:created` 载荷(2026-11-25 立)。
+ *
+ * 为什么必须单开一个事件而不是复用 `conversation:updated`:后者的语义是"某一行
+ * **已在你的列表里**,这些列变了",消费端动作是**就地改行**;而"另一端新建了会话"
+ * 在本端列表里**根本没有这一行**,改行器只会判 cacheMiss 并按 pullOnly 弹提示 ——
+ * 新会话于是永远进不了列表。两件事的动作面分别是"插行"与"改行",塞进同一事件
+ * 只会让消费端二选一。
+ *
+ * 形状带的是**列表渲染所需的列**(title/model/时间/归档位),不是整行序列化:
+ * 多了的字段在缓存里没有消费方(乐观行反而不完整),少了 lastMessageAt 会让新行
+ * 排序错位。`createdBy` 与 `changedBy` 同性质 —— 行为主体(令牌主体),不是收信人。
+ */
+export interface ConversationCreatedData {
+  conversationId: string
+  title: string
+  /** 库里可为 null;列表徽章按 null 显示默认模型 */
+  model: string | null
+  /** 行为主体 = 令牌主体 userId(消费端据此区分本端回声与他端新建) */
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+  /** ISO;未归档为 null。列表按它判是否落进「已归档」分组 */
+  archivedAt: string | null
+}
+
+export interface ConversationCreatedEvent {
+  event: 'conversation:created'
+  data: ConversationCreatedData
 }
 
 // ===================== mcp:status(D154)=====================
@@ -670,6 +708,7 @@ function toIsoAt(fn: string, at: Date | string): string {
 
 export type UserBroadcastEvent =
   | ConversationUpdatedEvent
+  | ConversationCreatedEvent
   | McpStatusEvent
   | CheckpointAvailabilityEvent
   | CollabInvitationEvent
@@ -707,6 +746,25 @@ function isConversationUpdatedData(v: unknown): v is ConversationUpdatedData {
     if (typeof d.values !== 'object' || d.values === null || Array.isArray(d.values)) return false
     const keys = Object.keys(d.values as Record<string, unknown>)
     if (!keys.every((k) => (fields as string[]).includes(k))) return false
+  }
+  return true
+}
+
+/** `conversation:created` 的字段判据(与构造器同源:生产面拼错的值必须在这里被拒收,不得进缓存) */
+function isConversationCreatedData(v: unknown): v is ConversationCreatedData {
+  if (typeof v !== 'object' || v === null) return false
+  const d = v as Record<string, unknown>
+  if (typeof d.conversationId !== 'string' || d.conversationId.length === 0) return false
+  if (typeof d.title !== 'string') return false
+  if (d.model !== null && typeof d.model !== 'string') return false
+  if (typeof d.createdBy !== 'string' || d.createdBy.length === 0) return false
+  if (typeof d.createdAt !== 'string' || Number.isNaN(Date.parse(d.createdAt))) return false
+  if (typeof d.updatedAt !== 'string' || Number.isNaN(Date.parse(d.updatedAt))) return false
+  if (
+    d.archivedAt !== null &&
+    (typeof d.archivedAt !== 'string' || Number.isNaN(Date.parse(d.archivedAt)))
+  ) {
+    return false
   }
   return true
 }
@@ -778,6 +836,7 @@ function isNotificationStateData(v: unknown): v is NotificationStateData {
 
 const DATA_GUARDS: Record<UserBroadcastEventName, (v: unknown) => boolean> = {
   'conversation:updated': isConversationUpdatedData,
+  'conversation:created': isConversationCreatedData,
   'mcp:status': isMcpStatusData,
   'checkpoint:availability': isCheckpointAvailabilityData,
   'collab:invitation': isCollabInvitationData,
@@ -851,6 +910,47 @@ export function conversationUpdatedEvent(input: {
     if (Object.keys(picked).length > 0) data.values = picked
   }
   return { event: 'conversation:updated', data }
+}
+
+/**
+ * 生产侧构造 `conversation:created` 事件的唯一出口(2026-11-25)。
+ *
+ * 与 `conversationUpdatedEvent` 同一纪律:在构造点拒坏值。特别地 `createdBy` 必须非空 ——
+ * 消费端靠它区分"本端刚建的回声"与"别的设备建的",缺了它只能二选一(要么刷屏提示、要么静默),
+ * 两种都是把生产面的 bug 推到用户体验上。
+ *
+ * `archivedAt` 用 `null` 表示未归档(不用 undefined):消费端要显式知道"这行该落在哪个分组",
+ * 缺席会被读成"没判",而列表分组不接受"没判"。
+ */
+export function conversationCreatedEvent(input: {
+  conversationId: string
+  title: string
+  model: string | null
+  createdBy: string
+  createdAt: Date | string
+  updatedAt: Date | string
+  archivedAt?: Date | string | null
+}): ConversationCreatedEvent {
+  if (!input.conversationId) throw new Error('conversationCreatedEvent: conversationId 不得为空')
+  if (!input.createdBy) {
+    throw new Error('conversationCreatedEvent: createdBy 不得为空(消费端无从判回声)')
+  }
+  const createdAt = toIsoAt('conversationCreatedEvent', input.createdAt)
+  const updatedAt = toIsoAt('conversationCreatedEvent', input.updatedAt)
+  const archivedAt =
+    input.archivedAt === undefined || input.archivedAt === null
+      ? null
+      : toIsoAt('conversationCreatedEvent', input.archivedAt)
+  const data: ConversationCreatedData = {
+    conversationId: input.conversationId,
+    title: input.title,
+    model: input.model,
+    createdBy: input.createdBy,
+    createdAt,
+    updatedAt,
+    archivedAt,
+  }
+  return { event: 'conversation:created', data }
 }
 
 // ===================== 生产侧构造 mcp:status 的唯一出口 =====================

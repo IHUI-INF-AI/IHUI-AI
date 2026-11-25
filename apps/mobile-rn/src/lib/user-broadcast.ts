@@ -38,6 +38,7 @@ import {
   type ChatMessageCreatedEvent,
   type ChatMessagePatchedEvent,
   type ChatMessageTerminalEvent,
+  type ConversationCreatedData,
   type ConversationUpdatedEvent,
   type McpStatusEvent,
   type NotificationStateEvent,
@@ -88,6 +89,12 @@ export interface UserBroadcastAdapterDeps {
   webSocketFactory?: (url: string) => WebSocketLike
   /** 诊断出口:认不下来的帧在这里点名(真机 = console.warn,与本端桥接层同一约定) */
   onUndetermined?: (raw: unknown) => void
+  /**
+   * 新会话入列表(2026-11-25):另一端新建了会话 ⇒ 宿主屏自己决定怎么刷抽屉列表。
+   * 本层不持列表真相(抽屉是懒加载 + 分页/排序由服务端算),乐观插行会渲染出
+   * 缺字段/错排序的行 —— 所以只把事件交出去,由承载列表的那一层重拉。
+   */
+  onConversationCreated?: (data: ConversationCreatedData) => void
   /**
    * 连接状态出口(2026-11-24):挂载层用它识别重连边沿,拉通知权威快照对账。
    * 首连不触发对账(由通知加载链路负责),只有 everConnected 后的 open 才是重连。
@@ -185,6 +192,9 @@ export function attachUserBroadcast(
       ...(deps.webSocketFactory ? { webSocketFactory: deps.webSocketFactory } : {}),
     },
     {
+      'conversation:created': (evt) => {
+        deps.onConversationCreated?.((evt as { data: ConversationCreatedData }).data)
+      },
       'conversation:updated': (evt) => {
         const e = evt as ConversationUpdatedEvent
         const { changed, known } = conversationMetaLedger.apply(e)

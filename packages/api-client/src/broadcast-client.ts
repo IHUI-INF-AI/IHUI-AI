@@ -83,6 +83,13 @@ export interface UserBroadcastHandlers {
     evt: Extract<UserBroadcastEvent, { event: 'conversation:updated' }>,
   ) => void
   /**
+   * 新会话入列表(2026-11-25):本端列表里**没有这一行**,消费端动作是"插行/刷新列表",
+   * 不是改行 —— 与 `'conversation:updated'` 同载体、不同动作面(见 types 侧类型注释)。
+   */
+  'conversation:created'?: (
+    evt: Extract<UserBroadcastEvent, { event: 'conversation:created' }>,
+  ) => void
+  /**
    * D154 MCP 连接状态下行(票 §11.3:与 D153 同一枚载体决策,不得另开一条通道)。
    * 与 `'conversation:updated'` 同一条纪律:端内只接自己声明过的事件。
    */
@@ -439,6 +446,8 @@ export function resetUserBroadcastHub(): void {
 /** 已知事件名清单的投影(端内若自己写字符串 ⇒ 与这里对不上就是第二份真相) */
 export const USER_BROADCAST_SUBSCRIBABLE_EVENTS: readonly UserBroadcastEventName[] = [
   'conversation:updated',
+  // 新会话入列表(2026-11-25):与 USER_BROADCAST_EVENT_NAMES 等值(d153 测试硬断言)
+  'conversation:created',
   'mcp:status',
   'checkpoint:availability',
   // D125 协作会话事件族(与 USER_BROADCAST_EVENT_NAMES 等值,d153 测试硬断言)
