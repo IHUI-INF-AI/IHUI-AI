@@ -705,6 +705,18 @@ struct Session {
     pip: bool,
     /// 进入画中画前的窗口几何/置顶态,退出时原样恢复。只在 `pip=true` 时存在。
     pip_restore: Option<PipRestore>,
+    /// 上一次画中画小窗的物理几何:用户放大/挪动过小窗后,下次再进沿用,
+    /// 不用每次回到 420×280。只在本次会话内记忆。
+    pip_last: Option<PipFrame>,
+}
+
+/// 画中画小窗上一次的物理几何。
+#[derive(Clone, Copy, Debug)]
+struct PipFrame {
+    width: u32,
+    height: u32,
+    x: i32,
+    y: i32,
 }
 
 /// 画中画进入前的窗口快照。
@@ -974,9 +986,9 @@ fn refresh_active_bar(app: &AppHandle) {
 
 /// 进入/退出画中画小窗(2026-11-25)。
 ///
-/// 进入:保存当前几何与置顶态 → 放开最小尺寸 → 缩到 420×280 → 挪进当前
-/// 显示器可视区 → 置顶。**不调用 show()/set_focus()**:画中画的意义是"看得见
-/// 但不抢当前输入",抢焦点会把用户正在主窗打的字打断。
+/// 进入:保存当前几何与置顶态 → 放开最小尺寸 → 沿用上次小窗几何(没有则
+/// 420×280)→ 挪进当前显示器可视区 → 置顶。**不调用 show()/set_focus()**:
+/// 画中画的意义是"看得见但不抢当前输入",抢焦点会把用户正在主窗打的字打断。
 /// 退出:恢复最小尺寸、原尺寸、原位置、原置顶态 → 聚焦浏览器窗(一键接管)。
 fn set_browser_pip(app: &AppHandle, window: &tauri::Window, enable: Option<bool>) {
     let current = app.state::<BrowserManager>().with(|s| s.pip);
@@ -995,6 +1007,20 @@ fn set_browser_pip(app: &AppHandle, window: &tauri::Window, enable: Option<bool>
             .outer_position()
             .unwrap_or(PhysicalPosition::new(0i32, 0i32));
         let always_on_top = window.is_always_on_top().unwrap_or(false);
+        let scale = window.scale_factor().unwrap_or(1.0);
+        let last = app.state::<BrowserManager>().with(|s| s.pip_last);
+        let min_w = (PIP_MIN_WIDTH as f64 * scale).round() as u32;
+        let min_h = (PIP_MIN_HEIGHT as f64 * scale).round() as u32;
+        let (pw, ph) = match last {
+            Some(g) => (g.width.max(min_w), g.height.max(min_h)),
+            None => (
+                (PIP_WIDTH as f64 * scale).round() as u32,
+                (PIP_HEIGHT as f64 * scale).round() as u32,
+            ),
+        };
+        let (px, py) = last
+            .map(|g| (g.x, g.y))
+            .unwrap_or((position.x, position.y));
         app.state::<BrowserManager>().with(|s| {
             s.pip = true;
             s.pip_restore = Some(PipRestore {
@@ -1010,24 +1036,33 @@ fn set_browser_pip(app: &AppHandle, window: &tauri::Window, enable: Option<bool>
             PIP_MIN_WIDTH as f64,
             PIP_MIN_HEIGHT as f64,
         ))));
-        let _ = window.set_size(LogicalSize::new(PIP_WIDTH as f64, PIP_HEIGHT as f64));
+        let _ = window.set_size(PhysicalSize::new(pw, ph));
         // 原地缩小可能越出屏幕右下角:夹进当前显示器可视区。
         if let Ok(Some(monitor)) = window.current_monitor() {
-            let scale = window.scale_factor().unwrap_or(1.0);
-            let pw = (PIP_WIDTH as f64 * scale).round() as i32;
-            let ph = (PIP_HEIGHT as f64 * scale).round() as i32;
             let mx = monitor.position().x;
             let my = monitor.position().y;
             let mw = monitor.size().width as i32;
             let mh = monitor.size().height as i32;
-            let nx = position.x.min(mx + mw - pw).max(mx);
-            let ny = position.y.min(my + mh - ph).max(my);
+            let nx = px.min(mx + mw - pw as i32).max(mx);
+            let ny = py.min(my + mh - ph as i32).max(my);
             let _ = window.set_position(PhysicalPosition::new(nx, ny));
         }
         let _ = window.set_always_on_top(true);
     } else {
+        // 退出前把当前小窗几何记下来;下次再进沿用,不每次重置 420×280。
+        let frame = window.inner_size().ok().and_then(|size| {
+            window.outer_position().ok().map(|position| PipFrame {
+                width: size.width,
+                height: size.height,
+                x: position.x,
+                y: position.y,
+            })
+        });
         let restore = app.state::<BrowserManager>().with(|s| {
             s.pip = false;
+            if let Some(f) = frame {
+                s.pip_last = Some(f);
+            }
             s.pip_restore.take()
         });
         let _ = window.set_min_size(Some(tauri::Size::Logical(LogicalSize::new(
