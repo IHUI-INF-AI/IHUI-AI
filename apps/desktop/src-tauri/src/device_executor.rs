@@ -157,7 +157,7 @@ pub fn read_status() -> DeviceExecutorStatus {
 /// 找 CLI 的调用形态。**内置优先**：安装包 resource_dir/cli 里带一份与桌面端同版本发布的
 /// CLI(npm-dist 产物)，PATH 里用户自己装的 ihui 只作兜底 —— 反过来的话，用户装了旧版全局
 /// 包就会命中旧版(连 `device adopt` 子命令都没有)，而"一键启用"又没有可见的失败原因。
-/// 内置形态需要宿主 Node(桌面端不捆绑运行时,+80MB 不值)，所以先问 PATH/常见安装位。
+/// CLI 是 JS，运行时同样随包分发(resource_dir/node/node.exe)，见 `find_node`。
 struct IhuiCmd {
     program: String,
     pre_args: Vec<String>,
@@ -194,7 +194,21 @@ fn where_first(name: &str) -> Option<String> {
     }
 }
 
-fn find_node() -> Option<String> {
+/// 找 Node 运行时。**内置优先**:安装包 resource_dir/node/node.exe 与桌面端同包发布,
+/// 用户不必先装 Node。2026-11-26 实测:"用户机器没有 Node"和"没有 ihui 命令"一样常见,
+/// 两种都不该让「一键启用」退化成一句看不懂的报错。PATH / 常见安装位只作兜底。
+fn find_node(app: Option<&AppHandle>) -> Option<String> {
+    if let Some(app) = app {
+        if let Ok(dir) = app.path().resource_dir() {
+            #[cfg(windows)]
+            let cand = dir.join("node").join("node.exe");
+            #[cfg(not(windows))]
+            let cand = dir.join("node").join("node");
+            if cand.is_file() {
+                return Some(cand.to_string_lossy().to_string());
+            }
+        }
+    }
     if let Some(n) = where_first("node") {
         return Some(n);
     }
@@ -216,7 +230,7 @@ fn find_ihui(app: Option<&AppHandle>) -> Option<IhuiCmd> {
         if let Ok(dir) = app.path().resource_dir() {
             let js = dir.join("cli").join("dist").join("index.js");
             if js.is_file() {
-                if let Some(node) = find_node() {
+                if let Some(node) = find_node(Some(app)) {
                     return Some(IhuiCmd {
                         program: node,
                         pre_args: vec![js.to_string_lossy().to_string()],

@@ -32,7 +32,10 @@ import DrawerComponent, {
 import UserInfoCard from '@/components/UserInfoCard'
 import LoginPopUp from '@/components/LoginPopUp'
 import { beginMiniappSso, getSsoLoginUrl, SSO_REDIRECT_URI } from '@/utils/sso'
-import { navigateToWebView } from '@/pages/webview/index'
+// 2026-11-26 修回:此前从 `@/pages/webview/index` 取 named export,而 pages/webview 整个在
+// subPackages 里 —— 微信分包规则下主包不能依赖分包,该导出解析为 undefined,
+// 运行期一点网页功能就是「链接缺失 无法打开网页」。出口已抽到主包 utils。
+import { navigateToWebView } from '@/utils/webview-nav'
 import StudyBar from '@/components/StudyBar'
 import { FloatBox, VideoPlayer } from '@/components'
 import { rpx } from '@/utils/rpx'
@@ -42,7 +45,7 @@ import aiIconLocal from '@/assets/remote-images/ai-icon.svg'
 import courseIconLocal from '@/assets/remote-images/course-icon.svg'
 import vipActIconLocal from '@/assets/remote-images/user-vip-act.svg'
 
-import { rnRadius, getRnTokens, taroSpacing } from '@ihui/design-tokens'
+import { rnRadius, getRnTokens, taroSpacing, taroType } from '@ihui/design-tokens'
 const dingdanIcon = aizhsUrl('remote-images/dingdan.jpg')
 const gerenIcon = aizhsUrl('remote-images/geren-icon.png')
 const shezhiIcon = aizhsUrl('remote-images/shezhi.png')
@@ -108,6 +111,14 @@ const menus: ReadonlyArray<{ icon: string; key: string; path: string; fallback?:
   // PDF 工具台(2026-10-29):web /tools/pdf 三路由的端内承载(壳承载页,渲染共享屏)。
   // 此前该页在小程序端**根本不存在**,而 RN 侧已有完整链路却也没有入口 ⇒ 两端都是死的。
   { icon: 'file-text', key: 'pdfToolsPage.title', path: '/pkg-user/pdf-tools-hub/index' },
+  // 设备与派单(2026-11-26):手机端派单的唯一入口。此前这条链路只有 RN App 和 Web 有屏,
+  // 微信里根本没有入口 —— 对"随手打开小程序派一单"的人等于不存在。
+  {
+    icon: 'layout-grid',
+    key: 'devices.title',
+    fallback: '设备与派单',
+    path: '/pkg-user/devices/index',
+  },
   { icon: shezhiIcon, key: 'settings.title', path: '/pkg-user/user/settings' },
   // P0 页面导航入口(复用 LineIcon 图标资产)
   {
@@ -205,7 +216,7 @@ function renderMarkdown(content: string): ReactNode {
           >
             <Text
               style={{
-                fontSize: rpx(taroSpacing.md),
+                fontSize: taroType.label.fontSize,
                 fontFamily: 'monospace',
                 color: 'var(--color-foreground)',
               }}
@@ -223,7 +234,7 @@ function renderMarkdown(content: string): ReactNode {
         <ThemeRoot key={idx}>
           <Text
             key={idx}
-            style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground)', lineHeight: 1.6 }}
+            style={{ fontSize: taroType.bodySm.fontSize, color: 'var(--color-muted-foreground)', lineHeight: 1.6 }}
           >
             {boldParts.map((part, i) =>
               i % 2 === 1 ? (
@@ -244,7 +255,7 @@ function renderMarkdown(content: string): ReactNode {
         <Text
           key={idx}
           style={{
-            fontSize: rpx(26),
+            fontSize: taroType.bodySm.fontSize,
             color: 'var(--color-muted-foreground)',
             lineHeight: 1.6,
             display: 'block',
@@ -1137,7 +1148,7 @@ export default function UserIndex() {
               <View className="py-[96rpx] flex items-center justify-center">
                 <Text
                   style={{
-                    fontSize: rpx(taroSpacing['md-loose']),
+                    fontSize: taroType.body.fontSize,
                     color: 'var(--color-muted-foreground)',
                   }}
                 >
@@ -1152,7 +1163,7 @@ export default function UserIndex() {
                   <View className="py-[96rpx] flex items-center justify-center">
                     <Text
                       style={{
-                        fontSize: rpx(taroSpacing['md-loose']),
+                        fontSize: taroType.body.fontSize,
                         color: 'var(--color-muted-foreground)',
                       }}
                     >
@@ -1182,7 +1193,7 @@ export default function UserIndex() {
                   <View className="py-[96rpx] flex items-center justify-center">
                     <Text
                       style={{
-                        fontSize: rpx(taroSpacing['md-loose']),
+                        fontSize: taroType.body.fontSize,
                         color: 'var(--color-muted-foreground)',
                       }}
                     >
@@ -1224,7 +1235,7 @@ export default function UserIndex() {
                   <View className="py-[96rpx] flex items-center justify-center">
                     <Text
                       style={{
-                        fontSize: rpx(taroSpacing['md-loose']),
+                        fontSize: taroType.body.fontSize,
                         color: 'var(--color-muted-foreground)',
                       }}
                     >
@@ -1283,7 +1294,7 @@ export default function UserIndex() {
                   <View className="py-[96rpx] flex items-center justify-center">
                     <Text
                       style={{
-                        fontSize: rpx(taroSpacing['md-loose']),
+                        fontSize: taroType.body.fontSize,
                         color: 'var(--color-muted-foreground)',
                       }}
                     >

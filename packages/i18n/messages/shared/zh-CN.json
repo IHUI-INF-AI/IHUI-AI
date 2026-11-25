@@ -1035,9 +1035,9 @@
     "viewDetail": "查看详情",
     "withdraw": "提现",
     "deleteFailed": "删除失败",
-    "saveFailed": "保存失败"
-  ,
-    "textUnavailable": "文案暂不可用"},
+    "saveFailed": "保存失败",
+    "textUnavailable": "文案暂不可用"
+  },
   "bookmark": {
     "empty": "暂无收藏",
     "loadFailed": "加载收藏失败",
@@ -1455,7 +1455,6 @@
       "executorStop": "停止",
       "executorRefresh": "刷新状态",
       "executorEnable": "一键启用",
-
       "executorUnpaired": "这台电脑还没接入。点「一键启用」授权本机执行(不需要配对码)。",
       "executorNeedLogin": "登录状态已失效,请重新登录后再启用。",
       "executorChangeWorkspace": "重新选择工作区",
@@ -1465,7 +1464,10 @@
       "approvalClose": "收起",
       "approvalApprove": "同意执行",
       "approvalReject": "拒绝",
-      "approvalEmpty": "执行端没有留下计划正文"
+      "approvalEmpty": "执行端没有留下计划正文",
+      "noOnlineHint": "现在没有任何设备在线。任务派出去会排队等它上线；如果那台就是你自己的电脑，请在桌面端「设置 → 设备管理」点「一键启用」。",
+      "offlineHint": "这台设备当前离线：派过去的任务会排队，它上线后自动执行。",
+      "delegateOfflineHint": "它现在不在线，任务会在它上线后自动开始。"
     },
     "rumEnabled": "RUM 已启用",
     "ip": {
@@ -1503,8 +1505,7 @@
       "modelColName": "模型",
       "modelColTokens": "Token 数",
       "modelColCalls": "调用次数",
-      "modelColCost": "费用"
-    ,
+      "modelColCost": "费用",
       "mode_token": "按 Token 计费",
       "mode_per_call": "按调用次数计费",
       "mode_per_image": "按图片张数计费",
@@ -1512,7 +1513,8 @@
       "unit_token": "每百万 tokens",
       "unit_per_call": "每次",
       "unit_per_image": "每张",
-      "unit_per_video": "每条"},
+      "unit_per_video": "每条"
+    },
     "gateway": {
       "providers": {
         "filter": {

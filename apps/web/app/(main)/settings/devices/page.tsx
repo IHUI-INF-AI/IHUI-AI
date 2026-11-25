@@ -431,6 +431,8 @@ export default function DevicesPage() {
 
   const pairSecondsLeft = pairCode ? Math.floor((pairCode.expiresAtMs - nowTick) / 1000) : 0
   const pairExpired = pairCode !== null && pairSecondsLeft <= 0
+  /** 一台在线的都没有 —— "派出去没人接"的真原因,得在列表上方先说清楚 */
+  const noOnlineDevice = devices.length > 0 && devices.every((d) => d.online !== true)
 
   if (!ready) {
     return (
@@ -463,6 +465,9 @@ export default function DevicesPage() {
         </CardHeader>
         <CardContent>
           <p className="mb-3 text-label text-muted-foreground">{t('devices.desc')}</p>
+          {noOnlineDevice && (
+            <Alert variant="warning" title={t('devices.noOnlineHint')} closable className="mb-3" />
+          )}
           {devicesError && (
             <Alert variant="danger" title={devicesError} closable className="mb-3" />
           )}
@@ -497,6 +502,12 @@ export default function DevicesPage() {
                             </Badge>
                           )}
                         </span>
+                        {/* 这台不在线:派过去只会排队,说清它上线后才跑,而不是让人干等 */}
+                        {!device.online && !device.revokedAt && (
+                          <span className="mt-1 block text-label font-normal text-muted-foreground">
+                            {t('devices.offlineHint')}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="text-label">{device.os || '—'}</TableCell>
                       <TableCell className="max-w-[200px] truncate text-label">

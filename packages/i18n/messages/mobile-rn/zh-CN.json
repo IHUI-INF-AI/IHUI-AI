@@ -49,7 +49,10 @@
     "errorToday": "今日错误",
     "errorCritical": "严重错误",
     "errorResolved": "已解决",
-    "loadFailed": "数据看板加载失败"
+    "loadFailed": "数据看板加载失败",
+    "partialFailed": "部分数据源加载失败,显示内容可能不完整",
+    "liveStatus": "更新于 {time}",
+    "autoRefreshHint": "每 30 秒自动刷新,下拉可立即更新"
   },
   "toolApproval": {
     "title": "工具审批",
@@ -1199,7 +1202,13 @@
     "chatHistory": "对话历史",
     "plaza": "广场",
     "devEnter": "开发者入驻",
-    "modelIncome": "模型收益"
+    "modelIncome": "模型收益",
+    "selectedCount": "已选 {count}",
+    "confirmBatchDelete": "确定批量删除所选对话吗?",
+    "rename": "重命名",
+    "unarchive": "批量取消归档",
+    "batchArchiveDone": "已批量归档",
+    "noFolders": "暂无分组"
   },
   "error": {
     "network": "网络错误,请稍后重试"
@@ -1957,16 +1966,16 @@
     "loadFailed": "加载客服失败"
   },
   "artifacts": {
-    "navEntry": "产物中心",
+    "navEntry": "产物",
     "title": "产物中心",
-    "desc": "AI 交付的报告、演示、表格与文档,可下载或在线预览。",
-    "empty": "还没有产物。让 AI 生成报告、演示或表格后,它们会出现在这里。",
-    "loginRequired": "登录后查看你的产物列表",
+    "desc": "浏览和管理已生成的产物",
+    "empty": "暂无产物",
+    "loginRequired": "需要登录",
     "colName": "名称",
     "colKind": "类型",
     "colVersion": "版本",
     "colCreated": "创建时间",
-    "colSession": "来源会话",
+    "colSession": "会话",
     "colActions": "操作",
     "download": "下载",
     "preview": "预览",
@@ -1983,10 +1992,16 @@
     "daysAgo": "{n} 天前",
     "loadMore": "加载更多",
     "refresh": "刷新",
-    "countSummary": "已加载 {loaded}/{total} 个产物",
-    "previewFailed": "预览链接获取失败,请稍后重试",
-    "loading": "加载中…",
-    "loadFailed": "产物列表加载失败"
+    "countSummary": "已加载 {loaded}/{total}",
+    "previewFailed": "预览失败",
+    "loading": "加载中",
+    "loadFailed": "加载失败",
+    "kindHtmlReport": "网页报告",
+    "kindSlides": "幻灯片",
+    "kindSheet": "电子表格",
+    "kindDoc": "文档",
+    "kindVideoRef": "视频引用",
+    "kindUnknown": "未知类型"
   },
   "distribution": {
     "plan": {
@@ -2266,7 +2281,21 @@
     "saving": "保存中...",
     "loadFailed": "加载设置失败",
     "saveFailed": "保存失败",
-    "saved": "已保存"
+    "saved": "已保存",
+    "soundToggle": "新消息提示音",
+    "ringtoneTitle": "通知铃声",
+    "ringtoneDesc": "选择收到新消息时播放的铃声",
+    "ringtonePreview": "试听",
+    "ringtoneNames": {
+      "dingdong": "门铃",
+      "tritone": "上扬三音",
+      "waterdrop": "水滴",
+      "doublebell": "双响铃",
+      "bubble": "气泡",
+      "marimba": "木琴",
+      "chime": "和弦铃",
+      "knock": "轻敲"
+    }
   },
   "orderLog": {
     "title": "订单动态",
@@ -2610,7 +2639,10 @@
     "approvalClose": "收起",
     "approvalApprove": "同意执行",
     "approvalReject": "拒绝",
-    "approvalEmpty": "执行端没有留下计划正文"
+    "approvalEmpty": "执行端没有留下计划正文",
+    "noOnlineHint": "现在没有任何设备在线。任务派出去会排队等它上线；如果那台就是你自己的电脑，请在桌面端「设置 → 设备管理」点「一键启用」。",
+    "offlineHint": "这台设备当前离线：派过去的任务会排队，它上线后自动执行。",
+    "delegateOfflineHint": "它现在不在线，任务会在它上线后自动开始。"
   },
   "pendingDecisions": {
     "title": "我的待决策",
