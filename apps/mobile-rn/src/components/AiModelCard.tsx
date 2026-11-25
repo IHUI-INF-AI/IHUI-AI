@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     borderRadius: rnRadius.lg,
     // 卡片内边距与首页发现卡同走 home-layout-spec 的 12dp 单一源；
     // 卡片外留白由调用方 wrap 统一控制(HomeScreen aiModelWrap 已有 paddingVertical)

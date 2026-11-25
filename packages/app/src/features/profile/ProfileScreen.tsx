@@ -323,7 +323,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       backgroundColor: tk.surface.light,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       gap: rnSpacing.md,
     },
     /** 头像 + 昵称/身份/联系方式一行;userExtra 另起一行,避免动作行被挤压在头像右侧半栏 */
@@ -421,7 +421,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       backgroundColor: tk.surface.light,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       overflow: 'hidden',
     },
     menuItem: {

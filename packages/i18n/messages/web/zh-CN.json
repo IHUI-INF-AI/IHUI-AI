@@ -53,14 +53,14 @@
         "desc": "自进化技能市场:安装、评分与订阅"
       },
       "connectors": {
-        "title": "连接器",
+        "title": "中文连接器",
         "desc": "接入语雀、飞书、企微、钉钉等中文文档源"
       }
     },
     "bundles": {
       "contentCreator": {
         "title": "内容创作专家包",
-        "desc": "写作与发布工作流的组合入口:AI 技能、Skill 市场与连接器"
+        "desc": "写作与发布工作流的组合入口:AI 技能、Skill 市场与中文连接器"
       },
       "developerExtension": {
         "title": "开发者扩展包",
@@ -6106,7 +6106,7 @@
     }
   },
   "connectors": {
-    "title": "连接器",
+    "title": "中文连接器",
     "subtitle": "接入语雀/飞书/企业微信/钉钉,让对话能直接读取中文知识平台文档",
     "count": "共 {count} 个连接器",
     "add": "添加连接器",
@@ -8677,6 +8677,30 @@
           "title": "媒体文件数量超出限制",
           "action": "精简附件后重试"
         },
+        "MEMORY_DREAM_FAILED": {
+          "title": "记忆梦境整理失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "记忆遗忘清理失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "工具用法记忆保存失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "记忆检索失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "记忆保存失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "记忆主题生成失败",
+          "action": "请稍后重试"
+        },
         "MISSING_DATA": {
           "title": "缺少必填参数",
           "action": "补充参数后重试"
@@ -9590,14 +9614,10 @@
       "links": "链接"
     },
     "pictureInPicture": {
-      "autoMonitor": "自动监看新会话",
       "task": "任务",
       "pin": "置顶",
       "unpin": "取消置顶",
       "reconnect": "重新连接",
-      "close": "关闭",
-      "minimize": "最小化",
-      "expandWindow": "展开",
       "expandTask": "展开任务详情",
       "collapseTask": "收起任务详情",
       "title": "画中画",
@@ -20476,7 +20496,6 @@
     "plan": "计划模式",
     "plaza": "广场",
     "pluginMarket": "插件市场",
-    "connectors": "连接器",
     "points": "积分",
     "pricing": "定价",
     "publishPlatform": "发布平台",
@@ -29517,10 +29536,6 @@
   "tradeHub": {
     "title": "交易",
     "subtitle": "收益、订单、支付与会员积分"
-  },
-  "personalHub": {
-    "title": "个人中心",
-    "subtitle": "账户、收藏、学习与订阅"
   },
   "developerHub": {
     "title": "开发者",

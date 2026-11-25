@@ -53,14 +53,14 @@
         "desc": "자기 진화 스킬 마켓: 설치·평점·구독"
       },
       "connectors": {
-        "title": "커넥터",
+        "title": "중국어 커넥터",
         "desc": "위두·페이수·기업위챗·딩톡 문서 소스 연결"
       }
     },
     "bundles": {
       "contentCreator": {
         "title": "콘텐츠 크리에이터 팩",
-        "desc": "집필·발행 워크플로 종합 진입점: AI 스킬, Skill 마켓, 커넥터"
+        "desc": "집필·발행 워크플로 종합 진입점: AI 스킬, Skill 마켓, 중국어 커넥터"
       },
       "developerExtension": {
         "title": "개발자 확장 팩",
@@ -6137,7 +6137,7 @@
     }
   },
   "connectors": {
-    "title": "커넥터",
+    "title": "중국 커넥터",
     "subtitle": "Yuque/Feishu/WeCom/DingTalk 를 연결해 대화에서 중국 지식 플랫폼 문서를 직접 읽을 수 있습니다",
     "count": "커넥터 {count}개",
     "add": "커넥터 추가",
@@ -8712,6 +8712,30 @@
           "title": "미디어 파일 개수가 제한을 초과했습니다",
           "action": "첨부를 줄이고 재시도"
         },
+        "MEMORY_DREAM_FAILED": {
+          "title": "기억 통합에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "기억 정리에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "도구 사용 기억 저장에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "기억 검색에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "기억 저장에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "기억 주제 생성에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
         "MISSING_DATA": {
           "title": "필수 파라미터가 없습니다",
           "action": "파라미터를 채우고 재시도"
@@ -9601,14 +9625,10 @@
       "createDraftPullRequestFailed": "초안 PR 생성 실패"
     },
     "pictureInPicture": {
-      "autoMonitor": "새 세션 자동 모니터링",
       "task": "작업",
       "pin": "항상 위",
       "unpin": "맨 위 고정 해제",
       "reconnect": "다시 연결",
-      "close": "닫기",
-      "minimize": "최소화",
-      "expandWindow": "펼치기",
       "expandTask": "작업 상세 열기",
       "collapseTask": "작업 상세 접기",
       "title": "화면 중 화면",
@@ -20142,7 +20162,6 @@
     "plan": "플랜 모드",
     "plaza": "광장",
     "pluginMarket": "플러그인 마켓",
-    "connectors": "커넥터",
     "points": "포인트",
     "pricing": "요금제",
     "publishPlatform": "퍼블리시",
@@ -29236,10 +29255,6 @@
   "tradeHub": {
     "title": "거래",
     "subtitle": "수익·주문·결제·멤버십 포인트"
-  },
-  "personalHub": {
-    "title": "내 계정",
-    "subtitle": "계정·즐겨찾기·학습·구독"
   },
   "developerHub": {
     "title": "개발자",

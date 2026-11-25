@@ -141,7 +141,7 @@ vi.mock('react-native', () => {
   }
 })
 
-import { ArticleListScreen } from '../src/features/article-list/ArticleListScreen'
+import { ArticleListScreen, assembleArticleDate } from '../src/features/article-list/ArticleListScreen'
 
 type Item = {
   id: string
@@ -296,5 +296,37 @@ describe('资讯语义复用锁', () => {
       (c.textContent || '').includes('置顶资讯'),
     )
     expect(hits).toHaveLength(1)
+  })
+
+  // 2026-11-23 审计实拍缺陷 ①(ISO 原文当日期)曾在另一套屏上修过,本屏(features/article-list)
+  // 当时未覆盖 ⇒ 2026-11-26 实拍复现「阅读量 · 2026-11-25T00:00:30.753Z」。以下两例把它钉住。
+  it('④ 发布时间按年/月/日重排,不泄露 ISO 原文;阅读量数字必须出现', () => {
+    const isoItem: Item = {
+      id: 'n3',
+      title: '资讯丙',
+      author: '编辑部',
+      views: 7,
+      publishedAt: '2026-11-22T00:01:02.620Z',
+    }
+    const { container } = render(
+      createElement(ArticleListScreen, { ...base, items: [isoItem] } as never),
+    )
+    expect(container.textContent).toContain('2026/11/22')
+    expect(container.textContent).not.toContain('2026-11-22T00:01:02.620Z')
+    // 阅读量:模板本身无 {count} 占位符 ⇒ 数字由屏内显式渲染,不能只剩一个「阅读量」空壳
+    expect(container.textContent).toContain('articleList.views 7')
+  })
+
+  it('⑤ formatToParts 段序被打乱(Hermes 月/日/年)时仍按年/月/日重排,缺段返回 null', () => {
+    expect(
+      assembleArticleDate([
+        { type: 'month', value: '11' },
+        { type: 'literal', value: '/' },
+        { type: 'day', value: '22' },
+        { type: 'literal', value: '/' },
+        { type: 'year', value: '2026' },
+      ]),
+    ).toBe('2026/11/22')
+    expect(assembleArticleDate([{ type: 'month', value: '11' }])).toBeNull()
   })
 })

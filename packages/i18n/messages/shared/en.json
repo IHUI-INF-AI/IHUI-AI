@@ -1,4 +1,118 @@
 {
+  "personalHub": {
+    "title": "Personal Center",
+    "subtitle": "Account, favorites, learning and subscriptions",
+    "sections": {
+      "assets": "My Assets",
+      "points": "Benefits & Points",
+      "study": "My Learning",
+      "content": "My Content",
+      "account": "Account & Security",
+      "service": "Service & Support"
+    },
+    "entries": {
+      "order": {
+        "label": "My Orders",
+        "desc": "View related orders"
+      },
+      "wallet": {
+        "label": "My Wallet",
+        "desc": "View balance and top-up"
+      },
+      "company": {
+        "label": "My Company",
+        "desc": "View employees and performance"
+      },
+      "token": {
+        "label": "My Zhihui Credits",
+        "desc": "Zhihui usage information"
+      },
+      "points": {
+        "label": "My Points"
+      },
+      "vip": {
+        "label": "My Membership"
+      },
+      "myLessons": {
+        "label": "My Courses"
+      },
+      "studyRecord": {
+        "label": "Study Records"
+      },
+      "favorites": {
+        "label": "My Favorites"
+      },
+      "follow": {
+        "label": "Following"
+      },
+      "fans": {
+        "label": "My Followers"
+      },
+      "subscriptions": {
+        "label": "My Subscriptions"
+      },
+      "webFollow": {
+        "label": "Following Me"
+      },
+      "userArticles": {
+        "label": "My Articles"
+      },
+      "myComments": {
+        "label": "My Comments"
+      },
+      "myResources": {
+        "label": "My Resources"
+      },
+      "examHistory": {
+        "label": "My Exams"
+      },
+      "signUp": {
+        "label": "My Registrations"
+      },
+      "myAsk": {
+        "label": "My Questions"
+      },
+      "myCircle": {
+        "label": "My Circles"
+      },
+      "sharePlanet": {
+        "label": "Share Planet"
+      },
+      "profileEdit": {
+        "label": "Profile"
+      },
+      "realNameAuth": {
+        "label": "Identity Verification"
+      },
+      "messageCenter": {
+        "label": "Message Center"
+      },
+      "notificationSettings": {
+        "label": "Notification Settings"
+      },
+      "securitySettings": {
+        "label": "Security Settings"
+      },
+      "mySubscription": {
+        "label": "Subscription Management"
+      },
+      "settings": {
+        "label": "Settings"
+      },
+      "help": {
+        "label": "Help Center"
+      },
+      "feedback": {
+        "label": "Feedback"
+      },
+      "about": {
+        "label": "About Us"
+      },
+      "student": {
+        "label": "Student Center"
+      }
+    }
+  },
   "llmSettings": {
     "v2": {
       "health": {
@@ -1288,7 +1402,7 @@
       "online": "Online",
       "offline": "Offline",
       "pairTitle": "Pair New Device",
-      "pairHint": "Enter a pairing code to connect a new device",
+      "pairHint": "Only for machines without a signed-in session (CLI / server): run ihui device pair <code> on that machine. The desktop app on this computer does not need a code — click “Enable” above.",
       "pairRateLimited": "Pairing rate limited",
       "pairFailed": "Pairing failed",
       "pairExpired": "Pairing expired",
@@ -1343,6 +1457,8 @@
       "executorEnable": "Enable",
 
       "executorUnpaired": "This computer is not connected yet. Click “Enable” to authorize it — no pairing code needed.",
+      "executorNeedLogin": "Your session expired. Please sign in again, then enable.",
+      "executorChangeWorkspace": "Change workspace folder",
       "executorUnsupported": "Device executor is only available on the Windows desktop app.",
       "executorTaskRegistered": "Launch at login registered",
       "approvalTitle": "Execution plan",

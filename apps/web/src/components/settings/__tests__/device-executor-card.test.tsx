@@ -148,13 +148,42 @@ describe('DeviceExecutorCard', () => {
 
   it('启用失败:显因并复读真实状态(不假装已配对)', async () => {
     exec.getDeviceExecutorStatus.mockResolvedValue(status({ paired: false, deviceName: null }))
-    exec.adoptDeviceExecutor.mockRejectedValueOnce(new Error('已取消选择工作区'))
+    exec.adoptDeviceExecutor.mockRejectedValueOnce(new Error('找不到 ihui 命令'))
     render(<DeviceExecutorCard />)
     await waitFor(() => expect(screen.getByTestId('executor-enable')).toBeTruthy())
     fireEvent.click(screen.getByTestId('executor-enable'))
     await waitFor(() => expect(screen.getByTestId('executor-error')).toBeTruthy())
-    expect(screen.getByTestId('executor-error').textContent).toContain('已取消选择工作区')
-    await waitFor(() => expect(exec.getDeviceExecutorStatus).toHaveBeenCalledTimes(2))
+    expect(screen.getByTestId('executor-error').textContent).toContain('找不到 ihui 命令')
+    // 首次加载 + enable 前读一次 + 失败后复读一次
+    await waitFor(() => expect(exec.getDeviceExecutorStatus).toHaveBeenCalledTimes(3))
+  })
+
+  it('启用时取消目录选择:不弹错、不复读状态(取消不是失败)', async () => {
+    exec.getDeviceExecutorStatus.mockResolvedValue(status({ paired: false, deviceName: null }))
+    exec.adoptDeviceExecutor.mockRejectedValueOnce(new Error('已取消选择工作区'))
+    render(<DeviceExecutorCard />)
+    await waitFor(() => expect(screen.getByTestId('executor-enable')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('executor-enable'))
+    await waitFor(() => expect(exec.adoptDeviceExecutor).toHaveBeenCalledTimes(1))
+    expect(screen.queryByTestId('executor-error')).toBeNull()
+    // 首次加载 + enable 内部的"停之前先读真实状态"各一次；取消不该再触发复读
+    expect(exec.getDeviceExecutorStatus).toHaveBeenCalledTimes(2)
+  })
+
+  it('已配对时给「重新选择工作区」入口(换目录不用去终端)', async () => {
+    render(<DeviceExecutorCard />)
+    await waitFor(() => expect(screen.getByTestId('executor-state')).toBeTruthy())
+    expect(screen.getByTestId('executor-change-workspace')).toBeTruthy()
+  })
+
+  it('重配工作区:先停进程 → 落盘 → 再启动(不留"旧目录还在跑"的假象)', async () => {
+    exec.getDeviceExecutorStatus.mockResolvedValue(status({ running: true, pid: 4321 }))
+    render(<DeviceExecutorCard />)
+    await waitFor(() => expect(screen.getByTestId('executor-change-workspace')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('executor-change-workspace'))
+    await waitFor(() => expect(exec.stopDeviceExecutor).toHaveBeenCalledTimes(1))
+    expect(exec.adoptDeviceExecutor).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(exec.startDeviceExecutor).toHaveBeenCalledTimes(1))
   })
 
   it('运行中点按钮 = 停止,状态跟随后端返回', async () => {
