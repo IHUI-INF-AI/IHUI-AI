@@ -13,13 +13,16 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Cpu, Loader2, Play, RefreshCw, Square } from 'lucide-react'
+import { Cpu, Loader2, Play, RefreshCw, Square, Zap } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { getBaseUrl, issueSelfDeviceToken } from '@ihui/api-client'
 
 import { Alert } from '@/components/feedback'
 import {
+  adoptDeviceExecutor,
   getDeviceExecutorStatus,
+  getExecutorHostName,
   isDesktopHost,
   startDeviceExecutor,
   stopDeviceExecutor,
@@ -61,9 +64,42 @@ export function DeviceExecutorCard() {
     }
   }
 
+  /**
+   * 自助接入（G5）：已登录就是凭据，不再让用户去手机抄 8 位配对码。
+   *
+   * 1. 登录态调 `POST /api/devices/self-token` 换设备令牌（只对 /devices/* 有效）；
+   * 2. 令牌交给桌面端 → CLI `ihui device adopt` 落盘（指纹/白名单仍是 CLI 唯一实现）；
+   * 3. 落盘成功立刻启动，用户点一次就到位。
+   * 目录选择由桌面端弹原生对话框（浏览器给不出本地路径，也不该给）。
+   */
+  const enable = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const host = await getExecutorHostName()
+      const name = `${host} · 桌面端`
+      const issued = await issueSelfDeviceToken({ name, os: navigator.platform || null })
+      if (!issued.success || !issued.data) throw new Error(issued.error ?? '签发设备令牌失败')
+      const adopted = await adoptDeviceExecutor({
+        deviceId: issued.data.device_id,
+        deviceToken: issued.data.device_token,
+        name: issued.data.name,
+        apiUrl: getBaseUrl() || undefined,
+      })
+      setStatus(adopted)
+      setStatus(await startDeviceExecutor())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      await load()
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (!desktop) return null
 
   const running = status?.running === true
+  const needsEnable = status?.supported === true && !status.paired
 
   return (
     <Card className="mt-3">
@@ -82,21 +118,37 @@ export function DeviceExecutorCard() {
           >
             <RefreshCw className={cn('h-4 w-4', busy && 'animate-spin')} aria-hidden />
           </Button>
-          <Button
-            size="sm"
-            data-testid="executor-toggle"
-            disabled={busy || status === null || !status.supported}
-            onClick={() => void toggle(running ? 'stop' : 'start')}
-          >
-            {busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : running ? (
-              <Square className="h-4 w-4" aria-hidden />
-            ) : (
-              <Play className="h-4 w-4" aria-hidden />
-            )}
-            {running ? t('devices.executorStop') : t('devices.executorStart')}
-          </Button>
+          {needsEnable ? (
+            <Button
+              size="sm"
+              data-testid="executor-enable"
+              disabled={busy}
+              onClick={() => void enable()}
+            >
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <Zap className="h-4 w-4" aria-hidden />
+              )}
+              {t('devices.executorEnable')}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              data-testid="executor-toggle"
+              disabled={busy || status === null || !status.supported}
+              onClick={() => void toggle(running ? 'stop' : 'start')}
+            >
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : running ? (
+                <Square className="h-4 w-4" aria-hidden />
+              ) : (
+                <Play className="h-4 w-4" aria-hidden />
+              )}
+              {running ? t('devices.executorStop') : t('devices.executorStart')}
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-2">

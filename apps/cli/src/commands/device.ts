@@ -82,9 +82,21 @@ function clearDaemonPid(): void {
   }
 }
 
+/** 读全 stdin(adopt 用:设备令牌从管道进来,不落 argv、不进进程列表) */
+function readAllStdin(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let buf = ''
+    process.stdin.setEncoding('utf8')
+    process.stdin.on('data', (chunk: string) => {
+      buf += chunk
+    })
+    process.stdin.on('end', () => resolve(buf))
+    process.stdin.on('error', (err) => reject(err))
+  })
+}
+
 /** 工作区名:同 basename 冲突时加序号(白名单键要能被人念出来) */
-function buildWorkspaceMap(paths: string[]): Record<string, string> {
-  const map: Record<string, string> = {}
+function buildWorkspaceMap(paths: string[]): Record<string, string> {  const map: Record<string, string> = {}
   for (const raw of paths) {
     const abs = resolve(raw)
     let name = basename(abs) || abs
@@ -159,6 +171,65 @@ export function registerDeviceCommand(program: Command): void {
       console.info(chalk.dim(`  工作区    ${Object.entries(workspaces).map(([k, v]) => `${k}=${v}`).join('  ')}`))
       console.info(chalk.dim(`  凭据文件  ${deviceCredentialPath()}(0600,勿入库)`))
       console.info(chalk.dim('下一步:ihui device start(常驻接单;也由桌面端托盘/服务托管启动)'))
+    })
+
+  device
+    .command('adopt')
+    .description('由已登录客户端调用:接管自助签发的设备令牌并落盘(不需要 8 位配对码)')
+    .option('--api-url <url>', '后端 API 地址(默认取 settings)')
+    .option(
+      '--workspace <path>',
+      '加入工作区白名单(可重复;默认当前目录)',
+      (v: string, prev: string[] = []) => [...prev, v],
+      [] as string[],
+    )
+    .action(async (opts: { apiUrl?: string; workspace: string[] }) => {
+      // 令牌只走 stdin,不进 argv(命令行在进程列表里对本机所有用户可见)。
+      const raw = await readAllStdin()
+      let input: { device_id?: unknown; device_token?: unknown; name?: unknown }
+      try {
+        input = JSON.parse(raw) as typeof input
+      } catch {
+        console.error(chalk.red('stdin 不是合法 JSON'))
+        process.exitCode = 1
+        return
+      }
+      const deviceId = typeof input.device_id === 'string' ? input.device_id.trim() : ''
+      const deviceToken = typeof input.device_token === 'string' ? input.device_token.trim() : ''
+      if (!deviceId || !deviceToken) {
+        console.error(chalk.red('stdin 缺 device_id 或 device_token'))
+        process.exitCode = 1
+        return
+      }
+      const cfg = resolveEffectiveConfig({ cliApiUrl: opts.apiUrl })
+      setBaseUrl(cfg.apiUrl)
+      // 指纹仍由 CLI 生成:这是全仓唯一一份指纹算法(桌面端只转交令牌,不另算一份)。
+      const fingerprint = (await cliDeviceFingerprintCollector.get()).fingerprint
+      const workspaces = buildWorkspaceMap(
+        opts.workspace.length > 0 ? opts.workspace : [process.cwd()],
+      )
+      const name =
+        (typeof input.name === 'string' ? input.name.trim() : '') ||
+        hostname().trim() ||
+        'desktop'
+      writeDeviceCredential({
+        version: DEVICE_CREDENTIAL_VERSION,
+        apiUrl: cfg.apiUrl,
+        deviceId,
+        deviceToken,
+        fingerprint,
+        name,
+        workspaces,
+        pairedAt: new Date().toISOString(),
+      })
+      console.info(chalk.green('已接管(自助签发,无需配对码)。'))
+      console.info(chalk.dim(`  设备 ID   ${deviceId.slice(0, 8)}…`))
+      console.info(chalk.dim(`  设备名    ${name}`))
+      console.info(
+        chalk.dim(
+          `  工作区    ${Object.entries(workspaces).map(([k, v]) => `${k}=${v}`).join('  ')}`,
+        ),
+      )
     })
 
   device

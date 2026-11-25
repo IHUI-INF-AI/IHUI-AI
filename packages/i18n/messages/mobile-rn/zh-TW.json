@@ -2588,7 +2588,9 @@
     "executorStart": "啟動",
     "executorStop": "停止",
     "executorRefresh": "重新整理狀態",
-    "executorUnpaired": "本機還沒接入:先在「簽發配對碼」處產生 8 位碼,再在終端執行 ihui device pair <8位碼>。",
+    "executorEnable": "一鍵啟用",
+
+    "executorUnpaired": "這台電腦還沒接入。點「一鍵啟用」授權本機執行(不需要配對碼)。",
     "executorUnsupported": "目前平台不支援本機執行器(僅 Windows 桌面端)。",
     "executorTaskRegistered": "已註冊開機自啟",
     "approvalTitle": "執行計畫",
@@ -5736,6 +5738,7 @@
       "bypassSkipApproval": "已跳過審批",
       "mcpRequiresApproval": "MCP 標註要求確認",
       "policyRequiresApproval": "策略要求審批",
+      "approvalPolicyDeny": "策略拒絕執行",
       "policySkipsApproval": "策略免審批",
       "guardianReviewSuggested": "複核建議改用更安全路徑",
       "guardianReviewAlternativeApplied": "已改用複核建議的路徑"
