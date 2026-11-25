@@ -644,6 +644,10 @@ function readArchiveItem(raw: JsonRecord, index: number): WechatMomentArchiveIte
     ...(hasLikes ? { likes: true } : {}),
     ...(hasComments ? { comments: true } : {}),
     ...(commentsData.length > 0 ? { commentsData } : {}),
+    ...(asString(raw.mediaLocalDir)
+      ? { mediaLocalDir: asString(raw.mediaLocalDir) as string }
+      : {}),
+    ...(raw.mediaDownloaded === true ? { mediaDownloaded: true } : {}),
   }
 }
 
@@ -718,6 +722,8 @@ export async function fetchMoments(
           createdAt: moment.createdAt,
           source: moment.source,
           page: moment.page,
+          ...(moment.mediaLocalDir !== undefined ? { mediaLocalDir: moment.mediaLocalDir } : {}),
+          ...(moment.mediaDownloaded === true ? { mediaDownloaded: true } : {}),
           ...(moment.timeText !== undefined ? { timeText: moment.timeText } : {}),
           ...(moment.imageCount !== undefined ? { imageCount: moment.imageCount } : {}),
           ...(moment.commentTexts !== undefined ? { commentTexts: moment.commentTexts } : {}),

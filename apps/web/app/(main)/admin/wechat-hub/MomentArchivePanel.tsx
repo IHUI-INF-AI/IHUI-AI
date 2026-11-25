@@ -104,6 +104,11 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
                   ? ` · 评论 ${moment.commentsData.length} 条`
                   : ''}
               </p>
+              {moment.mediaLocalDir ? (
+                <p className="mt-1 break-all text-xs text-muted-foreground">
+                  本地媒体：{moment.mediaLocalDir}
+                </p>
+              ) : null}
             </div>
           ))}
         </div>

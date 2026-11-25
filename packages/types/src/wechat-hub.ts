@@ -544,6 +544,10 @@ export interface WechatMomentArchiveItemView {
   likeUserIds?: string[]
   /** DB sidecar 真实评论结构；OCR/UIA 归档时缺省 */
   commentsData?: WechatMomentCommentView[]
+  /** DB sidecar 本地媒体目录；媒体真实落盘时才有 */
+  mediaLocalDir?: string
+  /** DB sidecar 是否至少落盘一个媒体 */
+  mediaDownloaded?: boolean
   likes?: boolean
   comments?: boolean
 }

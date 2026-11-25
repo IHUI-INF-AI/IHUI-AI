@@ -38,6 +38,10 @@ export interface MomentArchiveUpsertInput {
   likeUserIds?: string[]
   /** DB sidecar 带作者/时间的评论结构 */
   commentsData?: WechatMomentCommentView[]
+  /** DB sidecar 本地媒体目录；仅在媒体真实落盘时写入 */
+  mediaLocalDir?: string
+  /** DB sidecar 是否至少落盘一个媒体 */
+  mediaDownloaded?: boolean
   likes?: boolean
   comments?: boolean
 }
@@ -64,6 +68,10 @@ function momentMetadata(m: MomentArchiveUpsertInput): Record<string, unknown> {
   if (Array.isArray(m.commentsData) && m.commentsData.length > 0) {
     metadata.commentsData = m.commentsData
   }
+  if (typeof m.mediaLocalDir === 'string' && m.mediaLocalDir.length > 0) {
+    metadata.mediaLocalDir = m.mediaLocalDir
+  }
+  if (m.mediaDownloaded === true) metadata.mediaDownloaded = true
   if (m.likes === true) metadata.likes = true
   if (m.comments === true) metadata.comments = true
   return metadata
@@ -211,6 +219,10 @@ export async function listMomentsArchive(
       ...(hasLikes ? { likes: true } : {}),
       ...(hasComments ? { comments: true } : {}),
       ...(commentsData.length > 0 ? { commentsData } : {}),
+      ...(typeof metadata.mediaLocalDir === 'string' && metadata.mediaLocalDir.length > 0
+        ? { mediaLocalDir: metadata.mediaLocalDir }
+        : {}),
+      ...(metadata.mediaDownloaded === true ? { mediaDownloaded: true } : {}),
     }
   })
 }

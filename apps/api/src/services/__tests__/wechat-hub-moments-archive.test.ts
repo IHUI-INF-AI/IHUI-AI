@@ -84,6 +84,8 @@ describe('listMomentArchive', () => {
           authorResolved: false,
           content: '桥里第一条',
           mediaUrls: [],
+          mediaLocalDir: 'C:\\caches\\temp\\wechat-db-media\\bridge-1',
+          mediaDownloaded: true,
           createdAt: 1_760_000_100,
           source: 'wcfhttp',
           lastSeenAt: '2026-11-25T03:00:00.000Z',
@@ -103,6 +105,8 @@ describe('listMomentArchive', () => {
       id: 'bridge-1',
       authorName: '李四',
       content: '桥里第一条',
+      mediaLocalDir: 'C:\\caches\\temp\\wechat-db-media\\bridge-1',
+      mediaDownloaded: true,
     })
   })
 
