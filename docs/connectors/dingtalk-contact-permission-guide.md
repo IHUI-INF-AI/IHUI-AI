@@ -129,8 +129,22 @@ AI 侧已完成：链路核验、应用 Client ID 查明、后台权限状态现
 
 ### 6.2 剩余的唯一真人动作
 
-- **用户本人在平台连接器页用钉钉扫码授权**（第三节 3.2）：生产库 `oauth_users` 实测 `provider='dingtalk'` 行数 = **0**（全 provider 均 0），平台链路里尚无任何用户的 userAccessToken。这一步必须真人用钉钉 App 扫码，AI 无法代劳。
+- **用户本人在平台连接器页用钉钉扫码授权**（第三节 3.2）：真人用钉钉 App 扫码同意后产生 `code` → callback 换取 userAccessToken → 加密落 `connector_instances.extra.user_oauth`（`key='dingtalk:user-oauth'`、`spec.auth_kind='dingtalk_user'`）。AI 无法自行生成有效 `code`，无法代劳。
+- **查表纠偏（2026-11-25 23:00）**：早期快照用 `oauth_users` 表判断「0 行 = 无人扫码」是**查错了表**——`oauth_users` 在全仓库无任何 INSERT 路径（死表），真实 user token 落在 `connector_instances.extra.user_oauth`。现读该表：`dingtalk:user-oauth` 仅 1 条，且为 `managed=true / credential_source=platform_env / owner_user_id=None` 的**平台兜底授权**，非真人用户授权。故「从无真人用户完成平台侧钉钉扫码授权」的结论仍成立，但依据应以此表为准。
 - 用户扫码授权完成后，AI 以本人身份调通讯录接口即可成功——应用权限侧已实测无障碍，届时按第三节 3.2/3.3 验证即可收口。
+
+### 6.4 用户 token 链路实测（2026-11-25 23:00，含一次探测副作用留档）
+
+对平台兜底记录 `dingtalk:user-oauth` 的 `user_oauth`（AES-256-GCM 密文，密钥 `data/credentials_key`）解密 + 刷新验证：
+
+| 探测 | 结果 | 判定 |
+| --- | --- | --- |
+| 解密 `user_oauth` | 得到 `{access_token, refresh_token, expires_at, ...}` | 加密存储链路正常 |
+| access_token 有效期 | `expires_at` 对应 2026-11-25 00:16，已过期约 22.7h | 该兜底 token 早已过期且 `last_sync_at` 为空（长期未使用） |
+| 用 refresh_token 走项目 `build_refresh_body` + `/v1.0/oauth2/userAccessToken`（`grantType=refresh_token`） | **HTTP 200**，返回新 accessToken/refreshToken | **钉钉用户授权刷新链路本身是通的**（config 端点/字段映射正确） |
+| 以刷新后的用户 token 调 `contact/users/search` | 403 `requiredScopes:["qyapi_addresslist_search"]` | search 这个旧版 scope 应用未开（与 `Contact.User.Read` 无关；详情接口 `Contact.User.Read` 已开） |
+
+> **探测副作用留档（诚实记录）**：钉钉 refresh_token 是**一次性轮换**的。本次刷新消耗了库里那条 refresh_token，但刷新返回的新 token 未回写数据库（探测脚本仅验证未持久化），导致该兜底记录的 refresh_token 失效。影响面：仅这条 `owner_user_id=None / managed=true` 的平台兜底授权（探测前 access_token 已过期 22.7h、`last_sync_at` 空、无真实用户在用），**不涉及任何真人登录态**。修复方式：真人扫码重新授权，或平台重新播种该兜底记录。后续任何对该记录的刷新验证**必须回写新 token**（走 `_make_refresh_persister`），不可只用裸脚本探测。
 
 ### 6.3 关于两种 token 的边界（排障必读）
 
