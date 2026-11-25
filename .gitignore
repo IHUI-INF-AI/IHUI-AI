@@ -57,6 +57,7 @@ apps/web/public/downloads/desktop/
 apps/desktop/src-tauri/windows/installer-assets/
 apps/desktop/src-tauri/windows/ihui-assets-path.nsh
 apps/desktop/src-tauri/binaries/
+apps/desktop/src-tauri/bundle-cli/
 # 图片 CDN 占位图骨架目录(deploy/generate-placeholders.js 生成,191 个 0 字节占位文件,
 # 不入库;新图标加入 remote-icons.ts 后重新生成)
 deploy/server-root/
