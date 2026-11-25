@@ -270,16 +270,78 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
     setError('')
     setLastFrameAt(0)
     let ws: WebSocket
+    let fallbackTimer: number | null = null
+    let fallbackBusy = false
+    const stopFallback = () => {
+      if (fallbackTimer !== null) {
+        window.clearInterval(fallbackTimer)
+        fallbackTimer = null
+      }
+    }
+    const drawPipFrame = (source: CanvasImageSource, width: number, height: number) => {
+      if (disposed) return
+      const canvas = canvasRef.current
+      const ctx = canvas?.getContext('2d')
+      if (!canvas || !ctx) return
+      if (canvas.width !== width) canvas.width = width
+      if (canvas.height !== height) canvas.height = height
+      ctx.drawImage(source, 0, 0, width, height)
+      setHasFrame(true)
+      setLastFrameAt(Date.now())
+    }
+    /**
+     * 兼容通道：生产 CDN 不保证把 WebSocket Upgrade 透传到 ai-service 时，
+     * PIP 不能永远停在一句「画面已断开」。改用同源 HTTP 截图轮询兜底，
+     * 250ms 一帧 ≈ 4fps；WS 一旦恢复立即停轮询，回到 screencast 30fps。
+     */
+    const pumpFallback = async () => {
+      if (disposed || fallbackBusy) return
+      fallbackBusy = true
+      try {
+        const resp = await fetch(
+          `/api/browser/sessions/${encodeURIComponent(sessionId)}/screenshot`,
+          {
+            headers: { Authorization: `Bearer ${pipToken}` },
+            cache: 'no-store',
+          },
+        )
+        if (!resp.ok) throw new Error(`screenshot ${resp.status}`)
+        const blob = await resp.blob()
+        const objectUrl = URL.createObjectURL(blob)
+        const img = imgRef.current ?? new Image()
+        img.onload = () => {
+          drawPipFrame(img, img.naturalWidth || 1280, img.naturalHeight || 720)
+          URL.revokeObjectURL(objectUrl)
+          setConnected(true)
+          setPhase('running')
+          setError('')
+        }
+        img.onerror = () => URL.revokeObjectURL(objectUrl)
+        img.src = objectUrl
+        imgRef.current = img
+      } catch {
+        /* 兼容通道单帧失败不改变状态，下一轮继续；重连按钮仍可手动重试 WS */
+      } finally {
+        fallbackBusy = false
+      }
+    }
+    const startFallback = () => {
+      if (disposed || fallbackTimer !== null) return
+      void pumpFallback()
+      fallbackTimer = window.setInterval(() => void pumpFallback(), 250)
+    }
     try {
       ws = new WebSocket(buildBrowserWsUrl(sessionId))
     } catch {
       setPhase('error')
       setError(labelsRef.current.error)
+      startFallback()
       return
     }
     wsRef.current = ws
     ws.onopen = () => {
       if (disposed) return
+      stopFallback()
       setConnected(true)
       setError('')
     }
@@ -329,6 +391,7 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
       if (disposed) return
       setPhase('error')
       setError(labelsRef.current.error)
+      startFallback()
     }
     ws.onclose = (event) => {
       if (disposed) return
@@ -336,10 +399,12 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
       if (event.code !== 1000) {
         setPhase('error')
         setError(event.reason || labelsRef.current.error)
+        startFallback()
       }
     }
     return () => {
       disposed = true
+      stopFallback()
       wsRef.current = null
       try {
         ws.close(1000)
