@@ -139,6 +139,16 @@ vi.mock('../src/db/index.js', async () => {
       if (m[3]) preds.push({ key: snakeToCamel(m[2]!), op: m[3], value: params[p++] })
       else preds.push({ key: snakeToCamel(m[5]!), op: 'is null' })
     }
+    // 取消的"即时"分支用裸 SQL 写 status IN ('queued','claimed'),假库要能解释它,
+    // 否则 running 任务会被误判成"还没被认领"而直接置 failed。
+    const inRe = /"([a-z_]+)"\."([a-z_]+)"\s+IN\s*\(([^)]+)\)/gi
+    let mi: RegExpExecArray | null
+    while ((mi = inRe.exec(text)) !== null) {
+      const values = mi[3]!
+        .split(',')
+        .map((s) => s.trim().replace(/^'/, '').replace(/'$/, ''))
+      preds.push({ key: snakeToCamel(mi[2]!), op: 'in', value: values })
+    }
     return preds
   }
 
@@ -149,6 +159,7 @@ vi.mock('../src/db/index.js', async () => {
       if (op === '=') return String(rv) === String(value)
       if (op === '>') return new Date(rv).getTime() > new Date(value as never).getTime()
       if (op === '<') return new Date(rv).getTime() < new Date(value as never).getTime()
+      if (op === 'in') return (value as string[]).includes(String(rv))
       return false
     })
   }
@@ -315,6 +326,7 @@ vi.mock('../src/db/index.js', async () => {
       session_id: r.sessionId,
       target_device_id: r.targetDeviceId,
       status: r.status,
+      payload: r.payload ?? null,
       claimed_at: r.claimedAt ?? null,
       finished_at: r.finishedAt ?? null,
       error: r.error ?? null,
@@ -352,6 +364,20 @@ vi.mock('../src/db/index.js', async () => {
       pick.status = 'running'
       pick.claimedAt = new Date()
       return { rows: [toSnakeTask(pick)] }
+    }
+    // 已在跑的任务被取消:只落意图(cancel_requested_at + 一句人话),不抢状态
+    if (text.includes('cancel_requested_at = now()')) {
+      const taskId = params[0] as string
+      const row = store.device_tasks!.find((r) => r.id === taskId)
+      if (row) {
+        row.cancelRequestedAt = new Date()
+        row.progress = {
+          ...(row.progress ?? {}),
+          lastEvent: '已请求取消,等待执行端收口',
+          updatedAt: new Date().toISOString(),
+        }
+      }
+      return { rows: [] }
     }
     return { rows: [] }
   }
@@ -840,6 +866,159 @@ describe('推送令牌归属锁(SDB-01)', () => {
     expect(res.body).not.toContain(USER_B)
     expect(res.body).not.toContain('iPhone15,2')
     expect(res.body).not.toContain('zh-CN')
+  })
+})
+
+/**
+ * G2 派单载荷与任务状态机(2026-11-26)。
+ * 判据:派单必须带可执行指令(不许"空指令 + 另一端显示运行中");认领按先来后到;
+ * 取消分"还没跑"与"正在跑"两态(后者不能抢状态,只落意图等执行端收口);
+ * 重排只对失败/过期任务开放,且不能把上一轮已经给用户看过的输出抹掉。
+ */
+describe('G2 派单载荷与任务状态机', () => {
+  /** 配一台新设备 + 一个空会话(设备名唯一,避免注册幂等复用同一台) */
+  async function setupQueue() {
+    const { deviceToken, deviceId } = await pairNewDevice(USER_A, `执行器-${randomUUID().slice(0, 6)}`)
+    const session = randomUUID()
+    store.chat_conversations!.push({ id: session, userId: USER_A })
+    return { deviceToken, deviceId, session }
+  }
+
+  it('缺 prompt:空会话 400;有最后一条 user 消息则取它并登记 contextMessageId;显式 prompt 优先', async () => {
+    const { deviceId, session } = await setupQueue()
+
+    const empty = await asUser('POST', `/api/chat/sessions/${session}/delegate`, USER_A, {
+      target_device_id: deviceId,
+    })
+    expect(empty.statusCode).toBe(400)
+    expect(empty.json().errorCode).toBe('TASK_PROMPT_MISSING')
+
+    const msgId = randomUUID()
+    // 列名以 schema 为准:chat_messages 是 conversation_id(delegateTask 按它取"最后一条用户消息")
+    store.chat_messages!.push({
+      id: msgId,
+      conversationId: session,
+      role: 'user',
+      content: '  把本周发布记录整理成一页  ',
+      createdAt: new Date('2026-11-25T10:00:00Z'),
+    })
+    const ok = await asUser('POST', `/api/chat/sessions/${session}/delegate`, USER_A, {
+      target_device_id: deviceId,
+    })
+    expect(ok.statusCode).toBe(200)
+    const task = store.device_tasks!.find((t) => t.id === ok.json().data.task_id)!
+    expect(task.payload.prompt).toBe('把本周发布记录整理成一页')
+    expect(task.payload.contextMessageId).toBe(msgId)
+    expect(task.payload.mode).toBe('execute')
+    expect(task.payload.autoApprove).toBe(false)
+
+    // 显式 prompt 优先:不再去取会话消息,也不挂 contextMessageId
+    const explicit = await asUser('POST', `/api/chat/sessions/${session}/delegate`, USER_A, {
+      target_device_id: deviceId,
+      prompt: '  只跑 lint  ',
+      mode: 'plan',
+      auto_approve: true,
+    })
+    expect(explicit.statusCode).toBe(200)
+    const t2 = store.device_tasks!.find((t) => t.id === explicit.json().data.task_id)!
+    expect(t2.payload.prompt).toBe('只跑 lint')
+    expect(t2.payload.mode).toBe('plan')
+    expect(t2.payload.autoApprove).toBe(true)
+    expect(t2.payload.contextMessageId).toBeUndefined()
+  })
+
+  it('认领按创建顺序(FIFO):先排的先发,认领过的不再重复发出,空了给 204', async () => {
+    const { deviceToken, deviceId, session } = await setupQueue()
+    for (const prompt of ['第一条', '第二条']) {
+      const d = await asUser('POST', `/api/chat/sessions/${session}/delegate`, USER_A, {
+        target_device_id: deviceId,
+        prompt,
+      })
+      expect(d.statusCode).toBe(200)
+    }
+
+    const t1 = await asDevice('GET', '/api/devices/claim', deviceToken)
+    expect(t1.statusCode).toBe(200)
+    expect(t1.json().data.payload.prompt).toBe('第一条')
+    const t2 = await asDevice('GET', '/api/devices/claim', deviceToken)
+    expect(t2.statusCode).toBe(200)
+    expect(t2.json().data.payload.prompt).toBe('第二条')
+    // 两条都已被认领 ⇒ 没有可发的了(设备不能把同一条领两次)
+    const t3 = await asDevice('GET', '/api/devices/claim', deviceToken)
+    expect(t3.statusCode).toBe(204)
+  })
+
+  it('取消两态:queued 即时 failed(进度 cancelled);running 只写意图,lease 读回 cancel_requested', async () => {
+    const { deviceToken, deviceId, session } = await setupQueue()
+
+    // 还没被认领:直接收口,不必等设备心跳
+    const queued = await asUser('POST', `/api/chat/sessions/${session}/delegate`, USER_A, {
+      target_device_id: deviceId,
+      prompt: '还没跑的任务',
+    })
+    const qid = queued.json().data.task_id as string
+    const c1 = await asUser('POST', `/api/devices/tasks/${qid}/cancel`, USER_A)
+    expect(c1.statusCode).toBe(200)
+    expect(c1.json().data).toMatchObject({ cancelled: true, immediate: true, status: 'failed' })
+    expect(store.device_tasks!.find((t) => t.id === qid)!.progress.stage).toBe('cancelled')
+
+    // 正在跑:不能抢先把状态改成 failed(执行端可能正写到一半)
+    const running = await asUser('POST', `/api/chat/sessions/${session}/delegate`, USER_A, {
+      target_device_id: deviceId,
+      prompt: '正在跑的任务',
+    })
+    const rid = running.json().data.task_id as string
+    const claimed = await asDevice('GET', '/api/devices/claim', deviceToken)
+    expect(claimed.json().data.id).toBe(rid)
+    const c2 = await asUser('POST', `/api/devices/tasks/${rid}/cancel`, USER_A)
+    expect(c2.statusCode).toBe(200)
+    expect(c2.json().data.immediate).toBe(false)
+    const rrow = store.device_tasks!.find((t) => t.id === rid)!
+    expect(rrow.status).toBe('running')
+    expect(rrow.cancelRequestedAt).toBeTruthy()
+    const lease = await asDevice('POST', `/api/devices/tasks/${rid}/lease`, deviceToken, {})
+    expect(lease.statusCode).toBe(200)
+    expect(lease.json().data.cancel_requested).toBe(true)
+
+    // 已结束的任务不能再取消
+    const done = await asDevice('POST', `/api/devices/tasks/${rid}/complete`, deviceToken, {
+      summary: { ok: 1 },
+    })
+    expect(done.statusCode).toBe(200)
+    const c3 = await asUser('POST', `/api/devices/tasks/${rid}/cancel`, USER_A)
+    expect(c3.statusCode).toBe(409)
+  })
+
+  it('重排:仅 failed/expired 可重排,attempt 递增且保留 payload;completed 409;非属主 403', async () => {
+    const { deviceToken, deviceId, session } = await setupQueue()
+    const d = await asUser('POST', `/api/chat/sessions/${session}/delegate`, USER_A, {
+      target_device_id: deviceId,
+      prompt: '会缺依赖的那次',
+    })
+    const id = d.json().data.task_id as string
+    expect((await asDevice('GET', '/api/devices/claim', deviceToken)).json().data.id).toBe(id)
+    const failed = await asDevice('POST', `/api/devices/tasks/${id}/fail`, deviceToken, {
+      error: '缺依赖',
+    })
+    expect(failed.statusCode).toBe(200)
+
+    const retry = await asUser('POST', `/api/devices/tasks/${id}/retry`, USER_A)
+    expect(retry.statusCode).toBe(200)
+    expect(retry.json().data).toMatchObject({ status: 'queued', attempt: 2 })
+    const row = store.device_tasks!.find((t) => t.id === id)!
+    expect(row.messageId ?? null).toBeNull()
+    expect(row.error ?? null).toBeNull()
+    // payload 不动:重排不是"重写指令",用户不用重新说一遍
+    expect(row.payload.prompt).toBe('会缺依赖的那次')
+
+    const foreign = await asUser('POST', `/api/devices/tasks/${id}/retry`, USER_B)
+    expect(foreign.statusCode).toBe(403)
+
+    expect((await asDevice('GET', '/api/devices/claim', deviceToken)).json().data.id).toBe(id)
+    await asDevice('POST', `/api/devices/tasks/${id}/complete`, deviceToken, { summary: { ok: 1 } })
+    const notRetryable = await asUser('POST', `/api/devices/tasks/${id}/retry`, USER_A)
+    expect(notRetryable.statusCode).toBe(409)
+    expect(notRetryable.json().errorCode).toBe('TASK_NOT_RETRYABLE')
   })
 })
 
