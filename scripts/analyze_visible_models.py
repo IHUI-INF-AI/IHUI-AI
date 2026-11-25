@@ -80,12 +80,6 @@ async def load_db_public_models():
             mid = f"openrouter/{mid}"
         elif pc == "stepfun" and not mid.startswith("stepfun/"):
             mid = f"stepfun/{mid}"
-        elif pc == "token6688":
-            tags = {str(t).lower() for t in (r["tags"] or [])}
-            if "chat" not in tags and not mid.startswith("t6688/"):
-                continue
-            if not mid.startswith("t6688/"):
-                mid = f"t6688/{mid}"
         if mid not in seen:
             out.append({"id": mid, "name": r["display_name"] or mid, "provider": pc})
             seen.add(mid)

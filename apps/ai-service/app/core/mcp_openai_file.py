@@ -27,7 +27,7 @@
     * 审批复核人(approvals_reviewer)的回退链解析
     * 可见连接器缓存键与 TTL 缓存
 
-重叠说明:我侧 app/services/mcp_server.py 已有 `_tool_token6688_upload_file`
+重叠说明:我侧 app/services/mcp_server.py 已有 `_tool_upload_file`
 (本地路径读取 + ≤50MB 上限 + basename 文件名),属同一概念的既有实现;本模块
 不复刻上传/读取 IO,只复用「大小上限 + basename 文件名」思路并抽象成可测纯函数,
 不改动那些既有文件。

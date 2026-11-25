@@ -397,7 +397,6 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     # 国内
     "stepfun/": "stepfun",
     "agnes/": "agnes",
-    "t6688/": "token6688",
     "workbuddy/": "workbuddy_relay",
     "qwen": "qwen",
     "qwen-": "qwen",
@@ -923,7 +922,7 @@ async def _find_quota_alternate_channels(
     """同一模型在其他厂商的可用通道(额度耗尽时改道用)。
 
     数据源与 /llm/models 同表(ai_model_config_models JOIN ai_model_config),因此
-    "不充值也能调到 qwen 系"的既有替代通道(openrouter / token6688 / siliconflow …)
+    "不充值也能调到 qwen 系"的既有替代通道(openrouter / siliconflow …)
     无需任何新配置即可被复用。DB 不可用时返回空列表 —— 行为等同于未启用该特性。
     """
     bare_model = model_id.split("/", 1)[-1] if "/" in model_id else model_id
@@ -2246,17 +2245,6 @@ class LLMGateway:
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("agnes")
             return cfg.api_key, cfg.api_base, f"openai/{real_model}"
-        # Token6688 聚合网关(单 key 全模态)。⚠ LiteLLM openai/ 直连要求 api_base 以
-        # /v1 结尾(否则请求 {base}/chat/completions 落到网站首页 HTML,2026-09-08 假 key
-        # 实测:无 /v1 → "Empty or invalid response";有 /v1 → 401 Invalid API key 正确命中),
-        # 故默认带 /v1,且用户误配无 /v1 时自动补齐(防呆)。
-        if m.startswith("t6688/"):
-            real_model = model.split("/", 1)[1]
-            cfg = settings.get_provider_config("token6688")
-            base = (cfg.api_base or "https://k.token6688.com").rstrip("/")
-            if not base.endswith("/v1"):
-                base += "/v1"
-            return cfg.api_key, base, f"openai/{real_model}"
         if m.startswith("workbuddy/"):
             # 项目自有中转站(账号池):模型串保持 workbuddy/ 前缀,由中转站路由到账号池
             cfg = settings.get_provider_config("workbuddy_relay")

@@ -29,7 +29,6 @@ from .openrouter_provider import OpenrouterProvider
 from .qwen_local_provider import QwenLocalProvider
 from .stepfun_provider import StepfunProvider
 from .tencent_hunyuan_provider import TencentHunyuanProvider
-from .token6688_provider import Token6688Provider
 from .volcengine_provider import VolcengineProvider
 from .zhipu_provider import ZhipuProvider
 
@@ -81,9 +80,6 @@ def get_provider(model: str, api_key: str | None, api_base: str | None) -> BaseP
         return GeminiProvider(api_key, api_base)
     if m.startswith("stepfun/"):
         return StepfunProvider(api_key, api_base)
-    # Token6688 聚合网关(单 key 全模态:chat/image/tts/stt/embeddings/video)
-    if m.startswith("t6688/"):
-        return Token6688Provider(api_key, api_base)
     # 国内厂商 / 聚合平台:必须在 OpenAI 兼容 catchall 之前匹配(否则无斜杠前缀会被吞)
     if m.startswith("qwen-"):
         return AlibabaDashscopeProvider(api_key, api_base)

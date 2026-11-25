@@ -170,10 +170,10 @@ const DIFF_TOOL_NAMES = new Set(['edit_file', 'write_file'])
 /** image_generation / image_edit 工具名命中即渲染 <img>(2026-09-09 改图产物同走图片渲染) */
 const IMAGE_TOOL_NAMES = new Set(['image_generation', 'image_edit'])
 
-/** music_generation / voice_tts 工具名命中即渲染 <audio> 播放器(token6688/edge-tts,2026-09-08) */
+/** music_generation / voice_tts 工具名命中即渲染 <audio> 播放器(edge-tts,2026-09-08) */
 const AUDIO_TOOL_NAMES = new Set(['music_generation', 'voice_tts'])
 
-/** video_generation 工具名命中即渲染 <video> 播放器(token6688,2026-09-08) */
+/** video_generation 工具名命中即渲染 <video> 播放器,2026-09-08 */
 const VIDEO_TOOL_NAMES = new Set(['video_generation'])
 
 /** summarize_artifacts 工具名命中即渲染聚合视图 */
@@ -1302,7 +1302,7 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
 /* ==================== 长任务自动轮询取件(2026-09-09 立) ====================
  * 媒体工具(video/music/tts/image)提交成功、有 task_id 但产物未就绪时,
  * 卡片自动轮询 GET /api/media/tasks/{task_id}(带鉴权 fetchApi,后端在途任务
- * 会实时向 token6688 探测),任务 succeeded 且有公网产物 URL 后自动切换为
+ * 会查询任务状态),任务 succeeded 且有公网产物 URL 后自动切换为
  * 产物渲染,无需用户再次提问取件。轮询间隔 10s,上限 36 次(≈6 分钟),
  * 期间保留手动"刷新状态"按钮兜底。 */
 const MEDIA_POLL_INTERVAL_MS = 10_000

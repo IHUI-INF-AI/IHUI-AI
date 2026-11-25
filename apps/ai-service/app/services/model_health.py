@@ -106,7 +106,6 @@ _STRIP_PREFIXES = (
     "nvidia/",
     "openrouter/",
     "stepfun/",
-    "t6688/",
     "workbuddy/",
     "groq/",
     "scaleway/",
@@ -1257,15 +1256,14 @@ class ModelHealthService:
     def _resolve_catalog_model(self, model_id: str) -> str | None:
         """把测试接口传来的模型 id 对齐到目录 id。
 
-        测试接口格式是 `{providerCode}/{modelId}`,目录 id 可能是 `t6688/...`、
-        `gemini/...` 等网关前缀形式,因此按"剥离前缀后的上游名"做二次匹配。
+        测试接口格式是 `{providerCode}/{modelId}`,目录 id 可能是 `gemini/...` 等网关前缀形式,因此按"剥离前缀后的上游名"做二次匹配。
         """
         if not model_id:
             return None
         if model_id in self._catalog:
             return model_id
         tail = model_id.split("/", 1)[1] if "/" in model_id else model_id
-        # 测试接口第一段是 providerCode(如 token6688/xxx),同名裸模型可能属于多个厂商:
+        # 测试接口第一段是 providerCode(如 openrouter/xxx),同名裸模型可能属于多个厂商:
         # 优先匹配同厂商条目,避免把 A 厂商的测试结果写到 B 厂商的同名模型上。
         test_code = model_id.split("/", 1)[0] if "/" in model_id else ""
         fallback: list[str] = []

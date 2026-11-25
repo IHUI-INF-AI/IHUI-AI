@@ -83,19 +83,7 @@ _MEDIA_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
         re.compile(r"朗读|读出来|念出来|配(个|段|一)?音|语音合成|转语音|播报|文字转语音|文本转语音"),
         re.compile(r"\b(text to speech|read (it |this )?aloud|speak (it )?out)\b", re.IGNORECASE),
     ),
-    # 声纹克隆(2026-09-09 深能力补齐):上传参考音频克隆音色/列声纹库/查声纹详情
-    "token6688_voice_clone": (
-        re.compile(r"(克隆|复刻|复制)(一)?(下|个)?(我的|自己的|他|她)?(声音|音色|嗓音|声线)"),
-        re.compile(r"(我的|自己的|这个|这段|他的|她的)?(声音|音色|嗓音|声线)(克隆|复刻|复制|保存|上传|训练|学习)"),
-        # "把我的声音做成音色 / 把这段录音变成我的声音" 结构
-        re.compile(r"(把|将)?(我的|自己的|他|她|这段|这个)?(声音|嗓音|声线|录音)(做|变|转|克隆|复刻)(成|为)?(我的)?(音色|声音|声线|嗓音)"),
-        # "上传这段录音做声纹 / 用这段音频克隆声音" 结构
-        re.compile(r"(上传|用|拿)(一)?(这|那)?(段|个|条)?(录音|音频|声音|语音)?(来)?(做|当|作为|克隆|训练|合成)(一)?(个)?(声纹|音色|声音|克隆)"),
-        # "我的声纹库有哪些 / 声音库列表" 结构
-        re.compile(r"(我的|自己的)?(声纹|声音|音色)(库|列表)?(有哪些|都有什么|有什么|查一下|看看|列一下|显示|查看|列出来)"),
-        re.compile(r"\b(voice ?clone|clone (my )?voice|upload (a )?voice|voice list)\b", re.IGNORECASE),
-    ),
-    # ---- 2026-09-09 全模态深度适配:理解/转写/账务 三类深能力入对话路由 ----
+    # ---- 2026-09-09 全模态深度适配:理解/转写 两类深能力入对话路由 ----
     "vision_analyze": (
         re.compile(r"(看|瞧|识别|分析|描述|解读)(一)?下?这(张|个|幅)?(图|图片|照片|截图|漫画|海报)"),
         re.compile(r"这(张|个|幅)?(图|图片|照片|截图)(里|中|上)?(有|是|画|写|说|讲|啥|什么)"),
@@ -109,30 +97,13 @@ _MEDIA_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
         re.compile(r"听写|转写"),  # ASR 专用词,独立强信号无误触
         re.compile(r"\b(transcribe|speech[- ]to[- ]text|audio[- ]to[- ]text)\b", re.IGNORECASE),
     ),
-    "token6688_balance": (
-        re.compile(r"(账户|账号|平台)?(余额|额度)(还剩|剩|多少|查询|查一下|还有|够不够|够吗)"),
-        re.compile(r"(查询|查一下|看看|问一下)(一)?下?(账户|账号|平台)?(余额|额度)"),
-        re.compile(r"还剩多少(钱|额度|余额|积分|金额)"),
-        re.compile(r"\b(how much (balance|credit)|check balance)\b", re.IGNORECASE),
-    ),
-    # ---- 2026-09-09 全模态深度适配(二):改图 / 取消长任务 / 模型价目问答 ----
+    # ---- 2026-09-09 全模态深度适配(二):改图 ----
     "image_edit": (
         re.compile(r"(把|帮|给)?(我|这)?(张|个|幅)?(图|图片|照片|头像|封面)(给|帮我)?(改|编辑|修|换|去掉|去个|去除|加上|加个|改成|改成是|转成|变|P|修一下|处理)"),
         re.compile(r"(改|修|编辑|处理|调整|美化)(一)?下?(这|那)?(张|个|幅)?(图|图片|照片|头像|封面)"),
         re.compile(r"(去|去掉|移除|删掉|清除|抹去)(一)?(下)?(这)?(张)?(图|图片|照片)?(里|中|上)?的?(水印|背景|文字|logo|人物|物体)"),
         re.compile(r"(扩图|局部重绘|改图|修图|图片编辑|编辑图片|去水印|抠图|换背景|改背景|调色)"),
         re.compile(r"\b(edit|modify|retouch|photoshop|remove (watermark|background|text)) (this|the|my) (image|picture|photo)\b", re.IGNORECASE),
-    ),
-    "token6688_cancel_task": (
-        re.compile(r"(取消|撤销|停止|别要了|不要了|终止)(一)?(下)?(这个|那个|视频|音乐|图片|任务|生成|出片|歌曲)"),
-        re.compile(r"(视频|音乐|任务|出片|歌曲)(取消|撤销|停止|别做了|不要了|终止)"),
-        re.compile(r"\b(cancel|stop|abort) (the )?(task|video|music|generation)\b", re.IGNORECASE),
-    ),
-    "token6688_model_info": (
-        re.compile(r"(生成|做|做一段|做一首|画|出一)(这|那|一)?(个)?(视频|图片|音乐|歌)要?(多|大概)?(少钱|多少钱|贵不贵|什么价|价格|费用)"),
-        re.compile(r"(模型|这个模型|这个工具)的?(价格|费用|参数|参数有哪些|多少钱|怎么收费)"),
-        re.compile(r"(查|看看|问一下|帮我查)(一)?下?(模型|生成|这个)?(价格|价目|费用|参数|多少钱)"),
-        re.compile(r"\b(how much (does it |)cost|price|pricing|params?)\b", re.IGNORECASE),
     ),
 }
 
@@ -163,12 +134,6 @@ _MEDIA_CHAIN_PROMPT = (
     "- 转写后加工:先 audio_transcription 拿到文本,再做朗读/翻译/总结等后续工具调用\n"
     "- 改图:用户要'改/修/去水印/换背景'时用 image_edit(需待编辑图 URL/data URI,"
     "可复用上轮 image_generation 的 image_url;改前可先 vision_analyze 确认原图内容)\n"
-    "- 取消长任务:用户说'取消/别做了'且记忆里有 task_id 时,调 token6688_cancel_task "
-    "取消在途任务,严禁编造 task_id\n"
-    "- 声纹克隆:用户要'克隆我的声音/上传声音做音色'时,调 token6688_voice_clone "
-    "(action=upload,支持 path/url/data_uri),成功后把 voice_id 用于 voice_tts(engine=token6688)朗读\n"
-    "- 价目问答:用户问'生成视频/图片要多少钱'时,调 token6688_model_info 查价目与参数,"
-    "再按结果如实作答\n"
     "- 长任务取件:会话历史(含 media_context)里出现 task_id 时,用户问"
     "'视频/音乐好了吗'直接带该 task_id 调对应工具(只传 task_id 即查询模式),"
     "严禁编造 task_id,严禁谎称已完成;完成后按渲染规范嵌入链接"
@@ -497,12 +462,6 @@ def _media_artifact_summary(tool_calls: list[ToolCallRecord]) -> str:
             entry = {"voice": r.get("voice", ""), "engine": r.get("engine", "")}
             if r.get("saved_path"):
                 entry["saved_path"] = r["saved_path"]
-        elif tc.tool == "token6688_voice_clone":
-            # 声纹克隆产物记忆(2026-09-09):voice_id 是下轮 voice_tts 复用克隆音色的钥匙,
-            # 必须入记忆,否则"用刚才克隆的声音朗读"会断链
-            vid = r.get("voice_id")
-            if vid:
-                entry = {"voice_id": vid}
         elif tc.tool == "vision_analyze":
             desc = str(r.get("analysis") or "")[:200]
             if desc:
@@ -648,7 +607,7 @@ class ConversationService:
             "computer_clipboard_set": ["设置剪贴板", "clipboard set", "copy clipboard"],
             # 视频生成(2026-09-08):说"做视频"时引导触发统一编排出片
             "video_generation": ["视频", "video", "出片", "短片", "动画片", "火柴人"],
-            # 音乐生成(2026-09-08):说"做首歌/配乐"时触发 token6688 Suno 风格生成
+            # 音乐生成(2026-09-08):说"做首歌/配乐"时触发音乐生成
             "music_generation": ["音乐", "歌曲", "写歌", "做首歌", "唱", "配乐", "作曲", "编曲", "music", "song"],
             # 语音合成(2026-09-08):说"朗读/读出来/配音"时触发文本转语音(edge 零成本默认)
             "voice_tts": ["朗读", "读出来", "读一下", "念出来", "配音", "语音合成", "转语音", "播报", "tts", "text to speech"],
@@ -661,16 +620,8 @@ class ConversationService:
             "vision_analyze": ["看看图", "识别图", "图片里", "图中", "这张图", "截图分析", "识图"],
             # 语音转文字(2026-09-09):说"录音转文字/听写"时触发本地 whisper 转写
             "audio_transcription": ["转文字", "转成文字", "听写", "转写", "语音识别", "录音转", "transcribe"],
-            # 余额查询(2026-09-09):说"还剩多少额度"时查 token6688 账户
-            "token6688_balance": ["余额", "额度", "还剩多少", "balance", "credit"],
             # 图片编辑(2026-09-09 深度适配二):说"改这张图/去水印"时编辑已有图
             "image_edit": ["改图", "修图", "去水印", "抠图", "换背景", "编辑图片", "图片编辑", "扩图", "局部重绘", "edit image", "retouch"],
-            # 声纹克隆(2026-09-09 深能力补齐):说"克隆我的声音/上传声音"时管理声纹库
-            "token6688_voice_clone": ["克隆声音", "克隆音色", "复刻声音", "我的声音", "声纹", "声音库", "上传声音", "voice clone", "clone voice"],
-            # 任务取消(2026-09-09 深度适配二):说"取消这个任务"时撤销长任务
-            "token6688_cancel_task": ["取消任务", "取消生成", "停止生成", "撤销任务", "别做了", "cancel", "stop task"],
-            # 模型价目(2026-09-09 深度适配二):说"生成视频多少钱"时查价目/参数
-            "token6688_model_info": ["多少钱", "什么价", "价格", "费用", "怎么收费", "参数有哪些", "模型参数", "pricing", "how much"],
             # 教育管理(2026-09-19):催费/欠费/学费/缴费/退费/账单 → edu 工具(internal token 调 api,身份来自聊天用户)
             "edu_list_students": ["学员", "学生名单", "学生列表", "花名册", "学员名单", "在读学生", "students"],
             "edu_list_arrears": ["欠费", "欠款", "未缴费", "欠缴", "催缴名单", "arrears"],

@@ -390,8 +390,7 @@ class TestEndToEndFlow:
 - AIS-034   知识图谱 owner 只取认证主体,忽略 X-Owner-Uuid
 - AIS-038   Hook update 不能把 action 改成 script(路由 + 引擎双闸)
 - AIS-039   预算配置/支柱重置仅管理员
-- AIS-050   token6688 本地路径分支走 workspace + 敏感文件判据
-- AIS-051   token6688 上传/克隆 + browser_selfcheck 进 admin 档
+- AIS-051   browser_selfcheck 等递归工具进 admin 档
 - AIS-073   发布凭证查询必须绑定 user_id
 - AIS-074   recap 读取 thread 前先过属主校验
 
@@ -743,51 +742,10 @@ async def test_ais039_pillar_reset_requires_admin(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_ais050_local_audio_path_outside_workspace_rejected(tmp_path, monkeypatch):
-    outside = tmp_path / "secret.wav"
-    outside.write_bytes(b"RIFF....")
-    data, _name, err, err_code = mcp_server._audio_source_from_args({"path": str(outside)})
-    assert data == b"" and err and err_code == "PATH_NOT_ALLOWED"
-    # 越界文案统一到 main 详细版:必须点明"不在工作区白名单"且带上被拒路径本身。
-    assert "不在工作区白名单" in err and str(outside) in err
-
-
-@pytest.mark.asyncio
-async def test_ais050_local_audio_path_inside_workspace_still_works(tmp_path, monkeypatch):
-    ref = tmp_path / "ref.wav"
-    ref.write_bytes(b"RIFF....")
-    monkeypatch.setattr(mcp_server, "_get_workspace_roots", lambda: [str(tmp_path)])
-    data, name, err, err_code = mcp_server._audio_source_from_args({"path": str(ref)})
-    assert err is None and err_code is None
-    assert data == b"RIFF...." and name == "ref.wav"
-
-
-@pytest.mark.asyncio
-async def test_ais050_sensitive_file_blocked_even_inside_workspace(tmp_path, monkeypatch):
-    env = tmp_path / ".env"
-    env.write_text("OPENAI_API_KEY=sk-secret")
-    monkeypatch.setattr(mcp_server, "_get_workspace_roots", lambda: [str(tmp_path)])
-    data, _name, err, err_code = mcp_server._audio_source_from_args({"path": str(env)})
-    assert data == b"" and err and err_code == "SENSITIVE_FILE_BLOCKED"
-    assert "敏感" in err and str(env) in err
-
-
-@pytest.mark.asyncio
-async def test_ais050_upload_file_blocks_outside_path_before_network(tmp_path):
-    outside = tmp_path / "x.bin"
-    outside.write_bytes(b"x")
-    out = await mcp_server._tool_token6688_upload_file({"path": str(outside)})
-    assert out["ok"] is False and out["errorCode"] == "PATH_NOT_ALLOWED"
-
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "tool",
     [
-        "token6688_upload_file",
-        # token6688_voice_clone 不在档内:用户 2026-11-08 逐条裁定它是"贵资源",
-        # 走归属闸+计费闸(tests/test_voice_clone_owner_credit_ais050.py),
-        # 整只塞进 admin 档会挡死 role=0 的正常对话链 —— 见 AIS-050 裁定补充。
         "browser_selfcheck_screenshot",
         "browser_selfcheck",
     ],

@@ -174,6 +174,11 @@
       "path": "scripts/tests/scrub-doc-numbers.test.mjs",
       "reason": "2026-11-21 随被测器物同批退役:scrub-doc-numbers.mjs(数字清偿器)是 check-doc-numbers.mjs 的写回侧配套,两者本枚一并删除,本测试只剩自指。问责复跑:node scripts/check-staged-deletions.mjs --staged。",
       "until": "2027-06-30"
+    },
+    {
+      "path": "apps/ai-service/app/providers/token6688_provider.py",
+      "reason": "2026-11-26 机主定档彻底移除 token6688 供应商:provider 本体、catalog、专属脚本/测试与全部模型别名、定价、密钥配置同批删除。本门 E1 唯一点名的 rescue/prod-foreign-2026-11-24/MANIFEST.json 与 v2/MANIFEST-v2.json 是**历史救捞快照清单**,只记录当时从生产签出的外来文件路径,不 import、不执行、不参与构建或测试;它们是存档索引而非消费者。仓库在役面(apps/packages/docs/scripts/monitoring 排除 node_modules/dist/.next/build)对 token6688 已零命中,故登记本条豁免,不改门判据。问责复跑:node scripts/check-staged-deletions.mjs --staged;rg -n -i 'token6688|t6688' apps packages docs scripts monitoring --glob '!**/node_modules/**' --glob '!**/dist/**' --glob '!**/.next/**' --glob '!**/build/**'。",
+      "until": "2027-06-30"
     }
   ]
 }

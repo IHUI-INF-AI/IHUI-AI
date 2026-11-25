@@ -314,14 +314,7 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     idempotencyRequired: false,
     description: 'TTS/ASR/声纹注册',
     routes: ['POST /v1/audio/speech', 'POST /v1/audio/transcriptions'],
-    tools: [
-      'voice_tts',
-      'audio_transcription',
-      'music_generation',
-      'token6688_voice_clone',
-      'token6688_upload_file',
-      'token6688_cancel_task',
-    ],
+    tools: ['voice_tts', 'audio_transcription', 'music_generation'],
   }),
   // ===== 语音转写(2026-10-15 为小程序「按住说话」公网可达而登记)=====
   // 为什么不并入上面的 audio:write:那条 host 是 api(8802, OpenAI 兼容 /v1/* 端点),
@@ -611,7 +604,6 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     // 用户态平台面,不是本 scope 的对外端点)。scope 与 tools 保留(闸口与 MCP 工具仍引用),
     // 端点待真实开放后再登记。
     routes: [],
-    tools: ['token6688_balance', 'token6688_model_info'],
   }),
   // ===== Assistants / Threads / Runs =====
   c({

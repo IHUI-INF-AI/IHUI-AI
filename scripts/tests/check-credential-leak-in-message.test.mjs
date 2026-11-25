@@ -412,7 +412,7 @@ test('Python:D 通道必须认 json.dumps 与 resp.json(),否则 .py 纳入是�
   )
 })
 
-test('Python 反例:资源端点的 f-string 透传不得命中(与 token6688 现状同形)', () => {
+test('Python 反例:资源端点的 f-string 透传不得命中', () => {
   const src =
     'resp = await httpx.AsyncClient().post("https://api.example.com/v1/stt", json={"b": 2})\n' +
     'raise ProviderError(f"stt failed: {resp.status_code} {resp.text[:300]}")'

@@ -8,27 +8,15 @@
 - POST /api/video/task         异步入队(video_generation_tasks,由后台 worker 消费)
 - GET  /api/video/tasks/:id    查询任务
 - GET  /api/video/providers    已配置视频厂商
-- POST /api/video/token6688-cancel/:task_id   取消 TokenGo 在途异步任务
-- POST /api/video/token6688-callback          TokenGo 官方终态 webhook(验签 + 落终态)
-
-TokenGo webhook 官方约定(2026-07-11 guide):
-- 提交时带 callback_url(+callback_secret),终态平台主动 POST 任务快照
-- X-TokenGo-Event: task.completed / task.failed
-- X-TokenGo-Signature: sha256=HMAC_SHA256(callback_secret, 原始请求体)
-- 投递 best-effort:2xx 即确认,否则 5s/30s/120s 重试 3 次;网关重启可能丢,
-  保留 _poll_pending 低频轮询兜底
 """
 from __future__ import annotations
 
 import contextlib
-import hashlib
-import hmac
 import json
 import logging
-import os
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.core.db import get_db_conn
@@ -36,7 +24,6 @@ from app.providers.base_provider import ProviderError
 from app.services.video_generation import (
     _configured_providers,
     generate_video,
-    handle_token6688_callback,
 )
 
 from .media_tasks import _scoped_user_uuid, _user_scope
@@ -207,10 +194,9 @@ async def video_providers() -> dict[str, Any]:
         "ok": True,
         "data": {
             "configured": configured,
-            "available": ["agnes", "token6688", "magi2", "kling", "jimeng", "wan", "hunyuan"],
+            "available": ["agnes", "magi2", "kling", "jimeng", "wan", "hunyuan"],
             "kv": {
                 "agnes": "LLM_PROVIDERS.agnes.api_key 或 AGNES_API_KEY",
-                "token6688": "TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688",
                 "magi2": "MAGI2_API_KEY 或 SAND_API_KEY(需在 Sand.ai 控制台申请开通)",
                 "kling": "KLING_ACCESS_KEY + KLING_SECRET_KEY",
                 "jimeng": "ARK_API_KEY 或 ARK_ACCESS_KEY + ARK_SECRET_KEY",
@@ -219,95 +205,3 @@ async def video_providers() -> dict[str, Any]:
             },
         },
     }
-
-
-@router.post("/video/token6688-cancel/{task_id}")
-async def video_token6688_cancel(
-    task_id: str,
-    scope: tuple[str, bool] = Depends(_user_scope),
-) -> dict[str, Any]:
-    """取消 token6688 在途异步任务(DELETE /v1/tasks/{id} 优先,/cancel 兜底)。
-
-    ⚠ 官方未收录取消端点:ok=false 时如实带原因(unsupported/not_found),不抛 500。
-    2026-09-09 P0 越权收敛:此前任何登录用户可取消任意 provider 任务;现按本地表
-    task_id 校验归属,非 admin 仅可取消自己的;本地无匹配行(纯远端 id)非 admin
-    一律 404,不泄露 provider 取消能力。
-    """
-    user_id, is_admin = scope
-    conn = await get_db_conn()
-    try:
-        owner = await conn.fetchval(
-            "SELECT user_uuid FROM video_generation_tasks WHERE task_id=$1 "
-            "ORDER BY id DESC LIMIT 1",
-            task_id,
-        )
-    finally:
-        await conn.close()
-    if not is_admin and (owner or "") != user_id:
-        raise HTTPException(status_code=404, detail="任务不存在")
-    from ..core.config import settings
-    from ..providers.token6688_provider import Token6688Provider
-
-    cfg = settings.get_provider_config("token6688")
-    if not cfg.api_key:
-        raise HTTPException(
-            status_code=503,
-            detail="token6688 未配置:请在 .env 设置 TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688.api_key",
-        )
-    try:
-        result = await Token6688Provider(api_key=cfg.api_key, api_base=cfg.api_base).cancel_task(task_id)
-    except ProviderError as e:
-        raise HTTPException(status_code=e.status_code or 502, detail=str(e)) from None
-    return {"ok": True, "data": {"task_id": task_id, **result}}
-
-
-@router.post("/video/token6688-callback")
-async def token6688_callback(request: Request) -> dict[str, Any]:
-    """TokenGo 官方终态 webhook 接收(POST 任务快照,形状同 GET /v1/tasks/{task_id})。
-
-    官方约定(guide 2026-07-11):
-    - X-TokenGo-Event: task.completed / task.failed
-    - X-TokenGo-Signature: sha256=HMAC_SHA256(callback_secret, 原始请求体)
-    - 2xx 即确认;非 2xx 平台按 5s/30s/120s 重试 3 次(best-effort,网关重启会丢,
-      保留 _poll_pending 低频轮询兜底)。
-
-    响应码语义:
-    - 401:已配 TOKEN6688_CALLBACK_SECRET 但验签失败(平台重试 3 次后放弃)
-    - 200 ok=false:解析失败/快照缺 task_id —— 重试同 body 无意义,直接确认
-    - 200 ok=true:已落终态 / 无在途匹配(幂等静默)/ 中间态忽略
-    - 500:瞬时内部错误(DB 等)—— 故意不上抛吞掉,让平台重试
-    """
-    body = await request.body()
-    secret = os.environ.get("TOKEN6688_CALLBACK_SECRET", "").strip()
-    if secret:
-        sig = request.headers.get("X-TokenGo-Signature", "").strip()
-        expected = "sha256=" + hmac.new(
-            secret.encode("utf-8"), body, hashlib.sha256,
-        ).hexdigest()
-        if not hmac.compare_digest(sig, expected):
-            logger.warning(
-                "[video] token6688 回调验签失败: sig=%r event=%r",
-                sig[:24], request.headers.get("X-TokenGo-Event", ""),
-            )
-            raise HTTPException(status_code=401, detail="签名校验失败")
-    else:
-        # 2026-09-09 P0 fail-closed:密钥为空时此前"跳过验签继续处理"=匿名可伪造
-        # 任务终态(公开白名单端点)。现拒绝处理;配 key 后必须同步配回调密钥。
-        logger.error("[video] token6688 回调拒绝: TOKEN6688_CALLBACK_SECRET 未配置(fail-closed)")
-        raise HTTPException(status_code=503, detail="回调密钥未配置,拒绝处理")
-    event = request.headers.get("X-TokenGo-Event", "")
-    try:
-        snapshot = json.loads(body or b"{}")
-        if not isinstance(snapshot, dict):
-            raise ValueError("回调体非 JSON 对象")
-    except ValueError as e:
-        logger.warning("[video] token6688 回调体解析失败: %s", e)
-        return {"ok": False, "error": f"回调体解析失败: {e}"}
-    result = await handle_token6688_callback(snapshot)
-    logger.info(
-        "[video] token6688 回调处理: event=%s ok=%s matched=%s ignored=%s",
-        event, result.get("ok"), result.get("matched"), result.get("ignored"),
-    )
-    return result
-# ⁠​‌​​‌​​‌​‌​​‌‍‌‌​​‎​‌​​​​‌
-# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

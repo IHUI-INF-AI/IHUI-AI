@@ -143,8 +143,8 @@ class Settings(BaseSettings):
     # 2026-09-01 新增:/api/mcp(官方 MCP 协议兼容层)— 匿名握手/工具调用,
     # 高危工具由 mcp_server 权限矩阵兜底拒绝(user_role=0),安全默认;仅裸端点豁免,
     # /api/mcp/* 子路径鉴权状态不受影响。
-    # 2026-11-08 收权(AIS-092):/api/voice/tts 匿名可达且可经 engine=token6688
-    # 用平台 key 付费合成、voice 直通声纹库,已移出白名单改为 JWT 保护;
+    # 2026-11-08 收权(AIS-092):/api/voice/tts 曾可切换付费声纹引擎，
+    # 用平台 key 合成并直通声纹库，已移出白名单改为 JWT 保护；
     # 仅 /api/voice/stt 保持公开(本机 .env 的 JWT_PUBLIC_PATHS 亦须同步移除)。
     # 2026-09-20 O1 收权:上面 /api/mcp 匿名豁免**已移除** — 匿名 tools/call 是后门,
     # 官方 MCP 端点改由 routers/mcp_official.py 的 capability_gate.resolve_principal
@@ -154,10 +154,6 @@ class Settings(BaseSettings):
     # 2026-09-01 新增:/api/artifacts/f/ — Artifact 图表产物静态文件服务。iframe 无法
     # 携带 Authorization header,文件访问端点用 URL 内嵌短期签名 token(30 分钟)鉴权,
     # 故该前缀放行 JWT;token 签发端点 /api/artifacts/token 不在白名单,仍走 JWT 保护。
-    # 2026-09-08 新增:/api/video/token6688-callback — TokenGo 官方终态 webhook,外部
-    # 平台主动 POST(无 JWT),鉴权靠 X-TokenGo-Signature HMAC 验签(见 routers/video.py)。
-    # 2026-09-09 新增:/api/media/tasks/callback — 统一媒体回调(对话内媒体任务自动收尾),
-    # 与 video 回调同协议(TOKEN6688_CALLBACK_SECRET + HMAC),必须放行 JWT 否则平台 webhook 401。
     jwt_public_paths: str = (
         # 内网端点(/internal/*)一律由路由层 X-Internal-Secret 自证;
         # 配置 JWT_SECRET 后中间件会强制 Bearer,不放行会把号池↔签到同步整条打断。
@@ -168,10 +164,10 @@ class Settings(BaseSettings):
         # + 批量发布的 POST,移出白名单改为 JWT 保护(内部触发走 news_scheduler,
         # 全仓无匿名 HTTP 调用方)。/api/admin/news/status 为只读 GET 保留匿名。
         "/api/admin/news/status,"
-        # AIS-092:/api/voice/tts 可切换付费 token6688 engine,移出匿名白名单;
+        # AIS-092:/api/voice/tts 涉及计费与外部调用,移出匿名白名单;
         # 免费 edge 路径仍有路由层 JWT 依赖(不配置 JWT 时的本地 dev 例外)。
         "/api/voice/stt,"
-        "/api/artifacts/f/,/api/video/token6688-callback,/api/media/tasks/callback,"
+        "/api/artifacts/f/,"
         # O11(2026-09-20)A2A 发现文档:标准规定 /.well-known/agent.json 必须可匿名抓取,
         # 否则严格 A2A 客户端在拿到凭据前无法发现本 agent 能力。卡片内容不含内网主机/密钥。
         "/.well-known/agent.json,/.well-known/agent-card.json"

@@ -7,7 +7,7 @@
 对话内媒体工具(video/music/tts/image/改图)任务统一持久化在 media_tasks 表
 (见 app.services.media_tasks),此处提供对外管理出口:
 - GET  /api/media/tasks                列表(kind/status/user_uuid 过滤)
-- GET  /api/media/tasks/{task_id}      详情(库内 + 在途任务实时向 token6688 探测)
+- GET  /api/media/tasks/{task_id}      详情(仅库内记录)
 - POST /api/media/tasks/{task_id}/cancel  取消在途任务(provider 取消 + 置 cancelled)
 
 与 /api/video/tasks 并存:video_generation_tasks 是 REST 视频任务队列(worker 消费),
@@ -15,17 +15,13 @@ media_tasks 是对话内 MCP 媒体调用记录。
 """
 from __future__ import annotations
 
-import hashlib
-import hmac
-import json
 import logging
-import os
 import re
 from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from ..services.media_tasks import (
@@ -34,7 +30,6 @@ from ..services.media_tasks import (
     clear_media_tasks,
     delete_media_task,
     get_media_task,
-    handle_media_callback,
     media_task_stats,
     query_media_tasks,
     update_media_task,
@@ -146,120 +141,10 @@ def _owner_allows(owner: str, scope: tuple[str, bool]) -> bool:
     return bool(owner) and owner == user_id
 
 
-@router.post("/media/tasks/callback")
-async def media_tasks_callback(request: Request) -> dict[str, Any]:
-    """token6688 官方终态 webhook → media_tasks 实时回写(对话内媒体任务自动收尾)。
-
-    与 /api/video/token6688-callback 同验签协议(X-TokenGo-Signature=sha256+HMAC)。
-    快照形状同 GET /v1/tasks/{task_id};终态(成功带产物 URL/失败)落库,
-    中间态快照忽略。401=验签失败;200 ok=false=解析失败/快照缺 task_id(幂等确认)。
-    """
-    body = await request.body()
-    secret = os.environ.get("TOKEN6688_CALLBACK_SECRET", "").strip()
-    if secret:
-        sig = request.headers.get("X-TokenGo-Signature", "").strip()
-        expected = "sha256=" + hmac.new(
-            secret.encode("utf-8"), body, hashlib.sha256,
-        ).hexdigest()
-        if not hmac.compare_digest(sig, expected):
-            logger.warning("[media_tasks] 回调验签失败: sig=%r", sig[:24])
-            raise HTTPException(status_code=401, detail="签名校验失败")
-    else:
-        # 2026-09-09 P0 fail-closed:与 video.py 回调同修——密钥为空时此前跳过验签
-        # 继续处理 = 匿名可伪造任务终态(公开白名单端点)。现拒绝处理。
-        logger.error("[media_tasks] 回调拒绝: TOKEN6688_CALLBACK_SECRET 未配置(fail-closed)")
-        raise HTTPException(status_code=503, detail="回调密钥未配置,拒绝处理")
-    event = request.headers.get("X-TokenGo-Event", "")
-    try:
-        snapshot = json.loads(body or b"{}")
-        if not isinstance(snapshot, dict):
-            raise ValueError("回调体非 JSON 对象")
-    except ValueError as e:
-        logger.warning("[media_tasks] 回调体解析失败: %s", e)
-        return {"ok": False, "error": f"回调体解析失败: {e}"}
-    result = await handle_media_callback(snapshot)
-    logger.info(
-        "[media_tasks] 回调处理: event=%s ok=%s matched=%s ignored=%s",
-        event, result.get("ok"), result.get("matched"), result.get("ignored"),
-    )
-    return result
-
-
 @router.post("/media/upload")
-async def media_upload(
-    file: UploadFile | None = File(default=None, description="本地文件(multipart,≤50MB)"),
-    url: str | None = Form(default=None, description="远程 http(s) URL(SSRF 校验后拉取)"),
-    purpose: str | None = Form(default=None, description="官方用途语义(如 voice/assistants)"),
-) -> dict[str, Any]:
-    """上传文件换 token6688 24h 公网 URL(视频参考素材/声纹/改图输入,2026-09-09)。
-
-    file 与 url 二选一;成功返回 {file_url, filename, size}。
-    """
-    if file is None and not url:
-        raise HTTPException(status_code=400, detail="file 与 url 必须二选一")
-    from ..core.config import settings
-    from ..providers.base_provider import ProviderError
-    from ..providers.token6688_provider import Token6688Provider
-
-    cfg = settings.get_provider_config("token6688")
-    if not cfg.api_key:
-        raise HTTPException(
-            status_code=503,
-            detail="token6688 未配置:请在 .env 设置 TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688.api_key",
-        )
-    provider = Token6688Provider(api_key=cfg.api_key, api_base=cfg.api_base)
-    try:
-        if file is not None:
-            # 2026-11-01 安全强化:分块读到 50MB 上限即断(原先整包 read 后判长度)
-            from ..utils.upload_read import read_capped
-
-            data = await read_capped(file, 50 * 1024 * 1024)
-            if data is None:
-                raise HTTPException(status_code=413, detail="文件超过 50MB 上限")
-            if not data:
-                raise HTTPException(status_code=400, detail="上传文件为空")
-            filename = file.filename or "file.bin"
-            upload_url = await provider.upload_file(data, filename, purpose=purpose)
-            return {"ok": True, "data": {"file_url": upload_url, "filename": filename, "size": len(data)}}
-        from ..services.screenshot_service import _validate_url_ssrf
-
-        ok_ssrf, reason = _validate_url_ssrf(url or "")
-        if not ok_ssrf:
-            raise HTTPException(status_code=400, detail=f"URL 不允许访问: {reason}")
-        import httpx
-
-        # 2026-10-31 安全强化第 14 批:本端点此前只有首跳校验 + follow_redirects=True,
-        # 是"302 到内网即整条 SSRF"的同型漏网(代理三端点已于第 10 批修过)。改走同文件
-        # 的手动逐跳辅助,判据单源;错误文案不带上游原文(URL/内网主机名不进响应体)。
-        try:
-            async with httpx.AsyncClient(timeout=60, follow_redirects=False) as _c:
-                _r = await _send_following_redirects(_c, url or "", stream=True)
-                try:
-                    _r.raise_for_status()
-                    # AIS-093:先看声明长度(超限直接 413),再边读边计数;不再整包
-                    # 进内存后才判 len —— 判定必须发生在内存被吃掉之前。
-                    if _declared_too_large(_r, _UPLOAD_MAX_BYTES):
-                        raise HTTPException(status_code=413, detail="远程文件超过 50MB 上限")
-                    data = await _read_capped_response(_r, _UPLOAD_MAX_BYTES)
-                    if data is None:
-                        raise HTTPException(status_code=413, detail="远程文件超过 50MB 上限")
-                finally:
-                    await _r.aclose()
-        except HTTPException:
-            raise
-        except Exception as e:  # noqa: BLE001
-            logger.warning("[media] 远程文件拉取失败: %s", e)
-            raise HTTPException(status_code=502, detail="拉取远程文件失败") from e
-        filename = (url or "").rsplit("/", 1)[-1][:200] or "file.bin"
-        upload_url = await provider.upload_file(data, filename, purpose=purpose)
-        return {"ok": True, "data": {"file_url": upload_url, "filename": filename, "size": len(data)}}
-    except ProviderError as e:
-        raise HTTPException(status_code=e.status_code or 502, detail=str(e)) from None
-    except HTTPException:
-        raise
-    except Exception as e:  # noqa: BLE001
-        logger.warning("[media] 上传失败: %s", e)
-        raise HTTPException(status_code=500, detail=f"上传异常: {e}") from e
+async def media_upload() -> dict[str, Any]:
+    """上传入口:供应商已下线,明确返回不可用。"""
+    raise HTTPException(status_code=503, detail="文件上传供应商已下线,当前不可用")
 
 
 @router.get("/media/tasks")
@@ -309,7 +194,7 @@ async def media_task_detail(
     task_id: str,
     request_user: tuple[str, bool] = Depends(_user_scope),
 ) -> dict[str, Any]:
-    """媒体任务详情:库内记录;在途且 provider=token6688 时实时探测最新状态。
+    """媒体任务详情:库内记录。
 
     2026-09-09 P0 越权修复:非 admin 只能看自己的任务(不归属按 404,不泄露存在性;
     与 agent_runtime._require_session 同策略)。
@@ -323,44 +208,6 @@ async def media_task_detail(
     owner = str(row.get("user_uuid") or "")
     if not _owner_allows(owner, request_user):
         raise HTTPException(status_code=404, detail="媒体任务不存在")
-    if (
-        row.get("status") in _STATUS_IN_FLIGHT
-        and row.get("task_id")
-        and row.get("provider") == "token6688"
-    ):
-        try:
-            from ..core.config import settings
-            from ..providers.token6688_provider import Token6688Provider
-
-            cfg = settings.get_provider_config("token6688")
-            if cfg.api_key:
-                st = await Token6688Provider(api_key=cfg.api_key, api_base=cfg.api_base).get_task_status(
-                    str(row["task_id"])
-                )
-                if isinstance(st, dict) and st.get("status"):
-                    row["live_status"] = st.get("status")
-                    if st.get("video_url"):
-                        # 2026-09-09 修复:探测到成片 URL 必须连产物一起落库,
-                        # 否则页面刷新后 media-tasks 列表/详情读库仍无 result → 任务中心不可播放。
-                        # 按 kind 映射产物字段(image_url/audio_url/video_url),与回调/轮询一致。
-                        from ..services.media_tasks import _kind_url_field
-
-                        field = _kind_url_field(str(row.get("kind") or ""))
-                        merged = {**(row.get("result") or {}), field: st["video_url"]}
-                        row["result"] = merged
-                        # 2026-09-09 P1 竞态修复:仅在途可写,防把已取消任务翻成 succeeded
-                        await update_media_task(
-                            str(row["task_id"]),
-                            status="succeeded",
-                            result=merged,
-                            only_if_in_flight=True,
-                        )
-                    elif st.get("failed"):
-                        await update_media_task(
-                            str(row["task_id"]), status="failed", only_if_in_flight=True,
-                        )
-        except Exception as e:  # noqa: BLE001
-            logger.warning("[media_tasks] 实时探测失败(降级返回库内数据): %s", e)
     return {"ok": True, "data": row}
 
 
@@ -418,7 +265,7 @@ async def media_task_cancel(
     task_id: str,
     request_user: tuple[str, bool] = Depends(_user_scope),
 ) -> dict[str, Any]:
-    """取消在途媒体任务:优先调 token6688 取消端点,成功/不支持均如实返回并置 cancelled。
+    """取消在途媒体任务:仅本地置 cancelled。
 
     2026-09-09 收尾修复:只允许取消在途任务(_STATUS_IN_FLIGHT),已终态任务
     (succeeded/failed/cancelled)返回 409,防止误点把终态任务翻转成 cancelled
@@ -436,30 +283,12 @@ async def media_task_cancel(
             status_code=409,
             detail=f"任务已终态(status={row.get('status')}),无需取消",
         )
-    provider = str(row.get("provider") or "token6688")
     remote_id = str(row.get("task_id") or "").strip()
-    cancel_result: dict[str, Any] = {"provider": provider, "task_id": remote_id or task_id}
-    if provider == "token6688" and remote_id:
-        try:
-            from ..core.config import settings
-            from ..providers.base_provider import ProviderError
-            from ..providers.token6688_provider import Token6688Provider
-
-            cfg = settings.get_provider_config("token6688")
-            if not cfg.api_key:
-                cancel_result["error"] = "token6688 未配置(TOKEN6688_API_KEY),无法取消远端任务"
-            else:
-                r = await Token6688Provider(
-                    api_key=cfg.api_key, api_base=cfg.api_base
-                ).cancel_task(remote_id)
-                cancel_result.update(r or {})
-        except ProviderError as e:
-            cancel_result["error"] = str(e)
-        except Exception as e:  # noqa: BLE001
-            logger.warning("[media_tasks] 取消远端任务异常: %s", e)
-            cancel_result["error"] = f"取消远端任务异常: {e}"
-    else:
-        cancel_result["error"] = f"provider={provider} 不支持远端取消,仅本地置 cancelled"
+    cancel_result: dict[str, Any] = {
+        "provider": str(row.get("provider") or "unknown"),
+        "task_id": remote_id or task_id,
+        "warning": "上游取消通道已下线,仅本地置 cancelled",
+    }
     try:
         # 2026-09-09 P1 竞态修复:实际置位用条件更新(仅在途可写)。上方 409 预检与
         # 写入之间存在窗口(回调/轮询/他人取消可能并发落终态),无守卫会把刚完成的
@@ -638,7 +467,7 @@ def _safe_content_length(headers: Any) -> str | None:
 # resp.content),单个登录用户即可让 worker 吃下任意大的上游响应(可并发)OOM。
 # 现在三代理与 upload 一律 stream=True 边收边转,并给硬字节上限:
 #  - 播放/下载/图片:按响应体累计计数,超限断流(下载器可由 Content-Length 察觉截断);
-#  - 转存 token6688:沿用既有 50MB 语义,但改为边读边计数,读到上限即 413。
+#  - 转存上游:沿用既有 50MB 语义,但改为边读边计数,读到上限即 413。
 _PROXY_MAX_BYTES = 200 * 1024 * 1024
 _IMAGE_MAX_BYTES = 20 * 1024 * 1024
 _UPLOAD_MAX_BYTES = 50 * 1024 * 1024

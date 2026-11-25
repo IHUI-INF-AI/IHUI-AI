@@ -6,7 +6,7 @@
 
 为什么要这一层(2026-09-26,MECHANISM-SPEC-6 A24/A25):
 429 的语义是"请等到这个时刻再来"。此前全仓 21 个 provider 没有一个真正解析
-`Retry-After`(token6688 只在注释里提到,实际写死 429→5s / 5xx→3s),中心退避
+`Retry-After`(旧聚合网关只在注释里提到,实际写死 429→5s / 5xx→3s),中心退避
 `responses_retry.backoff()` 虽有 server_retry_delay 优先位,却无任何生产者喂值。
 后果不是"多等一会儿",而是限流窗口内请求量反而上升(越限流越重试越糟)。
 本模块把"听服务端的"收成唯一一处实现,消费面经 ProviderError 携带的指示接入。
@@ -46,7 +46,7 @@ from typing import Final, Literal
 RETRY_AFTER_MS_HEADER: Final = "retry-after-ms"  # 非标准毫秒版,优先于秒版
 RETRY_AFTER_HEADER: Final = "retry-after"  # RFC 9110:秒数 或 HTTP-date
 SHOULD_RETRY_HEADER: Final = "x-should-retry"  # OpenAI 系事实标准:true/false
-RETRY_AFTER_BODY_FIELD: Final = "retry_after"  # 响应体秒数(token6688 官方协议)
+RETRY_AFTER_BODY_FIELD: Final = "retry_after"  # 响应体秒数(部分聚合网关协议)
 
 MAX_SERVER_RETRY_DELAY_S: Final = 60.0  # 服务端指示封顶,防分钟级静默挂死
 

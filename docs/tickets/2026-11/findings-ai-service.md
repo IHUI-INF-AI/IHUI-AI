@@ -553,11 +553,11 @@
 ### AIS-050 媒体工具按本地路径读任意文件并外传
 - 严重度：P1
 - 位置：`app/services/mcp_server.py:8918-8999`（同型 `:9336-9417`、`:9500-9623`）
-- 触发路径：任意登录用户（role=0）→ `call_tool("token6688_upload_file", {"path": "<任意路径>"})` → `os.path.isfile` 通过 → `open(path,"rb").read()` → `inst.upload_file(...)` 出站到 token6688，返回公网 URL。`token6688_voice_clone`、`audio_transcription` 的本地 path 分支同型。
+- 触发路径：任意登录用户（role=0）→ `call_tool("媒体上传工具", {"path": "<任意路径>"})` → `os.path.isfile` 通过 → `open(path,"rb").read()` → `inst.upload_file(...)` 出站到 媒体供应商，返回公网 URL。`声纹克隆工具`、`audio_transcription` 的本地 path 分支同型。
 - 根因：三个工具都不在 `_ADMIN_ONLY_TOOLS`（名单见 `:781-822`），path 分支只做存在性/大小检查，未过 `_validate_path_in_workspace` 的敏感文件判据。
 - 证据：`if not os.path.isfile(path): ...`（8942）；`with open(path, "rb") as _f: data = _f.read()`（8955-8956）；`file_url = await inst.upload_file(data, filename, purpose=purpose)`（8995）。
 - 影响面：`data/sessions.db`、`.env`、私钥等被读出并上传到第三方（等同密钥泄露 + 外部计费）；另两个 ASR/声纹工具把任意音频/视频内容送第三方。
-- 建议修法：本地 path 分支统一走 workspace/敏感文件校验（与 `read_file` 同一判据）；token6688 系列整体收进 admin 档。
+- 建议修法：本地 path 分支统一走 workspace/敏感文件校验（与 `read_file` 同一判据）；媒体供应商 系列整体收进 admin 档。
 - 当场可修：是。
 
 ### AIS-051 截图自检工具是 `screenshot_url` 的旁路（SSRF + 越权）
@@ -772,7 +772,7 @@
 
 ### AIS-072 embedding 静默丢向量
 - 严重度：P3
-- 位置：`app/providers/token6688_provider.py:697-701`
+- 位置：`已下线媒体供应商模块:697-701`
 - 触发路径：`/embeddings` 返回部分 item 无 embedding 或 `data` 缺失。
 - 根因：逐项过滤后 append，未校验数量与输入相等、未校验维度。
 - 证据：`if isinstance(item, dict) and item.get("embedding"):`（699）。
@@ -985,10 +985,10 @@
 ### AIS-092 匿名可达的付费 TTS 端点，且 voice 参数直通声纹库
 - 严重度：P1
 - 位置：`app/routers/voice_tts.py:138-178`、`:126-135`；`app/core/config.py:147-157`
-- 触发路径：未登录 `POST /api/voice/tts`（`jwt_public_paths` 默认精确放行 `/api/voice/tts`），body `{"engine":"token6688","voice":"<任意 voice_id>"}` → `_tts_via_token6688` 用平台 key 合成。
+- 触发路径：未登录 `POST /api/voice/tts`（`jwt_public_paths` 默认精确放行 `/api/voice/tts`），body `{"engine":"媒体供应商","voice":"<任意 voice_id>"}` → `_tts_via_媒体供应商` 用平台 key 合成。
 - 根因：端点无任何身份依赖；`engine` 由客户端选择，付费分支不校验 voice 白名单（免费 edge 分支有 `VOICE_WHITELIST`）。
-- 证据：`"/api/voice/stt,/api/voice/tts,"`（config:157）；`if req.engine != "token6688": raise ...`（170-171）；`audio, content_type = await _tts_via_token6688(text, req.voice)`（173）；注释"token6688 引擎可为官方音色或声纹库 voice_id"（76-82）。
-- 影响面：匿名消耗平台 TOKEN6688 额度（按 IP 限流仍可换 IP）；可借用他人克隆声纹合成语音（音色冒用/诈骗素材）。
+- 证据：`"/api/voice/stt,/api/voice/tts,"`（config:157）；`if req.engine != "媒体供应商": raise ...`（170-171）；`audio, content_type = await _tts_via_媒体供应商(text, req.voice)`（173）；注释"媒体供应商 引擎可为官方音色或声纹库 voice_id"（76-82）。
+- 影响面：匿名消耗平台 媒体供应商 额度（按 IP 限流仍可换 IP）；可借用他人克隆声纹合成语音（音色冒用/诈骗素材）。
 - 建议修法：从公开路径移除该端点，或付费 engine 强制 JWT + voice 白名单/属主校验。
 - 当场可修：是。
 
@@ -1253,7 +1253,7 @@
 ### AIS-117 video_generation 的 save_path 在专用 provider 路径被静默丢弃
 - 严重度：P2
 - 位置：`app/services/mcp_server.py:8508-8590`
-- 触发路径：`video_generation{"save_path":"...","provider":"agnes"}`（或默认 token6688）→ 两专用分支在落盘块前 return，agnes 载荷硬编码 `"saved_path": None`。
+- 触发路径：`video_generation{"save_path":"...","provider":"agnes"}`（或默认 媒体供应商）→ 两专用分支在落盘块前 return，agnes 载荷硬编码 `"saved_path": None`。
 - 根因：落盘与 `_validate_video_save_path` 只在通用链执行；专用 provider 分支提前返回。
 - 证据：`"saved_path": None`（约 8520）；通用链落盘与校验在 8578 之后。
 - 影响面：返回 `ok:true` 但文件不存在；save_path 连校验都不做，调用方以为已保存。
@@ -1285,7 +1285,7 @@
 8. `agent_checkpoint` redis 回执 CAS 为 get/set（注释自承"仅单写者前提"）；多实例部署是否成立未确认。
 9. `durable_resume.tool_ledger` 的 `answered` 为全局集合，注释与实现是否一致取决于同一 tool_call_id 是否会被复用。
 10. `sandbox_task_queue._run_one` 在 `await semaphore.acquire()` 阶段被取消会泄漏 `lane.waiting`，仅在 shutdown 路径触发。
-11. token6688 异步生图 `count`/`size` 参数疑似错位、`_poll_task` 先判成功再判 failed；受开关与上游字段组合影响，需样本复现。
+11. 媒体供应商 异步生图 `count`/`size` 参数疑似错位、`_poll_task` 先判成功再判 failed；受开关与上游字段组合影响，需样本复现。
 12. ~~视频轮询 `while True` 无总超时（腾讯混元/阿里 DashScope）~~ → **已升级为 AIS-071**（无 deadline 已证实；上游是否必然终态不再影响"缺兜底"的结论）。
 13. `agent_checkpoint.py:336-348` 读取 checkpoint 时直接 `data["messages"]`，无 schema/版本校验；未找到能产生"合法 JSON 但字段类型错"的写入路径，损坏恢复行为未证实。
 14. `agent_engine.py:6134-6137` subagent 子线程仅 pop 置 closed，未走 `_handle_thread_close`；但 `sub_params` 未开 `watchWorkspace`，watcher/快照泄漏未证实。

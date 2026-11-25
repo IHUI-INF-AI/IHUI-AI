@@ -575,7 +575,7 @@ export function judgeFunction(fn, consumers, ctx = {}) {
  *  ① 枚举走**判据面**(maskForJudgement 遮后文本):docstring/注释里的名字提及
  *     (实测 llama_cpp_provider.py:12、ollama_provider.py:13 是文档行)不再生成消费点行;
  *  ② 同名**定义行**(`def astream(`/`class astream`/`function* astream`)是别的文件自己的
- *     定义,不是 fn 的消费者(实测 token6688_provider.py:251 的 def 行被当成消费点,
+ *     定义,不是 fn 的消费者(实测某 provider 的 def 行被当成消费点,
  *     其函数体的 yield 反过来把父生成器判成 forward);
  *  ③ 站点行号对齐窗口起点:consumer.start 必须传 blockWindow 的起点而不是命中行,
  *     否则 classifySites 的行号整体偏移(把注释行报成站点的那型错位)。
@@ -625,7 +625,7 @@ export function findConsumers(fn, allFiles) {
       const win = blockWindow(rawLines, i)
       const c = { file: p, line: i + 1, start: win.start, text: win.text, truncated: win.truncated }
       // super().<name>( 是继承委托,不是终点消费:若外层生成器自己在 finally 里显式关停,
-      // 这条委托链已经闭合(token6688 → OpenAIProvider.astream 的实测形态)。
+      // 这条委托链已经闭合(provider → OpenAIProvider.astream 的实测形态)。
       const superDelegation = new RegExp(`\\bsuper\\s*\\(\\s*\\)\\s*\\.\\s*${nm}\\s*\\(`).test(judgeLines[i])
       const enclosing = superDelegation ? enclosingPyFunction(judgeLines, i) : null
       if (enclosing && CLOSE_RES.some((re) => re.test(enclosing.bodyText))) {

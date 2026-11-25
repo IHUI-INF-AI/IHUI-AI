@@ -157,11 +157,6 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   proactive_suggestion: 'toolProactiveSuggestion',
   resolve_conflict: 'toolResolveConflict',
   review_pr: 'toolReviewPr',
-  // token6688 厂商侧能力(键名按"厂商"语义,不把厂商标识塞进 i18n 键)
-  token6688_balance: 'toolVendorBalance',
-  token6688_model_info: 'toolVendorModelInfo',
-  token6688_upload_file: 'toolVendorUploadFile',
-  token6688_cancel_task: 'toolVendorCancelTask',
   // DAP 调试会话族(apps/cli/src/tools/debug.ts,DEBUG_TOOLS 注册给模型)
   debug_launch: 'toolDebugLaunch',
   debug_attach: 'toolDebugAttach',
@@ -187,7 +182,6 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   memory_save: 'toolMemorySave',
   memory_dream: 'toolMemoryDream',
   memory_forget: 'toolMemoryForget',
-  token6688_voice_clone: 'toolVendorVoiceClone',
   // V3 #63(2026-09-27 立):对话流业务表单请求工具(mcp_server._TOOLS 的
   // request_business_form)。守门 55 三方比对 `_TOOLS × 本表 × 五语言 taskStatus`,
   // 少这一行 ⇒ 界面上该工具退化成裸码名 `request_business_form`(界面禁止直显英文码名)。
