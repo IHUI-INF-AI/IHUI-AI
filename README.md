@@ -84,7 +84,9 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-25**
-- 🚀 新功能/改进:账号池统一管理 + 会话守护永久保活(自研) (20872fe5)
+- 📚 文档:纠正 Qoder aoq 为阿里云 RTC 引擎 + 0 app 引用 (e9d277ed)
+- 🚀 新功能/改进:账号池统一管理 + 会话守护永久保活(自研) (9c400258)
+- 📚 文档:补 14 个前端图 JS 覆盖审计，证明 partial 非漏读 (60a04115)
 - 🐞 修复:推送通道告警正文补回 stderr 读数 + 孤儿历史出路写明"需机主裁定" (c8bb0a0d)
 - 🐞 修复:推送通道告警正文补回 stderr 读数 + 孤儿历史出路写明"需机主裁定" (95f4e5de)
 - 📚 文档:豆包 235 模块差额改为资产口径表述 (56c2e085)
@@ -106,6 +108,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 🔧 工程/其他:root-guard 重封 git-guardian 指纹 (3525265f)
 - 🐞 修复:回植被 5b96a6e3 整份退回的 tmp 清扫器两件 + 重封 root-guard (d4411645)
 - 📚 文档:记录 OCR 聊天与 DB 朋友圈组合实测 (5b96a6e3)
+- 🚀 新功能/改进:账号池统一管理 + 会话守护永久保活(自研) (20872fe5)
 - 🐞 修复:连接器卡片补飞书/钉钉/企微官方品牌图标 (6e32c889)
 - 🔧 工程/其他:root-guard 重封 git-guardian 指纹 (8e887ead)
 - 🚀 新功能/改进:tmp 累积清扫器接入 guardian 自动派发 + 归档锚点归一 (171652ef)
