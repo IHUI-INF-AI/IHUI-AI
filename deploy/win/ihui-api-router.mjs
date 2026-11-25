@@ -36,6 +36,7 @@ import { shouldSniff, sniffBody, createRollingScanner } from './lib/body-sniff.m
 import { buildNotice, renderNotice, renderMinimal } from './lib/block-notice.mjs'
 import { createNoticeLedger, createNoticeWriter } from './lib/notice-ledger.mjs'
 import { identifyTool } from './lib/tool-fingerprint.mjs'
+import { buildReceipt, VERIFY_STATE } from './lib/evidence-verify.mjs'
 
 // ── 通用化(2026-10-28 生产席:web 蓝绿复用同一份 router,不落第二份反代实现)────────
 // 立因:web 走蓝绿也要一个"常驻监听 + 原子切流"的入口层,而另写一份 router 就是第二个真相源
@@ -306,6 +307,8 @@ function denyWithNotice(req, res, status, reason, extraHeaders = {}) {
     notice.minimal = minimal
     noticeLedger.commit(ip, notice.ref)
     recordNotice(notice, ip, req.url)
+    /* 零延迟可核验:批量写有 1 秒窗口,攻击者手快就会撞上"还没落盘"的那一秒 */
+    rememberRef(notice.ref, notice.at)
     res.writeHead(status, { ...out.headers, ...extraHeaders })
     res.end(out.body)
   } catch {
@@ -380,6 +383,132 @@ function sendJson(res, status, body) {
 }
 
 
+// ── 证据编号公开核验(2026-11-25 立,第二十件)──────────────────────────────
+//
+// 为什么必须是公开端点:对外文案写着「编号可被任何第三方核验」。此前只有内部能验,
+// 那句话就是悬空的 —— 而它恰恰印在攻击者会读到的拦截页上。**承诺悬空比不承诺更糟**。
+//
+// 为什么放在回源鉴权之前:核验者就是攻击者本人,他没有我们的边缘密钥。
+// 代价是拿不到那一层的保护,所以这里自己做三件事:
+//   ① 自己过一遍 WAF(否则它就成了一条绕过 WAF 的公开路径)
+//   ② 只回哈希与时间,**不回显 IP / UA / 载荷** —— 核验要证明"存在且没被改",
+//      不需要把攻击内容再投递他一次
+//   ③ 读不到链文件回 503,**绝不**回 found:false —— "不知道"和"没有"是两件事,
+//      把取不到说成"查无此号"等于替篡改打掩护
+const EVIDENCE_CHAIN_PATH = process.env.IHUI_EVIDENCE_CHAIN || 'D:/IHUI-AI/.ihui-agent/state/evidence-chain.jsonl'
+const EVIDENCE_ANCHOR_PATH = process.env.IHUI_EVIDENCE_ANCHORS || 'D:/IHUI-AI/.ihui-agent/state/evidence-anchors.jsonl'
+/**
+ * 拦截瞬间的编号内存环(2026-11-25 实测补上)。
+ *
+ * `noticeWriter` 是**批量写**(`flushMs` 1 秒),链由 autoban 每 10 分钟吸收一轮。
+ * 攻击者若在被拦后 1 秒内拿编号来查,文件里还没有它 —— 没有这一环就只能如实回 404,
+ * 而 404 的含义只有一个:"我没记录过你"。他刚被拦、编号就在眼前,这句话是假的。
+ * 记进内存,零延迟即可回 `pending`;环有上限,旧条目被淘汰时它早已落在文件里。
+ */
+const RECENT_REF_MAX = 2048
+const recentRefs = new Map()
+
+function rememberRef(ref, at) {
+  if (!ref) return
+  recentRefs.set(String(ref).toUpperCase(), at ?? null)
+  if (recentRefs.size > RECENT_REF_MAX) {
+    const oldest = recentRefs.keys().next().value
+    recentRefs.delete(oldest)
+  }
+}
+
+/**
+ * 告知日志。编号在**拦下攻击者那一刻**就写进这里,而链由 autoban 每 10 分钟吸收一轮。
+ * 之所以要读它,是为了区分「已开票、写入中」和「我没记录过」—— 混成一句等于告诉对方
+ * "这编号是编的"。只读尾部:文件会轮转(8MB 上限),历史条目在链里已经有,不必全读。
+ *
+ * 路径**必须**复用上面那个 `NOTICE_LOG`(L181):它是告知写入的唯一真相源。
+ * 另立一个 env 名会在日志被重定向时读到不存在的旧文件 —— 那时端点会对**所有**编号
+ * 都回 `not_found`,把"我记过你"说成"我没记过你"。
+ */
+const EVIDENCE_NOTICE_TAIL_BYTES = 512 * 1024
+const EVIDENCE_CACHE_MS = 5000
+const EVIDENCE_PREFIX = '/__evidence/'
+let evidenceCache = { at: 0, entries: null, anchors: null, notices: null, error: null }
+
+function readJsonLines(file) {
+  const out = []
+  const text = fs.readFileSync(file, 'utf8')
+  for (const line of text.split(/\r?\n/)) {
+    if (!line) continue
+    out.push(JSON.parse(line))
+  }
+  return out
+}
+
+/** 尾部若干字节按行切,首行可能是被截断的半行 —— 丢弃,不猜。 */
+function readTailObjects(file, bytes) {
+  let size
+  try {
+    size = fs.statSync(file).size
+  } catch {
+    return null
+  }
+  const start = Math.max(0, size - bytes)
+  const len = size - start
+  if (len <= 0) return []
+  const buf = Buffer.alloc(len)
+  let fd
+  try {
+    fd = fs.openSync(file, 'r')
+    fs.readSync(fd, buf, 0, len, start)
+  } catch {
+    return null
+  } finally {
+    if (fd !== undefined) {
+      try {
+        fs.closeSync(fd)
+      } catch {
+        /* 已关 */
+      }
+    }
+  }
+  const lines = buf.toString('utf8').split(/\r?\n/)
+  if (start > 0) lines.shift()
+  const out = []
+  for (const line of lines) {
+    if (!line) continue
+    try {
+      out.push(JSON.parse(line))
+    } catch {
+      /* 半行/坏行跳过:核验失败不能因为日志里有一行不完整就整体 503 */
+    }
+  }
+  return out
+}
+
+function loadEvidence(now) {
+  if (evidenceCache.entries && now - evidenceCache.at < EVIDENCE_CACHE_MS) return evidenceCache
+  let entries = null
+  let anchors = []
+  let notices = {}
+  let error = null
+  try {
+    entries = readJsonLines(EVIDENCE_CHAIN_PATH)
+    if (fs.existsSync(EVIDENCE_ANCHOR_PATH)) anchors = readJsonLines(EVIDENCE_ANCHOR_PATH)
+  } catch (e) {
+    entries = null
+    error = String(e?.message || e).split(/\r?\n/)[0]
+  }
+  /* 告知日志读不到不影响「链里能查到」的那部分:它是补充证据,不是主证据 */
+  const rows = readTailObjects(NOTICE_LOG, EVIDENCE_NOTICE_TAIL_BYTES)
+  if (rows) {
+    for (const r of rows) {
+      const ref = String(r?.ref ?? '').toUpperCase()
+      /* 告知条目里的时刻字段叫 `ts`(实测原文: {"ts":...,"ref":...}),
+         写成 `at` 会静默取到 null ⇒ 所有编号都回 not_found ⇒ "我记过你"变成"我没记过你"。 */
+      if (ref) notices[ref] = r?.ts ?? r?.at ?? null
+    }
+  }
+  evidenceCache = { at: now, entries, anchors, notices, error }
+  return evidenceCache
+}
+
 const server = http.createServer(async (req, res) => {
   // 运维探针：给部署脚本确认「路由在跑、当前是哪一色」。
   //
@@ -393,6 +522,49 @@ const server = http.createServer(async (req, res) => {
       return
     }
     sendJson(res, 200, { ok: true, active: state.active, upstream: state[state.active] })
+    return
+  }
+  // 证据核验。放在回源鉴权之前(核验者拿不到边缘密钥),因此自己补一遍 WAF。
+  if (req.url.startsWith(EVIDENCE_PREFIX)) {
+    const wafV = inspectRequest({ method: req.method, url: req.url, headers: req.headers })
+    if (wafV.action === 'block') {
+      const id = wafV.hits?.[0]?.id ?? 'waf'
+      denyWithNotice(req, res, 403, `waf:${id}`)
+      return
+    }
+    if (req.method !== 'GET') {
+      sendJson(res, 405, { code: 405, message: 'method not allowed' })
+      return
+    }
+    const ev = req.url.slice(EVIDENCE_PREFIX.length)
+    const loaded = loadEvidence(Date.now())
+    if (!loaded.entries) {
+      /* 取不到输入 = 未判定,如实回 503,不用 found:false 冒充"查无此号" */
+      sendJson(res, 503, { code: 503, message: 'evidence store unavailable' })
+      return
+    }
+    const out = buildReceipt({
+      entries: loaded.entries,
+      anchors: loaded.anchors,
+      ev,
+      /* 三源依次:内存环(零延迟) → 告知日志(已落盘) → 都没有才是真没记录过 */
+      noticedAt: recentRefs.get(String(ev).trim().toUpperCase()) ?? loaded.notices?.[String(ev).trim().toUpperCase()] ?? null,
+    })
+    if (out.state === VERIFY_STATE.INVALID) {
+      sendJson(res, 400, { code: 400, message: out.reason })
+      return
+    }
+    if (out.state === VERIFY_STATE.PENDING) {
+      /* 已开票、写入中:200 + pending。这不是错误,是"我们确实记过你" */
+      sendJson(res, 200, out.receipt)
+      return
+    }
+    if (out.state === VERIFY_STATE.NOT_FOUND) {
+      /* 404 与"路径不存在"同形,不给枚举者额外信号 */
+      sendJson(res, 404, { code: 404, message: 'not found' })
+      return
+    }
+    sendJson(res, 200, out.receipt)
     return
   }
   // 回源鉴权在限流**之前**:直连攻击者不带头 ⇒ 直接 403,不必再为它耗一个限流令牌;

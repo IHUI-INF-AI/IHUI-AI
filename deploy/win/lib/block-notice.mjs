@@ -28,7 +28,7 @@
  */
 import { createHash } from 'node:crypto'
 
-export const NOTICE_VERSION = 3
+export const NOTICE_VERSION = 4
 
 /** 等级名:中文进 body,英文进 body 与 ASCII 响应头。这是本项目的自定安全等级,不是任何机关认证。 */
 export const NOTICE_LEVEL = '国安级网络对抗标准'
@@ -177,7 +177,16 @@ function banSection(lang, banned) {
 /** 按状态码 + 次数档位 + 附加事实(工具/封禁)组装某一语言的完整副本。 */
 function copyFor(lang, status, attempt, prevRef, extras = {}) {
   const base = COPY[lang]
-  const sections = [...base.sections]
+  /* 2026-11-25(第二十件):文案里一直写着"可被任何第三方核验",但在此之前只有内部能验 ——
+     那句话是悬空的。公开核验端点上线后,把它落到具体地址上,否则攻击者拿到编号也不知道去哪查。
+     注意**只给入口形态,不给判据实现**:公开能力不是防御细节。 */
+  const verifyLine =
+    lang === 'zh'
+      ? `核验:GET /__evidence/${extras.ref} —— 公网可访问,只回哈希与时间。`
+      : `Verify: GET /__evidence/${extras.ref} — publicly reachable, returns hashes and timestamps only.`
+  const sections = base.sections.map((s) =>
+    s.tag === (lang === 'zh' ? '已固定' : 'PRESERVED') ? { tag: s.tag, lines: [...s.lines, verifyLine] } : s,
+  )
   if (extras.tool) sections.unshift(toolSection(lang, extras.tool))
   if (extras.banned) sections.unshift(banSection(lang, extras.banned))
   if (attempt >= 5) sections.push(onRecordSection(lang, attempt))
@@ -206,8 +215,8 @@ export function buildNotice({
 } = {}) {
   const ref = evidenceRef({ ip, ts, reason })
   const n = Number.isFinite(attempt) && attempt >= 1 ? Math.floor(attempt) : 1
-  const zh = copyFor('zh', status, n, prevRef, { tool, banned })
-  const en = copyFor('en', status, n, prevRef, { tool, banned })
+  const zh = copyFor('zh', status, n, prevRef, { tool, banned, ref })
+  const en = copyFor('en', status, n, prevRef, { tool, banned, ref })
   return {
     version: NOTICE_VERSION,
     site: 'IHUI AI · aizhs.top',
