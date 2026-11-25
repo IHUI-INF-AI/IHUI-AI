@@ -927,6 +927,8 @@ PID 38788（父 PID 11820）在 15:xx 运行 `codex.exe ... app-server --analyti
 
 **7.2 11 个客户端的闭环状态（按本轮证据，不按“装没装”）**
 
+**11/11 都拿到了至少一条运行态证据**：Codex 沙箱实跑、Trae 启动+环境自检、WorkBuddy ACP+Gateway、Qoder bridge health+模型目录、ZCode app-server stdio、Cursor 沙箱实跑、豆包 PIP/Remote_State/telemetry、DeepSeek 401 服务、OpenCode serve+Basic、MiniMax srt install/exec/uninstall、小浣熊 browser-gateway。**但没有一个客户端在“模型推理层”被完整闭环**：WorkBuddy prompt 被登录态拒绝，Codex provisioning 只到 EOF，Qoder 只读模型目录未发 chat，DeepSeek/ZCode/小浣熊没有有效凭据，Cursor/Trae/MiniMax 的沙箱也各有未闭环项。这不是漏做，而是剩余价值落在需要消耗账号额度、安装内核驱动或改系统策略的层面。
+
 | 客户端 | 前端 / 核心 / 后端 | 运行级闭环 | 仍未闭环（明确标未知） |
 |---|---|---|---|
 | Codex | 26.1120 全量图 + IPC 源码复核 + 5 个 native + sandbox service | `codex sandbox` echo / token / 写拒绝 / 网络放行；sandbox 管道 owner/ACL/可连接；provisioning JSON 载荷 + **raw JSON 单消息帧已进读端**（EOF，无响应） | 完整 payload 字段、tag 字段名、成功响应；读取白名单、Job 清理、工具调用路径 |
