@@ -378,7 +378,23 @@ def test_find_chromium_no_path(monkeypatch, tmp_path):
     monkeypatch.delenv("PLAYWRIGHT_BROWSERS_PATH", raising=False)
     fake_home = tmp_path / "home"
     monkeypatch.setattr("pathlib.Path.home", classmethod(lambda cls: fake_home))
+    # 系统 Edge/Chrome 回落是 2026-11-25 新增的真实能力;本用例只测
+    # “Playwright 缓存与用户目录都没有时返回 None”,所以显式清空回落候选。
+    monkeypatch.setattr(bh, "_SYSTEM_BROWSER_CANDIDATES", ())
     assert bh._find_chromium_executable() is None
+
+
+def test_find_chromium_system_fallback(monkeypatch, tmp_path):
+    edge = tmp_path / "Microsoft" / "Edge" / "Application" / "msedge.exe"
+    edge.parent.mkdir(parents=True)
+    edge.write_text("x")
+    monkeypatch.setenv("PROGRAMFILES", str(tmp_path))
+    monkeypatch.setattr(
+        bh,
+        "_SYSTEM_BROWSER_CANDIDATES",
+        (("PROGRAMFILES", r"Microsoft\Edge\Application\msedge.exe"),),
+    )
+    assert bh._find_chromium_executable() == str(edge)
 
 
 def test_find_chromium_env_full_chrome(monkeypatch, tmp_path):

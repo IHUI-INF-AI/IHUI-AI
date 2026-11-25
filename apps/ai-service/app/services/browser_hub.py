@@ -308,6 +308,15 @@ def _looks_like_challenge(page: Page) -> bool:
 # ---------------------------------------------------------------------------
 # Chromium 可执行文件查找(复用 scan_login.py 逻辑)
 # ---------------------------------------------------------------------------
+_SYSTEM_BROWSER_CANDIDATES = (
+    ("PROGRAMFILES(X86)", r"Microsoft\Edge\Application\msedge.exe"),
+    ("PROGRAMFILES", r"Microsoft\Edge\Application\msedge.exe"),
+    ("PROGRAMFILES", r"Google\Chrome\Application\chrome.exe"),
+    ("PROGRAMFILES(X86)", r"Google\Chrome\Application\chrome.exe"),
+    ("LOCALAPPDATA", r"Google\Chrome\Application\chrome.exe"),
+)
+
+
 def _find_chromium_executable() -> str | None:
     """查找可用的 Chromium 可执行文件路径。
 
@@ -341,13 +350,7 @@ def _find_chromium_executable() -> str | None:
     # 2026-11-25 立:开发机没有 Playwright 下载的 Chromium 时,回落到系统
     # Edge/Chrome。两者都是 Chromium 内核,Playwright 的 launch(executable_path=...)
     # 实测可用;否则 Browser Hub/画中画在此类机器上直接 500,连会话都建不出来。
-    for env_name, rel in (
-        ("PROGRAMFILES(X86)", r"Microsoft\Edge\Application\msedge.exe"),
-        ("PROGRAMFILES", r"Microsoft\Edge\Application\msedge.exe"),
-        ("PROGRAMFILES", r"Google\Chrome\Application\chrome.exe"),
-        ("PROGRAMFILES(X86)", r"Google\Chrome\Application\chrome.exe"),
-        ("LOCALAPPDATA", r"Google\Chrome\Application\chrome.exe"),
-    ):
+    for env_name, rel in _SYSTEM_BROWSER_CANDIDATES:
         root = os.environ.get(env_name)
         if not root:
             continue
