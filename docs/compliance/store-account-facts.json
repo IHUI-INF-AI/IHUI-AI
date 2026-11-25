@@ -1,0 +1,31 @@
+{
+  "$comment": "商店后台「联系人信息 / 开发者信息 / 主体信息」的唯一数据源。任何平台表单里的预填值都不得直接沿用，必须逐项与本文件比对；不一致时以本文件为准。",
+  "version": "2026-11-25",
+  "app": {
+    "name": "AI丨智汇社",
+    "packageName": "zh.ai.sq",
+    "storeVersion": "0.0.29",
+    "storeVersionCode": "26112202",
+    "pendingVersion": "0.0.30",
+    "pendingVersionCode": "26112315",
+    "vivoAuditStatus": "审核中",
+    "privacyPolicy": "https://www.aizhs.top/agreement/privacy-policy"
+  },
+  "entity": {
+    "name": "吉林省爱智汇人工智能科技有限公司",
+    "legalRepresentative": "李春川",
+    "unifiedSocialCreditCode": "91220100MAE51LM0XE",
+    "icp": "吉ICP备2025027274号-7A"
+  },
+  "storeContact": {
+    "name": "李春川",
+    "email": "502319984@qq.com",
+    "mobile": "18643389808",
+    "$comment": "四家商店（vivo / OPPO / 荣耀 / 小米）后台联系人一律使用本组值。历史遗留的错误预填（刘文博 / 1035259427@qq.com / 17549549976）来自 vivo 团队账号旧记录，严禁再出现。"
+  },
+  "forbidden": {
+    "names": ["刘文博"],
+    "emails": ["1035259427@qq.com"],
+    "mobiles": ["17549549976"]
+  }
+}
