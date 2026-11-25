@@ -318,7 +318,7 @@ function UserInfoCardNew({
           onPress={onOpenVip}
           accessibilityRole="button"
         >
-          <Text style={newStyles.rechargeBtnText}>{t('vipTrader.openTitle')}</Text>
+          <Text style={newStyles.openVipBtnText}>{t('vipTrader.openTitle')}</Text>
         </TouchableOpacity>
       ) : null}
 
@@ -560,18 +560,32 @@ const newStyles = StyleSheet.create({
   rechargeBtn: {
     paddingHorizontal: USER_INFO_CARD_ACTION_PADDING_X_PX,
     paddingVertical: USER_INFO_CARD_ACTION_PADDING_Y_PX,
-    backgroundColor: tokens.brandAccent.DEFAULT,
+    // 次按钮档(2026-11-25 机主拍板):「充值」降为描边次按钮,与「开通会员」的品牌实底拉开层级;
+    // 小程序端同形(`border border-stroke-subtle` + 透明底),两端不再各写一份填充色。
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: tokens.stroke.subtle,
     // 角色档 control(按钮)→ sm(4):与小程序端「充值」钮同形,那一端本就是 `rounded-sm`
     borderRadius: rnRadius.sm,
   },
   rechargeBtnText: {
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,
-    color: tokens.brandAccent.foreground,
+    // 次按钮的文字档:此前取 brandAccent.foreground(实底上的反白字),改描边后取中性文字档
+    color: tokens.text.medium,
     fontWeight: '500',
   },
   openVipBtn: {
     alignSelf: 'flex-end',
     marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
+    // 品牌 CTA 实底(2026-11-25 机主拍板):底与字成对取 brand.cta / brand.ctaForeground,
+    // 亮档黑底白字、暗档白底黑字;覆盖来自身基座 rechargeBtn 的描边次按钮档
+    backgroundColor: tokens.brand.cta,
+    borderColor: tokens.brand.cta,
+  },
+  openVipBtnText: {
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
+    fontWeight: '500',
+    color: tokens.brand.ctaForeground,
   },
   unsubscribeBtn: {
     alignSelf: 'flex-end',

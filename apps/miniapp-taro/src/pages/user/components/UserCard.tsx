@@ -2,13 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
-const dingdanIcon = aizhsUrl('remote-images/dingdan.jpg')
-const gerenIcon = aizhsUrl('remote-images/geren-icon.png')
-const xianLabelIcon = aizhsUrl('remote-images/xian_label.png')
-const shezhiIcon = aizhsUrl('remote-images/shezhi.png')
+import { View, Text } from '@tarojs/components'
+import LineIcon, { type IconName } from '@/components/LineIcon'
 import ThemeRoot from '@/components/ThemeRoot'
 import { onToast } from '@/host/on-toast'
 import { getUserInfo } from '@/utils/auth'
@@ -25,31 +21,35 @@ export default function UserCard({ onGoPage }: UserCardProps) {
   // 毫无反应,且父页 goPage 无 fail 分支,连提示都没有。按 app.config 在册路由逐个改正:
   //   pkg-user 分包 user/orders / pages 分包 distribution/index / pkg-shop 的
   //   token/balance 与 wallet/recharge/index。
-  const items = [
+  // 图标载体(2026-11-25 机主拍板):四张卡此前各挂一张彩色位图(dingdan.jpg / geren-icon.png /
+  // xian_label.png / shezhi.png)—— JPG 与 PNG 混排、四色互不相让、暗档不随主题反色,与 RN 端的
+  // 单色矢量图标语言是两套。今一律改 LineIcon(icons.ts 已在册,键=文件名),颜色取 muted-foreground
+  // 由父级 token 决定 ⇒ 明暗两档同一份代码,不再需要四张位图。
+  const items: { key: string; icon: IconName; title: string; desc: string; path: string }[] = [
     {
       key: 'order',
-      icon: dingdanIcon,
+      icon: 'package',
       title: tt('order.list.title', '我的订单'),
       desc: tt('userUserCard.view1', '查看相关订单'),
       path: '/pkg-user/user/orders',
     },
     {
       key: 'distribution',
-      icon: gerenIcon,
+      icon: 'building-2',
       title: tt('distribution.company.title', '我的公司'),
       desc: tt('userUserCard.view2', '查看员工与业绩'),
       path: '/pages/distribution/index',
     },
     {
       key: 'token',
-      icon: xianLabelIcon,
+      icon: 'circle-dollar-sign',
       title: tt('token.balance.title', '我的智汇值'),
       desc: tt('userUserCard.text3', '智汇消耗信息'),
       path: '/pkg-shop/token/balance',
     },
     {
       key: 'money',
-      icon: shezhiIcon,
+      icon: 'wallet',
       title: tt('wallet.title', '我的钱包'),
       desc: tt('userUserCard.view4', '查看余额与充值'),
       path: '/pkg-shop/wallet/recharge/index',
@@ -67,7 +67,7 @@ export default function UserCard({ onGoPage }: UserCardProps) {
           <ThemeRoot key={item.key}>
             <View
               key={item.key}
-              className={`flex items-center px-[24rpx] py-[20rpx] rounded-lg mb-[14rpx] bg-card ${isFullWidth ?'w-full' :'w-[calc(50vw-47rpx)]'}`}
+              className={`flex items-center px-[24rpx] py-[20rpx] rounded-lg mb-[14rpx] bg-card ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
               onClick={() => {
                 const userInfodata = getUserInfo()
                 if (!userInfodata) {
@@ -78,8 +78,8 @@ export default function UserCard({ onGoPage }: UserCardProps) {
               }}
               hoverClass="opacity-60"
             >
-              <View className="w-[90rpx] h-[90rpx] mr-[24rpx] flex-shrink-0">
-                <Image src={item.icon} className="w-full h-full" mode="aspectFill" />
+              <View className="flex items-center justify-center w-[72rpx] h-[72rpx] mr-[24rpx] flex-shrink-0">
+                <LineIcon name={item.icon} size={44} color="var(--color-muted-foreground)" />
               </View>
               <View>
                 <Text className="block text-title text-foreground">{item.title}</Text>

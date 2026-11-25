@@ -3627,7 +3627,12 @@
     "agent": "AI agent",
     "square": "광장",
     "user": "내 정보",
-    "share": "공유"
+    "share": "공유",
+    "market": "AI 앱 마켓",
+    "plaza": "플라자",
+    "chat": "IHUI AI",
+    "feed": "피드",
+    "me": "내"
   },
   "pagesindexindex": {
     "register1": "🎉 지혜AI 커뮤니티에 오신 것을 환영합니다! 신규 가입 시 5000 지혜값 증정!",

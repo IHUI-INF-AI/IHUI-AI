@@ -267,12 +267,15 @@ export default function UserInfoCard({
                       /* 此前这里是一枚 24×20 的位图按钮(把「充值智汇值」四个汉字烘进金色渐变图):
                          既不随主题反色、也不走 i18n 与字号缩放。换成与本卡其余操作钮同一档位的
                          文字按钮(规格档 ACTION_PADDING_X/Y + SMALL_FONT),与 RN 端 rechargeBtn 同形。 */
+                      /* 次按钮档(2026-11-25 机主拍板):「充值」降为描边次按钮(透明底 + 中性描边 +
+                         中性文字),与「开通会员」的品牌实底拉开层级。此前这里是 `bg-primary` 实底,
+                         RN 端同一枚也取实底 —— 两端同步收次按钮档。 */
                       <View
-                        className="rounded-sm bg-primary flex-shrink-0 ml-auto"
+                        className="rounded-sm border border-stroke-subtle flex-shrink-0 ml-auto"
                         style={ACTION_PAD_STYLE}
                       >
                         <Text
-                          className="text-primary-foreground font-medium"
+                          className="text-muted-foreground font-medium"
                           style={SMALL_FONT_STYLE}
                         >
                           {tt('wallet.recharge.submit', '充值')}
@@ -320,16 +323,25 @@ export default function UserInfoCard({
               <View className="flex items-center gap-sm" style={ROW_MARGIN_STYLE}>
                 {/* 开通会员按钮(仅非 isVip 显示,对齐原项目 openIntroduce) */}
                 {!isVip && onOpenVip ? (
+                  /* 品牌 CTA 实底(2026-11-25 机主拍板):底/字成对取 --color-cta / --color-cta-foreground,
+                     亮档黑底白字、暗档白底黑字;此前是 `var(--color-primary)` 实底,与「充值」同档看不出主次。
+                     底与字都落在 style 对象里(不写 JSX 内联覆盖),对齐守门 83 的归属口径。 */
                   <View
                     className="rounded-sm"
-                    style={{ ...ACTION_PAD_STYLE, background: 'var(--color-primary)' }}
+                    style={{
+                      ...ACTION_PAD_STYLE,
+                      background: 'var(--color-cta)',
+                    }}
                     onClick={(e) => {
                       e.stopPropagation()
                       onOpenVip()
                     }}
                     hoverClass="opacity-85"
                   >
-                    <Text className="text-primary-foreground font-medium" style={SMALL_FONT_STYLE}>
+                    <Text
+                      className="font-medium"
+                      style={{ ...SMALL_FONT_STYLE, color: 'var(--color-cta-foreground)' }}
+                    >
                       {tt('vipTrader.openTitle', '开通会员')}
                     </Text>
                   </View>
@@ -350,10 +362,10 @@ export default function UserInfoCard({
                     </Text>
                   </View>
                 ) : null}
-                {/* 充值按钮(onWallet 且智汇值行未显示时兜底) */}
+                {/* 充值按钮(onWallet 且智汇值行未显示时兜底),次按钮档同上一枚 */}
                 {showRecharge && !tokenDisplay ? (
                   <View
-                    className="rounded-sm bg-primary"
+                    className="rounded-sm border border-stroke-subtle"
                     style={ACTION_PAD_STYLE}
                     onClick={(e) => {
                       e.stopPropagation()
@@ -361,7 +373,7 @@ export default function UserInfoCard({
                     }}
                     hoverClass="opacity-85"
                   >
-                    <Text className="text-primary-foreground font-medium" style={SMALL_FONT_STYLE}>
+                    <Text className="text-muted-foreground font-medium" style={SMALL_FONT_STYLE}>
                       {tt('wallet.recharge.submit', '充值')}
                     </Text>
                   </View>

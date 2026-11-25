@@ -3627,7 +3627,12 @@
     "agent": "AI agent",
     "square": "廣場",
     "user": "我的",
-    "share": "分享星球"
+    "share": "分享星球",
+    "market": "AI應用商店",
+    "plaza": "廣場",
+    "chat": "智匯AI",
+    "feed": "動態",
+    "me": "我的"
   },
   "pagesindexindex": {
     "register1": "🎉 歡迎使用智匯AI社區,新使用者註冊即贈5000智匯值!",

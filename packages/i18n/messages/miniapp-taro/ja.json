@@ -3627,7 +3627,12 @@
     "agent": "AI agent",
     "square": "スクエア",
     "user": "マイページ",
-    "share": "シェア"
+    "share": "シェア",
+    "market": "AIアプリストア",
+    "plaza": "プラザ",
+    "chat": "智汇AI",
+    "feed": "フィード",
+    "me": "マイ"
   },
   "pagesindexindex": {
     "register1": "🎉 智匯AIコミュニティへようこそ!新規登録で5000智匯値をプレゼント!",

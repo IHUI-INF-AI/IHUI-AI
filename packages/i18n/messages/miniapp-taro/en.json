@@ -3627,7 +3627,12 @@
     "agent": "AI agent",
     "square": "Square",
     "user": "Me",
-    "share": "Share Planet"
+    "share": "Share Planet",
+    "market": "AI App Store",
+    "plaza": "Plaza",
+    "chat": "IHUI AI",
+    "feed": "Feed",
+    "me": "Me"
   },
   "pagesindexindex": {
     "register1": "🎉 Welcome to IHUI AI Community! New users get 5000 IHUI credits on signup!",
