@@ -129,14 +129,14 @@ export function ProfileEditScreen() {
     async (source: 'album' | 'camera') => {
       if (avatarUploading) return
       setAvatarError('')
-      const permission =
-        source === 'camera'
-          ? await ImagePicker.requestCameraPermissionsAsync()
-          : await ImagePicker.requestMediaLibraryPermissionsAsync()
-      if (!permission.granted) {
-        setAvatarError(uniappT('profileEdit.avatarPermissionDenied'))
-        return
+      if (source === 'camera') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync()
+        if (!permission.granted) {
+          setAvatarError(uniappT('profileEdit.avatarPermissionDenied'))
+          return
+        }
       }
+      // 相册走系统 Photo Picker,不再请求相册全量权限(vivo 0.0.29 权限审核要求)
       const result =
         source === 'camera'
           ? await ImagePicker.launchCameraAsync({

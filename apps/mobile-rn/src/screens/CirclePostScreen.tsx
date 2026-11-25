@@ -65,12 +65,7 @@ export function CirclePostScreen() {
   const pickImage = useCallback(async () => {
     setError(null)
     try {
-      // 权限被拒时原实现直接调 launchImageLibraryAsync ⇒ 什么都不发生、也不提示。
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
-      if (perm.status !== 'granted') {
-        setError(t('home.pubPermAlbumImage'))
-        return
-      }
+      // 系统 Photo Picker 不需要相册全量权限,直接拉起即可(vivo 0.0.29 权限审核要求)
       const picked = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,

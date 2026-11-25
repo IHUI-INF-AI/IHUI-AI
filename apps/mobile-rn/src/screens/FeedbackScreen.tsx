@@ -21,7 +21,6 @@ import * as ImagePicker from '@/platform/image-picker'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { FeedbackScreen as SharedFeedbackScreen } from '@ihui/rn-app'
 import { fetchApi, uploadFileMultipart } from '@ihui/api-client'
-import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -60,12 +59,7 @@ export function FeedbackScreen() {
 
   /** 选图并上传(对齐 Uniapp fankui uploadImage:chooseImage → request 上传 → push filePaths) */
   const handlePickImages = async (): Promise<string[]> => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    // 权限被拒时给一句话:原实现直接空返回,用户点「添加截图」完全没反应
-    if (!perm.granted) {
-      appAlert(t('share.needAlbum'))
-      return []
-    }
+    // 系统 Photo Picker 不需要相册全量权限,直接拉起即可
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
