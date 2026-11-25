@@ -660,7 +660,7 @@ IPC 分组说明它是“能力市场型”客户端：
 | Qoder CN | 0.5.14 主进程 4744 → `127.0.0.1:55346` | 无 Qoder 专属管道 | 该端口对应本机测试脚本 `C:\IHUI-AI\scripts\qoder-chat-bridge.mjs --port 0`，**不算 Qoder application-server** |
 | 小浣熊 / codex | 小浣熊为 Chromium 多进程，无目标专属 TCP；codex 无 TCP/UDP 监听（PID 33980 端点为 0），但有 `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0`、`codex-app-tools-ba97c01c…` 两条命名管道（ACL 见 5.9） | 两条命名管道 | codex 管道协议/ACL 部分未探测 |
 
-端口协议已在 5.8 做只读指纹：`18488` 是 HTTP API，`56000` / `57737` 是 HTTP 403 网关，`49853` 是校验 Origin 的 WebSocket，`55346` 自报 `qoder_bridge_error`；Codex 的 `OpenAI.CodexSandbox` 管道 ACL 见 5.9（`CodexSandboxUsers` Deny FullControl，`INTERACTIVE` Allow 读写）；`codex-app-tools` 管道与 app-server 命令行里的 plugin 别名对应，见 5.10。
+端口协议已在 5.8 做只读指纹：`18488` 是 `GET /workbuddy/probe` 存活探针，`56000` / `57737` 是 HTTP 403 网关，`49853` 是校验 Origin 的 WebSocket，`55346` 自报 `qoder_bridge_error`；Codex 的 `OpenAI.CodexSandbox` 管道 ACL 见 5.9（`CodexSandboxUsers` Deny FullControl，`INTERACTIVE` Allow 读写）；`codex-app-tools` 管道与 app-server 命令行里的 plugin 别名对应，见 5.10。
 
 ### 5.7 运行期模块加载（Qoder / 豆包 / WorkBuddy）
 
@@ -683,7 +683,7 @@ IPC 分组说明它是“能力市场型”客户端：
 
 | 端口 / 进程 | `OPTIONS /` | WebSocket Upgrade | 判定 |
 |---|---|---|---|
-| 18488 WorkBuddy main | `204 No Content`，`Access-Control-Allow-Origin: *`，允许 GET/OPTIONS | `404` + `{"ok":false,"error":"Not Found"}` | 本地 HTTP API，CORS 全开；不是 WebSocket |
+| 18488 WorkBuddy main | `204 No Content`，`Access-Control-Allow-Origin: *`，允许 GET/OPTIONS | `404` + `{"ok":false,"error":"Not Found"}` | **本地存活探针**：`GET /workbuddy/probe` 返回 `{ok:true,app:"workbuddy-desktop",version,platform}`；不是业务 API |
 | 56000 WorkBuddy daemon | `403` + `{"error":"forbidden"}` | 同 403 | HTTP 网关，带鉴权/拒绝门 |
 | 57736 WorkBuddy daemon | `404`，空 chunked | 同 404 | HTTP 服务，根路径无路由 |
 | 57737 WorkBuddy daemon | `403` + `X-Request-Id` + `{"error":"forbidden"}` | 同 403 | HTTP 网关，带 request-id |
@@ -693,7 +693,9 @@ IPC 分组说明它是“能力市场型”客户端：
 | 61167 豆包 main | 空响应 | 空响应 | 静默 raw TCP；协议未识别 |
 | 55346 Qoder 测试桥 | `404` + `{"error":{"message":"not found","type":"qoder_bridge_error","code":"not_found"}}` | 同 404 | HTTP 测试桥，自报 `qoder_bridge_error`；不是 Qoder application-server |
 
-**边界**：每个端口只发一次请求；超时不等于“只能是 WebSocket”；61167 静默可能是自定义 raw TCP。`18488` 的 CORS 全开只说明该 HTTP 端点允许跨源预检，不等于业务接口无鉴权；`56000` / `57737` 的 403 也只证明根路径被拒，鉴权方式仍未识别。
+**边界**：每个端口只发一次请求；超时不等于“只能是 WebSocket”；61167 静默可能是自定义 raw TCP。`56000` / `57737` 的 403 只证明根路径被拒，鉴权方式仍未识别。
+
+**18488 的来源已定位**：不是通用业务 API，而是 `main/main-bootstrap.js` 里的 `LocalProbeServer`。`LOCAL_PROBE_DEFAULT_PORTS=[18488,18489,18490]`、`LOCAL_PROBE_PATH=/workbuddy/probe`；只接受 `GET /workbuddy/probe`，其余路径 404 `{"ok":false,"error":"Not Found"}`，非 GET 405，停机中 503 `{"ok":false,"error":"Shutting down"}`；成功体是 `{ok:true,app:"workbuddy-desktop",version:<appVersion>,platform:<process.platform>}`。`OPTIONS` 返回 204 + `Access-Control-Allow-Origin:*`，`Cache-Control:no-store`。它是非关键启动步骤（`critical:false`），18488 被占用时退到 18489/18490。**结论：18488 是桌面端存活探针，不是可执行业务的本地 API；CORS 全开的风险面仅限版本/平台泄露，不应写成“业务接口无鉴权”。**
 
 ### 5.9 Codex 服务命名管道 ACL（只读）
 
@@ -812,7 +814,7 @@ PID 38788（父 PID 11820）运行 `codex.exe ... app-server --analytics-default
 - `analysis\backend-qoder-all.json`：Qoder 四版本 asar 后端扫描——`mcpServer` 665 / 665 / 629 / 629（`out/main/electronMain.js` 123 / 123 / 129 / 129，agent-sdk 各 37）、`http.createServer` 8 / 8 / 6 / 6、0.5.12/0.5.14 的 `WebSocketServer` 1、`ipcMain`/`expose`/`safeStorage`/`keytar` 均 0；启动与否未运行验证。
 - `analysis\runtime-snapshot-2026-11-25.json`：2026-11-25 15:26 运行态快照——41 个目标进程、9 个本地监听、相关命名管道；含 WorkBuddy `18488`/`56000`/`57736`/`57737`/`57740`/`63423`、豆包 `49853`/`61167` 与 `aha-agent-tool-ipc`/`PipMain`/`PipSDK` 管道、Qoder `55346` 属测试桥而非 application-server 的判定、Codex `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0` / `codex-app-tools-ba97c01c…` 两条管道与 `34254` 无监听。
 - `analysis\runtime-modules-2026-11-25.json`：运行态模块枚举——Qoder 0.5.14 的 41 / 47 个模块中 0 AOQ/keytar/Opus/FFmpeg；豆包 `AgentInfraProcess` 加载 `agent_infra.dll` / `pip_sdk.dll` 但 0 `pip_remote.dll`，`PushServerService` 加载 `pc_push.dll`；WorkBuddy 主进程加载 `WeComAgentConfirmSDK.dll`，沙箱 helper 为独立 exe、空闲态未驻留；Codex Windows 沙箱服务（33980）以 50 个模块运行。
-- `analysis\runtime-port-fingerprints-2026-11-25.json`：9 个本地监听的只读协议指纹——`18488` HTTP API CORS 全开、`56000` / `57737` HTTP 403 网关、`57740` / `63423` 不响应普通 HTTP、`49853` WebSocket 且拒绝 invalid origin、`55346` 自报 `qoder_bridge_error` 测试桥。
+- `analysis\runtime-port-fingerprints-2026-11-25.json`：9 个本地监听的只读协议指纹——`18488` 是 `GET /workbuddy/probe` 存活探针（`main/main-bootstrap.js` 的 `LocalProbeServer`，18488→18489→18490 回退）、`56000` / `57737` HTTP 403 网关、`57740` / `63423` 不响应普通 HTTP、`49853` WebSocket 且拒绝 invalid origin、`55346` 自报 `qoder_bridge_error` 测试桥。
 - `<target>-jsmap-full.json`：前端全量图（豆包 ai-views 437MB、WorkBuddy 273MB、Cursor 247MB 等）；豆包主应用 `biz.pak` 的 1.04GB 图见下一组条目。
 - `native\<target>\*.json`：核心取证（overview / imports / exports / publisher / strings0-7 / feat0-3）。
 - `native\codex\crates.json`：Codex 407MB 二进制的 400 个 crate 路径清单（含 40 个高频项与 79 个安全/网络相关项）。
