@@ -264,6 +264,7 @@ IPC 命名本身就把产品能力摊开了：
 - **运行态快照（2026-11-25 15:26，非本轮启动）**：main 22984 监听 `127.0.0.1:18488`；`daemon-app-server-entry.js --stdio` 进程 31688 监听 `56000` / `57736` / `57737`；两个 `codebuddy --serve` 进程 41604 / 8372 分别监听 `57740` / `63423`；`WorkBuddy_SandboxCenter_*`、`WorkBuddy_SensitiveApproval_*`、`workbuddy-...-sidecar-control-*` / `-data-*` 管道均存在。它证明 MCP Host/daemon/sidecar 层不是只在静态代码里，但 `57736` 的路由仍未识别；`57740` / `63423` 已在 18:26 复测时退出。
 - **`56000` 是 VlmProxy**：`main/server.js` 的 `VlmProxy` 只接受回环 `Host`、拒绝 `Origin`，路由固定为 `chatPath`；`SkillVlmService` 用 `/skills/vlm/chat`，请求需 `Authorization: Bearer` + `x-workbuddy-mcp-context`。无凭据 POST 返回 401 `{"error":"unauthorized"}`，不是通用 HTTP 网关。
 - **`57737` 是 McpHost**：`GET /healthz` 返回 200 `{"status":"ok","routes":11}`，每个响应带 `X-Request-Id`；`dispatch` 先做 loopback Host / Origin 校验，失败 403 `{"error":"forbidden"}`。11 是运行时路由计数，未枚举。
+- **`57736` 是 McpAppsHost**：`main/app-server-mcp-apps-host.js` 的 `McpAppsHttpServer`，`GET /mcp-apps/sandbox-proxy.html` 返回 200 的 “MCP Apps Sandbox Proxy”，`GET /mcp-apps/foo/app.html` 返回 404 `MCP App instance not found or not loaded`；未匹配路径空 404。它是 MCP Apps 的 HTML 宿主，不是通用 API。
 - **`18488` 不是业务 API，是存活探针**：`main/main-bootstrap.js` 的 `LocalProbeServer`，候选端口 `[18488,18489,18490]`，唯一路由 `GET /workbuddy/probe`，成功体 `{ok:true,app:"workbuddy-desktop",version:<appVersion>,platform:<process.platform>}`；其余路径 404 `{"ok":false,"error":"Not Found"}`，非 GET 405，停机中 503。`OPTIONS` 204 + `Access-Control-Allow-Origin:*`，`Cache-Control:no-store`；`critical:false`，端口占用会顺序回退。**它只泄露版本/平台，不是可执行业务的本地接口。**
 
 **一句话结论**：WorkBuddy 的“前后端”是三层——渲染层（Electron renderer + contextBridge 83 键）、主进程服务层（MCP Host / A2A / WeCom / daemon）、原生沙箱层（Rust cli+center，Job Object + pipe ACL + approval 反向通道）。这三层都有产品级证据，且互相咬合。
@@ -688,7 +689,7 @@ IPC 分组说明它是“能力市场型”客户端：
 |---|---|---|---|
 | 18488 WorkBuddy main | `204 No Content`，`Access-Control-Allow-Origin: *`，允许 GET/OPTIONS | `404` + `{"ok":false,"error":"Not Found"}` | **本地存活探针**：`GET /workbuddy/probe` 返回 `{ok:true,app:"workbuddy-desktop",version,platform}`；不是业务 API |
 | 56000 WorkBuddy daemon | `403` + `{"error":"forbidden"}` | `404` + `{"error":"not_found"}`；`POST /skills/vlm/chat` → `401` + `{"error":"unauthorized"}` | **VlmProxy**：本地 VLM 转发端点，路由 `/skills/vlm/chat`，需 Bearer + `x-workbuddy-mcp-context` |
-| 57736 WorkBuddy daemon | `404`，空 chunked | `404`，空 body | HTTP 服务；路由仍未识别，不能仅凭空 404 定性 |
+| 57736 WorkBuddy daemon | `404`，空 chunked | `404` 空；`GET /mcp-apps/sandbox-proxy.html` → `200` HTML “MCP Apps Sandbox Proxy”；`GET /mcp-apps/foo/app.html` → `404` `MCP App instance not found or not loaded` | **McpAppsHost**：`main/app-server-mcp-apps-host.js` 的专用 HTTP server，路由 `/mcp-apps/*`；未知路径回空 404 |
 | 57737 WorkBuddy daemon | `403` + `X-Request-Id` + `{"error":"forbidden"}` | `200` + `{"status":"ok","routes":11}`，带 `X-Request-Id` | **McpHost**：`main/server.js` 的本地 MCP 路由宿主，运行时 11 条路由 |
 | 57740 WorkBuddy codebuddy | 超时 | 连接被拒绝 | 快照后进程已退出；首轮超时不能反推“只能 WebSocket/TCP” |
 | 63423 WorkBuddy codebuddy | 超时 | 连接被拒绝 | 同上 |
@@ -696,13 +697,15 @@ IPC 分组说明它是“能力市场型”客户端：
 | 61167 豆包 main | 空响应 | — | 静默 raw TCP；协议未识别 |
 | 55346 Qoder 测试桥 | `404` + `{"error":{"message":"not found","type":"qoder_bridge_error","code":"not_found"}}` | — | HTTP 测试桥，自报 `qoder_bridge_error`；不是 Qoder application-server |
 
-**18:26 复测把 WorkBuddy 的三个 daemon 端口分开了**：`57737` 的 `/healthz` 返回 200 + `routes:11`，且每个响应带 `X-Request-Id`，与 `McpHost.dispatch` 的代码路径完全一致；`56000` 的 `/healthz` 是 404 `not_found`，但 `POST /skills/vlm/chat` 返回 401 `unauthorized`，与 `VlmProxy.admit` 的 `chatPath` 一致；`57736` 仍是空 404，未识别。`57740` / `63423` 在首轮快照里是 `codebuddy --serve`，本轮复测连接被拒绝，说明进程已退出——首轮的“超时”不能直接当成协议结论。
+**18:26 复测把 WorkBuddy 的三个 daemon 端口分开了**：`57737` 的 `/healthz` 返回 200 + `routes:11`，且每个响应带 `X-Request-Id`，与 `McpHost.dispatch` 的代码路径完全一致；`56000` 的 `/healthz` 是 404 `not_found`，但 `POST /skills/vlm/chat` 返回 401 `unauthorized`，与 `VlmProxy.admit` 的 `chatPath` 一致；`57736` 的 `/mcp-apps/sandbox-proxy.html` 返回 200 HTML “MCP Apps Sandbox Proxy”，`/mcp-apps/foo/app.html` 返回 404 `MCP App instance not found or not loaded`，与 `McpAppsHttpServer` 的分支一致。`57740` / `63423` 在首轮快照里是 `codebuddy --serve`，本轮复测连接被拒绝，说明进程已退出——首轮的“超时”不能直接当成协议结论。
 
 **56000 的源码口径**：`main/server.js` 的 `VlmProxy` 只接受回环 `Host`、拒绝任何 `Origin`，路由固定为 `chatPath`；`SkillVlmService` 把 `chatPath` 设为 `/skills/vlm/chat`，鉴权需要 `Authorization: Bearer` 和 `x-workbuddy-mcp-context`。无凭据 POST 返回 401 `{"error":"unauthorized"}`，不是 403 网关。**它是本地 VLM 转发，不是通用 HTTP API。**
 
-**57737 的源码口径**：`McpHost.dispatch` 先写 `X-Request-Id`，再做 loopback Host / Origin 校验（失败 403 `{"error":"forbidden"}`），`/healthz` 无鉴权返回 `{status:"ok",routes:<n>}`；具体路由未枚举，11 只是运行时计数。`57736` 与 `57740` / `63423` 不能借用这个结论。
+**57736 的源码口径**：`main/app-server-mcp-apps-host.js` 的 `McpAppsHttpServer.attach` 先让 TMAP / 静态 HTML / sandbox-preview 处理器尝试，再走 `/mcp-apps/*`：`/mcp-apps/sandbox-proxy.html` 固定返回 200 的 sandbox proxy 页面，`/mcp-apps/<instanceId>/app.html` 按实例取 HTML 并附 CSP；未匹配路径直接 `writeHead(404); end()`，所以根路径是空 404。**它是 MCP Apps 的 HTML 宿主，不是通用 API。**
 
-**边界**：每端口只打低频只读请求；401/403/404 不等于鉴权强度；`57737` 的 11 条路由没有枚举；`56000` 的 VlmProxy 是否只在 Skill VLM 场景启用、`57736` 的真实路由、`57740` / `63423` 的下一次拉起都仍是未知。61167 静默可能是自定义 raw TCP。
+**57737 的源码口径**：`McpHost.dispatch` 先写 `X-Request-Id`，再做 loopback Host / Origin 校验（失败 403 `{"error":"forbidden"}`），`/healthz` 无鉴权返回 `{status:"ok",routes:<n>}`；具体路由未枚举，11 只是运行时计数。`57740` / `63423` 不能借用这个结论。
+
+**边界**：每端口只打低频只读请求；401/403/404 不等于鉴权强度；`57737` 的 11 条路由没有枚举；`56000` 的 VlmProxy 是否只在 Skill VLM 场景启用、`57736` 的实例 HTML 内容与 CSP 实际约束、`57740` / `63423` 的下一次拉起都仍是未知。61167 静默可能是自定义 raw TCP。
 
 **18488 的来源已定位**：不是通用业务 API，而是 `main/main-bootstrap.js` 里的 `LocalProbeServer`。`LOCAL_PROBE_DEFAULT_PORTS=[18488,18489,18490]`、`LOCAL_PROBE_PATH=/workbuddy/probe`；只接受 `GET /workbuddy/probe`，其余路径 404 `{"ok":false,"error":"Not Found"}`，非 GET 405，停机中 503 `{"ok":false,"error":"Shutting down"}`；成功体是 `{ok:true,app:"workbuddy-desktop",version:<appVersion>,platform:<process.platform>}`。`OPTIONS` 返回 204 + `Access-Control-Allow-Origin:*`，`Cache-Control:no-store`。它是非关键启动步骤（`critical:false`），18488 被占用时退到 18489/18490。**结论：18488 是桌面端存活探针，不是可执行业务的本地 API；CORS 全开的风险面仅限版本/平台泄露，不应写成“业务接口无鉴权”。**
 
@@ -823,7 +826,7 @@ PID 38788（父 PID 11820）运行 `codex.exe ... app-server --analytics-default
 - `analysis\backend-qoder-all.json`：Qoder 四版本 asar 后端扫描——`mcpServer` 665 / 665 / 629 / 629（`out/main/electronMain.js` 123 / 123 / 129 / 129，agent-sdk 各 37）、`http.createServer` 8 / 8 / 6 / 6、0.5.12/0.5.14 的 `WebSocketServer` 1、`ipcMain`/`expose`/`safeStorage`/`keytar` 均 0；启动与否未运行验证。
 - `analysis\runtime-snapshot-2026-11-25.json`：2026-11-25 15:26 运行态快照——41 个目标进程、9 个本地监听、相关命名管道；含 WorkBuddy `18488`/`56000`/`57736`/`57737`/`57740`/`63423`、豆包 `49853`/`61167` 与 `aha-agent-tool-ipc`/`PipMain`/`PipSDK` 管道、Qoder `55346` 属测试桥而非 application-server 的判定、Codex `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0` / `codex-app-tools-ba97c01c…` 两条管道与 `34254` 无监听。
 - `analysis\runtime-modules-2026-11-25.json`：运行态模块枚举——Qoder 0.5.14 的 41 / 47 个模块中 0 AOQ/keytar/Opus/FFmpeg；豆包 `AgentInfraProcess` 加载 `agent_infra.dll` / `pip_sdk.dll` 但 0 `pip_remote.dll`，`PushServerService` 加载 `pc_push.dll`；WorkBuddy 主进程加载 `WeComAgentConfirmSDK.dll`，沙箱 helper 为独立 exe、空闲态未驻留；Codex Windows 沙箱服务（33980）以 50 个模块运行。
-- `analysis\runtime-port-fingerprints-2026-11-25.json`：本地监听的只读协议指纹——`18488` 是 `GET /workbuddy/probe` 存活探针（`main/main-bootstrap.js` 的 `LocalProbeServer`，18488→18489→18490 回退）；`56000` 是 `VlmProxy`（`POST /skills/vlm/chat` → 401 `unauthorized`，需 Bearer + `x-workbuddy-mcp-context`）；`57737` 是 `McpHost`（`GET /healthz` → 200 `{"status":"ok","routes":11}`，带 `X-Request-Id`）；`57736` 仍是空 404；`57740` / `63423` 在 18:26 复测时已退出；`49853` WebSocket 且拒绝 invalid origin；`55346` 自报 `qoder_bridge_error` 测试桥。`round2` 块保留原始响应与当前监听 PID。
+- `analysis\runtime-port-fingerprints-2026-11-25.json`：本地监听的只读协议指纹——`18488` 是 `GET /workbuddy/probe` 存活探针（`main/main-bootstrap.js` 的 `LocalProbeServer`，18488→18489→18490 回退）；`56000` 是 `VlmProxy`（`POST /skills/vlm/chat` → 401 `unauthorized`，需 Bearer + `x-workbuddy-mcp-context`）；`57737` 是 `McpHost`（`GET /healthz` → 200 `{"status":"ok","routes":11}`，带 `X-Request-Id`）；`57736` 是 `McpAppsHost`（`/mcp-apps/sandbox-proxy.html` → 200 “MCP Apps Sandbox Proxy”，未知实例 → 404）；`57740` / `63423` 在 18:26 复测时已退出；`49853` WebSocket 且拒绝 invalid origin；`55346` 自报 `qoder_bridge_error` 测试桥。`round2` 块保留原始响应与当前监听 PID。
 - `<target>-jsmap-full.json`：前端全量图（豆包 ai-views 437MB、WorkBuddy 273MB、Cursor 247MB 等）；豆包主应用 `biz.pak` 的 1.04GB 图见下一组条目。
 - `native\<target>\*.json`：核心取证（overview / imports / exports / publisher / strings0-7 / feat0-3）。
 - `native\codex\crates.json`：Codex 407MB 二进制的 400 个 crate 路径清单（含 40 个高频项与 79 个安全/网络相关项）。
