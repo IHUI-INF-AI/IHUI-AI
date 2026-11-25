@@ -208,7 +208,7 @@ export function selfTest() {
       version: '0.0.5',
       ios: { bundleIdentifier: 'ai.ihui.mobile' },
       android: { package: 'zh.ai.sq' },
-      extra: { WX_APP_APPID: 'wx85fa429a9331b5c8', WX_UNIVERSAL_LINK: 'https://aizhs.top/' },
+      extra: { WX_APP_APPID: 'wx3c37d94ee8f70148', WX_UNIVERSAL_LINK: 'https://aizhs.top/' },
     },
   })
   const BOUNDS =
