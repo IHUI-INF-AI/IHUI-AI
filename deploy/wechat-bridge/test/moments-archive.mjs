@@ -17,11 +17,24 @@ await rm(FILE, { force: true })
 const first = await appendMomentArchive(
   [
     { id: 'm1', authorName: '张三', content: '今天下雪了', source: 'ocr', page: 1 },
-    { id: 'm2', authorName: '李四', content: '周末聚餐', source: 'ocr', page: 1 },
+    {
+      id: 'm2',
+      authorName: '李四',
+      content: '周末聚餐',
+      source: 'ocr',
+      page: 1,
+      mediaLocalDir: 'C:\\caches\\temp\\wechat-db-media\\m2',
+      mediaDownloaded: true,
+    },
   ],
   FILE,
 )
 assert.deepEqual(first, { added: 2, updated: 0, total: 2 })
+
+const firstRead = await readMomentArchive(FILE, 10)
+const m2 = firstRead.moments.find((item) => item.id === 'm2')
+assert.equal(m2?.mediaLocalDir, 'C:\\caches\\temp\\wechat-db-media\\m2')
+assert.equal(m2?.mediaDownloaded, true)
 
 const repeated = await appendMomentArchive(
   [

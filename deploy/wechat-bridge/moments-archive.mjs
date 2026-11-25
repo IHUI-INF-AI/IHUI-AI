@@ -82,6 +82,7 @@ function normalizeRecord(value) {
   // 纯图片/纯点赞动态也可能没有正文：DB 路线要保留，不再只认正文。
   if (!content && mediaUrls.length === 0 && !hasLikes && !hasComments) return null
   const authorId = textOf(value.authorId) || null
+  const mediaLocalDir = textOf(value.mediaLocalDir)
   return {
     id: textOf(value.id) || archiveId(value),
     authorId,
@@ -92,6 +93,8 @@ function normalizeRecord(value) {
     createdAt: numberOrNull(value.createdAt),
     source: textOf(value.source) || 'ocr',
     page: typeof value.page === 'number' && Number.isFinite(value.page) ? value.page : null,
+    ...(mediaLocalDir ? { mediaLocalDir } : {}),
+    ...(value.mediaDownloaded === true ? { mediaDownloaded: true } : {}),
     ...(likeUsers.length > 0 ? { likeUsers } : {}),
     ...(likeUserIds.length > 0 ? { likeUserIds } : {}),
     ...(commentsData.length > 0 ? { commentsData } : {}),
@@ -214,6 +217,10 @@ export async function appendMomentArchive(moments, filePath) {
     }
     if (item.mediaUrls.length > previous.mediaUrls.length) previous.mediaUrls = item.mediaUrls
     if (item.createdAt && !previous.createdAt) previous.createdAt = item.createdAt
+    if (item.mediaLocalDir && !previous.mediaLocalDir) {
+      previous.mediaLocalDir = item.mediaLocalDir
+    }
+    if (item.mediaDownloaded === true) previous.mediaDownloaded = true
     if (item.likeUsers?.length > (previous.likeUsers?.length ?? 0)) {
       previous.likeUsers = item.likeUsers
     }
