@@ -374,8 +374,11 @@ describe('createCompatNavigation 端口等价面', () => {
   it('tab 名单与 app.config 同源:MINI_TAB_PATHS 由 MINI_TAB_PAGE_LIST 派生且仍是 5 页', () => {
     expect(MINI_TAB_PATHS).toEqual(MINI_TAB_PAGE_LIST.map((path) => `/${path}`))
     expect(MINI_TAB_PATHS).toHaveLength(5)
+    // 2026-11-24 起 5 项对齐 RN:AI应用商店 / 广场 / 智汇AI / 动态 / 我的。
+    // 分享星球不再占 tab 位(pages/share 已下沉 pkg-share),故不再断言它在名单里。
+    expect(MINI_TAB_PATHS).toContain('/pages/agent-market/index')
+    expect(MINI_TAB_PATHS).toContain('/pages/news/index')
     expect(MINI_TAB_PATHS).toContain('/pages/user/index')
-    expect(MINI_TAB_PATHS).toContain('/pages/share/index')
   })
 
   it('逐字比对 app.config.ts tabBar.list:配置与 MINI_TAB_PAGE_LIST 任一漂移即红', () => {

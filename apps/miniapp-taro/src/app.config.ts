@@ -23,9 +23,16 @@ export default defineAppConfig({
     'pages/community/index',
     'pages/user/index',
     'pages/plaza/index/index',
-    'pages/share/index',
+    'pages/agent-market/index',
+    'pages/news/index',
   ],
   subPackages: [
+    {
+      // 2026-11-25:pages/share 整体下沉本分包(它自 11-24 起已不占 tab 位),主包因此
+      // 回收 46,756 B。目录内 import 全是同级 ./components/*,整目录搬迁零断链。
+      root: 'pkg-share',
+      pages: ['share/index'],
+    },
     {
       root: 'pkg-ai',
       pages: [
@@ -147,7 +154,6 @@ export default defineAppConfig({
         'task-center/index',
         'bill/index',
         'agent-create/index',
-        'agent-market/index',
         'agent-review-list/index',
         'agent-setting/index',
         'agent-stat/index',
@@ -462,16 +468,10 @@ export default defineAppConfig({
     backgroundColor: '@tabBgColor',
     list: [
       {
-        pagePath: 'pages/index/index',
-        text: '智汇社区',
-        iconPath: 'assets/tabbar/tab-community.png',
-        selectedIconPath: 'assets/tabbar/tab-community-active.png',
-      },
-      {
-        pagePath: 'pages/community/index',
-        text: 'AI agent',
-        iconPath: 'assets/tabbar/tab-agent.png',
-        selectedIconPath: 'assets/tabbar/tab-agent-active.png',
+        pagePath: 'pages/agent-market/index',
+        text: 'AI应用商店',
+        iconPath: 'assets/tabbar/tab-market.png',
+        selectedIconPath: 'assets/tabbar/tab-market-active.png',
       },
       {
         pagePath: 'pages/plaza/index/index',
@@ -480,16 +480,22 @@ export default defineAppConfig({
         selectedIconPath: 'assets/tabbar/tab-square-active.png',
       },
       {
+        pagePath: 'pages/community/index',
+        text: '智汇AI',
+        iconPath: 'assets/tabbar/tab-community.png',
+        selectedIconPath: 'assets/tabbar/tab-community-active.png',
+      },
+      {
+        pagePath: 'pages/news/index',
+        text: '动态',
+        iconPath: 'assets/tabbar/tab-news.png',
+        selectedIconPath: 'assets/tabbar/tab-news-active.png',
+      },
+      {
         pagePath: 'pages/user/index',
         text: '我的',
         iconPath: 'assets/tabbar/tab-user.png',
         selectedIconPath: 'assets/tabbar/tab-user-active.png',
-      },
-      {
-        pagePath: 'pages/share/index',
-        text: '分享星球',
-        iconPath: 'assets/tabbar/tab-share.png',
-        selectedIconPath: 'assets/tabbar/tab-share-active.png',
       },
     ],
   },

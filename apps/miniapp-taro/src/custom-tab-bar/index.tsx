@@ -49,12 +49,14 @@ interface TabItem {
 }
 
 // 页面路径与 app.config.ts tabBar.list 同源(constants/tab-bar-pages.ts),顺序/文案一致
+// 2026-11-24:5 项对齐 RN 端「AI应用商店 / 广场 / 智汇AI / 动态 / 我的」;
+// 图标取 icons.ts 在册名(shopping-cart=商店 / file-text=资讯),颜色随父级 token
 const TABS: TabItem[] = [
-  { pagePath: `/${MINI_TAB_PAGE_ROUTES.community}`, labelKey: 'tabBar.community', icon: 'home' },
-  { pagePath: `/${MINI_TAB_PAGE_ROUTES.agent}`, labelKey: 'tabBar.agent', icon: 'bot' },
-  { pagePath: `/${MINI_TAB_PAGE_ROUTES.plaza}`, labelKey: 'tabBar.square', icon: 'layout-grid' },
-  { pagePath: `/${MINI_TAB_PAGE_ROUTES.user}`, labelKey: 'tabBar.user', icon: 'user' },
-  { pagePath: `/${MINI_TAB_PAGE_ROUTES.share}`, labelKey: 'tabBar.share', icon: 'share-2' },
+  { pagePath: `/${MINI_TAB_PAGE_ROUTES.market}`, labelKey: 'tabBar.market', icon: 'shopping-cart' },
+  { pagePath: `/${MINI_TAB_PAGE_ROUTES.plaza}`, labelKey: 'tabBar.plaza', icon: 'layout-grid' },
+  { pagePath: `/${MINI_TAB_PAGE_ROUTES.chat}`, labelKey: 'tabBar.chat', icon: 'home' },
+  { pagePath: `/${MINI_TAB_PAGE_ROUTES.feed}`, labelKey: 'tabBar.feed', icon: 'file-text' },
+  { pagePath: `/${MINI_TAB_PAGE_ROUTES.me}`, labelKey: 'tabBar.me', icon: 'user' },
 ]
 
 /** 毛玻璃模糊半径(px)与圆角/描边/玻璃底统一收进 constants/glass-bar-surface.ts,
