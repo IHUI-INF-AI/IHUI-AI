@@ -25,6 +25,7 @@ import { checkAuth } from '../plugins/auth.js'
 import { AppError } from '../errors/AppError.js'
 import { parseOrThrow, success } from '../utils/response.js'
 import { wechatHubManager } from '../services/wechat-hub/manager.js'
+import { startJobScheduler, stopJobScheduler } from '../services/wechat-hub/jobs.js'
 import { listContacts, listGroupMembers } from '../services/wechat-hub/contacts.js'
 import { listRules, previewAgentReply } from '../services/wechat-hub/automation.js'
 import { exportAccountMessages } from '../services/wechat-hub/export.js'
@@ -68,6 +69,9 @@ const settingsSchema = z.object({
   blockedWords: z.array(z.string().min(1).max(80)).max(200).optional(),
   rateLimitPerMinute: z.coerce.number().int().min(1).max(120).optional(),
   outboundWebhookUrl: z.union([z.string().url().max(2048), z.literal('')]).optional(),
+  commandsEnabled: z.boolean().optional(),
+  commandsInGroup: z.boolean().optional(),
+  disabledCommands: z.array(z.string().min(1).max(40)).max(30).optional(),
 })
 
 const webhookTestSchema = z.object({
@@ -531,6 +535,12 @@ function readOptionalStringArray(
 
 export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
   wechatHubManager.startSchedulers()
+  // 定时群发/定时报告与日报共用同一个进程内节奏；重复调用无副作用，关停时一起收
+  startJobScheduler()
+  server.addHook('onClose', async () => {
+    stopJobScheduler()
+    wechatHubManager.stopSchedulers()
+  })
 
   server.get('/wechat-hub/capabilities', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return

@@ -10,6 +10,7 @@
  */
 import {
   analyzeWechat,
+  askWechat,
   broadcastWechat,
   callWechatMcpTool,
   connectWechatAccount,
@@ -18,6 +19,7 @@ import {
   deleteWechatAccount,
   deleteWechatAutoReplyRule,
   deleteWechatKnowledge,
+  deleteWechatJob,
   deleteWechatRemoteContact,
   disconnectWechatAccount,
   exportWechatMessages,
@@ -26,11 +28,13 @@ import {
   fetchWechatActions,
   fetchWechatAutoReplyRules,
   fetchWechatCapabilities,
+  fetchWechatCommands,
   fetchWechatContacts,
   fetchWechatConversations,
   fetchWechatDigestSchedule,
   fetchWechatGroupMembers,
   fetchWechatKnowledge,
+  fetchWechatJobs,
   fetchWechatMcpTools,
   fetchWechatMessages,
   fetchWechatMoments,
@@ -44,7 +48,10 @@ import {
   previewWechatAutoReplyRule,
   runWechatDigest,
   runWechatGroupAction,
+  runWechatJobsNow,
+  runWechatReport,
   saveWechatDigestSchedule,
+  saveWechatJob,
   searchWechatKnowledge,
   sendWechatMessage,
   switchWechatChat,
@@ -52,9 +59,11 @@ import {
   syncWechatGroupMembers,
   syncWechatHistory,
   testWechatOutboundWebhook,
+  transcribeWechatVoice,
   updateWechatAutoReplyRule,
   updateWechatContact,
   updateWechatSettings,
+  toggleWechatJob,
 } from '@ihui/api-client'
 import type {
   WechatAccountCreateInput,
@@ -64,6 +73,8 @@ import type {
   WechatActionResult,
   WechatAnalysisKind,
   WechatAnalysisRunView,
+  WechatAskInput,
+  WechatAskResult,
   WechatAutoReplyPreviewInput,
   WechatAutoReplyPreviewResult,
   WechatAutoReplyRuleInput,
@@ -71,6 +82,7 @@ import type {
   WechatBackendCapability,
   WechatBroadcastInput,
   WechatBroadcastResult,
+  WechatCommandView,
   WechatContactUpdateInput,
   WechatContactView,
   WechatConversationView,
@@ -85,6 +97,9 @@ import type {
   WechatHistorySyncResult,
   WechatImportMessagesInput,
   WechatImportMessagesResult,
+  WechatJobInput,
+  WechatJobRunResult,
+  WechatJobView,
   WechatKnowledgeDocView,
   WechatKnowledgeHit,
   WechatMcpTool,
@@ -96,8 +111,12 @@ import type {
   WechatMomentInput,
   WechatMomentMediaFileView,
   WechatQrCodeView,
+  WechatReportInput,
+  WechatReportResult,
   WechatSendInput,
   WechatSendResult,
+  WechatVoiceTranscribeBatchResult,
+  WechatVoiceTranscribeResult,
 } from '@ihui/types'
 
 async function call<T>(fn: () => Promise<T>, fallback: string): Promise<T> {
@@ -247,5 +266,25 @@ export const wechatHubApi = {
     id: string,
     input: Omit<WechatBroadcastInput, 'accountId'>,
   ): Promise<WechatBroadcastResult> => call(() => broadcastWechat(id, input), '群发失败'),
+  commands: (id: string): Promise<WechatCommandView[]> =>
+    call(() => fetchWechatCommands(id), '获取指令列表失败'),
+  report: (id: string, input: WechatReportInput): Promise<WechatReportResult> =>
+    call(() => runWechatReport(id, input), '生成报告失败'),
+  ask: (id: string, input: WechatAskInput): Promise<WechatAskResult> =>
+    call(() => askWechat(id, input), '问聊天记录失败'),
+  jobs: (id: string): Promise<WechatJobView[]> =>
+    call(() => fetchWechatJobs(id), '获取定时任务失败'),
+  saveJob: (id: string, input: WechatJobInput): Promise<WechatJobView> =>
+    call(() => saveWechatJob(id, input), '保存定时任务失败'),
+  toggleJob: (id: string, jobId: string, enabled: boolean): Promise<WechatJobView> =>
+    call(() => toggleWechatJob(id, jobId, enabled), '切换定时任务失败'),
+  deleteJob: (id: string, jobId: string): Promise<{ deleted: boolean }> =>
+    call(() => deleteWechatJob(id, jobId), '删除定时任务失败'),
+  runJobsNow: (): Promise<WechatJobRunResult[]> => call(runWechatJobsNow, '执行定时任务失败'),
+  transcribeVoice: (
+    id: string,
+    input: { messageId?: string; limit?: number } = {},
+  ): Promise<WechatVoiceTranscribeResult | WechatVoiceTranscribeBatchResult> =>
+    call(() => transcribeWechatVoice(id, input), '语音转写失败'),
 } as const
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

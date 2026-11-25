@@ -206,7 +206,7 @@ export interface WechatAutoReplyPreviewResult {
 }
 
 /** 微信消息导出格式 */
-export type WechatExportFormat = 'jsonl' | 'csv'
+export type WechatExportFormat = 'jsonl' | 'csv' | 'html' | 'markdown' | 'xlsx' | 'chatlab'
 
 /** 微信消息导出入参 */
 export interface WechatExportInput {
@@ -216,6 +216,8 @@ export interface WechatExportInput {
   since?: string
   until?: string
   limit?: number
+  /** 展示时区，默认 Asia/Shanghai；只影响 html/markdown/xlsx 的时间列 */
+  timezone?: string
 }
 
 /** 微信消息导出结果（content 由前端落成 Blob 下载） */
@@ -224,6 +226,8 @@ export interface WechatExportResult {
   mimeType: string
   content: string
   count: number
+  /** 文本格式为 utf8；二进制格式（xlsx）为 base64，前端需 atob → Uint8Array */
+  encoding?: 'utf8' | 'base64'
 }
 
 /** 单条历史消息导入行；字段与 IHUI 导出的 JSONL 对齐。 */
@@ -760,5 +764,200 @@ export interface WechatMcpTool {
   name: string
   description: string
   inputSchema: Record<string, unknown>
+}
+
+/**
+ * 报告类型：annual 年度、pair 双人关系、group 群聊活跃。
+ * 三者共用同一套结构化字段，前端可按 kind 决定展示顺序。
+ */
+export type WechatReportKind = 'annual' | 'pair' | 'group'
+
+export interface WechatReportInput {
+  kind: WechatReportKind
+  /** annual 用自然年；不传取当前年。pair/group 也用它限定时间窗 */
+  year?: number
+  /** pair/group 必填 */
+  conversationId?: string
+  /** 报告时区，默认 Asia/Shanghai */
+  timezone?: string
+}
+
+export interface WechatReportBucket {
+  /** YYYY-MM-DD（按报告时区切日） */
+  day: string
+  count: number
+}
+
+export interface WechatReportParticipant {
+  id: string
+  name: string
+  messageCount: number
+  charCount: number
+  /** 主动发起会话/话题次数（非回复首条） */
+  initiations: number
+}
+
+export interface WechatReportResult {
+  kind: WechatReportKind
+  title: string
+  accountId: string
+  conversationId: string | null
+  year: number
+  timezone: string
+  range: { startAt: string | null; endAt: string | null }
+  stats: {
+    messageCount: number
+    inboundCount: number
+    outboundCount: number
+    charCount: number
+    participantCount: number
+    activeDays: number
+    /** 最长连续聊天天数 */
+    longestStreakDays: number
+    /** 单日峰值 */
+    peakDay: { day: string; count: number } | null
+    /** 回复间隔中位数（秒），无成对消息时为 null */
+    medianReplySeconds: number | null
+  }
+  participants: WechatReportParticipant[]
+  hourly: number[]
+  weekday: number[]
+  daily: WechatReportBucket[]
+  keywords: Array<{ word: string; count: number }>
+  highlights: string[]
+  /** 同一份数据的 Markdown 渲染，便于直接发给微信或存文档 */
+  markdown: string
+}
+
+/** 自然语言问聊天记录 */
+export interface WechatAskInput {
+  question: string
+  conversationId?: string
+  /** 检索时间窗；不传按问题里的时间词推断，再不行取最近 7 天 */
+  since?: string
+  until?: string
+  /** 单次取多少条上下文，默认 40，上限 100 */
+  limit?: number
+  model?: string
+}
+
+export interface WechatAskCitation {
+  messageId: string
+  conversationTitle: string
+  senderName: string | null
+  sentAt: string
+  snippet: string
+}
+
+export interface WechatAskResult {
+  answer: string
+  citations: WechatAskCitation[]
+  /** 解析出的检索条件，便于前端解释“为什么是这些消息” */
+  plan: {
+    since: string | null
+    until: string | null
+    keywords: string[]
+    senderName: string | null
+    /** 命中统计意图时给出类型，例如 sender-rank / day-peak / count */
+    intent?: string | null
+  }
+  /** 统计意图下的结构化结果，可直接拿去画图或二次计算 */
+  stats?: Record<string, unknown> | null
+  generatedBy: 'llm' | 'local'
+}
+
+/** 定时任务类型：定时群发 / 定时报告 */
+export type WechatJobKind = 'broadcast' | 'report'
+
+export interface WechatJobPayload {
+  /** broadcast：正文；与 mediaUrl 二选一即可 */
+  text?: string
+  mediaUrl?: string
+  /** 显式目标；为空时按 tags 圈选 */
+  targets?: string[]
+  tags?: string[]
+  /** report：报告范围 */
+  reportKind?: 'annual' | 'pair' | 'group'
+  year?: number
+  conversationId?: string
+}
+
+export interface WechatJobView {
+  id: string
+  kind: WechatJobKind
+  enabled: boolean
+  /** 0-23 */
+  hour: number
+  /** 0-59 */
+  minute: number
+  timezone: string
+  /** 0=周日 … 6=周六；null 表示每天 */
+  weekly: number | null
+  payload: WechatJobPayload
+  lastRunAt: string | null
+  lastRunDay: string | null
+  createdAt: string
+}
+
+export interface WechatJobInput {
+  id?: string
+  kind: WechatJobKind
+  enabled?: boolean
+  hour?: number
+  minute?: number
+  timezone?: string
+  weekly?: number | null
+  payload: WechatJobPayload
+}
+
+export interface WechatJobRunResult {
+  jobId: string
+  kind: WechatJobKind
+  ok: boolean
+  detail: string
+  at: string
+}
+
+/** 单条语音转写结果；stub=true 表示 STT 未真正可用，文本未写库 */
+export interface WechatVoiceTranscribeResult {
+  messageId: string
+  text: string
+  model: string
+  stub: boolean
+  chars: number
+}
+
+export interface WechatVoiceTranscribeBatchItem {
+  messageId: string
+  ok: boolean
+  text: string | null
+  error: string | null
+}
+
+export interface WechatVoiceTranscribeBatchResult {
+  scanned: number
+  transcribed: number
+  failed: number
+  skipped: number
+  items: WechatVoiceTranscribeBatchItem[]
+}
+
+/** 斜杠指令视图（前端指令面板） */
+export interface WechatCommandView {
+  name: string
+  aliases: string[]
+  description: string
+  /** 是否需要在群里 @ 才响应 */
+  scope: 'all' | 'private' | 'group'
+  enabled: boolean
+}
+
+export interface WechatCommandRunResult {
+  command: string
+  replyText: string
+  /** 出站投递状态，与 WechatSendStatus 同值域 */
+  deliveryStatus: string
+  /** 标记是否由指令而非自动回复规则产生 */
+  handledByCommand: true
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
