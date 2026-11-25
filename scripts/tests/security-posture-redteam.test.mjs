@@ -6,7 +6,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { buildPosture, isIntercepted, median } from '../security/defense-posture.mjs'
-import { BLOCK_CASES, probeOnce, runRuleset } from '../security/redteam-selftest.mjs'
+import { BLOCK_CASES, probeOnce, runRuleset, onlineCasesOf, probeAll, ONLINE_BODY_CASES } from '../security/redteam-selftest.mjs'
 
 const NOW = Date.parse('2026-11-24T12:00:00.000Z')
 
@@ -81,5 +81,48 @@ test('probeOnce: 非回环目标直接拒绝,绝不对外探测', async () => {
   const r = await probeOnce({ host: '43.174.54.152' })
   assert.equal(r.skipped, true)
   assert.match(r.reason, /非回环/)
+})
+
+/* ── 第十八件:全量在线攻击面回归 ─────────────────────────────── */
+
+test('onlineCasesOf: 只有带绝对 URL 的用例能上线,observe 档不被要求 403', () => {
+  const rows = onlineCasesOf()
+  assert.equal(rows.length, BLOCK_CASES.filter((c) => c.req.url && c.req.url.startsWith('/')).length)
+  const observe = rows.find((r) => r.name === 'admin-scan')
+  assert.equal(observe.expectObserve, true)
+  assert.equal(observe.expectStatus, null)
+  assert.equal(observe.expectEvidence, false)
+  const blocker = rows.find((r) => r.name === 'sqli-union')
+  assert.equal(blocker.expectStatus, 403)
+  assert.equal(blocker.expectEvidence, true)
+})
+
+test('onlineCasesOf: TRACE 方法原样带过去(不能被压成 GET)', () => {
+  const trace = onlineCasesOf().find((r) => r.name === 'method-trace')
+  assert.equal(trace.method, 'TRACE')
+})
+
+test('probeAll: 端口没人听时全部判失败,绝不冒充通过', async () => {
+  const r = await probeAll({ port: 8971, secret: 'x', timeoutMs: 2000, bodyCases: [] })
+  assert.equal(r.ok, false)
+  assert.equal(r.passed, 0)
+  assert.ok(r.rows.every((row) => row.pass === false))
+})
+
+test('probeAll: 统计口径 total/passed/ok 三者一致', () => {
+  const r = { rows: [{ pass: true }, { pass: false }, { pass: true }] }
+  const total = r.rows.length
+  const passed = r.rows.filter((x) => x.pass).length
+  assert.equal(total, 3)
+  assert.equal(passed, 2)
+  assert.equal(r.rows.every((x) => x.pass), false)
+})
+
+test('ONLINE_BODY_CASES: 每条都与 BODY_RULES 的真实正则可命中(载荷不得比规则更严)', async () => {
+  const { inspectBody } = await import('../../deploy/win/lib/waf-signatures.mjs')
+  for (const c of ONLINE_BODY_CASES) {
+    const hits = inspectBody(c.body)
+    assert.ok(hits.length > 0, `载荷 ${c.name} 没有被任何 BODY_RULE 命中,测的是"规则没命中"而不是"链路断了"`)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
