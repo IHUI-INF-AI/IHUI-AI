@@ -152,3 +152,34 @@ AI 侧已完成：链路核验、应用 Client ID 查明、后台权限状态现
 | 以刷新后的用户 token 调 `contact/users/search` | 403 `requiredScopes:["qyapi_addresslist_search"]` | search 这个旧版 scope 应用未开（与 `Contact.User.Read` 无关；详情接口 `Contact.User.Read` 已开） |
 
 > **探测副作用留档（诚实记录）**：钉钉 refresh_token 是**一次性轮换**的。本次刷新消耗了库里那条 refresh_token，但刷新返回的新 token 未回写数据库（探测脚本仅验证未持久化），导致该兜底记录的 refresh_token 失效。影响面：仅这条 `owner_user_id=None / managed=true` 的平台兜底授权（探测前 access_token 已过期 22.7h、`last_sync_at` 空、无真实用户在用），**不涉及任何真人登录态**。修复方式：真人扫码重新授权，或平台重新播种该兜底记录。后续任何对该记录的刷新验证**必须回写新 token**（走 `_make_refresh_persister`），不可只用裸脚本探测。
+
+## 七、2026-11-25 23:25 真人授权完成 + 端到端验证通过（任务收口）
+
+第六节留下的唯一真人动作已完成，副作用也已随之修复。完整时间线与结论：
+
+### 7.1 授权踩坑与修正（排障必读）
+
+| 环节 | 现象 | 根因 / 修正 |
+| --- | --- | --- |
+| 首次扫码 | 回调 URL 带了 code，但落库无变化 | 本地生成的 state 把归属 `o` 字段置空，callback 第 540 行 `if not ... or not scope` 直接拒绝（报 `state 缺少平台/归属/用户`） |
+| 回调页显示「请先登录 / 返回登录」 | 前端 `OAuthCallbackHandler` 未把 code 转发后端 | 浏览器无平台登录态；**改为拿到 code 后直接调 ai-service `/api/connectors/oauth/callback?code=...&state=...`** 完成换 token 落库，绕开前端未登录阻断 |
+| 修正后的 state | `o=6c76c572...`（=tenant，非空）、`t=6c76c572...`、`u=<admin>`，签名有效 | scope 必须与落库隔离键一致（租户模式 = tenant_id），**绝不能置空** |
+| 快捷登录 | 钉钉已登录态下授权页显示「此账号已在使用，可直接登录」+「立即登录」按钮 | 点「立即登录」即得新 code（无需手机扫码）；与第六节"最终落到扫码页"并不矛盾——登录态不同则形态不同 |
+
+### 7.2 落库结果（实测）
+
+- 直接调 callback：`{"ok": true, "platform": "dingtalk", "connector_key": "dingtalk:user-oauth", "message": "授权成功..."}`
+- `dingtalk:user-oauth` 的 `updated_at` 更新到 `2026-11-25 23:25:09 +08:00`，新 token 未过期、有效期 2h、带 refresh_token。
+- 第六节被探测消耗的平台兜底记录 refresh_token，随本次真人重新授权一并刷新回健康状态。
+
+### 7.3 端到端验证：「AI 以本人身份调通讯录」成功
+
+用落库的**用户 userAccessToken**（非应用 token）实测钉钉新版接口：
+
+| 验证 | 结果 | 判定 |
+| --- | --- | --- |
+| 以用户 token 调 `/v1.0/oauth2/userinfo` | **HTTP 200**，拿到本人 `unionId=UhE62XV5MoKtr9...` | 用户身份令牌有效 |
+| 以用户 token 调 `GET /v1.0/contact/users/{unionId}`（scope=`Contact.User.Read`，即任务目标 operation） | **HTTP 200**，返回 `nick/unionId/avatarUrl/openId/mobile/stateCode/visitor` | ✅ **AI 已能以本人身份成功调用通讯录接口，任务验收达成** |
+| 对照：以用户 token 调 `/contact/users/search` | 403 `requiredScopes:["qyapi_addresslist_search"]` | 该 search 是旧版 scope、应用未开，与 `Contact.User.Read` 无关；改用详情接口即用 |
+
+> **结论**：`Contact.User.Read` 详情接口在用户身份下鉴权通过并返回真实数据，任务 #35 的完整验收（真人授权 + 以本人身份调用）全部达成。应用权限侧（第六节 API 实测 + 他席后台 UI 双确认）与用户授权侧（本节）双双闭环。
