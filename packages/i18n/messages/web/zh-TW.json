@@ -53,14 +53,14 @@
         "desc": "自進化技能市場:安裝、評分與訂閱"
       },
       "connectors": {
-        "title": "連接器",
+        "title": "中文連接器",
         "desc": "接入語雀、飛書、企微、釘釘等中文文檔源"
       }
     },
     "bundles": {
       "contentCreator": {
         "title": "內容創作專家包",
-        "desc": "寫作與發布工作流的組合入口:AI 技能、Skill 市場與連接器"
+        "desc": "寫作與發布工作流的組合入口:AI 技能、Skill 市場與中文連接器"
       },
       "developerExtension": {
         "title": "開發者擴展包",
@@ -6106,7 +6106,7 @@
     }
   },
   "connectors": {
-    "title": "連接器",
+    "title": "中文連接器",
     "subtitle": "接入語雀/飛書/企業微信/釘釘,讓對話能直接讀取中文知識平臺文檔",
     "count": "共 {count} 個連接器",
     "add": "新增連接器",
@@ -8677,6 +8677,30 @@
           "title": "媒體檔案數量超出限制",
           "action": "精簡附件後重試"
         },
+        "MEMORY_DREAM_FAILED": {
+          "title": "記憶夢境整理失敗",
+          "action": "請稍後重試"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "記憶遺忘清理失敗",
+          "action": "請稍後重試"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "工具用法記憶儲存失敗",
+          "action": "請稍後重試"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "記憶檢索失敗",
+          "action": "請稍後重試"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "記憶儲存失敗",
+          "action": "請稍後重試"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "記憶主題產生失敗",
+          "action": "請稍後重試"
+        },
         "MISSING_DATA": {
           "title": "缺少必填參數",
           "action": "補充參數後重試"
@@ -9566,14 +9590,10 @@
       "links": "連結"
     },
     "pictureInPicture": {
-      "autoMonitor": "自動監看新工作階段",
       "task": "任務",
       "pin": "置頂",
       "unpin": "取消置頂",
       "reconnect": "重新連線",
-      "close": "關閉",
-      "minimize": "最小化",
-      "expandWindow": "展開",
       "expandTask": "展開任務詳情",
       "collapseTask": "收起任務詳情",
       "title": "畫中畫",
@@ -20208,7 +20228,6 @@
     "plan": "計劃模式",
     "plaza": "廣場",
     "pluginMarket": "插件市場",
-    "connectors": "連接器",
     "points": "積分",
     "pricing": "定價",
     "publishPlatform": "發布平臺",
@@ -29088,10 +29107,6 @@
   "tradeHub": {
     "title": "交易",
     "subtitle": "收益、訂單、支付與會員積分"
-  },
-  "personalHub": {
-    "title": "個人中心",
-    "subtitle": "帳戶、收藏、學習與訂閱"
   },
   "developerHub": {
     "title": "開發者",

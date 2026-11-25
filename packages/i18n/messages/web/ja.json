@@ -53,14 +53,14 @@
         "desc": "自己進化するスキル市場:導入・評価・購読"
       },
       "connectors": {
-        "title": "コネクタ",
+        "title": "中国語コネクタ",
         "desc": "Yuque・Feishu・WeCom・DingTalk のドキュメントを接続"
       }
     },
     "bundles": {
       "contentCreator": {
         "title": "コンテンツ制作バンドル",
-        "desc": "執筆と公開ワークフローの統合入口:AI スキル、Skill マーケット、コネクタ"
+        "desc": "執筆と公開ワークフローの統合入口:AI スキル、Skill マーケット、中国語コネクタ"
       },
       "developerExtension": {
         "title": "開発者拡張バンドル",
@@ -6137,7 +6137,7 @@
     }
   },
   "connectors": {
-    "title": "コネクタ",
+    "title": "中文コネクタ",
     "subtitle": "語雀/飛書/企業微信/钉钉を接続し、会話から中文ナレッジプラットフォームの文書を直接読めるようにします",
     "count": "コネクタ {count} 件",
     "add": "コネクタを追加",
@@ -8712,6 +8712,30 @@
           "title": "メディアファイルの数が上限を超えています",
           "action": "添付を減らして再試行"
         },
+        "MEMORY_DREAM_FAILED": {
+          "title": "記憶の統合に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "記憶の整理に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "ツール使用記憶の保存に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "記憶の検索に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "記憶の保存に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "記憶テーマの生成に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
         "MISSING_DATA": {
           "title": "必須パラメータがありません",
           "action": "パラメータを補って再試行"
@@ -9601,14 +9625,10 @@
       "createDraftPullRequestFailed": "Draft PR の作成に失敗しました"
     },
     "pictureInPicture": {
-      "autoMonitor": "新しいセッションを自動監視",
       "task": "タスク",
       "pin": "常に最前面",
       "unpin": "最前面を解除",
       "reconnect": "再接続",
-      "close": "閉じる",
-      "minimize": "最小化",
-      "expandWindow": "展開",
       "expandTask": "タスク詳細を展開",
       "collapseTask": "タスク詳細を折りたたむ",
       "title": "ピクチャーインピクチャー",
@@ -20142,7 +20162,6 @@
     "plan": "計画モード",
     "plaza": "プラザ",
     "pluginMarket": "プラグイン市場",
-    "connectors": "コネクタ",
     "points": "ポイント",
     "pricing": "料金",
     "publishPlatform": "パブリッシュ",
@@ -29225,10 +29244,6 @@
   "tradeHub": {
     "title": "取引",
     "subtitle": "収益・注文・決済・会員ポイント"
-  },
-  "personalHub": {
-    "title": "マイページ",
-    "subtitle": "アカウント・お気に入り・学習・サブスクリプション"
   },
   "developerHub": {
     "title": "開発者",
