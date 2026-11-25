@@ -7,17 +7,47 @@
 // extraLinks(小程序 3 条小程序可达目标 / RN 1 条 MessageCenter)。
 import { useCallback, useMemo, useState } from 'react'
 import Taro, { useDidShow } from '@tarojs/taro'
+import { View, Text, Image } from '@tarojs/components'
 import { NotificationSettingsScreen as SharedNotificationSettingsScreen } from '@ihui/rn-app/features/notification-settings/NotificationSettingsScreen'
 import type { NotificationSettingsLink, NotificationSettingsRow } from '@ihui/types'
-import { getNotificationSettings, updateNotificationSettings } from '@/api'
+import {
+  RINGTONE_IDS,
+  resolveRingtoneId,
+  type RingtoneId,
+} from '@ihui/shared/notifications/ringtone'
+import {
+  getNotificationSettings,
+  getNotificationSettingsKv,
+  updateNotificationSettings,
+  updateNotificationSettingsKv,
+} from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import Switch from '@/components/Switch'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useI18n } from '@/i18n'
 import { useAppTheme } from '@/lib/theme'
 import { onToast } from '@/host/on-toast'
 import { logger } from '@/utils/logger'
 import { requestPushSubscription } from '@/utils/push-init'
+import {
+  previewRingtone,
+  readStoredRingtoneId,
+  setSoundEnabled,
+  writeStoredRingtoneId,
+} from '@/lib/notification-ringtone'
 import { useChannelLabel } from './notification-channel-label'
+
+/** 8 个铃声的缺词兜底品类名(真实词条走 i18n;这里只防词典缺失时显示 key) */
+const RINGTONE_FALLBACK: Record<RingtoneId, string> = {
+  dingdong: '门铃叮咚',
+  tritone: '上扬三音',
+  waterdrop: '水滴',
+  doublebell: '清脆双铃',
+  bubble: '气泡',
+  marimba: '木琴',
+  chime: '和弦铃',
+  knock: '轻敲',
+}
 
 interface NotificationSettingItem {
   key: string
@@ -35,6 +65,9 @@ export default function NotificationPage() {
   const [saving, setSaving] = useState(false)
   // XUI-066:加载失败曾只剩一次性 toast,屏内无失败留痕也无法重试。
   const [loadError, setLoadError] = useState('')
+  // 通知铃声(2026-11-26):声音开关默认开启;铃声 id 先取本地缓存,进页后以后端 KV 校正。
+  const [soundEnabled, setSoundEnabledState] = useState(true)
+  const [ringtoneId, setRingtoneId] = useState<RingtoneId>(() => readStoredRingtoneId())
   const tt = useCallback(
     (k: string, fb: string) => {
       const v = t(k)
@@ -58,13 +91,62 @@ export default function NotificationPage() {
     }
   }, [tt])
 
+  // 铃声 / 声音开关走复数权威腿 KV(回传原始字符串值);失败回退本地缓存,不打断页面。
+  const loadRingtonePrefs = useCallback(async () => {
+    try {
+      const res = await getNotificationSettingsKv()
+      const settings = res.settings ?? {}
+      const soundRaw = settings.soundEnabled
+      const enabled =
+        soundRaw === undefined || soundRaw === null
+          ? true
+          : String(soundRaw).toLowerCase() !== 'false' && String(soundRaw) !== '0'
+      setSoundEnabledState(enabled)
+      setSoundEnabled(enabled)
+      const resolved = resolveRingtoneId(settings.ringtone)
+      setRingtoneId(resolved)
+      writeStoredRingtoneId(resolved)
+    } catch (e) {
+      logger.error('setting/notification', '获取铃声偏好', e)
+    }
+  }, [])
+
   // G-933 冷启动抢跑门控:挂载唯一一支 GET /api/settings/notification 需鉴权
   // (apps/api/src/routes/miniapp-compat-routes.ts:2707 handler 内 checkAuth)⇒ 挡到门后。
   useDidShow(() => {
     gate.waitUntilReady(() => {
       void load()
+      void loadRingtonePrefs()
     })
   })
+
+  const onToggleSound = useCallback(
+    (enabled: boolean) => {
+      setSoundEnabledState(enabled)
+      setSoundEnabled(enabled)
+      updateNotificationSettingsKv({ soundEnabled: enabled }).catch((e) => {
+        logger.error('setting/notification', '更新声音开关', e)
+        onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
+      })
+    },
+    [tt],
+  )
+
+  const onSelectRingtone = useCallback(
+    (id: RingtoneId) => {
+      setRingtoneId(id)
+      writeStoredRingtoneId(id)
+      updateNotificationSettingsKv({ ringtone: id }).catch((e) => {
+        logger.error('setting/notification', '更新铃声', e)
+        onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
+      })
+    },
+    [tt],
+  )
+
+  const onPreviewRingtone = useCallback((id: RingtoneId) => {
+    previewRingtone(id)
+  }, [])
 
   const items: readonly NotificationSettingsRow[] = useMemo(
     () =>
@@ -167,6 +249,63 @@ export default function NotificationPage() {
         onRetry={() => void load()}
         colorScheme={resolved}
       />
+      <View className="px-[20rpx] pb-[24rpx]">
+        {/* 新消息提示音:默认开启,关闭立即静音并同步后端 soundEnabled */}
+        <View className="flex items-center justify-between p-[20rpx] bg-card rounded-lg mb-[16rpx]">
+          <Text className="text-body text-foreground">
+            {tt('setting.notification.soundLabel', '新消息提示音')}
+          </Text>
+          <Switch checked={soundEnabled} onCheckedChange={onToggleSound} />
+        </View>
+
+        {/* 通知铃声:8 个自制合成音,点选写入后端 ringtone + 本地缓存,右侧可试听 */}
+        <View className="p-[20rpx] bg-card rounded-lg">
+          <Text className="block text-strong font-semibold text-foreground mb-[8rpx]">
+            {tt('setting.notification.ringtoneTitle', '通知铃声')}
+          </Text>
+          <View className="flex flex-col">
+            {RINGTONE_IDS.map((id) => {
+              const active = id === ringtoneId
+              return (
+                <View
+                  key={id}
+                  role="radio"
+                  aria-checked={active}
+                  className="flex items-center justify-between py-[20rpx]"
+                  hoverClass="opacity-60"
+                  onClick={() => onSelectRingtone(id)}
+                >
+                  <Text
+                    className={
+                      active
+                        ? 'text-body font-semibold text-foreground'
+                        : 'text-body text-foreground'
+                    }
+                  >
+                    {tt(`setting.notification.ringtone.${id}`, RINGTONE_FALLBACK[id])}
+                  </Text>
+                  <View className="flex flex-row items-center gap-[16rpx]">
+                    <View
+                      role="button"
+                      aria-label={tt('setting.notification.ringtonePreview', '试听')}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onPreviewRingtone(id)
+                      }}
+                      className="px-[16rpx] h-[48rpx] leading-[48rpx] rounded-sm bg-muted text-muted-foreground text-body-sm"
+                    >
+                      {tt('setting.notification.ringtonePreview', '试听')}
+                    </View>
+                    {active ? (
+                      <Image src="/static/images/icons/check.svg" className="h-6 w-6" />
+                    ) : null}
+                  </View>
+                </View>
+              )
+            })}
+          </View>
+        </View>
+      </View>
     </ThemeRoot>
   )
 }

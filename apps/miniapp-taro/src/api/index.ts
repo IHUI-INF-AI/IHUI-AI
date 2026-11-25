@@ -1689,6 +1689,15 @@ export const getNotificationSettings = () =>
   get<{ list: Array<{ key: string; title: string; enabled: boolean }> }>('/settings/notification')
 export const updateNotificationSettings = (data: Record<string, boolean>) =>
   put('/settings/notification', data)
+/**
+ * 通知偏好 KV(复数权威腿 `/settings/notifications`):回传原始字符串值,
+ * 供铃声 id / 声音开关在进设置页与登录 hydration 时跨端校正
+ * (单数别名只回布尔 enabled,拿不到铃声字符串)。
+ */
+export const getNotificationSettingsKv = () =>
+  get<{ settings: Record<string, string> }>('/settings/notifications')
+export const updateNotificationSettingsKv = (data: Record<string, unknown>) =>
+  put('/settings/notifications', data)
 export const clearCache = () => post('/settings/cache/clear')
 export const clearCacheSize = () => get<{ size: string }>('/settings/cache/size')
 export const setLanguage = (lang: string) => post('/settings/language', { language: lang })

@@ -79,6 +79,10 @@ export const ACCOUNT_SCOPED_CONTENT_KEYS = [
 ] as const
 
 // 业务相关
+// 通知铃声(2026-11-26):本地缓存,后端 user_preferences(group=notifications)为跨端真相源,
+// 后端键名分别为 `ringtone` / `soundEnabled`;本地 key 与 shared web/RN 侧保持同值。
+export const NOTIFICATION_RINGTONE_KEY = 'ihui-notification-ringtone' as const
+export const NOTIFICATION_SOUND_ENABLED_KEY = 'ihui-notification-sound-enabled' as const
 export const BUSINESS_CARD_DATA_KEY = 'ihui-business-card-data' as const
 export const TOKEN_BALANCE_DATA_KEY = 'ihui-token-balance-data' as const
 export const SSO_CODE_LEGACY_KEY = 'ihui_sso_code' as const

@@ -32,6 +32,8 @@ import {
   resetTaroUiBridge,
   type TaroUiActionResult,
 } from '@/lib/ui-action-registry'
+import { hydrateFromServerSettings, playNotificationRingtone } from '@/lib/notification-ringtone'
+import { getNotificationSettingsKv } from '@/api'
 import { BASE_URL } from '@/utils/api-config'
 import { getMiniappVersion } from '@/utils/app-version'
 import { getToken } from '@/utils/auth'
@@ -190,7 +192,11 @@ async function reportResult(response: AgentActionResponse): Promise<void> {
       logger.warn('ui-bridge', '回传小程序端执行结果', res.error ?? '接口返回失败')
     }
   } catch (err) {
-    logger.warn('ui-bridge', '回传小程序端执行结果', err instanceof Error ? err.message : '请求异常')
+    logger.warn(
+      'ui-bridge',
+      '回传小程序端执行结果',
+      err instanceof Error ? err.message : '请求异常',
+    )
   }
 }
 
@@ -261,6 +267,61 @@ function handleAgentAction(request: AgentActionRequest, assignment?: AgentAction
     .then(reportResult)
 }
 
+/* ────────────────────────── 通知响铃(2026-11-26) ────────────────────────── */
+
+/**
+ * 响铃排除帧(与 web `use-notification.ts` 同一口径):这些是 AI 操控指令 / AI 回复 /
+ * 对话消息,不是给用户的可见通知,响铃只会制造噪音。
+ *
+ * 取证(后端 notifications WS,外壳 `{ type:'notification', data:payload }`,见
+ * plugins/ws-notifications.ts):本通道真实出现的 `data.type` 有 agent.action(agent-control.ts)、
+ * ai_response(ai-callback-worker.ts)、chat_message(chat.ts)、ai_question(投票提问)与普通业务通知;
+ * 流式 delta/token 走 relay/SSE 通道,不在本 WS,故不在此列(不臆造 type 名)。
+ */
+const RINGTONE_EXCLUDED_TYPES = new Set(['agent.action', 'ai_response', 'chat_message'])
+
+/** 已响过的通知身份去重:WS 重连重推同一帧不得重复响 */
+const rungNotificationIds = new Set<string>()
+const RUNG_IDS_MAX = 100
+
+function frameIdentity(data: Record<string, unknown>): string | null {
+  const rawId = data.id
+  if (typeof rawId === 'string' && rawId) return rawId
+  const title = typeof data.title === 'string' ? data.title : ''
+  const content = typeof data.content === 'string' ? data.content : ''
+  if (!title && !content) return null
+  return `t:${title}:${content}`
+}
+
+/**
+ * 收到用户可见通知帧时响所选铃声。判据全部现读:登录态、内部帧排除、可展示文本、
+ * 声音开关(播放库内现读 storage)、同帧去重。后台 / 切到其他页面收到帧照常响,
+ * 不做页面可见性短路;音频被系统回收时由播放库静默降级,不影响下一条。
+ */
+function maybeRingForNotification(msg: WSNotification): void {
+  // 未登录不响(桥层仅在有 token 时建连,这里再显式兜一道)
+  if (!getToken()) return
+  const record = msg.data as Record<string, unknown>
+  const type = typeof record.type === 'string' ? record.type : ''
+  if (RINGTONE_EXCLUDED_TYPES.has(type)) return
+  // 与 WS 适配器同口径:没有任何可展示文本的帧不冒充通知,也不响铃
+  const title = typeof record.title === 'string' ? record.title : ''
+  const content = typeof record.content === 'string' ? record.content : ''
+  if (!title && !content) return
+  const identity = frameIdentity(record)
+  if (identity) {
+    if (rungNotificationIds.has(identity)) return
+    rungNotificationIds.add(identity)
+    if (rungNotificationIds.size > RUNG_IDS_MAX) {
+      // 只清一半,避免长跑内存增长
+      for (const id of Array.from(rungNotificationIds).slice(0, Math.floor(RUNG_IDS_MAX / 2))) {
+        rungNotificationIds.delete(id)
+      }
+    }
+  }
+  playNotificationRingtone()
+}
+
 function handleWsNotification(msg: WSNotification): void {
   // 保留 app.tsx 既有的广播契约:其他消费者仍可 Taro.eventCenter.on('wsNotification')
   try {
@@ -268,6 +329,7 @@ function handleWsNotification(msg: WSNotification): void {
   } catch {
     // eventCenter 异常不影响本端执行
   }
+  maybeRingForNotification(msg)
   const envelope = extractAgentEnvelope(msg)
   if (!envelope) return
   const { request, assignment } = envelope
@@ -291,6 +353,35 @@ const catchupTimers: ReturnType<typeof setTimeout>[] = []
 let wsClient: WsClient | null = null
 let foreground = false
 let lifecycleRegistered = false
+
+/**
+ * 通知偏好 hydration(2026-11-26 补):登录 token 就绪 / 切换为已登录时单次拉一次
+ * `/settings/notifications`,把后端的 `soundEnabled` / `ringtone` 归一化回本地 ——
+ * 否则换设备首次登录、没进过设置页的用户,会沿用本地默认开启,跟不到上一台设备关掉的开关。
+ *
+ * 口径:
+ * - 按 token 记忆,同号会话内只拉一次;换号(token 变了)重新拉;登出(token 空)不拉。
+ * - 不轮询、不在每条通知里请求;60s 保活重进检查点时记忆命中即返回。
+ * - 拉取失败静默:不覆盖本地已有值,也不记 hydratedToken,下个检查点重试。
+ */
+let hydratedToken: string | null = null
+
+async function hydrateNotificationPrefs(): Promise<void> {
+  const token = getToken()
+  if (!token) return
+  if (hydratedToken === token) return
+  try {
+    const res = await getNotificationSettingsKv()
+    hydrateFromServerSettings(res?.settings)
+    hydratedToken = token
+  } catch (err) {
+    logger.warn(
+      'ui-bridge',
+      '拉取通知铃声偏好失败',
+      err instanceof Error ? err.message : '请求异常',
+    )
+  }
+}
 
 function ensureConnected(): void {
   if (wsClient) return
@@ -323,9 +414,11 @@ function clearTimers(): void {
 function enterForeground(): void {
   if (foreground) return
   foreground = true
+  void hydrateNotificationPrefs()
   void reportCapability()
   ensureConnected()
   capabilityTimer = setInterval(() => {
+    void hydrateNotificationPrefs()
     ensureConnected()
     void reportCapability()
   }, CAPABILITY_INTERVAL_MS)
@@ -334,6 +427,7 @@ function enterForeground(): void {
     catchupTimers.push(
       setTimeout(() => {
         if (!foreground) return
+        void hydrateNotificationPrefs()
         ensureConnected()
         void reportCapability()
       }, delay),

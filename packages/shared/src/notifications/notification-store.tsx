@@ -9,6 +9,7 @@ import {
   type BaseNotificationEntry,
   type WsNotificationLike,
 } from './ws-notification-adapter'
+import { playRingtone, readStoredRingtoneId } from './ringtone'
 
 export type NotificationEntry = BaseNotificationEntry
 
@@ -72,7 +73,7 @@ function readLocalStorage(key: string): string | null {
 }
 
 /** SSR 安全的 localStorage 写入 */
-function writeLocalStorage(key: string, value: '1' | null): void {
+function writeLocalStorage(key: string, value: '1' | '0' | null): void {
   if (typeof window === 'undefined') return
   try {
     if (value === null) window.localStorage.removeItem(key)
@@ -92,14 +93,20 @@ export function setDesktopNotificationEnabled(enabled: boolean): void {
   writeLocalStorage(DESKTOP_NOTIFICATION_KEY, enabled ? '1' : null)
 }
 
-/** 声音通知开关是否开启(持久化在 localStorage) */
+/**
+ * 声音通知开关是否开启(持久化在 localStorage)。
+ *
+ * 2026-11-26 改口径:未设置 = 开启(与微信同感 —— 登录后收到新消息就该响)。
+ * 显式关闭写 `'0'` 才静音;历史上"关闭即删键"的写法在新默认下会变成"开着",
+ * 所以关闭必须留值,不能 removeItem。
+ */
 export function isSoundNotificationEnabled(): boolean {
-  return readLocalStorage(SOUND_NOTIFICATION_KEY) === '1'
+  return readLocalStorage(SOUND_NOTIFICATION_KEY) !== '0'
 }
 
-/** 设置声音通知开关(持久化) */
+/** 设置声音通知开关(持久化;关闭写 '0' 而不是删键,否则会被默认开启吃掉) */
 export function setSoundNotificationEnabled(enabled: boolean): void {
-  writeLocalStorage(SOUND_NOTIFICATION_KEY, enabled ? '1' : null)
+  writeLocalStorage(SOUND_NOTIFICATION_KEY, enabled ? '1' : '0')
 }
 
 /** 当前桌面通知权限(SSR 安全:server 端返回 'unsupported') */
@@ -120,50 +127,24 @@ export async function requestDesktopNotificationPermission(): Promise<boolean> {
   }
 }
 
-type AudioContextCtor = typeof AudioContext
-interface WindowWithAudioContext {
-  AudioContext?: AudioContextCtor
-  webkitAudioContext?: AudioContextCtor
-}
-
-function getAudioContextCtor(): AudioContextCtor | null {
-  if (typeof window === 'undefined') return null
-  const w = window as unknown as WindowWithAudioContext
-  return w.AudioContext ?? w.webkitAudioContext ?? null
-}
-
 /**
  * 播放通知提示音(SSR + 浏览器自动播放策略安全)。
- * 用 AudioContext 合成 880Hz 正弦波 150ms,避免依赖音频文件。
- * 自动播放策略拦截或 AudioContext 不可用时静默。
+ *
+ * 2026-11-26:不再是写死的 880Hz 短音,统一播「当前选中的铃声」
+ * (真相源 notifications/ringtone.ts,8 个自制合成音;连发 1200ms 去抖在该模块内)。
+ * 非 Web 端(window 不存在)或无 AudioContext 时静默 —— RN/小程序各自走原生音频。
  */
 export function playNotificationSound(): void {
-  const AudioContextCtor = getAudioContextCtor()
-  if (!AudioContextCtor) return
-  try {
-    const ctx = new AudioContextCtor()
-    const oscillator = ctx.createOscillator()
-    const gainNode = ctx.createGain()
-    oscillator.type = 'sine'
-    oscillator.frequency.value = 880
-    gainNode.gain.setValueAtTime(0.3, ctx.currentTime)
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15)
-    oscillator.connect(gainNode)
-    gainNode.connect(ctx.destination)
-    oscillator.start()
-    oscillator.stop(ctx.currentTime + 0.15)
-    oscillator.onended = () => {
-      ctx.close().catch(() => {})
-    }
-  } catch {
-    // 自动播放策略拦截或 AudioContext 不可用,静默
-  }
+  playRingtone(readStoredRingtoneId())
 }
 
 /**
  * 触发一条桌面通知。
  * SSR + 权限 + 开关三重检查;页面可见时(document.visibilityState === 'visible')不弹,
  * 避免重复打扰用户(只在后台标签页时弹)。
+ *
+ * silent: true(2026-11-26) —— 系统通知自身会带提示音(Windows 一定会响),与我们的
+ * playRingtone 叠加就是"双响"。声音只能由 ringtone 一个出口负责,系统通知一律静默。
  */
 export function showDesktopNotification(title: string, body?: string, icon = '/favicon.ico'): void {
   if (typeof window === 'undefined' || !('Notification' in window)) return
@@ -174,6 +155,7 @@ export function showDesktopNotification(title: string, body?: string, icon = '/f
     new Notification(title, {
       body: body ?? '',
       icon,
+      silent: true,
     })
   } catch {
     // 通知 API 失败静默(部分浏览器在 iframe 中受限)

@@ -14,6 +14,8 @@ import { useRouteAnalytics } from '@/hooks/use-route-analytics'
 import { useRum } from '@/hooks/use-rum'
 import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts'
 import { useGlobalNotification } from '@/hooks/use-global-notification'
+import { useNotificationRingtone } from '@/hooks/use-notification-ringtone'
+import { usePreferenceSyncOnLogin } from '@/hooks/use-ringtone-preference'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import {
   useDesktopEvents,
@@ -131,6 +133,10 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   }, [showHelpPanel, toggleHelpPanel])
   // 激活全局通知 WS 连接 + 通知 store(未登录时自动 no-op,登录后自动连接)
   useGlobalNotification()
+  // 全局通知响铃:登录后收到用户可见通知帧即播所选铃声(与上一行同层,整站只挂一次,避免双响)
+  useNotificationRingtone()
+  // 登录后单次拉取服务端声音/铃声偏好校正本地;没进过设置页的换设备用户也跟随后端
+  usePreferenceSyncOnLogin()
   // 应用启动时从 Cookie 恢复登录态(modal 模式 + mock cookie + 真后端 token 三种路径)
   // ready 仅供子组件读 useAuthBootstrap().ready 用,这里只是触发副作用
   useAuthBootstrap()
