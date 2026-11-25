@@ -19,6 +19,8 @@ import type {
   WechatActionResult,
   WechatAnalysisKind,
   WechatAnalysisRunView,
+  WechatAskInput,
+  WechatAskResult,
   WechatAutoReplyPreviewInput,
   WechatAutoReplyPreviewResult,
   WechatAutoReplyRuleInput,
@@ -26,6 +28,7 @@ import type {
   WechatBackendCapability,
   WechatBroadcastInput,
   WechatBroadcastResult,
+  WechatCommandView,
   WechatContactUpdateInput,
   WechatContactView,
   WechatConversationView,
@@ -38,6 +41,13 @@ import type {
   WechatGroupMembersSyncResult,
   WechatHistorySyncInput,
   WechatHistorySyncResult,
+  WechatReportInput,
+  WechatReportResult,
+  WechatJobInput,
+  WechatJobRunResult,
+  WechatJobView,
+  WechatVoiceTranscribeBatchResult,
+  WechatVoiceTranscribeResult,
   WechatImportMessagesInput,
   WechatImportMessagesResult,
   WechatKnowledgeDocView,
@@ -642,6 +652,119 @@ export async function broadcastWechat(
     body: JSON.stringify(input),
   })
   if (!res.success) throw new Error(res.error || '微信群发失败')
+  return res.data
+}
+
+/** GET /api/wechat-hub/accounts/:id/commands — 斜杠指令面板（含当前启用状态） */
+export async function fetchWechatCommands(accountId: string): Promise<WechatCommandView[]> {
+  const res = await fetchApi<WechatCommandView[]>(`/wechat-hub/accounts/${accountId}/commands`, {
+    method: 'GET',
+  })
+  if (!res.success) throw new Error(res.error || '获取指令列表失败')
+  return res.data ?? []
+}
+
+/** POST /api/wechat-hub/accounts/:id/reports — 年度 / 双人 / 群聊报告 */
+export async function runWechatReport(
+  accountId: string,
+  input: WechatReportInput,
+): Promise<WechatReportResult> {
+  const res = await fetchApi<WechatReportResult>(`/wechat-hub/accounts/${accountId}/reports`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  if (!res.success) throw new Error(res.error || '生成微信报告失败')
+  return res.data
+}
+
+/** POST /api/wechat-hub/accounts/:id/ask — 用一句话问聊天记录 */
+export async function askWechat(
+  accountId: string,
+  input: WechatAskInput,
+): Promise<WechatAskResult> {
+  const res = await fetchApi<WechatAskResult>(`/wechat-hub/accounts/${accountId}/ask`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+    // 本地检索 + 模型归纳，通常 5~20s；留出比默认 30s 更宽的预算
+    timeoutMs: 120_000,
+  })
+  if (!res.success) throw new Error(res.error || '问聊天记录失败')
+  return res.data
+}
+
+/** GET /api/wechat-hub/accounts/:id/jobs — 定时群发 / 定时报告清单 */
+export async function fetchWechatJobs(accountId: string): Promise<WechatJobView[]> {
+  const res = await fetchApi<WechatJobView[]>(`/wechat-hub/accounts/${accountId}/jobs`, {
+    method: 'GET',
+  })
+  if (!res.success) throw new Error(res.error || '获取定时任务失败')
+  return res.data ?? []
+}
+
+/** POST /api/wechat-hub/accounts/:id/jobs — 新增或覆盖同 id 任务 */
+export async function saveWechatJob(
+  accountId: string,
+  input: WechatJobInput,
+): Promise<WechatJobView> {
+  const res = await fetchApi<WechatJobView>(`/wechat-hub/accounts/${accountId}/jobs`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  if (!res.success) throw new Error(res.error || '保存定时任务失败')
+  return res.data
+}
+
+/** PATCH /api/wechat-hub/accounts/:id/jobs/:jobId — 启停 */
+export async function toggleWechatJob(
+  accountId: string,
+  jobId: string,
+  enabled: boolean,
+): Promise<WechatJobView> {
+  const res = await fetchApi<WechatJobView>(`/wechat-hub/accounts/${accountId}/jobs/${jobId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ enabled }),
+  })
+  if (!res.success) throw new Error(res.error || '切换定时任务失败')
+  return res.data
+}
+
+/** DELETE /api/wechat-hub/accounts/:id/jobs/:jobId */
+export async function deleteWechatJob(
+  accountId: string,
+  jobId: string,
+): Promise<{ deleted: boolean }> {
+  const res = await fetchApi<{ deleted: boolean }>(
+    `/wechat-hub/accounts/${accountId}/jobs/${jobId}`,
+    { method: 'DELETE' },
+  )
+  if (!res.success) throw new Error(res.error || '删除定时任务失败')
+  return res.data
+}
+
+/** POST /api/wechat-hub/jobs/run — 立刻扫一轮，用于验收调度链路 */
+export async function runWechatJobsNow(): Promise<WechatJobRunResult[]> {
+  const res = await fetchApi<WechatJobRunResult[]>('/wechat-hub/jobs/run', {
+    method: 'POST',
+    timeoutMs: 120_000,
+  })
+  if (!res.success) throw new Error(res.error || '执行定时任务失败')
+  return res.data ?? []
+}
+
+/**
+ * POST /api/wechat-hub/accounts/:id/voice/transcribe
+ * 给 messageId 转单条，否则批量扫未转写的语音。
+ * 本地 whisper 首次加载模型较慢，留 3 分钟预算。
+ */
+export async function transcribeWechatVoice(
+  accountId: string,
+  input: { messageId?: string; limit?: number } = {},
+): Promise<WechatVoiceTranscribeResult | WechatVoiceTranscribeBatchResult> {
+  const res = await fetchApi<WechatVoiceTranscribeResult | WechatVoiceTranscribeBatchResult>(
+    `/wechat-hub/accounts/${accountId}/voice/transcribe`,
+    { method: 'POST', body: JSON.stringify(input), timeoutMs: 180_000 },
+  )
+  if (!res.success) throw new Error(res.error || '语音转写失败')
   return res.data
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

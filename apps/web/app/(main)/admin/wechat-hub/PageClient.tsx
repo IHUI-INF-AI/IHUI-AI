@@ -7,9 +7,11 @@
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  BarChart3,
   BookOpen,
   Bot,
   Brain,
+  CalendarClock,
   Clock,
   Contact,
   Loader2,
@@ -34,6 +36,9 @@ import DigestPanel from './DigestPanel'
 import GroupOpsPanel from './GroupOpsPanel'
 import KnowledgePanel from './KnowledgePanel'
 import SendPanel from './SendPanel'
+import ReportPanel from './ReportPanel'
+import AskPanel from './AskPanel'
+import JobsPanel from './JobsPanel'
 import { wechatHubApi } from './wechat-hub-api'
 
 type TabKey =
@@ -42,7 +47,9 @@ type TabKey =
   | 'send'
   | 'autoReply'
   | 'digest'
+  | 'jobs'
   | 'analysis'
+  | 'insights'
   | 'audit'
   | 'groupOps'
   | 'knowledge'
@@ -83,6 +90,7 @@ export default function PageClient() {
       tab !== 'contacts' &&
       tab !== 'groupOps' &&
       tab !== 'analysis' &&
+      tab !== 'insights' &&
       tab !== 'audit'
     ) {
       setTab('conversations')
@@ -182,11 +190,19 @@ export default function PageClient() {
                   <Clock className="h-3 w-3" />
                   <span>定时日报</span>
                 </TabsTrigger>
+                <TabsTrigger value="jobs" className="gap-1">
+                  <CalendarClock className="h-3 w-3" />
+                  <span>定时群发与报告</span>
+                </TabsTrigger>
               </>
             )}
             <TabsTrigger value="analysis" className="gap-1">
               <Brain className="h-3 w-3" />
               <span>AI 分析</span>
+            </TabsTrigger>
+            <TabsTrigger value="insights" className="gap-1">
+              <BarChart3 className="h-3 w-3" />
+              <span>报告与问数</span>
             </TabsTrigger>
             <TabsTrigger value="audit" className="gap-1">
               <ShieldCheck className="h-3 w-3" />
@@ -224,10 +240,19 @@ export default function PageClient() {
               <TabsContent value="digest" className="mt-3">
                 <DigestPanel accountId={selected.id} />
               </TabsContent>
+              <TabsContent value="jobs" className="mt-3">
+                <JobsPanel accountId={selected.id} />
+              </TabsContent>
             </>
           )}
           <TabsContent value="analysis" className="mt-3">
             <AnalysisPanel accountId={selected.id} />
+          </TabsContent>
+          <TabsContent value="insights" className="mt-3">
+            <div className="space-y-3">
+              <AskPanel accountId={selected.id} />
+              <ReportPanel accountId={selected.id} />
+            </div>
           </TabsContent>
           <TabsContent value="audit" className="mt-3">
             <AuditPanel accountId={selected.id} />

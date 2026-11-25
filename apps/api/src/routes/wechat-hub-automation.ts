@@ -25,6 +25,11 @@ import { listContacts, listGroupMembers, updateContact } from '../services/wecha
 import { getSchedule, saveSchedule } from '../services/wechat-hub/digest.js'
 import { syncGroupMembersFromBridge } from '../services/wechat-hub/operations.js'
 import { wechatHubManager } from '../services/wechat-hub/manager.js'
+import { listCommandsForAccount } from '../services/wechat-hub/commands.js'
+import { buildReport } from '../services/wechat-hub/reports.js'
+import { askMessages } from '../services/wechat-hub/ask.js'
+import { deleteJob, listJobs, runDueJobs, saveJob, toggleJob } from '../services/wechat-hub/jobs.js'
+import { transcribeAccountVoice, transcribeMessage } from '../services/wechat-hub/transcribe.js'
 import { answerError, requireUserId } from './wechat-hub-route-utils.js'
 
 const contactQuerySchema = z.object({ query: z.string().max(80).optional() })
@@ -59,11 +64,56 @@ const previewSchema = z.object({
 })
 
 const exportQuerySchema = z.object({
-  format: z.enum(['jsonl', 'csv']).optional(),
+  format: z.enum(['jsonl', 'csv', 'html', 'markdown', 'xlsx', 'chatlab']).optional(),
   conversationId: z.string().uuid().optional(),
   since: z.string().min(1).max(64).optional(),
   until: z.string().min(1).max(64).optional(),
   limit: z.coerce.number().int().min(1).max(20_000).optional(),
+  timezone: z.string().min(1).max(64).optional(),
+})
+
+const reportSchema = z.object({
+  kind: z.enum(['annual', 'pair', 'group']),
+  year: z.coerce.number().int().min(2000).max(2100).optional(),
+  conversationId: z.string().uuid().optional(),
+  timezone: z.string().min(1).max(64).optional(),
+})
+
+const askSchema = z.object({
+  question: z.string().min(1).max(500),
+  conversationId: z.string().uuid().optional(),
+  since: z.string().min(1).max(64).optional(),
+  until: z.string().min(1).max(64).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  model: z.string().min(1).max(128).optional(),
+})
+
+const jobPayloadSchema = z.object({
+  text: z.string().max(5_000).optional(),
+  mediaUrl: z.string().max(2_000).optional(),
+  targets: z.array(z.string().min(1).max(255)).max(100).optional(),
+  tags: z.array(z.string().min(1).max(40)).max(30).optional(),
+  reportKind: z.enum(['annual', 'pair', 'group']).optional(),
+  year: z.coerce.number().int().min(2000).max(2100).optional(),
+  conversationId: z.string().uuid().optional(),
+})
+
+const jobSchema = z.object({
+  id: z.string().min(1).max(64).optional(),
+  kind: z.enum(['broadcast', 'report']),
+  enabled: z.boolean().optional(),
+  hour: z.coerce.number().int().min(0).max(23).optional(),
+  minute: z.coerce.number().int().min(0).max(59).optional(),
+  timezone: z.string().min(1).max(64).optional(),
+  weekly: z.union([z.coerce.number().int().min(0).max(6), z.null()]).optional(),
+  payload: jobPayloadSchema,
+})
+
+const jobToggleSchema = z.object({ enabled: z.boolean() })
+
+const transcribeSchema = z.object({
+  messageId: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
 })
 
 const importMessageSchema = z.object({
@@ -247,6 +297,145 @@ export const wechatHubAutomationRoutes: FastifyPluginAsync = async (server) => {
             ),
           ),
         )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.get<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/commands',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        return reply.send(
+          success(await listCommandsForAccount(requireUserId(request), request.params.id)),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.post<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/reports',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const input = parseOrThrow(reportSchema, request.body)
+        return reply.send(
+          success(await buildReport(requireUserId(request), request.params.id, input)),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.post<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/ask',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const input = parseOrThrow(askSchema, request.body)
+        return reply.send(
+          success(await askMessages(requireUserId(request), request.params.id, input)),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.get<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/jobs',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        return reply.send(success(await listJobs(requireUserId(request), request.params.id)))
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.post<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/jobs',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const input = parseOrThrow(jobSchema, request.body)
+        return reply
+          .status(201)
+          .send(success(await saveJob(requireUserId(request), request.params.id, input)))
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.patch<{ Params: { id: string; jobId: string } }>(
+    '/wechat-hub/accounts/:id/jobs/:jobId',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const input = parseOrThrow(jobToggleSchema, request.body)
+        return reply.send(
+          success(
+            await toggleJob(
+              requireUserId(request),
+              request.params.id,
+              request.params.jobId,
+              input.enabled,
+            ),
+          ),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.delete<{ Params: { id: string; jobId: string } }>(
+    '/wechat-hub/accounts/:id/jobs/:jobId',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const deleted = await deleteJob(
+          requireUserId(request),
+          request.params.id,
+          request.params.jobId,
+        )
+        return reply.send(success({ deleted }))
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  // 手动跑一轮：不等到点也能验收调度链路，返回本轮实际执行的任务清单
+  server.post('/wechat-hub/jobs/run', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    try {
+      return reply.send(success(await runDueJobs(new Date())))
+    } catch (e) {
+      return answerError(reply, e)
+    }
+  })
+
+  // 语音转写：给了 messageId 就转单条，否则批量扫未转写的语音
+  server.post<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/voice/transcribe',
+    { bodyLimit: 8 * 1024 * 1024 },
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const input = parseOrThrow(transcribeSchema, request.body ?? {})
+        const userId = requireUserId(request)
+        const result = input.messageId
+          ? await transcribeMessage(userId, request.params.id, input.messageId)
+          : await transcribeAccountVoice(userId, request.params.id, { limit: input.limit })
+        return reply.send(success(result))
       } catch (e) {
         return answerError(reply, e)
       }

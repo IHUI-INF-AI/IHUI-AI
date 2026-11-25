@@ -47,10 +47,7 @@ import { logger } from '../../utils/logger.js'
 import { runAnalysis } from './analysis-runner.js'
 import { BridgeAdapter } from './bridge-adapter.js'
 import { HUB_LOGGER, buildContext, createAdapter, loadRuntime } from './adapter-factory.js'
-import {
-  listArchivedMomentMedia,
-  readArchivedMomentMedia,
-} from './local-media.js'
+import { listArchivedMomentMedia, readArchivedMomentMedia } from './local-media.js'
 import type {
   WechatAdapter,
   WechatBridgeArchiveRead,
@@ -89,6 +86,7 @@ import {
 import { recordInboundContact, syncGroupMembers } from './contacts.js'
 import { normalizeOutboundWebhookUrl, sendOutboundWebhook } from './webhook-outbound.js'
 import { runAutoReply } from './automation.js'
+import { runCommand } from './commands.js'
 import {
   claimDueSchedules,
   formatDigestText,
@@ -258,6 +256,12 @@ export class WechatHubManager {
       blockedWords?: string[]
       rateLimitPerMinute?: number
       outboundWebhookUrl?: string
+      /** 斜杠指令总开关；默认关闭 */
+      commandsEnabled?: boolean
+      /** 群聊里是否响应指令；默认关闭，避免群成员消耗模型额度 */
+      commandsInGroup?: boolean
+      /** 单条指令黑名单，例如 ['report'] */
+      disabledCommands?: string[]
     },
   ): Promise<WechatAccountView> {
     const row = await this.assertAccount(userId, accountId)
@@ -271,6 +275,19 @@ export class WechatHubManager {
       const normalized = normalizeOutboundWebhookUrl(patch.outboundWebhookUrl)
       if (normalized) metadata.outboundWebhookUrl = normalized
       else delete metadata.outboundWebhookUrl
+    }
+    if (
+      patch.commandsEnabled !== undefined ||
+      patch.commandsInGroup !== undefined ||
+      patch.disabledCommands !== undefined
+    ) {
+      const current = asRecord(metadata.commands)
+      metadata.commands = {
+        enabled: patch.commandsEnabled ?? current.enabled === true,
+        groupEnabled: patch.commandsInGroup ?? current.groupEnabled === true,
+        disabled:
+          patch.disabledCommands ?? (Array.isArray(current.disabled) ? current.disabled : []),
+      }
     }
     const updated = await db
       .update(wechatHubAccounts)
@@ -899,13 +916,32 @@ export class WechatHubManager {
     let userId: string | undefined
     try {
       const rows = await dbRead
-        .select({ userId: wechatHubAccounts.userId })
+        .select({ userId: wechatHubAccounts.userId, metadata: wechatHubAccounts.metadata })
         .from(wechatHubAccounts)
         .where(eq(wechatHubAccounts.id, accountId))
         .limit(1)
       userId = rows[0]?.userId
       const ownerUserId = userId
       if (!ownerUserId) return
+      // 斜杠指令优先：命中就不再走关键词/AI 自动回复，避免一条消息被回两遍。
+      const command = await runCommand(
+        ownerUserId,
+        accountId,
+        event,
+        asRecord(rows[0]?.metadata),
+        (input) => this.send(ownerUserId, input),
+      )
+      if (command) {
+        await this.writeAction(
+          accountId,
+          ownerUserId,
+          'message.command',
+          event.platformChatId,
+          { command: command.command, status: command.deliveryStatus },
+          command.deliveryStatus === 'delivered' ? 'success' : 'failed',
+        )
+        return
+      }
       const outcome = await runAutoReply(ownerUserId, accountId, event, (input) =>
         this.send(ownerUserId, input),
       )
