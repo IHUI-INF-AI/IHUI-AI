@@ -50,6 +50,94 @@ export const STALE_FACTOR = 2.5
 /** Windows 对「从未运行」填的哨兵时刻(本地时间 1999-11-30 0:00)的可接受容差。 */
 export const NEVER_RUN_YEAR = 1999
 
+/**
+ * 重复型任务的「静默死亡」判据(2026-11-25 立,第二十二件)。纯函数。
+ *
+ * 立因是当天亲历的一次:**任务活得看起来完美,其实已经死了。**
+ *   新建 `IHUI-Security-Evidence-Intake` 时写了 `<Repetition><Interval>PT2M</Interval>
+ *   <Duration>P1D</Duration></Repetition>`,`StartBoundary` 又是当天 00:00 ⇒ 重复窗口 = 
+ *   `[当天 00:00, 次日 00:00]`。跑到 23:58 之后再也没有下一次,`Next Run Time` 静默退回
+ *   **`N/A`**,任务从此不再触发 —— 而 `Last Result` 一直是 0、`Status` 一直是 `Ready`、
+ *   `Repeat: Every` 还照样显示 `0 Hour(s), 2 Minute(s)`。
+ *   原有四类判据(失败/从未运行/该跑没跑/被禁用)一条都咬不住它:它没失败、跑过、没被禁用。
+ *
+ * 这一类失效的可怕之处在于**它没有任何副作用**:除了「不再有下一次」,所有仪表都正常。
+ * 而这个信号恰恰不在原有采集里 —— `Repeat: Every` 有值、`Next Run Time` 也没人读。
+ *
+ * 三条判据(①② 命中即 breach;③ 判 warn —— 理由写在其所在分支里):
+ *   ① **`<Duration>` 短于服役期** —— 重复窗口一定会到期。阈值 `MIN_DURATION_DAYS`,
+ *      语义是「这个值必须远大于这台机器/这套服务的剩余寿命」;`P3650D`(10 年)合法,
+ *      `P1D` / `PT1H` 这类必死。不写 `<Duration>` = 无终点 = 合法(本机其余 5 个哨兵的形态)。
+ *   ② **`Next Run Time` 为空** —— 重复型任务连下一次都没有了,不管原因是什么都该报。
+ *   ③ **`LogonType=InteractiveToken`** —— 实测 `id=101` + `2147943568`(`0x80070490`
+ *      = Element not found):无人值守(锁屏 / RDP 断开)时拿不到该用户的交互会话令牌,
+ *      「每小时在触发、每次都起不来」。纯控制台命令的哨兵必须用 S4U / SYSTEM。
+ *
+ * @param {{repeatEvery?:string, repeatDuration?:string, nextRun?:string, logonType?:string}} entry
+ * @returns {{verdict:'ok'|'breach', reason:string}|null} `null` = 不是重复型任务,本维不适用
+ */
+export const MIN_DURATION_DAYS = 365
+
+/** 把 `<Duration>` 的两种写法都认下来:ISO-8601(`P1D` / `PT2M` / `P3650D`)与显示式(`1 Day(s)`)。 */
+export function parseDurationDays(v) {
+  const s = String(v == null ? '' : v).trim()
+  if (!s || /^(n\/a|none|disabled|不适用)$/i.test(s)) return null
+  /* ISO-8601:只认天(PnD)与小时/分钟(PTnH / PTnM),足够覆盖 Task Scheduler 的用法 */
+  const isoDay = s.match(/^P(\d+)D$/)
+  if (isoDay) return Number(isoDay[1])
+  const isoTime = s.match(/^PT(?:(\d+)H)?(?:(\d+)M)?$/)
+  if (isoTime) {
+    const h = Number(isoTime[1] || 0)
+    const m = Number(isoTime[2] || 0)
+    if (h === 0 && m === 0) return null
+    return (h * 60 + m) / 1440
+  }
+  /* 显示式:`3650 Day(s)` / `2 Hour(s)` */
+  const dispDay = s.match(/(\d+)\s*Day\(s\)/i)
+  if (dispDay) return Number(dispDay[1])
+  const dispHour = s.match(/(\d+)\s*Hour\(s\)/i)
+  if (dispHour) return Number(dispHour[1]) / 24
+  return null
+}
+
+export function judgeRepetition(entry) {
+  const every = String(entry?.repeatEvery ?? '').trim()
+  if (!every || /^(n\/a|none|disabled)$/i.test(every)) return null
+
+  const durRaw = String(entry?.repeatDuration ?? '').trim()
+  const days = parseDurationDays(durRaw)
+  if (days != null && days < MIN_DURATION_DAYS) {
+    return {
+      verdict: 'breach',
+      reason: `Repetition 带 <Duration>${durRaw}(${days < 1 ? `${Math.round(days * 1440)} 分钟` : `${days} 天`})短于服役期 ⇒ 重复窗口到期后 Next Run Time 会静默变 N/A 并永久停摆;去掉 <Duration> 即为无限重复`,
+    }
+  }
+
+  const next = String(entry?.nextRun ?? '').trim()
+  if (!next || /^(n\/a|unknown)$/i.test(next)) {
+    return {
+      verdict: 'breach',
+      reason: '重复型任务没有下一次运行时间(Next Run Time 为空)⇒ 已排不进队列,不会再自动触发',
+    }
+  }
+
+  if (String(entry?.logonType ?? '').trim() === 'InteractiveToken') {
+    /* 这一档刻意判 **warn** 而不是 breach(2026-11-25 实测校准)。
+       本机现有 5 条 InteractiveToken 任务(WorkBuddy / Qoder / RefMove / Guardian-Leg)
+       此刻全部 `Last Result=0`、几分钟前刚跑过、`Next Run Time` 也有值 —— 因为当前
+       确实有交互会话在线。判 breach 就是拿「会话在不在」这种机器状态当判据,而它每轮
+       都会变:人在线时全绿、人一走全红,恒红门只会逼人把这道判据关掉(§0.2)。
+       真实语义是「会话一断就起不来」= 有失效风险但不是已失效 ⇒ warn。 */
+    return {
+      verdict: 'warn',
+      reason: 'LogonType=InteractiveToken ⇒ 当前能跑(有交互会话),但锁屏/RDP 断开时取不到该用户令牌(实测 id=101 / 0x80070490),那一轮起不来;无人值守的哨兵应改 S4U 或 SYSTEM',
+    }
+  }
+
+  return { verdict: 'ok', reason: '重复窗口无到期' }
+}
+
+
 function toMs(v) {
   if (v == null) return null
   if (v instanceof Date) return Number.isFinite(v.getTime()) ? v.getTime() : null
@@ -100,6 +188,14 @@ export function classifyTask(entry, opts = {}) {
   /* ① 非良性返回码 ⇒ 失败。267011 走下面单独路径。 */
   if (!BENIGN_CODES.has(lastResult)) {
     return { name, verdict: 'breach', reason: `Last Result=${lastResult} 非良性返回码(失败)` }
+  }
+
+  /* ①b 重复窗口自身已死(2026-11-25 立)。必须排在「尚未运行」与「过期未跑」之前:
+     这两条都靠「距上次运行」量时间,而静默死亡的此刻距上次运行往往只有几分钟 ——
+     仪表全绿、任务已死。判据必须在它刚开始死的这一轮就咬住。 */
+  const rep = judgeRepetition(entry)
+  if (rep && rep.verdict !== 'ok') {
+    return { name, verdict: rep.verdict, reason: rep.reason }
   }
 
   /* ② 尚未运行:要分「还没到点」与「该跑没跑」。 */
@@ -175,9 +271,11 @@ export function judgeSchedulerHealth(entries, opts = {}) {
 /** 给每条 breach / warn 一句可执行的下一步。 */
 export function remediationForScheduler(result) {
   const out = []
+  const repeatHint =
+    '若 Last Result=0 且 Status=Ready,再查 schtasks /query /tn "\\<name>" /xml:看 <Repetition> 是否带 <Duration>(短于服役期必死)或 Next Run Time 是否已 N/A'
   for (const name of result?.breaches || []) {
     out.push(
-      `${name}: schtasks /run /tn "\\${name}" 立即补跑;仍失败则 schtasks /query /tn "\\${name}" /fo LIST /v 核对 Last Result 与 Task To Run 实际路径`,
+      `${name}: schtasks /run /tn "\\${name}" 立即补跑;仍失败则 schtasks /query /tn "\\${name}" /fo LIST /v 核对 Last Result 与 Task To Run 实际路径;${repeatHint}`,
     )
   }
   for (const name of result?.warns || []) {
@@ -188,5 +286,14 @@ export function remediationForScheduler(result) {
   return out
 }
 
-export const __test__ = { toMs, BENIGN_CODES, NEVER_RUN_YEAR, STALE_FACTOR, isNeverRunStamp }
+export const __test__ = {
+  toMs,
+  BENIGN_CODES,
+  NEVER_RUN_YEAR,
+  STALE_FACTOR,
+  isNeverRunStamp,
+  parseDurationDays,
+  judgeRepetition,
+  MIN_DURATION_DAYS,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

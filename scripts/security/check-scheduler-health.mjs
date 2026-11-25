@@ -146,9 +146,43 @@ function enumerateTasks() {
       status: String(f[3] || '').trim(),
       scheduleType: '',
       taskToRun: String(f[8] || '').trim(),
+      /* 重复窗口三列(2026-11-25 补,第二十二件)。此前都没读 —— 于是「任务已死但所有
+         仪表全绿」这一型在采集面就是盲的:Repeat: Every 有值、Next Run Time 没人看、
+         Repeat: Until: Duration 更是从没被取过。列序按 `schtasks /fo CSV /v` 表头实测:
+         2 Next Run Time / 24 Repeat: Every / 26 Repeat: Until: Duration。 */
+      nextRun: String(f[2] || '').trim(),
+      repeatEvery: String(f[24] || '').trim(),
+      repeatDuration: String(f[26] || '').trim(),
     })
   }
   return out
+}
+
+/** 带真实重复间隔的才算重复型任务(其余 Next Run Time 是「一次性」,不归本维判)。 */
+function isRepeating(task) {
+  const every = String(task?.repeatEvery || '').trim()
+  return Boolean(every) && !/^(n\/a|none|disabled)$/i.test(every)
+}
+
+/**
+ * 对重复型任务补 `<LogonType>`(2026-11-25 补)。
+ *
+ * 为什么单独取而不是塞进 enrich():enrich 对「2 小时内跑过且结果为 0」直接返回,
+ * 而静默死亡的任务恰好**永远是新鲜的** —— 塞进去等于把判据放在它永远走不到的分支里。
+ * 只对重复型任务取 XML(本机 6~7 条),代价约 1.5 秒,值得。
+ * CSV 的 `Logon Mode` 列不可用于判 InteractiveToken:实测 S4U 与 S-1-5-18 都显示
+ * `Interactive/Background`,两种完全不同的令牌模型在这一列上同名。
+ */
+function enrichRepetition(task) {
+  if (!isRepeating(task)) return task
+  try {
+    const xml = run('schtasks.exe', ['/query', '/tn', `\\${task.name}`, '/xml'], 60_000)
+    const ltM = xml.match(/<LogonType>(.+?)<\/LogonType>/)
+    return { ...task, logonType: ltM ? ltM[1].trim() : '' }
+  } catch {
+    /* 取不到不瞎猜:留空 ⇒ 这一维不判(其余维照判) */
+    return { ...task, logonType: '' }
+  }
 }
 
 /** 2 小时内跑过且结果为 0 ⇒ 视为新鲜,不必再取 XML(把 25 次 XML 压到 2~3 次)。 */
@@ -278,7 +312,7 @@ function main() {
   }
 
   const entries = base.map((t) => {
-    const e = enrich(t, now)
+    const e = enrichRepetition(enrich(t, now))
     const cfg = roster[t.name] || {}
     return {
       name: e.name,
@@ -290,6 +324,11 @@ function main() {
       registeredAt: e.registeredAt ?? null,
       bootAt,
       disabledIntent: cfg.disabledIntent === true,
+      /* 重复窗口维(第二十二件) */
+      repeatEvery: e.repeatEvery ?? '',
+      repeatDuration: e.repeatDuration ?? '',
+      nextRun: e.nextRun ?? '',
+      logonType: e.logonType ?? '',
     }
   })
 

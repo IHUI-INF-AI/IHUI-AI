@@ -16,6 +16,9 @@ import {
   classifyTask,
   judgeSchedulerHealth,
   remediationForScheduler,
+  parseDurationDays,
+  judgeRepetition,
+  MIN_DURATION_DAYS,
   SCHEDULER_STATE,
   STALE_FACTOR,
 } from '../security/lib/scheduler-health.mjs'
@@ -176,5 +179,98 @@ test('每条 breach 都有可执行的下一步', () => {
   const steps = remediationForScheduler(r)
   assert.equal(steps.length, 1)
   assert.match(steps[0], /schtasks \/run \/tn "\\A"/)
+})
+
+/* ── 重复窗口的「静默死亡」(第二十二件) ───────────────── */
+
+test('静默死亡:Repetition 带 P1D ⇒ breach(仪表全绿也要报)', () => {
+  /* 真实事故现场:Last Result=0、Status=Ready、刚跑过 2 分钟、Repeat: Every 有值,
+     唯一异常是 Next Run Time 已经退回 N/A —— 在此之前没有任何判据会报它。 */
+  const r = classifyTask(
+    t({ repeatEvery: '0 Hour(s), 2 Minute(s)', repeatDuration: '1 Day(s)', nextRun: 'N/A' }),
+    { now: NOW },
+  )
+  assert.equal(r.verdict, 'breach')
+  assert.match(r.reason, /Duration/)
+  assert.match(r.reason, /永久停摆|静默/)
+})
+
+test('静默死亡:无 Duration = 无限重复 ⇒ 不因这一维判死', () => {
+  const r = classifyTask(
+    t({ repeatEvery: '0 Hour(s), 2 Minute(s)', repeatDuration: 'Disabled', nextRun: '2026/11/25 19:10:00' }),
+    { now: NOW },
+  )
+  assert.equal(r.verdict, 'ok')
+})
+
+test('静默死亡:P3650D(10 年)合法,不判', () => {
+  const r = classifyTask(
+    t({ repeatEvery: '1 Hour(s)', repeatDuration: '3650 Day(s)', nextRun: '2026/11/25 19:15:00' }),
+    { now: NOW },
+  )
+  assert.equal(r.verdict, 'ok')
+})
+
+test('静默死亡:重复型但 Next Run Time 为空 ⇒ breach', () => {
+  const r = classifyTask(t({ repeatEvery: '0 Hour(s), 5 Minute(s)', repeatDuration: 'Disabled', nextRun: 'N/A' }), {
+    now: NOW,
+  })
+  assert.equal(r.verdict, 'breach')
+  assert.match(r.reason, /下一次运行时间/)
+})
+
+test('静默死亡:InteractiveToken ⇒ warn 而不是 breach', () => {
+  /* 判 breach 会变成恒红门:本机 5 条 InteractiveToken 任务此刻都在正常跑。
+     真实语义是「会话一断就起不来」= 有风险不是已失效。 */
+  const r = classifyTask(
+    t({ repeatEvery: '1 Hour(s)', repeatDuration: 'Disabled', nextRun: '2026/11/25 20:00:00', logonType: 'InteractiveToken' }),
+    { now: NOW },
+  )
+  assert.equal(r.verdict, 'warn')
+  assert.match(r.reason, /InteractiveToken/)
+  assert.match(r.reason, /0x80070490/)
+})
+
+test('静默死亡:S4U / SYSTEM 不判', () => {
+  for (const lt of ['S4U', 'ServiceAccount', '']) {
+    const r = classifyTask(
+      t({ repeatEvery: '1 Hour(s)', repeatDuration: 'Disabled', nextRun: '2026/11/25 20:00:00', logonType: lt }),
+      { now: NOW },
+    )
+    assert.equal(r.verdict, 'ok', `logonType=${lt} 不该判死`)
+  }
+})
+
+test('静默死亡:非重复型任务不归本维判(一次性任务 Next Run 为空是正常的)', () => {
+  for (const every of ['N/A', '', 'Disabled']) {
+    const r = classifyTask(t({ repeatEvery: every, repeatDuration: 'Disabled', nextRun: 'N/A' }), { now: NOW })
+    assert.equal(r.verdict, 'ok', `repeatEvery=${every} 不该判死`)
+  }
+})
+
+test('parseDurationDays:ISO 与显示式都要认', () => {
+  assert.equal(parseDurationDays('P1D'), 1)
+  assert.equal(parseDurationDays('P3650D'), 3650)
+  assert.equal(parseDurationDays('PT2M'), 2 / 1440)
+  assert.equal(parseDurationDays('1 Day(s)'), 1)
+  assert.equal(parseDurationDays('3650 Day(s)'), 3650)
+  assert.equal(parseDurationDays('Disabled'), null)
+  assert.equal(parseDurationDays('N/A'), null)
+  assert.equal(parseDurationDays(''), null)
+})
+
+test('judgeRepetition:返回 null 表示本维不适用,而不是「通过」', () => {
+  assert.equal(judgeRepetition({ repeatEvery: 'N/A' }), null)
+  assert.equal(judgeRepetition({}), null)
+  assert.equal(judgeRepetition({ repeatEvery: '1 Hour(s)', repeatDuration: 'Disabled', nextRun: '2026/11/25 20:00:00' }).verdict, 'ok')
+})
+
+test('静默死亡判据排在「过期未跑」之前:刚跑过 2 分钟也必须咬住', () => {
+  /* 若判据顺序错了,这一条会先命中「新鲜 ⇒ ok」,于是死掉的任务被读成健康 */
+  const r = classifyTask(
+    t({ lastRun: new Date(NOW - 2 * MIN).toISOString(), repeatEvery: '0 Hour(s), 2 Minute(s)', repeatDuration: '1 Day(s)', nextRun: 'N/A' }),
+    { now: NOW },
+  )
+  assert.equal(r.verdict, 'breach')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
