@@ -16578,6 +16578,11 @@ function startDaemon(bootGuard = null) {
         pruneRepoBloat()
         pruneTmpScratch()
         auditBloatGuardsAlive()
+        // 2026-11-25 补最后一条:A9 归零前点名的 `~pruneLostCommitTags` 也是「只在 main() 里」那一型
+        // (实测全仓仅 L15770 一处调用点,daemon tick 里没有)⇒ 常驻服务下同样结构上跑不到,
+        // 于是「history-guard 拦新建 + 这条腿清存量」的后半段在常驻面缺失,保险 tag 只增不减。
+        // 内部节流 24h,tick 戳 .ihui-agent/state/lost-commit-prune-last.json。
+        pruneLostCommitTags()
         await sweepUiMirrorLeg()
         sweepWebStyleTiers()
         // ---- 第二批:原先整条链无节流的 4 条,用调用点 legThrottle 补上后才敢上常驻面 ----
