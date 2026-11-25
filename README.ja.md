@@ -2227,6 +2227,8 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-25**
+- 🚀 Feature/Improvement:任务端点接收超时字段,模板展开可覆盖 (d44016d8)
+- 🚀 Feature/Improvement:检查点超时上限按任务与模板配置(60..3600 秒,默认 15 分钟) (71545bd1)
 - 🚀 Feature/Improvement:检查点等待超时只读信号,绝不自动恢复 (53c279bc)
 - 🔧 その他:root-guard 按 4d663de7 面重封 10 条(git-guardian 换指纹 492b12bbf88e) (30e28e09)
 - 🐞 修正:对象库体积护栏常驻化(prune-repo-bloat) + lost-commit 闸收紧到 50/3 (845685a8)

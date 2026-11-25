@@ -84,6 +84,8 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-25**
+- 🚀 Feature/Improvement:任务端点接收超时字段,模板展开可覆盖 (d44016d8)
+- 🚀 Feature/Improvement:检查点超时上限按任务与模板配置(60..3600 秒,默认 15 分钟) (71545bd1)
 - 🚀 新功能/改进:检查点等待超时只读信号,绝不自动恢复 (53c279bc)
 - 📚 文档:Codex 400 crate 清单 + OpenCode serve 实跑鉴权验证 (18944bb7)
 - 📚 文档:修正 Qoder 版本同构表述，标注动态 IPC 差异 (2a590d69)
