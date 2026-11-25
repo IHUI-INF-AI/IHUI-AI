@@ -900,6 +900,24 @@ PID 38788（父 PID 11820）在 15:xx 运行 `codex.exe ... app-server --analyti
 - **23:xx 受控实测（不是新纠正）**：`codex sandbox -- cmd /c echo HELLO` exit 0；沙箱内 `whoami /priv` 只有 `SeChangeNotifyPrivilege`，`BUILTIN\Administrators` 为 deny-only；写 `C:\Windows\Temp\codex_sandbox_probe.txt` 被拒绝、主机侧无文件；`ping 8.8.8.8` 仍通。由此确认“受限令牌 + 文件写边界”实际生效，但裸 `codex sandbox` 默认未阻断出站网络，WFP 不能直接等同于全量断网。WorkBuddy 当前 McpHost 动态落到 `64369`（`/healthz` 200 `routes:11`），`56000` / `57736` 未起，`57737` 只是 18:26 旧快照。
 - **OpenCode 23:42 受控实测（dev-only isolated，不是安装版默认）**：`isolated` 只在“未打包 + `OPENCODE_DESKTOP_ISOLATED_SERVER=1`”时为真；该参数组合绑 `0.0.0.0:3084`，本机经自身 LAN 地址 `192.168.1.244` 的 `/` 200、`/api` 无凭据 401；`service.json` 43 字符明文密码 + `Basic opencode:<password>` 后 `/openapi.json`、`/api/info`、`/api/project`、`/api/agent`、`/api/model` 全部 200。第二台主机与 Windows 防火墙未测。安装版默认 `serve --service` 不带 `0.0.0.0/3084`，CLI 默认 `127.0.0.1`；端口已关，默认 `~/.local/state/opencode/service.json` 当前不存在。
 
+**7.2 11 个客户端的闭环状态（按本轮证据，不按“装没装”）**
+
+| 客户端 | 前端 / 核心 / 后端 | 运行级闭环 | 仍未闭环（明确标未知） |
+|---|---|---|---|
+| Codex | 26.1120 全量图 + IPC 源码复核 + 5 个 native + sandbox service | `codex sandbox` echo / token / 写拒绝 / 网络放行；sandbox 管道 owner/ACL/可连接 | provisioning 帧头、tag 字段名、成功响应；读取白名单、Job 清理、工具调用路径 |
+| Trae CN | VS Code fork + `aiep_sbox` / `aiep_ipc` / `run_helper` 源码级 IPC | 无（当前未运行） | `run_helper.exe --help` 在当前 unified x64 下 exit 87；沙箱实际执行未驱动 |
+| WorkBuddy | main/daemon/MCP/ACP 源码 + 11 条路由 + McpApps | ACP connect/initialize/session/new/prompt 全 200；prompt 被 `Authentication required` 拒绝 | 登录态后的模型推理、工具、计费；VLM 推理未发 |
+| Qoder CN | 四版本图 + worker runtime + remote protocol 静态 | 无正常桌面会话；`55346` 是测试桥 | application-server 真实端口/正常会话是否启动；AOQ 启用路径 |
+| ZCode | 全量图 + 423 动态还原 + host RPC | 无（当前未运行，8081 无监听） | 更新代理启用、`zcode-runtime-host.exe` 缺失、push_detect 关系 |
+| Cursor | VS Code fork + Rust `sandbox-helper` + 44 调用点还原 | 无（当前未运行） | `workPolicyStrict` / `networkPolicyStrict` 的实际执行 |
+| 豆包 | 三片图 + `biz.pak` + PIP + sandbox runtime | v0.11.4 运行时；PIP `0x8007007E` → 路径修复 `0x80040154` | telemetry 未抓到网络请求；PIP 未 `regsvr32` 永久注册；远程/影子会话未恢复 |
+| DeepSeek Harness | 633 JS + 116 IPC 调用点 + cordis/dsh-api-gateway | 无（当前未运行） | loopback WebSocket 端口与运行期协议 |
+| OpenCode | 3,231 源模块 + service/Basic/API | `serve` 实跑、Web UI 200、API 401→Basic 200 | 安装版端到端后台服务、第二台主机/防火墙、session 数据读取 |
+| MiniMax Code | 19 native + CUA 59 工具 + srt-win | **临时 install → exec → uninstall 全链路**（身份/权限/断网/写拒绝） | `acl` 行为、永久 provisioning/重启保持、CUA 权限授予 |
+| 商汤小浣熊 | Electron + Python ACP runtime + 34 动态还原 | 无（当前未运行） | ACP runtime 与 browser-gateway 的运行期协议 |
+
+这张表就是“彻底榨干”的边界：**能静态读到的都读到了，能安全驱动的都驱动了；剩下的是需要登录态、需要第二台主机、需要重启保持或需要破坏性注册才能验证的部分，统一标未知，不写成已闭环。**
+
 ---
 
 ## 8. 证据索引
