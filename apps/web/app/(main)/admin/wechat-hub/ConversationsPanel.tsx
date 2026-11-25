@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import ConversationExportButton from './ConversationExportButton'
 import HistoryImportButton from './HistoryImportButton'
 import HistorySyncButton from './HistorySyncButton'
+import VoiceTranscribeButton from './VoiceTranscribeButton'
 import { wechatHubApi } from './wechat-hub-api'
 
 function formatTime(value: string | null): string {
@@ -181,6 +182,7 @@ export default function ConversationsPanel({
             <div className="flex items-center gap-2">
               <HistorySyncButton accountId={accountId} />
               <HistoryImportButton accountId={accountId} />
+              {readOnly ? null : <VoiceTranscribeButton accountId={accountId} />}
               <ConversationExportButton accountId={accountId} conversationId={conversationId} />
               {readOnly && selected ? (
                 <Button

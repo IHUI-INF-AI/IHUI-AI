@@ -8,10 +8,34 @@ import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Download, Loader2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
+import type { WechatExportFormat } from '@ihui/types'
 import { wechatHubApi } from './wechat-hub-api'
 
-function downloadText(filename: string, content: string, mimeType: string): void {
-  const blob = new Blob([content], { type: mimeType })
+const FORMATS: Array<{ value: WechatExportFormat; label: string }> = [
+  { value: 'jsonl', label: 'JSONL' },
+  { value: 'csv', label: 'CSV' },
+  { value: 'html', label: 'HTML 单文件' },
+  { value: 'markdown', label: 'Markdown' },
+  { value: 'xlsx', label: 'Excel' },
+  { value: 'chatlab', label: 'ChatLab JSON' },
+]
+
+/** xlsx 返回 base64，其余是 UTF-8 文本；两种都落成 Blob 再下载。 */
+function downloadExport(
+  filename: string,
+  content: string,
+  mimeType: string,
+  encoding?: string,
+): void {
+  let blob: Blob
+  if (encoding === 'base64') {
+    const binary = atob(content)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+    blob = new Blob([bytes], { type: mimeType })
+  } else {
+    blob = new Blob([content], { type: mimeType })
+  }
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
@@ -30,16 +54,16 @@ export default function ConversationExportButton({
   conversationId: string | null
 }) {
   const [notice, setNotice] = React.useState<string | null>(null)
-  const [format, setFormat] = React.useState<'jsonl' | 'csv'>('jsonl')
+  const [format, setFormat] = React.useState<WechatExportFormat>('jsonl')
   const exportMutation = useMutation({
-    mutationFn: (selectedFormat: 'jsonl' | 'csv') =>
+    mutationFn: (selectedFormat: WechatExportFormat) =>
       wechatHubApi.exportMessages(accountId, {
         format: selectedFormat,
         conversationId: conversationId ?? undefined,
         limit: 5_000,
       }),
     onSuccess: (result) => {
-      downloadText(result.filename, result.content, result.mimeType)
+      downloadExport(result.filename, result.content, result.mimeType, result.encoding)
       setNotice(`已导出 ${result.count} 条`)
       setTimeout(() => setNotice(null), 4_000)
     },
@@ -53,12 +77,15 @@ export default function ConversationExportButton({
     <div className="flex items-center gap-2">
       <select
         value={format}
-        onChange={(event) => setFormat(event.target.value === 'csv' ? 'csv' : 'jsonl')}
+        onChange={(event) => setFormat(event.target.value as WechatExportFormat)}
         aria-label="导出格式"
         className="h-8 rounded-md border border-stroke-field bg-transparent px-2 text-xs outline-none focus:border-stroke-focus"
       >
-        <option value="jsonl">JSONL</option>
-        <option value="csv">CSV</option>
+        {FORMATS.map((item) => (
+          <option key={item.value} value={item.value}>
+            {item.label}
+          </option>
+        ))}
       </select>
       <Button
         size="sm"
