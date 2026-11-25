@@ -55,7 +55,7 @@
 
 | 入口 | 结算 source | 平台成本 |
 | --- | --- | --- |
-| 普通 LLM 代理 | `llm_chat` | `ai_cost_records` |
+| 普通 LLM 代理（含 LangChain Agent） | `llm_chat` | `ai_cost_records` |
 | AI 回调 worker | `llm_chat` | `ai_cost_records` |
 | Crew 子 LLM | `crew_llm` | `ai_cost_records` |
 | 股票分析 | `stock_analysis` | `ai_cost_records` |
@@ -162,7 +162,7 @@
 
 ### 4.3 成本账现状
 
-- LLM 的 `costCents` 由 `resolveAiCost` 按 `ai_pricing` 解析，写入 `ai_cost_records`；`requestType` 区分 `llm_chat`、`crew`、`crew_session`、`stock_analysis`、`ai_career_advice`、`coze_workflow_chat`。
+- LLM 的 `costCents` 由 `resolveAiCost` 按 `ai_pricing` 解析，写入 `ai_cost_records`；`requestType` 区分 `llm_chat`（普通代理 / LangChain Agent / 流式回调）、`crew`、`crew_session`、`stock_analysis`、`career-advice`、`coze_workflow_chat`。
 - 用户积分由 `computeLlmPoints` 按模型倍率另算；同一个请求的“平台成本”和“用户扣分”不再要求相等。
 - 媒体当前只有用户售价 `ai_pricing.per_unit_price`，没有独立的上游成本列，因此媒体成本暂未写入 `ai_cost_records`；上线媒体毛利报表前需补成本字段，不能直接把售价当成本。
 
@@ -202,5 +202,5 @@
 | --- | --- |
 | 2026-07-31 | 初版立稿（LLM 倍率计费） |
 | 2026-11-25 | 媒体计价收口到 `ai_pricing` 单一真源；新增按秒计费与 MAGI-2 定价；新增钱包→积分兑换桥；修正 LLM 取整、每日赠送、无 usage 跳过等口径；移除未落地的注册送/会员送/9.9 买积分描述 |
-| 2026-11-26 | 剩余 AI 入口（Crew / AI 回调 / 股票 / 生涯建议 / Coze）全部迁到 AI 积分；新增 `settlePointsUsage` 部分结算与幂等；平台成本与用户积分正式分账；媒体显式 0 价生效；Goal 水位改读积分 |
+| 2026-11-26 | 剩余 AI 入口（普通 LLM 代理 / LangChain Agent / Crew / AI 回调 / 股票 / 生涯建议 / Coze）全部迁到 AI 积分；新增 `settlePointsUsage` 部分结算与幂等；平台成本与用户积分正式分账；媒体显式 0 价生效；Goal 水位改读积分 |
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

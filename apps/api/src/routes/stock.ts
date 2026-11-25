@@ -25,7 +25,7 @@ const historySchema = z.object({
 })
 
 const stockRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
-  // Token 余额查询
+  // AI 积分余额查询
   server.get('/token-balance', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
     const result = await getTokenBalance(server.tokenBalance, req.userId)

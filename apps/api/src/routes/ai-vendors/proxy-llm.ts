@@ -25,12 +25,11 @@ import {
   textModelBody,
   multimodalBody,
 } from './_shared.js'
-import { spendPoints } from '../../services/points-service.js'
 import { inferPointsMultiplier } from '../../services/points-multiplier.js'
-import { getPointsMultiplier } from '../../services/points-multiplier-resolver.js'
+import { settleLlmPointsUsage, ensureLlmPointsBalance } from '../../services/ai-points-billing.js'
+import { recordAiCost } from '../../plugins/ai-cost.js'
 import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
 import { bareMediaModelId } from '@ihui/shared'
-import { getSpendableBalance } from '../../services/daily-credits.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
 // OpenAI messages → Gemini contents(官方 generateContent 协议转换)
@@ -171,8 +170,18 @@ function extractTokenUsage(data: unknown): TokenUsage {
   return { promptTokens: 0, completionTokens: 0 }
 }
 
+/** 请求体字符数按 4:1 粗估 prompt token;只用于开工前余额预检,不是最终账单。 */
+function estimatePromptTokens(body: unknown): number {
+  try {
+    const raw = typeof body === 'string' ? body : JSON.stringify(body ?? '')
+    return Math.ceil(raw.length / 4)
+  } catch {
+    return 0
+  }
+}
+
 /**
- * 调用前余额检查:零成本模型(multiplier=0)豁免;余额<=0 返回 402 引导充值。
+ * 调用前余额检查:按请求体估算 prompt 侧积分,余额不足 402;零成本模型豁免。
  * 返回 false 表示已响应,调用方需 return。
  */
 export async function ensurePointsBalance(
@@ -180,25 +189,13 @@ export async function ensurePointsBalance(
   reply: FastifyReply,
   modelId: string,
 ): Promise<boolean> {
-  if ((await getPointsMultiplier(modelId)) === 0) return true // 零成本模型不校验余额
-  const userId = request.userId
-  if (!userId) return true // 未登录交由 requireAuth 处理
-  // 余额口径 = 永久余额 + 今日赠送剩余:只读 points 会把每天 100 的赠送挡在门外。
-  const { available: balance } = await getSpendableBalance(userId)
-  if (balance <= 0) {
-    reply.status(402).send({
-      code: 402,
-      message: '积分不足,请充值或使用免费模型',
-      data: { balance, free_models: ['ollama/*', 'llm7/*'] },
-    })
-    return false
-  }
-  return true
+  const estimatedPromptTokens = estimatePromptTokens(request.body)
+  return ensureLlmPointsBalance(request, reply, modelId, estimatedPromptTokens, 0)
 }
 
 /**
- * 调用后按实际 token 数扣分:零成本豁免;无 token 信息跳过;扣分失败不阻塞响应。
- * 公式:扣分 = ceil((prompt+completion) / 1000 × multiplier × 1 积分基准),向上取整。
+ * 调用后按实际 token 数扣 AI 积分:零成本/无 usage 豁免;扣分失败不阻塞响应。
+ * 统一走 ai-points-billing,与 Crew / 回调 / 股票 / 生涯 / Coze 同一份公式。
  */
 export async function chargePointsForCall(
   request: FastifyRequest,
@@ -206,25 +203,45 @@ export async function chargePointsForCall(
   data: unknown,
   referenceId: string,
 ): Promise<void> {
-  const multiplier = await getPointsMultiplier(modelId)
-  if (multiplier === 0) return // 零成本模型不扣分
   const userId = request.userId
   if (!userId) return
   const { promptTokens, completionTokens } = extractTokenUsage(data)
-  const totalTokens = promptTokens + completionTokens
-  if (totalTokens <= 0) return // 无 token 用量信息,跳过避免误扣
-  const amount = Math.ceil((totalTokens / 1000) * multiplier)
-  if (amount <= 0) return
+  if (promptTokens + completionTokens <= 0) return // 无 token 用量信息,跳过避免误扣
+  // 平台真实成本与用户积分是两本账:成本先落 ai_cost_records,再结算用户积分。
+  // 成本失败不阻塞积分,积分失败也不丢成本;两边各自留痕。
   try {
-    await spendPoints(
+    await recordAiCost({
       userId,
-      amount,
-      'ai_call',
-      `LLM 调用扣分(model=${modelId}, tokens=${totalTokens}, multiplier=${multiplier})`,
+      model: modelId || 'unknown',
+      provider: modelId.includes('/') ? (modelId.split('/')[0] ?? 'llm-proxy') : 'llm-proxy',
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
+      requestType: 'llm_chat',
+      metadata: JSON.stringify({ referenceId, source: 'proxy_llm' }),
+    })
+  } catch (err) {
+    request.log?.warn?.({ err, userId, modelId, referenceId }, '[proxy-llm] 平台成本落账失败')
+  }
+  try {
+    const settlement = await settleLlmPointsUsage({
+      userId,
+      modelId,
+      promptTokens,
+      completionTokens,
+      source: 'llm_chat',
+      description: `LLM 调用扣分(model=${modelId}, tokens=${promptTokens + completionTokens})`,
       referenceId,
-    )
-  } catch {
-    // 扣分失败不阻塞响应(已通过 pre-call 余额检查;并发竞态由 spendPoints 事务兜底)
+    })
+    if (settlement.shortfall > 0) {
+      request.log.warn(
+        { userId, modelId, referenceId, shortfall: settlement.shortfall },
+        '[proxy-llm] 积分不足,已部分结算',
+      )
+    }
+  } catch (err) {
+    // 扣分失败不阻塞已生成的响应;平台成本已在上面独立落账,不受影响。
+    request.log?.warn?.({ err, userId, modelId, referenceId }, '[proxy-llm] 积分结算失败')
   }
 }
 
