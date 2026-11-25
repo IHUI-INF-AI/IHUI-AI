@@ -830,8 +830,11 @@ Section Install
   !insertmacro IHUI_CHECK_APP_NOT_RUNNING "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
   ; Launcher 被强杀但 payload 仍在跑（孤儿进程）时，也必须拦住静默覆盖。
   !insertmacro IHUI_CHECK_APP_NOT_RUNNING "${PAYLOADNAME}.exe" "${PRODUCTNAME}"
-  ; 0.1.92 旧主程序名：升级时旧进程还在跑，同样不能覆盖/删文件。
-  !insertmacro IHUI_CHECK_APP_NOT_RUNNING "ihui-desktop.exe" "${PRODUCTNAME}"
+  ; 0.1.92 旧主程序名：仅升级/覆盖安装时检查；全新安装不碰任何旧安装目录，
+  ; 便携版同名进程也不应误拦（2026-11-26 实测 0 线程残留便携进程导致 /S exit 5）。
+  ${If} $HadExistingInstall = 1
+    !insertmacro IHUI_CHECK_APP_NOT_RUNNING "ihui-desktop.exe" "${PRODUCTNAME}"
+  ${EndIf}
 
   ; Payload 落到版本目录:运行中的旧版本不被覆盖,更新只新增目录 + 切 state 指针。
   CreateDirectory "$INSTDIR\versions\${VERSION}"
