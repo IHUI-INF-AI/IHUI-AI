@@ -305,9 +305,12 @@ function selfTest() {
 }
 
 function conclusionLine(r) {
+  // totalState 必须排在 state= 之后:git-guardian 的 auditTmpBloat 用
+  // `/...kept=(\d+))?\s+state=([A-Za-z]+)/` 解析,插在中间会让整行匹配失败
+  // (哨兵照跑但"读不出来",等于没装车)。
   return `TMP-BLOAT files=${r.files} total=${fmtMb(r.totalBytes)} MB max=${fmtMb(r.maxBytes)} MB ` +
     `over50=${r.over50.length} over20=${r.over20.length} kept=${(r.kept || []).length} ` +
-    `totalState=${stateOf([], [], r.totalBytes)} state=${r.state}`
+    `state=${r.state} totalState=${stateOf([], [], r.totalBytes)}`
 }
 
 /** 台账读不到 / 坏 ⇒ 不豁免(方向是多喊一次),但要把原因带进读数,不许静默。 */
