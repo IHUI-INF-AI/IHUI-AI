@@ -9590,6 +9590,7 @@
       "links": "链接"
     },
     "pictureInPicture": {
+      "autoMonitor": "自动监看新会话",
       "task": "任务",
       "pin": "置顶",
       "unpin": "取消置顶",

@@ -9601,6 +9601,7 @@
       "createDraftPullRequestFailed": "Draft PR の作成に失敗しました"
     },
     "pictureInPicture": {
+      "autoMonitor": "新しいセッションを自動監視",
       "task": "タスク",
       "pin": "常に最前面",
       "unpin": "最前面を解除",

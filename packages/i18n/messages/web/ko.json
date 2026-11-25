@@ -9601,6 +9601,7 @@
       "createDraftPullRequestFailed": "초안 PR 생성 실패"
     },
     "pictureInPicture": {
+      "autoMonitor": "새 세션 자동 모니터링",
       "task": "작업",
       "pin": "항상 위",
       "unpin": "맨 위 고정 해제",

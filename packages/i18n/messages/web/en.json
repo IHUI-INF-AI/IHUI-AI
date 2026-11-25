@@ -9566,6 +9566,7 @@
       "links": "Links"
     },
     "pictureInPicture": {
+      "autoMonitor": "Auto-monitor new sessions",
       "task": "Task",
       "pin": "Pin on top",
       "unpin": "Unpin",

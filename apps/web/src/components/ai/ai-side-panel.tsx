@@ -26,6 +26,7 @@ import {
   Minimize2,
   Minus,
   PictureInPicture2,
+  MonitorPlay,
   ChevronUp,
   SquareTerminal,
   Columns2,
@@ -48,6 +49,7 @@ import {
 import { openBrowserPipMonitor } from '@/lib/browser-pip'
 import { isTauri, openAiPipWindow } from '@/lib/tauri-bridge'
 import { useBrowserPipLabels } from '@/hooks/use-browser-pip-labels'
+import { AI_PIP_AUTO_KEY } from '@/hooks/use-auto-ai-pip'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
@@ -88,7 +90,13 @@ import { AI_PANEL_MAX_WIDTH, AI_PANEL_MIN_WIDTH, useAiPanelStore } from '@/store
 import { useEnvironmentInfoStore } from '@/stores/environment-info'
 import { useTerminalDockStore } from '@/stores/terminal-dock'
 import { useLoginDialogStore } from '@/stores/login-dialog'
-import { getConversation, getConversationHistory, getMessages, bindBrowserTask } from '@ihui/api-client'
+import {
+  getConversation,
+  getConversationHistory,
+  getMessages,
+  bindBrowserTask,
+  listBrowserSessions,
+} from '@ihui/api-client'
 import { parsePendingQuestion } from '@/lib/pending-question'
 // 2026-11:新建对话时把「提示留痕」一并归零(与 RN 的 handleDrawerCreateNewChat 同语义),
 // 否则「新建」后还能看到上一个新会话残留的提示。
@@ -483,6 +491,19 @@ export function AISidePanel() {
     // 已有真正的独立监看窗,入口必须常驻。
     setPipSupported(isTauri() || isDocumentPictureInPictureSupported())
   }, [])
+  // 2026-11-25:自动监看开关。默认开=新 Browser Hub 会话由 GlobalShell 的
+  // useAutoAiPip 自动开窗;关闭后只保留手动入口。
+  const [autoPip, setAutoPip] = React.useState(true)
+  React.useEffect(() => {
+    setAutoPip(window.localStorage.getItem(AI_PIP_AUTO_KEY) !== '0')
+  }, [])
+  const toggleAutoPip = React.useCallback(() => {
+    setAutoPip((prev) => {
+      const next = !prev
+      window.localStorage.setItem(AI_PIP_AUTO_KEY, next ? '1' : '0')
+      return next
+    })
+  }, [])
   const pipLabels = useBrowserPipLabels()
   // 模板入口只给内置 id;目标/要求/检查点由服务端展开,前端不复制一份模板真相。
   const pipTemplates = [
@@ -502,35 +523,51 @@ export function AISidePanel() {
     if (!cdpTab || !sessionId) return null
     return { tabId: cdpTab.id, sessionId, title: cdpTab.title }
   }, [])
+  // 桌面端补一层服务端活跃会话发现:AI 直接开 Browser Hub 时右侧没有 CDP tab,
+  // 旧逻辑只能报“先开浏览器”。这里返回一个无 tabId 的只读目标,够开原生监看窗。
+  const resolvePipSessionTarget = React.useCallback(async () => {
+    const tabTarget = resolvePipTarget()
+    if (tabTarget) return tabTarget
+    if (!isTauri()) return null
+    try {
+      const res = await listBrowserSessions()
+      const ids = res.success ? (res.data?.session_ids ?? []) : []
+      const sessionId = ids.length > 0 ? ids[ids.length - 1] : null
+      return sessionId ? { tabId: '', sessionId, title: '' } : null
+    } catch {
+      return null
+    }
+  }, [resolvePipTarget])
   // 2026-11-24:有活跃 CDP 会话就接实时画面,没有才回落 D181 的空态窗。
   // 「接管」把右侧工作面切回该 tab 并展开面板(浮窗此时已关掉,输入回到主窗口)。
-  const openPipFromPanel = React.useCallback(() => {
-    const target = resolvePipTarget()
-    if (!target) {
-      // 桌面端没有 Document PiP,空态窗开不出来;明确告诉用户先去右侧工作面开浏览器。
-      if (isTauri()) {
-        toast.error(tc('pictureInPicture.openWindow'), {
-          description: tc('pictureInPicture.templateNoSession'),
-        })
-        return
-      }
-      openPictureInPictureWindow({
-        title: tc('pictureInPicture.title'),
-        emptyState: tc('pictureInPicture.emptyState'),
-      })
-      return
-    }
+  const openPipFromPanel = React.useCallback(async () => {
     if (isTauri()) {
-      // 桌面端走真正的独立置顶监看窗,而不是网页版 Document PiP。
       const accessToken = useAuthStore.getState().token
       if (!accessToken) {
         toast.error(tc('pictureInPicture.openWindow'))
         return
       }
-      void openAiPipWindow(target.sessionId, accessToken).catch((error) => {
+      const target = await resolvePipSessionTarget()
+      if (!target) {
+        toast.error(tc('pictureInPicture.openWindow'), {
+          description: tc('pictureInPicture.templateNoSession'),
+        })
+        return
+      }
+      try {
+        await openAiPipWindow(target.sessionId, accessToken)
+      } catch (error) {
         toast.error(tc('pictureInPicture.openWindow'), {
           description: error instanceof Error ? error.message : String(error),
         })
+      }
+      return
+    }
+    const target = await resolvePipSessionTarget()
+    if (!target) {
+      openPictureInPictureWindow({
+        title: tc('pictureInPicture.title'),
+        emptyState: tc('pictureInPicture.emptyState'),
       })
       return
     }
@@ -544,11 +581,11 @@ export function AISidePanel() {
         latest.openPanel()
       },
     })
-  }, [pipLabels, resolvePipTarget, tc])
+  }, [pipLabels, resolvePipSessionTarget, tc])
   // 按模板监看:先绑定任务(服务端校验/展开),再开浮窗;浮窗连上后从服务端快照拿到任务条。
   const startPipFromTemplate = React.useCallback(
     async (templateId: string) => {
-      const target = resolvePipTarget()
+      const target = await resolvePipSessionTarget()
       if (!target) {
         toast.error(tc('pictureInPicture.templateMenuLabel'), {
           description: tc('pictureInPicture.templateNoSession'),
@@ -587,7 +624,7 @@ export function AISidePanel() {
         },
       })
     },
-    [pipLabels, resolvePipTarget, tc],
+    [pipLabels, resolvePipSessionTarget, tc],
   )
   const tcommon = useTranslations('common')
   // 登录态门(与 settings 页同型):未就绪/未登录不发注定 401 的会话历史请求,消息区改显登录引导
@@ -3035,10 +3072,21 @@ export function AISidePanel() {
                         <DropdownMenu.Item
                           data-testid="ai-panel-open-pip"
                           className={MENU_ITEM_CLASS}
-                          onSelect={() => openPipFromPanel()}
+                          onSelect={() => void openPipFromPanel()}
                         >
                           <PictureInPicture2 className={MENU_ITEM_ICON_CLASS} />
                           <span className="truncate">{tc('pictureInPicture.openWindow')}</span>
+                        </DropdownMenu.Item>
+                      )}
+                      {pipSupported && isTauri() && (
+                        <DropdownMenu.Item
+                          data-testid="ai-panel-auto-pip"
+                          className={MENU_ITEM_CLASS}
+                          onSelect={() => toggleAutoPip()}
+                        >
+                          <MonitorPlay className={MENU_ITEM_ICON_CLASS} />
+                          <span className="truncate">{tc('pictureInPicture.autoMonitor')}</span>
+                          {autoPip && <Check className={MENU_ITEM_CHECK_CLASS} />}
                         </DropdownMenu.Item>
                       )}
                       {pipSupported &&
