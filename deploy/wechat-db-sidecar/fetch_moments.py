@@ -189,6 +189,10 @@ def main() -> int:
         help="只导出微信本地 Sns 缓存命中，未命中不访问 qpic URL",
     )
     args = parser.parse_args()
+    # 只读本地缓存本身就是导出媒体的一种模式：不强制用户再叠一个
+    # --download-media，否则 BRIDGE_DB_MEDIA_LOCAL_ONLY=1 会静默不落盘。
+    if args.local_cache_only:
+        args.download_media = True
 
     try:
         from wechatauto import MomentDB, WeChatDB
