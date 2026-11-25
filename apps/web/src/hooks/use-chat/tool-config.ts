@@ -372,6 +372,10 @@ export const PLUGIN_ID_TO_TOOLS: Record<string, readonly string[]> = {
   e2b: ['run_command'],
   'github-mcp': ['run_command'],
   langgraph: ['run_command'],
+  // 连接器只读能力(2026-11-25):虚拟 pluginId,挂载后把连接器能力发现/只读调用
+  // 两个 MCP 工具并入 agentTools。后端 handler 只对当前用户已授权连接器放行
+  // list/search/fetch,action 写操作不进工具面;切勿在此加入任何写类工具。
+  'connectors-readonly': ['connector_capabilities', 'connector_call_read'],
 } as const
 
 /**
