@@ -164,24 +164,54 @@ function isRepeating(task) {
   return Boolean(every) && !/^(n\/a|none|disabled)$/i.test(every)
 }
 
+/** Task Scheduler 的全部触发器元素名(判据面只认「定时型」TimeTrigger / CalendarTrigger)。 */
+const TRIGGER_KINDS = Object.freeze([
+  'BootTrigger',
+  'LogonTrigger',
+  'TimeTrigger',
+  'CalendarTrigger',
+  'EventTrigger',
+  'SessionStateChangeTrigger',
+  'IdleTrigger',
+  'RegistrationTrigger',
+])
+
+function triggerKindsOf(xml) {
+  const out = []
+  for (const k of TRIGGER_KINDS) {
+    /* 精确匹配元素(带尖括号),避免把 <Description> 里提到的 "LogonTrigger 而不是…" 也算成触发器。 */
+    if (new RegExp(`<${k}>`).test(xml)) out.push(k)
+  }
+  return out
+}
+
 /**
- * 对重复型任务补 `<LogonType>`(2026-11-25 补)。
+ * 对重复型任务补 `<LogonType>` / 触发器种类 / `<Interval>`(2026-11-25 补;2026-11-26 扩)。
  *
  * 为什么单独取而不是塞进 enrich():enrich 对「2 小时内跑过且结果为 0」直接返回,
  * 而静默死亡的任务恰好**永远是新鲜的** —— 塞进去等于把判据放在它永远走不到的分支里。
- * 只对重复型任务取 XML(本机 6~7 条),代价约 1.5 秒,值得。
+ * 2026-11-26 起条件从「是重复型」扩到「是重复型 ∨ 在 roster 的 expectedCadence 在册」:
+ * 后者正是为了抓住「被改成 LogonTrigger 且丢了 Repetition」——那种任务 CSV 的
+ * `Repeat: Every` 显示 Disabled,`isRepeating()` 会跳过它,整道哨兵看不见。
+ *
  * CSV 的 `Logon Mode` 列不可用于判 InteractiveToken:实测 S4U 与 S-1-5-18 都显示
  * `Interactive/Background`,两种完全不同的令牌模型在这一列上同名。
  */
-function enrichRepetition(task) {
-  if (!isRepeating(task)) return task
+function enrichRepetition(task, declared) {
+  if (!isRepeating(task) && !declared) return task
   try {
     const xml = run('schtasks.exe', ['/query', '/tn', `\\${task.name}`, '/xml'], 60_000)
     const ltM = xml.match(/<LogonType>(.+?)<\/LogonType>/)
-    return { ...task, logonType: ltM ? ltM[1].trim() : '' }
+    const ivM = xml.match(/<Interval>(.+?)<\/Interval>/)
+    return {
+      ...task,
+      logonType: ltM ? ltM[1].trim() : '',
+      triggerKinds: triggerKindsOf(xml),
+      intervalMin: task.intervalMin ?? (ivM ? parseIsoDurationMin(ivM[1]) : null),
+    }
   } catch {
-    /* 取不到不瞎猜:留空 ⇒ 这一维不判(其余维照判) */
-    return { ...task, logonType: '' }
+    /* 取不到不瞎猜:留空 ⇒ 这一维落 undetermined / 不判(其余维照判) */
+    return { ...task, logonType: '', triggerKinds: [] }
   }
 }
 
@@ -216,14 +246,19 @@ function enrich(task, now) {
   }
 }
 
-/** 配置里标记「有意停用」的任务 —— 它们被 Disabled 是预期,不该反复告警。 */
+/** 配置里的两类事实:「有意停用」的任务,以及「必须无人值守按点跑」的声明节律。 */
 function loadRoster() {
-  if (!existsSync(ROSTER)) return {}
+  const empty = { tasks: {}, expectedCadence: {} }
+  if (!existsSync(ROSTER)) return empty
   try {
     const j = JSON.parse(readFileSync(ROSTER, 'utf8'))
-    return j && typeof j.tasks === 'object' && j.tasks ? j.tasks : {}
+    return {
+      tasks: j && typeof j.tasks === 'object' && j.tasks ? j.tasks : {},
+      expectedCadence:
+        j && typeof j.expectedCadence === 'object' && j.expectedCadence ? j.expectedCadence : {},
+    }
   } catch {
-    return {}
+    return empty
   }
 }
 
@@ -312,8 +347,9 @@ function main() {
   }
 
   const entries = base.map((t) => {
-    const e = enrichRepetition(enrich(t, now))
-    const cfg = roster[t.name] || {}
+    const cfg = roster.tasks[t.name] || {}
+    const cad = roster.expectedCadence[t.name] || null
+    const e = enrichRepetition(enrich(t, now), Boolean(cad))
     return {
       name: e.name,
       lastResult: e.lastResult,
@@ -329,6 +365,10 @@ function main() {
       repeatDuration: e.repeatDuration ?? '',
       nextRun: e.nextRun ?? '',
       logonType: e.logonType ?? '',
+      /* 触发锚点/声明节律维(第二十三件) */
+      triggerKinds: e.triggerKinds ?? null,
+      expectedEveryMin: cad?.everyMinutes ?? null,
+      expectedDailyAt: cad?.dailyAt ?? '',
     }
   })
 

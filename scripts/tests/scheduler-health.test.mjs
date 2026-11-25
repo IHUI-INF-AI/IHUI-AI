@@ -18,6 +18,7 @@ import {
   remediationForScheduler,
   parseDurationDays,
   judgeRepetition,
+  judgeCadence,
   MIN_DURATION_DAYS,
   SCHEDULER_STATE,
   STALE_FACTOR,
@@ -272,5 +273,82 @@ test('静默死亡判据排在「过期未跑」之前:刚跑过 2 分钟也必�
     { now: NOW },
   )
   assert.equal(r.verdict, 'breach')
+})
+
+/* ── 第二十三件:触发锚点 / 声明节律(2026-11-26) ───────────────────────── */
+
+test('judgeCadence:没登记声明节律的任务返回 null(本维不适用,不冒充通过)', () => {
+  assert.equal(judgeCadence({ triggerKinds: ['TimeTrigger'], intervalMin: 5 }), null)
+  assert.equal(judgeCadence({}), null)
+  assert.equal(judgeCadence({ expectedEveryMin: 0 }), null)
+})
+
+test('judgeCadence:声明者被改成登录/开机/事件触发 ⇒ breach', () => {
+  for (const kinds of [['LogonTrigger'], ['BootTrigger'], ['LogonTrigger', 'BootTrigger'], ['EventTrigger']]) {
+    const r = judgeCadence({ expectedEveryMin: 60, triggerKinds: kinds, repeatEvery: '1 Hour(s)', intervalMin: 60, nextRun: 'N/A' })
+    assert.equal(r.verdict, 'breach', `${kinds.join('+')} 不该被判成按点跑`)
+    assert.match(r.reason, /没人登录|不登录/)
+  }
+})
+
+test('judgeCadence:定时型但丢了 Repetition ⇒ breach(只在首次起跳那一刻跑一次)', () => {
+  const r = judgeCadence({ expectedEveryMin: 2, triggerKinds: ['TimeTrigger'], repeatEvery: 'Disabled', intervalMin: 2 })
+  assert.equal(r.verdict, 'breach')
+  assert.match(r.reason, /Repetition/)
+})
+
+test('judgeCadence:慢于声明 1.5 倍 ⇒ breach;快于声明不算问题', () => {
+  const slow = judgeCadence({ expectedEveryMin: 2, triggerKinds: ['TimeTrigger'], repeatEvery: '0 Hour(s), 30 Minute(s)', intervalMin: 30 })
+  assert.equal(slow.verdict, 'breach')
+  const fast = judgeCadence({ expectedEveryMin: 30, triggerKinds: ['TimeTrigger'], repeatEvery: '0 Hour(s), 2 Minute(s)', intervalMin: 2 })
+  assert.equal(fast.verdict, 'ok')
+  const equal = judgeCadence({ expectedEveryMin: 5, triggerKinds: ['TimeTrigger'], repeatEvery: '0 Hour(s), 5 Minute(s)', intervalMin: 5 })
+  assert.equal(equal.verdict, 'ok')
+})
+
+test('judgeCadence:取不到触发器定义 ⇒ undetermined,绝不记 ok', () => {
+  for (const kinds of [null, []]) {
+    assert.equal(judgeCadence({ expectedEveryMin: 10, triggerKinds: kinds }).verdict, 'undetermined')
+  }
+})
+
+test('judgeCadence:日历型(声明每日某时刻)被改成登录触发 ⇒ breach', () => {
+  assert.equal(judgeCadence({ expectedDailyAt: '03:30', triggerKinds: ['CalendarTrigger'] }).verdict, 'ok')
+  assert.equal(judgeCadence({ expectedDailyAt: '03:30', triggerKinds: ['TimeTrigger'], intervalMin: null }).verdict, 'ok')
+  const bad = judgeCadence({ expectedDailyAt: '03:30', triggerKinds: ['LogonTrigger'] })
+  assert.equal(bad.verdict, 'breach')
+})
+
+test('触发锚点判据排在「过期未跑」之前:任务很新鲜也必须咬住', () => {
+  /* 登录触发型任务在有人登录时永远「新鲜」—— 靠距上次运行量不出来 */
+  const r = classifyTask(
+    t({
+      lastRun: new Date(NOW - 2 * MIN).toISOString(),
+      lastResult: 0,
+      status: 'Ready',
+      expectedEveryMin: 60,
+      triggerKinds: ['LogonTrigger'],
+      repeatEvery: 'Disabled',
+      intervalMin: null,
+    }),
+    { now: NOW },
+  )
+  assert.equal(r.verdict, 'breach')
+  assert.match(r.reason, /登录/)
+})
+
+test('未登记声明节律的任务即使真是 LogonTrigger 也不判(恒红门防线)', () => {
+  /* DevStack / G-Root-Guardian 这类本来就是登录/开机型;判它们红 = 拿机器形态当判据(§0.2) */
+  const r = classifyTask(
+    t({ lastRun: new Date(NOW - 2 * MIN).toISOString(), trigger: 'LogonTrigger', triggerKinds: ['LogonTrigger'], repeatEvery: 'Disabled' }),
+    { now: NOW },
+  )
+  assert.equal(r.verdict, 'ok')
+})
+
+test('remediation:undetermined 也要给下一步(别让「没判」读成绿)', () => {
+  const out = remediationForScheduler({ breaches: [], warns: [], undetermined: ['X'] })
+  assert.equal(out.length, 1)
+  assert.match(out[0], /未判定/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
