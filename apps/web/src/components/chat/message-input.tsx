@@ -1518,6 +1518,12 @@ export function MessageInput({
                     // 2026-08-02 修复: Bug 3 — 改用 router.push 避免整页刷新丢失输入/状态
                     router.push('/plugins')
                   }}
+                  onOpenConnectors={() => {
+                    setAddMenuOpen(false)
+                    setAddMenuMode('menu')
+                    // 连接器入口(2026-11-25):跳 /connectors 授权管理页(与插件市场同属能力层)
+                    router.push('/connectors')
+                  }}
                   onOpenDeepResearch={() => {
                     setAddMenuOpen(false)
                     setAddMenuMode('menu')
