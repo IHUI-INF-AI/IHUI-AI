@@ -105,7 +105,9 @@ function createStyles(colorScheme: AppThemeMode) {
       paddingBottom: rnSpacing['2xs'],
     },
     scrollEmpty: {
-      flexGrow: 1,
+      // 2026-11-26:此前 flexGrow:1 + emptyItem 的 paddingVertical 5xl 叠加,空态被撑成
+      // 约 200px 的空白区(实拍「我的 AI APP」段:只有一行「暂无智能体」,上下全空,
+      // 把「智能体/模型选择」那排 tab 顶到下一屏)。空态只需一行,不参与纵向伸展。
       justifyContent: 'center',
     },
     item: {
@@ -143,7 +145,7 @@ function createStyles(colorScheme: AppThemeMode) {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: rnSpacing['5xl'],
+      paddingVertical: rnSpacing.md,
       paddingHorizontal: rnSpacing['sm-loose'],
     },
     emptyText: {

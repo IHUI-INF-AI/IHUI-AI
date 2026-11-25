@@ -19,7 +19,7 @@ import { useI18n } from '../i18n'
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import {
   IA_GREETING_FONT_PX,
   IA_GREETING_TOP_PX,
@@ -90,7 +90,10 @@ export default function IntelligentAssistant({
             <View style={styles.limitText}>
               {isLoggedIn ? (
                 <>
-                  <Text style={styles.limitLabel}>{t('ia.remainingPoints') + ':'}</Text>
+                  {/* 2026-11-26:此前 label 后面硬拼半角 `':'`,与紧跟的数值挤成「剩余智汇值:0」
+                   *  (实拍)。冒号改由间距表达 —— 中/英/日/韩都不必迁就某一种标点形态;
+                   *  间距走 rnSpacing 档(limitText.gap),不写字面量。 */}
+                  <Text style={styles.limitLabel}>{t('ia.remainingPoints')}</Text>
                   <Text style={styles.limitCount}>{formatTokenValue(tokenQuantity, t)}</Text>
                 </>
               ) : (
@@ -179,6 +182,8 @@ const styles = StyleSheet.create({
   limitText: {
     flexDirection: 'row',
     alignItems: 'center',
+    // label 与数值的分隔(取代旧代码里硬拼的半角冒号,见渲染处注释)
+    gap: rnSpacing['2xs'],
   },
   limitLabel: {
     fontSize: IA_TOKEN_FONT_PX,

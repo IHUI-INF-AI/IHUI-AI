@@ -958,11 +958,18 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
   },
-  tabActive: { backgroundColor: tokens.brand.cta },
+  // 2026-11-26:「智能体 / 模型选择」与下方「推荐 / 办公 / 写作…」两排此前都拿黑底做实底选中,
+  // 同一屏出现**两个主选中**(两个维度同形同权重,实拍一眼分不清哪个是当前视图、哪个是分类)。
+  // 这里把视图切换降一档:选中态改白卡 + 中灰描边 + 墨字加粗,黑底交给分类 chips 独占。
+  tabActive: {
+    backgroundColor: tokens.surface.card,
+    borderWidth: 1,
+    borderColor: tokens.stroke.default,
+  },
   tabText: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
   tabTextActive: {
     fontSize: rnType.bodySm.size,
-    color: tokens.brand.ctaForeground,
+    color: tokens.text.primary,
     fontWeight: '600',
   },
   viewport: { minHeight: 400, paddingHorizontal: rpx(taroSpacing['sm-loose']) },
