@@ -525,7 +525,12 @@ def list_task_templates() -> list[dict[str, Any]]:
     ]
 
 
-def task_from_template(template_id: str, *, goal_override: str | None = None) -> dict[str, Any]:
+def task_from_template(
+    template_id: str,
+    *,
+    goal_override: str | None = None,
+    checkpoint_timeout_seconds: int | None = None,
+) -> dict[str, Any]:
     """按模板生成可交给 `normalize_task` 的载荷(不直接落会话)。"""
     wanted = str(template_id or "").strip().lower()
     for item in BUILTIN_TASK_TEMPLATES:
@@ -535,7 +540,11 @@ def task_from_template(template_id: str, *, goal_override: str | None = None) ->
                 "goal": goal_override or item["goal"],
                 "requirements": list(item["requirements"]),
                 "checkpoints": [dict(cp) for cp in item["checkpoints"]],
-                "checkpoint_timeout_seconds": item["checkpoint_timeout_seconds"],
+                "checkpoint_timeout_seconds": (
+                    item["checkpoint_timeout_seconds"]
+                    if checkpoint_timeout_seconds is None
+                    else checkpoint_timeout_seconds
+                ),
             }
             return normalize_task(payload)
     raise TaskValidationError("template_not_found", f"模板不存在: {template_id}")

@@ -145,6 +145,9 @@ class TaskBindRequest(BaseModel):
     goal: str | None = Field(None, description="目标;给模板时可覆盖模板目标")
     requirements: list[str] | None = Field(None, description="运行要求")
     checkpoints: list[dict[str, Any]] | None = Field(None, description="检查点")
+    checkpoint_timeout_seconds: int | None = Field(
+        None, description="检查点等待上限(秒),60..3600;不给则用模板/默认 900"
+    )
 
 
 class CheckpointRequest(BaseModel):
@@ -379,7 +382,11 @@ async def reload(
 def _task_payload(body: TaskBindRequest) -> dict[str, Any]:
     """模板 id 优先展开;完整字段原样交给服务层再校验(单一真相源)。"""
     if body.template_id and not body.checkpoints:
-        return task_from_template(body.template_id, goal_override=body.goal)
+        return task_from_template(
+            body.template_id,
+            goal_override=body.goal,
+            checkpoint_timeout_seconds=body.checkpoint_timeout_seconds,
+        )
     return body.model_dump(exclude_none=True)
 
 

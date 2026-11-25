@@ -154,6 +154,10 @@ async def test_templates_route_returns_all_builtins(api):
     for template in data["templates"]:
         keys = [cp.get("label_key") for cp in template["checkpoints"]]
         assert all(key and key.startswith("ck_") for key in keys)
+        assert 60 <= template["checkpoint_timeout_seconds"] <= 3600
+    by_id = {item["id"]: item for item in data["templates"]}
+    assert by_id["payment-confirm"]["checkpoint_timeout_seconds"] == 300
+    assert by_id["download-export"]["checkpoint_timeout_seconds"] == 1800
 
 
 async def test_bind_template_route_expands_goal_and_checkpoints(api):
@@ -167,6 +171,42 @@ async def test_bind_template_route_expands_goal_and_checkpoints(api):
     assert task["goal"].startswith("走到结算页")
     assert [cp["id"] for cp in task["checkpoints"]] == ["checkout", "pay", "done"]
     assert task["checkpoints"][1]["label_key"] == "ck_payment_confirm_pay"
+    assert task["checkpoint_timeout_seconds"] == 300
+
+
+async def test_bind_template_can_override_checkpoint_timeout(api):
+    res = await api.post(
+        "/api/browser/sessions/tab-1/task",
+        json={"template_id": "payment-confirm", "checkpoint_timeout_seconds": 120},
+    )
+    assert res.status_code == 200
+    assert res.json()["data"]["task"]["checkpoint_timeout_seconds"] == 120
+
+
+async def test_bind_custom_task_keeps_explicit_checkpoint_timeout(api):
+    res = await api.post(
+        "/api/browser/sessions/tab-1/task",
+        json={
+            "goal": "自定义导出",
+            "checkpoints": [{"id": "export", "label": "导出"}],
+            "checkpoint_timeout_seconds": 60,
+        },
+    )
+    assert res.status_code == 200
+    assert res.json()["data"]["task"]["checkpoint_timeout_seconds"] == 60
+
+
+async def test_bind_out_of_range_checkpoint_timeout_returns_400(api):
+    res = await api.post(
+        "/api/browser/sessions/tab-1/task",
+        json={
+            "goal": "自定义导出",
+            "checkpoints": [{"id": "export", "label": "导出"}],
+            "checkpoint_timeout_seconds": 30,
+        },
+    )
+    assert res.status_code == 400
+    assert res.json()["detail"].startswith("task_invalid_checkpoint_timeout:")
 
 
 async def test_bind_invalid_goal_returns_400_named_code(api):
