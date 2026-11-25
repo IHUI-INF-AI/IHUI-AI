@@ -31,6 +31,7 @@ import { assertAccountForUser } from './guards.js'
 import { wechatHubManager } from './manager.js'
 import { publishMoment } from './operations.js'
 import { buildReport } from './reports.js'
+import { MAX_VOICE_BATCH_LIMIT, transcribeAccountVoice } from './transcribe.js'
 
 const TICK_MS = 30_000
 const MAX_JOBS_PER_ACCOUNT = 20
@@ -63,9 +64,11 @@ function normalizeJob(raw: unknown): WechatJob | null {
       ? 'report'
       : record.kind === 'moment'
         ? 'moment'
-        : record.kind === 'broadcast'
-          ? 'broadcast'
-          : null
+        : record.kind === 'transcribe'
+          ? 'transcribe'
+          : record.kind === 'broadcast'
+            ? 'broadcast'
+            : null
   if (!kind) return null
   const weeklyRaw = record.weekly
   return {
@@ -255,6 +258,32 @@ async function runOne(
 
   if (job.kind === 'moment') {
     return runMoment(userId, accountId, job)
+  }
+
+  if (job.kind === 'transcribe') {
+    const requested = job.payload.limit ?? 20
+    const limit = Math.max(1, Math.min(requested, MAX_VOICE_BATCH_LIMIT))
+    try {
+      const batch = await transcribeAccountVoice(userId, accountId, { limit })
+      return {
+        jobId: job.id,
+        kind: job.kind,
+        // 只有「真失败」算失败；跳过（超大/取不到/stub）是可解释的常态，不算任务失败。
+        // 但 STT 未就绪（stub）要让任务显红：那一轮的体力活等于白干，得让主人去装模型。
+        ok: batch.failed === 0 && !batch.stub,
+        detail: `扫描 ${batch.scanned} · 成功 ${batch.transcribed} · 失败 ${batch.failed} · 跳过 ${batch.skipped} · 剩余 ${batch.remaining}${batch.stub ? '（STT 未就绪）' : ''}`,
+        at,
+      }
+    } catch (e) {
+      // 同账号手动批量在跑时服务层会 409，这里照实记，不当作崩溃。
+      return {
+        jobId: job.id,
+        kind: job.kind,
+        ok: false,
+        detail: e instanceof Error ? e.message : String(e),
+        at,
+      }
+    }
   }
 
   const target = job.payload.targets?.[0]

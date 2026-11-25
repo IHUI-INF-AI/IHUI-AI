@@ -64,6 +64,9 @@ export interface TranscribeBatchResult {
   transcribed: number
   failed: number
   skipped: number
+  remaining: number
+  /** 本次碰到 stub（STT 未就绪）：remaining 不会因这轮下降，前端应立刻停轮询。 */
+  stub: boolean
   items: TranscribeBatchItem[]
 }
 
@@ -86,6 +89,15 @@ const SKIPPABLE_ERROR_CODES = new Set([
 ])
 
 /**
+ * 单进程内的批量互斥：同一账号同一时刻只允许一批在跑。
+ *
+ * 多实例部署时这层不管用，真正的幂等靠下面 writeTranscription 的条件写回
+ * （where 里带「content 仍是待转写形态」），两个实例同时转同一条时只有一个能写进去，
+ * 另一个的 returning 为空、按已转写计入 skipped，不会互相覆盖。
+ */
+const RUNNING_BATCHES = new Set<string>()
+
+/**
  * 桥接后端入站时会给语音消息写占位文案（`[语音]`、`[语音消息]` 这类），
  * 这些不是真实转写结果，但会挡住「content 为空才转写」的判断。
  * 统一认成「未转写」，既让批量能捞到，也允许单条重转。
@@ -98,6 +110,24 @@ const VOICE_PLACEHOLDERS = ['[语音]', '[语音消息]', '[voice]', '[Voice]']
 export function isVoicePlaceholder(content: string | null | undefined): boolean {
   const text = (content ?? '').trim()
   return text === '' || VOICE_PLACEHOLDERS.includes(text)
+}
+
+/** 「这条音频的内容还是待转写形态」：批量捞取与写回抢占用同一个条件，口径不许分叉。 */
+function pendingContentFilter() {
+  return or(
+    // btrim 兜纯空白：与 isVoicePlaceholder 的 trim 口径对齐，
+    // 避免纯空白行单条能转、批量永远捞不到。
+    sql`btrim(${wechatHubMessages.content}) = ''`,
+    inArray(wechatHubMessages.content, VOICE_PLACEHOLDERS),
+  )
+}
+
+function pendingVoiceFilter(accountId: string) {
+  return and(
+    eq(wechatHubMessages.accountId, accountId),
+    eq(wechatHubMessages.kind, 'voice'),
+    pendingContentFilter(),
+  )
 }
 
 interface LoadedAudio {
@@ -290,7 +320,20 @@ async function transcribeCore(row: VoiceMessageRow): Promise<TranscribeResult> {
   }
 
   // 只回写 content；mediaUrl 与其他列一律不动，避免转写顺带改掉原始归档信息。
-  await db.update(wechatHubMessages).set({ content: text }).where(eq(wechatHubMessages.id, row.id))
+  // 写回是条件更新：where 里必须还带着「仍是待转写形态」，两个实例同时转同一条时，
+  // 只有先到的那次能命中，后到那次 returning 为空 —— 按已转写处理，不覆盖、不重试。
+  const written = await db
+    .update(wechatHubMessages)
+    .set({ content: text })
+    .where(and(eq(wechatHubMessages.id, row.id), pendingContentFilter()))
+    .returning({ id: wechatHubMessages.id })
+  if (written.length === 0) {
+    throw new AppError(
+      '该语音已被另一次转写抢先写入',
+      409,
+      'WECHAT_VOICE_ALREADY_TRANSCRIBED',
+    )
+  }
 
   return {
     messageId: row.id,
@@ -331,8 +374,19 @@ export async function transcribeAccountVoice(
   opts: { limit?: number } = {},
 ): Promise<TranscribeBatchResult> {
   await assertAccountForUser(userId, accountId)
-  const limit = resolveBatchLimit(opts.limit)
+  if (RUNNING_BATCHES.has(accountId)) {
+    throw new AppError('该账号已有一批语音正在转写，等它跑完再来', 409, 'WECHAT_VOICE_BATCH_RUNNING')
+  }
+  RUNNING_BATCHES.add(accountId)
+  try {
+    return await runVoiceBatch(accountId, resolveBatchLimit(opts.limit))
+  } finally {
+    // 异常也必须放锁：否则一次 STT 抖动会把账号的语音转写永久卡死。
+    RUNNING_BATCHES.delete(accountId)
+  }
+}
 
+async function runVoiceBatch(accountId: string, limit: number): Promise<TranscribeBatchResult> {
   const rows = await dbRead
     .select({
       id: wechatHubMessages.id,
@@ -341,18 +395,7 @@ export async function transcribeAccountVoice(
       mediaUrl: wechatHubMessages.mediaUrl,
     })
     .from(wechatHubMessages)
-    .where(
-      and(
-        eq(wechatHubMessages.accountId, accountId),
-        eq(wechatHubMessages.kind, 'voice'),
-        or(
-          // btrim 兜纯空白：与单条 isVoicePlaceholder 的 trim 口径对齐，
-          // 避免纯空白行单条能转、批量永远捞不到。
-          sql`btrim(${wechatHubMessages.content}) = ''`,
-          inArray(wechatHubMessages.content, VOICE_PLACEHOLDERS),
-        ),
-      ),
-    )
+    .where(pendingVoiceFilter(accountId))
     .orderBy(desc(wechatHubMessages.sentAt))
     .limit(limit)
 
@@ -361,6 +404,8 @@ export async function transcribeAccountVoice(
     transcribed: 0,
     failed: 0,
     skipped: 0,
+    remaining: 0,
+    stub: false,
     items: [],
   }
 
@@ -369,6 +414,7 @@ export async function transcribeAccountVoice(
       const r = await transcribeCore(row)
       if (r.stub) {
         // stub 未写库，归入 skipped：与成功转写区分开，调度层据此知道要等 STT 恢复后重试。
+        result.stub = true
         result.skipped += 1
         result.items.push({
           messageId: row.id,
@@ -392,6 +438,14 @@ export async function transcribeAccountVoice(
       }
     }
   }
+
+  // 扫完之后再数一次：stub/超大/取不到的行仍是待转写，remaining 会告诉前端
+  // 还要不要继续跑下一轮。一次跑 50 条会撞 180s 的上限，所以宁可让前端多按几次。
+  const remainingRows = await dbRead
+    .select({ n: sql<number>`count(*)` })
+    .from(wechatHubMessages)
+    .where(pendingVoiceFilter(accountId))
+  result.remaining = Number(remainingRows[0]?.n ?? 0)
 
   return result
 }

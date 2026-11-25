@@ -89,7 +89,8 @@ beforeEach(() => {
   hoisted.readdir.mockReset()
 
   hoisted.update.mockImplementation(() => ({ set: hoisted.set }))
-  hoisted.set.mockReturnValue({ where: async () => [] })
+  // 回写是条件更新 + returning：默认命中一条，代表抢到了这一行。
+  hoisted.set.mockReturnValue({ where: () => ({ returning: async () => [{ id: 'claimed' }] }) })
   hoisted.stat.mockResolvedValue({ isFile: () => true, size: 2048 })
   hoisted.readFile.mockResolvedValue(Buffer.from('audio-bytes'))
 })
@@ -257,6 +258,7 @@ describe('transcribeAccountVoice 批量转写', () => {
     expect(result.failed).toBe(0)
     expect(result.skipped).toBe(0)
     expect(result.items.map((item) => item.ok)).toEqual([true, true])
+    expect(result.stub).toBe(false)
   })
 
   it('超过 20MB 的音频被跳过，不读盘也不调用 STT', async () => {
@@ -296,7 +298,63 @@ describe('transcribeAccountVoice 批量转写', () => {
     expect(result.skipped).toBe(1)
     expect(result.items[0]?.ok).toBe(false)
     expect(result.items[0]?.error).toContain('stub')
+    // 引擎没就绪：要让前端知道 remaining 不会因这一轮下降，别再空转。
+    expect(result.stub).toBe(true)
     expect(hoisted.update).not.toHaveBeenCalled()
+  })
+
+  it('remaining 是扫完之后仍待转写的条数，供前端决定要不要再跑一轮', async () => {
+    hoisted.select
+      .mockReturnValueOnce(chain([voiceRow('m11', path.join(MEDIA_ROOT, 'e.m4a'))]))
+      .mockReturnValueOnce(chain([{ n: '7' }]))
+    hoisted.stt.mockResolvedValue(sttOk('转好了'))
+
+    const result = await transcribeAccountVoice('u1', 'acc-1')
+
+    expect(result.transcribed).toBe(1)
+    // pg 的 count(*) 回来是字符串，必须转成数字再给前端。
+    expect(result.remaining).toBe(7)
+  })
+
+  it('写回被另一次转写抢先时计 skipped，不覆盖已有内容', async () => {
+    hoisted.select.mockReturnValueOnce(
+      chain([voiceRow('m12', path.join(MEDIA_ROOT, 'f.m4a'))]),
+    ).mockReturnValueOnce(chain([{ n: 0 }]))
+    hoisted.stt.mockResolvedValue(sttOk('抢输的那次'))
+    // 条件更新没命中：说明这一行已经被别人写进真实文本了。
+    hoisted.set.mockReturnValue({ where: () => ({ returning: async () => [] }) })
+
+    const result = await transcribeAccountVoice('u1', 'acc-1')
+
+    expect(result.transcribed).toBe(0)
+    expect(result.skipped).toBe(1)
+    expect(result.items[0]?.error).toContain('抢先')
+    expect(result.remaining).toBe(0)
+  })
+
+  it('同账号已有批量在跑时，第二个请求直接 409，不重复扫同一批空 content', async () => {
+    let release: (value: unknown) => void = () => undefined
+    const gate = new Promise((resolve) => {
+      release = resolve
+    })
+    hoisted.select.mockReturnValue(chain([voiceRow('m13', path.join(MEDIA_ROOT, 'g.m4a'))]))
+    hoisted.stt.mockReturnValue(gate as unknown as Promise<unknown>)
+
+    const first = transcribeAccountVoice('u1', 'acc-1')
+    await vi.waitFor(() => expect(hoisted.stt).toHaveBeenCalledTimes(1))
+
+    await expect(transcribeAccountVoice('u1', 'acc-1')).rejects.toMatchObject({
+      statusCode: 409,
+      errorCode: 'WECHAT_VOICE_BATCH_RUNNING',
+    })
+
+    release(sttOk('第一批转写'))
+    const result = await first
+    expect(result.transcribed).toBe(1)
+
+    // 锁必须放掉：紧接着再跑一次不能继续 409。
+    hoisted.stt.mockResolvedValue(sttOk('第二批转写'))
+    await expect(transcribeAccountVoice('u1', 'acc-1')).resolves.toBeTruthy()
   })
 
   it('批量默认值与上限常量符合契约', () => {

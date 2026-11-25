@@ -97,11 +97,12 @@ const jobPayloadSchema = z.object({
   reportKind: z.enum(['annual', 'pair', 'group']).optional(),
   year: z.coerce.number().int().min(2000).max(2100).optional(),
   conversationId: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
 })
 
 const jobSchema = z.object({
   id: z.string().min(1).max(64).optional(),
-  kind: z.enum(['broadcast', 'report', 'moment']),
+  kind: z.enum(['broadcast', 'report', 'moment', 'transcribe']),
   enabled: z.boolean().optional(),
   hour: z.coerce.number().int().min(0).max(23).optional(),
   minute: z.coerce.number().int().min(0).max(59).optional(),
