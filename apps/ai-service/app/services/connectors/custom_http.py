@@ -327,6 +327,7 @@ async def _auth_parts(
     spec: ConnectorSpec,
     *,
     on_token_refreshed: TokenRefreshedCallback | None = None,
+    base_url: str = "",
 ) -> tuple[dict[str, str], dict[str, str]]:
     """返回 (额外请求头, 额外查询参数)。"""
     kind = spec.auth_kind
@@ -380,6 +381,11 @@ async def _auth_parts(
     token = await _platform_token(record, kind)
     if kind == "wechat_mp":
         params["access_token"] = token
+    elif kind == "dingtalk" and base_url.startswith("https://api.dingtalk.com"):
+        # api.dingtalk.com 的 v1.0 REST 只认 header;query token 会被拒
+        # "缺少参数 x-acs-dingtalk-access-token"。oapi.dingtalk.com 反过来只认 query,
+        # 所以按操作实际基址分流,不能按 auth_kind 一刀切。
+        headers["x-acs-dingtalk-access-token"] = token
     elif kind in ("wecom_corp", "dingtalk"):
         params["access_token"] = token
     else:  # feishu_tenant
@@ -631,7 +637,10 @@ class CustomHttpConnector:
         )
 
         auth_headers, auth_params = await _auth_parts(
-            self.record, self.spec, on_token_refreshed=self._on_token_refreshed
+            self.record,
+            self.spec,
+            on_token_refreshed=self._on_token_refreshed,
+            base_url=base_url,
         )
         headers: dict[str, str] = {}
         for key, value in self.spec.headers.items():

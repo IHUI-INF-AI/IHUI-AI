@@ -22,11 +22,12 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from . import catalog
 from app.services.tenant_platform_apps import (
     platform_default_tenant_id,
     resolve_tenant_platform_credentials,
 )
+
+from . import catalog
 
 # 类型 -> 环境变量候选。同一语义允许多个历史命名,按顺序取第一个非空值。
 _CREDENTIAL_ENV: dict[str, dict[str, tuple[str, ...]]] = {
@@ -50,7 +51,11 @@ _CREDENTIAL_ENV: dict[str, dict[str, tuple[str, ...]]] = {
 
 # 可托管的额外配置(非凭据,但用户也不该填)
 _EXTRA_ENV: dict[str, dict[str, tuple[str, ...]]] = {
-    "dingtalk": {"agent_id": ("DINGTALK_AGENT_ID",)},
+    "dingtalk": {
+        "agent_id": ("DINGTALK_AGENT_ID",),
+        "robot_code": ("DINGTALK_ROBOT_CODE",),
+        "robot_mode": ("DINGTALK_ROBOT_MODE",),
+    },
     "wecom": {"agent_id": ("WECOM_AGENT_ID",)},
 }
 

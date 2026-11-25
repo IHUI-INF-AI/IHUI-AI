@@ -146,8 +146,28 @@ PRESET_TEMPLATES: dict[str, dict[str, Any]] = {
                 "body": {
                     "agent_id": "{agent_id}",
                     "userid_list": "{userid_list}",
-                    "msg": '{"msgtype":"text","text":{"content":"{text}"}}',
+                    # topapi/asyncsend_v2 的 msg 必须是 JSON 对象,不能是 JSON 字符串
+                    # (传字符串会返回 errcode=41 Invalid arguments:msg)。
+                    "msg": {"msgtype": "text", "text": {"content": "{text}"}},
                 },
+            },
+            {
+                "id": "dingtalk_robot_send",
+                "name": "机器人发送单聊消息",
+                "capability": "action",
+                "method": "POST",
+                "base_url": "https://api.dingtalk.com",
+                "path": "/v1.0/robot/oToMessages/batchSend",
+                "body": {
+                    "robotCode": "{robot_code}",
+                    "userIds": ["{user_id}"],
+                    "msgKey": "sampleText",
+                    # msgParam 必须是 JSON 字符串;text 里含未转义双引号会破坏 JSON,
+                    # 需要引用时请传入已转义文本。
+                    "msgParam": '{"content":"{text}"}',
+                },
+                "description": "以企业自建应用机器人身份给单个组织成员发单聊消息;"
+                "robot_code 取连接器 extra.robot_code,user_id 为钉钉 userid。",
             },
             {
                 "id": "dingtalk_list_dept",
