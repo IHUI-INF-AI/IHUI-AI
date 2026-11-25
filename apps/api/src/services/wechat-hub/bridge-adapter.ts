@@ -38,6 +38,8 @@ import type {
   WechatInboundEvent,
   WechatMemberMapEntry,
   WechatMediaInput,
+  WechatMomentMediaFile,
+  WechatMomentMediaRead,
   WechatSendOptions,
 } from './types.js'
 import { localRejected, transportError } from './types.js'
@@ -588,6 +590,51 @@ export class BridgeAdapter implements WechatAdapter {
         moments: [],
         reason: e instanceof Error ? e.message : '桥归档读取失败',
       }
+    }
+  }
+
+  /** 读桥本地媒体目录；404 视为该动态没有落盘媒体，不补假数据。 */
+  async listMomentMedia(momentId: string): Promise<WechatMomentMediaFile[]> {
+    if (!this.baseUrl) throw new Error('bridge 缺少 baseUrl')
+    const query = new URLSearchParams({ momentId })
+    if (this.token) query.set('secret', this.token)
+    const response = await fetch(`${this.baseUrl}/moments/media/list?${query.toString()}`, {
+      headers: this.headers(),
+      signal: AbortSignal.timeout(30_000),
+    })
+    if (response.status === 404) return []
+    const text = await response.text()
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${text.slice(0, 200)}`)
+    const root = asRecord(JSON.parse(text))
+    if (!root || root.ok !== true) {
+      throw new Error(asString(root?.error) ?? '桥拒绝本地媒体列表')
+    }
+    const files = asArray(root.files)
+      .map((item) => asRecord(item))
+      .filter((item): item is JsonRecord => item !== null)
+      .map((item) => ({
+        name: asString(item.name) ?? '',
+        size: asNumber(item.size) ?? 0,
+        contentType: asString(item.contentType) ?? 'application/octet-stream',
+      }))
+      .filter((item) => item.name.length > 0)
+    return files
+  }
+
+  /** 读桥本地媒体二进制；404 返回 null，超过桥上限等错误原样抛给上层。 */
+  async readMomentMedia(momentId: string, name: string): Promise<WechatMomentMediaRead | null> {
+    if (!this.baseUrl) throw new Error('bridge 缺少 baseUrl')
+    const query = new URLSearchParams({ momentId, name })
+    if (this.token) query.set('secret', this.token)
+    const response = await fetch(`${this.baseUrl}/moments/media?${query.toString()}`, {
+      headers: this.headers(),
+      signal: AbortSignal.timeout(60_000),
+    })
+    if (response.status === 404) return null
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    return {
+      contentType: response.headers.get('content-type') ?? 'application/octet-stream',
+      data: Buffer.from(await response.arrayBuffer()),
     }
   }
 

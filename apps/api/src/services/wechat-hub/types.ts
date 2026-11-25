@@ -115,6 +115,19 @@ export interface WechatBridgeArchiveRead {
   reason: string | null
 }
 
+/** 桥本地媒体文件描述；只描述真实落盘文件，不补占位图。 */
+export interface WechatMomentMediaFile {
+  name: string
+  size: number
+  contentType: string
+}
+
+/** 桥本地媒体二进制读取结果。 */
+export interface WechatMomentMediaRead {
+  contentType: string
+  data: Buffer
+}
+
 export interface WechatAdapter {
   readonly backend: WechatBackend
   /** 建立连接：iLink 生成二维码；bridge 探活；mock 直接 online */
@@ -138,6 +151,10 @@ export interface WechatAdapter {
   ): Promise<WechatActionResult>
   /** bridge 后端读本地归档 JSONL；iLink/mock 不实现。 */
   readMomentArchive?(limit: number): Promise<WechatBridgeArchiveRead>
+  /** bridge 后端读本地媒体目录；iLink/mock 不实现。 */
+  listMomentMedia?(momentId: string): Promise<WechatMomentMediaFile[]>
+  /** bridge 后端读单个本地媒体；未命中返回 null，不伪造。 */
+  readMomentMedia?(momentId: string, name: string): Promise<WechatMomentMediaRead | null>
   /** bridge 后端下发本地联系人/群成员映射；iLink/mock 不实现。 */
   pushMemberMap?(entries: WechatMemberMapEntry[]): Promise<WechatActionResult>
 }

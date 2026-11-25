@@ -52,6 +52,8 @@ import type {
   WechatBridgeArchiveRead,
   WechatInboundEvent,
   WechatMemberMapEntry,
+  WechatMomentMediaFile,
+  WechatMomentMediaRead,
   WechatSendOptions,
 } from './types.js'
 import { localRejected } from './types.js'
@@ -485,6 +487,62 @@ export class WechatHubManager {
         moments: [],
         reason: e instanceof Error ? e.message : '桥归档读取失败',
       }
+    }
+  }
+
+  /** 透传桥本地媒体列表；不支持、未连接或桥失败时给出明确错误，不返回伪造文件。 */
+  async listMomentMedia(
+    userId: string,
+    accountId: string,
+    momentId: string,
+  ): Promise<WechatMomentMediaFile[]> {
+    await this.assertAccount(userId, accountId)
+    const adapter = this.adapters.get(accountId)
+    if (!adapter?.listMomentMedia) {
+      throw new AppError(
+        '当前后端不支持本地媒体读取，请使用 bridge 后端',
+        409,
+        'WECHAT_BACKEND_NO_MEDIA',
+      )
+    }
+    try {
+      return await adapter.listMomentMedia(momentId)
+    } catch (e) {
+      throw new AppError(
+        e instanceof Error ? e.message : '桥本地媒体列表读取失败',
+        502,
+        'WECHAT_MOMENT_MEDIA_LIST_FAILED',
+      )
+    }
+  }
+
+  /** 透传桥本地媒体二进制；未命中返回 404，不拿占位图冒充。 */
+  async readMomentMedia(
+    userId: string,
+    accountId: string,
+    momentId: string,
+    name: string,
+  ): Promise<WechatMomentMediaRead> {
+    await this.assertAccount(userId, accountId)
+    const adapter = this.adapters.get(accountId)
+    if (!adapter?.readMomentMedia) {
+      throw new AppError(
+        '当前后端不支持本地媒体读取，请使用 bridge 后端',
+        409,
+        'WECHAT_BACKEND_NO_MEDIA',
+      )
+    }
+    try {
+      const media = await adapter.readMomentMedia(momentId, name)
+      if (!media) throw new AppError('本地媒体不存在', 404, 'WECHAT_MOMENT_MEDIA_NOT_FOUND')
+      return media
+    } catch (e) {
+      if (e instanceof AppError) throw e
+      throw new AppError(
+        e instanceof Error ? e.message : '桥本地媒体读取失败',
+        502,
+        'WECHAT_MOMENT_MEDIA_READ_FAILED',
+      )
     }
   }
 

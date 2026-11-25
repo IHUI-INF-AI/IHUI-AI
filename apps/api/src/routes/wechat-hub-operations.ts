@@ -19,6 +19,7 @@ import {
   runGroupAction,
   syncContacts,
 } from '../services/wechat-hub/operations.js'
+import { wechatHubManager } from '../services/wechat-hub/manager.js'
 import { pushMemberMapForAccount } from '../services/wechat-hub/member-map-sync.js'
 import { answerError, requireUserId } from './wechat-hub-route-utils.js'
 
@@ -42,6 +43,15 @@ const momentFetchSchema = z.object({
 
 const momentArchiveQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
+})
+
+const momentMediaQuerySchema = z.object({
+  momentId: z.string().min(1).max(200),
+  name: z.string().min(1).max(200),
+})
+
+const momentMediaListQuerySchema = z.object({
+  momentId: z.string().min(1).max(200),
 })
 
 export const wechatHubOperationsRoutes: FastifyPluginAsync = async (server) => {
@@ -116,6 +126,50 @@ export const wechatHubOperationsRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(
           success(await listMomentArchive(requireUserId(request), request.params.id, query)),
         )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.get<{ Params: { id: string }; Querystring: { momentId: string } }>(
+    '/wechat-hub/accounts/:id/moments/media/list',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const query = parseOrThrow(momentMediaListQuerySchema, request.query)
+        return reply.send(
+          success(
+            await wechatHubManager.listMomentMedia(
+              requireUserId(request),
+              request.params.id,
+              query.momentId,
+            ),
+          ),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.get<{ Params: { id: string }; Querystring: { momentId: string; name: string } }>(
+    '/wechat-hub/accounts/:id/moments/media',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const query = parseOrThrow(momentMediaQuerySchema, request.query)
+        const media = await wechatHubManager.readMomentMedia(
+          requireUserId(request),
+          request.params.id,
+          query.momentId,
+          query.name,
+        )
+        return reply
+          .header('Content-Type', media.contentType)
+          .header('Content-Disposition', 'inline')
+          .header('Cache-Control', 'private, max-age=300')
+          .send(media.data)
       } catch (e) {
         return answerError(reply, e)
       }
