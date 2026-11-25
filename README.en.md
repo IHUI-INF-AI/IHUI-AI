@@ -99,6 +99,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-25**
+- 🚀 Feature/Improvement:检查点等待超时只读信号,绝不自动恢复 (53c279bc)
 - 🔧 Chore/Other:root-guard 按 4d663de7 面重封 10 条(git-guardian 换指纹 492b12bbf88e) (30e28e09)
 - 🐞 Fix:对象库体积护栏常驻化(prune-repo-bloat) + lost-commit 闸收紧到 50/3 (845685a8)
 - 📚 Docs:修正 Qoder 版本同构表述，标注动态 IPC 差异 (2a590d69)
