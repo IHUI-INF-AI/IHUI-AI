@@ -85,10 +85,12 @@
 export const INPUT_HEIGHT_PX = 36
 
 /**
- * 圆角档 'sm'(规则1):两端现值均已 `rounded-md`(web:14 / RN:124)。
+ * 圆角档 'md'(规则1):两端现值均已 `rounded-md`(web:14 / RN:124)。
  * 只给档名不给 px —— px 由 radius.js 单源产出;两端各自把档名映射成本端承载类名。
+ * 2026-11-26 档位收口删掉 4px 的 sm 档(并入 md=6px)后,本档名必须同步为 md,
+ * 否则 `rnRadius['sm']` 在类型上直接不存在(RN 端 TS7053,web 构建同时红)。
  */
-export const INPUT_RADIUS_TIER = 'sm'
+export const INPUT_RADIUS_TIER = 'md'
 
 /**
  * 横向内边距 12(规则1):两端同为 `px-3` = 12(web:14 / RN:124)。已同值 ⇒ 回归锁。
