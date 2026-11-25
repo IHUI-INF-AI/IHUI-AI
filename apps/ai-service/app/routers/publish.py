@@ -77,6 +77,15 @@ from app.services.publish.scheduler import publish_scheduler
 
 logger = get_logger(__name__)
 
+# 2026-11-26:_ensure_accounts_table 过去在 8 个端点每次请求都跑 6 条 DDL
+# (CREATE TABLE/INDEX IF NOT EXISTS + 3× ALTER TABLE ADD COLUMN IF NOT EXISTS)。
+# ALTER TABLE 要 ACCESS EXCLUSIVE 锁,并发请求互相争锁,某条撞上全局
+# command_timeout(10s)就抛 asyncio.TimeoutError → FastAPI 未捕获 → 500 +
+# starlette ASGI traceback(终检在生产日志见到)。DDL 是幂等且只在首次/迁移时需要,
+# 故改成进程内一次守卫:成功执行一次即置位,后续请求零 DDL;失败不置位,下轮重试。
+_ACCOUNTS_TABLE_LOCK = asyncio.Lock()
+_ACCOUNTS_TABLE_READY = False
+
 router = APIRouter(prefix="/publish", tags=["publish"])
 
 
@@ -111,7 +120,31 @@ async def _get_conn() -> asyncpg.Connection:
 
 
 async def _ensure_accounts_table(conn: asyncpg.Connection) -> None:
-    """确保 publish_accounts 表存在。"""
+    """确保 publish_accounts 表存在。
+
+    进程内只跑一次(成功置位);并发请求用 Lock 串行,失败不置位以便下轮重试。
+    超时/DB 错误转成 503 而非泄漏成未处理异常 → starlette 500 traceback。
+    """
+    global _ACCOUNTS_TABLE_READY
+    if _ACCOUNTS_TABLE_READY:
+        return
+    async with _ACCOUNTS_TABLE_LOCK:
+        if _ACCOUNTS_TABLE_READY:
+            return
+        try:
+            await _ensure_accounts_table_ddl(conn)
+        except (asyncio.TimeoutError, TimeoutError) as e:
+            # 全局 command_timeout 撞锁 → 503 让调用方重试,不产生 500 traceback
+            logger.warning("[publish] ensure_accounts_table 超时(DB 锁争用): %s", e)
+            raise HTTPException(status_code=503, detail="db busy, retry later") from e
+        except asyncpg.PostgresError as e:
+            logger.warning("[publish] ensure_accounts_table DDL 失败: %s: %s", type(e).__name__, e)
+            raise HTTPException(status_code=503, detail=f"db unavailable: {type(e).__name__}") from e
+        _ACCOUNTS_TABLE_READY = True
+
+
+async def _ensure_accounts_table_ddl(conn: asyncpg.Connection) -> None:
+    """实际 DDL(仅由 _ensure_accounts_table 在锁内调用一次)。"""
     await conn.execute(
         """
         CREATE TABLE IF NOT EXISTS publish_accounts (
