@@ -126,6 +126,11 @@ async def test_poll_reclaims_stale_running_rows() -> None:
 
     reclaim = [sql for sql in conn.executed if "status = 'running'" in sql or "status='running'" in sql]
     assert any("INTERVAL" in sql for sql in reclaim)
+    # 2026-11-26 回归:$1 不显式 cast 时,PostgreSQL 把 `$1 - ($2 * INTERVAL ...)`
+    # 解析成 interval,与 started_at(timestamptz) 比较即报
+    # `operator does not exist: timestamp with time zone < interval`,
+    # 每轮轮询失败、定时任务永久不被回收。必须有 ::timestamptz。
+    assert any("$1::timestamptz" in sql for sql in reclaim)
 
 
 def test_command_tag_count_parses_rowcount() -> None:
