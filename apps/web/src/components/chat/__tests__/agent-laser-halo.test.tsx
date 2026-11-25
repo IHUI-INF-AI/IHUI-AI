@@ -105,7 +105,16 @@ describe('接线面:停止键 + 单源动画', () => {
     const css = fs.readFileSync(path.resolve(WEB_SRC, 'styles/animations.css'), 'utf8')
     expect(css).toContain('.agent-laser-ring {')
     expect(css).toContain('@keyframes agent-laser-sweep')
-    expect(css).toMatch(/stroke-dashoffset: calc\(var\(--laser-offset, 0\) - 100\)/)
+    // 2026-11-26 修复:动画两端必须同为长度类型才能连续插值。
+    // 旧写法 from: var(--laser-offset,0)(<number>) vs to: calc(--laser-offset* - 100)(<length>)
+    // 类型不一致 ⇒ 浏览器退化 discrete,光环只在半程跳一下、不旋转。两端各乘 1px 锁定为 <length>。
+    const sweepBlock = css.match(/@keyframes agent-laser-sweep \{[\s\S]*?\n\}/)?.[0] ?? ''
+    expect(sweepBlock).toMatch(
+      /from \{[\s\S]*?stroke-dashoffset: calc\(var\(--laser-offset, 0\) \* 1px\)/,
+    )
+    expect(sweepBlock).toMatch(
+      /to \{[\s\S]*?stroke-dashoffset: calc\(\(var\(--laser-offset, 0\) - 100\) \* 1px\)/,
+    )
     expect(css).toMatch(
       /@media \(prefers-reduced-motion: reduce\) \{[^@]*\.agent-laser-ring rect \{\s*animation: none;/,
     )
