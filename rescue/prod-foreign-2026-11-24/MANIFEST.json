@@ -799,6 +799,7 @@
     },
     {
       "rel": "apps/web/public/images/xiaofang-wave.gif",
+      "note": "历史设计源快照:400×267 / 124 帧 / 2,536,127 B,勿作成品引用 —— 成品见 xiaofang-wave.gif(288×192 / 120 帧透明版,1,070,673 B)与 xiaofang-wave.webp(2026-11-26 定型,1,053,530 B)",
       "present": true,
       "bytes": 2536127,
       "mtime": "2026-11-15T15:16:29.755Z",
