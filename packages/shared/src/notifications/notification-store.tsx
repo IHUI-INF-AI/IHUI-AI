@@ -9,7 +9,8 @@ import {
   type BaseNotificationEntry,
   type WsNotificationLike,
 } from './ws-notification-adapter'
-import { playRingtone, readStoredRingtoneId } from './ringtone'
+import { readStoredRingtoneId } from './ringtone'
+import { playRingtone } from './ringtone-web'
 
 export type NotificationEntry = BaseNotificationEntry
 
@@ -131,8 +132,14 @@ export async function requestDesktopNotificationPermission(): Promise<boolean> {
  * 播放通知提示音(SSR + 浏览器自动播放策略安全)。
  *
  * 2026-11-26:不再是写死的 880Hz 短音,统一播「当前选中的铃声」
- * (真相源 notifications/ringtone.ts,8 个自制合成音;连发 1200ms 去抖在该模块内)。
- * 非 Web 端(window 不存在)或无 AudioContext 时静默 —— RN/小程序各自走原生音频。
+ * (真相源 notifications/ringtone.ts,8 个自制合成音;连发 1200ms 去抖在 ringtone-web 内)。
+ * 非 Web 端或无 AudioContext 时静默 —— RN/小程序各自走原生音频。
+ *
+ * 跨端取舍(2026-11-26):本 store 被 RN(`apps/mobile-rn/src/stores/notification.tsx`)复用,
+ * 这里直接 import ringtone-web 而非引入注入式 `setSoundPlayer`,是改动最小的方案 ——
+ * RN 运行时 `global.window` 存在但没有 `AudioContext`,ringtone-web 的 `getAudioContextCtor()`
+ * 返回 null ⇒ `playRingtone` 静默返回 false,与拆出前行为完全一致;注入式要动 web 启动树与
+ * 两端挂载点,改动面更大。仅当实测 RN 会因此抛错(而非静默)时才改用注入式。
  */
 export function playNotificationSound(): void {
   playRingtone(readStoredRingtoneId())

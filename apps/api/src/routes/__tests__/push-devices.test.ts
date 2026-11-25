@@ -191,8 +191,11 @@ describe('推送设备注册(F-680)', () => {
     expect(res.statusCode).toBe(200)
     expect(res.json().data.total).toBe(1)
     expect(dbCalls.executeCount).toBe(0)
-    expect(dbCalls.selectTables).toHaveLength(1)
+    // 2026-11-26 起:第一次 select 查 device_tokens 收件人,第二次 select 批量读
+    // user_preferences 通知偏好(铃声/声音开关);两次查询都在,第二次缺失才是回归。
+    expect(dbCalls.selectTables).toHaveLength(2)
     expect(getTableName(dbCalls.selectTables[0] as never)).toBe('device_tokens')
+    expect(getTableName(dbCalls.selectTables[1] as never)).toBe('user_preferences')
     expect(sendPushBatchMock).toHaveBeenCalledWith(
       [{ token: 'tok-1' }],
       expect.objectContaining({ title: 't', body: 'b' }),

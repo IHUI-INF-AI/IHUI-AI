@@ -4,7 +4,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import type * as RingtoneModule from '@ihui/shared/notifications/ringtone'
+import type * as RingtoneWebModule from '@ihui/shared/notifications/ringtone-web'
 
 const h = vi.hoisted(() => ({
   play: vi.fn(),
@@ -26,8 +26,8 @@ vi.mock('@/stores/auth', () => ({
     sel({ isAuthenticated: h.authenticated }),
 }))
 
-vi.mock('@ihui/shared/notifications/ringtone', async (importActual) => {
-  const actual = await importActual<typeof RingtoneModule>()
+vi.mock('@ihui/shared/notifications/ringtone-web', async (importActual) => {
+  const actual = await importActual<typeof RingtoneWebModule>()
   return {
     ...actual,
     playRingtone: h.play,
@@ -159,8 +159,8 @@ describe('syncPreferencesFromServer — 登录后服务端校正本地', () => {
 
 describe('playRingtone 连发去抖 1200ms', () => {
   it('短时间连续两次只播第一次,第二次被去抖拦下', async () => {
-    const actual = await vi.importActual<typeof RingtoneModule>(
-      '@ihui/shared/notifications/ringtone',
+    const actual = await vi.importActual<typeof RingtoneWebModule>(
+      '@ihui/shared/notifications/ringtone-web',
     )
 
     class FakeParam {

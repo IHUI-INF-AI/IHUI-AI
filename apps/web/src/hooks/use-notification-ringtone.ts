@@ -9,11 +9,11 @@ import * as React from 'react'
 import { useWebSocket } from '@/hooks/use-websocket'
 import { useAuthStore } from '@/stores/auth'
 import { isSoundNotificationEnabled } from '@ihui/shared/notifications/notification-store'
+import { readStoredRingtoneId } from '@ihui/shared/notifications/ringtone'
 import {
   playRingtone,
-  readStoredRingtoneId,
   unlockRingtoneAudio,
-} from '@ihui/shared/notifications/ringtone'
+} from '@ihui/shared/notifications/ringtone-web'
 
 /**
  * 响铃必须排除的内部帧 type(与用户可见通知无关)。

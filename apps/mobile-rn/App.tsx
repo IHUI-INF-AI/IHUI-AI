@@ -20,7 +20,7 @@ import { setClientPlatform } from '@ihui/api-client'
 import { StatusBar, useFonts } from '@/platform/ui'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native'
-import { AuthProvider } from './src/context/AuthContext'
+import { AuthProvider, useAuth } from './src/context/AuthContext'
 import { ThemeProvider, useTheme } from './src/context/ThemeContext'
 import { I18nProvider } from './src/i18n'
 import { NetworkProvider, useNetwork } from './src/context/NetworkContext'
@@ -32,6 +32,7 @@ import { linking } from './src/navigation/linking'
 import { navigationRef, navigateTo } from './src/navigation/navigation-ref'
 import { reportScreenView, settleScreenTime } from './src/lib/visit-tracker'
 import { registerWechat } from './src/lib/wechat'
+import { usePush } from './src/hooks/use-push'
 import {
   subscribeOAuthDeepLink,
   getInitialOAuthDeepLink,
@@ -232,6 +233,21 @@ function ThemedNavigation() {
   )
 }
 
+/**
+ * 推送注册挂钩:登录后按 token 变化预建 Android 通知渠道、取设备 token 并注册到后端。
+ * 未登录(token 为 null)直接返回 —— 不弹权限、不发请求;web 平台由 use-push 内的
+ * Device.isDevice 自然短路,这里不写平台分支。register 幂等,token 不变不重复触发。
+ */
+function PushRegistrar(): null {
+  const { token } = useAuth()
+  const { register } = usePush()
+  useEffect(() => {
+    if (!token) return
+    void register()
+  }, [token, register])
+  return null
+}
+
 function AppInner() {
   // G-1113920:横幅按**档位**说话(offline / slow / unconfirmed / none),不再接一个布尔。
   // 旧写法 `isOnline={isOnline}` 把"探测目标不可达""慢网""真断网"三种结论渲染成同一句红色
@@ -249,6 +265,7 @@ function AppInner() {
      * 它们走 RN <Modal>,渲染在本树之外的原生窗口,各自的 insets.top 必须保留。
      */
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+      <PushRegistrar />
       <OfflineBanner banner={banner} reason={reason} />
       <ThemedNavigation />
       <DevErrorToast />

@@ -50,6 +50,17 @@ export interface PushMessage {
   clickUrl?: string
   /** 业务自定义数据（可选） */
   data?: Record<string, unknown>
+  /**
+   * Android 通知渠道 id（可选）。仅对 FCM/Android 生效：App 不在前台时由系统按渠道
+   * 响铃/静音；iOS 与 web 推送不读取该字段，行为不受影响。取值由
+   * `resolveAndroidNotificationTarget` 派生，服务端不另抄渠道映射。
+   */
+  channelId?: string
+  /**
+   * Android res/raw 音源名（不含扩展名，可选）。仅对 FCM/Android 生效；静音渠道不带。
+   * iOS/web 不读取。
+   */
+  sound?: string
 }
 
 export interface PushTarget {
@@ -179,11 +190,19 @@ async function sendFcm(target: PushTarget, message: PushMessage): Promise<PushRe
   for (const [k, v] of Object.entries(message.data ?? {})) {
     fcmData[k] = typeof v === 'string' ? v : (JSON.stringify(v) ?? '')
   }
+  // Android 渠道/音源:只把实际存在的字段写进 android.notification;两个都没有时
+  // 不出现空的 android 对象,保持现网消息体字节不变(FCM HTTP v1 结构)。
+  const androidNotification: Record<string, string> = {}
+  if (message.channelId) androidNotification.channel_id = message.channelId
+  if (message.sound) androidNotification.sound = message.sound
   const body = {
     message: {
       token: target.token,
       notification: { title: message.title, body: message.body },
       data: fcmData,
+      ...(Object.keys(androidNotification).length > 0
+        ? { android: { notification: androidNotification } }
+        : {}),
       ...(message.clickUrl ? { webpush: { fcm_options: { link: message.clickUrl } } } : {}),
     },
   }
@@ -280,6 +299,8 @@ async function sendGetui(target: PushTarget, message: PushMessage): Promise<Push
     return { provider: 'getui', success: false, error: '个推 token 获取失败' }
   }
   const url = `https://restapi.getui.com/v2/${appId}/push/single/cid`
+  // 个推 REST 的 notification 没有 channel_id / sound 字段可映射:渠道与铃声由个推
+  // 其 SDK/通道默认通知行为承载,这里不伪造对称字段。channelId/sound 仅在 FCM 腿生效。
   const body = {
     request_id: randomUUID(),
     audience: { cid: [target.token] },
