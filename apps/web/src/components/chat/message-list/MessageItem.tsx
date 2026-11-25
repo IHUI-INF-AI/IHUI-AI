@@ -83,7 +83,7 @@ import {
   VIEW_FAILURE_NAMESPACE,
   VIEW_FAILURE_ERROR_CODE_KEY,
 } from '@ihui/shared/utils/view-failure-taxonomy'
-import { FALLBACK_REASON_QUOTA_EQUIVALENT, setMessageFlags } from '@ihui/api-client'
+import { setMessageFlags } from '@ihui/api-client'
 import { ArtifactCanvas, type Artifact } from '@/components/chat/artifact-canvas'
 import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
 import { ToolCallSummaryCard } from '@/components/ai/progress-sections/tool-call-summary-card'
@@ -1862,24 +1862,9 @@ const MessageItem = React.memo(function MessageItem({
             ) : (
               answerBody
             )}
-            {/* D33 消息级降级交代行:顶部 FallbackBanner 是瞬态,历史态由水合把 metadata.fallback
-                挂到消息上(见 stores/chat.ts 的 fallback 字段注释),词与横幅同源(chat ns 既有两键)。 */}
-            {!isUser && m.fallback && (
-              <p
-                data-testid={`message-fallback-${m.id}`}
-                className="px-3 pb-1 text-label text-muted-foreground"
-              >
-                {m.fallback.reason === FALLBACK_REASON_QUOTA_EQUIVALENT
-                  ? t('fallbackNoticeQuota', {
-                      primary: m.fallback.primaryModel,
-                      backup: m.fallback.backupModel,
-                    })
-                  : t('fallbackNotice', {
-                      primary: m.fallback.primaryModel,
-                      backup: m.fallback.backupModel,
-                    })}
-              </p>
-            )}
+            {/* 2026-11-26 产品口径(auto 无感):自动换腿不在气泡里留交代行。
+                历史消息上的 metadata.fallback 仍照旧水合进 store(排障面板/导出可用),
+                只是正文区域不再向用户宣告"刚才换过模型"。 */}
             {/* G-1104168(2026-10-10 立):会话快照中断痕迹 —— 数据侧(ai-service
                 conversation.py)只在有正文的取消路径落 metadata.interrupted,历史水合
                 挂消息字段;词与 fallback 交代行同区(chat ns 两键),reason 缺省只渲染

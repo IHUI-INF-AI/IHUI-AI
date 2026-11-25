@@ -55,19 +55,17 @@ afterEach(() => {
   useChatStore.setState({ messages: [] })
 })
 
-describe('MessageItem fallback 交代行(D33 渲染位)', () => {
-  it('消息带 fallback → 交代行出现,走 chat.fallbackNotice 既有键并带 primary/backup 插值', () => {
+describe('MessageItem fallback 交代行(2026-11-26 起按"无感"口径下线)', () => {
+  it('消息带 fallback → 气泡里不再出现交代行,也不取 fallbackNotice 词', () => {
     renderMessage(assistantWithFallback('timeout'))
-    const line = screen.getByTestId(`message-fallback-${ID}`)
-    expect(line.textContent).toBe('[fallbackNotice]')
-    const call = takeWordCalls.find((c) => c.key === 'fallbackNotice')
-    expect(call?.values).toEqual({ primary: 'gpt-a', backup: 'gpt-b' })
+    expect(screen.queryByTestId(`message-fallback-${ID}`)).toBeNull()
+    expect(takeWordCalls.find((c) => c.key === 'fallbackNotice')).toBeUndefined()
   })
 
-  it('reason=quota_equivalent → 切配额话术 fallbackNoticeQuota(两键必不同,硬编码必红)', () => {
+  it('reason=quota_equivalent → 同样不出现(配额话术一并下线,换腿对用户不可见)', () => {
     renderMessage(assistantWithFallback(FALLBACK_REASON_QUOTA_EQUIVALENT))
-    const line = screen.getByTestId(`message-fallback-${ID}`)
-    expect(line.textContent).toBe('[fallbackNoticeQuota]')
+    expect(screen.queryByTestId(`message-fallback-${ID}`)).toBeNull()
+    expect(takeWordCalls.find((c) => c.key === 'fallbackNoticeQuota')).toBeUndefined()
   })
 
   it('无 fallback 的普通消息 → 交代行缺席(负例防假阳性)', () => {

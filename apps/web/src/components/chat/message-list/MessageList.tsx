@@ -16,8 +16,6 @@ import {
 } from '@/components/ai/progress-sections/message-context-menu'
 import { useProgressJumpStoreForPane } from '@/stores/progress-jump-store'
 import { matchesPaneEvent, useOptionalPaneId, usePaneChatStore } from '@/stores/chat-pane-context'
-import { useAuthStore } from '@/stores/auth'
-
 import { MessageItem } from './MessageItem'
 import { QueryThumbRail } from './query-thumb-rail'
 import { StreamingSkeleton, shouldShowStreamingSkeleton } from './streaming-skeleton'
@@ -47,7 +45,6 @@ import { projectTurnOrdinals } from '@/lib/turn-deeplink'
 import { useFocusArtifactScroll } from '@/components/media/artifact-turn-badge'
 import { CanvasOverlay } from '@/components/chat/canvas-overlay'
 import { EmptyState } from './EmptyState'
-import { FallbackBanner } from './FallbackBanner'
 // D71 十态轮次状态徽章(2026-10-29 装车):`TurnStatusLine` 自 2026-09-28 建好起
 // 零生产消费(`TurnStatusBadge` 建好、词包五语言齐、单测全绿,用户屏幕上仍是空白)。
 // 挂在**消息流尾部**而不是某条消息内部 —— 状态取自 store 的会话级事实
@@ -156,8 +153,6 @@ export function MessageList({
   hasMoreHistory,
   loadingMoreHistory,
   onLoadMoreHistory,
-  fallbackNotice,
-  onClearFallbackNotice,
   subAgentActivities: subAgentActivitiesProp,
   codeCollapseLines,
   trailing,
@@ -167,10 +162,6 @@ export function MessageList({
   // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
   const chatStore = usePaneChatStore()
   const paneId = useOptionalPaneId()
-
-  // D39 免费额度心智边界:非 VIP 即免费档可用 → 不向该用户渲染付费诱导
-  const user = useAuthStore((s) => s.user)
-  const freeTierAvailable = !user?.isVip
 
   // 2026-11-15:去掉「步骤/命令/叙述」档位切换与过滤 —— 思考、工具调用、正文
   // 统一按同一条流式时间线完整呈现,不再按档位裁掉活动条目。
@@ -765,15 +756,10 @@ export function MessageList({
           rowGap: 'var(--chat-message-gap, 2px)',
         }}
       >
-        {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
-        {fallbackNotice && (
-          <FallbackBanner
-            fallbackNotice={fallbackNotice}
-            onClearFallbackNotice={onClearFallbackNotice}
-            t={t}
-            freeTierAvailable={freeTierAvailable}
-          />
-        )}
+        {/* 2026-11-26 产品口径(auto 无感):主模型失败自动换腿时**不再**展示横幅。
+            换腿是基础设施的容错动作,不是用户需要处理的"事件"—— 横幅会让人以为服务出问题,
+            反而放大焦虑。数据与埋点照旧(fallbackNotice 仍由 use-chat 收事件并上报),
+            只是这一层不再渲染。FallbackBanner 组件本身保留(历史态/调试面板可复用)。 */}
         {/* #8 顶部加载更多历史指示器 */}
         {loadingMoreHistory && (
           <div className="flex items-center justify-center gap-2 py-2 text-label text-muted-foreground">
