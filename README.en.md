@@ -99,7 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-25**
-- 🚀 Feature/Improvement:账号池统一管理 + 会话守护永久保活(自研) (20872fe5)
+- 📚 Docs:纠正 Qoder aoq 为阿里云 RTC 引擎 + 0 app 引用 (e9d277ed)
+- 🚀 Feature/Improvement:账号池统一管理 + 会话守护永久保活(自研) (9c400258)
+- 📚 Docs:补 14 个前端图 JS 覆盖审计，证明 partial 非漏读 (60a04115)
 - 🐞 Fix:推送通道告警正文补回 stderr 读数 + 孤儿历史出路写明"需机主裁定" (c8bb0a0d)
 - 🐞 Fix:推送通道告警正文补回 stderr 读数 + 孤儿历史出路写明"需机主裁定" (95f4e5de)
 - 📚 Docs:豆包 235 模块差额改为资产口径表述 (56c2e085)
@@ -121,6 +123,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🔧 Chore/Other:root-guard 重封 git-guardian 指纹 (3525265f)
 - 🐞 Fix:回植被 5b96a6e3 整份退回的 tmp 清扫器两件 + 重封 root-guard (d4411645)
 - 📚 Docs:记录 OCR 聊天与 DB 朋友圈组合实测 (5b96a6e3)
+- 🚀 Feature/Improvement:账号池统一管理 + 会话守护永久保活(自研) (20872fe5)
 - 🐞 Fix:连接器卡片补飞书/钉钉/企微官方品牌图标 (6e32c889)
 - 🔧 Chore/Other:root-guard 重封 git-guardian 指纹 (8e887ead)
 - 🚀 Feature/Improvement:tmp 累积清扫器接入 guardian 自动派发 + 归档锚点归一 (171652ef)
