@@ -540,8 +540,8 @@ export function SidebarUserRow({
       aria-label={user?.nickname ?? 'User'}
       className={cn(
         // 整行 row 容器样式:与 NAV_ITEM_BASE_CLASS 对齐 —— h-9 + px-2.5 + gap-2.5 +
-        // text-sm,左对齐(不再居中)。圆角按角色表取 control=sm(守门 150,2026-11-11 根治),
-        // 与导航项(chip=md)的 2px 差由角色表裁决。
+        // text-sm,左对齐(不再居中)。圆角按角色表取 control=md(2026-11-26 起 4px 档删除),
+        // 与导航项(chip=md)同为 6px。
         'font-[weight:inherit] group/row flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-body transition-colors hover:bg-sidebar-item-hover-bg',
         // 按钮态样式:outline-none + focus-visible ring 保留键盘可访问性
         'outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',

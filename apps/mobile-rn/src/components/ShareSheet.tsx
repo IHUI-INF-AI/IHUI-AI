@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     alignSelf: 'stretch',
     height: CANCEL_HEIGHT,
-    borderRadius: rnRadius.md, // 角色档 control=sm(守门 150)
+    borderRadius: rnRadius.md, // 角色档 control=md(6px)(守门 150)
     backgroundColor: tokens.surface.muted,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.light,

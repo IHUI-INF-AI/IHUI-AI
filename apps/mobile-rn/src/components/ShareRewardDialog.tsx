@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     alignSelf: 'stretch',
     height: BUTTON_HEIGHT,
-    borderRadius: rnRadius.md, // 角色档 control=sm(守门 150;存量 IntroducePopup.xl 有锚点赦免,新代码必须走档)
+    borderRadius: rnRadius.md, // 角色档 control=md(6px)(守门 150;存量 IntroducePopup.xl 有锚点赦免,新代码必须走档)
     backgroundColor: tokens.brand.cta,
     borderWidth: 1,
     borderColor: tokens.border.light,

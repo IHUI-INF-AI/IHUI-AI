@@ -620,7 +620,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: rnSpacing.md, // rpx(24)
-      borderRadius: rnRadius.md, // 原 rpx(44)=22,O81 角色档收口 control=sm(4)
+      borderRadius: rnRadius.md, // 原 rpx(44)=22,O81 角色档收口 control=md(6px)(4)
       backgroundColor: tk.brand.cta,
     },
     footerBtnText: {

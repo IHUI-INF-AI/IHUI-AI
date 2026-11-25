@@ -376,7 +376,7 @@ export default function Bill() {
         {/* 底部说明 */}
         <View className="mt-[32rpx] px-[40rpx] text-center">
           <Button
-            className="h-[72rpx] rounded-md text-body-sm leading-[72rpx]" /* 控件档 sm:项目不允许胶囊 */
+            className="h-[72rpx] rounded-md text-body-sm leading-[72rpx]" /* 控件档 md(6px):项目不允许胶囊 */
             plain
             onClick={() => void onSubscribe()}
           >
