@@ -2577,7 +2577,9 @@
     "statusRunning": "実行中",
     "statusCompleted": "完了",
     "statusFailed": "失敗",
-    "statusExpired": "期限切れ"
+    "statusExpired": "期限切れ",
+    "taskCancel": "タスクをキャンセル",
+    "delegatePromptPlaceholder": "空欄の場合はこの会話の最後のメッセージを実行します"
   },
   "pendingDecisions": {
     "title": "自分の承認待ち",

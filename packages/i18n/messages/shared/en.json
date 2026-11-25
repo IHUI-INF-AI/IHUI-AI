@@ -1320,7 +1320,18 @@
       "delegateDisabled": "Device delegation is disabled",
       "delegateForbidden": "Permission denied",
       "delegateFailed": "Delegation failed",
-      "tasksLoadFailed": "Failed to load tasks"
+      "tasksLoadFailed": "Failed to load tasks",
+      "taskColProgress": "Progress",
+      "taskCancel": "Cancel task",
+      "taskRetry": "Retry",
+      "delegatePromptLabel": "Instruction",
+      "delegatePromptPlaceholder": "Leave empty to run the last message in this conversation",
+      "taskStatus_queued": "Queued",
+      "taskStatus_claimed": "Claimed",
+      "taskStatus_running": "Running",
+      "taskStatus_completed": "Completed",
+      "taskStatus_failed": "Failed",
+      "taskStatus_expired": "Expired"
     },
     "rumEnabled": "RUM enabled",
     "ip": {

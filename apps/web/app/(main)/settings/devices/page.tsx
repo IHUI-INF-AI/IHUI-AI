@@ -37,15 +37,22 @@ import {
   TableRow,
 } from '@ihui/ui-react'
 import {
+  cancelDeviceTask,
   delegateSession,
   fetchApi,
   getDeviceTasks,
   issuePairCode,
   listDevices,
+  retryDeviceTask,
   revokeDevice,
+  subscribeUserBroadcast,
   type DeviceRow,
   type DeviceTaskRow,
+  type UserBroadcastConfig,
 } from '@ihui/api-client'
+
+import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
+import { useAuthStore } from '@/stores/auth'
 
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { Alert, confirmDialog } from '@/components/feedback'
@@ -80,6 +87,21 @@ const TASK_STATUS_KEY: Record<TaskStatus, string> = {
   completed: 'devices.taskStatus_completed',
   failed: 'devices.taskStatus_failed',
   expired: 'devices.taskStatus_expired',
+}
+
+/**
+ * 任务执行进度单行文案(G2)。执行端写的 `lastEvent` 是自然语言(如"读取 src/app.ts"),
+ * 比裸阶段枚举对人有意义,故优先;没写时退回 `阶段 · 百分比 · 轮次`。
+ */
+function describeTaskProgress(row: DeviceTaskRow): string {
+  const p = row.progress
+  if (!p) return '—'
+  const last = p.lastEvent?.trim()
+  if (last) return last
+  const parts: string[] = [p.stage]
+  if (typeof p.percent === 'number') parts.push(`${Math.round(p.percent)}%`)
+  if (typeof p.iteration === 'number' && p.iteration > 0) parts.push(`#${p.iteration}`)
+  return parts.join(' · ')
 }
 
 /** lastSeenAt → 相对时间文案(与 foldable-section 同阈值,词键收在本页 devices 命名空间) */
@@ -181,6 +203,7 @@ export default function DevicesPage() {
   const [conversations, setConversations] = React.useState<ConversationRow[]>([])
   const [delegateSessionId, setDelegateSessionId] = React.useState('')
   const [delegateDeviceId, setDelegateDeviceId] = React.useState('')
+  const [delegatePrompt, setDelegatePrompt] = React.useState('')
   const [delegateSubmitting, setDelegateSubmitting] = React.useState(false)
   const [delegateResult, setDelegateResult] = React.useState<{ ok: boolean; msg: string } | null>(
     null,
@@ -202,7 +225,12 @@ export default function DevicesPage() {
     setDelegateSubmitting(true)
     setDelegateResult(null)
     try {
-      const res = await delegateSession(delegateSessionId, delegateDeviceId)
+      // G2:带上执行载荷。留空 = 服务端取该会话最后一条 user 消息 —— 不再是"派个空会话过去"。
+      const res = await delegateSession(
+        delegateSessionId,
+        delegateDeviceId,
+        delegatePrompt.trim() ? { prompt: delegatePrompt.trim(), mode: 'execute' } : undefined,
+      )
       if (res.success) {
         // success 分支 data 必为 {task_id,status}(收窄后可在 else 分支读 errorCode/status)
         setDelegateResult({
@@ -221,7 +249,7 @@ export default function DevicesPage() {
     } finally {
       setDelegateSubmitting(false)
     }
-  }, [delegateSessionId, delegateDeviceId, t])
+  }, [delegateSessionId, delegateDeviceId, delegatePrompt, t])
 
   // ---------- 任务列表 ----------
   const [tasksDeviceId, setTasksDeviceId] = React.useState('')
@@ -260,6 +288,60 @@ export default function DevicesPage() {
     void loadDevices()
     void loadConversations()
   }, [allow, loadDevices, loadConversations])
+
+  // ---------- 任务取消 / 重排(G2) ----------
+  const [taskActionBusy, setTaskActionBusy] = React.useState<string | null>(null)
+
+  const runTaskAction = React.useCallback(
+    async (taskId: string, action: 'cancel' | 'retry') => {
+      setTaskActionBusy(taskId)
+      setTasksError('')
+      try {
+        const res =
+          action === 'cancel' ? await cancelDeviceTask(taskId) : await retryDeviceTask(taskId)
+        if (!res.success) setTasksError(res.error || t('devices.tasksLoadFailed'))
+        await loadTasks(tasksDeviceId)
+      } catch {
+        setTasksError(t('devices.tasksLoadFailed'))
+      } finally {
+        setTaskActionBusy(null)
+      }
+    },
+    [loadTasks, t, tasksDeviceId],
+  )
+
+  // ---------- 任务状态广播(G2):任一端派单/取消/重排/完成,本端就地改行 ----------
+  React.useEffect(() => {
+    if (!allow || typeof window === 'undefined') return
+    const config: UserBroadcastConfig = {
+      baseUrl: resolveWsApiBaseUrl(),
+      tokenProvider: () => useAuthStore.getState().token,
+    }
+    const sub = subscribeUserBroadcast(config, {
+      'device:task': (evt) => {
+        const d = evt.data
+        setTasks((prev) =>
+          prev.map((row) =>
+            row.id === d.taskId
+              ? {
+                  ...row,
+                  status: d.status,
+                  progress: d.progress ?? row.progress,
+                  error: d.error ?? row.error,
+                  finishedAt:
+                    d.status === 'completed' || d.status === 'failed' || d.status === 'expired'
+                      ? (row.finishedAt ?? d.updatedAt)
+                      : row.finishedAt,
+                }
+              : row,
+          ),
+        )
+      },
+    })
+    return () => {
+      sub.close()
+    }
+  }, [allow])
 
   const handleRevoke = React.useCallback(
     async (device: DeviceRow) => {
@@ -531,6 +613,19 @@ export default function DevicesPage() {
               </select>
             </label>
           </div>
+          <label className="block text-label">
+            <span className="mb-1 block text-muted-foreground">
+              {t('devices.delegatePromptLabel')}
+            </span>
+            <input
+              data-testid="delegate-prompt"
+              type="text"
+              className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-body"
+              value={delegatePrompt}
+              placeholder={t('devices.delegatePromptPlaceholder')}
+              onChange={(e) => setDelegatePrompt(e.target.value)}
+            />
+          </label>
           <Button
             data-testid="delegate-submit"
             disabled={!delegateSessionId || !delegateDeviceId || delegateSubmitting}
@@ -600,9 +695,11 @@ export default function DevicesPage() {
                   <TableRow>
                     <TableHead>{t('devices.colName')}</TableHead>
                     <TableHead>{t('devices.taskColStatus')}</TableHead>
+                    <TableHead>{t('devices.taskColProgress')}</TableHead>
                     <TableHead>{t('devices.taskColCreated')}</TableHead>
                     <TableHead>{t('devices.taskColFinished')}</TableHead>
                     <TableHead>{t('devices.taskColError')}</TableHead>
+                    <TableHead>{t('devices.colActions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -617,6 +714,9 @@ export default function DevicesPage() {
                           {t(TASK_STATUS_KEY[task.status])}
                         </Badge>
                       </TableCell>
+                      <TableCell className="max-w-[220px] truncate text-label text-muted-foreground">
+                        {describeTaskProgress(task)}
+                      </TableCell>
                       <TableCell className="whitespace-nowrap text-label text-muted-foreground">
                         {formatLastSeen(task.createdAt, t)}
                       </TableCell>
@@ -625,6 +725,33 @@ export default function DevicesPage() {
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate text-label text-destructive">
                         {task.error || '—'}
+                      </TableCell>
+                      <TableCell>
+                        {task.status === 'queued' ||
+                        task.status === 'claimed' ||
+                        task.status === 'running' ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            data-testid={`task-cancel-${task.id}`}
+                            disabled={taskActionBusy === task.id}
+                            onClick={() => void runTaskAction(task.id, 'cancel')}
+                          >
+                            {t('devices.taskCancel')}
+                          </Button>
+                        ) : task.status === 'failed' || task.status === 'expired' ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            data-testid={`task-retry-${task.id}`}
+                            disabled={taskActionBusy === task.id}
+                            onClick={() => void runTaskAction(task.id, 'retry')}
+                          >
+                            {t('devices.taskRetry')}
+                          </Button>
+                        ) : (
+                          <span className="text-label text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

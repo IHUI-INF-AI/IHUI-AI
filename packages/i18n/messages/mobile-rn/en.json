@@ -2577,7 +2577,9 @@
     "statusRunning": "Running",
     "statusCompleted": "Completed",
     "statusFailed": "Failed",
-    "statusExpired": "Expired"
+    "statusExpired": "Expired",
+    "taskCancel": "Cancel task",
+    "delegatePromptPlaceholder": "Leave empty to run the last message in this conversation"
   },
   "pendingDecisions": {
     "title": "Pending decisions",

@@ -2,7 +2,17 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { pgTable, uuid, varchar, text, timestamp, jsonb, index, unique } from 'drizzle-orm/pg-core'
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  timestamp,
+  jsonb,
+  index,
+  unique,
+  integer,
+} from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 import { chatConversations } from './chat.js'
 
@@ -70,6 +80,17 @@ export const devicePairCodes = pgTable(
  * status 封闭集:queued | claimed | running | completed | failed | expired(varchar,同词表纪律)。
  * queued 超 24h 未认领 → expired(claim 与列表查询时惰性判定,不建周期任务)。
  * session_id 指向 chat_conversations(会话转录所在表)。
+ *
+ * G2 执行器闭环(2026-11-25 立):本表从"派单记录"升级为"可执行任务"——
+ * - payload:执行载荷(prompt/workspace/mode/autoApprove),设备端只按它跑,不从会话里猜指令;
+ * - messageId:本次执行在会话里写入的 assistant 消息落点,流式增量与终态都挂这一行,
+ *   手机/网页/桌面读的是同一条消息(不是第二套任务日志);
+ * - progress:阶段化进度(只在设备上报时写,running 期间的唯一活动凭据);
+ * - leaseExpiresAt:running 租约,设备心跳续;超时由 claim/list 时惰性回收为 failed,
+ *   防"设备断电后任务永远 running";
+ * - cancelRequestedAt:用户请求取消。跨网络杀不了进程,由设备端下次心跳读到后自行中止;
+ * - attempt:重试代数(用户重排/租约回收都 +1,保留历史语义不覆盖);
+ * - agentSessionId:设备端 AgentCore 的会话 id,断点续跑用。
  */
 export const deviceTasks = pgTable(
   'device_tasks',
@@ -86,6 +107,14 @@ export const deviceTasks = pgTable(
     finishedAt: timestamp('finished_at', { withTimezone: true }),
     error: text('error'),
     resultSummary: jsonb('result_summary'),
+    payload: jsonb('payload'),
+    messageId: uuid('message_id'),
+    progress: jsonb('progress'),
+    leaseExpiresAt: timestamp('lease_expires_at', { withTimezone: true }),
+    cancelRequestedAt: timestamp('cancel_requested_at', { withTimezone: true }),
+    attempt: integer('attempt').default(1).notNull(),
+    agentSessionId: varchar('agent_session_id', { length: 64 }),
+    startedAt: timestamp('started_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     createdBy: uuid('created_by')
       .references(() => users.id, { onDelete: 'cascade' })

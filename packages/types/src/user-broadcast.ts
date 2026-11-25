@@ -68,6 +68,10 @@ export const USER_BROADCAST_EVENT_NAMES = [
   // 只补「新增行」收不到翻转。走本通道(与 createdAt 补增量正交的独立事件),
   // 不塞进 /ws/notifications 的 {type:'notification'} 信封(那是新通知专用)。
   'notification:state',
+  // G2 设备执行器闭环(2026-11-25):跨设备任务的六态与进度。
+  // 与 message:* 的分工:那族是"会话里长出了什么内容",本事件只回答
+  // "那台电脑上的任务走到哪一步"——手机端据此渲染进度/取消,不把任务状态塞进消息流。
+  'device:task',
 ] as const
 
 export type UserBroadcastEventName = (typeof USER_BROADCAST_EVENT_NAMES)[number]
@@ -675,6 +679,7 @@ export type UserBroadcastEvent =
   | MessagePatchedEvent
   | MessageTerminalEvent
   | NotificationStateEvent
+  | DeviceTaskEvent
 
 /** 传输线上的裸帧形态:`/ws/broadcast` 推送的就是这个对象 */
 export interface UserBroadcastFrame {
@@ -783,6 +788,8 @@ const DATA_GUARDS: Record<UserBroadcastEventName, (v: unknown) => boolean> = {
   'message:patched': isMessagePatchedData,
   'message:terminal': isMessageTerminalData,
   'notification:state': isNotificationStateData,
+  // G2 设备执行器闭环:任务六态与进度(形状与 deviceTaskEvent 同源)
+  'device:task': isDeviceTaskData,
 }
 
 /**
@@ -1062,6 +1069,186 @@ export function collabLockEvent(input: {
       at,
     },
   }
+}
+
+// ===================== device:task(G2 设备执行器闭环,2026-11-25) =====================
+
+/**
+ * 设备任务状态封闭集。
+ * 与 `packages/database/src/schema/devices.ts` 的 varchar 词表逐字一致(不引 pg enum,
+ * 理由同 notifications.type);`claimed` 保留给"已认领但尚未 attach"的短暂窗口。
+ */
+export const DEVICE_TASK_STATUSES = [
+  'queued',
+  'claimed',
+  'running',
+  'completed',
+  'failed',
+  'expired',
+] as const
+
+export type DeviceTaskStatus = (typeof DEVICE_TASK_STATUSES)[number]
+
+export function isDeviceTaskStatus(v: unknown): v is DeviceTaskStatus {
+  return typeof v === 'string' && (DEVICE_TASK_STATUSES as readonly string[]).includes(v)
+}
+
+/**
+ * 执行阶段封闭集。**不是** status 的子集:status 回答"任务是否还活着",
+ * stage 回答"活着的这一秒在干什么"。手机端靠它把"运行中"翻译成一句人话,
+ * 开放集会让新阶段静默渲染成空白。
+ */
+export const DEVICE_TASK_STAGES = [
+  'claimed',
+  'thinking',
+  'tool',
+  'streaming',
+  'completed',
+  'failed',
+  'cancelled',
+] as const
+
+export type DeviceTaskStage = (typeof DEVICE_TASK_STAGES)[number]
+
+export function isDeviceTaskStage(v: unknown): v is DeviceTaskStage {
+  return typeof v === 'string' && (DEVICE_TASK_STAGES as readonly string[]).includes(v)
+}
+
+export interface DeviceTaskProgress {
+  stage: DeviceTaskStage
+  /** 0–100;服务端只做闭区间校验,不替设备端算 */
+  percent: number
+  /** Agent 第几轮迭代(缺省 = 尚未开始) */
+  iteration?: number
+  /** 最近一次可读事件(工具名/阶段说明),用于列表页一行摘要 */
+  lastEvent?: string
+  updatedAt: string
+}
+
+/**
+ * 委派任务的执行载荷(G2,2026-11-25)。
+ *
+ * 为什么必须随任务走、而不是让执行端去会话里猜指令:`delegate` 的语义是
+ * "把**这一条指令**交给那台电脑",会话历史只是上下文。载荷缺失时执行端只能
+ * 拿整段对话当 prompt,同一会话多次派单就会重复执行旧指令。
+ *
+ * `workspace` 是**设备端白名单里的名字**,不是绝对路径 —— 服务端不决定执行目录,
+ * 只记录用户意图;设备端解析不到白名单项一律拒绝执行(防越权写到任意盘)。
+ */
+export interface DeviceTaskExecutionPayload {
+  /** 要执行的指令(缺省由服务端取会话最后一条 user 消息填入) */
+  prompt: string
+  /** 设备端工作区名(可选;缺省 = 设备默认工作区) */
+  workspace?: string
+  /** execute = 允许改文件/跑命令;plan = 只出方案不落盘 */
+  mode: 'execute' | 'plan'
+  /** 是否跳过逐次危险动作审批(设备端仍可强制收紧,服务端不保证) */
+  autoApprove: boolean
+  /** 指定模型(可选;缺省 = 设备端默认模型) */
+  model?: string
+  /** 该指令来自哪条消息(可追溯;缺省 = 会话最后一条 user 消息) */
+  contextMessageId?: string
+}
+
+export interface DeviceTaskBroadcastData {
+  taskId: string
+  deviceId: string
+  conversationId: string
+  status: DeviceTaskStatus
+  /** 重试代数(从 1 起;重排/回收都 +1) */
+  attempt: number
+  progress?: DeviceTaskProgress
+  /** status='failed'/'expired' 时的原因;其余状态不得携带(旧值不得残留) */
+  error?: string
+  updatedAt: string
+}
+
+export interface DeviceTaskEvent {
+  event: 'device:task'
+  data: DeviceTaskBroadcastData
+}
+
+function isDeviceTaskProgress(v: unknown): v is DeviceTaskProgress {
+  if (typeof v !== 'object' || v === null) return false
+  const p = v as Record<string, unknown>
+  if (!isDeviceTaskStage(p.stage)) return false
+  if (typeof p.percent !== 'number' || !Number.isFinite(p.percent)) return false
+  if (p.percent < 0 || p.percent > 100) return false
+  if (typeof p.updatedAt !== 'string' || Number.isNaN(Date.parse(p.updatedAt))) return false
+  if (
+    p.iteration !== undefined &&
+    (!Number.isInteger(p.iteration) || (p.iteration as number) < 0)
+  ) {
+    return false
+  }
+  if (p.lastEvent !== undefined && typeof p.lastEvent !== 'string') return false
+  return true
+}
+
+export function isDeviceTaskData(v: unknown): v is DeviceTaskBroadcastData {
+  if (typeof v !== 'object' || v === null) return false
+  const d = v as Record<string, unknown>
+  if (typeof d.taskId !== 'string' || d.taskId.length === 0) return false
+  if (typeof d.deviceId !== 'string' || d.deviceId.length === 0) return false
+  if (typeof d.conversationId !== 'string' || d.conversationId.length === 0) return false
+  if (!isDeviceTaskStatus(d.status)) return false
+  if (!Number.isInteger(d.attempt) || (d.attempt as number) < 1) return false
+  if (d.progress !== undefined && !isDeviceTaskProgress(d.progress)) return false
+  if (d.error !== undefined && typeof d.error !== 'string') return false
+  if (typeof d.updatedAt !== 'string' || Number.isNaN(Date.parse(d.updatedAt))) return false
+  // 主体不得从载荷进来(AGENTS §5);只有失败/过期档允许带原因,其余带原因即矛盾帧
+  if ('userId' in d || 'user_id' in d) return false
+  if (d.error !== undefined && d.status !== 'failed' && d.status !== 'expired') return false
+  return true
+}
+
+/**
+ * 生产侧构造 `device:task` 的唯一出口。
+ * 与另几个构造器同一条纪律:在构造点拒坏值 —— 空 id 的任务帧没人能应用,
+ * running 带 error 是自相矛盾(消费端会把"运行中"渲染成"失败原因")。
+ */
+export function deviceTaskEvent(input: {
+  taskId: string
+  deviceId: string
+  conversationId: string
+  status: DeviceTaskStatus
+  attempt: number
+  progress?: DeviceTaskProgress
+  error?: string
+  at?: Date | string
+}): DeviceTaskEvent {
+  if (!input.taskId) throw new Error('deviceTaskEvent: taskId 不得为空')
+  if (!input.deviceId) throw new Error('deviceTaskEvent: deviceId 不得为空')
+  if (!input.conversationId) throw new Error('deviceTaskEvent: conversationId 不得为空')
+  if (!isDeviceTaskStatus(input.status)) {
+    throw new Error(`deviceTaskEvent: 未知状态 ${String(input.status)}`)
+  }
+  if (!Number.isInteger(input.attempt) || input.attempt < 1) {
+    throw new Error(`deviceTaskEvent: attempt 必须是 ≥1 的整数(实际 ${String(input.attempt)})`)
+  }
+  if (input.error !== undefined && input.status !== 'failed' && input.status !== 'expired') {
+    throw new Error(`deviceTaskEvent: status=${input.status} 不得携带 error`)
+  }
+  const at =
+    input.at === undefined
+      ? new Date().toISOString()
+      : typeof input.at === 'string'
+        ? input.at
+        : input.at.toISOString()
+  if (Number.isNaN(Date.parse(at))) {
+    throw new Error(`deviceTaskEvent: at 不是时间:${at}`)
+  }
+  const data: DeviceTaskBroadcastData = {
+    taskId: input.taskId,
+    deviceId: input.deviceId,
+    conversationId: input.conversationId,
+    status: input.status,
+    attempt: input.attempt,
+    updatedAt: at,
+  }
+  if (input.progress !== undefined) data.progress = input.progress
+  if (input.error !== undefined) data.error = input.error
+  return { event: 'device:task', data }
 }
 
 // ===================== 同字段"以库为准"的新旧判定 =====================

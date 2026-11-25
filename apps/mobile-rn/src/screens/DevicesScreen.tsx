@@ -18,18 +18,29 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { ClipboardList, KeyRound, MonitorSmartphone, Send, Trash2 } from 'lucide-react-native'
 import {
+  ClipboardList,
+  KeyRound,
+  MonitorSmartphone,
+  RotateCcw,
+  Send,
+  Trash2,
+  XCircle,
+} from 'lucide-react-native'
+import {
+  cancelDeviceTask,
   delegateSession,
   getDeviceTasks,
   issuePairCode,
   listConversations,
   listDevices,
+  retryDeviceTask,
   revokeDevice,
   type ConversationDetail,
   type DeviceRow,
@@ -97,6 +108,9 @@ export default function DevicesScreen() {
   const [conversations, setConversations] = useState<ConversationDetail[]>([])
   const [convLoading, setConvLoading] = useState(false)
   const [delegating, setDelegating] = useState<string | null>(null)
+  // G2:委派指令(留空 = 服务端取该会话最后一条 user 消息)
+  const [delegatePrompt, setDelegatePrompt] = useState('')
+  const [promptFocused, setPromptFocused] = useState(false)
   // XUI-069:同一屏的三条异步链路共用一个请求序号,后到的旧响应一律丢弃。
   const reqSeqRef = useRef(0)
 
@@ -105,6 +119,7 @@ export default function DevicesScreen() {
   const [tasks, setTasks] = useState<DeviceTaskRow[]>([])
   const [tasksLoading, setTasksLoading] = useState(false)
   const [tasksError, setTasksError] = useState<string | null>(null)
+  const [taskBusy, setTaskBusy] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const seq = (reqSeqRef.current += 1)
@@ -208,17 +223,43 @@ export default function DevicesScreen() {
   const onDelegate = async (conversationId: string, deviceId: string, deviceName: string) => {
     setDelegating(conversationId)
     try {
-      const res = await delegateSession(conversationId, deviceId)
+      const res = await delegateSession(
+        conversationId,
+        deviceId,
+        delegatePrompt.trim() ? { prompt: delegatePrompt.trim(), mode: 'execute' } : undefined,
+      )
       if (!res.success) {
         appAlert(t('common.error'), res.error || t('devices.delegateFailed'))
         return
       }
       setDelegateFor(null)
+      setDelegatePrompt('')
       appAlert(t('devices.delegateDoneTitle'), t('devices.delegateDone', { name: deviceName }))
     } catch {
       appAlert(t('common.error'), t('devices.delegateFailed'))
     } finally {
       setDelegating(null)
+    }
+  }
+
+  /** G2:取消/重排任务。取消只对 queued/claimed/running 生效,重排只对 failed/expired 生效(服务端把关)。 */
+  const onTaskAction = async (taskId: string, action: 'cancel' | 'retry') => {
+    const deviceId = tasksFor
+    if (!deviceId) return
+    setTaskBusy(taskId)
+    try {
+      const res =
+        action === 'cancel' ? await cancelDeviceTask(taskId) : await retryDeviceTask(taskId)
+      if (!res.success) {
+        appAlert(t('common.error'), res.error || t('devices.tasksFailed'))
+        return
+      }
+      const refreshed = await getDeviceTasks(deviceId)
+      if (refreshed.success) setTasks(refreshed.data ?? [])
+    } catch {
+      appAlert(t('common.error'), t('devices.tasksFailed'))
+    } finally {
+      setTaskBusy(null)
     }
   }
 
@@ -373,6 +414,17 @@ export default function DevicesScreen() {
                       <Text style={styles.panelTitle}>
                         {t('devices.delegatePickHint', { name: device.name })}
                       </Text>
+                      <TextInput
+                        style={[styles.input, promptFocused ? styles.inputFocused : null]}
+                        value={delegatePrompt}
+                        onChangeText={setDelegatePrompt}
+                        onFocus={() => setPromptFocused(true)}
+                        onBlur={() => setPromptFocused(false)}
+                        placeholder={t('devices.delegatePromptPlaceholder')}
+                        placeholderTextColor={tokens.text.secondary}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
                       {convLoading ? (
                         <Text style={styles.muted}>{t('devices.delegateLoading')}</Text>
                       ) : conversations.length === 0 ? (
@@ -429,7 +481,36 @@ export default function DevicesScreen() {
                                 ? ` · ${t('settings.devices.taskColFinished')}: ${fmt(task.finishedAt, locale)}`
                                 : ''}
                             </Text>
+                            {task.progress ? (
+                              <Text style={styles.meta} numberOfLines={1}>
+                                {task.progress.lastEvent?.trim() ||
+                                  `${task.progress.stage} · ${Math.round(task.progress.percent)}%`}
+                              </Text>
+                            ) : null}
                             {task.error ? <Text style={styles.error}>{task.error}</Text> : null}
+                            {taskBusy === task.id ? null : task.status === 'queued' ||
+                              task.status === 'claimed' ||
+                              task.status === 'running' ? (
+                              <TouchableOpacity
+                                onPress={() => void onTaskAction(task.id, 'cancel')}
+                                activeOpacity={0.7}
+                              >
+                                <View style={styles.actionRow}>
+                                  <XCircle size={13} color={tokens.text.primary} />
+                                  <Text style={styles.link}>{t('devices.taskCancel')}</Text>
+                                </View>
+                              </TouchableOpacity>
+                            ) : task.status === 'failed' || task.status === 'expired' ? (
+                              <TouchableOpacity
+                                onPress={() => void onTaskAction(task.id, 'retry')}
+                                activeOpacity={0.7}
+                              >
+                                <View style={styles.actionRow}>
+                                  <RotateCcw size={13} color={tokens.text.primary} />
+                                  <Text style={styles.link}>{t('devices.retry')}</Text>
+                                </View>
+                              </TouchableOpacity>
+                            ) : null}
                           </View>
                         ))
                       )}
@@ -545,6 +626,17 @@ function makeStyles() {
       fontWeight: '600',
       color: tokens.text.primary,
     },
+    input: {
+      height: 36,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tokens.border.medium,
+      paddingHorizontal: rnSpacing.sm,
+      fontSize: rnType.bodySm.size,
+      color: tokens.text.primary,
+    },
+    // 聚焦换色不换宽(门 212):墨档是"描边不得取墨"的唯一例外位,只在此条件形态出现
+    inputFocused: { borderColor: tokens.text.primary },
     convRow: {
       flexDirection: 'row',
       alignItems: 'center',

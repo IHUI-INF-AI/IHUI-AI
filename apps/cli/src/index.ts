@@ -106,6 +106,7 @@ import { registerHooksCommand } from './commands/hooks.js';
 import { registerHooksAutoCommand } from './commands/hooks-auto.js';
 import { registerImportCommand } from './commands/import.js';
 import { registerServeCommand } from './commands/serve.js';
+import { registerDeviceCommand } from './commands/device.js';
 import { registerTuiCommand, tryFullScreenFromEnv } from './commands/tui.js';
 import { registerConnectCommand } from './commands/connect.js';
 import { registerRtcCommand } from './commands/rtc.js';
@@ -1330,6 +1331,9 @@ program
 // serve 子命令 — 启动 Agent 内核 HTTP/WS server,支持远程驱动(对齐 OpenCode client/server 架构)
 // 平台独占:仅 cli
 registerServeCommand(program);
+// 跨设备执行器(G2,2026-11-25):手机/网页派单,本机认领执行并写回会话
+// 平台独占:仅 cli(桌面端托盘会检测/拉起本命令)
+registerDeviceCommand(program);
 // 全屏终端界面:新增子命令,不改任何既有入口的默认行为(默认档仍是行模式)。
 registerTuiCommand(program);
 

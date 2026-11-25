@@ -1320,7 +1320,18 @@
       "delegateDisabled": "该设备不支持委托任务",
       "delegateForbidden": "没有操作权限",
       "delegateFailed": "委托任务失败",
-      "tasksLoadFailed": "任务加载失败"
+      "tasksLoadFailed": "任务加载失败",
+      "taskColProgress": "进度",
+      "taskCancel": "取消任务",
+      "taskRetry": "重试",
+      "delegatePromptLabel": "指令",
+      "delegatePromptPlaceholder": "留空则执行该会话最后一条消息",
+      "taskStatus_queued": "排队中",
+      "taskStatus_claimed": "已领取",
+      "taskStatus_running": "执行中",
+      "taskStatus_completed": "已完成",
+      "taskStatus_failed": "失败",
+      "taskStatus_expired": "已过期"
     },
     "rumEnabled": "RUM 已启用",
     "ip": {

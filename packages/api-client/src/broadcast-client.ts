@@ -30,6 +30,7 @@
  */
 import {
   parseUserBroadcastFrame,
+  type DeviceTaskEvent,
   type MessageCreatedEvent,
   type MessagePatchedEvent,
   type MessageTerminalEvent,
@@ -118,6 +119,11 @@ export interface UserBroadcastHandlers {
    * 消费出口 = web 通知 store 的批量翻转 API,不塞进 /ws/notifications 的新通知适配器。
    */
   'notification:state'?: (evt: NotificationStateEvent) => void
+  /**
+   * G2 设备执行器闭环(2026-11-25):任务六态与进度。
+   * 消费出口 = 设备任务 store(按 taskId 覆盖,不追加 —— 状态是"当前值"不是日志)。
+   */
+  'device:task'?: (evt: DeviceTaskEvent) => void
   /** 收到对象形态但解不出已知事件的帧 ⇒ 「未判定」,必须计数/点名,不得静默丢弃 */
   onUndetermined?: (raw: unknown) => void
   /** 连接状态变化(`'injected'` 档恒为 `idle`,因为它不拥有连接) */
@@ -447,6 +453,8 @@ export const USER_BROADCAST_SUBSCRIBABLE_EVENTS: readonly UserBroadcastEventName
   'message:terminal',
   // 通知状态翻转(2026-11-24):与 USER_BROADCAST_EVENT_NAMES 等值(d153 测试硬断言)
   'notification:state',
+  // G2 设备执行器闭环(2026-11-25):任务六态与进度(与 types 侧等值,d153 测试硬断言)
+  'device:task',
 ]
 
 // ===================== 宿主绑定工厂(端内适配器的唯一入口) =====================

@@ -3,9 +3,16 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { createHash, createHmac, randomInt, timingSafeEqual } from 'node:crypto'
-import { and, eq, gt, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm'
+import type { DeviceTaskExecutionPayload, DeviceTaskProgress } from '@ihui/types'
 import type { Device, DeviceTask } from '@ihui/database'
-import { chatConversations, devicePairCodes, deviceTasks, devices } from '@ihui/database'
+import {
+  chatConversations,
+  chatMessages,
+  devicePairCodes,
+  deviceTasks,
+  devices,
+} from '@ihui/database'
 import { db } from '../db/index.js'
 import { config } from '../config/index.js'
 import { AppError } from '../errors/AppError.js'
@@ -29,6 +36,9 @@ const PAIR_CODE_RATE_LIMIT = 10
 const PAIR_CODE_RATE_WINDOW_MS = 60 * 60_000
 /** queued 任务未认领超时:24h(claim 与列表查询时惰性判定为 expired,不建周期任务) */
 const TASK_QUEUE_TTL_MS = 24 * 60 * 60_000
+/** running 租约:5 分钟。设备每 30s 心跳续租;超时由 claim/list 惰性回收为 failed。
+ *  单一真相源在 device-task-runtime(runtime 是租约的唯一读写方),本文件只引用不另定义。 */
+import { TASK_LEASE_MS } from './device-task-runtime.js'
 /** 设备 bearer token 有效期:7 天(heartbeat 续期) */
 const DEVICE_TOKEN_TTL_MS = 7 * 24 * 60 * 60_000
 
@@ -278,6 +288,30 @@ async function sweepExpiredQueued(deviceId: string): Promise<void> {
   `)
 }
 
+/**
+ * G2(2026-11-25)租约回收:该设备 running/claimed 且租约已过期的任务置 failed。
+ * 与 queued 的 24h 过期分开:那条说的是"没人接",这条说的是"接了但执行端失联"
+ * (断电/断网/进程被杀)。两者都惰性判定,不建周期任务 —— 回收点只有 claim 与列表读。
+ */
+async function sweepStaleRunning(deviceId: string): Promise<void> {
+  await db.execute(sql`
+    UPDATE device_tasks
+    SET status = 'failed',
+        finished_at = now(),
+        progress = jsonb_build_object(
+          'stage', 'failed',
+          'percent', 0,
+          'lastEvent', '执行端租约超时',
+          'updatedAt', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+        ),
+        error = coalesce(error, '设备租约超时:执行端心跳中断或进程退出')
+    WHERE target_device_id = ${deviceId}::uuid
+      AND status IN ('claimed', 'running')
+      AND lease_expires_at IS NOT NULL
+      AND lease_expires_at < now()
+  `)
+}
+
 function toRows(raw: unknown): Record<string, unknown>[] {
   if (Array.isArray(raw)) return raw as Record<string, unknown>[]
   if (raw && typeof raw === 'object' && Array.isArray((raw as { rows?: unknown }).rows)) {
@@ -297,6 +331,14 @@ function mapTaskRow(r: Record<string, unknown>): DeviceTask {
     finishedAt: (r['finished_at'] as Date | null) ?? null,
     error: (r['error'] as string | null) ?? null,
     resultSummary: (r['result_summary'] as DeviceTask['resultSummary']) ?? null,
+    payload: (r['payload'] as DeviceTask['payload']) ?? null,
+    messageId: (r['message_id'] as string | null) ?? null,
+    progress: (r['progress'] as DeviceTask['progress']) ?? null,
+    leaseExpiresAt: (r['lease_expires_at'] as Date | null) ?? null,
+    cancelRequestedAt: (r['cancel_requested_at'] as Date | null) ?? null,
+    attempt: Number(r['attempt'] ?? 1),
+    agentSessionId: (r['agent_session_id'] as string | null) ?? null,
+    startedAt: (r['started_at'] as Date | null) ?? null,
     createdAt: r['created_at'] as Date,
     createdBy: String(r['created_by']),
   }
@@ -309,9 +351,19 @@ function mapTaskRow(r: Record<string, unknown>): DeviceTask {
  */
 export async function claimNextTask(deviceId: string): Promise<DeviceTask | null> {
   await sweepExpiredQueued(deviceId)
+  await sweepStaleRunning(deviceId)
   const raw = await db.execute(sql`
     UPDATE device_tasks
-    SET status = 'running', claimed_at = now()
+    SET status = 'running',
+        claimed_at = now(),
+        started_at = now(),
+        lease_expires_at = now() + interval '5 minutes',
+        progress = jsonb_build_object(
+          'stage', 'claimed',
+          'percent', 0,
+          'updatedAt', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+        ),
+        error = NULL
     WHERE id = (
       SELECT id FROM device_tasks
       WHERE target_device_id = ${deviceId}::uuid AND status = 'queued'
@@ -340,11 +392,16 @@ export async function listTasksForDevice(deviceId: string): Promise<DeviceTask[]
  * 会话委托到设备:建 queued 任务。
  * 设备不存在 → 404;非本人设备或已撤销 → 403;会话非本人 → 403/404;
  * 设备离线允许入队(待认领)。
+ *
+ * G2(2026-11-25):任务必须带可执行载荷。缺 prompt 时取会话最后一条 user 消息 ——
+ * 这是"我在这个会话里刚说的那句话",不是整段历史;两者都没有则拒派(400),
+ * 否则执行端拿到空指令只会空转,而用户在另一端看到"运行中"。
  */
 export async function delegateTask(input: {
   userId: string
   sessionId: string
   targetDeviceId: string
+  payload?: Partial<DeviceTaskExecutionPayload>
 }): Promise<DeviceTask> {
   const deviceRows = await db
     .select()
@@ -364,6 +421,36 @@ export async function delegateTask(input: {
   const conv = convRows[0]
   if (!conv) throw new AppError('会话不存在', 404, 'SESSION_NOT_FOUND')
   if (conv.userId !== input.userId) throw new AppError('无权访问该会话', 403, 'SESSION_FORBIDDEN')
+
+  const rawPrompt = typeof input.payload?.prompt === 'string' ? input.payload.prompt.trim() : ''
+  let prompt = rawPrompt
+  let contextMessageId = input.payload?.contextMessageId
+  if (!prompt) {
+    const lastUser = await db
+      .select({ id: chatMessages.id, content: chatMessages.content })
+      .from(chatMessages)
+      .where(and(eq(chatMessages.conversationId, input.sessionId), eq(chatMessages.role, 'user')))
+      .orderBy(desc(chatMessages.createdAt))
+      .limit(1)
+    const row = lastUser[0]
+    if (!row || !row.content.trim()) {
+      throw new AppError('会话里没有可执行的指令,请先发一条消息再派单', 400, 'TASK_PROMPT_MISSING')
+    }
+    prompt = row.content.trim()
+    contextMessageId = contextMessageId ?? row.id
+  }
+
+  const mode = input.payload?.mode === 'plan' ? 'plan' : 'execute'
+  const payload: DeviceTaskExecutionPayload = {
+    prompt,
+    mode,
+    // 默认不跳过审批:服务端不替设备端放宽危险动作面
+    autoApprove: input.payload?.autoApprove === true,
+  }
+  if (input.payload?.workspace?.trim()) payload.workspace = input.payload.workspace.trim()
+  if (input.payload?.model?.trim()) payload.model = input.payload.model.trim()
+  if (contextMessageId) payload.contextMessageId = contextMessageId
+
   const rows = await db
     .insert(deviceTasks)
     .values({
@@ -371,20 +458,29 @@ export async function delegateTask(input: {
       targetDeviceId: input.targetDeviceId,
       createdBy: input.userId,
       status: 'queued',
+      payload,
     })
     .returning()
   return rows[0]!
 }
 
-/** 设备上报进度(running 态更新 result_summary) */
+/** 设备上报进度(running 态更新 result_summary / progress / agent_session_id) */
 export async function updateTaskProgress(
   deviceId: string,
   taskId: string,
-  summary: DeviceCapabilities,
+  summary?: DeviceCapabilities | null,
+  progress?: DeviceTaskProgress | null,
+  agentSessionId?: string | null,
 ): Promise<DeviceTask> {
   const rows = await db
     .update(deviceTasks)
-    .set({ resultSummary: summary })
+    .set({
+      ...(summary !== undefined && summary !== null ? { resultSummary: summary } : {}),
+      ...(progress !== undefined && progress !== null ? { progress } : {}),
+      ...(agentSessionId !== undefined && agentSessionId !== null ? { agentSessionId } : {}),
+      // 任何进度上报都顺带续租:设备活着才有进度,租约与活动同源
+      leaseExpiresAt: new Date(Date.now() + TASK_LEASE_MS),
+    })
     .where(
       and(
         eq(deviceTasks.id, taskId),
@@ -397,17 +493,25 @@ export async function updateTaskProgress(
   return rows[0]
 }
 
-/** 设备上报完成(终态) */
+/** 设备上报完成(终态)。清租约 + 写 100% 终态进度。 */
 export async function completeTask(
   deviceId: string,
   taskId: string,
   summary?: DeviceCapabilities | null,
+  progress?: DeviceTaskProgress | null,
 ): Promise<DeviceTask> {
+  const finalProgress: DeviceTaskProgress = progress ?? {
+    stage: 'completed',
+    percent: 100,
+    updatedAt: new Date().toISOString(),
+  }
   const rows = await db
     .update(deviceTasks)
     .set({
       status: 'completed',
       finishedAt: new Date(),
+      leaseExpiresAt: null,
+      progress: { ...finalProgress, stage: 'completed', percent: 100 },
       ...(summary !== undefined && summary !== null ? { resultSummary: summary } : {}),
     })
     .where(
@@ -422,19 +526,28 @@ export async function completeTask(
   return rows[0]
 }
 
-/** 设备上报失败(终态) */
+/** 设备上报失败(终态)。清租约 + 写 failed 阶段。 */
 export async function failTask(
   deviceId: string,
   taskId: string,
   error?: string | null,
   summary?: DeviceCapabilities | null,
+  progress?: DeviceTaskProgress | null,
 ): Promise<DeviceTask> {
+  const finalProgress: DeviceTaskProgress = progress ?? {
+    stage: 'failed',
+    percent: 0,
+    lastEvent: error ? String(error).slice(0, 200) : undefined,
+    updatedAt: new Date().toISOString(),
+  }
   const rows = await db
     .update(deviceTasks)
     .set({
       status: 'failed',
       finishedAt: new Date(),
+      leaseExpiresAt: null,
       error: error ?? null,
+      progress: { ...finalProgress, stage: 'failed' },
       ...(summary !== undefined && summary !== null ? { resultSummary: summary } : {}),
     })
     .where(

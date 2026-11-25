@@ -1320,7 +1320,18 @@
       "delegateDisabled": "該裝置不支援委託任務",
       "delegateForbidden": "沒有操作權限",
       "delegateFailed": "委託任務失敗",
-      "tasksLoadFailed": "任務載入失敗"
+      "tasksLoadFailed": "任務載入失敗",
+      "taskColProgress": "進度",
+      "taskCancel": "取消任務",
+      "taskRetry": "重試",
+      "delegatePromptLabel": "指令",
+      "delegatePromptPlaceholder": "留空則執行此對話的最後一則訊息",
+      "taskStatus_queued": "排隊中",
+      "taskStatus_claimed": "已領取",
+      "taskStatus_running": "執行中",
+      "taskStatus_completed": "已完成",
+      "taskStatus_failed": "失敗",
+      "taskStatus_expired": "已過期"
     },
     "rumEnabled": "RUM 已啟用",
     "ip": {

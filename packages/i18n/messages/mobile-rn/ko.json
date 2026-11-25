@@ -2577,7 +2577,9 @@
     "statusRunning": "실행 중",
     "statusCompleted": "완료",
     "statusFailed": "실패",
-    "statusExpired": "만료됨"
+    "statusExpired": "만료됨",
+    "taskCancel": "작업 취소",
+    "delegatePromptPlaceholder": "비워 두면 이 대화의 마지막 메시지를 실행합니다"
   },
   "pendingDecisions": {
     "title": "내 대기 결정",
