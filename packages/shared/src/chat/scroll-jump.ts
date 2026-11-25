@@ -71,4 +71,59 @@ export function shouldShowJumpLatest(
 ): boolean {
   return hasMessages && (visibility.isFarFromBottom || userScrolledUp)
 }
+
+/**
+ * 各端滚动事件 → 几何量折算的唯一收口。
+ *
+ * 为什么也住在这里:`computeJumpVisibility` 只吃几何,而「从事件里把几何掏出来」本身就是
+ * 一件会在三端各写一遍然后各漂一遍的事(web 已为 top 立过 `readScrollEventTop` 的同型收口)。
+ * 取不到的字段给 null 而不是 0 —— 缺读数必须显式,否则「读不到」会被判成「距离为 0」
+ * 而永远不亮按钮(§0.3:取不到不记绿也不冒红)。
+ *
+ *  - RN / web ScrollView:nativeEvent.contentOffset.y + contentSize.height + layoutMeasurement.height
+ *  - 小程序 Taro:detail.scrollTop + detail.scrollHeight,而视口高 detail 不供给 ⇒ viewportHeight=null,
+ *    该端因此不能靠几何判距底,须改用 stream-follow 的用户上滚意图(调用方负责,见 ChatMessageList)。
+ */
+export interface ScrollJumpReading {
+  readonly scrollTop: number
+  readonly contentHeight: number | null
+  readonly viewportHeight: number | null
+}
+
+/** 连 scrollTop 都取不到时返回 null(调用方据此不渲染浮层,而不是按 0 判定)。 */
+export function readScrollJumpGeometry(event: unknown): ScrollJumpReading | null {
+  if (event === null || typeof event !== 'object') return null
+  const e = event as {
+    nativeEvent?: {
+      contentOffset?: { y?: unknown }
+      contentSize?: { height?: unknown }
+      layoutMeasurement?: { height?: unknown }
+    }
+    detail?: { scrollTop?: unknown; scrollHeight?: unknown }
+    scrollTop?: unknown
+    scrollHeight?: unknown
+  }
+  const num = (v: unknown): number | null =>
+    typeof v === 'number' && Number.isFinite(v) ? v : null
+  const scrollTop =
+    num(e.nativeEvent?.contentOffset?.y) ?? num(e.detail?.scrollTop) ?? num(e.scrollTop)
+  if (scrollTop === null) return null
+  return {
+    scrollTop,
+    contentHeight:
+      num(e.nativeEvent?.contentSize?.height) ?? num(e.detail?.scrollHeight) ?? num(e.scrollHeight),
+    viewportHeight: num(e.nativeEvent?.layoutMeasurement?.height),
+  }
+}
+
+/**
+ * 读数是否足以撑起一次完整判定(两端能力差异处的显式门,不允许被悄悄绕过)。
+ * 写成类型谓词:过了这道门,computeJumpVisibility 才能拿到非 null 的两个高度 ——
+ * 缺读数不得被当成 0 距离(那会算出"距底很大"从而恒亮按钮,与真实情形相反)。
+ */
+export function canComputeJumpVisibility(
+  reading: ScrollJumpReading,
+): reading is ScrollJumpReading & { contentHeight: number; viewportHeight: number } {
+  return reading.contentHeight !== null && reading.viewportHeight !== null
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

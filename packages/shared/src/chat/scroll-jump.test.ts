@@ -5,10 +5,13 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  JUMP_FAR_THRESHOLD,
+  canComputeJumpVisibility,
   computeJumpVisibility,
+  JUMP_FAR_THRESHOLD,
+  readScrollJumpGeometry,
   shouldShowJumpLatest,
   type ScrollJumpGeometry,
+  type ScrollJumpReading,
 } from './scroll-jump'
 
 const geo = (over: Partial<ScrollJumpGeometry> = {}): ScrollJumpGeometry => ({
@@ -83,6 +86,52 @@ describe('「跳到最新」显示门', () => {
     expect(shouldShowJumpLatest({ isFarFromBottom: false }, true, true)).toBe(true)
     expect(shouldShowJumpLatest({ isFarFromBottom: false }, false, true)).toBe(false)
     expect(shouldShowJumpLatest({ isFarFromBottom: true }, false, true)).toBe(true)
+  })
+})
+
+describe('滚动事件 → 几何折算的唯一收口(三端形状差异)', () => {
+  it('RN 形状:contentOffset.y + contentSize.height + layoutMeasurement.height 全取到', () => {
+    const r = readScrollJumpGeometry({
+      nativeEvent: {
+        contentOffset: { y: 1200 },
+        contentSize: { height: 5000 },
+        layoutMeasurement: { height: 600 },
+      },
+    })
+    expect(r).toEqual({ scrollTop: 1200, contentHeight: 5000, viewportHeight: 600 })
+    expect(canComputeJumpVisibility(r as ScrollJumpReading)).toBe(true)
+    expect(computeJumpVisibility(r as ScrollJumpReading)).toEqual({
+      isFarFromTop: true,
+      isFarFromBottom: true,
+    })
+  })
+
+  it('小程序 Taro 形状:detail 给得出 scrollTop/scrollHeight,但没有视口高 ⇒ 判不出完整几何', () => {
+    const r = readScrollJumpGeometry({ detail: { scrollTop: 1500, scrollHeight: 9000 } })
+    expect(r).toEqual({ scrollTop: 1500, contentHeight: 9000, viewportHeight: null })
+    // 显式门:取不到视口高就不许算距底(算出来会是"距底很大"⇒ 恒亮,与事实相反)
+    expect(canComputeJumpVisibility(r as ScrollJumpReading)).toBe(false)
+  })
+
+  it('扁平 web 形状(scrollTop/scrollHeight 直挂事件)也认', () => {
+    const r = readScrollJumpGeometry({ scrollTop: 50, scrollHeight: 4000 })
+    expect(r).toEqual({ scrollTop: 50, contentHeight: 4000, viewportHeight: null })
+  })
+
+  it('连 scrollTop 都取不到 ⇒ 返回 null,而不是按 0 判定(§0.3:取不到不记绿也不冒红)', () => {
+    expect(readScrollJumpGeometry({})).toBeNull()
+    expect(readScrollJumpGeometry({ detail: { scrollTop: Number.NaN } })).toBeNull()
+    expect(readScrollJumpGeometry(null)).toBeNull()
+    expect(readScrollJumpGeometry('scroll')).toBeNull()
+  })
+
+  it('负 scrollTop 在折算层保留原值(由判据层负责按 0 记账,两层各司其职)', () => {
+    const r = readScrollJumpGeometry({ nativeEvent: { contentOffset: { y: -80 } } })
+    expect(r?.scrollTop).toBe(-80)
+    expect(
+      computeJumpVisibility({ scrollTop: -80, contentHeight: 5000, viewportHeight: 600 })
+        .isFarFromTop,
+    ).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -16,12 +16,18 @@ import {
 } from 'react-native'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import {
+  canComputeJumpVisibility,
+  computeJumpVisibility,
   initialStreamFollowState,
+  JUMP_FAR_THRESHOLD,
   readScrollEventTop,
+  readScrollJumpGeometry,
   reduceStreamFollowOnReachBottom,
   reduceStreamFollowOnScroll,
   resetStreamFollowForNewRound,
   shouldStickToBottom,
+  type JumpVisibility,
+  type ScrollJumpReading,
   type StreamFollowState,
 } from '@ihui/shared/chat'
 import { stripInlineMarkdown } from '@ihui/shared/utils/strip-inline-markdown'
@@ -88,6 +94,18 @@ export interface ChatMessageListProps {
   onScroll?: (event: unknown) => void
   /** 到达底部(onEndReached 一族)⇒ 恢复跟随。 */
   onEndReached?: () => void
+  /**
+   * 跳顶 / 跳到最新浮层所需的读数上报(2026-11-26 加,缺省不报 ⇒ 既有宿主一字不变)。
+   *
+   * 为什么是"上报给宿主画"而不是本层自己画:本层是纯展示、零平台 API 的列表,
+   * 浮动箭头的盒子与定位属宿主壳层职责(RN 侧 HomeScreen/AgentScreen 的
+   * ScrollJumpButton 就画在屏层),在本层包一层 absolute 容器会撬动既有布局。
+   *
+   * visibility 为 null 表示**本端取不到完整几何**(小程序 Taro ScrollView 不供给视口高)
+   * ⇒ 宿主必须降级为"只用滚动位置 + 用户上滚意图"这条可靠事实,不得按 0 距离判定。
+   * 事件形状折算唯一收口在 `readScrollJumpGeometry`,判据唯一真相源在 `computeJumpVisibility`。
+   */
+  onScrollGeometry?: (reading: ScrollJumpReading, visibility: JumpVisibility | null) => void
 }
 
 export interface ChatMessageBubbleProps {
@@ -287,10 +305,13 @@ export function ChatMessageList({
   followStream,
   onScroll,
   onEndReached,
+  onScrollGeometry,
 }: ChatMessageListProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const listRef = useRef<FlatList<ChatScreenMessage> | null>(null)
+  // 浮层上报的跨阈值记忆('1u'/'0u' = 本端取不到距底读数,只有顶部档)
+  const jumpKeyRef = useRef<string>('')
   // D3(2026-11-12,rn/miniapp 流式不跟底根治):followStream 贴底。默认关(不影响任何既有宿主),
   // 由 RN 聊天屏显式传入。
   //
@@ -317,6 +338,21 @@ export function ChatMessageList({
     if (followStream === true) {
       const top = readScrollEventTop(event)
       if (top !== null) setFollow((prev) => reduceStreamFollowOnScroll(prev, top))
+    }
+    // 浮层读数:与 follow 账目并列的第二把尺,同样"跨阈值才上报"(滚动每帧都进这里,
+    // 无脑 setState 会让整列消息跟着重渲染 —— web 侧 use-message-list-scroll 同源纪律)。
+    if (onScrollGeometry !== undefined) {
+      const reading = readScrollJumpGeometry(event)
+      if (reading !== null) {
+        const visibility = canComputeJumpVisibility(reading) ? computeJumpVisibility(reading) : null
+        const key = visibility
+          ? `${visibility.isFarFromTop ? 1 : 0}${visibility.isFarFromBottom ? 1 : 0}`
+          : `${reading.scrollTop > JUMP_FAR_THRESHOLD ? 1 : 0}u`
+        if (key !== jumpKeyRef.current) {
+          jumpKeyRef.current = key
+          onScrollGeometry(reading, visibility)
+        }
+      }
     }
     onScroll?.(event)
   }
