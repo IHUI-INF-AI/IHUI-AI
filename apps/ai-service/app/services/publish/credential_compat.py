@@ -1,6 +1,6 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​‌​​​‌‍‍​‌​​‌‌‌​‌​‍‍‌‌‌​​​‌‌‌​‍‍​‌​‌​​‌‌‌​‍‍‌​​​​​‌‍‍​‌​​‌‌‌​‌​‍‍​‌​​​‌‌‌​‍‍​​‌‌‌‌​‌​‍‍‌‌‌​‌​​​‍‍‌​‌‌​‌‌‌‍‍‌‌​​​​​​⁠
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 """凭证兼容层(2026-11-25 立)。
 
@@ -25,24 +25,42 @@ from typing import Any
 # 新增平台时先确认 adapter.requires_credentials 里确实是 `cookie`。
 COOKIE_HEADER_PLATFORMS = frozenset({"jianshu"})
 
+# 适配器要求一个嵌套 cookie 字典、扫码落库却是扁平 cookie 对的平台。
+NESTED_COOKIE_PLATFORMS = {"shipinhao": "wechat_channels"}
 
-def normalize_credentials(platform: str, credentials: dict[str, Any]) -> dict[str, Any]:
-    """按平台契约补齐凭证形状;返回新 dict,不修改入参。"""
-    if platform not in COOKIE_HEADER_PLATFORMS:
-        return credentials
-    if str(credentials.get("cookie") or "").strip():
-        return credentials
 
-    parts: list[str] = []
+def _cookie_pairs(credentials: dict[str, Any]) -> dict[str, str]:
+    pairs: dict[str, str] = {}
     for name, value in credentials.items():
         key = str(name or "").strip()
-        if not key or key == "cookie":
+        if not key or key in {"cookie", "wechat_channels"}:
             continue
         if not isinstance(value, str):
             continue
         val = value.strip()
         if val:
-            parts.append(f"{key}={val}")
-    if not parts:
+            pairs[key] = val
+    return pairs
+
+
+def normalize_credentials(platform: str, credentials: dict[str, Any]) -> dict[str, Any]:
+    """按平台契约补齐凭证形状;返回新 dict,不修改入参。"""
+    if platform in NESTED_COOKIE_PLATFORMS:
+        field = NESTED_COOKIE_PLATFORMS[platform]
+        if credentials.get(field):
+            return credentials
+        pairs = _cookie_pairs(credentials)
+        if pairs:
+            return {**credentials, field: pairs}
         return credentials
-    return {**credentials, "cookie": "; ".join(parts)}
+
+    if platform not in COOKIE_HEADER_PLATFORMS:
+        return credentials
+    if str(credentials.get("cookie") or "").strip():
+        return credentials
+
+    pairs = _cookie_pairs(credentials)
+    if not pairs:
+        return credentials
+    return {**credentials, "cookie": "; ".join(f"{k}={v}" for k, v in pairs.items())}
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
