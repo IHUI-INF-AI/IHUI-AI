@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "智汇AI",
-  "version": "0.1.93",
+  "version": "0.1.94",
   "identifier": "com.ihui.desktop",
   "build": {
     "beforeDevCommand": "node ../../scripts/desktop-before-dev.mjs",
@@ -43,7 +43,7 @@
   "plugins": {
     "updater": {
       "endpoints": ["https://aizhs.top/desktop-feed.json"],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI1RDdFNjdFQTJCMURCMDgKUldRSTI3R2lmdWJYdFJuYXhoQ1pQekNOcUNKOUplWWQ1QVJPK25OakFrL2NmS0ZrREZDbThwbEUK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE0MEUwNURENzY5RDc5NjEKUldSaGVaMTIzUVVPcE5aK29STWhYQ1ZzeGY1T00ycWhFbWpmSTl2OWN5ZjlkR2twMlBkakdJdlMK",
       "windows": {
         "installMode": "quiet"
       }

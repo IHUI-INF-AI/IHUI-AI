@@ -397,7 +397,7 @@ export default function AgentPage() {
                   <Image
                     className="rounded-lg bg-muted"
                     style={{ width: '120rpx', height: '120rpx' }}
-                    src={agent.avatar || '/static/default-agent.png'}
+                    src={agent.avatar || '/pkg-ai/assets/default-agent.png'}
                     mode="aspectFill"
                   />
                   <View className="absolute top-0 left-0 px-[6rpx] py-[1rpx] rounded bg-[var(--color-gold)] text-[var(--color-surface-light)] text-badge">
@@ -448,7 +448,7 @@ export default function AgentPage() {
                 >
                   <Image
                     className="w-[96rpx] h-[96rpx] rounded-xl bg-muted"
-                    src={agent.avatar || '/static/default-agent.png'}
+                    src={agent.avatar || '/pkg-ai/assets/default-agent.png'}
                     mode="aspectFill"
                   />
                   <View className="flex-1 ml-[24rpx] min-w-0">

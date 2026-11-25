@@ -92,7 +92,7 @@ export default function AiCareer() {
               const id = String(item.id || '')
               const name = String(item.name || '')
               const desc = String(item.desc || '')
-              const avatar = (item.avatar as string) || '/static/default-agent.png'
+              const avatar = (item.avatar as string) || '/pkg-ai/assets/default-agent.png'
               const tags = extractTags(name, desc)
               const uses = Number(item.uses || 0)
               return (

@@ -93,7 +93,11 @@ export default defineConfig(async (merge) => {
         {
           from: 'src/static/',
           to: `${outputRoot}/static/`,
-          ignore: ['**/images/record_back.png'],
+          // 2026-11-26 主包余量治理:default-agent.png(23,061 B)全部引用点都在 pkg-ai 分包
+          // (developer/ai-group/ai-career/agent/agent-detail 共 7 处),主包零引用 ⇒ 从主包整目录
+          // 拷贝里排除,改由下面单一派生落到 pkg-ai/assets。源文件仍由 generate-remote-images.mjs
+          // 维护在 src/static,不删历史;只排不派 = 端上头像占位 404 且不报错。
+          ignore: ['**/images/record_back.png', '**/default-agent.png'],
         },
         {
           from: 'src/static/images/record_back.png',
@@ -102,6 +106,10 @@ export default defineConfig(async (merge) => {
         {
           from: 'src/static/images/record_back.png',
           to: `${outputRoot}/pkg-ai/assets/record_back.png`,
+        },
+        {
+          from: 'src/static/default-agent.png',
+          to: `${outputRoot}/pkg-ai/assets/default-agent.png`,
         },
         // 2026-09-26 同一票:排除 8 张**守门 105 自己判定"没有任何静态引用"**的 tabbar 图标
         // (`--worktree` 面 R2 逐条点名 agent/ai/share/square 的 normal+active 共 8 个,合计 15,022 B)。

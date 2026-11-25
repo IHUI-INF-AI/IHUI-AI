@@ -152,6 +152,9 @@ const BUTTON_HEIGHT = 40
 const BUTTON_RADIUS = rnRadius.xl
 const BUTTON_FONT_SIZE = 15
 
+// 头像圆与叠加徽标共用的边长;徽标是叠在头像上的装饰,高度不得越出头像行
+const AVATAR_SIZE = 88
+
 export function IntroducePopup({
   visible,
   onClose,
@@ -399,11 +402,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -14,
     width: 77,
+    height: AVATAR_SIZE,
     zIndex: 2,
   } as ImageStyle,
   avatarCircle: {
-    width: 88,
-    height: 88,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
     borderRadius: rnRadius['2xl'],
     borderWidth: 1,
     // 强调描边取 brandAccent.deep(§4 描边档;同族先例 BottomPopup 弹窗描边、本文件权益高亮同档)
@@ -422,6 +426,7 @@ const styles = StyleSheet.create({
     width: 122,
   } as ImageStyle,
   title: {
+    marginTop: rnSpacing.md,
     fontSize: TITLE_FONT_SIZE,
     lineHeight: TITLE_FONT_SIZE + 6,
     fontWeight: '700',

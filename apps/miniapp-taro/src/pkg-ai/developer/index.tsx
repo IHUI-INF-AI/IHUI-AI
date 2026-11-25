@@ -343,7 +343,7 @@ export default function DeveloperIndex() {
                 {/* RN avatar: rpx(184)/2 dp → 184rpx,radius 8dp=16rpx */}
                 <Image
                   className="w-[184rpx] h-[184rpx] rounded-lg bg-muted flex-shrink-0"
-                  src={agent.agent_avatar || '/static/default-agent.png'}
+                  src={agent.agent_avatar || '/pkg-ai/assets/default-agent.png'}
                   mode="aspectFill"
                 />
                 <View className="flex-1 ml-[18rpx] min-w-0">
