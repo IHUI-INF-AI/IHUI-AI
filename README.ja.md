@@ -2227,6 +2227,7 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🐞 修正:监看模板编辑器 i18n 命名空间与模板 CRUD 反代 (6860c729)
 - 🚀 機能/改善:R9 多窗画中画 + 可视化监看模板编辑器 (b6f01830)
 - 🐞 修正:WechatJobKind 补 'moment' 一档,解锁净面构建 (37138a5b)
 - 🚀 機能/改善:模型名对用户隐藏 —— 计量徽章/明细/头部模型 chip 不再暴露实际模型 (2dee3a32)
