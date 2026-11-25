@@ -241,6 +241,8 @@ const BAR_JS: &str = r#"(function () {
   if (window.__ihuiBarInstalled) return;
   window.__ihuiBarInstalled = true;
   var TAB_H = 34, TOOL_H = 38, TOTAL = TAB_H + TOOL_H;
+  var shield = null;
+  var pipKeyGuard = null;
   var SENTINEL = 'https://browser.ihui.invalid/';
   var SENTINEL_TOKEN = '__IHUI_SENTINEL_TOKEN__';
 
@@ -313,8 +315,15 @@ const BAR_JS: &str = r#"(function () {
   // 2026-11-25:画中画按钮/关闭提前到地址栏左侧 —— 小窗只有 420 宽,
   // 放最右边会被地址栏挤到可视区外,用户就没有退出入口了。
   var pipBtn = btn('\u29c9', '画中画小窗', 'pip');
+  var roBadge = el('span', {
+    display: 'none', 'align-items': 'center', 'flex': '0 0 auto',
+    height: '18px', padding: '0 5px', 'border-radius': '4px',
+    background: '#2f5d50', color: '#d1fae5', 'font-size': '10px',
+    'box-sizing': 'border-box'
+  }, '只读');
   var closeBtn = btn('\u2715', '关闭窗口', 'close-window');
   toolbar.appendChild(pipBtn);
+  toolbar.appendChild(roBadge);
   toolbar.appendChild(closeBtn);
   toolbar.appendChild(urlInput);
   toolbar.appendChild(btn('\u2699', '开发者工具', 'devtools'));
@@ -344,6 +353,50 @@ const BAR_JS: &str = r#"(function () {
     window.addEventListener('hashchange', syncUrl);
   } catch (e) {}
   function syncUrl() { if (document.activeElement !== urlInput) urlInput.value = location.href; }
+
+  // 画中画只读盾:盖住工具条以下的整块页面,吃掉鼠标/滚轮/触摸,并拦掉
+  // 页面方向的键盘输入。工具条本身不盖,所以「退出画中画/接管」永远可点。
+  function syncShield(on, multi) {
+    if (!on) {
+      if (shield && shield.parentNode) shield.parentNode.removeChild(shield);
+      shield = null;
+      if (pipKeyGuard) {
+        window.removeEventListener('keydown', pipKeyGuard, true);
+        window.removeEventListener('keyup', pipKeyGuard, true);
+        pipKeyGuard = null;
+      }
+      return;
+    }
+    if (!document.body) return;
+    if (!shield) {
+      shield = el('div', {
+        position: 'fixed', left: '0', right: '0', bottom: '0',
+        top: (multi ? TOTAL : TOOL_H) + 'px',
+        'z-index': '2147483646', background: 'rgba(15,17,21,0.03)',
+        'pointer-events': 'auto', cursor: 'default', 'box-sizing': 'border-box'
+      });
+      shield.id = '__ihui_pip_shield';
+      var swallow = function (e) { e.preventDefault(); e.stopPropagation(); };
+      ['wheel', 'mousewheel', 'touchstart', 'touchmove', 'mousedown', 'mouseup',
+       'click', 'dblclick', 'contextmenu', 'dragstart'].forEach(function (t) {
+        shield.addEventListener(t, swallow, { passive: false });
+      });
+      document.body.appendChild(shield);
+      var active = document.activeElement;
+      if (active && active !== urlInput && active.blur) active.blur();
+      if (!pipKeyGuard) {
+        pipKeyGuard = function (e) {
+          if (bar.contains(e.target)) return;
+          e.preventDefault();
+          e.stopPropagation();
+        };
+        window.addEventListener('keydown', pipKeyGuard, true);
+        window.addEventListener('keyup', pipKeyGuard, true);
+      }
+    } else {
+      shield.style.setProperty('top', (multi ? TOTAL : TOOL_H) + 'px');
+    }
+  }
 
   var lastState = { tabs: [], picking: false };
   window.__ihuiBarRender = function (s) {
@@ -381,7 +434,9 @@ const BAR_JS: &str = r#"(function () {
     pickBtn.title = s.picking ? '退出点选' : '元素点选';
     // 画中画态
     pipBtn.style.setProperty('background', s.pip ? '#2f5d50' : 'transparent');
-    pipBtn.title = s.pip ? '退出画中画' : '画中画小窗';
+    pipBtn.title = s.pip ? '退出画中画并接管' : '画中画小窗';
+    roBadge.style.setProperty('display', s.pip ? 'inline-flex' : 'none');
+    syncShield(!!s.pip, multi);
   };
   window.__ihuiBarRender(lastState);
 })();"#;
@@ -922,7 +977,7 @@ fn refresh_active_bar(app: &AppHandle) {
 /// 进入:保存当前几何与置顶态 → 放开最小尺寸 → 缩到 420×280 → 挪进当前
 /// 显示器可视区 → 置顶。**不调用 show()/set_focus()**:画中画的意义是"看得见
 /// 但不抢当前输入",抢焦点会把用户正在主窗打的字打断。
-/// 退出:恢复最小尺寸、原尺寸、原位置、原置顶态。
+/// 退出:恢复最小尺寸、原尺寸、原位置、原置顶态 → 聚焦浏览器窗(一键接管)。
 fn set_browser_pip(app: &AppHandle, window: &tauri::Window, enable: Option<bool>) {
     let current = app.state::<BrowserManager>().with(|s| s.pip);
     let target = enable.unwrap_or(!current);
@@ -984,6 +1039,9 @@ fn set_browser_pip(app: &AppHandle, window: &tauri::Window, enable: Option<bool>
             let _ = window.set_position(PhysicalPosition::new(r.x, r.y));
             let _ = window.set_always_on_top(r.always_on_top);
         }
+        // 退出画中画 = 接管:把内置浏览器窗恢复原尺寸并聚焦,用户下一次点击
+        // 就落在浏览器本体上,不用再自己找窗口。进入时不 focus,避免打断主窗输入。
+        let _ = window.set_focus();
     }
     // 不 show、不 set_focus:只把工具条按钮态刷新成当前模式。
     refresh_active_bar(app);
@@ -2160,6 +2218,11 @@ mod tests {
         assert_eq!(bar_state_json(&p)["pip"], serde_json::json!(true));
         assert!(BAR_JS.contains("'pip'"));
         assert!(BAR_JS.contains("画中画小窗"));
+        // 2026-11-25:画中画只读盾与接管文案必须真在注入脚本里,不能只写在文档
+        assert!(BAR_JS.contains("__ihui_pip_shield"));
+        assert!(BAR_JS.contains("syncShield"));
+        assert!(BAR_JS.contains("只读"));
+        assert!(BAR_JS.contains("退出画中画并接管"));
     }
 
     #[test]
