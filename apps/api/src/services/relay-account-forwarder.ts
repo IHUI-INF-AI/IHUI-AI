@@ -1901,6 +1901,9 @@ export async function forwardToAccountPool(
     let lastError = 'no account candidate succeeded'
     let lastHttpStatus: number | undefined
     let lastRetryAfter: string | undefined
+    /** 本轮第一个失败的账号名与原因(2026-11-26):换号成功时向"自己的号池"用户交代用 */
+    let firstFailedName: string | null = null
+    let firstFailedReason = ''
 
     for (const row of candidates) {
       const adapter = getRelayAdapter(row.providerCode)
@@ -2040,9 +2043,22 @@ export async function forwardToAccountPool(
           channel,
           latencyMs: attempt.latencyMs ?? 0,
           latencyTrusted: attempt.latencyTrusted ?? false,
+          ...(firstFailedName
+            ? {
+                accountSwitch: {
+                  fromName: firstFailedName,
+                  toName: row.name,
+                  reason: firstFailedReason,
+                },
+              }
+            : {}),
         }
       }
       lastError = attempt.reason ?? lastError
+      if (firstFailedName === null) {
+        firstFailedName = row.name
+        firstFailedReason = lastError
+      }
       if (attempt.httpStatus !== undefined) lastHttpStatus = attempt.httpStatus
       if (attempt.retryAfter) lastRetryAfter = attempt.retryAfter
       releaseOnce() // 失败号已无在途流,立即归还额度,后续请求可继续探测

@@ -62,6 +62,11 @@ export interface StreamRelayChatOptions {
   onDelta: (delta: string) => void
   onDone?: () => void
   onError?: (message: string, info?: { errorCode?: string }) => void
+  /**
+   * 号池换号交代(2026-11-26 立):服务端在账号池里换过号才发 `fallback` 帧。
+   * 只出现在「我的号池」通道;平台/auto 腿不发,所以消费方可以放心渲染成"我自己的号"提示。
+   */
+  onFallback?: (event: { primaryModel: string; backupModel: string; reason: string }) => void
   onUsage?: (usage: RelayChatUsage) => void
   /** 空闲超时(毫秒):从发出请求到收到下一次帧的最长等待,默认 180s */
   idleTimeoutMs?: number
@@ -80,6 +85,10 @@ interface RelayFrame {
   data?: unknown
   message?: unknown
   status?: unknown
+  /** 换号交代帧(2026-11-26):服务端在账号池里换过号时带这三个字段 */
+  primaryModel?: unknown
+  backupModel?: unknown
+  reason?: unknown
 }
 
 /** 一条 tool_calls 分片(OpenAI 规范:index 定位,function.arguments 是增量字符串) */
@@ -327,6 +336,17 @@ export function streamRelayChat(opts: StreamRelayChatOptions): Promise<void> {
 
       if (frame.type === 'start') {
         armIdle()
+        return
+      }
+      if (frame.type === 'fallback') {
+        // 号池换号:字段与平台腿的 FallbackEvent 同形(primaryModel/backupModel/reason),
+        // 只是 reason 恒为 account_switch,前端据此换一句"账号"口径的文案。
+        armIdle()
+        opts.onFallback?.({
+          primaryModel: String(frame.primaryModel ?? ''),
+          backupModel: String(frame.backupModel ?? ''),
+          reason: String(frame.reason ?? 'account_switch'),
+        })
         return
       }
       if (frame.type === 'chunk') {

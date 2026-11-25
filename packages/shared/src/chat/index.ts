@@ -228,3 +228,6 @@ export * from './notice-log'
 // 流式跟底唯一判据源(RN / 小程序共用):回退即交还滚动权、触底即恢复、内容增长贴底。
 // web 的完整滚动权账目另有一份(要处理 wheel/touch/keyboard 归因与布局撑高歧义),此处不复制它。
 export * from './stream-follow'
+// 跳顶/跳到最新的显隐判据(D3 阈值):三端共用一条数值与同一对严格不等,各端只折算自家滚动事件形状。
+// 零平台 API 零文案 ⇒ 接它不需要新增词包条目(与 stream-follow 同族,标签由各端现有键承担)。
+export * from './scroll-jump'

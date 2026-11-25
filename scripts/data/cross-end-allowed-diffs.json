@@ -38,9 +38,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 12,
-      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: DrawerComponent diffCount=12(onlyMiniapp=8 / onlyRn=4)"
+      "count": 13,
+      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。2026-11-26 按实测重锚 12→13(门 128 现读 diffCount=13,onlyMiniapp 7 值 / onlyRn 6 值):逐处核过**不存在「同一元素取不同值」的真分叉**——小程序侧 7 值全部来自换算式聚合(如 L317 \"var(--spacing-2xs) 28rpx\"→2、L522 \"var(--spacing-xs-loose) 13rpx\"→6.5、L258 \"15rpx 28rpx 25rpx\"→7.5/12.5、L372 \"10rpx 23rpx\"→5、L262 rpx(66)/2→33)与 L343 CSS 变量混写→11.5,属两种样式语言(rpx/CSS 变量 vs RN stylesheet px)的结构性不可比;RN 侧 6 值全部是组件常量与单端元素(DELETE_WIDTH=50、HEADER_LOGO_SIZE=26、USER_AVATAR_SIZE=24、L1358 height:1 分隔条、L1388 height:40、L1120 px-2.5 py-8),小程序侧无同名节点。RN 腿此刻在别席在飞面外(该组件为单份实现),故按「额度写实不超量」口径重锚,非为消红补数字。",
+      "evidence": "check-cross-end-ui-parity --json(2026-11-26 现读):DrawerComponent diffCount=13(onlyMiniapp=[2,5,6.5,7.5,11.5,12.5,33] / onlyRn=[1,24,26,32,40,50]);逐处出处 apps/miniapp-taro/src/components/DrawerComponent.tsx:317,372,262,522,258,343 与 apps/mobile-rn/src/components/DrawerComponent.tsx:1358,155,153,1120,1388,144。旧读 diffCount=12(onlyMiniapp=8 / onlyRn=4)。"
     },
     {
       "component": "DrawerComponent",
@@ -78,9 +78,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 6,
-      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: IntelligentAssistant diffCount=6(onlyMiniapp=1 / onlyRn=5)"
+      "count": 7,
+      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。2026-11-26 按实测重锚 6→7(门 128 现读 diffCount=7,onlyMiniapp 1 / onlyRn 6),并核过**取值零分叉**:两端都从唯一真相源 packages/shared/src/ui/intelligent-assistant-spec.ts import(现读该文件 clean 且全仓仅此一处定义 IA_ROBOT_ICON_INK_PX=32 / IA_ROBOT_DECOR_H_PX=110 / IA_RECHARGE_CAPSULE_PAD_Y_PX=3 等),差异全部来自**消费面不同**——RN 腿渲染机器人装饰层与充值胶囊内衬(DECOR_H/W/TOP/RIGHT、CAPSULE_PAD_X/Y、TEXT_INDENT、gap rnSpacing[2xs])而小程序腿不渲染这些节点,只取 IA_ROBOT_ICON_INK_PX。属「另一端无同名元素」而非同元素异值,硬让小程序补这些节点才是制造假分叉(与 UserInfoCard 条目同一裁决口径),故只重锚不取值。",
+      "evidence": "check-cross-end-ui-parity --json(2026-11-26 现读):IntelligentAssistant diffCount=7(onlyMiniapp=[32] / onlyRn=[2,3,9,16,107,110]);同源定义 packages/shared/src/ui/intelligent-assistant-spec.ts:153,162,189;两端消费 apps/miniapp-taro/src/components/IntelligentAssistant.tsx:10-22 与 apps/mobile-rn/src/components/IntelligentAssistant.tsx(HEAD 面 import 表)。旧读 diffCount=6(onlyMiniapp=1 / onlyRn=5)。"
     },
     {
       "component": "IntelligentAssistant",

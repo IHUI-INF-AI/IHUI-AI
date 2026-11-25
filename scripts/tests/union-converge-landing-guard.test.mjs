@@ -162,6 +162,56 @@ test('U5 未受保护前缀不在此门射程:docs/** 无台账也放行', () =>
 })
 
 /**
+ * U7 库存快照豁免面(2026-11-26,de53023c 恒红事故同型):`rescue/**` 与 `scripts/**` 的
+ * path-literal 命中是**清单里的路径字符串**(库存记录),不是构建依赖 ⇒ 不拦;
+ * 但同为 rescue 文件里的 alias/relative 真引用 ⇒ 照旧拦。两臂成对,单臂不算测过。
+ */
+test('U7 rescue 快照 path-literal 放行、真引用照旧拦(成对)', () => {
+  const { dir, g } = mkRepo()
+  try {
+    mkdirSync(join(dir, 'apps/web/src'), { recursive: true })
+    mkdirSync(join(dir, 'scripts/data'), { recursive: true })
+    writeFileSync(join(dir, 'apps/web/src/dead.ts'), 'export const dead = 1\n')
+    // 阳性臂:rescue 清单 + scripts 台账里都只出现路径字符串
+    mkdirSync(join(dir, 'rescue/prod-foreign-test'), { recursive: true })
+    writeFileSync(
+      join(dir, 'rescue/prod-foreign-test/MANIFEST.json'),
+      JSON.stringify({ entries: [{ rel: 'apps/web/src/dead.ts', present: true }] }) + '\n',
+    )
+    writeFileSync(
+      join(dir, 'scripts/data/dead-ledger.json'),
+      JSON.stringify({ path: 'apps/web/src/dead.ts' }) + '\n',
+    )
+    g(['add', '-A'])
+    g(['commit', '-qm', 'inventory only'])
+    const inventory = judgeBypassDeletions({
+      root: dir,
+      rev: 'HEAD',
+      deletedPaths: ['apps/web/src/dead.ts'],
+    })
+    assert.equal(
+      inventory.blocked.filter((b) => b.reasons.some((x) => x.includes('仍有'))).length,
+      0,
+      `库存字面量不得算引用:${JSON.stringify(inventory.blocked)}`,
+    )
+    // 阴性臂:同名文件出现在真实 import 语句里 ⇒ 照旧点名
+    writeFileSync(join(dir, 'rescue/prod-foreign-test/keep.ts'), "import { dead } from '../../apps/web/src/dead'\n")
+    g(['add', '-A'])
+    g(['commit', '-qm', 'real import in rescue face'])
+    const real = judgeBypassDeletions({
+      root: dir,
+      rev: 'HEAD',
+      deletedPaths: ['apps/web/src/dead.ts'],
+    })
+    const blocked = real.blocked.find((b) => b.path === 'apps/web/src/dead.ts')
+    assert.ok(blocked, 'relative 形态真引用必须照旧判红')
+    assert.ok(blocked.reasons.some((x) => x.includes('仍有')), `必须点名引用位置:${JSON.stringify(blocked.reasons)}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
  * U6 装车锁:`--apply` 必须**先过硬门再 commit-tree**,拒绝分支必须 exit 1;落地对齐必须
  * 排在 CAS 成功之后、写 attestation 之前。只测"判据函数"不测装车 = 修了把好刀但没接上。
  */
