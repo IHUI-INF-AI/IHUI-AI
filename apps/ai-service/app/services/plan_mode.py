@@ -112,6 +112,11 @@ READONLY_TOOLS: frozenset[str] = frozenset(
         "browser_console_messages",
         "browser_network_requests",
         "get_diagnostics",
+        # 连接器只读能力(2026-11-25):能力枚举 + list/search/fetch 调用,
+        # 身份由服务端 principal 注入、handler 恒 confirm=False,不触写门;
+        # connector_call_write / connector_write_capabilities 绝不进只读白名单。
+        "connector_capabilities",
+        "connector_call_read",
     }
 )
 
