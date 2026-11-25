@@ -1,3 +1,9 @@
+<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
 # 本地 11 款 AI 客户端全量逆向取证（前端 + 核心 + 后端）
 
 - 日期：2026-11-25
@@ -32,7 +38,7 @@
 本版拿到函数级链路：`resolve permission profile token mode`、`TaggedPermissionProfile::{Managed,External}`、`struct NetworkPermissions with 1 element`、`SerializedManagedFileSystemPermissions::Restricted`、`spawned ConPTY is missing its process job`、`Codex Windows Sandbox WFP` 持久化 WFP provider。
 
 **纠正五：没有后端层。**
-本版新增“后端/服务层”：WorkBuddy 的 MCP Host（loopback 随机端口）+ A2A 出站代理、MiniMax 的 `http://127.0.0.1/minimax-desktop/api/v1/*` 本地运行时、ZCode 的 host RPC + Windows Job 控制、OpenCode 的桌面→CLI loopback（4096，监听端未闭环）、Qoder 的 `@qoder-space/application-server` + `peer-transport`。
+本版新增“后端/服务层”：WorkBuddy 的 MCP Host（loopback 随机端口）+ A2A 出站代理、MiniMax 的 `http://127.0.0.1/minimax-desktop/api/v1/*` 本地运行时、ZCode 的 host RPC + Windows Job 控制、OpenCode 的 Bun CLI 运行时（4096 仅为 Add Server 默认占位，服务端未证实）、Qoder 的 `@qoder-space/application-server` + `peer-transport`。
 
 ---
 
@@ -111,6 +117,7 @@
 ### 4.1 Codex（OpenAI，Rust CLI）
 
 **安装面**：`C:\Users\Administrator\AppData\Local\OpenAI\Codex\bin\31fb36cfc4b38f05\`，四个产品二进制：`codex.exe` 407,428,400 字节、`codex-code-mode-host.exe` 80,724,784、`codex-windows-sandbox-setup.exe` 19,823,408、`codex-command-runner.exe` 8,862,000；另有 `rg.exe`、`node.exe` 24.14、`node_repl.exe`。全部由 `OpenAI OpCo, LLC` 有效签名。
+**Windows 包层（本轮补充）**：已注册 `OpenAI.Codex 26.1117.4957.0`；同机另有 `OpenAI.Codex_26.1120.5083.0` 目录（未注册/待切换）。两个 `PrimaryRuntime`：`v26-1119-907-0` 与 `v26-1123-915-0`。`app\Codex.exe` 只是 20,272 字节的启动 stub，真正的 407MB 主程序在 `app\resources\codex.exe`——这一点很容易被误读成“Codex 只有 20KB”。
 
 **核心概况**（`ev_9c096652…`）：PE x86_64，函数发现到 50,000 上限、字符串 204,743 条（保留前 200,000）、导入 486 个 / 25 个库。这是本轮唯一一个“主程序即产品逻辑”的目标，导入可以直接归因。
 
@@ -159,12 +166,13 @@ IPC 命名本身就把产品能力摊开了：
 
 **后端/服务层（上一版完全没有）**：`main/server.js` 里是一个 **MCP Host**：
 
-- `tt.createServer(...)` + `e.listen(0, "127.0.0.1")`，端口由内核分配；`discoveryUrl()` 返回 `http://127.0.0.1:${port}${path}`。
+- `tt.createServer(...)` + `listenOnLoopback` 里的 `e.listen(0, "127.0.0.1")`（`main/server.js` 内 `[McpHost] 拿不到回环端口` 上下文已核对），端口由内核分配；`discoveryUrl()` 返回 `http://127.0.0.1:${this.port}${path}`。
+- **同一产品里不止一个回环服务**：`main/app-server-mcp-apps-host.js`（`[McpAppsHost]` 专用 HTTP server）与 `main/connector-harness-marketplace.js` 也各自 `listen(0, '127.0.0.1')`。所以“WorkBuddy 有本地服务”不是单点，而是多宿主。
 - 路由有注册/注销：`[McpHost] route registered/unregistered`、`MCP route unregistered`、`aborted` 计数。
 - 同一文件还有 **A2A outbound proxy**：`A2A outbound proxy failed to bind loopback`、`discoveryUrl()`；以及 **WecomA2A host**：`[WecomA2A]`、`approvals.declineAll()`、`broker.prewarmAgentTicket`、`a2a.host-managed`。
 - 环境变量白名单直接暴露后端接线：`OCS_LOCAL_MCP`、`TENCENT_DOCS_LOCAL_SERVER`、`editor_sdk_port`、`WORKBUDDY_VLM_CHAT_URL`、`WORKBUDDY_VLM_AUTH_TOKEN`、`CODEBUDDY_REMOTE_AGENTS_URL`、`CODEBUDDY_A2A_OUTBOUND_ENABLED`、`WECOM_CLI_*`。
 - 前端暴露面里还有 `__mcpHostTestApi: getToken, getWBCurrentSessionId`，说明 MCP Host 有测试用取 token 接口（静态可见，是否生产启用未知）。
-- 本地 endpoint 实例：`http://127.0.0.1:39099/mcp`、`http://127.0.0.1:9527`、`http://127.0.0.1:52741/v1/chat/completions`、`http://127.0.0.1:{port}/localapi/save`、`http://localhost:11434/v1/chat/completions`（Ollama 兼容端点）。
+- 本地 endpoint 实例：`http://127.0.0.1:39099/mcp`（前端 2 次；`daemon-bootstrap.js` 里 `Pe=39099,Fe=39120` 可对上）、`http://127.0.0.1:52741/v1/chat/completions`（`daemon-app-server-main.js` 里用于本地模型注册）、`http://127.0.0.1:{e}/localapi/save`、`http://127.0.0.1:49983/envs`、`http://localhost:11434/v1/chat/completions`（Ollama 兼容）。`http://127.0.0.1:9527` 只在前端 URL 表出现 1 次，未在 `main/*.js` 找到监听实现，标未知。
 
 **一句话结论**：WorkBuddy 的“前后端”是三层——渲染层（Electron renderer + contextBridge 83 键）、主进程服务层（MCP Host / A2A / WeCom / daemon）、原生沙箱层（Rust cli+center，Job Object + pipe ACL + approval 反向通道）。这三层都有产品级证据，且互相咬合。
 
@@ -191,6 +199,8 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 - `agent-tool-host.exe`（101,117,328，独立签名）：安全导入 40 个，含 `CreateJobObjectW`、`AssignProcessToJobObject`、`SetInformationJobObject`、`TerminateJobObject`、`CreateNamedPipeW`、`ConnectNamedPipe`、`SetNamedPipeHandleState`、`AcceptSecurityContext`、`AcquireCredentialsHandleW`、`EncryptMessage`、`DecryptMessage`、`CertVerifyCertificateChainPolicy`（`ev_09d553db…`）。
 - 字符串：`toolhost\services\preview-proxy\src\port_policy.rs`、`allowList`、`denyList`、`binary_payload_policy`、`PermissionDenied`、`TRAE_SANDBOX_NEW_PERMISSION`、`TRAE_REMOTE_SANDBOX_NAME`、`/sandboxes/`、`sandbox_namemanager_host`、`mcp_host_meta_session`、`workroom_credent`（`ev_e4b861da…`）。
 - 一个很能说明设计意图的提示串：`Hint: If the tool supports running outside the sandbox, you should try requesting to run this command outside the sandbox.`
+- **运行期落盘结构（本机已有 543 个会话目录，非本轮运行产生）**：`UserData\ModularData\ai-agent\command-execution\<32位id>\` 下固定四个文件 `cwd.txt`、`execution.json`（502B）、`output.log`、`stderr.log`；同级 `sandbox-storage\restricted\` 存放受限区。说明每条命令一个 session 目录，权限与工作目录按会话隔离，便于事后审计与回放。
+- **SDK 版本对比（关键证据）**：Trae `sbox_sdk.dll` 2,320,272 字节 / `FileVersion 1.16.0.0` / SHA256 前 8 位 `47EA81AF`；豆包 `sbox_sdk.dll` 2,656,144 字节 / `FileVersion 2.1.17.0` / `CC96F66B`。同一套 aiep SDK 家族，但**不是同一个构建**：Trae 是 1.x，豆包是 2.x。`aiep_sbox.dll` 也是 x64 757,648（Trae）对 784,272（豆包）。
 
 **后端/服务层**：`agent-tool-host.exe` 同时是 toolhost（工具宿主）、preview-proxy（预览代理 + 端口策略）、sandbox 命名管理器。它用 Named Pipe + SSPI（NTLM/Kerberos）做本机鉴权，用 Job Object 做进程树回收，用 `port_policy` 控制预览端口白名单。这是“工具执行后端”，不是 Electron 主进程的一部分。
 
@@ -215,7 +225,10 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 
 **窗口安全是这批产品里最规范的一档。** 10 个窗口全部显式 `contextIsolation:true`、`nodeIntegration:false`、`sandbox:true`、`webSecurity:true`；只有 1 个 `WebContentsView` 没有显式 contextIsolation（继承默认），1 个窗口 `webPreferences` 运行期计算（`ev_6e0090db…`，windows 段）。
 
-**核心**：`.qoder-versions\0.5.14\Qoder CN.exe`（239,205,888）实测 40,845 函数 / 200,688 字符串 / 1,271 导入 / 58 库，安全导入 131 个——但字符串是 blink::、v8::、cppgc::、`node:electron/js2c/sandbox_bundle` 这类 Electron 内置。**这一条不能当产品沙箱证据**，产品能力在 JS 服务层与 native 模块（24 个 `.node`）。注意：根目录 `Qoder CN.exe` 是 0.5.6（239,205,896），与本条不是同一个文件。
+**核心**：`.qoder-versions\0.5.14\Qoder CN.exe`（239,205,888）实测 40,845 函数 / 200,688 字符串 / 1,271 导入 / 58 库，安全导入 131 个——但字符串是 blink::、v8::、cppgc::、`node:electron/js2c/sandbox_bundle` 这类 Electron 内置。**这一条不能当产品沙箱证据**，产品能力在 JS 服务层与原生模块（12 个 `.node` + 12 个 DLL/EXE，共 24 个原生文件）。注意：根目录 `Qoder CN.exe` 是 0.5.6（239,205,896），与本条不是同一个文件。
+
+**原生模块清单（本轮实测，0.5.6 与 0.5.14 完全同构）**：关键项是 `keytar\prebuilds\win32-x64\keytar.node` 707,584、`aoq-electron-sdk\prebuilds\win32-x64\aoq_node_ext.node` 253,952、`AoqClientSdk.dll` 14,688,776、`PluginOpus.dll` 730,112、`alivcffmpeg.dll` 4,093,448、`skia.win32-x64-msvc.node` 27,294,720、`libvips-42.dll` 19,123,712、`node-pty` 三套构建、`OpenConsole.exe` 1,148,448。
+**上一版说的 keytar / aoq 是真的**：本轮一开始只看 `package.json` 依赖表，误判为“未复现”；转到 `app.asar.unpacked` 后，两个版本的 `keytar.node` 与 `aoq_node_ext.node` 都在。这是一次自我纠错，也说明“package.json 没列”不等于“文件不存在”。
 
 **后端/服务层**：`application-server` + `peer-transport` 是关键。前者是应用服务宿主，后者是 peer 传输层；加上 `session-history`、`session-migration`、`memory-migration`、`artifact-preview`，说明会话/记忆/工件是被服务化的，不是渲染进程直接读写。端点里能看到阿里内部服务：`ali-skill.alibaba-inc.com`、`iservice.alibaba.com`、`modelstudio.console.aliyun.com`、`bailian.console.aliyun.com`、`img.alicdn.com`。
 
@@ -307,10 +320,10 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 本轮补做了 CLI 的原生取证：41,058 函数 / 200,682 字符串 / 1,284 导入（59 个库），函数表在 6,000,000 条指令处截断（`ev_9f220b64…`）。字符串里同时出现 `JSBundlerPlugin__create returns a non-null protected JSCell` 与 `this indicates a bug in Bun. Please file a GitHub issue.`，以及 ngtcp2/QUIC 常量（`CC_ALGO_BBR`、`DEFAULT_MAX_STREAMS_BIDI`、`TLS_AES_128_GCM_SHA256`）——**Bun + 内置 QUIC/HTTP3 栈**。
 签名主体 **Anomaly Innovations, Inc.**（`C=US, ST=Delaware, L=Dover`，Microsoft ID Verified CS AOC CA 03，有效期 2026-11-08 → 2026-11-11，`signature_check: valid`）。
 
-**后端：4096 端口的真相是“桌面端连本地 CLI”，不是 CLI 里写死 4096。**
-- 桌面 `endpoints` 里 `http://localhost:4096` 出现 **62 次**（`ev_381f0a96…`，local_urls 段），hosts 统计 `localhost(65)`、`127.0.0.1(4)`。
+**后端：4096 是“Add Server”对话框的默认占位 URL，不是内置服务端口。**
+- 直接对 `app.asar` 做字节级检索，`localhost:4096` 只命中 i18n 文案 `dialog.server.add.placeholder`（值为 `http://localhost:4096`），并在多语言包里重复——这正好解释了 jsmap 里为什么会有 62 次（`ev_381f0a96…` 的 local_urls 段把 i18n 值当成了 endpoint）。
 - CLI 侧定向字符串只命中 `ws://127.0.0.1:`、`http://localhost:`、`tcp:localhost:` 这些**模板**，以及 `http://localhost:3000/`（打包进来的 web 内容噪声）；**没有命中字面端口 4096**（`ev_1360868c…`）。所有 `4096` 命中都是 `DigiCert TLS RSA4096` 与 `base_offset.is_multiple_of(4096)`，与端口无关。
-- 结论：端口 4096 是桌面端拼装的 URL（可能在 asar 的配置/默认值里），CLI 侧只暴露 loopback 客户端模板。**监听实现仍未在源码级定位**，标未知；但“薄壳 + 厚 CLI”的结构已被原生证据确认。
+- 结论：桌面端是“可连接远端/本地 OpenCode server 的客户端”，4096 只是新建服务器时的建议值；**没有证据证明桌面端会自动在 4096 启动本地服务**。CLI 是否提供 `serve` 子命令仍未在源码级定位，标未知。
 `hosts` 里还有 `opencode.ai(50)`、`github.com(103)`、`chatgpt.com(3)`、Sentry ingest 域名，说明桌面端同时对接云端与本地。
 
 **依赖极简**：`@zip.js/zip.js`、`electron-context-menu`、`electron-log`、`electron-updater 6.8.9`、`lighthouse 13.4.1`。Lighthouse 说明内置了页面审计/性能评分能力，不是纯聊天壳。
@@ -442,7 +455,7 @@ IPC 分组说明它是“能力市场型”客户端：
 
 - **“受限令牌 + 作业对象 + 网络过滤”派**：Codex 最完整。专用用户/SID（`convert SID failed`、`write sandbox users file`）、`Local\CodexSandboxReadAcl`、WFP provider `Codex Windows Sandbox WFP`、`spawned ConPTY is missing its process job` 四处互相咬合。
 - **“会话权限文件 + 审批中心”派**：WorkBuddy。cli 只负责把进程塞进 Job Object，center 负责管道 ACL 与审批反向通道，`aes/argon2` 保护审批票据。
-- **“共享 SDK”派**：Trae 与豆包都装 `aiep_sbox.dll` / `aiep_ipc.dll` / `run_helper.exe` / `sbox_sdk.dll`，只是构建不同（Trae 2,320KB vs 豆包 2,594KB）。字节系内部复用了同一套 sandbox SDK。
+- **“共享 SDK”派**：Trae 与豆包都装 `aiep_sbox.dll` / `aiep_ipc.dll` / `run_helper.exe` / `sbox_sdk.dll`，但版本不同：Trae `sbox_sdk` 1.16.0.0（2,320,272，SHA 前 8 位 `47EA81AF`），豆包 2.1.17.0（2,656,144，`CC96F66B`）。同一 SDK 家族、不同代际构建，不能当成同一份二进制。
 - **“策略枚举”派**：Cursor 的 `SandboxPolicy` 用 `workPolicyStrict` + `networkPolicyStrict` 表达，而不是堆 Win32 API。
 - **“SQLite 状态机”派**：MiniMax `srt-win` 用 `rusqlite` 存沙箱状态。
 - **“Python 运行时”派**：小浣熊 `box-agent-acp` 是 PyInstaller Python 3.12，自带 skills 目录。
@@ -456,7 +469,7 @@ IPC 分组说明它是“能力市场型”客户端：
 | Trae | `credential_sync`、`git_token`、`workroom_credent`、`credential_sync` 字段；`keyring` 命中 9 | 工具宿主凭据同步 |
 | Cursor | `cursorPasskey` 暴露键；`extensionHostWorkerMain.js` keyring 349 次 | VS Code secret storage + Passkey |
 | ZCode | `@napi-rs/keyring 2.1.2` | OS keyring |
-| Qoder | 24 个 native 模块；package.json 未直接列 keytar | 未在文件级复现，标未知（上一版“keytar/aoq”结论本轮不采信） |
+| Qoder | `keytar.node` 707,584 + `aoq_node_ext.node` 253,952 + `AoqClientSdk.dll` 14.7MB（0.5.6/0.5.14 同构） | OS keyring（keytar）+ 阿里云播放器 SDK 扩展（aoq，用途未运行验证） |
 | 豆包 | `mcp_helper` 的 `OAuth session has no credential checkpoint`、`failed to checkpoint OAuth credentials`；`BCrypt` | MCP OAuth 凭据检查点 |
 | 小浣熊 | `libcrypto-3-x64.dll` / `libssl-3-x64.dll` / `_ssl.pyd` | Python SSL 栈 |
 
@@ -473,7 +486,7 @@ IPC 分组说明它是“能力市场型”客户端：
 | 豆包 | CEF | 0（不建模） | 0 | 0 | `agent_infra.dll` 本地运行时策略 + `mcp_helper.dll` MCP 进程宿主 |
 | Qoder | Electron | 0 | 8 | 0 | `application-server` + `peer-transport` + `remoteSdkDaemonBridge` |
 | DeepSeek | Electron | 0 | 142 | 11 | cordis 插件 + `dsh-api-gateway` + loopback WS |
-| OpenCode | Electron | 3（1 配对） | 5 | 1（5 成员） | `opencode-cli.exe` 本地 server（4096，未闭环） |
+| OpenCode | Electron | 3（1 配对） | 5 | 1（5 成员） | `opencode-cli.exe`（Bun 单文件）；4096 仅为 Add Server 占位，服务端未证实 |
 | Codex | Rust TUI/CLI | — | — | — | app-server 本地 WebSocket `ws://127.0.0.1:0` |
 
 **读法**：暴露键数量与安全不是线性关系，但 83 个暴露键（WorkBuddy）与 1 个暴露键（OpenCode）代表两种设计哲学：前者把主进程当“能力总线”，后者把 preload 当“最小门”。IHUI-AI 应该选后者作默认，前者只对受信窗口开放。
@@ -527,14 +540,17 @@ IPC 分组说明它是“能力市场型”客户端：
 
 1. **未运行**：所有“运行期行为”均未知。例如 WorkBuddy 的 MCP Host 是否真的在启动时 listen、豆包的 `sandbox_switch_config` 默认值、ZCode 的 8081 更新代理是否启用，都没有实跑验证。
 2. **Codex 407MB 超工具上限**：`native-rust-binary-show` 拒绝 >256MB，Codex 没有 crate 级报告；只有字符串/导入/函数三条证据链。
-3. **OpenCode 监听端未闭环**：`opencode-cli.exe` 已完成原生取证（Bun 单文件、41,058 函数、签名 Anomaly Innovations），CLI 字符串有 `ws://127.0.0.1:` 模板但没有字面 4096；桌面端 62 处 `localhost:4096` 只能证明“连这个地址”，不能证明“CLI 在该端口监听”。
-4. **Qoder 的 keytar/aoq 未复现**：上一版称有 keytar/aoq 原生模块，本轮在 package.json 与 24 个 native 模块清单里没有拿到文件级对应，标未知。
+3. **OpenCode 服务端未证实**：`opencode-cli.exe` 已完成原生取证（Bun 单文件、41,058 函数、签名 Anomaly Innovations）；`localhost:4096` 已证实只是 `dialog.server.add.placeholder` 的默认占位（多语言重复 62 次），CLI 是否提供 `serve` 子命令仍未定位。
+4. **Qoder 的 keytar/aoq 已文件级确认**：`keytar.node` 707,584 与 `aoq_node_ext.node` 253,952 在 0.5.6/0.5.14 两个版本中都存在；但 aoq 的具体用途（播放器/会议 SDK）只按 DLL 名称推断，未运行验证。上一轮“未复现”的写法已撤销。
 5. **动态 IPC 只计数**：ZCode 423、MiniMax 816、DeepSeek 142、WorkBuddy 214、Trae 110 条通道名是运行期拼接，静态工具只能计数，不能枚举。
 6. **`webPreferences: dynamic` 无法判定**：多个产品有 4–12 个窗口的 webPreferences 在运行期计算，静态只能标“未知”，不能下“安全/不安全”结论。
 7. **CEF 的豆包没有 IPC 模型**：`js-app-map` 不建模 CEF message port，豆包的 IPC 面为 0 是工具盲区，不是产品事实。
 8. **函数发现上限 50,000**：所有大 PE 的函数表都不完整；`core-overview-show` 已明确 `function_limit`。
 9. **字符串保留前 200,000 条**：超大二进制（Codex 204,743 条）尾部字符串未进入索引。
 10. **签名只验证“文件哈希匹配 + 证书链有效”**，未做吊销/时间戳策略判定。
+11. **Qoder 0.5.7 / 0.5.12 未做全图**：只核了版本号、exe 大小（两者均 239,205,896）与目录存在性；全量 jsmap 只做了 0.5.6 与 0.5.14。
+12. **WorkBuddy 的 9527 未定位**：该 URL 只在前端 endpoint 表出现 1 次，`main/*.js` 没有对应监听实现。
+13. **Trae 的 543 个 session 目录是本机既有使用痕迹**，不是本轮运行产生；只读取了目录结构与文件名（`cwd.txt`/`execution.json`/`output.log`/`stderr.log`），没有读取命令内容或输出正文。
 
 ---
 
@@ -549,6 +565,13 @@ IPC 分组说明它是“能力市场型”客户端：
 - `native\<target>\*.json`：核心取证（overview / imports / exports / publisher / strings0-7 / feat0-3）。
 - `analysis\frontend-<target>.json`：前端结构化摘要（IPC、窗口、暴露键、endpoint、模块关键词）。
 - `analysis\evidence-ids.json`：目标 → evidence id 映射；`analysis\evidence-map.json`：证据号 → 摘要/路径。
+
+**非 craft 证据（文件级/字节级，正文已标注）**：
+
+- Qoder `app.asar.unpacked` 的 24 个原生文件清单（`keytar.node`、`aoq_node_ext.node`、`AoqClientSdk.dll` 等），0.5.6 与 0.5.14 同构。
+- OpenCode `resources\app.asar` 字节级检索 `localhost:4096`，命中 `dialog.server.add.placeholder` i18n 文案。
+- Trae `UserData\ModularData\ai-agent\command-execution\` 的 543 个会话目录结构（未读命令内容）。
+- Trae / 豆包 `sbox_sdk.dll` 的 SHA256 与 `FileVersion`（1.16.0.0 vs 2.1.17.0）。
 
 前端 jsmap 证据号：
 
@@ -585,3 +608,4 @@ $proj = "C:\IHUI-AI\.workbuddy\craft\all-ai-apps-full-2026-11-25.cany"
 ---
 
 **结论一句话**：上一版是“五个程序各跑几条命令”；这一版是 11 个程序、8 个 asar 全解包、11 张前端全量图（最大 465,369 节点 / 1,473,627 边）、25 个实际存在的原生二进制（+1 个 not_found）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
