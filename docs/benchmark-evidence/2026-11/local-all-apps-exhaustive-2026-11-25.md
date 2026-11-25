@@ -383,6 +383,7 @@ helper 侧另有 `DoubaoLinkRouter.exe`（2,952,080，ProductName `Doubao Link R
 **核心二：agent_infra.dll 是“本地运行时策略引擎”。**
 字符串直接给出 API 与字段：`local_runtime.runtime_policy`、`local_runtime:runtime_policy:get`、`local_runtime:instance_group:update_permission`、`runtime policy updated, probe_enabled={}, background_limit={}, user_env_timeout_ms={}, runtime_probe_timeout_ms={}, probe_startup_timeout_ms={}`、`sandbox.network_config`、`sandbox.internal_config`、`sandbox_network_audit`、`local_runtime.sandbox_switch_config`、`local_runtime:is_support_no_sandbox`、`sandbox_instance_create`（`ev_5eefd5c0…`）。
 这是一套可热更新的本地运行时策略：网络配置、沙箱开关、探测开关、后台并发限制、超时预算都在策略里。**“is_support_no_sandbox” 这个键说明产品允许按环境关闭沙箱**，这是设计选择，不是漏洞。
+补证：`LocalRuntimeModule::UpdateSandboxSwitchConfig` 的 JSON 结构字段是 `sandbox_switch_enabled` / `health_records`，云配置节名是 `saman_sandbox_switch_config`，总节是 `saman_sandbox_config`；错误路径明确写 `sandbox switch config property rejected, json_bytes={}`。本地 DLL 只有 schema 与更新入口，没有默认布尔值；默认值来自云配置或调用方，未运行验证。
 
 **核心三：mcp_helper.dll 是 MCP 进程宿主，用 Job Object 托底。**
 字符串：`process-wrap-9.1.0\src\tokio\job_object.rs`、`JOB_OBJECT_LIMIT`、`wait`、`MCP server executable permission denied`、`OAuth session has no credential checkpoint`、`failed to checkpoint OAuth credentials`、`OAuth credentials rejected; closing the expired MCP session`、`sse stream terminated, no reconnect policy`。
