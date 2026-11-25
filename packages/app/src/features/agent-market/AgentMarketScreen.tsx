@@ -32,7 +32,10 @@ export function AgentMarketScreen({
   onBack,
   onRetry,
   colorScheme = 'light',
-}: AgentMarketScreenProps & { onRetry?: () => void }) {
+  /** 2026-11-25:tab 宿主(小程序底部第 1 位)不该画返回键 —— 根 tab 无处可返。
+   *  默认 true 保持 RN stack 屏原行为,零回归。 */
+  showBack = true,
+}: AgentMarketScreenProps & { onRetry?: () => void; showBack?: boolean }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -56,7 +59,9 @@ export function AgentMarketScreen({
 
   return (
     <View style={styles.container}>
-      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+      {showBack ? (
+          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        ) : null}
       <Text style={styles.title}>{t('agentMarket.title')}</Text>
       <View style={styles.searchRow}>
         <TextField

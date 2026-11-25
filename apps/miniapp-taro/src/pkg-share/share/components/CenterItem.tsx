@@ -1,0 +1,169 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { PAGE_VISUAL_SIZE_RPX } from '@/styles/page-visual-size'
+import { useTt } from '@/i18n'
+import { View, Text, Image } from '@tarojs/components'
+import { rpx } from '@/utils/rpx'
+
+import { taroType, rnRadius, taroSpacing } from '@ihui/design-tokens'
+
+/**
+ * CenterItem 盒子卡片组件
+ *
+ * 对齐原项目 center-item/index.vue:
+ * - 卡片(封面图 + 商家 + 标题 + 分类 + 浏览数)
+ * - 数据源 information.all_data / aiData.all_data
+ */
+
+export interface CenterItemData {
+  id: string | number
+  title: string
+  coverUrl?: string
+  merchantName?: string
+  merchantLogo?: string
+  categoryName?: string
+  views?: number
+}
+
+export interface CenterItemProps {
+  items: CenterItemData[]
+  onItemClick?: (item: CenterItemData) => void
+}
+
+export default function CenterItem({ items, onItemClick }: CenterItemProps) {
+  const tt = useTt()
+  if (!items.length) return null
+  return (
+    <View
+      className="center-item-wrap"
+      style={{
+        paddingTop: rpx(taroSpacing['sm']),
+        paddingBottom: rpx(taroSpacing['sm']),
+        paddingLeft: rpx(taroSpacing['md']),
+        paddingRight: rpx(taroSpacing['md']),
+      }}
+    >
+      <Text
+        style={{
+          fontSize: taroType.strong.fontSize,
+          fontWeight: 'bold',
+          color: 'var(--color-foreground)',
+          marginBottom: rpx(taroSpacing['sm']),
+          display: 'block',
+        }}
+      >
+        {tt('shareCenterItem.text1', '推荐卡片')}
+      </Text>
+      <View
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: rpx(taroSpacing['sm']),
+        }}
+      >
+        {items.map((item) => (
+          <View
+            key={item.id}
+            className="center-item-card"
+            style={{
+              width: 'calc(50% - 8rpx)',
+              borderRadius: rnRadius.xl,
+              overflow: 'hidden',
+              background: 'var(--color-card)',
+            }}
+            onClick={() => onItemClick?.(item)}
+            hoverClass="opacity-60"
+          >
+            {item.coverUrl ? (
+              <Image
+                src={item.coverUrl}
+                mode="aspectFill"
+                style={{ width: '100%', height: rpx(PAGE_VISUAL_SIZE_RPX.centerItemHeight) }}
+              />
+            ) : null}
+            <View style={{ padding: rpx(taroSpacing['sm']) }}>
+              {item.merchantName ? (
+                <View
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: rpx(taroSpacing['xs']),
+                  }}
+                >
+                  {item.merchantLogo ? (
+                    <Image
+                      src={item.merchantLogo}
+                      mode="aspectFit"
+                      style={{
+                        width: rpx(taroSpacing['xl']),
+                        height: rpx(taroSpacing['xl']),
+                        borderRadius: rnRadius['2xl'],
+                        marginRight: rpx(taroSpacing['xs']),
+                      }}
+                    />
+                  ) : null}
+                  <Text
+                    style={{
+                      fontSize: taroType.caption.fontSize,
+                      color: 'var(--color-muted-foreground)',
+                    }}
+                  >
+                    {item.merchantName}
+                  </Text>
+                </View>
+              ) : null}
+              <Text
+                style={{
+                  fontSize: taroType.bodySm.fontSize,
+                  fontWeight: '500',
+                  color: 'var(--color-foreground)',
+                  display: 'block',
+                  marginBottom: rpx(taroSpacing['xs']),
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {item.title}
+              </Text>
+              <View
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                {item.categoryName ? (
+                  <Text
+                    style={{
+                      fontSize: taroType.badge.fontSize,
+                      color: 'var(--color-muted-foreground)',
+                    }}
+                  >
+                    {item.categoryName}
+                  </Text>
+                ) : null}
+                {typeof item.views === 'number' ? (
+                  <Text
+                    style={{
+                      fontSize: taroType.badge.fontSize,
+                      color: 'var(--color-muted-foreground)',
+                    }}
+                  >
+                    {item.views} {tt('shareCenterItem.z1', '浏览')}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

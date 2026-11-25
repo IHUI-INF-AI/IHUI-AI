@@ -1,0 +1,231 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { PAGE_VISUAL_SIZE_RPX } from '@/styles/page-visual-size'
+import { aizhsUrl } from '@/constants/icon-urls'
+import { useTt } from '@/i18n'
+import { View, Text, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
+import Taro from '@tarojs/taro'
+import { rpx } from '@/utils/rpx'
+
+import { taroType, rnRadius, taroSpacing } from '@ihui/design-tokens'
+import { onToast } from '@/host/on-toast'
+const copyIcon = aizhsUrl('remote-images/copy.png')
+
+/**
+ * InformationItem 时间轴资讯卡片组件
+ *
+ * 对齐原项目 information-item/index.vue:
+ * - 左侧时间轴(竖线 + 圆点)
+ * - 右侧卡片(标题 + 内容 + 来源 + 浏览数 + 复制/分享按钮)
+ */
+
+export interface InformationItemData {
+  id: string | number
+  title: string
+  content?: string
+  /** 日期分组标题,如 "2026-08-13" */
+  date?: string
+  /** 来源 */
+  source?: string
+  /** 浏览数 */
+  views?: number
+  coverUrl?: string
+}
+
+export interface InformationItemProps {
+  item: InformationItemData
+  /** 是否显示时间轴竖线(每组第一项可不显示) */
+  showTimeline?: boolean
+  onClick?: (item: InformationItemData) => void
+  onCopy?: (item: InformationItemData) => void
+  onShare?: (item: InformationItemData) => void
+}
+
+const TIMELINE_COLOR = 'var(--color-brand)'
+
+export default function InformationItem({
+  item,
+  showTimeline = true,
+  onClick,
+  onCopy,
+  onShare,
+}: InformationItemProps) {
+  const tt = useTt()
+  const handleCopyClick = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation()
+    Taro.setClipboardData({
+      data: `${item.title}\n${item.content || ''}`,
+      success: () => onToast(tt('success.copied', '已复制'), { kind: 'success' }),
+      fail: () => onToast(tt('ai.aiAssistant.copyFailed', '复制失败'), { kind: 'error' }),
+    })
+    onCopy?.(item)
+  }
+
+  const handleShareClick = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation()
+    Taro.showShareMenu({
+      withShareTicket: true,
+    }).catch(() => {
+      onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
+    })
+    onShare?.(item)
+  }
+
+  return (
+    <View style={{ display: 'flex', flexDirection: 'row' }}>
+      {showTimeline ? (
+        <View
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            marginRight: rpx(taroSpacing['sm']),
+            paddingTop: rpx(taroSpacing['xs']),
+          }}
+        >
+          <View
+            style={{
+              width: rpx(taroSpacing['sm']),
+              height: rpx(taroSpacing['sm']),
+              borderRadius: rnRadius['2xl'],
+              background: TIMELINE_COLOR,
+            }}
+          />
+          <View
+            style={{
+              flex: 1,
+              width: 0,
+              borderLeft: `${rpx(PAGE_VISUAL_SIZE_RPX.hairlineStrong)} dashed ${TIMELINE_COLOR}`,
+            }}
+          />
+        </View>
+      ) : null}
+      {/* 卡片(对齐 RN SquareScreen card:圆角 12 → 24rpx / padding 12 → 24rpx;2026-11-23 卡片静息无描边;
+          RN 卡底 surface.light 在暗色下白底不可读,按语义修正为 --color-card) */}
+      <View
+        style={{
+          flex: 1,
+          padding: rpx(taroSpacing['md']),
+          marginBottom: rpx(taroSpacing['md']),
+          borderRadius: rnRadius.xl,
+          background: 'var(--color-card)',
+        }}
+        onClick={() => onClick?.(item)}
+        hoverClass="opacity-60"
+      >
+        {item.date ? (
+          <Text
+            style={{
+              fontSize: taroType.bodySm.fontSize,
+              color: TIMELINE_COLOR,
+              display: 'block',
+              marginBottom: rpx(taroSpacing['xs-loose']),
+            }}
+          >
+            {item.date}
+          </Text>
+        ) : null}
+        {/* 标题(对齐 RN title:fontSize 16 → 32rpx / lineHeight 22 → 44rpx / 字重 600) */}
+        <Text
+          style={{
+            fontSize: taroType.title.fontSize,
+            lineHeight: '44rpx',
+            fontWeight: '600',
+            color: 'var(--color-foreground)',
+            display: 'block',
+            marginBottom: rpx(taroSpacing['xs-loose']),
+          }}
+        >
+          {item.title}
+        </Text>
+        {/* 摘要(对齐 RN summary:fontSize 14 → 28rpx / lineHeight 20 → 40rpx / text.secondary) */}
+        {item.content ? (
+          <Text
+            style={{
+              fontSize: taroType.body.fontSize,
+              color: 'var(--color-muted-foreground)',
+              lineHeight: '40rpx',
+              display: 'block',
+            }}
+          >
+            {item.content}
+          </Text>
+        ) : null}
+        {/* meta 行(对齐 RN metaRow:marginTop 4 → 8rpx / gap 8 → 16rpx;
+            来源对齐 RN categoryBadge/authorBadge 描边徽章(24rpx/600/foreground);
+            浏览数对齐 RN metaText(text.tertiary → --color-text-tertiary,24rpx)) */}
+        <View
+          style={{
+            display: 'flex',
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: rpx(taroSpacing['xs']),
+          }}
+        >
+          <View
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: rpx(taroSpacing['sm']),
+            }}
+          >
+            {item.source ? (
+              <View
+                style={{
+                  padding: `${rpx(taroSpacing['xs'])} ${rpx(taroSpacing['sm'])}`,
+                  borderRadius: rnRadius.lg,
+                  border: '2rpx solid var(--color-border-medium)',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: taroType.label.fontSize,
+                    lineHeight: '28rpx',
+                    fontWeight: '600',
+                    color: 'var(--color-foreground)',
+                  }}
+                >
+                  {item.source}
+                </Text>
+              </View>
+            ) : null}
+            {typeof item.views === 'number' ? (
+              <Text
+                style={{
+                  fontSize: taroType.label.fontSize,
+                  lineHeight: '28rpx',
+                  color: 'var(--color-text-tertiary)',
+                }}
+              >
+                {item.views} {tt('shareInformationItem.z1', '浏览')}
+              </Text>
+            ) : null}
+          </View>
+          <View style={{ display: 'flex', flexDirection: 'row', gap: rpx(taroSpacing['sm']) }}>
+            <Image
+              ariaLabel={tt('modelRecord.copy', '复制')}
+              style={{ width: '22rpx', height: '22rpx', color: 'var(--color-muted-foreground)' }}
+              src={copyIcon}
+              mode="aspectFit"
+              onClick={handleCopyClick}
+            />
+            <LineIcon
+              ariaRole="button"
+              ariaLabel={tt('share.title', '分享')}
+              name="share-2"
+              size={22}
+              color="var(--color-muted-foreground)"
+              onClick={handleShareClick}
+            />
+          </View>
+        </View>
+      </View>
+    </View>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

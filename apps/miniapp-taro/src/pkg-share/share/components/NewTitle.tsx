@@ -1,0 +1,93 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { PAGE_VISUAL_SIZE_RPX } from '@/styles/page-visual-size'
+import { useTt } from '@/i18n'
+import { View, Text } from '@tarojs/components'
+import { rpx } from '@/utils/rpx'
+import { taroType, rnRadius, taroSpacing } from '@ihui/design-tokens'
+
+/**
+ * NewTitle 热门资讯列表组件
+ *
+ * 对齐原项目 new-title/index.vue:
+ * - 圆点 + 标题列表
+ * - 数据源 information.hot_data / aiData.hot_data
+ */
+
+export interface NewTitleItem {
+  id: string | number
+  title: string
+}
+
+export interface NewTitleProps {
+  items: NewTitleItem[]
+  onItemClick?: (item: NewTitleItem) => void
+}
+
+export default function NewTitle({ items, onItemClick }: NewTitleProps) {
+  const tt = useTt()
+  if (!items.length) return null
+  return (
+    <View
+      className="new-title-wrap"
+      style={{
+        paddingTop: rpx(taroSpacing['sm']),
+        paddingBottom: rpx(taroSpacing['sm']),
+        paddingLeft: rpx(taroSpacing['md']),
+        paddingRight: rpx(taroSpacing['md']),
+      }}
+    >
+      <Text
+        style={{
+          fontSize: taroType.strong.fontSize,
+          fontWeight: 'bold',
+          color: 'var(--color-foreground)',
+          marginBottom: rpx(taroSpacing['sm']),
+          display: 'block',
+        }}
+      >
+        {tt('shareNewTitle.text1', '热门资讯')}
+      </Text>
+      {items.map((item) => (
+        <View
+          key={item.id}
+          className="new-title-item"
+          style={{
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            height: rpx(PAGE_VISUAL_SIZE_RPX.iconBadge),
+          }}
+          onClick={() => onItemClick?.(item)}
+          hoverClass="opacity-60"
+        >
+          <View
+            style={{
+              width: rpx(taroSpacing['sm-loose']),
+              height: rpx(taroSpacing['sm-loose']),
+              borderRadius: rnRadius['2xl'],
+              background: 'var(--color-muted)',
+              marginRight: rpx(taroSpacing['sm']),
+              flexShrink: 0,
+            }}
+          />
+          <Text
+            style={{
+              fontSize: taroType.body.fontSize,
+              color: 'var(--color-foreground)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              flex: 1,
+            }}
+          >
+            {item.title}
+          </Text>
+        </View>
+      ))}
+    </View>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
