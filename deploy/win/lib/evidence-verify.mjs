@@ -163,11 +163,110 @@ export function buildReceipt({ entries, anchors = [], ev, noticedAt = null } = {
   }
 }
 
+/**
+ * 批量区间核验(2026-11-25 补,第二十一件)。纯函数,零 IO。
+ *
+ * 为什么单个编号核验之外还要这一件:单个编号只能证明「这一条在册且未改」,
+ * 证明不了「这一整段都是连续的、中间没有被人挖掉一段再补一段」。攻击者/研究者
+ * 想验"从 seq A 到 seq B 全部存在且首尾相连"时,单条查询要发 N 次请求、且
+ * 连接关系得自己拼 —— 那等于让他做本该由我们交出的工作。
+ *
+ * 三条纪律:
+ *   ① 区间有缺口就**如实报缺口**(`gaps` + `complete:false`),不用"过滤掉缺的"冒充完整。
+ *      这是本层最容易犯的错:数组拼起来看着挺整齐,但中间少了一条就等于链断过。
+ *   ② 逐条给出 `prevHash`,并**由本层独立验一遍首尾相接** (`broken`)。
+ *      第三方不必自己拼:回执直接告诉他"这段是连着的/哪里断的"。
+ *   ③ 跨度有上限(`RANGE_MAX_SPAN`)。不设上限 = 给扫描器一个免费的全量导出接口。
+ *      上限存在的意义不是省资源,是让"导出全链"这件事必须分多次、可被计数。
+ */
+
+/** 单次区间核验的最大跨度(闭区间 `to - from`,含两端)。 */
+export const RANGE_MAX_SPAN = 200
+
+/**
+ * 区间回执。
+ *
+ * @param {{entries:object[], anchors?:object[], from:number, to:number}} args
+ */
+export function buildRangeReceipt({ entries, anchors = [], from, to } = {}) {
+  const fi = Number(from)
+  const ti = Number(to)
+  const bad = (reason) => ({ state: VERIFY_STATE.INVALID, reason, receipt: null })
+  if (!Number.isInteger(fi) || !Number.isInteger(ti)) return bad('from/to 必须是整数')
+  if (fi < 0 || ti < 0) return bad('seq 从 0 起,不接受负数')
+  if (ti < fi) return bad('to 必须不小于 from')
+  if (ti - fi > RANGE_MAX_SPAN) {
+    return bad(`跨度超过 ${RANGE_MAX_SPAN};请拆成多段查询(本层不提供全量导出)`)
+  }
+
+  const list = Array.isArray(entries) ? entries : []
+  const bySeq = new Map()
+  for (const e of list) {
+    if (typeof e?.seq === 'number') bySeq.set(e.seq, e)
+  }
+
+  const rows = []
+  const gaps = []
+  for (let s = fi; s <= ti; s += 1) {
+    const e = bySeq.get(s)
+    if (!e) {
+      gaps.push(s)
+      continue
+    }
+    rows.push({
+      seq: e.seq,
+      ts: e.ts ?? null,
+      prevHash: e.prevHash ?? null,
+      /* payloadHash 必须给:自证公式里就有它,不给等于让第三方无法独立复核。
+         它是 SHA-256,不可逆 —— 给出它不会回显攻击者的 IP/UA/载荷。 */
+      payloadHash: e.payloadHash ?? null,
+      hash: e.hash ?? null,
+    })
+  }
+
+  /* 首尾相接:本层自己验,而不是把拼装工作推给核验者。
+     `broken` 只记「本区间内相邻两条接不上」的位置;区间首条与前一条的关系
+     由 `headPrevHash` 单独给出(核验者可拿它去查 from-1)。 */
+  const broken = []
+  for (let i = 1; i < rows.length; i += 1) {
+    if (rows[i].prevHash !== rows[i - 1].hash) {
+      broken.push({ seq: rows[i].seq, expectedPrevHash: rows[i - 1].hash, actualPrevHash: rows[i].prevHash })
+    }
+  }
+
+  const anchor = anchorCovering(anchors, ti)
+  return {
+    state: VERIFY_STATE.FOUND,
+    reason: gaps.length === 0 && broken.length === 0 ? '区间完整且首尾相接' : '区间存在缺口或断点',
+    receipt: {
+      from: fi,
+      to: ti,
+      count: rows.length,
+      expected: ti - fi + 1,
+      complete: gaps.length === 0 && broken.length === 0,
+      gaps,
+      broken,
+      headPrevHash: rows.length > 0 ? rows[0].prevHash : null,
+      headSeq: rows.length > 0 ? rows[0].seq : null,
+      tailHash: rows.length > 0 ? rows[rows.length - 1].hash : null,
+      rows,
+      anchor,
+      proof: {
+        formula: 'sha256(`${seq}|${prevHash}|${ts}|${payloadHash}`) === hash',
+        link: 'rows[i].prevHash === rows[i-1].hash;headPrevHash 应等于 seq-1 的 hash(或 GENESIS)',
+        genesis: '0'.repeat(64),
+      },
+    },
+  }
+}
+
 export const __test__ = {
   normalizeEv,
   findEntry,
   anchorCovering,
   proofOf,
+  buildRangeReceipt,
+  RANGE_MAX_SPAN,
   EV_RE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

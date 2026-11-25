@@ -20,6 +20,8 @@ import {
   anchorCovering,
   proofOf,
   buildReceipt,
+  buildRangeReceipt,
+  RANGE_MAX_SPAN,
   VERIFY_STATE,
 } from '../../deploy/win/lib/evidence-verify.mjs'
 import { makeEntry, sha256, GENESIS } from '../security/lib/evidence-chain.mjs'
@@ -188,5 +190,104 @@ test('proofOf: 说明里必须写明从 GENESIS 起逐条串', () => {
   assert.match(p.formula, /sha256/)
   assert.match(p.note, /GENESIS/)
   assert.deepEqual(Object.keys(p.fields).sort(), ['hash', 'payloadHash', 'prevHash', 'seq', 'ts'])
+})
+
+/* ── 区间核验(第二十一件) ─────────────────────────────── */
+
+test('区间:完整区间必须报 complete:true 且 count===expected', () => {
+  const entries = chainOf(5)
+  const out = buildRangeReceipt({ entries, from: 1, to: 3 })
+  assert.equal(out.state, VERIFY_STATE.FOUND)
+  const r = out.receipt
+  assert.equal(r.count, 3)
+  assert.equal(r.expected, 3)
+  assert.equal(r.complete, true)
+  assert.deepEqual(r.gaps, [])
+  assert.deepEqual(r.broken, [])
+  assert.deepEqual(r.rows.map((x) => x.seq), [1, 2, 3])
+})
+
+test('区间:中间缺一条必须如实报缺口,不许"过滤掉缺的"冒充完整', () => {
+  const entries = chainOf(5)
+  /* 挖掉 seq=2,模拟链中间被挖走一段。剩下每条单独看都合法。 */
+  const holed = entries.filter((e) => e.seq !== 2)
+  const out = buildRangeReceipt({ entries: holed, from: 0, to: 4 })
+  const r = out.receipt
+  assert.equal(r.count, 4)
+  assert.equal(r.expected, 5)
+  assert.equal(r.complete, false)
+  assert.deepEqual(r.gaps, [2])
+  /* 3 的 prevHash 指向上一条(2)的 hash,而 2 不在区间里 ⇒ 必须记成断点 */
+  assert.equal(r.broken.length, 1)
+  assert.equal(r.broken[0].seq, 3)
+  assert.match(out.reason, /缺口|断点/)
+})
+
+test('区间:篡改一条的 hash 必须被本层独立验出断点', () => {
+  const entries = chainOf(4)
+  const tampered = entries.map((e) => (e.seq === 2 ? { ...e, hash: 'f'.repeat(64) } : e))
+  const out = buildRangeReceipt({ entries: tampered, from: 0, to: 3 })
+  const r = out.receipt
+  assert.equal(r.complete, false)
+  assert.deepEqual(r.broken.map((b) => b.seq), [3])
+})
+
+test('区间:第三方只拿 rows 按公式算,每一条都必须自洽且首尾相接', () => {
+  const entries = chainOf(4)
+  const out = buildRangeReceipt({ entries, from: 0, to: 3 })
+  const r = out.receipt
+  for (const row of r.rows) {
+    const re = createHash('sha256').update(`${row.seq}|${row.prevHash}|${row.ts}|${row.payloadHash}`).digest('hex')
+    assert.equal(re, row.hash, `seq=${row.seq} 自证失败`)
+  }
+  for (let i = 1; i < r.rows.length; i += 1) {
+    assert.equal(r.rows[i].prevHash, r.rows[i - 1].hash, `seq=${r.rows[i].seq} 与上一条接不上`)
+  }
+  /* 区间首条的 prevHash 必须能被拿去查 from-1 */
+  assert.equal(r.headSeq, 0)
+  assert.equal(r.headPrevHash, GENESIS)
+  assert.equal(r.tailHash, r.rows[r.rows.length - 1].hash)
+})
+
+test('区间:from-1 存在时 headPrevHash 必须等于它的 hash(可续接)', () => {
+  const entries = chainOf(5)
+  const out = buildRangeReceipt({ entries, from: 2, to: 4 })
+  assert.equal(out.receipt.headPrevHash, entries[1].hash)
+})
+
+test('区间:跨度超限必须拒绝 —— 不设上限等于免费全量导出接口', () => {
+  const entries = chainOf(3)
+  const out = buildRangeReceipt({ entries, from: 0, to: RANGE_MAX_SPAN + 1 })
+  assert.equal(out.state, VERIFY_STATE.INVALID)
+  assert.match(out.reason, /跨度/)
+})
+
+test('区间:参数不合法必须判 invalid,不许当 0 处理', () => {
+  const entries = chainOf(3)
+  assert.equal(buildRangeReceipt({ entries, from: 'abc', to: '3' }).state, VERIFY_STATE.INVALID)
+  assert.equal(buildRangeReceipt({ entries, from: 3, to: 1 }).state, VERIFY_STATE.INVALID)
+  assert.equal(buildRangeReceipt({ entries, from: -1, to: 2 }).state, VERIFY_STATE.INVALID)
+  assert.equal(buildRangeReceipt({ entries, from: 1.5, to: 2 }).state, VERIFY_STATE.INVALID)
+})
+
+test('区间:锚必须取覆盖 to 的最早一环', () => {
+  const entries = chainOf(6)
+  const anchors = [
+    { payload: { v: 1, ts: '2026-11-25T01:00:00.000Z', count: 3, seq: 2, chainHead: entries[2].hash, prevAnchor: null }, anchorHash: 'a'.repeat(64) },
+    { payload: { v: 1, ts: '2026-11-25T02:00:00.000Z', count: 6, seq: 5, chainHead: entries[5].hash, prevAnchor: 'a'.repeat(64) }, anchorHash: 'b'.repeat(64) },
+  ]
+  assert.equal(buildRangeReceipt({ entries, anchors, from: 0, to: 2 }).receipt.anchor.ring, 1)
+  assert.equal(buildRangeReceipt({ entries, anchors, from: 0, to: 5 }).receipt.anchor.ring, 2)
+  /* 最后一环也盖不住 ⇒ 如实 null,不编 */
+  assert.equal(buildRangeReceipt({ entries, anchors: [], from: 0, to: 1 }).receipt.anchor, null)
+})
+
+test('区间:空 entries 仍然如实回 0 条 + 全缺口,而不是崩', () => {
+  const out = buildRangeReceipt({ entries: [], from: 0, to: 2 })
+  assert.equal(out.state, VERIFY_STATE.FOUND)
+  assert.equal(out.receipt.count, 0)
+  assert.equal(out.receipt.complete, false)
+  assert.deepEqual(out.receipt.gaps, [0, 1, 2])
+  assert.equal(out.receipt.headPrevHash, null)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -4,4 +4,4 @@
 Option Explicit
 Dim shell
 Set shell = CreateObject("WScript.Shell")
-shell.Run """C:\Program Files\nodejs\node.exe"" ""C:\IHUI-AI\scripts\relay-account-local-reextract.mjs"" --apply", 0, False
+shell.Run """D:\DevEnv\runtimes\node22-lts\node.exe"" ""D:\IHUI-AI\scripts\relay-account-local-reextract.mjs"" --apply", 0, False

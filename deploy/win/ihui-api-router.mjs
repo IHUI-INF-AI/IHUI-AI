@@ -37,7 +37,7 @@ import { shouldSniff, sniffBody, createRollingScanner } from './lib/body-sniff.m
 import { buildNotice, renderNotice, renderMinimal } from './lib/block-notice.mjs'
 import { createNoticeLedger, createNoticeWriter } from './lib/notice-ledger.mjs'
 import { identifyTool } from './lib/tool-fingerprint.mjs'
-import { buildReceipt, VERIFY_STATE } from './lib/evidence-verify.mjs'
+import { buildReceipt, buildRangeReceipt, VERIFY_STATE } from './lib/evidence-verify.mjs'
 
 // ── 通用化(2026-10-28 生产席:web 蓝绿复用同一份 router,不落第二份反代实现)────────
 // 立因:web 走蓝绿也要一个"常驻监听 + 原子切流"的入口层,而另写一份 router 就是第二个真相源
@@ -545,6 +545,31 @@ const server = http.createServer(async (req, res) => {
     if (!loaded.entries) {
       /* 取不到输入 = 未判定,如实回 503,不用 found:false 冒充"查无此号" */
       sendJson(res, 503, { code: 503, message: 'evidence store unavailable' })
+      return
+    }
+    /* 批量区间核验(2026-11-25,第二十一件)。
+       单个编号只证明「这一条在册且未改」,证明不了「这一整段连续」——
+       中间被挖掉一段再补一段,每条单独看都合法。区间回执由本层
+       独立验首尾相接并把缺口如实列出来。
+       形态:GET /__evidence/range?from=<seq>&to=<seq>
+       同一前缀 ⇒ 与单条同一道 WAF、同一份缓存、同一套「只回哈希」纪律。 */
+    const qIndex = ev.indexOf('?')
+    const head2 = qIndex === -1 ? ev : ev.slice(0, qIndex)
+    const qs = qIndex === -1 ? '' : ev.slice(qIndex + 1)
+    if (head2 === 'range') {
+      const params = new URLSearchParams(qs)
+      const rangeOut = buildRangeReceipt({
+        entries: loaded.entries,
+        anchors: loaded.anchors,
+        from: params.get('from'),
+        to: params.get('to'),
+      })
+      if (rangeOut.state === VERIFY_STATE.INVALID) {
+        sendJson(res, 400, { code: 400, message: rangeOut.reason })
+        return
+      }
+      /* 区间有缺口/断点仍是 200:它是真实结论,不是请求错误。用 complete:false 表达。 */
+      sendJson(res, 200, rangeOut.receipt)
       return
     }
     const out = buildReceipt({
