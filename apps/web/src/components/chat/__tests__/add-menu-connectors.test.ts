@@ -35,16 +35,40 @@ describe('输入框加号菜单的连接器只读挂载(2026-11-25)', () => {
     expect(input).toContain('connectorsMounted={selectedToolsIds.includes(CONNECTORS_TOOL_ID)}')
   })
 
-  it('虚拟 pluginId 只映射到两个只读工具,绝无写类工具', () => {
+  it('虚拟 pluginId 映射到 2 读 + 2 写四枚工具,含写能力发现与审批执行', () => {
     const cfg = readFileSync(
       resolve(process.cwd(), 'src/hooks/use-chat/tool-config.ts'), 'utf8',
     )
-    expect(cfg).toContain("'connectors-readonly': ['connector_capabilities', 'connector_call_read']")
-    const line = cfg.split('\n').find((l) => l.includes("'connectors-readonly':"))
-    expect(line).toBeDefined()
-    for (const forbidden of ['invoke', 'write', 'action', 'send', 'delete']) {
-      expect(line!.toLowerCase()).not.toContain(forbidden)
+    // 逐一锚定四枚工具名,避免只挂读工具却宣称支持写(造好没装车同型)
+    for (const tool of [
+      'connector_capabilities',
+      'connector_call_read',
+      'connector_write_capabilities',
+      'connector_call_write',
+    ]) {
+      expect(cfg, `映射缺 ${tool}`).toContain(`'${tool}'`)
     }
+    const keyIdx = cfg.indexOf("'connectors-readonly': [")
+    expect(keyIdx).toBeGreaterThan(-1)
+    const block = cfg.slice(keyIdx, cfg.indexOf(']', keyIdx))
+    expect(block).toContain('connector_call_write')
+    expect(block).toContain('connector_write_capabilities')
+  })
+
+  it('写工具 connector_call_write 在两条 tool loop 均判 high(触发审批门)', () => {
+    // 判 high 是写操作"AI 执行但需人批准"的核心安全闸:漏一处 ⇒ 该 loop 下无审批直写
+    const llm = readFileSync(
+      resolve(process.cwd(), '../../apps/ai-service/app/routers/llm.py'), 'utf8',
+    )
+    expect(llm).toMatch(/"connector_call_write"\s*:\s*"high"/)
+    const agentLoop = readFileSync(
+      resolve(process.cwd(), '../../apps/ai-service/app/services/agent_loop_v2.py'), 'utf8',
+    )
+    // 默认高危集 + 运行时注入登记两处都要有(后者是判据盲区豁免)
+    const hits = agentLoop.split('\n').filter((l) => l.trim() === '"connector_call_write",')
+    expect(hits.length, 'agent_loop_v2 需在主高危集与 BRIDGE_ENTRY_RUNTIME_TOOLS 各登记一次').toBeGreaterThanOrEqual(2)
+    // 只读工具不得误入高危集(免审批查询能力必须保留)
+    expect(llm).not.toMatch(/"connector_call_read"\s*:\s*"high"/)
   })
 
   it('五语均有 nav.connectors 标签(非纯中文硬编码)', () => {

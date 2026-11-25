@@ -216,7 +216,8 @@ pub async fn open_browser_pip_window(
                 .always_on_top(true)
                 .skip_taskbar(true)
                 .focused(false)
-                .decorations(true)
+                .decorations(false)
+                .shadow(true)
                 .initialization_script(&build_script)
                 .build()
                 .map_err(|e| format!("打开 AI 画中画窗口失败: {e}"))?;

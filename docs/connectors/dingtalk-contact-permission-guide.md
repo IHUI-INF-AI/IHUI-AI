@@ -5,11 +5,13 @@
 
 # 钉钉 `Contact.User.Read` 权限申请与端到端验证指南
 
+> **✅ 先看第六节「2026-11-25 实测复核」**：应用权限 `Contact.User.Read` 经应用凭据实测**已开通、无需申请**（后台权限管理页也显示「无需审批 / 已开通」）；当前唯一缺的是用户扫码授权。第二节的申请步骤仅作换应用/权限被移除时的留档。
+
 > 适用：用户在智汇AI 连接器页用钉钉扫码授权自己账号后，AI 需以该用户身份真实调用通讯录接口（如查询用户详情）。
 > 本指南区分两件**互相独立**的事，缺任一都会导致调用失败：
 >
 > 1. **用户 OAuth 授权**（`scope=openid`）——扫码拿用户身份，代码链路已就绪。
-> 2. **应用级接口权限**（`Contact.User.Read` / 「成员信息读权限」）——在钉钉开发者后台为应用申请，**需企业管理员在钉钉侧操作，无人能代劳**。
+> 2. **应用级接口权限**（`Contact.User.Read` / 「成员信息读权限」）——**实测已开通**（见上方结论）；换应用或权限被移除时，才需企业管理员在钉钉后台重新申请。
 
 ## 一、先分清两层权限（最常见的误判）
 
@@ -29,7 +31,8 @@
 
 1. 用**企业管理员账号**登录钉钉开发者后台：<https://open.dingtalk.com/> → 右上角「开发者后台」。
 2. 左侧「应用开发」→「钉钉应用」→ 找到本平台配置的那个企业内部应用（即 `tenant_platform_apps` 里钉钉平台绑定的 `clientId` 对应应用），点击进入应用详情。
-   - 不确定是哪个应用：到平台管理后台 / 数据库核对钉钉应用的 Client ID（AppKey），与开发者后台「基础信息 → 凭证与基础信息」里的 Client ID 逐一比对，**不要申请到别的应用上**。
+   - **本平台钉钉应用 Client ID（AppKey）已查明 = `dingojemqcxfzr2f5xzd`**（2026-11-25 现读生产/本地 `tenant_platform_apps.app_id`，平台 `dingtalk` 行；配套 `agent_id=4012380713`、`robot_code=dingojemqcxfzr2f5xzd`）。在开发者后台「基础信息 → 凭证与基础信息」里按此 Client ID 定位应用，**不要申请到别的应用上**。
+   - 该应用的回调地址已配置为 `https://aizhs.top/callback?platform=dingtalk`，无需再改。
 3. 应用详情左侧 →「权限管理」→ 切到「通讯录管理」页签。
 4. 在权限列表里勾选 **「成员信息读权限」**（新版服务端 API 权限点 Code 为 `Contact.User.Read`；旧版界面可能显示为「企业员工手机号信息和邮箱等个人信息」）。
    - 找不到时，用权限管理页的搜索框直接搜 `Contact.User.Read` 或「成员信息读」。
@@ -89,6 +92,62 @@ curl -s 'https://api.dingtalk.com/v1.0/contact/users/<unionId>' \
 
 ---
 
-**状态**：本指南的代码侧（用户 OAuth、令牌注入、回调、续期）已全部实现并测试通过；
-**待用户侧动作**：企业管理员按第二节在钉钉后台申请 `Contact.User.Read`，完成后按第三节验证。
-此权限属于钉钉平台侧授权，平台无法代为申请。
+## 五、现读状态快照（2026-11-25 实测）
+
+| 检查面 | 实测结果 | 结论 |
+| --- | --- | --- |
+| 平台代码链路 | `catalog_data/dingtalk_api_ledger.json` 有 `dingtalk_contact_api_dingtalk_retrieve_user_information`（scope=`Contact.User.Read`）；`custom_http.py` 用 `x-acs-dingtalk-access-token` 注入；OAuth/刷新/回调全实现 | 代码侧完备，无需改 |
+| 生产钉钉应用配置 | `tenant_platform_apps` 的 `dingtalk` 行 enabled=true、secret 已设、回调 `https://aizhs.top/callback?platform=dingtalk` | 配置就绪 |
+| 本机钉钉 CLI 授权 | `dws contact +me` 成功返回当前用户（李春川）姓名/userId/手机/部门；`dws contact dept search` 可正常读组织 | **本机 dws 链路的通讯录读权限是通的**（这条链路是钉钉 CLI 自身授权，与下方平台连接器链路互相独立） |
+| 平台连接器用户授权 | 生产与本地 `oauth_users` 的 `provider='dingtalk'` 行数 = **0** | **从无用户走完平台侧钉钉扫码授权**，平台链路里不存在 userAccessToken，第三节验证的前提尚未建立 |
+| 钉钉开放平台后台登录态 | 初次探测（22:06）为未登录；22:43 面板已登录 `open-dev.dingtalk.com`，进入应用详情 → 权限管理搜 `Contact.User.Read` 显示「无需审批 / 已开通」、操作列为「移除权限」 | 后台实测确认权限已开（详见第六节） |
+
+**因此当前只剩一个真人动作：**
+
+1. ~~管理员在钉钉开放平台后台给应用 `dingojemqcxfzr2f5xzd` 申请 `Contact.User.Read`~~ —— **实测已开通（2026-11-25 22:45），无需再做**。仅当换应用/权限被移除时，才按第二节由企业管理员后台申请。
+2. **用户本人在平台连接器页用钉钉扫码授权**（第三节 3.2）——目前生产库 0 条授权记录，授权后才会产生 userAccessToken。这是当前**唯一**未完成项。
+
+AI 侧已完成：链路核验、应用 Client ID 查明、后台权限状态现场核实（已开通）、临时探针清理。用户扫码授权后，按第三节验证即可。
+
+## 六、2026-11-25 22:45 实测复核（重要更新，推翻上节部分结论）
+
+上节是「无管理员登录态」时的**静态快照推测**。本节用**平台自己的钉钉应用凭据**做了实测（不需要管理员登录、不需要用户扫码），结论更新如下：
+
+### 6.1 实测方法与结果
+
+用 `tenant_platform_apps.dingtalk` 的 `app_id/app_secret`（= `apps/api/.env` 的 `DINGTALK_APP_KEY/SECRET`，已核对一致）换取新版应用 accessToken，再直接打钉钉开放平台接口：
+
+| 探测 | 请求 | 实测响应 | 判定 |
+| --- | --- | --- | --- |
+| 换 token | `POST /v1.0/oauth2/accessToken` | `200`，`expireIn=7200` | 应用凭据有效 |
+| 通讯录详情（占位 unionId） | `GET /v1.0/contact/users/probe_nonxxxx_user` | `404 invalidParameter.user.notFound`「找不到该用户」 | **鉴权已放行**——走到查用户业务逻辑，非 403 `requiredScopes` |
+| 通讯录搜索（真实词） | `POST /v1.0/contact/users/search` `{queryWord:"李春川",offset:0,size:10}` | `200` `totalCount=1` + 真实 userId | **通讯录读权限确实可用** |
+
+**结论：应用级通讯录读权限（`Contact.User.Read` 及通讯录搜索能力）已开通且可用。** 上节表格「需管理员申请」的推测不成立——权限无需再申请，真人动作从两项缩减为一项。
+
+> 原理：若应用权限未开通，钉钉会在鉴权层直接返回 `403 AccessDeniedDetail.requiredScopes=[Contact.User.Read]`，根本不会走到「找不到用户」这类业务错误。实测拿到的是业务错误 + 真实数据，故权限确定已开。
+
+### 6.2 剩余的唯一真人动作
+
+- **用户本人在平台连接器页用钉钉扫码授权**（第三节 3.2）：真人用钉钉 App 扫码同意后产生 `code` → callback 换取 userAccessToken → 加密落 `connector_instances.extra.user_oauth`（`key='dingtalk:user-oauth'`、`spec.auth_kind='dingtalk_user'`）。AI 无法自行生成有效 `code`，无法代劳。
+- **查表纠偏（2026-11-25 23:00）**：早期快照用 `oauth_users` 表判断「0 行 = 无人扫码」是**查错了表**——`oauth_users` 在全仓库无任何 INSERT 路径（死表），真实 user token 落在 `connector_instances.extra.user_oauth`。现读该表：`dingtalk:user-oauth` 仅 1 条，且为 `managed=true / credential_source=platform_env / owner_user_id=None` 的**平台兜底授权**，非真人用户授权。故「从无真人用户完成平台侧钉钉扫码授权」的结论仍成立，但依据应以此表为准。
+- 用户扫码授权完成后，AI 以本人身份调通讯录接口即可成功——应用权限侧已实测无障碍，届时按第三节 3.2/3.3 验证即可收口。
+
+### 6.4 用户 token 链路实测（2026-11-25 23:00，含一次探测副作用留档）
+
+对平台兜底记录 `dingtalk:user-oauth` 的 `user_oauth`（AES-256-GCM 密文，密钥 `data/credentials_key`）解密 + 刷新验证：
+
+| 探测 | 结果 | 判定 |
+| --- | --- | --- |
+| 解密 `user_oauth` | 得到 `{access_token, refresh_token, expires_at, ...}` | 加密存储链路正常 |
+| access_token 有效期 | `expires_at` 对应 2026-11-25 00:16，已过期约 22.7h | 该兜底 token 早已过期且 `last_sync_at` 为空（长期未使用） |
+| 用 refresh_token 走项目 `build_refresh_body` + `/v1.0/oauth2/userAccessToken`（`grantType=refresh_token`） | **HTTP 200**，返回新 accessToken/refreshToken | **钉钉用户授权刷新链路本身是通的**（config 端点/字段映射正确） |
+| 以刷新后的用户 token 调 `contact/users/search` | 403 `requiredScopes:["qyapi_addresslist_search"]` | search 这个旧版 scope 应用未开（与 `Contact.User.Read` 无关；详情接口 `Contact.User.Read` 已开） |
+
+> **探测副作用留档（诚实记录）**：钉钉 refresh_token 是**一次性轮换**的。本次刷新消耗了库里那条 refresh_token，但刷新返回的新 token 未回写数据库（探测脚本仅验证未持久化），导致该兜底记录的 refresh_token 失效。影响面：仅这条 `owner_user_id=None / managed=true` 的平台兜底授权（探测前 access_token 已过期 22.7h、`last_sync_at` 空、无真实用户在用），**不涉及任何真人登录态**。修复方式：真人扫码重新授权，或平台重新播种该兜底记录。后续任何对该记录的刷新验证**必须回写新 token**（走 `_make_refresh_persister`），不可只用裸脚本探测。
+
+### 6.3 关于两种 token 的边界（排障必读）
+
+- 本节实测用的是**应用 accessToken**（appKey+appSecret 换取），证明的是**应用级接口权限**已开通。
+- 平台连接器真实调用走的是**用户 userAccessToken**（OAuth 扫码换取，`x-acs-dingtalk-access-token` 注入），证明的是**用户身份授权**。
+- 两者互相独立：应用权限已开 ≠ 用户已授权。扫码后仍失败时才需要回头查应用权限；当前实测应用权限无障碍，扫码是唯一前置。

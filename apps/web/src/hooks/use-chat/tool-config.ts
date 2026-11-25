@@ -372,10 +372,17 @@ export const PLUGIN_ID_TO_TOOLS: Record<string, readonly string[]> = {
   e2b: ['run_command'],
   'github-mcp': ['run_command'],
   langgraph: ['run_command'],
-  // 连接器只读能力(2026-11-25):虚拟 pluginId,挂载后把连接器能力发现/只读调用
-  // 两个 MCP 工具并入 agentTools。后端 handler 只对当前用户已授权连接器放行
-  // list/search/fetch,action 写操作不进工具面;切勿在此加入任何写类工具。
-  'connectors-readonly': ['connector_capabilities', 'connector_call_read'],
+  // 连接器能力(2026-11-25 立,同日扩写):虚拟 pluginId,挂载后把连接器读 + 写四枚
+  // MCP 工具并入 agentTools。只读 connector_call_read 免审批;写 connector_call_write
+  // 在后端 llm.py/agent_loop_v2 判 high,执行前必弹审批帧,用户批准才真正执行。
+  // 后端 handler 只对当前用户已授权连接器放行,身份服务端注入、confirm 恒 True。
+  // 新增工具须同步后端注册面与其高危映射,勿只改一侧造成"模型看得见但调不动"。
+  'connectors-readonly': [
+    'connector_capabilities',
+    'connector_call_read',
+    'connector_write_capabilities',
+    'connector_call_write',
+  ],
 } as const
 
 /**

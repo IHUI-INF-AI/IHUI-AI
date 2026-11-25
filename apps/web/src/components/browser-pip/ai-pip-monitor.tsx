@@ -17,6 +17,7 @@ import {
   Play,
   RefreshCw,
   WifiOff,
+  X,
 } from 'lucide-react'
 import { buildBrowserWsUrl, setBrowserWsToken } from '@ihui/api-client'
 
@@ -29,7 +30,7 @@ import {
   type BrowserPipPhase,
   type BrowserPipStatusKind,
 } from '@/lib/browser-pip-core'
-import { handoverAiPipWindow, isTauri } from '@/lib/tauri-bridge'
+import { handoverAiPipWindow, closeAiPipWindow, isTauri } from '@/lib/tauri-bridge'
 import { useAuthStore } from '@/stores/auth'
 
 const KIND_COLOR: Record<BrowserPipStatusKind, string> = {
@@ -97,6 +98,9 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
   const [pinned, setPinned] = useState(true)
   const [pinBusy, setPinBusy] = useState(false)
   const [taskExpanded, setTaskExpanded] = useState(false)
+  // `isTauri()` 在 SSR 恒为 false、客户端首帧为 true;直接写进 JSX 会触发
+  // hydration mismatch。先渲染与 SSR 一致的 false,挂载后再显示桌面控件。
+  const [tauriHost, setTauriHost] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
@@ -135,7 +139,9 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     // 独立窗的 native 标题在 Windows 上会被外壳窗控落成应用名;页面加载完
     // 再显式写一次,任务栏/Alt-Tab 才认得出这是「AI 画中画监看」。
-    if (!isTauri()) return
+    const host = isTauri()
+    setTauriHost(host)
+    if (!host) return
     void import('@tauri-apps/api/window')
       .then(({ getCurrentWindow }) => getCurrentWindow().setTitle('AI 画中画监看'))
       .catch(() => {
@@ -186,6 +192,18 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
     setLastFrameAt(0)
     setHasFrame(false)
     setReconnectKey((key) => key + 1)
+  }, [])
+
+  const onClose = useCallback(() => {
+    if (!isTauri()) {
+      window.close()
+      return
+    }
+    // 独立窗无原生标题栏后,关闭由页面接管;命令走 Rust close() 保留
+    // CloseRequested 的几何落盘与 closed 事件,不能只做 window.close()。
+    void closeAiPipWindow().catch(() => {
+      window.close()
+    })
   }, [])
 
   useEffect(() => {
@@ -366,27 +384,33 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
       )}
 
       <header
-        data-tauri-drag-region
         className="absolute inset-x-0 top-0 z-30 flex h-8 flex-none items-center gap-1.5 border-b border-white/[0.07] px-2 backdrop-blur-md"
         style={{ backgroundColor: HEADER_BG[status.kind] }}
       >
-        <span
-          className="h-1.5 w-1.5 flex-none rounded-full"
-          style={{ background: KIND_COLOR[status.kind] }}
-        />
-        <span
-          className="min-w-0 flex-1 truncate text-[10.5px] font-medium tracking-wide"
-          style={{ color: KIND_COLOR[status.kind] }}
-          title={statusLabel}
+        <div
+          data-tauri-drag-region
+          className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch"
         >
-          {statusLabel}
-        </span>
+          <span
+            data-tauri-drag-region
+            className="h-1.5 w-1.5 flex-none rounded-full"
+            style={{ background: KIND_COLOR[status.kind] }}
+          />
+          <span
+            data-tauri-drag-region
+            className="min-w-0 flex-1 truncate text-[10.5px] font-medium tracking-wide"
+            style={{ color: KIND_COLOR[status.kind] }}
+            title={statusLabel}
+          >
+            {statusLabel}
+          </span>
+        </div>
         <div className="flex flex-none items-center gap-0.5">
           <span className="inline-flex h-5 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-1.5 text-[9px] text-slate-300">
             <Lock className="h-2.5 w-2.5" />
             {labels.readOnly}
           </span>
-          {isTauri() && (
+          {tauriHost && (
             <button
               type="button"
               onClick={() => void togglePin()}
@@ -407,6 +431,15 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
           >
             <RefreshCw className={`h-3 w-3 ${status.kind === 'connecting' ? 'animate-spin' : ''}`} />
           </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={labels.close}
+            title={labels.close}
+            className="grid h-6 w-6 place-items-center rounded-md text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-300"
+          >
+            <X className="h-3 w-3" />
+          </button>
         </div>
       </header>
 
@@ -418,15 +451,30 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
               onClick={() => setTaskExpanded(true)}
               aria-expanded={false}
               aria-label={labels.expandTask}
-              className={`flex h-7 w-full items-center gap-1.5 border-b border-white/[0.06] px-2.5 text-left backdrop-blur-sm transition-colors ${
+              className={`flex h-9 w-full items-center gap-1.5 border-b border-white/[0.06] px-2.5 text-left backdrop-blur-sm transition-colors ${
                 warn
-                  ? 'bg-amber-500/[0.08] hover:bg-amber-500/[0.12]'
-                  : 'bg-black/35 hover:bg-white/[0.05]'
+                  ? 'hover:bg-amber-900/90'
+                  : 'hover:bg-slate-800/90'
               }`}
+              style={{
+                backgroundColor: warn ? 'rgba(69,26,3,0.92)' : 'rgba(7,10,15,0.92)',
+              }}
             >
               <ListChecks className="h-3 w-3 flex-none text-slate-400" />
-              <span className="min-w-0 flex-1 truncate text-[10.5px] font-medium text-slate-200">
-                {taskView.task.goal}
+              <span className="flex min-w-0 flex-1 flex-col justify-center">
+                <span className="truncate text-[10.5px] font-medium leading-snug text-slate-200">
+                  {taskView.task.goal}
+                </span>
+                {taskView.task.requirements.length > 0 && (
+                  <span
+                    className="truncate text-[8.5px] leading-tight text-slate-200/80"
+                    title={taskView.task.requirements.join(' · ')}
+                  >
+                    {labels.requirements}
+                    {' · '}
+                    {taskView.task.requirements.join(' · ')}
+                  </span>
+                )}
               </span>
               <span className="flex-none text-[9px] tabular-nums text-slate-400">
                 {labels.checkpointProgress(taskView.done, taskView.total)}

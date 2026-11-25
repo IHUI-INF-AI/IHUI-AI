@@ -47,6 +47,10 @@ import { logger } from '../../utils/logger.js'
 import { runAnalysis } from './analysis-runner.js'
 import { BridgeAdapter } from './bridge-adapter.js'
 import { HUB_LOGGER, buildContext, createAdapter, loadRuntime } from './adapter-factory.js'
+import {
+  listArchivedMomentMedia,
+  readArchivedMomentMedia,
+} from './local-media.js'
 import type {
   WechatAdapter,
   WechatBridgeArchiveRead,
@@ -497,6 +501,14 @@ export class WechatHubManager {
     momentId: string,
   ): Promise<WechatMomentMediaFile[]> {
     await this.assertAccount(userId, accountId)
+    // 归档已记下真实落盘目录时，直接从本机磁盘读，不依赖 bridge 在线。
+    let archived: WechatMomentMediaFile[] | null = null
+    try {
+      archived = await listArchivedMomentMedia(accountId, momentId)
+    } catch {
+      archived = null
+    }
+    if (archived !== null) return archived
     const adapter = this.adapters.get(accountId)
     if (!adapter?.listMomentMedia) {
       throw new AppError(
@@ -524,6 +536,15 @@ export class WechatHubManager {
     name: string,
   ): Promise<WechatMomentMediaRead> {
     await this.assertAccount(userId, accountId)
+    // 归档本地文件优先；文件不存在才回落到在线 bridge。
+    let archived: WechatMomentMediaRead | null = null
+    try {
+      archived = await readArchivedMomentMedia(accountId, momentId, name)
+    } catch (e) {
+      if (e instanceof AppError) throw e
+      archived = null
+    }
+    if (archived) return archived
     const adapter = this.adapters.get(accountId)
     if (!adapter?.readMomentMedia) {
       throw new AppError(
