@@ -339,6 +339,9 @@ function mapTaskRow(r: Record<string, unknown>): DeviceTask {
     attempt: Number(r['attempt'] ?? 1),
     agentSessionId: (r['agent_session_id'] as string | null) ?? null,
     startedAt: (r['started_at'] as Date | null) ?? null,
+    // G3:审批两列 —— 列表/详情据此判断"有没有计划可看、批没批",正文不随行下发
+    approvalRequest: (r['approval_request'] as DeviceTask['approvalRequest']) ?? null,
+    approvalDecision: (r['approval_decision'] as DeviceTask['approvalDecision']) ?? null,
     createdAt: r['created_at'] as Date,
     createdBy: String(r['created_by']),
   }

@@ -2579,7 +2579,13 @@
     "statusFailed": "失敗",
     "statusExpired": "已過期",
     "taskCancel": "取消任務",
-    "delegatePromptPlaceholder": "留空則執行此對話的最後一則訊息"
+    "delegatePromptPlaceholder": "留空則執行此對話的最後一則訊息",
+    "approvalView": "審批",
+    "approvalTitle": "執行計畫",
+    "approvalClose": "收起",
+    "approvalApprove": "同意執行",
+    "approvalReject": "拒絕",
+    "approvalEmpty": "執行端沒有留下計畫正文"
   },
   "pendingDecisions": {
     "title": "我的待決策",

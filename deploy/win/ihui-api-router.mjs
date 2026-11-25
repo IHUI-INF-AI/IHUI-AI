@@ -29,6 +29,7 @@ import {
   buildRejectionFrame,
   decideUpgradeAdmission,
   resolveRouterMaxConnections,
+  resolveUpgradeTarget,
 } from './lib/edge-admission.mjs'
 import { applySecurityHeaders, resolveSecurityHeaderMode } from './lib/response-security.mjs'
 import { inspectBody, inspectRequest, resolveWafMode, summarizeHits } from './lib/waf-signatures.mjs'
@@ -58,6 +59,9 @@ const DEFAULT_PORTS = {
   blue: Number(process.env.IHUI_BG_PORT_BLUE || 8842),
   green: Number(process.env.IHUI_BG_PORT_GREEN || 8843),
 }
+// 浏览器画中画画面流由 ai-service 直供(不是蓝绿 HTTP 上游);详见
+// lib/edge-admission.mjs::resolveUpgradeTarget 的立因。
+const BROWSER_WS_PORT = Number(process.env.IHUI_BG_BROWSER_WS_PORT || 8803)
 // 健康判据也要随被代理的那一个应用走:api 探 /api/health 要 `"status":"ok"`,
 // web 探首页要 `<!DOCTYPE html`。缺省仍是 api 口径 ⇒ 现有 router 实例行为不变。
 const HEALTH_PATH = process.env.IHUI_BG_HEALTH_PATH || '/api/health'
@@ -856,7 +860,13 @@ server.on('upgrade', (req, socket, head) => {
     }
   }
 
-  const port = upstreams()[0]
+  const target = resolveUpgradeTarget({
+    url: req.url,
+    activePort: upstreams()[0],
+    browserWsPort: BROWSER_WS_PORT,
+    upstreamHost: UPSTREAM_HOST,
+  })
+  const port = target.port
   // WS 握手同样要过 IP 归一:API 侧的 ws-guard 拿这个头当单 IP 并发/握手的限流键,
   // 原样透传客户端头就等于把限流开关交出去。
   const forwardHeaders = buildForwardHeaders({
@@ -867,7 +877,7 @@ server.on('upgrade', (req, socket, head) => {
     // 同 HTTP 分支:内部 API 路由透传 verified,公网路由不信任入站该头。
     trustInboundVerified: LISTEN_HOST === '127.0.0.1',
   })
-  upSocket = net.connect(port, UPSTREAM_HOST, () => {
+  upSocket = net.connect(port, target.host, () => {
     const lines = [`${req.method} ${req.url} HTTP/1.1`]
     for (const [k, v] of Object.entries(forwardHeaders)) {
       lines.push(`${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
@@ -878,7 +888,7 @@ server.on('upgrade', (req, socket, head) => {
     socket.pipe(upSocket)
   })
   upSocket.on('error', (err) => {
-    log('warn', 'ws upstream error', { port, code: err.code, url: req.url })
+    log('warn', 'ws upstream error', { port, host: target.host, target: target.target, code: err.code, url: req.url })
     socket.destroy()
   })
   socket.on('close', () => {

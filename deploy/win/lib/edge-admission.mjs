@@ -27,6 +27,40 @@ import { decideEdgeGuard } from './edge-origin-guard.mjs'
 import { isLoopbackAddress } from './ip-rate-limit.mjs'
 
 /**
+ * WebSocket 上游选择(2026-11-26)。
+ *
+ * 立因:浏览器画中画的画面流是 **ai-service** 自己提供的 WS(`/api/browser/ws/{sid}`),
+ * 而 web / API 两个蓝绿 router 的升级分支此前一律转发给"当前活跃配色"的 HTTP 上游。
+ * 线上实测该路径被 Next.js / Node API 接住并回 404,画中画因此永远停在"画面已断开"。
+ * 这是纯粹的入口接线缺口,不是 R7 收起逻辑的问题 —— 把路径判定抽成纯函数,
+ * 让"哪条 upgrade 走 ai-service、哪条照旧走蓝绿"可单测钉住,而不是靠线上手测。
+ *
+ * 缺省端口 8803 与 ai-service 在本机的监听一致;env 仅用于换机/换端口,
+ * 不设时行为对非 browser-ws 路径逐字不变。
+ *
+ * @param {object} input
+ * @param {string} [input.url]            握手请求行 URL(可带 query)
+ * @param {number} input.activePort       当前蓝绿配色的上游端口
+ * @param {number} [input.browserWsPort]  ai-service browser-ws 端口
+ * @param {string} [input.upstreamHost]   上游主机
+ * @returns {{port: number, host: string, target: 'browser-ws'|'active-color'}}
+ */
+export function resolveUpgradeTarget({
+  url,
+  activePort,
+  browserWsPort = 8803,
+  upstreamHost = '127.0.0.1',
+}) {
+  const path = String(url || '').split('?')[0]
+  const isBrowserWs =
+    path === '/api/browser/ws' || path.startsWith('/api/browser/ws/')
+  if (isBrowserWs && Number.isInteger(browserWsPort) && browserWsPort > 0) {
+    return { port: browserWsPort, host: upstreamHost, target: 'browser-ws' }
+  }
+  return { port: activePort, host: upstreamHost, target: 'active-color' }
+}
+
+/**
  * WebSocket 握手准入。
  *
  * 两道闸的顺序与 HTTP 分支保持一致:先回源鉴权、后限流。

@@ -115,6 +115,16 @@ export const deviceTasks = pgTable(
     attempt: integer('attempt').default(1).notNull(),
     agentSessionId: varchar('agent_session_id', { length: 64 }),
     startedAt: timestamp('started_at', { withTimezone: true }),
+    /**
+     * 审批请求(2026-11-26,G3):plan 档执行端出完方案停住时,把计划正文交上来。
+     * `{ plan, requestedAt, iterations? }` —— 正文最长可到几万字,不塞 progress(那是列表一行摘要)。
+     */
+    approvalRequest: jsonb('approval_request'),
+    /**
+     * 审批决策:`{ decision: 'approved'|'rejected', at, by }`。
+     * 决策只写一次(有 request 才可决策,重复决策 409);执行端从 lease 轮询读到它继续/收口。
+     */
+    approvalDecision: jsonb('approval_decision'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     createdBy: uuid('created_by')
       .references(() => users.id, { onDelete: 'cascade' })
