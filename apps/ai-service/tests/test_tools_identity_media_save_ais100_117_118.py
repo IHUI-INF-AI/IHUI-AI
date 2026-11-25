@@ -7,7 +7,7 @@
 - AIS-100:codebase-index 的出域同意与索引归属主体必须只从承载层令牌取,
   请求体 `user_id` 不再被接受(旧码直接读 body ⇒ 任意登录用户可冒名恢复出域、
   把索引归属记到受害者)。
-- AIS-117:video_generation 的 token6688 / agnes 两个专用分支在落盘块之前 return,
+- AIS-117:video_generation 的专用分支曾在落盘块之前 return,
   `save_path` 被静默丢弃(agnes 载荷硬编码 `saved_path: None`)⇒ 回执 ok=true
   但盘上无文件、连白名单校验都没做。本夹具要求两条专用分支都真的落盘、
   且非法路径在专用分支同样被拒。
@@ -95,43 +95,9 @@ async def test_codebase_index_refresh_uses_request_principal(
 # ---------------------------------------------------------------------------
 
 
-class _T6688Inst:
-    async def generate_video(self, prompt, model, **kw):
-        return {"task_id": "t-117", "model": model or "m"}
-
-    async def get_task_status(self, tid):
-        return {"ok": True, "status": "completed", "video_url": "https://x/v117.mp4"}
-
-
 class _AgnesInst:
     async def get_task_status(self, tid):
         return {"status": "completed", "video_url": "https://x/a117.mp4"}
-
-
-async def test_video_token6688_path_persists_save_path(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """token6688 分支拿到成片后必须按 save_path 落盘。"""
-    _allow_roots(monkeypatch, tmp_path)
-    target = tmp_path / "t6688.mp4"
-    monkeypatch.setattr(
-        "app.services.video_generation._instantiate",
-        lambda p: _T6688Inst() if p == "token6688" else None,
-    )
-
-    async def _fake_download(url, client):
-        return b"V" * 10
-
-    monkeypatch.setattr("app.services.mcp_server._download_media_bytes", _fake_download)
-    monkeypatch.setenv("VIDEO_TOOL_WAIT_S", "15")
-
-    out = await mcp_server._tool_video_generation(
-        {"prompt": "x", "provider": "token6688", "save_path": str(target)}
-    )
-    assert out["ok"] is True, out
-    assert out["saved_path"] == str(target), out
-    assert out["file_size_bytes"] == 10, out
-    assert target.exists() and target.read_bytes() == b"V" * 10
 
 
 async def test_video_agnes_path_persists_save_path(
@@ -176,18 +142,21 @@ async def test_video_specialized_branch_rejects_illegal_save_path(
     outside = tmp_path / "outside" / "escape.mp4"
     outside.parent.mkdir()
     _allow_roots(monkeypatch, allowed)
-    monkeypatch.setattr(
-        "app.services.video_generation._instantiate",
-        lambda p: _T6688Inst() if p == "token6688" else None,
-    )
-    async def _fake_download(url, client):
-        return b"V" * 10
 
-    monkeypatch.setattr("app.services.mcp_server._download_media_bytes", _fake_download)
-    monkeypatch.setenv("VIDEO_TOOL_WAIT_S", "15")
+    async def _submit(inst, prompt, model, **kw):
+        return (
+            {"task_id": "a-117", "video_url": "https://x/a117.mp4", "model": model or "m"},
+            "",
+            False,
+        )
+
+    monkeypatch.setattr(mcp_server, "_agnes_submit_with_retry", _submit)
+    monkeypatch.setattr(
+        "app.services.video_generation._instantiate", lambda p: _AgnesInst()
+    )
 
     out = await mcp_server._tool_video_generation(
-        {"prompt": "x", "provider": "token6688", "save_path": str(outside)}
+        {"prompt": "x", "provider": "agnes", "save_path": str(outside)}
     )
     assert out["ok"] is False, out
     assert out["errorCode"] == "PATH_NOT_ALLOWED", out

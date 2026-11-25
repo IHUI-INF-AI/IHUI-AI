@@ -85,7 +85,7 @@ groups:
     rules:
       # 模型清单同步连续失败(重):model_sync 连续 >=3 次拉不到厂商 /v1/models,provider 被标记 unhealthy。
       # 指标 `model_sync_provider_health`(gauge, 1=健康/0=降级)已确认持续采样
-      #   (实测 3 条:stepfun / agnes / token6688,均为 1)。注意它是 **Prometheus 指标**,
+      #   (实测多条 provider 均为 1)。注意它是 **Prometheus 指标**,
       #   不是数据库表 —— 曾经有运维拿这个名字去 psql 查表,当然查不到。
       # ⚠ 文案为什么改(2026-10-18 立):原文案写"LLM provider 不健康(疑似 402/配额超限)",
       #   但本条判据来源是 **model_sync 的同步健康度**,与"LLM 调用是否 402 欠费"不是一回事:

@@ -482,7 +482,7 @@ _LEAN_TIERS: tuple[BudgetTier, ...] = (
         name="build",
         always_exact=_CORE_ALWAYS,
         priority_prefixes=("file", "read", "search", "find_", "list_", "write", "edit", "run_"),
-        demote_prefixes=("token6688_", "edu_"),
+        demote_prefixes=("edu_",),
         max_visible=None,
         max_schema_bytes=None,
     ),
@@ -490,7 +490,7 @@ _LEAN_TIERS: tuple[BudgetTier, ...] = (
         name="spec",
         always_exact=_CORE_ALWAYS,
         priority_prefixes=("file", "read", "search", "find_", "list_", "write", "edit", "run_"),
-        demote_prefixes=("token6688_", "edu_"),
+        demote_prefixes=("edu_",),
     ),
     BudgetTier(
         name="plan",

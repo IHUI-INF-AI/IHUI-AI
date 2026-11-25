@@ -43,7 +43,6 @@ const FILE_TOOLS: ReadonlySet<string> = new Set([
   'extract_document_assets',
   'resolve_conflict',
   'review_pr',
-  'token6688_upload_file',
   // 显式交付声明(2026-11-14):登记最终交付物,归文件类(不是"思考"类)
   'present_files',
 ])
@@ -60,7 +59,6 @@ const IMAGE_TOOLS: ReadonlySet<string> = new Set([
   'screenshot_url',
   'browser_screenshot',
   'computer_screenshot_screen',
-  'token6688_voice_clone',
 ])
 
 /** 搜索类:网页 / 代码库 / 文件 / 知识库 / 抓取 等检索动作 */
@@ -95,9 +93,6 @@ const THINKING_TOOLS: ReadonlySet<string> = new Set([
   'bg_task_status',
   'proactive_suggestion',
   'get_tool_schema',
-  'token6688_balance',
-  'token6688_model_info',
-  'token6688_cancel_task',
 ])
 
 /** 工具码名 → 类目;未登记(插件 / MCP 动态名 / 命令 / 浏览器操控 / 电脑操控 / 教务 / 数据库 等)一律落 'custom' */

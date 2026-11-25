@@ -37,15 +37,14 @@ from app.providers.jimeng_provider import JimengProvider
 from app.providers.kling_provider import KlingProvider
 from app.providers.magi2_provider import Magi2Provider
 from app.providers.tencent_hunyuan_provider import TencentHunyuanProvider
-from app.providers.token6688_provider import Token6688Provider
 
 logger = logging.getLogger(__name__)
 
 # 默认 provider 优先级(可被 VIDEO_PROVIDER 覆盖);agnes 为聚合网关,凭据在 LLM_PROVIDERS 里,已配置则优先
-_DEFAULT_PRIORITY = ["agnes", "token6688", "magi2", "kling", "jimeng", "wan", "hunyuan"]
+_DEFAULT_PRIORITY = ["agnes", "magi2", "kling", "jimeng", "wan", "hunyuan"]
 
 # 支持"先提交、后轮询"的厂商(长任务不阻塞 worker)
-_POLLABLE_VIAS = ("token6688", "magi2")
+_POLLABLE_VIAS = ("magi2",)
 
 # ---------------------------------------------------------------------------
 # 凭据配置的播报去重(2026-10-18 立,治 5.2 万行/天的日志噪音)
@@ -118,22 +117,8 @@ def _instantiate(name: str) -> Any | None:
                 return AgnesVideoProvider(key, base or None)
             _report_credential_state(name, False, "AGNES_API_KEY 或 LLM_PROVIDERS.agnes")
             return None
-        if name in ("token6688", "t6688", "tokengo"):
-            key = os.environ.get("TOKEN6688_API_KEY") or ""
-            if not key:
-                # 2026-09-08:LLM_PROVIDERS JSON token6688 条目兜底(单 key 配置约定)
-                try:
-                    from app.core.config import settings
-                    key = settings.get_provider_config("token6688").api_key or ""
-                except Exception:  # noqa: BLE001
-                    key = ""
-            if key:
-                _report_credential_state(name, True)
-                return Token6688Provider(key)
-            _report_credential_state(name, False, "TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688")
-            return None
         if name in ("magi2", "magi-2", "magi", "sand", "sandai"):
-            # env 优先;生产常把厂商凭据收在 LLM_PROVIDERS JSON(与 token6688/agnes 同款),
+            # env 优先;生产常把厂商凭据收在 LLM_PROVIDERS JSON(与 agnes 同款),
             # 所以这里也要回退 settings.get_provider_config,否则只在 .env 配 key 才生效。
             key = (
                 os.environ.get("MAGI2_API_KEY")
@@ -260,13 +245,11 @@ async def _process_one() -> bool:
     未配置任何视频厂商凭据时直接跳过(任务保持 accepted,不误标 failed),
     等待 Key 就绪后由下一轮轮询接管,避免把用户任务打成失败。
 
-    token6688 长任务优化(2026-09-08):官方视频 p90 55~75 分钟,阻塞轮询会把
-    单 worker 卡死 1 小时 → 提交(wait=False)后立即返回,任务置 processing 且
-    result 记 poll_via 标记,由 _poll_pending() 轮询终态;其余厂商保持阻塞编排。
+    MAGI-2 长任务优化:30s 长片 + 排队,阻塞轮询会把单 worker 卡住 →
+    提交(wait=False)后立即返回,任务置 processing 且 result 记 poll_via 标记,
+    由 _poll_pending() 轮询终态;其余厂商保持阻塞编排。
     """
-    # 只算一次并在下面复用:此前后各调用一次 `_configured_providers()` /
-    # `_instantiate("token6688")` ⇒ 同一轮把每个厂商实例化两遍(第二轮仅为拿到 token6688),
-    # 既重复 IO/config 解析也让上面的状态播报出现同一厂商的重复行。
+    # 只算一次并在下面复用,避免重复 IO/config 解析。
     available = _configured_providers()
     if not available:
         return False
@@ -297,39 +280,7 @@ async def _process_one() -> bool:
     try:
         if not prompt:
             raise ProviderError("任务缺少 prompt(message 为空)")
-        # token6688 提交即返回(poll_via 标记),交给 _poll_pending 轮询;提交失败降级原编排
-        # 复用本轮开头算好的实例(原先这里再 `_instantiate("token6688")` 一遍)
-        t6688 = next((inst for n, inst in available if n == "token6688"), None)
-        if t6688 is not None:
-            try:
-                # 官方 webhook:配置 TOKEN6688_CALLBACK_URL 后带 callback_url 提交,
-                # 终态平台主动 POST 任务快照(最多重试 3 次)→ /api/video/token6688-callback
-                # 提前落终态;_poll_pending 对已终态行不再处理(SQL 只查 processing),二者幂等互斥。
-                cb_url = os.environ.get("TOKEN6688_CALLBACK_URL", "").strip()
-                cb_secret = os.environ.get("TOKEN6688_CALLBACK_SECRET", "").strip()
-                extra: dict[str, str] = {}
-                if cb_url:
-                    extra["callback_url"] = cb_url
-                    if cb_secret:
-                        extra["callback_secret"] = cb_secret
-                submitted = await t6688.generate_video(
-                    prompt, "", duration=duration, wait=False, **extra,
-                )
-                remote_id = str(submitted.get("task_id") or "")
-                if remote_id:
-                    payload = json.dumps(
-                        {
-                            "poll_via": "token6688", "task_id": remote_id,
-                            "model": submitted.get("model", ""), "duration": duration,
-                        },
-                        ensure_ascii=False,
-                    )
-                    await _set_status(task_id, "processing", payload)
-                    logger.info("[video] token6688 任务已提交 remote=%s → 转入 polling", remote_id)
-                    return True
-            except Exception as submit_err:  # noqa: BLE001
-                logger.warning("[video] token6688 提交失败,降级阻塞编排: %s", submit_err)
-        # MAGI-2 同款:30s 长片 + 排队,阻塞轮询会把单 worker 卡住 → 先提交后轮询
+        # MAGI-2:30s 长片 + 排队,阻塞轮询会把单 worker 卡住 → 先提交后轮询
         magi2 = next((inst for n, inst in available if n == "magi2"), None)
         if magi2 is not None:
             try:
@@ -384,9 +335,8 @@ WHERE status='processing' AND (result IS NULL OR result NOT LIKE '%"poll_via"%')
 async def _poll_pending() -> int:
     """轮询已提交未落终态的任务(poll_via 标记)终态。返回更新条数。
 
-    2026-11-25:MAGI-2 接入后不再只认 token6688 —— 按 result 里的 poll_via
-    取对应 provider 逐行处理;某家凭据被摘除时该行保持 processing,等凭据
-    恢复后下一轮接管(不误标失败)。查询异常同样不更新状态。
+    按 result 里的 poll_via 取对应 provider 逐行处理;某家凭据被摘除时该行保持
+    processing,等凭据恢复后下一轮接管(不误标失败)。查询异常同样不更新状态。
     """
     conn = await get_db_conn()
     try:
@@ -451,11 +401,11 @@ async def _set_status(task_id: int, status: str, result: str) -> None:
 
 
 async def video_worker_loop() -> None:
-    """无限轮询:领取 accepted 任务出片 + 轮询 token6688 已提交任务终态。
+    """无限轮询:领取 accepted 任务出片 + 轮询已提交任务终态。
 
     缺少厂商凭据时静默轮询不报错。启动时把卡死的 processing(无 poll_via 标记,
     即阻塞编排被服务重启打断的任务)重置回 accepted 重新领取;带 poll_via 标记的
-    行不重置(token6688 侧任务仍在计费运行,重复提交会二次扣费),由 _poll_pending
+    行不重置(上游任务仍在计费运行,重复提交会二次扣费),由 _poll_pending
     继续接管轮询。
     """
     interval = max(3, int(os.environ.get("VIDEO_POLL_INTERVAL_S", "10")))
@@ -503,83 +453,3 @@ async def stop_video_worker() -> None:
         with contextlib.suppress(asyncio.CancelledError):
             await _started_task
     _started_task = None
-
-
-# ---------------------------------------------------------------------------
-# token6688 官方 webhook 回调(2026-09-08 文档校准)
-# 提交时带 callback_url(+callback_secret 验签),任务终态平台主动 POST 任务快照
-# (best-effort,最多重试 3 次)。与 _poll_pending 幂等互斥:本回调只认 processing
-# 行,终态写入后轮询 SQL 自然跳过;轮询先写终态则回调无匹配行,不重复更新。
-# ---------------------------------------------------------------------------
-
-_CALLBACK_MATCH_SQL = """
-SELECT id, result FROM video_generation_tasks
-WHERE status='processing' AND result LIKE $1
-ORDER BY id ASC LIMIT 5
-"""
-
-
-async def handle_token6688_callback(snapshot: dict[str, Any]) -> dict[str, Any]:
-    """处理 token6688 终态回调快照(形状同 GET /v1/tasks/{task_id})。
-
-    返回 {ok, matched}:matched=0 表示无在途任务匹配(已终态/未知任务,幂等静默)。
-    """
-    remote_id = str(snapshot.get("task_id") or snapshot.get("id") or "").strip()
-    if not remote_id:
-        return {"ok": False, "matched": 0, "error": "快照缺 task_id"}
-
-    t6688 = _instantiate("token6688")
-    state = str(snapshot.get("state") or "").lower()
-    status = str(snapshot.get("status") or "").lower()
-    is_final = bool(snapshot.get("is_final")) or state in ("success", "failed")
-    video_url = (
-        snapshot.get("output_url") or snapshot.get("result_url")
-        or (t6688._extract_media_url(snapshot) if t6688 else "")
-        or ""
-    )
-    ok = (is_final and state in ("success", "completed", "succeeded")) or status in (
-        "completed", "succeeded",
-    ) or bool(video_url)
-    failed = (is_final and state in ("failed", "error", "cancelled")) or status in ("failed", "error")
-    if not (ok or failed):
-        # 中间态快照(best-effort 可能推 progress)——不更新 DB,等终态
-        return {"ok": True, "matched": 0, "ignored": "non-final"}
-
-    # result JSON 键序可能不同,退化为双 LIKE(task_id 必含)
-    fallback_pattern = f'%"task_id":"{remote_id}"%'
-    conn = await get_db_conn()
-    try:
-        rows = await conn.fetch(_CALLBACK_MATCH_SQL, fallback_pattern)
-    finally:
-        await conn.close()
-    matched = 0
-    for r in rows:
-        try:
-            meta = json.loads(r["result"] or "{}")
-        except (TypeError, ValueError):
-            meta = {}
-        if str(meta.get("task_id") or "") != remote_id:
-            continue  # like 误匹配(如前缀重叠)
-        if ok and video_url:
-            payload = json.dumps(
-                {
-                    "url": video_url, "provider": "token6688",
-                    "model": meta.get("model", ""), "task_id": remote_id,
-                    "duration": meta.get("duration", 5),
-                    "via": "callback",
-                },
-                ensure_ascii=False,
-            )
-            await _set_status(r["id"], "succeed", payload)
-            logger.info("[video] 回调落终态: 行 %s task=%s url=%s", r["id"], remote_id, video_url[:80])
-        else:
-            err = str(
-                snapshot.get("error") or snapshot.get("error_message")
-                or f"token6688 回调失败(state={state or status})"
-            )[:2000]
-            await _set_status(r["id"], "failed", err)
-            logger.info("[video] 回调落失败: 行 %s task=%s", r["id"], remote_id)
-        matched += 1
-    return {"ok": True, "matched": matched}
-# ⁠​‌​​‌​​‌‍​​​​​​‌‍
-# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

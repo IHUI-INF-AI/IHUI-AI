@@ -5,7 +5,7 @@
 """媒体任务统一持久化(2026-09-09 立,补齐"对话内媒体任务不可查/不可取消"缺口)。
 
 对话内媒体工具(video_generation / music_generation / voice_tts / image_generation /
-image_edit / token6688 异步图片)提交后把 task_id / 产物 URL 统一落库 media_tasks,
+image_edit)提交后把 task_id / 产物 URL 统一落库 media_tasks,
 支撑:
 - "我的媒体任务"统一查询(REST GET /api/media/tasks,按 kind/status 过滤)
 - 长任务取消(REST POST /api/media/tasks/{task_id}/cancel)
@@ -147,7 +147,7 @@ async def persist_media_task(
             tool,
             task_id or "(无 task_id)",
         )
-    provider = str(result.get("provider") or "").strip() or "token6688"
+    provider = str(result.get("provider") or "").strip() or "unknown"
     message = str(result.get("message") or prompt or result.get("prompt") or "").strip()[:1000]
     payload: dict[str, Any] = {
         "image_url": image_url if isinstance(image_url, str) else None,
@@ -369,7 +369,7 @@ async def update_media_task(
 async def delete_media_task(task_id: str) -> bool:
     """按 task_id 删除单条媒体任务记录(任务中心单条清理,2026-09-09 F1)。
 
-    仅删本地记录,不影响上游 token6688 任务(长任务应先 cancel 再删)。
+    仅删本地记录,不影响上游任务。
     """
     task_id = str(task_id or "").strip()
     if not task_id:
@@ -447,8 +447,7 @@ async def cancel_media_tasks(
     - task_ids 提供 → 只取消清单内的在途任务;否则取消全部在途任务
     - kind 提供(逗号分隔多值)→ 只取消该类型的在途任务
     - user_uuid 提供 → 只取消该用户的任务(2026-09-09 P0 越权修复:非 admin 强制传)
-    - 每个任务 best-effort 调 token6688 取消:未配置/失败仅记 remote_failed,
-      不影响本地统一置 cancelled
+    - 只做本地状态置 cancelled;上游任务不再有取消通道
     返回 {requested, cancelled, remote_failed:[{task_id, error}]} 供前端展示。
     """
     where: list[str] = ["status = ANY($1)"]
@@ -480,22 +479,7 @@ async def cancel_media_tasks(
     if not with_remote:
         return {"requested": requested, "cancelled": 0, "remote_failed": []}
 
-    from ..core.config import settings
-    from ..providers.token6688_provider import Token6688Provider
-
-    cfg = settings.get_provider_config("token6688")
-    provider = None
-    if cfg.api_key:
-        provider = Token6688Provider(api_key=cfg.api_key, api_base=cfg.api_base)
     remote_failed: list[dict[str, str]] = []
-    for r in with_remote:
-        remote_id = str(r["task_id"]).strip()
-        if provider and str(r["provider"]) == "token6688":
-            try:
-                await provider.cancel_task(remote_id)
-            except Exception as e:  # noqa: BLE001
-                remote_failed.append({"task_id": remote_id, "error": str(e)[:200]})
-                logger.warning("[media_tasks] 批量取消远端失败: task=%s err=%s", remote_id, e)
     try:
         conn = await get_db_conn()
         try:
@@ -524,7 +508,6 @@ async def cancel_media_tasks(
 # ---------------------------------------------------------------------------
 # 终态自动收尾(2026-09-09 立):对话内媒体长任务(video/music/tts/image)不再只靠
 # 用户主动问"好了吗",两条互补通道把产物/状态写回 media_tasks:
-#   A. 官方 webhook 回调(POST /api/media/tasks/callback,HMAC 验签)→ 秒级终态
 #   B. 后台周期探测(MEDIA_TASK_POLLER_ENABLED=1)→ 回调丢失/未配置时的兜底
 # 两者与前端 5s 轮询 /media/tasks/{task_id} 幂等互补:谁先写终态谁生效,
 # 已终态行不重复探测/回写(见 _STATUS_IN_FLIGHT 过滤)。
@@ -544,73 +527,6 @@ _KIND_URL_FIELD = {
 
 def _kind_url_field(kind: str) -> str:
     return _KIND_URL_FIELD.get(kind, "video_url")
-
-
-async def handle_media_callback(snapshot: dict[str, Any]) -> dict[str, Any]:
-    """token6688 官方终态回调快照 → media_tasks 实时回写。
-
-    快照形状同 GET /v1/tasks/{task_id}(task_id/id/state/status/is_final/
-    output_url/result_url/error...)。返回 {ok, matched}:
-    matched=0 表示无在途匹配(未知/已终态任务,幂等静默);中间态快照忽略等终态。
-    """
-    remote_id = str(snapshot.get("task_id") or snapshot.get("id") or "").strip()
-    if not remote_id:
-        return {"ok": False, "matched": 0, "error": "快照缺 task_id"}
-    state = str(snapshot.get("state") or "").lower()
-    status = str(snapshot.get("status") or snapshot.get("task_status") or state or "").lower()
-    is_final = bool(snapshot.get("is_final")) or state in ("success", "failed", "completed")
-    media_url = (
-        snapshot.get("output_url") or snapshot.get("result_url") or snapshot.get("url") or ""
-    )
-    ok = (
-        (is_final and state in ("success", "completed", "succeeded"))
-        or status in ("completed", "succeeded")
-        or bool(media_url)
-    )
-    failed = (is_final and state in ("failed", "error", "cancelled")) or status in (
-        "failed", "error",
-    )
-    if not (ok or failed):
-        return {"ok": True, "matched": 0, "ignored": "non-final"}
-    conn = await get_db_conn()
-    try:
-        rows = await conn.fetch(
-            "SELECT id, kind FROM media_tasks "
-            "WHERE task_id=$1 AND status = ANY($2) "
-            "ORDER BY id ASC LIMIT 5",
-            remote_id, list(_STATUS_IN_FLIGHT),
-        )
-    finally:
-        await conn.close()
-    matched = 0
-    for r in rows:
-        if ok and media_url:
-            field = _kind_url_field(r["kind"])
-            payload = {field: media_url, "completed": True, "progress": None, "via": "callback"}
-            new_status = "succeeded"
-        else:
-            err = str(
-                snapshot.get("error") or snapshot.get("error_message")
-                or f"token6688 回调失败(state={state or status})"
-            )[:1000]
-            payload = {"error": err, "via": "callback"}
-            new_status = "failed"
-        # 2026-09-09 P1 竞态修复:条件更新(仅在途可写)。SELECT 与 UPDATE 之间的窗口内
-        # 任务可能已被用户取消(→cancelled);无守卫的回写会把已取消任务翻转成 succeeded。
-        applied = await update_media_task(
-            remote_id, status=new_status, result=payload, only_if_in_flight=True,
-        )
-        if not applied:
-            logger.info(
-                "[media_tasks] 回调落终态被跳过(任务已终态/已取消): task=%s", remote_id,
-            )
-            continue
-        logger.info(
-            "[media_tasks] 回调落终态: kind=%s task=%s status=%s url=%s",
-            r["kind"], remote_id, new_status, (media_url or "")[:80],
-        )
-        matched += 1
-    return {"ok": True, "matched": matched}
 
 
 # 轮询开关与参数(env 可调;默认关闭,避免无 key 时空转调上游)
@@ -658,77 +574,8 @@ _poller_stop = asyncio.Event()
 
 
 async def _poll_processing_batch() -> int:
-    """扫描一批在途 token6688 任务并探测终态;返回本次回写终态的行数。
-
-    只读探测(get_task_status),不改上游、不扣费;与前端轮询/回调幂等互补。
-    """
-    conn = await get_db_conn()
-    try:
-        rows = await conn.fetch(
-            "SELECT id, kind, task_id FROM media_tasks "
-            "WHERE status = ANY($1) AND provider='token6688' AND task_id <> '' "
-            "AND created_at > now() - ($2::float * interval '1 hour') "
-            "ORDER BY updated_at ASC LIMIT $3",
-            list(_STATUS_IN_FLIGHT), _MEDIA_POLL_MAX_AGE_HOURS, _MEDIA_POLL_MAX_BATCH,
-        )
-    finally:
-        await conn.close()
-    if not rows:
-        return 0
-    from ..core.config import settings
-    from ..providers.token6688_provider import Token6688Provider
-
-    cfg = settings.get_provider_config("token6688")
-    if not cfg.api_key:
-        return 0
-    provider = Token6688Provider(api_key=cfg.api_key, api_base=cfg.api_base)
-    updated = 0
-    alive_ids: list[int] = []
-    for r in rows:
-        try:
-            st = await provider.get_task_status(str(r["task_id"]))
-        except Exception as e:  # noqa: BLE001
-            logger.warning("[media_tasks] 探测失败 task=%s err=%s", r["task_id"], e)
-            continue
-        status = str(st.get("status") or "").lower()
-        if status in _UPSTREAM_IN_FLIGHT:
-            # 上游明确回「仍在处理」才续命;探测失败/无状态不刷新 updated_at,
-            # 交给 maintenance 卡死判据兜底(AIS-097)
-            alive_ids.append(r["id"])
-            continue
-        if status in ("completed", "succeeded", "success"):
-            url = str(st.get("video_url") or "").strip()
-            payload = {_kind_url_field(r["kind"]): url, "completed": True, "via": "poller"}
-            if not url:
-                continue  # 终态但尚无产物(stage=downloading 等),下次循环再收
-            # 2026-09-09 P1 竞态修复:仅在途可写,防把已取消任务翻回 succeeded
-            applied = await update_media_task(
-                str(r["task_id"]), status="succeeded", result=payload,
-                only_if_in_flight=True,
-            )
-            if applied:
-                updated += 1
-                logger.info("[media_tasks] 轮询收尾成功: task=%s", r["task_id"])
-        elif status in ("failed", "error", "cancelled"):
-            applied = await update_media_task(
-                str(r["task_id"]),
-                status="failed",
-                result={"error": st.get("error") or "task failed", "via": "poller"},
-                only_if_in_flight=True,
-            )
-            if applied:
-                updated += 1
-                logger.info("[media_tasks] 轮询收尾失败: task=%s", r["task_id"])
-    if alive_ids:
-        try:
-            hb_conn = await get_db_conn()
-            try:
-                await _heartbeat_in_flight_tasks(hb_conn, alive_ids)
-            finally:
-                await hb_conn.close()
-        except Exception as e:  # noqa: BLE001
-            logger.warning("[media_tasks] 心跳连接失败(忽略): %s", e)
-    return updated
+    """轮询入口占位:上游供应商已下线,不再探测任务。"""
+    return 0
 
 
 async def _media_task_poller_loop() -> None:

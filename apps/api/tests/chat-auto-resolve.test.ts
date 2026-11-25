@@ -17,7 +17,7 @@ import { classifyCandidate, pickAutoPoolModel } from '../src/services/chat-auto-
 describe('classifyCandidate(候选合法化:隔离口径)', () => {
   const own = new Set(['cursor', 'doubao'])
   const ops = new Map([
-    ['kimi-k2.7-code', 'token6688'],
+    ['kimi-k2.7-code', 'agnes'],
     ['cursor/composer-2.5', 'workbuddy'],
   ])
 

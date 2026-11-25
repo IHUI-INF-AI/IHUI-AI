@@ -277,93 +277,6 @@ async def test_in_flight_heartbeat_touches_updated_at_only() -> None:
     assert params[2] == str(_HEARTBEAT_MIN_INTERVAL_MINUTES)
 
 
-def _patch_poller(monkeypatch: pytest.MonkeyPatch, conn, provider_cls) -> None:  # noqa: ANN001
-    from app.services import media_tasks as mt
-
-    class _Cfg:
-        api_key = "k"
-        api_base = "https://api.example.test"
-
-    class _FakeSettings:
-        def get_provider_config(self, name):  # noqa: ANN001
-            return _Cfg()
-
-    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
-    monkeypatch.setattr(mt, "get_db_conn", lambda: asyncio.sleep(0, result=conn))
-    monkeypatch.setattr(
-        "app.providers.token6688_provider.Token6688Provider", provider_cls
-    )
-
-
-@pytest.mark.asyncio()
-async def test_poller_heartbeats_only_when_upstream_still_processing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """AIS-097(c):只有上游明确回 processing/pending 才续命 updated_at。"""
-    from app.services import media_tasks as mt
-
-    conn = _ExecFetchConn([{"id": 7, "kind": "video", "task_id": "v-7"}])
-
-    class _Prov:
-        def __init__(self, **_kw):  # noqa: ANN003
-            pass
-
-        async def get_task_status(self, _tid: str):
-            return {"status": "processing"}
-
-    _patch_poller(monkeypatch, conn, _Prov)
-    assert await mt._poll_processing_batch() == 0  # 上游仍在处理,无终态回写
-    assert conn.exec_calls, "上游确认在途时必须打心跳"
-    sql, params = conn.exec_calls[0]
-    assert "SET updated_at=now()" in sql
-    assert params[0] == [7]
-
-
-@pytest.mark.asyncio()
-async def test_poller_does_not_renew_updated_at_when_probe_fails(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """AIS-097(c'):探测失败/无状态不得续命 —— 否则僵尸任务永远判不死。"""
-    from app.services import media_tasks as mt
-
-    conn = _ExecFetchConn([{"id": 7, "kind": "video", "task_id": "v-7"}])
-
-    class _Prov:
-        def __init__(self, **_kw):  # noqa: ANN003
-            pass
-
-        async def get_task_status(self, _tid: str):
-            raise RuntimeError("upstream timeout")
-
-    _patch_poller(monkeypatch, conn, _Prov)
-    assert await mt._poll_processing_batch() == 0
-    assert conn.exec_calls == [], "探测失败不得刷新 updated_at"
-
-
-@pytest.mark.asyncio()
-async def test_poller_without_api_key_never_heartbeats(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """AIS-097(c''):未配 provider key 时不探测、也不得凭空续命。"""
-    from app.services import media_tasks as mt
-
-    conn = _ExecFetchConn([{"id": 7, "kind": "video", "task_id": "v-7"}])
-
-    class _Cfg:
-        api_key = ""
-
-    class _FakeSettings:
-        def get_provider_config(self, name):  # noqa: ANN001
-            return _Cfg()
-
-    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
-    monkeypatch.setattr(
-        mt, "get_db_conn", lambda: asyncio.sleep(0, result=conn)
-    )
-    assert await mt._poll_processing_batch() == 0
-    assert conn.exec_calls == []
-
-
 class _UpdateDb:
     def __init__(self, row: dict | None) -> None:
         self.row = row
@@ -377,7 +290,6 @@ class _UpdateDb:
         pass
 
 
-@pytest.mark.asyncio()
 async def test_update_media_task_only_if_in_flight_still_applies(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

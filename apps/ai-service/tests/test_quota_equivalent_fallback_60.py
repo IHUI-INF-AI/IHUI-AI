@@ -187,7 +187,7 @@ def test_declared_provider_code_only_accepts_vendor_path_prefixes() -> None:
     assert _declared_provider_code_of("groq/llama-3.3-70b-versatile") == "groq"
     assert _declared_provider_code_of("stepfun/step-3.7-flash") == "stepfun"
     assert _declared_provider_code_of("byok/deepseek-v3") == "byok"
-    assert _declared_provider_code_of("t6688/gm-3.8-flash") == "token6688"
+    assert _declared_provider_code_of("agnes/gm-3.8-flash") == "agnes"
 
 
 def test_bare_name_rules_are_guesses_not_declarations() -> None:
@@ -266,9 +266,9 @@ async def test_ownership_prefers_exact_full_id_over_tail_match(
     fake_pool: Callable[[dict[str, Any]], _FakeConn],
     clean_health: dict[str, ProviderHealth],
 ) -> None:
-    """'qwen/qwen3-max' 同时命中整串(openrouter)与末段(t6688):整串说了算。"""
+    """'qwen/qwen3-max' 同时命中整串(openrouter)与末段(agnes):整串说了算。"""
     conn = fake_pool({"ANY($1::text[])": [
-        _Rec(provider_code="token6688", model_id="qwen3-max"),   # SQL 序在前
+        _Rec(provider_code="agnes", model_id="qwen3-max"),   # SQL 序在前
         _Rec(provider_code="openrouter", model_id="qwen/qwen3-max"),
     ]})
     assert await _query_provider_ownership("qwen/qwen3-max") == "openrouter"
@@ -470,12 +470,12 @@ async def test_equivalent_channels_filter_out_same_name_other_family_and_unaddre
         _Rec(provider_code="groq", model_id="llama-3.3-70b"),           # 不同族
         _Rec(provider_code="qwen", model_id="qwen3-coder"),             # 无斜杠前缀 → 拼不出通道
         _Rec(provider_code="ollama", model_id="qwen3-mini"),            # 本地 LLM 不改道
-        _Rec(provider_code="token6688", model_id="qwen3-coder"),        # ✅
+        _Rec(provider_code="agnes", model_id="qwen3-coder"),        # ✅
         _Rec(provider_code="opencode_zen", model_id="qwen3-mini"),      # ✅
     ]})
     channels = await _find_quota_equivalent_channels("qwen3-max", set())
-    # 顺序按免费优先排(opencode_zen 是 zero_cost,t6688 需 key 且无免费层)
-    assert channels == ["opencode/qwen3-mini", "t6688/qwen3-coder"]
+    # 顺序按免费优先排(opencode_zen 是 zero_cost,agnes 需 key 且无免费层)
+    assert channels == ["opencode/qwen3-mini", "agnes/qwen3-coder"]
     # 粗筛参数是家族词干(不是整名),精筛由 _family_stem 逐行判定
     assert conn.params_at(0) == ("qwen",)
     assert "ILIKE" in conn.sql_at(0)
@@ -495,11 +495,11 @@ async def test_equivalent_channels_skip_blocked_providers(
     await model_availability.mark_provider_quota_exhausted("opencode_zen", "arrearage")
     fake_pool({"ILIKE": [
         _Rec(provider_code="opencode_zen", model_id="qwen3-mini"),      # 刚被判欠费
-        _Rec(provider_code="token6688", model_id="qwen3-coder"),
+        _Rec(provider_code="agnes", model_id="qwen3-coder"),
     ]})
-    assert await _find_quota_equivalent_channels("qwen3-max", set()) == ["t6688/qwen3-coder"]
+    assert await _find_quota_equivalent_channels("qwen3-max", set()) == ["agnes/qwen3-coder"]
     # 本请求黑名单同样生效(欠费厂商绝不回头再撞)
-    assert await _find_quota_equivalent_channels("qwen3-max", {"token6688"}) == []
+    assert await _find_quota_equivalent_channels("qwen3-max", {"agnes"}) == []
 
 
 async def test_equivalent_channels_require_model_availability(
@@ -512,7 +512,7 @@ async def test_equivalent_channels_require_model_availability(
         "qwen3-coder": ("qwen", "3", "standard"),
     })
     monkeypatch.setattr(model_availability, "is_model_available", lambda _m: False)
-    fake_pool({"ILIKE": [_Rec(provider_code="token6688", model_id="qwen3-coder")]})
+    fake_pool({"ILIKE": [_Rec(provider_code="agnes", model_id="qwen3-coder")]})
     assert await _find_quota_equivalent_channels("qwen3-max", set()) == []
 
 
@@ -533,7 +533,7 @@ async def test_equivalent_channels_rank_free_then_generation_then_tier(
         "qwen3-turbo": ("qwen", "3", "legacy"),        # 免费家 + 同代 + legacy
     })
     fake_pool({"ILIKE": [
-        _Rec(provider_code="token6688", model_id="qwen3-coder"),       # free_tier=False
+        _Rec(provider_code="agnes", model_id="qwen3-coder"),       # free_tier=False
         _Rec(provider_code="opencode_zen", model_id="qwen2.5-pro"),    # zero_cost,gen 2
         _Rec(provider_code="openrouter", model_id="qwen/qwen3.5-flash"),  # free_tier,同代
         _Rec(provider_code="pollinations", model_id="qwen3-turbo"),    # zero_cost,同代,legacy
@@ -542,7 +542,7 @@ async def test_equivalent_channels_rank_free_then_generation_then_tier(
         "openrouter/qwen/qwen3.5-flash",
         "pollinations/qwen3-turbo",
         "opencode/qwen2.5-pro",
-        "t6688/qwen3-coder",
+        "agnes/qwen3-coder",
     ]
 
 
@@ -671,9 +671,9 @@ async def test_blocked_provider_is_not_repicked_within_one_request(
 ) -> None:
     """同一请求里:同名轮已把 openrouter 判欠费,同族轮再混进它也必须被跳过。"""
     quota_channels["same_name"] = ["openrouter/qwen/qwen3-max"]
-    quota_channels["equivalents"] = ["openrouter/qwen3-coder", "t6688/qwen3-coder"]
+    quota_channels["equivalents"] = ["openrouter/qwen3-coder", "agnes/qwen3-coder"]
     broke = {"content": "", "error": True, "error_message": f"400 - {ARREARS_BODY}"}
-    ok = {"content": "ok", "model": "t6688/qwen3-coder", "usage": {}, "stub": False}
+    ok = {"content": "ok", "model": "agnes/qwen3-coder", "usage": {}, "stub": False}
 
     with patch(
         "app.core.llm_gateway.llm_gateway.complete",
@@ -686,11 +686,11 @@ async def test_blocked_provider_is_not_repicked_within_one_request(
 
     assert [c.kwargs["model"] for c in called.call_args_list] == [
         "openrouter/qwen/qwen3-max",
-        "t6688/qwen3-coder",
+        "agnes/qwen3-coder",
     ]
     assert result["content"] == "ok"
     assert model_availability.is_provider_quota_blocked("openrouter") is True
-    assert model_availability.is_provider_quota_blocked("t6688") is False
+    assert model_availability.is_provider_quota_blocked("agnes") is False
 
 
 async def test_non_quota_error_never_touches_equivalent_tier(

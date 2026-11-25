@@ -50,20 +50,6 @@ const COSTS: MediaCostEntry[] = [
     note: '与 agnes-image-2.1-flash 同价：1K $0.010/张 × 7.2 = 7.2 分/张',
   },
   {
-    modelId: 'gpt-image-2.5-flare',
-    billingMode: 'per_image',
-    costUnitPrice: 0.042336,
-    source: 'https://developers.openai.com/api/docs/guides/image-generation',
-    note: 'OpenAI 图片输出 $30/1M tokens；1024×1024 auto 约 196 tokens，$0.00588 × 7.2 ≈ 0.042336 分/张。medium 约 0.09504、high 约 0.37944',
-  },
-  {
-    modelId: 'gpt-image-2.5-sunburst',
-    billingMode: 'per_image',
-    costUnitPrice: 0.042336,
-    source: 'https://developers.openai.com/api/docs/guides/image-generation',
-    note: '与 gpt-image-2.5-flare 同 token 费率；1024×1024 auto 约 0.042336 分/张。medium/high 更高',
-  },
-  {
     modelId: 'grok-imagine-image',
     billingMode: 'per_image',
     costUnitPrice: 14.4,

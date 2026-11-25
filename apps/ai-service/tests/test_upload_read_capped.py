@@ -20,7 +20,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.config import settings
-from app.routers import image_edit, media_tasks, publish, session_import
+from app.routers import media_tasks, publish, session_import
 from app.utils.upload_read import read_capped
 
 
@@ -74,12 +74,6 @@ async def test_exact_limit_is_allowed() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_image_edit_uses_capped_reader_and_has_a_limit() -> None:
-    src = Path(image_edit.__file__).read_text(encoding="utf-8")
-    assert "read_capped" in src
-    assert "image_bytes = await image.read()" not in src
-    assert "MAX_IMAGE_EDIT_UPLOAD_BYTES" in src
-
 
 def test_publish_and_session_import_and_media_tasks_use_capped_reader() -> None:
     for module in (publish, session_import, media_tasks):
@@ -90,39 +84,3 @@ def test_publish_and_session_import_and_media_tasks_use_capped_reader() -> None:
 class _Cfg:
     api_key = "test-key"
     api_base = "http://127.0.0.1:1"
-
-
-async def test_image_edit_rejects_oversize_before_calling_provider(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """超限在调用上游之前就被拦下(413),不会把整包读进内存再上传。"""
-    monkeypatch.setattr(
-        type(settings), "get_provider_config", lambda _self, *_a, **_kw: _Cfg()
-    )
-
-    class _Boom:
-        def __init__(self, **_kw: object) -> None:
-            pass
-
-        async def images_edits(self, *_a: object, **_kw: object) -> dict:
-            raise AssertionError("超限请求不得抵达 provider")
-
-    import app.providers.token6688_provider as provider_mod
-
-    monkeypatch.setattr(provider_mod, "Token6688Provider", _Boom)
-
-    oversize = _ChunkedUpload(image_edit.MAX_IMAGE_EDIT_UPLOAD_BYTES + 2 * 1024 * 1024)
-    with pytest.raises(HTTPException) as exc:
-        await image_edit.image_edits(
-            image=oversize,
-            prompt="make it blue",
-            mask=None,
-            model=None,
-            n=1,
-            size=None,
-            aspect_ratio=None,
-            quality=None,
-            output_format=None,
-        )
-    assert exc.value.status_code == 413
-# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

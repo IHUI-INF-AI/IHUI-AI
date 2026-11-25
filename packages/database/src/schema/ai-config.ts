@@ -107,7 +107,7 @@ export const aiModelConfig = pgTable(
     healthIdx: index('ix_ai_model_config_health').on(t.healthStatus),
     /**
      * 全局配置(owner_uuid IS NULL)防重:同一 provider + 同一 base_url 只允许一行。
-     * 2026-10-18 立 —— 线上 token6688 曾长出 id=1 与 id=46 两条**业务字段逐字节相同**的
+     * 2026-10-18 立 —— 线上曾长出 id=1 与 id=46 两条**业务字段逐字节相同**的
      * 全局配置,生产者是 model_sync._ensure_provider_config:它原先只按 `enabled = true`
      * 查行,一旦该行被临时禁用或并发下不可见,查询落空就再插一行。id=46 之后再没被
      * 同步更新过,成了停在 2026-09-22 的僵尸行,并让 8 个本已被下架的模型

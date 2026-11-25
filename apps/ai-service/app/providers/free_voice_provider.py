@@ -2,16 +2,15 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""免费语音通道 provider(edge-tts,零 key 零成本)—— TOKEN6688 付费语音链路的免费替代。
+"""免费语音通道 provider(edge-tts,零 key 零成本)。
 
-背景(2026-09-24):TOKEN6688_API_KEY 因费用原因不配置,owner 指令"找免费的配上"。
 本模块把原本内联在 routers/voice_tts.py 的 edge-tts 实现抽成独立 provider,
-与 Token6688Provider.tts() 同构(返回 (音频字节, content_type)),供:
-- routers/voice_tts.py:engine 默认值经 VOICE_PROVIDER 环境变量切换(edge-tts/token6688)
-- scripts/e2e_token6688.py --free:免费模式端到端验收(生成/取消),无需任何 key
+统一返回 (音频字节, content_type),供:
+- routers/voice_tts.py:默认语音通道(仅 edge-tts)
+- 语音链路端到端验收:免费模式无需任何 key
 
 依赖策略:仅 edge_tts + 标准库,**不 import app 兄弟模块**(base_provider →
-llm_gateway 是重链:litellm/fastapi 等)。这样 e2e --free 可在任意只装了
+llm_gateway 是重链:litellm/fastapi 等)。这样可在任意只装了
 edge-tts 的隔离 Python 环境直接单文件加载本模块跑通。
 异常类 VoiceProviderError 带 status_code,语义与 base_provider.ProviderError 兼容。
 
@@ -19,17 +18,15 @@ edge-tts 的隔离 Python 环境直接单文件加载本模块跑通。
 - TTS 合成     ✅ edge-tts(微软 Edge 免费语音服务,流式可被 asyncio 取消)
 - 声音列表     ✅ edge_tts.list_voices()(400+ 声音,本模块过滤中/英/日常用)
 - 生成取消     ✅ 合成是 asyncio 流式任务,task.cancel() 即断(无计费无残留)
-- 声纹克隆     ❌ 无免费云 API(GPT-SoVITS/OpenVoice 需本地 GPU 部署,重运维,
-                 见 e2e --free 的 SKIP 报告与 owner 决策建议)
+- 声纹克隆     ❌ 无免费云 API(GPT-SoVITS/OpenVoice 需本地 GPU 部署,重运维)
 
 环境变量:
-    VOICE_PROVIDER=edge-tts   默认语音通道(免费);=token6688 时路由默认走付费网关
+    VOICE_PROVIDER 仅保留兼容读取；当前恒走 edge-tts 免费通道。
 """
 from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -67,11 +64,8 @@ class VoiceProviderError(Exception):
 
 
 def _env_voice_provider() -> str:
-    """读取 VOICE_PROVIDER 环境变量并归一为规范名(未配/未知回退免费通道)。"""
-    raw = os.environ.get("VOICE_PROVIDER", "").strip().lower()
-    if raw in ("token6688", "t6688"):
-        return "token6688"
-    return "edge-tts"  # 空/edge/edge-tts/edgetts/未知值 → 一律免费通道(fail-safe)
+    """读取 VOICE_PROVIDER 环境变量并归一为规范名(仅保留免费通道)。"""
+    return "edge-tts"
 
 
 def current_provider_code() -> str:
@@ -90,12 +84,11 @@ class FreeVoiceProvider:
         *,
         voice: str = DEFAULT_VOICE,
         rate: str = "+0%",
-        response_format: str = "mp3",  # 兼容 Token6688Provider.tts 签名;edge-tts 恒 mp3
+        response_format: str = "mp3",  # 兼容既有 TTS 签名;edge-tts 恒 mp3
     ) -> tuple[bytes, str]:
         """语音合成,返回 (音频字节, content_type)。流式聚合,可被 asyncio 取消。
 
-        与 Token6688Provider.tts() 同构,VOICE_PROVIDER=edge-tts 时路由层可直接
-        替换调用方而无需改签名。voice 须在白名单内(防滥用)。
+        路由层可直接替换调用方而无需改签名。voice 须在白名单内(防滥用)。
         """
         text = (text or "").strip()
         if not text:
@@ -178,14 +171,11 @@ class FreeVoiceProvider:
     async def upload_voice(self, audio_bytes: bytes, filename: str = "ref.wav") -> dict[str, Any]:
         """声纹克隆:免费通道不支持(501 Not Implemented)。
 
-        免费可行性结论:主流免费云 API 无声纹克隆能力;开源自方案
-        (GPT-SoVITS / OpenVoice / CosyVoice)需本地 GPU + 模型权重 + 常驻服务,
-        属重运维投入,是否部署由 owner 决策(见 e2e --free 声纹段 SKIP 报告)。
-        声纹克隆需求请走 VOICE_PROVIDER=token6688 付费通道(upload_voice)。
+        主流免费云 API 无声纹克隆能力;开源自方案(GPT-SoVITS / OpenVoice /
+        CosyVoice)需本地 GPU + 模型权重 + 常驻服务,属重运维投入。
         """
         raise VoiceProviderError(
             "免费通道(edge-tts)不支持声纹克隆:无免费云 API 可用;开源自托管"
-            "(GPT-SoVITS/OpenVoice/CosyVoice)需本地 GPU 常驻服务,属重运维投入,"
-            "待 owner 决策。声纹克隆请切 VOICE_PROVIDER=token6688 付费通道。",
+            "(GPT-SoVITS/OpenVoice/CosyVoice)需本地 GPU 常驻服务,属重运维投入。",
             501,
         )

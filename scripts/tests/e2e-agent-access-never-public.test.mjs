@@ -34,12 +34,12 @@ const JWT_AUTH_PY = readFileSync(resolve(ROOT, 'apps/ai-service/app/core/jwt_aut
 const REAL_MACHINE_ENV =
   'JWT_PUBLIC_PATHS=/api/health,/api/legacy/,/health,/metrics,/api/agents/,'
   + '/api/admin/news/status,/api/admin/news/scheduler-status,/api/voice/stt,/api/voice/tts,'
-  + '/api/artifacts/f/,/api/video/token6688-callback,/api/media/tasks/callback\n'
+  + '/api/artifacts/f/\n'
 /** 与 config.py 默认值逐字一致的干净夹具(用来证明本门禁不是"恒红")。 */
 const CLEAN_ENV =
   'JWT_PUBLIC_PATHS=/api/health,/api/legacy/,/health,/metrics,/api/publish/scan-login/platforms,'
   + '/api/admin/news/status,/api/voice/stt,/api/voice/tts,/api/artifacts/f/,'
-  + '/api/video/token6688-callback,/api/media/tasks/callback,/.well-known/agent.json,/.well-known/agent-card.json\n'
+  + '/.well-known/agent.json,/.well-known/agent-card.json\n'
 
 /**
  * 已知契约漂移项(登记@2026-10-17,只作阳性对照的收窄豁免,不削被测门任何牙):

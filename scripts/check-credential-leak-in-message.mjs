@@ -988,10 +988,10 @@ export const SELFTEST_CASES = [
     file: 'app/services/sts.py',
   },
   {
-    name: 'Python 反例:资源端点透传 resp.text 切片 → 不判(与 token6688 现状一致)',
-    src: 'resp = httpx.post("https://api.token6688.cn/v1/stt", json=b)\nraise ProviderError(f"Token6688 STT 调用失败: {resp.status_code} {resp.text[:300]}")',
+    name: 'Python 反例:资源端点透传 resp.text 切片 → 不判',
+    src: 'resp = httpx.post("https://api.example.com/v1/stt", json=b)\nraise ProviderError(f"STT 调用失败: {resp.status_code} {resp.text[:300]}")',
     want: 'none',
-    file: 'app/providers/token6688_provider.py',
+    file: 'app/providers/generic_provider.py',
   },
   {
     name: 'Python 反例:# 注释行不参与判定',

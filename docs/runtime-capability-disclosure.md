@@ -759,7 +759,7 @@ api.mistral.ai                api.nlpcloud.io           api.reka.ai
 api.routeway.ai               api.scaleway.ai           api.x.ai
 api.xiaomimimo.com            bailian-intl.alibabacloud.com bazaarlink.ai
 dashscope.aliyuncs.com        generativelanguage.googleapis.com integrate.api.nvidia.com
-k.token6688.com               modal.com                 models.inference.ai.azure.com
+modal.com                     models.inference.ai.azure.com
 open.bigmodel.cn              opencode.ai               pnywsahxhac1qjbo.us-east-2.aws.endpoints.huggingface.cloud
 router.huggingface.co
 ```

@@ -5,7 +5,7 @@
 /**
  * 模型名官方归一化(2026-09-13 立)。
  *
- * 背景:上游各来源(token6688 / swiftapi / openrouter / seed 脚本)对同一模型
+ * 背景:上游各来源(swiftapi / openrouter / seed 脚本)对同一模型
  * 使用不同大小写写法(如 minimax-m3 与 MiniMax-M3 并存),导致:
  *   1. 公开目录(/v1/models、/api/relay/models/public)同一模型出现两条;
  *   2. 计费按 model_id 精确 eq 匹配,大小写不符时静默查不到 → 成本算 0(计费漏损)。

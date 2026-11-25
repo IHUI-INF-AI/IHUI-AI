@@ -84,9 +84,7 @@ export async function seedRelayPricing(): Promise<void> {
       ('gpt-5.6',   'per_call',  NULL::numeric, '{"le256k":0.01,"mid":0.015,"gt512k":0.02}'::jsonb,  NULL::text),
       ('Auto-Model','per_call',  NULL::numeric, '{"le256k":0.001,"mid":0.0015,"gt512k":0.002}'::jsonb, NULL::text),
       ('gpt-image-2',          'per_image', 0.02::numeric, NULL::jsonb, NULL::text),
-      ('gpt-image-2.5',        'per_image', 0.03::numeric, NULL::jsonb, NULL::text),
-      ('gpt-image-2.5-flare',  'per_image', 0.03::numeric, NULL::jsonb, NULL::text),
-      ('gpt-image-2.5-sunburst','per_image', 0.03::numeric, NULL::jsonb, NULL::text)
+      ('gpt-image-2.5',        'per_image', 0.03::numeric, NULL::jsonb, NULL::text)
     ),
     upd AS (
       UPDATE ai_pricing p

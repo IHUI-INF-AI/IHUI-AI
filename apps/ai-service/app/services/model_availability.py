@@ -112,9 +112,6 @@ _MODEL_PREFIX_TO_PROVIDER: list[tuple[str, str]] = [
     # 中的 ihui/ 模型均已移除,再无 ihui/ 前缀模型需要健康检查覆盖。
     # WorkBuddy 账号池(项目自有中转站):模型 id 以 workbuddy/ 前缀暴露
     ("workbuddy/", "workbuddy_relay"),
-    # 2026-09-08 新增:token6688 聚合网关(t6688/ 前缀),缺此条 is_model_available
-    # 返回未知 → 模型永远被过滤,前端看不到
-    ("t6688/", "token6688"),
     # === Cloudflare Workers AI(@cf/ 前缀)===
     ("@cf/", "cloudflare_workers_ai"),
     ("cloudflare/", "cloudflare_workers_ai"),
@@ -733,17 +730,6 @@ class ModelAvailabilityService:
                 # balance=可用余额(含赠送),total_cash_balance=现金余额,total_voucher_balance=赠送余额
                 return float(data.get("balance") or 0), "CNY", ProviderErrorType.NONE, ""
 
-            if code == "token6688":
-                # 官方(2026-09-08):GET /v1/skills/balance 返回
-                # {balance: "$49.964555", available_balance: "$40.00", frozen: "$9.96"} — 美元字符串
-                raw = str(data.get("balance") or data.get("available_balance") or "")
-                if raw.startswith("$"):
-                    try:
-                        return float(raw[1:]), "USD", ProviderErrorType.NONE, ""
-                    except ValueError:
-                        return None, None, ProviderErrorType.UNKNOWN, f"bad balance format: {raw[:50]}"
-                return None, None, ProviderErrorType.UNKNOWN, "no $-prefixed balance field"
-
             for key_path in (("balance",), ("data", "balance"), ("data", "total_credits"), ("total_balance",)):
                 v: Any = data
                 for k in key_path:
@@ -802,12 +788,11 @@ class ModelAvailabilityService:
             model_ids = list(provider.default_models)
         if not model_ids:
             model_ids = ["gpt-3.5-turbo"]
-        # 剥离已知前缀(stepfun/agnes/gemini/t6688),模型名带 / 会被 API 拒绝
+        # 剥离已知前缀(stepfun/agnes/gemini),模型名带 / 会被 API 拒绝
         # (2026-10-24 移除 ihui/:随 SwiftAPI 弃用,ihui_relay 已不存在)
-        # 2026-09-08 新增:t6688/ 剥离(token6688 registry default_models 带网关前缀)
         cleaned: list[str] = []
         for mid in model_ids:
-            for prefix in ("stepfun/", "agnes/", "gemini/", "t6688/"):
+            for prefix in ("stepfun/", "agnes/", "gemini/"):
                 if mid.startswith(prefix):
                     mid = mid[len(prefix):]
                     break

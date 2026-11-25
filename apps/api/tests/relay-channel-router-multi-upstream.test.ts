@@ -6,7 +6,7 @@
  * selectChannelCandidates 多上游同模型路由单测(2026-09-13 立)。
  *
  * 覆盖点:
- * - 同一 modelId 在多个 provider/config 上架 → 候选跨上游(token6688 + swiftapi)
+ * - 同一 modelId 在多个 provider/config 上架 → 候选跨上游(agnes + swiftapi)
  * - key 级 extraMetadata.baseUrl 覆盖 config.baseUrl(多端点各自成渠)
  * - 候选按 keyPoolId 去重(同一 key 属多组只出现一次)
  * - 单 config 上架 → 只有该 provider 的 key 入候选
@@ -121,7 +121,7 @@ const CONFIG_SWIFT = {
   providerCode: 'swiftapi',
   baseUrl: 'https://k.swiftapi-base.example/v1',
 }
-const CONFIG_T6688 = { id: 66, providerCode: 'token6688', baseUrl: 'https://k.token6688.com' }
+const CONFIG_AGNES = { id: 66, providerCode: 'agnes', baseUrl: 'https://apihub.agnes-ai.com/v1' }
 const KEY_A = {
   id: 'key-a',
   apiKeyEnc: '{"iv":"i","ciphertext":"c","tag":"t"}',
@@ -139,7 +139,7 @@ const KEY_B = {
 const KEY_C = {
   id: 'key-c',
   apiKeyEnc: '{"iv":"i","ciphertext":"c","tag":"t"}',
-  providerCode: 'token6688',
+  providerCode: 'agnes',
   weight: 3,
   extraMetadata: null,
 }
@@ -154,7 +154,7 @@ describe('selectChannelCandidates 多上游同模型路由', () => {
   it('同一模型多 config 上架 → 候选跨上游,且 key 级 baseUrl 覆盖生效', async () => {
     setQueries(
       [{ configId: 31 }, { configId: 66 }],
-      [CONFIG_SWIFT, CONFIG_T6688],
+      [CONFIG_SWIFT, CONFIG_AGNES],
       [KEY_A, KEY_B, KEY_C],
       [
         { memberId: 'm1', groupId: 'g1', keyPoolId: 'key-a', weight: 1 },
@@ -170,9 +170,9 @@ describe('selectChannelCandidates 多上游同模型路由', () => {
     expect(byKey.get('key-a')?.baseUrl).toBe('https://new.x5m5x.com/v1')
     // 无覆盖:key-b 回退 config.baseUrl
     expect(byKey.get('key-b')?.baseUrl).toBe('https://k.swiftapi-base.example/v1')
-    // 另一上游 token6688 的 key 也成为候选(跨上游择优/切换的基础)
-    expect(byKey.get('key-c')?.baseUrl).toBe('https://k.token6688.com')
-    expect(byKey.get('key-c')?.providerCode).toBe('token6688')
+    // 另一上游 agnes 的 key 也成为候选(跨上游择优/切换的基础)
+    expect(byKey.get('key-c')?.baseUrl).toBe('https://apihub.agnes-ai.com/v1')
+    expect(byKey.get('key-c')?.providerCode).toBe('agnes')
     // configId 按各自 provider 解析(ai_model_config.id 为 bigint → 路由返回 number,非字符串)
     expect(byKey.get('key-a')?.configId).toBe(31)
     expect(byKey.get('key-c')?.configId).toBe(66)
@@ -181,7 +181,7 @@ describe('selectChannelCandidates 多上游同模型路由', () => {
   it('候选按 keyPoolId 去重:同一 key 属多组只出现一次', async () => {
     setQueries(
       [{ configId: 31 }, { configId: 66 }],
-      [CONFIG_SWIFT, CONFIG_T6688],
+      [CONFIG_SWIFT, CONFIG_AGNES],
       [KEY_A, KEY_C],
       [
         { memberId: 'm1', groupId: 'g1', keyPoolId: 'key-a', weight: 1 },
@@ -200,7 +200,7 @@ describe('selectChannelCandidates 多上游同模型路由', () => {
   it('仅单 config 上架 → 只有该 provider 的 key 入候选', async () => {
     setQueries(
       [{ configId: 66 }],
-      [CONFIG_T6688],
+      [CONFIG_AGNES],
       [KEY_C],
       [{ memberId: 'm3', groupId: 'g1', keyPoolId: 'key-c', weight: 1 }],
       [GROUP_G1],
@@ -208,7 +208,7 @@ describe('selectChannelCandidates 多上游同模型路由', () => {
     const candidates = await selectChannelCandidates('claude-opus-4-8', undefined, undefined, 3)
     expect(candidates).toHaveLength(1)
     expect(candidates[0]?.keyPoolId).toBe('key-c')
-    expect(candidates[0]?.baseUrl).toBe('https://k.token6688.com')
+    expect(candidates[0]?.baseUrl).toBe('https://apihub.agnes-ai.com/v1')
   })
 
   it('模型无任何上架 → 空候选', async () => {

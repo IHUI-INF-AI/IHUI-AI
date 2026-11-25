@@ -169,7 +169,6 @@ _TEST_FILE_WEIGHTS = {
     "tests/test_schema_check.py": 7.9,
     "tests/test_agent_engine_router.py": 7.4,
     "tests/test_koubo_workflow.py": 7.4,
-    "tests/test_token6688_provider.py": 7.3,
     "tests/test_model_sync.py": 7.0,
     "tests/test_context_engine.py": 6.9,
     "tests/test_a2a_service.py": 6.7,

@@ -9,8 +9,8 @@
 - image_generation:provider 自动切换链(凭据过滤/显式优先/显式未配置降级全链)、
   运行时故障转移(首选失败自动换下一家,返回 failover_attempts)、全链失败保留末次错误码、
   移出 admin 专属名单(对话链 user_role=0 可用)
-- voice_tts:engine=auto 引擎链排序(OpenAI 音色 → token6688 优先;默认 edge 优先)、
-  失败互备、全引擎失败聚合、显式 engine 单引擎
+- voice_tts:仅 edge-tts 单引擎、
+  失败聚合、显式 engine 校验
 - conversation 关键词表含 image_generation(关键词 fallback 路径可用)
 
 测试隔离:monkeypatch 凭据与模块内 _image_generate_once/_tts_once,不触网。
@@ -88,8 +88,6 @@ class TestMediaIntentTools:
             ("把这段录音转成文字", ["audio_transcription"]),
             ("帮我听写这段音频", ["audio_transcription"]),
             ("transcribe this recording", ["audio_transcription"]),
-            ("还剩多少额度", ["token6688_balance"]),
-            ("查一下账户余额", ["token6688_balance"]),
             ("我的视频好了吗", ["video_generation"]),
             ("出片了吗", ["video_generation"]),
             ("歌好了吗", ["music_generation"]),
@@ -98,18 +96,7 @@ class TestMediaIntentTools:
             ("帮我修一下这张图片", ["image_edit"]),
             ("扩图一下这个封面", ["image_edit"]),
             ("edit this image please", ["image_edit"]),
-            ("取消这个视频任务", ["token6688_cancel_task"]),
-            ("那个音乐别做了", ["token6688_cancel_task"]),
-            ("cancel the task", ["token6688_cancel_task"]),
-            ("生成这个视频要多少钱", ["token6688_model_info"]),
-            ("这个模型的参数有哪些", ["token6688_model_info"]),
-            ("how much does it cost", ["token6688_model_info"]),
             # 2026-09-09 深能力补齐:声纹克隆自动路由
-            ("帮我克隆我的声音", ["token6688_voice_clone"]),
-            ("把我的声音做成音色", ["token6688_voice_clone"]),
-            ("上传这段录音做声纹", ["token6688_voice_clone"]),
-            ("我的声纹库有哪些", ["token6688_voice_clone"]),
-            ("clone my voice please", ["token6688_voice_clone"]),
         ],
     )
     def test_positive(self, text, expected):
@@ -134,9 +121,7 @@ class TestMediaIntentTools:
     def test_patterns_cover_all_media_tools(self):
         assert set(_MEDIA_INTENT_PATTERNS) == {
             "image_generation", "video_generation", "music_generation", "voice_tts",
-            "vision_analyze", "audio_transcription", "token6688_balance",
-            "image_edit", "token6688_cancel_task", "token6688_model_info",
-            "token6688_voice_clone",
+            "vision_analyze", "audio_transcription", "image_edit",
         }
 
 
@@ -214,99 +199,78 @@ def agnes_configured(monkeypatch):
 
     monkeypatch.setattr(settings, "llm_providers", json.dumps({
         "agnes": {"api_key": "test_agnes_key", "api_base": "https://apihub.agnes-ai.com/v1"},
-        "token6688": {"api_key": "", "api_base": ""},
     }))
-
-
-@pytest.fixture
-def token6688_and_agnes(monkeypatch):
-    """token6688(env)+ agnes 双厂商,验证链序与故障转移。"""
-    from app.core.config import settings
-
-    monkeypatch.setenv("TOKEN6688_API_KEY", "sk-test-6688")
-    monkeypatch.setattr(settings, "llm_providers", json.dumps({
-        "agnes": {"api_key": "test_agnes_key", "api_base": "https://apihub.agnes-ai.com/v1"},
-        "token6688": {"api_key": "", "api_base": ""},
-    }))
+    monkeypatch.delenv("IMAGE_PROVIDER", raising=False)
 
 
 class TestImageProviderChain:
     def test_chain_filters_unconfigured(self, agnes_configured):
         assert _image_provider_chain(None) == ["agnes"]
 
-    def test_explicit_provider_first(self, token6688_and_agnes):
-        # 默认 token6688 优先;显式 agnes → 提到链首但保留兜底
-        assert _image_provider_chain(None)[0] == "token6688"
-        assert _image_provider_chain("agnes") == ["agnes", "token6688"]
+    def test_explicit_configured_first(self, agnes_configured):
+        assert _image_provider_chain("agnes") == ["agnes"]
 
     def test_explicit_unconfigured_falls_back_to_chain(self, agnes_configured):
-        # 显式 token6688 无 key → 不再空手而归,降级自动链(兼容旧降级语义)
-        assert _image_provider_chain("token6688") == ["agnes"]
+        assert _image_provider_chain("kling") == ["agnes"]
 
     def test_no_creds_empty_chain(self, monkeypatch):
         from app.core.config import settings
 
         monkeypatch.setattr(settings, "llm_providers", json.dumps({
             "agnes": {"api_key": ""},
-            "token6688": {"api_key": ""},
         }))
-        monkeypatch.delenv("TOKEN6688_API_KEY", raising=False)
+        monkeypatch.delenv("IMAGE_PROVIDER", raising=False)
         assert _image_provider_chain(None) == []
 
-    def test_env_override_order(self, token6688_and_agnes, monkeypatch):
-        monkeypatch.setenv("IMAGE_PROVIDER", "agnes,token6688")
-        assert _image_provider_chain(None) == ["agnes", "token6688"]
+    def test_env_override_order(self, agnes_configured, monkeypatch):
+        monkeypatch.setenv("IMAGE_PROVIDER", "agnes,jimeng")
+        assert _image_provider_chain(None) == ["agnes"]
 
 
 class TestImageRuntimeFailover:
-    async def test_first_provider_fails_switches_to_next(
-        self, token6688_and_agnes, monkeypatch,
-    ):
-        """token6688 提交失败(如 402/429)→ 自动换 agnes 成功,带尝试明细。"""
+    async def test_first_provider_fails_switches_to_next(self, monkeypatch):
+        """agnes 失败 → 自动换 kling 成功,带尝试明细。"""
         calls: list[str] = []
 
         async def _fake_once(provider, prompt, size, save_path, arguments):
             calls.append(provider)
-            if provider == "token6688":
+            if provider == "agnes":
                 return {"ok": False, "provider": provider,
                         "errorCode": "PROVIDER_ERROR", "error": "402 quota"}
             return {"ok": True, "provider": provider, "image_url": "https://cdn/x.png"}
 
+        monkeypatch.setattr(mcp_server, "_image_provider_chain", lambda explicit: ["agnes", "kling"])
         monkeypatch.setattr(mcp_server, "_image_generate_once", _fake_once)
         out = await _tool_image_generation({"prompt": "一只猫"})
         assert out["ok"] is True
-        assert out["provider"] == "agnes"
-        assert calls == ["token6688", "agnes"]
-        assert out["failover_attempts"][0]["provider"] == "token6688"
+        assert out["provider"] == "kling"
+        assert calls == ["agnes", "kling"]
+        assert out["failover_attempts"][0]["provider"] == "agnes"
         assert out["failover_attempts"][0]["errorCode"] == "PROVIDER_ERROR"
 
-    async def test_all_providers_fail_keeps_last_error_code(
-        self, token6688_and_agnes, monkeypatch,
-    ):
-        """全链失败 → ok=False,errorCode 取末次(兼容单 provider 旧语义)。"""
+    async def test_all_providers_fail_keeps_last_error_code(self, monkeypatch):
+        """全链失败 → ok=False,errorCode 取末次。"""
 
         async def _fake_once(provider, prompt, size, save_path, arguments):
-            if provider == "token6688":
-                return {"ok": False, "provider": provider,
-                        "errorCode": "PROVIDER_ERROR", "error": "402"}
+            code = "PROVIDER_ERROR" if provider == "agnes" else "EMPTY_RESULT"
             return {"ok": False, "provider": provider,
-                    "errorCode": "EMPTY_RESULT", "error": "空 data"}
+                    "errorCode": code, "error": "fail"}
 
+        monkeypatch.setattr(mcp_server, "_image_provider_chain", lambda explicit: ["agnes", "kling"])
         monkeypatch.setattr(mcp_server, "_image_generate_once", _fake_once)
         out = await _tool_image_generation({"prompt": "一只猫"})
         assert out["ok"] is False
         assert out["errorCode"] == "EMPTY_RESULT"
         assert len(out["failover_attempts"]) == 2
-        assert "均失败" in out["message"]
+        assert "全部 2 家图片 provider 均失败" in out["message"]
 
     async def test_no_provider_configured(self, monkeypatch):
         from app.core.config import settings
 
         monkeypatch.setattr(settings, "llm_providers", json.dumps({
             "agnes": {"api_key": ""},
-            "token6688": {"api_key": ""},
         }))
-        monkeypatch.delenv("TOKEN6688_API_KEY", raising=False)
+        monkeypatch.delenv("IMAGE_PROVIDER", raising=False)
         out = await _tool_image_generation({"prompt": "一只猫"})
         assert out["ok"] is False
         assert out["errorCode"] == "PROVIDER_NOT_CONFIGURED"
@@ -316,7 +280,7 @@ class TestImageRuntimeFailover:
         assert out["errorCode"] == "INVALID_PROVIDER"
 
     async def test_save_path_invalid_fails_fast_before_paid_call(
-        self, token6688_and_agnes, monkeypatch,
+        self, agnes_configured, monkeypatch,
     ):
         """save_path 校验前置:格式错误不触发任何 provider 调用(不浪费付费 API)。"""
         called: list[str] = []
@@ -336,7 +300,6 @@ class TestImageRuntimeFailover:
     def test_image_generation_removed_from_admin_only(self):
         """全模态断链修复:对话链 call_tool 默认 user_role=0,图片生成必须全员可用。"""
         assert "image_generation" not in _ADMIN_ONLY_TOOLS
-        # 其余高危工具仍在名单
         assert "fetch_url" in _ADMIN_ONLY_TOOLS
         assert "run_command" in _ADMIN_ONLY_TOOLS
 
@@ -347,73 +310,37 @@ class TestImageRuntimeFailover:
 
 
 class TestTtsEngineChain:
-    def test_auto_default_edge_first(self):
-        assert _tts_engine_chain("auto", "") == ["edge", "token6688"]
-
-    def test_auto_openai_voice_token6688_first(self):
-        assert _tts_engine_chain("auto", "alloy") == ["token6688", "edge"]
-
-    def test_auto_voice_id_token6688_first(self):
-        assert _tts_engine_chain("auto", "voice_abc123") == ["token6688", "edge"]
+    def test_chain_only_edge(self):
+        assert _tts_engine_chain("auto", "") == ["edge"]
 
     def test_explicit_engine_single(self):
         assert _tts_engine_chain("edge", "") == ["edge"]
-        assert _tts_engine_chain("token6688", "") == ["token6688"]
 
 
-class TestTtsRuntimeFailover:
-    async def test_edge_fails_falls_back_token6688(self, monkeypatch):
-        """edge 不可达 → 自动换 token6688(已配置),带尝试明细。"""
-        calls: list[str] = []
-
+class TestTtsRuntime:
+    async def test_edge_success(self, monkeypatch):
         async def _fake_once(engine, text, arguments):
-            calls.append(engine)
-            if engine == "edge":
-                return b"", "", "", "edge-tts", {
-                    "ok": False, "provider": "edge-tts",
-                    "error": "network down", "errorCode": "ENGINE_ERROR",
-                    "audio_url": None,
-                }
-            return (b"audio-bytes", "audio/mpeg", "alloy", "token6688", None)
+            assert engine == "edge"
+            return (b"audio-bytes", "audio/mpeg", "zh-CN-XiaoxiaoNeural", "edge-tts", None)
 
         monkeypatch.setattr(mcp_server, "_tts_once", _fake_once)
-        monkeypatch.setenv("TOKEN6688_API_KEY", "sk-test-6688")
         out = await _tool_voice_tts({"text": "你好世界"})
         assert out["ok"] is True
-        assert out["provider"] == "token6688"
-        assert out["engine"] == "token6688"
-        assert calls == ["edge", "token6688"]
-        assert out["failover_attempts"][0]["engine"] == "edge"
+        assert out["provider"] == "free-voice"
+        assert out["engine"] == "edge"
         assert out["audio_url"].startswith("data:audio/mpeg;base64,")
 
-    async def test_openai_voice_routes_token6688_first(self, monkeypatch):
-        """auto + OpenAI 音色 → token6688 优先(edge 发不出该音色)。"""
-        calls: list[str] = []
-
+    async def test_edge_failure_aggregated(self, monkeypatch):
         async def _fake_once(engine, text, arguments):
-            calls.append(engine)
-            return (b"audio", "audio/mpeg", "alloy", "token6688", None)
-
-        monkeypatch.setattr(mcp_server, "_tts_once", _fake_once)
-        monkeypatch.setenv("TOKEN6688_API_KEY", "sk-test-6688")
-        out = await _tool_voice_tts({"text": "你好", "voice": "alloy"})
-        assert out["ok"] is True
-        assert calls == ["token6688"]
-
-    async def test_all_engines_fail_aggregated(self, monkeypatch):
-        async def _fake_once(engine, text, arguments):
-            code = "PROVIDER_NOT_CONFIGURED" if engine == "token6688" else "ENGINE_ERROR"
-            return b"", "", "", engine, {
-                "ok": False, "provider": engine,
-                "error": f"{engine} down", "errorCode": code, "audio_url": None,
+            return b"", "", "", "edge-tts", {
+                "ok": False, "provider": "edge-tts",
+                "error": "network down", "errorCode": "ENGINE_ERROR", "audio_url": None,
             }
 
         monkeypatch.setattr(mcp_server, "_tts_once", _fake_once)
-        monkeypatch.delenv("TOKEN6688_API_KEY", raising=False)
         out = await _tool_voice_tts({"text": "你好"})
         assert out["ok"] is False
-        assert out["errorCode"] == "PROVIDER_NOT_CONFIGURED"
-        assert len(out["failover_attempts"]) == 2
+        assert out["errorCode"] == "ENGINE_ERROR"
 
     async def test_unknown_engine_rejected(self):
         out = await _tool_voice_tts({"text": "你好", "engine": "azure"})
@@ -440,8 +367,6 @@ class TestConversationMediaKeywords:
         """2026-09-09 深能力:理解/转写/余额 均有关键词 fallback 兜底。"""
         assert conversation_service._tool_keywords.get("vision_analyze")
         assert conversation_service._tool_keywords.get("audio_transcription")
-        assert conversation_service._tool_keywords.get("token6688_balance")
-        assert conversation_service._tool_keywords.get("token6688_voice_clone")
 
     def test_media_render_prompt_present(self):
         assert "image_url" in _MEDIA_RENDER_PROMPT
@@ -493,7 +418,7 @@ class TestMediaArtifactSummary:
 
         tc = _tc("video_generation", {
             "ok": True, "task_id": "t-123", "status": "processing",
-            "provider": "token6688", "video_url": None,
+            "provider": "kling", "video_url": None,
         })
         note = _media_artifact_summary([tc])
         assert '"task_id": "t-123"' in note
@@ -542,24 +467,6 @@ class TestMediaArtifactSummary:
         assert "analysis_excerpt" in note
         assert "transcript_excerpt" in note
 
-    def test_voice_clone_voice_id_persisted(self):
-        """声纹克隆的 voice_id 必须入记忆(下轮 voice_tts 复用克隆音色的钥匙)。"""
-        from app.services.conversation import _media_artifact_summary
-
-        tc = _tc("token6688_voice_clone", {
-            "ok": True, "action": "upload", "voice_id": "v-abc123",
-        })
-        note = _media_artifact_summary([tc])
-        assert '"voice_id": "v-abc123"' in note
-        assert "token6688_voice_clone" in note
-
-    def test_voice_clone_list_no_voice_id_skipped(self):
-        """action=list 无 voice_id 时不写记忆(避免无意义条目)。"""
-        from app.services.conversation import _media_artifact_summary
-
-        tc = _tc("token6688_voice_clone", {"ok": True, "action": "list", "count": 2})
-        assert _media_artifact_summary([tc]) == ""
-
 
 class TestAudioTranscriptionTool:
     """audio_transcription:参数校验 + 引擎链故障转移。"""
@@ -581,240 +488,19 @@ class TestAudioTranscriptionTool:
         assert out["ok"] is False
         assert out["errorCode"] == "FILE_NOT_FOUND"
 
-    async def test_local_failover_to_token6688(self, tmp_path, monkeypatch):
-        """local 失败 → 自动换 token6688,聚合 attempts。"""
-        wav = tmp_path / "a.wav"
-        wav.write_bytes(b"RIFF-fake-audio")
-
-        async def _fake_once(engine, audio_bytes, filename, language):
-            if engine == "local":
-                return "", "", "faster-whisper", {
-                    "ok": False, "provider": "faster-whisper",
-                    "error": "engine down", "errorCode": "ENGINE_ERROR",
-                }
-            return "你好世界", "whisper-1", "token6688", None
-
-        monkeypatch.setattr(mcp_server, "_stt_once", _fake_once)
-        out = await mcp_server._tool_audio_transcription({"audio": str(wav)})
-        assert out["ok"] is True
-        assert out["provider"] == "token6688"
-        assert out["text"] == "你好世界"
-        assert out["failover_attempts"][0]["engine"] == "local"
-
-    async def test_all_engines_fail_keeps_last_error(self, tmp_path, monkeypatch):
+    async def test_local_engine_fail_keeps_error(self, tmp_path, monkeypatch):
         wav = tmp_path / "a.wav"
         wav.write_bytes(b"RIFF")
 
         async def _fake_once(engine, audio_bytes, filename, language):
-            code = "PROVIDER_NOT_CONFIGURED" if engine == "token6688" else "ENGINE_ERROR"
-            return "", "", engine, {
-                "ok": False, "provider": engine,
-                "error": f"{engine} down", "errorCode": code,
+            return "", "", "faster-whisper", {
+                "ok": False, "provider": "faster-whisper",
+                "error": "local down", "errorCode": "ENGINE_ERROR",
             }
 
         monkeypatch.setattr(mcp_server, "_stt_once", _fake_once)
         out = await mcp_server._tool_audio_transcription({"audio": str(wav)})
         assert out["ok"] is False
-        assert out["errorCode"] == "PROVIDER_NOT_CONFIGURED"
-        assert len(out["failover_attempts"]) == 2
-        assert "均失败" in out["message"]
-
-
-class TestToken6688BalanceTool:
-    async def test_not_configured_clear_error(self, monkeypatch):
-        """未配置 key → PROVIDER_NOT_CONFIGURED(文案含配置指引)。"""
-        from app.services import video_generation as vg
-
-        monkeypatch.setattr(vg, "_instantiate", lambda name: None)
-        out = await mcp_server._tool_token6688_balance({})
-        assert out["ok"] is False
-        assert out["errorCode"] == "PROVIDER_NOT_CONFIGURED"
-        assert "TOKEN6688_API_KEY" in out["error"]
-
-    async def test_balance_returned(self, monkeypatch):
-        from app.services import video_generation as vg
-
-        class _FakeInst:
-            async def get_balance(self):
-                return {"balance": 12.5, "available_balance": 10.0, "frozen": 2.5}
-
-        monkeypatch.setattr(vg, "_instantiate", lambda name: _FakeInst())
-        out = await mcp_server._tool_token6688_balance({})
-        assert out["ok"] is True
-        assert out["balance"] == 12.5
-        assert out["available_balance"] == 10.0
-        assert out["currency"] == "USD"
-
-    def test_new_tools_not_admin_only(self):
-        """只读工具:对话链 user_role=0 必须可用。
-
-        权限档只收 `token6688_upload_file`(纯外传,对话链不依赖);`token6688_voice_clone`
-        **不得入档** —— 用户 2026-11-08 逐条裁定它是"贵资源",用归属闸+计费闸治理
-        (tests/test_voice_clone_owner_credit_ais050.py),整只塞进 admin 档会把 role=0
-        的正常对话链整个挡死。语音转写因本地路径走 workspace/敏感文件校验,同样保持可用。
-        """
-        assert "audio_transcription" not in _ADMIN_ONLY_TOOLS
-        assert "token6688_balance" not in _ADMIN_ONLY_TOOLS
-        assert "vision_analyze" not in _ADMIN_ONLY_TOOLS
-        assert "image_edit" not in _ADMIN_ONLY_TOOLS
-        assert "token6688_cancel_task" not in _ADMIN_ONLY_TOOLS
-        assert "token6688_model_info" not in _ADMIN_ONLY_TOOLS
-        assert "token6688_voice_clone" not in _ADMIN_ONLY_TOOLS
-        assert "token6688_upload_file" in _ADMIN_ONLY_TOOLS
-
-
-class TestImageEditTool:
-    """image_edit:参数校验 + 图片来源解析 + 未配置降级。"""
-
-    async def test_missing_params_rejected(self):
-        out = await mcp_server._tool_image_edit({})
-        assert out["ok"] is False
-        assert out["errorCode"] == "MISSING_PARAMS"
-
-    async def test_prompt_required(self):
-        out = await mcp_server._tool_image_edit({"image": "https://x/img.png"})
-        assert out["ok"] is False
-        assert out["errorCode"] == "MISSING_PARAMS"
-
-    async def test_not_configured_clear_error(self, monkeypatch):
-        from app.core.config import settings
-
-        monkeypatch.setattr(settings, "llm_providers", json.dumps({
-            "token6688": {"api_key": "", "api_base": ""},
-        }))
-        monkeypatch.delenv("TOKEN6688_API_KEY", raising=False)
-        out = await mcp_server._tool_image_edit(
-            {"image": "https://x/img.png", "prompt": "去水印"},
-        )
-        assert out["ok"] is False
-        assert out["errorCode"] == "PROVIDER_NOT_CONFIGURED"
-        assert "TOKEN6688_API_KEY" in out["error"]
-
-    async def test_invalid_source_rejected(self, monkeypatch):
-        """无法解析的图片来源 → 明确错误码,不触网。"""
-        from app.core.config import settings
-
-        monkeypatch.setattr(settings, "llm_providers", json.dumps({
-            "token6688": {"api_key": "sk-test", "api_base": "https://k.token6688.com"},
-        }))
-        out = await mcp_server._tool_image_edit(
-            {"image": "not-a-real-source", "prompt": "改一下"},
-        )
-        assert out["ok"] is False
-        assert out["errorCode"] == "INVALID_SOURCE"
-
-    async def test_save_path_validated_before_call(self, monkeypatch, tmp_path):
-        from app.core.config import settings
-
-        monkeypatch.setattr(settings, "llm_providers", json.dumps({
-            "token6688": {"api_key": "sk-test", "api_base": "https://k.token6688.com"},
-        }))
-        # 非法后缀 → 校验前置 fail-fast(不调用上游)
-        out = await mcp_server._tool_image_edit(
-            {"image": "https://x/img.png", "prompt": "改一下", "save_path": "C:/tmp/a.txt"},
-        )
-        assert out["ok"] is False
-        assert out["errorCode"] == "INVALID_EXTENSION"
-
-    async def test_success_with_b64_result(self, monkeypatch):
-        """b64_json 返回 → image_url 为 data URI,ok=True。"""
-        from app.core.config import settings
-        from app.providers.token6688_provider import Token6688Provider
-
-        monkeypatch.setattr(settings, "llm_providers", json.dumps({
-            "token6688": {"api_key": "sk-test", "api_base": "https://k.token6688.com"},
-        }))
-        import base64
-
-        b64 = base64.b64encode(b"fake-png-bytes").decode("ascii")
-
-        async def _fake_edits(self, *a, **kw):
-            return {"provider": "token6688", "model": "gpt-image-2.5-flare",
-                    "images": [{"b64_json": b64}]}
-
-        monkeypatch.setattr(Token6688Provider, "images_edits", _fake_edits)
-        out = await mcp_server._tool_image_edit(
-            {"image": "data:image/png;base64," + b64, "prompt": "加个边框"},
-        )
-        assert out["ok"] is True
-        assert out["image_url"].startswith("data:image/png;base64,")
-
-    async def test_success_with_url_result(self, monkeypatch):
-        from app.core.config import settings
-        from app.providers.token6688_provider import Token6688Provider
-
-        monkeypatch.setattr(settings, "llm_providers", json.dumps({
-            "token6688": {"api_key": "sk-test", "api_base": "https://k.token6688.com"},
-        }))
-
-        async def _fake_edits(self, *a, **kw):
-            return {"provider": "token6688", "model": "gpt-image-2.5-flare",
-                    "images": [{"url": "https://cdn.x/edited.png"}]}
-
-        monkeypatch.setattr(Token6688Provider, "images_edits", _fake_edits)
-        out = await mcp_server._tool_image_edit(
-            {"image": "data:image/png;base64,QUJD", "prompt": "改背景"},
-        )
-        assert out["ok"] is True
-        assert out["image_url"] == "https://cdn.x/edited.png"
-
-    async def test_provider_error_kept(self, monkeypatch):
-        from app.core.config import settings
-        from app.providers.base_provider import ProviderError
-        from app.providers.token6688_provider import Token6688Provider
-
-        monkeypatch.setattr(settings, "llm_providers", json.dumps({
-            "token6688": {"api_key": "sk-test", "api_base": "https://k.token6688.com"},
-        }))
-
-        async def _fake_edits(self, *a, **kw):
-            raise ProviderError("余额不足", 402)
-
-        monkeypatch.setattr(Token6688Provider, "images_edits", _fake_edits)
-        out = await mcp_server._tool_image_edit(
-            {"image": "data:image/png;base64,AAAA", "prompt": "改一下"},
-        )
-        assert out["ok"] is False
-        assert out["errorCode"] == "PROVIDER_ERROR"
-        assert "余额不足" in out["error"]
-
-
-class TestCancelTaskRouting:
-    async def test_missing_task_id_rejected(self):
-        out = await mcp_server._tool_token6688_cancel_task({})
-        assert out["ok"] is False
-        assert out["errorCode"] == "MISSING_PARAMS"
-
-    async def test_not_configured(self, monkeypatch):
-        from app.services import video_generation as vg
-
-        monkeypatch.setattr(vg, "_instantiate", lambda name: None)
-        out = await mcp_server._tool_token6688_cancel_task({"task_id": "t-123"})
-        assert out["ok"] is False
-        assert out["errorCode"] == "PROVIDER_NOT_CONFIGURED"
-
-    async def test_cancel_ok(self, monkeypatch):
-        from app.services import video_generation as vg
-
-        class _FakeInst:
-            async def cancel_task(self, task_id):
-                return {"ok": True, "status": "cancelled"}
-
-        monkeypatch.setattr(vg, "_instantiate", lambda name: _FakeInst())
-        out = await mcp_server._tool_token6688_cancel_task({"task_id": "t-123"})
-        assert out["ok"] is True
-        assert out["task_id"] == "t-123"
-        assert out["status"] == "cancelled"
-
-    async def test_cancel_unsupported_truthful(self, monkeypatch):
-        from app.services import video_generation as vg
-
-        class _FakeInst:
-            async def cancel_task(self, task_id):
-                return {"ok": False, "status": "unsupported", "error": "取消端点均不可用"}
-
-        monkeypatch.setattr(vg, "_instantiate", lambda name: _FakeInst())
-        out = await mcp_server._tool_token6688_cancel_task({"task_id": "t-123"})
-        assert out["ok"] is False
-        assert out["status"] == "unsupported"
-# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+        assert out["errorCode"] == "ENGINE_ERROR"
+        assert len(out["failover_attempts"]) == 1
+        assert "全部 1 个转写引擎均失败" in out["message"]

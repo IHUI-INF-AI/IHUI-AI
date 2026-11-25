@@ -316,7 +316,7 @@
 | 69E | AIS-069 | app/providers/tencent_hunyuan_provider.py:243-269 | P2 | 入册 |
 | 70E | AIS-070 | app/core/llm_gateway.py:2827-2845 | P2 | 入册 |
 | 71E | AIS-071 | app/providers/alibaba_dashscope_provider.py:157-180 | P2 | 入册 |
-| 72E | AIS-072 | app/providers/token6688_provider.py:697-701 | P3 | 入册 |
+| 72E | AIS-072 | 已下线媒体供应商模块:697-701 | P3 | 入册 |
 | 73E | AIS-073 | app/routers/publish.py:759-820 | P1 | 入册 |
 | 74E | AIS-074 | app/routers/recap.py:43-56 | P1 | 入册 |
 | 75E | AIS-075 | app/routers/meta_learning.py:28 | P2 | 入册 |

@@ -669,7 +669,7 @@ export const AI_HUB_ITEMS: NavItem[] = [
     icon: Palette,
     advancedOnly: 'experimental',
   },
-  // 声纹库管理(2026-09-09 F4):token6688 克隆音色列表/详情/删除/上传
+  // 声纹库管理(2026-09-09 F4):克隆音色列表/详情/删除/上传
   // 2026-10-20 简洁模式:`experimental` —— 服务端音色账号管理界面,普通用户点开是空列表或他人音色
   { href: '/voices', labelKey: 'voices', icon: Mic, advancedOnly: 'experimental' },
   // 签到助手(2026-10-03 立):账号服务端化管理(ai-service /api/checkin)

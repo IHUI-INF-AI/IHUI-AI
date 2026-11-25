@@ -7,7 +7,7 @@
  * 全局模型配置同键重复行的合并器物(2026-10-26 立)。
  *
  * 立因:dev 库 `ai_model_config` 有 provider_code+base_url 完全相同的两行
- * (token6688: id=1 带 138 个模型 / id=46 带 110 个),而 schema 声明的
+ * (某供应商: id=1 带 138 个模型 / id=46 带 110 个),而 schema 声明的
  * `uq_ai_model_config_global_provider_base`(owner_uuid IS NULL 上的部分唯一索引)
  * 因这组重复数据而无法建立 —— 补索引必失败。本器物把"重复行"收成一个,并**先备份后删**。
  *
@@ -19,8 +19,8 @@
  *   ③ 保留侧必须是被引用更多/模型更多的那一行(排序确定性:模型数降序,再 id 升序)。
  *
  * 用法:
- *   node scripts/merge-dup-model-configs.mjs --provider token6688 [--dry-run]
- *   node scripts/merge-dup-model-configs.mjs --provider token6688 --apply
+ *   node scripts/merge-dup-model-configs.mjs --provider agnes [--dry-run]
+ *   node scripts/merge-dup-model-configs.mjs --provider agnes --apply
  * 退出码:0 已一致/合并成功 / 1 拒绝(需人工) / 2 未判定(取不到库)。
  */
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
