@@ -77,9 +77,11 @@ const gitOut = (args, opts) => {
 }
 
 // ── 0. gitdir 与 pack 体积（文件求和，不信 count-objects 的字符串）──
-const gitDirOut = gitTry(['rev-parse', '--absolute-git-dir'])
-if (!gitDirOut || !gitDirOut.trim()) die(2, '未判定：取不到 gitdir')
-const GIT_DIR = gitDirOut.trim().replace(/\\/g, '/')
+// 必须用 --git-common-dir：linked worktree 的 --absolute-git-dir 是 <common>/worktrees/<name>，
+// 那里面没有 objects/（2026-11-25 在 D:/DevEnv/wt-bloat-1125 干跑实测报「objects/pack 读不到」）。
+const commonOut = gitTry(['rev-parse', '--path-format=absolute', '--git-common-dir'])
+if (!commonOut || !commonOut.trim()) die(2, '未判定：取不到 git-common-dir')
+const GIT_DIR = commonOut.trim().replace(/\\/g, '/')
 const PACK_DIR = join(GIT_DIR, 'objects', 'pack')
 
 const packBytes = () => {
