@@ -547,7 +547,7 @@ IPC 分组说明它是“能力市场型”客户端：
 | Windows 作业对象执行器 | WorkBuddy `sandbox-cli` 的 `CreateJobObjectW/AssignProcessToJobObject/TerminateJobObject`；Codex `spawned ConPTY is missing its process job` | `apps/desktop` 主进程新增 executor 抽象（Job Object + 进程树回收 + 超时） | 子进程退出后 Job 必须为空；CTRL+C/超时/崩溃三场景都不留孤儿进程 |
 | 审批反向通道 | WorkBuddy `approval.callbackAddress` + `approvedByUser` + 三队列；Trae `PermissionDenied` | `apps/desktop` 命名管道（ACL 限制到当前用户）+ `packages/agent-sdk` 审批协议 | 审批请求可追溯到 session；断线后备份/恢复队列不丢请求 |
 | preload 暴露面预算 | OpenCode 1 个键 / 5 成员 vs WorkBuddy 83 键 | `apps/desktop` preload 只暴露一个命名空间对象；禁止直接暴露 `ipcRenderer` | 暴露键 ≤ 20；每个键有 owner 与用途注释；CI 里做预算检查 |
-| 动态 IPC 注册表 | ZCode `[rpc:call]/[rpc:listen]`、423 条动态（196 已还原为 156 通道）；Qoder `peer-transport` | `packages/agent-sdk` 做命名通道 RPC（call/listen/subscribe），替代裸 `ipcMain` | 通道名必须来自注册表；未注册通道运行期拒绝并打点 |
+| 动态 IPC 注册表 | ZCode `[rpc:call]/[rpc:listen]`、423 条动态（215 已还原为 169 通道）；Qoder `peer-transport` | `packages/agent-sdk` 做命名通道 RPC（call/listen/subscribe），替代裸 `ipcMain` | 通道名必须来自注册表；未注册通道运行期拒绝并打点 |
 | 本地运行时策略热更新 | 豆包 `local_runtime.runtime_policy`（probe/timeout/background_limit） | `apps/api` 或 `apps/ai-service` 增加 `runtime-policy.json` + 热加载；写入审计 | 策略变更 5 秒内生效；每次变更留 who/when/why；非法字段拒绝整份策略 |
 | MCP Host 回环服务 | WorkBuddy `main/server.js` `listen(0,'127.0.0.1')` + 路由注册/注销 | `apps/api` 提供 MCP Host：随机端口、per-route token、生命周期注销 | 端口不落公网；未注册路由 404；注销后在飞请求被 abort 并计数 |
 | 凭据与 OAuth 检查点 | 豆包 `mcp_helper` OAuth checkpoint；ZCode `@napi-rs/keyring`；Cursor `cursorPasskey` | `packages/auth`：OS keyring + DPAPI 封装；MCP OAuth 存 checkpoint 而非内存 | 明文凭据零落盘；refresh 失败可恢复；退出即清内存副本 |
