@@ -1,18 +1,19 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 记住账号 / 记住口令 / 账号历史 / 自动登录的落盘行为锁(`lib/remember-credentials.ts`)。
+ * 记住账号 / 加密口令 / 账号历史 / 自动登录的落盘行为锁。
  *
- * 这一族此前零覆盖,而它是**安全面**:旧实现把 `{account,password}` 做 base64 写进
- * localStorage,一次可还原。今天的契约有三条硬边:
+ * 契约:
  *  ① "记住账号"那把 key 结构上永远不含口令;
- *  ② 读到历史 base64 形态(可能带口令)必须**就地改写成**只含账号的 JSON;
- *  ③ 口令另存独立 key,且**换号不回吐旧口令**。
- * 断言逐条盯盘上原文,不盯"函数返回了什么"—— 泄漏发生在盘上,不发生在返回值里。
+ *  ② 历史 base64 形态(可能带口令)读到后必须就地改写成只含账号的 JSON;
+ *  ③ 口令只进 AES-GCM 保险箱(localStorage 仅有 iv/data 密文),换号不回吐;
+ *  ④ 历史明文 `ihui-remember-password` 首次读取时迁移到保险箱并删除。
+ *
+ * 测试用内存 IndexedDB 承载非导出 CryptoKey,真实走 WebCrypto 加解密。
  */
 import { LOGIN_HISTORY_MAX } from '@ihui/shared/constants/storage-keys'
+import { webcrypto } from 'node:crypto'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import {
@@ -20,9 +21,11 @@ import {
   clearLoginHistory,
   clearRememberedCredentials,
   getRememberedPasswordForAccount,
+  hasRememberedPasswordForAccount,
   loadAutoLogin,
   loadLoginHistory,
   loadRememberedCredentials,
+  loadRememberedCredentialsWithPassword,
   removeFromLoginHistory,
   saveAutoLogin,
   saveLoginHistory,
@@ -31,7 +34,8 @@ import {
 } from '../remember-credentials'
 
 const ACCOUNT_KEY = 'ihui-remember-credentials'
-const PASSWORD_KEY = 'ihui-remember-password'
+const LEGACY_PASSWORD_KEY = 'ihui-remember-password'
+const PASSWORD_V2_KEY = 'ihui-remember-password-v2'
 const AUTO_LOGIN_KEY = 'ihui-auto-login'
 const HISTORY_KEY = 'ihui-login-history'
 
@@ -41,8 +45,88 @@ function legacyTransport(text: string): string {
   return btoa(binary)
 }
 
+/**
+ * 最小内存 IndexedDB 适配器,只覆盖 remembered-password-vault 用到的 API:
+ * open / onupgradeneeded / transaction / objectStore.get/put / oncomplete。
+ */
+function createMemoryIndexedDb() {
+  const stores = new Map<string, Map<string, unknown>>()
+
+  const request = (work: () => unknown): any => {
+    const req: any = { result: undefined, error: null, onsuccess: null, onerror: null }
+    queueMicrotask(() => {
+      try {
+        req.result = work()
+        req.onsuccess?.()
+      } catch (error) {
+        req.error = error
+        req.onerror?.()
+      }
+    })
+    return req
+  }
+
+  const makeDb = (): any => ({
+    objectStoreNames: {
+      contains: (name: string) => stores.has(name),
+    },
+    createObjectStore: (name: string) => {
+      stores.set(name, new Map())
+    },
+    close: () => undefined,
+    transaction: (name: string) => {
+      const map = stores.get(name)
+      if (!map) throw new Error(`missing object store: ${name}`)
+      const tx: any = { oncomplete: null, onerror: null, error: null }
+      tx.objectStore = () => ({
+        get: (key: string) => request(() => map.get(key)),
+        put: (value: unknown, key: string) => {
+          const req = request(() => {
+            map.set(key, value)
+          })
+          queueMicrotask(() => tx.oncomplete?.())
+          return req
+        },
+      })
+      return tx
+    },
+  })
+
+  return {
+    reset: () => stores.clear(),
+    open: () => {
+      const req: any = {
+        result: undefined,
+        error: null,
+        onsuccess: null,
+        onerror: null,
+        onupgradeneeded: null,
+      }
+      queueMicrotask(() => {
+        req.result = makeDb()
+        req.onupgradeneeded?.()
+        req.onsuccess?.()
+      })
+      return req
+    },
+  }
+}
+
+const memoryIndexedDb = createMemoryIndexedDb()
+Object.defineProperty(globalThis, 'indexedDB', {
+  value: memoryIndexedDb,
+  configurable: true,
+})
+if (!globalThis.crypto?.subtle) {
+  Object.defineProperty(globalThis, 'crypto', {
+    value: webcrypto,
+    configurable: true,
+  })
+}
+
 beforeEach(() => {
   localStorage.clear()
+  memoryIndexedDb.reset()
 })
 
 describe('记住账号:盘上永不含口令', () => {
@@ -51,53 +135,85 @@ describe('记住账号:盘上永不含口令', () => {
     const raw = localStorage.getItem(ACCOUNT_KEY)
     expect(raw).toBe(JSON.stringify({ account: 'alice@example.com' }))
     expect(raw).not.toContain('hunter2')
-    expect(localStorage.getItem(PASSWORD_KEY)).toBeNull()
+    expect(localStorage.getItem(LEGACY_PASSWORD_KEY)).toBeNull()
+    expect(localStorage.getItem(PASSWORD_V2_KEY)).toBeNull()
   })
 
-  it('登录成功但"未勾选记住密码"会清掉上一账号残留的口令 key', () => {
-    saveRememberedCredentialsWithPassword('alice@example.com', 'hunter2')
-    expect(localStorage.getItem(PASSWORD_KEY)).not.toBeNull()
+  it('登录成功但"未勾选记住密码"会清掉上一账号残留的加密口令', async () => {
+    await saveRememberedCredentialsWithPassword('alice@example.com', 'hunter2')
+    expect(localStorage.getItem(PASSWORD_V2_KEY)).not.toBeNull()
     saveRememberedCredentials('alice@example.com', 'hunter2')
-    expect(localStorage.getItem(PASSWORD_KEY)).toBeNull()
+    expect(localStorage.getItem(PASSWORD_V2_KEY)).toBeNull()
+    await expect(getRememberedPasswordForAccount('alice@example.com')).resolves.toBe('')
   })
 
-  it('默认读回口令恒为空串 —— "这一端默认不提供口令",自动提交据此短路', () => {
-    saveRememberedCredentialsWithPassword('alice@example.com', 'hunter2')
-    expect(loadRememberedCredentials()).toEqual({ account: 'alice@example.com', password: '' })
-  })
-
-  it('显式勾选过"记住密码"后才在 keepPassword 档回吐,且只回吐本账号的', () => {
-    saveRememberedCredentialsWithPassword('alice@example.com', 'hunter2')
+  it('同步读账号永远不带口令,口令走异步保险箱', async () => {
+    await saveRememberedCredentialsWithPassword('alice@example.com', 'hunter2')
     expect(loadRememberedCredentials({ keepPassword: true })).toEqual({
+      account: 'alice@example.com',
+      password: '',
+    })
+    await expect(loadRememberedCredentialsWithPassword()).resolves.toEqual({
       account: 'alice@example.com',
       password: 'hunter2',
     })
   })
 
-  it('换号后不回吐上一个账号的口令(口令记录里的 account 不匹配即空)', () => {
-    saveRememberedCredentialsWithPassword('alice@example.com', 'hunter2')
-    // 模拟只有账号 key 被换掉、口令 key 还留着旧记录的最坏情形
+  it('换号后不回吐上一个账号的口令(密文 account 不匹配即空)', async () => {
+    await saveRememberedCredentialsWithPassword('alice@example.com', 'hunter2')
     localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ account: 'bob@example.com' }))
-    expect(loadRememberedCredentials({ keepPassword: true })).toEqual({
+    await expect(loadRememberedCredentialsWithPassword()).resolves.toEqual({
       account: 'bob@example.com',
       password: '',
     })
   })
 
-  it('按账号即时取口令:账号匹配才回吐,前后空格不影响,换号即空', () => {
-    saveRememberedCredentialsWithPassword('alice@example.com', 'hunter2')
-    expect(getRememberedPasswordForAccount('alice@example.com')).toBe('hunter2')
-    expect(getRememberedPasswordForAccount(' alice@example.com ')).toBe('hunter2')
-    expect(getRememberedPasswordForAccount('bob@example.com')).toBe('')
+  it('按账号即时取口令:账号匹配才回吐,前后空格不影响,换号即空', async () => {
+    await saveRememberedCredentialsWithPassword('alice@example.com', 'hunter2')
+    await expect(getRememberedPasswordForAccount('alice@example.com')).resolves.toBe('hunter2')
+    await expect(getRememberedPasswordForAccount(' alice@example.com ')).resolves.toBe('hunter2')
+    await expect(getRememberedPasswordForAccount('bob@example.com')).resolves.toBe('')
+    expect(hasRememberedPasswordForAccount('alice@example.com')).toBe(true)
+    expect(hasRememberedPasswordForAccount('bob@example.com')).toBe(false)
   })
 
-  it('口令记录损坏时返回空串而不是抛出', () => {
-    saveRememberedCredentialsWithPassword('alice@example.com', 'hunter2')
-    localStorage.setItem(PASSWORD_KEY, '{not json')
-    expect(loadRememberedCredentials({ keepPassword: true })).toEqual({
-      account: 'alice@example.com',
-      password: '',
-    })
+  it('密文损坏时返回空串而不是抛出,并清掉坏记录', async () => {
+    await saveRememberedCredentialsWithPassword('alice@example.com', 'hunter2')
+    localStorage.setItem(PASSWORD_V2_KEY, '{not json')
+    await expect(getRememberedPasswordForAccount('alice@example.com')).resolves.toBe('')
+    expect(localStorage.getItem(PASSWORD_V2_KEY)).toBeNull()
+  })
+
+  it('密文只含 iv/data,不含明文口令', async () => {
+    await saveRememberedCredentialsWithPassword('alice@example.com', 'hunter2')
+    const raw = localStorage.getItem(PASSWORD_V2_KEY) ?? ''
+    expect(raw).not.toContain('hunter2')
+    const parsed = JSON.parse(raw)
+    expect(parsed).toMatchObject({ v: 2, account: 'alice@example.com' })
+    expect(typeof parsed.iv).toBe('string')
+    expect(typeof parsed.data).toBe('string')
+  })
+})
+
+describe('历史明文口令迁移(读到即加密并删除明文)', () => {
+  it('旧 ihui-remember-password 首次读取后:明文消失,密文出现,口令仍可回填', async () => {
+    localStorage.setItem(
+      LEGACY_PASSWORD_KEY,
+      JSON.stringify({ account: 'alice@example.com', password: 'hunter2' }),
+    )
+    await expect(getRememberedPasswordForAccount('alice@example.com')).resolves.toBe('hunter2')
+    expect(localStorage.getItem(LEGACY_PASSWORD_KEY)).toBeNull()
+    expect(localStorage.getItem(PASSWORD_V2_KEY)).not.toBeNull()
+    await expect(getRememberedPasswordForAccount('alice@example.com')).resolves.toBe('hunter2')
+  })
+
+  it('旧明文属于别的账号时删除且不回吐', async () => {
+    localStorage.setItem(
+      LEGACY_PASSWORD_KEY,
+      JSON.stringify({ account: 'bob@example.com', password: 'other' }),
+    )
+    await expect(getRememberedPasswordForAccount('alice@example.com')).resolves.toBe('')
+    expect(localStorage.getItem(LEGACY_PASSWORD_KEY)).toBeNull()
   })
 })
 
@@ -114,8 +230,8 @@ describe('历史传输形态迁移(读到即改写)', () => {
     const migrated = localStorage.getItem(ACCOUNT_KEY)
     expect(migrated).toBe(JSON.stringify({ account: 'alice@example.com' }))
     expect(migrated).not.toContain('hunter2')
-    // 迁移不复活口令:旧记录里的口令不会被转存到新口令 key
-    expect(localStorage.getItem(PASSWORD_KEY)).toBeNull()
+    expect(localStorage.getItem(LEGACY_PASSWORD_KEY)).toBeNull()
+    expect(localStorage.getItem(PASSWORD_V2_KEY)).toBeNull()
   })
 
   it('新传输里若残留 password 字段,同样被就地抹成"只含账号"', () => {
@@ -138,11 +254,12 @@ describe('历史传输形态迁移(读到即改写)', () => {
     expect(localStorage.getItem(ACCOUNT_KEY)).toBeNull()
   })
 
-  it('clearRememberedCredentials 只清账号 key,不碰账号历史', () => {
-    saveRememberedCredentials('alice@example.com', 'x')
+  it('clearRememberedCredentials 清账号与口令,不碰账号历史', async () => {
+    await saveRememberedCredentialsWithPassword('alice@example.com', 'x')
     saveLoginHistory('alice@example.com')
     clearRememberedCredentials()
     expect(localStorage.getItem(ACCOUNT_KEY)).toBeNull()
+    expect(localStorage.getItem(PASSWORD_V2_KEY)).toBeNull()
     expect(loadLoginHistory()).toEqual(['alice@example.com'])
   })
 })
@@ -210,4 +327,3 @@ describe('账号历史:去重 → 置顶 → 截断', () => {
     expect(loadLoginHistory()).toEqual([])
   })
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -73,6 +73,10 @@ export const SAFE_KEYS: ReadonlySet<string> = new Set([
   'tokenexpiresat',
   'refreshexpiresat',
   'hasrefreshtoken',
+  // 2026-11-26:设备自助接入/配对兑换的响应体就是**要交给客户端的设备令牌**。
+  // 此前被 "token" 子串误伤成 "***",桌面端拿不到可用的 device_token,整条
+  // G5 自助接入链路在生产上不可用(与 pair-exchange 同因)。
+  'device_token',
 ])
 
 const MASK = '***'

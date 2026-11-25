@@ -186,10 +186,15 @@ export type {
   AccountHistoryInputProps,
 } from './components/login-form'
 // 记住账号 / 账号历史 / 自动登录 凭据管理(2026-07-30 抽到共享包;2026-09-29 票 #27
-// web 端收口:不再持久化口令,记录形态唯一真相在 @ihui/shared/auth/remembered-account)
+// web 端收口:不再持久化口令,记录形态唯一真相在 @ihui/shared/auth/remembered-account;
+// 2026-11-26「记住密码」改为 AES-GCM 保险箱,密码读取为异步)
 export {
   saveRememberedCredentials,
+  saveRememberedCredentialsWithPassword,
   loadRememberedCredentials,
+  loadRememberedCredentialsWithPassword,
+  hasRememberedPasswordForAccount,
+  getRememberedPasswordForAccount,
   clearRememberedCredentials,
   saveAutoLogin,
   loadAutoLogin,
