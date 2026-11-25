@@ -75,7 +75,13 @@ export function DeviceExecutorCard() {
   const enable = async () => {
     setBusy(true)
     setError(null)
+    let wasRunning = false
     try {
+      // 重配（换工作区）时必须先停：常驻进程已把旧凭据读进内存，覆盖盘面不会让它搬家，
+      // 不先停就会出现"界面显示新目录、实际还在旧目录跑"的假象。
+      const before = await getDeviceExecutorStatus()
+      wasRunning = before.running
+      if (wasRunning) await stopDeviceExecutor()
       const host = await getExecutorHostName()
       const name = `${host} · 桌面端`
       const issued = await issueSelfDeviceToken({ name, os: navigator.platform || null })
@@ -89,7 +95,25 @@ export function DeviceExecutorCard() {
       setStatus(adopted)
       setStatus(await startDeviceExecutor())
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      const msg = e instanceof Error ? e.message : String(e)
+      // 用户主动取消目录选择 ≠ 失败：不弹红条，也不去复读状态（什么都不该变）；
+      // 但如果刚才为了重配把进程停了，要把它原样拉起来（不能让"取消"留下停机）。
+      if (msg.includes('已取消选择工作区')) {
+        if (wasRunning) {
+          try {
+            setStatus(await startDeviceExecutor())
+          } catch {
+            await load()
+          }
+        }
+        return
+      }
+      // 登录态过期是"重新登录再说"，不是把英文 401 原文糊到脸上
+      setError(
+        /\b401\b|Authentication required|未登录|登录已失效/.test(msg)
+          ? t('devices.executorNeedLogin')
+          : msg,
+      )
       await load()
     } finally {
       setBusy(false)
@@ -188,6 +212,18 @@ export function DeviceExecutorCard() {
         ) : null}
         {status && status.supported && !status.paired ? (
           <p className="text-label text-muted-foreground">{t('devices.executorUnpaired')}</p>
+        ) : null}
+        {status && status.supported && status.paired ? (
+          <Button
+            variant="ghost"
+            size="xs"
+            data-testid="executor-change-workspace"
+            disabled={busy}
+            onClick={() => void enable()}
+            className="px-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+          >
+            {t('devices.executorChangeWorkspace')}
+          </Button>
         ) : null}
       </CardContent>
     </Card>

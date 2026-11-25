@@ -1148,6 +1148,18 @@
     "catCopyShort": "文案"
   },
   "drawer": {
+    "search": "搜尋對話",
+    "multiSelect": "切換多選模式",
+    "filterLabel": "依資料夾篩選",
+    "sortPinnedFirst": "置頂優先",
+    "sortByTime": "依時間排序",
+    "selectAll": "全選",
+    "invertSelection": "反選",
+    "moveToFolder": "移至資料夾",
+    "batchArchive": "封存",
+    "batchUnarchive": "取消封存",
+    "batchDelete": "刪除",
+    "cancelSelection": "取消選擇",
     "newChat": "新建任務",
     "history": "歷史對話",
     "noHistory": "暫無歷史對話",
@@ -2538,7 +2550,7 @@
   "devices": {
     "title": "裝置管理",
     "pairTitle": "配對碼",
-    "pairHint": "在要連接的裝置上輸入以下 6 位碼完成配對;碼 5 分鐘內有效且僅可使用一次。",
+    "pairHint": "只給沒有登入狀態的機器用(純命令列 / 伺服器):在目標機器執行 ihui device pair <碼>。本機桌面端不需要配對碼,點上方「一鍵啟用」即可。",
     "pairGenerate": "產生配對碼",
     "pairRegenerate": "重新產生",
     "pairFailed": "配對碼產生失敗",
@@ -2591,6 +2603,8 @@
     "executorEnable": "一鍵啟用",
 
     "executorUnpaired": "這台電腦還沒接入。點「一鍵啟用」授權本機執行(不需要配對碼)。",
+    "executorNeedLogin": "登入狀態已失效,請重新登入後再啟用。",
+    "executorChangeWorkspace": "重新選擇工作區",
     "executorUnsupported": "目前平台不支援本機執行器(僅 Windows 桌面端)。",
     "executorTaskRegistered": "已註冊開機自啟",
     "approvalTitle": "執行計畫",
