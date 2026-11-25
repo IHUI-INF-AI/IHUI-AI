@@ -297,6 +297,14 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
               {labels.checkpointProgress(taskView.done, taskView.total)}
             </span>
           </div>
+          {taskView.task.requirements.length > 0 && (
+            <div
+              className="truncate text-[9px] leading-snug text-slate-500"
+              title={taskView.task.requirements.join(' · ')}
+            >
+              {labels.requirements} · {taskView.task.requirements.join(' · ')}
+            </div>
+          )}
           <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap text-[9px]">
             {taskView.task.checkpoints.map((cp) => {
               const text = checkpointText(cp.label, cp.labelKey)

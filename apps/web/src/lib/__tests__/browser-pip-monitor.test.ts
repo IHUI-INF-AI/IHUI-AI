@@ -36,6 +36,7 @@ const LABELS: BrowserPipLabels = {
   checkpointTimeout: (label) => `Waiting timed out: ${label}`,
   continueLabel: 'Done, continue',
   taskFailed: 'Action not delivered',
+  requirements: 'Run requirements',
   checkpointLabels: { ck_payment_confirm_pay: 'Confirm before payment' },
 }
 
@@ -218,6 +219,8 @@ describe('openBrowserPipMonitor:真实浮窗 DOM 与状态流转', () => {
     handle!.setPhase('waiting')
 
     expect(win.document.body.textContent).toContain('完成支付')
+    expect(win.document.body.textContent).toContain('Run requirements')
+    expect(win.document.body.textContent).toContain('核对金额')
     expect(win.document.body.textContent).toContain('Checkpoint 1/2')
     expect(win.document.body.textContent).toContain('Waiting for you: Confirm before payment')
 

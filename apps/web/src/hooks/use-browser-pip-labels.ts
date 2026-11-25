@@ -34,6 +34,7 @@ export function useBrowserPipLabels(): BrowserPipLabels {
     checkpointTimeout: (label: string) => t('checkpointTimeout', { label }),
     continueLabel: t('continueLabel'),
     taskFailed: t('taskFailed'),
+    requirements: t('requirements'),
     checkpointLabels: {
       ck_login_handoff_login: t('ckLoginHandoffLogin'),
       ck_login_handoff_verify: t('ckLoginHandoffVerify'),

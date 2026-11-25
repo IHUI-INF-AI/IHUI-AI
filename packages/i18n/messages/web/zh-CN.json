@@ -9608,6 +9608,7 @@
       "checkpointTimeout": "等待超时：{label}，建议接管",
       "continueLabel": "已处理，继续",
       "taskFailed": "操作未送达，请重试或接管",
+      "requirements": "运行要求",
       "templateMenuLabel": "按模板监看",
       "templateLogin": "登录协助",
       "templateForm": "表单提交确认",
@@ -31417,3 +31418,4 @@
     "uploading": "上传中…"
   }
 }
+

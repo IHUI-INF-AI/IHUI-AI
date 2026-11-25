@@ -9584,6 +9584,7 @@
       "checkpointTimeout": "Waiting timed out: {label}. Take over recommended",
       "continueLabel": "Done, continue",
       "taskFailed": "Action not delivered; retry or take over",
+      "requirements": "Run requirements",
       "templateMenuLabel": "Watch by template",
       "templateLogin": "Login help",
       "templateForm": "Form submit check",
@@ -31000,3 +31001,4 @@
     "uploading": "Uploading…"
   }
 }
+

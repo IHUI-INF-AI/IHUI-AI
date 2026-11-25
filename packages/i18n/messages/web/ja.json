@@ -9619,6 +9619,7 @@
       "checkpointTimeout": "待機タイムアウト：{label}。引き継ぎを推奨",
       "continueLabel": "完了、続行",
       "taskFailed": "操作が届きません。再試行するか引き継いでください",
+      "requirements": "実行要件",
       "templateMenuLabel": "テンプレートで監視",
       "templateLogin": "ログイン支援",
       "templateForm": "フォーム送信確認",
@@ -31416,3 +31417,4 @@
     "uploading": "アップロード中…"
   }
 }
+

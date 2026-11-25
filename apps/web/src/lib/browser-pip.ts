@@ -61,6 +61,8 @@ export interface BrowserPipLabels extends BrowserPipBaseLabels {
   checkpointTimeout: (label: string) => string
   continueLabel: string
   taskFailed: string
+  /** 任务条上的「运行要求」前缀;要求正文由服务端任务下发 */
+  requirements: string
   /** 内置检查点 label_key → 本地化文案;缺省时回退服务端 label。 */
   checkpointLabels?: Record<string, string>
 }
@@ -276,8 +278,13 @@ export async function openBrowserPipMonitor(
     'div',
     'display:flex;align-items:center;gap:8px;overflow:hidden;white-space:nowrap;font-size:9px;color:#9aa3af',
   )
+  const requirementsText = makeEl(
+    doc,
+    'div',
+    'display:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px;line-height:1.3;color:#64748b',
+  )
   taskTop.append(goalText, progressText)
-  taskBar.append(taskTop, checkpointRow)
+  taskBar.append(taskTop, requirementsText, checkpointRow)
 
   const stage = makeEl(
     doc,
@@ -375,6 +382,7 @@ export async function openBrowserPipMonitor(
     if (!taskView) {
       taskBar.style.display = 'none'
       checkpointRow.replaceChildren()
+      requirementsText.style.display = 'none'
       continueBtn.style.display = 'none'
       return
     }
@@ -382,6 +390,10 @@ export async function openBrowserPipMonitor(
     goalText.textContent = taskView.task.goal
     goalText.title = taskView.task.goal
     progressText.textContent = labels.checkpointProgress(taskView.done, taskView.total)
+    const requirementText = taskView.task.requirements.join(' · ')
+    requirementsText.style.display = requirementText ? 'block' : 'none'
+    requirementsText.textContent = requirementText ? `${labels.requirements} · ${requirementText}` : ''
+    requirementsText.title = requirementText
     const nodes = taskView.task.checkpoints.map((cp) => {
       const item = doc.createElement('span')
       item.style.cssText = 'flex:none;display:inline-flex;align-items:center;gap:3px'
