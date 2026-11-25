@@ -48,6 +48,8 @@ export interface UpsertPricingInput {
   billingMode?: 'token' | 'per_call' | 'per_image' | 'per_video' | 'dynamic_cost'
   /** 单位价(分):per_image=分/张;per_video=分/次或分/秒 */
   perUnitPrice?: number | null
+  /** 平台上游成本价(分/单位),仅媒体行使用;null/undefined = 未配置 */
+  costUnitPrice?: number | null
   /** per_call 三档价(分/次):{ le256k, mid, gt512k } */
   tieredCallPrices?: { le256k: number; mid: number; gt512k: number } | null
   /** per_video 计价单位:'call' | 'second' */
@@ -190,6 +192,8 @@ export async function upsertPricing(input: UpsertPricingInput): Promise<AiPricin
         outputTokenPrice: input.outputTokenPrice,
         billingMode: input.billingMode ?? existing.billingMode,
         perUnitPrice: input.perUnitPrice !== undefined ? input.perUnitPrice : existing.perUnitPrice,
+        costUnitPrice:
+          input.costUnitPrice !== undefined ? input.costUnitPrice : existing.costUnitPrice,
         tieredCallPrices:
           input.tieredCallPrices !== undefined ? input.tieredCallPrices : existing.tieredCallPrices,
         videoUnit: input.videoUnit !== undefined ? input.videoUnit : existing.videoUnit,
@@ -215,6 +219,7 @@ export async function upsertPricing(input: UpsertPricingInput): Promise<AiPricin
       outputTokenPrice: input.outputTokenPrice,
       billingMode: input.billingMode ?? 'token',
       perUnitPrice: input.perUnitPrice ?? null,
+      costUnitPrice: input.costUnitPrice ?? null,
       tieredCallPrices: input.tieredCallPrices ?? null,
       videoUnit: input.videoUnit ?? null,
       regionPricing: input.regionPricing ?? { cn: 1.0 },

@@ -49,6 +49,7 @@ interface PricingRow {
   outputTokenPrice: number
   billingMode: BillingMode | null
   perUnitPrice: number | null
+  costUnitPrice: number | null
   tieredCallPrices: TieredCallPrices | null
   videoUnit: 'call' | 'second' | null
   currency: string
@@ -93,6 +94,15 @@ function priceSummary(row: PricingRow): string {
     : '—'
 }
 
+/** 平台成本价（分/单位）摘要；仅媒体行有该字段，token 行显示“—” */
+function costSummary(row: PricingRow): string {
+  const mode = row.billingMode ?? 'token'
+  if (mode !== 'per_image' && mode !== 'per_video') return '—'
+  if (row.costUnitPrice === null || row.costUnitPrice === undefined) return '未配置'
+  const unit = mode === 'per_image' ? '张' : row.videoUnit === 'second' ? '秒' : '次'
+  return `${(row.costUnitPrice / 100).toLocaleString('zh-CN', { maximumFractionDigits: 4 })} 元/${unit}`
+}
+
 interface FormState {
   modelId: string
   billingMode: BillingMode
@@ -102,6 +112,7 @@ interface FormState {
   mid: string
   gt512k: string
   perUnitPrice: string
+  costUnitPrice: string
   videoUnit: 'call' | 'second'
   currency: string
 }
@@ -115,6 +126,7 @@ const EMPTY_FORM: FormState = {
   mid: '',
   gt512k: '',
   perUnitPrice: '',
+  costUnitPrice: '',
   videoUnit: 'call',
   currency: 'CNY',
 }
@@ -130,6 +142,8 @@ function toForm(row: PricingRow): FormState {
     gt512k: row.tieredCallPrices ? String(row.tieredCallPrices.gt512k) : '',
     perUnitPrice:
       row.perUnitPrice !== null && row.perUnitPrice !== undefined ? String(row.perUnitPrice) : '',
+    costUnitPrice:
+      row.costUnitPrice !== null && row.costUnitPrice !== undefined ? String(row.costUnitPrice) : '',
     videoUnit: row.videoUnit ?? 'call',
     currency: row.currency ?? 'CNY',
   }
@@ -156,7 +170,7 @@ export default function AdminAiPricingPage() {
     queryFn: async () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (search.trim()) qs.set('search', search.trim())
-      const res = await fetchApi<PricingListResponse>(`/api/ai-pricing?${qs.toString()}`)
+      const res = await fetchApi<PricingListResponse>(`/api/admin/ai-pricing/list?${qs.toString()}`)
       if (!res.success || !res.data) throw new Error(res.error ?? '加载定价失败')
       return res.data
     },
@@ -190,7 +204,10 @@ export default function AdminAiPricingPage() {
       } else {
         const per = num(form, 'perUnitPrice')
         if (per === undefined || per <= 0) throw new Error('单价必须大于 0')
+        const cost = num(form, 'costUnitPrice')
+        if (cost !== undefined && cost < 0) throw new Error('平台成本价不能为负数')
         body.perUnitPrice = per
+        body.costUnitPrice = cost ?? null
         if (form.billingMode === 'per_video') body.videoUnit = form.videoUnit
       }
       const res = await fetchApi<{ id: string }>('/api/admin/ai-pricing/upsert', {
@@ -266,6 +283,7 @@ export default function AdminAiPricingPage() {
                 <TableHead>模型 ID</TableHead>
                 <TableHead>计费方式</TableHead>
                 <TableHead>价格摘要</TableHead>
+                <TableHead>平台成本价</TableHead>
                 <TableHead>货币</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
@@ -273,19 +291,19 @@ export default function AdminAiPricingPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                     <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> 加载中...
                   </TableCell>
                 </TableRow>
               ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-destructive">
+                  <TableCell colSpan={6} className="py-10 text-center text-destructive">
                     {(error as Error).message}
                   </TableCell>
                 </TableRow>
               ) : (data?.items ?? []).length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                     暂无定价数据
                   </TableCell>
                 </TableRow>
@@ -304,6 +322,9 @@ export default function AdminAiPricingPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-label tabular-nums">{priceSummary(row)}</TableCell>
+                    <TableCell className="text-label tabular-nums text-muted-foreground">
+                      {costSummary(row)}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{row.currency}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm" onClick={() => openEdit(row)}>
@@ -435,6 +456,21 @@ export default function AdminAiPricingPage() {
                   onChange={(e) => setField('perUnitPrice', e.target.value)}
                   inputMode="decimal"
                 />
+              </div>
+            )}
+
+            {(form.billingMode === 'per_image' || form.billingMode === 'per_video') && (
+              <div className="space-y-1.5">
+                <Label>平台成本价(分/单位,可选)</Label>
+                <Input
+                  value={form.costUnitPrice}
+                  onChange={(e) => setField('costUnitPrice', e.target.value)}
+                  inputMode="decimal"
+                  placeholder="不填=未配置,不写成本账"
+                />
+                <p className="text-label text-muted-foreground">
+                  这是上游真实成本，不是用户售价；仅用于 ai_cost_records 毛利核算
+                </p>
               </div>
             )}
 

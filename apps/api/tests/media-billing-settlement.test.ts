@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 媒体积分结算边界：部分扣减、幂等重放、失败不阻塞产物、402 结构。
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   settlePointsUsage: vi.fn(),
   findActivePricingForMode: vi.fn(),
   getSpendableBalance: vi.fn(),
+  recordAiCost: vi.fn(async () => ({ cost: 1, currency: 'CNY' })),
 }))
 
 vi.mock('../src/services/points-service.js', () => ({
@@ -23,6 +25,11 @@ vi.mock('../src/services/pricing-service.js', () => ({
 
 vi.mock('../src/services/daily-credits.js', () => ({
   getSpendableBalance: mocks.getSpendableBalance,
+}))
+
+vi.mock('../src/plugins/ai-cost.js', () => ({
+  recordAiCost: mocks.recordAiCost,
+  resolveAiCost: vi.fn(),
 }))
 
 import { chargeMediaPoints, ensureMediaPointsBalance } from '../src/services/media-billing.js'
@@ -65,6 +72,7 @@ describe('媒体积分结算', () => {
       daily: 0,
       available: 0,
     })
+    mocks.recordAiCost.mockClear()
   })
 
   it('成功后按报价金额走 settlePointsUsage(source=ai_media)', async () => {
@@ -116,6 +124,66 @@ describe('媒体积分结算', () => {
     expect((request as { log: { warn: ReturnType<typeof vi.fn> } }).log.warn).toHaveBeenCalled()
   })
 
+  it('配置了成本价时按实际单位写 ai_cost_records', async () => {
+    mocks.findActivePricingForMode.mockResolvedValueOnce({
+      billingMode: 'per_image',
+      perUnitPrice: 20,
+      costUnitPrice: 12,
+      videoUnit: null,
+    })
+    const request = makeRequest()
+    await chargeMediaPoints(request, 'openai/gpt-image-1', 'image', 2, 'img:task-cost')
+
+    expect(mocks.recordAiCost).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u-1',
+        model: 'openai/gpt-image-1',
+        provider: 'openai',
+        cost: 24,
+        currency: 'CNY',
+        totalTokens: 0,
+        requestType: 'media_image',
+      }),
+    )
+  })
+
+  it('未配置成本价或命中积分幂等时不重复写成本', async () => {
+    const request = makeRequest()
+    await chargeMediaPoints(request, 'gpt-image-1', 'image', 2, 'img:task-no-cost')
+    expect(mocks.recordAiCost).not.toHaveBeenCalled()
+
+    mocks.findActivePricingForMode.mockResolvedValueOnce({
+      billingMode: 'per_image',
+      perUnitPrice: 20,
+      costUnitPrice: 12,
+      videoUnit: null,
+    })
+    mocks.settlePointsUsage.mockResolvedValueOnce({
+      deducted: 40,
+      remaining: 0,
+      shortfall: 0,
+      alreadySettled: true,
+    })
+    await chargeMediaPoints(request, 'gpt-image-1', 'image', 2, 'img:task-dup')
+    expect(mocks.recordAiCost).not.toHaveBeenCalled()
+  })
+
+  it('成本落账失败不回滚积分,产物照常交付', async () => {
+    mocks.findActivePricingForMode.mockResolvedValueOnce({
+      billingMode: 'per_image',
+      perUnitPrice: 20,
+      costUnitPrice: 12,
+      videoUnit: null,
+    })
+    mocks.recordAiCost.mockRejectedValueOnce(new Error('cost db down'))
+    const request = makeRequest()
+
+    await expect(
+      chargeMediaPoints(request, 'gpt-image-1', 'image', 2, 'img:task-cost-fail'),
+    ).resolves.toBe(40)
+    expect((request as { log: { warn: ReturnType<typeof vi.fn> } }).log.warn).toHaveBeenCalled()
+  })
+
   it('预检 402 返回 INSUFFICIENT_POINTS 与结构化报价', async () => {
     mocks.getSpendableBalance.mockResolvedValueOnce({ permanent: 10, daily: 0, available: 10 })
     const request = makeRequest()
@@ -131,3 +199,4 @@ describe('媒体积分结算', () => {
     })
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -25,6 +25,7 @@ import { getSpendableBalance } from './daily-credits.js'
 import { settlePointsUsage } from './points-service.js'
 import { inferPointsMultiplier } from './points-multiplier.js'
 import { findActivePricingForMode } from './pricing-service.js'
+import { recordAiCost } from '../plugins/ai-cost.js'
 import {
   MEDIA_FALLBACK_UNIT_POINTS,
   quoteMediaPoints,
@@ -72,6 +73,7 @@ export async function resolveMediaPointsQuote(
           billingMode: pricing.billingMode,
           perUnitPrice: pricing.perUnitPrice,
           videoUnit: pricing.videoUnit,
+          costUnitPrice: pricing.costUnitPrice,
         }
       : null,
     free,
@@ -120,6 +122,8 @@ export async function ensureMediaPointsBalance(
  *
  * 与 LLM 结算同一套部分结算语义:预检后余额被并发花掉时,扣到 0 并记录 shortfall,
  * 不因为余额不足就整笔放弃,避免平台承担上游成本却一分不收。
+ * 平台成本另记 `ai_cost_records`:只有 `ai_pricing.cost_unit_price` 已配置时才写;
+ * 与用户积分互不影响,成本写失败不阻塞产物。
  */
 export async function chargeMediaPoints(
   request: FastifyRequest,
@@ -130,43 +134,78 @@ export async function chargeMediaPoints(
 ): Promise<number> {
   const quote = await resolveMediaPointsQuote(modelId, category, units)
   const amount = quote.points
-  if (amount <= 0) return 0
   const userId = request.userId
   if (!userId || !referenceId) return 0
-  try {
-    const settlement = await settlePointsUsage({
-      userId,
-      amount,
-      source: MEDIA_BILLING_SOURCE,
-      description: `媒体生成扣分(${category}, model=${modelId}, units=${quote.appliedUnits}, unit=${quote.unitPricePoints}, source=${quote.source})`.slice(
-        0,
-        255,
-      ),
-      referenceId,
-    })
-    if (settlement.alreadySettled) return 0
-    if (settlement.shortfall > 0) {
+
+  let deducted = 0
+  let alreadySettled = false
+  if (amount > 0) {
+    try {
+      const settlement = await settlePointsUsage({
+        userId,
+        amount,
+        source: MEDIA_BILLING_SOURCE,
+        description: `媒体生成扣分(${category}, model=${modelId}, units=${quote.appliedUnits}, unit=${quote.unitPricePoints}, source=${quote.source})`.slice(
+          0,
+          255,
+        ),
+        referenceId,
+      })
+      alreadySettled = settlement.alreadySettled
+      deducted = alreadySettled ? 0 : settlement.deducted
+      if (!alreadySettled && settlement.shortfall > 0) {
+        request.log.warn(
+          {
+            model: modelId,
+            category,
+            units,
+            referenceId,
+            shortfall: settlement.shortfall,
+            deducted: settlement.deducted,
+          },
+          '[media-billing] 积分不足,已部分结算',
+        )
+      }
+    } catch (err) {
+      // 余额在预检与扣分之间被并发消耗等情形:产物已给用户,不能因扣分失败吞掉结果。
       request.log.warn(
-        {
-          model: modelId,
-          category,
-          units,
-          referenceId,
-          shortfall: settlement.shortfall,
-          deducted: settlement.deducted,
-        },
-        '[media-billing] 积分不足,已部分结算',
+        { err, model: modelId, category, units, referenceId },
+        '[media-billing] 扣分失败(产物已交付,不阻塞响应)',
       )
     }
-    return settlement.deducted
-  } catch (err) {
-    // 余额在预检与扣分之间被并发消耗等情形:产物已给用户,不能因扣分失败吞掉结果。
-    request.log.warn(
-      { err, model: modelId, category, units, referenceId },
-      '[media-billing] 扣分失败(产物已交付,不阻塞响应)',
-    )
-    return 0
   }
+
+  // 成本账独立于积分账:重复回调命中积分幂等时不再重复写成本。
+  if (quote.costCents !== null && quote.costCents > 0 && !alreadySettled) {
+    try {
+      await recordAiCost({
+        userId,
+        model: modelId,
+        provider: modelId.includes('/') ? (modelId.split('/')[0] ?? 'media') : 'media',
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        cost: quote.costCents,
+        currency: 'CNY',
+        requestType: `media_${category}`,
+        metadata: JSON.stringify({
+          category,
+          units: quote.units,
+          appliedUnits: quote.appliedUnits,
+          referenceId,
+          userPricePoints: amount,
+          priceSource: quote.source,
+        }),
+      })
+    } catch (err) {
+      request.log.warn(
+        { err, model: modelId, category, units, referenceId, costCents: quote.costCents },
+        '[media-billing] 平台成本落账失败(产物已交付,不阻塞响应)',
+      )
+    }
+  }
+
+  return deducted
 }
 
 function categoryLabel(category: MediaCategory): string {

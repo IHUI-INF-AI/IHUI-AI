@@ -152,6 +152,7 @@ export type NewPayment = typeof payments.$inferInsert
  *     'per_image' 按张计费(用 perUnitPrice,分/张)
  *     'per_video' 按视频计费(用 perUnitPrice,单位看 videoUnit:'call'=分/次,'second'=分/秒)
  * - perUnitPrice: 单位价(分),per_image=分/张;per_video 看 videoUnit(分/次 或 分/秒)。
+ * - costUnitPrice: 平台上游成本价(分/单位),仅媒体行使用;为空表示尚未配置成本,不写成本账。
  * - tieredCallPrices: per_call 三档价(分/次),键 le256k/mid/gt512k,
  *     档位阈值 256K=262144、512K=524288(按请求 promptTokens)。
  * - videoUnit: per_video 计价单位,'call'(默认)|'second'。
@@ -182,6 +183,8 @@ export const aiPricing = pgTable(
     billingMode: varchar('billing_mode', { length: 16 }).default('token').notNull(),
     // 单位价(分):per_image=分/张;per_video=分/次 或 分/秒(videoUnit)
     perUnitPrice: numeric('per_unit_price', { precision: 18, scale: 6, mode: 'number' }),
+    // 平台上游成本价(分/单位),仅媒体行使用;null = 未配置,不写 ai_cost_records
+    costUnitPrice: numeric('cost_unit_price', { precision: 18, scale: 6, mode: 'number' }),
     // per_call 三档价(分/次):{ le256k, mid, gt512k }
     tieredCallPrices: jsonb('tiered_call_prices'),
     // per_video 计价单位:'call'(按次) | 'second'(按秒)

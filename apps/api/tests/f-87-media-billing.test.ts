@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const mocks = vi.hoisted(() => ({
-  settleLlmPointsUsage: vi.fn(async () => ({
+  settleLlmPointsUsage: vi.fn(async (_input: Record<string, unknown>) => ({
     deducted: 5,
     remaining: 0,
     shortfall: 0,
