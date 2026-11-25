@@ -240,9 +240,16 @@ function auditWeight() {
   )
   for (const r of rows.slice(0, 15)) console.log(`  ${mb(r.size).padStart(8)} MB  ${r.path}`)
   if (Number.isFinite(budget) && budget > 0 && total / 1048576 > budget) {
-    console.error(`\n${C.red}${C.bold}❌ 仓库重量 ${mb(total)}MB 超过预算 ${budget}MB${C.reset}`)
-    console.error(`${C.dim}请把生成物移出仓库(见 .gitignore)或先清偿存量,再调整预算。${C.reset}`)
-    process.exit(1)
+    // 2026-11-25 改两维(AGENTS §0.2:判历史存量的门,升 blocking 的前置 = 存量归零):
+    //   存量维只报数、不阻断 —— 实测存量 451.0MB 全部是活的跟踪内容,其中 45.8MB 是
+    //   PROJECT_PLAN 历史档,而 scripts/lib/plan-id-face.mjs / archive-gc.mjs / check-plan-line-loss.mjs
+    //   等 8 个器物仍在读它们(取号占用面依赖),不能删;硬拦会让每次推送永久红。
+    //   增量维已由 auditRange(--range) 按推送区间逐文件拦:单文件>20MB / 新增>2MB / 本次增量>2MB。
+    console.error(
+      `\n⚠️  仓库重量 ${mb(total)}MB 超预算 ${budget}MB(存量维只报数,不阻断;增量维见本文件 --range 区间闸)`,
+    )
+    console.error(`${C.dim}存量出路:生成物移出仓库(见 .gitignore)或按仓规清偿;新增由区间闸拦住。${C.reset}`)
+    return
   }
   if (Number.isFinite(budget) && budget > 0) {
     console.log(`${C.green}✅ 仓库重量在预算内(${mb(total)}MB ≤ ${budget}MB)${C.reset}`)

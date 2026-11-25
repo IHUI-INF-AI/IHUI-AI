@@ -2227,6 +2227,14 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-25**
+- 🔧 기타:root-guard 按 4d663de7 面重封 10 条(git-guardian 换指纹 492b12bbf88e) (30e28e09)
+- 🐞 수정:对象库体积护栏常驻化(prune-repo-bloat) + lost-commit 闸收紧到 50/3 (845685a8)
+- 📚 문서:修正 Qoder 版本同构表述，标注动态 IPC 差异 (2a590d69)
+- 📚 문서:Qoder 四 exe 同壳证据与版本矩阵补齐 (2d0bbb63)
+- 📚 문서:Qoder 四版本全图、OpenCode serve 启动链、WorkBuddy 9527 归因 (a1b450a6)
+- 🐞 수정:守门脚本自指 R3 误判修正 (491461dd)
+- 🚀 기능/개선:三方方案许可证审计+字段可得性能力位+群成员映射自动下发+许可证边界守门 (b2d482e4)
+- 📚 문서:四语最近更新补 WS 路由测试 (cfecf220)
 - 🔧 기타:补 WS 任务消息路由往返,路由测试 7 例 (a9028bf4)
 - 📚 문서:四语最近更新补 Rust 测试口径修正 (d5eb0599)
 - 🔧 기타:修两处既存测试口径,全 lib 569 转绿 (53cbda8f)
