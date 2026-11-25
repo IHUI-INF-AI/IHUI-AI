@@ -18,6 +18,7 @@ import { useTheme } from '@/rn-compat/theme'
 import ThemeRoot from '@/components/ThemeRoot'
 import { AgentScreen as SharedAgentScreen } from '@ihui/rn-app/features/agent-screen/AgentScreen'
 import type { AgentScreenItem } from '@ihui/rn-app/features/agent-screen/AgentScreen'
+import { resolveAvatarUrl } from '@/utils/web-asset-url'
 
 /** GET /agents 单行 → 共享屏条目(只映射后端真回的字段;uses=0 不下发,保持"未使用不显示") */
 function toItem(raw: Record<string, unknown>): AgentScreenItem {
@@ -26,7 +27,7 @@ function toItem(raw: Record<string, unknown>): AgentScreenItem {
   return {
     id: text(raw.id),
     name: text(raw.name),
-    avatar: text(raw.avatar) || '/pkg-ai/assets/default-agent.png',
+    avatar: resolveAvatarUrl(raw.avatar),
     description: text(raw.desc) || text(raw.description),
     isVipExclusive: raw.isVipExclusive === true,
     ...(Number.isFinite(uses) && uses > 0 ? { useCount: uses } : {}),

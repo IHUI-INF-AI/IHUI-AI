@@ -16,6 +16,7 @@ import AgentRuntimePanel from '@/components/AgentRuntimePanel'
 import { ErrorState } from '@/components/ScreenStates.taro'
 import AgentDetailMeta from './agent-detail-meta'
 import { onToast } from '@/host/on-toast'
+import { resolveAvatarUrl } from '@/utils/web-asset-url'
 
 /**
  * 本地视图模型(非 api-client Agent 直投):
@@ -416,7 +417,7 @@ export default function AgentDetailPage() {
               <View className="flex items-center">
                 <Image
                   className="w-[160rpx] h-[160rpx] rounded-xl bg-muted"
-                  src={agent.avatar || '/pkg-ai/assets/default-agent.png'}
+                  src={resolveAvatarUrl(agent.avatar)}
                   mode="aspectFill"
                 />
                 <View className="ml-[24rpx] flex-1">
@@ -592,7 +593,7 @@ export default function AgentDetailPage() {
                   >
                     <Image
                       className="w-[80rpx] h-[80rpx] rounded-xl bg-muted"
-                      src={r.avatar || '/pkg-ai/assets/default-agent.png'}
+                      src={resolveAvatarUrl(r.avatar)}
                       mode="aspectFill"
                     />
                     <Text className="block text-body-sm leading-[normal] text-foreground font-medium mt-[8rpx] truncate">
