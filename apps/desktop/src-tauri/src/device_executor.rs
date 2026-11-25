@@ -413,8 +413,11 @@ fn pick_workspace(app: &AppHandle) -> Result<String, String> {
  *  2. 令牌经 **stdin** 交给 CLI（不进 argv，进程列表里看不到）；
  *  3. 成功后立刻读回真实状态，让 UI 看到"已配对 / 是否在跑"。
  *
- * `payload` 是前端拼的 JSON（device_id / device_token / name / api_url），Rust 不解析业务字段，
- * 只做长度闸（>8KB 直接拒）——字段语义的唯一真相源在 CLI 的 adopt 命令。
+ * `payload` 是前端拼的 JSON（device_id / device_token / name / api_url）。字段语义的唯一真相源
+ * 仍在本仓 CLI 的 adopt 命令；Rust 只做两件它必须做的事：长度闸（>8KB 直接拒），
+ * 以及把**用户选定的工作区**注入 payload —— 因为 CLI 子命令的 `--workspace` 会被根命令的
+ * `-w, --workspace` 先吃掉（2026-11-26 自验实测：传了目录却落盘成 cwd，任务跑错目录），
+ * stdin 是这条路上唯一不会被 argv 解析抢走的通道。
  */
 #[tauri::command]
 pub async fn device_executor_adopt(
@@ -438,15 +441,29 @@ pub async fn device_executor_adopt(
         return Err(format!("工作区不存在或不是目录: {chosen}"));
     }
     let ihui = find_ihui().ok_or_else(|| {
-        "找不到 ihui 命令(先装 CLI: npm i -g @ihui/cli)".to_string()
+        // 包名是 ihui-cli(bin 名 ihui);写成 @ihui/cli 会让用户照抄一条 404 的命令。
+        "找不到 ihui 命令。请先在命令行执行 npm i -g ihui-cli,装好回到这里点「启用」重试".to_string()
     })?;
-    let payload_for_child = payload.clone();
+    // 把工作区注入载荷：CLI 侧 workspace 的优先级是 stdin > --dir > cwd,这里两条都给。
+    let mut payload_value: serde_json::Value =
+        serde_json::from_str(&payload).map_err(|e| format!("接入载荷不是合法 JSON: {e}"))?;
+    match payload_value.as_object_mut() {
+        Some(obj) => {
+            obj.insert(
+                "workspace".to_string(),
+                serde_json::Value::String(chosen.clone()),
+            );
+        }
+        None => return Err("接入载荷必须是 JSON 对象".to_string()),
+    }
+    let payload_for_child =
+        serde_json::to_string(&payload_value).map_err(|e| format!("接入载荷序列化失败: {e}"))?;
     let dir = chosen.clone();
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         let mut cmd = hidden_command(&ihui);
         cmd.arg("device")
             .arg("adopt")
-            .arg("--workspace")
+            .arg("--dir")
             .arg(&dir)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
