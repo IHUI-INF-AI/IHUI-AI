@@ -59,10 +59,12 @@
 
 /* 豁免类别:蓝色 tint 按钮外发光,非层级投影 */
 /* default 默认 - 普通支付按钮
- * 对齐 ConfirmPurchasePopUp .pay-button:linear-gradient(135deg, #0550d0, #057aff) 蓝色渐变
- * 用 var(--color-info) 蓝色作为主色调 */
+ * 对齐 ConfirmPurchasePopUp .pay-button 的蓝色渐变(#0550d0 → #057aff)
+ * 用 var(--color-info) 蓝色作为主色调
+ * 2026-11-25:本条此前写成「两个色标都取 var(--color-info)」的渐变 —— 同色两点在视觉上
+ * 就是纯色,等于把渐变意图写成了死代码;现按实况落纯色,视觉零差异。 */
 .pp-pay-button--default {
-  background: linear-gradient(135deg, var(--color-info), var(--color-info));
+  background: var(--color-info);
   box-shadow: 0 4rpx 12rpx var(--color-info-tint-strong);
 }
 
@@ -71,7 +73,7 @@
  * 对齐 VipPayConfirm 金色渐变(#fbbf24 → warning)
  * 用 var(--color-warning) 金色 */
 .pp-pay-button--vip {
-  background: linear-gradient(135deg, var(--color-warning), var(--color-warning));
+  background: var(--color-warning);
   box-shadow: 0 4rpx 12rpx var(--color-warning-tint-strong);
 }
 
@@ -80,7 +82,7 @@
  * 对齐 ConfirmPurchasePopUp .benefit-item.highlight #ff5722 红色
  * 用 var(--color-destructive) 红色 */
 .pp-pay-button--discount {
-  background: linear-gradient(135deg, var(--color-destructive), var(--color-destructive));
+  background: var(--color-destructive);
   box-shadow: 0 4rpx 12rpx var(--color-danger-tint-strong);
 }
 
@@ -89,7 +91,7 @@
  * 历史对齐 pay_btn .title #517BFF 紫调;2026 品牌色已改为黑/白(brand.DEFAULT 浅色 #000 / 深色 #FFF),
  * 故订阅按钮用 var(--color-brand) 自适应,阴影同步改为中性黑(清除遗留 indigo #6366f1) */
 .pp-pay-button--subscription {
-  background: linear-gradient(135deg, var(--color-brand), var(--color-brand));
+  background: var(--color-brand);
   box-shadow: 0 4rpx 12rpx var(--color-black-30);
 }
 
@@ -97,7 +99,7 @@
 /* gift 礼物 - 粉色
  * 对齐 chart-6 #ec4899 粉色(项目内唯一粉色 CSS 变量) */
 .pp-pay-button--gift {
-  background: linear-gradient(135deg, var(--chart-6), var(--chart-6));
+  background: var(--chart-6);
   box-shadow: 0 4rpx 12rpx var(--color-pink-tint);
 }
 

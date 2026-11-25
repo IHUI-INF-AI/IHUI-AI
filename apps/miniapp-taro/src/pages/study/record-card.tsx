@@ -69,7 +69,7 @@ export function RecordCard({ row, onOpen }: { row: StudyRecordRow; onOpen: () =>
 
   return (
     <PressableCard
-      className="flex bg-card rounded-lg p-[28rpx]"
+      className="flex bg-card rounded-lg p-[24rpx]"
       onClick={onOpen}
     >
       {row.coverUrl ? (

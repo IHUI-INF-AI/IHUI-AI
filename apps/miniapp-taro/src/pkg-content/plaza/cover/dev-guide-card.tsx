@@ -15,7 +15,7 @@ export interface DevGuideCardProps {
 
 export default function DevGuideCard({ title, description, ctaLabel, onPress }: DevGuideCardProps) {
   return (
-    <View className="mx-[40rpx] mt-[40rpx] bg-card rounded-lg p-[28rpx] flex flex-col gap-[12rpx]">
+    <View className="mx-[40rpx] mt-[40rpx] bg-card rounded-lg p-[24rpx] flex flex-col gap-[12rpx]">
       <Text className="block text-title font-semibold text-foreground">{title}</Text>
       <Text className="block text-body leading-[38rpx] text-[var(--color-text-tertiary)]">
         {description}

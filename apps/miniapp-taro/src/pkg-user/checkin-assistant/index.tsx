@@ -164,7 +164,7 @@ export default function CheckinAssistant() {
               {t('common.loading')}
             </Text>
           ) : list.length === 0 ? (
-            <View className="mt-[24rpx] rounded-lg bg-card p-[28rpx]">
+            <View className="mt-[24rpx] rounded-lg bg-card p-[24rpx]">
               <Text className="block text-strong font-semibold text-foreground">
                 {t('checkinAssistant.empty')}
               </Text>
@@ -232,7 +232,7 @@ export default function CheckinAssistant() {
 
           <WorkbuddyTaskSection accounts={list} t={t} />
 
-          <View className="mt-[28rpx] rounded-lg bg-card p-[28rpx]">
+          <View className="mt-[28rpx] rounded-lg bg-card p-[24rpx]">
             <Text className="block text-strong font-semibold text-foreground">
               {t('checkinAssistant.addTitle')}
             </Text>

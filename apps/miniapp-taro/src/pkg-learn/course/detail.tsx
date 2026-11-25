@@ -310,7 +310,7 @@ export default function CourseDetail() {
         <CourseMetaTags level={course.level} studentCount={detail.signupCount} />
 
         {/* 工具行卡片:对齐 RN card(白底 + border.light 描边 + radius12/padding14) */}
-        <View className="flex items-center justify-around mx-md my-md bg-card rounded-lg p-[28rpx]">
+        <View className="flex items-center justify-around mx-md my-md bg-card rounded-lg p-[24rpx]">
           <View className="flex flex-col items-center">
             <ProgressCircle percent={learningProgress} size={60} />
             <Text className="text-label text-muted-foreground mt-sm">

@@ -42,7 +42,7 @@ import aiIconLocal from '@/assets/remote-images/ai-icon.svg'
 import courseIconLocal from '@/assets/remote-images/course-icon.svg'
 import vipActIconLocal from '@/assets/remote-images/user-vip-act.svg'
 
-import { rnRadius, getRnTokens } from '@ihui/design-tokens'
+import { rnRadius, getRnTokens, taroSpacing } from '@ihui/design-tokens'
 const dingdanIcon = aizhsUrl('remote-images/dingdan.jpg')
 const gerenIcon = aizhsUrl('remote-images/geren-icon.png')
 const shezhiIcon = aizhsUrl('remote-images/shezhi.png')
@@ -197,15 +197,15 @@ function renderMarkdown(content: string): ReactNode {
             key={idx}
             style={{
               background: 'var(--color-muted)',
-              padding: rpx(12),
+              padding: rpx(taroSpacing['xs-loose']),
               borderRadius: rnRadius.sm,
-              marginTop: rpx(8),
-              marginBottom: rpx(8),
+              marginTop: rpx(taroSpacing.xs),
+              marginBottom: rpx(taroSpacing.xs),
             }}
           >
             <Text
               style={{
-                fontSize: rpx(24),
+                fontSize: rpx(taroSpacing.md),
                 fontFamily: 'monospace',
                 color: 'var(--color-foreground)',
               }}
@@ -1137,7 +1137,7 @@ export default function UserIndex() {
               <View className="py-[96rpx] flex items-center justify-center">
                 <Text
                   style={{
-                    fontSize: rpx(28),
+                    fontSize: rpx(taroSpacing['md-loose']),
                     color: 'var(--color-muted-foreground)',
                   }}
                 >
@@ -1152,7 +1152,7 @@ export default function UserIndex() {
                   <View className="py-[96rpx] flex items-center justify-center">
                     <Text
                       style={{
-                        fontSize: rpx(28),
+                        fontSize: rpx(taroSpacing['md-loose']),
                         color: 'var(--color-muted-foreground)',
                       }}
                     >
@@ -1161,7 +1161,7 @@ export default function UserIndex() {
                   </View>
                 ) : (
                   textContentList.map((item, index) => (
-                    <View key={index} className="bg-card rounded-lg p-[28rpx] user-content-text">
+                    <View key={index} className="bg-card rounded-lg p-[24rpx] user-content-text">
                       <View className="flex-row items-center justify-between mb-[12rpx]">
                         <Text className="text-title font-semibold text-foreground">
                           {item.title}
@@ -1182,7 +1182,7 @@ export default function UserIndex() {
                   <View className="py-[96rpx] flex items-center justify-center">
                     <Text
                       style={{
-                        fontSize: rpx(28),
+                        fontSize: rpx(taroSpacing['md-loose']),
                         color: 'var(--color-muted-foreground)',
                       }}
                     >
@@ -1191,15 +1191,15 @@ export default function UserIndex() {
                   </View>
                 ) : (
                   imageContentList.map((item, index) => (
-                    <View key={index} className="bg-card rounded-lg p-[28rpx] user-content-image">
+                    <View key={index} className="bg-card rounded-lg p-[24rpx] user-content-image">
                       <View className="flex-row items-center justify-between mb-[12rpx]">
                         <Text className="text-title font-semibold text-foreground">
                           {item.title}
                         </Text>
                         <Text className="text-label text-muted-foreground">{item.time}</Text>
                       </View>
-                      {/* 纵向单列大图(对齐 RN imageColumn gap rpx(16) + imageColumnImg 高 200dp)*/}
-                      <View className="flex flex-col" style={{ gap: rpx(16) }}>
+                      {/* 纵向单列大图(对齐 RN imageColumn gap rpx(taroSpacing.sm) + imageColumnImg 高 200dp)*/}
+                      <View className="flex flex-col" style={{ gap: rpx(taroSpacing.sm) }}>
                         {(item.imageList || []).map((imgUrl, imgIdx) => (
                           <Image
                             ariaLabel={tt('chat.imagePreviewA11y', '图片预览')}
@@ -1224,7 +1224,7 @@ export default function UserIndex() {
                   <View className="py-[96rpx] flex items-center justify-center">
                     <Text
                       style={{
-                        fontSize: rpx(28),
+                        fontSize: rpx(taroSpacing['md-loose']),
                         color: 'var(--color-muted-foreground)',
                       }}
                     >
@@ -1283,7 +1283,7 @@ export default function UserIndex() {
                   <View className="py-[96rpx] flex items-center justify-center">
                     <Text
                       style={{
-                        fontSize: rpx(28),
+                        fontSize: rpx(taroSpacing['md-loose']),
                         color: 'var(--color-muted-foreground)',
                       }}
                     >
@@ -1292,7 +1292,7 @@ export default function UserIndex() {
                   </View>
                 ) : (
                   audioContentList.map((item, index) => (
-                    <View key={index} className="bg-card rounded-lg p-[28rpx] user-content-audio">
+                    <View key={index} className="bg-card rounded-lg p-[24rpx] user-content-audio">
                       <View className="flex-row items-center justify-between mb-[12rpx]">
                         <Text className="text-title font-semibold text-foreground">
                           {item.title}
@@ -1332,7 +1332,7 @@ export default function UserIndex() {
                         {/* 当前时间(对齐 RN audioTime fontSize 12dp) */}
                         <Text
                           className="text-label text-muted-foreground"
-                          style={{ flexShrink: 0, width: rpx(80), textAlign: 'right' }}
+                          style={{ flexShrink: 0, width: rpx(taroSpacing['4xl']), textAlign: 'right' }}
                         >
                           {formatAudioTime(audioCurrentTime[index] || 0)}
                         </Text>

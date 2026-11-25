@@ -18,7 +18,7 @@ import type { MemoryEntry, MemoryEntryType, MemoryScope } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnSpacingFor, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
@@ -495,7 +495,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: 'transparent',
       backgroundColor: tk.surface.card,
-      padding: rnSpacing.lg,
+      padding: rnSpacingFor.cardPad,
     },
     entryHeadRow: {
       flexDirection: 'row',

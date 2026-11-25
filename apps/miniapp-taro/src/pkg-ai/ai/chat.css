@@ -827,7 +827,22 @@
   position: relative;
   height: 100%;
   border-radius: var(--radius-sm); /* 与容器同档(项目不允许胶囊) */
-  background: linear-gradient(214deg);
+  /*
+   * 2026-11-25 修实现遗漏:此前本行只写 `linear-gradient(214deg)` —— **一个色标都没有**,
+   * 属无效声明,浏览器/小程序解析器直接丢弃 ⇒ 进度条实际是透明背景,只剩 ::before 的斜纹在动,
+   * 而本段头注(见 816 行)的定稿是「渐变 5 色 + 流光」。现按 brand accent 族补齐 5 色:
+   * 两停靠点用半透明 tint(rgba 0.18 / 0.4)、三点用实色 accent,叠在 muted 底上产生明暗,
+   * background-size 200% 与 progressAnimation 的 background-position 位移才真正可见。
+   * 不引入新色值:tint / tint-strong / accent 三枚都来自 tokens.css 的品牌强调族,亮暗档自动跟随。
+   */
+  background: linear-gradient(
+    214deg,
+    var(--color-brand-accent-tint) 0%,
+    var(--color-brand-accent) 25%,
+    var(--color-brand-accent-tint-strong) 50%,
+    var(--color-brand-accent) 75%,
+    var(--color-brand-accent-tint) 100%
+  );
   background-size: 200% 100%;
   animation: progressAnimation 2s linear infinite;
   transition: width 120ms linear;

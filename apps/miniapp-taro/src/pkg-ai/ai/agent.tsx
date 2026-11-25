@@ -442,7 +442,7 @@ export default function AgentPage() {
               <ThemeRoot key={agent.id}>
                 {/* 卡片对齐 RN SharedAgentScreen card:row/居中/内边距28rpx/圆角24rpx/白卡面/1px 描边 */}
                 <View
-                  className="flex flex-row items-center p-[28rpx] mb-[24rpx] rounded-xl bg-[var(--color-surface-light)] border border-[var(--color-border)]"
+                  className="flex flex-row items-center p-[24rpx] mb-[24rpx] rounded-xl bg-[var(--color-surface-light)] border border-[var(--color-border)]"
                   onClick={() => goDetail(agent.id)}
                   hoverClass="opacity-60"
                 >

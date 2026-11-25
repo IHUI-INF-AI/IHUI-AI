@@ -17,7 +17,7 @@ import { Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } fro
 import type { ReactNode } from 'react'
 import { tokens } from '../theme/active-tokens'
 import { Check, CircleCheck, Crown, Sparkles, X, type LucideIcon } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnSpacingFor, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 
 export interface BenefitItem {
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius['2xl'],
-    padding: rnSpacing.lg,
+    padding: rnSpacingFor.cardPad,
     gap: rnSpacing.md,
   } as ViewStyle,
   header: {

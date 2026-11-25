@@ -218,8 +218,8 @@ export default function SpecialModelsPage() {
 
   return (
     <ThemeRoot className="min-h-screen bg-background pb-[60rpx] box-border">
-      {/* Banner */}
-      <View className="relative mx-[20rpx] mt-[36rpx] mb-[24rpx] p-[32rpx] ui-card rounded-lg overflow-hidden bg-card">
+      {/* Banner —— 2026-11-25 卡片内边距归一到 card-spec 的 12(24rpx):此前 32rpx(16),与全站卡片差一档 */}
+      <View className="relative mx-[20rpx] mt-[36rpx] mb-[24rpx] p-[24rpx] ui-card rounded-lg overflow-hidden bg-card">
         <View
           className="absolute top-0 left-0 right-0 bottom-0 z-0"
           style={{ background: 'var(--color-secondary)' }}
@@ -293,7 +293,7 @@ export default function SpecialModelsPage() {
       {filtered.length > 0 ? (
         <View className="px-[24rpx] flex flex-col gap-[16rpx]">
           {filtered.map((m) => (
-            <View key={m.key} className="flex p-[28rpx] bg-card rounded-lg">
+            <View key={m.key} className="flex p-[24rpx] bg-card rounded-lg">
               <View className="w-[96rpx] h-[96rpx] flex items-center justify-center bg-muted rounded-xl flex-shrink-0">
                 <Image src={m.icon} className="w-[56rpx] h-[56rpx]" mode="aspectFit" />
               </View>

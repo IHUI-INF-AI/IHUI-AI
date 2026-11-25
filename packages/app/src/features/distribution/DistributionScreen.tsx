@@ -28,7 +28,7 @@ import type {
   DistributionQrSheet,
 } from '../../types'
 
-import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnSpacing, rnSpacingFor, rnType } from '@ihui/design-tokens'
 import { formatPrice } from '@ihui/shared/utils'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
@@ -490,7 +490,7 @@ function createStyles(tk: AppThemeTokens) {
       maxWidth: 340,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
-      padding: rnSpacing['md-loose'],
+      padding: rnSpacingFor.cardPad,
       gap: rnSpacing.sm,
     },
     qrHeader: {

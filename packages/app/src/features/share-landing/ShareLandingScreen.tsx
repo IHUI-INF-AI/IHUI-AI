@@ -4,7 +4,7 @@
 
 import { useMemo, useState, type ReactNode } from 'react'
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnSpacingFor, rnType } from '@ihui/design-tokens'
 import { Bot, ChevronDown, ChevronRight, Play } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -342,7 +342,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: 'transparent',
       backgroundColor: tk.surface.card,
-      padding: rnSpacing.lg,
+      padding: rnSpacingFor.cardPad,
       gap: rnSpacing.sm,
     },
     modelRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },

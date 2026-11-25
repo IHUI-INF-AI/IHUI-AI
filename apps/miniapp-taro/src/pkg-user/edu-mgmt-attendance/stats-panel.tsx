@@ -32,8 +32,9 @@ import {
   type TrendSegmentKey,
 } from './stats'
 
-/** 卡片外壳:与同页 ChildRecordsView 的行卡同一档(rounded-lg + 中性描边 + bg-card)。 */
-const CARD ='rounded-lg bg-card p-4 space-y-2'
+/** 卡片外壳:与同页 ChildRecordsView 的行卡同一档(rounded-lg + 中性描边 + bg-card)。
+ *  2026-11-25 卡片内边距归一到 card-spec 的 12(p-3):此前是 p-4(16),与全站卡片差 4 档。 */
+const CARD ='rounded-lg bg-card p-3 space-y-2'
 /** 读数文字:单行、等宽数字(断行即违规,见 AGENTS「读数不得断行」)。 */
 const READOUT = 'text-xs text-foreground whitespace-nowrap tabular-nums'
 const READOUT_DIM = 'text-xs text-muted-foreground whitespace-nowrap tabular-nums'
