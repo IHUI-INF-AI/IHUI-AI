@@ -24,7 +24,7 @@
 
 ## 0. 为什么要推翻上一版
 
-上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了二十处纠正，每一条都能被证据账本复核。
+上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了二十一处纠正，每一条都能被证据账本复核。
 
 **纠正一：把 Electron 主 exe 的 Chromium 安全 API 当成产品自研沙箱。**
 上一版用 `CreateRestrictedToken`、`CreateJobObject`、`CreateProcessAsUserW` 这类导入来证明“某产品有强沙箱”。实测发现，WorkBuddy.exe、Qoder CN.exe、ZCode.exe、Cursor.exe、Trae CN.exe 全部是 Electron 壳，这些 API 属于 Chromium/Electron 出厂能力，**不能归因于产品**。本版把证据分成三层：产品级（Rust/Go helper、.node、主进程 JS）、框架级（Electron/Chromium）、未知级；只有第一层进入结论。
@@ -88,6 +88,9 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 **纠正二十：Codex 不是“无前端 Rust CLI”，桌面壳是 `ChatGPT.exe`（Chromium 158 / Owl Electron）+ 443.8MB `app.asar`；上一版安装矩阵的“无前端”是错的。**
 `app\ChatGPT.exe` 是 5,003,568 字节的 Chromium 壳（InternalName `chrome_exe`、OriginalFilename `chrome.exe`、FileVersion `158.0.8127.37`、FileDescription/Product `Codex`），旁边 `chrome.dll` 341,041,456；`resources\app.asar` 443,800,006，包名 `openai-codex-electron`、版本 `26.1117.41037`、`main=.vite/build/early-bootstrap.js`，Owl 运行时（`owl-electron-app.json` / `owl-app.ini`）。所以 Codex 是 **Electron 桌面壳 + Rust `codex.exe` app-server/CLI**，不是单一 Rust CLI。
 `app.asar` 头：15,520 文件 / 454,135,151 字节，9,849 `.js` + 22 `.mjs` + 136 `.d.ts`；图：9,660 模块 / 444,320 节点 / 1,253,774 边 / 368,991 函数 / 36 IPC（3 配对、9 仅 handler、24 仅 invoker）/ 48 条运行期拼接（5.11 已逐条还原，0 未知）/ 6 窗口 / 4 暴露键（28 成员）/ 6,624 endpoint 记录（1,889 唯一 URL）/ 294 路由记录（133 唯一路径）/ 6 native 模块。应用 JS 9,656 个全部进图；215 个 node_modules JS 与 136 个 `.d.ts` 按 `--include-node-modules=false` 排除。上一版“无前端（Rust CLI/TUI）”和“前端图 15 张”都漏了这层。
+
+**纠正二十一：WorkBuddy 后端不是“单端口 MCP Host”，而是同一主进程上的多端口本地服务；两个 `codebuddy --serve` 执行会话也不是 WebSocket 业务端口。**
+18:26 复测 PID 31688 同时持有 `57736` / `57737` / `56000`：`57737` 是 `McpHost`（`/healthz` 200 `{"status":"ok","routes":11}`、`/mcp` 401，日志中出现并实测 401 的 5 个 routeKey 是 `a9bcc7dd…` / `881f8b0f…` / `5969c50f…` / `0b8f5f14…` / `34082f66…`），`56000` 是 `VlmProxy`（`/skills/vlm/chat` 401），`57736` 是 `McpAppsHost`（`/mcp-apps/sandbox-proxy.html` 200、实例路径 404）。独立进程 PID 22984 的 `18488` 是 `LocalProbeServer`，唯一路由 `GET /workbuddy/probe`。`57740` / `63423` 的命令行是 `codebuddy --serve --session-id <id> --permission-mode fullAccess --allowedTools …`，首轮连接超时；18:26 连接被拒绝，进程已退出。四个服务端口分别有独立的 Host/Origin 校验与鉴权，不能再用“HTTP 网关”一个口径概括。
 
 ---
 
@@ -906,6 +909,6 @@ $proj = "C:\IHUI-AI\.workbuddy\craft\all-ai-apps-full-2026-11-25.cany"
 
 ---
 
-**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是二十处纠正、11 个程序、8 个 asar 解包、16 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张 + Codex `app.asar` 第 16 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、26 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
+**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是二十一处纠正、11 个程序、8 个 asar 解包、16 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张 + Codex `app.asar` 第 16 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、26 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
 
