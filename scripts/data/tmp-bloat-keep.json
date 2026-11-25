@@ -43,24 +43,6 @@
       "reason": "移动端源码打包中转件(76.7MB,mtime 2026-11-25 12:02 仍在被写);无脚本引用,属构建期临时 tar,发布完成后清。",
       "owner": "移动端构建席",
       "reviewBy": "2026-11-30"
-    },
-    {
-      "rel": "public-downloads-mobile-0.0.16.apk",
-      "reason": "public 0.0.16 发布件(79.8MB,md5 BCE80EA6C2);public-downloads 与 apps/web/public 目录当前都无 apk 落位,删了等于撤掉这一版的发布源。",
-      "owner": "发布席(0.0.16)",
-      "reviewBy": "2026-12-10"
-    },
-    {
-      "rel": "public-0.0.16-26112400.apk",
-      "reason": "与 public-downloads-mobile-0.0.16.apk 同 md5(BCE80EA6C2) 的重复副本;登记而非删,等落位确认后由发布席一并清。",
-      "owner": "发布席(0.0.16)",
-      "reviewBy": "2026-12-10"
-    },
-    {
-      "rel": "public-0.0.16.apk",
-      "reason": "public 0.0.16 另一构建变体(79.8MB,md5 0A38FE63CC,与上面两件不同);发布源未落位,删了无法复原。",
-      "owner": "发布席(0.0.16)",
-      "reviewBy": "2026-12-10"
     }
   ]
 }
