@@ -17,7 +17,7 @@
 #       bounds{x,y,w,h}, children[]（仅一层：controlType/name/className/lines）
 
 param(
-  [ValidateSet('moments', 'status', 'dump')]
+  [ValidateSet('moments', 'status', 'dump', 'open')]
   [string]$Mode = 'moments',
   [ValidateRange(1, 30)]
   [int]$MaxPages = 30,
@@ -45,6 +45,7 @@ public class WeChatUiaWin {
   [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
   [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr parent, EnumWindowsProc cb, IntPtr lParam);
   [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+  [DllImport("user32.dll")] static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
   [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(POINT point);
   [DllImport("user32.dll")] static extern IntPtr GetAncestor(IntPtr hWnd, uint flags);
   [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
@@ -159,6 +160,19 @@ public class WeChatUiaWin {
     long wp = (long)(short)delta << 16;
     long lp = ((long)(ushort)(short)screenY << 16) | (ushort)(short)screenX;
     SendMessage(target, 0x020A, (IntPtr)wp, (IntPtr)lp);
+  }
+
+  // 后台点击：只向主窗 PostMessage 鼠标消息，不移动系统鼠标、不 SetFocus、不激活、不开关窗口。
+  // 仅用于导航：从聊天页切到朋友圈；业务采集仍只读 UIA 控件树。
+  public static bool BackgroundClick(IntPtr parent, int screenX, int screenY) {
+    int[] rect = Rect(parent);
+    int x = screenX - rect[0];
+    int y = screenY - rect[1];
+    long lp = ((long)(ushort)(short)y << 16) | (ushort)(short)x;
+    bool ok = PostMessage(parent, 0x0201, (IntPtr)1, (IntPtr)lp);
+    System.Threading.Thread.Sleep(80);
+    ok = PostMessage(parent, 0x0202, IntPtr.Zero, (IntPtr)lp) && ok;
+    return ok;
   }
 
   // 诊断遮挡：目标点最上层窗口根级不属于微信时，返回其标题或类名；否则空串。
@@ -297,6 +311,58 @@ function Find-MomentList($root) {
   return $null
 }
 
+function Find-ButtonByName($root, [string]$name) {
+  $cr = New-CacheRequest
+  $act = $cr.Activate()
+  try {
+    $cond = New-Object System.Windows.Automation.PropertyCondition(
+      [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+      [System.Windows.Automation.ControlType]::Button)
+    $buttons = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $cond)
+  } finally { $act.Dispose() }
+  foreach ($b in $buttons) {
+    if ($null -ne $b.Cached.Name -and $b.Cached.Name -eq $name) { return $b }
+  }
+  return $null
+}
+
+function Get-ElementCenter($el) {
+  $r = $el.Cached.BoundingRectangle
+  if ($null -eq $r) { return $null }
+  $x = [double]$r.X; $y = [double]$r.Y; $w = [double]$r.Width; $h = [double]$r.Height
+  if ([double]::IsNaN($x) -or [double]::IsNaN($y) -or $w -le 0 -or $h -le 0) { return $null }
+  return @{ x = [int][Math]::Round($x + $w / 2); y = [int][Math]::Round($y + $h / 2) }
+}
+
+# 后台导航：只在朋友圈未打开时，向主窗 PostMessage 鼠标消息点击「发现」→「朋友圈」。
+# 不 ShowWindow、不 SetForegroundWindow、不 SetFocus、不移动系统鼠标；窗口保持原可见性。
+function Open-Moments($main, $root) {
+  $clicked = @()
+  $existing = Find-MomentList $root
+  if ($null -ne $existing) { return [ordered]@{ opened = $true; clicked = $clicked; reason = '朋友圈已打开' } }
+  $discover = Find-ButtonByName $root '发现'
+  if ($null -eq $discover) { return [ordered]@{ opened = $false; clicked = $clicked; reason = '未找到「发现」导航按钮' } }
+  $center = Get-ElementCenter $discover
+  if ($null -eq $center) { return [ordered]@{ opened = $false; clicked = $clicked; reason = '「发现」按钮无有效坐标' } }
+  [void][WeChatUiaWin]::BackgroundClick($main, $center.x, $center.y)
+  $clicked += "发现@$($center.x),$($center.y)"
+  Start-Sleep -Milliseconds 1200
+  $root = [System.Windows.Automation.AutomationElement]::FromHandle($main)
+  $existing = Find-MomentList $root
+  if ($null -ne $existing) { return [ordered]@{ opened = $true; clicked = $clicked; reason = '后台点击「发现」后进入朋友圈' } }
+  $moments = Find-ButtonByName $root '朋友圈'
+  if ($null -eq $moments) { return [ordered]@{ opened = $false; clicked = $clicked; reason = '「发现」页未出现「朋友圈」入口' } }
+  $center = Get-ElementCenter $moments
+  if ($null -eq $center) { return [ordered]@{ opened = $false; clicked = $clicked; reason = '「朋友圈」入口无有效坐标' } }
+  [void][WeChatUiaWin]::BackgroundClick($main, $center.x, $center.y)
+  $clicked += "朋友圈@$($center.x),$($center.y)"
+  Start-Sleep -Milliseconds 1200
+  $root = [System.Windows.Automation.AutomationElement]::FromHandle($main)
+  $existing = Find-MomentList $root
+  if ($null -ne $existing) { return [ordered]@{ opened = $true; clicked = $clicked; reason = '后台点击「朋友圈」后进入时间线' } }
+  return [ordered]@{ opened = $false; clicked = $clicked; reason = '后台点击后仍未定位到 TimeLineListView' }
+}
+
 function Get-ListItems($scope) {
   $cr = New-CacheRequest
   $act = $cr.Activate()
@@ -392,6 +458,32 @@ try {
     render  = $render.ToInt64()
     class   = $mainClass
     visible = [bool]$mainVisible
+  }
+
+  # open：只在朋友圈未打开时做后台导航；不切前台、不移动鼠标。
+  if ($Mode -eq 'open') {
+    $root = [System.Windows.Automation.AutomationElement]::FromHandle($main)
+    if ($null -eq $root) { throw 'UIA FromHandle 返回空主窗根元素' }
+    $nav = Open-Moments $main $root
+    $sw.Stop()
+    Write-Payload ([ordered]@{
+      ok             = [bool]$nav.opened
+      mode           = 'uia'
+      driver         = 'uia'
+      pages          = 0
+      maxPages       = $MaxPages
+      stopReason     = $(if ($nav.opened) { 'no-more-data' } else { 'no-content' })
+      limitReached   = $false
+      occludedBy     = $null
+      reason         = $nav.reason
+      navigation     = $nav
+      window         = $windowInfo
+      pageSignatures = @()
+      total          = 0
+      elapsedMs      = $sw.ElapsedMilliseconds
+      items          = @()
+    })
+    exit $(if ($nav.opened) { 0 } else { 3 })
   }
 
   # status：只回报窗口几何与句柄，不遍历 UIA 树。

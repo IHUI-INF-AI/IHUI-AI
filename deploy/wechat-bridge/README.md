@@ -90,7 +90,7 @@ wcfhttp --cb "http://127.0.0.1:8848/ingest?secret=<BRIDGE_SECRET>"
 
 ## 接微信 4.x（只读 OCR）
 
-微信 4.2 是自绘窗口，UIA 控件树为空，WeChatFerry 只适配 3.9.x，不能硬接。若不想降级客户端，可用截图 + Windows 自带中文 OCR 的只读驱动：
+微信 4.2 是自绘窗口，主窗默认在聊天页，UIA 只暴露当前页控件；进入朋友圈后 UIA 能读到 `mmui::TimeLineListView` 和动态 `ListItem`（实机单页约 219 项）。WeChatFerry 只适配 3.9.x，不能硬接。若不想降级客户端，可用截图 + Windows 自带中文 OCR 的只读驱动，或 UIA 只读驱动：
 
 ```powershell
 cd deploy/wechat-bridge
@@ -112,7 +112,7 @@ node server.mjs
 
 ## 接微信 4.x（只读 UIA）
 
-`BRIDGE_DRIVER=uia` 时，驱动调用 `tools/wechat-uia.ps1 -Mode moments -MaxPages N -OutFile <json>` 遍历朋友圈 UIA 控件树，把结构化帧写到 `-OutFile`；与 OCR 驱动一样不注入、不读内存、不改微信文件。帧顶层含 `ok、mode、pages、maxPages、stopReason、limitReached、occludedBy、reason、items[]、pageSignatures[]、total、elapsedMs`，每条 `item` 含 `page、index、name、lines[]、controlType、className、bounds、children[]`，子控件可带 `role`（cover/marker/moment/body/author/media/time/comment/noise 之类）。
+`BRIDGE_DRIVER=uia` 时，驱动先调用 `tools/wechat-uia.ps1 -Mode open`：只在朋友圈未打开时，向微信主窗 `PostMessage` 鼠标消息点击「发现」→「朋友圈」，不 `ShowWindow`、不 `SetForegroundWindow`、不 `SetFocus`、不移动系统鼠标，窗口保持原可见性；随后调用 `-Mode moments -MaxPages N -OutFile <json>` 遍历朋友圈 UIA 控件树。与 OCR 驱动一样不注入、不读内存、不改微信文件。帧顶层含 `ok、mode、pages、maxPages、stopReason、limitReached、occludedBy、reason、items[]、pageSignatures[]、total、elapsedMs`，每条 `item` 含 `page、index、name、lines[]、controlType、className、bounds、children[]`，子控件可带 `role`（cover/marker/moment/body/author/media/time/comment/noise 之类）。
 
 解析保持保守：图片数量只认明确的「N 张图片」计数行，只保留数量、不下载二进制或链接；时间只保留界面原文（几分钟前/小时前/昨天/星期/月日/时分），不折算时间戳；作者取首行，必须非时间行、非图片行、长度合理，否则留空并标 `authorResolved=false`；评论只取「评论区」节点子树内的条目原文，正文、「余下0条」「下一条动态」、封面空节点和点赞按钮绝不当评论。有 `role` 时优先按 role 判槽位，没有 role 再按 className/文案规则兜底；空白封面 ListItem、「余下0条」「下一条动态」这类非动态节点直接标为噪声，不会变成一条朋友圈。动态 id 由 `author|content|timeText|imageCount` 的 sha256 前 12 位生成，跨页去重稳定；每条动态带 `timeText`、`imageCount`、`commentTexts`。字段可得性恒为 `media=false`（只有图片数量，没有二进制或链接）、`likes=false`（界面没有点赞控件可读）、`authorIdentity=false`（昵称无法映射 wxid），`comments` 仅在真实读到评论条目时为 true。
 

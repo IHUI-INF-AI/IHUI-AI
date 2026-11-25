@@ -309,7 +309,7 @@ function deriveStopReason({ frameStopReason, pages, maxPages, momentCount }) {
   return 'no-more-data'
 }
 
-function runScript(maxPages) {
+function runScript(mode, maxPages) {
   const args = [
     '-NoProfile',
     '-ExecutionPolicy',
@@ -317,7 +317,7 @@ function runScript(maxPages) {
     '-File',
     SCRIPT,
     '-Mode',
-    'moments',
+    mode,
     '-MaxPages',
     String(maxPages),
     '-OutFile',
@@ -388,7 +388,20 @@ export async function createDriver() {
       }
       let frame
       try {
-        frame = await runScript(maxPages)
+        // 先做后台导航：只在朋友圈未打开时向主窗 PostMessage 点击，不切前台、不移动鼠标。
+        const openFrame = await runScript('open', 1)
+        if (openFrame.ok !== true) {
+          return {
+            status: 'failed',
+            reason:
+              typeof openFrame.reason === 'string'
+                ? openFrame.reason
+                : '朋友圈后台导航失败',
+            stopReason: 'no-content',
+            data: { stopReason: 'no-content', navigation: openFrame.navigation ?? null },
+          }
+        }
+        frame = await runScript('moments', maxPages)
       } catch (e) {
         return {
           status: 'failed',
