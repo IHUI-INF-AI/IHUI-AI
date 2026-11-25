@@ -263,7 +263,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
         {predictionVisible ? (
           <div
             data-testid="predictive-edit-suggestion"
-            className="mb-1 flex items-center gap-2 rounded-sm border border-dashed border-stroke-subtle px-2 py-1 text-[11px] text-muted-foreground"
+            className="mb-1 flex items-center gap-2 rounded-md border border-dashed border-stroke-subtle px-2 py-1 text-[11px] text-muted-foreground"
           >
             <span aria-live="polite" className="min-w-0 flex-1 truncate">
               {t('predictiveEditHint')}
@@ -272,7 +272,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
               type="button"
               aria-label={t('predictiveEditApply')}
               onClick={applyPrediction}
-              className="shrink-0 rounded-sm px-1.5 py-0.5 text-primary transition-colors hover:bg-accent"
+              className="shrink-0 rounded-md px-1.5 py-0.5 text-primary transition-colors hover:bg-accent"
             >
               {t('predictiveEditApply')}
             </button>
@@ -362,7 +362,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
               disabled={isStreaming}
               className={cn(
                 // bg-card:悬浮在正文上时用卡片底色遮住其后的文字,避免图标和文字叠在一起
-                'absolute right-6 top-1 inline-flex h-6 w-6 items-center justify-center rounded-sm bg-card',
+                'absolute right-6 top-1 inline-flex h-6 w-6 items-center justify-center rounded-md bg-card',
                 'text-muted-foreground transition-opacity',
                 'opacity-0 hover:bg-accent hover:text-accent-foreground',
                 'group-hover:opacity-100 touch-reveal focus-visible:opacity-100',
@@ -382,7 +382,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
           <div className="pointer-events-none absolute bottom-0 left-3 right-6 flex justify-end pr-0.5">
             <span
               aria-live="polite"
-              className="whitespace-nowrap rounded-sm bg-card px-1 text-[10px] tabular-nums text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100"
+              className="whitespace-nowrap rounded-md bg-card px-1 text-[10px] tabular-nums text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100"
             >
               {t('charCount', { count: text.length })}
             </span>

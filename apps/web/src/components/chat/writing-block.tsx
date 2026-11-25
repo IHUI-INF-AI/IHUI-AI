@@ -62,7 +62,7 @@ export interface WritingBlockCardProps {
 }
 
 const actionButtonClass =
-  'rounded-sm bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40'
+  'rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40'
 
 export function WritingBlockCard({
   state,
@@ -183,7 +183,7 @@ export function WritingBlockCard({
           {blocks.map((block) => (
             <li
               key={block.id}
-              className="flex flex-col gap-1 rounded-sm border border-stroke-subtle bg-card/50 p-2"
+              className="flex flex-col gap-1 rounded-md border border-stroke-subtle bg-card/50 p-2"
               data-writing-block={block.id}
               data-block-status={block.status}
               data-block-phase={writingBlockPhaseOf(block.status) ?? 'none'}
@@ -209,7 +209,7 @@ export function WritingBlockCard({
                 spellCheck={false}
                 aria-label={statusLabel[block.status]}
                 data-block-draft={block.id}
-                className="min-h-[48px] w-full resize-none rounded-sm bg-muted/40 p-1.5 text-[11px] leading-4 outline-none"
+                className="min-h-[48px] w-full resize-none rounded-md bg-muted/40 p-1.5 text-[11px] leading-4 outline-none"
               />
 
               {onAction ? (
@@ -264,7 +264,7 @@ export function WritingBlockCard({
           onChange={handleOpenInChange}
           aria-label={t('openIn.label')}
           data-open-in-select=""
-          className="rounded-sm bg-muted/40 px-1 py-0.5 text-[11px] text-foreground outline-none"
+          className="rounded-md bg-muted/40 px-1 py-0.5 text-[11px] text-foreground outline-none"
         >
           {openInApps.map((app) => (
             <option key={app} value={app} data-open-in={app}>

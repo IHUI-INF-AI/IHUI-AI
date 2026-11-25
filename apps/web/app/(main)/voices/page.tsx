@@ -286,13 +286,13 @@ export default function VoicesPage() {
                 // 回退加索引保证唯一稳定
                 <div key={id || `${voiceName(v)}-${idx}`} className="space-y-2 p-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center rounded-sm bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
+                    <span className="inline-flex items-center rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
                       <Mic className="mr-1 h-3 w-3" />
                       {voiceName(v)}
                     </span>
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+                        'inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium',
                         ready
                           ? 'bg-green-500/10 text-green-600 dark:text-green-400'
                           : failed

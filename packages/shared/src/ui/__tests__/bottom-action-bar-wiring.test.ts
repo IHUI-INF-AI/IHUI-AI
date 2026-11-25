@@ -808,7 +808,7 @@ const ONE_SIDED_FACTS: ReadonlyArray<OneSidedFact> = [
     kind: 'B',
     anchor: /const INPUT_BORDER_RADIUS = rnRadius\['2xl'\]/,
     otherAnchor: /rnRadius\['2xl'\]/,
-    why: 'B 输入框/发送钮圆角 16 vs 小程序同元素 rounded-sm(4),产品裁决面',
+    why: 'B 输入框/发送钮圆角 16 vs 小程序同元素 rounded-md(4),产品裁决面',
   },
 ]
 

@@ -321,7 +321,7 @@ export default function AgentPlanProgressPage() {
                 <button
                   key={v.version}
                   onClick={() => void selectVersion(v.version)}
-                  className={`inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-body transition hover:bg-muted ${
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-body transition hover:bg-muted ${
                     v.version === selectedVersion ? 'border-brand-accent-deep bg-primary/10' : ''
                   }`}
                 >
@@ -387,12 +387,12 @@ export default function AgentPlanProgressPage() {
           onChange={(e) => setPlanId(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void loadPlan(planId)}
           placeholder="输入 plan_id 打开计划"
-          className="flex-1 rounded-sm border bg-background px-3 py-2 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+          className="flex-1 rounded-md border bg-background px-3 py-2 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
         />
         <button
           onClick={() => void loadPlan(planId)}
           disabled={loading || !planId.trim()}
-          className="inline-flex items-center gap-2 rounded-sm bg-cta px-4 py-2 text-body font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-md bg-cta px-4 py-2 text-body font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           打开
@@ -419,7 +419,7 @@ export default function AgentPlanProgressPage() {
               <li key={p.plan_id}>
                 <button
                   onClick={() => openRecent(p)}
-                  className="w-full rounded-sm border border-input p-3 text-left transition hover:border-stroke-strong hover:bg-muted/30"
+                  className="w-full rounded-md border border-input p-3 text-left transition hover:border-stroke-strong hover:bg-muted/30"
                 >
                   <div className="mb-1 flex items-center justify-between gap-3">
                     <code className="truncate rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">

@@ -116,7 +116,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.xl,
       backgroundColor: tk.brand.cta,
       paddingVertical: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
     },
     btnDisabled: { opacity: 0.6 },

@@ -111,7 +111,7 @@ export function SkillTable({
                     skill.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
+                        className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                       >
                         {tag}
                       </span>

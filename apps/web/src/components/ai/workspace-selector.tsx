@@ -303,7 +303,7 @@ export function WorkspaceSelector() {
             </DropdownMenu.Label>
 
             {/* 最近工作区列表 */}
-            <div className="max-h-72 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
+            <div className="max-h-72 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-md [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
               {recentLoading ? (
                 <div className="flex items-center justify-center gap-2 px-2 py-4 text-label text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />

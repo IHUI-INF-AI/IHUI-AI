@@ -114,7 +114,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     row: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     label: { fontSize: rnType.body.size, color: tk.text.secondary },
-    dot: { width: 8, height: 8, borderRadius: rnRadius.sm },
+    dot: { width: 8, height: 8, borderRadius: rnRadius.md },
     dotOnline: { backgroundColor: tk.success.DEFAULT },
     dotOffline: { backgroundColor: tk.text.secondary },
     statusText: { fontSize: rnType.body.size, fontWeight: '600' },

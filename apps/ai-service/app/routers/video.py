@@ -47,7 +47,12 @@ logger = logging.getLogger(__name__)
 
 class GenRequest(BaseModel):
     prompt: str = Field(..., min_length=1, description="视频分镜/画面描述")
-    duration: int = Field(default=5, ge=3, le=15, description="时长秒(接口上限通常 10~15s)")
+    duration: int = Field(
+        default=5,
+        ge=3,
+        le=30,
+        description="时长秒(MAGI-2 原生支持 30s;其他厂商通常 10~15s,超限由上游拒绝)",
+    )
     image: str | None = Field(default=None, description="首帧图 URL(base64 可灵/即梦可用,混元必需图片)")
     provider: str | None = Field(default=None, description="指定厂商(kling/jimeng/wan/hunyuan)")
 
@@ -202,9 +207,11 @@ async def video_providers() -> dict[str, Any]:
         "ok": True,
         "data": {
             "configured": configured,
-            "available": ["agnes", "kling", "jimeng", "wan", "hunyuan"],
+            "available": ["agnes", "token6688", "magi2", "kling", "jimeng", "wan", "hunyuan"],
             "kv": {
                 "agnes": "LLM_PROVIDERS.agnes.api_key 或 AGNES_API_KEY",
+                "token6688": "TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688",
+                "magi2": "MAGI2_API_KEY 或 SAND_API_KEY(需在 Sand.ai 控制台申请开通)",
                 "kling": "KLING_ACCESS_KEY + KLING_SECRET_KEY",
                 "jimeng": "ARK_API_KEY 或 ARK_ACCESS_KEY + ARK_SECRET_KEY",
                 "wan": "DASHSCOPE_API_KEY",

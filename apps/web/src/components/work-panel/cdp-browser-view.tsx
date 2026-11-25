@@ -862,7 +862,7 @@ export function CdpBrowserView({
       <button
         type="button"
         onClick={() => setDevToolsOpen((o) => !o)}
-        className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-sm border border-border bg-background/90 px-2 py-1 text-[10px] text-muted-foreground shadow-elevation-sm transition-colors hover:bg-accent hover:text-foreground"
+        className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-md border border-border bg-background/90 px-2 py-1 text-[10px] text-muted-foreground shadow-elevation-sm transition-colors hover:bg-accent hover:text-foreground"
         aria-label={t('devTools')}
       >
         <span className="font-mono font-semibold">{'</>'}</span>
@@ -874,7 +874,7 @@ export function CdpBrowserView({
         onClick={() => setPickMode((o) => !o)}
         aria-pressed={pickMode}
         data-testid="pick-element-toggle"
-        className={`absolute right-2 top-9 z-20 inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-[10px] shadow-elevation-sm transition-colors ${
+        className={`absolute right-2 top-9 z-20 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] shadow-elevation-sm transition-colors ${
           pickMode
             ? 'border-stroke-selected bg-cta text-cta-foreground'
             : 'border-border bg-background/90 text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -891,7 +891,7 @@ export function CdpBrowserView({
           aria-pressed={pipOn}
           aria-label={pipOn ? t('pipMonitorActive') : t('pipMonitor')}
           data-testid="cdp-pip-toggle"
-          className={`absolute right-2 top-[68px] z-20 inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-[10px] shadow-elevation-sm transition-colors ${
+          className={`absolute right-2 top-[68px] z-20 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] shadow-elevation-sm transition-colors ${
             pipOn
               ? 'border-stroke-selected bg-cta text-cta-foreground'
               : 'border-border bg-background/90 text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -941,14 +941,14 @@ export function CdpBrowserView({
               value={jsCode}
               onChange={(e) => setJsCode(e.target.value)}
               placeholder={t('runJsPlaceholder')}
-              className="h-14 w-full resize-none rounded-sm border border-input bg-background p-1.5 font-mono text-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+              className="h-14 w-full resize-none rounded-md border border-input bg-background p-1.5 font-mono text-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
               spellCheck={false}
             />
             <button
               type="button"
               onClick={runJs}
               disabled={!jsCode.trim()}
-              className="mt-1 rounded-sm bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground disabled:opacity-50"
+              className="mt-1 rounded-md bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground disabled:opacity-50"
             >
               {t('run')}
             </button>

@@ -198,7 +198,7 @@ function renderMarkdown(content: string): ReactNode {
             style={{
               background: 'var(--color-muted)',
               padding: rpx(taroSpacing['xs-loose']),
-              borderRadius: rnRadius.sm,
+              borderRadius: rnRadius.md,
               marginTop: rpx(taroSpacing.xs),
               marginBottom: rpx(taroSpacing.xs),
             }}

@@ -100,7 +100,7 @@
   text-align: center;
   background: var(--color-cta);
   color: var(--color-cta-foreground);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-display);
   font-weight: 600;
   box-shadow: var(--shadow-elevation-lg);

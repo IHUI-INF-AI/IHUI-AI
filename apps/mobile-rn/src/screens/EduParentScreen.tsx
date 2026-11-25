@@ -200,7 +200,7 @@ function EduParentScreen() {
             marginLeft: 'auto',
             borderWidth: 1,
             borderColor: tk.border.medium,
-            borderRadius: rnRadius.sm,
+            borderRadius: rnRadius.md,
             paddingHorizontal: rnSpacing.md,
             paddingVertical: rnSpacing.xs,
           }}

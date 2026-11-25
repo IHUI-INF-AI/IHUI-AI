@@ -29,11 +29,8 @@ import {
   requireAuth,
 } from './_shared.js'
 import { ensurePointsBalance, chargePointsForCall } from './proxy-llm.js'
-import {
-  FLAT_POINTS,
-  ensurePointsAvailable,
-  chargeFlatPoints,
-} from '../../services/points-guard.js'
+import { ensurePointsAvailable } from '../../services/points-guard.js'
+import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
 import { MEDIA_FILE_UPLOAD_BODY_LIMIT, MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
 /** 各厂商能力矩阵(接通上游真实存在的端点,避免死端点) */
@@ -311,9 +308,18 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
         },
         async (request, reply) => {
           const body = imageBody.parse(request.body ?? {})
-          // F-87:平台 Key 代理必须先做余额闸(不依赖 model 名,免费模型名不能绕过);
-          // 图片响应无 token usage,token 计价恒被跳过 ⇒ 成功出图后按 FLAT_POINTS.image * n 固定单价扣费。
-          if (!(await ensurePointsAvailable(request, reply))) return
+          // F-87:平台 Key 代理必须先做余额闸;图片响应无 token usage,成功出图后按
+          // ai_pricing.per_image 单一报价扣费(无定价行回落统一兜底价)。
+          if (
+            !(await ensureMediaPointsBalance(
+              request,
+              reply,
+              body.model ?? 'openai-image',
+              'image',
+              body.n ?? 1,
+            ))
+          )
+            return
           const data = await callVendor(vendor, `${baseUrl}/images/generations`, reply, {
             method: 'POST',
             body: JSON.stringify(body),
@@ -321,10 +327,11 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
           if (data === null) return
           recordUsage(request.userId!, vendor)
           const imageCount = body.n ?? 1
-          await chargeFlatPoints(
+          await chargeMediaPoints(
             request,
-            FLAT_POINTS.image * imageCount,
-            `OpenAI 兼容文生图扣分(vendor=${vendor}, model=${body.model ?? 'default'}, n=${imageCount})`,
+            body.model ?? 'openai-image',
+            'image',
+            imageCount,
             request.id,
           )
           return reply.send(success(data))
@@ -361,9 +368,17 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = openaiSpeechBody.parse(request.body ?? {})
-      // F-87:TTS 走平台 Key 且无 token usage ⇒ 余额闸(不看 model 名)先行,
-      // 成功拿到音频后按 FLAT_POINTS.audio 固定单价扣费。
-      if (!(await ensurePointsAvailable(request, reply))) return
+      // F-87:TTS 走平台 Key 且无 token usage ⇒ 余额闸先行,成功后按语音单价扣费。
+      if (
+        !(await ensureMediaPointsBalance(
+          request,
+          reply,
+          body.model ?? 'gpt-4o-mini-tts',
+          'audio',
+          1,
+        ))
+      )
+        return
       const key = requireVendorKey('openai', reply)
       if (!key) return
       const resp = await fetchWithTimeout(
@@ -396,12 +411,7 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
       const format = body.response_format ?? 'mp3'
       const buf = Buffer.from(await resp.arrayBuffer())
       recordUsage(request.userId!, 'openai')
-      await chargeFlatPoints(
-        request,
-        FLAT_POINTS.audio,
-        `OpenAI TTS 扣分(model=${body.model ?? 'gpt-4o-mini-tts'})`,
-        request.id,
-      )
+      await chargeMediaPoints(request, body.model ?? 'gpt-4o-mini-tts', 'audio', 1, request.id)
       return reply.send(
         success({ audio: `data:audio/${format};base64,${buf.toString('base64')}`, format }),
       )
@@ -436,9 +446,10 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = openaiTranscriptionBody.parse(request.body ?? {})
-      // F-87:STT 同样走平台 Key;multipart 转写无 token usage,余额闸(不看 model 名)先行,
-      // 成功后按 FLAT_POINTS.audio 固定单价扣费。
-      if (!(await ensurePointsAvailable(request, reply))) return
+      // F-87:STT 同样走平台 Key;multipart 转写无 token usage,余额闸先行,
+      // 成功后按语音单价扣费。
+      if (!(await ensureMediaPointsBalance(request, reply, body.model ?? 'whisper-1', 'audio', 1)))
+        return
       const key = requireVendorKey('openai', reply)
       if (!key) return
       const file = await request.file()
@@ -483,12 +494,7 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
           ? await resp.json()
           : { text: await resp.text() }
         recordUsage(request.userId!, 'openai')
-        await chargeFlatPoints(
-          request,
-          FLAT_POINTS.audio,
-          `OpenAI STT 扣分(model=${body.model ?? 'whisper-1'})`,
-          request.id,
-        )
+        await chargeMediaPoints(request, body.model ?? 'whisper-1', 'audio', 1, request.id)
         return reply.send(success(data))
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message

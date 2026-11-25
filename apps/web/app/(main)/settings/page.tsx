@@ -82,7 +82,7 @@ export default function SettingsPage() {
             <Link
               href="/settings/appearance"
               data-testid="settings-appearance-entry"
-              className="group flex items-center gap-3 rounded-sm border p-4 transition-colors hover:bg-accent min-[640px]:col-span-2"
+              className="group flex items-center gap-3 rounded-md border p-4 transition-colors hover:bg-accent min-[640px]:col-span-2"
             >
               <Palette className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
               <div className="min-w-0 flex-1">
@@ -104,7 +104,7 @@ export default function SettingsPage() {
               <Link
                 href="/settings/tenant-apps"
                 data-testid="tenant-apps-entry"
-                className="group flex items-center gap-3 rounded-sm border p-4 transition-colors hover:bg-accent min-[640px]:col-span-2"
+                className="group flex items-center gap-3 rounded-md border p-4 transition-colors hover:bg-accent min-[640px]:col-span-2"
               >
                 <Building2 className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
                 <div className="min-w-0 flex-1">

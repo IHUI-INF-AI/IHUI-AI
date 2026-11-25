@@ -9630,7 +9630,11 @@
       "ckPaymentConfirmDone": "Payment result",
       "ckDownloadExportExport": "Export triggered",
       "ckDownloadExportDownload": "Download started",
-      "ckDownloadExportDone": "File verified"
+      "ckDownloadExportDone": "File verified",
+      "autoMonitor": "Auto-monitor new sessions",
+      "close": "Close",
+      "minimize": "Minimize",
+      "expandWindow": "Expand"
     },
     "resizeFloatHint": "Resize",
     "earlier": "Earlier"
@@ -20261,7 +20265,8 @@
     "hrMyPerf": "My performance",
     "hrMyTraining": "My training",
     "hrMyExpense": "My expenses",
-    "financeGroup": "Finance"
+    "financeGroup": "Finance",
+    "connectors": "Connectors"
   },
   "news": {
     "allCategories": "All Categories",
@@ -21592,7 +21597,9 @@
       "uploadFileHint": "Supports docx/pdf/image/video, drag or click to upload",
       "uploadSuccess": "Uploaded: {filename}",
       "uploadedHint": "File uploaded. Click to replace.",
-      "uploading": "Uploading..."
+      "uploading": "Uploading...",
+      "usePool": "Use account pool",
+      "usePoolHint": "Let the system assign available accounts automatically"
     },
     "platforms": {
       "36kr": "36Kr",
@@ -24096,6 +24103,15 @@
     "purchase": "Purchase membership"
   },
   "wallet": {
+    "flowRecharge": "Recharge",
+    "flowDeduct": "Deduct",
+    "flowExpire": "Expired",
+    "flowRefund": "Refund clawback",
+    "flowRelayRecharge": "Transfer to API key",
+    "flowAdminAdjust": "Admin adjustment",
+    "flowQuota": "Quota change",
+    "flowPointsExchange": "Exchange for AI credits",
+    "flowOther": "Other",
     "autoTopUp": {
       "title": "Auto top-up",
       "description": "Automatically top up to the target balance when your balance falls below the threshold.",

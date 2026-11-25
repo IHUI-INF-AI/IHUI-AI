@@ -78,7 +78,7 @@ export function AddressForm({
               type="checkbox"
               checked={!!editing.isDefault}
               onChange={(e) => onChange('isDefault', e.target.checked)}
-              className="h-4 w-4 rounded-sm"
+              className="h-4 w-4 rounded-md"
             />
             {t('setDefault')}
           </label>

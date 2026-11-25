@@ -123,7 +123,7 @@ export function createCardStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       overflow: 'hidden',
     },
     typeSystem: {
@@ -175,7 +175,7 @@ export function createCardStyles(tk: AppThemeTokens) {
       alignSelf: 'center',
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
     actionDisabled: {

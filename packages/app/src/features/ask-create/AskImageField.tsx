@@ -145,7 +145,7 @@ export function AskImageField({
 
 /**
  * 尺寸逐值取自端内旧 CSS(create.css:139-182):160rpx=80px、36rpx=18px、
- * -10rpx=-5px、2rpx=1px、--radius-lg / --radius-sm、--text-label / --text-display,
+ * -10rpx=-5px、2rpx=1px、--radius-lg / --radius-md、--text-label / --text-display,
  * 只换渲染层不改观感。
  */
 function createStyles(tk: AppThemeTokens) {
@@ -166,7 +166,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.danger.DEFAULT,
       zIndex: 2,
     },

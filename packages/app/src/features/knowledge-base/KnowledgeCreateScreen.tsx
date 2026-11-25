@@ -150,7 +150,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.medium,
     },
     input: {
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.card,

@@ -90,7 +90,7 @@ export function LiveChannelsBlock({ channels }: Props) {
                 {c.isLive ? (
                   <div className="absolute left-2 top-2">
                     <span className="inline-flex items-center gap-1 rounded-md bg-red-500/95 px-2 py-0.5 text-label font-medium text-white">
-                      <span className="h-2 w-2 rounded-sm bg-white" />
+                      <span className="h-2 w-2 rounded-md bg-white" />
                       {t('live.liveBadge')}
                     </span>
                   </div>

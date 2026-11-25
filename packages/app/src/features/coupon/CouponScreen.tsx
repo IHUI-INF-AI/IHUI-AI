@@ -217,7 +217,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     useBtnText: { fontSize: rnType.caption.size, color: tk.brand.ctaForeground },
@@ -231,7 +231,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     couponCenterText: {

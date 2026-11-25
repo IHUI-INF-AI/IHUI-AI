@@ -256,7 +256,7 @@ export function ImportAnalysisPanel({
                           {name}
                         </Text>
                         <FocusInput
-                          className="h-[72rpx] px-[20rpx] text-body-sm leading-[normal] text-foreground bg-card rounded-sm border border-border"
+                          className="h-[72rpx] px-[20rpx] text-body-sm leading-[normal] text-foreground bg-card rounded-md border border-border"
                           value={variables[name] ?? ''}
                           placeholder={tt(
                             'conversationImport.analysisVarPlaceholder',

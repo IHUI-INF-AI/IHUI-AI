@@ -86,11 +86,11 @@ export default function AdminSearchHotWordsPage() {
           value={newWord}
           onChange={(e) => setNewWord(e.target.value)}
           placeholder={t('wordPlaceholder')}
-          className="h-9 flex-1 max-w-xs rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+          className="h-9 flex-1 max-w-xs rounded-md border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         />
         <button
           type="submit"
-          className="h-9 rounded-sm bg-cta px-4 text-body font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-50"
+          className="h-9 rounded-md bg-cta px-4 text-body font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-50"
           disabled={addMut.isPending || !newWord.trim()}
         >
           {addMut.isPending ? t('adding') : t('add')}

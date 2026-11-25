@@ -115,7 +115,7 @@ function RowCommentButton({
       type="button"
       onClick={() => onComment(lineNo, text)}
       aria-label={label}
-      className="ml-auto mr-1 shrink-0 self-center rounded-sm p-0.5 text-muted-foreground/60 opacity-0 transition-opacity hover:bg-muted/70 hover:text-foreground group-hover:opacity-100 touch-reveal focus-visible:opacity-100"
+      className="ml-auto mr-1 shrink-0 self-center rounded-md p-0.5 text-muted-foreground/60 opacity-0 transition-opacity hover:bg-muted/70 hover:text-foreground group-hover:opacity-100 touch-reveal focus-visible:opacity-100"
       data-testid={`diff-row-comment-${lineNo}`}
     >
       <MessageSquarePlus className="h-3 w-3" aria-hidden />
@@ -535,7 +535,7 @@ function ConflictPanel({
       </div>
       <div className="flex flex-col gap-1">
         {sections.map((sec) => (
-          <div key={sec.key} className={cn('rounded-sm px-2 py-1 text-[11px]', sec.cls)}>
+          <div key={sec.key} className={cn('rounded-md px-2 py-1 text-[11px]', sec.cls)}>
             <div className="mb-0.5 text-[10px] text-muted-foreground">
               <span>{sec.label}</span>
             </div>
@@ -568,7 +568,7 @@ function ConflictPanel({
             onClick={() => onChoose(block.id, c)}
             aria-pressed={choice === c}
             className={cn(
-              'rounded-sm px-1.5 py-0.5 text-[10px] transition-colors',
+              'rounded-md px-1.5 py-0.5 text-[10px] transition-colors',
               choice === c
                 ? 'bg-muted text-foreground'
                 : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
@@ -714,7 +714,7 @@ export function ThreeWayMergeView({
             <button
               type="button"
               onClick={() => handleChooseAll('ours')}
-              className="rounded-sm px-1.5 py-0.5 transition-colors hover:bg-muted/60 hover:text-foreground"
+              className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted/60 hover:text-foreground"
               data-testid="diff-3way-all-ours"
             >
               <span>{labels.useOurs}</span>
@@ -722,7 +722,7 @@ export function ThreeWayMergeView({
             <button
               type="button"
               onClick={() => handleChooseAll('theirs')}
-              className="rounded-sm px-1.5 py-0.5 transition-colors hover:bg-muted/60 hover:text-foreground"
+              className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted/60 hover:text-foreground"
               data-testid="diff-3way-all-theirs"
             >
               <span>{labels.useTheirs}</span>
@@ -773,7 +773,7 @@ export function ThreeWayMergeView({
             <button
               type="button"
               onClick={handleCopyMerged}
-              className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
               data-testid="diff-3way-copy"
             >
               <Copy className="h-3 w-3" aria-hidden />

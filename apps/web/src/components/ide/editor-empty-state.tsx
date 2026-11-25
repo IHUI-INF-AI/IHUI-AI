@@ -162,7 +162,7 @@ export function EditorEmptyState() {
               {!workspacePath && (
                 <button
                   onClick={handleOpenFolder}
-                  className="flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-label text-foreground transition-colors hover:bg-muted/40"
+                  className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-label text-foreground transition-colors hover:bg-muted/40"
                 >
                   <FolderOpen className="h-3.5 w-3.5" />
                   <span>{t('editorEmpty.browseFiles')}</span>
@@ -172,7 +172,7 @@ export function EditorEmptyState() {
                 <button
                   key={item.labelKey}
                   onClick={() => setActiveView(item.view)}
-                  className="flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-label text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                  className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-label text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
                 >
                   <item.icon className="h-3.5 w-3.5" />
                   <span>{t(item.labelKey)}</span>
@@ -200,7 +200,7 @@ export function EditorEmptyState() {
                       <button
                         key={file.id}
                         onClick={() => handleOpen(file.id)}
-                        className="group flex items-center gap-2 rounded-sm px-2 py-1.5 text-left text-label text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                        className="group flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-label text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
                       >
                         <Icon className={cn('h-3.5 w-3.5 shrink-0', getFileColor(file.name))} />
                         <span className="min-w-0 flex-1 truncate">{file.name}</span>
@@ -224,7 +224,7 @@ export function EditorEmptyState() {
                       {s.keys.map((k, i) => (
                         <React.Fragment key={i}>
                           {i > 0 && <span className="text-muted-foreground/50">+</span>}
-                          <kbd className="rounded-sm border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                          <kbd className="rounded-md border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                             {k}
                           </kbd>
                         </React.Fragment>

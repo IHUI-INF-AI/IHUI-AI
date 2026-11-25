@@ -79,7 +79,7 @@ export default function SdksPage() {
               type="button"
               onClick={() => setLanguage(l)}
               className={
-                'rounded-sm border px-3 py-1 text-body transition-colors ' +
+                'rounded-md border px-3 py-1 text-body transition-colors ' +
                 (language === l
                   ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                   : 'border-border hover:bg-muted')

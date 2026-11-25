@@ -117,7 +117,7 @@ export function TraceReplay({ toolCalls }: { toolCalls: ToolCall[] }) {
           disabled={total === 0}
           aria-label={pb.playing ? t('pause') : pb.finished ? t('replay') : t('play')}
           data-testid="trace-replay-play"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none disabled:opacity-50"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none disabled:opacity-50"
         >
           {pb.playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
         </button>
@@ -127,7 +127,7 @@ export function TraceReplay({ toolCalls }: { toolCalls: ToolCall[] }) {
           disabled={pb.finished}
           aria-label={t('stepForward')}
           data-testid="trace-replay-step"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none disabled:opacity-50"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none disabled:opacity-50"
         >
           <SkipForward className="h-3.5 w-3.5" />
         </button>
@@ -136,7 +136,7 @@ export function TraceReplay({ toolCalls }: { toolCalls: ToolCall[] }) {
           onClick={handleReset}
           aria-label={t('reset')}
           data-testid="trace-replay-reset"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none"
         >
           <RotateCcw className="h-3.5 w-3.5" />
         </button>
@@ -168,7 +168,7 @@ export function TraceReplay({ toolCalls }: { toolCalls: ToolCall[] }) {
                 elapsedMs={call.durationMs}
                 trailing={t(`status_${call.status}` as 'status_success')}
                 className={cn(
-                  'rounded-sm px-1.5',
+                  'rounded-md px-1.5',
                   isCurrent && 'bg-primary/10 font-medium',
                   (isDone || !active) && 'text-muted-foreground',
                   dimmed && 'opacity-45',

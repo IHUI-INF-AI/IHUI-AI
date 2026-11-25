@@ -15,7 +15,7 @@
  */
 
 import { createHash, timingSafeEqual } from 'node:crypto'
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import {
   wechatHubAccounts,
   wechatHubActionLogs,
@@ -153,12 +153,17 @@ export class WechatHubManager {
     await db.delete(wechatHubAccounts).where(eq(wechatHubAccounts.id, row.id))
   }
 
-  /** 进程重启后把 DB 里仍标 online 的账号重新挂上，避免"显示在线但没长连接"。 */
+  /**
+   * 进程重启后把 DB 里仍标 online / connecting 的账号重新挂上，避免"显示在线但没长连接"。
+   *
+   * connecting 也必须恢复：上一次进程在 connect 中途退出时会把 connecting 留在库里，
+   * 若只恢复 online，管理台会长期停在"连接中"，而桥其实是好的。
+   */
   async resumeOnlineAccounts(): Promise<void> {
     const rows = await dbRead
       .select()
       .from(wechatHubAccounts)
-      .where(eq(wechatHubAccounts.status, 'online'))
+      .where(inArray(wechatHubAccounts.status, ['online', 'connecting']))
       .limit(50)
     for (const row of rows) {
       if (this.adapters.has(row.id)) continue

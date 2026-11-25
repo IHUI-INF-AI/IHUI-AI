@@ -135,7 +135,7 @@ export function WorktreeCard({
               type="button"
               onClick={() => onAction(restoreAction)}
               data-action={restoreAction}
-              className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               {actionLabel[restoreAction]}
             </button>
@@ -145,7 +145,7 @@ export function WorktreeCard({
               type="button"
               onClick={() => onAction('reclaimDisk')}
               data-action="reclaimDisk"
-              className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               {actionLabel.reclaimDisk}
             </button>
@@ -154,7 +154,7 @@ export function WorktreeCard({
             type="button"
             onClick={() => onAction('dismiss')}
             data-action="dismiss"
-            className="rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+            className="rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
           >
             {actionLabel.dismiss}
           </button>

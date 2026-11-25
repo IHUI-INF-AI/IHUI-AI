@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
   box: {
     width: VERIFY_CODE_BOX_WIDTH_PX,
     height: VERIFY_CODE_BOX_HEIGHT_PX,
-    // 角色档 control(验证码输入格 = 输入框)→ sm(4),与小程序端同位格子的 rounded-sm 同档;
+    // 角色档 control(验证码输入格 = 输入框)→ sm(4),与小程序端同位格子的 rounded-md 同档;
     // 此前写 lg(8) 是"卡片档套在控件上"
     borderRadius: rnRadiusFor.control,
     borderWidth: 1,

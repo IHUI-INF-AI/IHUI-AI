@@ -42,7 +42,7 @@ export function ActivityCodeBlock({
       <pre
         data-testid={testId}
         className={cn(
-          'overflow-auto whitespace-pre-wrap break-all rounded-sm bg-muted/60 p-1 font-mono text-[11px] text-muted-foreground/90',
+          'overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-1 font-mono text-[11px] text-muted-foreground/90',
           !expanded && isLong && 'max-h-24',
         )}
       >
@@ -54,7 +54,7 @@ export function ActivityCodeBlock({
           aria-expanded={expanded}
           onClick={() => setExpanded((v) => !v)}
           data-testid={`${testId}-toggle`}
-          className="rounded-sm px-1 text-[11px] text-primary/80 hover:bg-primary/10"
+          className="rounded-md px-1 text-[11px] text-primary/80 hover:bg-primary/10"
         >
           {expanded ? t('hideLines') : t('showAllLines')}
         </button>
@@ -80,7 +80,7 @@ export function ActivitySourcesButton({
       type="button"
       onClick={onClick}
       data-testid={testId}
-      className="rounded-sm px-1 text-[11px] text-primary/80 hover:bg-primary/10"
+      className="rounded-md px-1 text-[11px] text-primary/80 hover:bg-primary/10"
     >
       {label}
     </button>
@@ -99,7 +99,7 @@ export function ActivityCanceledLabel({
   return (
     <span
       data-testid={testId}
-      className="shrink-0 rounded-sm bg-muted px-1 text-[10px] text-muted-foreground"
+      className="shrink-0 rounded-md bg-muted px-1 text-[10px] text-muted-foreground"
     >
       {t('canceledItemLabel', { name })}
     </span>

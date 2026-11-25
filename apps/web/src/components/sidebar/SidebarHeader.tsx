@@ -70,7 +70,7 @@ function PanelLeftRounded({
       {...props}
     >
       {/* 外框:面板 */}
-      <rect width="18" height="18" x="3" y="3" rx={rnRadius.sm} />
+      <rect width="18" height="18" x="3" y="3" rx={rnRadius.md} />
       {/* 左侧竖条:面板边(比外框重一号 + 圆头内收,读成"实心条") */}
       <path d="M7.5 8.5v7" strokeWidth="2.5" />
       {/* 方向箭头:两态同几何、仅镜像,转向时不位移 */}

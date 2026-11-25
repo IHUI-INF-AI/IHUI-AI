@@ -510,7 +510,7 @@ function createStyles(tk: AppThemeTokens) {
     sheetPayBtn: {
       marginTop: rnSpacing.lg,
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -536,7 +536,7 @@ function createStyles(tk: AppThemeTokens) {
     completedText: { fontSize: rnType.title.size, color: tk.success.deepText },
     completeBtn: {
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.success.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

@@ -214,7 +214,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       paddingHorizontal: rnSpacing.md,
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -226,7 +226,7 @@ function createStyles(tk: AppThemeTokens) {
     eyeBtn: {
       paddingHorizontal: rnSpacing.md,
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -240,7 +240,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       height: 50,
       justifyContent: 'center',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
     },
     btnPrimary: { backgroundColor: tk.brand.cta },
@@ -265,7 +265,7 @@ function createStyles(tk: AppThemeTokens) {
     testBtn: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     testBtnRunning: { opacity: 0.6 },

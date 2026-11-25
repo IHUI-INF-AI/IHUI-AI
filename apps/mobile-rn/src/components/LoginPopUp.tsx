@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   primaryButton: {
     height: LOGIN_POPUP_BUTTON_HEIGHT_PX,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
@@ -726,7 +726,7 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     height: LOGIN_POPUP_BUTTON_HEIGHT_PX,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -761,7 +761,7 @@ const styles = StyleSheet.create({
   },
   pwdInput: {
     height: LOGIN_POPUP_BUTTON_HEIGHT_PX,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -779,7 +779,7 @@ const styles = StyleSheet.create({
   checkbox: {
     width: LOGIN_POPUP_CHECKBOX_SIZE_PX,
     height: LOGIN_POPUP_CHECKBOX_SIZE_PX,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.light,
     alignItems: 'center',
@@ -843,7 +843,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: LOGIN_POPUP_ROW_HEIGHT_PX,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     paddingHorizontal: LOGIN_POPUP_ROW_PADDING_X_PX,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
@@ -879,7 +879,7 @@ const styles = StyleSheet.create({
   upgradeButton: {
     height: LOGIN_POPUP_PILL_HEIGHT_PX,
     paddingHorizontal: LOGIN_POPUP_PILL_PADDING_X_PX,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.warning.amber,
     alignItems: 'center',
     justifyContent: 'center',
@@ -895,7 +895,7 @@ const styles = StyleSheet.create({
   bindButton: {
     height: LOGIN_POPUP_PILL_HEIGHT_PX,
     paddingHorizontal: LOGIN_POPUP_PILL_PADDING_X_PX,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
@@ -928,7 +928,7 @@ const styles = StyleSheet.create({
   footerButton: {
     flex: 1,
     height: LOGIN_POPUP_BUTTON_HEIGHT_PX,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.brandAccent.deep,
     backgroundColor: tokens.surface.card,

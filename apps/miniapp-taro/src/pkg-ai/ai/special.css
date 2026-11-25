@@ -56,7 +56,7 @@
   padding: var(--spacing-xs-loose) var(--spacing-sm-loose);
   background: var(--color-stroke-default);
   border: 2rpx solid var(--color-text-tertiary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .special-banner-history-icon {
   font-size: var(--text-body-sm);
@@ -136,7 +136,7 @@
   margin-right: var(--spacing-xs-loose);
   background: var(--color-card);
   border: 2rpx solid var(--color-stroke-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   vertical-align: middle;
 }
 .special-tab-active {
@@ -221,7 +221,7 @@
   padding: 10rpx var(--spacing-md-loose);
   background: var(--color-stroke-default);
   border: 2rpx solid var(--color-text-tertiary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .special-card-btn Text {
   font-size: var(--text-label);

@@ -107,7 +107,7 @@ export default function SandboxPage() {
               value={method}
               onChange={(e) => setMethod(e.target.value as Method)}
               className={cn(
-                'rounded-sm border bg-background px-2 py-1.5 text-body font-bold outline-none',
+                'rounded-md border bg-background px-2 py-1.5 text-body font-bold outline-none',
                 METHOD_CLASS[method],
               )}
             >
@@ -173,7 +173,7 @@ export default function SandboxPage() {
                 onChange={(e) => setBody(e.target.value)}
                 placeholder='{"key": "value"}'
                 rows={5}
-                className="w-full resize-y rounded-sm border bg-background px-3 py-2 font-mono text-label outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                className="w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-label outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
               />
             </div>
           )}

@@ -271,7 +271,7 @@ function createStyles(tk: AppThemeTokens) {
       minWidth: 96,
       alignItems: 'center',
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
     },
     actionPrimary: {

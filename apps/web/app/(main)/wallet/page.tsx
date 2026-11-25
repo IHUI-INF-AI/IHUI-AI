@@ -7,9 +7,17 @@
 import * as React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { Wallet, Plus, ArrowDownToLine, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  Wallet,
+  Plus,
+  ArrowDownToLine,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ArrowRightLeft,
+} from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
 import {
@@ -20,6 +28,7 @@ import {
   TableHead,
   TableRow,
   TableCell,
+  Input,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { resolveWalletFlowMeta } from '@ihui/shared/utils/wallet-flow-meta'
@@ -50,7 +59,11 @@ const PAGE_SIZE = 20
 export default function WalletPage() {
   const t = useTranslations('wallet')
   const locale = useLocale()
+  const queryClient = useQueryClient()
   const [page, setPage] = React.useState(1)
+  const [convertAmount, setConvertAmount] = React.useState('100')
+  const [converting, setConverting] = React.useState(false)
+  const [convertMessage, setConvertMessage] = React.useState<string | null>(null)
 
   // 2026-09-30 登录态门
   const { allow } = useAuthGate()
@@ -80,6 +93,40 @@ export default function WalletPage() {
   const fmtDate = (v: string) => {
     const d = new Date(v)
     return Number.isNaN(d.getTime()) ? '-' : dateFmt.format(d)
+  }
+
+  const onConvertToPoints = async () => {
+    const amount = Number.parseInt(convertAmount, 10)
+    if (!Number.isFinite(amount) || amount < 100) {
+      setConvertMessage('最低兑换 100 积分(¥1)')
+      return
+    }
+    setConverting(true)
+    setConvertMessage(null)
+    try {
+      const result = await apiOrThrow<{
+        points: number
+        walletBalance: number
+        pointsBalance: number
+        alreadyExchanged: boolean
+      }>('/api/wallet/convert-to-points', {
+        method: 'POST',
+        body: JSON.stringify({
+          amount,
+          idempotencyKey: globalThis.crypto?.randomUUID?.() ?? `wallet-convert-${Date.now()}`,
+        }),
+      })
+      setConvertMessage(
+        result.alreadyExchanged
+          ? '该兑换请求已处理过，未重复扣款'
+          : `已兑换 ${result.points} AI 积分，当前积分余额 ${result.pointsBalance}`,
+      )
+      await queryClient.invalidateQueries({ queryKey: ['wallet'] })
+    } catch (e) {
+      setConvertMessage((e as Error).message || '兑换失败，请稍后重试')
+    } finally {
+      setConverting(false)
+    }
   }
 
   return (
@@ -140,6 +187,37 @@ export default function WalletPage() {
               </Button>
             </Link>
           </div>
+        </div>
+      )}
+
+      {allow && (
+        <div className="rounded-lg border bg-card p-3 text-card-foreground shadow-elevation-md">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <ArrowRightLeft className="h-4 w-4 text-primary" />
+              <span className="text-body font-semibold">钱包余额兑换 AI 积分</span>
+            </div>
+            <span className="text-label text-muted-foreground">1 分 = 1 积分，兑换后不可逆</span>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Input
+              type="number"
+              min={100}
+              step={100}
+              value={convertAmount}
+              onChange={(e) => setConvertAmount(e.target.value)}
+              className="w-40"
+              aria-label="兑换积分数"
+            />
+            <Button onClick={onConvertToPoints} disabled={converting}>
+              {converting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              兑换
+            </Button>
+            <span className="text-label text-muted-foreground">最低 100 积分(¥1)</span>
+          </div>
+          {convertMessage ? (
+            <p className="mt-2 text-label text-muted-foreground">{convertMessage}</p>
+          ) : null}
         </div>
       )}
 

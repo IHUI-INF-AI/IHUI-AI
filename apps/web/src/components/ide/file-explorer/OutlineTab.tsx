@@ -38,7 +38,7 @@ export function OutlineTab({ source }: OutlineTabProps) {
         const OIcon = OUTLINE_ICON[item.type] ?? FunctionSquare
         return (
           <div key={item.id}>
-            <div className="flex cursor-pointer items-center gap-1 rounded-sm pl-3 pr-2 py-0.5 text-label hover:bg-muted/50">
+            <div className="flex cursor-pointer items-center gap-1 rounded-md pl-3 pr-2 py-0.5 text-label hover:bg-muted/50">
               <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
               <OIcon className="h-3.5 w-3.5 shrink-0 text-blue-500" />
               <span className="truncate">{item.label}</span>
@@ -49,7 +49,7 @@ export function OutlineTab({ source }: OutlineTabProps) {
               return (
                 <div
                   key={c.id}
-                  className="flex cursor-pointer items-center gap-1 rounded-sm pl-7 pr-2 py-0.5 text-label text-muted-foreground hover:bg-muted/50"
+                  className="flex cursor-pointer items-center gap-1 rounded-md pl-7 pr-2 py-0.5 text-label text-muted-foreground hover:bg-muted/50"
                 >
                   <CIcon className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{c.label}</span>

@@ -556,7 +556,7 @@ const styles = StyleSheet.create({
   agreementCheckbox: {
     width: CHECKBOX_SIZE,
     height: CHECKBOX_SIZE,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.medium,
     alignItems: 'center',
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     height: BUTTON_HEIGHT,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -610,7 +610,7 @@ const styles = StyleSheet.create({
   confirmButton: {
     flex: 1,
     height: BUTTON_HEIGHT,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.success.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

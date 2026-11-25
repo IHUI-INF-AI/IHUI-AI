@@ -64,7 +64,7 @@ export function CurrencySwitcher({ className }: { className?: string }) {
             onClick={() => pick(code)}
             aria-pressed={isActive}
             className={cn(
-              'h-7 rounded-sm px-1.5 text-[10px] font-medium tabular-nums transition-colors',
+              'h-7 rounded-md px-1.5 text-[10px] font-medium tabular-nums transition-colors',
               isActive
                 ? 'bg-background text-foreground shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground',

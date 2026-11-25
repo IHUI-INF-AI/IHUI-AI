@@ -131,7 +131,7 @@ export default function H5SharePage(): React.JSX.Element {
         type="button"
         onClick={copyLink}
         className={cn(
-          'flex flex-1 items-center justify-center gap-1.5 rounded-sm border px-4 py-2.5 text-body transition-colors',
+          'flex flex-1 items-center justify-center gap-1.5 rounded-md border px-4 py-2.5 text-body transition-colors',
           copied ? 'border-emerald-500 text-emerald-500' : 'hover:bg-muted',
         )}
       >
@@ -141,7 +141,7 @@ export default function H5SharePage(): React.JSX.Element {
       <button
         type="button"
         onClick={wechatShare}
-        className="flex flex-1 items-center justify-center gap-1.5 rounded-sm bg-[#07c160] px-4 py-2.5 text-body text-white transition-opacity hover:opacity-90"
+        className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-[#07c160] px-4 py-2.5 text-body text-white transition-opacity hover:opacity-90"
       >
         <Share2 className="h-4 w-4" />
         {th('wechatShare')}

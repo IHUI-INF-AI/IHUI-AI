@@ -166,7 +166,7 @@ export function ModelDetailDialog({
                 <button
                   type="button"
                   onClick={handleConfigure}
-                  className="rounded-sm bg-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-800 transition-colors hover:bg-amber-500/30 dark:bg-amber-500/30 dark:text-amber-200"
+                  className="rounded-md bg-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-800 transition-colors hover:bg-amber-500/30 dark:bg-amber-500/30 dark:text-amber-200"
                 >
                   {t('market.configureKey')}
                 </button>
@@ -182,7 +182,7 @@ export function ModelDetailDialog({
               <button
                 type="button"
                 onClick={handleRelayKeys}
-                className="rounded-sm bg-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-800 transition-colors hover:bg-sky-500/30 dark:bg-sky-500/30 dark:text-sky-200"
+                className="rounded-md bg-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-800 transition-colors hover:bg-sky-500/30 dark:bg-sky-500/30 dark:text-sky-200"
               >
                 {t('market.getRelayKey')}
               </button>

@@ -183,7 +183,7 @@ export function Select({
           onClick={() => setOpen(!open)}
           onKeyDown={handleTriggerKeyDown}
           className={cn(
-            'flex h-10 w-full items-center justify-between rounded-sm border border-input bg-background px-3 py-2 text-body',
+            'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-body',
             // 改 focus: → focus-visible:(2026-09-02)
             // 根因:focus 包含鼠标点击,trigger focus 后 focus:outline 立即显示焦点环,常驻不可消除。
             // 自写 popover 用 useClickOutside 关闭后焦点回到 trigger 上,看似"莫名其妙的边框"。
@@ -258,7 +258,7 @@ export function Select({
                     }
                   }}
                   className={cn(
-                    'flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-body',
+                    'flex w-full cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-body',
                     idx === activeIndex && 'bg-accent text-accent-foreground',
                     'hover:bg-accent hover:text-accent-foreground',
                     opt.disabled && 'cursor-not-allowed opacity-50',

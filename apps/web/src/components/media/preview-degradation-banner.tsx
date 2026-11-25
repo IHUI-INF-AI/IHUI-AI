@@ -58,7 +58,7 @@ export function PreviewSnapshotNotice({
       data-preview-notice={notice ?? 'snapshot'}
       className="flex flex-wrap items-center gap-x-2 gap-y-1 bg-card px-3 py-1.5"
     >
-      <span className="inline-flex h-4 items-center gap-1 rounded-sm bg-muted px-1.5 text-[10px] font-semibold leading-none text-muted-foreground">
+      <span className="inline-flex h-4 items-center gap-1 rounded-md bg-muted px-1.5 text-[10px] font-semibold leading-none text-muted-foreground">
         <History className="h-3 w-3 shrink-0" />
         <span>{copy('previewSnapshotBadge')}</span>
       </span>

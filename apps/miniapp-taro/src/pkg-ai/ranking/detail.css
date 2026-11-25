@@ -46,7 +46,7 @@
   height: 56rpx;
   padding: 0 var(--spacing-sm-loose);
   background: var(--color-background);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .detail-nav-btn text {
@@ -287,7 +287,7 @@
 .drawer-item {
   padding: var(--spacing-md);
   background: var(--color-background);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   margin-bottom: var(--spacing-xs-loose);
 }
 

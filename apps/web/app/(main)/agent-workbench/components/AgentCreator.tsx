@@ -347,7 +347,7 @@ export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
               onChange={(e) => setSystemPrompt(e.target.value)}
               rows={4}
               placeholder="留空则使用角色默认 prompt"
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             />
           </div>
 

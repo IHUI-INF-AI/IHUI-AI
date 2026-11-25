@@ -3278,6 +3278,20 @@
       "when": 1795504200000,
       "tag": "20261125133000_publish_account_pool",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 472,
+      "when": 1795509600000,
+      "tag": "20261125150000_magi2_video_pricing",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 473,
+      "when": 1795510200000,
+      "tag": "20261125151000_wallet_points_exchange",
+      "breakpoints": true
     }
   ]
 }

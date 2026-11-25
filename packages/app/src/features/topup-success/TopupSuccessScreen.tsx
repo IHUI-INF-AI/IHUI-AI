@@ -181,7 +181,7 @@ function createStyles(tk: AppThemeTokens) {
     ...rowStyles,
     actions: { width: '100%', gap: rnSpacing.md, marginTop: rnSpacing.sm },
     secondaryBtn: {
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       height: 44,
       alignItems: 'center',
       justifyContent: 'center',
@@ -189,7 +189,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     secondaryText: { fontSize: rnType.title.size, color: tk.text.primary },
     primaryBtn: {
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       height: 50,
       alignItems: 'center',
       justifyContent: 'center',

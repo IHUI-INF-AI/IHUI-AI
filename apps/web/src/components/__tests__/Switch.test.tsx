@@ -14,7 +14,7 @@ import { Switch } from '@ihui/ui-react'
  *
  * 防止以下回归(AGENTS.md §4 圆角守门 + 粗野方块设计语言,2026-08-01 重设计):
  *   - Track 圆角从 rounded 退回 rounded-full(违反圆角守门)
- *   - Thumb 圆角从 rounded-sm 退回 rounded-full
+ *   - Thumb 圆角从 rounded-md 退回 rounded-full
  *   - 3D 阴影的 inset 高光 / drop shadow 误删
  *   - 暗色模式边缘 dark:ring-white/10 误删
  *   - prefers-reduced-motion 降级 motion-reduce:* 类误删
@@ -36,14 +36,14 @@ describe('Switch 圆角守门 (AGENTS.md §4)', () => {
     expect(cls, 'Track 不应该有 rounded-pill').not.toContain('rounded-pill')
   })
 
-  it('Thumb 使用 rounded-sm (2px) 方形微圆角,不是圆形', () => {
+  it('Thumb 使用 rounded-md (2px) 方形微圆角,不是圆形', () => {
     render(<Switch data-testid="sw" />)
     // Switch thumb 渲染为 role=switch 内嵌的 span(无独立 data-testid)
     const root = screen.getByTestId('sw')
     const thumb = root.querySelector('span')
     expect(thumb, 'Switch 应该有 thumb span').not.toBeNull()
     const cls = thumb?.getAttribute('class') ?? ''
-    expect(cls, 'Thumb 应该有 rounded-sm').toContain('rounded-sm')
+    expect(cls, 'Thumb 应该有 rounded-md').toContain('rounded-md')
     expect(cls, 'Thumb 不应该有 rounded-full').not.toContain('rounded-full')
   })
 })

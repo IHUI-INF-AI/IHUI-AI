@@ -120,6 +120,11 @@ export function saveRememberedCredentialsWithPassword(account: string, password:
 }
 
 /** 读回某账号对应的显式口令;账号不匹配 / 无记录 / 损坏一律返回 ''(换号不回吐旧口令)。 */
+export function getRememberedPasswordForAccount(account: string): string {
+  return readRememberedPasswordForAccount(account.trim())
+}
+
+/** 读回某账号对应的显式口令;账号不匹配 / 无记录 / 损坏一律返回 ''(换号不回吐旧口令)。 */
 function readRememberedPasswordForAccount(account: string): string {
   const raw = readItem(REMEMBERED_PASSWORD_STORAGE_KEY)
   if (!raw) return ''

@@ -91,7 +91,7 @@ function getInitials(name: string): string {
 | Tailwind 类 | 像素值 | 角色键 | 用途 |
 |-------------|--------|--------|------|
 | `rounded-xs` | 2px | `tiny` | 极小元素（标签内角、计数点） |
-| `rounded-sm` | 4px | `control` | 小元素（按钮、输入框） |
+| `rounded-md` | 6px | `control` | 小元素（按钮、输入框）——**项目最小控件圆角**（2026-11-26 定档，原 4px `rounded-sm` 档已删除并全部并入本档） |
 | `rounded-md` | 6px | `chip` | 中等元素（导航项、chip） |
 | `rounded-lg` | 8px | `card` | **卡片、下拉、列表项容器** |
 | `rounded-xl` | 12px | `panel` | 大容器（面板、弹窗） |
@@ -108,7 +108,7 @@ function getInitials(name: string): string {
 > 按色档批量改档 = 拿 20–70% 判错率的证据重新设计界面；要给一个元素定性，就把它写进代码（命名 / `role=` / `ui-<role>`），
 > 让门从此能判。
 
-> 本表前有两处历史漂移已随 `RADIUS_ROLES` 一并更正（2026-09-27）：`rounded-sm` 曾写 2px（现 4px，2px 由 `rounded-xs` 承载）、`rounded` 曾写 4px（现 8px，与 `rounded-lg` 同值）。这两行与档位表不符期间，照文档写就偏一档 —— 角色当初是绑在 px 上的，档位收口时没跟着搬。
+> 档位表已两次收口：2026-09-27 更正 `rounded` 旧文档值（现 8px，与 `rounded-lg` 同值）；2026-11-26 机主定档删除 4px 档，原 `rounded-sm` / `control→sm` 全部并入 `rounded-md`（6px），此后源码不得再出现 `rounded-sm`。
 
 > **卡片取 `lg`（8px）是 2026-09-27 的定档**，不得在某一端单独改取 `xl`：实测同一张 `UserInfoCard` 小程序 8px、App(RN) 12px 长期并存，而两端都规矩引用 token，圆角单一源守门（77）看不见这一型。跨端同名组件的圆角对账现由守门 128 负责（见其 `RADIUS_FORM_RE` 一条）。
 

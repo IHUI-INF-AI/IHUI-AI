@@ -175,7 +175,7 @@ export function AgentProgressTrigger({
         aria-expanded={paneOpen}
         aria-haspopup="dialog"
         className={cn(
-          'flex h-8 max-w-[11rem] shrink-0 items-center gap-1.5 rounded-sm border border-stroke-subtle bg-muted/40 px-2 text-label text-muted-foreground transition-colors duration-150 ease-out hover:bg-accent hover:text-accent-foreground',
+          'flex h-8 max-w-[11rem] shrink-0 items-center gap-1.5 rounded-md border border-stroke-subtle bg-muted/40 px-2 text-label text-muted-foreground transition-colors duration-150 ease-out hover:bg-accent hover:text-accent-foreground',
           hasLiveActivity && 'border-stroke-selected text-primary',
           className,
         )}

@@ -93,7 +93,7 @@ export function InlineEditDialog() {
       <div className="flex items-center gap-1.5">
         <Sparkles className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         {turns.length > 0 && (
-          <span className="shrink-0 rounded-sm bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <span className="shrink-0 rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
             {t('turnBadge', { n: turns.length + 1 })}
           </span>
         )}
@@ -111,7 +111,7 @@ export function InlineEditDialog() {
             onClick={() => {
               closeInlineEdit()
             }}
-            className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label={t('stopAriaLabel')}
           >
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -123,7 +123,7 @@ export function InlineEditDialog() {
 
       {/* 选中代码预览(单行截断) */}
       {!isDone && !isError && (
-        <div className="flex items-center gap-1.5 rounded-sm bg-muted/40 px-2 py-1">
+        <div className="flex items-center gap-1.5 rounded-md bg-muted/40 px-2 py-1">
           <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground/70">
             {selection.language}
           </span>
@@ -135,14 +135,14 @@ export function InlineEditDialog() {
 
       {/* 流式生成的 patch 预览(可滚动,最多 4 行高) */}
       {(isStreaming || isDone) && generatedPatch && (
-        <pre className="max-h-28 overflow-auto rounded-sm bg-muted/30 p-2 font-mono text-label text-foreground">
+        <pre className="max-h-28 overflow-auto rounded-md bg-muted/30 p-2 font-mono text-label text-foreground">
           {generatedPatch}
         </pre>
       )}
 
       {/* 错误态 */}
       {isError && (
-        <div className="flex items-center gap-1.5 rounded-sm bg-destructive/10 px-2 py-1 text-label text-destructive">
+        <div className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2 py-1 text-label text-destructive">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{error || t('errorFallback')}</span>
         </div>
@@ -155,14 +155,14 @@ export function InlineEditDialog() {
           <div className="flex items-center gap-1">
             <button
               onClick={rejectPatch}
-              className="flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-label text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-label text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <X className="h-3 w-3" />
               <span>{t('reject')}</span>
             </button>
             <button
               onClick={acceptPatch}
-              className="flex items-center gap-1 rounded-sm bg-cta px-2 py-1 text-label text-cta-foreground hover:bg-cta/90"
+              className="flex items-center gap-1 rounded-md bg-cta px-2 py-1 text-label text-cta-foreground hover:bg-cta/90"
             >
               <Check className="h-3 w-3" />
               <span>{t('accept')}</span>
@@ -174,9 +174,9 @@ export function InlineEditDialog() {
       {/* 空闲态:键盘提示 */}
       {!isStreaming && !isDone && !isError && (
         <div className="text-[10px] text-muted-foreground/70">
-          <kbd className="rounded-sm border border-border bg-background px-1">Enter</kbd>
+          <kbd className="rounded-md border border-border bg-background px-1">Enter</kbd>
           <span> {t('hintSubmit')} · </span>
-          <kbd className="rounded-sm border border-border bg-background px-1">Esc</kbd>
+          <kbd className="rounded-md border border-border bg-background px-1">Esc</kbd>
           <span> {t('hintCancel')}</span>
         </div>
       )}

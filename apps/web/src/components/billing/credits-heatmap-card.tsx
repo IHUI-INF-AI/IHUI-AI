@@ -99,7 +99,7 @@ export function CreditsHeatmapCard({
               data-heatmap-tab={m}
               onClick={() => setMode(m)}
               className={cn(
-                'rounded-sm px-1.5 py-0.5 text-[11px] transition-colors',
+                'rounded-md px-1.5 py-0.5 text-[11px] transition-colors',
                 mode === m ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted',
               )}
             >
@@ -124,7 +124,7 @@ export function CreditsHeatmapCard({
                   aria-label={t('dayTitle', { date: key })}
                   onClick={() => setSelectedDay((prev) => (prev === key ? null : key))}
                   className={cn(
-                    'h-6 min-w-6 rounded-sm px-1 text-[10px] tabular-nums transition-colors hover:opacity-75',
+                    'h-6 min-w-6 rounded-md px-1 text-[10px] tabular-nums transition-colors hover:opacity-75',
                     TONE_CLASS[heatmapBucketTone(bucket)],
                   )}
                 >
@@ -139,7 +139,7 @@ export function CreditsHeatmapCard({
               <span
                 key={bucket}
                 data-heatmap-legend={bucket}
-                className={cn('rounded-sm px-1.5 py-0.5', TONE_CLASS[heatmapBucketTone(bucket)])}
+                className={cn('rounded-md px-1.5 py-0.5', TONE_CLASS[heatmapBucketTone(bucket)])}
               >
                 {t(heatmapLegendKey(bucket))}
               </span>
@@ -147,7 +147,7 @@ export function CreditsHeatmapCard({
           </div>
           {detail ? (
             <div
-              className="rounded-sm bg-muted/40 px-2 py-1.5 text-[11px]"
+              className="rounded-md bg-muted/40 px-2 py-1.5 text-[11px]"
               data-day-detail={detail.dateKey}
               data-day-bucket={detail.bucket}
             >
@@ -166,7 +166,7 @@ export function CreditsHeatmapCard({
               <div
                 key={key}
                 data-session-row={key}
-                className="flex items-center justify-between rounded-sm bg-muted/30 px-2 py-1 text-[11px]"
+                className="flex items-center justify-between rounded-md bg-muted/30 px-2 py-1 text-[11px]"
               >
                 <span className="min-w-0 truncate">{key}</span>
                 <span className="tabular-nums text-muted-foreground">{count}</span>

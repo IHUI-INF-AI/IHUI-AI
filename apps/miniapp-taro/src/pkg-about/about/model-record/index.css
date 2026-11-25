@@ -57,7 +57,7 @@
 .record-image {
   width: 100%;
   display: block;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   margin-bottom: var(--spacing-md);
 }
 

@@ -36,7 +36,7 @@ export function createCartStyles(tk: AppThemeTokens) {
     checkbox: {
       width: 20,
       height: 20,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1.5,
       borderColor: tk.border.medium,
       alignItems: 'center',
@@ -65,7 +65,7 @@ export function createCartStyles(tk: AppThemeTokens) {
     qtyBtn: {
       width: 24,
       height: 24,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
       alignItems: 'center',
@@ -107,7 +107,7 @@ export function createCartStyles(tk: AppThemeTokens) {
     checkoutBtn: {
       paddingHorizontal: rnSpacing['lg'],
       height: 36,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

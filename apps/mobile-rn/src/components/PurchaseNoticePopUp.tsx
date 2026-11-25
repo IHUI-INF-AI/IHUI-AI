@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   primaryButton: {
     height: PRIMARY_HEIGHT,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

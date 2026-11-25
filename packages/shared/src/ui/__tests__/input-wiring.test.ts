@@ -317,7 +317,7 @@ describe('③ 两端壳接线(每个导出常量都要 import 且真消费)', ()
   })
 
   it('本锁有牙:web 壳把圆角档改回字面量(连同类型标注一起断开)⇒ 判据必须红', () => {
-    const dirty = WEB_SRC.replace('RADIUS_CLASS[INPUT_RADIUS_TIER]', "'rounded-sm'").replace(
+    const dirty = WEB_SRC.replace('RADIUS_CLASS[INPUT_RADIUS_TIER]', "'rounded-md'").replace(
       'Record<typeof INPUT_RADIUS_TIER, string>',
       'Record<string, string>',
     )

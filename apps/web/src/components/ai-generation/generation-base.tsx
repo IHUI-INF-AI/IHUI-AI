@@ -135,7 +135,7 @@ export function PromptInput({
       placeholder={placeholder ?? t('defaultPromptPlaceholder')}
       rows={rows}
       aria-label={ariaLabel ?? t('promptAriaLabel')}
-      className="w-full resize-none rounded-sm border bg-transparent px-3 py-2 text-body outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+      className="w-full resize-none rounded-md border bg-transparent px-3 py-2 text-body outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
     />
   )
 }
@@ -163,7 +163,7 @@ export function OptionSelect<T extends string>({
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
         aria-labelledby={labelId}
-        className="h-8 rounded-sm border bg-transparent px-2 text-body outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+        className="h-8 rounded-md border bg-transparent px-2 text-body outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>

@@ -271,7 +271,7 @@ function createStyles(tk: AppThemeTokens) {
     badgePrimary: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 1,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brandAccent.light,
     },
     badgePrimaryText: {

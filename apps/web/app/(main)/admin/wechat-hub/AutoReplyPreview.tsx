@@ -41,7 +41,7 @@ export default function AutoReplyPreview({
           }}
           rows={3}
           maxLength={2_000}
-          className="w-full rounded-sm border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+          className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
           placeholder="输入一条客户消息，看看 AI 会怎么回"
         />
         <div className="flex items-center gap-2">

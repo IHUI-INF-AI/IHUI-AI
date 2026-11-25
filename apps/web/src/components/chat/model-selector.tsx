@@ -355,20 +355,20 @@ function ModelOptionRow({
           {unusable && (
             <span
               data-model-unusable={unusable}
-              className="inline-flex shrink-0 items-center rounded-sm bg-destructive/10 px-1 py-px text-[10px] font-medium leading-tight text-destructive"
+              className="inline-flex shrink-0 items-center rounded-md bg-destructive/10 px-1 py-px text-[10px] font-medium leading-tight text-destructive"
             >
               {unusableLabel}
             </span>
           )}
           {/* 智汇AI 官方模型徽章 */}
           {opt.vendor === 'ihui_relay' && (
-            <span className="inline-flex shrink-0 items-center rounded-sm bg-blue-500/10 px-1 py-px text-[10px] font-medium leading-tight text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">
+            <span className="inline-flex shrink-0 items-center rounded-md bg-blue-500/10 px-1 py-px text-[10px] font-medium leading-tight text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">
               {t('modelOfficialBadge')}
             </span>
           )}
           {/* 智汇 Auto-Model 专属卖点徽章:服务端随机低档池,标称倍率全场最低,省钱入口(2026-08-31 立) */}
           {opt.id?.toLowerCase() === 'ihui/auto-model' && (
-            <span className="inline-flex shrink-0 items-center rounded-sm bg-emerald-500/10 px-1 py-px text-[10px] font-medium leading-tight text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
+            <span className="inline-flex shrink-0 items-center rounded-md bg-emerald-500/10 px-1 py-px text-[10px] font-medium leading-tight text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
               {t('modelSmartSaveBadge')}
             </span>
           )}
@@ -507,7 +507,7 @@ function ModelCapBadges({ capabilities }: { capabilities?: ModelOption['capabili
           <span
             key={key}
             className={cn(
-              'inline-flex shrink-0 items-center rounded-sm px-1 py-px text-[10px] font-medium leading-tight',
+              'inline-flex shrink-0 items-center rounded-md px-1 py-px text-[10px] font-medium leading-tight',
               'bg-violet-500/15 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',
             )}
           >
@@ -574,7 +574,7 @@ function ModelTierTags({ opt }: { opt: ModelOption }) {
       {opt.isOfficial && !opt.subsidy && (
         <span
           className={cn(
-            'inline-flex items-center rounded-sm px-1 py-px text-[10px] font-medium leading-tight',
+            'inline-flex items-center rounded-md px-1 py-px text-[10px] font-medium leading-tight',
             'bg-muted text-muted-foreground',
           )}
           aria-label={t('modelTagOfficial')}
@@ -586,7 +586,7 @@ function ModelTierTags({ opt }: { opt: ModelOption }) {
       {opt.subsidy && (
         <span
           className={cn(
-            'inline-flex items-center rounded-sm px-1 py-px text-[10px] font-medium leading-tight',
+            'inline-flex items-center rounded-md px-1 py-px text-[10px] font-medium leading-tight',
             'bg-orange-500/15 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400',
           )}
           aria-label={t('modelTagSubsidy')}
@@ -1168,7 +1168,7 @@ export function ModelSelector({
           // 2026-11-11 用户定档:工具栏模型按钮去描边去底色(ghost 化),与「添加」等
           // 工具栏按钮同一视觉语言;hover 才出底色。
           className={cn(
-            'inline-flex h-8 min-w-0 items-center gap-1 rounded-sm px-2 text-body font-medium transition-colors',
+            'inline-flex h-8 min-w-0 items-center gap-1 rounded-md px-2 text-body font-medium transition-colors',
             'hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-60',
           )}
         >
@@ -1209,7 +1209,7 @@ export function ModelSelector({
           collisionPadding={FLOATING_VIEWPORT_PADDING_PX}
           className={cn(
             'z-popover max-h-[60vh] w-fit max-w-[320px] overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-elevation-md',
-            ' [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',
+            ' [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-md [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',
           )}
         >
           {/* 顶部扩展段(2026-11-20 用户定档):推理强度卡片放**顶上**,不再压在最下面。
@@ -1359,7 +1359,7 @@ export function ModelSelector({
               >
                 <History className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex-1 truncate font-medium">{t('modelHistoryToggle')}</span>
-                <span className="shrink-0 rounded-sm bg-muted px-1 py-px text-[10px] tabular-nums text-muted-foreground">
+                <span className="shrink-0 rounded-md bg-muted px-1 py-px text-[10px] tabular-nums text-muted-foreground">
                   {archived.length}
                 </span>
                 {historyExpanded ? (
@@ -1399,7 +1399,7 @@ export function ModelSelector({
                             toggleCapFilter(key)
                           }}
                           className={cn(
-                            'inline-flex cursor-pointer select-none items-center rounded-sm border px-1.5 py-0.5 text-[11px] font-medium outline-none',
+                            'inline-flex cursor-pointer select-none items-center rounded-md border px-1.5 py-0.5 text-[11px] font-medium outline-none',
                             'focus:bg-accent focus:text-accent-foreground',
                             on
                               ? 'border-violet-500/40 bg-violet-500/15 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300'

@@ -78,7 +78,7 @@ export function createAboutStyles(tk: AppThemeTokens) {
       alignSelf: 'stretch',
       alignItems: 'center',
       paddingVertical: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     ctaPrimaryText: {
@@ -90,7 +90,7 @@ export function createAboutStyles(tk: AppThemeTokens) {
       alignSelf: 'stretch',
       alignItems: 'center',
       paddingVertical: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
     },

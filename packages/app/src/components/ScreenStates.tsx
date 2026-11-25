@@ -63,7 +63,7 @@ function Shimmer({ colorScheme, style }: { colorScheme: Scheme; style?: object }
   return (
     <Animated.View
       style={[
-        { backgroundColor: tk.text.secondary, borderRadius: rnRadius.sm },
+        { backgroundColor: tk.text.secondary, borderRadius: rnRadius.md },
         style,
         { opacity },
       ]}
@@ -306,7 +306,7 @@ function createStyles(tk: AppThemeTokens) {
       // fontSize 26 / width 64 / paddingVertical 9),三端同形。
       paddingHorizontal: 18,
       paddingVertical: 9,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     stateBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },

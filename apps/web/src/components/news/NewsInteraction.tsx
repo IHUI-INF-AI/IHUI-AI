@@ -55,7 +55,7 @@ export function NewsInteraction({
         variant={favorited ? 'default' : 'outline'}
         size="sm"
         onClick={handleFavorite}
-        className="rounded-sm"
+        className="rounded-md"
       >
         <Bookmark className={cn(favorited && 'fill-current')} />
         {favorited ? t('favorited') : t('favorite')}
@@ -65,7 +65,7 @@ export function NewsInteraction({
         variant={liked ? 'default' : 'outline'}
         size="sm"
         onClick={handleLike}
-        className="rounded-sm"
+        className="rounded-md"
       >
         <Heart className={cn(liked && 'fill-current')} />
         {liked ? t('liked') : t('like')}

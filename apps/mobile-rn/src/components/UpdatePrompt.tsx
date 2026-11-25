@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   closeBtn: {
     width: rnSpacing.xl + rnSpacing.sm,
     height: rnSpacing.xl + rnSpacing.sm,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.surface.muted,
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: rnSpacing.lg,
     paddingVertical: rnSpacing.sm,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
     // 2026-11-23:实底 CTA 不再叠描边(黑底上的 10% 黑描边等于白画一层,且不合描边系统口径)
     // 卡内主行动不再叠第二层投影:一张浮卡里再浮一个按钮会形成双阴影

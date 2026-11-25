@@ -295,7 +295,7 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
   }
 
   const zoomToolBtnClass =
-    'inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus'
+    'inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus'
 
   // 预算判退:不进 render,回落成源码 + 一条明示原因的提示(不得静默变空白)
   if (skipNoticeKey !== null) {

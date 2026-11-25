@@ -160,7 +160,7 @@ export function IntegrationsPanel() {
             aria-pressed={cfg.enabled}
             // @allow-rounded-full 通道开关胶囊(aria-pressed toggle,豁免 2 Switch 语义)
             className={cn(
-              'ml-auto rounded-sm border border-input px-2 py-0.5 transition-colors',
+              'ml-auto rounded-md border border-input px-2 py-0.5 transition-colors',
               cfg.enabled
                 ? 'bg-accent font-medium text-accent-foreground'
                 : 'text-muted-foreground hover:bg-accent/50',
@@ -182,7 +182,7 @@ export function IntegrationsPanel() {
                 aria-pressed={on}
                 onClick={() => toggleChannelEvent(ch, ev as AgentHookEvent)}
                 className={cn(
-                  'rounded-sm border border-input px-1.5 py-0.5 text-[10px] transition-colors',
+                  'rounded-md border border-input px-1.5 py-0.5 text-[10px] transition-colors',
                   on
                     ? 'bg-accent font-medium text-accent-foreground'
                     : 'text-muted-foreground hover:bg-accent/50',
@@ -202,21 +202,21 @@ export function IntegrationsPanel() {
               value={cfg.repo ?? ''}
               onChange={(e) => updateChannel(ch, { repo: e.target.value })}
               placeholder={t('githubRepoPlaceholder')}
-              className="w-full rounded-sm border bg-transparent px-2 py-1 outline-none placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+              className="w-full rounded-md border bg-transparent px-2 py-1 outline-none placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
             />
             <input
               data-testid="integrations-github-trigger-id"
               value={cfg.triggerId ?? ''}
               onChange={(e) => updateChannel(ch, { triggerId: e.target.value })}
               placeholder={t('githubTriggerPlaceholder')}
-              className="w-full rounded-sm border bg-transparent px-2 py-1 outline-none placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+              className="w-full rounded-md border bg-transparent px-2 py-1 outline-none placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
             />
             <div className="grid grid-cols-2 gap-1">
               <button
                 type="button"
                 data-testid="integrations-github-copy-url"
                 onClick={() => void handleGithubCopy()}
-                className="flex items-center justify-center gap-1 rounded-sm border border-input px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="flex items-center justify-center gap-1 rounded-md border border-input px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
                 <Copy className="h-3 w-3" />
                 {t('githubCopyUrl')}
@@ -226,7 +226,7 @@ export function IntegrationsPanel() {
                 data-testid="integrations-github-test"
                 onClick={() => void handleGithubTest()}
                 disabled={testing === 'github'}
-                className="rounded-sm border border-input px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md border border-input px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t('githubTest')}
               </button>
@@ -242,14 +242,14 @@ export function IntegrationsPanel() {
               value={cfg.webhookUrl ?? ''}
               onChange={(e) => updateChannel(ch, { webhookUrl: e.target.value })}
               placeholder={t('slackUrlPlaceholder')}
-              className="w-full rounded-sm border bg-transparent px-2 py-1 outline-none placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+              className="w-full rounded-md border bg-transparent px-2 py-1 outline-none placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
             />
             <button
               type="button"
               data-testid="integrations-slack-test"
               onClick={() => void handleSlackTest()}
               disabled={testing === 'slack'}
-              className="w-full rounded-sm border border-input px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-md border border-input px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t('slackTest')}
             </button>
@@ -265,7 +265,7 @@ export function IntegrationsPanel() {
               type="button"
               data-testid="integrations-push-test"
               onClick={() => void handlePushTest()}
-              className="w-full rounded-sm border border-input px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="w-full rounded-md border border-input px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               {permission === 'granted' ? t('pushTest') : t('pushRequest')}
             </button>
@@ -290,7 +290,7 @@ export function IntegrationsPanel() {
             data-testid="integrations-log-clear"
             onClick={clearLog}
             disabled={log.length === 0}
-            className="flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 className="h-3 w-3" />
             {t('clearLog')}

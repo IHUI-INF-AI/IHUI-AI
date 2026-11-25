@@ -159,7 +159,7 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
                     setMode(m.value)
                     resetResults()
                   }}
-                  className={`flex h-8 flex-1 items-center justify-center gap-1.5 rounded-sm border text-label font-medium leading-none transition-colors ${
+                  className={`flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border text-label font-medium leading-none transition-colors ${
                     active
                       ? 'border-stroke-selected bg-primary/10 text-primary'
                       : 'border-border hover:bg-accent'

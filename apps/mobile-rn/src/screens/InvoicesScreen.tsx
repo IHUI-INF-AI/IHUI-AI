@@ -329,7 +329,7 @@ function makeStyles() {
       gap: rnSpacing.xs,
       height: 32,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.brand.cta,
     },
     applyBtnText: {
@@ -366,7 +366,7 @@ function makeStyles() {
     input: {
       height: 42,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
@@ -376,7 +376,7 @@ function makeStyles() {
     submitBtn: {
       height: 42,
       marginTop: rnSpacing['xs-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -424,7 +424,7 @@ function makeStyles() {
       gap: rnSpacing['2xs'],
       height: 34,
       paddingHorizontal: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       backgroundColor: tokens.surface.card,

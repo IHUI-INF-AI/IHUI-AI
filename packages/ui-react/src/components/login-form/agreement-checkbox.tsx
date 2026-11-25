@@ -25,7 +25,7 @@ export interface AgreementCheckboxProps {
  * 协议复选框(2026-07-26 抽取到共享包)
  *
  * 视觉规范(对齐 apps/web/src/components/auth/AgreementCheckbox.tsx):
- *   - 16x16 方形 rounded-[4px] 边框,hover 描边加深,勾选用 Check 图标(strokeWidth=3)
+ *   - 16x16 方形 rounded-md 边框,hover 描边加深,勾选用 Check 图标(strokeWidth=3)
  *   - 文字部分:前缀 + 主色链接(用户协议、隐私政策),target="_blank"
  *   - 完整 a11y:role="checkbox" + aria-checked + tabIndex + onKeyDown(Space/Enter) + 内嵌 sr-only input
  *
@@ -53,7 +53,7 @@ export function AgreementCheckbox({
     <label
       data-testid="agreement-checkbox"
       className={cn(
-        'group flex cursor-pointer items-start gap-2 select-none rounded-sm',
+        'group flex cursor-pointer items-start gap-2 select-none rounded-md',
         className,
       )}
     >
@@ -84,7 +84,7 @@ export function AgreementCheckbox({
           }
         }}
         className={cn(
-          'mt-[1px] flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm border outline-none transition-all duration-200',
+          'mt-[1px] flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-md border outline-none transition-all duration-200',
           'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
           // 2026-08-13 修订:勾选态改为 border-transparent
           // 与共享 Checkbox 保持全局一致(避免 1px 描边感,完全靠 bg-primary 填充提供视觉边界)

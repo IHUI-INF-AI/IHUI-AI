@@ -82,7 +82,7 @@ export function EduSettingsTable({ list, isLoading, onEdit, onDelete, deletePend
                   >
                     <span
                       className={cn(
-                        'h-1.5 w-1.5 rounded-sm',
+                        'h-1.5 w-1.5 rounded-md',
                         c.isPublic ? 'bg-emerald-500' : 'bg-muted-foreground/50',
                       )}
                     />

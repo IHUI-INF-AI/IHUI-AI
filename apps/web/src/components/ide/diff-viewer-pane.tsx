@@ -472,7 +472,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
       />
       {/* D98②④⑤:审阅工具条 —— 文件跳转 / 生成文件隐藏 / 已审计数 / PR 入口 / 导出迁移命令 */}
       <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 text-label">
-        <div className="flex min-w-0 items-center gap-1 rounded-sm border border-stroke-subtle bg-background px-1.5 py-0.5">
+        <div className="flex min-w-0 items-center gap-1 rounded-md border border-stroke-subtle bg-background px-1.5 py-0.5">
           <Search className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
           <input
             value={searchQuery}
@@ -504,7 +504,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
           disabled={!activeDiff}
           aria-pressed={threeWayOpen}
           className={cn(
-            'inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+            'inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-40',
             threeWayOpen
               ? 'bg-muted text-foreground'
               : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
@@ -540,7 +540,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
             href={pullRequestUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+            className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
             data-testid="diff-pr-link"
           >
             <ExternalLink className="h-3 w-3" aria-hidden />
@@ -554,7 +554,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
           type="button"
           onClick={() => void handleCopyGitApply()}
           disabled={exporting || diffFiles.length === 0}
-          className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="diff-copy-git-apply"
         >
           {exporting ? (
@@ -587,7 +587,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
           <div className="flex items-center gap-1 px-2 py-1 text-label">
             <button
               onClick={() => setShowFileList(!showFileList)}
-              className="flex items-center rounded-sm p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              className="flex items-center rounded-md p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             >
               {showFileList ? (
                 <ChevronDown className="h-3 w-3" />
@@ -603,14 +603,14 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
                 <button
                   onClick={goPrev}
                   disabled={activeIdx <= 0}
-                  className="rounded-sm p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-30"
+                  className="rounded-md p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-30"
                 >
                   <ChevronUp className="h-3 w-3" />
                 </button>
                 <button
                   onClick={goNext}
                   disabled={activeIdx >= diffFiles.length - 1}
-                  className="rounded-sm p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-30"
+                  className="rounded-md p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-30"
                 >
                   <ChevronDown className="h-3 w-3" />
                 </button>
@@ -621,7 +621,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
             )}
             <button
               onClick={() => setIsFullscreen(!isFullscreen)}
-              className="ml-auto rounded-sm p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              className="ml-auto rounded-md p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             >
               {isFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
             </button>
@@ -644,7 +644,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
               <button
                 type="button"
                 onClick={handleRetryLoad}
-                className="inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-red-500/15"
+                className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors hover:bg-red-500/15"
                 data-testid="diff-content-retry"
               >
                 <RotateCcw className="h-3 w-3" aria-hidden />
@@ -770,7 +770,7 @@ function ChangeSummary({ file }: { file: DiffFile }) {
             <span
               key={i}
               className={cn(
-                'rounded-sm px-0.5',
+                'rounded-md px-0.5',
                 tok.type === 'add' && 'bg-green-500/20 text-green-600 dark:text-green-400',
                 tok.type === 'del' && 'bg-red-500/20 text-red-600 dark:text-red-400 line-through',
               )}

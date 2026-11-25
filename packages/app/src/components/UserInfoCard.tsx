@@ -81,7 +81,7 @@ const viewStyles = {
     // 白底按钮上的墨档描边(text.primary 亮 #0A0A0A)就是"纯黑描边",项目设计里没有这一档;
     // 强调描边统一走 brandAccent.deep(与端内/共享层其余强调描边同一既有写法)
     borderColor: tk.brandAccent.deep,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     paddingTop: 14,
     paddingBottom: 14,
     paddingLeft: rnSpacing['3xl'],
@@ -171,7 +171,7 @@ const viewStyles = {
     paddingTop: rnSpacing.xs,
     paddingBottom: rnSpacing.xs,
     backgroundColor: tk.brand.cta,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     cursor: 'pointer',
   }),
 }

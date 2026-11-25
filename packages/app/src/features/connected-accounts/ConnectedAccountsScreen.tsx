@@ -247,7 +247,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       gap: rnSpacing['sm-loose'],
       padding: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.bg,
     },
     rowMain: { flex: 1, gap: rnSpacing['2xs'] },
@@ -256,7 +256,7 @@ function createStyles(tk: AppThemeTokens) {
     button: {
       height: 32,
       paddingHorizontal: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       flexDirection: 'row',
       alignItems: 'center',
@@ -267,7 +267,7 @@ function createStyles(tk: AppThemeTokens) {
     outlineButtonSmall: {
       height: 32,
       paddingHorizontal: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.danger.DEFAULT,
       flexDirection: 'row',
@@ -279,7 +279,7 @@ function createStyles(tk: AppThemeTokens) {
     outlineButton: {
       height: 36,
       paddingHorizontal: rnSpacing.lg,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',

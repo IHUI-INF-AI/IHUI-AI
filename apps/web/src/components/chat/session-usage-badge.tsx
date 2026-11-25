@@ -260,7 +260,7 @@ export function SessionUsageBadge({
                 <div className="mt-1 w-44">
                   <div className="h-1.5 w-full overflow-hidden rounded-xs bg-muted-foreground/20">
                     <div
-                      className={cn('h-full rounded-sm transition-all', quotaBarClass)}
+                      className={cn('h-full rounded-md transition-all', quotaBarClass)}
                       style={{
                         width: `${Math.max(2, Math.round(quotaUsedRatio * 100))}%`,
                       }}
@@ -342,7 +342,7 @@ export function SessionUsageBadge({
                       <span className="flex items-center gap-1">
                         <span className="h-1.5 w-full overflow-hidden rounded-xs bg-muted-foreground/20">
                           <span
-                            className="block h-full rounded-sm bg-primary transition-all"
+                            className="block h-full rounded-md bg-primary transition-all"
                             style={{ width: `${Math.max(2, percent)}%` }}
                           />
                         </span>

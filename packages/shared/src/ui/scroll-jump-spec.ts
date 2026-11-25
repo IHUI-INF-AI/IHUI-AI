@@ -45,9 +45,9 @@ export function scrollJumpGlyphPx(): number {
 /** 描边宽度:outline 档即 1px 边框,三端同值。 */
 const SCROLL_JUMP_BORDER_WIDTH_PX = 1
 
-/** 圆角档位:`control` 角色(按钮/输入控件)→ sm = 4px,与 web `rounded-sm` 同档。
+/** 圆角档位:`control` 角色(按钮/输入控件)→ sm = 4px,与 web `rounded-md` 同档。
  *  2026-10-27 撤零消费出口 SCROLL_JUMP_RADIUS_STEP / SCROLL_JUMP_RADIUS_CSS_VAR:档名与
- *  CSS 引用形式(小程序 `border-radius: var(--radius-sm)`)改由 radius.js 自身承担,端内仍只走
+ *  CSS 引用形式(小程序 `border-radius: var(--radius-md)`)改由 radius.js 自身承担,端内仍只走
  *  本文件的 scrollJumpRadiusPx() 这一个出口。
  */
 
@@ -55,7 +55,7 @@ const SCROLL_JUMP_BORDER_WIDTH_PX = 1
  *  `rnRadius[变量]` 索引判不出档位(unknown-step 未判定);`sm` 与 `control` 角色同值,
  *  control 角色若改档必须同步本行(CSS 侧走 radius.js 变量自动跟随,px 这一处不会)。 */
 function scrollJumpRadiusPx(): number {
-  return rnRadius.sm
+  return rnRadius.md
 }
 
 /**

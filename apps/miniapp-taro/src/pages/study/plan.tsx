@@ -152,7 +152,7 @@ export default function StudyPlan() {
                 {/* 状态徽章对齐 RN statusBadge(10dp→20rpx/600/px6→12rpx/py4→8rpx/radius 4dp→8rpx),
                     三档 active/completed/overdue 由进度与截止日推出;完成带 ✓ */}
                 <Text
-                  className={`text-badge font-semibold px-[12rpx] py-[8rpx] rounded-sm flex-shrink-0 ${statusClass(statusOf(p))}`}
+                  className={`text-badge font-semibold px-[12rpx] py-[8rpx] rounded-md flex-shrink-0 ${statusClass(statusOf(p))}`}
                 >
                   {statusLabel(t, statusOf(p))}
                 </Text>
@@ -163,7 +163,7 @@ export default function StudyPlan() {
         }}
         renderFooter={() => (
           <Button
-            className="h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-sm text-title font-semibold text-center"
+            className="h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-md text-title font-semibold text-center"
             onClick={onAdd}
           >
             {t('study.planPage.add')}
@@ -186,14 +186,14 @@ export default function StudyPlan() {
             </Text>
             {/* 输入框对齐 RN fieldStyles.input:border light / radius 12dp→24rpx / h 50dp→100rpx / px 12dp→24rpx / bg surface.muted */}
             <FocusInput
-              className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-title text-foreground mb-[24rpx]"
+              className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-md text-title text-foreground mb-[24rpx]"
               placeholder={t('study.publish.titlePlaceholder')}
               value={newTitle}
               onInput={(e) => setNewTitle(e.detail.value)}
             />
             <View className="flex items-center mb-[24rpx]">
               <FocusInput
-                className="flex-1 h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-title text-foreground"
+                className="flex-1 h-[100rpx] px-[24rpx] bg-muted border border-border rounded-md text-title text-foreground"
                 type="number"
                 placeholder={t('study.planPage.target', { n: 30 })}
                 value={newTarget}
@@ -202,13 +202,13 @@ export default function StudyPlan() {
             </View>
             <View className="flex gap-[16rpx]">
               <Button
-                className="flex-1 h-[100rpx] leading-[100rpx] bg-muted text-foreground rounded-sm text-title text-center"
+                className="flex-1 h-[100rpx] leading-[100rpx] bg-muted text-foreground rounded-md text-title text-center"
                 onClick={() => setShowAdd(false)}
               >
                 {t('common.cancel')}
               </Button>
               <Button
-                className="flex-1 h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-sm text-title font-semibold text-center"
+                className="flex-1 h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-md text-title font-semibold text-center"
                 loading={saving}
                 disabled={saving}
                 onClick={submitAdd}

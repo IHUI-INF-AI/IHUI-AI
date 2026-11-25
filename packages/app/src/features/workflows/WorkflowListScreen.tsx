@@ -355,7 +355,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       gap: rnSpacing.xs,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: 7,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     createBtnText: {
@@ -379,7 +379,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     iconBox: {
       width: 32,
       height: 32,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.brandAccent.light,
@@ -415,7 +415,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     input: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.inputBg,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
@@ -447,7 +447,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     primaryBtn: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     primaryBtnText: {
@@ -459,7 +459,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.inputBg,

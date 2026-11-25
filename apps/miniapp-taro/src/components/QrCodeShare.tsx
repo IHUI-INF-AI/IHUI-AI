@@ -77,13 +77,13 @@ export default function QrCodeShare({
 
       <View className="flex gap-md mt-2xl w-full">
         <Button
-          className="flex-1 !bg-muted !text-foreground text-body rounded-sm"
+          className="flex-1 !bg-muted !text-foreground text-body rounded-md"
           onClick={handleShare}
         >
           {tt('wallet.recharge.success.shareFriend', '分享给好友')}
         </Button>
         <Button
-          className="flex-1 !bg-cta !text-cta-foreground text-body rounded-sm"
+          className="flex-1 !bg-cta !text-cta-foreground text-body rounded-md"
           onClick={handleSave}
         >
           {tt('invite.saveImage', '保存图片')}

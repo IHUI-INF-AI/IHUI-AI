@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   confirmButtonFace: { width: '100%' } as ViewStyle,
   confirmButton: {
     height: BUTTON_HEIGHT,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: ACCENT_COLOR,
     alignItems: 'center',
     justifyContent: 'center',

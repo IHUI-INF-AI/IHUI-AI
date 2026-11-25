@@ -68,7 +68,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           value={value}
           onChange={onChange}
           className={cn(
-            'flex min-h-[80px] w-full rounded-sm border border-input bg-background px-3 py-2 text-body transition-colors',
+            'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-body transition-colors',
             'placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
             'disabled:cursor-not-allowed disabled:opacity-50',
             autoResize && 'resize-none overflow-hidden',

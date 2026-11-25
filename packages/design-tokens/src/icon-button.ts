@@ -19,7 +19,7 @@
  *
  * 主行动档(2026-10-08 用户指令):发送/停止/Steer 等 CTA 图标按钮收编本文件,
  * 尺寸同源 ICON_BUTTON_SIZE(32×32 唯一尺寸,无第二种);差异仅保留
- * rounded-sm 方形(2026-09-30 用户规则:禁止圆形发送按钮)与状态配色块(消费点给)。
+ * rounded-md 方形(2026-09-30 用户规则:禁止圆形发送按钮)与状态配色块(消费点给)。
  */
 
 /** 图标按钮容器类名(唯一尺寸,32×32) */
@@ -33,7 +33,7 @@ export const ICON_BUTTON_BASE_CLASS =
   'inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:pointer-events-none disabled:opacity-50'
 
 /** 主行动图标按钮(发送/停止/Steer)基础类名 — 尺寸同源 ICON_BUTTON_SIZE,方形 CTA 档 */
-export const ICON_BUTTON_ACTION_BASE_CLASS = `inline-flex ${ICON_BUTTON_SIZE} items-center justify-center rounded-sm transition-colors`
+export const ICON_BUTTON_ACTION_BASE_CLASS = `inline-flex ${ICON_BUTTON_SIZE} items-center justify-center rounded-md transition-colors`
 
 /** 主行动图标按钮禁用态(空输入等不可发送时置灰) */
 export const ICON_BUTTON_ACTION_DISABLED_CLASS =

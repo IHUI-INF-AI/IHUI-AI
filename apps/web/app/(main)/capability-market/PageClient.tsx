@@ -135,7 +135,7 @@ export default function CapabilityMarketPageClient() {
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="rounded-sm border bg-card px-3 py-2 text-body text-foreground"
+          className="rounded-md border bg-card px-3 py-2 text-body text-foreground"
           aria-label={t('category')}
         >
           <option value="">{t('allCategories')}</option>

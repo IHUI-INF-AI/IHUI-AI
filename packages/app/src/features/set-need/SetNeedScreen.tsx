@@ -296,7 +296,7 @@ function createStyles(tk: AppThemeTokens) {
     required: { fontSize: rnType.title.size, color: tk.danger.deepText } as TextStyle,
     input: {
       backgroundColor: tk.surface.muted,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['md-loose'],
       fontSize: rnType.title.size,
@@ -314,7 +314,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtnBox: { marginTop: rnSpacing.lg } as ViewStyle,
     submitBtn: {
       backgroundColor: tk.brand.cta,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingVertical: rnSpacing['md-loose'],
       alignItems: 'center',
     } as ViewStyle,

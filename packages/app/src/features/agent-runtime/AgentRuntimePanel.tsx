@@ -333,14 +333,14 @@ export function AgentRuntimePanel({
             placeholder={labels.placeholder}
             editable={status !== 'running'}
             multiline
-            className="h-auto min-h-[120px] min-h-[60px] flex-1 rounded-sm border p-2 text-sm"
+            className="h-auto min-h-[120px] min-h-[60px] flex-1 rounded-md border p-2 text-sm"
             style={{
               borderColor: tk.border.light,
               backgroundColor: tk.surface.card,
               color: tk.text.primary,
               flex: 1,
               minHeight: 60,
-              borderRadius: rnRadius.sm,
+              borderRadius: rnRadius.md,
               borderWidth: 1,
               padding: rnSpacing.sm,
               fontSize: rnType.body.size,

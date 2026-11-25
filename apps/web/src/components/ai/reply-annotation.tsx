@@ -215,7 +215,7 @@ export function ReplyAnnotationLayer({
             onChange={(e) => setDraft(e.target.value)}
             placeholder={t('placeholder')}
             rows={2}
-            className="w-56 resize-none rounded-sm border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="w-56 resize-none rounded-md border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             data-testid="annotation-input"
           />
           <div className="mt-1 flex items-center gap-1.5">
@@ -223,7 +223,7 @@ export function ReplyAnnotationLayer({
               type="button"
               onClick={submitAnnotation}
               disabled={draft.trim().length === 0}
-              className="inline-flex items-center rounded-sm bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center rounded-md bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
               data-testid="annotation-save"
             >
               {t('save')}
@@ -234,7 +234,7 @@ export function ReplyAnnotationLayer({
                 setPopover(null)
                 setDraft('')
               }}
-              className="rounded-sm px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-muted/60"
+              className="rounded-md px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-muted/60"
               data-testid="annotation-cancel"
             >
               {t('cancel')}
@@ -246,7 +246,7 @@ export function ReplyAnnotationLayer({
       {/* 删除失败反馈(非静默) */}
       {deleteError && (
         <div
-          className="mt-1 rounded-sm bg-destructive/10 px-2 py-1 text-[10px] text-destructive"
+          className="mt-1 rounded-md bg-destructive/10 px-2 py-1 text-[10px] text-destructive"
           data-testid="annotation-delete-error"
         >
           {t('deleteFailed')}
@@ -266,7 +266,7 @@ export function ReplyAnnotationLayer({
               return (
                 <li
                   key={ann.id}
-                  className="group rounded-sm bg-muted/40 px-1.5 py-1 text-[10px]"
+                  className="group rounded-md bg-muted/40 px-1.5 py-1 text-[10px]"
                   data-testid={`annotation-item-${ann.id}`}
                 >
                   <div className="flex items-start gap-1.5">
@@ -276,8 +276,8 @@ export function ReplyAnnotationLayer({
                       aria-label={annotationLabel(ann, i + 1, t)}
                       className={
                         isInvalid
-                          ? 'shrink-0 rounded-sm bg-muted px-1 text-muted-foreground/60 line-through'
-                          : 'shrink-0 rounded-sm bg-primary/10 px-1 text-primary'
+                          ? 'shrink-0 rounded-md bg-muted px-1 text-muted-foreground/60 line-through'
+                          : 'shrink-0 rounded-md bg-primary/10 px-1 text-primary'
                       }
                       data-testid={`annotation-marker-${ann.id}`}
                     >
@@ -293,7 +293,7 @@ export function ReplyAnnotationLayer({
                         setEditDraft(ann.comment)
                       }}
                       aria-label={t('edit')}
-                      className="shrink-0 rounded-sm p-0.5 text-muted-foreground/50 transition-colors hover:bg-primary/10 hover:text-primary"
+                      className="shrink-0 rounded-md p-0.5 text-muted-foreground/50 transition-colors hover:bg-primary/10 hover:text-primary"
                       data-testid={`annotation-edit-${ann.id}`}
                     >
                       <Pencil className="h-2.5 w-2.5" />
@@ -302,7 +302,7 @@ export function ReplyAnnotationLayer({
                       type="button"
                       onClick={() => handleDelete(ann.id)}
                       aria-label={t('delete')}
-                      className="shrink-0 rounded-sm p-0.5 text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      className="shrink-0 rounded-md p-0.5 text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
                       data-testid={`annotation-delete-${ann.id}`}
                     >
                       <Trash2 className="h-2.5 w-2.5" />
@@ -324,7 +324,7 @@ export function ReplyAnnotationLayer({
                         value={editDraft}
                         onChange={(e) => setEditDraft(e.target.value)}
                         rows={2}
-                        className="w-full resize-none rounded-sm border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                        className="w-full resize-none rounded-md border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
                         data-testid={`annotation-edit-input-${ann.id}`}
                       />
                       <div className="flex items-center gap-1.5">
@@ -332,7 +332,7 @@ export function ReplyAnnotationLayer({
                           type="button"
                           onClick={() => handleEditSave(ann.id)}
                           disabled={editDraft.trim().length === 0}
-                          className="inline-flex items-center rounded-sm bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="inline-flex items-center rounded-md bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
                           data-testid={`annotation-edit-save-${ann.id}`}
                         >
                           {t('save')}
@@ -343,7 +343,7 @@ export function ReplyAnnotationLayer({
                             setEditingId(null)
                             setEditDraft('')
                           }}
-                          className="rounded-sm px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-muted/60"
+                          className="rounded-md px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-muted/60"
                           data-testid={`annotation-edit-cancel-${ann.id}`}
                         >
                           {t('cancel')}

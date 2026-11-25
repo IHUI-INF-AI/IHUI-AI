@@ -256,7 +256,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['md-loose'],
       fontSize: rnType.title.size,
@@ -278,7 +278,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       flex: 1,
       paddingVertical: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
     },
     btnSuccess: { backgroundColor: tk.brand.cta },
@@ -305,7 +305,7 @@ function createStyles(tk: AppThemeTokens) {
     productAddBtn: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
     productAddText: { fontSize: rnType.body.size, color: tk.success.deepText },

@@ -249,7 +249,7 @@ export default function StockAnalysePage() {
               placeholder={t('questionPlaceholder')}
               maxLength={QUESTION_MAX_LENGTH}
               rows={4}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-50"
             />
             <p className="text-right text-label text-muted-foreground">
               {question.length}/{QUESTION_MAX_LENGTH}
@@ -340,7 +340,7 @@ export default function StockAnalysePage() {
                   <button
                     type="button"
                     onClick={() => openDetail(item)}
-                    className="flex w-full items-center gap-3 rounded-sm px-2 py-2.5 text-left transition-colors hover:bg-accent"
+                    className="flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors hover:bg-accent"
                   >
                     <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 font-mono text-label">
                       {item.symbol}

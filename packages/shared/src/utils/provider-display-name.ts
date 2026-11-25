@@ -17,6 +17,7 @@ const PROVIDER_DISPLAY_NAMES: Readonly<Record<string, string>> = {
   stepfun: 'StepFun 阶跃星辰',
   cloudflare_workers_ai: 'Cloudflare Workers AI',
   agnes: 'Agnes',
+  magi2: 'Sand.ai MAGI-2',
   gemini: 'Google Gemini',
   openrouter: 'OpenRouter',
   nvidia_nim: 'NVIDIA NIM',

@@ -547,7 +547,7 @@ function makeStyles() {
     outlineBtn: {
       height: 40,
       paddingHorizontal: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       flexDirection: 'row',
@@ -558,7 +558,7 @@ function makeStyles() {
     outlineBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     primaryBtn: {
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.brand.cta,
       flexDirection: 'row',
       alignItems: 'center',

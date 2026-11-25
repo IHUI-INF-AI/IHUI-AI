@@ -190,7 +190,7 @@ export function TypographyCard() {
       <div className="space-y-1.5">
         <span className="text-body font-medium">{t('previewTitle')}</span>
         <div
-          className="rounded-sm border bg-muted/30 p-3"
+          className="rounded-md border bg-muted/30 p-3"
           data-testid="appearance-preview"
           style={{
             fontSize: 'calc(15px * var(--chat-font-scale, 1))',

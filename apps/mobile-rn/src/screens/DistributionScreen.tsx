@@ -504,7 +504,7 @@ const shellStyles = {
   shareBtnWrap: { paddingHorizontal: rpx(taroSpacing.lg), paddingBottom: rpx(8) } as const,
   shareBtn: {
     height: 44,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',

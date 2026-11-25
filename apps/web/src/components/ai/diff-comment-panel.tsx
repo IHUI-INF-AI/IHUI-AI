@@ -85,7 +85,7 @@ export function DiffCommentPanel({
             : t('diffComment.placeholderFile')
         }
         rows={2}
-        className="w-full resize-none rounded-sm border border-stroke-subtle bg-background px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+        className="w-full resize-none rounded-md border border-stroke-subtle bg-background px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         data-testid="diff-comment-input"
       />
       <div className="flex items-center gap-1.5">
@@ -93,7 +93,7 @@ export function DiffCommentPanel({
           type="button"
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="inline-flex items-center gap-1 rounded-sm bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-md bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
           data-testid="diff-comment-submit"
         >
           <CornerDownLeft className="h-2.5 w-2.5" />
@@ -107,7 +107,7 @@ export function DiffCommentPanel({
           {fileComments.map((c) => (
             <li
               key={c.id}
-              className="group flex items-start gap-1.5 rounded-sm bg-muted/40 px-1.5 py-1 text-[10px] text-muted-foreground"
+              className="group flex items-start gap-1.5 rounded-md bg-muted/40 px-1.5 py-1 text-[10px] text-muted-foreground"
               data-testid={`diff-comment-item-${c.id}`}
             >
               <span className="shrink-0 tabular-nums text-muted-foreground/70">
@@ -120,7 +120,7 @@ export function DiffCommentPanel({
                 type="button"
                 onClick={() => removeDiffComment(c.id)}
                 aria-label={t('diffComment.remove')}
-                className="shrink-0 rounded-sm p-0.5 text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                className="shrink-0 rounded-md p-0.5 text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
                 data-testid={`diff-comment-remove-${c.id}`}
               >
                 <Trash2 className="h-2.5 w-2.5" />

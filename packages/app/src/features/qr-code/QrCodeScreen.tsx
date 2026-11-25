@@ -125,7 +125,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.lg,
       paddingHorizontal: rnSpacing.xl,
       paddingVertical: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     shareText: { fontSize: rnType.body.size, color: tk.surface.light, fontWeight: '600' },

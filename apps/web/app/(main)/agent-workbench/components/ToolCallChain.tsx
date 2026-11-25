@@ -55,7 +55,7 @@ function ToolCallItem({ call, isLast }: { call: ToolCallEvent; isLast: boolean }
       {!isLast && <span className="absolute left-[3px] top-3 bottom-0 w-px bg-border" />}
       <span
         className={cn(
-          'absolute left-0 top-3 h-1.5 w-1.5 rounded-sm',
+          'absolute left-0 top-3 h-1.5 w-1.5 rounded-md',
           call.status === 'pending' && 'animate-pulse',
           cfg.color,
           'bg-current',
@@ -77,14 +77,14 @@ function ToolCallItem({ call, isLast }: { call: ToolCallEvent; isLast: boolean }
           <span className="font-mono text-label font-medium">{call.tool}</span>
           <span className={cn('text-[10px]', cfg.color)}>{t(statusLabelKey(call.status))}</span>
           {call.retryCount !== undefined && call.retryCount > 0 && (
-            <span className="shrink-0 rounded-sm border border-stroke-subtle bg-amber-500/10 px-1 py-0.5 text-[9px] text-amber-600">
+            <span className="shrink-0 rounded-md border border-stroke-subtle bg-amber-500/10 px-1 py-0.5 text-[9px] text-amber-600">
               重试{call.retryCount}次
             </span>
           )}
           {call.status === 'error' && call.errorType && (
             <span
               className={cn(
-                'shrink-0 rounded-sm border border-stroke-subtle px-1 py-0.5 text-[9px]',
+                'shrink-0 rounded-md border border-stroke-subtle px-1 py-0.5 text-[9px]',
                 (call.errorType === 'timeout' || call.errorType === 'http_4xx') &&
                   'bg-amber-500/10 text-amber-600',
                 (call.errorType === 'connection' || call.errorType === 'http_5xx') &&

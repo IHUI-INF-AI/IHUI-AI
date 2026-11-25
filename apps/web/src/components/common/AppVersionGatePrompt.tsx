@@ -173,7 +173,7 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
             <button
               type="button"
               onClick={() => setConfirmQuit(false)}
-              className="rounded-sm px-3 py-1.5 text-body text-muted-foreground hover:bg-muted"
+              className="rounded-md px-3 py-1.5 text-body text-muted-foreground hover:bg-muted"
             >
               {t('close')}
             </button>
@@ -181,7 +181,7 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
           <button
             type="button"
             onClick={handleQuit}
-            className="rounded-sm px-3 py-1.5 text-body text-muted-foreground hover:bg-muted"
+            className="rounded-md px-3 py-1.5 text-body text-muted-foreground hover:bg-muted"
           >
             {t('gateQuit')}
           </button>
@@ -189,7 +189,7 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
             type="button"
             onClick={handleUpdate}
             disabled={state === 'installing'}
-            className="rounded-sm bg-cta px-4 py-1.5 text-body font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
+            className="rounded-md bg-cta px-4 py-1.5 text-body font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
           >
             {state === 'installing' ? t('installing') : t('gateUpdateNow')}
           </button>

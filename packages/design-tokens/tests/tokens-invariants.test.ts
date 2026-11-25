@@ -46,10 +46,9 @@ const TOKENS_CSS = readFileSync(join(HERE, '..', 'src', 'styles', 'tokens.css'),
 
 describe('圆角档位表:档位取值 + 表内派生算术', () => {
   // 档位取值是设计决定,改动必须是有意的(同时改这一行),不能是"顺手调一个数字"。
-  it('档位取值 = xs2/sm4/md6/lg8/xl12/2xl16,默认档 8', () => {
+  it('档位取值 = xs2/md6/lg8/xl12/2xl16,默认档 8(2026-11-26 删除 4px 档)', () => {
     expect(RADIUS_STEPS).toEqual({
       xs: 2,
-      sm: 4,
       DEFAULT: 8,
       md: 6,
       lg: 8,
@@ -86,7 +85,7 @@ describe('圆角档位表:档位取值 + 表内派生算术', () => {
   })
 
   it('RADIUS_SCALE_PX 是去重升序取值集合', () => {
-    expect(RADIUS_SCALE_PX).toEqual([2, 4, 6, 8, 12, 16])
+    expect(RADIUS_SCALE_PX).toEqual([2, 6, 8, 12, 16])
   })
 
   it('rpxToStep / pxToStep 命中时给档名,不命中给 null(不做就近吸附)', () => {

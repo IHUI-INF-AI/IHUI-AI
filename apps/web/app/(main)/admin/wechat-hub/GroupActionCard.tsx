@@ -169,7 +169,7 @@ export default function GroupActionCard({ accountId }: { accountId: string }) {
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={3}
-            className="w-full rounded-sm border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+            className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
             placeholder="发群公告时填写；其余动作可留空。"
           />
         </div>

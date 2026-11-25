@@ -122,7 +122,7 @@ export function TokenUsageChart({ agentId, timeRange, refreshKey }: TokenUsageCh
                     onMouseLeave={() => setHoverIdx(null)}
                   >
                     <div
-                      className="w-full rounded-t-sm bg-primary/40"
+                      className="w-full rounded-t-md bg-primary/40"
                       style={{ height: `${completionH}%` }}
                     />
                     <div className="w-full bg-primary" style={{ height: `${promptH}%` }} />
@@ -143,11 +143,11 @@ export function TokenUsageChart({ agentId, timeRange, refreshKey }: TokenUsageCh
 
             <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-sm bg-primary" />
+                <span className="inline-block h-2 w-2 rounded-md bg-primary" />
                 Prompt
               </span>
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-sm bg-primary/40" />
+                <span className="inline-block h-2 w-2 rounded-md bg-primary/40" />
                 Completion
               </span>
               <span className="ml-auto">{data.length} 个会话</span>

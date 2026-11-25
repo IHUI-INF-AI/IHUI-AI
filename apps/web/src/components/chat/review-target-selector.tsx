@@ -155,7 +155,7 @@ export function ReviewTargetSelector({
           placeholder={t(activeRefInput.placeholderKey)}
           aria-label={t(activeRefInput.labelKey)}
           data-testid={activeRefInput.testId}
-          className="h-7 rounded-sm px-2 text-label"
+          className="h-7 rounded-md px-2 text-label"
         />
       )}
       {selection?.kind === 'snippet' && (
@@ -166,7 +166,7 @@ export function ReviewTargetSelector({
           aria-label={t('reviewTargetSnippetLabel')}
           data-testid="review-target-snippet-input"
           rows={3}
-          className="w-full resize-y rounded-sm border border-input bg-transparent px-2 py-1 font-mono text-label shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+          className="w-full resize-y rounded-md border border-input bg-transparent px-2 py-1 font-mono text-label shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         />
       )}
     </div>

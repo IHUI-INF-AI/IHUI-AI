@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
     right: rpx(24),
     width: rnGeometry.controlBox,
     height: rnGeometry.controlBox,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,

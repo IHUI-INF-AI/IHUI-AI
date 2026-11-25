@@ -11,6 +11,8 @@
 - 字节即梦/Seedance(jimeng):ARK_API_KEY 或 ARK_ACCESS_KEY + ARK_SECRET_KEY
 - 阿里通义万相(wan):DASHSCOPE_API_KEY
 - 腾讯混元(hunyuan):TENCENT_SECRET_ID + TENCENT_SECRET_KEY(需开通混元视频)
+- Sand.ai MAGI-2(magi2):MAGI2_API_KEY 或 SAND_API_KEY(2026-11-25 接入,
+  4–30s 1080p 有声,可见即可用前需在 Sand.ai 控制台申请开通)
 
 provider 选择策略:env `VIDEO_PROVIDER`(逗号分隔,顺序即优先级,默认按上表顺序),配合
 已配置凭据的那几家;首选 provider 失败时依次降级到下一家(自动故障转移)。
@@ -33,13 +35,17 @@ from app.providers.alibaba_dashscope_provider import AlibabaDashscopeProvider
 from app.providers.base_provider import ProviderError
 from app.providers.jimeng_provider import JimengProvider
 from app.providers.kling_provider import KlingProvider
+from app.providers.magi2_provider import Magi2Provider
 from app.providers.tencent_hunyuan_provider import TencentHunyuanProvider
 from app.providers.token6688_provider import Token6688Provider
 
 logger = logging.getLogger(__name__)
 
 # 默认 provider 优先级(可被 VIDEO_PROVIDER 覆盖);agnes 为聚合网关,凭据在 LLM_PROVIDERS 里,已配置则优先
-_DEFAULT_PRIORITY = ["agnes", "token6688", "kling", "jimeng", "wan", "hunyuan"]
+_DEFAULT_PRIORITY = ["agnes", "token6688", "magi2", "kling", "jimeng", "wan", "hunyuan"]
+
+# 支持"先提交、后轮询"的厂商(长任务不阻塞 worker)
+_POLLABLE_VIAS = ("token6688", "magi2")
 
 # ---------------------------------------------------------------------------
 # 凭据配置的播报去重(2026-10-18 立,治 5.2 万行/天的日志噪音)
@@ -125,6 +131,35 @@ def _instantiate(name: str) -> Any | None:
                 _report_credential_state(name, True)
                 return Token6688Provider(key)
             _report_credential_state(name, False, "TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688")
+            return None
+        if name in ("magi2", "magi-2", "magi", "sand", "sandai"):
+            # env 优先;生产常把厂商凭据收在 LLM_PROVIDERS JSON(与 token6688/agnes 同款),
+            # 所以这里也要回退 settings.get_provider_config,否则只在 .env 配 key 才生效。
+            key = (
+                os.environ.get("MAGI2_API_KEY")
+                or os.environ.get("SAND_API_KEY")
+                or ""
+            ).strip()
+            base = os.environ.get("MAGI2_API_BASE", "").strip()
+            model = os.environ.get("MAGI2_MODEL", "").strip()
+            if not key or not base or not model:
+                try:
+                    from app.core.config import settings
+                    cfg = settings.get_provider_config("magi2")
+                    key = key or (cfg.api_key or "").strip()
+                    base = base or (cfg.api_base or "").strip()
+                    model = model or (cfg.default_model or "").strip()
+                except Exception:  # noqa: BLE001
+                    pass
+            p: Any = Magi2Provider(
+                key or None, base or None, model=model or None,
+            )
+            if p.configured:
+                _report_credential_state(name, True)
+                return p
+            _report_credential_state(
+                name, False, "MAGI2_API_KEY / SAND_API_KEY 或 LLM_PROVIDERS.magi2",
+            )
             return None
         if name in ("kling", "可灵"):
             p: Any = KlingProvider(None)
@@ -294,6 +329,27 @@ async def _process_one() -> bool:
                     return True
             except Exception as submit_err:  # noqa: BLE001
                 logger.warning("[video] token6688 提交失败,降级阻塞编排: %s", submit_err)
+        # MAGI-2 同款:30s 长片 + 排队,阻塞轮询会把单 worker 卡住 → 先提交后轮询
+        magi2 = next((inst for n, inst in available if n == "magi2"), None)
+        if magi2 is not None:
+            try:
+                submitted = await magi2.generate_video(
+                    prompt, "", duration=duration, wait=False,
+                )
+                remote_id = str(submitted.get("task_id") or "")
+                if remote_id:
+                    payload = json.dumps(
+                        {
+                            "poll_via": "magi2", "task_id": remote_id,
+                            "model": submitted.get("model", ""), "duration": duration,
+                        },
+                        ensure_ascii=False,
+                    )
+                    await _set_status(task_id, "processing", payload)
+                    logger.info("[video] magi2 任务已提交 remote=%s → 转入 polling", remote_id)
+                    return True
+            except Exception as submit_err:  # noqa: BLE001
+                logger.warning("[video] magi2 提交失败,降级阻塞编排: %s", submit_err)
         result = await generate_video(prompt, duration=duration)
         payload = json.dumps(
             {
@@ -326,49 +382,62 @@ WHERE status='processing' AND (result IS NULL OR result NOT LIKE '%"poll_via"%')
 
 
 async def _poll_pending() -> int:
-    """轮询 token6688 已提交任务(poll_via 标记)的终态。返回更新条数。
+    """轮询已提交未落终态的任务(poll_via 标记)终态。返回更新条数。
 
-    查询异常不更新状态(下一轮重试);终态成功→succeed、失败→failed。
+    2026-11-25:MAGI-2 接入后不再只认 token6688 —— 按 result 里的 poll_via
+    取对应 provider 逐行处理;某家凭据被摘除时该行保持 processing,等凭据
+    恢复后下一轮接管(不误标失败)。查询异常同样不更新状态。
     """
-    t6688 = _instantiate("token6688")
-    if t6688 is None:
-        return 0
     conn = await get_db_conn()
     try:
         rows = await conn.fetch(_POLL_PENDING_SQL)
     finally:
         await conn.close()
     updated = 0
+    instances: dict[str, Any] = {}
     for r in rows:
         try:
             meta = json.loads(r["result"] or "{}")
         except (TypeError, ValueError):
             meta = {}
+        via = str(meta.get("poll_via") or "")
         remote_id = str(meta.get("task_id") or "")
         if not remote_id:
             await _set_status(r["id"], "failed", "poll_via 行缺 task_id")
             updated += 1
             continue
+        if via not in _POLLABLE_VIAS:
+            await _set_status(r["id"], "failed", f"未知 poll_via: {via or '<空>'}")
+            updated += 1
+            continue
+        if via not in instances:
+            instances[via] = _instantiate(via)
+        inst = instances[via]
+        if inst is None:
+            continue
         try:
-            st = await t6688.get_task_status(remote_id)
+            st = await inst.get_task_status(remote_id)
         except Exception as e:  # noqa: BLE001
             logger.warning("[video] polling 任务 %s 查询失败(下轮重试): %s", remote_id, e)
             continue
         if st.get("ok") and st.get("video_url"):
             payload = json.dumps(
                 {
-                    "url": st["video_url"], "provider": "token6688",
+                    "url": st["video_url"], "provider": via,
                     "model": meta.get("model", ""), "task_id": remote_id,
                     "duration": meta.get("duration", 5),
                 },
                 ensure_ascii=False,
             )
             await _set_status(r["id"], "succeed", payload)
-            logger.info("[video] polling 任务 %s 完成 url=%s", remote_id, st["video_url"][:80])
+            logger.info(
+                "[video] polling 任务 %s 完成 provider=%s url=%s",
+                remote_id, via, st["video_url"][:80],
+            )
             updated += 1
         elif st.get("failed"):
-            await _set_status(r["id"], "failed", st.get("error") or "token6688 任务失败")
-            logger.info("[video] polling 任务 %s 失败", remote_id)
+            await _set_status(r["id"], "failed", st.get("error") or f"{via} 任务失败")
+            logger.info("[video] polling 任务 %s 失败 provider=%s", remote_id, via)
             updated += 1
     return updated
 

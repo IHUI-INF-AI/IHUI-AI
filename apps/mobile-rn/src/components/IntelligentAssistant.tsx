@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     // 胶囊可见内衬:小程序是纯文字链、无胶囊本体,单端档(依据见 IA_RECHARGE_CAPSULE_PAD_*)
     paddingHorizontal: IA_RECHARGE_CAPSULE_PAD_X_PX,
     paddingVertical: IA_RECHARGE_CAPSULE_PAD_Y_PX,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   tokenButtonText: {
     fontSize: IA_RECHARGE_FONT_PX,

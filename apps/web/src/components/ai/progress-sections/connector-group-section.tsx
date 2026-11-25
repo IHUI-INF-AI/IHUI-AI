@@ -108,7 +108,7 @@ export function ConnectorGroupSection({
           key={groupDomKey(group)}
           data-testid={`connector-group-${group.direction}-${group.connector}`}
           data-direction={group.direction}
-          className="rounded-sm bg-muted/15 px-2 py-0.5"
+          className="rounded-md bg-muted/15 px-2 py-0.5"
         >
           <div className="flex items-center gap-1.5">
             <ActivityConnectorGroupLabel

@@ -27,6 +27,25 @@ import {
   type FastifyPluginAsync,
 } from './_shared.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
+import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
+
+/**
+ * fal 是聚合平台,model id 本身就说明模态。这里只做**路由分档**,
+ * 具体价格仍由 `ai_pricing` 的 per_image / per_video 行决定;匹配不到才回落兜底价。
+ */
+function falBilling(
+  model: string,
+  numImages?: number,
+): { category: 'image' | 'video' | 'audio'; units: number } {
+  const m = model.toLowerCase()
+  if (/(video|veo|kling|runway|luma|pika|minimax|hunyuan|animate|svd|wan)/.test(m)) {
+    return { category: 'video', units: 5 }
+  }
+  if (/(audio|music|tts|speech|whisper|voice|wav2lip)/.test(m)) {
+    return { category: 'audio', units: 1 }
+  }
+  return { category: 'image', units: Math.max(1, numImages ?? 1) }
+}
 
 // ---- fal 官方参数(每模型 schema 不同,prompt 常用字段透传,其余模型输入全透传) ----
 const falBody = z.object({
@@ -180,6 +199,9 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       const key = requireVendorKey('fal', reply)
       if (!key) return
       const { model, ...rest } = body
+      const billing = falBilling(model, body.num_images)
+      if (!(await ensureMediaPointsBalance(request, reply, model, billing.category, billing.units)))
+        return
       const data = await callVendor('fal', `${FAL_SYNC_BASE}/${model}`, reply, {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}` },
@@ -187,6 +209,7 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       })
       if (data === null) return
       recordUsage(request.userId!, 'fal')
+      await chargeMediaPoints(request, model, billing.category, billing.units, `fal:${request.id}`)
       return reply.send(success(data))
     },
   )
@@ -213,6 +236,9 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       const body = falBody.parse(request.body ?? {})
       const key = requireVendorKey('fal', reply)
       if (!key) return
+      const billing = falBilling(model, body.num_images)
+      if (!(await ensureMediaPointsBalance(request, reply, model, billing.category, billing.units)))
+        return
       const data = await callVendor('fal', `${FAL_QUEUE_BASE}/${model}`, reply, {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}` },
@@ -220,6 +246,13 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       })
       if (data === null) return
       recordUsage(request.userId!, 'fal')
+      await chargeMediaPoints(
+        request,
+        model,
+        billing.category,
+        billing.units,
+        `fal-queue:${request.id}`,
+      )
       return reply.send(success(data))
     },
   )
@@ -279,6 +312,8 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       const body = murekaBody.parse(request.body ?? {})
       const key = requireVendorKey('mureka', reply)
       if (!key) return
+      const model = body.model ?? 'mureka-6'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
       const data = await callVendor(
         'mureka',
         `${VENDORS.mureka!.baseUrl}/v1/music/generate`,
@@ -291,6 +326,7 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       )
       if (data === null) return
       recordUsage(request.userId!, 'mureka')
+      await chargeMediaPoints(request, model, 'audio', 1, `mureka:${request.id}`)
       return reply.send(success(data))
     },
   )
@@ -340,7 +376,9 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       const body = humeTtsBody.parse(request.body ?? {})
       const key = requireVendorKey('hume', reply)
       if (!key) return
-      const payload: Record<string, unknown> = { model: body.model ?? 'OCTAVE_V2', ...body }
+      const model = body.model ?? 'OCTAVE_V2'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
+      const payload: Record<string, unknown> = { model, ...body }
       const data = await callVendor('hume', `${VENDORS.hume!.baseUrl}/v0/tts`, reply, {
         method: 'POST',
         headers: { 'X-Hume-Api-Key': key },
@@ -348,6 +386,7 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       })
       if (data === null) return
       recordUsage(request.userId!, 'hume')
+      await chargeMediaPoints(request, model, 'audio', 1, `hume-tts:${request.id}`)
       return reply.send(success(data))
     },
   )
@@ -393,13 +432,21 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       const body = inworldTtsBody.parse(request.body ?? {})
       const key = requireVendorKey('inworld', reply)
       if (!key) return
-      const data = await callVendor('inworld', `${VENDORS.inworld!.baseUrl}/tts/v1/voice:tts`, reply, {
-        method: 'POST',
-        headers: { Authorization: `Basic ${Buffer.from(`${key}:`).toString('base64')}` },
-        body: JSON.stringify(body),
-      })
+      const model = body.modelId ?? 'inworld-tts'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
+      const data = await callVendor(
+        'inworld',
+        `${VENDORS.inworld!.baseUrl}/tts/v1/voice:tts`,
+        reply,
+        {
+          method: 'POST',
+          headers: { Authorization: `Basic ${Buffer.from(`${key}:`).toString('base64')}` },
+          body: JSON.stringify(body),
+        },
+      )
       if (data === null) return
       recordUsage(request.userId!, 'inworld')
+      await chargeMediaPoints(request, model, 'audio', 1, `inworld-tts:${request.id}`)
       return reply.send(success(data))
     },
   )
@@ -423,13 +470,21 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       const body = sonioxBody.parse(request.body ?? {})
       const key = requireVendorKey('soniox', reply)
       if (!key) return
-      const data = await callVendor('soniox', `${VENDORS.soniox!.baseUrl}/v1/transcriptions`, reply, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${key}` },
-        body: JSON.stringify(body),
-      })
+      const model = body.model ?? 'soniox'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
+      const data = await callVendor(
+        'soniox',
+        `${VENDORS.soniox!.baseUrl}/v1/transcriptions`,
+        reply,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${key}` },
+          body: JSON.stringify(body),
+        },
+      )
       if (data === null) return
       recordUsage(request.userId!, 'soniox')
+      await chargeMediaPoints(request, model, 'audio', 1, `soniox:${request.id}`)
       return reply.send(success(data))
     },
   )
@@ -453,6 +508,8 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       const body = gladiaBody.parse(request.body ?? {})
       const key = requireVendorKey('gladia', reply)
       if (!key) return
+      const model = body.model ?? 'gladia'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
       const data = await callVendor('gladia', `${VENDORS.gladia!.baseUrl}/v2/pre-recorded`, reply, {
         method: 'POST',
         headers: { 'x-gladia-key': key },
@@ -460,6 +517,7 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       })
       if (data === null) return
       recordUsage(request.userId!, 'gladia')
+      await chargeMediaPoints(request, model, 'audio', 1, `gladia:${request.id}`)
       return reply.send(success(data))
     },
   )
@@ -482,6 +540,8 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       const body = getimgBody.parse(request.body ?? {})
       const key = requireVendorKey('getimg', reply)
       if (!key) return
+      const model = body.model ?? body.pipeline ?? 'getimg'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'image', 1))) return
       const { pipeline, ...rest } = body
       const data = await callVendor(
         'getimg',
@@ -495,6 +555,7 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       )
       if (data === null) return
       recordUsage(request.userId!, 'getimg')
+      await chargeMediaPoints(request, model, 'image', 1, `getimg:${request.id}`)
       return reply.send(success(data))
     },
   )
@@ -517,6 +578,9 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       const body = briaBody.parse(request.body ?? {})
       const key = requireVendorKey('bria', reply)
       if (!key) return
+      const model = 'bria-2.2'
+      const billingUnits = Math.max(1, body.num_results ?? 1)
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'image', billingUnits))) return
       const payload: Record<string, unknown> = { sync: true, ...body }
       const data = await callVendor(
         'bria',
@@ -530,6 +594,7 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       )
       if (data === null) return
       recordUsage(request.userId!, 'bria')
+      await chargeMediaPoints(request, model, 'image', billingUnits, `bria:${request.id}`)
       return reply.send(success(data))
     },
   )
@@ -556,6 +621,9 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       if (!key) return
       const { model, ...rest } = body
       const usedModel = model ?? 'mystic'
+      const billingUnits = Math.max(1, body.num_images ?? 1)
+      if (!(await ensureMediaPointsBalance(request, reply, usedModel, 'image', billingUnits)))
+        return
       const data = await callVendor(
         'freepik',
         `${VENDORS.freepik!.baseUrl}/v1/ai/text-to-image/${usedModel}`,
@@ -568,6 +636,7 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       )
       if (data === null) return
       recordUsage(request.userId!, 'freepik')
+      await chargeMediaPoints(request, usedModel, 'image', billingUnits, `freepik:${request.id}`)
       // 提交与轮询的 ?model= 默认各自独立会导致轮询打到错误模型端点;
       // 上游返回 task_id(顶层或 data[] 内)时附加本次使用的 poll_model,
       // 调用方轮询 /freepik/tasks/:taskId 时以 ?model= 原样传回

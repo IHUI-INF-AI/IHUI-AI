@@ -79,7 +79,7 @@ export function DownloadDetailContent({
       <button
         type="button"
         onClick={() => router.back()}
-        className="mb-4 inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:outline-none"
+        className="mb-4 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:outline-none"
       >
         <ArrowLeft className="h-4 w-4" />
         <span>{t('downloadBack')}</span>

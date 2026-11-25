@@ -112,7 +112,7 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   )}
                   <span className="text-body font-medium">{skill.name}</span>
-                  <span className="rounded-sm bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  <span className="rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
                     {skill.versions.length} 个版本
                   </span>
                 </div>
@@ -151,7 +151,7 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
                             {canCompare && (
                               <button
                                 type="button"
-                                className={`flex h-4 w-4 items-center justify-center rounded-sm border transition-colors ${
+                                className={`flex h-4 w-4 items-center justify-center rounded-md border transition-colors ${
                                   isCompareTarget
                                     ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                                     : 'border-muted-foreground/30 hover:border-muted-foreground/50'

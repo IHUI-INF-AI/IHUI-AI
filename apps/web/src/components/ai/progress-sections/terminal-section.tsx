@@ -100,7 +100,7 @@ function AnsiCodeBlock({
   return (
     <pre
       ref={ref}
-      className="max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-sm bg-background/60 p-1.5 font-mono text-label leading-relaxed text-foreground/75"
+      className="max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-md bg-background/60 p-1.5 font-mono text-label leading-relaxed text-foreground/75"
       data-testid={testId}
     >
       {spans.map(renderSpan)}
@@ -324,7 +324,7 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
               <button
                 type="button"
                 onClick={() => clearTerminalOutput(term.id)}
-                className="rounded-sm px-1 text-label text-muted-foreground/70 transition-colors hover:bg-accent/60 hover:text-foreground"
+                className="rounded-md px-1 text-label text-muted-foreground/70 transition-colors hover:bg-accent/60 hover:text-foreground"
                 aria-label={t('terminal.clearLive')}
                 data-testid={`terminal-clear-live-${term.id}`}
               >
@@ -351,7 +351,7 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
                 <button
                   type="button"
                   onClick={() => setShowAllOutput(true)}
-                  className="rounded-sm px-1 py-px text-label text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+                  className="rounded-md px-1 py-px text-label text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
                   data-testid={`terminal-show-more-${term.id}`}
                 >
                   {tStatus('showMore')}

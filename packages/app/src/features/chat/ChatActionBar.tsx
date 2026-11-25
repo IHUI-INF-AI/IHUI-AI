@@ -338,7 +338,7 @@ function createStyles(tk: AppThemeTokens) {
       position: 'relative',
       width: IMAGE_PREVIEW_SIZE,
       height: IMAGE_PREVIEW_SIZE,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       overflow: 'hidden',
       backgroundColor: tk.surface.muted,
     },

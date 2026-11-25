@@ -218,7 +218,7 @@ export function DeveloperCards({
                       >
                         <span
                           className={cn(
-                            'h-1.5 w-1.5 rounded-sm',
+                            'h-1.5 w-1.5 rounded-md',
                             w.isEnabled ? 'bg-emerald-500' : 'bg-muted-foreground/50',
                           )}
                         />

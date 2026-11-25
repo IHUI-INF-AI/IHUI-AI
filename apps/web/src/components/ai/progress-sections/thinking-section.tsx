@@ -354,7 +354,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
               <button
                 type="button"
                 onClick={onCopy}
-                className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:text-foreground/70 focus-visible:outline-none"
+                className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:text-foreground/70 focus-visible:outline-none"
                 aria-label={copied ? t('copied') : t('copyThinking')}
                 data-testid="thinking-copy-btn"
                 data-copied={copied ? 'true' : undefined}

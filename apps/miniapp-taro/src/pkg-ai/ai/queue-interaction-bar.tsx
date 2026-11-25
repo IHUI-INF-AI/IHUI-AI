@@ -212,7 +212,7 @@ export default function QueueInteractionBar({
             {editing ? (
               <>
                 <Input
-                  className="min-w-0 flex-1 rounded-sm bg-card px-[8rpx] py-[4rpx] text-caption text-foreground"
+                  className="min-w-0 flex-1 rounded-md bg-card px-[8rpx] py-[4rpx] text-caption text-foreground"
                   value={editDraft}
                   data-testid={`queue-op-edit-input-${item.id}`}
                   onInput={(e) => setEditDraft(e.detail.value)}

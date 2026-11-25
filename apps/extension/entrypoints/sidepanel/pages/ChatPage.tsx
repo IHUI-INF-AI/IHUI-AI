@@ -1233,7 +1233,7 @@ export default function ChatPage() {
             本轮自己跑完、或先去点停止再换)。换档由上面的 effect 终止当前这一轮;新档位对下一条消息生效,
             本轮不自动用新模型重发(机主定档)。 */}
         <select
-          className="text-xs text-foreground px-2 py-1 border border-border rounded-sm bg-card cursor-pointer transition-colors hover:border-muted-foreground focus:outline-none focus:border-muted-foreground"
+          className="text-xs text-foreground px-2 py-1 border border-border rounded-md bg-card cursor-pointer transition-colors hover:border-muted-foreground focus:outline-none focus:border-muted-foreground"
           value={model}
           onChange={(e) => setModel(e.target.value)}
           aria-label={t('chat.selectModel')}
@@ -1348,7 +1348,7 @@ export default function ChatPage() {
             <button
               type="button"
               data-testid="retry-last-turn"
-              className="ml-2 rounded-sm border border-destructive/60 px-1.5 py-px text-[11px] text-destructive hover:bg-destructive/10"
+              className="ml-2 rounded-md border border-destructive/60 px-1.5 py-px text-[11px] text-destructive hover:bg-destructive/10"
               onClick={() => {
                 setError('')
                 void onSend(retryText)

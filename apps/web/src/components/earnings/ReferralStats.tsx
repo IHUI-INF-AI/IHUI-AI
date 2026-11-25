@@ -74,7 +74,7 @@ export function ReferralStats({ data, loading }: Props) {
                     </div>
                     <div className="h-2 w-full rounded-xs bg-muted/60">
                       <div
-                        className={`h-full rounded-sm ${meta.cls}`}
+                        className={`h-full rounded-md ${meta.cls}`}
                         style={{ width: `${Math.max(3, pct)}%` }}
                       />
                     </div>

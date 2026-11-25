@@ -163,7 +163,7 @@ function createAvatarStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.lg,
       justifyContent: 'center',
       alignItems: 'center',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     avatarActionBtnOutline: {
@@ -179,7 +179,7 @@ function createAvatarStyles(tk: AppThemeTokens) {
     avatarUrlInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.md,
       height: 50,
       backgroundColor: tk.surface.light,
@@ -190,7 +190,7 @@ function createAvatarStyles(tk: AppThemeTokens) {
       height: 44,
       justifyContent: 'center',
       alignItems: 'center',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     avatarError: { fontSize: rnType.caption.size, color: tk.error.text },
@@ -376,7 +376,7 @@ function createStyles(tk: AppThemeTokens) {
     fieldInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.md,
       height: 50,
       backgroundColor: tk.surface.muted,
@@ -412,7 +412,7 @@ function createStyles(tk: AppThemeTokens) {
     saveBtn: {
       height: 50,
       justifyContent: 'center',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },

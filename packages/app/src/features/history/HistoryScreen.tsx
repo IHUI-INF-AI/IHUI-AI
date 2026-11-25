@@ -133,7 +133,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.success.deepText,
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.success.light,
       overflow: 'hidden',
     },

@@ -98,7 +98,7 @@ export function formatRelativeTime(
  * - 可选标题图标(通过 icon prop 传入 lucide-react 组件)
  * - 计数徽章(右对齐,tabular-nums)
  * - 平滑背景色 hover 反馈
- * - rounded-sm bg-muted/30 容器,无分割线
+ * - rounded-md bg-muted/30 容器,无分割线
  *
  * 注:不 memo 化(children 是 React element,父组件每次 render 创建新引用,memo 无收益)
  */
@@ -141,7 +141,7 @@ export function FoldableSection({
   const allDone = hasProgress && (doneCount as number) >= (count as number)
 
   return (
-    <div className="mt-1.5 rounded-sm transition-colors" data-testid={testId}>
+    <div className="mt-1.5 rounded-md transition-colors" data-testid={testId}>
       <button
         type="button"
         onClick={toggle}
@@ -196,13 +196,13 @@ export function FoldableSection({
           精美化(2026-07-31):圆角 + 渐变色 + 更明显的高度 */}
       {hasProgress && (
         <div
-          className="mx-2 h-0.5 -mt-0.5 overflow-hidden rounded-sm bg-muted/40"
+          className="mx-2 h-0.5 -mt-0.5 overflow-hidden rounded-md bg-muted/40"
           aria-hidden
           data-testid={`${testId ?? 'foldable'}-progress-bar`}
         >
           <div
             className={cn(
-              'h-full rounded-sm transition-all duration-300 ease-out',
+              'h-full rounded-md transition-all duration-300 ease-out',
               allDone ? 'bg-emerald-500/70' : 'bg-primary/60',
             )}
             style={{ width: `${progressPct}%` }}

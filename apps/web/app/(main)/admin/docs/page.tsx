@@ -241,7 +241,7 @@ export default function AdminDocsPage() {
                     >
                       <span
                         className={cn(
-                          'h-1.5 w-1.5 rounded-sm',
+                          'h-1.5 w-1.5 rounded-md',
                           d.status === 'published' ? 'bg-emerald-500' : 'bg-muted-foreground/50',
                         )}
                       />
@@ -386,7 +386,7 @@ export default function AdminDocsPage() {
                   onChange={(e) => setForm({ ...form, content: e.target.value })}
                   placeholder={t('contentPlaceholder')}
                   rows={6}
-                  className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
                 />
               ) : (
                 // 单栏全宽预览:弹窗固定 max-w-lg,挤两栏会把 prose 表格/代码块压出裁切(§4 读数不得断行)

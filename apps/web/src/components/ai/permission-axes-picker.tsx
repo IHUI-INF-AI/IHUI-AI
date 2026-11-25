@@ -84,7 +84,7 @@ function AxisChip({
       onClick={onClick}
       data-testid={testId}
       className={cn(
-        'inline-flex h-6 items-center rounded-sm px-1.5 text-[10px] font-medium transition-colors',
+        'inline-flex h-6 items-center rounded-md px-1.5 text-[10px] font-medium transition-colors',
         'disabled:cursor-not-allowed disabled:opacity-60',
         selected
           ? tone === 'danger'
@@ -130,7 +130,7 @@ export function PermissionAxesPicker({ disabled }: { disabled?: boolean }) {
           disabled={disabled || explicit === null}
           data-testid="permission-axes-follow"
           className={cn(
-            'ml-auto inline-flex h-5 items-center rounded-sm px-1.5 text-[10px] transition-colors',
+            'ml-auto inline-flex h-5 items-center rounded-md px-1.5 text-[10px] transition-colors',
             'disabled:cursor-not-allowed disabled:opacity-50',
             explicit === null
               ? 'bg-primary/10 text-foreground'
@@ -166,7 +166,7 @@ export function PermissionAxesPicker({ disabled }: { disabled?: boolean }) {
               aria-pressed={selected}
               data-testid={`permission-axes-preset-${preset}`}
               className={cn(
-                'inline-flex h-6 items-center rounded-sm border px-1.5 text-[10px] font-medium transition-colors',
+                'inline-flex h-6 items-center rounded-md border px-1.5 text-[10px] font-medium transition-colors',
                 'disabled:cursor-not-allowed disabled:opacity-60',
                 selected
                   ? 'border-stroke-selected bg-primary/5 text-foreground'

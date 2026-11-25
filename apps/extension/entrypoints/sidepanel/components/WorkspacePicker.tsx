@@ -54,14 +54,14 @@ export function WorkspacePicker() {
   if (workspace) {
     return (
       <div
-        className="flex items-center gap-1.5 ui-control rounded-sm border border-border bg-muted px-2 py-1.5 text-xs"
+        className="flex items-center gap-1.5 ui-control rounded-md border border-border bg-muted px-2 py-1.5 text-xs"
         data-testid="ext-workspace-picker"
       >
         <span className="min-w-0 flex-1 truncate text-foreground">{workspace.name}</span>
         <button
           type="button"
           aria-label={t('agent.clear')}
-          className="shrink-0 cursor-pointer rounded-sm border border-border bg-transparent p-1 text-muted-foreground hover:bg-muted/60"
+          className="shrink-0 cursor-pointer rounded-md border border-border bg-transparent p-1 text-muted-foreground hover:bg-muted/60"
           data-testid="ext-workspace-clear"
           onClick={() => clearActiveWorkspace()}
         >
@@ -75,7 +75,7 @@ export function WorkspacePicker() {
     <div className="flex flex-col" data-testid="ext-workspace-picker">
       <button
         type="button"
-        className="w-fit cursor-pointer rounded-sm border border-border bg-transparent px-2 py-1 text-xs text-muted-foreground hover:bg-muted/60"
+        className="w-fit cursor-pointer rounded-md border border-border bg-transparent px-2 py-1 text-xs text-muted-foreground hover:bg-muted/60"
         data-testid="ext-workspace-pick"
         onClick={() => {
           void handlePick()

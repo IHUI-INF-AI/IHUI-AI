@@ -30,7 +30,7 @@ export function MemoryCard({ entry, onDelete, onEdit, deleting }: MemoryCardProp
           </span>
           <span
             className={cn(
-              'rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+              'rounded-md px-1.5 py-0.5 text-[10px] font-medium',
               typeOpt?.color ?? 'bg-muted text-muted-foreground',
             )}
           >

@@ -220,7 +220,7 @@ function createStyles(tk: AppThemeTokens) {
     typeBtn: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['xs-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     typeBtnActive: { backgroundColor: tk.brandAccent.DEFAULT },
@@ -230,7 +230,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       minHeight: 94, // 对齐 Uniapp fankui text_area min-height 188rpx
       padding: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       color: tk.text.primary,
       fontSize: rnType.body.size,
@@ -239,7 +239,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       height: 50,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       color: tk.text.primary,
       fontSize: rnType.body.size,
@@ -294,7 +294,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       marginTop: rnSpacing.md,
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

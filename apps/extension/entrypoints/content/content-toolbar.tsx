@@ -227,7 +227,7 @@ export class ContentToolbar {
       'background:transparent',
       'color:inherit',
       'border:1px solid var(--color-accent-strong)',
-      'border-radius:${RADIUS_CSS_PX.sm}',
+      'border-radius:${RADIUS_CSS_PX.md}',
       'padding:4px 8px',
       'font:inherit',
       'cursor:pointer',
@@ -347,7 +347,7 @@ export class ContentToolbar {
         background: transparent;
         color: var(--color-foreground);
         border: 1px solid var(--color-accent-strong);
-        border-radius: ${RADIUS_CSS_PX.sm};
+        border-radius: ${RADIUS_CSS_PX.md};
         padding: 3px 8px;
         font: inherit;
         cursor: pointer;

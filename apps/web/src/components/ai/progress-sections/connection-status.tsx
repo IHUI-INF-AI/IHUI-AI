@@ -108,7 +108,7 @@ export const ConnectionStatus = React.memo(function ConnectionStatus({
     <Tooltip content={tooltip}>
       <span
         className={cn(
-          'inline-flex items-center gap-0.5 rounded-sm transition-colors',
+          'inline-flex items-center gap-0.5 rounded-md transition-colors',
           showTextLabel ? 'px-1' : '',
           className,
         )}

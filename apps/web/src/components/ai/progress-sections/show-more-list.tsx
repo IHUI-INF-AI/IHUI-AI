@@ -82,7 +82,7 @@ export function ShowMoreList<T>({
           type="button"
           onClick={() => setExpanded(true)}
           data-testid={`${base}-more`}
-          className="inline-flex items-center gap-1 rounded-sm px-1 text-[11px] text-muted-foreground/60 transition-colors hover:text-foreground/90 focus-visible:outline-none"
+          className="inline-flex items-center gap-1 rounded-md px-1 text-[11px] text-muted-foreground/60 transition-colors hover:text-foreground/90 focus-visible:outline-none"
         >
           {moreLabel} ({hiddenCount})
         </button>
@@ -93,7 +93,7 @@ export function ShowMoreList<T>({
           type="button"
           onClick={() => setExpanded(false)}
           data-testid={`${base}-less`}
-          className="inline-flex items-center gap-1 rounded-sm px-1 text-[11px] text-muted-foreground/60 transition-colors hover:text-foreground/90 focus-visible:outline-none"
+          className="inline-flex items-center gap-1 rounded-md px-1 text-[11px] text-muted-foreground/60 transition-colors hover:text-foreground/90 focus-visible:outline-none"
         >
           {lessLabel}
         </button>

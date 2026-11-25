@@ -15,6 +15,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom } from '@tarojs/taro'
 import { BASE_URL } from '@/utils/api-config'
 import ThemeRoot from '@/components/ThemeRoot'
+import { rnRadius } from '@ihui/design-tokens'
 import { useTt } from '@/i18n'
 import type { ArticleRow, Envelope } from './types'
 import { PAGE_SIZE, authHeader, fmtDate, goDetail } from './helpers'
@@ -118,7 +119,7 @@ export default function SquarePage() {
               style={{
                 marginTop: '24rpx',
                 padding: '12rpx 32rpx',
-                borderRadius: '999rpx',
+                borderRadius: rnRadius.md,
                 backgroundColor: 'var(--color-muted)',
               }}
             >
@@ -135,7 +136,7 @@ export default function SquarePage() {
               style={{
                 marginTop: '24rpx',
                 padding: '12rpx 32rpx',
-                borderRadius: '999rpx',
+                borderRadius: rnRadius.md,
                 backgroundColor: 'var(--color-muted)',
               }}
             >

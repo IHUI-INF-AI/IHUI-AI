@@ -142,7 +142,7 @@ function createStyles(tk: AppThemeTokens) {
     useBtn: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing['xs-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     useText: { fontSize: rnType.body.size, color: tk.surface.light },

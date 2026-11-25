@@ -67,8 +67,8 @@ export function ThemeCard() {
                 data-testid={`appearance-accent-${accent}`}
                 className={
                   active
-                    ? 'flex flex-col items-center gap-1 rounded-sm border border-brand-accent-deep bg-primary/5 px-2 py-2 text-body text-primary'
-                    : 'flex flex-col items-center gap-1 rounded-sm border px-2 py-2 text-body hover:bg-accent hover:text-accent-foreground'
+                    ? 'flex flex-col items-center gap-1 rounded-md border border-brand-accent-deep bg-primary/5 px-2 py-2 text-body text-primary'
+                    : 'flex flex-col items-center gap-1 rounded-md border px-2 py-2 text-body hover:bg-accent hover:text-accent-foreground'
                 }
               >
                 <span
@@ -91,11 +91,11 @@ export function ThemeCard() {
           })}
         </div>
         {/* 实时预览:主色按钮 + 描边 + 正文,让选择立刻可见 */}
-        <div className="flex flex-wrap items-center gap-2 rounded-sm border bg-muted/30 p-2.5">
-          <span className="rounded-sm bg-cta px-2.5 py-1 text-label font-medium text-cta-foreground">
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-2.5">
+          <span className="rounded-md bg-cta px-2.5 py-1 text-label font-medium text-cta-foreground">
             {t('themePreviewPrimary')}
           </span>
-          <span className="rounded-sm border border-brand-accent-deep px-2.5 py-1 text-label text-primary">
+          <span className="rounded-md border border-brand-accent-deep px-2.5 py-1 text-label text-primary">
             {t('themePreviewOutline')}
           </span>
           <span className="text-label text-muted-foreground">{t('themePreviewText')}</span>
@@ -116,7 +116,7 @@ export function ThemeCard() {
             { value: 'rounded', label: t('radiusRounded') },
           ]}
         />
-        <div className="flex justify-center rounded-sm border bg-muted/30 p-2">
+        <div className="flex justify-center rounded-md border bg-muted/30 p-2">
           <div
             className="h-10 w-24 bg-primary/15 ring-1 ring-stroke-selected/30"
             style={{ borderRadius: 'var(--radius-lg)' }}

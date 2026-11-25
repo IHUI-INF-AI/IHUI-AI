@@ -43,7 +43,7 @@ export function TrendChart({ data, range, onRangeChange }: TrendChartProps) {
             key={r.key}
             type="button"
             onClick={() => onRangeChange(r.key)}
-            className={`rounded-sm px-2 py-0.5 text-[11px] transition-colors ${
+            className={`rounded-md px-2 py-0.5 text-[11px] transition-colors ${
               range === r.key
                 ? 'bg-primary/10 text-primary font-medium'
                 : 'text-muted-foreground hover:text-foreground'

@@ -126,7 +126,7 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
           <Clock className="h-4 w-4 text-primary" />
           {t('title')}
           {customMode && (
-            <span className="ml-1 rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-normal text-amber-600">
+            <span className="ml-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-normal text-amber-600">
               {t('customFallback', { defaultValue: '自定义表达式' })}
             </span>
           )}

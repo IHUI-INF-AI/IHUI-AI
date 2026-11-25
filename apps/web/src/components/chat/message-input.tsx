@@ -238,7 +238,7 @@ export function PromptPolishEntry({
       onClick={onPolish}
       aria-label={t('ariaLabel')}
       title={`${t('entryLabel')} · ${phaseLabel[state.phase]}`}
-      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm px-2 text-label text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-label text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
     >
       <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
       <span>{t('entryLabel')}</span>
@@ -1736,7 +1736,7 @@ export function MessageInput({
                 </div>
                 {/* 主操作独立成组且 shrink-0:发送/停止在任何宽度下都不参与收缩,永远可见可点 */}
                 <div className="ai-input-toolbar-send flex shrink-0 items-center gap-1">
-                  {/* 发送/停止(2026-09-30 修订,用户规则:项目禁止圆形发送按钮,改方形 rounded-sm;
+                  {/* 发送/停止(2026-09-30 修订,用户规则:项目禁止圆形发送按钮,改方形 rounded-md;
                     空输入禁用(灰),有内容 bg-cta 主色 + ArrowUp;
                     流式中切三枚同规格方形:Steer(琥珀,中途引导)/ 打断并发送(紫罗兰)/
                     Stop(天蓝)。2026-10-08 用户指令:收编 token 体系 —— 尺寸同源

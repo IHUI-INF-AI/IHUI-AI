@@ -199,7 +199,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     contactBtn: {
       backgroundColor: tk.brand.cta,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
     },

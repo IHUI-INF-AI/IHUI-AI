@@ -69,7 +69,7 @@
   color: var(--color-cta-foreground);
   background: var(--color-cta);
   padding: var(--spacing-xs-loose) var(--spacing-sm-loose);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 /* 可提现/已提现行 — 对齐 RN sumRow(marginTop 16)+ sumSubLabel/sumSubAmount */

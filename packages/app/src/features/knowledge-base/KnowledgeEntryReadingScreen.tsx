@@ -328,7 +328,7 @@ function createStyles(tk: AppThemeTokens) {
     tagChip: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.light,
     },
     tagText: {

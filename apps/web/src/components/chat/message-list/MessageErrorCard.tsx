@@ -258,7 +258,7 @@ export function MessageErrorCard({
             type="button"
             onClick={onRetry}
             data-testid={`message-retry-${messageId}`}
-            className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           >
             <RefreshCw className="h-3 w-3" aria-hidden="true" />
             <span>{t('retry')}</span>

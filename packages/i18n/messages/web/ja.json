@@ -9665,7 +9665,11 @@
       "ckPaymentConfirmDone": "支払い結果の確認",
       "ckDownloadExportExport": "生成/エクスポートを実行",
       "ckDownloadExportDownload": "ダウンロード開始",
-      "ckDownloadExportDone": "成果物の確認完了"
+      "ckDownloadExportDone": "成果物の確認完了",
+      "autoMonitor": "新しいセッションを自動監視",
+      "close": "閉じる",
+      "minimize": "最小化",
+      "expandWindow": "展開"
     },
     "resizeFloatHint": "サイズ変更",
     "bindIssue": "Issueを紐付ける",
@@ -20364,7 +20368,8 @@
     "hrMyPerf": "自分の評価",
     "hrMyTraining": "自分の研修",
     "hrMyExpense": "自分の経費",
-    "financeGroup": "財務部"
+    "financeGroup": "財務部",
+    "connectors": "コネクタ"
   },
   "news": {
     "allCategories": "All categories",
@@ -21772,7 +21777,9 @@
       "uploadFileHint": "docx/pdf/画像/動画対応、ドラッグまたはクリックでアップロード",
       "uploadSuccess": "アップロード済み: {filename}",
       "uploadedHint": "ファイルがアップロードされました。再選択で置換できます。",
-      "uploading": "アップロード中..."
+      "uploading": "アップロード中...",
+      "usePool": "アカウントプールを使用",
+      "usePoolHint": "利用可能なアカウントをシステムが自動で割り当てます"
     },
     "platforms": {
       "36kr": "36Kr",
@@ -24349,6 +24356,15 @@
     "purchase": "会員を購入"
   },
   "wallet": {
+    "flowRecharge": "チャージ",
+    "flowDeduct": "減算",
+    "flowExpire": "期限切れ",
+    "flowRefund": "返金取消",
+    "flowRelayRecharge": "APIキーへ振替",
+    "flowAdminAdjust": "管理者調整",
+    "flowQuota": "クォータ変更",
+    "flowPointsExchange": "AIポイントに交換",
+    "flowOther": "その他",
     "autoTopUp": {
       "title": "自動チャージ",
       "description": "残高がしきい値を下回ると、目標残高まで自動チャージします。",

@@ -57,7 +57,7 @@ export function CanvasVersionMenu({ versions, onRevert }: CanvasVersionMenuProps
           onClick={() => setOpen((v) => !v)}
           aria-label={t('canvasVersions')}
           aria-expanded={open}
-          className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
         >
           <History className="h-3.5 w-3.5" />
         </button>
@@ -83,7 +83,7 @@ export function CanvasVersionMenu({ versions, onRevert }: CanvasVersionMenuProps
               setOpen(false)
             }}
             aria-label={t('canvasRevert')}
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-muted/60"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted/60"
           >
             <span className="w-20 shrink-0 text-[10px] text-muted-foreground">
               {i === 0 ? t('canvasEdited') : formatRelativeTime(v.savedAt, locale)}
@@ -182,7 +182,7 @@ export function CanvasOverlay() {
             onClick={() => setTab('preview')}
             aria-pressed={tab === 'preview'}
             className={cn(
-              'inline-flex items-center gap-1 rounded-sm px-2 py-1 text-[11px]',
+              'inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px]',
               tab === 'preview'
                 ? 'bg-muted text-foreground'
                 : 'text-muted-foreground hover:bg-muted/60',
@@ -196,7 +196,7 @@ export function CanvasOverlay() {
             onClick={() => setTab('code')}
             aria-pressed={tab === 'code'}
             className={cn(
-              'inline-flex items-center gap-1 rounded-sm px-2 py-1 text-[11px]',
+              'inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px]',
               tab === 'code'
                 ? 'bg-muted text-foreground'
                 : 'text-muted-foreground hover:bg-muted/60',
@@ -211,7 +211,7 @@ export function CanvasOverlay() {
               type="button"
               onClick={applyEdit}
               disabled={!dirty}
-              className="rounded-sm bg-cta px-2 py-1 text-[11px] text-cta-foreground disabled:opacity-40"
+              className="rounded-md bg-cta px-2 py-1 text-[11px] text-cta-foreground disabled:opacity-40"
             >
               {t('canvasApplyRefresh')}
             </button>

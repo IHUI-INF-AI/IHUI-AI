@@ -58,7 +58,7 @@ export default function ManualGettingStartedPage() {
                 <li><strong>微信扫码</strong>:微信扫一扫二维码 → 关注公众号 → 完成注册</li>
               </ul>
             </li>
-            <li>注册成功后,系统自动赠送 <strong>1000 积分</strong>(可对话约 500 轮,够用 1-2 个月)</li>
+            <li>注册成功后,每天自动赠送 <strong>100 积分</strong>(当天有效,跨日清零);需要更多可在钱包充值后按 1 分 = 1 积分兑换</li>
           </ol>
           <p className="font-[weight:inherit] rounded bg-muted/60 p-3 text-label">
             <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />

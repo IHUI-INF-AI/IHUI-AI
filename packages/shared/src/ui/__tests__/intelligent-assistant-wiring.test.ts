@@ -102,7 +102,7 @@ const CROSS_END_WEIGHT_TIER = 'IA_HEADING_FONT_WEIGHT'
  *  A 一端根本没有该元素(往另一端补引用 = 往屏幕上加一个不存在的节点);
  *  B 同一元素两端按已裁决的变体契约取不同档 —— 本族 **0 枚**(11 枚共用档已全部同值);
  *  C 同槽位留白,两端各由自身机制决定(量纲/机制不同,不是同一个量的两条写法)。
- * RN 的胶囊圆角 4(`rnRadius.sm`)不是 spec 具名档(圆角走 `radius.js` 单一源),故不在本表。
+ * RN 的胶囊圆角 4(`rnRadius.md`)不是 spec 具名档(圆角走 `radius.js` 单一源),故不在本表。
  */
 const SINGLE_END_TIERS: ReadonlyArray<{ tier: string; owner: LegName; why: string }> = [
   // ── A 一端根本没有该元素 ──

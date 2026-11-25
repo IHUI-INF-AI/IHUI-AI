@@ -29,7 +29,7 @@ export function InstanceLogs({ logs, isLoading, logLevel, setLogLevel, fmt }: Pr
           {t('instanceDetail.logs')}
         </h2>
         <Select value={logLevel} onValueChange={(v) => setLogLevel(v as 'all' | LogLevel)}>
-          <SelectTrigger className="h-8 rounded-sm border border-input bg-transparent px-2 py-1 text-label shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus">
+          <SelectTrigger className="h-8 rounded-md border border-input bg-transparent px-2 py-1 text-label shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

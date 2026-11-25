@@ -68,7 +68,7 @@ export function AgentCreateForm({
           onChange={(e) => update('description', e.target.value)}
           placeholder={t('fieldDescriptionPlaceholder')}
           rows={4}
-          className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+          className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         />
       </div>
 
@@ -169,7 +169,7 @@ export function AgentCreateForm({
           value={form.remark}
           onChange={(e) => update('remark', e.target.value)}
           rows={2}
-          className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+          className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         />
       </div>
 
@@ -242,7 +242,7 @@ function SkillCheckboxList({ selected, onChange }: SkillCheckboxListProps) {
         return (
           <label
             key={skill.id}
-            className="flex cursor-pointer items-start gap-2 ui-control rounded-sm border bg-card px-3 py-2 text-body transition-colors hover:bg-accent/50 has-[:checked]:border-stroke-selected has-[:checked]:bg-primary/5"
+            className="flex cursor-pointer items-start gap-2 ui-control rounded-md border bg-card px-3 py-2 text-body transition-colors hover:bg-accent/50 has-[:checked]:border-stroke-selected has-[:checked]:bg-primary/5"
           >
             <input
               type="checkbox"
@@ -260,7 +260,7 @@ function SkillCheckboxList({ selected, onChange }: SkillCheckboxListProps) {
                   {skill.tags.slice(0, 3).map((tag) => (
                     <span
                       key={tag}
-                      className="rounded-sm bg-muted px-1 py-0.5 text-[10px] text-muted-foreground"
+                      className="rounded-md bg-muted px-1 py-0.5 text-[10px] text-muted-foreground"
                     >
                       {tag}
                     </span>

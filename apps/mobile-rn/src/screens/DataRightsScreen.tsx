@@ -370,7 +370,7 @@ function makeStyles() {
     error: { fontSize: rnType.bodySm.size, color: tokens.danger.deepText },
     button: {
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -384,7 +384,7 @@ function makeStyles() {
     disabled: { opacity: 0.5 },
     outlineButton: {
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       alignItems: 'center',
@@ -393,14 +393,14 @@ function makeStyles() {
     outlineText: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
     dangerButton: {
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.danger.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
     dangerOutline: {
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.danger.DEFAULT,
       alignItems: 'center',
@@ -411,7 +411,7 @@ function makeStyles() {
     dangerBox: {
       gap: rnSpacing.sm,
       padding: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.danger.DEFAULT,
       backgroundColor: tokens.surface.bg,
@@ -421,7 +421,7 @@ function makeStyles() {
     input: {
       height: 42,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
@@ -431,7 +431,7 @@ function makeStyles() {
     resultBox: {
       gap: rnSpacing.xs,
       padding: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.bg,
     },
     receiptRow: {

@@ -373,7 +373,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
                 <button
                   type="button"
                   onClick={onRetry}
-                  className="rounded-sm border border-stroke-default px-3 py-1.5 text-xs hover:bg-muted"
+                  className="rounded-md border border-stroke-default px-3 py-1.5 text-xs hover:bg-muted"
                 >
                   {labels.retry}
                 </button>
@@ -382,7 +382,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
                 <button
                   type="button"
                   onClick={() => onOpenExternal(url)}
-                  className="inline-flex items-center gap-1.5 rounded-sm bg-cta px-3 py-1.5 text-xs text-cta-foreground hover:bg-cta/90"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-cta px-3 py-1.5 text-xs text-cta-foreground hover:bg-cta/90"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                   <span>{labels.openExternal}</span>

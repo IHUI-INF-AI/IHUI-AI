@@ -528,7 +528,7 @@ export default function DocumentsPage() {
               </div>
             </div>
             {/* 阅读进度条:2px 高,随内容滚动百分比填充 */}
-            <div className="h-0.5 shrink-0 overflow-hidden rounded-sm bg-muted">
+            <div className="h-0.5 shrink-0 overflow-hidden rounded-md bg-muted">
               <div
                 className="h-full bg-cta transition-[width] duration-100 ease-out"
                 style={{ width: `${progress}%` }}

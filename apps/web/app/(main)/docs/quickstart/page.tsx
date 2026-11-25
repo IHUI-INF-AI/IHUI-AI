@@ -51,7 +51,7 @@ const quickstartJsonLd = {
           '@type': 'HowToStep',
           position: 1,
           name: '注册账号',
-          text: '访问 https://aizhs.top/sso/register,使用邮箱或 GitHub 登录,无需信用卡,注册即得 1000 积分。',
+          text: '访问 https://aizhs.top/sso/register,使用邮箱或 GitHub 登录,无需信用卡;注册后每天赠送 100 积分(当天有效)。',
           url: 'https://aizhs.top/sso/register',
           image: 'https://aizhs.top/images/logo.png',
         },
@@ -167,7 +167,7 @@ const quickstartJsonLd = {
           name: '需要付费吗?有免费版吗?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: '有免费版。注册即得 1000 积分,全模型免费试用,无需信用卡。Pro 版 ¥49/月,提供 10000 积分 + 优先队列 + 高级 RAG。Team 版 ¥299/月/人,提供共享积分池 + RBAC + 审计日志。企业版支持私有化部署,定制报价。',
+            text: '有免费版。每天赠送 100 积分(当天有效),全模型可试用,无需信用卡;需要更多可在钱包充值后按 1 分 = 1 积分兑换。Pro 版 ¥49/月,按月发放 AI 预算 / 配额 + 优先队列 + 高级 RAG。Team 版 ¥299/月/人,提供共享 AI 预算 + RBAC + 审计日志。企业版支持私有化部署,定制报价。',
           },
         },
         {
@@ -306,7 +306,7 @@ export default function QuickstartPage() {
                   <a href="https://aizhs.top/sso/register" className="text-primary underline">
                     https://aizhs.top/sso/register
                   </a>
-                  ,使用邮箱或 GitHub/Google/微信 登录,无需信用卡,注册即得 1000 积分。
+                  ,使用邮箱或 GitHub/Google/微信 登录,无需信用卡;注册后每天赠送 100 积分(当天有效)。
                 </p>
                 <p className="font-[weight:inherit] text-label text-muted-foreground">
                   <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />

@@ -205,7 +205,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       width: '100%',
       height: '100%',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.card,

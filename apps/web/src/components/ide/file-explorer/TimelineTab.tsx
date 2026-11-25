@@ -111,7 +111,7 @@ export function TimelineTab({ workspacePath }: TimelineTabProps) {
         return (
           <div
             key={item.id}
-            className="flex cursor-pointer items-center gap-1.5 rounded-sm px-2 py-1 text-label hover:bg-muted/50"
+            className="flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-label hover:bg-muted/50"
           >
             <TIcon className={cn('h-3.5 w-3.5 shrink-0', TIMELINE_COLOR[item.type])} />
             <div className="flex flex-1 flex-col">

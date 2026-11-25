@@ -1698,6 +1698,7 @@
     }
   },
   "wallet": {
+    "flowPointsExchange": "兑换 AI 积分",
     "title": "我的钱包",
     "balance": "可用余额",
     "frozen": "冻结金额",

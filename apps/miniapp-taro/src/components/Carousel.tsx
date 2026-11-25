@@ -239,11 +239,11 @@ export default function Carousel({
                     {meta.isFree || meta.price !== undefined || meta.tag ? (
                       <View className="flex items-center gap-sm mt-xs">
                         {meta.isFree ? (
-                          <Text className="text-label text-success-foreground bg-success px-sm py-[4rpx] rounded-sm">
+                          <Text className="text-label text-success-foreground bg-success px-sm py-[4rpx] rounded-md">
                             {tt('course.free', '免费')}
                           </Text>
                         ) : meta.price !== undefined ? (
-                          <Text className="text-label text-cta-foreground bg-cta px-sm py-[4rpx] rounded-sm">
+                          <Text className="text-label text-cta-foreground bg-cta px-sm py-[4rpx] rounded-md">
                             ¥{meta.price}
                           </Text>
                         ) : null}
@@ -279,7 +279,7 @@ export default function Carousel({
                   'transition-all',
                   activeIndex === index
                     ? 'rounded-md bg-foreground/80'
-                    : 'rounded-sm bg-foreground/30',
+                    : 'rounded-md bg-foreground/30',
                 )}
               />
             </View>

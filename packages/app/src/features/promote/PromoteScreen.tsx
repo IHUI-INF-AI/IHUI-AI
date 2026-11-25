@@ -211,7 +211,7 @@ function createStyles(tk: AppThemeTokens) {
     linkBtn: {
       flex: 1,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
     },
     copyBtn: { backgroundColor: tk.brand.cta },

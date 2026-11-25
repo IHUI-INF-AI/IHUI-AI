@@ -28,19 +28,19 @@ interface CostRow {
 const costRows: CostRow[] = [
   {
     model: 'DeepSeek V3.2',
-    mult: '0.3x',
-    cost: '0.3 积分 / 1K Token',
-    tag: '几乎免费',
+    mult: '1x',
+    cost: '1 积分 / 1K Token',
+    tag: '经济',
     Icon: Gift,
   },
-  { model: 'Qwen-Turbo', mult: '0.5x', cost: '0.5 积分 / 1K Token', tag: '便宜', Icon: Gift },
-  { model: 'GPT-4o-mini', mult: '0.5x', cost: '0.5 积分 / 1K Token', tag: '便宜', Icon: Coins },
-  { model: 'Claude Haiku 3.5', mult: '1x', cost: '1 积分 / 1K Token', tag: '标准', Icon: Coins },
-  { model: 'Qwen3-Max', mult: '1x', cost: '1 积分 / 1K Token', tag: '标准', Icon: Coins },
-  { model: 'GPT-4o', mult: '3x', cost: '3 积分 / 1K Token', tag: '旗舰', Icon: Star },
-  { model: 'Claude Sonnet 4.5', mult: '3x', cost: '3 积分 / 1K Token', tag: '旗舰', Icon: Star },
-  { model: 'Claude Opus 4.5', mult: '5x', cost: '5 积分 / 1K Token', tag: '顶级', Icon: Gem },
-  { model: 'o3-mini', mult: '5x', cost: '5 积分 / 1K Token', tag: '推理', Icon: Brain },
+  { model: 'Qwen-Turbo', mult: '1x', cost: '1 积分 / 1K Token', tag: '经济', Icon: Gift },
+  { model: 'GPT-4o-mini', mult: '1x', cost: '1 积分 / 1K Token', tag: '经济', Icon: Coins },
+  { model: 'Claude Haiku 3.5', mult: '1x', cost: '1 积分 / 1K Token', tag: '经济', Icon: Coins },
+  { model: 'GPT-4o', mult: '3x', cost: '3 积分 / 1K Token', tag: '标准', Icon: Star },
+  { model: 'Claude Sonnet 4.5', mult: '3x', cost: '3 积分 / 1K Token', tag: '标准', Icon: Star },
+  { model: 'Claude Opus 4.5', mult: '10x', cost: '10 积分 / 1K Token', tag: '高级', Icon: Gem },
+  { model: 'o3-mini', mult: '10x', cost: '10 积分 / 1K Token', tag: '高级', Icon: Brain },
+  { model: '旗舰推理模型', mult: '30x', cost: '30 积分 / 1K Token', tag: '旗舰', Icon: Gem },
   { model: 'Ollama(本地)', mult: '0x', cost: '0 积分', tag: '完全免费', Icon: Gift },
 ]
 
@@ -87,7 +87,7 @@ export default function ManualBillingPage() {
         <h2 className="text-heading font-bold">5.1 积分消耗规则</h2>
         <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-3 text-body text-muted-foreground">
           <p>
-            <strong>1 积分 ≈ 1000 Token</strong>(标准模型),贵模型消耗多,便宜模型消耗少:
+            <strong>1 积分 = 1 分钱（¥0.01）</strong>。LLM 按 token 计费：1 积分 ≈ 1000 token × 模型倍率；图片 / 视频 / 语音按次或按秒报价，价格直接来自模型定价表。
           </p>
           <div className="space-y-2">
             {costRows.map(({ model, mult, cost, tag, Icon }, i) => (
@@ -108,7 +108,7 @@ export default function ManualBillingPage() {
           <p className="font-[weight:inherit] rounded bg-muted/60 p-3 text-label">
             <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
             <strong>省积分技巧</strong>:日常对话用 DeepSeek(几乎免费),重要任务才用 GPT-4o / Claude。
-            1000 积分用 DeepSeek 可对话 5000+ 轮,用 GPT-4o 只能 50 轮。
+            1000 积分用 DeepSeek 可对话 5000+ 轮,用 GPT-4o 只能 50 轮。图片、视频、语音按模型定价表单独计价,不套用 LLM 倍率。
           </p>
         </div>
       </section>
@@ -149,7 +149,7 @@ export default function ManualBillingPage() {
             <p className="mt-1 text-display font-bold">¥0</p>
             <p className="font-[weight:inherit] text-label text-muted-foreground">永久免费</p>
             <ul className="font-[weight:inherit] mt-3 ml-4 list-disc space-y-1 text-label text-muted-foreground">
-              <li>1,000 积分(注册赠送,用完可继续用免费模型)</li>
+              <li>每天赠送 100 积分(当天有效,跨日清零)</li>
               <li>全模型可用(含 GPT-4o / Claude)</li>
               <li>3 个 Agent / 1 个知识库(1GB)</li>
               <li>历史对话保留 30 天</li>
@@ -166,7 +166,7 @@ export default function ManualBillingPage() {
               按月订阅,随时取消
             </p>
             <ul className="font-[weight:inherit] mt-3 ml-4 list-disc space-y-1 text-label text-muted-foreground">
-              <li>10,000 积分 / 月(用完可单独购买)</li>
+              <li>按月发放 AI 预算 / 配额(不直接发积分,额度以订阅页为准)</li>
               <li>优先队列(高峰期不排队)</li>
               <li>无限 Agent / 10 个知识库(各 5GB)</li>
               <li>历史对话永久保留</li>
@@ -185,7 +185,7 @@ export default function ManualBillingPage() {
               / 5 人(每加 1 人 +¥49)
             </p>
             <ul className="font-[weight:inherit] mt-3 ml-4 list-disc space-y-1 text-label text-muted-foreground">
-              <li>共享 50,000 积分 / 月</li>
+              <li>共享 AI 预算 / 配额(不直接发积分,额度以订阅页为准)</li>
               <li>5 个成员席位</li>
               <li>完整 RBAC(7 级角色)</li>
               <li>团队知识库共享(100GB)</li>
@@ -216,26 +216,20 @@ export default function ManualBillingPage() {
 
       {/* 充值 */}
       <section id="recharge" className="mt-10 space-y-3">
-        <h2 className="text-heading font-bold">5.4 充值积分</h2>
+        <h2 className="text-heading font-bold">5.4 充值钱包并兑换 AI 积分</h2>
         <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-3 text-body text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
-            <li>设置 → 积分 → "充值"按钮</li>
-            <li>
-              选择充值档位:
-              <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 mt-1 text-label">
-                <li>1,000 积分 ¥9.9</li>
-                <li>5,000 积分 ¥45(95 折)</li>
-                <li>10,000 积分 ¥85(85 折)</li>
-                <li>50,000 积分 ¥399(80 折)</li>
-                <li>100,000 积分 ¥699(70 折,最划算)</li>
-              </ul>
-            </li>
+            <li>设置 → 钱包 → "充值",选择档位并完成支付,到账金额进入钱包余额(单位:分)</li>
+            <li>打开 设置 → 钱包 → "钱包余额兑换 AI 积分",输入要兑换的积分数(最低 100,即 ¥1)</li>
+            <li>确认后按 1 分 = 1 积分实时到账;同一幂等键不会重复扣款</li>
             <li>支付方式:支付宝 / 微信 / PayPal / USDT / 公对公转账</li>
-            <li>支付成功后积分实时到账</li>
           </ol>
           <p className="font-[weight:inherit] rounded bg-muted/60 p-3 text-label">
             <AlertTriangle className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
-            <strong>积分有效期</strong>:充值积分永久有效;套餐赠送积分月底清零(Pro / Team)。
+            <strong>两本账别混</strong>:钱包余额用于充值、提现、Relay 转账;AI 积分用于模型调用。两者通过兑换桥打通,不再把钱包余额直接当积分扣。
+          </p>
+          <p className="font-[weight:inherit] rounded bg-muted/60 p-3 text-label">
+            <strong>积分有效期</strong>:兑换后的积分长期有效;每日赠送的 100 积分当天有效,跨日清零。
           </p>
         </div>
       </section>

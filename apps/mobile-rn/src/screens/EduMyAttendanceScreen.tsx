@@ -204,7 +204,7 @@ function createScreenStyles(tk: ReturnType<typeof getTokens>) {
     ctaBtn: {
       marginHorizontal: rnSpacing.lg,
       marginTop: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       paddingVertical: rnSpacing.sm,
       paddingHorizontal: rnSpacing.lg,
@@ -229,7 +229,7 @@ function createScreenStyles(tk: ReturnType<typeof getTokens>) {
       gap: rnSpacing.xs,
       marginHorizontal: rnSpacing.lg,
       marginTop: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,

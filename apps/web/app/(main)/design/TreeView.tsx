@@ -45,7 +45,7 @@ export function TreeView({
           padding: '3px 6px',
           border: 'none',
           background: isSelected ? 'var(--accent-soft, rgba(0,0,0,0.06))' : 'transparent',
-          borderRadius: rnRadius.sm,
+          borderRadius: rnRadius.md,
           textAlign: 'left',
           fontSize: 11,
           cursor: 'pointer',

@@ -9630,7 +9630,11 @@
       "ckPaymentConfirmDone": "支付結果確認",
       "ckDownloadExportExport": "已觸發生成/匯出",
       "ckDownloadExportDownload": "下載已開始",
-      "ckDownloadExportDone": "產物核對完成"
+      "ckDownloadExportDone": "產物核對完成",
+      "autoMonitor": "自動監看新工作階段",
+      "close": "關閉",
+      "minimize": "最小化",
+      "expandWindow": "展開"
     },
     "resizeFloatHint": "調整大小",
     "earlier": "更早"
@@ -20421,7 +20425,8 @@
     "hrMyPerf": "我的績效",
     "hrMyTraining": "我的培訓",
     "hrMyExpense": "我的報銷",
-    "financeGroup": "財務部"
+    "financeGroup": "財務部",
+    "connectors": "連接器"
   },
   "news": {
     "allCategories": "全部分類",
@@ -21752,7 +21757,9 @@
       "uploadFileHint": "支持 docx/pdf/圖片/視頻,拖拽或點擊上傳",
       "uploadSuccess": "已上傳: {filename}",
       "uploadedHint": "文件已上傳,可重新選擇替換",
-      "uploading": "上傳中..."
+      "uploading": "上傳中...",
+      "usePool": "使用賬號池",
+      "usePoolHint": "由系統自動分配可用賬號,無需手動選擇"
     },
     "platforms": {
       "36kr": "36氪",
@@ -24256,6 +24263,15 @@
     "purchase": "購買會員"
   },
   "wallet": {
+    "flowRecharge": "充值",
+    "flowDeduct": "扣減",
+    "flowExpire": "過期",
+    "flowRefund": "退款扣回",
+    "flowRelayRecharge": "轉帳至 API Key",
+    "flowAdminAdjust": "管理員調整",
+    "flowQuota": "配額類變動",
+    "flowPointsExchange": "兌換 AI 積分",
+    "flowOther": "其他變動",
     "autoTopUp": {
       "title": "自動儲值",
       "description": "餘額低於門檻時,自動儲值到目標餘額。",

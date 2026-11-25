@@ -77,7 +77,7 @@ export default function ChatHistoryPage() {
         <button
           type="button"
           onClick={() => void load()}
-          className="px-3 py-1.5 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+          className="px-3 py-1.5 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
         >
           {t('common.retry')}
         </button>
@@ -94,7 +94,7 @@ export default function ChatHistoryPage() {
           <button
             type="button"
             onClick={() => navigate('/chat/import')}
-            className="px-2 py-1 text-[11px] rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+            className="px-2 py-1 text-[11px] rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
           >
             {t('conversationImport.entry')}
           </button>
@@ -121,7 +121,7 @@ export default function ChatHistoryPage() {
                     e.stopPropagation()
                     void onDelete(c.id)
                   }}
-                  className="shrink-0 px-2 py-1 text-[11px] rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="shrink-0 px-2 py-1 text-[11px] rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
                 >
                   {t('common.delete')}
                 </button>

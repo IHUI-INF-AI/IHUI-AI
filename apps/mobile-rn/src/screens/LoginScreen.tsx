@@ -1444,7 +1444,7 @@ const styles = StyleSheet.create({
     top: 158,
     paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(8),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: withAlpha(tokens.brandAccent.DEFAULT, 0.85),
     zIndex: 999,
     // 豁免类别:调试浮钮的层叠顺序(非阴影层级)—— elevation 999 与 zIndex 配套把按钮顶到最上层,
@@ -1460,7 +1460,7 @@ const styles = StyleSheet.create({
   // 规格对齐主登录按钮 loginBtn(高 40),作为 phone tab 置顶首选 CTA;圆角按角色表 control→sm(4)
   carrierOneKeyBtn: {
     height: 40,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1562,7 +1562,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   agreementModalCancelText: {
     fontSize: rpx(32),
@@ -1574,7 +1574,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.brand.cta,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   agreementModalConfirmText: {
     fontSize: rpx(32),
@@ -1585,7 +1585,7 @@ const styles = StyleSheet.create({
     height: rpx(88),
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     paddingHorizontal: rpx(taroSpacing['sm-loose']),
     fontSize: rpx(30),
     color: tokens.text.primary,

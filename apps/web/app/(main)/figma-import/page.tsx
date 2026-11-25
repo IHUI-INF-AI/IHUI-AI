@@ -98,7 +98,7 @@ export default function FigmaImportPage() {
               type="button"
               onClick={() => setTarget(k)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-body font-medium',
+                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-body font-medium',
                 target === k
                   ? 'bg-cta text-cta-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-accent',
@@ -114,7 +114,7 @@ export default function FigmaImportPage() {
             value={fileKey}
             onChange={(e) => setFileKey(e.target.value)}
             placeholder={t('fileKeyPlaceholder')}
-            className="h-9 rounded-sm border border-input bg-background px-3 text-body outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="h-9 rounded-md border border-input bg-background px-3 text-body outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           />
           <input
             value={nodeId}
@@ -123,7 +123,7 @@ export default function FigmaImportPage() {
               if (e.key === 'Enter' && !running) void run()
             }}
             placeholder={t('nodeIdPlaceholder')}
-            className="h-9 rounded-sm border border-input bg-background px-3 text-body outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="h-9 rounded-md border border-input bg-background px-3 text-body outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           />
         </div>
 

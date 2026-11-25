@@ -191,7 +191,7 @@ export function AnnotationAnchorCapture({
             onChange={(e) => setNote(e.target.value)}
             placeholder={t('taskInputPlaceholder')}
             rows={2}
-            className="w-full resize-none rounded-sm border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="w-full resize-none rounded-md border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             data-testid="annotation-anchor-note"
           />
           <div className="flex flex-wrap items-center gap-1">
@@ -199,7 +199,7 @@ export function AnnotationAnchorCapture({
               type="button"
               onClick={handleAdd}
               disabled={note.trim().length === 0 || state === 'added'}
-              className="inline-flex items-center rounded-sm bg-cta px-2 py-0.5 text-[10px] font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center rounded-md bg-cta px-2 py-0.5 text-[10px] font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
               data-action="add"
             >
               {t('addToTask')}
@@ -210,7 +210,7 @@ export function AnnotationAnchorCapture({
                 onDispose?.(anchor)
                 setState((prev) => applyAnchorAction(prev, 'cancel'))
               }}
-              className="rounded-sm px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/60"
+              className="rounded-md px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/60"
               data-action="cancel"
             >
               {t('cancel')}
@@ -221,7 +221,7 @@ export function AnnotationAnchorCapture({
                 onDispose?.(anchor)
                 setState((prev) => applyAnchorAction(prev, 'delete'))
               }}
-              className="rounded-sm px-2 py-0.5 text-[10px] text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
+              className="rounded-md px-2 py-0.5 text-[10px] text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
               data-action="delete"
             >
               {t('delete')}
@@ -230,7 +230,7 @@ export function AnnotationAnchorCapture({
               <button
                 type="button"
                 onClick={() => setState((prev) => applyAnchorAction(prev, 'relabel'))}
-                className="rounded-sm px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/60"
+                className="rounded-md px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/60"
                 data-action="relabel"
               >
                 {t('relabel')}

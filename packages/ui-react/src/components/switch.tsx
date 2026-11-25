@@ -25,7 +25,7 @@ import {
  *
  * 设计语言 (后现代粗野主义,符合 AGENTS.md §4 圆角守门):
  *   - 轨道: rounded-md (6px) — 方形圆角,非圆形/椭圆/胶囊
- *   - 拇指: rounded-sm (3px) — 方形微圆角
+ *   - 拇指: rounded-md (3px) — 方形微圆角
  *   - 边框: 1.5px foreground (黑/白自适应明暗) — 粗野硬边
  *   - 投影: 3px 3px 0 foreground — 硬阴影偏移,非柔光弥散
  *   - 按下: 阴影收缩至 1px + 2px 位移 — 实体按键反馈
@@ -50,7 +50,7 @@ const THUMB_CHECKED_CLASS: Record<number, string> = {
   23: 'data-[state=checked]:translate-x-[23px]',
 }
 const TRACK_RADIUS_CLASS: Record<typeof SWITCH_TRACK_RADIUS_TIER, string> = { md: 'rounded-md' }
-const THUMB_RADIUS_CLASS: Record<typeof SWITCH_THUMB_RADIUS_TIER, string> = { sm: 'rounded-sm' }
+const THUMB_RADIUS_CLASS: Record<typeof SWITCH_THUMB_RADIUS_TIER, string> = { sm: 'rounded-md' }
 const BORDER_CLASS: Record<number, string> = { 1.5: 'border-[1.5px]' }
 const PADDING_CLASS: Record<number, string> = { 3: 'p-[3px]' }
 

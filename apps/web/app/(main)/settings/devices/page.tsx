@@ -635,7 +635,7 @@ export default function DevicesPage() {
               </span>
               <select
                 data-testid="delegate-session-select"
-                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-body"
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-body"
                 value={delegateSessionId}
                 onChange={(e) => setDelegateSessionId(e.target.value)}
               >
@@ -653,7 +653,7 @@ export default function DevicesPage() {
               </span>
               <select
                 data-testid="delegate-device-select"
-                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-body"
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-body"
                 value={delegateDeviceId}
                 onChange={(e) => setDelegateDeviceId(e.target.value)}
               >
@@ -675,7 +675,7 @@ export default function DevicesPage() {
             <input
               data-testid="delegate-prompt"
               type="text"
-              className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-body"
+              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-body"
               value={delegatePrompt}
               placeholder={t('devices.delegatePromptPlaceholder')}
               onChange={(e) => setDelegatePrompt(e.target.value)}
@@ -708,7 +708,7 @@ export default function DevicesPage() {
               </span>
               <select
                 data-testid="tasks-device-select"
-                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-body"
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-body"
                 value={tasksDeviceId}
                 onChange={(e) => {
                   setTasksDeviceId(e.target.value)

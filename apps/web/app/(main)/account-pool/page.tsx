@@ -136,7 +136,7 @@ export default function AccountPoolPage() {
                 <label className="space-y-1 text-body">
                   <span className="text-muted-foreground">{t('provider')}</span>
                   <select
-                    className="ui-control w-full rounded-sm border border-border bg-background px-3 py-2 text-body"
+                    className="ui-control w-full rounded-md border border-border bg-background px-3 py-2 text-body"
                     value={form.providerCode}
                     onChange={(e) => setForm((f) => ({ ...f, providerCode: e.target.value }))}
                   >
@@ -159,7 +159,7 @@ export default function AccountPoolPage() {
               <label className="block space-y-1 text-body">
                 <span className="text-muted-foreground">{t('token')}</span>
                 <textarea
-                  className="ui-control min-h-20 w-full rounded-sm border border-border bg-background px-3 py-2 text-body"
+                  className="ui-control min-h-20 w-full rounded-md border border-border bg-background px-3 py-2 text-body"
                   value={form.token}
                   onChange={(e) => setForm((f) => ({ ...f, token: e.target.value }))}
                 />
@@ -203,13 +203,13 @@ export default function AccountPoolPage() {
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="rounded-sm bg-secondary px-1.5 py-0.5 text-label text-muted-foreground">
+                      <span className="rounded-md bg-secondary px-1.5 py-0.5 text-label text-muted-foreground">
                         {resolveVendorDisplayName(row.providerCode, tChat)}
                       </span>
                       <span className="truncate text-body font-medium">{row.name}</span>
                       <span
                         className={cn(
-                          'rounded-sm px-1.5 py-0.5 text-label',
+                          'rounded-md px-1.5 py-0.5 text-label',
                           row.isEnabled
                             ? 'bg-emerald-500/10 text-emerald-600'
                             : 'bg-muted text-muted-foreground',
@@ -218,7 +218,7 @@ export default function AccountPoolPage() {
                         {row.isEnabled ? t('enabled') : t('disabled')}
                       </span>
                       {row.checkinPending ? (
-                        <span className="rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-label text-amber-600">
+                        <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-label text-amber-600">
                           {t('syncPending')}
                         </span>
                       ) : null}

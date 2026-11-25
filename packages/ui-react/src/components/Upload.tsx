@@ -436,7 +436,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
                   type="button"
                   onClick={() => handleRemoveUrl(idx)}
                   aria-label={labels.removeUploadedAriaLabel}
-                  className="absolute right-0 top-0 flex h-5 w-5 items-center justify-center rounded-bl-sm bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                  className="absolute right-0 top-0 flex h-5 w-5 items-center justify-center rounded-bl-md bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -466,7 +466,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
             void handleFiles(e.dataTransfer.files)
           }}
           className={cn(
-            'flex w-full flex-col items-center justify-center gap-2 rounded-sm border-2 border-dashed px-4 py-8 text-center transition-colors',
+            'flex w-full flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed px-4 py-8 text-center transition-colors',
             dragging
               ? 'border-brand-accent-deep bg-primary/5'
               : 'border-stroke-default hover:border-stroke-strong hover:bg-accent/30',
@@ -519,7 +519,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
                     aria-valuenow={item.progress}
                     aria-valuemin={0}
                     aria-valuemax={100}
-                    className="mt-1 h-1 w-full overflow-hidden rounded-sm bg-muted"
+                    className="mt-1 h-1 w-full overflow-hidden rounded-md bg-muted"
                   >
                     <div
                       className="h-full bg-primary transition-all"

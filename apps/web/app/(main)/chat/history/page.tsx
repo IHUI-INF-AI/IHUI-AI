@@ -78,7 +78,7 @@ export default function ChatHistoryPage() {
             <Clock className="h-6 w-6 text-primary" />
             {t('title')}
             {total > 0 && (
-              <span className="rounded-sm bg-muted px-1.5 py-0.5 text-label font-medium tabular-nums leading-none text-muted-foreground">
+              <span className="rounded-md bg-muted px-1.5 py-0.5 text-label font-medium tabular-nums leading-none text-muted-foreground">
                 {items.length < total ? `${items.length}/${total}` : total}
               </span>
             )}

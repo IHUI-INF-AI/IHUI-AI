@@ -113,7 +113,7 @@ export function CategoryTable({
                     >
                       <span
                         className={cn(
-                          'h-1.5 w-1.5 rounded-sm',
+                          'h-1.5 w-1.5 rounded-md',
                           enabled ? 'bg-emerald-500' : 'bg-muted-foreground',
                         )}
                       />

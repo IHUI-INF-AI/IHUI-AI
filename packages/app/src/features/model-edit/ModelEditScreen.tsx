@@ -419,7 +419,7 @@ function createStyles(tk: AppThemeTokens) {
     btn: {
       marginTop: 28,
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

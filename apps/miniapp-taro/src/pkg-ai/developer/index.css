@@ -64,7 +64,7 @@
   text-align: center;
   font-size: var(--text-body);
   color: var(--color-foreground);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   transition: background 0.15s;
 }
 .status-tab.active {
@@ -105,7 +105,7 @@
 .agent-avatar {
   width: var(--spacing-4xl);
   height: var(--spacing-4xl);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-background);
   flex-shrink: 0;
 }
@@ -148,7 +148,7 @@
 .agent-status {
   font-size: var(--text-label);
   padding: var(--spacing-2xs) var(--spacing-sm);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--color-muted-foreground);
   background: var(--color-muted);
 }
@@ -175,7 +175,7 @@
 .agent-action {
   font-size: var(--text-label);
   padding: 6rpx var(--spacing-sm-loose);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .agent-action.edit {
   color: var(--color-primary);

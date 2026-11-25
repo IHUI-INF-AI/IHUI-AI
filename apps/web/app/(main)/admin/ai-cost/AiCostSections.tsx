@@ -82,7 +82,7 @@ function Bar({
   return (
     <div className="h-1.5 overflow-hidden rounded-xs bg-muted">
       <div
-        className={cn('h-full rounded-sm', cls)}
+        className={cn('h-full rounded-md', cls)}
         style={{ width: `${Math.min(percent, 100)}%` }}
       />
     </div>

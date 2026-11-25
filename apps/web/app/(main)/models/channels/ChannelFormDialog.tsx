@@ -168,7 +168,7 @@ export default function ChannelFormDialog({
           {isEdit ? (
             <div className="space-y-1.5">
               <Label className="text-label">API Key</Label>
-              <div className="rounded-sm border border-input bg-muted/40 px-3 py-2 font-mono text-label text-muted-foreground">
+              <div className="rounded-md border border-input bg-muted/40 px-3 py-2 font-mono text-label text-muted-foreground">
                 {item?.keyPrefix ?? '***'}
               </div>
             </div>

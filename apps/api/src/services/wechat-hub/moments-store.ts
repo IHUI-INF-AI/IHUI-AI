@@ -205,7 +205,10 @@ export async function listMomentsArchive(
     .select()
     .from(wechatHubMoments)
     .where(eq(wechatHubMoments.accountId, accountId))
-    .orderBy(desc(wechatHubMoments.lastSeenAt))
+    // 2026-11-26 生产化:lastSeenAt 是批量回填时间,同秒大量重复;只按它排序时
+    // offset 分页在相同时间戳之间没有确定顺序,翻页会重复/漏条。id 是主键,
+    // 作为同一时刻内的稳定 tie-breaker,保证 715 条全量遍历确定。
+    .orderBy(desc(wechatHubMoments.lastSeenAt), desc(wechatHubMoments.id))
     .limit(limit)
     .offset(Math.max(0, Math.floor(offset)))
   return Promise.all(

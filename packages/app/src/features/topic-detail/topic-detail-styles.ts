@@ -41,7 +41,7 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
     followBtn: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing['xs-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     followBtnActive: { backgroundColor: tk.surface.muted },

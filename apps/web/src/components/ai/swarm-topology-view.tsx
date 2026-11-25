@@ -498,12 +498,12 @@ export function SwarmTopologyView({
 
           {/* 图例(右上角,显示状态色 + 计数) */}
           {statusCounts.size > 0 && (
-            <div className="absolute right-1 top-1 flex flex-col gap-0.5 rounded-sm border border-stroke-strong bg-popover/80 px-1.5 py-1 text-[9px] backdrop-blur-sm">
+            <div className="absolute right-1 top-1 flex flex-col gap-0.5 rounded-md border border-stroke-strong bg-popover/80 px-1.5 py-1 text-[9px] backdrop-blur-sm">
               {Array.from(statusCounts.entries()).map(([status, count]) => {
                 const s = DISPATCH_STATUS_STYLE[status]
                 return (
                   <div key={status} className="flex items-center gap-1">
-                    <span className={cn('inline-block h-2 w-2 rounded-sm', s.fill, s.stroke)} />
+                    <span className={cn('inline-block h-2 w-2 rounded-md', s.fill, s.stroke)} />
                     <span className="text-muted-foreground">
                       {dispatchStatusLabel[status] ?? status}({count})
                     </span>
@@ -562,12 +562,12 @@ export function SwarmTopologyView({
           <div className="mb-1 flex items-center gap-1 font-medium text-foreground">
             <span>{selectedNode.label}</span>
             {selectedNode.isArbiter && (
-              <span className="rounded-sm bg-purple-500/10 px-1 text-[9px] text-purple-600">
+              <span className="rounded-md bg-purple-500/10 px-1 text-[9px] text-purple-600">
                 {t('arbiterBadge')}
               </span>
             )}
             {selectedNode.isDagNode && (
-              <span className="rounded-sm bg-cyan-500/10 px-1 text-[9px] text-cyan-600">
+              <span className="rounded-md bg-cyan-500/10 px-1 text-[9px] text-cyan-600">
                 {t('dagBadge')}
               </span>
             )}
@@ -826,7 +826,7 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
             <div key={i} className="flex items-stretch gap-1.5">
               {/* 时间轴线 + 圆点 */}
               <div className="relative flex w-2 flex-col items-center pt-0.5">
-                <span className={cn('relative inline-block h-2 w-2 rounded-sm', style.bg)} />
+                <span className={cn('relative inline-block h-2 w-2 rounded-md', style.bg)} />
                 {i < record.messages.length - 1 && (
                   // G-877 分割线残余:原 border-l 单边描边改判据认可的"导引轨"机械形
                   // (absolute + top/bottom 上界成对 + w-px 背景细条,视觉等价,不再落在棘轮射程)
@@ -848,7 +848,7 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
                   </code>
                   <span
                     className={cn(
-                      'rounded-sm px-1 py-0.5 text-[9px] font-medium',
+                      'rounded-md px-1 py-0.5 text-[9px] font-medium',
                       style.bg,
                       style.color,
                     )}
@@ -867,7 +867,7 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
       </div>
       {/* 关系图摘要 */}
       {record.relations.length > 0 && (
-        <div className="space-y-0.5 rounded-sm border border-border bg-muted/30 px-2 py-1">
+        <div className="space-y-0.5 rounded-md border border-border bg-muted/30 px-2 py-1">
           <div className="text-[10px] font-medium text-muted-foreground">{t('relationsTitle')}</div>
           {record.relations.map((rel, i) => (
             <div key={i} className="flex items-center gap-1 text-[10px] text-muted-foreground">
@@ -887,7 +887,7 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
                     labelKey: 'collabType.result',
                   }
                   return (
-                    <span key={type} className={cn('rounded-sm px-0.5 text-[8px]', s.bg, s.color)}>
+                    <span key={type} className={cn('rounded-md px-0.5 text-[8px]', s.bg, s.color)}>
                       {t(s.labelKey)}
                     </span>
                   )
@@ -961,7 +961,7 @@ export function TopologyRecommendation({ plan, className }: TopologyRecommendati
       <div className="flex items-center gap-2">
         <span
           className={cn(
-            'rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+            'rounded-md px-1.5 py-0.5 text-[10px] font-medium',
             modeStyle.bg,
             modeStyle.color,
           )}
@@ -1006,7 +1006,7 @@ export function TopologyRecommendation({ plan, className }: TopologyRecommendati
       </div>
 
       {/* 推理 */}
-      <div className="rounded-sm border border-border bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground">
+      <div className="rounded-md border border-border bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground">
         <span className="font-medium text-foreground">{t('reasoningLabel')}</span>
         {plan.reasoning}
       </div>
@@ -1017,7 +1017,7 @@ export function TopologyRecommendation({ plan, className }: TopologyRecommendati
           {plan.topologyStats.map((s, i) => (
             <span
               key={i}
-              className="rounded-sm bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground"
+              className="rounded-md bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground"
             >
               {s.orchestration}: {Math.round(s.successRate * 100)}%({s.sampleSize})
             </span>
@@ -1116,7 +1116,7 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
           <React.Fragment key={v.version}>
             <div className="flex min-w-[100px] flex-col rounded-md border border-border bg-background px-1.5 py-1">
               <div className="flex items-center gap-1">
-                <span className="inline-block h-1.5 w-1.5 rounded-sm bg-violet-500" />
+                <span className="inline-block h-1.5 w-1.5 rounded-md bg-violet-500" />
                 <code className="font-mono text-[10px] font-medium text-foreground">
                   {v.version}
                 </code>
@@ -1138,7 +1138,7 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
       </div>
 
       {/* 当前 prompt */}
-      <div className="rounded-sm border border-border bg-muted/30 px-2 py-1">
+      <div className="rounded-md border border-border bg-muted/30 px-2 py-1">
         <div className="text-[10px] font-medium text-muted-foreground">
           {t('currentPromptTitle', {
             version: history.versions[history.versions.length - 1]!.version,
@@ -1156,7 +1156,7 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
           {history.recentRecords.slice(0, 5).map((r, i) => (
             <div
               key={i}
-              className="flex items-center gap-1.5 rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px]"
+              className="flex items-center gap-1.5 rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px]"
             >
               <span className={r.success ? 'text-green-600' : 'text-red-500'}>
                 {r.success ? <Check className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" />}
@@ -1174,7 +1174,7 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
       {/* 最新版本的变更详情 */}
       {history.versions.length > 0 &&
         history.versions[history.versions.length - 1]!.changes.length > 0 && (
-          <div className="space-y-0.5 rounded-sm border border-amber-500/30 bg-amber-500/5 px-2 py-1">
+          <div className="space-y-0.5 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1">
             <div className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
               {t('latestPatches', {
                 version: history.versions[history.versions.length - 1]!.version,

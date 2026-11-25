@@ -331,7 +331,7 @@ export default function MediaTasksPage() {
                 aria-pressed={statusFilter === c.filter}
                 onClick={() => switchFilter(setStatusFilter)(c.filter)}
                 className={cn(
-                  'rounded-sm border bg-card/50 p-3 text-left transition-colors',
+                  'rounded-md border bg-card/50 p-3 text-left transition-colors',
                   statusFilter === c.filter
                     ? 'border-stroke-selected bg-primary/10'
                     : 'border-stroke-subtle hover:bg-muted/40',
@@ -367,7 +367,7 @@ export default function MediaTasksPage() {
                   type="button"
                   onClick={() => switchFilter(setKindFilter)(kind)}
                   className={cn(
-                    'inline-flex items-center gap-1 rounded-sm border px-2 py-0.5 text-[11px] transition-colors',
+                    'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] transition-colors',
                     kindFilter === kind
                       ? 'border-stroke-selected bg-primary/10 text-primary'
                       : 'border-stroke-subtle text-muted-foreground hover:bg-muted/40',
@@ -390,7 +390,7 @@ export default function MediaTasksPage() {
                   type="button"
                   onClick={() => switchFilter(setStatusFilter)(f.key)}
                   className={cn(
-                    'rounded-sm border px-2.5 py-1 text-label transition-colors',
+                    'rounded-md border px-2.5 py-1 text-label transition-colors',
                     statusFilter === f.key
                       ? 'border-stroke-selected bg-primary/10 text-primary'
                       : 'border-stroke-subtle text-muted-foreground hover:bg-muted/40',
@@ -407,7 +407,7 @@ export default function MediaTasksPage() {
                   type="button"
                   onClick={() => switchFilter(setKindFilter)(f.key)}
                   className={cn(
-                    'rounded-sm border px-2.5 py-1 text-label transition-colors',
+                    'rounded-md border px-2.5 py-1 text-label transition-colors',
                     kindFilter === f.key
                       ? 'border-stroke-selected bg-primary/10 text-primary'
                       : 'border-stroke-subtle text-muted-foreground hover:bg-muted/40',
@@ -438,7 +438,7 @@ export default function MediaTasksPage() {
               onClick={() => setViewMode('list')}
               aria-pressed={viewMode === 'list'}
               className={cn(
-                'inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-label transition-colors',
+                'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-label transition-colors',
                 viewMode === 'list'
                   ? 'border-stroke-selected bg-primary/10 text-primary'
                   : 'border-stroke-subtle text-muted-foreground hover:bg-muted/40',
@@ -453,7 +453,7 @@ export default function MediaTasksPage() {
               onClick={() => setViewMode('board')}
               aria-pressed={viewMode === 'board'}
               className={cn(
-                'inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-label transition-colors',
+                'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-label transition-colors',
                 viewMode === 'board'
                   ? 'border-stroke-selected bg-primary/10 text-primary'
                   : 'border-stroke-subtle text-muted-foreground hover:bg-muted/40',
@@ -569,7 +569,7 @@ export default function MediaTasksPage() {
                           </p>
                         )}
                         {task.task_id && (
-                          <code className="block truncate rounded-sm bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                          <code className="block truncate rounded-md bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                             {t('taskId')}: {task.task_id}
                           </code>
                         )}

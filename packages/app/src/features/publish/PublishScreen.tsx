@@ -455,7 +455,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm, // gap-2
     },
     actionBtn: {
-      borderRadius: rnRadius.sm, // rounded-sm
+      borderRadius: rnRadius.md, // rounded-md
       paddingHorizontal: rnSpacing['sm-loose'], // px-2.5
       paddingVertical: rnSpacing.xs, // py-1
     },

@@ -217,7 +217,7 @@ export default function BusinessCardEditPage() {
                   value={form.bio}
                   onChange={(e) => setForm((p) => ({ ...p, bio: e.target.value }))}
                   rows={3}
-                  className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
                   placeholder={t('bioPlaceholder')}
                 />
               </div>
@@ -231,7 +231,7 @@ export default function BusinessCardEditPage() {
                       type="button"
                       onClick={() => setForm((p) => ({ ...p, template: tpl.value }))}
                       className={cn(
-                        'flex items-center gap-2 rounded-sm border px-3 py-2 text-body transition-colors',
+                        'flex items-center gap-2 rounded-md border px-3 py-2 text-body transition-colors',
                         form.template === tpl.value
                           ? 'border-brand-accent-deep bg-primary/10 text-primary'
                           : 'border-input text-muted-foreground hover:bg-accent',

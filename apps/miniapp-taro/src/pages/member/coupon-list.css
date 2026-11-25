@@ -96,7 +96,7 @@
   font-size: var(--text-label);
   color: var(--color-cta-foreground);
   background: var(--color-cta);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: 0 var(--spacing-md-loose);
   line-height: 56rpx;
 }

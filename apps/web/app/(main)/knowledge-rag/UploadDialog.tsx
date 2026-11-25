@@ -130,7 +130,7 @@ export function UploadDialog({
             type="button"
             onClick={() => setMode('file')}
             className={cn(
-              'flex flex-1 items-center justify-center gap-1.5 rounded-sm px-3 py-1.5 text-body transition-colors',
+              'flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-body transition-colors',
               mode === 'file'
                 ? 'bg-background font-medium shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -143,7 +143,7 @@ export function UploadDialog({
             type="button"
             onClick={() => setMode('text')}
             className={cn(
-              'flex flex-1 items-center justify-center gap-1.5 rounded-sm px-3 py-1.5 text-body transition-colors',
+              'flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-body transition-colors',
               mode === 'text'
                 ? 'bg-background font-medium shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -172,7 +172,7 @@ export function UploadDialog({
                 type="file"
                 accept=".pdf,.docx,.md,.txt"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="w-full text-body text-muted-foreground file:mr-3 file:rounded-sm file:border-0 file:bg-cta file:px-3 file:py-1.5 file:text-cta-foreground hover:file:bg-cta/90"
+                className="w-full text-body text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-cta file:px-3 file:py-1.5 file:text-cta-foreground hover:file:bg-cta/90"
               />
               {file && (
                 <p className="mt-2 text-label text-muted-foreground">

@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: rnSpacing['xs-loose'],
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
   },
   primaryBtnText: {
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: rnSpacing['sm-loose'],
     padding: rnSpacing['sm-loose'],
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.danger.light,
   },
   errorText: { flex: 1, fontSize: rnType.label.size, color: tokens.danger.deepText },
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
   warningBox: {
     padding: rnSpacing['sm-loose'],
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.warning.light,
   },
   warningText: { fontSize: rnType.label.size, color: tokens.warning.amberText },

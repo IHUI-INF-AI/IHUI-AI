@@ -275,7 +275,7 @@ export default function FinanceAiPage() {
                 rows={5}
                 spellCheck={false}
                 placeholder={t('txPh')}
-                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                className="font-[weight:inherit] w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
               />
               <p className="font-[weight:inherit] text-label text-muted-foreground">
                 {t('txHint')}
@@ -316,7 +316,7 @@ export default function FinanceAiPage() {
                   id="tx-kind"
                   value={taxGeneral ? 'general' : 'small'}
                   onChange={(e) => setTaxGeneral(e.target.value === 'general')}
-                  className="font-[weight:inherit] h-9 w-full rounded-sm border border-input bg-background px-2 text-body focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                  className="font-[weight:inherit] h-9 w-full rounded-md border border-input bg-background px-2 text-body focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
                 >
                   <option value="general">{t('taxpayerGeneralValue')}</option>
                   <option value="small">{t('taxpayerSmallValue')}</option>
@@ -386,7 +386,7 @@ export default function FinanceAiPage() {
                 rows={3}
                 spellCheck={false}
                 placeholder={t('wagesPh')}
-                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                className="font-[weight:inherit] w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
               />
             </div>
             <Button size="lg" className="w-full gap-1.5" disabled={busy !== null} onClick={taxOk}>
@@ -441,7 +441,7 @@ export default function FinanceAiPage() {
                 rows={5}
                 spellCheck={false}
                 placeholder={t('reimbursementJsonPh')}
-                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                className="font-[weight:inherit] w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
               />
               <p className="font-[weight:inherit] text-label text-muted-foreground">
                 {t('reimbursementHint')}
@@ -493,7 +493,7 @@ export default function FinanceAiPage() {
                 rows={5}
                 spellCheck={false}
                 placeholder={t('socialEmployeesPh')}
-                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                className="font-[weight:inherit] w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
               />
             </div>
             <Button
@@ -535,7 +535,7 @@ export default function FinanceAiPage() {
                 rows={5}
                 spellCheck={false}
                 placeholder={t('deductionEmployeesPh')}
-                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+                className="font-[weight:inherit] w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
               />
             </div>
             <Button

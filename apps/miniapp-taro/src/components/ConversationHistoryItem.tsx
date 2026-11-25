@@ -91,7 +91,7 @@ export default function ConversationHistoryItem({
         // hoverClass 只在 View 上受支持(TextProps 没有该属性,typecheck 会红),
         // 所以命中块用 View、文案用 Text —— 与端内既有「可点胶囊」写法同形。
         <View
-          className="flex items-center flex-shrink-0 ml-[16rpx] py-[8rpx] px-[16rpx] rounded-sm bg-background"
+          className="flex items-center flex-shrink-0 ml-[16rpx] py-[8rpx] px-[16rpx] rounded-md bg-background"
           onClick={onTogglePin}
           hoverClass="opacity-60"
         >

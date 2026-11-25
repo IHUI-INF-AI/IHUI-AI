@@ -199,8 +199,8 @@ export function ImportAnalysisDialog({
                         onClick={() => handleSelect(s)}
                         className={
                           selectedId === s.id
-                            ? 'rounded-sm border border-stroke-selected bg-primary/10 p-2 text-left'
-                            : 'rounded-sm border border-border p-2 text-left hover:bg-accent'
+                            ? 'rounded-md border border-stroke-selected bg-primary/10 p-2 text-left'
+                            : 'rounded-md border border-border p-2 text-left hover:bg-accent'
                         }
                       >
                         <span className="block text-label font-medium">{s.title}</span>
@@ -213,7 +213,7 @@ export function ImportAnalysisDialog({
                 </>
               )}
 
-              <details className="rounded-sm border border-border px-2 py-1.5">
+              <details className="rounded-md border border-border px-2 py-1.5">
                 <summary className="cursor-pointer text-[11px] text-muted-foreground">
                   {t('analysisBrowseAll', { count: catalog.all.length })}
                 </summary>
@@ -221,7 +221,7 @@ export function ImportAnalysisDialog({
                   <select
                     aria-label={t('analysisCategoryLabel')}
                     data-testid="import-analysis-category"
-                    className="w-full rounded-sm border border-border bg-background px-2 py-1 text-[11px]"
+                    className="w-full rounded-md border border-border bg-background px-2 py-1 text-[11px]"
                     value={categoryId ?? ''}
                     onChange={(e) => setCategoryId(e.target.value || null)}
                   >
@@ -242,8 +242,8 @@ export function ImportAnalysisDialog({
                           onClick={() => handleSelect(s)}
                           className={
                             selectedId === s.id
-                              ? 'rounded-sm border border-stroke-selected bg-primary/10 p-1.5 text-left text-[11px]'
-                              : 'rounded-sm border border-border p-1.5 text-left text-[11px] hover:bg-accent'
+                              ? 'rounded-md border border-stroke-selected bg-primary/10 p-1.5 text-left text-[11px]'
+                              : 'rounded-md border border-border p-1.5 text-left text-[11px] hover:bg-accent'
                           }
                         >
                           {s.title}

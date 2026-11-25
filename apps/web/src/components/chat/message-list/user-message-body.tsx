@@ -93,7 +93,7 @@ export function UserMessageBody({ content, testId, secretMaskLabels }: UserMessa
           data-testid="user-message-secret-toggle"
           aria-pressed={secretsRevealed}
           onClick={() => setSecretsRevealed((value) => !value)}
-          className="inline-flex items-center gap-1 rounded-sm px-2 py-1 text-label leading-none text-muted-foreground hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-label leading-none text-muted-foreground hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         >
           {secretsRevealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
           <span>{secretsRevealed ? secretMaskLabels.hide : secretMaskLabels.show}</span>
@@ -123,7 +123,7 @@ export function UserMessageBody({ content, testId, secretMaskLabels }: UserMessa
           type="button"
           data-testid="user-message-image-button"
           onClick={() => openImageSource(im.url, 'user-attachment-image')}
-          className="block max-w-full overflow-hidden rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+          className="block max-w-full overflow-hidden rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- 用户附件图是任意来源 URL(点开走 openImageSource 看原图),next/image 需要逐 host 配远程域名白名单,不属本处范围 */}
           <img

@@ -633,7 +633,7 @@ function createFieldStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       height: 50,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['sm-loose'],
@@ -678,7 +678,7 @@ function createCoverStyles(tk: AppThemeTokens) {
     clearBtn: {
       width: '100%',
       height: '100%',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.overlay.modal,
       alignItems: 'center',
       justifyContent: 'center',
@@ -708,7 +708,7 @@ function createSubmitStyles(tk: AppThemeTokens) {
     submitFace: { width: '100%' },
     submitBtn: {
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

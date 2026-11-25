@@ -378,7 +378,7 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
               </Label>
               <select
                 id="wb-task-account"
-                className="mt-1 h-8 w-full rounded-sm border border-border bg-background px-2 text-label"
+                className="mt-1 h-8 w-full rounded-md border border-border bg-background px-2 text-label"
                 value={accountId ?? ''}
                 onChange={(e) => {
                   setAccountId(Number(e.target.value))

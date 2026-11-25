@@ -13,11 +13,13 @@
  *    scripts/check-radius-single-source.mjs 与本表逐档对账(CSS 无法 import JS,故以守门保同源)
  *
  * 档位值与 web(Tailwind v4 + packages/design-tokens/src/styles/tokens.css 的 --radius-*)
- * 逐档同值。两处历史漂移已在本表收口:
+ * 逐档同值。历史漂移已在本表收口:
  *  1. v3 preset 曾把 sm 定义成 2px(Tailwind v3 默认),而 web v4 的 sm=4px —— 同名不同值,
- *     即"同名类跨端圆角不一致"的根因;现 sm=4px,2px 由 xs 承载。
+ *     即"同名类跨端圆角不一致"的根因;2px 由 xs 承载。
  *  2. web tokens.css 显式 --radius: 0.5rem(裸 rounded=8px,注释自述与 --radius-lg 同值),
  *     而 v3 端裸 rounded 走 Tailwind 默认 4px;现统一 DEFAULT=8px 与 web 对齐。
+ *  3. 2026-11-26 机主定档:删除 4px 档(原 sm),全部并入 md=6px ——
+ *     4px 控件圆角过小,项目最小控件圆角自此为 6px,不再保留 sm 档位名。
  *
  * 改档位只需改本表的 RADIUS_STEPS 一处。
  */
@@ -25,9 +27,9 @@
 /** 档位 → px 数值(RN StyleSheet / 内联 style 直接消费) */
 export const RADIUS_STEPS = {
   xs: 2,
-  sm: 4,
   /** 裸 rounded / rounded-none 之外的默认档,与 lg 同值(对齐 web --radius: 0.5rem) */
   DEFAULT: 8,
+  /** 控件/导航/chip 的最小圆角档(2026-11-26 起 4px 档已删除,原 sm 全部并入本档) */
   md: 6,
   lg: 8,
   xl: 12,
@@ -44,17 +46,17 @@ export const RADIUS_STEPS = {
  * 两台尺子互相指认,这一格此前无人看守。
  *
  * 取值按**文档原意**而不是按档名:docs/UI_GUIDELINES.md §3.1 的角色是绑在 px 上的
- * (极小 2 / 小 4 / 中等 6 / 较大 8 / 大 12 / 特大 16),而 2026-09-23 档位表收口把
- * sm 从 2px 改成 4px、裸 rounded 从 4px 改成 8px,所以照档名抄文档会得到偏移一档的错值
- * —— 那两行文档像素现已随本表更正。
+ * (2026-11-26 定档:极小 2 / 控件·导航·chip 6 / 较大 8 / 大 12 / 特大 16)。
+ * 2026-09-23 档位表收口把裸 rounded 从 4px 改成 8px,照档名抄文档会得到偏移一档的错值
+ * —— 该行文档像素现已随本表更正。
  *
  * 只登记有真实取用差异的角色,不得为"看起来全"而虚构角色;新角色必须同时有消费方。
  */
 export const RADIUS_ROLES = {
   /** 极小元素:标签内角、计数点 */
   tiny: 'xs',
-  /** 小元素:按钮、输入框 */
-  control: 'sm',
+  /** 小元素:按钮、输入框(2026-11-26 起与 chip 同取 md=6px,4px 档已删除) */
+  control: 'md',
   /** 中等元素:导航项、chip */
   chip: 'md',
   /** 较大元素:卡片、下拉(2026-09-27 用户定档:卡片一律此档,不取 xl) */
@@ -91,7 +93,6 @@ export const RADIUS_REM = Object.fromEntries(
 /** 档位 → 该档对应的 CSS 变量名(CSS 端引用形式,守门与迁移脚本共用) */
 export const RADIUS_CSS_VAR = {
   xs: '--radius-xs',
-  sm: '--radius-sm',
   DEFAULT: '--radius',
   md: '--radius-md',
   lg: '--radius-lg',

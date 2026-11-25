@@ -1698,6 +1698,7 @@
     }
   },
   "wallet": {
+    "flowPointsExchange": "兌換 AI 積分",
     "title": "我的錢包",
     "balance": "可用餘額",
     "frozen": "凍結金額",

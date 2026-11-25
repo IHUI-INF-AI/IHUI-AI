@@ -17,7 +17,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { requireAuth, callVendor, recordUsage, genId } from './ai-vendors/_shared.js'
-import { ensurePointsAvailable, chargeFlatPoints, FLAT_POINTS } from '../services/points-guard.js'
+import { chargeMediaPoints, ensureMediaPointsBalance } from '../services/media-billing.js'
 
 type StepName = 'script' | 'material' | 'compose' | 'subtitle'
 type StepStatus = 'pending' | 'running' | 'succeeded' | 'failed'
@@ -185,7 +185,8 @@ export const aiVideoComposeRoutes: FastifyPluginAsync = async (server) => {
   // POST / — 创建编排任务并顺序执行全部步骤
   server.post('/', async (request, reply) => {
     const body = createSchema.parse(request.body)
-    if (!(await ensurePointsAvailable(request, reply))) return
+    if (!(await ensureMediaPointsBalance(request, reply, 'video-compose', 'video_compose', 1)))
+      return
     pruneTaskStore()
     const task: ComposeTask = {
       id: genId('compose'),
@@ -212,7 +213,7 @@ export const aiVideoComposeRoutes: FastifyPluginAsync = async (server) => {
     }
     task.status = 'succeeded'
     task.updatedAt = Date.now()
-    await chargeFlatPoints(request, FLAT_POINTS.videoCompose, '一键视频编排扣分', request.id)
+    await chargeMediaPoints(request, 'video-compose', 'video_compose', 1, request.id)
     return reply.status(201).send(success(task))
   })
 
@@ -229,7 +230,8 @@ export const aiVideoComposeRoutes: FastifyPluginAsync = async (server) => {
   server.post('/:id/regenerate', async (request, reply) => {
     const { id } = idParam.parse(request.params)
     const body = regenerateSchema.parse(request.body)
-    if (!(await ensurePointsAvailable(request, reply))) return
+    if (!(await ensureMediaPointsBalance(request, reply, 'video-compose', 'video_compose', 1)))
+      return
     const task = taskStore.get(id)
     if (!task) return reply.status(404).send(error(404, '任务不存在'))
     if (task.userId !== request.userId) return reply.status(403).send(error(403, '无权操作该任务'))
@@ -250,7 +252,7 @@ export const aiVideoComposeRoutes: FastifyPluginAsync = async (server) => {
     }
     task.status = 'succeeded'
     task.updatedAt = Date.now()
-    await chargeFlatPoints(request, FLAT_POINTS.videoCompose, '视频编排重生成扣分', request.id)
+    await chargeMediaPoints(request, 'video-compose', 'video_compose', 1, request.id)
     return reply.send(success(task))
   })
 }

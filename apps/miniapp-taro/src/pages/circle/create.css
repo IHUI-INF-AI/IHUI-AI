@@ -334,7 +334,7 @@
   line-height: 92rpx;
   background: var(--color-brand);
   color: var(--color-primary-foreground);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-title);
   font-weight: 600;
 }

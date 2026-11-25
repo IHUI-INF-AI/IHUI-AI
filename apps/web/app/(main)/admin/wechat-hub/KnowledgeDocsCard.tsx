@@ -35,7 +35,7 @@ function DocRow({
   onDelete: () => void
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-sm border border-stroke-subtle px-3 py-2">
+    <div className="flex items-center justify-between gap-3 rounded-md border border-stroke-subtle px-3 py-2">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{doc.title}</p>
         <p className="text-xs text-muted-foreground">
@@ -91,7 +91,7 @@ export default function KnowledgeDocsCard({ accountId }: { accountId: string }) 
         </CardTitle>
         <CardDescription>
           按账号隔离 collection，复用站内 RAG 切片与检索；自动回复写
-          <code className="mx-1 rounded-sm bg-muted px-1">{'{{knowledge}}'}</code>
+          <code className="mx-1 rounded-md bg-muted px-1">{'{{knowledge}}'}</code>
           时会检索这里的前 3 条。
         </CardDescription>
       </CardHeader>
@@ -112,7 +112,7 @@ export default function KnowledgeDocsCard({ accountId }: { accountId: string }) 
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={6}
-            className="w-full rounded-sm border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+            className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
             placeholder="粘贴制度、价格表、FAQ；入库后按切片检索。"
           />
           <p className="text-xs text-muted-foreground">{text.length} / 200000</p>
@@ -185,7 +185,7 @@ export default function KnowledgeDocsCard({ accountId }: { accountId: string }) 
               {hits.map((hit) => (
                 <div
                   key={`${hit.docId}-${hit.chunkIndex}`}
-                  className="rounded-sm border border-stroke-subtle p-3 text-sm"
+                  className="rounded-md border border-stroke-subtle p-3 text-sm"
                 >
                   <p className="whitespace-pre-wrap">{hit.content}</p>
                   <p className="mt-1 text-xs text-muted-foreground">

@@ -405,15 +405,15 @@ export default function BiDashboardPage() {
                 return (
                   <div key={p.url} className="flex items-center gap-2">
                     <span
-                      className={`inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-label font-medium ${PLATFORM_BADGE_CLASS[p.platform]}`}
+                      className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-label font-medium ${PLATFORM_BADGE_CLASS[p.platform]}`}
                     >
                       {PLATFORM_LABEL[p.platform]}
                     </span>
                     <FaceBadge scope={p.scope} />
                     <span className="w-[34%] truncate text-label text-foreground">{p.url}</span>
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-md bg-muted">
                       <div
-                        className="h-full rounded-sm bg-primary/60"
+                        className="h-full rounded-md bg-primary/60"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -451,15 +451,15 @@ export default function BiDashboardPage() {
                 return (
                   <div key={s.page} className="flex items-center gap-2">
                     <span
-                      className={`inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-label font-medium ${PLATFORM_BADGE_CLASS[s.platform]}`}
+                      className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-label font-medium ${PLATFORM_BADGE_CLASS[s.platform]}`}
                     >
                       {PLATFORM_LABEL[s.platform]}
                     </span>
                     <FaceBadge scope={s.scope} />
                     <span className="w-[34%] truncate text-label text-foreground">{s.page}</span>
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-md bg-muted">
                       <div
-                        className="h-full rounded-sm bg-primary/60"
+                        className="h-full rounded-md bg-primary/60"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -499,9 +499,9 @@ export default function BiDashboardPage() {
                 </span>
                 <span className="text-label text-muted-foreground">回访</span>
               </div>
-              <div className="h-1.5 overflow-hidden rounded-sm bg-muted">
+              <div className="h-1.5 overflow-hidden rounded-md bg-muted">
                 <div
-                  className="h-full rounded-sm bg-primary/60"
+                  className="h-full rounded-md bg-primary/60"
                   style={{
                     width: `${
                       audience.returningRate === null ? 0 : Math.round(audience.returningRate * 100)
@@ -554,9 +554,9 @@ export default function BiDashboardPage() {
                     <span className="w-[38%] truncate text-label text-foreground">
                       {BROWSER_LABEL[b.family] ?? b.family}
                     </span>
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-md bg-muted">
                       <div
-                        className="h-full rounded-sm bg-primary/60"
+                        className="h-full rounded-md bg-primary/60"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -595,13 +595,13 @@ export default function BiDashboardPage() {
                 return (
                   <div key={key} className="flex items-center gap-2">
                     <span
-                      className={`inline-flex w-[26%] items-center rounded-sm px-1.5 py-0.5 text-label font-medium ${PLATFORM_BADGE_CLASS[key]}`}
+                      className={`inline-flex w-[26%] items-center rounded-md px-1.5 py-0.5 text-label font-medium ${PLATFORM_BADGE_CLASS[key]}`}
                     >
                       {PLATFORM_LABEL[key]}
                     </span>
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-md bg-muted">
                       <div
-                        className="h-full rounded-sm bg-primary/60"
+                        className="h-full rounded-md bg-primary/60"
                         style={{ width: `${Math.round((pv / max) * 100)}%` }}
                       />
                     </div>
@@ -636,13 +636,13 @@ export default function BiDashboardPage() {
                 return (
                   <div key={key} className="flex items-center gap-2">
                     <span
-                      className={`inline-flex w-[22%] shrink-0 items-center rounded-sm px-1.5 py-0.5 text-label font-medium ${FACE_BADGE_CLASS[key]}`}
+                      className={`inline-flex w-[22%] shrink-0 items-center rounded-md px-1.5 py-0.5 text-label font-medium ${FACE_BADGE_CLASS[key]}`}
                     >
                       {FACE_LABEL[key]}
                     </span>
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-md bg-muted">
                       <div
-                        className="h-full rounded-sm bg-primary/60"
+                        className="h-full rounded-md bg-primary/60"
                         style={{ width: `${Math.round(((row?.pv ?? 0) / max) * 100)}%` }}
                       />
                     </div>
@@ -677,9 +677,9 @@ export default function BiDashboardPage() {
                 return (
                   <div key={c.city} className="flex items-center gap-2">
                     <span className="w-[26%] truncate text-label text-foreground">{c.city}</span>
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-md bg-muted">
                       <div
-                        className="h-full rounded-sm bg-primary/60"
+                        className="h-full rounded-md bg-primary/60"
                         style={{ width: `${Math.round((c.pv / max) * 100)}%` }}
                       />
                     </div>

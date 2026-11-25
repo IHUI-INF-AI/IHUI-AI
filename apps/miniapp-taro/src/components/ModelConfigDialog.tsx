@@ -268,7 +268,7 @@ export default function ModelConfigDialog({
               </Text>
               <Input
                 type="digit"
-                className="w-full py-sm text-body bg-muted rounded-sm"
+                className="w-full py-sm text-body bg-muted rounded-md"
                 style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                 placeholder="0.7"
                 value={config.temperature?.toString() || ''}
@@ -284,7 +284,7 @@ export default function ModelConfigDialog({
               </Text>
               <Input
                 type="number"
-                className="w-full py-sm text-body bg-muted rounded-sm"
+                className="w-full py-sm text-body bg-muted rounded-md"
                 style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                 placeholder="2048"
                 value={config.maxTokens?.toString() || ''}
@@ -300,7 +300,7 @@ export default function ModelConfigDialog({
               </Text>
               <Input
                 type="digit"
-                className="w-full py-sm text-body bg-muted rounded-sm"
+                className="w-full py-sm text-body bg-muted rounded-md"
                 style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                 placeholder="0.9"
                 value={config.topP?.toString() || ''}
@@ -318,7 +318,7 @@ export default function ModelConfigDialog({
                   2026-11-23 补齐为 <Textarea> 并两端同挂 MODEL_CONFIG_SYS_PROMPT_MIN_HEIGHT_PX,
                   样式走 modelConfigSysPromptBoxStyle(只给 minHeight,不给 height)。 */}
               <Textarea
-                className="w-full py-sm text-body bg-muted rounded-sm"
+                className="w-full py-sm text-body bg-muted rounded-md"
                 style={{
                   ...modelConfigSysPromptBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit),
                   // 工厂内的 minHeight 对门 128 的 readGeometry 不可见(它不解析跨文件函数体),
@@ -832,7 +832,7 @@ export default function ModelConfigDialog({
                   {item.desc}
                 </Text>
                 <Input
-                  className="w-full py-sm text-body bg-muted rounded-sm"
+                  className="w-full py-sm text-body bg-muted rounded-md"
                   style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                   placeholder={t('ModelConfigDialog.y2', { p1: item.desc })}
                   value={(configParamsObj[item.name] as string) || ''}

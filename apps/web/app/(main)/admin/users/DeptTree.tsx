@@ -75,7 +75,7 @@ function TreeNode({
     <div>
       <div
         className={cn(
-          'flex h-8 items-center gap-1 rounded-sm pr-2 text-body transition-colors hover:bg-accent',
+          'flex h-8 items-center gap-1 rounded-md pr-2 text-body transition-colors hover:bg-accent',
           selected && 'bg-primary/10 font-medium',
         )}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
@@ -87,7 +87,7 @@ function TreeNode({
               e.stopPropagation()
               setExpanded((v) => !v)
             }}
-            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent-foreground/10"
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent-foreground/10"
             aria-label={isOpen ? '折叠' : '展开'}
           >
             {isOpen ? (
@@ -161,7 +161,7 @@ export function DeptTree({ selectedId, onSelect }: Props) {
           type="button"
           onClick={() => onSelect(null)}
           className={cn(
-            'mb-1 flex h-8 w-full items-center gap-1.5 rounded-sm px-2 text-body transition-colors hover:bg-accent',
+            'mb-1 flex h-8 w-full items-center gap-1.5 rounded-md px-2 text-body transition-colors hover:bg-accent',
             selectedId === null && 'bg-primary/10 font-medium',
           )}
         >

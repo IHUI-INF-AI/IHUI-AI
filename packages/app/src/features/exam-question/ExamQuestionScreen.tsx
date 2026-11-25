@@ -279,7 +279,7 @@ function createStyles(tk: AppThemeTokens) {
       minHeight: 46,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.card,
@@ -308,7 +308,7 @@ function createStyles(tk: AppThemeTokens) {
     navBtn: {
       flex: 1,
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
       alignItems: 'center',
       justifyContent: 'center',
@@ -318,7 +318,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       flex: 1,
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

@@ -158,7 +158,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: LegacyAgentRu
             placeholder={t('agent.runtimeInputPlaceholder')}
             editable={status !== 'running'}
             multiline
-            className="h-auto min-h-[120px] min-h-[60px] flex-1 rounded-sm border p-2 text-sm"
+            className="h-auto min-h-[120px] min-h-[60px] flex-1 rounded-md border p-2 text-sm"
             style={{
               borderColor: tokens.border.light,
               backgroundColor: tokens.surface.card,

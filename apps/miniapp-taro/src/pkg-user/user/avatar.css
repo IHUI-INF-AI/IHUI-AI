@@ -93,7 +93,7 @@
   line-height: 100rpx;
   font-size: var(--text-title);
   font-weight: 600;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   text-align: center;
   padding: 0;
   margin: 0;

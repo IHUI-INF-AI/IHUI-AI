@@ -292,7 +292,7 @@ function HookRow({ hook, onEdit, onDelete, onToggle, onViewLogs }: HookRowProps)
           <div className="flex items-center gap-2">
             <span className="truncate text-body font-medium">{hook.name}</span>
             {!hook.enabled && (
-              <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                 {t('disabled')}
               </span>
             )}
@@ -450,7 +450,7 @@ function HookEditor({
             {/* 条件表达式 */}
             <Field label={t('fieldCondition')} hint={t.raw('conditionHint') as string}>
               <textarea
-                className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
                 value={draft.condition}
                 onChange={(e) => onChange({ condition: e.target.value })}
                 placeholder='{"and":[{"==":["tool","write_file"]},{"contains":["args.path",".env"]}]}'
@@ -569,7 +569,7 @@ function HookActionConfigForm({
         </Field>
         <Field label={t('fieldHeaders')}>
           <textarea
-            className="flex min-h-[60px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             value={draft.webhookHeaders}
             onChange={(e) => onChange({ webhookHeaders: e.target.value })}
             spellCheck={false}
@@ -577,7 +577,7 @@ function HookActionConfigForm({
         </Field>
         <Field label={t('fieldBodyTemplate')} hint={t.raw('bodyTemplateHint') as string}>
           <textarea
-            className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             value={draft.webhookBody}
             onChange={(e) => onChange({ webhookBody: e.target.value })}
             spellCheck={false}
@@ -591,7 +591,7 @@ function HookActionConfigForm({
       <div className="flex flex-col gap-3 rounded-md border border-border p-3">
         <Field label={t('fieldShellCommand')} required hint={t('shellCommandHint')}>
           <textarea
-            className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             value={draft.scriptCommand}
             onChange={(e) => onChange({ scriptCommand: e.target.value })}
             placeholder={`echo "event=$HOOK_EVENT" >> hooks.log`}
@@ -644,7 +644,7 @@ function HookActionConfigForm({
             </Field>
             <Field label={t('fieldHeaders')}>
               <textarea
-                className="flex min-h-[60px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
                 value={draft.webhookHeaders}
                 onChange={(e) => onChange({ webhookHeaders: e.target.value })}
                 spellCheck={false}
@@ -747,7 +747,7 @@ function LogRow({ log, showHookId = true }: { log: HookLog; showHookId?: boolean
         {showHookId && <span className="text-muted-foreground">#{log.hookId.slice(-8)}</span>}
       </div>
       {log.result && (
-        <pre className="mt-1.5 max-h-24 overflow-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[11px] thin-scroll">
+        <pre className="mt-1.5 max-h-24 overflow-auto rounded-md bg-muted/40 p-1.5 font-mono text-[11px] thin-scroll">
           {log.result}
         </pre>
       )}
@@ -794,7 +794,7 @@ function NativeSelect<T extends string>({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value as T)}
-      className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>

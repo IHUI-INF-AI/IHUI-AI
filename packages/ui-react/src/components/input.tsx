@@ -24,7 +24,7 @@ import {
  *  ⇒ 取值档一律取自 input-spec,本文件只做"档 → 本端承载类"的映射。
  */
 const HEIGHT_CLASS: Record<number, string> = { 36: 'h-9' }
-const RADIUS_CLASS: Record<typeof INPUT_RADIUS_TIER, string> = { sm: 'rounded-sm' }
+const RADIUS_CLASS: Record<typeof INPUT_RADIUS_TIER, string> = { sm: 'rounded-md' }
 const PADDING_X_CLASS: Record<number, string> = { 12: 'px-3' }
 const TEXT_CLASS: Record<typeof INPUT_TEXT_TIER, string> = { sm: 'text-sm' }
 const BORDER_WIDTH_CLASS: Record<number, string> = { 1: 'border' }

@@ -389,7 +389,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
     },
     tabBtn: {
-      borderRadius: rnRadius.sm, // rounded-md
+      borderRadius: rnRadius.md, // rounded-md
       paddingVertical: rnSpacing.sm, // py-2
       alignItems: 'center',
     },
@@ -449,7 +449,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     promptInput: {
       minHeight: 64, // min-h-[64px]
-      borderRadius: rnRadius.sm, // rounded-md
+      borderRadius: rnRadius.md, // rounded-md
       borderWidth: 1,
       borderColor: tk.border.light, // border-gray-200
       padding: rnSpacing['sm-loose'], // p-2.5
@@ -463,7 +463,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     invokeBtn: {
       alignItems: 'center',
-      borderRadius: rnRadius.sm, // rounded-md
+      borderRadius: rnRadius.md, // rounded-md
       paddingVertical: rnSpacing['sm-loose'], // py-2.5
       backgroundColor: tk.brand.cta, // bg-orange-600 → 共享层品牌主色
     },

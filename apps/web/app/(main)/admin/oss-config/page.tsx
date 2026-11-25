@@ -213,7 +213,7 @@ export default function AdminOssConfigPage() {
                   id="oss-config-provider"
                   value={form.provider}
                   onChange={(e) => setForm({ ...form, provider: e.target.value })}
-                  className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-body"
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-body"
                 >
                   <option value="aliyun">阿里云</option>
                   <option value="tencent">腾讯云</option>

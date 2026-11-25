@@ -30,15 +30,15 @@ describe('聚焦描边取档', () => {
   })
 
   it('自身没有描边的输入框:常态先占 1px 透明位 ⇒ 聚焦不产生布局跳动', () => {
-    const rest = computeFocusStyle(false, 'w-full rounded-sm bg-muted')
+    const rest = computeFocusStyle(false, 'w-full rounded-md bg-muted')
     expect(rest).toMatchObject({ borderWidth: '1px', borderColor: 'transparent' })
-    const focus = computeFocusStyle(true, 'w-full rounded-sm bg-muted')
+    const focus = computeFocusStyle(true, 'w-full rounded-md bg-muted')
     expect(focus?.borderWidth).toBe('1px')
     expect(focus?.borderColor).toBe(FOCUS_INK_BORDER)
   })
 
   it('调用方已自己画描边:常态**不得**被涂成透明(那会让可见边框消失)', () => {
-    expect(computeFocusStyle(false, 'border border-input rounded-sm')).toBeUndefined()
+    expect(computeFocusStyle(false, 'border border-input rounded-md')).toBeUndefined()
     expect(computeFocusStyle(false, 'focus:border-primary')).toBeUndefined()
     expect(computeFocusStyle(false, 'border-primary/20')).toBeUndefined()
   })
@@ -78,7 +78,7 @@ describe('与调用方 style 的合并次序', () => {
 
 describe('hasRestingBorder 的边界', () => {
   it('圆角与分割线类不算描边', () => {
-    expect(hasRestingBorder('rounded-sm bg-muted')).toBe(false)
+    expect(hasRestingBorder('rounded-md bg-muted')).toBe(false)
     expect(hasRestingBorder('divide-border')).toBe(false)
   })
   it('变体/染色/任意值形态都算描边', () => {

@@ -64,12 +64,12 @@ export function DeliveryFileChangeList({ files }: { files: DeliverableFileChange
           type="button"
           disabled={f.kind === 'delete'}
           onClick={() => openWorkspaceFileInIde(f.path)}
-          className="flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-label transition-colors hover:bg-accent/40 disabled:cursor-default disabled:hover:bg-transparent"
+          className="flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-label transition-colors hover:bg-accent/40 disabled:cursor-default disabled:hover:bg-transparent"
           data-testid={`delivery-review-file-${i}`}
         >
           <span
             className={cn(
-              'shrink-0 rounded-sm px-1 py-px text-[9px] font-medium uppercase',
+              'shrink-0 rounded-md px-1 py-px text-[9px] font-medium uppercase',
               FILE_KIND_BADGE_CLS[f.kind],
             )}
             data-testid={`delivery-review-kind-${i}`}
@@ -92,7 +92,7 @@ export function DeliveryFileChangeList({ files }: { files: DeliverableFileChange
               }
             >
               <span
-                className="shrink-0 rounded-sm border border-stroke-subtle px-1 py-px text-[9px] text-muted-foreground cursor-default"
+                className="shrink-0 rounded-md border border-stroke-subtle px-1 py-px text-[9px] text-muted-foreground cursor-default"
                 data-testid={`delivery-review-steps-${i}`}
               >
                 S{f.stepIds.length}
@@ -189,7 +189,7 @@ export function DeliveryReviewPanel({ deliverables, loading = false }: DeliveryR
                 key={`${f.path}-${i}`}
                 type="button"
                 onClick={() => openWorkspaceFileInIde(f.path)}
-                className="flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-label transition-colors hover:bg-accent/40"
+                className="flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-label transition-colors hover:bg-accent/40"
                 data-testid={`delivery-review-presented-${i}`}
               >
                 <TruncatedText value={f.path} className="min-w-0 flex-1 text-[11px]" mono />

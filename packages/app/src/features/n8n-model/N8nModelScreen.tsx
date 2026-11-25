@@ -228,7 +228,7 @@ function createStyles(tk: AppThemeTokens) {
     createBtn: {
       paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['xs-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     createText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
@@ -237,7 +237,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.md,
       fontSize: rnType.body.size,
       color: tk.text.primary,
@@ -293,7 +293,7 @@ function createStyles(tk: AppThemeTokens) {
       width: 8,
       height: 8,
 
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       marginRight: rnSpacing.sm,
     },
     dotRun: { backgroundColor: tk.success.DEFAULT },
@@ -321,7 +321,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       paddingHorizontal: rnSpacing['sm-loose'],
       height: 34,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
     },

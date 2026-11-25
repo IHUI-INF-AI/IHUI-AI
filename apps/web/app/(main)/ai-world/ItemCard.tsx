@@ -97,7 +97,7 @@ export function ItemCard({ item, layout = 'grid' }: Props) {
 
   const Meta = (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-muted-foreground">
-      <span className="inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5">
+      <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5">
         <KindIcon className="h-3 w-3" />
         {KIND_LABEL[item.kind]}
       </span>

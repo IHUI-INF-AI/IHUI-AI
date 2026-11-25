@@ -279,7 +279,7 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
             setTag(e.target.value)
             setPage(1)
           }}
-          className="rounded-sm border bg-card px-3 py-2 text-body text-foreground"
+          className="rounded-md border bg-card px-3 py-2 text-body text-foreground"
           aria-label={t('tag')}
         >
           <option value="">{t('allTags')}</option>
@@ -681,7 +681,7 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
                   role="radio"
                   aria-checked={score === i}
                   onClick={() => setScore(i)}
-                  className="rounded-sm p-0.5 transition-colors hover:bg-accent"
+                  className="rounded-md p-0.5 transition-colors hover:bg-accent"
                 >
                   <Star
                     className={
@@ -698,7 +698,7 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
               onChange={(e) => setComment(e.target.value)}
               placeholder={t('commentPlaceholder')}
               rows={2}
-              className="w-full rounded-sm border bg-card px-3 py-2 text-body text-foreground placeholder:text-muted-foreground"
+              className="w-full rounded-md border bg-card px-3 py-2 text-body text-foreground placeholder:text-muted-foreground"
             />
             <Button size="sm" onClick={() => void handleSubmitRating()} disabled={submitting}>
               {submitting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}

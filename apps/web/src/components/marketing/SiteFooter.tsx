@@ -214,7 +214,7 @@ function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'foote
         className="pointer-events-none absolute bottom-full left-1/2 z-popover mb-2 -translate-x-1/2 scale-95 opacity-0 transition-all duration-200 group-hover/qr:scale-100 group-hover/qr:opacity-100"
       >
         <div className="rounded-md border border-stroke-strong bg-popover p-3 shadow-elevation-lg">
-          <div className="h-[240px] w-[240px] overflow-hidden rounded-sm bg-zinc-900 p-3">
+          <div className="h-[240px] w-[240px] overflow-hidden rounded-md bg-zinc-900 p-3">
             <Image
               src={toMediaImageUrl(qr.src)}
               alt={t(qr.altKey)}
@@ -411,7 +411,7 @@ export function SiteFooter({ className }: { className?: string }) {
                     <button
                       type="button"
                       onClick={() => handleCopyUrl(repo.url)}
-                      className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-muted hover:text-foreground"
+                      className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted hover:text-foreground"
                       aria-label={t('copyRepoUrl')}
                     >
                       <Copy className="h-2.5 w-2.5" />
@@ -422,7 +422,7 @@ export function SiteFooter({ className }: { className?: string }) {
                       href={repo.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-muted hover:text-foreground"
+                      className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted hover:text-foreground"
                       aria-label={t(repo.openKey)}
                     >
                       <ExternalLink className="h-2.5 w-2.5" />

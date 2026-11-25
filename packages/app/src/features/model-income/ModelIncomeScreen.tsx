@@ -304,7 +304,7 @@ function createStyles(tk: AppThemeTokens) {
     withdrawBtn: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing['xs-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     withdrawBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
@@ -433,7 +433,7 @@ function createStyles(tk: AppThemeTokens) {
     modalBtn: {
       marginTop: rnSpacing.xl,
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

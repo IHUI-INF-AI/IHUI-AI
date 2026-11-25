@@ -209,7 +209,7 @@ function TabBarIcon({ tab, isActive, activeColor, inactiveColor }: TabBarIconPro
             width: TAB_BAR_ICON_SIZE_PX,
             height: TAB_BAR_ICON_SIZE_PX,
             backgroundColor: target,
-            borderRadius: rnRadius.sm,
+            borderRadius: rnRadius.md,
           }}
         />
       )
@@ -235,7 +235,7 @@ function TabBarIcon({ tab, isActive, activeColor, inactiveColor }: TabBarIconPro
           width: TAB_BAR_ICON_SIZE_PX,
           height: TAB_BAR_ICON_SIZE_PX,
           backgroundColor: isActive ? activeColor : inactiveColor,
-          borderRadius: rnRadius.sm,
+          borderRadius: rnRadius.md,
         }}
       />
     )

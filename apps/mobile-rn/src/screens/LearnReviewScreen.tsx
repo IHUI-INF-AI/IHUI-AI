@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: rnSpacing['md-loose'],
     paddingVertical: rnSpacing['xs-loose'],
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.medium,
   },
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
   qualityBtn: {
     paddingHorizontal: rnSpacing['sm-loose'],
     paddingVertical: 7,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   qualityText: { fontSize: rnType.label.size, fontWeight: '600' },
   disabled: { opacity: 0.5 },
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 3,
     paddingVertical: rnSpacing.sm,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.bg,
   },
   resultCellLabel: {
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
   resultCellValue: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
   primaryBtn: {
     height: 42,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.brand.cta,

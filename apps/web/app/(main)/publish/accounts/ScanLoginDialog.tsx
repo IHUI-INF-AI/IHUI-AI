@@ -779,7 +779,7 @@ export function ScanLoginDialog({
                           onClick={() => setPlatform(p.platform)}
                           disabled={isBusy}
                           aria-pressed={active}
-                          className={`flex items-center justify-center gap-2 rounded-sm border px-3 py-2.5 text-body font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                          className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2.5 text-body font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                             active
                               ? 'border-brand-accent-deep bg-primary/10 text-primary'
                               : 'border-border bg-background text-foreground hover:border-stroke-strong hover:bg-muted'
@@ -828,7 +828,7 @@ export function ScanLoginDialog({
                 type="button"
                 onClick={toggleReuseSession}
                 disabled={isBusy}
-                className="flex w-full items-center justify-between rounded-sm border border-input px-3 py-2 text-label text-muted-foreground transition-colors hover:bg-accent/40"
+                className="flex w-full items-center justify-between rounded-md border border-input px-3 py-2 text-label text-muted-foreground transition-colors hover:bg-accent/40"
               >
                 <span>{t('accounts.scanLoginReuseLabel')}</span>
                 <span className={reuseSession ? 'font-medium text-foreground' : ''}>

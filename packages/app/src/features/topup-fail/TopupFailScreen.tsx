@@ -83,7 +83,7 @@ function createStyles(tk: AppThemeTokens) {
     reason: { fontSize: rnType.title.size, color: tk.danger.deepText, textAlign: 'center' },
     actions: { width: '100%', gap: rnSpacing.md, marginTop: rnSpacing.sm },
     primaryBtn: {
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       height: 50,
       alignItems: 'center',
       justifyContent: 'center',
@@ -91,7 +91,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     primaryText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
     secondaryBtn: {
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       height: 44,
       alignItems: 'center',
       justifyContent: 'center',

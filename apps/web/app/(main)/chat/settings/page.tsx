@@ -133,7 +133,7 @@ export default function ChatSettingsPage() {
                   id="cs-model"
                   value={form.model}
                   onChange={(e) => update('model', e.target.value)}
-                  className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
                 >
                   {MODELS.map((m) => (
                     <option key={m.value} value={m.value}>

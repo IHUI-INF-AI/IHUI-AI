@@ -80,7 +80,7 @@
 .ihui-state-btn {
   margin-top: var(--spacing-xs-loose);
   padding: 18rpx 36rpx;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background-color: var(--color-brand);
 }
 

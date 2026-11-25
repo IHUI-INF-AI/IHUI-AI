@@ -169,12 +169,12 @@ describe('InputArea 模型按钮族', () => {
     // RN 替身把 style 摊平成 DOM style;React 给非 unitless 数值补 px
     //
     // 圆角取 **control** 档,不是 chip 档:这一档的权威侧是 web 端 model-selector 触发钮
-    // (`h-8 … rounded-sm`),RN 侧镜像它 ⇒ 跨端同值(改这一档必须先改 web 那个 rounded-sm,
+    // (`h-8 … rounded-md`),RN 侧镜像它 ⇒ 跨端同值(改这一档必须先改 web 那个 rounded-md,
     // 否则门 128 跨端几何会分叉)。下面三句是连锁锁:组件取值 → 角色档 → 档位表,
     // 任一侧被改成字面量或换了角色,都会在这里断。
     expect(chip.style.borderRadius).toBe(`${rnRadiusFor.control}px`)
-    expect(rnRadiusFor.control).toBe(rnRadius.sm)
-    expect(rnRadius.sm).toBe(4)
+    expect(rnRadiusFor.control).toBe(rnRadius.md)
+    expect(rnRadius.md).toBe(4)
     // 2026-11-23 用户定档:模型钮与 web 触发钮一样 ghost 化 —— 无描边、无底色,
     // 不再用旧灰框;「有边框」在这一格等于跨端不同形。
     expect(chip.style.borderColor).toBe('')

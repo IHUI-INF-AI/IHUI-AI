@@ -359,7 +359,7 @@ function DynamicVariables({
                 value={String(cur ?? '')}
                 onChangeText={(t) => emit({ [v.name]: t })}
                 placeholder={t('modelConfig.inputPrefix', { desc: String(v.desc) })}
-                className="rounded-sm text-xs"
+                className="rounded-md text-xs"
                 style={{
                   ...modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit),
                   backgroundColor: tokens.surface.muted,
@@ -445,7 +445,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
             value={String(config.temperature)}
             keyboardType="numeric"
             onChangeText={(v) => update({ temperature: Number(v) || 0 })}
-            className="mr-2 flex-1 rounded-sm text-xs"
+            className="mr-2 flex-1 rounded-md text-xs"
             style={{
               ...modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit),
               backgroundColor: tokens.surface.muted,
@@ -464,7 +464,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           value={String(config.maxTokens)}
           keyboardType="numeric"
           onChangeText={(v) => update({ maxTokens: Number(v) || 0 })}
-          className="rounded-sm text-xs"
+          className="rounded-md text-xs"
           style={{
             ...modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit),
             backgroundColor: tokens.surface.muted,
@@ -479,7 +479,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           value={String(config.topP)}
           keyboardType="numeric"
           onChangeText={(v) => update({ topP: Number(v) || 0 })}
-          className="rounded-sm text-xs"
+          className="rounded-md text-xs"
           style={{
             ...modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit),
             backgroundColor: tokens.surface.muted,
@@ -495,7 +495,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           onChangeText={(v) => update({ systemPrompt: v })}
           placeholder={t('profile.cfgSysPromptPh')}
           multiline
-          className="rounded-sm p-2 text-xs"
+          className="rounded-md p-2 text-xs"
           style={{
             backgroundColor: tokens.surface.muted,
             color: tokens.text.primary,

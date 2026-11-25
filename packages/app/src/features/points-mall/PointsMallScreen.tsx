@@ -187,7 +187,7 @@ function createStyles(tk: AppThemeTokens) {
     redeemBtn: {
       marginTop: rnSpacing.sm,
       paddingVertical: rnSpacing['xs-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },

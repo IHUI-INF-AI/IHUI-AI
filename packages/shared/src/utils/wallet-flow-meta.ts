@@ -13,6 +13,7 @@
  * - 4 `relay-billing-service`：钱包转账至 API Key（减少）
  * - 5 管理员调整：`quantity` 自带符号（正=入账，负=出账）
  * - 6 API 订阅配额发放：非金额量（钱流水端点已排除），文案「配额类变动」
+ * - 7 钱包余额兑换 AI 积分：扣减（减少），1 分 = 1 积分
  *
  * 未知 opType 一律中性展示「其他变动」，不得静默当成充值或支出。
  */
@@ -26,6 +27,7 @@ export type WalletFlowKind =
   | 'relay'
   | 'adminAdjust'
   | 'quota'
+  | 'pointsExchange'
   | 'other'
 
 export interface WalletFlowMeta {
@@ -108,6 +110,14 @@ export function resolveWalletFlowMeta(opType: number, quantity: number): WalletF
         kind: 'quota',
         isMoney: false,
         colorClass: NEUTRAL_COLOR,
+      }
+    case 7:
+      return {
+        labelKey: 'flowPointsExchange',
+        sign: 'negative',
+        kind: 'pointsExchange',
+        isMoney: true,
+        colorClass: NEGATIVE_COLOR,
       }
     default:
       return {

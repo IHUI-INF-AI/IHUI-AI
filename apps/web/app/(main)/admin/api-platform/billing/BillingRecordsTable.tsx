@@ -82,7 +82,7 @@ export function BillingRecordsTable({ list, isLoading }: Props) {
                   >
                     <span
                       className={cn(
-                        'h-1.5 w-1.5 rounded-sm',
+                        'h-1.5 w-1.5 rounded-md',
                         r.status === 'success'
                           ? 'bg-emerald-500'
                           : r.status === 'pending'

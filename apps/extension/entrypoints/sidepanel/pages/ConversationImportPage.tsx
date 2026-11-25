@@ -269,7 +269,7 @@ export default function ConversationImportPage() {
         <button
           type="button"
           onClick={() => navigate('/chat/history')}
-          className="px-2 py-1 text-[11px] rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+          className="px-2 py-1 text-[11px] rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
         >
           {t('conversationImport.backToHistory')}
         </button>
@@ -295,7 +295,7 @@ export default function ConversationImportPage() {
                     setOutcome(null)
                     setPreview(null)
                   }}
-                  className={`flex flex-col items-start gap-1 rounded-sm border px-2 py-2 text-left transition-colors ${
+                  className={`flex flex-col items-start gap-1 rounded-md border px-2 py-2 text-left transition-colors ${
                     active
                       ? 'border-brand-accent-deep bg-primary/5 text-foreground'
                       : 'border-border text-muted-foreground hover:bg-muted/50'
@@ -343,7 +343,7 @@ export default function ConversationImportPage() {
               data-testid="import-parse-btn"
               onClick={() => void onParse()}
               disabled={!file || parsing || committing}
-              className="self-start px-3 py-1.5 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="self-start px-3 py-1.5 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {parsing ? t('conversationImport.parsing') : t('conversationImport.parse')}
             </button>
@@ -460,7 +460,7 @@ export default function ConversationImportPage() {
                   data-testid="import-commit-btn"
                   onClick={() => void onCommit()}
                   disabled={selected.size === 0 || committing}
-                  className="self-start px-3 py-1.5 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="self-start px-3 py-1.5 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {committing
                     ? t('conversationImport.committing', {
@@ -508,7 +508,7 @@ export default function ConversationImportPage() {
                       `/chat/${encodeURIComponent(outcome.firstConversationId as string)}`,
                     )
                   }
-                  className="px-3 py-1.5 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="px-3 py-1.5 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
                 >
                   {t('conversationImport.openConversation')}
                 </button>
@@ -516,7 +516,7 @@ export default function ConversationImportPage() {
               <button
                 type="button"
                 onClick={() => navigate('/chat/history')}
-                className="px-3 py-1.5 text-xs rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+                className="px-3 py-1.5 text-xs rounded-md border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
               >
                 {t('conversationImport.backToHistory')}
               </button>
