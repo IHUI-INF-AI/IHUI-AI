@@ -8,13 +8,16 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
-import { Mail, MessageSquare, Bell, Volume2, Loader2 } from 'lucide-react'
+import { Mail, MessageSquare, Bell, Volume2, Loader2, Check, Play } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
+import { Tooltip } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
 import { useNotification } from '@/hooks/use-notification'
+import { useRingtonePreference } from '@/hooks/use-ringtone-preference'
+import { RINGTONES, type RingtoneId } from '@ihui/shared/notifications/ringtone'
 import {
   querySystemNotificationPermission,
   type SystemNotificationPermissionReport,
@@ -50,6 +53,7 @@ export default function NotificationsPage() {
   const tGate = useTranslations('chatHistory')
   const { ready, allow } = useAuthGate()
   const { soundEnabled, setSoundEnabled } = useNotification()
+  const { ringtoneId, selectRingtone, preview, refreshFromServer } = useRingtonePreference()
   const [prefs, setPrefs] = React.useState<NotificationPrefs>(NOTIFICATION_DEFAULTS)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState('')
@@ -90,6 +94,9 @@ export default function NotificationsPage() {
             smsEnabled: resolvePref(s.smsEnabled, 'smsEnabled'),
             pushEnabled: resolvePref(s.pushEnabled, 'pushEnabled'),
           })
+          // 声音开关随设备跟随:以服务端为准校正本地与 state;后端无值时本地默认开。
+          const serverSound = s.soundEnabled
+          setSoundEnabled(serverSound !== '0' && serverSound !== 'false')
         } else {
           setError(t('notificationsLoadFailed'))
         }
@@ -104,7 +111,12 @@ export default function NotificationsPage() {
     return () => {
       cancelled = true
     }
-  }, [t, allow])
+  }, [t, allow, setSoundEnabled])
+
+  React.useEffect(() => {
+    if (!allow) return
+    void refreshFromServer()
+  }, [allow, refreshFromServer])
 
   React.useEffect(() => {
     if (!toast) return
@@ -151,6 +163,15 @@ export default function NotificationsPage() {
     } catch {
       setToast({ type: 'error', msg: t('notificationsSaveFailed') })
     }
+  }
+
+  // 选中铃声:hook 内已乐观更新本地 + 试听 + PUT,失败回滚;这里只补成功/失败提示。
+  const handleSelectRingtone = async (id: RingtoneId) => {
+    const ok = await selectRingtone(id)
+    setToast({
+      type: ok ? 'success' : 'error',
+      msg: t(ok ? 'notificationsSaveSuccess' : 'notificationsSaveFailed'),
+    })
   }
 
   return (
@@ -316,6 +337,85 @@ export default function NotificationsPage() {
                     onCheckedChange={updateSound}
                     className="shrink-0"
                   />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Bell className="h-4 w-4" />
+                  {t('labels.notificationRingtone')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="mb-3 text-body text-muted-foreground">
+                  {t('desc.notificationRingtone')}
+                </p>
+                <div
+                  role="radiogroup"
+                  tabIndex={0}
+                  aria-label={t('labels.notificationRingtone')}
+                  className="space-y-2"
+                  onKeyDown={(e) => {
+                    if (
+                      e.key !== 'ArrowDown' &&
+                      e.key !== 'ArrowUp' &&
+                      e.key !== 'ArrowLeft' &&
+                      e.key !== 'ArrowRight'
+                    )
+                      return
+                    const options = Array.from(
+                      e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]'),
+                    )
+                    const current = options.indexOf(document.activeElement as HTMLButtonElement)
+                    if (current < 0) return
+                    e.preventDefault()
+                    const delta = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1
+                    const next = (current + delta + options.length) % options.length
+                    options[next]?.focus()
+                  }}
+                >
+                  {RINGTONES.map((ring) => {
+                    const checked = ringtoneId === ring.id
+                    return (
+                      <button
+                        key={ring.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={checked}
+                        onClick={() => void handleSelectRingtone(ring.id)}
+                        className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stroke-focus ${
+                          checked ? 'border-stroke-strong bg-muted/40' : 'border-stroke-light'
+                        }`}
+                      >
+                        <span className="min-w-0 flex-1 text-body">
+                          {t(`ringtoneNames.${ring.id}`)}
+                        </span>
+                        <Tooltip content={t('ringtonePreview')}>
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            aria-label={t('ringtonePreview')}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              preview(ring.id)
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.stopPropagation()
+                                preview(ring.id)
+                              }
+                            }}
+                            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted"
+                          >
+                            <Play className="h-4 w-4" />
+                          </span>
+                        </Tooltip>
+                        {checked && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                      </button>
+                    )
+                  })}
                 </div>
               </CardContent>
             </Card>

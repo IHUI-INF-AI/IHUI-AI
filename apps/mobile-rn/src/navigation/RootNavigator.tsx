@@ -12,7 +12,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { type NavigatorScreenParams } from '@react-navigation/native'
 import { tokens } from '../theme/active-tokens'
 import { useAuth } from '../context/AuthContext'
-import { setUnauthorizedHandler } from '@ihui/api-client'
+import { fetchApi, setUnauthorizedHandler } from '@ihui/api-client'
 import { expireAuth } from '../stores/auth-store'
 import { navigateTo, navigationRef } from './navigation-ref'
 import { authArrivalAction } from './auth-arrival'
@@ -20,6 +20,7 @@ import { useNotificationWebSocket } from '../hooks/use-websocket'
 import { useUiControlBridge } from '../hooks/use-ui-control-bridge'
 import { NotificationProvider, useNotificationStore } from '../stores/notification'
 import {
+  applyServerPreferences,
   createRingtoneDedupe,
   getStoredRingtoneIdSync,
   isSoundEnabled,
@@ -984,6 +985,28 @@ function RootNavigatorInner() {
     if (!dedupe || !dedupe.shouldRing(entryId)) return
     playRingtone(getStoredRingtoneIdSync())
   }, [ws.lastMessage, token])
+
+  // 登录态"无→有"那一次,单次拉取后端通知偏好并回写本地(换设备跟随):
+  // soundEnabled 归一 + ringtone 收敛。失败静默,不覆盖本地已有值;不轮询、不在每条通知里请求。
+  const prefHydratedRef = useRef(false)
+  useEffect(() => {
+    if (!ready || !token) {
+      prefHydratedRef.current = false
+      return
+    }
+    if (prefHydratedRef.current) return
+    prefHydratedRef.current = true
+    void (async () => {
+      try {
+        const res = await fetchApi<{ settings?: Record<string, unknown> }>(
+          '/settings/notifications',
+        )
+        if (res.success) applyServerPreferences(res.data?.settings)
+      } catch {
+        // 静默:本地保留现有值,不阻塞登录与通知链路
+      }
+    })()
+  }, [ready, token])
 
   /* -------------------------------------------------------------------------- */
   /* PushBanner 装车(2026-09-25):顶部横幅推送,组件早已实现但全仓零挂载点          */
