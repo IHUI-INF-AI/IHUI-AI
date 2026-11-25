@@ -5748,6 +5748,8 @@ pub fn run() {
             embedded_browser::embedded_browser_pip,
             browser_pip_window::open_browser_pip_window,
             browser_pip_window::close_browser_pip_window,
+            browser_pip_window::set_browser_pip_collapsed,
+            browser_pip_window::toggle_browser_pip_collapsed,
             browser_pip_window::handover_browser_pip_window,
             store_browser::store_account_open,
             store_browser::store_account_url,

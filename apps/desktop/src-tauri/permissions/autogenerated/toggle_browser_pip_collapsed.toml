@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-toggle-browser-pip-collapsed"
+description = "Enables the toggle_browser_pip_collapsed command without any pre-configured scope."
+commands.allow = ["toggle_browser_pip_collapsed"]
+
+[[permission]]
+identifier = "deny-toggle-browser-pip-collapsed"
+description = "Denies the toggle_browser_pip_collapsed command without any pre-configured scope."
+commands.deny = ["toggle_browser_pip_collapsed"]

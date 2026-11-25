@@ -12,6 +12,7 @@ import {
   LoaderCircle,
   Lock,
   Maximize2,
+  Minus,
   Pin,
   PinOff,
   Play,
@@ -30,7 +31,12 @@ import {
   type BrowserPipPhase,
   type BrowserPipStatusKind,
 } from '@/lib/browser-pip-core'
-import { handoverAiPipWindow, closeAiPipWindow, isTauri } from '@/lib/tauri-bridge'
+import {
+  closeAiPipWindow,
+  handoverAiPipWindow,
+  isTauri,
+  toggleAiPipCollapsed,
+} from '@/lib/tauri-bridge'
 import { useAuthStore } from '@/stores/auth'
 
 const KIND_COLOR: Record<BrowserPipStatusKind, string> = {
@@ -98,6 +104,7 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
   const [pinned, setPinned] = useState(true)
   const [pinBusy, setPinBusy] = useState(false)
   const [taskExpanded, setTaskExpanded] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
   // `isTauri()` 在 SSR 恒为 false、客户端首帧为 true;直接写进 JSX 会触发
   // hydration mismatch。先渲染与 SSR 一致的 false,挂载后再显示桌面控件。
   const [tauriHost, setTauriHost] = useState(false)
@@ -148,6 +155,13 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
         /* 标题只是外观,失败不影响监看 */
       })
   }, [])
+
+  useEffect(() => {
+    if (!tauriHost) return
+    // 页面若在收起态被刷新,窗口只有 32px 高;按实际高度还原按钮语义,
+    // 避免图标显示「最小化」但点击命令实际是「展开」的错位。
+    setCollapsed(window.innerHeight <= 100)
+  }, [tauriHost])
 
   useEffect(() => {
     // 独立窗口拿不到主窗内存里的 access token;Rust 建窗时用 initialization_script
@@ -204,6 +218,16 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
     void closeAiPipWindow().catch(() => {
       window.close()
     })
+  }, [])
+
+  const onMinimize = useCallback(() => {
+    // 不占任务栏的小窗直接 OS minimize 会失去恢复入口;Rust 把它压成 32px
+    // 标题条,窗口仍在置顶可见,再点同一枚按钮展开。
+    void toggleAiPipCollapsed()
+      .then(setCollapsed)
+      .catch(() => {
+        /* 收起失败保持原窗 */
+      })
   }, [])
 
   useEffect(() => {
@@ -413,6 +437,17 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
           {tauriHost && (
             <button
               type="button"
+              onClick={onMinimize}
+              aria-label={collapsed ? labels.expandWindow : labels.minimize}
+              title={collapsed ? labels.expandWindow : labels.minimize}
+              className="grid h-6 w-6 place-items-center rounded-md text-slate-400 transition-colors hover:bg-white/10 hover:text-slate-200"
+            >
+              {collapsed ? <Maximize2 className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+            </button>
+          )}
+          {tauriHost && (
+            <button
+              type="button"
               onClick={() => void togglePin()}
               disabled={pinBusy}
               aria-label={pinned ? labels.unpin : labels.pin}
@@ -443,7 +478,7 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
         </div>
       </header>
 
-      {taskView && (
+      {!collapsed && taskView && (
         <div className="absolute inset-x-0 top-8 z-20">
           {!taskExpanded ? (
             <button
@@ -544,36 +579,38 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
         </div>
       )}
 
-      <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-30">
-        <div className="h-24 bg-gradient-to-t from-[#05070a] via-[#05070a]/75 to-transparent" />
-        <div className="pointer-events-auto absolute inset-x-0 bottom-0 flex items-center gap-1.5 px-2 pb-2">
-          {activeCheckpoint && phase === 'waiting' && (
+      {!collapsed && (
+        <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-30">
+          <div className="h-24 bg-gradient-to-t from-[#05070a] via-[#05070a]/75 to-transparent" />
+          <div className="pointer-events-auto absolute inset-x-0 bottom-0 flex items-center gap-1.5 px-2 pb-2">
+            {activeCheckpoint && phase === 'waiting' && (
+              <button
+                type="button"
+                onClick={onContinue}
+                disabled={resumeBusy}
+                className="inline-flex h-7 flex-none items-center gap-1 rounded-md bg-amber-400 px-2.5 text-[10px] font-semibold text-[#1b1305] shadow-[0_4px_16px_rgba(245,158,11,0.28)] transition-colors hover:bg-amber-300 disabled:opacity-50"
+              >
+                <Play className="h-2.5 w-2.5" />
+                {labels.continueLabel}
+              </button>
+            )}
+            <span
+              className="min-w-0 flex-1 truncate text-[9.5px] text-slate-400/85"
+              title={currentUrl}
+            >
+              {currentUrl || labels.title}
+            </span>
             <button
               type="button"
-              onClick={onContinue}
-              disabled={resumeBusy}
-              className="inline-flex h-7 flex-none items-center gap-1 rounded-md bg-amber-400 px-2.5 text-[10px] font-semibold text-[#1b1305] shadow-[0_4px_16px_rgba(245,158,11,0.28)] transition-colors hover:bg-amber-300 disabled:opacity-50"
+              onClick={() => void onHandover()}
+              className="inline-flex h-7 flex-none items-center gap-1 rounded-md border border-white/20 bg-white/[0.08] px-2.5 text-[10px] font-semibold text-slate-100 backdrop-blur-sm transition-colors hover:bg-white/15"
             >
-              <Play className="h-2.5 w-2.5" />
-              {labels.continueLabel}
+              <Maximize2 className="h-2.5 w-2.5" />
+              {labels.handover}
             </button>
-          )}
-          <span
-            className="min-w-0 flex-1 truncate text-[9.5px] text-slate-400/85"
-            title={currentUrl}
-          >
-            {currentUrl || labels.title}
-          </span>
-          <button
-            type="button"
-            onClick={() => void onHandover()}
-            className="inline-flex h-7 flex-none items-center gap-1 rounded-md border border-white/20 bg-white/[0.08] px-2.5 text-[10px] font-semibold text-slate-100 backdrop-blur-sm transition-colors hover:bg-white/15"
-          >
-            <Maximize2 className="h-2.5 w-2.5" />
-            {labels.handover}
-          </button>
-        </div>
-      </footer>
+          </div>
+        </footer>
+      )}
     </div>
   )
 }
