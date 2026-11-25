@@ -75,10 +75,13 @@ function collect(windowMin) {
     '$events=New-Object System.Collections.ArrayList',
     '$out=@{ pidMap=@{}; error=$null }',
     'try {',
+    /* 先证明 Security 日志本身可读:取不到它才叫"采集失败";读到 0 条是空窗,不是失败(§0.3)。 */
+    '  $null=Get-WinEvent -LogName \'Security\' -MaxEvents 1 -ErrorAction Stop',
     /* 4688 进程创建:按 ProcessId(hex)兜底映像名。本机若未审核 4688 即为空 map,不影响主判据。 */
     '  $4688=Get-WinEvent -FilterHashtable @{LogName=\'Security\'; Id=4688; StartTime=$sinceEnrich} -ErrorAction SilentlyContinue',
     '  foreach($e in $4688){ try{ $x=[xml]$e.ToXml() } catch { continue }; $d=@{}; foreach($p in $x.Event.EventData.Data){ $d[$p.Name]=$p.\'#text\' }; if($d.ProcessId){ $out.pidMap[$d.ProcessId.ToLower()]=$d.NewProcessName } }',
-    '  $ev=Get-WinEvent -FilterHashtable @{LogName=\'Security\'; Id=@(4740,4625); StartTime=$since} -ErrorAction Stop',
+    /* 空窗(无匹配事件)在 Get-WinEvent 会抛错,故这里必须 SilentlyContinue:空 ≠ 取不到。 */
+    '  $ev=Get-WinEvent -FilterHashtable @{LogName=\'Security\'; Id=@(4740,4625); StartTime=$since} -ErrorAction SilentlyContinue',
     '  foreach($e in $ev){',
     '    try{ $x=[xml]$e.ToXml() } catch { continue }',
     '    $d=@{}; foreach($p in $x.Event.EventData.Data){ $d[$p.Name]=$p.\'#text\' }',
