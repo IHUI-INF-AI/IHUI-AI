@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "note": "本机计划任务里被判「有意停用」的清单。未登记而显示 Disabled 的一律点名待确认,不静默放过;登记了但其实是故障的,等于把真问题关掉,故每条必须写清楚停用理由与替代腿。",
+  "tasks": {
+    "IHUI-PG-KEEP": {
+      "disabledIntent": true,
+      "note": "2026-10-12 起停用,Last Result=1;PG 保留策略已由其他腿覆盖,保留任务定义仅作历史对照"
+    },
+    "IHUI-mihomo-revive": {
+      "disabledIntent": true,
+      "note": "2026-10-19 起停用,Last Result=-1073741510(0xC000013A Ctrl+C 中断);代理链已改走 Cloudflare 隧道"
+    }
+  }
+}
