@@ -3,12 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * useAutoAiPip 行为夹具(2026-11-25)。
+ * useAutoAiPip 行为夹具(2026-11-25 立,2026-11-26 多窗化)。
  *
- * 钉死三条:
+ * 钉死四条:
  * - 第一次列表是基线,旧会话不弹;
- * - 基线之后出现新 sessionId,且没有 ai-browser-pip 窗时才开;
- * - 已经有一扇监看窗时不抢会话(不能因为 B 新建就把用户正在看的 A 关掉)。
+ * - 基线之后每个新 sessionId 各开一窗(不再只开最后一个);
+ * - 同会话已有窗不重复开,也不影响其他新会话开窗;
+ * - 最多 5 窗,超出不抢开。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
@@ -61,29 +62,31 @@ describe('useAutoAiPip', () => {
     expect(openMock).not.toHaveBeenCalled()
   })
 
-  it('基线之后出现新会话才开窗，并只开最新一个', async () => {
+  it('基线之后每个新会话各开一窗', async () => {
     listMock
       .mockResolvedValueOnce(sessions(['old-a']))
       .mockResolvedValueOnce(sessions(['old-a', 'new-b', 'new-c']))
     renderHook(() => useAutoAiPip())
     await vi.advanceTimersByTimeAsync(0)
     await vi.advanceTimersByTimeAsync(4000)
-    expect(openMock).toHaveBeenCalledTimes(1)
-    expect(openMock).toHaveBeenCalledWith('new-c', 'test-token')
+    expect(openMock).toHaveBeenCalledTimes(2)
+    expect(openMock).toHaveBeenNthCalledWith(1, 'new-b', 'test-token')
+    expect(openMock).toHaveBeenNthCalledWith(2, 'new-c', 'test-token')
   })
 
-  it('已有监看窗时不抢会话', async () => {
+  it('同会话已有监看窗时不重复开，其他新会话照常开', async () => {
     listMock
       .mockResolvedValueOnce(sessions(['old-a']))
-      .mockResolvedValueOnce(sessions(['old-a', 'new-b']))
+      .mockResolvedValueOnce(sessions(['old-a', 'new-b', 'new-c']))
     const { getAllWindows } = await import('@tauri-apps/api/window')
     vi.mocked(getAllWindows).mockResolvedValueOnce([
-      { label: 'ai-browser-pip' },
+      { label: 'ai-browser-pip-new-b' },
     ] as unknown as Awaited<ReturnType<typeof getAllWindows>>)
     renderHook(() => useAutoAiPip())
     await vi.advanceTimersByTimeAsync(0)
     await vi.advanceTimersByTimeAsync(4000)
-    expect(openMock).not.toHaveBeenCalled()
+    expect(openMock).toHaveBeenCalledTimes(1)
+    expect(openMock).toHaveBeenCalledWith('new-c', 'test-token')
   })
 
   it('用户关掉自动监看后只记基线，不开窗', async () => {
