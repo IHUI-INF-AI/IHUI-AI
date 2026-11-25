@@ -600,8 +600,24 @@ async def test_type_text_sends_char_events():
 
 
 # ---------------------------------------------------------------------------
-# BrowserSession:画面流(截图轮询)
+# BrowserSession:画面流(CDP screencast + 截图兜底)
 # ---------------------------------------------------------------------------
+
+
+def test_screencast_payload_uses_event_dimensions():
+    payload = bh.BrowserSession._screencast_payload(
+        {
+            "data": "jpeg-b64",
+            "sessionId": 7,
+            "metadata": {"deviceWidth": 800, "deviceHeight": 600},
+        }
+    )
+    assert payload == ("jpeg-b64", {"deviceWidth": 800, "deviceHeight": 600})
+    # 缺 data 的 ack 帧不能当画面广播。
+    assert bh.BrowserSession._screencast_payload({"metadata": {"deviceWidth": 1}}) is None
+    # 事件不带尺寸时回落到 1280×720,不能把 0/字符串透传给前端。
+    fallback = bh.BrowserSession._screencast_payload({"data": "x"})
+    assert fallback == ("x", {"deviceWidth": 1280, "deviceHeight": 720})
 
 
 async def test_screencast_start_stop():
