@@ -48,10 +48,10 @@
     "id": "push-channel-failed",
     "prefix": "push-channel",
     "cooldownMs": 86400000,
-    "reason": "`push-state` 族级防抖(24h 只留首封 + 累计抑制计数),severity 与修复判定不动。[2026-11-25 复核] 与 11-17 那次的\"底层已消除\"不同:主仓 D:/IHUI-AI 的 refs/heads/main 是 115 枚 security 主题的独立历史,与远端 main(674 枚)**无共同祖先**(git merge-base --all 返回空),故 check-push-sync 每轮如实判\"真分叉\",而 git-sync-converge 在该形态下报 \"merge-base 失败\"、跑不通 —— 这是待机主裁定的仓库结构问题,不是每次推送的新故障,也不是本轮提交的疏忽。裁定前该判据恒红,族级 24h 只留首封,避免把恒定红变成每 4 小时一封的噪音(§5e-1:不能整改但合法进白名单须写明理由)。复核动作 = 机主裁定两条历史如何合并(或明确弃用其中一条);裁定完成后本条可撤。",
+    "reason": "`push-state` 族级防抖(24h 只留首封 + 累计抑制计数),severity 与修复判定不动。[2026-11-25 收口] 当天上午实测主仓 refs/heads/main 与远端 main **无共同祖先**(本地 116 枚 security 独立历史 vs 远端 684 枚主线,git merge-base --all 返回空),git-sync-converge 在该形态下 rc=1 merge-base 失败,巡检因此恒红、约每 4 小时一封。当日晚已收口:原 116 枚整线留档到 tag local-security-line-20261125,主仓 HEAD 以 git reset --mixed 追平 origin/main(34f0dd52),工作树内容一字未动,check-push-sync 现读 exit=0 并打印\"本地与 origin/main 已同步\"。残留风险只剩\"远端高频推进导致落后\"(落后仍判红,但可直接 ff 整改,不再是无解分叉)。本条续期只为保留族级防抖;复核动作 = 再看一次是否退回无共同祖先形态,若仍同步即可撤。",
     "owner": "git-guardian",
-    "reviewBy": "2026-12-31",
-    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl + 2026-11-25 05:44Z 告警:本地 HEAD 16b58c8c7cf(115 枚) / 远端 9d575b93(674 枚),merge-base --all 空"
+    "reviewBy": "2026-12-10",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl + 2026-11-25 实测:恒红期 HEAD 16b58c8c/3cb38654 vs origin/main 9d575b93..e9d277ed(无共同祖先) ⇒ 收口后 HEAD=34f0dd52 与 origin/main 相等,check-push-sync exit=0"
   },
   {
     "id": "immutable-surface-undeclared",
