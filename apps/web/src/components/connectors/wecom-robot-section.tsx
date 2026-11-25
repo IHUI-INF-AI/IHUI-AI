@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Bot, Loader2, RefreshCw } from 'lucide-react'
+import { Loader2, RefreshCw } from 'lucide-react'
 
 import {
   authorizeWecomRobot,
@@ -14,6 +14,8 @@ import {
 } from '@ihui/api-client/endpoints/connectors'
 import { Badge } from '@/components/data'
 import { Button, Input } from '@ihui/ui-react'
+
+import { PlatformIcon } from './platform-icon'
 
 type RobotStatus = {
   authorized: boolean
@@ -79,7 +81,7 @@ export function WecomRobotSection() {
   return (
     <section className="space-y-2.5 rounded-lg border bg-card p-4">
       <div className="flex items-start gap-2">
-        <Bot className="mt-0.5 h-4 w-4 text-primary" />
+        <PlatformIcon type="wecom" size={18} className="mt-0.5" />
         <div className="flex-1 space-y-0.5">
           <div className="flex items-center gap-2">
             <p className="text-body font-semibold">{t('wecomRobotTitle')}</p>

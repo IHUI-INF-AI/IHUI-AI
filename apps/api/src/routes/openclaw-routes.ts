@@ -92,10 +92,14 @@ const hookStore = new Map<string, HookItem[]>()
 const channelStore = new Map<string, ChannelItem[]>()
 const skillStore = new Map<string, SkillItem[]>()
 
-// 返回 种子数据 + 用户自定义 合并后的完整列表(不修改种子)
+// 返回 种子数据 + 用户自定义 合并后的完整列表(不修改种子)。
+// 按 id 去重:custom 中同 id 覆盖 seed,避免 connect/disconnect 后 listChannels 出现两条同 id 渠道。
 function getChannelsFor(userId: string): ChannelItem[] {
   const custom = channelStore.get(userId) ?? []
-  return [...SEED_CHANNELS, ...custom]
+  const byId = new Map<string, ChannelItem>()
+  for (const ch of SEED_CHANNELS) byId.set(ch.id, ch)
+  for (const ch of custom) byId.set(ch.id, ch)
+  return [...byId.values()]
 }
 
 function getSkillsFor(userId: string): SkillItem[] {
@@ -392,25 +396,40 @@ export const openclawRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ deleted: removed.length > 0 }))
   })
 
+  // 查找回退链:已合并列表(seed + custom) → 受支持候选渠道(SUPPORTED_CHANNELS)。
+  // 前端"未登记候选渠道"(如 sup-wechat-mp)不在 getChannelsFor 中,需回退到候选表,
+  // 否则点击"连接"必然 404。找到后以同 id 覆盖写入 custom(不重复 push),
+  // 下次 getChannelsFor 即可查到该渠道。
+  function findChannel(userId: string, id: string): ChannelItem | undefined {
+    return (
+      getChannelsFor(userId).find((c) => c.id === id) ??
+      SUPPORTED_CHANNELS.find((c) => c.id === id)
+    )
+  }
+
+  function setChannelConnected(userId: string, ch: ChannelItem, connected: boolean): void {
+    const custom = getCustomChannels(userId)
+    const idx = custom.findIndex((c) => c.id === ch.id)
+    const updated: ChannelItem = { ...ch, connected }
+    if (idx >= 0) custom[idx] = updated
+    else custom.push(updated)
+  }
+
   server.post('/openclaw/channels/:id/connect', async (request, reply) => {
     const userId = getUserId(request)
     const { id } = z.object({ id: z.string() }).parse(request.params)
-    const ch = getChannelsFor(userId).find((c) => c.id === id)
+    const ch = findChannel(userId, id)
     if (!ch) return reply.status(404).send(error(404, '渠道不存在'))
-    const custom = getCustomChannels(userId)
-    if (!custom.some((c) => c.id === id)) custom.push({ ...ch, connected: true })
-    else custom.find((c) => c.id === id)!.connected = true
+    setChannelConnected(userId, ch, true)
     return reply.send(success({ connected: true }))
   })
 
   server.post('/openclaw/channels/:id/disconnect', async (request, reply) => {
     const userId = getUserId(request)
     const { id } = z.object({ id: z.string() }).parse(request.params)
-    const ch = getChannelsFor(userId).find((c) => c.id === id)
+    const ch = findChannel(userId, id)
     if (!ch) return reply.status(404).send(error(404, '渠道不存在'))
-    const custom = getCustomChannels(userId)
-    if (!custom.some((c) => c.id === id)) custom.push({ ...ch, connected: false })
-    else custom.find((c) => c.id === id)!.connected = false
+    setChannelConnected(userId, ch, false)
     return reply.send(success({ disconnected: true }))
   })
 
