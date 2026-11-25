@@ -400,6 +400,8 @@ async def probe_account(account_id: int, *, force: bool = False) -> ProbeResult:
         try:
             from app.services.publish.credentials_crypto import decrypt
             credentials = decrypt(row["credentials_enc"])
+            from app.services.publish.credential_compat import normalize_credentials
+            credentials = normalize_credentials(row["platform"], credentials)
         except Exception as e:
             duration = int((time.monotonic() - started) * 1000)
             msg = f"凭证无法解密(密钥不匹配/密文损坏): {type(e).__name__}"
@@ -631,6 +633,13 @@ async def on_reauth_success(account_id: int) -> None:
             conn, account_id=account_id, user_id=str(row["user_id"]), platform=row["platform"],
             ok=True, kind=_KIND_OK, message="重新登录成功,已回池",
         )
+        # 新号(同平台第二个号)扫码成功后,默认池可能还没收它 —— 立刻幂等补进去,
+        # 不用等下一次进程重启。失败只告警,不能让回池状态本身丢。
+        try:
+            from app.services.publish.account_pool import bootstrap_pools
+            await bootstrap_pools(conn, str(row["user_id"]))
+        except Exception as e:  # noqa: BLE001
+            logger.warning("[session-keeper] 回池后补账号池成员失败(状态已回写): %s", e)
     finally:
         await conn.close()
 
