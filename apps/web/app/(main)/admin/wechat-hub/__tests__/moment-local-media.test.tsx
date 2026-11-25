@@ -22,6 +22,8 @@ const revokeObjectURL = vi.fn()
 
 beforeEach(() => {
   vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL })
+  createObjectURL.mockClear()
+  revokeObjectURL.mockClear()
   vi.mocked(wechatHubApi.fetchMomentMediaList).mockReset()
   vi.mocked(wechatHubApi.fetchMomentMediaBlob).mockReset()
 })
@@ -67,5 +69,21 @@ describe('MomentLocalMedia', () => {
     await waitFor(() => expect(screen.getByLabelText('b.mp4')).toBeTruthy())
     expect(wechatHubApi.fetchMomentMediaBlob).toHaveBeenCalledWith('account-1', 'm-1', 'b.mp4')
     expect(screen.getByLabelText('b.mp4').getAttribute('src')).toBe('blob:local-media')
+  })
+
+  it('关闭面板时释放已创建的图片对象 URL', async () => {
+    vi.mocked(wechatHubApi.fetchMomentMediaList).mockResolvedValue([
+      { name: 'a.jpg', size: 4, contentType: 'image/jpeg' },
+    ])
+    vi.mocked(wechatHubApi.fetchMomentMediaBlob).mockResolvedValue(
+      new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], { type: 'image/jpeg' }),
+    )
+
+    render(<MomentLocalMedia accountId="account-1" momentId="m-1" />)
+    fireEvent.click(screen.getByText('本地媒体'))
+    await waitFor(() => expect(screen.getByAltText('a.jpg')).toBeTruthy())
+
+    fireEvent.click(screen.getByText('本地媒体'))
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:local-media')
   })
 })
