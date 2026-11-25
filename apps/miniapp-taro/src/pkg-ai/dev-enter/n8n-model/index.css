@@ -59,7 +59,7 @@
   height: 160rpx;
   border-radius: var(--radius-xl);
   background: var(--color-muted); /* RN surface.muted */
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-stroke-default);
 }
 .nm-avatar-ph {
   display: flex;
@@ -83,7 +83,7 @@
   font-size: var(--text-body);
   color: var(--color-foreground);
   box-sizing: border-box;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-stroke-default);
   margin-bottom: var(--spacing-sm);
 }
 /* RN modalInputMultiline: minHeight rpx(88) */
@@ -96,7 +96,7 @@
   font-size: var(--text-body);
   color: var(--color-foreground);
   box-sizing: border-box;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-stroke-default);
   margin-bottom: var(--spacing-sm);
 }
 /* n8n 文件上传(RN 无对应;按 RN 输入语言推导: muted 底 + border light;圆角按角色档 control→sm) */
@@ -107,7 +107,7 @@
   padding: var(--spacing-md); /* RN card padding 12dp */
   background: var(--color-muted);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-stroke-default);
 }
 .nm-file-btn:active {
   opacity: 0.8;
@@ -148,7 +148,7 @@
   border-radius: var(--radius-xl);
   padding: var(--spacing-md);
   margin-bottom: var(--spacing-md);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-stroke-default);
 }
 .nm-param-head {
   display: flex;
@@ -188,7 +188,7 @@
   font-size: var(--text-body-sm);
   color: var(--color-foreground);
   box-sizing: border-box;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-stroke-default);
 }
 .nm-field-textarea {
   width: 100%;
@@ -199,7 +199,7 @@
   font-size: var(--text-body-sm);
   color: var(--color-foreground);
   box-sizing: border-box;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-stroke-default);
 }
 /* 类型选择条(RN 无对应;chip 语言对齐 RN tabItem: 无边框 + muted 底,radius 8dp=16rpx;
    选中态用 brand 底,对齐 RN createBtn/active tab 视觉) */
@@ -253,7 +253,7 @@
   border-radius: var(--radius-lg);
   font-size: var(--text-body-sm);
   color: var(--color-primary); /* RN retryText brand.DEFAULT */
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-stroke-default);
 }
 .nm-add-param:active {
   opacity: 0.8;

@@ -120,7 +120,7 @@
   margin-top: var(--spacing-sm);
   padding: var(--spacing-sm-loose);
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-lg);
   gap: var(--spacing-sm-loose);
 }
@@ -292,7 +292,7 @@
   height: 72rpx;
   padding: 0 var(--spacing-md);
   background: var(--color-muted);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-sm);
   font-size: var(--text-body);
   color: var(--color-foreground);

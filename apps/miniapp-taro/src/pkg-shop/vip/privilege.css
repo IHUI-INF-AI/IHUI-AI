@@ -73,7 +73,7 @@
   min-width: 200rpx;
   padding: var(--spacing-md-loose) var(--spacing-sm-loose);
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
@@ -113,7 +113,7 @@
   align-items: flex-start;
   padding: var(--spacing-md-loose);
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-lg);
   margin-bottom: var(--spacing-md);
 }

@@ -133,7 +133,7 @@
 }
 .msg-item.assistant .bubble {
   background: var(--color-card);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-stroke-default);
   color: var(--color-foreground);
 }
 .bubble-text {
@@ -1030,7 +1030,7 @@
   font-weight: bold;
   color: var(--color-foreground);
   border-radius: var(--radius-sm);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   background: var(--color-card);
   box-shadow: var(--shadow-elevation-sm);
   white-space: nowrap;
@@ -1381,7 +1381,7 @@
 .ctx-usage-ledger {
   margin-top: var(--spacing-xs);
   padding-top: var(--spacing-xs);
-  border-top: 1rpx solid var(--color-border);
+  border-top: 1rpx solid var(--color-stroke-default);
 }
 .ctx-usage-ledger-head {
   display: flex;
@@ -1446,7 +1446,7 @@
   margin: var(--spacing-xs) var(--spacing-md);
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--color-card);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
 }
 .compact-boundary-head {
@@ -1468,7 +1468,7 @@
 .compact-boundary-panel {
   margin-top: var(--spacing-xs);
   padding-top: var(--spacing-xs);
-  border-top: 1rpx solid var(--color-border);
+  border-top: 1rpx solid var(--color-stroke-default);
 }
 .compact-boundary-row {
   padding: var(--spacing-2xs) 0;

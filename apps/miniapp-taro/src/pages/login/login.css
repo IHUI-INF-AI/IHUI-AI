@@ -106,7 +106,7 @@
   padding: 8rpx;
   border-radius: var(--radius-lg);
   background-color: var(--color-muted);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
 }
 
 .login-tab {
@@ -156,7 +156,7 @@
   flex-direction: row;
   align-items: center;
   height: 80rpx;
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
   overflow: hidden;
   background-color: transparent;
@@ -196,7 +196,7 @@
 .login-sendcode {
   height: 80rpx;
   padding: 0 24rpx;
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
   background-color: transparent;
   display: flex;
@@ -251,7 +251,7 @@
 .custom-checkbox {
   width: 32rpx;
   height: 32rpx;
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-sm);
   margin-top: 4rpx;
   display: flex;
@@ -380,7 +380,7 @@
 .login-divider-line {
   flex: 1;
   height: 1rpx;
-  background-color: var(--color-border);
+  background-color: var(--color-stroke-default);
 }
 
 .login-divider-text {
@@ -394,7 +394,7 @@
   height: 68rpx;
   margin-top: 36rpx;
   border-radius: var(--radius-sm);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   background-color: transparent;
   display: flex;
   align-items: center;
@@ -434,7 +434,7 @@
   z-index: 20;
   margin-top: 8rpx;
   border-radius: var(--radius-md);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   background-color: var(--color-card);
   box-shadow: var(--shadow-elevation-lg);
 }
@@ -462,7 +462,7 @@
 }
 
 .login-history-clear {
-  border-top: 1rpx solid var(--color-border);
+  border-top: 1rpx solid var(--color-stroke-default);
   padding: 18rpx 20rpx;
   display: flex;
   align-items: center;

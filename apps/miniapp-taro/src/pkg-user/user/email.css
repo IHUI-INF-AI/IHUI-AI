@@ -40,7 +40,7 @@
   display: flex;
   align-items: center;
   height: 100rpx;
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-xl);
   background: var(--color-muted);
   padding: 0 var(--spacing-md);

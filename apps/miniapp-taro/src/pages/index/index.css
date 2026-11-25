@@ -228,7 +228,7 @@
   height: var(--spacing-4xl);
   border-radius: var(--radius-lg);
   background: var(--color-card);
-  border: 4rpx solid var(--color-border);
+  border: 4rpx solid var(--color-stroke-default);
   margin: 5rpx 0;
   padding: 0 var(--spacing-md);
 }
@@ -416,7 +416,7 @@
 
 .material-card-text {
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
 }
 
 .material-card-title {

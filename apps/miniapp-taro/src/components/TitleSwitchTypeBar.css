@@ -28,7 +28,7 @@
   padding: 0 var(--spacing-xs);
   margin-right: var(--spacing-2xs);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-stroke-default);
   background: var(--color-muted);
   color: var(--color-muted-foreground);
   font-weight: bold;
@@ -84,7 +84,7 @@
   height: 303rpx;
   border-radius: var(--radius-xl);
   background: var(--color-card);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-stroke-default);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -102,7 +102,7 @@
 .title-switch-type-bar__modal-input {
   width: 321rpx;
   height: 49rpx;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-stroke-default);
   border-radius: var(--radius-sm);
   margin-bottom: 50rpx;
   font-size: var(--text-badge);

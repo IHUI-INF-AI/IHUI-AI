@@ -5,7 +5,7 @@
 */
 
 /* Pay 页 — 视觉对齐 RN 端 PaymentScreen / PayButton / ConfirmPurchasePopUp(2026-09-08)
-   卡片对齐 RN card:白底 var(--color-card) + 1px 描边 var(--color-border) + 圆角 12dp→24rpx;
+   卡片对齐 RN card:白底 var(--color-card) + 1px 描边 var(--color-stroke-default) + 圆角 12dp→24rpx;
    金额色对齐 RN amountValue(success.DEFAULT → var(--color-success));
    支付方式选中态对齐全项目 brandAccent 语言(brand-accent-light 底 + brand-accent 描边);
    辅助描边按钮对齐 RN outlineBtn(success 描边 + success 字);
@@ -23,7 +23,7 @@
   padding: var(--spacing-sm-loose) var(--spacing-lg);
   background: var(--color-secondary);
   border-radius: var(--radius-md);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   text-align: center;
 }
 .py-countdown--expired {
@@ -43,7 +43,7 @@
   padding: var(--spacing-xl) var(--spacing-lg);
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   text-align: center;
 }
 .py-amount-label {
@@ -71,7 +71,7 @@
   padding: var(--spacing-md) var(--spacing-lg);
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
 }
 .py-order-row {
   display: flex;
@@ -97,7 +97,7 @@
   padding: var(--spacing-md) var(--spacing-lg);
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
 }
 .py-section-title {
   display: block;
@@ -163,7 +163,7 @@
 .py-radio {
   width: 36rpx;
   height: 36rpx;
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-sm);
   background: var(--color-secondary);
   display: flex;
@@ -189,7 +189,7 @@
   padding: var(--spacing-md) var(--spacing-lg);
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
 }
 .py-coupon-label {
   font-size: var(--text-body);

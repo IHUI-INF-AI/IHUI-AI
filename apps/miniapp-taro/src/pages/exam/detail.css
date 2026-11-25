@@ -31,7 +31,7 @@
 /* 标题区 */
 .exam-detail-header {
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-xl);
   padding: var(--spacing-md-loose);
   margin-bottom: var(--spacing-sm-loose);
@@ -58,7 +58,7 @@
   display: flex;
   flex-wrap: wrap;
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-xl);
   padding: var(--spacing-md-loose) var(--spacing-sm);
   margin-bottom: var(--spacing-sm-loose);
@@ -87,7 +87,7 @@
 /* 通用卡片 */
 .exam-detail-card {
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-lg);
   padding: var(--spacing-md-loose);
   margin-bottom: var(--spacing-sm-loose);
@@ -253,7 +253,7 @@
 }
 
 .exam-detail-start-btn[disabled] {
-  background: var(--color-border);
+  background: var(--color-stroke-default);
   color: var(--color-muted-foreground);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

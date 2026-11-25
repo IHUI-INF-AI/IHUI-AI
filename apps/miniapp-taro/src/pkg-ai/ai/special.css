@@ -54,7 +54,7 @@
   gap: var(--spacing-xs);
   margin-top: var(--spacing-md);
   padding: var(--spacing-xs-loose) var(--spacing-sm-loose);
-  background: var(--color-border);
+  background: var(--color-stroke-default);
   border: 2rpx solid var(--color-text-tertiary);
   border-radius: var(--radius-sm);
 }
@@ -89,7 +89,7 @@
   margin-right: var(--spacing-sm);
   padding: var(--spacing-md) var(--spacing-sm);
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-lg);
   vertical-align: top;
 }
@@ -135,12 +135,12 @@
   padding: 0 var(--spacing-md);
   margin-right: var(--spacing-xs-loose);
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-sm);
   vertical-align: middle;
 }
 .special-tab-active {
-  background: var(--color-border);
+  background: var(--color-stroke-default);
   border-color: var(--color-brand-accent-deep);
 }
 .special-tab-icon {
@@ -166,7 +166,7 @@
   display: flex;
   padding: var(--spacing-md);
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-lg);
 }
 .special-card-icon {
@@ -219,7 +219,7 @@
   align-self: flex-start;
   margin-top: var(--spacing-sm);
   padding: 10rpx var(--spacing-md-loose);
-  background: var(--color-border);
+  background: var(--color-stroke-default);
   border: 2rpx solid var(--color-text-tertiary);
   border-radius: var(--radius-sm);
 }

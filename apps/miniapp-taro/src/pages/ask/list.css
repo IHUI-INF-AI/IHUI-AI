@@ -39,7 +39,7 @@
 .item {
   background: var(--color-card);
   border-radius: var(--radius-xl);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   padding: var(--spacing-md-loose);
   margin-bottom: var(--spacing-md);
   box-sizing: border-box;

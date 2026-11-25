@@ -160,7 +160,7 @@
   align-items: center;
   justify-content: space-between;
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-xl);
   padding: var(--spacing-md);
   margin-bottom: var(--spacing-sm-loose);
@@ -215,7 +215,7 @@
   align-items: center;
   justify-content: space-between;
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-xl);
   padding: var(--spacing-md);
   margin-bottom: var(--spacing-sm-loose);

@@ -36,7 +36,7 @@
   justify-content: center;
   font-size: var(--text-title);
   color: var(--color-primary);
-  background: var(--color-border);
+  background: var(--color-stroke-default);
   border: 2rpx solid var(--color-text-tertiary);
   border-radius: var(--radius-sm);
 }
@@ -45,7 +45,7 @@
   font-size: var(--text-label);
   color: var(--color-muted-foreground);
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-sm);
 }
 
@@ -79,7 +79,7 @@
   display: flex;
   flex-wrap: wrap;
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
   overflow: hidden;
 }
@@ -97,7 +97,7 @@
   padding: var(--spacing-xs) 0;
 }
 .cal-cell-active {
-  background: var(--color-border);
+  background: var(--color-stroke-default);
 }
 .cal-cell-num {
   font-size: var(--text-body-sm);
@@ -124,7 +124,7 @@
 }
 .cal-card {
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-lg);
   padding: var(--spacing-sm-loose);
   margin-bottom: var(--spacing-sm);
@@ -182,7 +182,7 @@
 }
 .cal-action-upcoming {
   color: var(--color-primary);
-  background: var(--color-border);
+  background: var(--color-stroke-default);
   border: 2rpx solid var(--color-text-tertiary);
 }
 .cal-action-living {
@@ -191,8 +191,8 @@
 }
 .cal-action-ended {
   color: var(--color-primary);
-  background: var(--color-border);
-  border: 2rpx solid var(--color-border);
+  background: var(--color-stroke-default);
+  border: 2rpx solid var(--color-stroke-default);
 }
 .cal-empty {
   text-align: center;
