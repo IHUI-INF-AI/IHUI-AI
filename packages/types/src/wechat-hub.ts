@@ -873,6 +873,12 @@ export interface WechatJobPayload {
   /** broadcast：正文；与 mediaUrl 二选一即可 */
   text?: string
   mediaUrl?: string
+  /**
+   * broadcast：多图/多视频（朋友圈式九图）。与 mediaUrl 并存时以本字段为准，
+   * 由消费方按需取；声明在此是为了让 `wechat-hub-jobs.test.ts` 的多媒体用例与
+   * 构建期 tsc 同面（2026-11-26：缺该字段导致部署净面 `next build`/tsc 直接 exit 1）。
+   */
+  mediaUrls?: string[]
   /** 显式目标；为空时按 tags 圈选 */
   targets?: string[]
   tags?: string[]
