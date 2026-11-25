@@ -17,6 +17,7 @@
  */
 import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
 import { useDialogHeightStyle } from '../lib/use-dialog-height'
+import { resolveWebAssetUrl } from '../lib/web-asset-url'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -269,7 +270,7 @@ export default function AgentCategoriesScreen() {
                     >
                       {agent.avatar ? (
                         <Image
-                          source={{ uri: agent.avatar }}
+                          source={{ uri: resolveWebAssetUrl(agent.avatar) ?? '' }}
                           style={styles.agentAvatar}
                           resizeMode="cover"
                         />
