@@ -867,7 +867,7 @@ export interface WechatAskResult {
 }
 
 /** 定时任务类型：定时群发 / 定时报告 */
-export type WechatJobKind = 'broadcast' | 'report'
+export type WechatJobKind = 'broadcast' | 'report' | 'moment'
 
 export interface WechatJobPayload {
   /** broadcast：正文；与 mediaUrl 二选一即可 */
