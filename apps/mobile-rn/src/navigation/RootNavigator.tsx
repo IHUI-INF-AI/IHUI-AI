@@ -19,6 +19,13 @@ import { authArrivalAction } from './auth-arrival'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
 import { useUiControlBridge } from '../hooks/use-ui-control-bridge'
 import { NotificationProvider, useNotificationStore } from '../stores/notification'
+import {
+  createRingtoneDedupe,
+  getStoredRingtoneIdSync,
+  isSoundEnabled,
+  isUserVisibleNotification,
+  playRingtone,
+} from '../lib/notification-ringtone'
 import NotificationPanel, { PushBanner } from '../components/NotificationPanel'
 import { useI18n } from '../i18n'
 import { LoginScreen } from '../screens/LoginScreen'
@@ -906,6 +913,11 @@ function RootNavigatorInner() {
   useEffect(() => {
     setUnauthorizedHandler((ctx) => {
       if (!token) return
+      // 后台心跳/能力上报的 401 只告警,不得由后台请求裁定整个会话失效
+      if (ctx.url.includes('/api/agent-control/')) {
+        console.warn(`[rn-auth] agent-control 401 已隔离,不结束会话(来源 ${ctx.method} ${ctx.url})`)
+        return
+      }
       console.warn(`[rn-auth] 会话失效 → 打开登录页(来源 ${ctx.method} ${ctx.url})`)
       navigateTo('Login')
       void Promise.race([
@@ -955,6 +967,23 @@ function RootNavigatorInner() {
   useEffect(() => {
     addFromWs(ws.lastMessage)
   }, [ws.lastMessage, addFromWs])
+
+  // 新消息响铃(2026-11-26 立):已登录 + 用户可见帧 + 开关开启才响;按通知 id 去重,
+  // ws.lastMessage 在多次渲染中重复出现不会重复响。不做 AppState / 页面可见性短路 ——
+  // 切后台 / 失焦时收到通知照常响。铃声 id 与开关每次收帧现读,改完下一条即生效。
+  const ringtoneDedupeRef = useRef<ReturnType<typeof createRingtoneDedupe> | null>(null)
+  if (!ringtoneDedupeRef.current) ringtoneDedupeRef.current = createRingtoneDedupe()
+  useEffect(() => {
+    const msg = ws.lastMessage
+    if (!token) return
+    if (!isUserVisibleNotification(msg)) return
+    if (!isSoundEnabled()) return
+    const rawId = msg?.data?.id
+    const entryId = typeof rawId === 'string' ? rawId : null
+    const dedupe = ringtoneDedupeRef.current
+    if (!dedupe || !dedupe.shouldRing(entryId)) return
+    playRingtone(getStoredRingtoneIdSync())
+  }, [ws.lastMessage, token])
 
   /* -------------------------------------------------------------------------- */
   /* PushBanner 装车(2026-09-25):顶部横幅推送,组件早已实现但全仓零挂载点          */

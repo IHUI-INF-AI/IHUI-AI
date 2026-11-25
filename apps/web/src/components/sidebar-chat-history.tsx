@@ -936,8 +936,8 @@ export function SidebarChatHistory({
             e.dataTransfer.effectAllowed = 'copy'
           }}
           className={cn(
-            'relative block w-full rounded-md px-2.5 py-1.5 pr-7 text-left transition-colors',
-            'before:absolute before:inset-x-2 before:inset-y-0 before:rounded-md before:transition-colors',
+            'relative block w-full rounded-sm px-2.5 py-1.5 pr-7 text-left transition-colors',
+            'before:absolute before:inset-x-2 before:inset-y-0 before:rounded-sm before:transition-colors',
             'before:content-[""] before:-z-10',
             // 多选态给左侧复选框让出 20px,否则行首文字被压在框下
             selection.selectionMode && 'pl-7',
@@ -980,7 +980,7 @@ export function SidebarChatHistory({
             {/* D179:已绑定 Issue 的行内徽章(竞品 highlights.linkedIssue;跳转挂载在监控区条与对话框) */}
             {issueBinding && <LinkedIssueBadge binding={issueBinding} />}
             {orgMeta.folder && (
-              <span className="inline-flex min-w-0 max-w-[72px] shrink-0 items-center gap-0.5 rounded-md bg-muted px-1 text-[9px] leading-4 text-muted-foreground">
+              <span className="inline-flex min-w-0 max-w-[72px] shrink-0 items-center gap-0.5 rounded-sm bg-muted px-1 text-[9px] leading-4 text-muted-foreground">
                 <FolderOpen className="h-2.5 w-2.5 shrink-0" />
                 <span className="min-w-0 truncate">{orgMeta.folder}</span>
               </span>
@@ -988,13 +988,13 @@ export function SidebarChatHistory({
             {/* 2026-11-24:来源端徽章 —— 本端(web)录入不标,只标手机/小程序录入的会话,
                 让「这条从哪个端操作来的」一眼可分,又不给全 web 的侧栏添噪声 */}
             {item.source === 'rn' && (
-              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-primary/10 px-1 text-[9px] leading-4 text-muted-foreground">
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-primary/10 px-1 text-[9px] leading-4 text-muted-foreground">
                 <Smartphone className="h-2.5 w-2.5 shrink-0" aria-hidden />
                 <span>{t('sourceApp')}</span>
               </span>
             )}
             {item.source === 'miniapp' && (
-              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-primary/10 px-1 text-[9px] leading-4 text-muted-foreground">
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-primary/10 px-1 text-[9px] leading-4 text-muted-foreground">
                 <AppWindow className="h-2.5 w-2.5 shrink-0" aria-hidden />
                 <span>{t('sourceMiniApp')}</span>
               </span>
@@ -1002,7 +1002,7 @@ export function SidebarChatHistory({
             {orgTags.slice(0, 2).map((tag) => (
               <span
                 key={tag}
-                className="inline-flex min-w-0 max-w-[64px] shrink-0 items-center rounded-md bg-primary/10 px-1 text-[9px] leading-4 text-primary"
+                className="inline-flex min-w-0 max-w-[64px] shrink-0 items-center rounded-sm bg-primary/10 px-1 text-[9px] leading-4 text-primary"
               >
                 <span className="min-w-0 truncate">{tag}</span>
               </span>
@@ -1061,7 +1061,7 @@ export function SidebarChatHistory({
               aria-label={tc('actions.menu')}
               data-testid="conversation-more-menu"
               className={cn(
-                'absolute right-0.5 top-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-all',
+                'absolute right-0.5 top-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm transition-all',
                 'text-muted-foreground opacity-0 group-hover:opacity-100 touch-reveal',
                 'hover:bg-accent hover:text-accent-foreground',
                 'focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
@@ -1337,7 +1337,7 @@ export function SidebarChatHistory({
           <span className="min-w-0 truncate">{tc('history')}</span>
           <span className="ml-1 flex shrink-0 items-center gap-1">
             {total > 0 && (
-              <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-medium whitespace-nowrap tabular-nums leading-none text-muted-foreground">
+              <span className="rounded-sm bg-muted px-2 py-1 text-[10px] font-medium whitespace-nowrap tabular-nums leading-none text-muted-foreground">
                 {total}
               </span>
             )}
@@ -1349,7 +1349,7 @@ export function SidebarChatHistory({
               data-testid="conversation-search-toggle"
               onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
               className={cn(
-                'flex h-5 w-5 items-center justify-center rounded-md transition-colors hover:bg-accent',
+                'flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-accent',
                 searchOpen && 'bg-muted text-primary',
               )}
             >
@@ -1364,7 +1364,7 @@ export function SidebarChatHistory({
               data-testid="conversation-select-toggle"
               onClick={selection.toggleSelectionMode}
               className={cn(
-                'flex h-5 w-5 items-center justify-center rounded-md transition-colors hover:bg-accent',
+                'flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-accent',
                 selection.selectionMode && 'bg-muted text-primary',
               )}
             >
@@ -1379,7 +1379,7 @@ export function SidebarChatHistory({
                     aria-label={tc('org.filterLabel')}
                     data-testid="conversation-folder-filter"
                     className={cn(
-                      'flex h-5 w-5 items-center justify-center rounded-md transition-colors hover:bg-accent',
+                      'flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-accent',
                       folderFilter !== undefined && 'bg-muted text-primary',
                     )}
                   >
@@ -1420,7 +1420,7 @@ export function SidebarChatHistory({
                           data-state={pinned ? 'on' : 'off'}
                           data-testid={`conversation-group-pin-toggle-${f}`}
                           className={cn(
-                            'flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground',
+                            'flex h-6 w-6 shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-accent hover:text-accent-foreground',
                             pinned ? 'text-primary' : 'text-muted-foreground',
                           )}
                         >
@@ -1441,7 +1441,7 @@ export function SidebarChatHistory({
                   aria-label={t('sorting.label')}
                   data-testid="conversation-sort-toggle"
                   className={cn(
-                    'flex h-5 w-5 items-center justify-center rounded-md transition-colors hover:bg-accent',
+                    'flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-accent',
                     sortMode !== 'pinnedFirst' && 'bg-muted text-primary',
                   )}
                 >
@@ -1495,6 +1495,7 @@ export function SidebarChatHistory({
             busyAction={batchBusy || batchMutation.isPending ? lastBatchAction : null}
             onToggleAll={(checked) => selection.selectAll(checked, visibleIds)}
             onInvert={() => selection.invert(visibleIds)}
+            onMove={() => openMoveToGroup([...selection.orderedSelectedIds])}
             onBatch={runBatch}
             onCancel={selection.clear}
           />
@@ -1579,7 +1580,7 @@ export function SidebarChatHistory({
             </div>
             <Link
               href="/chat/history"
-              className="mt-1 flex items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="mt-1 flex items-center justify-center gap-1 whitespace-nowrap rounded-sm px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <span>{t('viewAll')}</span>
               {total > 0 && <span className="tabular-nums">{total}</span>}

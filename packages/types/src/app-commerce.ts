@@ -583,6 +583,12 @@ export interface EarnCommissionScreenProps {
    * 缺省/空数组 ⇒ 共享屏渲染空态(earnCommission.rateEmpty),不由前端补默认档位。
    */
   rates?: { level: string; rate: string; desc?: string }[]
+  /** 首屏加载中(overview 尚未回来时展示共享骨架,不得把 null 当 0 收益渲染) */
+  loading?: boolean
+  /** 首屏加载失败(与 overview 同空时走共享 ErrorState,保留返回与标题) */
+  error?: string | null
+  /** 错误态重试回调 */
+  onRetry?: () => void
 }
 
 /** 充值 Screen Props */

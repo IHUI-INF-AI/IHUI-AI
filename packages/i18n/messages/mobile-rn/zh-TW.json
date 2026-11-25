@@ -49,7 +49,10 @@
     "errorToday": "今日錯誤",
     "errorCritical": "嚴重錯誤",
     "errorResolved": "已解決",
-    "loadFailed": "資料看板載入失敗"
+    "loadFailed": "資料看板載入失敗",
+    "partialFailed": "部分資料源載入失敗,顯示內容可能不完整",
+    "liveStatus": "更新於 {time}",
+    "autoRefreshHint": "每 30 秒自動重新整理,下拉可立即更新"
   },
   "toolApproval": {
     "title": "工具審批",
@@ -1199,7 +1202,13 @@
     "chatHistory": "對話歷史",
     "plaza": "廣場",
     "devEnter": "開發者入駐",
-    "modelIncome": "模型收益"
+    "modelIncome": "模型收益",
+    "selectedCount": "已選 {count}",
+    "confirmBatchDelete": "確定批次刪除所選對話嗎?",
+    "rename": "重新命名",
+    "unarchive": "批次取消封存",
+    "batchArchiveDone": "已批次封存",
+    "noFolders": "暫無分组"
   },
   "error": {
     "network": "網路錯誤,請稍後重試"
@@ -1957,20 +1966,20 @@
     "loadFailed": "載入客服失敗"
   },
   "artifacts": {
-    "navEntry": "產物中心",
+    "navEntry": "產物",
     "title": "產物中心",
-    "desc": "AI 交付的報告、簡報、表格與文件,可下載或線上預覽。",
-    "empty": "還沒有產物。讓 AI 生成報告、簡報或表格後,它們會出現在這裡。",
-    "loginRequired": "登入後查看你的產物清單",
+    "desc": "瀏覽並管理已產出的產物",
+    "empty": "暫無產物",
+    "loginRequired": "需要登入",
     "colName": "名稱",
     "colKind": "類型",
     "colVersion": "版本",
     "colCreated": "建立時間",
-    "colSession": "來源會話",
+    "colSession": "工作階段",
     "colActions": "操作",
     "download": "下載",
     "preview": "預覽",
-    "viewSession": "查看會話",
+    "viewSession": "查看工作階段",
     "kind_html_report": "HTML 報告",
     "kind_slides": "簡報",
     "kind_sheet": "數據表格",
@@ -1983,10 +1992,16 @@
     "daysAgo": "{n} 天前",
     "loadMore": "載入更多",
     "refresh": "重新整理",
-    "countSummary": "已載入 {loaded}/{total} 個產物",
-    "previewFailed": "預覽連結取得失敗,請稍後再試",
-    "loading": "載入中…",
-    "loadFailed": "產物清單載入失敗"
+    "countSummary": "已載入 {loaded}/{total}",
+    "previewFailed": "預覽失敗",
+    "loading": "載入中",
+    "loadFailed": "載入失敗",
+    "kindHtmlReport": "網頁報告",
+    "kindSlides": "簡報",
+    "kindSheet": "試算表",
+    "kindDoc": "文件",
+    "kindVideoRef": "影片引用",
+    "kindUnknown": "未知類型"
   },
   "distribution": {
     "plan": {
@@ -2266,7 +2281,21 @@
     "saving": "儲存中...",
     "loadFailed": "載入設定失敗",
     "saveFailed": "儲存失敗",
-    "saved": "已儲存"
+    "saved": "已儲存",
+    "soundToggle": "新消息提示音",
+    "ringtoneTitle": "通知鈴聲",
+    "ringtoneDesc": "選擇收到新消息時播放的鈴聲",
+    "ringtonePreview": "試聽",
+    "ringtoneNames": {
+      "dingdong": "門鈴",
+      "tritone": "上揚三音",
+      "waterdrop": "水滴",
+      "doublebell": "雙響鈴",
+      "bubble": "氣泡",
+      "marimba": "木琴",
+      "chime": "和弦鈴",
+      "knock": "輕敲"
+    }
   },
   "orderLog": {
     "title": "訂單動態",
@@ -2601,7 +2630,6 @@
     "executorStop": "停止",
     "executorRefresh": "重新整理狀態",
     "executorEnable": "一鍵啟用",
-
     "executorUnpaired": "這台電腦還沒接入。點「一鍵啟用」授權本機執行(不需要配對碼)。",
     "executorNeedLogin": "登入狀態已失效,請重新登入後再啟用。",
     "executorChangeWorkspace": "重新選擇工作區",
@@ -2611,7 +2639,10 @@
     "approvalClose": "收起",
     "approvalApprove": "同意執行",
     "approvalReject": "拒絕",
-    "approvalEmpty": "執行端沒有留下計畫正文"
+    "approvalEmpty": "執行端沒有留下計畫正文",
+    "noOnlineHint": "現在沒有任何裝置在線。任務派出去會排隊等它上線；如果那台就是你自己的電腦，請在桌面端「設定 → 裝置管理」點「一鍵啟用」。",
+    "offlineHint": "這台裝置目前離線：派過去的任務會排隊，它上線後自動執行。",
+    "delegateOfflineHint": "它現在不在線，任務會在它上線後自動開始。"
   },
   "pendingDecisions": {
     "title": "我的待決策",

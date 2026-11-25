@@ -169,6 +169,11 @@ export default defineConfig({
       // expo-audio:替身早已写好(tests/__mocks__/expo-audio.ts)却一直没接进本表
       // ⇒ 间接引用它的套件仍解析真包 → expo-modules-core 源码 → 收集期失败。
       'expo-audio': resolve(__dirname, 'tests/__mocks__/expo-audio.ts'),
+      // expo-linking 同死法:真包 Linking.ts 引 expo-modules-core,EventEmitter 求值期读
+      // globalThis.Expo.EventEmitter ⇒ jsdom TypeError,登录/SSO 套件收集期整体失败。
+      'expo-linking': resolve(__dirname, 'tests/__mocks__/expo-linking.ts'),
+      // expo-web-browser 同一死法(登录 / OAuth 页必引),见替身文件头。
+      'expo-web-browser': resolve(__dirname, 'tests/__mocks__/expo-web-browser.ts'),
       // expo 顶层包:真包入口加载 winter/runtime.ts(require './ImportMetaRegistry')与
       // async-require/setup.ts(HMR 三件套)⇒ 收集期 "Cannot find module"。
       // 更具体的 expo-* 别名必须排在本条之前(vite alias 按数组顺序做前缀匹配)。

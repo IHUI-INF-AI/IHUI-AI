@@ -49,7 +49,10 @@
     "errorToday": "Errors today",
     "errorCritical": "Critical errors",
     "errorResolved": "Resolved",
-    "loadFailed": "Failed to load dashboard"
+    "loadFailed": "Failed to load dashboard",
+    "partialFailed": "Some data sources failed to load. The view may be incomplete.",
+    "liveStatus": "Updated at {time}",
+    "autoRefreshHint": "Auto-refreshes every 30s; pull down to refresh now"
   },
   "toolApproval": {
     "title": "Tool approval",
@@ -1199,7 +1202,13 @@
     "chatHistory": "Chat History",
     "plaza": "Plaza",
     "devEnter": "Developer Portal",
-    "modelIncome": "Model Earnings"
+    "modelIncome": "Model Earnings",
+    "selectedCount": "{count} selected",
+    "confirmBatchDelete": "Delete the selected conversations?",
+    "rename": "Rename",
+    "unarchive": "Batch unarchive",
+    "batchArchiveDone": "Archived in batch",
+    "noFolders": "No folders yet"
   },
   "error": {
     "network": "Network error, please retry"
@@ -1959,34 +1968,40 @@
   "artifacts": {
     "navEntry": "Artifacts",
     "title": "Artifacts",
-    "desc": "Reports, slides, sheets and docs delivered by AI — download or preview them here.",
-    "empty": "No artifacts yet. Ask AI to generate a report, slides or sheet and it will appear here.",
-    "loginRequired": "Sign in to view your artifacts",
+    "desc": "View and manage generated artifacts",
+    "empty": "No artifacts",
+    "loginRequired": "Login required",
     "colName": "Name",
     "colKind": "Type",
     "colVersion": "Version",
     "colCreated": "Created",
-    "colSession": "Source chat",
+    "colSession": "Session",
     "colActions": "Actions",
     "download": "Download",
     "preview": "Preview",
-    "viewSession": "View chat",
+    "viewSession": "View session",
     "kind_html_report": "HTML report",
     "kind_slides": "Slides",
     "kind_sheet": "Sheet",
     "kind_doc": "Document",
     "kind_video_ref": "Video ref",
-    "justNow": "just now",
+    "justNow": "Just now",
     "secondsAgo": "{n}s ago",
     "minutesAgo": "{n}m ago",
     "hoursAgo": "{n}h ago",
     "daysAgo": "{n}d ago",
-    "loadMore": "Load more",
+    "loadMore": "Load More",
     "refresh": "Refresh",
-    "countSummary": "Loaded {loaded} of {total} artifacts",
-    "previewFailed": "Failed to get the preview link, please try again later",
-    "loading": "Loading…",
-    "loadFailed": "Failed to load artifacts"
+    "countSummary": "{loaded} of {total} loaded",
+    "previewFailed": "Preview failed",
+    "loading": "Loading",
+    "loadFailed": "Failed to load",
+    "kindHtmlReport": "HTML report",
+    "kindSlides": "Slides",
+    "kindSheet": "Spreadsheet",
+    "kindDoc": "Document",
+    "kindVideoRef": "Video reference",
+    "kindUnknown": "Unknown type"
   },
   "distribution": {
     "plan": {
@@ -2266,7 +2281,21 @@
     "saving": "Saving...",
     "loadFailed": "Failed to load settings",
     "saveFailed": "Failed to save",
-    "saved": "Saved"
+    "saved": "Saved",
+    "soundToggle": "New message sound",
+    "ringtoneTitle": "Notification ringtone",
+    "ringtoneDesc": "Choose the sound played when a new message arrives",
+    "ringtonePreview": "Preview",
+    "ringtoneNames": {
+      "dingdong": "Door bell",
+      "tritone": "Rising triad",
+      "waterdrop": "Water drop",
+      "doublebell": "Double bell",
+      "bubble": "Bubble",
+      "marimba": "Marimba",
+      "chime": "Chime",
+      "knock": "Knock"
+    }
   },
   "orderLog": {
     "title": "Order Activity",
@@ -2601,7 +2630,6 @@
     "executorStop": "Stop",
     "executorRefresh": "Refresh status",
     "executorEnable": "Enable",
-
     "executorUnpaired": "This computer is not connected yet. Click “Enable” to authorize it — no pairing code needed.",
     "executorNeedLogin": "Your session expired. Please sign in again, then enable.",
     "executorChangeWorkspace": "Change workspace folder",
@@ -2611,7 +2639,10 @@
     "approvalClose": "Close",
     "approvalApprove": "Approve",
     "approvalReject": "Reject",
-    "approvalEmpty": "The executor left no plan text"
+    "approvalEmpty": "The executor left no plan text",
+    "noOnlineHint": "No device is online right now. Tasks you send will queue until one comes online. If that device is your own computer, open Settings → Devices in the desktop app and click \"Enable in one click\".",
+    "offlineHint": "This device is offline: tasks queue up and run automatically once it comes online.",
+    "delegateOfflineHint": "It is offline now; the task will start automatically once it comes online."
   },
   "pendingDecisions": {
     "title": "Pending decisions",

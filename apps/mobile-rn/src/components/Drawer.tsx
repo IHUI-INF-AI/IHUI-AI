@@ -50,10 +50,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native'
 import { appAlert } from './BottomPops'
+import { drawerActionKey } from '@ihui/shared'
+import { useOrgServerStore, folderNameById } from '@ihui/shared/chat/conversation-org-server'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation, useNavigationState } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -74,11 +77,14 @@ import {
 import {
   Bell,
   Bot,
+  Check,
   ChevronDown,
   ChevronRight,
   Crown,
   Flame,
+  FolderOpen,
   Gift,
+  ListChecks,
   LogIn,
   LogOut,
   Moon,
@@ -91,6 +97,11 @@ import {
 } from 'lucide-react-native'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import { favoriteConversation, unfavoriteConversation } from '@ihui/api-client'
+import {
+  archiveConversation,
+  unarchiveConversation,
+  updateConversation,
+} from '@ihui/api-client'
 // logo 取源:亮/暗双图(与 LoginScreen 主题感知同款资产;logo.png 同时是 App 图标流水线源,勿删)
 // 静态 import 走 declarations.d.ts 的图片模块声明(Metro 标准形态,无需 lint 抑制)
 import LOGO_LIGHT from '../../assets/images/logo.png' // icon-bitmap-exempt: 品牌多色插画 logo(非线形 UI 图标,web 同一资产,暂无矢量等价物) until 2027-01-15
@@ -288,6 +299,12 @@ interface SwipeItemProps {
   onSelect: (id: string) => void
   onDelete: (id: string) => void
   onToggleFavorite: (id: string, next: boolean) => void
+  /** 批量选择态:行首显示勾选位,整行高亮 */
+  selected?: boolean
+  /** 行内文件夹徽章(与 web 同款 FolderOpen + 分组名) */
+  folderName?: string
+  /** 长按动作表(首项重命名) */
+  onLongPress?: (item: DrawerConversationItem) => void
 }
 
 function SwipeableConversationItem({
@@ -297,6 +314,9 @@ function SwipeableConversationItem({
   onSelect,
   onDelete,
   onToggleFavorite,
+  selected = false,
+  folderName,
+  onLongPress,
 }: SwipeItemProps) {
   const { t } = useI18n()
   const translateX = useRef(new Animated.Value(0)).current
@@ -387,7 +407,7 @@ function SwipeableConversationItem({
             className="items-center justify-center active:opacity-60"
             style={styles.swipeBtn}
             onPress={() => onDelete(item.id)}
-            accessibilityLabel={`${t('drawer.delete')} ${item.title}`}
+            accessibilityLabel={`${t(drawerActionKey('delete'))} ${item.title}`}
           >
             <Trash2 size={rnGeometry.glyphMd} color={tokens.surface.light} />
             <Text className="mt-1" style={styles.swipeBtnText}>
@@ -400,10 +420,16 @@ function SwipeableConversationItem({
       <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
         <Pressable
           className="flex-row items-center px-4 py-3 active:opacity-60"
-          style={{ backgroundColor: tokens.surface.card }}
+          style={{ backgroundColor: selected ? tokens.surface.muted : tokens.surface.card }}
           onPress={handleSelect}
+          onLongPress={onLongPress ? () => onLongPress(item) : undefined}
           android_ripple={{ color: tokens.surface.muted }}
         >
+          {selected ? (
+            <View className="mr-2 h-4 w-4 items-center justify-center rounded-full bg-emerald-500">
+              <Check size={rnGeometry.glyphSm} color={tokens.surface.light} />
+            </View>
+          ) : null}
           <Text
             className="flex-1"
             style={{ color: tokens.text.primary, fontSize: rnGeometry.textBody }}
@@ -411,9 +437,34 @@ function SwipeableConversationItem({
           >
             {item.title}
           </Text>
+          {folderName ? (
+            <View className="ml-2 flex-row items-center gap-1">
+              <FolderOpen size={rnGeometry.glyphSm} color={tokens.text.medium} />
+              <Text
+                numberOfLines={1}
+                style={{ color: tokens.text.medium, fontSize: rnGeometry.textCaption }}
+              >
+                {folderName}
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
       </Animated.View>
     </View>
+  )
+}
+
+// ── 批量动作按钮(抽屉批量条与 web ConversationBatchBar 同语义) ──
+function BatchAction({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      className="rounded-md px-2 py-1 active:opacity-60"
+      style={{ backgroundColor: tokens.surface.card }}
+    >
+      <Text style={{ color: tokens.text.primary, fontSize: rnGeometry.textCaption }}>{label}</Text>
+    </Pressable>
   )
 }
 
@@ -618,7 +669,7 @@ export function Drawer(props: DrawerProps) {
   // 会话列表滚动淡出溢出判定(本组件自有 ScrollView,直接走标准 onScroll 接线)
   const fades = useChatScrollFades()
   const { t } = useI18n()
-  const { logout } = useAuth()
+  const { logout, user: authUser } = useAuth()
   const { resolvedTheme, setThemeMode } = useTheme()
   const navigation = useNavigation<DrawerNav>()
   // app.json orientation 已放开为 default,旋转/分屏时抽屉宽度必须随窗口变化
@@ -631,6 +682,15 @@ export function Drawer(props: DrawerProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   // 会话收藏乐观覆盖(id → favorited),避免 9 个屏各自接回调(2026-09-05)
   const [favOverrides, setFavOverrides] = useState<Record<string, boolean>>({})
+  // 批量选择面(与 web ConversationBatchBar 同动作集合)
+  const [batchMode, setBatchMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [renameTarget, setRenameTarget] = useState<DrawerConversationItem | null>(null)
+  const [renameText, setRenameText] = useState('')
+  // 文件夹归属读 shared 服务端分组表(单一真相源,不再用端内本地元数据)
+  const orgFolders = useOrgServerStore((s) => s.folders)
+  const membership = useOrgServerStore((s) => s.membership)
+  const assignMany = useOrgServerStore((s) => s.assignMany)
 
   useEffect(() => {
     Animated.timing(progress, {
@@ -646,6 +706,8 @@ export function Drawer(props: DrawerProps) {
     if (!visible) {
       setOpenSwipeId(null)
       setUserMenuOpen(false)
+      setBatchMode(false)
+      setSelectedIds([])
     }
   }, [visible])
 
@@ -686,6 +748,83 @@ export function Drawer(props: DrawerProps) {
   const handleSwipeOpen = useCallback((id: string) => {
     setOpenSwipeId((prev) => (prev === id ? prev : id))
   }, [])
+
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }, [])
+
+  const clearSelection = useCallback(() => {
+    setBatchMode(false)
+    setSelectedIds([])
+  }, [])
+
+  const handleBatchArchive = useCallback(() => {
+    const ids = selectedIds
+    if (ids.length === 0) return
+    clearSelection()
+    void Promise.all(ids.map((id) => archiveConversation(id).catch(() => null))).then(() =>
+      appAlert(t('drawer.prompt'), t('drawer.batchArchiveDone')),
+    )
+  }, [clearSelection, selectedIds, t])
+
+  const handleBatchUnarchive = useCallback(() => {
+    const ids = selectedIds
+    if (ids.length === 0) return
+    clearSelection()
+    void Promise.all(ids.map((id) => unarchiveConversation(id).catch(() => null)))
+  }, [clearSelection, selectedIds])
+
+  const handleBatchDelete = useCallback(() => {
+    if (selectedIds.length === 0) return
+    const ids = [...selectedIds]
+    appAlert(drawerActionKey('delete'), t('drawer.confirmBatchDelete'), [
+      { text: t('drawer.cancel'), style: 'cancel' },
+      {
+        text: drawerActionKey('delete'),
+        style: 'destructive',
+        onPress: () => {
+          clearSelection()
+          for (const id of ids) onDeleteConversation(id)
+        },
+      },
+    ])
+  }, [clearSelection, onDeleteConversation, selectedIds, t])
+
+  const handleBatchMove = useCallback(() => {
+    if (selectedIds.length === 0) return
+    if (orgFolders.length === 0) {
+      appAlert(t('drawer.prompt'), t('drawer.noFolders'))
+      return
+    }
+    const ids = [...selectedIds]
+    appAlert(drawerActionKey('moveToFolder'), undefined, [
+      ...orgFolders.map((folder) => ({
+        text: folder.name,
+        onPress: () => {
+          const userId = String(authUser?.id ?? '')
+          void assignMany(userId, ids, folder.id).then((res) => {
+            if (res.ok) clearSelection()
+            else appAlert(t('drawer.prompt'), t('drawer.favoriteFailed'))
+          })
+        },
+      })),
+      { text: t('drawer.cancel'), style: 'cancel' as const },
+    ])
+  }, [assignMany, authUser?.id, clearSelection, orgFolders, selectedIds, t])
+
+  const openRename = useCallback((item: DrawerConversationItem) => {
+    setRenameTarget(item)
+    setRenameText(item.title)
+  }, [])
+
+  const confirmRename = useCallback(() => {
+    const target = renameTarget
+    const next = renameText.trim()
+    if (!target || !next) return
+    const id = target.id
+    setRenameTarget(null)
+    void updateConversation(id, { title: next })
+  }, [renameTarget, renameText])
 
   /**
    * active 判定:取根栈顶路由名;顶栈是 Main Tab 容器时取 params.screen
@@ -734,6 +873,10 @@ export function Drawer(props: DrawerProps) {
   }, [onGoHome, onClose])
 
   const handleSelectConversation = (id: string) => {
+    if (batchMode) {
+      toggleSelected(id)
+      return
+    }
     onSelectConversation(id)
     onClose()
   }
@@ -971,10 +1114,73 @@ export function Drawer(props: DrawerProps) {
                     >
                       {t('drawer.history')}
                     </Text>
-                    <Text style={{ color: tokens.text.medium, fontSize: rnGeometry.textCaption }}>
-                      {t('drawer.swipeHint')}
-                    </Text>
+                    <View className="flex-row items-center gap-2">
+                      <Text style={{ color: tokens.text.medium, fontSize: rnGeometry.textCaption }}>
+                        {t('drawer.swipeHint')}
+                      </Text>
+                      <Pressable
+                        onPress={() => {
+                          setBatchMode((v) => !v)
+                          setSelectedIds([])
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={t(drawerActionKey('multiSelect'))}
+                        className="h-7 w-7 items-center justify-center rounded-md active:opacity-60"
+                        style={{ backgroundColor: tokens.surface.muted }}
+                      >
+                        <ListChecks
+                          size={rnGeometry.glyphMd}
+                          color={batchMode ? tokens.brand.DEFAULT : tokens.text.medium}
+                        />
+                      </Pressable>
+                    </View>
                   </View>
+
+                  {batchMode ? (
+                    <View className="mx-2.5 mt-2 rounded-md p-2" style={{ backgroundColor: tokens.surface.muted }}>
+                      <Text
+                        style={{ color: tokens.text.secondary, fontSize: rnGeometry.textCaption }}
+                      >
+                        {t('drawer.selectedCount', { count: selectedIds.length })}
+                      </Text>
+                      <View className="mt-2 flex-row flex-wrap items-center gap-2">
+                        <BatchAction
+                          label={t(drawerActionKey('selectAll'))}
+                          onPress={() => setSelectedIds(conversations.map((c) => c.id))}
+                        />
+                        <BatchAction
+                          label={t(drawerActionKey('invertSelection'))}
+                          onPress={() =>
+                            setSelectedIds(
+                              conversations
+                                .map((c) => c.id)
+                                .filter((id) => !selectedIds.includes(id)),
+                            )
+                          }
+                        />
+                        <BatchAction
+                          label={t(drawerActionKey('moveToFolder'))}
+                          onPress={handleBatchMove}
+                        />
+                        <BatchAction
+                          label={t(drawerActionKey('archive'))}
+                          onPress={handleBatchArchive}
+                        />
+                        <BatchAction
+                          label={t('drawer.unarchive')}
+                          onPress={handleBatchUnarchive}
+                        />
+                        <BatchAction
+                          label={t(drawerActionKey('delete'))}
+                          onPress={handleBatchDelete}
+                        />
+                        <BatchAction
+                          label={t(drawerActionKey('cancelSelection'))}
+                          onPress={clearSelection}
+                        />
+                      </View>
+                    </View>
+                  ) : null}
 
                   {modelGroups.length === 0 ? (
                     <View className="items-center px-2.5 py-8">
@@ -1025,6 +1231,11 @@ export function Drawer(props: DrawerProps) {
                                 onSelect={handleSelectConversation}
                                 onDelete={onDeleteConversation}
                                 onToggleFavorite={handleToggleFavoriteConversation}
+                                selected={selectedIds.includes(item.id)}
+                                folderName={
+                                  folderNameById(orgFolders, membership[item.id] ?? null) ?? undefined
+                                }
+                                onLongPress={openRename}
                               />
                             ))}
                           </View>
@@ -1142,6 +1353,34 @@ export function Drawer(props: DrawerProps) {
           </View>
         </Animated.View>
       </View>
+
+      {renameTarget ? (
+        <View style={styles.renameOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setRenameTarget(null)} />
+          <View style={styles.renameCard}>
+            <Text style={styles.renameTitle}>{t('drawer.rename')}</Text>
+            <TextInput
+              value={renameText}
+              onChangeText={setRenameText}
+              autoFocus
+              style={styles.renameInput}
+              placeholderTextColor={tokens.text.medium}
+            />
+            <View className="mt-3 flex-row justify-end gap-3">
+              <Pressable onPress={() => setRenameTarget(null)} className="px-3 py-2">
+                <Text style={{ color: tokens.text.secondary, fontSize: rnGeometry.textBody }}>
+                  {t('drawer.cancel')}
+                </Text>
+              </Pressable>
+              <Pressable onPress={confirmRename} className="px-3 py-2">
+                <Text style={{ color: tokens.brand.DEFAULT, fontSize: rnGeometry.textBody, fontWeight: '600' }}>
+                  {t('common.confirm')}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      ) : null}
     </Modal>
   )
 }
@@ -1193,6 +1432,34 @@ const styles = StyleSheet.create({
     // 底色只取纯黑档,不透明度由 OVERLAY_OPACITY(= --color-black-40 的 0.4)单点携带;
     // 旧写法 rgba(0,0,0,0.5) × 动画 0.5 叠加出 0.25 的实际观感,与小程序 0.4 反极,已收口。
     backgroundColor: tokens.gray.black,
+  },
+  renameOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.gray.black,
+    opacity: 0.96,
+  },
+  renameCard: {
+    width: '82%' as const,
+    padding: rnSpacing.md,
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.surface.card,
+  },
+  renameTitle: {
+    marginBottom: rnSpacing.sm,
+    color: tokens.text.primary,
+    fontSize: rnGeometry.textStrong,
+    fontWeight: '600',
+  },
+  renameInput: {
+    height: 40,
+    paddingHorizontal: rnSpacing.md,
+    borderRadius: rnRadiusFor.control,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    color: tokens.text.primary,
+    fontSize: rnGeometry.textBody,
   },
   drawer: {
     position: 'absolute',

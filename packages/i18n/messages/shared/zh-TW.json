@@ -1035,9 +1035,9 @@
     "viewDetail": "檢視詳情",
     "withdraw": "提現",
     "deleteFailed": "刪除失敗",
-    "saveFailed": "儲存失敗"
-  ,
-    "textUnavailable": "文案暫不可用"},
+    "saveFailed": "儲存失敗",
+    "textUnavailable": "文案暫不可用"
+  },
   "bookmark": {
     "empty": "暫無收藏",
     "loadFailed": "載入收藏失敗",
@@ -1455,7 +1455,6 @@
       "executorStop": "停止",
       "executorRefresh": "重新整理狀態",
       "executorEnable": "一鍵啟用",
-
       "executorUnpaired": "這台電腦還沒接入。點「一鍵啟用」授權本機執行(不需要配對碼)。",
       "executorNeedLogin": "登入狀態已失效,請重新登入後再啟用。",
       "executorChangeWorkspace": "重新選擇工作區",
@@ -1465,7 +1464,10 @@
       "approvalClose": "收起",
       "approvalApprove": "同意執行",
       "approvalReject": "拒絕",
-      "approvalEmpty": "執行端沒有留下計畫正文"
+      "approvalEmpty": "執行端沒有留下計畫正文",
+      "noOnlineHint": "現在沒有任何裝置在線。任務派出去會排隊等它上線；如果那台就是你自己的電腦，請在桌面端「設定 → 裝置管理」點「一鍵啟用」。",
+      "offlineHint": "這台裝置目前離線：派過去的任務會排隊，它上線後自動執行。",
+      "delegateOfflineHint": "它現在不在線，任務會在它上線後自動開始。"
     },
     "rumEnabled": "RUM 已啟用",
     "ip": {
@@ -1503,8 +1505,7 @@
       "modelColName": "模型",
       "modelColTokens": "Token 數",
       "modelColCalls": "調用次數",
-      "modelColCost": "費用"
-    ,
+      "modelColCost": "費用",
       "mode_token": "依 Token 計費",
       "mode_per_call": "依呼叫次數計費",
       "mode_per_image": "依圖片張數計費",
@@ -1512,7 +1513,8 @@
       "unit_token": "每百萬 tokens",
       "unit_per_call": "每次",
       "unit_per_image": "每張",
-      "unit_per_video": "每條"},
+      "unit_per_video": "每條"
+    },
     "gateway": {
       "providers": {
         "filter": {

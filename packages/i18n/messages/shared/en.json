@@ -1035,9 +1035,9 @@
     "viewDetail": "View detail",
     "withdraw": "Withdraw",
     "deleteFailed": "Delete failed",
-    "saveFailed": "Save failed"
-  ,
-    "textUnavailable": "Text unavailable"},
+    "saveFailed": "Save failed",
+    "textUnavailable": "Text unavailable"
+  },
   "bookmark": {
     "empty": "No bookmarks yet",
     "loadFailed": "Failed to load bookmarks",
@@ -1455,7 +1455,6 @@
       "executorStop": "Stop",
       "executorRefresh": "Refresh status",
       "executorEnable": "Enable",
-
       "executorUnpaired": "This computer is not connected yet. Click “Enable” to authorize it — no pairing code needed.",
       "executorNeedLogin": "Your session expired. Please sign in again, then enable.",
       "executorChangeWorkspace": "Change workspace folder",
@@ -1465,7 +1464,10 @@
       "approvalClose": "Close",
       "approvalApprove": "Approve",
       "approvalReject": "Reject",
-      "approvalEmpty": "The executor left no plan text"
+      "approvalEmpty": "The executor left no plan text",
+      "noOnlineHint": "No device is online right now. Tasks you send will queue until one comes online. If that device is your own computer, open Settings → Devices in the desktop app and click \"Enable in one click\".",
+      "offlineHint": "This device is offline: tasks queue up and run automatically once it comes online.",
+      "delegateOfflineHint": "It is offline now; the task will start automatically once it comes online."
     },
     "rumEnabled": "RUM enabled",
     "ip": {
@@ -1503,8 +1505,7 @@
       "modelColName": "Model",
       "modelColTokens": "Tokens",
       "modelColCalls": "Calls",
-      "modelColCost": "Cost"
-    ,
+      "modelColCost": "Cost",
       "mode_token": "Per token",
       "mode_per_call": "Per call",
       "mode_per_image": "Per image",
@@ -1512,7 +1513,8 @@
       "unit_token": "per 1M tokens",
       "unit_per_call": "per call",
       "unit_per_image": "per image",
-      "unit_per_video": "per video"},
+      "unit_per_video": "per video"
+    },
     "gateway": {
       "providers": {
         "filter": {

@@ -32,13 +32,19 @@ import { useTheme } from '../context/ThemeContext'
 import { BackChevron } from '@ihui/rn-app'
 import { useAuthStore } from '../stores/auth-store'
 import { WEB_BASE_URL } from '../lib/webview-portal-config'
+import { useWebviewLoadWatchdog } from '../hooks/use-webview-load-watchdog'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 // react-native-webview v14 的 platform-agnostic 类型将 WebView 声明为普通
 // FunctionComponent,带 ref 时 props 会被折叠为 never(本仓库 WebViewScreen 因不用 ref 而能过 typecheck)。
 // 此处将组件放宽以接收 ref(运行时 Android/iOS 实现支持命令式 API),并按 v14 规范以
 // onNavigationStateChange 的 nav.canGoBack 跟踪可后退态,而非已移除的 ref.canGoBack()。
-type WebViewRefHandle = { canGoBack: () => boolean; goBack: () => void; reload: () => void }
+type WebViewRefHandle = {
+  canGoBack: () => boolean
+  goBack: () => void
+  reload: () => void
+  stopLoading: () => void
+}
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const WebView = WebViewRN as any
 
@@ -115,6 +121,7 @@ export function ChatToolsScreen() {
   const onNavigationStateChange = useCallback((nav: WebViewNavigation) => {
     setCanGoBack(nav.canGoBack)
     if (nav.loading) {
+      setLoading(true)
       setFailed(false)
     } else {
       setLoading(false)
@@ -125,6 +132,14 @@ export function ChatToolsScreen() {
     setLoading(false)
     setFailed(true)
   }, [])
+
+  const handleLoadTimeout = useCallback(() => {
+    setLoading(false)
+    setFailed(true)
+    webViewRef.current?.stopLoading()
+  }, [])
+
+  useWebviewLoadWatchdog(loading, handleLoadTimeout)
 
   // 未登录:引导登录空态(不白屏)
   if (!token) {
@@ -180,11 +195,11 @@ export function ChatToolsScreen() {
           onHttpError={onError}
           javaScriptEnabled
           domStorageEnabled
-          startInLoadingState
+          startInLoadingState={false}
           setSupportMultipleWindows={false}
         />
         {loading ? (
-          <View className="absolute inset-0 items-center justify-center bg-white/70 dark:bg-neutral-900/70">
+          <View className="absolute inset-0 items-center justify-center bg-white dark:bg-neutral-900">
             <ActivityIndicator size="large" />
             <Text className="mt-3 text-sm text-gray-500">{t('common.loading')}</Text>
           </View>

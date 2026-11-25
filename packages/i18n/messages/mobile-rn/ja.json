@@ -49,7 +49,10 @@
     "errorToday": "今日のエラー",
     "errorCritical": "重大なエラー",
     "errorResolved": "解決済み",
-    "loadFailed": "ダッシュボードの読み込みに失敗しました"
+    "loadFailed": "ダッシュボードの読み込みに失敗しました",
+    "partialFailed": "一部のデータソースの読み込みに失敗しました。表示内容が不完全な可能性があります",
+    "liveStatus": "{time} に更新",
+    "autoRefreshHint": "30 秒ごとに自動更新。下に引っ張ると即時更新"
   },
   "toolApproval": {
     "title": "ツール承認",
@@ -1199,7 +1202,13 @@
     "chatHistory": "チャット履歴",
     "plaza": "広場",
     "devEnter": "開発者ポータル",
-    "modelIncome": "モデル収益"
+    "modelIncome": "モデル収益",
+    "selectedCount": "{count} 件選択",
+    "confirmBatchDelete": "選択した会話をまとめて削除しますか?",
+    "rename": "名前を変更",
+    "unarchive": "まとめてアーカイブ解除",
+    "batchArchiveDone": "まとめてアーカイブしました",
+    "noFolders": "フォルダがありません"
   },
   "error": {
     "network": "ネットワークエラー"
@@ -1958,35 +1967,41 @@
   },
   "artifacts": {
     "navEntry": "成果物",
-    "title": "成果物",
-    "desc": "AI が納品したレポート・スライド・表・ドキュメントをダウンロードまたはプレビューできます。",
-    "empty": "まだ成果物がありません。AI にレポートやスライドを生成させると、ここに表示されます。",
-    "loginRequired": "ログインすると成果物一覧を表示できます",
+    "title": "成果物センター",
+    "desc": "生成された成果物を表示・管理",
+    "empty": "成果物はありません",
+    "loginRequired": "ログインが必要です",
     "colName": "名前",
     "colKind": "種別",
     "colVersion": "バージョン",
     "colCreated": "作成日時",
-    "colSession": "元のセッション",
+    "colSession": "セッション",
     "colActions": "操作",
     "download": "ダウンロード",
     "preview": "プレビュー",
-    "viewSession": "セッションを見る",
+    "viewSession": "セッションを表示",
     "kind_html_report": "HTML レポート",
     "kind_slides": "スライド",
     "kind_sheet": "スプレッドシート",
     "kind_doc": "ドキュメント",
     "kind_video_ref": "動画参照",
     "justNow": "たった今",
-    "secondsAgo": "{n} 秒前",
-    "minutesAgo": "{n} 分前",
-    "hoursAgo": "{n} 時間前",
-    "daysAgo": "{n} 日前",
-    "loadMore": "もっと読み込む",
+    "secondsAgo": "{n}秒前",
+    "minutesAgo": "{n}分前",
+    "hoursAgo": "{n}時間前",
+    "daysAgo": "{n}日前",
+    "loadMore": "もっと表示",
     "refresh": "更新",
-    "countSummary": "{total} 件中 {loaded} 件の成果物を読み込み済み",
-    "previewFailed": "プレビューリンクの取得に失敗しました。後でもう一度お試しください",
-    "loading": "読み込み中…",
-    "loadFailed": "成果物一覧の読み込みに失敗しました"
+    "countSummary": "読み込み {loaded}/{total}",
+    "previewFailed": "プレビューに失敗しました",
+    "loading": "読み込み中",
+    "loadFailed": "読み込みに失敗しました",
+    "kindHtmlReport": "HTMLレポート",
+    "kindSlides": "スライド",
+    "kindSheet": "スプレッドシート",
+    "kindDoc": "ドキュメント",
+    "kindVideoRef": "動画参照",
+    "kindUnknown": "不明な種類"
   },
   "distribution": {
     "plan": {
@@ -2266,7 +2281,21 @@
     "saving": "保存中...",
     "loadFailed": "設定の読み込みに失敗",
     "saveFailed": "保存に失敗",
-    "saved": "保存しました"
+    "saved": "保存しました",
+    "soundToggle": "新着メッセージ音",
+    "ringtoneTitle": "通知着信音",
+    "ringtoneDesc": "新しいメッセージが届いたときに再生する音を選択",
+    "ringtonePreview": "試聴",
+    "ringtoneNames": {
+      "dingdong": "ドアベル",
+      "tritone": "上昇トライアド",
+      "waterdrop": "水滴",
+      "doublebell": "二連ベル",
+      "bubble": "気泡",
+      "marimba": "マリンバ",
+      "chime": "チャイム",
+      "knock": "ノック"
+    }
   },
   "orderLog": {
     "title": "注文動向",
@@ -2601,7 +2630,6 @@
     "executorStop": "停止",
     "executorRefresh": "状態を更新",
     "executorEnable": "ワンクリック有効化",
-
     "executorUnpaired": "この PC はまだ接続されていません。「ワンクリック有効化」で許可してください(ペアリングコード不要)。",
     "executorNeedLogin": "ログイン状態が失効しました。再ログインしてから有効化してください。",
     "executorChangeWorkspace": "ワークスペースを変更",
@@ -2611,7 +2639,10 @@
     "approvalClose": "閉じる",
     "approvalApprove": "実行を承認",
     "approvalReject": "拒否",
-    "approvalEmpty": "実行側は計画本文を残していません"
+    "approvalEmpty": "実行側は計画本文を残していません",
+    "noOnlineHint": "現在オンラインのデバイスはありません。送信したタスクは、いずれかのデバイスがオンラインになるまで待機します。そのデバイスがご自身のパソコンなら、デスクトップ版の「設定 → デバイス管理」で「ワンクリックで有効化」を押してください。",
+    "offlineHint": "このデバイスはオフラインです。送信したタスクは待機し、オンラインになった時点で自動実行されます。",
+    "delegateOfflineHint": "現在オフラインのため、タスクはオンラインになった時点で自動的に開始されます。"
   },
   "pendingDecisions": {
     "title": "自分の承認待ち",

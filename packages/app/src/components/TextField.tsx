@@ -89,7 +89,7 @@ export function TextField({
     <TextInput
       {...rest}
       style={[
-        { ...RESTING_BORDER, borderColor: tk.stroke.field },
+        RESTING_BORDER,
         style,
         focused ? { borderColor: tk.stroke.focus } : null,
         focused ? focusedStyle : null,

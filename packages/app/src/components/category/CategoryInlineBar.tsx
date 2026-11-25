@@ -116,7 +116,11 @@ export function CategoryInlineBar({
     return (
       <Pressable
         onPress={() => onSelect(item.id)}
-        accessibilityRole="tab"
+        // 2026-11-26:此前这里是 `accessibilityRole="tab"` —— 筛选项不是页签,它不切换视图、
+        // 也不属于哪个 tablist。误用后读屏会把「推荐/办公/写作…」读成一排页签,与真正的主
+        // Tab 栏混在同一语义里(实拍探针把两排的 role=tab 一起抓了出来)。
+        // 改为 button + selected:动作明确,选中状态照旧可播报。
+        accessibilityRole="button"
         accessibilityState={{ selected: active }}
         accessibilityLabel={categoryItemA11yLabel(item)}
         hitSlop={4}

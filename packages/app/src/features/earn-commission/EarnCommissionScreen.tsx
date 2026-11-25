@@ -9,6 +9,7 @@ import type { EarnCommissionScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 分佣计划/Props 类型 re-export(单一来源 @ihui/types) */
 export type { EarnCommissionScreenProps }
@@ -34,6 +35,9 @@ export function EarnCommissionScreen({
   overview,
   onOpenVip,
   rates = [],
+  loading = false,
+  error = null,
+  onRetry,
   colorScheme = 'light',
 }: EarnCommissionScreenProps) {
   const tk = getTokens(colorScheme)
@@ -48,6 +52,16 @@ export function EarnCommissionScreen({
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('earnCommission.title') || '分佣计划'}</Text>
       </View>
+      {loading && !overview ? (
+        <ScreenSkeleton variant="card" count={1} colorScheme={colorScheme} />
+      ) : error && !overview ? (
+        <ErrorState
+          message={error}
+          onRetry={onRetry}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
+      ) : (
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <View style={styles.introCard}>
           <Text style={styles.introTitle}>
@@ -118,6 +132,7 @@ export function EarnCommissionScreen({
           )}
         </Pressable>
       </ScrollView>
+      )}
     </View>
   )
 }
@@ -218,7 +233,7 @@ function createStyles(tk: AppThemeTokens) {
     bottomBtnBox: { marginTop: rnSpacing.sm },
     bottomBtn: {
       height: 50,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

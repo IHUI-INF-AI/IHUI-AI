@@ -49,7 +49,10 @@
     "errorToday": "오늘 오류",
     "errorCritical": "심각한 오류",
     "errorResolved": "해결됨",
-    "loadFailed": "대시보드를 불러오지 못했습니다"
+    "loadFailed": "대시보드를 불러오지 못했습니다",
+    "partialFailed": "일부 데이터 소스를 불러오지 못했습니다. 표시 내용이 불완전할 수 있습니다",
+    "liveStatus": "{time} 업데이트",
+    "autoRefreshHint": "30초마다 자동 새로고침, 아래로 당기면 즉시 갱신"
   },
   "toolApproval": {
     "title": "도구 승인",
@@ -1199,7 +1202,13 @@
     "chatHistory": "대화 기록",
     "plaza": "광장",
     "devEnter": "개발자 포털",
-    "modelIncome": "모델 수익"
+    "modelIncome": "모델 수익",
+    "selectedCount": "{count}개 선택됨",
+    "confirmBatchDelete": "선택한 대화를 일괄 삭제할까요?",
+    "rename": "이름 변경",
+    "unarchive": "일괄 보관 취소",
+    "batchArchiveDone": "일괄 보관되었습니다",
+    "noFolders": "폴더가 없습니다"
   },
   "error": {
     "network": "네트워크 오류"
@@ -1958,16 +1967,16 @@
   },
   "artifacts": {
     "navEntry": "산출물",
-    "title": "산출물",
-    "desc": "AI가 생성한 보고서, 슬라이드, 표, 문서를 다운로드하거나 미리 볼 수 있습니다.",
-    "empty": "아직 산출물이 없습니다. AI에게 보고서나 슬라이드를 생성하면 여기에 표시됩니다.",
-    "loginRequired": "로그인하면 산출물 목록을 볼 수 있습니다",
+    "title": "산출물 센터",
+    "desc": "생성된 산출물 보기 및 관리",
+    "empty": "산출물이 없습니다",
+    "loginRequired": "로그인 필요",
     "colName": "이름",
     "colKind": "유형",
     "colVersion": "버전",
-    "colCreated": "생성 시간",
-    "colSession": "원본 세션",
-    "colActions": "작업",
+    "colCreated": "생성일",
+    "colSession": "세션",
+    "colActions": "동작",
     "download": "다운로드",
     "preview": "미리보기",
     "viewSession": "세션 보기",
@@ -1981,12 +1990,18 @@
     "minutesAgo": "{n}분 전",
     "hoursAgo": "{n}시간 전",
     "daysAgo": "{n}일 전",
-    "loadMore": "더 불러오기",
+    "loadMore": "더 보기",
     "refresh": "새로고침",
-    "countSummary": "산출물 {total}개 중 {loaded}개 불러옴",
-    "previewFailed": "미리보기 링크를 가져오지 못했습니다. 잠시 후 다시 시도하세요",
-    "loading": "불러오는 중…",
-    "loadFailed": "산출물 목록을 불러오지 못했습니다"
+    "countSummary": "읽어들이기 {loaded}/{total}",
+    "previewFailed": "미리보기 실패",
+    "loading": "불러오는 중",
+    "loadFailed": "불러오기 실패",
+    "kindHtmlReport": "HTML 보고서",
+    "kindSlides": "슬라이드",
+    "kindSheet": "스프레드시트",
+    "kindDoc": "문서",
+    "kindVideoRef": "동영상 참조",
+    "kindUnknown": "알 수 없는 유형"
   },
   "distribution": {
     "plan": {
@@ -2266,7 +2281,21 @@
     "saving": "저장 중...",
     "loadFailed": "설정 불러오기 실패",
     "saveFailed": "저장 실패",
-    "saved": "저장되었습니다"
+    "saved": "저장되었습니다",
+    "soundToggle": "새 메시지 알림음",
+    "ringtoneTitle": "알림 벨소리",
+    "ringtoneDesc": "새 메시지가 도착했을 때 재생할 소리 선택",
+    "ringtonePreview": "미리 듣기",
+    "ringtoneNames": {
+      "dingdong": "초인종",
+      "tritone": "상승 3음",
+      "waterdrop": "물방울",
+      "doublebell": "더블 벨",
+      "bubble": "거품",
+      "marimba": "마림바",
+      "chime": "차임",
+      "knock": "노크"
+    }
   },
   "orderLog": {
     "title": "주문 동향",
@@ -2601,7 +2630,6 @@
     "executorStop": "중지",
     "executorRefresh": "상태 새로고침",
     "executorEnable": "원클릭 사용",
-
     "executorUnpaired": "이 컴퓨터는 아직 연결되지 않았습니다. ‘원클릭 사용’을 눌러 허용하세요(페어링 코드 불필요).",
     "executorNeedLogin": "로그인 상태가 만료되었습니다. 다시 로그인한 뒤 사용하세요.",
     "executorChangeWorkspace": "작업 공간 변경",
@@ -2611,7 +2639,10 @@
     "approvalClose": "닫기",
     "approvalApprove": "실행 승인",
     "approvalReject": "거절",
-    "approvalEmpty": "実行측이 계획 본문을 남기지 않았습니다"
+    "approvalEmpty": "実行측이 계획 본문을 남기지 않았습니다",
+    "noOnlineHint": "현재 온라인 상태인 기기가 없습니다. 보낸 작업은 기기가 온라인이 될 때까지 대기합니다. 그 기기가 본인 컴퓨터라면 데스크톱 앱의 \"설정 → 기기 관리\"에서 \"원클릭 활성화\"를 누르세요.",
+    "offlineHint": "이 기기는 오프라인입니다. 보낸 작업은 대기하다가 기기가 온라인이 되면 자동으로 실행됩니다.",
+    "delegateOfflineHint": "지금은 오프라인이라, 기기가 온라인이 되면 작업이 자동으로 시작됩니다."
   },
   "pendingDecisions": {
     "title": "내 대기 결정",

@@ -63,7 +63,8 @@
     "createUpdaterArtifacts": true,
     "resources": {
       "binaries/ihui-launcher.exe": "launcher/ihui-launcher.exe",
-      "bundle-cli": "cli"
+      "bundle-cli": "cli",
+      "bundle-node": "node"
     },
     "icon": [
       "icons/32x32.png",

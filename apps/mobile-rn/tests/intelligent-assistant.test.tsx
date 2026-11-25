@@ -47,7 +47,7 @@ describe('IntelligentAssistant (mobile-rn)', () => {
 
   it('displays default token quantity as 0', () => {
     const { getByText } = render(<IntelligentAssistant />, { wrapper })
-    expect(getByText('剩余智汇值:')).toBeTruthy()
+    expect(getByText('剩余智汇值')).toBeTruthy()
     expect(getByText('0')).toBeTruthy()
   })
 

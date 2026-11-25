@@ -211,6 +211,8 @@ export default defineAppConfig({
         'ranking-detail/index',
         'identity-verify/index',
         'finance-ai-hub/index',
+        // 设备与派单(手机端派单入口,2026-11-26):屏体在 packages/app,壳只注入平台差异
+        'devices/index',
       ],
     },
     {

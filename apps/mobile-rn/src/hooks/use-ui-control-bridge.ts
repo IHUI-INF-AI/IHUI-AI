@@ -4,6 +4,7 @@
 // i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15) until 2027-05-31
 
 import { useEffect, useRef } from 'react'
+import { ensureFreshToken } from '../lib/token'
 import {
   createNotificationClient,
   reportAgentControlCapability,
@@ -160,6 +161,8 @@ export function toResponse(
 function reportCapability(): void {
   void (async () => {
     try {
+      // 先走端内唯一续期出口,别拿过期 access token 硬撞(否则后台心跳自己把会话打成 401)
+      void ensureFreshToken()
       const res = await reportAgentControlCapability(buildCapability())
       if (!res.success) console.warn(`${LOG_TAG} 上报移动端能力失败:${res.error ?? '接口返回失败'}`)
     } catch (err) {

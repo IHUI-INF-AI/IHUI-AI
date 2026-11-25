@@ -36,6 +36,8 @@ export interface DashboardScreenProps {
   renderLoading?: () => ReactNode
   /** 端内专属空态组件(如 mobile-rn 的 Empty)注入点;仅当 items 为空且非 loading 时调用 */
   renderEmpty?: () => ReactNode
+  /** 状态行文本(端内已格式化的「更新于 …」);缺省不渲染,保持零行为变化 */
+  statusText?: string
 }
 
 interface DashboardMetricGroup {
@@ -76,6 +78,7 @@ export function DashboardScreen({
   onOpen,
   renderLoading,
   renderEmpty,
+  statusText,
 }: DashboardScreenProps) {
   const styles = useMemo(() => createStyles(tk), [tk])
   const groups = useMemo(() => groupItems(items), [items])
@@ -100,7 +103,11 @@ export function DashboardScreen({
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      {error ? (
+      {statusText ? (
+        <Text style={styles.statusText}>{statusText}</Text>
+      ) : null}
+
+      {error && !isEmpty ? (
         <View style={styles.errorWrap}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={onRefresh}>
@@ -157,13 +164,14 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     content: { padding: rnSpacing.lg, paddingBottom: rnSpacing['2xl'], gap: rnSpacing.lg },
+    statusText: { fontSize: rnType.label.size, color: tk.text.secondary },
     errorWrap: { gap: rnSpacing.sm },
     errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
     retryBtn: {
       alignSelf: 'flex-start',
       paddingVertical: rnSpacing['xs-loose'],
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.medium,
     },

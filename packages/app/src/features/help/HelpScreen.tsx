@@ -17,7 +17,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { HelpListItem, HelpScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
-import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { filterHelpItems } from './filter-help-items'
 import { assertRequiredPort } from '../../host/ports'
 
@@ -58,6 +58,8 @@ export function HelpScreen({
 
   // 过滤住在共享屏:两端(以及以后从手写页转过来的端)拿到同一套判定,不在壳里各写一份。
   const visibleItems = useMemo(() => filterHelpItems(items, searchValue), [items, searchValue])
+  // 首屏失败(无任何数据)走整屏 ErrorState;已有数据时仍保留列表 + 内联错误条,不清空用户已看到的内容
+  const firstLoadFailed = Boolean(error) && items.length === 0 && !loading
 
   return (
     <View style={styles.container}>
@@ -66,7 +68,7 @@ export function HelpScreen({
         <Text style={styles.title}>{t('help.title')}</Text>
       </View>
 
-      {error ? (
+      {error && items.length > 0 ? (
         <View style={styles.errorBar}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
@@ -153,10 +155,18 @@ export function HelpScreen({
           ) : null
         }
         ListEmptyComponent={
-          loading ? (
+          firstLoadFailed ? (
+            <ErrorState
+              message={error ?? ''}
+              onRetry={onRefresh}
+              retryLabel={t('common.retry')}
+              colorScheme={colorScheme}
+              testID="help-error"
+            />
+          ) : loading ? (
             <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
           ) : (
-            <EmptyState title={t('help.empty')} colorScheme={colorScheme} />
+            <EmptyState title={t('help.empty')} colorScheme={colorScheme} testID="help-empty" />
           )
         }
         renderItem={({ item }) => (
