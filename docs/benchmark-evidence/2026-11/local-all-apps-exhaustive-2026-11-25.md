@@ -43,7 +43,7 @@
 
 ## 0. 为什么要推翻上一版
 
-上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了五十八处纠正，每一条都能被证据账本复核。
+上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了五十九处纠正，每一条都能被证据账本复核。
 
 **纠正一：把 Electron 主 exe 的 Chromium 安全 API 当成产品自研沙箱。**
 上一版用 `CreateRestrictedToken`、`CreateJobObject`、`CreateProcessAsUserW` 这类导入来证明“某产品有强沙箱”。实测发现，WorkBuddy.exe、Qoder CN.exe、ZCode.exe、Cursor.exe、Trae CN.exe 全部是 Electron 壳，这些 API 属于 Chromium/Electron 出厂能力，**不能归因于产品**。本版把证据分成三层：产品级（Rust/Go helper、.node、主进程 JS）、框架级（Electron/Chromium）、未知级；只有第一层进入结论。
@@ -202,6 +202,7 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 **纠正五十七：MiniMax 深挖＝openplatform key 鉴权通过但无套餐订阅（2062 → 402 1008），agent OAuth 会话已失效；定性由框架级上调为“认证通过·无套餐/余额（未闭环）”。** 同账本。凭据形态：号池 1 枚 openplatform key（len 128，前缀 `sk-api`，healthy）；1 枚 agent OAuth 会话（`mmoat_` / `mmort_` 各 len 62，down，`invalid_grant`，已过期）；model_config 1 枚占位 key（len 30，前缀 `"sk-pla`）；本地 config.yaml apiKey `sk-xxx` 占位、codex-auth.json 空对象、`platforms.enabled=[]`。端点：`api.minimaxi.com/v1/models` 200（9 个 M 系模型）；`/v1/api/openplatform/coding_plan/remains` 200，`base_resp` 2062 `no active token plan subscription`，`model_remains=null`；`POST /v1/chat/completions` 402 `insufficient_balance_error 1008`；占位 key 打 api.minimax.chat 401 1004；agent 通道 signin/status 无鉴权 400 invalid signature（签名头闸门）；mavis `/llm/v1/models` 无鉴权 401。口径澄清：`platforms.enabled=[]` 控制的是飞书 / Telegram / 微信 IM 渠道绑定，**不是 LLM 提供商开关**，不能据此写成“未接入任何 LLM 提供商”。双轨：openplatform 走 `api.minimaxi.com` Bearer API key；agent 桌面通道走 `agent.minimax.cn` 签名头 + 会话 token，两条凭据不可互换。最小动作：给 openplatform key 开通 / 充值 coding plan 消除 2062 与 402 1008；在 MiniMax Code GUI 重新登录使 mmoat 会话与 codex-auth 落盘；接入 IM 渠道需先在 GUI 绑定，`platforms.enabled` 才会写入。
 
 **纠正五十八：小浣熊＝产品级闭环；`max_tokens=64` 取得真实 assistant 正文 `pong`，纠正五十六的“会话可达”中间态作废升级。** 账本 `C:\IHUI-AI\analysis\wave2-four-clients-deep-2026-11-26.json` 顶层 `raccoonClosure` 段落与 `C:\IHUI-AI\analysis\wave2-correction-raccoon-closure-2026-11-26.md`（CR-01，证据级 A，本轮实测 HTTP 复现）。端点 `POST https://xiaohuanxiong.com/api/web/llm/v2/chat/completions`，model `sn-glm-5-3-flash`，`stream=false`，`max_tokens=64`，提问 `Reply with exactly one word: pong.`；HTTP 200，延迟 1684ms，`finish_reason=stop`，assistant 正文 **`pong`**；usage prompt 20 / completion 3 / total 23，`reasoning_tokens=1`，`cached_tokens=0`；响应 `id=chatcmpl-8a9e783dcf8745909465b9d0ba8dc0d0`，`created=2026-11-25T20:41:43Z`，请求发出 2026-11-25T20:41:44Z；本轮 1 次聊天请求、无重试；响应头无 request-id / logid / trace 头，请求标识取响应体 id。根因说明：前一轮 `max_tokens=1` 正文空，是 completion 预算被 1 个 reasoning token 全部占满、`finish_reason=length`，可见 content 无 token 可写；**不是鉴权失败、不是额度不足、不是流式必填**，预算提到 64 即正常。残留阻塞（与 HTTP 通道闭环互不影响）：本地 box-agent ACP 启动面未进入交互循环；商汤日日新直连 key 仍缺失。最小可用调用样例见附录 A。
+**纠正五十九：号池保活自愈＝4/5 动作成功（80%），4 枚当日到期 trae web 已顺延；其余 8 枚机器刷新无解，需人工处置；写面全部走既有 refreshOne 出口。** 账本 `C:\IHUI-AI\analysis\wave2-keepalive-heal-2026-11-26.json/.md`。动作口径：纳入处置 11 枚，实际发起动作 5 枚（trae web 刷新 4 + zcode 探测 1），只读复核 5、硬跳过 1 不计分母。成功 acct_60 / 61 / 62 / 63 cookie→GetUserToken 换票，到期 09:37:40→12:43:26 / 12:45:22（+08），失败计数 0、healthy 未摘除；失败 acct_80 zcode billing/balance 401 authFailed（适配器无 refresh 通路）；只读复核 acct_1 / 2 / 3 codearts `STS5.1806`、acct_25 minimax `invalid_grant`、acct_47 trae 设备证明 401 / 20101，未伪造 token；硬跳过 acct_10 doubao 零读库零写库零上游。并发留痕：acct_47 postCheck 现读失败计数 3→2、摘除旗撤，系常驻 worker 自主退避重试，非本轮动作。本节为运维侧写操作台账，不改变 9 端模型层分级；详见 7.4 节。
 这次不是 ACP 的 `refusal`，也不是 VLM 的 `kinfra-office-agent`；是带 `sessionId`、`toolCalls` 字段的 CodeBuddy agent 文本输出。关键细节：第一次 idle 后发 `runId 1e23fa51-f61d-4ad9-a4ff-21e8134623a1`，202 后 3 秒 `active:false`，此时再读 `/stream` 返回 **404 `RUN_NOT_FOUND`**，只能证明 run 完成、不能算输出；第二次发 `只回复文字 AGENT_OK，不要调用任何工具。`，`runId 7a8bb606-8f2e-44aa-bff7-ac487d5c64f9`，202 后立即开流，拿到上面的 200 SSE；第三次发 `只回复 17 × 23 的结果，不要解释，不要调用任何工具。`，`runId 9ed58d08-b94d-4ef4-b24d-c99972145a87`，同样 200 SSE `391`。因此 **202 只表示 accepted，`/runs/{id}` 的 `active` 只表示排队；真正 assistant 输出在 `/stream` 的 `content.markdown`，而且流必须早开，run 完成后就 404。** 两次都复用 `activeSessionId 4567fe0e…`，说明 Gateway 是在已有登录会话上执行，不是新建独立模型槽。边界也要写清：`toolCalls` 为空，只证明**纯文本 agent 推理**闭环，不证明工具调用、权限或计费；VLM 仍是另一条链路。证据 `analysis\workbuddy-gateway-stream-agent-2026-11-26.json`、`analysis\workbuddy-gateway-stream-agent-math-2026-11-26.json`、`analysis\workbuddy-gateway-idle-run-2026-11-26.json`。
 
 ---
@@ -1037,6 +1038,25 @@ PID 38788（父 PID 11820）在 15:xx 运行 `codex.exe ... app-server --analyti
 
 **最小补货清单**：P0 openai / Codex——补 1 枚官方 API key（stdin 登录）或完成一次 ChatGPT OAuth；P1 deepseek——账户余额耗尽 402，充值或换有余额 key 并替换失效配置；P1 zcode——entitlement / 余额 401，补授权额度或换有 entitlement 账号；P2 raccoon——补 1 枚平台 key；P2 minimax——重新 OAuth 授权或补可用平台 key。
 
+### 7.4 号池保活自愈结果（纠正五十九；本轮唯一带写操作的一路）
+
+账本 `C:\IHUI-AI\analysis\wave2-keepalive-heal-2026-11-26.json` 与 `C:\IHUI-AI\analysis\wave2-keepalive-heal-2026-11-26.md`（执行 2026-11-26 04:39–04:50 +08:00；表 `ai_relay_account_pool`；动作口径复用仓库既有 `refreshOne` 原子换票出口与各平台上游适配器；匿名代号 `acct_N`，凭据仅记字段名 / 长度 / 掩码前缀，未解密、未回显 token / refreshToken / cookies / secrets 明文或密文本体）。
+
+**成功率（动作口径）**：纳入处置 11 枚；实际发起自愈动作 5 枚（trae web 刷新 4 + zcode 余额探测 1），成功 4、失败 1，**4/5 = 80.0%**；只读复核 5 枚、硬跳过 1 枚不计入动作分母。
+
+**自愈成功 4 枚（当日到期已顺延）**：acct_60 / 61 / 62 / 63（trae web）cookie→GetUserToken 换票成功，到期由 2026-11-26 09:37:40（+08）顺延至 12:43:26（acct_60 / 61）与 12:45:22（acct_62 / 63），失败计数保持 0，healthy 未摘除。
+
+**机器刷新无解 8 枚，需人工处置**：
+- 上游配额 / 计费（4 枚）：codearts acct_1 / 2 / 3 仍 `STS5.1806`（HTTP 400 连续超限，只读复核未打上游）；zcode acct_80 一次 billing/balance 仍 401 authFailed（适配器无 refresh 通路，`refreshTokenSupported:false`），未发起第二次。
+- 凭据彻底失效（2 枚）：minimax acct_25 `invalid_grant`（HTTP 400 oauth2/token）；trae acct_47 设备证明 401 / 20101 `refresh token is invalid`。
+- 需人工重登（1 枚）：doubao acct_10（`712012001` 登录校验不合法）本轮硬跳过，零读库、零写库、零上游调用。
+
+**写面合规**：未新增 / 删除账号，未改配额、计费、倍率、启用状态字段；写面仅来自既有 `refreshOne` 换票出口（token / refreshToken / secrets / 到期时刻 / 失败计数 / 健康态既定写面），执行脚本未手写任何 UPDATE；未碰 WorkBuddy 58795，未重启任何客户端进程；trae 不在客户端镜像名单，池内换票不回写本机 Trae 副本。
+
+**并发留痕（必须区分归属）**：acct_47 本轮 readBack 之后，失败计数被常驻 worker 自主退避重试由 3 改写为 2、摘除旗已被撤（账本 `postCheck` 附交付前现读值）；该变化**不是本轮 heal 动作写入**，本轮对只读复核与跳过账号未发起任何上游重试。
+
+**根治建议**：CodeArts 三枚需到华为云控制台核对租户 STS 签发配额与并发限额，配额恢复前保持摘除；ZCode 需核查套餐 / 资源包到期与 entitlement，充值或补套餐后在客户端重新登录回灌池，期间不要重复探测空刷；minimax 重新走 OAuth 授权；trae 该枚重新登录客户端并重绑设备证明；doubao 由本人在本机客户端手动重登。
+
 ### 附录 A · 小浣熊最小可用调用样例（OpenAI 兼容，Web 会话 JWT 鉴权；纠正五十八）
 
 模型目录：`GET https://xiaohuanxiong.com/api/web/llm/v2/model_catalog`；余额：`GET https://xiaohuanxiong.com/api/web/points/v1/balance`。聊天请求骨架如下（样例不含任何凭据值，`<web-session-jwt>` 占位替换为本机 auth.json 内的 Web 会话 JWT）：
@@ -1134,7 +1154,7 @@ X-Client-Version: v1.2.0
 - `analysis\frontend-<target>.json`：前端结构化摘要（IPC、窗口、暴露键、endpoint、模块关键词）。
 - `analysis\evidence-ids.json`：目标 → evidence id 映射；`analysis\evidence-map.json`：证据号 → 摘要/路径。
 
-**2026-11-26 模型层 / 工具层复测账本（纠正四十至五十八，绝对路径前缀 `C:\IHUI-AI\`）**：
+**2026-11-26 模型层 / 工具层复测账本（纠正四十至五十九，绝对路径前缀 `C:\IHUI-AI\`）**：
 
 - `analysis\workbuddy-tool-layer-2026-11-26.json`：WorkBuddy 工具层部分闭环取证——79 条只读状态快照（03:06:35→03:35:38，`busy` 恒 `true` / `idle=0`；相位 `tool_executing` 60、`model_requesting` 10、`model_streaming` 7、`agent_running` 2；`lastCompletedAt` 6 次推进，非死锁）；`/health` 200 `pid=35940`、`/info` 200 `gatewayMode=local` / v5.11.3 / node v22.21.1；会话 jsonl 的 Read / Bash / PowerShell `function_call→result(completed)`；源码级 `convertEventToOutbound` 无 `tool_call` / `tool_call_update` 分支、`waitForAgentCompletion` 从不回填 toolCalls（纠正四十）。
 - `analysis\wave2-workbuddy-bridge-patch-2026-11-26.json` + `analysis\wave2-workbuddy-bridge-patch-2026-11-26.md`：WorkBuddy 桥接层 tool_call 出站补丁实验级原型（实验级/原型级，非产品级闭环）——对象 `cli\dist\codebuddy-lite-wb.mjs`（12,849,066 字节，SHA256 `86900740…60FD322D`，只读副本）；函数级提取 + 依赖打桩 harness（`allPass: true`，1ms，无网络/无进程依赖）：原版对照组 2 个 `streaming` 帧 / 0 个 tool 帧 / `completed.agent.toolCalls.length = 0`，补丁实验组 4 个 `tool` 帧（2 tool_call + 2 tool_call_update）/ toolCalls 长度 2（Bash、Read，completed 带 output）/ 回填槽 1 条 RunResult 工具记录，streaming 帧数与原版一致无回归；补丁副本 12,852,075 字节，未替换安装产物、未在真实会话生效；待主会话 `4567fe0e…` idle 后真实链路复跑（纠正四十八）。
@@ -1149,6 +1169,7 @@ X-Client-Version: v1.2.0
 - `analysis\wave2-qoder-cursor-trae-tools-2026-11-26.json` + `analysis\wave2-qoder-cursor-trae-tools-2026-11-26.md`：Qoder / Cursor / Trae 三端工具层实跑（只读探针，每端一次真实会话）——三端请求 schema 均无 OpenAI 形态 `tools`/`tool_choice`，对外适配器都不把工具调用翻成标准 `tool_calls` 事件；Qoder SDK 内 2 次 `mcp_list` 执行并回灌 `{"tools":[],"total":0}`、最终 `NO_TOOL`（14.442s，credits 0.9444，end_turn），桥内 `tool_use` 仅 WARN、`tool_result` 忽略（纠正五十一，部分闭环 A）；Cursor HTTP/2 流 200，`exec_server_message` ×1 context-env 握手回 `request_context_result`，无非 context 文件/命令调用，文本落未解析 f13、90s 无 turn_ended、最终文本空（纠正五十二，部分闭环 B）；Trae 创建/事件流均 200，`plan_item` ×236 带 `tool_call_info`/`sub_agent_call_description`，远端 k8s 沙箱 glob 探查痕迹、4 轮用量，调用体未落盘、适配器整类忽略 `plan_item`、90s 无 terminal（纠正五十三，部分闭环 B-）。
 - `analysis\wave2-four-clients-deep-2026-11-26.json` + `analysis\wave2-four-clients-deep-2026-11-26.md`：四端额度与端点深挖（凭据形态 + 余额/授权数值 + 具体卡点）——DeepSeek 号池 1 枚 len 35 `sk-638b` healthy key，`/user/balance` 200 `is_available=false`、CNY -0.87（赠送 0.00 / 充值 -0.87），双模型 × 两路径 chat 402，占位 key len 30 `"sk-pla` 401（纠正五十四）；ZCode keyring 仅 1 条 DPAPI 加密目标、credentials.json 全 `enc:v2:os:`，号池 5 会话（3 JWT / 1 os 指针 / 1 down），CLI 0.18.0 doctor exit 0，headless 卡 provider 布局与选模型、无 `--model` 开关，4 套餐缓存全 unavailable / coding_plan_not_entitled（纠正五十五）；小浣熊本地 + 号池共 4 枚 JWT，`/model_catalog` 200 10 模型、balance 200 850 积分，`sn-glm-5-3-flash` chat 200 usage 20/1/21、`finish_reason=length` 正文空，无独立商汤直连 key（纠正五十六，中间态；产品级闭环升级见纠正五十八）；MiniMax openplatform key len 128 `sk-api` healthy，`/v1/models` 200 9 模型，remains 200 2062 no active token plan，chat 402 1008，agent OAuth `mmoat_`/`mmort_` invalid_grant 过期，`platforms.enabled=[]` 管 IM 渠道不是 LLM 开关（纠正五十七）。
 - `analysis\wave2-correction-raccoon-closure-2026-11-26.md`（CR-01）+ 上述深挖 JSON 顶层 `raccoonClosure` 段：小浣熊闭环升级——`max_tokens=64` 同端点 chat 200，1684ms，`finish_reason=stop`，正文 `pong`，usage 20/3/23（reasoning 1 / cached 0），`id=chatcmpl-8a9e783dcf8745909465b9d0ba8dc0d0`；前一轮正文空系 `max_tokens=1` 预算被 reasoning token 占满，非鉴权/额度/流式问题；最小调用样例见报告附录 A（纠正五十八，产品级闭环）。
+- `analysis\wave2-keepalive-heal-2026-11-26.json` + `analysis\wave2-keepalive-heal-2026-11-26.md`：号池保活自愈（本轮唯一带写操作一路）——动作口径 4/5 = 80.0%（动作 5：trae web 刷新 4 + zcode 探测 1；只读复核 5、硬跳过 1 不计分母）；acct_60/61/62/63 cookie→GetUserToken 换票，到期 09:37:40→12:43:26 / 12:45:22（+08），失败计数 0、healthy 未摘除；机器刷新无解 8 枚（codearts×3 `STS5.1806`、zcode acct_80 401 authFailed、minimax acct_25 `invalid_grant`、trae acct_47 401/20101、doubao acct_10 硬跳过）；写面全部走既有 `refreshOne` 出口，未手写 UPDATE、未增删账号、未改配额；acct_47 postCheck 失败计数 3→2 与撤旗系常驻 worker 自主退避重试，非本轮动作（纠正五十九，详见 7.4 节）。
 
 **非 craft 证据（文件级/字节级，正文已标注）**：
 
@@ -1193,7 +1214,7 @@ $proj = "C:\IHUI-AI\.workbuddy\craft\all-ai-apps-full-2026-11-25.cany"
 
 ---
 
-**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是五十八处纠正、11 个程序、8 个 asar 解包、16 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张 + Codex `app.asar` 第 16 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、26 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
+**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是五十九处纠正、11 个程序、8 个 asar 解包、16 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张 + Codex `app.asar` 第 16 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、26 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
 
 ## 9. 收尾复核（2026-11-25 23:50）
 
