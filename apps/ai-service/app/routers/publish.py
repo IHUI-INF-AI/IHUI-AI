@@ -205,7 +205,10 @@ class AccountUpdate(BaseModel):
 
 class PublishTarget(BaseModel):
     platform: str
-    account_id: int
+    # 2026-11-25 账号池:account_id 可空 —— 空时由 pool_id(或该平台默认池)取号。
+    # 显式传 account_id 的调用方行为不变,池只负责"没指定时"。
+    account_id: int | None = None
+    pool_id: str | None = None
     config: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -770,7 +773,7 @@ async def _assert_targets_owned(
     复用 publish_accounts 既有归属查询口径(`WHERE id=$1 AND user_id=$2`)。
     任一账号不属于当前用户即整体拒绝(403),不做静默过滤。
     """
-    account_ids = sorted({t.account_id for t in targets})
+    account_ids = sorted({t.account_id for t in targets if t.account_id is not None})
     missing: list[int] = []
     for account_id in account_ids:
         row = await conn.fetchrow(
@@ -816,6 +819,11 @@ async def create_task(body: TaskCreate, request: Request) -> dict[str, Any]:
     conn = await _get_conn()
     try:
         await _ensure_accounts_table(conn)
+        # 账号池:targets 里没写 account_id 的,由池按"健康 → 优先级 → 最久未用"取号。
+        # 池里全失效 → 409,不静默落到一个掉线号上(发布失败要让人当场知道)。
+        from app.services.publish import account_pool
+        await account_pool.ensure_tables(conn)
+        body.targets = await account_pool.resolve_targets(conn, user_id, body.targets)
         await _assert_targets_owned(conn, user_id, body.targets)
     finally:
         await conn.close()

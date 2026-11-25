@@ -71,6 +71,8 @@ export interface ScanLoginDialogProps {
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
   defaultPlatform?: string
+  /** 账号池定点重登:只回写这个账号,扫码成功后自动回池。 */
+  accountId?: number
 }
 
 /**
@@ -144,6 +146,7 @@ export function ScanLoginDialog({
   onOpenChange,
   onSuccess,
   defaultPlatform,
+  accountId,
 }: ScanLoginDialogProps) {
   const t = useTranslations('publish')
   const tCommon = useTranslations('common')
@@ -279,7 +282,7 @@ export function ScanLoginDialog({
       prewarmRef.current = warmed
       void (async () => {
         try {
-          const r = await startScanLogin(chosen, { reuseSession })
+          const r = await startScanLogin(chosen, { reuseSession, accountId })
           if (warmed.cancelled) {
             if (r.success && r.data?.task_id) {
               void cancelScanLogin(r.data.task_id).catch(() => undefined)
@@ -297,7 +300,7 @@ export function ScanLoginDialog({
       clearTimeout(timer)
       cancelPrewarm()
     }
-  }, [open, phase, platform, defaultPlatform, reuseSession])
+  }, [open, phase, platform, defaultPlatform, reuseSession, accountId])
 
   // 弹窗关闭(而不是卸载):把还在预热的任务退掉,否则那枚 Chromium 会挂到后端超时。
   React.useEffect(() => {
@@ -480,7 +483,7 @@ export function ScanLoginDialog({
     setTaskMessage('')
     networkFailRef.current = 0
     try {
-      const r = await startScanLogin(plat, { reuseSession })
+      const r = await startScanLogin(plat, { reuseSession, accountId })
       if (!r.success) throw apiFailureToError(r, t('accounts.scanLoginFailed'))
       const id = r.data?.task_id
       if (!id) throw new Error(t('accounts.scanLoginFailed'))

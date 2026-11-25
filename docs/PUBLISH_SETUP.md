@@ -496,3 +496,67 @@ verify 结果同时写回 `publish_accounts.last_verified_at / last_verify_msg`,
     那次假阳性留下的 1h 冷却已用产品自己的 `exit_cooldown('13','juejin')` 撤销（撤销前后 JSON 内容
     与理由都记在交付里），因为它的**前提**已被证伪。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+
+---
+
+## 12. 账号池与"永久保活"的工程边界(2026-11-25 立)
+
+### 12.1 先给结论:没有字面意义上的"永久"
+
+平台侧的登录态有绝对有效期(微信 `access_token` 2 小时、公众号 `access_token` 2 小时、OAuth refresh token 也可能被平台单方面吊销),任何本地代码都**不能**让一个 cookie/token 永不失效。本系统能做到的是四件事,合起来才是可运维的"永久在线":
+
+1. **持续体检** — 每 60 分钟一轮(带 ±20% 抖动,并发 2、单号 90s 硬超时),用平台适配器的 `verify_credentials` 真访问创作者后台/鉴权接口,不再用"cookie 名还在不在"判断;
+2. **失效即告警** — 判定 `expired` 立刻写站内信(24h 同账号去重)并把会话标成 `reauth_required`,不静默;
+3. **一键重登** — 账号池页面按账号发起扫码,扫码成功**定点回写该 account_id**,不会把同平台另一个号覆盖;
+4. **自动回池** — 重登成功即 `healthy`,重新参与取号;池内全失效时发布任务直接 `409`,绝不拿掉线号硬发。
+
+### 12.2 数据模型(4 张表)
+
+| 表 | 作用 | 关键字段 |
+| --- | --- | --- |
+| `publish_pools` | 平台级账号池(默认每平台一个) | `strategy`(least_recent/priority/round_robin)、`min_healthy`、`probe_interval_minutes`、`max_daily_posts` |
+| `publish_pool_members` | 池成员与取号优先级 | `priority`(数值越大越先,默认 100)、`last_used_at`(最久未用排序) |
+| `publish_session_state` | 每个账号的登录态状态机 | `status`、`consecutive_failures`、`next_probe_at`、`last_verified_at`、`last_alert_at` |
+| `publish_session_events` | 体检/重登事件流(排障用) | `ok`、`kind`(ok/expired/network/config_error/decrypt_error)、`message`、`duration_ms` |
+
+状态机:`unknown → healthy ⇄ degraded → reauth_required`;`reauth_required` 只能由"重登成功"或"人工标记"回到 `healthy`。网络抖动进 `degraded` 并按指数退避重试,**不会**误报成需要重扫。
+
+### 12.3 取号规则
+
+发布任务 `targets[]` 里 `account_id` 为空时,按以下顺序选号:
+
+1. 会话健康(`healthy` 优先,`unknown` 次之,`degraded` 再次;`reauth_required` 不参与);
+2. `strategy=priority` 时按成员 `priority` **数值大者优先**;`least_recent`/`round_robin` 跳过这一段;
+3. `last_used_at` 最久未用优先(同优先级轮换,避免总用同一个号)。
+
+显式传 `account_id` 的调用方行为不变(仍做归属校验),池只接管"没指定账号"的情况。
+
+### 12.4 运维入口
+
+```bash
+# 建池/补齐所有启用账号(幂等)
+POST /api/publish/pools/bootstrap
+# 池列表 / 单池详情(含成员与会话状态)
+GET  /api/publish/pools
+GET  /api/publish/pools/{pool_id}
+# 整池体检 / 单号体检
+POST /api/publish/pools/{pool_id}/probe
+POST /api/publish/pools/accounts/{account_id}/probe
+# 单号定点重登(扫码)
+POST /api/publish/pools/accounts/{account_id}/reauth
+# 守护进程状态
+GET  /api/publish/pools/keeper/status
+```
+
+Web 入口:`/publish/accounts` 页头「账号池」→ `/publish/account-pool`;页面支持整池体检、单号重扫、查看"上次体检/下次体检/失败原因"。
+
+### 12.5 密钥固化(必做,否则重启即全员掉线)
+
+`PUBLISH_CREDENTIALS_KEY` 必须是固定的 32 字节 base64,写进部署环境的 secret,不得依赖运行时自动生成。轮换时把旧钥放进 `PUBLISH_CREDENTIALS_KEY_LEGACY`(逗号分隔,仅解密)。本机已写入 `apps/ai-service/.env`(备份 `*.bak-20261125`);生产机必须从生产 secret 取同一把钥,否则会出现"本地能解、线上不能解"的环境分叉。
+
+### 12.6 已知边界
+
+- 平台主动改密/踢下线/风控冻结:只能等体检发现后告警 + 人工重扫,代码无法绕过平台;
+- 短信/扫码二次验证:必须人工完成,`auto_reauth` 只能把任务推到"待重登";
+- 公众号/微信等 IP 白名单类失败:分类为 `config_error`,不会误标成 cookie 失效;
+- `max_daily_posts` 字段已建,日配额扣减尚未接入发布链路(当前为 0 = 不限)。

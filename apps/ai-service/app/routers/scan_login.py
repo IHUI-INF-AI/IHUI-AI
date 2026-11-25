@@ -56,6 +56,10 @@ class StartScanRequest(BaseModel):
         True,
         description="会话复用:True=该平台已有有效登录态时直接复用(免扫码);False=强制全新扫码(清登录态出码)",
     )
+    account_id: int | None = Field(
+        default=None,
+        description="定点重登:只回写这个账号(账号池救活具体号用);为空时按旧规则落库",
+    )
 
 
 # =============================================================================
@@ -77,12 +81,43 @@ async def list_supported_platforms() -> dict[str, Any]:
 
 @router.post("/start")
 async def start_scan(body: StartScanRequest, request: Request) -> dict[str, Any]:
-    """启动扫码登录任务。返回 task_id,前端轮询 status + qr。"""
+    """启动扫码登录任务。返回 task_id,前端轮询 status + qr。
+
+    `account_id` 非空 = 账号池里的定点重登:先校验归属,成功后只回写这一行,
+    并把 session_state 翻回 healthy(由 scan_login 的回池钩子完成)。
+    """
     user_id = await get_current_user_id(request)
+    if body.account_id is not None:
+        from ..core.db import get_db_conn
+
+        conn = await get_db_conn()
+        try:
+            row = await conn.fetchrow(
+                "SELECT id, platform FROM publish_accounts WHERE id=$1 AND user_id=$2",
+                body.account_id, user_id,
+            )
+        finally:
+            await conn.close()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"账号不存在: {body.account_id}")
+        if row["platform"] != body.platform:
+            raise HTTPException(status_code=400, detail="platform 与账号不匹配")
     try:
-        task = start_scan_task(user_id=user_id, platform=body.platform, reuse_session=body.reuse_session)
+        task = start_scan_task(
+            user_id=user_id,
+            platform=body.platform,
+            reuse_session=body.reuse_session,
+            account_id=body.account_id,
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    if body.account_id is not None:
+        try:
+            from ..services.publish import session_keeper
+            await session_keeper.mark_reauth_started(body.account_id, task.task_id)
+        except Exception:
+            pass
 
     return {
         "code": 0,

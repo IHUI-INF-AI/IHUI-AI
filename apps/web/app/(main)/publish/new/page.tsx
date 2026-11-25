@@ -16,6 +16,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { apiOrThrow } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { Switch, Label } from '@ihui/ui-react'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { ContentEditorCard, type UploadResult, type Format } from './ContentEditorCard'
@@ -79,6 +80,9 @@ function NewPublishPage() {
   const [fileProgress, setFileProgress] = React.useState(0)
   const [coverProgress, setCoverProgress] = React.useState(0)
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
+  // 2026-11-25 账号池:默认每个平台只发 1 个号(池内按健康/优先级/最久未用自动取号),
+  // 关掉才回到"该平台名下所有账号各发一遍"的旧行为。
+  const [usePool, setUsePool] = React.useState(true)
   const [scheduleMode, setScheduleMode] = React.useState<ScheduleMode>('now')
   const [scheduledAt, setScheduledAt] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
@@ -167,13 +171,15 @@ function NewPublishPage() {
     setSubmitting(true)
     try {
       const isText = format === 'md' || format === 'html'
-      const targets = Array.from(selected).flatMap((p) =>
-        (platformMap.get(p) ?? []).map((a) => ({
-          platform: p,
-          account_id: Number(a.id),
-          config: {},
-        })),
-      )
+      const targets = usePool
+        ? Array.from(selected).map((p) => ({ platform: p }))
+        : Array.from(selected).flatMap((p) =>
+            (platformMap.get(p) ?? []).map((a) => ({
+              platform: p,
+              account_id: Number(a.id),
+              config: {},
+            })),
+          )
       const body = JSON.stringify({
         title: title.trim(),
         format,
@@ -246,6 +252,15 @@ function NewPublishPage() {
             onSelectAll={() => setSelected(new Set(platformMap.keys()))}
             onClearAll={() => setSelected(new Set())}
           />
+          <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+            <div className="min-w-0">
+              <Label htmlFor="publish-use-pool" className="text-sm font-medium">
+                {t('new.usePool')}
+              </Label>
+              <p className="text-label text-muted-foreground">{t('new.usePoolHint')}</p>
+            </div>
+            <Switch id="publish-use-pool" checked={usePool} onCheckedChange={setUsePool} />
+          </div>
           {format === 'md' && (
             <PlatformPreview content={textContent} platform={previewPlatform} title={title} />
           )}

@@ -21700,6 +21700,8 @@
       "selectAll": "全選",
       "selectPlatforms": "選擇目標平臺",
       "selectPlatformsHint": "至少選擇 1 個平臺",
+      "usePool": "按帳號池自動取號",
+      "usePoolHint": "同一平台只發 1 個在線帳號;池內全失效會拒絕發佈,不會硬發。",
       "submitFailed": "提交失敗",
       "submitNow": "立即發布",
       "submitSchedule": "定時發布",

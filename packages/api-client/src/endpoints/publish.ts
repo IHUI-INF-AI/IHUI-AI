@@ -177,7 +177,7 @@ export async function listScanLoginPlatforms(): Promise<
 
 export async function startScanLogin(
   platform: string,
-  options?: { reuseSession?: boolean },
+  options?: { reuseSession?: boolean; accountId?: number },
 ): Promise<
   ApiResult<{ task_id: string; platform: string; status: string; snapshot: ScanLoginTask }>
 > {
@@ -188,6 +188,8 @@ export async function startScanLogin(
       // 会话复用(2026-09-30):该平台已有有效登录态时直接复用、免扫码;
       // false=强制全新扫码(后端清登录态出码)。默认 true,老调用方零改动即得复用语义。
       reuse_session: options?.reuseSession ?? true,
+      // 账号池定点重登(2026-11-25):只回写这个账号,避免同平台多号互相覆盖。
+      account_id: options?.accountId ?? null,
     }),
   })
 }
@@ -750,5 +752,233 @@ export async function analyzePublishAll(
     method: 'POST',
     body: JSON.stringify({ content, title, platform }),
   })
+}
+
+// =============================================================================
+// 发布账号池(2026-11-25 新增)
+// =============================================================================
+export interface PublishPoolSession {
+  status: 'unknown' | 'healthy' | 'degraded' | 'expiring' | 'reauth_required' | string
+  lastProbeAt: string | null
+  lastOkAt: string | null
+  nextProbeAt: string | null
+  consecutiveFailures: number
+  lastError: string | null
+  lastErrorKind: string | null
+  reauthTaskId: string | null
+}
+
+export interface PublishPoolMember {
+  accountId: number
+  platform: string
+  displayName: string
+  accountStatus: string
+  priority: number
+  weight: number
+  dailyQuota: number
+  lastUsedAt: string | null
+  joinedAt: string | null
+  session: PublishPoolSession
+}
+
+export interface PublishPool {
+  poolId: string
+  platform: string
+  name: string
+  strategy: 'least_recent' | 'priority' | 'round_robin'
+  minHealthy: number
+  maxDailyPosts: number
+  probeIntervalMinutes: number
+  autoReauth: boolean
+  status: 'healthy' | 'degraded' | 'empty' | 'pending' | 'active' | 'paused'
+  total: number
+  healthy: number
+  reauthRequired: number
+  createdAt: string | null
+  updatedAt: string | null
+  members?: PublishPoolMember[]
+}
+
+export interface PublishPoolEvent {
+  accountId: number
+  displayName: string | null
+  ok: boolean
+  kind: string
+  message: string | null
+  createdAt: string | null
+}
+
+export async function listPublishPools(): Promise<ApiResult<{ items: PublishPool[] }>> {
+  return fetchApi<{ items: PublishPool[] }>('/api/publish/pools')
+}
+
+export async function bootstrapPublishPools(): Promise<ApiResult<{ items: PublishPool[] }>> {
+  return fetchApi<{ items: PublishPool[] }>('/api/publish/pools/bootstrap', { method: 'POST' })
+}
+
+export async function createPublishPool(input: {
+  platform: string
+  name?: string
+  strategy?: PublishPool['strategy']
+  minHealthy?: number
+  probeIntervalMinutes?: number
+  autoReauth?: boolean
+  accountIds?: number[]
+}): Promise<ApiResult<PublishPool>> {
+  return fetchApi<PublishPool>('/api/publish/pools', {
+    method: 'POST',
+    body: JSON.stringify({
+      platform: input.platform,
+      name: input.name ?? '默认账号池',
+      strategy: input.strategy ?? 'least_recent',
+      min_healthy: input.minHealthy ?? 1,
+      probe_interval_minutes: input.probeIntervalMinutes ?? 60,
+      auto_reauth: input.autoReauth ?? true,
+      account_ids: input.accountIds ?? [],
+    }),
+  })
+}
+
+export async function getPublishPool(poolId: string): Promise<ApiResult<PublishPool>> {
+  return fetchApi<PublishPool>(`/api/publish/pools/${encodeURIComponent(poolId)}`)
+}
+
+export async function updatePublishPool(
+  poolId: string,
+  patch: {
+    name?: string
+    strategy?: PublishPool['strategy']
+    minHealthy?: number
+    probeIntervalMinutes?: number
+    autoReauth?: boolean
+    status?: 'active' | 'paused'
+  },
+): Promise<ApiResult<PublishPool>> {
+  return fetchApi<PublishPool>(`/api/publish/pools/${encodeURIComponent(poolId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      ...(patch.name !== undefined ? { name: patch.name } : {}),
+      ...(patch.strategy !== undefined ? { strategy: patch.strategy } : {}),
+      ...(patch.minHealthy !== undefined ? { min_healthy: patch.minHealthy } : {}),
+      ...(patch.probeIntervalMinutes !== undefined
+        ? { probe_interval_minutes: patch.probeIntervalMinutes }
+        : {}),
+      ...(patch.autoReauth !== undefined ? { auto_reauth: patch.autoReauth } : {}),
+      ...(patch.status !== undefined ? { status: patch.status } : {}),
+    }),
+  })
+}
+
+export async function deletePublishPool(poolId: string): Promise<ApiResult<{ deleted: boolean }>> {
+  return fetchApi<{ deleted: boolean }>(`/api/publish/pools/${encodeURIComponent(poolId)}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function addPublishPoolMembers(
+  poolId: string,
+  accountIds: number[],
+  priority = 100,
+): Promise<ApiResult<{ added: number }>> {
+  return fetchApi<{ added: number }>(
+    `/api/publish/pools/${encodeURIComponent(poolId)}/members`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ account_ids: accountIds, priority }),
+    },
+  )
+}
+
+export async function removePublishPoolMember(
+  poolId: string,
+  accountId: number,
+): Promise<ApiResult<{ removed: boolean }>> {
+  return fetchApi<{ removed: boolean }>(
+    `/api/publish/pools/${encodeURIComponent(poolId)}/members/${accountId}`,
+    { method: 'DELETE' },
+  )
+}
+
+export async function probePublishPool(
+  poolId: string,
+  accountIds?: number[],
+): Promise<ApiResult<{ items: Array<{
+  account_id: number
+  platform: string
+  display_name: string
+  ok: boolean
+  kind: string
+  message: string
+  status: string
+  duration_ms: number
+}> }>> {
+  return fetchApi(
+    `/api/publish/pools/${encodeURIComponent(poolId)}/probe`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ account_ids: accountIds ?? null, force: true }),
+    },
+  )
+}
+
+export async function publishPoolEvents(
+  poolId: string,
+  limit = 50,
+): Promise<ApiResult<{ items: PublishPoolEvent[] }>> {
+  return fetchApi<{ items: PublishPoolEvent[] }>(
+    `/api/publish/pools/${encodeURIComponent(poolId)}/events?limit=${limit}`,
+  )
+}
+
+export async function probePublishAccount(
+  accountId: number,
+): Promise<ApiResult<{
+  account_id: number
+  platform: string
+  display_name: string
+  ok: boolean
+  kind: string
+  message: string
+  status: string
+  duration_ms: number
+}>> {
+  return fetchApi(`/api/publish/pools/accounts/${accountId}/probe`, { method: 'POST' })
+}
+
+export async function reauthPublishAccount(
+  accountId: number,
+): Promise<ApiResult<{
+  taskId: string
+  platform: string
+  accountId: number
+  status: string
+  snapshot: ScanLoginTask
+}>> {
+  return fetchApi(`/api/publish/pools/accounts/${accountId}/reauth`, { method: 'POST' })
+}
+
+export async function getPublishAccountSession(
+  accountId: number,
+): Promise<ApiResult<{
+  accountId: number
+  platform: string
+  displayName: string | null
+  state: PublishPoolSession & { probeIntervalMinutes: number } | null
+  events: Array<{ ok: boolean; kind: string; message: string | null; createdAt: string | null }>
+}>> {
+  return fetchApi(`/api/publish/pools/accounts/${accountId}/session`)
+}
+
+export async function getPublishKeeperStatus(): Promise<ApiResult<{
+  enabled: boolean
+  active: boolean
+  tickSeconds: number
+  intervalMinutes: number
+  concurrency: number
+  timeoutSeconds: number
+  lastTickAt: string | null
+  lastError: string | null
+}>> {
+  return fetchApi('/api/publish/pools/keeper/status')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

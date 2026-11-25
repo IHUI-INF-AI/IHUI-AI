@@ -3271,6 +3271,13 @@
       "when": 1795503600000,
       "tag": "20261125120000_wechat_hub_moments",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 471,
+      "when": 1795504200000,
+      "tag": "20261125133000_publish_account_pool",
+      "breakpoints": true
     }
   ]
 }
