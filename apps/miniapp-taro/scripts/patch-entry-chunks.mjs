@@ -28,7 +28,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist')
 const MARK = '/*miniapp-entry-chunks*/'
-const DEFERRED_RE = /e\.O\(0,\[([0-9,]+)\]/
+// 2026-11-26 修:这里曾写死 `e.O(...)` + `[0-9,]+`,两处都过窄,实测把 34 个入口判成"无 deferred 列表"
+// 而静默跳过 ⇒ 那些页的 chunk 永不补挂 ⇒ 组件永不执行 ⇒ 整屏白(page.data 只剩 __webviewId__)。
+// ① 变量名前缀随入口类型而变(主入口 e、页面入口可能是 n/s/r)⇒ 收任意标识符;
+// ② chunk id 可能是 webpack 的十六进制名(实测 68e3)⇒ 字符类必须收字母,否则整条列表匹配失败;
+// ③ 依赖列表可能**跨行**(实测 pages/user/index.js 19+ 个 id 被 webpack 换行输出)⇒ 字符类必须收空白,
+//    否则同一条列表整段匹配失败,该页永远补不上 —— 这是「我的」页白屏的最后一层根因。
+const DEFERRED_RE = /[A-Za-z_$][A-Za-z0-9_$]*\.O\(0,\[\s*([0-9A-Za-z,\s]*?)\s*\]/
 
 export function patchFile(file, { root = ROOT } = {}) {
   const src = fs.readFileSync(file, 'utf8')
@@ -36,7 +42,7 @@ export function patchFile(file, { root = ROOT } = {}) {
   const m = src.match(DEFERRED_RE)
   if (!m) return { changed: false, count: 0 }
   const rels = []
-  for (const id of m[1].split(',')) {
+  for (const id of m[1].split(',').map((s) => s.trim()).filter(Boolean)) {
     const chunk = path.join(root, `${id}.js`)
     if (!fs.existsSync(chunk)) continue
     let rel = path.relative(path.dirname(file), chunk).split(path.sep).join('/')
