@@ -132,6 +132,13 @@ AI 侧已完成：链路核验、应用 Client ID 查明、后台权限状态现
 - **用户本人在平台连接器页用钉钉扫码授权**（第三节 3.2）：真人用钉钉 App 扫码同意后产生 `code` → callback 换取 userAccessToken → 加密落 `connector_instances.extra.user_oauth`（`key='dingtalk:user-oauth'`、`spec.auth_kind='dingtalk_user'`）。AI 无法自行生成有效 `code`，无法代劳。
 - **查表纠偏（2026-11-25 23:00）**：早期快照用 `oauth_users` 表判断「0 行 = 无人扫码」是**查错了表**——`oauth_users` 在全仓库无任何 INSERT 路径（死表），真实 user token 落在 `connector_instances.extra.user_oauth`。现读该表：`dingtalk:user-oauth` 仅 1 条，且为 `managed=true / credential_source=platform_env / owner_user_id=None` 的**平台兜底授权**，非真人用户授权。故「从无真人用户完成平台侧钉钉扫码授权」的结论仍成立，但依据应以此表为准。
 - 用户扫码授权完成后，AI 以本人身份调通讯录接口即可成功——应用权限侧已实测无障碍，届时按第三节 3.2/3.3 验证即可收口。
+- **「为何 AI 无法代劳」的页面确证（2026-11-25 23:10）**：本地用 `connector_oauth.make_state` 为 admin 生成真实授权 URL 并在浏览器打开，钉钉 `/oauth2/auth` 经 `challenge.htm` 最终落到 C 端登录页 `login.dingtalk.com/oauth2/challenge.htm`，形态为「使用钉钉扫码 / 继续使用AI智汇社区」+ **手机钉钉 App 扫码二维码**；「账号登录」tab 需账密，本环境 `.env` 无任何钉钉账号密码凭据。管理员后台 `open-dev.dingtalk.com` 的登录态属不同域，不能替代 C 端用户授权登录。故产生有效 `code` 的最后一步**确实必须真人手机扫码**，AI 无凭据、无登录态可绕——这是钉钉 OAuth 协议硬约束，非推测。
+
+### 6.3 关于两种 token 的边界（排障必读）
+
+- 本节实测用的是**应用 accessToken**（appKey+appSecret 换取），证明的是**应用级接口权限**已开通。
+- 平台连接器真实调用走的是**用户 userAccessToken**（OAuth 扫码换取，`x-acs-dingtalk-access-token` 注入），证明的是**用户身份授权**。
+- 两者互相独立：应用权限已开 ≠ 用户已授权。扫码后仍失败时才需要回头查应用权限；当前实测应用权限无障碍，扫码是唯一前置。
 
 ### 6.4 用户 token 链路实测（2026-11-25 23:00，含一次探测副作用留档）
 
@@ -145,9 +152,3 @@ AI 侧已完成：链路核验、应用 Client ID 查明、后台权限状态现
 | 以刷新后的用户 token 调 `contact/users/search` | 403 `requiredScopes:["qyapi_addresslist_search"]` | search 这个旧版 scope 应用未开（与 `Contact.User.Read` 无关；详情接口 `Contact.User.Read` 已开） |
 
 > **探测副作用留档（诚实记录）**：钉钉 refresh_token 是**一次性轮换**的。本次刷新消耗了库里那条 refresh_token，但刷新返回的新 token 未回写数据库（探测脚本仅验证未持久化），导致该兜底记录的 refresh_token 失效。影响面：仅这条 `owner_user_id=None / managed=true` 的平台兜底授权（探测前 access_token 已过期 22.7h、`last_sync_at` 空、无真实用户在用），**不涉及任何真人登录态**。修复方式：真人扫码重新授权，或平台重新播种该兜底记录。后续任何对该记录的刷新验证**必须回写新 token**（走 `_make_refresh_persister`），不可只用裸脚本探测。
-
-### 6.3 关于两种 token 的边界（排障必读）
-
-- 本节实测用的是**应用 accessToken**（appKey+appSecret 换取），证明的是**应用级接口权限**已开通。
-- 平台连接器真实调用走的是**用户 userAccessToken**（OAuth 扫码换取，`x-acs-dingtalk-access-token` 注入），证明的是**用户身份授权**。
-- 两者互相独立：应用权限已开 ≠ 用户已授权。扫码后仍失败时才需要回头查应用权限；当前实测应用权限无障碍，扫码是唯一前置。
