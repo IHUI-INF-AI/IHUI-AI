@@ -48,6 +48,71 @@ export const STORM_THRESHOLD = 2
 /** 单聚合组在主窗口内达到该次数才判「失败登录突发」。4740 命中不受此阈值约束。 */
 export const DEFAULT_BURST_THRESHOLD = 5
 
+/**
+ * 本机账号锁定策略的三态(2026-11-26 立)。
+ *
+ * 立因(实测):Windows 的「失败计数」不区分来源——隧道侧 sshd 的 publickey 失败、
+ * 本机自动化 Chrome 的 Type 2 Negotiate 失败,都计入同一个 Administrator 计数器。
+ * 也就是说,任何人只要能连到 sshd 就能给本机账号"投票"锁死它,而密码认证已关
+ * (密码暴破本就不可能成功)。此时锁定策略唯一的效果是把自己的 S4U 计划任务
+ * (git-guardian / Pool-Sync / Zombie-Guardian)一起打死 —— 远程可触发的 DoS 面。
+ *
+ * 因此判据分两档:
+ *   DISABLED(阈值 0/Never)  ⇒ 4625 突发只「观测」不判 breach(无锁定后果),4740 仍判红;
+ *   ENABLED(阈值 > 0)       ⇒ 沿用突发判红,并额外提示 DoS 面;
+ *   UNDETERMINED(读不到)    ⇒ 未判定,不冒绿也不冒红。
+ */
+export const LOCKOUT_POLICY = Object.freeze({
+  DISABLED: 'disabled',
+  ENABLED: 'enabled',
+  UNDETERMINED: 'undetermined',
+})
+
+/**
+ * 解析账号锁定阈值,支持两种真实文本面(纯函数,便于测试),不自己跑命令。
+ *
+ * ① `secedit /export /cfg <inf> /areas SECURITYPOLICY` 导出的 inf(ASCII 键,无码页问题)
+ *    键名 `LockoutBadCount`;空值/缺失 = 未配置(未判定)。
+ * ② `net accounts` 的 stdout。**注意**:该命令往管道写时用 OEM 码页(本机 936),
+ *    Node 按 utf8 解会把中文行读成乱码 —— 英文 locale 才可用,故只作兜底。
+ *
+ * @param {string|null} text
+ * @returns {{state:string,threshold:number|null,raw:string}}
+ */
+export function parseLockoutThreshold(text) {
+  if (typeof text !== 'string' || !text.trim()) {
+    return { state: LOCKOUT_POLICY.UNDETERMINED, threshold: null, raw: '' }
+  }
+  /* 面 ①:secedit inf。 */
+  const ini = text.match(/^\s*LockoutBadCount\s*=\s*([0-9]*)\s*$/m)
+  if (ini) {
+    const raw = String(ini[1] || '').trim()
+    if (raw === '') return { state: LOCKOUT_POLICY.UNDETERMINED, threshold: null, raw: '' }
+    const n = Number(raw)
+    return {
+      state: n === 0 ? LOCKOUT_POLICY.DISABLED : LOCKOUT_POLICY.ENABLED,
+      threshold: n,
+      raw,
+    }
+  }
+  /* 面 ②:net accounts。英文与中文两套措辞都认。 */
+  const m = text.match(/Lockout threshold:\s*([^\r\n]+)/i) || text.match(/锁定阈值:\s*([^\r\n]+)/)
+  if (!m) return { state: LOCKOUT_POLICY.UNDETERMINED, threshold: null, raw: '' }
+  const raw = String(m[1]).trim()
+  if (/never/i.test(raw) || /从不|永不/.test(raw)) {
+    return { state: LOCKOUT_POLICY.DISABLED, threshold: 0, raw }
+  }
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 0) {
+    return { state: LOCKOUT_POLICY.UNDETERMINED, threshold: null, raw }
+  }
+  return {
+    state: n === 0 ? LOCKOUT_POLICY.DISABLED : LOCKOUT_POLICY.ENABLED,
+    threshold: n,
+    raw,
+  }
+}
+
 /** 已知的 4625 Status 码(NTSTATUS)。认不出的原样传出,不猜语义。 */
 const STATUS_LABELS = Object.freeze({
   '0xc000006d': '用户名或密码错',
@@ -70,7 +135,7 @@ const LTYPE_LABELS = Object.freeze({
 })
 
 function toMs(v) {
-  if (v == null) return null
+  if (v === null || v === undefined) return null
   if (v instanceof Date) return Number.isFinite(v.getTime()) ? v.getTime() : null
   if (typeof v === 'number') return Number.isFinite(v) ? v : null
   const n = Date.parse(String(v))
@@ -210,6 +275,12 @@ export function judgeAccountLockout(input, opts = {}) {
     Number(opts.stormWindowMin) > 0 ? Number(opts.stormWindowMin) : STORM_WINDOW_MIN
   const stormThreshold =
     Number(opts.stormThreshold) > 0 ? Number(opts.stormThreshold) : STORM_THRESHOLD
+  /*
+   * 锁定策略档:调用方读了 `net accounts` 就传进来;读不到(或缺省)按 ENABLED 语义走,
+   * 即"宁可报红"——策略未判定不能成为降噪借口。
+   */
+  const policyState = String(opts.lockoutPolicy?.state || LOCKOUT_POLICY.ENABLED)
+  const policyThreshold = opts.lockoutPolicy?.threshold ?? null
 
   /* 采集失败 ⇒ 未判定。绝不把「取不到」读成「没有攻击」(§0.3)。 */
   if (input && typeof input === 'object' && typeof input.fetchError === 'string' && input.fetchError) {
@@ -225,7 +296,9 @@ export function judgeAccountLockout(input, opts = {}) {
       total4740: 0,
       total4625: 0,
       breaches: [],
+      observations: [],
       storm: [],
+      policy: { state: policyState, threshold: policyThreshold },
     }
   }
   if (!Array.isArray(input?.events)) {
@@ -241,7 +314,9 @@ export function judgeAccountLockout(input, opts = {}) {
       total4740: 0,
       total4625: 0,
       breaches: [],
+      observations: [],
       storm: [],
+      policy: { state: policyState, threshold: policyThreshold },
     }
   }
 
@@ -252,7 +327,7 @@ export function judgeAccountLockout(input, opts = {}) {
   const failRows = []
   for (const raw of input.events) {
     const ts = toMs(raw?.ts)
-    if (ts == null) continue
+    if (ts === null || ts === undefined) continue
     if (ts < windowStart) continue
     const kind = String(raw?.kind || '')
     if (kind === '4740') {
@@ -321,16 +396,33 @@ export function judgeAccountLockout(input, opts = {}) {
   }
 
   const burstGroups = groups.filter((g) => g.count >= burstThreshold)
+  const observations = []
   if (burstGroups.length > 0) {
-    if (state !== LOCKOUT_STATE.BREACH) state = LOCKOUT_STATE.BREACH
     const burstText = burstGroups.map(describeGroup).join('；')
-    reason = reason ? `${reason};失败登录突发: ${burstText}` : `失败登录突发: ${burstText}`
-    breaches.push(...burstGroups.map((g) => g.key))
+    if (policyState === LOCKOUT_POLICY.DISABLED) {
+      /* 阈值 0 ⇒ 失败计数不会触发锁定 ⇒ 突发没有锁定后果,只记观测。
+         4740 若真出现(说明策略被别处改回)仍由上面的分支判红,这里不兜。 */
+      observations.push(
+        `失败登录突发(仅观测,锁定策略=永不锁定故无锁定后果): ${burstText}`,
+      )
+      for (const g of burstGroups) observations.push(`observed:${g.key}`)
+    } else {
+      if (state !== LOCKOUT_STATE.BREACH) state = LOCKOUT_STATE.BREACH
+      reason = reason ? `${reason};失败登录突发: ${burstText}` : `失败登录突发: ${burstText}`
+      breaches.push(...burstGroups.map((g) => g.key))
+      if (policyState === LOCKOUT_POLICY.ENABLED) {
+        observations.push(
+          `锁定阈值=${policyThreshold ?? '>0'}:失败计数不分来源(隧道 sshd 的 publickey 失败也计入),存在「远程触发锁定」的 DoS 面`,
+        )
+      }
+    }
   }
 
   if (state === LOCKOUT_STATE.OK) {
     if (failRows.length === 0 && lockedOut.length === 0) {
       reason = `近 ${windowMin} 分钟内无 4740/4625 事件(空窗)`
+    } else if (observations.length > 0) {
+      reason = `近 ${windowMin} 分钟内 ${failRows.length} 次失败登录,其中 ${burstGroups.length} 组达突发阈值(${burstThreshold} 次/组),但锁定策略=永不锁定 ⇒ 仅观测,无锁定后果`
     } else {
       reason = `近 ${windowMin} 分钟内 ${failRows.length} 次失败登录,均未达突发阈值(${burstThreshold} 次/组),无账号锁定`
     }
@@ -348,7 +440,9 @@ export function judgeAccountLockout(input, opts = {}) {
     total4740: lockedOut.length,
     total4625: failRows.length,
     breaches,
+    observations,
     storm,
+    policy: { state: policyState, threshold: policyThreshold },
   }
 }
 
@@ -389,6 +483,7 @@ export const __test__ = {
   describeGroup,
   enrichProcessByPid,
   aggregateGroup,
+  parseLockoutThreshold,
   STATUS_LABELS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
