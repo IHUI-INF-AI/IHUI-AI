@@ -23,7 +23,7 @@
 
 ## 0. 为什么要推翻上一版
 
-上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了八处纠正，每一条都能被证据账本复核。
+上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了九处纠正，每一条都能被证据账本复核。
 
 **纠正一：把 Electron 主 exe 的 Chromium 安全 API 当成产品自研沙箱。**
 上一版用 `CreateRestrictedToken`、`CreateJobObject`、`CreateProcessAsUserW` 这类导入来证明“某产品有强沙箱”。实测发现，WorkBuddy.exe、Qoder CN.exe、ZCode.exe、Cursor.exe、Trae CN.exe 全部是 Electron 壳，这些 API 属于 Chromium/Electron 出厂能力，**不能归因于产品**。本版把证据分成三层：产品级（Rust/Go helper、.node、主进程 JS）、框架级（Electron/Chromium）、未知级；只有第一层进入结论。
@@ -48,6 +48,9 @@
 
 **纠正八：Cursor 的 45 条动态 IPC 不是“不可审计面”。**
 工具只给了一个数字，本版按 777 个非 `node_modules` JS 文件重扫：44 个 Electron IPC 调用点（15 `ipcMain` + 17 `ipcRenderer` + 11 `webContents.send` + 1 `webContents.postMessage`），其中 43 条非字面量。29 条落到 20 个唯一通道，12 条是 wrapper/helper 形参，1 条 `event.data` 被 4 个常量守卫，1 条 `e.responseChannel` 是运行期 payload 通道，**0 个未知通道常量**。45 与 43 的 2 条差额落在 `ms-vscode.js-debug` 里非 Electron 的 WebSocket `.send` 泛化匹配。
+
+**纠正九：Qoder 的 8 条动态 IPC 已全部解码，不是“未知面”。**
+Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64 会解出乱码。按产品自己的 `pe0`/`du` 表和校验函数还原旋转偏移（0.5.6=`283`、0.5.14=`200`）后：0.5.6 的 5 条是 `diagnostics:renderer-responsiveness` + `arms:rum-bridge` / `arms:rum-custom-report` / `arms:rum-anr-heartbeat` / `arms:rum-anr-visibility`；0.5.14 的 8 条是同一组 5 条加 `mcp-app:guest-message` 的 3 条 guest preload 调用；0.5.7 / 0.5.12 为 0。**13 条动态、6 个唯一通道、0 条未定。**
 
 ---
 
@@ -108,16 +111,16 @@
 | 豆包 (CEF) | 2,295 | 465,369 | 1,473,627 | 398,481 | 0 | 0 | 0 | 0 | 0 | 4,552 | 750 | 0 | 0 | 0 |
 | MiniMax | 1,391 | 124,372 | 330,508 | 112,679 | 54 | 25 | 0 | 14 | 816（332+406/0 未定） | 1,887 | 1,394 | 10 | 35 | 373 |
 | OpenCode | 3,231 | 46,281 | 80,579 | 39,462 | 3 | 1 | 0 | 0 | 5 | 289 | 156 | 3 | 1 | 5 |
-| Qoder 0.5.6 | 637 | 70,256 | — | 67,925 | 0 | 0 | 0 | 0 | 5 | 200 | 96 | 8 | 0 | 0 |
-| Qoder 0.5.7 | 637 | 70,317 | 124,900 | 67,977 | 0 | 0 | 0 | 0 | 0 | 202 | 97 | 8 | 0 | 0 |
-| Qoder 0.5.12 | 610 | 63,629 | 129,852 | 61,375 | 0 | 0 | 0 | 0 | 0 | 192 | 105 | 10 | 0 | 0 |
-| Qoder 0.5.14 | 610 | 63,630 | 129,877 | 61,382 | 0 | 0 | 0 | 0 | 8 | 192 | 105 | 10 | 0 | 0 |
+| Qoder 0.5.6 | 637 | 70,256 | — | 67,925 | 0 | 0 | 0 | 0 | 5（5 已归因/0 未定） | 200 | 96 | 8 | 0 | 0 |
+| Qoder 0.5.7 | 637 | 70,317 | 124,900 | 67,977 | 0 | 0 | 0 | 0 | 0（0/0） | 202 | 97 | 8 | 0 | 0 |
+| Qoder 0.5.12 | 610 | 63,629 | 129,852 | 61,375 | 0 | 0 | 0 | 0 | 0（0/0） | 192 | 105 | 10 | 0 | 0 |
+| Qoder 0.5.14 | 610 | 63,630 | 129,877 | 61,382 | 0 | 0 | 0 | 0 | 8（8 已归因/0 未定） | 192 | 105 | 10 | 0 | 0 |
 | Trae CN | 343 | 194,266 | — | 181,024 | 71 | 2 | 0 | 12 | 110（58 非字面量/0 未定） | 3,871 | 1,559 | 20 | 5 | 17 |
 | WorkBuddy | 3,866 | 359,769 | 729,926 | 339,157 | 120 | 55 | 11 | 14 | 214（115 main 全归因） | 3,488 | 1,895 | 20 | 83 | 43 |
 | 小浣熊 | 1,886 | 121,089 | — | 109,542 | 95 | 19 | 38 | 2 | 26 | 1,819 | 1,355 | 10 | 20 | 9 |
 | ZCode | 2,837 | 77,729 | 144,984 | 72,766 | 3 | 2 | 0 | 0 | 423（227 全还原·180 唯一） | 377 | 175 | 10 | 8 | 169 |
 
-读法：**静态 IPC 少不等于能力少**。ZCode 只有 3 条静态通道，423 条工具计数经本地 227 个调用点逐条回填，得到 **227/227 已还原、180 个唯一通道、0 条未定**；WorkBuddy 的 214 条里 main 侧 **115 条注册全部归因**（81 常量/别名 + 29 模板 + 4 helper 形参 + 1 内部通道），12 个 `require_*` 别名全部回填；MiniMax 的 6+8 条变量也已回填，主进程 332 条 + renderer 406 条、源码 804 个调用点、0 条未定；DeepSeek 的 142 条经源码复核只有 **102 条业务调用 + 14 条清理**，业务调用全部落到 **54 个常量通道**，40 条差额是工具侧重复条目；Trae 的 58 条非字面量已归到 30 个通道，0 条未定；Cursor 的 45 条经 44 个 Electron 调用点复核，43 条非字面量里 29 条落 20 个通道、12 条 helper、1 条 4 路守卫、1 条运行期 payload、0 个未知常量，差额 2 条来自 js-debug 的 WebSocket `send` 误匹配。**“动态”这个字段必须逐目标复核，不能直接当成不可审计面。**
+读法：**静态 IPC 少不等于能力少**。ZCode 只有 3 条静态通道，423 条工具计数经本地 227 个调用点逐条回填，得到 **227/227 已还原、180 个唯一通道、0 条未定**；WorkBuddy 的 214 条里 main 侧 **115 条注册全部归因**（81 常量/别名 + 29 模板 + 4 helper 形参 + 1 内部通道），12 个 `require_*` 别名全部回填；MiniMax 的 6+8 条变量也已回填，主进程 332 条 + renderer 406 条、源码 804 个调用点、0 条未定；DeepSeek 的 142 条经源码复核只有 **102 条业务调用 + 14 条清理**，业务调用全部落到 **54 个常量通道**，40 条差额是工具侧重复条目；Trae 的 58 条非字面量已归到 30 个通道，0 条未定；Cursor 的 45 条经 44 个 Electron 调用点复核，43 条非字面量里 29 条落 20 个通道、12 条 helper、1 条 4 路守卫、1 条运行期 payload、0 个未知常量，差额 2 条来自 js-debug 的 WebSocket `send` 误匹配；Qoder 四版本 5/0/0/8 共 13 条动态已全部解码到 6 个唯一通道（`diagnostics:renderer-responsiveness`、四个 `arms:rum-*`、`mcp-app:guest-message`），0 条未定。**“动态”这个字段必须逐目标复核，不能直接当成不可审计面。**
 
 窗口安全：WorkBuddy 有一处 `contextIsolation=false / nodeIntegration=true / sandbox=false`，定位在 `main/index.js:203` 的腾讯文档调试面板（520×720，`DEBUG_PANEL` 分区），不是主 UI；另有一处 `webSecurity=false` 在 `main/main-bootstrap.js:368`。Trae 有 1 处 `sandbox off` + 1 处 `webSecurity off`。Cursor 有 5 处 `contextIsolation/nodeIntegration` 未显式设置（继承 Electron 默认）。其余见逐目标小节。
 
@@ -235,7 +238,10 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 **0.5.12 前端（`ev_fa21f425…`）**：610 模块 / 776 文件 / 108 bundle / 61,375 函数 / 63,629 节点 / 129,852 边 / 192 endpoint（105 唯一）/ 10 窗口 / 0 静态 IPC。
 **0.5.7 前端（`ev_caf71a90…`）**：637 模块 / 803 文件 / 198 bundle / 67,977 函数 / 70,317 节点 / 124,900 边 / 202 endpoint（97 唯一）/ 8 窗口 / 0 静态 IPC。
 **0.5.6 前端（`ev_15085ef1…`）**：637 模块 / 795 文件 / 198 bundle / 67,925 函数 / 200 endpoint（96 唯一）/ 8 窗口 / 0 静态 IPC / 5 动态。
-**版本关系**：0.5.6 与 0.5.7 主结构几乎一致（637 模块 / 198 bundle / 67,9xx 函数）；0.5.12 与 0.5.14 主结构几乎一致（610 模块 / 108 bundle / 61,3xx 函数 / 192 endpoint）。但动态 IPC 检测结果有差异（0.5.6=5 / 0.5.7=0；0.5.12=0 / 0.5.14=8），说明运行期拼接通道没有被静态完全还原，**不能据此断言两对版本完全同构**。
+**0.5.6 的 5 条动态已全部还原**：`ipcMain.on("diagnostics:renderer-responsiveness")`（`Rfe`，枚举键 `rendererResponsiveness`）、`ipcMain.on("arms:rum-bridge")`（`cur`）、`ipcMain.on("arms:rum-custom-report")`（`bur`）、`ipcMain.on("arms:rum-anr-heartbeat")`、`ipcMain.on("arms:rum-anr-visibility")`。这 5 条分别是模块级 `const Ocr/Pix/Mix/Xcr` 与 `f0[...]` 枚举键，不是运行期拼接。字符串用 Qoder 自带的自定义 base64 表解码（`pe0` 表 66,125 项，旋转偏移 **283**，校验值 479,282）。
+**0.5.14 前端（`ev_6e0090db…`）**：610 模块 / 795 文件 / 108 bundle / 61,382 函数 / 192 endpoint（105 唯一）/ 10 窗口 / 0 静态 IPC / **8 动态，8 条全部还原**——主进程 5 条与 0.5.6 相同（`diagnostics:renderer-responsiveness` + 四个 `arms:rum-*`），另 3 条是 `preload\mcpAppGuest.cjs` 的 `mcp-app:guest-message`（两次 `sendToHost` + 一次 `on`）。0.5.14 的自定义 base64 表 `du` 有 879 项，旋转偏移 **200**，校验值 208,594。
+**0.5.7 / 0.5.12**：动态 IPC 为 0，不是“没扫到”，是这两个版本的注册表已改用枚举/事件总线，源码里没有非字面量 `ipcMain/ipcRenderer` 调用点。
+**版本关系**：0.5.6 与 0.5.7 主结构几乎一致（637 模块 / 198 bundle / 67,9xx 函数）；0.5.12 与 0.5.14 主结构几乎一致（610 模块 / 108 bundle / 61,3xx 函数 / 192 endpoint）。动态 IPC 的 5/0/0/8 已全部还原：0.5.6 是 5 条主进程 RUM/可响应性通道，0.5.14 多出 `mcp-app:guest-message` 的 3 条 guest preload 调用；0.5.7/0.5.12 确实为 0。差异有明确来源，不再用“运行期拼接未还原”解释。
 
 **0 条静态 IPC 不是“没有 IPC”，而是走了另一套通道。** 主进程模块名给出答案：
 
@@ -526,7 +532,7 @@ IPC 分组说明它是“能力市场型”客户端：
 | ZCode | Electron | 3（2 配对） | 423（227 全还原·180 唯一） | 8（169 成员） | `out/host` RPC + `@zcode/server` + runtime-host |
 | 小浣熊 | Electron | 95（19 配对，38 仅 handler） | 26 | 20 | box-agent-runtime（Python ACP） + browser-gateway |
 | 豆包 | CEF | 0（不建模） | 0 | 0 | `agent_infra.dll` 本地运行时策略 + `mcp_helper.dll` MCP 进程宿主 |
-| Qoder | Electron | 0 | 8 | 0 | `application-server` + `peer-transport` + `remoteSdkDaemonBridge` |
+| Qoder | Electron | 0 | 8（5 主进程 + 3 guest/0 未定） | 0 | `application-server` + `peer-transport` + `remoteSdkDaemonBridge` |
 | DeepSeek | Electron | 0 | 142（102 调用/54 常量） | 11 | cordis 插件 + `dsh-api-gateway` + loopback WS |
 | OpenCode | Electron | 3（1 配对） | 5 | 1（5 成员） | 桌面主进程拉起 `opencode-cli serve --service`；isolated 3084，普通模式动态端口；4096 仅为 Add Server 占位 |
 | Codex | Rust TUI/CLI | — | — | — | app-server 本地 WebSocket `ws://127.0.0.1:0` |
@@ -572,7 +578,7 @@ IPC 分组说明它是“能力市场型”客户端：
 2. WorkBuddy `main/main-bootstrap.js:368` 的 `webSecurity:false`——同源策略关掉后，任何内嵌页面都能读跨域响应。
 3. Trae 的 1 个 `sandbox off` + 1 个 `webSecurity off` 窗口；Cursor 5 个窗口未显式声明安全项。
 4. 83 个 `contextBridge` 暴露键（WorkBuddy）与 373 个暴露成员（MiniMax）——能力总线式 preload 的典型膨胀。
-5. ZCode 423 条工具计数经本地 227 个调用点逐条回填，**227/227 已还原为 180 个唯一通道、0 条未定**；WorkBuddy 214 条里 main 侧 115 条注册全部归因（12 个 `require_*` 别名全回填）；MiniMax 6+8 条变量已回填，主进程 332 + renderer 406、源码 804 个调用点、0 条未定；DeepSeek 142 条经源码复核为 **102 条业务调用 + 14 条清理**，业务调用全部落 54 个常量通道，40 条差额是工具侧重复条目；Trae 58 条非字面量已归到 30 个通道、0 条未定；Cursor 43 条非字面量里 29 条落 20 个通道、12 条 helper、1 条 4 路守卫、1 条运行期 payload、0 个未知常量。不可审计面比表面数字小，ZCode/WorkBuddy/MiniMax/DeepSeek/Trae/Cursor 的动态别名已不再留口子。
+5. ZCode 423 条工具计数经本地 227 个调用点逐条回填，**227/227 已还原为 180 个唯一通道、0 条未定**；WorkBuddy 214 条里 main 侧 115 条注册全部归因（12 个 `require_*` 别名全回填）；MiniMax 6+8 条变量已回填，主进程 332 + renderer 406、源码 804 个调用点、0 条未定；DeepSeek 142 条经源码复核为 **102 条业务调用 + 14 条清理**，业务调用全部落 54 个常量通道，40 条差额是工具侧重复条目；Trae 58 条非字面量已归到 30 个通道、0 条未定；Cursor 43 条非字面量里 29 条落 20 个通道、12 条 helper、1 条 4 路守卫、1 条运行期 payload、0 个未知常量；Qoder 四版本 13 条动态全部解码到 6 个唯一通道、0 条未定。不可审计面比表面数字小，ZCode/WorkBuddy/MiniMax/DeepSeek/Trae/Cursor/Qoder 的动态别名已不再留口子。
 
 ---
 
@@ -590,7 +596,7 @@ IPC 分组说明它是“能力市场型”客户端：
 8. **函数发现上限 50,000**：所有大 PE 的函数表都不完整；`core-overview-show` 已明确 `function_limit`。
 9. **字符串保留前 200,000 条**：超大二进制（Codex 204,743 条）尾部字符串未进入索引。
 10. **签名只验证“文件哈希匹配 + 证书链有效”**，未做吊销/时间戳策略判定。
-11. **Qoder 四个版本已全部补图，exe 也补了 overview**：0.5.6 与 0.5.7 主结构一致（637 模块 / 202 endpoint），0.5.12 与 0.5.14 主结构一致（610 模块 / 192 endpoint）；0.5.7 与 0.5.12 的 exe overview 与 0.5.14 完全一致，确认 0.5.7–0.5.14 共用同一 Electron 壳代码。但动态 IPC 计数分别为 5/0/0/8，说明静态还原不完整，不能断言前端完全同构。
+11. **Qoder 四个版本已全部补图，exe 也补了 overview**：0.5.6 与 0.5.7 主结构一致（637 模块 / 202 endpoint），0.5.12 与 0.5.14 主结构一致（610 模块 / 192 endpoint）；0.5.7 与 0.5.12 的 exe overview 与 0.5.14 完全一致，确认 0.5.7–0.5.14 共用同一 Electron 壳代码。动态 IPC 5/0/0/8 已全部还原到 6 个唯一通道，0.5.14 比 0.5.6 多的是 `mcp-app:guest-message` 的 3 条 guest preload 调用，不是未知运行期拼接。
 12. **WorkBuddy 的 9527 已解释**：它只存在于 `cli\bin\daemon-status-brief.test.cjs`，是测试用的假 daemon endpoint，不是生产服务；这一条从“未知”降为“测试夹具”。
 13. **Trae 的 543 个 session 目录是本机既有使用痕迹**，不是本轮运行产生；只读取了目录结构与文件名（`cwd.txt`/`execution.json`/`output.log`/`stderr.log`），没有读取命令内容或输出正文。
 
@@ -610,6 +616,7 @@ IPC 分组说明它是“能力市场型”客户端：
 - `analysis\dynamic-ipc-{deepseek,minimax,wb,zcode,traecn}.json`：逐文件还原的 IPC 调用分类（literal / template / resolved 常量 / 未定 expr）、常量表规模、前 20 个还原通道与未定表达式；MiniMax 文件已补 `closure`/`counts_after`（332+406、804 个调用点、0 未定）；`dynamic-ipc-traecn.json` 是旧坏样本（只扫 47 文件、把 `__is_disposable_tracked__` 当通道），结论已作废。
 - `analysis\traecn-ipc-final.json`：重建后的 Trae 账本——135 个显式 IPC/sender 调用（73 ipc + 62 sender）、58 条非字面量、56 条映射到 30 个唯一通道、2 条 wrapper/response 非通道值、0 条未定。
 - `analysis\cursor-ipc-final.json`：Cursor 的 50 条原始记录账本——44 个 Electron 调用点（15 ipcMain + 17 ipcRenderer + 11 webContents.send + 1 postMessage）、1 条静态字面量、6 条 js-debug WebSocket 误匹配；29 条常量记录、20 个唯一动态通道、12 条 helper、1 条 4 路守卫、1 条 `e.responseChannel`、0 条未定。
+- `analysis\qoder-ipc-final.json`：Qoder 四版本动态 IPC 账本——13 条记录（0.5.6 5 条 / 0.5.7 0 / 0.5.12 0 / 0.5.14 8 条）、13 条全部还原、6 个唯一通道、0 条未定；含自定义 base64 表旋转偏移 283/200 与 `arms:rum-*`、`diagnostics:renderer-responsiveness`、`mcp-app:guest-message` 精确通道。
 - `analysis\zcode-channel-map.json`：从 `out/preload/index.cjs` 的 `var v={...}` 解析出的 169 项 `zcode:*` 通道表。
 - `analysis\dynamic-ipc-zcode-resolved.json`：ZCode 早期 215 条已还原调用（169 个唯一通道）与 12 条别名；最终闭环结果在 `dynamic-ipc-zcode-final.json`（227/227、180 唯一、0 未定）。
 - `analysis\dynamic-ipc-wb-final.json`：WorkBuddy main 侧 115 条 `ipcMain` 注册的最终分类（82 resolved/const + 29 template + 4 helper 形参，0 未定）。
