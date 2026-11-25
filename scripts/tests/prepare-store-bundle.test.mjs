@@ -173,6 +173,34 @@ test('S6 摘除插件:删除现有条目并留 tools:node=remove,且同一条不
   assert.equal(manifest['uses-permission'].filter((e) => e.$['tools:node'] === 'remove').length, DEFAULT_PRUNED.length)
 })
 
+test('S6b vivo 0.0.29 实测:四条存储/媒体读权限必须被摘除,且不误伤 INTERNET', () => {
+  const require_ = createRequire(import.meta.url)
+  const plug = require_(join(HERE, '..', '..', 'apps', 'mobile-rn', 'plugins', 'withPermissionPruning.cjs'))
+  const { prune, DEFAULT_PRUNED } = plug.__test__
+  const vivoRejected = [
+    'android.permission.READ_EXTERNAL_STORAGE',
+    'android.permission.WRITE_EXTERNAL_STORAGE',
+    'android.permission.READ_MEDIA_IMAGES',
+    'android.permission.READ_MEDIA_VISUAL_USER_SELECTED',
+  ]
+  for (const p of vivoRejected) {
+    assert.ok(DEFAULT_PRUNED.includes(p), `${p} 必须留在摘除集,否则 0.0.30 会再次被 vivo 以同一理由驳回`)
+  }
+  const manifest = {
+    'uses-permission': [...vivoRejected, 'android.permission.INTERNET'].map((name) => ({ $: { 'android:name': name } })),
+  }
+  const r = prune(manifest, [...DEFAULT_PRUNED])
+  assert.equal(r.removed, vivoRejected.length)
+  const names = manifest['uses-permission'].map((e) => e.$['android:name'])
+  for (const p of vivoRejected) {
+    assert.ok(
+      !manifest['uses-permission'].some((e) => e.$['android:name'] === p && e.$['tools:node'] !== 'remove'),
+      `${p} 不得作为生效声明留在合并清单(remove 指令本身允许保留)`,
+    )
+  }
+  assert.ok(names.includes('android.permission.INTERNET'))
+})
+
 test('S7 插件已挂进 app.config 的 plugins(装了不挂=没有,§0.9)', () => {
   const cfg = readFileSync(join(HERE, '..', '..', 'apps', 'mobile-rn', 'app.config.js'), 'utf8')
   assert.ok(cfg.includes('./plugins/withPermissionPruning.cjs'), '插件文件在而 config 未引用 ⇒ 该能力等于不存在')
