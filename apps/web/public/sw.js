@@ -25,7 +25,7 @@
  * 这里比较的是哨兵串 SW_BUILD_ID_PLACEHOLDER,
  * 它与构建脚本替换的目标字面量**不是同一个字符串**,所以替换不会破坏本判断。
  */
-const SW_BUILD_ID = 'bmwm7doxpjvc9ap'
+const SW_BUILD_ID = 'bmwwm4pqbaex2vc'
 const CACHE_VERSION =
   SW_BUILD_ID === 'SW_BUILD_ID_PLACEHOLDER' ? 'dev-' + Date.now() : SW_BUILD_ID
 const CORE_CACHE = `ihui-core-${CACHE_VERSION}`
@@ -119,7 +119,50 @@ self.addEventListener('fetch', (event) => {
  * W30 多入口集成(2026-09-14 立):Web Push 接收端(架构就绪收口)。
  * - push:展示服务端下发的推送通知(payload 支持 {title, body, url})
  * - notificationclick:点击通知聚焦已开窗口或打开 payload.url
+ *
+ * 双响治理(2026-11-26 立):页面在前台时,页面内 playRingtone 已响铃,SW 通知再带系统声
+ * 就会"铃声 + 系统推送声"双响;故前台可见窗口 ⇒ 通知 silent: true,声音交给页面内。
+ * 反之(无窗口 / 仅隐藏窗口,即 App 全关或后台)不带 silent 键,保留系统声,绝不能无声。
+ * matchAll 抛错 / 返回非数组等任何异常一律回落"不静默"——宁可系统响一声。
  */
+
+/**
+ * client 列表里是否存在任一可见窗口。
+ * 对 null/undefined/非数组安全返回 false(防御 matchAll 返回脏值)。
+ * @param {Array<{ visibilityState?: string }> | null | undefined} clientList
+ * @returns {boolean}
+ */
+function hasVisibleClient(clientList) {
+  if (!Array.isArray(clientList)) return false
+  return clientList.some((client) => client && client.visibilityState === 'visible')
+}
+
+/**
+ * 组装 push 通知展示选项。
+ * silent === true ⇒ 带 silent: true;否则整个 silent 键都不出现(保留系统默认声)。
+ * @param {{ title?: string, body?: string, url?: string, silent?: boolean }} args
+ */
+function buildPushNotificationOptions({ title, body, url, silent }) {
+  const options = { body, data: { url }, tag: 'ihui-push' }
+  if (silent === true) options.silent = true
+  return options
+}
+
+/**
+ * 解析本次 push 是否应静默:任一可见窗口 ⇒ true;
+ * 无窗口 / 仅隐藏窗口 / matchAll 抛错 / 返回非数组 ⇒ false。
+ * @param {{ matchAll: (opts: object) => Promise<unknown[]> }} clientsApi
+ * @returns {Promise<boolean>}
+ */
+async function resolvePushSilent(clientsApi) {
+  try {
+    const list = await clientsApi.matchAll({ type: 'window', includeUncontrolled: true })
+    return hasVisibleClient(list)
+  } catch {
+    return false
+  }
+}
+
 self.addEventListener('push', (event) => {
   let payload = {}
   try {
@@ -131,7 +174,13 @@ self.addEventListener('push', (event) => {
   const body = payload.body || ''
   const url = payload.url || '/'
   event.waitUntil(
-    self.registration.showNotification(title, { body, data: { url }, tag: 'ihui-push' }),
+    (async () => {
+      const silent = await resolvePushSilent(self.clients)
+      await self.registration.showNotification(
+        title,
+        buildPushNotificationOptions({ title, body, url, silent }),
+      )
+    })(),
   )
 })
 

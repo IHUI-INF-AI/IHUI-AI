@@ -3,17 +3,21 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 通知铃声单一真相源(2026-11-26 立)。
+ * 通知铃声单一真相源(纯数据 + 纯映射,2026-11-26 立;2026-11-26 拆出 WebAudio 半)。
+ *
+ * 纪律:本模块**不得出现** `window` / `AudioContext` / `webkitAudioContext` 等浏览器全局名,
+ * 也不引用 lib.dom 类型(`Storage`/`AudioContext` 名字一出现,node 端 api tsc 在无 DOM lib
+ * 下就会 TS2304/TS2552)。本地存储通过 `globalThis` 探测 + 本文件内最小结构类型访问;
+ * WebAudio 实时合成在 `./ringtone-web`。
  *
  * 设计取舍:
  * - 铃声是一组「音符序列」(freq/start/dur/gain),不是外部 mp3。所有端都从本文件的
- *   同一张表取值:web 用 AudioContext 实时合成,RN/小程序播放由
- *   `scripts/gen-ringtone-assets.mjs` 从同一张表渲染出的 WAV(生成脚本 import 本文件,
- *   采样率/包络/泛音全部同源),三端听感不会漂。
+ *   同一张表取值:web 由 ringtone-web 走浏览器 WebAudio 实时合成,RN/小程序播放由
+ *   `scripts/gen-ringtone-assets.mjs` 从同一张表渲染出的 WAV(采样率/包络/泛音同源),
+ *   三端听感不会漂。
  * - 不使用任何第三方成品音源:微信/QQ/苹果/诺基亚的提示音都是有版权的音效,
  *   直接内置 = 侵权。这里全部是自制合成音,只在「品类」上贴近大众熟悉的听感
  *   (门铃、水滴、气泡、木琴…),没有任何一段采样来自其他产品。
- * - 模块本身零 import、SSR 安全:任何拿到 window 的调用才碰 WebAudio。
  */
 
 export type RingtoneId =
@@ -111,7 +115,7 @@ export const RINGTONES: readonly RingtoneSpec[] = [
     id: 'knock',
     duration: 0.34,
     notes: [
-      { freq: 180, start: 0, dur: 0.07, gain: 0.5 },
+      { freq: 180, start: 0, dur: 0.07, gain: 0.45 },
       { freq: 180, start: 0.13, dur: 0.07, gain: 0.45 },
     ],
   },
@@ -141,123 +145,110 @@ export function getRingtone(id: unknown): RingtoneSpec {
 
 const RINGTONE_STORAGE_KEY = 'ihui-notification-ringtone'
 
+/** 最小本地存储结构:只声明本文件用到的两个方法,不引用 lib.dom 的 Storage 类型 */
+interface StorageLike {
+  getItem(k: string): string | null
+  setItem(k: string, v: string): void
+}
+
+/**
+ * 从 globalThis 探测本地存储(不引用浏览器全局存储裸名,也不判 typeof 全局存储)。
+ * 不存在(RN/小程序/SSR/无存储环境)时返回 null,调用方按兜底处理。
+ */
+function resolveStorageLike(): StorageLike | null {
+  const g = globalThis as { localStorage?: StorageLike }
+  return g.localStorage ?? null
+}
+
 export function readStoredRingtoneId(): RingtoneId {
-  if (typeof window === 'undefined') return DEFAULT_RINGTONE_ID
+  const storage = resolveStorageLike()
+  if (!storage) return DEFAULT_RINGTONE_ID
   try {
-    return resolveRingtoneId(window.localStorage.getItem(RINGTONE_STORAGE_KEY))
+    return resolveRingtoneId(storage.getItem(RINGTONE_STORAGE_KEY))
   } catch {
     return DEFAULT_RINGTONE_ID
   }
 }
 
 export function writeStoredRingtoneId(id: RingtoneId): void {
-  if (typeof window === 'undefined') return
+  const storage = resolveStorageLike()
+  if (!storage) return
   try {
-    window.localStorage.setItem(RINGTONE_STORAGE_KEY, resolveRingtoneId(id))
+    storage.setItem(RINGTONE_STORAGE_KEY, resolveRingtoneId(id))
   } catch {
     // 隐私模式/配额满:静默,后端仍会存
   }
 }
 
 /* -------------------------------------------------------------------------- */
-/* Web/桌面播放器:WebAudio 实时合成(SSR 安全)                                  */
+/* Android 通知渠道 / 音源映射(2026-11-26 立):App 不在前台时也按用户所选铃声响  */
 /* -------------------------------------------------------------------------- */
 
-type AudioContextCtor = typeof AudioContext
-interface WindowWithAudioContext {
-  AudioContext?: AudioContextCtor
-  webkitAudioContext?: AudioContextCtor
-}
-
-/** 连发去抖:同一条通知链路短时间连炸时只响一次(微信同理,避免"叮叮叮"轰炸) */
-const MIN_PLAY_INTERVAL_MS = 1200
-let lastPlayedAt = 0
-let sharedContext: AudioContext | null = null
-
-function getAudioContextCtor(): AudioContextCtor | null {
-  if (typeof window === 'undefined') return null
-  const w = window as unknown as WindowWithAudioContext
-  return w.AudioContext ?? w.webkitAudioContext ?? null
-}
-
-/** 复用一条 AudioContext:每次新建会让浏览器累计挂起多个 context(移动端有数量上限) */
-function ensureContext(): AudioContext | null {
-  if (sharedContext && sharedContext.state !== 'closed') return sharedContext
-  const Ctor = getAudioContextCtor()
-  if (!Ctor) return null
-  try {
-    sharedContext = new Ctor()
-    return sharedContext
-  } catch {
-    return null
-  }
-}
-
-/** 首次交互解锁(浏览器自动播放策略);已解锁时是空操作 */
-export function unlockRingtoneAudio(): void {
-  const ctx = ensureContext()
-  if (!ctx) return
-  if (ctx.state === 'suspended') void ctx.resume().catch(() => {})
+/**
+ * Android 通知渠道 id:一个铃声一条 channel(`msg-<id>`)。
+ *
+ * 为什么不是"一条 channel 改 sound":Android 的 NotificationChannel 一旦创建,
+ * sound / importance 就不可再改(改也只在卸载重装后才生效)。所以"按 id 分 channel"
+ * 是唯一能让用户切换铃声立刻生效的形态 —— 客户端启动时预建全部 8 条,
+ * 服务端只按收件人的偏好把 channel_id 指过去。渠道 id 与音源名必须由本文件派生,
+ * 不允许任何端另抄一张表(抄了必然与音频资产漂移)。
+ */
+export function androidChannelIdFor(id: unknown = DEFAULT_RINGTONE_ID): string {
+  return `msg-${resolveRingtoneId(id)}`
 }
 
 /**
- * 播放指定铃声。SSR / 未解锁 / 被自动播放策略拦截时静默(不抛错、不阻塞通知链路)。
- * @returns 是否真的发起了播放(被去抖拦下返回 false)
+ * res/raw 里的音源名(**不含扩展名**):Android 资源标识符只允许 `[a-z0-9_]`,
+ * 因此 `ringtone-dingdong.wav` 必须落成 `ringtone_dingdong.wav`,引用时写
+ * `ringtone_dingdong`。资产本身与 web/RN 播放的是同一份 wav,改名只发生在这一个映射里。
  */
-export function playRingtone(id: unknown = DEFAULT_RINGTONE_ID, volume = 1): boolean {
-  const now = Date.now()
-  if (now - lastPlayedAt < MIN_PLAY_INTERVAL_MS) return false
-  const ctx = ensureContext()
-  if (!ctx) return false
-  if (ctx.state === 'suspended') {
-    // 未解锁时尝试恢复;真被拦下就静默,等下一次用户交互后的解锁
-    void ctx.resume().catch(() => {})
-  }
-  const spec = getRingtone(id)
-  const t0 = ctx.currentTime + 0.02
-  try {
-    for (const note of spec.notes) {
-      // 主音 + 两个泛音:纯正弦听起来像"电子蜂鸣",叠 2/3 次谐波才像真实铃/木琴
-      const partials: Array<[number, number]> = [
-        [1, 1],
-        [2, 0.32],
-        [3, 0.16],
-      ]
-      for (const [multiple, weight] of partials) {
-        const osc = ctx.createOscillator()
-        const gainNode = ctx.createGain()
-        osc.type = 'sine'
-        osc.frequency.value = note.freq * multiple
-        const peak = (note.gain ?? 0.5) * weight * volume
-        const start = t0 + note.start
-        const end = start + note.dur
-        gainNode.gain.setValueAtTime(0.0001, start)
-        gainNode.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), start + 0.006)
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, end)
-        osc.connect(gainNode)
-        gainNode.connect(ctx.destination)
-        osc.start(start)
-        osc.stop(end + 0.01)
-        osc.onended = () => {
-          osc.disconnect()
-          gainNode.disconnect()
-        }
-      }
-    }
-    lastPlayedAt = now
-    return true
-  } catch {
-    return false
-  }
+export function androidSoundAssetFor(id: unknown = DEFAULT_RINGTONE_ID): string {
+  return `ringtone_${resolveRingtoneId(id)}`
+}
+
+/** 8 条渠道全表(客户端预建用),顺序与 RINGTONES 一致 */
+export const ANDROID_RINGTONE_CHANNELS: readonly {
+  id: RingtoneId
+  channelId: string
+  sound: string
+}[] = RINGTONE_IDS.map((id) => ({
+  id,
+  channelId: androidChannelIdFor(id),
+  sound: androidSoundAssetFor(id),
+}))
+
+/**
+ * 静音渠道:用户在设置页关掉"通知声音"后,后台推送必须仍然送达但不出声 ——
+ * 走一条独立的 channel(`sound: null`),而不是把他所有渠道的 sound 清掉
+ * (Android 渠道创建后改不动,清不掉就是"关了还在响")。
+ */
+export const ANDROID_SILENT_CHANNEL_ID = 'msg-silent'
+
+/** 兜底渠道:与 use-push 里历史那条 `default` 同名,读不到偏好时沿用旧行为 */
+export const ANDROID_DEFAULT_CHANNEL_ID = 'default'
+
+export interface AndroidNotificationTarget {
+  /** 下发给 FCM 的 `message.android.notification.channel_id` */
+  channelId: string
+  /** res/raw 音源名(不含扩展名);静音渠道不带 sound */
+  sound?: string
 }
 
 /**
- * 试听:用户在设置页主动点「试听」必须立刻出声,不能被上面的 1200ms 去抖拦下
- * —— 否则连点几个铃声只有第一个响得出来,后面全被吃掉。
- * 试听后照常记录播放时刻,避免试听刚结束就收到通知又叠响一次。
+ * 把用户的通知偏好收敛成一个 Android 投递目标(单一真相源:客户端建渠道、服务端定 channel_id
+ * 都只认这一条规则)。
+ * - `soundEnabled` 明确为假(false / 'false' / '0') ⇒ 静音渠道,不出声但仍送达;
+ * - 其余 ⇒ 按 `ringtone` 落到 `msg-<id>` + `ringtone_<id>`;非法/缺失一律回落默认铃声,
+ *   绝不因为偏好读不出来就不推送。
  */
-export function previewRingtone(id: unknown = DEFAULT_RINGTONE_ID, volume = 1): boolean {
-  lastPlayedAt = 0
-  return playRingtone(id, volume)
+export function resolveAndroidNotificationTarget(prefs: {
+  ringtone?: unknown
+  soundEnabled?: unknown
+}): AndroidNotificationTarget {
+  const rawEnabled = prefs.soundEnabled
+  const soundEnabled = !(rawEnabled === false || rawEnabled === 'false' || rawEnabled === '0')
+  if (!soundEnabled) return { channelId: ANDROID_SILENT_CHANNEL_ID }
+  const id = resolveRingtoneId(prefs.ringtone)
+  return { channelId: androidChannelIdFor(id), sound: androidSoundAssetFor(id) }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

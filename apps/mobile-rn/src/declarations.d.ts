@@ -17,6 +17,11 @@ declare module '*.png' {
   export default src
 }
 
+declare module '*.wav' {
+  const src: number
+  export default src
+}
+
 declare module '*.gif' {
   const src: string
   export default src

@@ -10,12 +10,12 @@ import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { setSoundNotificationEnabled } from '@ihui/shared/notifications/notification-store'
 import {
-  previewRingtone,
   readStoredRingtoneId,
   resolveRingtoneId,
   writeStoredRingtoneId,
   type RingtoneId,
 } from '@ihui/shared/notifications/ringtone'
+import { previewRingtone } from '@ihui/shared/notifications/ringtone-web'
 
 /** 后端偏好键:与 soundEnabled 同落 user_preferences(group=notifications),值为铃声 id 字符串 */
 export const RINGTONE_PREF_KEY = 'ringtone'
