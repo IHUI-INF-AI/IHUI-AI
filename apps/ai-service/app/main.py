@@ -654,6 +654,36 @@ async def lifespan(app: FastAPI) -> Any:
             "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
         },
     )
+    # 2026-11-26 修复(auto 自愈):auto 首选切到 agnes/agnes-3.0-flash 后,原配置里
+    # 没有任何以它为 primary 的转移项 => 上游一挂就整条请求失败,用户只看到错误卡。
+    # 补一条真链:agnes-3.0 -> agnes-2.5 -> gemini-4-hydrogen -> qwen-plus
+    # (四档均为本部署实测 _resolve 拿得到凭据的模型;其余 provider 的库内 key 是
+    #  sk-p 占位符,被 key-fallback 判为未配置,不能进链,否则等于把请求丢进死胡同)
+    fallback_router.configure(
+        "agnes/agnes-3.0-flash",
+        {
+            "fallbacks": [
+                "agnes/agnes-2.5-flash",
+                "gemini/gemini-4-hydrogen",
+                "qwen/qwen-plus-2025-09-11",
+            ],
+            "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
+        },
+    )
+    fallback_router.configure(
+        "gemini/gemini-4-hydrogen",
+        {
+            "fallbacks": ["agnes/agnes-3.0-flash", "qwen/qwen-plus-2025-09-11"],
+            "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
+        },
+    )
+    fallback_router.configure(
+        "qwen/qwen-plus-2025-09-11",
+        {
+            "fallbacks": ["agnes/agnes-3.0-flash", "gemini/gemini-4-hydrogen"],
+            "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
+        },
+    )
     logger.info(
         "[fallback_router] configured: agnes 双档互备(2.5 <-> 2.0,末位 pollinations)"
         " + gpt-4o -> agnes 兜底 + 默认链 gemini-3.8-flash <-> @cf/glm-4.7-flash 互备(D208)"
