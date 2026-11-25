@@ -28,3 +28,6 @@
 
 - [ ] RP-19 对标落地 L08/P1 MCP Host 回环服务：listen(0,'127.0.0.1')+per-route token+生命周期注销，未注册路由 404，注销后在飞请求 abort 并计数，端口不落公网（落点 apps/api/services/mcp-extended.ts+v1-mcp-gateway.ts）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
 - [ ] RP-20 对标落地 L10/P1 遥测本地默认：默认本地 OTLP collector、远端需显式开关，PII/凭据/命令行参数白名单过滤，敏感命令只打类型与规则命中不写原文，采样率可配（落点 monitoring/otel-collector+api telemetry/log-sanitizer；注意与 §5e 邮件单通道口径不冲突）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
+
+- [ ] RP-21 对标落地 L14/P1 三端共用协议层：packages/agent-sdk 作唯一协议层，web/RN/小程序复用同一方法名与错误码，差异只在 UI 适配层，契约测试三端共用（现状骨架 index/protocol/query 三件已在，缺三端对齐接入；可作工具层超越点，对标纠正五十一/六十一/六十二三家适配器均不外露）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
+- [ ] RP-23 对标落地 L16/P1 取证与 QA 口径固化：结论按产品级/框架运行态/未知三档标注，phase 快照与模型输出分离，202/401/refusal 不得写成模型闭环，每条结论挂可复核账本路径（落点 docs/benchmark-evidence/ 规范模板+analysis 账本目录约定；账本先例 analysis/report-qa-2026-11-26.json）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
