@@ -9665,7 +9665,11 @@
       "ckPaymentConfirmDone": "支払い結果の確認",
       "ckDownloadExportExport": "生成/エクスポートを実行",
       "ckDownloadExportDownload": "ダウンロード開始",
-      "ckDownloadExportDone": "成果物の確認完了"
+      "ckDownloadExportDone": "成果物の確認完了",
+      "autoMonitor": "新しいセッションを自動監視",
+      "close": "閉じる",
+      "minimize": "最小化",
+      "expandWindow": "展開"
     },
     "resizeFloatHint": "サイズ変更",
     "bindIssue": "Issueを紐付ける",
@@ -20364,7 +20368,8 @@
     "hrMyPerf": "自分の評価",
     "hrMyTraining": "自分の研修",
     "hrMyExpense": "自分の経費",
-    "financeGroup": "財務部"
+    "financeGroup": "財務部",
+    "connectors": "コネクタ"
   },
   "news": {
     "allCategories": "All categories",

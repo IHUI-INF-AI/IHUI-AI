@@ -9654,7 +9654,11 @@
       "ckPaymentConfirmDone": "支付结果确认",
       "ckDownloadExportExport": "已触发生成/导出",
       "ckDownloadExportDownload": "下载已开始",
-      "ckDownloadExportDone": "产物核对完成"
+      "ckDownloadExportDone": "产物核对完成",
+      "autoMonitor": "自动监看新会话",
+      "close": "关闭",
+      "minimize": "最小化",
+      "expandWindow": "展开"
     },
     "resizeFloatHint": "调整大小",
     "earlier": "更早"
@@ -20689,7 +20693,8 @@
     "hrMyPerf": "我的绩效",
     "hrMyTraining": "我的培训",
     "hrMyExpense": "我的报销",
-    "financeGroup": "财务部"
+    "financeGroup": "财务部",
+    "connectors": "连接器"
   },
   "news": {
     "allCategories": "全部分类",

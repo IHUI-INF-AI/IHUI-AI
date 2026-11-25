@@ -9630,7 +9630,11 @@
       "ckPaymentConfirmDone": "Payment result",
       "ckDownloadExportExport": "Export triggered",
       "ckDownloadExportDownload": "Download started",
-      "ckDownloadExportDone": "File verified"
+      "ckDownloadExportDone": "File verified",
+      "autoMonitor": "Auto-monitor new sessions",
+      "close": "Close",
+      "minimize": "Minimize",
+      "expandWindow": "Expand"
     },
     "resizeFloatHint": "Resize",
     "earlier": "Earlier"
@@ -20261,7 +20265,8 @@
     "hrMyPerf": "My performance",
     "hrMyTraining": "My training",
     "hrMyExpense": "My expenses",
-    "financeGroup": "Finance"
+    "financeGroup": "Finance",
+    "connectors": "Connectors"
   },
   "news": {
     "allCategories": "All Categories",

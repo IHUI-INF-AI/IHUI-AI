@@ -9630,7 +9630,11 @@
       "ckPaymentConfirmDone": "支付結果確認",
       "ckDownloadExportExport": "已觸發生成/匯出",
       "ckDownloadExportDownload": "下載已開始",
-      "ckDownloadExportDone": "產物核對完成"
+      "ckDownloadExportDone": "產物核對完成",
+      "autoMonitor": "自動監看新工作階段",
+      "close": "關閉",
+      "minimize": "最小化",
+      "expandWindow": "展開"
     },
     "resizeFloatHint": "調整大小",
     "earlier": "更早"
@@ -20421,7 +20425,8 @@
     "hrMyPerf": "我的績效",
     "hrMyTraining": "我的培訓",
     "hrMyExpense": "我的報銷",
-    "financeGroup": "財務部"
+    "financeGroup": "財務部",
+    "connectors": "連接器"
   },
   "news": {
     "allCategories": "全部分類",

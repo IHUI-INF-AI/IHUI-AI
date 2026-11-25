@@ -9665,7 +9665,11 @@
       "ckPaymentConfirmDone": "결제 결과 확인",
       "ckDownloadExportExport": "생성/내보내기 실행됨",
       "ckDownloadExportDownload": "다운로드 시작됨",
-      "ckDownloadExportDone": "결과물 확인 완료"
+      "ckDownloadExportDone": "결과물 확인 완료",
+      "autoMonitor": "새 세션 자동 모니터링",
+      "close": "닫기",
+      "minimize": "최소화",
+      "expandWindow": "펼치기"
     },
     "resizeFloatHint": "크기 조절",
     "bindIssue": "이슈 연결",
@@ -20364,7 +20368,8 @@
     "hrMyPerf": "내 성과",
     "hrMyTraining": "내 교육",
     "hrMyExpense": "내 경비",
-    "financeGroup": "재무부"
+    "financeGroup": "재무부",
+    "connectors": "커넥터"
   },
   "news": {
     "allCategories": "All categories",

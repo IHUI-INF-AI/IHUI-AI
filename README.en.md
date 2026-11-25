@@ -99,6 +99,12 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🚀 Feature/Improvement:执行器卡片便利性(重配先停后启/取消静默/登录失效提示/重选工作区) (62eff9ea)
+- 📚 Docs:补 WorkBuddy Gateway run API 202 接受但排队（纠正37） (d4634e37)
+- 🔧 Chore/Other:卡片静息描边改透明保留 1px,收口 24 个容器块 (68f168a0)
+- 🐞 Fix:web 五语言补齐 MEMORY 错误码并撤出端内 personalHub 重复登记 (c683887a)
+- 🔧 Chore/Other:收口八组失败测试并迁移个人中心词条 (7006ad5a)
+- 🐞 Fix:资讯列表重建时间格式化(按年月日重排,不泄露 ISO)并补齐阅读量数字,卡片底色改 surface.card 修暗档轮廓 (9b74617e)
 - 🐞 Fix:稳定归档分页并恢复中断连接 (25984c03)
 - 📚 Docs:记录 auto-evolve 的预期任务形态(改回旧形态即属回归) (37687e9c)
 - 🐞 Fix:输入框补齐静息描边与圆角内边距(读 input-spec 单一源) + 号池页四处布局与对比度缺陷 (1f34887a)
