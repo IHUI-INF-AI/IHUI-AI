@@ -4,12 +4,18 @@
 
 import { Suspense } from 'react'
 import PageClient from './PageClient'
+import { LoginWithTurnstile } from '@/components/login/LoginWithTurnstile'
 
-// A 套壳:output:'export' 模式要求 useSearchParams() 被 <Suspense> 边界包裹
+// A 套壳:output:'export' 模式要求 useSearchParams() 被 <Suspense> 边界包裹。
+// SSO 页复用 LoginFormContent;必须同时套 LoginWithTurnstile,否则服务端启用
+// TURNSTILE_SECRET_KEY 时,页面没有 widget、登录体也没有 turnstileToken,
+// 会被 /api/auth/login 的浏览器上下文闸判 403「人机验证失败」。
 export default function Page() {
   return (
     <Suspense fallback={null}>
-      <PageClient />
+      <LoginWithTurnstile>
+        <PageClient />
+      </LoginWithTurnstile>
     </Suspense>
   )
 }
