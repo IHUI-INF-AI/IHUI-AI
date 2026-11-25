@@ -1453,13 +1453,20 @@ export function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) 
  */
 export function alignFailureNote(e) {
   const code = typeof e?.status === 'number' ? `rc=${e.status}` : 'rc=未知'
-  const cause =
-    String((e && (e.stderr || e.stdout)) || '')
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean)[0] || String((e && e.message) || e || '未知原因').split('\n')[0]
+  const stderrLines = String((e && e.stderr) || '').split('\n').map((l) => l.trim()).filter(Boolean)
+  const stdoutLines = String((e && e.stdout) || '').split('\n').map((l) => l.trim()).filter(Boolean)
+  const lines = stderrLines.length ? stderrLines : stdoutLines
+  // 首行**与**末行都要给:子进程的"起因"常在首行(`fatal: … index.lock`),而结论/裁决在末行
+  // (`⚠️ 未判定:远端 … 的对象不在本机`)。此前只取首行 ⇒ 把 git-push-guard 的**启动横幅**
+  // (「检测+按闸推送(缺省 PUSH_WINDOW 未开则拒推)」)当成了原因,把"远端又前进"误诊成"窗口未开",
+  // 于是人去反复开窗重试。单行时不拼末行(避免同一句重复两遍)。
+  const cause = lines.length
+    ? lines.length <= 2
+      ? lines[0]
+      : `${lines[0]} … ${lines[lines.length - 1]}`
+    : String((e && e.message) || e || '未知原因').split('\n')[0]
   const timedOut = e && e.timedOut ? '(超时)' : ''
-  return `${code}${timedOut} ${cause}`.slice(0, 200)
+  return `${code}${timedOut} ${cause}`.slice(0, 260)
 }
 
 // ─── 收尾对齐状态台账(2026-09-25 票 O74:从"失败只记日志"到"能喊到人") ───
@@ -2802,12 +2809,24 @@ function main() {
     }
 
     // 官方通道推送(guard 异步化:命令秒回,推送在后台 worker 执行)
-    execFileSync('node', ['scripts/git-push-guard.mjs'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-      cwd: repoRoot,
-    })
+    // 失败时先打 guard 自己的**末段**再抛:guard 首行是启动横幅(内含「缺省 PUSH_WINDOW 未开则拒推」
+    // 这句话),只回显首行会把"远端又前进 ⇒ 对象不在本机"误读成"窗口没开"。末段才是裁决。
+    try {
+      execFileSync('node', ['scripts/git-push-guard.mjs'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        cwd: repoRoot,
+      })
+    } catch (pushErr) {
+      const tail = String((pushErr && (pushErr.stderr || pushErr.stdout)) || '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .slice(-3)
+      if (tail.length) log(C.yellow, `  push-guard 末段: ${tail.join(' | ').slice(0, 300)}`)
+      throw pushErr
+    }
 
     // 等待后台推送落定再决策(2026-09-18 晚修复:此前立即查远端,推送还在 270s 门里
     // 未完成即误判"远端又前移",3 轮全空转)
