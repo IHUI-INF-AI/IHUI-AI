@@ -281,8 +281,8 @@ describe('② spec 导出面', () => {
     expect(inputSpec.INPUT_HEIGHT_PX).toBe(36)
   })
 
-  it('裁定取值:已同值的四档(规则1 回归锁)sm / 12 / sm / 1', () => {
-    expect(inputSpec.INPUT_RADIUS_TIER).toBe('sm')
+  it('裁定取值:已同值的四档(规则1 回归锁)md / 12 / sm / 1', () => {
+    expect(inputSpec.INPUT_RADIUS_TIER).toBe('md')
     expect(inputSpec.INPUT_PADDING_X_PX).toBe(12)
     expect(inputSpec.INPUT_TEXT_TIER).toBe('sm')
     expect(inputSpec.INPUT_BORDER_WIDTH_PX).toBe(1)
