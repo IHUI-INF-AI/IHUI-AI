@@ -12,8 +12,7 @@
     "NavBar": 4,
     "SectionHeader": 1,
     "UserInfoCard": 5,
-    "VideoPlayer": 5,
-    "VoiceInput": 6
+    "VideoPlayer": 5
   },
   "radiusCounts": {
     "BottomActionBar": 3,
@@ -28,8 +27,7 @@
     "NavBar": 2,
     "SectionHeader": 0,
     "UserInfoCard": 2,
-    "VideoPlayer": 0,
-    "VoiceInput": 1
+    "VideoPlayer": 0
   },
   "elementRadiusCounts": {
     "BottomActionBar": 0,
@@ -44,8 +42,7 @@
     "NavBar": 0,
     "SectionHeader": 0,
     "UserInfoCard": 0,
-    "VideoPlayer": 0,
-    "VoiceInput": 0
+    "VideoPlayer": 0
   },
   "webCounts": {
     "AgentRuntimePanel": 6,

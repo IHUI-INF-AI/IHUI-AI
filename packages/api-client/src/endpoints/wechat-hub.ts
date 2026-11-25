@@ -516,6 +516,10 @@ export async function fetchWechatMoments(
     {
       method: 'POST',
       body: JSON.stringify(input),
+      // DB sidecar 全量导出 715 条并校验本地媒体通常超过 30s；API 侧
+      // moment.fetch 默认预算 360s，这里必须留出同等余量，否则前端会先
+      // 报「请求超时(30s)」，而服务端其实仍在正常抓取。
+      timeoutMs: 380_000,
     },
   )
   if (!res.success) throw new Error(res.error || '遍历朋友圈失败')

@@ -1845,16 +1845,6 @@
       "count": 6,
       "reason": "BottomFadeMask 跨端几何经源码取证为门禁 rpx 折半盲区读数伪差:小程序裸数字常量 BOTTOM_FADE_HEIGHT_PX=90/EDGE=24 被 readGeometry 按 where=css 强制折半读成 45/12,而两端源码常量逐字同值(rn:19-21 ↔ mini:31-34),22%/55% 停点一致,物理像素三端一致。非真实视觉差,同 NavBar/IntelligentAssistant 已知读数噪音。与 props-parity 同源裁决(pair-level not-applicable)。到期前由 owner 复核。",
       "evidence": "check-cross-end-ui-parity: BottomFadeMask diffCount=6;单点取证 readGeometry named={mini BOTTOM_FADE_HEIGHT_PX:45,EDGE_FADE_HEIGHT_PX:12} vs {rn 90,24};源码常量逐字同值 90/24(rpx.ts:46-53 px()助手注释:裸模板串 px 不参与 rpx 转换)"
-    },
-    {
-      "component": "ScreenStates",
-      "key": "geometry",
-      "platform": "both",
-      "owner": "cross-end-ui",
-      "expires": "2027-06-30",
-      "count": 2,
-      "reason": "两端 ScreenStates 是两份独立实现(小程序 ScreenStates.taro.tsx 239 行 / RN packages/app/src/components/ScreenStates.tsx 322 行),不是同名组件对:小程序侧走 rpx 换算与 ihui-state-* 类名,RN 侧走 StyleSheet 数值。geometry 维读数 onlyMiniapp=18(小程序 rpx 换算后的字形/间距档) / onlyRn=20(RN 的 fontSize 字形盒,已在 cross-end-allowed-diffs 的 ScreenStates.stateGlyph 条目单独登记为 RN 单侧展示元素),两档各只出现在自己一侧,属实现语言差异,不是视觉分叉。到期前由 owner 复核是否按组件粒度重拆。",
-      "evidence": "check-cross-end-ui-parity --json: ScreenStates geometry 未登记差异 2 处(onlyMiniapp 18 / onlyRn 20);文件粒度证据 scripts/data/cross-end-props-parity-baseline.json 的 pairs.ScreenStates(not-applicable, why 已述两端四子件不是同名组件对)"
     }
   ]
 }

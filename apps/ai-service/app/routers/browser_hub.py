@@ -209,6 +209,7 @@ async def list_sessions(user_id: str = Depends(get_current_user_id)) -> dict[str
         # session_id 并拿去逐个探测)
     return {
         "code": 0,
+        "message": "ok",
         "data": {
             "session_ids": hub.list_sessions(user_id),
             "count": hub.session_count_for(user_id),
@@ -231,6 +232,7 @@ async def get_session_info(
     cookies = await session.get_cookies()
     return {
         "code": 0,
+        "message": "ok",
         "data": {
             "session_id": session_id,
             "url": url,
@@ -273,7 +275,7 @@ async def navigate(
     if result.get("errorCode") == "SSRF_BLOCKED":
         # 2026-11-01 安全强化:导航被 SSRF 闸拒绝 ⇒ 400 具名拒因(不再以 code=0 回 success)
         raise HTTPException(status_code=400, detail=f"SSRF_BLOCKED: {result.get('error') or ''}")
-    return {"code": 0, "data": result}
+    return {"code": 0, "message": "ok", "data": result}
 
 
 @router.get("/sessions/{session_id}/cookies")
@@ -294,6 +296,7 @@ async def get_cookies(
     cookies = await session.get_cookies(url_list)
     return {
         "code": 0,
+        "message": "ok",
         "data": {
             "cookies": cookies,
             "count": len(cookies),
@@ -330,7 +333,7 @@ async def go_back(
     except BrowserTabScopeError as exc:
         raise _tab_scope_denial(exc) from exc
     ok = await session.go_back()
-    return {"code": 0, "data": {"success": ok, "url": await session.get_current_url()}}
+    return {"code": 0, "message": "ok", "data": {"success": ok, "url": await session.get_current_url()}}
 
 
 @router.post("/sessions/{session_id}/forward")
@@ -343,7 +346,7 @@ async def go_forward(
     except BrowserTabScopeError as exc:
         raise _tab_scope_denial(exc) from exc
     ok = await session.go_forward()
-    return {"code": 0, "data": {"success": ok, "url": await session.get_current_url()}}
+    return {"code": 0, "message": "ok", "data": {"success": ok, "url": await session.get_current_url()}}
 
 
 @router.post("/sessions/{session_id}/reload")
@@ -368,6 +371,7 @@ async def reload(
             recreated = True
     return {
         "code": 0,
+        "message": "ok",
         "data": {
             "url": await session.get_current_url(),
             "session_id": session.session_id,
@@ -400,7 +404,7 @@ async def get_task_templates(
 ) -> dict[str, Any]:
     """内置任务模板目录(只读)。"""
     templates = list_task_templates()
-    return {"code": 0, "data": {"templates": templates, "count": len(templates)}}
+    return {"code": 0, "message": "ok", "data": {"templates": templates, "count": len(templates)}}
 
 
 @router.post("/sessions/{session_id}/task")
@@ -431,7 +435,7 @@ async def read_task(
         session = hub.require_tab(_tab_scope(session_id, user_id))
     except BrowserTabScopeError as exc:
         raise _tab_scope_denial(exc) from exc
-    return {"code": 0, "data": await session.task_state()}
+    return {"code": 0, "message": "ok", "data": await session.task_state()}
 
 
 @router.post("/sessions/{session_id}/checkpoint")

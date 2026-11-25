@@ -46,6 +46,13 @@ import { localRejected, transportError } from './types.js'
 
 type JsonRecord = Record<string, unknown>
 
+/** 朋友圈全量 DB 抓取会下载媒体，超过旧 60s 上限；单独给 moment.fetch 更长的动作超时。 */
+export function resolveBridgeActionTimeoutMs(action: WechatBridgeAction): number {
+  if (action !== 'moment.fetch') return 60_000
+  const configured = Number(process.env.WECHAT_HUB_MOMENT_TIMEOUT_MS)
+  return Number.isFinite(configured) && configured > 0 ? configured : 360_000
+}
+
 function asRecord(value: unknown): JsonRecord | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as JsonRecord)
@@ -506,7 +513,7 @@ export class BridgeAdapter implements WechatAdapter {
         method: 'POST',
         headers: this.headers(),
         body: JSON.stringify({ action, ...payload, token: this.token || undefined }),
-        signal: AbortSignal.timeout(60_000),
+        signal: AbortSignal.timeout(resolveBridgeActionTimeoutMs(action)),
       })
       const text = await response.text()
       if (!response.ok) {

@@ -300,10 +300,11 @@ function createStyles(tk: AppThemeTokens) {
     stateDesc: { fontSize: 13, color: tk.text.medium, textAlign: 'center', lineHeight: 19 },
     stateBtn: {
       marginTop: rnSpacing['xs-loose'],
-      // 2026-11-23 三端同脸(根治):小程序 `.ihui-state-btn` 是 `padding: 18rpx 36rpx`(=9/18),
-      // web 早已落 18,只有原生侧压着 lg 16 档 ⇒ 同一颗按钮在手机上窄 2px(门 128 的 C3 镜像
-      // 因此读成"仅小程序档 18")。统一到 18/9:web 读数与快照不变,原生与另两端同形。
-      paddingHorizontal: rnSpacing.xl,
+      // 2026-11-25 三端同脸(真落地,门 128 几何维):小程序 `.ihui-state-btn` 是 `padding: 18rpx 36rpx`
+      // (=9/18),web 早已落 18;此处此前压着 rnSpacing.xl(20) ⇒ 同一颗按钮手机端宽 2px,门 128 读成
+      // "仅小程序档 18 / 仅 RN 档 20"。按上一版注释的本意落到 18/9(本文件既有风格即为裸数值:
+      // fontSize 26 / width 64 / paddingVertical 9),三端同形。
+      paddingHorizontal: 18,
       paddingVertical: 9,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
