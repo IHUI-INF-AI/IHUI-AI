@@ -84,6 +84,9 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-25**
+- 🔧 工程/其他:修两处既存测试口径,全 lib 569 转绿 (53cbda8f)
+- 📚 文档:同步四语最近更新至 daa35b0e (66bc2ecf)
+- 🐞 修复:上游错误面统一打码——qoder 桥/适配器与 TraeAuthFailureError 不再只截断 (e5dee15f)
 - 📚 文档:补 Qoder 原生模块、OpenCode 4096 真相、Trae SDK 版本与回环服务证据 (daa35b0e)
 - 🚀 新功能/改进:下载页增加 Windows SmartScreen 首次运行引导 (a0e5881a)
 - 🔧 工程/其他:补浏览器任务端点 ASGI 路由测试 (18babde4)

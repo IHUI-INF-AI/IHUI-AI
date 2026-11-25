@@ -2227,6 +2227,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-25**
+- 🔧 기타:修两处既存测试口径,全 lib 569 转绿 (53cbda8f)
+- 📚 문서:同步四语最近更新至 daa35b0e (66bc2ecf)
+- 🐞 수정:上游错误面统一打码——qoder 桥/适配器与 TraeAuthFailureError 不再只截断 (e5dee15f)
 - 📚 문서:补 Qoder 原生模块、OpenCode 4096 真相、Trae SDK 版本与回环服务证据 (daa35b0e)
 - 🚀 기능/개선:下载页增加 Windows SmartScreen 首次运行引导 (a0e5881a)
 - 🔧 기타:补浏览器任务端点 ASGI 路由测试 (18babde4)
