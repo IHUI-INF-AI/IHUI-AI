@@ -303,22 +303,17 @@ const SEP = '·'
 
 /**
  * D1 消息级计量徽章行(2026-09-19 立):AI 回复消息底部展示紧凑用量。
- * 形如 `1.2k tok · 3.4s · 首 0.8s · deepseek-chat · ¥0.01`,各项条件性渲染:
+ * 形如 `1.2k tok · 3.4s · 首 0.8s · ¥0.01`,各项条件性渲染:
  *   - tokens:formatCompactTokens 千分位缩写(1.2k),totalTokens<=0 不渲染整行
  *   - duration:总耗时(仅 durationMs>0)
  *   - firstToken:首 token 延迟(仅 firstTokenMs>0)
- *   - model:实际计费模型(仅非空)
  *   - cost:costUsd→CNY(仅 costUsd 非 null);为 null 不显示
+ * 2026-11-26 口径(auto 换腿无感):这里不再展示模型名 —— 计量帧里的 usage.model 是后台计费真值,
+ * 只在服务端/账单侧可见,前端一行都不露(否则换腿时徽章换名字就等于向用户宣告换过模型)。
  * 样式 text-xs muted;hover 用 Tooltip 展示完整明细(不用原生 title)。
  * 仅对 usageByMessageId 有数据的消息渲染(无数据返回 null)。
  */
-export function MessageUsageMetrics({
-  messageId,
-  fallbackModel,
-}: {
-  messageId: string
-  fallbackModel?: string
-}) {
+export function MessageUsageMetrics({ messageId }: { messageId: string }) {
   const t = useTranslations('ai.message.metrics')
   const tc = useTranslations('chat')
   // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
@@ -327,7 +322,6 @@ export function MessageUsageMetrics({
   const usage = chatStore((s) => s.usageByMessageId[messageId])
   if (!usage || usage.totalTokens <= 0) return null
 
-  const model = usage.model || fallbackModel || ''
   // 展示层按实时汇率折算;costUsd 是后端权威口径(USD),不参与扣费
   const costText = usage.costUsd !== null ? formatUsd(usage.costUsd, { digits: 2 }) : null
 
@@ -363,11 +357,6 @@ export function MessageUsageMetrics({
           <span className="tabular-nums">{formatSeconds(usage.durationMs)}</span>
         </div>
       )}
-      {model && (
-        <div>
-          {t('modelDetail')}: <span className="tabular-nums">{model}</span>
-        </div>
-      )}
       {costText !== null && (
         <div>
           {t('costDetail')}: <span className="tabular-nums">{costText}</span>
@@ -394,11 +383,6 @@ export function MessageUsageMetrics({
         {usage.firstTokenMs > 0 && (
           <span data-testid="usage-first-token" className="tabular-nums">
             {SEP} {t('firstToken', { s: formatSeconds(usage.firstTokenMs) })}
-          </span>
-        )}
-        {model && (
-          <span data-testid="usage-model" className="tabular-nums">
-            {SEP} {model}
           </span>
         )}
         {costText !== null && (

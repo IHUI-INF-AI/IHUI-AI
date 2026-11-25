@@ -35,6 +35,7 @@ import {
   MoreHorizontal,
   Check,
   X,
+  Settings2,
 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 // 2026-11-16 立:浮层与视口边缘的统一安全间距(单一源)
@@ -84,6 +85,7 @@ const ImportAnalysisDialog = dynamic(
   { ssr: false },
 )
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
+import { BrowserTaskTemplateEditor } from '@/components/browser-pip/browser-task-template-editor'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { AI_PANEL_MAX_WIDTH, AI_PANEL_MIN_WIDTH, useAiPanelStore } from '@/stores/ai-panel'
@@ -494,6 +496,7 @@ export function AISidePanel() {
   // 2026-11-25:自动监看开关。默认开=新 Browser Hub 会话由 GlobalShell 的
   // useAutoAiPip 自动开窗;关闭后只保留手动入口。
   const [autoPip, setAutoPip] = React.useState(true)
+  const [templateEditorOpen, setTemplateEditorOpen] = React.useState(false)
   React.useEffect(() => {
     setAutoPip(window.localStorage.getItem(AI_PIP_AUTO_KEY) !== '0')
   }, [])
@@ -743,21 +746,19 @@ export function AISidePanel() {
   const chatError = useChatStore((s) => s.error)
   // 「当前对话的模型」≠ 全局模型选择器(2026-11-11 用户报障):
   // currentModel 是选择器的值,打开历史对话不会回填(切会话不改它),默认恒为 'auto';
-  // 而 message.model 里 auto 轮也是字面量 'auto'(见 resolveRoundModel),同样查不到厂商。
-  // 真实模型只有计量帧带回来(MessageUsage.model = 实际计费模型,可区别于 'auto'),
-  // 所以按「消息 model → 该消息 usage 的真实模型 → 选择器」三级回退。
-  const usageByMessageId = useChatStore((s) => s.usageByMessageId)
+  // 而 message.model 里 auto 轮也是字面量 'auto'(见 resolveRoundModel)。
+  // 2026-11-26 口径变更(auto 换腿无感):计量帧里的真实模型(MessageUsage.model)只用于后台计费,
+  // 不再回填到这里 —— 否则头部模型 chip / 厂商图标会随换腿跳变,用户就"看见"换过模型了。
+  // 因此这里只认用户显式选过的模型;auto 轮返回空串,chip 回落「自动」+ 自家 logo。
   const conversationModel = React.useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       const msg = messages[i]
       if (!msg) continue
       const declared = msg.model
       if (declared && declared !== 'auto') return declared
-      const billed = msg.id ? usageByMessageId[msg.id]?.model : undefined
-      if (billed && billed !== 'auto') return billed
     }
-    return currentModel
-  }, [messages, usageByMessageId, currentModel])
+    return ''
+  }, [messages])
   // 登录弹窗打开状态(2026-07-31 立,双重保险):
   // AgentTaskProgressPane 内部已订阅 isLoginOpen 并 return null,但用户反馈"修了好几遍"
   // 仍未生效(可能 HMR 边界 / 父组件未订阅导致 zustand 通知链断裂)。
@@ -3101,6 +3102,18 @@ export function AISidePanel() {
                             <span className="truncate">{template.label}</span>
                           </DropdownMenu.Item>
                         ))}
+                      {pipSupported && (
+                        <DropdownMenu.Item
+                          data-testid="ai-panel-pip-template-manage"
+                          className={MENU_ITEM_CLASS}
+                          onSelect={() => setTemplateEditorOpen(true)}
+                        >
+                          <Settings2 className={MENU_ITEM_ICON_CLASS} />
+                          <span className="truncate">
+                            {tc('pictureInPicture.templateEditorMenu')}
+                          </span>
+                        </DropdownMenu.Item>
+                      )}
                       <DropdownMenu.Label className={MENU_ITEM_SECTION_CLASS}>
                         {tc('headerActions.groupSession')}
                       </DropdownMenu.Label>
@@ -3254,6 +3267,11 @@ export function AISidePanel() {
               {tc('resizeHandleHint')}
             </div>
           </div>
+          <BrowserTaskTemplateEditor
+            open={templateEditorOpen}
+            onOpenChange={setTemplateEditorOpen}
+            onStart={(templateId) => startPipFromTemplate(templateId)}
+          />
         </div>
       </>
     </TooltipProvider>
