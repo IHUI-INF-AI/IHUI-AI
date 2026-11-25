@@ -50,26 +50,8 @@ import { parseKeepLedger } from './check-tmp-bloat.mjs'
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(HERE, '..')
 const TMP_DIR = join(ROOT, '.ihui-agent', 'tmp')
+const DEFAULT_ARCHIVE_ROOT = join(ROOT, '..', 'ihui-scratch-archive')
 const KEEP_LEDGER = join(ROOT, 'scripts', 'data', 'tmp-bloat-keep.json')
-
-/**
- * 归档根锚点（默认）。主仓根是 `D:\IHUI-AI`、干净 worktree 是 `D:\DevEnv\wt-*`，
- * 两者 `..` 不同层（`D:\` vs `D:\DevEnv\`）—— 直接取 `ROOT/..` 会让同一批归档分裂成
- * 两个目录（本轮实测：主仓算出 `D:\ihui-scratch-archive`，而手工迁的在
- * `D:\DevEnv\ihui-scratch-archive`）。故统一锚到 `DevEnv`：自身父目录已是 DevEnv 就用它，
- * 否则用 `<ROOT/..>/DevEnv`。可用 --archive-dir 或 IHUI_SCRATCH_ARCHIVE 覆写。
- */
-function defaultArchiveRoot(root) {
-  const up = resolve(root, '..')
-  const anchor = basename(up) === 'DevEnv' ? up : join(up, 'DevEnv')
-  return join(anchor, 'ihui-scratch-archive')
-}
-const ARCHIVE_ROOT = (() => {
-  const i = process.argv.indexOf('--archive-dir')
-  if (i > 0 && process.argv[i + 1]) return resolve(process.argv[i + 1])
-  const env = String(process.env.IHUI_SCRATCH_ARCHIVE || '').trim()
-  return env ? resolve(env) : defaultArchiveRoot(ROOT)
-})()
 
 const argOf = (name, dflt) => {
   const i = process.argv.indexOf(name)
@@ -325,7 +307,7 @@ async function main() {
   const candMb = cand.reduce((s, x) => s + (Number(x.bytes) || 0), 0) / (1024 * 1024)
 
   const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-  const archiveDir = join(ARCHIVE_ROOT, `${stamp}-scratch`)
+  const archiveDir = join(DEFAULT_ARCHIVE_ROOT, `${stamp}-scratch`)
 
   if (!APPLY) {
     log(`SCRATCH-PRUNE state=${batch.length ? 'planned' : 'clean'} ageDays=${AGE_DAYS} familyDays=${FAMILY_DAYS} candidates=${batch.length} moved=0 mb=${candMb.toFixed(2)} failed=0 archive=${archiveDir}`)

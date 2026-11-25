@@ -7452,93 +7452,6 @@ export function auditTmpBloat(opts = {}) {
   return { ran: true, ok: r.ok, state: state ?? 'no-result-line', summary: line, reading }
 }
 
-// tmp 长期累积清扫器派发腿(2026-11-25 立,机主令"彻底根治 不允许再出现膨胀了")。
-// 上面那条腿只喊不处置:实测 tmp 冲到 7.3GB 时,其中几百个一次性探查/截图/测试目录
-// (mp-auto / shot-* / *.pre-merge.bak / index-snapshot-* …)从 8 月一路堆到 11 月,
-// 哨兵天天喊、喊完没人动 —— 缺的正是"判据与处置之间那一层"。器物
-// scripts/prune-tmp-scratch.mjs 按两档判据(超龄 14 天 / 命名族 3 天)把条目**移**到仓外
-// <仓库根>/../DevEnv/ihui-scratch-archive(每批带 MANIFEST.txt,可凭清单原样搬回,不销毁内容),
-// tmp-bloat-keep 台账命中(含指向目录内某件的 rel)一律不动。本层只节流 + 派发 --apply + 读结论行,零复算。
-// 6 小时:迁移含写盘与跨目录 rename,比只读枚举重得多,不值得 5 分钟一趟。
-export function pruneTmpScratch(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = 6 * 60 * 60 * 1000,
-    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'tmp-scratch-prune-last.json'),
-    logger = log,
-    runner = null,
-  } = opts
-  const script = join(dirname(fileURLToPath(import.meta.url)), 'prune-tmp-scratch.mjs')
-  if (!existsSync(script)) {
-    logger('ℹ️ tmp 累积清扫:器物不在位(scripts/prune-tmp-scratch.mjs)⇒ 本轮跳过,不记为已探测')
-    return { ran: false, why: '清扫器不在位' }
-  }
-  let last = NaN
-  try {
-    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
-  } catch {
-    /* 没跑过 */
-  }
-  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
-  } catch (e) {
-    logger(`⚠️ tmp 累积清扫:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
-  }
-  const run =
-    typeof runner === 'function'
-      ? runner
-      : () => {
-          try {
-            const out = execFileSync(process.execPath, [script, '--apply'], {
-              cwd: WORKTREE,
-              encoding: 'utf8',
-              windowsHide: true,
-              // 迁移是逐项 rename/copy,单批上限 400 项;给足 30 分钟再判超时
-              timeout: 30 * 60 * 1000,
-              maxBuffer: 1 << 22,
-              stdio: ['ignore', 'pipe', 'pipe'],
-            })
-            return { ok: true, code: 0, out: String(out ?? '') }
-          } catch (e) {
-            // rc=1 = 有候选但只是 dry-run 的读数(本腿不会出现);rc=2 = 未判定或部分迁移失败;
-            // 都按"记一笔、下轮再看"带回,不在这里判绿。
-            return {
-              ok: false,
-              code: typeof e?.status === 'number' ? e.status : 1,
-              out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`,
-              err: String(e?.message ?? e),
-            }
-          }
-        }
-  const r = run()
-  const rows = String(r.out ?? '').split(/\r?\n/)
-  // archive= 在行尾取到行末(路径含空格时不截断);其余各维定长数字,与器件结论行逐字对齐
-  const resultLine = rows
-    .map((l) => l.match(/SCRATCH-PRUNE\s+state=([A-Za-z]+)\s+ageDays=(\d+)\s+familyDays=(\d+)\s+candidates=(\d+)\s+moved=(\d+)\s+mb=([\d.]+)\s+failed=(\d+)\s+archive=(\S.*)$/) ?? null)
-    .find(Boolean)
-  const state = resultLine ? resultLine[1] : null
-  const kv = (i) => (resultLine ? resultLine[i] : null)
-  const line = resultLine ? resultLine[0].trim() : ''
-  let reading = null
-  if (state === 'clean') {
-    reading = '无到期条目,一项未动'
-  } else if (state === 'pruned') {
-    reading = `迁出 ${kv(5)} 项 / ${kv(6)}MB 到 ${kv(8)}${Number(kv(7)) ? `(失败 ${kv(7)} 项)` : ''}`
-  } else if (state === 'planned') {
-    reading = `${kv(4)} 项待迁(${kv(6)}MB;该档只在 dry-run 出现,本腿常驻 --apply)`
-  } else if (state === 'undetermined') {
-    reading = `未判定(取不到 tmp 或归档面,或迁移失败 ${kv(7)} 项)⇒ 本轮未处置,不等于"盘面干净"`
-  }
-  logger(
-    reading !== null
-      ? `${state === 'pruned' || state === 'clean' ? '✅' : '⚠️'} tmp 累积清扫:${reading}${line ? ` ｜ ${line.slice(0, 160)}` : ''}`
-      : `${r.ok ? '✅' : '⚠️'} tmp 累积清扫:${line || r.err || '未取到结论行(SCRATCH-PRUNE)⇒ 本轮未处置,不等于"盘面干净"'}`,
-  )
-  return { ran: true, ok: r.ok, state: state ?? 'no-result-line', summary: line, reading }
-}
-
 // 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l4105(门 103 C1 收口)〉首意: 超龄认领牌代摘轮(2026-10-22 立,同日补回:这一层曾被一枚已入库的提交整段删掉而无人发现
 export function sweepStaleClaimMarks(opts = {}) {
   const {
@@ -15714,10 +15627,6 @@ async function main() {
     // tmp 体积只读哨兵(2026-11-20 立,5 分钟节流,器物 scripts/check-tmp-bloat.mjs)。
     // tmp 是 gitignored 盘面,提交链扫不到,只能由常驻 tick 周期腿枚举;未判定(rc=2)不记绿。
     if (!CHECK_ONLY) auditTmpBloat()
-    // tmp 长期累积清扫(2026-11-25,机主令"彻底根治 不允许再出现膨胀了"):上一条腿只喊不处置,
-    // 几百个一次性目录能从 8 月堆到 11 月。本腿 6 小时一次按判据把到期条目移出仓到
-    // <仓库根>/../DevEnv/ihui-scratch-archive(带 MANIFEST,可原样搬回),台账命中的不动。
-    if (!CHECK_ONLY) pruneTmpScratch()
     // ref 位移丢提交守夜人(2026-11-18):计划任务实测会被删,关键判据不能只挂它(§5b)。
     if (!CHECK_ONLY) sweepRefMoveLoss()
     // 违禁桶兜底清扫(2026-10-25,等条件/待拍板两道机主禁令的执行器物化):union 收敛器与

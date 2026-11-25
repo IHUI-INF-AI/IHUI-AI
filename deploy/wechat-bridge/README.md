@@ -159,6 +159,8 @@ $env:BRIDGE_DB_ACCOUNT='<account_dir>'
 node server.mjs
 ```
 
+已实测组合：`BRIDGE_DRIVER=ocr` + `BRIDGE_MOMENT_DRIVER=db` + `BRIDGE_DB_SIDECAR=on` 在微信 4.2 上同时工作；`/messages` 仍由 OCR 返回入站消息，`/action {action:"moment.fetch"}` 返回 `source=db`，两边互不抢占。
+
 完整安全边界、venv 安装和图片落盘说明见 `deploy/wechat-db-sidecar/README.md`。DB sidecar 会读取微信进程内存中的 SQLCipher 密钥并解密本地库，属于强授权操作；只允许本人账号、本机离线环境使用。图片 URL 的 qpic 票据可能过期并返回「暂时无法查看」占位图，sidecar 会拒绝写入占位图并把失败计入 `mediaDownloadErrors`，不会拿占位图冒充真实照片。
 
 ## 在 IHUI 里挂账号
