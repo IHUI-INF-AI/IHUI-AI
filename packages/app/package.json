@@ -29,6 +29,7 @@
     "test": "vitest run --environment jsdom --passWithNoTests"
   },
   "dependencies": {
+    "@ihui/api-client": "workspace:*",
     "@ihui/design-tokens": "workspace:*",
     "@ihui/types": "workspace:*",
     "lucide-react": "^1.37.0",

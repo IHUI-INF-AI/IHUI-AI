@@ -7,7 +7,7 @@ import { useTt, type TtFn } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { navigateTo } from '@tarojs/taro'
 import { cn, rnRadius, rnRadiusFor, taroGeometry, taroSpacing } from '@ihui/design-tokens'
-import { DEFAULT_CONVERSATION_TITLE, plainTitleText } from '@ihui/shared'
+import { DEFAULT_CONVERSATION_TITLE, drawerActionKey, plainTitleText } from '@ihui/shared'
 import { listConversations } from '@ihui/api-client'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import LineIcon from '@/components/LineIcon'
@@ -473,7 +473,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                               // 删除键载体 = 矢量(RN 端左滑删除同为矢量),文字 × 冒充图标已收口
                               <LineIcon
                                 ariaRole="button"
-                                ariaLabel={tt('common.delete', '删除')}
+                                ariaLabel={tt(drawerActionKey('delete'), '删除')}
                                 name="x"
                                 size={taroGeometry.controlGlyph}
                                 color="var(--color-muted-foreground)"
@@ -565,7 +565,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 {/* 头像 = 真圆族:与 RN 端 rounded-full 同形;正方盒(48×48=24)与 web h-6 / RN USER_AVATAR_SIZE 同值 */}
                 <Image
                   src={userinfo.avatar || daixaodimingPng}
-                  style={{ width: rpx(48), height: rpx(48), borderRadius: rnRadius['2xl'] }}
+                  style={{ width: rpx(taroSpacing['2xl']), height: rpx(taroSpacing['2xl']), borderRadius: rnRadius['2xl'] }}
                   mode="aspectFill"
                 />
                 <Text

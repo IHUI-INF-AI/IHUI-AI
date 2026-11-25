@@ -2,7 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AppState, View } from 'react-native'
+import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import { fetchApi, getAdminStats, type AdminStats } from '@ihui/api-client'
 import {
   DashboardScreen as SharedDashboardScreen,
@@ -11,8 +13,13 @@ import {
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
+import { NavBar } from '../components/NavBar'
+import { NavChrome } from '../components/NavChrome'
 import Empty from '../components/common/Empty'
 import Loading from '../components/common/Loading'
+
+/** 大屏自动刷新周期(聚焦期间;离开屏幕即停表) */
+const AUTO_REFRESH_MS = 30_000
 
 /** GET /api/admin/analytics/summary */
 interface AnalyticsSummary {
@@ -63,51 +70,82 @@ const EMPTY: DashboardData = {
 export function DashboardScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
+  const navigation = useNavigation()
   const [data, setData] = useState<DashboardData>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  /** 单飞闸:自动刷新、下拉刷新、回前台补拉同一刻只允许一轮四源请求 */
+  const inFlightRef = useRef(false)
 
   const load = useCallback(async () => {
-    setError('')
-    const [adminRes, analyticsRes, biRes, errorRes] = await Promise.allSettled([
-      getAdminStats(),
-      fetchApi<AnalyticsSummary>('/api/admin/analytics/summary'),
-      fetchApi<BiDashboard>('/api/admin/bi/dashboard'),
-      fetchApi<ErrorStats>('/api/admin/error-dashboard/stats'),
-    ])
-
-    const stats =
-      adminRes.status === 'fulfilled' && adminRes.value.success
-        ? (adminRes.value.data ?? null)
-        : null
-    const analytics =
-      analyticsRes.status === 'fulfilled' && analyticsRes.value.success
-        ? (analyticsRes.value.data ?? null)
-        : null
-    const bi =
-      biRes.status === 'fulfilled' && biRes.value.success ? (biRes.value.data ?? null) : null
-    const errors =
-      errorRes.status === 'fulfilled' && errorRes.value.success
-        ? (errorRes.value.data ?? null)
-        : null
-
-    const okCount = [stats, analytics, bi, errors].filter((v) => v !== null).length
-    if (okCount === 0) {
-      const firstError =
-        adminRes.status === 'rejected'
-          ? String(adminRes.reason)
-          : adminRes.value.success
-            ? t('dashboard.loadFailed')
-            : (adminRes.value.error ?? t('dashboard.loadFailed'))
-      setError(firstError)
+    if (inFlightRef.current) {
+      setRefreshing(false)
+      return
     }
-    setData({ stats, analytics, bi, errors })
-    setLoading(false)
-    setRefreshing(false)
+    inFlightRef.current = true
+    try {
+      const [adminRes, analyticsRes, biRes, errorRes] = await Promise.allSettled([
+        getAdminStats(),
+        fetchApi<AnalyticsSummary>('/api/admin/analytics/summary'),
+        fetchApi<BiDashboard>('/api/admin/bi/dashboard'),
+        fetchApi<ErrorStats>('/api/admin/error-dashboard/stats'),
+      ])
+
+      const stats =
+        adminRes.status === 'fulfilled' && adminRes.value.success
+          ? (adminRes.value.data ?? null)
+          : null
+      const analytics =
+        analyticsRes.status === 'fulfilled' && analyticsRes.value.success
+          ? (analyticsRes.value.data ?? null)
+          : null
+      const bi =
+        biRes.status === 'fulfilled' && biRes.value.success ? (biRes.value.data ?? null) : null
+      const errors =
+        errorRes.status === 'fulfilled' && errorRes.value.success
+          ? (errorRes.value.data ?? null)
+          : null
+
+      const okCount = [stats, analytics, bi, errors].filter((v) => v !== null).length
+      // 部分源失败必须显式提示,不能把"只回来几条"当成完整成功
+      setError(okCount < 4 ? t('dashboard.partialFailed') : '')
+      if (okCount > 0) setLastUpdated(new Date())
+      setData({ stats, analytics, bi, errors })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      inFlightRef.current = false
+      setLoading(false)
+      setRefreshing(false)
+    }
   }, [t])
 
   useEffect(() => {
+    void load()
+  }, [load])
+
+  // 聚焦期间每 30 秒自动刷新,离开屏幕即停表 —— 大屏要"实时",不是打开时快照
+  useFocusEffect(
+    useCallback(() => {
+      void load()
+      const timer = setInterval(() => void load(), AUTO_REFRESH_MS)
+      return () => clearInterval(timer)
+    }, [load]),
+  )
+
+  // 应用回前台立即补一次,不靠后台被冻结的定时器
+  useEffect(() => {
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void load()
+    })
+    return () => appStateSub.remove()
+  }, [load])
+
+  /** 下拉刷新真的亮 RefreshControl,且与自动刷新共用单飞闸 */
+  const handlePullRefresh = useCallback(() => {
+    setRefreshing(true)
     void load()
   }, [load])
 
@@ -209,20 +247,42 @@ export function DashboardScreen() {
     ]
   }, [data, fmt, t])
 
+  /** 状态行把"数据有多新"写给用户看;时间用 Intl(AGENTS §3),不手拼 */
+  const statusText = useMemo(() => {
+    const time = lastUpdated
+      ? new Intl.DateTimeFormat(locale, {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }).format(lastUpdated)
+      : '—'
+    return `${t('dashboard.liveStatus', { time })} · ${t('dashboard.autoRefreshHint')}`
+  }, [lastUpdated, locale, t])
+
   return (
-    <SharedDashboardScreen
-      t={t}
-      tk={getTokens(resolvedTheme)}
-      items={items}
-      loading={loading}
-      refreshing={refreshing}
-      error={error}
-      onRefresh={load}
-      renderLoading={() => <Loading text={t('common.loading')} />}
-      renderEmpty={() => (
-        <Empty text={error || t('common.empty')} actionText={t('common.retry')} onAction={load} />
-      )}
-    />
+    <View style={{ flex: 1 }}>
+      <NavChrome>
+        <NavBar title={t('dashboard.title')} onBack={() => navigation.goBack()} />
+      </NavChrome>
+      <SharedDashboardScreen
+        t={t}
+        tk={getTokens(resolvedTheme)}
+        items={items}
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        statusText={statusText}
+        onRefresh={handlePullRefresh}
+        renderLoading={() => <Loading text={t('common.loading')} />}
+        renderEmpty={() => (
+          <Empty
+            text={error || t('common.empty')}
+            actionText={t('common.retry')}
+            onAction={handlePullRefresh}
+          />
+        )}
+      />
+    </View>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

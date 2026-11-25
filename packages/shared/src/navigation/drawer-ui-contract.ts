@@ -74,7 +74,7 @@ export const DRAWER_ACTION_SOURCE: readonly DrawerActionSpec[] = [
     webNs: 'chatHistory',
     webKey: 'selectModeAriaLabel',
     mobileKey: 'drawer.multiSelect',
-    label: '切换多选模式',
+    label: '切换任务多选模式',
     platforms: ['web', 'rn', 'miniapp'],
   },
   {
@@ -120,7 +120,7 @@ export const DRAWER_ACTION_SOURCE: readonly DrawerActionSpec[] = [
     webNs: 'chatHistory',
     webKey: 'moveSelectedToGroup',
     mobileKey: 'drawer.moveToFolder',
-    label: '移动到文件夹',
+    label: '移动所选到分组',
     platforms: ['web', 'rn', 'miniapp'],
   },
   {
@@ -129,7 +129,7 @@ export const DRAWER_ACTION_SOURCE: readonly DrawerActionSpec[] = [
     webNs: 'chatHistory',
     webKey: 'batchArchive',
     mobileKey: 'drawer.batchArchive',
-    label: '归档',
+    label: '批量归档',
     platforms: ['web', 'rn'],
     absent: {
       miniapp: '小程序会话表无 archived 列，归档态无承载字段（需后端补列后才可进入）',
@@ -141,7 +141,7 @@ export const DRAWER_ACTION_SOURCE: readonly DrawerActionSpec[] = [
     webNs: 'chatHistory',
     webKey: 'batchUnarchive',
     mobileKey: 'drawer.batchUnarchive',
-    label: '取消归档',
+    label: '批量取消归档',
     platforms: ['web'],
     absent: {
       rn: 'RN 端未实现归档后的批量恢复入口（归档入口已存在，恢复态留待后续接后端批量接口）',
@@ -154,7 +154,7 @@ export const DRAWER_ACTION_SOURCE: readonly DrawerActionSpec[] = [
     webNs: 'chatHistory',
     webKey: 'batchDelete',
     mobileKey: 'drawer.batchDelete',
-    label: '删除',
+    label: '批量删除',
     platforms: ['web', 'rn', 'miniapp'],
   },
   {

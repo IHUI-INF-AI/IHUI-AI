@@ -4,13 +4,12 @@
 
 import { useMemo } from 'react'
 import { FlatList, RefreshControl, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AskListScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
-import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
+import { EmptyState, ErrorState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 问答列表共享屏 — props 注入式跨端组件 */
 export type { AskListScreenProps }
@@ -36,11 +35,17 @@ export function AskListScreen({
   }
   if (error && items.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error}</Text>
-        <TouchableOpacity style={styles.btn} onPress={onBack} accessibilityLabel={t('common.back')}>
-          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+          <Text style={styles.title}>{t('askList.title')}</Text>
+        </View>
+        <ErrorState
+          message={error}
+          onRetry={onRefresh}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
       </View>
     )
   }
@@ -90,26 +95,6 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
       paddingHorizontal: rnSpacing['sm-loose'],
-    },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.bg,
-      padding: rnSpacing.lg,
-    },
-    error: {
-      fontSize: rnType.body.size,
-      color: tk.danger.deepText,
-      marginBottom: rnSpacing.sm,
-      textAlign: 'center',
-    },
-    btn: {
-      marginTop: rnSpacing.md,
-      paddingHorizontal: rnSpacing['sm-loose'],
-      paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.md,
-      backgroundColor: tk.brand.cta,
     },
     header: {
       flexDirection: 'row',

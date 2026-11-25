@@ -6,7 +6,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Archive, ArchiveRestore, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, FolderInput, Trash2 } from 'lucide-react'
 import type { BatchConversationAction } from '@ihui/api-client'
 import { Button, Checkbox } from '@ihui/ui-react'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
@@ -38,6 +38,8 @@ export interface ConversationBatchBarProps {
   onToggleAll: (checked: boolean) => void
   /** 反选 */
   onInvert: () => void
+  /** 批量移动到文件夹(选中集由宿主持有,这里只负责发起) */
+  onMove: () => void
   /** 发起批量动作(delete 会先走二次确认,由本组件内部拦下) */
   onBatch: (action: BatchConversationAction) => void
   /**
@@ -57,6 +59,7 @@ export function ConversationBatchBar({
   busyAction = null,
   onToggleAll,
   onInvert,
+  onMove,
   onBatch,
   onCancel,
 }: ConversationBatchBarProps) {
@@ -93,6 +96,16 @@ export function ConversationBatchBar({
           data-testid="batch-invert"
         >
           <span>{t('invertSelection')}</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          onClick={onMove}
+          disabled={disabled}
+          data-testid="batch-move"
+        >
+          <FolderInput className="mr-1 h-3.5 w-3.5" />
+          <span>{t('moveSelectedToGroup')}</span>
         </Button>
         <Button
           variant="ghost"

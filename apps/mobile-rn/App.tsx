@@ -162,7 +162,8 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
   HrAttendance: (t) => t.surface.chrome,
   // Dashboard(2026-11-23 补录):DashboardScreen 已渲染 <NavBar>,路由却漏登记本表
   // ⇒ 状态栏 inset 与导航行两截色;按同一判据补 chrome 档。
-  Dashboard: (t) => t.surface.chrome,
+  Dashboard: (t) => t.surface.bg,
+  NotificationSettings: (t) => t.surface.bg,
   ChatTools: (t, dark) => (dark ? t.gray[900] : t.surface.light),
   WebView: (t, dark) => (dark ? t.gray[900] : t.surface.light),
   Note: (t) => t.surface.light,
