@@ -194,7 +194,7 @@ AI 侧已完成：链路核验、应用 Client ID 查明、后台权限状态现
 
 | 验证 | 结果 | 判定 |
 | --- | --- | --- |
-| 以用户 token 调 `/v1.0/oauth2/userinfo` | **HTTP 200**，拿到本人 `unionId=UhE62XV5MoKtr9...` | 用户身份令牌有效 |
+| 以用户 token 调 `/v1.0/oauth2/userinfo` | **HTTP 200**，拿到本人 `unionId=UhE62XV5MoKtr9...`（历史快照；**该端点后经复查已下线**，详见 9.1，现行改用 `/contact/users/me`） | 用户身份令牌有效 |
 | 以用户 token 调 `GET /v1.0/contact/users/{unionId}`（scope=`Contact.User.Read`，即任务目标 operation） | **HTTP 200**，返回 `nick/unionId/avatarUrl/openId/mobile/stateCode/visitor` | ✅ **AI 已能以本人身份成功调用通讯录接口，任务验收达成** |
 | 对照：以用户 token 调 `/contact/users/search` | 403 `requiredScopes:["qyapi_addresslist_search"]` | 该 search 是旧版 scope、应用未开，与 `Contact.User.Read` 无关；改用详情接口即用 |
 
@@ -246,3 +246,12 @@ AI 侧已完成：链路核验、应用 Client ID 查明、后台权限状态现
 - **refresh 链路健康**：时隔 1h（`updated_at` 从 00:19 → 00:50 UTC 16:50）复查，token 已被平台自动刷新（新 2h 有效期、带 refresh_token），**无需用户重新扫码**。`connector_oauth` 的刷新回写链路在生产 daemon 下正常工作。
 - **发现隐患并修复**：刷新回写的密文被日志警告「由解密环第 1 把旧密钥解开（主密钥不匹配）」——根因是 NSSM 主密钥已轮换为 `PUBLISH_CREDENTIALS_KEY`（指纹 `f727973d…`），而历史密文用密钥文件 `data/credentials_key`（指纹 `26b9d5332dd3`）加密，该旧密钥只留在解密环里。若哪天清理解密环旧密钥，钉钉凭据会作废、逼用户重扫码。
 - **修复**：进程注入新主密钥 → `decrypt_user_token` 解出明文 → `credentials_crypto.encrypt()`（用主密钥单例）重加密 → `connector_store.save(None, rec, tenant_id=...)` 整条覆盖写回 `extra.user_oauth`。独立进程验证 `PRIMARY_DECRYPT_OK`（主密钥直接解开、不再走 ring）。**教训：轮换密钥后要把所有用户 OAuth 密文 rewrap 到新主密钥，别只靠解密环续命。**
+
+### 9.4 2026-11-26 01:42 决定性验证：主动 refresh→落库→端到端全通（免扫码坐实）
+
+李总要求"完整收尾、直到没有后续建议"。复查时发现 token 此刻**已过期**（`expires_at=01:25:09`，晚于它 11 分钟），直接解密调 `/contact/users/me` 返回 `400 InvalidAuthentication`——一度疑似"refresh 链路其实没工作、updated_at 变化只是授权 callback 在写"。做了一次**决定性主动 refresh 验证**，结论：链路完全健康，坐实免扫码。
+
+- **refresh 凭据来源（关键）**：`dingtalk:user-oauth` 这条记录 `managed=True` 但 `type=''`（旧记录），用 `managed.hydrate(rec)` 会因空 type 报「钉钉连接器不支持预置模板」——**别走 hydrate**。正确姿势与 callback 同源：`managed.credentials("dingtalk", scope=TENANT)`（本次 `source=tenant`，取自租户平台应用凭据 `tenant_platform_apps`），callback 当初就是用它换到 token 的。
+- **主动 refresh 正确姿势（同进程完成，refresh_token 单次有效绝不能分两步）**：`provider("dingtalk")` + `refresh_user_token(cfg, old_tok, app_id, app_secret, http_json)` → `encrypt_user_token(new_tok)` → `save(None, rec, tenant_id=TENANT)` 覆盖 → 回读 `needs_refresh=False` → 端到端 `/contact/users/me`。
+- **实测结果**：`NEW_SECS_LEFT=7200`（满 2h）、带新 refresh_token、`SAVED`、`REREAD_NEEDS_REFRESH=False`、`CONTACT_HTTP=200` + 本人 unionId。**access_token 2h 过期是正常寿命，过期后由调用侧 `custom_http._user_access_token` 懒刷新（`needs_refresh` 提前 `REFRESH_SKEW_SECONDS=300s` 触发）+ `_make_refresh_persister` 回调落库，链路已端到端验证可用。李总无需重新扫码。**
+- **排障副产物**：`git ls-remote` 秒通证明网络层正常，push 卡的是对象传输 + pre-push 全量门（typecheck ~270s），非凭据/断网。
