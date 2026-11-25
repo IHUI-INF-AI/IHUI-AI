@@ -17,9 +17,9 @@
  */
 
 import { createServer } from 'node:http'
-import { appendFile, mkdir, readFile } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, readdir, stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, extname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isMomentMessage, mergeMoments, nextMomentCursor, parseMomentMessage } from './moments.mjs'
 import { appendMomentArchive, readMomentArchive } from './moments-archive.mjs'
@@ -47,6 +47,13 @@ const MOMENT_WAIT_MS = Math.min(
   Math.max(Number(process.env.BRIDGE_MOMENT_WAIT_MS ?? 3500), 500),
   15_000,
 )
+/** DB sidecar 落盘目录；只有显式设置才开放本地媒体读取，不默认扫描微信目录。 */
+const MOMENT_MEDIA_ROOT = (() => {
+  const raw = String(process.env.BRIDGE_DB_MEDIA_DIR ?? '').trim()
+  return raw ? resolve(ROOT, raw) : ''
+})()
+const MEDIA_NAME_RE = /^[0-9A-Za-z._-]+$/
+const MEDIA_MAX_BYTES = 50 * 1024 * 1024
 /** 直接 `node server.mjs` 启动；被测试/其它模块 import 时不绑定端口、不加载驱动。 */
 const IS_MAIN = process.argv[1]
   ? resolve(process.argv[1]) === fileURLToPath(import.meta.url)
@@ -212,6 +219,39 @@ function json(res, status, body) {
     'Content-Length': Buffer.byteLength(payload),
   })
   res.end(payload)
+}
+
+function safeMediaSegment(value) {
+  if (typeof value !== 'string') return ''
+  const text = value.trim()
+  if (!text || text.length > 200 || !MEDIA_NAME_RE.test(text)) return ''
+  if (text === '.' || text === '..' || text.includes('..')) return ''
+  return text
+}
+
+function mediaContentType(name) {
+  switch (extname(name).toLowerCase()) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg'
+    case '.png':
+      return 'image/png'
+    case '.webp':
+      return 'image/webp'
+    case '.gif':
+      return 'image/gif'
+    case '.mp4':
+      return 'video/mp4'
+    default:
+      return 'application/octet-stream'
+  }
+}
+
+function mediaTarget(momentId, name) {
+  const safeMoment = safeMediaSegment(momentId)
+  const safeName = safeMediaSegment(name)
+  if (!MOMENT_MEDIA_ROOT || !safeMoment || !safeName) return ''
+  return join(MOMENT_MEDIA_ROOT, safeMoment, safeName)
 }
 
 async function readBody(req) {
@@ -477,6 +517,8 @@ async function handle(req, res) {
         '/messages',
         '/moments',
         '/moments/archive',
+        '/moments/media',
+        '/moments/media/list',
         '/members/map',
         '/send',
         '/action',
@@ -549,6 +591,82 @@ async function handle(req, res) {
       return json(res, 500, {
         ok: false,
         error: e instanceof Error ? e.message : '朋友圈归档读取失败',
+      })
+    }
+  }
+
+  if (req.method === 'GET' && path === '/moments/media/list') {
+    if (!authorized(req, queryAuth)) return json(res, 401, { ok: false, error: 'unauthorized' })
+    if (!MOMENT_MEDIA_ROOT) {
+      return json(res, 404, {
+        ok: false,
+        error: 'BRIDGE_DB_MEDIA_DIR 未配置；没有可读取的本地媒体目录',
+      })
+    }
+    const momentId = safeMediaSegment(url.searchParams.get('momentId'))
+    if (!momentId) return json(res, 400, { ok: false, error: 'momentId 不合法' })
+    try {
+      const entries = await readdir(join(MOMENT_MEDIA_ROOT, momentId), { withFileTypes: true })
+      const files = []
+      for (const entry of entries) {
+        if (!entry.isFile() || !safeMediaSegment(entry.name)) continue
+        const info = await stat(join(MOMENT_MEDIA_ROOT, momentId, entry.name))
+        if (!info.isFile()) continue
+        files.push({
+          name: entry.name,
+          size: info.size,
+          contentType: mediaContentType(entry.name),
+        })
+      }
+      files.sort((a, b) => a.name.localeCompare(b.name))
+      return json(res, 200, { ok: true, momentId, files })
+    } catch (e) {
+      if (e && typeof e === 'object' && e.code === 'ENOENT') {
+        return json(res, 404, { ok: false, error: '该动态没有本地媒体目录' })
+      }
+      return json(res, 500, {
+        ok: false,
+        error: e instanceof Error ? e.message : '本地媒体目录读取失败',
+      })
+    }
+  }
+
+  if (req.method === 'GET' && path === '/moments/media') {
+    if (!authorized(req, queryAuth)) return json(res, 401, { ok: false, error: 'unauthorized' })
+    if (!MOMENT_MEDIA_ROOT) {
+      return json(res, 404, {
+        ok: false,
+        error: 'BRIDGE_DB_MEDIA_DIR 未配置；没有可读取的本地媒体目录',
+      })
+    }
+    const momentId = safeMediaSegment(url.searchParams.get('momentId'))
+    const name = safeMediaSegment(url.searchParams.get('name'))
+    if (!momentId || !name) {
+      return json(res, 400, { ok: false, error: 'momentId 或 name 不合法' })
+    }
+    const target = mediaTarget(momentId, name)
+    try {
+      const info = await stat(target)
+      if (!info.isFile()) return json(res, 404, { ok: false, error: '媒体不存在' })
+      if (info.size > MEDIA_MAX_BYTES) {
+        return json(res, 413, { ok: false, error: '媒体超过 50MB 上限' })
+      }
+      const data = await readFile(target)
+      res.writeHead(200, {
+        'Content-Type': mediaContentType(name),
+        'Content-Length': data.length,
+        'Cache-Control': 'private, max-age=300',
+        'X-Content-Type-Options': 'nosniff',
+      })
+      res.end(data)
+      return
+    } catch (e) {
+      if (e && typeof e === 'object' && e.code === 'ENOENT') {
+        return json(res, 404, { ok: false, error: '媒体不存在' })
+      }
+      return json(res, 500, {
+        ok: false,
+        error: e instanceof Error ? e.message : '本地媒体读取失败',
       })
     }
   }

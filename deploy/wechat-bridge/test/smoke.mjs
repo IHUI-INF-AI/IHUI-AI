@@ -8,7 +8,7 @@
 
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { rmSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -17,11 +17,17 @@ const BASE = `http://127.0.0.1:${PORT}`
 const SECRET = 'bridge-test-secret'
 const BASE_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
 const QUEUE_FILE = process.env.BRIDGE_TEST_QUEUE_FILE ?? join(BASE_DIR, '.bridge-test-queue.jsonl')
-const MOMENTS_FILE = process.env.BRIDGE_TEST_MOMENTS_FILE ?? join(BASE_DIR, '.bridge-test-moments.jsonl')
-const ARCHIVE_FILE = process.env.BRIDGE_TEST_ARCHIVE_FILE ?? join(BASE_DIR, '.bridge-test-archive.jsonl')
+const MOMENTS_FILE =
+  process.env.BRIDGE_TEST_MOMENTS_FILE ?? join(BASE_DIR, '.bridge-test-moments.jsonl')
+const ARCHIVE_FILE =
+  process.env.BRIDGE_TEST_ARCHIVE_FILE ?? join(BASE_DIR, '.bridge-test-archive.jsonl')
+const MEDIA_DIR = join(BASE_DIR, '.bridge-test-media')
 rmSync(QUEUE_FILE, { force: true })
 rmSync(MOMENTS_FILE, { force: true })
 rmSync(ARCHIVE_FILE, { force: true })
+rmSync(MEDIA_DIR, { recursive: true, force: true })
+mkdirSync(join(MEDIA_DIR, 'moment-test'), { recursive: true })
+writeFileSync(join(MEDIA_DIR, 'moment-test', 'a.jpg'), Buffer.from([0xff, 0xd8, 0xff, 0xd9]))
 
 const child = spawn(process.execPath, ['server.mjs'], {
   cwd: join(dirname(fileURLToPath(import.meta.url)), '..'),
@@ -33,6 +39,7 @@ const child = spawn(process.execPath, ['server.mjs'], {
     BRIDGE_QUEUE_FILE: QUEUE_FILE,
     BRIDGE_MOMENTS_FILE: MOMENTS_FILE,
     BRIDGE_MOMENT_ARCHIVE: ARCHIVE_FILE,
+    BRIDGE_DB_MEDIA_DIR: MEDIA_DIR,
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 })
@@ -161,6 +168,25 @@ try {
   if (!archive.ok || archive.total !== 2 || archive.moments?.length !== 2)
     throw new Error('朋友圈归档读取失败')
 
+  const mediaList = await (
+    await fetch(`${BASE}/moments/media/list?momentId=moment-test`, {
+      headers: { Authorization: `Bearer ${SECRET}` },
+    })
+  ).json()
+  if (!mediaList.ok || mediaList.files?.length !== 1) throw new Error('本地媒体列表失败')
+  if (mediaList.files[0].contentType !== 'image/jpeg') throw new Error('本地媒体类型不符')
+  const media = await fetch(`${BASE}/moments/media?momentId=moment-test&name=a.jpg`, {
+    headers: { Authorization: `Bearer ${SECRET}` },
+  })
+  if (!media.ok) throw new Error('本地媒体读取失败')
+  const mediaBytes = Buffer.from(await media.arrayBuffer())
+  if (!mediaBytes.equals(Buffer.from([0xff, 0xd8, 0xff, 0xd9]))) throw new Error('本地媒体字节不符')
+  const traversal = await fetch(
+    `${BASE}/moments/media?momentId=moment-test&name=${encodeURIComponent('../server.mjs')}`,
+    { headers: { Authorization: `Bearer ${SECRET}` } },
+  )
+  if (traversal.status !== 400) throw new Error('本地媒体未拒绝路径穿越')
+
   const unsupported = await api('/action', { action: 'unknown.action' })
   if (unsupported.status !== 'unsupported') throw new Error('未知动作未返回 unsupported')
 
@@ -171,5 +197,6 @@ try {
   rmSync(QUEUE_FILE, { force: true })
   rmSync(MOMENTS_FILE, { force: true })
   rmSync(ARCHIVE_FILE, { force: true })
+  rmSync(MEDIA_DIR, { recursive: true, force: true })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

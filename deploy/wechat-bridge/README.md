@@ -15,7 +15,9 @@
 | GET  | `/status`                 | 探活，返回 `{ ok, online, selfWxid, driver }`                                                                                                                                                                     |
 | GET  | `/messages?since=&limit=` | 增量入站，返回 `{ messages, nextCursor }`                                                                                                                                                                         |
 | GET  | `/moments?since=&limit=`  | 朋友圈 `type=0` 回调，返回 `{ moments, nextCursor }`                                                                                                                                                              |
-| GET  | `/moments/archive?limit=` | 本次及历史真实抓取的朋友圈归档，按最后出现时间倒序，返回 `{ moments, total }`；每条含 `authorResolved, firstSeenAt, lastSeenAt, seenCount, createdAt, mediaUrls, source, page, authorId, authorName, content, id` |
+| GET  | `/moments/archive?limit=` | 本次及历史真实抓取的朋友圈归档，按最后出现时间倒序，返回 `{ moments, total }`；每条含 `authorResolved, firstSeenAt, lastSeenAt, seenCount, createdAt, mediaUrls, mediaLocalDir?, mediaDownloaded?, source, page, authorId, authorName, content, id` |
+| GET  | `/moments/media/list?momentId=` | 列出该动态本地已落盘的真实媒体文件；未设置 `BRIDGE_DB_MEDIA_DIR` 时返回 404，不扫描微信目录 |
+| GET  | `/moments/media?momentId=&name=` | 读取一个本地媒体文件；只接受安全文件名，带路径穿越的请求返回 400 |
 | GET  | `/members/map`            | 读取当前「群昵称 → memberId」映射，返回 `{ ok, members }`                                                                                                                                                         |
 | POST | `/members/map`            | `{ members: [{ chatTitle?, nickname, memberId, source: 'contact'                                                                                                                                                  | 'group-member' }] }`，按 source+会话+昵称合并写入映射文件 |
 | POST | `/send`                   | `{ target, type, text?, url?, fileName?, mentions? }`                                                                                                                                                             |
@@ -61,7 +63,7 @@ node server.mjs
 | ---------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------ |
 | `BRIDGE_PORT`                | `8848`                              | 桥监听端口                                                                                 |
 | `BRIDGE_HOST`                | `127.0.0.1`                         | 桥监听地址                                                                                 |
-| `BRIDGE_SECRET`              | 空                                  | 非空时 `/status` `/messages` `/moments` `/moments/archive` `/send` `/action` 都要带 Bearer |
+| `BRIDGE_SECRET`              | 空                                  | 非空时 `/status` `/messages` `/moments` `/moments/archive` `/moments/media*` `/send` `/action` 都要带 Bearer |
 | `BRIDGE_DRIVER`              | `mock`                              | `mock`、`wcfhttp`、`ocr` 或 `uia`                                                          |
 | `BRIDGE_MOMENT_DRIVER`       | 跟随 `BRIDGE_DRIVER`                | 单独指定朋友圈驱动；可设 `db`，聊天仍由 `BRIDGE_DRIVER` 负责                               |
 | `BRIDGE_DB_SIDECAR`          | `off`                               | 只有设为 `on` 才允许调用 DB sidecar；默认关闭，显式授权后才读本地 `sns.db`                 |
@@ -69,7 +71,7 @@ node server.mjs
 | `BRIDGE_DB_DIR`              | 空                                  | 微信 `xwechat_files` 根目录                                                                |
 | `BRIDGE_DB_ACCOUNT`          | 空                                  | 账号目录名，如 `ok502319984_e7c6`                                                          |
 | `BRIDGE_DB_WORKDIR`          | 空                                  | DB sidecar 解密工作缓存目录                                                                |
-| `BRIDGE_DB_MEDIA_DIR`        | 空                                  | 可选图片落盘目录；qpic 票据过期时 sidecar 只报错，不写占位图                               |
+| `BRIDGE_DB_MEDIA_DIR`        | 空                                  | 可选图片落盘目录；设置后才开放 `/moments/media*` 读取，未设置时返回 404；qpic 票据过期时 sidecar 只报错，不写占位图 |
 | `BRIDGE_DB_MEDIA_DOWNLOAD`   | `0`                                 | 设为 `1` 才尝试下载媒体；仍只保留真实图片，占位图拒绝落盘                                  |
 | `BRIDGE_DB_MEDIA_LOCAL_ONLY` | `0`                                 | 设为 `1` 只导出微信本地 Sns 缓存，不访问 qpic；未命中只计 `mediaCacheMisses`               |
 | `BRIDGE_DB_LIMIT`            | `0`                                 | DB sidecar 最多导出多少条；`0` 为全量                                                      |
@@ -178,5 +180,6 @@ node server.mjs
 - OCR 群发送人依赖群聊里显示昵称；如果某个群/版本不显示昵称，正文仍会入库，发送人记为 `ocr:member:unknown`，不会猜成别人。昵称到 wxid 的映射只来自已有联系人/群成员快照（`.bridge-members.json`，可经 `/members/map` 写入）：同一会话下昵称唯一命中才回填真实 memberId 并标 `senderResolved:true`；昵称歧义、未命中或昵称为空时回退稳定本地哈希 `ocr:member:<hash>`，标 `senderResolved:false`、`senderSource:'local'`，不伪造 wxid。
 - 队列是单进程内存 + JSONL 落盘；多实例请换共享队列（Redis/PG），本参考实现不替用户做这件事。
 - 媒体先下载到 `.bridge-media/` 再交给 wcfhttp；`file://` 本地路径不会走下载。
+- `/moments/media*` 只读 `BRIDGE_DB_MEDIA_DIR` 下 sidecar 真实落盘的文件，不扫描微信缓存、不补占位图；本地缓存命中图不保证等于 qpic 原图。
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
