@@ -134,10 +134,10 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     featureCard: {
       width: '47%',
-      backgroundColor: tk.surface.light,
+      backgroundColor: tk.surface.card,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tk.stroke.subtle,
       padding: rnSpacing['md-loose'],
       gap: rnSpacing['xs-loose'],
       alignItems: 'center',
