@@ -124,7 +124,7 @@ export default function AiTutor() {
         </View>
 
         {current.length > 0 && (
-          <View className="mx-[20rpx] rounded-lg bg-card p-[28rpx]">
+          <View className="mx-[20rpx] rounded-lg bg-card p-[24rpx]">
             <Text className="text-strong text-foreground">{current}</Text>
           </View>
         )}
@@ -133,7 +133,7 @@ export default function AiTutor() {
           {history.map((item) => (
             <View
               key={item.id}
-              className="bg-card rounded-lg p-[28rpx] mb-[20rpx]"
+              className="bg-card rounded-lg p-[24rpx] mb-[20rpx]"
             >
               <Text className="text-title font-bold text-foreground text-ellipsis-2">
                 {item.question}

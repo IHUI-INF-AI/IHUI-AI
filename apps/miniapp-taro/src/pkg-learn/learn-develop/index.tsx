@@ -149,7 +149,7 @@ export default function LearnDevelop() {
           (样式与共享卡的卡片语言一致:卡片底 + 边框 + 圆角)。 */}
       <View className="px-[20rpx] pb-[48rpx]">
         <PressableCard
-          className="flex items-center justify-between p-[28rpx] bg-card rounded-lg mt-[24rpx]"
+          className="flex items-center justify-between p-[24rpx] bg-card rounded-lg mt-[24rpx]"
           onClick={onGoRank}
         >
           <View className="flex items-center">

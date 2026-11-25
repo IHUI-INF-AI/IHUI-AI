@@ -27,7 +27,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import type { TextStyle, ViewStyle } from 'react-native'
 import { ChevronDown, ListChecks } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnSpacingFor, rnType } from '@ihui/design-tokens'
 import type { CheckinSchedulerStatusResponse, CheckinWbSweepSummary } from '@ihui/types'
 import {
   composeWbSweepText,
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'transparent',
-    padding: rnSpacing['md-loose'],
+    padding: rnSpacingFor.cardPad,
     gap: rnSpacing.sm,
   },
   head: {

@@ -98,28 +98,28 @@ export default function StudyIndex() {
   return (
     <ThemeRoot>
       {/* 样式数值移植自 RN 屏 StudyProgressScreen(容器底 surface.bg,paddingH 10dp→20rpx / paddingT 48dp→96rpx / paddingB 32dp→64rpx);措辞不用「对齐/镜像」—— 本页非 StudyProgressScreen 镜像对(见文件头非同源说明),避免触发镜像对账闸 */}
-      <View className="min-h-screen bg-background px-[20rpx] pt-[96rpx] pb-[64rpx]">
+      <View className="min-h-screen bg-background px-4 pt-[96rpx] pb-[64rpx]">
         {/* 统计卡网格对齐 RN statGrid/statCard:gap 8dp→16rpx,卡片 p 14dp→28rpx / 圆角 12dp→24rpx / 边框 border.light / 数值 22dp→44rpx/700 success */}
         <View className="flex flex-wrap gap-[16rpx] mb-[32rpx]">
-          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[24rpx] rounded-lg border border-border bg-card">
             <Text className="text-headline text-success">{info.todayMinutes}</Text>
             <Text className="block mt-[16rpx] text-caption text-muted-foreground">
               {t('study.todayMinutes')}
             </Text>
           </View>
-          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[24rpx] rounded-lg border border-border bg-card">
             <Text className="text-headline text-success">{info.totalMinutes}</Text>
             <Text className="block mt-[16rpx] text-caption text-muted-foreground">
               {t('study.totalMinutes')}
             </Text>
           </View>
-          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[24rpx] rounded-lg border border-border bg-card">
             <Text className="text-headline text-success">{info.continuousDays}</Text>
             <Text className="block mt-[16rpx] text-caption text-muted-foreground">
               {t('study.continuousDays')}
             </Text>
           </View>
-          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[24rpx] rounded-lg border border-border bg-card">
             <Text className="text-headline text-success">{info.courses}</Text>
             <Text className="block mt-[16rpx] text-caption text-muted-foreground">
               {t('study.courses')}
@@ -160,7 +160,7 @@ export default function StudyIndex() {
             {recent.map((r) => (
               <View
                 key={r.id}
-                className="p-[28rpx] rounded-lg border border-border bg-card"
+                className="p-[24rpx] rounded-lg border border-border bg-card"
                 hoverClass="opacity-60"
                 onClick={() => goVideo(r)}
               >

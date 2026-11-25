@@ -135,7 +135,7 @@ export default function DeveloperWithdrawal() {
           </Text>
         </View>
         {/* 汇总卡 — 对齐 RN balanceCard(padding 14/radius 12/白卡,value 28 700) */}
-        <View className="flex bg-card rounded-lg p-[28rpx] mb-[24rpx]">
+        <View className="flex bg-card rounded-lg p-[24rpx] mb-[24rpx]">
           <View className="flex-1 flex flex-col items-center">
             <Text className="text-body text-muted-foreground">
               {t('developer.income.withdrawnYuan')}

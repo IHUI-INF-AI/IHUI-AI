@@ -362,7 +362,7 @@ export default function AgentDetailPage() {
   // 详情取不到 ⇒ 整屏错误态(对齐共享屏 ErrorState:重试重发详情请求)
   if (loadFailed && !agent) {
     return (
-      <View className="min-h-screen bg-background px-[20rpx] pt-[24rpx]">
+      <View className="min-h-screen bg-background px-4 pt-[24rpx]">
         <ErrorState
           message={t('agentDetail.loadFailed')}
           onRetry={() => {
@@ -412,7 +412,7 @@ export default function AgentDetailPage() {
             </View>
           )}
           {agent && (
-            <View className="mx-[20rpx] my-[24rpx] bg-card rounded-lg p-[28rpx]">
+            <View className="mx-[20rpx] my-[24rpx] bg-card rounded-lg p-[24rpx]">
               <View className="flex items-center">
                 <Image
                   className="w-[160rpx] h-[160rpx] rounded-xl bg-muted"
@@ -505,7 +505,7 @@ export default function AgentDetailPage() {
             />
           )}
           {agent?.prologue && (
-            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg p-[28rpx]">
+            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg p-[24rpx]">
               <Text className="text-caption text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.prologue')}
               </Text>
@@ -514,7 +514,7 @@ export default function AgentDetailPage() {
           )}
           {/* 使用教程 / 示例对话(对齐原项目 exampleDialog) */}
           {exampleDialogs.length > 0 && (
-            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg p-[28rpx]">
+            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg p-[24rpx]">
               <Text className="text-caption text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.exampleDialog')}
               </Text>
@@ -543,7 +543,7 @@ export default function AgentDetailPage() {
             </View>
           )}
           {agent?.systemPrompt && (
-            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg p-[28rpx]">
+            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg p-[24rpx]">
               <Text className="text-caption text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.promptLabel')}
               </Text>
@@ -586,7 +586,7 @@ export default function AgentDetailPage() {
                 {related.map((r) => (
                   <View
                     key={r.id}
-                    className="inline-block w-[200rpx] bg-card rounded-lg p-[28rpx] mr-[24rpx] align-top"
+                    className="inline-block w-[200rpx] bg-card rounded-lg p-[24rpx] mr-[24rpx] align-top"
                     onClick={() => onRelatedClick(r.id)}
                     hoverClass="opacity-60"
                   >

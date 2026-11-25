@@ -141,7 +141,7 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
       </View>
 
       {/* 收益卡(对齐 RN earningsCard:累计 / 已提现 / 待结算 + 提现按钮 + 门槛提示) */}
-      <View className="mt-[20rpx] p-[28rpx] rounded-xl bg-card">
+      <View className="mt-[20rpx] p-[24rpx] rounded-xl bg-card">
         <View className="flex flex-row items-start justify-between">
           <View className="flex flex-col items-center flex-1">
             <Text className="text-title-lg text-foreground whitespace-nowrap">
@@ -202,7 +202,7 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
           {products.map((item) => (
             <View
               key={item.id}
-              className="p-[28rpx] rounded-xl bg-card"
+              className="p-[24rpx] rounded-xl bg-card"
             >
               <Text className="block text-body font-semibold text-foreground">{item.title}</Text>
               <View className="mt-[12rpx] flex flex-row items-center justify-between">

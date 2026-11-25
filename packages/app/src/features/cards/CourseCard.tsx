@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnHue, rnHueTintOnly, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnHue, rnHueTintOnly, rnRadius, rnSpacing, rnSpacingFor, rnType } from '@ihui/design-tokens'
 
 import { Fragment, useMemo } from 'react'
 import type { ReactNode } from 'react'
@@ -170,7 +170,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     pressed: { opacity: 0.85 },
     cover: { width: '100%', height: 128, backgroundColor: tk.surface.card },
-    body: { padding: rnSpacing['md-loose'], gap: rnSpacing.sm },
+    body: { padding: rnSpacingFor.cardPad, gap: rnSpacing.sm },
     title: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
     description: { fontSize: rnType.body.size, color: tk.text.secondary },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm, flexWrap: 'wrap' },

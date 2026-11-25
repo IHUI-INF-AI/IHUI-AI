@@ -60,7 +60,7 @@ export function RecordStats({ stats }: { stats: StudyStats | null }) {
   ]
 
   return (
-    <View className="bg-card rounded-lg p-[28rpx] mb-[24rpx] flex flex-col gap-[24rpx]">
+    <View className="bg-card rounded-lg p-[24rpx] mb-[24rpx] flex flex-col gap-[24rpx]">
       {rows.map((row, i) => (
         <View key={i} className="flex">
           {row.map((cell) => (
