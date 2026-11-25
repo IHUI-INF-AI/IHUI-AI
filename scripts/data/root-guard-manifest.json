@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-25T05:03:48.608Z",
+  "sealedAt": "2026-11-25T05:08:59.026Z",
   "sealedBy": "root-guard --seal",
-  "reason": "tmp 累积清扫器接入 guardian 派发腿,git-guardian 指纹随之更新(仅新增 pruneTmpScratch 函数与一行主循环调用)",
+  "reason": "回植被整份退回的 pruneTmpScratch 派发腿,git-guardian 指纹恢复为 68944122411b 面",
   "targets": [
     {
       "id": "guardian-runner",
