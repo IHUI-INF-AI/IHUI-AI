@@ -2655,6 +2655,12 @@
           "markdownDescription": "Enables the embedded_browser_open command without any pre-configured scope."
         },
         {
+          "description": "Enables the embedded_browser_pip command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-pip",
+          "markdownDescription": "Enables the embedded_browser_pip command without any pre-configured scope."
+        },
+        {
           "description": "Enables the embedded_browser_state command without any pre-configured scope.",
           "type": "string",
           "const": "allow-embedded-browser-state",
@@ -3469,6 +3475,12 @@
           "type": "string",
           "const": "deny-embedded-browser-open",
           "markdownDescription": "Denies the embedded_browser_open command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_pip command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-pip",
+          "markdownDescription": "Denies the embedded_browser_pip command without any pre-configured scope."
         },
         {
           "description": "Denies the embedded_browser_state command without any pre-configured scope.",

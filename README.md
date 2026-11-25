@@ -83,6 +83,15 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 <!-- END GENERATED NUMBERS -->
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-25**
+- 🚀 新功能/改进:检查点标签五语言词条 (b00fc1b9)
+- 🚀 新功能/改进:检查点标签按 label_key 本地化 (756abbaa)
+- 🚀 新功能/改进:内置检查点补稳定翻译键 (bdadab0d)
+- 🚀 新功能/改进:内嵌浏览器原生置顶画中画小窗 (a3571ce9)
+- 🚀 新功能/改进:画中画任务面板五语言词条 (0176bb37)
+- 🚀 新功能/改进:画中画任务面板与模板入口 (a40f25c4)
+- 🚀 新功能/改进:浏览器任务模板与检查点状态机 (bbe89c05)
+
 **2026-11-24**
 - 🚀 新功能/改进:双端首页横向边线统一并收口全仓 token；同批办公会话收尾 (fc6fc179)
 - 🐞 修复:补齐 finance:ledger:view|manage 权限点(真库 0 行导致任何角色都授不出,仅管理员 bypass 可用) (16738e1f)

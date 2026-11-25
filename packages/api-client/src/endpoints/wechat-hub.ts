@@ -44,6 +44,8 @@ import type {
   WechatKnowledgeHit,
   WechatMcpTool,
   WechatMessageView,
+  WechatMomentArchiveInput,
+  WechatMomentArchiveView,
   WechatMomentFetchInput,
   WechatMomentFetchResult,
   WechatMomentInput,
@@ -516,6 +518,22 @@ export async function fetchWechatMoments(
     },
   )
   if (!res.success) throw new Error(res.error || '遍历朋友圈失败')
+  return res.data
+}
+
+/** GET /api/wechat-hub/accounts/:id/moments/archive */
+export async function fetchWechatMomentArchive(
+  accountId: string,
+  input: WechatMomentArchiveInput = {},
+): Promise<WechatMomentArchiveView> {
+  const params = new URLSearchParams()
+  if (input.limit !== undefined) params.set('limit', String(input.limit))
+  const query = params.toString()
+  const res = await fetchApi<WechatMomentArchiveView>(
+    `/wechat-hub/accounts/${accountId}/moments/archive${query ? `?${query}` : ''}`,
+    { method: 'GET' },
+  )
+  if (!res.success) throw new Error(res.error || '获取朋友圈归档失败')
   return res.data
 }
 

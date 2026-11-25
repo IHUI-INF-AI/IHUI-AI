@@ -27,9 +27,12 @@ import {
   clampPipSize,
   readStoredPipSize,
   resolveBrowserPipStatus,
+  resolveBrowserPipTaskView,
   storePipSize,
+  type BrowserPipCheckpoint,
   type BrowserPipPhase,
   type BrowserPipStatusKind,
+  type BrowserPipTaskView,
 } from './browser-pip-core'
 
 interface DocumentPictureInPictureLike {
@@ -52,6 +55,13 @@ export interface BrowserPipLabels extends BrowserPipBaseLabels {
   error: string
   stalled: (seconds: number) => string
   tooSmall: string
+  /** 检查点任务条 */
+  checkpointProgress: (done: number, total: number) => string
+  checkpointWaiting: (label: string) => string
+  continueLabel: string
+  taskFailed: string
+  /** 内置检查点 label_key → 本地化文案;缺省时回退服务端 label。 */
+  checkpointLabels?: Record<string, string>
 }
 
 export interface BrowserPipMonitorOptions {
@@ -69,6 +79,8 @@ export interface BrowserPipHandle {
   close(): void
   /** 外部把会话状态推到浮窗(AI 暂停等人工 / 任务失败) */
   setPhase(phase: BrowserPipPhase): void
+  /** 外部把任务快照推进浮窗(测试/受控嵌入用;正常路径走 WebSocket) */
+  setTask(task: unknown): void
 }
 
 let pipWindow: Window | null = null
@@ -148,6 +160,9 @@ export async function openBrowserPipEmpty(
     close: () => closeBrowserPip(),
     setPhase: () => {
       /* 空态窗没有会话可推状态 */
+    },
+    setTask: () => {
+      /* 空态窗没有任务可推 */
     },
   }
   activeHandle = handle
@@ -237,6 +252,32 @@ export async function openBrowserPipMonitor(
   if (!options.title) pageTitle.style.display = 'none'
   header.append(dot, statusText, pageTitle)
 
+  // 任务条:目标 + 检查点进度。只读(pointer-events:none),高度按需出现,
+  // 没有任务时 display:none,保持原来的单行状态条布局。
+  const taskBar = makeEl(
+    doc,
+    'div',
+    'display:none;flex-direction:column;gap:2px;padding:4px 10px 5px;background:#141821;border-bottom:1px solid rgba(255,255,255,0.08);pointer-events:none;flex:none',
+  )
+  const taskTop = makeEl(doc, 'div', 'display:flex;align-items:center;gap:8px;min-width:0')
+  const goalText = makeEl(
+    doc,
+    'span',
+    'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;font-weight:600;color:#cbd5e1',
+  )
+  const progressText = makeEl(
+    doc,
+    'span',
+    'flex:none;font-size:9px;color:#9aa3af;font-variant-numeric:tabular-nums',
+  )
+  const checkpointRow = makeEl(
+    doc,
+    'div',
+    'display:flex;align-items:center;gap:8px;overflow:hidden;white-space:nowrap;font-size:9px;color:#9aa3af',
+  )
+  taskTop.append(goalText, progressText)
+  taskBar.append(taskTop, checkpointRow)
+
   const stage = makeEl(
     doc,
     'div',
@@ -276,6 +317,13 @@ export async function openBrowserPipMonitor(
     'flex:none;padding:1px 5px;border:1px solid rgba(255,255,255,0.16);border-radius:4px;font-size:9px;color:#9aa3af',
   )
   readOnlyBadge.textContent = labels.readOnly
+  const continueBtn = makeEl(
+    doc,
+    'button',
+    'display:none;flex:none;border:0;border-radius:5px;padding:3px 9px;background:#f59e0b;color:#111827;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit',
+  )
+  continueBtn.type = 'button'
+  continueBtn.textContent = labels.continueLabel
   const handover = makeEl(
     doc,
     'button',
@@ -283,8 +331,8 @@ export async function openBrowserPipMonitor(
   )
   handover.type = 'button'
   handover.textContent = labels.handover
-  footer.append(urlText, readOnlyBadge, handover)
-  root.append(header, stage, footer)
+  footer.append(urlText, readOnlyBadge, continueBtn, handover)
+  root.append(header, taskBar, stage, footer)
   doc.body.append(root)
 
   let connected = false
@@ -292,6 +340,7 @@ export async function openBrowserPipMonitor(
   let lastFrameAt = 0
   let currentUrl: string | null = null
   let closing = false
+  let taskView: BrowserPipTaskView | null = null
 
   const textFor = (kind: BrowserPipStatusKind, seconds: number): string => {
     switch (kind) {
@@ -310,6 +359,46 @@ export async function openBrowserPipMonitor(
     }
   }
 
+  const syncContinue = (): void => {
+    const active = taskView?.active
+    continueBtn.style.display = active && phase === 'waiting' ? '' : 'none'
+  }
+
+  const checkpointText = (cp: BrowserPipCheckpoint): string => {
+    const translated = cp.labelKey ? labels.checkpointLabels?.[cp.labelKey] : undefined
+    return translated || cp.label
+  }
+
+  const refreshTask = (raw: unknown): void => {
+    taskView = resolveBrowserPipTaskView(raw)
+    if (!taskView) {
+      taskBar.style.display = 'none'
+      checkpointRow.replaceChildren()
+      continueBtn.style.display = 'none'
+      return
+    }
+    taskBar.style.display = 'flex'
+    goalText.textContent = taskView.task.goal
+    goalText.title = taskView.task.goal
+    progressText.textContent = labels.checkpointProgress(taskView.done, taskView.total)
+    const nodes = taskView.task.checkpoints.map((cp) => {
+      const item = doc.createElement('span')
+      item.style.cssText = 'flex:none;display:inline-flex;align-items:center;gap:3px'
+      const icon = cp.status === 'done' ? '✓' : cp.status === 'active' ? '●' : '○'
+      const color = cp.status === 'done' ? '#86efac' : cp.status === 'active' ? '#fbbf24' : '#9aa3af'
+      const iconEl = doc.createElement('span')
+      iconEl.textContent = icon
+      iconEl.style.color = color
+      const labelEl = doc.createElement('span')
+      labelEl.textContent = checkpointText(cp)
+      labelEl.style.color = color
+      item.append(iconEl, labelEl)
+      return item
+    })
+    checkpointRow.replaceChildren(...nodes)
+    syncContinue()
+  }
+
   const refresh = (): void => {
     if (pip.closed) return
     const status = resolveBrowserPipStatus({
@@ -322,7 +411,13 @@ export async function openBrowserPipMonitor(
     const color = KIND_COLOR[status.kind]
     dot.style.background = color
     statusText.style.color = color
-    statusText.textContent = textFor(status.kind, status.stalledSeconds)
+    const activeCheckpoint = taskView?.active ?? null
+    const statusLabel =
+      status.kind === 'waiting' && activeCheckpoint
+        ? labels.checkpointWaiting(checkpointText(activeCheckpoint))
+        : textFor(status.kind, status.stalledSeconds)
+    statusText.textContent = statusLabel
+    syncContinue()
     const warn =
       status.kind === 'stalled' ||
       status.kind === 'waiting' ||
@@ -335,7 +430,7 @@ export async function openBrowserPipMonitor(
       banner.style.display = 'block'
       banner.style.background = BANNER_BG[status.kind]
       banner.style.color = '#fef3c7'
-      banner.textContent = textFor(status.kind, status.stalledSeconds)
+      banner.textContent = statusLabel
     } else if (tooSmall) {
       banner.style.display = 'block'
       banner.style.background = BANNER_BG.connecting
@@ -374,13 +469,15 @@ export async function openBrowserPipMonitor(
       try {
         const msg = JSON.parse(event.data as string) as {
           type?: string
-          data?: string
+          data?: unknown
           url?: string
           title?: string
           phase?: string
           reason?: string
+          task?: unknown
+          checkpoint?: unknown
         }
-        if (msg.type === 'frame' && msg.data) {
+        if (msg.type === 'frame' && typeof msg.data === 'string') {
           img.src = `data:image/jpeg;base64,${msg.data}`
         } else if (msg.type === 'navigation' && msg.url) {
           currentUrl = msg.url
@@ -390,6 +487,16 @@ export async function openBrowserPipMonitor(
             pageTitle.textContent = msg.title
             pageTitle.style.display = ''
           }
+          refresh()
+        } else if (msg.type === 'task') {
+          refreshTask(msg.task)
+          refresh()
+        } else if (msg.type === 'checkpoint') {
+          if (msg.task) refreshTask(msg.task)
+          refresh()
+        } else if (msg.type === 'checkpoint_result') {
+          const data = msg.data as { task?: unknown } | undefined
+          if (data?.task) refreshTask(data.task)
           refresh()
         } else if (msg.type === 'phase') {
           // 服务端人工节点状态:自动化说"停下来等人"时,浮窗不用自己猜。
@@ -424,6 +531,17 @@ export async function openBrowserPipMonitor(
   const onPageHide = () => {
     if (!closing) cleanupCurrent?.()
   }
+  const onContinue = () => {
+    const checkpointId = taskView?.active?.id
+    // 用数值 1 而不是 WebSocket.OPEN:jsdom/测试替身不必实现静态常量。
+    if (!checkpointId || !ws || ws.readyState !== 1) return
+    continueBtn.disabled = true
+    ws.send(JSON.stringify({ type: 'checkpoint_resume', checkpoint_id: checkpointId }))
+    // ACK 丢失时 1.5s 后放开按钮;服务端广播仍是唯一状态真相。
+    window.setTimeout(() => {
+      continueBtn.disabled = false
+    }, 1500)
+  }
   const onHandover = () => {
     const callback = options.onHandover
     closeBrowserPip()
@@ -438,6 +556,7 @@ export async function openBrowserPipMonitor(
   pip.addEventListener('resize', onResize)
   pip.addEventListener('pagehide', onPageHide)
   handover.addEventListener('click', onHandover)
+  continueBtn.addEventListener('click', onContinue)
   refresh()
 
   const handle: BrowserPipHandle = {
@@ -445,6 +564,10 @@ export async function openBrowserPipMonitor(
     close: () => closeBrowserPip(),
     setPhase: (next) => {
       phase = next
+      refresh()
+    },
+    setTask: (task) => {
+      refreshTask(task)
       refresh()
     },
   }
@@ -456,6 +579,7 @@ export async function openBrowserPipMonitor(
     pip.removeEventListener('resize', onResize)
     pip.removeEventListener('pagehide', onPageHide)
     handover.removeEventListener('click', onHandover)
+    continueBtn.removeEventListener('click', onContinue)
     try {
       ws?.close(1000)
     } catch {

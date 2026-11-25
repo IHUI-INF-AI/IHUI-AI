@@ -333,10 +333,8 @@ def _sync_browser_attention(user_id: str | None) -> None:
 
         pending = _pending_for_user(user_id)
         loop.create_task(
-            _browser_hub.notify_user_attention(
-                user_id,
-                "waiting" if pending else "running",
-                "agent-question" if pending else None,
+            _browser_hub.set_user_attention(
+                user_id, "agent-question", bool(pending)
             )
         )
     except Exception:

@@ -26,6 +26,7 @@ import pytest
 
 from app.services import ask_user_question as auq
 from app.services import browser_hub as bh
+from app.services import browser_task as auq_task
 
 
 @pytest.fixture(autouse=True)
@@ -1311,4 +1312,150 @@ async def test_session_helpers():
     assert h.get_session("zzz") is None
     assert h.list_sessions() == ["abc"]
     assert h.session_count == 1
+
+
+# ---------------------------------------------------------------------------
+# 任务模板 / 检查点(2026-11-25)
+# ---------------------------------------------------------------------------
+
+
+def _task_payload() -> dict:
+    return {
+        "goal": "完成支付",
+        "requirements": ["核对金额", "保留回执"],
+        "checkpoints": [
+            {"id": "checkout", "label": "进入结算页", "match": "checkout"},
+            {"id": "pay", "label": "付款前确认", "match": "pay"},
+        ],
+    }
+
+
+async def test_task_start_and_checkpoint_flow():
+    session = _make_session(page=FakePage(url="https://a.com/"))
+    snapshot = await session.start_task(_task_payload())
+    assert snapshot["goal"] == "完成支付"
+    assert snapshot["checkpoints"][0]["status"] == "pending"
+
+    data = await session.enter_checkpoint("checkout")
+    assert data["checkpoint"]["status"] == "active"
+    assert session._phase_state["phase"] == "waiting"
+    assert session._phase_state["reason"] == "checkpoint:进入结算页"
+
+    # 提问答复/审批结算这类 manual running 不能替用户放过检查点
+    await session.set_phase("running", None)
+    assert session._phase_state["phase"] == "waiting"
+
+    # 同一检查点重复进入幂等,不重复广播成新事件
+    again = await session.enter_checkpoint("checkout")
+    assert again["checkpoint"]["status"] == "active"
+
+    await session.resume_checkpoint()
+    assert session._phase_state["phase"] == "running"
+    assert session._task["checkpoints"][0]["status"] == "done"
+
+
+async def test_navigation_auto_enters_first_matching_checkpoint():
+    session = _make_session(page=FakePage(url="https://a.com/"))
+    await session.start_task(_task_payload())
+    await session._sync_after_navigation("https://a.com/checkout/pay")
+    assert session._phase_state["phase"] == "waiting"
+    assert session._task["checkpoints"][0]["status"] == "active"
+
+    # 已完成的不再触发;同一页面恢复后不重新弹
+    await session.resume_checkpoint()
+    await session._sync_after_navigation("https://a.com/checkout")
+    assert session._task["checkpoints"][0]["status"] == "done"
+    assert session._phase_state["phase"] == "running"
+
+
+async def test_task_and_checkpoint_multi_viewer_snapshots():
+    session = _make_session(page=FakePage(url="https://a.com/"))
+    task_events: list[dict] = []
+    checkpoint_events: list[dict] = []
+
+    async def on_task(state):
+        task_events.append(state)
+
+    async def on_checkpoint(state):
+        checkpoint_events.append(state)
+
+    await session.set_task_handler(on_task)
+    await session.set_checkpoint_handler(on_checkpoint)
+    await session.start_task(_task_payload())
+    assert task_events[-1]["task"]["goal"] == "完成支付"
+    assert task_events[-1]["progress"] == {"done": 0, "total": 2}
+
+    await session.enter_checkpoint("checkout")
+    assert checkpoint_events[-1]["checkpoint"]["id"] == "checkout"
+    assert checkpoint_events[-1]["progress"]["total"] == 2
+
+
+async def test_clear_task_and_close_reset_task_state():
+    session = _make_session(page=FakePage(url="https://a.com/"))
+    await session.start_task(_task_payload())
+    await session.enter_checkpoint("checkout")
+    await session.clear_task()
+    assert session._task is None
+    assert session._phase_state["phase"] == "running"
+    assert (await session.task_state())["task"] is None
+
+    await session.start_task(_task_payload())
+    await session.close()
+    assert session._task is None
+
+
+async def test_attention_sources_are_stacked_until_all_clear():
+    """提问与审批同时在等:先结束的一方不能把另一方顶回 running。"""
+    session = _make_session(page=FakePage(url="https://a.com/"))
+    session.owner_user_id = "u-attn-stack"
+
+    await bh.set_user_attention("u-attn-stack", "agent-question", True)
+    assert session._phase_state["phase"] == "waiting"
+    assert session._phase_state["reason"] == "agent-question"
+
+    await bh.set_user_attention("u-attn-stack", "tool-approval", True)
+    assert session._phase_state["phase"] == "waiting"
+
+    await bh.set_user_attention("u-attn-stack", "agent-question", False)
+    assert session._phase_state["phase"] == "waiting"
+    assert session._phase_state["reason"] == "tool-approval"
+
+    await bh.set_user_attention("u-attn-stack", "tool-approval", False)
+    assert session._phase_state["phase"] == "running"
+
+
+async def test_attention_waiting_keeps_checkpoint_reason_and_restores_it():
+    """检查点等待优先显示具体步骤;恢复后若审批仍在等,phase 仍是 waiting。"""
+    session = _make_session(page=FakePage(url="https://a.com/"))
+    session.owner_user_id = "u-attn-cp"
+    await session.start_task(_task_payload())
+    await session.enter_checkpoint("checkout")
+    assert session._phase_state["reason"].startswith("checkpoint:")
+
+    await bh.set_user_attention("u-attn-cp", "tool-approval", True)
+    assert session._phase_state["phase"] == "waiting"
+    assert session._phase_state["reason"].startswith("checkpoint:")
+
+    await session.resume_checkpoint("checkout")
+    assert session._phase_state["phase"] == "waiting"
+    assert session._phase_state["reason"] == "tool-approval"
+
+    await bh.set_user_attention("u-attn-cp", "tool-approval", False)
+    assert session._phase_state["phase"] == "running"
+
+
+async def test_checkpoint_validation_errors():
+    session = _make_session(page=FakePage(url="https://a.com/"))
+    with pytest.raises(auq_task.TaskValidationError) as exc:
+        await session.enter_checkpoint("checkout")
+    assert exc.value.code == "task_not_started"
+
+    await session.start_task(_task_payload())
+    with pytest.raises(auq_task.TaskValidationError) as exc2:
+        await session.enter_checkpoint("ghost")
+    assert exc2.value.code == "checkpoint_not_found"
+
+    with pytest.raises(auq_task.TaskValidationError) as exc3:
+        await session.resume_checkpoint()
+    assert exc3.value.code == "checkpoint_not_active"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

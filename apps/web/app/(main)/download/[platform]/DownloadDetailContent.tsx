@@ -7,7 +7,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, ExternalLink, Globe, Package, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, ChevronRight, ExternalLink, Globe, Package, ShieldAlert } from 'lucide-react'
 
 import { Button, Card } from '@ihui/ui-react'
 import {
@@ -22,6 +22,7 @@ import { PlatformNotLaunched } from './PlatformNotLaunched'
 import { DownloadDetailHeader } from '@/components/download/DownloadDetailHeader'
 import { DownloadAssetCard } from '@/components/download/DownloadAssetCard'
 import { InstallGuideContent } from '@/components/download/InstallGuideContent'
+import { WindowsFirstRunGuide } from '@/components/download/WindowsFirstRunGuide'
 
 /**
  * 详情页主内容(client component,使用 useTranslations + useParams)
@@ -100,6 +101,26 @@ export function DownloadDetailContent({
           <h2 className="mb-3 text-body font-semibold uppercase tracking-wider text-muted-foreground/70">
             {t('downloadAssets')}
           </h2>
+          {/* 下载前的预告:Windows 用户点开安装包前就知道会看到 SmartScreen,不被"未知发布者"吓退 */}
+          {platform === 'desktop' && (
+            <a
+              href="#windows-first-run"
+              className="mb-3 flex items-start gap-2 rounded-lg border border-sky-500/25 bg-sky-500/5 px-3 py-2.5 transition-colors hover:bg-sky-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stroke-focus"
+            >
+              <ShieldAlert
+                className="mt-0.5 h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400"
+                aria-hidden="true"
+              />
+              <span className="min-w-0 flex-1 text-label leading-relaxed text-muted-foreground">
+                <span className="font-medium text-foreground">{t('downloadWinNoticeLead')}</span>
+                {t('downloadWinNotice')}
+              </span>
+              <span className="hidden shrink-0 items-center gap-0.5 text-label font-medium text-sky-700 tablet:inline-flex dark:text-sky-300">
+                {t('downloadWinNoticeCta')}
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </span>
+            </a>
+          )}
           <div className="grid gap-3">
             {meta.assets.map((asset, idx) => (
               <DownloadAssetCard
@@ -147,13 +168,9 @@ export function DownloadDetailContent({
         </section>
       )}
 
-      {/* 代码签名声明:SignPath Foundation 要求下载页明确注明签名来源 */}
-      {(platform === 'desktop' || platform === 'cli') && (
-        <p className="mb-6 flex items-start gap-2 text-label text-muted-foreground">
-          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-          <span>{t('downloadCodeSigningNotice')}</span>
-        </p>
-      )}
+      {/* Windows 首次运行引导:安装包未签 Authenticode,SmartScreen 必弹;程序层无法隐藏,
+          只能在下载页提前讲清"更多信息 → 仍要运行"。仅桌面端需要,CLI 走 npm 不涉及 exe。 */}
+      {platform === 'desktop' && <WindowsFirstRunGuide t={t} />}
 
       {/* 安装指南(CLI 显示 npm 命令 / Mobile 显示构建说明 / 其他显示通用步骤) */}
       {meta.installGuideKey && (

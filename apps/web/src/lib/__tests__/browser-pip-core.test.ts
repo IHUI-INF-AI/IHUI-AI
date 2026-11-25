@@ -17,6 +17,8 @@ import {
   looksLikeHumanGate,
   readStoredPipSize,
   resolveBrowserPipStatus,
+  normalizeBrowserPipTask,
+  resolveBrowserPipTaskView,
   storePipSize,
 } from '../browser-pip-core'
 
@@ -156,6 +158,52 @@ describe('looksLikeHumanGate:只做提示,不做判定', () => {
         lastFrameAt: 1_000_000 - PIP_STALL_MS - 1,
       }).kind,
     ).toBe('gate')
+  })
+})
+
+describe('任务模板与检查点视图', () => {
+  const raw = {
+    task_id: 'task_1',
+    template_id: 'payment-confirm',
+    goal: '完成支付',
+    requirements: ['核对金额'],
+    created_at: '2026-11-25T00:00:00Z',
+    checkpoints: [
+      { id: 'checkout', label: '进入结算页', status: 'done', done_at: '2026-11-25T00:01:00Z' },
+      { id: 'pay', label: '付款前确认', label_key: 'ck_payment_confirm_pay', status: 'active', entered_at: '2026-11-25T00:02:00Z' },
+    ],
+  }
+
+  it('snake_case 快照归一成 camelCase 任务', () => {
+    const task = normalizeBrowserPipTask(raw)
+    expect(task?.taskId).toBe('task_1')
+    expect(task?.createdAt).toBe('2026-11-25T00:00:00Z')
+    expect(task?.checkpoints[1]?.enteredAt).toBe('2026-11-25T00:02:00Z')
+    expect(task?.checkpoints[1]?.labelKey).toBe('ck_payment_confirm_pay')
+  })
+
+  it('派生视图给出进度、当前项与等待标记', () => {
+    const view = resolveBrowserPipTaskView(raw)
+    expect(view?.done).toBe(1)
+    expect(view?.total).toBe(2)
+    expect(view?.active?.id).toBe('pay')
+    expect(view?.waitingAtCheckpoint).toBe(true)
+  })
+
+  it('非法/空任务返回 null,不抛错', () => {
+    expect(normalizeBrowserPipTask(null)).toBeNull()
+    expect(normalizeBrowserPipTask({ goal: '' })).toBeNull()
+    expect(normalizeBrowserPipTask({ goal: 'x', checkpoints: [] })).toBeNull()
+    expect(normalizeBrowserPipTask({ goal: 'x', checkpoints: [{ label: '没有 id' }] })).toBeNull()
+  })
+
+  it('没有 active 时 waiting 标记为 false', () => {
+    const done = resolveBrowserPipTaskView({
+      ...raw,
+      checkpoints: raw.checkpoints.map((cp) => ({ ...cp, status: 'done' })),
+    })
+    expect(done?.active).toBeNull()
+    expect(done?.waitingAtCheckpoint).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

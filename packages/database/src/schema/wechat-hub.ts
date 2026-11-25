@@ -335,6 +335,42 @@ export const wechatHubDigestSchedules = pgTable(
   }),
 )
 
+/**
+ * 朋友圈归档表（2026-11-25 增补）。
+ * 每次 moment.fetch 成功后把抓到的动态按 (account_id, moment_key) 幂等 upsert：
+ * 重复命中只累加 seenCount、刷新 lastSeenAt；正文更长才覆盖，作者身份解析只升不降。
+ * 桥本地 JSONL 是降级数据源，本表是 API 侧的稳定历史层。
+ */
+export const wechatHubMoments = pgTable(
+  'wechat_hub_moments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    accountId: uuid('account_id')
+      .references(() => wechatHubAccounts.id, { onDelete: 'cascade' })
+      .notNull(),
+    /** 平台动态 id；缺失时由作者+正文归一化哈希生成，保证同账号内稳定去重 */
+    momentKey: varchar('moment_key', { length: 255 }).notNull(),
+    authorId: varchar('author_id', { length: 255 }),
+    authorName: varchar('author_name', { length: 255 }).default('').notNull(),
+    /** 作者是否真的映射到已知联系人/群成员；OCR 拿不到 wxid 时为 false，命中后只升不降 */
+    authorResolved: boolean('author_resolved').default(false).notNull(),
+    content: text('content').default('').notNull(),
+    mediaUrls: jsonb('media_urls').default([]).notNull(),
+    /** 动态原始时间（毫秒时间戳）；OCR 来源可能没有 */
+    createdAt: integer('created_at'),
+    source: varchar('source', { length: 32 }).default('bridge').notNull(),
+    page: integer('page'),
+    firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).defaultNow().notNull(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
+    seenCount: integer('seen_count').default(1).notNull(),
+    metadata: jsonb('metadata').notNull().default({}),
+  },
+  (t) => ({
+    accountKeyUniq: uniqueIndex('wechat_hub_moments_account_key_uniq').on(t.accountId, t.momentKey),
+    accountLastIdx: index('wechat_hub_moments_account_last_idx').on(t.accountId, t.lastSeenAt),
+  }),
+)
+
 export type WechatHubAccount = typeof wechatHubAccounts.$inferSelect
 export type NewWechatHubAccount = typeof wechatHubAccounts.$inferInsert
 export type WechatHubConversation = typeof wechatHubConversations.$inferSelect
@@ -353,4 +389,6 @@ export type WechatHubAutoReplyRule = typeof wechatHubAutoReplyRules.$inferSelect
 export type NewWechatHubAutoReplyRule = typeof wechatHubAutoReplyRules.$inferInsert
 export type WechatHubDigestSchedule = typeof wechatHubDigestSchedules.$inferSelect
 export type NewWechatHubDigestSchedule = typeof wechatHubDigestSchedules.$inferInsert
+export type WechatHubMoment = typeof wechatHubMoments.$inferSelect
+export type NewWechatHubMoment = typeof wechatHubMoments.$inferInsert
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

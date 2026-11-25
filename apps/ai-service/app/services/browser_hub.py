@@ -56,6 +56,16 @@ from playwright.sync_api import (
 )
 
 from ..core.logging import get_logger
+from .browser_task import (
+    TaskValidationError,
+    active_checkpoint,
+    first_unfinished_match,
+    mark_checkpoint_active,
+    mark_checkpoint_done,
+    normalize_task,
+    task_progress,
+    task_snapshot,
+)
 
 logger = get_logger(__name__)
 
@@ -95,13 +105,63 @@ def detect_human_gate(url: str | None) -> bool:
 # 它们不该反向依赖 BrowserHub 实例;按属主把信号扇出到已打开的会话就够了。
 _ACTIVE_SESSIONS: weakref.WeakSet[Any] = weakref.WeakSet()
 
+# 2026-11-25:人工介入信号可能同时来自多处(提问、审批),简单"谁最后说话谁定
+# phase"会让先结束的一方把仍在等待的另一方顶回 running。这里按来源记名:
+# 只要还有任意一个来源在等,phase 就是 waiting;全部撤走才回 running。
+_ATTENTION_SOURCES: dict[str, set[str]] = {}
+
+
+async def set_user_attention(
+    user_id: str | None, source: str, active: bool
+) -> int:
+    """登记/撤销某用户的一路人工介入来源,并按剩余来源扇出 phase。
+
+    返回命中的会话数。source 必须是稳定的来源名(``agent-question`` /
+    ``tool-approval``),不能用会变化的文案充当键。
+    """
+    if not user_id:
+        return 0
+    sources = _ATTENTION_SOURCES.setdefault(user_id, set())
+    if active:
+        sources.add(source)
+    else:
+        sources.discard(source)
+    if sources:
+        phase, reason = "waiting", sorted(sources)[0]
+    else:
+        _ATTENTION_SOURCES.pop(user_id, None)
+        phase, reason = "running", None
+    hits = 0
+    for session in list(_ACTIVE_SESSIONS):
+        if getattr(session, "owner_user_id", None) != user_id:
+            continue
+        # 检查点已经在等时,reason 保持 checkpoint:<label>(浮窗要显示具体步骤);
+        # 审批/提问的 waiting 不抢这条文案,等检查点恢复后再按来源重新判定。
+        if phase == "waiting" and active_checkpoint(session._task) is not None:
+            hits += 1
+            continue
+        await session.set_phase(phase, reason, source="manual")
+        hits += 1
+    return hits
+
+
+def attention_reason(user_id: str | None) -> str | None:
+    """该用户当前仍在等的人工介入来源(排序后取第一个);无则 None。"""
+    if not user_id:
+        return None
+    sources = _ATTENTION_SOURCES.get(user_id)
+    if not sources:
+        return None
+    return sorted(sources)[0]
+
 
 async def notify_user_attention(
     user_id: str | None, phase: str, reason: str | None = None
 ) -> int:
     """把某用户所有在役浏览器会话切到 phase(供 chat/agent 的等待事件调用)。
 
-    返回命中的会话数。没有属主的系统级会话不会被误伤。
+    兼容旧调用:只切一次状态,不参与来源记名。多来源场景请用
+    :func:`set_user_attention`。
     """
     if not user_id:
         return 0
@@ -924,6 +984,17 @@ class BrowserSession:
         # 谁设的:manual(编排层明确声明)/ auto(本服务按 URL 自动判 gate)/ system
         # 自动判 gate 不能把人工声明的 waiting 顶掉 —— 人明确说在等,机器别改口。
         self._phase_source = "system"
+        # 2026-11-25:任务模板 + 检查点。任务生命周期跟会话走,不进磁盘:
+        # 进程重启后旧任务复活只会让人对着一个早已结束的清单发号施令。
+        # 检查点进入 = phase waiting(source=checkpoint),只有 resume 能解除,
+        # ask_user_question / gate 的自动状态不能把它顶掉。
+        self._task: dict[str, Any] | None = None
+        self._task_handlers: list[
+            Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
+        ] = []
+        self._checkpoint_handlers: list[
+            Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
+        ] = []
         self._lock = threading.Lock()
         # 2026-11-08 运行时观测:console / network 各有独立环形缓冲,读写线程不同,
         # 由 BrowserEventBuffer 内部锁保护;enable 幂等,失败降级为"观测不可用"。
@@ -1205,9 +1276,9 @@ class BrowserSession:
                         for handler in tuple(self._navigation_handlers):
                             # title 在 sync 线程取可能为空,延迟到 main loop 取
                             self._schedule_coro(handler(url, None))
-                        # 登录/验证墙自动判:导航是唯一可靠的触发点,一次导航只判一次,
-                        # 与观众数无关(page.on 只挂了一条监听)。
-                        self._schedule_coro(self._sync_gate_phase(url))
+                        # 登录/验证墙自动判 + 任务检查点自动进入:导航是唯一可靠的
+                        # 触发点,一次导航只判一次,与观众数无关(page.on 只挂了一条监听)。
+                        self._schedule_coro(self._sync_after_navigation(url))
                 except Exception as e:
                     logger.debug(f"[browser_hub] navigation 回调异常: {e}")
             self._page.on("framenavigated", _on_frame_navigated)
@@ -1250,6 +1321,187 @@ class BrowserSession:
         if on_phase in self._phase_handlers:
             self._phase_handlers.remove(on_phase)
 
+    # ---- 任务模板 / 检查点(2026-11-25)----
+    async def set_task_handler(
+        self, on_task: Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
+    ) -> None:
+        """登记任务观众;登记即补发快照,晚连的浮窗立刻看到目标与进度。"""
+        if on_task not in self._task_handlers:
+            self._task_handlers.append(on_task)
+        try:
+            await on_task(self._task_state())
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.debug(f"[browser_hub] task 快照发送失败(跳过): {e}")
+
+    async def remove_task_handler(
+        self, on_task: Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
+    ) -> None:
+        if on_task in self._task_handlers:
+            self._task_handlers.remove(on_task)
+
+    async def set_checkpoint_handler(
+        self, on_checkpoint: Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
+    ) -> None:
+        if on_checkpoint not in self._checkpoint_handlers:
+            self._checkpoint_handlers.append(on_checkpoint)
+
+    async def remove_checkpoint_handler(
+        self, on_checkpoint: Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
+    ) -> None:
+        if on_checkpoint in self._checkpoint_handlers:
+            self._checkpoint_handlers.remove(on_checkpoint)
+
+    def _task_state(self) -> dict[str, Any]:
+        return {
+            "task": task_snapshot(self._task),
+            "progress": task_progress(self._task),
+        }
+
+    async def _broadcast_task(self) -> None:
+        state = self._task_state()
+        for handler in tuple(self._task_handlers):
+            try:
+                await handler(state)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.debug(f"[browser_hub] task 观众接收失败(跳过): {e}")
+
+    async def _broadcast_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        state = {
+            "checkpoint": {
+                "id": checkpoint.get("id"),
+                "label": checkpoint.get("label"),
+                "status": checkpoint.get("status"),
+                "entered_at": checkpoint.get("entered_at"),
+                "done_at": checkpoint.get("done_at"),
+            },
+            "task": task_snapshot(self._task),
+            "progress": task_progress(self._task),
+        }
+        for handler in tuple(self._checkpoint_handlers):
+            try:
+                await handler(state)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.debug(f"[browser_hub] checkpoint 观众接收失败(跳过): {e}")
+
+    async def start_task(self, payload: object) -> dict[str, Any]:
+        """绑定任务模板。非法载荷抛 TaskValidationError,由路由转 400。"""
+        task = normalize_task(payload)
+        self._task = task
+        # 旧任务的检查点等待不能带到新任务上:新任务从 running 起跑。
+        if self._phase_state.get("phase") == "waiting" and str(
+            self._phase_state.get("reason") or ""
+        ).startswith("checkpoint:"):
+            await self.set_phase("running", None, source="checkpoint")
+        snapshot = task_snapshot(self._task)
+        assert snapshot is not None
+        await self._broadcast_task()
+        return snapshot
+
+    async def clear_task(self) -> None:
+        self._task = None
+        if self._phase_state.get("phase") == "waiting" and str(
+            self._phase_state.get("reason") or ""
+        ).startswith("checkpoint:"):
+            await self.set_phase("running", None, source="checkpoint")
+        await self._broadcast_task()
+
+    async def task_state(self) -> dict[str, Any]:
+        return self._task_state()
+
+    async def enter_checkpoint(
+        self, checkpoint_id: str, reason: str | None = None
+    ) -> dict[str, Any]:
+        """进入检查点:置 active + phase waiting,并 fan-out 给所有观众。"""
+        if not self._task:
+            raise TaskValidationError("task_not_started", "当前会话还没有绑定任务")
+        active = active_checkpoint(self._task)
+        if active is not None and str(active.get("id")) == str(checkpoint_id):
+            # 幂等:自动化轮询式调用不会把同一个检查点反复广播成新事件。
+            return {
+                "checkpoint": {
+                    "id": active.get("id"),
+                    "label": active.get("label"),
+                    "status": active.get("status"),
+                },
+                "task": task_snapshot(self._task),
+            }
+        checkpoint = mark_checkpoint_active(self._task, checkpoint_id)
+        label = str(checkpoint.get("label") or checkpoint_id)
+        await self.set_phase(
+            "waiting",
+            reason or f"checkpoint:{label}",
+            source="checkpoint",
+        )
+        await self._broadcast_checkpoint(checkpoint)
+        return {
+            "checkpoint": {
+                "id": checkpoint.get("id"),
+                "label": checkpoint.get("label"),
+                "status": checkpoint.get("status"),
+            },
+            "task": task_snapshot(self._task),
+        }
+
+    async def resume_checkpoint(self, checkpoint_id: str | None = None) -> dict[str, Any]:
+        """恢复检查点(幂等)。只有检查点造成的 waiting 会被收回 running。"""
+        if not self._task:
+            raise TaskValidationError("task_not_started", "当前会话还没有绑定任务")
+        target = checkpoint_id
+        if not target:
+            active = active_checkpoint(self._task)
+            if active is None:
+                raise TaskValidationError("checkpoint_not_active", "当前没有等待中的检查点")
+            target = str(active.get("id"))
+        checkpoint = mark_checkpoint_done(self._task, target)
+        if self._phase_state.get("phase") == "waiting" and str(
+            self._phase_state.get("reason") or ""
+        ).startswith("checkpoint:"):
+            # 检查点恢复后不能一律回 running:审批/提问可能还在等,按来源续上。
+            pending_reason = attention_reason(self.owner_user_id)
+            if pending_reason:
+                await self.set_phase("waiting", pending_reason, source="manual")
+            else:
+                await self.set_phase("running", None, source="checkpoint")
+        await self._broadcast_checkpoint(checkpoint)
+        return {
+            "checkpoint": {
+                "id": checkpoint.get("id"),
+                "label": checkpoint.get("label"),
+                "status": checkpoint.get("status"),
+            },
+            "task": task_snapshot(self._task),
+        }
+
+    async def _sync_task_checkpoint(self, url: str) -> None:
+        """导航后按任务顺序自动进入第一个命中的未完成检查点。
+
+        命中多个取第一个未完成;已完成的不再触发;已在等待同一项时不重复广播。
+        """
+        if not self._task:
+            return
+        active = active_checkpoint(self._task)
+        if active is not None:
+            return
+        hit = first_unfinished_match(self._task, url)
+        if hit is None:
+            return
+        try:
+            await self.enter_checkpoint(str(hit.get("id")), f"checkpoint:{hit.get('label')}")
+        except TaskValidationError as e:
+            logger.debug(f"[browser_hub] 自动检查点跳过: {e.code}")
+
+    async def _sync_after_navigation(self, url: str) -> None:
+        """一次导航只跑一遍:先登录闸,再任务检查点(检查点优先级更高)。"""
+        await self._sync_gate_phase(url)
+        await self._sync_task_checkpoint(url)
+
+
     async def set_phase(
         self, phase: str, reason: str | None = None, *, source: str = "manual"
     ) -> dict[str, Any]:
@@ -1260,6 +1512,15 @@ class BrowserSession:
         source=auto 是服务端按 URL 自动判的 gate;它不会覆盖人工声明的 waiting。
         """
         normalized = phase if phase in self._PHASE_VALUES else "running"
+        # 检查点等待是比普通 waiting 更强的人工节点:只有 resume_checkpoint
+        # (source=checkpoint)能把它收回 running。提问答复、审批结算、gate 自动判定
+        # 都不能替用户把"还没确认的这一步"放过去。
+        if (
+            normalized == "running"
+            and source != "checkpoint"
+            and active_checkpoint(self._task) is not None
+        ):
+            return dict(self._phase_state)
         next_state = {"phase": normalized, "reason": reason}
         if normalized == self._phase_state.get("phase") and reason == self._phase_state.get("reason"):
             self._phase_source = source
@@ -1280,7 +1541,9 @@ class BrowserSession:
 
         人工声明的 waiting 是更高优先级:人已经说在等,自动判据不改口。
         """
-        if self._phase_source == "manual" and self._phase_state.get("phase") == "waiting":
+        if self._phase_source in ("manual", "checkpoint") and self._phase_state.get(
+            "phase"
+        ) == "waiting":
             return
         if detect_human_gate(url):
             if self._phase_state.get("phase") != "gate":
@@ -1436,6 +1699,7 @@ class BrowserSession:
     # ---- 关闭 ----
     async def close(self) -> None:
         """关闭会话。"""
+        self._task = None
         await self.stop_screencast()
         def _sync_close() -> None:
             if self._cdp:

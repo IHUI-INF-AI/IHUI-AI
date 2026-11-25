@@ -9,16 +9,22 @@
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { rmSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const PORT = 18848
 const BASE = `http://127.0.0.1:${PORT}`
 const SECRET = 'bridge-test-secret'
-const QUEUE_FILE = process.env.BRIDGE_TEST_QUEUE_FILE ?? '.bridge-test-queue.jsonl'
-const MOMENTS_FILE = process.env.BRIDGE_TEST_MOMENTS_FILE ?? '.bridge-test-moments.jsonl'
+const BASE_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
+const QUEUE_FILE = process.env.BRIDGE_TEST_QUEUE_FILE ?? join(BASE_DIR, '.bridge-test-queue.jsonl')
+const MOMENTS_FILE = process.env.BRIDGE_TEST_MOMENTS_FILE ?? join(BASE_DIR, '.bridge-test-moments.jsonl')
+const ARCHIVE_FILE = process.env.BRIDGE_TEST_ARCHIVE_FILE ?? join(BASE_DIR, '.bridge-test-archive.jsonl')
 rmSync(QUEUE_FILE, { force: true })
 rmSync(MOMENTS_FILE, { force: true })
+rmSync(ARCHIVE_FILE, { force: true })
 
 const child = spawn(process.execPath, ['server.mjs'], {
+  cwd: join(dirname(fileURLToPath(import.meta.url)), '..'),
   env: {
     ...process.env,
     BRIDGE_DRIVER: 'mock',
@@ -26,6 +32,7 @@ const child = spawn(process.execPath, ['server.mjs'], {
     BRIDGE_SECRET: SECRET,
     BRIDGE_QUEUE_FILE: QUEUE_FILE,
     BRIDGE_MOMENTS_FILE: MOMENTS_FILE,
+    BRIDGE_MOMENT_ARCHIVE: ARCHIVE_FILE,
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 })
@@ -144,6 +151,15 @@ try {
   if (!momentFetch.ok || momentFetch.data?.fetched !== 2) throw new Error('moment.fetch 失败')
   if (momentFetch.data.moments?.[0]?.id !== 'mock-moment-1')
     throw new Error('moment.fetch 返回内容不符')
+  if (momentFetch.data.archive?.total !== 2) throw new Error('moment.fetch 未写入归档')
+
+  const archive = await (
+    await fetch(`${BASE}/moments/archive?limit=10`, {
+      headers: { Authorization: `Bearer ${SECRET}` },
+    })
+  ).json()
+  if (!archive.ok || archive.total !== 2 || archive.moments?.length !== 2)
+    throw new Error('朋友圈归档读取失败')
 
   const unsupported = await api('/action', { action: 'unknown.action' })
   if (unsupported.status !== 'unsupported') throw new Error('未知动作未返回 unsupported')
@@ -154,5 +170,6 @@ try {
   await once(child, 'exit').catch(() => {})
   rmSync(QUEUE_FILE, { force: true })
   rmSync(MOMENTS_FILE, { force: true })
+  rmSync(ARCHIVE_FILE, { force: true })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

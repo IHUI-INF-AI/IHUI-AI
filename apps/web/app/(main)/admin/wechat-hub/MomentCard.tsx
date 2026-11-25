@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 朋友圈发布卡：文本 + 最多 9 张图片 URL，仅 bridge 后端。
+ * 朋友圈发布卡：文本 + 最多 9 张图片 URL，仅 bridge 后端；含遍历结果语义展示与归档查询面板。
  */
 
 'use client'
@@ -24,6 +24,8 @@ import {
 import { Alert } from '@/components/feedback'
 import type { WechatActionResult, WechatMomentFetchResult } from '@ihui/types'
 import { wechatHubApi } from './wechat-hub-api'
+import { describeMomentFetchStatus } from './moment-status'
+import MomentArchivePanel from './MomentArchivePanel'
 
 function momentTime(value: number | null): string {
   if (!value) return '时间未识别'
@@ -74,6 +76,15 @@ export default function MomentCard({ accountId }: { accountId: string }) {
       setFetchError(e instanceof Error ? e.message : '遍历朋友圈失败')
     },
   })
+
+  const fetchStatus = fetchResult
+    ? describeMomentFetchStatus({
+        stopReason: fetchResult.stopReason,
+        limitReached: fetchResult.limitReached,
+        occludedBy: fetchResult.occludedBy,
+        fetched: fetchResult.fetched,
+      })
+    : null
 
   return (
     <Card>
@@ -141,27 +152,15 @@ export default function MomentCard({ accountId }: { accountId: string }) {
             </Button>
           </div>
           {fetchError ? <Alert variant="danger" title="遍历失败" description={fetchError} /> : null}
-          {fetchResult ? (
+          {fetchResult && fetchStatus ? (
             <Alert
-              variant={
-                fetchResult.fetched > 0
-                  ? 'success'
-                  : fetchResult.result.status === 'unsupported'
-                    ? 'warning'
-                    : 'warning'
-              }
-              title={
-                fetchResult.fetched > 0
-                  ? `抓到 ${fetchResult.fetched} 条动态`
-                  : fetchResult.result.status === 'unsupported'
-                    ? '当前后端不支持'
-                    : '没有抓到动态'
-              }
+              variant={fetchStatus.tone}
+              title={fetchStatus.title}
               description={
-                fetchResult.reason ??
-                `来源 ${fetchResult.source ?? 'bridge'}，${fetchResult.pages} 页${
-                  fetchResult.partial ? '，达到页数上限' : ''
-                }`
+                <>
+                  {fetchStatus.description}
+                  {fetchResult.archive ? ` · 归档 ${fetchResult.archive.total} 条` : ''}
+                </>
               }
             />
           ) : null}
@@ -186,6 +185,7 @@ export default function MomentCard({ accountId }: { accountId: string }) {
             </div>
           ) : null}
         </div>
+        <MomentArchivePanel accountId={accountId} />
         {result ? (
           <Alert
             variant={result.ok ? 'success' : result.status === 'unsupported' ? 'warning' : 'danger'}
@@ -215,4 +215,3 @@ export default function MomentCard({ accountId }: { accountId: string }) {
     </Card>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

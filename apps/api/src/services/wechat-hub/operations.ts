@@ -9,6 +9,7 @@
  * 服务层不伪造成功，UI 直接展示原因。
  */
 
+import { createHash } from 'node:crypto'
 import { and, eq, notInArray, sql } from 'drizzle-orm'
 import { wechatHubContacts, wechatHubConversations, wechatHubGroupMembers } from '@ihui/database'
 import type {
@@ -16,13 +17,18 @@ import type {
   WechatBridgeAction,
   WechatGroupActionInput,
   WechatGroupMembersSyncResult,
+  WechatMomentArchiveItemView,
+  WechatMomentArchiveStat,
+  WechatMomentArchiveView,
   WechatMomentFetchInput,
   WechatMomentFetchResult,
   WechatMomentInput,
+  WechatMomentStopReason,
   WechatMomentView,
 } from '@ihui/types'
 import { db, dbRead } from '../../db/index.js'
 import { AppError } from '../../errors/AppError.js'
+import { logger } from '../../utils/logger.js'
 import {
   assertAccountForUser,
   assertContactForAccount,
@@ -30,6 +36,7 @@ import {
 } from './guards.js'
 import { wechatHubManager } from './manager.js'
 import { listGroupMembers } from './contacts.js'
+import { countMomentsArchive, listMomentsArchive, upsertMoments } from './moments-store.js'
 
 type JsonRecord = Record<string, unknown>
 
@@ -469,11 +476,81 @@ function readMoment(raw: JsonRecord): WechatMomentView | null {
     id,
     authorId: asString(raw.authorId),
     authorName: asString(raw.authorName) ?? '未知好友',
+    authorResolved: raw.authorResolved === true,
     content,
     mediaUrls: asStringArray(raw.mediaUrls),
     createdAt,
     source: asString(raw.source) ?? 'bridge',
     page,
+  }
+}
+
+const MOMENT_STOP_REASONS: readonly WechatMomentStopReason[] = [
+  'page-limit',
+  'scroll-stalled',
+  'occluded',
+  'no-more-data',
+  'no-content',
+  'error',
+  'unsupported',
+]
+
+function readStopReason(value: unknown): WechatMomentStopReason | null {
+  return typeof value === 'string' && (MOMENT_STOP_REASONS as readonly string[]).includes(value)
+    ? (value as WechatMomentStopReason)
+    : null
+}
+
+function normalizedMomentText(text: string): string {
+  return text.toLowerCase().replace(/[\s\u3000【】\[\]〔〕〖〗·•，,。.：:；;！!？?、]/gu, '')
+}
+
+/** 归档去重键：平台动态 id 优先；缺失时退化为作者+正文哈希，保证同账号内稳定。 */
+function momentKeyOf(moment: WechatMomentView): string {
+  if (moment.id) return moment.id
+  const author = moment.authorName.trim() || '~'
+  const digest = createHash('sha256')
+    .update(`${author}\u0000${normalizedMomentText(moment.content)}`)
+    .digest('hex')
+    .slice(0, 16)
+  return `h:${digest}`
+}
+
+/** 桥本地归档记录归一化成对外视图；缺正文的脏行丢弃。 */
+function readArchiveItem(raw: JsonRecord, index: number): WechatMomentArchiveItemView | null {
+  const content = asString(raw.content)
+  if (!content) return null
+  const now = new Date().toISOString()
+  const page = typeof raw.page === 'number' && Number.isFinite(raw.page) ? raw.page : undefined
+  return {
+    id: asString(raw.id) ?? `bridge-moment-${index}`,
+    authorId: asString(raw.authorId),
+    authorName: asString(raw.authorName) ?? '朋友圈好友',
+    authorResolved: raw.authorResolved === true,
+    content,
+    mediaUrls: asStringArray(raw.mediaUrls),
+    createdAt:
+      typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt) ? raw.createdAt : null,
+    source: asString(raw.source) ?? 'bridge',
+    firstSeenAt: asString(raw.firstSeenAt) ?? now,
+    lastSeenAt: asString(raw.lastSeenAt) ?? now,
+    seenCount:
+      typeof raw.seenCount === 'number' && Number.isFinite(raw.seenCount)
+        ? Math.max(1, Math.floor(raw.seenCount))
+        : 1,
+    ...(page !== undefined ? { page } : {}),
+  }
+}
+
+function readMomentArchive(value: unknown): WechatMomentArchiveStat | undefined {
+  const raw = asRecord(value)
+  if (!raw) return undefined
+  const number = (key: string): number =>
+    typeof raw[key] === 'number' && Number.isFinite(raw[key]) ? Math.max(0, raw[key]) : 0
+  return {
+    added: number('added'),
+    updated: number('updated'),
+    total: number('total'),
   }
 }
 
@@ -500,6 +577,45 @@ export async function fetchMoments(
     .filter((item): item is WechatMomentView => item !== null)
   const pages =
     typeof data.pages === 'number' && Number.isFinite(data.pages) ? Math.max(0, data.pages) : 0
+  const partial = data.partial === true
+
+  // 终止原因优先透传桥上报；桥没给或给了非法值时按可见证据回退，绝不把 page-limit 显示成失败。
+  let stopReason = readStopReason(data.stopReason)
+  if (stopReason === null) {
+    if (result.status === 'unsupported') stopReason = 'unsupported'
+    else if (partial && pages >= maxPages) stopReason = 'page-limit'
+    else if (moments.length === 0) stopReason = 'no-content'
+  }
+  const limitReached =
+    typeof data.limitReached === 'boolean' ? data.limitReached : stopReason === 'page-limit'
+  const occludedBy = asString(data.occludedBy)
+
+  // 抓取成功后归档入库；写库失败只 warn，不影响本次抓取结果与桥原因返回。
+  let archive = readMomentArchive(data.archive)
+  if (result.ok && moments.length > 0) {
+    try {
+      archive = await upsertMoments(
+        accountId,
+        moments.map((moment) => ({
+          momentKey: momentKeyOf(moment),
+          authorId: moment.authorId,
+          authorName: moment.authorName,
+          authorResolved: moment.authorResolved === true,
+          content: moment.content,
+          mediaUrls: moment.mediaUrls,
+          createdAt: moment.createdAt,
+          source: moment.source,
+          page: moment.page,
+        })),
+      )
+    } catch (e) {
+      logger.warn('[wechat-hub] 朋友圈归档入库失败', {
+        err: e instanceof Error ? e.message : String(e),
+        accountId,
+      })
+    }
+  }
+
   return {
     moments,
     fetched:
@@ -508,9 +624,64 @@ export async function fetchMoments(
         : moments.length,
     pages,
     source: asString(data.source),
-    partial: data.partial === true,
+    partial,
+    stopReason,
+    limitReached,
+    occludedBy,
     reason: asString(data.reason) ?? result.reason,
+    archive,
     result,
+  }
+}
+
+const ARCHIVE_DEFAULT_LIMIT = 50
+const ARCHIVE_MAX_LIMIT = 500
+
+function clampArchiveLimit(value: number | undefined): number {
+  if (!Number.isFinite(value)) return ARCHIVE_DEFAULT_LIMIT
+  return Math.min(Math.max(Math.trunc(Number(value)), 1), ARCHIVE_MAX_LIMIT)
+}
+
+/**
+ * 归档查询：优先读数据库；库不可用降级读桥本地 JSONL；两者都不可用返回空结果并写明原因。
+ * 任何一层失败都不抛 500 伪装成功，storage 字段标明这次数据来自哪里。
+ */
+export async function listMomentArchive(
+  userId: string,
+  accountId: string,
+  input: { limit?: number } = {},
+): Promise<WechatMomentArchiveView> {
+  await assertAccountForUser(userId, accountId)
+  const limit = clampArchiveLimit(input.limit)
+
+  try {
+    const moments = await listMomentsArchive(accountId, limit)
+    const total = await countMomentsArchive(accountId)
+    return { storage: 'database', total, moments, limit, reason: null }
+  } catch (dbError) {
+    const dbReason = dbError instanceof Error ? dbError.message : String(dbError)
+    const bridge = await wechatHubManager.readMomentArchive(userId, accountId, limit)
+    if (bridge.ok) {
+      const moments = bridge.moments
+        .map((item) => asRecord(item))
+        .filter((item): item is JsonRecord => item !== null)
+        .map((item, index) => readArchiveItem(item, index))
+        .filter((item): item is WechatMomentArchiveItemView => item !== null)
+      return {
+        storage: 'bridge',
+        total: bridge.total,
+        moments,
+        limit,
+        reason: `数据库归档暂不可用，已降级读取桥本地归档：${dbReason}`,
+      }
+    }
+    return {
+      storage: 'none',
+      total: 0,
+      moments: [],
+      limit,
+      reason: `数据库归档不可用（${dbReason}）；桥本地归档也不可用（${bridge.reason ?? '未知原因'}）`,
+    }
   }
 }
 

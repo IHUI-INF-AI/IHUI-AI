@@ -98,6 +98,15 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-25**
+- 🚀 Feature/Improvement:检查点标签五语言词条 (b00fc1b9)
+- 🚀 Feature/Improvement:检查点标签按 label_key 本地化 (756abbaa)
+- 🚀 Feature/Improvement:内置检查点补稳定翻译键 (bdadab0d)
+- 🚀 Feature/Improvement:内嵌浏览器原生置顶画中画小窗 (a3571ce9)
+- 🚀 Feature/Improvement:画中画任务面板五语言词条 (0176bb37)
+- 🚀 Feature/Improvement:画中画任务面板与模板入口 (a40f25c4)
+- 🚀 Feature/Improvement:浏览器任务模板与检查点状态机 (bbe89c05)
+
 **2026-11-24**
 - 🚀 Feature/Improvement:双端首页横向边线统一并收口全仓 token；同批办公会话收尾 (fc6fc179)
 - 🐞 Fix:补齐 finance:ledger:view|manage 权限点(真库 0 行导致任何角色都授不出,仅管理员 bypass 可用) (16738e1f)

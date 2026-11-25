@@ -34,6 +34,7 @@ import {
   fetchWechatMcpTools,
   fetchWechatMessages,
   fetchWechatMoments,
+  fetchWechatMomentArchive,
   fetchWechatQrCode,
   fetchWechatStatus,
   ingestWechatKnowledge,
@@ -86,6 +87,8 @@ import type {
   WechatKnowledgeHit,
   WechatMcpTool,
   WechatMessageView,
+  WechatMomentArchiveInput,
+  WechatMomentArchiveView,
   WechatMomentFetchInput,
   WechatMomentFetchResult,
   WechatMomentInput,
@@ -220,6 +223,11 @@ export const wechatHubApi = {
     input: WechatMomentFetchInput = {},
   ): Promise<WechatMomentFetchResult> =>
     call(() => fetchWechatMoments(id, input), '遍历朋友圈失败'),
+  fetchMomentArchive: (
+    id: string,
+    input: WechatMomentArchiveInput = {},
+  ): Promise<WechatMomentArchiveView> =>
+    call(() => fetchWechatMomentArchive(id, input), '获取朋友圈归档失败'),
   knowledge: (id: string): Promise<WechatKnowledgeDocView[]> =>
     call(() => fetchWechatKnowledge(id), '获取知识库失败'),
   ingestKnowledge: (id: string, input: { title: string; text: string }) =>

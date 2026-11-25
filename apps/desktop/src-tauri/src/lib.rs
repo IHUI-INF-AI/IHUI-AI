@@ -5742,6 +5742,7 @@ pub fn run() {
             embedded_browser::embedded_browser_state,
             embedded_browser::embedded_browser_new_tab,
             embedded_browser::embedded_browser_devtools,
+            embedded_browser::embedded_browser_pip,
             store_browser::store_account_open,
             store_browser::store_account_url,
             store_browser::store_account_session,

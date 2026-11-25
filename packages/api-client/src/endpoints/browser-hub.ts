@@ -135,6 +135,64 @@ export async function browserHubReload(sessionId: string): Promise<ApiResult<Bro
   })
 }
 
+/** 内置任务模板(2026-11-25,与服务端 browser_task 同字段) */
+export interface BrowserTaskTemplate {
+  id: string
+  goal: string
+  requirements: string[]
+  checkpoints: Array<{ id: string; label: string; match: string | null }>
+}
+
+/** 会话内检查点状态 */
+export interface BrowserTaskCheckpoint {
+  id: string
+  label: string
+  match: string | null
+  status: 'pending' | 'active' | 'done'
+  entered_at: string | null
+  done_at: string | null
+}
+
+/** 会话内任务快照 */
+export interface BrowserTaskSnapshot {
+  task_id: string
+  template_id: string | null
+  goal: string
+  requirements: string[]
+  checkpoints: BrowserTaskCheckpoint[]
+  status: 'active' | 'cleared'
+  created_at: string | null
+}
+
+export interface BindBrowserTaskRequest {
+  template_id?: string
+  goal?: string
+  requirements?: string[]
+  checkpoints?: Array<{ id: string; label: string; match?: string | null }>
+}
+
+/** 内置模板目录(只读) */
+export async function listBrowserTaskTemplates(): Promise<
+  ApiResult<{ templates: BrowserTaskTemplate[]; count: number }>
+> {
+  return fetchApi<{ templates: BrowserTaskTemplate[]; count: number }>(
+    '/api/browser/task-templates',
+    { method: 'GET' },
+  )
+}
+
+/** 给会话绑定任务模板 */
+export async function bindBrowserTask(
+  sessionId: string,
+  req: BindBrowserTaskRequest,
+): Promise<ApiResult<{ task: BrowserTaskSnapshot }>> {
+  return fetchApi<{ task: BrowserTaskSnapshot }>(
+    `/api/browser/sessions/${sessionId}/task`,
+    { method: 'POST', body: JSON.stringify(req) },
+  )
+}
+
+
 /**
  * 构建 Browser Hub WebSocket URL。
  *
