@@ -22,16 +22,31 @@ import { db } from '../db/index.js'
 import { integrationConfigs } from '@ihui/database'
 import { and, eq } from 'drizzle-orm'
 import { config } from '../config/index.js'
+import { CredentialVault } from '@ihui/auth'
 
 interface TokenCache {
   accessToken: string
   expiresAt: number // ms epoch
 }
 
-const tokenCache: Record<string, TokenCache | null> = {
-  workwechat: null,
-  wechat: null,
-  dingtalk: null,
+// RP-4/L09：token 只以 AES-GCM 密文形式驻留进程内存，数据密钥由 OS keyring/DPAPI 包裹；
+// 本服务不写 checkpoint 文件（凭据来自数据库/环境变量，刷新结果仅进程内缓存）。
+const tokenVault = new CredentialVault()
+
+async function readCachedToken(provider: string): Promise<TokenCache | null> {
+  const raw = tokenVault.get(`third-party-token:${provider}`)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as TokenCache
+    if (!parsed.accessToken || !Number.isFinite(parsed.expiresAt)) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function writeCachedToken(provider: string, cache: TokenCache): void {
+  tokenVault.set(`third-party-token:${provider}`, JSON.stringify(cache))
 }
 
 const REFRESH_LEEWAY_MS = 5 * 60 * 1000 // 提前 5 分钟刷新
@@ -114,7 +129,7 @@ export interface RefreshResult {
  */
 export async function refreshWorkWechatToken(): Promise<RefreshResult> {
   // 缓存未过期,跳过
-  const cache = tokenCache.workwechat
+  const cache = await readCachedToken('workwechat')
   if (cache && cache.expiresAt - REFRESH_LEEWAY_MS > Date.now()) {
     return { provider: 'workwechat', refreshed: false, expiresAt: cache.expiresAt }
   }
@@ -137,14 +152,15 @@ export async function refreshWorkWechatToken(): Promise<RefreshResult> {
     }
     if (!data.access_token) throw new Error('missing access_token')
     const expiresIn = (data.expires_in ?? 7200) * 1000
-    tokenCache.workwechat = {
+    const next: TokenCache = {
       accessToken: data.access_token,
       expiresAt: Date.now() + expiresIn,
     }
+    writeCachedToken('workwechat', next)
     return {
       provider: 'workwechat',
       refreshed: true,
-      expiresAt: tokenCache.workwechat!.expiresAt,
+      expiresAt: next.expiresAt,
     }
   } catch (e) {
     return {
@@ -160,7 +176,7 @@ export async function refreshWorkWechatToken(): Promise<RefreshResult> {
  * 刷新微信公众号 access_token(7200s 过期)
  */
 export async function refreshWechatToken(): Promise<RefreshResult> {
-  const cache = tokenCache.wechat
+  const cache = await readCachedToken('wechat')
   if (cache && cache.expiresAt - REFRESH_LEEWAY_MS > Date.now()) {
     return { provider: 'wechat', refreshed: false, expiresAt: cache.expiresAt }
   }
@@ -183,11 +199,12 @@ export async function refreshWechatToken(): Promise<RefreshResult> {
     }
     if (!data.access_token) throw new Error('missing access_token')
     const expiresIn = (data.expires_in ?? 7200) * 1000
-    tokenCache.wechat = {
+    const next: TokenCache = {
       accessToken: data.access_token,
       expiresAt: Date.now() + expiresIn,
     }
-    return { provider: 'wechat', refreshed: true, expiresAt: tokenCache.wechat!.expiresAt }
+    writeCachedToken('wechat', next)
+    return { provider: 'wechat', refreshed: true, expiresAt: next.expiresAt }
   } catch (e) {
     return {
       provider: 'wechat',
@@ -202,7 +219,7 @@ export async function refreshWechatToken(): Promise<RefreshResult> {
  * 刷新钉钉 access_token(7200s 过期)
  */
 export async function refreshDingTalkToken(): Promise<RefreshResult> {
-  const cache = tokenCache.dingtalk
+  const cache = await readCachedToken('dingtalk')
   if (cache && cache.expiresAt - REFRESH_LEEWAY_MS > Date.now()) {
     return { provider: 'dingtalk', refreshed: false, expiresAt: cache.expiresAt }
   }
@@ -232,11 +249,12 @@ export async function refreshDingTalkToken(): Promise<RefreshResult> {
     }
     if (!data.access_token) throw new Error('missing access_token')
     const expiresIn = (data.expires_in ?? 7200) * 1000
-    tokenCache.dingtalk = {
+    const next: TokenCache = {
       accessToken: data.access_token,
       expiresAt: Date.now() + expiresIn,
     }
-    return { provider: 'dingtalk', refreshed: true, expiresAt: tokenCache.dingtalk!.expiresAt }
+    writeCachedToken('dingtalk', next)
+    return { provider: 'dingtalk', refreshed: true, expiresAt: next.expiresAt }
   } catch (e) {
     return {
       provider: 'dingtalk',
@@ -247,11 +265,11 @@ export async function refreshDingTalkToken(): Promise<RefreshResult> {
   }
 }
 
-/** 暴露给业务层获取当前缓存的 token(只读) */
-export function getCachedAccessToken(
+/** 暴露给业务层获取当前缓存的 token(只读；凭据经保险库解密后临时返回) */
+export async function getCachedAccessToken(
   provider: 'workwechat' | 'wechat' | 'dingtalk',
-): string | null {
-  const cache = tokenCache[provider]
+): Promise<string | null> {
+  const cache = await readCachedToken(provider)
   if (!cache) return null
   if (cache.expiresAt - REFRESH_LEEWAY_MS <= Date.now()) return null
   return cache.accessToken
