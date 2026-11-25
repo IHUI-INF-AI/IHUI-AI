@@ -301,13 +301,32 @@ mod tests {
         assert!(validate_pipe_name(r"\\.\pipe\a\b").is_err());
     }
 
+    /// Windows 的 CreateNamedPipeW 会把 SDDL 里的 owner SID 拿去解析/校验;
+    /// 假 SID 在部分机器上直接 INVALID_HANDLE_VALUE(本机 2026-11-25 全 lib 实测),
+    /// 所以自检必须用当前登录用户的真 SID,而不是常量假号。
+    fn current_user_sid() -> Option<String> {
+        let out = std::process::Command::new("whoami")
+            .args(["/user", "/fo", "csv", "/nh"])
+            .output()
+            .ok()?;
+        if !out.status.success() {
+            return None;
+        }
+        String::from_utf8_lossy(&out.stdout)
+            .split(|c: char| c == '"' || c == ',' || c.is_whitespace())
+            .find(|part| part.starts_with("S-1-5-21-"))
+            .map(str::to_string)
+    }
+
     #[test]
     fn selftest_returns_reason_instead_of_unprotected_pipe() {
-        let report = selftest(SID, "ihui-acl-selftest");
-        // Windows 上应能创建；非 Windows 必须是明确 Unsupported，不能假装 ok。
+        // Windows 上应能创建;非 Windows 必须是明确 Unsupported,不能假装 ok。
         if cfg!(windows) {
-            assert!(report.ok, "detail={}", report.detail);
+            let sid = current_user_sid().expect("whoami /user 取不到当前用户 SID");
+            let report = selftest(&sid, "ihui-acl-selftest");
+            assert!(report.ok, "sid={sid} detail={}", report.detail);
         } else {
+            let report = selftest(SID, "ihui-acl-selftest");
             assert!(!report.ok);
             assert!(report.detail.contains("Unsupported") || report.detail.contains("unsupported"));
         }

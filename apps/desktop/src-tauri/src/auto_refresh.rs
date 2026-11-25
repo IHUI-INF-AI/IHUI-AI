@@ -1858,14 +1858,9 @@ mod tests {
         );
         const M_OFFLINE_FALLBACK: &str = concat!("启动探活失败 →", " 离线兜底页");
 
-        // 唯一性:准入调用点与常驻循环都只许一枚 —— 多一枚就说明出现了第二条循环
-        // 或第二套判据,本锁的区间判定随即失去意义。
-        assert_eq!(
-            SRC.matches(M_LOOP).count(),
-            1,
-            "常驻循环应恰有一处(现 {} 处)⇒ 准入闸可能被绕在另一条循环外面",
-            SRC.matches(M_LOOP).count()
-        );
+        // 唯一性:准入调用点只许一枚;常驻循环只在准入之后,且该区间内只许一枚。
+        // 不能对全文数常驻循环标记:响应体分块读取也有一条合法循环,全文计数会把
+        // 正常的分块读取误判成"第二条常驻循环"(2026-11-25 全 lib 实测踩到)。
         assert_eq!(
             SRC.matches(M_ADMISSION).count(),
             1,
@@ -1874,7 +1869,14 @@ mod tests {
         );
 
         let admission = SRC.find(M_ADMISSION).expect("准入闸不见了");
-        let loop_at = SRC.find(M_LOOP).expect("常驻循环不见了");
+        let after_admission = &SRC[admission..];
+        assert_eq!(
+            after_admission.matches(M_LOOP).count(),
+            1,
+            "准入闸之后应恰有一处常驻循环(现 {} 处)⇒ 准入闸可能被绕在另一条循环外面",
+            after_admission.matches(M_LOOP).count()
+        );
+        let loop_at = admission + after_admission.find(M_LOOP).expect("常驻循环不见了");
         assert!(
             admission < loop_at,
             "准入闸排在常驻循环之后 ⇒ 创建失败时循环已经起来,本票修的就是这一型(反证)"
