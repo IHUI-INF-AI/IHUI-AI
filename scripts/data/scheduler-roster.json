@@ -48,6 +48,14 @@
       "dailyAt": "03:30",
       "note": "每日审计;CalendarTrigger 型,改成登录触发就等于不跑"
     },
+    "IHUI-Security-Audit-Policy": {
+      "everyMinutes": 360,
+      "note": "审计策略哨兵(2026-11-26 立):策略被关掉时下游所有哨兵读到的都是「空窗」,按 §0.3 应判未判定而旧实现会判绿。6 小时是因为审计策略变更本身低频;若有人把它改成登录触发或删掉 Repetition,这条维会当场点名。"
+    },
+    "IHUI-Security-Event-Intake": {
+      "everyMinutes": 15,
+      "note": "安全事件增量落盘(2026-11-26 立):Security 日志只保留 4.6 小时,抽取间隔就是「最坏丢失窗口」;15 分钟 = 日志窗口的 1/18,留足重试余量。它停了之后日志照滚、台账不再增长 —— 这种静默死亡只能靠这条声明维抓住。"
+    },
     "IHUI-Attack-Attribution": {
       "dailyAt": "04:10",
       "note": "攻击归因日报;CalendarTrigger 型,改成登录触发就等于不跑"

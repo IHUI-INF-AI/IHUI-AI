@@ -5,8 +5,8 @@
 'use client'
 
 import * as React from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { Loader2, MessageSquare, RefreshCw, Users } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AudioLines, Loader2, MessageSquare, RefreshCw, Users } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import type { WechatMessageView } from '@ihui/types'
@@ -27,7 +27,48 @@ function formatTime(value: string | null): string {
   }).format(new Date(value))
 }
 
-function MessageBubble({ message }: { message: WechatMessageView }) {
+function MessageBubble({
+  message,
+  accountId,
+  readOnly,
+}: {
+  message: WechatMessageView
+  accountId: string
+  readOnly?: boolean
+}) {
+  const qc = useQueryClient()
+  const [voiceNote, setVoiceNote] = React.useState<{
+    level: 'info' | 'warning' | 'error'
+    text: string
+  } | null>(null)
+
+  const transcribeMutation = useMutation({
+    mutationFn: () => wechatHubApi.transcribeVoice(accountId, { messageId: message.id }),
+    onSuccess: (result) => {
+      // 单条入口只回单条结构；兜底遇到批量结构时不展示任何占位文本，交给列表刷新。
+      if (!('items' in result)) {
+        if (result.stub) {
+          setVoiceNote({
+            level: 'warning',
+            text: '转写引擎暂不可用（本地模型未就绪），未写入检索库',
+          })
+        } else {
+          setVoiceNote({ level: 'info', text: '转写完成' })
+        }
+      } else {
+        setVoiceNote(null)
+      }
+      void qc.invalidateQueries({ queryKey: ['wechat-hub', 'messages', accountId] })
+    },
+    onError: (error) => {
+      setVoiceNote({
+        level: 'error',
+        text: error instanceof Error ? error.message : '语音转写失败',
+      })
+      void qc.invalidateQueries({ queryKey: ['wechat-hub', 'messages', accountId] })
+    },
+  })
+
   const outbound = message.direction === 'outbound'
   return (
     <div className={cn('flex w-full', outbound ? 'justify-end' : 'justify-start')}>
@@ -52,6 +93,35 @@ function MessageBubble({ message }: { message: WechatMessageView }) {
           >
             {message.mediaUrl}
           </a>
+        ) : null}
+        {message.kind === 'voice' && !readOnly ? (
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => transcribeMutation.mutate()}
+              disabled={transcribeMutation.isPending}
+            >
+              {transcribeMutation.isPending ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <AudioLines className="mr-1 h-3 w-3" />
+              )}
+              转写
+            </Button>
+            {voiceNote ? (
+              <span
+                className={cn(
+                  'text-xs',
+                  voiceNote.level === 'warning' && 'text-amber-600 dark:text-amber-500',
+                  voiceNote.level === 'error' && 'text-red-600 dark:text-red-500',
+                  voiceNote.level === 'info' && 'opacity-80',
+                )}
+              >
+                {voiceNote.text}
+              </span>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </div>
@@ -230,7 +300,12 @@ export default function ConversationsPanel({
           ) : (
             <div className="max-h-[560px] space-y-2 overflow-y-auto pr-1">
               {messages.map((message) => (
-                <MessageBubble key={message.id} message={message} />
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  accountId={accountId}
+                  readOnly={readOnly}
+                />
               ))}
             </div>
           )}

@@ -131,6 +131,12 @@ interface ForwardSuccess {
   latencyMs: number
   /** 格②：该耗时是否通过 单调×墙钟 交叉校验(false = 仅保留观测,未喂熔断) */
   latencyTrusted: boolean
+  /**
+   * 号池内换号交代(2026-11-26 立):本轮在账号池里换过号才有此字段。
+   * 消费方 = /ws/relay/chat,向「我的号池」通路的用户交代"你的哪个号被限流/额度不足、
+   * 换到了哪个号"(自己的账号资产,用户有权知道)。平台/直连渠道不产生此字段。
+   */
+  accountSwitch?: { fromName: string; toName: string; reason: string }
 }
 
 interface ForwardFailure {

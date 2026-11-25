@@ -590,6 +590,12 @@ const nextConfig: NextConfig = {
         // 此规则只匹配 /api/browser/sessions/*,不影响旧端点。
         // WebSocket(/api/browser/ws/*)不走 Next.js rewrites,前端直连 ws://localhost:8803(dev)。
         {
+          // 2026-11-26:可视化模板编辑器新增的模板 CRUD 同样注册在 ai-service 8803,
+          // 必须排在 /api/browser/sessions 与 /api/:path* 之前,否则会被 8802 兜底成 404。
+          source: '/api/browser/task-templates/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/browser/task-templates/:path*`,
+        },
+        {
           source: '/api/browser/sessions/:path*',
           destination: `${IHUI_AI_PROXY_TARGET}/api/browser/sessions/:path*`,
         },

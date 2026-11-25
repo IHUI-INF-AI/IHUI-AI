@@ -281,22 +281,23 @@ export default function Community() {
     }
   }, [])
 
-  /** 加载我的收藏智能体 */
+  /** 加载我拥有的智能体(GET /agents/my,按当前账号过滤;区别于「我的收藏」) */
   const loadMyAgents = useCallback(async () => {
     try {
-      const collectRes = await api.getAgentCollections()
-      const rawList = extractList(collectRes) as Array<{
-        id: string
-        agentName?: string
-        agentAvatar?: string
-        isNew?: number
+      const mineRes = await api.get<{
+        list?: Array<{ agentId: string; name?: string; avatar?: string }>
+      }>('/agents/my', { page: 1, pageSize: 6 })
+      const rawList = extractList(mineRes) as Array<{
+        agentId: string
+        name?: string
+        avatar?: string
       }>
       setMyAgents(
         rawList.map((a) => ({
-          id: a.id,
-          agentName: a.agentName || '',
-          agentAvatar: a.agentAvatar || '',
-          isNew: a.isNew ?? 0,
+          id: a.agentId,
+          agentName: a.name || '',
+          agentAvatar: a.avatar || '',
+          isNew: 0,
         })),
       )
     } catch {
@@ -328,7 +329,7 @@ export default function Community() {
   // G-933 冷启动门控：下面三支是个性化数据 —— loadHistoryChat → GET /api/ai/history
   // (ai-user-model-chat.ts:448 处理器用 request.userId!，插件级 preHandler :246，前缀 /api/ai
   // 见 routes/index.ts:828)、loadRecentAgents → GET /agents/use-history 与 loadMyAgents →
-  // GET /agents/collections(miniapp-compat-routes.ts:1331/:1352 各自 if (!(await checkAuth)) return)，
+  // GET /agents/my(均为鉴权端点,处理器内 checkAuth 未过即 return)，
   // 均需鉴权。而 loadData/loadBanners/loadCategories 是公开内容流，**必须照发** —— 本页是 tab 首屏，
   // 整块挡会让游客白屏，所以只把这三支延后到判定落定。
   const { waitUntilReady } = useAuthReadyGate()
@@ -833,7 +834,7 @@ export default function Community() {
             {/* RecentAgents 最近使用(对齐原项目, v-if recentAgents.length > 0) */}
             {recentAgents.length > 0 ? <RecentAgents recentAgents={recentAgents} /> : null}
 
-            {/* MyAgents 我的AI APP(对齐原项目, v-if myAgents.length > 0) */}
+            {/* MyAgents 我的智能体(对齐原项目, v-if myAgents.length > 0) */}
             {myAgents.length > 0 ? <MyAgents myAgents={myAgents} /> : null}
 
             {/* ai-list 智能体列表(对齐原项目 ailist_content) */}

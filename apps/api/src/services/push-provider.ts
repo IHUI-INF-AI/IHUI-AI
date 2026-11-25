@@ -15,6 +15,12 @@
  * - FCM_PROJECT_ID: Firebase 项目 ID（启用 FCM 必填）
  * - FCM_SERVICE_ACCOUNT_KEY: Firebase 服务账号 JSON（base64 编码，启用 FCM 必填）
  * - GETUI_APP_ID / GETUI_APP_KEY / GETUI_MASTER_SECRET: 个推凭证（启用个推必填）
+ *
+ * 2026-11-26 补 Expo 直发腿：RN 客户端用 `getExpoPushTokenAsync()` 注册，拿到的是
+ * `ExponentPushToken[...]` 形态，FCM v1 会直接拒收（token 不是 FCM registration token）。
+ * 故 sendPush 先按 **token 形态** 路由：Expo 形态走 exp.host（Expo 代为转发到 FCM/APNs），
+ * 其余 token 才按 env 选 FCM/个推。Expo 托管推送不需要本项目自持 Firebase 私钥；
+ * 若项目在 Expo 侧开启了推送访问控制，则配 EXPO_ACCESS_TOKEN（可选）。
  */
 
 import { env } from 'node:process'
@@ -39,7 +45,7 @@ async function fetchWithTimeout(
 // 类型定义
 // =============================================================================
 
-export type PushProvider = 'fcm' | 'getui' | 'stub'
+export type PushProvider = 'fcm' | 'getui' | 'expo' | 'stub'
 
 export interface PushMessage {
   /** 推送标题 */
@@ -50,6 +56,17 @@ export interface PushMessage {
   clickUrl?: string
   /** 业务自定义数据（可选） */
   data?: Record<string, unknown>
+  /**
+   * Android 通知渠道 id（可选）。仅对 FCM/Android 生效：App 不在前台时由系统按渠道
+   * 响铃/静音；iOS 与 web 推送不读取该字段，行为不受影响。取值由
+   * `resolveAndroidNotificationTarget` 派生，服务端不另抄渠道映射。
+   */
+  channelId?: string
+  /**
+   * Android res/raw 音源名（不含扩展名，可选）。仅对 FCM/Android 生效；静音渠道不带。
+   * iOS/web 不读取。
+   */
+  sound?: string
 }
 
 export interface PushTarget {
@@ -179,11 +196,19 @@ async function sendFcm(target: PushTarget, message: PushMessage): Promise<PushRe
   for (const [k, v] of Object.entries(message.data ?? {})) {
     fcmData[k] = typeof v === 'string' ? v : (JSON.stringify(v) ?? '')
   }
+  // Android 渠道/音源:只把实际存在的字段写进 android.notification;两个都没有时
+  // 不出现空的 android 对象,保持现网消息体字节不变(FCM HTTP v1 结构)。
+  const androidNotification: Record<string, string> = {}
+  if (message.channelId) androidNotification.channel_id = message.channelId
+  if (message.sound) androidNotification.sound = message.sound
   const body = {
     message: {
       token: target.token,
       notification: { title: message.title, body: message.body },
       data: fcmData,
+      ...(Object.keys(androidNotification).length > 0
+        ? { android: { notification: androidNotification } }
+        : {}),
       ...(message.clickUrl ? { webpush: { fcm_options: { link: message.clickUrl } } } : {}),
     },
   }
@@ -280,6 +305,8 @@ async function sendGetui(target: PushTarget, message: PushMessage): Promise<Push
     return { provider: 'getui', success: false, error: '个推 token 获取失败' }
   }
   const url = `https://restapi.getui.com/v2/${appId}/push/single/cid`
+  // 个推 REST 的 notification 没有 channel_id / sound 字段可映射:渠道与铃声由个推
+  // 其 SDK/通道默认通知行为承载,这里不伪造对称字段。channelId/sound 仅在 FCM 腿生效。
   const body = {
     request_id: randomUUID(),
     audience: { cid: [target.token] },
@@ -317,10 +344,86 @@ async function sendGetui(target: PushTarget, message: PushMessage): Promise<Push
 }
 
 // =============================================================================
+// Expo 托管推送（expo-server-sdk 的 REST 等价形态，不引依赖）
+// =============================================================================
+
+/** RN 侧 `getExpoPushTokenAsync()` 产出的 token：`ExponentPushToken[...]` 或 `ExpoPushToken[...]`。 */
+const EXPO_PUSH_TOKEN_PATTERN = /^(?:Exponent|Expo)PushToken\[\S+\]$/
+
+/** 判断 token 是否为 Expo 托管推送 token（FCM v1 不能用这类 token）。 */
+export function isExpoPushToken(token: string): boolean {
+  return EXPO_PUSH_TOKEN_PATTERN.test(token)
+}
+
+interface ExpoTicket {
+  status?: 'ok' | 'error'
+  id?: string
+  message?: string
+  details?: { error?: string }
+}
+
+async function sendExpo(target: PushTarget, message: PushMessage): Promise<PushResult> {
+  const url = 'https://exp.host/--/api/v2/push/send'
+  // Android 自定义提示音由**渠道**决定（渠道在 App 内经 setNotificationChannelAsync 预建，
+  // 音源是打包进 App 的 res/raw）；这里只传 channelId、不传 sound —— 夸平台传 sound
+  // 在 iOS 侧会变成「找不到声音文件 ⇒ 静音」，在 Android 侧又被渠道覆盖，等于白写。
+  const payload: Record<string, unknown> = {
+    to: target.token,
+    title: message.title,
+    body: message.body,
+    priority: 'high',
+    ...(message.channelId ? { channelId: message.channelId } : {}),
+    ...(message.data ? { data: message.data } : {}),
+  }
+  const accessToken = env.EXPO_ACCESS_TOKEN
+  try {
+    const resp = await fetchWithTimeout(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      // 官方契约是数组（单条也要包一层），响应 data 也可能是数组。
+      body: JSON.stringify([payload]),
+    })
+    const bodyText = await resp.text()
+    if (!resp.ok) {
+      return {
+        provider: 'expo',
+        success: false,
+        error: `Expo ${resp.status}: ${bodyText.slice(0, 200)}`,
+      }
+    }
+    let ticket: ExpoTicket | undefined
+    try {
+      const parsed = JSON.parse(bodyText) as { data?: ExpoTicket | ExpoTicket[] }
+      ticket = Array.isArray(parsed.data) ? parsed.data[0] : parsed.data
+    } catch {
+      return { provider: 'expo', success: false, error: 'Expo 响应不是 JSON' }
+    }
+    if (!ticket) return { provider: 'expo', success: false, error: 'Expo 响应缺 data' }
+    if (ticket.status === 'error') {
+      const detail = ticket.details?.error ? ` (${ticket.details.error})` : ''
+      return {
+        provider: 'expo',
+        success: false,
+        error: `${ticket.message ?? 'Expo 推送失败'}${detail}`,
+      }
+    }
+    return { provider: 'expo', success: true, messageId: ticket.id }
+  } catch (e) {
+    return { provider: 'expo', success: false, error: (e as Error).message }
+  }
+}
+
+// =============================================================================
 // 统一入口
 // =============================================================================
 
 export async function sendPush(target: PushTarget, message: PushMessage): Promise<PushResult> {
+  // 形态优先：Expo 形态的 token 不属于任何自持 provider，必须先分流（否则 FCM 直接拒收）。
+  if (isExpoPushToken(target.token)) return sendExpo(target, message)
   const provider = detectPushProvider()
   if (provider === 'fcm') return sendFcm(target, message)
   if (provider === 'getui') return sendGetui(target, message)

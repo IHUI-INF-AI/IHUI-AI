@@ -53,14 +53,14 @@
         "desc": "自己進化するスキル市場:導入・評価・購読"
       },
       "connectors": {
-        "title": "中国語コネクタ",
+        "title": "コネクタ",
         "desc": "Yuque・Feishu・WeCom・DingTalk のドキュメントを接続"
       }
     },
     "bundles": {
       "contentCreator": {
         "title": "コンテンツ制作バンドル",
-        "desc": "執筆と公開ワークフローの統合入口:AI スキル、Skill マーケット、中国語コネクタ"
+        "desc": "執筆と公開ワークフローの統合入口:AI スキル、Skill マーケット、コネクタ"
       },
       "developerExtension": {
         "title": "開発者拡張バンドル",
@@ -6137,7 +6137,7 @@
     }
   },
   "connectors": {
-    "title": "中文コネクタ",
+    "title": "コネクタ",
     "subtitle": "語雀/飛書/企業微信/钉钉を接続し、会話から中文ナレッジプラットフォームの文書を直接読めるようにします",
     "count": "コネクタ {count} 件",
     "add": "コネクタを追加",
@@ -8712,30 +8712,6 @@
           "title": "メディアファイルの数が上限を超えています",
           "action": "添付を減らして再試行"
         },
-        "MEMORY_DREAM_FAILED": {
-          "title": "記憶の統合に失敗しました",
-          "action": "しばらくしてから再試行してください"
-        },
-        "MEMORY_FORGET_FAILED": {
-          "title": "記憶の整理に失敗しました",
-          "action": "しばらくしてから再試行してください"
-        },
-        "MEMORY_PROCEDURAL_SAVE_FAILED": {
-          "title": "ツール使用記憶の保存に失敗しました",
-          "action": "しばらくしてから再試行してください"
-        },
-        "MEMORY_RECALL_FAILED": {
-          "title": "記憶の検索に失敗しました",
-          "action": "しばらくしてから再試行してください"
-        },
-        "MEMORY_SAVE_FAILED": {
-          "title": "記憶の保存に失敗しました",
-          "action": "しばらくしてから再試行してください"
-        },
-        "MEMORY_TOPICS_FAILED": {
-          "title": "記憶テーマの生成に失敗しました",
-          "action": "しばらくしてから再試行してください"
-        },
         "MISSING_DATA": {
           "title": "必須パラメータがありません",
           "action": "パラメータを補って再試行"
@@ -9625,10 +9601,14 @@
       "createDraftPullRequestFailed": "Draft PR の作成に失敗しました"
     },
     "pictureInPicture": {
+      "autoMonitor": "新しいセッションを自動監視",
       "task": "タスク",
       "pin": "常に最前面",
       "unpin": "最前面を解除",
       "reconnect": "再接続",
+      "close": "閉じる",
+      "minimize": "最小化",
+      "expandWindow": "展開",
       "expandTask": "タスク詳細を展開",
       "collapseTask": "タスク詳細を折りたたむ",
       "title": "ピクチャーインピクチャー",
@@ -9654,6 +9634,48 @@
       "templateForm": "フォーム送信確認",
       "templatePayment": "支払い確認",
       "templateDownload": "ダウンロード確認",
+      "templateEditorMenu": "監視テンプレートを管理",
+      "templateEditorTitle": "監視タスクテンプレート",
+      "templateEditorHint": "目標・実行要件・確認ポイントは画中画タスクと共に送信され、保存後は端末をまたいで利用できます。",
+      "templateCatalog": "テンプレート一覧",
+      "templateNew": "新規テンプレート",
+      "templateLoading": "読み込み中…",
+      "templateLoadFailed": "テンプレート一覧の読み込みに失敗",
+      "templateRetry": "再試行",
+      "templateCustomBadge": "カスタム",
+      "templateBuiltinBadge": "組み込み",
+      "templateRun": "画中画を開く",
+      "templateEdit": "編集",
+      "templateName": "テンプレート名",
+      "templateNamePlaceholder": "例：経費精算の確認",
+      "templateTimeout": "確認ポイントの待機上限",
+      "templateTimeoutOption": "{minutes} 分",
+      "templateGoal": "タスク目標",
+      "templateGoalPlaceholder": "今回達成することを一文で",
+      "templateRequirements": "実行要件",
+      "templateAddRequirement": "要件を追加",
+      "templateRequirementPlaceholder": "例：送信前に金額を確認",
+      "templateRemoveRequirement": "この要件を削除",
+      "templateCheckpoints": "手動確認ポイント",
+      "templateAddCheckpoint": "確認ポイントを追加",
+      "templateCheckpointId": "確認ポイント ID",
+      "templateCheckpointLabel": "確認ポイント名",
+      "templateCheckpointLabelPlaceholder": "例：支払い前に確認",
+      "templateCheckpointMatch": "一致するパス/パラメータ（任意）",
+      "templateCheckpointHint": "一致判定は URL のパス区切りまたは query キー名の完全一致で、部分一致は行いません。",
+      "templateRemoveCheckpoint": "この確認ポイントを削除",
+      "templateCancel": "キャンセル",
+      "templateSave": "保存",
+      "templateSaved": "テンプレートを保存しました",
+      "templateSaveFailed": "保存に失敗",
+      "templateDeleteFailed": "削除に失敗",
+      "templateDeleted": "テンプレートを削除しました",
+      "templateEmptyEditor": "左からテンプレートを選んで編集するか、新規作成してください。",
+      "templateNameRequired": "テンプレート名を入力してください",
+      "templateGoalRequired": "タスク目標を入力してください",
+      "templateCheckpointRequired": "確認ポイントを最低 1 つ残してください",
+      "templateCheckpointIdInvalid": "確認ポイント ID は小文字英数字、_、- のみ使用できます",
+      "templateCheckpointLabelRequired": "確認ポイント名を入力してください",
       "templateNoSession": "まずワークパネルでブラウザタブを開いてから、テンプレート監視を開始してください。",
       "ckLoginHandoffLogin": "ログインページを検出",
       "ckLoginHandoffVerify": "認証コード送信済み",
@@ -11464,6 +11486,7 @@
       "exportPdf": "PDF をエクスポート"
     },
     "fallbackNotice": "バックアップモデル {backup} に切り替えました(元モデル {primary} は一時的に利用不可)",
+    "fallbackAccountSwitch": "予備アカウント {backup} が応答({primary} はレート制限または枠不足のため自動切替)",
     "fallbackNoticeQuota": "今回の回答は {backup} が生成しました（{primary} を提供する事業者のアカウント利用枠が上限に達したため、同一系列の利用可能なモデルに自動で切り替えました）。",
     "feedbackRecorded": "フィードバックを記録しました",
     "foldPolicy": {
@@ -15185,10 +15208,7 @@
       "symbolPlaceholder": "銘柄コード（例: AAPL / 600519）",
       "time": "時間",
       "title": "AI 株価分析",
-      "tokenBalance": "AI ポイント残高",
-      "permanent": "永久ポイント",
-      "daily": "本日付与",
-      "dailyHint": "毎日 100 ポイント付与（当日のみ有効）",
+      "tokenBalance": "AI ポイント残高", "permanent": "永久ポイント", "daily": "本日付与", "dailyHint": "毎日 100 ポイント付与（当日のみ有効）",
       "tokensUsed": "トークン消費",
       "total": "合計",
       "used": "使用",
@@ -20165,6 +20185,7 @@
     "plan": "計画モード",
     "plaza": "プラザ",
     "pluginMarket": "プラグイン市場",
+    "connectors": "コネクタ",
     "points": "ポイント",
     "pricing": "料金",
     "publishPlatform": "パブリッシュ",
@@ -22631,8 +22652,7 @@
     "dataVisibility": "データ公開範囲",
     "dataVisibilityDesc": "他のユーザーに対するプロフィールの公開範囲を制御",
     "desc": {
-      "notificationSound": "通知受信時に音声を再生",
-      "notificationRingtone": "新しい通知が届いたときに選択した音を再生します"
+      "notificationSound": "通知受信時に音声を再生"
     },
     "device": {
       "empty": "コンテンツはまだありません。おしみに",
@@ -22811,8 +22831,7 @@
       "title": "IPホワイトリスト"
     },
     "labels": {
-      "notificationSound": "通知音声",
-      "notificationRingtone": "通知音"
+      "notificationSound": "通知音声"
     },
     "langZh": "中国語",
     "llmConfigsDesc": "LLMプロバイダとパラメータを設定",
@@ -23075,18 +23094,7 @@
     "codeIndexEgressOptOut": "コードセマンティック索引を作成しない",
     "codeIndexEgressOptOutDesc": "コードスニペットはベクトル化による索引作成のために外部送信されません",
     "autoMemoryOptOut": "自動長期記憶を無効にする",
-    "autoMemoryOptOutDesc": "対話を横断セッションの好みや合意に抽出しません",
-    "ringtoneNames": {
-      "dingdong": "ドアベル",
-      "tritone": "上昇トライアド",
-      "waterdrop": "水滴",
-      "doublebell": "二連ベル",
-      "bubble": "気泡",
-      "marimba": "マリンバ",
-      "chime": "チャイム",
-      "knock": "ノック"
-    },
-    "ringtonePreview": "試聴"
+    "autoMemoryOptOutDesc": "対話を横断セッションの好みや合意に抽出しません"
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI 生成",
@@ -29272,6 +29280,10 @@
     "title": "取引",
     "subtitle": "収益・注文・決済・会員ポイント"
   },
+  "personalHub": {
+    "title": "マイページ",
+    "subtitle": "アカウント・お気に入り・学習・サブスクリプション"
+  },
   "developerHub": {
     "title": "開発者",
     "subtitle": "API・キー・使用量・デバッグツール"
@@ -31469,3 +31481,4 @@
     "uploading": "アップロード中…"
   }
 }
+

@@ -1545,7 +1545,7 @@
     "loadFailed": "載入模型失敗",
     "output": "輸出",
     "perCall": "每次",
-    "priceUnit": "價格",
+    "priceUnit": "¥{price}/M",
     "providerTotal": "供應商共 {count} 個模型",
     "selectProviderLabel": "選擇供應商",
     "title": "模型廣場",

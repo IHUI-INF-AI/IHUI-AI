@@ -65,6 +65,17 @@ Two structural gates are named here so they cannot be re-invented or bypassed si
   reports newly introduced raw values against its own baseline. Check with
   `node scripts/check-horizontal-gutter.mjs` (add `--staged` to judge the index face). No dedicated
   skip variable; the same bypass rule applies.
+- [`scripts/security/check-audit-policy.mjs`](./scripts/security/check-audit-policy.mjs) — fails when a
+  forensic-critical Windows audit subcategory (account lockout, logon, credential validation, service
+  installation, firewall rule change) is not set to `Success and Failure`; without it every downstream
+  "no events in this window" reading is green by absence. Check with
+  `node scripts/security/check-audit-policy.mjs`; `--apply` backs the current policy into
+  `.ihui-agent/state/` first and re-reads the channel to prove the change landed.
+- [`scripts/security/security-event-intake.mjs`](./scripts/security/security-event-intake.mjs) — drains the
+  Security channel into `.ihui-agent/state/security-events.jsonl` by a `RecordId` cursor (the channel itself
+  keeps only about 4.6 hours on this host), flags 1102/1100/4697/4732/4740 as breach, and warns when the
+  live log window drops under six hours. Check with
+  `node scripts/security/security-event-intake.mjs --stats`.
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
@@ -96,6 +107,70 @@ Two structural gates are named here so they cannot be re-invented or bypassed si
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🐞 修复:代理画中画监看模板 CRUD 到 ai-service 8803 (5047c289)
+- 📚 文档:纠正七十四补段 workbuddy:// 深链探针未附着，三条非 GUI 路径用尽 (4b927a22)
+- 📚 文档:固化"前台不出声"的取舍，防后人顺手改回双响 (1c5ddb49)
+- 📚 文档:auto 无感口径的残留注释与 props 说明归位 (822d71e4)
+- 🚀 新功能/改进:取证地基两件——审计策略哨兵与安全事件增量落盘 (2e21b060)
+- 📚 文档:标注 push 订阅腿的现状,避免把预置监当成已接通 (41f26544)
+- 📚 文档:纠正七十四 WorkBuddy CLI serve 直起成功但两条 run 卡账号鉴权门，判定未翻转 (d2b0bdb1)
+- 🐞 修复:补 Expo 托管推送腿——RN 的 ExponentPushToken 不再落到 FCM 被拒收 (5fb80657)
+- ♻️ 重构:语音占位口径单点化，分析语料不再混进 [语音] (2d4b0f4a)
+- 🐞 修复:烘焙 updater feed 到 0.1.94(desktop-latest.generated.ts) (ee18db5f)
+- 🐞 修复:修考试介绍与分享落地页空态描边 CTA,统一智汇值文案,priceUnit 恢复价格占位,社区我的智能体接口切 /agents/my (38267c4f)
+- 🐞 修复:监看模板编辑器 i18n 命名空间与模板 CRUD 反代 (6860c729)
+- 🚀 新功能/改进:通知铃声收尾——SW 防双响 + Android 按选中铃声推送 (768271fe)
+- 📚 文档:纠正七十二 豆包 relogin 锁阻塞零写库 + 纠正七十三 WorkBuddy 重开网关未附着（两条独立结论） (cafd95e1)
+- 🐞 修复:窗内未备份悬空改「默认只报数、问责 --strict 才拦」 (9b0e28ca)
+- 🚀 新功能/改进:R9 多窗画中画 + 可视化监看模板编辑器 (b6f01830)
+- 🐞 修复:WechatJobKind 补 'moment' 一档,解锁净面构建 (37138a5b)
+- 🐞 修复:修复智能体市场/模型广场两屏暗档卡片轮廓、错误空态与空价行误导 (043d5f82)
+- 🚀 新功能/改进:模型名对用户隐藏 —— 计量徽章/明细/头部模型 chip 不再暴露实际模型 (2dee3a32)
+- 🐞 修复:WechatJobPayload 补 mediaUrls 可选字段,解锁部署净面构建 (8caff4fd)
+- 🚀 新功能/改进:desktop-v0.1.94 签名发版并刷新 updater feed (81327515)
+- 🚀 新功能/改进:订阅/历史/证书/分销/学习七屏空态补共享 EmptyState 图标，卡片底色收敛 surface.card (e04d8ff1)
+- 🐞 修复:账号锁定哨兵区分空窗与采集失败(Get-WinEvent 无匹配事件会抛错,误判成 undetermined)——先探日志可读性,空窗判 ok (7c6286cd)
+- 🐞 修复:还原 3 枚已应用迁移的文件字节，修复迁移落地闸的 hash 漂移 (90884f53)
+- 🐞 修复:收紧头像徽标高度并为标题预留间距,消除插画压住等级权益标题 (21955384)
+- 🐞 修复:分类 chip 未选统一透明底+stroke.default 中性描边;广场封面卡片暗档轮廓收口 card 底 (c60c0012)
+- 📚 文档:OpenCode 工具层 read/shell 闭环与 deny 粒度缺陷（71） (17e58c70)
+- 📚 文档:校正 RADIUS_CLASS 旁的过期注释(旧注释称 spec 是 sm,实际是 md，正是这次回归的病灶) (4afda829)
+- 🐞 修复:RADIUS_CLASS key regression sm->md (TS2353 broke @ihui/ui-react prebuild) (40d966b8)
+- 📚 文档:纠正七十 小浣熊本地 ACP 真实工具执行闭环，工具层升级产品级 (9dd8e21a)
+- 📚 文档:纠正六十九 OpenCode CLI run 两传输闭环，产品级覆盖扩到 CLI (3dbf96f9)
+- 🚀 新功能/改进:auto 换腿对用户完全无感 —— 下线 fallback 横幅与气泡交代行 (e9c8b11e)
+- 📚 文档:纠正六十八 Qoder round3 自定义只读工具 lab 副本闭环（单工具实测，非全工具面） (31278b22)
+- 🚀 新功能/改进:0.1.94 起启用 minisign 签名发版,换新 updater 公私钥 (110280b6)
+- 📚 文档:小浣熊/MiniMax 工具层补证 纠正六十七（小浣熊部分闭环 A- relay 工具往返+ACP 握手；MiniMax 未知 B 余额闸挡住非结构不支持） (b73c163e)
+- 🚀 新功能/改进:定时朋友圈 + 账号级自动回复模型 + 设置合并收口 (8c2d25c7)
+- 📚 文档:OpenCode 升级产品级闭环 纠正六十六（serve v2 API 5/5 变体 succeeded；旧框架级判断系探针 schema 错位+SSE 读流崩溃；CLI run 驱动残留未通） (fff7680d)
+- 📚 文档:WorkBuddy idle 复跑未执行入账 纠正六十五（sidecar 退出全程 ECONNREFUSED，toolCalls indeterminate，纠正四十/四十八维持原样） (ef1775cd)
+- 🔧 工程/其他:清理 gitignore 中的旧供应商脚本名注释 (27b4454d)
+- 🔧 工程/其他:声纹克隆下线文案五语收口并同步小程序路由产物 (07381df1)
+- ♻️ 重构:彻底移除 token6688 供应商与全部依赖配置 (de53023c)
+- 🐞 修复:default-agent 占位图下沉 pkg-ai,回收主包 23061 B (3cd5a53e)
+- 📚 文档:更正锁定策略前提登记——Chrome 认证策略与 WindowsSSO flag 实测均无法消除 4625(三次实验各仍新增1条),已回滚;4625 降为观测项,危害由阈值0消解 (2aaf5b47)
+- 🐞 修复:移除未读标题前的 6px 品牌色圆点，避免被读成残留项目符号 (311f2522)
+- 📚 文档:登记账号锁定策略 Never 的三条前提与判据联动(防后人在开 RDP/抬阈值时回潮成远程 DoS) (795bf2e7)
+- 🐞 修复:补齐 IntroducePopup 五语 48 条会员权益字典 (04261fc6)
+- 🐞 修复:auto 转移链按真机探针重排 —— 换掉实测 401 的 qwen 腿,补 xai grok (997a6387)
+- 📚 文档:OpenCode/豆包两端补探入账 纠正六十四（OpenCode 框架级上游通宿主 loop 未启动；豆包仅 GUI 无对外可编程模型入口，模型层待重登定级） (6aba0972)
+- ⚡ 性能:铃声改 16kHz 重渲染,主包 2186KB→1921KB 过微信 2048KB 上限 (414d4431)
+- 🚀 新功能/改进:移植导出六格式/报告/问数/指令/定时/语音六类能力 (506514c2)
+- 📚 文档:Qoder round2 边界补测入账 纠正六十三（维持 A-，会话内链式通过/跨请求不回灌，入站静默忽略，进程内 MCP 为唯一自定义工具通路） (19f4d24f)
+- 🚀 新功能/改进:账号锁定策略判据(阈值0=>4625仅观测,4740仍红)+README 点名两枚隐形门(门89 R4 清零) (baaa331e)
+- 📚 文档:Trae plan_item 工具翻译 lab 副本可见性入账 纠正六十二（①可见性限副本，仓库适配器仍部分闭环） (9bcad0f3)
+- 🐞 修复:撤除 './aigc-metadata' 悬空再导出(模块从未入库,TS2307 卡死部署构建) (0e1d4418)
+- 📚 文档:Cursor f13 解码与两轮实跑入账 纠正六十一（文本闭环·工具请求可见·结果回包未通，f13 空标记推翻旧判） (b087a492)
+- 🐞 修复:资讯族屏补搜索占位文案、清洗正文 markdown 标题/列表标记、修正详情重试文案与点赞胶囊对齐 (fcf0f48b)
+- 📚 文档:Qoder 桥出站工具翻译补丁 lab 实测入账 纠正六十（A-，内置 mcp_* 元工具出站可见，非全工具面闭环） (8be44afc)
+- 📚 文档:号池保活自愈结果入账 纠正五十九（4/5 动作成功 80%，4 枚 trae web 顺延，8 枚机器无解待人工） (762d2124)
+- 🐞 修复:auto 第二档(默认链兜底位)补 agnes 转移链 (ba7625e9)
+- 🔧 工程/其他:小程序设备页两文件补齐溯源载荷(L2/L3) (8fa0acef)
+- 📚 文档:小浣熊升级产品级闭环（纠正五十八，附录最小调用样例） (bccad600)
+- 🐞 修复:auto 失败转移闸门放宽到 MODEL_NOT_CONFIGURED / PROVIDER_NOT_IMPLEMENTED (c111bff9)
+- 📚 文档:四端额度与端点深挖（纠正五十四至五十七，凭据形态/余额数值/卡点细化） (21522d27)
+- 📚 文档:三端工具层实跑部分闭环（纠正五十一至五十三，矩阵增工具层轴） (b9882df0)
 - 🐞 修复:入口补丁按 chunk-id 映射重命名产物,根治「我的」页整屏白 (fab5be66)
 - 🐞 修复:广场空态强调行去紫归位墨档(旧项目 #847CFF 遗留) (37a3ccda)
 - 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (58d5100a)

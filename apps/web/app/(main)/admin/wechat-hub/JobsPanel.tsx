@@ -43,6 +43,9 @@ function describe(job: WechatJobView): string {
   if (job.kind === 'moment') {
     return `${day} ${time} · 发布朋友圈（${job.payload.mediaUrls?.length ?? 0} 个媒体）`
   }
+  if (job.kind === 'transcribe') {
+    return `${day} ${time} · 语音转写（每轮最多 ${job.payload.limit ?? 20} 条）`
+  }
   const scope = job.payload.targets?.length
     ? `${job.payload.targets.length} 个指定目标`
     : job.payload.tags?.length
@@ -53,13 +56,16 @@ function describe(job: WechatJobView): string {
 
 export default function JobsPanel({ accountId }: { accountId: string }) {
   const qc = useQueryClient()
-  const [kind, setKind] = React.useState<'broadcast' | 'report' | 'moment'>('broadcast')
+  const [kind, setKind] = React.useState<'broadcast' | 'report' | 'moment' | 'transcribe'>(
+    'broadcast',
+  )
   const [hour, setHour] = React.useState('9')
   const [minute, setMinute] = React.useState('30')
   const [weekly, setWeekly] = React.useState('every')
   const [text, setText] = React.useState('')
   const [targets, setTargets] = React.useState('')
   const [mediaUrls, setMediaUrls] = React.useState('')
+  const [batchLimit, setBatchLimit] = React.useState('20')
   const [reportKind, setReportKind] = React.useState<'annual' | 'pair' | 'group'>('annual')
   const [message, setMessage] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -94,7 +100,9 @@ export default function JobsPanel({ accountId }: { accountId: string }) {
             ? { reportKind, targets: targetList }
             : kind === 'moment'
               ? { text, mediaUrls: mediaList }
-              : { text, targets: targetList },
+              : kind === 'transcribe'
+                ? { limit: Math.max(1, Math.min(50, Number(batchLimit) || 20)) }
+                : { text, targets: targetList },
       })
     },
     onSuccess: (job) => {
@@ -158,7 +166,15 @@ export default function JobsPanel({ accountId }: { accountId: string }) {
               <Select
                 value={kind}
                 onValueChange={(value) =>
-                  setKind(value === 'report' ? 'report' : value === 'moment' ? 'moment' : 'broadcast')
+                  setKind(
+                    value === 'report'
+                      ? 'report'
+                      : value === 'moment'
+                        ? 'moment'
+                        : value === 'transcribe'
+                          ? 'transcribe'
+                          : 'broadcast',
+                  )
                 }
               >
                 <SelectTrigger>
@@ -168,6 +184,7 @@ export default function JobsPanel({ accountId }: { accountId: string }) {
                   <SelectItem value="broadcast">定时群发</SelectItem>
                   <SelectItem value="report">定时报告</SelectItem>
                   <SelectItem value="moment">定时朋友圈</SelectItem>
+                  <SelectItem value="transcribe">定时语音转写</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -219,6 +236,19 @@ export default function JobsPanel({ accountId }: { accountId: string }) {
                 </SelectContent>
               </Select>
             </div>
+          ) : kind === 'transcribe' ? (
+            <div className="space-y-1">
+              <Label>每轮最多扫多少条（1–50）</Label>
+              <Input
+                value={batchLimit}
+                onChange={(e) => setBatchLimit(e.target.value)}
+                inputMode="numeric"
+                placeholder="20"
+              />
+              <p className="text-xs text-muted-foreground">
+                只转写 content 为空或桥接占位（如「[语音]」）的语音；STT 未就绪时回 stub，不写库。
+              </p>
+            </div>
           ) : (
             <div className="space-y-1">
               <Label>{kind === 'moment' ? '朋友圈正文' : '群发正文'}</Label>
@@ -236,14 +266,16 @@ export default function JobsPanel({ accountId }: { accountId: string }) {
             </div>
           )}
 
-          <div className="space-y-1">
-            <Label>目标（可选，逗号或换行分隔；留空=按标签/全部联系人）</Label>
-            <Input
-              value={targets}
-              onChange={(e) => setTargets(e.target.value)}
-              placeholder="wxid_xxx, 群名或会话标识"
-            />
-          </div>
+          {kind === 'transcribe' ? null : (
+            <div className="space-y-1">
+              <Label>目标（可选，逗号或换行分隔；留空=按标签/全部联系人）</Label>
+              <Input
+                value={targets}
+                onChange={(e) => setTargets(e.target.value)}
+                placeholder="wxid_xxx, 群名或会话标识"
+              />
+            </div>
+          )}
 
           {kind === 'moment' ? (
             <div className="space-y-1">

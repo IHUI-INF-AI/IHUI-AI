@@ -79,7 +79,7 @@ function CountBadge({
  * 视觉:高 32 / radius-md(6) / 完整描边 / 选中实底走 brand.cta + 文字 brand.ctaForeground 成对。
  * 描边一律不用 brand.DEFAULT —— 它在亮档就是纯黑,而项目设计里没有纯黑描边这一档;选中态的
  * 强调描边统一取 brandAccent.deep(与 AssistantScreen / StudyIndex / PlazaScreen 同一既有写法),
- * 未选中取 border.medium。无 pill/渐变/蓝光。
+ * 未选中透明底 + 中性角色描边 stroke.default(亮 rgba(0,0,0,0.1) 10% 黑 / 暗 rgba(255,255,255,0.12) 12% 白)。无 pill/渐变/蓝光。
  */
 export function CategoryInlineBar({
   items,
@@ -199,11 +199,10 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.md,
       borderWidth: 1,
-      // 底色必须与"它所坐落的容器"不同档:分类条既会落在 surface.bg 页面上,
-      // 也会落在弹层的 surface.card 面板上(如 FenLeiOverlay)。用 card 作底时,
-      // 在 card 面板里整条 chip 与背景同色,可点性觉得"没有样式"。
-      borderColor: tk.border.medium,
-      backgroundColor: tk.surface.muted,
+      // 未选:透明底 + 1px 中性角色描边 stroke.default(亮 rgba(0,0,0,0.1) 10% 黑 / 暗 rgba(255,255,255,0.12) 12% 白);
+      // 选中:itemActive 实底 brand.cta + 反转字。描边不取墨档,状态不改宽。
+      borderColor: tk.stroke.default,
+      backgroundColor: 'transparent',
       // 不写宽度上限:三端取齐 web 那份 ITEM_BASE(它既不封顶也不截断),长分类名靠横向滚动消化。
       // 单位数值刻意不写在这里 —— 门 128 的几何提取式会读注释,散文里的数字会被当成端上的档。
     },

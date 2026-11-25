@@ -10,9 +10,17 @@ import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { db } from '../db/index.js'
-import { deviceTokens } from '@ihui/database'
-import { sendPushBatch, detectPushProvider, type PushMessage } from '../services/push-provider.js'
+import { deviceTokens, userPreferences } from '@ihui/database'
+import { sendPushBatch, detectPushProvider, type PushMessage, type PushResult } from '../services/push-provider.js'
 import { resolveTruncation } from '../services/agent-runtime/session-store.js'
+import { USER_PREFERENCE_GROUPS } from '../db/user-preferences-queries.js'
+import {
+  resolveAndroidNotificationTarget,
+  ANDROID_DEFAULT_CHANNEL_ID,
+} from '@ihui/shared/notifications/ringtone'
+
+/** 通知偏好键(与设置页/端侧同步:铃声 id 与声音开关,同落 group=notifications)。 */
+const NOTIFICATION_PREF_KEYS = ['ringtone', 'soundEnabled'] as const
 
 // =============================================================================
 // Zod schemas
@@ -43,6 +51,53 @@ function resolveDevicePlatform(deviceType: string | undefined): 'ios' | 'android
 
 /** F-682:单次群发收件人上限,超出部分截断并在响应中如实标注。 */
 const PUSH_RECIPIENT_LIMIT = 10000
+
+interface NotificationPrefs {
+  ringtone: string | null
+  soundEnabled: string | null
+}
+
+/**
+ * 批量读取一批用户的通知偏好(ringtone / soundEnabled,group=notifications),一次
+ * inArray 查询,禁止 N 次单查。查询抛错时 catch + warn 后返回空 map,调用方据此回落
+ * 兜底渠道 —— 偏好缺失/读失败/未知铃声都绝不阻塞推送。
+ */
+async function loadNotificationPreferences(
+  userIds: string[],
+): Promise<Map<string, NotificationPrefs>> {
+  const map = new Map<string, NotificationPrefs>()
+  const uniqueIds = [...new Set(userIds)]
+  if (uniqueIds.length === 0) return map
+  try {
+    const prefRows = await db
+      .select({
+        userId: userPreferences.userId,
+        key: userPreferences.key,
+        value: userPreferences.value,
+      })
+      .from(userPreferences)
+      .where(
+        and(
+          eq(userPreferences.group, USER_PREFERENCE_GROUPS.notifications),
+          inArray(userPreferences.userId, uniqueIds),
+          inArray(userPreferences.key, [...NOTIFICATION_PREF_KEYS]),
+        ),
+      )
+    for (const row of prefRows) {
+      let entry = map.get(row.userId)
+      if (!entry) {
+        entry = { ringtone: null, soundEnabled: null }
+        map.set(row.userId, entry)
+      }
+      if (row.key === 'ringtone') entry.ringtone = row.value
+      else if (row.key === 'soundEnabled') entry.soundEnabled = row.value
+    }
+  } catch (e) {
+    console.warn(`[push] 读取通知偏好失败,回落默认渠道: ${(e as Error).message}`)
+    return new Map()
+  }
+  return map
+}
 
 // =============================================================================
 // 用户端路由（注册/注销设备 token）
@@ -118,7 +173,10 @@ export const pushRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /push/provider - 查询当前推送 provider
   server.get('/push/provider', async (_request, reply) => {
-    return reply.send(success({ provider: detectPushProvider() }))
+    // expo 不占 provider 名：它按 **token 形态**（ExponentPushToken[...]）分流，无需自持
+    // FCM 私钥即可用。单独给出 expo=true，否则只注册了 Expo token 的管理端会看到
+    // provider=stub 而误判"没有通道"（SDB-47 的 fail-closed 口径不能被误读成没配置）。
+    return reply.send(success({ provider: detectPushProvider(), expo: true }))
   })
 
   // GET /push/templates - 客户端可订阅的微信小程序订阅消息模板列表
@@ -158,11 +216,13 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
     // 无法区分「全部投递失败」与「根本没配通道」,故在响应顶层带出 provider(=stub 即桩)。
     const provider = detectPushProvider()
 
-    // 1. 优先使用显式 tokens
+    // 1. 优先使用显式 tokens。该分支没有用户上下文,读不到个人偏好 ⇒ 落兜底渠道
+    //    `default`(等价历史行为),不带 sound;不按铃声分渠道。
     if (tokens && tokens.length > 0) {
+      const defaultMessage: PushMessage = { ...message, channelId: ANDROID_DEFAULT_CHANNEL_ID }
       const results = await sendPushBatch(
         tokens.map((t) => ({ token: t })),
-        message,
+        defaultMessage,
       )
       const successCount = results.filter((r) => r.success).length
       return reply.send(
@@ -181,7 +241,7 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
       // F-682:收件人查询必须有上限,避免超大群发把结果集与内存一次打满;
       // 多取 1 条用于判断是否被截断,并在响应中如实标注(不静默截断)。
       const rows = await db
-        .select({ token: deviceTokens.token })
+        .select({ token: deviceTokens.token, userId: deviceTokens.userId })
         .from(deviceTokens)
         .where(and(inArray(deviceTokens.userId, memberIds), eq(deviceTokens.isActive, true)))
         .limit(PUSH_RECIPIENT_LIMIT + 1)
@@ -191,8 +251,8 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
           `[push] 收件人超过上限 ${PUSH_RECIPIENT_LIMIT},已截断: memberIds=${memberIds.length}`,
         )
       }
-      const activeTokens = rows.slice(0, PUSH_RECIPIENT_LIMIT).map((r) => r.token)
-      if (activeTokens.length === 0) {
+      const activeRows = rows.slice(0, PUSH_RECIPIENT_LIMIT)
+      if (activeRows.length === 0) {
         return reply.send(
           success({
             provider,
@@ -204,10 +264,44 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
           }),
         )
       }
-      const results = await sendPushBatch(
-        activeTokens.map((t) => ({ token: t })),
-        message,
-      )
+
+      // 一次 inArray 批量读这批判用户的铃声/声音偏好(禁止 N 次单查)。
+      // 失败安全:偏好查询抛错必须 catch + warn 后整体回落兜底渠道,绝不因偏好读不到
+      // 让推送失败或返回 500;用户在偏好表无任何行 ⇒ 同样回落 `default`(历史行为)。
+      const prefByUser = await loadNotificationPreferences(activeRows.map((r) => r.userId))
+
+      // 按 Android 投递目标(channelId)分组:同一渠道的 token 合成一批投递,消息带上
+      // 渠道与音源;静音渠道不带 sound。结果合并回原响应形状,条数不丢。
+      const groups = new Map<
+        string,
+        { targets: Array<{ token: string }>; channelId: string; sound?: string }
+      >()
+      for (const row of activeRows) {
+        const prefs = prefByUser.get(row.userId)
+        const target = prefs
+          ? resolveAndroidNotificationTarget({
+              ringtone: prefs.ringtone,
+              soundEnabled: prefs.soundEnabled,
+            })
+          : { channelId: ANDROID_DEFAULT_CHANNEL_ID }
+        let group = groups.get(target.channelId)
+        if (!group) {
+          group = { targets: [], channelId: target.channelId, sound: target.sound }
+          groups.set(target.channelId, group)
+        }
+        group.targets.push({ token: row.token })
+      }
+
+      const results: PushResult[] = []
+      for (const group of groups.values()) {
+        const groupMessage: PushMessage = {
+          ...message,
+          channelId: group.channelId,
+          ...(group.sound ? { sound: group.sound } : {}),
+        }
+        const batch = await sendPushBatch(group.targets, groupMessage)
+        results.push(...batch)
+      }
       const successCount = results.filter((r) => r.success).length
       return reply.send(
         success({

@@ -20,6 +20,7 @@ import SearchBar from '@/components/SearchBar'
 import LineIcon from '@/components/LineIcon'
 import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import { onToast } from '@/host/on-toast'
+import { resolveAvatarUrl } from '@/utils/web-asset-url'
 
 // 智能体小类(对齐原 category() 返回的 modelTypes)
 interface ModelType {
@@ -343,7 +344,7 @@ export default function DeveloperIndex() {
                 {/* RN avatar: rpx(184)/2 dp → 184rpx,radius 8dp=16rpx */}
                 <Image
                   className="w-[184rpx] h-[184rpx] rounded-lg bg-muted flex-shrink-0"
-                  src={agent.agent_avatar || '/static/default-agent.png'}
+                  src={resolveAvatarUrl(agent.agent_avatar)}
                   mode="aspectFill"
                 />
                 <View className="flex-1 ml-[18rpx] min-w-0">

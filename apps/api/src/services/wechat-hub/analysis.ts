@@ -14,6 +14,7 @@
 
 import { createHash } from 'node:crypto'
 import type { WechatAnalysisKind, WechatAnalysisResult, WechatMessageView } from '@ihui/types'
+import { isVoicePlaceholder } from './voice-placeholder.js'
 
 const STOPWORDS = new Set([
   '的',
@@ -149,7 +150,11 @@ function buildLocalResult(
     }))
     .sort((a, b) => b.messageCount - a.messageCount)
 
-  const texts = messages.map((message) => message.content).filter((text) => text.length > 0)
+  // 占位语音（`[语音]` 这类）没有文本可算：混进语料会把关键词/摘要带偏，
+  // 判空口径与转写层共用 voice-placeholder，不另抄一份列表。
+  const texts = messages
+    .map((message) => message.content)
+    .filter((text) => text.length > 0 && !isVoicePlaceholder(text))
   const keywords = extractKeywords(texts)
   const todos = messages
     .filter((message) => TODO_PATTERN.test(message.content))

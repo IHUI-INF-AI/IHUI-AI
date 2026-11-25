@@ -389,7 +389,11 @@ export function StudyIndexScreen({
                 colorScheme={colorScheme}
               />
             ) : (
-              <EmptyState title={emptyText} colorScheme={colorScheme} />
+              <EmptyState
+                icon={<Clapperboard size={26} color={tk.text.secondary} />}
+                title={emptyText}
+                colorScheme={colorScheme}
+              />
             )
           }
           ListFooterComponent={
@@ -494,7 +498,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['sm-loose'],
       paddingHorizontal: rnSpacing.md,
       gap: rnSpacing.md,
-      backgroundColor: tk.surface.light,
+      backgroundColor: tk.surface.card,
       borderRadius: rnRadius.xl,
       marginBottom: rnSpacing.sm,
     } as ViewStyle,

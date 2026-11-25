@@ -148,14 +148,38 @@ export async function browserHubReload(sessionId: string): Promise<ApiResult<Bro
   })
 }
 
-/** 内置任务模板(2026-11-25,与服务端 browser_task 同字段) */
+/** 任务模板(2026-11-25 内置;2026-11-26 加用户自定义,与服务端同字段) */
 export interface BrowserTaskTemplate {
   id: string
+  /** 自定义模板名称;内置模板由前端按 id 本地化,可缺省。 */
+  name?: string
+  /** builtin=内置只读;custom=当前用户自建(跨设备持久化)。 */
+  source?: 'builtin' | 'custom'
   goal: string
   requirements: string[]
-  checkpoints: Array<{ id: string; label: string; match: string | null }>
+  checkpoints: Array<{
+    id: string
+    label: string
+    match: string | null
+    label_key?: string | null
+  }>
   /** 该模板的检查点等待上限(秒);超时只标记,不自动恢复。 */
   checkpoint_timeout_seconds: number
+  updated_at?: string
+}
+
+/** 自定义模板保存载荷(可视化编辑器提交;id 空=新建) */
+export interface SaveBrowserTaskTemplateRequest {
+  id?: string
+  name: string
+  goal: string
+  requirements: string[]
+  checkpoints: Array<{
+    id: string
+    label: string
+    match?: string | null
+  }>
+  checkpoint_timeout_seconds?: number
 }
 
 /** 会话内检查点状态 */
@@ -193,13 +217,33 @@ export interface BindBrowserTaskRequest {
   checkpoint_timeout_seconds?: number
 }
 
-/** 内置模板目录(只读) */
+/** 任务模板目录(内置只读 + 当前用户自定义) */
 export async function listBrowserTaskTemplates(): Promise<
   ApiResult<{ templates: BrowserTaskTemplate[]; count: number }>
 > {
   return fetchApi<{ templates: BrowserTaskTemplate[]; count: number }>(
     '/api/browser/task-templates',
     { method: 'GET' },
+  )
+}
+
+/** 新建/更新自定义任务模板(服务端按用户持久化) */
+export async function saveBrowserTaskTemplate(
+  req: SaveBrowserTaskTemplateRequest,
+): Promise<ApiResult<{ template: BrowserTaskTemplate }>> {
+  return fetchApi<{ template: BrowserTaskTemplate }>('/api/browser/task-templates', {
+    method: 'POST',
+    body: JSON.stringify(req),
+  })
+}
+
+/** 删除当前用户的一条自定义模板 */
+export async function deleteBrowserTaskTemplate(
+  templateId: string,
+): Promise<ApiResult<{ deleted: boolean }>> {
+  return fetchApi<{ deleted: boolean }>(
+    `/api/browser/task-templates/${encodeURIComponent(templateId)}`,
+    { method: 'DELETE' },
   )
 }
 
@@ -234,19 +278,13 @@ export function setBrowserWsToken(token: string): void {
 }
 
 export function buildBrowserWsUrl(sessionId: string): string {
-  // 生产 web 与 API 不同源时(例:www.aizhs.top 的 EdgeOne 边缘不转发
-  // /api/browser/ws,实测 404,而 api.aizhs.top 可正常升级),用显式 origin
-  // 指向真正承载 WS 的 ai-service;未配置时保持原同源行为,不影响 dev/自建。
-  const configuredOrigin = process.env.NEXT_PUBLIC_BROWSER_WS_ORIGIN?.trim().replace(/\/+$/, '')
   const base =
-    configuredOrigin
-      ? `${configuredOrigin}/api/browser/ws/${sessionId}`
-      : typeof window === 'undefined'
-        ? `ws://localhost:8803/api/browser/ws/${sessionId}` // SSR 防护:占位,实际不应在 SSR 调用
-        : process.env.NODE_ENV !== 'production'
-          ? `ws://localhost:8803/api/browser/ws/${sessionId}`
-          : (window.location.protocol === 'https:' ? 'wss' : 'ws') +
-            `://${window.location.host}/api/browser/ws/${sessionId}`
+    typeof window === 'undefined'
+      ? `ws://localhost:8803/api/browser/ws/${sessionId}` // SSR 防护:占位,实际不应在 SSR 调用
+      : process.env.NODE_ENV !== 'production'
+        ? `ws://localhost:8803/api/browser/ws/${sessionId}`
+        : (window.location.protocol === 'https:' ? 'wss' : 'ws') +
+          `://${window.location.host}/api/browser/ws/${sessionId}`
   // P0-4(2026-08-05):ai-service WS 握手要求 ?token=<access_token>,否则 close 4401
   const sep = base.includes('?') ? '&' : '?'
   return `${base}${sep}token=${encodeURIComponent(currentAccessToken)}`

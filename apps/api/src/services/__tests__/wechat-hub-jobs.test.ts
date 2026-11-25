@@ -18,6 +18,7 @@ const hoisted = vi.hoisted(() => ({
   report: vi.fn(),
   send: vi.fn(),
   moment: vi.fn(),
+  transcribe: vi.fn(),
 }))
 
 vi.mock('../../db/index.js', () => ({
@@ -31,6 +32,10 @@ vi.mock('../wechat-hub/broadcast.js', () => ({ broadcast: hoisted.broadcast }))
 vi.mock('../wechat-hub/reports.js', () => ({ buildReport: hoisted.report }))
 vi.mock('../wechat-hub/manager.js', () => ({ wechatHubManager: { send: hoisted.send } }))
 vi.mock('../wechat-hub/operations.js', () => ({ publishMoment: hoisted.moment }))
+vi.mock('../wechat-hub/transcribe.js', () => ({
+  transcribeAccountVoice: hoisted.transcribe,
+  MAX_VOICE_BATCH_LIMIT: 50,
+}))
 
 import { isJobDue, runDueJobs, saveJob } from '../wechat-hub/jobs'
 import type { WechatJobView } from '@ihui/types'
@@ -73,6 +78,7 @@ beforeEach(() => {
   hoisted.report.mockReset()
   hoisted.send.mockReset()
   hoisted.moment.mockReset()
+  hoisted.transcribe.mockReset()
   hoisted.updateSet.mockReturnValue({ where: () => chain(undefined) })
 })
 
@@ -246,6 +252,58 @@ describe('runDueJobs', () => {
 
     const results = await runDueJobs(NOW)
     expect(results[0]).toMatchObject({ jobId: 'job-moment', ok: false, detail: '账号离线' })
+  })
+
+  it('定时语音转写到点调 transcribeAccountVoice，limit 夹到 1–50，detail 带剩余条数', async () => {
+    hoisted.select.mockReturnValueOnce(
+      chain([
+        {
+          id: 'acc-1',
+          userId: 'u1',
+          metadata: {
+            jobs: [job({ id: 'job-voice', kind: 'transcribe', payload: { limit: 99 } })],
+          },
+        },
+      ]),
+    )
+    hoisted.transcribe.mockResolvedValueOnce({
+      scanned: 5,
+      transcribed: 4,
+      failed: 0,
+      skipped: 1,
+      remaining: 3,
+      items: [],
+    })
+
+    const results = await runDueJobs(NOW)
+
+    expect(results[0]).toMatchObject({ jobId: 'job-voice', ok: true })
+    // 越界入参在服务调用前就被夹住，别让 99 一路传到 SQL 的 limit。
+    const [, accountId, opts] = hoisted.transcribe.mock.calls[0] as [
+      string,
+      string,
+      { limit: number },
+    ]
+    expect(accountId).toBe('acc-1')
+    expect(opts.limit).toBe(50)
+    expect(results[0]?.detail).toContain('剩余 3')
+  })
+
+  it('语音批量被同账号手动任务占着时，任务记失败但不抛崩', async () => {
+    hoisted.select.mockReturnValueOnce(
+      chain([
+        {
+          id: 'acc-1',
+          userId: 'u1',
+          metadata: { jobs: [job({ id: 'job-voice', kind: 'transcribe', payload: {} })] },
+        },
+      ]),
+    )
+    hoisted.transcribe.mockRejectedValueOnce(new Error('该账号已有一批语音正在转写，等它跑完再来'))
+
+    const results = await runDueJobs(NOW)
+    expect(results[0]).toMatchObject({ jobId: 'job-voice', ok: false })
+    expect(results[0]?.detail).toContain('正在转写')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

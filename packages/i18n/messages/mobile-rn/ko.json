@@ -1545,7 +1545,7 @@
     "loadFailed": "모델 불러오기 실패",
     "output": "출력",
     "perCall": "회당",
-    "priceUnit": "가격",
+    "priceUnit": "¥{price}/M",
     "providerTotal": "공급사의 모델 {count}개",
     "selectProviderLabel": "공급사 선택",
     "title": "모델 플라자",

@@ -8,7 +8,7 @@ import { Platform } from 'react-native'
 import { Notifications } from '@/platform/push'
 import * as Device from '@/platform/device'
 import { fetchApi } from '@ihui/api-client'
-import { rnTokens } from '@ihui/design-tokens'
+import { buildAndroidChannelSpecs } from '@/lib/notification-channels'
 
 export interface PushState {
   token: string | null
@@ -17,6 +17,13 @@ export interface PushState {
   registered: boolean
 }
 
+/**
+ * 前台收到推送时**故意不出声**（2026-11-26 取舍，别顺手改成 true）：
+ *  - App 在前台时，消息由 WS 到达页面，`RootNavigator` 已用 `playRingtone(当前铃声)` 发声；
+ *    系统通知再响一次就是"铃 + 系统声"双响。
+ *  - App 在后台/被杀时，前台 handler 根本不执行，声由通知**渠道**（res/raw 音源）负责。
+ *  - 想验证真机铃声，必须退到后台/锁屏再发，前台不响是设计而非缺陷。
+ */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -68,16 +75,19 @@ export function usePush() {
         return
       }
       if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          // 呼吸灯色取品牌墨档(brand.DEFAULT:亮=纯黑/暗=纯白),不再写死一枚带 alpha 的红色。
-          // 原 #FF231F7C 是历史遗留的红灯,与本应用"去绿色、中性墨色"的品牌定档不一致,
-          // 且 Android 对 lightColor 的解析是 ARGB(这枚值实际会被读成 alpha=FF 的蓝紫),
-          // 屏上观感与预期红完全不是一回事 —— 取值走 token 后它才真的跟品牌一致。
-          lightColor: rnTokens.brand.DEFAULT,
-        })
+        // 启动时预建全部通知渠道:8 条铃声 + 静音 + 历史兜底。
+        // 渠道一旦创建,sound/importance 在 Android 侧即不可再改(卸载重装才复位),
+        // 所以"按 id 分 channel"而不是"改一条 channel 的 sound"——用户切换铃声/开关后,
+        // 下一条推送落到对应新建渠道即生效,渠道 id 与音源名全部由 shared 单一真相源派生。
+        const channelSpecs = buildAndroidChannelSpecs(Notifications)
+        for (const spec of channelSpecs) {
+          try {
+            await Notifications.setNotificationChannelAsync(spec.channelId, spec)
+          } catch (channelErr) {
+            // 个别 ROM 拒绝创建某条渠道时只告警继续下一条;绝不能因单条失败让 register 整体失败。
+            console.warn(`[push] 创建通知渠道 ${spec.channelId} 失败`, channelErr)
+          }
+        }
       }
       const t = await Notifications.getExpoPushTokenAsync()
       const deviceToken = t.data

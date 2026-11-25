@@ -3863,7 +3863,20 @@ async function main() {
             }
           }
         }
-        blocking = true
+        // 2026-11-26 降档(AGENTS §0.2「恒红门禁令」):本档判的是**机器历史存量**(仓里既有的未备份
+        // 悬空 commit),不是本次改动;且本仓 2026-11-22 定案「不保留历史」后,唯一显式备份出口
+        // (lost-commit/*、backup/*、unreachable-commits-backup/*)在 .husky/reference-transaction 的
+        // prepared 阶段被硬拒(--no-verify 也绕不过,那是引用事务钩子)⇒ 存量永远归零不了 ⇒ 这一档恒红。
+        // 恒红的实际后果已实测发生:每次提交都逼人跳钩,连带把 reset / tag 对象不可达 / 远端 tag 缺失
+        // 这几条**真能防丢**的判据一起关掉。
+        // 现改「默认只报数、问责才拦」:钩子档(含 --blocking)落 warn 并全量点名;--strict 仍 exit 1。
+        if (isStrict) blocking = true
+        issues.push(
+          `${win.blocking.length} 个窗内未备份悬空 commit —— 默认档只报数不拦提交` +
+            `(§0.2 恒红门禁令;本仓 tag 备份出口已被 .husky/reference-transaction 关闭,存量归零不了);` +
+            `处置:git cherry-pick <hash> 保留 / 按 §29 仓外 bundle 归档 / ` +
+            `确认是 git-sync-converge 的 merge 中间产物(两父均可达,无独有改动)可忽略;问责跑 --strict`,
+        )
       } else if (win.outOfWeek.length > 0) {
         // 窗维把整批都判成超窗 ⇒ 不是"没风险",是"这一档不由提交链拦"。必须留一行可见结论,
         // 否则下一个会话读到的就是"门绿了",而近万枚存量在账面上蒸发。

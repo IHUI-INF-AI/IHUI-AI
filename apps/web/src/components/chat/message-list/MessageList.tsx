@@ -45,6 +45,7 @@ import { projectTurnOrdinals } from '@/lib/turn-deeplink'
 import { useFocusArtifactScroll } from '@/components/media/artifact-turn-badge'
 import { CanvasOverlay } from '@/components/chat/canvas-overlay'
 import { EmptyState } from './EmptyState'
+import { FallbackBanner } from './FallbackBanner'
 // D71 十态轮次状态徽章(2026-10-29 装车):`TurnStatusLine` 自 2026-09-28 建好起
 // 零生产消费(`TurnStatusBadge` 建好、词包五语言齐、单测全绿,用户屏幕上仍是空白)。
 // 挂在**消息流尾部**而不是某条消息内部 —— 状态取自 store 的会话级事实
@@ -116,9 +117,11 @@ interface MessageListProps {
   loadingMoreHistory?: boolean
   /** #8 滚动到顶部时触发加载更多历史消息 */
   onLoadMoreHistory?: () => void
-  /** P4-2: fallback 通知(主模型失败切换到备用模型时非 null,展示横幅) */
+  /** P4-2: fallback 通知(主模型失败切换到备用模型时非 null)。
+   *  2026-11-26 起**仅供调用方兼容**:本层不再渲染任何横幅/交代行(换腿对用户无感),
+   *  事件仍由 use-chat 收下并上报,值到此为止。 */
   fallbackNotice?: FallbackEvent | null
-  /** P4-2: 清除 fallback 通知(用户点击横幅关闭按钮时调用) */
+  /** P4-2: 清除 fallback 通知(同上,已无渲染位,保留签名免改调用方) */
   onClearFallbackNotice?: () => void
   /** Phase 18.2: SubAgent 活动列表(2026-07-28,可选覆盖 useChatStore 内部读取)
    *  对话流 inline 渲染在最后一条 AI 消息下方(而非 AI 面板底部)。
@@ -153,6 +156,8 @@ export function MessageList({
   hasMoreHistory,
   loadingMoreHistory,
   onLoadMoreHistory,
+  fallbackNotice,
+  onClearFallbackNotice,
   subAgentActivities: subAgentActivitiesProp,
   codeCollapseLines,
   trailing,
@@ -162,6 +167,9 @@ export function MessageList({
   // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
   const chatStore = usePaneChatStore()
   const paneId = useOptionalPaneId()
+  // 换腿交代只对「我的号池」可见(2026-11-26 定档):pool 通道是用户自己的账号资产,
+  // platform/auto 走的都是我们的路由,一律静默。
+  const modelChannel = chatStore((s) => s.currentModelChannel)
 
   // 2026-11-15:去掉「步骤/命令/叙述」档位切换与过滤 —— 思考、工具调用、正文
   // 统一按同一条流式时间线完整呈现,不再按档位裁掉活动条目。
@@ -756,10 +764,18 @@ export function MessageList({
           rowGap: 'var(--chat-message-gap, 2px)',
         }}
       >
-        {/* 2026-11-26 产品口径(auto 无感):主模型失败自动换腿时**不再**展示横幅。
-            换腿是基础设施的容错动作,不是用户需要处理的"事件"—— 横幅会让人以为服务出问题,
-            反而放大焦虑。数据与埋点照旧(fallbackNotice 仍由 use-chat 收事件并上报),
-            只是这一层不再渲染。FallbackBanner 组件本身保留(历史态/调试面板可复用)。 */}
+        {/* 2026-11-26 产品口径(auto 无感):**平台侧**主模型失败自动换腿时不展示横幅——
+            换腿是基础设施的容错,不是用户要处理的事件,横幅反而放大焦虑。
+            但「我的号池」通道例外:那是用户自己的账号,哪一号限流/额度不足、换到了哪一号,
+            属于用户自己的资产状态,必须交代(2026-11-26 用户明确定档)。
+            判据只有一条:本轮走的是 pool 通道 ⇒ 渲染;platform(auto/平台模型)⇒ 静默。 */}
+        {fallbackNotice && modelChannel === 'pool' && (
+          <FallbackBanner
+            fallbackNotice={fallbackNotice}
+            onClearFallbackNotice={onClearFallbackNotice}
+            t={t}
+          />
+        )}
         {/* #8 顶部加载更多历史指示器 */}
         {loadingMoreHistory && (
           <div className="flex items-center justify-center gap-2 py-2 text-label text-muted-foreground">

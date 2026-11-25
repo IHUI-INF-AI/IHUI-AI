@@ -1545,7 +1545,7 @@
     "loadFailed": "Failed to load models",
     "output": "Output",
     "perCall": "Per call",
-    "priceUnit": "Price",
+    "priceUnit": "¥{price}/M",
     "providerTotal": "{count} models from providers",
     "selectProviderLabel": "Choose provider",
     "title": "Model Plaza",

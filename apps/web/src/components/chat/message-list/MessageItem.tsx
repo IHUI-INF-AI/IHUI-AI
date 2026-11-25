@@ -1956,8 +1956,9 @@ const MessageItem = React.memo(function MessageItem({
           </div>
         )}
       </div>
-      {/* D1 消息级计量徽章行(2026-09-19 立):AI 回复底部紧凑用量,无 usage 数据不渲染 */}
-      {!isUser && <MessageUsageMetrics messageId={m.id} fallbackModel={m.model} />}
+      {/* D1 消息级计量徽章行(2026-09-19 立):AI 回复底部紧凑用量,无 usage 数据不渲染
+          2026-11-26:不再传 fallbackModel —— 模型名对用户隐藏(计费真值仅在后台可见) */}
+      {!isUser && <MessageUsageMetrics messageId={m.id} />}
       {/* 2026-08-02:消息交互按钮区(完全复用原项目 AIChat.vue 9 按钮 + _message-list.scss 样式)
           - 2026-08-06 修正:从气泡容器内挪到气泡外(与气泡容器同级,作为消息项子节点)
             避免被 bg-primary 包裹导致按钮显示在气泡内部

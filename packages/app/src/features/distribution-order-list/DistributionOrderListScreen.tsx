@@ -14,6 +14,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { SearchInput } from '../../components/SearchInput'
+import { ClipboardList } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { DistributionOrderListScreenProps } from '../../types'
 
@@ -168,7 +169,11 @@ export function DistributionOrderListScreen({
               colorScheme={colorScheme}
             />
           ) : (
-            <EmptyState title="暂无订单数据" colorScheme={colorScheme} />
+            <EmptyState
+              icon={<ClipboardList size={26} color={tk.text.secondary} />}
+              title="暂无订单数据"
+              colorScheme={colorScheme}
+            />
           )
         }
         ListFooterComponent={
@@ -236,7 +241,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     orderCard: {
-      backgroundColor: tk.surface.light,
+      backgroundColor: tk.surface.card,
       borderRadius: rnRadius.lg,
       padding: rnSpacing['md-loose'],
       gap: rnSpacing.sm,

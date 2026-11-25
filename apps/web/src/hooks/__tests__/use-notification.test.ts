@@ -130,9 +130,9 @@ describe('useNotification - 通知声音', () => {
     window.localStorage.clear()
   })
 
-  it('初始状态 soundEnabled 为 false(localStorage 无标记)', () => {
+  it('初始状态 soundEnabled 为 true(localStorage 无标记 = 默认开启)', () => {
     const { result } = renderHook(() => useNotification())
-    expect(result.current.soundEnabled).toBe(false)
+    expect(result.current.soundEnabled).toBe(true)
   })
 
   it('setSoundEnabled(true) 后 localStorage 写入 1 且 state 更新为 true', () => {
@@ -144,7 +144,7 @@ describe('useNotification - 通知声音', () => {
     expect(window.localStorage.getItem('ihui-notification-sound-enabled')).toBe('1')
   })
 
-  it('setSoundEnabled(false) 后 localStorage 移除标记且 state 更新为 false', () => {
+  it('setSoundEnabled(false) 后 localStorage 写 0 且 state 更新为 false', () => {
     window.localStorage.setItem('ihui-notification-sound-enabled', '1')
     const { result } = renderHook(() => useNotification())
     expect(result.current.soundEnabled).toBe(true)
@@ -152,7 +152,7 @@ describe('useNotification - 通知声音', () => {
       result.current.setSoundEnabled(false)
     })
     expect(result.current.soundEnabled).toBe(false)
-    expect(window.localStorage.getItem('ihui-notification-sound-enabled')).toBeNull()
+    expect(window.localStorage.getItem('ihui-notification-sound-enabled')).toBe('0')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

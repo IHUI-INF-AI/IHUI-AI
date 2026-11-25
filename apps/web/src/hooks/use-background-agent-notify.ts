@@ -19,7 +19,7 @@ function notify(title: string, body: string): void {
   if (typeof window === 'undefined' || !('Notification' in window)) return
   if (Notification.permission !== 'granted' || document.visibilityState === 'visible') return
   try {
-    const notification = new Notification(title, { body, icon: '/favicon.ico' })
+    const notification = new Notification(title, { body, icon: '/favicon.ico', silent: true })
     notification.onclick = () => {
       window.focus()
       notification.close()

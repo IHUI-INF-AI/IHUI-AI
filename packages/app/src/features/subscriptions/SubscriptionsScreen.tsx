@@ -16,6 +16,7 @@ import {
   Image,
   Switch,
 } from 'react-native'
+import { Bell } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { SubscriptionsItem, SubscriptionsScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
@@ -172,6 +173,7 @@ export function SubscriptionsScreen({
             <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
           ) : (
             <EmptyState
+              icon={<Bell size={26} color={tk.text.secondary} />}
               title={t('subscriptions.empty')}
               actionLabel={onGoDiscover ? t('live.subscribe.discover') : undefined}
               onAction={onGoDiscover}

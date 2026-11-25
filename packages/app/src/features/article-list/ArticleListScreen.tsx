@@ -267,7 +267,6 @@ export function ArticleListScreen({
                 colorScheme={colorScheme}
               >
                 <View style={styles.titleRow}>
-                  {isRead ? null : <View style={styles.unreadDot} />}
                   <Text
                     style={[styles.cardTitle, isRead ? styles.cardTitleRead : null]}
                     numberOfLines={2}
@@ -344,12 +343,6 @@ function createStyles(tk: AppThemeTokens) {
     pinnedBadgeText: { fontSize: rnType.caption.size, color: tk.brand.DEFAULT, fontWeight: '600' },
     pinnedTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    unreadDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: tk.brand.DEFAULT,
-    },
     cardRead: { opacity: 0.55 },
     cardTitleRead: { color: tk.text.secondary },
     summary: {

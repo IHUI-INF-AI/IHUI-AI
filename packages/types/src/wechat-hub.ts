@@ -866,13 +866,15 @@ export interface WechatAskResult {
   generatedBy: 'llm' | 'local'
 }
 
-/** 定时任务类型：定时群发 / 定时报告 */
-export type WechatJobKind = 'broadcast' | 'report'
+/** 定时任务类型：定时群发 / 定时报告 / 定时朋友圈 / 定时语音转写 */
+export type WechatJobKind = 'broadcast' | 'report' | 'moment' | 'transcribe'
 
 export interface WechatJobPayload {
-  /** broadcast：正文；与 mediaUrl 二选一即可 */
+  /** broadcast / moment：正文；与 mediaUrl 二选一即可 */
   text?: string
   mediaUrl?: string
+  /** moment：多图/多视频地址 */
+  mediaUrls?: string[]
   /** 显式目标；为空时按 tags 圈选 */
   targets?: string[]
   tags?: string[]
@@ -880,6 +882,8 @@ export interface WechatJobPayload {
   reportKind?: 'annual' | 'pair' | 'group'
   year?: number
   conversationId?: string
+  /** transcribe：这一轮最多扫多少条语音（服务端再夹到 1–50） */
+  limit?: number
 }
 
 export interface WechatJobView {
@@ -939,6 +943,13 @@ export interface WechatVoiceTranscribeBatchResult {
   transcribed: number
   failed: number
   skipped: number
+  /** 本次扫描后该账号仍未转写的语音条数；前端据此决定要不要再跑一轮，避免一次请求跑成超时。 */
+  remaining: number
+  /**
+   * 本次是否碰到 STT 引擎未就绪（返回 stub）。
+   * true 时 remaining 不会因为这一轮而下降，前端必须立刻停止继续轮询，否则只是空转。
+   */
+  stub: boolean
   items: WechatVoiceTranscribeBatchItem[]
 }
 

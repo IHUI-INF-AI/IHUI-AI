@@ -13,6 +13,7 @@ import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { resolveAvatarUrl } from '@/utils/web-asset-url'
 
 /** 从智能体描述中提取前 2 个关键词作为标签 */
 function extractTags(name: string, desc: string): string[] {
@@ -92,14 +93,11 @@ export default function AiCareer() {
               const id = String(item.id || '')
               const name = String(item.name || '')
               const desc = String(item.desc || '')
-              const avatar = (item.avatar as string) || '/static/default-agent.png'
+              const avatar = resolveAvatarUrl(item.avatar)
               const tags = extractTags(name, desc)
               const uses = Number(item.uses || 0)
               return (
-                <ThemeRoot
-                  key={id}
-                  className="p-[24rpx] rounded-lg bg-card"
-                >
+                <ThemeRoot key={id} className="p-[24rpx] rounded-lg bg-card">
                   <View key={id} onClick={() => onItemClick(id)} hoverClass="opacity-60">
                     {/* 对齐 RN cardHead:头像 44dp=88rpx / 12dp=24rpx 圆角 / muted 底 / 右距 10dp=20rpx */}
                     <View className="flex flex-row items-start">

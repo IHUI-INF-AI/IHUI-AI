@@ -35,10 +35,13 @@ import {
   remediationForLockout,
   enrichProcessByPid,
   parseLockoutThreshold,
+  downgradeEmptyWindowByAuditGap,
   LOCKOUT_STATE,
   LOCKOUT_POLICY,
   DEFAULT_WINDOW_MIN,
 } from './lib/account-lockout.mjs'
+import { judgeAuditPolicy, parseAuditPolicyCsv } from './lib/audit-policy.mjs'
+import { readAuditPolicy } from './check-audit-policy.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..', '..')
@@ -75,10 +78,13 @@ function collect(windowMin) {
     '$events=New-Object System.Collections.ArrayList',
     '$out=@{ pidMap=@{}; error=$null }',
     'try {',
+    /* 先证明 Security 日志本身可读:取不到它才叫"采集失败";读到 0 条是空窗,不是失败(§0.3)。 */
+    '  $null=Get-WinEvent -LogName \'Security\' -MaxEvents 1 -ErrorAction Stop',
     /* 4688 进程创建:按 ProcessId(hex)兜底映像名。本机若未审核 4688 即为空 map,不影响主判据。 */
     '  $4688=Get-WinEvent -FilterHashtable @{LogName=\'Security\'; Id=4688; StartTime=$sinceEnrich} -ErrorAction SilentlyContinue',
     '  foreach($e in $4688){ try{ $x=[xml]$e.ToXml() } catch { continue }; $d=@{}; foreach($p in $x.Event.EventData.Data){ $d[$p.Name]=$p.\'#text\' }; if($d.ProcessId){ $out.pidMap[$d.ProcessId.ToLower()]=$d.NewProcessName } }',
-    '  $ev=Get-WinEvent -FilterHashtable @{LogName=\'Security\'; Id=@(4740,4625); StartTime=$since} -ErrorAction Stop',
+    /* 空窗(无匹配事件)在 Get-WinEvent 会抛错,故这里必须 SilentlyContinue:空 ≠ 取不到。 */
+    '  $ev=Get-WinEvent -FilterHashtable @{LogName=\'Security\'; Id=@(4740,4625); StartTime=$since} -ErrorAction SilentlyContinue',
     '  foreach($e in $ev){',
     '    try{ $x=[xml]$e.ToXml() } catch { continue }',
     '    $d=@{}; foreach($p in $x.Event.EventData.Data){ $d[$p.Name]=$p.\'#text\' }',
@@ -185,6 +191,24 @@ function readLockoutPolicy() {
   }
 }
 
+/**
+ * 只关心与「登录/锁定」直接相关的三条审计子类(Account Lockout / Logon / Credential Validation)。
+ * 取不到审计策略时返回空 —— 不额外降档:那种「策略未知」已由 lockoutPolicy 的 undetermined 覆盖,
+ * 两处都降一遍只会把原因写成两份。
+ */
+const AUDIT_RELEVANT_GUIDS = [
+  '0cce9217-69ae-11d9-bed3-505054503030',
+  '0cce9215-69ae-11d9-bed3-505054503030',
+  '0cce923f-69ae-11d9-bed3-505054503030',
+]
+
+function readAuditCriticalMissing() {
+  const got = readAuditPolicy()
+  if (!got.csv) return []
+  const judged = judgeAuditPolicy({ rows: parseAuditPolicyCsv(got.csv) })
+  return judged.critical.filter((m) => AUDIT_RELEVANT_GUIDS.includes(m.guid)).map((m) => m.name)
+}
+
 function main(argv = process.argv.slice(2)) {
   const json = argv.includes('--json')
   const alert = argv.includes('--alert')
@@ -203,6 +227,11 @@ function main(argv = process.argv.slice(2)) {
   } else {
     const events = enrichProcessByPid(collected.events, collected.pidMap)
     result = judgeAccountLockout({ events }, { now: Date.now(), windowMin, lockoutPolicy })
+  }
+
+  /* 空窗降档(第十八件联动):审计策略没在记时,0 条不是「没人试」而是「没记」⇒ undetermined(§0.3)。 */
+  if (result.state === LOCKOUT_STATE.OK && (Number(result.total4740) || 0) + (Number(result.total4625) || 0) === 0) {
+    result = downgradeEmptyWindowByAuditGap(result, { auditCriticalMissing: readAuditCriticalMissing() })
   }
 
   const remediation = remediationForLockout(result)

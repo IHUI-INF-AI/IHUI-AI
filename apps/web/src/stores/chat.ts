@@ -292,9 +292,8 @@ export interface ChatMessage extends Omit<
    *  渲染 CompressionDivider,提示"本消息之前的上下文已压缩为摘要"。 */
   compaction?: MessageCompaction
   /** D33(2026-09-23 立):该回答实际**换过模型**的交代(主模型失败→备用模型)。
-   *  live:顶部 FallbackBanner(瞬态);历史:metadata.fallback(snake)经水合换算挂到消息,
-   *  MessageItem 按既有 chat.fallbackNotice / fallbackNoticeQuota 词渲染消息级交代行。
-   *  缺失 = 本轮未降级或老消息 —— 不渲染。 */
+   *  2026-11-26 口径变更(auto 换腿无感):数据照旧水合到这里(排障/导出/埋点可用),
+   *  **但前端不再有任何渲染位** —— 顶部横幅与气泡交代行均已下线,用户看不到"换过模型"。 */
   fallback?: FallbackEvent
   /** D33(G-39,2026-09-26 立):该回答生成时刻**仍排队中**的侧问快照(队首窗口,≤8 条)。
    *  live:sideQueueByConversation 本地桶;历史:metadata.queueItems 经水合挂到消息。

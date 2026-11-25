@@ -13,7 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { Wallet } from 'lucide-react-native'
+import { Package, Wallet } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
   DistributionProduct,
@@ -147,7 +147,11 @@ export function DistributionScreen({
           colorScheme={colorScheme}
         />
       ) : !info ? (
-        <EmptyState title={t('distribution.empty')} colorScheme={colorScheme} />
+        <EmptyState
+          icon={<Wallet size={26} color={tk.text.secondary} />}
+          title={t('distribution.empty')}
+          colorScheme={colorScheme}
+        />
       ) : (
         <ScrollView
           style={styles.container}
@@ -302,7 +306,11 @@ export function DistributionScreen({
           <Text style={styles.sectionTitle}>{t('distribution.products')}</Text>
           <View style={styles.productsList}>
             {(info.products ?? []).length === 0 ? (
-              <EmptyState title={t('distribution.empty')} colorScheme={colorScheme} />
+              <EmptyState
+                icon={<Package size={26} color={tk.text.secondary} />}
+                title={t('distribution.empty')}
+                colorScheme={colorScheme}
+              />
             ) : (
               (info.products ?? []).map((item) => (
                 <View key={item.id} style={styles.productCard}>
