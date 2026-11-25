@@ -397,7 +397,6 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     # 国内
     "stepfun/": "stepfun",
     "agnes/": "agnes",
-    "t6688/": "token6688",
     "workbuddy/": "workbuddy_relay",
     "qwen": "qwen",
     "qwen-": "qwen",
@@ -923,7 +922,7 @@ async def _find_quota_alternate_channels(
     """同一模型在其他厂商的可用通道(额度耗尽时改道用)。
 
     数据源与 /llm/models 同表(ai_model_config_models JOIN ai_model_config),因此
-    "不充值也能调到 qwen 系"的既有替代通道(openrouter / token6688 / siliconflow …)
+    "不充值也能调到 qwen 系"的既有替代通道(openrouter / siliconflow …)
     无需任何新配置即可被复用。DB 不可用时返回空列表 —— 行为等同于未启用该特性。
     """
     bare_model = model_id.split("/", 1)[-1] if "/" in model_id else model_id
@@ -1251,6 +1250,15 @@ def _assemble_auto_candidates(
 # 新注册用户默认链被 auto-route 重排选中后首条消息直接报错),从 auto 候选集排除;
 # 显式指定仍可走(手工选择行为不变)。
 _AUTO_ROUTE_EXCLUDED = ("gpt-4o", "openai/gpt-4o", "llm7/gpt-oss:20b")
+
+# 失败可转移错误码(2026-11-26 立):auto / 首选模型出问题时,只要还没吐字,
+# 就交给 FallbackRouter 换下一个 —— 不再只认 LLM_ERROR。
+# MODEL_NOT_CONFIGURED:provider key 缺失或占位符,换一个能解析 key 的模型即可恢复;
+# PROVIDER_NOT_IMPLEMENTED:该厂未实现,同属「这个不行换下一个」语义。
+# 只放宽 FallbackRouter 的入闸;ComboRouter 仍是显式配置链,闸门不变。
+_STREAM_FALLBACK_TRIGGER_CODES: frozenset[str] = frozenset(
+    {"LLM_ERROR", "MODEL_NOT_CONFIGURED", "PROVIDER_NOT_IMPLEMENTED"}
+)
 
 
 def _default_model_chain() -> list[str]:
@@ -2246,17 +2254,6 @@ class LLMGateway:
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("agnes")
             return cfg.api_key, cfg.api_base, f"openai/{real_model}"
-        # Token6688 聚合网关(单 key 全模态)。⚠ LiteLLM openai/ 直连要求 api_base 以
-        # /v1 结尾(否则请求 {base}/chat/completions 落到网站首页 HTML,2026-09-08 假 key
-        # 实测:无 /v1 → "Empty or invalid response";有 /v1 → 401 Invalid API key 正确命中),
-        # 故默认带 /v1,且用户误配无 /v1 时自动补齐(防呆)。
-        if m.startswith("t6688/"):
-            real_model = model.split("/", 1)[1]
-            cfg = settings.get_provider_config("token6688")
-            base = (cfg.api_base or "https://k.token6688.com").rstrip("/")
-            if not base.endswith("/v1"):
-                base += "/v1"
-            return cfg.api_key, base, f"openai/{real_model}"
         if m.startswith("workbuddy/"):
             # 项目自有中转站(账号池):模型串保持 workbuddy/ 前缀,由中转站路由到账号池
             cfg = settings.get_provider_config("workbuddy_relay")
@@ -3140,7 +3137,7 @@ class LLMGateway:
             # 额度耗尽时即使没配静态 fallbacks 也要进(候选由替代通道动态补齐)
             quota_exhausted_hit = False
             if (
-                err_code == "LLM_ERROR"
+                err_code in _STREAM_FALLBACK_TRIGGER_CODES
                 and not _skip_fallback
                 and (fallback_router._configs or is_quota_exhaustion_error(e))
             ):
@@ -4579,7 +4576,7 @@ class LLMGateway:
             # 流式 fallback:仅在未发送任何 chunk 时尝试 fallback provider
             # (已发送 chunk 不可撤回,无法中途切换 provider)
             if (
-                err_code == "LLM_ERROR"
+                err_code in _STREAM_FALLBACK_TRIGGER_CODES
                 and not accumulated_content
                 and not accumulated_reasoning
                 and (fallback_router._configs or is_quota_exhaustion_error(e))
