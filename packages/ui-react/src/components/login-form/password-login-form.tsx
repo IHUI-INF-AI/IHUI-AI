@@ -19,6 +19,7 @@ import {
   saveRememberedCredentials,
   saveRememberedCredentialsWithPassword,
   loadRememberedCredentials,
+  getRememberedPasswordForAccount,
   loadAutoLogin,
   saveAutoLogin,
   saveLoginHistory,
@@ -146,6 +147,31 @@ export function PasswordLoginForm({
   const formRef = React.useRef<HTMLFormElement>(null)
   /** 自动登录提交标记:绕过 agreement 检查(agreed 默认 false 会阻止自动提交) */
   const isAutoLoginRef = React.useRef(false)
+  /** 上一次渲染看到的账号值(用来区分“账号变了”与“只是清空了口令”) */
+  const previousAccountRef = React.useRef('')
+
+  // 2026-11-26 用户要求:勾选「记住密码」后,输入完账号即自动回填口令。
+  // 旧实现只在组件挂载时读一次 localStorage;SSR 首帧/localStorage 晚写/用户先清空
+  // 账号再重输时,口令不会跟着账号出现。这里按「账号变化」触发一次读取:
+  // - 仅记住密码开启时生效,不替未勾选的用户保存或回填口令;
+  // - 口令框已有内容时不覆盖,避免把用户新输入的口令冲掉;
+  // - 只在账号本身变化时尝试,用户单独清空口令后不会又被强行填回来。
+  React.useEffect(() => {
+    const normalized = account.trim()
+    const accountChanged = normalized !== previousAccountRef.current
+    previousAccountRef.current = normalized
+    if (!enableCredentialPersistence || !rememberPassword) {
+      // 记住密码关闭时把基线清空:用户先输账号、后勾选复选框,也应被视为一次账号变化。
+      previousAccountRef.current = ''
+      return
+    }
+    if (!normalized || !accountChanged) return
+    if (password) return
+    const stored = getRememberedPasswordForAccount(normalized)
+    if (stored) {
+      setPassword(stored)
+    }
+  }, [account, enableCredentialPersistence, rememberPassword, password])
 
   // 加载图形验证码
   const refreshCaptcha = React.useCallback(async () => {

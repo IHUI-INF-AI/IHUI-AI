@@ -19,6 +19,7 @@ import {
   clearAutoLogin,
   clearLoginHistory,
   clearRememberedCredentials,
+  getRememberedPasswordForAccount,
   loadAutoLogin,
   loadLoginHistory,
   loadRememberedCredentials,
@@ -81,6 +82,13 @@ describe('记住账号:盘上永不含口令', () => {
       account: 'bob@example.com',
       password: '',
     })
+  })
+
+  it('按账号即时取口令:账号匹配才回吐,前后空格不影响,换号即空', () => {
+    saveRememberedCredentialsWithPassword('alice@example.com', 'hunter2')
+    expect(getRememberedPasswordForAccount('alice@example.com')).toBe('hunter2')
+    expect(getRememberedPasswordForAccount(' alice@example.com ')).toBe('hunter2')
+    expect(getRememberedPasswordForAccount('bob@example.com')).toBe('')
   })
 
   it('口令记录损坏时返回空串而不是抛出', () => {
