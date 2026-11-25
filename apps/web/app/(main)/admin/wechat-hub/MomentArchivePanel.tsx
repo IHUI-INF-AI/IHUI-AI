@@ -13,6 +13,7 @@ import { Loader2 } from 'lucide-react'
 import { Alert } from '@/components/feedback'
 import type { WechatMomentArchiveView } from '@ihui/types'
 import { wechatHubApi } from './wechat-hub-api'
+import MomentLocalMedia from './MomentLocalMedia'
 
 const STORAGE_LABELS: Record<WechatMomentArchiveView['storage'], string> = {
   database: '数据库',
@@ -108,6 +109,9 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
                 <p className="mt-1 break-all text-xs text-muted-foreground">
                   本地媒体：{moment.mediaLocalDir}
                 </p>
+              ) : null}
+              {moment.mediaLocalDir ? (
+                <MomentLocalMedia accountId={accountId} momentId={moment.id} />
               ) : null}
             </div>
           ))}
