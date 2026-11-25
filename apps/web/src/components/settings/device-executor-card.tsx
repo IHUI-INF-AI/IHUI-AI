@@ -90,7 +90,10 @@ export function DeviceExecutorCard() {
         deviceId: issued.data.device_id,
         deviceToken: issued.data.device_token,
         name: issued.data.name,
-        apiUrl: getBaseUrl() || undefined,
+        // 后端地址必须落在本机凭证里:桌面端加载线上站点时 getBaseUrl() 是同源空串,
+        // 而 CLI 的默认值是本机开发地址 —— 不补 origin 就会把生产机器指到 localhost:8802。
+        apiUrl:
+          getBaseUrl() || (typeof window === 'undefined' ? undefined : window.location.origin),
       })
       setStatus(adopted)
       setStatus(await startDeviceExecutor())

@@ -23,6 +23,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { navigateDrawerTab } from '../navigation/tab-utils'
 import {
   deleteConversation,
+  fetchApi,
   getAgentCategories,
   getAgentDetail,
   getAgentUseHistory,
@@ -186,7 +187,9 @@ export function AgentScreen() {
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([])
   const [banners, setBanners] = useState<CarouselItem[]>([])
   const [recentAgents, setRecentAgents] = useState<RecentAgentItem[]>([])
-  // 我的AI APP(对齐 Uniapp tools/index MyAgents.vue):与 items 同源取前 6 条
+  // 我的AI APP(对齐 Uniapp tools/index MyAgents.vue):走 GET /api/agents/my 的**真实「我的」**集合。
+  // 2026-11-26 实拍:此前「与智能体列表同源取前 6 条」,首屏「最近使用」与「我的 AI APP」渲染成
+  // 同一批卡片(轮播也派生自同一列表 ⇒ 三重重复),用户看到的是同一批卡被贴了三遍。
   const [myAgents, setMyAgents] = useState<MyAgentItem[]>([])
   // 智汇值卡(对齐 Uniapp Intelligent-assistant.vue):getTokenBalance 返回余额,失败保持 0
   const [tokenQuantity, setTokenQuantity] = useState(0)
@@ -254,6 +257,34 @@ export function AgentScreen() {
     )
   }, [])
 
+  /** 我的 AI APP:走 GET /api/agents/my 取真实「我的」集合。
+   *
+   * 为什么不复用 loadAgents 的列表:`/api/agents` 是**公开广场**,其前 6 条与「最近使用」重合 ⇒
+   * 首屏两段展示同一批卡片(2026-11-26 RN 实拍)。`/api/agents/my` 只返回当前账号拥有的智能体,
+   * 与「最近使用」天然错开。
+   *
+   * 该接口不回 avatar(后端 `MyAgentApiRow` 只有 agentId/name/description/status/price/isFree),
+   * 故按 agentId 从已加载的 published 列表里补;补不到由 AgentMyApps 的首字母兜底(不显白块)。
+   * 失败静默保持空数组 —— 整段由消费方的条件渲染隐藏,不阻塞首屏其它区。 */
+  const loadMyAgents = useCallback(async (known: readonly Agent[]): Promise<void> => {
+    try {
+      const res = await fetchApi<{ list?: { agentId: string; name: string }[] }>('/api/agents/my', {
+        params: { page: 1, pageSize: 6 },
+      })
+      if (!res.success) return
+      const byId = new Map(known.map((a) => [a.agentId, a]))
+      setMyAgents(
+        (res.data?.list ?? []).slice(0, 6).map((a) => ({
+          agentId: a.agentId,
+          agentName: a.name,
+          avatar: resolveWebAssetUrl(byId.get(a.agentId)?.avatar),
+        })),
+      )
+    } catch {
+      // 接口异常或未登录:保持空态(段隐藏),不打断首屏其它区
+    }
+  }, [])
+
   const loadAgents = useCallback(
     async (opts?: { agentCategory?: string; agentMainCategory?: string }): Promise<void> => {
       const res = await getAgents({
@@ -266,18 +297,15 @@ export function AgentScreen() {
         setAgents(res.data.list ?? [])
         setItems((res.data.list ?? []).map(mapToItem))
         setVisibleCount(AGENT_PAGE_STEP)
-        // MyAgents 我的AI APP:与智能体列表同源取前 6 条(对齐 uniapp myAgents 独立接口降级)
-        setMyAgents(
-          (res.data.list ?? [])
-            .slice(0, 6)
-            .map((a) => ({ agentId: a.agentId, agentName: a.name, avatar: resolveWebAssetUrl(a.avatar) })),
-        )
+        // MyAgents 我的AI APP:走 GET /api/agents/my 真实「我的」集合(见 loadMyAgents 头注),
+        // 不再用公开列表前 6 条冒名 —— 那会让本段与「最近使用」显示同一批卡
+        void loadMyAgents(res.data.list ?? [])
         // RecentAgents 最近使用:走 getAgentUseHistory 独立加载(见 loadRecentAgents),
         // 失败时降级取列表前 5 条(对齐 HomeScreen 模式)
         void loadRecentAgents(res.data.list ?? [])
       } else setError(apiFailureToText(res, t('agentScreen.loadFailed')))
     },
-    [t, loadRecentAgents],
+    [t, loadRecentAgents, loadMyAgents],
   )
 
   const loadModels = useCallback(async () => {
