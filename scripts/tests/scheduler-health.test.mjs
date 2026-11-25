@@ -351,4 +351,38 @@ test('remediation:undetermined 也要给下一步(别让「没判」读成绿)',
   assert.equal(out.length, 1)
   assert.match(out[0], /未判定/)
 })
+
+/* ── 第二十四件:声明在册但本机没有这条任务(2026-11-26) ───────────────── */
+
+test('声明在册但枚举不到 ⇒ breach,不能落进「取不到 Last Result」的 undetermined', () => {
+  const r = classifyTask({ name: 'IHUI-Security-Evidence-Intake', declaredButMissing: true }, { now: NOW })
+  assert.equal(r.verdict, 'breach')
+  assert.match(r.reason, /枚举不到|删除|改名/)
+})
+
+test('缺失判据先于「取不到返回码」:缺一条任务不会因为没数据就被读成未判定', () => {
+  const missing = classifyTask({ name: 'X', declaredButMissing: true, lastResult: null }, { now: NOW })
+  assert.equal(missing.verdict, 'breach')
+  /* 对照:不是「声明缺失」的普通条目仍走 undetermined */
+  const unknown = classifyTask({ name: 'Y', lastResult: null }, { now: NOW })
+  assert.equal(unknown.verdict, 'undetermined')
+})
+
+test('缺失条目不污染健康汇总:混在正常任务里也只点它一条', () => {
+  const out = judgeSchedulerHealth(
+    [t({ name: 'GOOD' }), { name: 'GONE', declaredButMissing: true }],
+    { now: NOW },
+  )
+  assert.equal(out.state, SCHEDULER_STATE.BREACH)
+  assert.deepEqual(out.breaches, ['GONE'])
+  assert.equal(out.total, 2)
+})
+
+test('缺失条目的下一步不是「补跑一条不存在的任务」', () => {
+  const out = judgeSchedulerHealth([{ name: 'GONE', declaredButMissing: true }], { now: NOW })
+  const steps = remediationForScheduler(out)
+  assert.equal(steps.length, 1)
+  assert.match(steps[0], /已没有这条任务|改名|重建/)
+  assert.doesNotMatch(steps[0], /立即补跑/)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

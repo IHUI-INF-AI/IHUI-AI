@@ -372,6 +372,13 @@ function main() {
     }
   })
 
+  /* 声明在册但本机没有这条任务 ⇒ 补一条「缺失」条目。
+     否则「删掉一个哨兵」是最安静的动作:它消失之后,报告里连一行都不会留。 */
+  const declaredNames = Object.keys(roster.expectedCadence)
+  for (const n of declaredNames) {
+    if (!base.some((t) => t.name === n)) entries.push({ name: n, declaredButMissing: true })
+  }
+
   const result = judgeSchedulerHealth(entries, { now })
   const remediation = remediationForScheduler(result)
 
