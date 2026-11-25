@@ -27,6 +27,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { redactCredentialText } from '../utils/redact-credential-text.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 /** apps/api/src/services → repo root */
@@ -220,7 +221,7 @@ function launchOnce(): Promise<QoderBridgeEndpoint> {
       // 端点作废：下一次 ensure 会重新拉起
       endpoint = null
       if (child === proc) child = null
-      const tail = errTail.join(' | ').slice(-400)
+      const tail = redactCredentialText(errTail.join(' | ')).slice(-400)
       finish(() =>
         reject(
           new Error(`桥进程提前退出 code=${code} signal=${signal}${tail ? ` :: ${tail}` : ''}`),
@@ -354,7 +355,7 @@ export async function fetchQoderModelsFromBridge(
       const text = await res.text().catch(() => '')
       return {
         ok: false,
-        error: `bridge /v1/models HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
+        error: `bridge /v1/models HTTP ${res.status}${text ? `: ${redactCredentialText(text).slice(0, 200)}` : ''}`,
       }
     }
     const json = (await res.json()) as {
@@ -383,7 +384,10 @@ export async function fetchQoderModelsFromBridge(
       fetchedAt: json.fetched_at ?? '',
     }
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    return {
+      ok: false,
+      error: redactCredentialText(e instanceof Error ? e.message : String(e)),
+    }
   }
 }
 
