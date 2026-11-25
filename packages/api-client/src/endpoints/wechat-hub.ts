@@ -49,11 +49,12 @@ import type {
   WechatMomentFetchInput,
   WechatMomentFetchResult,
   WechatMomentInput,
+  WechatMomentMediaFileView,
   WechatQrCodeView,
   WechatSendInput,
   WechatSendResult,
 } from '@ihui/types'
-import { fetchApi } from '../client.js'
+import { fetchApi, fetchRaw } from '../client.js'
 
 /** GET /api/wechat-hub/capabilities */
 export async function fetchWechatCapabilities(): Promise<WechatBackendCapability[]> {
@@ -535,6 +536,32 @@ export async function fetchWechatMomentArchive(
   )
   if (!res.success) throw new Error(res.error || '获取朋友圈归档失败')
   return res.data
+}
+
+/** GET /api/wechat-hub/accounts/:id/moments/media/list */
+export async function fetchWechatMomentMediaList(
+  accountId: string,
+  momentId: string,
+): Promise<WechatMomentMediaFileView[]> {
+  const params = new URLSearchParams({ momentId })
+  const res = await fetchApi<WechatMomentMediaFileView[]>(
+    `/wechat-hub/accounts/${accountId}/moments/media/list?${params.toString()}`,
+    { method: 'GET' },
+  )
+  if (!res.success) throw new Error(res.error || '获取朋友圈本地媒体列表失败')
+  return res.data ?? []
+}
+
+/** GET /api/wechat-hub/accounts/:id/moments/media，带鉴权头拉二进制。 */
+export async function fetchWechatMomentMediaBlob(
+  accountId: string,
+  momentId: string,
+  name: string,
+): Promise<Blob> {
+  const params = new URLSearchParams({ momentId, name })
+  return fetchRaw(`/wechat-hub/accounts/${accountId}/moments/media?${params.toString()}`, {
+    method: 'GET',
+  })
 }
 
 /** POST /api/wechat-hub/accounts/:id/moments */

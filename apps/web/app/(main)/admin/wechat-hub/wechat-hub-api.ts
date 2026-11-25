@@ -35,6 +35,8 @@ import {
   fetchWechatMessages,
   fetchWechatMoments,
   fetchWechatMomentArchive,
+  fetchWechatMomentMediaBlob,
+  fetchWechatMomentMediaList,
   fetchWechatQrCode,
   fetchWechatStatus,
   ingestWechatKnowledge,
@@ -92,6 +94,7 @@ import type {
   WechatMomentFetchInput,
   WechatMomentFetchResult,
   WechatMomentInput,
+  WechatMomentMediaFileView,
   WechatQrCodeView,
   WechatSendInput,
   WechatSendResult,
@@ -228,6 +231,10 @@ export const wechatHubApi = {
     input: WechatMomentArchiveInput = {},
   ): Promise<WechatMomentArchiveView> =>
     call(() => fetchWechatMomentArchive(id, input), '获取朋友圈归档失败'),
+  fetchMomentMediaList: (id: string, momentId: string): Promise<WechatMomentMediaFileView[]> =>
+    call(() => fetchWechatMomentMediaList(id, momentId), '获取朋友圈本地媒体列表失败'),
+  fetchMomentMediaBlob: (id: string, momentId: string, name: string): Promise<Blob> =>
+    call(() => fetchWechatMomentMediaBlob(id, momentId, name), '读取朋友圈本地媒体失败'),
   knowledge: (id: string): Promise<WechatKnowledgeDocView[]> =>
     call(() => fetchWechatKnowledge(id), '获取知识库失败'),
   ingestKnowledge: (id: string, input: { title: string; text: string }) =>

@@ -412,6 +412,13 @@ export interface WechatMomentCommentView {
   refCommentId?: string | null
 }
 
+export interface WechatMomentMediaFileView {
+  /** 真实落盘文件名，不是 qpic URL 或占位图 */
+  name: string
+  size: number
+  contentType: string
+}
+
 export interface WechatMomentView {
   id: string
   authorId: string | null

@@ -31,6 +31,7 @@ import {
   formatMomentMediaStats,
 } from './moment-status'
 import MomentArchivePanel from './MomentArchivePanel'
+import MomentLocalMedia from './MomentLocalMedia'
 
 function momentTime(value: number | null): string {
   if (!value) return '时间未识别'
@@ -200,6 +201,9 @@ export default function MomentCard({ accountId }: { accountId: string }) {
                       <p className="mt-1 break-all text-xs text-muted-foreground">
                         本地媒体：{moment.mediaLocalDir}
                       </p>
+                    ) : null}
+                    {moment.mediaLocalDir ? (
+                      <MomentLocalMedia accountId={accountId} momentId={moment.id} />
                     ) : null}
                     {moment.mediaDownloadError ? (
                       <p className="mt-1 text-xs text-muted-foreground">
