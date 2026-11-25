@@ -43,7 +43,7 @@
 
 ## 0. 为什么要推翻上一版
 
-上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了四十九处纠正，每一条都能被证据账本复核。
+上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了五十处纠正，每一条都能被证据账本复核。
 
 **纠正一：把 Electron 主 exe 的 Chromium 安全 API 当成产品自研沙箱。**
 上一版用 `CreateRestrictedToken`、`CreateJobObject`、`CreateProcessAsUserW` 这类导入来证明“某产品有强沙箱”。实测发现，WorkBuddy.exe、Qoder CN.exe、ZCode.exe、Cursor.exe、Trae CN.exe 全部是 Electron 壳，这些 API 属于 Chromium/Electron 出厂能力，**不能归因于产品**。本版把证据分成三层：产品级（Rust/Go helper、.node、主进程 JS）、框架级（Electron/Chromium）、未知级；只有第一层进入结论。
@@ -184,6 +184,8 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 **纠正四十八：WorkBuddy 工具层出站补丁＝实验级/原型级验证通过，不是产品级闭环；真实链路待主会话 idle 复跑。** 账本 `C:\IHUI-AI\analysis\wave2-workbuddy-bridge-patch-2026-11-26.json` 与 `C:\IHUI-AI\analysis\wave2-workbuddy-bridge-patch-2026-11-26.md`：对象为打包产物 `C:\workbuddy\resources\app.asar.unpacked\cli\dist\codebuddy-lite-wb.mjs`（12,849,066 字节，SHA256 `86900740…60FD322D`，实验前后未变，只做只读副本）。上游事件结构确证：`function_call`（callId/name/arguments）与 `function_call_result`（callId/output/status）。同一组合成上游事件序列对照——原版对照组出站仅 2 个 `streaming` 文本帧、工具事件 0 帧、`completed.agent.toolCalls.length = 0`；补丁实验组出站 4 个 `tool` 帧（2 个 tool_call + 2 个 tool_call_update）、`completed.agent.toolCalls.length = 2`（Bash / Read，completed 带 output），streaming 帧数与原版一致、无回归；`waitForAgentCompletion` 回填槽回填 1 条 RunResult 工具记录。函数级 harness `allPass: true`，耗时 1ms。验证方式必须写清：12.8MB 打包产物含 Electron / rxjs / DI 装饰器依赖，无法独立 import，采用**函数级提取 + 依赖打桩**验证（`functions-original.js` / `functions-patched.js` + `stubs.js`，无网络、无进程依赖），不是真实链路运行；补丁只存在于 `.tmp` 实验副本，安装目录产物未替换，未重启或结束任何 WorkBuddy 进程，未向 `58795` 发送任何 POST。真实生效前置条件：等主会话 `4567fe0e…` 转 idle（或手动结束当前自主循环任务）后，在真实链路发一条只读指令并立即抓取 `/api/v1/runs/{runId}/stream`，复核出站 `tool` 帧与非空 toolCalls，同时确认文本 streaming 无回归；补丁应回写源码仓库随版本发布，手工改打包产物会在版本升级时被覆盖。未覆盖项：MCP 工具参数与结果的真实结构、审批态/等待权限事件、子代理工具调用透传、工具失败与取消状态、长时间运行的流式分片。本条不改变纠正四十的缺口定性，也不表述为“外部已能拿到工具调用”或“真实链路已修复”。
 
 **纠正四十九：Codex 四条免浏览器替代路径全部不可行，仍为未知（未闭环）；只剩一个人工动作加验证链。** 账本 `C:\IHUI-AI\analysis\wave2-codex-alternatives-2026-11-26.json` 与 `C:\IHUI-AI\analysis\wave2-codex-alternatives-2026-11-26.md`（核查 2026-11-26 04:19:49 +08:00；全程只读枚举 + CLI 只读探针 `login status` / `doctor --json` / `login --help` + DB 只读元数据 + 二进制字符串扫描；未解密加密库，未读取/打印/落盘 key/token/cookie 明文，未回写号池状态，未卸载、未改 PATH、未改系统配置）。路径一，API key / access token 非交互注入：机制支持、无可用凭据——`codex login --with-api-key` 与 `--with-access-token` 均从 stdin 读取凭据（CLI help 原文确认），接受运行时变量 `OPENAI_API_KEY` / `CODEX_API_KEY` / `CODEX_ACCESS_TOKEN`；进程、HKCU、HKLM 环境变量与 `config.toml` 均无凭据（无 provider / api_key / token / base_url 字段）。号池只读元数据：`ai_model_config` 54 行（42 行启用）无 openai 官方行；`ai_relay_key_pool` 15 行（9 行启用），唯一 openai 行 `openai-default` 已禁用、health=degraded、缺 base_url 映射、余额 -1、加密信封未解密；其余健康行均为第三方/中转厂商，Codex 默认 ChatGPT OAuth 后端不接受其直连。未发起任何已认证推理请求（1 次尝试预算保留，无合格候选），未拿到产品级模型输出。路径二，MSIX 包内容：无内置凭据、无旁路配置——主包 `OpenAI.Codex 26.1120.5083.0`（Store 签名），运行时包 `OpenAI.CodexPrimaryRuntime 26.1123.915.0`（Developer 签名 Framework）；能力声明含 runFullTrust / unvirtualizedResources / packagedServices / localSystemServices / internetClient；入站防火墙 TCP 1455 / 1457 / 3128-3159 / 8081-8112；LocalSystem 自动服务 `CodexSandboxService.OpenAI.Codex`。包内仅壳层/运行时清单配置（owl-shell-runtime.json、owl-app.ini、owl-electron-app.json、masque-proxy-origins.txt、runtime.json），未随包放置任何 provider / base-url / key 配置；默认端点全部指向 OpenAI 官方（chatgpt.com/backend-api/codex、api.openai.com/v1/responses、auth.openai.com/oauth/*、codex-portals.api.openai.com）。路径三，凭据存储：File 模式 auth.json 缺失，keyring 未启用且无目标——auth.json 八顶层字段 `auth_mode` / `OPENAI_API_KEY` / `tokens` / `last_refresh` / `agent_identity` / `personal_access_token` / `bedrock_api_key` / `bedrock_access_keys`；支持 file / keyring / ephemeral 三模式（自动模式优先 keyring、失败回退 file），切换键 `cli_auth_credentials_store`（默认 file，本轮未改）；Windows keyring 后端为凭据管理器，19 个目标中零 codex/openai/chatgpt 条目（仅枚举目标名、未读值）。路径四，同生态合法替代来源：无——`%LOCALAPPDATA%\OpenAI` 仅运行时分片、node_modules 与原生消息主机配置；桌面 Chromium 加密库（Login Data、Cookies、Device Bound Sessions、Trust Tokens）未打开、未解密；全局状态 `electron-renderer-content-owner = signed-out`；本机不存在第二个已登录的 OpenAI 官方客户端；8 个历史 rollout 会话无 access_token / refresh_token / id_token / api_key 落盘（risk-specific / risk-claims 子串为误报）。唯一人工动作二选一：交互式 OAuth（推荐）＝终端 `codex login`（或 `codex login --device-auth`），在浏览器/设备码页面由本人完成 ChatGPT 账号授权，同意页无法代为 headless 操作；CLI 不在 PATH 时打开开始菜单 ChatGPT 桌面应用登录，或用包内完整路径 `app\resources\codex.exe login`。自备官方 key 时：`$env:OPENAI_API_KEY | codex login --with-api-key`，或 `$env:CODEX_ACCESS_TOKEN | codex login --with-access-token`。完成后验证链：`codex login status`（退出码 0，不再输出 `Not logged in`）→ `codex doctor --json`（`auth.credentials` 检查 status=ok，overallStatus 不再因鉴权项失败）→ `codex exec "Reply with exactly one word: pong."` 返回真实模型原文；401 / 402 / 403 / 404、refusal 或仅安装成功都不算模型输出。定性：证据级别仍为**未知（未闭环）**，替代路径已穷尽，卡点只剩人工授权这一步；账本 `evidence_level=high` 是置信度口径，不是四档闭环级别。
+
+**纠正五十：号池/计费盘点为运维侧只读核算；库内无余额/配额字段，0 不代表真实用量（不进客户端模型层矩阵）。** 账本 `C:\IHUI-AI\analysis\wave2-account-pool-inventory-2026-11-26.json` 与 `C:\IHUI-AI\analysis\wave2-account-pool-inventory-2026-11-26.md`：三表只读（账号池 80 / Key 池 15 / 配置 54）；额度字段缺口详见 7.3 节——账号池仅 `total_calls` 累计调用次数，Key 池仅 `balance_cents` 且多为 -1 未跟踪，日/月限额、倍率、RPM 全 null 未配置，配置表 30 天 token 与成本全 0、佣金率非用量。结论口径：后续任何“剩余额度 / 已用量”判断必须查上游控制台，不能拿库内 0 或 -1 当真实计费结果；本节为运维台账，不改变 9 个客户端的模型层分级。
 这次不是 ACP 的 `refusal`，也不是 VLM 的 `kinfra-office-agent`；是带 `sessionId`、`toolCalls` 字段的 CodeBuddy agent 文本输出。关键细节：第一次 idle 后发 `runId 1e23fa51-f61d-4ad9-a4ff-21e8134623a1`，202 后 3 秒 `active:false`，此时再读 `/stream` 返回 **404 `RUN_NOT_FOUND`**，只能证明 run 完成、不能算输出；第二次发 `只回复文字 AGENT_OK，不要调用任何工具。`，`runId 7a8bb606-8f2e-44aa-bff7-ac487d5c64f9`，202 后立即开流，拿到上面的 200 SSE；第三次发 `只回复 17 × 23 的结果，不要解释，不要调用任何工具。`，`runId 9ed58d08-b94d-4ef4-b24d-c99972145a87`，同样 200 SSE `391`。因此 **202 只表示 accepted，`/runs/{id}` 的 `active` 只表示排队；真正 assistant 输出在 `/stream` 的 `content.markdown`，而且流必须早开，run 完成后就 404。** 两次都复用 `activeSessionId 4567fe0e…`，说明 Gateway 是在已有登录会话上执行，不是新建独立模型槽。边界也要写清：`toolCalls` 为空，只证明**纯文本 agent 推理**闭环，不证明工具调用、权限或计费；VLM 仍是另一条链路。证据 `analysis\workbuddy-gateway-stream-agent-2026-11-26.json`、`analysis\workbuddy-gateway-stream-agent-math-2026-11-26.json`、`analysis\workbuddy-gateway-idle-run-2026-11-26.json`。
 
 ---
@@ -1007,6 +1009,18 @@ PID 38788（父 PID 11820）在 15:xx 运行 `codex.exe ... app-server --analyti
 
 这张表就是“彻底榨干”的边界：**能静态读到的都读到了，能安全驱动的都驱动了；剩下的是需要登录态、需要第二台主机、需要重启保持或需要破坏性注册才能验证的部分，统一标未知，不写成已闭环。**
 
+### 7.3 号池与计费现状（运维侧只读核算，不进客户端模型层矩阵）
+
+账本 `C:\IHUI-AI\analysis\wave2-account-pool-inventory-2026-11-26.json` 与 `C:\IHUI-AI\analysis\wave2-account-pool-inventory-2026-11-26.md`（核算 2026-11-26 04:25:55 +08:00；本机 PostgreSQL `ihui` 三表只读查询：`ai_relay_account_pool` / `ai_relay_key_pool` / `ai_model_config`；全程只读，未写回、未刷新 token、未改配额与启用状态；代号 `acct_N / key_N / cfg_N` 为报告内排序代号，不含邮箱 / UUID / 账号名；加密信封未解密）。
+
+**存量**：账号池 80（77 启用 / 3 禁用；healthy 63 / down 7 / unknown 10）；Key 池 15（9 启用；healthy 9 / degraded 3 / down 3）；模型配置 54（42 启用 / 12 禁用，健康探测结果库内全 unknown、未回填）。账号到期分桶：已过期 7 / 7 天内 4 / 30 天内 37 / 30 天以上 2 / 无记录 30；最近使用：从未 73 / 7–30 天 2 / 7 天内 5。
+
+**额度结论（库内真实字段，非估算）**：账号池无余额、配额、计费金额字段，可观测计费字段仅 `total_calls`（累计调用次数，非零 7 枚：workbuddy 5、cursor 1、trae 1；其余 73 枚为 0）；`refresh_failure_count` / `consecutive_failures` 是失败计数，不是计费字段。Key 池只有 `balance_cents`（单位分，多数 -1 未跟踪）；日/月调用次数、日/月 token 限额、倍率 `rate_multiplier`、`rpm_override` 在全部 15 行均为 null，库内未配置 key 级配额。配置表 `usage_30d_tokens` 全 0、`usage_30d_cost_cents` 全 0.0；`byok_commission_rate` 是佣金率配置（0.1×27 / 0.0×25 / 0.12 / 0.15），不是用量。**数据库里没有可用的余额 / 配额字段，任何额度数字都必须到各厂商上游控制台核对；库内 0 不等于真实用量或真实余额。**
+
+**保活缺口 11 枚**：刷新失败 3/3 已摘除 codearts×3（`STS5.1806` 连续超限）、minimax×1（`invalid_grant`）、trae×1（ExchangeToken 设备证明 401）；已过期待重登 doubao×1（`712012001` 登录校验不合法）、zcode×1（`billing/balance` 401）；**当日到期需立即刷新 trae web ×4（2026-11-26 09:37:40 +08:00）**。观察名单：30 天内到期 37 枚（trae 12 / qoder 16 / raccoon 3 / workbuddy 6），到期明细见 JSON `watchlist_within_30d`。
+
+**最小补货清单**：P0 openai / Codex——补 1 枚官方 API key（stdin 登录）或完成一次 ChatGPT OAuth；P1 deepseek——账户余额耗尽 402，充值或换有余额 key 并替换失效配置；P1 zcode——entitlement / 余额 401，补授权额度或换有 entitlement 账号；P2 raccoon——补 1 枚平台 key；P2 minimax——重新 OAuth 授权或补可用平台 key。
+
 ---
 
 ## 8. 证据索引
@@ -1077,7 +1091,7 @@ PID 38788（父 PID 11820）在 15:xx 运行 `codex.exe ... app-server --analyti
 - `analysis\frontend-<target>.json`：前端结构化摘要（IPC、窗口、暴露键、endpoint、模块关键词）。
 - `analysis\evidence-ids.json`：目标 → evidence id 映射；`analysis\evidence-map.json`：证据号 → 摘要/路径。
 
-**2026-11-26 模型层复测账本（纠正四十至四十九，绝对路径前缀 `C:\IHUI-AI\`）**：
+**2026-11-26 模型层复测账本（纠正四十至五十，绝对路径前缀 `C:\IHUI-AI\`）**：
 
 - `analysis\workbuddy-tool-layer-2026-11-26.json`：WorkBuddy 工具层部分闭环取证——79 条只读状态快照（03:06:35→03:35:38，`busy` 恒 `true` / `idle=0`；相位 `tool_executing` 60、`model_requesting` 10、`model_streaming` 7、`agent_running` 2；`lastCompletedAt` 6 次推进，非死锁）；`/health` 200 `pid=35940`、`/info` 200 `gatewayMode=local` / v5.11.3 / node v22.21.1；会话 jsonl 的 Read / Bash / PowerShell `function_call→result(completed)`；源码级 `convertEventToOutbound` 无 `tool_call` / `tool_call_update` 分支、`waitForAgentCompletion` 从不回填 toolCalls（纠正四十）。
 - `analysis\wave2-workbuddy-bridge-patch-2026-11-26.json` + `analysis\wave2-workbuddy-bridge-patch-2026-11-26.md`：WorkBuddy 桥接层 tool_call 出站补丁实验级原型（实验级/原型级，非产品级闭环）——对象 `cli\dist\codebuddy-lite-wb.mjs`（12,849,066 字节，SHA256 `86900740…60FD322D`，只读副本）；函数级提取 + 依赖打桩 harness（`allPass: true`，1ms，无网络/无进程依赖）：原版对照组 2 个 `streaming` 帧 / 0 个 tool 帧 / `completed.agent.toolCalls.length = 0`，补丁实验组 4 个 `tool` 帧（2 tool_call + 2 tool_call_update）/ toolCalls 长度 2（Bash、Read，completed 带 output）/ 回填槽 1 条 RunResult 工具记录，streaming 帧数与原版一致无回归；补丁副本 12,852,075 字节，未替换安装产物、未在真实会话生效；待主会话 `4567fe0e…` idle 后真实链路复跑（纠正四十八）。
@@ -1088,6 +1102,7 @@ PID 38788（父 PID 11820）在 15:xx 运行 `codex.exe ... app-server --analyti
 - `analysis\report-qa-2026-11-26.json` + `analysis\ihui-landing-checklist-2026-11-26.md`：本轮报告 QA 账本（11 条问题项，含精确行号与建议改法）与落地清单；纠正四十起的口径修正均以此为准。
 - `analysis\account-pool-closure-2026-11-26.json` + `analysis\account-pool-closure-2026-11-26.md`：号池闭环核验（Trae / DeepSeek，库表 `ai_relay_account_pool` / `ai_relay_key_pool` / `ai_model_config` 全程只读，未回写状态、未新增账号、未改配额）——Trae 在册 17 枚（可调度 16、down 1、政策性跳过 1），成功账号 `acct_3`（healthy，Token 至 `2026-12-09T17:30:41Z`，无 cookie、设备材料齐全、无代理），极短提问一次即通返回原文 `pong`，`finish_reason=stop`，`model=auto`，`messageId 6b073b51533612b8308450f0`，usage prompt 24602 / completion 44 / total 24646（reasoning 29），14131ms，时间戳 `2026-11-25T19:47:30.720Z`→`19:47:44.851Z`（UTC）；DeepSeek `key_1`（长度 35，掩码前缀 `sk-638bf`）`/v1/models` 200 列 `deepseek-flash` / `deepseek-v4-pro`，双模型 chat 均 402 `insufficient_balance_error`（flash 477ms、v4-pro 487ms，无输出原文），`cfg_1`（28 字符）`/models` 401 失效；`account_pool` 表无 DeepSeek 账号类型凭据（纠正四十六 / 四十七）。
 - `analysis\wave2-consistency-audit-2026-11-26.json`：一致性审计账本（6 条待修补丁、敏感扫描、证据穿透核对、70 条账本路径 Test-Path 0 缺失）；本轮 P1-P6 口径修正（相位计数 60/79、旧口径收窄、矩阵补 OpenCode / 豆包两行、前端图 15/16 分母口径、`_work` 根路径规范）均以此为准。配套升级版落地清单 `analysis\wave2-ihui-landing-v2-2026-11-26.md` 为独立交付件，不并入本报告。
+- `analysis\wave2-account-pool-inventory-2026-11-26.json` + `analysis\wave2-account-pool-inventory-2026-11-26.md`：号池 / Key 池 / 模型配置三表只读运维盘点（不进客户端模型层矩阵）——账号池 80（77 启用，healthy 63 / down 7 / unknown 10）、Key 池 15（9 启用，healthy 9 / degraded 3 / down 3）、配置 54（42 启用）；账号到期 7 / 4 / 37 / 2 / 30，最近使用从未 73 / 7–30 天 2 / 7 天内 5；额度结论：库内无余额 / 配额字段，账号池仅 `total_calls`（非零 7 枚），Key 池仅 `balance_cents`（多为 -1 未跟踪），限额 / 倍率 / RPM 全 null，配置表 30 天 token 与成本全 0，佣金率非用量；保活缺口 11 枚（含当日到期 trae web ×4），最小补货 P0 Codex、P1 deepseek / zcode、P2 raccoon / minimax（纠正五十，详见 7.3 节）。
 
 **非 craft 证据（文件级/字节级，正文已标注）**：
 
@@ -1132,7 +1147,7 @@ $proj = "C:\IHUI-AI\.workbuddy\craft\all-ai-apps-full-2026-11-25.cany"
 
 ---
 
-**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是四十九处纠正、11 个程序、8 个 asar 解包、16 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张 + Codex `app.asar` 第 16 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、26 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
+**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是五十处纠正、11 个程序、8 个 asar 解包、16 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张 + Codex `app.asar` 第 16 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、26 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
 
 ## 9. 收尾复核（2026-11-25 23:50）
 
