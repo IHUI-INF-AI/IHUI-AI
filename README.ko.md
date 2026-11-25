@@ -2227,6 +2227,8 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-25**
+- 🔧 기타:补 WS 任务消息路由往返,路由测试 7 例 (a9028bf4)
+- 📚 문서:四语最近更新补 Rust 测试口径修正 (d5eb0599)
 - 🔧 기타:修两处既存测试口径,全 lib 569 转绿 (53cbda8f)
 - 📚 문서:同步四语最近更新至 daa35b0e (66bc2ecf)
 - 🐞 수정:上游错误面统一打码——qoder 桥/适配器与 TraeAuthFailureError 不再只截断 (e5dee15f)
