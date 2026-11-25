@@ -28,6 +28,7 @@ import { wechatHubManager } from '../services/wechat-hub/manager.js'
 import { listCommandsForAccount } from '../services/wechat-hub/commands.js'
 import { buildReport } from '../services/wechat-hub/reports.js'
 import { askMessages } from '../services/wechat-hub/ask.js'
+import { askWithSql } from '../services/wechat-hub/ask-sql.js'
 import { deleteJob, listJobs, runDueJobs, saveJob, toggleJob } from '../services/wechat-hub/jobs.js'
 import { transcribeAccountVoice, transcribeMessage } from '../services/wechat-hub/transcribe.js'
 import { answerError, requireUserId } from './wechat-hub-route-utils.js'
@@ -85,6 +86,12 @@ const askSchema = z.object({
   since: z.string().min(1).max(64).optional(),
   until: z.string().min(1).max(64).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
+  model: z.string().min(1).max(128).optional(),
+})
+
+/** 让模型写只读查询；不接收 SQL 文本，SQL 只在服务端生成与校验。 */
+const askSqlSchema = z.object({
+  question: z.string().min(1).max(500),
   model: z.string().min(1).max(128).optional(),
 })
 
@@ -342,6 +349,25 @@ export const wechatHubAutomationRoutes: FastifyPluginAsync = async (server) => {
         const input = parseOrThrow(askSchema, request.body)
         return reply.send(
           success(await askMessages(requireUserId(request), request.params.id, input)),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.post<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/ask-sql',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const input = parseOrThrow(askSqlSchema, request.body)
+        return reply.send(
+          success(
+            await askWithSql(requireUserId(request), request.params.id, input.question, {
+              model: input.model,
+            }),
+          ),
         )
       } catch (e) {
         return answerError(reply, e)

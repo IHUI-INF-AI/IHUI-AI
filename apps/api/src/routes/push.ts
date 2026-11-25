@@ -197,6 +197,59 @@ export const pushRoutes: FastifyPluginAsync = async (server) => {
 }
 
 // =============================================================================
+// 失效 token 清理（2026-11-26）
+// =============================================================================
+
+/**
+ * 上游明确表示"这个 token 已经不存在"的错误判定——只有命中才允许置 isActive=false。
+ *
+ * 反例必须留在射程外：超时、限流、鉴权失败、网络不可达都是"这次没发成"，
+ * 不是"设备没了"；按后者处理会把好设备永久打成静音，且用户不会自己回来开启。
+ */
+const DEAD_TOKEN_ERROR_PATTERNS: readonly RegExp[] = [
+  /DeviceNotRegistered/i,
+  /InvalidRegistration/i,
+  /NotRegistered/i,
+  /invalid registration token/i,
+  /unregistered/i,
+]
+
+export function isDeadTokenError(err: string | undefined): boolean {
+  return typeof err === 'string' && DEAD_TOKEN_ERROR_PATTERNS.some((re) => re.test(err))
+}
+
+/** 按投递序对齐取失效 token（sendPushBatch 保序；长度不等只取可靠前缀，不瞎猜）。 */
+export function collectDeadTokens(
+  targets: readonly string[],
+  results: readonly PushResult[],
+): string[] {
+  const limit = Math.min(targets.length, results.length)
+  const dead: string[] = []
+  for (let i = 0; i < limit; i += 1) {
+    const result = results[i]
+    if (result && !result.success && isDeadTokenError(result.error)) {
+      dead.push(targets[i] as string)
+    }
+  }
+  return dead
+}
+
+/** 批量置失效。失败只 warn：清理是卫生动作，绝不因它让推送响应失败或 500。 */
+async function deactivateDeadTokens(tokens: readonly string[]): Promise<number> {
+  if (tokens.length === 0) return 0
+  try {
+    await db
+      .update(deviceTokens)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(inArray(deviceTokens.token, [...tokens]))
+    return tokens.length
+  } catch (e) {
+    console.warn(`[push] 失效 token 清理失败（不影响本次投递结果）: ${(e as Error).message}`)
+    return 0
+  }
+}
+
+// =============================================================================
 // 管理员路由（发送推送）
 // =============================================================================
 
@@ -224,6 +277,7 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
         tokens.map((t) => ({ token: t })),
         defaultMessage,
       )
+      const deactivated = await deactivateDeadTokens(collectDeadTokens(tokens, results))
       const successCount = results.filter((r) => r.success).length
       return reply.send(
         success({
@@ -232,6 +286,7 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
           success: successCount,
           failed: results.length - successCount,
           results,
+          ...(deactivated > 0 ? { deactivated } : {}),
         }),
       )
     }
@@ -293,6 +348,7 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
       }
 
       const results: PushResult[] = []
+      const deadTokens: string[] = []
       for (const group of groups.values()) {
         const groupMessage: PushMessage = {
           ...message,
@@ -301,7 +357,11 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
         }
         const batch = await sendPushBatch(group.targets, groupMessage)
         results.push(...batch)
+        // sendPushBatch 保序 ⇒ 用同组 targets 对齐取失效 token（结果被分组重排，
+        // 不能拿全量 activeRows 的下标去对）。
+        deadTokens.push(...collectDeadTokens(group.targets.map((t) => t.token), batch))
       }
+      const deactivated = await deactivateDeadTokens(deadTokens)
       const successCount = results.filter((r) => r.success).length
       return reply.send(
         success({
@@ -310,6 +370,7 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
           success: successCount,
           failed: results.length - successCount,
           results,
+          ...(deactivated > 0 ? { deactivated } : {}),
           ...(truncated ? { truncated: true, note: '收件人超过上限,已截断' } : {}),
         }),
       )

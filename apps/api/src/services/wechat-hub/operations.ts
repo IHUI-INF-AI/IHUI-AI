@@ -16,6 +16,7 @@ import type {
   WechatActionResult,
   WechatBridgeAction,
   WechatGroupActionInput,
+  WechatGroupActionPlan,
   WechatGroupMembersSyncResult,
   WechatMomentArchiveItemView,
   WechatMomentArchiveStat,
@@ -36,6 +37,12 @@ import {
   assertContactForAccount,
   assertConversationForAccount,
 } from './guards.js'
+import {
+  assertGroupWriteAllowed,
+  issueGroupPlan,
+  readGroupWritePolicy,
+  recordGroupWriteSuccess,
+} from './group-writes.js'
 import { wechatHubManager } from './manager.js'
 import { listGroupMembers } from './contacts.js'
 import { pushMemberMapForAccount } from './member-map-sync.js'
@@ -472,18 +479,50 @@ async function applyGroupLocalState(
   }
 }
 
+/** 群写动作预览：只出影响面与一次性令牌，不调桥、不写本地状态。 */
+export async function previewGroupAction(
+  userId: string,
+  accountId: string,
+  input: WechatGroupActionInput,
+): Promise<WechatGroupActionPlan> {
+  const account = await assertAccountForUser(userId, accountId)
+  // create 还没有会话，路径/body 里即便带了占位 conversationId 也不归进预览单。
+  const conversationId = input.action === 'create' ? null : input.conversationId ?? null
+  let conversationTitle = ''
+  if (input.action !== 'create') {
+    if (!conversationId) {
+      throw new AppError('群动作缺少 conversationId', 400, 'WECHAT_GROUP_CONVERSATION_REQUIRED')
+    }
+    const conversation = await assertConversationForAccount(accountId, conversationId)
+    conversationTitle = conversation.title
+  }
+  const policy = readGroupWritePolicy(account.metadata)
+  return issueGroupPlan({
+    accountId,
+    action: input.action,
+    conversationId,
+    chatTitle: conversationTitle || input.title?.trim() || '',
+    memberIds: input.memberIds,
+    title: input.title,
+    text: input.text,
+    policy,
+  })
+}
+
 /** 群管理动作统一入口；create 不要求已有会话，其余动作必须先校验会话归属。 */
 export async function runGroupAction(
   userId: string,
   accountId: string,
   input: WechatGroupActionInput,
 ): Promise<WechatActionResult> {
-  await assertAccountForUser(userId, accountId)
+  const account = await assertAccountForUser(userId, accountId)
+  const policy = readGroupWritePolicy(account.metadata)
   const action = `group.${input.action}` as WechatBridgeAction
   const payload: Record<string, unknown> = {}
   if (input.memberIds?.length) payload.memberIds = input.memberIds
   if (input.title?.trim()) payload.title = input.title.trim()
   if (input.text?.trim()) payload.text = input.text.trim()
+  let conversationTitle = ''
   if (input.action !== 'create') {
     if (!input.conversationId) {
       throw new AppError('群动作缺少 conversationId', 400, 'WECHAT_GROUP_CONVERSATION_REQUIRED')
@@ -491,8 +530,51 @@ export async function runGroupAction(
     const conversation = await assertConversationForAccount(accountId, input.conversationId)
     payload.conversationId = input.conversationId
     payload.chatId = conversation.platformChatId
+    conversationTitle = conversation.title
   }
-  const result = await wechatHubManager.performAction(userId, accountId, action, payload)
+
+  const planContext = {
+    accountId,
+    action: input.action,
+    conversationId: input.action === 'create' ? null : (input.conversationId ?? null),
+    chatTitle: conversationTitle || input.title?.trim() || '',
+    memberIds: input.memberIds,
+    title: input.title,
+    text: input.text,
+    policy,
+  }
+
+  // dryRun 只出影响面：不调桥、不写本地状态、不消耗令牌，等价于先打一张预览单。
+  if (input.dryRun === true) {
+    const plan = await issueGroupPlan(planContext)
+    return { ok: true, status: 'accepted', data: { plan }, reason: null }
+  }
+
+  let result: WechatActionResult
+  try {
+    assertGroupWriteAllowed(policy, { accountId, input })
+    result = await wechatHubManager.performAction(userId, accountId, action, payload)
+  } catch (e) {
+    logger.warn('[wechat-hub] 群写动作被拒绝或执行失败', {
+      accountId,
+      action: input.action,
+      targetCount: asStringArray(input.memberIds).length,
+      errorCode: e instanceof AppError ? e.errorCode : 'BRIDGE_THREW',
+      err: e instanceof Error ? e.message : String(e),
+    })
+    throw e
+  }
+  if (result.ok) {
+    recordGroupWriteSuccess(accountId)
+  } else {
+    logger.warn('[wechat-hub] 群写动作桥返回未成功', {
+      accountId,
+      action: input.action,
+      targetCount: asStringArray(input.memberIds).length,
+      errorCode: result.status,
+      reason: result.reason,
+    })
+  }
   await applyGroupLocalState(accountId, input.conversationId, input, result)
   return result
 }

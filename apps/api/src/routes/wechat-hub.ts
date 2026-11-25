@@ -32,6 +32,7 @@ import { exportAccountMessages } from '../services/wechat-hub/export.js'
 import { importWechatMessages } from '../services/wechat-hub/import.js'
 import { syncHistoryFromBridge } from '../services/wechat-hub/history-sync.js'
 import { getSchedule } from '../services/wechat-hub/digest.js'
+import { askWithSql } from '../services/wechat-hub/ask-sql.js'
 import {
   fetchMoments,
   publishMoment,
@@ -422,7 +423,8 @@ const MCP_TOOLS: WechatMcpTool[] = [
   },
   {
     name: 'wechat_group_action',
-    description: '群管理：create/invite/kick/rename/announce（仅 bridge 后端）。',
+    description:
+      '群管理：create/invite/kick/rename/announce（仅 bridge 后端）。不带 confirmToken 时只返回预览单（影响面 + 60 秒一次性令牌）不执行；确认后带 confirmToken 再调一次才真做，且受写开关、单次人数与每小时频次限制。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -432,8 +434,24 @@ const MCP_TOOLS: WechatMcpTool[] = [
         memberIds: { type: 'array', items: { type: 'string' } },
         title: { type: 'string' },
         text: { type: 'string' },
+        confirmToken: { type: 'string', description: '预览单返回的一次性令牌，60 秒内有效' },
+        dryRun: { type: 'boolean', description: '只出预览单，不执行' },
       },
       required: ['accountId', 'action'],
+    },
+  },
+  {
+    name: 'wechat_ask_sql',
+    description:
+      '让模型写一条只读查询来回答“这个月谁发言最多”这类需要统计的问题。服务端强制只查本账号消息、只允许单条 select、禁写操作与系统表、最多回 50 行；任何一步不成立会回落成关键词问数并在 note 说明原因。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        accountId: { type: 'string' },
+        question: { type: 'string', description: '自然语言问题，最多 500 字' },
+        model: { type: 'string', description: '可选，指定归纳/写查询的模型' },
+      },
+      required: ['accountId', 'question'],
     },
   },
   {
@@ -990,10 +1008,22 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
           const accountId = readArg(args, 'accountId')
           return reply.send(success(await syncContacts(userId, accountId)))
         }
+        case 'wechat_ask_sql': {
+          const accountId = readArg(args, 'accountId')
+          const question = readArg(args, 'question')
+          const model = typeof args.model === 'string' ? args.model : undefined
+          return reply.send(
+            success(await askWithSql(userId, accountId, question, { model })),
+          )
+        }
         case 'wechat_group_action': {
           const accountId = readArg(args, 'accountId')
           const action = parseOrThrow(groupActionNameSchema, readArg(args, 'action'))
           const memberIds = readOptionalStringArray(args, 'memberIds', 50)
+          const confirmToken =
+            typeof args.confirmToken === 'string' && args.confirmToken.trim().length > 0
+              ? args.confirmToken.trim()
+              : undefined
           return reply.send(
             success(
               await runGroupAction(userId, accountId, {
@@ -1003,6 +1033,10 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
                 memberIds,
                 title: typeof args.title === 'string' ? args.title : undefined,
                 text: typeof args.text === 'string' ? args.text : undefined,
+                confirmToken,
+                // 没带令牌就只出预览单：这条 tool 可能被脚本连着调，
+                // 不让它「一句话直接踢人」，先给影响面和一次性令牌，再让人确认。
+                dryRun: typeof args.dryRun === 'boolean' ? args.dryRun : confirmToken ? undefined : true,
               }),
             ),
           )

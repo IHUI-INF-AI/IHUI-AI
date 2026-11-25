@@ -50,6 +50,11 @@ import {
   shouldWindow,
   windowRangeCenteredOn,
 } from '../windowing'
+// 2026-11-26 同型收口(与上面 windowing 那条同一纪律):跳顶/跳底按钮显隐判据接回
+// @ihui/shared/chat/scroll-jump —— 本文件此前手写 `const FAR_THRESHOLD = 800` 与同一对严格不等,
+// 再靠注释"与 ScrollJumpButtons.JUMP_FAR_THRESHOLD 对齐"。靠注释对齐=必然漂移(AGENTS §0.6),
+// 且移动端接线时要么抄这份要么抄那份。距底算法两侧同式:max(0, contentHeight - viewportHeight - scrollTop)。
+import { computeJumpVisibility } from '@ihui/shared/chat/scroll-jump'
 
 // #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染。
 // G-828 代裁(2026-10-23):估计高/阈值/缓冲三个数值搬入 ../windowing(同值:
@@ -340,9 +345,9 @@ export function useMessageListScroll({
   // - focused 消息添加 ring 视觉 + data-message-focused 属性
   const [focusedIndex, setFocusedIndex] = React.useState<number>(-1)
   // D3(2026-09-18 立):跳顶/跳底按钮显隐所需"距顶/距底是否够远"状态。
-  // - 阈值 800px(与 ScrollJumpButtons.JUMP_FAR_THRESHOLD 对齐)
+  // - 阈值与显隐判据同源于 @ihui/shared/chat/scroll-jump(文件头 import 段记有收口理由),
+  //   本文件不再持有一份 800 常量,也不再用注释去"对齐"别处的数值。
   // - ref 镜像 + 仅在跨阈值时 setState,避免高频 scroll 触发整树重渲染
-  const FAR_THRESHOLD = 800
   const isFarFromTopRef = React.useRef(false)
   const isFarFromBottomRef = React.useRef(false)
   const [isFarFromTop, setIsFarFromTop] = React.useState(false)
@@ -468,8 +473,7 @@ export function useMessageListScroll({
 
       // D3(2026-09-18 立):跳顶/跳底按钮显隐阈值(距顶/距底 > 800px)。
       // 用 ref 镜像比对,仅在跨阈值时 setState(避免每次 scroll 都重渲染)
-      const farTop = metrics.scrollTop > FAR_THRESHOLD
-      const farBottom = distanceFromBottom > FAR_THRESHOLD
+      const { isFarFromTop: farTop, isFarFromBottom: farBottom } = computeJumpVisibility(metrics)
       if (farTop !== isFarFromTopRef.current) {
         isFarFromTopRef.current = farTop
         setIsFarFromTop(farTop)

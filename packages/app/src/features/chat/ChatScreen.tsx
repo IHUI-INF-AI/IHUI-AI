@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useMemo, useRef } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { ChevronDown } from 'lucide-react-native'
@@ -16,6 +16,9 @@ import { MessageInput } from './MessageInput'
 import { ContextUsagePanel } from './ContextUsagePanel'
 import { ChatHeader } from './ChatHeader'
 import { ChatMessageList } from './ChatMessageList'
+import { ScrollJumpButton } from '../../components/ScrollJumpButton'
+import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
+import { JUMP_FAR_THRESHOLD, type JumpVisibility, type ScrollJumpReading } from '@ihui/shared/chat'
 
 import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
@@ -94,6 +97,27 @@ export function ChatScreen({
   const tk = getTokens(colorScheme)
   const listRef = useRef<FlatList<ChatScreenMessage> | null>(null)
   const styles = useMemo(() => createStyles(tk), [tk])
+
+  // ── 跳顶 / 跳到最新浮层(D3 的移动端那一格,2026-11-26 补齐)──────────────
+  // 判据与阈值都来自 @ihui/shared/chat/scroll-jump(唯一真相源),本层只做"跨阈值才 setState"
+  // 的渲染防护:滚动每帧都进这里,无脑 setState 会让整列消息重渲染。
+  // visibility === null ⇒ 本端(小程序 Taro ScrollView)取不到视口高,只有顶部档可信,
+  // 底部档保守取 false —— 不亮按钮,而不是按 0 距离恒亮。
+  const [jump, setJump] = useState<{ top: boolean; bottom: boolean }>({ top: false, bottom: false })
+  const handleJumpGeometry = useCallback(
+    (reading: ScrollJumpReading, visibility: JumpVisibility | null): void => {
+      const top = visibility ? visibility.isFarFromTop : reading.scrollTop > JUMP_FAR_THRESHOLD
+      const bottom = visibility ? visibility.isFarFromBottom : false
+      setJump((prev) => (prev.top === top && prev.bottom === bottom ? prev : { top, bottom }))
+    },
+    [],
+  )
+  const jumpToTop = useCallback((): void => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true })
+  }, [])
+  const jumpToLatest = useCallback((): void => {
+    listRef.current?.scrollToEnd({ animated: true })
+  }, [])
 
   const currentModelName = models.find((m) => m.id === model)?.name || model
   const currentModelContext = models.find((m) => m.id === model)?.context_length ?? 0
@@ -194,6 +218,7 @@ export function ChatScreen({
         followStream={messageListSlots?.followStream}
         onScroll={messageListSlots?.onScroll}
         onEndReached={messageListSlots?.onEndReached}
+        onScrollGeometry={handleJumpGeometry}
         onLongPressMessage={onLongPressMessage}
         onMessageRef={onMessageRef}
         onListRef={(ref) => {
@@ -203,6 +228,39 @@ export function ChatScreen({
         itemSeparator={itemSeparatorComponent}
         style={flatListStyle}
       />
+
+      {/*
+        跳顶 / 跳到最新浮层(2026-11-26 补齐 D3 的移动端那一格)。
+        - 复用两端既有 ScrollJumpButton(packages/shared/src/ui/scroll-jump-core 一份源 +
+          RN / 小程序 adapter),不新造盒子、不新造观感、不新增文案键:
+          标签 common.backToTop 与 planPage.backToLatest 在 mobile-rn / miniapp-taro
+          两份宿主词包里五语言齐备(现读核对过),可见侧是裸箭头、label 只喂无障碍名称。
+        - 显隐判据同源 computeJumpVisibility(阈值 800 与严格不等都只有一份)。
+        - 小程序 Taro ScrollView 不供给视口高 ⇒ visibility 为 null ⇒ 本端只有「跳顶」会亮,
+          「跳到最新」仍由 followStream 贴底机制负责。这是保守少亮,不是恒亮一枚无用按钮。
+        - 定位用 spec 的 scrollJumpInsetPx(),不用裸数字;它排在输入区之前渲染,
+          故不会浮到输入控件之上挡住交互。
+      */}
+      {jump.top ? (
+        <ScrollJumpButton
+          direction="top"
+          onPress={jumpToTop}
+          label={t('common.backToTop')}
+          colorScheme={colorScheme}
+          testID="chat-jump-top"
+          style={{ position: 'absolute', right: scrollJumpInsetPx(), top: scrollJumpInsetPx() }}
+        />
+      ) : null}
+      {jump.bottom ? (
+        <ScrollJumpButton
+          direction="latest"
+          onPress={jumpToLatest}
+          label={t('planPage.backToLatest')}
+          colorScheme={colorScheme}
+          testID="chat-jump-latest"
+          style={{ position: 'absolute', right: scrollJumpInsetPx(), bottom: scrollJumpInsetPx() }}
+        />
+      ) : null}
 
       {statusSlot ?? null}
       {queueSlot ?? null}

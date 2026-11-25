@@ -53,9 +53,7 @@ Cross-end UI parity across web, mini-program and React Native is enforced by
 [`scripts/check-cross-end-ui-parity.mjs`](./scripts/check-cross-end-ui-parity.mjs) — a blocking gate
 that reconciles geometry, radius and per-element radius anchors over the three ends and fails on any
 divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`.
-
 Two structural gates are named here so they cannot be re-invented or bypassed silently:
-
 - [`scripts/check-bloat-guards-alive.mjs`](./scripts/check-bloat-guards-alive.mjs) — fails when the
   anti-bloat machinery (tmp-scratch prune legs, archive anchors) is silently removed from a commit
   whose message claims something else. Self-check: `node scripts/check-bloat-guards-alive.mjs --self-test`.
@@ -211,7 +209,6 @@ Two structural gates are named here so they cannot be re-invented or bypassed si
 - 🐞 修复:market 首屏三处收口 + 筛选 chips 无障碍语义纠正(role=tab 误用) (726fd3af)
 - 🚀 新功能/改进:回填全部媒体上游真实成本价 (fea65be8)
 - 🐞 修复:显式 cast 修 timestamptz<interval 租约回收报错 (07c239bd)
-
 **2026-11-25**
 - 📚 文档:钉钉真人授权完成+以本人身份调通讯录验证通过——任务#35收口 (9e2ec138)
 - 🚀 新功能/改进:补最小化收起与可靠恢复 (85b5a0d3)

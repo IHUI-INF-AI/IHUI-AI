@@ -4,8 +4,8 @@
 // i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15) until 2027-05-31
 
 import { useTheme } from '../context/ThemeContext'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import { StyleSheet, View } from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -19,17 +19,10 @@ import {
   type ModelPlazaTypeFilter,
 } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
-import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { rpx } from '../utils/rpx'
-import { Bot, Film, Palette, type LucideIcon } from 'lucide-react-native'
-
-import { rnRadius, rnType, taroSpacing } from '@ihui/design-tokens'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-type ViewMode = 'shared' | 'local'
 
 function readModelType(v: unknown): ModelPlazaModelType {
   return v === 'image' || v === 'av' ? v : 'text'
@@ -95,50 +88,16 @@ function buildProviders(models: ModelPlazaItem[]): ModelPlazaProvider[] {
   return Array.from(map.values())
 }
 
-/** 按 model.type 分配 vendor 分组图标(平台/路由 adapter 仅做简单分发) */
-function modelIcon(type: ModelPlazaModelType | string | undefined): LucideIcon | string {
-  if (type === 'image') return Palette
-  if (type === 'av') return Film
-  return Bot
-}
-
-function toModelListItem(m: ModelPlazaItem): ModelListItem {
-  const isFree = (m.inputPrice ?? 0) === 0 && (m.outputPrice ?? 0) === 0
-  return {
-    id: m.id,
-    name: m.name,
-    description: m.desc || m.tags.join(' · '),
-    icon: modelIcon(m.type),
-    isFree,
-  }
-}
-
-function buildModelGroups(models: ModelPlazaItem[]): ModelListGroup[] {
-  const grouped = new Map<string, ModelListItem[]>()
-  for (const m of models) {
-    const list = grouped.get(m.providerId) ?? []
-    list.push(toModelListItem(m))
-    grouped.set(m.providerId, list)
-  }
-  const groups: ModelListGroup[] = []
-  for (const [vendor, list] of grouped) {
-    groups.push({ vendor, models: list })
-  }
-  return groups
-}
-
 export default function ModelPlazaScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
-  const [viewMode, setViewMode] = useState<ViewMode>('shared')
   const [models, setModels] = useState<ModelPlazaItem[]>([])
   const [providerId, setProviderId] = useState<string>('')
   const [typeFilter, setTypeFilter] = useState<ModelPlazaTypeFilter>('all')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
-  const [selectedModelIds, setSelectedModelIds] = useState<string[]>([])
 
   const load = useCallback(async () => {
     setError('')
@@ -184,7 +143,6 @@ export default function ModelPlazaScreen() {
   }
 
   const providers = buildProviders(models)
-  const modelGroups = useMemo<ModelListGroup[]>(() => buildModelGroups(models), [models])
 
   const handleCompare = () =>
     appAlert(t('modelPlaza.compare.title'), t('modelPlaza.compare.message'))
@@ -193,56 +151,27 @@ export default function ModelPlazaScreen() {
 
   return (
     <View style={styles.shell}>
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={[styles.tab, viewMode === 'shared' && styles.tabActive]}
-          onPress={() => setViewMode('shared')}
-          activeOpacity={0.8}
-        >
-          <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>
-            {t('modelPlaza.title')}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, viewMode === 'local' && styles.tabActive]}
-          onPress={() => setViewMode('local')}
-          activeOpacity={0.8}
-        >
-          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>
-            {t('modelPlaza.groupBrowse')}
-          </Text>
-        </TouchableOpacity>
-      </View>
       <View style={styles.viewport}>
-        {viewMode === 'shared' ? (
-          <SharedModelPlazaScreen
-            t={t}
-            items={models}
-            providers={providers}
-            providerId={providerId}
-            typeFilter={typeFilter}
-            loading={loading}
-            refreshing={refreshing}
-            error={error}
-            onSelectProvider={(id) => {
-              setProviderId(id)
-              setTypeFilter('all')
-            }}
-            onSelectType={setTypeFilter}
-            onRefresh={onRefresh}
-            onPressCompare={handleCompare}
-            onPressItem={handleDetail}
-            onBack={() => navigation.goBack()}
-            colorScheme={resolvedTheme}
-          />
-        ) : (
-          <ModelList
-            groups={modelGroups}
-            selectionMode="multiple"
-            selectedIds={selectedModelIds}
-            onSelectChange={setSelectedModelIds}
-          />
-        )}
+        <SharedModelPlazaScreen
+          t={t}
+          items={models}
+          providers={providers}
+          providerId={providerId}
+          typeFilter={typeFilter}
+          loading={loading}
+          refreshing={refreshing}
+          error={error}
+          onSelectProvider={(id) => {
+            setProviderId(id)
+            setTypeFilter('all')
+          }}
+          onSelectType={setTypeFilter}
+          onRefresh={onRefresh}
+          onPressCompare={handleCompare}
+          onPressItem={handleDetail}
+          onBack={() => navigation.goBack()}
+          colorScheme={resolvedTheme}
+        />
       </View>
     </View>
   )
@@ -252,32 +181,6 @@ const styles = StyleSheet.create({
   shell: {
     flex: 1,
     backgroundColor: tokens.surface.bg,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    paddingHorizontal: rpx(taroSpacing.md),
-    paddingTop: rpx(96),
-    paddingBottom: rpx(16),
-    gap: rpx(16),
-    backgroundColor: tokens.surface.bg,
-  },
-  tab: {
-    paddingHorizontal: rpx(taroSpacing['md-loose']),
-    paddingVertical: rpx(12),
-    borderRadius: rnRadius.lg,
-    backgroundColor: tokens.surface.muted,
-  },
-  tabActive: {
-    backgroundColor: tokens.brand.cta,
-  },
-  tabText: {
-    fontSize: rnType.bodySm.size,
-    color: tokens.text.secondary,
-  },
-  tabTextActive: {
-    fontSize: rnType.bodySm.size,
-    color: tokens.brand.ctaForeground,
-    fontWeight: '600',
   },
   viewport: {
     flex: 1,
