@@ -72,4 +72,17 @@ describe('MomentCard', () => {
       }),
     )
   })
+
+  it('只读账号仍显示归档，但隐藏发布表单', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <MomentCard accountId="account-1" readOnly />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByText('archive-panel')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '发布朋友圈' })).toBeNull()
+    expect(screen.getByRole('button', { name: '遍历朋友圈' })).toBeTruthy()
+  })
 })

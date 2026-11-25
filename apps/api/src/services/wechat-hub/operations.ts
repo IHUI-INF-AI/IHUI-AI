@@ -764,11 +764,25 @@ export async function fetchMoments(
     ...(mediaStat('downloadedMedia') !== undefined
       ? { downloadedMedia: mediaStat('downloadedMedia') }
       : {}),
+    ...(mediaStat('mediaTotal') !== undefined ? { mediaTotal: mediaStat('mediaTotal') } : {}),
     ...(mediaStat('mediaCacheHits') !== undefined
       ? { mediaCacheHits: mediaStat('mediaCacheHits') }
       : {}),
     ...(mediaStat('mediaCacheMisses') !== undefined
       ? { mediaCacheMisses: mediaStat('mediaCacheMisses') }
+      : {}),
+    ...(mediaStat('mediaExisting') !== undefined
+      ? { mediaExisting: mediaStat('mediaExisting') }
+      : {}),
+    ...(mediaStat('mediaUrlHits') !== undefined ? { mediaUrlHits: mediaStat('mediaUrlHits') } : {}),
+    ...(mediaStat('mediaUrlMisses') !== undefined
+      ? { mediaUrlMisses: mediaStat('mediaUrlMisses') }
+      : {}),
+    ...(mediaStat('mediaUrlErrors') !== undefined
+      ? { mediaUrlErrors: mediaStat('mediaUrlErrors') }
+      : {}),
+    ...(mediaStat('mediaUnavailable') !== undefined
+      ? { mediaUnavailable: mediaStat('mediaUnavailable') }
       : {}),
     ...(mediaStat('mediaDownloadErrors') !== undefined
       ? { mediaDownloadErrors: mediaStat('mediaDownloadErrors') }

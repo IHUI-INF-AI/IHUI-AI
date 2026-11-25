@@ -40,7 +40,13 @@ function momentTime(value: number | null): string {
   return Number.isNaN(date.getTime()) ? '时间未识别' : date.toLocaleString('zh-CN')
 }
 
-export default function MomentCard({ accountId }: { accountId: string }) {
+export default function MomentCard({
+  accountId,
+  readOnly = false,
+}: {
+  accountId: string
+  readOnly?: boolean
+}) {
   const queryClient = useQueryClient()
   const [text, setText] = React.useState('')
   const [media, setMedia] = React.useState('')
@@ -103,31 +109,37 @@ export default function MomentCard({ accountId }: { accountId: string }) {
       <CardHeader className="pb-2">
         <CardTitle className="text-body">朋友圈</CardTitle>
         <CardDescription>
-          发布仅 bridge 后端；遍历由 OCR 后台多页滚屏或 wcfhttp /pyq 回调，只读不伪造。
+          {readOnly
+            ? '截图 OCR 只读接入：可遍历、归档和查看本地媒体，不支持发布朋友圈。'
+            : '发布仅 bridge 后端；遍历由 OCR 后台多页滚屏或 wcfhttp /pyq 回调，只读不伪造。'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="space-y-1">
-          <Label htmlFor="wechat-moment-text">正文</Label>
-          <textarea
-            id="wechat-moment-text"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={4}
-            className="w-full rounded-sm border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
-            placeholder="这条会发到账号朋友圈。"
-          />
-          <p className="text-xs text-muted-foreground">{text.length} / 5000</p>
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="wechat-moment-media">图片 URL（逗号或换行分隔，可选）</Label>
-          <Input
-            id="wechat-moment-media"
-            value={media}
-            onChange={(e) => setMedia(e.target.value)}
-            placeholder="https://…"
-          />
-        </div>
+        {readOnly ? null : (
+          <>
+            <div className="space-y-1">
+              <Label htmlFor="wechat-moment-text">正文</Label>
+              <textarea
+                id="wechat-moment-text"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={4}
+                className="w-full rounded-sm border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+                placeholder="这条会发到账号朋友圈。"
+              />
+              <p className="text-xs text-muted-foreground">{text.length} / 5000</p>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="wechat-moment-media">图片 URL（逗号或换行分隔，可选）</Label>
+              <Input
+                id="wechat-moment-media"
+                value={media}
+                onChange={(e) => setMedia(e.target.value)}
+                placeholder="https://…"
+              />
+            </div>
+          </>
+        )}
         <div className="space-y-2 rounded-sm border border-stroke-field p-3">
           <div className="flex items-center justify-between gap-2">
             <div>
@@ -241,31 +253,37 @@ export default function MomentCard({ accountId }: { accountId: string }) {
           ) : null}
         </div>
         <MomentArchivePanel accountId={accountId} />
-        {result ? (
-          <Alert
-            variant={result.ok ? 'success' : result.status === 'unsupported' ? 'warning' : 'danger'}
-            title={
-              result.ok
-                ? '桥已接受'
-                : result.status === 'unsupported'
-                  ? '当前后端不支持'
-                  : '发布失败'
-            }
-            description={result.reason ?? (result.ok ? '动作已交给桥执行。' : '桥未返回原因')}
-          />
-        ) : null}
-        {error ? <Alert variant="danger" title="请求失败" description={error} /> : null}
-        <Button
-          onClick={() => {
-            setResult(null)
-            setError(null)
-            mutation.mutate()
-          }}
-          disabled={mutation.isPending || text.trim().length === 0}
-        >
-          {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          <span>发布朋友圈</span>
-        </Button>
+        {readOnly ? null : (
+          <>
+            {result ? (
+              <Alert
+                variant={
+                  result.ok ? 'success' : result.status === 'unsupported' ? 'warning' : 'danger'
+                }
+                title={
+                  result.ok
+                    ? '桥已接受'
+                    : result.status === 'unsupported'
+                      ? '当前后端不支持'
+                      : '发布失败'
+                }
+                description={result.reason ?? (result.ok ? '动作已交给桥执行。' : '桥未返回原因')}
+              />
+            ) : null}
+            {error ? <Alert variant="danger" title="请求失败" description={error} /> : null}
+            <Button
+              onClick={() => {
+                setResult(null)
+                setError(null)
+                mutation.mutate()
+              }}
+              disabled={mutation.isPending || text.trim().length === 0}
+            >
+              {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              <span>发布朋友圈</span>
+            </Button>
+          </>
+        )}
       </CardContent>
     </Card>
   )

@@ -7,6 +7,7 @@
 import * as React from 'react'
 import {
   ArrowRight,
+  Cable,
   FileText,
   Loader2,
   Mic,
@@ -79,6 +80,8 @@ export function AddMenuPopover(props: {
   onAddTextReference: () => void
   /** "插件市场"回调(主组件负责关闭 + 重置 mode + 跳转 /plugins) */
   onOpenPluginMarket: () => void
+  /** "连接器"回调(主组件负责关闭 + 重置 mode + 跳转 /connectors;与插件市场同属能力层入口) */
+  onOpenConnectors: () => void
   /** "深度研究"回调(2026-09-07 工作线 B:主组件负责关闭 + 重置 mode + 跳转 /deep-research) */
   onOpenDeepResearch: () => void
   /** "压缩上下文"回调(2026-09-06 整合:剪刀按钮收纳进本菜单;主组件负责 POST /api/chat/compact)。
@@ -121,6 +124,7 @@ export function AddMenuPopover(props: {
     onVoiceRecordComplete,
     onAddTextReference,
     onOpenPluginMarket,
+    onOpenConnectors,
     onOpenDeepResearch,
     onCompactContext,
     compacting = false,
@@ -446,6 +450,20 @@ export function AddMenuPopover(props: {
                 >
                   <Package className={MENU_ITEM_ICON_CLASS} />
                   <span className="min-w-0 flex-1 truncate">{tNav('pluginMarket')}</span>
+                </button>
+                {/* 连接器入口(2026-11-25):与插件市场同属"能力"层,跳转 /connectors 授权管理。
+                    输入框内已有"多源建议→连接器"引用入口,这里补的是直达管理页的最后一公里 */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={isStreaming}
+                  onClick={() => {
+                    onOpenConnectors()
+                  }}
+                  className={MENU_ITEM_CLASS}
+                >
+                  <Cable className={MENU_ITEM_ICON_CLASS} />
+                  <span className="min-w-0 flex-1 truncate">{tNav('connectors')}</span>
                 </button>
                 {/* 深度研究入口(2026-09-07 工作线 B):跳转 /deep-research 页面发起多轮深挖研究 */}
                 <button

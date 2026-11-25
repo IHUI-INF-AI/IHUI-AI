@@ -28,6 +28,35 @@ from typing import Any
 
 # qpic 对过期/不可见票据返回的统一占位图，不能当真实图片写入。
 PLACEHOLDER_SHA256 = '1b8214ac4449461450d94a808d42e658d6aaac13581554e6776a8e2b83d75125'
+MEDIA_MANIFEST_NAME = '.media-manifest.json'
+
+
+def _read_media_manifest(path: str) -> dict[str, str]:
+    try:
+        with open(path, encoding='utf-8') as fh:
+            raw = json.load(fh)
+        return {str(k): str(v) for k, v in raw.items()} if isinstance(raw, dict) else {}
+    except Exception:
+        return {}
+
+
+def _write_media_manifest(path: str, manifest: dict[str, str]) -> None:
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = f'{path}.tmp'
+        with open(tmp, 'w', encoding='utf-8') as fh:
+            json.dump(manifest, fh, ensure_ascii=False, indent=2, sort_keys=True)
+        os.replace(tmp, path)
+    except Exception:
+        pass
+
+
+def _existing_media_ok(path: str, kind: str) -> bool:
+    try:
+        with open(path, 'rb') as fh:
+            return _media_payload_ok(kind, fh.read())
+    except Exception:
+        return False
 
 
 def _iso(ts: int) -> str | None:
@@ -45,6 +74,44 @@ def _text(value: Any) -> str:
 
 def _is_placeholder(data: bytes) -> bool:
     return hashlib.sha256(data).hexdigest() == PLACEHOLDER_SHA256
+
+
+def _is_image_payload(data: bytes) -> bool:
+    """只接受真正的图片字节；HTML/JSON/未知二进制一律拒绝。"""
+    if not data:
+        return False
+    if data.startswith(b"\xff\xd8\xff"):
+        return True
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return True
+    if data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
+        return True
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return True
+    return False
+
+
+def _is_video_payload(data: bytes) -> bool:
+    """MP4/MOV 常见 ftyp box；不把空响应或错误页当成视频。"""
+    return bool(data) and b"ftyp" in data[:32]
+
+
+def _media_payload_ok(kind: str, data: bytes) -> bool:
+    if not data or _is_placeholder(data):
+        return False
+    return _is_video_payload(data) if kind == "video" else _is_image_payload(data)
+
+
+def _media_extension(kind: str, data: bytes) -> str:
+    if kind == "video":
+        return ".mp4"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if data.startswith(b"GIF8"):
+        return ".gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return ".webp"
+    return ".jpg"
 
 
 def _url_set(items: list[dict[str, Any]]) -> list[str]:
@@ -208,42 +275,61 @@ def main() -> int:
         feeds = md.get_moments(limit=limit)
         moments = [_map_feed(feed) for feed in feeds]
 
-        # 可选：从 qpic URL 拉取媒体；只写用户指定目录，不写微信目录。
-        # URL 背后的票据可能已过期；qpic 返回 120x120「暂时无法查看」占位图时
-        # 必须拒绝写盘，不能把占位图当成真实照片。
+        # 可选：先从微信本地 Sns 缓存取图；未命中再尝试原始 URL。
+        # 关键边界：qpic 防盗链只认 Referer，但本机实测带错误 Referer 会把
+        # 仍有效的 /0 原图降级成 5093 字节占位图；因此 URL 回退不发送 Referer。
+        # 只接受真实图片/视频字节，HTTP 400、HTML、占位图一律不落盘。
         downloaded = 0
         download_errors = 0
         cache_hits = 0
         cache_misses = 0
+        existing_media = 0
+        url_hits = 0
+        url_misses = 0
+        url_errors = 0
+        media_total = 0
         if args.download_media and media_dir:
+            import urllib.error
             import urllib.request
+
+            manifest_path = os.path.join(media_dir, MEDIA_MANIFEST_NAME)
+            manifest = _read_media_manifest(manifest_path)
 
             for moment in moments:
                 target = os.path.join(media_dir, re.sub(r"[^0-9A-Za-z._-]", "_", moment["id"]))
                 downloaded_any = False
-                for media in moment.get("media") or []:
-                    url = media.get("url")
+                for index, media in enumerate(moment.get("media") or []):
+                    kind = "video" if media.get("kind") == "video" else "image"
+                    url = media.get("url") or ""
                     md5 = media.get("md5") or ""
-                    ext = ".mp4" if media.get("kind") == "video" else ".jpg"
-                    path = os.path.join(target, f"{md5 or 'media'}{ext}")
-                    if os.path.exists(path) and md5:
-                        try:
-                            if _is_placeholder(open(path, "rb").read()):
-                                os.remove(path)
-                            else:
-                                downloaded_any = True
-                                downloaded += 1
-                                cache_hits += 1
-                                continue
-                        except OSError:
-                            pass
+                    fallback = hashlib.sha1((url or f"{moment.get('id')}:{index}").encode()).hexdigest()
+                    stem = md5 or fallback
+                    ext = ".mp4" if kind == "video" else ".jpg"
+                    path = os.path.join(target, f"{stem}{ext}")
+                    media_total += 1
+                    if os.path.exists(path) and _existing_media_ok(path, kind):
+                        downloaded_any = True
+                        downloaded += 1
+                        rel = os.path.relpath(path, media_dir).replace(os.sep, "/")
+                        source = manifest.get(rel)
+                        if source == "url":
+                            url_hits += 1
+                            cache_misses += 1
+                        elif source == "cache":
+                            cache_hits += 1
+                        else:
+                            existing_media += 1
+                        media["mediaDownloaded"] = True
+                        media["mediaDownloadSource"] = source or "existing"
+                        media["mediaLocalPath"] = path
+                        continue
                     # 优先读微信本地 Sns 缓存：用户看过的图能绕过已过期 URL。
                     local = None
                     if md5:
                         try:
                             local = md.find_local_media(
                                 md5,
-                                "video" if media.get("kind") == "video" else "image",
+                                kind,
                                 size=int(media.get("size") or 0),
                                 width=int(media.get("width") or 0),
                                 height=int(media.get("height") or 0),
@@ -253,51 +339,82 @@ def main() -> int:
                     if local:
                         try:
                             data = md.decrypt_cache(local)
-                            if data and not _is_placeholder(data):
+                            if _media_payload_ok(kind, data):
+                                ext = _media_extension(kind, data)
+                                path = os.path.join(target, f"{stem}{ext}")
                                 os.makedirs(target, exist_ok=True)
                                 with open(path, "wb") as fh:
                                     fh.write(data)
                                 downloaded += 1
                                 cache_hits += 1
                                 downloaded_any = True
+                                rel = os.path.relpath(path, media_dir).replace(os.sep, "/")
+                                manifest[rel] = "cache"
                                 media["mediaDownloaded"] = True
                                 media["mediaDownloadSource"] = "cache"
                                 media["mediaLocalPath"] = path
                                 continue
                         except Exception:
                             pass
+                    cache_misses += 1
                     if args.local_cache_only:
-                        cache_misses += 1
                         media["mediaDownloadError"] = (
                             "本地 Sns 缓存未命中；local-cache-only 未发起 URL 下载"
                         )
                         continue
                     if not url:
-                        download_errors += 1
+                        url_misses += 1
+                        media["mediaDownloadError"] = "本地缓存未命中；该媒体没有可下载 URL"
                         continue
-                    try:
-                        req = urllib.request.Request(
-                            url,
-                            headers={
-                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0)",
-                                "Referer": "https://szmmsns.qpic.cn/",
-                            },
-                        )
-                        data = urllib.request.urlopen(req, timeout=20).read()
-                        if not data or _is_placeholder(data):
-                            download_errors += 1
-                            continue
-                        os.makedirs(target, exist_ok=True)
-                        with open(path, "wb") as fh:
-                            fh.write(data)
-                        downloaded += 1
-                        downloaded_any = True
-                        media["mediaDownloaded"] = True
-                        media["mediaDownloadSource"] = "qpic"
-                        media["mediaLocalPath"] = path
-                    except Exception:
-                        download_errors += 1
+                    data = None
+                    last_kind = "miss"
+                    candidates = [url]
+                    if url.startswith("http://") and "qpic.cn" not in url:
+                        candidates.append("https://" + url[7:])
+                    for candidate in candidates:
+                        try:
+                            req = urllib.request.Request(
+                                candidate,
+                                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0)"},
+                            )
+                            with urllib.request.urlopen(req, timeout=20) as resp:
+                                data = resp.read()
+                            if not _media_payload_ok(kind, data):
+                                last_kind = "miss"
+                                data = None
+                                break
+                            last_kind = "hit"
+                            break
+                        except urllib.error.HTTPError as exc:
+                            if exc.code == 400:
+                                last_kind = "miss"
+                                continue
+                            last_kind = "error"
+                        except Exception:
+                            last_kind = "error"
+                    if data is None:
+                        if last_kind == "error":
+                            url_errors += 1
+                            media["mediaDownloadError"] = "本地缓存未命中；URL 下载异常，未写入本地"
+                        else:
+                            url_misses += 1
+                            media["mediaDownloadError"] = (
+                                "本地缓存未命中；原始 URL 已失效（HTTP 400/非媒体/占位图），未写入本地"
+                            )
                         continue
+                    ext = _media_extension(kind, data)
+                    path = os.path.join(target, f"{stem}{ext}")
+                    os.makedirs(target, exist_ok=True)
+                    with open(path, "wb") as fh:
+                        fh.write(data)
+                    downloaded += 1
+                    url_hits += 1
+                    downloaded_any = True
+                    rel = os.path.relpath(path, media_dir).replace(os.sep, "/")
+                    manifest[rel] = "url"
+                    media["mediaDownloaded"] = True
+                    media["mediaDownloadSource"] = "url"
+                    media["mediaLocalPath"] = path
                 if downloaded_any:
                     moment["mediaLocalDir"] = target
                     moment["mediaDownloaded"] = True
@@ -305,8 +422,9 @@ def main() -> int:
                     moment["mediaDownloadError"] = (
                         "本地 Sns 缓存未命中；local-cache-only 未发起 URL 下载"
                         if args.local_cache_only
-                        else "本地缓存未命中且 qpic 票据过期/返回占位图，未写入本地"
+                        else "本地缓存和原始 URL 均不可得；未写入占位图"
                     )
+            _write_media_manifest(manifest_path, manifest)
 
         output = {
             "ok": True,
@@ -332,10 +450,16 @@ def main() -> int:
             },
             "downloadMedia": bool(args.download_media and media_dir),
             "localCacheOnly": bool(args.local_cache_only),
+            "mediaTotal": sum(len(m.get("media") or []) for m in moments),
             "downloadedMedia": downloaded,
             "mediaCacheHits": cache_hits,
             "mediaCacheMisses": cache_misses,
-            "mediaDownloadErrors": download_errors,
+            "mediaExisting": existing_media,
+            "mediaUrlHits": url_hits,
+            "mediaUrlMisses": url_misses,
+            "mediaUrlErrors": url_errors,
+            "mediaUnavailable": max(0, media_total - downloaded) if args.download_media and media_dir else 0,
+            "mediaDownloadErrors": url_errors,
             "moments": moments,
         }
         print(json.dumps(output, ensure_ascii=False, separators=(",", ":")))

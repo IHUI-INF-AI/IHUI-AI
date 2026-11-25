@@ -78,7 +78,13 @@ export default function PageClient() {
     selected?.metadata.driver === 'ocr' || selected?.metadata.driver === 'ocr-readonly'
   React.useEffect(() => {
     if (!readOnlyOcr) return
-    if (tab !== 'conversations' && tab !== 'contacts' && tab !== 'analysis' && tab !== 'audit') {
+    if (
+      tab !== 'conversations' &&
+      tab !== 'contacts' &&
+      tab !== 'groupOps' &&
+      tab !== 'analysis' &&
+      tab !== 'audit'
+    ) {
       setTab('conversations')
     }
   }, [readOnlyOcr, tab])
@@ -122,7 +128,7 @@ export default function PageClient() {
         <Alert
           variant="info"
           title="截图 OCR 只读接入"
-          description="只能读取微信当前打开的会话，且 OCR 可能有错字，按原文入库；发送、群管理、朋友圈、自动回复、定时日报与群发不可用。"
+          description="只能读取微信当前打开的会话，且 OCR 可能有错字，按原文入库；发送、群管理动作、自动回复、定时日报与群发不可用。朋友圈只读归档与本地媒体，发布不可用。"
         />
       ) : null}
 
@@ -149,7 +155,12 @@ export default function PageClient() {
               <Contact className="h-3 w-3" />
               <span>联系人与群成员</span>
             </TabsTrigger>
-            {readOnlyOcr ? null : (
+            {readOnlyOcr ? (
+              <TabsTrigger value="groupOps" className="gap-1">
+                <Users className="h-3 w-3" />
+                <span>朋友圈归档</span>
+              </TabsTrigger>
+            ) : (
               <>
                 <TabsTrigger value="send" className="gap-1">
                   <Send className="h-3 w-3" />
@@ -192,13 +203,17 @@ export default function PageClient() {
               readOnly={readOnlyOcr}
             />
           </TabsContent>
+          <TabsContent value="groupOps" className="mt-3">
+            <GroupOpsPanel
+              accountId={selected.id}
+              backend={selected.backend}
+              readOnly={readOnlyOcr}
+            />
+          </TabsContent>
           {readOnlyOcr ? null : (
             <>
               <TabsContent value="send" className="mt-3">
                 <SendPanel accountId={selected.id} />
-              </TabsContent>
-              <TabsContent value="groupOps" className="mt-3">
-                <GroupOpsPanel accountId={selected.id} backend={selected.backend} />
               </TabsContent>
               <TabsContent value="knowledge" className="mt-3">
                 <KnowledgePanel accountId={selected.id} />
