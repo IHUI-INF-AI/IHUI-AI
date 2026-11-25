@@ -715,6 +715,14 @@ async def start() -> bool:
         await ensure_tables()
         conn = await get_db_conn()
         try:
+            # 先补账号池:新用户/新账号不再依赖人工 POST /pools/bootstrap。
+            # 失败只告警,不拦守护线程(池只是选号层,体检/告警仍要跑)。
+            try:
+                from app.services.publish.account_pool import bootstrap_all_users
+                users = await bootstrap_all_users(conn)
+                logger.info("[session-keeper] 账号池 reconcile 完成 users=%s", users)
+            except Exception as e:  # noqa: BLE001
+                logger.warning("[session-keeper] 账号池 reconcile 失败(继续启动): %s", e)
             await ensure_states(conn)
         finally:
             await conn.close()
