@@ -99,6 +99,16 @@ fn pip_open_position(app: &AppHandle) -> (f64, f64) {
     (x.max(0.0), y.max(0.0))
 }
 
+/// 只把 token 注入预期 origin 的页面。`initialization_script` 会在每次页面
+/// 加载时执行;若误导航到外部站点,不能让 token 跟着脚本落到别人 origin。
+fn pip_token_script(access_token: &str, origin: &str) -> Result<String, String> {
+    let token = serde_json::to_string(access_token).map_err(|e| format!("令牌序列化失败: {e}"))?;
+    let origin = serde_json::to_string(origin).map_err(|e| format!("origin 序列化失败: {e}"))?;
+    Ok(format!(
+        "(() => {{ if (window.location.origin === {origin}) {{ window.__IHUI_PIP_TOKEN__ = {token}; }} }})();"
+    ))
+}
+
 /// 打开 AI 画中画窗;同 label 已存在则先关旧窗,避免叠窗。
 ///
 /// `access_token` 由主窗 IPC 传入,只注入新窗口的 `window.__IHUI_PIP_TOKEN__`,
@@ -108,8 +118,7 @@ pub async fn open_browser_pip_window(
     app: AppHandle,
     session_id: String,
     access_token: String,
-) -> Result<(), String> {
-    if access_token.is_empty() || access_token.len() > 4096 {
+) -> Result<(), String> {    if access_token.is_empty() || access_token.len() > 4096 {
         return Err("访问令牌长度非法".to_string());
     }
     let main = app
@@ -119,10 +128,7 @@ pub async fn open_browser_pip_window(
         .url()
         .map_err(|e| format!("读取主窗口 URL 失败: {e}"))?;
     let url = browser_pip_url(&main_url, &session_id)?;
-    let token_script = format!(
-        "window.__IHUI_PIP_TOKEN__ = {};",
-        serde_json::to_string(&access_token).map_err(|e| format!("令牌序列化失败: {e}"))?
-    );
+    let token_script = pip_token_script(&access_token, &url.origin().ascii_serialization())?;
 
     let (x, y) = pip_open_position(&app);
     let build_app = app.clone();
@@ -300,6 +306,15 @@ mod tests {
         assert!(browser_pip_url(&main, "a b").is_err());
         let file = Url::parse("file:///C:/x.html").expect("file url");
         assert!(browser_pip_url(&file, "abc").is_err());
+    }
+
+    #[test]
+    fn token_script_only_injects_on_expected_origin() {
+        let script = pip_token_script("secret-token", "https://aizhs.top").expect("script");
+        assert!(script.contains("window.location.origin"));
+        assert!(script.contains("\"https://aizhs.top\""));
+        assert!(script.contains("\"secret-token\""));
+        assert!(!script.contains("localStorage"));
     }
 
     #[test]
