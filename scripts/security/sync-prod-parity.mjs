@@ -34,7 +34,13 @@ const SERVICES = ['IHUI-WEB-ROUTER', 'IHUI-API-ROUTER']
 const LEDGER = join(ROOT, '.ihui-agent', 'state', 'prod-parity-sync.jsonl')
 
 function headContent(rel) {
-  return execFileSync('git', ['show', `HEAD:${rel}`], { cwd: ROOT, maxBuffer: 1 << 22, windowsHide: true })
+  // §5b:派生 git 必须显式接管 stdio(门 [193] 按此判)。
+  return execFileSync('git', ['show', `HEAD:${rel}`], {
+    cwd: ROOT,
+    maxBuffer: 1 << 22,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 }
 
 function stamp() {

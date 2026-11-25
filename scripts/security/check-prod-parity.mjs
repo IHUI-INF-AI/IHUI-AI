@@ -30,11 +30,13 @@ const ROOT = resolve(HERE, '..', '..')
 const PROD_ROOT = process.env.IHUI_PROD_ROOT ? resolve(process.env.IHUI_PROD_ROOT) : 'D:\\DevEnv\\ihui-prod'
 
 function git(args, opts = {}) {
+  // §5b:派生 git 必须显式接管 stdio(不写时本机实测 0/30 成功并抛 EBUSY);门 [193] 按此判。
   return execFileSync('git', args, {
     cwd: ROOT,
     encoding: 'utf8',
     maxBuffer: 1 << 22,
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
     ...opts,
   }).trim()
 }
