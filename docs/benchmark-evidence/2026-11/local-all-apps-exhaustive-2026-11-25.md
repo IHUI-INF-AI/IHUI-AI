@@ -41,7 +41,7 @@
 本版新增“后端/服务层”：WorkBuddy 的 MCP Host（loopback 随机端口）+ A2A 出站代理、MiniMax 的 `http://127.0.0.1/minimax-desktop/api/v1/*` 本地运行时、ZCode 的 host RPC + Windows Job 控制、OpenCode 的 `opencode-cli serve --service`（isolated 3084，4096 仅为 Add Server 占位；已实跑 v2.2.7，Web UI 200、API 无凭据 401）、Qoder 的 `@qoder-space/application-server` + `peer-transport`。
 
 **纠正六：把“枚举常量引用”误判成“运行期拼接”。**
-工具把“首参不是字符串字面量”一律记为 dynamic，导致 DeepSeek 142 条、MiniMax 816 条被写成“运行期拼接、不可还原”。逐文件还原后：DeepSeek 的 142 条计数里，应用层可定位的 **100 条**（43 条主进程 + 57 条 preload/renderer）全部是 `DESKTOP_IPC.*` 枚举引用，实际只有 34 个 `dsh-desktop:*` 通道；剩余 42 条与工具计数口径未逐条对齐。MiniMax 326 条主进程调用 + 398 条 renderer 调用可还原到 `IPC_CHANNELS`/`WEBVIEW_HOST_CHANNELS` 常量表，真正未定的只有 6 条主进程变量 + 8 条 renderer 变量。ZCode 与 WorkBuddy 已在本轮闭环：ZCode 本地 227 个调用点全部还原为 180 个通道、0 条未定；WorkBuddy main 侧 115 条注册全部归因，12 个 `require_*` 别名全回填。
+工具把“首参不是字符串字面量”一律记为 dynamic，导致 DeepSeek 142 条、MiniMax 816 条被写成“运行期拼接、不可还原”。逐文件还原后：DeepSeek 源码只有 **116 个** `ipcMain/ipcRenderer` 调用点，其中 **102 条业务调用**（43 主进程 + 59 preload/renderer）落到 **54 个唯一常量通道**（`DESKTOP_IPC` 34 + `PLATFORM_IPC` 5 + `WELCOME_IPC` 9 + `MANDATORY_IPC` 3 + `UPDATE_DIALOG_IPC` 3），另有 14 条 `removeHandler/off` 解绑清理；142 与 102 的差额是 **40 条工具侧重复条目**，与 40 个 `ipcRenderer.invoke` 数量一致，源码里不存在第 103–142 个独立调用点。MiniMax 326 条主进程调用 + 398 条 renderer 调用可还原到 `IPC_CHANNELS`/`WEBVIEW_HOST_CHANNELS` 常量表，真正未定的只有 6 条主进程变量 + 8 条 renderer 变量。ZCode 与 WorkBuddy 已在本轮闭环：ZCode 本地 227 个调用点全部还原为 180 个通道、0 条未定；WorkBuddy main 侧 115 条注册全部归因，12 个 `require_*` 别名全回填。
 
 ---
 
@@ -68,7 +68,7 @@
 
 - `core-overview-show` 的函数发现上限 50,000；字符串保留前 200,000 条；间接跳转未解析数会单列。
 - 大文件（>256MB）的 `native-rust-binary-show` 会拒绝；Codex 407MB 因此没有 craft 原生 crate 报告，改用字节级 cargo 路径正则补出 400 个 crate（8,839 次命中）与 rustc commit，详见 4.1。
-- `js-app-map` 的动态 IPC 计数不能直接当运行期拼接：DeepSeek 142 条里可定位的 100 条全部是 `DESKTOP_IPC.*` 常量（34 个 `dsh-desktop:*` 通道），MiniMax 326 条主进程 + 398 条 renderer 调用可还原到 `IPC_CHANNELS`/`WEBVIEW_HOST_CHANNELS` 常量表；WorkBuddy main 侧 115 条注册全部归因（12 个 `require_*` 别名全回填）；ZCode 本地 227 个调用点全部还原为 180 个唯一通道、0 条未定。
+- `js-app-map` 的动态 IPC 计数不能直接当运行期拼接：DeepSeek 的 142 是工具计数，源码实际 116 个 ipc 调用点（102 业务 + 14 清理），102 条业务调用落到 54 个常量通道；MiniMax 326 条主进程 + 398 条 renderer 调用可还原到 `IPC_CHANNELS`/`WEBVIEW_HOST_CHANNELS` 常量表；WorkBuddy main 侧 115 条注册全部归因（12 个 `require_*` 别名全回填）；ZCode 本地 227 个调用点全部还原为 180 个唯一通道、0 条未定。
 - `webPreferences: dynamic` 的窗口无法静态读出安全值，只能标注。
 
 ---
@@ -98,7 +98,7 @@
 | 目标 | 源模块 | 图节点 | 边 | 函数 | 静态 IPC | 配对 | 仅 handler | 仅 invoker | 动态 IPC | endpoint | 唯一 URL | 窗口 | 暴露键 | 暴露成员 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Cursor | 830 | 319,057 | 681,140 | 300,113 | 33 | 12 | 0 | 2 | 45 | 3,730 | 1,511 | 13 | 21 | 11 |
-| DeepSeek | 17 | 3,129 | 5,931 | 2,778 | 0 | 0 | 0 | 0 | 142 | 17 | 13 | 5 | 11 | 31 |
+| DeepSeek | 17 | 3,129 | 5,931 | 2,778 | 0 | 0 | 0 | 0 | 142（102 调用/54 通道） | 17 | 13 | 5 | 11 | 31 |
 | 豆包 (CEF) | 2,295 | 465,369 | 1,473,627 | 398,481 | 0 | 0 | 0 | 0 | 0 | 4,552 | 750 | 0 | 0 | 0 |
 | MiniMax | 1,391 | 124,372 | 330,508 | 112,679 | 54 | 25 | 0 | 14 | 816 | 1,887 | 1,394 | 10 | 35 | 373 |
 | OpenCode | 3,231 | 46,281 | 80,579 | 39,462 | 3 | 1 | 0 | 0 | 5 | 289 | 156 | 3 | 1 | 5 |
@@ -111,7 +111,7 @@
 | 小浣熊 | 1,886 | 121,089 | — | 109,542 | 95 | 19 | 38 | 2 | 26 | 1,819 | 1,355 | 10 | 20 | 9 |
 | ZCode | 2,837 | 77,729 | 144,984 | 72,766 | 3 | 2 | 0 | 0 | 423（227 全还原·180 唯一） | 377 | 175 | 10 | 8 | 169 |
 
-读法：**静态 IPC 少不等于能力少**。ZCode 只有 3 条静态通道，423 条工具计数经本地 227 个调用点逐条回填，得到 **227/227 已还原、180 个唯一通道、0 条未定**；WorkBuddy 的 214 条里 main 侧 **115 条注册全部归因**（81 常量/别名 + 29 模板 + 4 helper 形参 + 1 内部通道），12 个 `require_*` 别名全部回填；MiniMax 的 816 条里 326 条主进程 + 398 条 renderer 调用可还原到常量表；DeepSeek 的 142 条里可定位 100 条，全部是 34 个常量通道的枚举引用。**“动态”这个字段必须逐目标复核，不能直接当成不可审计面。**
+读法：**静态 IPC 少不等于能力少**。ZCode 只有 3 条静态通道，423 条工具计数经本地 227 个调用点逐条回填，得到 **227/227 已还原、180 个唯一通道、0 条未定**；WorkBuddy 的 214 条里 main 侧 **115 条注册全部归因**（81 常量/别名 + 29 模板 + 4 helper 形参 + 1 内部通道），12 个 `require_*` 别名全部回填；MiniMax 的 816 条里 326 条主进程 + 398 条 renderer 调用可还原到常量表；DeepSeek 的 142 条经源码复核只有 **102 条业务调用 + 14 条清理**，业务调用全部落到 **54 个常量通道**，40 条差额是工具侧重复条目。**“动态”这个字段必须逐目标复核，不能直接当成不可审计面。**
 
 窗口安全：WorkBuddy 有一处 `contextIsolation=false / nodeIntegration=true / sandbox=false`，定位在 `main/index.js:203` 的腾讯文档调试面板（520×720，`DEBUG_PANEL` 分区），不是主 UI；另有一处 `webSecurity=false` 在 `main/main-bootstrap.js:368`。Trae 有 1 处 `sandbox off` + 1 处 `webSecurity off`。Cursor 有 5 处 `contextIsolation/nodeIntegration` 未显式设置（继承 Electron 默认）。其余见逐目标小节。
 
@@ -313,15 +313,15 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 
 - `lib/main.js`：38 个 `ipcMain.handle`、5 个 `ipcMain.on`。
 - `lib/preload-app.cjs`：28 个 `ipcRenderer.invoke`、7 个 `contextBridge.exposeInMainWorld`；`preload-welcome.cjs` 8 个 invoke；`preload-mandatory.cjs` 1 个 expose。
-- **静态 IPC 表为 0，动态 142 条——但可定位的 100 条全是枚举引用，不是运行期拼接**。`lib/types/ipc.js` 的 `DESKTOP_IPC` 对象把 34 个通道名映射为 `dsh-desktop:*`（`fileSave` → `dsh-desktop:file-save`、`clipboardImageRead` → `dsh-desktop:clipboard-image-read` 等）；`ipcMain.handle(DESKTOP_IPC.fileSave, ...)` 被工具按“非字面量首参”记成 dynamic。应用层 6 个文件（`lib/main.js` + 5 个 preload）可定位 100 条，全部落在同一张 34 通道表；剩余 42 条与工具口径未逐条对齐，但未发现任何运行期字符串拼接。
+- **静态 IPC 表为 0，工具记 142 条；源码逐文件只有 116 个 ipc 调用点**。`lib/main.js` 内联的 `DESKTOP_IPC` 对象把 34 个通道名映射为 `dsh-desktop:*`（`fileSave` → `dsh-desktop:file-save`、`clipboardImageRead` → `dsh-desktop:clipboard-image-read` 等）；`ipcMain.handle(DESKTOP_IPC.fileSave, ...)` 被工具按“非字面量首参”记成 dynamic。102 条业务调用（43 主进程 + 59 preload/renderer）落到 **54 个唯一通道**：`DESKTOP_IPC` 34、`PLATFORM_IPC` 5、`WELCOME_IPC` 9、`MANDATORY_IPC` 3、`UPDATE_DIALOG_IPC` 3；另 14 条是 `removeHandler/off` 解绑清理。142 = 102 条业务调用 + 40 条工具侧重复条目（与 40 个 `ipcRenderer.invoke` 数量一致，源码中不存在第 103–142 个独立调用点）；2 个 `removeHandler(channel)` 是通用解绑函数的形参，不是新通道，未发现任何运行期字符串拼接。
 - 暴露键：`dsh`、`dshDesktop`、`dshDesktopBoot`、`dshPlatform`、`dshUpdateDialog`、`dshMandatoryUpdate`、`dshWelcome`、`dshOnboarding`、`__DSH_DIRECTORY_PICKER__`、`__DSH_HOST_PATHS__`、`__DSH_LOCALE__`。
 - 窗口：1 个 `WebContentsView` 显式 `contextIsolation:true / nodeIntegration:false / sandbox:true`；2 个 `BrowserWindow` 的 `webPreferences` 运行期计算（`ev_ce7bcd8d…`，windows 段）。
 
-**依赖即架构**：`@deepseek-ai/cordis`（插件/依赖注入内核，workspace 版本）、`@deepseek-ai/dsh-api-gateway`、`ws 8.21`、`electron-updater 6.8.9`、`semver`。`dsh-api-gateway` 是 API 网关，`cordis` 是插件容器；**17 个模块承载 34 个常量通道**，插件仍可能在运行期注册，但 142 条计数不是“插件拼接”的证据。
+**依赖即架构**：`@deepseek-ai/cordis`（插件/依赖注入内核，workspace 版本）、`@deepseek-ai/dsh-api-gateway`、`ws 8.21`、`electron-updater 6.8.9`、`semver`。`dsh-api-gateway` 是 API 网关，`cordis` 是插件容器；**17 个模块承载 54 个常量通道（5 张表）**，插件仍可能在运行期注册，但 142 条计数不是“插件拼接”的证据。
 
 **后端/服务层**：本地 endpoint 有 `ws://127.0.0.1/*`、`wss://127.0.0.1/*`，说明主进程与渲染/插件之间存在 **loopback WebSocket** 通道（具体端口运行期决定）。`dsh-api-gateway` 负责对外 API 聚合，cordis 负责插件生命周期；两者都不是 Electron IPC。
 
-**核心（已补录）**：`DeepSeek Harness.exe` 实测 1,284 个导入 / 129 个安全导入，字符串全是 `cppgc::`、`gin::`、`node:electron/js2c/sandbox_bundle`、`enable-sandbox` 这类 Electron 内置；签名主体 Hangzhou DeepSeek Artificial Intelligence Co., Ltd.（有效）。**结论：没有产品级原生沙箱/权限证据**，产品能力在 cordis 插件与 JS 主进程（38 个 ipcMain.handle、142 条非字面量首参，可定位 100 条实为 34 个常量通道）。上一版若用这个 exe 的导入证明“DeepSeek 有沙箱”，同样属于框架级误判。
+**核心（已补录）**：`DeepSeek Harness.exe` 实测 1,284 个导入 / 129 个安全导入，字符串全是 `cppgc::`、`gin::`、`node:electron/js2c/sandbox_bundle`、`enable-sandbox` 这类 Electron 内置；签名主体 Hangzhou DeepSeek Artificial Intelligence Co., Ltd.（有效）。**结论：没有产品级原生沙箱/权限证据**，产品能力在 cordis 插件与 JS 主进程（38 个 `ipcMain.handle`、116 个 ipc 调用点、102 条业务调用/54 个常量通道；142 为工具重复计数）。上一版若用这个 exe 的导入证明“DeepSeek 有沙箱”，同样属于框架级误判。
 
 **证据锚点**：`ev_ce7bcd8d…`（jsmap）。
 
@@ -480,7 +480,7 @@ IPC 分组说明它是“能力市场型”客户端：
 | ZCode | `zcode:cua-permission-panel-state`、`zcodePluginSandbox` | CU 权限面板 | host 侧 Windows Job 控制（“Job was confirmed empty”） | 产品级（JS/宿主） |
 | 小浣熊 | `appshot:get-permission-status`、`request-screen-capture-permission`、`request-accessibility-permission` | 系统设置跳转 | `box-agent-acp.exe`（Python 3.12） | 产品级（Python） |
 | Qoder | 无产品级权限字符串；窗口 `sandbox:true` | 未发现 | Electron 默认 + application-server | **框架级/未知** |
-| DeepSeek | 无产品级权限字符串；142 条非字面量首参，其中 100 条 → 34 个常量通道 | 未发现 | Electron 默认 + cordis 插件 | **框架级/未知** |
+| DeepSeek | 无产品级权限字符串；142 工具计数 → 102 条业务调用/54 个常量通道，14 条解绑清理 | 未发现 | Electron 默认 + cordis 插件 | **框架级/未知** |
 | OpenCode | 暴露面极小；`SandboxPolicy` 未在桌面包发现 | 未发现 | 推测在 CLI（未闭环） | **未知** |
 
 ### 5.2 沙箱实现谱系
@@ -517,7 +517,7 @@ IPC 分组说明它是“能力市场型”客户端：
 | 小浣熊 | Electron | 95（19 配对，38 仅 handler） | 26 | 20 | box-agent-runtime（Python ACP） + browser-gateway |
 | 豆包 | CEF | 0（不建模） | 0 | 0 | `agent_infra.dll` 本地运行时策略 + `mcp_helper.dll` MCP 进程宿主 |
 | Qoder | Electron | 0 | 8 | 0 | `application-server` + `peer-transport` + `remoteSdkDaemonBridge` |
-| DeepSeek | Electron | 0 | 142（34 常量） | 11 | cordis 插件 + `dsh-api-gateway` + loopback WS |
+| DeepSeek | Electron | 0 | 142（102 调用/54 常量） | 11 | cordis 插件 + `dsh-api-gateway` + loopback WS |
 | OpenCode | Electron | 3（1 配对） | 5 | 1（5 成员） | 桌面主进程拉起 `opencode-cli serve --service`；isolated 3084，普通模式动态端口；4096 仅为 Add Server 占位 |
 | Codex | Rust TUI/CLI | — | — | — | app-server 本地 WebSocket `ws://127.0.0.1:0` |
 
@@ -562,7 +562,7 @@ IPC 分组说明它是“能力市场型”客户端：
 2. WorkBuddy `main/main-bootstrap.js:368` 的 `webSecurity:false`——同源策略关掉后，任何内嵌页面都能读跨域响应。
 3. Trae 的 1 个 `sandbox off` + 1 个 `webSecurity off` 窗口；Cursor 5 个窗口未显式声明安全项。
 4. 83 个 `contextBridge` 暴露键（WorkBuddy）与 373 个暴露成员（MiniMax）——能力总线式 preload 的典型膨胀。
-5. ZCode 423 条工具计数经本地 227 个调用点逐条回填，**227/227 已还原为 180 个唯一通道、0 条未定**；WorkBuddy 214 条里 main 侧 115 条注册全部归因（12 个 `require_*` 别名全回填），MiniMax 816 条多数已还原、真正未定 14 条；DeepSeek 应用层可定位 100 条全部还原为 34 个常量通道（余 42 条口径差）。不可审计面比表面数字小，ZCode/WorkBuddy 的动态别名已不再留口子。
+5. ZCode 423 条工具计数经本地 227 个调用点逐条回填，**227/227 已还原为 180 个唯一通道、0 条未定**；WorkBuddy 214 条里 main 侧 115 条注册全部归因（12 个 `require_*` 别名全回填），MiniMax 816 条多数已还原、真正未定 14 条；DeepSeek 142 条经源码复核为 **102 条业务调用 + 14 条清理**，业务调用全部落 54 个常量通道，40 条差额是工具侧重复条目。不可审计面比表面数字小，ZCode/WorkBuddy/DeepSeek 的动态别名已不再留口子。
 
 ---
 
@@ -574,7 +574,7 @@ IPC 分组说明它是“能力市场型”客户端：
 2. **Codex 407MB 超工具上限**：`native-rust-binary-show` 拒绝 >256MB，因此没有 craft 原生 Rust 报告；本轮用字节级 cargo 路径正则补出 400 个 crate、rustc commit、5 个 git checkout，但没有 demangled symbols 与 `.dep-v0` 审计清单，crate 归属仍不是 craft 官方口径。
 3. **OpenCode 已运行验证，但凭据传递仍未知**：`opencode-cli.exe` 2.2.7 的 `serve` 能监听并返回 Web UI；`/api` 与 `/openapi.json` 无凭据返回 401；普通模式 stdout 打印一次性 `server password`，`--service` 模式未观察到密码行。桌面端如何注入凭据、`--stdio` 模式行为、长期运行稳定性都未验证。`localhost:4096` 已证实只是 `dialog.server.add.placeholder` 的默认占位。
 4. **Qoder 的 keytar/aoq 已文件级确认**：`keytar.node` 707,584 与 `aoq_node_ext.node` 253,952 在 0.5.6/0.5.14 两个版本中都存在；但 aoq 的具体用途（播放器/会议 SDK）只按 DLL 名称推断，未运行验证。上一轮“未复现”的写法已撤销。
-5. **动态 IPC 计数必须逐目标复核**：ZCode 423、MiniMax 816、DeepSeek 142、WorkBuddy 214、Trae 110 是工具的“非字面量首参”计数，不等于运行期拼接。已还原：DeepSeek 应用层可定位 100 条→34 个 `dsh-desktop:*` 常量通道（余 42 条口径差未对齐）；MiniMax 326 条主进程 + 398 条 renderer 调用落到 `IPC_CHANNELS`/`WEBVIEW_HOST_CHANNELS`，真正未定 6+8 条；WorkBuddy main 侧 115 条注册全部归因（81 常量/别名 + 29 模板 + 4 helper 形参 + 1 内部通道），12 个 `require_*` 别名全回填；ZCode 本地 227 个调用点 227/227 还原为 180 个唯一通道、0 条未定，423 与 227 的差额来自 node_modules/其他 bundle。
+5. **动态 IPC 计数必须逐目标复核**：ZCode 423、MiniMax 816、DeepSeek 142、WorkBuddy 214、Trae 110 是工具的“非字面量首参”计数，不等于运行期拼接。已还原：DeepSeek 源码 116 个调用点（102 业务 + 14 清理），102 条业务调用落到 54 个常量通道，142 与 102 的 40 条差额是工具侧重复条目；MiniMax 326 条主进程 + 398 条 renderer 调用落到 `IPC_CHANNELS`/`WEBVIEW_HOST_CHANNELS`，真正未定 6+8 条；WorkBuddy main 侧 115 条注册全部归因（81 常量/别名 + 29 模板 + 4 helper 形参 + 1 内部通道），12 个 `require_*` 别名全回填；ZCode 本地 227 个调用点 227/227 还原为 180 个唯一通道、0 条未定，423 与 227 的差额来自 node_modules/其他 bundle。
 6. **`webPreferences: dynamic` 无法判定**：多个产品有 4–12 个窗口的 webPreferences 在运行期计算，静态只能标“未知”，不能下“安全/不安全”结论。
 7. **CEF 的豆包没有 IPC 模型**：`js-app-map` 不建模 CEF message port，豆包的 IPC 面为 0 是工具盲区，不是产品事实。
 8. **函数发现上限 50,000**：所有大 PE 的函数表都不完整；`core-overview-show` 已明确 `function_limit`。
@@ -601,6 +601,7 @@ IPC 分组说明它是“能力市场型”客户端：
 - `analysis\zcode-channel-map.json`：从 `out/preload/index.cjs` 的 `var v={...}` 解析出的 169 项 `zcode:*` 通道表。
 - `analysis\dynamic-ipc-zcode-resolved.json`：ZCode 早期 215 条已还原调用（169 个唯一通道）与 12 条别名；最终闭环结果在 `dynamic-ipc-zcode-final.json`（227/227、180 唯一、0 未定）。
 - `analysis\dynamic-ipc-wb-final.json`：WorkBuddy main 侧 115 条 `ipcMain` 注册的最终分类（82 resolved/const + 29 template + 4 helper 形参，0 未定）。
+- `analysis\deepseek-ipc-final.json`：DeepSeek 116 个 ipc 调用点的逐条通道映射（102 业务 + 14 清理、54 个唯一通道），含 142=102+40 工具重复条目的汇总字段。
 - `analysis\frontend-<target>.json`：前端结构化摘要（IPC、窗口、暴露键、endpoint、模块关键词）。
 - `analysis\evidence-ids.json`：目标 → evidence id 映射；`analysis\evidence-map.json`：证据号 → 摘要/路径。
 
