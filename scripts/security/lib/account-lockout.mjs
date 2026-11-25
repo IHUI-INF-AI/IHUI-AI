@@ -471,6 +471,29 @@ export function remediationForLockout(result) {
   return out
 }
 
+/**
+ * 空窗降档(2026-11-26 立,第十八件联动)。
+ *
+ * 「窗内 0 条 4740/4625」只有在审计策略真的在记的时候才等于「没人试」。
+ * 实测本机审计策略 60 条子类里 40 条 No Auditing、5 条只有 Success ——
+ * Account Lockout(0CCE9217)/ Logon(0CCE9215)/ Credential Validation(0CCE923F)
+ * 任何一条没双开,读到 0 条就可能只是「根本没记」,那时判 ok 是假绿(§0.3)。
+ * 故:空窗 + 审计缺口 ⇒ undetermined 并点名缺哪条(不冒绿、也不冒红)。
+ */
+export function downgradeEmptyWindowByAuditGap(result, opts = {}) {
+  const missing = Array.isArray(opts.auditCriticalMissing) ? opts.auditCriticalMissing : []
+  if (missing.length === 0) return result
+  if (!result || result.state !== LOCKOUT_STATE.OK) return result
+  const total = (Number(result.total4740) || 0) + (Number(result.total4625) || 0)
+  if (total !== 0) return result
+  return {
+    ...result,
+    state: LOCKOUT_STATE.UNDETERMINED,
+    reason: `空窗不可信:账号锁定/登录审计未双开(${missing.slice(0, 3).join(' / ')}) ⇒ 0 条不等于没有失败登录`,
+    auditCriticalMissing: missing,
+  }
+}
+
 export const __test__ = {
   toMs,
   normalizeProcessName,

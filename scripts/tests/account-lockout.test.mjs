@@ -26,6 +26,7 @@ import {
   describeGroup,
   normalizeProcessName,
   parseLockoutThreshold,
+  downgradeEmptyWindowByAuditGap,
   LOCKOUT_STATE,
   LOCKOUT_POLICY,
   DEFAULT_WINDOW_MIN,
@@ -247,5 +248,43 @@ test('不传 lockoutPolicy ⇒ 按 ENABLED 保守判(策略未判定不能当降
   for (let i = 0; i < 5; i += 1) events.push(fail({ processId: '0x' + i }))
   const r = judgeAccountLockout({ events }, { now: NOW, windowMin: 30 })
   assert.equal(r.state, LOCKOUT_STATE.BREACH)
+})
+
+test('空窗 + 审计缺口 ⇒ undetermined(0 条不等于没记)', () => {
+  const base = judgeAccountLockout(
+    { events: [] },
+    { now: NOW, windowMin: 30, lockoutPolicy: { state: LOCKOUT_POLICY.DISABLED, threshold: 0 } },
+  )
+  assert.equal(base.state, LOCKOUT_STATE.OK)
+  const r = downgradeEmptyWindowByAuditGap(base, {
+    auditCriticalMissing: ['Account Lockout', 'Credential Validation'],
+  })
+  assert.equal(r.state, LOCKOUT_STATE.UNDETERMINED)
+  assert.match(r.reason, /账号锁定\/登录审计未双开/)
+  assert.match(r.reason, /Account Lockout/)
+  assert.equal(base.state, LOCKOUT_STATE.OK, '不得就地改原对象')
+})
+
+test('有事件 / 无缺口 / 已 breach 三种情形都不降档', () => {
+  const withGap = { auditCriticalMissing: ['Logon'] }
+
+  const busy = judgeAccountLockout(
+    { events: [fail({ processId: '0x1' })] },
+    { now: NOW, windowMin: 30, lockoutPolicy: { state: LOCKOUT_POLICY.ENABLED, threshold: 10 } },
+  )
+  assert.notEqual(downgradeEmptyWindowByAuditGap(busy, withGap).state, LOCKOUT_STATE.UNDETERMINED)
+
+  const empty = judgeAccountLockout(
+    { events: [] },
+    { now: NOW, windowMin: 30, lockoutPolicy: { state: LOCKOUT_POLICY.DISABLED, threshold: 0 } },
+  )
+  assert.equal(downgradeEmptyWindowByAuditGap(empty, { auditCriticalMissing: [] }).state, LOCKOUT_STATE.OK)
+  assert.equal(downgradeEmptyWindowByAuditGap(empty, {}).state, LOCKOUT_STATE.OK)
+
+  const breach = judgeAccountLockout(
+    { events: [lockout()] },
+    { now: NOW, windowMin: 30, lockoutPolicy: { state: LOCKOUT_POLICY.DISABLED, threshold: 0 } },
+  )
+  assert.equal(downgradeEmptyWindowByAuditGap(breach, withGap).state, LOCKOUT_STATE.BREACH)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
