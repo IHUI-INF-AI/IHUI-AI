@@ -8,8 +8,8 @@
 
 - 日期：2026-11-25
 - 范围：本机已安装的 11 个 AI 客户端 / CLI（Codex、Trae CN、WorkBuddy、Qoder CN、ZCode、Cursor、豆包、DeepSeek Harness、OpenCode、MiniMax Code、商汤小浣熊）
-- 方法：craft-anything 0.5.0 静态取证（未运行任何程序本体、未读取任何用户凭据）
-- 结论性质：静态观察 + 派生结论；所有动态行为一律标注“未运行、未知”
+- 方法：craft-anything 0.5.0 静态取证（未主动运行任何程序本体、未读取任何用户凭据；运行态只做既有进程/端口/管道快照）
+- 结论性质：静态观察 + 派生结论；动态行为以 5.6 的一次运行态快照标注，其余一律“未运行、未知”
 
 **一页结论**
 
@@ -24,7 +24,7 @@
 
 ## 0. 为什么要推翻上一版
 
-上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了十四处纠正，每一条都能被证据账本复核。
+上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了十六处纠正，每一条都能被证据账本复核。
 
 **纠正一：把 Electron 主 exe 的 Chromium 安全 API 当成产品自研沙箱。**
 上一版用 `CreateRestrictedToken`、`CreateJobObject`、`CreateProcessAsUserW` 这类导入来证明“某产品有强沙箱”。实测发现，WorkBuddy.exe、Qoder CN.exe、ZCode.exe、Cursor.exe、Trae CN.exe 全部是 Electron 壳，这些 API 属于 Chromium/Electron 出厂能力，**不能归因于产品**。本版把证据分成三层：产品级（Rust/Go helper、.node、主进程 JS）、框架级（Electron/Chromium）、未知级；只有第一层进入结论。
@@ -63,10 +63,16 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 `Doubao.dll` 导出 `ChromeMain`，安装清单是 Chromium `147.0.7727.149`；宿主是 Aha/Neotix，不是 CEF。上一版 jsmap 只读了 `local_webcontents` 的 2,311/3,442 个直接文件，得到 2,295 模块 / 465,369 节点 / 1,473,627 边，**恰好等于 `extensions\ai-views` 的 2,282 个 JS**，没有进入 `biz.pak`。本轮解包 `biz.pak` 196,549,135 字节、10,029 个资源（7,837 JS / 1,125 CSS / 369 HTML / 212 SVG / 15 JSON），单图重建 **9,797 模块 / 166,986 bundle 模块 / 881,872 函数 / 2,928,056 边 / 8,988 endpoint（1,231 唯一）/ 335 路由**；单图撞 1,000,000 节点硬上限，需求 1,615,501、丢 615,501。随后按顶层目录拆成 `ahalets`（5,907 模块 / 832,342 节点）、`static`（3,597 / 628,680）、`rest`（58 / 10,289）三片重跑，**合计 9,562 模块 / 1,471,311 节点 / 4,072,587 边 / 1,274,239 函数 / 8,973 endpoint / 335 路由**；**166,986 bundle 模块与单图完全相等**，节点比单图推算需求少 144,190，差在 235 个单图额外计入的模块（资产/非 JS 口径）和跨片不生成跨文件边，不是新的截断。工具在 pak 图上报的 2 条 IPC（`getScrollInfo` / `postMessageSync`）是 SDK/Lynx 方法名误匹配，不是原生通道。真正的原生面是 **Neotix ShellAPI 的 848 个 `neotix::<namespace>::<method>` 方法 / 98 个命名空间**。
 
 **纠正十三：上一版把豆包后端只写成聊天 RPC，漏了 PIP 远程会话子系统。**
-`pip_main.exe` 3,208,592 字节自带 `aha_pip\src\pip_ipc\named_pipe_ipc_server.cc` / `named_pipe_ipc_client.cc`、`PipMainPipeName_{}`、`PipSDKPipeName_{}`、`PipRemotePipeName_{}` 三条命名管道族，并用 `GetNamedPipeClientProcessId` 校验对端进程；同目录 `pip_remote.dll`、`connect_to_shadow_session_client.cc`、`shadow_session_credential_precheck.cc`、`shadow_session_guard.cc`、`rdp_host.cc`、`credential_guard.cc`、`key_stroke.cc` —— 按源码文件名，它不是普通 helper，而是远程/影子会话、键鼠注入、凭据保护一整套子系统。它和 Agent Tool 的 `\\.\pipe\aha-agent-tool-ipc-`、Neotix ShellAPI 是三条独立通道，不能只写一条。静态可见，启用条件未运行验证。
+`pip_main.exe` 3,208,592 字节自带 `aha_pip\src\pip_ipc\named_pipe_ipc_server.cc` / `named_pipe_ipc_client.cc`、`PipMainPipeName_{}`、`PipSDKPipeName_{}`、`PipRemotePipeName_{}` 三条命名管道族，并用 `GetNamedPipeClientProcessId` 校验对端进程；同目录 `pip_remote.dll`、`connect_to_shadow_session_client.cc`、`shadow_session_credential_precheck.cc`、`shadow_session_guard.cc`、`rdp_host.cc`、`credential_guard.cc`、`key_stroke.cc` —— 按源码文件名，它不是普通 helper，而是远程/影子会话、键鼠注入、凭据保护一整套子系统。它和 Agent Tool 的 `\\.\pipe\aha-agent-tool-ipc-`、Neotix ShellAPI 是三条独立通道，不能只写一条。2026-11-25 15:26 的运行态快照里 `PipMainPipeName_43814` 与 `PipSDKPipeName_50414` 已存在，`PipRemotePipeName` 未出现；只证明 Main/SDK 两族在运行，不能证明远程会话已启用；对端进程与默认监听仍未验证。
 
 **纠正十四：Qoder 的 `aoq` 不是“播放器 SDK”，是阿里云 RTC 引擎；随包携带但当前 app 代码 0 引用。**
 `aoq-electron-sdk` 实际是 `optionalDependencies` 从 `registry.anpm.alibaba-inc.com` 拉的 `1.2.0-57793950`，包元数据 `repository=gitlab.alibaba-inc.com:NLS-RTC-Service/aoq-client-sdk.git`、`description=AoqClientSdk for Electron (NAPI addon + TypeScript API)`。`ts/IAoqClientEngine.ts` 有 **43 个引擎方法**（`createEngine`、`connect`、`startAudioCapture`、`startVideoCapture`、`enableAudioFrameObserver`、`enableVideoFrameObserver`、`sendDataMsg` 等），`ts/Types.ts` 的 `IAoqElectronBridge` 有 **45 个 NAPI 桥方法**；`AoqConnectConfig` 必填 `token` / `sid` / `relayEndpoints`，可带 `certFingerprint` / `workspaceIdHash`，发布/订阅 `audio` / `video` / `data` 三类 track。原生四件套是 `AoqClientSdk.dll` 14,688,776、`aoq_node_ext.node` 253,952、`PluginOpus.dll` 730,112、`alivcffmpeg.dll` 4,093,448；DLL 字符串含 `Ali_RTC`、`rtc_core` 424 处、`apsara-video-client`、`cloud-config-service.rtc.aliyuncs.com`、`vod.cn-hangzhou.aliyuncs.com`、`vpp-license-proxy.aliyuncs.com`，源码路径是 `aoq-client-sdk\rtc_core\...`，不是播放器壳。**四个版本都带这套原生文件**：0.5.6 / 0.5.7 / 0.5.12 / 0.5.14 的 `AoqClientSdk.dll` 分别为 14,688,776 / 14,688,768 / 14,688,768 / 14,688,776，四个 SHA256 各不相同。但对四个版本的 asar 内全部 JS/TS/JSON（4,374 / 4,374 / 4,286 / 4,286 个文件，排除 `node_modules/aoq-electron-sdk` 自身）扫描，`aoq-electron-sdk` / `AoqSdk` / `AoqClientEngine` / `aoq_node_ext` 合计只命中 **1 次，且就在根 `package.json` 的 `optionalDependencies` 声明里**，**0 个 app import/require，SDK 目录之外 0 个路径含 `aoq`**；`AoqClientEngineInternal.ts` 的 `const AoqNode = loadNative()` 是模块级，只有被 import 时才加载 `.node`。结论：它是**随包携带、当前静态不可达的 RTC 能力**，不是桌面 IPC 通道（通道增量 0），也不是“已启用的播放器”；若被未来代码路径 import，能力是麦克风/摄像头采集、音视频裸帧观察、Aliyun RTC relay（token/sid 鉴权）与 data channel。启用条件未知，不写成已使用。账本：`analysis\qoder-aoq-sdk.json`。
+
+**纠正十五：`DoubaoLinkRouter.exe` 不是“疑似 URL 路由”，是 Aha/Saman 的协议链接路由器；上一版把 Chromium/perfetto 的 `http/ws/wss` 字符串误当成网络证据。**
+`DoubaoLinkRouter.exe` 2,952,080 字节，ProductName `Doubao Link Router`、FileVersion `2.37.16.0`、公司 北京春田知韵科技有限公司，签名有效，SHA256 `26B8838C7A20377E165FD04CA87FCB6C639E604B601E639A254DC58B98489E1D`。源码路径是 `..\..\aha\saman\link_router\router_app\router_main_win.cc`、`router_app.cc`、`component\route_event_store.cc`；常量里有 `doubao:/`、`doubaoap`、`/open-ur` 前缀，注册表 `Software\Doubao` / `Software\DoubaoWork`，目标可执行 `Doubao.exe` / `DoubaoWork.exe`，选择字段 `preferred_client` 加 `doubao_installed` / `doubao_compatible` / `doubao_running` / `doubao_foreground` 与 `work_installed` / `work_compatible` / `work_running` / `work_foreground`，日志字段 `LinkRouter result=` / `target=` / `reason=` / `event_id_created=`。导入表只有 `SHELL32` / `USER32` / `ADVAPI32` / `dbghelp` / `KERNEL32` / `USERENV` / `WINMM` / `SHLWAPI` / `ole32` / WinRT，**没有 `WS2_32` / `WINHTTP` / `WININET`**；所以 `http/ws/wss`、`localhost`、`server` 是 Chromium/perfetto/gurl 资产串，不是它起服务。它是默认协议/链接分流器：按安装、兼容、运行、前台状态和 `preferred_client` 在豆包与豆包 Work 之间选目标并转发链接，**不新增桌面 IPC 通道**。协议注册与启用条件未运行验证。`push_detect.exe` 仍只按名：签名有效、只导入 `Microsoft.WindowsAppRuntime.Bootstrap.dll` + `KERNEL32` / `ole32` / `OLEAUT32`，无产品字符串，不升格为结论。账本：`analysis\doubao-link-router.json`。
+
+**纠正十六：`Doubao_proxy.exe` / `Doubao_browser_proxy.exe` 不是 HTTP 代理，是 Chromium 的进程启动/浏览器入口代理。**
+两者都是 FileVersion `147.0.7727.149`、Product `Doubao`、公司 北京春田知韵科技有限公司、签名有效，大小 2,280,336 / 2,409,872。字符串里有 `..\..\base\process\launch_win.cc`、`LaunchProcess`、`LaunchElevatedProcess`、`ShellExecuteExW`、`..\..\base\command_line.cc`，以及 `Chrome.MessageLoopProblem.MESSAGE_POST_ERROR` / `SET_TIMER_ERROR` / `RECEIVED_WM_QUIT_ERROR` / `COMPLETION_POST_ERROR`；`NetLog events...` 只是 Chromium 通用资产串，不是网络服务证据。两者的 PE 导入表解析结果为空（可能走延迟导入、静态链接或解析口径差异），所以不能像 `DoubaoLinkRouter` 那样用导入表做否定证据；但字符串里 `localhost` / `127.0.0.1` / `HttpServer` / `WebSocket` / `netsh` / `InternetSetOption` / `WinHttp` / `PAC` 全部 0 命中，另有 `..\..\base\process\launch_win.cc`、`LaunchProcess`、`LaunchElevatedProcess`、`ShellExecuteExW` 和 `Chrome.MessageLoopProblem.*`，指向“拉起浏览器进程/入口”的 proxy 目标，不像本地 HTTP/WS 代理。它们**不新增桌面 IPC 通道**；是否被默认浏览器/协议调用链实际使用未运行验证。账本：`analysis\doubao-proxy-launchers.json`。
 
 ---
 
@@ -235,6 +241,7 @@ IPC 命名本身就把产品能力摊开了：
 - 环境变量白名单直接暴露后端接线：`OCS_LOCAL_MCP`、`TENCENT_DOCS_LOCAL_SERVER`、`editor_sdk_port`、`WORKBUDDY_VLM_CHAT_URL`、`WORKBUDDY_VLM_AUTH_TOKEN`、`CODEBUDDY_REMOTE_AGENTS_URL`、`CODEBUDDY_A2A_OUTBOUND_ENABLED`、`WECOM_CLI_*`。
 - 前端暴露面里还有 `__mcpHostTestApi: getToken, getWBCurrentSessionId`，说明 MCP Host 有测试用取 token 接口（静态可见，是否生产启用未知）。
 - 本地 endpoint 实例：`http://127.0.0.1:39099/mcp`（前端 2 次；`daemon-bootstrap.js` 里 `Pe=39099,Fe=39120` 可对上）、`http://127.0.0.1:52741/v1/chat/completions`（`daemon-app-server-main.js` 里用于本地模型注册）、`http://127.0.0.1:{e}/localapi/save`、`http://127.0.0.1:49983/envs`、`http://localhost:11434/v1/chat/completions`（Ollama 兼容）。`http://127.0.0.1:9527` 只出现在 `cli\bin\daemon-status-brief.test.cjs` 的测试夹具里（模拟 daemon endpoint），**不是生产端口**。
+- **运行态快照（2026-11-25 15:26，非本轮启动）**：main 22984 监听 `127.0.0.1:18488`；`daemon-app-server-entry.js --stdio` 进程 31688 监听 `56000` / `57736` / `57737`；两个 `codebuddy --serve` 进程 41604 / 8372 分别监听 `57740` / `63423`；`WorkBuddy_SandboxCenter_*`、`WorkBuddy_SensitiveApproval_*`、`workbuddy-...-sidecar-control-*` / `-data-*` 管道均存在。它证明 MCP Host/daemon/sidecar 层不是只在静态代码里，但 HTTP/WS/MCP 协议与鉴权仍未探测。
 
 **一句话结论**：WorkBuddy 的“前后端”是三层——渲染层（Electron renderer + contextBridge 83 键）、主进程服务层（MCP Host / A2A / WeCom / daemon）、原生沙箱层（Rust cli+center，Job Object + pipe ACL + approval 反向通道）。这三层都有产品级证据，且互相咬合。
 
@@ -304,7 +311,7 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 
 **后端/服务层**：`application-server` + `peer-transport` 是关键。前者是应用服务宿主，后者是 peer 传输层；加上 `session-history`、`session-migration`、`memory-migration`、`artifact-preview`，说明会话/记忆/工件是被服务化的，不是渲染进程直接读写。端点里能看到阿里内部服务：`ali-skill.alibaba-inc.com`、`iservice.alibaba.com`、`modelstudio.console.aliyun.com`、`bailian.console.aliyun.com`、`img.alicdn.com`。
 
-**四版本后端扫描补证**：asar 内 JS 的 `mcpServer` 命中 665 / 665 / 629 / 629，其中 `out/main/electronMain.js` 123 / 123 / 129 / 129，`@qoder-ai/qoder-cn-agent-sdk/dist/index.js` 各 37；`http.createServer` 8 / 8 / 6 / 6（express + `@modelcontextprotocol/node`），0.5.12 / 0.5.14 另有 `ws/lib/websocket-server.js` 的 `WebSocketServer` 1 处。四版本都没有 `ipcMain.handle/on`、`contextBridge.exposeInMainWorld`、`safeStorage`、`keytar` 的 JS 命中。说明 Qoder 的 MCP 是主进程内独立服务代码路径，Electron IPC 仍走 application-server/peer-transport；是否在启动时 listen 未运行验证。账本：`analysis\backend-qoder-all.json`。
+**四版本后端扫描补证**：asar 内 JS 的 `mcpServer` 命中 665 / 665 / 629 / 629，其中 `out/main/electronMain.js` 123 / 123 / 129 / 129，`@qoder-ai/qoder-cn-agent-sdk/dist/index.js` 各 37；`http.createServer` 8 / 8 / 6 / 6（express + `@modelcontextprotocol/node`），0.5.12 / 0.5.14 另有 `ws/lib/websocket-server.js` 的 `WebSocketServer` 1 处。四版本都没有 `ipcMain.handle/on`、`contextBridge.exposeInMainWorld`、`safeStorage`、`keytar` 的 JS 命中。说明 Qoder 的 MCP 是主进程内独立服务代码路径，Electron IPC 仍走 application-server/peer-transport；是否在启动时 listen 未运行验证。运行态快照里 0.5.14 进程 4744 确实监听 `127.0.0.1:55346`，但它来自本机测试脚本 `C:\IHUI-AI\scripts\qoder-chat-bridge.mjs --port 0`，**不能算 Qoder application-server 的端口**；Qoder 自身服务端口仍未识别。账本：`analysis\backend-qoder-all.json`。
 
 **证据锚点**：`ev_6e0090db…`（0.5.14 jsmap）、`ev_15085ef1…`（0.5.6 jsmap）、`ev_fa21f425…`（0.5.12 jsmap）、`ev_caf71a90…`（0.5.7 jsmap）、`ev_05eabcea…`（0.5.7 exe overview）、`ev_408c01b6…`（0.5.12 exe overview）、`ev_4f5473fe…`（imports）、`ev_07e3697a…`（strings）、`ev_d256efc1…`（签名）。
 
@@ -360,8 +367,8 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 
 **后端层：本地 RPC、WebSocket、MCP、代理、PIP 五套都在。**
 `Doubao.dll` 的 `agent_tool_ipc_named_pipe_transport.cc` 写明 Agent Tool RPC Server：命名管道 `\\.\pipe\aha-agent-tool-ipc-`、TCP fallback `127.0.0.1:<ephemeral>`、`AgentToolIpcAuthOnlyLocal`、开关 `enable-agent-tool-ipc`，并有 `OnPrimaryAcceptComplete` / `SchedulePrimaryListenerRecovery` 的降级恢复逻辑。`app_proxy_transport_websocket_server_socket_factory.cc` 在 `127.0.0.1` 起 WebSocket，走 `app_share_protocol` 的 HMAC 加密。`mcp_helper.dll` 有 `STDIO MCP initialize`、`OAuth loopback callback`、`HTTP startup lifecycle was retired`，说明 MCP 走 stdio，HTTP 只用于 OAuth 回调绑定。`secure-proxy-ipc64.dll` 要求 `pipe://NAME` 的 interceptor endpoint；`sbox\x64\aiep_ipc.dll`、`vm_sdk\x64\aiep_ipc.dll` 是 AIEP 沙箱 IPC 的两套构建。
-PIP 是独立的一套：`pip_main.exe` 3,208,592 字节带 `aha_pip\src\pip_ipc\named_pipe_ipc_server.cc` / `named_pipe_ipc_client.cc`、`PipMainPipeName_{}`、`PipSDKPipeName_{}`、`PipRemotePipeName_{}` 三条命名管道族，并用 `GetNamedPipeClientProcessId` 校验对端；`pip_remote.dll`、`connect_to_shadow_session_client.cc`、`shadow_session_credential_precheck.cc`、`shadow_session_guard.cc`、`rdp_host.cc`、`credential_guard.cc`、`key_stroke.cc` 按文件名指向远程/影子会话、键鼠注入、凭据保护，和 `aha-agent-tool-ipc-`、Neotix ShellAPI 三条通道互相独立。静态可见，启用条件未运行验证。
-helper 侧另有 `DoubaoLinkRouter.exe`（2,952,080，含 `http/ws/wss`、`localhost`、`server` 字面量，按名疑似 URL/协议路由）、`file_search_host.exe`（3,093,904，`--agent-infra-host-config`）、`file_utils_host.exe`（4,985,232，同参数族）、`ghelper.exe`（4,161,424，`GhostHelperService` + `\\.\pipe\crashpad_%lu_`）、`ttdaemon.exe`（277,392，PDB 路径 `C:\79014\CCCreator\proj\cmake\sln_x64_Release\bin\Release\ttdaemon.pdb`，属 CCCreator 守护进程）、`Doubao_proxy.exe`（2,280,336）、`Doubao_browser_proxy.exe`（2,409,872）、`push_detect.exe`（191,376，仅通用字符串，按名疑似推送检测）；`file_*_host` 是 agent infra 的工具宿主，不是聊天 RPC 服务端。
+PIP 是独立的一套：`pip_main.exe` 3,208,592 字节带 `aha_pip\src\pip_ipc\named_pipe_ipc_server.cc` / `named_pipe_ipc_client.cc`、`PipMainPipeName_{}`、`PipSDKPipeName_{}`、`PipRemotePipeName_{}` 三条命名管道族，并用 `GetNamedPipeClientProcessId` 校验对端；`pip_remote.dll`、`connect_to_shadow_session_client.cc`、`shadow_session_credential_precheck.cc`、`shadow_session_guard.cc`、`rdp_host.cc`、`credential_guard.cc`、`key_stroke.cc` 按文件名指向远程/影子会话、键鼠注入、凭据保护，和 `aha-agent-tool-ipc-`、Neotix ShellAPI 三条通道互相独立。运行态快照已看到 `PipMainPipeName_43814` / `PipSDKPipeName_50414`，未看到 `PipRemotePipeName`；Main/SDK 在跑，远程会话启用条件与对端仍未验证。
+helper 侧另有 `DoubaoLinkRouter.exe`（2,952,080，ProductName `Doubao Link Router` 2.37.16.0，Aha/Saman `link_router`，按 `doubao:/` / `doubaoap` 前缀在 `Doubao.exe` / `DoubaoWork.exe` 间分流，导入表无网络 DLL；不是 HTTP/WS 服务，详见纠正十五）、`file_search_host.exe`（3,093,904，`--agent-infra-host-config`）、`file_utils_host.exe`（4,985,232，同参数族）、`ghelper.exe`（4,161,424，`GhostHelperService` + `\\.\pipe\crashpad_%lu_`）、`ttdaemon.exe`（277,392，PDB 路径 `C:\79014\CCCreator\proj\cmake\sln_x64_Release\bin\Release\ttdaemon.pdb`，属 CCCreator 守护进程）、`Doubao_proxy.exe`（2,280,336，Chromium `147.0.7727.149` 进程启动/浏览器入口代理，非 HTTP 代理，详见纠正十六）、`Doubao_browser_proxy.exe`（2,409,872，同族 Chromium proxy/launcher）、`push_detect.exe`（191,376，签名有效、只导入 WinAppSDK bootstrap + `KERNEL32` / `ole32` / `OLEAUT32`，无产品字符串，仍按名疑似推送检测）；`file_*_host` 是 agent infra 的工具宿主，不是聊天 RPC 服务端。
 
 **核心一：Doubao.dll 里嵌了 Deno 运行时权限模型。**
 字符串 `third_party\deno\runtime\permissions\lib.rs`、`vdatetimepermission`、`NotFoundPermissionDenied...` 出现在 permission 主题命中里；同时导入层面有 1,613 个导入 / 153 个安全导入（`CreateRestrictedToken`、`CreateProcessWithTokenW`、`CreateProcessAsUserW`、`DuplicateTokenEx`、`CryptProtectData`、`LsaClose`、`SetFileSecurityW`）。
@@ -607,6 +614,8 @@ IPC 分组说明它是“能力市场型”客户端：
 
 **读法**：暴露键数量与安全不是线性关系，但 83 个暴露键（WorkBuddy）与 1 个暴露键（OpenCode）代表两种设计哲学：前者把主进程当“能力总线”，后者把 preload 当“最小门”。IHUI-AI 应该选后者作默认，前者只对受信窗口开放。
 
+**静态载体不等于已启动**：运行态快照（5.6）里 WorkBuddy 的 `18488` / `56000` / `57736` / `57737` / `57740` / `63423` 与豆包的 `49853` / `61167` 是实际监听；Qoder 的 `55346` 是本机测试桥，不是 `application-server`；codex 的 `app-server` 在快照里没有目标专属监听，可能走 stdio。
+
 ### 5.5 更新与遥测
 
 - WorkBuddy：`software-update:*` IPC 四件套 + `galileotelemetry.tencent.com`（18）+ `localhost:9411/api/v2/spans`（Zipkin）+ `localhost:4318`（OTLP HTTP）。
@@ -618,6 +627,17 @@ IPC 分组说明它是“能力市场型”客户端：
 - Qoder：`@arms/rum-electron`（阿里 ARMS 前端监控）+ `@ali/qoder-crash-sdk`。
 - 小浣熊：`app-update:status` IPC + `app-update.yml`。
 - DeepSeek / OpenCode：`electron-updater`；OpenCode 另有 Sentry ingest 域名。
+
+### 5.6 运行态快照（2026-11-25 15:26，非本轮启动）
+
+抓取时本机已有 41 个目标进程；它们不是本轮启动的，只是当时状态。快照只证明“运行中存在这些监听/管道”，不证明协议、鉴权或默认配置。
+
+| 目标 | 进程与监听 | 已观察到的管道 | 结论边界 |
+|---|---|---|---|
+| WorkBuddy | main 22984 → `127.0.0.1:18488`；daemon-app-server 31688 → `56000` / `57736` / `57737`；codebuddy serve 41604 → `57740`；8372 → `63423` | `WorkBuddy_SandboxCenter_*`、`WorkBuddy_SensitiveApproval_*`、`workbuddy-...-sidecar-control-*` / `-data-*`、`workbuddy-pac-31688-*` | MCP/daemon/sidecar 层实际在监听，不再是纯静态；端口协议未探测 |
+| 豆包 | main 28736 → `127.0.0.1:49853` / `61167`；运行中的 utility 类型含 `saman.push.mojom.PushServerService`（18744）、`privilege.mojom.PrivilegedAssistantBroker`（35880）、`agent_infra.mojom.AgentInfraProcess`（39808）、`backend.mojom.Service`（32072）、`jsrt.mojom.Service`（39364）、`bdmssdk.mojom.BdmssdkService`（25052） | `aha-agent-tool-ipc-<uuid>`、`PipMainPipeName_43814`、`PipSDKPipeName_50414`、`aha_doctor_ipc_server_name_service_28736` | Agent Tool IPC 与 PIP Main/SDK 活跃；`PipRemotePipeName` 未出现；`push_detect.exe` 不在进程表内，它与 `saman.push` 的关系仍无静态证据 |
+| Qoder CN | 0.5.14 主进程 4744 → `127.0.0.1:55346` | 无 Qoder 专属管道 | 该端口对应本机测试脚本 `C:\IHUI-AI\scripts\qoder-chat-bridge.mjs --port 0`，**不算 Qoder application-server** |
+| 小浣熊 / codex | 无目标专属监听；小浣熊为 Chromium 多进程，codex 为 `app-server` + `codex-windows-sandbox-service` | 无 | codex 的 stdio/监听边界未探测 |
 
 ---
 
@@ -657,19 +677,20 @@ IPC 分组说明它是“能力市场型”客户端：
 
 必须诚实列出来，否则这份报告会重复上一版的问题。
 
-1. **除 OpenCode 外，其余程序未运行**：所有“运行期行为”仍未知。例如 WorkBuddy 的 MCP Host 是否真的在启动时 listen、豆包的 `sandbox_switch_config` 默认值、ZCode 的 8081 更新代理是否启用，都没有实跑验证。OpenCode 已补 `serve` 实跑（监听成功、Web UI 200、API 401）。
+1. **本轮没有主动启动或驱动任何目标**（OpenCode 的 `serve` 实跑除外）：2026-11-25 15:26 的运行态快照显示 Doubao、WorkBuddy、Qoder CN、小浣熊、codex 已在运行，但这些是既有状态，不是受控实验；`sandbox_switch_config` 默认值、ZCode 的 8081 更新代理是否启用、端口协议/鉴权、PIP 对端与默认监听都没有实跑验证。已观察到的监听/管道见 5.6；OpenCode 已补 `serve` 实跑（监听成功、Web UI 200、API 401）。
 2. **Codex 407MB 超工具上限**：`native-rust-binary-show` 拒绝 >256MB，因此没有 craft 原生 Rust 报告；本轮用字节级 cargo 路径正则补出 400 个 crate、rustc commit、5 个 git checkout，但没有 demangled symbols 与 `.dep-v0` 审计清单，crate 归属仍不是 craft 官方口径。
 3. **OpenCode 已运行验证，但凭据传递仍未知**：`opencode-cli.exe` 2.2.7 的 `serve` 能监听并返回 Web UI；`/api` 与 `/openapi.json` 无凭据返回 401；普通模式 stdout 打印一次性 `server password`，`--service` 模式未观察到密码行。桌面端如何注入凭据、`--stdio` 模式行为、长期运行稳定性都未验证。`localhost:4096` 已证实只是 `dialog.server.add.placeholder` 的默认占位。
 4. **Qoder 的 keytar/aoq 已文件级确认，aoq 的定性已纠正**：`keytar.node` 707,584 与 `aoq_node_ext.node` 253,952 在 0.5.6/0.5.14 两个版本中都存在；aoq 不是“播放器 SDK”，而是阿里云 `NLS-RTC-Service` 的 `aoq-client-sdk` RTC 引擎（43 个引擎方法、45 个 NAPI 桥方法，麦克风/摄像头采集、音视频帧观察、Aliyun RTC relay）。四个版本都带原生四件套，但四个版本的 asar app JS/TS/JSON 扫描（排除 SDK 自身）只有根 `package.json` 的 `optionalDependencies` 声明命中，**0 个 import/require、SDK 目录之外 0 个路径含 `aoq`**，因此当前静态不可达、桌面通道增量为 0；启用条件与运行期行为仍未验证。账本 `analysis\qoder-aoq-sdk.json`。
 5. **动态 IPC 计数必须逐目标复核**：ZCode 423、MiniMax 816、DeepSeek 142、WorkBuddy 214、Trae 110、Cursor 45 是工具的“非字面量首参”计数，不等于运行期拼接。已还原：DeepSeek 源码 116 个调用点（102 业务 + 14 清理），102 条业务调用落到 54 个常量通道，142 与 102 的 40 条差额是工具侧重复条目；MiniMax 6+8 条变量全部回填为主进程 332 + renderer 406，源码 804 个调用点、0 条未定；WorkBuddy main 侧 115 条注册全部归因（81 常量/别名 + 29 模板 + 4 helper 形参 + 1 内部通道），12 个 `require_*` 别名全回填；ZCode 本地 227 个调用点 227/227 还原为 180 个唯一通道、0 条未定，423 与 227 的差额来自 node_modules/其他 bundle；Trae 真实 app 树 73 个 ipc +62 个 sender，58 条非字面量中 56 条落到 30 个唯一通道、2 条是 wrapper/response 非通道值、0 条未定；Cursor 44 个 Electron 调用点中 43 条非字面量，29 条落 20 个唯一通道、12 条 helper、1 条 4 路守卫、1 条运行期 payload、0 个未知常量，45 与 43 的 2 条差额落在 js-debug 的 WebSocket `.send` 泛化匹配。
 6. **`webPreferences: dynamic` 无法判定**：多个产品有 4–12 个窗口的 webPreferences 在运行期计算，静态只能标“未知”，不能下“安全/不安全”结论。
-7. **豆包 0 条未定，但图仍有“分片差账”**：Neotix ShellAPI 的 848 个原生方法已从 `Doubao.dll` 抽出，LarkAPI.ipc 的 41 个调用点已归到 3 个通道；`AppletBridge` 已定性为 Lynx native module 协议，259 个 `doubao.*`/`applet.*` 是模块方法名、不是 IPC 通道，对桌面通道面增量为 0。`audioRecorder.getSystemAudioCaptureAccess` 与 `openSystemAudioCapturePermissionSettings` 在当前 `Doubao.dll` 里没有同名原生方法，但前端 `nn.aff2f600a8.js` 用 `ShellapiCommonError.value===8` 判断后弹 `SysAudioUnsupportedUpgrade` 提示，属于旧原生上的降级门控，不是未知通道。`biz.pak` 三片合计 1,471,311 节点，比单图推算需求 1,615,501 少 144,190，差在 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失；**不是新的节点截断，但也不是与单图逐节点等价**。PIP 子系统的命名管道族只做静态字符串取证，启用条件、对端进程、是否默认监听都未运行验证。
+7. **豆包 0 条未定，但图仍有“分片差账”**：Neotix ShellAPI 的 848 个原生方法已从 `Doubao.dll` 抽出，LarkAPI.ipc 的 41 个调用点已归到 3 个通道；`AppletBridge` 已定性为 Lynx native module 协议，259 个 `doubao.*`/`applet.*` 是模块方法名、不是 IPC 通道，对桌面通道面增量为 0。`audioRecorder.getSystemAudioCaptureAccess` 与 `openSystemAudioCapturePermissionSettings` 在当前 `Doubao.dll` 里没有同名原生方法，但前端 `nn.aff2f600a8.js` 用 `ShellapiCommonError.value===8` 判断后弹 `SysAudioUnsupportedUpgrade` 提示，属于旧原生上的降级门控，不是未知通道。`biz.pak` 三片合计 1,471,311 节点，比单图推算需求 1,615,501 少 144,190，差在 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失；**不是新的节点截断，但也不是与单图逐节点等价**。PIP 子系统的命名管道族已做静态字符串取证，运行态快照又看到 `PipMainPipeName_43814` / `PipSDKPipeName_50414` 存在、`PipRemotePipeName` 缺失；这证明 Main/SDK 两族在运行，但仍不能证明远程会话已启用，对端进程与默认监听的完整边界未验证。
 8. **函数发现上限 50,000**：所有大 PE 的函数表都不完整；`core-overview-show` 已明确 `function_limit`。
 9. **字符串保留前 200,000 条**：超大二进制（Codex 204,743 条）尾部字符串未进入索引。
 10. **签名只验证“文件哈希匹配 + 证书链有效”**，未做吊销/时间戳策略判定。
 11. **Qoder 四个版本已全部补图，exe 也补了 overview**：0.5.6 与 0.5.7 主结构一致（637 模块 / 202 endpoint），0.5.12 与 0.5.14 主结构一致（610 模块 / 192 endpoint）；0.5.7 与 0.5.12 的 exe overview 与 0.5.14 完全一致，确认 0.5.7–0.5.14 共用同一 Electron 壳代码。动态 IPC 5/0/0/8 已全部还原到 6 个唯一通道，0.5.14 比 0.5.6 多的是 `mcp-app:guest-message` 的 3 条 guest preload 调用，不是未知运行期拼接。
 12. **WorkBuddy 的 9527 已解释**：它只存在于 `cli\bin\daemon-status-brief.test.cjs`，是测试用的假 daemon endpoint，不是生产服务；这一条从“未知”降为“测试夹具”。
 13. **Trae 的 543 个 session 目录是本机既有使用痕迹**，不是本轮运行产生；只读取了目录结构与文件名（`cwd.txt`/`execution.json`/`output.log`/`stderr.log`），没有读取命令内容或输出正文。
+14. **`push_detect.exe` 仍是 name-only**：签名有效，只导入 `Microsoft.WindowsAppRuntime.Bootstrap.dll`（`MddBootstrapInitialize2`）+ `KERNEL32` / `ole32` / `OLEAUT32`，字符串只有 `C++/WinRT version:2.0.221104.6`，`Toast` / `Notification` / `AppUserModel` / `Push` 全部 0 命中，无产品字符串；无法从静态证据证明它检测什么，只能保留文件名推测。运行态快照里它不在进程表，豆包侧只有 `saman.push.mojom.PushServerService` utility，二者关系仍无静态证据。
 
 ---
 
@@ -682,6 +703,7 @@ IPC 分组说明它是“能力市场型”客户端：
 - `analysis\frontend-coverage-audit.json`：14 个前端图/分片的 JS 覆盖审计——逐目标非 `node_modules` JS/TS 计数、图 `examined`、`0` 个应用 JS 漏读目标；Qoder 四版本均按实际文件计数（634 / 634 / 606 / 606），豆包三片按 7,837 个 JS 逐一对齐。
 - `analysis\backend-<target>.json`：后端模式扫描（http/ws server、ipcMain、contextBridge、safeStorage、MCP/ACP/LSP）。
 - `analysis\backend-qoder-all.json`：Qoder 四版本 asar 后端扫描——`mcpServer` 665 / 665 / 629 / 629（`out/main/electronMain.js` 123 / 123 / 129 / 129，agent-sdk 各 37）、`http.createServer` 8 / 8 / 6 / 6、0.5.12/0.5.14 的 `WebSocketServer` 1、`ipcMain`/`expose`/`safeStorage`/`keytar` 均 0；启动与否未运行验证。
+- `analysis\runtime-snapshot-2026-11-25.json`：2026-11-25 15:26 运行态快照——41 个目标进程、9 个本地监听、相关命名管道；含 WorkBuddy `18488`/`56000`/`57736`/`57737`/`57740`/`63423`、豆包 `49853`/`61167` 与 `aha-agent-tool-ipc`/`PipMain`/`PipSDK` 管道、Qoder `55346` 属测试桥而非 application-server 的判定。
 - `<target>-jsmap-full.json`：前端全量图（豆包 ai-views 437MB、WorkBuddy 273MB、Cursor 247MB 等）；豆包主应用 `biz.pak` 的 1.04GB 图见下一组条目。
 - `native\<target>\*.json`：核心取证（overview / imports / exports / publisher / strings0-7 / feat0-3）。
 - `native\codex\crates.json`：Codex 407MB 二进制的 400 个 crate 路径清单（含 40 个高频项与 79 个安全/网络相关项）。
@@ -702,6 +724,8 @@ IPC 分组说明它是“能力市场型”客户端：
 - `doubao-ahalets-jsmap.json` / `doubao-static-jsmap.json` / `doubao-rest-jsmap.json`：`biz.pak` 的三片重跑图——ahalets 5,907 模块 / 832,342 节点 / 2,227,188 边 / 744,765 函数、static 3,597 / 628,680 / 1,821,726 / 519,774、rest 58 / 10,289 / 23,673 / 9,700；合计 1,471,311 节点 / 4,072,587 边 / 1,274,239 函数，166,986 bundle 模块与单图完全相等。
 - `doubao-pak\`：从 `biz.pak` 解出的 10,029 个资源（7,837 JS / 1,125 CSS / 369 HTML / 212 SVG / 15 JSON / 460 二进制），按 manifest 的原始路径落盘。
 - `analysis\doubao-native-tokens.json`：`Doubao.dll`、`liblark.dll`、`agent_infra.dll`、`mcp_helper.dll`、`aiep_ipc.dll`、`secure-proxy-ipc64.dll`、`AhaMuleLocalSDK.dll`、`vm_sdk.dll`、`sbox_sdk.dll` 的 `Neotix` / `neotixChannel` / `SHELL_API_IPC_EVENT` / `\\\\.\\pipe\\` / `MCP` / `127.0.0.1` 命中与上下文。
+- `analysis\doubao-link-router.json`：`DoubaoLinkRouter.exe` 账本——ProductName/版本/签名/SHA256、Aha/Saman 源码路径、`doubao:/`/`doubaoap`/`/open-ur` 前缀、`Software\Doubao`/`Software\DoubaoWork` 注册表、`Doubao.exe`/`DoubaoWork.exe` 目标、客户选择与遥测字段、10 个导入 DLL 且 0 个网络 DLL；附 `push_detect.exe` 的 WinAppSDK bootstrap 与 name-only 记录。
+- `analysis\doubao-proxy-launchers.json`：`Doubao_proxy.exe` / `Doubao_browser_proxy.exe` 账本——FileVersion 147.0.7727.149、Product Doubao、SHA256、Chromium `launch_win.cc`/`LaunchProcess`/`LaunchElevatedProcess`/`ShellExecuteExW`/`command_line.cc` 与 `Chrome.MessageLoopProblem.*` 证据；导入表解析为空，角色按启动器证据判定，运行期未验证。
 - `analysis\zcode-channel-map.json`：从 `out/preload/index.cjs` 的 `var v={...}` 解析出的 169 项 `zcode:*` 通道表。
 - `analysis\dynamic-ipc-zcode-resolved.json`：ZCode 早期 215 条已还原调用（169 个唯一通道）与 12 条别名；最终闭环结果在 `dynamic-ipc-zcode-final.json`（227/227、180 唯一、0 未定）。
 - `analysis\dynamic-ipc-wb-final.json`：WorkBuddy main 侧 115 条 `ipcMain` 注册的最终分类（82 resolved/const + 29 template + 4 helper 形参，0 未定）。
@@ -752,5 +776,6 @@ $proj = "C:\IHUI-AI\.workbuddy\craft\all-ai-apps-full-2026-11-25.cany"
 
 ---
 
-**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是十四处纠正、11 个程序、8 个 asar 解包、15 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、25 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
+**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是十六处纠正、11 个程序、8 个 asar 解包、15 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、25 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+

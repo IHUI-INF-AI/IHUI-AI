@@ -105,14 +105,18 @@ async def create_stealth_browser_context(
     if profile.proxy:
         launch_options["proxy"] = profile.proxy.to_playwright_proxy()
 
-    # 优先用真实 Chrome(更隐蔽),未安装降级 Chromium
+    # 优先用真实 Chrome(更隐蔽);找不到就用 Playwright 自带的 Chromium。
+    # 注意:这里**不能**写 channel="chrome" —— channel 会强制 Playwright 去系统
+    # 安装目录找 Chrome,SYSTEM 服务账户下必然找不到(它的 LOCALAPPDATA 是
+    # systemprofile),于是每个账号都报 "Chromium distribution 'chrome' is not
+    # found",保活全量假死。生产 run-ai.ps1 已把 PLAYWRIGHT_BROWSERS_PATH 指向
+    # 机器共享目录 D:\DevEnv\tools\ms-playwright,不写 channel 才会用那份 Chromium。
     chrome_path = _find_chrome_executable()
     if chrome_path:
         launch_options["executable_path"] = chrome_path
         logger.debug("[browser_factory] 使用真实 Chrome: %s", chrome_path)
     else:
-        launch_options["channel"] = "chrome"  # 让 Playwright 找 Chrome
-        logger.debug("[browser_factory] 未找到 Chrome,降级 Chromium")
+        logger.debug("[browser_factory] 未找到系统 Chrome,使用 Playwright 自带 Chromium")
 
     # 3. context 选项(指纹)
     context_options = fingerprint.to_context_options()

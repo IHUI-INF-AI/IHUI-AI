@@ -308,6 +308,20 @@ async def bootstrap_pools(conn: asyncpg.Connection, user_id: str) -> list[dict[s
     return await list_pools(conn, user_id)
 
 
+async def bootstrap_all_users(conn: asyncpg.Connection) -> int:
+    """给所有还有 active 账号的用户补池。
+
+    keeper 启动 / 周期 reconcile 时调用,保证"新用户、新账号"不需要人工点
+    bootstrap 也能进账号池。幂等,已建池的用户只会补漏掉的成员。
+    """
+    users = await conn.fetch(
+        "SELECT DISTINCT user_id FROM publish_accounts WHERE status='active'"
+    )
+    for r in users:
+        await bootstrap_pools(conn, str(r["user_id"]))
+    return len(users)
+
+
 async def update_pool(conn: asyncpg.Connection, user_id: str, pid: str, patch: dict[str, Any]) -> dict[str, Any] | None:
     row = await conn.fetchrow(
         "SELECT * FROM publish_pools WHERE pool_id=$1 AND user_id=$2", pid, user_id
