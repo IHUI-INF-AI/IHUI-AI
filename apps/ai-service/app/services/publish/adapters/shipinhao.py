@@ -129,11 +129,13 @@ class ShipinhaoAdapter(BasePlatformAdapter):
                     await context.add_cookies(cookies)
                     page = await context.new_page()
                     await human_pause(1.0, 2.0)
+                    # 视频号首页是重资源页,networkidle 经常等不到;登录态只看 URL/DOM。
                     await page.goto(
                         "https://channels.weixin.qq.com/platform",
-                        wait_until="networkidle",
-                        timeout=30000,
+                        wait_until="domcontentloaded",
+                        timeout=20000,
                     )
+                    await page.wait_for_timeout(3000)
                     url = page.url
                     content = await page.content()
                     if "login" in url.lower() or "/login" in url or "扫码" in content:
