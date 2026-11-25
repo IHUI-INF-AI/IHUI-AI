@@ -9601,6 +9601,12 @@
       "createDraftPullRequestFailed": "초안 PR 생성 실패"
     },
     "pictureInPicture": {
+      "task": "작업",
+      "pin": "항상 위",
+      "unpin": "맨 위 고정 해제",
+      "reconnect": "다시 연결",
+      "expandTask": "작업 상세 열기",
+      "collapseTask": "작업 상세 접기",
       "title": "화면 중 화면",
       "emptyState": "표시할 내용 없음",
       "openWindow": "화면 중 화면 창 열기",
@@ -9612,8 +9618,7 @@
       "statusGate": "로그인·인증 페이지 — 이어받기가 필요할 수 있습니다",
       "statusError": "화면 연결이 끊겼습니다",
       "statusStalled": "{seconds}초 동안 화면이 갱신되지 않았습니다",
-      "tooSmall": "창이 너무 작습니다. 1/4 화면 이상을 권장"
-    ,
+      "tooSmall": "창이 너무 작습니다. 1/4 화면 이상을 권장",
       "checkpointProgress": "체크포인트 {done}/{total}",
       "checkpointWaiting": "확인 대기: {label}",
       "checkpointTimeout": "대기 시간 초과: {label}. 인계를 권장",

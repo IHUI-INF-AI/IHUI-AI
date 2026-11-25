@@ -37,6 +37,12 @@ const LABELS: BrowserPipLabels = {
   continueLabel: 'Done, continue',
   taskFailed: 'Action not delivered',
   requirements: 'Run requirements',
+  task: 'Task',
+  pin: 'Pin on top',
+  unpin: 'Unpin',
+  reconnect: 'Reconnect',
+  expandTask: 'Expand task details',
+  collapseTask: 'Collapse task details',
   checkpointLabels: { ck_payment_confirm_pay: 'Confirm before payment' },
 }
 

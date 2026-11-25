@@ -9601,6 +9601,12 @@
       "createDraftPullRequestFailed": "Draft PR の作成に失敗しました"
     },
     "pictureInPicture": {
+      "task": "タスク",
+      "pin": "常に最前面",
+      "unpin": "最前面を解除",
+      "reconnect": "再接続",
+      "expandTask": "タスク詳細を展開",
+      "collapseTask": "タスク詳細を折りたたむ",
       "title": "ピクチャーインピクチャー",
       "emptyState": "表示するものはありません",
       "openWindow": "PiP ウィンドウを開く",
@@ -9612,8 +9618,7 @@
       "statusGate": "ログイン・認証ページ。引き継ぎが必要な場合があります",
       "statusError": "画面が切断されました",
       "statusStalled": "画面が {seconds} 秒更新されていません",
-      "tooSmall": "ウィンドウが小さすぎます。1/4 画面以上を推奨"
-    ,
+      "tooSmall": "ウィンドウが小さすぎます。1/4 画面以上を推奨",
       "checkpointProgress": "チェックポイント {done}/{total}",
       "checkpointWaiting": "確認待ち：{label}",
       "checkpointTimeout": "待機タイムアウト：{label}。引き継ぎを推奨",

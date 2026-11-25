@@ -46,8 +46,10 @@ import {
   openPictureInPictureWindow,
 } from '@/components/chat/picture-in-picture-section'
 import { openBrowserPipMonitor } from '@/lib/browser-pip'
+import { isTauri, openAiPipWindow } from '@/lib/tauri-bridge'
 import { useBrowserPipLabels } from '@/hooks/use-browser-pip-labels'
 import { useWorkPanelStore } from '@/stores/work-panel'
+import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
 import {
   MENU_ITEM_CHECK_CLASS,
@@ -476,7 +478,10 @@ export function AISidePanel() {
   // D181:画中画入口已并入本菜单;能力面只在客户端探测,不支持时不渲染该菜单项
   const [pipSupported, setPipSupported] = React.useState(false)
   React.useEffect(() => {
-    setPipSupported(isDocumentPictureInPictureSupported())
+    // 2026-11-25 修:桌面端没有 documentPictureInPicture API,上一版这里只探测
+    // Document PiP ⇒ Tauri 里「画中画 / 按模板监看」整段菜单直接消失。桌面端
+    // 已有真正的独立监看窗,入口必须常驻。
+    setPipSupported(isTauri() || isDocumentPictureInPictureSupported())
   }, [])
   const pipLabels = useBrowserPipLabels()
   // 模板入口只给内置 id;目标/要求/检查点由服务端展开,前端不复制一份模板真相。
@@ -502,9 +507,30 @@ export function AISidePanel() {
   const openPipFromPanel = React.useCallback(() => {
     const target = resolvePipTarget()
     if (!target) {
+      // 桌面端没有 Document PiP,空态窗开不出来;明确告诉用户先去右侧工作面开浏览器。
+      if (isTauri()) {
+        toast.error(tc('pictureInPicture.openWindow'), {
+          description: tc('pictureInPicture.templateNoSession'),
+        })
+        return
+      }
       openPictureInPictureWindow({
         title: tc('pictureInPicture.title'),
         emptyState: tc('pictureInPicture.emptyState'),
+      })
+      return
+    }
+    if (isTauri()) {
+      // 桌面端走真正的独立置顶监看窗,而不是网页版 Document PiP。
+      const accessToken = useAuthStore.getState().token
+      if (!accessToken) {
+        toast.error(tc('pictureInPicture.openWindow'))
+        return
+      }
+      void openAiPipWindow(target.sessionId, accessToken).catch((error) => {
+        toast.error(tc('pictureInPicture.openWindow'), {
+          description: error instanceof Error ? error.message : String(error),
+        })
       })
       return
     }
@@ -533,6 +559,20 @@ export function AISidePanel() {
       if (!res.success) {
         toast.error(tc('pictureInPicture.templateMenuLabel'), {
           description: res.error || tc('pictureInPicture.taskFailed'),
+        })
+        return
+      }
+      if (isTauri()) {
+        // 桌面端:绑定模板后直接开原生监看窗;任务条由 WS 从服务端取,不在前端复制。
+        const accessToken = useAuthStore.getState().token
+        if (!accessToken) {
+          toast.error(tc('pictureInPicture.templateMenuLabel'))
+          return
+        }
+        void openAiPipWindow(target.sessionId, accessToken).catch((error) => {
+          toast.error(tc('pictureInPicture.templateMenuLabel'), {
+            description: error instanceof Error ? error.message : String(error),
+          })
         })
         return
       }

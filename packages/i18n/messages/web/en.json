@@ -9566,6 +9566,12 @@
       "links": "Links"
     },
     "pictureInPicture": {
+      "task": "Task",
+      "pin": "Pin on top",
+      "unpin": "Unpin",
+      "reconnect": "Reconnect",
+      "expandTask": "Expand task details",
+      "collapseTask": "Collapse task details",
       "title": "Picture-in-Picture",
       "emptyState": "Nothing to display",
       "openWindow": "Open Picture-in-Picture Window",
@@ -9577,8 +9583,7 @@
       "statusGate": "Login or verification page — you may need to take over",
       "statusError": "Screen disconnected",
       "statusStalled": "Screen hasn't updated for {seconds}s",
-      "tooSmall": "Window too small — keep it at least a quarter screen"
-    ,
+      "tooSmall": "Window too small — keep it at least a quarter screen",
       "checkpointProgress": "Checkpoint {done}/{total}",
       "checkpointWaiting": "Waiting for you: {label}",
       "checkpointTimeout": "Waiting timed out: {label}. Take over recommended",

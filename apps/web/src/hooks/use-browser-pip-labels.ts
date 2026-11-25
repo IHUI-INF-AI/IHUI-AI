@@ -35,6 +35,12 @@ export function useBrowserPipLabels(): BrowserPipLabels {
     continueLabel: t('continueLabel'),
     taskFailed: t('taskFailed'),
     requirements: t('requirements'),
+    task: t('task'),
+    pin: t('pin'),
+    unpin: t('unpin'),
+    reconnect: t('reconnect'),
+    expandTask: t('expandTask'),
+    collapseTask: t('collapseTask'),
     checkpointLabels: {
       ck_login_handoff_login: t('ckLoginHandoffLogin'),
       ck_login_handoff_verify: t('ckLoginHandoffVerify'),

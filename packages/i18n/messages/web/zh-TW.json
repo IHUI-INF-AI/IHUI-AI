@@ -9566,6 +9566,12 @@
       "links": "連結"
     },
     "pictureInPicture": {
+      "task": "任務",
+      "pin": "置頂",
+      "unpin": "取消置頂",
+      "reconnect": "重新連線",
+      "expandTask": "展開任務詳情",
+      "collapseTask": "收起任務詳情",
       "title": "畫中畫",
       "emptyState": "暫無內容",
       "openWindow": "開啟畫中畫視窗",
@@ -9577,8 +9583,7 @@
       "statusGate": "登入/驗證頁，可能需要接管",
       "statusError": "畫面已中斷",
       "statusStalled": "畫面 {seconds} 秒未更新",
-      "tooSmall": "視窗過小，建議不小於 1/4 螢幕"
-    ,
+      "tooSmall": "視窗過小，建議不小於 1/4 螢幕",
       "checkpointProgress": "檢查點 {done}/{total}",
       "checkpointWaiting": "等待確認：{label}",
       "checkpointTimeout": "等待逾時：{label}，建議接管",
