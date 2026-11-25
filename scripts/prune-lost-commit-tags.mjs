@@ -44,6 +44,16 @@ const MAX_KEEP = argOf('--max-keep', 50)
 const KEEP_DAYS = argOf('--keep-days', 3)
 const BUNDLE_CHUNK = 200
 const STATE_DIR = join(ROOT, '.ihui-agent', 'state', 'lost-commit-prune')
+// 2026-11-25 立（与 prune-repo-bloat.mjs 同源口径）：旧历史 bundle 可达 GB 级，落进仓库工作树
+// 属纯磁盘膨胀（虽被 .gitignore 的 *.bundle 挡在 git 之外）。默认落仓外兄弟目录。
+// 覆盖优先级：--bundle-dir=<绝对路径> > IHUI_BUNDLE_DIR > <仓库根>/../ihui-git-bundles/lost-commit-prune
+const BUNDLE_DIR = (() => {
+  const flag = process.argv.find((a) => a.startsWith('--bundle-dir='))
+  if (flag) return flag.slice('--bundle-dir='.length).trim()
+  const env = String(process.env.IHUI_BUNDLE_DIR || '').trim()
+  if (env) return join(env, 'lost-commit-prune')
+  return join(ROOT, '..', 'ihui-git-bundles', 'lost-commit-prune')
+})()
 
 const die = (code, msg) => {
   console.error(`❌ ${msg}`)
@@ -137,12 +147,13 @@ if (!dropReach.length && !dropUnreach.length) {
 }
 
 mkdirSync(STATE_DIR, { recursive: true })
+mkdirSync(BUNDLE_DIR, { recursive: true })
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
 
 let bundled = 0
 for (let i = 0; i < dropUnreach.length; i += BUNDLE_CHUNK) {
   const chunk = dropUnreach.slice(i, i + BUNDLE_CHUNK)
-  const file = join(STATE_DIR, `${stamp}-unreachable-${String(i / BUNDLE_CHUNK + 1).padStart(3, '0')}.bundle`)
+  const file = join(BUNDLE_DIR, `${stamp}-unreachable-${String(i / BUNDLE_CHUNK + 1).padStart(3, '0')}.bundle`)
   const args = ['bundle', 'create', file, ...chunk]
   for (const b of ['refs/heads/main', 'refs/remotes/origin/main']) args.push('--not', b)
   if (gitTry(args, { timeout: 1_800_000 }) === null) die(1, `bundle 失败（${chunk.length} 枚）⇒ 整批不删`)
@@ -163,7 +174,7 @@ writeFileSync(
     2,
   ) + '\n',
 )
-console.log(`✅ 已删 ${dropAll.length} 枚（可达型 ${dropReach.length} / 超量型 ${dropUnreach.length}，后者 ${bundled} 枚已 bundle 到 ${STATE_DIR}）；剩余 ${left} 枚`)
+console.log(`✅ 已删 ${dropAll.length} 枚（可达型 ${dropReach.length} / 超量型 ${dropUnreach.length}，后者 ${bundled} 枚已 bundle 到 ${BUNDLE_DIR}（仓外））；剩余 ${left} 枚`)
 console.log(
   `SWEEP-RESULT state=pruned stale=${rows.length} dropped=${dropAll.length} kept=${keepUnreach.size} bundled=${bundled}`,
 )
