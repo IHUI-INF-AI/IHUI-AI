@@ -38,6 +38,9 @@ import {
 import { apiFailureToText, providerDisplayName, toFriendlyOr } from '@ihui/shared/utils'
 import { AgentScreen as SharedAgentScreen, type AgentScreenItem } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
+// 头像等站内相对路径必须拼到 Web 底座才可渲染:直接传相对路径 RN <Image> 静默为空,呈现白块
+// (见 lib/web-asset-url.ts 头注)。小程序侧同一含义走 @/utils/web-asset-url。
+import { resolveWebAssetUrl } from '../lib/web-asset-url'
 import Carousel from '../components/Carousel'
 import Drawer, {
   type DrawerConversationItem,
@@ -107,7 +110,7 @@ function mapToItem(a: Agent): AgentScreenItem {
   return {
     id: a.agentId,
     name: a.name,
-    avatar: a.avatar ?? undefined,
+    avatar: resolveWebAssetUrl(a.avatar),
     description: a.description,
     isVipExclusive: a.isVipExclusive,
     useCount: a.usageCount,
@@ -235,7 +238,7 @@ export function AgentScreen() {
         )
         const items: RecentAgentItem[] = details
           .filter((d): d is Agent => d !== null)
-          .map((d) => ({ id: d.agentId, name: d.name, avatar: d.avatar ?? undefined }))
+          .map((d) => ({ id: d.agentId, name: d.name, avatar: resolveWebAssetUrl(d.avatar) }))
         if (items.length > 0) {
           setRecentAgents(items)
           return
@@ -247,7 +250,7 @@ export function AgentScreen() {
     setRecentAgents(
       fallback
         .slice(0, 5)
-        .map((a) => ({ id: a.agentId, name: a.name, avatar: a.avatar ?? undefined })),
+        .map((a) => ({ id: a.agentId, name: a.name, avatar: resolveWebAssetUrl(a.avatar) })),
     )
   }, [])
 
@@ -267,7 +270,7 @@ export function AgentScreen() {
         setMyAgents(
           (res.data.list ?? [])
             .slice(0, 6)
-            .map((a) => ({ agentId: a.agentId, agentName: a.name, avatar: a.avatar ?? undefined })),
+            .map((a) => ({ agentId: a.agentId, agentName: a.name, avatar: resolveWebAssetUrl(a.avatar) })),
         )
         // RecentAgents 最近使用:走 getAgentUseHistory 独立加载(见 loadRecentAgents),
         // 失败时降级取列表前 5 条(对齐 HomeScreen 模式)
@@ -343,7 +346,7 @@ export function AgentScreen() {
             (res.data.list ?? [])
               .filter((a) => Boolean(a.avatar))
               .slice(0, 5)
-              .map((a) => ({ img: a.avatar ?? '', title: a.name, link: a.agentId })),
+              .map((a) => ({ img: resolveWebAssetUrl(a.avatar) ?? '', title: a.name, link: a.agentId })),
           )
         }
       } catch {

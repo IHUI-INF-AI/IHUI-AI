@@ -117,7 +117,8 @@ function createStyles(tk: AppThemeTokens) {
     statGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: rnSpacing.sm,
+      // 2026-11-25(C9):卡片间距统一 cardGap 12(rnSpacing.md),原 8 与其它统计栅格不同档
+      gap: rnSpacing.md,
       marginBottom: rnSpacing.lg,
     },
     statCard: {

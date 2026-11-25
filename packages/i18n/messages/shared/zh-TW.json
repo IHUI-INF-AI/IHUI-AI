@@ -1,4 +1,118 @@
 {
+  "personalHub": {
+    "title": "個人中心",
+    "subtitle": "帳戶、收藏、學習與訂閱",
+    "sections": {
+      "assets": "我的資產",
+      "points": "權益與積分",
+      "study": "我的學習",
+      "content": "我的內容",
+      "account": "帳號與安全",
+      "service": "服務與支援"
+    },
+    "entries": {
+      "order": {
+        "label": "我的訂單",
+        "desc": "查看相關訂單"
+      },
+      "wallet": {
+        "label": "我的錢包",
+        "desc": "查看餘額與儲值"
+      },
+      "company": {
+        "label": "我的公司",
+        "desc": "查看員工與業績"
+      },
+      "token": {
+        "label": "我的智匯值",
+        "desc": "智匯消耗資訊"
+      },
+      "points": {
+        "label": "我的積分"
+      },
+      "vip": {
+        "label": "我的會員"
+      },
+      "myLessons": {
+        "label": "我的課程"
+      },
+      "studyRecord": {
+        "label": "學習記錄"
+      },
+      "favorites": {
+        "label": "我的收藏"
+      },
+      "follow": {
+        "label": "我的關注"
+      },
+      "fans": {
+        "label": "我的粉絲"
+      },
+      "subscriptions": {
+        "label": "我的訂閱"
+      },
+      "webFollow": {
+        "label": "關注我的"
+      },
+      "userArticles": {
+        "label": "我的文章"
+      },
+      "myComments": {
+        "label": "我的評論"
+      },
+      "myResources": {
+        "label": "我的資源"
+      },
+      "examHistory": {
+        "label": "我的考試"
+      },
+      "signUp": {
+        "label": "我的報名"
+      },
+      "myAsk": {
+        "label": "我的提問"
+      },
+      "myCircle": {
+        "label": "我的圈子"
+      },
+      "sharePlanet": {
+        "label": "分享星球"
+      },
+      "profileEdit": {
+        "label": "個人資料"
+      },
+      "realNameAuth": {
+        "label": "實名認證"
+      },
+      "messageCenter": {
+        "label": "訊息中心"
+      },
+      "notificationSettings": {
+        "label": "通知設定"
+      },
+      "securitySettings": {
+        "label": "安全設定"
+      },
+      "mySubscription": {
+        "label": "訂閱管理"
+      },
+      "settings": {
+        "label": "設定"
+      },
+      "help": {
+        "label": "幫助中心"
+      },
+      "feedback": {
+        "label": "意見回饋"
+      },
+      "about": {
+        "label": "關於我們"
+      },
+      "student": {
+        "label": "學生中心"
+      }
+    }
+  },
   "llmSettings": {
     "v2": {
       "health": {
@@ -1288,7 +1402,7 @@
       "online": "線上",
       "offline": "離線",
       "pairTitle": "配對新裝置",
-      "pairHint": "輸入配對代碼以連線新裝置",
+      "pairHint": "只給沒有登入狀態的機器用(純命令列 / 伺服器):在目標機器執行 ihui device pair <碼>。本機桌面端不需要配對碼,點上方「一鍵啟用」即可。",
       "pairRateLimited": "配對速率受限",
       "pairFailed": "配對失敗",
       "pairExpired": "配對已過期",
@@ -1340,7 +1454,11 @@
       "executorStart": "啟動",
       "executorStop": "停止",
       "executorRefresh": "重新整理狀態",
-      "executorUnpaired": "本機還沒接入:先在「簽發配對碼」處產生 8 位碼,再在終端執行 ihui device pair <8位碼>。",
+      "executorEnable": "一鍵啟用",
+
+      "executorUnpaired": "這台電腦還沒接入。點「一鍵啟用」授權本機執行(不需要配對碼)。",
+      "executorNeedLogin": "登入狀態已失效,請重新登入後再啟用。",
+      "executorChangeWorkspace": "重新選擇工作區",
       "executorUnsupported": "目前平台不支援本機執行器(僅 Windows 桌面端)。",
       "executorTaskRegistered": "已註冊開機自啟",
       "approvalTitle": "執行計畫",
@@ -3078,6 +3196,7 @@
       "mcpRequiresApproval": "MCP 標註要求確認",
       "taintEgressGate": "會話汙點:出網需確認",
       "policyRequiresApproval": "策略要求審批",
+      "approvalPolicyDeny": "策略拒絕執行",
       "policySkipsApproval": "策略免審批",
       "guardianReviewSuggested": "複核建議改用更安全路徑",
       "guardianReviewAlternativeApplied": "已改用複核建議的路徑"

@@ -312,7 +312,8 @@ function makeStyles() {
     },
     errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.deepText },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
-    statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
+    // 2026-11-25(C9):statGrid 卡片间距统一 cardGap 12(rnSpacing.md),原 8 与其它统计栅格不同档
+    statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.md },
     statCard: {
       minWidth: 96,
       width: '48%',

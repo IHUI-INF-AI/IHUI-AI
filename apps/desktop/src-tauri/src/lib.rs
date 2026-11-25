@@ -5797,6 +5797,8 @@ pub fn run() {
             device_executor::device_executor_status,
             device_executor::device_executor_start,
             device_executor::device_executor_stop,
+            device_executor::device_executor_adopt,
+            device_executor::device_executor_host_name,
             get_admin_window_info,
             toggle_devtools,
             quit_app,

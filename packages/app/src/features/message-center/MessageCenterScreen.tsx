@@ -347,7 +347,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.md,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
     },
     bannerText: { flex: 1, fontSize: rnType.body.size, color: tk.text.secondary },

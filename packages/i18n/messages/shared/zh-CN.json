@@ -1,4 +1,118 @@
 {
+  "personalHub": {
+    "title": "个人中心",
+    "subtitle": "账户、收藏、学习与订阅",
+    "sections": {
+      "assets": "我的资产",
+      "points": "权益与积分",
+      "study": "我的学习",
+      "content": "我的内容",
+      "account": "账号与安全",
+      "service": "服务与支持"
+    },
+    "entries": {
+      "order": {
+        "label": "我的订单",
+        "desc": "查看相关订单"
+      },
+      "wallet": {
+        "label": "我的钱包",
+        "desc": "查看余额与充值"
+      },
+      "company": {
+        "label": "我的公司",
+        "desc": "查看员工与业绩"
+      },
+      "token": {
+        "label": "我的智汇值",
+        "desc": "智汇消耗信息"
+      },
+      "points": {
+        "label": "我的积分"
+      },
+      "vip": {
+        "label": "我的会员"
+      },
+      "myLessons": {
+        "label": "我的课程"
+      },
+      "studyRecord": {
+        "label": "学习记录"
+      },
+      "favorites": {
+        "label": "我的收藏"
+      },
+      "follow": {
+        "label": "我的关注"
+      },
+      "fans": {
+        "label": "我的粉丝"
+      },
+      "subscriptions": {
+        "label": "我的订阅"
+      },
+      "webFollow": {
+        "label": "关注我的"
+      },
+      "userArticles": {
+        "label": "我的文章"
+      },
+      "myComments": {
+        "label": "我的评论"
+      },
+      "myResources": {
+        "label": "我的资源"
+      },
+      "examHistory": {
+        "label": "我的考试"
+      },
+      "signUp": {
+        "label": "我的报名"
+      },
+      "myAsk": {
+        "label": "我的提问"
+      },
+      "myCircle": {
+        "label": "我的圈子"
+      },
+      "sharePlanet": {
+        "label": "分享星球"
+      },
+      "profileEdit": {
+        "label": "个人资料"
+      },
+      "realNameAuth": {
+        "label": "实名认证"
+      },
+      "messageCenter": {
+        "label": "消息中心"
+      },
+      "notificationSettings": {
+        "label": "通知设置"
+      },
+      "securitySettings": {
+        "label": "安全设置"
+      },
+      "mySubscription": {
+        "label": "订阅管理"
+      },
+      "settings": {
+        "label": "设置"
+      },
+      "help": {
+        "label": "帮助中心"
+      },
+      "feedback": {
+        "label": "意见反馈"
+      },
+      "about": {
+        "label": "关于我们"
+      },
+      "student": {
+        "label": "学生中心"
+      }
+    }
+  },
   "llmSettings": {
     "v2": {
       "health": {
@@ -1288,7 +1402,7 @@
       "online": "在线",
       "offline": "离线",
       "pairTitle": "配对新设备",
-      "pairHint": "获取配对手动输入代码以连接",
+      "pairHint": "只给没有登录态的机器用(纯命令行 / 服务器):在目标机器执行 ihui device pair <码>。本机桌面端不需要配对码,点上方「一键启用」即可。",
       "pairRateLimited": "配对比限",
       "pairFailed": "配对比失败",
       "pairExpired": "配对比已过期",
@@ -1340,7 +1454,11 @@
       "executorStart": "启动",
       "executorStop": "停止",
       "executorRefresh": "刷新状态",
-      "executorUnpaired": "本机还没接入:先在「签发配对码」处生成 8 位码,再在终端执行 ihui device pair <8位码>。",
+      "executorEnable": "一键启用",
+
+      "executorUnpaired": "这台电脑还没接入。点「一键启用」授权本机执行(不需要配对码)。",
+      "executorNeedLogin": "登录状态已失效,请重新登录后再启用。",
+      "executorChangeWorkspace": "重新选择工作区",
       "executorUnsupported": "当前平台不支持本机执行器(仅 Windows 桌面端)。",
       "executorTaskRegistered": "已注册开机自启",
       "approvalTitle": "执行计划",
@@ -3078,6 +3196,7 @@
       "mcpRequiresApproval": "MCP 标注要求确认",
       "taintEgressGate": "会话污点:出网需确认",
       "policyRequiresApproval": "策略要求审批",
+      "approvalPolicyDeny": "策略拒绝执行",
       "policySkipsApproval": "策略免审批",
       "guardianReviewSuggested": "复核建议改用更安全路径",
       "guardianReviewAlternativeApplied": "已改用复核建议的路径"

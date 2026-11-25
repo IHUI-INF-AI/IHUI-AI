@@ -310,7 +310,10 @@ async function executeTask(
       const plan = streamer.text().trim()
       const asked = await deviceTaskRequestApproval(token, task.id, {
         preview: plan || '执行端未产出计划正文',
-        ...(attach.messageId ? { messageId: attach.messageId } : {}),
+        // 消息指针是服务端读回计划正文的唯一入口(api-client 回包是 snake_case)
+        ...(attach.success && attach.data?.message_id
+          ? { messageId: attach.data.message_id }
+          : {}),
         iterations: result.iterations,
       })
       if (!asked.success) {
