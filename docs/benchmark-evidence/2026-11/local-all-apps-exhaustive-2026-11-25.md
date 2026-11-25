@@ -191,7 +191,7 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 **安装面**：`C:\Users\Administrator\AppData\Local\OpenAI\Codex\bin\31fb36cfc4b38f05\`，四个产品二进制：`codex.exe` 407,428,400 字节、`codex-code-mode-host.exe` 80,724,784、`codex-windows-sandbox-setup.exe` 19,823,408、`codex-command-runner.exe` 8,862,000；另有 `rg.exe`、`node.exe` 24.14、`node_repl.exe`。全部由 `OpenAI OpCo, LLC` 有效签名。
 **Windows 包层（本轮补充）**：已注册 `OpenAI.Codex 26.1117.4957.0`；同机另有 `OpenAI.Codex_26.1120.5083.0` 目录（未注册/待切换）。两个 `PrimaryRuntime`：`v26-1119-907-0` 与 `v26-1123-915-0`。`app\Codex.exe` 只是 20,272 字节的启动 stub，真正的 407MB 主程序在 `app\resources\codex.exe`——这一点很容易被误读成“Codex 只有 20KB”。
 
-**第五个常驻二进制（纠正十七）**：`app\resources\codex-windows-sandbox-service.exe` 62,953,264 字节，`OpenAI OpCo, LLC` 签名有效，无 FileVersion/ProductName 元数据，SHA256 `E66E49429469B95C5A2219DAE872938BD8D70FBE920F1F1086E8CBA5777C3569`，运行态 PID 33980。字符串含 `windows-sandbox-rs\src\process.rs`、`wrapper.rs`、`setup_provisioning.rs`、`no_reparse_dir.rs`、`CreateJobObjectW`、`AssignProcessToJobObject`、`CreateRestrictedToken`、`WFP setup succeeded for `、`Persistent WFP provider for Codex Windows sandbox filters`、`WindowsSandboxService`、`elevated`/`unelevated`、`network-proxy\src\credential_broker\matching.rs`/`providers.rs`。`sandbox-setup.exe` 是安装/供给器，这个 service 才是常驻执行器；上一版四二进制清单漏了它。它还不是普通子进程：`sc qc` 显示 `CodexSandboxService.OpenAI.Codex`、`AUTO_START`、`LocalSystem`、DisplayName `ChatGPT`，父进程 PID 1264 是 `services.exe`；`sc sdshow` 的 `AU` 只有 `CCLCSWRPLORC`（可启动、查询，不可停止/改配置）。标准 PE 解析不是 0 导入，而是 24 DLL / 415 函数（`ws2_32` 37、`fwpuclnt` 11、`winhttp` 4、`advapi32` 78）；运行态有 `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0` 与 `codex-app-tools-ba97c01c-b1ce-4010-a6c8-46f38e6132c4` 两条命名管道，但 PID 33980 的 TCP/UDP 端点为 0。详见纠正十八与十九。
+**第五个常驻二进制（纠正十七）**：`app\resources\codex-windows-sandbox-service.exe` 62,953,264 字节，`OpenAI OpCo, LLC` 签名有效，无 FileVersion/ProductName 元数据，SHA256 `E66E49429469B95C5A2219DAE872938BD8D70FBE920F1F1086E8CBA5777C3569`，运行态 PID 33980。字符串含 `windows-sandbox-rs\src\process.rs`、`wrapper.rs`、`setup_provisioning.rs`、`no_reparse_dir.rs`、`CreateJobObjectW`、`AssignProcessToJobObject`、`CreateRestrictedToken`、`WFP setup succeeded for `、`Persistent WFP provider for Codex Windows sandbox filters`、`WindowsSandboxService`、`elevated`/`unelevated`、`network-proxy\src\credential_broker\matching.rs`/`providers.rs`。`sandbox-setup.exe` 是安装/供给器，这个 service 才是常驻执行器；上一版四二进制清单漏了它。它还不是普通子进程：`sc qc` 显示 `CodexSandboxService.OpenAI.Codex`、`AUTO_START`、`LocalSystem`、DisplayName `ChatGPT`，父进程 PID 1264 是 `services.exe`；`sc sdshow` 的 `AU` 只有 `CCLCSWRPLORC`（可启动、查询，不可停止/改配置）。标准 PE 解析不是 0 导入，而是 24 DLL / 415 函数（`ws2_32` 37、`fwpuclnt` 11、`winhttp` 4、`advapi32` 78）；运行态有 `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0` 与 `codex-app-tools-ba97c01c-b1ce-4010-a6c8-46f38e6132c4` 两条命名管道，但 PID 33980 的 TCP/UDP 端点为 0。`OpenAI.CodexSandbox` 的 ACL 是 `CodexSandboxUsers` Deny FullControl、`INTERACTIVE` Allow 读写/创建、`SYSTEM`/Administrators FullControl（见 5.9）。详见纠正十八与十九。
 
 **核心概况**（`ev_9c096652…`）：PE x86_64，函数发现到 50,000 上限、字符串 204,743 条（保留前 200,000）、导入 486 个 / 25 个库。这是本轮唯一一个“主程序即产品逻辑”的目标，导入可以直接归因。
 
@@ -590,7 +590,7 @@ IPC 分组说明它是“能力市场型”客户端：
 
 ### 5.2 沙箱实现谱系
 
-- **“受限令牌 + 作业对象 + 网络过滤”派**：Codex 最完整。专用用户/SID（`convert SID failed`、`write sandbox users file`）、`Local\CodexSandboxReadAcl`、WFP provider `Codex Windows Sandbox WFP`、`spawned ConPTY is missing its process job` 四处互相咬合；常驻执行器是 `codex-windows-sandbox-service.exe`（62,953,264，运行 PID 33980），`sandbox-setup.exe` 只是供给器；前者还是 `LocalSystem` 自启动 packaged 服务 `CodexSandboxService.OpenAI.Codex`，`AU` 只有启动/查询权，没有停止/改配置权。标准 PE 解析是 24 DLL / 415 函数，含 `ws2_32` 37、`fwpuclnt` 11、`winhttp` 4、`netapi32` 8、`userenv` 4、`user32` 3、`wtsapi32` 4；运行态存在 `OpenAI.CodexSandbox...` / `codex-app-tools...` 命名管道，但该进程当前无 TCP/UDP 端点。
+- **“受限令牌 + 作业对象 + 网络过滤”派**：Codex 最完整。专用用户/SID（`convert SID failed`、`write sandbox users file`）、`Local\CodexSandboxReadAcl`、WFP provider `Codex Windows Sandbox WFP`、`spawned ConPTY is missing its process job` 四处互相咬合；常驻执行器是 `codex-windows-sandbox-service.exe`（62,953,264，运行 PID 33980），`sandbox-setup.exe` 只是供给器；前者还是 `LocalSystem` 自启动 packaged 服务 `CodexSandboxService.OpenAI.Codex`，`AU` 只有启动/查询权，没有停止/改配置权。标准 PE 解析是 24 DLL / 415 函数，含 `ws2_32` 37、`fwpuclnt` 11、`winhttp` 4、`netapi32` 8、`userenv` 4、`user32` 3、`wtsapi32` 4；运行态存在 `OpenAI.CodexSandbox...` / `codex-app-tools...` 命名管道，但该进程当前无 TCP/UDP 端点；服务管道 ACL 显式 Deny `CodexSandboxUsers`、Allow `INTERACTIVE` 读写，靠 `ImpersonateNamedPipeClient` 区分调用方（5.9）。
 - **“会话权限文件 + 审批中心”派**：WorkBuddy。cli 只负责把进程塞进 Job Object，center 负责管道 ACL 与审批反向通道，`aes/argon2` 保护审批票据。
 - **“共享 SDK”派**：Trae 与豆包都装 `aiep_sbox.dll` / `aiep_ipc.dll` / `run_helper.exe` / `sbox_sdk.dll`，但版本不同：Trae `sbox_sdk` 1.16.0.0（2,320,272，SHA 前 8 位 `47EA81AF`），豆包 2.1.17.0（2,656,144，`CC96F66B`）。同一 SDK 家族、不同代际构建，不能当成同一份二进制。
 - **“策略枚举”派**：Cursor 的 `SandboxPolicy` 用 `workPolicyStrict` + `networkPolicyStrict` 表达，而不是堆 Win32 API。
@@ -651,9 +651,9 @@ IPC 分组说明它是“能力市场型”客户端：
 | WorkBuddy | main 22984 → `127.0.0.1:18488`；daemon-app-server 31688 → `56000` / `57736` / `57737`；codebuddy serve 41604 → `57740`；8372 → `63423` | `WorkBuddy_SandboxCenter_*`、`WorkBuddy_SensitiveApproval_*`、`workbuddy-...-sidecar-control-*` / `-data-*`、`workbuddy-pac-31688-*` | MCP/daemon/sidecar 层实际在监听，不再是纯静态；端口协议未探测 |
 | 豆包 | main 28736 → `127.0.0.1:49853` / `61167`；运行中的 utility 类型含 `saman.push.mojom.PushServerService`（18744）、`privilege.mojom.PrivilegedAssistantBroker`（35880）、`agent_infra.mojom.AgentInfraProcess`（39808）、`backend.mojom.Service`（32072）、`jsrt.mojom.Service`（39364）、`bdmssdk.mojom.BdmssdkService`（25052） | `aha-agent-tool-ipc-<uuid>`、`PipMainPipeName_43814`、`PipSDKPipeName_50414`、`aha_doctor_ipc_server_name_service_28736` | Agent Tool IPC 与 PIP Main/SDK 活跃；`PipRemotePipeName` 未出现；`push_detect.exe` 不在进程表内，它与 `saman.push` 的关系仍无静态证据 |
 | Qoder CN | 0.5.14 主进程 4744 → `127.0.0.1:55346` | 无 Qoder 专属管道 | 该端口对应本机测试脚本 `C:\IHUI-AI\scripts\qoder-chat-bridge.mjs --port 0`，**不算 Qoder application-server** |
-| 小浣熊 / codex | 小浣熊为 Chromium 多进程，无目标专属 TCP；codex 无 TCP/UDP 监听（PID 33980 端点为 0），但有 `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0`、`codex-app-tools-ba97c01c…` 两条命名管道 | 两条命名管道 | codex 管道协议/ACL 未探测 |
+| 小浣熊 / codex | 小浣熊为 Chromium 多进程，无目标专属 TCP；codex 无 TCP/UDP 监听（PID 33980 端点为 0），但有 `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0`、`codex-app-tools-ba97c01c…` 两条命名管道（ACL 见 5.9） | 两条命名管道 | codex 管道协议/ACL 部分未探测 |
 
-端口协议已在 5.8 做只读指纹：`18488` 是 HTTP API，`56000` / `57737` 是 HTTP 403 网关，`49853` 是校验 Origin 的 WebSocket，`55346` 自报 `qoder_bridge_error`。
+端口协议已在 5.8 做只读指纹：`18488` 是 HTTP API，`56000` / `57737` 是 HTTP 403 网关，`49853` 是校验 Origin 的 WebSocket，`55346` 自报 `qoder_bridge_error`；Codex 的 `OpenAI.CodexSandbox` 管道 ACL 见 5.9（`CodexSandboxUsers` Deny FullControl，`INTERACTIVE` Allow 读写）。
 
 ### 5.7 运行期模块加载（Qoder / 豆包 / WorkBuddy）
 
@@ -666,7 +666,7 @@ IPC 分组说明它是“能力市场型”客户端：
 | Doubao `PushServerService`（18744） | 96 | `pc_push.dll`、`PushNotificationsLongRunningTask.ProxyStub.dll`、`Doubao.dll` | `push_detect.exe` | 推送服务实际用 `pc_push.dll`；`push_detect` 仍是独立 name-only exe |
 | Doubao main（28736） | 161 | `Doubao.dll`、`doubao_elf.dll` | `mcp_helper.dll`、`pip_remote.dll`、`aiep_ipc.dll` | MCP helper、PIP Remote、AIEP IPC 在当前主进程未加载；按需/子进程加载未定 |
 | WorkBuddy main（22984） | 135 | `WeComAgentConfirmSDK.dll` | `sandbox-cli.exe`、`sandbox-center.exe` | 企微确认 SDK 常驻；沙箱 helper 是独立 exe，空闲态不驻留 |
-| Codex Windows 沙箱服务（33980） | 50 | `codex-windows-sandbox-service.exe` | 目标级命名管道 `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0`、`codex-app-tools-ba97c01c…`（归属未逐句柄验证） | 常驻服务确实以 50 个模块运行；命名管道存在；仍未证明每次工具调用都由它执行 |
+| Codex Windows 沙箱服务（33980） | 50 | `codex-windows-sandbox-service.exe` | 目标级命名管道 `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0`、`codex-app-tools-ba97c01c…`（归属未逐句柄验证；第一条 ACL 见 5.9） | 常驻服务确实以 50 个模块运行；命名管道存在；仍未证明每次工具调用都由它执行 |
 
 **边界**：模块枚举是点时刻；缺模块不等于功能不存在，只说明当时未加载。`push_detect.exe` 是独立可执行，不会出现在 `Doubao.exe` 的模块表里；它的角色仍不能由模块表判定。Codex 沙箱服务的两条命名管道是运行态对象，不等于模块加载；管道协议与 ACL 仍未探测。
 
@@ -687,6 +687,23 @@ IPC 分组说明它是“能力市场型”客户端：
 | 55346 Qoder 测试桥 | `404` + `{"error":{"message":"not found","type":"qoder_bridge_error","code":"not_found"}}` | 同 404 | HTTP 测试桥，自报 `qoder_bridge_error`；不是 Qoder application-server |
 
 **边界**：每个端口只发一次请求；超时不等于“只能是 WebSocket”；61167 静默可能是自定义 raw TCP。`18488` 的 CORS 全开只说明该 HTTP 端点允许跨源预检，不等于业务接口无鉴权；`56000` / `57737` 的 403 也只证明根路径被拒，鉴权方式仍未识别。
+
+### 5.9 Codex 服务命名管道 ACL（只读）
+
+`Get-Acl \\.\pipe\OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0`：
+
+| 受托人 | 类型 | 权限 |
+|---|---|---|
+| 本地组 `CodexSandboxUsers` | Deny | `FullControl` |
+| `NT AUTHORITY\INTERACTIVE` | Allow | `CreateFiles, WriteExtendedAttributes, WriteAttributes, Read, Synchronize` |
+| `NT AUTHORITY\SYSTEM` | Allow | `FullControl` |
+| `BUILTIN\Administrators` | Allow | `FullControl` |
+
+SDDL：`O:SYG:SYD:P(D;;FA;;;S-1-5-21-3924373712-2464060091-3741006702-1004)(A;;0x12019b;;;IU)(A;;FA;;;SY)(A;;FA;;;BA)`。`D:P` 表示 DACL 受保护、不做继承。
+
+解读：`CodexSandboxUsers` 被显式拒绝，说明沙箱用户不能连服务管道；`INTERACTIVE` 可创建/读写/同步，但没有删除或执行权，普通交互用户能打开管道，服务必须靠 `ImpersonateNamedPipeClient` 或协议内校验区分调用方——**“能连”不等于“有管理权”**。第二条 `codex-app-tools-ba97c01c…` 的 `Get-Acl` 返回 error 231，ACL 没读到，不能推断。
+
+**边界**：ACL 只证明访问控制，不证明协议、消息格式、认证强度；没有连接管道、没有发业务消息。账本：`native\codex\sandbox-service.json` 的 `pipe_acl`。
 
 ---
 
@@ -726,7 +743,7 @@ IPC 分组说明它是“能力市场型”客户端：
 
 必须诚实列出来，否则这份报告会重复上一版的问题。
 
-1. **本轮没有主动启动或驱动任何目标**（OpenCode 的 `serve` 实跑除外）：2026-11-25 15:26 的运行态快照显示 Doubao、WorkBuddy、Qoder CN、小浣熊、codex 已在运行，但这些是既有状态，不是受控实验；`sandbox_switch_config` 默认值、ZCode 的 8081 更新代理是否启用、端口鉴权与业务协议、PIP 对端与默认监听都没有实跑验证。端口协议只做了 5.8 的一次只读指纹；Codex 的 `OpenAI.CodexSandbox...` / `codex-app-tools...` 命名管道只枚举到对象，协议与 ACL 未探测；OpenCode 已补 `serve` 实跑（监听成功、Web UI 200、API 401）。
+1. **本轮没有主动启动或驱动任何目标**（OpenCode 的 `serve` 实跑除外）：2026-11-25 15:26 的运行态快照显示 Doubao、WorkBuddy、Qoder CN、小浣熊、codex 已在运行，但这些是既有状态，不是受控实验；`sandbox_switch_config` 默认值、ZCode 的 8081 更新代理是否启用、端口鉴权与业务协议、PIP 对端与默认监听都没有实跑验证。端口协议只做了 5.8 的一次只读指纹；Codex 的 `OpenAI.CodexSandbox...` 命名管道只读到 ACL、没有连接测试，`codex-app-tools...` 的 ACL 与两条管道的协议均未探测；OpenCode 已补 `serve` 实跑（监听成功、Web UI 200、API 401）。
 2. **Codex 407MB 超工具上限**：`native-rust-binary-show` 拒绝 >256MB，因此没有 craft 原生 Rust 报告；本轮用字节级 cargo 路径正则补出 400 个 crate、rustc commit、5 个 git checkout，但没有 demangled symbols 与 `.dep-v0` 审计清单，crate 归属仍不是 craft 官方口径。PE debug directory 已解析出 `codex.pdb`（GUID `A76FDC38-7BA8-ABA9-4C4C-4450205044BE`，age 1），但 PDB 未随包分发，COFF symbol table 为 0，所以 demangle 不是“没找”，是“没有可用符号源”。
 3. **OpenCode 已运行验证，但凭据传递仍未知**：`opencode-cli.exe` 2.2.7 的 `serve` 能监听并返回 Web UI；`/api` 与 `/openapi.json` 无凭据返回 401；普通模式 stdout 打印一次性 `server password`，`--service` 模式未观察到密码行。桌面端如何注入凭据、`--stdio` 模式行为、长期运行稳定性都未验证。`localhost:4096` 已证实只是 `dialog.server.add.placeholder` 的默认占位。
 4. **Qoder 的 keytar/aoq 已文件级确认，aoq 的定性已纠正**：`keytar.node` 707,584 与 `aoq_node_ext.node` 253,952 在 0.5.6/0.5.14 两个版本中都存在；aoq 不是“播放器 SDK”，而是阿里云 `NLS-RTC-Service` 的 `aoq-client-sdk` RTC 引擎（43 个引擎方法、45 个 NAPI 桥方法，麦克风/摄像头采集、音视频帧观察、Aliyun RTC relay）。四个版本都带原生四件套，但四个版本的 asar app JS/TS/JSON 扫描（排除 SDK 自身）只有根 `package.json` 的 `optionalDependencies` 声明命中，**0 个 import/require、SDK 目录之外 0 个路径含 `aoq`**，因此当前静态不可达、桌面通道增量为 0；运行态模块枚举（5.7）里 0.5.14 的 41 / 47 个模块中也没有 AOQ 四件套与 `keytar.node`，与静态结论一致，启用的代码路径仍未找到。账本 `analysis\qoder-aoq-sdk.json`。
@@ -758,7 +775,7 @@ IPC 分组说明它是“能力市场型”客户端：
 - `<target>-jsmap-full.json`：前端全量图（豆包 ai-views 437MB、WorkBuddy 273MB、Cursor 247MB 等）；豆包主应用 `biz.pak` 的 1.04GB 图见下一组条目。
 - `native\<target>\*.json`：核心取证（overview / imports / exports / publisher / strings0-7 / feat0-3）。
 - `native\codex\crates.json`：Codex 407MB 二进制的 400 个 crate 路径清单（含 40 个高频项与 79 个安全/网络相关项）。
-- `native\codex\sandbox-service.json`：`codex-windows-sandbox-service.exe` 账本——62,953,264 字节、SHA256 `E66E4942…`、无版本元数据、运行 PID 33980、`windows-sandbox-rs` 源码路径、`CreateJobObjectW`/`AssignProcessToJobObject`/`CreateRestrictedToken`/WFP/`credential_broker` 字符串；`imports` 记录 24 DLL / 415 函数（`ws2_32` 37、`fwpuclnt` 11、`winhttp` 4、`advapi32` 78 等）；`windows_service` 块记录 `CodexSandboxService.OpenAI.Codex`、`AUTO_START`、`LocalSystem`、DisplayName `ChatGPT`、父进程 `services.exe`、SDDL 与 `AU` 的 `CCLCSWRPLORC`；`runtime_pipes` 记录 `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0` / `codex-app-tools-ba97c01c…`，`network_endpoints` 记录当前 TCP/UDP 为空。
+- `native\codex\sandbox-service.json`：`codex-windows-sandbox-service.exe` 账本——62,953,264 字节、SHA256 `E66E4942…`、无版本元数据、运行 PID 33980、`windows-sandbox-rs` 源码路径、`CreateJobObjectW`/`AssignProcessToJobObject`/`CreateRestrictedToken`/WFP/`credential_broker` 字符串；`imports` 记录 24 DLL / 415 函数（`ws2_32` 37、`fwpuclnt` 11、`winhttp` 4、`advapi32` 78 等）；`windows_service` 块记录 `CodexSandboxService.OpenAI.Codex`、`AUTO_START`、`LocalSystem`、DisplayName `ChatGPT`、父进程 `services.exe`、SDDL 与 `AU` 的 `CCLCSWRPLORC`；`runtime_pipes` 记录 `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0` / `codex-app-tools-ba97c01c…`，`network_endpoints` 记录当前 TCP/UDP 为空；`pipe_acl` 记录第一条管道的 SDDL、Deny `CodexSandboxUsers`、Allow `INTERACTIVE` 读写，以及第二条 `Get-Acl` error 231。
 - `native\opencode\runtime-serve.json`：OpenCode `serve` 实跑记录（版本、help flags、HTTP 状态、鉴权 401、端口关闭确认，密码值不落盘）。
 - `analysis\dynamic-ipc-{deepseek,minimax,wb,zcode,traecn}.json`：逐文件还原的 IPC 调用分类（literal / template / resolved 常量 / 未定 expr）、常量表规模、前 20 个还原通道与未定表达式；MiniMax 文件已补 `closure`/`counts_after`（332+406、804 个调用点、0 未定）；`dynamic-ipc-traecn.json` 是旧坏样本（只扫 47 文件、把 `__is_disposable_tracked__` 当通道），结论已作废。
 - `analysis\traecn-ipc-final.json`：重建后的 Trae 账本——135 个显式 IPC/sender 调用（73 ipc + 62 sender）、58 条非字面量、56 条映射到 30 个唯一通道、2 条 wrapper/response 非通道值、0 条未定。
