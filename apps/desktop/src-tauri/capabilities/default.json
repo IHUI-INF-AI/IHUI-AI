@@ -20,6 +20,7 @@
     "core:window:allow-is-maximized",
     "core:window:allow-start-dragging",
     "core:window:allow-set-title",
+    "core:window:allow-set-always-on-top",
     "deep-link:default",
     "dialog:default",
     "dialog:allow-open",

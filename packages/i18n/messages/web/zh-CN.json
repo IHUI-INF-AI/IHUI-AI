@@ -9590,6 +9590,12 @@
       "links": "链接"
     },
     "pictureInPicture": {
+      "task": "任务",
+      "pin": "置顶",
+      "unpin": "取消置顶",
+      "reconnect": "重新连接",
+      "expandTask": "展开任务详情",
+      "collapseTask": "收起任务详情",
       "title": "画中画",
       "emptyState": "暂无内容",
       "openWindow": "打开画中画窗口",
@@ -9601,8 +9607,7 @@
       "statusGate": "登录/验证页，可能需要接管",
       "statusError": "画面已断开",
       "statusStalled": "画面 {seconds} 秒未更新",
-      "tooSmall": "窗口过小，建议不小于 1/4 屏"
-    ,
+      "tooSmall": "窗口过小，建议不小于 1/4 屏",
       "checkpointProgress": "检查点 {done}/{total}",
       "checkpointWaiting": "等待确认：{label}",
       "checkpointTimeout": "等待超时：{label}，建议接管",

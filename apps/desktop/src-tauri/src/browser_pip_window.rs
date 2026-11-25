@@ -177,6 +177,19 @@ pub async fn open_browser_pip_window(
                 // builder 的 .title 在本机被外壳的窗控标题覆盖成「智汇AI」,
                 // show 之后再落一次,保证任务栏/Alt-Tab 里认得出这是监看窗。
                 let _ = win.set_title("AI 画中画监看");
+                // Tauri set_title 在本机仍被外壳的置顶窗控盖回应用名;直接写 Win32
+                // 窗口文本,视觉标题才稳定。非 Windows 走上面的 set_title。
+                #[cfg(target_os = "windows")]
+                if let Ok(hwnd) = win.hwnd() {
+                    use windows::core::HSTRING;
+                    use windows::Win32::Foundation::HWND;
+                    use windows::Win32::UI::WindowsAndMessaging::SetWindowTextW;
+                    // SAFETY: hwnd 来自刚创建并已 show 的本窗口,调用在本窗口线程;
+                    // 仅写标题文本,不持有句柄跨线程。
+                    unsafe {
+                        let _ = SetWindowTextW(HWND(hwnd.0), &HSTRING::from("AI 画中画监看"));
+                    }
+                }
 
                 // 关窗即记位置;下次打开沿用,避免每次都回到主窗右上角。
                 let win_ev = win.clone();

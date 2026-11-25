@@ -63,6 +63,13 @@ export interface BrowserPipLabels extends BrowserPipBaseLabels {
   taskFailed: string
   /** 任务条上的「运行要求」前缀;要求正文由服务端任务下发 */
   requirements: string
+  /** 窄窗控制(2026-11-25 补):任务卡、置顶、重连的可访问文案。 */
+  task: string
+  pin: string
+  unpin: string
+  reconnect: string
+  expandTask: string
+  collapseTask: string
   /** 内置检查点 label_key → 本地化文案;缺省时回退服务端 label。 */
   checkpointLabels?: Record<string, string>
 }
