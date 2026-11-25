@@ -25,7 +25,7 @@
 
 ## 0. 为什么要推翻上一版
 
-上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了三十四处纠正，每一条都能被证据账本复核。
+上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了三十五处纠正，每一条都能被证据账本复核。
 
 **纠正一：把 Electron 主 exe 的 Chromium 安全 API 当成产品自研沙箱。**
 上一版用 `CreateRestrictedToken`、`CreateJobObject`、`CreateProcessAsUserW` 这类导入来证明“某产品有强沙箱”。实测发现，WorkBuddy.exe、Qoder CN.exe、ZCode.exe、Cursor.exe、Trae CN.exe 全部是 Electron 壳，这些 API 属于 Chromium/Electron 出厂能力，**不能归因于产品**。本版把证据分成三层：产品级（Rust/Go helper、.node、主进程 JS）、框架级（Electron/Chromium）、未知级；只有第一层进入结论。
@@ -132,6 +132,9 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 
 **纠正三十四：WorkBuddy ACP 的 `session/prompt` 已发出，HTTP 200 + SSE，但 `stopReason:refusal`，原因是 `Authentication required`；不是模型推理，也不是“没发 prompt”。**
 本轮用临时 `codebuddy --serve` sidecar（自生成 43 字符 gateway token，仅进程内存，不落盘）复现完整 ACP 链路：`connect` 200（`connectionId` 36 / `sessionToken` 43）→ `initialize` 200（`protocolVersion:1`）→ `session/new` 200（sessionId `01a21388-f365-7153-9ed8-8ad1075c3d66`）→ `session/prompt` **200**，响应 `text/event-stream`，最后一条 JSON-RPC `id:3` 为 `result.stopReason="refusal"`，`_meta["codebuddy.ai/errorMessage"]` 是 `{"code":-32000,"message":"Authentication required","data":{"details":"Authentication required. Please use /login command to sign in to your account","category":"auth"}}`。所以 ACP 传输、JSON-RPC、会话创建都可复核；模型推理/工具调用/计费被登录态挡住，没有登录 token 就无法继续。该 sidecar 是临时启动、测完已终止，不是 WorkBuddy 常驻进程。
+
+**纠正三十五：Cursor 的 `cursorsandbox.exe` 在 Windows 上可以独立执行，但 `workspace_readwrite` 与 `workspace_readonly` 都没有挡住对 `C:\Windows\System32` 的写；网络默认被断，“workPolicyStrict 已生效”不能写成运行确定。**
+直接用 `cursorsandbox.exe --policy <temp-policy> -- <cmd>` 驱动，policy 为 `{"sandbox":{"type":"workspace_readwrite","cwd":"D:\\tmp\\cursor-sandbox-probe"}}`：`--preflight-only -- C:\Windows\System32\cmd.exe /c echo HELLO` 返回 **0**；去掉 `--preflight-only` 后 `cmd /c echo HELLO` 输出 **HELLO**、exit 0。`cmd /c whoami` 返回 **`lichunchuan\administrator`**（本机同一账户，不是独立沙箱用户）。`cmd /c echo hello > C:\Windows\Temp\cursor_probe.txt` 与 `... > C:\Windows\System32\cursor_probe.txt` 都 **exit 0**，主机侧文件确实生成；换 `workspace_readonly` 后，写 `D:\tmp\cursor-sandbox-probe\readonly.txt` 与 `C:\Windows\System32\cursor_ro.txt` 仍然 **exit 0 / 文件存在**。只有 `ping 8.8.8.8` 是 **1 发 0 收、100% 丢包、exit 1**。所以本机 Windows 上至少**文件系统写边界没有按 `workspace_*` 策略生效**，网络默认被断；静态的 `workPolicyStrict` / `networkPolicyStrict` 只能写成策略声明，不能写成已强制执行。每次执行后 helper 会删除 policy 文件；上述临时文件已清理。
 
 ---
 
@@ -344,7 +347,7 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 
 **后端/服务层**：`agent-tool-host.exe` 同时是 toolhost（工具宿主）、preview-proxy（预览代理 + 端口策略）、sandbox 命名管理器。它用 Named Pipe + SSPI（NTLM/Kerberos）做本机鉴权，用 Job Object 做进程树回收，用 `port_policy` 控制预览端口白名单。这是“工具执行后端”，不是 Electron 主进程的一部分。
 
-**本轮启动（15 秒，已关闭）**：主进程 33028 监听 `127.0.0.1:17788`（普通 `GET /` 返回 404，不是 REST），子进程有 GPU 26480、network 8164、monitor 23880、BDMSSDK 28484、basil NativeExtensionService 31904 / 2352、node utility 25968 / 30952 / 10292 / 21496（21496 带 `--inspect-port=0` 的 extensionHost）。启动 15 秒内**没有拉起 `run_helper.exe` / `sbox_sdk` / `aiep_sbox` / `trae-sandbox.exe`**，说明沙箱 helper 是按 AI 命令动作按需启动，不是随 IDE 常驻；检查结束时主进程已不在，未留驻。没有发业务请求、没有驱动 AI 执行。
+**本轮启动（15 秒，已关闭）**：主进程 33028 监听 `127.0.0.1:17788`（普通 `GET /` 返回 404，不是 REST），子进程有 GPU 26480、network 8164、monitor 23880、BDMSSDK 28484、basil NativeExtensionService 31904 / 2352、node utility 25968 / 30952 / 10292 / 21496（21496 带 `--inspect-port=0` 的 extensionHost）。启动 15 秒内**没有拉起 `run_helper.exe` / `sbox_sdk` / `aiep_sbox` / `trae-sandbox.exe`**，说明沙箱 helper 是按 AI 命令动作按需启动，不是随 IDE 常驻；检查结束时主进程已不在，未留驻。没有发业务请求、没有驱动 AI 执行。另外，直接对 `resources\app\modules\sandbox\trae-sandbox.exe` 做 `exec --dry-run`（临时 storage，`echo HELLO`）时，它打印 `sbox_version=1.16.1.0` 的 `sandbox_init_info`，随后 **`TRAE Sandbox Error: init failed; System { message: "init: SBoxSDK_Init failed: SDK initialization failed" }`，exit 1（code 87）**；说明这个 Rust helper 离开 Trae 主进程的 SBox SDK 初始化链就起不来，`run_helper.exe --help` 的 exit 87 也是同一层初始化失败，不是“无参数”。临时目录已删除，没有装沙箱依赖、没有改 host 配置。
 
 **证据锚点**：`ev_84c1dba4…`（jsmap）、`ev_09d553db…`（agent-tool-host imports）、`ev_eda58c80…`（trae-sandbox imports）、`ev_047bfaa1…`（Rust 指纹）、`ev_e4b861da…`（toolhost 字符串）、`ev_5a2ca961…`（签名）。
 
@@ -644,6 +647,8 @@ IPC 分组说明它是“能力市场型”客户端：
 
 **本轮启动（15 秒，已关闭）**：3.27.22 主进程 28360，GPU 26852、network 32072、renderer 27036、多个 node utility（24504 / 35992 / 2960 / 21680 / 31540 / 20756 / 27268）以及两个 `gitWorker.js`（34888 / 8460）；启动 15 秒内**没有拉起 `cursorsandbox.exe` 或 `agent-host-daemon`**，按进程映射也没有看到 Cursor 自己的 LISTEN。说明 Rust 沙箱与 agent host 是按命令/会话按需启动，不是 IDE 常驻；探针后已终止全部 Cursor 进程，未留驻。
 
+**沙箱实际执行（纠正三十五，已清理）**：`cursorsandbox.exe` 可以用外部 policy 独立驱动。`--preflight-only` 传 `{"sandbox":{"type":"workspace_readwrite","cwd":"D:\\tmp\\cursor-sandbox-probe"}}` 时返回 **0**；去掉 preflight 后 `cmd /c echo HELLO` 输出 **HELLO**。但 `whoami` 仍是 `lichunchuan\administrator`，`echo > C:\Windows\Temp\cursor_probe.txt` 与 `echo > C:\Windows\System32\cursor_probe.txt` 都 exit 0 且主机侧文件生成；换成 `workspace_readonly` 后写 workspace 与 System32 仍成功。只有 `ping 8.8.8.8` 是 1 发 0 收 / 100% 丢包。**所以本机 Windows 上的文件系统写边界没有按 `workspace_*` 策略生效，不能把静态 `workPolicyStrict` 写成已强制执行。**
+
 **窗口安全**：13 个窗口里 5 个 `contextIsolation`/`nodeIntegration` 未显式设置（继承 Electron 默认），5 个 `webPreferences` 运行期计算，2 个 `sandbox` 未设置。这是本轮 Electron 产品里“显式声明率”较低的一档。
 
 **证据锚点**：`ev_f48ad437…`（jsmap）、`ev_fa784c06…`（Cursor.exe imports）、`ev_a5595fe7…`（签名）。
@@ -919,11 +924,11 @@ PID 38788（父 PID 11820）在 15:xx 运行 `codex.exe ... app-server --analyti
 | 客户端 | 前端 / 核心 / 后端 | 运行级闭环 | 仍未闭环（明确标未知） |
 |---|---|---|---|
 | Codex | 26.1120 全量图 + IPC 源码复核 + 5 个 native + sandbox service | `codex sandbox` echo / token / 写拒绝 / 网络放行；sandbox 管道 owner/ACL/可连接；provisioning JSON 载荷已证 | 帧头宽度/字节序、tag 字段名、成功响应；读取白名单、Job 清理、工具调用路径 |
-| Trae CN | VS Code fork + `aiep_sbox` / `aiep_ipc` / `run_helper` 源码级 IPC | 启动 15s：主进程监听 `127.0.0.1:17788`（`/` 404），未拉起 `run_helper`/`sbox`/`trae-sandbox`；已关闭 | `run_helper.exe --help` 在当前 unified x64 下 exit 87；沙箱实际执行未驱动 |
+| Trae CN | VS Code fork + `aiep_sbox` / `aiep_ipc` / `run_helper` 源码级 IPC | 启动 15s：主进程监听 `127.0.0.1:17788`（`/` 404），未拉起 `run_helper`/`sbox`/`trae-sandbox`；`trae-sandbox exec --dry-run` exit 1 / code 87（`SBoxSDK_Init failed`）；已关闭 | 实际沙箱执行未成功；host 侧 SBox SDK 初始化条件未满足 |
 | WorkBuddy | main/daemon/MCP/ACP 源码 + 11 条路由 + McpApps | ACP connect/initialize/session/new/prompt 全 200；prompt 被 `Authentication required` 拒绝 | 登录态后的模型推理、工具、计费；VLM 推理未发 |
 | Qoder CN | 四版本图 + worker runtime + remote protocol 静态 | 当前跑的是 bridge + worker runtime（PID 32760 / 7616），`127.0.0.1:52779` 普通路径全 404；不是正常桌面会话 | application-server 真实端口/正常会话是否启动；AOQ 启用路径 |
 | ZCode | 全量图 + 423 动态还原 + host RPC | 启动 15s：app-server 7616 `zcode.cjs app-server --stdio`；无新增 TCP listen，8081 无监听；已关闭 | 更新代理启用、`zcode-runtime-host.exe` 缺失、push_detect 关系 |
-| Cursor | VS Code fork + Rust `sandbox-helper` + 44 调用点还原 | 启动 15s：无 `cursorsandbox` / `agent-host-daemon`，无 Cursor 自己的 LISTEN；已关闭 | `workPolicyStrict` / `networkPolicyStrict` 的实际执行 |
+| Cursor | VS Code fork + Rust `sandbox-helper` + 44 调用点还原 | 启动 15s：无 `cursorsandbox` / `agent-host-daemon`，无 Cursor 自己的 LISTEN；`cursorsandbox echo HELLO` 成功，但 `workspace_*` 写 System32 成功、`ping` 100% 丢包；已关闭 | `workPolicyStrict` 文件边界未生效（运行实测）；agent-host 生命周期 |
 | 豆包 | 三片图 + `biz.pak` + PIP + sandbox runtime | v0.11.4 运行时；PIP `0x8007007E` → 路径修复 `0x80040154` | telemetry 未抓到网络请求；PIP 未 `regsvr32` 永久注册；远程/影子会话未恢复 |
 | DeepSeek Harness | 633 JS + 116 IPC 调用点 + cordis/dsh-api-gateway | 启动 12s：host 1756 监听 `127.0.0.1:59594`；`/` `/api` `/api/info` 401，`/health` `/healthz` `/status` 404；已关闭 | loopback WebSocket 子协议、认证头、有效凭据下 session 数据 |
 | OpenCode | 3,231 源模块 + service/Basic/API | `serve` 实跑、Web UI 200、API 401→Basic 200 | 安装版端到端后台服务、第二台主机/防火墙、session 数据读取 |
@@ -1039,7 +1044,7 @@ $proj = "C:\IHUI-AI\.workbuddy\craft\all-ai-apps-full-2026-11-25.cany"
 
 ---
 
-**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是三十四处纠正、11 个程序、8 个 asar 解包、16 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张 + Codex `app.asar` 第 16 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、26 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
+**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是三十五处纠正、11 个程序、8 个 asar 解包、16 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张 + Codex `app.asar` 第 16 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、26 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
 
 ## 2026-11-25 23:50 收尾复核
 
