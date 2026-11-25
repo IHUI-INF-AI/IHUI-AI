@@ -345,6 +345,7 @@ async function runMomentFetch(body) {
   let limitReached = false
   let occludedBy = null
   let fallback = null
+  let dbMediaStats = null
   for (let page = 0; page < maxPages; page += 1) {
     const before = momentSeq
     let result
@@ -396,6 +397,18 @@ async function runMomentFetch(body) {
     if (typeof data.stopReason === 'string' && data.stopReason) stopReason = data.stopReason
     if (data.limitReached === true) limitReached = true
     if (typeof data.occludedBy === 'string' && data.occludedBy) occludedBy = data.occludedBy
+    // DB sidecar 的媒体落盘统计必须原样透传；否则桥只返回 moments，调用方无法知道
+    // 这次到底命中本地缓存多少、失败多少，容易把「没下载」误读成「没有图片」。
+    if (source === 'db' && typeof data.downloadMedia === 'boolean') {
+      dbMediaStats = {
+        downloadMedia: data.downloadMedia === true,
+        localCacheOnly: data.localCacheOnly === true,
+        downloadedMedia: Math.max(0, Number(data.downloadedMedia ?? 0) || 0),
+        mediaCacheHits: Math.max(0, Number(data.mediaCacheHits ?? 0) || 0),
+        mediaCacheMisses: Math.max(0, Number(data.mediaCacheMisses ?? 0) || 0),
+        mediaDownloadErrors: Math.max(0, Number(data.mediaDownloadErrors ?? 0) || 0),
+      }
+    }
     // OCR 驱动自己完成了多页遍历；wcfhttp 则只负责 /pyq 刷新，等回调并翻下一页。
     if (data.paging === 'driver' || data.requiresCallback !== true) break
     await waitForMoments(before)
@@ -437,6 +450,7 @@ async function runMomentFetch(body) {
       occludedBy,
       fields: deriveMomentFields(all),
       fallback: fallback ?? undefined,
+      ...(dbMediaStats ?? {}),
       archive,
       archiveError: archiveError || undefined,
       reason:

@@ -182,6 +182,12 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=int(os.environ.get("BRIDGE_DB_LIMIT", "0")))
     parser.add_argument("--media-dir", default=os.environ.get("BRIDGE_DB_MEDIA_DIR", ""))
     parser.add_argument("--download-media", action="store_true")
+    parser.add_argument(
+        "--local-cache-only",
+        action="store_true",
+        default=os.environ.get("BRIDGE_DB_MEDIA_LOCAL_ONLY") == "1",
+        help="只导出微信本地 Sns 缓存命中，未命中不访问 qpic URL",
+    )
     args = parser.parse_args()
 
     try:
@@ -204,6 +210,7 @@ def main() -> int:
         downloaded = 0
         download_errors = 0
         cache_hits = 0
+        cache_misses = 0
         if args.download_media and media_dir:
             import urllib.request
 
@@ -249,9 +256,18 @@ def main() -> int:
                                 downloaded += 1
                                 cache_hits += 1
                                 downloaded_any = True
+                                media["mediaDownloaded"] = True
+                                media["mediaDownloadSource"] = "cache"
+                                media["mediaLocalPath"] = path
                                 continue
                         except Exception:
                             pass
+                    if args.local_cache_only:
+                        cache_misses += 1
+                        media["mediaDownloadError"] = (
+                            "本地 Sns 缓存未命中；local-cache-only 未发起 URL 下载"
+                        )
+                        continue
                     if not url:
                         download_errors += 1
                         continue
@@ -272,6 +288,9 @@ def main() -> int:
                             fh.write(data)
                         downloaded += 1
                         downloaded_any = True
+                        media["mediaDownloaded"] = True
+                        media["mediaDownloadSource"] = "qpic"
+                        media["mediaLocalPath"] = path
                     except Exception:
                         download_errors += 1
                         continue
@@ -279,7 +298,11 @@ def main() -> int:
                     moment["mediaLocalDir"] = target
                     moment["mediaDownloaded"] = True
                 elif moment.get("media"):
-                    moment["mediaDownloadError"] = "本地缓存未命中且 qpic 票据过期/返回占位图，未写入本地"
+                    moment["mediaDownloadError"] = (
+                        "本地 Sns 缓存未命中；local-cache-only 未发起 URL 下载"
+                        if args.local_cache_only
+                        else "本地缓存未命中且 qpic 票据过期/返回占位图，未写入本地"
+                    )
 
         output = {
             "ok": True,
@@ -304,8 +327,10 @@ def main() -> int:
                 "reason": None,
             },
             "downloadMedia": bool(args.download_media and media_dir),
+            "localCacheOnly": bool(args.local_cache_only),
             "downloadedMedia": downloaded,
             "mediaCacheHits": cache_hits,
+            "mediaCacheMisses": cache_misses,
             "mediaDownloadErrors": download_errors,
             "moments": moments,
         }

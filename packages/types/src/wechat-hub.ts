@@ -505,6 +505,18 @@ export interface WechatMomentFetchResult {
   result: WechatActionResult
   /** 桥每次成功抓取后写本地归档的统计；后端未实现时缺省 */
   archive?: WechatMomentArchiveStat
+  /** DB sidecar：本次是否启用了媒体落盘 */
+  downloadMedia?: boolean
+  /** DB sidecar：本次是否只导出本地缓存、未访问 qpic */
+  localCacheOnly?: boolean
+  /** DB sidecar：实际写入磁盘的媒体文件数 */
+  downloadedMedia?: number
+  /** DB sidecar：命中微信本地 Sns 缓存的媒体数 */
+  mediaCacheHits?: number
+  /** DB sidecar：本地缓存未命中的媒体数；不等于下载失败 */
+  mediaCacheMisses?: number
+  /** DB sidecar：URL 下载失败数；占位图会被拒绝，不会写成图片 */
+  mediaDownloadErrors?: number
   /** 结构化字段可得性；驱动未上报时缺省，此时按「只拿到正文」理解 */
   fields?: WechatMomentFieldAvailability
 }

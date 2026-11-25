@@ -115,5 +115,35 @@ describe('fetchMoments 字段可得性透传', () => {
 
     expect(result.fields).toBeUndefined()
   })
+
+  it('DB sidecar 媒体统计透传，缓存未命中不算下载失败', async () => {
+    mocks.performAction.mockResolvedValue({
+      ok: true,
+      status: 'accepted',
+      data: {
+        moments: [baseMoment],
+        fetched: 1,
+        pages: 1,
+        source: 'db',
+        partial: false,
+        downloadMedia: true,
+        localCacheOnly: true,
+        downloadedMedia: 2,
+        mediaCacheHits: 2,
+        mediaCacheMisses: 5,
+        mediaDownloadErrors: 0,
+      },
+      reason: null,
+    })
+
+    const result = await fetchMoments('user-1', 'account-1')
+
+    expect(result.downloadMedia).toBe(true)
+    expect(result.localCacheOnly).toBe(true)
+    expect(result.downloadedMedia).toBe(2)
+    expect(result.mediaCacheHits).toBe(2)
+    expect(result.mediaCacheMisses).toBe(5)
+    expect(result.mediaDownloadErrors).toBe(0)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

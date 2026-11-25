@@ -695,6 +695,12 @@ export async function fetchMoments(
     typeof data.limitReached === 'boolean' ? data.limitReached : stopReason === 'page-limit'
   const occludedBy = asString(data.occludedBy)
   const fields = readMomentFields(data.fields)
+  const mediaStat = (key: string): number | undefined => {
+    const value = data[key]
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0
+      ? Math.floor(value)
+      : undefined
+  }
 
   // 抓取成功后归档入库；写库失败只 warn，不影响本次抓取结果与桥原因返回。
   let archive = readMomentArchive(data.archive)
@@ -745,6 +751,20 @@ export async function fetchMoments(
     reason: asString(data.reason) ?? result.reason,
     archive,
     ...(fields !== undefined ? { fields } : {}),
+    ...(typeof data.downloadMedia === 'boolean' ? { downloadMedia: data.downloadMedia } : {}),
+    ...(typeof data.localCacheOnly === 'boolean' ? { localCacheOnly: data.localCacheOnly } : {}),
+    ...(mediaStat('downloadedMedia') !== undefined
+      ? { downloadedMedia: mediaStat('downloadedMedia') }
+      : {}),
+    ...(mediaStat('mediaCacheHits') !== undefined
+      ? { mediaCacheHits: mediaStat('mediaCacheHits') }
+      : {}),
+    ...(mediaStat('mediaCacheMisses') !== undefined
+      ? { mediaCacheMisses: mediaStat('mediaCacheMisses') }
+      : {}),
+    ...(mediaStat('mediaDownloadErrors') !== undefined
+      ? { mediaDownloadErrors: mediaStat('mediaDownloadErrors') }
+      : {}),
     result,
   }
 }
