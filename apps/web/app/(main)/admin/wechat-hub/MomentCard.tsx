@@ -9,7 +9,7 @@
 'use client'
 
 import * as React from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import {
   Button,
@@ -41,6 +41,7 @@ function momentTime(value: number | null): string {
 }
 
 export default function MomentCard({ accountId }: { accountId: string }) {
+  const queryClient = useQueryClient()
   const [text, setText] = React.useState('')
   const [media, setMedia] = React.useState('')
   const [result, setResult] = React.useState<WechatActionResult | null>(null)
@@ -76,6 +77,10 @@ export default function MomentCard({ accountId }: { accountId: string }) {
     onSuccess: (data) => {
       setFetchError(null)
       setFetchResult(data)
+      // 抓取成功后归档表已 upsert；让归档面板立即重读，而不是继续显示旧缓存。
+      void queryClient.invalidateQueries({
+        queryKey: ['wechat-hub', 'moments-archive', accountId],
+      })
     },
     onError: (e) => {
       setFetchResult(null)
