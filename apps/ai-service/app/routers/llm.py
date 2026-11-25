@@ -4110,7 +4110,7 @@ async def build_model_catalog() -> list[dict[str, Any]]:
         from ..core.db_pool import get_shared_pool
         pool = await get_shared_pool()
         async with pool.acquire() as conn:
-            # 2026-09-08:v4 优先带 m.metadata(token6688 富元数据);迁移未应用时
+            # 2026-09-08:v4 优先带 m.metadata(富元数据);迁移未应用时
             # (列不存在)降级为旧查询,保证模型列表不被单列缺失拖垮
             _base_sql = (
                 """SELECT m.model_id, m.display_name, m.context_length, c.provider_code,
@@ -4170,16 +4170,6 @@ async def build_model_catalog() -> list[dict[str, Any]]:
             elif provider_code == "workbuddy":
                 # 账号池模型直接以 workbuddy/ 前缀暴露;provider 用 workbuddy_relay 供可用性/能力判定
                 entry_provider = "workbuddy_relay"
-            elif provider_code == "token6688":
-                # 2026-09-08 立:token6688 模型加 "t6688/" 前缀(调用时 gateway 按前缀路由,
-                # 否则裸 ID 会误路由到 OpenAI 默认分支);且只放行 chat 模型——
-                # 同步入库的 112 模型含 69 个 video/image/audio(tags 带 modality),
-                # 它们走 MCP 图片/视频/TTS 工具,不能作为对话模型列出
-                row_tags = {str(t).lower() for t in (r["tags"] or [])}
-                if "chat" not in row_tags and not mid.startswith("t6688/"):
-                    continue
-                if not mid.startswith("t6688/"):
-                    mid = f"t6688/{mid}"
             # 以规范化后的 mid 作为去重键(seen 在遍历 DB 行时持续累加,保证全局唯一,
             # 修复 DB 内部重复,如 stepfun 18 条=9 个唯一 id)
             # DB 基底条目:倍率原样透传 DB(坏值/缺失不写字段,后段 list_models
@@ -4219,21 +4209,6 @@ async def build_model_catalog() -> list[dict[str, Any]]:
                 _resolved = resolve_efforts(_effort_index, mid)
                 if _resolved is not None:
                     _entry["reasoning_efforts"] = _resolved
-            # token6688 富元数据摘要(v4,2026-09-08):capabilities/健康分/排序权重/
-            # 输入提示随条目输出,供前端展示与 agent 参数参考;媒体模型已在上方 continue
-            if provider_code == "token6688":
-                _meta = r.get("metadata", None)
-                if isinstance(_meta, dict) and _meta:
-                    _summary = {
-                        k: _meta[k]
-                        for k in (
-                            "capabilities", "health_score", "sort_weight",
-                            "input_hint_zh", "billing_mode",
-                        )
-                        if _meta.get(k) is not None
-                    }
-                    if _summary:
-                        _entry["t6688"] = _summary
             if mid in static_by_id:
                 # DB 优先合并(2026-11-23 根治):同身份以 DB 条目为准,静态条目只补
                 # DB 缺失的非价格字段;静态 caps 等声明保留(DB 不带 caps 不会覆盖)。
@@ -4893,7 +4868,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     # P1 流式配套 pre-flight check:检测 api_key 缺失(MODEL_NOT_CONFIGURED),
     # 在返回 StreamingResponse 前直接返回 422 JSON,避免流式开始后只能推 event: error。
     # stub 模式下无需 api_key(返回模拟响应),跳过 pre-flight。
-    if not llm_gateway._is_stub_mode():
+    # 2026-11-26 修复:auto 由网关内部跨厂商路由,不能拿字面名 'auto' 去查 key
+    # (原实现必 422 MODEL_NOT_CONFIGURED,auto 的候选链与 fallback 根本没机会执行)。
+    # 前置检查只对"显式指定具体模型"生效;auto 的缺凭据由网关内部按候选/转移链处理。
+    if not llm_gateway._is_stub_mode() and str(req.model or "").strip().lower() != "auto":
         try:
             _api_key, _, _, _, _ = await llm_gateway._resolve(req.model or settings.litellm_model, owner_uuid)
         except Exception as e:
