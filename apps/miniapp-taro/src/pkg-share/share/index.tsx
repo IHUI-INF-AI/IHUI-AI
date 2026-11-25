@@ -17,7 +17,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import * as api from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { NavBar, Ranking, DrawerComponent, FloatBox, type RankingItem } from '@/components'
-import type { DrawerDateGroup, DrawerUserInfo } from '@/components/DrawerComponent'
+import type { DrawerModelGroup, DrawerUserInfo } from '@/components/DrawerComponent'
 import { getUserInfo } from '@/utils/auth'
 import {
   groupConversationByDate,
@@ -25,7 +25,18 @@ import {
 } from '@ihui/shared/chat/conversation-date-group'
 import LineIcon from '@/components/LineIcon'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
-import type { CategoryItem, TitleSwitchScrollTitleItem } from '@ihui/types'
+import type { TitleSwitchScrollTitleItem } from '@ihui/types'
+
+/**
+ * 本页自有分类模型(不复用 @ihui/types 的 CategoryItem):后者是 `{ id, label }`(学习赛道口径),
+ * 而本页后端 `getInformationCategory` 返回的是 `{ id, name, count }` —— 键名与 id 类型
+ * (string | number)都不同,硬套会得到"name 不存在"的 4 处类型错。分类语义归本页,故本地立型。
+ */
+interface ShareCategory {
+  id: string | number
+  name: string
+  count?: number
+}
 import InformationItem from './components/InformationItem'
 import NewTitle, { type NewTitleItem } from './components/NewTitle'
 import CenterItem, { type CenterItemData } from './components/CenterItem'
@@ -139,7 +150,7 @@ export default function ShareIndexPage() {
   /** 首屏/重置请求失败:与「真的没有资讯」分开,给出可点的重试出口 */
   const [loadError, setLoadError] = useState(false)
 
-  const [categories, setCategories] = useState<CategoryItem[]>([])
+  const [categories, setCategories] = useState<ShareCategory[]>([])
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([])
   // 模型列表:抽屉改为共享日期桶后不再按模型分组,只保留拉取(入口/统计后续可能复用)
   const [, setModelList] = useState<ModelItem[]>([])
@@ -468,7 +479,7 @@ export default function ShareIndexPage() {
   )
 
   const selectCategory = useCallback(
-    (cat: CategoryItem) => {
+    (cat: ShareCategory) => {
       setActiveCategory(cat.id)
       setTagWrapShow(false)
       unlockPageScroll()
@@ -574,7 +585,7 @@ export default function ShareIndexPage() {
     const u = getUserInfo()
     if (u) {
       setDrawerUserinfo({
-        id: u.id,
+        // DrawerUserInfo 只有 avatar/nickname 两键(见 DrawerComponent:67-70),不带 id
         avatar: u.avatar || '',
         nickname: u.userName || u.nickname || tt('common.user', '智汇AI用户'),
       })
@@ -582,23 +593,27 @@ export default function ShareIndexPage() {
     // 依赖 tt：useTt 返回稳定引用，补进依赖后行为等价于“只在挂载时读一次”，故不再需要抑制
   }, [tt])
 
-  /** 构建 DrawerComponent 所需的 groupedData(共享日期桶:今天 / 本周 / 本月 / 更早) */
-  const groupedData = useMemo<DrawerDateGroup[]>(
-    () =>
-      groupConversationByDate(chatHistory, (c) => resolveConversationTimestamp([c.time])).map(
-        (g) => ({
-          bucket: g.key,
-          chats: g.items.map((c) => ({
-            id: c.id,
-            title: c.title,
-            date: c.time,
-            model: (c as { modelName?: string }).modelName,
-            pinned: (c as { pinned?: boolean }).pinned === true,
-            folder: (c as { folder?: string | null }).folder ?? null,
-          })),
-        }),
-      ),
-    [chatHistory],
+  /**
+   * 构建 DrawerComponent 所需的 groupedData。
+   * DrawerComponent 的契约是 `DrawerModelGroup[]`(模型名 + 该模型下的日期桶),本页没有按模型
+   * 拆分的历史对话(chatHistory 是全量流水),故只给一个"全部对话"组、把日期桶原样装进去;
+   * 不传 modelLogo 时抽屉按 LineIcon bot 兜底渲染(见 DrawerComponent:407-422)。
+   */
+  const groupedData = useMemo<DrawerModelGroup[]>(
+    () => [
+      {
+        modelName: tt('common.all', '全部'),
+        dateGroups: groupConversationByDate(chatHistory, (c) =>
+          resolveConversationTimestamp([c.time]),
+        ).map((g) => ({
+          // DrawerDateGroup 的契约是 { date, chats }:date 兼作抽屉里的分组标题(今天/本周/…)
+          date: String(g.key),
+          // DrawerChatItem 只允许 id/title/date 三键,多余字段会被 TS 的过量属性检查拒掉
+          chats: g.items.map((c) => ({ id: c.id, title: c.title, date: c.time })),
+        })),
+      },
+    ],
+    [chatHistory, tt],
   )
 
   /** TitleSwitchScrollTitle 列表数据 */
