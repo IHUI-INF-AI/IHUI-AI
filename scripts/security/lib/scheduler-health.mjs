@@ -237,6 +237,16 @@ function isNeverRunStamp(ms) {
 export function classifyTask(entry, opts = {}) {
   const name = String(entry?.name || '(unnamed)')
   const now = toMs(opts.now) ?? Date.now()
+  /* 声明在册但本机枚举不到:删掉一个哨兵是最省力的攻击动作,必须比「取不到返回码」先判。
+     这一型没有 Last Result、没有 Last Run、没有 Status —— 若走下面的 undetermined 分支,
+     它就是「一条永远不出现在报告里的红」。 */
+  if (entry && entry.declaredButMissing === true) {
+    return {
+      name,
+      verdict: 'breach',
+      reason: '在 scheduler-roster.json 的 expectedCadence 里声明为必须按点跑,但本机枚举不到这条任务(被删除或改名)',
+    }
+  }
   /* Number(null) 会静默变成 0 —— 那等于把「没取到」判成「成功」,必须先挡掉。 */
   if (!entry || entry.lastResult == null || !Number.isFinite(Number(entry.lastResult))) {
     return { name, verdict: 'undetermined', reason: '取不到 Last Result' }
@@ -354,9 +364,19 @@ export function judgeSchedulerHealth(entries, opts = {}) {
 /** 给每条 breach / warn 一句可执行的下一步。 */
 export function remediationForScheduler(result) {
   const out = []
+  /* 「声明在册但本机没有」这一型的下一步完全不同:对着一条不存在的任务 schtasks /run 是死路。 */
+  const missing = new Set(
+    (result?.rows || []).filter((r) => (r.reason || '').includes('枚举不到')).map((r) => r.name),
+  )
   const repeatHint =
     '若 Last Result=0 且 Status=Ready,再查 schtasks /query /tn "\\<name>" /xml:看 <Repetition> 是否带 <Duration>(短于服役期必死)、Next Run Time 是否已 N/A、触发器是否从 TimeTrigger 变成了 LogonTrigger/BootTrigger'
   for (const name of result?.breaches || []) {
+    if (missing.has(name)) {
+      out.push(
+        `${name}: 本机已没有这条任务 —— 先 schtasks /query | findstr /i "${name}" 看是否只是改名;确认被删就按 scripts/security/README.md 计划任务表重建定义,并把 scheduler-roster.json 里的键同步改成新名(键名写错也会走到这里)`,
+      )
+      continue
+    }
     out.push(
       `${name}: schtasks /run /tn "\\${name}" 立即补跑;仍失败则 schtasks /query /tn "\\${name}" /fo LIST /v 核对 Last Result 与 Task To Run 实际路径;${repeatHint}`,
     )
