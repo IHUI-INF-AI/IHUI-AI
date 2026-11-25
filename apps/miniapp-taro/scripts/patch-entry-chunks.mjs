@@ -28,6 +28,45 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist')
 const MARK = '/*miniapp-entry-chunks*/'
+
+// 运行时基座 chunk:由 app 入口/框架自身加载,页面入口不得重复 require。
+// 这些文件在 webpackJsonp 里同样带 chunk id,若按映射补挂会被重复打进每个页面。
+const BASE_CHUNK_FILES = new Set(['app.js', 'comp.js', 'taro.js', 'vendors.js', 'runtime.js'])
+
+/**
+ * 建立 webpack chunk id → 磁盘文件名映射。
+ *
+ * 背景:Taro 产物多数 chunk 按纯数字 id 命名(`<id>.js`),但个别 chunk(实测 `68e3`)
+ * 被重命名为顺序数字文件(`68000.js`)。补丁若只按 `<id>.js` 找文件,这条业务 chunk
+ * 会被判"产物不存在"而漏掉 ⇒ deferred 模块永不满足 ⇒ 页面组件工厂不执行 ⇒ 整屏白
+ * (page.data 只剩 `__webviewId__`)。这里读每个根 chunk 头部
+ * `webpackJsonp.push([[ids],…])` 反查 chunk id 对应的真实磁盘文件名。
+ */
+export function buildChunkIdMap(root = ROOT) {
+  const map = new Map()
+  if (!fs.existsSync(root)) return map
+  for (const ent of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!ent.isFile() || !ent.name.endsWith('.js')) continue
+    const head = fs.readFileSync(path.join(root, ent.name), 'utf8').slice(0, 200)
+    const m = head.match(/push\(\[\[([0-9A-Za-z,\s]*)\]/)
+    if (!m) continue
+    for (const id of m[1].split(',').map((s) => s.trim()).filter(Boolean)) {
+      if (!map.has(id)) map.set(id, ent.name)
+    }
+  }
+  return map
+}
+
+/** 解析 chunk id 对应的磁盘文件名:先按 `<id>.js` 直挂,落空再查 id→文件映射;基座文件不补。 */
+function resolveChunkFile(id, root, idMap) {
+  const byId = `${id}.js`
+  if (fs.existsSync(path.join(root, byId))) return byId
+  const mapped = idMap && idMap.get(id)
+  if (mapped && !BASE_CHUNK_FILES.has(mapped) && fs.existsSync(path.join(root, mapped))) {
+    return mapped
+  }
+  return null
+}
 // 2026-11-26 修:这里曾写死 `e.O(...)` + `[0-9,]+`,两处都过窄,实测把 34 个入口判成"无 deferred 列表"
 // 而静默跳过 ⇒ 那些页的 chunk 永不补挂 ⇒ 组件永不执行 ⇒ 整屏白(page.data 只剩 __webviewId__)。
 // ① 变量名前缀随入口类型而变(主入口 e、页面入口可能是 n/s/r)⇒ 收任意标识符;
@@ -36,15 +75,17 @@ const MARK = '/*miniapp-entry-chunks*/'
 //    否则同一条列表整段匹配失败,该页永远补不上 —— 这是「我的」页白屏的最后一层根因。
 const DEFERRED_RE = /[A-Za-z_$][A-Za-z0-9_$]*\.O\(0,\[\s*([0-9A-Za-z,\s]*?)\s*\]/
 
-export function patchFile(file, { root = ROOT } = {}) {
+export function patchFile(file, { root = ROOT, idMap } = {}) {
   const src = fs.readFileSync(file, 'utf8')
   if (src.includes(MARK)) return { changed: false, count: 0 }
   const m = src.match(DEFERRED_RE)
   if (!m) return { changed: false, count: 0 }
+  const map = idMap ?? buildChunkIdMap(root)
   const rels = []
   for (const id of m[1].split(',').map((s) => s.trim()).filter(Boolean)) {
-    const chunk = path.join(root, `${id}.js`)
-    if (!fs.existsSync(chunk)) continue
+    const chunkName = resolveChunkFile(id, root, map)
+    if (!chunkName) continue
+    const chunk = path.join(root, chunkName)
     let rel = path.relative(path.dirname(file), chunk).split(path.sep).join('/')
     if (!rel.startsWith('.')) rel = `./${rel}`
     rels.push(rel)
@@ -69,11 +110,12 @@ export function main(root = ROOT) {
     }
   }
   walk(root)
+  const idMap = buildChunkIdMap(root)
   let patched = 0
   let requires = 0
   for (const file of files) {
     if (!fs.readFileSync(file, 'utf8').includes('webpackJsonp')) continue
-    const r = patchFile(file, { root })
+    const r = patchFile(file, { root, idMap })
     if (r.changed) {
       patched += 1
       requires += r.count
@@ -93,5 +135,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { patchFile, MARK, DEFERRED_RE, ROOT }
+export const __test__ = { patchFile, buildChunkIdMap, MARK, DEFERRED_RE, ROOT, BASE_CHUNK_FILES }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
