@@ -89,6 +89,21 @@ describe('wechat hub analysis', () => {
     expect(run.result.stats.endAt).not.toBeNull()
   })
 
+  it('占位语音（[语音]）不进关键词语料，但仍算一条消息', async () => {
+    delete process.env.WECHAT_HUB_LLM_URL
+    const withVoice: WechatMessageView[] = [
+      ...MESSAGES,
+      { ...message('m5', '张三', '[语音]', 5), kind: 'voice' },
+      { ...message('m6', '李四', '[语音]', 6), kind: 'voice' },
+    ]
+    const run = await analyzeMessages('summary', '运营群', withVoice)
+    // 消息条数照算：语音也是会话里发生过的事。
+    expect(run.result.stats.messageCount).toBe(6)
+    // 但没有任何一段真实文本来自占位词，所以「语音」不该成为关键词。
+    expect(run.result.keywords.map((item) => item.word)).not.toContain('语音')
+    expect(run.result.keywords.map((item) => item.word)).not.toContain('[语音]')
+  })
+
   it('inputHash 对同一集合稳定、对集合变化敏感', () => {
     const ids = MESSAGES.map((item) => item.id)
     const first = hashAnalysisInput('summary', 'conv', ids)

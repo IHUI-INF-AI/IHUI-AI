@@ -187,7 +187,7 @@ export default function VoiceTranscribeButton({ accountId }: { accountId: string
         variant="outline"
         onClick={() => mutation.mutate()}
         disabled={mutation.isPending}
-        title="把未转写的语音消息批量转成文本，转完就能被检索和问数引用"
+        title="把未转写的语音消息批量转成文本；转完就能被问数、分析、导出与自动回复历史引用（知识库 RAG 需另行导入文档）"
       >
         {mutation.isPending ? (
           <Loader2 className="mr-1 h-3 w-3 animate-spin" />

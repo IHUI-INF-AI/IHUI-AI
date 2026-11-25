@@ -105,7 +105,7 @@ export function BrowserTaskTemplateEditor({
   onOpenChange,
   onStart,
 }: BrowserTaskTemplateEditorProps) {
-  const t = useTranslations('chat')
+  const t = useTranslations('aiChat')
   const [templates, setTemplates] = React.useState<BrowserTaskTemplate[]>([])
   const [loading, setLoading] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
