@@ -2579,7 +2579,13 @@
     "statusFailed": "Failed",
     "statusExpired": "Expired",
     "taskCancel": "Cancel task",
-    "delegatePromptPlaceholder": "Leave empty to run the last message in this conversation"
+    "delegatePromptPlaceholder": "Leave empty to run the last message in this conversation",
+    "approvalView": "Review",
+    "approvalTitle": "Execution plan",
+    "approvalClose": "Close",
+    "approvalApprove": "Approve",
+    "approvalReject": "Reject",
+    "approvalEmpty": "The executor left no plan text"
   },
   "pendingDecisions": {
     "title": "Pending decisions",

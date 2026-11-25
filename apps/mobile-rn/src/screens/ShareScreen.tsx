@@ -35,7 +35,6 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { appAlert } from '../components/BottomPops'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useNavigation } from '@react-navigation/native'
 import * as ImagePicker from '@/platform/image-picker'
@@ -260,11 +259,7 @@ export function ShareScreen() {
   }
 
   const pickImage = async (): Promise<void> => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (status !== 'granted') {
-      appAlert(t('home.pubTip'), t('share.needAlbum'))
-      return
-    }
+    // 系统 Photo Picker 不需要相册全量权限,直接拉起即可(vivo 0.0.29 权限审核要求)
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,

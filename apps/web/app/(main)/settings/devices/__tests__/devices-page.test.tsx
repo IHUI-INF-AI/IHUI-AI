@@ -34,6 +34,12 @@ const api = vi.hoisted(() => ({
   delegateSession: vi.fn(),
   getDeviceTasks: vi.fn(),
   fetchApi: vi.fn(),
+  // G2/G3 页面依赖的任务控制面:缺一个都会在渲染期直接 TypeError(模块 mock 是白名单)
+  cancelDeviceTask: vi.fn(),
+  retryDeviceTask: vi.fn(),
+  getDeviceTaskApproval: vi.fn(),
+  decideDeviceTaskApproval: vi.fn(),
+  subscribeUserBroadcast: vi.fn(() => ({ close: vi.fn() })),
 }))
 vi.mock('@ihui/api-client', () => api)
 
@@ -77,9 +83,13 @@ vi.mock('@ihui/ui-react', () => ({
   Table: ({ children }: { children?: React.ReactNode }) => <table>{children}</table>,
   TableHeader: ({ children }: { children?: React.ReactNode }) => <thead>{children}</thead>,
   TableBody: ({ children }: { children?: React.ReactNode }) => <tbody>{children}</tbody>,
-  TableRow: ({ children, 'data-testid': testId }: { children?: React.ReactNode; 'data-testid'?: string }) => (
-    <tr data-testid={testId}>{children}</tr>
-  ),
+  TableRow: ({
+    children,
+    'data-testid': testId,
+  }: {
+    children?: React.ReactNode
+    'data-testid'?: string
+  }) => <tr data-testid={testId}>{children}</tr>,
   TableHead: ({ children }: { children?: React.ReactNode }) => <th>{children}</th>,
   TableCell: ({ children }: { children?: React.ReactNode }) => <td>{children}</td>,
 }))
@@ -124,7 +134,12 @@ beforeEach(() => {
   vi.clearAllMocks()
   api.listDevices.mockResolvedValue(ok([DEVICE_ONLINE, DEVICE_OFFLINE]))
   api.fetchApi.mockResolvedValue(
-    ok({ conversations: [{ id: 'conv-1', title: '重构方案讨论' }], total: 1, page: 1, pageSize: 20 }),
+    ok({
+      conversations: [{ id: 'conv-1', title: '重构方案讨论' }],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+    }),
   )
   api.revokeDevice.mockResolvedValue(ok({ id: 'dev-1', revoked: true }))
   api.issuePairCode.mockResolvedValue({
@@ -205,7 +220,8 @@ describe('设备管理页', () => {
     fireEvent.click(screen.getByTestId('delegate-submit'))
 
     await waitFor(() =>
-      expect(api.delegateSession).toHaveBeenCalledWith('conv-1', 'dev-1'),
+      // G2 起第三参是执行载荷(此处留空 ⇒ 显式 undefined);参数个数同属契约
+      expect(api.delegateSession).toHaveBeenCalledWith('conv-1', 'dev-1', undefined),
     )
     const alerts = await screen.findAllByTestId('alert')
     expect(alerts.some((a) => a.textContent === 'devices.delegateSuccess')).toBe(true)
@@ -254,6 +270,63 @@ describe('设备管理页', () => {
 
     expect(await screen.findByTestId('task-row-task-1')).toBeTruthy()
     expect(screen.getByText('devices.taskStatus_running')).toBeTruthy()
+  })
+
+  it('G3 审批:待审批任务出审批入口,看到计划正文后同意会调 decideDeviceTaskApproval', async () => {
+    const now = new Date().toISOString()
+    api.getDeviceTasks.mockResolvedValue(
+      ok([
+        {
+          id: 'task-2',
+          sessionId: 'conv-1',
+          targetDeviceId: 'dev-1',
+          status: 'running',
+          claimedAt: now,
+          finishedAt: null,
+          error: null,
+          resultSummary: null,
+          createdAt: now,
+          createdBy: 'u-1',
+          payload: { prompt: '重构登录模块', mode: 'plan' },
+          messageId: 'msg-1',
+          progress: {
+            stage: 'awaiting_approval',
+            percent: 60,
+            lastEvent: '等待你批准计划',
+            updatedAt: now,
+          },
+          leaseExpiresAt: null,
+          cancelRequestedAt: null,
+          attempt: 1,
+          agentSessionId: null,
+          startedAt: now,
+          approvalRequest: { messageId: 'msg-1', preview: '先梳理现状,再改三处', requestedAt: now },
+          approvalDecision: null,
+        },
+      ]),
+    )
+    api.getDeviceTaskApproval.mockResolvedValue(
+      ok({ request: null, decision: null, plan: '第一步:梳理现状\n第二步:改三处' }),
+    )
+    api.decideDeviceTaskApproval.mockResolvedValue(ok({ decision: 'approved', status: 'running' }))
+
+    render(<DevicesPage />)
+    await screen.findByTestId('device-row-dev-1')
+    fireEvent.change(screen.getByTestId('tasks-device-select'), { target: { value: 'dev-1' } })
+
+    // 待审批 ⇒ 操作列出现审批入口(而不是只有取消)
+    const approveEntry = await screen.findByTestId('task-approve-task-2')
+    fireEvent.click(approveEntry)
+    await waitFor(() => expect(api.getDeviceTaskApproval).toHaveBeenCalledWith('task-2'))
+
+    // 面板显示的是消息里的计划正文(不是库里那份摘要)
+    const panel = await screen.findByTestId('approval-panel')
+    expect(panel.textContent ?? '').toContain('第二步:改三处')
+
+    fireEvent.click(screen.getByTestId('approval-approve'))
+    await waitFor(() =>
+      expect(api.decideDeviceTaskApproval).toHaveBeenCalledWith('task-2', 'approved'),
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -38,8 +38,10 @@ import {
 } from '@ihui/ui-react'
 import {
   cancelDeviceTask,
+  decideDeviceTaskApproval,
   delegateSession,
   fetchApi,
+  getDeviceTaskApproval,
   getDeviceTasks,
   issuePairCode,
   listDevices,
@@ -305,6 +307,58 @@ export default function DevicesPage() {
         setTasksError(t('devices.tasksLoadFailed'))
       } finally {
         setTaskActionBusy(null)
+      }
+    },
+    [loadTasks, t, tasksDeviceId],
+  )
+
+  // ---------- plan 档审批(G3):看计划正文,批了执行端才继续 ----------
+  const [approvalPanel, setApprovalPanel] = React.useState<{
+    taskId: string
+    plan: string | null
+    preview: string | null
+  } | null>(null)
+  const [approvalBusy, setApprovalBusy] = React.useState(false)
+
+  const openApproval = React.useCallback(
+    async (task: DeviceTaskRow) => {
+      setTasksError('')
+      setApprovalBusy(true)
+      try {
+        const res = await getDeviceTaskApproval(task.id)
+        setApprovalPanel({
+          taskId: task.id,
+          plan: res.success ? (res.data?.plan ?? null) : null,
+          preview: task.approvalRequest?.preview ?? null,
+        })
+        if (!res.success) setTasksError(res.error || t('devices.tasksLoadFailed'))
+      } catch {
+        // 正文取不到也要能批:退回摘要,不让人卡在"看不到就不敢批"
+        setApprovalPanel({
+          taskId: task.id,
+          plan: null,
+          preview: task.approvalRequest?.preview ?? null,
+        })
+      } finally {
+        setApprovalBusy(false)
+      }
+    },
+    [t],
+  )
+
+  const runDecide = React.useCallback(
+    async (taskId: string, decision: 'approved' | 'rejected') => {
+      setApprovalBusy(true)
+      setTasksError('')
+      try {
+        const res = await decideDeviceTaskApproval(taskId, decision)
+        if (!res.success) setTasksError(res.error || t('devices.tasksLoadFailed'))
+        setApprovalPanel(null)
+        await loadTasks(tasksDeviceId)
+      } catch {
+        setTasksError(t('devices.tasksLoadFailed'))
+      } finally {
+        setApprovalBusy(false)
       }
     },
     [loadTasks, t, tasksDeviceId],
@@ -727,36 +781,85 @@ export default function DevicesPage() {
                         {task.error || '—'}
                       </TableCell>
                       <TableCell>
-                        {task.status === 'queued' ||
-                        task.status === 'claimed' ||
-                        task.status === 'running' ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            data-testid={`task-cancel-${task.id}`}
-                            disabled={taskActionBusy === task.id}
-                            onClick={() => void runTaskAction(task.id, 'cancel')}
-                          >
-                            {t('devices.taskCancel')}
-                          </Button>
-                        ) : task.status === 'failed' || task.status === 'expired' ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            data-testid={`task-retry-${task.id}`}
-                            disabled={taskActionBusy === task.id}
-                            onClick={() => void runTaskAction(task.id, 'retry')}
-                          >
-                            {t('devices.taskRetry')}
-                          </Button>
-                        ) : (
-                          <span className="text-label text-muted-foreground">—</span>
-                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {task.progress?.stage === 'awaiting_approval' ? (
+                            <Button
+                              size="sm"
+                              data-testid={`task-approve-${task.id}`}
+                              disabled={taskActionBusy === task.id || approvalBusy}
+                              onClick={() => void openApproval(task)}
+                            >
+                              {t('devices.approvalView')}
+                            </Button>
+                          ) : null}
+                          {task.status === 'queued' ||
+                          task.status === 'claimed' ||
+                          task.status === 'running' ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              data-testid={`task-cancel-${task.id}`}
+                              disabled={taskActionBusy === task.id}
+                              onClick={() => void runTaskAction(task.id, 'cancel')}
+                            >
+                              {t('devices.taskCancel')}
+                            </Button>
+                          ) : task.status === 'failed' || task.status === 'expired' ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              data-testid={`task-retry-${task.id}`}
+                              disabled={taskActionBusy === task.id}
+                              onClick={() => void runTaskAction(task.id, 'retry')}
+                            >
+                              {t('devices.taskRetry')}
+                            </Button>
+                          ) : task.progress?.stage === 'awaiting_approval' ? null : (
+                            <span className="text-label text-muted-foreground">—</span>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          ) : null}
+          {approvalPanel ? (
+            <div
+              className="mt-3 space-y-2 rounded-lg border border-stroke-subtle p-3"
+              data-testid="approval-panel"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-label font-medium text-foreground">
+                  {t('devices.approvalTitle')}
+                </p>
+                <Button variant="ghost" size="sm" onClick={() => setApprovalPanel(null)}>
+                  {t('devices.approvalClose')}
+                </Button>
+              </div>
+              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/40 p-2 text-label text-muted-foreground">
+                {approvalPanel.plan ?? approvalPanel.preview ?? '—'}
+              </pre>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  data-testid="approval-approve"
+                  disabled={approvalBusy}
+                  onClick={() => void runDecide(approvalPanel.taskId, 'approved')}
+                >
+                  {t('devices.approvalApprove')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="approval-reject"
+                  disabled={approvalBusy}
+                  onClick={() => void runDecide(approvalPanel.taskId, 'rejected')}
+                >
+                  {t('devices.approvalReject')}
+                </Button>
+              </div>
             </div>
           ) : null}
         </CardContent>

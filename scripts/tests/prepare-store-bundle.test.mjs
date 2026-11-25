@@ -6,7 +6,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -199,6 +200,41 @@ test('S6b vivo 0.0.29 实测:四条存储/媒体读权限必须被摘除,且不�
     )
   }
   assert.ok(names.includes('android.permission.INTERNET'))
+})
+
+test('S6c 旧存储模型标记也必须摘除,且不误伤 application 其他属性', () => {
+  const require_ = createRequire(import.meta.url)
+  const plug = require_(join(HERE, '..', '..', 'apps', 'mobile-rn', 'plugins', 'withPermissionPruning.cjs'))
+  const { pruneLegacyStorage, pruneLegacyStorageFile, LEGACY_STORAGE_ATTR } = plug.__test__
+  const manifest = {
+    application: [
+      {
+        $: {
+          'android:name': '.MainApplication',
+          'android:requestLegacyExternalStorage': 'true',
+          'android:usesCleartextTraffic': 'false',
+        },
+      },
+    ],
+  }
+  assert.equal(pruneLegacyStorage(manifest), true, '0.0.31/0.0.32 合并清单实带该属性,必须能摘掉')
+  assert.ok(!(LEGACY_STORAGE_ATTR in manifest.application[0].$), '摘后不得留下 requestLegacyExternalStorage')
+  assert.equal(manifest.application[0].$['android:usesCleartextTraffic'], 'false', '不得误删其他 application 属性')
+  assert.equal(pruneLegacyStorage(manifest), false, '幂等:第二次跑不得再报摘除')
+  assert.equal(pruneLegacyStorage({}), false, '无 application 节点时不得抛错')
+  // 模板在 config plugin 之后才写入该属性,必须有一个落盘后的最终文件摘除器(2026-11-26 实测)
+  const dir = mkdtempSync(join(tmpdir(), 'ihui-prune-'))
+  const file = join(dir, 'AndroidManifest.xml')
+  writeFileSync(file, '<manifest><application android:name=".MainApplication" android:requestLegacyExternalStorage="true" android:usesCleartextTraffic="false"/></manifest>')
+  try {
+    assert.equal(pruneLegacyStorageFile(file), true)
+    const after = readFileSync(file, 'utf8')
+    assert.ok(!after.includes(LEGACY_STORAGE_ATTR), '最终 manifest 仍带旧存储标记 ⇒ 商店扫描器会当成超范围申请')
+    assert.ok(after.includes('android:usesCleartextTraffic="false"'), '最终文件摘除不得误伤其他属性')
+    assert.equal(pruneLegacyStorageFile(file), false, '文件摘除必须幂等')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test('S7 插件已挂进 app.config 的 plugins(装了不挂=没有,§0.9)', () => {

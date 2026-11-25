@@ -2579,7 +2579,13 @@
     "statusFailed": "실패",
     "statusExpired": "만료됨",
     "taskCancel": "작업 취소",
-    "delegatePromptPlaceholder": "비워 두면 이 대화의 마지막 메시지를 실행합니다"
+    "delegatePromptPlaceholder": "비워 두면 이 대화의 마지막 메시지를 실행합니다",
+    "approvalView": "승인",
+    "approvalTitle": "실행 계획",
+    "approvalClose": "닫기",
+    "approvalApprove": "실행 승인",
+    "approvalReject": "거절",
+    "approvalEmpty": "実行측이 계획 본문을 남기지 않았습니다"
   },
   "pendingDecisions": {
     "title": "내 대기 결정",

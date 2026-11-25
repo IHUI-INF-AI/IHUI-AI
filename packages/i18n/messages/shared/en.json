@@ -1331,7 +1331,13 @@
       "taskStatus_running": "Running",
       "taskStatus_completed": "Completed",
       "taskStatus_failed": "Failed",
-      "taskStatus_expired": "Expired"
+      "taskStatus_expired": "Expired",
+      "approvalView": "Review",
+      "approvalTitle": "Execution plan",
+      "approvalClose": "Close",
+      "approvalApprove": "Approve",
+      "approvalReject": "Reject",
+      "approvalEmpty": "The executor left no plan text"
     },
     "rumEnabled": "RUM enabled",
     "ip": {

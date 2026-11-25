@@ -110,6 +110,9 @@ const TASK: DeviceTaskRow = {
   attempt: 1,
   agentSessionId: 'agent-sess-1',
   startedAt: '2026-10-30T08:31:00Z',
+  // G3 审批字段(2026-11-26):两条空列是常态(只有 plan 档任务才会有值)
+  approvalRequest: null,
+  approvalDecision: null,
 }
 
 beforeEach(() => {
@@ -178,7 +181,10 @@ describe('DevicesScreen 撤销 / 委派 / 任务', () => {
     expect(await screen.findByText('产品评审讨论')).toBeTruthy()
     fireEvent.click(screen.getByText('产品评审讨论'))
     const api = await import('@ihui/api-client')
-    await waitFor(() => expect(api.delegateSession).toHaveBeenCalledWith('conv-9', 'dev-1'))
+    await waitFor(() =>
+      // G2 起 delegateSession 带第三参载荷(空指令时显式 undefined) —— 参数个数同样是契约
+      expect(api.delegateSession).toHaveBeenCalledWith('conv-9', 'dev-1', undefined),
+    )
     expect(pops.appAlert).toHaveBeenCalledWith('已委派', expect.stringContaining('办公台式机'))
   })
 
