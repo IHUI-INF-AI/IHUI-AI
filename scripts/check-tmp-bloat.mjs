@@ -51,7 +51,7 @@
  *
  * 退出码:0 = 已判定且未越阈 / 1 = 已判定且越阈(watch 或 alarm)/ 2 = 未判定或用法错。
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -66,6 +66,13 @@ const ALARM_MB = Number(process.env.IHUI_TMP_BLOAT_ALARM_MB ?? 50)
 const WATCH_MB = Number(process.env.IHUI_TMP_BLOAT_WATCH_MB ?? 20)
 const ALARM_BYTES = ALARM_MB * MB
 const WATCH_BYTES = WATCH_MB * MB
+// 总量维(2026-11-25 立):单枚判据看不见「小文件海量堆积」—— 实测 tmp 曾达 7.3GB 而绝大多数
+// 单枚都 <50MB(构建中间产物 / node_modules / 夹具目录),旧口径一路判 ok,膨胀因此无人拦。
+// 总量阈值不可被「有意保留」台账豁免:台账只描述某枚该不该在这儿,管不住整片堆积。
+const TOTAL_ALARM_MB = Number(process.env.IHUI_TMP_BLOAT_TOTAL_ALARM_MB ?? 2000)
+const TOTAL_WATCH_MB = Number(process.env.IHUI_TMP_BLOAT_TOTAL_WATCH_MB ?? 800)
+const TOTAL_ALARM_BYTES = TOTAL_ALARM_MB * MB
+const TOTAL_WATCH_BYTES = TOTAL_WATCH_MB * MB
 
 const SELF_TEST = process.argv.includes('--self-test')
 const AS_JSON = process.argv.includes('--json')
@@ -75,6 +82,14 @@ const KEEP_LEDGER = process.env.IHUI_TMP_BLOAT_KEEP_JSON
 
 function log(line) {
   process.stdout.write(`${line}\n`)
+}
+
+/** 纯判据:单枚两档 + 总量两档取最严。零 IO,classify 与 applyKeep 共用(§22c 单实现)。 */
+export function stateOf(over50, over20, totalBytes) {
+  const total = Number(totalBytes) || 0
+  if (over50.length > 0 || total > TOTAL_ALARM_BYTES) return 'alarm'
+  if (over20.length > 0 || total > TOTAL_WATCH_BYTES) return 'watch'
+  return 'ok'
 }
 
 /** 纯判据:把一组枚记录归两档。不碰磁盘,供自检与镜像测试 import(§22c 单一实现)。 */
@@ -94,7 +109,7 @@ export function classify(entries) {
     if (bytes > ALARM_BYTES) over50.push({ rel: e.rel, bytes })
     else if (bytes > WATCH_BYTES) over20.push({ rel: e.rel, bytes })
   }
-  const state = over50.length > 0 ? 'alarm' : over20.length > 0 ? 'watch' : 'ok'
+  const state = stateOf(over50, over20, totalBytes)
   return {
     files: (entries || []).length,
     totalBytes,
@@ -170,7 +185,7 @@ export function applyKeep(result, entries, nowMs = Date.now()) {
     } else if (bytes > ALARM_BYTES) over50.push(x)
     else over20.push(x)
   }
-  const state = over50.length > 0 ? 'alarm' : over20.length > 0 ? 'watch' : 'ok'
+  const state = stateOf(over50, over20, Number(result?.totalBytes) || 0)
   return { over50, over20, kept, expired, state }
 }
 
@@ -191,7 +206,9 @@ export function applyKeep(result, entries, nowMs = Date.now()) {
       else if (ent.isFile()) {
         let bytes = 0
         try {
-          bytes = readFileSync(childAbs).length
+          // statSync 只读元数据:旧实现 readFileSync(childAbs).length 会把每个文件内容整份读进内存,
+          // 对 GB 级目录(2.7GB 夹具)一次巡检就把进程打爆,且读失败即误报 0 字节。
+          bytes = statSync(childAbs).size
         } catch {
           bytes = 0
         }
@@ -233,6 +250,17 @@ function selfTest() {
     { name: '空目录判 ok(不冒充越阈)', entries: [], want: 'ok', over50: 0, over20: 0 },
     { name: '恰好 50MB 不算 >50(边界严格大于)', entries: [{ rel: 'd/x', bytes: ALARM_BYTES }], want: 'watch', over50: 0, over20: 1 },
     { name: '恰好 20MB 不算 >20', entries: [{ rel: 'e/y', bytes: WATCH_BYTES }], want: 'ok', over50: 0, over20: 0 },
+    // 总量维的两条牙:单枚全不越阈,但整片堆积越总量档时必须抬档(旧口径会判 ok)。
+    {
+      name: '总量 2.6GB 无单枚越阈(5MB×520)⇒ alarm(单枚判据的盲区)',
+      entries: Array.from({ length: 520 }, (_, i) => ({ rel: `big/${i}.bin`, bytes: 5 * MB })),
+      want: 'alarm', over50: 0, over20: 0,
+    },
+    {
+      name: '总量 1GB 无单枚越阈(5MB×200)⇒ watch',
+      entries: Array.from({ length: 200 }, (_, i) => ({ rel: `mid/${i}.bin`, bytes: 5 * MB })),
+      want: 'watch', over50: 0, over20: 0,
+    },
     // 第 92 项:登记面的四条牙 —— 命中就降档、到期就失效、跑出根就作废、坏 JSON 一条都不豁免。
     {
       name: '登记命中 ⇒ 该枚进 kept,不抬 alarm',
@@ -277,8 +305,12 @@ function selfTest() {
 }
 
 function conclusionLine(r) {
+  // totalState 必须排在 state= 之后:git-guardian 的 auditTmpBloat 用
+  // `/...kept=(\d+))?\s+state=([A-Za-z]+)/` 解析,插在中间会让整行匹配失败
+  // (哨兵照跑但"读不出来",等于没装车)。
   return `TMP-BLOAT files=${r.files} total=${fmtMb(r.totalBytes)} MB max=${fmtMb(r.maxBytes)} MB ` +
-    `over50=${r.over50.length} over20=${r.over20.length} kept=${(r.kept || []).length} state=${r.state}`
+    `over50=${r.over50.length} over20=${r.over20.length} kept=${(r.kept || []).length} ` +
+    `state=${r.state} totalState=${stateOf([], [], r.totalBytes)}`
 }
 
 /** 台账读不到 / 坏 ⇒ 不豁免(方向是多喊一次),但要把原因带进读数,不许静默。 */

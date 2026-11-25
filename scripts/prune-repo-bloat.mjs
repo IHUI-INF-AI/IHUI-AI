@@ -42,6 +42,7 @@
 import { mkdirSync, readdirSync, statSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { gitRaw } from './lib/face-reader.mjs'
+import { pruneBundles } from './lib/bundle-retain.mjs'
 
 const ROOT = resolve(process.cwd())
 const APPLY = process.argv.includes('--apply')
@@ -54,6 +55,9 @@ const argOf = (name, dflt) => {
 const ALERT_MB = argOf('--alert-mb', 400)
 const KEEP_STALE_HOURS = argOf('--keep-stale-hours', 2)
 const BUNDLE_CHUNK = 200
+// 仓外归档保留份数（2026-11-25）：只把 bundle 挪出仓库不老化 = 把膨胀换了个位置；
+// 每轮 over-budget 会写一份 GB 级 bundle，不设保留量仓外会无界增长。
+const BUNDLE_RETAIN = argOf('--bundle-retain', Number(process.env.IHUI_BUNDLE_RETAIN ?? 3))
 const STATE_DIR = join(ROOT, '.ihui-agent', 'state', 'repo-bloat-prune')
 // 2026-11-25 立：旧历史 bundle 可达 GB 级（本案实测 1.6GB），落进仓库工作树属纯磁盘膨胀
 // （虽被 .gitignore 的 *.bundle 挡在 git 之外）。默认落仓外兄弟目录，绝不进工作树。
@@ -219,6 +223,11 @@ if (legacyTags.length) {
     bundled += chunk.length
     console.log(`   ✓ bundle ${chunk.length} 枚 → ${file}`)
   }
+  // 仓外冷归档老化：不老化 = 把膨胀从仓内挪到仓外。只在新 bundle 已写成功并 verify
+  // 之后调用（失效方向恒为多留一份，§0.10）。
+  const aged = pruneBundles(BUNDLE_DIR, { retain: BUNDLE_RETAIN })
+  if (aged.removed.length) console.log(`   ✓ 仓外归档老化：保留最近 ${BUNDLE_RETAIN} 份，删 ${aged.removed.length} 份更老的`)
+  if (aged.skipped) console.log(`   ℹ️ 仓外归档老化未判定：${aged.skipped}`)
 }
 
 const allDrop = [...legacyTags.map((r) => r.ref), ...legacyRemotes.map((r) => r.ref)]

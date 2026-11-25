@@ -161,6 +161,9 @@ class WecomMcpClient:
         return headers
 
     async def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
+        # JSON-RPC 通知(无 id)按 Streamable HTTP 规范只回 202/204 空响应,
+        # 不能按普通请求去解析 JSON,否则 notifications/initialized 会把 202 当失败。
+        is_notification = "id" not in payload
         async with httpx.AsyncClient(
             timeout=self.timeout_s, follow_redirects=False, trust_env=False
         ) as client:
@@ -171,6 +174,10 @@ class WecomMcpClient:
         if sid:
             self._session_id = sid
         raw = resp.content or b""
+        if is_notification:
+            if resp.status_code >= 400:
+                raise WecomMcpError(f"MCP 通知被拒绝 HTTP {resp.status_code}")
+            return {}
         truncated = False
         if len(raw) > self.max_response_bytes:
             raw = raw[: self.max_response_bytes]
