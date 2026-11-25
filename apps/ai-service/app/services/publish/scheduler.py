@@ -50,6 +50,7 @@ from .anti_risk import (
 )
 from .base_adapter import PublishContent, PublishResult, get_adapter
 from .content_parser import enrich_content, enrich_content_for_platform
+from .credential_compat import normalize_credentials
 from .credentials_crypto import decrypt
 from .db_write_guard import log_db_write_failure
 from .image_uploader import process_external_images
@@ -1128,7 +1129,7 @@ class PublishScheduler:
             cipher = row["credentials_enc"]
             if not cipher:
                 return None
-            return decrypt(cipher)
+            return normalize_credentials(platform, decrypt(cipher))
         except Exception as e:
             logger.warning(
                 "[publish.scheduler] load credentials failed: %s: %s", type(e).__name__, e
