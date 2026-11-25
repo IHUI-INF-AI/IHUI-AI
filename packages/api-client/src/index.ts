@@ -372,7 +372,7 @@ export * from './endpoints/issue-binding.js'
 // D125:多用户协作会话(邀请/评论)REST 消费面
 export * from './endpoints/chat-collab.js'
 export * from './endpoints/community.js'
-// 中文连接器端点(2026-09-02 立,P2-2 语雀/飞书/企微/钉钉文档接入)
+// 连接器端点(2026-09-02 立,P2-2 语雀/飞书/企微/钉钉文档接入)
 export * from './endpoints/connectors.js'
 export * from './endpoints/course.js'
 export * from './endpoints/crew.js'

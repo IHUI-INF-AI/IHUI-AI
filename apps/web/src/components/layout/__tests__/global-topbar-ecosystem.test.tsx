@@ -79,7 +79,7 @@ const { MESSAGES, mockLocale } = vi.hoisted(() => ({
         mcpStore: { title: 'MCP 商店' },
         capabilityMarket: { title: '能力市场' },
         skillsMarket: { title: 'Skill 市场' },
-        connectors: { title: '中文连接器' },
+        connectors: { title: '连接器' },
       },
     },
     ide: {
@@ -253,7 +253,7 @@ describe('GlobalTopBar / 生态市场单入口(D17)', () => {
       (item) => item.textContent ?? '',
     )
     expect(labels.join('|')).toContain('MCP 商店')
-    expect(labels.join('|')).toContain('中文连接器')
+    expect(labels.join('|')).toContain('连接器')
     expect(labels.join('|')).not.toContain('cards.')
   })
 
@@ -268,14 +268,14 @@ describe('GlobalTopBar / 生态市场单入口(D17)', () => {
     }
     const text = panel?.textContent ?? ''
     expect(text).not.toContain('MCP 商店')
-    expect(text).not.toContain('中文连接器')
+    expect(text).not.toContain('连接器')
   })
 
   it('无障碍:入口 aria-label 脱离上下文成立(入口名 + 5 个直达项名)', () => {
     render(<GlobalTopBar />)
     const label = trigger().getAttribute('aria-label') ?? ''
     expect(label).toContain('生态市场')
-    for (const name of ['AI 技能', 'MCP 商店', '能力市场', 'Skill 市场', '中文连接器']) {
+    for (const name of ['AI 技能', 'MCP 商店', '能力市场', 'Skill 市场', '连接器']) {
       expect(label).toContain(name)
     }
     // 不得直出词包键名(守门 74 口径)

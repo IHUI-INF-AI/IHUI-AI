@@ -505,7 +505,7 @@ const nextConfig: NextConfig = {
           source: '/api/sandbox-exec/:path*',
           destination: `${IHUI_AI_PROXY_TARGET}/api/sandbox-exec/:path*`,
         },
-        // 2026-09-02 新增:Connectors 路由直连 ai-service 8803(P2-2 中文连接器)
+        // 2026-09-02 新增:Connectors 路由直连 ai-service 8803(P2-2 连接器)
         // 原因:connectors router 注册在 ai-service(prefix="/api"),必须直连 8803 才命中
         {
           source: '/api/connectors/:path*',
