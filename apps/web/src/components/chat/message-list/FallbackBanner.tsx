@@ -79,15 +79,24 @@ export function FallbackBanner({
     ((retryView.scheduleLabel !== null && retryView.scheduleLabel !== undefined) ||
       (retryView.httpStatusLabel !== null && retryView.httpStatusLabel !== undefined) ||
       (retryView.noResponseLabel !== null && retryView.noResponseLabel !== undefined))
-  const noticeText = isQuotaEquivalent
-    ? t('fallbackNoticeQuota', {
+  // 2026-11-26(用户定档):「我的号池」通道内换号也要交代 —— 自己的账号里
+  // 哪一号被限流/额度不足、换到了哪一号,属于用户自己的资产状态,不算"折磨用户"。
+  // 平台/auto 通道不会带这个 reason(那条腿静默),所以这里只多一条分支。
+  const isAccountSwitch = fallbackNotice.reason === 'account_switch'
+  const noticeText = isAccountSwitch
+    ? t('fallbackAccountSwitch', {
         primary: fallbackNotice.primaryModel,
         backup: fallbackNotice.backupModel,
       })
-    : t('fallbackNotice', {
-        primary: fallbackNotice.primaryModel,
-        backup: fallbackNotice.backupModel,
-      })
+    : isQuotaEquivalent
+      ? t('fallbackNoticeQuota', {
+          primary: fallbackNotice.primaryModel,
+          backup: fallbackNotice.backupModel,
+        })
+      : t('fallbackNotice', {
+          primary: fallbackNotice.primaryModel,
+          backup: fallbackNotice.backupModel,
+        })
   // D56① 英文过渡(词表释放后换中文键):packages/i18n 词表被占用,fallback 先用英文过渡
   // (见 D56 键清单 en 列),词表可用后换回中文;过渡串不得暗示必须充值。
   const pickText = (key: string, fallback: string): string => {

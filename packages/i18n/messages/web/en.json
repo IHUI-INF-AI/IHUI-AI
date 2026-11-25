@@ -11498,6 +11498,7 @@
       "exportPdf": "Export PDF"
     },
     "fallbackNotice": "Switched to backup model {backup} (primary model {primary} temporarily unavailable)",
+    "fallbackAccountSwitch": "Answered by backup account {backup} ({primary} hit a rate limit or ran out of quota, switched automatically)",
     "fallbackNoticeQuota": "This answer was written by {backup}. The provider account behind {primary} ran out of quota, so the platform routed to an equivalent model in the same family.",
     "feedbackRecorded": "Feedback recorded",
     "foldPolicy": {

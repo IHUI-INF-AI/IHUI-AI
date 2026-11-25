@@ -11486,6 +11486,7 @@
       "exportPdf": "PDF をエクスポート"
     },
     "fallbackNotice": "バックアップモデル {backup} に切り替えました(元モデル {primary} は一時的に利用不可)",
+    "fallbackAccountSwitch": "予備アカウント {backup} が応答({primary} はレート制限または枠不足のため自動切替)",
     "fallbackNoticeQuota": "今回の回答は {backup} が生成しました（{primary} を提供する事業者のアカウント利用枠が上限に達したため、同一系列の利用可能なモデルに自動で切り替えました）。",
     "feedbackRecorded": "フィードバックを記録しました",
     "foldPolicy": {
