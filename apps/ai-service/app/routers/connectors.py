@@ -39,6 +39,7 @@ from ..services.connectors.base import (
     CAPABILITIES,
     CONNECTOR_MODES,
     DEFAULT_PROBE_LIMIT,
+    MAX_OPERATIONS,
     MAX_PROBE_LIMIT,
     ConnectorOperationError,
     ConnectorSpec,
@@ -466,6 +467,47 @@ def _resolve_oauth_redirect_uri(platform: str, cred: dict[str, Any] | None = Non
     return f"{_OAUTH_SITE_BASE}/callback?platform={platform}"
 
 
+def _user_oauth_operations(platform: str) -> list[dict[str, Any]]:
+    """用户 OAuth 连接器只装台账里的「用户授权态」API。
+
+    用户扫码后得到的 ``{platform}:user-oauth`` 连接器,spec.auth_kind 是
+    ``{platform}_user``,只能以授权人身份调用户态接口(台账 ``auth`` 以 ``_user``
+    结尾,如 ``feishu_user``)。旧实现照抄内置模板(飞书仅 9 条 tenant 态操作),
+    导致台账里 164 条用户态 API 全部调不到 —— 本函数即修此处。
+
+    回退(绝不静默落空壳连接器):
+    - 台账未判定(state != "ok")或无可用条目 ⇒ 内置默认模板;
+    - 平台无用户态 API(钉钉/企微台账 auth 全是应用态)⇒ 内置默认模板;
+    - 用户态数超过单连接器上限 MAX_OPERATIONS(防台账未来膨胀)⇒ 截断并记 warning。
+
+    写操作的安全门(disabled/confirm)由 coverage.api_to_operation 原生生成,保持不动。
+    """
+    bundle = coverage.load_catalog(platform)
+    if bundle.state != "ok" or not bundle.apis:
+        return catalog.default_operations(platform)
+
+    user_apis = [
+        api
+        for api in bundle.apis
+        if str(api.get("auth") or "").strip().endswith(
+            ("_user", "_user_access_token", "_user_token")
+        )
+    ]
+    if not user_apis:
+        return catalog.default_operations(platform)
+
+    if len(user_apis) > MAX_OPERATIONS:
+        logger.warning(
+            "[oauth] 平台 %s 用户态 API 共 %d 条,超过单连接器上限 %d,截断至上限",
+            platform,
+            len(user_apis),
+            MAX_OPERATIONS,
+        )
+        user_apis = user_apis[:MAX_OPERATIONS]
+
+    return [coverage.api_to_operation(api, bundle.base_url) for api in user_apis]
+
+
 @router.get("/oauth/callback", response_model=None)
 async def oauth_callback(
     request: Request,
@@ -551,7 +593,7 @@ async def oauth_callback(
                 "extra": {connector_oauth.USER_TOKEN_EXTRA_KEY: cipher},
                 "mode": "preset",
                 "spec": spec,
-                "operations": catalog.default_operations(platform),
+                "operations": _user_oauth_operations(platform),
                 "enabled": True,
                 "managed": True,
                 "credential_source": str(cred.get("source") or "platform_env"),
@@ -560,6 +602,9 @@ async def oauth_callback(
             extra = dict(rec.get("extra") or {})
             extra[connector_oauth.USER_TOKEN_EXTRA_KEY] = cipher
             rec["extra"] = extra
+            # 存量用户(旧版只落 9 条静态操作)重新扫码时一并补齐全量 user 操作,
+            # 否则重新授权只刷 token、AI 仍只能调旧的那几条 —— 与首次授权口径对齐。
+            rec["operations"] = _user_oauth_operations(platform)
         saved = connector_store.save(scope, rec, tenant_id=tenant_id)
         if saved is None:
             raise connector_oauth.ConnectorOAuthError("用户授权凭据保存失败")
