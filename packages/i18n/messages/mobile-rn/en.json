@@ -3806,7 +3806,7 @@
     "paid": "Paid",
     "searchPlaceholder": "Search agents",
     "title": "Agent Market",
-    "uses": "Uses"
+    "uses": "uses"
   },
   "agentReviewList": {
     "author": "Author",
@@ -7910,5 +7910,63 @@
   "charCount": "{count} chars",
   "sourceWeb": "Web",
   "sourceApp": "Mobile",
-  "sourceMiniApp": "Mini"
+  "sourceMiniApp": "Mini",
+  "introducePopup": {
+    "index": {
+      "title": "Membership benefits",
+      "b1": "Access to top-tier AI models such as GPT-4",
+      "b2": "HD video generation, 4K quality without watermark",
+      "b3": "Unlock all paid courses",
+      "b4": "Exclusive member content updated regularly",
+      "b5": "24/7 online support",
+      "b6": "Exclusive discounts on credits, courses and services",
+      "b7": "Dedicated agent usage quota",
+      "b8": "Priority access to platform events",
+      "b9": "One-on-one Q&A and coaching",
+      "b10": "Join the member community",
+      "moreBenefits": "Contact customer service for more benefits",
+      "btnConfirm": "View tier benefits"
+    },
+    "indexs": {
+      "title": "Trader benefits",
+      "b1": "Daily curated category insights to keep you ahead",
+      "b2": "Priority founder consultations and AI startup project eligibility",
+      "b3": "One-month early access to the latest Agentic beta",
+      "b4": "Exclusive discounts on credits, courses and services",
+      "b5": "Large referral quota and community provider listing",
+      "b6": "Maxed membership tier with all top-tier discounts",
+      "b7": "Two-level referral rights to grow your team and earnings",
+      "b8": "One-on-one Q&A and coaching from the founder",
+      "b9": "Headquarters onboarding and offline hands-on learning",
+      "b10": "Top-tier network connections and quality project sharing",
+      "moreBenefits": "Contact customer service for more benefits",
+      "btnConfirm": "Activate now",
+      "btnClose": "Close"
+    },
+    "levelIndex": {
+      "title": "Tier benefits",
+      "lv1": "Level 1 · Algorithm Sprout: basic member discount and exclusive badge",
+      "lv2": "Level 2 · Digital Source Awakening: 2% off",
+      "lv3": "Level 3 · Model Beginner: 5% off",
+      "lv4": "Level 4 · Pioneer Explorer: 8% off",
+      "lv5": "Level 5 · Computation Beginner: 11% off",
+      "lv6": "Level 6 · Data Expert: 14% off",
+      "lv7": "Level 7 · Intelligent Hub: 17% off",
+      "lv8": "Level 8 · Smart Navigator: 20% off",
+      "lv9": "Level 9 · Quantum Mind: 23% off",
+      "lv10": "Level 10 · Hyper-Dimensional Oracle: 30% off",
+      "levelText": "Exclusive benefits for your current tier",
+      "btnConfirm": "Upgrade now"
+    },
+    "privateAdvisory": {
+      "title": "Private advisor",
+      "b1": "One-on-one dedicated advisor throughout",
+      "b2": "Access to closed-door salons",
+      "b3": "Private exchanges with industry leaders",
+      "b4": "High-end networking connections",
+      "b5": "Tailored solutions",
+      "btnConfirm": "Contact advisor"
+    },
+    "closeA11y": "Close introduction popup"
+  }
 }

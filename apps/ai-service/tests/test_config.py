@@ -154,7 +154,6 @@ def test_default_jwt_public_paths(monkeypatch):
     assert "/metrics" in paths
     assert "/health" in paths
     # 2026-09-09:统一媒体回调(TokenGo webhook 无 JWT,靠 HMAC 验签),必须放行
-    assert "/api/media/tasks/callback" in paths
 
 
 # =============================================================================

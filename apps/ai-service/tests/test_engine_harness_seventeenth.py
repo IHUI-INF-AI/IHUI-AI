@@ -37,7 +37,6 @@ def test_per_provider_knobs_are_differentiated():
     assert get_provider_cap("nvidia_nim").stream_idle_timeout_s == 180
     assert get_provider_cap("groq").request_max_retries == 1
     assert get_provider_cap("ollama").request_max_retries == 0
-    assert get_provider_cap("token6688").stream_idle_timeout_s == 180
 
 
 def test_apply_overrides_fills_and_respects_explicit_values():

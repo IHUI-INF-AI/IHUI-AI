@@ -347,7 +347,7 @@ describe('ToolCallCard summary rendering', () => {
 })
 
 /**
- * ToolCallCard audio / video 媒体渲染守门测试(token6688 music/video_generation,2026-09-08)。
+ * ToolCallCard audio / video 媒体渲染守门测试(music/video_generation,2026-09-08)。
  *
  * 验证 music_generation(audioUrl)→ <audio> 播放器、video_generation(videoUrl)→
  * <video> 播放器专用分支;无 URL(任务未完成,仅 task_id)时回退 JSON 渲染。

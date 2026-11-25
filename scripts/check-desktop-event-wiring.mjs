@@ -916,11 +916,13 @@ const TRAY_ARM_EMIT_RE = new RegExp(`"${TRAY_ACTION_EVENT}"\\s*,\\s*"([a-z_]+)"`
  * `spawn_relay_switch(` 于 2026-11-11 加入:tray.relay_switch(操作员专属托盘项)的去向是
  * **Rust 自己拉起独立控制台**跑仓内切号器(不经 webview、不经 IPC)。它属于"点了真有反应",
  * 只是不在窗口一族里,不认它就会把一个真能弹控制台的分支判成"完全没反应"。
+ * `toggle_from_tray(` 于 2026-11-26 同型加入:tray.device_executor 的去向是
+ * **Rust 原地起停本机常驻执行器**,不经 webview、不经 IPC;不认它同样会把真分支判死。
  * 刻意只加**精确函数名**,**不加** `Command::new` 一类的通用进程创建形态 ——
  * 通用形态会让任何分支里一句无关的进程创建被认作去向,等于把 H3 判据放空(§12f 反向)。
  */
 const TRAY_ARM_NATIVE_RE =
-  /\.(?:show|hide|set_focus|minimize|maximize|unminimize)\s*\(\s*\)|\bapp\s*\.\s*exit\s*\(|\barm_forced_exit\s*\(|\bexit_application\s*\(|\bstd\s*::\s*process\s*::\s*exit\s*\(|\bspawn_relay_switch\s*\(/
+  /\.(?:show|hide|set_focus|minimize|maximize|unminimize)\s*\(\s*\)|\bapp\s*\.\s*exit\s*\(|\barm_forced_exit\s*\(|\bexit_application\s*\(|\bstd\s*::\s*process\s*::\s*exit\s*\(|\bspawn_relay_switch\s*\(|\btoggle_from_tray\s*\(/
 
 /**
  * 从被审面现读托盘项登记表:`pub const TRAY_MENU_ITEMS: [TrayMenuItem; N] = [ … ]`。

@@ -650,7 +650,7 @@ Pydantic Settings,字段名统一小写(与 services/routers 既有代码一致)
 | `CREDENTIALS_ENCRYPTION_KEY` | (空) | 凭据加密密钥(与 apps/api 共享,≥32 字符) |
 | `JWT_SECRET` | (空) | JWT 密钥(与 apps/api 共享,SSO 跨服务) |
 | `JWT_ISSUER` | `ihui-ai` | JWT 签发者 |
-| `JWT_PUBLIC_PATHS` | `/api/health,/api/legacy/,/health,/metrics,/api/publish/scan-login/platforms,/api/admin/news/status,/api/voice/stt,/api/voice/tts,/api/artifacts/f/,/api/video/token6688-callback,/api/media/tasks/callback,/.well-known/agent.json,/.well-known/agent-card.json` | JWT 不验签白名单(整串替换,见下节三条硬边界) |
+| `JWT_PUBLIC_PATHS` | `/api/health,/api/legacy/,/health,/metrics,/api/publish/scan-login/platforms,/api/admin/news/status,/api/voice/stt,/api/voice/tts,/api/artifacts/f/,/.well-known/agent.json,/.well-known/agent-card.json` | JWT 不验签白名单(整串替换,见下节三条硬边界) |
 | `AGENT_CONTROL_INTERNAL_SECRET` | (空) | agent_control 内部调用密钥 |
 | `MCP_WORKSPACE_ROOTS` | `os.getcwd()` | MCP 文件操作白名单根目录(`os.pathsep` 分隔) |
 | `SELF_MEDIA_CRON_ENABLED` | `false` | 自媒体定时任务开关 |

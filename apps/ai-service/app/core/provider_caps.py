@@ -115,17 +115,6 @@ PROVIDER_CAPS: dict[str, ProviderCap] = {
         max_context=128000,
         request_max_retries=1,
     ),
-    # Token6688 聚合网关(TokenGo 系):stream_usage 未知先按 False 兜底,
-    # 超时放宽(聚合网关上游链路长),vision 走多模态模型
-    "token6688": ProviderCap(
-        supports_stream_usage=False,
-        supports_vision=True,
-        default_timeout=120,
-        max_context=128000,
-        # 聚合网关上游链路长,排队与首字节等待都更久
-        request_max_retries=3,
-        stream_idle_timeout_s=180,
-    ),
     "openrouter": ProviderCap(
         supports_stream_usage=True,
         max_context=128000,

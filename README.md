@@ -1474,3 +1474,42 @@ Headline claims (same source as the table below, all live-computed): **624 table
 - 📚 文档:add MiniMax CUA 59-tool surface and read-only status limits (138bb941)
 - 📚 文档:record MiniMax CUA driver as not running and telemetry disabled (d009608e)
 - 📚 文档:add MiniMax srt-win CLI and unprovisioned runtime state (6dd05526)
+Two structural gates are named here so they cannot be re-invented or bypassed silently:
+- [`scripts/check-bloat-guards-alive.mjs`](./scripts/check-bloat-guards-alive.mjs) — fails when the
+  anti-bloat machinery (tmp-scratch prune legs, archive anchors) is silently removed from a commit
+  whose message claims something else. Self-check: `node scripts/check-bloat-guards-alive.mjs --self-test`.
+  No dedicated skip variable; a genuine emergency goes through the guardian bypass with a written reason.
+- [`scripts/check-horizontal-gutter.mjs`](./scripts/check-horizontal-gutter.mjs) — fails when a
+  horizontal gutter/inset value is written locally instead of reusing the single role source; it
+  reports newly introduced raw values against its own baseline. Check with
+  `node scripts/check-horizontal-gutter.mjs` (add `--staged` to judge the index face). No dedicated
+  skip variable; the same bypass rule applies.
+**2026-11-26**
+- 🐞 修复:入口补丁按 chunk-id 映射重命名产物,根治「我的」页整屏白 (fab5be66)
+- 🐞 修复:广场空态强调行去紫归位墨档(旧项目 #847CFF 遗留) (37a3ccda)
+- 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (58d5100a)
+- 🐞 修复:CI action 全部 pin 到 40 位 sha + wechat-bridge 镜像非 root 运行(安全审计 88→100) (59b98e64)
+- 📚 文档:号池与计费现状只读盘点（纠正五十，运维侧新章，不进客户端矩阵） (03aeaeb0)
+- 📚 文档:一致性审计修正（相位计数/矩阵补行/路径规范） (42188cac)
+- 📚 文档:Codex 替代登录路径穷尽，仅剩人工授权与验证链（纠正四十九） (2f4fe301)
+- 📚 文档:WorkBuddy 出站补丁实验级原型验证（纠正四十八，非产品级闭环） (37016547)
+- 🐞 修复:补齐 input 圆角档调用面,消除生产 clean build 的 TS2353 (45222112)
+- 🐞 修复:圆角档删除 sm 后补漏 RADIUS_CLASS 键(ui-react Input + 小程序 Input,类名仍 rounded-md=6px,视觉零变化) (4dff8462)
+- 🐞 修复:auto 首选补故障转移链,流式前置检查不再拒字面 auto (b3a7c9a1)
+- 🚀 新功能/改进:harden readonly gate, encrypt remembered password, enable self device token (dc7a763d)
+- 🐞 修复:entry chunk 补挂正则收跨行列表(34 入口/747 require)修复整屏白 + VIP 权益中文标签单一源 + 分类横排 contentContainer 修正 (0ed83c6f)
+- 🐞 修复:Input 圆角档位对齐单一源(INPUT_RADIUS_TIER='md'),修 HEAD 上 sm 键导致 ui-react/下游三端 typecheck 红 (13aa448d)
+- 🚀 新功能/改进:铃声词条补齐 web 五语言 + 按单一源重出小程序语言包 (543164b4)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (dad1d0c0)
+- 🐞 修复:auto 首选补故障转移链,流式前置检查不再拒字面 auto (7f2eee5d)
+- 🚀 新功能/改进:三端新消息提示铃声(8 首自制铃声+设置页试听+登录后全局响铃) (c444ec57)
+- 📚 文档:Trae 号池复测产品级闭环、DeepSeek 细化为认证通过余额耗尽（46-47） (4d98b405)
+- 📚 文档:补 Trae/Qoder/Cursor 章节模型层复测指引并收敛敏感路径口径（40-45 增补） (0092612b)
+- 📚 文档:闭环 Qoder/Cursor 模型层，修正 WorkBuddy 工具层为出站协议缺口（40-45） (7e6effc6)
+- 🐞 修复:激光光环动画两端类型一致,恢复任务进行中连续旋转 (3fcbbb86)
+- 🐞 修复:收口删 sm 档后的调用面(部署构建被 TS7053 卡住) (9c9538cb)
+- 🚀 新功能/改进:账号锁定(4740)与失败登录突发(4625)哨兵,30分钟滑动窗按进程/用户/登录类型三维聚合点名 (d3ce16e0)
+- 🐞 修复:accounts DDL 进程内一次守卫,消除并发争锁 503 化 (ab589eb5)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (0e297ee5)
+- 🚀 新功能/改进:回填全部媒体上游真实成本价 (fea65be8)
+- 🐞 修复:显式 cast 修 timestamptz<interval 租约回收报错 (07c239bd)

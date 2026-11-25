@@ -66,7 +66,7 @@ class TestRelayOwnedSkipBehavior:
     def test_predicate_matrix(self) -> None:
         for code in ("qoder", "minimax", "doubao", "trae", "cursor"):
             assert is_relay_owned_provider(code) is True, code
-        for code in ("openai", "anthropic", "stepfun", "token6688", "huggingface"):
+        for code in ("openai", "anthropic", "stepfun", "huggingface"):
             assert is_relay_owned_provider(code) is False, code
 
     def test_selection_source_has_skip_guard(self) -> None:

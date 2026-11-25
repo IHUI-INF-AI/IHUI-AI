@@ -246,7 +246,7 @@ def test_provider_code_attribution_is_strict() -> None:
 
 def test_provider_prefix_lookup() -> None:
     assert _provider_prefix_for_code("openrouter") == "openrouter/"
-    assert _provider_prefix_for_code("token6688") == "t6688/"
+    assert _provider_prefix_for_code("agnes") == "agnes/"
     # "qwen" 只有裸模型名规则,不能当前缀用 → 该厂商的 DB 行走原 ID,不造新前缀
     assert _provider_prefix_for_code("qwen") is None
     assert _provider_prefix_for_code("no_such_provider") is None
@@ -291,8 +291,8 @@ async def test_find_quota_alternate_channels_builds_cross_provider_ids(
 ) -> None:
     conn = _FakeConn([
         _FakeRecord(provider_code="openrouter", model_id="qwen/qwen3-max"),
-        _FakeRecord(provider_code="token6688", model_id="qwen3-max"),
-        _FakeRecord(provider_code="token6688", model_id="qwen3-max"),  # 重复行去重
+        _FakeRecord(provider_code="agnes", model_id="qwen3-max"),
+        _FakeRecord(provider_code="agnes", model_id="qwen3-max"),  # 重复行去重
         _FakeRecord(provider_code="qwen", model_id="qwen3-max"),       # 欠费那家本身
         _FakeRecord(provider_code="ollama", model_id="qwen3-max"),      # 本地 LLM 不改道
         _FakeRecord(provider_code="no_such_provider", model_id="qwen3-max"),  # 无前缀 → 丢弃
@@ -306,7 +306,7 @@ async def test_find_quota_alternate_channels_builds_cross_provider_ids(
     channels = await _find_quota_alternate_channels(
         "qwen3-max", {"qwen"}
     )
-    assert channels == ["openrouter/qwen/qwen3-max", "t6688/qwen3-max"]
+    assert channels == ["openrouter/qwen/qwen3-max", "agnes/qwen3-max"]
     assert "ai_model_config_models" in conn.sql
     assert conn.params == ("qwen3-max",)
 

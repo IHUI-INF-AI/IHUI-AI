@@ -51,7 +51,7 @@ SAMPLE_TOOLS: tuple[MCPTool, ...] = (
     make_tool(CORE),
     make_tool("context_recall"),
     make_tool("list_files"),
-    make_tool("token6688_balance"),
+    make_tool("audio_transcription"),
     make_tool("edu_list_students"),
     # 刻意让它在字节序里排最后:③ 里"中性档被上限挤掉"才是可断言的,不靠运气。
     make_tool("image_generation", description="x" * 2000),

@@ -128,8 +128,6 @@
 | --- | --- | --- |
 | `agnes-image-2.1-flash` | 7.2 / 张 | 1K 输出 $0.010/张 × 7.2 |
 | `agnes-image-2.5-flash` | 7.2 / 张 | 同 2.1，1K $0.010/张 × 7.2 |
-| `gpt-image-2.5-flare` | 0.042336 / 张 | 1024×1024 auto 约 196 输出 token；medium 约 0.09504，high 约 0.37944 |
-| `gpt-image-2.5-sunburst` | 0.042336 / 张 | 同 flare；输出 token 费率一致 |
 | `grok-imagine-image` | 14.4 / 张 | 官方 $0.02/张 × 7.2；输入图另计 |
 | `grok-imagine-image-2.0` | 43.2 / 张 | 官方 2K low $0.06 × 7.2；medium 更高 |
 | `openmoss-team/moss-image` | 30 / 张 | SiliconFlow ¥0.30/张 |
@@ -149,7 +147,7 @@
 | `lyria-3.5` | 57.6 / 首 | 官方 $0.08/首 × 7.2 |
 | `lyria-realtime-exp` | 57.6 / 次 | 官方页未单列 RealTime；按 LiteLLM $0.08/次 × 7.2 |
 
-已知边界：`gpt-image-2.5-flare/sunburst` 的 `per_unit_price = 0.03` 分/张，按 `ceil` 最低收 1 积分；单张 auto 成本约 0.042336 分，单张不亏，多张合并或 high 档会显著抬高成本。`grok-imagine-image-2.0` 仅覆盖 2K low，medium 2K $0.08 未并入；`minimaxai/minimax-h3` 按 768P 计，2K 调用会低估成本；xAI/Agnes/MiniMax 的输入图、输入视频费用尚未并入单位成本。
+已知边界：`grok-imagine-image-2.0` 仅覆盖 2K low，medium 2K $0.08 未并入；`minimaxai/minimax-h3` 按 768P 计，2K 调用会低估成本；xAI/Agnes/MiniMax 的输入图、输入视频费用尚未并入单位成本。
 
 ---
 

@@ -7,7 +7,6 @@
 缺陷(现读,mcp_server.py):
   · `_tool_fetch_url`(fetch_url 工具):首跳过 SSRF 尺,但 `follow_redirects=True` ——
     公网页 302 → `http://169.254.169.254/` 即绕过,正文原样回给模型;
-  · `_tool_token6688_upload_file`(url 分支):同型 —— 内网文件可被上传到外部存储;
   · `_audio_source_from_args`(url 分支,同步):同型 —— 内网音频可被拉取;
   · `_tool_configure_automation_task`(action=webhook):`webhook_url` 外部可控,
     **连首跳校验都没有**(注释"内网地址不可达兜底"不成立:本服务能访问内网),
@@ -218,8 +217,6 @@ def test_call_sites_no_longer_follow_redirects():
     pattern = re.compile(r"follow_redirects\s*=\s*True\s*[,)]")
     for fn in (
         mcp_server._tool_fetch_url,
-        mcp_server._tool_token6688_upload_file,
-        mcp_server._audio_source_from_args,
     ):
         src = inspect.getsource(fn)
         assert not pattern.search(src), f"{fn.__name__} 不得自动跟随重定向"

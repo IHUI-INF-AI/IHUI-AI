@@ -28,7 +28,10 @@ const TARGET_DIRS = [
   join(rootDir, 'apps/mobile-rn/assets/sounds'),
 ]
 
-const SAMPLE_RATE = 44_100
+// 16 kHz 而非 44.1 kHz:音符最高 1500 Hz、三次谐波 4500 Hz < Nyquist 8 kHz,
+// 合成波形不会被裁掉;而 8 枚 WAV 从 334 KB 降到约 120 KB —— 小程序主包 2 MB
+// 硬上限下这 210 KB 是能不能上架的分水岭(2026-11-26 实测 44.1 kHz 时 2186 KB 被微信拒收)。
+const SAMPLE_RATE = 16_000
 const ATTACK = 0.006
 const FLOOR = 0.0001
 const PARTIALS = [

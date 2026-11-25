@@ -523,6 +523,7 @@ export default function NewsScreenWrapper() {
           keyword={keyword}
           onKeywordChange={setKeyword}
           onSearch={handleSearch}
+          searchPlaceholder={t('common.searchPlaceholder')}
           categories={categoriesForShared}
           selectedCategory={selectedCategory}
           onSelectCategory={handleSelectCategory}

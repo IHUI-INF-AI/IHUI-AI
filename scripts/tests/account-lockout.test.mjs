@@ -25,7 +25,9 @@ import {
   enrichProcessByPid,
   describeGroup,
   normalizeProcessName,
+  parseLockoutThreshold,
   LOCKOUT_STATE,
+  LOCKOUT_POLICY,
   DEFAULT_WINDOW_MIN,
   DEFAULT_BURST_THRESHOLD,
 } from '../security/lib/account-lockout.mjs'
@@ -177,5 +179,73 @@ test('remediation 对锁定账号给出解锁口径,不补登续期', () => {
 test('默认窗口与突发阈值为命名常量,不在断言里写死现读计数', () => {
   assert.equal(DEFAULT_WINDOW_MIN, 30)
   assert.ok(DEFAULT_BURST_THRESHOLD >= 2)
+})
+
+/* ---- 锁定策略档(2026-11-26 立):阈值 0 时失败突发不再判红,4740 仍判红 ---- */
+
+test('parseLockoutThreshold: secedit inf 的 LockoutBadCount=0 ⇒ disabled', () => {
+  const p = parseLockoutThreshold('[System Access]\r\nLockoutBadCount = 0\r\n')
+  assert.equal(p.state, LOCKOUT_POLICY.DISABLED)
+  assert.equal(p.threshold, 0)
+  assert.equal(p.raw, '0')
+})
+
+test('parseLockoutThreshold: LockoutBadCount=10 ⇒ enabled/10,空值 ⇒ undetermined', () => {
+  const on = parseLockoutThreshold('LockoutBadCount = 10\n')
+  assert.equal(on.state, LOCKOUT_POLICY.ENABLED)
+  assert.equal(on.threshold, 10)
+  const blank = parseLockoutThreshold('LockoutBadCount = \n')
+  assert.equal(blank.state, LOCKOUT_POLICY.UNDETERMINED)
+  assert.equal(blank.threshold, null)
+})
+
+test('parseLockoutThreshold: net accounts 兜底面(Never / 10)与乱码面都判得出', () => {
+  assert.equal(parseLockoutThreshold('Lockout threshold:   Never\n').state, LOCKOUT_POLICY.DISABLED)
+  assert.equal(parseLockoutThreshold('Lockout threshold:   10\n').threshold, 10)
+  /* GBK 被 utf8 误解的真实形态:整段乱码 ⇒ 未判定,绝不猜成 green */
+  assert.equal(parseLockoutThreshold('\uFFFD\uFFFD\uFFFD = 0\n').state, LOCKOUT_POLICY.UNDETERMINED)
+})
+
+test('策略 disabled:同组 5 次 4625 只记观测,不判 breach、不产生 breaches', () => {
+  const events = []
+  for (let i = 0; i < 5; i += 1) events.push(fail({ processId: '0x' + i }))
+  const r = judgeAccountLockout(
+    { events },
+    { now: NOW, windowMin: 30, lockoutPolicy: { state: LOCKOUT_POLICY.DISABLED, threshold: 0 } },
+  )
+  assert.equal(r.state, LOCKOUT_STATE.OK)
+  assert.equal(r.breaches.length, 0)
+  assert.ok(r.observations.length >= 1)
+  assert.match(r.observations[0], /仅观测/)
+  assert.match(r.reason, /永不锁定|仅观测/)
+  assert.deepEqual(r.policy, { state: LOCKOUT_POLICY.DISABLED, threshold: 0 })
+})
+
+test('策略 enabled:同组 5 次 4625 仍判 breach,并点名远程触发锁定的 DoS 面', () => {
+  const events = []
+  for (let i = 0; i < 5; i += 1) events.push(fail({ processId: '0x' + i }))
+  const r = judgeAccountLockout(
+    { events },
+    { now: NOW, windowMin: 30, lockoutPolicy: { state: LOCKOUT_POLICY.ENABLED, threshold: 10 } },
+  )
+  assert.equal(r.state, LOCKOUT_STATE.BREACH)
+  assert.ok(r.breaches.length >= 1)
+  assert.ok(r.observations.some((s) => /DoS 面/.test(s)))
+})
+
+test('策略 disabled 但真出现 4740 ⇒ 仍判 breach(策略被改回时不放过)', () => {
+  const r = judgeAccountLockout(
+    { events: [lockout()] },
+    { now: NOW, windowMin: 30, lockoutPolicy: { state: LOCKOUT_POLICY.DISABLED, threshold: 0 } },
+  )
+  assert.equal(r.state, LOCKOUT_STATE.BREACH)
+  assert.match(r.reason, /账号被锁定/)
+})
+
+test('不传 lockoutPolicy ⇒ 按 ENABLED 保守判(策略未判定不能当降噪借口)', () => {
+  const events = []
+  for (let i = 0; i < 5; i += 1) events.push(fail({ processId: '0x' + i }))
+  const r = judgeAccountLockout({ events }, { now: NOW, windowMin: 30 })
+  assert.equal(r.state, LOCKOUT_STATE.BREACH)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

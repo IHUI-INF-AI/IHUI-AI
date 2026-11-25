@@ -129,6 +129,16 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
     },
     # ============ 开关类(默认关,移植完成待放量)============
     {
+        # P0-7 上下文锚点自检(唯一 env 读取点 context_anchor_check.py:38)。
+        "key": "agent_context_anchor_check",
+        "env": "AGENT_CONTEXT_ANCHOR_CHECK_ENABLED",
+        "default": "false",
+        "category": "开关类",
+        "owner_module": "app.core.context_anchor_check",
+        "doc_ref": "app/core/context_anchor_check.py:38",
+        "reason_if_off": "P0-7 上下文锚点自检默认关,先灰度观察零调用零开销,验证后再放量",
+    },
+    {
         # V3 #52:RRF 融合常数 k(唯一 env 读取点 rag.py:76)。
         "key": "rag_rrf_k",
         "env": "RAG_RRF_K",

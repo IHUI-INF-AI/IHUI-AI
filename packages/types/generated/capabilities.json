@@ -1,6 +1,6 @@
 {
   "version": "0.0.0",
-  "generatedAt": "2026-10-15T12:30:17.075Z",
+  "generatedAt": "2026-11-25T20:09:51.292Z",
   "dataClasses": [
     "compute",
     "scoped-read",
@@ -312,10 +312,7 @@
       "tools": [
         "voice_tts",
         "audio_transcription",
-        "music_generation",
-        "token6688_voice_clone",
-        "token6688_upload_file",
-        "token6688_cancel_task"
+        "music_generation"
       ],
       "rate": {
         "rpm": 120,
@@ -815,10 +812,7 @@
       "idempotencyRequired": false,
       "description": "自身余额/账单读取",
       "routes": [],
-      "tools": [
-        "token6688_balance",
-        "token6688_model_info"
-      ],
+      "tools": [],
       "rate": {
         "rpm": 120,
         "burst": 40,
@@ -1578,9 +1572,6 @@
     "voice_tts": "audio:write",
     "audio_transcription": "audio:write",
     "music_generation": "audio:write",
-    "token6688_voice_clone": "audio:write",
-    "token6688_upload_file": "audio:write",
-    "token6688_cancel_task": "audio:write",
     "image_generation": "images:write",
     "image_edit": "images:write",
     "generate_chart": "images:write",
@@ -1590,8 +1581,6 @@
     "list_resources": "tools:read",
     "get_tool_schema": "tools:read",
     "context_recall": "memory:read",
-    "token6688_balance": "billing:read",
-    "token6688_model_info": "billing:read",
     "search_codebase": "codebase:read",
     "index_codebase": "codebase:read",
     "analyze_code": "codebase:read",

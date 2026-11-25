@@ -2,14 +2,12 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""媒体任务统一持久化 + REST 管理 + 上传出口 + 音乐模型 env(2026-09-09)。
+"""媒体任务统一持久化 + REST 管理(供应商下线后的本地口径,2026-11-26)。
 
 覆盖:
 - media_tasks 服务层:persist/query/get/update(DB 异常不抛)
 - call_tool 出口落库挂接(媒体工具落库、非媒体工具跳过)
-- REST:列表/详情/取消/上传(参数校验)
-- MCP 上传工具:缺参/文件不存在/SSRF
-- TOKEN6688_MUSIC_MODEL env fallback
+- REST:列表/详情/取消/清理/统计;上传、回调、音乐生成入口明确不可用
 """
 from __future__ import annotations
 
@@ -55,7 +53,7 @@ async def test_persist_music_task_processing():
     with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
         ok = await mt.persist_media_task(
             "music_generation",
-            {"ok": True, "task_id": "t-music-1", "provider": "token6688", "audio_url": None},
+            {"ok": True, "task_id": "t-music-1", "provider": "agnes", "audio_url": None},
             user_uuid="u1", chat_id="c1", prompt="一首歌",
         )
     assert ok is True
@@ -71,7 +69,7 @@ async def test_persist_video_completed_succeeded():
     with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
         ok = await mt.persist_media_task(
             "video_generation",
-            {"ok": True, "task_id": "t-v", "provider": "token6688", "video_url": "https://x/v.mp4"},
+            {"ok": True, "task_id": "t-v", "provider": "agnes", "video_url": "https://x/v.mp4"},
         )
     assert ok is True
     sql, *params = mock_conn.fetch.call_args.args
@@ -121,7 +119,7 @@ async def test_persist_ownerless_row_is_loudly_warned(caplog):
     ):
         ok = await mt.persist_media_task(
             "music_generation",
-            {"ok": True, "task_id": "t-anon-1", "provider": "token6688"},
+            {"ok": True, "task_id": "t-anon-1", "provider": "agnes"},
             user_uuid="",
         )
     assert ok is True, "本步刻意不改行为:仍照常落库"
@@ -143,7 +141,7 @@ async def test_persist_with_owner_does_not_warn(caplog):
     ):
         ok = await mt.persist_media_task(
             "music_generation",
-            {"ok": True, "task_id": "t-owned-1", "provider": "token6688"},
+            {"ok": True, "task_id": "t-owned-1", "provider": "agnes"},
             user_uuid="real-user",
         )
     assert ok is True
@@ -275,75 +273,11 @@ async def test_rest_media_task_detail_404(monkeypatch):
     assert resp.status_code == 404
 
 
-async def test_rest_media_task_detail_live_probe_kind_mapping(monkeypatch):
-    """详情:在途 image 任务实时探测成片 → 按 kind 落 image_url 并回写 succeeded。"""
-    monkeypatch.setattr(
-        "app.routers.media_tasks.get_media_task",
-        AsyncMock(
-            return_value={
-                "task_id": "t-img", "kind": "image", "provider": "token6688",
-                "status": "processing", "result": {},
-            }
-        ),
-    )
-
-    class _Cfg:
-        api_key = "sk-test"
-        api_base = "https://k.token6688.com"
-
-    class _FakeSettings:
-        def get_provider_config(self, name):  # noqa: ANN001
-            return _Cfg()
-
-    class _Inst:
-        async def get_task_status(self, tid):
-            assert tid == "t-img"
-            return {"status": "completed", "video_url": "https://cdn/1.png"}
-
-    upd = AsyncMock(return_value=True)
-    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
-    monkeypatch.setattr(
-        "app.providers.token6688_provider.Token6688Provider",
-        lambda api_key, api_base: _Inst(),
-    )
-    monkeypatch.setattr("app.routers.media_tasks.update_media_task", upd)
-    app = _make_app()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        resp = await ac.get("/api/media/tasks/t-img")
-    assert resp.status_code == 200
-    body = resp.json()["data"]
-    assert body["result"]["image_url"] == "https://cdn/1.png"
-    assert "video_url" not in body["result"]
-    upd.assert_awaited_once()
-    args, kwargs = upd.call_args
-    assert args[0] == "t-img"
-    assert kwargs.get("status") == "succeeded"
-    assert kwargs["result"]["image_url"] == "https://cdn/1.png"
-
-
-async def test_rest_media_task_cancel_unconfigured(monkeypatch):
-    """取消:token6688 未配置(conftest 清空)→ 如实返回未配置错误,本地置 cancelled。"""
-    monkeypatch.setattr(
-        "app.routers.media_tasks.get_media_task",
-        AsyncMock(return_value={"task_id": "t-1", "provider": "token6688", "status": "processing"}),
-    )
-    upd = AsyncMock(return_value=True)
-    monkeypatch.setattr("app.routers.media_tasks.update_media_task", upd)
-    app = _make_app()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        resp = await ac.post("/api/media/tasks/t-1/cancel")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["ok"] is True
-    assert "token6688 未配置" in body["data"].get("error", "")
-    upd.assert_awaited_once()
-
-
 async def test_rest_media_task_cancel_terminal_409(monkeypatch):
     """取消守卫(2026-09-09 收尾):已终态任务 → 409,不翻转状态、不调取消。"""
     monkeypatch.setattr(
         "app.routers.media_tasks.get_media_task",
-        AsyncMock(return_value={"task_id": "t-done", "provider": "token6688", "status": "succeeded"}),
+        AsyncMock(return_value={"task_id": "t-done", "provider": "agnes", "status": "succeeded"}),
     )
     upd = AsyncMock(return_value=True)
     monkeypatch.setattr("app.routers.media_tasks.update_media_task", upd)
@@ -359,7 +293,7 @@ async def test_rest_media_task_cancel_pending_ok(monkeypatch):
     """取消守卫(2026-09-09 收尾):pending 在途任务仍可正常取消置 cancelled。"""
     monkeypatch.setattr(
         "app.routers.media_tasks.get_media_task",
-        AsyncMock(return_value={"task_id": "t-p", "provider": "token6688", "status": "pending"}),
+        AsyncMock(return_value={"task_id": "t-p", "provider": "agnes", "status": "pending"}),
     )
     upd = AsyncMock(return_value=True)
     monkeypatch.setattr("app.routers.media_tasks.update_media_task", upd)
@@ -434,7 +368,7 @@ async def test_rest_media_task_ownerless_row_non_admin_closed_on_all_three_doors
     (`get_media_task`),任何写/删出口都不得被 awaited。
     """
     get = AsyncMock(return_value={
-        "task_id": "t-orphan", "user_uuid": "", "status": "processing", "provider": "token6688",
+        "task_id": "t-orphan", "user_uuid": "", "status": "processing", "provider": "agnes",
     })
     upd = AsyncMock(return_value=True)
     dele = AsyncMock(return_value=True)
@@ -656,12 +590,27 @@ async def test_rest_media_task_clear(monkeypatch):
     assert body["data"]["kept_in_flight"] == 1
 
 
-async def test_rest_media_upload_missing_params():
-    """上传:file 与 url 都缺 → 400。"""
+async def test_rest_media_upload_unavailable():
+    """上传:供应商已下线,无论参数与否统一 503。"""
     app = _make_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         resp = await ac.post("/api/media/upload")
-    assert resp.status_code == 400
+    assert resp.status_code == 503
+    assert "下线" in resp.json()["detail"]
+
+
+async def test_rest_media_callback_route_removed():
+    """回调路由已删除 → 404,不再接受上游回调。"""
+    app = _make_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post("/api/media/tasks/callback", json={"task_id": "t-v1"})
+    assert resp.status_code in (404, 405)
+
+
+async def test_music_generation_unavailable():
+    out = await mcp_server._tool_music_generation({"prompt": "测试", "mode": "song"})
+    assert out["ok"] is False
+    assert out["errorCode"] == "PROVIDER_UNAVAILABLE"
 
 
 # ---------------------------------------------------------------------------
@@ -669,422 +618,8 @@ async def test_rest_media_upload_missing_params():
 # ---------------------------------------------------------------------------
 
 
-async def test_upload_file_missing_params():
-    out = await mcp_server._tool_token6688_upload_file({})
-    assert out["ok"] is False
-    assert out["errorCode"] == "MISSING_PARAMS"
-
-
-async def test_upload_file_path_not_found(tmp_path, monkeypatch):
-    # AIS-050:先过工作区白名单;根内不存在的文件才是 FILE_NOT_FOUND。
-    root = tmp_path / "ws"
-    root.mkdir()
-    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(root))
-    out = await mcp_server._tool_token6688_upload_file(
-        {"path": str(root / "no-such-file.mp4")}
-    )
-    assert out["ok"] is False
-    assert out["errorCode"] == "FILE_NOT_FOUND"
-
-
-async def test_upload_file_outside_workspace_rejected():
-    # AIS-050:根外路径在任何 open/上传前就被拒,不再落到 FILE_NOT_FOUND。
-    out = await mcp_server._tool_token6688_upload_file({"path": "Z:/no/such/file.mp4"})
-    assert out["ok"] is False
-    assert out["errorCode"] == "PATH_NOT_ALLOWED"
-
-
-async def test_upload_file_ssrf_blocked():
-    out = await mcp_server._tool_token6688_upload_file({"url": "http://127.0.0.1:8080/x.png"})
-    assert out["ok"] is False
-    assert out["errorCode"] == "SSRF_BLOCKED"
-
-
-# ---------------------------------------------------------------------------
-# TOKEN6688_MUSIC_MODEL env fallback
-# ---------------------------------------------------------------------------
-
-
-async def test_music_model_env_fallback(monkeypatch):
-    """MUSIC_MODEL env 生效:generate_music 收到 env 指定 model。"""
-
-    class _Inst:
-        def __init__(self):
-            self.kw = {}
-
-        async def generate_music(self, prompt, **kw):
-            self.kw = kw
-            return {"task_id": "t-music-env"}
-
-        async def get_task_status(self, tid):
-            # 首次查询即返回完成态,快速跳出轮询循环
-            return {"ok": True, "status": "completed", "video_url": "https://x/audio.mp3"}
-
-    inst = _Inst()
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: inst if p == "token6688" else None)
-    monkeypatch.setenv("TOKEN6688_MUSIC_MODEL", "custom-music")
-    out = await mcp_server._tool_music_generation({"prompt": "测试", "mode": "song"})
-    assert out["ok"] is True
-    assert out["audio_url"] == "https://x/audio.mp3"
-    assert inst.kw.get("model") == "custom-music"
-
-
-async def test_music_model_arg_overrides_env(monkeypatch):
-    """显式 model 参数优先于 env。"""
-
-    class _Inst:
-        def __init__(self):
-            self.kw = {}
-
-        async def generate_music(self, prompt, **kw):
-            self.kw = kw
-            return {"task_id": "t-music-arg"}
-
-        async def get_task_status(self, tid):
-            return {"ok": True, "status": "completed", "video_url": "https://x/a.mp3"}
-
-    inst = _Inst()
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: inst if p == "token6688" else None)
-    monkeypatch.setenv("TOKEN6688_MUSIC_MODEL", "env-model")
-    out = await mcp_server._tool_music_generation(
-        {"prompt": "测试", "mode": "song", "model": "arg-model"}
-    )
-    assert out["ok"] is True
-    assert inst.kw.get("model") == "arg-model"
-
-
-# ---------------------------------------------------------------------------
-# voice_tts 深度增强(2026-09-09):超长文本异步 TTS + task_id 取件
-# ---------------------------------------------------------------------------
-
-
-async def test_voice_tts_text_too_long_over_5000():
-    """text>5000 直接拒绝(TEXT_TOO_LONG)。"""
-    out = await mcp_server._tool_voice_tts({"text": "长" * 5001})
-    assert out["ok"] is False
-    assert out["errorCode"] == "TEXT_TOO_LONG"
-
-
-async def test_voice_tts_long_text_edge_rejected():
-    """>2000 字符 + engine=edge:edge 不支持超长,拒绝并提示改 auto/token6688。"""
-    out = await mcp_server._tool_voice_tts({"text": "长" * 2001, "engine": "edge"})
-    assert out["ok"] is False
-    assert out["errorCode"] == "TEXT_TOO_LONG"
-    assert "edge" in out["error"]
-
-
-async def test_voice_tts_long_text_auto_async_submit(monkeypatch):
-    """>2000 字符自动切 token6688 异步 TTS:submitted=true + task_id,audio_url=None。"""
-
-    class _Inst:
-        async def tts_async(self, text, *, voice="alloy", speed=1.0, response_format="mp3", wait=True):
-            self.text = text
-            return {"task_id": "t-tts-long", "status": "submitted"}
-
-    inst = _Inst()
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: inst if p == "token6688" else None)
-    out = await mcp_server._tool_voice_tts({"text": "长" * 2001})
-    assert out["ok"] is True
-    assert out["submitted"] is True
-    assert out["task_id"] == "t-tts-long"
-    assert out["status"] == "submitted"
-    assert out["audio_url"] is None
-    assert out["text_chars"] == 2001
-    assert len(inst.text) == 2001
-
-
-async def test_voice_tts_long_text_unconfigured(monkeypatch):
-    """>2000 字符但 token6688 未配置 → PROVIDER_NOT_CONFIGURED,提示可分段走 edge。"""
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: None)
-    out = await mcp_server._tool_voice_tts({"text": "长" * 2001})
-    assert out["ok"] is False
-    assert out["errorCode"] == "PROVIDER_NOT_CONFIGURED"
-
-
-async def test_voice_tts_task_id_pickup_completed(monkeypatch):
-    """task_id 查询模式:completed 且带 audio_url → 取件成功。"""
-
-    class _Inst:
-        async def get_task_status(self, tid):
-            assert tid == "t-tts-1"
-            return {"ok": True, "status": "completed", "audio_url": "https://x/speech.mp3"}
-
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: _Inst() if p == "token6688" else None)
-    out = await mcp_server._tool_voice_tts({"task_id": "t-tts-1"})
-    assert out["ok"] is True
-    assert out["status"] == "completed"
-    assert out["audio_url"] == "https://x/speech.mp3"
-
-
-async def test_voice_tts_task_id_processing(monkeypatch):
-    """task_id 查询模式:处理中 → submitted=true + 提示稍后取件。"""
-
-    class _Inst:
-        async def get_task_status(self, tid):
-            return {"ok": True, "status": "processing"}
-
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: _Inst() if p == "token6688" else None)
-    out = await mcp_server._tool_voice_tts({"task_id": "t-tts-1"})
-    assert out["ok"] is True
-    assert out["submitted"] is True
-    assert out["audio_url"] is None
-
-
-async def test_voice_tts_task_id_failed(monkeypatch):
-    """task_id 查询模式:任务失败 → ok=False + TASK_FAILED。"""
-
-    class _Inst:
-        async def get_task_status(self, tid):
-            return {"failed": True, "status": "failed", "error": "生成失败"}
-
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: _Inst() if p == "token6688" else None)
-    out = await mcp_server._tool_voice_tts({"task_id": "t-tts-1"})
-    assert out["ok"] is False
-    assert out["errorCode"] == "TASK_FAILED"
-
-
-async def test_voice_tts_task_id_unconfigured(monkeypatch):
-    """task_id 查询模式:token6688 未配置 → PROVIDER_NOT_CONFIGURED。"""
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: None)
-    out = await mcp_server._tool_voice_tts({"task_id": "t-tts-1"})
-    assert out["ok"] is False
-    assert out["errorCode"] == "PROVIDER_NOT_CONFIGURED"
-
-
-# ---------------------------------------------------------------------------
-# token6688_voice_clone 声纹克隆工具(2026-09-09)
-# ---------------------------------------------------------------------------
-
-
-async def test_voice_clone_bad_action(monkeypatch):
-    """未知 action(如 foo)→ BAD_PARAMS(delete 已合法化,E4)。"""
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: object())
-    out = await mcp_server._tool_token6688_voice_clone({"action": "foo"})
-    assert out["ok"] is False
-    assert out["errorCode"] == "BAD_PARAMS"
-
-
-async def test_voice_clone_unconfigured(monkeypatch):
-    """token6688 未配置 → PROVIDER_NOT_CONFIGURED。"""
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: None)
-    out = await mcp_server._tool_token6688_voice_clone({})
-    assert out["ok"] is False
-    assert out["errorCode"] == "PROVIDER_NOT_CONFIGURED"
-
-
-async def test_voice_clone_list(monkeypatch):
-    """action=list:返回声纹列表 + hint。"""
-
-    class _Inst:
-        async def list_voices(self):
-            return [{"voice_id": "v1", "name": "我的声音"}]
-
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: _Inst() if p == "token6688" else None)
-    # AIS-050 归属闸:list 只回当前用户账本内的声纹(直调 handler 需自备宿主注入身份)。
-    monkeypatch.setattr(mcp_server, "_load_voice_owners", lambda: {"v1": {"user_id": "u-1"}})
-    out = await mcp_server._tool_token6688_voice_clone({"action": "list", "__user_id": "u-1"})
-    assert out["ok"] is True
-    assert out["action"] == "list"
-    assert out["count"] == 1
-    assert out["voices"][0]["voice_id"] == "v1"
-
-
-async def test_voice_clone_get_missing_voice_id(monkeypatch):
-    """action=get 缺 voice_id → MISSING_PARAMS。"""
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: object())
-    out = await mcp_server._tool_token6688_voice_clone({"action": "get"})
-    assert out["ok"] is False
-    assert out["errorCode"] == "MISSING_PARAMS"
-
-
-async def test_voice_clone_upload_conflict(monkeypatch):
-    """action=upload 同时传 path+url → BAD_PARAMS(三选一)。"""
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: object())
-    out = await mcp_server._tool_token6688_voice_clone(
-        {"action": "upload", "path": "a.wav", "url": "http://x/a.wav", "__user_id": "u-1"}
-    )
-    assert out["ok"] is False
-    assert out["errorCode"] == "BAD_PARAMS"
-
-
-async def test_voice_clone_upload_data_uri(monkeypatch):
-    """action=upload 走 data_uri:上传成功返回 voice_id。"""
-    import base64 as _b64
-
-    wav = b"\x00RIFF\x00\x00\x00\x00WAVEfake"
-
-    class _Inst:
-        async def upload_voice(self, audio, filename):
-            assert audio == wav
-            assert filename.endswith(".wav")
-            return {"voice": {"id": "v-cloned"}}
-
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: _Inst() if p == "token6688" else None)
-    monkeypatch.setattr(mcp_server, "_remember_voice_owner", lambda *_a, **_k: None)
-    uri = "data:audio/wav;base64," + _b64.b64encode(wav).decode()
-    out = await mcp_server._tool_token6688_voice_clone(
-        {"action": "upload", "data_uri": uri, "__user_id": "u-1"}
-    )
-    assert out["ok"] is True
-    assert out["voice_id"] == "v-cloned"
-
-
-async def test_voice_clone_delete_missing_voice_id(monkeypatch):
-    """action=delete 缺 voice_id → MISSING_PARAMS。"""
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: object())
-    out = await mcp_server._tool_token6688_voice_clone({"action": "delete"})
-    assert out["ok"] is False
-    assert out["errorCode"] == "MISSING_PARAMS"
-
-
-async def test_voice_clone_delete_ok(monkeypatch):
-    """action=delete:远端删除成功 → ok=True + hint。"""
-    called = {}
-
-    class _Inst:
-        async def delete_voice(self, voice_id):
-            called["voice_id"] = voice_id
-            return {"ok": True, "status": "deleted", "raw": {}}
-
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: _Inst() if p == "token6688" else None)
-    monkeypatch.setattr(mcp_server, "_load_voice_owners", lambda: {"v-del": {"user_id": "u-1"}})
-    out = await mcp_server._tool_token6688_voice_clone({"action": "delete", "voice_id": "v-del", "__user_id": "u-1"})
-    assert called.get("voice_id") == "v-del"
-    assert out["ok"] is True
-    assert out["action"] == "delete"
-    assert out["status"] == "deleted"
-    assert "已删除" in out["hint"]
-
-
-async def test_voice_clone_delete_failed(monkeypatch):
-    """action=delete:远端删除失败(端点不支持)→ ok=False + status=unsupported 如实返回。"""
-
-    class _Inst:
-        async def delete_voice(self, voice_id):
-            return {"ok": False, "status": "unsupported", "error": "删除端点均不可用(官方未收录)"}
-
-    monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: _Inst() if p == "token6688" else None)
-    monkeypatch.setattr(mcp_server, "_load_voice_owners", lambda: {"v-del": {"user_id": "u-1"}})
-    out = await mcp_server._tool_token6688_voice_clone({"action": "delete", "voice_id": "v-del", "__user_id": "u-1"})
-    assert out["ok"] is False
-    assert out["status"] == "unsupported"
-    assert "删除失败" in out["hint"]
-    assert out["error"]
-
-
-# ---------------------------------------------------------------------------
-# E1 统一媒体回调 handle_media_callback(2026-09-09)
-# ---------------------------------------------------------------------------
-
-
-async def test_callback_missing_task_id():
-    """快照缺 task_id → ok=False,不碰 DB。"""
-    with patch("app.services.media_tasks.get_db_conn", new_callable=AsyncMock) as mock_conn:
-        out = await mt.handle_media_callback({"state": "success"})
-    assert out["ok"] is False
-    assert "task_id" in out["error"]
-    mock_conn.assert_not_called()
-
-
-async def test_callback_non_final_ignored():
-    """中间态快照(processing)→ matched=0 + ignored=non-final,不落库。"""
-    mock_conn = AsyncMock()
-    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
-        out = await mt.handle_media_callback(
-            {"task_id": "t-1", "state": "processing", "is_final": False}
-        )
-    assert out["ok"] is True
-    assert out["matched"] == 0
-    assert out["ignored"] == "non-final"
-    mock_conn.fetch.assert_not_called()
-
-
-async def test_callback_success_writes_succeeded():
-    """终态成功带 output_url → 在途行回写 succeeded,kind 字段映射正确。"""
-    mock_conn = AsyncMock()
-    mock_conn.fetch = AsyncMock(return_value=[{"id": 1, "kind": "video"}])
-    updated: list[dict] = []
-
-    async def _fake_update(tid, status=None, result=None, only_if_in_flight=False):
-        updated.append({"tid": tid, "status": status, "result": result})
-        return True
-
-    with (
-        patch("app.services.media_tasks.get_db_conn", return_value=mock_conn),
-        patch("app.services.media_tasks.update_media_task", new=_fake_update),
-    ):
-        out = await mt.handle_media_callback(
-            {
-                "task_id": "t-v1", "state": "success", "is_final": True,
-                "output_url": "https://cdn/x.mp4",
-            }
-        )
-    assert out["ok"] is True
-    assert out["matched"] == 1
-    assert updated[0]["tid"] == "t-v1"
-    assert updated[0]["status"] == "succeeded"
-    assert updated[0]["result"]["video_url"] == "https://cdn/x.mp4"
-    assert updated[0]["result"]["via"] == "callback"
-    # 在途过滤条件
-    sql, *params = mock_conn.fetch.call_args.args
-    assert "status = ANY($2)" in sql
-    assert "t-v1" in params
-
-
-async def test_callback_failed_writes_failed():
-    """终态失败 → 在途行回写 failed + error 截断。"""
-    mock_conn = AsyncMock()
-    mock_conn.fetch = AsyncMock(return_value=[{"id": 1, "kind": "tts"}])
-    updated: list[dict] = []
-
-    async def _fake_update(tid, status=None, result=None, only_if_in_flight=False):
-        updated.append({"tid": tid, "status": status, "result": result})
-        return True
-
-    with (
-        patch("app.services.media_tasks.get_db_conn", return_value=mock_conn),
-        patch("app.services.media_tasks.update_media_task", new=_fake_update),
-    ):
-        out = await mt.handle_media_callback(
-            {"task_id": "t-tts", "state": "failed", "is_final": True, "error": "配额不足"}
-        )
-    assert out["ok"] is True
-    assert out["matched"] == 1
-    assert updated[0]["status"] == "failed"
-    assert updated[0]["result"]["error"] == "配额不足"
-    assert updated[0]["result"]["via"] == "callback"
-
-
-async def test_callback_success_no_url_falls_back_failed():
-    """终态成功但无产物 URL(中间产物态)→ 按失败落库(不产生无产物 succeeded)。"""
-    mock_conn = AsyncMock()
-    mock_conn.fetch = AsyncMock(return_value=[{"id": 1, "kind": "music"}])
-    updated: list[dict] = []
-
-    async def _fake_update(tid, status=None, result=None, only_if_in_flight=False):
-        updated.append({"tid": tid, "status": status, "result": result})
-        return True
-
-    with (
-        patch("app.services.media_tasks.get_db_conn", return_value=mock_conn),
-        patch("app.services.media_tasks.update_media_task", new=_fake_update),
-    ):
-        out = await mt.handle_media_callback(
-            {"task_id": "t-m", "state": "success", "is_final": True}
-        )
-    assert out["ok"] is True
-    assert out["matched"] == 1
-    assert updated[0]["status"] == "failed"
-    assert "无产物" in updated[0]["result"]["error"] or "回调失败" in updated[0]["result"]["error"]
-
-
-# ---------------------------------------------------------------------------
-# E3 后台轮询 _poll_processing_batch(2026-09-09)
-# ---------------------------------------------------------------------------
-
-
 async def test_poll_no_inflight_rows():
-    """无在途行 → 返回 0,不实例化 provider。"""
+    """无在途行 → 返回 0。"""
     mock_conn = AsyncMock()
     mock_conn.fetch = AsyncMock(return_value=[])
     with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
@@ -1092,246 +627,13 @@ async def test_poll_no_inflight_rows():
     assert n == 0
 
 
-async def test_poll_unconfigured_key(monkeypatch):
-    """有在途行但 token6688 未配置 → 返回 0。"""
+async def test_poll_with_inflight_rows_is_noop():
+    """厂商轮询入口已下线:有在途行也只返回 0,不再向上游探测。"""
     mock_conn = AsyncMock()
-    mock_conn.fetch = AsyncMock(
-        return_value=[{"id": 1, "kind": "video", "task_id": "t-v1"}]
-    )
-
-    class _Cfg:
-        api_key = ""
-        api_base = ""
-
-    class _FakeSettings:
-        def get_provider_config(self, name):  # noqa: ANN001
-            return _Cfg() if name == "token6688" else None
-
-    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
+    mock_conn.fetch = AsyncMock(return_value=[{"task_id": "t-v1", "provider": "agnes"}])
     with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
         n = await mt._poll_processing_batch()
     assert n == 0
-
-
-async def test_poll_success_finalizes(monkeypatch):
-    """探测到 completed + 产物 URL → 回写 succeeded(via=poller)。"""
-    mock_conn = AsyncMock()
-    mock_conn.fetch = AsyncMock(
-        return_value=[{"id": 1, "kind": "video", "task_id": "t-v1"}]
-    )
-
-    class _Cfg:
-        api_key = "sk-test"
-        api_base = "https://k.token6688.com"
-
-    class _Inst:
-        async def get_task_status(self, tid):
-            assert tid == "t-v1"
-            return {"status": "completed", "video_url": "https://cdn/v.mp4"}
-
-    updated: list[dict] = []
-
-    async def _fake_update(tid, status=None, result=None, only_if_in_flight=False):
-        updated.append({"tid": tid, "status": status, "result": result})
-        return True
-
-    class _FakeSettings:
-        def get_provider_config(self, name):  # noqa: ANN001
-            return _Cfg()
-
-    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
-    monkeypatch.setattr(
-        "app.providers.token6688_provider.Token6688Provider",
-        lambda api_key, api_base: _Inst(),
-    )
-    with (
-        patch("app.services.media_tasks.get_db_conn", return_value=mock_conn),
-        patch("app.services.media_tasks.update_media_task", new=_fake_update),
-    ):
-        n = await mt._poll_processing_batch()
-    assert n == 1
-    assert updated[0]["tid"] == "t-v1"
-    assert updated[0]["status"] == "succeeded"
-    assert updated[0]["result"]["video_url"] == "https://cdn/v.mp4"
-    assert updated[0]["result"]["via"] == "poller"
-
-
-async def test_poll_completed_no_url_waits(monkeypatch):
-    """终态但尚无产物 URL(stage=downloading)→ 不落库,等下轮。"""
-    mock_conn = AsyncMock()
-    mock_conn.fetch = AsyncMock(
-        return_value=[{"id": 1, "kind": "video", "task_id": "t-v1"}]
-    )
-
-    class _Cfg:
-        api_key = "sk-test"
-        api_base = ""
-
-    class _Inst:
-        async def get_task_status(self, tid):
-            return {"status": "completed"}
-
-    updated: list[dict] = []
-
-    async def _fake_update(tid, status=None, result=None, only_if_in_flight=False):
-        updated.append({"tid": tid, "status": status, "result": result})
-        return True
-
-    class _FakeSettings:
-        def get_provider_config(self, name):  # noqa: ANN001
-            return _Cfg()
-
-    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
-    monkeypatch.setattr(
-        "app.providers.token6688_provider.Token6688Provider",
-        lambda api_key, api_base: _Inst(),
-    )
-    with (
-        patch("app.services.media_tasks.get_db_conn", return_value=mock_conn),
-        patch("app.services.media_tasks.update_media_task", new=_fake_update),
-    ):
-        n = await mt._poll_processing_batch()
-    assert n == 0
-    assert updated == []
-
-
-async def test_poll_failed_finalizes(monkeypatch):
-    """探测到 failed → 回写 failed。"""
-    mock_conn = AsyncMock()
-    mock_conn.fetch = AsyncMock(
-        return_value=[{"id": 1, "kind": "music", "task_id": "t-m1"}]
-    )
-
-    class _Cfg:
-        api_key = "sk-test"
-        api_base = ""
-
-    class _Inst:
-        async def get_task_status(self, tid):
-            return {"status": "failed", "error": "服务端超时"}
-
-    updated: list[dict] = []
-
-    async def _fake_update(tid, status=None, result=None, only_if_in_flight=False):
-        updated.append({"tid": tid, "status": status, "result": result})
-        return True
-
-    class _FakeSettings:
-        def get_provider_config(self, name):  # noqa: ANN001
-            return _Cfg()
-
-    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
-    monkeypatch.setattr(
-        "app.providers.token6688_provider.Token6688Provider",
-        lambda api_key, api_base: _Inst(),
-    )
-    with (
-        patch("app.services.media_tasks.get_db_conn", return_value=mock_conn),
-        patch("app.services.media_tasks.update_media_task", new=_fake_update),
-    ):
-        n = await mt._poll_processing_batch()
-    assert n == 1
-    assert updated[0]["status"] == "failed"
-    assert updated[0]["result"]["error"] == "服务端超时"
-    assert updated[0]["result"]["via"] == "poller"
-
-
-# ---------------------------------------------------------------------------
-# E1 REST 回调端点 POST /api/media/tasks/callback(2026-09-09)
-# ---------------------------------------------------------------------------
-
-
-async def test_rest_callback_success(monkeypatch):
-    """回调端点:配 secret + 合法签名 → 处理并返回 matched=1(fail-closed 后必须有签名)。"""
-    import hashlib as _h
-    import hmac as _hmac
-
-    secret = "test-secret"
-    monkeypatch.setenv("TOKEN6688_CALLBACK_SECRET", secret)
-    payload = {"task_id": "t-v1", "state": "success", "output_url": "https://x/v.mp4"}
-    raw = json.dumps(payload).encode()
-    sig = "sha256=" + _hmac.new(secret.encode(), raw, _h.sha256).hexdigest()
-    monkeypatch.setattr(
-        "app.routers.media_tasks.handle_media_callback",
-        AsyncMock(return_value={"ok": True, "matched": 1}),
-    )
-    app = _make_app()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        resp = await ac.post(
-            "/api/media/tasks/callback",
-            content=raw,
-            headers={"X-TokenGo-Signature": sig, "Content-Type": "application/json"},
-        )
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["ok"] is True
-    assert body["matched"] == 1
-
-
-async def test_rest_callback_bad_json(monkeypatch):
-    """回调端点:配 secret + 合法签名但非法 JSON 体 → 200 ok=False 不抛 500。"""
-    import hashlib as _h
-    import hmac as _hmac
-
-    secret = "test-secret"
-    monkeypatch.setenv("TOKEN6688_CALLBACK_SECRET", secret)
-    raw = b"not-json{{"
-    sig = "sha256=" + _hmac.new(secret.encode(), raw, _h.sha256).hexdigest()
-    app = _make_app()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        resp = await ac.post(
-            "/api/media/tasks/callback",
-            content=raw,
-            headers={
-                "X-TokenGo-Signature": sig,
-                "Content-Type": "application/json",
-            },
-        )
-    assert resp.status_code == 200
-    assert resp.json()["ok"] is False
-
-
-async def test_rest_callback_signature_mismatch(monkeypatch):
-    """回调端点:配置 secret 后签名不符 → 401。"""
-    monkeypatch.setenv("TOKEN6688_CALLBACK_SECRET", "sec")
-    app = _make_app()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        resp = await ac.post(
-            "/api/media/tasks/callback",
-            json={"task_id": "t-v1"},
-            headers={"X-TokenGo-Signature": "sha256=deadbeef"},
-        )
-    assert resp.status_code == 401
-    assert "签名" in resp.json()["detail"]
-
-
-async def test_rest_callback_signature_ok(monkeypatch):
-    """回调端点:配置 secret 且签名正确 → 200(验签通过)。"""
-    import hashlib
-    import hmac
-    import json as _json
-
-    monkeypatch.setenv("TOKEN6688_CALLBACK_SECRET", "sec")
-    monkeypatch.setattr(
-        "app.routers.media_tasks.handle_media_callback",
-        AsyncMock(return_value={"ok": True, "matched": 1}),
-    )
-    body = _json.dumps({"task_id": "t-v1", "state": "success"}).encode()
-    sig = "sha256=" + hmac.new(b"sec", body, hashlib.sha256).hexdigest()
-    app = _make_app()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        resp = await ac.post(
-            "/api/media/tasks/callback",
-            content=body,
-            headers={"Content-Type": "application/json", "X-TokenGo-Signature": sig},
-        )
-    assert resp.status_code == 200
-    assert resp.json()["matched"] == 1
-
-
-# ---------------------------------------------------------------------------
-# F7 统计概览 media_task_stats(2026-09-09)
-# ---------------------------------------------------------------------------
 
 
 async def test_media_task_stats_aggregates():
@@ -1384,102 +686,6 @@ async def test_cancel_media_tasks_no_inflight():
         result = await mt.cancel_media_tasks()
     assert result == {"requested": 0, "cancelled": 0, "remote_failed": []}
     mock_conn.execute.assert_not_called()
-
-
-async def test_cancel_media_tasks_all_inflight(monkeypatch):
-    """批量取消:不传 task_ids → 全部在途置 cancelled;未配置 key 跳过远端。"""
-    mock_conn = AsyncMock()
-    mock_conn.fetch = AsyncMock(
-        return_value=[
-            {"id": 1, "task_id": "t-v1", "provider": "token6688"},
-            {"id": 2, "task_id": "t-m1", "provider": "token6688"},
-        ]
-    )
-    mock_conn.execute = AsyncMock(return_value=None)
-
-    class _Cfg:
-        api_key = ""
-        api_base = ""
-
-    class _FakeSettings:
-        def get_provider_config(self, name):  # noqa: ANN001
-            return _Cfg()
-
-    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
-    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
-        result = await mt.cancel_media_tasks()
-    assert result["requested"] == 2
-    assert result["cancelled"] == 2
-    assert result["remote_failed"] == []
-    # 第二次 fetch = UPDATE ... RETURNING(2026-09-09 改条件更新,弃 execute)
-    sql, *params = mock_conn.fetch.call_args_list[1].args
-    assert "status='cancelled'" in sql
-    assert "task_id = ANY($1)" in sql
-    assert "status = ANY($2)" in sql
-    assert params[0] == ["t-v1", "t-m1"]
-    assert params[1] == ["processing", "accepted", "submitted", "pending"]
-
-
-async def test_cancel_media_tasks_task_ids_and_kind(monkeypatch):
-    """批量取消:task_ids + kind 过滤进 WHERE;空串 task_id 被剔除。"""
-    mock_conn = AsyncMock()
-    mock_conn.fetch = AsyncMock(
-        return_value=[{"id": 1, "task_id": "t-v1", "provider": "token6688"}]
-    )
-    mock_conn.execute = AsyncMock(return_value=None)
-
-    class _Cfg:
-        api_key = ""
-        api_base = ""
-
-    class _FakeSettings:
-        def get_provider_config(self, name):  # noqa: ANN001
-            return _Cfg()
-
-    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
-    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
-        result = await mt.cancel_media_tasks(task_ids=["t-v1", "  "], kind="video,image")
-    assert result["requested"] == 1
-    sql, *params = mock_conn.fetch.call_args_list[0].args
-    # 在途状态集合 + task_ids + kind 三个占位
-    assert "task_id = ANY($2)" in sql
-    assert "kind = ANY($3)" in sql
-    assert params[0] == ["processing", "accepted", "submitted", "pending"]
-    assert params[1] == ["t-v1"]
-    assert params[2] == ["video", "image"]
-
-
-async def test_cancel_media_tasks_remote_failure(monkeypatch):
-    """批量取消:远端取消抛错 → 记 remote_failed,本地仍置 cancelled。"""
-    mock_conn = AsyncMock()
-    mock_conn.fetch = AsyncMock(
-        return_value=[{"id": 1, "task_id": "t-v1", "provider": "token6688"}]
-    )
-    mock_conn.execute = AsyncMock(return_value=None)
-
-    class _Cfg:
-        api_key = "sk-test"
-        api_base = "https://k.token6688.com"
-
-    class _Inst:
-        async def cancel_task(self, tid):  # noqa: ANN001
-            raise RuntimeError("boom")
-
-    class _FakeSettings:
-        def get_provider_config(self, name):  # noqa: ANN001
-            return _Cfg()
-
-    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
-    monkeypatch.setattr(
-        "app.providers.token6688_provider.Token6688Provider",
-        lambda api_key, api_base: _Inst(),
-    )
-    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
-        result = await mt.cancel_media_tasks()
-    assert result["cancelled"] == 1
-    assert len(result["remote_failed"]) == 1
-    assert result["remote_failed"][0]["task_id"] == "t-v1"
-    assert "boom" in result["remote_failed"][0]["error"]
 
 
 async def test_rest_media_tasks_stats(monkeypatch):
@@ -1543,23 +749,6 @@ async def test_rest_media_tasks_cancel_batch_empty(monkeypatch):
     assert called.get("kind") is None
 
 
-async def test_rest_media_tasks_callback_fail_closed(monkeypatch):
-    """REST 回调端点:密钥未配置时 fail-closed 503,不再跳过验签继续处理(2026-09-09 P0)。"""
-    monkeypatch.delenv("TOKEN6688_CALLBACK_SECRET", raising=False)
-    app = _make_app()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        resp = await ac.post(
-            "/api/media/tasks/callback",
-            json={"task_id": "t1", "state": "success"},
-        )
-    assert resp.status_code == 503
-
-
-# ---------------------------------------------------------------------------
-# 第七轮竞态修复(2026-09-09):条件终态转移 + 真实计数 + 409 竞态窗口
-# ---------------------------------------------------------------------------
-
-
 async def test_update_media_task_only_if_in_flight_sql():
     """条件更新:SQL 带 AND status=ANY 守卫,task_id 与状态集合参数序正确。"""
     mock_conn = AsyncMock()
@@ -1586,88 +775,11 @@ async def test_update_media_task_only_if_in_flight_miss():
     assert ok is False
 
 
-async def test_callback_after_cancel_not_flipped():
-    """取消-回调竞态:回调 SELECT 命中在途行后任务被并发取消,条件更新落空 →
-    matched=0,已取消任务不被翻转成 succeeded。"""
-    mock_conn = AsyncMock()
-    mock_conn.fetch = AsyncMock(return_value=[{"id": 1, "kind": "video"}])
-    seen: dict = {}
-
-    async def _fake_update(tid, status=None, result=None, only_if_in_flight=False):
-        seen.update(tid=tid, status=status, guard=only_if_in_flight)
-        return False  # 条件更新未命中:行已被置为 cancelled
-
-    with (
-        patch("app.services.media_tasks.get_db_conn", return_value=mock_conn),
-        patch("app.services.media_tasks.update_media_task", new=_fake_update),
-    ):
-        out = await mt.handle_media_callback(
-            {"task_id": "t-c", "state": "success", "is_final": True,
-             "output_url": "https://cdn/x.mp4"}
-        )
-    assert out == {"ok": True, "matched": 0}
-    assert seen["guard"] is True
-
-
-async def test_cancel_media_tasks_counts_actual_rows(monkeypatch):
-    """批量取消:cancelled 取 UPDATE RETURNING 真实行数,非预期行数
-    (模拟并发窗口内 1 条已被回调落终态,UPDATE 只命中 1 行)。"""
-    conn_select = AsyncMock()
-    conn_select.fetch = AsyncMock(
-        return_value=[
-            {"id": 1, "task_id": "t-v1", "provider": "token6688"},
-            {"id": 2, "task_id": "t-m1", "provider": "token6688"},
-        ]
-    )
-    conn_update = AsyncMock()
-    conn_update.fetch = AsyncMock(return_value=[{"task_id": "t-v1"}])  # 仅 1 行命中
-
-    class _Cfg:
-        api_key = ""
-        api_base = ""
-
-    class _FakeSettings:
-        def get_provider_config(self, name):  # noqa: ANN001
-            return _Cfg()
-
-    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
-    with patch("app.services.media_tasks.get_db_conn", side_effect=[conn_select, conn_update]):
-        result = await mt.cancel_media_tasks()
-    assert result["requested"] == 2
-    assert result["cancelled"] == 1
-    sql, *params = conn_update.fetch.call_args.args
-    assert "status = ANY($2)" in sql
-    assert params[1] == ["processing", "accepted", "submitted", "pending"]
-
-
-async def test_cancel_media_tasks_update_error_reports_zero(monkeypatch):
-    """批量取消:本地 UPDATE 异常 → cancelled=0(不再夸大成功),不抛。"""
-    conn_select = AsyncMock()
-    conn_select.fetch = AsyncMock(
-        return_value=[{"id": 1, "task_id": "t-v1", "provider": "token6688"}]
-    )
-    conn_update = AsyncMock()
-    conn_update.fetch = AsyncMock(side_effect=RuntimeError("db down"))
-
-    class _Cfg:
-        api_key = ""
-        api_base = ""
-
-    class _FakeSettings:
-        def get_provider_config(self, name):  # noqa: ANN001
-            return _Cfg()
-
-    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
-    with patch("app.services.media_tasks.get_db_conn", side_effect=[conn_select, conn_update]):
-        result = await mt.cancel_media_tasks()
-    assert result == {"requested": 1, "cancelled": 0, "remote_failed": []}
-
-
 async def test_rest_media_task_cancel_race_409(monkeypatch):
     """取消竞态窗口:预检在途 → 写入前被并发落终态(条件更新未命中)→ 409。"""
     monkeypatch.setattr(
         "app.routers.media_tasks.get_media_task",
-        AsyncMock(return_value={"task_id": "t-r", "provider": "token6688", "status": "processing"}),
+        AsyncMock(return_value={"task_id": "t-r", "provider": "agnes", "status": "processing"}),
     )
     upd = AsyncMock(return_value=False)
     monkeypatch.setattr("app.routers.media_tasks.update_media_task", upd)

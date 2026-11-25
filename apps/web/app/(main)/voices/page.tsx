@@ -25,7 +25,7 @@ import { useAuthStore } from '@/stores/auth'
 import { Button } from '@ihui/ui-react'
 import { useConfirm } from '@/hooks/use-confirm'
 
-/** 声纹库管理页(2026-09-09 F4):token6688 克隆音色列表/详情/删除/上传。
+/** 声纹库管理页(2026-09-09 F4):克隆音色列表/详情/删除/上传。
  *  调用 /api/voice/voices(ai-service),声纹上传走 multipart 异步克隆。 */
 
 interface VoiceItem {
@@ -51,7 +51,7 @@ interface VoiceDetail {
 }
 
 // 2026-09-09 收尾修复:成功/失败终态集合与后端 provider 对齐
-// (_TASK_OK_STATES/_TASK_FAIL_STATES, token6688_provider.py)。
+// (_TASK_OK_STATES/_TASK_FAIL_STATES, 语音 provider)。
 const STATUS_READY = new Set([
   'succeeded',
   'success',
@@ -126,7 +126,7 @@ export default function VoicesPage() {
     listQuery.refetch()
   }
 
-  // 2026-09-09 第五轮:上传前置校验(与 token6688_provider.upload_voice 硬限制一致:
+  // 2026-09-09 第五轮:上传前置校验(与语音 provider 硬限制一致:
   // 仅 MP3/M4A/WAV,严格 <20MiB),超限前端直接拒绝,不再全量传输后等 502。
   const VOICE_MAX_BYTES = 20 * 1024 * 1024
   const VOICE_EXTS = new Set(['mp3', 'm4a', 'wav'])

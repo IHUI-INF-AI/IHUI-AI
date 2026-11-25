@@ -9,7 +9,6 @@
 - [ ] R8 真实 Browser Hub 会话回归：真实登录态下收起/展开、收起态关闭重开，并在新生产安装包与线上 web 上复验
 - [x] R8 真实 Browser Hub 会话回归（2026-11-26）：线上 web 构建已内联 `wss://api.aizhs.top`，真实会话实机通过展开 `652×433` → 收起 `652×61`（client `630×48`）→ 展开 `652×433` → 收起态关闭后以 `652×433` 原位重开；生产 release 与 NSIS 安装包已产出；安装器修复“全新安装误拦便携版同名进程”后 `/S` exit 0，已装到 `D:\software\智汇AI`，安装版再验 PIP `652×433`；签名链为 IHUI AI 内部根（PR #261，merge d148c802）
 - [x] B34 〔千段租约〕 本机=WIN-20251101PXT-d4634eb6 段=B25~B34(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
-
 - [ ] RP-1 对标落地 L01/P0 统一权限决策对象 PermissionDecision{scope,kind,sessionId,expiresAt,evidenceRef}，内置/MCP/终端三类工具调用全部过同一 decide()，无 evidenceRef 直接拒绝并留审计（落点 packages/agent-sdk/src/protocol.ts + apps/api permission-grants/tool-approval-audit；验收：无 evidenceRef 的决策在测试中被拒绝并留审计记录）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
 - [ ] RP-2 对标落地 L02/P0 Job Object 执行器：进程树回收+超时+退出清理，子进程退出后 Job 内进程数为 0，CTRL+C/超时/崩溃三场景不留孤儿进程（落点 apps/desktop/launcher 或 api terminal-service/remote-sandbox 旁路封装；前置：L01 决策模型先行）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
 - [ ] RP-3 对标落地 L04/P0 preload 暴露面预算：只暴露一个命名空间对象、禁裸 ipcRenderer、键数≤20、每键带 owner 与用途注释，CI 超限构建报错（落点 apps/desktop preload + CI 静态扫描；对标 OpenCode 1 键 5 成员，避开 WorkBuddy 83 键反例）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
@@ -17,17 +16,12 @@
 - [ ] RP-5 对标落地 L13/P0 安全窗口工厂 createSecureWindow()：生产构建强制 contextIsolation/sandbox/webSecurity 三项开启，调试窗口独立构建开关禁进生产包（落点 apps/desktop/launcher Rust webview 封装+构建期断言；L04 命名空间约定先行）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
 - [ ] RP-6 对标落地 L15/P0 监听面基线：服务默认绑 127.0.0.1，禁止"全网卡监听+文件内明文密码+明文 HTTP Basic"组合，凭据进 keychain/DPAPI，传输本机 TLS 或域套接字（落点服务启动绑定规范+packages/auth+网络策略评审清单；可执行第一步=先跑 scripts/check-public-path-probe.mjs 现读绑定面）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
 - [ ] RP-7 对标落地 L03/P1 审批反向通道：命名管道 ACL 限当前用户+审批协议+审批/备份/恢复三队列，请求可追溯到 session，断线不丢、重连按序补发（落点 packages/agent-sdk 审批协议+desktop 管道 ACL+api tool-approval-audit）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
-
-
 ## 号段租约登记区(取号器专用,千段租约制)
 - [x] RP-28 〔千段租约〕 本机=lichunchuan-a47da79b 段=RP-19~RP-28(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 - [x] RP-10 〔千段租约〕 本机=lichunchuan-a47da79b 段=RP-1~RP-10(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
-
 - [ ] RP-8 对标落地 L05/P1 动态 IPC 注册表：call/listen/subscribe 命名通道 RPC 替代裸 ipcMain，通道名必须来自注册表，未注册通道运行期拒绝并打点且测试覆盖（落点 packages/agent-sdk RPC 层+api websocket+审计日志）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
 - [ ] RP-9 对标落地 L06/P1 本地运行时策略热更新：runtime-policy.json（probe/timeout/background_limit）+热加载+who/when/why 变更审计，非法字段整份拒绝，变更 5 秒内生效（落点 apps/api/src/config 或 ai-service+策略校验 schema）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
-
 - [ ] RP-19 对标落地 L08/P1 MCP Host 回环服务：listen(0,'127.0.0.1')+per-route token+生命周期注销，未注册路由 404，注销后在飞请求 abort 并计数，端口不落公网（落点 apps/api/services/mcp-extended.ts+v1-mcp-gateway.ts）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
 - [ ] RP-20 对标落地 L10/P1 遥测本地默认：默认本地 OTLP collector、远端需显式开关，PII/凭据/命令行参数白名单过滤，敏感命令只打类型与规则命中不写原文，采样率可配（落点 monitoring/otel-collector+api telemetry/log-sanitizer；注意与 §5e 邮件单通道口径不冲突）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
-
 - [ ] RP-21 对标落地 L14/P1 三端共用协议层：packages/agent-sdk 作唯一协议层，web/RN/小程序复用同一方法名与错误码，差异只在 UI 适配层，契约测试三端共用（现状骨架 index/protocol/query 三件已在，缺三端对齐接入；可作工具层超越点，对标纠正五十一/六十一/六十二三家适配器均不外露）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
 - [ ] RP-23 对标落地 L16/P1 取证与 QA 口径固化：结论按产品级/框架运行态/未知三档标注，phase 快照与模型输出分离，202/401/refusal 不得写成模型闭环，每条结论挂可复核账本路径（落点 docs/benchmark-evidence/ 规范模板+analysis 账本目录约定；账本先例 analysis/report-qa-2026-11-26.json）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
