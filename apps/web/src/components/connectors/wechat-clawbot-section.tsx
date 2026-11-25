@@ -20,9 +20,7 @@ import { Badge } from '@/components/data'
 import { Button } from '@ihui/ui-react'
 
 import { PlatformIcon } from './platform-icon'
-
-/** 微信系渠道(OpenClaw/Clawbot 的用户态渠道类型)。 */
-const WECHAT_TYPES = new Set(['wechat', 'wechat_mp', 'wechat-work'])
+import { mergeWechatChannels } from './wechat-clawbot-merge'
 
 /**
  * 微信 Clawbot 渠道入口。
@@ -46,15 +44,9 @@ export function WechatClawbotSection() {
     setError('')
     try {
       const [registered, supported] = await Promise.all([listChannels(), listSupportedChannels()])
-      // 合并:已登记的 connected 状态优先,supported 只补未登记的候选
-      const byId = new Map<string, ChannelItem>()
-      for (const c of supported) {
-        if (WECHAT_TYPES.has(c.type)) byId.set(c.id, { ...c, connected: false })
-      }
-      for (const c of registered) {
-        if (WECHAT_TYPES.has(c.type)) byId.set(c.id, c)
-      }
-      setChannels([...byId.values()])
+      // 按 type 去重(已登记优先),避免 ch-wechat 与 sup-wechat 两条同名
+      // "微信公众号"并存;纯函数带单测防回归。
+      setChannels(mergeWechatChannels(registered, supported))
     } catch {
       setError(t('wechatClawbotLoadFailed'))
     } finally {
