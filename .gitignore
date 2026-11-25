@@ -1215,6 +1215,12 @@ apps/miniapp-taro/mobile-rn/
 # 竞品逆向取证的 _scratch 原始抓包/解包面：只保留同目录结论 .md，原始面不入库。
 docs/benchmark-evidence/**/_scratch/
 
+# ---- 小方吉祥物位图：运营侧外挂资产，不入库（2026-11-25）----
+# 4 态位图 1.7MB 从 git 跟踪移到 git 外目录，经 www.aizhs.top EdgeOne CDN 网络加载。
+# next start 运行时直读 public/(不进 next build)；此目录从未入库，部署 ff-only 不碰。
+# 源图：百度网盘共享空间 AI设计部/logo、小方/小方表情包/。
+apps/web/public/images/xiaofang-assets/
+
 # ---- 示例 / 模板统一放行（必须在所有阻断规则之后）----
 !**/*.example
 !**/*.sample

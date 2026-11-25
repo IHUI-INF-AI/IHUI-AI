@@ -5,11 +5,16 @@
 /**
  * Xiaofang — 品牌吉祥物「小方」统一出口(2026-11-15 立)
  *
- * 四态资产(唯一源 = public/images/):
- *  - full:/images/xiaofang.png        全身,用于空态 / 加载 / banner
- *  - face:/images/xiaofang-face.png   笑脸头像,用于 24–96px 小尺寸位
- *  - lost:/images/xiaofang-lost.png   疑问表情,用于 404
- *  - wave:/images/xiaofang-wave.gif   原始招手动图,用于需要"打招呼"的空态
+ * 四态资产(唯一源 = 运营侧外挂 public/images/xiaofang-assets/,不入 git):
+ *  - full:/images/xiaofang-assets/xiaofang.png        全身,用于空态 / 加载 / banner
+ *  - face:/images/xiaofang-assets/xiaofang-face.png   笑脸头像,用于 24–96px 小尺寸位
+ *  - lost:/images/xiaofang-assets/xiaofang-lost.png   疑问表情,用于 404
+ *  - wave:/images/xiaofang-assets/xiaofang-wave.gif   原始招手动图,用于需要"打招呼"的空态
+ *
+ * 2026-11-25 外挂化:位图从 git 跟踪移到 git 外目录,经 www.aizhs.top 的
+ * TencentEdgeOne CDN 网络加载(Cache-Control: public, max-age=86400),不再占仓库空间。
+ * 运行时由 next start 直读 public/(不进 next build);部署 ff-only 只动被跟踪文件,
+ * 该外挂目录从未入库且被 .gitignore 忽略,故任何部署都不会删除它。
  *
  * 资产取自百度网盘共享空间 `AI设计部/logo、小方/小方表情包/`:
  *  - full/face 源自「微笑.png」(全身 + 头部裁切);
@@ -29,10 +34,10 @@ import { cn } from '@/lib/utils'
 type XiaofangVariant = 'full' | 'face' | 'lost' | 'wave'
 
 const XIAOFANG_SRC: Record<XiaofangVariant, string> = {
-  full: '/images/xiaofang.png?v=20261125',
-  face: '/images/xiaofang-face.png?v=20261125',
-  lost: '/images/xiaofang-lost.png?v=20261125',
-  wave: '/images/xiaofang-wave.gif?v=20261125',
+  full: '/images/xiaofang-assets/xiaofang.png?v=20261125b',
+  face: '/images/xiaofang-assets/xiaofang-face.png?v=20261125b',
+  lost: '/images/xiaofang-assets/xiaofang-lost.png?v=20261125b',
+  wave: '/images/xiaofang-assets/xiaofang-wave.gif?v=20261125b',
 }
 
 /** 动图是 400×267 横版,其余为方形;size 统一表示宽度。 */
