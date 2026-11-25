@@ -207,3 +207,30 @@ AI 侧已完成：链路核验、应用 Client ID 查明、后台权限状态现
 ### 8.1 state 有效期（`STATE_TTL_SECONDS=600`）
 
 手写/脚本生成的合法 state（用生产 `connector_oauth.make_state`，密钥从 `CREDENTIALS_ENCRYPTION_KEY` 派生）只有 **10 分钟** TTL；生成后拖延过久再回调会被 `verify_state` 判「state 已过期或时间异常」，日志乱码看起来像「签名校验失败」，实为过期。生成 state 后应立即完成授权回调；调试中断要重新生成。state 的 `owner(o)` 必须非空且等于落库作用域（个人模式=`user_id`），否则 callback 第 540 行直接拒。
+
+
+---
+
+## 九、2026-11-26 00:18-00:30 真人授权复查（三个反直觉陷阱）
+
+李总在回调页完成授权后要求"点完了 你看"。复查确认**授权已真正落库、端到端可用**，但排障途中连踩三个反直觉坑，记此备查：
+
+| 现象 | 误判 | 真相 |
+| --- | --- | --- |
+| 回调页回到主站首页、显示「请先登录」 | 以为前端没转发 code、授权失败 | 前端 `OAuthCallbackHandler` 无平台登录态时不展示结果，但**后端 callback 已执行并落库**。判据是查库 `updated_at`，不是看页面提示 |
+| 拿回调 URL 里的 code 再直调一次 callback → 500「用户授权处理失败」 | 以为 token 没落库 | 钉钉 `authCode` **一次性**；前端那次已消费，二次调用在 `userAccessToken` 换 token 时返回 400（`[oauth] 回调失败: Client error '400 Bad Request'`），属正常重复消费，**不影响已落库 token** |
+| 用生产 venv + 密钥文件 `data/credentials_key` 解密 `user_oauth` → `InvalidTag` | 以为密文损坏、要重新授权 | 生产服务由 NSSM `AppEnvironmentExtra` 注入 **`PUBLISH_CREDENTIALS_KEY`**（优先级高于密钥文件）。ssh 脚本进程没继承该环境变量 ⇒ 回退到密钥文件（指纹 `26b9d5332dd3`）⇒ 与加密主密钥（指纹 `f727973d…`）不匹配。**验证脚本必须注入同一个 `PUBLISH_CREDENTIALS_KEY` 才能解密** |
+
+### 9.1 复查实测结论（生产库 + 生产密钥）
+
+- 生产库 `dingtalk:user-oauth`（owner=None，租户 `17568535-...`）`updated_at=2026-11-25T16:19:27Z`（本地 00:19:27），`extra.user_oauth` 有 `enc:user-oauth:v1:` 密文。
+- 注入 NSSM 的 `PUBLISH_CREDENTIALS_KEY` 后解密成功：`DECRYPT_OK=True has_refresh=True`，访问令牌 2h 有效期。
+- **端到端验收**：以用户 token 调 `GET /v1.0/contact/users/me`（新版钉钉**没有** `/v1.0/oauth2/userinfo`，该端点返回 `InvalidAction.NotFound`，别再照旧文档用）→ **HTTP 200**，返回本人 `unionId=UhE62XV5MoKtr9RPZMETqQiEiE`、`nick`、`mobile=186****9808`、`openId`、`avatarUrl`。AI 以本人身份读通讯录能力确认可用。
+- `GET /v1.0/contact/users/{unionId}` 的 unionId 必须**完整**，截断前缀会 `invalidParameter.user.notFound`；`/contact/users/me` 无需 unionId，最省事。
+
+### 9.2 生产凭据验证正确姿势（下次照抄）
+
+1. 生产服务密钥**不在密钥文件**，在 NSSM：`Get-ItemProperty 'HKLM://SYSTEM//CurrentControlSet//Services//IHUI-AI-SERVICE//Parameters' -Name AppEnvironmentExtra` 取 `PUBLISH_CREDENTIALS_KEY`。
+2. 解密/端到端脚本，进程内先 `os.environ["PUBLISH_CREDENTIALS_KEY"]=<上面的值>`，**再** import `credentials_crypto`（进程级单例，import 时锁定密钥）。
+3. 生产 `connector_store` 路径是 `app.services.connector_store`（不是 `app.services.connectors.connector_store`），用 `importlib.import_module` 避包导出差异。
+4. 验证用户身份连接器读能力直接用 `/v1.0/contact/users/me`，header `x-acs-dingtalk-access-token: <userAccessToken>`，200 + 本人 unionId 即达标。
