@@ -2,7 +2,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { ApiResult, RegisterDeviceTokenInput, RegisterDeviceTokenResponse } from '@ihui/types'
+import type {
+  ApiResult,
+  DeviceTaskExecutionPayload,
+  DeviceTaskProgress,
+  RegisterDeviceTokenInput,
+  RegisterDeviceTokenResponse,
+} from '@ihui/types'
 
 import { fetchApi, normalizeUrlPublic } from '../client.js'
 import { getTransport } from '../transport.js'
@@ -84,7 +90,7 @@ export interface DeviceRow {
   online?: boolean
 }
 
-/** device_tasks 行 */
+/** device_tasks 行(G2 起含执行载荷/进度/租约;旧服务端缺列时为 null/undefined) */
 export interface DeviceTaskRow {
   id: string
   sessionId: string
@@ -94,6 +100,14 @@ export interface DeviceTaskRow {
   finishedAt: string | null
   error: string | null
   resultSummary: unknown
+  payload: DeviceTaskExecutionPayload | null
+  messageId: string | null
+  progress: DeviceTaskProgress | null
+  leaseExpiresAt: string | null
+  cancelRequestedAt: string | null
+  attempt: number
+  agentSessionId: string | null
+  startedAt: string | null
   createdAt: string
   createdBy: string
 }
@@ -144,6 +158,10 @@ export async function pairExchangeDevice(payload: {
   name?: string
   os?: string | null
   capabilities?: DeviceCapabilities | null
+  /** G1b 执行体指纹(绑定后每个设备请求必须带同一 X-Device-Fingerprint) */
+  fingerprint?: string | null
+  /** 客户端版本(服务端 DEVICE_MIN_CLIENT_VERSION 非空时参与兼容校验) */
+  clientVersion?: string | null
 }): Promise<ApiResult<{ device_token: string; device_id: string }>> {
   return fetchApi<{ device_token: string; device_id: string }>('/api/devices/pair-exchange', {
     method: 'POST',
@@ -155,10 +173,21 @@ export async function pairExchangeDevice(payload: {
 export async function delegateSession(
   sessionId: string,
   targetDeviceId: string,
+  payload?: Partial<DeviceTaskExecutionPayload>,
 ): Promise<ApiResult<{ task_id: string; status: 'queued' }>> {
   return fetchApi<{ task_id: string; status: 'queued' }>(
     `/api/chat/sessions/${encodeURIComponent(sessionId)}/delegate`,
-    { method: 'POST', body: JSON.stringify({ target_device_id: targetDeviceId }) },
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        target_device_id: targetDeviceId,
+        ...(payload?.prompt !== undefined ? { prompt: payload.prompt } : {}),
+        ...(payload?.workspace !== undefined ? { workspace: payload.workspace } : {}),
+        ...(payload?.mode !== undefined ? { mode: payload.mode } : {}),
+        ...(payload?.autoApprove !== undefined ? { auto_approve: payload.autoApprove } : {}),
+        ...(payload?.model !== undefined ? { model: payload.model } : {}),
+      }),
+    },
   )
 }
 
@@ -272,6 +301,7 @@ export async function deviceTaskFail(
   taskId: string,
   error?: string,
   summary?: DeviceCapabilities | null,
+  progress?: DeviceTaskProgress | null,
 ): Promise<ApiResult<DeviceTaskRow>> {
   return fetchDeviceApi<DeviceTaskRow>(
     deviceToken,
@@ -281,8 +311,103 @@ export async function deviceTaskFail(
       body: JSON.stringify({
         ...(error ? { error } : {}),
         ...(summary !== null ? { summary } : {}),
+        ...(progress ? { progress } : {}),
       }),
     },
+  )
+}
+
+// =============================================================================
+// G2 执行器面(2026-11-25):attach / stream / lease + 用户侧 cancel/retry/详情
+// =============================================================================
+
+/** 开执行:在会话里落一条 assistant 消息,返回消息落点(后续 patch 都挂它) */
+export async function deviceTaskAttach(
+  deviceToken: string,
+  taskId: string,
+): Promise<ApiResult<{ task_id: string; message_id: string; conversation_id: string }>> {
+  return fetchDeviceApi<{ task_id: string; message_id: string; conversation_id: string }>(
+    deviceToken,
+    `/api/devices/tasks/${encodeURIComponent(taskId)}/attach`,
+    { method: 'POST', body: JSON.stringify({}) },
+  )
+}
+
+/** 上报执行输出增量(delta 追加 / snapshot 全量替换),返回服务端分配的链头 rev */
+export async function deviceTaskStream(
+  deviceToken: string,
+  taskId: string,
+  input: {
+    kind: 'delta' | 'snapshot'
+    textDelta?: string
+    content?: string
+    progress?: DeviceTaskProgress
+  },
+): Promise<ApiResult<{ message_id: string; rev: number }>> {
+  return fetchDeviceApi<{ message_id: string; rev: number }>(
+    deviceToken,
+    `/api/devices/tasks/${encodeURIComponent(taskId)}/stream`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        kind: input.kind,
+        ...(input.textDelta !== undefined ? { text_delta: input.textDelta } : {}),
+        ...(input.content !== undefined ? { content: input.content } : {}),
+        ...(input.progress ? { progress: input.progress } : {}),
+      }),
+    },
+  )
+}
+
+/** 续租 + 取取消意图(设备端每次轮询/心跳都调;返回 cancel_requested 后自行中止) */
+export async function deviceTaskLease(
+  deviceToken: string,
+  taskId: string,
+  progress?: DeviceTaskProgress,
+): Promise<
+  ApiResult<{
+    cancel_requested: boolean
+    lease_expires_at: string
+    agent_session_id: string | null
+  }>
+> {
+  return fetchDeviceApi<{
+    cancel_requested: boolean
+    lease_expires_at: string
+    agent_session_id: string | null
+  }>(deviceToken, `/api/devices/tasks/${encodeURIComponent(taskId)}/lease`, {
+    method: 'POST',
+    body: JSON.stringify({ ...(progress ? { progress } : {}) }),
+  })
+}
+
+/** 用户侧任务详情(含设备名) */
+export async function getDeviceTask(
+  taskId: string,
+): Promise<ApiResult<{ task: DeviceTaskRow; conversationId: string; deviceName: string | null }>> {
+  return fetchApi<{ task: DeviceTaskRow; conversationId: string; deviceName: string | null }>(
+    `/api/devices/tasks/${encodeURIComponent(taskId)}`,
+    { method: 'GET' },
+  )
+}
+
+/** 用户取消任务(未认领直落 failed;已认领置取消意图,等设备收口) */
+export async function cancelDeviceTask(
+  taskId: string,
+): Promise<ApiResult<{ cancelled: boolean; immediate: boolean; status: string }>> {
+  return fetchApi<{ cancelled: boolean; immediate: boolean; status: string }>(
+    `/api/devices/tasks/${encodeURIComponent(taskId)}/cancel`,
+    { method: 'POST' },
+  )
+}
+
+/** 用户重排失败/过期任务(attempt+1,历史消息保留) */
+export async function retryDeviceTask(
+  taskId: string,
+): Promise<ApiResult<{ task_id: string; status: string; attempt: number }>> {
+  return fetchApi<{ task_id: string; status: string; attempt: number }>(
+    `/api/devices/tasks/${encodeURIComponent(taskId)}/retry`,
+    { method: 'POST' },
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

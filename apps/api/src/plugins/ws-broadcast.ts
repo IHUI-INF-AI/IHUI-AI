@@ -123,6 +123,9 @@ export function broadcastEventClassOf(event: string): BroadcastEventClass | null
   // 归入既有的 'conversation' 类而不是新开一类 —— 消息本就是会话房间内的事件,
   // 而新增类别要同步 CONNECTION_ROLES / ceiling 表,那属于改帧分类面(本片不做)。
   if (event.startsWith('message:')) return 'conversation'
+  // G2 设备执行器闭环(2026-11-25):任务事件归入会话类 —— 它只对"打开了该会话的人"有
+  // 呈现面(进度条/取消),与消息帧同一收窄口径;归 null 会把任务帧发给所有连接(含 MCP 类)。
+  if (event.startsWith('device:')) return 'conversation'
   return null
 }
 

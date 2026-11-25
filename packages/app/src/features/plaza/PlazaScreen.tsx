@@ -596,7 +596,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.brand.ctaForeground,
       textAlign: 'center',
       lineHeight: 50,
-      fontSize: 28,
+      fontSize: rnType.displayXl.size,
       fontWeight: '300',
     } as TextStyle,
   })

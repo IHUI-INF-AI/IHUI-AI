@@ -2470,7 +2470,7 @@ const shellStyles = {
     backgroundColor: tokens.surface.card,
   } as const,
   materialSheetClose: {
-    fontSize: 22,
+    fontSize: rnType.headline.size,
     lineHeight: rnType.title.lineHeight,
     color: tokens.text.medium,
     fontWeight: '300',
@@ -2508,7 +2508,7 @@ const shellStyles = {
     color: tokens.text.primary,
   } as const,
   detailDialogClose: {
-    fontSize: 22,
+    fontSize: rnType.headline.size,
     lineHeight: rnType.title.lineHeight,
     color: tokens.text.medium,
     fontWeight: '300',
@@ -2593,7 +2593,7 @@ const shellStyles = {
     color: tokens.text.primary,
   } as const,
   modelModalClose: {
-    fontSize: 22,
+    fontSize: rnType.headline.size,
     lineHeight: rnType.title.lineHeight,
     color: tokens.text.medium,
     fontWeight: '300',

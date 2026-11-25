@@ -31,6 +31,8 @@ export const PROD_PARITY_FILES = Object.freeze([
   'deploy/win/lib/normalize-input.mjs',
   // 2026-11-25:路由层新 import 了它,不登记的话体嗅探被换掉/漏同步时哨兵看不见。
   'deploy/win/lib/body-sniff.mjs',
+  // 2026-11-25(第二十件):证据编号公开核验端点用的判据,路由层 import 它。
+  'deploy/win/lib/evidence-verify.mjs',
 ])
 
 export const PARITY_STATE = Object.freeze({

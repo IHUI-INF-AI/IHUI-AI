@@ -101,6 +101,15 @@ const TASK: DeviceTaskRow = {
   resultSummary: null,
   createdAt: '2026-10-30T08:30:00Z',
   createdBy: 'u1',
+  // G2 执行字段(2026-11-25):任务从"派单占位"变成"可执行+可观测",fixture 同步补齐
+  payload: { prompt: '整理本周发布记录', mode: 'execute', autoApprove: false },
+  messageId: 'msg-1',
+  progress: { stage: 'completed', percent: 100, updatedAt: '2026-10-30T09:00:00Z' },
+  leaseExpiresAt: null,
+  cancelRequestedAt: null,
+  attempt: 1,
+  agentSessionId: 'agent-sess-1',
+  startedAt: '2026-10-30T08:31:00Z',
 }
 
 beforeEach(() => {

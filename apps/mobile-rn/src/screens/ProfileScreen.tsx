@@ -2645,7 +2645,7 @@ const styles = StyleSheet.create({
   previewCloseText: {
     fontSize: rnType.displayLg.size,
     color: tokens.surface.light,
-    lineHeight: 30,
+    lineHeight: rnType.headline.lineHeight,
   },
   previewListContent: {
     alignItems: 'center',
@@ -2679,7 +2679,7 @@ const styles = StyleSheet.create({
   videoModalCloseText: {
     fontSize: rnType.displayLg.size,
     color: tokens.surface.light,
-    lineHeight: 30,
+    lineHeight: rnType.headline.lineHeight,
   },
   // ── 视频空态(对齐 Uniapp video-popup,无有效视频源时弹窗内提示) ──
   videoEmptyState: {
@@ -2722,7 +2722,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sharePopupCloseText: {
-    fontSize: 22,
+    fontSize: rnType.headline.size,
     color: tokens.text.secondary,
     lineHeight: rnType.strong.lineHeight,
   },
@@ -3037,7 +3037,7 @@ const styles = StyleSheet.create({
     marginBottom: rpx(24),
   },
   unsubscribeIcon: {
-    fontSize: 28,
+    fontSize: rnType.displayXl.size,
     color: tokens.danger.deepText,
     lineHeight: rnType.heading.lineHeight,
   },

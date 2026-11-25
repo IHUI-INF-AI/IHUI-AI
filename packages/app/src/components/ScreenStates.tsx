@@ -297,7 +297,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.medium,
       textAlign: 'center',
     },
-    stateDesc: { fontSize: 13, color: tk.text.medium, textAlign: 'center', lineHeight: 19 },
+    stateDesc: { fontSize: rnType.bodySm.size, color: tk.text.medium, textAlign: 'center', lineHeight: 19 },
     stateBtn: {
       marginTop: rnSpacing['xs-loose'],
       // 2026-11-25 三端同脸(真落地,门 128 几何维):小程序 `.ihui-state-btn` 是 `padding: 18rpx 36rpx`

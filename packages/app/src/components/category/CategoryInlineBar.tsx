@@ -233,7 +233,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     badgeText: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       fontWeight: '600',
       lineHeight: 10,
       textAlign: 'center',

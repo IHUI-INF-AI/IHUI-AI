@@ -2577,7 +2577,9 @@
     "statusRunning": "执行中",
     "statusCompleted": "已完成",
     "statusFailed": "失败",
-    "statusExpired": "已过期"
+    "statusExpired": "已过期",
+    "taskCancel": "取消任务",
+    "delegatePromptPlaceholder": "留空则执行该会话最后一条消息"
   },
   "pendingDecisions": {
     "title": "我的待决策",

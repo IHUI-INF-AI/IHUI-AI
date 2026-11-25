@@ -334,7 +334,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     countText: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       fontWeight: '600',
       lineHeight: 10,
       textAlign: 'center',

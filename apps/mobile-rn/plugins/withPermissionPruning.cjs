@@ -31,6 +31,15 @@ const DEFAULT_PRUNED = Object.freeze([
   // `saveToLibraryAsync`(存图到相册),从不枚举音频/视频 ⇒ 两条读权限属超范围声明。
   'android.permission.READ_MEDIA_AUDIO',
   'android.permission.READ_MEDIA_VIDEO',
+  // 2026-11-25(vivo 0.0.29 权限审核实测):READ/WRITE_EXTERNAL_STORAGE 被 vivo 判
+  // "申请场景不合理"—— 选图已走系统 Photo Picker,无需全量读存储;保存图片走 MediaStore,
+  // Android 10+ 无需 WRITE。两条留着只会让 0.0.30 继续被同一理由驳回,故一并摘除。
+  // READ_MEDIA_IMAGES / READ_MEDIA_VISUAL_USER_SELECTED 同属 media-library 默认声明,
+  // 本应用只用 picker 选单张图,不做相册枚举 ⇒ 同样超范围。
+  'android.permission.READ_EXTERNAL_STORAGE',
+  'android.permission.WRITE_EXTERNAL_STORAGE',
+  'android.permission.READ_MEDIA_IMAGES',
+  'android.permission.READ_MEDIA_VISUAL_USER_SELECTED',
 ])
 
 const NAME = 'android:name'
