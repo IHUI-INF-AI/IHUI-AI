@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from starlette.testclient import TestClient
 
 from app.core.jwt_auth import get_current_user_id
 from app.routers import browser_hub as browser_hub_router
@@ -27,6 +28,8 @@ from app.services.browser_task import (
     TaskValidationError,
     active_checkpoint,
     find_checkpoint,
+    mark_checkpoint_active,
+    mark_checkpoint_done,
     normalize_task,
     task_progress,
     task_snapshot,
@@ -34,7 +37,7 @@ from app.services.browser_task import (
 
 
 class FakeSession:
-    """只保留任务端点用到的方法;任务状态用真实纯逻辑模块算。"""
+    """只保留端点用到的方法;任务状态用真实纯逻辑模块算。"""
 
     def __init__(self) -> None:
         self.task: dict[str, Any] | None = None
@@ -43,24 +46,81 @@ class FakeSession:
         self.task = normalize_task(payload)
         return task_snapshot(self.task)
 
+    async def clear_task(self) -> None:
+        self.task = None
+
     async def task_state(self) -> dict[str, Any]:
         return {"task": task_snapshot(self.task), "progress": task_progress(self.task)}
 
-    async def enter_checkpoint(self, checkpoint_id: str) -> dict[str, Any]:
+    def _checkpoint_snapshot(self, checkpoint_id: str | None) -> dict[str, Any] | None:
+        if self.task is None:
+            return None
+        snap = task_snapshot(self.task) or {}
+        for cp in snap.get("checkpoints") or []:
+            if checkpoint_id is None or cp.get("id") == checkpoint_id:
+                return cp
+        return None
+
+    async def enter_checkpoint(self, checkpoint_id: str, _reason: str | None = None) -> dict[str, Any]:
         if self.task is None:
             raise TaskValidationError("task_not_started", "当前会话还没有绑定任务")
-        target = find_checkpoint(self.task, checkpoint_id)
-        if target is None:
+        if find_checkpoint(self.task, checkpoint_id) is None:
             raise TaskValidationError("checkpoint_not_found", "检查点不存在")
-        return {"checkpoint": task_snapshot(self.task)["checkpoints"][0], **await self.task_state()}
+        mark_checkpoint_active(self.task, checkpoint_id)
+        return {
+            "checkpoint": self._checkpoint_snapshot(checkpoint_id),
+            **await self.task_state(),
+        }
 
     async def resume_checkpoint(self, checkpoint_id: str | None = None) -> dict[str, Any]:
         if self.task is None:
             raise TaskValidationError("task_not_started", "当前会话还没有绑定任务")
-        active = active_checkpoint(self.task)
         if checkpoint_id and find_checkpoint(self.task, checkpoint_id) is None:
             raise TaskValidationError("checkpoint_not_found", "检查点不存在")
-        return {"checkpoint": active, **await self.task_state()}
+        target = checkpoint_id
+        if target is None:
+            active = active_checkpoint(self.task)
+            target = active.get("id") if active else None
+        if target:
+            mark_checkpoint_done(self.task, target)
+        return {
+            "checkpoint": self._checkpoint_snapshot(target),
+            **await self.task_state(),
+        }
+
+    # --- WS 端点登记/摘除回调的最小接口(本测试只关心任务消息分支) ---
+    async def set_navigation_handler(self, _handler) -> None:
+        return None
+
+    async def remove_navigation_handler(self, _handler) -> None:
+        return None
+
+    async def set_phase_handler(self, _handler) -> None:
+        return None
+
+    async def remove_phase_handler(self, _handler) -> None:
+        return None
+
+    async def set_task_handler(self, _handler) -> None:
+        return None
+
+    async def remove_task_handler(self, _handler) -> None:
+        return None
+
+    async def set_checkpoint_handler(self, _handler) -> None:
+        return None
+
+    async def remove_checkpoint_handler(self, _handler) -> None:
+        return None
+
+    async def start_screencast(self, _on_frame) -> None:
+        return None
+
+    async def remove_frame_handler(self, _handler) -> None:
+        return None
+
+    async def get_title(self) -> str:
+        return "fake"
 
 
 @pytest.fixture
@@ -147,4 +207,53 @@ async def test_cross_owner_route_is_404_not_403(api, monkeypatch):
     res = await api.get("/api/browser/sessions/tab-1/task")
     assert res.status_code == 404
     assert res.json()["detail"] == "会话不存在: tab-1"
+
+
+def test_ws_task_messages_roundtrip(route_app, monkeypatch):
+    """WS 任务分支过真实 WebSocket 握手/收发,不只测会话方法。"""
+    app, _session = route_app
+    monkeypatch.setattr(
+        browser_hub_router,
+        "verify_access_token",
+        lambda token: {"sub": "u-ws"} if token == "good" else None,
+    )
+    monkeypatch.setattr(
+        browser_hub_router, "principal_from_payload", lambda payload: payload.get("sub")
+    )
+
+    with TestClient(app) as client:
+        with client.websocket_connect("/api/browser/ws/tab-1?token=good") as ws:
+            ws.send_json(
+                {
+                    "type": "task_start",
+                    "task": {
+                        "goal": "登录后继续",
+                        "checkpoints": [{"id": "verify", "label": "验证登录"}],
+                    },
+                }
+            )
+            started = ws.receive_json()
+            assert started["type"] == "task_result"
+            assert started["data"]["task"]["goal"] == "登录后继续"
+
+            ws.send_json({"type": "checkpoint_enter", "checkpoint_id": "verify"})
+            entered = ws.receive_json()
+            assert entered["type"] == "checkpoint_result"
+            assert entered["data"]["checkpoint"]["id"] == "verify"
+            assert entered["data"]["checkpoint"]["status"] == "active"
+
+            ws.send_json({"type": "checkpoint_resume", "checkpoint_id": "verify"})
+            resumed = ws.receive_json()
+            assert resumed["type"] == "checkpoint_result"
+            assert resumed["data"]["checkpoint"]["status"] == "done"
+            assert resumed["data"]["progress"]["done"] == 1
+
+            ws.send_json({"type": "task_clear"})
+            cleared = ws.receive_json()
+            assert cleared == {"type": "task_result", "data": {"task": None}}
+
+            ws.send_json({"type": "checkpoint_enter"})
+            rejected = ws.receive_json()
+            assert rejected["type"] == "error"
+            assert rejected["code"] == "checkpoint_id_missing"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
