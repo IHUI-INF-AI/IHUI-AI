@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-24T18:14:06.789Z",
+  "sealedAt": "2026-11-25T02:53:06.584Z",
   "sealedBy": "root-guard --seal",
-  "reason": "2026-11-25 lost-commit tag 体量闸接线:git-guardian.mjs 新增 pruneLostCommitTags 派发层 + 主循环一行,按新面重封 10 条",
+  "reason": "git-guardian 新增 pruneRepoBloat 派发层与主循环挂点(对象库体积护栏), 需按新面重封",
   "targets": [
     {
       "id": "guardian-runner",
@@ -28,7 +28,7 @@
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "f6c2929be02a2c916182ac816bf3f2fdc44fc4ea02564e9bf125b130cff712bc"
+      "sha256": "492b12bbf88ea64e79d55ca42feaa0e715ff78034653afb87d4edf849ac28d26"
     },
     {
       "id": "gate-scope",
