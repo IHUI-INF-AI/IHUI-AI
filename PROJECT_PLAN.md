@@ -21,3 +21,6 @@
 
 ## 号段租约登记区(取号器专用,千段租约制)
 - [x] RP-10 〔千段租约〕 本机=lichunchuan-a47da79b 段=RP-1~RP-10(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
+
+- [ ] RP-8 对标落地 L05/P1 动态 IPC 注册表：call/listen/subscribe 命名通道 RPC 替代裸 ipcMain，通道名必须来自注册表，未注册通道运行期拒绝并打点且测试覆盖（落点 packages/agent-sdk RPC 层+api websocket+审计日志）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
+- [ ] RP-9 对标落地 L06/P1 本地运行时策略热更新：runtime-policy.json（probe/timeout/background_limit）+热加载+who/when/why 变更审计，非法字段整份拒绝，变更 5 秒内生效（落点 apps/api/src/config 或 ai-service+策略校验 schema）证据 analysis/wave2-ihui-landing-v2-2026-11-26.md
