@@ -27,6 +27,23 @@ const AI_PIP_MARGIN: f64 = 24.0;
 
 /// 上次 AI 画中画窗口位置(逻辑坐标);窗口关闭时记,下次打开沿用。
 static AI_PIP_LAST_POS: Mutex<Option<(f64, f64)>> = Mutex::new(None);
+/// 上次 AI 画中画窗口尺寸(逻辑坐标);同样关闭时记,下次打开沿用。
+static AI_PIP_LAST_SIZE: Mutex<Option<(f64, f64)>> = Mutex::new(None);
+
+/// 上次尺寸不能把窗口缩到看不了;下限仍是 320×200。
+fn clamp_pip_size(last: Option<(f64, f64)>) -> (f64, f64) {
+    let Some((width, height)) = last else {
+        return (AI_PIP_WIDTH, AI_PIP_HEIGHT);
+    };
+    if !width.is_finite() || !height.is_finite() {
+        return (AI_PIP_WIDTH, AI_PIP_HEIGHT);
+    }
+    (width.max(AI_PIP_MIN_WIDTH), height.max(AI_PIP_MIN_HEIGHT))
+}
+
+fn pip_open_size() -> (f64, f64) {
+    clamp_pip_size(AI_PIP_LAST_SIZE.lock().ok().and_then(|guard| *guard))
+}
 
 /// 由主窗口 URL 生成 `/browser-pip?session=...`,保留主站 origin(含端口)。
 fn browser_pip_url(main: &Url, session_id: &str) -> Result<Url, String> {
@@ -131,13 +148,14 @@ pub async fn open_browser_pip_window(
                 if create_app.get_webview_window(AI_PIP_WINDOW_LABEL).is_some() {
                     return Err("旧画中画窗口尚未销毁,已放弃本次重建".to_string());
                 }
+                let (open_w, open_h) = pip_open_size();
                 let win = WebviewWindowBuilder::new(
                     &create_app,
                     AI_PIP_WINDOW_LABEL,
                     WebviewUrl::External(url),
                 )
                 .title("AI 画中画监看")
-                .inner_size(AI_PIP_WIDTH, AI_PIP_HEIGHT)
+                .inner_size(open_w, open_h)
                 .min_inner_size(AI_PIP_MIN_WIDTH, AI_PIP_MIN_HEIGHT)
                 .position(x, y)
                 .resizable(true)
@@ -162,6 +180,15 @@ pub async fn open_browser_pip_window(
                             let scale = win_ev.scale_factor().unwrap_or(1.0);
                             if let Ok(mut guard) = AI_PIP_LAST_POS.lock() {
                                 *guard = Some((pos.x as f64 / scale, pos.y as f64 / scale));
+                            }
+                            if let Ok(size) = win_ev.inner_size() {
+                                let logical = (
+                                    size.width as f64 / scale,
+                                    size.height as f64 / scale,
+                                );
+                                if let Ok(mut guard) = AI_PIP_LAST_SIZE.lock() {
+                                    *guard = Some(clamp_pip_size(Some(logical)));
+                                }
                             }
                         }
                         let _ = win_ev.emit_to("main", "browser-pip://closed", ());
@@ -273,6 +300,20 @@ mod tests {
         assert!(browser_pip_url(&main, "a b").is_err());
         let file = Url::parse("file:///C:/x.html").expect("file url");
         assert!(browser_pip_url(&file, "abc").is_err());
+    }
+
+    #[test]
+    fn pip_size_defaults_and_clamps_to_minimum() {
+        assert_eq!(clamp_pip_size(None), (AI_PIP_WIDTH, AI_PIP_HEIGHT));
+        assert_eq!(clamp_pip_size(Some((520.0, 390.0))), (520.0, 390.0));
+        assert_eq!(
+            clamp_pip_size(Some((200.0, 120.0))),
+            (AI_PIP_MIN_WIDTH, AI_PIP_MIN_HEIGHT)
+        );
+        assert_eq!(
+            clamp_pip_size(Some((f64::NAN, 400.0))),
+            (AI_PIP_WIDTH, AI_PIP_HEIGHT)
+        );
     }
 
     #[test]
