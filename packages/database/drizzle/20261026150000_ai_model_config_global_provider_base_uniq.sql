@@ -5,10 +5,10 @@
 -- dev 库唯一索引 uq_ai_model_config_global_provider_base 的迁移台账对齐(2026-10-26 立,未取号票:relay-capacity 席)
 --
 -- 立因:schema 早在 2026-10-18 已声明该部分唯一索引(packages/database/src/schema/ai-config.ts,
--- 全局配置按 (provider_code, COALESCE(base_url,'')) 防重,拦 已下线供应商 型僵尸重复行再生),
+-- 全局配置按 (provider_code, COALESCE(base_url,'')) 防重,拦 token6688 型僵尸重复行再生),
 -- 但整条迁移链里没有对应 .sql —— 索引此前因重复行存在而无法建立,重复行(id=46)已于
 -- 2026-10-26 09:50 由 scripts/merge-dup-model-configs.mjs --apply 带外删除(先备份后删,
--- 快照 .ihui-agent/state/model-config-merge/已下线供应商-2026-10-26T01-50-29-148Z.json),
+-- 快照 .ihui-agent/state/model-config-merge/token6688-2026-10-26T01-50-29-148Z.json),
 -- 索引随后也已在 dev 库面存在(带外)。库态与台账面漂移:全新部署从链上拿不到这一硬闸。
 -- 本枚把"备份→删重复行→建唯一索引"补进迁移链,让台账与 schema 声明、库态三者对齐。
 --
