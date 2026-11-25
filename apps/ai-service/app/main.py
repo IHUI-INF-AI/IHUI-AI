@@ -891,9 +891,17 @@ async def lifespan(app: FastAPI) -> Any:
         from app.services.connectors.connector_read_tools import setup_connector_read_tools
 
         _n_conn = setup_connector_read_tools()
-        logger.info("[connector] 启动注册连接器工具(2 读 + 2 写): %d 个", _n_conn)
+        if _n_conn == 0:
+            # 0/4 意味着对话里连接器读写能力整体消失且无任何 error 信号;
+            # 保持降级不阻断启动,但必须留 error 级告警供运维发现(守门/日志可捕获)。
+            logger.error(
+                "[connector] 连接器 4 枚工具全部注册失败(0/4):本进程对话无连接器读/写能力; "
+                "服务降级但继续启动,请检查 register_external_tool 同名冲突或上方 warning"
+            )
+        else:
+            logger.info("[connector] 启动注册连接器工具(2 读 + 2 写): %d 个", _n_conn)
     except Exception as e:
-        logger.warning("[connector] 启动注册失败(忽略): %s", e)
+        logger.error("[connector] 启动注册异常(降级不阻断): %s", e)
     try:
         from app.services.ui_action_bridge import (
             register_app_ui_tools,

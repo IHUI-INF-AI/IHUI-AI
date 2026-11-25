@@ -8,22 +8,35 @@
 
 把任意微信后端接成 IHUI 微信智联认识的 HTTP 契约。它解决的是「iLink 官方通道不支持联系人同步、群管理、朋友圈」这一类缺口：这些动作由本桥在后面接 `wcfhttp` 或其他本地后端完成，IHUI 侧不需要改代码。
 
-## 契约
+## 本机常驻（DB sidecar 路线）
 
-| 方法 | 路径                      | 说明                                                                                                                                                                                                              |
-| ---- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET  | `/status`                 | 探活，返回 `{ ok, online, selfWxid, driver }`                                                                                                                                                                     |
-| GET  | `/messages?since=&limit=` | 增量入站，返回 `{ messages, nextCursor }`                                                                                                                                                                         |
-| GET  | `/moments?since=&limit=`  | 朋友圈 `type=0` 回调，返回 `{ moments, nextCursor }`                                                                                                                                                              |
-| GET  | `/moments/archive?limit=` | 本次及历史真实抓取的朋友圈归档，按最后出现时间倒序，返回 `{ moments, total }`；每条含 `authorResolved, firstSeenAt, lastSeenAt, seenCount, createdAt, mediaUrls, mediaLocalDir?, mediaDownloaded?, source, page, authorId, authorName, content, id` |
-| GET  | `/moments/media/list?momentId=` | 列出该动态本地已落盘的真实媒体文件；未设置 `BRIDGE_DB_MEDIA_DIR` 时返回 404，不扫描微信目录 |
-| GET  | `/moments/media?momentId=&name=` | 读取一个本地媒体文件；只接受安全文件名，带路径穿越的请求返回 400 |
-| GET  | `/members/map`            | 读取当前「群昵称 → memberId」映射，返回 `{ ok, members }`                                                                                                                                                         |
-| POST | `/members/map`            | `{ members: [{ chatTitle?, nickname, memberId, source: 'contact'                                                                                                                                                  | 'group-member' }] }`，按 source+会话+昵称合并写入映射文件 |
-| POST | `/send`                   | `{ target, type, text?, url?, fileName?, mentions? }`                                                                                                                                                             |
-| POST | `/action`                 | `{ action, ...payload }`，动作名见下                                                                                                                                                                              |
-| POST | `/typing`                 | 可选，装饰性                                                                                                                                                                                                      |
-| POST | `/ingest`                 | 上游把入站消息推进队列；可单条、`{messages:[...]}` 或裸数组；JSON 或 `application/x-www-form-urlencoded`；`type=0` 朋友圈会单独进 `/moments`                                                                      |
+`data/wechat-bridge/start-bridge.ps1` 是耐久启动器：默认 `8849`、`BRIDGE_MOMENT_DRIVER=db`、
+`BRIDGE_DB_MEDIA_DOWNLOAD=0`；已就绪时重复调用只返回 `BRIDGE_ALREADY_RUNNING`，不会起第二个桥。
+计划任务 `IHUI-WeChat-Bridge-Logon` 和 `IHUI-WeChat-Bridge-Watchdog` 负责登录时拉起和
+每 5 分钟补拉，脚本用 `C:\Program Files\PowerShell\7\pwsh.exe`，不依赖临时目录。
+
+```powershell
+pwsh -NoProfile -File C:\IHUI-AI\data\wechat-bridge\start-bridge.ps1 -Port 8849
+schtasks /Run /TN "IHUI-WeChat-Bridge-Watchdog"
+```
+
+当前真实归档 715 条；媒体原件 207 个已落盘，1032 个因 qpic 票据过期不可得。桥不会把
+「暂时无法查看」占位图或伪造图片写进归档；管理台按真实文件显示缺失数。
+
+| 方法 | 路径                             | 说明                                                                                                                                                                                                                                                |
+| ---- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET  | `/status`                        | 探活，返回 `{ ok, online, selfWxid, driver }`                                                                                                                                                                                                       |
+| GET  | `/messages?since=&limit=`        | 增量入站，返回 `{ messages, nextCursor }`                                                                                                                                                                                                           |
+| GET  | `/moments?since=&limit=`         | 朋友圈 `type=0` 回调，返回 `{ moments, nextCursor }`                                                                                                                                                                                                |
+| GET  | `/moments/archive?limit=`        | 本次及历史真实抓取的朋友圈归档，按最后出现时间倒序，返回 `{ moments, total }`；每条含 `authorResolved, firstSeenAt, lastSeenAt, seenCount, createdAt, mediaUrls, mediaLocalDir?, mediaDownloaded?, source, page, authorId, authorName, content, id` |
+| GET  | `/moments/media/list?momentId=`  | 列出该动态本地已落盘的真实媒体文件；未设置 `BRIDGE_DB_MEDIA_DIR` 时返回 404，不扫描微信目录                                                                                                                                                         |
+| GET  | `/moments/media?momentId=&name=` | 读取一个本地媒体文件；只接受安全文件名，带路径穿越的请求返回 400                                                                                                                                                                                    |
+| GET  | `/members/map`                   | 读取当前「群昵称 → memberId」映射，返回 `{ ok, members }`                                                                                                                                                                                           |
+| POST | `/members/map`                   | `{ members: [{ chatTitle?, nickname, memberId, source: 'contact'                                                                                                                                                                                    | 'group-member' }] }`，按 source+会话+昵称合并写入映射文件 |
+| POST | `/send`                          | `{ target, type, text?, url?, fileName?, mentions? }`                                                                                                                                                                                               |
+| POST | `/action`                        | `{ action, ...payload }`，动作名见下                                                                                                                                                                                                                |
+| POST | `/typing`                        | 可选，装饰性                                                                                                                                                                                                                                        |
+| POST | `/ingest`                        | 上游把入站消息推进队列；可单条、`{messages:[...]}` 或裸数组；JSON 或 `application/x-www-form-urlencoded`；`type=0` 朋友圈会单独进 `/moments`                                                                                                        |
 
 动作名：`contact.sync`、`contact.delete`、`group.create`、`group.invite`、`group.kick`、`group.rename`、`group.announce`、`group.members`、`history.fetch`、`moment.fetch`、`moment.publish`、`chat.switch`（OCR 只读驱动支持）。不支持的动作必须返回 `{ ok:false, status:"unsupported" }`，不要伪造成功。`group.create` 必须在 `data.chatId` 返回新群 id（形如 `xxxx@chatroom`），IHUI 侧据此建立本地群会话镜像。`group.members` 返回 `{ members:[{wxid,nickname,role}] }`，IHUI 侧会用它替换该群成员快照；wcfhttp 版本路径不一致时用 `WCFHTTP_PATHS` 覆盖 `"getRoomMembers"`。`history.fetch` 由 wcfhttp 驱动通过 `/sql` 读取 `MSG` 表，返回 `{ messages, db, table, count }`；IHUI 侧复用历史导入服务去重入库，不触发自动回复/出站 webhook。`moment.fetch` 返回 `{ moments, fetched, pages, source, partial, stopReason, limitReached, occludedBy, reason, archive }`：OCR 驱动滚动朋友圈窗口做多页 OCR，wcfhttp 驱动调 `/pyq` 触发刷新并等待 `type=0` 回调；没有回调时返回 0 和真实原因，不伪造动态。`stopReason` 区分停止原因：`page-limit`（抓满 `maxPages` 上限，`limitReached=true`，不是失败）、`occluded`（被其他窗口遮挡，附 `occludedBy`）、`scroll-stalled`（滚轮停滞且无遮挡）、`no-more-data`（提前结束/已到底）、`error`（截图或遍历出错）；驱动未给值时由桥按页数与回调结果回退推导。每次成功抓取会按 `作者+正文` 归一化去重写入本地 JSONL 归档，`archive` 给出 `{ added, updated, total }`；重复抓同一动态只增加 `seenCount`，不重复插条目。
 
@@ -59,38 +72,38 @@ node server.mjs
 
 环境变量：
 
-| 变量                         | 默认                                | 说明                                                                                       |
-| ---------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------ |
-| `BRIDGE_PORT`                | `8848`                              | 桥监听端口                                                                                 |
-| `BRIDGE_HOST`                | `127.0.0.1`                         | 桥监听地址                                                                                 |
+| 变量                         | 默认                                | 说明                                                                                                         |
+| ---------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `BRIDGE_PORT`                | `8848`                              | 桥监听端口                                                                                                   |
+| `BRIDGE_HOST`                | `127.0.0.1`                         | 桥监听地址                                                                                                   |
 | `BRIDGE_SECRET`              | 空                                  | 非空时 `/status` `/messages` `/moments` `/moments/archive` `/moments/media*` `/send` `/action` 都要带 Bearer |
-| `BRIDGE_DRIVER`              | `mock`                              | `mock`、`wcfhttp`、`ocr` 或 `uia`                                                          |
-| `BRIDGE_MOMENT_DRIVER`       | 跟随 `BRIDGE_DRIVER`                | 单独指定朋友圈驱动；可设 `db`，聊天仍由 `BRIDGE_DRIVER` 负责                               |
-| `BRIDGE_DB_SIDECAR`          | `off`                               | 只有设为 `on` 才允许调用 DB sidecar；默认关闭，显式授权后才读本地 `sns.db`                 |
-| `BRIDGE_DB_PYTHON`           | `python`                            | DB sidecar 的独立 venv Python；不要把第三方包装进本仓                                      |
-| `BRIDGE_DB_DIR`              | 空                                  | 微信 `xwechat_files` 根目录                                                                |
-| `BRIDGE_DB_ACCOUNT`          | 空                                  | 账号目录名，如 `ok502319984_e7c6`                                                          |
-| `BRIDGE_DB_WORKDIR`          | 空                                  | DB sidecar 解密工作缓存目录                                                                |
-| `BRIDGE_DB_MEDIA_DIR`        | 空                                  | 可选图片落盘目录；设置后才开放 `/moments/media*` 读取，未设置时返回 404；只写真实图片/视频字节，不写占位图 |
-| `BRIDGE_DB_MEDIA_DOWNLOAD`   | `0`                                 | 设为 `1` 先读本地 Sns 缓存，未命中再按原始 URL 取回；URL 回退不带 Referer，HTTP 400/非媒体字节拒绝落盘 |
-| `BRIDGE_DB_MEDIA_LOCAL_ONLY` | `0`                                 | 设为 `1` 只导出微信本地 Sns 缓存，不访问原始 URL；未命中只计 `mediaCacheMisses`              |
-| `BRIDGE_DB_TIMEOUT_MS`       | `300000`                            | DB sidecar 子进程上限；全量 715 条媒体回退需要更长时间，低于 120000 容易误杀                 |
-| `BRIDGE_DB_LIMIT`            | `0`                                 | DB sidecar 最多导出多少条；`0` 为全量                                                      |
-| `WCFHTTP_BASE_URL`           | `http://127.0.0.1:9999`             | wcfhttp 地址                                                                               |
-| `WCFHTTP_PATHS`              | 内置                                | JSON 覆盖各接口路径，适配不同 wcfhttp 版本                                                 |
-| `WCFHTTP_HISTORY_DB`         | 自动探测                            | 历史消息所在库名，如 `MSG0.db`；不填时 `/dbs` 里找含 `MSG` 的库                            |
-| `WCFHTTP_HISTORY_SQL`        | 内置                                | 覆盖历史消息 SQL；支持 `{{limit}}` 占位，默认读 `MSG` 表按 `CreateTime` 倒序               |
-| `BRIDGE_QUEUE_FILE`          | `.bridge-queue.jsonl`               | 入站队列落盘位置                                                                           |
-| `BRIDGE_MOMENTS_FILE`        | `.bridge-moments.jsonl`             | 朋友圈队列落盘位置                                                                         |
-| `BRIDGE_MAX_MOMENTS`         | `500`                               | 朋友圈内存/落盘上限                                                                        |
-| `BRIDGE_MOMENT_ARCHIVE`      | `.bridge-ocr/moments-archive.jsonl` | 朋友圈历史归档 JSONL；设为 `0` 或 `off` 可关闭                                             |
-| `BRIDGE_MAX_ARCHIVE`         | `5000`                              | 归档最多保留条数，超出按最后出现时间淘汰旧条目                                             |
+| `BRIDGE_DRIVER`              | `mock`                              | `mock`、`wcfhttp`、`ocr` 或 `uia`                                                                            |
+| `BRIDGE_MOMENT_DRIVER`       | 跟随 `BRIDGE_DRIVER`                | 单独指定朋友圈驱动；可设 `db`，聊天仍由 `BRIDGE_DRIVER` 负责                                                 |
+| `BRIDGE_DB_SIDECAR`          | `off`                               | 只有设为 `on` 才允许调用 DB sidecar；默认关闭，显式授权后才读本地 `sns.db`                                   |
+| `BRIDGE_DB_PYTHON`           | `python`                            | DB sidecar 的独立 venv Python；不要把第三方包装进本仓                                                        |
+| `BRIDGE_DB_DIR`              | 空                                  | 微信 `xwechat_files` 根目录                                                                                  |
+| `BRIDGE_DB_ACCOUNT`          | 空                                  | 账号目录名，如 `ok502319984_e7c6`                                                                            |
+| `BRIDGE_DB_WORKDIR`          | 空                                  | DB sidecar 解密工作缓存目录                                                                                  |
+| `BRIDGE_DB_MEDIA_DIR`        | 空                                  | 可选图片落盘目录；设置后才开放 `/moments/media*` 读取，未设置时返回 404；只写真实图片/视频字节，不写占位图   |
+| `BRIDGE_DB_MEDIA_DOWNLOAD`   | `0`                                 | 设为 `1` 先读本地 Sns 缓存，未命中再按原始 URL 取回；URL 回退不带 Referer，HTTP 400/非媒体字节拒绝落盘       |
+| `BRIDGE_DB_MEDIA_LOCAL_ONLY` | `0`                                 | 设为 `1` 只导出微信本地 Sns 缓存，不访问原始 URL；未命中只计 `mediaCacheMisses`                              |
+| `BRIDGE_DB_TIMEOUT_MS`       | `300000`                            | DB sidecar 子进程上限；全量 715 条媒体回退需要更长时间，低于 120000 容易误杀                                 |
+| `BRIDGE_DB_LIMIT`            | `0`                                 | DB sidecar 最多导出多少条；`0` 为全量                                                                        |
+| `WCFHTTP_BASE_URL`           | `http://127.0.0.1:9999`             | wcfhttp 地址                                                                                                 |
+| `WCFHTTP_PATHS`              | 内置                                | JSON 覆盖各接口路径，适配不同 wcfhttp 版本                                                                   |
+| `WCFHTTP_HISTORY_DB`         | 自动探测                            | 历史消息所在库名，如 `MSG0.db`；不填时 `/dbs` 里找含 `MSG` 的库                                              |
+| `WCFHTTP_HISTORY_SQL`        | 内置                                | 覆盖历史消息 SQL；支持 `{{limit}}` 占位，默认读 `MSG` 表按 `CreateTime` 倒序                                 |
+| `BRIDGE_QUEUE_FILE`          | `.bridge-queue.jsonl`               | 入站队列落盘位置                                                                                             |
+| `BRIDGE_MOMENTS_FILE`        | `.bridge-moments.jsonl`             | 朋友圈队列落盘位置                                                                                           |
+| `BRIDGE_MAX_MOMENTS`         | `500`                               | 朋友圈内存/落盘上限                                                                                          |
+| `BRIDGE_MOMENT_ARCHIVE`      | `.bridge-ocr/moments-archive.jsonl` | 朋友圈历史归档 JSONL；设为 `0` 或 `off` 可关闭                                                               |
+| `BRIDGE_MAX_ARCHIVE`         | `5000`                              | 归档最多保留条数，超出按最后出现时间淘汰旧条目                                                               |
 
 API 进程侧另有 `WECHAT_HUB_MOMENT_TIMEOUT_MS`（默认 `360000`），只放宽 `moment.fetch`
 动作超时；普通桥动作仍保持 60s。全量媒体回退会超过旧 60s，不能靠桥内超时单独解决。
-| `BRIDGE_MEMBER_MAP`          | `.bridge-members.json`              | 群昵称 → memberId 映射文件路径；`POST /members/map` 合并写入，启动时加载                   |
-| `BRIDGE_MOMENT_WAIT_MS`      | `3500`                              | wcfhttp `/pyq` 后等待 `type=0` 回调的时间，500-15000ms                                     |
-| `BRIDGE_MAX_QUEUE`           | `5000`                              | 队列最多保留条数                                                                           |
+| `BRIDGE_MEMBER_MAP` | `.bridge-members.json` | 群昵称 → memberId 映射文件路径；`POST /members/map` 合并写入，启动时加载 |
+| `BRIDGE_MOMENT_WAIT_MS` | `3500` | wcfhttp `/pyq` 后等待 `type=0` 回调的时间，500-15000ms |
+| `BRIDGE_MAX_QUEUE` | `5000` | 队列最多保留条数 |
 
 驱动同时兼容两种常见 wcfhttp：PascalCase 的 `/api/GetContacts`、`/api/SendText`，以及 yuxiaoli/wcf-http 的 `/contacts`、`/text`、`/chatroom-member`。前者 404/405 时自动降级到后者；群创建、群改名、删好友仍需要 PascalCase 版本。
 
@@ -159,7 +172,7 @@ UIA/OCR 拿不到图片 URL、点赞、评论、折叠全文和作者 wxid 时�
 $env:BRIDGE_DRIVER='ocr'
 $env:BRIDGE_MOMENT_DRIVER='db'
 $env:BRIDGE_DB_SIDECAR='on'
-$env:BRIDGE_DB_PYTHON='C:\caches\temp\wxauto-venv\Scripts\python.exe'
+$env:BRIDGE_DB_PYTHON='C:\IHUI-AI\data\wechat-bridge\venv\Scripts\python.exe'
 $env:BRIDGE_DB_DIR='C:\Users\<user>\Documents\xwechat_files'
 $env:BRIDGE_DB_ACCOUNT='<account_dir>'
 node server.mjs

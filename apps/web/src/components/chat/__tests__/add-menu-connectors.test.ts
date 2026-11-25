@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 
 const read = (rel: string) => readFileSync(resolve(__dirname, rel), 'utf8')
 
-describe('输入框加号菜单的连接器只读挂载(2026-11-25)', () => {
+describe('输入框加号菜单的连接器读写挂载(2026-11-25)', () => {
   it('加号菜单在能力分组提供"连接器"toggle 入口,与插件市场并列', () => {
     const menu = read('../add-menu-popover.tsx')
     // 入口回调 prop 已声明并解构(toggle + 选中态)

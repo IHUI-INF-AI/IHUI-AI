@@ -454,6 +454,12 @@ export interface WechatMomentView {
   commentsData?: WechatMomentCommentView[]
   /** DB sidecar：视频数量 */
   videoCount?: number
+  /** DB sidecar：图片 + 视频的真实媒体条目数（不等于 mediaUrls 的去重 URL 数） */
+  mediaCount?: number
+  /** DB sidecar：本次真实落盘的媒体条目数 */
+  mediaAvailableCount?: number
+  /** DB sidecar：平台声明但本次没有真实落盘的媒体条目数 */
+  mediaMissingCount?: number
   /** DB sidecar：ISO 时间，仅作为 createdAt 的可读副本 */
   createdAtIso?: string
   /** DB sidecar 可选图片落盘目录；未开启下载时不返回 */
@@ -569,10 +575,23 @@ export interface WechatMomentArchiveItemView {
   commentsData?: WechatMomentCommentView[]
   /** DB sidecar 本地媒体目录；媒体真实落盘时才有 */
   mediaLocalDir?: string
+  /** 平台声明的媒体条目数；DB sidecar 抓取时写入，旧归档可能缺省 */
+  mediaCount?: number
+  /** 本地实际可读的媒体文件数；按磁盘真实文件统计，不是平台声明数 */
+  mediaAvailableCount?: number
+  /** 平台声明有、但本地没有真实文件的媒体数；这些原件已不可得 */
+  mediaMissingCount?: number
   /** DB sidecar 是否至少落盘一个媒体 */
   mediaDownloaded?: boolean
   likes?: boolean
   comments?: boolean
+}
+
+/** 归档媒体总量统计；只统计真实落盘文件，不是平台声明数 */
+export interface WechatMomentMediaStat {
+  declared: number
+  available: number
+  missing: number
 }
 
 /** 归档查询结果；storage 说明这次读的是数据库还是桥本地 JSONL */
@@ -585,6 +604,8 @@ export interface WechatMomentArchiveView {
   offset: number
   /** storage 非 database 时说明降级原因；正常为 null */
   reason: string | null
+  /** 数据库来源时的全量媒体统计；桥降级或缺字段时缺省 */
+  mediaStats?: WechatMomentMediaStat
 }
 
 /** 归档查询入参 */

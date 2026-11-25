@@ -69,6 +69,8 @@ vi.mock('../src/db/index.js', async () => {
     device_tasks: [],
     chat_conversations: [],
     device_tokens: [],
+    // G3:审批正文从会话消息现读(getTaskApproval 走 chat_messages),测试要能造那条消息
+    chat_messages: [],
   }
 
   const snakeToCamel = (s: string): string => s.replace(/_([a-z])/g, (_m, c) => c.toUpperCase())
@@ -152,14 +154,42 @@ vi.mock('../src/db/index.js', async () => {
   }
 
   function makeSelect() {
-    const st: { table: string | null; preds: any[]; limitN: number } = {
+    const st: {
+      table: string | null
+      preds: any[]
+      limitN: number
+      join: { table: string; left: string; right: string } | null
+    } = {
       table: null,
       preds: [],
       limitN: Infinity,
+      join: null,
     }
     const q: any = {
       from(t: any) {
         st.table = getTableName(t)
+        return q
+      },
+      /**
+       * G3:审批要按会话属主校验,service 用 innerJoin(chat_conversations)。
+       * 假库只需支持最常见的 `col = col` 连接,方向不敏感(既有写法是
+       * eq(chatConversations.id, deviceTasks.sessionId),主表在右)。
+       */
+      innerJoin(t: any, cond: any) {
+        const joinTable = getTableName(t)
+        const { text } = parseSql(cond)
+        const m = /"([a-z_]+)"\."([a-z_]+)"\s*=\s*"([a-z_]+)"\."([a-z_]+)"/.exec(text)
+        if (m) {
+          const leftTable = m[1]!
+          const leftCol = snakeToCamel(m[2]!)
+          const rightTable = m[3]!
+          const rightCol = snakeToCamel(m[4]!)
+          if (leftTable === st.table && rightTable === joinTable) {
+            st.join = { table: joinTable, left: leftCol, right: rightCol }
+          } else if (rightTable === st.table && leftTable === joinTable) {
+            st.join = { table: joinTable, left: rightCol, right: leftCol }
+          }
+        }
         return q
       },
       where(c: any) {
@@ -177,7 +207,16 @@ vi.mock('../src/db/index.js', async () => {
         return q
       },
       then(res: any, rej?: any) {
-        const rows = (store[st.table ?? ''] ?? []).filter((r) => matches(r, st.preds))
+        let rows = (store[st.table ?? ''] ?? []).filter((r) => matches(r, st.preds))
+        if (st.join) {
+          const join = st.join
+          const other = store[join.table] ?? []
+          rows = rows.flatMap((r) =>
+            other
+              .filter((o) => String(o[join.right]) === String(r[join.left]))
+              .map((o) => ({ ...r, ...o })),
+          )
+        }
         return Promise.resolve(rows.slice(0, st.limitN).map((r) => ({ ...r }))).then(res, rej)
       },
     }
@@ -186,7 +225,13 @@ vi.mock('../src/db/index.js', async () => {
 
   function applyInsert(tableName: string, v: any, conflictCfg: any): any[] {
     const rows = store[tableName]
-    const row = { id: randomUUID(), createdAt: new Date(), ...v }
+    // 真库的列默认值(attempt default 1 等)假库不模拟 ⇒ device:task 广播构造器会因
+    // attempt=undefined 校验失败而把一次成功的委派染成 500。这里按表补默认。
+    const defaults: Record<string, unknown> =
+      tableName === 'device_tasks'
+        ? { attempt: 1, progress: null, error: null, approvalRequest: null, approvalDecision: null }
+        : {}
+    const row = { id: randomUUID(), createdAt: new Date(), ...defaults, ...v }
     if (conflictCfg) {
       // target 允许单列(devices.ts 的 token 唯一键)或复合列(chat 等)
       const targets: any[] = Array.isArray(conflictCfg.target) ? conflictCfg.target : [conflictCfg.target]
@@ -569,6 +614,8 @@ describe('G1 跨设备互联闭环', () => {
     // 本人设备 + 离线(从未心跳)允许入队
     const ok = await asUser('POST', `/api/chat/sessions/${sessionA}/delegate`, USER_A, {
       target_device_id: deviceId,
+      // G2 起任务必须带可执行载荷;缺省会去取会话最后一条 user 消息,空会话 ⇒ 400
+      prompt: '整理本周发布记录',
     })
     expect(ok.statusCode).toBe(200)
     expect(ok.json().data).toMatchObject({ status: 'queued' })
@@ -576,6 +623,7 @@ describe('G1 跨设备互联闭环', () => {
     // 别名路径同形
     const alias = await asUser('POST', `/api/chat/conversations/${sessionA}/delegate`, USER_A, {
       target_device_id: deviceId,
+      prompt: '整理本周发布记录',
     })
     expect(alias.statusCode).toBe(200)
   })
@@ -586,6 +634,7 @@ describe('G1 跨设备互联闭环', () => {
     store.chat_conversations!.push({ id: session, userId: USER_A })
     const delegated = await asUser('POST', `/api/chat/sessions/${session}/delegate`, USER_A, {
       target_device_id: deviceId,
+      prompt: '整理本周发布记录',
     })
     expect(delegated.statusCode).toBe(200)
     const [r1, r2] = await Promise.all([
@@ -791,6 +840,127 @@ describe('推送令牌归属锁(SDB-01)', () => {
     expect(res.body).not.toContain(USER_B)
     expect(res.body).not.toContain('iPhone15,2')
     expect(res.body).not.toContain('zh-CN')
+  })
+})
+
+/**
+ * G3 plan 档跨端审批(2026-11-26)。
+ * 判据:执行端出完方案不能被当成"完成" —— 必须停在 awaiting_approval 等一个真人决定;
+ * 决策只写一次;设备靠租约轮询读回决策;计划正文的唯一真相源是会话里那条消息。
+ */
+describe('G3 plan 档跨端审批', () => {
+  /** 配对设备 → 建会话 → 派 plan 任务 → 认领(状态 running) */
+  async function setupPlanTask() {
+    const { deviceToken, deviceId } = await pairNewDevice(USER_A)
+    const session = randomUUID()
+    store.chat_conversations!.push({ id: session, userId: USER_A })
+    const delegated = await asUser('POST', `/api/chat/sessions/${session}/delegate`, USER_A, {
+      target_device_id: deviceId,
+      prompt: '重构登录模块',
+      mode: 'plan',
+    })
+    expect(delegated.statusCode).toBe(200)
+    const claimed = await asDevice('GET', '/api/devices/claim', deviceToken)
+    expect(claimed.statusCode).toBe(200)
+    return { deviceToken, deviceId, session, taskId: claimed.json().data.id as string }
+  }
+
+  it('交方案 → 读正文 → 批准 → lease 读回 approved', async () => {
+    const { deviceToken, deviceId, session, taskId } = await setupPlanTask()
+    const msgId = randomUUID()
+    store.chat_messages!.push({
+      id: msgId,
+      sessionId: session,
+      role: 'assistant',
+      content: '第一步:梳理现状\n第二步:改三处\n第三步:回归',
+    })
+
+    const asked = await asDevice('POST', `/api/devices/tasks/${taskId}/approval`, deviceToken, {
+      preview: '第一步:梳理现状,第二步:改三处',
+      message_id: msgId,
+      iterations: 4,
+    })
+    expect(asked.statusCode).toBe(200)
+    expect(asked.json().data.stage).toBe('awaiting_approval')
+
+    // 正在等你批的那份不能被换掉
+    const dup = await asDevice('POST', `/api/devices/tasks/${taskId}/approval`, deviceToken, {
+      preview: '另一份方案',
+    })
+    expect(dup.statusCode).toBe(409)
+
+    // 列表行:进度阶段可判、带摘要,但正文不在行里
+    const list = await asUser('GET', `/api/devices/${deviceId}/tasks`, USER_A)
+    const row = list.json().data.find((t: any) => t.id === taskId)
+    expect(row.progress.stage).toBe('awaiting_approval')
+    expect(row.approvalRequest.preview).toContain('梳理现状')
+    // 列表行只有摘要:"第三步:回归"只存在于会话消息里的正文,行里不该出现
+    expect(JSON.stringify(row)).not.toContain('第三步:回归')
+
+    // 用户读正文:从会话消息现读,不在库里存副本
+    const detail = await asUser('GET', `/api/devices/tasks/${taskId}/approval`, USER_A)
+    expect(detail.statusCode).toBe(200)
+    expect(detail.json().data.plan).toContain('第二步:改三处')
+    expect(detail.json().data.decision).toBeNull()
+
+    // 非属主不可读计划
+    const foreign = await asUser('GET', `/api/devices/tasks/${taskId}/approval`, USER_B)
+    expect(foreign.statusCode).toBe(403)
+
+    const ok = await asUser('POST', `/api/devices/tasks/${taskId}/approval/decision`, USER_A, {
+      decision: 'approved',
+    })
+    expect(ok.statusCode).toBe(200)
+    // 决策只写一次:再批/改拒都是 409(执行端已经按第一次的决策在跑)
+    const again = await asUser('POST', `/api/devices/tasks/${taskId}/approval/decision`, USER_A, {
+      decision: 'rejected',
+    })
+    expect(again.statusCode).toBe(409)
+
+    // 设备在租约轮询里读到决策,据此以 acceptEdits 继续
+    const lease = await asDevice('POST', `/api/devices/tasks/${taskId}/lease`, deviceToken, {})
+    expect(lease.statusCode).toBe(200)
+    expect(lease.json().data.approval_decision).toBe('approved')
+
+    // 批准后进度回到"继续执行",不再显示待审批(走列表行:该接口不依赖 select 投影,
+    // 假库对 `select({ task: table })` 的嵌套形态没有投影能力)
+    const after = await asUser('GET', `/api/devices/${deviceId}/tasks`, USER_A)
+    const afterRow = after.json().data.find((t: any) => t.id === taskId)
+    expect(afterRow.progress.stage).toBe('thinking')
+  })
+
+  it('拒绝:决策为 rejected,lease 读回后执行端收口', async () => {
+    const { deviceToken, deviceId, session, taskId } = await setupPlanTask()
+    store.chat_messages!.push({ id: randomUUID(), sessionId: session, content: '方案正文' })
+    const asked = await asDevice('POST', `/api/devices/tasks/${taskId}/approval`, deviceToken, {
+      preview: '方案正文',
+    })
+    expect(asked.statusCode).toBe(200)
+
+    const rejected = await asUser(
+      'POST',
+      `/api/devices/tasks/${taskId}/approval/decision`,
+      USER_A,
+      { decision: 'rejected' },
+    )
+    expect(rejected.statusCode).toBe(200)
+
+    const lease = await asDevice('POST', `/api/devices/tasks/${taskId}/lease`, deviceToken, {})
+    expect(lease.json().data.approval_decision).toBe('rejected')
+  })
+
+  it('没计划就决策 409;没人批时 lease 返回 null(执行端继续等)', async () => {
+    const { deviceToken, taskId } = await setupPlanTask()
+
+    const lease = await asDevice('POST', `/api/devices/tasks/${taskId}/lease`, deviceToken, {})
+    expect(lease.statusCode).toBe(200)
+    expect(lease.json().data.approval_decision).toBeNull()
+
+    const noPlan = await asUser('POST', `/api/devices/tasks/${taskId}/approval/decision`, USER_A, {
+      decision: 'approved',
+    })
+    expect(noPlan.statusCode).toBe(409)
+    expect(noPlan.json().errorCode).toBe('TASK_APPROVAL_NONE')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
