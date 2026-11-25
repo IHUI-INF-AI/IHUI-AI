@@ -43,7 +43,7 @@ export function ArticleDetailScreen({
       <ErrorState
         message={error || t('articleDetail.loadFailed')}
         onRetry={onRetry}
-        retryLabel={t('common.back')}
+        retryLabel={t('common.retry')}
         colorScheme={colorScheme}
       />
     )
@@ -64,6 +64,8 @@ export function ArticleDetailScreen({
             alignItems: 'center',
             backgroundColor: tk.surface.card,
             paddingHorizontal: rnSpacing.sm,
+            paddingVertical: rnSpacing['2xs'],
+            borderRadius: rnRadius.lg,
             gap: rnSpacing.xs,
           }}
         >

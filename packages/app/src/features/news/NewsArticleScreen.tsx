@@ -22,6 +22,19 @@ import { htmlToParagraphs } from '../agreement/agreement-type'
 
 export type { NewsArticleItem, NewsArticleScreenProps }
 
+/**
+ * 正文段落清洗:后端正文混有 markdown 标题(`## 背景`)与列表标记(`- ` / `1. `),
+ * `htmlToParagraphs` 只剥 HTML 标签,这些标记会原样裸露成正文文字。RN 端不引 markdown
+ * 渲染器,这里只去掉行首的标题井号 / 项目符号 / 有序序号,保留句内文本不动。
+ */
+function cleanMarkdownLine(line: string): string {
+  return line
+    .replace(/^\s*#{1,6}\s+/, '')
+    .replace(/^\s*[-*•]\s+/, '')
+    .replace(/^\s*\d+[.)]\s+/, '')
+    .trim()
+}
+
 /** ISO → `YYYY-MM-DD`(web 用 formatDateOnly,RN 端统一短日期,与知识库阅读屏同格式) */
 function formatDate(value?: string | null): string {
   if (!value) return '-'
@@ -66,7 +79,10 @@ export function NewsArticleScreen({
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const content = article?.content ?? ''
-  const paragraphs = useMemo(() => (content ? htmlToParagraphs(content) : []), [content])
+  const paragraphs = useMemo(
+    () => (content ? htmlToParagraphs(content).map(cleanMarkdownLine).filter(Boolean) : []),
+    [content],
+  )
 
   const header = (
     <View style={styles.headerBar}>
@@ -235,7 +251,7 @@ function createStyles(tk: AppThemeTokens) {
     summary: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.label.size,
-      lineHeight: 19,
+      lineHeight: rnType.label.lineHeight,
       color: tk.text.secondary,
     },
     metaRow: {
@@ -299,7 +315,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     paragraph: {
       fontSize: rnType.body.size,
-      lineHeight: rnType.title.lineHeight,
+      lineHeight: rnType.body.lineHeight,
       color: tk.text.primary,
     },
     contentEmpty: {
