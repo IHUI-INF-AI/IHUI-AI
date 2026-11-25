@@ -9572,6 +9572,8 @@
       "unpin": "取消置頂",
       "reconnect": "重新連線",
       "close": "關閉",
+      "minimize": "最小化",
+      "expandWindow": "展開",
       "expandTask": "展開任務詳情",
       "collapseTask": "收起任務詳情",
       "title": "畫中畫",

@@ -40,6 +40,8 @@ export function useBrowserPipLabels(): BrowserPipLabels {
     unpin: t('unpin'),
     reconnect: t('reconnect'),
     close: t('close'),
+    minimize: t('minimize'),
+    expandWindow: t('expandWindow'),
     expandTask: t('expandTask'),
     collapseTask: t('collapseTask'),
     checkpointLabels: {

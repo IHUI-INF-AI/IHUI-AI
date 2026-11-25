@@ -9607,6 +9607,8 @@
       "unpin": "맨 위 고정 해제",
       "reconnect": "다시 연결",
       "close": "닫기",
+      "minimize": "최소화",
+      "expandWindow": "펼치기",
       "expandTask": "작업 상세 열기",
       "collapseTask": "작업 상세 접기",
       "title": "화면 중 화면",

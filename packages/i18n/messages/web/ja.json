@@ -9607,6 +9607,8 @@
       "unpin": "最前面を解除",
       "reconnect": "再接続",
       "close": "閉じる",
+      "minimize": "最小化",
+      "expandWindow": "展開",
       "expandTask": "タスク詳細を展開",
       "collapseTask": "タスク詳細を折りたたむ",
       "title": "ピクチャーインピクチャー",

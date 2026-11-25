@@ -76,6 +76,24 @@ export async function closeAiPipWindow(): Promise<void> {
 }
 
 /**
+ * 收起 / 展开 AI 画中画窗。
+ *
+ * 监看窗默认不占任务栏,直接 OS minimize 会连恢复入口一起消失。这里由 Rust
+ * 把窗口压到 32px 标题条(不改变置顶、不隐藏),再点同一枚按钮还原;
+ * 关闭或重开时仍沿用上次完整尺寸,不会把 32px 当成新尺寸记下去。
+ */
+export async function setAiPipCollapsed(collapsed: boolean): Promise<boolean> {
+  requireTauri()
+  return invoke<boolean>('set_browser_pip_collapsed', { collapsed })
+}
+
+/** 切换收起/展开,不依赖页面本地 state;刷新后也能正确还原。 */
+export async function toggleAiPipCollapsed(): Promise<boolean> {
+  requireTauri()
+  return invoke<boolean>('toggle_browser_pip_collapsed')
+}
+
+/**
  * 从 AI 画中画监看窗「一键接管」:由 Rust 拉回主窗、投递 handover 事件并关浮窗。
  * 不走页面侧 getAllWindows/setFocus —— 远程 origin 的窗口 ACL 会单独卡这两项,
  * 失败后只剩 `window.close()`,主窗仍在后台,等于没接管。

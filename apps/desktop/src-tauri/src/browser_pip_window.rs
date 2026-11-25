@@ -13,7 +13,10 @@
 //!
 //! 窗口契约:420×280 起、最小 320×200、置顶、可缩放、不进任务栏、打开不抢焦点。
 
-use std::sync::Mutex;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Mutex,
+};
 
 use tauri::{
     AppHandle, Emitter, Manager, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
@@ -25,6 +28,8 @@ const AI_PIP_WIDTH: f64 = 420.0;
 const AI_PIP_HEIGHT: f64 = 280.0;
 const AI_PIP_MIN_WIDTH: f64 = 320.0;
 const AI_PIP_MIN_HEIGHT: f64 = 200.0;
+/// 收起时只留顶部状态栏;32px 与页面 header 的 h-8 一致。
+const AI_PIP_COLLAPSED_HEIGHT: f64 = 32.0;
 const AI_PIP_MARGIN: f64 = 24.0;
 
 /// 上次 AI 画中画窗口位置(物理像素);窗口关闭时记,下次打开沿用。
@@ -35,6 +40,9 @@ const AI_PIP_MARGIN: f64 = 24.0;
 static AI_PIP_LAST_POS: Mutex<Option<(i32, i32)>> = Mutex::new(None);
 /// 上次 AI 画中画窗口内容区尺寸(物理像素);同样关闭时记,下次打开沿用。
 static AI_PIP_LAST_SIZE: Mutex<Option<(u32, u32)>> = Mutex::new(None);
+/// 当前是否处于「收起成标题条」状态。收起期间 Resized 事件不能覆盖
+/// AI_PIP_LAST_SIZE,否则下次打开会沿用 32px 高度。
+static AI_PIP_COLLAPSED: AtomicBool = AtomicBool::new(false);
 
 /// 上次尺寸不能把窗口缩到看不了;下限仍是 320×200 逻辑像素,
 /// 按当前 DPI 换算成物理像素后再夹。
@@ -52,6 +60,15 @@ fn clamp_pip_pixels(width: u32, height: u32, scale: f64) -> (u32, u32) {
 /// 记当前几何,供下次打开沿用。用户点关闭和代码主动销毁都必须走这里,
 /// 否则 `destroy()` 不触发 `CloseRequested`,尺寸/位置会丢。
 fn remember_pip_geometry(win: &WebviewWindow) {
+    // 收起态只有 32px 高,不能把它当成用户以后要复用的尺寸;位置仍可更新。
+    if AI_PIP_COLLAPSED.load(Ordering::Relaxed) {
+        if let Ok(pos) = win.outer_position() {
+            if let Ok(mut guard) = AI_PIP_LAST_POS.lock() {
+                *guard = Some((pos.x, pos.y));
+            }
+        }
+        return;
+    }
     if let Ok(pos) = win.outer_position() {
         if let Ok(mut guard) = AI_PIP_LAST_POS.lock() {
             *guard = Some((pos.x, pos.y));
@@ -165,11 +182,15 @@ pub async fn open_browser_pip_window(
     // build 同 label 会报 "a webview with label ai-browser-pip already exists"
     // (页面热更新/用户连点两次都会踩到)。这里先把关闭发出去,再以 150ms 为步长
     // 轮询旧 label 是否消失(最多 1.8s),确认后才在 UI 线程重建。
+    let was_collapsed = AI_PIP_COLLAPSED.swap(false, Ordering::Relaxed);
     if let Some(old) = app.get_webview_window(AI_PIP_WINDOW_LABEL) {
         // 先记几何,再强制销毁:close() 只是排队,WebView2 实测 250ms 后
         // get_webview_window 仍可能拿到旧 label,重建会被"旧窗尚未销毁"挡住。
         // destroy() 不触发 CloseRequested,所以几何必须在这里显式落盘。
-        remember_pip_geometry(&old);
+        // 旧窗处于 32px 收起态时跳过,保留上一次完整尺寸。
+        if !was_collapsed {
+            remember_pip_geometry(&old);
+        }
         let _ = old.destroy();
     }
     tauri::async_runtime::spawn(async move {
@@ -276,6 +297,82 @@ pub async fn open_browser_pip_window(
         });
     });
     Ok(())
+}
+
+/// 收起/展开 AI 画中画窗。收起不是 OS minimize:监看窗默认不进任务栏,
+/// 直接最小化会让用户没有恢复入口。这里压到 32px 标题条,窗口仍置顶可见,
+/// 再点同一枚按钮还原到上次完整尺寸。
+#[tauri::command]
+pub fn set_browser_pip_collapsed(app: AppHandle, collapsed: bool) -> Result<bool, String> {
+    let win = app
+        .get_webview_window(AI_PIP_WINDOW_LABEL)
+        .ok_or_else(|| "AI 画中画窗口不存在".to_string())?;
+    let scale = win.scale_factor().unwrap_or(1.0);
+    let min_w = (AI_PIP_MIN_WIDTH * scale).round() as u32;
+    let min_h = (AI_PIP_MIN_HEIGHT * scale).round() as u32;
+    let collapsed_h = (AI_PIP_COLLAPSED_HEIGHT * scale).round() as u32;
+
+    if collapsed {
+        if AI_PIP_COLLAPSED.load(Ordering::Relaxed) {
+            return Ok(true);
+        }
+        // 先按完整窗记一次几何,再打开收起标记,后续 Resized 不会覆盖它。
+        remember_pip_geometry(&win);
+        let inner = win
+            .inner_size()
+            .map_err(|e| format!("读取画中画窗尺寸失败: {e}"))?;
+        win.set_resizable(false)
+            .map_err(|e| format!("锁定画中画窗缩放失败: {e}"))?;
+        AI_PIP_COLLAPSED.store(true, Ordering::Relaxed);
+        let result = (|| -> Result<(), String> {
+            win.set_min_size(Some(tauri::PhysicalSize::new(min_w, collapsed_h)))
+                .map_err(|e| format!("设置收起最小尺寸失败: {e}"))?;
+            // set_size 设的是内容区尺寸;用 inner_size 保住宽度,不把阴影边框
+            // 也当成内容再算一遍,否则收起时宽度会莫名多出 20 多像素。
+            win.set_size(tauri::PhysicalSize::new(inner.width, collapsed_h))
+                .map_err(|e| format!("收起画中画窗失败: {e}"))?;
+            Ok(())
+        })();
+        if let Err(error) = result {
+            AI_PIP_COLLAPSED.store(false, Ordering::Relaxed);
+            let _ = win.set_resizable(true);
+            return Err(error);
+        }
+        return Ok(true);
+    }
+
+    if !AI_PIP_COLLAPSED.load(Ordering::Relaxed) {
+        return Ok(false);
+    }
+    AI_PIP_COLLAPSED.store(false, Ordering::Relaxed);
+    win.set_min_size(Some(tauri::PhysicalSize::new(min_w, min_h)))
+        .map_err(|e| format!("恢复画中画最小尺寸失败: {e}"))?;
+    win.set_resizable(true)
+        .map_err(|e| format!("恢复画中画缩放失败: {e}"))?;
+    let (width, height) = AI_PIP_LAST_SIZE
+        .lock()
+        .ok()
+        .and_then(|guard| *guard)
+        .unwrap_or_else(|| {
+            (
+                (AI_PIP_WIDTH * scale).round() as u32,
+                (AI_PIP_HEIGHT * scale).round() as u32,
+            )
+        });
+    win.set_size(tauri::PhysicalSize::new(width, height))
+        .map_err(|e| format!("展开画中画窗失败: {e}"))?;
+    if let Ok(pos) = win.outer_position() {
+        let _ = win.set_position(tauri::PhysicalPosition::new(pos.x, pos.y));
+    }
+    Ok(false)
+}
+
+/// 切换收起/展开状态。页面按钮走这里而不是传布尔值:窗口若在收起态被刷新,
+/// 前端 state 可能回到 false,传 false 会把「已收起」误判成「无需收起」。
+#[tauri::command]
+pub fn toggle_browser_pip_collapsed(app: AppHandle) -> Result<bool, String> {
+    let current = AI_PIP_COLLAPSED.load(Ordering::Relaxed);
+    set_browser_pip_collapsed(app, !current)
 }
 
 /// 关闭 AI 画中画窗(供主窗按钮切换用;窗口内「接管」也会自己关)。
