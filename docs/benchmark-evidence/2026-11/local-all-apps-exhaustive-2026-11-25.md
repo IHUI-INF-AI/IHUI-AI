@@ -16,7 +16,7 @@
 1. **真正有产品级沙箱的只有 6 个**：Codex（受限令牌 + Job + WFP）、Trae（aiep sbox SDK）、WorkBuddy（session 权限文件 + 审批中心）、豆包（agent_infra 运行时策略 + aiep sbox）、Cursor（Rust `SandboxPolicy`）、MiniMax（Rust `srt-win`）。Qoder、DeepSeek、OpenCode 的桌面包内没有产品级原生沙箱证据，标未知。
 2. **字节系共用一套沙箱 SDK**：Trae 的 `modules\sandbox\` 与豆包的 `app\sbox\` 文件名同构（`aiep_sbox.dll`、`aiep_ipc.dll`、`run_helper.exe`、`sbox_sdk.dll`），只是构建大小不同（2,320KB vs 2,594KB）。
 3. **原有 14 张 jsmap 均未触发 1,500,000 节点上限**：11 个目标、Qoder 四版本各一张；最大豆包 ai-views 465,369 节点 / 1,473,627 边，Cursor 319,057 / 681,140，WorkBuddy 359,769 / 729,926。**新增的豆包 `biz.pak` 图是第 15 张，单图撞到 1,000,000 硬上限（需求 1,615,501，丢 615,501）**；已按顶层目录拆成 `ahalets` / `static` / `rest` 三片重跑，合计 **1,471,311 节点 / 4,072,587 边 / 1,274,239 函数 / 9,562 模块**，**166,986 bundle 模块与单图完全相等**，余差 144,190 节点来自 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失，不是再次截断。
-4. **核心层覆盖 26 个实际存在的二进制 + 1 个 `not_found` 记录**：导入/导出/签名/字符串/函数/特征六类证据；Codex 407MB 超单文件工具上限 256MB，craft 原生 Rust 报告仍缺，但已用字节级正则补出 400 个 crate 与 rustc commit；Codex 另有第五个常驻二进制 `codex-windows-sandbox-service.exe`（62,953,264，运行中），见纠正十七。
+4. **核心层覆盖 26 个实际存在的二进制 + 1 个 `not_found` 记录**：导入/导出/签名/字符串/函数/特征六类证据；Codex 407MB 超单文件工具上限 256MB，craft 原生 Rust 报告仍缺，但已用字节级正则补出 400 个 crate 与 rustc commit；Codex 另有第五个常驻二进制 `codex-windows-sandbox-service.exe`（62,953,264，运行中，且是 `LocalSystem` 自启动 packaged 服务 `CodexSandboxService.OpenAI.Codex`），见纠正十七与十八。
 5. **最能落进 IHUI-AI 的六件事**：统一权限决策对象、Windows Job Object 执行器、审批反向通道、preload 暴露面预算、动态通道注册表、运行时策略热更新（详见第 6 节）。
 6. **前端 `partial` 已逐目标审计**：14 个图/分片只数非 `node_modules` 的 JS/TS，再与 `examined` 比，**0 个应用 JS 漏读目标**；`partial` 的 `total` 主要是 node_modules、CSS、HTML、SVG、JSON 资产（详见 3.1 与 `analysis\frontend-coverage-audit.json`）。
 
@@ -24,7 +24,7 @@
 
 ## 0. 为什么要推翻上一版
 
-上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了十七处纠正，每一条都能被证据账本复核。
+上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了十八处纠正，每一条都能被证据账本复核。
 
 **纠正一：把 Electron 主 exe 的 Chromium 安全 API 当成产品自研沙箱。**
 上一版用 `CreateRestrictedToken`、`CreateJobObject`、`CreateProcessAsUserW` 这类导入来证明“某产品有强沙箱”。实测发现，WorkBuddy.exe、Qoder CN.exe、ZCode.exe、Cursor.exe、Trae CN.exe 全部是 Electron 壳，这些 API 属于 Chromium/Electron 出厂能力，**不能归因于产品**。本版把证据分成三层：产品级（Rust/Go helper、.node、主进程 JS）、框架级（Electron/Chromium）、未知级；只有第一层进入结论。
@@ -77,13 +77,16 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 **纠正十七：Codex 的 Windows 沙箱执行器不是 `sandbox-setup.exe`，而是 `codex-windows-sandbox-service.exe`（62,953,264，运行中）。**
 `C:\Program Files\WindowsApps\OpenAI.Codex_26.1117.4957.0_x64__2p2nqsd0c76g0\app\resources\codex-windows-sandbox-service.exe` 62,953,264 字节，`OpenAI OpCo, LLC` 签名有效，无 FileVersion / ProductName / FileDescription 元数据，SHA256 `E66E49429469B95C5A2219DAE872938BD8D70FBE920F1F1086E8CBA5777C3569`；运行态 PID 33980。字符串里有 `windows-sandbox-rs\src\process.rs`、`wrapper.rs`、`setup_provisioning.rs`、`no_reparse_dir.rs`、`CreateJobObjectW`、`AssignProcessToJobObject`、`CreateRestrictedToken`、`WFP setup succeeded for `、`Persistent WFP provider for Codex Windows sandbox filters`、`WindowsSandboxService`、`WindowsSandboxModeToml`、`elevated` / `unelevated`、`network-proxy\src\credential_broker\matching.rs` / `providers.rs`。所以 `sandbox-setup.exe` 是安装/供给器，这个 62.9MB 的 service 才是常驻执行器：令牌、Job Object、WFP 过滤器、elevated/unelevated 模式、credential broker 都在它的字符串里。上一版“四个产品二进制”的清单漏了它，核心层应从 25 改为 26。PE 导入表解析为 0 条（静态链接或解析口径），不作为否定证据；运行期行为只证明它在跑，未验证每次工具调用都经过它。账本：`native\codex\sandbox-service.json`。
 
+**纠正十八：Codex 的沙箱服务不是普通子进程，是 `LocalSystem` 自启动的 packaged Windows 服务 `CodexSandboxService.OpenAI.Codex`（DisplayName `ChatGPT`）。**
+`sc.exe qc` 显示 `TYPE: 210 WIN32_PACKAGED_PROCESS`、`START_TYPE: AUTO_START`、`SERVICE_START_NAME: LocalSystem`、`DEPENDENCIES: staterepository`、`DISPLAY_NAME: ChatGPT`，路径就是 `codex-windows-sandbox-service.exe`；父进程 PID 1264 是 `services.exe`，服务进程 PID 33980，状态 Running。`sc.exe sdshow` 的服务 DACL 是 `D:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWRPLORC;;;AU)S:(AU;FA;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;WD)`：`SY` 与 `BA` 全控，`AU` 只有 `CCLCSWRPLORC`，即查询配置/状态、枚举依赖、**启动**、查询、读控制，没有停止、改配置、写 DAC。含义是它以 LocalSystem 运行，具备创建受限令牌、Job Object、WFP 过滤器的权限；普通已认证用户可启动但不能停止/改配置。服务签名有效，这不是漏洞结论，而是权限边界证据：后续审计应看它的 IPC/ACL 与调用方，不能只看二进制字符串。
+
 ---
 
 ## 1. 方法与口径
 
 ### 1.1 工具与参数
 
-所有证据通过 `craft-anything-cli.exe 0.5.0` 产生，写入 case `all-ai-apps-full-2026-11-25.cany`。
+静态证据通过 `craft-anything-cli.exe 0.5.0` 产生，写入 case `all-ai-apps-full-2026-11-25.cany`；运行态进程/模块/端口指纹与 Codex 服务注册用 PowerShell / `sc.exe` 只读采集，账本同样落在 `out\deep\analysis` 与 `native\codex`。
 
 前端：`js-app-map`，参数固定为
 `--max-files 400000 --max-file-bytes 67108864 --max-total-bytes 4294967296 --max-nodes 1500000 --limit 50000`。
@@ -94,7 +97,7 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 
 ### 1.2 三条硬边界
 
-1. **静态**：没有启动任何一个程序，没有触发 IPC、没有连本地端口、没有读取凭据。所有“运行时才会发生”的行为都写“未知”。
+1. **静态为主 + 只读运行态观察**：没有主动启动或驱动任何目标（OpenCode `serve` 实跑除外），没有触发业务 IPC、没有调用业务 API、没有读取凭据。5.6 / 5.7 是既有进程与模块快照；5.8 只对本地监听各发一次 `OPTIONS` / WebSocket Upgrade 指纹，不执行业务请求。所有未被这些观察覆盖的运行时行为仍写“未知”。
 2. **可复核**：每条结论后跟 `ev_…` 证据号；证据 JSON 在 `C:\IHUI-AI\.workbuddy\craft\out\deep\` 下，按目标分目录。
 3. **归因分层**：Electron/Chromium 自带字符串（primordials、blink::、v8::、node::、Copyright Joyent 等）全部剔除后再判断产品能力。
 
@@ -183,7 +186,7 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 **安装面**：`C:\Users\Administrator\AppData\Local\OpenAI\Codex\bin\31fb36cfc4b38f05\`，四个产品二进制：`codex.exe` 407,428,400 字节、`codex-code-mode-host.exe` 80,724,784、`codex-windows-sandbox-setup.exe` 19,823,408、`codex-command-runner.exe` 8,862,000；另有 `rg.exe`、`node.exe` 24.14、`node_repl.exe`。全部由 `OpenAI OpCo, LLC` 有效签名。
 **Windows 包层（本轮补充）**：已注册 `OpenAI.Codex 26.1117.4957.0`；同机另有 `OpenAI.Codex_26.1120.5083.0` 目录（未注册/待切换）。两个 `PrimaryRuntime`：`v26-1119-907-0` 与 `v26-1123-915-0`。`app\Codex.exe` 只是 20,272 字节的启动 stub，真正的 407MB 主程序在 `app\resources\codex.exe`——这一点很容易被误读成“Codex 只有 20KB”。
 
-**第五个常驻二进制（纠正十七）**：`app\resources\codex-windows-sandbox-service.exe` 62,953,264 字节，`OpenAI OpCo, LLC` 签名有效，无 FileVersion/ProductName 元数据，SHA256 `E66E49429469B95C5A2219DAE872938BD8D70FBE920F1F1086E8CBA5777C3569`，运行态 PID 33980。字符串含 `windows-sandbox-rs\src\process.rs`、`wrapper.rs`、`setup_provisioning.rs`、`no_reparse_dir.rs`、`CreateJobObjectW`、`AssignProcessToJobObject`、`CreateRestrictedToken`、`WFP setup succeeded for `、`Persistent WFP provider for Codex Windows sandbox filters`、`WindowsSandboxService`、`elevated`/`unelevated`、`network-proxy\src\credential_broker\matching.rs`/`providers.rs`。`sandbox-setup.exe` 是安装/供给器，这个 service 才是常驻执行器；上一版四二进制清单漏了它。
+**第五个常驻二进制（纠正十七）**：`app\resources\codex-windows-sandbox-service.exe` 62,953,264 字节，`OpenAI OpCo, LLC` 签名有效，无 FileVersion/ProductName 元数据，SHA256 `E66E49429469B95C5A2219DAE872938BD8D70FBE920F1F1086E8CBA5777C3569`，运行态 PID 33980。字符串含 `windows-sandbox-rs\src\process.rs`、`wrapper.rs`、`setup_provisioning.rs`、`no_reparse_dir.rs`、`CreateJobObjectW`、`AssignProcessToJobObject`、`CreateRestrictedToken`、`WFP setup succeeded for `、`Persistent WFP provider for Codex Windows sandbox filters`、`WindowsSandboxService`、`elevated`/`unelevated`、`network-proxy\src\credential_broker\matching.rs`/`providers.rs`。`sandbox-setup.exe` 是安装/供给器，这个 service 才是常驻执行器；上一版四二进制清单漏了它。它还不是普通子进程：`sc qc` 显示 `CodexSandboxService.OpenAI.Codex`、`AUTO_START`、`LocalSystem`、DisplayName `ChatGPT`，父进程 PID 1264 是 `services.exe`；`sc sdshow` 的 `AU` 只有 `CCLCSWRPLORC`（可启动、查询，不可停止/改配置）。详见纠正十八。
 
 **核心概况**（`ev_9c096652…`）：PE x86_64，函数发现到 50,000 上限、字符串 204,743 条（保留前 200,000）、导入 486 个 / 25 个库。这是本轮唯一一个“主程序即产品逻辑”的目标，导入可以直接归因。
 
@@ -582,7 +585,7 @@ IPC 分组说明它是“能力市场型”客户端：
 
 ### 5.2 沙箱实现谱系
 
-- **“受限令牌 + 作业对象 + 网络过滤”派**：Codex 最完整。专用用户/SID（`convert SID failed`、`write sandbox users file`）、`Local\CodexSandboxReadAcl`、WFP provider `Codex Windows Sandbox WFP`、`spawned ConPTY is missing its process job` 四处互相咬合；常驻执行器是 `codex-windows-sandbox-service.exe`（62,953,264，运行 PID 33980），`sandbox-setup.exe` 只是供给器。
+- **“受限令牌 + 作业对象 + 网络过滤”派**：Codex 最完整。专用用户/SID（`convert SID failed`、`write sandbox users file`）、`Local\CodexSandboxReadAcl`、WFP provider `Codex Windows Sandbox WFP`、`spawned ConPTY is missing its process job` 四处互相咬合；常驻执行器是 `codex-windows-sandbox-service.exe`（62,953,264，运行 PID 33980），`sandbox-setup.exe` 只是供给器；前者还是 `LocalSystem` 自启动 packaged 服务 `CodexSandboxService.OpenAI.Codex`，`AU` 只有启动/查询权，没有停止/改配置权。
 - **“会话权限文件 + 审批中心”派**：WorkBuddy。cli 只负责把进程塞进 Job Object，center 负责管道 ACL 与审批反向通道，`aes/argon2` 保护审批票据。
 - **“共享 SDK”派**：Trae 与豆包都装 `aiep_sbox.dll` / `aiep_ipc.dll` / `run_helper.exe` / `sbox_sdk.dll`，但版本不同：Trae `sbox_sdk` 1.16.0.0（2,320,272，SHA 前 8 位 `47EA81AF`），豆包 2.1.17.0（2,656,144，`CC96F66B`）。同一 SDK 家族、不同代际构建，不能当成同一份二进制。
 - **“策略枚举”派**：Cursor 的 `SandboxPolicy` 用 `workPolicyStrict` + `networkPolicyStrict` 表达，而不是堆 Win32 API。
@@ -750,7 +753,7 @@ IPC 分组说明它是“能力市场型”客户端：
 - `<target>-jsmap-full.json`：前端全量图（豆包 ai-views 437MB、WorkBuddy 273MB、Cursor 247MB 等）；豆包主应用 `biz.pak` 的 1.04GB 图见下一组条目。
 - `native\<target>\*.json`：核心取证（overview / imports / exports / publisher / strings0-7 / feat0-3）。
 - `native\codex\crates.json`：Codex 407MB 二进制的 400 个 crate 路径清单（含 40 个高频项与 79 个安全/网络相关项）。
-- `native\codex\sandbox-service.json`：`codex-windows-sandbox-service.exe` 账本——62,953,264 字节、SHA256 `E66E4942…`、无版本元数据、运行 PID 33980、`windows-sandbox-rs` 源码路径、`CreateJobObjectW`/`AssignProcessToJobObject`/`CreateRestrictedToken`/WFP/`credential_broker` 字符串；导入表解析 0 条，按字符串与运行态定性。
+- `native\codex\sandbox-service.json`：`codex-windows-sandbox-service.exe` 账本——62,953,264 字节、SHA256 `E66E4942…`、无版本元数据、运行 PID 33980、`windows-sandbox-rs` 源码路径、`CreateJobObjectW`/`AssignProcessToJobObject`/`CreateRestrictedToken`/WFP/`credential_broker` 字符串；导入表解析 0 条，按字符串与运行态定性；`windows_service` 块记录 `CodexSandboxService.OpenAI.Codex`、`AUTO_START`、`LocalSystem`、DisplayName `ChatGPT`、父进程 `services.exe`、SDDL 与 `AU` 的 `CCLCSWRPLORC`。
 - `native\opencode\runtime-serve.json`：OpenCode `serve` 实跑记录（版本、help flags、HTTP 状态、鉴权 401、端口关闭确认，密码值不落盘）。
 - `analysis\dynamic-ipc-{deepseek,minimax,wb,zcode,traecn}.json`：逐文件还原的 IPC 调用分类（literal / template / resolved 常量 / 未定 expr）、常量表规模、前 20 个还原通道与未定表达式；MiniMax 文件已补 `closure`/`counts_after`（332+406、804 个调用点、0 未定）；`dynamic-ipc-traecn.json` 是旧坏样本（只扫 47 文件、把 `__is_disposable_tracked__` 当通道），结论已作废。
 - `analysis\traecn-ipc-final.json`：重建后的 Trae 账本——135 个显式 IPC/sender 调用（73 ipc + 62 sender）、58 条非字面量、56 条映射到 30 个唯一通道、2 条 wrapper/response 非通道值、0 条未定。
@@ -820,6 +823,6 @@ $proj = "C:\IHUI-AI\.workbuddy\craft\all-ai-apps-full-2026-11-25.cany"
 
 ---
 
-**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是十七处纠正、11 个程序、8 个 asar 解包、15 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、26 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
+**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是十八处纠正、11 个程序、8 个 asar 解包、15 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、26 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
 
