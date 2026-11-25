@@ -125,7 +125,7 @@ function createStyles(tk: AppThemeTokens) {
     dot: {
       width: 8,
       height: 8,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.danger.DEFAULT,
     },
     cardContent: {

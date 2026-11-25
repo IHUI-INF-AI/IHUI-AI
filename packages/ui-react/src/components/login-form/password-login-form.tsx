@@ -391,7 +391,7 @@ export function PasswordLoginForm({
                 type="button"
                 onClick={() => void refreshCaptcha()}
                 aria-label={t('auth.captchaRefresh')}
-                className="inline-flex h-10 shrink-0 items-center justify-center rounded-sm border border-stroke-field bg-background px-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="inline-flex h-10 shrink-0 items-center justify-center rounded-md border border-stroke-field bg-background px-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 tabIndex={-1}
               >
                 <span
@@ -417,7 +417,7 @@ export function PasswordLoginForm({
       {enableCredentialPersistence && (
         <label
           data-testid="remember-password-checkbox"
-          className="group flex cursor-pointer items-center gap-2 select-none rounded-sm"
+          className="group flex cursor-pointer items-center gap-2 select-none rounded-md"
         >
           <span
             role="checkbox"
@@ -443,7 +443,7 @@ export function PasswordLoginForm({
               }
             }}
             className={cn(
-              'flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm border outline-none transition-all duration-200',
+              'flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-md border outline-none transition-all duration-200',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
               rememberPassword
                 ? 'border-transparent bg-cta text-cta-foreground'

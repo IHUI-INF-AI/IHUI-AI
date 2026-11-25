@@ -76,7 +76,7 @@
 .withdrawal-status {
   font-size: var(--text-label);
   padding: 6rpx var(--spacing-sm);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .status-pending {
   color: var(--color-warning);

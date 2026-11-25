@@ -140,7 +140,7 @@ export default function MemoryManagerPage() {
           <button
             onClick={() => void handleExtract()}
             disabled={extracting}
-            className="inline-flex items-center gap-1.5 rounded-sm border border-input px-3 py-1.5 text-body font-medium transition hover:bg-muted disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-body font-medium transition hover:bg-muted disabled:opacity-50"
           >
             {extracting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -151,7 +151,7 @@ export default function MemoryManagerPage() {
           </button>
           <button
             onClick={() => setNewOpen((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-sm bg-cta px-3 py-1.5 text-body font-medium text-cta-foreground transition hover:opacity-90"
+            className="inline-flex items-center gap-1.5 rounded-md bg-cta px-3 py-1.5 text-body font-medium text-cta-foreground transition hover:opacity-90"
           >
             <Plus className="h-4 w-4" /> {t('add')}
           </button>
@@ -166,7 +166,7 @@ export default function MemoryManagerPage() {
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
-            className="rounded-sm border bg-background px-2 py-1.5 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+            className="rounded-md border bg-background px-2 py-1.5 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           >
             <option value="">{t('all')}</option>
             {MEMORY_TYPES.map((mt) => (
@@ -181,7 +181,7 @@ export default function MemoryManagerPage() {
           <select
             value={importanceMin}
             onChange={(e) => setImportanceMin(Number(e.target.value))}
-            className="rounded-sm border bg-background px-2 py-1.5 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+            className="rounded-md border bg-background px-2 py-1.5 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           >
             <option value={0}>{t('all')}</option>
             <option value={3}>≥3</option>
@@ -202,7 +202,7 @@ export default function MemoryManagerPage() {
             <select
               value={newType}
               onChange={(e) => setNewType(e.target.value)}
-              className="rounded-sm border bg-background px-2 py-1 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+              className="rounded-md border bg-background px-2 py-1 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
             >
               {MEMORY_TYPES.map((mt) => (
                 <option key={mt} value={mt}>
@@ -216,19 +216,19 @@ export default function MemoryManagerPage() {
             onChange={(e) => setNewContent(e.target.value)}
             placeholder={t('contentPlaceholder')}
             rows={2}
-            className="w-full rounded-sm border bg-background px-3 py-2 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+            className="w-full rounded-md border bg-background px-3 py-2 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           />
           <div className="mt-2 flex justify-end gap-2">
             <button
               onClick={() => setNewOpen(false)}
-              className="rounded-sm border border-input px-3 py-1.5 text-body transition hover:bg-muted"
+              className="rounded-md border border-input px-3 py-1.5 text-body transition hover:bg-muted"
             >
               {t('cancel')}
             </button>
             <button
               onClick={() => void handleCreate()}
               disabled={!newContent.trim()}
-              className="rounded-sm bg-cta px-3 py-1.5 text-body font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
+              className="rounded-md bg-cta px-3 py-1.5 text-body font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
             >
               {t('save')}
             </button>
@@ -286,7 +286,7 @@ export default function MemoryManagerPage() {
                         void runOp(() => markMemoryImportant(entry.memory_id), entry.memory_id)
                       }
                       disabled={busyId === entry.memory_id || entry.importance >= 5}
-                      className="inline-flex items-center gap-1 rounded-sm border border-input px-2 py-1 text-label transition hover:bg-muted disabled:opacity-40"
+                      className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-label transition hover:bg-muted disabled:opacity-40"
                     >
                       {busyId === entry.memory_id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -300,7 +300,7 @@ export default function MemoryManagerPage() {
                         void runOp(() => deleteMemoryEntry(entry.memory_id), entry.memory_id)
                       }
                       disabled={busyId === entry.memory_id}
-                      className="inline-flex items-center gap-1 rounded-sm border border-destructive/40 px-2 py-1 text-label text-destructive transition hover:bg-destructive/10 disabled:opacity-40"
+                      className="inline-flex items-center gap-1 rounded-md border border-destructive/40 px-2 py-1 text-label text-destructive transition hover:bg-destructive/10 disabled:opacity-40"
                     >
                       {busyId === entry.memory_id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

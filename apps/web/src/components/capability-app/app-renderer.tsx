@@ -588,7 +588,7 @@ function ButtonBlock({ block, runAction }: BlockProps) {
         void runAction(block.action).finally(() => setPending(false))
       }}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
+        'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-body font-medium transition-colors',
         pending && 'opacity-60',
         variant === 'primary'
           ? 'bg-cta text-cta-foreground hover:bg-cta/90'
@@ -845,7 +845,7 @@ function FormBlock({ block, runAction }: BlockProps) {
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex items-center rounded-sm bg-cta px-3 py-1.5 text-body font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
+        className="inline-flex items-center rounded-md bg-cta px-3 py-1.5 text-body font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
       >
         {block.submitLabel}
       </button>

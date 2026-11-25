@@ -68,7 +68,7 @@
   line-height: 1.4;
   color: var(--color-cta-foreground);
   background: var(--color-cta);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: none;
 }
 

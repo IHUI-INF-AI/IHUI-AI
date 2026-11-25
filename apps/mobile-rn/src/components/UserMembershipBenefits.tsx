@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   openBtn: {
     height: 44,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

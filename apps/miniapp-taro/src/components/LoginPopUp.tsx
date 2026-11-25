@@ -242,7 +242,7 @@ export default function LoginPopUp({
         {/* 授权卡主/次按钮(RN 授权卡模式;缺省不渲染) */}
         {onPrimary ? (
           <View
-            className="w-full bg-primary rounded-sm flex items-center justify-center"
+            className="w-full bg-primary rounded-md flex items-center justify-center"
             style={{
               height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX),
               marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
@@ -260,7 +260,7 @@ export default function LoginPopUp({
         ) : null}
         {onSecondary ? (
           <View
-            className="w-full rounded-sm border border-border flex items-center justify-center"
+            className="w-full rounded-md border border-border flex items-center justify-center"
             style={{
               height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX),
               marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
@@ -308,7 +308,7 @@ export default function LoginPopUp({
                 })
               }
             }}
-            className="!bg-transparent !border-none rounded-sm overflow-hidden"
+            className="!bg-transparent !border-none rounded-md overflow-hidden"
             style={{
               padding: 0,
               width: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
@@ -343,7 +343,7 @@ export default function LoginPopUp({
             placeholder={tt('user.profile.nicknamePlaceholder', '请输入用户名')}
             maxlength={20}
             onInput={handleNicknameInput}
-            className="w-full rounded-sm bg-muted text-foreground"
+            className="w-full rounded-md bg-muted text-foreground"
             style={{
               height: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX),
               paddingLeft: toUnit(LOGIN_POPUP_ROW_PADDING_X_PX),
@@ -368,7 +368,7 @@ export default function LoginPopUp({
               ⇒ 角色 control → sm(4);旧写法 rounded-md 取的是 chip 档,同一元素两端各一档。 */}
           {showUpgrade && (
             <View
-              className="bg-warning rounded-sm flex items-center justify-center"
+              className="bg-warning rounded-md flex items-center justify-center"
               style={{
                 height: toUnit(LOGIN_POPUP_PILL_HEIGHT_PX),
                 paddingLeft: toUnit(LOGIN_POPUP_PILL_PADDING_X_PX),
@@ -416,7 +416,7 @@ export default function LoginPopUp({
                 onToast(tt('login.loginFailed', '登录失败,请重试'), { kind: 'error' })
               }
             }}
-            className="w-full px-lg rounded-sm !border-none text-center"
+            className="w-full px-lg rounded-md !border-none text-center"
             style={{
               paddingTop: 0,
               paddingBottom: 0,
@@ -492,7 +492,7 @@ export default function LoginPopUp({
                   />
                 </View>
                 <Button
-                  className="w-full px-lg rounded-sm !border-none text-center"
+                  className="w-full px-lg rounded-md !border-none text-center"
                   style={{
                     paddingTop: 0,
                     paddingBottom: 0,
@@ -591,7 +591,7 @@ export default function LoginPopUp({
           >
             {onSave ? (
               <View
-                className="flex-1 bg-primary rounded-sm flex items-center justify-center"
+                className="flex-1 bg-primary rounded-md flex items-center justify-center"
                 style={{ height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX) }}
                 onClick={() => onSave?.({ avatar, nickname })}
                 hoverClass="opacity-60"
@@ -606,7 +606,7 @@ export default function LoginPopUp({
             ) : null}
             {onBindPhone ? (
               <View
-                className="flex-1 rounded-sm border border-border flex items-center justify-center"
+                className="flex-1 rounded-md border border-border flex items-center justify-center"
                 style={{ height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX) }}
                 onClick={onBindPhone}
                 hoverClass="opacity-60"
@@ -621,7 +621,7 @@ export default function LoginPopUp({
             ) : null}
             {onLogout ? (
               <View
-                className="flex-1 rounded-sm border border-border flex items-center justify-center"
+                className="flex-1 rounded-md border border-border flex items-center justify-center"
                 style={{ height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX) }}
                 onClick={onLogout}
                 hoverClass="opacity-60"
@@ -639,7 +639,7 @@ export default function LoginPopUp({
 
         {/* 关闭按钮 */}
         <View
-          className="w-full rounded-sm bg-muted flex items-center justify-center"
+          className="w-full rounded-md bg-muted flex items-center justify-center"
           style={{ height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX) }}
           onClick={onClose}
           hoverClass="opacity-60"

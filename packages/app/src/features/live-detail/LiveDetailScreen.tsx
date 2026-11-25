@@ -377,7 +377,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['md-loose'],
       fontSize: rnType.title.size,

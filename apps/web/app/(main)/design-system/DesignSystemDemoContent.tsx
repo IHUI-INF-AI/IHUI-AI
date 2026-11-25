@@ -163,7 +163,7 @@ export function DesignSystemDemoContent() {
               >
                 {STROKES.map((stroke) => (
                   <div key={stroke.name} className="space-y-1">
-                    <div className={`h-10 rounded-sm border ${stroke.className}`} aria-hidden />
+                    <div className={`h-10 rounded-md border ${stroke.className}`} aria-hidden />
                     <code className="text-label text-muted-foreground">{stroke.name}</code>
                   </div>
                 ))}
@@ -179,7 +179,7 @@ export function DesignSystemDemoContent() {
           {SPACINGS.map(({ name, className, px }) => (
             <div key={name} className="space-y-2">
               <div className="flex h-12 items-end">
-                <div className={`rounded-sm bg-cta/80 ${className}`} />
+                <div className={`rounded-md bg-cta/80 ${className}`} />
               </div>
               <div className="text-label">
                 <div className="font-medium text-foreground">{name}</div>

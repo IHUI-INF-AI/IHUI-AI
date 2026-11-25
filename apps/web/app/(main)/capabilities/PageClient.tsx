@@ -96,7 +96,7 @@ export default function IhuiCapabilitiesPageClient() {
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value as IhuiCategory | '')}
-            className="rounded-sm border bg-card px-3 py-2 text-body text-foreground"
+            className="rounded-md border bg-card px-3 py-2 text-body text-foreground"
             aria-label="按分类筛选"
           >
             <option value="">全部分类</option>
@@ -122,7 +122,7 @@ export default function IhuiCapabilitiesPageClient() {
               className="group rounded-md border bg-card p-4 transition-colors hover:border-foreground/20"
             >
               <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-primary/10">
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10">
                   <Icon className="h-5 w-5 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1 space-y-2">
@@ -142,7 +142,7 @@ export default function IhuiCapabilitiesPageClient() {
                   <div className="font-[weight:inherit] space-y-1 text-label text-muted-foreground">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <Code className="h-3 w-3 shrink-0" />
-                      <code className="font-[weight:inherit] rounded-sm bg-muted px-1.5 py-0.5 font-mono text-label">
+                      <code className="font-[weight:inherit] rounded-md bg-muted px-1.5 py-0.5 font-mono text-label">
                         {c.target}
                       </code>
                       <Button

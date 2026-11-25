@@ -268,7 +268,7 @@ export default function Carousel({
           <View
             key={index}
             style={carouselDotStyle(toUnit, index === activeIndex)}
-            className={index === activeIndex ? 'bg-white rounded-md' : 'bg-white/50 rounded-sm'}
+            className={index === activeIndex ? 'bg-white rounded-md' : 'bg-white/50 rounded-md'}
           />
         ))}
       </View>

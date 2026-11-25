@@ -109,7 +109,7 @@ export function QrCodeLogin({ platform, refreshKey, embed = false }: QrCodeLogin
             type="button"
             data-testid="qr-agreement-agree"
             onClick={handleAgree}
-            className="inline-flex items-center rounded-sm border border-border bg-background px-3 py-1.5 text-label font-medium text-foreground transition-colors hover:bg-muted"
+            className="inline-flex items-center rounded-md border border-border bg-background px-3 py-1.5 text-label font-medium text-foreground transition-colors hover:bg-muted"
           >
             {t('auth.agreementNoticeAgree')}
           </button>

@@ -613,7 +613,7 @@ function makeStyles() {
     emptyTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
     button: {
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -628,7 +628,7 @@ function makeStyles() {
     outlineButton: {
       height: 36,
       paddingHorizontal: rnSpacing.lg,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       alignItems: 'center',
@@ -648,7 +648,7 @@ function makeStyles() {
       gap: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['sm-loose'],
       paddingHorizontal: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.bg,
     },
     rowHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
@@ -694,7 +694,7 @@ function makeStyles() {
     },
     input: {
       height: 36,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       paddingHorizontal: rnSpacing.sm,

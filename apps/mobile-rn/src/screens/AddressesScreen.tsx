@@ -365,7 +365,7 @@ function makeStyles() {
     input: {
       height: 42,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
@@ -381,7 +381,7 @@ function makeStyles() {
     checkbox: {
       width: 18,
       height: 18,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       alignItems: 'center',
@@ -392,7 +392,7 @@ function makeStyles() {
     checkLabel: { fontSize: rnType.body.size, color: tokens.text.primary },
     button: {
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

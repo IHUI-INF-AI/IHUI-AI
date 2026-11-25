@@ -211,7 +211,7 @@ function createStyles(tk: AppThemeTokens) {
     aiGenBtn: {
       marginTop: rnSpacing.lg,
       paddingVertical: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: primary,
       alignItems: 'center',
     },
@@ -223,7 +223,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     confirmBtn: {
       paddingVertical: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: primary,
       alignItems: 'center',
       justifyContent: 'center',

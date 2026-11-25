@@ -124,7 +124,7 @@ export default function MomentCard({
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 rows={4}
-                className="w-full rounded-sm border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+                className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
                 placeholder="这条会发到账号朋友圈。"
               />
               <p className="text-xs text-muted-foreground">{text.length} / 5000</p>
@@ -140,7 +140,7 @@ export default function MomentCard({
             </div>
           </>
         )}
-        <div className="space-y-2 rounded-sm border border-stroke-field p-3">
+        <div className="space-y-2 rounded-md border border-stroke-field p-3">
           <div className="flex items-center justify-between gap-2">
             <div>
               <p className="text-sm font-medium">遍历朋友圈</p>
@@ -199,7 +199,7 @@ export default function MomentCard({
               {fetchResult.moments.map((moment) => {
                 const extra = formatMomentExtra(moment)
                 return (
-                  <div key={moment.id} className="rounded-sm bg-muted/40 p-2 text-sm">
+                  <div key={moment.id} className="rounded-md bg-muted/40 p-2 text-sm">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium">{moment.authorName}</span>
                       <span className="text-xs text-muted-foreground">

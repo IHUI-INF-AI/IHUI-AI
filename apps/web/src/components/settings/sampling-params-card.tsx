@@ -94,7 +94,7 @@ function NumberField({
               aria-label={t('clearParam', { name: label })}
               data-testid={`${testId}-clear`}
               onClick={() => onChange(undefined)}
-              className="flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               <X className="h-3 w-3" aria-hidden="true" />
             </button>
@@ -233,7 +233,7 @@ export function SamplingParamsCard() {
             placeholder={t('systemPromptPlaceholder')}
             onChange={(e) => set('systemPrompt')(e.target.value)}
             rows={3}
-            className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-2 text-label leading-relaxed placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="font-[weight:inherit] w-full resize-y rounded-md border border-input bg-transparent px-2.5 py-2 text-label leading-relaxed placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           />
           <p className="text-[11px] leading-snug text-muted-foreground">{t('systemPromptHint')}</p>
         </div>

@@ -240,7 +240,7 @@ function createStyles(tk: AppThemeTokens) {
     detailsButton: {
       width: '100%',
       height: '100%',
-      borderRadius: rnRadius.sm, // 订阅按钮是控件 ⇒ control 档 sm(项目不允许胶囊)
+      borderRadius: rnRadius.md, // 订阅按钮是控件 ⇒ control 档 sm(项目不允许胶囊)
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.warning.amber,
@@ -268,7 +268,7 @@ function createStyles(tk: AppThemeTokens) {
     entryBar: {
       alignSelf: 'stretch',
       height: 6,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       overflow: 'hidden',
       marginTop: rnSpacing['2xs'],

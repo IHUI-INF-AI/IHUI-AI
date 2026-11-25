@@ -468,7 +468,7 @@ function makeStyles() {
     input: {
       height: 40,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
@@ -487,7 +487,7 @@ function makeStyles() {
     quickText: { fontSize: rnType.caption.size, color: tokens.text.secondary },
     primaryBtn: {
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

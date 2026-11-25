@@ -443,11 +443,11 @@ export default function BottomActionBar(props: BottomActionBarProps) {
         boxPx={BOTTOM_ACTION_BAR_CONTROL_BOX_PX}
         glyphPx={BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX}
         glyph="plus"
-        className="flex items-center justify-center mr-sm rounded-sm bg-muted"
+        className="flex items-center justify-center mr-sm rounded-md bg-muted"
         onActivate={onAttach}
       />
       <FocusInput
-        className="flex-1 px-md py-sm leading-5 bg-muted rounded-sm"
+        className="flex-1 px-md py-sm leading-5 bg-muted rounded-md"
         // 正文字号走跨端单一源(与 RN 端同读 BOTTOM_ACTION_BAR_TEXT_FONT_PX = 14);
         // 字号档 `text-sm` 编译出来是 `--text-sm: 28rpx`(rem2rpx),与本档同值,故换出处后零视觉差。
         // 行高仍留 Tailwind:`text-sm` 的 1.42857 × 28rpx = 40rpx,`leading-5`(= --spacing 8rpx × 5)同值。
@@ -471,7 +471,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
           value && !isLoading ? 'var(--color-cta-foreground)' : 'var(--color-muted-foreground)'
         }
         className={cn(
-          'flex items-center justify-center ml-sm rounded-sm',
+          'flex items-center justify-center ml-sm rounded-md',
           value && !isLoading ? 'bg-cta text-cta-foreground' : 'bg-muted',
         )}
         disabled={isLoading}

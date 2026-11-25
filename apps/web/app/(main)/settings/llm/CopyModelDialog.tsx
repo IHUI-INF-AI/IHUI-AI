@@ -162,7 +162,7 @@ export function CopyModelDialog({
                 {targetProviders.map((p) => (
                   <label
                     key={p.id}
-                    className={`flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-label hover:bg-accent ${
+                    className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-label hover:bg-accent ${
                       targetId === p.id ? 'bg-primary/10' : ''
                     }`}
                   >

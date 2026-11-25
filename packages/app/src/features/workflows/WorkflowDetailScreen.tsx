@@ -659,7 +659,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     iconBox: {
       width: 36,
       height: 36,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.brandAccent.light,
@@ -688,7 +688,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       gap: 5,
       paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     primaryBtnText: {
@@ -702,7 +702,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       gap: 5,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.inputBg,
@@ -714,7 +714,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       gap: 5,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.danger.light,
     },
     /** 纯图标按钮:沿用 danger 实底,收成 40×40 方形(2026-11-23 用户定档) */
@@ -746,7 +746,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       alignSelf: 'center',
       paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.inputBg,
@@ -764,7 +764,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     input: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.inputBg,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,

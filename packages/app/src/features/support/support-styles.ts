@@ -65,7 +65,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
     tabBtn: {
       paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: 7,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
     },
     tabBtnActive: {
       backgroundColor: tk.selection.DEFAULT,
@@ -84,7 +84,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
     iconBox: {
       width: 36,
       height: 36,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.muted,
@@ -119,7 +119,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.inputBg,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
@@ -145,7 +145,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
     primaryBtn: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     primaryBtnText: {
@@ -157,7 +157,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.inputBg,
@@ -176,7 +176,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
     metaLabel: { fontSize: rnType.label.size, color: tk.text.secondary },
     descBox: {
       backgroundColor: tk.surface.muted,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       padding: rnSpacing['sm-loose'],
       gap: rnSpacing.xs,
     },
@@ -185,13 +185,13 @@ export function createSupportStyles(tk: AppThemeTokens) {
     commentsBox: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       padding: rnSpacing.sm,
       gap: rnSpacing.sm,
       maxHeight: 220,
     },
     commentRow: {
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['xs-loose'],
       gap: rnSpacing['2xs'],
@@ -209,7 +209,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
     ratingBox: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       padding: rnSpacing['sm-loose'],
       gap: rnSpacing['xs-loose'],
     },

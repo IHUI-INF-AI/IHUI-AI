@@ -350,7 +350,7 @@ function PanelRing({ ratio, usedTokens, maxTokens }: PanelRingProps) {
           </text>
         </svg>
       </div>
-      <span className={cn('rounded-sm px-2 py-0.5 text-[10px] font-medium', style.bg, style.text)}>
+      <span className={cn('rounded-md px-2 py-0.5 text-[10px] font-medium', style.bg, style.text)}>
         {t(style.label)}
       </span>
       <div className="text-center text-label text-muted-foreground">
@@ -710,7 +710,7 @@ export function ContextUsageRing({
               <span className="text-body font-semibold">{t('title')}</span>
               <span
                 className={cn(
-                  'rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+                  'rounded-md px-1.5 py-0.5 text-[10px] font-medium',
                   style.bg,
                   style.text,
                 )}
@@ -791,7 +791,7 @@ export function ContextUsageRing({
                         disabled={!expandable}
                         aria-expanded={expandable ? open : undefined}
                         className={cn(
-                          'flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-[11px] transition-colors',
+                          'flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-[11px] transition-colors',
                           expandable ? 'hover:bg-accent' : 'cursor-default',
                           !seg.observed && 'text-muted-foreground',
                         )}
@@ -808,7 +808,7 @@ export function ContextUsageRing({
                         )}
                         <span
                           className={cn(
-                            'h-2 w-2 shrink-0 rounded-sm',
+                            'h-2 w-2 shrink-0 rounded-md',
                             seg.observed ? meta.colorClass : 'bg-muted-foreground/40',
                           )}
                         />
@@ -839,7 +839,7 @@ export function ContextUsageRing({
 
                       {expandable && open && (
                         <div
-                          className="mt-0.5 mb-1 rounded-sm bg-muted/40 px-2 py-1.5"
+                          className="mt-0.5 mb-1 rounded-md bg-muted/40 px-2 py-1.5"
                           data-testid={`context-usage-attribution-details-${seg.key}`}
                         >
                           <div className="flex flex-col gap-0.5">
@@ -883,7 +883,7 @@ export function ContextUsageRing({
 
               {/* 缓存命中:占用不变、重算量变 —— 两个数分开报,不得混为一谈 */}
               <div
-                className="mt-2 rounded-sm bg-muted/40 px-2 py-1.5 text-[10px] leading-relaxed"
+                className="mt-2 rounded-md bg-muted/40 px-2 py-1.5 text-[10px] leading-relaxed"
                 data-testid="context-usage-cache"
               >
                 {attribution.cache.observed ? (
@@ -939,7 +939,7 @@ export function ContextUsageRing({
                     onClick={() => handleCompress(200000)}
                     disabled={compressDisabled}
                     className={cn(
-                      'inline-flex items-center justify-center gap-1 rounded-sm border border-border bg-card px-2 py-1.5 text-[11px] font-medium transition-colors',
+                      'inline-flex items-center justify-center gap-1 rounded-md border border-border bg-card px-2 py-1.5 text-[11px] font-medium transition-colors',
                       'hover:bg-accent hover:text-accent-foreground',
                       'disabled:cursor-not-allowed disabled:opacity-50',
                       // 2026-07-19 中文 + 图标垂直对齐
@@ -958,7 +958,7 @@ export function ContextUsageRing({
                     onClick={() => handleCompress(1000000)}
                     disabled={compressDisabled}
                     className={cn(
-                      'inline-flex items-center justify-center gap-1 rounded-sm border border-border bg-card px-2 py-1.5 text-[11px] font-medium transition-colors',
+                      'inline-flex items-center justify-center gap-1 rounded-md border border-border bg-card px-2 py-1.5 text-[11px] font-medium transition-colors',
                       'hover:bg-accent hover:text-accent-foreground',
                       'disabled:cursor-not-allowed disabled:opacity-50',
                       '[&>span]:translate-y-[var(--text-vcenter-offset)]',
@@ -976,7 +976,7 @@ export function ContextUsageRing({
 
               {/* 压缩结果 */}
               {compressResult && (
-                <div className="mt-2 flex items-start gap-1.5 rounded-sm bg-emerald-500/10 p-1.5 text-[11px] text-emerald-700 dark:text-emerald-400">
+                <div className="mt-2 flex items-start gap-1.5 rounded-md bg-emerald-500/10 p-1.5 text-[11px] text-emerald-700 dark:text-emerald-400">
                   <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
                   <div className="min-w-0">
                     <div className="font-medium">{t('compressSuccess')}</div>
@@ -998,7 +998,7 @@ export function ContextUsageRing({
 
               {/* 压缩错误 */}
               {compressError && (
-                <div className="mt-2 flex items-start gap-1.5 rounded-sm bg-red-500/10 p-1.5 text-[11px] text-red-700 dark:text-red-400">
+                <div className="mt-2 flex items-start gap-1.5 rounded-md bg-red-500/10 p-1.5 text-[11px] text-red-700 dark:text-red-400">
                   <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
                   <div className="min-w-0 break-words">{compressError}</div>
                 </div>

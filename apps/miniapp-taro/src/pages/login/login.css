@@ -252,7 +252,7 @@
   width: 32rpx;
   height: 32rpx;
   border: 2rpx solid var(--color-stroke-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   margin-top: 4rpx;
   display: flex;
   align-items: center;
@@ -323,7 +323,7 @@
 /* ===== 主登录按钮(对齐 RN loginBtn:主题黑白底,亮色纯黑/暗色纯白;圆角按角色档 control→sm) ===== */
 .login-primary-btn {
   height: 80rpx;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background-color: var(--color-brand);
   display: flex;
   align-items: center;
@@ -357,7 +357,7 @@
   justify-content: center;
   gap: 16rpx;
   height: 80rpx;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-miniapp-green);
   color: var(--color-miniapp-green-foreground);
   font-size: 28rpx;
@@ -393,7 +393,7 @@
 .login-sso-btn {
   height: 68rpx;
   margin-top: 36rpx;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: 1rpx solid var(--color-stroke-default);
   background-color: transparent;
   display: flex;

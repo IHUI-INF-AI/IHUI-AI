@@ -940,7 +940,6 @@ export async function checkTableConsistency() {
   const expectCss = {
     '--radius': table.DEFAULT,
     '--radius-xs': table.xs,
-    '--radius-sm': table.sm,
     '--radius-md': table.md,
     '--radius-lg': table.lg,
     '--radius-xl': table.xl,
@@ -956,7 +955,7 @@ export async function checkTableConsistency() {
   }
   // 2) miniapp-taro app.css —— 2026-11-03 起从「只对账可选子集」改判「必须全部派生在 @theme」
   //    手写副本的存在本身就是漂移源:源改档时它不会跟。所以三条同时判:
-  //    ① 注册区必须定位得到;② 7 档必须在注册区内且值等于源;③ 区外不得有任何 radius 声明。
+  //    ① 注册区必须定位得到;② 6 档必须在注册区内且值等于源;③ 区外不得有任何 radius 声明。
   const appCssPath = join(ROOT, 'apps/miniapp-taro/src/app.css')
   if (existsSync(appCssPath)) {
     const appCss = readFileSync(appCssPath, 'utf8')
@@ -1021,10 +1020,10 @@ function loadBaselineSites() {
 
 async function selfTest() {
   const table = {
-    RADIUS_STEPS: { xs: 2, sm: 4, DEFAULT: 8, md: 6, lg: 8, xl: 12, '2xl': 16 },
-    stepOf: (px) => ({ 2: 'xs', 4: 'sm', 6: 'md', 8: 'lg', 12: 'xl', 16: '2xl' })[px] || null,
+    RADIUS_STEPS: { xs: 2, DEFAULT: 8, md: 6, lg: 8, xl: 12, '2xl': 16 },
+    stepOf: (px) => ({ 2: 'xs', 6: 'md', 8: 'lg', 12: 'xl', 16: '2xl' })[px] || null,
     nearest: (px) =>
-      [2, 4, 6, 8, 12, 16].reduce((a, b) => (Math.abs(b - px) < Math.abs(a - px) ? b : a)),
+      [2, 6, 8, 12, 16].reduce((a, b) => (Math.abs(b - px) < Math.abs(a - px) ? b : a)),
   }
   const cases = [
     {
@@ -1173,7 +1172,7 @@ async function selfTest() {
     {
       name: 'B7 反向:方向类名 / 变体前缀 / 任意值 / 插值一律不得误伤',
       f: 'apps/miniapp-taro/src/y.tsx',
-      s: '<View className="rounded-t hover:rounded-md rounded-tr-sm rounded-[var(--radius-lg)] rounded-md${size}" />',
+      s: '<View className="rounded-t hover:rounded-md rounded-tr-md rounded-[var(--radius-lg)] rounded-md${size}" />',
       red: false,
     },
     {
@@ -1607,12 +1606,12 @@ async function selfTest() {
     }
   }
   // A 表对账:CSS 值漂移必须识别
-  const css = '--radius: 0.5rem;\n  --radius-xs: 0.125rem;\n  --radius-sm: 0.3rem;\n'
+  const css = '--radius: 0.5rem;\n  --radius-xs: 0.125rem;\n  --radius-md: 0.4rem;\n'
   const map = readCssRadius(css)
-  const driftOk = Math.abs(map['--radius-sm'] - 4.8) < 0.01
+  const driftOk = Math.abs(map['--radius-md'] - 6.4) < 0.01
   console.log(
     driftOk ? '✅' : '❌',
-    'A 判据能读出 CSS 漂移值 sm=4.8px',
+    'A 判据能读出 CSS 漂移值 md=6.4px',
     driftOk ? '' : JSON.stringify(map),
   )
   if (!driftOk) fail++
@@ -1626,7 +1625,6 @@ async function selfTest() {
     '@theme static {',
     '  --radius: 0.5rem;',
     '  --radius-xs: 0.125rem;',
-    '  --radius-sm: 0.25rem;',
     '  --radius-md: 0.375rem;',
     '  --radius-lg: 0.5rem;',
     '  --radius-xl: 0.75rem;',
@@ -1637,33 +1635,33 @@ async function selfTest() {
   const goodMap = readCssRadius(goodRegion.body)
   const goodOutside = radiusDeclNames(goodRegion.outside)
   const driftRegion = extractMiniappThemeRegion(
-    GOOD_THEME_CSS.replace('--radius-sm: 0.25rem', '--radius-sm: 0.3rem'),
+    GOOD_THEME_CSS.replace('--radius-md: 0.375rem', '--radius-md: 0.4rem'),
   )
   const driftMap = readCssRadius(driftRegion.body)
   const copyOutside = radiusDeclNames(
-    extractMiniappThemeRegion(`${GOOD_THEME_CSS}\n:root { --radius-sm: 0.25rem; }`).outside,
+    extractMiniappThemeRegion(`${GOOD_THEME_CSS}\n:root { --radius-md: 0.375rem; }`).outside,
   )
   for (const [nm, cond, det] of [
     [
-      'A5 注册区内 7 档全在、区外零 radius 声明 ⇒ 绿',
-      Object.keys(goodMap).length === 7 && goodOutside.length === 0,
+      'A5 注册区内 6 档全在、区外零 radius 声明 ⇒ 绿',
+      Object.keys(goodMap).length === 6 && goodOutside.length === 0,
       { map: goodMap, outside: goodOutside },
     ],
     [
-      'A5 区内值漂移(0.3rem=4.8px)必须被读到',
-      Math.abs(driftMap['--radius-sm'] - 4.8) < 0.01,
-      driftMap['--radius-sm'],
+      'A5 区内值漂移(0.4rem=6.4px)必须被读到',
+      Math.abs(driftMap['--radius-md'] - 6.4) < 0.01,
+      driftMap['--radius-md'],
     ],
     [
       'A5 区外手写副本必须点得名(不然删掉手写段这件事无人守)',
-      copyOutside.includes('--radius-sm'),
+      copyOutside.includes('--radius-md'),
       copyOutside,
     ],
     [
       'A5 找不到注册区标记 ⇒ 抛错而非猜位置',
       !(() => {
         try {
-          extractMiniappThemeRegion(':root { --radius-sm: 0.25rem; }')
+          extractMiniappThemeRegion(':root { --radius-md: 0.375rem; }')
           return true
         } catch {
           return false
@@ -1683,11 +1681,11 @@ async function selfTest() {
   const ROLE_DECL_OK =
     "export type RadiusRole = 'tiny' | 'control' | 'chip'\n\n/** 档位 → px */\nexport declare const RADIUS_STEPS: number\n"
   const roleMissing = checkRoleUnion(
-    { tiny: 'xs', control: 'sm', chip: 'md', popover: 'md' },
+    { tiny: 'xs', control: 'md', chip: 'md', popover: 'md' },
     "export type RadiusRole = 'tiny' | 'control' | 'chip'\n",
   )
-  const roleRotten = checkRoleUnion({ tiny: 'xs', control: 'sm' }, ROLE_DECL_OK)
-  const roleOk = checkRoleUnion({ tiny: 'xs', control: 'sm', chip: 'md' }, ROLE_DECL_OK)
+  const roleRotten = checkRoleUnion({ tiny: 'xs', control: 'md' }, ROLE_DECL_OK)
+  const roleOk = checkRoleUnion({ tiny: 'xs', control: 'md', chip: 'md' }, ROLE_DECL_OK)
   const roleNoDecl = checkRoleUnion({ tiny: 'xs' }, 'export declare const RADIUS_STEPS: number\n')
   const roleEmptyTable = checkRoleUnion({}, ROLE_DECL_OK)
   for (const [nm, cond, det] of [

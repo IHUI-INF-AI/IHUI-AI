@@ -206,7 +206,7 @@ function SubAgentCard({ agent, testIdPrefix = 'subagent-card' }: SubAgentCardPro
             </>
           )}
           {hasStreaming && streaming && (
-            <div className="rounded-sm bg-background/60 p-1.5">
+            <div className="rounded-md bg-background/60 p-1.5">
               <MarkdownStream content={streaming} isStreaming={!agent.streamingDone} />
             </div>
           )}
@@ -268,7 +268,7 @@ export function SubAgentActivityFeed({
     <span
       role="radiogroup"
       aria-label={t('viewToggle')}
-      className="flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 p-0.5"
+      className="flex shrink-0 items-center gap-0.5 rounded-md bg-muted/50 p-0.5"
     >
       <button
         type="button"
@@ -278,7 +278,7 @@ export function SubAgentActivityFeed({
         data-testid="subagent-view-canvas"
         onClick={() => setView('canvas')}
         className={cn(
-          'rounded-sm p-0.5 transition-colors',
+          'rounded-md p-0.5 transition-colors',
           view === 'canvas'
             ? 'bg-accent text-accent-foreground'
             : 'text-muted-foreground/60 hover:text-foreground',
@@ -294,7 +294,7 @@ export function SubAgentActivityFeed({
         data-testid="subagent-view-feed"
         onClick={() => setView('feed')}
         className={cn(
-          'rounded-sm p-0.5 transition-colors',
+          'rounded-md p-0.5 transition-colors',
           view === 'feed'
             ? 'bg-accent text-accent-foreground'
             : 'text-muted-foreground/60 hover:text-foreground',

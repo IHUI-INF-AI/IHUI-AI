@@ -329,7 +329,7 @@ export function InlineDiffCard({
           <CardTitle className="flex-1 break-all text-label font-medium" title={diffInfo.file_path}>
             {diffInfo.file_path}
             {diffInfo.is_new_file && (
-              <span className="ml-1.5 rounded-sm bg-blue-500/15 px-1 py-0.5 text-[10px] text-blue-600">
+              <span className="ml-1.5 rounded-md bg-blue-500/15 px-1 py-0.5 text-[10px] text-blue-600">
                 {t('changes.newFile')}
               </span>
             )}
@@ -337,7 +337,7 @@ export function InlineDiffCard({
           {/* P3 #30:本文件已有待发送意见数(让用户知道评论已暂存、将随下一条消息发给 AI) */}
           {fileCommentCount > 0 && (
             <span
-              className="shrink-0 rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-[10px] tabular-nums text-amber-600"
+              className="shrink-0 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] tabular-nums text-amber-600"
               data-testid="diff-comment-badge"
             >
               {t('diffComment.countBadge', { count: fileCommentCount })}
@@ -350,7 +350,7 @@ export function InlineDiffCard({
                 type="button"
                 onClick={stageFileHunks}
                 disabled={isApplying || partialBusy}
-                className="shrink-0 rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-600 transition-colors hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-600 transition-colors hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-50"
                 data-testid="diff-stage-file"
               >
                 {t('diffHunk.stageFile')}
@@ -359,24 +359,24 @@ export function InlineDiffCard({
                 type="button"
                 onClick={unstageFileHunks}
                 disabled={isApplying || partialBusy || stagedHunks.size === 0}
-                className="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                 data-testid="diff-unstage-file"
               >
                 {t('diffHunk.unstageFile')}
               </button>
             </>
           )}
-          <span className="shrink-0 rounded-sm bg-green-500/15 px-1.5 py-0.5 text-[10px] tabular-nums text-green-600">
+          <span className="shrink-0 rounded-md bg-green-500/15 px-1.5 py-0.5 text-[10px] tabular-nums text-green-600">
             +{stats.added}
           </span>
-          <span className="shrink-0 rounded-sm bg-red-500/15 px-1.5 py-0.5 text-[10px] tabular-nums text-red-600">
+          <span className="shrink-0 rounded-md bg-red-500/15 px-1.5 py-0.5 text-[10px] tabular-nums text-red-600">
             -{stats.removed}
           </span>
           {/* V3 #66:档位切换 —— 与 IDE 面板读写同一份状态,任一处切了另一处跟着变 */}
           <div
             role="group"
             aria-label={tIde('diffViewer.viewMode')}
-            className="flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/40 p-0.5"
+            className="flex shrink-0 items-center gap-0.5 rounded-md bg-muted/40 p-0.5"
             data-testid="inline-diff-mode"
           >
             <button
@@ -384,7 +384,7 @@ export function InlineDiffCard({
               onClick={() => setMode('unified')}
               aria-pressed={mode === 'unified'}
               className={cn(
-                'inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors',
+                'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] transition-colors',
                 mode === 'unified'
                   ? 'bg-muted text-foreground'
                   : 'text-muted-foreground hover:text-foreground',
@@ -399,7 +399,7 @@ export function InlineDiffCard({
               onClick={() => setMode('split')}
               aria-pressed={mode === 'split'}
               className={cn(
-                'inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors',
+                'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] transition-colors',
                 mode === 'split'
                   ? 'bg-muted text-foreground'
                   : 'text-muted-foreground hover:text-foreground',
@@ -422,7 +422,7 @@ export function InlineDiffCard({
               }
               aria-pressed={reviewed}
               className={cn(
-                'shrink-0 rounded-sm p-1 transition-colors',
+                'shrink-0 rounded-md p-1 transition-colors',
                 reviewed
                   ? 'text-green-600 hover:bg-green-500/15'
                   : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground',
@@ -434,7 +434,7 @@ export function InlineDiffCard({
           </Tooltip>
           <span
             className={cn(
-              'inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+              'inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
               badge.className,
             )}
           >
@@ -485,7 +485,7 @@ export function InlineDiffCard({
 
       {/* P3 #30:评论输入面板(行级/文件级共用)。用带背景的独立容器,不加分割线(遵循无边框分隔规范) */}
       {commentTarget !== null && (
-        <div className="mx-3 mb-2 rounded-sm bg-muted/30 p-2" data-testid="diff-comment-dock">
+        <div className="mx-3 mb-2 rounded-md bg-muted/30 p-2" data-testid="diff-comment-dock">
           <div className="mb-1.5 flex items-center gap-1.5">
             <MessageSquarePlus className="h-3 w-3 shrink-0 text-muted-foreground/70" />
             <span className="flex-1 text-[10px] text-muted-foreground">
@@ -496,7 +496,7 @@ export function InlineDiffCard({
             <button
               type="button"
               onClick={() => setCommentTarget(null)}
-              className="shrink-0 rounded-sm px-1 py-0.5 text-[10px] text-muted-foreground/70 transition-colors hover:bg-accent/40 hover:text-foreground"
+              className="shrink-0 rounded-md px-1 py-0.5 text-[10px] text-muted-foreground/70 transition-colors hover:bg-accent/40 hover:text-foreground"
               data-testid="diff-comment-close"
             >
               {t('diffComment.close')}
@@ -523,7 +523,7 @@ export function InlineDiffCard({
               type="button"
               onClick={onApply}
               disabled={isApplying}
-              className="inline-flex items-center gap-1.5 rounded-sm bg-green-600 px-3 py-1.5 text-label font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-md bg-green-600 px-3 py-1.5 text-label font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isApplying ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -536,7 +536,7 @@ export function InlineDiffCard({
               type="button"
               onClick={onReject}
               disabled={isApplying}
-              className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-label font-medium text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-label font-medium text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
             >
               <X className="h-3.5 w-3.5" />
               <span>Reject</span>
@@ -550,7 +550,7 @@ export function InlineDiffCard({
             onClick={() =>
               setCommentTarget((prev) => (prev && prev.line === undefined ? null : {}))
             }
-            className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-label font-medium text-muted-foreground hover:bg-muted"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-label font-medium text-muted-foreground hover:bg-muted"
             data-testid="diff-comment-file-action"
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
@@ -563,7 +563,7 @@ export function InlineDiffCard({
             type="button"
             onClick={handleCopyGitApply}
             disabled={!filePatch}
-            className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-label font-medium text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-label font-medium text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
             data-testid="inline-diff-copy-apply"
           >
             <Copy className="h-3.5 w-3.5" />

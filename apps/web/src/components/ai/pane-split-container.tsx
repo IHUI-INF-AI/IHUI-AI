@@ -256,7 +256,7 @@ function PaneLeafView(props: ViewProps & { node: PaneLeaf }) {
           <>
             <button
               type="button"
-              className="rounded-sm px-1.5 py-0.5 text-label hover:bg-muted"
+              className="rounded-md px-1.5 py-0.5 text-label hover:bg-muted"
               data-action="splitRight"
               aria-label={t('splitRight')}
               onClick={() => splitPane(node.id, 'right', null)}
@@ -265,7 +265,7 @@ function PaneLeafView(props: ViewProps & { node: PaneLeaf }) {
             </button>
             <button
               type="button"
-              className="rounded-sm px-1.5 py-0.5 text-label hover:bg-muted"
+              className="rounded-md px-1.5 py-0.5 text-label hover:bg-muted"
               data-action="splitDown"
               aria-label={t('splitDown')}
               onClick={() => splitPane(node.id, 'down', null)}
@@ -278,7 +278,7 @@ function PaneLeafView(props: ViewProps & { node: PaneLeaf }) {
         {!maximized ? (
           <button
             type="button"
-            className="rounded-sm px-1.5 py-0.5 text-label hover:bg-muted"
+            className="rounded-md px-1.5 py-0.5 text-label hover:bg-muted"
             data-action="maximize"
             aria-label={t('maximize')}
             onClick={() => maximizePane(node.id)}
@@ -288,7 +288,7 @@ function PaneLeafView(props: ViewProps & { node: PaneLeaf }) {
         ) : (
           <button
             type="button"
-            className="rounded-sm px-1.5 py-0.5 text-label hover:bg-muted"
+            className="rounded-md px-1.5 py-0.5 text-label hover:bg-muted"
             data-action="restore"
             aria-label={t('restore')}
             onClick={restorePanes}
@@ -300,7 +300,7 @@ function PaneLeafView(props: ViewProps & { node: PaneLeaf }) {
         {!maximized && closable && (
           <button
             type="button"
-            className="rounded-sm px-1.5 py-0.5 text-label hover:bg-muted"
+            className="rounded-md px-1.5 py-0.5 text-label hover:bg-muted"
             data-action="close"
             aria-label={t('closePane')}
             onClick={() => closePane(node.id)}
@@ -323,7 +323,7 @@ function PaneLeafView(props: ViewProps & { node: PaneLeaf }) {
           {forkView.retryable && (
             <button
               type="button"
-              className="rounded-sm px-1.5 py-0.5 text-label underline hover:bg-black/5"
+              className="rounded-md px-1.5 py-0.5 text-label underline hover:bg-black/5"
               data-action="retryFork"
               onClick={() => clearForkFailure(node.id)}
             >

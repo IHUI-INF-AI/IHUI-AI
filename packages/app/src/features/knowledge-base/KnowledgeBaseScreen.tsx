@@ -304,7 +304,7 @@ function createStyles(tk: AppThemeTokens) {
     batchBtn: {
       height: 32,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -316,7 +316,7 @@ function createStyles(tk: AppThemeTokens) {
     checkBox: {
       width: 22,
       height: 22,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',
@@ -347,7 +347,7 @@ function createStyles(tk: AppThemeTokens) {
     deleteBtn: {
       marginTop: rnSpacing.sm,
       alignSelf: 'flex-start',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.danger.light,
       paddingHorizontal: rnSpacing.sm,

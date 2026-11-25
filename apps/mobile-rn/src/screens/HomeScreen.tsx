@@ -2547,7 +2547,7 @@ const shellStyles = {
   detailDialogRetryBtn: {
     paddingHorizontal: rpx(taroSpacing.lg),
     paddingVertical: rpx(12),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
   } as const,
   detailDialogRetryText: {

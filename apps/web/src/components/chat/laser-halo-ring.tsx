@@ -28,7 +28,7 @@ const TAIL_SEGMENTS = Array.from({ length: 14 }, (_, i) => {
  *
  * 形态约束:
  *  - 只画外沿:SVG 描边贴在按钮四边(inset -2px),按钮文案区不吃光、不铺底;
- *  - 圆角跟按钮同档(--radius-sm),不是方形框;
+ *  - 圆角跟按钮同档(--radius-md),不是方形框;
  *  - 不拦截点击:pointer-events: none,光环在按钮之上也不影响下拉展开;
  *  - 不用 mask-image(§4 禁渐变遮罩),光带靠 stroke-dasharray 沿闭合路径流动;
  *  - 配色只取品牌强调档(brand-accent / brand-accent-deep),明暗两套由 tokens.css 供给;

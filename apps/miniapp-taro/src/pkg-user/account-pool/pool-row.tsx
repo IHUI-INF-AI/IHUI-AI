@@ -38,14 +38,14 @@ export function PoolRowCard({
   return (
     <View className="rounded-lg bg-card p-[24rpx]">
       <View className="flex flex-wrap items-center gap-[12rpx]">
-        <Text className="rounded-sm bg-muted px-[12rpx] py-[4rpx] text-caption text-muted-foreground">
+        <Text className="rounded-md bg-muted px-[12rpx] py-[4rpx] text-caption text-muted-foreground">
           {row.providerCode}
         </Text>
         <Text className="max-w-[380rpx] shrink basis-0 truncate text-body font-medium text-foreground">
           {row.name}
         </Text>
         <Text
-          className={`rounded-sm px-[12rpx] py-[4rpx] text-caption ${
+          className={`rounded-md px-[12rpx] py-[4rpx] text-caption ${
             row.isEnabled
               ? 'bg-[var(--color-success-light)] text-[var(--color-success-text)]'
               : 'bg-muted text-muted-foreground'
@@ -54,7 +54,7 @@ export function PoolRowCard({
           {row.isEnabled ? t('accountPool.enabled') : t('accountPool.disabled')}
         </Text>
         {row.checkinPending ? (
-          <Text className="rounded-sm bg-[var(--color-warning-amber-light)] px-[12rpx] py-[4rpx] text-caption text-[var(--color-warning-amber-text)]">
+          <Text className="rounded-md bg-[var(--color-warning-amber-light)] px-[12rpx] py-[4rpx] text-caption text-[var(--color-warning-amber-text)]">
             {t('accountPool.syncPending')}
           </Text>
         ) : null}

@@ -163,15 +163,15 @@ function RuleKnowledgeGraphDialog({ rules, onClose }: RuleKnowledgeGraphDialogPr
           <div className="space-y-3">
             <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-sm bg-red-500/50" />
+                <span className="inline-block h-2 w-2 rounded-md bg-red-500/50" />
                 {t('kgConflict')}
               </span>
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-sm bg-yellow-500/50" />
+                <span className="inline-block h-2 w-2 rounded-md bg-yellow-500/50" />
                 {t('kgDuplicate')}
               </span>
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-sm bg-green-500/50" />
+                <span className="inline-block h-2 w-2 rounded-md bg-green-500/50" />
                 {t('kgComplementary')}
               </span>
               <span className="ml-auto">
@@ -199,7 +199,7 @@ function RuleKnowledgeGraphDialog({ rules, onClose }: RuleKnowledgeGraphDialogPr
                     <span className="truncate">{ruleNameMap.get(edge.source) ?? edge.source}</span>
                     <span
                       className={cn(
-                        'shrink-0 rounded-sm px-1 py-0',
+                        'shrink-0 rounded-md px-1 py-0',
                         edge.type === 'duplicate'
                           ? 'bg-yellow-500/10 text-yellow-600'
                           : edge.type === 'complementary'

@@ -60,9 +60,9 @@ md  → 0 2px 8px /0.08   lg  → 0 4px 16px /0.12   xl → 0 8px 24px /0.16
 
 | 组件 | 圆角角色 | 内边距 | 字号 | 阴影 | 颜色 token | RN 实体现状 | 小程序实体现状 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Button / 主按钮 | control(sm) | cardPadSm | strong | none | `brand.cta`+`ctaForeground` | `ui-native/button.tsx` | `components/Button.tsx`(本轮新增,逐类镜像 ui-native/button.tsx;底/字色/尺寸档共用 `button-variants.ts` 的 SHARED_BUTTON_*) |
+| Button / 主按钮 | control(md) | cardPadSm | strong | none | `brand.cta`+`ctaForeground` | `ui-native/button.tsx` | `components/Button.tsx`(本轮新增,逐类镜像 ui-native/button.tsx;底/字色/尺寸档共用 `button-variants.ts` 的 SHARED_BUTTON_*) |
 | Card / 卡片 | card(lg) | cardPad(lg) | body | none | `surface.card`+`border.light` | `ui-native/card.tsx` | 各页内联 / 新增 `components/Card.tsx` |
-| Input / 输入框 | control(sm) | cardPadSm | body | none | `surface.inputBg`+`border.light` | `ui-native/input.tsx` / `packages/app/TextField` | 各页内联 FocusField / 新增 `components/Input.tsx`(逐类镜像 ui-native/input.tsx,基座 `h-10 rounded-sm border border-input bg-transparent px-3 text-sm text-foreground`;聚焦描边复用 `useFieldFocus` 取 `var(--color-primary)`,不接 RN AI 注册表) |
+| Input / 输入框 | control(md) | cardPadSm | body | none | `surface.inputBg`+`border.light` | `ui-native/input.tsx` / `packages/app/TextField` | 各页内联 FocusField / 新增 `components/Input.tsx`(逐类镜像 ui-native/input.tsx,基座 `h-10 rounded-sm border border-input bg-transparent px-3 text-sm text-foreground`;聚焦描边复用 `useFieldFocus` 取 `var(--color-primary)`,不接 RN AI 注册表) |
 | NavBar / 顶栏 | — | pagePadX | title | none | `surface.chrome` | `mobile-rn NavBar` / `packages/app NavBar` | `@/components/NavBar` |
 | TabBar / 底栏 | panel(xl) | — | label | none(glass) | `glass.bg` | `mobile-rn TabBar` | `custom-tab-bar` |
 | Dialog / 弹窗 | panel(xl) | cardPad(lg) | title/body | xl | `surface.card`+`overlay.modal` | `ui-native/dialog.tsx` | `@/components/ConfirmDialog`(已 1:1 打磨:遮罩 `bg-[var(--color-black-50)]`=RN `bg-black/50`、容器 `bg-background`+圆角 `rounded-lg`+边框 `border-border`、RN 子组件 API 分歧如实标注) |
@@ -71,11 +71,11 @@ md  → 0 2px 8px /0.08   lg  → 0 4px 16px /0.12   xl → 0 8px 24px /0.16
 | Badge / 徽章 | tiny(xs) | gapTight | caption | none | `brandAccent`/`success`/`danger` | `ui-native/badge.tsx`/`vip-badge.tsx` | 各页领域徽章(UnreadBadge/LevelBadge) / 新增 `components/Badge.tsx`(通用,逐类镜像 ui-native/badge.tsx;variant default/secondary/destructive/outline 复用 `BadgeBaseProps` 共享类型,类常量本地化) |
 | VipBadge / VIP 徽章 | tiny(xs) | gapTight | caption | none | amber(#f59e0b/10)+amber-600 | `ui-native/vip-badge.tsx` | 各页无通用件 / 新增 `components/VipBadge.tsx`(逐类镜像 ui-native/vip-badge.tsx;复用 `VipBadgeBaseProps` 共享类型;amber 调色板未进共享 preset,用等价 rgba 内联保「一模一样」) |
 | Tooltip | popover(md) | gapTight | caption | sm | `surface.dark`+`text.light` | `ui-native/tooltip.tsx` | `@/components/Tooltip`(已 1:1 打磨:气泡 `bg-popover`+边框 `border-border`+`shadow-md`、文本 `text-popover-foreground`、`max-w-[240px] line-clamp-2`;触发 RN Modal+onLongPress vs 小程序点击,分歧如实标注) |
-| Switch | control(sm) | — | — | none | `brand.cta`(on) | `ui-native/switch.tsx` | `components/Switch.tsx`(本轮新增,薄封装 Taro 原生 Switch,逐类镜像 ui-native) |
+| Switch | control(md) | — | — | none | `brand.cta`(on) | `ui-native/switch.tsx` | `components/Switch.tsx`(本轮新增,薄封装 Taro 原生 Switch,逐类镜像 ui-native) |
 | Tabs | chip(md) | gap | label | none | `brand.DEFAULT`(active) | `ui-native/tabs.tsx` | `TitleSwitch*` / 新增 `components/Tabs.tsx`(逐类镜像 ui-native/tabs.tsx;受控 `tabs`/`value`/`onChange`+内部非受控兜底;容器 `flex-row rounded-lg bg-muted p-1`,项 `flex-1 rounded-md py-1.5` 激活 `bg-background`,文案 `text-sm font-medium` 激活 `text-foreground`) |
 | Loading | — | — | — | none | `brandAccent` | `ui-native/loading.tsx` | `LoadingSpinner`(已 1:1 打磨:spinner `rounded-full`+`border-current border-t-transparent text-primary`,尺寸 w-4/h-4｜w-6/h-6｜w-8/h-8 与 RN 逐像素一致)/`ColorfulLoader` |
 | VideoPlayer | card(lg) | — | — | md | `surface.dark` | `mobile-rn VideoPlayer` | `@/components/VideoPlayer` |
-| VoiceInput | control(sm) | — | — | none | `brandAccent` | `mobile-rn VoiceInput` | `@/components/VoiceInput` |
+| VoiceInput | control(md) | — | — | none | `brandAccent` | `mobile-rn VoiceInput` | `@/components/VoiceInput` |
 | VerifyCodeModal | panel(xl) | cardPad(lg) | body | xl | `surface.card` | `mobile-rn VerifyCodeModal` | `@/components/VerifyCodeModal` |
 | Drawer | panel(xl) | pagePadX | body | lg | `surface.card` | `mobile-rn Drawer` | `@/components/DrawerComponent` |
 | EmptyState | — | section(xl) | body/label | none | `text.tertiary` | `mobile-rn Empty` | `@/components/EmptyState`/`EmptyIllustration` |

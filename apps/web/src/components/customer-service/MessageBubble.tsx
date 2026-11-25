@@ -62,7 +62,7 @@ export function MessageBubble({ message, isSelf }: Props) {
           <button
             type="button"
             onClick={() => setZoomed(true)}
-            className="block max-h-48 overflow-hidden rounded-sm border border-input"
+            className="block max-h-48 overflow-hidden rounded-md border border-input"
           >
             <Image
               src={toMediaImageUrl(message.content)}
@@ -78,8 +78,8 @@ export function MessageBubble({ message, isSelf }: Props) {
             className={cn(
               'rounded-2xl px-3 py-2 text-body',
               isSelf
-                ? 'rounded-br-sm bg-cta text-cta-foreground'
-                : 'rounded-bl-sm bg-muted text-muted-foreground',
+                ? 'rounded-br-md bg-cta text-cta-foreground'
+                : 'rounded-bl-md bg-muted text-muted-foreground',
             )}
           >
             <p className="whitespace-pre-wrap break-words">{message.content}</p>

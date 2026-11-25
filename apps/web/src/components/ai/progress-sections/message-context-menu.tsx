@@ -94,7 +94,7 @@ const MenuItem = React.memo(function MenuItem({
       <div className="space-y-0.5">
         <div
           className={cn(
-            'flex items-center gap-1.5 rounded-sm px-2 py-1 text-[11px] text-muted-foreground/70',
+            'flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] text-muted-foreground/70',
             depth > 0 && 'pl-4',
           )}
         >
@@ -118,7 +118,7 @@ const MenuItem = React.memo(function MenuItem({
       data-testid={`message-context-menu-item-${item.action ?? item.id}`}
       data-action={item.action ?? item.id}
       className={cn(
-        'flex w-full items-center gap-1.5 rounded-sm px-2 py-1 text-left text-[11px] transition-colors',
+        'flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] transition-colors',
         'hover:bg-accent/50 hover:text-foreground focus-visible:bg-accent/50 focus-visible:outline-none',
         item.disabled && 'cursor-not-allowed opacity-50',
         item.danger && 'text-destructive hover:bg-destructive/10 hover:text-destructive',

@@ -83,7 +83,7 @@ export default function ApisPage() {
               type="button"
               onClick={() => setCategory(c.value)}
               className={
-                'rounded-sm border px-3 py-1 text-body transition-colors ' +
+                'rounded-md border px-3 py-1 text-body transition-colors ' +
                 (category === c.value
                   ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                   : 'border-border hover:bg-muted')

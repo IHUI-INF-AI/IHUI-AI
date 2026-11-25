@@ -156,7 +156,7 @@
 }
 .ai-card-tool-item.error {
   background: var(--color-danger-tint);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: 14rpx var(--spacing-xs-loose);
 }
 .ai-card-tool-icon {
@@ -212,7 +212,7 @@
   font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   background: var(--color-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: 2rpx 10rpx;
   flex-shrink: 0;
 }
@@ -261,13 +261,13 @@
    档位与 App 端逐档对齐(RN 现读:monoText fontSize 11 / lineHeight 16、cardBody
    paddingHorizontal 6dp / paddingBottom 5dp / gap 3dp;1 逻辑 px = 2rpx  ⇒
    22rpx / 32rpx / 12rpx / 10rpx / 6rpx),**不在本端自创第二档**。
-   底色与圆角沿用本文件既有 mono 块档(var(--color-muted) + var(--radius-sm),同
-   .ai-card-term-output-wrap 与 web StreamCode 的 rounded-sm),不用描边分隔、不加文案。 */
+   底色与圆角沿用本文件既有 mono 块档(var(--color-muted) + var(--radius-md),同
+   .ai-card-term-output-wrap 与 web StreamCode 的 rounded-md),不用描边分隔、不加文案。 */
 .ai-card-tool-partial-diff {
   margin-top: 6rpx;
   padding: 10rpx var(--spacing-xs-loose);
   background: var(--color-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .ai-card-tool-partial-diff-text {
   display: block;
@@ -288,7 +288,7 @@
 }
 .ai-card-term-item.error {
   background: var(--color-danger-tint);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: 14rpx var(--spacing-xs-loose);
 }
 .ai-card-term-head {
@@ -343,7 +343,7 @@
   margin-top: 10rpx;
   position: relative;
   background: var(--color-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: var(--spacing-sm) var(--spacing-sm);
 }
 .ai-card-term-output {
@@ -363,7 +363,7 @@
   display: flex;
   align-items: center;
   background: var(--color-card);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: var(--spacing-2xs) 10rpx;
 }
 .ai-card-term-copy-text {
@@ -450,7 +450,7 @@
   padding: var(--spacing-sm);
   margin-top: var(--spacing-xs-loose);
   border-left: 6rpx solid var(--color-muted-foreground);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-muted);
 }
 .ai-card-subagent-item.is-neutral {

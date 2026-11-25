@@ -317,7 +317,7 @@ const disclosureStyles = StyleSheet.create({
   approvalBtn: {
     paddingHorizontal: rpx(taroSpacing['xs-loose']),
     paddingVertical: rpx(6),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.muted,

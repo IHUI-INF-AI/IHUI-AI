@@ -204,7 +204,7 @@ export default function ReviewPage() {
                         size="sm"
                         disabled={submitting}
                         onClick={() => handleQuality(opt.value)}
-                        className={`rounded-sm border border-transparent px-3 text-label font-medium ${opt.tone}`}
+                        className={`rounded-md border border-transparent px-3 text-label font-medium ${opt.tone}`}
                       >
                         {t(opt.labelKey)}
                       </Button>

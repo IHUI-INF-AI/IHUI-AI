@@ -89,9 +89,9 @@ const DASHBOARD_HTML = `<div id="root" style="display:flex;min-height:100vh;font
 const LOGIN_HTML = `<div id="root" style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif">
   <div id="card" style="width:320px;padding:32px;border:1px solid ${DOC_BORDER};border-radius:${RADIUS_CSS_PX.lg}">
     <h2 style="margin:0 0 16px;text-align:center;font-size:20px">Login</h2>
-    <input id="email" placeholder="Email" style="width:100%;padding:8px;margin-bottom:12px;border:1px solid ${DOC_BORDER_HARD};border-radius:${RADIUS_CSS_PX.sm};box-sizing:border-box;font-size:13px" />
-    <input id="password" type="password" placeholder="Password" style="width:100%;padding:8px;margin-bottom:16px;border:1px solid ${DOC_BORDER_HARD};border-radius:${RADIUS_CSS_PX.sm};box-sizing:border-box;font-size:13px" />
-    <button id="submit" style="width:100%;padding:10px;background:#000;color:#fff;border:none;border-radius:${RADIUS_CSS_PX.sm};cursor:pointer;font-size:14px">Sign In</button>
+    <input id="email" placeholder="Email" style="width:100%;padding:8px;margin-bottom:12px;border:1px solid ${DOC_BORDER_HARD};border-radius:${RADIUS_CSS_PX.md};box-sizing:border-box;font-size:13px" />
+    <input id="password" type="password" placeholder="Password" style="width:100%;padding:8px;margin-bottom:16px;border:1px solid ${DOC_BORDER_HARD};border-radius:${RADIUS_CSS_PX.md};box-sizing:border-box;font-size:13px" />
+    <button id="submit" style="width:100%;padding:10px;background:#000;color:#fff;border:none;border-radius:${RADIUS_CSS_PX.md};cursor:pointer;font-size:14px">Sign In</button>
   </div>
 </div>`
 
@@ -130,7 +130,7 @@ const PRICING_HTML = `<div id="root" style="padding:24px;font-family:sans-serif"
         <li>Feature A</li>
         <li>Feature B</li>
       </ul>
-      <button style="width:100%;padding:8px;border:1px solid #000;background:transparent;border-radius:${RADIUS_CSS_PX.sm};cursor:pointer;font-size:13px">Choose</button>
+      <button style="width:100%;padding:8px;border:1px solid #000;background:transparent;border-radius:${RADIUS_CSS_PX.md};cursor:pointer;font-size:13px">Choose</button>
     </div>
     <div id="pro" style="flex:1;padding:24px;border:2px solid #000;border-radius:${RADIUS_CSS_PX.lg}">
       <h3 style="margin:0 0 8px">Pro</h3>
@@ -140,7 +140,7 @@ const PRICING_HTML = `<div id="root" style="padding:24px;font-family:sans-serif"
         <li>Feature B</li>
         <li>Feature C</li>
       </ul>
-      <button style="width:100%;padding:8px;background:#000;color:#fff;border:none;border-radius:${RADIUS_CSS_PX.sm};cursor:pointer;font-size:13px">Choose</button>
+      <button style="width:100%;padding:8px;background:#000;color:#fff;border:none;border-radius:${RADIUS_CSS_PX.md};cursor:pointer;font-size:13px">Choose</button>
     </div>
     <div id="team" style="flex:1;padding:24px;border:1px solid ${DOC_BORDER};border-radius:${RADIUS_CSS_PX.lg}">
       <h3 style="margin:0 0 8px">Team</h3>
@@ -150,7 +150,7 @@ const PRICING_HTML = `<div id="root" style="padding:24px;font-family:sans-serif"
         <li>Feature B</li>
         <li>Feature D</li>
       </ul>
-      <button style="width:100%;padding:8px;border:1px solid #000;background:transparent;border-radius:${RADIUS_CSS_PX.sm};cursor:pointer;font-size:13px">Choose</button>
+      <button style="width:100%;padding:8px;border:1px solid #000;background:transparent;border-radius:${RADIUS_CSS_PX.md};cursor:pointer;font-size:13px">Choose</button>
     </div>
   </div>
 </div>`
@@ -161,9 +161,9 @@ const PROFILE_HTML = `<div id="root" style="display:flex;flex-direction:column;a
   <p id="role" style="color:${DOC_TEXT_BODY};margin:0 0 16px;font-size:14px">Software Engineer</p>
   <p id="bio" style="text-align:center;max-width:400px;color:${DOC_TEXT_BODY};line-height:1.6;margin:0 0 16px">Building products with code and coffee. Passionate about open source and developer tools.</p>
   <div id="social" style="display:flex;gap:12px">
-    <button style="padding:6px 16px;border:1px solid ${DOC_BORDER_HARD};border-radius:${RADIUS_CSS_PX.sm};background:transparent;cursor:pointer;font-size:12px">Twitter</button>
-    <button style="padding:6px 16px;border:1px solid ${DOC_BORDER_HARD};border-radius:${RADIUS_CSS_PX.sm};background:transparent;cursor:pointer;font-size:12px">GitHub</button>
-    <button style="padding:6px 16px;border:1px solid ${DOC_BORDER_HARD};border-radius:${RADIUS_CSS_PX.sm};background:transparent;cursor:pointer;font-size:12px">LinkedIn</button>
+    <button style="padding:6px 16px;border:1px solid ${DOC_BORDER_HARD};border-radius:${RADIUS_CSS_PX.md};background:transparent;cursor:pointer;font-size:12px">Twitter</button>
+    <button style="padding:6px 16px;border:1px solid ${DOC_BORDER_HARD};border-radius:${RADIUS_CSS_PX.md};background:transparent;cursor:pointer;font-size:12px">GitHub</button>
+    <button style="padding:6px 16px;border:1px solid ${DOC_BORDER_HARD};border-radius:${RADIUS_CSS_PX.md};background:transparent;cursor:pointer;font-size:12px">LinkedIn</button>
   </div>
 </div>`
 

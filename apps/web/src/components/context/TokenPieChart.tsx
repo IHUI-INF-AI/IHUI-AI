@@ -121,7 +121,7 @@ export function TokenPieChart({ distribution, size = 220 }: TokenPieChartProps) 
         {slices.map((s) => (
           <div key={s.key} className="flex items-center gap-1.5">
             <span
-              className="inline-block h-2.5 w-2.5 rounded-sm"
+              className="inline-block h-2.5 w-2.5 rounded-md"
               style={{ backgroundColor: TOKEN_COLORS[s.key] }}
             />
             <span className="text-muted-foreground">{TOKEN_LABELS[s.key]}</span>

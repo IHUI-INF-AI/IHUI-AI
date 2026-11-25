@@ -295,7 +295,7 @@ export function SlashCommandPalette({
               requestAnimationFrame(() => inputRef.current?.focus())
             }}
             aria-label={t('backAriaLabel')}
-            className="rounded-sm"
+            className="rounded-md"
           >
             <ArrowLeft />
           </IconButton>
@@ -341,7 +341,7 @@ export function SlashCommandPalette({
                     onOpenChange(false)
                   }}
                   className={cn(
-                    'relative flex w-full items-start gap-2.5 rounded-sm px-2.5 py-2 text-left transition-colors',
+                    'relative flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors',
                     isActive
                       ? 'bg-accent text-accent-foreground'
                       : 'text-foreground hover:bg-accent/50',
@@ -349,7 +349,7 @@ export function SlashCommandPalette({
                 >
                   {isActive && (
                     <span
-                      className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-sm bg-primary"
+                      className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-md bg-primary"
                       aria-hidden="true"
                     />
                   )}
@@ -418,7 +418,7 @@ export function SlashCommandPalette({
                       }
                     }}
                     className={cn(
-                      'relative flex w-full items-start gap-2.5 rounded-sm px-2.5 py-2 text-left transition-colors',
+                      'relative flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors',
                       isActive
                         ? 'bg-accent text-accent-foreground'
                         : 'text-foreground hover:bg-accent/50',
@@ -427,7 +427,7 @@ export function SlashCommandPalette({
                     {/* active 项左侧高亮条(2026-07-29 立,2px primary 色条) */}
                     {isActive && (
                       <span
-                        className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-sm bg-primary"
+                        className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-md bg-primary"
                         aria-hidden="true"
                       />
                     )}
@@ -471,21 +471,21 @@ export function SlashCommandPalette({
        * 参数补全模式下提示 ESC 返回;普通模式提示 ESC 关闭 */}
       <div className="flex items-center gap-2 bg-muted/20 px-3 py-1.5 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1">
-          <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
+          <kbd className="rounded-md border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
             ↑↓
           </kbd>
           {t('hintSelect')}
         </span>
         <span className="text-muted-foreground/40">·</span>
         <span className="flex items-center gap-1">
-          <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
+          <kbd className="rounded-md border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
             Enter
           </kbd>
           {t('hintConfirm')}
         </span>
         <span className="text-muted-foreground/40">·</span>
         <span className="flex items-center gap-1">
-          <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
+          <kbd className="rounded-md border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
             ESC
           </kbd>
           {argMode ? t('hintBack') : t('hintClose')}
@@ -494,7 +494,7 @@ export function SlashCommandPalette({
           <>
             <span className="text-muted-foreground/40">·</span>
             <span className="flex items-center gap-1">
-              <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
+              <kbd className="rounded-md border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
                 ⌫
               </kbd>
               {t('hintBack')}

@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   reactionBtn: {
     paddingHorizontal: rnSpacing.sm,
     paddingVertical: rnSpacing.xs,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   reactionText: {

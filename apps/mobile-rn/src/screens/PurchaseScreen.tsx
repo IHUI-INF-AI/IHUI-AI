@@ -436,7 +436,7 @@ function makeStyles() {
     tab: {
       flex: 1,
       height: 36,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       alignItems: 'center',
@@ -477,7 +477,7 @@ function makeStyles() {
     input: {
       height: 42,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
@@ -520,7 +520,7 @@ function makeStyles() {
       flexDirection: 'row',
       gap: rnSpacing['xs-loose'],
       padding: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.bg,
     },
     noteText: {
@@ -532,7 +532,7 @@ function makeStyles() {
     payBtn: {
       height: 42,
       marginTop: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -551,7 +551,7 @@ function makeStyles() {
     // 二维码必须恒定亮底(跟随暗色主题会让多数扫码器识别失败),取亮色板书面白。
     qrCanvas: {
       padding: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: rnLightTokens.surface.light,
     },
     qrTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },

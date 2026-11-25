@@ -451,7 +451,7 @@ export function PermissionModePopover({
             className={cn(
               // icon-only(2026-09-30 底栏单行化):原"图标+档名"文字按钮改为纯图标方块,
               // 档名由 Tooltip 承载;档位色彩语义(琥珀=高危/翡翠=替我审批)保留在底色上
-              'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm px-0 text-label font-medium leading-none',
+              'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md px-0 text-label font-medium leading-none',
               'relative duration-150 ease-out',
               currentMode === 'bypass-permissions'
                 ? cn(
@@ -532,7 +532,7 @@ export function PermissionModePopover({
                   <button
                     type="button"
                     onClick={() => onExplainMode('bypass-permissions')}
-                    className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-amber-700 transition-colors hover:bg-amber-500/15 dark:text-amber-400"
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-md text-amber-700 transition-colors hover:bg-amber-500/15 dark:text-amber-400"
                     aria-label={t('infoButtonLabel')}
                     data-testid="permission-mode-info-button"
                   >
@@ -575,7 +575,7 @@ export function PermissionModePopover({
                   onMouseEnter={() => setFocusedIndex(idx)}
                   disabled={updateMode.isPending}
                   className={cn(
-                    'group relative flex w-full items-start gap-2.5 rounded-sm p-2.5 text-left transition-colors',
+                    'group relative flex w-full items-start gap-2.5 rounded-md p-2.5 text-left transition-colors',
                     'disabled:cursor-not-allowed disabled:opacity-60',
                     // 当前选中:实心高亮
                     isSel
@@ -620,7 +620,7 @@ export function PermissionModePopover({
                         {tierText.title}
                       </span>
                       {opt.risk === 'high' && (
-                        <span className="rounded-sm bg-amber-500/10 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                        <span className="rounded-md bg-amber-500/10 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">
                           {t('highRisk')}
                         </span>
                       )}
@@ -647,7 +647,7 @@ export function PermissionModePopover({
             onClick={() => handleSelect('bypass-permissions')}
             disabled={updateMode.isPending}
             className={cn(
-              'mt-1 flex w-full items-center gap-2 rounded-sm border px-2 py-1.5 text-left transition-colors',
+              'mt-1 flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors',
               currentMode === 'bypass-permissions'
                 ? 'border-amber-500/40 bg-amber-500/5'
                 : 'border-stroke-subtle hover:border-amber-500/30 hover:bg-amber-500/5',
@@ -680,7 +680,7 @@ export function PermissionModePopover({
                 }}
                 disabled={setDefault.isPending || activeWorkspace?.mode === currentMode}
                 data-testid="permission-set-default"
-                className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1 text-left text-[11px] text-muted-foreground transition-colors hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-muted-foreground transition-colors hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {setDefault.isPending ? (
                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -694,21 +694,21 @@ export function PermissionModePopover({
 
           {/* 键盘提示(2026-07-25 深化):底部小字,提醒用户可用 ↑/↓/Enter/1-3 键盘操作 */}
           <div className="flex items-center gap-1.5 px-1 pt-0.5 text-[10px] text-muted-foreground">
-            <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
+            <kbd className="rounded-md border border-border bg-muted px-1 py-px font-mono text-[9px]">
               ↑
             </kbd>
-            <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
+            <kbd className="rounded-md border border-border bg-muted px-1 py-px font-mono text-[9px]">
               ↓
             </kbd>
             <span>{t('kbdNavigate')}</span>
             <span className="ml-auto inline-flex items-center gap-0.5">
-              <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
+              <kbd className="rounded-md border border-border bg-muted px-1 py-px font-mono text-[9px]">
                 1
               </kbd>
-              <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
+              <kbd className="rounded-md border border-border bg-muted px-1 py-px font-mono text-[9px]">
                 2
               </kbd>
-              <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
+              <kbd className="rounded-md border border-border bg-muted px-1 py-px font-mono text-[9px]">
                 3
               </kbd>
             </span>

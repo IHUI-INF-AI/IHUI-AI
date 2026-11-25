@@ -116,7 +116,7 @@ function NumberField({
               aria-label={t('clearParam', { name: label })}
               data-testid={`${testId}-clear`}
               onClick={() => onChange(undefined)}
-              className="flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               <X className="h-3 w-3" aria-hidden="true" />
             </button>
@@ -295,7 +295,7 @@ export function SamplingParamsPanel({
               data-testid="sampling-personality-preset"
               value={activePreset ?? 'custom'}
               onChange={(e) => applyPreset(e.target.value as PersonalityPresetId)}
-              className="w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-label focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+              className="w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-label focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             >
               <option value="custom">{t('personalityCustom')}</option>
               {PERSONALITY_PRESETS.map((p) => (
@@ -313,7 +313,7 @@ export function SamplingParamsPanel({
               onChange={(e) => set('systemPrompt')(e.target.value)}
               rows={4}
               className={cn(
-                'w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-2 text-label leading-relaxed',
+                'w-full resize-y rounded-md border border-input bg-transparent px-2.5 py-2 text-label leading-relaxed',
                 'placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
               )}
             />

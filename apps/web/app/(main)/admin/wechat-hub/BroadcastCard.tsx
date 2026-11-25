@@ -64,7 +64,7 @@ export default function BroadcastCard({ accountId }: { accountId: string }) {
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={4}
-            className="w-full rounded-sm border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+            className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
             placeholder="群发文案；不带标签时发给全部未拉黑联系人。"
           />
           <p className="text-xs text-muted-foreground">{text.length} / 5000</p>

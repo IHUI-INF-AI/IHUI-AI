@@ -287,7 +287,7 @@ export default function WechatPage() {
                 placeholder={
                   t('mdPathPlaceholder') + ' (可上传 md 或在线编辑;留空则用 LLM 自动生成)'
                 }
-                className="thin-scroll min-h-[180px] w-full rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed"
+                className="thin-scroll min-h-[180px] w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed"
               />
               {mdPath && (
                 <p className="text-label text-muted-foreground">
@@ -437,7 +437,7 @@ export default function WechatPage() {
                   <button
                     type="button"
                     onClick={() => applyHistory(h)}
-                    className="block w-full cursor-pointer rounded-sm px-2 py-1.5 text-left text-label transition-colors hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                    className="block w-full cursor-pointer rounded-md px-2 py-1.5 text-left text-label transition-colors hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
                   >
                     <div className="truncate font-medium">{h.title}</div>
                     <div className="mt-0.5 flex items-center gap-1.5 text-muted-foreground">

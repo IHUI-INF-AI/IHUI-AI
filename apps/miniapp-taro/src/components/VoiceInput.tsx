@@ -117,7 +117,7 @@ export default function VoiceInput({
   return (
     <View className="w-full">
       <View
-        className={`flex items-center justify-center rounded-sm px-4 py-3 ${
+        className={`flex items-center justify-center rounded-md px-4 py-3 ${
           recording ? 'bg-[var(--color-danger-tint)]' : 'bg-muted'
         } ${disabled ? 'opacity-50' : ''}`}
         style={{

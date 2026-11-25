@@ -285,7 +285,7 @@ function createStyles(tokens: AppThemeTokens) {
     },
     waveBar: {
       width: 4,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.brandAccent.DEFAULT,
     },
     timer: {
@@ -308,7 +308,7 @@ function createStyles(tokens: AppThemeTokens) {
       justifyContent: 'center',
       gap: rnSpacing.sm,
       minHeight: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.muted,
     },
     /**
@@ -344,7 +344,7 @@ function createStyles(tokens: AppThemeTokens) {
     actionButton: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.muted,
     },
     actionText: {
@@ -391,7 +391,7 @@ function createStyles(tokens: AppThemeTokens) {
     toneButton: {
       alignItems: 'center',
       paddingVertical: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.muted,
     },
     toneButtonActive: {
@@ -407,7 +407,7 @@ function createStyles(tokens: AppThemeTokens) {
     confirmButton: {
       alignItems: 'center',
       paddingVertical: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.brand.cta,
     },
     confirmText: {

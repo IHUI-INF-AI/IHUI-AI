@@ -230,7 +230,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       paddingVertical: rnSpacing['xs-loose'],
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.success.DEFAULT,
       alignItems: 'center',
@@ -282,7 +282,7 @@ function createStyles(tk: AppThemeTokens) {
     actionWrap: { marginTop: rnSpacing.md, gap: rnSpacing.sm },
     primaryBtn: {
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

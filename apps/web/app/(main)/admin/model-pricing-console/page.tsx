@@ -430,7 +430,7 @@ export default function PricingConsolePage() {
             type="button"
             onClick={() => sweep.mutate()}
             disabled={sweep.isPending}
-            className="font-[weight:inherit] inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-label hover:bg-muted disabled:opacity-50"
+            className="font-[weight:inherit] inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-label hover:bg-muted disabled:opacity-50"
           >
             {sweep.isPending ? (
               <Loader2 className="size-3 animate-spin" />
@@ -443,7 +443,7 @@ export default function PricingConsolePage() {
             type="button"
             onClick={() => syncCatalog.mutate()}
             disabled={syncCatalog.isPending}
-            className="font-[weight:inherit] inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-label hover:bg-muted disabled:opacity-50"
+            className="font-[weight:inherit] inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-label hover:bg-muted disabled:opacity-50"
           >
             {syncCatalog.isPending ? (
               <Loader2 className="size-3 animate-spin" />
@@ -560,7 +560,7 @@ export default function PricingConsolePage() {
               <button
                 key={d}
                 onClick={() => setProfitDays(d)}
-                className={`rounded-sm border px-2 py-0.5 ${
+                className={`rounded-md border px-2 py-0.5 ${
                   profitDays === d
                     ? 'border-stroke-selected text-primary'
                     : 'border-border text-muted-foreground'
@@ -574,7 +574,7 @@ export default function PricingConsolePage() {
               <button
                 key={g}
                 onClick={() => setProfitGroupBy(g)}
-                className={`rounded-sm border px-2 py-0.5 ${
+                className={`rounded-md border px-2 py-0.5 ${
                   profitGroupBy === g
                     ? 'border-stroke-selected text-primary'
                     : 'border-border text-muted-foreground'
@@ -687,7 +687,7 @@ export default function PricingConsolePage() {
               <button
                 key={g}
                 onClick={() => setChannelGroupBy(g)}
-                className={`rounded-sm border px-2 py-0.5 ${
+                className={`rounded-md border px-2 py-0.5 ${
                   channelGroupBy === g
                     ? 'border-stroke-selected text-primary'
                     : 'border-border text-muted-foreground'
@@ -700,7 +700,7 @@ export default function PricingConsolePage() {
               type="button"
               onClick={() => backfillCalls.mutate()}
               disabled={backfillCalls.isPending}
-              className="ml-auto inline-flex items-center gap-1 rounded-sm border border-border px-2 py-0.5 hover:bg-muted disabled:opacity-50"
+              className="ml-auto inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 hover:bg-muted disabled:opacity-50"
             >
               {backfillCalls.isPending ? (
                 <Loader2 className="size-3 animate-spin" />
@@ -713,7 +713,7 @@ export default function PricingConsolePage() {
               type="button"
               onClick={() => syncConfigPrices.mutate()}
               disabled={syncConfigPrices.isPending}
-              className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-0.5 hover:bg-muted disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 hover:bg-muted disabled:opacity-50"
             >
               {syncConfigPrices.isPending ? (
                 <Loader2 className="size-3 animate-spin" />
@@ -854,13 +854,13 @@ export default function PricingConsolePage() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="搜模型名"
-                className="font-[weight:inherit] h-8 w-56 rounded-sm border border-input bg-transparent pl-7 pr-2 text-label"
+                className="font-[weight:inherit] h-8 w-56 rounded-md border border-input bg-transparent pl-7 pr-2 text-label"
               />
             </div>
             <select
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
-              className="font-[weight:inherit] h-8 rounded-sm border border-input bg-transparent px-2 text-label"
+              className="font-[weight:inherit] h-8 rounded-md border border-input bg-transparent px-2 text-label"
             >
               <option value="">全部渠道</option>
               {(ov?.byProvider ?? []).map((p) => (
@@ -922,7 +922,7 @@ export default function PricingConsolePage() {
                             <input
                               value={editIn}
                               onChange={(e) => setEditIn(e.target.value)}
-                              className="h-7 w-24 rounded-sm border border-input bg-transparent px-1 text-right"
+                              className="h-7 w-24 rounded-md border border-input bg-transparent px-1 text-right"
                             />
                           ) : (
                             <>
@@ -938,7 +938,7 @@ export default function PricingConsolePage() {
                             <input
                               value={editOut}
                               onChange={(e) => setEditOut(e.target.value)}
-                              className="h-7 w-24 rounded-sm border border-input bg-transparent px-1 text-right"
+                              className="h-7 w-24 rounded-md border border-input bg-transparent px-1 text-right"
                             />
                           ) : (
                             <>
@@ -976,14 +976,14 @@ export default function PricingConsolePage() {
                                 type="button"
                                 onClick={() => save.mutate(m)}
                                 disabled={save.isPending}
-                                className="rounded-sm border border-border px-2 py-0.5 hover:bg-muted"
+                                className="rounded-md border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 保存
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setEditingId(null)}
-                                className="rounded-sm border border-border px-2 py-0.5 hover:bg-muted"
+                                className="rounded-md border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 取消
                               </button>
@@ -997,14 +997,14 @@ export default function PricingConsolePage() {
                                   setEditIn(String(m.inputPricePer1k))
                                   setEditOut(String(m.outputPricePer1k))
                                 }}
-                                className="rounded-sm border border-border px-2 py-0.5 hover:bg-muted"
+                                className="rounded-md border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 改价
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setAuditModel(m.modelId)}
-                                className="rounded-sm border border-border px-2 py-0.5 hover:bg-muted"
+                                className="rounded-md border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 历史
                               </button>
@@ -1037,7 +1037,7 @@ export default function PricingConsolePage() {
             <button
               type="button"
               onClick={() => setAuditModel(null)}
-              className="font-[weight:inherit] rounded-sm border border-border px-2 py-0.5 text-label hover:bg-muted"
+              className="font-[weight:inherit] rounded-md border border-border px-2 py-0.5 text-label hover:bg-muted"
             >
               关闭
             </button>

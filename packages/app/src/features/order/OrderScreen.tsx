@@ -234,7 +234,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.xs,
       paddingHorizontal: rnSpacing.md,
       height: 40,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -303,7 +303,7 @@ function createStyles(tk: AppThemeTokens) {
     payBtn: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     payBtnText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.brand.ctaForeground },

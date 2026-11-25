@@ -110,7 +110,7 @@ function McpStatusRow({ entry }: { entry: McpStatusEntry }): React.JSX.Element {
         disabled={pending}
         data-testid="mcp-status-retry"
         className={cn(
-          'inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1.5 py-0.5',
+          'inline-flex shrink-0 items-center gap-0.5 rounded-md bg-muted/50 px-1.5 py-0.5',
           'text-[11px] text-foreground transition-colors hover:bg-muted',
           pending && 'opacity-60',
         )}
@@ -122,7 +122,7 @@ function McpStatusRow({ entry }: { entry: McpStatusEntry }): React.JSX.Element {
         type="button"
         onClick={() => router.push(MCP_SETTINGS_PATH)}
         data-testid="mcp-status-open-settings"
-        className="shrink-0 rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         <span>{t('mcp.action.openSettings')}</span>
       </button>

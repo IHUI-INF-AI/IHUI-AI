@@ -34,7 +34,7 @@ function AbTestSide({
         <span className="truncate text-label font-medium">{data.name}</span>
         <span
           className={cn(
-            'shrink-0 rounded-sm px-1 py-0 text-[10px]',
+            'shrink-0 rounded-md px-1 py-0 text-[10px]',
             data.matched ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground',
           )}
         >
@@ -42,7 +42,7 @@ function AbTestSide({
         </span>
       </div>
       {data.output ? (
-        <pre className="thin-scroll max-h-40 overflow-auto rounded-sm bg-muted/50 p-1.5 text-[10px] leading-relaxed text-muted-foreground">
+        <pre className="thin-scroll max-h-40 overflow-auto rounded-md bg-muted/50 p-1.5 text-[10px] leading-relaxed text-muted-foreground">
           {data.output}
         </pre>
       ) : (
@@ -104,7 +104,7 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
               id="rule-cmp-a"
               value={ruleIdA}
               onChange={(e) => setRuleIdA(e.target.value)}
-              className="font-[weight:inherit] w-full rounded-sm border border-border bg-background px-2 py-1 text-label outline-none"
+              className="font-[weight:inherit] w-full rounded-md border border-border bg-background px-2 py-1 text-label outline-none"
             >
               <option value="">{t('selectRuleA')}</option>
               {rules.map((r) => (
@@ -122,7 +122,7 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
               id="rule-cmp-b"
               value={ruleIdB}
               onChange={(e) => setRuleIdB(e.target.value)}
-              className="font-[weight:inherit] w-full rounded-sm border border-border bg-background px-2 py-1 text-label outline-none"
+              className="font-[weight:inherit] w-full rounded-md border border-border bg-background px-2 py-1 text-label outline-none"
             >
               <option value="">{t('selectRuleB')}</option>
               {rules.map((r) => (
@@ -144,7 +144,7 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
             onChange={(e) => setMessage(e.target.value)}
             placeholder={t('inputTestMessage')}
             rows={3}
-            className="font-[weight:inherit] thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-label leading-relaxed outline-none focus:border-foreground/20"
+            className="font-[weight:inherit] thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-label leading-relaxed outline-none focus:border-foreground/20"
           />
         </div>
 

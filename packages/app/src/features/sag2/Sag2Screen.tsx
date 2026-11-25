@@ -415,7 +415,7 @@ function createStyles(tk: AppThemeTokens) {
     probe: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
     } as ViewStyle,
@@ -427,7 +427,7 @@ function createStyles(tk: AppThemeTokens) {
     modeBtn: {
       flex: 1,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',
@@ -441,7 +441,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: 1,
       borderColor: tk.border.medium,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
       fontSize: rnType.body.size,
@@ -453,7 +453,7 @@ function createStyles(tk: AppThemeTokens) {
     primaryBtn: {
       backgroundColor: tk.brand.cta,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
     } as ViewStyle,
     primaryBtnText: {
@@ -465,7 +465,7 @@ function createStyles(tk: AppThemeTokens) {
     judgeOff: {
       backgroundColor: tk.surface.muted,
       padding: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
     } as ViewStyle,
     judgeOffText: { fontSize: rnType.caption.size, color: tk.text.secondary } as TextStyle,
     emptyResult: { fontSize: rnType.body.size, color: tk.text.secondary } as TextStyle,
@@ -492,7 +492,7 @@ function createStyles(tk: AppThemeTokens) {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.brandAccent.deep,
     } as ViewStyle,

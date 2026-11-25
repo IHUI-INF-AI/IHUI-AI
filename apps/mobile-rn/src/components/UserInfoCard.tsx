@@ -423,7 +423,7 @@ const newStyles = StyleSheet.create({
     // 本块填充就是 brand.cta,描边同色即"加厚",两态观感与改前一致且不再出现墨档
     borderColor: tokens.brand.cta,
     // 角色档 control(按钮)→ sm:此前取 xl(12) 是"端内单独把按钮拧大",与小程序端同一枚登录钮分叉
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     // 上下内边距与小程序端同档(原写死 14,小程序 `py-3` 是 12 ⇒ 同一按钮两个数);
     // 左右 32 是本端胶囊形态,按 spec 文件末差异登记保持不动
     paddingVertical: USER_INFO_CARD_LOGIN_PADDING_Y_PX,
@@ -565,8 +565,8 @@ const newStyles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: tokens.stroke.subtle,
-    // 角色档 control(按钮)→ sm(4):与小程序端「充值」钮同形,那一端本就是 `rounded-sm`
-    borderRadius: rnRadius.sm,
+    // 角色档 control(按钮)→ sm(4):与小程序端「充值」钮同形,那一端本就是 `rounded-md`
+    borderRadius: rnRadius.md,
   },
   rechargeBtnText: {
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,
@@ -593,7 +593,7 @@ const newStyles = StyleSheet.create({
     marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
     paddingHorizontal: USER_INFO_CARD_ACTION_PADDING_X_PX,
     paddingVertical: USER_INFO_CARD_ACTION_PADDING_Y_PX,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.text.secondary,
   },
@@ -666,7 +666,7 @@ const newStyles = StyleSheet.create({
     paddingHorizontal: rnSpacing.sm,
     paddingVertical: rnSpacing['2xs'],
     backgroundColor: tokens.brandAccent.light,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   // 此前写着 11(低于 spec 的可读下限 12),属"该端没改成引用",不是另有属性
   copyBtnText: {
@@ -723,7 +723,7 @@ const newStyles = StyleSheet.create({
     backgroundColor: tokens.brandAccent.DEFAULT,
     // 角色档 control(按钮)→ sm(4):弹窗本体是 panel(xl),但弹窗里的关闭钮仍是按钮,
     // 不得随容器继承 xl —— 同文件 tokenRow / growthRow 那几档 md 是行容器,不是按钮。
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   modalCloseBtnText: {
     fontSize: rnType.body.size,

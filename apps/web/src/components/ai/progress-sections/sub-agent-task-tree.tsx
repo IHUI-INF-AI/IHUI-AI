@@ -327,7 +327,7 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
         type="button"
         onClick={() => setCollapsed((v) => !v)}
         aria-expanded={!collapsed}
-        className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1 text-left transition-colors hover:bg-accent/30"
+        className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors hover:bg-accent/30"
       >
         <ChevronRight
           className={cn(
@@ -351,14 +351,14 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
         <span className="shrink-0 text-[10px] text-muted-foreground/60">{subagent.handle}</span>
         {/* 深化C:角色徽章 —— 子代理类型/职责一眼可辨(mcp 层只给角色名时尤其有用) */}
         {subagent.role && (
-          <span className="shrink-0 rounded-sm bg-muted/60 px-1 py-0.5 text-[10px] text-muted-foreground/70">
+          <span className="shrink-0 rounded-md bg-muted/60 px-1 py-0.5 text-[10px] text-muted-foreground/70">
             {subagent.role}
           </span>
         )}
         {/* 深化C:待审批高亮 —— 子代理卡在等人工批准时,折叠行立刻显性提示,不用展开才发现。
             2026-11-21 定档:徽章不给 opacity 呼吸,amber 底色已足够显性(状态不得用透明度表达) */}
         {subagent.pendingApproval && (
-          <span className="shrink-0 rounded-sm bg-amber-500/15 px-1 py-0.5 text-[10px] text-amber-600">
+          <span className="shrink-0 rounded-md bg-amber-500/15 px-1 py-0.5 text-[10px] text-amber-600">
             待审批
           </span>
         )}
@@ -372,7 +372,7 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
             多子代理并行时扫一眼即知各自进度;与折叠区内的详细进度行同源(PHASE_LABEL),不重复造文案。
             progressPhase 缺席(后端未发 progress 帧)时不造残标。 */}
         {isRunning && subagent.progressPhase && (
-          <span className="shrink-0 rounded-sm bg-primary/10 px-1 py-0.5 text-[10px] font-medium text-primary/90">
+          <span className="shrink-0 rounded-md bg-primary/10 px-1 py-0.5 text-[10px] font-medium text-primary/90">
             {PHASE_LABEL[subagent.progressPhase]}
           </span>
         )}
@@ -401,7 +401,7 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
             用户扫一眼折叠列表就知道哪个子代理的工具调用大面积出错。仅 error>0 时造标。 */}
         {toolStats !== null && toolStats.error > 0 && (
           <span
-            className="shrink-0 rounded-sm bg-red-500/10 px-1 py-0.5 text-[10px] font-medium tabular-nums text-red-500/90"
+            className="shrink-0 rounded-md bg-red-500/10 px-1 py-0.5 text-[10px] font-medium tabular-nums text-red-500/90"
             data-testid={`subagent-tool-fail-flag-${subagent.id}`}
           >
             工具 {toolStats.error}/{toolStats.total} 失败
@@ -423,13 +423,13 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pl-3.5">
               {/* 深化K:failureSource 标签 —— 独立于 failureKind,回答"是上游/网络/本地?" */}
               {subagent.failureSource && FAILURE_SOURCE_LABEL[subagent.failureSource] && (
-                <span className="shrink-0 rounded-sm border border-stroke-subtle px-1 py-0.5 text-muted-foreground">
+                <span className="shrink-0 rounded-md border border-stroke-subtle px-1 py-0.5 text-muted-foreground">
                   {FAILURE_SOURCE_LABEL[subagent.failureSource]}
                 </span>
               )}
               <span
                 className={cn(
-                  'shrink-0 rounded-sm bg-muted/60 px-1 py-0.5 font-medium',
+                  'shrink-0 rounded-md bg-muted/60 px-1 py-0.5 font-medium',
                   failureMeta.tone,
                 )}
               >
@@ -455,7 +455,7 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
             {toolStats?.rate !== null && toolStats?.rate !== undefined && (
               <span
                 className={cn(
-                  'shrink-0 rounded-sm px-1 py-0.5 font-medium tabular-nums',
+                  'shrink-0 rounded-md px-1 py-0.5 font-medium tabular-nums',
                   toolStats.error > 0
                     ? 'bg-red-500/10 text-red-500/90'
                     : 'bg-emerald-500/10 text-emerald-600',
@@ -502,7 +502,7 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
       {/* 深化C:实时输出预览 —— 子代理阶段性输出片段(后端 output_preview 截断 200 字符)。
           运行中渐进补全,让用户不展开别的面板也能看到子代理此刻在产出什么。 */}
       {!collapsed && subagent.outputPreview && subagent.outputPreview.length > 0 && (
-        <div className="ml-4 rounded-sm bg-background/60 p-1.5">
+        <div className="ml-4 rounded-md bg-background/60 p-1.5">
           <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-all font-mono text-[10px] leading-relaxed text-muted-foreground/80">
             {subagent.outputPreview}
           </pre>

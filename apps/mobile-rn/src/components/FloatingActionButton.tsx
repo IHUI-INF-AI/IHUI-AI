@@ -8,7 +8,7 @@ import { ELEVATION_STEPS, rnRadiusFor, rnType } from '@ihui/design-tokens'
  *
  * 共享组件:抽取自 LearnDevelopScreen / PlazaScreen / StudyIndexScreen 三处按行为规格的 FAB。
  * - 48×48 品牌色圆角方块(角色档 control→sm(4),与 web @ihui/ui-react Button 基座的
- *   rounded-sm 同档;此处旧注释写"圆角 12"描述的是迁移前的内联值,已按实际取值更正)
+ *   rounded-md 同档;此处旧注释写"圆角 12"描述的是迁移前的内联值,已按实际取值更正)
  * - Pressable + pressed 态(opacity 0.8)
  * - 默认 ＋ 图标,可通过 label 自定义文字,accessibilityLabel 缺省回退到 label
  */

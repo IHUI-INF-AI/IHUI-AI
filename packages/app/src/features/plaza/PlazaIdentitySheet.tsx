@@ -173,7 +173,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     item: {
       paddingVertical: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       alignItems: 'center',

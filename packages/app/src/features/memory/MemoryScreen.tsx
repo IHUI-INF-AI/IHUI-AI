@@ -450,7 +450,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     searchInput: {
       height: 36, // h-9
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: rnSpacing.md,
@@ -531,7 +531,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     deleteBtn: {
       alignSelf: 'flex-start',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.danger.light,
       paddingHorizontal: rnSpacing.sm,
@@ -549,7 +549,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     detailBtn: {
       alignSelf: 'flex-start',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       paddingHorizontal: rnSpacing.sm,
@@ -588,7 +588,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     textInput: {
       minHeight: 96,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       padding: rnSpacing.md,
@@ -599,7 +599,7 @@ function createStyles(tk: AppThemeTokens) {
     categoryInput: {
       marginTop: rnSpacing.sm,
       height: 36,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: rnSpacing.md,
@@ -614,7 +614,7 @@ function createStyles(tk: AppThemeTokens) {
     saveBtn: {
       marginTop: rnSpacing.lg,
       alignItems: 'center',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       paddingVertical: rnSpacing.md,
     },

@@ -168,7 +168,7 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
     return (
       <span className="truncate">
         {node.name.slice(0, idx)}
-        <span className="rounded-sm bg-yellow-500/30 text-foreground">
+        <span className="rounded-md bg-yellow-500/30 text-foreground">
           {node.name.slice(idx, idx + searchTerm.length)}
         </span>
         {node.name.slice(idx + searchTerm.length)}
@@ -228,7 +228,7 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
         }}
         onContextMenu={handleContextMenu}
         className={cn(
-          'flex cursor-pointer items-center gap-1 rounded-sm py-0.5 pr-2 text-label transition-colors',
+          'flex cursor-pointer items-center gap-1 rounded-md py-0.5 pr-2 text-label transition-colors',
           isSelected ? 'bg-muted text-foreground' : 'hover:bg-muted/50',
         )}
         style={{ paddingLeft: depth * 12 + 4 }}
@@ -262,7 +262,7 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
                 setRenaming(false)
               }
             }}
-            className="w-full rounded-sm border border-border bg-background px-1 text-label focus:outline-none"
+            className="w-full rounded-md border border-border bg-background px-1 text-label focus:outline-none"
           />
         ) : deleting ? (
           <div className="flex flex-1 items-center gap-1">
@@ -272,7 +272,7 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
                 e.stopPropagation()
                 void handleDelete()
               }}
-              className="rounded-sm bg-red-500 px-1.5 py-0.5 text-label text-white hover:bg-red-600"
+              className="rounded-md bg-red-500 px-1.5 py-0.5 text-label text-white hover:bg-red-600"
             >
               {t('fileTreeNode.confirm')}
             </button>
@@ -281,7 +281,7 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
                 e.stopPropagation()
                 setDeleting(false)
               }}
-              className="rounded-sm px-1.5 py-0.5 text-label text-muted-foreground hover:bg-muted"
+              className="rounded-md px-1.5 py-0.5 text-label text-muted-foreground hover:bg-muted"
             >
               {t('fileTreeNode.cancel')}
             </button>

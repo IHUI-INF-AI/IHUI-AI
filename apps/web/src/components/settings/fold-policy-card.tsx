@@ -65,7 +65,7 @@ export function FoldPolicyCard() {
                 aria-pressed={active}
                 data-testid={`fold-policy-option-${m}`}
                 className={cn(
-                  'font-[weight:inherit] flex flex-col items-center gap-1.5 rounded-sm border p-3 text-body transition-colors',
+                  'font-[weight:inherit] flex flex-col items-center gap-1.5 rounded-md border p-3 text-body transition-colors',
                   active
                     ? 'border-brand-accent-deep bg-primary/5 text-primary'
                     : 'hover:bg-accent hover:text-accent-foreground',

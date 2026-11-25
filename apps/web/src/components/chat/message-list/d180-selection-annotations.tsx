@@ -63,7 +63,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
           aria-label={t('selectionAnnotations.hoverHint')}
           data-testid={`selection-annotation-trigger-${messageId}`}
           className={cn(
-            'inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1',
+            'inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1',
             'text-label text-muted-foreground shadow-elevation-sm transition-colors',
             'hover:border-stroke-strong hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
           )}
@@ -80,7 +80,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
           aria-label={t('selectionAnnotations.removeAll')}
           data-testid={`selection-annotation-remove-all-${messageId}`}
           className={cn(
-            'inline-flex items-center rounded-sm border border-border bg-card p-1 text-muted-foreground',
+            'inline-flex items-center rounded-md border border-border bg-card p-1 text-muted-foreground',
             'shadow-elevation-sm transition-colors hover:border-destructive/40 hover:text-destructive',
             ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
           )}
@@ -125,7 +125,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
                       aria-label={t('selectionAnnotations.commentAriaLabel')}
                       data-testid={`selection-annotation-comment-input-${messageId}-${index}`}
                       className={cn(
-                        'min-w-0 flex-1 rounded-sm border border-border bg-background px-2 py-1 text-label',
+                        'min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-label',
                         'text-foreground placeholder:text-muted-foreground',
                         ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
                       )}
@@ -139,7 +139,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
                       }}
                       data-testid={`selection-annotation-comment-add-${messageId}-${index}`}
                       className={cn(
-                        'rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground',
+                        'rounded-md border border-border bg-card px-2 py-1 text-label text-muted-foreground',
                         'shadow-elevation-sm transition-colors hover:border-stroke-strong hover:text-foreground',
                         'disabled:cursor-not-allowed disabled:opacity-50',
                         ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
@@ -153,7 +153,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
                       aria-label={t('selectionAnnotations.removeOne', { index })}
                       data-testid={`selection-annotation-remove-${messageId}-${index}`}
                       className={cn(
-                        'inline-flex items-center rounded-sm border border-border bg-card p-1 text-muted-foreground',
+                        'inline-flex items-center rounded-md border border-border bg-card p-1 text-muted-foreground',
                         'shadow-elevation-sm transition-colors hover:border-destructive/40 hover:text-destructive',
                         ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
                       )}

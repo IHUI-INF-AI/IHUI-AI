@@ -52,7 +52,7 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
   }
 
   return (
-    <div className="rounded-sm transition-colors hover:bg-accent/40">
+    <div className="rounded-md transition-colors hover:bg-accent/40">
       <div
         className={cn('flex items-center gap-1.5 px-1 py-0.5', hasDiff && 'cursor-pointer')}
         onClick={toggleExpand}
@@ -112,7 +112,7 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
                       data-testid={`change-copy-old-${change.id}`}
                     />
                   </div>
-                  <pre className="mt-0.5 max-h-16 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-red-500/10 p-1 font-mono text-[10px] text-red-500/80">
+                  <pre className="mt-0.5 max-h-16 overflow-auto whitespace-pre-wrap break-all rounded-md bg-red-500/10 p-1 font-mono text-[10px] text-red-500/80">
                     {truncateForDisplay(change.diffInfo.old_content)}
                   </pre>
                 </div>
@@ -129,7 +129,7 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
                       data-testid={`change-copy-new-${change.id}`}
                     />
                   </div>
-                  <pre className="mt-0.5 max-h-16 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-emerald-500/10 p-1 font-mono text-[10px] text-emerald-500/80">
+                  <pre className="mt-0.5 max-h-16 overflow-auto whitespace-pre-wrap break-all rounded-md bg-emerald-500/10 p-1 font-mono text-[10px] text-emerald-500/80">
                     {truncateForDisplay(change.diffInfo.new_content)}
                   </pre>
                 </div>

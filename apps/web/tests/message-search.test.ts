@@ -109,9 +109,9 @@ describe('highlightMatch', () => {
     expect(result).toContain('script')
   })
 
-  it('mark 标签包含 rounded-sm 类(非 rounded-full)', () => {
+  it('mark 标签包含 rounded-md 类(非 rounded-full)', () => {
     const result = highlightMatch('Hello', 'Hello')
-    expect(result).toContain('rounded-sm')
+    expect(result).toContain('rounded-md')
     expect(result).not.toContain('rounded-full')
   })
 })

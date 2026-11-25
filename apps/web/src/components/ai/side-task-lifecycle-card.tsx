@@ -142,7 +142,7 @@ export function SideTaskLifecycleCard({
                 type="button"
                 onClick={() => onAction('close')}
                 data-action="close"
-                className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 {t('action.close')}
               </button>
@@ -151,7 +151,7 @@ export function SideTaskLifecycleCard({
                   type="button"
                   onClick={() => onAction('cleanup')}
                   data-action="cleanup"
-                  className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   {t('action.cleanup')}
                 </button>
@@ -181,7 +181,7 @@ export function SideTaskLifecycleCard({
                   type="button"
                   onClick={() => onAction?.('confirmClose')}
                   data-action="confirmClose"
-                  className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   {t('closeConfirm.confirm')}
                 </button>
@@ -189,7 +189,7 @@ export function SideTaskLifecycleCard({
                   type="button"
                   onClick={() => onAction?.('cancelClose')}
                   data-action="cancelClose"
-                  className="rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+                  className="rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
                 >
                   {t('closeConfirm.cancel')}
                 </button>

@@ -115,7 +115,7 @@ export function QuestionCard({
             <button
               key={opt.id}
               type="button"
-              className={`block w-full text-left px-2 py-1 rounded-sm border ${
+              className={`block w-full text-left px-2 py-1 rounded-md border ${
                 checked ? 'border-brand-accent-deep bg-cta/10' : 'border-border'
               }`}
               onClick={() => onToggleOption(opt.id)}
@@ -129,7 +129,7 @@ export function QuestionCard({
       </div>
       {question.allowCustom ? (
         <textarea
-          className="mt-2 w-full px-2 py-1 rounded-sm border border-border bg-surface"
+          className="mt-2 w-full px-2 py-1 rounded-md border border-border bg-surface"
           rows={2}
           placeholder={t('chat.questionCustomPlaceholder')}
           value={customText}
@@ -140,7 +140,7 @@ export function QuestionCard({
       <div className="mt-2 flex gap-2">
         <button
           type="button"
-          className="px-2 py-1 rounded-sm bg-cta text-cta-foreground disabled:opacity-50"
+          className="px-2 py-1 rounded-md bg-cta text-cta-foreground disabled:opacity-50"
           onClick={onSubmit}
           disabled={!canSubmit || !sessionId}
         >
@@ -148,7 +148,7 @@ export function QuestionCard({
         </button>
         <button
           type="button"
-          className="px-2 py-1 rounded-sm border border-border disabled:opacity-50"
+          className="px-2 py-1 rounded-md border border-border disabled:opacity-50"
           onClick={onWithdraw}
           disabled={submitting}
         >

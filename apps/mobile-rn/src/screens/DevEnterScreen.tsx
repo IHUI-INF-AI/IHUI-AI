@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   searchBtn: {
     height: 38,
     paddingHorizontal: rpx(taroSpacing['sm-loose']),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
   setBtn: {
     paddingHorizontal: rpx(taroSpacing.sm),
     paddingVertical: rpx(6),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
   } as ViewStyle,
   setBtnText: {
@@ -578,7 +578,7 @@ const styles = StyleSheet.create({
   promptBtn: {
     width: rpx(143) / 2,
     height: rpx(54) / 2,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,

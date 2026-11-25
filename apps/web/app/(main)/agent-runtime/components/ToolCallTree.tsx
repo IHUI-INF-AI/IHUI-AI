@@ -62,7 +62,7 @@ function TreeRow({
 
   return (
     <div>
-      <div className="flex items-center gap-1 px-1 py-0.5 font-mono text-label hover:bg-muted/40 rounded-sm">
+      <div className="flex items-center gap-1 px-1 py-0.5 font-mono text-label hover:bg-muted/40 rounded-md">
         <span className="select-none whitespace-pre text-muted-foreground">{prefix + branch}</span>
         {hasChildren ? (
           <button

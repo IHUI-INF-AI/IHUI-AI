@@ -23,7 +23,7 @@ import { RADIUS_ROLES, RADIUS_STEPS } from '../../../../packages/design-tokens/s
  *   2. 添加菜单含「提示词模板 + 添加为上下文引用」并列项
  *   3. Popover 展示 5 个核心模板(总结/翻译/解释/代码/润色)
  *   4. 空状态(chips)展示 5 个水平按钮,圆角量出来等于 design-tokens 控件档
- *      (1532608ed6 O81 票⑳ 批 3 起 prompt-templates.tsx 写 rounded-sm = RADIUS_ROLES.control;
+ *      (1532608ed6 O81 票⑳ 批 3 起 prompt-templates.tsx 写 rounded-md = RADIUS_ROLES.control;
  *      本仓规则是"几何是规则、标记不是出路"(96ac122056),故判实测半径而不是判 class 字符串)
  *   5. 点击模板 → textarea 自动填充
  *   6. 5 状态可视化:default / hover / popover-open / dark mode / empty-chips
@@ -48,7 +48,7 @@ const TEXTAREA = `${AI_PANEL} textarea[aria-label]:not([disabled])`
 const INPUT_SHELL = `${AI_PANEL} .ai-input-shell`
 const CHIPS_WRAPPER = `${AI_PANEL} .flex.flex-wrap.items-center.justify-center.gap-2`
 
-// 控件档圆角 px:radius.js 的 RADIUS_ROLES.control → RADIUS_STEPS.sm
+// 控件档圆角 px:radius.js 的 RADIUS_ROLES.control → RADIUS_STEPS.md
 // (本仓圆角单一源头;判据引用档位而不是抄 class 字符串或写死数字)
 const CONTROL_RADIUS_PX = RADIUS_STEPS[RADIUS_ROLES.control]
 
@@ -319,7 +319,7 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
     expect(Number.isFinite(chipBrNum), `chips 圆角应能解析成 px 数值,实际="${chipShape.br}"`).toBe(
       true,
     )
-    // ① 等于档位表里的控件档(prompt-templates.tsx 自 1532608ed6 起写 rounded-sm)
+    // ① 等于档位表里的控件档(prompt-templates.tsx 自 1532608ed6 起写 rounded-md)
     expect(chipBrNum, `chips 圆角应等于控件档 ${CONTROL_RADIUS_PX}px,实际 ${chipBrNum}px`).toBe(
       CONTROL_RADIUS_PX,
     )

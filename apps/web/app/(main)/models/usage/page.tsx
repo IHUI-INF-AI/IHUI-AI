@@ -130,7 +130,7 @@ function TrendChart({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div
-                          className="w-full max-w-[20px] cursor-pointer rounded-t-sm bg-primary/60 transition-colors hover:bg-primary/80"
+                          className="w-full max-w-[20px] cursor-pointer rounded-t-md bg-primary/60 transition-colors hover:bg-primary/80"
                           style={{ height: `${Math.max(pct, 1)}%` }}
                         />
                       </TooltipTrigger>
@@ -165,7 +165,7 @@ function TrendChart({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div
-                          className="w-full max-w-[20px] cursor-pointer rounded-t-sm bg-emerald-400/60 transition-colors hover:bg-emerald-400/80 dark:bg-emerald-500/50 dark:hover:bg-emerald-500/70"
+                          className="w-full max-w-[20px] cursor-pointer rounded-t-md bg-emerald-400/60 transition-colors hover:bg-emerald-400/80 dark:bg-emerald-500/50 dark:hover:bg-emerald-500/70"
                           style={{ height: `${Math.max(pct, 1)}%` }}
                         />
                       </TooltipTrigger>
@@ -383,7 +383,7 @@ export default function UsagePage() {
                 key={key}
                 type="button"
                 className={cn(
-                  'h-7 rounded-sm px-3 text-label font-medium transition-colors',
+                  'h-7 rounded-md px-3 text-label font-medium transition-colors',
                   isActive
                     ? 'bg-background text-foreground shadow-elevation-sm'
                     : 'text-muted-foreground hover:text-foreground',
@@ -471,7 +471,7 @@ export default function UsagePage() {
                         <div className="flex items-center gap-2">
                           <div className="h-1.5 w-24 overflow-hidden rounded-xs bg-muted">
                             <div
-                              className="h-full rounded-sm bg-primary"
+                              className="h-full rounded-md bg-primary"
                               style={{ width: `${Math.min(m.percentage, 100)}%` }}
                             />
                           </div>

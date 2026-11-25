@@ -316,7 +316,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       marginHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
     },
@@ -385,7 +385,7 @@ function createStyles(tk: AppThemeTokens) {
     buyBtn: {
       paddingHorizontal: rnSpacing['xl'],
       height: 44,
-      borderRadius: rnRadius.sm, // 角色档 control→sm(4px);原值 15 非档位
+      borderRadius: rnRadius.md, // 角色档 control→sm(4px);原值 15 非档位
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

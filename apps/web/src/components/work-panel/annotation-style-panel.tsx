@@ -147,7 +147,7 @@ export function AnnotationStylePanel({
 
       {stale && (
         <div
-          className="rounded-sm bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600 dark:text-amber-400"
+          className="rounded-md bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600 dark:text-amber-400"
           data-testid="stale-warning"
           role="status"
         >
@@ -173,7 +173,7 @@ export function AnnotationStylePanel({
                 onChange={(e) => setStyles((prev) => ({ ...prev, [field]: e.target.value }))}
                 disabled={typeof styles[field] !== 'string'}
                 data-testid={`style-${field}`}
-                className="h-6 rounded-sm border border-input bg-background px-1.5 text-[11px] text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:opacity-40"
+                className="h-6 rounded-md border border-input bg-background px-1.5 text-[11px] text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:opacity-40"
               />
             </label>
           )
@@ -185,7 +185,7 @@ export function AnnotationStylePanel({
         onChange={(e) => setNote(e.target.value)}
         placeholder={t('annotationPlaceholder')}
         rows={2}
-        className="w-full resize-none rounded-sm border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+        className="w-full resize-none rounded-md border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         data-testid="annotation-note"
       />
 
@@ -193,7 +193,7 @@ export function AnnotationStylePanel({
         type="button"
         onClick={handleAdd}
         disabled={note.trim().length === 0}
-        className="self-start rounded-sm bg-cta px-2 py-0.5 text-[10px] font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="self-start rounded-md bg-cta px-2 py-0.5 text-[10px] font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
         data-testid="add-to-conversation"
       >
         {t('addToConversation')}

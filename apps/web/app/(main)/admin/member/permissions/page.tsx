@@ -125,7 +125,7 @@ export default function AdminMemberPermissionsPage() {
                           <button
                             type="button"
                             onClick={() => copyCode(p)}
-                            className="group inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-label hover:bg-muted/70"
+                            className="group inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-label hover:bg-muted/70"
                           >
                             <code>{p.name}</code>
                             {copiedId === p.id ? (

@@ -114,7 +114,7 @@ export function HandoffPackageCard({
             onClick={onCopyClick}
             aria-label={t('copy')}
             data-handoff-copy="true"
-            className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             {t('copy')}
           </button>

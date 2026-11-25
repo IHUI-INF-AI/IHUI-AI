@@ -537,7 +537,7 @@ function createStyles(tk: AppThemeTokens) {
     agentVarInput: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing['xs-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: rnType.body.size,
@@ -548,7 +548,7 @@ function createStyles(tk: AppThemeTokens) {
     agentVarImageBtn: {
       width: FILE_BOX,
       height: FILE_BOX,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       alignItems: 'center',
@@ -703,7 +703,7 @@ function createStyles(tk: AppThemeTokens) {
     sendBtn: {
       paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       minWidth: 50,
       alignItems: 'center',

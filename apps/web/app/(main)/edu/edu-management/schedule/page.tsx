@@ -292,7 +292,7 @@ function ScheduleEditDialog({
                   <button
                     type="button"
                     className={cn(
-                      'h-7 w-7 rounded-sm transition-all',
+                      'h-7 w-7 rounded-md transition-all',
                       c.value,
                       form.color === c.value && 'ring-2 ring-offset-2 ring-stroke-focus',
                     )}
@@ -437,7 +437,7 @@ function TermDialog({
           <label className="flex items-center gap-2 text-body">
             <input
               type="checkbox"
-              className="h-4 w-4 rounded-sm border-gray-300"
+              className="h-4 w-4 rounded-md border-gray-300"
               checked={isCurrent}
               onChange={(e) => setIsCurrent(e.target.checked)}
             />
@@ -845,7 +845,7 @@ export default function SchedulePage() {
         key={entry.id}
         type="button"
         className={cn(
-          'w-full ui-control rounded-sm px-2 py-1 text-left text-label text-white transition-opacity hover:opacity-90',
+          'w-full ui-control rounded-md px-2 py-1 text-left text-label text-white transition-opacity hover:opacity-90',
           bgColor,
         )}
         onClick={() => handleEditSchedule(entry)}

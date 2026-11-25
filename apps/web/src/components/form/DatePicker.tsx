@@ -45,7 +45,7 @@ export function DatePicker({
           disabled={disabled}
           placeholder={placeholder}
           className={cn(
-            'flex h-10 w-full rounded-sm border border-input bg-background px-3 py-2 pl-9 text-body',
+            'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pl-9 text-body',
             ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
             'disabled:cursor-not-allowed disabled:opacity-50',
             error && 'border-destructive',

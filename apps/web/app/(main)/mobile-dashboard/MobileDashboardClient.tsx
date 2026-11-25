@@ -104,7 +104,7 @@ export function MobileDashboardClient() {
             <button
               type="button"
               onClick={() => void refetch()}
-              className="inline-flex items-center gap-1.5 rounded-sm border border-input px-3 py-1.5 text-body hover:bg-muted"
+              className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-body hover:bg-muted"
             >
               <RefreshCw className="h-4 w-4" />
               重试
@@ -201,7 +201,7 @@ export function MobileDashboardClient() {
                       {data.deviceDistribution.map((d) => (
                         <div key={d.name} className="flex items-center gap-1.5">
                           <span
-                            className={`h-2.5 w-2.5 rounded-sm ${DEVICE_COLORS[d.name] ?? 'bg-muted-foreground/40'}`}
+                            className={`h-2.5 w-2.5 rounded-md ${DEVICE_COLORS[d.name] ?? 'bg-muted-foreground/40'}`}
                           />
                           {d.name === 'others' ? t('devices.others') : d.name}
                         </div>

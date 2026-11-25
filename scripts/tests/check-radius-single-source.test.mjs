@@ -235,10 +235,10 @@ function writeAt(base, rel, content) {
  * 只写 js 半边会让每个端到端用例都红在 A4 上 —— 那是判据有牙,不是夹具坏了。
  */
 const FIX_RADIUS_JS =
-  "export const RADIUS_STEPS = { xs: 2, sm: 4, DEFAULT: 8, md: 6, lg: 8, xl: 12, '2xl': 16 }\n" +
-  "export const RADIUS_ROLES = { tiny: 'xs', control: 'sm', chip: 'md', card: 'lg', panel: 'xl', hero: '2xl' }\n"
+  "export const RADIUS_STEPS = { xs: 2, DEFAULT: 8, md: 6, lg: 8, xl: 12, '2xl': 16 }\n" +
+  "export const RADIUS_ROLES = { tiny: 'xs', control: 'md', chip: 'md', card: 'lg', panel: 'xl', hero: '2xl' }\n"
 const FIX_RADIUS_DTS =
-  "export type RadiusStep = 'xs' | 'sm' | 'DEFAULT' | 'md' | 'lg' | 'xl' | '2xl'\n" +
+  "export type RadiusStep = 'xs' | 'DEFAULT' | 'md' | 'lg' | 'xl' | '2xl'\n" +
   "export type RadiusRole = 'tiny' | 'control' | 'chip' | 'card' | 'panel' | 'hero'\n"
 /** 造一个最小可判定的 git 仓夹具:档位表四处齐 + 一个无违规源码文件;withViolation 再加一处 B1 */
 function mkFixtureRepo(base, { withViolation, extra = {} }) {
@@ -247,7 +247,7 @@ function mkFixtureRepo(base, { withViolation, extra = {} }) {
   writeAt(
     base,
     'packages/design-tokens/src/styles/tokens.css',
-    '@theme {\n  --radius: 0.5rem;\n  --radius-xs: 0.125rem;\n  --radius-sm: 0.25rem;\n  --radius-md: 0.375rem;\n  --radius-lg: 0.5rem;\n  --radius-xl: 0.75rem;\n  --radius-2xl: 1rem;\n}\n',
+    '@theme {\n  --radius: 0.5rem;\n  --radius-xs: 0.125rem;\n  --radius-md: 0.375rem;\n  --radius-lg: 0.5rem;\n  --radius-xl: 0.75rem;\n  --radius-2xl: 1rem;\n}\n',
   )
   writeAt(
     base,
@@ -381,7 +381,7 @@ test('夹具注入多值混写与任意属性形态 ⇒ 逐值点名(旧整串�
       withViolation: false,
       extra: {
         'apps/miniapp-taro/src/pages/multi.css':
-          '.sheet {\n  border-radius: var(--radius-xl) 24rpx 0 0;\n}\n.bar {\n  border-radius: var(--radius-sm) 6rpx 0 0;\n}\n.ok {\n  border-radius: var(--radius-lg) var(--radius-lg) 0 0;\n}\n',
+          '.sheet {\n  border-radius: var(--radius-xl) 24rpx 0 0;\n}\n.bar {\n  border-radius: var(--radius-md) 6rpx 0 0;\n}\n.ok {\n  border-radius: var(--radius-lg) var(--radius-lg) 0 0;\n}\n',
         'apps/miniapp-taro/src/pages/dot.tsx':
           'export const V = () => <View className="w-[40rpx] h-[40rpx] [border-radius:6rpx] bg-primary" />\n' +
           'export const W = () => <View className="w-[12rpx] h-[12rpx] [border-radius:6rpx] bg-primary" />\n',
@@ -714,7 +714,7 @@ test('B10 容器造形:静态 polygon 拦、动画遮罩放、注释文字放,�
 
 test('B9 正圆豁免:正方盒 + 半径=边长一半 放行,非正方/量不出仍判红', () => {
   const table = {
-    RADIUS_STEPS: { sm: 4, md: 8, lg: 12, xl: 14, '2xl': 16, DEFAULT: 8 },
+    RADIUS_STEPS: { xs: 2, md: 6, lg: 8, xl: 12, '2xl': 16, DEFAULT: 8 },
     stepOf: () => null,
     nearest: () => 16,
   }

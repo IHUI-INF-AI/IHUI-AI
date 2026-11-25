@@ -84,7 +84,7 @@ export function HunkHeader({
         disabled={disabled}
         aria-label={staged ? t('diffHunk.unstageHunk') : t('diffHunk.stageHunk')}
         className={cn(
-          'shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors',
+          'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] transition-colors',
           staged
             ? 'text-amber-500 hover:bg-amber-500/15'
             : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground',
@@ -142,7 +142,7 @@ export function HunkToolbar({
   const t = useTranslations('ai.pane')
   const canApply = acceptedCount > 0 && acceptedCount < total && !disabled && !applying
   const linkCls =
-    'shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
+    'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
   return (
     <div
       className="flex flex-wrap items-center gap-2 bg-muted/30 px-3 py-2"
@@ -153,7 +153,7 @@ export function HunkToolbar({
         onClick={onApplySelected}
         disabled={!canApply}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-[10px] font-medium',
+          'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-medium',
           canApply
             ? 'bg-green-600 text-white hover:bg-green-700'
             : 'bg-muted text-muted-foreground/60',

@@ -85,7 +85,7 @@
 export const INPUT_HEIGHT_PX = 36
 
 /**
- * 圆角档 'sm'(规则1):两端现值均已 `rounded-sm`(web:14 / RN:124)。
+ * 圆角档 'sm'(规则1):两端现值均已 `rounded-md`(web:14 / RN:124)。
  * 只给档名不给 px —— px 由 radius.js 单源产出;两端各自把档名映射成本端承载类名。
  */
 export const INPUT_RADIUS_TIER = 'sm'

@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: rnSpacing.md,
     paddingVertical: rnSpacing.sm,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   ghostText: { color: tokens.text.secondary, fontSize: rnType.bodySm.size },
   actionBtn: {
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: rnSpacing.lg,
     paddingVertical: rnSpacing.sm,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.medium,

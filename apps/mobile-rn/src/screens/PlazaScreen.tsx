@@ -716,7 +716,7 @@ const styles = StyleSheet.create({
   identityBtn: {
     flex: 1,
     height: 44,
-    borderRadius: rnRadius.sm, // control 档 sm(4)(RADIUS_ROLES:control→sm)
+    borderRadius: rnRadius.md, // control 档 sm(4)(RADIUS_ROLES:control→sm)
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,

@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 38,
     maxHeight: 80,
-    borderRadius: rnRadius.sm, // 输入框是控件 ⇒ control 档 sm(项目不允许胶囊)
+    borderRadius: rnRadius.md, // 输入框是控件 ⇒ control 档 sm(项目不允许胶囊)
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.bg,
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
   commentSendBtn: {
     height: 38,
     paddingHorizontal: rnSpacing.lg,
-    borderRadius: rnRadius.sm, // 发送按钮是控件 ⇒ control 档 sm(项目不允许胶囊)
+    borderRadius: rnRadius.md, // 发送按钮是控件 ⇒ control 档 sm(项目不允许胶囊)
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',

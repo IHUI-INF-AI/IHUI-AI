@@ -61,7 +61,7 @@ export function PromptPolishNotice({ state, onRetry }: PromptPolishNoticeProps) 
           type="button"
           data-testid="prompt-polish-retry"
           onClick={onRetry}
-          className="shrink-0 rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-800 transition-colors hover:bg-amber-500/25 dark:text-amber-200"
+          className="shrink-0 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-800 transition-colors hover:bg-amber-500/25 dark:text-amber-200"
         >
           {t('action.retry')}
         </button>

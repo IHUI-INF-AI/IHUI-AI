@@ -79,7 +79,7 @@
   min-height: 88rpx;
   padding: var(--spacing-xs-loose) var(--spacing-sm);
   background: var(--color-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-body);
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -92,7 +92,7 @@
   min-height: 88rpx;
   padding: var(--spacing-xs-loose) var(--spacing-sm);
   background: var(--color-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-body);
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -106,7 +106,7 @@
   justify-content: center;
   padding: var(--spacing-md); /* RN card padding 12dp */
   background: var(--color-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-stroke-default);
 }
 .nm-file-btn:active {
@@ -184,7 +184,7 @@
   min-height: 72rpx;
   padding: var(--spacing-xs-loose) var(--spacing-sm);
   background: var(--color-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-body-sm);
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -195,7 +195,7 @@
   min-height: 120rpx;
   padding: var(--spacing-xs-loose) var(--spacing-sm);
   background: var(--color-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-body-sm);
   color: var(--color-foreground);
   box-sizing: border-box;

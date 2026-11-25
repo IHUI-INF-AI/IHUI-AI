@@ -77,7 +77,7 @@ function AssemblyInjectionRow({ injection }: { injection: ContextAssemblyInjecti
         disabled={!canExpand}
         data-testid={`assembly-injection-row-${injection.kind}`}
         className={cn(
-          'flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-label',
+          'flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-label',
           canExpand ? 'cursor-pointer transition-colors hover:bg-accent/40' : 'cursor-default',
         )}
       >
@@ -95,7 +95,7 @@ function AssemblyInjectionRow({ injection }: { injection: ContextAssemblyInjecti
         <span className="min-w-0 flex-1 truncate">{label}</span>
       </button>
       {open && injection.fullText ? (
-        <pre className="mx-1 mt-0.5 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-sm bg-muted/50 p-2 font-mono text-[11px] leading-relaxed text-muted-foreground">
+        <pre className="mx-1 mt-0.5 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-2 font-mono text-[11px] leading-relaxed text-muted-foreground">
           {injection.fullText}
         </pre>
       ) : null}
@@ -139,7 +139,7 @@ export function ContextAssemblyBar({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         data-testid="context-assembly-toggle"
-        className="flex w-full items-center gap-1.5 rounded-sm px-1.5 py-1 text-label text-muted-foreground transition-colors hover:bg-accent/40"
+        className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-label text-muted-foreground transition-colors hover:bg-accent/40"
       >
         <Layers className="h-3.5 w-3.5 shrink-0" aria-hidden />
         <span className="min-w-0 flex-1 truncate text-left">

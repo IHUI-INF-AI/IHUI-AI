@@ -237,7 +237,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       marginTop: rnSpacing['sm-loose'],
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

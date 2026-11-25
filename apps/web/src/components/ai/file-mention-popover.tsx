@@ -351,7 +351,7 @@ export function FileMentionPopover({
               data-testid={'mention-dimension-tab-' + dim.labelNs + '.' + dim.labelKey}
               onClick={() => setActiveDimension(dim.id)}
               className={cn(
-                'inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-label transition-colors',
+                'inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-label transition-colors',
                 active
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent/50',
@@ -411,7 +411,7 @@ export function FileMentionPopover({
                     onClick={() => pick(item)}
                     onMouseEnter={() => setActiveIndex(idx)}
                     className={cn(
-                      'relative flex w-full items-start gap-2.5 rounded-sm px-2.5 py-1.5 text-left transition-colors',
+                      'relative flex w-full items-start gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors',
                       isActive
                         ? 'bg-accent text-accent-foreground'
                         : 'text-foreground hover:bg-accent/50',
@@ -419,7 +419,7 @@ export function FileMentionPopover({
                   >
                     {isActive && (
                       <span
-                        className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-sm bg-primary"
+                        className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-md bg-primary"
                         aria-hidden="true"
                       />
                     )}
@@ -446,21 +446,21 @@ export function FileMentionPopover({
       </ul>
       <div className="flex items-center gap-2 bg-muted/20 px-3 py-1.5 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1">
-          <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
+          <kbd className="rounded-md border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
             ↑↓
           </kbd>
           {t('hintSelect')}
         </span>
         <span className="text-muted-foreground/40">·</span>
         <span className="flex items-center gap-1">
-          <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
+          <kbd className="rounded-md border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
             Enter
           </kbd>
           {t('hintConfirm')}
         </span>
         <span className="text-muted-foreground/40">·</span>
         <span className="flex items-center gap-1">
-          <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
+          <kbd className="rounded-md border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
             ESC
           </kbd>
           {t('hintClose')}

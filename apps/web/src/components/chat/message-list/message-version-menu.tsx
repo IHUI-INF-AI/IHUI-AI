@@ -62,7 +62,7 @@ export function MessageVersionMenu({ versions, activeId, onSelect }: MessageVers
           aria-label={t('canvasVersions')}
           aria-expanded={open}
           data-testid="message-version-menu"
-          className="inline-flex h-6 items-center gap-1 rounded-sm px-1.5 text-[11px] tabular-nums text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+          className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] tabular-nums text-muted-foreground hover:bg-muted/60 hover:text-foreground"
         >
           <History className="h-3.5 w-3.5" aria-hidden />
           <span>{`${activeIndex + 1}/${versions.length}`}</span>
@@ -91,7 +91,7 @@ export function MessageVersionMenu({ versions, activeId, onSelect }: MessageVers
             aria-label={t('canvasRevert')}
             aria-current={v.id === activeId ? 'true' : undefined}
             data-testid={`message-version-item-${v.id}`}
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-muted/60"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted/60"
           >
             <span className="w-8 shrink-0 text-[10px] tabular-nums text-muted-foreground">
               {`${v.ordinal}/${versions.length}`}

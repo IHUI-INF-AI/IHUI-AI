@@ -181,7 +181,7 @@ export function PlanForm({ initial, submitLabel = '保存', onSubmit, onCancel }
           {steps.map((step, i) => (
             <div key={i} className="space-y-2 rounded-lg border border-border bg-card p-3">
               <div className="flex items-center gap-2">
-                <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-sm bg-muted px-1.5 text-label font-medium text-muted-foreground tabular-nums">
+                <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-md bg-muted px-1.5 text-label font-medium text-muted-foreground tabular-nums">
                   {i + 1}
                 </span>
                 <Input
@@ -236,7 +236,7 @@ export function PlanForm({ initial, submitLabel = '保存', onSubmit, onCancel }
                   <select
                     value={step.status}
                     onChange={(e) => updateStep(i, { status: e.target.value as PlanStepStatus })}
-                    className="rounded-sm border border-input bg-background px-1.5 py-0.5 text-label outline-none"
+                    className="rounded-md border border-input bg-background px-1.5 py-0.5 text-label outline-none"
                   >
                     {PLAN_STEP_STATUS_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -250,7 +250,7 @@ export function PlanForm({ initial, submitLabel = '保存', onSubmit, onCancel }
                   <select
                     value={step.priority}
                     onChange={(e) => updateStep(i, { priority: e.target.value as PlanPriority })}
-                    className="rounded-sm border border-input bg-background px-1.5 py-0.5 text-label outline-none"
+                    className="rounded-md border border-input bg-background px-1.5 py-0.5 text-label outline-none"
                   >
                     {PLAN_PRIORITY_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>

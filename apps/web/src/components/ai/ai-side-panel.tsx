@@ -398,7 +398,7 @@ function PanelRightRounded({
       aria-hidden="true"
       {...props}
     >
-      <rect width="18" height="18" x="3" y="3" rx={rnRadius.sm} />
+      <rect width="18" height="18" x="3" y="3" rx={rnRadius.md} />
       <path d={left ? 'M7.5 8v8' : 'M16.5 8v8'} />
     </svg>
   )
@@ -423,7 +423,7 @@ function EnvInfoRounded({
       aria-hidden="true"
       {...props}
     >
-      <rect width="18" height="18" x="3" y="3" rx={rnRadius.sm} />
+      <rect width="18" height="18" x="3" y="3" rx={rnRadius.md} />
       {checked ? (
         <path d="M8 12.5l2.5 2.5 5.5-6" />
       ) : (
@@ -2297,12 +2297,12 @@ export function AISidePanel() {
           }}
           aria-label={tc('title')}
           className={cn(
-            // 拖拽图标 = 当前对话模型入口:圆角走规范档位 rounded-sm(4px,角色 control,
+            // 拖拽图标 = 当前对话模型入口:圆角走规范档位 rounded-md(4px,角色 control,
             // 见 docs/UI_GUIDELINES.md §3 + design-tokens RADIUS_ROLES)。禁止 rounded-full。
             // 底色用卡面而非黑块:厂商图标是 currentColor 线稿,黑底会把深色图标吃掉。
             // transition 只列会变的属性:位置逐帧跟随指针,transition-all 会拖尾;
             // translate / scale 是 Tailwind v4 的独立属性,必须显式列出才有过渡。
-            'fixed z-sticky grid place-items-center rounded-sm border border-border bg-card text-foreground',
+            'fixed z-sticky grid place-items-center rounded-md border border-border bg-card text-foreground',
             // 挂载入场(最小化 / 关闭后出现):淡入 + 由 0.9 放大,避免硬闪(见 animations.css)
             'ai-fab-in',
             // hover/focus 辉光:暗色下黑色投影不可见,靠这层「光」表达被点亮(见 globals.css

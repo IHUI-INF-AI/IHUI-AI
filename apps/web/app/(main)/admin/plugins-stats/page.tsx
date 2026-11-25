@@ -140,14 +140,14 @@ function TrendBar({
       <div className="flex flex-1 flex-col gap-1">
         <div className="flex items-center gap-1">
           <div
-            className="h-3 rounded-sm bg-primary/80"
+            className="h-3 rounded-md bg-primary/80"
             style={{ width: `${installPct}%`, minWidth: row.installs > 0 ? '4px' : '0' }}
           />
           <span className="tabular-nums text-foreground/70">{row.installs}</span>
         </div>
         <div className="flex items-center gap-1">
           <div
-            className="h-3 rounded-sm bg-muted-foreground/50"
+            className="h-3 rounded-md bg-muted-foreground/50"
             style={{ width: `${clickPct}%`, minWidth: row.clicks > 0 ? '4px' : '0' }}
           />
           <span className="tabular-nums text-foreground/70">{row.clicks}</span>
@@ -199,7 +199,7 @@ export default function PluginStatsPage() {
                 key={d}
                 type="button"
                 onClick={() => setDays(d)}
-                className={`rounded-sm px-2.5 py-1 text-label font-medium transition-colors ${
+                className={`rounded-md px-2.5 py-1 text-label font-medium transition-colors ${
                   days === d
                     ? 'bg-background text-foreground shadow-elevation-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -328,11 +328,11 @@ export default function PluginStatsPage() {
             {/* 图例 */}
             <div className="flex items-center gap-4 pt-2 text-[10px] text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-sm bg-primary/80" />
+                <span className="inline-block h-2 w-2 rounded-md bg-primary/80" />
                 <span>安装</span>
               </span>
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-sm bg-muted-foreground/50" />
+                <span className="inline-block h-2 w-2 rounded-md bg-muted-foreground/50" />
                 <span>点击</span>
               </span>
             </div>

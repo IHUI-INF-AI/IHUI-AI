@@ -405,7 +405,7 @@ export default function AgentDetailPage() {
         <View>
           {/* 已有旧数据时重取失败:常驻提示(不静默把旧内容当真) */}
           {agent && loadFailed && (
-            <View className="mx-[20rpx] mt-[24rpx] px-[20rpx] py-[16rpx] rounded-sm bg-[var(--color-warning-amber-light)]">
+            <View className="mx-[20rpx] mt-[24rpx] px-[20rpx] py-[16rpx] rounded-md bg-[var(--color-warning-amber-light)]">
               <Text className="text-label text-[var(--color-warning-amber-text)]">
                 {t('agentDetail.loadFailed')}
               </Text>
@@ -424,14 +424,14 @@ export default function AgentDetailPage() {
                     <View className="flex items-center flex-1">
                       <Text className="text-display text-foreground font-bold">{agent.name}</Text>
                       {agent.isVipExclusive && (
-                        <Text className="ml-[16rpx] text-badge px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-warning-amber)] text-[var(--color-surface-light)] font-semibold">
+                        <Text className="ml-[16rpx] text-badge px-[12rpx] py-[8rpx] rounded-md bg-[var(--color-warning-amber)] text-[var(--color-surface-light)] font-semibold">
                           {t('ai.agentDetail.vipExclusive')}
                         </Text>
                       )}
                     </View>
                     {/* 编辑入口 — 对齐共享屏头右侧编辑键(后端 PUT 归属校验兜,前端不另判) */}
                     <View
-                      className="flex-shrink-0 ml-[16rpx] px-[20rpx] py-[8rpx] text-label text-foreground border border-border rounded-sm"
+                      className="flex-shrink-0 ml-[16rpx] px-[20rpx] py-[8rpx] text-label text-foreground border border-border rounded-md"
                       onClick={onEdit}
                       hoverClass="opacity-60"
                     >
@@ -459,7 +459,7 @@ export default function AgentDetailPage() {
                   {tags.map((tag, idx) => (
                     <Text
                       key={`${tag}-${idx}`}
-                      className="text-caption px-[16rpx] py-[4rpx] mr-[12rpx] mb-[8rpx] rounded-sm bg-muted text-muted-foreground"
+                      className="text-caption px-[16rpx] py-[4rpx] mr-[12rpx] mb-[8rpx] rounded-md bg-muted text-muted-foreground"
                     >
                       #{tag}
                     </Text>
@@ -467,14 +467,14 @@ export default function AgentDetailPage() {
                 </View>
               )}
               {permLoading ? (
-                <View className="mt-[24rpx] py-[16rpx] px-[20rpx] rounded-sm bg-muted">
+                <View className="mt-[24rpx] py-[16rpx] px-[20rpx] rounded-md bg-muted">
                   <Text className="text-label text-muted-foreground">
                     {t('ai.agentDetail.permissionLoading')}
                   </Text>
                 </View>
               ) : permission ? (
                 <View
-                  className={`mt-[24rpx] py-[16rpx] px-[20rpx] rounded-sm ${
+                  className={`mt-[24rpx] py-[16rpx] px-[20rpx] rounded-md ${
                     permission.hasPermission
                       ? 'bg-[var(--color-success-light)]'
                       : 'bg-[var(--color-warning-amber-light)]'
@@ -559,13 +559,13 @@ export default function AgentDetailPage() {
           {agent && (
             <View className="mx-[20rpx] my-[24rpx] flex gap-[24rpx]">
               <Button
-                className="flex-1 bg-[var(--color-primary)] text-[var(--color-surface-light)] text-title font-semibold rounded-sm h-[100rpx] leading-[100rpx]"
+                className="flex-1 bg-[var(--color-primary)] text-[var(--color-surface-light)] text-title font-semibold rounded-md h-[100rpx] leading-[100rpx]"
                 onClick={onChat}
               >
                 {t('ai.agentDetail.startChat')}
               </Button>
               <Button
-                className={`px-[40rpx] text-body rounded-sm h-[100rpx] leading-[100rpx] ${favorited ? 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]' : 'bg-muted text-muted-foreground'}`}
+                className={`px-[40rpx] text-body rounded-md h-[100rpx] leading-[100rpx] ${favorited ? 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]' : 'bg-muted text-muted-foreground'}`}
                 onClick={onToggleFavorite}
               >
                 {favorited ? t('ai.agentDetail.favorited') : t('ai.agentDetail.favoriteAgent')}

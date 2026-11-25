@@ -91,7 +91,7 @@ export function createCloudRunsStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       paddingVertical: rnSpacing.sm,
       paddingHorizontal: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.light,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,

@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     minHeight: 42,
     paddingHorizontal: rnSpacing.md,
     paddingVertical: rnSpacing.sm,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.medium,
     color: tokens.text.primary,
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: rnSpacing['xs-loose'],
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
   },
   primaryBtnText: {

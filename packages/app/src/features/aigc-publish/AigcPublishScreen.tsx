@@ -300,7 +300,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: rnType.title.size,
@@ -318,7 +318,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: rnType.body.size,
@@ -328,13 +328,13 @@ function createStyles(tk: AppThemeTokens) {
     urlAddBtn: {
       paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: primary,
     },
     urlAddText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '600' },
     pickerBtn: {
       paddingVertical: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: primary,
       backgroundColor: tk.surface.light,
@@ -357,13 +357,13 @@ function createStyles(tk: AppThemeTokens) {
     progressTrack: {
       height: 4,
       marginTop: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.border.light,
       overflow: 'hidden',
     },
     progressFill: {
       height: '100%',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       // 进度条按 HomeScreen/PlanList 既有写法走语义色:brand.DEFAULT 只保留墨色/文字色两义,
       // 不作大色块底(§4),否则深色档案下是一整条纯白(实测 17.4:1 刺眼)。
       backgroundColor: tk.success.DEFAULT,
@@ -418,7 +418,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       marginTop: rnSpacing['2xl'],
       paddingVertical: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: primary,
       alignItems: 'center',
       justifyContent: 'center',

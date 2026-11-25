@@ -526,7 +526,7 @@ function createStyles(tk: AppThemeTokens) {
     searchInput: {
       height: 36,
       flex: 1,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: rnSpacing.md,

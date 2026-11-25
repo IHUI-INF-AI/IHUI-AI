@@ -55,7 +55,7 @@
   padding: 0 var(--spacing-md);
   background: var(--color-muted);
   border: 1rpx solid var(--color-stroke-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-title);
   color: var(--color-foreground);
   box-sizing: border-box;

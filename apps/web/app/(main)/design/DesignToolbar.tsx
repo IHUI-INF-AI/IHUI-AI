@@ -272,7 +272,7 @@ export function DesignToolbar({
                     height: 28,
                     padding: 0,
                     border: '1px solid var(--border)',
-                    borderRadius: rnRadius.sm,
+                    borderRadius: rnRadius.md,
                     background: isSelected ? 'var(--accent-soft, rgba(0,0,0,0.06))' : 'transparent',
                     cursor: 'pointer',
                     color: 'var(--text, inherit)',
@@ -313,7 +313,7 @@ export function DesignToolbar({
                   fontSize: 11,
                   padding: '2px 8px',
                   border: '1px solid var(--border)',
-                  borderRadius: rnRadius.sm,
+                  borderRadius: rnRadius.md,
                   background: 'transparent',
                   cursor: 'pointer',
                   color: 'var(--text, inherit)',
@@ -336,7 +336,7 @@ export function DesignToolbar({
                 height: 28,
                 padding: '0 8px',
                 border: '1px solid var(--border)',
-                borderRadius: rnRadius.sm,
+                borderRadius: rnRadius.md,
                 background: showDeviceFrame
                   ? 'var(--accent-soft, rgba(0,0,0,0.06))'
                   : 'transparent',

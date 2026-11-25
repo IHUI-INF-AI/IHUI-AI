@@ -218,7 +218,7 @@ function createStyles(tk: AppThemeTokens) {
     bottomBtnBox: { marginTop: rnSpacing.sm },
     bottomBtn: {
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

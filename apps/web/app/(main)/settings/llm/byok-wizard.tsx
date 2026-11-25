@@ -295,7 +295,7 @@ export function ByokWizard() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-sticky flex items-center gap-2 ui-control rounded-sm bg-emerald-600 px-4 py-3 text-body font-medium text-white shadow-elevation-lg transition-colors hover:bg-emerald-700"
+        className="fixed bottom-6 right-6 z-sticky flex items-center gap-2 ui-control rounded-md bg-emerald-600 px-4 py-3 text-body font-medium text-white shadow-elevation-lg transition-colors hover:bg-emerald-700"
       >
         <Wand2 className="h-4 w-4" />
         {t('trigger')}
@@ -345,16 +345,16 @@ export function ByokWizard() {
                       onClick={() => setSelected(p)}
                       className={
                         selected?.code === p.code
-                          ? 'flex flex-col items-start gap-1 rounded-sm border-2 border-emerald-500 bg-emerald-50/50 p-2.5 text-left dark:bg-emerald-950/20'
-                          : 'flex flex-col items-start gap-1 rounded-sm border border-border p-2.5 text-left transition-colors hover:border-emerald-400 hover:bg-accent'
+                          ? 'flex flex-col items-start gap-1 rounded-md border-2 border-emerald-500 bg-emerald-50/50 p-2.5 text-left dark:bg-emerald-950/20'
+                          : 'flex flex-col items-start gap-1 rounded-md border border-border p-2.5 text-left transition-colors hover:border-emerald-400 hover:bg-accent'
                       }
                     >
                       <span className="text-body font-medium">{p.name}</span>
                       <span
                         className={
                           p.free
-                            ? 'rounded-sm bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400'
-                            : 'rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400'
+                            ? 'rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400'
+                            : 'rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400'
                         }
                       >
                         {p.free ? t('freeBadge') : t('paidBadge')}
@@ -394,7 +394,7 @@ export function ByokWizard() {
                         <button
                           type="button"
                           onClick={() => setShowKey(!showKey)}
-                          className="rounded-sm p-1 text-muted-foreground hover:bg-accent"
+                          className="rounded-md p-1 text-muted-foreground hover:bg-accent"
                         >
                           {showKey ? (
                             <EyeOff className="h-3.5 w-3.5" />
@@ -412,7 +412,7 @@ export function ByokWizard() {
                               toast.error(t('pasteFailed'))
                             }
                           }}
-                          className="rounded-sm p-1 text-muted-foreground hover:bg-accent"
+                          className="rounded-md p-1 text-muted-foreground hover:bg-accent"
                         >
                           <ClipboardPaste className="h-3.5 w-3.5" />
                         </button>

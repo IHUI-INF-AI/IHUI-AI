@@ -145,7 +145,7 @@ export function VoiceToolbar(props: VoiceToolbarProps) {
                 variant === 'row'
                   ? COMPOSER_MENU_ROW_CLASS
                   : cn(
-                      'relative flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition-colors',
+                      'relative flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
                       recording
                         ? 'bg-red-500 text-white hover:bg-red-500/90'
                         : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -246,8 +246,8 @@ export function VoiceToolbar(props: VoiceToolbarProps) {
               )}
             >
               {recording ? (
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-red-500 text-white">
-                  <span className="block h-1.5 w-1.5 rounded-sm bg-white" />
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-red-500 text-white">
+                  <span className="block h-1.5 w-1.5 rounded-md bg-white" />
                 </span>
               ) : (
                 <Mic className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -259,7 +259,7 @@ export function VoiceToolbar(props: VoiceToolbarProps) {
               <span
                 aria-hidden="true"
                 className={cn(
-                  'h-2.5 w-2.5 shrink-0 rounded-sm',
+                  'h-2.5 w-2.5 shrink-0 rounded-md',
                   recording ? 'bg-red-500' : 'bg-border',
                 )}
               />
@@ -281,7 +281,7 @@ export function VoiceToolbar(props: VoiceToolbarProps) {
               <span
                 aria-hidden="true"
                 className={cn(
-                  'h-2.5 w-2.5 shrink-0 rounded-sm',
+                  'h-2.5 w-2.5 shrink-0 rounded-md',
                   playback ? 'bg-emerald-500' : 'bg-border',
                 )}
               />
@@ -304,7 +304,7 @@ export function VoiceToolbar(props: VoiceToolbarProps) {
               <span
                 aria-hidden="true"
                 className={cn(
-                  'h-2.5 w-2.5 shrink-0 rounded-sm',
+                  'h-2.5 w-2.5 shrink-0 rounded-md',
                   handsFree ? 'bg-sky-500' : 'bg-border',
                 )}
               />

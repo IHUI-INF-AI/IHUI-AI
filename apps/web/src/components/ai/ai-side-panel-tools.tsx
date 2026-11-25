@@ -232,7 +232,7 @@ function WorkspacePanelTab() {
         disabled={!selectedNode}
         onClick={handleApply}
         className={cn(
-          'inline-flex h-8 items-center justify-center rounded-sm px-3 text-label font-medium transition-colors',
+          'inline-flex h-8 items-center justify-center rounded-md px-3 text-label font-medium transition-colors',
           selectedNode
             ? 'bg-cta text-cta-foreground hover:bg-cta/90'
             : 'cursor-not-allowed bg-muted text-muted-foreground/50',
@@ -643,7 +643,7 @@ export function AiSidePanelTools() {
               type="button"
               data-testid="ai-tools-dispatch-subagent"
               onClick={() => setDispatchOpen(true)}
-              className="w-full rounded-sm bg-cta px-3 py-2 text-body font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+              className="w-full rounded-md bg-cta px-3 py-2 text-body font-medium text-cta-foreground transition-colors hover:bg-cta/90"
             >
               {t('dispatchSubagent')}
             </button>
@@ -812,7 +812,7 @@ export function AiSidePanelTools() {
                   aria-pressed={displayMode === mode}
                   onClick={() => setDisplayMode(mode)}
                   className={cn(
-                    'rounded-sm px-2.5 py-0.5 text-[11px] transition-colors',
+                    'rounded-md px-2.5 py-0.5 text-[11px] transition-colors',
                     displayMode === mode
                       ? 'bg-background font-medium text-foreground shadow-elevation-sm'
                       : 'text-muted-foreground hover:text-foreground',
@@ -850,7 +850,7 @@ export function AiSidePanelTools() {
                     data-testid={`ai-panel-tab-${key}`}
                     onClick={() => setActiveTab(key)}
                     className={cn(
-                      'shrink-0 rounded-sm px-2.5 py-1 text-label transition-colors',
+                      'shrink-0 rounded-md px-2.5 py-1 text-label transition-colors',
                       activeTab === key
                         ? 'bg-accent font-medium text-accent-foreground'
                         : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',

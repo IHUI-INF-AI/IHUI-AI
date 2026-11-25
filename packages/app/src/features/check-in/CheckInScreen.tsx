@@ -154,7 +154,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing['md-loose'],
       height: 50,
       justifyContent: 'center',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
       backgroundColor: tk.brand.cta,
     },

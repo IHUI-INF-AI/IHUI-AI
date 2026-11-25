@@ -57,7 +57,7 @@ export const Checklist = React.memo(function Checklist({
         return (
           <li
             key={item.id}
-            className="-mx-1 rounded-sm px-1"
+            className="-mx-1 rounded-md px-1"
             aria-label={label}
             data-status={item.status}
             data-stream-status={status}

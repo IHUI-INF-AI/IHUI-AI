@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(20),
     backgroundColor: tokens.surface.muted,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     gap: rpx(8),
   },
   personaLabelRow: {

@@ -219,7 +219,7 @@ function createStyles(tk: AppThemeTokens) {
     methodItem: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -232,7 +232,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.md,
       // 高度 50 是移动端触控目标(iOS HIG ≥44);web 输入框 36-40 属桌面指针形态,平台差异保留
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -245,7 +245,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.xl,
       // 高度 50 是移动端触控目标;web Button 档 lg=40 属桌面形态,平台差异保留
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

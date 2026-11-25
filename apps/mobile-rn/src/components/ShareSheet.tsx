@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     alignSelf: 'stretch',
     height: CANCEL_HEIGHT,
-    borderRadius: rnRadius.sm, // 角色档 control=sm(守门 150)
+    borderRadius: rnRadius.md, // 角色档 control=sm(守门 150)
     backgroundColor: tokens.surface.muted,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.light,
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: rnRadius.sm, // 与外盒同档
+    borderRadius: rnRadius.md, // 与外盒同档
   } as ViewStyle,
   cancelText: {
     fontSize: rnType.strong.size,

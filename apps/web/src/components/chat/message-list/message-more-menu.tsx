@@ -91,7 +91,7 @@ export function MessageMoreMenu({ label, items, testId, className }: MessageMore
             aria-pressed={item.pressed === undefined ? undefined : item.pressed}
             data-testid={item.testId}
             className={cn(
-              'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-body transition-colors',
+              'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body transition-colors',
               'hover:bg-accent focus-visible:bg-accent focus-visible:outline-none',
               'disabled:cursor-not-allowed disabled:opacity-40',
               item.danger && 'hover:text-destructive focus-visible:text-destructive',

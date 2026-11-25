@@ -224,7 +224,7 @@ function insertTranslation(_original: string, translated: string) {
       background: var(--color-info-muted);
       color: var(--color-info-foreground);
       border-left: 2px solid var(--color-info);
-      border-radius: ${RADIUS_CSS_PX.sm};
+      border-radius: ${RADIUS_CSS_PX.md};
       font-size: 12px;
       line-height: 1.5;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

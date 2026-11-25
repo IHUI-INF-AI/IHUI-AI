@@ -24,7 +24,7 @@
  *
  * 圆角**只给档名不给 px**:px 归 packages/design-tokens/src/radius.js 的 RADIUS_STEPS 单源;
  * 本表只记"轨道/拇指取哪一档",两端各自把档名映射成本端承载类名
- * (web/RN 同义:track=rounded-md / thumb=rounded-sm)。
+ * (web/RN 同义:track=rounded-md / thumb=rounded-md)。
  *
  * 消费方式:子路径 `@ihui/shared/ui/switch-spec`(禁挂根桶:同 card-spec,根桶会把整棵 src 拉进被检程序)。
  * spec 内只存逻辑 px;web 端 1:1(CSS px),RN 端 1:1(逻辑 pt)。
@@ -57,7 +57,7 @@ export const SWITCH_TRACK_RADIUS_TIER = 'md'
 /** 拇指尺寸(逻辑 px):web `h-3 w-3 / h-4 w-4 / h-5 w-5` = 12/16/20。 */
 export const SWITCH_THUMB_SIZE_PX: Record<SwitchSizeTier, number> = { sm: 12, md: 16, lg: 20 }
 
-/** 拇指圆角档名:web `rounded-sm`(3px)。 */
+/** 拇指圆角档名:web `rounded-md`(3px)。 */
 export const SWITCH_THUMB_RADIUS_TIER = 'sm'
 
 /**

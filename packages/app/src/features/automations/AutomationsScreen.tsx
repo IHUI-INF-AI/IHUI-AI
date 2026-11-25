@@ -312,7 +312,7 @@ function createStyles(tk: RnThemeTokens) {
       outlineBtn: {
         paddingHorizontal: rnSpacing.lg,
         paddingVertical: rnSpacing.sm,
-        borderRadius: rnRadius.sm,
+        borderRadius: rnRadius.md,
         borderWidth: 1,
         borderColor: tk.border.medium,
         alignItems: 'center',

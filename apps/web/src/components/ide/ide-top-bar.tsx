@@ -65,7 +65,7 @@ export function IDETopBar() {
       <button
         onClick={() => setActiveTopTab('editor')}
         className={cn(
-          'flex items-center gap-1.5 rounded-sm px-3 py-1 text-label font-medium transition-colors',
+          'flex items-center gap-1.5 rounded-md px-3 py-1 text-label font-medium transition-colors',
           activeTopTab === 'editor'
             ? 'bg-background text-foreground'
             : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
@@ -82,7 +82,7 @@ export function IDETopBar() {
           <button
             onClick={() => setActiveTopTab('editor')}
             aria-label={t('topBar.close')}
-            className="ml-1 flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="ml-1 flex h-4 w-4 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <X className="h-3 w-3" />
           </button>

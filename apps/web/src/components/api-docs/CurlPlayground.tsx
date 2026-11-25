@@ -129,7 +129,7 @@ export function CurlPlayground(): React.JSX.Element {
           value={curl}
           onChange={(e) => setCurl(e.target.value)}
           spellCheck={false}
-          className="min-h-[140px] w-full resize-y rounded-sm border bg-background px-3 py-2 font-mono text-label leading-relaxed outline-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+          className="min-h-[140px] w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-label leading-relaxed outline-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           placeholder={t('curlPlaceholder')}
         />
 

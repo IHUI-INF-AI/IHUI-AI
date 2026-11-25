@@ -201,7 +201,7 @@
 .trader-chart-bar {
   width: var(--spacing-lg);
   background: var(--color-warning);
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 .trader-chart-label {
   margin-top: var(--spacing-xs);
@@ -319,7 +319,7 @@
   color: var(--color-foreground);
   background: var(--color-card);
   border: 2rpx solid var(--color-text-tertiary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .trader-package-btn-primary {
   color: var(--color-cta-foreground);
@@ -394,7 +394,7 @@
   padding: 0;
   font-size: var(--text-title);
   font-weight: 600;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: none;
 }
 .footer-btn-ghost {

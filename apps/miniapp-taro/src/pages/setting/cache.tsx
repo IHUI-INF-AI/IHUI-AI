@@ -142,7 +142,7 @@ export default function CachePage() {
 
         {clearing ? (
           <View className="mx-[20rpx] mt-[32rpx] rounded-lg bg-card p-[24rpx] dark:bg-muted">
-            <View className="h-[12rpx] w-full overflow-hidden rounded-sm bg-border">
+            <View className="h-[12rpx] w-full overflow-hidden rounded-md bg-border">
               <View
                 className="h-full bg-primary transition-[width] duration-100"
                 style={{ width: `${progress}%` }}
@@ -180,7 +180,7 @@ export default function CachePage() {
             + brand(--color-primary)底;文字 16dp→32rpx semibold;
             文字色用 --color-primary-foreground 修正 RN surface.light 在暗色 brand 白底下不可读 */}
         <Button
-          className="mx-[20rpx] mt-[32rpx] flex h-[100rpx] items-center justify-center rounded-sm bg-primary text-title font-semibold disabled:opacity-60"
+          className="mx-[20rpx] mt-[32rpx] flex h-[100rpx] items-center justify-center rounded-md bg-primary text-title font-semibold disabled:opacity-60"
           style={{ color: 'var(--color-primary-foreground)' }}
           onClick={onClearAll}
           disabled={clearing}

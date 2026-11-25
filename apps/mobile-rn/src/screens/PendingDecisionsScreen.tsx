@@ -229,7 +229,7 @@ function makeStyles() {
     outlineButton: {
       height: 36,
       paddingHorizontal: rnSpacing.lg,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       alignItems: 'center',
@@ -240,7 +240,7 @@ function makeStyles() {
       gap: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['sm-loose'],
       paddingHorizontal: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.bg,
     },
     itemHead: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.sm },

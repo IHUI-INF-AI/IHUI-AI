@@ -94,7 +94,7 @@ export function ViewSwitcher() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-0.5 rounded-sm p-1.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+        className="flex items-center gap-0.5 rounded-md p-1.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
       >
         <Plus className="h-3.5 w-3.5" />
         <ChevronDown className="h-3 w-3" />
@@ -136,7 +136,7 @@ export function ViewSwitcher() {
                     setOpen(false)
                   }}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-label transition-colors',
+                    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-label transition-colors',
                     activeTopTab === opt.id
                       ? 'bg-muted text-foreground'
                       : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',

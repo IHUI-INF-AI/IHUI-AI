@@ -61,7 +61,7 @@ export function PlanCard({ plan }: PlanCardProps) {
             {plan.tags.map((tag) => (
               <span
                 key={tag}
-                className="rounded-sm bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
+                className="rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
               >
                 {tag}
               </span>

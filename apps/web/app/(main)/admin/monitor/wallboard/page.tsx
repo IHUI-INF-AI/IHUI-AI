@@ -1533,7 +1533,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 void refetchOv()
                 void refetchTrend()
               }}
-              className="ml-auto shrink-0 rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] text-danger-text transition-colors hover:bg-destructive/20"
+              className="ml-auto shrink-0 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] text-danger-text transition-colors hover:bg-destructive/20"
             >
               {t('retry')}
             </button>
@@ -1545,7 +1545,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <div className="wb-hdr-title flex min-w-0 items-center gap-2.5">
             <BackButton />
             {/* 豁免类别:大屏页头图标的状态灯效果光(取 --color-info 同色 12px 外扩,非层级投影) */}
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-info/40 bg-info/10 shadow-[0_0_12px_color-mix(in_srgb,var(--color-info)_28%,transparent)]">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-info/40 bg-info/10 shadow-[0_0_12px_color-mix(in_srgb,var(--color-info)_28%,transparent)]">
               <Gauge className="h-4 w-4 text-info-text" />
             </div>
             <div className="min-w-0">

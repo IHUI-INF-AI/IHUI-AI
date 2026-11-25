@@ -47,7 +47,7 @@ export function AgentTerminalFace({ conversationId }: { conversationId: string |
           type="button"
           onClick={refresh}
           aria-label={t('agentTerminal.refresh')}
-          className="inline-flex items-center gap-1 rounded-sm px-2 py-1 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         >
           <RefreshCw className="h-3.5 w-3.5" />
         </button>
@@ -71,7 +71,7 @@ export function AgentTerminalFace({ conversationId }: { conversationId: string |
                 onClick={() => select(term.terminal_id)}
                 aria-pressed={on}
                 className={cn(
-                  'inline-flex h-6 items-center gap-1 rounded-sm px-1.5 text-label transition-colors',
+                  'inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-label transition-colors',
                   on
                     ? 'bg-card text-foreground'
                     : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -92,7 +92,7 @@ export function AgentTerminalFace({ conversationId }: { conversationId: string |
           type="button"
           onClick={refresh}
           aria-label={t('agentTerminal.refresh')}
-          className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         >
           <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
         </button>

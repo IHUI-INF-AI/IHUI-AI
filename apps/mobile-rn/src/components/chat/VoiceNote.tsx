@@ -718,7 +718,7 @@ const styles = StyleSheet.create({
   transcriptBox: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
-    borderRadius: rnRadius.sm, // control 档 sm(4)
+    borderRadius: rnRadius.md, // control 档 sm(4)
     padding: rnSpacing.sm,
     marginBottom: rnSpacing.sm,
     maxHeight: 128,
@@ -735,7 +735,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: rnSpacing.xs,
     backgroundColor: tokens.brand.cta,
-    borderRadius: rnRadius.sm, // control 档 sm(4)
+    borderRadius: rnRadius.md, // control 档 sm(4)
     paddingHorizontal: rnSpacing['sm-loose'],
     paddingVertical: rnSpacing['xs-loose'],
   },
@@ -744,7 +744,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: rnSpacing.xs,
     backgroundColor: tokens.danger.DEFAULT,
-    borderRadius: rnRadius.sm, // control 档 sm(4)
+    borderRadius: rnRadius.md, // control 档 sm(4)
     paddingHorizontal: rnSpacing['sm-loose'],
     paddingVertical: rnSpacing['xs-loose'],
   },
@@ -752,7 +752,7 @@ const styles = StyleSheet.create({
   outlineBtn: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
-    borderRadius: rnRadius.sm, // control 档 sm(4)
+    borderRadius: rnRadius.md, // control 档 sm(4)
     paddingHorizontal: rnSpacing['sm-loose'],
     paddingVertical: rnSpacing['xs-loose'],
   },
@@ -760,7 +760,7 @@ const styles = StyleSheet.create({
   searchInput: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
-    borderRadius: rnRadius.sm, // control 档 sm(4)
+    borderRadius: rnRadius.md, // control 档 sm(4)
     paddingHorizontal: rnSpacing.sm,
     paddingVertical: rnSpacing['xs-loose'],
     fontSize: rnType.label.size,
@@ -806,7 +806,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: tokens.border.medium,
-    borderRadius: rnRadius.sm, // control 档 sm(4)
+    borderRadius: rnRadius.md, // control 档 sm(4)
     paddingHorizontal: rnSpacing['xs-loose'],
     paddingVertical: rnSpacing.xs,
     fontSize: rnType.label.size,

@@ -117,7 +117,7 @@ export default function TaskReceiverPageClient() {
           <button
             type="button"
             onClick={onCopyDeviceId}
-            className="rounded-sm border border-border bg-card px-2 py-1 font-mono text-label text-muted-foreground transition-colors hover:bg-muted"
+            className="rounded-md border border-border bg-card px-2 py-1 font-mono text-label text-muted-foreground transition-colors hover:bg-muted"
           >
             {t('deviceLabel')} {deviceId.slice(0, 8)}…
           </button>
@@ -153,7 +153,7 @@ export default function TaskReceiverPageClient() {
                   type="button"
                   onClick={() => void onAnswer(task.id, true)}
                   disabled={busyId === task.id}
-                  className="rounded-sm bg-cta px-3 py-1 text-label text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
+                  className="rounded-md bg-cta px-3 py-1 text-label text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
                 >
                   {busyId === task.id ? t('loading') : t('approval.approve')}
                 </button>
@@ -161,7 +161,7 @@ export default function TaskReceiverPageClient() {
                   type="button"
                   onClick={() => void onAnswer(task.id, false)}
                   disabled={busyId === task.id}
-                  className="rounded-sm border border-border px-3 py-1 text-label transition-colors hover:bg-muted disabled:opacity-50"
+                  className="rounded-md border border-border px-3 py-1 text-label transition-colors hover:bg-muted disabled:opacity-50"
                 >
                   {t('approval.deny')}
                 </button>
@@ -220,7 +220,7 @@ export default function TaskReceiverPageClient() {
                         type="button"
                         onClick={() => onExecute(task)}
                         disabled={busyId === task.id}
-                        className="rounded-sm bg-cta px-3 py-1 text-label text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
+                        className="rounded-md bg-cta px-3 py-1 text-label text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
                       >
                         {busyId === task.id ? t('loading') : t('execute')}
                       </button>
@@ -229,7 +229,7 @@ export default function TaskReceiverPageClient() {
                       <button
                         type="button"
                         onClick={() => onDownload(task.id)}
-                        className="rounded-sm border border-border px-3 py-1 text-label transition-colors hover:bg-muted"
+                        className="rounded-md border border-border px-3 py-1 text-label transition-colors hover:bg-muted"
                       >
                         {task.filePayload.filename}
                       </button>

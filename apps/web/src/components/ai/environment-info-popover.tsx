@@ -158,7 +158,7 @@ function PopoverHeader({ onViewFull, t }: { onViewFull: () => void; t: EnvT }) {
           onClick={onViewFull}
           aria-label={t('viewFull')}
           data-testid="env-info-view-full"
-          className="rounded-sm"
+          className="rounded-md"
         >
           <Plus aria-hidden />
         </IconButton>
@@ -188,7 +188,7 @@ function ErrorHint({ message, onRetry, t }: { message: string; onRetry: () => vo
       <button
         type="button"
         onClick={onRetry}
-        className="mt-2 inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-[12px] text-foreground transition-colors hover:bg-accent"
+        className="mt-2 inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-[12px] text-foreground transition-colors hover:bg-accent"
         data-testid="env-info-error-retry"
       >
         <RefreshCw className="h-3.5 w-3.5" aria-hidden />
@@ -490,7 +490,7 @@ function LocalServersSection({
           onClick={() => void probe()}
           aria-label={t('refreshLocalServers')}
           data-testid="env-info-local-servers-refresh"
-          className="h-6 w-6 shrink-0 rounded-sm"
+          className="h-6 w-6 shrink-0 rounded-md"
         >
           <RefreshCw className={cn('h-3 w-3', probing && 'animate-spin')} aria-hidden />
         </IconButton>

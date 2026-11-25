@@ -63,7 +63,7 @@ export function UpdateNoticeCard({
         type="button"
         onClick={onAction}
         disabled={busy}
-        className="rounded-sm bg-cta px-3 py-1.5 text-label font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
+        className="rounded-md bg-cta px-3 py-1.5 text-label font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
       >
         {actionLabel}
       </button>

@@ -63,9 +63,9 @@ export function ConversionFunnel({ data, loading }: Props) {
                         <span className="ml-1 text-muted-foreground">{pct.toFixed(1)}%</span>
                       </span>
                     </div>
-                    <div className="h-6 w-full rounded-sm bg-muted/40">
+                    <div className="h-6 w-full rounded-md bg-muted/40">
                       <div
-                        className={`flex h-full items-center rounded-sm ${STAGE_CLS[s.stage]} px-2`}
+                        className={`flex h-full items-center rounded-md ${STAGE_CLS[s.stage]} px-2`}
                         style={{ width: `${Math.max(8, pct)}%` }}
                       />
                     </div>

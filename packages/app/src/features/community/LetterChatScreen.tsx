@@ -249,7 +249,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: rnType.body.size,
@@ -259,7 +259,7 @@ function createStyles(tk: AppThemeTokens) {
     sendBtn: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     sendBtnDisabled: { opacity: 0.5 },

@@ -53,7 +53,7 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
   const canPage = archive?.storage === 'database'
 
   return (
-    <div className="space-y-2 rounded-sm border border-stroke-field p-3">
+    <div className="space-y-2 rounded-md border border-stroke-field p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-medium">朋友圈归档</p>
@@ -99,7 +99,7 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
       {archive && moments.length > 0 ? (
         <div className="max-h-64 space-y-2 overflow-auto pr-1">
           {moments.map((moment) => (
-            <div key={moment.id} className="rounded-sm bg-muted/40 p-2 text-sm">
+            <div key={moment.id} className="rounded-md bg-muted/40 p-2 text-sm">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium">
                   {moment.authorName.trim() || '未命名'}

@@ -160,7 +160,7 @@ export default function SendPanel({ accountId }: { accountId: string }) {
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={5}
-              className="w-full rounded-sm border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+              className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
               placeholder="支持多行；iLink 会剥离 Markdown 标记后按纯文本发送。"
             />
             <p className="text-xs text-muted-foreground">{text.length} / 5000</p>

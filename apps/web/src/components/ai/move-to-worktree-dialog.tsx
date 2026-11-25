@@ -172,7 +172,7 @@ export function MoveToWorktreeDialog({
                   aria-checked={option === target}
                   data-target-option={option}
                   onClick={() => setTarget(option)}
-                  className="rounded-sm border border-input px-3 py-1.5 text-body transition-colors aria-checked:border-brand-accent-deep aria-checked:bg-primary/10"
+                  className="rounded-md border border-input px-3 py-1.5 text-body transition-colors aria-checked:border-brand-accent-deep aria-checked:bg-primary/10"
                 >
                   {t(TARGET_LABEL_KEY[option])}
                 </button>
@@ -196,7 +196,7 @@ export function MoveToWorktreeDialog({
                 aria-label={t('worktreeBranchAriaLabel')}
                 value={branchInput}
                 onChange={(e) => setBranchInput(e.target.value)}
-                className="w-full rounded-sm border bg-transparent px-2 py-1.5 font-mono text-body"
+                className="w-full rounded-md border bg-transparent px-2 py-1.5 font-mono text-body"
               />
               {branchError ? (
                 <p className="text-label text-destructive" data-branch-error={branchError}>
@@ -230,7 +230,7 @@ export function MoveToWorktreeDialog({
                   <select
                     data-slot="local-branch-select"
                     aria-label={t('localBranchPlaceholder')}
-                    className="w-full rounded-sm border bg-transparent px-2 py-1.5 text-body"
+                    className="w-full rounded-md border bg-transparent px-2 py-1.5 text-body"
                     defaultValue=""
                   >
                     <option value="">{t('localBranchPlaceholder')}</option>
@@ -258,7 +258,7 @@ export function MoveToWorktreeDialog({
                   aria-checked={b === selectedExisting}
                   data-existing-branch={b}
                   onClick={() => setSelectedExisting(b)}
-                  className="block w-full rounded-sm border border-input px-3 py-1.5 text-left font-mono text-label transition-colors aria-checked:border-brand-accent-deep aria-checked:bg-primary/10"
+                  className="block w-full rounded-md border border-input px-3 py-1.5 text-left font-mono text-label transition-colors aria-checked:border-brand-accent-deep aria-checked:bg-primary/10"
                 >
                   {b}
                 </button>

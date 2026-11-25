@@ -268,7 +268,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     upgradeBtn: {
       height: 48,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: VIP_GOLD,

@@ -172,7 +172,7 @@ export default function AutoReplyRuleForm({ accountId, rule, visible, onSaved, o
                 onChange={(event) => setForm({ ...form, replyText: event.target.value })}
                 rows={4}
                 maxLength={5000}
-                className="w-full rounded-sm border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+                className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
                 placeholder={
                   form.matchType === 'agent'
                     ? '例如：你是智汇 AI 的客服，语气专业、简短；先回答问题，再引导对方留下需求。不确定的价格不要乱报。'

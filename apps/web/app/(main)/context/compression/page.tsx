@@ -46,7 +46,7 @@ export default function ContextCompressionPage() {
         <button
           type="button"
           onClick={() => void statsQ.refetch()}
-          className="inline-flex items-center gap-1 rounded-sm px-2 py-1 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <RotateCw className="h-3 w-3" />
           刷新

@@ -468,7 +468,7 @@ function makeStyles() {
     input: {
       height: 42,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
@@ -495,7 +495,7 @@ function makeStyles() {
     permTextOn: { color: tokens.brandAccent.foreground, fontWeight: '600' },
     button: {
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -510,7 +510,7 @@ function makeStyles() {
     outlineButton: {
       height: 36,
       paddingHorizontal: rnSpacing.lg,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       alignItems: 'center',
@@ -521,7 +521,7 @@ function makeStyles() {
       gap: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['sm-loose'],
       paddingHorizontal: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.bg,
     },
     rowHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
@@ -575,7 +575,7 @@ function makeStyles() {
     usageBox: {
       marginTop: rnSpacing.xs,
       padding: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.card,
       borderWidth: 1,
       borderColor: tokens.border.light,
@@ -593,7 +593,7 @@ function makeStyles() {
       color: tokens.text.primary,
       paddingVertical: rnSpacing['xs-loose'],
       paddingHorizontal: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.bg,
     },
     secretRow: { flexDirection: 'row', gap: rnSpacing.sm },

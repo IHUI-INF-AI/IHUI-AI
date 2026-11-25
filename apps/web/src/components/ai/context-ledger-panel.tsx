@@ -53,13 +53,13 @@ export function ContextLedgerBreakdown({ ledger }: { ledger: ContextLedgerRecord
         </span>
         <span className="min-w-0 truncate text-muted-foreground">{ledger.model ?? '模型未知'}</span>
         <span
-          className="rounded-sm bg-muted px-1 py-0.5 text-[10px] text-muted-foreground"
+          className="rounded-md bg-muted px-1 py-0.5 text-[10px] text-muted-foreground"
           data-testid="context-ledger-tokenizer"
         >
           计量：{tokenizerLabel(ledger.tokenizer)}
         </span>
         {ledger.compacted ? (
-          <span className="rounded-sm bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">
+          <span className="rounded-md bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">
             本轮已压缩
           </span>
         ) : null}
@@ -91,13 +91,13 @@ export function ContextLedgerBreakdown({ ledger }: { ledger: ContextLedgerRecord
           return (
             <div
               key={category}
-              className="flex items-center gap-1.5 rounded-sm px-1 py-0.5 text-[11px]"
+              className="flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[11px]"
               data-testid={`context-ledger-category-${category}`}
               data-category={category}
               data-token={usage ? usage.tokens : 0}
             >
               <span
-                className={cn('h-2 w-2 shrink-0 rounded-sm', meta.colorClass)}
+                className={cn('h-2 w-2 shrink-0 rounded-md', meta.colorClass)}
                 aria-hidden="true"
               />
               <span className={cn('min-w-0 truncate', meta.neutral && 'text-muted-foreground')}>
@@ -222,7 +222,7 @@ export function ContextLedgerPanel({
       <ContextLedgerBreakdown ledger={shown} />
 
       {items.length > 0 ? (
-        <details className="mt-2 rounded-sm bg-muted/30 px-2 py-1.5 text-[11px]">
+        <details className="mt-2 rounded-md bg-muted/30 px-2 py-1.5 text-[11px]">
           <summary
             className="cursor-pointer select-none text-muted-foreground"
             data-testid="context-ledger-history-toggle"
@@ -239,7 +239,7 @@ export function ContextLedgerPanel({
                   onClick={() => select(item)}
                   aria-pressed={active}
                   className={cn(
-                    'flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-[10px] transition-colors hover:bg-accent',
+                    'flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-[10px] transition-colors hover:bg-accent',
                     active && 'bg-accent text-accent-foreground',
                   )}
                   data-testid={`context-ledger-history-row-${item.id}`}

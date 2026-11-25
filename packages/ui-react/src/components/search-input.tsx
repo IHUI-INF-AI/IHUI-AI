@@ -14,7 +14,7 @@ import { cn } from '../lib/utils'
  * - 聚焦反馈: focus-within:border-primary focus-within:bg-muted/60
  * - 图标: Search(h-3.5 w-3.5 text-muted-foreground)
  * - 内部 input: border-0 bg-transparent px-0 shadow-none outline-none
- * - 可选清空按钮: h-5 w-5 rounded-sm hover:bg-accent
+ * - 可选清空按钮: h-5 w-5 rounded-md hover:bg-accent
  */
 
 /**
@@ -23,7 +23,7 @@ import { cn } from '../lib/utils'
  * 依赖受控键盘导航的特殊输入),保证与 SearchInput 视觉完全一致。
  */
 export const searchInputWellClassName =
-  'rounded-sm border border-stroke-default bg-muted/40 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-0 focus-within:outline-stroke-focus focus-within:bg-muted/60'
+  'rounded-md border border-stroke-default bg-muted/40 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-0 focus-within:outline-stroke-focus focus-within:bg-muted/60'
 
 type SearchInputSize = 'sm' | 'md' | 'lg'
 
@@ -101,7 +101,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
     }
     return (
       <div className={cn('relative', wrapperClassName)}>
-        <div className="relative flex items-center gap-1.5 rounded-sm border border-stroke-default bg-muted/40 px-2.5 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-0 focus-within:outline-stroke-focus focus-within:bg-muted/60">
+        <div className="relative flex items-center gap-1.5 rounded-md border border-stroke-default bg-muted/40 px-2.5 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-0 focus-within:outline-stroke-focus focus-within:bg-muted/60">
           <Search className={cn('pointer-events-none shrink-0 text-muted-foreground', s.icon)} />
           <input
             ref={ref}
@@ -134,7 +134,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
               aria-label={clearAriaLabel}
               data-testid={clearTestId}
               className={cn(
-                'inline-flex shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+                'inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
                 s.clear,
               )}
             >

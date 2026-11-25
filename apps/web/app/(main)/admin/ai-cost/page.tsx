@@ -328,7 +328,7 @@ export default function AiCostPage() {
         <div className="flex items-center gap-2">
           <Link
             href="/admin/ai-metrics"
-            className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-input bg-transparent px-3 text-body shadow-elevation-sm hover:bg-muted/50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-transparent px-3 text-body shadow-elevation-sm hover:bg-muted/50"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>{t('toMetrics')}</span>
@@ -337,7 +337,7 @@ export default function AiCostPage() {
             aria-label={t('rangeLabel')}
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
-            className="h-9 rounded-sm border border-input bg-transparent px-3 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="h-9 rounded-md border border-input bg-transparent px-3 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           >
             <option value={1}>{t('range1d')}</option>
             <option value={7}>{t('range7d')}</option>
@@ -423,7 +423,7 @@ export default function AiCostPage() {
                       <div className="h-1.5 overflow-hidden rounded-xs bg-muted">
                         <div
                           className={cn(
-                            'h-full rounded-sm',
+                            'h-full rounded-md',
                             row.isOther ? 'bg-muted-foreground/40' : 'bg-primary/60',
                           )}
                           style={{ width: `${(row.cost / maxModelCost) * 100}%` }}
@@ -467,7 +467,7 @@ export default function AiCostPage() {
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-xs bg-muted">
                         <div
-                          className="h-full rounded-sm bg-emerald-500/60 dark:bg-emerald-400/60"
+                          className="h-full rounded-md bg-emerald-500/60 dark:bg-emerald-400/60"
                           style={{ width: `${(toFiniteNumber(row.cost) / maxDayCost) * 100}%` }}
                         />
                       </div>

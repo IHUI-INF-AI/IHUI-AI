@@ -171,7 +171,7 @@ export default function UserInfoCard({
           全宽条形态是本端与 RN 胶囊的机制差异,按 spec 文件末差异登记第 1 条保持不动。 */}
       {!isLogged && onLogin ? (
         <View
-          className="flex items-center justify-center w-full rounded-sm"
+          className="flex items-center justify-center w-full rounded-md"
           style={LOGIN_BTN_STYLE}
           hoverClass="opacity-85"
           onClick={onLogin}
@@ -271,7 +271,7 @@ export default function UserInfoCard({
                          中性文字),与「开通会员」的品牌实底拉开层级。此前这里是 `bg-primary` 实底,
                          RN 端同一枚也取实底 —— 两端同步收次按钮档。 */
                       <View
-                        className="rounded-sm border border-stroke-subtle flex-shrink-0 ml-auto"
+                        className="rounded-md border border-stroke-subtle flex-shrink-0 ml-auto"
                         style={ACTION_PAD_STYLE}
                       >
                         <Text
@@ -327,7 +327,7 @@ export default function UserInfoCard({
                      亮档黑底白字、暗档白底黑字;此前是 `var(--color-primary)` 实底,与「充值」同档看不出主次。
                      底与字都落在 style 对象里(不写 JSX 内联覆盖),对齐守门 83 的归属口径。 */
                   <View
-                    className="rounded-sm"
+                    className="rounded-md"
                     style={{
                       ...ACTION_PAD_STYLE,
                       background: 'var(--color-cta)',
@@ -349,7 +349,7 @@ export default function UserInfoCard({
                 {/* 退订按钮(仅 isVip 显示,对齐原项目 unsubscribe) */}
                 {isVip && onUnsubscribe ? (
                   <View
-                    className="rounded-sm border border-border"
+                    className="rounded-md border border-border"
                     style={ACTION_PAD_STYLE}
                     onClick={(e) => {
                       e.stopPropagation()
@@ -365,7 +365,7 @@ export default function UserInfoCard({
                 {/* 充值按钮(onWallet 且智汇值行未显示时兜底),次按钮档同上一枚 */}
                 {showRecharge && !tokenDisplay ? (
                   <View
-                    className="rounded-sm border border-stroke-subtle"
+                    className="rounded-md border border-stroke-subtle"
                     style={ACTION_PAD_STYLE}
                     onClick={(e) => {
                       e.stopPropagation()

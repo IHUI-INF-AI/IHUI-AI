@@ -158,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
     segmentItem: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['xs-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.light,
     },
     segmentActive: {

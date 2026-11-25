@@ -198,7 +198,7 @@ export const MODEL_LIST_BADGE_FONT_PX = 9
  * 取值依据与上组同:RN `freeBadge/paidBadge*` 现值,小程序"免"位图槽换成同形文字徽章后
  * 两端同吃(徽章间距复用 `MODEL_LIST_BADGE_MARGIN_LEFT_PX`)。配色留端内:RN 走
  * success.lighter/DEFAULT 与 warning.amberLight/amberText,小程序走
- * `--color-success-lighter`/`--color-success`(同语义两档,守门 93 问责);圆角两端同取 `rnRadius.sm`。
+ * `--color-success-lighter`/`--color-success`(同语义两档,守门 93 问责);圆角两端同取 `rnRadius.md`。
  */
 export const MODEL_LIST_PRICE_BADGE_PADDING_X_PX = 8
 export const MODEL_LIST_PRICE_BADGE_PADDING_Y_PX = 2

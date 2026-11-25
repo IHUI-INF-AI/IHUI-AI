@@ -345,7 +345,7 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
               setState((prev) => ({ ...prev, active: name }))
             }}
             className={cn(
-              'rounded-sm px-1.5 py-0.5 text-[10px] transition-colors',
+              'rounded-md px-1.5 py-0.5 text-[10px] transition-colors',
               name === state.active
                 ? 'bg-primary/10 font-medium text-foreground'
                 : 'text-muted-foreground hover:bg-muted',
@@ -686,7 +686,7 @@ export function OfficePreview({
                 type="button"
                 data-testid="office-lazy-btn"
                 onClick={() => void load()}
-                className="rounded-sm border border-border px-2.5 py-1 text-label text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="rounded-md border border-border px-2.5 py-1 text-label text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <span>{t('officeLazyLoad')}</span>
               </button>

@@ -39,7 +39,7 @@ const TRACK_W_CLASS: Record<number, string> = { 36: 'w-9', 44: 'w-11', 52: 'w-[5
 const TRACK_H_CLASS: Record<number, string> = { 20: 'h-5', 24: 'h-6', 28: 'h-7' }
 const THUMB_SIZE_CLASS: Record<number, string> = { 12: 'h-3 w-3', 16: 'h-4 w-4', 20: 'h-5 w-5' }
 const TRACK_RADIUS_CLASS: Record<typeof SWITCH_TRACK_RADIUS_TIER, string> = { md: 'rounded-md' }
-const THUMB_RADIUS_CLASS: Record<typeof SWITCH_THUMB_RADIUS_TIER, string> = { sm: 'rounded-sm' }
+const THUMB_RADIUS_CLASS: Record<typeof SWITCH_THUMB_RADIUS_TIER, string> = { sm: 'rounded-md' }
 const BORDER_CLASS: Record<number, string> = { 1.5: 'border-[1.5px]' }
 const PADDING_CLASS: Record<number, string> = { 3: 'p-[3px]' }
 

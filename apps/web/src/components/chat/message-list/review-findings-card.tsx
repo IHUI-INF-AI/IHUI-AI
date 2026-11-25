@@ -173,7 +173,7 @@ export function ReviewFindingsCard({
                       aria-label={location}
                       data-testid={`review-finding-${finding.findingId}`}
                       className={cn(
-                        'flex w-full min-w-0 items-start gap-1.5 rounded-sm px-1 py-0.5 text-left',
+                        'flex w-full min-w-0 items-start gap-1.5 rounded-md px-1 py-0.5 text-left',
                         'transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
                       )}
                     >
@@ -201,7 +201,7 @@ export function ReviewFindingsCard({
                         aria-label={`dispatch-fix:${location}`}
                         onClick={() => onDispatchFix(finding)}
                         className={cn(
-                          'mt-0.5 inline-flex items-center gap-1 rounded-sm px-1 py-0.5',
+                          'mt-0.5 inline-flex items-center gap-1 rounded-md px-1 py-0.5',
                           'text-[10px] text-muted-foreground/80 transition-colors',
                           'hover:bg-accent/40 hover:text-foreground focus-visible:bg-accent/40 focus-visible:outline-none',
                         )}

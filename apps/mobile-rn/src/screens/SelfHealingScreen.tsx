@@ -83,7 +83,7 @@ export function SelfHealingScreen() {
   }, [])
 
   const inputClass =
-    'rounded-sm border px-3 py-2 text-sm border-neutral-300 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100'
+    'rounded-md border px-3 py-2 text-sm border-neutral-300 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100'
 
   const lastRun = outcome?.run_history.length
     ? outcome.run_history[outcome.run_history.length - 1]
@@ -126,7 +126,7 @@ export function SelfHealingScreen() {
           <TouchableOpacity
             disabled={running || !task.trim() || !targetPath.trim()}
             onPress={run}
-            className={`mt-3 self-start rounded-sm px-4 py-2 ${
+            className={`mt-3 self-start rounded-md px-4 py-2 ${
               running || !task.trim() || !targetPath.trim()
                 ? 'bg-neutral-300 dark:bg-neutral-800'
                 : 'bg-neutral-900 dark:bg-neutral-100'
@@ -207,7 +207,7 @@ export function SelfHealingScreen() {
                 outcome.run_history.map((rec) => (
                   <View
                     key={rec.attempt}
-                    className="mb-2 rounded-sm border border-neutral-200 p-2 dark:border-neutral-800"
+                    className="mb-2 rounded-md border border-neutral-200 p-2 dark:border-neutral-800"
                   >
                     <View className="flex-row flex-wrap items-center">
                       <View className="mr-2 rounded-xs bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">

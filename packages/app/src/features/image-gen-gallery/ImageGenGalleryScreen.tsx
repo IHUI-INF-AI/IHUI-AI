@@ -226,7 +226,7 @@ function createStyles(tk: AppThemeTokens) {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['xs-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
     },

@@ -125,7 +125,7 @@ export function ConversationOrgDialog({
                     type="button"
                     onClick={() => setFolderInput(f)}
                     className={cn(
-                      'inline-flex max-w-full items-center rounded-sm border border-input px-1.5 py-0.5 text-[11px] transition-colors',
+                      'inline-flex max-w-full items-center rounded-md border border-input px-1.5 py-0.5 text-[11px] transition-colors',
                       'hover:bg-muted',
                     )}
                   >
@@ -154,7 +154,7 @@ export function ConversationOrgDialog({
                   <span
                     key={tag}
                     data-testid="org-tag-chip"
-                    className="inline-flex h-5 min-w-0 items-center gap-0.5 rounded-sm bg-muted px-1.5 text-[11px]"
+                    className="inline-flex h-5 min-w-0 items-center gap-0.5 rounded-md bg-muted px-1.5 text-[11px]"
                   >
                     <span className="min-w-0 truncate">{tag}</span>
                     <button
@@ -162,7 +162,7 @@ export function ConversationOrgDialog({
                       onClick={() => setTags((prev) => prev.filter((x) => x !== tag))}
                       aria-label={t('removeTagAria', { tag })}
                       data-testid={`org-tag-remove-${tag}`}
-                      className="inline-flex shrink-0 items-center rounded-sm p-px hover:bg-accent"
+                      className="inline-flex shrink-0 items-center rounded-md p-px hover:bg-accent"
                     >
                       <X className="h-3 w-3" />
                     </button>

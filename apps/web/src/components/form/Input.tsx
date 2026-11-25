@@ -43,7 +43,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             aria-invalid={error ? 'true' : undefined}
             aria-describedby={error ? `${inputId}-error` : undefined}
             className={cn(
-              'flex h-10 w-full rounded-sm border border-input bg-background px-3 py-2 text-body transition-colors',
+              'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-body transition-colors',
               'placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
               'disabled:cursor-not-allowed disabled:opacity-50',
               Icon && 'pl-9',

@@ -411,7 +411,7 @@ function createStyles(tokens: AppThemeTokens) {
     actionButton: {
       paddingHorizontal: rnSpacing['2xs'],
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.card,
     },
     actionText: {

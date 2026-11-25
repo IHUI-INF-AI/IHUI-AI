@@ -353,7 +353,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       minHeight: 32,
       paddingHorizontal: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.light,
     },
     answerEntryText: {
@@ -378,7 +378,7 @@ function createStyles(tk: AppThemeTokens) {
     answerInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
       fontSize: rnType.body.size,
@@ -400,7 +400,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.md,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
     },
     cancelText: {
       fontSize: rnType.label.size,
@@ -413,7 +413,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       minHeight: 36,
       paddingHorizontal: rnSpacing.lg,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     submitBtnDisabled: {

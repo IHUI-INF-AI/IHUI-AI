@@ -39,7 +39,7 @@ import { RADIUS_ROLES, RADIUS_STEPS } from '../../../packages/design-tokens/src/
  * 2026-10-20 改判据(96ac122056「容器圆角守门改为几何是规则、标记不是出路」配套):
  *   原「所有态 borderRadius ≥ 9999px」判的是 class 里的 rounded-full 标记,该标记已被
  *   守门 11 check-rounded-full / 守门 77 check-radius-role-conformance 全族禁掉,且不允许
- *   任何豁免通道;1336969753/c603c52ddd(O81 票⑳ 控件→sm)把激活竖条改走 rounded-sm 后,
+ *   任何豁免通道;1336969753/c603c52ddd(O81 票⑳ 控件→sm)把激活竖条改走 rounded-md 后,
  *   这条标记断言必然红。改判量出来的形状:非激活 8×8 方盒 + 半径 ≥ 短边一半 = 真圆,
  *   激活 16×8 竖条 = design-tokens 控件档圆角(值取自 radius.js,不写死数字)。
  *
@@ -52,7 +52,7 @@ import { RADIUS_ROLES, RADIUS_STEPS } from '../../../packages/design-tokens/src/
 // 改用设计 token 类 + fixed 定位(PageIndicator 独有组合)定位容器
 const INDICATOR_SELECTOR = 'div.fixed[class*="bg-float-indicator-bg"]'
 
-// 控件档圆角 px:radius.js 的 RADIUS_ROLES.control → RADIUS_STEPS.sm
+// 控件档圆角 px:radius.js 的 RADIUS_ROLES.control → RADIUS_STEPS.md
 // (本仓唯一真相源;此处引用而不是抄数字,档位一旦调整本判据自动跟着动)
 const CONTROL_RADIUS_PX = RADIUS_STEPS[RADIUS_ROLES.control]
 

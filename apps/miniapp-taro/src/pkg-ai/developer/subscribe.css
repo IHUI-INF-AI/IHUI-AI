@@ -66,7 +66,7 @@
   font-size: var(--text-body-sm);
   color: var(--color-cta-foreground);
   background: var(--color-cta);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: none;
 }
 .dev-sub-btn::after {
@@ -189,7 +189,7 @@
   color: var(--color-primary);
   background: var(--color-stroke-default);
   border: 2rpx solid var(--color-text-tertiary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 /* ===== 通知设置 ===== */
@@ -248,7 +248,7 @@
   font-size: var(--text-strong);
   color: var(--color-cta-foreground);
   background: var(--color-cta);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: none;
 }
 .dev-contact-btn::after {

@@ -603,7 +603,7 @@ const styles = StyleSheet.create({
   checkbox: {
     width: CHECKBOX_SIZE,
     height: CHECKBOX_SIZE,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.medium,
     alignItems: 'center',
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   purchasePayBtn: {
     height: 44,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',

@@ -55,7 +55,7 @@ export default function ConversationExportButton({
         value={format}
         onChange={(event) => setFormat(event.target.value === 'csv' ? 'csv' : 'jsonl')}
         aria-label="导出格式"
-        className="h-8 rounded-sm border border-stroke-field bg-transparent px-2 text-xs outline-none focus:border-stroke-focus"
+        className="h-8 rounded-md border border-stroke-field bg-transparent px-2 text-xs outline-none focus:border-stroke-focus"
       >
         <option value="jsonl">JSONL</option>
         <option value="csv">CSV</option>

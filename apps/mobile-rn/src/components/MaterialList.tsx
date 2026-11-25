@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     marginLeft: rnSpacing.sm,
     paddingHorizontal: rnSpacing['xs-loose'],
     paddingVertical: rnSpacing['2xs'],
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   detailBtnText: {

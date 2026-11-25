@@ -243,7 +243,7 @@ T1 判的是**工作树**(不是 HEAD 面),所以「本轮哪些包真的需要�
 | 用途 | 容器圆角守门,禁止 `rounded-full`/`rounded-pill`/`9999px`/`50%` 用于容器 |
 | 检测 | staged 的 `.ts/.tsx/.js/.jsx/.css/.scss` 文件匹配违规模式 |
 | 失败原因 | 容器(卡片/面板/按钮/输入框等)用了纯圆 / 胶囊圆角 |
-| 修复 | 改用规范圆角档位:`rounded-sm`(2px)/`rounded`(4px)/`rounded-md`(6px)/`rounded-lg`(8px)/`rounded-xl`(12px)/`rounded-2xl`(16px) |
+| 修复 | 改用规范圆角档位:`rounded-xs`(2px)/`rounded-md`(6px)/`rounded-lg`(8px)/`rounded-xl`(12px)/`rounded-2xl`(16px);4px `rounded-sm` 档已于 2026-11-26 删除 |
 | 豁免 | `<img>` 头像 / Switch Thumb / Radio / `<=14px` 装饰点 / 红点底 / `animate-spin` |
 | 详见 | [UI_GUIDELINES.md §3](./UI_GUIDELINES.md) |
 

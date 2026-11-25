@@ -371,7 +371,7 @@ function createStyles(tk: AppThemeTokens) {
       marginLeft: rnSpacing.md,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.danger.DEFAULT,
     },
     errorRetryText: { fontSize: rnType.label.size, fontWeight: '600', color: '#FFFFFF' },
@@ -451,7 +451,7 @@ function createStyles(tk: AppThemeTokens) {
     primaryBtn: {
       paddingVertical: 7,
       paddingHorizontal: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     primaryBtnText: {

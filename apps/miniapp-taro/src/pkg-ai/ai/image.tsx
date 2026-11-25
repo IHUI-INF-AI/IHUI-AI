@@ -173,19 +173,19 @@ export default function ImagePage() {
       {result ? (
         <View className="flex gap-[16rpx] px-[32rpx] pb-[16rpx]">
           <Button
-            className="flex-1 text-label rounded-sm h-[80rpx] leading-[80rpx] border border-border bg-transparent text-muted-foreground"
+            className="flex-1 text-label rounded-md h-[80rpx] leading-[80rpx] border border-border bg-transparent text-muted-foreground"
             onClick={onDownload}
           >
             {t('ai.image.download')}
           </Button>
           <Button
-            className="flex-1 text-label rounded-sm h-[80rpx] leading-[80rpx] border border-border bg-transparent text-muted-foreground"
+            className="flex-1 text-label rounded-md h-[80rpx] leading-[80rpx] border border-border bg-transparent text-muted-foreground"
             openType="share"
           >
             {t('ai.image.share')}
           </Button>
           <Button
-            className={`flex-1 text-label rounded-sm h-[80rpx] leading-[80rpx] ${
+            className={`flex-1 text-label rounded-md h-[80rpx] leading-[80rpx] ${
               isFavorited
                 ? 'bg-cta text-cta-foreground'
                 : 'border border-border bg-transparent text-muted-foreground'
@@ -215,7 +215,7 @@ export default function ImagePage() {
       ) : null}
       <View className="py-[24rpx] px-[32rpx]">
         <FocusTextarea
-          className="w-full min-h-[192rpx] p-[24rpx] bg-transparent border border-border rounded-sm text-label box-border"
+          className="w-full min-h-[192rpx] p-[24rpx] bg-transparent border border-border rounded-md text-label box-border"
           value={prompt}
           placeholder={t('ai.image.placeholder')}
           maxlength={500}
@@ -258,7 +258,7 @@ export default function ImagePage() {
           </View>
         ) : null}
         <Button
-          className="bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] rounded-sm text-badge font-medium mt-[32rpx] w-full h-[88rpx] leading-[88rpx] disabled:opacity-60"
+          className="bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] rounded-md text-badge font-medium mt-[32rpx] w-full h-[88rpx] leading-[88rpx] disabled:opacity-60"
           onClick={onGenerate}
           disabled={!prompt || loading}
         >

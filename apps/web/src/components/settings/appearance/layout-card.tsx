@@ -55,7 +55,7 @@ export function LayoutCard() {
           ]}
         />
         {/* 宽度示意条:让"窄/标准/宽/超宽/全宽"不必靠文字想象 */}
-        <div className="flex justify-center rounded-sm border bg-muted/30 p-2">
+        <div className="flex justify-center rounded-md border bg-muted/30 p-2">
           <div
             className="h-8 rounded-xs bg-primary/15 ring-1 ring-stroke-selected/30"
             style={{

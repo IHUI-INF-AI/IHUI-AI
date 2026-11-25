@@ -177,7 +177,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
             type="button"
             onClick={() => setTab('stats')}
             className={cn(
-              'font-[weight:inherit] rounded-sm px-2.5 py-1 text-label transition-colors',
+              'font-[weight:inherit] rounded-md px-2.5 py-1 text-label transition-colors',
               tab === 'stats'
                 ? 'bg-foreground/5 text-foreground'
                 : 'text-muted-foreground hover:bg-accent',
@@ -190,7 +190,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
             type="button"
             onClick={() => setTab('history')}
             className={cn(
-              'font-[weight:inherit] rounded-sm px-2.5 py-1 text-label transition-colors',
+              'font-[weight:inherit] rounded-md px-2.5 py-1 text-label transition-colors',
               tab === 'history'
                 ? 'bg-foreground/5 text-foreground'
                 : 'text-muted-foreground hover:bg-accent',
@@ -203,7 +203,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
             type="button"
             onClick={() => setTab('predict')}
             className={cn(
-              'font-[weight:inherit] rounded-sm px-2.5 py-1 text-label transition-colors',
+              'font-[weight:inherit] rounded-md px-2.5 py-1 text-label transition-colors',
               tab === 'predict'
                 ? 'bg-foreground/5 text-foreground'
                 : 'text-muted-foreground hover:bg-accent',
@@ -247,7 +247,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                 <button
                   type="button"
                   onClick={() => handleFeedback('thumbs_up')}
-                  className="flex items-center gap-1 rounded-sm border border-border px-2 py-0.5 text-[10px] transition-colors hover:bg-accent"
+                  className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[10px] transition-colors hover:bg-accent"
                 >
                   <ThumbsUp className="h-3 w-3" />
                   {t('useful')}
@@ -255,7 +255,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                 <button
                   type="button"
                   onClick={() => handleFeedback('thumbs_down')}
-                  className="flex items-center gap-1 rounded-sm border border-border px-2 py-0.5 text-[10px] transition-colors hover:bg-accent"
+                  className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[10px] transition-colors hover:bg-accent"
                 >
                   <ThumbsDown className="h-3 w-3" />
                   {t('useless')}
@@ -280,7 +280,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="rounded-sm bg-muted px-1 py-0 text-[10px] text-muted-foreground">
+                      <span className="rounded-md bg-muted px-1 py-0 text-[10px] text-muted-foreground">
                         {entry.action}
                       </span>
                       <span className="text-[10px] text-muted-foreground">{entry.timestamp}</span>
@@ -290,7 +290,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                         <button
                           type="button"
                           onClick={() => handleDiff(history[idx - 1]!.timestamp, entry.timestamp)}
-                          className="rounded-sm border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
+                          className="rounded-md border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
                         >
                           {t('compareToPrev')}
                         </button>
@@ -299,14 +299,14 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                         type="button"
                         onClick={() => handleRollback(entry.timestamp)}
                         disabled={rollingBack !== null}
-                        className="rounded-sm border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
+                        className="rounded-md border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
                       >
                         {rollingBack === entry.timestamp ? t('rollingBack') : t('rollback')}
                       </button>
                     </div>
                   </div>
                   {diffPair && diffPair[1] === entry.timestamp && diff !== null && (
-                    <pre className="thin-scroll max-h-32 overflow-auto rounded-sm bg-muted/50 p-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                    <pre className="thin-scroll max-h-32 overflow-auto rounded-md bg-muted/50 p-1.5 text-[10px] leading-relaxed text-muted-foreground">
                       {diff}
                     </pre>
                   )}
@@ -325,7 +325,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
               onChange={(e) => setPredictPrompt(e.target.value)}
               placeholder={t('predictPromptPlaceholder')}
               rows={3}
-              className="font-[weight:inherit] thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-label leading-relaxed outline-none focus:border-foreground/20"
+              className="font-[weight:inherit] thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-label leading-relaxed outline-none focus:border-foreground/20"
             />
             <div className="flex items-center justify-end gap-2">
               <Button
@@ -363,7 +363,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                   <span className="text-[10px] text-muted-foreground">{t('suggestionLabel')}</span>
                   <span
                     className={cn(
-                      'rounded-sm px-2 py-1 text-[10px]',
+                      'rounded-md px-2 py-1 text-[10px]',
                       predictResult.recommendation === RECOMMENDATION_ENABLE
                         ? 'bg-green-500/10 text-green-600'
                         : predictResult.recommendation === RECOMMENDATION_DISABLE
@@ -374,7 +374,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                     {t(RECOMMENDATION_LABEL_KEYS[predictResult.recommendation])}
                   </span>
                   {predictResult.degraded && (
-                    <span className="rounded-sm bg-yellow-500/10 px-1 text-[10px] text-yellow-600">
+                    <span className="rounded-md bg-yellow-500/10 px-1 text-[10px] text-yellow-600">
                       {t('degradedMode')}
                     </span>
                   )}
@@ -383,13 +383,13 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1 rounded-md border border-border bg-background p-2">
                       <p className="text-[10px] text-muted-foreground">{t('withoutRule')}</p>
-                      <pre className="thin-scroll max-h-32 overflow-auto rounded-sm bg-muted/50 p-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                      <pre className="thin-scroll max-h-32 overflow-auto rounded-md bg-muted/50 p-1.5 text-[10px] leading-relaxed text-muted-foreground">
                         {predictResult.withoutRule}
                       </pre>
                     </div>
                     <div className="space-y-1 rounded-md border border-border bg-background p-2">
                       <p className="text-[10px] text-muted-foreground">{t('withRule')}</p>
-                      <pre className="thin-scroll max-h-32 overflow-auto rounded-sm bg-muted/50 p-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                      <pre className="thin-scroll max-h-32 overflow-auto rounded-md bg-muted/50 p-1.5 text-[10px] leading-relaxed text-muted-foreground">
                         {predictResult.withRule}
                       </pre>
                     </div>
@@ -402,7 +402,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                   <button
                     type="button"
                     onClick={() => handleLearnFeedback('helpful')}
-                    className="flex items-center gap-1 rounded-sm border border-border px-2 py-0.5 text-[10px] transition-colors hover:bg-accent"
+                    className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[10px] transition-colors hover:bg-accent"
                   >
                     <ThumbsUp className="h-3 w-3" />
                     {t('helpful')}
@@ -410,7 +410,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                   <button
                     type="button"
                     onClick={() => handleLearnFeedback('unhelpful')}
-                    className="flex items-center gap-1 rounded-sm border border-border px-2 py-0.5 text-[10px] transition-colors hover:bg-accent"
+                    className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[10px] transition-colors hover:bg-accent"
                   >
                     <ThumbsDown className="h-3 w-3" />
                     {t('unhelpful')}
@@ -418,7 +418,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                   <button
                     type="button"
                     onClick={() => handleLearnFeedback('harmful')}
-                    className="flex items-center gap-1 rounded-sm border border-destructive/30 px-2 py-0.5 text-[10px] text-destructive transition-colors hover:bg-destructive/10"
+                    className="flex items-center gap-1 rounded-md border border-destructive/30 px-2 py-0.5 text-[10px] text-destructive transition-colors hover:bg-destructive/10"
                   >
                     {t('harmful')}
                   </button>

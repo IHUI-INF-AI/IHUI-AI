@@ -268,7 +268,7 @@ function createStyles(tk: AppThemeTokens) {
     textareaInput: {
       minHeight: 120,
       padding: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -288,7 +288,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       width: '100%',
       height: 48,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -316,7 +316,7 @@ function createStyles(tk: AppThemeTokens) {
     exportBtn: {
       paddingVertical: rnSpacing['sm-loose'],
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     exportBtnDisabled: { opacity: 0.5 },

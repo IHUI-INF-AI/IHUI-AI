@@ -41,7 +41,7 @@ export function TaskDeveloperTable({
                 type="checkbox"
                 checked={allChecked}
                 onChange={onToggleAll}
-                className="rounded-sm"
+                className="rounded-md"
               />
             </th>
             <th className={TH_CLS}>任务ID</th>
@@ -85,7 +85,7 @@ export function TaskDeveloperTable({
                       type="checkbox"
                       checked={ids.includes(row.id)}
                       onChange={() => onToggleOne(row.id)}
-                      className="rounded-sm"
+                      className="rounded-md"
                     />
                   </td>
                   <td className="px-4 py-2.5 font-medium">{row.taskId}</td>

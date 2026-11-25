@@ -129,7 +129,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.success.DEFAULT,
       paddingVertical: rnSpacing.md,
       paddingHorizontal: rnSpacing['2xl'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
     },
     verifyText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.success.deepText },
   })

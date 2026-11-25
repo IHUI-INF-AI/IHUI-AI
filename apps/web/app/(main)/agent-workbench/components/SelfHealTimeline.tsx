@@ -42,7 +42,7 @@ function HealItem({ evt, isLast }: { evt: SelfHealEvent; isLast: boolean }) {
       {!isLast && <span className="absolute left-[3px] top-3 bottom-0 w-px bg-border" />}
       <span
         className={cn(
-          'absolute left-0 top-3 h-1.5 w-1.5 rounded-sm bg-current',
+          'absolute left-0 top-3 h-1.5 w-1.5 rounded-md bg-current',
           cfg.color,
           !finished && 'animate-pulse',
         )}
@@ -54,7 +54,7 @@ function HealItem({ evt, isLast }: { evt: SelfHealEvent; isLast: boolean }) {
             {finished ? (ok ? t('resultOk') : t('resultFail')) : t('phaseStarted')}
           </span>
           {evt.iteration !== null && (
-            <span className="shrink-0 rounded-sm border border-stroke-subtle bg-muted/40 px-1 py-0.5 text-[9px] text-muted-foreground">
+            <span className="shrink-0 rounded-md border border-stroke-subtle bg-muted/40 px-1 py-0.5 text-[9px] text-muted-foreground">
               {t('iterationLabel', { n: evt.iteration })}
             </span>
           )}
@@ -70,17 +70,17 @@ function HealItem({ evt, isLast }: { evt: SelfHealEvent; isLast: boolean }) {
         </Tooltip>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
           {evt.phase === 'started' && evt.failed !== null && evt.failed > 0 && (
-            <span className="rounded-sm bg-red-500/10 px-1 py-0.5 text-red-600">
+            <span className="rounded-md bg-red-500/10 px-1 py-0.5 text-red-600">
               {t('failedLabel', { count: evt.failed })}
             </span>
           )}
           {finished && evt.attempts !== null && (
-            <span className="rounded-sm bg-muted/40 px-1 py-0.5">
+            <span className="rounded-md bg-muted/40 px-1 py-0.5">
               {t('attemptsLabel', { count: evt.attempts })}
             </span>
           )}
           {evt.rollbackCount > 0 && (
-            <span className="inline-flex items-center gap-0.5 rounded-sm bg-amber-500/10 px-1 py-0.5 text-amber-600">
+            <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-500/10 px-1 py-0.5 text-amber-600">
               <RotateCcw className="h-2.5 w-2.5" aria-hidden />
               {t('rollbacksLabel', { count: evt.rollbackCount })}
             </span>

@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   groupLogo: {
     width: rpx(36),
     height: rpx(36),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
     marginRight: rpx(taroSpacing['xs-loose']),
     alignItems: 'center',
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(8),
     backgroundColor: tokens.brand.cta,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   buyBtnText: {
     fontSize: rpx(24),
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(10),
     borderWidth: 1,
     borderColor: tokens.border.medium,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   settingBtnText: {
     fontSize: rpx(28),

@@ -84,7 +84,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.inputBg,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
@@ -104,7 +104,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       width: '31%',
       alignItems: 'center',
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -127,7 +127,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       paddingVertical: rnSpacing.md,
       paddingHorizontal: rnSpacing['2xl'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     submitBtnDisabled: { opacity: 0.5 },
@@ -135,13 +135,13 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
     rowHint: { fontSize: rnType.caption.size, color: tk.text.medium },
     progressTrack: {
       height: 8,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       overflow: 'hidden',
     },
     progressFill: {
       height: '100%',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brandAccent.deep,
     },
     noticeBox: {

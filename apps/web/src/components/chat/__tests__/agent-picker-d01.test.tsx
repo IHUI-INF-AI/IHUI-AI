@@ -68,7 +68,7 @@ describe('D01 AgentPicker — 胶囊渲染与目录', () => {
     expect(trigger.getAttribute('data-selected-agent')).toBe('')
     await waitFor(() => expect(trigger.disabled).toBe(false))
     expect(trigger.textContent).toContain('agentPicker.default')
-    expect(trigger.className).toContain('rounded-sm')
+    expect(trigger.className).toContain('rounded-md')
   })
 
   it('下拉列出后端目录的全部 persona,并带各自工具白名单摘要', async () => {

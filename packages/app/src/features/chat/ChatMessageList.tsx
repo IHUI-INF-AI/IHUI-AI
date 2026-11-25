@@ -460,7 +460,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     codeWrap: {
       marginVertical: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.light,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
@@ -481,7 +481,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.label.size,
       color: tk.text.primary,
     },
-    image: { width: 160, height: 120, borderRadius: rnRadius.sm },
+    image: { width: 160, height: 120, borderRadius: rnRadius.md },
     fullscreen: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.92)',

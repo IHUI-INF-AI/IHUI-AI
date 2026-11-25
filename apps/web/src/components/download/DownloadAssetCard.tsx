@@ -50,7 +50,7 @@ export function DownloadAssetCard({
           <div className="flex items-center gap-2">
             <span className="font-medium text-foreground">{asset.format}</span>
             {asset.arch && (
-              <span className="inline-flex items-center gap-0.5 rounded-sm bg-muted px-1 py-px text-[10px] text-muted-foreground">
+              <span className="inline-flex items-center gap-0.5 rounded-md bg-muted px-1 py-px text-[10px] text-muted-foreground">
                 <Cpu className="h-2.5 w-2.5" />
                 {asset.arch}
               </span>

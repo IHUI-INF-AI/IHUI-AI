@@ -392,7 +392,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
                             type="button"
                             onClick={() => switchDashboard(d.uid)}
                             className={cn(
-                              'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-label transition-colors',
+                              'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-label transition-colors',
                               active
                                 ? 'bg-info/15 font-medium text-info-text'
                                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -440,10 +440,10 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="筛选面板…"
-                className="h-7 w-32 rounded-sm border border-border bg-muted/50 pl-7 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground focus:border-info/40 focus:outline-none"
+                className="h-7 w-32 rounded-md border border-border bg-muted/50 pl-7 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground focus:border-info/40 focus:outline-none"
               />
             </div>
-            <div className="flex h-7 items-center overflow-hidden rounded-sm border border-border bg-muted/40">
+            <div className="flex h-7 items-center overflow-hidden rounded-md border border-border bg-muted/40">
               {RANGES.map((r) => (
                 <button
                   key={r.seconds}
@@ -464,7 +464,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
               type="button"
               onClick={() => setAutoRefresh((v) => !v)}
               className={cn(
-                'flex h-7 items-center gap-1 rounded-sm border px-2 text-[11px] tabular-nums transition-colors',
+                'flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] tabular-nums transition-colors',
                 autoRefresh
                   ? 'border-info/40 text-info-text'
                   : 'border-border text-muted-foreground hover:text-foreground',
@@ -480,7 +480,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
               type="button"
               onClick={() => dashboard && void load(dashboard, rangeSec)}
               disabled={loading || !dashboard}
-              className="h-7 rounded-sm border border-border px-2 text-[11px] text-foreground transition-colors hover:border-info/40 hover:text-info-text disabled:opacity-50"
+              className="h-7 rounded-md border border-border px-2 text-[11px] text-foreground transition-colors hover:border-info/40 hover:text-info-text disabled:opacity-50"
             >
               刷新
             </button>

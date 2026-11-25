@@ -244,7 +244,7 @@ export function RankingTable() {
                             {details.map((d) => (
                               <span
                                 key={d.key}
-                                className="inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
+                                className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                               >
                                 <span className="opacity-70">{d.key}</span>
                                 <span className="ml-1 tabular-nums">{d.value}</span>

@@ -592,12 +592,12 @@ function MinimizedSummaryBar({
       <span className="font-medium text-primary">{Math.round(progress)}%</span>
       {/* 迷你进度条 */}
       <div
-        className="h-1 w-16 overflow-hidden rounded-sm bg-muted/40"
+        className="h-1 w-16 overflow-hidden rounded-md bg-muted/40"
         aria-hidden
         data-testid="pane-minimized-progress-track"
       >
         <div
-          className="h-full rounded-sm bg-primary transition-all duration-300"
+          className="h-full rounded-md bg-primary transition-all duration-300"
           style={{ width: `${clampPercent(progress)}%` }}
           data-testid="pane-minimized-progress-fill"
         />
@@ -607,7 +607,7 @@ function MinimizedSummaryBar({
           onClick={onExpand}
           aria-label={t('expand')}
           data-testid="pane-expand"
-          className="ml-auto rounded-sm hover:bg-accent/30 hover:text-foreground"
+          className="ml-auto rounded-md hover:bg-accent/30 hover:text-foreground"
         >
           <Maximize2 aria-hidden />
         </IconButton>
@@ -728,7 +728,7 @@ export function ReviewStatsBar({ steps }: { steps: readonly AgentPlanStepEvent[]
         aria-expanded={expanded}
         aria-controls="review-stats-history"
         aria-label={t('reviewStats.expandAria')}
-        className="flex w-full items-center gap-1.5 rounded-sm text-left transition-colors hover:bg-accent/30"
+        className="flex w-full items-center gap-1.5 rounded-md text-left transition-colors hover:bg-accent/30"
         data-testid="review-stats-toggle"
       >
         <span className="font-medium text-foreground/80">{t('reviewStats.title')}</span>
@@ -780,7 +780,7 @@ export function ReviewStatsBar({ steps }: { steps: readonly AgentPlanStepEvent[]
                 >
                   <span
                     className={cn(
-                      'shrink-0 rounded-sm px-1 text-[10px] font-medium',
+                      'shrink-0 rounded-md px-1 text-[10px] font-medium',
                       view.state === 'approved' &&
                         'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
                       view.state === 'rejected' && 'bg-red-500/10 text-red-600 dark:text-red-400',
@@ -1697,7 +1697,7 @@ export function AgentTaskProgressPane() {
           {elapsedLabel && (
             <Tooltip content={t('elapsedTitle', { time: elapsedLabel })}>
               <span
-                className="ml-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 text-[10px] tabular-nums text-muted-foreground/70"
+                className="ml-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-md bg-muted/50 px-1 text-[10px] tabular-nums text-muted-foreground/70"
                 data-testid="pane-elapsed"
                 aria-label={t('elapsedTitle', { time: elapsedLabel })}
               >
@@ -1719,7 +1719,7 @@ export function AgentTaskProgressPane() {
               type="button"
               onClick={() => setExpandAll(expandAll === true ? false : true)}
               aria-label={expandAll === true ? t('collapseAll') : t('expandAll')}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               data-testid="pane-expand-all"
             >
               {expandAll === true ? (
@@ -1738,7 +1738,7 @@ export function AgentTaskProgressPane() {
               aria-expanded={showHelp}
               aria-controls="pane-help-panel"
               className={cn(
-                'inline-flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
+                'inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors',
                 showHelp
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -1760,7 +1760,7 @@ export function AgentTaskProgressPane() {
               onClick={togglePin}
               aria-label={pinned ? t('unpin') : t('pin')}
               className={cn(
-                'inline-flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
+                'inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors',
                 pinned
                   ? 'bg-primary/10 text-primary hover:bg-primary/20'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -1775,7 +1775,7 @@ export function AgentTaskProgressPane() {
               type="button"
               onClick={() => setIsMinimized(true)}
               aria-label={t('minimize')}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               data-testid="pane-minimize"
             >
               <Minimize2 className="h-3.5 w-3.5" />
@@ -1859,7 +1859,7 @@ export function AgentTaskProgressPane() {
                 type="button"
                 onClick={() => setShowHelp(false)}
                 aria-label={t('helpClose')}
-                className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                className="inline-flex h-4 w-4 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 data-testid="pane-help-close"
               >
                 <X className="h-2.5 w-2.5" />
@@ -1883,7 +1883,7 @@ export function AgentTaskProgressPane() {
                         className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground/80"
                       >
                         <span>{t(item.i18nKey)}</span>
-                        <kbd className="inline-flex h-4 shrink-0 items-center rounded-sm border border-stroke-subtle bg-background px-1 font-mono text-[9px] font-medium text-foreground/80 shadow-elevation-sm">
+                        <kbd className="inline-flex h-4 shrink-0 items-center rounded-md border border-stroke-subtle bg-background px-1 font-mono text-[9px] font-medium text-foreground/80 shadow-elevation-sm">
                           {item.keys}
                         </kbd>
                       </li>
@@ -1958,15 +1958,15 @@ export function AgentTaskProgressPane() {
                 data-testid="pane-empty-hints"
                 aria-label={t('emptyHintsLabel')}
               >
-                <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
+                <li className="flex items-start gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent/30">
                   <span className="shrink-0 text-primary/80">1.</span>
                   <span>{t('emptyHint1')}</span>
                 </li>
-                <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
+                <li className="flex items-start gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent/30">
                   <span className="shrink-0 text-primary/80">2.</span>
                   <span>{t('emptyHint2')}</span>
                 </li>
-                <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
+                <li className="flex items-start gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent/30">
                   <span className="shrink-0 text-primary/80">3.</span>
                   <span>{t('emptyHint3')}</span>
                 </li>
@@ -2282,7 +2282,7 @@ export function AgentTaskProgressPane() {
                     {/* 深化G:瓶颈提示 —— 运行中最久的子代理一眼可见,不重排列表只是加一行提示 */}
                     {subagentBatchStats.bottleneck && subagentBatchStats.status === 'running' && (
                       <div
-                        className="mx-1.5 mt-0.5 flex items-center gap-1.5 rounded-sm bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-600/90"
+                        className="mx-1.5 mt-0.5 flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-600/90"
                         data-testid="subagent-batch-bottleneck"
                       >
                         <span className="inline-flex shrink-0 items-center gap-1">
@@ -2304,7 +2304,7 @@ export function AgentTaskProgressPane() {
                     {(subagentBatchStats.totalTokens > 0 ||
                       subagentBatchStats.avgDurationMs !== null) && (
                       <div
-                        className="mx-1.5 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-sm bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground/70"
+                        className="mx-1.5 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground/70"
                         data-testid="subagent-batch-aggregate"
                       >
                         {subagentBatchStats.totalTokens > 0 && (
@@ -2332,7 +2332,7 @@ export function AgentTaskProgressPane() {
                         已展开态点徽章仅滚动定位(避免重复点击无反馈)。 */}
                     {Object.keys(subagentBatchStats.failureKindDist).length > 0 && (
                       <div
-                        className="mx-1.5 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-sm bg-destructive/[0.06] px-2 py-0.5 text-[10px] text-destructive/80"
+                        className="mx-1.5 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md bg-destructive/[0.06] px-2 py-0.5 text-[10px] text-destructive/80"
                         data-testid="subagent-batch-failure-dist"
                       >
                         <span className="shrink-0">失败模式:</span>
@@ -2347,7 +2347,7 @@ export function AgentTaskProgressPane() {
                                 key={kind}
                                 type="button"
                                 className={cn(
-                                  'shrink-0 cursor-pointer rounded-sm bg-muted/60 px-1 py-0.5 tabular-nums transition-colors hover:bg-muted',
+                                  'shrink-0 cursor-pointer rounded-md bg-muted/60 px-1 py-0.5 tabular-nums transition-colors hover:bg-muted',
                                   meta.tone,
                                 )}
                                 data-testid={`subagent-batch-failure-dist-${kind}`}
@@ -2368,7 +2368,7 @@ export function AgentTaskProgressPane() {
                         深化Y:可点击 —— 与深化W 对称,点徽章展开批次并滚动到首个该来源失败子代理。 */}
                     {Object.keys(subagentBatchStats.failureSourceDist).length > 0 && (
                       <div
-                        className="mx-1.5 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-sm bg-destructive/[0.06] px-2 py-0.5 text-[10px] text-destructive/80"
+                        className="mx-1.5 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md bg-destructive/[0.06] px-2 py-0.5 text-[10px] text-destructive/80"
                         data-testid="subagent-batch-failure-source-dist"
                       >
                         <span className="shrink-0">失败来源:</span>
@@ -2379,7 +2379,7 @@ export function AgentTaskProgressPane() {
                               key={source}
                               type="button"
                               className={cn(
-                                'shrink-0 cursor-pointer rounded-sm border border-stroke-subtle px-1 py-0.5 tabular-nums transition-colors hover:bg-muted',
+                                'shrink-0 cursor-pointer rounded-md border border-stroke-subtle px-1 py-0.5 tabular-nums transition-colors hover:bg-muted',
                                 FAILURE_SOURCE_META[source]?.tone,
                               )}
                               data-testid={`subagent-batch-failure-source-dist-${source}`}
@@ -2406,7 +2406,7 @@ export function AgentTaskProgressPane() {
                             <>
                               <span className="shrink-0 font-mono">{f.handle}</span>
                               {f.kindLabel && (
-                                <span className="shrink-0 rounded-sm bg-muted/60 px-1 py-0.5 font-medium">
+                                <span className="shrink-0 rounded-md bg-muted/60 px-1 py-0.5 font-medium">
                                   {f.kindLabel}
                                 </span>
                               )}
@@ -2420,7 +2420,7 @@ export function AgentTaskProgressPane() {
                                 key={f.id}
                                 type="button"
                                 onClick={() => onBatchCollapsedChange(false)}
-                                className="flex w-full flex-wrap items-center gap-x-1.5 rounded-sm px-0.5 py-0.5 text-left transition-colors hover:bg-destructive/10"
+                                className="flex w-full flex-wrap items-center gap-x-1.5 rounded-md px-0.5 py-0.5 text-left transition-colors hover:bg-destructive/10"
                                 aria-label={`查看失败子代理 ${f.handle} 详情`}
                                 data-testid={`subagent-batch-failed-${f.id}`}
                               >
@@ -2480,7 +2480,7 @@ export function AgentTaskProgressPane() {
                 type="button"
                 onClick={jumpToLatest}
                 aria-label={t('followEvents')}
-                className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-sm border border-stroke-strong bg-popover px-2 text-[10px] text-muted-foreground shadow-elevation-sm transition-all hover:bg-accent hover:text-accent-foreground"
+                className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-md border border-stroke-strong bg-popover px-2 text-[10px] text-muted-foreground shadow-elevation-sm transition-all hover:bg-accent hover:text-accent-foreground"
                 data-testid="pane-jump-latest"
               >
                 {/* 与对话列滚动按钮同字形族:跳到最新一律 ChevronDown,不用带竖杆的 ArrowDown */}

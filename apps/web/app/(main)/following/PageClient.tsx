@@ -98,7 +98,7 @@ function FollowingContent() {
           <button
             key={value}
             onClick={() => setTab(value)}
-            className={`rounded-sm px-3 py-1.5 text-body font-medium transition-colors ${
+            className={`rounded-md px-3 py-1.5 text-body font-medium transition-colors ${
               tab === value
                 ? 'bg-background text-foreground shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground'

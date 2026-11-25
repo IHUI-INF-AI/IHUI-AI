@@ -415,7 +415,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingVertical: rnSpacing.md,
     },
     actionPrimary: { backgroundColor: tk.brand.cta },

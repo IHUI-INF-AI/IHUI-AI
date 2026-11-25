@@ -66,7 +66,7 @@
   box-sizing: border-box;
   background: var(--color-background);
   border: 2rpx solid var(--color-stroke-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-body-sm);
   color: var(--color-foreground);
 }
@@ -102,7 +102,7 @@
   font-size: var(--text-body);
   height: var(--spacing-4xl);
   line-height: 80rpx;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   margin: 0;
   padding: 0;
 }
@@ -135,7 +135,7 @@
   padding: 0 var(--spacing-lg);
   background: var(--color-cta);
   color: var(--color-cta-foreground);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   margin: 0;
 }
 .test-btn::after {

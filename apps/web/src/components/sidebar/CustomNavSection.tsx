@@ -140,7 +140,7 @@ function SortableCustomItem({
             {...listeners}
             aria-label={dragLabel}
             data-testid={`nav-custom-drag-${item.href}`}
-            className="flex h-6 w-6 cursor-grab touch-none items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus active:cursor-grabbing"
+            className="flex h-6 w-6 cursor-grab touch-none items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus active:cursor-grabbing"
           >
             <GripVertical className="h-3.5 w-3.5" />
           </button>
@@ -155,7 +155,7 @@ function SortableCustomItem({
             }}
             aria-label={removeLabel}
             data-testid={`nav-custom-remove-${item.href}`}
-            className="flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -293,7 +293,7 @@ const CustomNavSection = React.memo(function CustomNavSection({
             onClick={openDialog}
             aria-label={t('customAddTitle')}
             data-testid="nav-custom-add"
-            className="mx-auto flex h-9 w-9 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-sidebar-item-hover-bg hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="mx-auto flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-item-hover-bg hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           >
             <Plus className="h-5 w-5 shrink-0" />
           </button>
@@ -331,7 +331,7 @@ const CustomNavSection = React.memo(function CustomNavSection({
           aria-expanded={open}
           aria-label={t('customGroup')}
           data-testid="nav-custom-toggle"
-          className="group/cgrp flex min-w-0 flex-1 items-center gap-1.5 rounded-sm text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+          className="group/cgrp flex min-w-0 flex-1 items-center gap-1.5 rounded-md text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         >
           <span className="min-w-0 whitespace-nowrap text-left text-body font-semibold uppercase tracking-wider text-muted-foreground/60">
             {t('customGroup')}
@@ -349,7 +349,7 @@ const CustomNavSection = React.memo(function CustomNavSection({
             onClick={openDialog}
             aria-label={t('customAddTitle')}
             data-testid="nav-custom-add"
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-sidebar-item-hover-bg hover:text-accent-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-sidebar-item-hover-bg hover:text-accent-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           >
             <Plus className="h-4 w-4" />
           </button>
@@ -362,7 +362,7 @@ const CustomNavSection = React.memo(function CustomNavSection({
             type="button"
             onClick={openDialog}
             className={cn(
-              'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-sm px-2.5 py-2 text-body font-medium leading-none whitespace-nowrap transition-colors',
+              'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-body font-medium leading-none whitespace-nowrap transition-colors',
               'text-muted-foreground/60 hover:bg-sidebar-item-hover-bg hover:text-foreground',
               ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
             )}

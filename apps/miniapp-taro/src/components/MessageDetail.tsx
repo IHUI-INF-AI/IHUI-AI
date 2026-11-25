@@ -59,8 +59,8 @@ export default function MessageDetail({
               <View
                 className={`px-md py-sm rounded-2xl ${
                   msg.self
-                    ? 'bg-cta text-cta-foreground rounded-tr-sm'
-                    : 'bg-card text-foreground rounded-tl-sm'
+                    ? 'bg-cta text-cta-foreground rounded-tr-md'
+                    : 'bg-card text-foreground rounded-tl-md'
                 }`}
               >
                 <Text className="text-body">{msg.content}</Text>
@@ -76,7 +76,7 @@ export default function MessageDetail({
           value={inputValue}
           onInput={(e) => onInput(e.detail.value)}
           placeholder={tt('message.inputPlaceholder', '输入消息...')}
-          className="flex-1 bg-muted rounded-sm px-lg py-sm text-body"
+          className="flex-1 bg-muted rounded-md px-lg py-sm text-body"
           maxlength={500}
           autoHeight
         />

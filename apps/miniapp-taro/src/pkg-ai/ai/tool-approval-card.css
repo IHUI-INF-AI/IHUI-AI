@@ -75,7 +75,7 @@
 .tac-danger {
   flex-shrink: 0;
   padding: 2rpx var(--spacing-xs-loose);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-danger-tint);
   font-size: var(--text-badge);
   color: var(--color-danger);
@@ -117,7 +117,7 @@
   flex: 1;
   padding: 10rpx var(--spacing-xs);
   border: 1rpx solid var(--color-stroke-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-background);
   text-align: center;
   font-size: var(--text-caption);

@@ -257,7 +257,7 @@ export function CollabManagePanel({ conversationId }: CollabManagePanelProps) {
                   </span>
                   <span className="flex shrink-0 items-center gap-1">
                     <select
-                      className="rounded-sm border border-border bg-background px-1 py-0.5"
+                      className="rounded-md border border-border bg-background px-1 py-0.5"
                       aria-label={t('tierLabel')}
                       data-testid="collab-tier-select"
                       value={c.tier}

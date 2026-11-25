@@ -67,10 +67,10 @@ export function SidebarQuickActions({
               // 首版曾统一到 md,被 radius-role-conformance 守门判红(角色 control 取 md 应为 sm,
               // O81 票 c603c52ddd2 已把控件档定死 sm),故按台账档位全列统一 sm;
               // 另两枚的 md 藏在模板串里守门解析不到(账面暗洞),一并对齐免得暗洞留存。
-              // 2026-11-11 圆角角色档根治(守门 150 判红后回正):control 档=sm,折叠态回到 rounded-sm。
+              // 2026-11-11 圆角角色档根治(守门 150 判红后回正):control 档=sm,折叠态回到 rounded-md。
               // 上一版按"与导航项一致"改成 rounded-md,但角色表把按钮钉在 control=sm ——
               // 导航项(chip=md)与按钮(=sm)的视觉差由角色表裁决,不在本组件顺手改档。
-              className="flex h-9 w-9 items-center justify-center rounded-sm text-foreground transition-colors hover:bg-sidebar-item-hover-bg disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-colors hover:bg-sidebar-item-hover-bg disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus className="h-5 w-5" />
             </button>

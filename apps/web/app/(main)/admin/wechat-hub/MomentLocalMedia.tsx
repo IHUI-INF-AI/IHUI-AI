@@ -132,7 +132,7 @@ export default function MomentLocalMedia({
         <span>本地媒体</span>
       </Button>
       {open ? (
-        <div className="mt-2 space-y-2 rounded-sm border border-stroke-field p-2">
+        <div className="mt-2 space-y-2 rounded-md border border-stroke-field p-2">
           {error ? <p className="text-xs text-danger">{error}</p> : null}
           {!loading && files?.length === 0 ? (
             <p className="text-xs text-muted-foreground">该动态没有本地媒体文件。</p>
@@ -152,7 +152,7 @@ export default function MomentLocalMedia({
                         aria-label={file.name}
                         controls
                         preload="metadata"
-                        className="max-h-80 w-full rounded-sm border border-stroke-field bg-black"
+                        className="max-h-80 w-full rounded-md border border-stroke-field bg-black"
                       />
                     </div>
                   )
@@ -164,7 +164,7 @@ export default function MomentLocalMedia({
                       href={url}
                       target="_blank"
                       rel="noreferrer"
-                      className="block overflow-hidden rounded-sm border border-stroke-field"
+                      className="block overflow-hidden rounded-md border border-stroke-field"
                     >
                       <img
                         src={url}
@@ -178,7 +178,7 @@ export default function MomentLocalMedia({
                 return (
                   <div
                     key={file.name}
-                    className="flex min-h-20 flex-col justify-center rounded-sm border border-stroke-field p-1 text-xs"
+                    className="flex min-h-20 flex-col justify-center rounded-md border border-stroke-field p-1 text-xs"
                   >
                     <span className="break-all text-muted-foreground">{file.name}</span>
                     <span className="mt-1 text-muted-foreground">{formatBytes(file.size)}</span>

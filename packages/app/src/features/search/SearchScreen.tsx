@@ -119,7 +119,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: rnType.title.size,
@@ -129,7 +129,7 @@ function createStyles(tk: AppThemeTokens) {
     searchBtn: {
       paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     searchText: { color: tk.surface.light, fontSize: rnType.title.size },

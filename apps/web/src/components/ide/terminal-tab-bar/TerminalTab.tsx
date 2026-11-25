@@ -112,7 +112,7 @@ export function TerminalTab({
             }
           }}
           onBlur={() => onConfirmRename()}
-          className="w-24 rounded-sm border border-border bg-background px-1 py-0 text-label focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+          className="w-24 rounded-md border border-border bg-background px-1 py-0 text-label focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           maxLength={32}
           aria-label={t('terminalTabBar.renameAria')}
         />
@@ -136,7 +136,7 @@ export function TerminalTab({
       <button
         type="button"
         className={cn(
-          'ml-0.5 flex h-4 w-4 items-center justify-center rounded-sm opacity-0 transition-opacity',
+          'ml-0.5 flex h-4 w-4 items-center justify-center rounded-md opacity-0 transition-opacity',
           'hover:bg-destructive/15 hover:text-destructive',
           'group-hover:opacity-60',
           'group-focus-within:opacity-60',

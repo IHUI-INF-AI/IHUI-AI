@@ -265,7 +265,7 @@ export function UnifiedSuggestionPanel({
                       <button
                         type="button"
                         onClick={() => onRetry(section.source)}
-                        className="rounded-sm px-1 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        className="rounded-md px-1 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                       >
                         <span>{t('retryLabel')}</span>
                       </button>
@@ -287,7 +287,7 @@ export function UnifiedSuggestionPanel({
                     onClick={() => onSelect(item)}
                     onMouseEnter={() => idx >= 0 && setActiveIndex(idx)}
                     className={cn(
-                      'relative flex w-full items-start gap-2.5 rounded-sm px-3 py-1.5 text-left transition-colors',
+                      'relative flex w-full items-start gap-2.5 rounded-md px-3 py-1.5 text-left transition-colors',
                       isActive
                         ? 'bg-accent text-accent-foreground'
                         : 'text-foreground hover:bg-accent/50',
@@ -295,7 +295,7 @@ export function UnifiedSuggestionPanel({
                   >
                     {isActive && (
                       <span
-                        className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-sm bg-primary"
+                        className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-md bg-primary"
                         aria-hidden="true"
                       />
                     )}
@@ -327,21 +327,21 @@ export function UnifiedSuggestionPanel({
       {/* 底部:键盘提示行 + 引用计数 + 「引用标签不新增执行授权」安全声明(可见文本,非 aria-only)。 */}
       <div className="flex items-center gap-2 bg-muted/20 px-3 py-1.5 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1">
-          <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
+          <kbd className="rounded-md border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
             ↑↓
           </kbd>
           {t('hintSelect')}
         </span>
         <span className="text-muted-foreground/40">·</span>
         <span className="flex items-center gap-1">
-          <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
+          <kbd className="rounded-md border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
             Enter
           </kbd>
           {t('hintConfirm')}
         </span>
         <span className="text-muted-foreground/40">·</span>
         <span className="flex items-center gap-1">
-          <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
+          <kbd className="rounded-md border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
             ESC
           </kbd>
           {t('hintClose')}
@@ -416,7 +416,7 @@ export function UnifiedPasteReferencePreview({
             type="button"
             onClick={onDismiss}
             aria-label={t('pastePreviewDismiss')}
-            className="ml-auto rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+            className="ml-auto rounded-md p-0.5 text-muted-foreground hover:text-foreground"
           >
             <X className="h-3 w-3" />
           </button>
@@ -446,7 +446,7 @@ export function UnifiedPasteReferencePreview({
           onChange={(e) => setDraft(e.target.value)}
           placeholder={tc('referencePreview.placeholder')}
           rows={2}
-          className="mt-1.5 w-full resize-y rounded-sm border border-border bg-background px-2 py-1.5 text-label focus:outline-none"
+          className="mt-1.5 w-full resize-y rounded-md border border-border bg-background px-2 py-1.5 text-label focus:outline-none"
         />
         {/* 「原始输入正文」分区:固定回显未编辑的粘贴原文,与草稿编辑态对照 */}
         <div className="mt-1 flex min-w-0 items-center gap-2">
@@ -469,7 +469,7 @@ export function UnifiedPasteReferencePreview({
                 prev ? `${prev} ${SAMPLE_CAPABILITY_TOKEN}` : SAMPLE_CAPABILITY_TOKEN,
               )
             }
-            className="rounded-sm border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            className="rounded-md border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           >
             {tc('referencePreview.select')}
           </button>
@@ -477,7 +477,7 @@ export function UnifiedPasteReferencePreview({
             type="button"
             data-testid="unified-paste-editor-clear"
             onClick={() => setDraft('')}
-            className="rounded-sm border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            className="rounded-md border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           >
             {tc('referencePreview.clear')}
           </button>
@@ -490,7 +490,7 @@ export function UnifiedPasteReferencePreview({
               onSend(draft.trim())
               onDismiss()
             }}
-            className="ml-auto rounded-sm bg-cta px-2 py-0.5 text-[10px] text-cta-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="ml-auto rounded-md bg-cta px-2 py-0.5 text-[10px] text-cta-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             {tc('referencePreview.send')}
           </button>
@@ -532,7 +532,7 @@ export function UnifiedPasteReferencePreview({
         type="button"
         onClick={onDismiss}
         aria-label={t('pastePreviewDismiss')}
-        className="ml-auto rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+        className="ml-auto rounded-md p-0.5 text-muted-foreground hover:text-foreground"
       >
         <X className="h-3 w-3" />
       </button>

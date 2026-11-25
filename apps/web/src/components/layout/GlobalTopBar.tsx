@@ -723,7 +723,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
                         // 鼠标 hover 时同步 activeIndex(键盘 ↑↓←→ 跟鼠标 hover 联动)
                         onMouseEnter={() => setActiveIndex(idx)}
                         className={cn(
-                          'relative flex aspect-square flex-col items-center justify-center gap-1 rounded-sm p-2 text-center transition-colors focus:outline-none',
+                          'relative flex aspect-square flex-col items-center justify-center gap-1 rounded-md p-2 text-center transition-colors focus:outline-none',
                           isActive
                             ? 'bg-accent text-foreground'
                             : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground focus:bg-muted/50 focus:text-foreground',

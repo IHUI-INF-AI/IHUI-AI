@@ -78,7 +78,7 @@ function SessionRow({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <div className="flex items-center gap-1.5 px-1 py-1 font-mono text-label hover:bg-muted/40 rounded-sm">
+      <div className="flex items-center gap-1.5 px-1 py-1 font-mono text-label hover:bg-muted/40 rounded-md">
         <span className="select-none whitespace-pre text-muted-foreground">{prefix + branch}</span>
         <CollapsibleTrigger className="flex flex-1 min-w-0 items-center gap-1.5 text-left">
           {open ? (

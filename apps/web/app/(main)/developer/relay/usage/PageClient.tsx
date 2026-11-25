@@ -568,7 +568,7 @@ export default function RelayUsagePage() {
                       {(analytics.tokens.cacheHitRate * 100).toFixed(1)}%
                     </span>
                   </div>
-                  <div className="mt-1 h-3 w-full overflow-hidden rounded-sm bg-muted">
+                  <div className="mt-1 h-3 w-full overflow-hidden rounded-md bg-muted">
                     <div
                       className="h-3 bg-primary"
                       style={{ width: `${Math.min(100, analytics.tokens.cacheHitRate * 100)}%` }}

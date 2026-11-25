@@ -322,10 +322,10 @@ test('核心: tokens 有额外变量(目标未复制)→ exit 0(子集检查)', 
 // 检查 12:P1-C 扩展 -- --radius* 变量校验
 // ============================================================
 
-// ─── 12. P1-C: --radius + --radius-sm 同步 → exit 0 ───
-test('P1-C: --radius + --radius-sm 同步 → exit 0(扩展覆盖)', () => {
-  const appCss = `:root {\n  --radius: 0.5rem;\n  --radius-sm: 0.25rem;\n}\n`
-  const tokensCss = `:root {\n  --radius: 0.5rem;\n  --radius-sm: 0.25rem;\n}\n`
+// ─── 12. P1-C: --radius + --radius-md 同步 → exit 0 ───
+test('P1-C: --radius + --radius-md 同步 → exit 0(扩展覆盖)', () => {
+  const appCss = `:root {\n  --radius: 0.5rem;\n  --radius-md: 0.375rem;\n}\n`
+  const tokensCss = `:root {\n  --radius: 0.5rem;\n  --radius-md: 0.375rem;\n}\n`
   const dir = createTempEnv(appCss, tokensCss, 'miniapp-taro')
   try {
     const r = runScript(dir, ['--target=miniapp-taro'])
@@ -528,16 +528,16 @@ test('web: globals.css 缺少 @import tokens.css → exit 1(回归)', () => {
 // 检查 21:web 手抄回归 -- 顶层 :root 手抄 @theme 变量 → exit 1
 // ============================================================
 
-// ─── 24. web: 顶层 :root 手抄 @theme 变量(--radius-sm)→ exit 1(回归) ───
-test('web: 顶层 :root 手抄 @theme 变量(--radius-sm)→ exit 1(回归)', () => {
-  const webCss = `@import '../../../packages/design-tokens/src/styles/tokens.css';\n:root {\n  --radius-sm: 0.25rem;\n}\n`
-  const tokensCss = `@theme {\n  --radius-sm: 0.25rem;\n}\n`
+// ─── 24. web: 顶层 :root 手抄 @theme 变量(--radius-md)→ exit 1(回归) ───
+test('web: 顶层 :root 手抄 @theme 变量(--radius-md)→ exit 1(回归)', () => {
+  const webCss = `@import '../../../packages/design-tokens/src/styles/tokens.css';\n:root {\n  --radius-md: 0.375rem;\n}\n`
+  const tokensCss = `@theme {\n  --radius-md: 0.375rem;\n}\n`
   const dir = createTempEnv(webCss, tokensCss, 'web')
   try {
     const r = runScript(dir, ['--target=web'])
     assert.equal(r.status, 1, `web 手抄 @theme 变量应 exit 1\nstderr: ${r.stderr}`)
     assert.match(r.stderr, /REGRESSION/, `stderr 应含 "REGRESSION"`)
-    assert.match(r.stderr, /--radius-sm/, `stderr 应含被手抄的变量名`)
+    assert.match(r.stderr, /--radius-md/, `stderr 应含被手抄的变量名`)
   } finally {
     rmScratch(dir)
   }

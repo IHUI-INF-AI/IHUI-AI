@@ -300,7 +300,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 44,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.md,
       fontSize: rnType.body.size,
       color: tk.text.primary,
@@ -309,7 +309,7 @@ function createStyles(tk: AppThemeTokens) {
     searchBtn: {
       height: 44,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -362,7 +362,7 @@ function createStyles(tk: AppThemeTokens) {
     cardIcon: {
       width: 28,
       height: 28,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.brandAccent.light,
@@ -430,7 +430,7 @@ function createStyles(tk: AppThemeTokens) {
     pagerBtn: {
       minHeight: 36,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.card,

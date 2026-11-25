@@ -61,18 +61,18 @@ export function ActivityBar() {
                 aria-label={t(item.labelKey)}
                 aria-pressed={isActive}
                 className={cn(
-                  'relative rounded-sm p-2 transition-colors',
+                  'relative rounded-md p-2 transition-colors',
                   isActive
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
                 )}
               >
                 {isActive && (
-                  <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-sm bg-cta" />
+                  <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-md bg-cta" />
                 )}
                 <item.icon className="h-5 w-5" />
                 {showBadge && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-sm bg-cta px-1 text-[9px] font-semibold leading-none text-cta-foreground">
+                  <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-md bg-cta px-1 text-[9px] font-semibold leading-none text-cta-foreground">
                     {badgeCount > 99 ? '99+' : badgeCount}
                   </span>
                 )}
@@ -86,7 +86,7 @@ export function ActivityBar() {
         <button
           onClick={() => setActiveTopTab('settings')}
           aria-label={t('activityBar.settings')}
-          className="rounded-sm p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
         >
           <Settings className="h-5 w-5" />
         </button>

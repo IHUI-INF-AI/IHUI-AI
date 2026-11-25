@@ -81,7 +81,7 @@ function BarChart({ points, valueKey }: { points: TrendPoint[]; valueKey: 'calls
         points.map((p) => (
           <Tooltip key={p.date} content={`${p.date}: ${p[valueKey] ?? 0}`}>
             <div
-              className="flex-1 rounded-sm bg-primary/70"
+              className="flex-1 rounded-md bg-primary/70"
               style={{ height: `${(Number(p[valueKey] ?? 0) / max) * 100}%` }}
             />
           </Tooltip>

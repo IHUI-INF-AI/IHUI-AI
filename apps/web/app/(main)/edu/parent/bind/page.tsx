@@ -170,7 +170,7 @@ export default function ParentBindPage() {
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                   setRelationship(e.target.value)
                 }
-                className="flex h-10 w-full rounded-sm border border-input bg-background px-3 py-2 text-body focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-body focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
               >
                 {RELATIONSHIP_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -242,7 +242,7 @@ export default function ParentBindPage() {
                         <Tooltip content={t('bind.confirm')}>
                           <button
                             onClick={() => confirmMutation.mutate(b.id)}
-                            className="rounded-sm p-2 text-emerald-600 transition-colors hover:bg-emerald-50"
+                            className="rounded-md p-2 text-emerald-600 transition-colors hover:bg-emerald-50"
                           >
                             <CheckCircle2 className="h-4 w-4" />
                           </button>
@@ -250,7 +250,7 @@ export default function ParentBindPage() {
                         <Tooltip content={t('bind.reject')}>
                           <button
                             onClick={() => rejectMutation.mutate(b.id)}
-                            className="rounded-sm p-2 text-red-600 transition-colors hover:bg-red-50"
+                            className="rounded-md p-2 text-red-600 transition-colors hover:bg-red-50"
                           >
                             <XCircle className="h-4 w-4" />
                           </button>
@@ -260,7 +260,7 @@ export default function ParentBindPage() {
                     <Tooltip content={tc('delete')}>
                       <button
                         onClick={() => setShowDeleteId(b.id)}
-                        className="rounded-sm p-2 text-muted-foreground transition-colors hover:bg-accent"
+                        className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

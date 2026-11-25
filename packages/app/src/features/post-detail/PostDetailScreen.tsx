@@ -231,7 +231,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
     },
     meta: { fontSize: rnType.caption.size, color: tk.text.medium },
     content: {
@@ -252,7 +252,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['xs-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
     statText: { fontSize: rnType.label.size, color: tk.text.medium },

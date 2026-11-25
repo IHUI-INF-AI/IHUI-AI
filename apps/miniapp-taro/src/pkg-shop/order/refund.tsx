@@ -143,7 +143,7 @@ export default function OrderRefund() {
             </Text>
             {orderNo ? (
               <View
-                className="rounded-sm bg-cta px-[32rpx] py-[14rpx]"
+                className="rounded-md bg-cta px-[32rpx] py-[14rpx]"
                 hoverClass="opacity-60"
                 onClick={() => loadOrder(orderNo)}
               >
@@ -182,7 +182,7 @@ export default function OrderRefund() {
             <Text className="text-subtitle font-semibold text-[var(--color-success)]">
               ¥{refundAmount.toFixed(2)}
             </Text>
-            <Text className="text-caption text-[var(--color-warning-amber-text)] px-[16rpx] py-[6rpx] bg-[var(--color-warning-amber-light)] rounded-sm">
+            <Text className="text-caption text-[var(--color-warning-amber-text)] px-[16rpx] py-[6rpx] bg-[var(--color-warning-amber-light)] rounded-md">
               {tt('order.refund.amountReadOnly', '不可修改')}
             </Text>
           </View>
@@ -206,7 +206,7 @@ export default function OrderRefund() {
           {/* 选「其他原因」才出现的手填框(共享屏 reasonPlaceholder):提交时并入 reason 一起发 */}
           {reason === 'orderRefund.d5' ? (
             <FocusTextarea
-              className="mt-[24rpx] w-full min-h-[140rpx] py-[16rpx] px-[28rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-border text-title text-foreground box-border"
+              className="mt-[24rpx] w-full min-h-[140rpx] py-[16rpx] px-[28rpx] bg-[var(--color-muted)] rounded-md border-[length:2rpx] border-border text-title text-foreground box-border"
               value={otherReason}
               onInput={(e) => setOtherReason(e.detail.value)}
               placeholder={tt('orderRefund.reasonPlaceholder', '请填写退款原因')}
@@ -220,7 +220,7 @@ export default function OrderRefund() {
             {tt('order.refund.descLabel', '退款说明')}
           </Text>
           <FocusTextarea
-            className="w-full min-h-[160rpx] py-[16rpx] px-[28rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-border text-title text-foreground box-border"
+            className="w-full min-h-[160rpx] py-[16rpx] px-[28rpx] bg-[var(--color-muted)] rounded-md border-[length:2rpx] border-border text-title text-foreground box-border"
             value={desc}
             onInput={(e) => setDesc(e.detail.value)}
             placeholder={tt('order.refund.descPlaceholder', '请补充退款说明(选填)')}
@@ -233,7 +233,7 @@ export default function OrderRefund() {
             {tt('order.refund.contactLabel', '联系方式')}
           </Text>
           <FocusInput
-            className="w-full h-[88rpx] py-[16rpx] px-[28rpx] bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-border text-title text-foreground box-border"
+            className="w-full h-[88rpx] py-[16rpx] px-[28rpx] bg-[var(--color-muted)] rounded-md border-[length:2rpx] border-border text-title text-foreground box-border"
             value={contact}
             onInput={(e) => setContact(e.detail.value)}
             placeholder={tt('order.refund.contactPlaceholder', '请输入手机号或邮箱')}
@@ -241,7 +241,7 @@ export default function OrderRefund() {
         </View>
 
         <Button
-          className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] rounded-sm text-title font-semibold text-center border-none p-0 ${
+          className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] rounded-md text-title font-semibold text-center border-none p-0 ${
             disabled ? 'opacity-50' : ''
           } bg-cta text-cta-foreground`}
           disabled={disabled}

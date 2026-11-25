@@ -239,7 +239,7 @@ export function NotificationCenter({
                           e.stopPropagation()
                           onSessionLinkClick?.(item.sessionId!)
                         }}
-                        className="mt-1 inline-flex items-center gap-0.5 rounded-sm text-label font-medium text-primary hover:underline"
+                        className="mt-1 inline-flex items-center gap-0.5 rounded-md text-label font-medium text-primary hover:underline"
                       >
                         {t('viewConversation')}
                         <ArrowUpRight className="h-3 w-3" />

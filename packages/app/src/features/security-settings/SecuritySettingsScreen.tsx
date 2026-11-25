@@ -199,7 +199,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       flexShrink: 0,

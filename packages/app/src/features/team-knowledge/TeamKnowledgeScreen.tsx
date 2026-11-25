@@ -635,7 +635,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       height: 42,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       color: tk.text.primary,
@@ -646,7 +646,7 @@ function createStyles(tk: AppThemeTokens) {
     primaryBtn: {
       height: 38,
       paddingHorizontal: rnSpacing.lg,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       flexDirection: 'row',
       alignItems: 'center',
@@ -661,7 +661,7 @@ function createStyles(tk: AppThemeTokens) {
     outlineBtn: {
       height: 38,
       paddingHorizontal: rnSpacing.lg,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       flexDirection: 'row',
@@ -722,7 +722,7 @@ function createStyles(tk: AppThemeTokens) {
     toggle: {
       height: 32,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',

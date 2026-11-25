@@ -328,7 +328,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 16,
       minWidth: 16,
       paddingHorizontal: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.muted,

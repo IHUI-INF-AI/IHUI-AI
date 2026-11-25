@@ -229,7 +229,7 @@ export function BusinessFormCard({
           {visibleAttendees.map((addr) => (
             <span
               key={addr}
-              className="rounded-sm bg-muted/60 px-1.5 py-0.5 text-[11px] text-muted-foreground"
+              className="rounded-md bg-muted/60 px-1.5 py-0.5 text-[11px] text-muted-foreground"
               data-form-attendee={addr}
             >
               {addr}
@@ -239,7 +239,7 @@ export function BusinessFormCard({
             attendeesExpanded ? (
               <button
                 type="button"
-                className="rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground/70 hover:text-foreground"
+                className="rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground/70 hover:text-foreground"
                 data-attendees-collapse=""
                 onClick={() => setAttendeesExpanded(false)}
               >
@@ -248,7 +248,7 @@ export function BusinessFormCard({
             ) : (
               <button
                 type="button"
-                className="rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground/70 hover:text-foreground"
+                className="rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground/70 hover:text-foreground"
                 data-attendees-expand=""
                 onClick={() => setAttendeesExpanded(true)}
               >

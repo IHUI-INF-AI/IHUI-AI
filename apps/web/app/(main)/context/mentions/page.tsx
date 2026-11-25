@@ -163,7 +163,7 @@ function DetailPanel({
       <div>
         <span
           className={cn(
-            'inline-block rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+            'inline-block rounded-md px-1.5 py-0.5 text-[10px] font-medium',
             'bg-muted text-muted-foreground',
           )}
         >
@@ -177,7 +177,7 @@ function DetailPanel({
 
       <div>
         <p className="text-label font-medium text-muted-foreground">insertText</p>
-        <code className="mt-1 block w-full rounded-sm bg-muted px-2 py-1.5 text-label break-all">
+        <code className="mt-1 block w-full rounded-md bg-muted px-2 py-1.5 text-label break-all">
           {mention.insertText}
         </code>
       </div>

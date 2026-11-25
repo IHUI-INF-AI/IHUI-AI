@@ -164,7 +164,7 @@ export function ArtifactCanvas({ artifact, turnMessageId }: ArtifactCanvasProps)
 
   return (
     <div
-      className="overflow-hidden rounded-sm border border-stroke-subtle bg-card/50"
+      className="overflow-hidden rounded-md border border-stroke-subtle bg-card/50"
       data-artifact-path={artifactAnchor}
     >
       <div className="flex items-center justify-between gap-2 bg-muted/30 px-2 py-1">
@@ -202,7 +202,7 @@ export function ArtifactCanvas({ artifact, turnMessageId }: ArtifactCanvasProps)
               type="button"
               onClick={handleCopy}
               aria-label={copyLabel}
-              className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
             >
               <Copy className="h-3.5 w-3.5" />
             </button>
@@ -212,7 +212,7 @@ export function ArtifactCanvas({ artifact, turnMessageId }: ArtifactCanvasProps)
               type="button"
               onClick={openInCanvas}
               aria-label={t('canvasFullscreen')}
-              className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
             >
               <Maximize2 className="h-3.5 w-3.5" />
             </button>
@@ -245,7 +245,7 @@ export function ArtifactCanvas({ artifact, turnMessageId }: ArtifactCanvasProps)
               type="button"
               onClick={applyEdit}
               disabled={!dirty}
-              className="rounded-sm bg-cta px-2 py-0.5 text-[10px] text-cta-foreground disabled:opacity-40"
+              className="rounded-md bg-cta px-2 py-0.5 text-[10px] text-cta-foreground disabled:opacity-40"
             >
               {t('canvasApplyRefresh')}
             </button>
@@ -279,7 +279,7 @@ function ArtifactTabButton({ active, onClick, icon, label }: ArtifactTabButtonPr
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px]',
+        'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px]',
         active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60',
       )}
     >

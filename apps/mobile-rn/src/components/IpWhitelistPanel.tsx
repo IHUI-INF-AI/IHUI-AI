@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     gap: rpx(16),
     paddingVertical: rpx(12),
     paddingHorizontal: rpx(taroSpacing.sm),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.light,
   },
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   addBtn: {
     paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(14),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
   },
   addBtnBusy: { opacity: 0.6 },

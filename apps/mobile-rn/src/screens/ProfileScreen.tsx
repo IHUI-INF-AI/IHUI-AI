@@ -2243,7 +2243,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: rpx(8),
     paddingHorizontal: rpx(taroSpacing['xs-loose']),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   accountActionGhost: {
     borderWidth: 1,
@@ -2317,7 +2317,7 @@ const styles = StyleSheet.create({
     gap: rpx(8),
     marginTop: rpx(2),
     paddingVertical: rpx(16),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   quickAllText: {
@@ -2563,7 +2563,7 @@ const styles = StyleSheet.create({
   audioPlayBtn: {
     width: 36,
     height: 36,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2595,7 +2595,7 @@ const styles = StyleSheet.create({
   audioDownloadBtn: {
     width: 32,
     height: 32,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2617,7 +2617,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     height: 40,
     paddingHorizontal: rpx(taroSpacing['md-loose']),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: rnCssLight.white18,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2633,7 +2633,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     width: 40,
     height: 40,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: rnCssLight.white18,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2746,7 +2746,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
@@ -2759,7 +2759,7 @@ const styles = StyleSheet.create({
   },
   sharePopupShareBtn: {
     flex: 1,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
@@ -2792,7 +2792,7 @@ const styles = StyleSheet.create({
   tabRetryBtn: {
     paddingHorizontal: rpx(taroSpacing.xl),
     paddingVertical: rpx(16),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.DEFAULT,
   },
   tabRetryText: {
@@ -2830,7 +2830,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: 72,
     height: 72,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     overflow: 'hidden',
   },
   editProfileAvatar: {
@@ -2884,7 +2884,7 @@ const styles = StyleSheet.create({
   editProfileInput: {
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     paddingHorizontal: rpx(taroSpacing.md),
     paddingVertical: rpx(20),
     fontSize: rnType.body.size,
@@ -2905,7 +2905,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
@@ -2918,7 +2918,7 @@ const styles = StyleSheet.create({
   editProfileSaveBtn: {
     flex: 1,
     backgroundColor: tokens.brand.DEFAULT,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
@@ -2996,7 +2996,7 @@ const styles = StyleSheet.create({
   },
   levelIntroCloseBtn: {
     backgroundColor: tokens.brand.DEFAULT,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
@@ -3060,7 +3060,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
@@ -3073,7 +3073,7 @@ const styles = StyleSheet.create({
   unsubscribeConfirmBtn: {
     flex: 1,
     backgroundColor: tokens.danger.DEFAULT,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',

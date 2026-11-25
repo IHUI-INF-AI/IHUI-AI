@@ -205,7 +205,7 @@ export function PatrolFormDialog({ open, onOpenChange, editing, onSaved }: Props
               value={form.patrolType}
               onValueChange={(v) => patch({ patrolType: v as PatrolType })}
             >
-              <SelectTrigger className="h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus">
+              <SelectTrigger className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -238,7 +238,7 @@ export function PatrolFormDialog({ open, onOpenChange, editing, onSaved }: Props
               placeholder={t('form.promptPlaceholder')}
               rows={3}
               maxLength={8000}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
 
@@ -249,7 +249,7 @@ export function PatrolFormDialog({ open, onOpenChange, editing, onSaved }: Props
                 value={form.frequency}
                 onValueChange={(v) => patch({ frequency: v as FormState['frequency'] })}
               >
-                <SelectTrigger className="h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus">
+                <SelectTrigger className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -285,7 +285,7 @@ export function PatrolFormDialog({ open, onOpenChange, editing, onSaved }: Props
                         aria-pressed={active}
                         onClick={() => toggleDay(code)}
                         className={cn(
-                          'rounded-sm border px-2.5 py-1 text-label font-medium transition-colors',
+                          'rounded-md border px-2.5 py-1 text-label font-medium transition-colors',
                           active
                             ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                             : 'border-border bg-foreground/5 text-muted-foreground hover:bg-foreground/10',

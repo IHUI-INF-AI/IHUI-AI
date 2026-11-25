@@ -112,7 +112,7 @@ export function HostGitSection() {
           type="button"
           onClick={() => void authorize(root)}
           disabled={!root || busy !== null}
-          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="host-git-authorize-btn"
           data-has-root={root ? 'true' : 'false'}
         >
@@ -123,7 +123,7 @@ export function HostGitSection() {
           type="button"
           onClick={() => void refresh()}
           disabled={busy !== null}
-          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="host-git-refresh-btn"
         >
           <RefreshCw className="h-3 w-3" aria-hidden />
@@ -133,7 +133,7 @@ export function HostGitSection() {
           type="button"
           onClick={() => void scanIndex()}
           disabled={busy !== null}
-          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="host-git-index-btn"
         >
           <FolderTree className="h-3 w-3" aria-hidden />
@@ -175,7 +175,7 @@ export function HostGitSection() {
           </StateLine>
           <ul className="max-h-40 overflow-y-auto text-[11px]" data-testid="host-git-entry-list">
             {facts.entries.map((entry) => (
-              <li key={`${entry.kind}:${entry.path}`} className="rounded-sm hover:bg-accent">
+              <li key={`${entry.kind}:${entry.path}`} className="rounded-md hover:bg-accent">
                 <Tooltip content={t('hostGit.diffTitle', { path: entry.path })}>
                   <button
                     type="button"
@@ -203,7 +203,7 @@ export function HostGitSection() {
           (command_failed)必须显式分格,正文只在 facts+dirty 之内参与渲染。 */}
       {diff && (
         <div
-          className="space-y-1 rounded-sm border border-border p-1.5"
+          className="space-y-1 rounded-md border border-border p-1.5"
           data-testid="host-git-diff-block"
         >
           <div className="flex items-center gap-1.5">
@@ -214,7 +214,7 @@ export function HostGitSection() {
               type="button"
               onClick={clearDiff}
               aria-label={t('hostGit.diffClose')}
-              className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               data-testid="host-git-diff-close"
             >
               <X className="h-3 w-3" aria-hidden />

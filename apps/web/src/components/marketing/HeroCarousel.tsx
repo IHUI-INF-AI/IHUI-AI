@@ -138,7 +138,7 @@ export function HeroCarousel({
             }`}
           >
             <span
-              className={`block w-full rounded-sm transition-all ${
+              className={`block w-full rounded-md transition-all ${
                 idx === current ? 'bg-card' : 'bg-card/40 hover:bg-card/70'
               }`}
             />

@@ -159,8 +159,8 @@ export function IntegrationsPanel() {
                     <span
                       className={
                         connected
-                          ? 'rounded-sm bg-primary/10 px-2 py-0.5 text-label text-primary'
-                          : 'rounded-sm bg-muted px-2 py-0.5 text-label text-muted-foreground'
+                          ? 'rounded-md bg-primary/10 px-2 py-0.5 text-label text-primary'
+                          : 'rounded-md bg-muted px-2 py-0.5 text-label text-muted-foreground'
                       }
                     >
                       {connected ? t('connected') : t('disconnected')}

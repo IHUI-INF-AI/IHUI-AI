@@ -285,7 +285,7 @@ function createStyles(tk: AppThemeTokens) {
     rechargeBtn: {
       flex: 1,
       height: 50,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -298,7 +298,7 @@ function createStyles(tk: AppThemeTokens) {
     withdrawBtn: {
       flex: 1,
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -330,7 +330,7 @@ function createStyles(tk: AppThemeTokens) {
     loginBtn: {
       height: 40,
       paddingHorizontal: rnSpacing['2xl'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -342,7 +342,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     moreBtn: {
       height: 40,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',

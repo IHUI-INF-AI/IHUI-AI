@@ -118,7 +118,7 @@ export function ConnectorAuthCard({
               type="button"
               onClick={() => onAction?.('connect')}
               data-action="connect"
-              className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[11px] text-foreground transition-colors hover:bg-muted"
+              className="rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] text-foreground transition-colors hover:bg-muted"
             >
               {t('connect')}
             </button>
@@ -128,7 +128,7 @@ export function ConnectorAuthCard({
               type="button"
               onClick={() => onAction?.('reconnect')}
               data-action="reconnect"
-              className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[11px] text-foreground transition-colors hover:bg-muted"
+              className="rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] text-foreground transition-colors hover:bg-muted"
             >
               {t('reconnect', { connectorName })}
             </button>
@@ -138,7 +138,7 @@ export function ConnectorAuthCard({
             type="button"
             onClick={() => onAction?.('decline')}
             data-action="decline"
-            className="rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             {t('decline')}
           </button>
@@ -151,7 +151,7 @@ export function ConnectorAuthCard({
           type="button"
           onClick={() => onAction?.('moreInfo')}
           data-action="moreInfo"
-          className="self-start rounded-sm px-0 text-[11px] text-muted-foreground/70 underline-offset-2 transition-colors hover:text-foreground hover:underline"
+          className="self-start rounded-md px-0 text-[11px] text-muted-foreground/70 underline-offset-2 transition-colors hover:text-foreground hover:underline"
         >
           {t('moreInfo')}
         </button>

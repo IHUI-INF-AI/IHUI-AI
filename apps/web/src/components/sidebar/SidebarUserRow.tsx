@@ -352,7 +352,7 @@ export function SidebarUserRow({
           <span className="flex items-center gap-2">
             <span
               data-lang-code={lang.code}
-              className="flex h-5 w-7 shrink-0 items-center justify-center rounded-sm border border-border text-[10px] font-bold tracking-wide text-foreground"
+              className="flex h-5 w-7 shrink-0 items-center justify-center rounded-md border border-border text-[10px] font-bold tracking-wide text-foreground"
             >
               {lang.badge}
             </span>
@@ -398,12 +398,12 @@ export function SidebarUserRow({
                   {t(dl.labelKey)}
                 </span>
                 {version && available && (
-                  <span className="shrink-0 rounded-sm bg-muted px-1 py-px text-[9px] font-medium text-muted-foreground">
+                  <span className="shrink-0 rounded-md bg-muted px-1 py-px text-[9px] font-medium text-muted-foreground">
                     v{version}
                   </span>
                 )}
                 {!available && (
-                  <span className="shrink-0 rounded-sm bg-amber-500/15 px-1 py-px text-[9px] font-medium text-amber-600 dark:text-amber-400">
+                  <span className="shrink-0 rounded-md bg-amber-500/15 px-1 py-px text-[9px] font-medium text-amber-600 dark:text-amber-400">
                     {t('downloadComingSoon')}
                   </span>
                 )}
@@ -526,7 +526,7 @@ export function SidebarUserRow({
         // 图标 14px vs 20px、字号 body vs sm。这里按 NAV_ITEM_BASE_CLASS 口径逐项对齐
         // (圆角除外:按钮是 control 档=sm,守门 150 于 2026-11-11 根治时定档);
         // 同时去掉 justify-center,内容与导航项一样左对齐(与已登录态 userTrigger 同源)。
-        'flex h-9 w-full items-center gap-2.5 rounded-sm px-2.5 text-body font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
+        'flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-body font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
       )}
     >
       <LogIn className="h-5 w-5 shrink-0" />
@@ -542,7 +542,7 @@ export function SidebarUserRow({
         // 整行 row 容器样式:与 NAV_ITEM_BASE_CLASS 对齐 —— h-9 + px-2.5 + gap-2.5 +
         // text-sm,左对齐(不再居中)。圆角按角色表取 control=sm(守门 150,2026-11-11 根治),
         // 与导航项(chip=md)的 2px 差由角色表裁决。
-        'font-[weight:inherit] group/row flex h-9 w-full items-center gap-2.5 rounded-sm px-2.5 text-body transition-colors hover:bg-sidebar-item-hover-bg',
+        'font-[weight:inherit] group/row flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-body transition-colors hover:bg-sidebar-item-hover-bg',
         // 按钮态样式:outline-none + focus-visible ring 保留键盘可访问性
         'outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
       )}

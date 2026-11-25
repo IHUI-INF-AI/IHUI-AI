@@ -620,7 +620,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: rnSpacing.md, // rpx(24)
-      borderRadius: rnRadius.sm, // 原 rpx(44)=22,O81 角色档收口 control=sm(4)
+      borderRadius: rnRadius.md, // 原 rpx(44)=22,O81 角色档收口 control=sm(4)
       backgroundColor: tk.brand.cta,
     },
     footerBtnText: {
@@ -640,7 +640,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: rnSpacing.md,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.bg,

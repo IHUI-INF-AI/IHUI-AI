@@ -132,7 +132,7 @@ export function JsonCode({
     <pre
       ref={ref}
       className={cn(
-        'max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-sm bg-background/60 p-1.5 font-mono text-label leading-relaxed',
+        'max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-md bg-background/60 p-1.5 font-mono text-label leading-relaxed',
         // 流式进行中:左侧 accent 边(teal)与 partialDiff 预览同形,强化"正在生成"锚点
         streaming && 'border-l-2 border-l-teal-500/60 dark:border-l-teal-400/60',
         className,

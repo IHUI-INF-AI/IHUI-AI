@@ -75,7 +75,7 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
   }
 
   return (
-    <div className="rounded-sm transition-colors hover:bg-accent/40">
+    <div className="rounded-md transition-colors hover:bg-accent/40">
       <div
         className={cn('flex items-center gap-1.5 px-1 py-0.5', hasDetail && 'cursor-pointer')}
         onClick={toggleExpand}

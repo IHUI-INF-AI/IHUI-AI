@@ -198,14 +198,14 @@ export function MemoryGraphPanel() {
             if (e.key === 'Enter') void handleSearch()
           }}
           placeholder={t('searchPlaceholder')}
-          className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-card px-2 text-label focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+          className="h-7 min-w-0 flex-1 rounded-md border border-border bg-card px-2 text-label focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           data-testid="memory-graph-input"
         />
         <button
           type="button"
           onClick={() => void handleSearch()}
           disabled={loading || !query.trim()}
-          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-border bg-card px-2 text-label text-foreground transition-colors hover:bg-accent/40 disabled:opacity-50"
+          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-border bg-card px-2 text-label text-foreground transition-colors hover:bg-accent/40 disabled:opacity-50"
           data-testid="memory-graph-search"
         >
           {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
@@ -223,7 +223,7 @@ export function MemoryGraphPanel() {
               aria-pressed={layoutMode === mode}
               onClick={() => setLayoutMode(mode)}
               className={cn(
-                'rounded-sm border px-2 py-0.5 text-label font-medium transition-colors',
+                'rounded-md border px-2 py-0.5 text-label font-medium transition-colors',
                 layoutMode === mode
                   ? 'border-stroke-selected bg-primary/10 text-primary'
                   : 'border-border bg-card text-muted-foreground hover:bg-accent/40',

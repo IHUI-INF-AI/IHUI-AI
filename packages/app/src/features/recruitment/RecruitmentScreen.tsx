@@ -238,7 +238,7 @@ function createStyles(tk: AppThemeTokens) {
     buyBtn: {
       marginTop: rnSpacing['md-loose'],
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',

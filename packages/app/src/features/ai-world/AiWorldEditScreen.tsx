@@ -283,7 +283,7 @@ function createAiWorldEditStyles(tk: AppThemeTokens) {
       minHeight: 42,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       color: tk.text.primary,
@@ -322,7 +322,7 @@ function createAiWorldEditStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       gap: rnSpacing['xs-loose'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
     },
     primaryBtnText: {

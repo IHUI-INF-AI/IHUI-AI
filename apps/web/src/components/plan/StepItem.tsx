@@ -72,7 +72,7 @@ export function StepItem({
           <GripVertical className="h-4 w-4" />
         </span>
       )}
-      <span className="mt-0.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-sm bg-muted px-1 text-label font-medium text-muted-foreground tabular-nums">
+      <span className="mt-0.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-md bg-muted px-1 text-label font-medium text-muted-foreground tabular-nums">
         {index + 1}
       </span>
       <div className="min-w-0 flex-1 space-y-1">
@@ -116,7 +116,7 @@ export function StepItem({
             value={step.status}
             onChange={(e) => onStatusChange(e.target.value as PlanStepStatus)}
             className={cn(
-              'h-6 cursor-pointer rounded-sm border-0 px-2 text-label font-medium outline-none',
+              'h-6 cursor-pointer rounded-md border-0 px-2 text-label font-medium outline-none',
               statusOption?.color,
             )}
             aria-label="步骤状态"
@@ -131,7 +131,7 @@ export function StepItem({
             value={step.priority}
             onChange={(e) => onPriorityChange(e.target.value as PlanPriority)}
             className={cn(
-              'h-6 cursor-pointer rounded-sm border-0 px-2 text-label font-medium outline-none',
+              'h-6 cursor-pointer rounded-md border-0 px-2 text-label font-medium outline-none',
               priorityOption?.color,
             )}
             aria-label="步骤优先级"

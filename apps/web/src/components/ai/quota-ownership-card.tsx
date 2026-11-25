@@ -131,7 +131,7 @@ export function QuotaOwnershipCard({
               type="button"
               onClick={() => onAction(action)}
               data-action={action}
-              className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               {actionLabel[action]}
             </button>

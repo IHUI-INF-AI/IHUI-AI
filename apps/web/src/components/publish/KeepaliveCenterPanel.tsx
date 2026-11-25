@@ -222,7 +222,7 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
                     type="button"
                     onClick={() => void trigger(item.ref)}
                     disabled={busy}
-                    className="rounded-sm border border-border px-1.5 py-0.5 hover:bg-muted disabled:opacity-50"
+                    className="rounded-md border border-border px-1.5 py-0.5 hover:bg-muted disabled:opacity-50"
                   >
                     {t('retry')}
                   </button>

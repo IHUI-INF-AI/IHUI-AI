@@ -45,12 +45,12 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
         <div className="flex items-center gap-2">
           <span className="truncate text-body font-medium">{rule.name}</span>
           {!rule.enabled && (
-            <span className="rounded-sm bg-muted px-1 text-[10px] text-muted-foreground">
+            <span className="rounded-md bg-muted px-1 text-[10px] text-muted-foreground">
               {t('disabled')}
             </span>
           )}
           {matchCount > 0 && (
-            <span className="shrink-0 rounded-sm bg-blue-500/10 px-1 text-[10px] text-blue-600">
+            <span className="shrink-0 rounded-md bg-blue-500/10 px-1 text-[10px] text-blue-600">
               {t('hitCount', { n: matchCount })}
             </span>
           )}
@@ -74,10 +74,10 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
       >
         P{rule.priority}
       </Badge>
-      <span className="hidden shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground min-[640px]:inline">
+      <span className="hidden shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground min-[640px]:inline">
         {scopeLabel(rule.scope)}
       </span>
-      <span className="hidden shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground min-[768px]:inline">
+      <span className="hidden shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground min-[768px]:inline">
         {matchTypeLabel(rule.matchType)}
       </span>
       <button
@@ -85,7 +85,7 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
         onClick={() => onToggle(!rule.enabled)}
         aria-label={rule.enabled ? t('disabled') : t('enabled')}
         className={cn(
-          'shrink-0 rounded-sm border px-1.5 py-0.5 text-[10px] transition-colors',
+          'shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] transition-colors',
           rule.enabled
             ? 'border-green-500/30 bg-green-500/10 text-green-600 hover:bg-green-500/20'
             : 'border-border bg-muted text-muted-foreground hover:bg-accent',
@@ -111,7 +111,7 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
               setConfirmDel(false)
             }}
             aria-label={t('confirmDelete')}
-            className="flex h-9 w-9 items-center justify-center rounded-sm bg-destructive/10 text-destructive transition-colors hover:bg-destructive/20"
+            className="flex h-9 w-9 items-center justify-center rounded-md bg-destructive/10 text-destructive transition-colors hover:bg-destructive/20"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>

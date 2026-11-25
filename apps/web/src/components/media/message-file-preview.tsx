@@ -112,7 +112,7 @@ export function PdfEmbed({ src, className }: { src: string; className?: string }
               }}
               aria-label={t('pdfPageJumpLabel')}
               data-testid="pdf-page-input"
-              className="h-5 w-12 rounded-sm border border-border bg-background px-1 text-[10px] tabular-nums outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
+              className="h-5 w-12 rounded-md border border-border bg-background px-1 text-[10px] tabular-nums outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
             />
             <button
               type="button"

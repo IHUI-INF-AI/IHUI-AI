@@ -56,7 +56,7 @@ function InjectionItemRow({
   const canExpand = typeof injection.fullText === 'string' && injection.fullText !== ''
 
   return (
-    <div className="rounded-sm">
+    <div className="rounded-md">
       <button
         type="button"
         onClick={() => canExpand && setOpen((v) => !v)}
@@ -64,7 +64,7 @@ function InjectionItemRow({
         disabled={!canExpand}
         data-testid={`injection-row-${injection.kind}`}
         className={cn(
-          'flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-xs',
+          'flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-xs',
           canExpand ? 'cursor-pointer transition-colors hover:bg-accent/40' : 'cursor-default',
         )}
       >
@@ -82,7 +82,7 @@ function InjectionItemRow({
         <span className="min-w-0 flex-1 truncate">{label}</span>
       </button>
       {open && injection.fullText ? (
-        <pre className="mx-1 mt-0.5 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-sm bg-muted/50 p-2 font-mono text-[11px] leading-relaxed text-muted-foreground">
+        <pre className="mx-1 mt-0.5 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-2 font-mono text-[11px] leading-relaxed text-muted-foreground">
           {injection.fullText}
         </pre>
       ) : null}
@@ -111,7 +111,7 @@ export function ContextInjectionList({ injections, t, className }: ContextInject
         aria-expanded={multi ? expanded : undefined}
         disabled={!multi}
         className={cn(
-          'flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-xs text-muted-foreground',
+          'flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-xs text-muted-foreground',
           multi && 'cursor-pointer transition-colors hover:bg-accent/40',
         )}
         data-testid="injection-bar-header"

@@ -62,7 +62,7 @@ export default function ModelTypeButton({
   // ===== compact 模式:兼容旧调用(纵向布局 图标+文字)=====
   return (
     <View
-      className={`flex flex-col items-center justify-center mr-md px-md py-sm rounded-sm transition-colors ${
+      className={`flex flex-col items-center justify-center mr-md px-md py-sm rounded-md transition-colors ${
         active
           ? 'bg-primary/10 border border-stroke-selected'
           : 'bg-muted border border-transparent'
