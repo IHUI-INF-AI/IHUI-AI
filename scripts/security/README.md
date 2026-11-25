@@ -116,11 +116,11 @@ curl.exe -i -H "Accept: text/html" http://<边缘回源IP>:8801/   # 浏览器�
 
 立因（2026-11-26 凌晨真实事故取证）：Windows 的失败计数**不分来源**——隧道侧 `sshd-session.exe` 的 publickey 失败（24h 内 225 次）、本机自动化 Chrome 的 Type 2 Negotiate 失败（24h 内 43 次）都计入 `Administrator` 的同一个计数器。02:29 与 02:48 两次 4740 就是这样把账号锁死，连带所有 S4U 计划任务 `LogonUserS4U` 报 `0x80070775`（win32 **1909 账号已锁定**），`Last Result` 恒 0、`Status` 恒 Ready——外观完全正常，实际一条都没跑。**任何人只要能连到 sshd，就能给本机账号"投票"锁死它**，而密码认证早已关闭（`PasswordAuthentication no`，24h 密码成功 0 次），所以锁定策略唯一的效果就是远程可触发的 DoS。
 
-**该取值成立的三条前提**（任一条被打破就必须重新评估，不能继续沿用）：
+**该取值成立的两条前提 + 一条已证伪的替代方案**（任一前提被打破就必须重新评估，不能继续沿用）：
 
 1. `fDenyTSConnections` 虽为 0，但 **3389 无监听** —— RDP 没有对外提供密码登录面。
 2. sshd **`PasswordAuthentication no`**，只留公钥 —— 密码暴破不可能成功，锁定对"防猜中"已无收益。
-3. Chrome 集成认证已整机关闭（`HKLM\SOFTWARE\Policies\Google\Chrome` 两条：`AuthServerAllowlist=''`、`AuthNegotiateDelegateAllowlist=''`）—— 从源头不再产生 Type 2 4625。
+3. Chrome / svchost 侧的 Type 2 4625 **实测无法用策略或启动参数消除**（2026-11-26 逐项实验：`AuthServerAllowlist` 空串、`AuthServerAllowlist=https://none.invalid`、`--disable-features=WindowsSSO`，三次各跑一次 headless Chrome 访问 `127.0.0.1:8805`，**每次仍新增 1 条 4625**；两条无效策略已回滚为未设置）。它的危害从来不是"产生失败登录",而是"把本机账号投锁"——阈值 0 已让这条投锁通道失效,所以 4625 只作**观测项**,不追求归零,也不再用"关掉 Chrome 认证"当作前提。
 
 **判据联动**：`check-account-lockout.mjs` 读 `secedit /export` 的 `LockoutBadCount`（不用 `net accounts`——它写管道走 OEM 码页，中文会被读成乱码）。阈值 0 时同组 4625 突发只记 `observations` 不判 breach（无锁定后果），**4740 仍判红**（策略被别处改回时不放过）；阈值 >0 时沿用突发判红并额外点名 DoS 面；读不到 ⇒ undetermined，判据按 ENABLED 保守判，不冒绿。
 
