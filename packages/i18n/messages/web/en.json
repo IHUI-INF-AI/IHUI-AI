@@ -21573,7 +21573,9 @@
       "uploadFileHint": "Supports docx/pdf/image/video, drag or click to upload",
       "uploadSuccess": "Uploaded: {filename}",
       "uploadedHint": "File uploaded. Click to replace.",
-      "uploading": "Uploading..."
+      "uploading": "Uploading...",
+      "usePool": "Use account pool",
+      "usePoolHint": "Let the system assign available accounts automatically"
     },
     "platforms": {
       "36kr": "36Kr",

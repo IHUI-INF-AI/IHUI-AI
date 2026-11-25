@@ -21753,7 +21753,9 @@
       "uploadFileHint": "docx/pdf/이미지/비디오 지원, 드래그 또는 클릭하여 업로드",
       "uploadSuccess": "업로드됨: {filename}",
       "uploadedHint": "파일이 업로드되었습니다. 다시 선택하여 교체할 수 있습니다.",
-      "uploading": "업로드 중..."
+      "uploading": "업로드 중...",
+      "usePool": "계정 풀 사용",
+      "usePoolHint": "사용 가능한 계정을 시스템이 자동으로 배정합니다"
     },
     "platforms": {
       "36kr": "36Kr",
