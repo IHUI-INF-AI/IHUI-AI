@@ -2227,6 +2227,7 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🐞 수정:代理画中画监看模板 CRUD 到 ai-service 8803 (80382e9c)
 - 🐞 수정:监看模板编辑器 i18n 命名空间与模板 CRUD 反代 (6860c729)
 - 🚀 기능/개선:R9 多窗画中画 + 可视化监看模板编辑器 (b6f01830)
 - 🐞 수정:WechatJobKind 补 'moment' 一档,解锁净面构建 (37138a5b)

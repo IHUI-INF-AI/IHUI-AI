@@ -96,6 +96,7 @@ Two structural gates are named here so they cannot be re-invented or bypassed si
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🐞 修复:代理画中画监看模板 CRUD 到 ai-service 8803 (80382e9c)
 - 🐞 修复:监看模板编辑器 i18n 命名空间与模板 CRUD 反代 (6860c729)
 - 🚀 新功能/改进:R9 多窗画中画 + 可视化监看模板编辑器 (b6f01830)
 - 🐞 修复:WechatJobKind 补 'moment' 一档,解锁净面构建 (37138a5b)

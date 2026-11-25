@@ -99,6 +99,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🐞 Fix:代理画中画监看模板 CRUD 到 ai-service 8803 (80382e9c)
 - 🐞 Fix:监看模板编辑器 i18n 命名空间与模板 CRUD 反代 (6860c729)
 - 🚀 Feature/Improvement:R9 多窗画中画 + 可视化监看模板编辑器 (b6f01830)
 - 🐞 Fix:WechatJobKind 补 'moment' 一档,解锁净面构建 (37138a5b)
