@@ -7,13 +7,13 @@
 # RN 端微信一键登录 · 真机验证清单
 
 > 适用于 `apps/mobile-rn` 的微信 App 内一键登录（`react-native-wechat-lib` → `POST /api/auth/login/wechat`）。
-> 服务端配置已于 2026-11-13 完成：生产 `.env` 含 `WECHAT_MOBILE_APP_ID=wx85fa429a9331b5c8` + `WECHAT_MOBILE_SECRET`，公网 `/api/auth/login/wechat` 已从 501 未配置转为 401（进入微信交换阶段）。
+> 服务端配置已于 2026-11-25 对齐：生产 `.env` 含 `WECHAT_MOBILE_APP_ID=wx3c37d94ee8f70148` + `WECHAT_MOBILE_SECRET`，公网 `/api/auth/login/wechat` 已从 501 未配置转为 401（进入微信交换阶段）。
 > 本清单覆盖服务端配置生效后的**客户端真机链路**验证。
 
 ## 前置检查（开测前逐项确认）
 
 - [ ] **微信开放平台后台 · 移动应用已审核通过**
-  位置：open.weixin.qq.com → 管理中心 → 移动应用 → `wx85fa429a9331b5c8`
+  位置：open.weixin.qq.com → 管理中心 → 移动应用 → `wx3c37d94ee8f70148`
   预期：应用状态为「已通过」；若为「审核中/未通过」，登录必失败（errcode 40125 / appid 无权限）。
 
 - [ ] **应用包名一致**
@@ -30,7 +30,7 @@
   预期：该域名在微信开放平台后台的「Universal Link」字段登记一致，且 `apple-app-site-association` 可访问。
 
 - [ ] **两端 AppID 一致**
-  RN 端 `apps/mobile-rn/app.json` 的 `extra.WX_APP_APPID` = 后端 `WECHAT_MOBILE_APP_ID` = `wx85fa429a9331b5c8`。
+  RN 端 `apps/mobile-rn/app.json` 的 `extra.WX_APP_APPID` = 后端 `WECHAT_MOBILE_APP_ID` = `wx3c37d94ee8f70148`。
   预期：逐字一致。不一致会「能拉起授权但换 token 失败」。
 
 - [ ] **真机已安装微信**

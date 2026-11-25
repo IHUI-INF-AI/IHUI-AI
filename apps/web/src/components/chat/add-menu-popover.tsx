@@ -8,6 +8,7 @@ import * as React from 'react'
 import {
   ArrowRight,
   Cable,
+  Check,
   FileText,
   Loader2,
   Mic,
@@ -80,8 +81,10 @@ export function AddMenuPopover(props: {
   onAddTextReference: () => void
   /** "插件市场"回调(主组件负责关闭 + 重置 mode + 跳转 /plugins) */
   onOpenPluginMarket: () => void
-  /** "连接器"回调(主组件负责关闭 + 重置 mode + 跳转 /connectors;与插件市场同属能力层入口) */
-  onOpenConnectors: () => void
+  /** "连接器"回调(2026-11-25:toggle 挂载连接器只读能力到对话;主组件负责关闭 + 重置 mode) */
+  onToggleConnectors: () => void
+  /** 连接器只读能力是否已挂载(菜单项显示选中态) */
+  connectorsMounted: boolean
   /** "深度研究"回调(2026-09-07 工作线 B:主组件负责关闭 + 重置 mode + 跳转 /deep-research) */
   onOpenDeepResearch: () => void
   /** "压缩上下文"回调(2026-09-06 整合:剪刀按钮收纳进本菜单;主组件负责 POST /api/chat/compact)。
@@ -124,7 +127,8 @@ export function AddMenuPopover(props: {
     onVoiceRecordComplete,
     onAddTextReference,
     onOpenPluginMarket,
-    onOpenConnectors,
+    onToggleConnectors,
+    connectorsMounted,
     onOpenDeepResearch,
     onCompactContext,
     compacting = false,
@@ -451,19 +455,24 @@ export function AddMenuPopover(props: {
                   <Package className={MENU_ITEM_ICON_CLASS} />
                   <span className="min-w-0 flex-1 truncate">{tNav('pluginMarket')}</span>
                 </button>
-                {/* 连接器入口(2026-11-25):与插件市场同属"能力"层,跳转 /connectors 授权管理。
-                    输入框内已有"多源建议→连接器"引用入口,这里补的是直达管理页的最后一公里 */}
+                {/* 连接器入口(2026-11-25):toggle 挂载只读能力到对话。挂载后 AI 可调用
+                    connector_capabilities/connector_call_read 查询用户已授权连接器的数据;
+                    action 写操作不进工具面。授权管理仍在顶栏生态市场的 /connectors 页。 */}
                 <button
                   type="button"
                   role="menuitem"
+                  aria-pressed={connectorsMounted}
                   disabled={isStreaming}
                   onClick={() => {
-                    onOpenConnectors()
+                    onToggleConnectors()
                   }}
-                  className={MENU_ITEM_CLASS}
+                  className={cn(MENU_ITEM_CLASS, connectorsMounted && 'bg-accent')}
                 >
                   <Cable className={MENU_ITEM_ICON_CLASS} />
                   <span className="min-w-0 flex-1 truncate">{tNav('connectors')}</span>
+                  {connectorsMounted && (
+                    <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                  )}
                 </button>
                 {/* 深度研究入口(2026-09-07 工作线 B):跳转 /deep-research 页面发起多轮深挖研究 */}
                 <button

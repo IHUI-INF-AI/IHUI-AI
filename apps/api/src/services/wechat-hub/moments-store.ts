@@ -154,6 +154,7 @@ export async function upsertMoments(
 export async function listMomentsArchive(
   accountId: string,
   limit: number,
+  offset = 0,
 ): Promise<WechatMomentArchiveItemView[]> {
   const rows = await dbRead
     .select()
@@ -161,6 +162,7 @@ export async function listMomentsArchive(
     .where(eq(wechatHubMoments.accountId, accountId))
     .orderBy(desc(wechatHubMoments.lastSeenAt))
     .limit(limit)
+    .offset(Math.max(0, Math.floor(offset)))
   return rows.map((row) => {
     const metadata = (row.metadata ?? {}) as Record<string, unknown>
     const likeUsers = Array.isArray(metadata.likeUsers)

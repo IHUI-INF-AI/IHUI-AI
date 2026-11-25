@@ -111,6 +111,47 @@ export const taroType = Object.fromEntries(
   ]),
 ) as Record<keyof typeof TYPE_STEPS, { fontSize: string; lineHeight: string; fontWeight: number }>
 
+/**
+ * 语义角色 → 档位(2026-11-25 补,与 SPACING_ROLES / RADIUS_ROLES 同构):
+ * **只映射本表已有档,不新造字号**(守门口径见 packages/shared/src/ui/__tests__/page-spec.test.ts
+ * 「TYPE_ROLES 只映射现有档」)。角色的存在理由是让页面骨架按"这个位置是什么语义"取档,
+ * 而不是让每个屏自己写死字号 —— 屏里写死 14/16 正是两端字号差 1-2px 的成因。
+ */
+export const TYPE_ROLES = {
+  /** 计数徽章 / 缩略图角标 */
+  badge: 'badge',
+  /** 辅助说明 / 日期分组 */
+  caption: 'caption',
+  /** 标签 / 空态文案 */
+  label: 'label',
+  /** 小号正文 */
+  bodySm: 'bodySm',
+  /** 正文(页面默认文字) */
+  body: 'body',
+  /** 昵称 / 强调文字 */
+  strong: 'strong',
+  /** 卡片标题 */
+  cardTitle: 'title',
+  /** 页面内区段标题(小节标题,与卡片标题同档 16) */
+  sectionTitle: 'title',
+  /** 页面主标题 */
+  pageTitle: 'display',
+  /** 数据面板大数字 */
+  statNumber: 'headline',
+} as const
+
+/** 角色 → 档值(RN 直接消费):与 TYPE_STEPS 逐档同值,不另立数字 */
+export const rnTypeFor = Object.fromEntries(
+  Object.entries(TYPE_ROLES).map(([role, step]) => [role, TYPE_STEPS[step]]),
+) as Record<keyof typeof TYPE_ROLES, TypeStep>
+
+/** 角色 → rpx 字符串(小程序直接消费):2 倍换算只发生在 taroType 这一处,本表复用其结果 */
+export const taroTypeFor = Object.fromEntries(
+  Object.entries(TYPE_ROLES).map(([role, step]) => [role, taroType[step]]),
+) as Record<keyof typeof TYPE_ROLES, { fontSize: string; lineHeight: string; fontWeight: number }>
+
+export type TypeRole = keyof typeof TYPE_ROLES
+
 export type TypeStepName = keyof typeof TYPE_STEPS
 export type FontWeightName = keyof typeof FONT_WEIGHTS
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

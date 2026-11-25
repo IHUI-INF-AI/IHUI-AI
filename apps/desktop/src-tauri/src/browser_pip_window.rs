@@ -15,7 +15,9 @@
 
 use std::sync::Mutex;
 
-use tauri::{AppHandle, Emitter, Manager, Url, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+    AppHandle, Emitter, Manager, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
+};
 
 /// 全仓唯一的 AI 画中画窗口 label。
 pub const AI_PIP_WINDOW_LABEL: &str = "ai-browser-pip";
@@ -25,24 +27,42 @@ const AI_PIP_MIN_WIDTH: f64 = 320.0;
 const AI_PIP_MIN_HEIGHT: f64 = 200.0;
 const AI_PIP_MARGIN: f64 = 24.0;
 
-/// 上次 AI 画中画窗口位置(逻辑坐标);窗口关闭时记,下次打开沿用。
-static AI_PIP_LAST_POS: Mutex<Option<(f64, f64)>> = Mutex::new(None);
-/// 上次 AI 画中画窗口尺寸(逻辑坐标);同样关闭时记,下次打开沿用。
-static AI_PIP_LAST_SIZE: Mutex<Option<(f64, f64)>> = Mutex::new(None);
+/// 上次 AI 画中画窗口位置(物理像素);窗口关闭时记,下次打开沿用。
+/// 这里刻意用物理像素而不是逻辑坐标:150% DPI 下 WebView2 初始化会触发一次
+/// DPI 换算,逻辑尺寸在 builder/show 之间会被再缩放一次,真机表现为
+/// 「拖到 900×600,关掉重开变成 600×400」。存物理像素并在 show 后用
+/// `set_size(PhysicalSize)` 落一次,才能像素级还原。
+static AI_PIP_LAST_POS: Mutex<Option<(i32, i32)>> = Mutex::new(None);
+/// 上次 AI 画中画窗口内容区尺寸(物理像素);同样关闭时记,下次打开沿用。
+static AI_PIP_LAST_SIZE: Mutex<Option<(u32, u32)>> = Mutex::new(None);
 
-/// 上次尺寸不能把窗口缩到看不了;下限仍是 320×200。
-fn clamp_pip_size(last: Option<(f64, f64)>) -> (f64, f64) {
-    let Some((width, height)) = last else {
-        return (AI_PIP_WIDTH, AI_PIP_HEIGHT);
+/// 上次尺寸不能把窗口缩到看不了;下限仍是 320×200 逻辑像素,
+/// 按当前 DPI 换算成物理像素后再夹。
+fn clamp_pip_pixels(width: u32, height: u32, scale: f64) -> (u32, u32) {
+    let scale = if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
     };
-    if !width.is_finite() || !height.is_finite() {
-        return (AI_PIP_WIDTH, AI_PIP_HEIGHT);
-    }
-    (width.max(AI_PIP_MIN_WIDTH), height.max(AI_PIP_MIN_HEIGHT))
+    let min_w = (AI_PIP_MIN_WIDTH * scale).round() as u32;
+    let min_h = (AI_PIP_MIN_HEIGHT * scale).round() as u32;
+    (width.max(min_w), height.max(min_h))
 }
 
-fn pip_open_size() -> (f64, f64) {
-    clamp_pip_size(AI_PIP_LAST_SIZE.lock().ok().and_then(|guard| *guard))
+/// 记当前几何,供下次打开沿用。用户点关闭和代码主动销毁都必须走这里,
+/// 否则 `destroy()` 不触发 `CloseRequested`,尺寸/位置会丢。
+fn remember_pip_geometry(win: &WebviewWindow) {
+    if let Ok(pos) = win.outer_position() {
+        if let Ok(mut guard) = AI_PIP_LAST_POS.lock() {
+            *guard = Some((pos.x, pos.y));
+        }
+    }
+    if let Ok(size) = win.inner_size() {
+        let scale = win.scale_factor().unwrap_or(1.0);
+        if let Ok(mut guard) = AI_PIP_LAST_SIZE.lock() {
+            *guard = Some(clamp_pip_pixels(size.width, size.height, scale));
+        }
+    }
 }
 
 /// 由主窗口 URL 生成 `/browser-pip?session=...`,保留主站 origin(含端口)。
@@ -84,19 +104,19 @@ struct BrowserPipHandover {
 }
 
 /// 主窗口右上角内侧;拿不到主窗几何时回落到屏幕左上。
-fn pip_open_position(app: &AppHandle) -> (f64, f64) {
+fn pip_open_position(app: &AppHandle) -> (i32, i32) {
     if let Some(last) = AI_PIP_LAST_POS.lock().ok().and_then(|g| *g) {
         return last;
     }
     let Some(main) = app.get_webview_window("main") else {
-        return (AI_PIP_MARGIN, AI_PIP_MARGIN);
+        return (AI_PIP_MARGIN as i32, AI_PIP_MARGIN as i32);
     };
     let scale = main.scale_factor().unwrap_or(1.0);
     let pos = main.outer_position().unwrap_or_default();
     let size = main.outer_size().unwrap_or_default();
-    let x = (pos.x as f64 + size.width as f64 - (AI_PIP_WIDTH + AI_PIP_MARGIN) * scale) / scale;
-    let y = (pos.y as f64 + AI_PIP_MARGIN * scale) / scale;
-    (x.max(0.0), y.max(0.0))
+    let x = pos.x + size.width as i32 - ((AI_PIP_WIDTH + AI_PIP_MARGIN) * scale) as i32;
+    let y = pos.y + (AI_PIP_MARGIN * scale) as i32;
+    (x.max(0), y.max(0))
 }
 
 /// 只把 token 注入预期 origin 的页面。`initialization_script` 会在每次页面
@@ -130,7 +150,9 @@ pub async fn open_browser_pip_window(
     let url = browser_pip_url(&main_url, &session_id)?;
     let token_script = pip_token_script(&access_token, &url.origin().ascii_serialization())?;
 
+    let open_scale = main.scale_factor().unwrap_or(1.0);
     let (x, y) = pip_open_position(&app);
+    let saved_size = AI_PIP_LAST_SIZE.lock().ok().and_then(|guard| *guard);
     let build_app = app.clone();
     let build_session = session_id.clone();
     let build_script = token_script.clone();
@@ -141,29 +163,55 @@ pub async fn open_browser_pip_window(
     //
     // 重复打开必须先等旧窗真正销毁:close() 只是把销毁排进事件循环,紧接着
     // build 同 label 会报 "a webview with label ai-browser-pip already exists"
-    // (页面热更新/用户连点两次都会踩到)。这里先把关闭发出去,250ms 后在 UI
-    // 线程重建 —— 让事件循环有机会处理 Destroyed,而不是在主线程 sleep 死等。
+    // (页面热更新/用户连点两次都会踩到)。这里先把关闭发出去,再以 150ms 为步长
+    // 轮询旧 label 是否消失(最多 1.8s),确认后才在 UI 线程重建。
     if let Some(old) = app.get_webview_window(AI_PIP_WINDOW_LABEL) {
-        let _ = old.close();
+        // 先记几何,再强制销毁:close() 只是排队,WebView2 实测 250ms 后
+        // get_webview_window 仍可能拿到旧 label,重建会被"旧窗尚未销毁"挡住。
+        // destroy() 不触发 CloseRequested,所以几何必须在这里显式落盘。
+        remember_pip_geometry(&old);
+        let _ = old.destroy();
     }
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        // destroy() 之后 WebView2 的销毁仍在 UI 事件循环里排队,固定 250ms 在真机
+        // 不够:2026-11-25 实测仍有 get_webview_window 拿回旧 label 的情况。这里
+        // 改成轮询「旧窗是否真的从 manager 消失」,最多等 1.8s;只有确认消失才 build,
+        // 避免用固定 sleep 赌时序。
+        let mut old_gone = false;
+        for _ in 0..12 {
+            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+            let probe_app = build_app.clone();
+            let (tx, rx) = tokio::sync::oneshot::channel::<bool>();
+            let _ = build_app.run_on_main_thread(move || {
+                let _ = tx.send(probe_app.get_webview_window(AI_PIP_WINDOW_LABEL).is_none());
+            });
+            if let Ok(true) = rx.await {
+                old_gone = true;
+                break;
+            }
+        }
+        if !old_gone {
+            let error = "旧画中画窗口尚未销毁,已放弃本次重建".to_string();
+            log::error!("[browser-pip] {error}");
+            let _ = build_app.emit_to("main", "browser-pip://failed", error);
+            let _ = build_app.emit_to("main", "browser-pip://closed", ());
+            return;
+        }
         let create_app = build_app.clone();
         let _ = build_app.run_on_main_thread(move || {
             let result = (|| -> Result<(), String> {
                 if create_app.get_webview_window(AI_PIP_WINDOW_LABEL).is_some() {
                     return Err("旧画中画窗口尚未销毁,已放弃本次重建".to_string());
                 }
-                let (open_w, open_h) = pip_open_size();
                 let win = WebviewWindowBuilder::new(
                     &create_app,
                     AI_PIP_WINDOW_LABEL,
                     WebviewUrl::External(url),
                 )
                 .title("AI 画中画监看")
-                .inner_size(open_w, open_h)
+                .inner_size(AI_PIP_WIDTH, AI_PIP_HEIGHT)
                 .min_inner_size(AI_PIP_MIN_WIDTH, AI_PIP_MIN_HEIGHT)
-                .position(x, y)
+                .position(x as f64 / open_scale, y as f64 / open_scale)
                 .resizable(true)
                 .always_on_top(true)
                 .skip_taskbar(true)
@@ -174,6 +222,13 @@ pub async fn open_browser_pip_window(
                 .map_err(|e| format!("打开 AI 画中画窗口失败: {e}"))?;
                 win.show()
                     .map_err(|e| format!("显示 AI 画中画窗口失败: {e}"))?;
+                // builder 按逻辑像素建窗,150% DPI 下 WebView2 初始化还会再触发一次
+                // DPI 换算。这里在 show 之后用物理像素把上次的内尺寸和位置再落一次,
+                // 保证用户拖到多大、关掉重开就还是多大,而不是被换算成 2/3。
+                if let Some((saved_w, saved_h)) = saved_size {
+                    let _ = win.set_size(tauri::PhysicalSize::new(saved_w, saved_h));
+                }
+                let _ = win.set_position(tauri::PhysicalPosition::new(x, y));
                 // builder 的 .title 在本机被外壳的窗控标题覆盖成「智汇AI」,
                 // show 之后再落一次,保证任务栏/Alt-Tab 里认得出这是监看窗。
                 let _ = win.set_title("AI 画中画监看");
@@ -194,22 +249,18 @@ pub async fn open_browser_pip_window(
                 // 关窗即记位置;下次打开沿用,避免每次都回到主窗右上角。
                 let win_ev = win.clone();
                 win.on_window_event(move |event| {
+                    // 尺寸/位置在拖动缩放时持续落盘。WebView2 下外部的 WM_CLOSE
+                    // 不一定走 CloseRequested;只靠关闭事件会退回默认 420×280
+                    // (2026-11-25 真机:620×420 关闭重开变成 428×297)。
+                    if matches!(
+                        event,
+                        tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Moved(_)
+                    ) {
+                        remember_pip_geometry(&win_ev);
+                        return;
+                    }
                     if let tauri::WindowEvent::CloseRequested { .. } = event {
-                        if let Ok(pos) = win_ev.outer_position() {
-                            let scale = win_ev.scale_factor().unwrap_or(1.0);
-                            if let Ok(mut guard) = AI_PIP_LAST_POS.lock() {
-                                *guard = Some((pos.x as f64 / scale, pos.y as f64 / scale));
-                            }
-                            if let Ok(size) = win_ev.inner_size() {
-                                let logical = (
-                                    size.width as f64 / scale,
-                                    size.height as f64 / scale,
-                                );
-                                if let Ok(mut guard) = AI_PIP_LAST_SIZE.lock() {
-                                    *guard = Some(clamp_pip_size(Some(logical)));
-                                }
-                            }
-                        }
+                        remember_pip_geometry(&win_ev);
                         let _ = win_ev.emit_to("main", "browser-pip://closed", ());
                     }
                 });
@@ -331,17 +382,13 @@ mod tests {
     }
 
     #[test]
-    fn pip_size_defaults_and_clamps_to_minimum() {
-        assert_eq!(clamp_pip_size(None), (AI_PIP_WIDTH, AI_PIP_HEIGHT));
-        assert_eq!(clamp_pip_size(Some((520.0, 390.0))), (520.0, 390.0));
-        assert_eq!(
-            clamp_pip_size(Some((200.0, 120.0))),
-            (AI_PIP_MIN_WIDTH, AI_PIP_MIN_HEIGHT)
-        );
-        assert_eq!(
-            clamp_pip_size(Some((f64::NAN, 400.0))),
-            (AI_PIP_WIDTH, AI_PIP_HEIGHT)
-        );
+    fn pip_size_clamps_to_dpi_physical_minimum() {
+        assert_eq!(clamp_pip_pixels(520, 390, 1.0), (520, 390));
+        assert_eq!(clamp_pip_pixels(200, 120, 1.0), (320, 200));
+        assert_eq!(clamp_pip_pixels(200, 120, 1.5), (480, 300));
+        assert_eq!(clamp_pip_pixels(900, 600, 1.5), (900, 600));
+        // DPI 读不到时按 100% 处理,不能让 NaN 变成非法尺寸。
+        assert_eq!(clamp_pip_pixels(200, 120, f64::NAN), (320, 200));
     }
 
     #[test]

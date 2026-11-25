@@ -806,15 +806,16 @@ function clampArchiveLimit(value: number | undefined): number {
 export async function listMomentArchive(
   userId: string,
   accountId: string,
-  input: { limit?: number } = {},
+  input: { limit?: number; offset?: number } = {},
 ): Promise<WechatMomentArchiveView> {
   await assertAccountForUser(userId, accountId)
   const limit = clampArchiveLimit(input.limit)
+  const offset = Math.max(0, Math.floor(input.offset ?? 0))
 
   try {
-    const moments = await listMomentsArchive(accountId, limit)
+    const moments = await listMomentsArchive(accountId, limit, offset)
     const total = await countMomentsArchive(accountId)
-    return { storage: 'database', total, moments, limit, reason: null }
+    return { storage: 'database', total, moments, limit, offset, reason: null }
   } catch (dbError) {
     const dbReason = dbError instanceof Error ? dbError.message : String(dbError)
     const bridge = await wechatHubManager.readMomentArchive(userId, accountId, limit)
@@ -829,7 +830,11 @@ export async function listMomentArchive(
         total: bridge.total,
         moments,
         limit,
-        reason: `数据库归档暂不可用，已降级读取桥本地归档：${dbReason}`,
+        offset: 0,
+        reason:
+          offset > 0
+            ? `数据库归档暂不可用，已降级读取桥本地归档（桥不支持翻页，已从第一条返回）：${dbReason}`
+            : `数据库归档暂不可用，已降级读取桥本地归档：${dbReason}`,
       }
     }
     return {
@@ -837,6 +842,7 @@ export async function listMomentArchive(
       total: 0,
       moments: [],
       limit,
+      offset,
       reason: `数据库归档不可用（${dbReason}）；桥本地归档也不可用（${bridge.reason ?? '未知原因'}）`,
     }
   }

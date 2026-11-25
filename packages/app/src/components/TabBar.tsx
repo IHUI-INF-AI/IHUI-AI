@@ -6,13 +6,23 @@ import { useCallback } from 'react'
 import type { CSSProperties } from 'react'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
 
+import {
+  TAB_BAR_FONT_SIZE_PX,
+  TAB_BAR_HEIGHT_PX,
+  TAB_BAR_ICON_SIZE_PX,
+} from '@ihui/shared/ui/tab-bar-spec'
 import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 /**
- * TabBar 底部导航(跨端共享层)。
+ * TabBar 底部导航(跨端共享层,端内同构兜底实现)。
  *
- * 对齐 mobile-rn/TabBar.tsx 的 5 Tab 模式(首页/课程/AI/直播/我的),
- * 保留双图/单图分支(单图模式用 brand 着色切换 active 态)。
+ * 2026-11-25 三端同脸(真落地):
+ *  - 键名对齐实况 —— 此前这里写的是 `home/course/ai/live/mine`,是 2026-08 的五 Tab 旧世界;
+ *    两端实况早已换成 AI应用商店/广场/智汇AI/动态/我的,与小程序 `constants/tab-bar-pages.ts`
+ *    的 `market/plaza/chat/feed/me` 逐键同序。留旧键等于在共享层放一份会写错的契约。
+ *  - 几何不要本地字面量 —— height/icon/font 三档改读 `@ihui/shared/ui/tab-bar-spec`(胶囊高
+ *    62 = AI 输入框外壳档,字号 11)。此前本文件自写 56 / 24 / 10,与单一源直接分叉两档,
+ *    而这个分叉没有任何门能看见(门 128 只认同名成对文件,本文件与 RN 的 TabBar 不同名)。
  *
  * 平台无关:
  * - 不依赖 @tarojs/* 或 react-native,使用 div/span/img + onClick
@@ -21,7 +31,7 @@ import { rnRadius, rnSpacing } from '@ihui/design-tokens'
  * - 图片资源通过 `iconInactive`/`iconActive`/`singleIcon` URL 字符串注入(替代 RN `require()`),
  *   调用方负责传入可用 URL;单图模式用 CSS filter 模拟 brand tint
  */
-export type TabBarKey = 'home' | 'course' | 'ai' | 'live' | 'mine'
+export type TabBarKey = 'market' | 'plaza' | 'chat' | 'feed' | 'me'
 
 export type TabBarItemConfig =
   | {
@@ -55,15 +65,12 @@ export interface TabBarProps {
   colorScheme?: AppThemeMode
 }
 
-const TAB_BAR_HEIGHT = 56
-const TAB_BAR_ICON_SIZE = 24
-const TAB_BAR_FONT_SIZE = 10
 const DEFAULT_TABS: readonly TabBarItemConfig[] = [
-  { key: 'home', label: '首页', iconInactive: '', iconActive: '' },
-  { key: 'course', label: '课程', singleTinted: true, singleIcon: '' },
-  { key: 'ai', label: 'AI', iconInactive: '', iconActive: '' },
-  { key: 'live', label: '直播', iconInactive: '', iconActive: '' },
-  { key: 'mine', label: '我的', iconInactive: '', iconActive: '' },
+  { key: 'market', label: 'AI应用商店', iconInactive: '', iconActive: '' },
+  { key: 'plaza', label: '广场', iconInactive: '', iconActive: '' },
+  { key: 'chat', label: '智汇AI', iconInactive: '', iconActive: '' },
+  { key: 'feed', label: '动态', iconInactive: '', iconActive: '' },
+  { key: 'me', label: '我的', iconInactive: '', iconActive: '' },
 ] as const
 
 const viewStyles = {
@@ -72,7 +79,7 @@ const viewStyles = {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    height: TAB_BAR_HEIGHT + safeAreaBottom,
+    height: TAB_BAR_HEIGHT_PX + safeAreaBottom,
     paddingBottom: safeAreaBottom,
     // 液态玻璃底(2026-10-16 用户定稿):半透明 + backdrop blur,与 mobile-rn TabBar 同档
     backgroundColor: tk.glass.bg,
@@ -85,7 +92,7 @@ const viewStyles = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    height: TAB_BAR_HEIGHT,
+    height: TAB_BAR_HEIGHT_PX,
     paddingTop: rnSpacing.xs,
     paddingBottom: rnSpacing.xs,
     cursor: 'pointer',
@@ -94,13 +101,13 @@ const viewStyles = {
     opacity: 0.6,
   }),
   icon: (): CSSProperties => ({
-    width: TAB_BAR_ICON_SIZE,
-    height: TAB_BAR_ICON_SIZE,
+    width: TAB_BAR_ICON_SIZE_PX,
+    height: TAB_BAR_ICON_SIZE_PX,
     objectFit: 'contain',
   }),
   iconSingle: (filter: string): CSSProperties => ({
-    width: TAB_BAR_ICON_SIZE,
-    height: TAB_BAR_ICON_SIZE,
+    width: TAB_BAR_ICON_SIZE_PX,
+    height: TAB_BAR_ICON_SIZE_PX,
     objectFit: 'contain',
     filter,
   }),
@@ -108,8 +115,8 @@ const viewStyles = {
 
 const textStyles = {
   label: (color: string): CSSProperties => ({
-    fontSize: TAB_BAR_FONT_SIZE,
-    lineHeight: `${TAB_BAR_FONT_SIZE + 2}px`,
+    fontSize: TAB_BAR_FONT_SIZE_PX,
+    lineHeight: `${TAB_BAR_FONT_SIZE_PX + 2}px`,
     marginTop: 2,
     color,
     overflow: 'hidden',
@@ -199,8 +206,8 @@ function TabBarIcon({ tab, isActive, activeColor, inactiveColor }: TabBarIconPro
         <div
           aria-hidden
           style={{
-            width: TAB_BAR_ICON_SIZE,
-            height: TAB_BAR_ICON_SIZE,
+            width: TAB_BAR_ICON_SIZE_PX,
+            height: TAB_BAR_ICON_SIZE_PX,
             backgroundColor: target,
             borderRadius: rnRadius.sm,
           }}
@@ -225,8 +232,8 @@ function TabBarIcon({ tab, isActive, activeColor, inactiveColor }: TabBarIconPro
       <div
         aria-hidden
         style={{
-          width: TAB_BAR_ICON_SIZE,
-          height: TAB_BAR_ICON_SIZE,
+          width: TAB_BAR_ICON_SIZE_PX,
+          height: TAB_BAR_ICON_SIZE_PX,
           backgroundColor: isActive ? activeColor : inactiveColor,
           borderRadius: rnRadius.sm,
         }}

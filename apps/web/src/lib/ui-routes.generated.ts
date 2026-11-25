@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: d0824cc6a39f363873869b00a37599b95e213d2a
-// inputsSha256: 2e2cc6f79ef7f33b84ced7b7680f8dbdd2258e3899974124b05475f8872868ee
+// sourceCommit: f8f2740e937d6b8cf0dcbe3a8aa90e9283bb1f3d
+// inputsSha256: 0f3bfd0c81520b7dd35908f5f29535680ef3cd11ca7d2865002559a99f5b288b
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -488,7 +488,7 @@
 // input: apps/web/app/(main)/compare/ihui-vs-zhipu/page.tsx 8bf7b9ce5f238e1df965389a431f2b88e8fa521bdedd3da536508e3b2a48b46a
 // input: apps/web/app/(main)/compare/page.tsx abd0e587394f338ba42906598a2b915abc7ef909caac1619e7e31025abc3cf00
 // input: apps/web/app/(main)/computer-use/page.tsx 241855939d06b674a4ea89def13207ebe0c1c8e90bf37a89cb34ec528b6c5f46
-// input: apps/web/app/(main)/connectors/page.tsx efe0c3dfc82f0add7377bd131e6fd6497ec9868e79b7366b241042d79c9994f0
+// input: apps/web/app/(main)/connectors/page.tsx dd7e031cbc4e258dbf377077f0125d2e5f7b8a62e072d1d3f8af26b2fbe90e2d
 // input: apps/web/app/(main)/contact/page.tsx 99ae6fcc686c03bf2f61f0881ab55f44899283f31748428db259257423238f6f
 // input: apps/web/app/(main)/context-compaction/page.tsx 71c0c574c0b38d2b9e98b5b8d810636a2d9cdf90858ca2b281bd043cb6360c71
 // input: apps/web/app/(main)/context/compression/page.tsx ee8741912a7056b6de719c34f572c76e78c0b2a5efe03926b22d6173d316d679
@@ -566,10 +566,10 @@
 // input: apps/web/app/(main)/download/page.tsx 59bc8557ed62a53fa3608ec75132263f58a438dd8c09e066e49f8a07bb726c04
 // input: apps/web/app/(main)/drama/page.tsx cb6206be9392748ec6f5e1ee0a757477e3e7a6df2ed2f2f59636d029adae2fea
 // input: apps/web/app/(main)/earnings/page.tsx afc5f32edc78ecaad674bc498944baa5c7b3961b51d5da9f2d4edf6e504ab948
-// input: apps/web/app/(main)/ecosystem/connectors/[key]/page.tsx 8393c69c5ff681ca5d2aa9dd26f6c2474d62f0e1af2f9eba3c138003af32eb69
+// input: apps/web/app/(main)/ecosystem/connectors/[key]/page.tsx 649921ad90ae634ad73229afb80fd2e9f17130909500ab42f6e4478b3b8399d9
 // input: apps/web/app/(main)/ecosystem/expert-packs/[slug]/page.tsx 098fab45a09bd2cf6ceecccf47cef0ed94dff9daa2efc87dc98ee3ec6ba51d7d
 // input: apps/web/app/(main)/ecosystem/expert-packs/page.tsx b3874012bca5399c92bc75fb664ca004babb2448ab83f7853548e1aede67dec7
-// input: apps/web/app/(main)/ecosystem/page.tsx f0dbfb332b9a6d22dde55a80d763e3aacf88436996ad4b44a76eadab0e95ea88
+// input: apps/web/app/(main)/ecosystem/page.tsx 304843efa248b37a3b20428ca6babdca49ddb82aa8dbd38c81900ca92f28667b
 // input: apps/web/app/(main)/edu-ai/aigc-tools/page.tsx 5bd64c26440bea49c7ec6763b0510dce8c3349f1e4350ab90498f6d372d4df20
 // input: apps/web/app/(main)/edu-ai/certification/page.tsx 2086bdbca6a9a8da90579d17c772a95a5c215d60b17ed6b36627f69a9c56037b
 // input: apps/web/app/(main)/edu-ai/courses/page.tsx 5323b0577a44a2b53c62766902dcfec40cc33873248a22d1cb24ce733499606b
@@ -965,7 +965,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx bf75df2bfcad093f6ec6405984b9a3fa2e7cba0c353f405066f6809c382bceca
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-25T10:15:29.429Z
+// generatedAt: 2026-11-25T11:57:43.388Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [

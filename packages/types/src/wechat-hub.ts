@@ -581,6 +581,8 @@ export interface WechatMomentArchiveView {
   total: number
   moments: WechatMomentArchiveItemView[]
   limit: number
+  /** 本页从第几条开始（0 基）；桥本地 JSONL 降级时固定为 0 */
+  offset: number
   /** storage 非 database 时说明降级原因；正常为 null */
   reason: string | null
 }
@@ -589,6 +591,8 @@ export interface WechatMomentArchiveView {
 export interface WechatMomentArchiveInput {
   /** 最多返回多少条，默认 50，上限 500 */
   limit?: number
+  /** 从第几条开始，默认 0；配合 limit 翻页读完 715 条 */
+  offset?: number
 }
 
 /** 群发入参：targets 与 tags 二选一；都不给时取全部未拉黑联系人。 */

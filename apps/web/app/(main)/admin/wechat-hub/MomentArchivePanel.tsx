@@ -4,16 +4,20 @@
 
 /**
  * 朋友圈归档查询面板：读取数据库 / 桥本地 JSONL 留存的历史动态，只读。
+ * 数据库来源按 50 条一页无限翻页，避免 715 条只能看到最新 50 条。
  */
 
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
+import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import type { WechatMomentArchiveView } from '@ihui/types'
 import { wechatHubApi } from './wechat-hub-api'
 import MomentLocalMedia from './MomentLocalMedia'
+
+const ARCHIVE_PAGE_SIZE = 50
 
 const STORAGE_LABELS: Record<WechatMomentArchiveView['storage'], string> = {
   database: '数据库',
@@ -28,13 +32,25 @@ function formatArchiveTime(value: string | null): string {
 }
 
 export default function MomentArchivePanel({ accountId }: { accountId: string }) {
-  const archiveQuery = useQuery({
-    queryKey: ['wechat-hub', 'moments-archive', accountId],
-    queryFn: () => wechatHubApi.fetchMomentArchive(accountId, { limit: 50 }),
+  const archiveQuery = useInfiniteQuery({
+    queryKey: ['wechat-hub', 'moments-archive', accountId, 'pages'],
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
+      wechatHubApi.fetchMomentArchive(accountId, {
+        limit: ARCHIVE_PAGE_SIZE,
+        offset: pageParam,
+      }),
+    getNextPageParam: (lastPage) => {
+      const next = lastPage.offset + lastPage.moments.length
+      return next < lastPage.total ? next : undefined
+    },
   })
 
-  const archive = archiveQuery.data ?? null
+  const pages = archiveQuery.data?.pages ?? []
+  const archive = pages[0] ?? null
+  const moments = pages.flatMap((page) => page.moments)
   const storageLabel = archive ? (STORAGE_LABELS[archive.storage] ?? '不可用') : null
+  const canPage = archive?.storage === 'database'
 
   return (
     <div className="space-y-2 rounded-sm border border-stroke-field p-3">
@@ -47,7 +63,7 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
         </div>
         {archive ? (
           <span className="text-xs text-muted-foreground">
-            来源 {storageLabel} · 共 {archive.total} 条 · 上限 {archive.limit} 条
+            来源 {storageLabel} · 已显示 {moments.length} / 共 {archive.total} 条
           </span>
         ) : null}
       </div>
@@ -73,13 +89,13 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
         <Alert variant="warning" title="归档来源降级" description={archive.reason} />
       ) : null}
 
-      {archive && archive.moments.length === 0 && !archiveQuery.isLoading ? (
+      {archive && moments.length === 0 && !archiveQuery.isLoading ? (
         <p className="text-xs text-muted-foreground">归档里还没有动态。</p>
       ) : null}
 
-      {archive && archive.moments.length > 0 ? (
+      {archive && moments.length > 0 ? (
         <div className="max-h-64 space-y-2 overflow-auto pr-1">
-          {archive.moments.map((moment) => (
+          {moments.map((moment) => (
             <div key={moment.id} className="rounded-sm bg-muted/40 p-2 text-sm">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium">
@@ -88,7 +104,7 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
                     <span className="ml-1 text-xs text-muted-foreground">（未映射身份）</span>
                   )}
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="shrink-0 text-xs text-muted-foreground">
                   {formatArchiveTime(moment.lastSeenAt || moment.firstSeenAt)}
                 </span>
               </div>
@@ -116,6 +132,28 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
             </div>
           ))}
         </div>
+      ) : null}
+
+      {canPage && archiveQuery.hasNextPage ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-muted-foreground">
+            每页 {ARCHIVE_PAGE_SIZE} 条，可继续读取更早动态
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={archiveQuery.isFetchingNextPage}
+            onClick={() => void archiveQuery.fetchNextPage()}
+          >
+            {archiveQuery.isFetchingNextPage ? '加载中…' : '加载更多'}
+          </Button>
+        </div>
+      ) : null}
+      {canPage && !archiveQuery.hasNextPage && moments.length > 0 ? (
+        <p className="text-xs text-muted-foreground">
+          已显示全部 {archive?.total ?? moments.length} 条。
+        </p>
       ) : null}
     </div>
   )

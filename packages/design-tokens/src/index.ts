@@ -214,11 +214,15 @@ export {
 // 字号档位唯一真相源(全端共用):RN 取 rnType(数值三件套),小程序取 taroType(rpx 字符串)。
 export {
   TYPE_STEPS,
+  TYPE_ROLES,
   FONT_WEIGHTS,
   rnType,
   taroType,
+  rnTypeFor,
+  taroTypeFor,
   type TypeStep,
   type TypeStepName,
+  type TypeRole,
   type FontWeightName,
 } from './typography.js'
 // 阴影 / 层级档位唯一真相源(全端共用):RN 取 ELEVATION_STEPS(ShadowStyle 四元组),

@@ -533,6 +533,7 @@ export async function fetchWechatMomentArchive(
 ): Promise<WechatMomentArchiveView> {
   const params = new URLSearchParams()
   if (input.limit !== undefined) params.set('limit', String(input.limit))
+  if (input.offset !== undefined) params.set('offset', String(input.offset))
   const query = params.toString()
   const res = await fetchApi<WechatMomentArchiveView>(
     `/wechat-hub/accounts/${accountId}/moments/archive${query ? `?${query}` : ''}`,

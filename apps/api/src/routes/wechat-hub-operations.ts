@@ -43,6 +43,7 @@ const momentFetchSchema = z.object({
 
 const momentArchiveQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
+  offset: z.coerce.number().int().min(0).max(100_000).optional(),
 })
 
 const momentMediaQuerySchema = z.object({
@@ -117,7 +118,7 @@ export const wechatHubOperationsRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  server.get<{ Params: { id: string }; Querystring: { limit?: number } }>(
+  server.get<{ Params: { id: string }; Querystring: { limit?: number; offset?: number } }>(
     '/wechat-hub/accounts/:id/moments/archive',
     async (request, reply) => {
       if (!(await checkAuth(request, reply))) return
