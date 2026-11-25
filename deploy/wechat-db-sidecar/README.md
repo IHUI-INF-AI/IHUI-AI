@@ -22,8 +22,8 @@
 独立 venv（Python 3.12）：
 
 ```powershell
-python -m venv C:\caches\temp\wxauto-venv
-C:\caches\temp\wxauto-venv\Scripts\python.exe -m pip install -r deploy\wechat-db-sidecar\requirements.txt
+python -m venv C:\IHUI-AI\data\wechat-bridge\venv
+C:\IHUI-AI\data\wechat-bridge\venv\Scripts\python.exe -m pip install -r deploy\wechat-db-sidecar\requirements.txt
 ```
 
 `wechatauto-replica` 为 Apache-2.0 第三方依赖，仅安装在外部 venv，不入仓、不随项目分发。
@@ -32,10 +32,10 @@ C:\caches\temp\wxauto-venv\Scripts\python.exe -m pip install -r deploy\wechat-db
 ## 单独验证
 
 ```powershell
-C:\caches\temp\wxauto-venv\Scripts\python.exe deploy\wechat-db-sidecar\fetch_moments.py `
+C:\IHUI-AI\data\wechat-bridge\venv\Scripts\python.exe deploy\wechat-db-sidecar\fetch_moments.py `
   --db-dir C:\Users\<user>\Documents\xwechat_files `
   --account <account_dir> `
-  --workdir C:\caches\temp\wechatauto-db `
+  --workdir C:\IHUI-AI\data\wechat-bridge\work `
   --limit 3
 ```
 
@@ -47,24 +47,24 @@ stdout 是 JSON；`ok=false` 时 `reason` 保留真实错误，不会返回假�
 $env:BRIDGE_DRIVER='ocr'
 $env:BRIDGE_MOMENT_DRIVER='db'
 $env:BRIDGE_DB_SIDECAR='on'
-$env:BRIDGE_DB_PYTHON='C:\caches\temp\wxauto-venv\Scripts\python.exe'
+$env:BRIDGE_DB_PYTHON='C:\IHUI-AI\data\wechat-bridge\venv\Scripts\python.exe'
 $env:BRIDGE_DB_DIR='C:\Users\<user>\Documents\xwechat_files'
 $env:BRIDGE_DB_ACCOUNT='<account_dir>'
-$env:BRIDGE_DB_WORKDIR='C:\caches\temp\wechatauto-db'
+$env:BRIDGE_DB_WORKDIR='C:\IHUI-AI\data\wechat-bridge\work'
 node deploy\wechat-bridge\server.mjs
 ```
 
 可选图片落盘：
 
 ```powershell
-$env:BRIDGE_DB_MEDIA_DIR='C:\caches\temp\wechat-db-media'
+$env:BRIDGE_DB_MEDIA_DIR='C:\IHUI-AI\data\wechat-hub-media'
 $env:BRIDGE_DB_MEDIA_DOWNLOAD='1'
 ```
 
 只导出本机已缓存的媒体，不访问原始媒体 URL：
 
 ```powershell
-$env:BRIDGE_DB_MEDIA_DIR='C:\caches\temp\wechat-db-media'
+$env:BRIDGE_DB_MEDIA_DIR='C:\IHUI-AI\data\wechat-hub-media'
 $env:BRIDGE_DB_MEDIA_DOWNLOAD='1'
 $env:BRIDGE_DB_MEDIA_LOCAL_ONLY='1'
 ```
@@ -91,16 +91,38 @@ URL 回退的硬边界（本机实测）：
 
 统计字段（全部来自本次真实执行）：
 
-| 字段 | 含义 |
-| --- | --- |
-| `mediaTotal` | 图片 + 视频总数 |
-| `downloadedMedia` | 实际写入磁盘的真实媒体数 |
-| `mediaCacheHits` | 命中微信本地 Sns 缓存的媒体数 |
-| `mediaCacheMisses` | 本地缓存未命中的媒体数 |
-| `mediaExisting` | 上次运行已落盘、本次按 `.media-manifest.json` 复用且来源未知的数量 |
-| `mediaUrlHits` | 原始 URL 成功取回真实媒体字节的数量 |
-| `mediaUrlMisses` | 原始 URL 已失效（HTTP 400/非媒体/占位图）的数量 |
-| `mediaUrlErrors` | URL 网络异常的数量，与“票据失效”分开 |
-| `mediaUnavailable` | 本地缓存和原始 URL 都拿不到的真实媒体数量 |
-| `mediaDownloadErrors` | 真正的下载异常数；HTTP 400 不计入这里 |
+| 字段                  | 含义                                                               |
+| --------------------- | ------------------------------------------------------------------ |
+| `mediaTotal`          | 图片 + 视频总数                                                    |
+| `downloadedMedia`     | 实际写入磁盘的真实媒体数                                           |
+| `mediaCacheHits`      | 命中微信本地 Sns 缓存的媒体数                                      |
+| `mediaCacheMisses`    | 本地缓存未命中的媒体数                                             |
+| `mediaExisting`       | 上次运行已落盘、本次按 `.media-manifest.json` 复用且来源未知的数量 |
+| `mediaUrlHits`        | 原始 URL 成功取回真实媒体字节的数量                                |
+| `mediaUrlMisses`      | 原始 URL 已失效（HTTP 400/非媒体/占位图）的数量                    |
+| `mediaUrlErrors`      | URL 网络异常的数量，与“票据失效”分开                               |
+| `mediaUnavailable`    | 本地缓存和原始 URL 都拿不到的真实媒体数量                          |
+| `mediaDownloadErrors` | 真正的下载异常数；HTTP 400 不计入这里                              |
+
+## 本机常驻与自启动
+
+本机桥用 `pwsh` 7 启动，启动器在 `data/wechat-bridge/start-bridge.ps1`，看门狗在
+`data/wechat-bridge/ensure-bridge.ps1`。Windows 计划任务 `IHUI-WeChat-Bridge-Logon`
+（登录时）和 `IHUI-WeChat-Bridge-Watchdog`（每 5 分钟）会检查 `127.0.0.1:8849/status`：
+桥已在就不重复拉起，端口没监听才调用启动器。桥只读 `sns.db`，默认不抢前台。
+
+```powershell
+schtasks /Query /TN "IHUI-WeChat-Bridge-Watchdog" /V /FO LIST
+schtasks /Run   /TN "IHUI-WeChat-Bridge-Watchdog"
+```
+
+删除自启动：`schtasks /Delete /TN "IHUI-WeChat-Bridge-Logon" /F` 和
+`schtasks /Delete /TN "IHUI-WeChat-Bridge-Watchdog" /F`。
+
+当前实机归档为 715 条动态；真实媒体文件 207 个（205 JPEG + 2 MP4）。其余 1032 个
+媒体是 qpic 票据已过期（1031 个 HTTP 400 + 1 个视频 URL 异常），本地 Sns 缓存也没有
+可安全映射的副本。管理台会按真实磁盘文件显示“本地可读 x/y”和“原件已过期”，
+不补占位图、不伪造图片。要拿回这些原件，只能在微信客户端里翻到原动态重新加载，
+本仓库不会把不可得说成已恢复。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

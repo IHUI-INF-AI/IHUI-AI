@@ -93,6 +93,23 @@ export async function listArchivedMomentMedia(
   return dir ? listDir(dir) : null
 }
 
+/**
+ * 按归档行里的绝对目录直接统计真实文件数；只用于“原件是否可得”的展示。
+ * 不读数据库、不扫描微信目录；目录必须落在配置根内，否则返回 null。
+ */
+export async function countArchivedMediaDir(mediaLocalDir: string): Promise<number | null> {
+  const root = configuredMediaRoot()
+  if (!root) return null
+  const dir = confinedMediaDir(root, mediaLocalDir)
+  if (!dir) return null
+  try {
+    const files = await listDir(dir)
+    return files?.length ?? 0
+  } catch {
+    return null
+  }
+}
+
 /** 归档本地媒体二进制；无配置/无文件返回 null，交回调用方走桥。 */
 export async function readArchivedMomentMedia(
   accountId: string,
