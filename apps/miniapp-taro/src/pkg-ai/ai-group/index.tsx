@@ -26,7 +26,7 @@ function toItem(raw: Record<string, unknown>): AgentScreenItem {
   return {
     id: text(raw.id),
     name: text(raw.name),
-    avatar: text(raw.avatar) || '/static/default-agent.png',
+    avatar: text(raw.avatar) || '/pkg-ai/assets/default-agent.png',
     description: text(raw.desc) || text(raw.description),
     isVipExclusive: raw.isVipExclusive === true,
     ...(Number.isFinite(uses) && uses > 0 ? { useCount: uses } : {}),

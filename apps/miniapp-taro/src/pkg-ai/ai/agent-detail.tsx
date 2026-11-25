@@ -416,7 +416,7 @@ export default function AgentDetailPage() {
               <View className="flex items-center">
                 <Image
                   className="w-[160rpx] h-[160rpx] rounded-xl bg-muted"
-                  src={agent.avatar || '/static/default-agent.png'}
+                  src={agent.avatar || '/pkg-ai/assets/default-agent.png'}
                   mode="aspectFill"
                 />
                 <View className="ml-[24rpx] flex-1">
@@ -592,7 +592,7 @@ export default function AgentDetailPage() {
                   >
                     <Image
                       className="w-[80rpx] h-[80rpx] rounded-xl bg-muted"
-                      src={r.avatar || '/static/default-agent.png'}
+                      src={r.avatar || '/pkg-ai/assets/default-agent.png'}
                       mode="aspectFill"
                     />
                     <Text className="block text-body-sm leading-[normal] text-foreground font-medium mt-[8rpx] truncate">
