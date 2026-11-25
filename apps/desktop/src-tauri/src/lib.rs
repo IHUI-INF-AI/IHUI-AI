@@ -118,7 +118,7 @@ mod sandbox_token;
 mod native_module_abi;
 
 use serde::{Deserialize, Serialize};
-use tauri::menu::{MenuBuilder, MenuItemBuilder};
+use tauri::menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent, TrayIconId};
 use tauri::{Emitter, Manager};
 // 行为偏好的判定与持久化住在 desktop_prefs.rs,这里只引它已有的出口(不开第二份判据)。
@@ -909,27 +909,29 @@ async fn open_admin_window(app: tauri::AppHandle) -> Result<(), String> {
 /// 而"用户自己能决定置不置顶"这件事必须当场可用,所以两条入口并行(同一枚偏好、
 /// 同一枚 apply_always_on_top,不是两套实现)。i18n:五语言各一条中性文案(切换语义),
 /// 状态由窗口行为即时体现(点一下立刻置顶/取消),不在文案里嵌"当前:开/关"。
-fn tray_menu_labels() -> [&'static str; 9] {
+/// 2026-11-26 新增第 10 项「本机执行器」(下标 9):勾选态 = 本机常驻执行器在跑,
+/// 点击 = 起/停。托盘是不开窗也能看到"手机派单有没有人接"的唯一入口。
+fn tray_menu_labels() -> [&'static str; 10] {
     match get_system_locale() {
         AppLocale::ZhCn => [
             "新建对话", "显示主窗口", "隐藏主窗口", "切换主题", "打开设置", "检查更新",
-            "窗口置顶(切换)", "退出", "AI 客户端一键切号",
+            "窗口置顶(切换)", "退出", "AI 客户端一键切号", "本机执行器",
         ],
         AppLocale::ZhTw => [
             "新建對話", "顯示主視窗", "隱藏主視窗", "切換主題", "開啟設定", "檢查更新",
-            "視窗置頂(切換)", "結束", "AI 客戶端一鍵切號",
+            "視窗置頂(切換)", "結束", "AI 客戶端一鍵切號", "本機執行器",
         ],
         AppLocale::Ko => [
             "새 대화", "메인 창 표시", "메인 창 숨기기", "테마 전환", "설정 열기", "업데이트 확인",
-            "항상 위에 표시(전환)", "종료", "AI 클라이언트 원클릭 계정 전환",
+            "항상 위에 표시(전환)", "종료", "AI 클라이언트 원클릭 계정 전환", "로컬 실행기",
         ],
         AppLocale::Ja => [
             "新規会話", "メインウィンドウを表示", "メインウィンドウを隠す", "テーマ切替", "設定を開く", "更新確認",
-            "常に最前面(切替)", "終了", "AIクライアント ワンクリック切替",
+            "常に最前面(切替)", "終了", "AIクライアント ワンクリック切替", "ローカル実行機",
         ],
         AppLocale::En => [
             "New Chat", "Show Main Window", "Hide Main Window", "Toggle Theme", "Open Settings", "Check for Updates",
-            "Always on Top (toggle)", "Quit", "AI Client: One-Click Account Switch",
+            "Always on Top (toggle)", "Quit", "AI Client: One-Click Account Switch", "Device Executor",
         ],
     }
 }
@@ -944,6 +946,9 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
     let prefs = load_desktop_prefs(app);
     let mut menu_builder = MenuBuilder::new(app);
     let mut previous_group: Option<u8> = None;
+    // G4(2026-11-26):「本机执行器」是勾选态菜单项(勾 = 常驻执行器在跑)。
+    // 句柄要交给 device_executor 保存,点击/15s 对齐都靠它改 checked。
+    let mut executor_item: Option<tauri::menu::CheckMenuItem<tauri::Wry>> = None;
     for id in &prefs.tray_menu_items {
         let Some(item) = tray_menu_item(id) else {
             // normalize 已把未知 id 丢掉,走到这里说明登记表与判据漂了 —— 喊出来,
@@ -951,16 +956,31 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
             log::error!("[desktop] 托盘菜单项 {id} 查不到登记项,已跳过(不应发生)");
             continue;
         };
-        let menu_item =
-            MenuItemBuilder::with_id(format!("tray.{}", item.id), labels[item.label_index])
-                .build(app)
-                .map_err(|e| e.to_string())?;
         // 分隔线只插在分组变化处:默认档下产出的正是历史那三条(0|1|2|3 组之间)。
         if matches!(previous_group, Some(group) if group != item.group) {
             menu_builder = menu_builder.separator();
         }
         previous_group = Some(item.group);
+        if item.id == desktop_prefs::TRAY_MENU_DEVICE_EXECUTOR_ID {
+            let running = device_executor::read_status().running;
+            let check_item =
+                CheckMenuItemBuilder::with_id(format!("tray.{}", item.id), labels[item.label_index])
+                    .checked(running)
+                    .build(app)
+                    .map_err(|e| e.to_string())?;
+            menu_builder = menu_builder.item(&check_item);
+            executor_item = Some(check_item);
+            continue;
+        }
+        let menu_item =
+            MenuItemBuilder::with_id(format!("tray.{}", item.id), labels[item.label_index])
+                .build(app)
+                .map_err(|e| e.to_string())?;
         menu_builder = menu_builder.item(&menu_item);
+    }
+    if let Some(check_item) = executor_item {
+        device_executor::store_tray_item(app, check_item);
+        device_executor::spawn_tray_watch(app);
     }
     let menu = menu_builder.build().map_err(|e| e.to_string())?;
 
@@ -1041,6 +1061,13 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                     "[desktop-prefs] site=tray_menu_always_on_top \
                      trigger=用户点托盘菜单「窗口置顶(切换)」 ⇒ always_on_top={next_enabled}"
                 );
+            }
+            // G4:托盘开关本机常驻执行器(勾选态由 device_executor 的 15s 对齐循环维持)
+            "tray.device_executor" => {
+                log::info!(
+                    "[device-executor] site=tray_menu_device_executor trigger=用户点托盘菜单「本机执行器」"
+                );
+                device_executor::toggle_from_tray(app);
             }
             "tray.quit" => {
                 // 2026-09-27 改:托盘「退出」= **立即退出**,不再把决定权交给前端。
