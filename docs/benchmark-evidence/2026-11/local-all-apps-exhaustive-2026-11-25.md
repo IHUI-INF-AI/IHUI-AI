@@ -18,6 +18,7 @@
 3. **原有 14 张 jsmap 均未触发 1,500,000 节点上限**：11 个目标、Qoder 四版本各一张；最大豆包 ai-views 465,369 节点 / 1,473,627 边，Cursor 319,057 / 681,140，WorkBuddy 359,769 / 729,926。**新增的豆包 `biz.pak` 图是第 15 张，单图撞到 1,000,000 硬上限（需求 1,615,501，丢 615,501）**；已按顶层目录拆成 `ahalets` / `static` / `rest` 三片重跑，合计 **1,471,311 节点 / 4,072,587 边 / 1,274,239 函数 / 9,562 模块**，**166,986 bundle 模块与单图完全相等**，余差 144,190 节点来自 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失，不是再次截断。
 4. **核心层覆盖 25 个实际存在的二进制 + 1 个 `not_found` 记录**：导入/导出/签名/字符串/函数/特征六类证据；Codex 407MB 超单文件工具上限 256MB，craft 原生 Rust 报告仍缺，但已用字节级正则补出 400 个 crate 与 rustc commit。
 5. **最能落进 IHUI-AI 的六件事**：统一权限决策对象、Windows Job Object 执行器、审批反向通道、preload 暴露面预算、动态通道注册表、运行时策略热更新（详见第 6 节）。
+6. **前端 `partial` 已逐目标审计**：14 个图/分片只数非 `node_modules` 的 JS/TS，再与 `examined` 比，**0 个应用 JS 漏读目标**；`partial` 的 `total` 主要是 node_modules、CSS、HTML、SVG、JSON 资产（详见 3.1 与 `analysis\frontend-coverage-audit.json`）。
 
 ---
 
@@ -124,6 +125,26 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 | 豆包 biz.pak（三片） | 9,562 | 1,471,311 | 4,072,587 | 1,274,239 | 2（SDK 方法误匹配） | 0 | 0 | 2 | 0 | 8,973 | 1,231（单图口径） | 0 | 0 | 0 |
 
 豆包 `biz.pak` 的单图读数是 **9,797 模块 / 1,000,000 节点（需求 1,615,501，丢 615,501）/ 2,928,056 边 / 881,872 函数**；表内三片是分片重跑后的结果，不是单图子集相加。`ahalets` 5,907 / 832,342、`static` 3,597 / 628,680、`rest` 58 / 10,289；三片 `bundle_modules` 合计 166,986，与单图完全相等，说明 7,837 个 JS 的 bundle 面已全部进入；节点少 144,190 是 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失。三片 `endpoint` 合计 8,973，跨片 `(api,url)` 去重 885；单图 1,231 是工具自身口径，二者不能直接相减。详见 `analysis\doubao-pak-shards.json`。
+
+### 3.1 JS 覆盖审计（`partial` 不等于 JS 漏读）
+
+`js-app-map` 的 `coverage.status` 大多是 `partial`，但 `total` 把 `node_modules`、CSS、HTML、SVG、JSON 都算进去了。真正要证明的是“应用 JS/TS 有没有漏读”，所以逐目标只数非 `node_modules` 的 `.js/.cjs/.mjs/.jsx/.ts/.tsx/.mts/.cts`，再与图里的 `examined` 比：
+
+| 目标 | 非 node_modules JS/TS | 图 examined | 结论 |
+|---|---:|---:|---|
+| Cursor | 1,087 | 1,863 | examined 大于 JS，应用 JS 全覆盖；差额是 node_modules/资产 |
+| Trae CN | 310 | 1,359 | 全覆盖；差额是 node_modules/资产 |
+| WorkBuddy | 3,827 | 4,173 | 全覆盖；差额是资产 |
+| Qoder 0.5.6 / 0.5.14 | 634 / 606 | 795 / 768 | 两版全覆盖；0.5.7 / 0.5.12 未单独解包计数，但 examined 803 / 776 均高于相邻版本 JS 数 |
+| ZCode | 2,828 | 3,732 | 全覆盖；差额是 node_modules/资产 |
+| DeepSeek Harness | 12 | 633 | 全覆盖；差额是 node_modules/资产 |
+| OpenCode | 3,229 | 5,940 | 全覆盖；差额是 node_modules/资产 |
+| MiniMax Code | 1,241 | 1,860 | 全覆盖；差额是 node_modules/资产 |
+| 商汤小浣熊 | 1,374 | 1,965 | 全覆盖；差额是 node_modules/资产 |
+| 豆包 ai-views | 2,291 | 2,311 | 全覆盖；其余 1,131 个未解析是 CSS 747 / TXT 309 / SVG 57 / JSON 16 等 |
+| 豆包 biz.pak（三片） | 7,837 | 8,190 | 全覆盖；4,182 + 3,597 + 58 与解包 JS 逐个对齐 |
+
+**结论：14 个前端图/分片里 0 个应用 JS 漏读目标。** 这也是为什么 `partial` 不能直接当成“没分析完”：它统计的是文件总数，不是应用代码总数。逐目标审计账本在 `analysis\frontend-coverage-audit.json`。
 
 读法：**静态 IPC 少不等于能力少**。
 | MiniMax | 1,391 | 124,372 | 330,508 | 112,679 | 54 | 25 | 0 | 14 | 816（332+406/0 未定） | 1,887 | 1,394 | 10 | 35 | 373 |
@@ -650,7 +671,8 @@ IPC 分组说明它是“能力市场型”客户端：
 所有证据 JSON 位于 `C:\IHUI-AI\.workbuddy\craft\out\deep\`：
 
 - `analysis\install-matrix.json`：11 个目标的安装面、主程序版本/大小/hash、asar 大小、native 模块数量。
-- `analysis\frontend-matrix.json`：前端总矩阵（模块/节点/边/endpoint/窗口/IPC/暴露键）。
+- `analysis\frontend-matrix.json`：前端总矩阵（模块/节点/边/endpoint/窗口/IPC/暴露键），已补 `doubao-biz-pak` 三片行。
+- `analysis\frontend-coverage-audit.json`：14 个前端图/分片的 JS 覆盖审计——逐目标非 `node_modules` JS/TS 计数、图 `examined`、`0` 个应用 JS 漏读目标；含 Qoder 四版本与豆包三片的折算说明。
 - `analysis\backend-<target>.json`：后端模式扫描（http/ws server、ipcMain、contextBridge、safeStorage、MCP/ACP/LSP）。
 - `<target>-jsmap-full.json`：前端全量图（豆包 ai-views 437MB、WorkBuddy 273MB、Cursor 247MB 等）；豆包主应用 `biz.pak` 的 1.04GB 图见下一组条目。
 - `native\<target>\*.json`：核心取证（overview / imports / exports / publisher / strings0-7 / feat0-3）。
