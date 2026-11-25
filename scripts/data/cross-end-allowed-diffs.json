@@ -203,26 +203,6 @@
       "evidence": "check-cross-end-ui-parity --json: VideoPlayer diffCount=5(onlyMiniapp=0 / onlyRn=5)"
     },
     {
-      "component": "VoiceInput",
-      "key": "geometry",
-      "platform": "both",
-      "owner": "cross-end-ui",
-      "expires": "2027-03-27",
-      "count": 6,
-      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: VoiceInput diffCount=7(onlyMiniapp=1 / onlyRn=6)；2026-11-13 复核收紧:额度 7→6(门现值 diffCount=6,白名单不超量防空壳),由 owner cross-end-ui 现读 check-cross-end-ui-parity 收口"
-    },
-    {
-      "component": "VoiceInput",
-      "key": "radius",
-      "platform": "both",
-      "owner": "cross-end-ui",
-      "expires": "2027-03-27",
-      "count": 1,
-      "reason": "两端圆角档集合仍有差;属文件级读数差异,本批不调视觉取值;到期前必须复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: VoiceInput radiusCount=1(onlyMiniapp=0 / onlyRn=1)"
-    },
-    {
       "component": "pay",
       "key": "platform:payment-channel",
       "platform": "both",
