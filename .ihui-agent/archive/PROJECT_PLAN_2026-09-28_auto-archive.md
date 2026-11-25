@@ -1234,7 +1234,7 @@ guardian 触发一次 `Last Result=0`;巡检触发一次且心跳文件 mtime �
   - **P0/P1 字体间距降级**(3 文件):PageHeader `text-2xl`→`text-xl min-[640px]:text-2xl`;NotFound `py-20`→`py-12 min-[640px]:py-20` + `text-2xl`→`text-xl min-[640px]:text-2xl`;(auth)/layout `py-12`→`py-6 min-[640px]:py-12`
   - **P1 grid-cols 断点**(19 文件 21 处):`lg:grid-cols-N`→`tablet-lg:grid-cols-N`(14 处,576px→1024px);6 处 `grid-cols-3/5` 无 fallback 加 `min-[640px]:grid-cols-N`;4 处 `md:grid-cols-2`→`min-[768px]:grid-cols-2`
   - **P1 按钮触摸目标**(2 文件 7 处):ai-side-panel 浮窗折叠态 `h-6 w-6`→`h-9 w-9`(2 处);agent-task-progress-pane `h-5 w-5`→`h-9 w-9`(5 处,20px→36px 接近 44px 标准)
-- [x] ✅(2026-09-09) **P1 声纹删除越权收敛**:声纹库是平台共享资源(单一 token6688 账号,无归属概念),此前任何登录用户可 DELETE 全库声纹。delete_voice 加 `_require_admin` 依赖(role_id≥1,与 AGENTS.md §5/admin layout 一致);voices 页非 admin 隐藏删除按钮(useAuthStore roleId>=1);列表/上传/试听对登录用户开放不变;/voice/voices* 不在 JWT 公开白名单(匿名不可达)复核通过。
+- [x] ✅(2026-09-09) **P1 声纹删除越权收敛**:声纹库是平台共享资源(单一旧聚合上游账号,无归属概念),此前任何登录用户可 DELETE 全库声纹。delete_voice 加 `_require_admin` 依赖(role_id≥1,与 AGENTS.md §5/admin layout 一致);voices 页非 admin 隐藏删除按钮(useAuthStore roleId>=1);列表/上传/试听对登录用户开放不变;/voice/voices* 不在 JWT 公开白名单(匿名不可达)复核通过。
 - **补的两族(受保护形态从一种扩到三种)**:① 既有"加粗 bullet"(`- **G-166 …**`)语义原样不动;② **复选任务行裸编号** `- [ ] O13b …` / `- [x] ✅(2026-09-23) …`,须逐层剥掉复选框之后的状态装饰(`（进行中）` / `✅(日期)`)再取编号 —— 计划里真有 `- [ ]（进行中） O13b 第二段(…)`,只剥一层会正好漏掉本票要救的那一行(注入实锤);③ **批次标题行** `### 第十四批(…):…`,刻意只认"批",不认轮/次/阶段(`第二轮` 这种串全文必撞,纳进只会往基线塞永不报丢的空条目)。
 - [x] ✅(2026-09-25) O10 对外 run 语义：幂等 run 创建（`Idempotency-Key`）、外部 run 句柄（不依赖 IHUI session_id）、通用幂等层、游标分页规范  ⏳(幂等重放保护已入库(af96921c95);run 句柄与游标分页另列 O10b)（✅2026-09-26 复核完成:run 句柄+游标分页已由 15e4f1f742e 落库(/api/agent-runs 三端点+cr1_ 游标),本票全量核实 38/38 绿、无需重做;余 api-client 接线与该提交自登记尾巴） 〔2026-09-25 翻勾:四件(幂等创建/外部句柄/通用幂等层/游标分页)经代理逐件核验已由 15e4f1f742e 落库,O10 测试 98/98 全绿;六条尾巴各自属主/需§24确认,已在其条登记〕
   - **进度(2026-09-24 派单；同日续做已转正式交付,见下一条)**：首轮当时未合入 main,现场留档于 tag `backup/wip-o10-2026-09-24`（commit `cffab4cb4af`，已推 origin 并 `ls-remote` 回读）。8 个新文件：`apps/api/src/services/{run-idempotency,run-handle,cursor-pagination}.ts` + `routes/agent-runs.ts` + 4 个测试。**判红的理由（不是审美）**：`npx vitest run` 实测 46 例 **12 failed / 34 passed**，其中 `agent-runs-route.test.ts` **8 条全红** —— 带身份的请求也拿到 401，即测试内 `vi.mock('../src/plugins/auth.js')` 的身份注入没落到 `request.userId` 上，**根因未定位**（不靠猜下结论，同 §"扫到 0 先怀疑判据"的反面：现象与预期矛盾时先取证再动手）。另 3 条已定性：① `canonicalJson` 那条是**测试期望本身写错**（该函数只排序对象键、不得重排数组，期望值却把 `[1,{…}]` 写成 `[{…},1]`）；② `readIdempotencyKey` 的"过短算没带"断言依赖 `utils/http-normalize.normalizeHeader` 对数组头的行为，未读源码确认；③ 已当场修掉一处真类型缺陷并复验 `pnpm --filter @ihui/api typecheck` exit 0 —— `run-idempotency.ts:84` 把 `unknown` 头值直喂 `normalizeHeader(string|string[]|undefined)`，改为按"非 string / 非数组即视为没带"收窄（不用断言绕过）。
@@ -4991,7 +4991,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
     ① **UP042 × 4(`class X(str, Enum)`)刻意不改基类**:混入式的 `str()` / f-string 输出是 `"Class.MEMBER"`,
       换 `StrEnum` 会变 `"value"` —— 那是**序列化字面量重写**,而 `ApprovalOutcome` 的值要进审计事件与前端比对。
       处置=带理由逐点 `# noqa: UP042`。**代理那版正是把它们改了,才造出"def 行消失"。**
-    ② **F821 × 9 不是 bug 而是静态局限**:`scripts/e2e_token6688.py` 的 `Token6688Provider` 只在 `main()` 内
+    ② **F821 × 9 不是 bug 而是静态局限**:`scripts/e2e_legacy_aggregator.py` 的 `LegacyAggregatorProvider` 只在 `main()` 内
       函数级 import(为绕开 `app/providers/__init__` 的聚合重链),而模块级注解引用它;文件顶部有
       `from __future__ import annotations` ⇒ 注解不求值,运行时无事。修法=加 `if TYPE_CHECKING:` 块只喂静态面,
       **运行时零变化**(没有用 9 条 noqa 糊)。
@@ -5954,7 +5954,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - **两条如实登记的边界**:① **未判定 1 处** `apps/web/src/components/ai/plan-review-panel.tsx:143` —— 同一行同时给 `bg-card`(card)与 `plan-review-panel`(panel)两个类别信号,门不替人挑一档,所以 `--strict` 仍拒绝出合格证;要给这一族分主次属**改判据**,另计一票,不得顺手放宽。② **全端 typecheck 没跑成**:`@ihui/ui-react` / `@ihui/extension` 的红点指向两处**他人现场** —— 未跟踪的 `packages/ui-react/src/lib/query-state.ts`(报 `URLSearchParams` 找不到)与工作树滞后的 `Upload.tsx`(HEAD 版第 70 行确有 `export interface UploadLabels`,工作树副本没有)⇒ 与本轮 token 交换无关;同批用 `heal-worktree-tracked --align-drift` 对齐 20 个幻影漂移文件(含 `scripts/lib/scratch-dir.mjs`,它滞留在祖先版本时把四道门全打成 SyntaxError)。
   - **提交链**:`acf1927e96`(开工基线)→ 7 批工作树提交 → `1336969753`(35 文件对象空间批)→ `0d569bb5f9`(C4 判据 + 台账重锚)。README 未加行:本轮属 §21 豁免的"守门脚本自身增量",而 README 守门表无行锚点、就地加行会被 `merge-live-doc` 判成丢失;AGENTS 已点名该门,守门 89 的 R4 满足。
 <!-- 已归档(2026-09-28:✅(2026-09-21) **D30 miniapp-taro 端 i18n 补盲 + 42 个字面量缺键补齐**:守,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
-<!-- 已归档(2026-09-28:✅(2026-09-09) **P1 声纹删除越权收敛**:声纹库是平台共享资源(单一 token6688 账号,无归属,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-09) **P1 声纹删除越权收敛**:声纹库是平台共享资源(单一旧聚合上游账号,无归属,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 <!-- 已归档(2026-09-28:✅(2026-09-24)**设置页补 ScrollView —— 整段"账号与安全"+"帮助中心"+"退出登录"在手机,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 <!-- 已归档(2026-09-28:✅(2026-09-24) **R5 上线当天抓到两笔重复 id，其中一笔是我自己**：HEAD 里 `id: '90',完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 <!-- 已归档(2026-09-28:✅(2026-09-24) **把"路径过期"从"凭据失效"里摘出来(提交 `3279723e31e`)**:`scri,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
@@ -8172,3 +8172,4 @@ VC53 装机拍「学习」页:两个入口渲染成**两颗空胶囊** —— �
 - 其余否证（上游主题默认值、`useZCodeStoreWithDefault` 带默认值形参、schema 归一化无账本、原子写 `O_TRUNC` 降级、审批占预算的捏造标识符）见"续六"/"续七"两块原文，不在此重述。
 - [x] ✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 **O82续三·守门8后续①**：三端首纳入的死调用存量已冻进 `scripts/api-routes-baseline.json`（现值以 `node scripts/check-api-routes.mjs` 末行现读为准），清理另计；同票登记的 `GET /api/study/videos @ apps/mobile-rn/src/screens/StudyIndexScreen.tsx` 是"后端从未注册的列表接口"，与视频页那条归并处理，不得两处各修一遍。 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记 (与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+<!-- 2026-11-26 供应商代号脱敏:已下线聚合上游的旧代号在本文档中统一表述为「旧聚合上游」/legacy-aggregator,原记录语义与结论不变。 -->

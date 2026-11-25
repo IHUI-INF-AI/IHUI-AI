@@ -531,7 +531,7 @@
 ### 第二轮补全(2026-09-09,用户反馈"还有页面遗漏 + 图标去横线 + 工作不彻底")
 ## F6-F8 媒体任务/声纹库 收尾深化(2026-09-09 完成 ✅)
 > 触发:F6-F8(声纹库页增强/媒体任务统计概览/任务中心统计卡片+批量取消,commit 3eb19e42c)上线后复盘审计,发现前后端在途状态集不一致等 3 项收尾缺口,本轮全部根治。
-- [ ] ⏸️ **唯一遗留(外部依赖阻塞)**:真实端到端生成/取消/声纹克隆 e2e(`apps/ai-service/scripts/e2e_token6688.py --cheap` 起步)需在 `apps/ai-service/.env` 配置 `TOKEN6688_API_KEY`(sk- 开头,或 LLM_PROVIDERS.token6688.api_key)后执行——两处当前均为空,等 key 到位即可一键验收,代码侧已无任何待办。 **免费通道已配(2026-09-24 16:1x,owner 指令免费替代)**:edge-tts 7.2.8 免费语音通道落地(free_voice_provider.py + VOICE_PROVIDER 开关),e2e --free 模式跑通生成/取消(26496B MP3 产物),无需任何 key;声纹克隆免费云 API 不存在(开源自托管需 GPU,决策建议已给),付费通道保留可切回;语音路由守门 12/12 过(commit f9b918451b9)。
+- [ ] ⏸️ **唯一遗留(外部依赖阻塞)**:真实端到端生成/取消/声纹克隆 e2e(`apps/ai-service/scripts/e2e_legacy_aggregator.py --cheap` 起步)需在 `apps/ai-service/.env` 配置 `LEGACY_UPSTREAM_API_KEY`(sk- 开头,或 LLM_PROVIDERS.legacy_aggregator.api_key)后执行——两处当前均为空,等 key 到位即可一键验收,代码侧已无任何待办。 **免费通道已配(2026-09-24 16:1x,owner 指令免费替代)**:edge-tts 7.2.8 免费语音通道落地(free_voice_provider.py + VOICE_PROVIDER 开关),e2e --free 模式跑通生成/取消(26496B MP3 产物),无需任何 key;声纹克隆免费云 API 不存在(开源自托管需 GPU,决策建议已给),付费通道保留可切回;语音路由守门 12/12 过(commit f9b918451b9)。
 <!-- 已归档(2026-09-25):第二轮:三 agent 并行穷尽审计 + P0 越权根治(2026-09-09 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-25_auto-archive.md -->
 <!-- 已归档(2026-09-25):第三轮:admin 判定复核 + 声纹删除越权收敛(2026-09-09 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-25_auto-archive.md -->
 <!-- 已归档(2026-09-25):第四轮:video.py 越权收敛 + 回调验签 fail-closed(2026-09-09 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-25_auto-archive.md -->
@@ -542,3 +542,4 @@
 > 触发:第五轮自审发现"llm_usage 透出 ≠ 入账"假闭环——对话主链路 `_maybe_record_step` 根本不记 tokens、`_normalize_step` 归一化丢弃 model 字段、降级启发式时已消耗的 token 凭空消失。本轮三处根治 + 端到端验证。
 ## F6-F8 第六轮:全站 i18n 根治——构建期 INVALID_MESSAGE 清零(2026-09-09 完成 ✅)
 > 触发:用户要求"完美细致完整毫无遗漏"。第六轮发现前五轮 i18n 对账只覆盖了 media-tasks/voices 两页,存在系统性盲区:① 对账脚本对含点键只查字面量不递归解析嵌套(大量误报);② 构建日志 web-build-20260909-2/3/4 连续出现 8/8/4 次 next-intl INVALID_MESSAGE,五轮均未追查。本轮全站根治。
+<!-- 2026-11-26 供应商代号脱敏:已下线聚合上游的旧代号在本文档中统一表述为「旧聚合上游」/legacy-aggregator,原记录语义与结论不变。 -->
