@@ -51,7 +51,7 @@ export function AgentMarketScreen({
       <ErrorState
         message={error}
         onRetry={onRetry}
-        retryLabel={t('common.back')}
+        retryLabel={t('common.retry')}
         colorScheme={colorScheme}
       />
     )
@@ -81,6 +81,7 @@ export function AgentMarketScreen({
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listBody}
         ListEmptyComponent={<EmptyState title={t('agentMarket.empty')} colorScheme={colorScheme} />}
         renderItem={({ item }) => (
           <PressableCard
@@ -158,11 +159,12 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: 'transparent',
-      backgroundColor: tk.surface.light,
+      // 卡片面取 surface.card:暗档比页面底深约 10 级,轮廓立得起来;light 档与 bg 同为纯白零变化
+      backgroundColor: tk.surface.card,
       marginBottom: rnSpacing.sm,
     },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    cardDesc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.primary },
+    cardDesc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: rnSpacing.sm },
     category: { marginRight: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.brand.DEFAULT },
     meta: { fontSize: rnType.caption.size, color: tk.text.medium },
@@ -171,6 +173,9 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.brand.DEFAULT,
+    },
+    listBody: {
+      paddingBottom: rnSpacing['3xl'],
     },
   })
 }

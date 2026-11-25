@@ -210,15 +210,14 @@ export function ModelPlazaScreen({
           loading ? (
             <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
           ) : error ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>{t('modelPlaza.loadFailed')}</Text>
-            </View>
+            <EmptyState title={t('modelPlaza.loadFailed')} colorScheme={colorScheme} />
           ) : (
             <EmptyState title={t('modelPlaza.emptyType')} colorScheme={colorScheme} />
           )
         }
         renderItem={({ item }) => {
           const tb = typeBadge(item.type, tk)
+          const hasPrice = item.inputPrice !== null || item.outputPrice !== null
           return (
             <PressableCard
               style={styles.modelCard}
@@ -233,25 +232,27 @@ export function ModelPlazaScreen({
                   <Text style={[styles.typeBadgeText, { color: tb.color }]}>{t(tb.labelKey)}</Text>
                 </View>
               </View>
-              <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>{t('modelPlaza.input')}</Text>
-                <Text style={styles.priceValue}>
-                  {item.inputPrice !== null
-                    ? t('modelPlaza.priceUnit', { price: item.inputPrice })
-                    : '-'}
-                </Text>
-                {item.outputPrice !== null ? (
-                  <>
-                    <Text style={styles.priceDivider}>|</Text>
-                    <Text style={styles.priceLabel}>{t('modelPlaza.output')}</Text>
-                    <Text style={styles.priceValue}>
-                      {t('modelPlaza.priceUnit', { price: item.outputPrice })}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={styles.priceExtra}>{t('modelPlaza.perCall')}</Text>
-                )}
-              </View>
+              {hasPrice ? (
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>{t('modelPlaza.input')}</Text>
+                  <Text style={styles.priceValue}>
+                    {item.inputPrice !== null
+                      ? t('modelPlaza.priceUnit', { price: item.inputPrice })
+                      : '-'}
+                  </Text>
+                  {item.outputPrice !== null ? (
+                    <>
+                      <Text style={styles.priceDivider}>|</Text>
+                      <Text style={styles.priceLabel}>{t('modelPlaza.output')}</Text>
+                      <Text style={styles.priceValue}>
+                        {t('modelPlaza.priceUnit', { price: item.outputPrice })}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={styles.priceExtra}>{t('modelPlaza.perCall')}</Text>
+                  )}
+                </View>
+              ) : null}
               {item.desc ? (
                 <Text style={styles.cardDesc} numberOfLines={2}>
                   {item.desc}
@@ -331,7 +332,8 @@ function createStyles(tk: AppThemeTokens) {
       height: 36,
       borderRadius: rnRadius['2xl'],
       borderWidth: 0,
-      backgroundColor: tk.surface.bg,
+      // 胶囊面取 card:暗档与 muted 底拉开层级,轮廓不糊
+      backgroundColor: tk.surface.card,
       justifyContent: 'center',
       ...shadowSoft,
     },
@@ -358,7 +360,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['md-loose'],
-      backgroundColor: tk.surface.bg,
+      backgroundColor: tk.surface.card,
       borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       ...shadowCard,
     },
@@ -373,7 +375,7 @@ function createStyles(tk: AppThemeTokens) {
     errorBar: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      backgroundColor: tk.surface.bg,
+      backgroundColor: tk.surface.card,
     },
     errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
     typeTabs: {
@@ -387,7 +389,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['md-loose'],
       height: 34,
       borderRadius: rnRadius['2xl'],
-      backgroundColor: tk.surface.bg,
+      backgroundColor: tk.surface.card,
       alignItems: 'center',
       justifyContent: 'center',
       ...shadowSoft,
@@ -401,12 +403,10 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: rnSpacing['3xl'],
     },
     separator: { height: 12 },
-    empty: { alignItems: 'center', paddingVertical: rnSpacing['5xl'] },
-    emptyText: { fontSize: rnType.body.size, color: tk.text.medium },
     modelCard: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
-      backgroundColor: tk.surface.bg,
+      backgroundColor: tk.surface.card,
       ...shadowCard,
     },
     cardTop: {
