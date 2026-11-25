@@ -26,8 +26,16 @@ const exec = vi.hoisted(() => ({
   getDeviceExecutorStatus: vi.fn(),
   startDeviceExecutor: vi.fn(),
   stopDeviceExecutor: vi.fn(),
+  getExecutorHostName: vi.fn(),
+  adoptDeviceExecutor: vi.fn(),
 }))
 vi.mock('@/lib/device-executor', () => exec)
+
+const api = vi.hoisted(() => ({
+  issueSelfDeviceToken: vi.fn(),
+  getBaseUrl: vi.fn(() => 'http://api.test'),
+}))
+vi.mock('@ihui/api-client', () => api)
 
 vi.mock('@ihui/ui-react', () => ({
   Card: ({ children, className }: { children?: React.ReactNode; className?: string }) => (
@@ -49,7 +57,13 @@ vi.mock('@ihui/ui-react', () => ({
     'aria-label'?: string
     'data-testid'?: string
   }) => (
-    <button type="button" onClick={onClick} disabled={disabled} aria-label={ariaLabel} data-testid={testId}>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      data-testid={testId}
+    >
       {children}
     </button>
   ),
@@ -78,6 +92,12 @@ beforeEach(() => {
   exec.getDeviceExecutorStatus.mockResolvedValue(status())
   exec.startDeviceExecutor.mockResolvedValue(status({ running: true, pid: 4321 }))
   exec.stopDeviceExecutor.mockResolvedValue(status())
+  exec.getExecutorHostName.mockResolvedValue('DESKTOP-1')
+  exec.adoptDeviceExecutor.mockResolvedValue(status({ paired: true }))
+  api.issueSelfDeviceToken.mockResolvedValue({
+    success: true,
+    data: { device_id: 'd-1', device_token: 'tok-1', name: 'DESKTOP-1 · 桌面端' },
+  })
 })
 
 afterEach(() => {
@@ -93,12 +113,48 @@ describe('DeviceExecutorCard', () => {
     expect(exec.getDeviceExecutorStatus).not.toHaveBeenCalled()
   })
 
-  it('未配对:给出可操作的下一步,启动按钮仍可按(点了由后端回原因)', async () => {
+  it('未配对:给的是「一键启用」而不是让用户去抄配对码', async () => {
     exec.getDeviceExecutorStatus.mockResolvedValue(status({ paired: false, deviceName: null }))
     render(<DeviceExecutorCard />)
     await waitFor(() => expect(screen.getByTestId('executor-state')).toBeTruthy())
     expect(screen.getByText('devices.executorUnpaired')).toBeTruthy()
-    expect((screen.getByTestId('executor-toggle') as HTMLButtonElement).disabled).toBe(false)
+    // G5:未配对时主按钮 = 一键启用(登录态即凭据),不给"启动"按钮 —— 那会立刻报未配对
+    const enable = screen.getByTestId('executor-enable') as HTMLButtonElement
+    expect(enable.disabled).toBe(false)
+    expect(screen.queryByTestId('executor-toggle')).toBeNull()
+  })
+
+  it('一键启用:签发设备令牌 → 交给桌面端落盘 → 直接启动', async () => {
+    exec.getDeviceExecutorStatus.mockResolvedValue(status({ paired: false, deviceName: null }))
+    render(<DeviceExecutorCard />)
+    await waitFor(() => expect(screen.getByTestId('executor-enable')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('executor-enable'))
+    await waitFor(() =>
+      expect(api.issueSelfDeviceToken).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'DESKTOP-1 · 桌面端' }),
+      ),
+    )
+    expect(exec.adoptDeviceExecutor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceId: 'd-1',
+        deviceToken: 'tok-1',
+        apiUrl: 'http://api.test',
+      }),
+    )
+    // 落盘成功后立刻启动:用户点一次就到位
+    await waitFor(() => expect(exec.startDeviceExecutor).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.getByText('devices.executorRunning')).toBeTruthy())
+  })
+
+  it('启用失败:显因并复读真实状态(不假装已配对)', async () => {
+    exec.getDeviceExecutorStatus.mockResolvedValue(status({ paired: false, deviceName: null }))
+    exec.adoptDeviceExecutor.mockRejectedValueOnce(new Error('已取消选择工作区'))
+    render(<DeviceExecutorCard />)
+    await waitFor(() => expect(screen.getByTestId('executor-enable')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('executor-enable'))
+    await waitFor(() => expect(screen.getByTestId('executor-error')).toBeTruthy())
+    expect(screen.getByTestId('executor-error').textContent).toContain('已取消选择工作区')
+    await waitFor(() => expect(exec.getDeviceExecutorStatus).toHaveBeenCalledTimes(2))
   })
 
   it('运行中点按钮 = 停止,状态跟随后端返回', async () => {
@@ -125,7 +181,9 @@ describe('DeviceExecutorCard', () => {
   })
 
   it('不支持的平台:说明原因,开关禁用', async () => {
-    exec.getDeviceExecutorStatus.mockResolvedValue(status({ supported: false, paired: false, deviceName: null }))
+    exec.getDeviceExecutorStatus.mockResolvedValue(
+      status({ supported: false, paired: false, deviceName: null }),
+    )
     render(<DeviceExecutorCard />)
     await waitFor(() => expect(screen.getByText('devices.executorUnsupported')).toBeTruthy())
     expect((screen.getByTestId('executor-toggle') as HTMLButtonElement).disabled).toBe(true)

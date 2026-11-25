@@ -2588,7 +2588,9 @@
     "executorStart": "시작",
     "executorStop": "중지",
     "executorRefresh": "상태 새로고침",
-    "executorUnpaired": "이 컴퓨터는 아직 연결되지 않았습니다. 「페어링 코드」에서 8자리 코드를 발급한 뒤 터미널에서 ihui device pair <코드> 를 실행하세요.",
+    "executorEnable": "원클릭 사용",
+
+    "executorUnpaired": "이 컴퓨터는 아직 연결되지 않았습니다. ‘원클릭 사용’을 눌러 허용하세요(페어링 코드 불필요).",
     "executorUnsupported": "로컬 실행기는 Windows 데스크톱 앱에서만 지원됩니다.",
     "executorTaskRegistered": "로그인 시 자동 실행 등록됨",
     "approvalTitle": "실행 계획",
@@ -5736,6 +5738,7 @@
       "bypassSkipApproval": "심사 건너뜀",
       "mcpRequiresApproval": "MCP 주석이 승인 필요",
       "policyRequiresApproval": "정책상 승인 필요",
+      "approvalPolicyDeny": "정책상 실행 거부",
       "policySkipsApproval": "정책상 승인 생략",
       "guardianReviewSuggested": "검토가 더 안전한 경로를 제안",
       "guardianReviewAlternativeApplied": "검토 제안 경로 적용됨"
