@@ -155,7 +155,9 @@ if (wantAlert && record.state !== BAN_PARITY_STATE.OK) {
   record.alerted = mail.ok
   record.mailReason = mail.ok ? null : mail.reason
   appendFileSync(LEDGER, `${JSON.stringify({ at: new Date().toISOString(), alert: record.state, ok: mail.ok, reason: mail.reason ?? null })}\n`, 'utf8')
-  console.log(`   --alert:${mail.ok ? '已投递' : `投递失败(${mail.reason})`}`)
+  // 走 stderr:stdout 在 --json 档只许留一行 JSON —— 派发器取末行解析,
+  // 混一行人读文案进去就会把它打成 undetermined(线上实测过一次)。
+  console.error(`   --alert:${mail.ok ? '已投递' : `投递失败(${mail.reason})`}`)
 }
 
 process.exit(record.state === BAN_PARITY_STATE.DRIFT ? 1 : record.state === BAN_PARITY_STATE.UNDETERMINED ? 2 : 0)
