@@ -29,6 +29,7 @@ describe('Admin Integration Tests (admin 路由鉴权集成)', () => {
   describe('无 Bearer token → 401', () => {
     const endpoints: Array<{ method: 'GET' | 'POST' | 'PATCH' | 'DELETE'; url: string }> = [
       { method: 'GET', url: '/api/admin/stats' },
+      { method: 'GET', url: '/api/admin/ai-pricing/list' },
       { method: 'GET', url: '/api/admin/users' },
       { method: 'GET', url: '/api/admin/projects' },
       { method: 'GET', url: '/api/admin/users/00000000-0000-4000-8000-000000000000' },
