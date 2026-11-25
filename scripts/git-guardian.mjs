@@ -7539,6 +7539,85 @@ export function pruneTmpScratch(opts = {}) {
   return { ran: true, ok: r.ok, state: state ?? 'no-result-line', summary: line, reading }
 }
 
+// 防膨胀器物"还在不在"的存活守门派发腿(2026-11-25 立,机主令"彻底根治 不允许再出现膨胀了")。
+// 立因实测:机制造好后被 5b96a6e3(commit message 只写 docs)相对其父把
+// git-guardian 删 91 行、prune-tmp-scratch 退回旧锚点,整份退回,**且逃过 pre-push 的旧底稿
+// 整份回退哨兵**(退回后的内容 = 旧版 + 别处改动混合,不等于任何单一祖先 blob,哨兵按等值判认不出)。
+// ⇒ "造好"不等于"还在"。器物 check-bloat-guards-alive.mjs 按**终态符号存在性**判(不看 diff,
+// 重构不会误红),判面默认 origin/main(主仓 HEAD 常与远端分叉,以 HEAD 为面会恒红 ⇒ 恒红门禁令)。
+// 本层只节流 + 派发 + 读结论行,零复算。12 小时:判的是远端面存量,不必 5 分钟一趟。
+export function auditBloatGuardsAlive(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = 12 * 60 * 60 * 1000,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'bloat-guards-alive-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-bloat-guards-alive.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 器物存活守门:器物不在位(scripts/check-bloat-guards-alive.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '守门不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 器物存活守门:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              // 只读 git show,19 条断言;给 10 分钟足够
+              timeout: 10 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, code: 0, out: String(out ?? '') }
+          } catch (e) {
+            // rc=1 = 真判 missing(机制被退回); rc=2 = 判面取不到(未判定)。都带回,不在这里判绿。
+            return {
+              ok: false,
+              code: typeof e?.status === 'number' ? e.status : 1,
+              out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`,
+              err: String(e?.message ?? e),
+            }
+          }
+        }
+  const r = run()
+  const rows = String(r.out ?? '').split(/\r?\n/)
+  const resultLine = rows.map((l) => l.match(/BLOAT-GUARDS\s+state=([A-Za-z]+)\s+face=(\S+)\s+checked=(\d+)\s+missing=(\d+)\s+unaccounted=(\d+)/) ?? null).find(Boolean)
+  const state = resultLine ? resultLine[1] : null
+  const kv = (i) => (resultLine ? resultLine[i] : null)
+  const line = resultLine ? resultLine[0].trim() : ''
+  let reading = null
+  if (state === 'ok') {
+    reading = `${kv(3)} 条断言全在（判面 ${kv(2)}）${Number(kv(5)) ? `;另 ${kv(5)} 个器物未登记` : ''}`
+  } else if (state === 'missing') {
+    reading = `🚨 ${kv(4)} 条机制符号在判面 ${kv(2)} 上不见了(被退回或删了);未登记器物 ${kv(5)} 个`
+  } else if (state === 'undetermined') {
+    reading = '未判定(判面取不到)⇒ 本轮没判,不等于"机制还在"'
+  }
+  logger(
+    reading !== null
+      ? `${state === 'ok' ? '✅' : '⚠️'} 器物存活守门:${reading}${line ? ` ｜ ${line.slice(0, 160)}` : ''}`
+      : `${r.ok ? '✅' : '⚠️'} 器物存活守门:${line || r.err || '未取到结论行(BLOAT-GUARDS)⇒ 本轮未判定,不等于"机制还在"'}`,
+  )
+  return { ran: true, ok: r.ok, state: state ?? 'no-result-line', summary: line, reading }
+}
 // 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l4105(门 103 C1 收口)〉首意: 超龄认领牌代摘轮(2026-10-22 立,同日补回:这一层曾被一枚已入库的提交整段删掉而无人发现
 export function sweepStaleClaimMarks(opts = {}) {
   const {
@@ -15718,6 +15797,9 @@ async function main() {
     // 几百个一次性目录能从 8 月堆到 11 月。本腿 6 小时一次按判据把到期条目移出仓到
     // <仓库根>/../DevEnv/ihui-scratch-archive(带 MANIFEST,可原样搬回),台账命中的不动。
     if (!CHECK_ONLY) pruneTmpScratch()
+    // 防膨胀器物存活守门(2026-11-25):机制被 5b96a6e3 整份退回且逃过 pre-push 哨兵 ⇒ 12 小时一次
+    // 按终态符号存在性核"东西还在不在"(判面 origin/main),缺一即点名。
+    if (!CHECK_ONLY) auditBloatGuardsAlive()
     // ref 位移丢提交守夜人(2026-11-18):计划任务实测会被删,关键判据不能只挂它(§5b)。
     if (!CHECK_ONLY) sweepRefMoveLoss()
     // 违禁桶兜底清扫(2026-10-25,等条件/待拍板两道机主禁令的执行器物化):union 收敛器与
