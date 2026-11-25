@@ -53,14 +53,14 @@
         "desc": "自进化技能市场:安装、评分与订阅"
       },
       "connectors": {
-        "title": "连接器",
+        "title": "中文连接器",
         "desc": "接入语雀、飞书、企微、钉钉等中文文档源"
       }
     },
     "bundles": {
       "contentCreator": {
         "title": "内容创作专家包",
-        "desc": "写作与发布工作流的组合入口:AI 技能、Skill 市场与连接器"
+        "desc": "写作与发布工作流的组合入口:AI 技能、Skill 市场与中文连接器"
       },
       "developerExtension": {
         "title": "开发者扩展包",
@@ -6106,7 +6106,7 @@
     }
   },
   "connectors": {
-    "title": "连接器",
+    "title": "中文连接器",
     "subtitle": "接入语雀/飞书/企业微信/钉钉,让对话能直接读取中文知识平台文档",
     "count": "共 {count} 个连接器",
     "add": "添加连接器",

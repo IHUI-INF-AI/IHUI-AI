@@ -53,14 +53,14 @@
         "desc": "自己進化するスキル市場:導入・評価・購読"
       },
       "connectors": {
-        "title": "コネクタ",
+        "title": "中国語コネクタ",
         "desc": "Yuque・Feishu・WeCom・DingTalk のドキュメントを接続"
       }
     },
     "bundles": {
       "contentCreator": {
         "title": "コンテンツ制作バンドル",
-        "desc": "執筆と公開ワークフローの統合入口:AI スキル、Skill マーケット、コネクタ"
+        "desc": "執筆と公開ワークフローの統合入口:AI スキル、Skill マーケット、中国語コネクタ"
       },
       "developerExtension": {
         "title": "開発者拡張バンドル",
@@ -6137,7 +6137,7 @@
     }
   },
   "connectors": {
-    "title": "コネクタ",
+    "title": "中文コネクタ",
     "subtitle": "語雀/飛書/企業微信/钉钉を接続し、会話から中文ナレッジプラットフォームの文書を直接読めるようにします",
     "count": "コネクタ {count} 件",
     "add": "コネクタを追加",

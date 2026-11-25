@@ -208,11 +208,12 @@ export async function bindBrowserTask(
   sessionId: string,
   req: BindBrowserTaskRequest,
 ): Promise<ApiResult<{ task: BrowserTaskSnapshot }>> {
-  return fetchApi<{ task: BrowserTaskSnapshot }>(`/api/browser/sessions/${sessionId}/task`, {
-    method: 'POST',
-    body: JSON.stringify(req),
-  })
+  return fetchApi<{ task: BrowserTaskSnapshot }>(
+    `/api/browser/sessions/${sessionId}/task`,
+    { method: 'POST', body: JSON.stringify(req) },
+  )
 }
+
 
 /**
  * 构建 Browser Hub WebSocket URL。

@@ -53,14 +53,14 @@
         "desc": "自進化技能市場:安裝、評分與訂閱"
       },
       "connectors": {
-        "title": "連接器",
+        "title": "中文連接器",
         "desc": "接入語雀、飛書、企微、釘釘等中文文檔源"
       }
     },
     "bundles": {
       "contentCreator": {
         "title": "內容創作專家包",
-        "desc": "寫作與發布工作流的組合入口:AI 技能、Skill 市場與連接器"
+        "desc": "寫作與發布工作流的組合入口:AI 技能、Skill 市場與中文連接器"
       },
       "developerExtension": {
         "title": "開發者擴展包",
@@ -6106,7 +6106,7 @@
     }
   },
   "connectors": {
-    "title": "連接器",
+    "title": "中文連接器",
     "subtitle": "接入語雀/飛書/企業微信/釘釘,讓對話能直接讀取中文知識平臺文檔",
     "count": "共 {count} 個連接器",
     "add": "新增連接器",
