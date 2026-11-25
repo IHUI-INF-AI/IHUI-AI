@@ -877,6 +877,54 @@ function dispatchAccountWatch() {
   }
 }
 
+// 账号锁定 / 失败登录突发(2026-11-26 立):读 Security 4740(锁定)/4625(失败登录),
+// 30 分钟滑动窗按「进程/用户/类型」聚合。与账号面互补:account-watch 盯身份被加进来,
+// 这一维盯「短窗口内被打到锁定」。纯告警/哨兵腿,不进提交链阻断门(§12e/§12f)。
+function dispatchAccountLockout() {
+  const t0 = Date.now()
+  const r = spawnSync(process.execPath, [join(HERE, 'check-account-lockout.mjs'), '--json', '--alert'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 120_000,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 1 << 24,
+  })
+  let state = 'undetermined'
+  let reason = ''
+  let total4625 = 0
+  let total4740 = 0
+  let breaches = 0
+  try {
+    const last = String(r.stdout ?? '').trim().split(/\r?\n/).filter(Boolean).pop()
+    const parsed = JSON.parse(last)
+    state = parsed.state ?? 'undetermined'
+    reason = parsed.reason ?? ''
+    total4625 = Number(parsed.total4625 ?? 0)
+    total4740 = Number(parsed.total4740 ?? 0)
+    breaches = Array.isArray(parsed.breaches) ? parsed.breaches.length : 0
+  } catch {
+    /* 解析不出来按未判定记,不猜结论 */
+  }
+  const rec = {
+    ts: new Date().toISOString(),
+    name: 'account-lockout',
+    code: r.status ?? (r.error ? 2 : 0),
+    ms: Date.now() - t0,
+    state,
+    reason,
+    total4740,
+    total4625,
+    breaches,
+    error: r.error ? String(r.error.message) : null,
+  }
+  try {
+    appendFileSync(join(ROOT, '.ihui-agent', 'state', 'downstream-dispatch.jsonl'), `${JSON.stringify(rec)}\n`, 'utf8')
+  } catch {
+    /* 留痕失败不影响主流程 */
+  }
+}
+
 // 服务与配置面(2026-11-25 立):账号面盯「谁能进来」,这一面盯「门本身有没有被改松」。
 // 把 IHUI_EDGE_SECRET_MODE 从 enforce 改成 observe、把 WAF 关掉、把启动类型改成手动、
 // 在 0.0.0.0 上多开一个监听端口 —— 四件事做完服务照常跑、原有判据照常全绿,但防线已换了一副样子。
@@ -991,6 +1039,11 @@ if (isDirectRun) {
           dispatchAccountWatch()
         } catch {
           /* 账号面失败同上:结论在 downstream-dispatch.jsonl 与 account-drift.jsonl */
+        }
+        try {
+          dispatchAccountLockout()
+        } catch {
+          /* 账号锁定/突发失败同上:结论在 downstream-dispatch.jsonl 与 account-lockout.jsonl */
         }
         try {
           dispatchServiceBaseline()
