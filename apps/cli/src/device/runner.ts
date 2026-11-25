@@ -24,6 +24,7 @@ import {
   deviceTaskComplete,
   deviceTaskFail,
   deviceTaskLease,
+  deviceTaskRequestApproval,
   deviceTaskStream,
   type DeviceTaskRow,
 } from '@ihui/api-client'
@@ -186,6 +187,42 @@ function createStreamer(deviceToken: string, taskId: string, log: (line: string)
   }
 }
 
+type ApprovalVerdict = 'approved' | 'rejected' | 'cancelled' | 'timeout'
+
+/**
+ * 原地等审批(G3,2026-11-26)。
+ * 每 5s 走一次租约:既续租(防服务端把任务判超时),又读人的决定与取消意图。
+ * 默认 30 分钟封顶 —— 设备是串行执行的,一条没人管的任务挂着等于整条队列全堵;
+ * 超时如实报 failed(人可以重排),而不是假装还在跑。
+ */
+async function waitForApproval(
+  token: string,
+  taskId: string,
+  progress: DeviceTaskProgress,
+  log: (line: string) => void,
+  onCancel: () => void,
+  maxMs = 30 * 60_000,
+): Promise<ApprovalVerdict> {
+  const deadline = Date.now() + maxMs
+  while (Date.now() < deadline) {
+    try {
+      const res = await deviceTaskLease(token, taskId, progress)
+      if (res.success && res.data) {
+        if (res.data.cancel_requested) {
+          onCancel()
+          return 'cancelled'
+        }
+        if (res.data.approval_decision === 'approved') return 'approved'
+        if (res.data.approval_decision === 'rejected') return 'rejected'
+      }
+    } catch (e) {
+      log(`等审批心跳异常:${e instanceof Error ? e.message : String(e)}`)
+    }
+    await delay(5000)
+  }
+  return 'timeout'
+}
+
 /** 执行单个任务。返回后调用方继续 claim。 */
 async function executeTask(
   cfg: DeviceRunnerConfig,
@@ -227,9 +264,10 @@ async function executeTask(
   const permissionMode: PermissionMode =
     payload.mode === 'plan' ? 'plan' : payload.autoApprove ? 'acceptEdits' : cfg.permissionMode ?? 'default'
 
+  const model = payload.model && payload.model.trim() ? payload.model.trim() : cfg.model
   const core = new AgentCore({
     workspacePath,
-    model: payload.model && payload.model.trim() ? payload.model.trim() : cfg.model,
+    model,
     apiUrl: cfg.apiUrl,
     apiKey: cfg.apiKey,
     maxIterations: cfg.maxIterations ?? 30,
@@ -256,19 +294,94 @@ async function executeTask(
     })()
   }, 15_000)
 
+  let finalPermissionMode: PermissionMode = permissionMode
   try {
-    const result = await core.sendMessage(
+    let result = await core.sendMessage(
       payload.prompt,
       (evt) => streamer.onEvent(evt),
       { signal: controller.signal },
     )
+
+    // G3(2026-11-26):plan 档出完方案会以 plan_approval_required 停住 ——
+    // 这不是"完成",是"等你点头"。把消息指针交上服务端,原地续租等人批;
+    // 批了用同一会话以 acceptEdits 接着跑,拒了如实收口。
+    if (result.stopReason === 'plan_approval_required' && !cancelled) {
+      await streamer.finalize()
+      const plan = streamer.text().trim()
+      const asked = await deviceTaskRequestApproval(token, task.id, {
+        preview: plan || '执行端未产出计划正文',
+        ...(attach.messageId ? { messageId: attach.messageId } : {}),
+        iterations: result.iterations,
+      })
+      if (!asked.success) {
+        log(`审批请求上报失败:${asked.error ?? '未知错误'}`)
+        await deviceTaskFail(token, task.id, `审批请求上报失败:${asked.error ?? '未知'}`)
+        return
+      }
+      log(`任务 ${task.id} 出完方案(${plan.length} 字),等你批准`)
+      const verdict = await waitForApproval(
+        token,
+        task.id,
+        progressOf('awaiting_approval', 60, { lastEvent: '等待你批准计划' }),
+        log,
+        () => {
+          cancelled = true
+          controller.abort()
+        },
+      )
+      if (verdict === 'cancelled') {
+        log(`任务 ${task.id} 等审批时被取消`)
+        await deviceTaskFail(token, task.id, '用户已取消', null, progressOf('cancelled', 0))
+        return
+      }
+      if (verdict === 'timeout') {
+        log(`任务 ${task.id} 等审批超时`)
+        await deviceTaskFail(token, task.id, '等待审批超时(30 分钟内无人批准)', null, {
+          stage: 'failed',
+          percent: 0,
+          lastEvent: '等待审批超时',
+          updatedAt: nowIso(),
+        } satisfies DeviceTaskProgress)
+        return
+      }
+      if (verdict === 'rejected') {
+        log(`任务 ${task.id} 的计划被拒绝`)
+        await deviceTaskFail(token, task.id, '用户拒绝了这个计划', null, {
+          stage: 'cancelled',
+          percent: 0,
+          lastEvent: '计划被拒绝',
+          updatedAt: nowIso(),
+        } satisfies DeviceTaskProgress)
+        return
+      }
+
+      // 计划已批 ⇒ 后续编辑类动作不必逐条追问;仍不开 bypassPermissions(危险动作照旧 fail-closed)。
+      finalPermissionMode = 'acceptEdits'
+      const resumed = new AgentCore({
+        workspacePath,
+        model,
+        apiUrl: cfg.apiUrl,
+        apiKey: cfg.apiKey,
+        maxIterations: cfg.maxIterations ?? 30,
+        permissionMode: finalPermissionMode,
+        enableMcp: true,
+        allowDangerous: false,
+      })
+      streamer.onEvent({ type: 'token', text: '\n\n— 计划已获批准,继续执行 —\n\n' })
+      result = await resumed.sendMessage(
+        '计划已获批准,请按上面的计划继续执行。',
+        (evt) => streamer.onEvent(evt),
+        { signal: controller.signal, sessionId: result.sessionId },
+      )
+    }
+
     await streamer.finalize()
     await deviceTaskComplete(token, task.id, {
       agent_session_id: result.sessionId,
       stop_reason: result.stopReason,
       iterations: result.iterations,
       usage: result.usage,
-      permission_mode: permissionMode,
+      permission_mode: finalPermissionMode,
     })
     log(`任务 ${task.id} 完成(${result.stopReason}, ${result.iterations} 轮)`)
   } catch (e) {

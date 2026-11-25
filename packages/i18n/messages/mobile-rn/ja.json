@@ -2579,7 +2579,13 @@
     "statusFailed": "失敗",
     "statusExpired": "期限切れ",
     "taskCancel": "タスクをキャンセル",
-    "delegatePromptPlaceholder": "空欄の場合はこの会話の最後のメッセージを実行します"
+    "delegatePromptPlaceholder": "空欄の場合はこの会話の最後のメッセージを実行します",
+    "approvalView": "承認",
+    "approvalTitle": "実行計画",
+    "approvalClose": "閉じる",
+    "approvalApprove": "実行を承認",
+    "approvalReject": "拒否",
+    "approvalEmpty": "実行側は計画本文を残していません"
   },
   "pendingDecisions": {
     "title": "自分の承認待ち",

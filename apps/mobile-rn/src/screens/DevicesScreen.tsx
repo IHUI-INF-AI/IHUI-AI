@@ -25,6 +25,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
+  Check,
   ClipboardList,
   KeyRound,
   MonitorSmartphone,
@@ -35,7 +36,9 @@ import {
 } from 'lucide-react-native'
 import {
   cancelDeviceTask,
+  decideDeviceTaskApproval,
   delegateSession,
+  getDeviceTaskApproval,
   getDeviceTasks,
   issuePairCode,
   listConversations,
@@ -250,6 +253,38 @@ export default function DevicesScreen() {
     try {
       const res =
         action === 'cancel' ? await cancelDeviceTask(taskId) : await retryDeviceTask(taskId)
+      if (!res.success) {
+        appAlert(t('common.error'), res.error || t('devices.tasksFailed'))
+        return
+      }
+      const refreshed = await getDeviceTasks(deviceId)
+      if (refreshed.success) setTasks(refreshed.data ?? [])
+    } catch {
+      appAlert(t('common.error'), t('devices.tasksFailed'))
+    } finally {
+      setTaskBusy(null)
+    }
+  }
+
+  /**
+   * G3:plan 档审批。不传 decision = 只看计划(正文从会话消息现读,取不到退回摘要);
+   * 传 decision = 真的批准/拒绝 —— 先看后批,按钮与正文分开两个动作,避免误触。
+   */
+  const onApproval = async (task: DeviceTaskRow, decision?: 'approved' | 'rejected') => {
+    const deviceId = tasksFor
+    if (!deviceId) return
+    setTaskBusy(task.id)
+    try {
+      if (!decision) {
+        const res = await getDeviceTaskApproval(task.id)
+        const plan =
+          (res.success ? res.data?.plan : null) ??
+          task.approvalRequest?.preview ??
+          t('devices.approvalEmpty')
+        appAlert(t('devices.approvalTitle'), plan)
+        return
+      }
+      const res = await decideDeviceTaskApproval(task.id, decision)
       if (!res.success) {
         appAlert(t('common.error'), res.error || t('devices.tasksFailed'))
         return
@@ -488,7 +523,38 @@ export default function DevicesScreen() {
                               </Text>
                             ) : null}
                             {task.error ? <Text style={styles.error}>{task.error}</Text> : null}
-                            {taskBusy === task.id ? null : task.status === 'queued' ||
+                            {taskBusy === task.id ? null : task.progress?.stage ===
+                              'awaiting_approval' ? (
+                              <View style={styles.actionRow}>
+                                <TouchableOpacity
+                                  onPress={() => void onApproval(task)}
+                                  activeOpacity={0.7}
+                                >
+                                  <View style={styles.actionRow}>
+                                    <ClipboardList size={13} color={tokens.text.primary} />
+                                    <Text style={styles.link}>{t('devices.approvalView')}</Text>
+                                  </View>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  onPress={() => void onApproval(task, 'approved')}
+                                  activeOpacity={0.7}
+                                >
+                                  <View style={styles.actionRow}>
+                                    <Check size={13} color={tokens.text.primary} />
+                                    <Text style={styles.link}>{t('devices.approvalApprove')}</Text>
+                                  </View>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  onPress={() => void onApproval(task, 'rejected')}
+                                  activeOpacity={0.7}
+                                >
+                                  <View style={styles.actionRow}>
+                                    <XCircle size={13} color={tokens.text.primary} />
+                                    <Text style={styles.link}>{t('devices.approvalReject')}</Text>
+                                  </View>
+                                </TouchableOpacity>
+                              </View>
+                            ) : task.status === 'queued' ||
                               task.status === 'claimed' ||
                               task.status === 'running' ? (
                               <TouchableOpacity

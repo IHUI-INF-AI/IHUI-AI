@@ -16,8 +16,11 @@ import { AppError } from '../errors/AppError.js'
 import {
   appendTaskStream,
   attachTaskMessage,
+  decideTaskApproval,
   extendTaskLease,
+  getTaskApproval,
   getTaskForUser,
+  requestTaskApproval,
   requestTaskCancel,
   retryTask,
 } from '../services/device-task-runtime.js'
@@ -635,8 +638,40 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
           cancel_requested: res.cancelRequested,
           lease_expires_at: res.leaseExpiresAt.toISOString(),
           agent_session_id: res.agentSessionId,
+          // G3:plan 档停住后靠这一项读人的决策(approved/rejected/null)
+          approval_decision: res.approvalDecision,
         }),
       )
+    } catch (e) {
+      return replyServiceError(reply, e)
+    }
+  })
+
+  // POST /api/devices/tasks/:id/approval - 设备交付 plan 档方案摘要,等人在手机/网页上批准
+  // 正文不在这里上传:计划已由执行端流进会话消息,这里只登记"哪条消息 + 一行摘要"。
+  server.post('/devices/tasks/:id/approval', async (request, reply) => {
+    const device = await requireDevice(request, reply)
+    if (!device) return
+    const id = requireId(request, reply)
+    if (!id) return
+    const parsed = z
+      .object({
+        preview: z.string().min(1).max(2000),
+        message_id: z.string().uuid().optional(),
+        iterations: z.number().int().min(0).max(1000).optional(),
+      })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const task = await requestTaskApproval(device.id, id, {
+        preview: parsed.data.preview,
+        ...(parsed.data.message_id !== undefined ? { messageId: parsed.data.message_id } : {}),
+        ...(parsed.data.iterations !== undefined ? { iterations: parsed.data.iterations } : {}),
+      })
+      broadcastDeviceTask(device.userId, task)
+      return reply.send(success({ task_id: task.id, stage: 'awaiting_approval' }))
     } catch (e) {
       return replyServiceError(reply, e)
     }
@@ -652,6 +687,39 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
       const found = await getTaskForUser(userId, id)
       if (!found) return reply.status(404).send(error(404, '任务不存在'))
       return reply.send(success(found))
+    } catch (e) {
+      return replyServiceError(reply, e)
+    }
+  })
+
+  // GET /api/devices/tasks/:id/approval - 用户读 plan 正文与已作决策(按需取,不进列表/广播)
+  server.get('/devices/tasks/:id/approval', async (request, reply) => {
+    const userId = await requireUser(request, reply)
+    if (!userId) return
+    const id = requireId(request, reply)
+    if (!id) return
+    try {
+      const res = await getTaskApproval(userId, id)
+      return reply.send(success({ request: res.request, decision: res.decision, plan: res.plan }))
+    } catch (e) {
+      return replyServiceError(reply, e)
+    }
+  })
+
+  // POST /api/devices/tasks/:id/approval/decision - 用户批准/拒绝 plan 档方案
+  server.post('/devices/tasks/:id/approval/decision', async (request, reply) => {
+    const userId = await requireUser(request, reply)
+    if (!userId) return
+    const id = requireId(request, reply)
+    if (!id) return
+    const parsed = z.object({ decision: z.enum(['approved', 'rejected']) }).safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const task = await decideTaskApproval(userId, id, parsed.data.decision)
+      broadcastDeviceTask(userId, task)
+      return reply.send(success({ decision: parsed.data.decision, status: task.status }))
     } catch (e) {
       return replyServiceError(reply, e)
     }

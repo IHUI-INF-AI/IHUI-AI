@@ -1331,7 +1331,13 @@
       "taskStatus_running": "执行中",
       "taskStatus_completed": "已完成",
       "taskStatus_failed": "失败",
-      "taskStatus_expired": "已过期"
+      "taskStatus_expired": "已过期",
+      "approvalView": "审批",
+      "approvalTitle": "执行计划",
+      "approvalClose": "收起",
+      "approvalApprove": "同意执行",
+      "approvalReject": "拒绝",
+      "approvalEmpty": "执行端没有留下计划正文"
     },
     "rumEnabled": "RUM 已启用",
     "ip": {

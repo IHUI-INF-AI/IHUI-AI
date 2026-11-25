@@ -4,6 +4,9 @@
 
 import type {
   ApiResult,
+  DeviceApprovalDecision,
+  DeviceTaskApprovalRecord,
+  DeviceTaskApprovalRequest,
   DeviceTaskExecutionPayload,
   DeviceTaskProgress,
   RegisterDeviceTokenInput,
@@ -108,6 +111,10 @@ export interface DeviceTaskRow {
   attempt: number
   agentSessionId: string | null
   startedAt: string | null
+  /** G3:plan 档交上来的方案(正文随行下发 —— 详情/列表都会带;如需"只看有没有",读 plan 长度即可) */
+  approvalRequest: DeviceTaskApprovalRequest | null
+  /** G3:已作决策(approved/rejected + 时间 + 决策人),未批为 null */
+  approvalDecision: DeviceTaskApprovalRecord | null
   createdAt: string
   createdBy: string
 }
@@ -359,7 +366,7 @@ export async function deviceTaskStream(
   )
 }
 
-/** 续租 + 取取消意图(设备端每次轮询/心跳都调;返回 cancel_requested 后自行中止) */
+/** 续租 + 取取消意图 + 取审批决策(设备端每次轮询/心跳都调) */
 export async function deviceTaskLease(
   deviceToken: string,
   taskId: string,
@@ -369,16 +376,64 @@ export async function deviceTaskLease(
     cancel_requested: boolean
     lease_expires_at: string
     agent_session_id: string | null
+    approval_decision: DeviceApprovalDecision | null
   }>
 > {
   return fetchDeviceApi<{
     cancel_requested: boolean
     lease_expires_at: string
     agent_session_id: string | null
+    approval_decision: DeviceApprovalDecision | null
   }>(deviceToken, `/api/devices/tasks/${encodeURIComponent(taskId)}/lease`, {
     method: 'POST',
     body: JSON.stringify({ ...(progress ? { progress } : {}) }),
   })
+}
+
+/** 设备交付 plan 档方案摘要(只许一次;人批完前执行端停在这里续租等) */
+export async function deviceTaskRequestApproval(
+  deviceToken: string,
+  taskId: string,
+  input: { preview: string; messageId?: string; iterations?: number },
+): Promise<ApiResult<{ task_id: string; stage: string }>> {
+  return fetchDeviceApi<{ task_id: string; stage: string }>(
+    deviceToken,
+    `/api/devices/tasks/${encodeURIComponent(taskId)}/approval`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        preview: input.preview,
+        ...(input.messageId ? { message_id: input.messageId } : {}),
+        ...(input.iterations !== undefined ? { iterations: input.iterations } : {}),
+      }),
+    },
+  )
+}
+
+/** 用户读计划正文与已作决策(正文从会话消息现读,不进广播帧) */
+export async function getDeviceTaskApproval(taskId: string): Promise<
+  ApiResult<{
+    request: DeviceTaskApprovalRequest | null
+    decision: DeviceTaskApprovalRecord | null
+    plan: string | null
+  }>
+> {
+  return fetchApi<{
+    request: DeviceTaskApprovalRequest | null
+    decision: DeviceTaskApprovalRecord | null
+    plan: string | null
+  }>(`/api/devices/tasks/${encodeURIComponent(taskId)}/approval`, { method: 'GET' })
+}
+
+/** 用户批准/拒绝 plan 档方案(决策只写一次,执行端从租约读到后继续/收口) */
+export async function decideDeviceTaskApproval(
+  taskId: string,
+  decision: DeviceApprovalDecision,
+): Promise<ApiResult<{ decision: DeviceApprovalDecision; status: string }>> {
+  return fetchApi<{ decision: DeviceApprovalDecision; status: string }>(
+    `/api/devices/tasks/${encodeURIComponent(taskId)}/approval/decision`,
+    { method: 'POST', body: JSON.stringify({ decision }) },
+  )
 }
 
 /** 用户侧任务详情(含设备名) */

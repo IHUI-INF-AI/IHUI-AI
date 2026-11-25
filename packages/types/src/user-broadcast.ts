@@ -1203,6 +1203,10 @@ export const DEVICE_TASK_STAGES = [
   'thinking',
   'tool',
   'streaming',
+  // G3 跨端审批(2026-11-26):plan 档出完方案停住,等人在手机/网页上点"同意/拒绝"。
+  // 任务 status 仍是 running(进程活着、租约在续),所以不新增任务状态 —— 用 stage 表达
+  // "在执行中、但卡在等人的一个决定上",UI 据此只多一行审批入口。
+  'awaiting_approval',
   'completed',
   'failed',
   'cancelled',
@@ -1212,6 +1216,59 @@ export type DeviceTaskStage = (typeof DEVICE_TASK_STAGES)[number]
 
 export function isDeviceTaskStage(v: unknown): v is DeviceTaskStage {
   return typeof v === 'string' && (DEVICE_TASK_STAGES as readonly string[]).includes(v)
+}
+
+/**
+ * 审批决策的封闭两档(G3,2026-11-26)。
+ * 刻意没有"稍后/再想想":任务正卡在这里等一个决定,第三档没人能执行,
+ * 只会让执行端与用户在"到底批没批"上来回猜。拖着不批由执行端超时收口(failed)。
+ */
+export const DEVICE_APPROVAL_DECISIONS = ['approved', 'rejected'] as const
+
+export type DeviceApprovalDecision = (typeof DEVICE_APPROVAL_DECISIONS)[number]
+
+export function isDeviceApprovalDecision(v: unknown): v is DeviceApprovalDecision {
+  return typeof v === 'string' && (DEVICE_APPROVAL_DECISIONS as readonly string[]).includes(v)
+}
+
+/**
+ * plan 档任务交上来的审批请求。**不复制正文**:计划的唯一真相源是执行端
+ * 边写边流进会话的那条 assistant 消息(人批准的就是他实际看到的那份),
+ * 这里只留指针与摘要 —— 列表页零负担,也不会出现"库里存的计划与聊天里不一致"。
+ */
+export interface DeviceTaskApprovalRequest {
+  /** 计划正文所在的消息 id(attach 建的那条);缺省 = 老执行端,只能读 preview */
+  messageId: string | null
+  /** 前 240 字摘要,列表/推送一行可见 */
+  preview: string
+  requestedAt: string
+  iterations?: number
+}
+
+export function isDeviceTaskApprovalRequest(v: unknown): v is DeviceTaskApprovalRequest {
+  if (typeof v !== 'object' || v === null) return false
+  const r = v as Record<string, unknown>
+  if (r.messageId !== null && typeof r.messageId !== 'string') return false
+  if (typeof r.preview !== 'string' || r.preview.length === 0) return false
+  if (typeof r.requestedAt !== 'string' || Number.isNaN(Date.parse(r.requestedAt))) return false
+  if (
+    r.iterations !== undefined &&
+    (!Number.isInteger(r.iterations) || (r.iterations as number) < 0)
+  ) {
+    return false
+  }
+  return true
+}
+
+/**
+ * 人做出的决策记录。`by` 是**令牌主体**(不是收信人):审计要回答"谁批的",
+ * 与 `device:task` 其余载荷"主体不进广播"同一纪律 —— 记录留在库与用户面读取里,
+ * 广播帧只携带决策结果本身。
+ */
+export interface DeviceTaskApprovalRecord {
+  decision: DeviceApprovalDecision
+  at: string
+  by: string
 }
 
 export interface DeviceTaskProgress {

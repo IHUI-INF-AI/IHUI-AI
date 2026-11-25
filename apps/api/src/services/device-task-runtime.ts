@@ -15,9 +15,15 @@
  *    不需要学第二套"任务事件"渲染,也不会出现"任务页有日志、会话里没内容"的分叉;
  * ③ 终态帧复用 message:terminal 的既有语义,无需新协议。
  */
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { chatConversations, chatMessages, deviceTasks, devices } from '@ihui/database'
-import type { DeviceTaskProgress } from '@ihui/types'
+import type {
+  DeviceApprovalDecision,
+  DeviceTaskApprovalRecord,
+  DeviceTaskApprovalRequest,
+  DeviceTaskProgress,
+} from '@ihui/types'
+import { isDeviceApprovalDecision } from '@ihui/types'
 import { db } from '../db/index.js'
 import { createMessage } from '../db/chat-queries.js'
 import { AppError } from '../errors/AppError.js'
@@ -50,6 +56,9 @@ interface TaskRow {
   cancelRequestedAt: Date | null
   payload: unknown
   attempt: number
+  approvalRequest: unknown
+  approvalDecision: unknown
+  progress: unknown
 }
 
 async function loadTaskForDevice(deviceId: string, taskId: string): Promise<TaskRow> {
@@ -63,6 +72,9 @@ async function loadTaskForDevice(deviceId: string, taskId: string): Promise<Task
       cancelRequestedAt: deviceTasks.cancelRequestedAt,
       payload: deviceTasks.payload,
       attempt: deviceTasks.attempt,
+      approvalRequest: deviceTasks.approvalRequest,
+      approvalDecision: deviceTasks.approvalDecision,
+      progress: deviceTasks.progress,
     })
     .from(deviceTasks)
     .where(and(eq(deviceTasks.id, taskId), eq(deviceTasks.targetDeviceId, deviceId)))
@@ -70,6 +82,13 @@ async function loadTaskForDevice(deviceId: string, taskId: string): Promise<Task
   const row = rows[0]
   if (!row) throw new AppError('任务不存在或不属于该设备', 404, 'TASK_NOT_FOUND')
   return row
+}
+
+/** 库里的审批决策是 jsonb 自由形态 ⇒ 只认封闭两档,认不出按"还没批"处理(不猜) */
+function readApprovalDecision(raw: unknown): DeviceApprovalDecision | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const value = (raw as Record<string, unknown>).decision
+  return isDeviceApprovalDecision(value) ? value : null
 }
 
 function assertRunning(task: TaskRow): void {
@@ -202,7 +221,13 @@ export async function extendTaskLease(
   deviceId: string,
   taskId: string,
   progress?: DeviceTaskProgress,
-): Promise<{ cancelRequested: boolean; leaseExpiresAt: Date; agentSessionId: string | null }> {
+): Promise<{
+  cancelRequested: boolean
+  leaseExpiresAt: Date
+  agentSessionId: string | null
+  /** G3:审批决策 —— 执行端在 plan 档停住后靠它继续/收口;null = 还没人批 */
+  approvalDecision: DeviceApprovalDecision | null
+}> {
   const task = await loadTaskForDevice(deviceId, taskId)
   if (task.status !== 'running' && task.status !== 'claimed') {
     throw new AppError('任务不在执行中', 409, 'TASK_NOT_RUNNING')
@@ -215,11 +240,17 @@ export async function extendTaskLease(
       ...(progress ? { progress } : {}),
     })
     .where(and(eq(deviceTasks.id, taskId), eq(deviceTasks.targetDeviceId, deviceId)))
-    .returning({ agentSessionId: deviceTasks.agentSessionId })
+    .returning({
+      agentSessionId: deviceTasks.agentSessionId,
+      approvalDecision: deviceTasks.approvalDecision,
+    })
   return {
     cancelRequested: task.cancelRequestedAt !== null,
     leaseExpiresAt,
     agentSessionId: rows[0]?.agentSessionId ?? null,
+    // 用自己的行读决策:update 的 returning 读的是更新后的行,但决策列由用户面写,
+    // 这里合并两路来源不划算 —— 直接以 update 返回值里的为准(它就是库侧现值)。
+    approvalDecision: readApprovalDecision(rows[0]?.approvalDecision),
   }
 }
 
@@ -239,6 +270,156 @@ export async function bindAgentSession(
         eq(deviceTasks.status, 'running'),
       ),
     )
+}
+
+/** 现有进度打底(缺省是认领帧),审批要覆盖的只是 stage / lastEvent */
+function progressBase(raw: unknown): DeviceTaskProgress {
+  if (typeof raw === 'object' && raw !== null) {
+    const p = raw as Partial<DeviceTaskProgress>
+    if (typeof p.stage === 'string' && typeof p.percent === 'number') {
+      return { stage: p.stage, percent: p.percent, ...p, updatedAt: new Date().toISOString() }
+    }
+  }
+  return { stage: 'thinking', percent: 0, updatedAt: new Date().toISOString() }
+}
+
+/**
+ * 设备交上来的 plan 档方案(G3,2026-11-26)。
+ * 只允许一次:重复上报会把"人正在看的计划"换掉 —— 那意味着用户批准的那份正文
+ * 与最终真正执行的不是同一份,审批就失去意义。要重出方案只能拒绝后重排任务。
+ */
+export async function requestTaskApproval(
+  deviceId: string,
+  taskId: string,
+  input: { preview: string; messageId?: string | null; iterations?: number },
+): Promise<typeof deviceTasks.$inferSelect> {
+  const task = await loadTaskForDevice(deviceId, taskId)
+  assertRunning(task)
+  if (task.approvalRequest !== null && task.approvalRequest !== undefined) {
+    throw new AppError('该任务已提交过计划,等待审批中', 409, 'TASK_APPROVAL_DUPLICATE')
+  }
+  if (task.approvalDecision !== null && task.approvalDecision !== undefined) {
+    throw new AppError('该任务已审批过,不能重交计划', 409, 'TASK_APPROVAL_DECIDED')
+  }
+  const preview = input.preview.trim()
+  if (!preview) throw new AppError('计划摘要为空', 400, 'TASK_APPROVAL_EMPTY')
+
+  const approvalRequest: DeviceTaskApprovalRequest = {
+    // 正文不落库:唯一真相源是执行端流进会话的那条消息(见 types 里的注释)。
+    messageId: input.messageId ?? task.messageId ?? null,
+    preview: preview.length > 240 ? `${preview.slice(0, 240)}…` : preview,
+    requestedAt: new Date().toISOString(),
+    ...(input.iterations !== undefined ? { iterations: input.iterations } : {}),
+  }
+
+  // 进度同步一份"等待审批":列表页不读正文也知道这条任务卡在哪、在等谁。
+  const progress: DeviceTaskProgress = {
+    ...progressBase(task.progress),
+    stage: 'awaiting_approval',
+    percent: 60,
+    lastEvent: '等待你批准计划',
+  }
+  await db.update(deviceTasks).set({ approvalRequest, progress }).where(eq(deviceTasks.id, taskId))
+  return loadTaskRow(taskId)
+}
+
+/**
+ * 用户面:读计划正文 + 已作决策(会话属主)。
+ * 正文从那条会话消息现读,不在库里存副本 —— 审批人批的就是聊天里他看到的那份。
+ */
+export async function getTaskApproval(
+  userId: string,
+  taskId: string,
+): Promise<{ request: unknown; decision: unknown; plan: string | null }> {
+  const rows = await db
+    .select({
+      approvalRequest: deviceTasks.approvalRequest,
+      approvalDecision: deviceTasks.approvalDecision,
+      messageId: deviceTasks.messageId,
+      userId: chatConversations.userId,
+    })
+    .from(deviceTasks)
+    .innerJoin(chatConversations, eq(chatConversations.id, deviceTasks.sessionId))
+    .where(eq(deviceTasks.id, taskId))
+    .limit(1)
+  const row = rows[0]
+  if (!row) throw new AppError('任务不存在', 404, 'TASK_NOT_FOUND')
+  if (row.userId !== userId) throw new AppError('无权操作该任务', 403, 'TASK_FORBIDDEN')
+  const request =
+    typeof row.approvalRequest === 'object' && row.approvalRequest !== null
+      ? (row.approvalRequest as Record<string, unknown>)
+      : null
+  const messageId =
+    (typeof request?.messageId === 'string' ? request.messageId : null) ?? row.messageId ?? null
+  let plan: string | null = null
+  if (messageId) {
+    const msg = await db
+      .select({ content: chatMessages.content })
+      .from(chatMessages)
+      .where(eq(chatMessages.id, messageId))
+      .limit(1)
+    plan = msg[0]?.content ?? null
+  }
+  return { request: row.approvalRequest, decision: row.approvalDecision, plan }
+}
+
+/**
+ * 用户面:批准/拒绝(G3)。
+ * 决策只写一次(CAS:approvalDecision IS NULL),写后设备在下一次租约轮询读到:
+ * approved → 以 acceptEdits 用同一会话续跑;rejected → 自行收口 failed。
+ * 任务状态不在这里改 —— 执行端还活着,替它写终态会让后续上报全 409。
+ */
+export async function decideTaskApproval(
+  userId: string,
+  taskId: string,
+  decision: DeviceApprovalDecision,
+): Promise<typeof deviceTasks.$inferSelect> {
+  const selected = await db
+    .select({
+      id: deviceTasks.id,
+      status: deviceTasks.status,
+      approvalRequest: deviceTasks.approvalRequest,
+      approvalDecision: deviceTasks.approvalDecision,
+      progress: deviceTasks.progress,
+      userId: chatConversations.userId,
+    })
+    .from(deviceTasks)
+    .innerJoin(chatConversations, eq(chatConversations.id, deviceTasks.sessionId))
+    .where(eq(deviceTasks.id, taskId))
+    .limit(1)
+  const task = selected[0]
+  if (!task) throw new AppError('任务不存在', 404, 'TASK_NOT_FOUND')
+  if (task.userId !== userId) throw new AppError('无权操作该任务', 403, 'TASK_FORBIDDEN')
+  if (task.status !== 'running' && task.status !== 'claimed') {
+    throw new AppError(`任务已结束(${task.status})`, 409, 'TASK_ALREADY_FINISHED')
+  }
+  if (task.approvalRequest === null || task.approvalRequest === undefined) {
+    throw new AppError('该任务没有待审批的计划', 409, 'TASK_APPROVAL_NONE')
+  }
+  if (task.approvalDecision !== null && task.approvalDecision !== undefined) {
+    throw new AppError('该任务已审批过', 409, 'TASK_APPROVAL_ALREADY_DECIDED')
+  }
+
+  const record: DeviceTaskApprovalRecord = {
+    decision,
+    at: new Date().toISOString(),
+    by: userId,
+  }
+  const progress: DeviceTaskProgress = {
+    ...progressBase(task.progress),
+    stage: decision === 'approved' ? 'thinking' : 'failed',
+    lastEvent: decision === 'approved' ? '已批准,执行端继续' : '已拒绝,执行端收口',
+  }
+  const updated = await db
+    .update(deviceTasks)
+    .set({ approvalDecision: record, progress })
+    .where(and(eq(deviceTasks.id, taskId), isNull(deviceTasks.approvalDecision)))
+    .returning({ id: deviceTasks.id })
+  if (updated.length === 0) {
+    throw new AppError('该任务已审批过', 409, 'TASK_APPROVAL_ALREADY_DECIDED')
+  }
+
+  return loadTaskRow(taskId)
 }
 
 /**
