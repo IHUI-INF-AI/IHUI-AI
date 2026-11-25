@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "note": "本机计划任务里被判「有意停用」的清单。未登记而显示 Disabled 的一律点名待确认,不静默放过;登记了但其实是故障的,等于把真问题关掉,故每条必须写清楚停用理由与替代腿。",
+  "version": 2,
+  "note": "本机计划任务的两类人工声明。tasks = 被判「有意停用」的清单:未登记而显示 Disabled 的一律点名待确认;登记了但其实是故障的,等于把真问题关掉,故每条必须写清楚停用理由与替代腿。expectedCadence = 被判「必须无人值守按点跑」的清单(2026-11-26 立):判据拿它跟实测触发器对账 —— 触发器必须是 TimeTrigger/CalendarTrigger、必须真有 Repetition、实测间隔不得慢于声明的 1.5 倍。未登记的任务本维不适用(不冒充通过);登记了却没按点跑的才是 breach。",
   "tasks": {
     "IHUI-PG-KEEP": {
       "disabledIntent": true,
@@ -9,6 +9,48 @@
     "IHUI-mihomo-revive": {
       "disabledIntent": true,
       "note": "2026-10-19 起停用,Last Result=-1073741510(0xC000013A Ctrl+C 中断);代理链已改走 Cloudflare 隧道"
+    }
+  },
+  "expectedCadence": {
+    "IHUI-AI auto-evolve": {
+      "everyMinutes": 60,
+      "note": "2026-11-25 的真因就是它:旧定义是 LogonTrigger ⇒ 无人登录时 Next Run Time 恒 N/A、从不自动跑,而 Last Result 一直是 0。现在 TimeTrigger + S4U + Action 钉 node 绝对路径,每 1 小时。"
+    },
+    "IHUI-Security-Evidence-Intake": {
+      "everyMinutes": 2,
+      "note": "攻击者拿到证据编号后,入链延迟直接决定它多久能自证。窗口从 10 分钟压到 2 分钟(2026-11-25 实测 T+120.3s found)。Repetition 不许写 <Duration>;改回登录触发或拉长间隔等于把取证窗口放回去。"
+    },
+    "IHUI-Security-Endpoint-Watch": {
+      "everyMinutes": 5,
+      "note": "端点/进程面实时检测,5 分钟是可以接受的暴露窗口上限"
+    },
+    "IHUI-Attack-AutoBan": {
+      "everyMinutes": 10,
+      "note": "自动封禁派发链;它停摆时所有住在它里面的哨兵一起哑(2026-11 亲历 1.5 小时),故它自己的节律必须被独立盯住"
+    },
+    "IHUI-Security-Account-Watch": {
+      "everyMinutes": 15,
+      "note": "账号与凭据面基线对账"
+    },
+    "IHUI-Security-Scheduler-Watch": {
+      "everyMinutes": 30,
+      "note": "调度健康哨兵自己的独立腿;它停了就没人盯着上面这些任务,必须双挂(另一腿在 autoban 里)"
+    },
+    "IHUI-Security-Service-Watch": {
+      "everyMinutes": 30,
+      "note": "服务与配置面(对外端口 / 服务账号)基线对账"
+    },
+    "IHUI-Security-Repair": {
+      "everyMinutes": 360,
+      "note": "自动修复腿,6 小时一轮;与 autoban 不同源,避免同一条链一起死"
+    },
+    "IHUI-Security-Audit": {
+      "dailyAt": "03:30",
+      "note": "每日审计;CalendarTrigger 型,改成登录触发就等于不跑"
+    },
+    "IHUI-Attack-Attribution": {
+      "dailyAt": "04:10",
+      "note": "攻击归因日报;CalendarTrigger 型,改成登录触发就等于不跑"
     }
   }
 }

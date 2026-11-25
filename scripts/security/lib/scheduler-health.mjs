@@ -11,11 +11,13 @@
  *   Last Result 恒为 1,而所有哨兵都住在 autoban 里面 ⇒ 一起死、一起哑。
  *   调度层本身此前没有任何东西盯着 = 当前体系的单点盲区。
  *
- * 判四类真实失效:
+ * 判五类真实失效:
  *   ① 失败        Last Result 是非零且不是「良性返回码」
  *   ② 从未运行    Boot 型任务在「开机晚于注册」之后仍显示 1999/11/30
  *   ③ 该跑没跑    周期型任务距上次运行超过 STALE_FACTOR × 间隔
  *   ④ 被禁用      Status=Disabled 且不是配置里标记的「有意停用」
+ *   ⑤ 静默死亡    重复窗口到期(Duration 太短 / Next Run 为空)与触发锚点错位
+ *                 ——「仪表全绿、任务已死」那一型,见 judgeRepetition / judgeCadence
  *
  * 三态 ok / breach / undetermined,语义与 prod-parity / self-integrity 同族,
  * 但状态集刻意不复用 —— 那边判「文件漂移」,这边判「调度失效」,不是同一个词。
@@ -137,6 +139,79 @@ export function judgeRepetition(entry) {
   return { verdict: 'ok', reason: '重复窗口无到期' }
 }
 
+/**
+ * 「声明节律」与「实测触发锚点」对账(2026-11-26 立,第二十三件)。纯函数。
+ *
+ * 立因:上面那一维只对**带 Repetition 的任务**生效(`isRepeating()` 要求 `Repeat: Every`
+ * 有值)。而 `\IHUI-AI auto-evolve` 2026-11-25 的真因是 **LogonTrigger** —— 若有人把它
+ * 改回登录触发、且顺手去掉 Repetition(或改成「On demand only」),CSV 两列都会显示
+ * `Disabled`,`isRepeating()` 直接跳过 ⇒ 这条任务在整道哨兵里**完全不可见**,
+ * 而它的 `Last Result` 会一直是 0(手动补跑成功)。
+ *
+ * 只靠机器状态没法判「登录触发是不是本来就这样」—— 有些任务(DevStack、G-Root-Guardian)
+ * 本来就是开机/登录型,判它们红就是恒红门(§0.2)。所以这一维靠**声明**:
+ * `scripts/data/scheduler-roster.json` 的 `expectedCadence` 写明「这条必须无人值守按点跑」,
+ * 判据只对在册的任务生效,清单外的任务本维不适用(返回 null,不冒充通过)。
+ *
+ * 三条:① 触发器必须是定时型(`TimeTrigger`/`CalendarTrigger`),否则 = 没人登录就不跑;
+ *      ② 必须真有 Repetition,否则 = 只在首次起跳那一刻跑一次;
+ *      ③ 实测 `<Interval>` 不得慢于声明的 1.5 倍(拉长 = 检测窗口变宽)。
+ *
+ * @param {{triggerKinds?:string[],expectedEveryMin?:number,expectedDailyAt?:string,
+ *          repeatEvery?:string,intervalMin?:number}} entry
+ * @returns {{verdict:'ok'|'breach'|'warn'|'undetermined',reason:string}|null}
+ *          `null` = 该任务没登记声明节律,本维不适用
+ */
+export function judgeCadence(entry) {
+  const everyMin = Number(entry?.expectedEveryMin)
+  const dailyAt = String(entry?.expectedDailyAt ?? '').trim()
+  const declared = (Number.isFinite(everyMin) && everyMin > 0) || Boolean(dailyAt)
+  if (!declared) return null
+
+  const kinds = Array.isArray(entry?.triggerKinds) ? entry.triggerKinds.map((k) => String(k)) : null
+  if (!kinds || kinds.length === 0) {
+    /* 取不到触发器定义 —— 不记绿也不冒红(§0.3),点名说清缺什么。 */
+    return {
+      verdict: 'undetermined',
+      reason: '已登记声明节律,但取不到任务触发器定义(schtasks /query /xml 无输出或不可解析)',
+    }
+  }
+  const timeKinds = kinds.filter((k) => k === 'TimeTrigger' || k === 'CalendarTrigger')
+
+  if (dailyAt) {
+    if (timeKinds.length > 0) return { verdict: 'ok', reason: `定时/日历触发(${kinds.join('+')})` }
+    return {
+      verdict: 'breach',
+      reason: `声明每日 ${dailyAt} 跑,实际触发器只有 ${kinds.join('+')} ⇒ 不登录/不开机就不跑,也没有固定时刻`,
+    }
+  }
+
+  if (timeKinds.length === 0) {
+    return {
+      verdict: 'breach',
+      reason: `声明每 ${everyMin} 分钟无人值守跑,实际触发器只有 ${kinds.join('+')} ⇒ 只在事件那一刻起跳,没人登录就根本不跑(CSV 的 Next Run Time 会显示 N/A)`,
+    }
+  }
+  const everyRaw = String(entry?.repeatEvery ?? '').trim()
+  if (!everyRaw || /^(n\/a|none|disabled)$/i.test(everyRaw)) {
+    return {
+      verdict: 'breach',
+      reason: `声明每 ${everyMin} 分钟跑,但任务没有 Repetition ⇒ 只在定时器首次起跳那一刻跑一次,之后不再循环`,
+    }
+  }
+  const actual = Number(entry?.intervalMin)
+  if (!Number.isFinite(actual) || actual <= 0) {
+    return { verdict: 'undetermined', reason: '声明节律在册,但取不到 <Interval> 值' }
+  }
+  if (actual > everyMin * 1.5) {
+    return {
+      verdict: 'breach',
+      reason: `实测间隔 ${actual} 分钟慢于声明 ${everyMin} 分钟(超 1.5 倍)⇒ 检测窗口被拉长`,
+    }
+  }
+  /* 比声明更快不算问题(只会更早看见)。 */
+  return { verdict: 'ok', reason: `定时型 ${actual} 分钟` }
+}
 
 function toMs(v) {
   if (v == null) return null
@@ -196,6 +271,14 @@ export function classifyTask(entry, opts = {}) {
   const rep = judgeRepetition(entry)
   if (rep && rep.verdict !== 'ok') {
     return { name, verdict: rep.verdict, reason: rep.reason }
+  }
+
+  /* ①c 触发锚点 vs 声明节律(2026-11-26 立,第二十三件)。同样必须排在「尚未运行/过期未跑」
+     之前:登录触发型任务在有人登录时**看起来很新鲜**,靠「距上次运行」量不出来 ——
+     它的失效只在「没人登录」时才显形,而那一刻没有人看表。判据只能对着声明对账。 */
+  const cad = judgeCadence(entry)
+  if (cad && cad.verdict !== 'ok') {
+    return { name, verdict: cad.verdict, reason: cad.reason }
   }
 
   /* ② 尚未运行:要分「还没到点」与「该跑没跑」。 */
@@ -272,7 +355,7 @@ export function judgeSchedulerHealth(entries, opts = {}) {
 export function remediationForScheduler(result) {
   const out = []
   const repeatHint =
-    '若 Last Result=0 且 Status=Ready,再查 schtasks /query /tn "\\<name>" /xml:看 <Repetition> 是否带 <Duration>(短于服役期必死)或 Next Run Time 是否已 N/A'
+    '若 Last Result=0 且 Status=Ready,再查 schtasks /query /tn "\\<name>" /xml:看 <Repetition> 是否带 <Duration>(短于服役期必死)、Next Run Time 是否已 N/A、触发器是否从 TimeTrigger 变成了 LogonTrigger/BootTrigger'
   for (const name of result?.breaches || []) {
     out.push(
       `${name}: schtasks /run /tn "\\${name}" 立即补跑;仍失败则 schtasks /query /tn "\\${name}" /fo LIST /v 核对 Last Result 与 Task To Run 实际路径;${repeatHint}`,
@@ -281,6 +364,12 @@ export function remediationForScheduler(result) {
   for (const name of result?.warns || []) {
     out.push(
       `${name}: 已禁用但未标记有意停用;确认后要么启用,要么在 scripts/data/scheduler-roster.json 记 disabledIntent`,
+    )
+  }
+  /* 判 undetermined 的条目也要给下一步:它等于「这一维没判」,最容易被当成绿。 */
+  for (const name of result?.undetermined || []) {
+    out.push(
+      `${name}: 这一维未判定(取不到判据);查 schtasks /query /tn "\\${name}" /xml 能否输出,以及 scripts/data/scheduler-roster.json 的 expectedCadence 是否写错任务名`,
     )
   }
   return out
@@ -294,6 +383,7 @@ export const __test__ = {
   isNeverRunStamp,
   parseDurationDays,
   judgeRepetition,
+  judgeCadence,
   MIN_DURATION_DAYS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
