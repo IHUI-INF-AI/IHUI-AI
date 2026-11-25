@@ -41,7 +41,7 @@ export function DownloadAssetCard({
   const sizeLabel = formatFileSize(asset.sizeBytes)
 
   return (
-    <Card className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+    <Card className="flex flex-col gap-3 p-3 tablet:flex-row tablet:items-center tablet:justify-between">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-cta/10 text-primary">
           <Download className="h-5 w-5" />
