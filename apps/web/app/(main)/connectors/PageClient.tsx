@@ -26,6 +26,7 @@ import { ConnectorInvokeDialog } from '@/components/connectors/connector-invoke-
 import { ConnectorCard } from '@/components/connectors/connector-card'
 import { ManagedQuickSection } from '@/components/connectors/managed-quick-section'
 import { WecomRobotSection } from '@/components/connectors/wecom-robot-section'
+import { WechatClawbotSection } from '@/components/connectors/wechat-clawbot-section'
 import { useConnectorActions } from '@/components/connectors/use-connector-actions'
 import { CoveragePanel } from '@/components/connectors/coverage/coverage-panel'
 
@@ -115,6 +116,8 @@ export default function ConnectorsPageClient() {
       )}
 
       {allow && <WecomRobotSection />}
+
+      {allow && <WechatClawbotSection />}
 
       {allow && <CoveragePanel connectors={connectors} onRefresh={refresh} />}
 

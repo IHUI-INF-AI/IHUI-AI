@@ -6251,7 +6251,20 @@
     "wecomRobotPasteLabel": "MCP URL or JSON config",
     "wecomRobotPastePlaceholder": "https://qyapi.weixin.qq.com/mcp/v2/bot/doc?apikey=...",
     "wecomRobotSubmit": "Save authorization",
-    "wecomRobotTools": "View available tools"
+    "wecomRobotTools": "View available tools",
+    "wechatClawbotTitle": "WeChat · Clawbot Channels",
+    "wechatClawbotBadge": "OpenClaw",
+    "wechatClawbotHint": "Connect WeChat to AI via the Clawbot gateway: once connected, messages can be sent and received on that channel. Pairing and credentials are configured in the OpenClaw integrations panel.",
+    "wechatClawbotLoading": "Loading WeChat channels…",
+    "wechatClawbotEmpty": "No WeChat channel yet. Use the button below to add one in OpenClaw.",
+    "wechatClawbotConnected": "Connected",
+    "wechatClawbotDisconnected": "Disconnected",
+    "wechatClawbotConnect": "Connect",
+    "wechatClawbotDisconnect": "Disconnect",
+    "wechatClawbotConfigure": "Open OpenClaw settings",
+    "wechatClawbotNote": "Personal WeChat has no official data API; Clawbot bridges messages through the gateway pairing.",
+    "wechatClawbotLoadFailed": "Failed to load channels",
+    "wechatClawbotActionFailed": "Action failed, please retry"
   },
   "adminAiSkills": {
     "avgDuration": "Avg Duration",

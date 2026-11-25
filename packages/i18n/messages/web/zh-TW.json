@@ -6251,7 +6251,20 @@
     "wecomRobotPasteLabel": "MCP 網址或 JSON 設定",
     "wecomRobotPastePlaceholder": "https://qyapi.weixin.qq.com/mcp/v2/bot/doc?apikey=...",
     "wecomRobotSubmit": "儲存授權",
-    "wecomRobotTools": "查看可用工具"
+    "wecomRobotTools": "查看可用工具",
+    "wechatClawbotTitle": "微信 · Clawbot 頻道",
+    "wechatClawbotBadge": "OpenClaw",
+    "wechatClawbotHint": "透過 Clawbot 閘道將微信接入 AI：連線後即可對該頻道收發訊息。配對與憑證在 OpenClaw 整合面板完成。",
+    "wechatClawbotLoading": "正在讀取微信頻道…",
+    "wechatClawbotEmpty": "尚無微信頻道，請點下方按鈕至 OpenClaw 新增。",
+    "wechatClawbotConnected": "已連線",
+    "wechatClawbotDisconnected": "未連線",
+    "wechatClawbotConnect": "連線",
+    "wechatClawbotDisconnect": "中斷",
+    "wechatClawbotConfigure": "開啟 OpenClaw 設定",
+    "wechatClawbotNote": "個人微信無官方資料 API；Clawbot 透過閘道配對達成訊息互通。",
+    "wechatClawbotLoadFailed": "讀取頻道失敗",
+    "wechatClawbotActionFailed": "操作失敗，請重試"
   },
   "adminAiSkills": {
     "avgDuration": "平均耗時",

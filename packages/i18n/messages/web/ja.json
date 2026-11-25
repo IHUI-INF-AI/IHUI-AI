@@ -6282,7 +6282,20 @@
     "wecomRobotPasteLabel": "MCP URL または JSON 設定",
     "wecomRobotPastePlaceholder": "https://qyapi.weixin.qq.com/mcp/v2/bot/doc?apikey=...",
     "wecomRobotSubmit": "承認を保存",
-    "wecomRobotTools": "利用可能なツール"
+    "wecomRobotTools": "利用可能なツール",
+    "wechatClawbotTitle": "WeChat · Clawbot チャンネル",
+    "wechatClawbotBadge": "OpenClaw",
+    "wechatClawbotHint": "Clawbot ゲートウェイ経由で WeChat を AI に接続します。接続後はそのチャンネルでメッセージの送受信が可能です。ペアリングと認証情報は OpenClaw 連携パネルで設定します。",
+    "wechatClawbotLoading": "WeChat チャンネルを読み込み中…",
+    "wechatClawbotEmpty": "WeChat チャンネルがありません。下のボタンから OpenClaw で追加してください。",
+    "wechatClawbotConnected": "接続済み",
+    "wechatClawbotDisconnected": "未接続",
+    "wechatClawbotConnect": "接続",
+    "wechatClawbotDisconnect": "切断",
+    "wechatClawbotConfigure": "OpenClaw 設定を開く",
+    "wechatClawbotNote": "個人用 WeChat には公式データ API がありません。Clawbot はゲートウェイのペアリングでメッセージを中継します。",
+    "wechatClawbotLoadFailed": "チャンネルの読み込みに失敗",
+    "wechatClawbotActionFailed": "操作に失敗しました。再試行してください"
   },
   "adminAiSkills": {
     "avgDuration": "平均時間",

@@ -16,6 +16,13 @@ describe('连接器平台品牌图标(2026-11-25)', () => {
     expect(icon).toContain('<Image')
   })
 
+  it('公众号用微信官方 SVG,不用喇叭等通用图标冒充', () => {
+    const icon = read('../platform-icon.tsx')
+    expect(icon).toContain("wechat_mp: '/images/oauth-providers/wechat.svg'")
+    expect(icon).not.toContain('wechat_mp: Megaphone')
+    expect(icon).not.toContain('Megaphone')
+  })
+
   it('快捷接入区在标题前渲染品牌图标', () => {
     const quick = read('../managed-quick-section.tsx')
     expect(quick).toContain("import { PlatformIcon } from './platform-icon'")
@@ -35,6 +42,8 @@ describe('连接器平台品牌图标(2026-11-25)', () => {
     const icon = read('../platform-icon.tsx')
     const mutated = icon.replace("feishu: '/images/oauth-providers/feishu.svg'", '')
     expect(mutated).not.toBe(icon)
+    const mpMutated = icon.replace("wechat_mp: '/images/oauth-providers/wechat.svg'", '')
+    expect(mpMutated).not.toBe(icon)
     const quick = read('../managed-quick-section.tsx').replace('<PlatformIcon type={tpl.type}', '')
     expect(quick).not.toContain('<PlatformIcon type={tpl.type}')
   })
