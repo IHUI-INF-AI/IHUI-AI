@@ -65,9 +65,22 @@ describe('listMomentArchive', () => {
     expect(result.storage).toBe('database')
     expect(result.total).toBe(7)
     expect(result.limit).toBe(50)
+    expect(result.offset).toBe(0)
     expect(result.reason).toBeNull()
     expect(result.moments).toEqual(DB_ROWS)
+    expect(mocks.listMomentsArchive).toHaveBeenCalledWith('account-1', 50, 0)
     expect(mocks.readMomentArchive).not.toHaveBeenCalled()
+  })
+
+  it('offset 会原样传给数据库分页查询，用于翻完 715 条', async () => {
+    mocks.listMomentsArchive.mockResolvedValue(DB_ROWS)
+    mocks.countMomentsArchive.mockResolvedValue(715)
+
+    const result = await listMomentArchive('user-1', 'account-1', { limit: 50, offset: 50 })
+
+    expect(result.storage).toBe('database')
+    expect(result.offset).toBe(50)
+    expect(mocks.listMomentsArchive).toHaveBeenCalledWith('account-1', 50, 50)
   })
 
   it('库不可用时降级读桥，storage=bridge 且 reason 写明 DB 原因', async () => {
