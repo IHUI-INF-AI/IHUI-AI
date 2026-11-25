@@ -24,7 +24,7 @@
 
 ## 0. 为什么要推翻上一版
 
-上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了十五处纠正，每一条都能被证据账本复核。
+上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了十六处纠正，每一条都能被证据账本复核。
 
 **纠正一：把 Electron 主 exe 的 Chromium 安全 API 当成产品自研沙箱。**
 上一版用 `CreateRestrictedToken`、`CreateJobObject`、`CreateProcessAsUserW` 这类导入来证明“某产品有强沙箱”。实测发现，WorkBuddy.exe、Qoder CN.exe、ZCode.exe、Cursor.exe、Trae CN.exe 全部是 Electron 壳，这些 API 属于 Chromium/Electron 出厂能力，**不能归因于产品**。本版把证据分成三层：产品级（Rust/Go helper、.node、主进程 JS）、框架级（Electron/Chromium）、未知级；只有第一层进入结论。
@@ -70,6 +70,9 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 
 **纠正十五：`DoubaoLinkRouter.exe` 不是“疑似 URL 路由”，是 Aha/Saman 的协议链接路由器；上一版把 Chromium/perfetto 的 `http/ws/wss` 字符串误当成网络证据。**
 `DoubaoLinkRouter.exe` 2,952,080 字节，ProductName `Doubao Link Router`、FileVersion `2.37.16.0`、公司 北京春田知韵科技有限公司，签名有效，SHA256 `26B8838C7A20377E165FD04CA87FCB6C639E604B601E639A254DC58B98489E1D`。源码路径是 `..\..\aha\saman\link_router\router_app\router_main_win.cc`、`router_app.cc`、`component\route_event_store.cc`；常量里有 `doubao:/`、`doubaoap`、`/open-ur` 前缀，注册表 `Software\Doubao` / `Software\DoubaoWork`，目标可执行 `Doubao.exe` / `DoubaoWork.exe`，选择字段 `preferred_client` 加 `doubao_installed` / `doubao_compatible` / `doubao_running` / `doubao_foreground` 与 `work_installed` / `work_compatible` / `work_running` / `work_foreground`，日志字段 `LinkRouter result=` / `target=` / `reason=` / `event_id_created=`。导入表只有 `SHELL32` / `USER32` / `ADVAPI32` / `dbghelp` / `KERNEL32` / `USERENV` / `WINMM` / `SHLWAPI` / `ole32` / WinRT，**没有 `WS2_32` / `WINHTTP` / `WININET`**；所以 `http/ws/wss`、`localhost`、`server` 是 Chromium/perfetto/gurl 资产串，不是它起服务。它是默认协议/链接分流器：按安装、兼容、运行、前台状态和 `preferred_client` 在豆包与豆包 Work 之间选目标并转发链接，**不新增桌面 IPC 通道**。协议注册与启用条件未运行验证。`push_detect.exe` 仍只按名：签名有效、只导入 `Microsoft.WindowsAppRuntime.Bootstrap.dll` + `KERNEL32` / `ole32` / `OLEAUT32`，无产品字符串，不升格为结论。账本：`analysis\doubao-link-router.json`。
+
+**纠正十六：`Doubao_proxy.exe` / `Doubao_browser_proxy.exe` 不是 HTTP 代理，是 Chromium 的进程启动/浏览器入口代理。**
+两者都是 FileVersion `147.0.7727.149`、Product `Doubao`、公司 北京春田知韵科技有限公司、签名有效，大小 2,280,336 / 2,409,872。字符串里有 `..\..\base\process\launch_win.cc`、`LaunchProcess`、`LaunchElevatedProcess`、`ShellExecuteExW`、`..\..\base\command_line.cc`，以及 `Chrome.MessageLoopProblem.MESSAGE_POST_ERROR` / `SET_TIMER_ERROR` / `RECEIVED_WM_QUIT_ERROR` / `COMPLETION_POST_ERROR`；`NetLog events...` 只是 Chromium 通用资产串，不是网络服务证据。两者的 PE 导入表解析结果为空（可能走延迟导入、静态链接或解析口径差异），所以不能像 `DoubaoLinkRouter` 那样用导入表做否定证据；但字符串里 `localhost` / `127.0.0.1` / `HttpServer` / `WebSocket` / `netsh` / `InternetSetOption` / `WinHttp` / `PAC` 全部 0 命中，另有 `..\..\base\process\launch_win.cc`、`LaunchProcess`、`LaunchElevatedProcess`、`ShellExecuteExW` 和 `Chrome.MessageLoopProblem.*`，指向“拉起浏览器进程/入口”的 proxy 目标，不像本地 HTTP/WS 代理。它们**不新增桌面 IPC 通道**；是否被默认浏览器/协议调用链实际使用未运行验证。账本：`analysis\doubao-proxy-launchers.json`。
 
 ---
 
@@ -364,7 +367,7 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 **后端层：本地 RPC、WebSocket、MCP、代理、PIP 五套都在。**
 `Doubao.dll` 的 `agent_tool_ipc_named_pipe_transport.cc` 写明 Agent Tool RPC Server：命名管道 `\\.\pipe\aha-agent-tool-ipc-`、TCP fallback `127.0.0.1:<ephemeral>`、`AgentToolIpcAuthOnlyLocal`、开关 `enable-agent-tool-ipc`，并有 `OnPrimaryAcceptComplete` / `SchedulePrimaryListenerRecovery` 的降级恢复逻辑。`app_proxy_transport_websocket_server_socket_factory.cc` 在 `127.0.0.1` 起 WebSocket，走 `app_share_protocol` 的 HMAC 加密。`mcp_helper.dll` 有 `STDIO MCP initialize`、`OAuth loopback callback`、`HTTP startup lifecycle was retired`，说明 MCP 走 stdio，HTTP 只用于 OAuth 回调绑定。`secure-proxy-ipc64.dll` 要求 `pipe://NAME` 的 interceptor endpoint；`sbox\x64\aiep_ipc.dll`、`vm_sdk\x64\aiep_ipc.dll` 是 AIEP 沙箱 IPC 的两套构建。
 PIP 是独立的一套：`pip_main.exe` 3,208,592 字节带 `aha_pip\src\pip_ipc\named_pipe_ipc_server.cc` / `named_pipe_ipc_client.cc`、`PipMainPipeName_{}`、`PipSDKPipeName_{}`、`PipRemotePipeName_{}` 三条命名管道族，并用 `GetNamedPipeClientProcessId` 校验对端；`pip_remote.dll`、`connect_to_shadow_session_client.cc`、`shadow_session_credential_precheck.cc`、`shadow_session_guard.cc`、`rdp_host.cc`、`credential_guard.cc`、`key_stroke.cc` 按文件名指向远程/影子会话、键鼠注入、凭据保护，和 `aha-agent-tool-ipc-`、Neotix ShellAPI 三条通道互相独立。静态可见，启用条件未运行验证。
-helper 侧另有 `DoubaoLinkRouter.exe`（2,952,080，ProductName `Doubao Link Router` 2.37.16.0，Aha/Saman `link_router`，按 `doubao:/` / `doubaoap` 前缀在 `Doubao.exe` / `DoubaoWork.exe` 间分流，导入表无网络 DLL；不是 HTTP/WS 服务，详见纠正十五）、`file_search_host.exe`（3,093,904，`--agent-infra-host-config`）、`file_utils_host.exe`（4,985,232，同参数族）、`ghelper.exe`（4,161,424，`GhostHelperService` + `\\.\pipe\crashpad_%lu_`）、`ttdaemon.exe`（277,392，PDB 路径 `C:\79014\CCCreator\proj\cmake\sln_x64_Release\bin\Release\ttdaemon.pdb`，属 CCCreator 守护进程）、`Doubao_proxy.exe`（2,280,336）、`Doubao_browser_proxy.exe`（2,409,872）、`push_detect.exe`（191,376，签名有效、只导入 WinAppSDK bootstrap + `KERNEL32` / `ole32` / `OLEAUT32`，无产品字符串，仍按名疑似推送检测）；`file_*_host` 是 agent infra 的工具宿主，不是聊天 RPC 服务端。
+helper 侧另有 `DoubaoLinkRouter.exe`（2,952,080，ProductName `Doubao Link Router` 2.37.16.0，Aha/Saman `link_router`，按 `doubao:/` / `doubaoap` 前缀在 `Doubao.exe` / `DoubaoWork.exe` 间分流，导入表无网络 DLL；不是 HTTP/WS 服务，详见纠正十五）、`file_search_host.exe`（3,093,904，`--agent-infra-host-config`）、`file_utils_host.exe`（4,985,232，同参数族）、`ghelper.exe`（4,161,424，`GhostHelperService` + `\\.\pipe\crashpad_%lu_`）、`ttdaemon.exe`（277,392，PDB 路径 `C:\79014\CCCreator\proj\cmake\sln_x64_Release\bin\Release\ttdaemon.pdb`，属 CCCreator 守护进程）、`Doubao_proxy.exe`（2,280,336，Chromium `147.0.7727.149` 进程启动/浏览器入口代理，非 HTTP 代理，详见纠正十六）、`Doubao_browser_proxy.exe`（2,409,872，同族 Chromium proxy/launcher）、`push_detect.exe`（191,376，签名有效、只导入 WinAppSDK bootstrap + `KERNEL32` / `ole32` / `OLEAUT32`，无产品字符串，仍按名疑似推送检测）；`file_*_host` 是 agent infra 的工具宿主，不是聊天 RPC 服务端。
 
 **核心一：Doubao.dll 里嵌了 Deno 运行时权限模型。**
 字符串 `third_party\deno\runtime\permissions\lib.rs`、`vdatetimepermission`、`NotFoundPermissionDenied...` 出现在 permission 主题命中里；同时导入层面有 1,613 个导入 / 153 个安全导入（`CreateRestrictedToken`、`CreateProcessWithTokenW`、`CreateProcessAsUserW`、`DuplicateTokenEx`、`CryptProtectData`、`LsaClose`、`SetFileSecurityW`）。
@@ -707,6 +710,7 @@ IPC 分组说明它是“能力市场型”客户端：
 - `doubao-pak\`：从 `biz.pak` 解出的 10,029 个资源（7,837 JS / 1,125 CSS / 369 HTML / 212 SVG / 15 JSON / 460 二进制），按 manifest 的原始路径落盘。
 - `analysis\doubao-native-tokens.json`：`Doubao.dll`、`liblark.dll`、`agent_infra.dll`、`mcp_helper.dll`、`aiep_ipc.dll`、`secure-proxy-ipc64.dll`、`AhaMuleLocalSDK.dll`、`vm_sdk.dll`、`sbox_sdk.dll` 的 `Neotix` / `neotixChannel` / `SHELL_API_IPC_EVENT` / `\\\\.\\pipe\\` / `MCP` / `127.0.0.1` 命中与上下文。
 - `analysis\doubao-link-router.json`：`DoubaoLinkRouter.exe` 账本——ProductName/版本/签名/SHA256、Aha/Saman 源码路径、`doubao:/`/`doubaoap`/`/open-ur` 前缀、`Software\Doubao`/`Software\DoubaoWork` 注册表、`Doubao.exe`/`DoubaoWork.exe` 目标、客户选择与遥测字段、10 个导入 DLL 且 0 个网络 DLL；附 `push_detect.exe` 的 WinAppSDK bootstrap 与 name-only 记录。
+- `analysis\doubao-proxy-launchers.json`：`Doubao_proxy.exe` / `Doubao_browser_proxy.exe` 账本——FileVersion 147.0.7727.149、Product Doubao、SHA256、Chromium `launch_win.cc`/`LaunchProcess`/`LaunchElevatedProcess`/`ShellExecuteExW`/`command_line.cc` 与 `Chrome.MessageLoopProblem.*` 证据；导入表解析为空，角色按启动器证据判定，运行期未验证。
 - `analysis\zcode-channel-map.json`：从 `out/preload/index.cjs` 的 `var v={...}` 解析出的 169 项 `zcode:*` 通道表。
 - `analysis\dynamic-ipc-zcode-resolved.json`：ZCode 早期 215 条已还原调用（169 个唯一通道）与 12 条别名；最终闭环结果在 `dynamic-ipc-zcode-final.json`（227/227、180 唯一、0 未定）。
 - `analysis\dynamic-ipc-wb-final.json`：WorkBuddy main 侧 115 条 `ipcMain` 注册的最终分类（82 resolved/const + 29 template + 4 helper 形参，0 未定）。
@@ -757,5 +761,6 @@ $proj = "C:\IHUI-AI\.workbuddy\craft\all-ai-apps-full-2026-11-25.cany"
 
 ---
 
-**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是十五处纠正、11 个程序、8 个 asar 解包、15 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、25 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
+**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是十六处纠正、11 个程序、8 个 asar 解包、15 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、25 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+
