@@ -21720,6 +21720,8 @@
       "selectAll": "すべて選択",
       "selectPlatforms": "対象プラットフォームを選択",
       "selectPlatformsHint": "少なくとも 1 つのプラットフォームを選択",
+      "usePool": "アカウントプールから自動選択",
+      "usePoolHint": "同一プラットフォームには健全な1アカウントのみ配信。有効なアカウントがない場合は配信を拒否します。",
       "submitFailed": "送信失敗",
       "submitNow": "即時公開",
       "submitSchedule": "予約公開",

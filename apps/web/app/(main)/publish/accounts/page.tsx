@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import {
   Plus,
@@ -210,6 +211,13 @@ export default function AccountsPage() {
           <CookieAutoRefreshChip />
         </div>
         <div className="flex gap-2">
+          {/* 2026-11-25:账号池入口(统一管理/永久保活/自动取号) */}
+          <Link href="/publish/account-pool">
+            <Button size="sm" variant="outline">
+              <FolderKanban className="h-4 w-4" />
+              账号池
+            </Button>
+          </Link>
           {/* 2026-09-07:次要功能收纳进"开发者"下拉,头部只保留高频操作 */}
           <Dropdown
             trigger={

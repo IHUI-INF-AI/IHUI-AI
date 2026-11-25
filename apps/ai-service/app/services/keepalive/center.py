@@ -287,6 +287,18 @@ class KeepaliveCenter:
             alerts: list[dict[str, Any]] = []
             try:
                 plan = await self._collect(owner)
+                # 发布线已交给 session_keeper 时,中心不再碰 publish_* —— 同一账号
+                # 被两处同时访问既浪费,也会让 last_verified_at 互相覆盖。
+                try:
+                    from app.services.publish import session_keeper
+
+                    if session_keeper.is_active():
+                        plan = [
+                            (p, r) for p, r in plan
+                            if not str(r.source).startswith("publish")
+                        ]
+                except Exception:
+                    pass
                 if only_ref:
                     plan = [(p, r) for p, r in plan if r.ref == only_ref]
                 states = await store.fetch_states([r.ref for _p, r in plan])

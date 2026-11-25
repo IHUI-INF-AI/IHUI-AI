@@ -21720,6 +21720,8 @@
       "selectAll": "전체 선택",
       "selectPlatforms": "대상 플랫폼 선택",
       "selectPlatformsHint": "최소 1개 플랫폼 선택",
+      "usePool": "계정 풀에서 자동 선택",
+      "usePoolHint": "동일 플랫폼에 정상 계정 1개만 발행하며, 풀에 사용 가능한 계정이 없으면 발행을 거부합니다.",
       "submitFailed": "제출 실패",
       "submitNow": "즉시 게시",
       "submitSchedule": "예약 게시",

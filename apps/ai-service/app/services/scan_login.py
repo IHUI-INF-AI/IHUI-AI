@@ -1103,8 +1103,17 @@ def list_tasks(user_id: str | None = None) -> list[ScanTask]:
     return tasks
 
 
-def create_task(user_id: str, platform: str, reuse_session: bool = True) -> ScanTask:
-    """创建任务:写入本地工作副本 + Redis(带 TTL)。"""
+def create_task(
+    user_id: str,
+    platform: str,
+    reuse_session: bool = True,
+    account_id: int | None = None,
+) -> ScanTask:
+    """创建任务:写入本地工作副本 + Redis(带 TTL)。
+
+    `account_id` 非空 = **定点重登**:扫码成功后写回这一行,而不是"该平台第一条"。
+    多账号池场景必须带,否则重扫会把同平台别的号覆盖掉。
+    """
     if platform not in PLATFORM_SCAN_CONFIG:
         raise ValueError(f"不支持的平台: {platform},可用: {list(PLATFORM_SCAN_CONFIG.keys())}")
     task = ScanTask(
@@ -1112,6 +1121,7 @@ def create_task(user_id: str, platform: str, reuse_session: bool = True) -> Scan
         user_id=user_id,
         platform=platform,
         reuse_session=bool(reuse_session),
+        account_id=account_id,
     )
     _TASK_STORE.put_local(task)
     _persist_task(task)
@@ -2763,46 +2773,63 @@ async def _save_account_to_db(
     platform_name: str,
     *,
     verify_msg: str = "扫码登录成功",
+    account_id: int | None = None,
 ) -> int:
     """加密保存账号到 DB,返回 account_id(扫码登录 + CDP 检测复用)。
 
-    - 已存在同 user + platform → 走唯一出口 `credential_history.apply_credentials_update`
-      —— 覆盖前把库里那份旧密文压进 extra 的有界历史(见该模块),使这一步
-      **可回滚**;历史准备失败只喊 error 并退回原写入,**不**让整次导入失败。
-    - 不存在 → INSERT 新账号
+    - **定点重登**(`account_id` 非空):只更新这一行,并校验归属 —— 账号池里
+      "救活某个具体号"必须走这条,否则同平台多号会互相覆盖。
+    - 未指定账号:该平台只有 1 个号 → 更新它(兼容旧流程);0 个 → 新建;
+      多个 → **新建**(这是"再加一个号",不是"重登某一个")。
 
-    `verify_msg` 由调用方传入**当轮真实结论**:此前两处都硬写 `'扫码登录成功'`,而
-    「浏览器画像导入」这条路径根本没有走过扫码(2026-09-27 实测:导入后 verify 立即 FAIL,
-    账面却写着"扫码登录成功")。账面分叉不是措辞问题 —— 下游按 `last_verify_msg` 判可达,
-    而它同时是历史条目里那条 `reason` 的唯一出处。
+    更新一律走唯一出口 `credential_history.apply_credentials_update` ——
+    覆盖前把旧密文压进 extra 的有界历史,使这一步可回滚。
     """
     from ..core.db import get_db_conn
     from .publish.credentials_crypto import encrypt
 
     encrypted = encrypt(credentials_dict)
-    display_name = f"{platform_name}(扫码登录 {time.strftime('%Y-%m-%d %H:%M')})"
+    display_name = f"{platform_name}(扫码登录 {time.strftime('%Y-%m-%d %H:%M:%S')})"
 
     conn = await get_db_conn()
     try:
-        row = await conn.fetchrow(
-            "SELECT id FROM publish_accounts WHERE user_id=$1 AND platform=$2 ORDER BY id LIMIT 1",
-            user_id, platform,
-        )
-        if row:
+        if account_id is not None:
+            target = await conn.fetchrow(
+                "SELECT id FROM publish_accounts WHERE id=$1 AND user_id=$2 AND platform=$3",
+                account_id, user_id, platform,
+            )
+            if not target:
+                raise ValueError(f"账号不存在或不属于当前用户: {account_id}")
             await apply_credentials_update(
-                conn, row["id"], encrypted,
+                conn, int(target["id"]), encrypted,
                 source_note=verify_msg,
                 display_name=display_name,
                 mark_verified=True,
             )
-            logger.info(f"[scan_login] 更新账号 {row['id']}({platform})")
-            return int(row["id"])
+            logger.info(f"[scan_login] 定点重登账号 {target['id']}({platform})")
+            return int(target["id"])
+
+        rows = await conn.fetch(
+            "SELECT id FROM publish_accounts WHERE user_id=$1 AND platform=$2 ORDER BY id",
+            user_id, platform,
+        )
+        if rows and len(rows) == 1:
+            await apply_credentials_update(
+                conn, int(rows[0]["id"]), encrypted,
+                source_note=verify_msg,
+                display_name=display_name,
+                mark_verified=True,
+            )
+            logger.info(f"[scan_login] 更新账号 {rows[0]['id']}({platform})")
+            return int(rows[0]["id"])
         new_id = await conn.fetchval(
             """INSERT INTO publish_accounts(user_id, platform, display_name, credentials_enc, status, last_verified_at, last_verify_msg)
                VALUES($1, $2, $3, $4, 'active', NOW(), $5) RETURNING id""",
             user_id, platform, display_name, encrypted, verify_msg,
         )
-        logger.info(f"[scan_login] 创建账号 {new_id}({platform})")
+        logger.info(
+            f"[scan_login] 创建账号 {new_id}({platform});该平台已有 {len(rows)} 个号,按新增处理"
+        )
         return int(new_id)
     finally:
         await conn.close()
@@ -2894,7 +2921,14 @@ async def _save_account_async(task: ScanTask) -> None:
             account_platform,
             credentials,
             PLATFORM_SCAN_CONFIG[account_platform]["name"],
+            account_id=task.account_id,
         )
+        # 账号池回池:扫码/重登成功必须同时翻 session_state,否则池取号仍判失效。
+        try:
+            from .publish import session_keeper
+            await session_keeper.on_reauth_success(int(task.account_id))
+        except Exception as hook_err:  # noqa: BLE001 —— 回池失败不能让扫码结果丢掉
+            logger.warning(f"[scan_login] 回写会话状态失败(账号已保存): {hook_err}")
     except Exception as e:
         logger.exception(f"[scan_login] 保存账号失败:{e}")
     finally:
@@ -3134,10 +3168,18 @@ async def detect_login_from_cdp_session(
 # ---------------------------------------------------------------------------
 # 公共 API
 # ---------------------------------------------------------------------------
-def start_scan_task(user_id: str, platform: str, reuse_session: bool = True) -> ScanTask:
-    """启动后台扫码登录任务(立即返回 task_id)。"""
+def start_scan_task(
+    user_id: str,
+    platform: str,
+    reuse_session: bool = True,
+    account_id: int | None = None,
+) -> ScanTask:
+    """启动后台扫码登录任务(立即返回 task_id)。
+
+    `account_id` 用于账号池里的"救活某个具体号":任务成功后只回写这一行。
+    """
     _cleanup_expired_tasks()
-    task = create_task(user_id, platform, reuse_session=reuse_session)
+    task = create_task(user_id, platform, reuse_session=reuse_session, account_id=account_id)
     thread = threading.Thread(
         target=_run_scan_task,
         args=(task,),

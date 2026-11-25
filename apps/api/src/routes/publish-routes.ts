@@ -673,6 +673,95 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
     await proxyToAiService(request, reply, `/groups/${encodeURIComponent(groupId)}/publish`)
   })
 
+  // ===== 账号池(2026-11-25 新增)=====
+  // 统一取号 / 轮换 / 真实登录态体检 / 定点重登。静态路径必须先于 :poolId 注册。
+  server.get('/publish/pools', async (request, reply) => {
+    await proxyToAiService(request, reply, '/pools')
+  })
+
+  server.post('/publish/pools', async (request, reply) => {
+    await proxyToAiService(request, reply, '/pools')
+  })
+
+  server.post('/publish/pools/bootstrap', async (request, reply) => {
+    await proxyToAiService(request, reply, '/pools/bootstrap')
+  })
+
+  server.get('/publish/pools/keeper/status', async (request, reply) => {
+    await proxyToAiService(request, reply, '/pools/keeper/status')
+  })
+
+  server.post('/publish/pools/accounts/:accountId/probe', async (request, reply) => {
+    const { accountId } = request.params as { accountId: string }
+    await proxyToAiService(
+      request,
+      reply,
+      `/pools/accounts/${encodeURIComponent(accountId)}/probe`,
+    )
+  })
+
+  server.post('/publish/pools/accounts/:accountId/reauth', async (request, reply) => {
+    const { accountId } = request.params as { accountId: string }
+    await proxyToAiService(
+      request,
+      reply,
+      `/pools/accounts/${encodeURIComponent(accountId)}/reauth`,
+    )
+  })
+
+  server.get('/publish/pools/accounts/:accountId/session', async (request, reply) => {
+    const { accountId } = request.params as { accountId: string }
+    await proxyToAiService(
+      request,
+      reply,
+      `/pools/accounts/${encodeURIComponent(accountId)}/session`,
+    )
+  })
+
+  server.get('/publish/pools/:poolId', async (request, reply) => {
+    const { poolId } = request.params as { poolId: string }
+    await proxyToAiService(request, reply, `/pools/${encodeURIComponent(poolId)}`)
+  })
+
+  server.patch('/publish/pools/:poolId', async (request, reply) => {
+    const { poolId } = request.params as { poolId: string }
+    await proxyToAiService(request, reply, `/pools/${encodeURIComponent(poolId)}`)
+  })
+
+  server.delete('/publish/pools/:poolId', async (request, reply) => {
+    const { poolId } = request.params as { poolId: string }
+    await proxyToAiService(request, reply, `/pools/${encodeURIComponent(poolId)}`)
+  })
+
+  server.post('/publish/pools/:poolId/members', async (request, reply) => {
+    const { poolId } = request.params as { poolId: string }
+    await proxyToAiService(request, reply, `/pools/${encodeURIComponent(poolId)}/members`)
+  })
+
+  server.delete('/publish/pools/:poolId/members/:accountId', async (request, reply) => {
+    const { poolId, accountId } = request.params as { poolId: string; accountId: string }
+    await proxyToAiService(
+      request,
+      reply,
+      `/pools/${encodeURIComponent(poolId)}/members/${encodeURIComponent(accountId)}`,
+    )
+  })
+
+  server.post('/publish/pools/:poolId/probe', async (request, reply) => {
+    const { poolId } = request.params as { poolId: string }
+    await proxyToAiService(request, reply, `/pools/${encodeURIComponent(poolId)}/probe`)
+  })
+
+  server.get('/publish/pools/:poolId/events', async (request, reply) => {
+    const { poolId } = request.params as { poolId: string }
+    const qs = request.url.split('?')[1] ?? ''
+    await proxyToAiService(
+      request,
+      reply,
+      qs ? `/pools/${encodeURIComponent(poolId)}/events?${qs}` : `/pools/${encodeURIComponent(poolId)}/events`,
+    )
+  })
+
   // ===== 批量账号导入/导出/验证/模板(2026-08-01 新增)=====
   // 注意:batch-template 是 GET 静态路由,需在 /accounts/:userId 之前注册(Fastify 自动优先静态)
 

@@ -94,6 +94,9 @@ class YouTubeAdapter(BasePlatformAdapter):
         return resp, creds
 
     async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
+        # 刷新后的 token 需要由 session_keeper 回写;这里把"实际用于校验的最终凭证"
+        # 挂在实例上,避免 verify 只返回 bool 时把新 access_token 丢掉。
+        self._verified_credentials = dict(credentials)
         access_token = credentials.get("access_token", "").strip()
         if not access_token:
             return False, "missing access_token"
@@ -110,7 +113,8 @@ class YouTubeAdapter(BasePlatformAdapter):
             return r, creds
 
         try:
-            resp, _ = await self._call_with_refresh(credentials, _call)
+            resp, creds = await self._call_with_refresh(credentials, _call)
+            self._verified_credentials = creds
         except httpx.HTTPError as e:
             return False, f"http error: {type(e).__name__}: {e}"
         except Exception as e:

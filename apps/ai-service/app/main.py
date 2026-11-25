@@ -497,6 +497,17 @@ async def lifespan(app: FastAPI) -> Any:
     # 间隔 COOKIE_REFRESH_INTERVAL_HOURS 小时(默认 6)。未开启时本调用是 no-op。
     from app.services.publish.cookie_refresh_daemon import cookie_daemon
 
+    # 发布账号会话守护(2026-11-25 立):把"保活"从"cookie 名还在不在"升级成
+    # adapter 真实登录态校验 + 失效告警 + 定点重登回池。必须先于 keepalive 中心启动:
+    # 中心构造探针集合时会看 is_active(),据此让出发布线,避免两处同时访问同一账号。
+    from app.services.publish import session_keeper as _session_keeper
+    try:
+        _keeper_on = await _session_keeper.start()
+        logger.info("[session-keeper] 启动=%s status=%s", _keeper_on, _session_keeper.snapshot())
+    except Exception as e:
+        _keeper_on = False
+        logger.warning("[session-keeper] 启动失败,退回旧探针: %s", e)
+
     # 账号保活中心(2026-10-26 立):把发布线 Cookie 探活、密钥到期检测、签到凭证
     # 健康收敛成一套调度 / 一套状态表 / 一套健康度 / 一套告警。
     # 与上面两条线的关系是"各管一段,不互相接管":业务动作(访问平台刷 cookie / 每日
@@ -516,8 +527,12 @@ async def lifespan(app: FastAPI) -> Any:
     _keepalive_on = _keepalive_cfg().enabled
     # 单一调度源:中心已接管 Cookie 探活时,旧守护自己的循环不再启动 ——
     # 否则同一账号每轮被两处同时访问平台(既浪费,也会让"上次保活时间"互相覆盖)。
-    if not _keepalive_on:
+    if not _keepalive_on and not _keeper_on:
         cookie_daemon.ensure_started()
+    elif _keeper_on:
+        logger.info(
+            "[session-keeper] 已接管发布账号保活,旧 Cookie 守护与中心发布探针均不启动"
+        )
     else:
         logger.info(
             "[keepalive] 中心已接管 Cookie 探活,旧守护循环不启动(避免同一账号被两处同时访问)"
@@ -988,6 +1003,11 @@ async def lifespan(app: FastAPI) -> Any:
 
         await keepalive_center.stop()
 
+    async def _s_session_keeper() -> None:
+        from app.services.publish import session_keeper
+
+        await session_keeper.stop()
+
     async def _s_video_worker() -> None:
         from app.services.video_generation import stop_video_worker
 
@@ -1104,6 +1124,7 @@ async def lifespan(app: FastAPI) -> Any:
         ("news_scheduler", _s_news_scheduler),
         ("db_sync_scheduler", _s_db_sync_scheduler),
         ("checkin_scheduler", _s_checkin_scheduler),
+        ("session_keeper", _s_session_keeper),
         ("keepalive_center", _s_keepalive_center),
         ("video_worker", _s_video_worker),
         ("media_task_poller", _s_media_task_poller),
@@ -1247,6 +1268,9 @@ def create_app() -> FastAPI:
     # 2026-08-01 新增:账号分组管理 + 批量账号导入/导出/验证 + Cookie 健康度查询
     from app.services.publish.account_groups import router as account_groups_router
     app.include_router(account_groups_router, prefix="/api", tags=["publish-account-groups"])
+    # 2026-11-25 账号池:统一取号 / 轮换 / 健康度 / 定点重登
+    from app.services.publish.account_pool import router as account_pool_router
+    app.include_router(account_pool_router, prefix="/api", tags=["publish-account-pools"])
     # 2026-08-01 新增:Cookie 自动保活守护进程(Playwright headless 每 6 小时刷新)
     from app.services.publish.cookie_refresh_daemon import router as cookie_refresh_router
     app.include_router(cookie_refresh_router, prefix="/api", tags=["publish-cookie-refresh"])

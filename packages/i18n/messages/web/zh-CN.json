@@ -22045,6 +22045,8 @@
       "selectAll": "全选",
       "selectPlatforms": "选择目标平台",
       "selectPlatformsHint": "至少选择 1 个平台",
+      "usePool": "按账号池自动取号",
+      "usePoolHint": "同一平台只发 1 个在线账号;池内全失效会拒绝发布,不会硬发。",
       "submitFailed": "提交失败",
       "submitNow": "立即发布",
       "submitSchedule": "定时发布",

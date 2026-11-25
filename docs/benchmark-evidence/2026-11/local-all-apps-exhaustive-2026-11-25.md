@@ -18,12 +18,13 @@
 3. **原有 14 张 jsmap 均未触发 1,500,000 节点上限**：11 个目标、Qoder 四版本各一张；最大豆包 ai-views 465,369 节点 / 1,473,627 边，Cursor 319,057 / 681,140，WorkBuddy 359,769 / 729,926。**新增的豆包 `biz.pak` 图是第 15 张，单图撞到 1,000,000 硬上限（需求 1,615,501，丢 615,501）**；已按顶层目录拆成 `ahalets` / `static` / `rest` 三片重跑，合计 **1,471,311 节点 / 4,072,587 边 / 1,274,239 函数 / 9,562 模块**，**166,986 bundle 模块与单图完全相等**，余差 144,190 节点来自 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失，不是再次截断。
 4. **核心层覆盖 25 个实际存在的二进制 + 1 个 `not_found` 记录**：导入/导出/签名/字符串/函数/特征六类证据；Codex 407MB 超单文件工具上限 256MB，craft 原生 Rust 报告仍缺，但已用字节级正则补出 400 个 crate 与 rustc commit。
 5. **最能落进 IHUI-AI 的六件事**：统一权限决策对象、Windows Job Object 执行器、审批反向通道、preload 暴露面预算、动态通道注册表、运行时策略热更新（详见第 6 节）。
+6. **前端 `partial` 已逐目标审计**：14 个图/分片只数非 `node_modules` 的 JS/TS，再与 `examined` 比，**0 个应用 JS 漏读目标**；`partial` 的 `total` 主要是 node_modules、CSS、HTML、SVG、JSON 资产（详见 3.1 与 `analysis\frontend-coverage-audit.json`）。
 
 ---
 
 ## 0. 为什么要推翻上一版
 
-上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了十三处纠正，每一条都能被证据账本复核。
+上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了十四处纠正，每一条都能被证据账本复核。
 
 **纠正一：把 Electron 主 exe 的 Chromium 安全 API 当成产品自研沙箱。**
 上一版用 `CreateRestrictedToken`、`CreateJobObject`、`CreateProcessAsUserW` 这类导入来证明“某产品有强沙箱”。实测发现，WorkBuddy.exe、Qoder CN.exe、ZCode.exe、Cursor.exe、Trae CN.exe 全部是 Electron 壳，这些 API 属于 Chromium/Electron 出厂能力，**不能归因于产品**。本版把证据分成三层：产品级（Rust/Go helper、.node、主进程 JS）、框架级（Electron/Chromium）、未知级；只有第一层进入结论。
@@ -63,6 +64,9 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 
 **纠正十三：上一版把豆包后端只写成聊天 RPC，漏了 PIP 远程会话子系统。**
 `pip_main.exe` 3,208,592 字节自带 `aha_pip\src\pip_ipc\named_pipe_ipc_server.cc` / `named_pipe_ipc_client.cc`、`PipMainPipeName_{}`、`PipSDKPipeName_{}`、`PipRemotePipeName_{}` 三条命名管道族，并用 `GetNamedPipeClientProcessId` 校验对端进程；同目录 `pip_remote.dll`、`connect_to_shadow_session_client.cc`、`shadow_session_credential_precheck.cc`、`shadow_session_guard.cc`、`rdp_host.cc`、`credential_guard.cc`、`key_stroke.cc` —— 按源码文件名，它不是普通 helper，而是远程/影子会话、键鼠注入、凭据保护一整套子系统。它和 Agent Tool 的 `\\.\pipe\aha-agent-tool-ipc-`、Neotix ShellAPI 是三条独立通道，不能只写一条。静态可见，启用条件未运行验证。
+
+**纠正十四：Qoder 的 `aoq` 不是“播放器 SDK”，是阿里云 RTC 引擎；随包携带但当前 app 代码 0 引用。**
+`aoq-electron-sdk` 实际是 `optionalDependencies` 从 `registry.anpm.alibaba-inc.com` 拉的 `1.2.0-57793950`，包元数据 `repository=gitlab.alibaba-inc.com:NLS-RTC-Service/aoq-client-sdk.git`、`description=AoqClientSdk for Electron (NAPI addon + TypeScript API)`。`ts/IAoqClientEngine.ts` 有 **43 个引擎方法**（`createEngine`、`connect`、`startAudioCapture`、`startVideoCapture`、`enableAudioFrameObserver`、`enableVideoFrameObserver`、`sendDataMsg` 等），`ts/Types.ts` 的 `IAoqElectronBridge` 有 **45 个 NAPI 桥方法**；`AoqConnectConfig` 必填 `token` / `sid` / `relayEndpoints`，可带 `certFingerprint` / `workspaceIdHash`，发布/订阅 `audio` / `video` / `data` 三类 track。原生四件套是 `AoqClientSdk.dll` 14,688,776、`aoq_node_ext.node` 253,952、`PluginOpus.dll` 730,112、`alivcffmpeg.dll` 4,093,448；DLL 字符串含 `Ali_RTC`、`rtc_core` 424 处、`apsara-video-client`、`cloud-config-service.rtc.aliyuncs.com`、`vod.cn-hangzhou.aliyuncs.com`、`vpp-license-proxy.aliyuncs.com`，源码路径是 `aoq-client-sdk\rtc_core\...`，不是播放器壳。**四个版本都带这套原生文件**：0.5.6 / 0.5.7 / 0.5.12 / 0.5.14 的 `AoqClientSdk.dll` 分别为 14,688,776 / 14,688,768 / 14,688,768 / 14,688,776，四个 SHA256 各不相同。但对 0.5.6 与 0.5.14 的全部 JS/TS/JSON（4,375 + 4,287 个文件，含 `node_modules` 但排除 SDK 自身）扫描，`aoq-electron-sdk` / `AoqSdk` / `AoqClientEngine` / `aoq_node_ext` 合计只命中 **1 次，且就在根 `package.json` 的 `optionalDependencies` 声明里**，**0 个 app import/require**；`AoqClientEngineInternal.ts` 的 `const AoqNode = loadNative()` 是模块级，只有被 import 时才加载 `.node`。结论：它是**随包携带、当前静态不可达的 RTC 能力**，不是桌面 IPC 通道（通道增量 0），也不是“已启用的播放器”；若被未来代码路径 import，能力是麦克风/摄像头采集、音视频裸帧观察、Aliyun RTC relay（token/sid 鉴权）与 data channel。启用条件未知，不写成已使用。账本：`analysis\qoder-aoq-sdk.json`。
 
 ---
 
@@ -124,6 +128,26 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 | 豆包 biz.pak（三片） | 9,562 | 1,471,311 | 4,072,587 | 1,274,239 | 2（SDK 方法误匹配） | 0 | 0 | 2 | 0 | 8,973 | 1,231（单图口径） | 0 | 0 | 0 |
 
 豆包 `biz.pak` 的单图读数是 **9,797 模块 / 1,000,000 节点（需求 1,615,501，丢 615,501）/ 2,928,056 边 / 881,872 函数**；表内三片是分片重跑后的结果，不是单图子集相加。`ahalets` 5,907 / 832,342、`static` 3,597 / 628,680、`rest` 58 / 10,289；三片 `bundle_modules` 合计 166,986，与单图完全相等，说明 7,837 个 JS 的 bundle 面已全部进入；节点少 144,190 是 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失。三片 `endpoint` 合计 8,973，跨片 `(api,url)` 去重 885；单图 1,231 是工具自身口径，二者不能直接相减。详见 `analysis\doubao-pak-shards.json`。
+
+### 3.1 JS 覆盖审计（`partial` 不等于 JS 漏读）
+
+`js-app-map` 的 `coverage.status` 大多是 `partial`，但 `total` 把 `node_modules`、CSS、HTML、SVG、JSON 都算进去了。真正要证明的是“应用 JS/TS 有没有漏读”，所以逐目标只数非 `node_modules` 的 `.js/.cjs/.mjs/.jsx/.ts/.tsx/.mts/.cts`，再与图里的 `examined` 比：
+
+| 目标 | 非 node_modules JS/TS | 图 examined | 结论 |
+|---|---:|---:|---|
+| Cursor | 1,087 | 1,863 | examined 大于 JS，应用 JS 全覆盖；差额是 node_modules/资产 |
+| Trae CN | 310 | 1,359 | 全覆盖；差额是 node_modules/资产 |
+| WorkBuddy | 3,827 | 4,173 | 全覆盖；差额是资产 |
+| Qoder 0.5.6 / 0.5.14 | 634 / 606 | 795 / 768 | 两版全覆盖；0.5.7 / 0.5.12 未单独解包计数，但 examined 803 / 776 均高于相邻版本 JS 数 |
+| ZCode | 2,828 | 3,732 | 全覆盖；差额是 node_modules/资产 |
+| DeepSeek Harness | 12 | 633 | 全覆盖；差额是 node_modules/资产 |
+| OpenCode | 3,229 | 5,940 | 全覆盖；差额是 node_modules/资产 |
+| MiniMax Code | 1,241 | 1,860 | 全覆盖；差额是 node_modules/资产 |
+| 商汤小浣熊 | 1,374 | 1,965 | 全覆盖；差额是 node_modules/资产 |
+| 豆包 ai-views | 2,291 | 2,311 | 全覆盖；其余 1,131 个未解析是 CSS 747 / TXT 309 / SVG 57 / JSON 16 等 |
+| 豆包 biz.pak（三片） | 7,837 | 8,190 | 全覆盖；4,182 + 3,597 + 58 与解包 JS 逐个对齐 |
+
+**结论：14 个前端图/分片里 0 个应用 JS 漏读目标。** 这也是为什么 `partial` 不能直接当成“没分析完”：它统计的是文件总数，不是应用代码总数。逐目标审计账本在 `analysis\frontend-coverage-audit.json`。
 
 读法：**静态 IPC 少不等于能力少**。
 | MiniMax | 1,391 | 124,372 | 330,508 | 112,679 | 54 | 25 | 0 | 14 | 816（332+406/0 未定） | 1,887 | 1,394 | 10 | 35 | 373 |
@@ -275,6 +299,8 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 
 **原生模块清单（本轮实测，0.5.6 与 0.5.14 完全同构）**：关键项是 `keytar\prebuilds\win32-x64\keytar.node` 707,584、`aoq-electron-sdk\prebuilds\win32-x64\aoq_node_ext.node` 253,952、`AoqClientSdk.dll` 14,688,776、`PluginOpus.dll` 730,112、`alivcffmpeg.dll` 4,093,448、`skia.win32-x64-msvc.node` 27,294,720、`libvips-42.dll` 19,123,712、`node-pty` 三套构建、`OpenConsole.exe` 1,148,448。
 **上一版说的 keytar / aoq 是真的**：本轮一开始只看 `package.json` 依赖表，误判为“未复现”；转到 `app.asar.unpacked` 后，两个版本的 `keytar.node` 与 `aoq_node_ext.node` 都在。这是一次自我纠错，也说明“package.json 没列”不等于“文件不存在”。
+
+**`aoq` 的定性已纠正（纠正十四）**：它不是“播放器 SDK”，而是阿里云 `NLS-RTC-Service` 的 `aoq-client-sdk` RTC 引擎；`IAoqClientEngine` 43 个方法、`IAoqElectronBridge` 45 个 NAPI 方法，支持麦克风/摄像头采集、音视频帧观察、Aliyun RTC relay（`token` / `sid` / `relayEndpoints`）与 data channel。四个版本都带 `AoqClientSdk.dll` / `aoq_node_ext.node` / `PluginOpus.dll` / `alivcffmpeg.dll`，但 0.5.6 与 0.5.14 的 app JS/TS 扫描只有根 `package.json` 声明命中，**0 个 import/require**；`loadNative()` 是模块级，未被 import 就不会加载 `.node`。所以它是**随包携带、当前静态不可达的 RTC 能力**，桌面 IPC 通道增量为 0，启用条件未知。详见 `analysis\qoder-aoq-sdk.json`。
 
 **后端/服务层**：`application-server` + `peer-transport` 是关键。前者是应用服务宿主，后者是 peer 传输层；加上 `session-history`、`session-migration`、`memory-migration`、`artifact-preview`，说明会话/记忆/工件是被服务化的，不是渲染进程直接读写。端点里能看到阿里内部服务：`ali-skill.alibaba-inc.com`、`iservice.alibaba.com`、`modelstudio.console.aliyun.com`、`bailian.console.aliyun.com`、`img.alicdn.com`。
 
@@ -557,7 +583,7 @@ IPC 分组说明它是“能力市场型”客户端：
 | Trae | `credential_sync`、`git_token`、`workroom_credent`、`credential_sync` 字段；`keyring` 命中 9 | 工具宿主凭据同步 |
 | Cursor | `cursorPasskey` 暴露键；`extensionHostWorkerMain.js` keyring 349 次 | VS Code secret storage + Passkey |
 | ZCode | `@napi-rs/keyring 2.1.2` | OS keyring |
-| Qoder | `keytar.node` 707,584 + `aoq_node_ext.node` 253,952 + `AoqClientSdk.dll` 14.7MB（0.5.6/0.5.14 同构） | OS keyring（keytar）+ 阿里云播放器 SDK 扩展（aoq，用途未运行验证） |
+| Qoder | `keytar.node` 707,584 + `aoq_node_ext.node` 253,952 + `AoqClientSdk.dll` 14.7MB（四版本均带） | OS keyring（keytar）+ 阿里云 RTC 引擎（aoq，43 引擎方法/45 NAPI 方法，`token`/`sid`/`relayEndpoints`；app 代码 0 引用、静态不可达） |
 | 豆包 | `mcp_helper` 的 `OAuth session has no credential checkpoint`、`failed to checkpoint OAuth credentials`；`BCrypt` | MCP OAuth 凭据检查点 |
 | 小浣熊 | `libcrypto-3-x64.dll` / `libssl-3-x64.dll` / `_ssl.pyd` | Python SSL 栈 |
 
@@ -632,7 +658,7 @@ IPC 分组说明它是“能力市场型”客户端：
 1. **除 OpenCode 外，其余程序未运行**：所有“运行期行为”仍未知。例如 WorkBuddy 的 MCP Host 是否真的在启动时 listen、豆包的 `sandbox_switch_config` 默认值、ZCode 的 8081 更新代理是否启用，都没有实跑验证。OpenCode 已补 `serve` 实跑（监听成功、Web UI 200、API 401）。
 2. **Codex 407MB 超工具上限**：`native-rust-binary-show` 拒绝 >256MB，因此没有 craft 原生 Rust 报告；本轮用字节级 cargo 路径正则补出 400 个 crate、rustc commit、5 个 git checkout，但没有 demangled symbols 与 `.dep-v0` 审计清单，crate 归属仍不是 craft 官方口径。
 3. **OpenCode 已运行验证，但凭据传递仍未知**：`opencode-cli.exe` 2.2.7 的 `serve` 能监听并返回 Web UI；`/api` 与 `/openapi.json` 无凭据返回 401；普通模式 stdout 打印一次性 `server password`，`--service` 模式未观察到密码行。桌面端如何注入凭据、`--stdio` 模式行为、长期运行稳定性都未验证。`localhost:4096` 已证实只是 `dialog.server.add.placeholder` 的默认占位。
-4. **Qoder 的 keytar/aoq 已文件级确认**：`keytar.node` 707,584 与 `aoq_node_ext.node` 253,952 在 0.5.6/0.5.14 两个版本中都存在；但 aoq 的具体用途（播放器/会议 SDK）只按 DLL 名称推断，未运行验证。上一轮“未复现”的写法已撤销。
+4. **Qoder 的 keytar/aoq 已文件级确认，aoq 的定性已纠正**：`keytar.node` 707,584 与 `aoq_node_ext.node` 253,952 在 0.5.6/0.5.14 两个版本中都存在；aoq 不是“播放器 SDK”，而是阿里云 `NLS-RTC-Service` 的 `aoq-client-sdk` RTC 引擎（43 个引擎方法、45 个 NAPI 桥方法，麦克风/摄像头采集、音视频帧观察、Aliyun RTC relay）。四个版本都带原生四件套，但 0.5.6 与 0.5.14 的 app JS/TS 扫描只有根 `package.json` 的 `optionalDependencies` 声明命中，**0 个 import/require**，因此当前静态不可达、桌面通道增量为 0；启用条件与运行期行为仍未验证。账本 `analysis\qoder-aoq-sdk.json`。
 5. **动态 IPC 计数必须逐目标复核**：ZCode 423、MiniMax 816、DeepSeek 142、WorkBuddy 214、Trae 110、Cursor 45 是工具的“非字面量首参”计数，不等于运行期拼接。已还原：DeepSeek 源码 116 个调用点（102 业务 + 14 清理），102 条业务调用落到 54 个常量通道，142 与 102 的 40 条差额是工具侧重复条目；MiniMax 6+8 条变量全部回填为主进程 332 + renderer 406，源码 804 个调用点、0 条未定；WorkBuddy main 侧 115 条注册全部归因（81 常量/别名 + 29 模板 + 4 helper 形参 + 1 内部通道），12 个 `require_*` 别名全回填；ZCode 本地 227 个调用点 227/227 还原为 180 个唯一通道、0 条未定，423 与 227 的差额来自 node_modules/其他 bundle；Trae 真实 app 树 73 个 ipc +62 个 sender，58 条非字面量中 56 条落到 30 个唯一通道、2 条是 wrapper/response 非通道值、0 条未定；Cursor 44 个 Electron 调用点中 43 条非字面量，29 条落 20 个唯一通道、12 条 helper、1 条 4 路守卫、1 条运行期 payload、0 个未知常量，45 与 43 的 2 条差额落在 js-debug 的 WebSocket `.send` 泛化匹配。
 6. **`webPreferences: dynamic` 无法判定**：多个产品有 4–12 个窗口的 webPreferences 在运行期计算，静态只能标“未知”，不能下“安全/不安全”结论。
 7. **豆包 0 条未定，但图仍有“分片差账”**：Neotix ShellAPI 的 848 个原生方法已从 `Doubao.dll` 抽出，LarkAPI.ipc 的 41 个调用点已归到 3 个通道；`AppletBridge` 已定性为 Lynx native module 协议，259 个 `doubao.*`/`applet.*` 是模块方法名、不是 IPC 通道，对桌面通道面增量为 0。`audioRecorder.getSystemAudioCaptureAccess` 与 `openSystemAudioCapturePermissionSettings` 在当前 `Doubao.dll` 里没有同名原生方法，但前端 `nn.aff2f600a8.js` 用 `ShellapiCommonError.value===8` 判断后弹 `SysAudioUnsupportedUpgrade` 提示，属于旧原生上的降级门控，不是未知通道。`biz.pak` 三片合计 1,471,311 节点，比单图推算需求 1,615,501 少 144,190，差在 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失；**不是新的节点截断，但也不是与单图逐节点等价**。PIP 子系统的命名管道族只做静态字符串取证，启用条件、对端进程、是否默认监听都未运行验证。
@@ -650,7 +676,8 @@ IPC 分组说明它是“能力市场型”客户端：
 所有证据 JSON 位于 `C:\IHUI-AI\.workbuddy\craft\out\deep\`：
 
 - `analysis\install-matrix.json`：11 个目标的安装面、主程序版本/大小/hash、asar 大小、native 模块数量。
-- `analysis\frontend-matrix.json`：前端总矩阵（模块/节点/边/endpoint/窗口/IPC/暴露键）。
+- `analysis\frontend-matrix.json`：前端总矩阵（模块/节点/边/endpoint/窗口/IPC/暴露键），已补 `doubao-biz-pak` 三片行。
+- `analysis\frontend-coverage-audit.json`：14 个前端图/分片的 JS 覆盖审计——逐目标非 `node_modules` JS/TS 计数、图 `examined`、`0` 个应用 JS 漏读目标；含 Qoder 四版本与豆包三片的折算说明。
 - `analysis\backend-<target>.json`：后端模式扫描（http/ws server、ipcMain、contextBridge、safeStorage、MCP/ACP/LSP）。
 - `<target>-jsmap-full.json`：前端全量图（豆包 ai-views 437MB、WorkBuddy 273MB、Cursor 247MB 等）；豆包主应用 `biz.pak` 的 1.04GB 图见下一组条目。
 - `native\<target>\*.json`：核心取证（overview / imports / exports / publisher / strings0-7 / feat0-3）。
@@ -660,6 +687,7 @@ IPC 分组说明它是“能力市场型”客户端：
 - `analysis\traecn-ipc-final.json`：重建后的 Trae 账本——135 个显式 IPC/sender 调用（73 ipc + 62 sender）、58 条非字面量、56 条映射到 30 个唯一通道、2 条 wrapper/response 非通道值、0 条未定。
 - `analysis\cursor-ipc-final.json`：Cursor 的 50 条原始记录账本——44 个 Electron 调用点（15 ipcMain + 17 ipcRenderer + 11 webContents.send + 1 postMessage）、1 条静态字面量、6 条 js-debug WebSocket 误匹配；29 条常量记录、20 个唯一动态通道、12 条 helper、1 条 4 路守卫、1 条 `e.responseChannel`、0 条未定。
 - `analysis\qoder-ipc-final.json`：Qoder 四版本动态 IPC 账本——13 条记录（0.5.6 5 条 / 0.5.7 0 / 0.5.12 0 / 0.5.14 8 条）、13 条全部还原、6 个唯一通道、0 条未定；含自定义 base64 表旋转偏移 283/200 与 `arms:rum-*`、`diagnostics:renderer-responsiveness`、`mcp-app:guest-message` 精确通道。
+- `analysis\qoder-aoq-sdk.json`：Qoder `aoq-electron-sdk` 账本——包版本 `1.2.0-57793950`、仓库 `NLS-RTC-Service/aoq-client-sdk`、43 个 `IAoqClientEngine` 方法、45 个 `IAoqElectronBridge` 方法、四版本原生四件套大小/SHA256、DLL 的 `Ali_RTC`/`rtc_core`/`aliyuncs.com` 标记、0.5.6/0.5.14 的 app 引用扫描（仅根 `package.json` 1 次、0 import）。
 - `analysis\opencode-ipc-final.json`：OpenCode 的 5 条动态 IPC——`vi`/`Vr` 主进程发送、`t`/`n`/`r` preload 监听/调用，全部配对回 `opencode:drag-cancel`、`desktop-rpc-port`、`desktop-window-snapshot` 3 个已有静态通道，0 条未定。
 - `analysis\xhz-ipc-final.json`：小浣熊 34 个非字面量 IPC 账本——16 个固定通道记录（11 个唯一）、3 个模板记录（feedback 3 成员 / browser-overlay 按 owner）、1 个 `VOICE_INPUT_CHANNELS` 7 通道清理循环、14 个 helper/cleanup 形参、0 条未定。
 - `analysis\doubao-ipc-final.json`：豆包原生桥总账——848 个 Neotix 原生方法 / 98 个命名空间、111 个字面量调用点 / 52 个方法（50 命中 + 2 个版本门控）、41 个 LarkAPI.ipc 调用点 / 3 个通道（`DOC_IFRAME_REMOVE` 28、`DOC_IFRAME_PUSH` 7、`COMMAND` 4）、259 个 applet API 名 / 659 次引用 / 145 文件，另含 Agent Tool IPC 命名管道、app proxy WebSocket、MCP stdio、secure-proxy、PIP 三族命名管道后端记录，以及 `biz.pak` 三片统计。
@@ -721,5 +749,5 @@ $proj = "C:\IHUI-AI\.workbuddy\craft\all-ai-apps-full-2026-11-25.cany"
 
 ---
 
-**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是十三处纠正、11 个程序、8 个 asar 解包、15 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、25 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
+**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是十四处纠正、11 个程序、8 个 asar 解包、15 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、25 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
