@@ -780,6 +780,55 @@ function dispatchSchedulerHealth() {
   }
 }
 
+// 入口存活(2026-11-25 立):判的是"服务还能不能应答",不是"进程还在不在"。
+// nssm 的 AppExit[Default]=Restart 只覆盖「进程退出」;僵死(进程活着、端口仍 LISTENING、
+// 但请求没人应答)它看不出来 —— 那种状态下服务是 SERVICE_RUNNING、Last Result 是 0,
+// 而用户侧已经全站不可用。这种故障只有主动发请求才看得见。
+function dispatchEndpointLiveness() {
+  const t0 = Date.now()
+  const r = spawnSync(process.execPath, [join(HERE, 'check-endpoint-liveness.mjs'), '--json', '--alert'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 90_000,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 1 << 24,
+  })
+  let state = 'undetermined'
+  let reason = ''
+  let total = 0
+  let dead = 0
+  let consecutiveFail = 0
+  try {
+    const last = String(r.stdout ?? '').trim().split(/\r?\n/).filter(Boolean).pop()
+    const parsed = JSON.parse(last)
+    state = parsed.state ?? 'undetermined'
+    reason = parsed.reason ?? ''
+    total = Number(parsed.total ?? 0)
+    dead = Array.isArray(parsed.dead) ? parsed.dead.length : 0
+    consecutiveFail = Number(parsed.consecutiveFail ?? 0)
+  } catch {
+    /* 解析不出来按未判定记,不猜结论 */
+  }
+  const rec = {
+    ts: new Date().toISOString(),
+    name: 'endpoint-liveness',
+    code: r.status ?? (r.error ? 2 : 0),
+    ms: Date.now() - t0,
+    state,
+    reason,
+    total,
+    dead,
+    consecutiveFail,
+    error: r.error ? String(r.error.message) : null,
+  }
+  try {
+    appendFileSync(join(ROOT, '.ihui-agent', 'state', 'downstream-dispatch.jsonl'), `${JSON.stringify(rec)}\n`, 'utf8')
+  } catch {
+    /* 留痕失败不影响主流程 */
+  }
+}
+
 // §22d 入口守卫:被 import(测试/其他脚本)时不得执行 main —— 这个脚本会落防火墙规则
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
@@ -836,6 +885,11 @@ if (isDirectRun) {
           dispatchSchedulerHealth()
         } catch {
           /* 调度健康失败同上:结论在 downstream-dispatch.jsonl 与 scheduler-health.jsonl */
+        }
+        try {
+          dispatchEndpointLiveness()
+        } catch {
+          /* 入口存活失败同上:结论在 downstream-dispatch.jsonl 与 endpoint-liveness.jsonl */
         }
       }
       process.exit(code)
