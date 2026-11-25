@@ -35,7 +35,11 @@ MAX_TEMPLATE_ID_CHARS = 32
 #: 检查点等待超过这个时长就标记 `timed_out`,但**绝不自动恢复**:
 #: 人工确认不能因为等得久就被机器代签。超时只改变展示与审计信号,
 #: 仍由人点「已处理,继续」或接管。
+#: 自定义任务可覆盖,范围 1 分钟..1 小时;危险场景可缩短,长任务可放宽,
+#: 但再长也不能变成"无限等人",再短也不会自动放行。
 CHECKPOINT_WAIT_TIMEOUT_SECONDS = 15 * 60
+MIN_CHECKPOINT_WAIT_TIMEOUT_SECONDS = 60
+MAX_CHECKPOINT_WAIT_TIMEOUT_SECONDS = 60 * 60
 
 #: 检查点 id / 模板 id 共用的安全字符集。只允许小写,避免大小写两套 id 指向同一项。
 _ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
@@ -195,6 +199,37 @@ def _normalize_checkpoints(raw: object) -> list[dict[str, Any]]:
     return out
 
 
+def _normalize_checkpoint_timeout(raw: object) -> int:
+    """超时上限:缺省用 15 分钟,显式值必须在 1 分钟..1 小时之间。
+
+    只接受整数(或整值数字字符串/整值浮点);布尔值、负数、超界一律报错,
+    避免调用方把 0 当成"永不超时"或把 1 秒当成"尽快放行"。
+    """
+    if raw is None or raw == "":
+        return CHECKPOINT_WAIT_TIMEOUT_SECONDS
+    if isinstance(raw, bool):
+        raise TaskValidationError(
+            "task_invalid_checkpoint_timeout", "checkpoint_timeout_seconds 必须是整数秒"
+        )
+    if isinstance(raw, float) and not raw.is_integer():
+        raise TaskValidationError(
+            "task_invalid_checkpoint_timeout", "checkpoint_timeout_seconds 必须是整数秒"
+        )
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        raise TaskValidationError(
+            "task_invalid_checkpoint_timeout", "checkpoint_timeout_seconds 必须是整数秒"
+        ) from None
+    if not (MIN_CHECKPOINT_WAIT_TIMEOUT_SECONDS <= value <= MAX_CHECKPOINT_WAIT_TIMEOUT_SECONDS):
+        raise TaskValidationError(
+            "task_invalid_checkpoint_timeout",
+            f"checkpoint_timeout_seconds 必须在 {MIN_CHECKPOINT_WAIT_TIMEOUT_SECONDS}"
+            f"..{MAX_CHECKPOINT_WAIT_TIMEOUT_SECONDS} 秒之间",
+        )
+    return value
+
+
 def normalize_task(payload: object) -> dict[str, Any]:
     """把客户端/自动化载荷归一成会话内任务快照。
 
@@ -220,12 +255,17 @@ def normalize_task(payload: object) -> dict[str, Any]:
         if task_id_raw
         else f"task_{uuid.uuid4().hex[:10]}"
     )
+    timeout_raw = payload.get("checkpoint_timeout_seconds")
+    if timeout_raw is None:
+        timeout_raw = payload.get("checkpointTimeoutSeconds")
+    checkpoint_timeout_seconds = _normalize_checkpoint_timeout(timeout_raw)
     return {
         "task_id": task_id,
         "template_id": template_id or None,
         "goal": goal,
         "requirements": _normalize_requirements(payload.get("requirements")),
         "checkpoints": _normalize_checkpoints(payload.get("checkpoints")),
+        "checkpoint_timeout_seconds": checkpoint_timeout_seconds,
         "status": TASK_ACTIVE,
         "created_at": _now_iso(),
     }
@@ -287,14 +327,19 @@ def task_snapshot(task: dict[str, Any] | None) -> dict[str, Any] | None:
     """返回可 JSON 序列化的任务快照(深拷贝,不让调用方改到会话内状态)。"""
     if not task:
         return None
+    timeout_seconds = task.get("checkpoint_timeout_seconds")
+    if not isinstance(timeout_seconds, (int, float)) or isinstance(timeout_seconds, bool):
+        timeout_seconds = CHECKPOINT_WAIT_TIMEOUT_SECONDS
     return {
         "task_id": task.get("task_id"),
         "template_id": task.get("template_id"),
         "goal": task.get("goal"),
         "requirements": [str(item) for item in task.get("requirements") or []],
         "checkpoints": [
-            checkpoint_snapshot(cp) for cp in task.get("checkpoints") or []
+            checkpoint_snapshot(cp, timeout_seconds=float(timeout_seconds))
+            for cp in task.get("checkpoints") or []
         ],
+        "checkpoint_timeout_seconds": int(float(timeout_seconds)),
         "status": task.get("status", TASK_ACTIVE),
         "created_at": task.get("created_at"),
     }
@@ -383,6 +428,8 @@ def _template(
     goal: str,
     requirements: list[str],
     checkpoints: list[tuple[str, str, str | None] | tuple[str, str, str | None, str]],
+    *,
+    checkpoint_timeout_seconds: int = CHECKPOINT_WAIT_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     def _one(cp: tuple) -> dict[str, Any]:
         cp_id, label, match = cp[0], cp[1], cp[2]
@@ -396,6 +443,7 @@ def _template(
         "goal": goal,
         "requirements": requirements,
         "checkpoints": [_one(cp) for cp in checkpoints],
+        "checkpoint_timeout_seconds": checkpoint_timeout_seconds,
     }
 
 
@@ -414,6 +462,7 @@ BUILTIN_TASK_TEMPLATES: list[dict[str, Any]] = [
             ("verify", "验证码已提交", "verify", "ck_login_handoff_verify"),
             ("back", "已回到目标任务", None, "ck_login_handoff_back"),
         ],
+        checkpoint_timeout_seconds=10 * 60,
     ),
     _template(
         "form-commit",
@@ -427,6 +476,7 @@ BUILTIN_TASK_TEMPLATES: list[dict[str, Any]] = [
             ("confirm", "提交前确认", "confirm", "ck_form_commit_confirm"),
             ("receipt", "提交结果确认", None, "ck_form_commit_receipt"),
         ],
+        checkpoint_timeout_seconds=15 * 60,
     ),
     _template(
         "payment-confirm",
@@ -441,6 +491,7 @@ BUILTIN_TASK_TEMPLATES: list[dict[str, Any]] = [
             ("pay", "付款前确认", "pay", "ck_payment_confirm_pay"),
             ("done", "支付结果确认", None, "ck_payment_confirm_done"),
         ],
+        checkpoint_timeout_seconds=5 * 60,
     ),
     _template(
         "download-export",
@@ -455,6 +506,7 @@ BUILTIN_TASK_TEMPLATES: list[dict[str, Any]] = [
             ("download", "下载已开始", "download", "ck_download_export_download"),
             ("done", "产物核对完成", None, "ck_download_export_done"),
         ],
+        checkpoint_timeout_seconds=30 * 60,
     ),
 ]
 
@@ -467,6 +519,7 @@ def list_task_templates() -> list[dict[str, Any]]:
             "goal": item["goal"],
             "requirements": list(item["requirements"]),
             "checkpoints": [dict(cp) for cp in item["checkpoints"]],
+            "checkpoint_timeout_seconds": item["checkpoint_timeout_seconds"],
         }
         for item in BUILTIN_TASK_TEMPLATES
     ]
@@ -482,6 +535,7 @@ def task_from_template(template_id: str, *, goal_override: str | None = None) ->
                 "goal": goal_override or item["goal"],
                 "requirements": list(item["requirements"]),
                 "checkpoints": [dict(cp) for cp in item["checkpoints"]],
+                "checkpoint_timeout_seconds": item["checkpoint_timeout_seconds"],
             }
             return normalize_task(payload)
     raise TaskValidationError("template_not_found", f"模板不存在: {template_id}")

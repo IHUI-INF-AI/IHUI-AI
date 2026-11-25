@@ -167,6 +167,7 @@ describe('任务模板与检查点视图', () => {
     template_id: 'payment-confirm',
     goal: '完成支付',
     requirements: ['核对金额'],
+    checkpoint_timeout_seconds: 300,
     created_at: '2026-11-25T00:00:00Z',
     checkpoints: [
       { id: 'checkout', label: '进入结算页', status: 'done', done_at: '2026-11-25T00:01:00Z' },
@@ -181,6 +182,18 @@ describe('任务模板与检查点视图', () => {
     expect(task?.checkpoints[1]?.enteredAt).toBe('2026-11-25T00:02:00Z')
     expect(task?.checkpoints[1]?.labelKey).toBe('ck_payment_confirm_pay')
     expect(task?.checkpoints[1]?.timedOut).toBe(true)
+    expect(task?.checkpointTimeoutSeconds).toBe(300)
+  })
+
+  it('缺省/坏上限回 15 分钟兜底,camelCase 也认', () => {
+    const withoutTimeout = normalizeBrowserPipTask({ ...raw, checkpoint_timeout_seconds: undefined })
+    expect(withoutTimeout?.checkpointTimeoutSeconds).toBe(15 * 60)
+    const camel = normalizeBrowserPipTask({
+      ...raw,
+      checkpoint_timeout_seconds: undefined,
+      checkpointTimeoutSeconds: 600,
+    })
+    expect(camel?.checkpointTimeoutSeconds).toBe(600)
   })
 
   it('派生视图给出进度、当前项与等待标记', () => {

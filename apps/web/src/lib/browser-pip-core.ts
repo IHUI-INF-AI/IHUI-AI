@@ -25,6 +25,8 @@ export const PIP_DEFAULT_HEIGHT = 280
 export const PIP_STALL_MS = 15_000
 /** 浮窗尺寸记忆键:用户拖过的大小下次沿用 */
 export const PIP_SIZE_STORAGE_KEY = 'ihui-browser-pip-size'
+/** 服务端没下发任务级上限时的兜底:15 分钟,与 browser_task 默认常量一致 */
+export const DEFAULT_CHECKPOINT_TIMEOUT_SECONDS = 15 * 60
 
 export interface PipSize {
   width: number
@@ -94,6 +96,8 @@ export interface BrowserPipTask {
   goal: string
   requirements: string[]
   checkpoints: BrowserPipCheckpoint[]
+  /** 服务端下发的等待上限(秒);缺省按 15 分钟兜底。 */
+  checkpointTimeoutSeconds: number
   createdAt: string | null
 }
 
@@ -143,6 +147,11 @@ export function normalizeBrowserPipTask(raw: unknown): BrowserPipTask | null {
     })
   }
   if (checkpoints.length === 0) return null
+  const rawTimeout = source.checkpoint_timeout_seconds ?? source.checkpointTimeoutSeconds
+  const timeoutSeconds =
+    typeof rawTimeout === 'number' && Number.isFinite(rawTimeout) && rawTimeout > 0
+      ? Math.trunc(rawTimeout)
+      : DEFAULT_CHECKPOINT_TIMEOUT_SECONDS
   return {
     taskId: asString(source.task_id ?? source.taskId),
     templateId: asString(source.template_id ?? source.templateId) || null,
@@ -151,6 +160,7 @@ export function normalizeBrowserPipTask(raw: unknown): BrowserPipTask | null {
       ? source.requirements.map((item) => asString(item)).filter(Boolean)
       : [],
     checkpoints,
+    checkpointTimeoutSeconds: timeoutSeconds,
     createdAt: asString(source.created_at ?? source.createdAt) || null,
   }
 }

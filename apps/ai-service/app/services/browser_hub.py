@@ -1380,11 +1380,19 @@ class BrowserSession:
         if task is not None and not task.done():
             task.cancel()
 
+    def _checkpoint_timeout_seconds(self) -> float:
+        """当前任务的检查点等待上限;任务没配就回默认 15 分钟。"""
+        task = self._task or {}
+        raw = task.get("checkpoint_timeout_seconds")
+        if isinstance(raw, (int, float)) and not isinstance(raw, bool) and raw > 0:
+            return float(raw)
+        return float(CHECKPOINT_WAIT_TIMEOUT_SECONDS)
+
     def _schedule_checkpoint_timeout(self, checkpoint: dict[str, Any] | None) -> None:
         """给 active 检查点挂一次性超时提醒;只广播 timed_out,绝不自动恢复。"""
         self._cancel_checkpoint_timeout()
         remaining = checkpoint_wait_remaining(
-            checkpoint, timeout_seconds=CHECKPOINT_WAIT_TIMEOUT_SECONDS
+            checkpoint, timeout_seconds=self._checkpoint_timeout_seconds()
         )
         if remaining is None or remaining <= 0:
             return
@@ -1401,7 +1409,7 @@ class BrowserSession:
         if active is None or str(active.get("id")) != checkpoint_id:
             return
         if not checkpoint_timed_out(
-            active, timeout_seconds=CHECKPOINT_WAIT_TIMEOUT_SECONDS
+            active, timeout_seconds=self._checkpoint_timeout_seconds()
         ):
             return
         await self._broadcast_checkpoint(active)
@@ -1409,7 +1417,7 @@ class BrowserSession:
     async def _broadcast_checkpoint(self, checkpoint: dict[str, Any]) -> None:
         state = {
             "checkpoint": checkpoint_snapshot(
-                checkpoint, timeout_seconds=CHECKPOINT_WAIT_TIMEOUT_SECONDS
+                checkpoint, timeout_seconds=self._checkpoint_timeout_seconds()
             ),
             "task": task_snapshot(self._task),
             "progress": task_progress(self._task),
@@ -1461,7 +1469,7 @@ class BrowserSession:
             self._schedule_checkpoint_timeout(active)
             return {
                 "checkpoint": checkpoint_snapshot(
-                    active, timeout_seconds=CHECKPOINT_WAIT_TIMEOUT_SECONDS
+                    active, timeout_seconds=self._checkpoint_timeout_seconds()
                 ),
                 "task": task_snapshot(self._task),
             }
@@ -1476,7 +1484,7 @@ class BrowserSession:
         await self._broadcast_checkpoint(checkpoint)
         return {
             "checkpoint": checkpoint_snapshot(
-                checkpoint, timeout_seconds=CHECKPOINT_WAIT_TIMEOUT_SECONDS
+                checkpoint, timeout_seconds=self._checkpoint_timeout_seconds()
             ),
             "task": task_snapshot(self._task),
         }
@@ -1505,7 +1513,7 @@ class BrowserSession:
         await self._broadcast_checkpoint(checkpoint)
         return {
             "checkpoint": checkpoint_snapshot(
-                checkpoint, timeout_seconds=CHECKPOINT_WAIT_TIMEOUT_SECONDS
+                checkpoint, timeout_seconds=self._checkpoint_timeout_seconds()
             ),
             "task": task_snapshot(self._task),
         }

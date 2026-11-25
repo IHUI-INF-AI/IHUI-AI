@@ -141,6 +141,8 @@ export interface BrowserTaskTemplate {
   goal: string
   requirements: string[]
   checkpoints: Array<{ id: string; label: string; match: string | null }>
+  /** 该模板的检查点等待上限(秒);超时只标记,不自动恢复。 */
+  checkpoint_timeout_seconds: number
 }
 
 /** 会话内检查点状态 */
@@ -163,6 +165,8 @@ export interface BrowserTaskSnapshot {
   goal: string
   requirements: string[]
   checkpoints: BrowserTaskCheckpoint[]
+  /** 本任务的检查点等待上限(秒);默认 15 分钟,范围 60..3600。 */
+  checkpoint_timeout_seconds: number
   status: 'active' | 'cleared'
   created_at: string | null
 }
@@ -172,6 +176,8 @@ export interface BindBrowserTaskRequest {
   goal?: string
   requirements?: string[]
   checkpoints?: Array<{ id: string; label: string; match?: string | null }>
+  /** 覆盖模板默认的检查点等待上限(秒),范围 60..3600。 */
+  checkpoint_timeout_seconds?: number
 }
 
 /** 内置模板目录(只读) */

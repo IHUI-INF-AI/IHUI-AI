@@ -53,6 +53,7 @@ def test_normalize_task_defaults_and_statuses():
     assert snapshot["goal"] == "把报表导出并核对"
     assert snapshot["requirements"] == ["导出 xlsx", "核对行数"]
     assert snapshot["checkpoints"][0]["label_key"] is None
+    assert snapshot["checkpoint_timeout_seconds"] == CHECKPOINT_WAIT_TIMEOUT_SECONDS
 
 
 def test_normalize_task_keeps_explicit_id():
@@ -185,6 +186,50 @@ def test_checkpoint_timeout_is_derived_and_never_auto_resumes():
     cp["status"] = CHECKPOINT_DONE
     assert checkpoint_timed_out(cp) is False
     assert checkpoint_wait_remaining(cp) is None
+
+
+def test_checkpoint_timeout_is_configurable_per_task_and_template():
+    payload = _payload()
+    payload["checkpoint_timeout_seconds"] = 300
+    task = normalize_task(payload)
+    assert task["checkpoint_timeout_seconds"] == 300
+    mark_checkpoint_active(task, "export")
+    cp = find_checkpoint(task, "export")
+    cp["entered_at"] = (
+        datetime.now(UTC) - timedelta(seconds=320)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    snapshot = task_snapshot(task)
+    assert snapshot["checkpoint_timeout_seconds"] == 300
+    assert snapshot["checkpoints"][0]["timed_out"] is True
+    # 同一检查点按默认 15 分钟仍不算超时,证明上限确实按任务生效。
+    assert checkpoint_timed_out(cp) is False
+
+    expected = {
+        "login-handoff": 10 * 60,
+        "form-commit": 15 * 60,
+        "payment-confirm": 5 * 60,
+        "download-export": 30 * 60,
+    }
+    for item in list_task_templates():
+        assert item["checkpoint_timeout_seconds"] == expected[item["id"]]
+    for template_id, seconds in expected.items():
+        assert task_from_template(template_id)["checkpoint_timeout_seconds"] == seconds
+
+
+def test_checkpoint_timeout_rejects_out_of_range_and_non_integer():
+    for bad in (0, 30, 3601, 7200, True, 1.5, "abc"):
+        payload = _payload()
+        payload["checkpoint_timeout_seconds"] = bad
+        with pytest.raises(TaskValidationError) as exc:
+            normalize_task(payload)
+        assert exc.value.code == "task_invalid_checkpoint_timeout"
+
+
+def test_checkpoint_timeout_accepts_camel_and_numeric_string():
+    payload = _payload()
+    payload["checkpointTimeoutSeconds"] = "600"
+    task = normalize_task(payload)
+    assert task["checkpoint_timeout_seconds"] == 600
 
 
 def test_unknown_checkpoint_errors():

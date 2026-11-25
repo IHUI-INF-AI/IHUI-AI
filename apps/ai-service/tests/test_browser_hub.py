@@ -1390,9 +1390,8 @@ async def test_task_and_checkpoint_multi_viewer_snapshots():
     assert checkpoint_events[-1]["progress"]["total"] == 2
 
 
-async def test_checkpoint_waiting_times_out_without_auto_resume(monkeypatch):
+async def test_checkpoint_waiting_times_out_without_auto_resume():
     """超时只广播 timed_out,phase 仍 waiting、检查点仍 active,必须人点继续。"""
-    monkeypatch.setattr(bh, "CHECKPOINT_WAIT_TIMEOUT_SECONDS", 1.2)
     session = _make_session(page=FakePage(url="https://a.com/"))
     events: list[dict] = []
 
@@ -1401,6 +1400,8 @@ async def test_checkpoint_waiting_times_out_without_auto_resume(monkeypatch):
 
     await session.set_checkpoint_handler(on_checkpoint)
     await session.start_task(_task_payload())
+    # 直接把任务上限压到 1.2 秒,验证会话层用的是任务自己的值,不是写死常量。
+    session._task["checkpoint_timeout_seconds"] = 1.2
     await session.enter_checkpoint("checkout")
     assert events[-1]["checkpoint"]["timed_out"] is False
     assert session._phase_state["phase"] == "waiting"
