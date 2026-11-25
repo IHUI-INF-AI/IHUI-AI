@@ -806,7 +806,7 @@ PID 38788（父 PID 11820）运行 `codex.exe ... app-server --analytics-default
 所有证据 JSON 位于 `C:\IHUI-AI\.workbuddy\craft\out\deep\`：
 
 - `analysis\install-matrix.json`：11 个目标的安装面、主程序版本/大小/hash、asar 大小、native 模块数量。
-- `analysis\frontend-matrix.json`：前端总矩阵（模块/节点/边/endpoint/窗口/IPC/暴露键），13 行——已补 `codex-app`（9,660 模块 / 444,320 节点 / 36 IPC / 6 窗口 / 4 暴露键 / 28 成员）与 `doubao-biz-pak` 三片行。
+- `analysis\frontend-matrix.json`：前端总矩阵（模块/节点/边/endpoint/窗口/IPC/暴露键），13 行——已补 `codex-app`（9,660 模块 / 444,320 节点 / 36 IPC / 6 窗口 / 4 暴露键 / 28 成员）与 `doubao-biz-pak` 三片行；Qoder 四版本里只收 0.5.6 / 0.5.14 两个代表，报告 3 节表另列 0.5.7 / 0.5.12。
 - `analysis\frontend-coverage-audit.json`：15 个前端图/分片的 JS 覆盖审计——逐目标非 `node_modules` JS/TS 计数、图 `examined`、`0` 个应用 JS 漏读目标；Codex 9,656 个应用 JS 全进图（215 个 node_modules JS + 136 个 `.d.ts` 排除），Qoder 四版本均按实际文件计数（634 / 634 / 606 / 606），豆包三片按 7,837 个 JS 逐一对齐。
 - `analysis\backend-<target>.json`：后端模式扫描（http/ws server、ipcMain、contextBridge、safeStorage、MCP/ACP/LSP）。
 - `analysis\backend-qoder-all.json`：Qoder 四版本 asar 后端扫描——`mcpServer` 665 / 665 / 629 / 629（`out/main/electronMain.js` 123 / 123 / 129 / 129，agent-sdk 各 37）、`http.createServer` 8 / 8 / 6 / 6、0.5.12/0.5.14 的 `WebSocketServer` 1、`ipcMain`/`expose`/`safeStorage`/`keytar` 均 0；启动与否未运行验证。
