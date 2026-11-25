@@ -49,4 +49,23 @@ describe('MomentLocalMedia', () => {
     expect(wechatHubApi.fetchMomentMediaBlob).toHaveBeenCalledWith('account-1', 'm-1', 'a.jpg')
     expect(screen.getByAltText('a.jpg').getAttribute('src')).toBe('blob:local-media')
   })
+
+  it('视频不随面板预取，点“加载视频”后才请求 Blob 并渲染 video', async () => {
+    vi.mocked(wechatHubApi.fetchMomentMediaList).mockResolvedValue([
+      { name: 'b.mp4', size: 8, contentType: 'video/mp4' },
+    ])
+    vi.mocked(wechatHubApi.fetchMomentMediaBlob).mockResolvedValue(
+      new Blob([new Uint8Array([0, 0, 0, 0])], { type: 'video/mp4' }),
+    )
+
+    render(<MomentLocalMedia accountId="account-1" momentId="m-1" />)
+    fireEvent.click(screen.getByText('本地媒体'))
+    await waitFor(() => expect(screen.getByText('b.mp4')).toBeTruthy())
+    expect(wechatHubApi.fetchMomentMediaBlob).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByText('加载视频'))
+    await waitFor(() => expect(screen.getByLabelText('b.mp4')).toBeTruthy())
+    expect(wechatHubApi.fetchMomentMediaBlob).toHaveBeenCalledWith('account-1', 'm-1', 'b.mp4')
+    expect(screen.getByLabelText('b.mp4').getAttribute('src')).toBe('blob:local-media')
+  })
 })

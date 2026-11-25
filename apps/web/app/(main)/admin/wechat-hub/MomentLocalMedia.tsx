@@ -4,12 +4,13 @@
 /**
  * 朋友圈本地媒体面板：只在动态有真实本地目录时显示，按需拉列表和二进制；
  * 不自动加载全部动态，图片加载失败只显示文件名，不补占位图。
+ * 视频按需单独加载，避免点开面板就把整段视频拉进内存。
  */
 
 'use client'
 
 import * as React from 'react'
-import { Image as ImageIcon, Loader2 } from 'lucide-react'
+import { Image as ImageIcon, Loader2, Play } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import type { WechatMomentMediaFileView } from '@ihui/types'
 import { wechatHubApi } from './wechat-hub-api'
@@ -32,29 +33,65 @@ export default function MomentLocalMedia({
   const [urls, setUrls] = React.useState<Record<string, string>>({})
   const [open, setOpen] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
+  const [loadingName, setLoadingName] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const objectUrls = React.useRef<string[]>([])
+  const generation = React.useRef(0)
 
   React.useEffect(() => {
     return () => {
+      generation.current += 1
       for (const url of objectUrls.current) URL.revokeObjectURL(url)
     }
   }, [])
 
-  async function load(): Promise<void> {
-    setOpen(true)
-    setLoading(true)
-    setError(null)
+  function clearObjectUrls(): void {
     for (const url of objectUrls.current) URL.revokeObjectURL(url)
     objectUrls.current = []
+    setUrls({})
+  }
+
+  function close(): void {
+    generation.current += 1
+    setOpen(false)
+    setLoadingName(null)
+    clearObjectUrls()
+  }
+
+  async function loadFile(file: WechatMomentMediaFileView): Promise<void> {
+    const current = generation.current
+    setLoadingName(file.name)
+    try {
+      const blob = await wechatHubApi.fetchMomentMediaBlob(accountId, momentId, file.name)
+      if (current !== generation.current) return
+      const url = URL.createObjectURL(blob)
+      objectUrls.current.push(url)
+      setUrls((previous) => ({ ...previous, [file.name]: url }))
+    } catch {
+      // 单个文件读不到就保留文件名和大小，不拿别的图或占位图顶替。
+    } finally {
+      if (current === generation.current) setLoadingName(null)
+    }
+  }
+
+  async function load(): Promise<void> {
+    const current = generation.current + 1
+    generation.current = current
+    setOpen(true)
+    setLoading(true)
+    setLoadingName(null)
+    setError(null)
+    clearObjectUrls()
     try {
       const list = await wechatHubApi.fetchMomentMediaList(accountId, momentId)
+      if (current !== generation.current) return
       setFiles(list)
       const next: Record<string, string> = {}
       for (const file of list) {
         if (!file.contentType.startsWith('image/')) continue
         try {
           const blob = await wechatHubApi.fetchMomentMediaBlob(accountId, momentId, file.name)
+          if (current !== generation.current) return
           const url = URL.createObjectURL(blob)
           objectUrls.current.push(url)
           next[file.name] = url
@@ -64,11 +101,12 @@ export default function MomentLocalMedia({
       }
       setUrls(next)
     } catch (e) {
+      if (current !== generation.current) return
       setFiles(null)
-      setUrls({})
+      clearObjectUrls()
       setError(e instanceof Error ? e.message : '读取本地媒体失败')
     } finally {
-      setLoading(false)
+      if (current === generation.current) setLoading(false)
     }
   }
 
@@ -79,7 +117,7 @@ export default function MomentLocalMedia({
         variant="secondary"
         onClick={() => {
           if (open) {
-            setOpen(false)
+            close()
             return
           }
           void load()
@@ -103,28 +141,62 @@ export default function MomentLocalMedia({
             <div className="grid grid-cols-3 gap-2">
               {files.map((file) => {
                 const url = urls[file.name]
-                return url ? (
-                  <a
-                    key={file.name}
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block overflow-hidden rounded-sm border border-stroke-field"
-                  >
-                    <img
-                      src={url}
-                      alt={file.name}
-                      loading="lazy"
-                      className="h-20 w-full object-cover"
-                    />
-                  </a>
-                ) : (
+                const isVideo = file.contentType.startsWith('video/')
+                if (url && isVideo) {
+                  return (
+                    <div key={file.name} className="col-span-3">
+                      {/* 本地缓存视频没有字幕轨，不放空的假字幕文件。 */}
+                      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                      <video
+                        src={url}
+                        aria-label={file.name}
+                        controls
+                        preload="metadata"
+                        className="max-h-80 w-full rounded-sm border border-stroke-field bg-black"
+                      />
+                    </div>
+                  )
+                }
+                if (url) {
+                  return (
+                    <a
+                      key={file.name}
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block overflow-hidden rounded-sm border border-stroke-field"
+                    >
+                      <img
+                        src={url}
+                        alt={file.name}
+                        loading="lazy"
+                        className="h-20 w-full object-cover"
+                      />
+                    </a>
+                  )
+                }
+                return (
                   <div
                     key={file.name}
                     className="flex min-h-20 flex-col justify-center rounded-sm border border-stroke-field p-1 text-xs"
                   >
                     <span className="break-all text-muted-foreground">{file.name}</span>
                     <span className="mt-1 text-muted-foreground">{formatBytes(file.size)}</span>
+                    {isVideo ? (
+                      <button
+                        type="button"
+                        className="mt-1 inline-flex items-center gap-1 self-start text-primary hover:underline disabled:opacity-50"
+                        onClick={() => void loadFile(file)}
+                        disabled={loadingName === file.name}
+                      >
+                        {loadingName === file.name ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Play className="h-3 w-3" />
+                        )}
+                        <span>{loadingName === file.name ? '加载中' : '加载视频'}</span>
+                      </button>
+                    ) : null}
                   </div>
                 )
               })}
