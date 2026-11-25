@@ -138,7 +138,9 @@ const record = {
 mkdirSync(dirname(LEDGER), { recursive: true })
 appendFileSync(LEDGER, `${JSON.stringify(record)}\n`, 'utf8')
 
-if (asJson) console.log(JSON.stringify(record, null, 2))
+// 机器读档一律单行:派发器(autoban)取 stdout 最后一行做 JSON.parse,
+// 美化输出会让它拿到 "}" 而恒记 undetermined —— 明明判了 ok 却报未判定,是最坏的那种假。
+if (asJson) console.log(JSON.stringify(record))
 else {
   const icon = { ok: '✅', drift: '❌', partial: '⚠️', undetermined: '❔' }[record.state] ?? '•'
   console.log(`${icon} ${record.state} · ${record.reason}`)
