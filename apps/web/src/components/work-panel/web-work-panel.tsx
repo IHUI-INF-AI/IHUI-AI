@@ -10,6 +10,7 @@ import { WorkPanel, WebViewFrame } from '@ihui/ui-react'
 import type { WorkPanelLabels, WorkPanelTabItem } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { Plus, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useMounted } from '@/hooks/use-mounted'
 import { useWebViewFrameLabels } from '@/hooks/use-web-view-frame-labels'
@@ -40,6 +41,7 @@ import {
   dockedBrowserHistoryClear,
   onDockedBrowserPoppedOut,
   onDockedBrowserTabs,
+  isTauri,
 } from '@/lib/tauri-bridge'
 import type { DockedBrowserStore, DockedBrowserTab } from '@/lib/tauri-bridge'
 import { ADD_TEXT_REFERENCE_EVENT } from '@/components/chat/annotation-anchor'
@@ -172,6 +174,79 @@ export function WebWorkPanel() {
       onEmbedNavigation: s.onEmbedNavigation,
     })),
   )
+
+  /**
+   * 桌面 AI 画中画「一键接管」的主窗落点 —— 2026-11-25。
+   *
+   * 监听器必须挂在 WebWorkPanel 自身,而不是 CdpBrowserView:
+   * 用户可能已经把工作面板关掉,此时 CdpBrowserView 已卸载,监听器随之消失,
+   * 接管事件就只剩「主窗聚焦」而没有「切回 CDP tab」。这里只依赖 store,
+   * 与面板开关状态无关;收到 sessionId 后优先找回原 tab,tab 被关掉则用
+   * 同一 Browser Hub 会话重建一个 CDP tab,最后把焦点落到 canvas。
+   */
+  React.useEffect(() => {
+    if (!isTauri()) return
+    let disposed = false
+    let unlisten: (() => void) | undefined
+    type HandoverPayload = {
+      sessionId?: string
+      session_id?: string
+      url?: string
+      title?: string
+    }
+    void import('@tauri-apps/api/event')
+      .then(({ listen }) =>
+        listen<HandoverPayload>('browser-pip://handover', (event) => {
+          if (disposed) return
+          const payload = event.payload
+          // Rust 结构体已加 camelCase;这里再兜一层 snake_case,旧包/灰度回滚
+          // 时不会因为一个字段名把「接管后切回 CDP tab」整条链路丢掉。
+          const sid = payload?.sessionId ?? payload?.session_id
+          if (!sid) return
+          const store = useWorkPanelStore.getState()
+          const existing = store.tabs.find((tab) => tab.state.sessionId === sid)
+          if (existing) {
+            store.openPanel()
+            store.setActiveTab(existing.id)
+          } else {
+            store.openCdpSession(payload?.url || 'about:blank', sid, payload?.title || undefined)
+          }
+          // 等新 tab 的 CdpBrowserView 挂载/切换完成后再聚焦画布;
+          // 120ms 是观察到的动态分包 + 首帧渲染上界,不改变任何业务状态。
+          window.setTimeout(() => {
+            document.querySelector<HTMLCanvasElement>('[data-testid="cdp-canvas"]')?.focus()
+          }, 120)
+        }),
+      )
+      .then((off) => {
+        if (disposed) off()
+        else unlisten = off
+      })
+      .catch(() => {
+        /* 非 Tauri 或事件插件未就绪:不影响面板本身 */
+      })
+
+    // 开窗失败不再静默:后端会发 browser-pip://failed,用户至少知道
+    // 「点了但没开」的原因(权限/旧窗未销毁/WebView2 创建失败)。
+    let unlistenFailed: (() => void) | undefined
+    void import('@tauri-apps/api/event')
+      .then(({ listen }) =>
+        listen<string>('browser-pip://failed', (event) => {
+          if (disposed) return
+          toast.error(event.payload || '画中画窗口打开失败')
+        }),
+      )
+      .then((off) => {
+        if (disposed) off()
+        else unlistenFailed = off
+      })
+      .catch(() => {})
+    return () => {
+      disposed = true
+      unlisten?.()
+      unlistenFailed?.()
+    }
+  }, [])
 
   // 当前激活 Tab(从 tabs 数组查找)
   const activeTab = React.useMemo(

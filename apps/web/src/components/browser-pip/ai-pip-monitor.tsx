@@ -6,7 +6,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildBrowserWsUrl, setBrowserWsToken } from '@ihui/api-client'
-import { getCurrentWindow, getAllWindows } from '@tauri-apps/api/window'
 
 import { useBrowserPipLabels } from '@/hooks/use-browser-pip-labels'
 import {
@@ -17,7 +16,7 @@ import {
   type BrowserPipPhase,
   type BrowserPipStatusKind,
 } from '@/lib/browser-pip-core'
-import { isTauri } from '@/lib/tauri-bridge'
+import { handoverAiPipWindow, isTauri } from '@/lib/tauri-bridge'
 import { useAuthStore } from '@/stores/auth'
 
 const KIND_COLOR: Record<BrowserPipStatusKind, string> = {
@@ -63,6 +62,16 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
   const token = useAuthStore((s) => s.token)
   const [pipToken, setPipToken] = useState('')
   useEffect(() => {
+    // 独立窗的 native 标题在 Windows 上会被外壳窗控落成应用名;页面加载完
+    // 再显式写一次,任务栏/Alt-Tab 才认得出这是「AI 画中画监看」。
+    if (!isTauri()) return
+    void import('@tauri-apps/api/window')
+      .then(({ getCurrentWindow }) => getCurrentWindow().setTitle('AI 画中画监看'))
+      .catch(() => {
+        /* 标题只是外观,失败不影响监看 */
+      })
+  }, [])
+  useEffect(() => {
     // 独立窗口拿不到主窗内存里的 access token;Rust 建窗时用 initialization_script
     // 只往这个窗口注入 __IHUI_PIP_TOKEN__(不进 URL、不落盘),这里优先读它。
     const injected = (window as Window & { __IHUI_PIP_TOKEN__?: string }).__IHUI_PIP_TOKEN__
@@ -98,8 +107,12 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
   const statusLabel =
     status.kind === 'waiting' && activeCheckpoint
       ? activeCheckpoint.timedOut
-        ? labels.checkpointTimeout(checkpointText(activeCheckpoint.label, activeCheckpoint.labelKey))
-        : labels.checkpointWaiting(checkpointText(activeCheckpoint.label, activeCheckpoint.labelKey))
+        ? labels.checkpointTimeout(
+            checkpointText(activeCheckpoint.label, activeCheckpoint.labelKey),
+          )
+        : labels.checkpointWaiting(
+            checkpointText(activeCheckpoint.label, activeCheckpoint.labelKey),
+          )
       : status.kind === 'stalled'
         ? labels.stalled(status.stalledSeconds)
         : labels[status.kind]
@@ -228,16 +241,12 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
       return
     }
     try {
-      const current = getCurrentWindow()
-      const wins = await getAllWindows()
-      const main = wins.find((w) => w.label === 'main')
-      await current.emitTo('main', 'browser-pip://handover', { sessionId })
-      await main?.setFocus()
-      await current.close()
+      await handoverAiPipWindow(sessionId, currentUrl, pageTitle)
     } catch {
+      // Rust 侧失败时至少不要让监看窗挂在屏幕上;主窗按钮会由 closed 事件复位。
       window.close()
     }
-  }, [sessionId])
+  }, [currentUrl, pageTitle, sessionId])
 
   const warn =
     status.kind === 'stalled' ||
@@ -263,7 +272,10 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
           {statusLabel}
         </span>
         {pageTitle && (
-          <span className="max-w-[38%] flex-none truncate text-[10px] text-slate-400" title={currentUrl}>
+          <span
+            className="max-w-[38%] flex-none truncate text-[10px] text-slate-400"
+            title={currentUrl}
+          >
             {pageTitle}
           </span>
         )}
@@ -275,7 +287,10 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
       {taskView && (
         <div className="flex flex-none flex-col gap-1 border-b border-white/10 bg-[#141821] px-3 py-1.5">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="min-w-0 flex-1 truncate text-[11px] font-medium" title={taskView.task.goal}>
+            <span
+              className="min-w-0 flex-1 truncate text-[11px] font-medium"
+              title={taskView.task.goal}
+            >
               {taskView.task.goal}
             </span>
             <span className="flex-none text-[10px] text-slate-400">
@@ -289,7 +304,11 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
               const color =
                 cp.status === 'done' ? '#86efac' : cp.status === 'active' ? '#fbbf24' : '#9aa3af'
               return (
-                <span key={cp.id} className="inline-flex flex-none items-center gap-1" style={{ color }}>
+                <span
+                  key={cp.id}
+                  className="inline-flex flex-none items-center gap-1"
+                  style={{ color }}
+                >
                   <span>{icon}</span>
                   <span>{text}</span>
                 </span>
@@ -300,7 +319,10 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
       )}
 
       <div className="relative min-h-0 flex-1">
-        <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full object-contain" />
+        <canvas
+          ref={canvasRef}
+          className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+        />
         {!hasFrame && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-[11px] text-slate-400">
             {error || labels.connecting}
@@ -346,4 +368,4 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
     </div>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+

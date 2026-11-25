@@ -42,6 +42,7 @@ fn main() {
     // 2026-11-25:AI 画中画监看窗(独立窗口加载 Web /browser-pip)
     "open_browser_pip_window",
     "close_browser_pip_window",
+    "handover_browser_pip_window",
             // 2026-11-14 应用上架平台:每账号独立 WebView2 profile 的登录窗
             "store_account_open",
             "store_account_url",

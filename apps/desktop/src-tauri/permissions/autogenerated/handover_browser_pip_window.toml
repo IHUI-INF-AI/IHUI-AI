@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-handover-browser-pip-window"
+description = "Enables the handover_browser_pip_window command without any pre-configured scope."
+commands.allow = ["handover_browser_pip_window"]
+
+[[permission]]
+identifier = "deny-handover-browser-pip-window"
+description = "Denies the handover_browser_pip_window command without any pre-configured scope."
+commands.deny = ["handover_browser_pip_window"]

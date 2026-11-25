@@ -771,19 +771,23 @@ export function CdpBrowserView({
       // 该窗口加载 /browser-pip?session=<id>,自己连 Browser Hub,任务条/检查点/
       // 「已处理,继续」都在;主窗按钮只负责开/关。
       if (nativePipRef.current) {
-        void closeAiPipWindow().then(() => {
-          nativePipRef.current = false
-          setPipOn(false)
-        }).catch(() => {
-          /* 窗口已不在时保持按钮原态,由 closed 事件兜底 */
-        })
+        void closeAiPipWindow()
+          .then(() => {
+            nativePipRef.current = false
+            setPipOn(false)
+          })
+          .catch(() => {
+            /* 窗口已不在时保持按钮原态,由 closed 事件兜底 */
+          })
       } else {
-        void openAiPipWindow(sessionId, useAuthStore.getState().token ?? '').then(() => {
-          nativePipRef.current = true
-          setPipOn(true)
-        }).catch(() => {
-          /* 打开失败不置 active;主面板继续可用 */
-        })
+        void openAiPipWindow(sessionId, useAuthStore.getState().token ?? '')
+          .then(() => {
+            nativePipRef.current = true
+            setPipOn(true)
+          })
+          .catch(() => {
+            /* 打开失败不置 active;主面板继续可用 */
+          })
       }
       return
     }
@@ -817,6 +821,7 @@ export function CdpBrowserView({
     <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-background">
       <canvas
         ref={canvasRef}
+        data-testid="cdp-canvas"
         className="h-full w-full cursor-default object-cover"
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}

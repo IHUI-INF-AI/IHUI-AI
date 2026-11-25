@@ -338,6 +338,23 @@ def _find_chromium_executable() -> str | None:
     if candidate.exists():
         return str(candidate)
 
+    # 2026-11-25 立:开发机没有 Playwright 下载的 Chromium 时,回落到系统
+    # Edge/Chrome。两者都是 Chromium 内核,Playwright 的 launch(executable_path=...)
+    # 实测可用;否则 Browser Hub/画中画在此类机器上直接 500,连会话都建不出来。
+    for env_name, rel in (
+        ("PROGRAMFILES(X86)", r"Microsoft\Edge\Application\msedge.exe"),
+        ("PROGRAMFILES", r"Microsoft\Edge\Application\msedge.exe"),
+        ("PROGRAMFILES", r"Google\Chrome\Application\chrome.exe"),
+        ("PROGRAMFILES(X86)", r"Google\Chrome\Application\chrome.exe"),
+        ("LOCALAPPDATA", r"Google\Chrome\Application\chrome.exe"),
+    ):
+        root = os.environ.get(env_name)
+        if not root:
+            continue
+        candidate = Path(root) / rel
+        if candidate.exists():
+            return str(candidate)
+
     return None
 
 

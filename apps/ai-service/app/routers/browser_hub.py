@@ -521,6 +521,17 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
 
     await stream_session.set_navigation_handler(on_navigation)
 
+    # 晚连的观众(画中画/接管前的只读窗)一接上就先拿到当前地址与标题,
+    # 否则「已处理,继续」后的接管只能拿到空 URL,主窗会退回 about:blank。
+    try:
+        await ws.send_json({
+            "type": "navigation",
+            "url": await stream_session.get_current_url(),
+            "title": await stream_session.get_title(),
+        })
+    except Exception as e:
+        logger.debug(f"[browser_hub] 发送当前地址快照异常: {e}")
+
     # 人工节点状态:登记时先补发快照(晚连的浮窗立刻对上当前状态),
     # 之后只在变更时广播 —— 与帧不同,不做轮询。
     async def on_phase(state: dict[str, Any]) -> None:

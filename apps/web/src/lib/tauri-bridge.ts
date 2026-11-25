@@ -75,6 +75,20 @@ export async function closeAiPipWindow(): Promise<void> {
   await invoke('close_browser_pip_window')
 }
 
+/**
+ * 从 AI 画中画监看窗「一键接管」:由 Rust 拉回主窗、投递 handover 事件并关浮窗。
+ * 不走页面侧 getAllWindows/setFocus —— 远程 origin 的窗口 ACL 会单独卡这两项,
+ * 失败后只剩 `window.close()`,主窗仍在后台,等于没接管。
+ */
+export async function handoverAiPipWindow(
+  sessionId: string,
+  url: string,
+  title: string,
+): Promise<void> {
+  requireTauri()
+  await invoke('handover_browser_pip_window', { sessionId, url, title })
+}
+
 /** 非 Tauri 环境统一抛错(用于文件读写等无安全默认值的场景)。 */
 function requireTauri(): void {
   if (!isTauri()) {

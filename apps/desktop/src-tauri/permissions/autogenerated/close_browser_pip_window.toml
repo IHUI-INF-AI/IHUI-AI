@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-close-browser-pip-window"
+description = "Enables the close_browser_pip_window command without any pre-configured scope."
+commands.allow = ["close_browser_pip_window"]
+
+[[permission]]
+identifier = "deny-close-browser-pip-window"
+description = "Denies the close_browser_pip_window command without any pre-configured scope."
+commands.deny = ["close_browser_pip_window"]
