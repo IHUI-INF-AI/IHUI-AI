@@ -71,9 +71,10 @@ node server.mjs
 | `BRIDGE_DB_DIR`              | 空                                  | 微信 `xwechat_files` 根目录                                                                |
 | `BRIDGE_DB_ACCOUNT`          | 空                                  | 账号目录名，如 `ok502319984_e7c6`                                                          |
 | `BRIDGE_DB_WORKDIR`          | 空                                  | DB sidecar 解密工作缓存目录                                                                |
-| `BRIDGE_DB_MEDIA_DIR`        | 空                                  | 可选图片落盘目录；设置后才开放 `/moments/media*` 读取，未设置时返回 404；qpic 票据过期时 sidecar 只报错，不写占位图 |
-| `BRIDGE_DB_MEDIA_DOWNLOAD`   | `0`                                 | 设为 `1` 才尝试下载媒体；仍只保留真实图片，占位图拒绝落盘                                  |
-| `BRIDGE_DB_MEDIA_LOCAL_ONLY` | `0`                                 | 设为 `1` 只导出微信本地 Sns 缓存，不访问 qpic；未命中只计 `mediaCacheMisses`               |
+| `BRIDGE_DB_MEDIA_DIR`        | 空                                  | 可选图片落盘目录；设置后才开放 `/moments/media*` 读取，未设置时返回 404；只写真实图片/视频字节，不写占位图 |
+| `BRIDGE_DB_MEDIA_DOWNLOAD`   | `0`                                 | 设为 `1` 先读本地 Sns 缓存，未命中再按原始 URL 取回；URL 回退不带 Referer，HTTP 400/非媒体字节拒绝落盘 |
+| `BRIDGE_DB_MEDIA_LOCAL_ONLY` | `0`                                 | 设为 `1` 只导出微信本地 Sns 缓存，不访问原始 URL；未命中只计 `mediaCacheMisses`              |
+| `BRIDGE_DB_TIMEOUT_MS`       | `300000`                            | DB sidecar 子进程上限；全量 715 条媒体回退需要更长时间，低于 120000 容易误杀                 |
 | `BRIDGE_DB_LIMIT`            | `0`                                 | DB sidecar 最多导出多少条；`0` 为全量                                                      |
 | `WCFHTTP_BASE_URL`           | `http://127.0.0.1:9999`             | wcfhttp 地址                                                                               |
 | `WCFHTTP_PATHS`              | 内置                                | JSON 覆盖各接口路径，适配不同 wcfhttp 版本                                                 |
@@ -84,6 +85,9 @@ node server.mjs
 | `BRIDGE_MAX_MOMENTS`         | `500`                               | 朋友圈内存/落盘上限                                                                        |
 | `BRIDGE_MOMENT_ARCHIVE`      | `.bridge-ocr/moments-archive.jsonl` | 朋友圈历史归档 JSONL；设为 `0` 或 `off` 可关闭                                             |
 | `BRIDGE_MAX_ARCHIVE`         | `5000`                              | 归档最多保留条数，超出按最后出现时间淘汰旧条目                                             |
+
+API 进程侧另有 `WECHAT_HUB_MOMENT_TIMEOUT_MS`（默认 `360000`），只放宽 `moment.fetch`
+动作超时；普通桥动作仍保持 60s。全量媒体回退会超过旧 60s，不能靠桥内超时单独解决。
 | `BRIDGE_MEMBER_MAP`          | `.bridge-members.json`              | 群昵称 → memberId 映射文件路径；`POST /members/map` 合并写入，启动时加载                   |
 | `BRIDGE_MOMENT_WAIT_MS`      | `3500`                              | wcfhttp `/pyq` 后等待 `type=0` 回调的时间，500-15000ms                                     |
 | `BRIDGE_MAX_QUEUE`           | `5000`                              | 队列最多保留条数                                                                           |

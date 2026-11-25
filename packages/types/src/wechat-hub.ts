@@ -460,7 +460,9 @@ export interface WechatMomentView {
   mediaLocalDir?: string
   /** DB sidecar 是否至少成功落盘一个媒体 */
   mediaDownloaded?: boolean
-  /** DB sidecar 图片落盘失败原因；票据过期/占位图时出现 */
+  /** DB sidecar 媒体来源：本地 Sns 缓存或原始 URL */
+  mediaDownloadSource?: 'cache' | 'url' | 'existing'
+  /** DB sidecar 图片落盘失败原因；缓存和原始 URL 都不可得时出现 */
   mediaDownloadError?: string
 }
 
@@ -514,15 +516,27 @@ export interface WechatMomentFetchResult {
   archive?: WechatMomentArchiveStat
   /** DB sidecar：本次是否启用了媒体落盘 */
   downloadMedia?: boolean
-  /** DB sidecar：本次是否只导出本地缓存、未访问 qpic */
+  /** DB sidecar：本次是否只导出本地缓存、未访问原始媒体 URL */
   localCacheOnly?: boolean
+  /** DB sidecar：媒体总数（图片 + 视频） */
+  mediaTotal?: number
   /** DB sidecar：实际写入磁盘的媒体文件数 */
   downloadedMedia?: number
   /** DB sidecar：命中微信本地 Sns 缓存的媒体数 */
   mediaCacheHits?: number
+  /** DB sidecar：上一次运行已落盘、本次按清单复用且来源未知的媒体数 */
+  mediaExisting?: number
   /** DB sidecar：本地缓存未命中的媒体数；不等于下载失败 */
   mediaCacheMisses?: number
-  /** DB sidecar：URL 下载失败数；占位图会被拒绝，不会写成图片 */
+  /** DB sidecar：原始 URL 成功取回真实媒体字节的数量 */
+  mediaUrlHits?: number
+  /** DB sidecar：原始 URL 已失效（HTTP 400/非媒体/占位图）的数量 */
+  mediaUrlMisses?: number
+  /** DB sidecar：原始 URL 网络异常的数量；与「票据失效」分开统计 */
+  mediaUrlErrors?: number
+  /** DB sidecar：本地缓存和原始 URL 都拿不到的真实媒体数量 */
+  mediaUnavailable?: number
+  /** DB sidecar：真正的下载异常数；占位图/HTTP 400 不计入这里 */
   mediaDownloadErrors?: number
   /** 结构化字段可得性；驱动未上报时缺省，此时按「只拿到正文」理解 */
   fields?: WechatMomentFieldAvailability

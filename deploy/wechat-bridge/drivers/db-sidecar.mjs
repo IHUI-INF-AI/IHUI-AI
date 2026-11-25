@@ -20,6 +20,10 @@ const ROOT = dirname(fileURLToPath(import.meta.url))
 const SCRIPT =
   process.env.BRIDGE_DB_SCRIPT ?? join(ROOT, '..', '..', 'wechat-db-sidecar', 'fetch_moments.py')
 const PYTHON = process.env.BRIDGE_DB_PYTHON ?? process.env.PYTHON ?? 'python'
+const TIMEOUT_MS = Math.max(
+  5_000,
+  Number(process.env.BRIDGE_DB_TIMEOUT_MS ?? 300_000) || 300_000,
+)
 
 function enabled() {
   return String(process.env.BRIDGE_DB_SIDECAR ?? '').toLowerCase() === 'on'
@@ -38,7 +42,7 @@ function runPython(extraArgs) {
     execFile(
       PYTHON,
       args,
-      { env, timeout: 120_000, maxBuffer: 32 * 1024 * 1024, windowsHide: true },
+      { env, timeout: TIMEOUT_MS, maxBuffer: 32 * 1024 * 1024, windowsHide: true },
       (error, stdout, stderr) => {
         if (error) {
           reject(

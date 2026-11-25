@@ -444,8 +444,14 @@ async function runMomentFetch(body) {
         downloadMedia: data.downloadMedia === true,
         localCacheOnly: data.localCacheOnly === true,
         downloadedMedia: Math.max(0, Number(data.downloadedMedia ?? 0) || 0),
+        mediaTotal: Math.max(0, Number(data.mediaTotal ?? 0) || 0),
         mediaCacheHits: Math.max(0, Number(data.mediaCacheHits ?? 0) || 0),
         mediaCacheMisses: Math.max(0, Number(data.mediaCacheMisses ?? 0) || 0),
+        mediaExisting: Math.max(0, Number(data.mediaExisting ?? 0) || 0),
+        mediaUrlHits: Math.max(0, Number(data.mediaUrlHits ?? 0) || 0),
+        mediaUrlMisses: Math.max(0, Number(data.mediaUrlMisses ?? 0) || 0),
+        mediaUrlErrors: Math.max(0, Number(data.mediaUrlErrors ?? 0) || 0),
+        mediaUnavailable: Math.max(0, Number(data.mediaUnavailable ?? 0) || 0),
         mediaDownloadErrors: Math.max(0, Number(data.mediaDownloadErrors ?? 0) || 0),
       }
     }
