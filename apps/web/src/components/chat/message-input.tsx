@@ -136,6 +136,11 @@ import {
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getMessages } from '@ihui/api-client'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@ihui/shared/plugins-data'
+
+// 连接器只读能力的虚拟 pluginId(2026-11-25):与 use-chat/tool-config.ts 的
+// PLUGIN_ID_TO_TOOLS['connectors-readonly'] 一一对应;挂载后 mergeAgentTools 会并入
+// connector_capabilities/connector_call_read 两个只读工具。改名须两处同步。
+const CONNECTORS_TOOL_ID = 'connectors-readonly'
 import { AiSkillInvokeDialog, AiSkillResultDialog } from '@/components/chat/skill-library'
 import type { AiSkillMeta, AiSkillInvokeResponse } from '@ihui/api-client/endpoints/ai-skills'
 // 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
@@ -288,6 +293,7 @@ export function MessageInput({
   compactTop,
 }: MessageInputProps) {
   const t = useTranslations('chat')
+  const tNav = useTranslations('nav')
   // 语音栈实例 id(2026-11-04):常驻 Companion 与 + 菜单里的入口行按同一实例分桶,
   // 侧栏浮窗 / 主聊天 / 工作台多输入区并存时录音与快捷键不串台。
   const voiceCompanionId = React.useId()
@@ -850,13 +856,17 @@ export function MessageInput({
     const byId = new Map(all.map((p) => [p.id, p]))
     return selectedToolsIds.map((id) => {
       const p = byId.get(id)
+      // 连接器只读能力是虚拟 pluginId,不在插件目录里 —— 用导航词包的名字 + 只读标注
+      const name = id === CONNECTORS_TOOL_ID
+        ? `${tNav('connectors')} (只读)`
+        : (p?.name ?? id)
       return {
         id,
-        name: p?.name ?? id,
-        integration: getPluginIntegration(id),
+        name,
+        integration: id === CONNECTORS_TOOL_ID ? true : getPluginIntegration(id),
       }
     })
-  }, [selectedToolsIds])
+  }, [selectedToolsIds, tNav])
   React.useEffect(() => {
     if (draftInput) {
       setValue(draftInput)
@@ -1518,12 +1528,20 @@ export function MessageInput({
                     // 2026-08-02 修复: Bug 3 — 改用 router.push 避免整页刷新丢失输入/状态
                     router.push('/plugins')
                   }}
-                  onOpenConnectors={() => {
+                  onToggleConnectors={() => {
                     setAddMenuOpen(false)
                     setAddMenuMode('menu')
-                    // 连接器入口(2026-11-25):跳 /connectors 授权管理页(与插件市场同属能力层)
-                    router.push('/connectors')
+                    // 连接器只读能力(2026-11-25):toggle 虚拟 pluginId,mergeAgentTools
+                    // 会把它映射成 connector_capabilities/connector_call_read 两个工具。
+                    // 授权管理仍在 /connectors 页(顶栏生态市场入口),不在此处跳转。
+                    const store = chatStore.getState()
+                    if (store.selectedTools.includes(CONNECTORS_TOOL_ID)) {
+                      store.removeSelectedTool(CONNECTORS_TOOL_ID)
+                    } else {
+                      store.addSelectedTool(CONNECTORS_TOOL_ID)
+                    }
                   }}
+                  connectorsMounted={selectedToolsIds.includes(CONNECTORS_TOOL_ID)}
                   onOpenDeepResearch={() => {
                     setAddMenuOpen(false)
                     setAddMenuMode('menu')
