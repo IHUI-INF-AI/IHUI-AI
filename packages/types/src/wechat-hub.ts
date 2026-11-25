@@ -531,6 +531,8 @@ export interface WechatMomentFetchResult {
 /** 归档里的一条动态：桥落盘/数据库落库后的稳定形态 */
 export interface WechatMomentArchiveItemView {
   id: string
+  /** 平台动态 id / 归档去重键；本地媒体接口必须用它，不能用数据库行 id */
+  momentKey?: string
   authorId: string | null
   authorName: string
   authorResolved: boolean

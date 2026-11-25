@@ -30,7 +30,7 @@ import re
 import socket
 import time
 from typing import Any, Callable
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlparse, urlsplit
 
 import httpx
 
@@ -496,6 +496,25 @@ def _items_of(extracted: Any) -> list[dict[str, str]]:
 # ---------------------------------------------------------------------------
 
 
+def _join_url(base_url: str, path: str) -> str:
+    """拼接 base_url 与 path,防止 base_url 的路径前缀在 path 开头重复。
+
+    平台台账里部分 API 的 path 已自带与 base_url 相同的路径段,例如
+    base_url=https://open.feishu.cn/open-apis 配 path=/open-apis/im/v1/messages,
+    直接拼会变成 /open-apis/open-apis/...,上游必 404(企微 /cgi-bin 同理)。
+    这里在拼接前去掉 path 开头与 base_url 路径段重复的整段前缀;base_url 无路径段
+    (如 www.feishu.cn、oapi.dingtalk.com)或 path 不以其开头时原样拼接,不改变行为。
+    """
+    base_url = base_url.rstrip("/")
+    base_path = urlsplit(base_url).path.rstrip("/")
+    if base_path:
+        if path == base_path:
+            path = "/"
+        elif path.startswith(base_path + "/"):
+            path = path[len(base_path) :]
+    return base_url + path
+
+
 class CustomHttpConnector:
     """声明式操作执行器(自定义连接器与平台模板共用)。"""
 
@@ -563,7 +582,7 @@ class CustomHttpConnector:
             if name not in params:
                 raise ConnectorExecutionError(f"缺少路径参数: {name}")
         path = _fill_template(op.path, params)
-        url = f"{base_url}{path}"
+        url = _join_url(base_url, path)
         await validate_outbound_url(
             url, allow_private_hosts=self.spec.allow_private_hosts
         )

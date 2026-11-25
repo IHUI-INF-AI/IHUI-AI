@@ -23,6 +23,18 @@ describe('连接器平台品牌图标(2026-11-25)', () => {
     expect(icon).not.toContain('Megaphone')
   })
 
+  it('企业微信渠道 wechat-work 映射到企微官方 SVG,不回退通用 Plug 图标', () => {
+    const icon = read('../platform-icon.tsx')
+    expect(icon).toContain("'wechat-work': '/images/oauth-providers/wecom.svg'")
+  })
+
+  it('企业微信智能机器人区块用 PlatformIcon 品牌图标,不再用 lucide Bot', () => {
+    const robot = read('../wecom-robot-section.tsx')
+    expect(robot).toContain("import { PlatformIcon } from './platform-icon'")
+    expect(robot).toContain('<PlatformIcon type="wecom" size={18} className="mt-0.5" />')
+    expect(robot).not.toContain('Bot')
+  })
+
   it('快捷接入区在标题前渲染品牌图标', () => {
     const quick = read('../managed-quick-section.tsx')
     expect(quick).toContain("import { PlatformIcon } from './platform-icon'")
@@ -44,7 +56,14 @@ describe('连接器平台品牌图标(2026-11-25)', () => {
     expect(mutated).not.toBe(icon)
     const mpMutated = icon.replace("wechat_mp: '/images/oauth-providers/wechat.svg'", '')
     expect(mpMutated).not.toBe(icon)
+    const workMutated = icon.replace("'wechat-work': '/images/oauth-providers/wecom.svg'", '')
+    expect(workMutated).not.toBe(icon)
     const quick = read('../managed-quick-section.tsx').replace('<PlatformIcon type={tpl.type}', '')
     expect(quick).not.toContain('<PlatformIcon type={tpl.type}')
+    const robot = read('../wecom-robot-section.tsx').replace(
+      '<PlatformIcon type="wecom" size={18} className="mt-0.5" />',
+      '',
+    )
+    expect(robot).not.toContain('<PlatformIcon type="wecom"')
   })
 })

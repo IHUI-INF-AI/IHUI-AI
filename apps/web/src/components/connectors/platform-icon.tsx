@@ -18,6 +18,8 @@ const PLATFORM_SVG: Record<string, string> = {
   feishu: '/images/oauth-providers/feishu.svg',
   dingtalk: '/images/oauth-providers/dingtalk.svg',
   wecom: '/images/oauth-providers/wecom.svg',
+  // 企业微信渠道(wechat-work)同用企微官方 SVG,避免回退到通用 Plug 图标。
+  'wechat-work': '/images/oauth-providers/wecom.svg',
   // 微信(Clawbot 渠道)与微信公众号复用登录页同款微信官方图标,不用喇叭等通用图标冒充。
   wechat: '/images/oauth-providers/wechat.svg',
   wechat_mp: '/images/oauth-providers/wechat.svg',
