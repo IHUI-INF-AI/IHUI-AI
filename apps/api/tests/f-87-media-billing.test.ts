@@ -15,12 +15,29 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const mocks = vi.hoisted(() => ({
-  spendPoints: vi.fn(async () => {}),
-  findUserPoints: vi.fn(async () => ({ points: 100 })),
+  settleLlmPointsUsage: vi.fn(async () => ({
+    deducted: 5,
+    remaining: 0,
+    shortfall: 0,
+    alreadySettled: false,
+    quote: { points: 5 },
+  })),
+  recordAiCost: vi.fn(async () => ({ cost: 1, currency: 'CNY' })),
 }))
 
-vi.mock('../src/services/points-service.js', () => ({ spendPoints: mocks.spendPoints }))
-vi.mock('../src/db/gamification-queries.js', () => ({ findUserPoints: mocks.findUserPoints }))
+vi.mock('../src/services/ai-points-billing.js', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    settleLlmPointsUsage: mocks.settleLlmPointsUsage,
+    ensureLlmPointsBalance: vi.fn(async () => true),
+  }
+})
+vi.mock('../src/plugins/ai-cost.js', () => ({
+  recordAiCost: mocks.recordAiCost,
+  resolveAiCost: vi.fn(),
+}))
+vi.mock('../src/db/gamification-queries.js', () => ({ findUserPoints: vi.fn() }))
 vi.mock('../src/services/vendor-caller-service.js', () => ({ callVendor: vi.fn() }))
 vi.mock('../src/routes/ai-vendors/_shared.js', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
@@ -38,7 +55,8 @@ const request = { userId: 'u-1', id: 'req-1' }
 
 describe('F-87 平台 Key 媒体端点必须计费', () => {
   beforeEach(() => {
-    mocks.spendPoints.mockClear()
+    mocks.settleLlmPointsUsage.mockClear()
+    mocks.recordAiCost.mockClear()
   })
 
   it('四条媒体 handler 都有余额闸:token 端点 3 处 + 媒体端点 3 处 + 读取闸 1 处', () => {
@@ -62,13 +80,20 @@ describe('F-87 平台 Key 媒体端点必须计费', () => {
       { usage: { input_tokens: 1000, output_tokens: 500 } },
       'req-1',
     )
-    expect(mocks.spendPoints).toHaveBeenCalledTimes(1)
-    const [userId, amount, kind, reason, ref] = mocks.spendPoints.mock.calls[0] as unknown[]
-    expect(userId).toBe('u-1')
-    expect(amount).toBe(5) // ceil(1500/1000 * 3)
-    expect(kind).toBe('ai_call')
-    expect(String(reason)).toContain('tokens=1500')
-    expect(ref).toBe('req-1')
+    expect(mocks.settleLlmPointsUsage).toHaveBeenCalledTimes(1)
+    expect(mocks.settleLlmPointsUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u-1',
+        modelId: 'gpt-4o',
+        promptTokens: 1000,
+        completionTokens: 500,
+        source: 'llm_chat',
+        referenceId: 'req-1',
+      }),
+    )
+    expect(mocks.recordAiCost).toHaveBeenCalledWith(
+      expect.objectContaining({ promptTokens: 1000, completionTokens: 500, totalTokens: 1500 }),
+    )
   })
 
   it('OpenAI 经典 prompt_tokens/completion_tokens 口径不受影响', async () => {
@@ -78,8 +103,11 @@ describe('F-87 平台 Key 媒体端点必须计费', () => {
       { usage: { prompt_tokens: 1000, completion_tokens: 500 } },
       'req-1',
     )
-    expect(mocks.spendPoints).toHaveBeenCalledTimes(1)
-    expect((mocks.spendPoints.mock.calls[0] as unknown[])[1]).toBe(5)
+    expect(mocks.settleLlmPointsUsage).toHaveBeenCalledTimes(1)
+    expect(mocks.settleLlmPointsUsage.mock.calls[0]?.[0]).toMatchObject({
+      promptTokens: 1000,
+      completionTokens: 500,
+    })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

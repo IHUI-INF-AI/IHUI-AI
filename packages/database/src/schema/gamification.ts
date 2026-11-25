@@ -86,6 +86,11 @@ export const pointTransactions = pgTable(
     aiSettlementRefUnique: uniqueIndex('ux_point_transactions_ai_settlement_ref')
       .on(t.userId, t.source, t.referenceId)
       .where(sql`${t.type} = 'spend' AND ${t.source} IN ('llm_chat', 'crew_llm', 'stock_analysis', 'ai_career_advice', 'coze_workflow_chat') AND ${t.referenceId} IS NOT NULL`),
+    // 媒体生成结算的并发兜底:同一用户 + ai_media + reference_id 只允许一条 spend 流水。
+    // 与上面的 AI 结算索引分开,避免把媒体 source 塞进 LLM 口径后误伤其他 source。
+    mediaSettlementRefUnique: uniqueIndex('ux_point_transactions_media_settlement_ref')
+      .on(t.userId, t.source, t.referenceId)
+      .where(sql`${t.type} = 'spend' AND ${t.source} = 'ai_media' AND ${t.referenceId} IS NOT NULL`),
   }),
 )
 

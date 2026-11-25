@@ -21,11 +21,8 @@
  *   ③ **幂等**:同一 `referenceId` 只扣一次,重试/重复推送不会二次扣费。
  */
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import { and, eq } from 'drizzle-orm'
-import { pointTransactions } from '@ihui/database'
-import { db } from '../db/index.js'
 import { getSpendableBalance } from './daily-credits.js'
-import { spendPoints } from './points-service.js'
+import { settlePointsUsage } from './points-service.js'
 import { inferPointsMultiplier } from './points-multiplier.js'
 import { findActivePricingForMode } from './pricing-service.js'
 import {
@@ -81,22 +78,6 @@ export async function resolveMediaPointsQuote(
   })
 }
 
-/** 同一 referenceId 是否已经扣过媒体分(幂等判据)。 */
-async function hasChargedMedia(userId: string, referenceId: string): Promise<boolean> {
-  const rows = await db
-    .select({ id: pointTransactions.id })
-    .from(pointTransactions)
-    .where(
-      and(
-        eq(pointTransactions.userId, userId),
-        eq(pointTransactions.referenceId, referenceId),
-        eq(pointTransactions.source, MEDIA_BILLING_SOURCE),
-      ),
-    )
-    .limit(1)
-  return rows.length > 0
-}
-
 /**
  * 调用前余额预检。按本次报价金额判,而不是只判 >0:
  * 视频 20 积分起、按秒视频可能上千积分,余额 1 也放行的话用户会跑到上游才发现扣不动。
@@ -118,6 +99,7 @@ export async function ensureMediaPointsBalance(
   if (balance >= required) return true
   reply.status(402).send({
     code: 402,
+    errorCode: 'INSUFFICIENT_POINTS',
     message: `积分不足:本次${categoryLabel(category)}约需 ${required} 积分,当前余额 ${balance}`,
     data: {
       balance,
@@ -135,6 +117,9 @@ export async function ensureMediaPointsBalance(
 /**
  * 生成成功后扣分。返回实际扣掉的积分(0 = 未扣:免费 / 已扣过 / 扣分失败)。
  * 调用点必须在**产物已确认可用之后**,且传一条稳定唯一的 referenceId。
+ *
+ * 与 LLM 结算同一套部分结算语义:预检后余额被并发花掉时,扣到 0 并记录 shortfall,
+ * 不因为余额不足就整笔放弃,避免平台承担上游成本却一分不收。
  */
 export async function chargeMediaPoints(
   request: FastifyRequest,
@@ -149,18 +134,31 @@ export async function chargeMediaPoints(
   const userId = request.userId
   if (!userId || !referenceId) return 0
   try {
-    if (await hasChargedMedia(userId, referenceId)) return 0
-    await spendPoints(
+    const settlement = await settlePointsUsage({
       userId,
       amount,
-      MEDIA_BILLING_SOURCE,
-      `媒体生成扣分(${category}, model=${modelId}, units=${quote.appliedUnits}, unit=${quote.unitPricePoints}, source=${quote.source})`.slice(
+      source: MEDIA_BILLING_SOURCE,
+      description: `媒体生成扣分(${category}, model=${modelId}, units=${quote.appliedUnits}, unit=${quote.unitPricePoints}, source=${quote.source})`.slice(
         0,
         255,
       ),
       referenceId,
-    )
-    return amount
+    })
+    if (settlement.alreadySettled) return 0
+    if (settlement.shortfall > 0) {
+      request.log.warn(
+        {
+          model: modelId,
+          category,
+          units,
+          referenceId,
+          shortfall: settlement.shortfall,
+          deducted: settlement.deducted,
+        },
+        '[media-billing] 积分不足,已部分结算',
+      )
+    }
+    return settlement.deducted
   } catch (err) {
     // 余额在预检与扣分之间被并发消耗等情形:产物已给用户,不能因扣分失败吞掉结果。
     request.log.warn(
