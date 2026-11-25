@@ -15,16 +15,16 @@
 
 1. **真正有产品级沙箱的只有 6 个**：Codex（受限令牌 + Job + WFP）、Trae（aiep sbox SDK）、WorkBuddy（session 权限文件 + 审批中心）、豆包（agent_infra 运行时策略 + aiep sbox）、Cursor（Rust `SandboxPolicy`）、MiniMax（Rust `srt-win`）。Qoder、DeepSeek、OpenCode 的桌面包内没有产品级原生沙箱证据，标未知。
 2. **字节系共用一套沙箱 SDK**：Trae 的 `modules\sandbox\` 与豆包的 `app\sbox\` 文件名同构（`aiep_sbox.dll`、`aiep_ipc.dll`、`run_helper.exe`、`sbox_sdk.dll`），只是构建大小不同（2,320KB vs 2,594KB）。
-3. **原有 14 张 jsmap 均未触发 1,500,000 节点上限**：11 个目标、Qoder 四版本各一张；最大豆包 ai-views 465,369 节点 / 1,473,627 边，Cursor 319,057 / 681,140，WorkBuddy 359,769 / 729,926。**新增的豆包 `biz.pak` 图是第 15 张，单图撞到 1,000,000 硬上限（需求 1,615,501，丢 615,501）**；已按顶层目录拆成 `ahalets` / `static` / `rest` 三片重跑，合计 **1,471,311 节点 / 4,072,587 边 / 1,274,239 函数 / 9,562 模块**，**166,986 bundle 模块与单图完全相等**，余差 144,190 节点来自 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失，不是再次截断。
+3. **原有 14 张 jsmap 均未触发 1,500,000 节点上限**：11 个目标、Qoder 四版本各一张；最大豆包 ai-views 465,369 节点 / 1,473,627 边，Cursor 319,057 / 681,140，WorkBuddy 359,769 / 729,926。**新增的豆包 `biz.pak` 图是第 15 张，单图撞到 1,000,000 硬上限（需求 1,615,501，丢 615,501）**；已按顶层目录拆成 `ahalets` / `static` / `rest` 三片重跑，合计 **1,471,311 节点 / 4,072,587 边 / 1,274,239 函数 / 9,562 模块**，**166,986 bundle 模块与单图完全相等**，余差 144,190 节点来自 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失，不是再次截断。Codex `app.asar` 是第 16 张，444,320 节点 / 1,253,774 边，未触发上限。
 4. **核心层覆盖 26 个实际存在的二进制 + 1 个 `not_found` 记录**：导入/导出/签名/字符串/函数/特征六类证据；Codex 407MB 超单文件工具上限 256MB，craft 原生 Rust 报告仍缺，但已用字节级正则补出 400 个 crate 与 rustc commit；Codex 另有第五个常驻二进制 `codex-windows-sandbox-service.exe`（62,953,264，运行中，且是 `LocalSystem` 自启动 packaged 服务 `CodexSandboxService.OpenAI.Codex`），标准 PE 解析得到 24 个 DLL / 415 个导入函数，运行态存在 `OpenAI.CodexSandbox...` 与 `codex-app-tools-...` 两条命名管道，见纠正十七至十九。
 5. **最能落进 IHUI-AI 的六件事**：统一权限决策对象、Windows Job Object 执行器、审批反向通道、preload 暴露面预算、动态通道注册表、运行时策略热更新（详见第 6 节）。
-6. **前端 `partial` 已逐目标审计**：14 个图/分片只数非 `node_modules` 的 JS/TS，再与 `examined` 比，**0 个应用 JS 漏读目标**；`partial` 的 `total` 主要是 node_modules、CSS、HTML、SVG、JSON 资产（详见 3.1 与 `analysis\frontend-coverage-audit.json`）。
+6. **前端 `partial` 已逐目标审计**：15 个图/分片只数非 `node_modules` 的 JS/TS，再与 `examined` 比，**0 个应用 JS 漏读目标**；`partial` 的 `total` 主要是 node_modules、CSS、HTML、SVG、JSON 资产（详见 3.1 与 `analysis\frontend-coverage-audit.json`）。
 
 ---
 
 ## 0. 为什么要推翻上一版
 
-上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了十九处纠正，每一条都能被证据账本复核。
+上一版 `local-all-apps-deep-2026-11-25.md` 的问题不是“目标少”，而是**口径错**和**覆盖截断**。这一版做了二十处纠正，每一条都能被证据账本复核。
 
 **纠正一：把 Electron 主 exe 的 Chromium 安全 API 当成产品自研沙箱。**
 上一版用 `CreateRestrictedToken`、`CreateJobObject`、`CreateProcessAsUserW` 这类导入来证明“某产品有强沙箱”。实测发现，WorkBuddy.exe、Qoder CN.exe、ZCode.exe、Cursor.exe、Trae CN.exe 全部是 Electron 壳，这些 API 属于 Chromium/Electron 出厂能力，**不能归因于产品**。本版把证据分成三层：产品级（Rust/Go helper、.node、主进程 JS）、框架级（Electron/Chromium）、未知级；只有第一层进入结论。
@@ -85,6 +85,10 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 字符串同时给出命名管道与网络策略：`\\.\pipe\OpenAI.CodexSandbox`、`\\.\pipe\codex-proxy-auth-`、`CodexSandboxOffline`/`CodexSandboxOnline`、`CodexSandboxUser`/`CodexSandboxUsers`、`CodexSandboxDesktop-`、`CodexSandboxReadAcl`、`SANDBOX_PROXY_PORTS`、`sandbox_offline_block_outbound`/`inbound`/`loopback_tcp`/`loopback_udp`、`sandbox_offline_allow_loopback_proxy`、`sandbox_users.json`。
 运行态 `Get-ChildItem \\.\pipe\` 命中 `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0` 与 `codex-app-tools-ba97c01c-b1ce-4010-a6c8-46f38e6132c4`；前者与服务名空间匹配，后者更像 Codex app-server/tools 管道，归属未逐句柄验证。同一时刻 PID 33980 的 TCP/UDP 端点为 0。结论：命名管道 IPC 已实际存在；Winsock/WFP/代理是静态能力，不能据此写成“已在监听”。代理端口是否按会话拉起、管道协议与 ACL 仍未运行验证。
 
+**纠正二十：Codex 不是“无前端 Rust CLI”，桌面壳是 `ChatGPT.exe`（Chromium 158 / Owl Electron）+ 443.8MB `app.asar`；上一版安装矩阵的“无前端”是错的。**
+`app\ChatGPT.exe` 是 5,003,568 字节的 Chromium 壳（InternalName `chrome_exe`、OriginalFilename `chrome.exe`、FileVersion `158.0.8127.37`、FileDescription/Product `Codex`），旁边 `chrome.dll` 341,041,456；`resources\app.asar` 443,800,006，包名 `openai-codex-electron`、版本 `26.1117.41037`、`main=.vite/build/early-bootstrap.js`，Owl 运行时（`owl-electron-app.json` / `owl-app.ini`）。所以 Codex 是 **Electron 桌面壳 + Rust `codex.exe` app-server/CLI**，不是单一 Rust CLI。
+`app.asar` 头：15,520 文件 / 454,135,151 字节，9,849 `.js` + 22 `.mjs` + 136 `.d.ts`；图：9,660 模块 / 444,320 节点 / 1,253,774 边 / 368,991 函数 / 36 IPC（3 配对、9 仅 handler、24 仅 invoker）/ 48 条运行期拼接未入图 / 6 窗口 / 4 暴露键（28 成员）/ 6,624 endpoint 记录（1,889 唯一 URL）/ 294 路由记录（133 唯一路径）/ 6 native 模块。应用 JS 9,656 个全部进图；215 个 node_modules JS 与 136 个 `.d.ts` 按 `--include-node-modules=false` 排除。上一版“无前端（Rust CLI/TUI）”和“前端图 15 张”都漏了这层。
+
 ---
 
 ## 1. 方法与口径
@@ -98,7 +102,7 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 
 核心：`core-overview-show --detail summary`、`native-library-calls-list --limit 5000`、`native-offered-symbols-list --limit 5000`、`native-publisher-show`、`native-strings-find --mode regex --limit 5000`（8 组主题正则）、`core-feature-find`（permission / sandbox / credential / pty）、`native-rust-binary-show`、`native-go-binary-show`。
 
-解包：`core-archive-extract --max-bytes 6000000000 --max-files 400000`，8 个 asar 全部解包成功（WorkBuddy 12,226 文件 / 721MB 等）。
+解包：`core-archive-extract --max-bytes 6000000000 --max-files 400000`，8 个 asar 全部解包成功（WorkBuddy 12,226 文件 / 721MB 等）；Codex `app.asar` 443.8MB 只做 header 解析与 `js-app-map` 图，未整包解压。
 
 ### 1.2 三条硬边界
 
@@ -119,7 +123,7 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 
 | 程序 | 版本 | 主程序 | 主程序大小 | 前端载体 | 前端文件数 | native 模块 |
 |---|---|---|---|---|---|---|
-| Codex | 无版本资源 | `bin\31fb36cfc4b38f05\codex.exe` | 407,428,400 | 无（Rust CLI/TUI） | — | 0 |
+| Codex | package 26.1117.41037 / Chromium 158.0.8127.37 | `app\ChatGPT.exe` + `resources\codex.exe` | 5,003,568 / 407,428,400 | `resources\app.asar` 443.8MB（Owl Electron；`webview` + `.vite`） | 15,520 列出；9,660 模块 | 6 |
 | Trae CN | product 1.107.1 / exe 2.3.103559 | `Trae CN.exe` | 214,715,792 | `resources\app\` | 8,094 | 0（另有 sandbox SDK） |
 | WorkBuddy | 5.11.3 | `WorkBuddy.exe` | 204,590,360 | `resources\app.asar` 172.9MB | 12,226（解包） | 83 |
 | Qoder CN | 0.5.6 / 0.5.7 / 0.5.12 / 0.5.14 四版本 | `Qoder CN.exe` | 239,205,896 | 200.6MB / 200.6MB / 174.4MB / 174.4MB（四个 asar） | 5,121 列出 | 24 |
@@ -131,7 +135,7 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 | MiniMax Code | 3.1.14.220 | `MiniMax Code.exe` | 235,418,560 | `resources\app.asar` 371.9MB | 24,995 列出 | 19 |
 | 商汤小浣熊 | 1.2.3 | `商汤小浣熊.exe` | 222,902,112 | `resources\app.asar` 362.5MB | 3,732 | 11 |
 
-签名面：WorkBuddy / sandbox helpers 为 Tencent Technology (Shenzhen) 签名；Trae 与 agent-tool-host 为北京引力弹弓科技；ZCode 为北京智谱华章；Cursor 与 cursorsandbox 为 Anysphere, Inc.；Qoder、DeepSeek、OpenCode、MiniMax、小浣熊均为主程序有效签名（逐目标小节给出）。
+签名面：Codex / ChatGPT 壳为 OpenAI OpCo, LLC；WorkBuddy / sandbox helpers 为 Tencent Technology (Shenzhen) 签名；Trae 与 agent-tool-host 为北京引力弹弓科技；ZCode 为北京智谱华章；Cursor 与 cursorsandbox 为 Anysphere, Inc.；Qoder、DeepSeek、OpenCode、MiniMax、小浣熊均为主程序有效签名（逐目标小节给出）。
 
 ---
 
@@ -139,10 +143,21 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 
 | 目标 | 源模块 | 图节点 | 边 | 函数 | 静态 IPC | 配对 | 仅 handler | 仅 invoker | 动态 IPC | endpoint | 唯一 URL | 窗口 | 暴露键 | 暴露成员 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Codex Electron | 9,660 | 444,320 | 1,253,774 | 368,991 | 36 | 3 | 9 | 24 | 48（运行期拼接，未入图） | 6,624 | 1,889 | 6 | 4 | 28 |
 | Cursor | 830 | 319,057 | 681,140 | 300,113 | 33 | 12 | 0 | 2 | 45（43 可归因/0 未定） | 3,730 | 1,511 | 13 | 21 | 11 |
 | DeepSeek | 17 | 3,129 | 5,931 | 2,778 | 0 | 0 | 0 | 0 | 142（102 调用/54 通道） | 17 | 13 | 5 | 11 | 31 |
 | 豆包 ai-views | 2,295 | 465,369 | 1,473,627 | 398,481 | 0 | 0 | 0 | 0 | 0 | 4,552 | 750 | 0 | 0 | 0 |
 | 豆包 biz.pak（三片） | 9,562 | 1,471,311 | 4,072,587 | 1,274,239 | 2（SDK 方法误匹配） | 0 | 0 | 2 | 0 | 8,973 | 1,231（单图口径） | 0 | 0 | 0 |
+| MiniMax | 1,391 | 124,372 | 330,508 | 112,679 | 54 | 25 | 0 | 14 | 816（332+406/0 未定） | 1,887 | 1,394 | 10 | 35 | 373 |
+| OpenCode | 3,231 | 46,281 | 80,579 | 39,462 | 3 | 1 | 0 | 0 | 5（3 唯一/0 未定） | 289 | 156 | 3 | 1 | 5 |
+| Qoder 0.5.6 | 637 | 70,256 | — | 67,925 | 0 | 0 | 0 | 0 | 5（5 已归因/0 未定） | 200 | 96 | 8 | 0 | 0 |
+| Qoder 0.5.7 | 637 | 70,317 | 124,900 | 67,977 | 0 | 0 | 0 | 0 | 0（0/0） | 202 | 97 | 8 | 0 | 0 |
+| Qoder 0.5.12 | 610 | 63,629 | 129,852 | 61,375 | 0 | 0 | 0 | 0 | 0（0/0） | 192 | 105 | 10 | 0 | 0 |
+| Qoder 0.5.14 | 610 | 63,630 | 129,877 | 61,382 | 0 | 0 | 0 | 0 | 8（8 已归因/0 未定） | 192 | 105 | 10 | 0 | 0 |
+| Trae CN | 343 | 194,266 | — | 181,024 | 71 | 2 | 0 | 12 | 110（58 非字面量/0 未定） | 3,871 | 1,559 | 20 | 5 | 17 |
+| WorkBuddy | 3,866 | 359,769 | 729,926 | 339,157 | 120 | 55 | 11 | 14 | 214（115 main 全归因） | 3,488 | 1,895 | 20 | 83 | 43 |
+| 小浣熊 | 1,886 | 121,089 | — | 109,542 | 95 | 19 | 38 | 2 | 26（34 非字面量/0 未定） | 1,819 | 1,355 | 10 | 20 | 9 |
+| ZCode | 2,837 | 77,729 | 144,984 | 72,766 | 3 | 2 | 0 | 0 | 423（227 全还原·180 唯一） | 377 | 175 | 10 | 8 | 169 |
 
 豆包 `biz.pak` 的单图读数是 **9,797 模块 / 1,000,000 节点（需求 1,615,501，丢 615,501）/ 2,928,056 边 / 881,872 函数**；表内三片是分片重跑后的结果，不是单图子集相加。`ahalets` 5,907 / 832,342、`static` 3,597 / 628,680、`rest` 58 / 10,289；三片 `bundle_modules` 合计 166,986，与单图完全相等，说明 7,837 个 JS 的 bundle 面已全部进入；节点少 144,190 是 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失。三片 `endpoint` 合计 8,973，跨片 `(api,url)` 去重 885；单图 1,231 是工具自身口径，二者不能直接相减。详见 `analysis\doubao-pak-shards.json`。
 
@@ -152,6 +167,7 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 
 | 目标 | 非 node_modules JS/TS | 图 examined | 结论 |
 |---|---:|---:|---|
+| Codex app.asar | 9,656 | 10,663 | 9,656 个应用 JS 全进图；215 个 node_modules JS + 136 个 `.d.ts` 按 `include-node-modules=false` 排除，0 漏读 |
 | Cursor | 1,087 | 1,863 | examined 大于 JS，应用 JS 全覆盖；差额是 node_modules/资产 |
 | Trae CN | 310 | 1,359 | 全覆盖；差额是 node_modules/资产 |
 | WorkBuddy | 3,827 | 4,173 | 全覆盖；差额是资产 |
@@ -164,19 +180,7 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 | 豆包 ai-views | 2,291 | 2,311 | 全覆盖；其余 1,131 个未解析是 CSS 747 / TXT 309 / SVG 57 / JSON 16 等 |
 | 豆包 biz.pak（三片） | 7,837 | 8,190 | 全覆盖；4,182 + 3,597 + 58 与解包 JS 逐个对齐 |
 
-**结论：14 个前端图/分片里 0 个应用 JS 漏读目标。** 这也是为什么 `partial` 不能直接当成“没分析完”：它统计的是文件总数，不是应用代码总数。逐目标审计账本在 `analysis\frontend-coverage-audit.json`。
-
-读法：**静态 IPC 少不等于能力少**。
-| MiniMax | 1,391 | 124,372 | 330,508 | 112,679 | 54 | 25 | 0 | 14 | 816（332+406/0 未定） | 1,887 | 1,394 | 10 | 35 | 373 |
-| OpenCode | 3,231 | 46,281 | 80,579 | 39,462 | 3 | 1 | 0 | 0 | 5（3 唯一/0 未定） | 289 | 156 | 3 | 1 | 5 |
-| Qoder 0.5.6 | 637 | 70,256 | — | 67,925 | 0 | 0 | 0 | 0 | 5（5 已归因/0 未定） | 200 | 96 | 8 | 0 | 0 |
-| Qoder 0.5.7 | 637 | 70,317 | 124,900 | 67,977 | 0 | 0 | 0 | 0 | 0（0/0） | 202 | 97 | 8 | 0 | 0 |
-| Qoder 0.5.12 | 610 | 63,629 | 129,852 | 61,375 | 0 | 0 | 0 | 0 | 0（0/0） | 192 | 105 | 10 | 0 | 0 |
-| Qoder 0.5.14 | 610 | 63,630 | 129,877 | 61,382 | 0 | 0 | 0 | 0 | 8（8 已归因/0 未定） | 192 | 105 | 10 | 0 | 0 |
-| Trae CN | 343 | 194,266 | — | 181,024 | 71 | 2 | 0 | 12 | 110（58 非字面量/0 未定） | 3,871 | 1,559 | 20 | 5 | 17 |
-| WorkBuddy | 3,866 | 359,769 | 729,926 | 339,157 | 120 | 55 | 11 | 14 | 214（115 main 全归因） | 3,488 | 1,895 | 20 | 83 | 43 |
-| 小浣熊 | 1,886 | 121,089 | — | 109,542 | 95 | 19 | 38 | 2 | 26（34 非字面量/0 未定） | 1,819 | 1,355 | 10 | 20 | 9 |
-| ZCode | 2,837 | 77,729 | 144,984 | 72,766 | 3 | 2 | 0 | 0 | 423（227 全还原·180 唯一） | 377 | 175 | 10 | 8 | 169 |
+**结论：15 个前端图/分片里 0 个应用 JS 漏读目标。** 这也是为什么 `partial` 不能直接当成“没分析完”：它统计的是文件总数，不是应用代码总数。逐目标审计账本在 `analysis\frontend-coverage-audit.json`。
 
 读法：**静态 IPC 少不等于能力少**。ZCode 只有 3 条静态通道，423 条工具计数经本地 227 个调用点逐条回填，得到 **227/227 已还原、180 个唯一通道、0 条未定**；WorkBuddy 的 214 条里 main 侧 **115 条注册全部归因**（81 常量/别名 + 29 模板 + 4 helper 形参 + 1 内部通道），12 个 `require_*` 别名全部回填；MiniMax 的 6+8 条变量也已回填，主进程 332 条 + renderer 406 条、源码 804 个调用点、0 条未定；DeepSeek 的 142 条经源码复核只有 **102 条业务调用 + 14 条清理**，业务调用全部落到 **54 个常量通道**，40 条差额是工具侧重复条目；Trae 的 58 条非字面量已归到 30 个通道，0 条未定；Cursor 的 45 条经 44 个 Electron 调用点复核，43 条非字面量里 29 条落 20 个通道、12 条 helper、1 条 4 路守卫、1 条运行期 payload、0 个未知常量，差额 2 条来自 js-debug 的 WebSocket `send` 误匹配；Qoder 四版本 5/0/0/8 共 13 条动态已全部解码到 6 个唯一通道（`diagnostics:renderer-responsiveness`、四个 `arms:rum-*`、`mcp-app:guest-message`），0 条未定；OpenCode 5 条动态全部跨文件配对回 3 个已有静态通道，0 条未定；小浣熊 34 个非字面量里 16 个落到 11 个固定通道、3 个模板族、1 个 7 通道清理循环、14 个 helper，0 条未定；豆包的两张图不能相加：ai-views 2,295 模块是扩展，biz.pak 才是主应用；单图 9,797 模块撞 1M 节点硬上限丢 615,501，三片重跑后 9,562 模块 / 1,471,311 节点 / 4,072,587 边 / 1,274,239 函数，166,986 bundle 模块与单图完全相等，余差 144,190 节点是 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失，不是新截断；它报的 2 条 IPC 是 `getScrollInfo` / `postMessageSync` 方法名误匹配，真正原生面是 Neotix 848 个方法。**“动态”这个字段必须逐目标复核，不能直接当成不可审计面。**
 
@@ -186,14 +190,17 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 
 ## 4. 逐目标取证
 
-### 4.1 Codex（OpenAI，Rust CLI）
+### 4.1 Codex（OpenAI，Electron 桌面壳 + Rust app-server/CLI）
 
 **安装面**：`C:\Users\Administrator\AppData\Local\OpenAI\Codex\bin\31fb36cfc4b38f05\`，四个产品二进制：`codex.exe` 407,428,400 字节、`codex-code-mode-host.exe` 80,724,784、`codex-windows-sandbox-setup.exe` 19,823,408、`codex-command-runner.exe` 8,862,000；另有 `rg.exe`、`node.exe` 24.14、`node_repl.exe`。全部由 `OpenAI OpCo, LLC` 有效签名。
 **Windows 包层（本轮补充）**：已注册 `OpenAI.Codex 26.1117.4957.0`；同机另有 `OpenAI.Codex_26.1120.5083.0` 目录（未注册/待切换）。两个 `PrimaryRuntime`：`v26-1119-907-0` 与 `v26-1123-915-0`。`app\Codex.exe` 只是 20,272 字节的启动 stub，真正的 407MB 主程序在 `app\resources\codex.exe`——这一点很容易被误读成“Codex 只有 20KB”。
 
+**前端层（纠正二十）**：桌面壳是 `app\ChatGPT.exe`，5,003,568 字节，FileVersion `158.0.8127.37`，InternalName `chrome_exe`，FileDescription/Product `Codex`；同目录 `chrome.dll` 341,041,456。`resources\app.asar` 443,800,006 字节，SHA256 `8a437aad94098770c1bf5fd5385c204e162b62c6d7917f688741d74e05babe90`，包名 `openai-codex-electron`、版本 `26.1117.41037`、`main=.vite/build/early-bootstrap.js`，Owl 运行时（`owl-electron-app.json` / `owl-app.ini`）。`app.asar` 头 15,520 文件 / 454,135,151 字节：9,849 `.js` + 22 `.mjs` + 136 `.d.ts`。图：**9,660 模块 / 444,320 节点 / 1,253,774 边 / 368,991 函数 / 36 IPC（3 配对、9 仅 handler、24 仅 invoker）/ 6 窗口 / 4 暴露键（28 成员）/ 6,624 endpoint 记录（1,889 唯一 URL）/ 294 路由记录（133 唯一路径）/ 6 native 模块**。应用 JS 9,656 个全部进图；215 个 node_modules JS 与 136 个 `.d.ts` 按 `--include-node-modules=false` 排除。36 个通道里 `codex_desktop:*` 占 30 个，另有 `codex-shared-texture-create`、`codex:application-websocket`、`experian-verification-*` 3 个、`startup-screen-dismissed`；48 条动态调用因通道名运行期拼接未入图。
+6 个窗口里 4 个显式 `sandbox: true`、`nodeIntegration: false`、`contextIsolation: true`；1 个 `WebContentsView` 未显式设 `contextIsolation`（继承 Electron 默认），1 个 `BrowserWindow` 的 `webPreferences` 是运行期对象 `M`，静态读不出——这两处只能标“需运行验证”，不能直接判漏洞。
+
 **第五个常驻二进制（纠正十七）**：`app\resources\codex-windows-sandbox-service.exe` 62,953,264 字节，`OpenAI OpCo, LLC` 签名有效，无 FileVersion/ProductName 元数据，SHA256 `E66E49429469B95C5A2219DAE872938BD8D70FBE920F1F1086E8CBA5777C3569`，运行态 PID 33980。字符串含 `windows-sandbox-rs\src\process.rs`、`wrapper.rs`、`setup_provisioning.rs`、`no_reparse_dir.rs`、`CreateJobObjectW`、`AssignProcessToJobObject`、`CreateRestrictedToken`、`WFP setup succeeded for `、`Persistent WFP provider for Codex Windows sandbox filters`、`WindowsSandboxService`、`elevated`/`unelevated`、`network-proxy\src\credential_broker\matching.rs`/`providers.rs`。`sandbox-setup.exe` 是安装/供给器，这个 service 才是常驻执行器；上一版四二进制清单漏了它。它还不是普通子进程：`sc qc` 显示 `CodexSandboxService.OpenAI.Codex`、`AUTO_START`、`LocalSystem`、DisplayName `ChatGPT`，父进程 PID 1264 是 `services.exe`；`sc sdshow` 的 `AU` 只有 `CCLCSWRPLORC`（可启动、查询，不可停止/改配置）。标准 PE 解析不是 0 导入，而是 24 DLL / 415 函数（`ws2_32` 37、`fwpuclnt` 11、`winhttp` 4、`advapi32` 78）；运行态有 `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0` 与 `codex-app-tools-ba97c01c-b1ce-4010-a6c8-46f38e6132c4` 两条命名管道，但 PID 33980 的 TCP/UDP 端点为 0。`OpenAI.CodexSandbox` 的 ACL 是 `CodexSandboxUsers` Deny FullControl、`INTERACTIVE` Allow 读写/创建、`SYSTEM`/Administrators FullControl（见 5.9）。详见纠正十八与十九。
 
-**核心概况**（`ev_9c096652…`）：PE x86_64，函数发现到 50,000 上限、字符串 204,743 条（保留前 200,000）、导入 486 个 / 25 个库。这是本轮唯一一个“主程序即产品逻辑”的目标，导入可以直接归因。
+**核心概况**（`ev_9c096652…`）：PE x86_64，函数发现到 50,000 上限、字符串 204,743 条（保留前 200,000）、导入 486 个 / 25 个库。主程序导入可以直接归因；桌面壳与 app.asar 另算，不再用“Rust CLI”概括整个产品。
 
 **Rust crate 层（本轮补证，绕开 256MB 上限）**：craft 的 `native-rust-binary-show` 直接拒绝 407,428,400 字节，于是对同一文件做字节级 cargo 路径正则（`registry\src\<index>\<crate>-<version>\`），命中 **8,839 次、去重 400 个 crate**，rustc commit `58cf8f9c35b355199727627d07ae34a4e2846d67`，另有 5 个 git checkout（`bc589d6`/`4253de9`/`b11a40d`/`b211201`/`7447c42`）。两个已安装包（26.1117 / 26.1120）都是 400 个 crate、8,839 / 8,850 次命中、同一 rustc commit，说明 26.1120 是 patch 级重建而非大版本换代。79 个安全/网络相关 crate 里，有四组值得注意：
 - `starlark 0.14.2` + `starlark_syntax 0.14.2`（210 + 12 次引用）：与 execpolicy 的 `rule.rs`/`parser.rs` 互相印证，**Starlark 很可能就是策略 DSL 的求值器**。这是依赖清单，不是调用点证明。
@@ -211,7 +218,7 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 5. **网络层**：`Codex Windows Sandbox WFP` 是持久化的 WFP provider 名称，配合 `orchestrator_elevation_check_failed`、`orchestrator_payload_serialize_failed`、`write sandbox users file`、`convert SID failed`、`deny_read_state.rs`，说明沙箱安装器/服务会创建专用用户/SID、写 ACL、注册 WFP 过滤器；服务导入 `FwpmEngineOpen0`/`FwpmFilterAdd0`/`FwpmTransactionCommit0`，字符串还区分 `CodexSandboxOffline` / `Online`、`sandbox_offline_block_outbound`/`inbound`/`loopback_tcp`/`loopback_udp` 与 `sandbox_offline_allow_loopback_proxy`。
 6. **密钥层**：`&dpapi protect failed for online user:`、`'dpapi protect failed for offline user:`、`CryptProtectData`、`PFXImportCertStore`（sandbox-setup）。DPAPI 只用于沙箱安装器自己的秘密，不是模型凭据。
 
-**后端接口**：codex.exe 里有 `app-server-client\src\remote_websocket.rs`、`ws://127.0.0.1:0`、`127.0.0.1:0`，说明存在 **app-server 的本地 WebSocket 客户端**（端口由内核分配）。这解释了 Codex 桌面壳与 CLI 之间的通信方式，属于后端层证据。
+**后端接口**：codex.exe 里有 `app-server-client\src\remote_websocket.rs`、`ws://127.0.0.1:0`、`127.0.0.1:0`，说明存在 **app-server 的本地 WebSocket 客户端**（端口由内核分配）。这解释了 Codex 桌面壳与 CLI 之间的通信方式，属于后端层证据。运行态 PID 38788 的 `codex.exe ... app-server` 命令行还声明 `features.code_mode_host=true`、`plugins.codex-app-tools@openai-bundled.mcp_servers.codex_app.enabled=true`，以及 `unified-computer-use`/`node_repl`/`artifact_session` 三组 MCP 启动配置；但快照里只有 `conhost.exe` 子进程，没有实际 MCP 子进程，见 5.10。
 
 **纠偏**：`codex-code-mode-host.exe` 的 47 条 “sandbox” 字符串全部是 **V8 sandbox**（`V8.SandboxedCppHeapPointersCount`、`Failed to reserve the virtual address space for the V8 sandbox`），与操作系统沙箱无关；上一版若把它算进“沙箱能力”是错的。
 
@@ -653,7 +660,7 @@ IPC 分组说明它是“能力市场型”客户端：
 | Qoder CN | 0.5.14 主进程 4744 → `127.0.0.1:55346` | 无 Qoder 专属管道 | 该端口对应本机测试脚本 `C:\IHUI-AI\scripts\qoder-chat-bridge.mjs --port 0`，**不算 Qoder application-server** |
 | 小浣熊 / codex | 小浣熊为 Chromium 多进程，无目标专属 TCP；codex 无 TCP/UDP 监听（PID 33980 端点为 0），但有 `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0`、`codex-app-tools-ba97c01c…` 两条命名管道（ACL 见 5.9） | 两条命名管道 | codex 管道协议/ACL 部分未探测 |
 
-端口协议已在 5.8 做只读指纹：`18488` 是 HTTP API，`56000` / `57737` 是 HTTP 403 网关，`49853` 是校验 Origin 的 WebSocket，`55346` 自报 `qoder_bridge_error`；Codex 的 `OpenAI.CodexSandbox` 管道 ACL 见 5.9（`CodexSandboxUsers` Deny FullControl，`INTERACTIVE` Allow 读写）。
+端口协议已在 5.8 做只读指纹：`18488` 是 HTTP API，`56000` / `57737` 是 HTTP 403 网关，`49853` 是校验 Origin 的 WebSocket，`55346` 自报 `qoder_bridge_error`；Codex 的 `OpenAI.CodexSandbox` 管道 ACL 见 5.9（`CodexSandboxUsers` Deny FullControl，`INTERACTIVE` Allow 读写）；`codex-app-tools` 管道与 app-server 命令行里的 plugin 别名对应，见 5.10。
 
 ### 5.7 运行期模块加载（Qoder / 豆包 / WorkBuddy）
 
@@ -705,6 +712,22 @@ SDDL：`O:SYG:SYD:P(D;;FA;;;S-1-5-21-3924373712-2464060091-3741006702-1004)(A;;0
 
 **边界**：ACL 只证明访问控制，不证明协议、消息格式、认证强度；没有连接管道、没有发业务消息。账本：`native\codex\sandbox-service.json` 的 `pipe_acl`。
 
+### 5.10 Codex app-server 的 MCP 插件启动配置（运行态命令行）
+
+PID 38788（父 PID 11820）运行 `codex.exe ... app-server --analytics-default-enabled`，命令行同时声明：
+
+| 声明项 | 值 |
+|---|---|
+| feature | `features.code_mode_host=true` |
+| plugin | `plugins.codex-app-tools@openai-bundled.mcp_servers.codex_app.enabled=true` |
+| plugin MCP | `unified-computer-use@openai-bundled` → `cua_repl`，cwd `C:\Users\Administrator\.codex` |
+| MCP | `node_repl` → `...\runtimes\cua_node\23b8c1efed953688\bin\node_repl.exe`，cwd `C:\Users\Administrator\.codex` |
+| MCP | `artifact_session` → 同一个 `node_repl.exe`，cwd `C:\Users\Administrator\.codex` |
+
+快照里 PID 38788 的子进程只有 `conhost.exe`（38988），没有 `cua_repl` / `node_repl` / `artifact_session` 子进程；独立的 `codex-code-mode-host.exe` 也没有出现在进程表。`codex-app-tools-ba97c01c…` 管道名与命令行里的 plugin 别名对应，但归属仍是命令行推断，没有逐句柄验证。
+
+**边界**：命令行是启动配置，不是执行证明；没有做 MCP initialize，也没有连接 `codex-app-tools` 管道。`features.code_mode_host=true` 只说明开关被传入，不能据此写成 code-mode host 已在工作。账本：`analysis\codex-app-server-runtime-2026-11-25.json`。
+
 ---
 
 ## 6. 对 IHUI-AI 的可落地清单
@@ -743,12 +766,12 @@ SDDL：`O:SYG:SYD:P(D;;FA;;;S-1-5-21-3924373712-2464060091-3741006702-1004)(A;;0
 
 必须诚实列出来，否则这份报告会重复上一版的问题。
 
-1. **本轮没有主动启动或驱动任何目标**（OpenCode 的 `serve` 实跑除外）：2026-11-25 15:26 的运行态快照显示 Doubao、WorkBuddy、Qoder CN、小浣熊、codex 已在运行，但这些是既有状态，不是受控实验；`sandbox_switch_config` 默认值、ZCode 的 8081 更新代理是否启用、端口鉴权与业务协议、PIP 对端与默认监听都没有实跑验证。端口协议只做了 5.8 的一次只读指纹；Codex 的 `OpenAI.CodexSandbox...` 命名管道只读到 ACL、没有连接测试，`codex-app-tools...` 的 ACL 与两条管道的协议均未探测；OpenCode 已补 `serve` 实跑（监听成功、Web UI 200、API 401）。
+1. **本轮没有主动启动或驱动任何目标**（OpenCode 的 `serve` 实跑除外）：2026-11-25 15:26 的运行态快照显示 Doubao、WorkBuddy、Qoder CN、小浣熊、codex 已在运行，但这些是既有状态，不是受控实验；`sandbox_switch_config` 默认值、ZCode 的 8081 更新代理是否启用、端口鉴权与业务协议、PIP 对端与默认监听都没有实跑验证。端口协议只做了 5.8 的一次只读指纹；Codex 的 `OpenAI.CodexSandbox...` 命名管道只读到 ACL、没有连接测试，`codex-app-tools...` 的 ACL 与两条管道的协议均未探测；app-server 只读到 MCP 启动配置，没有实际 MCP 子进程或 initialize；OpenCode 已补 `serve` 实跑（监听成功、Web UI 200、API 401）。
 2. **Codex 407MB 超工具上限**：`native-rust-binary-show` 拒绝 >256MB，因此没有 craft 原生 Rust 报告；本轮用字节级 cargo 路径正则补出 400 个 crate、rustc commit、5 个 git checkout，但没有 demangled symbols 与 `.dep-v0` 审计清单，crate 归属仍不是 craft 官方口径。PE debug directory 已解析出 `codex.pdb`（GUID `A76FDC38-7BA8-ABA9-4C4C-4450205044BE`，age 1），但 PDB 未随包分发，COFF symbol table 为 0，所以 demangle 不是“没找”，是“没有可用符号源”。
 3. **OpenCode 已运行验证，但凭据传递仍未知**：`opencode-cli.exe` 2.2.7 的 `serve` 能监听并返回 Web UI；`/api` 与 `/openapi.json` 无凭据返回 401；普通模式 stdout 打印一次性 `server password`，`--service` 模式未观察到密码行。桌面端如何注入凭据、`--stdio` 模式行为、长期运行稳定性都未验证。`localhost:4096` 已证实只是 `dialog.server.add.placeholder` 的默认占位。
 4. **Qoder 的 keytar/aoq 已文件级确认，aoq 的定性已纠正**：`keytar.node` 707,584 与 `aoq_node_ext.node` 253,952 在 0.5.6/0.5.14 两个版本中都存在；aoq 不是“播放器 SDK”，而是阿里云 `NLS-RTC-Service` 的 `aoq-client-sdk` RTC 引擎（43 个引擎方法、45 个 NAPI 桥方法，麦克风/摄像头采集、音视频帧观察、Aliyun RTC relay）。四个版本都带原生四件套，但四个版本的 asar app JS/TS/JSON 扫描（排除 SDK 自身）只有根 `package.json` 的 `optionalDependencies` 声明命中，**0 个 import/require、SDK 目录之外 0 个路径含 `aoq`**，因此当前静态不可达、桌面通道增量为 0；运行态模块枚举（5.7）里 0.5.14 的 41 / 47 个模块中也没有 AOQ 四件套与 `keytar.node`，与静态结论一致，启用的代码路径仍未找到。账本 `analysis\qoder-aoq-sdk.json`。
 5. **动态 IPC 计数必须逐目标复核**：ZCode 423、MiniMax 816、DeepSeek 142、WorkBuddy 214、Trae 110、Cursor 45 是工具的“非字面量首参”计数，不等于运行期拼接。已还原：DeepSeek 源码 116 个调用点（102 业务 + 14 清理），102 条业务调用落到 54 个常量通道，142 与 102 的 40 条差额是工具侧重复条目；MiniMax 6+8 条变量全部回填为主进程 332 + renderer 406，源码 804 个调用点、0 条未定；WorkBuddy main 侧 115 条注册全部归因（81 常量/别名 + 29 模板 + 4 helper 形参 + 1 内部通道），12 个 `require_*` 别名全回填；ZCode 本地 227 个调用点 227/227 还原为 180 个唯一通道、0 条未定，423 与 227 的差额来自 node_modules/其他 bundle；Trae 真实 app 树 73 个 ipc +62 个 sender，58 条非字面量中 56 条落到 30 个唯一通道、2 条是 wrapper/response 非通道值、0 条未定；Cursor 44 个 Electron 调用点中 43 条非字面量，29 条落 20 个唯一通道、12 条 helper、1 条 4 路守卫、1 条运行期 payload、0 个未知常量，45 与 43 的 2 条差额落在 js-debug 的 WebSocket `.send` 泛化匹配。
-6. **`webPreferences: dynamic` 无法判定**：多个产品有 4–12 个窗口的 webPreferences 在运行期计算，静态只能标“未知”，不能下“安全/不安全”结论。
+6. **`webPreferences: dynamic` 无法判定**：多个产品有 4–12 个窗口的 webPreferences 在运行期计算，静态只能标“未知”，不能下“安全/不安全”结论。Codex 的 6 个窗口里 1 个 `WebContentsView` 未显式设 `contextIsolation`、1 个 `BrowserWindow` 的 `webPreferences` 是运行期对象 `M`，同样只能标未知；另外 4 个显式 `sandbox:true / nodeIntegration:false / contextIsolation:true`。
 7. **豆包 0 条未定，但图仍有“分片差账”**：Neotix ShellAPI 的 848 个原生方法已从 `Doubao.dll` 抽出，LarkAPI.ipc 的 41 个调用点已归到 3 个通道；`AppletBridge` 已定性为 Lynx native module 协议，259 个 `doubao.*`/`applet.*` 是模块方法名、不是 IPC 通道，对桌面通道面增量为 0。`audioRecorder.getSystemAudioCaptureAccess` 与 `openSystemAudioCapturePermissionSettings` 在当前 `Doubao.dll` 里没有同名原生方法，但前端 `nn.aff2f600a8.js` 用 `ShellapiCommonError.value===8` 判断后弹 `SysAudioUnsupportedUpgrade` 提示，属于旧原生上的降级门控，不是未知通道。`biz.pak` 三片合计 1,471,311 节点，比单图推算需求 1,615,501 少 144,190，差在 235 个单图额外计入的模块（资产/非 JS 口径）与跨片边缺失；**不是新的节点截断，但也不是与单图逐节点等价**。PIP 子系统的命名管道族已做静态字符串取证，运行态快照又看到 `PipMainPipeName_43814` / `PipSDKPipeName_50414` 存在、`PipRemotePipeName` 缺失；这证明 Main/SDK 两族在运行，但仍不能证明远程会话已启用，对端进程与默认监听的完整边界未验证。
 8. **函数发现上限 50,000**：所有大 PE 的函数表都不完整；`core-overview-show` 已明确 `function_limit`。
 9. **字符串保留前 200,000 条**：超大二进制（Codex 204,743 条）尾部字符串未进入索引。
@@ -765,16 +788,19 @@ SDDL：`O:SYG:SYD:P(D;;FA;;;S-1-5-21-3924373712-2464060091-3741006702-1004)(A;;0
 所有证据 JSON 位于 `C:\IHUI-AI\.workbuddy\craft\out\deep\`：
 
 - `analysis\install-matrix.json`：11 个目标的安装面、主程序版本/大小/hash、asar 大小、native 模块数量。
-- `analysis\frontend-matrix.json`：前端总矩阵（模块/节点/边/endpoint/窗口/IPC/暴露键），已补 `doubao-biz-pak` 三片行。
-- `analysis\frontend-coverage-audit.json`：14 个前端图/分片的 JS 覆盖审计——逐目标非 `node_modules` JS/TS 计数、图 `examined`、`0` 个应用 JS 漏读目标；Qoder 四版本均按实际文件计数（634 / 634 / 606 / 606），豆包三片按 7,837 个 JS 逐一对齐。
+- `analysis\frontend-matrix.json`：前端总矩阵（模块/节点/边/endpoint/窗口/IPC/暴露键），13 行——已补 `codex-app`（9,660 模块 / 444,320 节点 / 36 IPC / 6 窗口 / 4 暴露键 / 28 成员）与 `doubao-biz-pak` 三片行。
+- `analysis\frontend-coverage-audit.json`：15 个前端图/分片的 JS 覆盖审计——逐目标非 `node_modules` JS/TS 计数、图 `examined`、`0` 个应用 JS 漏读目标；Codex 9,656 个应用 JS 全进图（215 个 node_modules JS + 136 个 `.d.ts` 排除），Qoder 四版本均按实际文件计数（634 / 634 / 606 / 606），豆包三片按 7,837 个 JS 逐一对齐。
 - `analysis\backend-<target>.json`：后端模式扫描（http/ws server、ipcMain、contextBridge、safeStorage、MCP/ACP/LSP）。
 - `analysis\backend-qoder-all.json`：Qoder 四版本 asar 后端扫描——`mcpServer` 665 / 665 / 629 / 629（`out/main/electronMain.js` 123 / 123 / 129 / 129，agent-sdk 各 37）、`http.createServer` 8 / 8 / 6 / 6、0.5.12/0.5.14 的 `WebSocketServer` 1、`ipcMain`/`expose`/`safeStorage`/`keytar` 均 0；启动与否未运行验证。
-- `analysis\runtime-snapshot-2026-11-25.json`：2026-11-25 15:26 运行态快照——41 个目标进程、9 个本地监听、相关命名管道；含 WorkBuddy `18488`/`56000`/`57736`/`57737`/`57740`/`63423`、豆包 `49853`/`61167` 与 `aha-agent-tool-ipc`/`PipMain`/`PipSDK` 管道、Qoder `55346` 属测试桥而非 application-server 的判定。
+- `analysis\runtime-snapshot-2026-11-25.json`：2026-11-25 15:26 运行态快照——41 个目标进程、9 个本地监听、相关命名管道；含 WorkBuddy `18488`/`56000`/`57736`/`57737`/`57740`/`63423`、豆包 `49853`/`61167` 与 `aha-agent-tool-ipc`/`PipMain`/`PipSDK` 管道、Qoder `55346` 属测试桥而非 application-server 的判定、Codex `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0` / `codex-app-tools-ba97c01c…` 两条管道与 `34254` 无监听。
 - `analysis\runtime-modules-2026-11-25.json`：运行态模块枚举——Qoder 0.5.14 的 41 / 47 个模块中 0 AOQ/keytar/Opus/FFmpeg；豆包 `AgentInfraProcess` 加载 `agent_infra.dll` / `pip_sdk.dll` 但 0 `pip_remote.dll`，`PushServerService` 加载 `pc_push.dll`；WorkBuddy 主进程加载 `WeComAgentConfirmSDK.dll`，沙箱 helper 为独立 exe、空闲态未驻留；Codex Windows 沙箱服务（33980）以 50 个模块运行。
 - `analysis\runtime-port-fingerprints-2026-11-25.json`：9 个本地监听的只读协议指纹——`18488` HTTP API CORS 全开、`56000` / `57737` HTTP 403 网关、`57740` / `63423` 不响应普通 HTTP、`49853` WebSocket 且拒绝 invalid origin、`55346` 自报 `qoder_bridge_error` 测试桥。
 - `<target>-jsmap-full.json`：前端全量图（豆包 ai-views 437MB、WorkBuddy 273MB、Cursor 247MB 等）；豆包主应用 `biz.pak` 的 1.04GB 图见下一组条目。
 - `native\<target>\*.json`：核心取证（overview / imports / exports / publisher / strings0-7 / feat0-3）。
 - `native\codex\crates.json`：Codex 407MB 二进制的 400 个 crate 路径清单（含 40 个高频项与 79 个安全/网络相关项）。
+- `analysis\codex-app-server-runtime-2026-11-25.json`：PID 38788 `codex.exe ... app-server` 的运行态命令行——`features.code_mode_host=true`、`plugins.codex-app-tools@openai-bundled...enabled=true`，以及 `unified-computer-use` → `cua_repl`、`node_repl` → `node_repl.exe`、`artifact_session` → `node_repl.exe` 三组 MCP 启动配置；快照子进程只有 `conhost.exe`，`codex-app-tools` 管道存在但归属未逐句柄验证。
+- `codex-app-jsmap-full.json`：441,212,155 字节；Codex `app.asar` 前端图——9,660 模块 / 444,320 节点 / 1,253,774 边 / 368,991 函数 / 36 IPC（3 配对、9 仅 handler、24 仅 invoker）/ 48 条运行期拼接未入图 / 6 窗口 / 4 暴露键、28 成员 / 6,624 endpoint 记录、1,889 唯一 URL / 294 路由记录、133 唯一路径 / 6 native 模块；图 `coverage` 10,663 examined / 15,520 total。
+- `analysis\codex-app-frontend.json`：Codex 前端账本——`ChatGPT.exe` 5,003,568 / FileVersion 158.0.8127.37、`chrome.dll` 341,041,456、`app.asar` 443,800,006 / SHA256 `8a437aad…`、包 `openai-codex-electron` 26.1117.41037、15,520 文件 / 454,135,151 字节、9,849 `.js` + 22 `.mjs` + 136 `.d.ts`、9,656 应用 JS 全覆盖、6 窗口 webPreferences、36 个 IPC 通道名、4 个暴露键与 28 个成员。
 - `native\codex\sandbox-service.json`：`codex-windows-sandbox-service.exe` 账本——62,953,264 字节、SHA256 `E66E4942…`、无版本元数据、运行 PID 33980、`windows-sandbox-rs` 源码路径、`CreateJobObjectW`/`AssignProcessToJobObject`/`CreateRestrictedToken`/WFP/`credential_broker` 字符串；`imports` 记录 24 DLL / 415 函数（`ws2_32` 37、`fwpuclnt` 11、`winhttp` 4、`advapi32` 78 等）；`windows_service` 块记录 `CodexSandboxService.OpenAI.Codex`、`AUTO_START`、`LocalSystem`、DisplayName `ChatGPT`、父进程 `services.exe`、SDDL 与 `AU` 的 `CCLCSWRPLORC`；`runtime_pipes` 记录 `OpenAI.CodexSandbox.OpenAI.Codex_2p2nqsd0c76g0` / `codex-app-tools-ba97c01c…`，`network_endpoints` 记录当前 TCP/UDP 为空；`pipe_acl` 记录第一条管道的 SDDL、Deny `CodexSandboxUsers`、Allow `INTERACTIVE` 读写，以及第二条 `Get-Acl` error 231。
 - `native\opencode\runtime-serve.json`：OpenCode `serve` 实跑记录（版本、help flags、HTTP 状态、鉴权 401、端口关闭确认，密码值不落盘）。
 - `analysis\dynamic-ipc-{deepseek,minimax,wb,zcode,traecn}.json`：逐文件还原的 IPC 调用分类（literal / template / resolved 常量 / 未定 expr）、常量表规模、前 20 个还原通道与未定表达式；MiniMax 文件已补 `closure`/`counts_after`（332+406、804 个调用点、0 未定）；`dynamic-ipc-traecn.json` 是旧坏样本（只扫 47 文件、把 `__is_disposable_tracked__` 当通道），结论已作废。
@@ -845,6 +871,6 @@ $proj = "C:\IHUI-AI\.workbuddy\craft\all-ai-apps-full-2026-11-25.cany"
 
 ---
 
-**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是十九处纠正、11 个程序、8 个 asar 解包、15 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、26 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
+**结论一句话**：上一版是“五个程序各跑几条命令”；这一版是二十处纠正、11 个程序、8 个 asar 解包、16 张前端图（原有 14 张 + 豆包 `biz.pak` 第 15 张 + Codex `app.asar` 第 16 张）外加 `ahalets` / `static` / `rest` 三张分片图（1,471,311 节点、166,986 bundle 模块与单图完全相等）、26 个实际存在的原生二进制（+1 个 `not_found`）的导入/导出/签名/字符串/函数取证，并把“产品级 / 框架级 / 未知”三分。真正能落进 IHUI-AI 的不是“某个产品有沙箱”，而是**权限决策对象、Job Object 执行器、审批反向通道、preload 预算、动态通道注册表、运行时策略热更新**这六件事。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
 
