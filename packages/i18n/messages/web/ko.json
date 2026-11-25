@@ -24330,6 +24330,15 @@
     "purchase": "멤버십 구매"
   },
   "wallet": {
+    "flowRecharge": "충전",
+    "flowDeduct": "차감",
+    "flowExpire": "만료",
+    "flowRefund": "환불 회수",
+    "flowRelayRecharge": "API 키 이체",
+    "flowAdminAdjust": "관리자 조정",
+    "flowQuota": "할당량 변동",
+    "flowPointsExchange": "AI 포인트로 교환",
+    "flowOther": "기타",
     "autoTopUp": {
       "title": "자동 충전",
       "description": "잔액이 기준점 아래로 떨어지면 목표 잔액까지 자동으로 충전합니다.",

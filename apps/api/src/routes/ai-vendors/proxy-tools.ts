@@ -49,6 +49,7 @@ import {
   genId,
 } from './_shared.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
+import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
 
 // 即梦视频官方参数(火山引擎 CVSync2AsyncSubmitTask:req_key/seed/video_quality/duration/aspect_ratio/i2v_align 等)
 const jimengVideoBody = z.object({
@@ -612,6 +613,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       if (!body.prompt) return reply.status(400).send(error(400, 'prompt 为必填'))
       const keys = requireVendorKeys('jimeng4', reply)
       if (!keys) return
+      if (!(await ensureMediaPointsBalance(request, reply, 'jimeng4', 'image', 1))) return
       const submitBody: Record<string, unknown> = {
         req_key: 'jimeng_t2i_v40',
         prompt: body.prompt,
@@ -653,6 +655,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
           ? (finalData!.image_urls as string[])
           : []
         recordUsage(request.userId!, 'jimeng4')
+        await chargeMediaPoints(request, 'jimeng4', 'image', 1, `jimeng4-image:${request.id}`)
         return reply.send(success({ image_urls: imageUrls, request_id: data.request_id }))
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -676,6 +679,9 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = jimengVideoBody.parse(request.body)
       const keys = requireVendorKeys('jimeng4', reply)
       if (!keys) return
+      const billingUnits = Math.max(1, body.duration ?? 5)
+      if (!(await ensureMediaPointsBalance(request, reply, body.model, 'video', billingUnits)))
+        return
       const submitBody: Record<string, unknown> = {
         req_key: body.model,
         prompt: body.prompt,
@@ -722,6 +728,13 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
           result: JSON.stringify({ req_key: body.model }),
         })
         recordUsage(request.userId!, 'jimeng4')
+        await chargeMediaPoints(
+          request,
+          body.model,
+          'video',
+          billingUnits,
+          `jimeng4-video:${request.id}`,
+        )
         return reply.send(success({ taskId: row.id, status: 'accepted' }))
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -1100,6 +1113,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
         return reply
           .status(503)
           .send(error(503, 'Kling 服务未配置(KLING_ACCESS_KEY/KLING_SECRET_KEY)'))
+      if (!(await ensureMediaPointsBalance(request, reply, 'kling-identify', 'video', 1))) return
       const reqBody: Record<string, unknown> = body.videoId
         ? { video_id: body.videoId }
         : { video_url: body.videoUrl }
@@ -1120,6 +1134,13 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
             .status(502)
             .send(error(502, `Kling 人脸识别失败: ${data.message ?? resp.status}`))
         recordUsage(request.userId!, 'kling')
+        await chargeMediaPoints(
+          request,
+          'kling-identify',
+          'video',
+          1,
+          `kling-identify:${request.id}`,
+        )
         return reply.send(success(data.data ?? {}))
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -1143,6 +1164,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = klingTaskCreateBody.parse(request.body)
       const jwt = await klingJwt()
       if (!jwt) return reply.status(503).send(error(503, 'Kling 服务未配置'))
+      if (!(await ensureMediaPointsBalance(request, reply, 'kling-lip-sync', 'video', 5))) return
       const createBody: Record<string, unknown> = {
         session_id: body.sessionId,
         face_choose: body.faceChoose,
@@ -1221,13 +1243,13 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
           const videoUrl = videos[0]?.url as string | undefined
           if (videoUrl && !owner.charged) {
             owner.charged = true // 先占位,避免并发轮询重复扣费
-            try {
-              const tokenBalance = server.tokenBalance
-              if (tokenBalance)
-                await tokenBalance.deductTokens(request.userId!, 1500, 'kling_lip_sync')
-            } catch {
-              owner.charged = false // 扣费失败允许下次重试
-            }
+            await chargeMediaPoints(
+              request,
+              'kling-lip-sync',
+              'video',
+              5,
+              `kling-lip-sync:${taskId}`,
+            )
           }
         }
         recordUsage(request.userId!, 'kling')

@@ -22,6 +22,7 @@ from .kling_provider import KlingProvider
 from .llama_cpp_provider import LlamaCppProvider
 from .lmstudio_provider import LMStudioProvider
 from .luyala_provider import LuyalaProvider
+from .magi2_provider import Magi2Provider
 from .ollama_provider import OllamaProvider
 from .openai_provider import OpenAIProvider
 from .openrouter_provider import OpenrouterProvider
@@ -44,6 +45,7 @@ __all__ = [
     "JimengProvider",
     "KlingProvider",
     "LuyalaProvider",
+    "Magi2Provider",
     "OpenrouterProvider",
     "TencentHunyuanProvider",
     "ZhipuProvider",

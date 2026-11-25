@@ -11710,10 +11710,11 @@ async def _agnes_submit_with_retry(
 
 
 async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
-    """video_generation: 生成视频(统一编排,5 家厂商自动故障转移)。
+    """video_generation: 生成视频(统一编排,多家厂商自动故障转移)。
 
     复用 app.services.video_generation.generate_video 统一编排:
     - token6688(名创AI 聚合网关,单 key,默认首选;提交+限时轮询+task_id 取件)
+    - magi2(Sand.ai MAGI-2,4~30s 1080p 有声,参考图/视频/音频与首尾帧)
     - kling(快手可灵, JWT text2video/image2video)
     - jimeng(字节即梦, Ark Seedance)
     - wan(阿里通义万相, DashScope 文生视频)
@@ -11746,11 +11747,11 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
             "video_url": None,
         }
     if provider is not None and provider not in (
-        "agnes", "kling", "jimeng", "wan", "hunyuan", "token6688",
+        "agnes", "kling", "jimeng", "wan", "hunyuan", "token6688", "magi2",
     ):
         return {
             "tool": "video_generation", "ok": False,
-            "error": f"未知 provider: {provider}(允许 agnes/kling/jimeng/wan/hunyuan/token6688)",
+            "error": f"未知 provider: {provider}(允许 agnes/kling/jimeng/wan/hunyuan/token6688/magi2)",
             "errorCode": "INVALID_PROVIDER", "video_url": None,
         }
     if not isinstance(duration, int) or duration <= 0:
@@ -11764,7 +11765,7 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         from .video_generation import _instantiate as _video_instantiate
         _q_inst = None
         _q_provider = ""
-        for _cand in ([provider] if provider else ["agnes", "token6688"]):
+        for _cand in ([provider] if provider else ["agnes", "token6688", "magi2"]):
             _cand_inst = _video_instantiate(_cand)
             if _cand_inst is not None:
                 _q_inst, _q_provider = _cand_inst, _cand
@@ -11772,7 +11773,7 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         if _q_inst is None:
             return {
                 "tool": "video_generation", "ok": False,
-                "error": "未配置可查询的视频厂商(agnes / token6688 均无凭据),无法查询任务",
+                "error": "未配置可查询的视频厂商(agnes / token6688 / magi2 均无凭据),无法查询任务",
                 "errorCode": "PROVIDER_NOT_CONFIGURED", "video_url": None,
             }
         st = await _q_inst.get_task_status(_query_task_id)
@@ -11904,6 +11905,86 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
                 "provider": result.get("provider", "token6688"),
                 "model": result.get("model", ""), "task_id": result.get("task_id", ""),
                 "video_url": video_url, "duration": result.get("duration", duration),
+                "saved_path": _sp, "file_size_bytes": _sz,
+                "created_at": datetime.now(UTC).isoformat(),
+                "message": "视频生成完成" + (f", saved={_sp}" if _sp else ""),
+            }
+
+    # ---- magi2 专用路径:提交 + 限时窗口轮询 ----
+    # 4~30s 1080p 长片,同步等完会挂死工具调用;与 token6688 同款:窗口内出片
+    # 直接给成片,超时把 task_id 交回,用户稍后带 task_id(建议同时带 provider=magi2)取件。
+    _magi2 = _video_instantiate("magi2") if provider in (None, "magi2") else None
+    if _magi2 is not None:
+        try:
+            _m_sub = await _magi2.generate_video(
+                prompt,
+                str(arguments.get("model") or ""),
+                duration=duration,
+                wait=False,
+                image=arguments.get("image") or None,
+                first_frame=arguments.get("first_frame") or None,
+                last_frame=arguments.get("last_frame") or None,
+                images=arguments.get("reference_images") or None,
+                videos=arguments.get("reference_videos") or None,
+                audios=arguments.get("reference_audios") or None,
+                aspect_ratio=arguments.get("aspect_ratio"),
+                generate_audio=arguments.get("generate_audio"),
+                seed=arguments.get("seed"),
+            )
+        except Exception as e:  # noqa: BLE001
+            _m_sub = None
+            logger.warning("[mcp][video] magi2 提交失败: %s", e)
+            if provider == "magi2":
+                return {
+                    "tool": "video_generation", "ok": False, "prompt": prompt,
+                    "provider": "magi2", "video_url": None,
+                    "error": f"magi2 视频提交失败: {e}",
+                    "errorCode": "PROVIDER_CALL_FAILED",
+                }
+        if _m_sub is not None and _m_sub.get("task_id"):
+            _m_id = str(_m_sub["task_id"])
+            _m_wait = max(15, int(os.environ.get("VIDEO_TOOL_WAIT_S", "90")))
+            _m_deadline = time.monotonic() + _m_wait
+            _m_url = ""
+            while time.monotonic() < _m_deadline:
+                await asyncio.sleep(3)
+                try:
+                    _m_st = await _magi2.get_task_status(_m_id)
+                except ProviderError:
+                    continue
+                if _m_st.get("ok") and _m_st.get("video_url"):
+                    _m_url = str(_m_st["video_url"])
+                    break
+                if _m_st.get("failed"):
+                    return {
+                        "tool": "video_generation", "ok": False, "prompt": prompt,
+                        "provider": "magi2", "task_id": _m_id, "video_url": None,
+                        "error": _m_st.get("error") or "视频任务失败",
+                        "errorCode": "TASK_FAILED",
+                    }
+            if not _m_url:
+                return {
+                    "tool": "video_generation", "ok": True, "submitted": True,
+                    "prompt": prompt, "provider": "magi2",
+                    "model": _m_sub.get("model", ""), "task_id": _m_id,
+                    "video_url": None,
+                    "message": (
+                        "视频生成任务已提交(Sand.ai MAGI-2)。已等待 "
+                        f"{_m_wait}s 未完成——稍后再让我查询进度"
+                        f"(带 task_id={_m_id} 与 provider=magi2 取成片)。"
+                        "任务已计费,请勿重复提交同一 prompt。"
+                    ),
+                }
+            _sp, _sz, _perr = await _persist_video_for_save_path(
+                save_path, _m_url, "magi2", prompt
+            )
+            if _perr is not None:
+                return _perr
+            return {
+                "tool": "video_generation", "ok": True, "prompt": prompt,
+                "provider": "magi2", "model": _m_sub.get("model", ""),
+                "task_id": _m_id, "video_url": _m_url,
+                "duration": _m_sub.get("duration", duration),
                 "saved_path": _sp, "file_size_bytes": _sz,
                 "created_at": datetime.now(UTC).isoformat(),
                 "message": "视频生成完成" + (f", saved={_sp}" if _sp else ""),
@@ -16946,12 +17027,13 @@ _TOOLS: list[MCPTool] = [
             "生成视频,返回视频 URL。统一编排多家厂商并自动故障转移:"
             "agnes(免费档 agnes-video-2.5-flash,默认首选,支持文生视频/图生视频)、"
             "token6688(名创AI 聚合网关,单 key 全模态,支持 4~30 秒时长)、"
+            "magi2(Sand.ai MAGI-2,4~30 秒 1080p 有声,支持参考图/视频/音频与首尾帧)、"
             "kling(快手可灵,text2video/image2video)、jimeng(字节即梦 Seedance)、"
             "wan(阿里通义万相)、hunyuan(腾讯混元)。长任务防卡死:先提交并限时等待"
-            "(agnes 与 token6688 同一个 VIDEO_TOOL_WAIT_S 窗口),窗口内完成直接返回成片;"
+            "(agnes / token6688 / magi2 同一个 VIDEO_TOOL_WAIT_S 窗口),窗口内完成直接返回成片;"
             "超时返回 task_id 与取件提示——用户稍后追问时只传 task_id(不传 prompt)即可查询进度/取件。"
             "支持 image 参数走图生视频、save_path 下载落地(.mp4,工作区白名单,200MB 上限)。"
-            "agnes 凭据在 LLM_PROVIDERS.agnes,其余需 TOKEN6688_API_KEY 或 KLING_*/ARK_*/"
+            "agnes 凭据在 LLM_PROVIDERS.agnes,其余需 TOKEN6688_API_KEY / MAGI2_API_KEY / KLING_*/ARK_*/"
             "DASHSCOPE_API_KEY/TENCENT_* 任一厂商凭据;未配置时返回 PROVIDER_NOT_CONFIGURED,"
             "如实告知用户。外部 API 调用 + 计费。"
         ),
@@ -16961,7 +17043,7 @@ _TOOLS: list[MCPTool] = [
                 "prompt": {"type": "string", "description": "视频描述(首次提交必填;查询模式可省)"},
                 "provider": {
                     "type": "string",
-                    "enum": ["agnes", "token6688", "kling", "jimeng", "wan", "hunyuan"],
+                    "enum": ["agnes", "token6688", "magi2", "kling", "jimeng", "wan", "hunyuan"],
                     "description": "可选,指定厂商;缺省自动按已配置凭据顺序选择"
                 },
                 "model": {
@@ -16974,12 +17056,35 @@ _TOOLS: list[MCPTool] = [
                 },
                 "duration": {
                     "type": "integer",
-                    "description": "视频时长秒(token6688 支持 4~30;其他厂商上限通常 10~15s;默认 5)",
+                    "description": "视频时长秒(magi2/token6688 支持 4~30;其他厂商上限通常 10~15s;默认 5)",
                     "default": 5,
                 },
                 "image": {
                     "type": "string",
                     "description": "可选,图生视频首帧图片(URL 或 base64;本地文件请先给 URL,多模态输入只收公网直链)",
+                },
+                "last_frame": {
+                    "type": "string",
+                    "description": "可选,尾帧图片 URL(magi2 首尾帧模式,需与 image 搭配)",
+                },
+                "reference_images": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "可选,magi2 参考图 URL 列表(最多 10 张,提取配色/笔触/材质)",
+                },
+                "reference_videos": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "可选,magi2 参考视频 URL 列表(最多 5 段,每段 2~30s,合计 ≤30s)",
+                },
+                "reference_audios": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "可选,magi2 参考音频 URL 列表(最多 5 段,合计 ≤30s)",
+                },
+                "generate_audio": {
+                    "type": "boolean",
+                    "description": "可选,magi2 是否生成音轨(默认 true)",
                 },
                 "mode": {
                     "type": "string",

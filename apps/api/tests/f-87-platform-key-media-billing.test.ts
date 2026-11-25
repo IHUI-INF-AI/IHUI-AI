@@ -3,30 +3,42 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * F-87 平台 Key 媒体端点计费回归锁(2026-11-11)。
+ * F-87 平台 Key 媒体端点计费回归锁(2026-11-25 收口后重写)。
  *
- * 病灶:proxy-openai-compat 的 images / speech / transcriptions 走平台 Key,
- *      上游响应没有 token usage ⇒ 旧的 chargePointsForCall 恒被跳过,只挡零余额不扣分;
- *      GET /openai/responses/:id 更是连余额闸都没有。
  * 判据:
- *   - 媒体类端点(images/speech/transcriptions)调用前 ensurePointsAvailable(不看 model 名);
- *   - 成功后按 points-guard 的固定单价扣费:images = FLAT_POINTS.image * n,音频 = FLAT_POINTS.audio;
- *   - GET /openai/responses/:id 只做余额闸、不额外扣费。
+ *   - images / speech / transcriptions 调用前走 `ensureMediaPointsBalance`(按本次报价);
+ *   - 成功后走 `chargeMediaPoints`,模型/类别/单位数透传正确;
+ *   - GET /openai/responses/:id 只做零积读取闸,不额外扣费;
+ *   - 源码里不得再出现 `FLAT_POINTS` / `chargeFlatPoints` 第二套价。
+ *
+ * 具体金额由 `media-billing.test.ts` 的纯函数单测钉住;本文件只锁路由接线。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import Fastify from 'fastify'
 
-const mocks = vi.hoisted(() => ({
-  spendPoints: vi.fn(async () => ({ balance: 0 })),
-  findUserPoints: vi.fn(async () => ({ points: 100 })),
+const mediaMocks = vi.hoisted(() => ({
+  ensureMediaPointsBalance: vi.fn(async () => true),
+  chargeMediaPoints: vi.fn(async () => 20),
+}))
+
+const guardMocks = vi.hoisted(() => ({
+  ensurePointsAvailable: vi.fn(async () => true),
+}))
+
+const vendorMocks = vi.hoisted(() => ({
   callVendor: vi.fn(),
   fetchWithTimeout: vi.fn(),
 }))
 
-vi.mock('../src/services/points-service.js', () => ({ spendPoints: mocks.spendPoints }))
-vi.mock('../src/db/gamification-queries.js', () => ({ findUserPoints: mocks.findUserPoints }))
+vi.mock('../src/services/media-billing.js', () => ({
+  ensureMediaPointsBalance: mediaMocks.ensureMediaPointsBalance,
+  chargeMediaPoints: mediaMocks.chargeMediaPoints,
+}))
+vi.mock('../src/services/points-guard.js', () => ({
+  ensurePointsAvailable: guardMocks.ensurePointsAvailable,
+}))
 vi.mock('../src/plugins/auth.js', () => ({
   checkAuth: vi.fn(async (request: { userId?: string }) => {
     request.userId = 'u-f87'
@@ -38,8 +50,8 @@ vi.mock('../src/routes/ai-vendors/_shared.js', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
   return {
     ...actual,
-    callVendor: mocks.callVendor,
-    fetchWithTimeout: mocks.fetchWithTimeout,
+    callVendor: vendorMocks.callVendor,
+    fetchWithTimeout: vendorMocks.fetchWithTimeout,
     recordUsage: vi.fn(),
   }
 })
@@ -85,7 +97,6 @@ function makeReply(): ReplyMock {
 
 async function buildApp() {
   const app = Fastify({ logger: false })
-  // 路由本身不挂全局鉴权(生产由父插件注入),这里直接补 userId
   app.addHook('onRequest', async (request) => {
     ;(request as { userId?: string }).userId = 'u-f87'
   })
@@ -106,29 +117,36 @@ await openaiCompatVendorRoutes(fakeServer as never, {} as never)
 
 beforeEach(() => {
   process.env.OPENAI_API_KEY = 'test-openai-key'
-  mocks.findUserPoints.mockReset().mockResolvedValue({ points: 100 })
-  mocks.spendPoints.mockReset().mockResolvedValue({ balance: 90 })
-  mocks.callVendor.mockReset().mockResolvedValue({ data: [{ url: 'https://img/1.png' }] })
-  mocks.fetchWithTimeout.mockReset()
+  mediaMocks.ensureMediaPointsBalance.mockReset().mockResolvedValue(true)
+  mediaMocks.chargeMediaPoints.mockReset().mockResolvedValue(20)
+  guardMocks.ensurePointsAvailable.mockReset().mockResolvedValue(true)
+  vendorMocks.callVendor.mockReset().mockResolvedValue({ data: [{ url: 'https://img/1.png' }] })
+  vendorMocks.fetchWithTimeout.mockReset()
 })
 
-describe('F-87 平台 Key 媒体端点余额闸(不依赖 model 名)', () => {
-  it('images 零余额 + 免费模型名 → 402 且不打上游、不扣费', async () => {
-    mocks.findUserPoints.mockResolvedValue({ points: 0 })
+describe('F-87 平台 Key 媒体端点余额闸', () => {
+  it('images 媒体闸拒绝 → 402 且不打上游、不扣费', async () => {
+    mediaMocks.ensureMediaPointsBalance.mockImplementation(async (_req, reply) => {
+      ;(reply as ReplyMock).status(402).send({ code: 402 })
+      return false
+    })
     const app = await buildApp()
     const res = await app.inject({
       method: 'POST',
       url: '/openai/images',
-      payload: { prompt: 'cat', model: 'ollama/llama', n: 1 },
+      payload: { prompt: 'cat', model: 'gpt-image-1', n: 2 },
     })
     expect(res.statusCode).toBe(402)
-    expect(mocks.callVendor).not.toHaveBeenCalled()
-    expect(mocks.spendPoints).not.toHaveBeenCalled()
+    expect(vendorMocks.callVendor).not.toHaveBeenCalled()
+    expect(mediaMocks.chargeMediaPoints).not.toHaveBeenCalled()
     await app.close()
   })
 
-  it('speech 零余额 → 402 且不打上游', async () => {
-    mocks.findUserPoints.mockResolvedValue({ points: 0 })
+  it('speech 媒体闸拒绝 → 402 且不打上游', async () => {
+    mediaMocks.ensureMediaPointsBalance.mockImplementation(async (_req, reply) => {
+      ;(reply as ReplyMock).status(402).send({ code: 402 })
+      return false
+    })
     const app = await buildApp()
     const res = await app.inject({
       method: 'POST',
@@ -136,23 +154,26 @@ describe('F-87 平台 Key 媒体端点余额闸(不依赖 model 名)', () => {
       payload: { model: 'tts-1', input: '你好' },
     })
     expect(res.statusCode).toBe(402)
-    expect(mocks.fetchWithTimeout).not.toHaveBeenCalled()
-    expect(mocks.spendPoints).not.toHaveBeenCalled()
+    expect(vendorMocks.fetchWithTimeout).not.toHaveBeenCalled()
+    expect(mediaMocks.chargeMediaPoints).not.toHaveBeenCalled()
     await app.close()
   })
 
   it('GET /openai/responses/:id 零余额 → 402 且不打上游', async () => {
-    mocks.findUserPoints.mockResolvedValue({ points: 0 })
+    guardMocks.ensurePointsAvailable.mockImplementation(async (_req, reply) => {
+      ;(reply as ReplyMock).status(402).send({ code: 402 })
+      return false
+    })
     const app = await buildApp()
     const res = await app.inject({ method: 'GET', url: '/openai/responses/resp_123' })
     expect(res.statusCode).toBe(402)
-    expect(mocks.fetchWithTimeout).not.toHaveBeenCalled()
+    expect(vendorMocks.fetchWithTimeout).not.toHaveBeenCalled()
     await app.close()
   })
 })
 
-describe('F-87 成功后按固定单价扣费', () => {
-  it('images 成功 → 扣 FLAT_POINTS.image * n(10 * 2 = 20)', async () => {
+describe('F-87 成功后走媒体报价', () => {
+  it('images 成功 → chargeMediaPoints(model, image, n)', async () => {
     const app = await buildApp()
     const res = await app.inject({
       method: 'POST',
@@ -160,20 +181,19 @@ describe('F-87 成功后按固定单价扣费', () => {
       payload: { prompt: 'cat', model: 'gpt-image-1', n: 2 },
     })
     expect(res.statusCode).toBe(200)
-    expect(mocks.callVendor).toHaveBeenCalledTimes(1)
-    expect(mocks.spendPoints).toHaveBeenCalledTimes(1)
-    const [userId, amount, kind, reason, referenceId] = mocks.spendPoints.mock.calls[0] as unknown[]
-    expect(userId).toBe('u-f87')
-    expect(amount).toBe(20)
-    expect(kind).toBe('ai_call')
-    expect(String(reason)).toContain('gpt-image-1')
-    expect(String(reason)).toContain('n=2')
-    expect(typeof referenceId).toBe('string')
-    expect(referenceId).toBeTruthy()
+    expect(vendorMocks.callVendor).toHaveBeenCalledTimes(1)
+    expect(mediaMocks.chargeMediaPoints).toHaveBeenCalledTimes(1)
+    expect(mediaMocks.chargeMediaPoints.mock.calls[0]).toEqual([
+      expect.anything(),
+      'gpt-image-1',
+      'image',
+      2,
+      expect.any(String),
+    ])
     await app.close()
   })
 
-  it('非 openai 厂商(xai)的 images 同样扣费(固定价在 vendor 循环内生效)', async () => {
+  it('非 openai 厂商(xai)的 images 同样按媒体报价扣费', async () => {
     const app = await buildApp()
     const res = await app.inject({
       method: 'POST',
@@ -181,15 +201,14 @@ describe('F-87 成功后按固定单价扣费', () => {
       payload: { prompt: 'cat', model: 'grok-2-image' },
     })
     expect(res.statusCode).toBe(200)
-    expect(mocks.spendPoints).toHaveBeenCalledTimes(1)
-    const [, amount, , reason] = mocks.spendPoints.mock.calls[0] as unknown[]
-    expect(amount).toBe(10)
-    expect(String(reason)).toContain('vendor=xai')
+    expect(mediaMocks.chargeMediaPoints).toHaveBeenCalledTimes(1)
+    expect(mediaMocks.chargeMediaPoints.mock.calls[0]?.[1]).toBe('grok-2-image')
+    expect(mediaMocks.chargeMediaPoints.mock.calls[0]?.[2]).toBe('image')
     await app.close()
   })
 
-  it('speech 成功 → 扣 FLAT_POINTS.audio(2),reason 写 model', async () => {
-    mocks.fetchWithTimeout.mockResolvedValue({
+  it('speech 成功 → chargeMediaPoints(tts model, audio, 1)', async () => {
+    vendorMocks.fetchWithTimeout.mockResolvedValue({
       ok: true,
       arrayBuffer: async () => new ArrayBuffer(8),
     })
@@ -200,25 +219,22 @@ describe('F-87 成功后按固定单价扣费', () => {
       payload: { model: 'tts-1', input: '你好' },
     })
     expect(res.statusCode).toBe(200)
-    expect(mocks.spendPoints).toHaveBeenCalledTimes(1)
-    const [userId, amount, kind, reason] = mocks.spendPoints.mock.calls[0] as unknown[]
-    expect(userId).toBe('u-f87')
-    expect(amount).toBe(2)
-    expect(kind).toBe('ai_call')
-    expect(String(reason)).toContain('tts-1')
+    expect(mediaMocks.chargeMediaPoints).toHaveBeenCalledTimes(1)
+    expect(mediaMocks.chargeMediaPoints.mock.calls[0]?.[1]).toBe('tts-1')
+    expect(mediaMocks.chargeMediaPoints.mock.calls[0]?.[2]).toBe('audio')
     await app.close()
   })
 
   it('GET /openai/responses/:id 余额充足 → 200 且不额外扣费', async () => {
-    mocks.fetchWithTimeout.mockResolvedValue({
+    vendorMocks.fetchWithTimeout.mockResolvedValue({
       ok: true,
       json: async () => ({ id: 'resp_123', status: 'completed' }),
     })
     const app = await buildApp()
     const res = await app.inject({ method: 'GET', url: '/openai/responses/resp_123' })
     expect(res.statusCode).toBe(200)
-    expect(mocks.fetchWithTimeout).toHaveBeenCalledTimes(1)
-    expect(mocks.spendPoints).not.toHaveBeenCalled()
+    expect(vendorMocks.fetchWithTimeout).toHaveBeenCalledTimes(1)
+    expect(mediaMocks.chargeMediaPoints).not.toHaveBeenCalled()
     await app.close()
   })
 })
@@ -237,8 +253,8 @@ describe('F-87 transcriptions(直接 handler:multipart)', () => {
     }
   }
 
-  it('成功转写 → 扣 FLAT_POINTS.audio(2),reason 写 model', async () => {
-    mocks.fetchWithTimeout.mockResolvedValue({
+  it('成功转写 → chargeMediaPoints(whisper-1, audio, 1)', async () => {
+    vendorMocks.fetchWithTimeout.mockResolvedValue({
       ok: true,
       headers: { get: () => 'application/json' },
       json: async () => ({ text: '转写结果' }),
@@ -246,21 +262,21 @@ describe('F-87 transcriptions(直接 handler:multipart)', () => {
     const reply = makeReply()
     await handlers.get('POST /openai/transcriptions')!(makeTranscriptionRequest(), reply)
     expect(reply.statusCode).toBe(200)
-    expect(mocks.spendPoints).toHaveBeenCalledTimes(1)
-    const [userId, amount, kind, reason] = mocks.spendPoints.mock.calls[0] as unknown[]
-    expect(userId).toBe('u-f87')
-    expect(amount).toBe(2)
-    expect(kind).toBe('ai_call')
-    expect(String(reason)).toContain('whisper-1')
+    expect(mediaMocks.chargeMediaPoints).toHaveBeenCalledTimes(1)
+    expect(mediaMocks.chargeMediaPoints.mock.calls[0]?.[1]).toBe('whisper-1')
+    expect(mediaMocks.chargeMediaPoints.mock.calls[0]?.[2]).toBe('audio')
   })
 
-  it('零余额 → 402 且不打上游', async () => {
-    mocks.findUserPoints.mockResolvedValue({ points: 0 })
+  it('媒体闸拒绝 → 402 且不打上游', async () => {
+    mediaMocks.ensureMediaPointsBalance.mockImplementation(async (_req, reply) => {
+      ;(reply as ReplyMock).status(402).send({ code: 402 })
+      return false
+    })
     const reply = makeReply()
     await handlers.get('POST /openai/transcriptions')!(makeTranscriptionRequest(), reply)
     expect(reply.statusCode).toBe(402)
-    expect(mocks.fetchWithTimeout).not.toHaveBeenCalled()
-    expect(mocks.spendPoints).not.toHaveBeenCalled()
+    expect(vendorMocks.fetchWithTimeout).not.toHaveBeenCalled()
+    expect(mediaMocks.chargeMediaPoints).not.toHaveBeenCalled()
   })
 })
 
@@ -270,35 +286,27 @@ describe('F-87 源码形状(防止回退成只 recordUsage 不扣费)', () => {
   const transcriptionSection = section("'/openai/transcriptions'", '// ---- 2026-09-21 n15a')
   const responsesGetSection = source.slice(source.indexOf("'/openai/responses/:responseId'"))
 
-  it('images 走固定单价,且不再保留 token 计费(口径单一)', () => {
-    expect(imagesSection).toContain('ensurePointsAvailable(request, reply)')
-    expect(imagesSection).toContain('chargeFlatPoints(')
-    expect(imagesSection).toContain('FLAT_POINTS.image * imageCount')
-    expect(imagesSection).not.toContain('chargePointsForCall(')
-    expect(imagesSection).not.toContain('ensurePointsBalance(')
-  })
-
-  it('speech / transcriptions 成功后都调用 chargeFlatPoints(FLAT_POINTS.audio)', () => {
-    for (const body of [speechSection, transcriptionSection]) {
-      expect(body).toContain('ensurePointsAvailable(request, reply)')
-      expect(body).toContain('chargeFlatPoints(')
-      expect(body).toContain('FLAT_POINTS.audio')
+  it('images / speech / transcriptions 全部走媒体闸+媒体扣费', () => {
+    for (const body of [imagesSection, speechSection, transcriptionSection]) {
+      expect(body).toContain('ensureMediaPointsBalance(')
+      expect(body).toContain('chargeMediaPoints(')
+      expect(body).not.toContain('chargePointsForCall(')
       expect(body).not.toContain('ensurePointsBalance(')
-      // recordUsage 只是内存计数,后面必须跟固定价扣费
-      expect(body).toMatch(/recordUsage\([\s\S]*?chargeFlatPoints\(/)
     }
   })
 
-  it('GET /openai/responses/:id 有余额闸且不额外扣费', () => {
+  it('GET /openai/responses/:id 有零积读取闸且不额外扣费', () => {
     expect(responsesGetSection).toContain('ensurePointsAvailable(request, reply)')
-    expect(responsesGetSection).not.toContain('chargeFlatPoints(')
+    expect(responsesGetSection).not.toContain('chargeMediaPoints(')
     expect(responsesGetSection).not.toContain('chargePointsForCall(')
   })
 
-  it('全文件口径:媒体端点 4 处 ensurePointsAvailable、固定价扣费 3 处', () => {
-    expect(source.match(/ensurePointsAvailable\(request, reply\)/g) ?? []).toHaveLength(4)
-    expect(source.match(/chargeFlatPoints\(/g) ?? []).toHaveLength(3)
-    // 仅 chat / embeddings / responses(POST)仍走 token 计费
+  it('全文件不再残留旧固定价', () => {
+    expect(source).not.toContain('FLAT_POINTS')
+    expect(source).not.toContain('chargeFlatPoints')
+    expect(source.match(/ensureMediaPointsBalance\(/g) ?? []).toHaveLength(3)
+    expect(source.match(/chargeMediaPoints\(/g) ?? []).toHaveLength(3)
+    expect(source.match(/ensurePointsAvailable\(request, reply\)/g) ?? []).toHaveLength(1)
     expect(source.match(/chargePointsForCall\(request,/g) ?? []).toHaveLength(3)
     expect(source.match(/ensurePointsBalance\(request, reply,/g) ?? []).toHaveLength(3)
   })

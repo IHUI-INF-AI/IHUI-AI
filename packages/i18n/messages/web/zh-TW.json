@@ -24237,6 +24237,15 @@
     "purchase": "購買會員"
   },
   "wallet": {
+    "flowRecharge": "充值",
+    "flowDeduct": "扣減",
+    "flowExpire": "過期",
+    "flowRefund": "退款扣回",
+    "flowRelayRecharge": "轉帳至 API Key",
+    "flowAdminAdjust": "管理員調整",
+    "flowQuota": "配額類變動",
+    "flowPointsExchange": "兌換 AI 積分",
+    "flowOther": "其他變動",
     "autoTopUp": {
       "title": "自動儲值",
       "description": "餘額低於門檻時,自動儲值到目標餘額。",

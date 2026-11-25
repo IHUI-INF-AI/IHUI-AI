@@ -48,7 +48,7 @@ export const userPoints = pgTable('user_points', {
 
 /**
  * 积分流水表。
- * type: 'earn' | 'spend'。amount 正数 earn / 负数 spend。
+ * type: 'earn' | 'spend' | 'transfer'。amount 正数 earn/transfer 入账、负数 spend 出账。
  * balance_after 记录操作后余额；source 标识来源；reference_id 关联资源（如签到记录 id）。
  * 索引 ix_point_transactions_user_created_at 同时服务按日消耗聚合（credits-usage-service，
  * user_id 等值 + created_at 区间）与流水端点的 user_id + created_at 倒序分页；
@@ -77,6 +77,10 @@ export const pointTransactions = pgTable(
     redeemUserRefUnique: uniqueIndex('ux_point_transactions_redeem_user_ref')
       .on(t.userId, t.referenceId)
       .where(sql`${t.source} = 'redeem' AND ${t.referenceId} IS NOT NULL`),
+    // 钱包→AI 积分兑换的并发兜底:同一用户同一幂等键只允许一条 transfer 流水。
+    walletExchangeUserRefUnique: uniqueIndex('ux_point_transactions_wallet_exchange_user_ref')
+      .on(t.userId, t.referenceId)
+      .where(sql`${t.source} = 'wallet_exchange' AND ${t.referenceId} IS NOT NULL`),
   }),
 )
 

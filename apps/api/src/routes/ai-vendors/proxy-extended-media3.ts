@@ -34,6 +34,7 @@ import {
   type FastifyPluginAsync,
 } from './_shared.js'
 import { ensurePointsBalance, chargePointsForCall } from './proxy-llm.js'
+import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
 import { MEDIA_BASE64_BODY_LIMIT, MEDIA_FILE_UPLOAD_BODY_LIMIT } from '../../config/body-limits.js'
 
 // ============ Leonardo 官方参数(prompt/modelId/negative_prompt/init_image 等) ============
@@ -232,7 +233,8 @@ function azureUrl(resource: string, path: string, apiVersion: string): string {
  * 不在测试里重抄一份判据 —— 第二份必然漂移)。
  */
 export const __test__ = {
-  azureResourceShape: (v: string) => z.string().regex(AZURE_RESOURCE_RE).safeParse(v).success,  azureDeploymentShape: (v: string) => z.string().regex(AZURE_DEPLOYMENT_RE).safeParse(v).success,
+  azureResourceShape: (v: string) => z.string().regex(AZURE_RESOURCE_RE).safeParse(v).success,
+  azureDeploymentShape: (v: string) => z.string().regex(AZURE_DEPLOYMENT_RE).safeParse(v).success,
   azureApiVersionShape: (v: string) => z.string().regex(AZURE_API_VERSION_RE).safeParse(v).success,
   azureSpeechRegionShape: (v: string) => azureSpeechTtsBody.shape.region.safeParse(v).success,
   azureUrl,
@@ -258,6 +260,9 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       const body = leonardoBody.parse(request.body)
       const key = requireVendorKey('leonardo', reply)
       if (!key) return
+      const model = body.model ?? 'leonardo'
+      const billingUnits = body.num_images ?? 1
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'image', billingUnits))) return
       const payload: Record<string, unknown> = { prompt: body.prompt }
       if (body.model) payload.modelId = body.model
       if (body.negative_prompt) payload.negative_prompt = body.negative_prompt
@@ -283,6 +288,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       if (data === null) return
       const task = createTask(request.userId!, 'leonardo', 'image', data)
       recordUsage(request.userId!, 'leonardo')
+      await chargeMediaPoints(request, model, 'image', billingUnits, task.taskId)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },
   )
@@ -350,6 +356,9 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       const body = fireflyBody.parse(request.body)
       const creds = requireVendorKeys('firefly', reply)
       if (!creds) return
+      const model = 'firefly'
+      const billingUnits = body.n ?? 1
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'image', billingUnits))) return
       const clientId = creds.key
       // 第一步:IMS OAuth2 client_credentials 换取上游访问令牌(仅进上游请求头,绝不进响应)
       let imsToken: string
@@ -437,6 +446,13 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         }
       }
       recordUsage(request.userId!, 'firefly')
+      await chargeMediaPoints(
+        request,
+        model,
+        'image',
+        Math.max(images.length, 1),
+        `firefly:${request.id}`,
+      )
       return reply.send(success({ images, raw: genData }))
     },
   )
@@ -460,6 +476,8 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       const body = deepgramBody.parse(request.body ?? {})
       const key = requireVendorKey('deepgram', reply)
       if (!key) return
+      const model = body.model ?? 'nova-3'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
       const q = new URLSearchParams()
       if (body.model) q.set('model', body.model)
       if (body.language) q.set('language', body.language)
@@ -489,6 +507,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
           })
           if (data === null) return
           recordUsage(request.userId!, 'deepgram')
+          await chargeMediaPoints(request, model, 'audio', 1, `deepgram:${request.id}`)
           return reply.send(success(data))
         }
         // multipart 模式:原始音频字节直传
@@ -516,6 +535,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
             )
         }
         recordUsage(request.userId!, 'deepgram')
+        await chargeMediaPoints(request, model, 'audio', 1, `deepgram:${request.id}`)
         return reply.send(success(data))
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -542,6 +562,8 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       const body = cartesiaTtsBody.parse(request.body)
       const key = requireVendorKey('cartesia', reply)
       if (!key) return
+      const model = body.model_id ?? 'sonic-2'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
       const container = body.container ?? 'wav'
       try {
         const resp = await fetchWithTimeout(
@@ -581,6 +603,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         }
         const buf = Buffer.from(await resp.arrayBuffer())
         recordUsage(request.userId!, 'cartesia')
+        await chargeMediaPoints(request, model, 'audio', 1, `cartesia:${request.id}`)
         return reply.send(
           success({
             audio: `data:audio/${container};base64,${buf.toString('base64')}`,
@@ -761,6 +784,9 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
     async (request, reply) => {
       const body = azureImagesBody.parse(request.body)
       const { resource, deployment, apiVersion, ...payload } = body
+      const billingUnits = payload.n ?? 1
+      if (!(await ensureMediaPointsBalance(request, reply, deployment, 'image', billingUnits)))
+        return
       const data = await callVendor(
         'azure',
         azureUrl(
@@ -773,6 +799,13 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       )
       if (data === null) return
       recordUsage(request.userId!, 'azure')
+      await chargeMediaPoints(
+        request,
+        deployment,
+        'image',
+        billingUnits,
+        `azure-image:${request.id}`,
+      )
       return reply.send(success(data))
     },
   )
@@ -797,6 +830,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       const { resource, deployment, apiVersion, ...rest } = body
       const key = requireVendorKey('azure', reply)
       if (!key) return
+      if (!(await ensureMediaPointsBalance(request, reply, deployment, 'audio', 1))) return
       const file = await request.file()
       if (!file) return reply.status(400).send(error(400, '缺少音频文件(字段名 file)'))
       const buffer = await file.toBuffer()
@@ -833,6 +867,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
           ? await resp.json()
           : { text: await resp.text() }
         recordUsage(request.userId!, 'azure')
+        await chargeMediaPoints(request, deployment, 'audio', 1, `azure-stt:${request.id}`)
         return reply.send(success(data))
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -860,6 +895,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       const { resource, deployment, apiVersion, ...payload } = body
       const key = requireVendorKey('azure', reply)
       if (!key) return
+      if (!(await ensureMediaPointsBalance(request, reply, deployment, 'audio', 1))) return
       try {
         const resp = await fetchWithTimeout(
           azureUrl(
@@ -890,6 +926,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         const format = payload.response_format ?? 'mp3'
         const buf = Buffer.from(await resp.arrayBuffer())
         recordUsage(request.userId!, 'azure')
+        await chargeMediaPoints(request, deployment, 'audio', 1, `azure-tts:${request.id}`)
         return reply.send(
           success({
             audio: `data:audio/${format};base64,${buf.toString('base64')}`,
@@ -924,6 +961,9 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       const body = stabilityVideoBody.parse(request.body ?? {})
       const key = requireVendorKey('stability', reply)
       if (!key) return
+      const model = 'stable-video-diffusion'
+      const billingUnits = 4
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'video', billingUnits))) return
       const base64 = body.image.startsWith('data:')
         ? body.image.slice(body.image.indexOf(',') + 1)
         : body.image
@@ -959,6 +999,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
             )
         }
         recordUsage(request.userId!, 'stability')
+        await chargeMediaPoints(request, model, 'video', billingUnits, `stability:${request.id}`)
         return reply.send(success(data))
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -1043,6 +1084,8 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       const body = elevenlabsMusicBody.parse(request.body ?? {})
       const key = requireVendorKey('elevenlabs', reply)
       if (!key) return
+      const model = body.model ?? 'music_v1'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
       try {
         const resp = await fetchWithTimeout(
           `${VENDORS.elevenlabs!.baseUrl}/v1/music`,
@@ -1076,6 +1119,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         }
         const buf = Buffer.from(await resp.arrayBuffer())
         recordUsage(request.userId!, 'elevenlabs')
+        await chargeMediaPoints(request, model, 'audio', 1, `elevenlabs-music:${request.id}`)
         return reply.send(
           success({ audio: `data:audio/mpeg;base64,${buf.toString('base64')}`, bytes: buf.length }),
         )
@@ -1104,7 +1148,9 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       const body = deepgramTtsBody.parse(request.body ?? {})
       const key = requireVendorKey('deepgram', reply)
       if (!key) return
-      const q = new URLSearchParams({ model: body.model ?? 'aura-2-thalia-en' })
+      const model = body.model ?? 'aura-2-thalia-en'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
+      const q = new URLSearchParams({ model })
       if (body.encoding) q.set('encoding', body.encoding)
       if (body.sample_rate !== undefined) q.set('sample_rate', String(body.sample_rate))
       if (body.container) q.set('container', body.container)
@@ -1137,6 +1183,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
         const buf = Buffer.from(await resp.arrayBuffer())
         const ext = ct.includes('wav') ? 'wav' : ct.includes('ogg') ? 'ogg' : 'mp3'
         recordUsage(request.userId!, 'deepgram')
+        await chargeMediaPoints(request, model, 'audio', 1, `deepgram-tts:${request.id}`)
         return reply.send(
           success({
             audio: `data:audio/${ext};base64,${buf.toString('base64')}`,

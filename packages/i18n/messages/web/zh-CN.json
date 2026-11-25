@@ -24655,6 +24655,15 @@
     "purchase": "购买会员"
   },
   "wallet": {
+    "flowRecharge": "充值",
+    "flowDeduct": "扣减",
+    "flowExpire": "过期",
+    "flowRefund": "退款扣回",
+    "flowRelayRecharge": "转账至 API Key",
+    "flowAdminAdjust": "管理员调整",
+    "flowQuota": "配额类变动",
+    "flowPointsExchange": "兑换 AI 积分",
+    "flowOther": "其他变动",
     "autoTopUp": {
       "title": "自动充值",
       "description": "余额低于阈值时自动充值到目标余额。",

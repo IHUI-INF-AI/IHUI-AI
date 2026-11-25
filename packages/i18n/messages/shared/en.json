@@ -1580,6 +1580,7 @@
     }
   },
   "wallet": {
+    "flowPointsExchange": "Exchange for AI credits",
     "title": "My Wallet",
     "balance": "Available Balance",
     "frozen": "Frozen Amount",

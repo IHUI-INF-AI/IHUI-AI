@@ -24077,6 +24077,15 @@
     "purchase": "Purchase membership"
   },
   "wallet": {
+    "flowRecharge": "Recharge",
+    "flowDeduct": "Deduct",
+    "flowExpire": "Expired",
+    "flowRefund": "Refund clawback",
+    "flowRelayRecharge": "Transfer to API key",
+    "flowAdminAdjust": "Admin adjustment",
+    "flowQuota": "Quota change",
+    "flowPointsExchange": "Exchange for AI credits",
+    "flowOther": "Other",
     "autoTopUp": {
       "title": "Auto top-up",
       "description": "Automatically top up to the target balance when your balance falls below the threshold.",

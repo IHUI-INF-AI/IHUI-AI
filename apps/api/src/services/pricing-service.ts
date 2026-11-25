@@ -112,6 +112,34 @@ export async function findActivePricing(modelId: string): Promise<AiPricing | un
   return rows[0]
 }
 
+/**
+ * 按“模型 + 计费模式”读取当前生效定价。
+ *
+ * 同一 modelId 可能同时存在 token 价与媒体价（例如某模型既走 LLM 又走 TTS）。
+ * 媒体报价不能复用 `findActivePricing` 的“最新一条”，否则一条更新的 token 行
+ * 会把旧的 per_image / per_video 行顶掉，媒体计费就会静默回落到兜底价。
+ */
+export async function findActivePricingForMode(
+  modelId: string,
+  billingMode: AiPricing['billingMode'],
+): Promise<AiPricing | undefined> {
+  const now = new Date()
+  const rows = await db
+    .select()
+    .from(aiPricing)
+    .where(
+      and(
+        eq(aiPricing.modelId, modelId),
+        eq(aiPricing.billingMode, billingMode),
+        lte(aiPricing.effectiveAt, now),
+        or(isNull(aiPricing.expiresAt), gt(aiPricing.expiresAt, now)),
+      ),
+    )
+    .orderBy(desc(aiPricing.effectiveAt))
+    .limit(1)
+  return rows[0]
+}
+
 /** 按 (modelId, effectiveAt) 精确定位一行；同毫秒视为同一行。 */
 async function findPricingAt(modelId: string, effectiveAt: Date): Promise<AiPricing | undefined> {
   const rows = await db

@@ -29,6 +29,13 @@ import {
   type FastifyPluginAsync,
 } from './_shared.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
+import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
+
+/** 从 `"5"` / `"5s"` / 5 里取出正整数秒,取不到就用 fallback。 */
+function durationSeconds(value: unknown, fallback = 5): number {
+  const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+}
 
 // ---- Stability 官方参数(aspect_ratio/seed/negative_prompt/cfg_scale 等) ----
 const stabilityBody = z.object({
@@ -192,6 +199,7 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       const key = requireVendorKey('stability', reply)
       if (!key) return
       const model = body.model ?? 'core'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'image', 1))) return
       const form = new FormData()
       form.append('prompt', body.prompt)
       form.append('output_format', body.output_format ?? 'png')
@@ -215,9 +223,12 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       if (!resp.ok) {
         return reply
           .status(502)
-          .send(error(502, `Stability 调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 400)}`))
+          .send(
+            error(502, `Stability 调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 400)}`),
+          )
       }
       recordUsage(request.userId!, 'stability')
+      await chargeMediaPoints(request, model, 'image', 1, `stability:${request.id}`)
       return reply.send(success({ model, ...data }))
     },
   )
@@ -241,6 +252,7 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       const key = requireVendorKey('flux', reply)
       if (!key) return
       const model = body.model ?? 'flux-pro-1.1'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'image', 1))) return
       const { image_prompt, ...rest } = body
       const payload: Record<string, unknown> = { ...rest, prompt: body.prompt }
       if (image_prompt) payload.image_prompt = image_prompt
@@ -265,6 +277,7 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       }
       const task = createTask(request.userId!, 'flux', 'image', data)
       recordUsage(request.userId!, 'flux')
+      await chargeMediaPoints(request, model, 'image', 1, `flux:${request.id}`)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },
   )
@@ -287,9 +300,14 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(404).send(error(404, '任务不存在'))
       }
       const upstreamId = extractUpstreamId(task.result)
-      const upstream = await callVendor('flux', `${VENDORS.flux!.baseUrl}/v1/get_result?id=${upstreamId}`, reply, {
-        method: 'GET',
-      })
+      const upstream = await callVendor(
+        'flux',
+        `${VENDORS.flux!.baseUrl}/v1/get_result?id=${upstreamId}`,
+        reply,
+        {
+          method: 'GET',
+        },
+      )
       if (upstream) {
         const st = (upstream as { status?: string }).status
         task.result = upstream
@@ -324,6 +342,9 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = klingBody.parse(request.body)
       const keys = requireVendorKeys('kling', reply)
       if (!keys) return
+      const model = body.model ?? 'kling-v3'
+      const billingUnits = durationSeconds(body.duration, 5)
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'video', billingUnits))) return
       const { image, image_tail, ...rest } = body
       const payload: Record<string, unknown> = {
         model_name: body.model ?? 'kling-v3',
@@ -352,6 +373,7 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       }
       const task = createTask(request.userId!, 'kling', 'video', { ...data, _kind: kind })
       recordUsage(request.userId!, 'kling')
+      await chargeMediaPoints(request, model, 'video', billingUnits, `kling:${request.id}`)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },
   )
@@ -362,7 +384,8 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'Kling 任务查询',
-        description: '代理调用 https://api.klingai.com/v1/videos/{text2video|image2video}/{上游id} 轮询',
+        description:
+          '代理调用 https://api.klingai.com/v1/videos/{text2video|image2video}/{上游id} 轮询',
         tags: ['AI', 'Kling', '视频'],
         params: taskIdParam,
       }),
@@ -417,6 +440,9 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = runwayBody.parse(request.body)
       const key = requireVendorKey('runway', reply)
       if (!key) return
+      const model = body.model ?? 'gen4_turbo'
+      const billingUnits = durationSeconds(body.duration, 5)
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'video', billingUnits))) return
       const { image } = body
       const payload: Record<string, unknown> = {
         model: body.model ?? 'gen4_turbo',
@@ -434,6 +460,7 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       if (data === null) return
       const task = createTask(request.userId!, 'runway', 'video', data)
       recordUsage(request.userId!, 'runway')
+      await chargeMediaPoints(request, model, 'video', billingUnits, `runway:${request.id}`)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },
   )
@@ -460,7 +487,10 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
         )
         if (!upstream) return { data: null }
         const st = (upstream as { status?: string }).status
-        return { data: upstream, status: st === 'SUCCEEDED' ? 'succeeded' : st === 'FAILED' ? 'failed' : st?.toLowerCase() }
+        return {
+          data: upstream,
+          status: st === 'SUCCEEDED' ? 'succeeded' : st === 'FAILED' ? 'failed' : st?.toLowerCase(),
+        }
       })
       if (!task) return reply.status(404).send(error(404, '任务不存在'))
       return reply.send(success(task))
@@ -486,6 +516,9 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = lumaBody.parse(request.body)
       const key = requireVendorKey('luma', reply)
       if (!key) return
+      const model = body.model ?? 'ray-2'
+      const billingUnits = durationSeconds(body.duration, 5)
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'video', billingUnits))) return
       const { image, image_end, ...rest } = body
       const payload: Record<string, unknown> = {
         prompt: body.prompt ?? '',
@@ -509,6 +542,7 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       if (data === null) return
       const task = createTask(request.userId!, 'luma', 'video', data)
       recordUsage(request.userId!, 'luma')
+      await chargeMediaPoints(request, model, 'video', billingUnits, `luma:${request.id}`)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },
   )
@@ -519,7 +553,8 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       preHandler: requireAuth,
       schema: buildSchema({
         summary: 'Luma 任务查询',
-        description: '代理调用 /dream-machine/v1/generations/{上游id} 轮询(state: queued/dreaming/completed)',
+        description:
+          '代理调用 /dream-machine/v1/generations/{上游id} 轮询(state: queued/dreaming/completed)',
         tags: ['AI', 'Luma', '视频'],
         params: taskIdParam,
       }),
@@ -559,7 +594,9 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = minimaxVideoBody.parse(request.body)
       const key = requireVendorKey('minimax', reply)
       if (!key) return
-      const payload = { model: body.model ?? 'T2V-01', ...body }
+      const model = body.model ?? 'T2V-01'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'video', 5))) return
+      const payload = { model, ...body }
       const data = await callVendor(
         'minimax',
         'https://api.minimax.chat/v1/video_generation',
@@ -569,6 +606,7 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       if (data === null) return
       const task = createTask(request.userId!, 'minimax', 'video', data)
       recordUsage(request.userId!, 'minimax')
+      await chargeMediaPoints(request, model, 'video', 5, `minimax-video:${request.id}`)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },
   )
@@ -618,6 +656,8 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = minimaxMusicBody.parse(request.body)
       const key = requireVendorKey('minimax', reply)
       if (!key) return
+      const model = 'minimax-music'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
       const data = await callVendor(
         'minimax',
         'https://api.minimax.chat/v1/music_generation',
@@ -626,6 +666,7 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       )
       if (data === null) return
       recordUsage(request.userId!, 'minimax')
+      await chargeMediaPoints(request, model, 'audio', 1, `minimax-music:${request.id}`)
       return reply.send(success(data))
     },
   )
@@ -648,6 +689,8 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = elevenlabsTtsBody.parse(request.body)
       const key = requireVendorKey('elevenlabs', reply)
       if (!key) return
+      const model = body.model ?? 'eleven_multilingual_v2'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
       const voiceId = body.voiceId ?? '21m00Tcm4TlvDq8ikWAM'
       const settings: Record<string, unknown> = {}
       if (body.stability !== undefined) settings.stability = body.stability
@@ -677,11 +720,15 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
         return reply
           .status(502)
           .send(
-            error(502, `ElevenLabs 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 400)}`),
+            error(
+              502,
+              `ElevenLabs 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 400)}`,
+            ),
           )
       }
       const buf = Buffer.from(await resp.arrayBuffer())
       recordUsage(request.userId!, 'elevenlabs')
+      await chargeMediaPoints(request, model, 'audio', 1, `elevenlabs-tts:${request.id}`)
       return reply.send(
         success({
           audio: `data:audio/mpeg;base64,${buf.toString('base64')}`,
@@ -707,6 +754,8 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = elevenlabsSfxBody.parse(request.body)
       const key = requireVendorKey('elevenlabs', reply)
       if (!key) return
+      const model = 'elevenlabs-sfx'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
       const resp = await fetchWithTimeout(
         `${VENDORS.elevenlabs!.baseUrl}/v1/sound-generation`,
         {
@@ -729,11 +778,15 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
         return reply
           .status(502)
           .send(
-            error(502, `ElevenLabs 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 400)}`),
+            error(
+              502,
+              `ElevenLabs 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 400)}`,
+            ),
           )
       }
       const buf = Buffer.from(await resp.arrayBuffer())
       recordUsage(request.userId!, 'elevenlabs')
+      await chargeMediaPoints(request, model, 'audio', 1, `elevenlabs-sfx:${request.id}`)
       return reply.send(
         success({ audio: `data:audio/mpeg;base64,${buf.toString('base64')}`, bytes: buf.length }),
       )
@@ -751,9 +804,14 @@ export const extendedMediaVendorRoutes: FastifyPluginAsync = async (server) => {
       }),
     },
     async (_request, reply) => {
-      const data = await callVendor('elevenlabs', `${VENDORS.elevenlabs!.baseUrl}/v1/voices`, reply, {
-        method: 'GET',
-      })
+      const data = await callVendor(
+        'elevenlabs',
+        `${VENDORS.elevenlabs!.baseUrl}/v1/voices`,
+        reply,
+        {
+          method: 'GET',
+        },
+      )
       if (data === null) return
       return reply.send(success(data))
     },

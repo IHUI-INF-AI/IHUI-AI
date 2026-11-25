@@ -79,6 +79,8 @@ const agnesVideoBody = z.object({
   mode: z.enum(['text', 'image']).optional(),
   size: z.string().optional(),
   image: z.string().optional(),
+  // 按秒计价的视频模型用真实时长;按次计价的上游(Agnes 2.5 等)不会收到此字段
+  duration: z.number().int().min(1).max(60).optional(),
 })
 
 export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
@@ -100,6 +102,8 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = sunoGenerateBody.parse(request.body)
+      const model = body.model ?? 'suno'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
       const data = await callVendor('suno', 'https://api.suno.ai/v1/music/generations', reply, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -107,6 +111,7 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
       if (data === null) return
       const task = createTask(request.userId!, 'suno', 'music', data)
       recordUsage(request.userId!, 'suno')
+      await chargeMediaPoints(request, model, 'audio', 1, task.taskId)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },
   )
@@ -214,6 +219,13 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = sora2GenerateBody.parse(request.body)
+      const model = body.model ?? 'sora-2'
+      // Sora 官方 seconds 是字符串("4"/"8"/"12");按秒定价时用真实秒数。
+      const rawSeconds = body.seconds ?? body.duration
+      const parsedSeconds = Number(rawSeconds)
+      const billingUnits =
+        Number.isFinite(parsedSeconds) && parsedSeconds > 0 ? Math.floor(parsedSeconds) : 1
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'video', billingUnits))) return
       const data = await callVendor(
         'sora2',
         // OpenAI 官方 Sora 端点:POST /v1/videos(client.videos.create),非 /v1/videos/generations
@@ -224,6 +236,7 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
       if (data === null) return
       const task = createTask(request.userId!, 'sora2', 'video', data)
       recordUsage(request.userId!, 'sora2')
+      await chargeMediaPoints(request, model, 'video', billingUnits, task.taskId)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },
   )
@@ -321,8 +334,16 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
       // 不收 width/height/num_frames/frame_rate
       // v2.0 分支保留仅为显式传旧模型时透传原参数(上游已 503,不做业务拦截)
       const isV25 = model.startsWith('agnes-video-2.5')
-      // 计费(2026-11-21):视频按次计分,预检按本次预估(见 services/media-billing.ts 口径)。
-      if (!(await ensureMediaPointsBalance(request, reply, model, 'video', 1))) return
+      // 计费(2026-11-25):统一走 ai_pricing;按秒模型用 duration 作为 units,
+      // 按次模型由报价函数自动折算为 1 次。
+      // duration 未显式传时,不能按 1 秒计(会严重少收):
+      // - v2.0 用 num_frames/frame_rate 还原真实时长;
+      // - v2.5 上游不收时长参数,按默认 5 秒计。
+      const fallbackSeconds = isV25
+        ? 5
+        : Math.max(1, Math.round((rest.num_frames ?? 121) / (rest.frame_rate ?? 24)))
+      const billingUnits = rest.duration ?? fallbackSeconds
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'video', billingUnits))) return
       const payload = isV25
         ? {
             model,
@@ -355,7 +376,7 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
       const task = createTask(request.userId!, 'agnes', 'video', data)
       recordUsage(request.userId!, 'agnes')
       // 任务已在上游创建成功(失败分支在上方已 return)才扣分,referenceId=任务 id ⇒ 幂等。
-      await chargeMediaPoints(request, model, 'video', 1, task.taskId)
+      await chargeMediaPoints(request, model, 'video', billingUnits, task.taskId)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },
   )

@@ -25,6 +25,7 @@ describe('providerDisplayName', () => {
   it('已知厂商走中文/品牌名,未知走美化兜底', () => {
     expect(providerDisplayName('moonshot')).toBe('月之暗面 Moonshot')
     expect(providerDisplayName('nvidia_nim')).toBe('NVIDIA NIM')
+    expect(providerDisplayName('magi2')).toBe('Sand.ai MAGI-2')
     expect(providerDisplayName('brand_new_vendor')).toBe('Brand New Vendor')
     expect(providerDisplayName('')).toBe('')
     expect(providerDisplayName(null)).toBe('')

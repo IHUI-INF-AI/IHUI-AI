@@ -3,22 +3,16 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 媒体类(图片/音频/声纹/视频编排)积分闸与结算。
+ * 余额闸(2026-11-25 收窄)。
  *
- * 与 proxy-llm 的 token 计价不同:这类端点没有 usage 字段,按次固定单价。
- * 余额检查不依赖 model 倍率 —— 客户端可用任意 model,不能拿免费模型名绕过。
+ * 历史上这里还有一套 `FLAT_POINTS`(图片 10/音频 2/声纹 2/视频合成 30)固定价,
+ * 与 `media-billing-pricing.ts` 的 ai_pricing 报价并存,导致同一能力两套价。
+ * 现所有**媒体扣费**统一走 `media-billing.ts` 的 `ensureMediaPointsBalance` /
+ * `chargeMediaPoints`;本文件只保留"零积账号不可用"这类不涉及报价的基础闸,
+ * 不再持有任何价格常量。
  */
-import type { FastifyRequest, FastifyReply } from 'fastify'
-import { spendPoints } from './points-service.js'
+import type { FastifyReply, FastifyRequest } from 'fastify'
 import { getSpendableBalance } from './daily-credits.js'
-
-/** 媒体类固定单价(积分/次)。导出以便夹具与计费口径对齐。 */
-export const FLAT_POINTS = {
-  image: 10,
-  audio: 2,
-  voiceprint: 2,
-  videoCompose: 30,
-} as const
 
 /** 调用前余额检查:余额 <= 0 直接 402,返回 false 表示已响应。 */
 export async function ensurePointsAvailable(
@@ -26,8 +20,7 @@ export async function ensurePointsAvailable(
   reply: FastifyReply,
 ): Promise<boolean> {
   const userId = request.userId
-  if (!userId) return true // 未登录交由各自的鉴权钩子处理
-  // 媒体闸:每日赠送也算可花额度,只读永久余额会让送了 100 却仍然报“余额不足”。
+  if (!userId) return true
   const { available: balance } = await getSpendableBalance(userId)
   if (balance <= 0) {
     reply.status(402).send({
@@ -38,21 +31,5 @@ export async function ensurePointsAvailable(
     return false
   }
   return true
-}
-
-/** 调用成功后按固定单价扣分;扣分失败不阻塞响应(事务由 spendPoints 兜底)。 */
-export async function chargeFlatPoints(
-  request: FastifyRequest,
-  amount: number,
-  reason: string,
-  referenceId: string,
-): Promise<void> {
-  const userId = request.userId
-  if (!userId || amount <= 0) return
-  try {
-    await spendPoints(userId, amount, 'ai_call', reason, referenceId)
-  } catch {
-    // 扣分失败不阻塞响应
-  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

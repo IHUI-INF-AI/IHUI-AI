@@ -15,6 +15,10 @@ import { decryptJSON } from '../utils/crypto.js'
 import { validateTopupAmount } from '../services/topup-discount-service.js'
 import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import { applyWithdrawal } from '../db/commission-queries.js'
+import {
+  exchangeWalletToPoints,
+  WalletExchangeError,
+} from '../services/wallet-points-exchange-service.js'
 
 /**
  * 钱包路由 — /api/wallet/*
@@ -32,6 +36,13 @@ const withdrawSchema = z.object({
   amount: z.number().int().min(1, '提现金额必须大于 0'),
   account: z.string().min(1, '请输入收款账号'),
   accountType: z.string().min(1, '请选择账号类型'),
+})
+
+const convertToPointsSchema = z.object({
+  /** 1 分 = 1 积分;最低 ¥1,避免 1 分钱的粉尘转账 */
+  amount: z.number().int().min(100, '最低兑换 100 积分(¥1)').max(1_000_000),
+  /** 客户端幂等键;不传则用 request.id。同一 key 只兑换一次。 */
+  idempotencyKey: z.string().min(1).max(32).optional(),
 })
 
 const recordsQuerySchema = z.object({
@@ -121,6 +132,38 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
       const orderNo = generateOrderNumber('RC')
       // 不 update userMargins,不 insert tokenFlows!余额增加只能走支付回调
       return reply.status(201).send(success({ orderNo, payUrl: undefined }))
+    },
+  )
+
+  // POST /convert-to-points — 钱包余额兑换 AI 积分(1 分 = 1 积分)
+  // 钱包与 AI 积分是两本账;这是唯一允许的兑换桥,只允许 wallet → points,反向不允许。
+  server.post(
+    '/convert-to-points',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = convertToPointsSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      try {
+        const result = await exchangeWalletToPoints(
+          request.userId!,
+          parsed.data.amount,
+          parsed.data.idempotencyKey ?? request.id,
+        )
+        return reply.send(
+          success({
+            ...result,
+            rate: '1 分 = 1 积分',
+          }),
+        )
+      } catch (e) {
+        if (e instanceof WalletExchangeError) {
+          return reply.status(400).send(error(400, e.message, e.code))
+        }
+        request.log.error({ err: e }, 'wallet convert-to-points failed')
+        return reply.status(500).send(error(500, '兑换积分失败,请稍后重试'))
+      }
     },
   )
 

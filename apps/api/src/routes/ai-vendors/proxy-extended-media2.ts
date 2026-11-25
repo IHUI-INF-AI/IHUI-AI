@@ -27,6 +27,12 @@ import {
   type FastifyPluginAsync,
 } from './_shared.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
+import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
+
+function durationSeconds(value: unknown, fallback = 5): number {
+  const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+}
 
 // ---- Ideogram V3 官方参数(prompt/aspect_ratio/style_type/magic_prompt_option 等) ----
 const ideogramBody = z.object({
@@ -148,6 +154,8 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
       const body = ideogramBody.parse(request.body)
       const key = requireVendorKey('ideogram', reply)
       if (!key) return
+      const model = body.model ?? 'V_3'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'image', 1))) return
       const { prompt, ...rest } = body
       const resp = await fetchWithTimeout(
         `${VENDORS.ideogram!.baseUrl}/generate`,
@@ -167,9 +175,12 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
       if (!resp.ok) {
         return reply
           .status(502)
-          .send(error(502, `Ideogram 调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 400)}`))
+          .send(
+            error(502, `Ideogram 调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 400)}`),
+          )
       }
       recordUsage(request.userId!, 'ideogram')
+      await chargeMediaPoints(request, model, 'image', 1, `ideogram:${request.id}`)
       return reply.send(success(data))
     },
   )
@@ -192,6 +203,9 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
       const body = recraftBody.parse(request.body)
       const key = requireVendorKey('recraft', reply)
       if (!key) return
+      const model = body.model ?? 'recraftv3'
+      const billingUnits = body.n ?? 1
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'image', billingUnits))) return
       const resp = await fetchWithTimeout(
         `${VENDORS.recraft!.baseUrl}/images/generations`,
         {
@@ -217,9 +231,12 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
       if (!resp.ok) {
         return reply
           .status(502)
-          .send(error(502, `Recraft 调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 400)}`))
+          .send(
+            error(502, `Recraft 调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 400)}`),
+          )
       }
       recordUsage(request.userId!, 'recraft')
+      await chargeMediaPoints(request, model, 'image', billingUnits, `recraft:${request.id}`)
       return reply.send(success(data))
     },
   )
@@ -243,8 +260,11 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
       const body = viduBody.parse(request.body)
       const key = requireVendorKey('vidu', reply)
       if (!key) return
+      const model = body.model ?? 'viduq1'
+      const billingUnits = durationSeconds(body.duration, 4)
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'video', billingUnits))) return
       const { images, ...rest } = body
-      const payload: Record<string, unknown> = { model: body.model ?? 'viduq1', ...rest }
+      const payload: Record<string, unknown> = { model, ...rest }
       if (images) payload.images = images.map((url) => ({ url }))
       const kind = images ? 'img2video' : 'text2video'
       const data = await callVendor('vidu', `${VENDORS.vidu!.baseUrl}/ent/v2/${kind}`, reply, {
@@ -254,6 +274,7 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
       if (data === null) return
       const task = createTask(request.userId!, 'vidu', 'video', { ...data, _kind: kind })
       recordUsage(request.userId!, 'vidu')
+      await chargeMediaPoints(request, model, 'video', billingUnits, `vidu:${request.id}`)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },
   )
@@ -276,9 +297,7 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
       if (!task || task.vendor !== 'vidu' || task.userId !== request.userId) {
         return reply.status(404).send(error(404, '任务不存在'))
       }
-      const upstreamId = String(
-        (task.result as { task_id?: string } | undefined)?.task_id ?? '',
-      )
+      const upstreamId = String((task.result as { task_id?: string } | undefined)?.task_id ?? '')
       const upstream = await callVendor(
         'vidu',
         `${VENDORS.vidu!.baseUrl}/ent/v2/tasks/${upstreamId}/creations`,
@@ -286,7 +305,10 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
         { method: 'GET' },
       )
       if (upstream) {
-        task.result = { ...(task.result as Record<string, unknown>), ...(upstream as Record<string, unknown>) }
+        task.result = {
+          ...(task.result as Record<string, unknown>),
+          ...(upstream as Record<string, unknown>),
+        }
         const st = (upstream as { state?: string }).state
         if (st === 'success') task.status = 'succeeded'
         else if (st === 'failed') task.status = 'failed'
@@ -316,11 +338,14 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
       const body = pixverseBody.parse(request.body)
       const key = requireVendorKey('pixverse', reply)
       if (!key) return
+      const model = body.model ?? 'v4.5'
+      const billingUnits = durationSeconds(body.duration, 5)
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'video', billingUnits))) return
       const { image, ...rest } = body
       const kind = image ? 'image' : 'text'
       const payload: Record<string, unknown> = {
-        model: body.model ?? 'v4.5',
-        duration: body.duration ?? 5,
+        model,
+        duration: billingUnits,
         quality: '540p',
         ...(image ? { img_url: image } : {}),
         ...rest,
@@ -334,6 +359,7 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
       if (data === null) return
       const task = createTask(request.userId!, 'pixverse', 'video', { ...data, _kind: kind })
       recordUsage(request.userId!, 'pixverse')
+      await chargeMediaPoints(request, model, 'video', billingUnits, `pixverse:${request.id}`)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },
   )
@@ -398,6 +424,8 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
       const body = minimaxTtsBody.parse(request.body)
       const key = requireVendorKey('minimax', reply)
       if (!key) return
+      const model = body.model ?? 'speech-02-hd'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
       const voiceSetting: Record<string, unknown> = {
         voice_id: body.voice ?? 'male-qn-qingse',
       }
@@ -424,6 +452,7 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
       const bytes = hex ? Buffer.from(hex, 'hex') : Buffer.alloc(0)
       const format = body.format ?? 'mp3'
       recordUsage(request.userId!, 'minimax')
+      await chargeMediaPoints(request, model, 'audio', 1, `minimax-tts:${request.id}`)
       return reply.send(
         success({
           audio: bytes.length
@@ -454,9 +483,11 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
       const body = stabilityAudioBody.parse(request.body)
       const key = requireVendorKey('stability', reply)
       if (!key) return
+      const model = body.model ?? 'stable-audio-2.5'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
       const form = new FormData()
       form.append('prompt', body.prompt)
-      form.append('model', body.model ?? 'stable-audio-2.5')
+      form.append('model', model)
       if (body.duration !== undefined) form.append('duration', String(body.duration))
       if (body.bpm !== undefined) form.append('bpm', String(body.bpm))
       if (body.seed !== undefined) form.append('seed', String(body.seed))
@@ -476,10 +507,16 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
         const errData = await resp.json().catch(() => ({}))
         return reply
           .status(502)
-          .send(error(502, `Stability 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 400)}`))
+          .send(
+            error(
+              502,
+              `Stability 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 400)}`,
+            ),
+          )
       }
       const buf = Buffer.from(await resp.arrayBuffer())
       recordUsage(request.userId!, 'stability')
+      await chargeMediaPoints(request, model, 'audio', 1, `stability-audio:${request.id}`)
       return reply.send(
         success({ audio: `data:audio/wav;base64,${buf.toString('base64')}`, bytes: buf.length }),
       )
@@ -504,6 +541,8 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
       const body = fishaudioTtsBody.parse(request.body)
       const key = requireVendorKey('fishaudio', reply)
       if (!key) return
+      const model = 'fishaudio-tts'
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'audio', 1))) return
       const resp = await fetchWithTimeout(
         `${VENDORS.fishaudio!.baseUrl}/v1/tts`,
         {
@@ -529,13 +568,22 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
         const errData = await resp.json().catch(() => ({}))
         return reply
           .status(502)
-          .send(error(502, `FishAudio 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 400)}`))
+          .send(
+            error(
+              502,
+              `FishAudio 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 400)}`,
+            ),
+          )
       }
       const buf = Buffer.from(await resp.arrayBuffer())
       const format = body.format ?? 'mp3'
       recordUsage(request.userId!, 'fishaudio')
+      await chargeMediaPoints(request, model, 'audio', 1, `fishaudio:${request.id}`)
       return reply.send(
-        success({ audio: `data:audio/${format};base64,${buf.toString('base64')}`, bytes: buf.length }),
+        success({
+          audio: `data:audio/${format};base64,${buf.toString('base64')}`,
+          bytes: buf.length,
+        }),
       )
     },
   )
@@ -561,7 +609,10 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
       const body = zhipuVideoBody.parse(request.body ?? {})
       const key = requireVendorKey('zhipu', reply)
       if (!key) return
-      const payload = { model: body.model ?? 'cogvideox-3', ...body }
+      const model = body.model ?? 'cogvideox-3'
+      const billingUnits = durationSeconds(body.duration, 5)
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'video', billingUnits))) return
+      const payload = { model, ...body }
       const data = await callVendor(
         'zhipu',
         `${VENDORS.zhipu!.baseUrl}/videos/generations`,
@@ -570,6 +621,7 @@ export const extendedMediaVendorRoutes2: FastifyPluginAsync = async (server) => 
       )
       if (data === null) return
       recordUsage(request.userId!, 'zhipu')
+      await chargeMediaPoints(request, model, 'video', billingUnits, `zhipu-video:${request.id}`)
       return reply.send(success(data))
     },
   )

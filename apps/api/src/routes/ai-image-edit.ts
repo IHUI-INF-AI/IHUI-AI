@@ -11,7 +11,7 @@ import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
 import { directEgressFetch, boundedOptionsFromRequestInit } from '../utils/proxy-dispatcher.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../config/body-limits.js'
-import { ensurePointsAvailable, chargeFlatPoints, FLAT_POINTS } from '../services/points-guard.js'
+import { chargeMediaPoints, ensureMediaPointsBalance } from '../services/media-billing.js'
 
 const DASHSCOPE_BASE = process.env.DASHSCOPE_BASE ?? 'https://dashscope.aliyuncs.com/api/v1'
 
@@ -209,7 +209,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
           .status(503)
           .send(error(503, '豆包图片编辑服务未配置（需设置 DOUBAO_API_KEY 环境变量）'))
       }
-      if (!(await ensurePointsAvailable(request, reply))) return
+      if (!(await ensureMediaPointsBalance(request, reply, 'image-edit', 'image', 1))) return
 
       try {
         const resp = await fetchWithTimeout(
@@ -239,12 +239,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
         if (!outputImageUrl) {
           return reply.status(502).send(error(502, '豆包图片编辑未返回图片地址'))
         }
-        await chargeFlatPoints(
-          request,
-          FLAT_POINTS.image,
-          `图片编辑扣分(model=${useModel})`,
-          request.id,
-        )
+        await chargeMediaPoints(request, useModel, 'image', 1, request.id)
         const historyId = await saveHistory({
           userId: request.userId!,
           vendor: 'doubao',
@@ -295,7 +290,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
           .status(503)
           .send(error(503, '豆包图片修复服务未配置（需设置 DOUBAO_API_KEY 环境变量）'))
       }
-      if (!(await ensurePointsAvailable(request, reply))) return
+      if (!(await ensureMediaPointsBalance(request, reply, 'image-edit', 'image', 1))) return
 
       try {
         const resp = await fetchWithTimeout(
@@ -324,12 +319,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
         if (!outputImageUrl) {
           return reply.status(502).send(error(502, '豆包图片修复未返回图片地址'))
         }
-        await chargeFlatPoints(
-          request,
-          FLAT_POINTS.image,
-          `图片修复扣分(model=${useModel})`,
-          request.id,
-        )
+        await chargeMediaPoints(request, useModel, 'image', 1, request.id)
         const historyId = await saveHistory({
           userId: request.userId!,
           vendor: 'doubao',
@@ -380,7 +370,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
           .status(503)
           .send(error(503, '通义图片编辑服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
       }
-      if (!(await ensurePointsAvailable(request, reply))) return
+      if (!(await ensureMediaPointsBalance(request, reply, 'image-edit', 'image', 1))) return
 
       try {
         const resp = await fetchWithTimeout(
@@ -414,12 +404,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
         const outputImages = ((result.output as { images?: { url?: string }[] })?.images ?? []).map(
           (img) => img.url ?? '',
         )
-        await chargeFlatPoints(
-          request,
-          FLAT_POINTS.image,
-          `图片编辑扣分(model=${useModel})`,
-          request.id,
-        )
+        await chargeMediaPoints(request, useModel, 'image', 1, request.id)
         const historyId = await saveHistory({
           userId: request.userId!,
           vendor: 'tongyi',
@@ -467,7 +452,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
         .status(503)
         .send(error(503, '通义文生图服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
     }
-    if (!(await ensurePointsAvailable(request, reply))) return
+    if (!(await ensureMediaPointsBalance(request, reply, 'image-edit', 'image', 1))) return
 
     try {
       const resp = await fetchWithTimeout(
@@ -501,12 +486,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
 
       const result = (await resp.json()) as Record<string, unknown>
       const taskId = (result.output as { task_id?: string })?.task_id
-      await chargeFlatPoints(
-        request,
-        FLAT_POINTS.image,
-        `文生图扣分(model=${useModel})`,
-        request.id,
-      )
+      await chargeMediaPoints(request, useModel, 'image', 1, request.id)
       const historyId = await saveHistory({
         userId: request.userId!,
         vendor: 'tongyi',
@@ -557,7 +537,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
           .status(503)
           .send(error(503, '通义图生图服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
       }
-      if (!(await ensurePointsAvailable(request, reply))) return
+      if (!(await ensureMediaPointsBalance(request, reply, 'image-edit', 'image', 1))) return
 
       try {
         const resp = await fetchWithTimeout(
@@ -590,12 +570,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
 
         const result = (await resp.json()) as Record<string, unknown>
         const taskId = (result.output as { task_id?: string })?.task_id
-        await chargeFlatPoints(
-          request,
-          FLAT_POINTS.image,
-          `图生图扣分(model=${useModel})`,
-          request.id,
-        )
+        await chargeMediaPoints(request, useModel, 'image', 1, request.id)
         const historyId = await saveHistory({
           userId: request.userId!,
           vendor: 'tongyi',
@@ -825,7 +800,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
           .status(503)
           .send(error(503, '通义风格迁移服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
       }
-      if (!(await ensurePointsAvailable(request, reply))) return
+      if (!(await ensureMediaPointsBalance(request, reply, 'image-edit', 'image', 1))) return
 
       try {
         const resp = await fetchWithTimeout(
@@ -851,12 +826,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
         }
         const result = (await resp.json()) as Record<string, unknown>
         const taskId = (result.output as { task_id?: string })?.task_id
-        await chargeFlatPoints(
-          request,
-          FLAT_POINTS.image,
-          `风格迁移扣分(model=${useModel})`,
-          request.id,
-        )
+        await chargeMediaPoints(request, useModel, 'image', 1, request.id)
         const historyId = await saveHistory({
           userId: request.userId!,
           vendor: 'tongyi',
@@ -907,7 +877,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
           .status(503)
           .send(error(503, '通义背景生成服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
       }
-      if (!(await ensurePointsAvailable(request, reply))) return
+      if (!(await ensureMediaPointsBalance(request, reply, 'image-edit', 'image', 1))) return
 
       try {
         const resp = await fetchWithTimeout(
@@ -933,12 +903,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
         }
         const result = (await resp.json()) as Record<string, unknown>
         const taskId = (result.output as { task_id?: string })?.task_id
-        await chargeFlatPoints(
-          request,
-          FLAT_POINTS.image,
-          `背景生成扣分(model=${useModel})`,
-          request.id,
-        )
+        await chargeMediaPoints(request, useModel, 'image', 1, request.id)
         const historyId = await saveHistory({
           userId: request.userId!,
           vendor: 'tongyi',
@@ -986,7 +951,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
         .status(503)
         .send(error(503, '通义虚拟试衣服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
     }
-    if (!(await ensurePointsAvailable(request, reply))) return
+    if (!(await ensureMediaPointsBalance(request, reply, 'image-edit', 'image', 1))) return
 
     try {
       const inputData: Record<string, string> = { person_image_url: personImageUrl }
@@ -1013,12 +978,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
       }
       const result = (await resp.json()) as Record<string, unknown>
       const taskId = (result.output as { task_id?: string })?.task_id
-      await chargeFlatPoints(
-        request,
-        FLAT_POINTS.image,
-        `虚拟试衣扣分(model=${useModel})`,
-        request.id,
-      )
+      await chargeMediaPoints(request, useModel, 'image', 1, request.id)
       const historyId = await saveHistory({
         userId: request.userId!,
         vendor: 'tongyi',

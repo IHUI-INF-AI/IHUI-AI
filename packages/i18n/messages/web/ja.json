@@ -24330,6 +24330,15 @@
     "purchase": "会員を購入"
   },
   "wallet": {
+    "flowRecharge": "チャージ",
+    "flowDeduct": "減算",
+    "flowExpire": "期限切れ",
+    "flowRefund": "返金取消",
+    "flowRelayRecharge": "APIキーへ振替",
+    "flowAdminAdjust": "管理者調整",
+    "flowQuota": "クォータ変更",
+    "flowPointsExchange": "AIポイントに交換",
+    "flowOther": "その他",
     "autoTopUp": {
       "title": "自動チャージ",
       "description": "残高がしきい値を下回ると、目標残高まで自動チャージします。",
