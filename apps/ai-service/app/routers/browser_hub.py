@@ -209,6 +209,7 @@ async def list_sessions(user_id: str = Depends(get_current_user_id)) -> dict[str
         # session_id 并拿去逐个探测)
     return {
         "code": 0,
+        "message": "ok",
         "data": {
             "session_ids": hub.list_sessions(user_id),
             "count": hub.session_count_for(user_id),

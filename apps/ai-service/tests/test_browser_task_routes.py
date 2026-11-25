@@ -160,6 +160,21 @@ async def test_templates_route_returns_all_builtins(api):
     assert by_id["download-export"]["checkpoint_timeout_seconds"] == 1800
 
 
+async def test_list_sessions_route_returns_string_message_envelope(api, monkeypatch):
+    """GET /sessions 的包络必须带 string message。
+
+    2026-11-25 真机取证:此前缺 message,前端严格包络校验判「message 必须是 string」,
+    自动监看轮询静默失败,新会话不会自动弹窗。
+    """
+    monkeypatch.setattr(browser_hub_router.hub, "list_sessions", lambda user_id: ["tab-a"])
+    monkeypatch.setattr(browser_hub_router.hub, "session_count_for", lambda user_id: 1)
+    res = await api.get("/api/browser/sessions")
+    assert res.status_code == 200
+    payload = res.json()
+    assert isinstance(payload["message"], str) and payload["message"]
+    assert payload["data"] == {"session_ids": ["tab-a"], "count": 1}
+
+
 async def test_bind_template_route_expands_goal_and_checkpoints(api):
     res = await api.post(
         "/api/browser/sessions/tab-1/task",
