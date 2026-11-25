@@ -25,7 +25,8 @@ import { db, dbRead } from '../../db/index.js'
 import { AppError, isAppError } from '../../errors/AppError.js'
 import { aiServiceSystemFetch } from '../../utils/ai-service-fetch.js'
 import { assertAccountForUser } from './guards.js'
-import { configuredMediaRoot, confinedMediaDir } from './local-media.js'
+import { confinedMediaDir, configuredMediaRoot } from './local-media.js'
+import { VOICE_PLACEHOLDERS, isVoicePlaceholder } from './voice-placeholder.js'
 
 /** 批量默认扫描条数。 */
 export const DEFAULT_VOICE_BATCH_LIMIT = 20
@@ -104,13 +105,9 @@ const RUNNING_BATCHES = new Set<string>()
  *
  * 一致性约束：这里判为「未转写」的行，批量 where 必须同样捞得到 —— 纯空白由
  * btrim 条件兜底，占位词走 inArray；两层口径不能分叉（单条能转、批量漏捞）。
+ * 判定本体在 voice-placeholder.ts：分析与导出也共用同一份列表。
  */
-const VOICE_PLACEHOLDERS = ['[语音]', '[语音消息]', '[voice]', '[Voice]']
-
-export function isVoicePlaceholder(content: string | null | undefined): boolean {
-  const text = (content ?? '').trim()
-  return text === '' || VOICE_PLACEHOLDERS.includes(text)
-}
+export { VOICE_PLACEHOLDERS, isVoicePlaceholder }
 
 /** 「这条音频的内容还是待转写形态」：批量捞取与写回抢占用同一个条件，口径不许分叉。 */
 function pendingContentFilter() {
