@@ -304,6 +304,8 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 
 **后端/服务层**：`application-server` + `peer-transport` 是关键。前者是应用服务宿主，后者是 peer 传输层；加上 `session-history`、`session-migration`、`memory-migration`、`artifact-preview`，说明会话/记忆/工件是被服务化的，不是渲染进程直接读写。端点里能看到阿里内部服务：`ali-skill.alibaba-inc.com`、`iservice.alibaba.com`、`modelstudio.console.aliyun.com`、`bailian.console.aliyun.com`、`img.alicdn.com`。
 
+**四版本后端扫描补证**：asar 内 JS 的 `mcpServer` 命中 665 / 665 / 629 / 629，其中 `out/main/electronMain.js` 123 / 123 / 129 / 129，`@qoder-ai/qoder-cn-agent-sdk/dist/index.js` 各 37；`http.createServer` 8 / 8 / 6 / 6（express + `@modelcontextprotocol/node`），0.5.12 / 0.5.14 另有 `ws/lib/websocket-server.js` 的 `WebSocketServer` 1 处。四版本都没有 `ipcMain.handle/on`、`contextBridge.exposeInMainWorld`、`safeStorage`、`keytar` 的 JS 命中。说明 Qoder 的 MCP 是主进程内独立服务代码路径，Electron IPC 仍走 application-server/peer-transport；是否在启动时 listen 未运行验证。账本：`analysis\backend-qoder-all.json`。
+
 **证据锚点**：`ev_6e0090db…`（0.5.14 jsmap）、`ev_15085ef1…`（0.5.6 jsmap）、`ev_fa21f425…`（0.5.12 jsmap）、`ev_caf71a90…`（0.5.7 jsmap）、`ev_05eabcea…`（0.5.7 exe overview）、`ev_408c01b6…`（0.5.12 exe overview）、`ev_4f5473fe…`（imports）、`ev_07e3697a…`（strings）、`ev_d256efc1…`（签名）。
 
 ---
@@ -598,7 +600,7 @@ IPC 分组说明它是“能力市场型”客户端：
 | ZCode | Electron | 3（2 配对） | 423（227 全还原·180 唯一） | 8（169 成员） | `out/host` RPC + `@zcode/server` + runtime-host |
 | 小浣熊 | Electron | 95（19 配对，38 仅 handler） | 26（11 固定/2 族/0 未定） | 20 | box-agent-runtime（Python ACP） + browser-gateway |
 | 豆包 | Chromium 147 | 2 条（SDK/Lynx 方法误匹配） | 0（另 41 条 LarkAPI/848 个 Neotix 原生方法） | 0 | `agent_infra.dll` 本地运行时策略 + `mcp_helper.dll` MCP 进程宿主 + Agent tool IPC 命名管道 + PIP `PipMain/PipSDK/PipRemote` 三族命名管道 |
-| Qoder | Electron | 0 | 8（5 主进程 + 3 guest/0 未定） | 0 | `application-server` + `peer-transport` + `remoteSdkDaemonBridge` |
+| Qoder | Electron | 0 | 8（5 主进程 + 3 guest/0 未定） | 0 | `application-server` + `peer-transport` + `remoteSdkDaemonBridge` + 主进程 MCP server 代码路径 |
 | DeepSeek | Electron | 0 | 142（102 调用/54 常量） | 11 | cordis 插件 + `dsh-api-gateway` + loopback WS |
 | OpenCode | Electron | 3（1 配对） | 5（3 唯一/0 未定） | 1（5 成员） | 桌面主进程拉起 `opencode-cli serve --service`；isolated 3084，普通模式动态端口；4096 仅为 Add Server 占位 |
 | Codex | Rust TUI/CLI | — | — | — | app-server 本地 WebSocket `ws://127.0.0.1:0` |
@@ -679,6 +681,7 @@ IPC 分组说明它是“能力市场型”客户端：
 - `analysis\frontend-matrix.json`：前端总矩阵（模块/节点/边/endpoint/窗口/IPC/暴露键），已补 `doubao-biz-pak` 三片行。
 - `analysis\frontend-coverage-audit.json`：14 个前端图/分片的 JS 覆盖审计——逐目标非 `node_modules` JS/TS 计数、图 `examined`、`0` 个应用 JS 漏读目标；Qoder 四版本均按实际文件计数（634 / 634 / 606 / 606），豆包三片按 7,837 个 JS 逐一对齐。
 - `analysis\backend-<target>.json`：后端模式扫描（http/ws server、ipcMain、contextBridge、safeStorage、MCP/ACP/LSP）。
+- `analysis\backend-qoder-all.json`：Qoder 四版本 asar 后端扫描——`mcpServer` 665 / 665 / 629 / 629（`out/main/electronMain.js` 123 / 123 / 129 / 129，agent-sdk 各 37）、`http.createServer` 8 / 8 / 6 / 6、0.5.12/0.5.14 的 `WebSocketServer` 1、`ipcMain`/`expose`/`safeStorage`/`keytar` 均 0；启动与否未运行验证。
 - `<target>-jsmap-full.json`：前端全量图（豆包 ai-views 437MB、WorkBuddy 273MB、Cursor 247MB 等）；豆包主应用 `biz.pak` 的 1.04GB 图见下一组条目。
 - `native\<target>\*.json`：核心取证（overview / imports / exports / publisher / strings0-7 / feat0-3）。
 - `native\codex\crates.json`：Codex 407MB 二进制的 400 个 crate 路径清单（含 40 个高频项与 79 个安全/网络相关项）。
