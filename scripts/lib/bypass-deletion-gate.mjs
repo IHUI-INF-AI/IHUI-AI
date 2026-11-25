@@ -79,10 +79,16 @@ export function judgeBypassDeletions({
     // 这类条目证明不了"删了会断链",却让每一次跨越「c33dd54e9b 批量退役 mobile-rn 资产副本」的
     // 合并恒红(fail-closed 到无路可走)。真引用(`import x from './logo.png'`)走 relative 形态,
     // 仍然照旧判红,门的阈值不变。
+    // 2026-11-26 同一格补 rescue/**:该族是 AGENTS §0.14 生产签出外来改动快照(v1/v2 MANIFEST),
+    // 其 `rel` 字段是**库存记录**——记录"快照当时该路径存在",不是 import/require,删了被引路径
+    // 不影响干净检出构建。实测 de53023c(token6688 下线,带 intentional-delete 的有权裁决)被这格
+    // 卡成恒红,与上方 model-edit-save 批同型;判据只扩到 path-literal 形态,与 scripts/** 先例
+    // 一字同权,alias/relative 照旧判红。
+    const INVENTORY_RECORD_ROOTS = ['scripts/', 'rescue/']
     const isBinaryAsset = /\.(?:png|jpe?g|gif|webp|svg|ico|bmp|avif|woff2?|ttf|otf|mp3|mp4|wav|webm)$/i.test(p)
     const hits = (ref.hits.get(p) || []).filter(
       (h) =>
-        !(h.form === 'path-literal' && /^scripts\//.test(h.file)) &&
+        !(h.form === 'path-literal' && INVENTORY_RECORD_ROOTS.some((r) => h.file.startsWith(r))) &&
         !(h.form === 'alias' && isBinaryAsset),
     )
     if (hits.length)
