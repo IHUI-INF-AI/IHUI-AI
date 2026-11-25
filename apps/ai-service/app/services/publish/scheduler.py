@@ -282,7 +282,12 @@ class PublishScheduler:
                 """
                 UPDATE publish_tasks
                 SET status = 'scheduled', started_at = NULL, updated_at = $1
-                WHERE status = 'running' AND started_at < $1 - ($2 * INTERVAL '1 second')
+                -- 必须把 $1 显式 cast 成 timestamptz:否则 PostgreSQL 会按
+                -- 「interval - interval = interval」解析 `$1 - ($2 * INTERVAL ...)`,
+                -- 得出 interval,再与 started_at(timestamptz) 比较即报
+                -- `operator does not exist: timestamp with time zone < interval`,
+                -- 导致每轮轮询失败、定时任务永久不被回收。实测见 2026-11-26。
+                WHERE status = 'running' AND started_at < $1::timestamptz - ($2 * INTERVAL '1 second')
                 """,
                 now,
                 _RUNNING_LEASE_SEC,

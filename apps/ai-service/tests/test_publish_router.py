@@ -359,4 +359,50 @@ async def test_public_running_endpoint_still_works(client) -> None:
     resp = await client.get("/api/publish/running")
     assert resp.status_code == 200
     assert "running" in resp.json()["data"]
+
+
+# =============================================================================
+# 6. _ensure_accounts_table 进程内一次守卫(2026-11-26 starlette TimeoutError 回归)
+# =============================================================================
+
+
+async def test_ensure_accounts_table_runs_ddl_only_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """6 条 DDL 只在首次跑一次,置位后所有后续请求跳过 —— 消除并发争锁超时。"""
+    import app.routers.publish as pub
+
+    calls: list[int] = []
+
+    async def _fake_ddl(conn) -> None:  # type: ignore[no-untyped-def]
+        calls.append(1)
+
+    monkeypatch.setattr(pub, "_ensure_accounts_table_ddl", _fake_ddl)
+    monkeypatch.setattr(pub, "_ACCOUNTS_TABLE_READY", False)
+    monkeypatch.setattr(pub, "_ACCOUNTS_TABLE_LOCK", __import__("asyncio").Lock())
+
+    conn = object()
+    await pub._ensure_accounts_table(conn)  # type: ignore[arg-type]
+    await pub._ensure_accounts_table(conn)  # type: ignore[arg-type]
+    await pub._ensure_accounts_table(conn)  # type: ignore[arg-type]
+
+    assert len(calls) == 1, "DDL 必须进程内只跑一次"
+    assert pub._ACCOUNTS_TABLE_READY is True
+
+
+async def test_ensure_accounts_table_timeout_becomes_503(monkeypatch: pytest.MonkeyPatch) -> None:
+    """DDL 撞 command_timeout → 503(可重试),不是未处理 TimeoutError→500。"""
+    import asyncio
+
+    import app.routers.publish as pub
+
+    async def _timeout_ddl(conn) -> None:  # type: ignore[no-untyped-def]
+        raise asyncio.TimeoutError("statement timeout")
+
+    monkeypatch.setattr(pub, "_ensure_accounts_table_ddl", _timeout_ddl)
+    monkeypatch.setattr(pub, "_ACCOUNTS_TABLE_READY", False)
+    monkeypatch.setattr(pub, "_ACCOUNTS_TABLE_LOCK", asyncio.Lock())
+
+    with pytest.raises(HTTPException) as ei:
+        await pub._ensure_accounts_table(object())  # type: ignore[arg-type]
+    assert ei.value.status_code == 503
+    assert pub._ACCOUNTS_TABLE_READY is False, "超时不置位,下轮重试"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -15,6 +15,7 @@ import { seedAiPricing } from './ai-pricing-seed.js'
 import { seedCourses } from './courses-seed.js'
 import { seedAiCostRecords } from './ai-cost-records-seed.js'
 import { seedRelayPricing } from './relay-pricing-seed.js'
+import { seedMediaCostPricing } from './media-cost-pricing-seed.js'
 import { seedLegacyVideos } from './legacy-videos.js'
 import { seedTools } from './tools-seed.js'
 
@@ -133,6 +134,12 @@ const STEPS: SeedStep[] = [
     description:
       '9 条 web /tools 页的目录数据,每条对应一个本仓真实存在的路由(幂等;此前表恒空 ⇒ /tools 三档全显示「暂无工具」)',
     fn: seedTools,
+  },
+  {
+    index: 16,
+    name: '媒体上游成本价',
+    description: '24 条媒体定价行的 cost_unit_price 回填(官方价目折算;幂等 UPDATE)',
+    fn: seedMediaCostPricing,
   },
 ]
 
