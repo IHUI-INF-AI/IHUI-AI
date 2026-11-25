@@ -91,14 +91,14 @@ const WHITELIST = [
   {
     rel: 'scripts/check-third-party-license-boundary.mjs',
     kind: 'exact',
-    rules: ['R1', 'R2'],
-    note: '本守门脚本自身:--self-test 夹具字符串携带 SPDX 头与被拒项目名,不是入件(R1/R2)',
+    rules: ['R1', 'R2', 'R3'],
+    note: '本守门脚本自身:--self-test 夹具与 R3 判据字面量必然含 SPDX 头、被拒项目名与 AGPL/NC 原文,不是入件(R1/R2/R3)',
   },
   {
     rel: 'scripts/tests/check-third-party-license-boundary.test.mjs',
     kind: 'exact',
-    rules: ['R1', 'R2'],
-    note: '本守门测试自身:夹具字符串携带 SPDX 头与被拒项目名(R1/R2)',
+    rules: ['R1', 'R2', 'R3'],
+    note: '本守门测试自身:夹具字符串携带 SPDX 头、被拒项目名与 AGPL/NC 原文(R1/R2/R3)',
   },
   {
     rel: 'scripts/provenance-ledger.mjs',
