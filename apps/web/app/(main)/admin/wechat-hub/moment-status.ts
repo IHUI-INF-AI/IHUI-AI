@@ -10,6 +10,7 @@
  * page-limit 与 limitReached 一律归成功态，不允许渲染成失败或部分失败。
  */
 import type {
+  WechatMomentFetchResult,
   WechatMomentFieldAvailability,
   WechatMomentStopReason,
   WechatMomentView,
@@ -132,6 +133,37 @@ export function formatMomentFields(
   ]
   const tail = fields.reason ? `；${fields.reason}` : ''
   return `字段可得性：${segments.join('、')}${tail}`
+}
+
+/**
+ * DB sidecar 媒体落盘统计 → 一行展示文案。
+ * 未请求落盘时返回 null；缓存未命中不是下载失败，必须分开显示。
+ */
+export function formatMomentMediaStats(
+  input:
+    | Pick<
+        WechatMomentFetchResult,
+        | 'downloadMedia'
+        | 'localCacheOnly'
+        | 'downloadedMedia'
+        | 'mediaCacheHits'
+        | 'mediaCacheMisses'
+        | 'mediaDownloadErrors'
+      >
+    | null
+    | undefined,
+): string | null {
+  if (!input || input.downloadMedia !== true) return null
+  const count = (value: number | undefined): number =>
+    typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
+  const segments = [`媒体落盘 ${count(input.downloadedMedia)} 个`]
+  if (input.localCacheOnly === true) segments.push('只读本地缓存')
+  segments.push(`缓存命中 ${count(input.mediaCacheHits)}`)
+  segments.push(`缓存未命中 ${count(input.mediaCacheMisses)}`)
+  if (count(input.mediaDownloadErrors) > 0) {
+    segments.push(`URL 下载失败 ${count(input.mediaDownloadErrors)}`)
+  }
+  return segments.join(' · ')
 }
 
 /** 仅当图片数量为正整数时保留；0、负数、小数、非数字一律不展示。 */

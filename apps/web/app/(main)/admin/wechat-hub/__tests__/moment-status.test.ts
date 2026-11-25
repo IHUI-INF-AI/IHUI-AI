@@ -11,7 +11,12 @@ import type {
   WechatMomentStopReason,
   WechatMomentView,
 } from '@ihui/types'
-import { describeMomentFetchStatus, formatMomentExtra, formatMomentFields } from '../moment-status'
+import {
+  describeMomentFetchStatus,
+  formatMomentExtra,
+  formatMomentFields,
+  formatMomentMediaStats,
+} from '../moment-status'
 
 /** 运行时封闭集（联合类型在编译期，遍历须有一份值列表）。 */
 const ALL_REASONS: WechatMomentStopReason[] = [
@@ -231,5 +236,37 @@ describe('moment-status / 单条动态摘要', () => {
       }),
     )
     expect(text).toBe('5分钟前 · 1 条评论')
+  })
+})
+
+describe('moment-status / 媒体落盘统计', () => {
+  it('未启用下载时返回 null，不展示 0 个占位', () => {
+    expect(formatMomentMediaStats(null)).toBeNull()
+    expect(formatMomentMediaStats({ downloadMedia: false })).toBeNull()
+  })
+
+  it('缓存命中与未命中分开显示，0 失败不占位', () => {
+    const text = formatMomentMediaStats({
+      downloadMedia: true,
+      localCacheOnly: true,
+      downloadedMedia: 186,
+      mediaCacheHits: 186,
+      mediaCacheMisses: 1053,
+      mediaDownloadErrors: 0,
+    })
+    expect(text).toBe('媒体落盘 186 个 · 只读本地缓存 · 缓存命中 186 · 缓存未命中 1053')
+  })
+
+  it('URL 下载失败数出现时才追加，且不把未命中写成失败', () => {
+    const text = formatMomentMediaStats({
+      downloadMedia: true,
+      downloadedMedia: 0,
+      mediaCacheHits: 0,
+      mediaCacheMisses: 16,
+      mediaDownloadErrors: 16,
+    })
+    expect(text).toContain('缓存未命中 16')
+    expect(text).toContain('URL 下载失败 16')
+    expect(text).not.toContain('本地缓存失败')
   })
 })

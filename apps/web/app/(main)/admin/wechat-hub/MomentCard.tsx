@@ -24,7 +24,12 @@ import {
 import { Alert } from '@/components/feedback'
 import type { WechatActionResult, WechatMomentFetchResult } from '@ihui/types'
 import { wechatHubApi } from './wechat-hub-api'
-import { describeMomentFetchStatus, formatMomentExtra, formatMomentFields } from './moment-status'
+import {
+  describeMomentFetchStatus,
+  formatMomentExtra,
+  formatMomentFields,
+  formatMomentMediaStats,
+} from './moment-status'
 import MomentArchivePanel from './MomentArchivePanel'
 
 function momentTime(value: number | null): string {
@@ -85,6 +90,7 @@ export default function MomentCard({ accountId }: { accountId: string }) {
         fetched: fetchResult.fetched,
       })
     : null
+  const mediaStats = fetchResult ? formatMomentMediaStats(fetchResult) : null
 
   return (
     <Card>
@@ -169,6 +175,7 @@ export default function MomentCard({ accountId }: { accountId: string }) {
               {formatMomentFields(fetchResult.fields)}
             </p>
           ) : null}
+          {mediaStats ? <p className="text-xs text-muted-foreground">{mediaStats}</p> : null}
           {fetchResult && fetchResult.moments.length > 0 ? (
             <div className="max-h-64 space-y-2 overflow-auto pr-1">
               {fetchResult.moments.map((moment) => {
@@ -187,6 +194,11 @@ export default function MomentCard({ accountId }: { accountId: string }) {
                         {moment.mediaUrls.length} 个媒体
                         {moment.imageCount ? ` · ${moment.imageCount} 张图片` : ''}
                         {moment.videoCount ? ` · ${moment.videoCount} 段视频` : ''}
+                      </p>
+                    ) : null}
+                    {moment.mediaLocalDir ? (
+                      <p className="mt-1 break-all text-xs text-muted-foreground">
+                        本地媒体：{moment.mediaLocalDir}
                       </p>
                     ) : null}
                     {moment.mediaDownloadError ? (
