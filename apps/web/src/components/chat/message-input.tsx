@@ -137,9 +137,11 @@ import { useAiPanelStore } from '@/stores/ai-panel'
 import { getMessages } from '@ihui/api-client'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@ihui/shared/plugins-data'
 
-// 连接器只读能力的虚拟 pluginId(2026-11-25):与 use-chat/tool-config.ts 的
+// 连接器能力的虚拟 pluginId(2026-11-25 立,同日扩写):与 use-chat/tool-config.ts 的
 // PLUGIN_ID_TO_TOOLS['connectors-readonly'] 一一对应;挂载后 mergeAgentTools 会并入
-// connector_capabilities/connector_call_read 两个只读工具。改名须两处同步。
+// connector_capabilities/connector_call_read(只读)+ connector_write_capabilities/
+// connector_call_write(写,后端判 high 走审批)。ID 字面量保留兼容已存会话状态,
+// 语义已含读写;改名须两处同步。
 const CONNECTORS_TOOL_ID = 'connectors-readonly'
 import { AiSkillInvokeDialog, AiSkillResultDialog } from '@/components/chat/skill-library'
 import type { AiSkillMeta, AiSkillInvokeResponse } from '@ihui/api-client/endpoints/ai-skills'
@@ -856,9 +858,10 @@ export function MessageInput({
     const byId = new Map(all.map((p) => [p.id, p]))
     return selectedToolsIds.map((id) => {
       const p = byId.get(id)
-      // 连接器只读能力是虚拟 pluginId,不在插件目录里 —— 用导航词包的名字 + 只读标注
+      // 连接器能力是虚拟 pluginId,不在插件目录里 —— 用导航词包的名字。
+      // 2026-11-25 扩写:含写操作(执行前弹审批),不再标"只读"以免误导。
       const name = id === CONNECTORS_TOOL_ID
-        ? `${tNav('connectors')} (只读)`
+        ? tNav('connectors')
         : (p?.name ?? id)
       return {
         id,
@@ -1531,8 +1534,8 @@ export function MessageInput({
                   onToggleConnectors={() => {
                     setAddMenuOpen(false)
                     setAddMenuMode('menu')
-                    // 连接器只读能力(2026-11-25):toggle 虚拟 pluginId,mergeAgentTools
-                    // 会把它映射成 connector_capabilities/connector_call_read 两个工具。
+                    // 连接器能力(2026-11-25,同日扩写):toggle 虚拟 pluginId,mergeAgentTools
+                    // 会映射成 2 只读 + 2 写共四枚工具;写工具执行前弹审批。
                     // 授权管理仍在 /connectors 页(顶栏生态市场入口),不在此处跳转。
                     const store = chatStore.getState()
                     if (store.selectedTools.includes(CONNECTORS_TOOL_ID)) {

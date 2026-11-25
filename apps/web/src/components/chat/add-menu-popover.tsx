@@ -81,9 +81,9 @@ export function AddMenuPopover(props: {
   onAddTextReference: () => void
   /** "插件市场"回调(主组件负责关闭 + 重置 mode + 跳转 /plugins) */
   onOpenPluginMarket: () => void
-  /** "连接器"回调(2026-11-25:toggle 挂载连接器只读能力到对话;主组件负责关闭 + 重置 mode) */
+  /** "连接器"回调(2026-11-25:toggle 挂载连接器读写能力到对话;主组件负责关闭 + 重置 mode) */
   onToggleConnectors: () => void
-  /** 连接器只读能力是否已挂载(菜单项显示选中态) */
+  /** 连接器能力是否已挂载(菜单项显示选中态) */
   connectorsMounted: boolean
   /** "深度研究"回调(2026-09-07 工作线 B:主组件负责关闭 + 重置 mode + 跳转 /deep-research) */
   onOpenDeepResearch: () => void
@@ -455,9 +455,10 @@ export function AddMenuPopover(props: {
                   <Package className={MENU_ITEM_ICON_CLASS} />
                   <span className="min-w-0 flex-1 truncate">{tNav('pluginMarket')}</span>
                 </button>
-                {/* 连接器入口(2026-11-25):toggle 挂载只读能力到对话。挂载后 AI 可调用
-                    connector_capabilities/connector_call_read 查询用户已授权连接器的数据;
-                    action 写操作不进工具面。授权管理仍在顶栏生态市场的 /connectors 页。 */}
+                {/* 连接器入口(2026-11-25,同日扩写):toggle 挂载读写能力到对话。挂载后 AI 可
+                    调用 connector_capabilities/connector_call_read 查询已授权连接器数据,
+                    也可用 connector_write_capabilities/connector_call_write 执行写操作 ——
+                    写操作执行前弹审批,用户批准才真正执行。授权管理仍在 /connectors 页。 */}
                 <button
                   type="button"
                   role="menuitem"

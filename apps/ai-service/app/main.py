@@ -883,15 +883,17 @@ async def lifespan(app: FastAPI) -> Any:
         logger.info("[api_bridge] 启动注册 API 工具: %d 个", _n_api)
     except Exception as e:
         logger.warning("[api_bridge] 启动注册失败(忽略): %s", e)
-    # 连接器只读工具(2026-11-25 立):把已授权连接器的 list/search/fetch 能力接入
-    # AI 对话 tool loop。action 写操作不进工具面,身份由服务端 principal 注入。
+    # 连接器工具(2026-11-25 立,同日扩写):把已授权连接器的读写能力接入 AI 对话
+    # tool loop。只读 list/search/fetch 免审批;写 action 由 connector_call_write
+    # 承载,在 llm.py/agent_loop_v2 判 high 走审批门,身份由服务端 principal 注入、
+    # confirm 由 handler 恒 True。函数名保留 ..._read_tools 以兼容 import 面。
     try:
         from app.services.connectors.connector_read_tools import setup_connector_read_tools
 
         _n_conn = setup_connector_read_tools()
-        logger.info("[connector_read] 启动注册连接器只读工具: %d 个", _n_conn)
+        logger.info("[connector] 启动注册连接器工具(2 读 + 2 写): %d 个", _n_conn)
     except Exception as e:
-        logger.warning("[connector_read] 启动注册失败(忽略): %s", e)
+        logger.warning("[connector] 启动注册失败(忽略): %s", e)
     try:
         from app.services.ui_action_bridge import (
             register_app_ui_tools,

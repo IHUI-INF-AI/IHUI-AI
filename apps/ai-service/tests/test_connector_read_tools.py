@@ -1,13 +1,15 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-"""连接器只读工具安全守门测试(2026-11-25)。
+"""连接器工具安全守门测试(2026-11-25 立,同日扩写)。
 
-钉死四条不变式:
+钉死不变式:
 1. 无服务端 principal ⇒ 一律拒绝(LLM 不能靠入参伪造身份)
-2. 非只读操作(action)与未授权连接器的 operation ⇒ 拒绝执行
-3. 只读操作在授权清单内 ⇒ 放行,且 confirm 恒 False(绝不触发写门)
-4. 工具 schema 不含任何凭据字段;工具注册幂等且 _TOOLS/_TOOL_HANDLERS 双射
+2. 只读:非只读操作(action)与未授权连接器的 operation ⇒ 拒绝;confirm 恒 False
+3. 写:非 action / 未开 allow_write / 未授权连接器 ⇒ 拒绝;confirm 恒 True
+4. 写能力清单只列 action 且 spec.allow_write=true 的操作,不返回凭据
+5. 工具 schema 不含任何凭据字段;工具注册幂等且 _TOOLS/_TOOL_HANDLERS 双射
+6. 写工具在 llm.py / agent_loop_v2 判 high(审批门),只读工具不判
 """
 
 from __future__ import annotations
@@ -42,13 +44,22 @@ def _fake_caps_payload():
         "ok": True, "status": 200,
         "data": {"connectors": [
             {"key": "feishu-me", "enabled": True, "configured": True,
+             "spec": {"allow_write": True},
              "operations": [
                  {"id": "list_docs", "capability": "list", "name": "列文档"},
                  {"id": "send_msg", "capability": "action", "name": "发消息"},
              ]},
+            # 开了写权限但只有只读操作 ⇒ 写能力清单应为空
             {"key": "dingtalk-me", "enabled": True, "configured": True,
+             "spec": {"allow_write": True},
              "operations": [
                  {"id": "fetch_user", "capability": "fetch", "name": "查成员"},
+             ]},
+            # 有 action 但未开 allow_write ⇒ 写能力清单不得包含它
+            {"key": "readonly-me", "enabled": True, "configured": True,
+             "spec": {"allow_write": False},
+             "operations": [
+                 {"id": "create_doc", "capability": "action", "name": "建文档"},
              ]},
         ]},
     }
@@ -157,17 +168,113 @@ async def test_call_read_rejects_non_dict_params(monkeypatch, principal_a):
     assert out["errorCode"] == "BAD_PARAMS"
 
 
-# --- 5. schema 脱敏 + 注册双射 ---
+# --- 5. 写能力清单只列 action 且 allow_write ---
+@pytest.mark.asyncio
+async def test_write_capabilities_filters_action_and_allow_write(monkeypatch, principal_a):
+    async def fake(method, path, **kw):
+        return _fake_caps_payload()
+
+    monkeypatch.setattr(crt, "_asgi_call", fake)
+    out = await crt._write_capabilities_handler({})
+    assert out["ok"] is True
+    # 只有 feishu-me/send_msg 满足 action + allow_write
+    assert {(c["connector_key"], c["operation_id"]) for c in out["connectors"]} == {
+        ("feishu-me", "send_msg")
+    }
+    assert all(c["capability"] == "action" for c in out["connectors"])
+
+
+@pytest.mark.asyncio
+async def test_write_capabilities_without_principal_denied(monkeypatch):
+    tok = set_security_principal(None)
+    try:
+        monkeypatch.setattr(crt, "_asgi_call", _fail_if_called)
+        out = await crt._write_capabilities_handler({})
+        assert out["ok"] is False
+        assert out["errorCode"] == "NO_PRINCIPAL"
+    finally:
+        if tok is not None:
+            reset_security_principal(tok)
+
+
+# --- 6. 写操作拒执:非 action / 未开 allow_write / 未授权 ---
+@pytest.mark.asyncio
+@pytest.mark.parametrize("key,op_id", [
+    ("feishu-me", "list_docs"),    # 只读操作不得经由写工具执行
+    ("readonly-me", "create_doc"),  # action 但未开 allow_write
+    ("dingtalk-me", "send_msg"),   # 该连接器无此写操作
+    ("attacker", "send_msg"),       # 连接器不属当前用户
+])
+async def test_call_write_denies_non_action(monkeypatch, principal_a, key, op_id):
+    async def fake(method, path, **kw):
+        if method == "GET":
+            return _fake_caps_payload()
+        raise AssertionError("不应执行 invoke")
+
+    monkeypatch.setattr(crt, "_asgi_call", fake)
+    out = await crt._call_write_handler({"connector_key": key, "operation_id": op_id})
+    assert out["ok"] is False
+    assert out["errorCode"] == "WRITE_NOT_ALLOWED"
+
+
+# --- 7. 写操作放行,confirm 恒 True(LLM 自填 False 也必须被覆盖) ---
+@pytest.mark.asyncio
+async def test_call_write_allows_action_with_confirm_true(monkeypatch, principal_a):
+    seen = {}
+
+    async def fake(method, path, **kw):
+        if method == "GET":
+            return _fake_caps_payload()
+        seen["method"] = method
+        seen["path"] = path
+        seen["body"] = kw.get("body")
+        return {"ok": True, "status": 200, "data": {"ok": True}}
+
+    monkeypatch.setattr(crt, "_asgi_call", fake)
+    out = await crt._call_write_handler({
+        "connector_key": "feishu-me", "operation_id": "send_msg",
+        "params": {"text": "hi"}, "confirm": False,  # LLM 自填 False 不得影响
+    })
+    assert out["ok"] is True
+    assert "/api/connectors/feishu-me/invoke" in seen["path"]
+    assert seen["body"]["confirm"] is True
+    assert seen["body"]["params"] == {"text": "hi"}
+
+
+@pytest.mark.asyncio
+async def test_call_write_rejects_non_dict_params(monkeypatch, principal_a):
+    async def fake(method, path, **kw):
+        return _fake_caps_payload()
+
+    monkeypatch.setattr(crt, "_asgi_call", fake)
+    out = await crt._call_write_handler({
+        "connector_key": "feishu-me", "operation_id": "send_msg",
+        "params": "not-a-dict",
+    })
+    assert out["ok"] is False
+    assert out["errorCode"] == "BAD_PARAMS"
+
+
+# --- 8. schema 脱敏 + 注册双射 + 高危映射 ---
 def test_minted_token_audience_matches_jwt_auth():
     """audience 必须与 jwt_auth 验签一致,否则 ASGI 自调用全部鉴权失败。"""
     assert crt._JWT_AUDIENCE == "ihui-ai-users"
 
 
 def test_tool_schemas_have_no_credentials():
-    for tool in (crt._capabilities_tool(), crt._call_read_tool()):
+    for tool in (
+        crt._capabilities_tool(), crt._call_read_tool(),
+        crt._write_capabilities_tool(), crt._call_write_tool(),
+    ):
         text = str(tool.input_schema).lower()
-        for leak in ("token", "secret", "password", "user_id", "tenant_id", "scope"):
+        for leak in ("token", "secret", "password", "user_id", "tenant_id", "scope", "confirm"):
             assert leak not in text, f"{tool.name} schema 泄露字段 {leak}"
+
+
+def test_call_write_tool_has_no_confirm_in_schema():
+    """confirm 不得出现在 schema:写操作的二次确认是审批门,不是 LLM 自填字段。"""
+    schema = str(crt._call_write_tool().input_schema).lower()
+    assert "confirm" not in schema
 
 
 def test_setup_is_idempotent_and_keeps_bijection():
@@ -176,5 +283,20 @@ def test_setup_is_idempotent_and_keeps_bijection():
     assert n2 == 0  # 幂等:第二次同名注册被拒
     assert len(_mcp_module._TOOLS) == len(_mcp_module._TOOL_HANDLERS)
     names = {t.name for t in _mcp_module._TOOLS}
-    assert crt.CAPABILITIES_TOOL in names
-    assert crt.CALL_READ_TOOL in names
+    for tool in (
+        crt.CAPABILITIES_TOOL, crt.CALL_READ_TOOL,
+        crt.WRITE_CAPABILITIES_TOOL, crt.CALL_WRITE_TOOL,
+    ):
+        assert tool in names
+
+
+def test_write_tool_is_high_risk_in_both_loops():
+    """写工具必须在两条 tool loop 判 high,否则该 loop 下无审批直写。"""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]  # apps/ai-service
+    llm = (root / "app/routers/llm.py").read_text(encoding="utf-8")
+    assert '"connector_call_write": "high"' in llm
+    assert '"connector_call_read": "high"' not in llm  # 只读免审批
+    agent = (root / "app/services/agent_loop_v2.py").read_text(encoding="utf-8")
+    assert agent.count('"connector_call_write",') >= 2  # 主高危集 + 运行时登记

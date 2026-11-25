@@ -508,6 +508,11 @@ _DEFAULT_HIGH_RISK_TOOLS: frozenset[str] = frozenset({
     # 后端数据。只读查询走 *_endpoints_search(不在本表,免审批),不受影响。
     "api_endpoint_call",
     "ais_endpoint_call",
+    # 连接器写操作(2026-11-25):可执行已授权连接器的 action(发消息/建文档等),
+    # 能力面=它能触达的最危险写端点,判高危进审批门;只读 connector_call_read 与
+    # 仅列举的 connector_write_capabilities 不在此表(免审批)。身份服务端 principal
+    # 注入,confirm 由 handler 恒 True。
+    "connector_call_write",
 })
 
 # 前缀高危:computer_* 系列(电脑控制)整体视为高危
@@ -523,6 +528,9 @@ _HIGH_RISK_PREFIXES: tuple[str, ...] = ("computer_",)
 BRIDGE_ENTRY_RUNTIME_TOOLS: frozenset[str] = frozenset({
     "api_endpoint_call",
     "ais_endpoint_call",
+    # 连接器写工具同样在 lifespan 运行时经 register_external_tool 注入,
+    # 不进静态 _TOOLS 快照;已入 _DEFAULT_HIGH_RISK_TOOLS,在此登记为判据盲区豁免。
+    "connector_call_write",
 })
 
 

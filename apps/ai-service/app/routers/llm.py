@@ -1457,6 +1457,11 @@ _TOOL_DANGER_LEVELS: dict[str, str] = {
     # 模型要"只看不改"走搜索入口即可,不受影响。
     "api_endpoint_call": "high",
     "ais_endpoint_call": "high",
+    # 连接器写操作(2026-11-25):connector_call_write 可执行已授权连接器的 action
+    # (发消息/建文档等)。判 high ⇒ 执行前必弹 tool-approval,用户批准才调 handler;
+    # 只读 connector_call_read 不在本表,免审批。connector_write_capabilities 仅列举,
+    # 也不在本表。身份由服务端 principal 注入,confirm 由 handler 恒 True。
+    "connector_call_write": "high",
 }
 
 
