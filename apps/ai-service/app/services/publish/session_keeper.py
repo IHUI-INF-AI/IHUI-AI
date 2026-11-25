@@ -73,7 +73,7 @@ _KIND_CONFIG = "config_error"
 _LOGIN_MARKERS = (
     "login", "signin", "sign_in", "sign-in", "sso", "passport",
     "登录", "未登录", "请登录", "重新登录", "授权失效", "登录失效",
-    "cookie expired", "token expired", "invalid token", "unauthorized",
+    "cookie expired", "cookie may be expired", "token expired", "invalid token", "unauthorized",
     "not logged in", "auth failed", "401",
 )
 _NETWORK_MARKERS = (
