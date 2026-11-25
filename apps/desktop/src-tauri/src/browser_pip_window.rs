@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-//! 桌面端 AI 画中画监看窗 —— 2026-11-25 立。
+//! 桌面端 AI 画中画监看窗 —— 2026-11-25 立,2026-11-26 多窗化。
 //!
 //! 和 `embedded_browser` 的原生小窗不是同一件事:
 //! - 内嵌浏览器小窗监控的是**本地浏览器页面**,只读盾/接管/几何记忆已在其模块实现;
@@ -11,19 +11,21 @@
 //!   文章里“AI 跑网页时的只读监看 + 目标/进度/检查点/继续”的完整体验,而不是把
 //!   Browser Hub 的假任务状态硬塞进本地浏览器小窗。
 //!
-//! 窗口契约:420×280 起、最小 320×200、置顶、可缩放、不进任务栏、打开不抢焦点。
+//! 窗口契约:420×280 起、最小 320×200、置顶、可缩放、不进任务栏、打开/点击都不抢焦点。
+//!
+//! 多窗:每会话一个 label(`ai-browser-pip-<session>`)。旧版全仓唯一 label 的
+//! 单例窗会让第二个会话把第一个监看窗顶掉,和 TRAE 可同时看多个任务的形态不一致。
+//! 这里按会话保存几何/收起状态,允许最多 5 个窗口(与服务端单主体会话上限一致)。
 
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Mutex,
+use std::{
+    collections::HashMap,
+    sync::{LazyLock, Mutex},
 };
 
-use tauri::{
-    AppHandle, Emitter, Manager, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
-};
+use tauri::{AppHandle, Emitter, Manager, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
-/// 全仓唯一的 AI 画中画窗口 label。
-pub const AI_PIP_WINDOW_LABEL: &str = "ai-browser-pip";
+/// 每个会话的 AI 画中画窗口 label 前缀。
+pub const AI_PIP_WINDOW_LABEL_PREFIX: &str = "ai-browser-pip";
 const AI_PIP_WIDTH: f64 = 420.0;
 const AI_PIP_HEIGHT: f64 = 280.0;
 const AI_PIP_MIN_WIDTH: f64 = 320.0;
@@ -31,18 +33,36 @@ const AI_PIP_MIN_HEIGHT: f64 = 200.0;
 /// 收起时只留顶部状态栏;32px 与页面 header 的 h-8 一致。
 const AI_PIP_COLLAPSED_HEIGHT: f64 = 32.0;
 const AI_PIP_MARGIN: f64 = 24.0;
+const AI_PIP_CASCADE_STEP: f64 = 40.0;
+const AI_PIP_MAX_WINDOWS: usize = 5;
 
-/// 上次 AI 画中画窗口位置(物理像素);窗口关闭时记,下次打开沿用。
-/// 这里刻意用物理像素而不是逻辑坐标:150% DPI 下 WebView2 初始化会触发一次
-/// DPI 换算,逻辑尺寸在 builder/show 之间会被再缩放一次,真机表现为
-/// 「拖到 900×600,关掉重开变成 600×400」。存物理像素并在 show 后用
+fn pip_window_label(session_id: &str) -> String {
+    format!("{AI_PIP_WINDOW_LABEL_PREFIX}-{session_id}")
+}
+
+/// 兼容旧单例 label:升级时若还留着一个 `ai-browser-pip`,关闭/清理路径也要认。
+fn is_pip_window_label(label: &str) -> bool {
+    label == AI_PIP_WINDOW_LABEL_PREFIX
+        || label
+            .strip_prefix(AI_PIP_WINDOW_LABEL_PREFIX)
+            .is_some_and(|rest| rest.starts_with('-'))
+}
+
+#[derive(Clone, Copy, Default)]
+struct PipGeometry {
+    /// 物理像素位置;窗口关闭/移动时记,下次打开沿用。
+    pos: Option<(i32, i32)>,
+    /// 物理像素内容区尺寸;收起态不覆盖,保证下次展开仍是完整尺寸。
+    size: Option<(u32, u32)>,
+    collapsed: bool,
+}
+
+/// 按窗口 label 保存几何。这里刻意用物理像素而不是逻辑坐标:150% DPI 下
+/// WebView2 初始化会触发一次 DPI 换算,逻辑尺寸在 builder/show 之间会被再缩放一次,
+/// 真机表现为「拖到 900×600,关掉重开变成 600×400」。存物理像素并在 show 后
 /// `set_size(PhysicalSize)` 落一次,才能像素级还原。
-static AI_PIP_LAST_POS: Mutex<Option<(i32, i32)>> = Mutex::new(None);
-/// 上次 AI 画中画窗口内容区尺寸(物理像素);同样关闭时记,下次打开沿用。
-static AI_PIP_LAST_SIZE: Mutex<Option<(u32, u32)>> = Mutex::new(None);
-/// 当前是否处于「收起成标题条」状态。收起期间 Resized 事件不能覆盖
-/// AI_PIP_LAST_SIZE,否则下次打开会沿用 32px 高度。
-static AI_PIP_COLLAPSED: AtomicBool = AtomicBool::new(false);
+static AI_PIP_GEOMETRY: LazyLock<Mutex<HashMap<String, PipGeometry>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// 上次尺寸不能把窗口缩到看不了;下限仍是 320×200 逻辑像素,
 /// 按当前 DPI 换算成物理像素后再夹。
@@ -57,29 +77,44 @@ fn clamp_pip_pixels(width: u32, height: u32, scale: f64) -> (u32, u32) {
     (width.max(min_w), height.max(min_h))
 }
 
-/// 记当前几何,供下次打开沿用。用户点关闭和代码主动销毁都必须走这里,
+fn geometry_for(label: &str) -> PipGeometry {
+    AI_PIP_GEOMETRY
+        .lock()
+        .ok()
+        .and_then(|guard| guard.get(label).copied())
+        .unwrap_or_default()
+}
+
+fn update_geometry<F>(label: &str, mutate: F)
+where
+    F: FnOnce(&mut PipGeometry),
+{
+    if let Ok(mut guard) = AI_PIP_GEOMETRY.lock() {
+        mutate(guard.entry(label.to_string()).or_default());
+    }
+}
+
+/// 记当前几何,供同会话下次打开沿用。用户点关闭和代码主动销毁都必须走这里,
 /// 否则 `destroy()` 不触发 `CloseRequested`,尺寸/位置会丢。
 fn remember_pip_geometry(win: &WebviewWindow) {
-    // 收起态只有 32px 高,不能把它当成用户以后要复用的尺寸;位置仍可更新。
-    if AI_PIP_COLLAPSED.load(Ordering::Relaxed) {
-        if let Ok(pos) = win.outer_position() {
-            if let Ok(mut guard) = AI_PIP_LAST_POS.lock() {
-                *guard = Some((pos.x, pos.y));
-            }
+    let label = win.label().to_string();
+    let pos = win.outer_position().ok().map(|p| (p.x, p.y));
+    let size = if geometry_for(&label).collapsed {
+        None
+    } else {
+        win.inner_size().ok().map(|size| {
+            let scale = win.scale_factor().unwrap_or(1.0);
+            clamp_pip_pixels(size.width, size.height, scale)
+        })
+    };
+    update_geometry(&label, |geometry| {
+        if let Some(pos) = pos {
+            geometry.pos = Some(pos);
         }
-        return;
-    }
-    if let Ok(pos) = win.outer_position() {
-        if let Ok(mut guard) = AI_PIP_LAST_POS.lock() {
-            *guard = Some((pos.x, pos.y));
+        if let Some(size) = size {
+            geometry.size = Some(size);
         }
-    }
-    if let Ok(size) = win.inner_size() {
-        let scale = win.scale_factor().unwrap_or(1.0);
-        if let Ok(mut guard) = AI_PIP_LAST_SIZE.lock() {
-            *guard = Some(clamp_pip_pixels(size.width, size.height, scale));
-        }
-    }
+    });
 }
 
 /// 由主窗口 URL 生成 `/browser-pip?session=...`,保留主站 origin(含端口)。
@@ -120,10 +155,19 @@ struct BrowserPipHandover {
     title: String,
 }
 
-/// 主窗口右上角内侧;拿不到主窗几何时回落到屏幕左上。
-fn pip_open_position(app: &AppHandle) -> (i32, i32) {
-    if let Some(last) = AI_PIP_LAST_POS.lock().ok().and_then(|g| *g) {
-        return last;
+/// 单个监看窗关闭事件。多窗后不能再用无载荷的 `closed` 事件把主窗按钮
+/// 一刀切复位——关掉 B 窗不该把 A 会话的按钮变成「未打开」。
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BrowserPipClosed {
+    session_id: String,
+}
+
+/// 主窗口右上角内侧;多窗按打开顺序向下错开,避免完全叠在一起。
+/// 同一会话有上次位置时优先还原它。
+fn pip_open_position(app: &AppHandle, label: &str) -> (i32, i32) {
+    if let Some(pos) = geometry_for(label).pos {
+        return pos;
     }
     let Some(main) = app.get_webview_window("main") else {
         return (AI_PIP_MARGIN as i32, AI_PIP_MARGIN as i32);
@@ -131,8 +175,15 @@ fn pip_open_position(app: &AppHandle) -> (i32, i32) {
     let scale = main.scale_factor().unwrap_or(1.0);
     let pos = main.outer_position().unwrap_or_default();
     let size = main.outer_size().unwrap_or_default();
+    let open_count = app
+        .webview_windows()
+        .keys()
+        .filter(|name| is_pip_window_label(name))
+        .count();
     let x = pos.x + size.width as i32 - ((AI_PIP_WIDTH + AI_PIP_MARGIN) * scale) as i32;
-    let y = pos.y + (AI_PIP_MARGIN * scale) as i32;
+    let y = pos.y
+        + (AI_PIP_MARGIN * scale) as i32
+        + (open_count as f64 * AI_PIP_CASCADE_STEP * scale) as i32;
     (x.max(0), y.max(0))
 }
 
@@ -146,18 +197,97 @@ fn pip_token_script(access_token: &str, origin: &str) -> Result<String, String> 
     ))
 }
 
-/// 打开 AI 画中画窗;同 label 已存在则先关旧窗,避免叠窗。
+fn pip_window_title(session_id: &str) -> String {
+    let short: String = session_id
+        .chars()
+        .rev()
+        .take(6)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+    if short.is_empty() {
+        "AI 画中画监看".to_string()
+    } else {
+        format!("AI 画中画监看 · {short}")
+    }
+}
+
+/// 让监看窗成为「可点击但不激活」的置顶工具窗。
 ///
-/// `access_token` 由主窗 IPC 传入,只注入新窗口的 `window.__IHUI_PIP_TOKEN__`,
-/// 不拼进 URL、不落盘、不写日志。新窗口页面拿它连 Browser Hub WS。
+/// `WS_EX_NOACTIVATE` 是 TRAE 画中画“点小窗不抢焦点”的关键:没有它,用户点
+/// 收起/置顶/重连时 Windows 会先把监看窗激活,主窗里的键盘输入就断了。
+/// `WS_EX_TOOLWINDOW` 同时兜住 Alt-Tab/任务栏隐藏(与 skip_taskbar 双保险)。
+#[cfg(target_os = "windows")]
+fn apply_pip_window_styles(win: &WebviewWindow) -> Result<(), String> {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, HWND_TOPMOST,
+        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    };
+
+    let hwnd = win
+        .hwnd()
+        .map_err(|e| format!("读取画中画窗口句柄失败: {e}"))?;
+    let native = HWND(hwnd.0);
+    unsafe {
+        let ex = GetWindowLongPtrW(native, GWL_EXSTYLE);
+        let next = ex | ((WS_EX_NOACTIVATE.0 | WS_EX_TOOLWINDOW.0) as isize);
+        if next != ex {
+            SetWindowLongPtrW(native, GWL_EXSTYLE, next);
+        }
+        // 样式位设置后强制落一次 Z 序/显示,但带 SWP_NOACTIVATE,不抢前台。
+        let _ = SetWindowPos(
+            native,
+            Some(HWND_TOPMOST),
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+        );
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn apply_pip_window_styles(_win: &WebviewWindow) -> Result<(), String> {
+    Ok(())
+}
+
+/// Windows 下用 `SW_SHOWNOACTIVATE` 显示,避免 builder 的 show 抢一次前台。
+#[cfg(target_os = "windows")]
+fn show_pip_window_without_activating(win: &WebviewWindow) -> Result<(), String> {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_SHOWNOACTIVATE};
+
+    let hwnd = win
+        .hwnd()
+        .map_err(|e| format!("读取画中画窗口句柄失败: {e}"))?;
+    unsafe {
+        let _ = ShowWindow(HWND(hwnd.0), SW_SHOWNOACTIVATE);
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn show_pip_window_without_activating(win: &WebviewWindow) -> Result<(), String> {
+    win.show()
+        .map_err(|e| format!("显示 AI 画中画窗口失败: {e}"))
+}
+
+/// 打开 AI 画中画窗。同一会话已存在时只刷新 token/置顶显示,不重建;
+/// 不同会话各开一窗,最多 5 个(与服务端单主体会话上限一致)。
 #[tauri::command]
 pub async fn open_browser_pip_window(
     app: AppHandle,
     session_id: String,
     access_token: String,
-) -> Result<(), String> {    if access_token.is_empty() || access_token.len() > 4096 {
+) -> Result<(), String> {
+    if access_token.is_empty() || access_token.len() > 4096 {
         return Err("访问令牌长度非法".to_string());
     }
+    validate_pip_session(&session_id)?;
     let main = app
         .get_webview_window("main")
         .ok_or_else(|| "主窗口不存在".to_string())?;
@@ -166,70 +296,61 @@ pub async fn open_browser_pip_window(
         .map_err(|e| format!("读取主窗口 URL 失败: {e}"))?;
     let url = browser_pip_url(&main_url, &session_id)?;
     let token_script = pip_token_script(&access_token, &url.origin().ascii_serialization())?;
+    let label = pip_window_label(&session_id);
+
+    if let Some(existing) = app.get_webview_window(&label) {
+        // 同一会话重复点「打开」:更新 token 后原窗显示,不销毁重建。
+        let _ = existing.eval(&token_script);
+        // 新建窗在 `build()` 后、首次 show 前拿不到 HWND;此时重复点击不能报错，
+        // 否则自动监看 4s 轮询会把「正在创建」误报成失败。样式等首次创建流程会补。
+        if let Err(e) = apply_pip_window_styles(&existing) {
+            log::debug!("[browser-pip] 窗口仍在创建,跳过重复应用样式: {e}");
+            return Ok(());
+        }
+        show_pip_window_without_activating(&existing)?;
+        return Ok(());
+    }
+
+    let open_count = app
+        .webview_windows()
+        .keys()
+        .filter(|name| is_pip_window_label(name))
+        .count();
+    if open_count >= AI_PIP_MAX_WINDOWS {
+        return Err(format!("最多同时监看 {AI_PIP_MAX_WINDOWS} 个会话"));
+    }
 
     let open_scale = main.scale_factor().unwrap_or(1.0);
-    let (x, y) = pip_open_position(&app);
-    let saved_size = AI_PIP_LAST_SIZE.lock().ok().and_then(|guard| *guard);
+    let (x, y) = pip_open_position(&app, &label);
+    let saved_size = geometry_for(&label).size;
     let build_app = app.clone();
     let build_session = session_id.clone();
+    let build_label = label.clone();
     let build_script = token_script.clone();
+    let build_url = url.clone();
+    let build_title = pip_window_title(&session_id);
+
     // WebView2 控制器必须在 UI 线程创建;从 async 命令线程直接 build 会报
     // HRESULT(0x8007139F) "Expecting object to be local"(2026-11-25 真机实测,
     // 同进程连 admin 窗也一并失败)。`run_on_main_thread` 只排队、不阻塞调用方,
     // 所以命令可立刻返回;真正的失败走 `browser-pip://failed` 回主窗,不静默。
-    //
-    // 重复打开必须先等旧窗真正销毁:close() 只是把销毁排进事件循环,紧接着
-    // build 同 label 会报 "a webview with label ai-browser-pip already exists"
-    // (页面热更新/用户连点两次都会踩到)。这里先把关闭发出去,再以 150ms 为步长
-    // 轮询旧 label 是否消失(最多 1.8s),确认后才在 UI 线程重建。
-    let was_collapsed = AI_PIP_COLLAPSED.swap(false, Ordering::Relaxed);
-    if let Some(old) = app.get_webview_window(AI_PIP_WINDOW_LABEL) {
-        // 先记几何,再强制销毁:close() 只是排队,WebView2 实测 250ms 后
-        // get_webview_window 仍可能拿到旧 label,重建会被"旧窗尚未销毁"挡住。
-        // destroy() 不触发 CloseRequested,所以几何必须在这里显式落盘。
-        // 旧窗处于 32px 收起态时跳过,保留上一次完整尺寸。
-        if !was_collapsed {
-            remember_pip_geometry(&old);
-        }
-        let _ = old.destroy();
-    }
     tauri::async_runtime::spawn(async move {
-        // destroy() 之后 WebView2 的销毁仍在 UI 事件循环里排队,固定 250ms 在真机
-        // 不够:2026-11-25 实测仍有 get_webview_window 拿回旧 label 的情况。这里
-        // 改成轮询「旧窗是否真的从 manager 消失」,最多等 1.8s;只有确认消失才 build,
-        // 避免用固定 sleep 赌时序。
-        let mut old_gone = false;
-        for _ in 0..12 {
-            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
-            let probe_app = build_app.clone();
-            let (tx, rx) = tokio::sync::oneshot::channel::<bool>();
-            let _ = build_app.run_on_main_thread(move || {
-                let _ = tx.send(probe_app.get_webview_window(AI_PIP_WINDOW_LABEL).is_none());
-            });
-            if let Ok(true) = rx.await {
-                old_gone = true;
-                break;
-            }
-        }
-        if !old_gone {
-            let error = "旧画中画窗口尚未销毁,已放弃本次重建".to_string();
-            log::error!("[browser-pip] {error}");
-            let _ = build_app.emit_to("main", "browser-pip://failed", error);
-            let _ = build_app.emit_to("main", "browser-pip://closed", ());
-            return;
-        }
         let create_app = build_app.clone();
         let _ = build_app.run_on_main_thread(move || {
             let result = (|| -> Result<(), String> {
-                if create_app.get_webview_window(AI_PIP_WINDOW_LABEL).is_some() {
-                    return Err("旧画中画窗口尚未销毁,已放弃本次重建".to_string());
+                if create_app.get_webview_window(&build_label).is_some() {
+                    return Ok(());
                 }
+                // 建窗前记下前台，build 自身可能激活一次；装完 NOACTIVATE 后还原。
+                #[cfg(target_os = "windows")]
+                let previous_foreground =
+                    unsafe { windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow() };
                 let win = WebviewWindowBuilder::new(
                     &create_app,
-                    AI_PIP_WINDOW_LABEL,
-                    WebviewUrl::External(url),
+                    build_label.as_str(),
+                    WebviewUrl::External(build_url),
                 )
-                .title("AI 画中画监看")
+                .title(build_title.as_str())
                 .inner_size(AI_PIP_WIDTH, AI_PIP_HEIGHT)
                 .min_inner_size(AI_PIP_MIN_WIDTH, AI_PIP_MIN_HEIGHT)
                 .position(x as f64 / open_scale, y as f64 / open_scale)
@@ -242,38 +363,50 @@ pub async fn open_browser_pip_window(
                 .initialization_script(&build_script)
                 .build()
                 .map_err(|e| format!("打开 AI 画中画窗口失败: {e}"))?;
+
+                // build 默认 visible(true)，WebView2 控制器已在 UI 线程同步创建；
+                // 这时 hwnd 已就绪，可以立刻装 NOACTIVATE，不需要再 show/hide。
                 win.show()
                     .map_err(|e| format!("显示 AI 画中画窗口失败: {e}"))?;
-                // builder 按逻辑像素建窗,150% DPI 下 WebView2 初始化还会再触发一次
-                // DPI 换算。这里在 show 之后用物理像素把上次的内尺寸和位置再落一次,
-                // 保证用户拖到多大、关掉重开就还是多大,而不是被换算成 2/3。
+                apply_pip_window_styles(&win)?;
+                show_pip_window_without_activating(&win)?;
+                apply_pip_window_styles(&win)?;
+                #[cfg(target_os = "windows")]
+                if !previous_foreground.0.is_null() {
+                    // SAFETY: 句柄来自建窗之前的前台窗口;只做一次前台还原。
+                    unsafe {
+                        let _ = windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow(
+                            previous_foreground,
+                        );
+                    }
+                }
+
+                // builder 按逻辑像素建窗，150% DPI 下 WebView2 初始化还会再触发
+                // 一次 DPI 换算。这里在 show 之后用物理像素把上次的内尺寸和位置
+                // 再落一次，保证拖多大、关掉重开就还是多大。
                 if let Some((saved_w, saved_h)) = saved_size {
                     let _ = win.set_size(tauri::PhysicalSize::new(saved_w, saved_h));
                 }
                 let _ = win.set_position(tauri::PhysicalPosition::new(x, y));
-                // builder 的 .title 在本机被外壳的窗控标题覆盖成「智汇AI」,
-                // show 之后再落一次,保证任务栏/Alt-Tab 里认得出这是监看窗。
-                let _ = win.set_title("AI 画中画监看");
-                // Tauri set_title 在本机仍被外壳的置顶窗控盖回应用名;直接写 Win32
-                // 窗口文本,视觉标题才稳定。非 Windows 走上面的 set_title。
+                // builder 的 .title 在本机被外壳窗控标题覆盖成「智汇AI」,
+                // show 之后再落一次，任务栏/Alt-Tab 才认得出是监看窗。
+                let _ = win.set_title(&build_title);
                 #[cfg(target_os = "windows")]
                 if let Ok(hwnd) = win.hwnd() {
                     use windows::core::HSTRING;
                     use windows::Win32::Foundation::HWND;
                     use windows::Win32::UI::WindowsAndMessaging::SetWindowTextW;
-                    // SAFETY: hwnd 来自刚创建并已 show 的本窗口,调用在本窗口线程;
-                    // 仅写标题文本,不持有句柄跨线程。
+                    // SAFETY: hwnd 来自刚创建的本窗口，调用在主线程;
+                    // 仅写标题文本，不持有句柄跨线程。
                     unsafe {
-                        let _ = SetWindowTextW(HWND(hwnd.0), &HSTRING::from("AI 画中画监看"));
+                        let _ = SetWindowTextW(HWND(hwnd.0), &HSTRING::from(build_title.as_str()));
                     }
                 }
 
-                // 关窗即记位置;下次打开沿用,避免每次都回到主窗右上角。
+                // 关窗/拖拽即记几何;下次同会话打开沿用,多窗之间互不覆盖。
                 let win_ev = win.clone();
+                let closed_session = build_session.clone();
                 win.on_window_event(move |event| {
-                    // 尺寸/位置在拖动缩放时持续落盘。WebView2 下外部的 WM_CLOSE
-                    // 不一定走 CloseRequested;只靠关闭事件会退回默认 420×280
-                    // (2026-11-25 真机:620×420 关闭重开变成 428×297)。
                     if matches!(
                         event,
                         tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Moved(_)
@@ -283,37 +416,45 @@ pub async fn open_browser_pip_window(
                     }
                     if let tauri::WindowEvent::CloseRequested { .. } = event {
                         remember_pip_geometry(&win_ev);
-                        let _ = win_ev.emit_to("main", "browser-pip://closed", ());
+                        let _ = win_ev.emit_to(
+                            "main",
+                            "browser-pip://closed",
+                            BrowserPipClosed {
+                                session_id: closed_session.clone(),
+                            },
+                        );
                     }
                 });
-                log::info!("[browser-pip] 打开 AI 画中画监看窗 session={build_session}");
+                log::info!(
+                    "[browser-pip] 打开 AI 画中画监看窗 session={build_session} label={build_label}"
+                );
                 Ok(())
             })();
             if let Err(error) = result {
                 log::error!("[browser-pip] {error}");
                 let _ = create_app.emit_to("main", "browser-pip://failed", error);
-                let _ = create_app.emit_to("main", "browser-pip://closed", ());
             }
         });
     });
     Ok(())
 }
 
-/// 收起/展开 AI 画中画窗。收起不是 OS minimize:监看窗默认不进任务栏,
-/// 直接最小化会让用户没有恢复入口。这里压到 32px 标题条,窗口仍置顶可见,
-/// 再点同一枚按钮还原到上次完整尺寸。
+/// 收起/展开当前 AI 画中画窗。命令由监看窗页面自己调用,`window` 由 Tauri
+/// 注入当前 WebviewWindow;多窗后不能再从全局 label 找“那一个”窗口。
 #[tauri::command]
-pub fn set_browser_pip_collapsed(app: AppHandle, collapsed: bool) -> Result<bool, String> {
-    let win = app
-        .get_webview_window(AI_PIP_WINDOW_LABEL)
-        .ok_or_else(|| "AI 画中画窗口不存在".to_string())?;
+pub fn set_browser_pip_collapsed(window: WebviewWindow, collapsed: bool) -> Result<bool, String> {
+    let label = window.label().to_string();
+    if !is_pip_window_label(&label) {
+        return Err("当前窗口不是 AI 画中画监看窗".to_string());
+    }
+    let win = window;
     let scale = win.scale_factor().unwrap_or(1.0);
     let min_w = (AI_PIP_MIN_WIDTH * scale).round() as u32;
     let min_h = (AI_PIP_MIN_HEIGHT * scale).round() as u32;
     let collapsed_h = (AI_PIP_COLLAPSED_HEIGHT * scale).round() as u32;
 
     if collapsed {
-        if AI_PIP_COLLAPSED.load(Ordering::Relaxed) {
+        if geometry_for(&label).collapsed {
             return Ok(true);
         }
         // 先按完整窗记一次几何,再打开收起标记,后续 Resized 不会覆盖它。
@@ -323,7 +464,7 @@ pub fn set_browser_pip_collapsed(app: AppHandle, collapsed: bool) -> Result<bool
             .map_err(|e| format!("读取画中画窗尺寸失败: {e}"))?;
         win.set_resizable(false)
             .map_err(|e| format!("锁定画中画窗缩放失败: {e}"))?;
-        AI_PIP_COLLAPSED.store(true, Ordering::Relaxed);
+        update_geometry(&label, |geometry| geometry.collapsed = true);
         let result = (|| -> Result<(), String> {
             win.set_min_size(Some(tauri::PhysicalSize::new(min_w, collapsed_h)))
                 .map_err(|e| format!("设置收起最小尺寸失败: {e}"))?;
@@ -334,31 +475,27 @@ pub fn set_browser_pip_collapsed(app: AppHandle, collapsed: bool) -> Result<bool
             Ok(())
         })();
         if let Err(error) = result {
-            AI_PIP_COLLAPSED.store(false, Ordering::Relaxed);
+            update_geometry(&label, |geometry| geometry.collapsed = false);
             let _ = win.set_resizable(true);
             return Err(error);
         }
         return Ok(true);
     }
 
-    if !AI_PIP_COLLAPSED.load(Ordering::Relaxed) {
+    if !geometry_for(&label).collapsed {
         return Ok(false);
     }
-    AI_PIP_COLLAPSED.store(false, Ordering::Relaxed);
+    update_geometry(&label, |geometry| geometry.collapsed = false);
     win.set_min_size(Some(tauri::PhysicalSize::new(min_w, min_h)))
         .map_err(|e| format!("恢复画中画最小尺寸失败: {e}"))?;
     win.set_resizable(true)
         .map_err(|e| format!("恢复画中画缩放失败: {e}"))?;
-    let (width, height) = AI_PIP_LAST_SIZE
-        .lock()
-        .ok()
-        .and_then(|guard| *guard)
-        .unwrap_or_else(|| {
-            (
-                (AI_PIP_WIDTH * scale).round() as u32,
-                (AI_PIP_HEIGHT * scale).round() as u32,
-            )
-        });
+    let (width, height) = geometry_for(&label).size.unwrap_or_else(|| {
+        (
+            (AI_PIP_WIDTH * scale).round() as u32,
+            (AI_PIP_HEIGHT * scale).round() as u32,
+        )
+    });
     win.set_size(tauri::PhysicalSize::new(width, height))
         .map_err(|e| format!("展开画中画窗失败: {e}"))?;
     if let Ok(pos) = win.outer_position() {
@@ -367,26 +504,43 @@ pub fn set_browser_pip_collapsed(app: AppHandle, collapsed: bool) -> Result<bool
     Ok(false)
 }
 
-/// 切换收起/展开状态。页面按钮走这里而不是传布尔值:窗口若在收起态被刷新,
-/// 前端 state 可能回到 false,传 false 会把「已收起」误判成「无需收起」。
+/// 切换当前窗口的收起/展开状态。页面按钮走这里而不是传布尔值:窗口若在
+/// 收起态被刷新,前端 state 可能回到 false,传 false 会把「已收起」误判成
+/// 「无需收起」。
 #[tauri::command]
-pub fn toggle_browser_pip_collapsed(app: AppHandle) -> Result<bool, String> {
-    let current = AI_PIP_COLLAPSED.load(Ordering::Relaxed);
-    set_browser_pip_collapsed(app, !current)
+pub fn toggle_browser_pip_collapsed(window: WebviewWindow) -> Result<bool, String> {
+    let label = window.label().to_string();
+    let current = geometry_for(&label).collapsed;
+    set_browser_pip_collapsed(window, !current)
 }
 
-/// 关闭 AI 画中画窗(供主窗按钮切换用;窗口内「接管」也会自己关)。
+/// 关闭 AI 画中画窗。传 `session_id` 只关对应会话;不传则关闭全部监看窗。
 #[tauri::command]
-pub fn close_browser_pip_window(app: AppHandle) -> Result<(), String> {
-    if let Some(win) = app.get_webview_window(AI_PIP_WINDOW_LABEL) {
-        win.close()
-            .map_err(|e| format!("关闭 AI 画中画窗口失败: {e}"))?;
+pub fn close_browser_pip_window(app: AppHandle, session_id: Option<String>) -> Result<(), String> {
+    if let Some(session_id) = session_id {
+        validate_pip_session(&session_id)?;
+        if let Some(win) = app.get_webview_window(&pip_window_label(&session_id)) {
+            win.close()
+                .map_err(|e| format!("关闭 AI 画中画窗口失败: {e}"))?;
+        }
+        return Ok(());
+    }
+    let labels: Vec<String> = app
+        .webview_windows()
+        .keys()
+        .filter(|label| is_pip_window_label(label))
+        .cloned()
+        .collect();
+    for label in labels {
+        if let Some(win) = app.get_webview_window(&label) {
+            let _ = win.close();
+        }
     }
     Ok(())
 }
 
 /// 一键接管:把主窗从最小化/后台拉回前台并聚焦,把当前会话的 url/title
-/// 交给主窗定位/重建 CDP tab,最后关掉监看窗。
+/// 交给主窗定位/重建 CDP tab,最后关掉该会话的监看窗(其他监看窗不动)。
 ///
 /// 这条命令必须在 Rust 侧完成窗口聚焦与事件投递:
 /// 监看窗是远程 origin,若改由页面 `getAllWindows().setFocus()` 去做,
@@ -420,19 +574,30 @@ pub async fn handover_browser_pip_window(
         "main",
         "browser-pip://handover",
         BrowserPipHandover {
-            session_id,
+            session_id: session_id.clone(),
             url,
             title,
         },
     )
     .map_err(|e| format!("投递接管事件失败: {e}"))?;
-    close_browser_pip_window(app)?;
+    if let Some(win) = app.get_webview_window(&pip_window_label(&session_id)) {
+        let _ = win.close();
+    }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pip_label_is_per_session() {
+        assert_eq!(pip_window_label("sess-01"), "ai-browser-pip-sess-01");
+        assert!(is_pip_window_label("ai-browser-pip-sess-01"));
+        assert!(is_pip_window_label("ai-browser-pip"));
+        assert!(!is_pip_window_label("main"));
+        assert!(!is_pip_window_label("ai-browser-pipx"));
+    }
 
     #[test]
     fn pip_url_keeps_origin_and_encodes_session() {
@@ -499,12 +664,28 @@ mod tests {
             title: "Example Domain".to_string(),
         };
         let json = serde_json::to_value(&payload).expect("serialize handover");
-        assert_eq!(json.get("sessionId").and_then(|v| v.as_str()), Some("sess-01"));
+        assert_eq!(
+            json.get("sessionId").and_then(|v| v.as_str()),
+            Some("sess-01")
+        );
         assert!(json.get("session_id").is_none());
         assert_eq!(
             json.get("url").and_then(|v| v.as_str()),
             Some("https://example.com/")
         );
     }
-}
 
+    #[test]
+    fn closed_event_carries_session_id() {
+        let payload = BrowserPipClosed {
+            session_id: "sess-02".to_string(),
+        };
+        let json = serde_json::to_value(&payload).expect("serialize closed");
+        assert_eq!(
+            json.get("sessionId").and_then(|v| v.as_str()),
+            Some("sess-02")
+        );
+        assert!(json.get("session_id").is_none());
+    }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
