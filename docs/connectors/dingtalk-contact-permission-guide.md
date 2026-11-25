@@ -32,7 +32,7 @@
 1. 用**企业管理员账号**登录钉钉开发者后台：<https://open.dingtalk.com/> → 右上角「开发者后台」。
 2. 左侧「应用开发」→「钉钉应用」→ 找到本平台配置的那个企业内部应用（即 `tenant_platform_apps` 里钉钉平台绑定的 `clientId` 对应应用），点击进入应用详情。
    - **本平台钉钉应用 Client ID（AppKey）已查明 = `dingojemqcxfzr2f5xzd`**（2026-11-25 现读生产/本地 `tenant_platform_apps.app_id`，平台 `dingtalk` 行；配套 `agent_id=4012380713`、`robot_code=dingojemqcxfzr2f5xzd`）。在开发者后台「基础信息 → 凭证与基础信息」里按此 Client ID 定位应用，**不要申请到别的应用上**。
-   - 该应用的回调地址已配置为 `https://aizhs.top/callback?platform=dingtalk`，无需再改。
+   - ⚠️ **回调地址（重定向 URL）必须确认**：授权时钉钉会拿 authorize URL 里的 `redirect_uri` 与后台白名单**逐字比对**，不在白名单里会在扫码后报 `redirect_uri参数错误`（见第七节）。2026-11-25 实测该应用后台「登录与分享 → 回调域名」**原本只登记了 `http://localhost:8801/callback?platform=dingtalk` 与 `https://bsm.aizhs.top`，并没有 `https://aizhs.top/callback`**——这是扫码被拦的真实根因；已现场补登。换应用或重置后务必回此页确认白名单含 `https://aizhs.top/callback?platform=dingtalk`。
 3. 应用详情左侧 →「权限管理」→ 切到「通讯录管理」页签。
 4. 在权限列表里勾选 **「成员信息读权限」**（新版服务端 API 权限点 Code 为 `Contact.User.Read`；旧版界面可能显示为「企业员工手机号信息和邮箱等个人信息」）。
    - 找不到时，用权限管理页的搜索框直接搜 `Contact.User.Read` 或「成员信息读」。
@@ -88,7 +88,7 @@ curl -s 'https://api.dingtalk.com/v1.0/contact/users/<unionId>' \
 | 扫码成功但调通讯录 403 `Contact.User.Read` | 只做了用户 OAuth，没申请应用级权限 | 走第二节申请，等审批通过 |
 | 申请后仍 403 | 申请到了别的应用 / 缓存未刷新 | 核对 Client ID；审批通过后重新扫码授权一次 |
 | 手机号/邮箱字段缺失 | 只开了基础读权限，没开敏感字段权限 | 通讯录管理页额外勾选手机号/邮箱权限 |
-| 回调报 redirect_uri 不匹配 | 钉钉后台回调地址与平台不一致 | 后台改为 `https://aizhs.top/callback?platform=dingtalk` |
+| 扫码后报 `redirect_uri参数错误` / 回调报 redirect_uri 不匹配 | 钉钉后台「登录与分享 → 回调域名」白名单未登记平台回调（实测曾只登记 localhost 与 bsm 域名） | 后台「登录与分享 → 回调域名」**添加** `https://aizhs.top/callback?platform=dingtalk`（不是改权限页的回调，是登录页的回调域名白名单）；这是扫码被拦的最常见根因，详见第七节 |
 
 ---
 
@@ -183,3 +183,17 @@ AI 侧已完成：链路核验、应用 Client ID 查明、后台权限状态现
 | 对照：以用户 token 调 `/contact/users/search` | 403 `requiredScopes:["qyapi_addresslist_search"]` | 该 search 是旧版 scope、应用未开，与 `Contact.User.Read` 无关；改用详情接口即用 |
 
 > **结论**：`Contact.User.Read` 详情接口在用户身份下鉴权通过并返回真实数据，任务 #35 的完整验收（真人授权 + 以本人身份调用）全部达成。应用权限侧（第六节 API 实测 + 他席后台 UI 双确认）与用户授权侧（本节）双双闭环。
+
+---
+
+## 八、扫码被拦 `redirect_uri参数错误` 的真实根因（2026-11-25 23:xx 补记）
+
+用户扫码后钉钉报红条 **`redirect_uri参数错误，请修改或在钉钉开放平台的「应用开发」->「登录与分享」中配置相应的回调域名`**，不是用户不配合，是后台白名单缺项：
+
+- **现场实测**：应用 `dingojemqcxfzr2f5xzd`（AI智汇社区，agent_id `4012380713`）后台「登录与分享 → 接入登录 → 回调域名」白名单里**只有** `http://localhost:8801/callback?platform=dingtalk` 和 `https://bsm.aizhs.top`（各重复一遍），**没有** `https://aizhs.top/callback?platform=dingtalk`。而平台 authorize 生成的 `redirect_uri` 正是后者 ⇒ 钉钉逐字比对失败 ⇒ 扫码后被拦。
+- **修正**：在该白名单输入框末尾追加 `,https://aizhs.top/callback?platform=dingtalk` 并点「添加」，确认它出现在下方已登记列表；修正后重开授权页，红条消失、出现「此账号已在使用，可直接登录」+「立即登录」按钮（钉钉登录态在时无需再手机扫码）。
+- **教训**：第二节那句"回调地址已配置、无需再改"是错的静态结论——它描述的是**平台侧** `_resolve_oauth_redirect_uri` 的返回值（凭据 `extra.redirect_uri`），不是**钉钉后台**白名单实际登记值，二者曾长期不一致且因无人真正走完授权而一直没暴露。排查此类报错必须进后台 UI 现读白名单，不能信代码注释或本文档旧描述。
+
+### 8.1 state 有效期（`STATE_TTL_SECONDS=600`）
+
+手写/脚本生成的合法 state（用生产 `connector_oauth.make_state`，密钥从 `CREDENTIALS_ENCRYPTION_KEY` 派生）只有 **10 分钟** TTL；生成后拖延过久再回调会被 `verify_state` 判「state 已过期或时间异常」，日志乱码看起来像「签名校验失败」，实为过期。生成 state 后应立即完成授权回调；调试中断要重新生成。state 的 `owner(o)` 必须非空且等于落库作用域（个人模式=`user_id`），否则 callback 第 540 行直接拒。
