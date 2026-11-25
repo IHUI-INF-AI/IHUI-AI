@@ -9,7 +9,7 @@ import { EcosystemHub } from '@/components/ecosystem/ecosystem-hub'
 export const metadata: Metadata = {
   title: '生态 — 技能/MCP/能力/连接器市场统一入口 | IHUI AI',
   description:
-    '把并列的多个能力市场收敛为一个生态入口:AI 技能、MCP 商店、能力市场、Skill 市场、中文连接器与专家包组合,一页直达。',
+    '把并列的多个能力市场收敛为一个生态入口:AI 技能、MCP 商店、能力市场、Skill 市场、连接器与专家包组合,一页直达。',
   alternates: { canonical: '/ecosystem' },
 }
 

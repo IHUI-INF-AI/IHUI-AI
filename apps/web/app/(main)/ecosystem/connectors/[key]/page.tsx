@@ -11,7 +11,7 @@ import PageClient from './PageClient'
 export const metadata: Metadata = {
   title: '连接器授权详情 — 授权状态与可读取范围 | IHUI AI',
   description:
-    '只读查看单个中文连接器的授权状态、能力范围与已同步文档清单;配置与同步仍在连接器页完成,不留第二套编辑入口。',
+    '只读查看单个连接器的授权状态、能力范围与已同步文档清单;配置与同步仍在连接器页完成,不留第二套编辑入口。',
 }
 
 /**

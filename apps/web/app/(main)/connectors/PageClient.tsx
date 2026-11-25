@@ -32,7 +32,7 @@ import { useConnectorActions } from '@/components/connectors/use-connector-actio
 import { CoveragePanel } from '@/components/connectors/coverage/coverage-panel'
 
 /**
- * 中文连接器接入中心。
+ * 连接器接入中心。
  *
  * 上半部分:预置平台一键接入(托管凭据)+ 平台 API 目录覆盖探测;
  * 下半部分:已配置连接器列表(调用 / 同步 / 自检 / 编辑 / 删除)。
