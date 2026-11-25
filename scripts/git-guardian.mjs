@@ -16570,6 +16570,14 @@ function startDaemon(bootGuard = null) {
         // tmp 体积只读哨兵(2026-11-20 立,5 分钟节流,器物 scripts/check-tmp-bloat.mjs)。
         // 只认器物自己打的 TMP-BLOAT 结论行;未判定(rc=2)不记绿,本腿只读不清理。
         auditTmpBloat()
+        // 2026-11-25 补常驻面:A9(carrier-parity)点名这 3 条只在一次性 main() 里,而 daemon
+        // 自启动起持轮级锁 ⇒ main 每趟让路,它们结构上跑不到。实证:IHUI-GIT-GUARD 恢复 Running 后,
+        // 三条 tick 分别停在 05:13 / 05:35 / 03:00 再未推进,而同族双挂点的 auditTmpBloat 3 分钟前刚更新。
+        // 三者内部各带节流(pruneRepoBloat 6h / pruneTmpScratch 6h / auditBloatGuardsAlive 12h),
+        // tick 戳落 .ihui-agent/state/<腿>-*-last.json,与 A8 的腿在位尺读同一族 ⇒ 挂上即被量。
+        pruneRepoBloat()
+        pruneTmpScratch()
+        auditBloatGuardsAlive()
         await sweepUiMirrorLeg()
         sweepWebStyleTiers()
         // ---- 第二批:原先整条链无节流的 4 条,用调用点 legThrottle 补上后才敢上常驻面 ----
