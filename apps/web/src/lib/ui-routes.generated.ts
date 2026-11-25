@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: d75671cecbe6aafc2a66e0088b8aeaa27087c92f
-// inputsSha256: 09627f6ddf939403ebbb531416019682018b9b4daf1bb5fcd5d2e0b892980efe
+// sourceCommit: d0824cc6a39f363873869b00a37599b95e213d2a
+// inputsSha256: 2e2cc6f79ef7f33b84ced7b7680f8dbdd2258e3899974124b05475f8872868ee
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -781,12 +781,13 @@
 // input: apps/web/app/(main)/points/tasks/page.tsx ee0c20de33c0f9125c2eacdf6564003c6206390449d0956c126146c4be1d6b9c
 // input: apps/web/app/(main)/pricing/page.tsx 0a1c3717f2391db2cc15487136f202ec89b2a8366aceed099f40d0567d45f3d1
 // input: apps/web/app/(main)/products/page.tsx bca2f8e745373d271291e554192cd1728570e61ba957c65a3ea48893a687b6e3
-// input: apps/web/app/(main)/publish/accounts/page.tsx 7f06d2c37abd11b36cf3ff8d9865e3e1d2bd0444ebb5c9092a5b84af1adbbada
+// input: apps/web/app/(main)/publish/account-pool/page.tsx 1934a483b078a499006cb78c21c77b792d587eb33c74063daf77ea0ac1b1ecc3
+// input: apps/web/app/(main)/publish/accounts/page.tsx 733e1632167e80a160a9bfe016531cd0c549a8eb8e60f27d174d2f85b685af2e
 // input: apps/web/app/(main)/publish/analytics/page.tsx 561cc06088d1f81c760eb294e75d8f9d88a2547bd431851e0a4dd39181ef2edc
 // input: apps/web/app/(main)/publish/calendar/page.tsx e86fd335003a1bffaa93f9b7e34d12cb0ef659229e67ce5d696759802e10ed48
 // input: apps/web/app/(main)/publish/history/page.tsx 19ee8cd23bcadae0d9d3809f3a897e3dfa3eb316e208e22ed299a8ee21ac16ed
 // input: apps/web/app/(main)/publish/monitor/page.tsx bf4090a97df62951c60dd6b88b46c1c69be782c7bd7e0df42edc5a2ea467ffa1
-// input: apps/web/app/(main)/publish/new/page.tsx 5e34dec8b524d849f16ad1e177cdc266151bdddb37e71c0037293b7d86051358
+// input: apps/web/app/(main)/publish/new/page.tsx d4dfa75457ed8b1f1af14b15d056e2e6e4c53b0f85868446ace0d2a7b44ed6a2
 // input: apps/web/app/(main)/publish/page.tsx c8db96a527dec17f81d00d0195ba83a0170b7ef84bc975fb318ec5f98ff384cc
 // input: apps/web/app/(main)/purchase/page.tsx 9b9037ab03cbfdad16c70fbc52f51f7030a69d6b495c8eeb7b35eb5fe0765d5d
 // input: apps/web/app/(main)/qoder-reset/page.tsx e144217355df3f5c3fdfe6d1b3d232dc3b13e0195d82d5fea6723c44f2d7e405
@@ -944,6 +945,7 @@
 // input: apps/web/app/(main)/zh-TW/use-cases/ai-translation/page.tsx 527c2d4aa11c0f9caa98c4ed8b3b6db3ed5312b421cf49e83fb204e9a341c646
 // input: apps/web/app/(marketing)/page.tsx 8004f807b187bbd827d227e7bc43dff4efd301968e177cfdf807c1d700681c97
 // input: apps/web/app/(pilot)/shared-pilot/page.tsx afd900d9207f918a56ad81358c1c4d1bced592b2cdea82d457248e96a6ce440b
+// input: apps/web/app/browser-pip/page.tsx a698e3124224fcc0ef69cadd6004e91a50090b2ba44a55ed2db654a74810526a
 // input: apps/web/app/e2e-harness/markdown-stream/page.tsx da979112451fb93b65b21a631fb27e6c3fcfeb2d8f9a89f7f69d12a52cd98f13
 // input: apps/web/app/en/agents/page.tsx 10b327a0a31a1070ebd2fa5262363dc7788bd1ecfa139540eac3a370d131d68f
 // input: apps/web/app/en/docs/page.tsx 29cce924cad158fdb8d729bc12c5499660cdee254159efe39e506153951e0e0d
@@ -963,7 +965,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx bf75df2bfcad093f6ec6405984b9a3fa2e7cba0c353f405066f6809c382bceca
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-24T15:32:58.092Z
+// generatedAt: 2026-11-25T10:15:29.429Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1374,6 +1376,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/bi-dashboard', param: false, group: 'bi-dashboard' },
   { path: '/blog', param: false, group: 'blog' },
   { path: '/blog/:slug', param: true, group: 'blog' },
+  { path: '/browser-pip', param: false, group: 'browser-pip' },
   { path: '/business-card', param: false, group: 'business-card' },
   { path: '/business-card/edit', param: false, group: 'business-card' },
   { path: '/business-card/favorites', param: false, group: 'business-card' },
@@ -1745,6 +1748,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/pricing', param: false, group: 'pricing' },
   { path: '/products', param: false, group: 'products' },
   { path: '/publish', param: false, group: 'publish' },
+  { path: '/publish/account-pool', param: false, group: 'publish' },
   { path: '/publish/accounts', param: false, group: 'publish' },
   { path: '/publish/analytics', param: false, group: 'publish' },
   { path: '/publish/calendar', param: false, group: 'publish' },
