@@ -17,7 +17,7 @@
  *  ③ 纯函数决策表(planGoalOutcome / parseGoalVerdict / readGoalState)逐分支。
  *
  * 取证口径与 g-669 同范本:db 是**内存替身**(select 按表分流 —— automations 返回
- * 行快照、user_margins 返回余额;update 按 where 参数落回同一行),通知服务是
+ * 行快照、user_points 返回积分余额;update 按 where 参数落回同一行),通知服务是
  * vi.mock 探针(每一次 createNotification 调用都可断言),时钟用 fake Date 钉死
  * (executeAutomation 内部 new Date() === 我喂的 T0,重跑延迟才可精确断言)。
  */
@@ -66,11 +66,27 @@ vi.mock('../src/db/index.js', async () => {
     return null
   }
 
-  /** G2 增量:select 按**表**分流(水位检查读 user_margins,其余仍是 automations 快照)。 */
+  /** G2 增量:select 按**表**分流(水位检查读 user_points,其余仍是 automations 快照)。 */
+  const todayInChina = (): string =>
+    new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })
   const selectChain = (): Record<string, unknown> => {
     let tableName: string | null = null
-    const rowsFor = (): unknown[] =>
-      tableName === 'user_margins' ? [{ tokenQuantity: state.balance }] : snapshot()
+    const rowsFor = (): unknown[] => {
+      if (tableName === 'user_points') {
+        return [
+          {
+            points: state.balance,
+            dailyPoints: 0,
+            dailyPointsDate: todayInChina(),
+            totalEarned: 0,
+            totalSpent: 0,
+            level: 1,
+            experience: 0,
+          },
+        ]
+      }
+      return snapshot()
+    }
     const chain: Record<string, unknown> = {
       from: (t: unknown) => {
         tableName = getTableName(t as never)
@@ -315,7 +331,7 @@ describe('G2 ① Goal 自评迭代循环', () => {
   it('水位不足 ⇒ 拒跑:once 落 failed_permanent+paused,发独立"Goal 重跑被拒"通知', async () => {
     const row = makeRow({ lastResult: goalSeed(0, 3) })
     dbMock.__setRows([row])
-    dbMock.__setBalance(0) // 余额=0 走 hasPositiveTokenBalance 的 user_margins 分流
+    dbMock.__setBalance(0) // 积分为 0 走 hasPositiveTokenBalance 的 user_points 分流
     streamMainThenEval('晨报产出', 'VERDICT: NOT_MET\nREASON: 还差两章')
 
     await executeAutomation(row, null)

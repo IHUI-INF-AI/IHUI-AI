@@ -28,9 +28,9 @@ import { aiModelConfig } from '@ihui/database'
 import { authenticate } from '../../plugins/auth.js'
 import { aiServiceFetch, AiServiceTimeoutError } from '../../utils/ai-service-fetch.js'
 import { resolveDefaultChatModel } from '../../utils/retired-providers.js'
-import { resolveAiCost, recordAiCost } from '../../plugins/ai-cost.js'
+import { recordAiCost } from '../../plugins/ai-cost.js'
 import { estimateTokens } from '../../services/context-manager-service.js'
-import type { TokenBalanceService } from '../../plugins/token-balance-service.js'
+import { ensureLlmPointsBalance, settleLlmPointsUsage } from '../../services/ai-points-billing.js'
 import { checkPlatformKeyQuota } from './ai-capabilities-routes.js'
 import {
   findAiIndexBanners,
@@ -70,24 +70,23 @@ function hexNoHash(hex: string): string {
 }
 
 /**
- * F-157:career-advice 的计量/扣费收口 —— 与 crew-llm-adapter(能力 invoke / 聊天)同口径:
- * ai_cost_records 记成本(喂用户日配额),钱包扣同一个数(不在这里再算一遍)。
+ * F-157 / 2026-11-26:career-advice 的计量/扣费收口。
+ * 两本账分开:ai_cost_records 记平台真实成本,用户积分按模型倍率扣。
  * 上游成本已经发生,扣费失败不回滚用户结果,只留审计日志。
  */
 async function settleCareerAdviceUsage(input: {
   request: FastifyRequest
   userId: string
   model: string
-  tokenBalance: TokenBalanceService | undefined
   prompt: string
   content: string
   usage?: { prompt_tokens?: number; completion_tokens?: number }
 }): Promise<void> {
-  const { request, userId, model, tokenBalance, prompt, content, usage } = input
+  const { request, userId, model, prompt, content, usage } = input
   const promptTokens = usage?.prompt_tokens ?? estimateTokens(prompt)
   const completionTokens = usage?.completion_tokens ?? estimateTokens(content)
   try {
-    const { cost } = await recordAiCost({
+    await recordAiCost({
       userId,
       model,
       provider: model.includes('/') ? model.split('/')[0]! : 'unknown',
@@ -96,18 +95,28 @@ async function settleCareerAdviceUsage(input: {
       totalTokens: promptTokens + completionTokens,
       requestType: 'career-advice',
     })
-    const costCents = Math.ceil(cost)
-    if (tokenBalance && costCents > 0) {
-      const settlement = await tokenBalance.deductTokens(userId, costCents, 'ai_career_advice')
-      if (!settlement.success) {
-        request.log.warn(
-          { userId, model, costCents, remaining: settlement.remaining },
-          'F-157 career-advice 钱包扣费不足,已记账待审计',
-        )
-      }
+  } catch (e) {
+    request.log.warn({ err: e, userId, model }, 'F-157 career-advice 成本记账失败(不影响响应)')
+  }
+
+  try {
+    const settlement = await settleLlmPointsUsage({
+      userId,
+      modelId: model,
+      promptTokens,
+      completionTokens,
+      source: 'ai_career_advice',
+      description: 'AI 生涯指导',
+      referenceId: `career-advice:${request.id}`,
+    })
+    if (settlement.shortfall > 0) {
+      request.log.warn(
+        { userId, model, points: settlement.quote.points, deducted: settlement.deducted },
+        'F-157 career-advice 积分不足,已部分扣费并留审计',
+      )
     }
   } catch (e) {
-    request.log.warn({ err: e, userId, model }, 'F-157 career-advice 计量/扣费失败(不影响响应)')
+    request.log.warn({ err: e, userId, model }, 'F-157 career-advice 积分结算失败(不影响响应)')
   }
 }
 
@@ -379,33 +388,8 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const model = resolveDefaultChatModel()
-    const tokenBalance = server.tokenBalance
-    if (tokenBalance) {
-      // 与 callRealLlm 同口径:按 prompt 侧预估成本预检,余额不足 402,不发起上游调用。
-      try {
-        const wallet = await tokenBalance.getBalance(userId)
-        const estimated = await resolveAiCost({
-          model,
-          promptTokens: estimateTokens(prompt),
-          completionTokens: 0,
-        })
-        const estimatedCents = Math.ceil(estimated.cost)
-        if (wallet.balance <= 0 || estimatedCents > wallet.balance) {
-          return reply
-            .status(402)
-            .send(
-              error(
-                402,
-                `余额不足(当前 ${wallet.balance} 分,预估需 ${estimatedCents} 分),请充值后重试`,
-                'INSUFFICIENT_BALANCE',
-              ),
-            )
-        }
-      } catch (e) {
-        request.log.error({ err: e, userId }, 'F-157 career-advice 余额预检失败')
-        return reply.status(503).send(error(503, '计费服务暂不可用,请稍后重试'))
-      }
-    }
+    // 2026-11-26: AI 调用只预检 AI 积分,不再看钱包余额。
+    if (!(await ensureLlmPointsBalance(request, reply, model, estimateTokens(prompt), 0))) return
 
     // 2026-11-13 F-99:此前手写 fetch 只带 Content-Type,ai-service /api/llm/complete
     // 默认需 JWT ⇒ 恒 401,却被 catch 成 200 + 静态模板,功能长期静默失效。
@@ -463,7 +447,6 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
         request,
         userId,
         model: data.model ?? model,
-        tokenBalance,
         prompt,
         content,
         usage: data.usage,

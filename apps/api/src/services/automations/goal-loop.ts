@@ -20,9 +20,9 @@
  * 否则收敛为终态并把自评结论记进 last_result。水位不足 ⇒ 拒跑 + 通知用户
  * (once 落 failed_permanent:没余额的重跑不会变好,与 failure-class 的 permanent 语义同档)。
  *
- * 水位检查读的是 `user_margins.token_quantity` —— 与 plugins/token-balance-service.ts
- * 的 DB 兜底腿同一份真相源。不直接复用该插件实例是因为它是 Fastify 装饰器
- * (server.tokenBalance),而调度器是后台定时器、没有 server;这里按同一列做只读预检。
+ * 水位检查读 `user_points.points` + 当日 `daily_points`(统一走 `availableOf`)——
+ * 与 AI 计费同一份可用余额真相源。不直接复用 `server.tokenBalance` 是因为它是
+ * Fastify 装饰器,而调度器是后台定时器、没有 server;这里按积分列做只读预检。
  *
  * 推送纪律(对齐 D30 回帖"transient 回队不重复发",orchestrator.ts L230-245 推论):
  * 只有**终态**(completed / failed_permanent / failed_retries_exhausted)才落站内通知;
@@ -32,10 +32,11 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import {
-  userMargins,
+  userPoints,
   type AutomationLastResult,
   type AutomationTerminalReason,
 } from '@ihui/database'
+import { availableOf } from '../daily-credits.js'
 import { createNotification } from '../../db/notification-queries.js'
 
 /** Goal 迭代预算默认值与硬上限(票面:默认 3、上限 10;路由与工具层同用这一份)。 */
@@ -335,22 +336,22 @@ export function planGoalOutcome(input: GoalOutcomeInput): GoalOutcome {
 }
 
 // =============================================================================
-// 水位检查(只读预检,真相源与 token-balance-service 的 DB 兜底腿同列)
+// 水位检查(只读预检,真相源与 AI 积分账一致)
 // =============================================================================
 
 /**
- * 用户 token 余额是否为正。查不到行/查询异常一律判**不足**(fail-closed:
- * 水位检查的意义就是"没确认有钱就别花",查询坏了宁可拒跑并通知,不可放行空烧)。
+ * 用户 AI 积分是否为正(永久 + 当日赠送)。查不到行/查询异常一律判**不足**(fail-closed:
+ * 水位检查的意义就是"没确认有积分就别花",查询坏了宁可拒跑并通知,不可放行空烧)。
  */
 export async function hasPositiveTokenBalance(userId: string): Promise<boolean> {
   try {
     const [row] = await db
-      .select({ tokenQuantity: userMargins.tokenQuantity })
-      .from(userMargins)
-      .where(eq(userMargins.userId, userId))
+      .select()
+      .from(userPoints)
+      .where(eq(userPoints.userId, userId))
       .limit(1)
-    const balance = row?.tokenQuantity
-    return typeof balance === 'number' && Number.isFinite(balance) && balance > 0
+    if (!row) return false
+    return availableOf(row) > 0
   } catch {
     return false
   }

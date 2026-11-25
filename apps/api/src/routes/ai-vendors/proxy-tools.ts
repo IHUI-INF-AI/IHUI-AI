@@ -22,8 +22,9 @@ import { readN8nBaseUrl, n8nBaseHint } from '../../utils/n8n-env.js'
 // F-117:webhookPath 只允许站内相对路径;构造与复核住在唯一出口,禁止本文件再拼基址。
 import { buildN8nWebhookUrl, isSafeN8nWebhookPath } from '../../utils/n8n-webhook-url.js'
 import { db } from '../../db/index.js'
-import { resolveAiCost } from '../../plugins/ai-cost.js'
+import { resolveAiCost, recordAiCost } from '../../plugins/ai-cost.js'
 import { resolveDefaultChatModel } from '../../utils/retired-providers.js'
+import { ensureLlmPointsBalance, settleLlmPointsUsage } from '../../services/ai-points-billing.js'
 import {
   createVideoTask,
   findVideoTasksByUser,
@@ -927,7 +928,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // ==========================================================================
-  // 11. Coze workflow + WebSocket 推送 + token 扣费
+  // 11. Coze workflow + WebSocket 推送 + AI 积分计费
   // ==========================================================================
 
   // POST /coze/workflow/chat
@@ -936,7 +937,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: 'Coze 工作流对话',
-        description: '通过 Coze workflow 进行对话,推送通知 + 写入历史 + token 扣费',
+        description: '通过 Coze workflow 进行对话,推送通知 + 写入历史 + AI 积分计费',
         tags: ['AI', 'Coze'],
         body: cozeWorkflowChatBody,
       }),
@@ -953,6 +954,10 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       const chatId = body.chatId ?? genId('coze')
       const sessionId = body.sessionId ?? genId('session')
       const projectId = body.projectId ?? 0
+      // Coze 的定价模型只用于积分/成本换算;上游工作流本身不变。
+      const pricingModel = process.env.COZE_PRICING_MODEL?.trim() || resolveDefaultChatModel()
+      const promptEstimate = Math.ceil(body.text.length / 4)
+      if (!(await ensureLlmPointsBalance(request, reply, pricingModel, promptEstimate, 0))) return
       try {
         server.pushNotification(userId, {
           type: 'coze_workflow',
@@ -1011,27 +1016,47 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
         } catch {
           /* ignore */
         }
-        // F-203(口径 B):按定价把字符估算折算成成本(分),不再用 ceil(chars/1000) 当分。
-        // 费率来源:ai_pricing / pricing_rules(经 resolveAiCost);模型取 COZE_PRICING_MODEL,
-        // 未配置时沿用平台默认对话模型(与 crew 计费同一解析入口)。
+        // 2026-11-26: 用户积分按倍率扣,平台成本单独记 ai_cost_records。
         const promptTokens = Math.ceil(body.text.length / 4)
         const completionTokens = Math.ceil(answerContent.length / 4)
         try {
-          const tokenBalance = server.tokenBalance
-          if (tokenBalance) {
-            const pricingModel = process.env.COZE_PRICING_MODEL?.trim() || resolveDefaultChatModel()
-            const actual = await resolveAiCost({
-              model: pricingModel,
-              promptTokens,
-              completionTokens,
-            })
-            const costCents = Math.ceil(actual.cost)
-            if (costCents > 0) {
-              await tokenBalance.deductTokens(userId, costCents, 'coze_workflow_chat')
-            }
+          const actual = await resolveAiCost({
+            model: pricingModel,
+            promptTokens,
+            completionTokens,
+          })
+          await recordAiCost({
+            userId,
+            model: pricingModel,
+            provider: pricingModel.includes('/') ? pricingModel.split('/')[0]! : 'unknown',
+            promptTokens,
+            completionTokens,
+            totalTokens: promptTokens + completionTokens,
+            requestType: 'coze_workflow_chat',
+            cost: Math.ceil(actual.cost),
+            currency: actual.currency,
+          })
+        } catch {
+          /* 成本记账失败不阻塞 */
+        }
+        try {
+          const settlement = await settleLlmPointsUsage({
+            userId,
+            modelId: pricingModel,
+            promptTokens,
+            completionTokens,
+            source: 'coze_workflow_chat',
+            description: 'Coze 工作流对话',
+            referenceId: `coze:${chatId}`,
+          })
+          if (settlement.shortfall > 0) {
+            request.log.warn(
+              { userId, chatId, points: settlement.quote.points, deducted: settlement.deducted },
+              'Coze workflow 积分不足,已部分扣费',
+            )
           }
         } catch {
-          /* 扣费失败不阻塞 */
+          /* 积分结算失败不阻塞 */
         }
         try {
           await db.execute(sql`

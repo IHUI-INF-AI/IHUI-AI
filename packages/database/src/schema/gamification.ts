@@ -81,6 +81,11 @@ export const pointTransactions = pgTable(
     walletExchangeUserRefUnique: uniqueIndex('ux_point_transactions_wallet_exchange_user_ref')
       .on(t.userId, t.referenceId)
       .where(sql`${t.source} = 'wallet_exchange' AND ${t.referenceId} IS NOT NULL`),
+    // AI 用量积分结算的并发兜底:同一用户 + source + reference_id 只允许一条 spend 流水。
+    // 只覆盖带稳定 referenceId 的入口(callback / career / coze);crew/stock 无 ref,靠调用点天然单次。
+    aiSettlementRefUnique: uniqueIndex('ux_point_transactions_ai_settlement_ref')
+      .on(t.userId, t.source, t.referenceId)
+      .where(sql`${t.type} = 'spend' AND ${t.source} IN ('llm_chat', 'crew_llm', 'stock_analysis', 'ai_career_advice', 'coze_workflow_chat') AND ${t.referenceId} IS NOT NULL`),
   }),
 )
 

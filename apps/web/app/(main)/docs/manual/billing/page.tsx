@@ -226,7 +226,7 @@ export default function ManualBillingPage() {
           </ol>
           <p className="font-[weight:inherit] rounded bg-muted/60 p-3 text-label">
             <AlertTriangle className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
-            <strong>两本账别混</strong>:钱包余额用于充值、提现、Relay 转账;AI 积分用于模型调用。两者通过兑换桥打通,不再把钱包余额直接当积分扣。
+            <strong>两本账别混</strong>:钱包余额用于充值、提现、Relay 转账;AI 对话、Crew、股票、生涯建议、Coze 与媒体生成全部只扣 AI 积分。两者通过兑换桥打通,不再把钱包余额直接当积分扣。
           </p>
           <p className="font-[weight:inherit] rounded bg-muted/60 p-3 text-label">
             <strong>积分有效期</strong>:兑换后的积分长期有效;每日赠送的 100 积分当天有效,跨日清零。

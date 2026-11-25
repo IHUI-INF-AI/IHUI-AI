@@ -75,6 +75,24 @@ describe('quoteMediaPoints — 兜底与边界', () => {
     ).toBe(0)
   })
 
+  it('显式 0 价媒体行必须被尊重,不能回落成兜底价', () => {
+    const imageZero = quoteMediaPoints({
+      category: 'image',
+      pricing: { billingMode: 'per_image', perUnitPrice: 0, videoUnit: null },
+    })
+    expect(imageZero.points).toBe(0)
+    expect(imageZero.source).toBe('ai_pricing')
+
+    const videoZero = quoteMediaPoints({
+      category: 'video',
+      units: 30,
+      pricing: { billingMode: 'per_video', perUnitPrice: 0, videoUnit: 'second' },
+    })
+    expect(videoZero.points).toBe(0)
+    expect(videoZero.source).toBe('ai_pricing')
+    expect(videoZero.appliedUnits).toBe(30)
+  })
+
   it('定价模式不匹配时回落兜底表,不误用 token 价', () => {
     const pricing = { billingMode: 'token', perUnitPrice: 100, videoUnit: null }
     expect(quoteMediaPoints({ category: 'image', pricing }).points).toBe(20)

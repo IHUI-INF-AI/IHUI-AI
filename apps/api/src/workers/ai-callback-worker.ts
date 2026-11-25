@@ -11,7 +11,7 @@ import { db } from '../db/index.js'
 import { createMessage, findMessageById, updateMessage } from '../db/chat-queries.js'
 import { consumeElementPackFrames } from '../db/element-pack-queries.js'
 import { resolveAiCost } from '../plugins/ai-cost.js'
-import { settleWalletUsage } from '../plugins/token-balance-service.js'
+import { settleLlmPointsUsage, type LlmPointsSettlement } from '../services/ai-points-billing.js'
 // D64⑤:元素包 metadata 形状的唯一构造出口(空数组返回 null ⇒ 不写 key)。
 // parseElementPackFrames 是读侧守卫:暂存表 jsonb 读回的帧是宽类型,
 // 落 metadata 前必须收窄成 ElementPackFrame(形态不合的帧被丢弃)。
@@ -250,7 +250,7 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
         }
       }
 
-      // G3 + F-203(口径 B): 扣费必须按真实成本折算成分,不能拿 token 数当分。
+      // G3 + F-203(口径 B): 用户扣 AI 积分,平台成本单独记 ai_cost_records,两本账分离。
       // 设计:消息持久化成功后才结算;结算失败不 rethrow(BullMQ 重试会重复扣费,idempotencyKey 兜底)。
       if (tokens && tokens > 0 && userId) {
         if (!model) {
@@ -260,7 +260,7 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
           )
         } else {
           try {
-            // 1. 单次定价解析:同一结果既用于钱包结算,也用于 ai_cost_records,禁止两处各算一遍
+            // 1. 成本单独解析:用于 ai_cost_records,不再与用户扣分同源
             const actual = await resolveAiCost({
               model,
               promptTokens: promptTokens ?? 0,
@@ -268,36 +268,41 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
             })
             const costCents = Math.ceil(actual.cost)
 
-            // 2. 结算钱包:上游已发生成本,能扣多少扣多少,差额落 metadata 形成欠额审计
-            let settlement: { deducted: number; remaining: number; shortfall: number } | null = null
-            if (costCents > 0) {
-              settlement = await settleWalletUsage({
+            // 2. 结算 AI 积分:上游已发生成本,能扣多少扣多少,差额落 metadata 形成欠额审计
+            let settlement: LlmPointsSettlement | null = null
+            if (model) {
+              settlement = await settleLlmPointsUsage({
                 userId,
-                amount: costCents,
-                reason: `llm_chat:${model}`,
-                idempotencyKey,
+                modelId: model,
+                promptTokens: promptTokens ?? 0,
+                completionTokens: completionTokens ?? 0,
+                source: 'llm_chat',
+                description: `LLM chat ${model}`,
+                referenceId: idempotencyKey,
               })
               if (settlement.shortfall > 0) {
                 server.log.warn(
                   {
                     userId,
-                    costCents,
+                    points: settlement.quote.points,
                     deducted: settlement.deducted,
                     shortfall: settlement.shortfall,
                     model,
                   },
-                  'token balance insufficient, message persisted but partially charged',
+                  'AI points insufficient, message persisted but partially charged',
                 )
               }
             }
 
             const billing = {
-              walletDeductedCents: settlement?.deducted ?? 0,
-              walletBalanceAfterCents: settlement?.remaining ?? null,
-              billingShortfallCents: settlement?.shortfall ?? 0,
+              pointsDeducted: settlement?.deducted ?? 0,
+              pointsBalanceAfter: settlement?.remaining ?? null,
+              billingShortfallPoints: settlement?.shortfall ?? 0,
+              pointsQuote: settlement?.quote.points ?? 0,
+              pointsMultiplier: settlement?.quote.multiplier ?? null,
             }
 
-            // 3. 记成本到 ai_cost_records:cost 直接取上面同一个数
+            // 3. 记平台成本到 ai_cost_records;用户扣分由上面的积分结算单独产生
             await server.aiCost.record({
               userId,
               model,
@@ -313,7 +318,7 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
           } catch (e) {
             server.log.error(
               { err: e, userId, tokens, model },
-              'settleWalletUsage/recordAiCost failed',
+              'AI points settlement/cost record failed',
             )
             // 不 rethrow:避免 BullMQ 重试导致重复扣费(idempotencyKey 兜底)
           }

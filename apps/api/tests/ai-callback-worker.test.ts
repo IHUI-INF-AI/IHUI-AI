@@ -24,8 +24,10 @@ vi.mock('../src/plugins/ai-cost.js', () => ({
   resolveAiCost: vi.fn(),
 }))
 
-vi.mock('../src/plugins/token-balance-service.js', () => ({
-  settleWalletUsage: vi.fn(),
+vi.mock('../src/plugins/token-balance-service.js', () => ({}))
+
+vi.mock('../src/services/ai-points-billing.js', () => ({
+  settleLlmPointsUsage: vi.fn(),
 }))
 
 import { startAiCallbackWorker } from '../src/workers/ai-callback-worker'
@@ -33,7 +35,7 @@ import type { AICallbackJobData } from '../src/plugins/queue.js'
 import { createWorker } from '../src/plugins/queue.js'
 import { createMessage, findMessageById, updateMessage } from '../src/db/chat-queries.js'
 import { resolveAiCost } from '../src/plugins/ai-cost.js'
-import { settleWalletUsage } from '../src/plugins/token-balance-service.js'
+import { settleLlmPointsUsage } from '../src/services/ai-points-billing.js'
 import type { ChatMessage } from '@ihui/database'
 
 const mockedCreateWorker = vi.mocked(createWorker)
@@ -41,7 +43,7 @@ const mockedFind = vi.mocked(findMessageById)
 const mockedUpdate = vi.mocked(updateMessage)
 const mockedCreate = vi.mocked(createMessage)
 const mockedResolveCost = vi.mocked(resolveAiCost)
-const mockedSettle = vi.mocked(settleWalletUsage)
+const mockedSettle = vi.mocked(settleLlmPointsUsage)
 
 function makeServer(): FastifyInstance {
   return {
@@ -234,10 +236,22 @@ describe('AI callback worker billing (F-203 口径 B)', () => {
     mockedCreate.mockResolvedValue(messageRow({ id: 'msg-new' }))
     mockedFind.mockResolvedValue(undefined)
     mockedResolveCost.mockResolvedValue({ cost: 48, currency: 'CNY', pricing: null })
-    mockedSettle.mockResolvedValue({ deducted: 48, remaining: 952, shortfall: 0 })
+    mockedSettle.mockResolvedValue({
+      deducted: 48,
+      remaining: 952,
+      shortfall: 0,
+      alreadySettled: false,
+      quote: {
+        promptTokens: 3000,
+        completionTokens: 2000,
+        totalTokens: 5000,
+        multiplier: 10,
+        points: 48,
+      },
+    })
   })
 
-  it('按定价折算成本扣 48 分,不是把 5000 token 当 5000 分', async () => {
+  it('按倍率扣 AI 积分,平台真实成本另记 48 分', async () => {
     const server = startWorker()
     await getProcessor()({
       id: 'job-1',
@@ -251,9 +265,12 @@ describe('AI callback worker billing (F-203 口径 B)', () => {
     })
     expect(mockedSettle).toHaveBeenCalledWith({
       userId: 'user-1',
-      amount: 48,
-      reason: 'llm_chat:gpt-x',
-      idempotencyKey: 'idem-1',
+      modelId: 'gpt-x',
+      promptTokens: 3000,
+      completionTokens: 2000,
+      source: 'llm_chat',
+      description: 'LLM chat gpt-x',
+      referenceId: 'idem-1',
     })
     // 旧链路(deductTokens 按 token 数)不得再被调用
     expect(
@@ -273,27 +290,43 @@ describe('AI callback worker billing (F-203 口径 B)', () => {
     )
     const recorded = vi.mocked(server.aiCost.record).mock.calls[0]![0] as { metadata: string }
     expect(JSON.parse(recorded.metadata)).toEqual({
-      walletDeductedCents: 48,
-      walletBalanceAfterCents: 952,
-      billingShortfallCents: 0,
+      pointsDeducted: 48,
+      pointsBalanceAfter: 952,
+      billingShortfallPoints: 0,
+      pointsQuote: 48,
+      pointsMultiplier: 10,
     })
   })
 
-  it('余额不足时扣到 0,欠额落 ai_cost_records.metadata 可审计', async () => {
-    mockedSettle.mockResolvedValue({ deducted: 20, remaining: 0, shortfall: 28 })
+  it('积分不足时扣到 0,欠额落 ai_cost_records.metadata 可审计', async () => {
+    mockedSettle.mockResolvedValue({
+      deducted: 20,
+      remaining: 0,
+      shortfall: 28,
+      alreadySettled: false,
+      quote: {
+        promptTokens: 3000,
+        completionTokens: 2000,
+        totalTokens: 5000,
+        multiplier: 10,
+        points: 48,
+      },
+    })
     const server = startWorker()
     await getProcessor()({ id: 'job-1', data: billingJob() })
 
-    expect(mockedSettle).toHaveBeenCalledWith(expect.objectContaining({ amount: 48 }))
+    expect(mockedSettle).toHaveBeenCalledWith(expect.objectContaining({ modelId: 'gpt-x' }))
     const recorded = vi.mocked(server.aiCost.record).mock.calls[0]![0] as {
       cost: number
       metadata: string
     }
     expect(recorded.cost).toBe(48)
     expect(JSON.parse(recorded.metadata)).toEqual({
-      walletDeductedCents: 20,
-      walletBalanceAfterCents: 0,
-      billingShortfallCents: 28,
+      pointsDeducted: 20,
+      pointsBalanceAfter: 0,
+      billingShortfallPoints: 28,
+      pointsQuote: 48,
+      pointsMultiplier: 10,
     })
     expect(server.log.warn).toHaveBeenCalled()
   })

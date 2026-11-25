@@ -42,6 +42,21 @@ vi.mock('../src/db/index.js', () => ({
   dbClient: {},
 }))
 
+vi.mock('../src/services/ai-points-billing.js', () => ({
+  ensureLlmPointsBalance: vi.fn(async () => true),
+  settleLlmPointsUsage: vi.fn(async () => ({
+    deducted: 0,
+    remaining: 0,
+    shortfall: 0,
+    alreadySettled: false,
+    quote: { promptTokens: 0, completionTokens: 0, totalTokens: 0, multiplier: 1, points: 0 },
+  })),
+}))
+
+vi.mock('../src/plugins/ai-cost.js', () => ({
+  recordAiCost: vi.fn(async () => ({ cost: 0, currency: 'CNY' })),
+}))
+
 import aiModulesRoutes from '../src/routes/user/ai-modules-routes.js'
 
 const FORM = {

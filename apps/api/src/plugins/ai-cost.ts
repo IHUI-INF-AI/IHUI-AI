@@ -463,11 +463,12 @@ async function resolveTenantIdForUser(userId: string): Promise<string | undefine
 }
 
 /**
- * 解析一次 AI 调用的成本(单位:分)。
+ * 解析一次 AI 调用的平台成本(单位:分)。
  *
- * F-203 口径 B:扣钱包与 ai_cost_records 必须同源 —— 调用方先调本函数拿到 cost,
- * 再把**同一个数**同时用于钱包扣减和 recordAiCost(显式传 cost),禁止两处各算一遍。
- * 预检也可用本函数:只传 promptTokens、completionTokens=0 得到预估成本。
+ * F-203 口径 B(2026-11-26 修订):成本账与用户积分账分离。本函数只服务
+ * `ai_cost_records` 的平台成本归集;用户实际扣多少积分由 `ai-points-billing`
+ * 按模型倍率单独计算。两者不再要求是同一个数,也不再把成本直接当钱包扣减额。
+ * 预检可只传 promptTokens、completionTokens=0 得到成本参考,该结果不用于用户扣分。
  */
 export async function resolveAiCost(input: {
   model: string

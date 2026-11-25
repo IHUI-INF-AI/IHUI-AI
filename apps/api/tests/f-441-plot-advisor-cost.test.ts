@@ -82,6 +82,25 @@ vi.mock('../src/plugins/ai-cost.js', () => ({
   recordAiCost: mocks.recordAiCost,
   resolveAiCost: mocks.resolveAiCost,
 }))
+vi.mock('../src/services/daily-credits.js', () => ({
+  getSpendableBalance: vi.fn(async () => ({ available: 1_000_000, permanent: 1_000_000, daily: 0 })),
+}))
+vi.mock('../src/services/ai-points-billing.js', () => ({
+  quoteLlmPoints: vi.fn(async (input: { promptTokens: number; completionTokens: number }) => ({
+    promptTokens: input.promptTokens,
+    completionTokens: input.completionTokens,
+    totalTokens: input.promptTokens + input.completionTokens,
+    multiplier: 1,
+    points: 1,
+  })),
+  settleLlmPointsUsage: vi.fn(async () => ({
+    deducted: 1,
+    remaining: 999_999,
+    shortfall: 0,
+    alreadySettled: false,
+    quote: { promptTokens: 1, completionTokens: 1, totalTokens: 2, multiplier: 1, points: 1 },
+  })),
+}))
 vi.mock('../src/plugins/token-balance-service.js', () => ({
   getWalletBalance: mocks.getWalletBalance,
   settleWalletUsage: mocks.settleWalletUsage,

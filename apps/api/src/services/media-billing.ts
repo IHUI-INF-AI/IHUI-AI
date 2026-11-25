@@ -63,7 +63,7 @@ export async function resolveMediaPointsQuote(
   const hasExplicitMediaPrice =
     !!pricing &&
     typeof pricing.perUnitPrice === 'number' &&
-    pricing.perUnitPrice > 0 &&
+    pricing.perUnitPrice >= 0 &&
     pricing.billingMode === pricingMode
   const free = !hasExplicitMediaPrice && inferPointsMultiplier(modelId) === 0
 

@@ -98,7 +98,7 @@ export function quoteMediaPoints(input: {
   }
 
   const perUnit = pricing?.perUnitPrice
-  if (pricing && typeof perUnit === 'number' && Number.isFinite(perUnit) && perUnit > 0) {
+  if (pricing && typeof perUnit === 'number' && Number.isFinite(perUnit) && perUnit >= 0) {
     if (category === 'image' && pricing.billingMode === 'per_image') {
       return {
         points: Math.ceil(perUnit * units),
