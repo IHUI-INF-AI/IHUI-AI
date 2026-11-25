@@ -6295,7 +6295,15 @@
     "wechatClawbotConfigure": "OpenClaw 設定を開く",
     "wechatClawbotNote": "個人用 WeChat には公式データ API がありません。Clawbot はゲートウェイのペアリングでメッセージを中継します。",
     "wechatClawbotLoadFailed": "チャンネルの読み込みに失敗",
-    "wechatClawbotActionFailed": "操作に失敗しました。再試行してください"
+    "wechatClawbotActionFailed": "操作に失敗しました。再試行してください",
+    "wechatHubTitle": "WeChat 自動化 · WeChat Hub",
+    "wechatHubBadge": "wechat-hub",
+    "wechatHubHint": "完全な WeChat 自動化コンソール：QR ログイン、会話/連絡先/グループ/モーメンツ、自動返信、AI 分析、監査。複数バックエンド（公式 iLink / ローカルブリッジ）。",
+    "wechatHubLoading": "WeChat Hub アカウントを読み込み中…",
+    "wechatHubEmpty": "WeChat アカウントがありません。下のボタンから WeChat Hub で追加してください。",
+    "wechatHubLoadFailed": "WeChat Hub の読み込みに失敗",
+    "wechatHubNote": "完全な設定と操作は WeChat Hub コンソールで行います。",
+    "wechatHubConfigure": "WeChat Hub を開く"
   },
   "adminAiSkills": {
     "avgDuration": "平均時間",
@@ -21720,8 +21728,6 @@
       "selectAll": "すべて選択",
       "selectPlatforms": "対象プラットフォームを選択",
       "selectPlatformsHint": "少なくとも 1 つのプラットフォームを選択",
-      "usePool": "アカウントプールから自動選択",
-      "usePoolHint": "同一プラットフォームには健全な1アカウントのみ配信。有効なアカウントがない場合は配信を拒否します。",
       "submitFailed": "送信失敗",
       "submitNow": "即時公開",
       "submitSchedule": "予約公開",

@@ -6264,7 +6264,15 @@
     "wechatClawbotConfigure": "打开 OpenClaw 配置",
     "wechatClawbotNote": "个人微信无官方数据接口；Clawbot 通过网关配对实现消息互通。",
     "wechatClawbotLoadFailed": "读取渠道失败",
-    "wechatClawbotActionFailed": "操作失败，请重试"
+    "wechatClawbotActionFailed": "操作失败，请重试",
+    "wechatHubTitle": "微信自动化 · 微信智联",
+    "wechatHubBadge": "wechat-hub",
+    "wechatHubHint": "完整微信自动化台：扫码登录、会话/联系人/群/朋友圈、自动回复、AI 分析与审计。多种后端可选（iLink 官方 / 本地桥）。",
+    "wechatHubLoading": "正在读取微信智联账号…",
+    "wechatHubEmpty": "暂无微信账号，点下方按钮到微信智联添加。",
+    "wechatHubLoadFailed": "读取微信智联失败",
+    "wechatHubNote": "完整配置与操作请在微信智联管理台完成。",
+    "wechatHubConfigure": "打开微信智联"
   },
   "adminAiSkills": {
     "avgDuration": "平均耗时",
@@ -22045,8 +22053,6 @@
       "selectAll": "全选",
       "selectPlatforms": "选择目标平台",
       "selectPlatformsHint": "至少选择 1 个平台",
-      "usePool": "按账号池自动取号",
-      "usePoolHint": "同一平台只发 1 个在线账号;池内全失效会拒绝发布,不会硬发。",
       "submitFailed": "提交失败",
       "submitNow": "立即发布",
       "submitSchedule": "定时发布",

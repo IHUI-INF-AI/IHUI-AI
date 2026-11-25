@@ -6264,7 +6264,15 @@
     "wechatClawbotConfigure": "Open OpenClaw settings",
     "wechatClawbotNote": "Personal WeChat has no official data API; Clawbot bridges messages through the gateway pairing.",
     "wechatClawbotLoadFailed": "Failed to load channels",
-    "wechatClawbotActionFailed": "Action failed, please retry"
+    "wechatClawbotActionFailed": "Action failed, please retry",
+    "wechatHubTitle": "WeChat Automation · WeChat Hub",
+    "wechatHubBadge": "wechat-hub",
+    "wechatHubHint": "Full WeChat automation console: QR login, chats/contacts/groups/Moments, auto-reply, AI analysis and audit. Multiple backends (official iLink / local bridge).",
+    "wechatHubLoading": "Loading WeChat Hub accounts…",
+    "wechatHubEmpty": "No WeChat account yet. Use the button below to add one in WeChat Hub.",
+    "wechatHubLoadFailed": "Failed to load WeChat Hub",
+    "wechatHubNote": "Complete configuration and operations are in the WeChat Hub console.",
+    "wechatHubConfigure": "Open WeChat Hub"
   },
   "adminAiSkills": {
     "avgDuration": "Avg Duration",
@@ -21540,8 +21548,6 @@
       "selectAll": "Select All",
       "selectPlatforms": "Select Target Platforms",
       "selectPlatformsHint": "Select at least 1 platform",
-      "usePool": "Pick one account from the pool",
-      "usePoolHint": "Send to one healthy account per platform; if the pool has none, publishing is refused.",
       "submitFailed": "Submit Failed",
       "submitNow": "Publish Now",
       "submitSchedule": "Schedule Publish",

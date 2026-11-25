@@ -6295,7 +6295,15 @@
     "wechatClawbotConfigure": "OpenClaw 설정 열기",
     "wechatClawbotNote": "개인 WeChat에는 공식 데이터 API가 없습니다. Clawbot은 게이트웨이 페어링으로 메시지를 중계합니다.",
     "wechatClawbotLoadFailed": "채널 불러오기 실패",
-    "wechatClawbotActionFailed": "작업 실패, 다시 시도하세요"
+    "wechatClawbotActionFailed": "작업 실패, 다시 시도하세요",
+    "wechatHubTitle": "WeChat 자동화 · WeChat Hub",
+    "wechatHubBadge": "wechat-hub",
+    "wechatHubHint": "완전한 WeChat 자동화 콘솔: QR 로그인, 대화/연락처/그룹/모먼트, 자동 응답, AI 분석 및 감사. 여러 백엔드(공식 iLink / 로컬 브리지) 지원.",
+    "wechatHubLoading": "WeChat Hub 계정 불러오는 중…",
+    "wechatHubEmpty": "WeChat 계정이 없습니다. 아래 버튼으로 WeChat Hub에서 추가하세요.",
+    "wechatHubLoadFailed": "WeChat Hub 불러오기 실패",
+    "wechatHubNote": "전체 설정과 작업은 WeChat Hub 콘솔에서 진행하세요.",
+    "wechatHubConfigure": "WeChat Hub 열기"
   },
   "adminAiSkills": {
     "avgDuration": "평균 시간",
@@ -21720,8 +21728,6 @@
       "selectAll": "전체 선택",
       "selectPlatforms": "대상 플랫폼 선택",
       "selectPlatformsHint": "최소 1개 플랫폼 선택",
-      "usePool": "계정 풀에서 자동 선택",
-      "usePoolHint": "동일 플랫폼에 정상 계정 1개만 발행하며, 풀에 사용 가능한 계정이 없으면 발행을 거부합니다.",
       "submitFailed": "제출 실패",
       "submitNow": "즉시 게시",
       "submitSchedule": "예약 게시",
