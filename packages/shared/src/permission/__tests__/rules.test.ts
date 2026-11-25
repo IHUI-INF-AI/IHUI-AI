@@ -10,6 +10,7 @@ import {
   TOKEN_FALLBACK_COMMAND_RISK_ANALYZER,
   applyAutoReview,
   decideApproval,
+  decidePermission,
   evaluateRules,
   pruneExpiredGrants,
   revokeGrant,
@@ -20,6 +21,9 @@ import {
   type ApprovalHistoryEntry,
   type ApprovalRequest,
   type ApprovalRule,
+  type PermissionDecision,
+  type PermissionDecisionAuditEntry,
+  type PermissionDecisionKind,
 } from '../rules'
 
 const NOW = 1_000
@@ -487,6 +491,80 @@ describe('AST 命令风险对接(默认注入 AST_COMMAND_RISK_ANALYZER)', () =>
     })
     expect(ast.decision).not.toBe('deny')
     expect(fallback.decision).toBe('deny')
+  })
+})
+
+describe('RP-1/L01 统一权限决策对象', () => {
+  const kinds: PermissionDecisionKind[] = ['builtin', 'mcp', 'terminal']
+
+  function decision(over: Partial<PermissionDecision> = {}): PermissionDecision {
+    return {
+      scope: 'workspace',
+      kind: 'builtin',
+      sessionId: 'session-1',
+      expiresAt: NOW + 60_000,
+      evidenceRef: 'ledger:tool-invocation-1',
+      ...over,
+    }
+  }
+
+  it('50. 三类工具调用共用同一 decide()，字段齐全时一律 allow', () => {
+    for (const kind of kinds) {
+      const result = decidePermission(decision({ kind }), { now: NOW })
+      expect(result.verdict).toBe('allow')
+    }
+  })
+
+  it('51. 三类工具调用缺 evidenceRef 一律 deny，且每条都留审计', () => {
+    for (const kind of kinds) {
+      const audits: PermissionDecisionAuditEntry[] = []
+      const result = decidePermission(decision({ kind, evidenceRef: '' }), {
+        now: NOW,
+        onAudit: (entry) => audits.push(entry),
+      })
+      expect(result.verdict).toBe('deny')
+      expect(result.cause).toBe('missing-evidenceRef')
+      expect(audits).toHaveLength(1)
+      expect(audits[0]?.cause).toBe('missing-evidenceRef')
+      expect(audits[0]?.kind).toBe(kind)
+      expect(audits[0]?.sessionId).toBe('session-1')
+      expect(audits[0]?.at).toBe(NOW)
+    }
+  })
+
+  it('52. 过期决策 deny 且审计原因明确；allow 不写审计', () => {
+    const audits: PermissionDecisionAuditEntry[] = []
+    const expired = decidePermission(decision({ expiresAt: NOW }), {
+      now: NOW,
+      onAudit: (entry) => audits.push(entry),
+    })
+    expect(expired.cause).toBe('expired')
+    expect(audits).toHaveLength(1)
+
+    const noAudit: PermissionDecisionAuditEntry[] = []
+    const allowed = decidePermission(decision(), {
+      now: NOW,
+      onAudit: (entry) => noAudit.push(entry),
+    })
+    expect(allowed.verdict).toBe('allow')
+    expect(noAudit).toEqual([])
+  })
+
+  it('53. decideApproval 接证据闸：缺 evidenceRef 不被规则引擎救回', () => {
+    const audits: PermissionDecisionAuditEntry[] = []
+    const result = decideApproval(
+      {
+        ...req('read', { path: '/ws/a/file.txt' }),
+        permissionDecision: decision({ kind: 'mcp', evidenceRef: '  ' }),
+      },
+      {
+        onPermissionAudit: (entry) => audits.push(entry),
+      },
+    )
+    expect(result.decision).toBe('deny')
+    expect(result.matchedRule).toBe('l01.evidence-gate')
+    expect(audits).toHaveLength(1)
+    expect(audits[0]?.cause).toBe('missing-evidenceRef')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

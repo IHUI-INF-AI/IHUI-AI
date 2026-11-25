@@ -101,6 +101,11 @@ export interface ApprovalRequest {
   tool: string
   args: Record<string, unknown>
   context: ApprovalRuleContext
+  /**
+   * RP-1/L01 统一决策对象。提供后必须先过 `decidePermission` 证据闸，
+   * 未提供时保持既有规则引擎行为（存量调用点零行为漂移）。
+   */
+  permissionDecision?: PermissionDecision
 }
 
 /** 由 `{tool,args}` + 上下文计算出的、规则可读的事实集。 */
@@ -943,8 +948,23 @@ export function applyAutoReview(
  */
 export function decideApproval(
   request: ApprovalRequest,
-  options: EvaluateOptions & { windowMs?: number; minRepeats?: number } = {},
+  options: EvaluateOptions & {
+    windowMs?: number
+    minRepeats?: number
+    onPermissionAudit?: DecidePermissionOptions['onAudit']
+  } = {},
 ): ApprovalResult {
+  // L01 证据闸先于规则判定：任何带统一决策对象的调用缺 evidenceRef 即 deny，
+  // 不允许规则引擎的 allow/ask 把它"救回来"。
+  if (request.permissionDecision) {
+    const gate = decidePermission(request.permissionDecision, {
+      now: request.context.now,
+      onAudit: options.onPermissionAudit,
+    })
+    if (gate.verdict === 'deny') {
+      return { decision: 'deny', matchedRule: 'l01.evidence-gate', reason: gate.reason }
+    }
+  }
   const base = evaluateRules(request, options)
   if (base.decision !== 'ask') return base
 
@@ -967,5 +987,107 @@ export function decideApproval(
     minRepeats: options.minRepeats,
     commandRiskAnalyzer: options.commandRiskAnalyzer,
   })
+}
+
+// ===========================================================================
+// RP-1/L01 统一权限决策对象：内置 / MCP / 终端三类工具调用共用同一 decide 入口
+// ===========================================================================
+
+export const PERMISSION_DECISION_SCOPES = ['workspace', 'agent', 'global'] as const
+export type PermissionDecisionScope = (typeof PERMISSION_DECISION_SCOPES)[number]
+
+export const PERMISSION_DECISION_KINDS = ['builtin', 'mcp', 'terminal'] as const
+export type PermissionDecisionKind = (typeof PERMISSION_DECISION_KINDS)[number]
+
+/**
+ * 统一决策对象。五个字段全部为硬前置：
+ * - `evidenceRef` 为空 ⇒ 决策没有可复核依据，必须拒绝（不允许"先放行后补证据"）；
+ * - `expiresAt` 必须由判定侧校验，不能信任 UI 或存储侧的"看起来没过期"；
+ * - `scope`/`kind`/`sessionId` 用于把决策绑定到具体主体与调用面，缺一即拒绝。
+ */
+export interface PermissionDecision {
+  readonly scope: PermissionDecisionScope
+  readonly kind: PermissionDecisionKind
+  readonly sessionId: string
+  readonly expiresAt: number
+  readonly evidenceRef: string
+}
+
+export type PermissionDecisionDenyCause =
+  | 'invalid-scope'
+  | 'invalid-kind'
+  | 'missing-sessionId'
+  | 'missing-evidenceRef'
+  | 'expired'
+
+export interface PermissionDecisionAuditEntry {
+  readonly cause: PermissionDecisionDenyCause
+  readonly kind: PermissionDecisionKind | 'unknown'
+  readonly sessionId: string | null
+  readonly evidenceRef: string | null
+  readonly at: number
+}
+
+export interface DecidePermissionOptions {
+  /** 注入时钟，保证纯函数可测；默认 Date.now()。 */
+  readonly now?: number
+  /** 拒绝时同步留审计；审计失败不得翻转判定（fail-closed 已由 verdict 保证）。 */
+  readonly onAudit?: (entry: PermissionDecisionAuditEntry) => void
+}
+
+export interface PermissionDecisionResult {
+  readonly verdict: 'allow' | 'deny'
+  readonly cause?: PermissionDecisionDenyCause
+  readonly reason: string
+}
+
+function denyDecision(
+  cause: PermissionDecisionDenyCause,
+  reason: string,
+  decision: PermissionDecision | null | undefined,
+  options: DecidePermissionOptions,
+): PermissionDecisionResult {
+  options.onAudit?.({
+    cause,
+    kind: decision && PERMISSION_DECISION_KINDS.includes(decision.kind) ? decision.kind : 'unknown',
+    sessionId:
+      typeof decision?.sessionId === 'string' && decision.sessionId ? decision.sessionId : null,
+    evidenceRef:
+      typeof decision?.evidenceRef === 'string' && decision.evidenceRef ? decision.evidenceRef : null,
+    at: options.now ?? Date.now(),
+  })
+  return { verdict: 'deny', cause, reason }
+}
+
+/**
+ * 三类工具调用（builtin / mcp / terminal）的唯一判定入口。
+ *
+ * 纯函数：不读库、不写文件；审计通过 `onAudit` 回调交给调用方落链，
+ * 因此 API 的 `tool-approval-audit` 与 agent-sdk 的审批回写都能复用同一口径。
+ */
+export function decidePermission(
+  decision: PermissionDecision | null | undefined,
+  options: DecidePermissionOptions = {},
+): PermissionDecisionResult {
+  if (!decision || typeof decision !== 'object') {
+    return denyDecision('missing-evidenceRef', '缺少统一权限决策对象', decision, options)
+  }
+  if (!PERMISSION_DECISION_SCOPES.includes(decision.scope)) {
+    return denyDecision('invalid-scope', '决策 scope 非法', decision, options)
+  }
+  if (!PERMISSION_DECISION_KINDS.includes(decision.kind)) {
+    return denyDecision('invalid-kind', '决策 kind 非法', decision, options)
+  }
+  if (!decision.sessionId || !decision.sessionId.trim()) {
+    return denyDecision('missing-sessionId', '决策缺少 sessionId', decision, options)
+  }
+  if (!decision.evidenceRef || !decision.evidenceRef.trim()) {
+    return denyDecision('missing-evidenceRef', '决策缺少 evidenceRef，拒绝放行', decision, options)
+  }
+  const now = options.now ?? Date.now()
+  if (!Number.isFinite(decision.expiresAt) || decision.expiresAt <= now) {
+    return denyDecision('expired', '决策已过期', decision, options)
+  }
+  return { verdict: 'allow', reason: '统一权限决策通过' }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
