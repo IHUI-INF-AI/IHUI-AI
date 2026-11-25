@@ -105,7 +105,8 @@
 - 模型别名：`magi-2` / `magi-2-preview` / `magi-2-preview-latest`。
 - 计费模式：`per_video`、`video_unit = 'second'`、`per_unit_price = 74.000000` 分/秒。
 - 30 秒约 **2,220 积分**（¥22.20）。
-- 定价依据：Sand.ai 官方 0.08 USD/秒，按汇率约 7.1 折算上游约 ¥17.04/30 秒，留约 30% 毛利。
+- 成本：Sand.ai 官方 1080P **0.5 元/秒 = 50 分/秒**；零售 74 分/秒，约 1.48 倍，毛利约 32.4%。
+- 不再使用早期“0.08 USD/秒 ≈ 56.8 分/秒”的旧口径；该口径与 2026-11-25 官方人民币价不一致。
 - 迁移：`packages/database/drizzle/20261125150000_magi2_video_pricing.sql`。
 
 > 公开 API 目前尚未新增 MAGI-2 专用视频路由；本定价行服务于已接入 `apps/ai-service` 的 `magi2_provider` 及其上游调用链路。
@@ -118,6 +119,37 @@
 - 预检 402 统一带 `errorCode='INSUFFICIENT_POINTS'` 与本次报价结构，前端不需要解析中文文案。
 - 平台成本价 `cost_unit_price` 已配置时，`chargeMediaPoints` 在积分结算后按实际计价单位写 `ai_cost_records`（`requestType=media_*`、`cost` 为分）；未配置则跳过，不伪造 0 成本。
 - `cost_unit_price` 只在管理端 `/api/admin/ai-pricing/list` 返回，公开 `/api/ai-pricing` 不暴露内部成本。
+
+### 3.6 媒体上游成本价（2026-11-26 回填）
+
+统一单位：分/张、分/秒、分/次；美元价按 `7.2 CNY/USD` 折算，人民币官方价直接取数。当前 24 条媒体定价行已全部回填，`gpt-5.6` 是按次文本行，不属于媒体成本范围。
+
+| 模型 | 成本价 | 口径 |
+| --- | --- | --- |
+| `agnes-image-2.1-flash` | 7.2 / 张 | 1K 输出 $0.010/张 × 7.2 |
+| `agnes-image-2.5-flash` | 7.2 / 张 | 同 2.1，1K $0.010/张 × 7.2 |
+| `gpt-image-2.5-flare` | 0.042336 / 张 | 1024×1024 auto 约 196 输出 token；medium 约 0.09504，high 约 0.37944 |
+| `gpt-image-2.5-sunburst` | 0.042336 / 张 | 同 flare；输出 token 费率一致 |
+| `grok-imagine-image` | 14.4 / 张 | 官方 $0.02/张 × 7.2；输入图另计 |
+| `grok-imagine-image-2.0` | 43.2 / 张 | 官方 2K low $0.06 × 7.2；medium 更高 |
+| `openmoss-team/moss-image` | 30 / 张 | SiliconFlow ¥0.30/张 |
+| `qwen/qwen-image-edit` | 30 / 张 | SiliconFlow ¥0.30/张 |
+| `qwen/qwen-image-edit-2509` | 30 / 张 | SiliconFlow ¥0.30/张 |
+| `tongyi-mai/z-image` | 30 / 张 | SiliconFlow ¥0.30/张 |
+| `tongyi-mai/z-image-turbo` | 10 / 张 | SiliconFlow ¥0.10/张 |
+| `agnes-video-2.5` | 18 / 秒 | 720P $0.025/秒 × 7.2；1080P/2K 更高 |
+| `agnes-video-2.5-flash` | 0 / 秒 | 当前限时免费 $0/秒；刊例价同为 18 分/秒，恢复收费后改回 18 |
+| `grok-imagine-video` | 36 / 秒 | 480P $0.05/秒 × 7.2 |
+| `grok-imagine-video-1.5` | 57.6 / 秒 | 480P $0.08/秒 × 7.2 |
+| `grok-imagine-video-1.5-lite` | 14.4 / 秒 | 480P $0.02/秒 × 7.2 |
+| `magi-2` / `magi-2-preview` / `magi-2-preview-latest` | 50 / 秒 | Sand.ai 官方 1080P 0.5 元/秒 |
+| `minimaxai/minimax-h3` | 50 / 秒 | 768P 0.50 元/秒；2K 为 80 分/秒 |
+| `lyria-3-clip-preview` | 28.8 / 首 | 官方 $0.04/首 × 7.2 |
+| `lyria-3-pro-preview` | 57.6 / 首 | 官方 $0.08/首 × 7.2 |
+| `lyria-3.5` | 57.6 / 首 | 官方 $0.08/首 × 7.2 |
+| `lyria-realtime-exp` | 57.6 / 次 | 官方页未单列 RealTime；按 LiteLLM $0.08/次 × 7.2 |
+
+已知边界：`gpt-image-2.5-flare/sunburst` 的 `per_unit_price = 0.03` 分/张，按 `ceil` 最低收 1 积分；单张 auto 成本约 0.042336 分，单张不亏，多张合并或 high 档会显著抬高成本。`grok-imagine-image-2.0` 仅覆盖 2K low，medium 2K $0.08 未并入；`minimaxai/minimax-h3` 按 768P 计，2K 调用会低估成本；xAI/Agnes/MiniMax 的输入图、输入视频费用尚未并入单位成本。
 
 ---
 
