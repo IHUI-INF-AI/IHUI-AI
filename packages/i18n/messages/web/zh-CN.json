@@ -22078,7 +22078,9 @@
       "uploadFileHint": "支持 docx/pdf/图片/视频,拖拽或点击上传",
       "uploadSuccess": "已上传: {filename}",
       "uploadedHint": "文件已上传,可重新选择替换",
-      "uploading": "上传中..."
+      "uploading": "上传中...",
+      "usePool": "使用账号池",
+      "usePoolHint": "由系统自动分配可用账号,无需手动选择"
     },
     "platforms": {
       "36kr": "36氪",

@@ -21733,7 +21733,9 @@
       "uploadFileHint": "支持 docx/pdf/圖片/視頻,拖拽或點擊上傳",
       "uploadSuccess": "已上傳: {filename}",
       "uploadedHint": "文件已上傳,可重新選擇替換",
-      "uploading": "上傳中..."
+      "uploading": "上傳中...",
+      "usePool": "使用賬號池",
+      "usePoolHint": "由系統自動分配可用賬號,無需手動選擇"
     },
     "platforms": {
       "36kr": "36氪",
