@@ -80,6 +80,24 @@ export const GUARDS = [
   { path: 'scripts/sync-lost-commit-tags.mjs', symbol: 'IHUI_TAG_PUSH_MAX_MB', why: '备份族推送体积闸（单枚超限隔离走冷归档）' },
   { path: 'scripts/prune-redundant-lost-tags.mjs', symbol: '--local-only', why: '备份族冗余清理腿（loose 与已打包重复件的唯一处置方）' },
   { path: 'scripts/prune-rotated-nssm-logs.mjs', symbol: 'export function planPrune', why: 'nssm 轮转日志清理判据本体（仓外日志面的唯一老化方）' },
+  // 2026-11-25 补三维：上面 19 条只判"符号还在"，下面三条判"还在按正确形态动手"——
+  // 对应它们的回潮方式不是删代码，而是**静默降级**：删掉 --apply 变 dry-run、
+  // 把 daemon 那条腿挪回只有 main() 才跑、或给逃生阀开成整体短路。三者都看不出来。
+  {
+    path: 'scripts/git-guardian.mjs',
+    symbol: '\n        pruneLostCommitTags()',
+    why: 'daemon tick 里真有一条裸调用（main() 那行是 `if (!CHECK_ONLY) ...`，不匹配此串）⇒ 常驻面没被挪回一次性面',
+  },
+  {
+    path: 'scripts/git-guardian.mjs',
+    symbol: "[script, '--apply']",
+    why: '派发必须以 --apply 真删；退回 dry-run 则机制静默失效（造好没装车的另一种形状）',
+  },
+  {
+    path: '.husky/reference-transaction',
+    symbol: '"${IHUI_ALLOW_STASH:-0}" = "1" ] && continue',
+    why: 'ALLOW_STASH 只放行 refs/stash；若有人改回判据前整体 exit 0，history-guard 会被连带关掉',
+  },
 ]
 
 /** 纯判据：给 {blobs: Map<path,string|null>, pruneFiles: string[]} 返回三态与点名。零 IO。 */
@@ -140,11 +158,11 @@ function selfTest() {
       unacc: 0,
     },
     {
-      name: '文件在但符号没了 ⇒ missing（退回旧版的形状，该 path 4 条断言）',
+      name: '文件在但符号没了 ⇒ missing（退回旧版的形状，该 path 6 条断言）',
       blobs: new Map([...good].map(([k, v]) => [k, k === 'scripts/git-guardian.mjs' ? '// old version without the new leg\n' : v])),
       prune: [],
       want: 'missing',
-      missing: 4,
+      missing: 6,
       unacc: 0,
     },
     {
