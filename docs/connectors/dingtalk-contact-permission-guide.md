@@ -106,3 +106,32 @@ curl -s 'https://api.dingtalk.com/v1.0/contact/users/<unionId>' \
 2. **用户本人在平台连接器页用钉钉扫码授权**（第三节 3.2）——目前生产库 0 条授权记录，授权后才会产生 userAccessToken。
 
 AI 侧已完成：链路核验、应用 Client ID 查明并写入本文档、临时探针清理。两项真人动作完成后，按第三节验证即可。
+
+## 六、2026-11-25 22:45 实测复核（重要更新，推翻上节部分结论）
+
+上节是「无管理员登录态」时的**静态快照推测**。本节用**平台自己的钉钉应用凭据**做了实测（不需要管理员登录、不需要用户扫码），结论更新如下：
+
+### 6.1 实测方法与结果
+
+用 `tenant_platform_apps.dingtalk` 的 `app_id/app_secret`（= `apps/api/.env` 的 `DINGTALK_APP_KEY/SECRET`，已核对一致）换取新版应用 accessToken，再直接打钉钉开放平台接口：
+
+| 探测 | 请求 | 实测响应 | 判定 |
+| --- | --- | --- | --- |
+| 换 token | `POST /v1.0/oauth2/accessToken` | `200`，`expireIn=7200` | 应用凭据有效 |
+| 通讯录详情（占位 unionId） | `GET /v1.0/contact/users/probe_nonxxxx_user` | `404 invalidParameter.user.notFound`「找不到该用户」 | **鉴权已放行**——走到查用户业务逻辑，非 403 `requiredScopes` |
+| 通讯录搜索（真实词） | `POST /v1.0/contact/users/search` `{queryWord:"李春川",offset:0,size:10}` | `200` `totalCount=1` + 真实 userId | **通讯录读权限确实可用** |
+
+**结论：应用级通讯录读权限（`Contact.User.Read` 及通讯录搜索能力）已开通且可用。** 上节表格「需管理员申请」的推测不成立——权限无需再申请，真人动作从两项缩减为一项。
+
+> 原理：若应用权限未开通，钉钉会在鉴权层直接返回 `403 AccessDeniedDetail.requiredScopes=[Contact.User.Read]`，根本不会走到「找不到用户」这类业务错误。实测拿到的是业务错误 + 真实数据，故权限确定已开。
+
+### 6.2 剩余的唯一真人动作
+
+- **用户本人在平台连接器页用钉钉扫码授权**（第三节 3.2）：生产库 `oauth_users` 实测 `provider='dingtalk'` 行数 = **0**（全 provider 均 0），平台链路里尚无任何用户的 userAccessToken。这一步必须真人用钉钉 App 扫码，AI 无法代劳。
+- 用户扫码授权完成后，AI 以本人身份调通讯录接口即可成功——应用权限侧已实测无障碍，届时按第三节 3.2/3.3 验证即可收口。
+
+### 6.3 关于两种 token 的边界（排障必读）
+
+- 本节实测用的是**应用 accessToken**（appKey+appSecret 换取），证明的是**应用级接口权限**已开通。
+- 平台连接器真实调用走的是**用户 userAccessToken**（OAuth 扫码换取，`x-acs-dingtalk-access-token` 注入），证明的是**用户身份授权**。
+- 两者互相独立：应用权限已开 ≠ 用户已授权。扫码后仍失败时才需要回头查应用权限；当前实测应用权限无障碍，扫码是唯一前置。
