@@ -5,16 +5,20 @@
 /**
  * Xiaofang — 品牌吉祥物「小方」统一出口(2026-11-15 立)
  *
- * 三态资产(唯一源 = public/images/):
- *  - full:/images/xiaofang.svg        全身,用于空态 / 加载 / banner
- *  - face:/images/xiaofang-face.svg   笑脸头像,用于 24–96px 小尺寸位
- *  - lost:/images/xiaofang-lost.svg   疑问表情,用于 404
+ * 四态资产(唯一源 = public/images/):
+ *  - full:/images/xiaofang.png        全身,用于空态 / 加载 / banner
+ *  - face:/images/xiaofang-face.png   笑脸头像,用于 24–96px 小尺寸位
+ *  - lost:/images/xiaofang-lost.png   疑问表情,用于 404
  *  - wave:/images/xiaofang-wave.gif   原始招手动图,用于需要"打招呼"的空态
  *
- * 彩色资产均由原始设计稿/表情包自动描摹为矢量(trace,透明底),
+ * 资产取自百度网盘共享空间 `AI设计部/logo、小方/小方表情包/`:
+ *  - full/face 源自「微笑.png」(全身 + 头部裁切);
+ *  - lost 源自「疑问.png」;
+ *  - wave 源自「动图透明底压缩/招手.gif」(400×267,124 帧,原样落地)。
+ * 全部保留设计原图的 3D 渲染质感与透明底,不做矢量描摹(trace 会掉质感),
  * 造型与配色以设计原图为准,不做手绘改形。
  *
- * 用原生 img 而非 next/image:SVG 不需要图片优化,且 404 静态页由
+ * 用原生 img 而非 next/image:静态位图已按展示尺寸裁好,且 404 静态页由
  * scripts/build-brand-404.mts 在纯 Node 里 renderToStaticMarkup 渲染,
  * 原生 img 不依赖 Next Image 运行时配置。调用方只管尺寸与位置。
  */
@@ -25,10 +29,10 @@ import { cn } from '@/lib/utils'
 type XiaofangVariant = 'full' | 'face' | 'lost' | 'wave'
 
 const XIAOFANG_SRC: Record<XiaofangVariant, string> = {
-  full: '/images/xiaofang.svg?v=20261115h',
-  face: '/images/xiaofang-face.svg?v=20261115h',
-  lost: '/images/xiaofang-lost.svg?v=20261115h',
-  wave: '/images/xiaofang-wave.gif?v=20261115h',
+  full: '/images/xiaofang.png?v=20261125',
+  face: '/images/xiaofang-face.png?v=20261125',
+  lost: '/images/xiaofang-lost.png?v=20261125',
+  wave: '/images/xiaofang-wave.gif?v=20261125',
 }
 
 /** 动图是 400×267 横版,其余为方形;size 统一表示宽度。 */
@@ -58,7 +62,7 @@ export function Xiaofang({
 }: XiaofangProps) {
   const height = Math.round(size * XIAOFANG_ASPECT[variant])
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- SVG 无需图片优化;404 静态页在纯 Node 里 renderToStaticMarkup,原生 img 不依赖 Image 运行时
+    // eslint-disable-next-line @next/next/no-img-element -- 静态位图已按展示尺寸裁好;404 静态页在纯 Node 里 renderToStaticMarkup,原生 img 不依赖 Image 运行时
     <img
       src={XIAOFANG_SRC[variant]}
       alt={alt}
