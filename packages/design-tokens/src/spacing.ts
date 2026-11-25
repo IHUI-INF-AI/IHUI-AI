@@ -85,14 +85,21 @@ export const SPACING_ROLES = {
   section: 'xl',
   /** 屏幕水平留白 */
   pagePadX: 'lg',
-  /** 卡片内边距 */
-  cardPad: 'lg',
+  /** 卡片内边距(2026-11-25 收口):与 packages/shared/src/ui/card-spec.ts 的
+   *  CARD_PADDING_PX=12(2026-11-23 用户定档 compact 较小档)同值。此前本角色是 lg(16),
+   *  与 card-spec 的 12 构成两份真相源;`rnSpacingFor.cardPad` 全仓无生产消费方,故直接落定 12。 */
+  cardPad: 'md',
   /** 紧凑卡片内边距 */
   cardPadSm: 'md',
+  /** 卡片之间 / 卡片组内的间距(2026-11-25 补,唯一源收口):页面骨架 page-spec 的 CARD_GAP_PX 取本角色 */
+  cardGap: 'md',
   /** 列表项水平内边距 */
   listItemPadX: 'lg',
   /** 列表项垂直内边距 */
   listItemPadY: 'md',
+  /** 页面底部留白(2026-11-25 补,唯一源收口):压过悬浮 TabBar 的页面骨架底部预留,
+   *  页面骨架 page-spec 的 PAGE_BOTTOM_PADDING_PX 取本角色(32 与 TabBar 62 叠加后仍留呼吸区) */
+  pageBottom: '3xl',
 } as const
 
 /** RN / 共享包侧消费入口:StyleSheet 里写 `padding: rnSpacing.lg` */
