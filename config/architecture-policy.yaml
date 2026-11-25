@@ -547,6 +547,11 @@ modules:
       # 里真实存在(32afee2139 随票补的导出);只登通配不登精确名:jobs 无 index.ts,
       # 精确 `./jobs` 会触发 E1 entrypoint-missing(与 ./skills/* ./tasks/* 同款形态)。
       - './jobs/*'
+      # 2026-11-25 补登(门 103 D3):navigation 目录被新的 tab 落点与「我的」入口消费面
+      # import(`@ihui/shared/navigation/personal-hub` 的 PERSONAL_HUB_ALL_ENTRIES 等),
+      # 本表未登记 ⇒ D3 当场判红。只登通配不登精确名:packages/shared/src/navigation/
+      # 下无 index.ts,精确 `./navigation` 会触发 E1 entrypoint-missing(与 ./jobs/* 同款形态)。
+      - './navigation/*'
       - './validation'
       - './validation/*'
       - './workflows'

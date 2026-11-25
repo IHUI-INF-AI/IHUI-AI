@@ -60,6 +60,13 @@ const ICONS = {
   // 分享星球 → share-2
   share:
     '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>',
+  // AI应用商店 → shopping-cart(2026-11-25 tab 换新 5 项时补;此前 market 键不在表内,
+  // 那两枚 PNG 是手工塞进仓库的 ⇒ 生成器重跑不出来,可再生性断了一环)
+  market:
+    '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  // 动态 → file-text(同上,news 键此前同样缺席)
+  news:
+    '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
 }
 
 function svgBody(paths, color) {
