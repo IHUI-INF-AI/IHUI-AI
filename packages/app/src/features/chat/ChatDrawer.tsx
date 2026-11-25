@@ -26,8 +26,10 @@ import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/desi
 // 2026-11-23:会话标题显示兜底 —— 与 web 侧栏/生成侧同一份净化规则。
 import { DEFAULT_CONVERSATION_TITLE, plainTitleText } from '@ihui/shared'
 import type { TFunction } from '@ihui/types'
+import { MessageSquare } from 'lucide-react-native'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { EmptyState } from '../../components/ScreenStates'
 
 export interface ChatDrawerConversation {
   id: string
@@ -158,7 +160,11 @@ export function ChatDrawer({
           <Text style={styles.sectionLabel}>{t('drawer.history')}</Text>
 
           {conversations.length === 0 ? (
-            <Text style={styles.emptyText}>{t('drawer.noHistory')}</Text>
+            <EmptyState
+              icon={<MessageSquare size={26} color={tokens.text.secondary} />}
+              title={t('drawer.noHistory')}
+              colorScheme={colorScheme}
+            />
           ) : (
             <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
               {conversations.map((conversation) => (
@@ -352,10 +358,6 @@ function createStyles(tokens: AppThemeTokens) {
       fontWeight: '600',
       color: tokens.text.medium,
       marginBottom: rnSpacing.xs,
-    },
-    emptyText: {
-      fontSize: rnType.bodySm.size,
-      color: tokens.text.medium,
     },
     list: {
       flex: 1,

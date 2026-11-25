@@ -358,6 +358,46 @@ export interface WechatGroupActionInput {
   memberIds?: string[]
   title?: string
   text?: string
+  /** 写动作一次性确认令牌：由预览接口签发，绑定「动作 + 群 + 目标集合」，过期作废 */
+  confirmToken?: string
+  /** 只出影响面、不真执行；与预览接口等价，方便脚本先试 */
+  dryRun?: boolean
+}
+
+/** 群写动作预览单里的单个目标 */
+export interface WechatGroupActionPlanTarget {
+  memberId: string
+  name: string | null
+  /** 为什么选中他（例如「30 天没说话」）；人工判断用 */
+  reason: string | null
+}
+
+/**
+ * 群写动作预览单。
+ *
+ * 群管理是「不可逆 + 可被风控」的一类动作，所以执行路径必须是：
+ * 先拿这张单子看清楚会动谁 → 人工确认 → 用一次性 token 在 60 秒内执行。
+ * 没有 token 的写请求一律拒绝，避免脚本/误点把整群踢空。
+ */
+export interface WechatGroupActionPlan {
+  action: WechatGroupActionInput['action']
+  conversationId: string
+  chatTitle: string
+  targets: WechatGroupActionPlanTarget[]
+  /** 执行后真实会发生什么，用大白话写给非技术用户看 */
+  effect: string
+  warnings: string[]
+  confirmToken: string
+  expiresAt: string
+}
+
+/** 账号级群写策略（默认全关，开了也仍然受单次/频次上限约束） */
+export interface WechatGroupWritePolicy {
+  enabled: boolean
+  /** 单次动作最多动几个人 */
+  maxTargetsPerAction: number
+  /** 每小时最多执行几次写动作 */
+  maxActionsPerHour: number
 }
 
 /** 从桥同步群成员快照的结果 */
@@ -864,6 +904,23 @@ export interface WechatAskResult {
   /** 统计意图下的结构化结果，可直接拿去画图或二次计算 */
   stats?: Record<string, unknown> | null
   generatedBy: 'llm' | 'local'
+}
+
+/**
+ * 「让 AI 写一条查询」的结果。
+ *
+ * 模型只写 WHERE / 聚合表达式，表名被强制固定成一个只含本账号消息的 CTE，
+ * 语句在只读校验通过后才执行，最多回 50 行。sql 原样展示给用户，
+ * 让人能看见「它到底查了什么」，而不是只给一个黑箱数字。
+ */
+export interface WechatAskSqlResult {
+  answer: string
+  sql: string
+  rowCount: number
+  rows: Array<Record<string, unknown>>
+  generatedBy: 'llm' | 'local'
+  /** 校验没过 / 执行出错 / 模型没给出 SQL 时的中文原因；正常为 null */
+  note: string | null
 }
 
 /** 定时任务类型：定时群发 / 定时报告 / 定时朋友圈 / 定时语音转写 */

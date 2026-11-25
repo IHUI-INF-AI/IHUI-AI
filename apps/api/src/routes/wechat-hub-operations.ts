@@ -8,6 +8,7 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify'
+import type { WechatGroupActionInput } from '@ihui/types'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { parseOrThrow, success } from '../utils/response.js'
@@ -15,20 +16,60 @@ import {
   deleteContact,
   fetchMoments,
   listMomentArchive,
+  previewGroupAction,
   publishMoment,
   runGroupAction,
   syncContacts,
 } from '../services/wechat-hub/operations.js'
+import {
+  getGroupWritePolicy,
+  saveGroupWritePolicy,
+} from '../services/wechat-hub/group-writes.js'
 import { wechatHubManager } from '../services/wechat-hub/manager.js'
 import { pushMemberMapForAccount } from '../services/wechat-hub/member-map-sync.js'
 import { answerError, requireUserId } from './wechat-hub-route-utils.js'
 
-const groupActionSchema = z.object({
-  action: z.enum(['create', 'invite', 'kick', 'rename', 'announce']),
-  conversationId: z.string().min(1).max(255).optional(),
-  memberIds: z.array(z.string().min(1).max(255)).max(50).optional(),
-  title: z.string().min(1).max(120).optional(),
-  text: z.string().max(2000).optional(),
+/** 带目标成员的动作：空成员会给桥发空动作，白跑一趟还占频次，必须在 schema 层拦下。 */
+const WRITE_WITH_MEMBERS = ['kick', 'invite', 'create'] as const
+
+function groupActionNeedsMembers(action: string): boolean {
+  return (WRITE_WITH_MEMBERS as readonly string[]).includes(action)
+}
+
+const groupActionSchema = z
+  .object({
+    action: z.enum(['create', 'invite', 'kick', 'rename', 'announce']),
+    conversationId: z.string().min(1).max(255).optional(),
+    memberIds: z.array(z.string().min(1).max(255)).max(10).optional(),
+    title: z.string().min(1).max(120).optional(),
+    text: z.string().max(2000).optional(),
+    confirmToken: z.string().min(1).max(2048).optional(),
+    dryRun: z.boolean().optional(),
+  })
+  .superRefine((d, ctx) => {
+    if (groupActionNeedsMembers(d.action) && (!d.memberIds || d.memberIds.length === 0)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${d.action} 动作至少需要 1 个成员` })
+    }
+  })
+
+const groupPlanSchema = z
+  .object({
+    action: z.enum(['create', 'invite', 'kick', 'rename', 'announce']),
+    conversationId: z.string().min(1).max(255).optional(),
+    memberIds: z.array(z.string().min(1).max(255)).max(10).optional(),
+    title: z.string().min(1).max(120).optional(),
+    text: z.string().max(2000).optional(),
+  })
+  .superRefine((d, ctx) => {
+    if (groupActionNeedsMembers(d.action) && (!d.memberIds || d.memberIds.length === 0)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${d.action} 动作至少需要 1 个成员` })
+    }
+  })
+
+const groupPolicySchema = z.object({
+  enabled: z.boolean().optional(),
+  maxTargetsPerAction: z.coerce.number().int().min(1).max(10).optional(),
+  maxActionsPerHour: z.coerce.number().int().min(1).max(10).optional(),
 })
 
 const momentSchema = z.object({
@@ -97,6 +138,59 @@ export const wechatHubOperationsRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(
           success(await runGroupAction(requireUserId(request), request.params.id, input)),
         )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  // create 预览没有会话段，conversationId 走 body；非 create 也可从这条入口提交。
+  server.post<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/groups/plan',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const input = parseOrThrow(groupPlanSchema, request.body)
+        return reply.send(success(await previewGroupAction(requireUserId(request), request.params.id, input)))
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.post<{ Params: { id: string; conversationId: string } }>(
+    '/wechat-hub/accounts/:id/groups/:conversationId/plan',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const body = parseOrThrow(groupPlanSchema, request.body)
+        const input: WechatGroupActionInput = { ...body, conversationId: request.params.conversationId }
+        return reply.send(success(await previewGroupAction(requireUserId(request), request.params.id, input)))
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.get<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/groups/policy',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        return reply.send(success(await getGroupWritePolicy(requireUserId(request), request.params.id)))
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.put<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/groups/policy',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const patch = parseOrThrow(groupPolicySchema, request.body ?? {})
+        return reply.send(success(await saveGroupWritePolicy(requireUserId(request), request.params.id, patch)))
       } catch (e) {
         return answerError(reply, e)
       }

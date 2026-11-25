@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
-import type { WechatAskResult } from '@ihui/types'
+import type { WechatAskResult, WechatAskSqlResult } from '@ihui/types'
 import { wechatHubApi } from './wechat-hub-api'
 
 const EXAMPLES = ['上周关于预算聊了什么', '最近3天客户投诉了哪些问题', '这个月谁最活跃']
@@ -31,7 +31,9 @@ const EXAMPLES = ['上周关于预算聊了什么', '最近3天客户投诉了�
 export default function AskPanel({ accountId }: { accountId: string }) {
   const [question, setQuestion] = React.useState('')
   const [conversationId, setConversationId] = React.useState('all')
+  const [useSql, setUseSql] = React.useState(false)
   const [result, setResult] = React.useState<WechatAskResult | null>(null)
+  const [sqlResult, setSqlResult] = React.useState<WechatAskSqlResult | null>(null)
   const [error, setError] = React.useState<string | null>(null)
 
   const conversationsQuery = useQuery({
@@ -48,13 +50,37 @@ export default function AskPanel({ accountId }: { accountId: string }) {
       }),
     onSuccess: (data) => {
       setResult(data)
+      setSqlResult(null)
       setError(null)
     },
     onError: (e) => {
       setResult(null)
+      setSqlResult(null)
       setError(e instanceof Error ? e.message : '问聊天记录失败')
     },
   })
+
+  /** 只读查询：SQL 由服务端生成、校验、执行，前端只展示模型写了什么。 */
+  const sqlMutation = useMutation({
+    mutationFn: () => wechatHubApi.askSql(accountId, { question }),
+    onSuccess: (data) => {
+      setSqlResult(data)
+      setResult(null)
+      setError(null)
+    },
+    onError: (e) => {
+      setSqlResult(null)
+      setResult(null)
+      setError(e instanceof Error ? e.message : '生成查询失败')
+    },
+  })
+
+  const submit = () => {
+    if (question.trim().length === 0) return
+    if (useSql) sqlMutation.mutate()
+    else askMutation.mutate()
+  }
+  const pending = askMutation.isPending || sqlMutation.isPending
 
   return (
     <div className="space-y-3">
@@ -79,7 +105,7 @@ export default function AskPanel({ accountId }: { accountId: string }) {
                 onChange={(e) => setQuestion(e.target.value)}
                 placeholder="例如：上周关于预算聊了什么"
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && question.trim().length > 0) askMutation.mutate()
+                  if (e.key === 'Enter' && question.trim().length > 0) submit()
                 }}
               />
             </div>
@@ -102,16 +128,21 @@ export default function AskPanel({ accountId }: { accountId: string }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              onClick={() => askMutation.mutate()}
-              disabled={askMutation.isPending || question.trim().length === 0}
-            >
-              {askMutation.isPending ? (
+            <Button onClick={submit} disabled={pending || question.trim().length === 0}>
+              {pending ? (
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
               ) : (
                 <Search className="mr-1.5 h-3.5 w-3.5" />
               )}
               提问
+            </Button>
+            <Button
+              variant={useSql ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setUseSql((value) => !value)}
+              title="让模型写一条只读查询：只能读本账号消息，不能写库，最多回 50 行"
+            >
+              {useSql ? '已开启：让 AI 写查询（只读）' : '让 AI 写查询（只读）'}
             </Button>
             {EXAMPLES.map((example) => (
               <Button key={example} variant="ghost" size="sm" onClick={() => setQuestion(example)}>
@@ -119,6 +150,30 @@ export default function AskPanel({ accountId }: { accountId: string }) {
               </Button>
             ))}
           </div>
+
+          {sqlResult ? (
+            <div className="space-y-2">
+              <div className="rounded-md border border-stroke-subtle bg-muted/10 p-3">
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground">
+                    {sqlResult.rowCount > 0 ? `查询返回 ${sqlResult.rowCount} 行` : '查询无结果'}
+                  </span>
+                </div>
+                <p className="text-body whitespace-pre-wrap">{sqlResult.answer}</p>
+              </div>
+              {sqlResult.note ? <Alert variant="warning" title="这次没走查询" description={sqlResult.note} /> : null}
+              {sqlResult.sql ? (
+                <div className="space-y-1">
+                  <p className="text-[11px] text-muted-foreground">
+                    模型写的查询（已由服务端加上本账号隔离与行数上限后执行）
+                  </p>
+                  <p className="rounded-md border border-stroke-subtle p-2 text-[12px] text-muted-foreground whitespace-pre-wrap break-words">
+                    {sqlResult.sql}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {result ? (
             <div className="space-y-3">
