@@ -57,6 +57,14 @@ export const GATES = Object.freeze([
   { id: 'redteam-selftest', script: 'check-redteam-selftest.mjs', supportsBaseline: false, label: '红队回归（11 必拦 + 5 不误伤）' },
   { id: 'evidence-chain', script: 'check-evidence-chain.mjs', supportsBaseline: false, label: '证据链完整性（防篡改）' },
   { id: 'defense-posture', script: 'check-defense-posture.mjs', supportsBaseline: false, label: '攻防态势（越界数/覆盖率/MTTD）' },
+  // ── 取证地基两面纳入同一张表(2026-11-26 第四批)──────────────────────
+  // 凌晨账号锁定事故暴露的真缺口,不是「还缺哪个探测器」,而是「探测器读的那张纸会不会被抽走」:
+  //   ① 审计策略现读 60 条子类里 40 条 No Auditing、5 条只有 Success ⇒ 凭据验证/特权使用/
+  //      服务安装/防火墙规则四面全盲;
+  //   ② Security 日志只保留 4.6 小时(512MB + 滚动覆盖) ⇒ 历史一滚,任何取证永久消失。
+  // 这两面是**其它所有面判绿的前置**:策略一关、日志一滚,下游读到的都是空窗(§0.3 假绿)。
+  { id: 'audit-policy', script: 'check-audit-policy.mjs', supportsBaseline: false, label: '审计策略（关键子类双开）' },
+  { id: 'security-events', script: 'security-event-intake.mjs', supportsBaseline: false, label: '取证落盘（增量抽取/高危事件/日志窗口）' },
 ])
 
 export function runGate(gate, root = ROOT, extraArgs = []) {

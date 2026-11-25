@@ -17,6 +17,13 @@ export interface PushState {
   registered: boolean
 }
 
+/**
+ * 前台收到推送时**故意不出声**（2026-11-26 取舍，别顺手改成 true）：
+ *  - App 在前台时，消息由 WS 到达页面，`RootNavigator` 已用 `playRingtone(当前铃声)` 发声；
+ *    系统通知再响一次就是"铃 + 系统声"双响。
+ *  - App 在后台/被杀时，前台 handler 根本不执行，声由通知**渠道**（res/raw 音源）负责。
+ *  - 想验证真机铃声，必须退到后台/锁屏再发，前台不响是设计而非缺陷。
+ */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,

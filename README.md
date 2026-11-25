@@ -1542,3 +1542,43 @@ Two structural gates are named here so they cannot be re-invented or bypassed si
 - 🔧 工程/其他:声纹克隆下线文案五语收口并同步小程序路由产物 (07381df1)
 - 📚 文档:登记账号锁定策略 Never 的三条前提与判据联动(防后人在开 RDP/抬阈值时回潮成远程 DoS) (795bf2e7)
 - ♻️ 重构:彻底移除 token6688 供应商与全部依赖配置 (de53023c)
+- [`scripts/security/check-audit-policy.mjs`](./scripts/security/check-audit-policy.mjs) — fails when a
+  forensic-critical Windows audit subcategory (account lockout, logon, credential validation, service
+  installation, firewall rule change) is not set to `Success and Failure`; without it every downstream
+  "no events in this window" reading is green by absence. Check with
+  `node scripts/security/check-audit-policy.mjs`; `--apply` backs the current policy into
+  `.ihui-agent/state/` first and re-reads the channel to prove the change landed.
+- [`scripts/security/security-event-intake.mjs`](./scripts/security/security-event-intake.mjs) — drains the
+  Security channel into `.ihui-agent/state/security-events.jsonl` by a `RecordId` cursor (the channel itself
+  keeps only about 4.6 hours on this host), flags 1102/1100/4697/4732/4740 as breach, and warns when the
+  live log window drops under six hours. Check with
+  `node scripts/security/security-event-intake.mjs --stats`.
+- 📚 文档:标注 push 订阅腿的现状,避免把预置监当成已接通 (41f26544)
+- 🐞 修复:补 Expo 托管推送腿——RN 的 ExponentPushToken 不再落到 FCM 被拒收 (5fb80657)
+- ♻️ 重构:语音占位口径单点化，分析语料不再混进 [语音] (2d4b0f4a)
+- 🐞 修复:烘焙 updater feed 到 0.1.94(desktop-latest.generated.ts) (ee18db5f)
+- 🐞 修复:修考试介绍与分享落地页空态描边 CTA,统一智汇值文案,priceUnit 恢复价格占位,社区我的智能体接口切 /agents/my (38267c4f)
+- 🐞 修复:监看模板编辑器 i18n 命名空间与模板 CRUD 反代 (6860c729)
+- 📚 文档:纠正七十二 豆包 relogin 锁阻塞零写库 + 纠正七十三 WorkBuddy 重开网关未附着（两条独立结论） (cafd95e1)
+- 🚀 新功能/改进:通知铃声收尾——SW 防双响 + Android 按选中铃声推送 (768271fe)
+- 🐞 修复:修复智能体市场/模型广场两屏暗档卡片轮廓、错误空态与空价行误导 (043d5f82)
+- 🐞 修复:窗内未备份悬空改「默认只报数、问责 --strict 才拦」 (9b0e28ca)
+- 🐞 修复:补齐 IntroducePopup 五语 48 条会员权益字典 (04261fc6)
+- 🐞 修复:auto 转移链按真机探针重排 —— 换掉实测 401 的 qwen 腿,补 xai grok (997a6387)
+- 📚 文档:OpenCode/豆包两端补探入账 纠正六十四（OpenCode 框架级上游通宿主 loop 未启动；豆包仅 GUI 无对外可编程模型入口，模型层待重登定级） (6aba0972)
+- ⚡ 性能:铃声改 16kHz 重渲染,主包 2186KB→1921KB 过微信 2048KB 上限 (414d4431)
+- 🚀 新功能/改进:移植导出六格式/报告/问数/指令/定时/语音六类能力 (506514c2)
+- 📚 文档:Qoder round2 边界补测入账 纠正六十三（维持 A-，会话内链式通过/跨请求不回灌，入站静默忽略，进程内 MCP 为唯一自定义工具通路） (19f4d24f)
+- 🚀 新功能/改进:账号锁定策略判据(阈值0=>4625仅观测,4740仍红)+README 点名两枚隐形门(门89 R4 清零) (baaa331e)
+- 📚 文档:Trae plan_item 工具翻译 lab 副本可见性入账 纠正六十二（①可见性限副本，仓库适配器仍部分闭环） (9bcad0f3)
+- 🐞 修复:撤除 './aigc-metadata' 悬空再导出(模块从未入库,TS2307 卡死部署构建) (0e1d4418)
+- 📚 文档:Cursor f13 解码与两轮实跑入账 纠正六十一（文本闭环·工具请求可见·结果回包未通，f13 空标记推翻旧判） (b087a492)
+- 🐞 修复:资讯族屏补搜索占位文案、清洗正文 markdown 标题/列表标记、修正详情重试文案与点赞胶囊对齐 (fcf0f48b)
+- 📚 文档:Qoder 桥出站工具翻译补丁 lab 实测入账 纠正六十（A-，内置 mcp_* 元工具出站可见，非全工具面闭环） (8be44afc)
+- 📚 文档:号池保活自愈结果入账 纠正五十九（4/5 动作成功 80%，4 枚 trae web 顺延，8 枚机器无解待人工） (762d2124)
+- 🐞 修复:auto 第二档(默认链兜底位)补 agnes 转移链 (ba7625e9)
+- 🔧 工程/其他:小程序设备页两文件补齐溯源载荷(L2/L3) (8fa0acef)
+- 📚 文档:小浣熊升级产品级闭环（纠正五十八，附录最小调用样例） (bccad600)
+- 🐞 修复:auto 失败转移闸门放宽到 MODEL_NOT_CONFIGURED / PROVIDER_NOT_IMPLEMENTED (c111bff9)
+- 📚 文档:四端额度与端点深挖（纠正五十四至五十七，凭据形态/余额数值/卡点细化） (21522d27)
+- 📚 文档:三端工具层实跑部分闭环（纠正五十一至五十三，矩阵增工具层轴） (b9882df0)
