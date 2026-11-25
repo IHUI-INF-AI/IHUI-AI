@@ -71,6 +71,8 @@
     "allow-embedded-browser-pip",
     "allow-open-browser-pip-window",
     "allow-close-browser-pip-window",
+    "allow-set-browser-pip-collapsed",
+    "allow-toggle-browser-pip-collapsed",
     "allow-handover-browser-pip-window",
     "allow-store-account-open",
     "allow-store-account-url",
