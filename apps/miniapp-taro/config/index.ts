@@ -56,7 +56,7 @@ export default defineConfig(async (merge) => {
         process.env.EXPO_PUBLIC_WEB_URL || 'https://aizhs.top',
       ),
       'process.env.EXPO_PUBLIC_WECHAT_APP_ID': JSON.stringify(
-        process.env.EXPO_PUBLIC_WECHAT_APP_ID || 'wx85fa429a9331b5c8',
+        process.env.EXPO_PUBLIC_WECHAT_APP_ID || 'wx3c37d94ee8f70148',
       ),
       'process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK': JSON.stringify(
         process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK || 'https://file.aizhs.top/',
