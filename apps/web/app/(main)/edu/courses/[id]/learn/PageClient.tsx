@@ -220,7 +220,7 @@ export default function EduCourseLearnPage() {
                   value={noteText}
                   onChange={(e) => setNoteText(e.target.value)}
                   rows={3}
-                  className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
                   placeholder={t('notePlaceholder')}
                 />
               </div>
@@ -254,7 +254,7 @@ export default function EduCourseLearnPage() {
                     setPlayError(false)
                   }}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-body transition-colors',
+                    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body transition-colors',
                     active?.id === s.id ? 'bg-primary/10 text-primary' : 'hover:bg-accent',
                   )}
                 >

@@ -176,7 +176,7 @@ export default function AiWorldDetailPage() {
                   disabled={favPending}
                   aria-pressed={favorited}
                   className={cn(
-                    'inline-flex shrink-0 items-center gap-1.5 rounded-sm border px-3 py-1.5 text-label font-medium transition-colors',
+                    'inline-flex shrink-0 items-center gap-1.5 rounded-md border px-3 py-1.5 text-label font-medium transition-colors',
                     favorited
                       ? 'border-stroke-selected bg-primary/10 text-primary hover:bg-primary/15'
                       : 'border-border bg-card text-muted-foreground hover:bg-accent/50 hover:text-foreground',

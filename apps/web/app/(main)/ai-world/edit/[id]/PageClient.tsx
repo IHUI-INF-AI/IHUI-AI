@@ -167,7 +167,7 @@ export default function AiWorldEditPage() {
                 id="aw-cat"
                 value={form.categoryId}
                 onChange={(e) => update('categoryId', e.target.value)}
-                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
               >
                 <option value="">{t('noCategory')}</option>
                 {categories.map((c: Category) => (
