@@ -4,10 +4,12 @@
 
 #
 # 微信 4.x UIA 只读探测脚本（自研，自成一体，不依赖 wechat-ocr.ps1）。
-# 只读硬约束：不点击、不 SetFocus、不 SetCursorPos / mouse_event、不开关窗口、
-# 不杀进程、不重启 8848。翻页只允许对 MMUIRenderSubWindowHW 子窗
+# 采集硬约束：moments/status/dump 只读，不点击、不 SetFocus、不 SetCursorPos / mouse_event、
+# 不开关窗口、不杀进程、不重启 8848。翻页只允许对 MMUIRenderSubWindowHW 子窗
 # SendMessage WM_MOUSEWHEEL（后台消息，不抢焦点、不移动鼠标）。
-# 朋友圈未打开或定位不到 List / ListItem 时，直接返回 ok=false 与原因，不用点击导航。
+# open 模式例外：仅在朋友圈未打开时，向主窗 PostMessage 鼠标消息点击「发现」→「朋友圈」；
+# 不 ShowWindow / 不 SetForegroundWindow / 不 SetFocus / 不移动系统鼠标。
+# 导航失败时直接返回 ok=false 与原因，不把未进入朋友圈伪装成已采集。
 #
 # 输出 JSON（-OutFile，UTF8 无 BOM）：
 #   ok, mode='uia', driver='uia', pages, maxPages, stopReason, limitReached,
