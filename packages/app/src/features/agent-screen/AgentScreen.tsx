@@ -208,14 +208,18 @@ export function AgentScreen({
         <Text style={styles.desc} numberOfLines={2}>
           {item.description}
         </Text>
+        {/* 词条 `agentScreen.useCount` / `rating` 的值是**纯标签**(「使用次数」「评分」),
+         *  没有 {count}/{score} 占位符 —— 传参进去也只回标签本身,数字永远不显示
+         *  (2026-11-26 实拍:market 卡片 meta 只剩「使用次数」四个字,使用量凭空消失)。
+         *  词条本身不在此处改:packages/i18n/messages/* 此刻有他人未提交的改动在飞。
+         *  此处改为 **标签 + 数值** 形态,与小程序 `pkg-ai/ai/agent.tsx` 既有的
+         *  `{t('agentScreen.useCount')} {agent.uses}` 逐字同形 —— 三端一致,数字不再丢。 */}
         {item.useCount !== undefined || item.rating !== undefined ? (
           <Text style={styles.meta}>
-            {item.useCount !== undefined
-              ? `${t('agentScreen.useCount', { count: item.useCount })}`
-              : ''}
+            {item.useCount !== undefined ? `${t('agentScreen.useCount')} ${item.useCount}` : ''}
             {item.useCount !== undefined && item.rating !== undefined ? ' · ' : ''}
             {item.rating !== undefined
-              ? `${t('agentScreen.rating', { score: item.rating.toFixed(1) })}`
+              ? `${t('agentScreen.rating')} ${item.rating.toFixed(1)}`
               : ''}
           </Text>
         ) : null}
