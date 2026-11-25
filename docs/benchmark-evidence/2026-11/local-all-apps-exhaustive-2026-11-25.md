@@ -138,7 +138,7 @@ Qoder 的字符串表是自定义 base64 + 数组旋转，直接用常规 base64
 | Cursor | 1,087 | 1,863 | examined 大于 JS，应用 JS 全覆盖；差额是 node_modules/资产 |
 | Trae CN | 310 | 1,359 | 全覆盖；差额是 node_modules/资产 |
 | WorkBuddy | 3,827 | 4,173 | 全覆盖；差额是资产 |
-| Qoder 0.5.6 / 0.5.14 | 634 / 606 | 795 / 768 | 两版全覆盖；0.5.7 / 0.5.12 未单独解包计数，但 examined 803 / 776 均高于相邻版本 JS 数 |
+| Qoder 0.5.6 / 0.5.7 / 0.5.12 / 0.5.14 | 634 / 634 / 606 / 606 | 795 / 803 / 776 / 768 | 四版全覆盖；0.5.7 / 0.5.12 已用 asar header 直接计数，不再折算 |
 | ZCode | 2,828 | 3,732 | 全覆盖；差额是 node_modules/资产 |
 | DeepSeek Harness | 12 | 633 | 全覆盖；差额是 node_modules/资产 |
 | OpenCode | 3,229 | 5,940 | 全覆盖；差额是 node_modules/资产 |
@@ -677,7 +677,7 @@ IPC 分组说明它是“能力市场型”客户端：
 
 - `analysis\install-matrix.json`：11 个目标的安装面、主程序版本/大小/hash、asar 大小、native 模块数量。
 - `analysis\frontend-matrix.json`：前端总矩阵（模块/节点/边/endpoint/窗口/IPC/暴露键），已补 `doubao-biz-pak` 三片行。
-- `analysis\frontend-coverage-audit.json`：14 个前端图/分片的 JS 覆盖审计——逐目标非 `node_modules` JS/TS 计数、图 `examined`、`0` 个应用 JS 漏读目标；含 Qoder 四版本与豆包三片的折算说明。
+- `analysis\frontend-coverage-audit.json`：14 个前端图/分片的 JS 覆盖审计——逐目标非 `node_modules` JS/TS 计数、图 `examined`、`0` 个应用 JS 漏读目标；Qoder 四版本均按实际文件计数（634 / 634 / 606 / 606），豆包三片按 7,837 个 JS 逐一对齐。
 - `analysis\backend-<target>.json`：后端模式扫描（http/ws server、ipcMain、contextBridge、safeStorage、MCP/ACP/LSP）。
 - `<target>-jsmap-full.json`：前端全量图（豆包 ai-views 437MB、WorkBuddy 273MB、Cursor 247MB 等）；豆包主应用 `biz.pak` 的 1.04GB 图见下一组条目。
 - `native\<target>\*.json`：核心取证（overview / imports / exports / publisher / strings0-7 / feat0-3）。
