@@ -352,7 +352,7 @@ export function hydrateHistoryMessage(row: HistoryMessageRecord): ChatMessage {
     compaction: readCompactionFromMetadata(meta?.compaction),
     retryNotice: readRetryNoticeFromMetadata(meta?.retryNotice),
     // D33:这轮**换过模型**的交代此前只在 live 顶部横幅一闪而过,刷新即丢 ——
-    // 落到消息字段,由 MessageItem 交代行按既有 chat.fallbackNotice* 词回放。
+    // 落到消息字段留档(排障/导出可用);2026-11-26 起 UI 不再渲染交代行(换腿无感)。
     fallback: readFallbackFromMetadata(meta?.fallback),
     // D33(G-39,2026-09-26 立):排队侧问快照挂消息字段(与 fallback 同形态)——
     // 经既有 hydrateHistoryMessages 调用点即达生产面,渲染位消费侧待后续格。
