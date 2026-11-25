@@ -98,6 +98,9 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
   const [pinned, setPinned] = useState(true)
   const [pinBusy, setPinBusy] = useState(false)
   const [taskExpanded, setTaskExpanded] = useState(false)
+  // `isTauri()` 在 SSR 恒为 false、客户端首帧为 true;直接写进 JSX 会触发
+  // hydration mismatch。先渲染与 SSR 一致的 false,挂载后再显示桌面控件。
+  const [tauriHost, setTauriHost] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
@@ -136,7 +139,9 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     // 独立窗的 native 标题在 Windows 上会被外壳窗控落成应用名;页面加载完
     // 再显式写一次,任务栏/Alt-Tab 才认得出这是「AI 画中画监看」。
-    if (!isTauri()) return
+    const host = isTauri()
+    setTauriHost(host)
+    if (!host) return
     void import('@tauri-apps/api/window')
       .then(({ getCurrentWindow }) => getCurrentWindow().setTitle('AI 画中画监看'))
       .catch(() => {
@@ -405,7 +410,7 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
             <Lock className="h-2.5 w-2.5" />
             {labels.readOnly}
           </span>
-          {isTauri() && (
+          {tauriHost && (
             <button
               type="button"
               onClick={() => void togglePin()}
