@@ -291,7 +291,11 @@ def test_setup_is_idempotent_and_keeps_bijection():
 
 
 def test_write_tool_is_high_risk_in_both_loops():
-    """写工具必须在两条 tool loop 判 high,否则该 loop 下无审批直写。"""
+    """写工具必须在两条 tool loop 判 high,否则该 loop 下无审批直写。
+
+    注:这是"形状锁"(源码文本匹配),证明字面量在位;运行时真判定见下方
+    test_write_tool_approval_resolved_at_runtime(直接调生产判定函数)。
+    """
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]  # apps/ai-service
@@ -300,3 +304,27 @@ def test_write_tool_is_high_risk_in_both_loops():
     assert '"connector_call_read": "high"' not in llm  # 只读免审批
     agent = (root / "app/services/agent_loop_v2.py").read_text(encoding="utf-8")
     assert agent.count('"connector_call_write",') >= 2  # 主高危集 + 运行时登记
+
+
+# --- 8. 运行时链路证据(上一组形状锁不能替代;直接调生产判定函数) ---
+def test_write_tool_approval_resolved_at_runtime():
+    """直接调生产审批判定函数,证明写工具真会触发审批、只读工具真不触发。
+
+    字符串匹配只能证明字面量存在;这里调的是 llm.py tool loop 真正调用的函数,
+    覆盖"外部注册工具是否经过 _TOOL_DANGER_LEVELS"这个曾经的盲区。
+    """
+    from app.routers.llm import _TOOL_DANGER_LEVELS, _resolve_tool_approval
+    from app.services.agent_loop_v2 import _matches_high_risk_name
+
+    assert _TOOL_DANGER_LEVELS[crt.CALL_WRITE_TOOL] == "high"
+    # 默认/plan 档:写工具需审批且 high
+    assert _resolve_tool_approval("default", crt.CALL_WRITE_TOOL) == (True, "high")
+    assert _resolve_tool_approval("plan", crt.CALL_WRITE_TOOL) == (True, "high")
+    # bypass 档按全局权限语义免弹窗,但危险级仍是 high(不是被抹平)
+    assert _resolve_tool_approval("bypass-permissions", crt.CALL_WRITE_TOOL) == (False, "high")
+    # 反向:三枚非写工具不得误进审批门
+    for name in (crt.CAPABILITIES_TOOL, crt.CALL_READ_TOOL, crt.WRITE_CAPABILITIES_TOOL):
+        assert _resolve_tool_approval("default", name) == (False, "")
+    # agent 任务流那把尺:写 True、只读 False
+    assert _matches_high_risk_name(crt.CALL_WRITE_TOOL) is True
+    assert _matches_high_risk_name(crt.CALL_READ_TOOL) is False

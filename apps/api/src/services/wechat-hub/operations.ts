@@ -39,7 +39,12 @@ import {
 import { wechatHubManager } from './manager.js'
 import { listGroupMembers } from './contacts.js'
 import { pushMemberMapForAccount } from './member-map-sync.js'
-import { countMomentsArchive, listMomentsArchive, upsertMoments } from './moments-store.js'
+import {
+  countMomentsArchive,
+  countMomentsMediaStats,
+  listMomentsArchive,
+  upsertMoments,
+} from './moments-store.js'
 
 type JsonRecord = Record<string, unknown>
 
@@ -543,6 +548,23 @@ function readMoment(raw: JsonRecord): WechatMomentView | null {
   const timeText = asString(raw.timeText)
   const imageCount = asPositiveInt(raw.imageCount)
   const videoCount = asPositiveInt(raw.videoCount)
+  const mediaCount =
+    asPositiveInt(raw.mediaCount) ??
+    (Array.isArray(raw.media) ? raw.media.length : undefined) ??
+    ((imageCount ?? 0) + (videoCount ?? 0) > 0 ? (imageCount ?? 0) + (videoCount ?? 0) : undefined)
+  const mediaAvailableCount = Array.isArray(raw.media)
+    ? raw.media.filter(
+        (item): item is JsonRecord =>
+          typeof item === 'object' &&
+          item !== null &&
+          !Array.isArray(item) &&
+          (item as JsonRecord).mediaDownloaded === true,
+      ).length
+    : undefined
+  const mediaMissingCount =
+    mediaCount !== undefined && mediaAvailableCount !== undefined
+      ? Math.max(0, mediaCount - mediaAvailableCount)
+      : undefined
   const commentTexts = asStringArray(raw.commentTexts)
   return {
     id,
@@ -557,6 +579,9 @@ function readMoment(raw: JsonRecord): WechatMomentView | null {
     ...(timeText !== null ? { timeText } : {}),
     ...(imageCount !== undefined ? { imageCount } : {}),
     ...(videoCount !== undefined ? { videoCount } : {}),
+    ...(mediaCount !== undefined ? { mediaCount } : {}),
+    ...(mediaAvailableCount !== undefined ? { mediaAvailableCount } : {}),
+    ...(mediaMissingCount !== undefined ? { mediaMissingCount } : {}),
     ...(commentTexts.length > 0
       ? { commentTexts }
       : commentsData.length > 0
@@ -728,6 +753,13 @@ export async function fetchMoments(
           ...(moment.mediaDownloaded === true ? { mediaDownloaded: true } : {}),
           ...(moment.timeText !== undefined ? { timeText: moment.timeText } : {}),
           ...(moment.imageCount !== undefined ? { imageCount: moment.imageCount } : {}),
+          ...(moment.mediaCount !== undefined ? { mediaCount: moment.mediaCount } : {}),
+          ...(moment.mediaAvailableCount !== undefined
+            ? { mediaAvailableCount: moment.mediaAvailableCount }
+            : {}),
+          ...(moment.mediaMissingCount !== undefined
+            ? { mediaMissingCount: moment.mediaMissingCount }
+            : {}),
           ...(moment.commentTexts !== undefined ? { commentTexts: moment.commentTexts } : {}),
           ...(moment.likeUsers !== undefined ? { likeUsers: moment.likeUsers } : {}),
           ...(moment.likeUserIds !== undefined ? { likeUserIds: moment.likeUserIds } : {}),
@@ -815,7 +847,8 @@ export async function listMomentArchive(
   try {
     const moments = await listMomentsArchive(accountId, limit, offset)
     const total = await countMomentsArchive(accountId)
-    return { storage: 'database', total, moments, limit, offset, reason: null }
+    const mediaStats = await countMomentsMediaStats(accountId)
+    return { storage: 'database', total, moments, limit, offset, reason: null, mediaStats }
   } catch (dbError) {
     const dbReason = dbError instanceof Error ? dbError.message : String(dbError)
     const bridge = await wechatHubManager.readMomentArchive(userId, accountId, limit)

@@ -12,7 +12,11 @@
 
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { wechatHubMoments } from '@ihui/database'
-import type { WechatMomentArchiveItemView, WechatMomentCommentView } from '@ihui/types'
+import type {
+  WechatMomentArchiveItemView,
+  WechatMomentCommentView,
+  WechatMomentMediaStat,
+} from '@ihui/types'
 import { db, dbRead } from '../../db/index.js'
 
 /** 单条待归档动态（由 operations 从桥返回的 WechatMomentView 归一化而来）。 */
@@ -30,6 +34,12 @@ export interface MomentArchiveUpsertInput {
   timeText?: string
   /** 界面图片数量；仅正整数时随归档写进 metadata */
   imageCount?: number
+  /** 图片 + 视频真实媒体条目数；仅正整数时随归档写进 metadata */
+  mediaCount?: number
+  /** 本次真实落盘的媒体条目数 */
+  mediaAvailableCount?: number
+  /** 平台声明但本次未落盘的媒体条目数 */
+  mediaMissingCount?: number
   /** 评论原文行；仅非空字符串数组时随归档写进 metadata */
   commentTexts?: string[]
   /** DB sidecar 真实点赞名单 */
@@ -55,6 +65,23 @@ function momentMetadata(m: MomentArchiveUpsertInput): Record<string, unknown> {
   if (typeof m.timeText === 'string' && m.timeText.length > 0) metadata.timeText = m.timeText
   if (typeof m.imageCount === 'number' && Number.isInteger(m.imageCount) && m.imageCount > 0) {
     metadata.imageCount = m.imageCount
+  }
+  if (typeof m.mediaCount === 'number' && Number.isInteger(m.mediaCount) && m.mediaCount > 0) {
+    metadata.mediaCount = m.mediaCount
+  }
+  if (
+    typeof m.mediaAvailableCount === 'number' &&
+    Number.isInteger(m.mediaAvailableCount) &&
+    m.mediaAvailableCount >= 0
+  ) {
+    metadata.mediaAvailableCount = m.mediaAvailableCount
+  }
+  if (
+    typeof m.mediaMissingCount === 'number' &&
+    Number.isInteger(m.mediaMissingCount) &&
+    m.mediaMissingCount > 0
+  ) {
+    metadata.mediaMissingCount = m.mediaMissingCount
   }
   if (Array.isArray(m.commentTexts) && m.commentTexts.length > 0) {
     metadata.commentTexts = m.commentTexts
@@ -90,6 +117,24 @@ export async function countMomentsArchive(accountId: string): Promise<number> {
     .from(wechatHubMoments)
     .where(eq(wechatHubMoments.accountId, accountId))
   return rows[0]?.count ?? 0
+}
+
+/** 全量媒体统计：声明数/真实落盘数/不可得数，全部来自归档行 metadata。 */
+export async function countMomentsMediaStats(accountId: string): Promise<WechatMomentMediaStat> {
+  const rows = await dbRead
+    .select({
+      declared: sql<number>`coalesce(sum((metadata->>'mediaCount')::int), 0)::int`,
+      available: sql<number>`coalesce(sum((metadata->>'mediaAvailableCount')::int), 0)::int`,
+      missing: sql<number>`coalesce(sum((metadata->>'mediaMissingCount')::int), 0)::int`,
+    })
+    .from(wechatHubMoments)
+    .where(eq(wechatHubMoments.accountId, accountId))
+  const row = rows[0]
+  return {
+    declared: row?.declared ?? 0,
+    available: row?.available ?? 0,
+    missing: row?.missing ?? 0,
+  }
 }
 
 /**
@@ -163,70 +208,101 @@ export async function listMomentsArchive(
     .orderBy(desc(wechatHubMoments.lastSeenAt))
     .limit(limit)
     .offset(Math.max(0, Math.floor(offset)))
-  return rows.map((row) => {
-    const metadata = (row.metadata ?? {}) as Record<string, unknown>
-    const likeUsers = Array.isArray(metadata.likeUsers)
-      ? metadata.likeUsers.filter(
-          (item): item is string => typeof item === 'string' && item.trim().length > 0,
-        )
-      : []
-    const likeUserIds = Array.isArray(metadata.likeUserIds)
-      ? metadata.likeUserIds.filter(
-          (item): item is string => typeof item === 'string' && item.trim().length > 0,
-        )
-      : []
-    const commentsData = Array.isArray(metadata.commentsData)
-      ? metadata.commentsData
-          .filter(
-            (item): item is Record<string, unknown> =>
-              typeof item === 'object' && item !== null && !Array.isArray(item),
+  return Promise.all(
+    rows.map(async (row) => {
+      const metadata = (row.metadata ?? {}) as Record<string, unknown>
+      const likeUsers = Array.isArray(metadata.likeUsers)
+        ? metadata.likeUsers.filter(
+            (item): item is string => typeof item === 'string' && item.trim().length > 0,
           )
-          .map((item) => ({
-            ...(typeof item.username === 'string' && item.username
-              ? { username: item.username }
-              : {}),
-            ...(typeof item.nickname === 'string' && item.nickname
-              ? { nickname: item.nickname }
-              : {}),
-            content: typeof item.content === 'string' ? item.content : '',
-            ...(typeof item.createTime === 'number' && Number.isFinite(item.createTime)
-              ? { createTime: item.createTime }
-              : {}),
-            ...(typeof item.commentId === 'string' && item.commentId
-              ? { commentId: item.commentId }
-              : {}),
-            ...(typeof item.refCommentId === 'string' && item.refCommentId
-              ? { refCommentId: item.refCommentId }
-              : {}),
-          }))
-          .filter((item) => item.content.length > 0)
-      : []
-    const hasLikes = metadata.likes === true || likeUsers.length > 0
-    const hasComments = metadata.comments === true || commentsData.length > 0
-    return {
-      id: row.id,
-      momentKey: row.momentKey,
-      authorId: row.authorId,
-      authorName: row.authorName,
-      authorResolved: row.authorResolved,
-      content: row.content,
-      mediaUrls: (row.mediaUrls as string[]) ?? [],
-      createdAt: row.createdAt,
-      source: row.source,
-      firstSeenAt: row.firstSeenAt.toISOString(),
-      lastSeenAt: row.lastSeenAt.toISOString(),
-      seenCount: row.seenCount,
-      ...(row.page !== null && row.page !== undefined ? { page: row.page } : {}),
-      ...(likeUsers.length > 0 ? { likeUsers } : {}),
-      ...(likeUserIds.length > 0 ? { likeUserIds } : {}),
-      ...(hasLikes ? { likes: true } : {}),
-      ...(hasComments ? { comments: true } : {}),
-      ...(commentsData.length > 0 ? { commentsData } : {}),
-      ...(typeof metadata.mediaLocalDir === 'string' && metadata.mediaLocalDir.length > 0
-        ? { mediaLocalDir: metadata.mediaLocalDir }
-        : {}),
-      ...(metadata.mediaDownloaded === true ? { mediaDownloaded: true } : {}),
-    }
-  })
+        : []
+      const likeUserIds = Array.isArray(metadata.likeUserIds)
+        ? metadata.likeUserIds.filter(
+            (item): item is string => typeof item === 'string' && item.trim().length > 0,
+          )
+        : []
+      const commentsData = Array.isArray(metadata.commentsData)
+        ? metadata.commentsData
+            .filter(
+              (item): item is Record<string, unknown> =>
+                typeof item === 'object' && item !== null && !Array.isArray(item),
+            )
+            .map((item) => ({
+              ...(typeof item.username === 'string' && item.username
+                ? { username: item.username }
+                : {}),
+              ...(typeof item.nickname === 'string' && item.nickname
+                ? { nickname: item.nickname }
+                : {}),
+              content: typeof item.content === 'string' ? item.content : '',
+              ...(typeof item.createTime === 'number' && Number.isFinite(item.createTime)
+                ? { createTime: item.createTime }
+                : {}),
+              ...(typeof item.commentId === 'string' && item.commentId
+                ? { commentId: item.commentId }
+                : {}),
+              ...(typeof item.refCommentId === 'string' && item.refCommentId
+                ? { refCommentId: item.refCommentId }
+                : {}),
+            }))
+            .filter((item) => item.content.length > 0)
+        : []
+      const hasLikes = metadata.likes === true || likeUsers.length > 0
+      const hasComments = metadata.comments === true || commentsData.length > 0
+      const mediaUrls = (row.mediaUrls as string[]) ?? []
+      const storedMediaCount =
+        typeof metadata.mediaCount === 'number' &&
+        Number.isInteger(metadata.mediaCount) &&
+        metadata.mediaCount > 0
+          ? metadata.mediaCount
+          : null
+      const storedAvailable =
+        typeof metadata.mediaAvailableCount === 'number' &&
+        Number.isInteger(metadata.mediaAvailableCount) &&
+        metadata.mediaAvailableCount >= 0
+          ? metadata.mediaAvailableCount
+          : null
+      const storedMissing =
+        typeof metadata.mediaMissingCount === 'number' &&
+        Number.isInteger(metadata.mediaMissingCount) &&
+        metadata.mediaMissingCount >= 0
+          ? metadata.mediaMissingCount
+          : null
+      const declaredMediaCount = storedMediaCount ?? mediaUrls.length
+      const mediaAvailableCount = storedAvailable ?? 0
+      const mediaMissingCount =
+        storedMissing ??
+        (declaredMediaCount > 0 ? Math.max(0, declaredMediaCount - mediaAvailableCount) : 0)
+      const mediaLocalDir =
+        typeof metadata.mediaLocalDir === 'string' && metadata.mediaLocalDir.length > 0
+          ? metadata.mediaLocalDir
+          : null
+      return {
+        id: row.id,
+        momentKey: row.momentKey,
+        authorId: row.authorId,
+        authorName: row.authorName,
+        authorResolved: row.authorResolved,
+        content: row.content,
+        mediaUrls,
+        createdAt: row.createdAt,
+        source: row.source,
+        firstSeenAt: row.firstSeenAt.toISOString(),
+        lastSeenAt: row.lastSeenAt.toISOString(),
+        seenCount: row.seenCount,
+        ...(row.page !== null && row.page !== undefined ? { page: row.page } : {}),
+        ...(likeUsers.length > 0 ? { likeUsers } : {}),
+        ...(likeUserIds.length > 0 ? { likeUserIds } : {}),
+        ...(hasLikes ? { likes: true } : {}),
+        ...(hasComments ? { comments: true } : {}),
+        ...(commentsData.length > 0 ? { commentsData } : {}),
+        ...(mediaLocalDir ? { mediaLocalDir } : {}),
+        ...(declaredMediaCount > 0 ? { mediaCount: declaredMediaCount } : {}),
+        ...(declaredMediaCount > 0 ? { mediaAvailableCount: mediaAvailableCount ?? 0 } : {}),
+        ...(mediaMissingCount > 0 ? { mediaMissingCount } : {}),
+        ...(metadata.mediaDownloaded === true ? { mediaDownloaded: true } : {}),
+      }
+    }),
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

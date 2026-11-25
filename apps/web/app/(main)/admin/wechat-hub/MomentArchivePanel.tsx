@@ -64,6 +64,9 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
         {archive ? (
           <span className="text-xs text-muted-foreground">
             来源 {storageLabel} · 已显示 {moments.length} / 共 {archive.total} 条
+            {archive.mediaStats
+              ? ` · 媒体原件可读 ${archive.mediaStats.available} / 声明 ${archive.mediaStats.declared}（不可得 ${archive.mediaStats.missing}）`
+              : ''}
           </span>
         ) : null}
       </div>
@@ -113,7 +116,12 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 被抓到 {moment.seenCount} 次
-                {moment.mediaUrls.length > 0 ? ` · ${moment.mediaUrls.length} 个媒体` : ''}
+                {moment.mediaUrls.length > 0
+                  ? ` · ${moment.mediaCount ?? moment.mediaUrls.length} 个媒体`
+                  : ''}
+                {moment.mediaAvailableCount !== undefined
+                  ? ` · 本地可读 ${moment.mediaAvailableCount}/${moment.mediaCount ?? moment.mediaUrls.length}`
+                  : ''}
                 {moment.likeUsers && moment.likeUsers.length > 0
                   ? ` · 点赞 ${moment.likeUsers.length} 人`
                   : ''}
@@ -121,6 +129,12 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
                   ? ` · 评论 ${moment.commentsData.length} 条`
                   : ''}
               </p>
+              {moment.mediaMissingCount && moment.mediaMissingCount > 0 ? (
+                <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                  {moment.mediaMissingCount}{' '}
+                  个媒体原件已过期，微信服务器不再提供；未使用占位图或伪造图片。
+                </p>
+              ) : null}
               {moment.mediaLocalDir ? (
                 <p className="mt-1 break-all text-xs text-muted-foreground">
                   本地媒体：{moment.mediaLocalDir}

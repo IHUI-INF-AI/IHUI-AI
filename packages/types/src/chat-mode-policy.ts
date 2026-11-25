@@ -106,6 +106,9 @@ export const CHAT_MODE_READONLY_TOOLS: readonly string[] = [
   'browser_console_messages',
   'browser_network_requests',
   'get_diagnostics',
+  // 连接器只读能力(2026-11-25):枚举 + list/search/fetch,handler 恒 confirm=False
+  'connector_capabilities',
+  'connector_call_read',
 ]
 
 const READONLY_TOOL_SET: ReadonlySet<string> = new Set(CHAT_MODE_READONLY_TOOLS)

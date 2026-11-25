@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   assertAccountForUser: vi.fn(),
   listMomentsArchive: vi.fn(),
   countMomentsArchive: vi.fn(),
+  countMomentsMediaStats: vi.fn(),
   upsertMoments: vi.fn(),
 }))
 
@@ -28,6 +29,7 @@ vi.mock('../wechat-hub/guards.js', () => ({
 vi.mock('../wechat-hub/moments-store.js', () => ({
   listMomentsArchive: mocks.listMomentsArchive,
   countMomentsArchive: mocks.countMomentsArchive,
+  countMomentsMediaStats: mocks.countMomentsMediaStats,
   upsertMoments: mocks.upsertMoments,
 }))
 
@@ -53,6 +55,7 @@ const DB_ROWS = [
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.assertAccountForUser.mockResolvedValue(undefined)
+  mocks.countMomentsMediaStats.mockResolvedValue({ declared: 0, available: 0, missing: 0 })
 })
 
 describe('listMomentArchive', () => {
