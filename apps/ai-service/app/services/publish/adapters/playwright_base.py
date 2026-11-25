@@ -199,7 +199,11 @@ class PlaywrightBaseAdapter(BasePlatformAdapter):
                     await context.add_cookies(self._cookies(credentials))
                     page = await context.new_page()
                     await human_pause(1.0, 2.0)
-                    await page.goto(self.home_url, wait_until="networkidle", timeout=30000)
+                    # 保活体检只判断登录态,不需要等图片/统计脚本全部 idle。
+                    # networkidle 在百度系/视频号这类重资源页经常 30s 都到不了,
+                    # 会把"网络慢"误判成"账号异常",还拖住整轮体检。
+                    await page.goto(self.home_url, wait_until="domcontentloaded", timeout=25000)
+                    await page.wait_for_timeout(3000)
                     url = page.url
                     if self._is_login_redirect(url):
                         return False, "cookie expired (redirected to login)"
