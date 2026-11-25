@@ -48,6 +48,7 @@ export default function SettingsDialog({
   const [blockedWords, setBlockedWords] = React.useState('')
   const [rateLimit, setRateLimit] = React.useState('20')
   const [outboundWebhookUrl, setOutboundWebhookUrl] = React.useState('')
+  const [agentModel, setAgentModel] = React.useState('')
   const [testNotice, setTestNotice] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -60,6 +61,14 @@ export default function SettingsDialog({
     setRateLimit(typeof rate === 'number' ? String(rate) : '20')
     const webhook = account.metadata.outboundWebhookUrl
     setOutboundWebhookUrl(typeof webhook === 'string' ? webhook : '')
+    const agent = account.metadata.agent
+    setAgentModel(
+      typeof agent === 'object' && agent !== null && !Array.isArray(agent)
+        ? typeof (agent as Record<string, unknown>).model === 'string'
+          ? String((agent as Record<string, unknown>).model)
+          : ''
+        : '',
+    )
     setTestNotice(null)
     setError(null)
   }, [account])
@@ -72,6 +81,7 @@ export default function SettingsDialog({
         blockedWords: parseList(blockedWords),
         rateLimitPerMinute: Number(rateLimit) || 20,
         outboundWebhookUrl: outboundWebhookUrl.trim(),
+        agentModel: agentModel.trim(),
       }),
     onSuccess: () => {
       onSaved()
@@ -173,6 +183,18 @@ export default function SettingsDialog({
             <p className="text-xs text-muted-foreground">
               只允许公网 HTTPS；留空关闭。若账号已配置 bridge webhookSecret，会附带 HMAC-SHA256
               签名头，接收方可按时间戳 + 原始 body 验签。
+            </p>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="wechat-settings-agent-model">自动回复模型（可留空）</Label>
+            <Input
+              id="wechat-settings-agent-model"
+              value={agentModel}
+              onChange={(e) => setAgentModel(e.target.value)}
+              placeholder="如 doubao-pro-32k；留空用全局 WECHAT_HUB_AGENT_MODEL"
+            />
+            <p className="text-xs text-muted-foreground">
+              只影响本账号的 AI 自动回复（agent 规则）；群聊怕烧额度可以单独换成小模型。
             </p>
           </div>
         </div>

@@ -29,6 +29,7 @@ import { broadcast } from './broadcast.js'
 import { localParts } from './digest.js'
 import { assertAccountForUser } from './guards.js'
 import { wechatHubManager } from './manager.js'
+import { publishMoment } from './operations.js'
 import { buildReport } from './reports.js'
 
 const TICK_MS = 30_000
@@ -58,7 +59,13 @@ function normalizeJob(raw: unknown): WechatJob | null {
   const id = typeof record.id === 'string' ? record.id.trim() : ''
   if (!id) return null
   const kind =
-    record.kind === 'report' ? 'report' : record.kind === 'broadcast' ? 'broadcast' : null
+    record.kind === 'report'
+      ? 'report'
+      : record.kind === 'moment'
+        ? 'moment'
+        : record.kind === 'broadcast'
+          ? 'broadcast'
+          : null
   if (!kind) return null
   const weeklyRaw = record.weekly
   return {
@@ -128,6 +135,14 @@ export async function saveJob(
   }
   if (input.kind === 'report' && !payload.reportKind) {
     throw new AppError('定时报告必须指定 reportKind', 400, 'WECHAT_JOB_NO_REPORT_KIND')
+  }
+  if (
+    input.kind === 'moment' &&
+    !payload.text?.trim() &&
+    !payload.mediaUrl &&
+    (payload.mediaUrls?.length ?? 0) === 0
+  ) {
+    throw new AppError('定时朋友圈必须给出 text 或 mediaUrls', 400, 'WECHAT_JOB_EMPTY_MOMENT')
   }
 
   const { jobs, metadata } = await readJobs(accountId)
@@ -238,6 +253,10 @@ async function runOne(
     }
   }
 
+  if (job.kind === 'moment') {
+    return runMoment(userId, accountId, job)
+  }
+
   const target = job.payload.targets?.[0]
   if (!target) {
     return { jobId: job.id, kind: job.kind, ok: false, detail: '缺少推送目标，已跳过', at }
@@ -261,6 +280,24 @@ async function runOne(
     detail: sent.ok
       ? `报告已推送（${report.stats.messageCount} 条消息）`
       : (sent.reason ?? '推送失败'),
+    at,
+  }
+}
+
+/** 定时朋友圈：走 operations.publishMoment，只读账号会被 manager 拦下并留审计。 */
+async function runMoment(userId: string, accountId: string, job: WechatJob): Promise<WechatJobRunResult> {
+  const at = new Date().toISOString()
+  const text = job.payload.text?.trim() ?? ''
+  const mediaUrls = job.payload.mediaUrls ?? (job.payload.mediaUrl ? [job.payload.mediaUrl] : [])
+  if (!text && mediaUrls.length === 0) {
+    return { jobId: job.id, kind: job.kind, ok: false, detail: '朋友圈正文与媒体都为空，已跳过', at }
+  }
+  const result = await publishMoment(userId, accountId, { text, mediaUrls })
+  return {
+    jobId: job.id,
+    kind: job.kind,
+    ok: result.ok,
+    detail: result.ok ? '朋友圈已发布' : (result.reason ?? '发布失败'),
     at,
   }
 }
