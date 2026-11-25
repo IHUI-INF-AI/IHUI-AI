@@ -1545,7 +1545,7 @@
     "loadFailed": "モデルの読み込みに失敗",
     "output": "出力",
     "perCall": "1 回あたり",
-    "priceUnit": "価格",
+    "priceUnit": "¥{price}/M",
     "providerTotal": "プロバイダーから {count} モデル",
     "selectProviderLabel": "プロバイダーを選択",
     "title": "モデルプラザ",

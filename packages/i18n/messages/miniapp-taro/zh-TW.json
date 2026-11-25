@@ -825,7 +825,7 @@
       "loginRequired": "請先登入後使用",
       "recharge": "去儲值",
       "subtitle": "隨時為你提供 AI 服務",
-      "tokenBalance": "Token 餘額:{n}"
+      "tokenBalance": "剩餘智匯值:{n}"
     },
     "materialPopup": {
       "empty": "暫無素材",
@@ -3717,7 +3717,7 @@
     "view4": "查看餘額與充值"
   },
   "communityMyAgents": {
-    "mine1": "我的AI APP",
+    "mine1": "我的智能體",
     "mine2": "我的AI員工"
   },
   "shareCenterItem": {
