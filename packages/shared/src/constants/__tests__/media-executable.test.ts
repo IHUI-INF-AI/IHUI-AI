@@ -33,12 +33,18 @@ describe('bareMediaModelId', () => {
 describe('isExecutableMediaModel', () => {
   it('带 provider 前缀的目录 id 也要判为可执行', () => {
     expect(isExecutableMediaModel('agnes/agnes-image-2.5-flash', 'image')).toBe(true)
-    expect(isExecutableMediaModel('agnes/agnes-video-2.5-flash', 'video')).toBe(true)
+    // 2026-11-23 起两条 agnes 视频档因上游余额/队列必失败被显式禁用,不能在本用例里读成可执行
+    expect(isExecutableMediaModel('agnes/agnes-video-2.5-flash', 'video')).toBe(false)
   })
 
   it('裸名形态同样可执行', () => {
     expect(isExecutableMediaModel('agnes-image-2.1-flash', 'image')).toBe(true)
-    expect(isExecutableMediaModel('agnes-video-2.5', 'video')).toBe(true)
+    expect(isExecutableMediaModel('agnes-video-2.5', 'video')).toBe(false)
+  })
+
+  it('已确认必失败的两条视频档判不可执行', () => {
+    expect(isExecutableMediaModel('agnes-video-2.5', 'video')).toBe(false)
+    expect(isExecutableMediaModel('agnes/agnes-video-2.5-flash', 'video')).toBe(false)
   })
 
   it('非 agnes 家族的图像/视频档判不可执行(不静默顶替)', () => {

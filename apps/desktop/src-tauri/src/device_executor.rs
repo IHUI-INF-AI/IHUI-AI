@@ -377,6 +377,124 @@ pub async fn device_executor_stop() -> Result<DeviceExecutorStatus, String> {
         .map_err(|e| format!("停止执行器失败: {e}"))?
 }
 
+/// 主机名（自助接入时的默认设备名；带后缀在设置页拼，避免与 CLI 已配对行撞名）
+#[tauri::command]
+pub fn device_executor_host_name() -> String {
+    std::env::var("COMPUTERNAME")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "desktop".to_string())
+}
+
+/// 弹原生目录选择（工作区白名单的落点；取消返回 Err 让前端区分"没选"）。
+fn pick_workspace(app: &AppHandle) -> Result<String, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let picked = app
+        .dialog()
+        .file()
+        .set_title("选择本机执行器的工作区目录")
+        .blocking_pick_folder();
+    match picked {
+        Some(path) => path
+            .into_path()
+            .map(|p| p.to_string_lossy().to_string())
+            .map_err(|e| format!("目录路径不可用: {e}")),
+        None => Err("已取消选择工作区".to_string()),
+    }
+}
+
+/**
+ * G5(2026-11-26)自助接入：把**已登录会话**签发的设备令牌交给 CLI 落盘，不需要配对码。
+ *
+ * 桌面端刻意不自己写 `~/.ihui/device.json`：那份凭证的指纹与工作区白名单只有 CLI 有
+ * 唯一实现（写第二份必然漂移）。这里只做 CLI 做不了的三件事：
+ *  1. 原生目录选择（工作区白名单的落点）；
+ *  2. 令牌经 **stdin** 交给 CLI（不进 argv，进程列表里看不到）；
+ *  3. 成功后立刻读回真实状态，让 UI 看到"已配对 / 是否在跑"。
+ *
+ * `payload` 是前端拼的 JSON（device_id / device_token / name / api_url）。字段语义的唯一真相源
+ * 仍在本仓 CLI 的 adopt 命令；Rust 只做两件它必须做的事：长度闸（>8KB 直接拒），
+ * 以及把**用户选定的工作区**注入 payload —— 因为 CLI 子命令的 `--workspace` 会被根命令的
+ * `-w, --workspace` 先吃掉（2026-11-26 自验实测：传了目录却落盘成 cwd，任务跑错目录），
+ * stdin 是这条路上唯一不会被 argv 解析抢走的通道。
+ */
+#[tauri::command]
+pub async fn device_executor_adopt(
+    app: AppHandle,
+    payload: String,
+    workspace: Option<String>,
+) -> Result<DeviceExecutorStatus, String> {
+    if payload.len() > 8 * 1024 {
+        return Err("接入载荷过大(>8KB),已拒绝".to_string());
+    }
+    let chosen = match workspace.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
+        Some(dir) => dir,
+        None => {
+            let app_for_pick = app.clone();
+            tauri::async_runtime::spawn_blocking(move || pick_workspace(&app_for_pick))
+                .await
+                .map_err(|e| format!("目录选择任务失败: {e}"))??
+        }
+    };
+    if !std::path::Path::new(&chosen).is_dir() {
+        return Err(format!("工作区不存在或不是目录: {chosen}"));
+    }
+    let ihui = find_ihui().ok_or_else(|| {
+        // 包名是 ihui-cli(bin 名 ihui);写成 @ihui/cli 会让用户照抄一条 404 的命令。
+        "找不到 ihui 命令。请先在命令行执行 npm i -g ihui-cli,装好回到这里点「启用」重试".to_string()
+    })?;
+    // 把工作区注入载荷：CLI 侧 workspace 的优先级是 stdin > --dir > cwd,这里两条都给。
+    let mut payload_value: serde_json::Value =
+        serde_json::from_str(&payload).map_err(|e| format!("接入载荷不是合法 JSON: {e}"))?;
+    match payload_value.as_object_mut() {
+        Some(obj) => {
+            obj.insert(
+                "workspace".to_string(),
+                serde_json::Value::String(chosen.clone()),
+            );
+        }
+        None => return Err("接入载荷必须是 JSON 对象".to_string()),
+    }
+    let payload_for_child =
+        serde_json::to_string(&payload_value).map_err(|e| format!("接入载荷序列化失败: {e}"))?;
+    let dir = chosen.clone();
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let mut cmd = hidden_command(&ihui);
+        cmd.arg("device")
+            .arg("adopt")
+            .arg("--dir")
+            .arg(&dir)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| format!("启动 ihui device adopt 失败: {e}"))?;
+        if let Some(mut stdin) = child.stdin.take() {
+            use std::io::Write;
+            stdin
+                .write_all(payload_for_child.as_bytes())
+                .map_err(|e| format!("写入设备令牌失败: {e}"))?;
+        }
+        let out = child
+            .wait_with_output()
+            .map_err(|e| format!("等待 adopt 退出失败: {e}"))?;
+        if !out.status.success() {
+            let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            return Err(if err.is_empty() {
+                "ihui device adopt 失败(无 stderr 输出)".to_string()
+            } else {
+                err
+            });
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("接入任务失败: {e}"))??;
+    Ok(read_status())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

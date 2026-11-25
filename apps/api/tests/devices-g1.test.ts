@@ -144,9 +144,7 @@ vi.mock('../src/db/index.js', async () => {
     const inRe = /"([a-z_]+)"\."([a-z_]+)"\s+IN\s*\(([^)]+)\)/gi
     let mi: RegExpExecArray | null
     while ((mi = inRe.exec(text)) !== null) {
-      const values = mi[3]!
-        .split(',')
-        .map((s) => s.trim().replace(/^'/, '').replace(/'$/, ''))
+      const values = mi[3]!.split(',').map((s) => s.trim().replace(/^'/, '').replace(/'$/, ''))
       preds.push({ key: snakeToCamel(mi[2]!), op: 'in', value: values })
     }
     return preds
@@ -245,7 +243,9 @@ vi.mock('../src/db/index.js', async () => {
     const row = { id: randomUUID(), createdAt: new Date(), ...defaults, ...v }
     if (conflictCfg) {
       // target 允许单列(devices.ts 的 token 唯一键)或复合列(chat 等)
-      const targets: any[] = Array.isArray(conflictCfg.target) ? conflictCfg.target : [conflictCfg.target]
+      const targets: any[] = Array.isArray(conflictCfg.target)
+        ? conflictCfg.target
+        : [conflictCfg.target]
       const keys: string[] = targets.map((c: any) => snakeToCamel(c.name))
       const found = rows!.find((r) => keys.every((k) => String(r[k]) === String(v[k])))
       if (found) {
@@ -829,7 +829,11 @@ describe('推送令牌归属锁(SDB-01)', () => {
     })
 
     expect(res.statusCode).toBe(200)
-    expect(res.json().data).toEqual({ token: 'fcm-brand-new-token', platform: 'web', registered: true })
+    expect(res.json().data).toEqual({
+      token: 'fcm-brand-new-token',
+      platform: 'web',
+      registered: true,
+    })
     expect(store.device_tokens).toHaveLength(1)
     expect(store.device_tokens![0]).toMatchObject({
       userId: USER_A,
@@ -878,7 +882,10 @@ describe('推送令牌归属锁(SDB-01)', () => {
 describe('G2 派单载荷与任务状态机', () => {
   /** 配一台新设备 + 一个空会话(设备名唯一,避免注册幂等复用同一台) */
   async function setupQueue() {
-    const { deviceToken, deviceId } = await pairNewDevice(USER_A, `执行器-${randomUUID().slice(0, 6)}`)
+    const { deviceToken, deviceId } = await pairNewDevice(
+      USER_A,
+      `执行器-${randomUUID().slice(0, 6)}`,
+    )
     const session = randomUUID()
     store.chat_conversations!.push({ id: session, userId: USER_A })
     return { deviceToken, deviceId, session }
@@ -1140,6 +1147,62 @@ describe('G3 plan 档跨端审批', () => {
     })
     expect(noPlan.statusCode).toBe(409)
     expect(noPlan.json().errorCode).toBe('TASK_APPROVAL_NONE')
+  })
+})
+
+/**
+ * G5 已登录客户端自助接入(2026-11-26)。
+ * 判据:桌面端「启用本机执行器」不该再让用户抄 8 位配对码 —— 登录态即凭据;
+ * 但**已绑定配对指纹**的同名设备拒绝签发(否则任何登录会话都能替一台已配对机器换令牌,
+ * 指纹那层"重放防偷渡"就形同虚设)。配对码只留给没有登录态的机器。
+ */
+describe('G5 自助接入(self-token)', () => {
+  it('登录态签发设备令牌,可直接用于设备端点;同名幂等不产生第二行', async () => {
+    const res = await asUser('POST', '/api/devices/self-token', USER_A, {
+      name: '桌面端 · 自助',
+      os: 'windows',
+      capabilities: { roles: ['desktop', 'executor'], workspaces: ['repo'] },
+    })
+    expect(res.statusCode).toBe(200)
+    const { device_id, device_token, name } = res.json().data
+    expect(name).toBe('桌面端 · 自助')
+    expect(device_id).toMatch(/^[0-9a-f-]{36}$/)
+    expect(device_token.split('.')).toHaveLength(3)
+
+    // 令牌即刻可用:心跳续期 + 队列为空(204)—— 不需要任何配对码
+    const hb = await asDevice('POST', '/api/devices/heartbeat', device_token, {})
+    expect(hb.statusCode).toBe(200)
+    expect(hb.json().data.device_token.split('.')).toHaveLength(3)
+    expect((await asDevice('GET', '/api/devices/claim', device_token)).statusCode).toBe(204)
+
+    // 幂等:同名再签一次还是同一台设备(设备列表不该长出第二行)
+    const again = await asUser('POST', '/api/devices/self-token', USER_A, { name: '桌面端 · 自助' })
+    expect(again.statusCode).toBe(200)
+    expect(again.json().data.device_id).toBe(device_id)
+  })
+
+  it('同名已绑定配对指纹 ⇒ 409 DEVICE_NAME_BOUND(不替已配对机器换令牌)', async () => {
+    const issued = await asUser('POST', '/api/devices/pair-code', USER_A)
+    expect(issued.statusCode).toBe(200)
+    const exchanged = await server.inject({
+      method: 'POST',
+      url: '/api/devices/pair-exchange',
+      payload: { code: issued.json().data.code, name: '指纹机', fingerprint: 'fp-bound-123456' },
+    })
+    expect(exchanged.statusCode).toBe(200)
+
+    const bound = await asUser('POST', '/api/devices/self-token', USER_A, { name: '指纹机' })
+    expect(bound.statusCode).toBe(409)
+    expect(bound.json().errorCode).toBe('DEVICE_NAME_BOUND')
+  })
+
+  it('未登录 ⇒ 401(自助接入仍要人身份)', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/devices/self-token',
+      payload: { name: 'x' },
+    })
+    expect(res.statusCode).toBe(401)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -91,6 +91,7 @@ const CROSS_END_TIERS = [
   'NAVBAR_TITLE_FONT_PX',
   'NAVBAR_TITLE_MAX_WIDTH_PX',
   'NAVBAR_CENTER_MIN_WIDTH_PX',
+  'NAVBAR_ROW_HEIGHT_PX',
   'NAVBAR_ROW_HEIGHT_SUBTITLE_PX',
   'NAVBAR_SUBTITLE_FONT_PX',
   'NAVBAR_SUBTITLE_MARGIN_TOP_PX',
@@ -98,7 +99,7 @@ const CROSS_END_TIERS = [
 
 /**
  * 单端档归属表 —— 本族"两端不一样"的具名档各自只许在哪一端出现(O02 票④ 第 ④ 格,
- * 枚数 2026-11-04 现读 = 守门 128 的 `SL NavBar(2)`)。
+ * 枚数 2026-11-26 现读 = 1(`NAVBAR_ROW_HEIGHT_PX` 已两端真引用,撤出本表进 `CROSS_END_TIERS`)。
  *
  * 为什么要一张**机器钉住的账**,而不是一段散文:
  *  - 守门 128 的 diffCount 只报"这一档只在一端出现",说不出那是"另一端没有这个元素"还是
@@ -110,15 +111,10 @@ const CROSS_END_TIERS = [
  * 2026-11-04 由 5 枚收敛到 2 枚:小程序 NavBar 补 subtitle 一支(fe50a4123d)后,
  * NAVBAR_ROW_HEIGHT_SUBTITLE_PX / NAVBAR_SUBTITLE_FONT_PX / NAVBAR_SUBTITLE_MARGIN_TOP_PX
  * 已两端都真引用 ⇒ 按上面的纪律撤出本表、登记进 CROSS_END_TIERS(不是"补引用凑平")。
- * 剩余 2 枚全部属 A 类(一端根本没有该元素/该结构),逐条依据见 navbar-spec 头注 O02 段:
+ * 剩余 1 枚全部属 A 类(一端根本没有该元素/该结构),逐条依据见 navbar-spec 头注 O02 段:
  * 本族 **0 枚 B**(已裁决的变体契约)、0 枚 C 类具名档(C 类只剩 z-index,转由本文件 ⑨ 判)。
  */
 const SINGLE_END_TIERS: ReadonlyArray<{ tier: string; owner: LegName; why: string }> = [
-  {
-    tier: 'NAVBAR_ROW_HEIGHT_PX',
-    owner: 'mobile-rn',
-    why: 'A 小程序行高 = 微信胶囊实测 height + 8(平台量),RN 走本档 44',
-  },
   {
     tier: 'NAVBAR_SIDE_PLACEHOLDER_PX',
     owner: 'mobile-rn',
@@ -921,7 +917,7 @@ describe('NavBar 跨端档位一致性(O02 票④)', () => {
     expect(
       SINGLE_END_TIERS.length,
       '归属表枚数与现读不一致 ⇒ 收敛/新增后必须同步本表(空表不许冒充"本族无单侧档")',
-    ).toBe(2)
+    ).toBe(1)
     expect(
       singleEndProblems(LEG_SRC),
       '单端档归属被破坏(要么真实取数点丢了,要么有人往另一端补引用凑平)',

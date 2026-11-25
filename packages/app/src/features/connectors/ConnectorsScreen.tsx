@@ -335,7 +335,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       borderRadius: rnRadiusFor.card,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
     },
     cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

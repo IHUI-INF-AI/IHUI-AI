@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: rnSpacing.lg,
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
   },
   headerTitle: {
     fontSize: rnType.title.size,
@@ -236,8 +236,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: rnSpacing.lg,
-    paddingTop: 4,
-    gap: 12,
+    paddingTop: rnSpacing.xs,
+    gap: rnSpacing.md,
   },
   searchWrap: {
     height: 44,
@@ -262,18 +262,18 @@ const styles = StyleSheet.create({
     paddingLeft: rnSpacing['4xl'],
   },
   section: {
-    gap: 8,
+    gap: rnSpacing.sm,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 56,
-    gap: 12,
+    gap: rnSpacing.md,
     paddingHorizontal: rnSpacing['md-loose'],
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
     borderRadius: rnRadius.lg,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     backgroundColor: tokens.surface.light,
   },
   sectionIcon: {
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
   sectionMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: rnSpacing.sm,
   },
   sectionCountPill: {
     minWidth: 24,
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: rnRadius.lg,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     backgroundColor: tokens.surface.light,
     overflow: 'hidden',
   },
@@ -330,8 +330,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 48,
     paddingHorizontal: rnSpacing['md-loose'],
-    paddingVertical: 10,
-    gap: 12,
+    paddingVertical: rnSpacing['sm-loose'],
+    gap: rnSpacing.md,
   },
   menuIconText: {
     width: 20,
@@ -346,8 +346,8 @@ const styles = StyleSheet.create({
   empty: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 48,
+    gap: rnSpacing.sm,
+    paddingVertical: rnSpacing['5xl'],
   },
   emptyIcon: {
     width: 56,

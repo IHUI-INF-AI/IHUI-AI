@@ -39,7 +39,14 @@ const UNIAPP_TEXT: Record<string, string> = {
 export function WalletScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
-  const { user } = useAuth()
+  const { user, token } = useAuth()
+  /**
+   * 登录判定单一真相源(2026-11-26 修):此前只用 `user`,当 token 已写入而 user
+   * 对象尚未回填时(小程序端 getPhoneNumber 登录即典型),流水区会误判成"未登录",
+   * 出现"余额已经显示真值、资金流水却提示登录后查看"的自相矛盾。改为 user 或
+   * token 任一存在即视为已登录,与「我的」页 store 口径一致。
+   */
+  const loggedIn = Boolean(user || token)
   const navigation = useNavigation<NavigationProp>()
   const [balance, setBalance] = useState<WalletBalance | null>(null)
   const [loading, setLoading] = useState(true)
@@ -105,7 +112,7 @@ export function WalletScreen() {
    */
   const loadFlows = useCallback(
     async (mode: 'initial' | 'more') => {
-      if (!user) return
+      if (!loggedIn) return
       if (flowsBusyRef.current) return
       flowsBusyRef.current = true
       const targetPage = mode === 'more' ? flowsPageRef.current + 1 : 1
@@ -132,7 +139,7 @@ export function WalletScreen() {
         setFlowsLoadingMore(false)
       }
     },
-    [user, uniappT],
+    [loggedIn, uniappT],
   )
 
   useEffect(() => {
@@ -140,7 +147,7 @@ export function WalletScreen() {
   }, [load])
 
   useEffect(() => {
-    if (!user) {
+    if (!loggedIn) {
       // 登录门:未登录不发起流水请求,仅由共享屏渲染占位 + 登录入口
       setFlows([])
       setFlowsTotal(0)
@@ -151,9 +158,9 @@ export function WalletScreen() {
       return
     }
     void loadFlows('initial')
-  }, [user, loadFlows])
+  }, [loggedIn, loadFlows])
 
-  const flowsState = user
+  const flowsState = loggedIn
     ? {
         items: flows.map((item) => ({
           id: item.id,
@@ -183,7 +190,7 @@ export function WalletScreen() {
       flows={flowsState}
       onRetryFlows={() => void loadFlows('initial')}
       onLoadMoreFlows={() => {
-        if (!user || flowsBusyRef.current || flows.length >= flowsTotal) return
+        if (!loggedIn || flowsBusyRef.current || flows.length >= flowsTotal) return
         void loadFlows('more')
       }}
       onLogin={() => navigation.navigate('Login')}

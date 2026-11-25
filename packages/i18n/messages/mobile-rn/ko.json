@@ -1148,6 +1148,18 @@
     "catCopyShort": "카피"
   },
   "drawer": {
+    "search": "대화 검색",
+    "multiSelect": "다중 선택 전환",
+    "filterLabel": "폴더로 필터",
+    "sortPinnedFirst": "고정 우선",
+    "sortByTime": "시간순",
+    "selectAll": "전체 선택",
+    "invertSelection": "선택 반전",
+    "moveToFolder": "폴더로 이동",
+    "batchArchive": "보관",
+    "batchUnarchive": "보관 취소",
+    "batchDelete": "삭제",
+    "cancelSelection": "선택 취소",
     "newChat": "새 작업",
     "history": "대화 기록",
     "noHistory": "대화 기록이 없습니다",
@@ -2538,7 +2550,7 @@
   "devices": {
     "title": "기기 관리",
     "pairTitle": "페어링 코드",
-    "pairHint": "연결할 기기에서 아래 6자리 코드를 입력하여 페어링하세요. 코드는 5분간 유효하며 한 번만 사용할 수 있습니다.",
+    "pairHint": "로그인 상태가 없는 머신(CLI / 서버) 전용입니다. 대상 머신에서 ihui device pair <코드>를 실행하세요. 이 PC의 데스크톱 앱은 코드가 필요 없으며 위의 ‘원클릭 사용’을 누르면 됩니다.",
     "pairGenerate": "코드 생성",
     "pairRegenerate": "다시 생성",
     "pairFailed": "코드 생성 실패",
@@ -2588,7 +2600,11 @@
     "executorStart": "시작",
     "executorStop": "중지",
     "executorRefresh": "상태 새로고침",
-    "executorUnpaired": "이 컴퓨터는 아직 연결되지 않았습니다. 「페어링 코드」에서 8자리 코드를 발급한 뒤 터미널에서 ihui device pair <코드> 를 실행하세요.",
+    "executorEnable": "원클릭 사용",
+
+    "executorUnpaired": "이 컴퓨터는 아직 연결되지 않았습니다. ‘원클릭 사용’을 눌러 허용하세요(페어링 코드 불필요).",
+    "executorNeedLogin": "로그인 상태가 만료되었습니다. 다시 로그인한 뒤 사용하세요.",
+    "executorChangeWorkspace": "작업 공간 변경",
     "executorUnsupported": "로컬 실행기는 Windows 데스크톱 앱에서만 지원됩니다.",
     "executorTaskRegistered": "로그인 시 자동 실행 등록됨",
     "approvalTitle": "실행 계획",
@@ -5736,6 +5752,7 @@
       "bypassSkipApproval": "심사 건너뜀",
       "mcpRequiresApproval": "MCP 주석이 승인 필요",
       "policyRequiresApproval": "정책상 승인 필요",
+      "approvalPolicyDeny": "정책상 실행 거부",
       "policySkipsApproval": "정책상 승인 생략",
       "guardianReviewSuggested": "검토가 더 안전한 경로를 제안",
       "guardianReviewAlternativeApplied": "검토 제안 경로 적용됨"

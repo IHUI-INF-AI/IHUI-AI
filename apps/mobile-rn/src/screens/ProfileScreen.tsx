@@ -2334,7 +2334,7 @@ const styles = StyleSheet.create({
     padding: rpx(28),
     borderRadius: rnRadius.lg,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     backgroundColor: tokens.surface.light,
     gap: rpx(20),
   },
@@ -2486,7 +2486,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     padding: rpx(28),
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
   },
   contentHeader: {
     flexDirection: 'row',
