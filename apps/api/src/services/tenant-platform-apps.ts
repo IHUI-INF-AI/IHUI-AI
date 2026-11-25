@@ -75,7 +75,12 @@ export function envPlatformCredentials(platform: TenantPlatformId): {
       return {
         appId: (env.DINGTALK_APP_KEY ?? env.DINGTALK_APPKEY ?? '').trim(),
         appSecret: (env.DINGTALK_APP_SECRET ?? env.DINGTALK_APPSECRET ?? '').trim(),
-        extra: pickNonEmpty({ redirect_uri: env.DINGTALK_REDIRECT_URI }),
+        extra: pickNonEmpty({
+          agent_id: env.DINGTALK_AGENT_ID,
+          robot_code: env.DINGTALK_ROBOT_CODE,
+          robot_mode: env.DINGTALK_ROBOT_MODE,
+          redirect_uri: env.DINGTALK_REDIRECT_URI,
+        }),
       }
     case 'wecom':
       return {

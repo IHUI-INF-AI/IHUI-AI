@@ -30,7 +30,12 @@ export const PLATFORM_META: Record<string, PlatformMeta> = {
   dingtalk: {
     label: '钉钉',
     appIdLabel: 'AppKey',
-    extra: [{ key: 'redirect_uri', label: '回调地址' }],
+    extra: [
+      { key: 'agent_id', label: 'AgentID' },
+      { key: 'robot_code', label: 'RobotCode' },
+      { key: 'robot_mode', label: '机器人接收模式（STREAM/HTTP）' },
+      { key: 'redirect_uri', label: '回调地址' },
+    ],
   },
   wecom: {
     label: '企业微信',

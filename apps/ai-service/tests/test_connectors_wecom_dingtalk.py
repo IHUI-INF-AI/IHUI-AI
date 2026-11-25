@@ -23,8 +23,10 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from app.services.connectors import catalog, custom_http
 from app.services.connectors import dingtalk as dingtalk_mod
 from app.services.connectors import wecom as wecom_mod
+from app.services.connectors.base import ConnectorSpec
 
 WECOM_RECORD: dict = {
     "key": "wecom-1",
@@ -539,4 +541,41 @@ async def test_dingtalk_fetch_document_truncates() -> None:
     assert result["truncated"] is True
     assert result["chars"] == dingtalk_mod.MAX_DOC_CHARS
     assert len(result["content"]) == dingtalk_mod.MAX_DOC_CHARS
+
+
+async def test_dingtalk_send_msg_body_is_object() -> None:
+    """asyncsend_v2 的 msg 必须是 JSON 对象(字符串会被钉钉判 41)。"""
+    ops = catalog.default_operations("dingtalk")
+    op = next(op for op in ops if op["id"] == "dingtalk_send_msg")
+    assert isinstance(op["body"]["msg"], dict)
+    assert op["body"]["msg"]["msgtype"] == "text"
+
+
+async def test_dingtalk_robot_send_operation_declared() -> None:
+    """机器人单聊操作声明了 api.dingtalk.com 独立基址与必要字段。"""
+    ops = catalog.default_operations("dingtalk")
+    op = next(op for op in ops if op["id"] == "dingtalk_robot_send")
+    assert op["base_url"] == "https://api.dingtalk.com"
+    assert op["path"] == "/v1.0/robot/oToMessages/batchSend"
+    assert op["body"]["userIds"] == ["{user_id}"]
+    assert op["body"]["msgKey"] == "sampleText"
+
+
+async def test_dingtalk_api_base_uses_header_token() -> None:
+    """api.dingtalk.com 走 x-acs-dingtalk-access-token,oapi 仍走 query。"""
+    record = {"key": "dingtalk-1", "app_id": "appkey-test", "app_secret": "secret-test"}
+    spec = ConnectorSpec(base_url="https://oapi.dingtalk.com", auth_kind="dingtalk")
+    with patch.object(
+        custom_http, "_platform_token", AsyncMock(return_value="token-test")
+    ):
+        api_headers, api_params = await custom_http._auth_parts(
+            record, spec, base_url="https://api.dingtalk.com"
+        )
+        oapi_headers, oapi_params = await custom_http._auth_parts(
+            record, spec, base_url="https://oapi.dingtalk.com"
+        )
+    assert api_headers == {"x-acs-dingtalk-access-token": "token-test"}
+    assert api_params == {}
+    assert oapi_headers == {}
+    assert oapi_params == {"access_token": "token-test"}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
