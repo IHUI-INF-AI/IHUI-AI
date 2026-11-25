@@ -24,7 +24,7 @@ import {
 import { Alert } from '@/components/feedback'
 import type { WechatActionResult, WechatMomentFetchResult } from '@ihui/types'
 import { wechatHubApi } from './wechat-hub-api'
-import { describeMomentFetchStatus } from './moment-status'
+import { describeMomentFetchStatus, formatMomentFields } from './moment-status'
 import MomentArchivePanel from './MomentArchivePanel'
 
 function momentTime(value: number | null): string {
@@ -163,6 +163,11 @@ export default function MomentCard({ accountId }: { accountId: string }) {
                 </>
               }
             />
+          ) : null}
+          {fetchResult && fetchResult.fields ? (
+            <p className="text-xs text-muted-foreground">
+              {formatMomentFields(fetchResult.fields)}
+            </p>
           ) : null}
           {fetchResult && fetchResult.moments.length > 0 ? (
             <div className="max-h-64 space-y-2 overflow-auto pr-1">

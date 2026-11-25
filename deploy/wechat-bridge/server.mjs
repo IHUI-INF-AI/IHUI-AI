@@ -45,6 +45,10 @@ const MOMENT_WAIT_MS = Math.min(
   Math.max(Number(process.env.BRIDGE_MOMENT_WAIT_MS ?? 3500), 500),
   15_000,
 )
+/** 直接 `node server.mjs` 启动；被测试/其它模块 import 时不绑定端口、不加载驱动。 */
+const IS_MAIN = process.argv[1]
+  ? resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  : false
 
 let driver = null
 let seq = 0
@@ -212,6 +216,39 @@ function normalizeInbound(input) {
   }
 }
 
+/**
+ * 字段可得性：只从本次合并后的真实动态派生事实，缺失即标不可得，绝不填空值补造。
+ * likes/comments 当前没有任何驱动解析点赞/评论，函数只认真实标记，缺失恒为 false；
+ * media 取任一动态的 mediaUrls 非空，authorIdentity 取任一 authorResolved === true。
+ */
+function deriveMomentFields(moments) {
+  const list = Array.isArray(moments) ? moments : []
+  const media = list.some(
+    (moment) =>
+      moment &&
+      Array.isArray(moment.mediaUrls) &&
+      moment.mediaUrls.some((url) => typeof url === 'string' && url.trim()),
+  )
+  const likes = list.some((moment) => moment?.likes === true)
+  const comments = list.some((moment) => moment?.comments === true)
+  const authorIdentity = list.some((moment) => moment?.authorResolved === true)
+  const missing = []
+  if (!media) missing.push('图片')
+  if (!likes) missing.push('点赞')
+  if (!comments) missing.push('评论')
+  if (!authorIdentity) missing.push('作者身份')
+  return {
+    media,
+    likes,
+    comments,
+    authorIdentity,
+    reason:
+      missing.length === 0
+        ? null
+        : `当前驱动只返回正文：${missing.join('、')}均不可得`,
+  }
+}
+
 async function runMomentFetch(body) {
   if (!driver.action) return { status: 'unsupported', reason: '驱动不支持动作' }
   const maxPages = Math.min(Math.max(Number(body.maxPages ?? 3) || 3, 1), 30)
@@ -296,6 +333,7 @@ async function runMomentFetch(body) {
       stopReason,
       limitReached,
       occludedBy,
+      fields: deriveMomentFields(all),
       archive,
       archiveError: archiveError || undefined,
       reason:
@@ -488,10 +526,12 @@ async function handle(req, res) {
   return json(res, 404, { ok: false, error: 'not found' })
 }
 
-driver = await loadDriver()
-await loadQueue()
-await loadMoments()
-memberMap = await loadMemberMap()
+if (IS_MAIN) {
+  driver = await loadDriver()
+  await loadQueue()
+  await loadMoments()
+  memberMap = await loadMemberMap()
+}
 
 /** 可选轮询：OCR 等拉取型驱动主动产出入站消息，复用 /ingest 的去重与队列。 */
 function startDriverPoll() {
@@ -520,21 +560,28 @@ function startDriverPoll() {
   setInterval(tick, intervalMs).unref()
 }
 
-const server = createServer((req, res) => {
-  handle(req, res).catch((e) => {
-    json(res, 500, { ok: false, error: e instanceof Error ? e.message : 'internal error' })
-  })
-})
+let server = null
 
-server.listen(PORT, HOST, () => {
-  console.log(`[wechat-bridge] listening on http://${HOST}:${PORT} driver=${DRIVER_NAME}`)
-  startDriverPoll()
-})
+if (IS_MAIN) {
+  server = createServer((req, res) => {
+    handle(req, res).catch((e) => {
+      json(res, 500, { ok: false, error: e instanceof Error ? e.message : 'internal error' })
+    })
+  })
+
+  server.listen(PORT, HOST, () => {
+    console.log(`[wechat-bridge] listening on http://${HOST}:${PORT} driver=${DRIVER_NAME}`)
+    startDriverPoll()
+  })
+}
 
 function shutdown() {
+  if (!server) return
   server.close(() => process.exit(0))
   setTimeout(() => process.exit(0), 3000).unref()
 }
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
+
+export const __test__ = { deriveMomentFields }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

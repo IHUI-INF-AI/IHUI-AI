@@ -48,6 +48,17 @@ export interface WechatGroupMemberInput {
   role: 'owner' | 'admin' | 'member' | string
 }
 
+/** 成员映射条目：本地联系人/群成员下发给桥，供昵称 → 本地成员 id 回填。 */
+export interface WechatMemberMapEntry {
+  /** 平台成员 id（联系人 platformUserId / 群成员 memberId） */
+  memberId: string
+  /** 展示昵称；空昵称在编排层已跳过，不下发空串 */
+  nickname: string
+  source: 'contact' | 'group-member'
+  /** 群成员所在会话标题；联系人条目为 null */
+  chatTitle: string | null
+}
+
 /** 归一化后的入站消息 */
 export interface WechatInboundEvent {
   platformMessageId: string
@@ -127,6 +138,8 @@ export interface WechatAdapter {
   ): Promise<WechatActionResult>
   /** bridge 后端读本地归档 JSONL；iLink/mock 不实现。 */
   readMomentArchive?(limit: number): Promise<WechatBridgeArchiveRead>
+  /** bridge 后端下发本地联系人/群成员映射；iLink/mock 不实现。 */
+  pushMemberMap?(entries: WechatMemberMapEntry[]): Promise<WechatActionResult>
 }
 
 export function localRejected(reason: string, rejectedBy: string): WechatSendResult {

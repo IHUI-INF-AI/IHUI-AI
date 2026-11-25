@@ -19,6 +19,7 @@ import {
   runGroupAction,
   syncContacts,
 } from '../services/wechat-hub/operations.js'
+import { pushMemberMapForAccount } from '../services/wechat-hub/member-map-sync.js'
 import { answerError, requireUserId } from './wechat-hub-route-utils.js'
 
 const groupActionSchema = z.object({
@@ -129,6 +130,20 @@ export const wechatHubOperationsRoutes: FastifyPluginAsync = async (server) => {
         const input = parseOrThrow(momentSchema, request.body)
         return reply.send(
           success(await publishMoment(requireUserId(request), request.params.id, input)),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.post<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/members/map/push',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        return reply.send(
+          success(await pushMemberMapForAccount(requireUserId(request), request.params.id)),
         )
       } catch (e) {
         return answerError(reply, e)

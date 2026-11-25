@@ -36,6 +36,7 @@ import type {
   WechatAdapterContext,
   WechatBridgeArchiveRead,
   WechatInboundEvent,
+  WechatMemberMapEntry,
   WechatMediaInput,
   WechatSendOptions,
 } from './types.js'
@@ -586,6 +587,57 @@ export class BridgeAdapter implements WechatAdapter {
         total: 0,
         moments: [],
         reason: e instanceof Error ? e.message : '桥归档读取失败',
+      }
+    }
+  }
+
+  /** 下发成员映射到桥 /members/map；token(Authorization) 与 secret(body) 双凭证，30s 超时。 */
+  async pushMemberMap(entries: WechatMemberMapEntry[]): Promise<WechatActionResult> {
+    if (!this.baseUrl) {
+      return { ok: false, status: 'failed', data: {}, reason: 'bridge 缺少 baseUrl' }
+    }
+    try {
+      const response = await fetch(`${this.baseUrl}/members/map`, {
+        method: 'POST',
+        headers: this.headers(),
+        body: JSON.stringify({
+          members: entries,
+          token: this.token || undefined,
+          secret: this.token || undefined,
+        }),
+        signal: AbortSignal.timeout(30_000),
+      })
+      const text = await response.text()
+      if (!response.ok) {
+        return {
+          ok: false,
+          status: 'failed',
+          data: {},
+          reason: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+        }
+      }
+      const parsed: unknown = JSON.parse(text)
+      const root = asRecord(parsed)
+      if (!root) {
+        return { ok: false, status: 'failed', data: {}, reason: '桥返回非对象 JSON' }
+      }
+      const data = asRecord(root.data) ?? root
+      const ok = root.ok === true || asNumber(root.code) === 0
+      if (!ok) {
+        return {
+          ok: false,
+          status: root.status === 'unsupported' ? 'unsupported' : 'failed',
+          data,
+          reason: asString(root.error) ?? asString(root.message) ?? '桥拒绝成员映射下发',
+        }
+      }
+      return { ok: true, status: 'accepted', data, reason: null }
+    } catch (e) {
+      return {
+        ok: false,
+        status: 'failed',
+        data: {},
+        reason: e instanceof Error ? e.message : '桥成员映射下发失败',
       }
     }
   }

@@ -22,6 +22,7 @@ import type {
   WechatMomentArchiveView,
   WechatMomentFetchInput,
   WechatMomentFetchResult,
+  WechatMomentFieldAvailability,
   WechatMomentInput,
   WechatMomentStopReason,
   WechatMomentView,
@@ -36,6 +37,7 @@ import {
 } from './guards.js'
 import { wechatHubManager } from './manager.js'
 import { listGroupMembers } from './contacts.js'
+import { pushMemberMapForAccount } from './member-map-sync.js'
 import { countMomentsArchive, listMomentsArchive, upsertMoments } from './moments-store.js'
 
 type JsonRecord = Record<string, unknown>
@@ -65,6 +67,36 @@ function readList(data: Record<string, unknown>): JsonRecord[] {
     }
   }
   return []
+}
+
+/** 同步成功后后台下发成员映射；失败只 warn，不回滚、不影响原同步结果。 */
+function fireMemberMapPush(userId: string, accountId: string): void {
+  void pushMemberMapForAccount(userId, accountId).catch((e) => {
+    logger.warn('[wechat-hub] 成员映射自动下发失败', {
+      accountId,
+      err: e instanceof Error ? e.message : String(e),
+    })
+  })
+}
+
+/**
+ * 严格读取桥上报的字段可得性：四项布尔与 reason 类型都合法才透传，
+ * 缺失或形状非法一律归 undefined，不补造默认能力位。
+ */
+function readMomentFields(value: unknown): WechatMomentFieldAvailability | undefined {
+  const raw = asRecord(value)
+  if (!raw) return undefined
+  const { media, likes, comments, authorIdentity, reason } = raw
+  if (
+    typeof media !== 'boolean' ||
+    typeof likes !== 'boolean' ||
+    typeof comments !== 'boolean' ||
+    typeof authorIdentity !== 'boolean'
+  ) {
+    return undefined
+  }
+  if (reason !== null && typeof reason !== 'string') return undefined
+  return { media, likes, comments, authorIdentity, reason }
 }
 
 function pickContact(raw: JsonRecord): {
@@ -117,6 +149,7 @@ export async function syncContacts(
   await assertAccountForUser(userId, accountId)
   const result = await wechatHubManager.performAction(userId, accountId, 'contact.sync', {})
   if (!result.ok) return { synced: 0, inserted: 0, updated: 0, result }
+  fireMemberMapPush(userId, accountId)
 
   const contacts = normalizeBridgeContacts(result.data)
   if (contacts.length === 0) return { synced: 0, inserted: 0, updated: 0, result }
@@ -224,6 +257,7 @@ export async function syncGroupMembersFromBridge(
   if (!result.ok) {
     return { synced: 0, inserted: 0, updated: 0, removed: 0, members: [], result }
   }
+  fireMemberMapPush(userId, accountId)
   const members = normalizeBridgeGroupMembers(result.data)
   if (members.length === 0) {
     return { synced: 0, inserted: 0, updated: 0, removed: 0, members: [], result }
@@ -589,6 +623,7 @@ export async function fetchMoments(
   const limitReached =
     typeof data.limitReached === 'boolean' ? data.limitReached : stopReason === 'page-limit'
   const occludedBy = asString(data.occludedBy)
+  const fields = readMomentFields(data.fields)
 
   // 抓取成功后归档入库；写库失败只 warn，不影响本次抓取结果与桥原因返回。
   let archive = readMomentArchive(data.archive)
@@ -630,6 +665,7 @@ export async function fetchMoments(
     occludedBy,
     reason: asString(data.reason) ?? result.reason,
     archive,
+    ...(fields !== undefined ? { fields } : {}),
     result,
   }
 }

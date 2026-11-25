@@ -23,7 +23,7 @@ import {
   assertContactForAccount,
   assertConversationForAccount,
 } from './guards.js'
-import type { WechatInboundEvent } from './types.js'
+import type { WechatInboundEvent, WechatMemberMapEntry } from './types.js'
 
 function toContactView(row: typeof wechatHubContacts.$inferSelect): WechatContactView {
   return {
@@ -255,5 +255,60 @@ export async function findMemberNicknames(
   const result: Record<string, string> = {}
   for (const row of rows) result[row.memberId] = row.nickname
   return result
+}
+
+/**
+ * 汇总本账号要下发给桥的成员映射条目。
+ * 联系人：displayName 为空时回退 remark，仍为空则跳过；群成员：昵称空则跳过，
+ * 并带上所属会话标题。同群同名的两个人都保留，歧义留给桥按本地哈希回退，这里不去重。
+ */
+export async function listMemberMapEntries(accountId: string): Promise<WechatMemberMapEntry[]> {
+  const entries: WechatMemberMapEntry[] = []
+
+  const contactRows = await dbRead
+    .select({
+      platformUserId: wechatHubContacts.platformUserId,
+      displayName: wechatHubContacts.displayName,
+      remark: wechatHubContacts.remark,
+    })
+    .from(wechatHubContacts)
+    .where(eq(wechatHubContacts.accountId, accountId))
+  for (const row of contactRows) {
+    const nickname = row.displayName.trim() || row.remark.trim()
+    const memberId = row.platformUserId.trim()
+    if (!nickname || !memberId) continue
+    entries.push({ memberId, nickname, source: 'contact', chatTitle: null })
+  }
+
+  const conversationRows = await dbRead
+    .select({
+      id: wechatHubConversations.id,
+      title: wechatHubConversations.title,
+    })
+    .from(wechatHubConversations)
+    .where(eq(wechatHubConversations.accountId, accountId))
+  const titleByConversation = new Map(conversationRows.map((row) => [row.id, row.title.trim()]))
+
+  const memberRows = await dbRead
+    .select({
+      conversationId: wechatHubGroupMembers.conversationId,
+      memberId: wechatHubGroupMembers.memberId,
+      nickname: wechatHubGroupMembers.nickname,
+    })
+    .from(wechatHubGroupMembers)
+    .where(eq(wechatHubGroupMembers.accountId, accountId))
+  for (const row of memberRows) {
+    const nickname = row.nickname.trim()
+    const memberId = row.memberId.trim()
+    if (!nickname || !memberId) continue
+    entries.push({
+      memberId,
+      nickname,
+      source: 'group-member',
+      chatTitle: titleByConversation.get(row.conversationId) ?? null,
+    })
+  }
+
+  return entries
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -427,6 +427,25 @@ export interface WechatMomentArchiveStat {
   total: number
 }
 
+/**
+ * 朋友圈结构化字段可得性：驱动这次真实拿到了哪些字段。
+ *
+ * 这是「事实声明」不是「能力承诺」：为 false 时调用方/UI 必须承认缺失，
+ * 绝不允许用占位值把点赞、评论、图片补造成看起来完整的数据。
+ */
+export interface WechatMomentFieldAvailability {
+  /** 图片 URL / 图片元数据 */
+  media: boolean
+  /** 点赞名单或点赞数 */
+  likes: boolean
+  /** 评论正文 */
+  comments: boolean
+  /** 作者是否能映射到真实联系人/群成员身份 */
+  authorIdentity: boolean
+  /** 缺失原因，供 UI 直接展示；四项全可得时为 null */
+  reason: string | null
+}
+
 export interface WechatMomentFetchResult {
   moments: WechatMomentView[]
   fetched: number
@@ -447,6 +466,8 @@ export interface WechatMomentFetchResult {
   result: WechatActionResult
   /** 桥每次成功抓取后写本地归档的统计；后端未实现时缺省 */
   archive?: WechatMomentArchiveStat
+  /** 结构化字段可得性；驱动未上报时缺省，此时按「只拿到正文」理解 */
+  fields?: WechatMomentFieldAvailability
 }
 
 /** 归档里的一条动态：桥落盘/数据库落库后的稳定形态 */

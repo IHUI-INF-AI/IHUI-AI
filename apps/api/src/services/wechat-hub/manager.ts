@@ -51,6 +51,7 @@ import type {
   WechatAdapter,
   WechatBridgeArchiveRead,
   WechatInboundEvent,
+  WechatMemberMapEntry,
   WechatSendOptions,
 } from './types.js'
 import { localRejected } from './types.js'
@@ -485,6 +486,35 @@ export class WechatHubManager {
         reason: e instanceof Error ? e.message : '桥归档读取失败',
       }
     }
+  }
+
+  /** 透传成员映射到桥；后端不支持、未连接或桥失败时返回 ok:false + 原因，不抛 500。 */
+  async pushMemberMap(
+    userId: string,
+    accountId: string,
+    entries: WechatMemberMapEntry[],
+  ): Promise<WechatActionResult> {
+    await this.assertAccount(userId, accountId)
+    const adapter = this.adapters.get(accountId)
+    if (!adapter?.pushMemberMap) {
+      return {
+        ok: false,
+        status: 'unsupported',
+        data: {},
+        reason: '当前后端不支持成员映射下发，请使用 bridge 后端',
+      }
+    }
+    const result = await adapter.pushMemberMap(entries)
+    await this.writeAction(
+      accountId,
+      userId,
+      'member-map.push',
+      null,
+      { count: entries.length, status: result.status },
+      result.ok ? 'success' : 'failed',
+      result.ok ? undefined : (result.reason ?? undefined),
+    )
+    return result
   }
 
   async analyze(

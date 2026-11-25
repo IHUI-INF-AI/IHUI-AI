@@ -9,7 +9,7 @@
  * no-content / error / unsupported / null；limitReached 与 occludedBy 随行。
  * page-limit 与 limitReached 一律归成功态，不允许渲染成失败或部分失败。
  */
-import type { WechatMomentStopReason } from '@ihui/types'
+import type { WechatMomentFieldAvailability, WechatMomentStopReason } from '@ihui/types'
 
 /** 与 @/components/feedback 的 Alert variant 对齐的可告警档位。 */
 export type MomentStatusTone = 'success' | 'warning' | 'danger'
@@ -110,4 +110,22 @@ export function describeMomentFetchStatus(input: MomentStatusInput): MomentStatu
     title: '未识别的终止原因',
     description: '后端返回了前端尚未认识的状态，可刷新后重试。',
   }
+}
+
+/**
+ * 字段可得性 → 一行展示文案。桥未上报 fields（null/undefined）时返回 null，
+ * 由调用方决定是否渲染；不替缺失字段补造「可得」结论。
+ */
+export function formatMomentFields(
+  fields: WechatMomentFieldAvailability | null | undefined,
+): string | null {
+  if (!fields) return null
+  const segments = [
+    `图片${fields.media ? '可得' : '不可得'}`,
+    `点赞${fields.likes ? '可得' : '不可得'}`,
+    `评论${fields.comments ? '可得' : '不可得'}`,
+    `作者身份${fields.authorIdentity ? '可得' : '不可得'}`,
+  ]
+  const tail = fields.reason ? `；${fields.reason}` : ''
+  return `字段可得性：${segments.join('、')}${tail}`
 }
