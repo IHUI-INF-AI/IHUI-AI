@@ -122,6 +122,23 @@ class FakeSession:
     async def get_title(self) -> str:
         return "fake"
 
+    session_id = "tab-1"
+
+    async def get_current_url(self) -> str:
+        return "https://example.com/"
+
+    async def get_cookies(self, _urls=None):
+        return []
+
+    async def go_back(self) -> bool:
+        return True
+
+    async def go_forward(self) -> bool:
+        return True
+
+    async def reload_with_recovery(self) -> bool:
+        return False
+
 
 @pytest.fixture
 def route_app(monkeypatch):
@@ -173,6 +190,27 @@ async def test_list_sessions_route_returns_string_message_envelope(api, monkeypa
     payload = res.json()
     assert isinstance(payload["message"], str) and payload["message"]
     assert payload["data"] == {"session_ids": ["tab-a"], "count": 1}
+
+
+async def test_browser_routes_keep_string_message_envelope(api):
+    """其余 browser_hub 包络也必须带 string message,避免同类严格校验失败。"""
+    get_paths = [
+        "/api/browser/task-templates",
+        "/api/browser/sessions/tab-1",
+        "/api/browser/sessions/tab-1/cookies",
+        "/api/browser/sessions/tab-1/task",
+    ]
+    for path in get_paths:
+        res = await api.get(path)
+        assert res.status_code == 200, path
+        payload = res.json()
+        assert isinstance(payload["message"], str) and payload["message"], path
+
+    for path in ("back", "forward"):
+        res = await api.post(f"/api/browser/sessions/tab-1/{path}")
+        assert res.status_code == 200, path
+        payload = res.json()
+        assert isinstance(payload["message"], str) and payload["message"], path
 
 
 async def test_bind_template_route_expands_goal_and_checkpoints(api):
@@ -288,6 +326,9 @@ def test_ws_task_messages_roundtrip(route_app, monkeypatch):
                 }
             )
             started = ws.receive_json()
+            if started["type"] == "navigation":
+                # 晚连补发当前地址快照(2026-11-25);任务结果紧随其后。
+                started = ws.receive_json()
             assert started["type"] == "task_result"
             assert started["data"]["task"]["goal"] == "登录后继续"
 
