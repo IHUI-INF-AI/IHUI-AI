@@ -21,6 +21,7 @@ import type {
   WechatAnalysisRunView,
   WechatAskInput,
   WechatAskResult,
+  WechatAskSqlResult,
   WechatAutoReplyPreviewInput,
   WechatAutoReplyPreviewResult,
   WechatAutoReplyRuleInput,
@@ -37,8 +38,10 @@ import type {
   WechatExportInput,
   WechatExportResult,
   WechatGroupActionInput,
+  WechatGroupActionPlan,
   WechatGroupMemberView,
   WechatGroupMembersSyncResult,
+  WechatGroupWritePolicy,
   WechatHistorySyncInput,
   WechatHistorySyncResult,
   WechatReportInput,
@@ -65,6 +68,7 @@ import type {
   WechatSendResult,
 } from '@ihui/types'
 import { fetchApi, fetchRaw } from '../client.js'
+import { ApiError } from '../api-error.js'
 
 /** GET /api/wechat-hub/capabilities */
 export async function fetchWechatCapabilities(): Promise<WechatBackendCapability[]> {
@@ -503,7 +507,50 @@ export async function runWechatGroupAction(
     `/wechat-hub/accounts/${accountId}/groups/action`,
     { method: 'POST', body: JSON.stringify(input) },
   )
-  if (!res.success) throw new Error(res.error || '微信群动作失败')
+  // 群写动作的失败结论要按 errorCode 在端上分流提示，失败分支必须把 errorCode 一并带出
+  if (!res.success) throw new ApiError(res.error || '微信群动作失败', res.status, res.errorCode)
+  return res.data
+}
+
+/**
+ * POST /api/wechat-hub/accounts/:id/groups/plan — 先出预览单，不真执行。
+ * conversationId 走 body：create 没有会话，非 create 才带目标群，路径段不塞占位符。
+ */
+export async function previewWechatGroupAction(
+  accountId: string,
+  input: WechatGroupActionInput,
+): Promise<WechatGroupActionPlan> {
+  const res = await fetchApi<WechatGroupActionPlan>(
+    `/wechat-hub/accounts/${accountId}/groups/plan`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+  // 预览同样会被写开关/令牌/上限拦截，errorCode 交给端上做中文结论分流
+  if (!res.success) throw new ApiError(res.error || '生成群动作预览失败', res.status, res.errorCode)
+  return res.data
+}
+
+/** GET /api/wechat-hub/accounts/:id/groups/policy — 群写开关与单次/频次上限 */
+export async function fetchWechatGroupWritePolicy(
+  accountId: string,
+): Promise<WechatGroupWritePolicy> {
+  const res = await fetchApi<WechatGroupWritePolicy>(
+    `/wechat-hub/accounts/${accountId}/groups/policy`,
+    { method: 'GET' },
+  )
+  if (!res.success) throw new ApiError(res.error || '获取群写策略失败', res.status, res.errorCode)
+  return res.data
+}
+
+/** PUT /api/wechat-hub/accounts/:id/groups/policy — 更新群写开关与上限 */
+export async function updateWechatGroupWritePolicy(
+  accountId: string,
+  patch: Partial<Pick<WechatGroupWritePolicy, 'enabled' | 'maxTargetsPerAction' | 'maxActionsPerHour'>>,
+): Promise<WechatGroupWritePolicy> {
+  const res = await fetchApi<WechatGroupWritePolicy>(
+    `/wechat-hub/accounts/${accountId}/groups/policy`,
+    { method: 'PUT', body: JSON.stringify(patch) },
+  )
+  if (!res.success) throw new ApiError(res.error || '保存群写策略失败', res.status, res.errorCode)
   return res.data
 }
 
@@ -693,6 +740,26 @@ export async function askWechat(
     timeoutMs: 120_000,
   })
   if (!res.success) throw new Error(res.error || '问聊天记录失败')
+  return res.data
+}
+
+/**
+ * POST /api/wechat-hub/accounts/:id/ask-sql — 让模型写一条只读查询再答。
+ *
+ * 调用方不传 SQL：SQL 只在服务端生成与校验，前端拿到的 `sql` 只用于展示。
+ * 任何一步不成立都会回落成关键词检索，`note` 说明原因。
+ */
+export async function askWechatSql(
+  accountId: string,
+  input: { question: string; model?: string },
+): Promise<WechatAskSqlResult> {
+  const res = await fetchApi<WechatAskSqlResult>(`/wechat-hub/accounts/${accountId}/ask-sql`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+    // 写查询 + 执行有两段等模型的时间，比 ask 再宽一点
+    timeoutMs: 150_000,
+  })
+  if (!res.success) throw new Error(res.error || '生成查询失败')
   return res.data
 }
 

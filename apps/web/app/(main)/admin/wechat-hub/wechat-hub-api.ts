@@ -9,8 +9,10 @@
  * 这里只做错误归一化，方便 useQuery / useMutation 直接消费。
  */
 import {
+  ApiError,
   analyzeWechat,
   askWechat,
+  askWechatSql,
   broadcastWechat,
   callWechatMcpTool,
   connectWechatAccount,
@@ -33,6 +35,7 @@ import {
   fetchWechatConversations,
   fetchWechatDigestSchedule,
   fetchWechatGroupMembers,
+  fetchWechatGroupWritePolicy,
   fetchWechatKnowledge,
   fetchWechatJobs,
   fetchWechatMcpTools,
@@ -46,6 +49,7 @@ import {
   ingestWechatKnowledge,
   publishWechatMoment,
   previewWechatAutoReplyRule,
+  previewWechatGroupAction,
   runWechatDigest,
   runWechatGroupAction,
   runWechatJobsNow,
@@ -62,6 +66,7 @@ import {
   transcribeWechatVoice,
   updateWechatAutoReplyRule,
   updateWechatContact,
+  updateWechatGroupWritePolicy,
   updateWechatSettings,
   toggleWechatJob,
 } from '@ihui/api-client'
@@ -75,6 +80,7 @@ import type {
   WechatAnalysisRunView,
   WechatAskInput,
   WechatAskResult,
+  WechatAskSqlResult,
   WechatAutoReplyPreviewInput,
   WechatAutoReplyPreviewResult,
   WechatAutoReplyRuleInput,
@@ -91,8 +97,10 @@ import type {
   WechatExportInput,
   WechatExportResult,
   WechatGroupActionInput,
+  WechatGroupActionPlan,
   WechatGroupMemberView,
   WechatGroupMembersSyncResult,
+  WechatGroupWritePolicy,
   WechatHistorySyncInput,
   WechatHistorySyncResult,
   WechatImportMessagesInput,
@@ -123,6 +131,19 @@ async function call<T>(fn: () => Promise<T>, fallback: string): Promise<T> {
   try {
     return await fn()
   } catch (e) {
+    throw new Error(e instanceof Error ? e.message : fallback)
+  }
+}
+
+/**
+ * 群写动作专用保留包装：ApiError 原样抛出，errorCode 不被降级成普通 Error，
+ * 面板才能按错误码分流中文结论；其余异常仍走和 call() 一致的归一化。
+ */
+async function callKept<T>(fn: () => Promise<T>, fallback: string): Promise<T> {
+  try {
+    return await fn()
+  } catch (e) {
+    if (e instanceof ApiError) throw e
     throw new Error(e instanceof Error ? e.message : fallback)
   }
 }
@@ -239,7 +260,18 @@ export const wechatHubApi = {
   deleteRemoteContact: (id: string, contactId: string): Promise<WechatActionResult> =>
     call(() => deleteWechatRemoteContact(id, contactId), '删除远端联系人失败'),
   runGroupAction: (id: string, input: WechatGroupActionInput): Promise<WechatActionResult> =>
-    call(() => runWechatGroupAction(id, input), '微信群动作失败'),
+    callKept(() => runWechatGroupAction(id, input), '微信群动作失败'),
+  groupPlan: (id: string, input: WechatGroupActionInput): Promise<WechatGroupActionPlan> =>
+    callKept(() => previewWechatGroupAction(id, input), '生成群动作预览失败'),
+  groupPolicy: (id: string): Promise<WechatGroupWritePolicy> =>
+    callKept(() => fetchWechatGroupWritePolicy(id), '获取群写策略失败'),
+  updateGroupPolicy: (
+    id: string,
+    patch: Partial<
+      Pick<WechatGroupWritePolicy, 'enabled' | 'maxTargetsPerAction' | 'maxActionsPerHour'>
+    >,
+  ): Promise<WechatGroupWritePolicy> =>
+    callKept(() => updateWechatGroupWritePolicy(id, patch), '保存群写策略失败'),
   switchChat: (id: string, title: string): Promise<WechatActionResult> =>
     call(() => switchWechatChat(id, title), '切换微信会话失败'),
   publishMoment: (id: string, input: WechatMomentInput): Promise<WechatActionResult> =>
@@ -276,6 +308,8 @@ export const wechatHubApi = {
     call(() => runWechatReport(id, input), '生成报告失败'),
   ask: (id: string, input: WechatAskInput): Promise<WechatAskResult> =>
     call(() => askWechat(id, input), '问聊天记录失败'),
+  askSql: (id: string, input: { question: string }): Promise<WechatAskSqlResult> =>
+    call(() => askWechatSql(id, input), '生成查询失败'),
   jobs: (id: string): Promise<WechatJobView[]> =>
     call(() => fetchWechatJobs(id), '获取定时任务失败'),
   saveJob: (id: string, input: WechatJobInput): Promise<WechatJobView> =>
