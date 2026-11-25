@@ -12014,6 +12014,7 @@
     "stepThinking": "사고",
     "stop": "녹음 중지",
     "steer": "즉시 유도(현재 도구 완료 후 적용)",
+    "sendFailed": "메시지 전송에 실패했습니다. 다시 시도해 주세요",
     "steerFailed": "유도 실패(큐가 가득 찼거나 스트림이 종료됨). 나중에 다시 시도해 주세요",
     "steerNoticeBar": {
       "title": "{count}회 유도됨",

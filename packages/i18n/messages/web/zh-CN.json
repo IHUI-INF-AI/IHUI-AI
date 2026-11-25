@@ -12080,6 +12080,7 @@
     "stepThinking": "思考",
     "stop": "停止生成",
     "steer": "立即引导(当前工具完成后生效)",
+    "sendFailed": "消息发送失败,请重试",
     "steerFailed": "引导失败(队列已满或流已结束),请稍后重试",
     "steerNoticeBar": {
       "title": "已引导 {count} 次",

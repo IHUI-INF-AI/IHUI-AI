@@ -63,6 +63,7 @@
 | 21B | S-08 | apps/web/src/hooks/use-agent-runtime.ts:391-409 | P3 | 已修 fix/web-findings-1108（同型根因自查·复核未判定②：切换 agentId 残留 tokenStream/toolCallChain/healEvents/streamError；cleanup 补齐四项重置） |
 | 22B | S-09 | apps/web/src/lib/embed-message-trust.ts + components/work-panel/web-work-panel.tsx | P3 | 已修 fix/web-findings-1108（同型根因自查·复核未判定③：postMessage 无来源校验；加 e.source===iframe.contentWindow 闸，非白名单来源零副作用，url 仅 http(s)） |
 | 23B | PKG-01 | packages/sdk/src/agent-engine.ts:668-697 | P2 | 已修 fix/web-findings-1108（同型根因自查·失败静默吞掉：tools.result / approval.respond 回传失败被 `.catch(() => undefined)` 吞掉，引擎等结果/审批悬空而调用方仍拿到 success；改为上抛，红→绿夹具 2 例） |
+| 24B | IME-01 | packages/shared/src/chat/enter-submit.ts:31-170 + apps/web/src/components/chat/web-input-core.tsx:296-350 + apps/extension/entrypoints/sidepanel/components/AgentRuntimePanel.tsx:404-436 | P1 | 已修 fix/ime-first-enter-20261126（腿三「收尾闩锁」曾无条件成立 ⇒ 空格/回车选词上屏后用户按下的真·发送 Enter 被当成「确认候选词」静默吃掉，中文输入下必现「按 Enter 发不出去、要按第二次」；改为 keyup 立刻清闩锁 + 有效期兜底 + keyCode229 哨兵，两端接线形状守卫常驻，红→绿组件用例 5 例） |
 | 1C | F-001 | apps/cli/src/tools/run-tests.ts:149 | P0 | 入册 |
 | 2C | F-045 | apps/desktop/src-tauri/capabilities/default.json:31 | P0 | 入册 |
 | 3C | F-002 | apps/cli/src/index.ts:1408 | P1 | 入册 |

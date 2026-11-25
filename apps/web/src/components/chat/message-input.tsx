@@ -524,7 +524,13 @@ export function MessageInput({
     const plan = planReviewSend(base, reviewSelection, reviewTargetReady)
     const result = submit(plan.mode === 'plain' ? base : plan.text)
     result
-      .catch(() => {})
+      // 2026-11-26:此前这里是 `catch(() => {})` —— 发送链里任何异常都被静默吞掉,
+      // 正文留在输入框、界面零反馈,用户看到的正是"按 Enter 没反应"。异常路径改为显式提示,
+      // 正常发送零新增噪音(成功分支一行都不走这里)。
+      .catch((error: unknown) => {
+        toast.error(t('sendFailed'))
+        console.error('[chat] send failed', error)
+      })
       .finally(() => {
         linkPreview.reset()
         if (plan.mode === 'plain') return
@@ -860,9 +866,7 @@ export function MessageInput({
       const p = byId.get(id)
       // 连接器能力是虚拟 pluginId,不在插件目录里 —— 用导航词包的名字。
       // 2026-11-25 扩写:含写操作(执行前弹审批),不再标"只读"以免误导。
-      const name = id === CONNECTORS_TOOL_ID
-        ? tNav('connectors')
-        : (p?.name ?? id)
+      const name = id === CONNECTORS_TOOL_ID ? tNav('connectors') : (p?.name ?? id)
       return {
         id,
         name,
