@@ -55,6 +55,16 @@ const ALERT_MB = argOf('--alert-mb', 400)
 const KEEP_STALE_HOURS = argOf('--keep-stale-hours', 2)
 const BUNDLE_CHUNK = 200
 const STATE_DIR = join(ROOT, '.ihui-agent', 'state', 'repo-bloat-prune')
+// 2026-11-25 立：旧历史 bundle 可达 GB 级（本案实测 1.6GB），落进仓库工作树属纯磁盘膨胀
+// （虽被 .gitignore 的 *.bundle 挡在 git 之外）。默认落仓外兄弟目录，绝不进工作树。
+// 覆盖优先级：--bundle-dir=<绝对路径> > IHUI_BUNDLE_DIR > <仓库根>/../ihui-git-bundles/repo-bloat-prune
+const BUNDLE_DIR = (() => {
+  const flag = process.argv.find((a) => a.startsWith('--bundle-dir='))
+  if (flag) return flag.slice('--bundle-dir='.length).trim()
+  const env = String(process.env.IHUI_BUNDLE_DIR || '').trim()
+  if (env) return env
+  return join(ROOT, '..', 'ihui-git-bundles', 'repo-bloat-prune')
+})()
 
 const die = (code, msg) => {
   console.error(`❌ ${msg}`)
@@ -183,6 +193,7 @@ if (!legacyTags.length && !legacyRemotes.length && !staleKeeps.length) {
 }
 
 console.log(`🧹 计划处置：旧历史 tag ${legacyTags.length} 枚 + 旧历史 remote ${legacyRemotes.length} 条；解 .keep ${staleKeeps.length} 个`)
+if (legacyTags.length) console.log(`   bundle 落地目录（仓外）：${BUNDLE_DIR}`)
 
 if (!APPLY) {
   console.log('（dry-run，未改动；加 --apply 落盘）')
@@ -191,13 +202,16 @@ if (!APPLY) {
 }
 
 // ── 4. 落盘：先 bundle 全部旧历史 tag（任一卷失败整批不删）──
+// bundle 落 BUNDLE_DIR（默认仓外）：旧历史 bundle 可达 GB 级（本案实测 1.6GB），落进仓库
+// 工作树虽被 .gitignore 的 *.bundle 挡在 git 之外，仍是纯磁盘膨胀 —— 2026-11-25 改仓外。
 let bundled = 0
 if (legacyTags.length) {
   mkdirSync(STATE_DIR, { recursive: true })
+  mkdirSync(BUNDLE_DIR, { recursive: true })
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
   for (let i = 0; i < legacyTags.length; i += BUNDLE_CHUNK) {
     const chunk = legacyTags.slice(i, i + BUNDLE_CHUNK).map((r) => r.ref)
-    const file = join(STATE_DIR, `${stamp}-legacy-tags-${String(i / BUNDLE_CHUNK + 1).padStart(3, '0')}.bundle`)
+    const file = join(BUNDLE_DIR, `${stamp}-legacy-tags-${String(i / BUNDLE_CHUNK + 1).padStart(3, '0')}.bundle`)
     const args = ['bundle', 'create', file, ...chunk]
     for (const b of ['refs/heads/main', 'refs/remotes/origin/main']) args.push('--not', b)
     if (gitTry(args, { timeout: 1_800_000 }) === null) die(1, `bundle 失败（${chunk.length} 枚）⇒ 整批不删`)
