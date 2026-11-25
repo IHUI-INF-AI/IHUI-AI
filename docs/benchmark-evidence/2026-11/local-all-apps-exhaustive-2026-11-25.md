@@ -263,7 +263,7 @@ IPC 命名本身就把产品能力摊开了：
 - 本地 endpoint 实例：`http://127.0.0.1:39099/mcp`（前端 2 次；`daemon-bootstrap.js` 里 `Pe=39099,Fe=39120` 可对上）、`http://127.0.0.1:52741/v1/chat/completions`（`daemon-app-server-main.js` 里用于本地模型注册）、`http://127.0.0.1:{e}/localapi/save`、`http://127.0.0.1:49983/envs`、`http://localhost:11434/v1/chat/completions`（Ollama 兼容）。`http://127.0.0.1:9527` 只出现在 `cli\bin\daemon-status-brief.test.cjs` 的测试夹具里（模拟 daemon endpoint），**不是生产端口**。
 - **运行态快照（2026-11-25 15:26，非本轮启动）**：main 22984 监听 `127.0.0.1:18488`；`daemon-app-server-entry.js --stdio` 进程 31688 监听 `56000` / `57736` / `57737`；两个 `codebuddy --serve` 进程 41604 / 8372 分别监听 `57740` / `63423`；`WorkBuddy_SandboxCenter_*`、`WorkBuddy_SensitiveApproval_*`、`workbuddy-...-sidecar-control-*` / `-data-*` 管道均存在。它证明 MCP Host/daemon/sidecar 层不是只在静态代码里，但 `57736` 的路由仍未识别；`57740` / `63423` 已在 18:26 复测时退出。
 - **`56000` 是 VlmProxy**：`main/server.js` 的 `VlmProxy` 只接受回环 `Host`、拒绝 `Origin`，路由固定为 `chatPath`；`SkillVlmService` 用 `/skills/vlm/chat`，请求需 `Authorization: Bearer` + `x-workbuddy-mcp-context`。无凭据 POST 返回 401 `{"error":"unauthorized"}`，不是通用 HTTP 网关。
-- **`57737` 是 McpHost**：`GET /healthz` 返回 200 `{"status":"ok","routes":11}`，每个响应带 `X-Request-Id`；`dispatch` 先做 loopback Host / Origin 校验，失败 403 `{"error":"forbidden"}`。11 是运行时路由计数，未枚举。
+- **`57737` 是 McpHost**：`GET /healthz` 返回 200 `{"status":"ok","routes":11}`，每个响应带 `X-Request-Id`；`dispatch` 先做 loopback Host / Origin 校验，失败 403 `{"error":"forbidden"}`。内置路由固定 `/mcp`，上游路由是 `/<32位hex routeKey>/mcp`；11 是运行时路由计数，未逐条枚举。
 - **`57736` 是 McpAppsHost**：`main/app-server-mcp-apps-host.js` 的 `McpAppsHttpServer`，`GET /mcp-apps/sandbox-proxy.html` 返回 200 的 “MCP Apps Sandbox Proxy”，`GET /mcp-apps/foo/app.html` 返回 404 `MCP App instance not found or not loaded`；未匹配路径空 404。它是 MCP Apps 的 HTML 宿主，不是通用 API。
 - **`18488` 不是业务 API，是存活探针**：`main/main-bootstrap.js` 的 `LocalProbeServer`，候选端口 `[18488,18489,18490]`，唯一路由 `GET /workbuddy/probe`，成功体 `{ok:true,app:"workbuddy-desktop",version:<appVersion>,platform:<process.platform>}`；其余路径 404 `{"ok":false,"error":"Not Found"}`，非 GET 405，停机中 503。`OPTIONS` 204 + `Access-Control-Allow-Origin:*`，`Cache-Control:no-store`；`critical:false`，端口占用会顺序回退。**它只泄露版本/平台，不是可执行业务的本地接口。**
 
@@ -703,7 +703,7 @@ IPC 分组说明它是“能力市场型”客户端：
 
 **57736 的源码口径**：`main/app-server-mcp-apps-host.js` 的 `McpAppsHttpServer.attach` 先让 TMAP / 静态 HTML / sandbox-preview 处理器尝试，再走 `/mcp-apps/*`：`/mcp-apps/sandbox-proxy.html` 固定返回 200 的 sandbox proxy 页面，`/mcp-apps/<instanceId>/app.html` 按实例取 HTML 并附 CSP；未匹配路径直接 `writeHead(404); end()`，所以根路径是空 404。**它是 MCP Apps 的 HTML 宿主，不是通用 API。**
 
-**57737 的源码口径**：`McpHost.dispatch` 先写 `X-Request-Id`，再做 loopback Host / Origin 校验（失败 403 `{"error":"forbidden"}`），`/healthz` 无鉴权返回 `{status:"ok",routes:<n>}`；按源码，`BuiltinToolsMcpRoute` 固定 `/mcp`，其余由 `McpUpstreamProxy` / JSON route 注册。11 只是运行时 `routes.size`，没有逐条枚举。`57740` / `63423` 不能借用这个结论。
+**57737 的源码口径**：`McpHost.dispatch` 先写 `X-Request-Id`，再做 loopback Host / Origin 校验（失败 403 `{"error":"forbidden"}`），`/healthz` 无鉴权返回 `{status:"ok",routes:<n>}`；实测 `GET /mcp` 返回 401 `{"error":"unauthorized"}`（证明确有内置路由），`GET /.well-known/oauth-protected-resource` 返回 404 `not_found`。按源码，`BuiltinToolsMcpRoute` 固定 `/mcp`，每个 upstream 的路由路径是 `/<32位hex routeKey>/mcp`（`deriveMcpRouteKey` 取 SHA-256 前 32 位）。11 只是运行时 `routes.size`，没有逐条枚举。`57740` / `63423` 不能借用这个结论。
 
 **边界**：每端口只打低频只读请求；401/403/404 不等于鉴权强度；`57737` 的 11 条路由没有枚举；`56000` 的 VlmProxy 是否只在 Skill VLM 场景启用、`57736` 的实例 HTML 内容与 CSP 实际约束、`57740` / `63423` 的下一次拉起都仍是未知。61167 静默可能是自定义 raw TCP。
 
@@ -722,7 +722,7 @@ IPC 分组说明它是“能力市场型”客户端：
 
 SDDL：`O:SYG:SYD:P(D;;FA;;;S-1-5-21-3924373712-2464060091-3741006702-1004)(A;;0x12019b;;;IU)(A;;FA;;;SY)(A;;FA;;;BA)`。`D:P` 表示 DACL 受保护、不做继承。
 
-解读：`CodexSandboxUsers` 被显式拒绝，说明沙箱用户不能连服务管道；`INTERACTIVE` 可创建/读写/同步，但没有删除或执行权，普通交互用户能打开管道，服务必须靠 `ImpersonateNamedPipeClient` 或协议内校验区分调用方——**“能连”不等于“有管理权”**。第二条 `codex-app-tools-ba97c01c…` 的 `Get-Acl` 初次返回 error 231、复测返回 unexpected error code 87；改用 `GetNamedSecurityInfo` 只读查询，owner 读到 `O:BA`（`BUILTIN\Administrators`）、group 读到 `G:S-1-5-21-3924373712-2464060091-3741006702-513`，但 DACL 请求仍返回 87。**只能确认该管道存在、owner/group 可读；DACL 未读出，不能推断为 null DACL 或开放访问。**
+解读：`CodexSandboxUsers` 被显式拒绝，说明沙箱用户不能连服务管道；`INTERACTIVE` 可创建/读写/同步，但没有删除或执行权，普通交互用户能打开管道，服务必须靠 `ImpersonateNamedPipeClient` 或协议内校验区分调用方——**“能连”不等于“有管理权”**。第二条 `codex-app-tools-ba97c01c…` 的 `Get-Acl` 初次返回 error 231、复测返回 unexpected error code 87；改用 `GetNamedSecurityInfo` 只读查询，owner 读到 `O:BA`（`BUILTIN\Administrators`）、group 读到 `G:S-1-5-21-3924373712-2464060091-3741006702-513`，但 DACL 请求仍返回 87。**只能确认该管道存在、owner/group 可读；DACL 未读出，不能推断为 null DACL 或开放访问。** 补充：DACL 用 `Get-Acl`（231/87）、`GetNamedSecurityInfo`（`\\.\pipe` / `\\?\pipe` / `\??\pipe` 三种形式均 87）、`GetSecurityInfo`（句柄 87）都没有读出；`icacls` 对第二条报 “The parameter is incorrect”，对第一条报 “All pipe instances are busy”。
 
 **边界**：ACL 只证明访问控制，不证明协议、消息格式、认证强度；没有连接管道、没有发业务消息。账本：`native\codex\sandbox-service.json` 的 `pipe_acl`。
 
