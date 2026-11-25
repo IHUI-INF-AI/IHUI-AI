@@ -10,30 +10,13 @@ import { Button } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { LaserHaloRing } from '@/components/chat/laser-halo-ring'
 
-/** 距顶/距底超过该阈值(px)时才渐显跳顶/跳底按钮(任务 D3 阈值 800px)。 */
-export const JUMP_FAR_THRESHOLD = 800
-
-export interface JumpVisibility {
-  isFarFromTop: boolean
-  isFarFromBottom: boolean
-}
-
-/** 纯函数:由滚动几何量计算跳顶/跳底按钮显隐。
- *  - isFarFromTop = scrollTop > 阈值
- *  - isFarFromBottom = (scrollHeight - scrollTop - clientHeight) > 阈值
- *  保持纯函数以便单测,不引入 React / i18n 依赖。 */
-export function computeJumpVisibility(
-  scrollTop: number,
-  scrollHeight: number,
-  clientHeight: number,
-  threshold: number = JUMP_FAR_THRESHOLD,
-): JumpVisibility {
-  const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-  return {
-    isFarFromTop: scrollTop > threshold,
-    isFarFromBottom: distanceFromBottom > threshold,
-  }
-}
+/**
+ * 距顶/距底阈值与显隐判据的唯一真相源在 `@ihui/shared/chat/scroll-jump`(2026-11-26 提升)。
+ * 本文件只**转出**,不再持有数值 —— 阈值此前只有 web 一份,RN/小程序要接同一交互就得各抄一份,
+ * 抄一份就会漂(AGENTS §0.6)。转出写法沿用本仓既有先例(见 fold-policy.ts 的类目表转出段)。
+ */
+export { JUMP_FAR_THRESHOLD, computeJumpVisibility } from '@ihui/shared/chat/scroll-jump'
+export type { JumpVisibility } from '@ihui/shared/chat/scroll-jump'
 
 interface ScrollJumpButtonsProps {
   isFarFromTop: boolean
