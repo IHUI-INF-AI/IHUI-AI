@@ -231,13 +231,14 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 **窗口安全是这批产品里最规范的一档。** 10 个窗口全部显式 `contextIsolation:true`、`nodeIntegration:false`、`sandbox:true`、`webSecurity:true`；只有 1 个 `WebContentsView` 没有显式 contextIsolation（继承默认），1 个窗口 `webPreferences` 运行期计算（`ev_6e0090db…`，windows 段）。
 
 **核心**：`.qoder-versions\0.5.14\Qoder CN.exe`（239,205,888）实测 40,845 函数 / 200,688 字符串 / 1,271 导入 / 58 库，安全导入 131 个——但字符串是 blink::、v8::、cppgc::、`node:electron/js2c/sandbox_bundle` 这类 Electron 内置。**这一条不能当产品沙箱证据**，产品能力在 JS 服务层与原生模块（12 个 `.node` + 12 个 DLL/EXE，共 24 个原生文件）。注意：根目录 `Qoder CN.exe` 是 0.5.6（239,205,896），与本条不是同一个文件。
+**四个 exe 的关系（本轮补证）**：0.5.7 与 0.5.12 的 overview 计数与 0.5.14 **完全相同**——40,845 函数 / 200,688 字符串 / 1,271 导入 / 58 库，连 entry point `0x14302cde0` 与 timestamp `1792983370` 都一样，`pdb_path` 都是 `electron.exe.pdb`。说明 0.5.7–0.5.14 共用同一套 Electron 壳代码，差异只在版本资源与签名。四个 exe 的 SHA256 前 16 位各不相同：0.5.6 `414A3B1B`、0.5.7 `D3E6376F`、0.5.12 `2CE54B3B`、0.5.14 `D0CF5205`——**代码段相同、文件哈希不同**，这是签名/版本资源导致的正常现象。0.5.7 与 0.5.12 的签名主体是 `Alibaba Cloud Computing Co., Ltd.`（杭州西湖区，`signature_check: valid`）。
 
 **原生模块清单（本轮实测，0.5.6 与 0.5.14 完全同构）**：关键项是 `keytar\prebuilds\win32-x64\keytar.node` 707,584、`aoq-electron-sdk\prebuilds\win32-x64\aoq_node_ext.node` 253,952、`AoqClientSdk.dll` 14,688,776、`PluginOpus.dll` 730,112、`alivcffmpeg.dll` 4,093,448、`skia.win32-x64-msvc.node` 27,294,720、`libvips-42.dll` 19,123,712、`node-pty` 三套构建、`OpenConsole.exe` 1,148,448。
 **上一版说的 keytar / aoq 是真的**：本轮一开始只看 `package.json` 依赖表，误判为“未复现”；转到 `app.asar.unpacked` 后，两个版本的 `keytar.node` 与 `aoq_node_ext.node` 都在。这是一次自我纠错，也说明“package.json 没列”不等于“文件不存在”。
 
 **后端/服务层**：`application-server` + `peer-transport` 是关键。前者是应用服务宿主，后者是 peer 传输层；加上 `session-history`、`session-migration`、`memory-migration`、`artifact-preview`，说明会话/记忆/工件是被服务化的，不是渲染进程直接读写。端点里能看到阿里内部服务：`ali-skill.alibaba-inc.com`、`iservice.alibaba.com`、`modelstudio.console.aliyun.com`、`bailian.console.aliyun.com`、`img.alicdn.com`。
 
-**证据锚点**：`ev_6e0090db…`（0.5.14 jsmap）、`ev_15085ef1…`（0.5.6 jsmap）、`ev_fa21f425…`（0.5.12 jsmap）、`ev_caf71a90…`（0.5.7 jsmap）、`ev_4f5473fe…`（imports）、`ev_07e3697a…`（strings）、`ev_d256efc1…`（签名）。
+**证据锚点**：`ev_6e0090db…`（0.5.14 jsmap）、`ev_15085ef1…`（0.5.6 jsmap）、`ev_fa21f425…`（0.5.12 jsmap）、`ev_caf71a90…`（0.5.7 jsmap）、`ev_05eabcea…`（0.5.7 exe overview）、`ev_408c01b6…`（0.5.12 exe overview）、`ev_4f5473fe…`（imports）、`ev_07e3697a…`（strings）、`ev_d256efc1…`（签名）。
 
 ---
 
@@ -559,7 +560,7 @@ IPC 分组说明它是“能力市场型”客户端：
 8. **函数发现上限 50,000**：所有大 PE 的函数表都不完整；`core-overview-show` 已明确 `function_limit`。
 9. **字符串保留前 200,000 条**：超大二进制（Codex 204,743 条）尾部字符串未进入索引。
 10. **签名只验证“文件哈希匹配 + 证书链有效”**，未做吊销/时间戳策略判定。
-11. **Qoder 四个版本已全部补图**：0.5.6 与 0.5.7 同构（637 模块 / 198 bundle / 67,9xx 函数 / 202 endpoint），0.5.12 与 0.5.14 同构（610 模块 / 108 bundle / 61,3xx 函数 / 192 endpoint）。剩下未做的是 0.5.7 与 0.5.12 的原生 exe 单独取证（体积与 0.5.6/0.5.14 相同，未另行跑）。
+11. **Qoder 四个版本已全部补图，exe 也补了 overview**：0.5.6 与 0.5.7 前端同构（637 模块 / 198 bundle / 67,9xx 函数 / 202 endpoint），0.5.12 与 0.5.14 同构（610 模块 / 108 bundle / 61,3xx 函数 / 192 endpoint）；0.5.7 与 0.5.12 的 exe overview 与 0.5.14 完全一致，确认 0.5.7–0.5.14 共用同一 Electron 壳代码。未做的是这两个版本的导入/字符串单独批量（计数已证明同构）。
 12. **WorkBuddy 的 9527 已解释**：它只存在于 `cli\bin\daemon-status-brief.test.cjs`，是测试用的假 daemon endpoint，不是生产服务；这一条从“未知”降为“测试夹具”。
 13. **Trae 的 543 个 session 目录是本机既有使用痕迹**，不是本轮运行产生；只读取了目录结构与文件名（`cwd.txt`/`execution.json`/`output.log`/`stderr.log`），没有读取命令内容或输出正文。
 
