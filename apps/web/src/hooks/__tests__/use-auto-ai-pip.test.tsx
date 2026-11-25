@@ -38,7 +38,7 @@ const listMock = vi.mocked(listBrowserSessions)
 const openMock = vi.mocked(openAiPipWindow)
 
 function sessions(ids: string[]) {
-  return { success: true, data: { session_ids: ids, count: ids.length } }
+  return { success: true as const, data: { session_ids: ids, count: ids.length } }
 }
 
 describe('useAutoAiPip', () => {
