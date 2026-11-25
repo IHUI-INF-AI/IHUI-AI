@@ -132,19 +132,17 @@ export async function registerDevice(payload: {
   return fetchApi<DeviceRow>('/api/devices', { method: 'POST', body: JSON.stringify(payload) })
 }
 
-/**
- * 已登录客户端自助接入(G5,2026-11-26):登录态即凭据,桌面端/网页端「启用本机执行器」
- * 不再需要 8 位配对码。返回设备令牌(仅可用于 /devices/* 设备端点)。
- * 同名设备已绑定配对指纹 ⇒ 409 DEVICE_NAME_BOUND(换名或先撤销旧设备)。
- */
+/** 登录态自助签发设备令牌(G5 桌面端;无需 8 位配对码) */
 export async function issueSelfDeviceToken(payload: {
   name: string
   os?: string | null
-  capabilities?: DeviceCapabilities | null
 }): Promise<ApiResult<{ device_id: string; device_token: string; name: string }>> {
   return fetchApi<{ device_id: string; device_token: string; name: string }>(
     '/api/devices/self-token',
-    { method: 'POST', body: JSON.stringify(payload) },
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
   )
 }
 

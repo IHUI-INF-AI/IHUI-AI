@@ -73,6 +73,13 @@ import {
 import { updateAccountStatus } from './account-store.js'
 import { applySendPolicy } from './send-policy.js'
 import { assertAccountForUser } from './guards.js'
+
+/** 只读账号允许的桥动作(全部是读数据,不产生平台侧写操作)。 */
+const READ_ONLY_BRIDGE_ACTIONS = new Set<WechatBridgeAction>([
+  'history.fetch',
+  'moment.fetch',
+  'group.members',
+])
 import {
   listActions as queryActions,
   listConversations as queryConversations,
@@ -375,6 +382,21 @@ export class WechatHubManager {
   async send(userId: string, input: WechatSendInput): Promise<WechatSendResult> {
     const row = await this.assertAccount(userId, input.accountId)
     const runtime = loadRuntime(row)
+    // 只读账号是硬闸门,先于适配器/白名单/限流:即使未来换了支持发送的驱动,
+    // metadata.readOnly=true 也不允许任何出站投递。
+    if (runtime.metadata.readOnly === true) {
+      const blocked = localRejected('只读账号：不允许发送消息', 'readonly-account')
+      await this.writeAction(
+        row.id,
+        userId,
+        'message.send',
+        input.target,
+        { kind: input.kind ?? 'text', dryRun: Boolean(input.dryRun) },
+        'rejected',
+        blocked.reason ?? undefined,
+      )
+      return blocked
+    }
     const adapter = this.adapters.get(input.accountId)
     if (!adapter || adapter.getStatus() !== 'online') {
       throw new AppError('账号尚未连接，请先扫码/连接桥', 409, 'WECHAT_ACCOUNT_OFFLINE')
@@ -445,6 +467,27 @@ export class WechatHubManager {
     payload: Record<string, unknown>,
   ): Promise<WechatActionResult> {
     const row = await this.assertAccount(userId, accountId)
+    const runtime = loadRuntime(row)
+    // 只读账号只放行“读数据/拉历史/看群成员”三类动作;发朋友圈、建群、踢人、
+    // 切聊天等写操作一律拒绝,并留下审计记录。
+    if (runtime.metadata.readOnly === true && !READ_ONLY_BRIDGE_ACTIONS.has(action)) {
+      const blocked: WechatActionResult = {
+        ok: false,
+        status: 'unsupported',
+        data: {},
+        reason: '只读账号：不允许执行写操作',
+      }
+      await this.writeAction(
+        row.id,
+        userId,
+        action,
+        typeof payload.conversationId === 'string' ? payload.conversationId : null,
+        { action, status: blocked.status },
+        'rejected',
+        blocked.reason ?? undefined,
+      )
+      return blocked
+    }
     const adapter = this.adapters.get(accountId)
     if (!adapter || adapter.getStatus() !== 'online') {
       throw new AppError('账号尚未连接，请先扫码/连接桥', 409, 'WECHAT_ACCOUNT_OFFLINE')
