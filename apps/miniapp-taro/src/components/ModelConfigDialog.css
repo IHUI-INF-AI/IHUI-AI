@@ -8,7 +8,7 @@
 
 /* 上传按钮容器(对齐原项目 .icon-button:虚线边框 + 浅紫底) */
 .mcd-upload-btn {
-  border: 2px dashed var(--color-border);
+  border: 2px dashed var(--color-stroke-default);
   background: var(--color-muted);
   border-radius: var(--radius-sm);
 }

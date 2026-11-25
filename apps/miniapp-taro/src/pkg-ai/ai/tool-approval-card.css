@@ -59,7 +59,7 @@
   gap: var(--spacing-xs-loose);
   margin-top: 14rpx;
   padding: 10rpx var(--spacing-sm);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
   background: var(--color-muted);
 }
@@ -97,7 +97,7 @@
   display: block;
   max-height: 160rpx;
   padding: var(--spacing-xs-loose);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
   background: var(--color-muted);
   font-size: var(--text-badge);
@@ -116,7 +116,7 @@
 .tac-scope-btn {
   flex: 1;
   padding: 10rpx var(--spacing-xs);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-sm);
   background: var(--color-background);
   text-align: center;
@@ -153,7 +153,7 @@
 }
 
 .tac-reject {
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   background: var(--color-background);
   color: var(--color-danger);
 }
@@ -171,7 +171,7 @@
 .tac-records {
   margin: var(--spacing-xs-loose) var(--spacing-sm-loose) 0;
   padding: 14rpx var(--spacing-sm);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
   background: var(--color-muted);
 }

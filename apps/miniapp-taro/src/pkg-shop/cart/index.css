@@ -153,7 +153,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-sm);
   font-size: var(--text-body);
   color: var(--color-muted-foreground);

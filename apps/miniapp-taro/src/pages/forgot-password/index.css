@@ -199,7 +199,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-right: 1rpx solid var(--color-border);
+  border-right: 1rpx solid var(--color-stroke-default);
   flex-shrink: 0;
   margin-right: var(--spacing-sm);
 }
@@ -225,7 +225,7 @@
   left: 0;
   right: 0;
   margin-top: var(--spacing-xs);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
   background-color: var(--color-card);
   box-shadow: var(--shadow-elevation-lg);

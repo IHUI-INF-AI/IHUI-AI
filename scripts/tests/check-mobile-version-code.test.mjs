@@ -63,7 +63,7 @@ const APPJSON = JSON.stringify({
     version: '0.0.5',
     ios: { bundleIdentifier: 'ai.ihui.mobile' },
     android: { package: 'zh.ai.sq' },
-    extra: { WX_APP_APPID: 'wx85fa429a9331b5c8', WX_UNIVERSAL_LINK: 'https://aizhs.top/' },
+    extra: { WX_APP_APPID: 'wx3c37d94ee8f70148', WX_UNIVERSAL_LINK: 'https://aizhs.top/' },
   },
 })
 // 合法夹具:过去时刻的硬戳(与测试运行时刻无关,永不为未来号)

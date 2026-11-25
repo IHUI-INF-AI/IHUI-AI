@@ -54,7 +54,7 @@
   height: 100rpx;
   padding: 0 var(--spacing-md);
   background: var(--color-muted);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-sm);
   font-size: var(--text-title);
   color: var(--color-foreground);

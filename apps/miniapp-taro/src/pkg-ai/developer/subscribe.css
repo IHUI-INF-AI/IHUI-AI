@@ -18,7 +18,7 @@
   padding: var(--spacing-lg) var(--spacing-md-loose);
   margin: var(--spacing-md);
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
 }
 .dev-avatar-wrap {
@@ -79,7 +79,7 @@
 .dev-sub-btn-active {
   background: var(--color-card);
   color: var(--color-muted-foreground);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
 }
 
 /* ===== 订阅统计 ===== */
@@ -88,7 +88,7 @@
   margin: 0 var(--spacing-md);
   padding: var(--spacing-md) 0;
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
 }
 .dev-stat {
@@ -132,7 +132,7 @@
   gap: var(--spacing-sm-loose);
   padding: var(--spacing-md);
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-lg);
 }
 .dev-model-left {
@@ -187,7 +187,7 @@
   padding: 10rpx var(--spacing-md);
   font-size: var(--text-label);
   color: var(--color-primary);
-  background: var(--color-border);
+  background: var(--color-stroke-default);
   border: 2rpx solid var(--color-text-tertiary);
   border-radius: var(--radius-sm);
 }
@@ -199,7 +199,7 @@
   justify-content: space-between;
   padding: var(--spacing-md);
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
   margin-bottom: var(--spacing-sm);
 }
@@ -217,7 +217,7 @@
 .dev-post-card {
   padding: var(--spacing-md);
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-lg);
 }
 .dev-post-title {

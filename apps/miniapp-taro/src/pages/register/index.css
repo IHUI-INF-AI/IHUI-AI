@@ -7,7 +7,7 @@
 /* register/index.css — 对齐 RN SharedRegisterScreen 视觉(2026-09-08 RN→CSS 转换)
  * 换算规则:RN raw dp M → M*2 rpx;RN rpx(N) → N rpx;RN borderWidth 1 → 1rpx(细边框,同 login.css 范例)。
  * 颜色全部走 design-tokens:tk.surface.bg→var(--color-background) / tk.surface.light→var(--color-card) /
- * tk.surface.muted→var(--color-muted) / tk.border.light→var(--color-border) /
+ * tk.surface.muted→var(--color-muted) / tk.border.light→var(--color-stroke-default) /
  * tk.text.primary→var(--color-foreground) / tk.text.secondary→var(--color-muted-foreground) /
  * tk.text.tertiary→var(--color-text-tertiary) / tk.brand.DEFAULT→var(--color-primary) /
  * tk.brandAccent.DEFAULT→var(--color-brand-accent) / tk.danger→var(--color-danger)。
@@ -70,7 +70,7 @@
   align-items: center;
   height: 100rpx;
   padding: 0 var(--spacing-md);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-xl);
   background-color: var(--color-muted);
 }
@@ -138,7 +138,7 @@
 .reg-checkbox {
   width: var(--spacing-lg);
   height: var(--spacing-lg);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-sm);
   margin-top: var(--spacing-sm);
   display: flex;
@@ -231,7 +231,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-right: 1rpx solid var(--color-border);
+  border-right: 1rpx solid var(--color-stroke-default);
   flex-shrink: 0;
   margin-right: var(--spacing-sm);
 }
@@ -257,7 +257,7 @@
   left: 0;
   right: 0;
   margin-top: var(--spacing-xs);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
   background-color: var(--color-card);
   box-shadow: var(--shadow-elevation-lg);

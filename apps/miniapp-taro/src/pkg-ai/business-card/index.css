@@ -74,7 +74,7 @@
   color: var(--color-text-medium);
   font-size: var(--text-body);
   border-radius: var(--radius-sm);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
 }
 .action-btn::after {
   border: none;

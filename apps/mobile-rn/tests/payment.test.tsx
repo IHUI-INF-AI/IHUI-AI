@@ -228,7 +228,7 @@ describe('PaymentScreen 支付流程', () => {
       data: {
         outTradeNo: 'ORD-NEW',
         prepayData: {
-          appid: 'wx85fa429a9331b5c8',
+          appid: 'wx3c37d94ee8f70148',
           partnerid: '1714645682',
           prepayid: 'wxprepayid',
           package: 'Sign=WXPay',
@@ -278,7 +278,7 @@ describe('PaymentScreen 支付流程', () => {
       data: {
         outTradeNo: 'ORD-NEW',
         prepayData: {
-          appid: 'wx85fa429a9331b5c8',
+          appid: 'wx3c37d94ee8f70148',
           partnerid: '1714645682',
           prepayid: 'wxprepayid',
           package: 'Sign=WXPay',
@@ -316,7 +316,7 @@ describe('PaymentScreen 支付流程', () => {
       data: {
         outTradeNo: 'ORD-NEW',
         prepayData: {
-          appid: 'wx85fa429a9331b5c8',
+          appid: 'wx3c37d94ee8f70148',
           partnerid: '1714645682',
           prepayid: 'wxprepayid',
           package: 'Sign=WXPay',

@@ -83,7 +83,7 @@
 }
 .size {
   padding: var(--spacing-xs) var(--spacing-sm);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-sm);
   font-size: var(--text-label);
   color: var(--color-muted-foreground);

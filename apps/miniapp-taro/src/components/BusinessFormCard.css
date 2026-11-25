@@ -48,7 +48,7 @@
   width: 100%;
   min-height: 72rpx;
   padding: var(--spacing-xs) var(--spacing-md);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-sm);
   background: var(--color-background);
   font-size: var(--text-body);
@@ -116,7 +116,7 @@
 }
 
 .bfc-reject {
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   background: var(--color-background);
   color: var(--color-danger);
 }

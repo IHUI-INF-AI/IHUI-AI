@@ -15,7 +15,7 @@
 }
 
 .task-status-bar-card {
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-lg);
   background: var(--color-muted);
   overflow: hidden;

@@ -18,7 +18,7 @@
   flex: 1;
   padding: var(--spacing-md) var(--spacing-xs-loose);
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
   text-align: center;
 }

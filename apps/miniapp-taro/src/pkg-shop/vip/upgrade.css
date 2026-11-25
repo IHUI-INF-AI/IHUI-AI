@@ -46,7 +46,7 @@
   border-radius: var(--radius-xl);
   text-align: center;
   position: relative;
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
 }
 .plan.active {
   border-color: var(--color-brand-accent-deep);
@@ -85,7 +85,7 @@
   margin: 0 var(--spacing-sm-loose);
   padding: var(--spacing-md-loose);
   background: var(--color-card);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-xl);
   box-sizing: border-box;
 }
@@ -111,7 +111,7 @@
   padding: var(--spacing-sm-loose) 0;
   text-align: center;
   border-radius: var(--radius-xl);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   background: var(--color-card);
   box-sizing: border-box;
 }

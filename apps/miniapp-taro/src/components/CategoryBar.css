@@ -34,7 +34,7 @@
      在 web 不截。跨端取 web 那一侧:长名靠横向滚动消化,不靠截断。
      (单位数值刻意不写在这段说明里 —— 本门的几何提取式读 CSS 注释,散文会被当成端上的档。) */
   white-space: nowrap;
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
   background: var(--color-card);
   transition:

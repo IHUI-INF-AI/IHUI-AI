@@ -136,7 +136,7 @@ https://file.aizhs.top/.well-known/apple-app-site-association
       "associatedDomains": ["applinks:file.aizhs.top"]
     },
     "extra": {
-      "WX_APP_APPID": "wx85fa429a9331b5c8",
+      "WX_APP_APPID": "wx3c37d94ee8f70148",
       "WX_UNIVERSAL_LINK": "https://file.aizhs.top/"
     }
   }

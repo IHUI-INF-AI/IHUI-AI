@@ -9,7 +9,7 @@
   margin: var(--spacing-xs-loose) var(--spacing-sm);
   padding: var(--spacing-sm) var(--spacing-sm-loose);
   background: var(--color-streamed-container-bg);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-lg);
   box-sizing: border-box;
 }

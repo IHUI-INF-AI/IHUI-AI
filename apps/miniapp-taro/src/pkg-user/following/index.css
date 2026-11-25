@@ -42,7 +42,7 @@
   height: 72rpx;
   padding: 0 var(--spacing-sm-loose);
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
 }
 .following-search-icon {
@@ -72,7 +72,7 @@
   font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-sm);
 }
 .following-sort-btn-active {
@@ -92,7 +92,7 @@
   display: flex;
   padding: var(--spacing-md);
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-lg);
 }
 .following-avatar {
@@ -135,8 +135,8 @@
 }
 .following-status {
   padding: var(--spacing-2xs) var(--spacing-xs-loose);
-  background: var(--color-border);
-  border: 2rpx solid var(--color-border);
+  background: var(--color-stroke-default);
+  border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-sm);
 }
 .following-status-text {
