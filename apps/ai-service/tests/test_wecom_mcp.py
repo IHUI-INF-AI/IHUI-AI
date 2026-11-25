@@ -122,6 +122,35 @@ async def test_call_tool_isError_raises(monkeypatch):
         await mcp.WecomMcpClient(ep).call_tool("doc_create", {})
 
 
+@pytest.mark.asyncio
+async def test_notification_202_empty_is_not_error(monkeypatch):
+    """notifications/initialized 按 Streamable HTTP 规范回 202 空响应,不得当失败。"""
+
+    class FakeResp:
+        status_code = 202
+        headers: dict[str, str] = {}
+        content = b""
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def post(self, url, headers=None, json=None):
+            return FakeResp()
+
+    monkeypatch.setattr(mcp.httpx, "AsyncClient", FakeClient)
+    ep = mcp.parse_mcp_endpoint("https://qyapi.weixin.qq.com/mcp/v2/bot/doc?apikey=k")
+    client = mcp.WecomMcpClient(ep)
+    out = await client._post({"jsonrpc": "2.0", "method": "notifications/initialized"})
+    assert out == {}
+
+
 def test_headers_require_accept_json():
     """Accept: application/json 是企微 MCP 必需头,缺失会 -32600。"""
     ep = mcp.parse_mcp_endpoint("https://qyapi.weixin.qq.com/mcp/v2/bot/doc?apikey=k")
