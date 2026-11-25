@@ -41,7 +41,7 @@
 本版新增“后端/服务层”：WorkBuddy 的 MCP Host（loopback 随机端口）+ A2A 出站代理、MiniMax 的 `http://127.0.0.1/minimax-desktop/api/v1/*` 本地运行时、ZCode 的 host RPC + Windows Job 控制、OpenCode 的 `opencode-cli serve --service`（isolated 3084，4096 仅为 Add Server 占位；已实跑 v2.2.7，Web UI 200、API 无凭据 401）、Qoder 的 `@qoder-space/application-server` + `peer-transport`。
 
 **纠正六：把“枚举常量引用”误判成“运行期拼接”。**
-工具把“首参不是字符串字面量”一律记为 dynamic，导致 DeepSeek 142 条、MiniMax 816 条被写成“运行期拼接、不可还原”。逐文件还原后：DeepSeek 的 142 条计数里，应用层可定位的 **100 条**（43 条主进程 + 57 条 preload/renderer）全部是 `DESKTOP_IPC.*` 枚举引用，实际只有 34 个 `dsh-desktop:*` 通道；剩余 42 条与工具计数口径未逐条对齐。MiniMax 326 条主进程调用 + 398 条 renderer 调用可还原到 `IPC_CHANNELS`/`WEBVIEW_HOST_CHANNELS` 常量表，真正未定的只有 6 条主进程变量 + 8 条 renderer 变量。ZCode 的 423 条则通过 preload 的 `var v={...}` 通道表还原 215 条、169 个通道，只有 12 条别名未定。
+工具把“首参不是字符串字面量”一律记为 dynamic，导致 DeepSeek 142 条、MiniMax 816 条被写成“运行期拼接、不可还原”。逐文件还原后：DeepSeek 的 142 条计数里，应用层可定位的 **100 条**（43 条主进程 + 57 条 preload/renderer）全部是 `DESKTOP_IPC.*` 枚举引用，实际只有 34 个 `dsh-desktop:*` 通道；剩余 42 条与工具计数口径未逐条对齐。MiniMax 326 条主进程调用 + 398 条 renderer 调用可还原到 `IPC_CHANNELS`/`WEBVIEW_HOST_CHANNELS` 常量表，真正未定的只有 6 条主进程变量 + 8 条 renderer 变量。ZCode 与 WorkBuddy 已在本轮闭环：ZCode 本地 227 个调用点全部还原为 180 个通道、0 条未定；WorkBuddy main 侧 115 条注册全部归因，12 个 `require_*` 别名全回填。
 
 ---
 
@@ -68,7 +68,7 @@
 
 - `core-overview-show` 的函数发现上限 50,000；字符串保留前 200,000 条；间接跳转未解析数会单列。
 - 大文件（>256MB）的 `native-rust-binary-show` 会拒绝；Codex 407MB 因此没有 craft 原生 crate 报告，改用字节级 cargo 路径正则补出 400 个 crate（8,839 次命中）与 rustc commit，详见 4.1。
-- `js-app-map` 的动态 IPC 计数不能直接当运行期拼接：DeepSeek 142 条里可定位的 100 条全部是 `DESKTOP_IPC.*` 常量（34 个 `dsh-desktop:*` 通道），MiniMax 326 条主进程 + 398 条 renderer 调用可还原到 `IPC_CHANNELS`/`WEBVIEW_HOST_CHANNELS` 常量表；WorkBuddy 部分可还原；ZCode 423 条已还原 215 条为 169 个通道，12 条别名未定。
+- `js-app-map` 的动态 IPC 计数不能直接当运行期拼接：DeepSeek 142 条里可定位的 100 条全部是 `DESKTOP_IPC.*` 常量（34 个 `dsh-desktop:*` 通道），MiniMax 326 条主进程 + 398 条 renderer 调用可还原到 `IPC_CHANNELS`/`WEBVIEW_HOST_CHANNELS` 常量表；WorkBuddy main 侧 115 条注册全部归因（12 个 `require_*` 别名全回填）；ZCode 本地 227 个调用点全部还原为 180 个唯一通道、0 条未定。
 - `webPreferences: dynamic` 的窗口无法静态读出安全值，只能标注。
 
 ---
@@ -107,11 +107,11 @@
 | Qoder 0.5.12 | 610 | 63,629 | 129,852 | 61,375 | 0 | 0 | 0 | 0 | 0 | 192 | 105 | 10 | 0 | 0 |
 | Qoder 0.5.14 | 610 | 63,630 | 129,877 | 61,382 | 0 | 0 | 0 | 0 | 8 | 192 | 105 | 10 | 0 | 0 |
 | Trae CN | 343 | 194,266 | — | 181,024 | 71 | 2 | 0 | 12 | 110 | 3,871 | 1,559 | 20 | 5 | 17 |
-| WorkBuddy | 3,866 | 359,769 | 729,926 | 339,157 | 120 | 55 | 11 | 14 | 214 | 3,488 | 1,895 | 20 | 83 | 43 |
+| WorkBuddy | 3,866 | 359,769 | 729,926 | 339,157 | 120 | 55 | 11 | 14 | 214（115 main 全归因） | 3,488 | 1,895 | 20 | 83 | 43 |
 | 小浣熊 | 1,886 | 121,089 | — | 109,542 | 95 | 19 | 38 | 2 | 26 | 1,819 | 1,355 | 10 | 20 | 9 |
-| ZCode | 2,837 | 77,729 | 144,984 | 72,766 | 3 | 2 | 0 | 0 | 423 | 377 | 175 | 10 | 8 | 169 |
+| ZCode | 2,837 | 77,729 | 144,984 | 72,766 | 3 | 2 | 0 | 0 | 423（227 全还原·180 唯一） | 377 | 175 | 10 | 8 | 169 |
 
-读法：**静态 IPC 少不等于能力少**。ZCode 只有 3 条静态通道，423 条里已还原 215 条为 169 个通道、12 条别名未定；MiniMax 的 816 条里 326 条主进程 + 398 条 renderer 调用可还原到常量表；DeepSeek 的 142 条里可定位 100 条，全部是 34 个常量通道的枚举引用。**“动态”这个字段必须逐目标复核，不能直接当成不可审计面。**
+读法：**静态 IPC 少不等于能力少**。ZCode 只有 3 条静态通道，423 条工具计数经本地 227 个调用点逐条回填，得到 **227/227 已还原、180 个唯一通道、0 条未定**；WorkBuddy 的 214 条里 main 侧 **115 条注册全部归因**（81 常量/别名 + 29 模板 + 4 helper 形参 + 1 内部通道），12 个 `require_*` 别名全部回填；MiniMax 的 816 条里 326 条主进程 + 398 条 renderer 调用可还原到常量表；DeepSeek 的 142 条里可定位 100 条，全部是 34 个常量通道的枚举引用。**“动态”这个字段必须逐目标复核，不能直接当成不可审计面。**
 
 窗口安全：WorkBuddy 有一处 `contextIsolation=false / nodeIntegration=true / sandbox=false`，定位在 `main/index.js:203` 的腾讯文档调试面板（520×720，`DEBUG_PANEL` 分区），不是主 UI；另有一处 `webSecurity=false` 在 `main/main-bootstrap.js:368`。Trae 有 1 处 `sandbox off` + 1 处 `webSecurity off`。Cursor 有 5 处 `contextIsolation/nodeIntegration` 未显式设置（继承 Electron 默认）。其余见逐目标小节。
 
@@ -154,7 +154,7 @@
 
 **安装面**：`C:\workbuddy`，5.11.3；`WorkBuddy.exe` 204,590,360 字节；`resources\app.asar` 172,939,770 字节，解包 12,226 文件 / 721MB；`app.asar.unpacked` 下 83 个 `.node/.exe/.dll`。
 
-**前端（`ev_9543bb87…`）**：3,866 源模块 / 4,173 个 JS 文件 / 6,949 个 bundle 模块 / 339,157 函数 / 359,769 图节点 / 729,926 边 / 3,488 条 endpoint（1,895 个唯一 URL）/ 20 个窗口 / 83 个 `contextBridge` 暴露键。静态 IPC 120 条，配对 55 条，11 条只有 handler，14 条只有 invoker，另有 **214 条动态拼接通道**。
+**前端（`ev_9543bb87…`）**：3,866 源模块 / 4,173 个 JS 文件 / 6,949 个 bundle 模块 / 339,157 函数 / 359,769 图节点 / 729,926 边 / 3,488 条 endpoint（1,895 个唯一 URL）/ 20 个窗口 / 83 个 `contextBridge` 暴露键。静态 IPC 120 条，配对 55 条，11 条只有 handler，14 条只有 invoker。工具把 **214 条**非字面量引用记为 dynamic；main 侧逐文件复核后是 **115 条 `ipcMain` 注册**：81 条常量或模块别名、29 条反引号模板、4 条通用 helper 参数、1 条内部 `__completeLocalStorageMigration`（`main-bootstrap.js`）。12 个 `require_*` 别名已全部回填：`proxy-env.y`→`window-app:content-ready`、`shell-env-async.gr`→`window-app:browser-metric`、`lr`→`account-snapshot:persist`、`Rn`→`host-platform:get-sync`、`zn`→`iframe-window:system-close`、`Hn/Bn/Un`→`wechat:isInstalledSync/getVersionSync/isRunningSync`、`menu-builder.L/R/Kt/rn`→`workbuddy:set-close-tab-shortcut-armed/tab-shortcut-unconsumed/renderer:getPerformanceMetrics/window:openStartupAnalysis`；应用层没有未定通道。4 条 `e` 是 `registerListener(e,t)` 的形参，实际通道由调用点常量传入，不是独立通道。
 
 IPC 命名本身就把产品能力摊开了：
 
@@ -258,7 +258,7 @@ IPC 结构揭示了 Trae 的真实产品形态：**71 条里绝大多数是 `icu
 
 **前端（jsmap `ev_8277c347…`）**：2,837 源模块 / 3,732 JS 文件 / 108 bundle 模块 / 72,766 函数 / 77,729 节点 / 144,984 边 / 377 endpoint（175 唯一）/ 10 窗口 / **3 条静态 IPC** / 423 条动态 / 8 个暴露键 / 169 个暴露成员。
 
-**423 条动态里已还原 215 条**：`out/preload/index.cjs` 里 `var v={...}` 是一张 **169 项**的 `zcode:*` 通道表（`WindowControlsOverlayChanged` → `zcode:window-controls-overlay-changed`、`PreinstalledToolsState` → `zcode:preinstalled-tools:state` 等）。用这张表回填 215 次 `ipcRenderer.invoke/send`，得到 **169 个唯一通道**；未定 12 条，主要是 `hR`、`ge.PluginSandboxPorts`、`nR.OpenExternal` 这类别名。423 与本地 227 个调用点之间仍有工具口径差（含 node_modules/其他 bundle），但主要业务通道已可枚举，不再是“423 个未知接口”。
+**423 条工具计数已全部归因，业务侧 227/227 还原**：本地 preload 实际有 **227 个** `ipcRenderer.invoke/send/sendSync/once` 调用点；逐文件扫描后 **227 条全部还原，180 个唯一通道，0 条未定**。主通道表是 `out/preload/index.cjs` 的 `var v={…}`，共 **169 项** `zcode:*`（`WindowControlsOverlayChanged` → `zcode:window-controls-overlay-changed`、`PreinstalledToolsState` → `zcode:preinstalled-tools:state` 等）；另有 `ge` 对象 9 项（`DatabaseStartupState`/`DatabaseStartupControl`/`ServicePort`/`ScopedServicePort`/`ScopedServicePortReady`/`ScopedServicePortReleased`/`SourceSettingsServicePort`/`TaskNotificationSound`/`PluginSandboxPorts`）、`QC.Init`→`zcode:plugin-sandbox-init`、`hR`→`zcode:cua-permission-panel-state`、`r`→`zcode-browser-video-recorder:port`。423 与本地 227 的差额来自 node_modules/其他 bundle 的非业务调用，不再是“12 条别名未定”。
 
 **静态 IPC 只有 3 条，暴露面却有 169 个成员。** 真实通道在 `out/preload/index.cjs`（90 次 `ipcRenderer.invoke/sendSync`）和 host RPC：
 
@@ -509,11 +509,11 @@ IPC 分组说明它是“能力市场型”客户端：
 
 | 产品 | 前端形态 | 静态 IPC | 动态 | 暴露键 | 后端载体 |
 |---|---|---|---|---|---|
-| WorkBuddy | Electron | 120（55 配对） | 214（部分可还原） | 83 | `main/server.js` MCP Host + A2A proxy + WeCom A2A + daemon |
+| WorkBuddy | Electron | 120（55 配对） | 214（115 main 全归因） | 83 | `main/server.js` MCP Host + A2A proxy + WeCom A2A + daemon |
 | Cursor | Electron（molten） | 33（12 配对） | 45 | 21 | extension host + file_service.node + crepectl |
 | Trae | Electron（VS Code） | 71（1 配对） | 110 | 5 | agent-tool-host + sandbox SDK + shared process |
 | MiniMax | Electron | 54（25 配对） | 816（多数为常量） | 35（373 成员） | `@mavis/local-runtime-v2` 进程内 REST + wss agent |
-| ZCode | Electron | 3（2 配对） | 423（215 已还原） | 8（169 成员） | `out/host` RPC + `@zcode/server` + runtime-host |
+| ZCode | Electron | 3（2 配对） | 423（227 全还原·180 唯一） | 8（169 成员） | `out/host` RPC + `@zcode/server` + runtime-host |
 | 小浣熊 | Electron | 95（19 配对，38 仅 handler） | 26 | 20 | box-agent-runtime（Python ACP） + browser-gateway |
 | 豆包 | CEF | 0（不建模） | 0 | 0 | `agent_infra.dll` 本地运行时策略 + `mcp_helper.dll` MCP 进程宿主 |
 | Qoder | Electron | 0 | 8 | 0 | `application-server` + `peer-transport` + `remoteSdkDaemonBridge` |
@@ -547,7 +547,7 @@ IPC 分组说明它是“能力市场型”客户端：
 | Windows 作业对象执行器 | WorkBuddy `sandbox-cli` 的 `CreateJobObjectW/AssignProcessToJobObject/TerminateJobObject`；Codex `spawned ConPTY is missing its process job` | `apps/desktop` 主进程新增 executor 抽象（Job Object + 进程树回收 + 超时） | 子进程退出后 Job 必须为空；CTRL+C/超时/崩溃三场景都不留孤儿进程 |
 | 审批反向通道 | WorkBuddy `approval.callbackAddress` + `approvedByUser` + 三队列；Trae `PermissionDenied` | `apps/desktop` 命名管道（ACL 限制到当前用户）+ `packages/agent-sdk` 审批协议 | 审批请求可追溯到 session；断线后备份/恢复队列不丢请求 |
 | preload 暴露面预算 | OpenCode 1 个键 / 5 成员 vs WorkBuddy 83 键 | `apps/desktop` preload 只暴露一个命名空间对象；禁止直接暴露 `ipcRenderer` | 暴露键 ≤ 20；每个键有 owner 与用途注释；CI 里做预算检查 |
-| 动态 IPC 注册表 | ZCode `[rpc:call]/[rpc:listen]`、423 条动态（215 已还原为 169 通道）；Qoder `peer-transport` | `packages/agent-sdk` 做命名通道 RPC（call/listen/subscribe），替代裸 `ipcMain` | 通道名必须来自注册表；未注册通道运行期拒绝并打点 |
+| 动态 IPC 注册表 | ZCode `[rpc:call]/[rpc:listen]`、423 条工具计数已归因为 227 个调用点/180 通道；Qoder `peer-transport` | `packages/agent-sdk` 做命名通道 RPC（call/listen/subscribe），替代裸 `ipcMain` | 通道名必须来自注册表；未注册通道运行期拒绝并打点 |
 | 本地运行时策略热更新 | 豆包 `local_runtime.runtime_policy`（probe/timeout/background_limit） | `apps/api` 或 `apps/ai-service` 增加 `runtime-policy.json` + 热加载；写入审计 | 策略变更 5 秒内生效；每次变更留 who/when/why；非法字段拒绝整份策略 |
 | MCP Host 回环服务 | WorkBuddy `main/server.js` `listen(0,'127.0.0.1')` + 路由注册/注销 | `apps/api` 提供 MCP Host：随机端口、per-route token、生命周期注销 | 端口不落公网；未注册路由 404；注销后在飞请求被 abort 并计数 |
 | 凭据与 OAuth 检查点 | 豆包 `mcp_helper` OAuth checkpoint；ZCode `@napi-rs/keyring`；Cursor `cursorPasskey` | `packages/auth`：OS keyring + DPAPI 封装；MCP OAuth 存 checkpoint 而非内存 | 明文凭据零落盘；refresh 失败可恢复；退出即清内存副本 |
@@ -562,7 +562,7 @@ IPC 分组说明它是“能力市场型”客户端：
 2. WorkBuddy `main/main-bootstrap.js:368` 的 `webSecurity:false`——同源策略关掉后，任何内嵌页面都能读跨域响应。
 3. Trae 的 1 个 `sandbox off` + 1 个 `webSecurity off` 窗口；Cursor 5 个窗口未显式声明安全项。
 4. 83 个 `contextBridge` 暴露键（WorkBuddy）与 373 个暴露成员（MiniMax）——能力总线式 preload 的典型膨胀。
-5. 423 条（ZCode）中已还原 215 条为 169 个通道，12 条仍是别名；MiniMax 816 条多数已还原、真正未定 14 条；DeepSeek 应用层可定位 100 条全部还原为 34 个常量通道（余 42 条口径差）。不可审计面比表面数字小，但 ZCode 仍需注册表收口。
+5. ZCode 423 条工具计数经本地 227 个调用点逐条回填，**227/227 已还原为 180 个唯一通道、0 条未定**；WorkBuddy 214 条里 main 侧 115 条注册全部归因（12 个 `require_*` 别名全回填），MiniMax 816 条多数已还原、真正未定 14 条；DeepSeek 应用层可定位 100 条全部还原为 34 个常量通道（余 42 条口径差）。不可审计面比表面数字小，ZCode/WorkBuddy 的动态别名已不再留口子。
 
 ---
 
@@ -574,7 +574,7 @@ IPC 分组说明它是“能力市场型”客户端：
 2. **Codex 407MB 超工具上限**：`native-rust-binary-show` 拒绝 >256MB，因此没有 craft 原生 Rust 报告；本轮用字节级 cargo 路径正则补出 400 个 crate、rustc commit、5 个 git checkout，但没有 demangled symbols 与 `.dep-v0` 审计清单，crate 归属仍不是 craft 官方口径。
 3. **OpenCode 已运行验证，但凭据传递仍未知**：`opencode-cli.exe` 2.2.7 的 `serve` 能监听并返回 Web UI；`/api` 与 `/openapi.json` 无凭据返回 401；普通模式 stdout 打印一次性 `server password`，`--service` 模式未观察到密码行。桌面端如何注入凭据、`--stdio` 模式行为、长期运行稳定性都未验证。`localhost:4096` 已证实只是 `dialog.server.add.placeholder` 的默认占位。
 4. **Qoder 的 keytar/aoq 已文件级确认**：`keytar.node` 707,584 与 `aoq_node_ext.node` 253,952 在 0.5.6/0.5.14 两个版本中都存在；但 aoq 的具体用途（播放器/会议 SDK）只按 DLL 名称推断，未运行验证。上一轮“未复现”的写法已撤销。
-5. **动态 IPC 计数必须逐目标复核**：ZCode 423、MiniMax 816、DeepSeek 142、WorkBuddy 214、Trae 110 是工具的“非字面量首参”计数，不等于运行期拼接。已还原：DeepSeek 应用层可定位 100 条→34 个 `dsh-desktop:*` 常量通道（余 42 条口径差未对齐）；MiniMax 326 条主进程 + 398 条 renderer 调用落到 `IPC_CHANNELS`/`WEBVIEW_HOST_CHANNELS`，真正未定 6+8 条；WorkBuddy 在 main 侧样本中 54 条常量 + 29 条反引号字面量可还原，32 条仍是 `require_*` 模块别名。ZCode 423 条已还原 215 条为 169 个通道、12 条别名未定。
+5. **动态 IPC 计数必须逐目标复核**：ZCode 423、MiniMax 816、DeepSeek 142、WorkBuddy 214、Trae 110 是工具的“非字面量首参”计数，不等于运行期拼接。已还原：DeepSeek 应用层可定位 100 条→34 个 `dsh-desktop:*` 常量通道（余 42 条口径差未对齐）；MiniMax 326 条主进程 + 398 条 renderer 调用落到 `IPC_CHANNELS`/`WEBVIEW_HOST_CHANNELS`，真正未定 6+8 条；WorkBuddy main 侧 115 条注册全部归因（81 常量/别名 + 29 模板 + 4 helper 形参 + 1 内部通道），12 个 `require_*` 别名全回填；ZCode 本地 227 个调用点 227/227 还原为 180 个唯一通道、0 条未定，423 与 227 的差额来自 node_modules/其他 bundle。
 6. **`webPreferences: dynamic` 无法判定**：多个产品有 4–12 个窗口的 webPreferences 在运行期计算，静态只能标“未知”，不能下“安全/不安全”结论。
 7. **CEF 的豆包没有 IPC 模型**：`js-app-map` 不建模 CEF message port，豆包的 IPC 面为 0 是工具盲区，不是产品事实。
 8. **函数发现上限 50,000**：所有大 PE 的函数表都不完整；`core-overview-show` 已明确 `function_limit`。
@@ -599,7 +599,8 @@ IPC 分组说明它是“能力市场型”客户端：
 - `native\opencode\runtime-serve.json`：OpenCode `serve` 实跑记录（版本、help flags、HTTP 状态、鉴权 401、端口关闭确认，密码值不落盘）。
 - `analysis\dynamic-ipc-{deepseek,minimax,wb,zcode,traecn}.json`：逐文件还原的 IPC 调用分类（literal / template / resolved 常量 / 未定 expr）、常量表规模、前 20 个还原通道与未定表达式。
 - `analysis\zcode-channel-map.json`：从 `out/preload/index.cjs` 的 `var v={...}` 解析出的 169 项 `zcode:*` 通道表。
-- `analysis\dynamic-ipc-zcode-resolved.json`：ZCode 的 215 条已还原调用（169 个唯一通道）与 12 条未定别名。
+- `analysis\dynamic-ipc-zcode-resolved.json`：ZCode 早期 215 条已还原调用（169 个唯一通道）与 12 条别名；最终闭环结果在 `dynamic-ipc-zcode-final.json`（227/227、180 唯一、0 未定）。
+- `analysis\dynamic-ipc-wb-final.json`：WorkBuddy main 侧 115 条 `ipcMain` 注册的最终分类（82 resolved/const + 29 template + 4 helper 形参，0 未定）。
 - `analysis\frontend-<target>.json`：前端结构化摘要（IPC、窗口、暴露键、endpoint、模块关键词）。
 - `analysis\evidence-ids.json`：目标 → evidence id 映射；`analysis\evidence-map.json`：证据号 → 摘要/路径。
 
