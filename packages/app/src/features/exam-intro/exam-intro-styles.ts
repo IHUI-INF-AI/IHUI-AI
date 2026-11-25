@@ -24,6 +24,8 @@ export function createExamIntroStyles(tk: AppThemeTokens) {
       borderRadius: rnRadiusFor.card,
       padding: rnSpacingFor.cardPad,
       marginBottom: rnSpacing['sm-loose'],
+      borderWidth: 1,
+      borderColor: tk.border.light,
     },
     paperTitle: {
       fontSize: rnType.title.size,
@@ -56,6 +58,8 @@ export function createExamIntroStyles(tk: AppThemeTokens) {
       borderRadius: rnRadiusFor.card,
       padding: rnSpacing.md,
       marginBottom: rnSpacing['sm-loose'],
+      borderWidth: 1,
+      borderColor: tk.border.light,
     },
     sectionTitle: {
       fontSize: rnType.strong.size,
@@ -87,14 +91,9 @@ export function createExamIntroStyles(tk: AppThemeTokens) {
     historyMeta: { fontSize: rnType.label.size, color: tk.text.secondary },
     historyScore: { fontSize: rnType.bodySm.size, color: tk.text.primary, fontWeight: '600' },
     historyScoreFailed: { color: tk.danger.deepText },
-    emptyText: {
-      fontSize: rnType.bodySm.size,
-      color: tk.text.secondary,
-      paddingVertical: rnSpacing.sm,
-    },
     startBtn: {
       alignItems: 'center',
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadiusFor.control,
       backgroundColor: tk.brand.cta,
     },
@@ -105,20 +104,6 @@ export function createExamIntroStyles(tk: AppThemeTokens) {
       color: tk.danger.deepText,
       marginTop: rnSpacing.sm,
     },
-    stateBox: { alignItems: 'center', paddingVertical: rnSpacing.xl },
-    stateText: {
-      fontSize: rnType.bodySm.size,
-      color: tk.text.secondary,
-      marginTop: rnSpacing.sm,
-    },
-    retryBtn: {
-      marginTop: rnSpacing.md,
-      paddingHorizontal: rnSpacing.lg,
-      paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadiusFor.control,
-      backgroundColor: tk.brand.cta,
-    },
-    retryText: { fontSize: rnType.bodySm.size, fontWeight: '500', color: tk.brand.ctaForeground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

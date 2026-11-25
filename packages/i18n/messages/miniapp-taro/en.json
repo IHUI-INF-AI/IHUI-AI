@@ -825,7 +825,7 @@
       "loginRequired": "Please log in first to use",
       "recharge": "Recharge",
       "subtitle": "Here to provide AI services anytime",
-      "tokenBalance": "Token Balance: {n}"
+      "tokenBalance": "Remaining points: {n}"
     },
     "materialPopup": {
       "empty": "No materials",
@@ -3717,7 +3717,7 @@
     "view4": "View balance and top-up"
   },
   "communityMyAgents": {
-    "mine1": "My AI Apps",
+    "mine1": "My Agents",
     "mine2": "My AI Employees"
   },
   "shareCenterItem": {

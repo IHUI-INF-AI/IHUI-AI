@@ -2,10 +2,11 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native'
+import { ScrollView, Text, View } from 'react-native'
 import { ChevronLeft } from 'lucide-react-native'
 import { getTokens } from '../../theme/tokens'
 import { createExamIntroStyles } from './exam-intro-styles'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { Tappable } from '@ihui/ui-native'
 
 export interface ExamIntroStat {
@@ -52,7 +53,6 @@ export function ExamIntroScreen({
   rules,
   history,
   state,
-  loadingText,
   errorText,
   retryText,
   startText,
@@ -78,17 +78,14 @@ export function ExamIntroScreen({
       </View>
 
       {state === 'loading' ? (
-        <View style={styles.stateBox}>
-          <ActivityIndicator color={tk.brand.DEFAULT} />
-          <Text style={styles.stateText}>{loadingText}</Text>
-        </View>
+        <ScreenSkeleton variant="card" count={2} colorScheme={colorScheme} />
       ) : state === 'error' ? (
-        <View style={styles.stateBox}>
-          <Text style={styles.stateText}>{errorText}</Text>
-          <Tappable style={styles.retryBtn} onPress={onRetry} accessibilityRole="button">
-            <Text style={styles.retryText}>{retryText}</Text>
-          </Tappable>
-        </View>
+        <ErrorState
+          message={errorText}
+          onRetry={onRetry}
+          retryLabel={retryText}
+          colorScheme={colorScheme}
+        />
       ) : (
         <>
           <View style={styles.card}>
@@ -146,7 +143,7 @@ export function ExamIntroScreen({
                   </View>
                 ))
               ) : (
-                <Text style={styles.emptyText}>{history.emptyText}</Text>
+                <EmptyState title={history.emptyText} colorScheme={colorScheme} />
               )}
             </View>
           ) : null}

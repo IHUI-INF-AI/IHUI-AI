@@ -825,7 +825,7 @@
       "loginRequired": "先にログインしてお使いください",
       "recharge": "チャージする",
       "subtitle": "いつでもAIサービスを提供します",
-      "tokenBalance": "Token 残高:{n}"
+      "tokenBalance": "残りポイント:{n}"
     },
     "materialPopup": {
       "empty": "素材なし",
@@ -3717,7 +3717,7 @@
     "view4": "残高とチャージを見る"
   },
   "communityMyAgents": {
-    "mine1": "マイAIアプリ",
+    "mine1": "マイエージェント",
     "mine2": "マイAI社員"
   },
   "shareCenterItem": {
