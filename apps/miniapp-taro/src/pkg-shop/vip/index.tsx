@@ -10,6 +10,9 @@ import './index.css'
 import { useTt, useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+// 2026-11-26 修:权益 key(unlimitedChat / testPaymentFlow …)的中文标签单一真相源在共享层,
+// 端内此前直接透出裸键名 ⇒「权益详情」露英文键(小程序 VIP 页实测)。
+import { vipBenefitLabel } from '@ihui/shared/constants'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import {
@@ -43,19 +46,20 @@ interface VipMineRow {
   endTime?: string
 }
 
-/** 与 RN 端 normalizeBenefits 同口径:字符串或 { name } 对象都归一为文案数组 */
+/** 与 RN 端 normalizeBenefits 同口径:字符串或 { name } 对象都归一为文案数组;
+ *  2026-11-26 起中文标签统一走共享层 vipBenefitLabel,未登记键原样透出(不造词)。 */
 function normalizeLevelBenefits(raw: unknown): string[] {
   if (!Array.isArray(raw)) return []
   const out: string[] = []
   for (const item of raw) {
     if (typeof item === 'string') {
       const text = item.trim()
-      if (text) out.push(text)
+      if (text) out.push(vipBenefitLabel(text))
       continue
     }
     if (item && typeof item === 'object') {
       const value = (item as { name?: unknown }).name
-      if (typeof value === 'string' && value.trim()) out.push(value.trim())
+      if (typeof value === 'string' && value.trim()) out.push(vipBenefitLabel(value))
     }
   }
   return out
