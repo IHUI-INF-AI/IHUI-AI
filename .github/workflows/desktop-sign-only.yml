@@ -40,13 +40,17 @@ jobs:
           $raw = $env:DESKTOP_TAURI_PRIVATE_KEY
           $keyText = $raw
           if ($raw -match 'untrusted comment') {
-            $keyText = $raw
+            # 完整 minisign 私钥文本:只取最后一行纯 base64 密钥体(signer 不接受注释行)
+            $keyText = (($raw -split "`r?`n") | Where-Object { $_ -match '^[A-Za-z0-9+/=]{20,}$' } | Select-Object -Last 1)
+            if ([string]::IsNullOrEmpty($keyText)) { throw '私钥文本里找不到 base64 密钥行' }
           } else {
             # 纯 base64 私钥内容:去掉换行/空格再写入(signer 按 base64 解码整段内容)
             $keyText = ($raw -replace '\s', '')
             try {
               $decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($keyText))
-              if ($decoded -match 'untrusted comment') { $keyText = $decoded }
+              if ($decoded -match 'untrusted comment') {
+                $keyText = (($decoded -split "`r?`n") | Where-Object { $_ -match '^[A-Za-z0-9+/=]{20,}$' } | Select-Object -Last 1)
+              }
             } catch { }
           }
           [IO.File]::WriteAllText($keyFile, $keyText)
