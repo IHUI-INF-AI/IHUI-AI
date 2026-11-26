@@ -5,6 +5,11 @@
 -->
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
 ## 任务
+- [x] R10.3 多会话同屏墙（2026-11-26）：新增 `pip-wall` WebViewMode、`PipSessionRef`、`openPipWall`，单个墙 tab 网格同时渲染多路 Browser Hub 会话；每格独立 `AiPipMonitor` 只读 MJPEG、任务条/检查点/接管，单格接管关闭整墙并切可操作 CDP tab；墙态屏蔽地址栏导航/前进后退/刷新；组件上限 6 路，生产单账号上限 5，真机 5 路全部「运行中」；五语言 `monitorWall`/`monitorWallHint`/`monitorWallCount`；生产 BUILD_ID `bPp0h8k53zzPGeBpO5q9-`；PR #280 MERGED（merge `c2453702af649539eab0a6f10b1078c2658f84bc`）
+- [x] R10.2 多会话同时监看（2026-11-26）：AI 面板「更多选项」新增「监看全部活跃会话」，一键列出 Browser Hub 活跃会话并停靠成工作面 pip tab；同会话复用、最后回焦最早 tab、单会话失败不阻断其余；五语言 `monitorAllSessions`/`monitorAllLimit`；PR #277 MERGED（merge `ba47dc91b9001f29de177c2eeb10d53b0577cc47`）
+- [x] R10.1d 零会话停靠收口（2026-11-26）：生产精确 `/api/browser/sessions` 与 `/api/browser/task-templates` rewrite；自动建会话/模板兜底改用 `window.location.origin`，不发 `about:blank`；后端新增 `DEFAULT_BROWSER_URL`；PR #274 MERGED（merge `45803a51967d0be511bb37298861c41e47cd4ff0`）
+- [x] R10.1 停靠监看零前置（2026-11-26）：`resolvePipSessionTarget` 复用 CDP tab、无 tab 查最近会话、无会话自动建；`ai-pip-monitor` 的 `ws.onclose` 不误报 MJPEG；PR #273 MERGED（merge `d6a96ea2e75b2a7287645865b94f9e5d403e0ecf`）
+- [x] R10 全面超越补强（2026-11-26）：Browser Hub `storage_state` Fernet 加密落盘、重启注入；模板 `start` 一键复用或自动建会话；工作面 `pip` 停靠 tab；PR #272 MERGED（merge `538e6f575f1b09cdf23a68bc7e5ab41434821819`）
 - [ ] RP-45 对标落地·接 auto-evolve 外部质量尺子（尺子本体已入库，内容锚点=「私有成对评测体系落地(逐版本胜率+骤降哨兵复现 SmolTalkBench)」；全量证据 sha=ccc99924ac5dce2a3c7de518d19808d43b5eb5db；现读缺口=auto-evolve 台账 53 处 record 只动 dispatched/预算/熔断、无质量维；在等=题库落盘后接调用点并补挂守门，确保骤降/判不了当场停派；登记@2026-11-26）
 - [ ] R8 真实 Browser Hub 会话回归：真实登录态下收起/展开、收起态关闭重开，并在新生产安装包与线上 web 上复验
 - [x] B34 〔千段租约〕 本机=WIN-20251101PXT-d4634eb6 段=B25~B34(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
