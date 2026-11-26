@@ -200,8 +200,12 @@ export function extractExePathsFromLnk(buf) {
   return [...out]
 }
 
+/** 快捷方式文件名不一定用英文产品名:豆包开始菜单项就是「豆包.lnk」 */
+const LNK_PRODUCT_NAMES = Object.freeze({ Doubao: ['doubao', '豆包'] })
+
 /** 扫开始菜单/桌面的 .lnk,提取目标 exe(进程未运行时的路径兜底) */
 function exePathsFromShortcuts(product, env) {
+  const names = LNK_PRODUCT_NAMES[product] ?? [product]
   const dirs = []
   for (const base of [
     env.APPDATA && path.join(env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
@@ -218,7 +222,10 @@ function exePathsFromShortcuts(product, env) {
     for (const e of entries) {
       const p = path.join(dir, e.name)
       if (e.isDirectory()) walk(p, depth + 1)
-      else if (e.name.toLowerCase().endsWith('.lnk') && e.name.toLowerCase().includes(product.toLowerCase())) {
+      else if (
+        e.name.toLowerCase().endsWith('.lnk') &&
+        names.some((n) => e.name.toLowerCase().includes(n.toLowerCase()))
+      ) {
         try { found.push(...extractExePathsFromLnk(fs.readFileSync(p))) } catch { /* 跳过 */ }
       }
     }
