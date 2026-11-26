@@ -2227,6 +2227,7 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🔧 その他:签名通道从 minisign 私钥文本提取 base64 密钥行 (b4d9c162)
 - 🔧 その他:签名通道按 base64 清洗私钥空白 (78243d9a)
 - 🔧 その他:修正签名通道 tauri CLI 路径 (d71be1d6)
 - 🔧 その他:签名通道兼容 base64 私钥内容 (795dd0fe)

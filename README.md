@@ -84,6 +84,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🔧 工程/其他:签名通道从 minisign 私钥文本提取 base64 密钥行 (b4d9c162)
 - 🔧 工程/其他:签名通道按 base64 清洗私钥空白 (78243d9a)
 - 🔧 工程/其他:修正签名通道 tauri CLI 路径 (d71be1d6)
 - 🔧 工程/其他:签名通道兼容 base64 私钥内容 (795dd0fe)

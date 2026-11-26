@@ -99,6 +99,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🔧 Chore/Other:签名通道从 minisign 私钥文本提取 base64 密钥行 (b4d9c162)
 - 🔧 Chore/Other:签名通道按 base64 清洗私钥空白 (78243d9a)
 - 🔧 Chore/Other:修正签名通道 tauri CLI 路径 (d71be1d6)
 - 🔧 Chore/Other:签名通道兼容 base64 私钥内容 (795dd0fe)
