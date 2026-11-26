@@ -109,12 +109,13 @@ class DatasetScan:
         return "empty"
 
 
-def _scan_rows(path: Path) -> tuple[list[EvalItem], DatasetScan]:
+def _scan_rows(path: Path | str) -> tuple[list[EvalItem], DatasetScan]:
     """一次读盘同时给出条目与计数(体检与真跑共用同一把尺,不各写一份 §0.6)。
 
     按 item_id 去重保序:同 id 重复 = 一份题被两批数据带进来,在分母里是两条但其实是
     同一题,会让胜率虚高 ⇒ 折到首枚并计入 duplicate 报数。
     """
+    path = Path(path)  # 接受 str | Path:调用方给 str 不再 AttributeError(路径二义性修法,§0.9 真能跑)
     scan = DatasetScan()
     items: list[EvalItem] = []
     seen: set[str] = set()
@@ -154,12 +155,12 @@ def _scan_rows(path: Path) -> tuple[list[EvalItem], DatasetScan]:
     return items, scan
 
 
-def load_dataset(path: Path) -> list[EvalItem]:
+def load_dataset(path: Path | str) -> list[EvalItem]:
     """读 jsonl 题库成 EvalItem 列表(模板行/坏行/重复行一律不进取用集)。"""
     return _scan_rows(path)[0]
 
 
-def scan_dataset(path: Path) -> DatasetScan:
+def scan_dataset(path: Path | str) -> DatasetScan:
     """只体检不裁决:给出可用/模板/重复/坏行计数(供 --validate 与机主建库时自查)。"""
     return _scan_rows(path)[1]
 
@@ -170,8 +171,9 @@ def template_path(env: dict[str, str] | None = None) -> Path:
     return Path(_roots(env)[0]) / _TEMPLATE_DATASET_NAME
 
 
-def write_template(path: Path) -> int:
+def write_template(path: Path | str) -> int:
     """生成**占位**模板:题面写明是待替换的示例,不冒充真题库。返回写入行数。"""
+    path = Path(path)  # 接受 str | Path:与 _scan_rows 同一归一化(调用方给 str 不炸)
     rows = [
         {
             "item_id": "TEMPLATE-1",

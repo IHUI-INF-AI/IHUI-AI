@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from app.services.pairwise_eval import (
@@ -248,6 +249,25 @@ def test_template_rows_are_not_usable(tmp_path: Any) -> None:
     assert load_dataset(f) == [], "纯模板文件必须一条可用题都不给(否则会拿占位文字出题)"
     s = scan_dataset(f)
     assert s.usable == 0 and s.template == 3 and s.verdict == "template-only", s.to_dict()
+
+
+# ---- 路径二义性:write_template/load_dataset/scan_dataset 都得接受 str,不只 Path(§0.9 真能跑) ---- #
+def test_store_accepts_str_path_not_only_pathlib(tmp_path: Any) -> None:
+    """调用方给 str 不能 AttributeError。修前 write_template(path.parent) 对 str 直接炸。"""
+    from pathlib import Path
+
+    from app.services.private_eval_store import load_dataset, scan_dataset, write_template
+
+    str_dir = str(tmp_path)
+    # write_template 接受 str
+    str_file = os.path.join(str_dir, "t.jsonl")
+    assert write_template(str_file) == 3, "write_template 必须接受 str 路径"
+    assert Path(str_file).exists()
+    # scan/load 接受 str
+    assert scan_dataset(str_file).verdict == "template-only"
+    assert load_dataset(str_file) == []
+    # Path 对象仍照常工作(回归保护:别把 pathlib 路径改坏)
+    assert write_template(Path(str_file)) == 3
 
 
 def test_scan_counts_each_defect_kind(tmp_path: Any) -> None:
