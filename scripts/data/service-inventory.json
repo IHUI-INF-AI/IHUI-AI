@@ -1,7 +1,7 @@
 {
   "$comment": "本机 Windows 服务运行配置的入库真相源(票 G-584 归口)。射程 = 注册表 HKLM:\\SYSTEM\\CurrentControlSet\\Services 下名字匹配 ^(IHUI|Keycloak)$ 的服务;四键 application/appParameters/appDirectory/appStdout 仅 nssmManaged=true 时有值。秘密只存脱敏形态(前6***后2 (len=N)),原始凭据永不入仓。services[].provisioning 是**仓内侧**读数(建服源/使用源/通道/盘符无关模板),回答\"这服务是谁建的\";repoNameRoster + reverseGaps 是**反向面**(仓里点名而本机未装)。重建方式:node scripts/check-service-inventory.mjs --snapshot 重定向覆写本文件;不得手改单条。声明性的\"缺建法\"债住 scripts/data/service-provisioning-gaps.json(带 reviewBy,会到期),不在本文件里手抄。",
-  "generatedAt": "2026-11-16T13:22:22.785Z",
-  "refreshedAt": "2026-11-16T13:22:22.785Z",
+  "generatedAt": "2026-11-26T03:10:54.233Z",
+  "refreshedAt": "2026-11-26T03:10:54.233Z",
   "host": "服务器",
   "nssmBinaryPresent": true,
   "comparisonBasis": "脱敏后逐字节等值;两侧同基准归一化",
@@ -83,6 +83,7 @@
         "repoCreateSources": [],
         "repoRewriteOnlySources": [],
         "repoUseSources": [
+          "deploy/win/fix-prod-client-auth.ps1",
           "deploy/win/ihui-api-bluegreen.ps1",
           "deploy/win/ihui-deploy.ps1",
           "deploy/win/ihui-monitor.ps1"
@@ -109,6 +110,7 @@
         "repoCreateSources": [],
         "repoRewriteOnlySources": [],
         "repoUseSources": [
+          "deploy/win/fix-prod-client-auth.ps1",
           "deploy/win/ihui-api-bluegreen.ps1",
           "deploy/win/ihui-deploy.ps1",
           "deploy/win/ihui-monitor.ps1"
@@ -331,6 +333,28 @@
       }
     },
     {
+      "name": "IHUI-PG-TEST",
+      "displayName": "IHUI-PG-TEST",
+      "start": 3,
+      "imagePath": "\"D:\\DevEnv\\runtimes\\pgsql\\bin\\pg_ctl.exe\" runservice -N \"IHUI-PG-TEST\" -D \"D:\\DevEnv\\data\\pgdata-test5399\" -w -o \"-p 5399 -c listen_addresses=127.0.0.1\"",
+      "nssmManaged": false,
+      "application": null,
+      "appParameters": null,
+      "appDirectory": null,
+      "appStdout": null,
+      "referencedByRepoNssmScripts": false,
+      "repoNssmRefFiles": [],
+      "provisioning": {
+        "channel": "bare-binary",
+        "imageTemplate": "\"D:\\DevEnv\\runtimes\\pgsql\\bin\\pg_ctl.exe\" runservice -N \"IHUI-PG-TEST\" -D \"D:\\DevEnv\\data\\pgdata-test5399\" -w -o \"-p 5399 -c listen_addresses=127.0.0.1\"",
+        "bakedRepoPathHits": 0,
+        "repoCreateSources": [],
+        "repoRewriteOnlySources": [],
+        "repoUseSources": [],
+        "truthStatus": "no-repo-provisioning-source"
+      }
+    },
+    {
       "name": "IHUI-REDIS",
       "displayName": "IHUI-REDIS",
       "start": 2,
@@ -380,7 +404,7 @@
       "start": 3,
       "imagePath": "C:\\windows\\system32\\nssm.exe",
       "nssmManaged": true,
-      "application": "C:\\Users\\Administrator\\.agent-browser\\browsers\\chrome-156.0.8078.73\\chrome.exe",
+      "application": "C:\\Users\\Administrator\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
       "appParameters": "--headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars --window-size=1440,900 --remote-debugging-port=9333 --user-data-dir=D:\\tmp\\cdp\\profile about:blank",
       "appDirectory": "D:\\tmp\\cdp",
       "appStdout": "D:\\tmp\\cdp\\chrome-out.log",
@@ -600,7 +624,7 @@
       "imagePath": "C:\\windows\\system32\\nssm.exe",
       "nssmManaged": true,
       "application": "D:\\DevEnv\\monitor\\bin\\postgres_exporter.exe",
-      "appParameters": "--web.listen-address=127.0.0.1:9187 --no-collector.wal --extend.query-path=D:\\DevEnv\\ihui-prod\\monitoring\\postgres-exporter\\queries.yml",
+      "appParameters": "--web.listen-address=127.0.0.1:9187 --no-collector.wal --extend.query-path=D:\\DevEnv\\ihui-prod\\monitoring\\postgres-exporter\\queries.yml --no-collector.stat_user_tables --no-collector.database",
       "appDirectory": "D:\\DevEnv\\monitor\\bin",
       "appStdout": "D:\\DevEnv\\logs\\svc-pg-exporter-nssm.log",
       "referencedByRepoNssmScripts": false,
