@@ -272,11 +272,24 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
     let ws: WebSocket
     let fallbackTimer: number | null = null
     let fallbackBusy = false
+    let fallbackStream: HTMLImageElement | null = null
+    let fallbackStreamTimer: number | null = null
+    let fallbackStreamStarted = false
     const stopFallback = () => {
       if (fallbackTimer !== null) {
         window.clearInterval(fallbackTimer)
         fallbackTimer = null
       }
+      if (fallbackStreamTimer !== null) {
+        window.clearInterval(fallbackStreamTimer)
+        fallbackStreamTimer = null
+      }
+      if (fallbackStream) {
+        fallbackStream.src = ''
+        fallbackStream.parentNode?.removeChild(fallbackStream)
+        fallbackStream = null
+      }
+      fallbackStreamStarted = false
     }
     const drawPipFrame = (source: CanvasImageSource, width: number, height: number) => {
       if (disposed) return
@@ -325,10 +338,43 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
         fallbackBusy = false
       }
     }
-    const startFallback = () => {
+    const startScreenshotFallback = () => {
       if (disposed || fallbackTimer !== null) return
       void pumpFallback()
       fallbackTimer = window.setInterval(() => void pumpFallback(), 250)
+    }
+    /**
+     * 优先兼容通道：同源 MJPEG 直接承接 CDP screencast，动态页面维持 20~30fps，
+     * 不再用 4fps 截图轮询当主画面。MJPEG 4s 内没有首帧时才退回截图轮询。
+     */
+    const startFallback = () => {
+      if (disposed || fallbackStream || fallbackTimer !== null) return
+      const stream = new Image()
+      fallbackStream = stream
+      stream.alt = ''
+      stream.style.cssText =
+        'position:fixed;left:-10px;top:-10px;width:1px;height:1px;opacity:0;pointer-events:none;'
+      stream.onload = () => {
+        fallbackStreamStarted = true
+        setConnected(true)
+        setPhase('running')
+        setError('')
+      }
+      stream.onerror = () => {
+        stopFallback()
+        startScreenshotFallback()
+      }
+      stream.src = `/api/browser/sessions/${encodeURIComponent(sessionId)}/mjpeg?token=${encodeURIComponent(pipToken)}`
+      document.body.appendChild(stream)
+      fallbackStreamTimer = window.setInterval(() => {
+        if (disposed || !fallbackStreamStarted || !stream.naturalWidth) return
+        drawPipFrame(stream, stream.naturalWidth, stream.naturalHeight)
+      }, 40)
+      window.setTimeout(() => {
+        if (disposed || fallbackStreamStarted) return
+        stopFallback()
+        startScreenshotFallback()
+      }, 4000)
     }
     try {
       ws = new WebSocket(buildBrowserWsUrl(sessionId))
