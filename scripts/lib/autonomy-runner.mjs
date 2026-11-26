@@ -18,6 +18,7 @@
  *    拿不到输入一律 `undetermined`,绝不回落成"应该能跑"(§0.3)。
  */
 import { existsSync, statSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { DRIVE_PATH_TOKEN_RE, REPO_ROOT_TOKEN } from '../check-service-inventory.mjs'
 
 export { REPO_ROOT_TOKEN }
@@ -75,14 +76,65 @@ export function extractAbsPathTokens(command) {
 }
 
 /**
- * 派发前闸:执行体在位才准起会话。
- * state:
- *  - `ready`          每个盘符 token 都问到了且都在位
- *  - `missing`        点名哪几枚不在位(可执行出路 = 改配置或建产物)
- *  - `undetermined`   仓根取不到 / 模板里抽不出任何盘符 token(枚举到 0 判死,不记绿)
- *  - `template-empty` 空模板 = dry-run 档,结构上不派发,不算缺也不算过
+ * 发起腿的**真实装载**探针(2026-11-26 立,RP-45 同批)。
+ *
+ * 为什么"文件在位"不够:2026-11-26 实测 `@ihui/agent-sdk` 已入库、`packages/agent-sdk/dist`
+ * 也在位,唯独 `apps/cli/node_modules/@ihui/agent-sdk` 的工作区链接没建 ——
+ * `preflightSessionRunner` 只问盘上在不在,于是放行;4 次真派全部在 `ERR_MODULE_NOT_FOUND`
+ * 处死掉,预算被烧、票面没动。这正是 §0.9「判据必须在真跑它的那一刻才成立」的反面教材:
+ * 装载失败属于调度器自身故障,必须拦在派发前,而不是记进票的连败。
+ *
+ * 探针命令由配置显式给出(`sessionSmokeCommandTemplate`),不靠猜主命令的参数尾:
+ * 真实模板里有 `{promptFile}` 等占位,硬拼 `--version` 会把占位带进去。探针约定是
+ * 「用同一入口与同一装载方式、跑一个必然立即返回的参数」,本仓 CLI 的契约是 `--version`。
  */
-export function preflightSessionRunner(template, repoRoot) {
+export function runSessionSmoke(smokeCommand, repoRoot, opts = {}) {
+  const timeoutMs = Number.isInteger(opts.timeoutMs) && opts.timeoutMs > 0 ? opts.timeoutMs : 20000
+  const command = resolveSessionCommand(smokeCommand, repoRoot)
+  if (command === null) {
+    return { ok: false, sign: 'repo-root-unavailable', status: null, output: '', why: '当次仓根取不到 ⇒ 探针不跑(§0.3)' }
+  }
+  const r = spawnSync(command, {
+    cwd: repoRoot,
+    shell: true,
+    windowsHide: true,
+    timeout: timeoutMs,
+    encoding: 'utf8',
+  })
+  const output = `${String(r.stdout ?? '')}\n${String(r.stderr ?? '')}`.trim()
+  const timedOut = r.error && (r.error.code === 'ETIMEDOUT' || r.error.code === 'ENOENT')
+  const status = typeof r.status === 'number' ? r.status : null
+  const blob = `${output}\n${String(r.error?.message ?? '')}`
+  const sign = timedOut
+    ? `timeout-${r.error?.code ?? 'unknown'}`
+    : status === 0 && !r.error
+      ? 'ok'
+      : ENV_FAILURE_SIGNS.filter((s) => blob.includes(s))[0] ?? `exit=${status ?? 'null'}`
+  return {
+    ok: sign === 'ok',
+    sign,
+    status,
+    output: output.length > 400 ? output.slice(-400) : output,
+    why:
+      sign === 'ok'
+        ? `探针 ${timeoutMs}ms 内正常返回`
+        : `探针失败(${sign});末 400 字:${output.slice(-400)}`,
+  }
+}
+
+/**
+ * 派发前闸:执行体在位且**真能装载**才准起会话。
+ * state:
+ *  - `ready`          每个盘符 token 都问到了且都在位,且(配置了探针时)探针通过
+ *  - `missing`        点名哪几枚不在位 / 装载探针失败(可执行出路 = 改配置、建产物或修依赖)
+ *  - `undetermined`   仓根取不到 / 模板里抽不出任何盘符 token / 要求探针却没给探针命令
+ *  - `template-empty` 空模板 = dry-run 档,结构上不派发,不算缺也不算过
+ *
+ * 第三参(可选,向后兼容):`{ smokeCommand, requireSmoke, smokeTimeoutMs }`。
+ * 老调用方只给两个参数时保持"只看路径"的旧语义,不给任何调用方悄悄降级;
+ * 生产派发链(auto-evolve)必须带 `requireSmoke: true`,把"没配探针"判成未判定并喊人。
+ */
+export function preflightSessionRunner(template, repoRoot, opts = {}) {
   const tpl = String(template ?? '')
   if (!tpl.trim())
     return { state: 'template-empty', checked: [], missing: [], why: '模板空 = dry-run 档' }
@@ -119,15 +171,56 @@ export function preflightSessionRunner(template, repoRoot) {
     checked.push({ token, inPlace, isDir })
     if (!inPlace) missing.push(token)
   }
+  if (missing.length > 0) {
+    return {
+      state: 'missing',
+      checked,
+      missing,
+      command,
+      why: `${missing.length}/${checked.length} 枚路径不在位`,
+    }
+  }
+
+  // 路径全在位后再做真实装载探针:这一层只抓"文件在而依赖解不出"的那一格。
+  const smokeCommand = String(opts.smokeCommand ?? '').trim()
+  if (opts.requireSmoke && !smokeCommand) {
+    return {
+      state: 'undetermined',
+      checked,
+      missing: [],
+      command,
+      why: '配置要求真实装载探针,但 sessionSmokeCommandTemplate 为空 ⇒ 判不出执行体是否真能起来',
+    }
+  }
+  if (smokeCommand) {
+    const smoke = runSessionSmoke(smokeCommand, repoRoot, { timeoutMs: opts.smokeTimeoutMs })
+    checked.push({ token: `runtime-smoke(${smoke.sign})`, inPlace: smoke.ok, isDir: false, smoke: true })
+    if (!smoke.ok) {
+      return {
+        state: 'missing',
+        checked,
+        missing: [`runtime-smoke:${smoke.sign}`],
+        command,
+        why: `路径全在位,但真实装载探针失败(${smoke.sign})⇒ 执行体起不来,本轮不派`,
+        smoke,
+      }
+    }
+    return {
+      state: 'ready',
+      checked,
+      missing: [],
+      command,
+      smoke,
+      why: `${checked.length} 枚路径全部在位,装载探针通过`,
+    }
+  }
+
   return {
-    state: missing.length > 0 ? 'missing' : 'ready',
+    state: 'ready',
     checked,
-    missing,
+    missing: [],
     command,
-    why:
-      missing.length > 0
-        ? `${missing.length}/${checked.length} 枚路径不在位`
-        : `${checked.length} 枚路径全部在位`,
+    why: `${checked.length} 枚路径全部在位`,
   }
 }
 
