@@ -224,6 +224,9 @@ export default function PageClient() {
               backend={selected.backend}
               readOnly={readOnlyOcr}
             />
+            {selected.backend === 'bridge' ? (
+              <FriendsAutomationCard accountId={selected.id} />
+            ) : null}
           </TabsContent>
           <TabsContent value="groupOps" className="mt-3">
             <GroupOpsPanel
@@ -231,9 +234,6 @@ export default function PageClient() {
               backend={selected.backend}
               readOnly={readOnlyOcr}
             />
-            {selected.backend === 'bridge' && !readOnlyOcr ? (
-              <FriendsAutomationCard accountId={selected.id} />
-            ) : null}
           </TabsContent>
           {readOnlyOcr ? null : (
             <>
