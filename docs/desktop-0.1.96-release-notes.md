@@ -52,13 +52,13 @@ Tauri 2 的命令 ACL 是三处登记缺一即失效：
 - `node --test`（desktop-build + capabilities-*）49 项全过；`check-desktop-invoke-registry.mjs` 20/20 命令一致、差异 0。
 - 本机安装 0.1.96 后启动：首屏红条不再渲染；日志出现 `远程页 IPC 自检: https://www.aizhs.top/#ipc-ok`。
 
-发版后验证（待 CI 完成）：
+发版实测（2026-11-26 夜间，GitHub 托管 runner 排队数小时，改走本机 self-hosted 应急签名通道）：
 
-- `gh run watch 45830624290` 全绿；Release 资产含 `智汇AI_0.1.96_x64-setup.exe` 与同名 `.sig`。
-- `Signature Gate (windows-x64)` 通过（用发布产物重新下载验签）。
-- `latest.json` 发布并包含 0.1.96。
-- 烘焙 `apps/web/src/config/desktop-latest.generated.ts` 后 `/desktop-feed.json` 返回 0.1.96。
-- 下载直链 HEAD 的 Content-Length 与 GitHub 资产 size 一致。
+- Release `desktop-v0.1.96` 资产：`AI_0.1.96_x64-setup.exe`（35,803,702 字节，GitHub 会把中文前缀“智汇AI”过滤成 `AI`，与 0.1.77 先例一致）+ 同名 `.sig`（420 字节，CI `DESKTOP_TAURI_PRIVATE_KEY` 正式签名）+ `latest.json`（仅 windows-x86_64 条目）。
+- 直链 HEAD 的 `Content-Length` 与本地构建字节数逐字节一致（35,803,702）。
+- 烘焙提交 `1fa5e93f`：`apps/web/src/config/desktop-latest.generated.ts` 指向 0.1.96；生产 `/desktop-feed.json` 由 `IHUI-DEPLOYLOOP` 轮询 main 自动重建（60s 轮询 + 30 分钟最小部署间隔）。
+- 本机安装后启动：首屏红条不再渲染；日志出现 `远程页 IPC 自检: https://www.aizhs.top/#ipc-ok`。
+- Linux/macOS 由 release-desktop 矩阵另行产出；本次 latest.json 先只含 Windows，待三平台齐后由 `generate-latest-json.mjs` 聚合补全。
 
 ## 回滚
 
@@ -69,7 +69,9 @@ Tauri 2 的命令 ACL 是三处登记缺一即失效：
 
 ## 已知边界
 
-- **未做 Authenticode**：仓库缺少 `SIGNPATH_API_TOKEN` / `SIGNPATH_ORGANIZATION_ID` / `SIGNPATH_PROJECT_SLUG` / `SIGNPATH_SIGNING_POLICY_SLUG` 四个 secret，workflow 的 `ALLOW_UNSIGNED` 会在 SignPath 未配置时自动豁免；产物保留 Tauri 更新签名（`.sig`），但 Windows 下载面会显示“未知发布者”。补齐 SignPath 凭据后应重跑一次正式签名版。
+- **未做 Authenticode**：仓库缺少 `SIGNPATH_API_TOKEN` / `SIGNPATH_ORGANIZATION_ID` / `SIGNPATH_PROJECT_SLUG` / `SIGNPATH_SIGNING_POLICY_SLUG` 四个 secret；产物已用 CI 私钥做 Tauri updater 签名（`.sig` 有效，客户端可验签更新），但 Windows 首次运行仍可能提示“未知发布者”。补齐 SignPath 凭据后应重跑一次正式签名版。
+- **应急签名通道已移除**：为绕开 GitHub 托管 runner 数小时排队，曾临时注册本机 self-hosted runner + `desktop-sign-only.yml`（只把仓库 secret 注入本机 tauri CLI 签名，不落盘私钥）；发版完成后 runner 已注销、`WIN_RUNNER` 变量已删除、临时 workflow 已从 main 移除（`18fc666c`）。后续发版仍以 `release-desktop.yml` 托管 runner 为准。
+- **NSIS 模板漂移已修**：`scripts/desktop-nsis-ihui-patches.json` 登记了 18 段未落补丁的 IHUI 手改（含“仅升级时检查 0.1.92 旧进程”的 `HadExistingInstall` 守卫），Tauri CLI 2.11.4 的 `--check` 现可通过。
 - **本机私钥不是信任的那把**：`~/.tauri/ihui-updater.key` 内嵌公钥 `57de57e5…` 与 `tauri.conf.json` 的 `plugins.updater.pubkey`（`d67ea113…`，keynum 61799D76DD050EA4）不配对，`release-desktop-local.mjs` 会以“孤儿钥匙”拒绝出包。正式 `.sig` 只能由 CI 的 `DESKTOP_TAURI_PRIVATE_KEY` 产出。
 - CI 时长参考：0.1.93 全程约 70 分钟，其中 Gitee 同步约占 43 分钟；本次若 Gitee 同步失败，`upload_failed` 非空会让 job 判红，但不影响 GitHub Release 与 latest.json（两者先落地）。
 - 桌面端主窗口加载远程站点，ACL 的 remote 面（`https://aizhs.top/*`、`https://www.aizhs.top/*`）是唯一生效面；本地 origin 通道不走该白名单。
