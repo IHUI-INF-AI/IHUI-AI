@@ -9,7 +9,8 @@ import { useTranslations } from 'next-intl'
 import { AlertTriangle, ArrowUpRight } from 'lucide-react'
 import { listBrowserCheckpointAttention, type BrowserCheckpointAttention } from '@ihui/api-client'
 
-import { isTauri } from '@/lib/tauri-bridge'
+import { isTauri, openAiPipWindow } from '@/lib/tauri-bridge'
+import { useAuthStore } from '@/stores/auth'
 import { useWorkPanelStore } from '@/stores/work-panel'
 
 const POLL_MS = 5_000
@@ -27,6 +28,7 @@ const POLL_MS = 5_000
  */
 export function BrowserCheckpointNotice() {
   const t = useTranslations('aiChat.pictureInPicture')
+  const token = useAuthStore((s) => s.token)
   const openPipSession = useWorkPanelStore((s) => s.openPipSession)
   const [rows, setRows] = useState<BrowserCheckpointAttention[]>([])
 
@@ -105,12 +107,25 @@ export function BrowserCheckpointNotice() {
   const onHandle = useCallback(() => {
     const first = rows[0]
     if (!first) return
+    // 桌面端优先开原生独立画中画：和 TRAE 一样，点一下就从聊天里把
+    // 正在等待的浏览器监看窗拉出来，不再先展开右侧工作面。
+    if (isTauri() && token) {
+      void openAiPipWindow(first.session_id, token).catch(() => {
+        // 原生窗创建失败时退回停靠监看，保证这一步仍然可处理。
+        openPipSession(
+          first.session_id,
+          first.url || 'about:blank',
+          first.title || first.goal || first.checkpoint.label,
+        )
+      })
+      return
+    }
     openPipSession(
       first.session_id,
       first.url || 'about:blank',
       first.title || first.goal || first.checkpoint.label,
     )
-  }, [openPipSession, rows])
+  }, [openPipSession, rows, token])
 
   if (rows.length === 0) return null
   const first = rows[0]!
