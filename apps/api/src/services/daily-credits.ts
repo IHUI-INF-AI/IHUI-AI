@@ -58,7 +58,9 @@ export interface SpendableBalance {
   permanent: number
   /** 今日赠送剩余（消费优先从这里扣，跨日作废） */
   daily: number
-  /** 余额预检实际可用的总额 = permanent + daily */
+  /** 已冻结、尚未结算的积分（并发请求预扣） */
+  reserved?: number
+  /** 余额预检实际可用的总额 = permanent + daily - reserved */
   available: number
 }
 
@@ -72,17 +74,26 @@ export async function getSpendableBalance(
 ): Promise<SpendableBalance> {
   const row = await ensureDailyCreditRow(userId, at)
   const permanent = Math.max(0, row.points)
-  const daily = Math.max(0, row.dailyPoints)
-  return { permanent, daily, available: permanent + daily }
+  const daily = row.dailyPointsDate === bizDayKey(at) ? Math.max(0, row.dailyPoints) : 0
+  const reserved = Math.max(0, row.reservedPoints ?? 0)
+  return {
+    permanent,
+    daily,
+    reserved,
+    available: Math.max(0, permanent + daily - reserved),
+  }
 }
 
 /** 积分行 → 总可用；口径与 spend 的 balance_after 一致（跨日未刷新的赠送额不计入）。 */
 export function availableOf(
-  row: Pick<UserPoints, 'points' | 'dailyPoints' | 'dailyPointsDate'>,
+  row: Pick<UserPoints, 'points' | 'dailyPoints' | 'dailyPointsDate'> & {
+    reservedPoints?: number
+  },
   at: Date = new Date(),
 ): number {
   const permanent = Math.max(0, row.points)
   const daily = row.dailyPointsDate === bizDayKey(at) ? Math.max(0, row.dailyPoints) : 0
-  return permanent + daily
+  const reserved = Math.max(0, row.reservedPoints ?? 0)
+  return Math.max(0, permanent + daily - reserved)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

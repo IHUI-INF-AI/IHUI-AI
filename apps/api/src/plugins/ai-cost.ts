@@ -20,7 +20,7 @@ import {
 import { requireAdmin } from './require-permission.js'
 import { success, error } from '../utils/response.js'
 import { parsePositiveInt } from '../utils/positive-int.js'
-import { calculateCost } from '../services/pricing-service.js'
+import { calculateCost, findActivePricingForMode } from '../services/pricing-service.js'
 import { resolvePrice, type ResolvedPrice } from '../services/pricing-engine.js'
 import { checkOrgSpendBudget } from '../services/org-policy-service.js'
 import { getUserDailyCostLimit } from '../services/budget-alert-service.js'
@@ -405,6 +405,12 @@ export interface CostRecordInput {
    * 显式传入时优先(例:路由想把自己单列成一档)。
    */
   callType?: AiCallType
+  /**
+   * 成本可信度覆盖:
+   * - 不传 = 由 resolveAiCost 自动判定(priced/unknown);
+   * - 媒体显式成本价 0 时传 'zero_cost'。
+   */
+  costStatus?: 'priced' | 'unknown' | 'zero_cost'
 }
 
 /**
@@ -477,9 +483,15 @@ export async function resolveAiCost(input: {
   tier?: string | null
   cost?: number
   currency?: string
-}): Promise<{ cost: number; currency: string; pricing: ResolvedPrice | null }> {
+}): Promise<{
+  cost: number
+  currency: string
+  pricing: ResolvedPrice | null
+  pricingKnown: boolean
+}> {
   let cost = input.cost
   let costCurrency = input.currency
+  let pricingKnown = input.cost !== undefined
   // G4 计费弹性(2026-10-30 立):开关开且未手动传 cost 时,优先按 pricing_rules
   // 组合价(基础价 × 档位 × 错峰)解析;开关关 / 未命中规则 / 解析异常 ⇒
   // pricing 为 null,走下方 calculateCost 既有路径,存量结算行为逐字节不变。
@@ -491,6 +503,7 @@ export async function resolveAiCost(input: {
       tier: input.tier ?? null,
       timestamp: new Date(),
     })
+    if (pricing) pricingKnown = true
   }
   if (cost === undefined) {
     if (pricing) {
@@ -508,15 +521,22 @@ export async function resolveAiCost(input: {
         outputTokens: input.completionTokens,
       })
       if (result.totalCost === 0) {
-        // 模型无定价配置: 回退 0 成本并记录 warning
-        logger.warn(`[ai-cost] 模型无定价配置,回退 0 成本: model=${input.model}`)
+        // 2026-11-26:不再把“无定价”静默当 0 成本;标记 pricingKnown=false,
+        // 落库 cost_status=unknown,报表必须能区分“真 0”与“未知”。
+        const known = await findActivePricingForMode(input.model, 'token')
+        pricingKnown = Boolean(known)
+        if (!pricingKnown) {
+          logger.warn(`[ai-cost] 模型无定价配置,成本标记 unknown: model=${input.model}`)
+        }
+      } else {
+        pricingKnown = true
       }
       cost = result.totalCost
       // 币种口径跟定价引擎走,不在这里另拍一份(§0.6)
       if (costCurrency === undefined) costCurrency = result.currency
     }
   }
-  return { cost, currency: costCurrency ?? 'CNY', pricing }
+  return { cost, currency: costCurrency ?? 'CNY', pricing, pricingKnown }
 }
 
 /**
@@ -534,6 +554,7 @@ export async function recordAiCost(
     cost,
     currency: costCurrency,
     pricing,
+    pricingKnown,
   } = await resolveAiCost({
     model: input.model,
     promptTokens: input.promptTokens,
@@ -576,6 +597,7 @@ export async function recordAiCost(
       pricingRuleId: pricing?.ruleId ?? null,
       pricingRuleVersion: pricing?.ruleVersion ?? null,
       pricingDetail: pricing?.breakdown ?? null,
+      costStatus: input.costStatus ?? (pricingKnown ? 'priced' : 'unknown'),
     })
   } catch (err) {
     // 成本落库失败 ⇒ 大屏上这条 AI 调用有计数但没有 DB 明细,必须留痕(不吞异常,原样上抛)

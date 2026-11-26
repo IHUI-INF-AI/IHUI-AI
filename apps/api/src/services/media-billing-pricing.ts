@@ -3,16 +3,15 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 媒体生成定价(单一报价真源,2026-11-25 收口)。
+ * 媒体生成定价(单一报价真源,2026-11-26 全收费版)。
  *
  * 口径:
- *   1. `ai_pricing` 里 `billing_mode='per_image'` 的 `per_unit_price`(分/张)
- *      与 `billing_mode='per_video'` 的 `per_unit_price`(分/次或分/秒)是唯一线上价;
- *   2. 1 积分 = 1 分钱,所以报价直接是积分数,不再乘模型档位倍率
- *      (媒体零售价本身已经含毛利,再乘一次等于重复加价);
- *   3. 定价行缺失 / 模式不匹配时,回落到本文件的 `MEDIA_FALLBACK_UNIT_POINTS`;
- *      免费模型(ollama/pollinations 等)仍保持 0 积分,不因媒体计费变成收费;
- *   4. 视频按秒计价时,`units` 必须传真实时长(秒);按次计价时无论传多少都只算 1 次;
+ *   1. `ai_pricing` 里 `billing_mode='per_image'` / `per_video` / `per_call`
+ *      的 `per_unit_price`(分)是唯一线上价;1 积分 = 1 分钱,直接转积分;
+ *   2. 不再有兜底价:没有匹配定价行、模式不匹配、单价 <= 0 一律返回 null,
+ *      调用方必须 fail-closed(未定价不可售);
+ *   3. 不再有免费模型:即使成本为 0,也必须显式配置 >0 的零售单价;
+ *   4. 视频按秒计价时 `units` 必须来自服务端可验证的真实时长;按次计价恒 1 次;
  *   5. 结果一律 `ceil` 到整数积分,绝不出现小数或负数。
  *
  * 本文件是纯模块:不连库、不读 env,方便单测钉住公式。
@@ -36,31 +35,16 @@ export interface MediaPointsQuote {
   points: number
   /** 调用方传入的原始单位数(图片张数 / 视频秒数等) */
   units: number
-  /** 实际参与计价的单位数(按次视频恒为 1) */
+  /** 实际参与计价的单位数(按次视频/音频恒为 1) */
   appliedUnits: number
   /** 单位价(分/单位),用于流水与排查 */
   unitPricePoints: number
-  /** 平台上游成本(分);null = 未配置成本价,不写 ai_cost_records */
+  /** 平台上游成本(分);null = 未配置成本价 */
   costCents: number | null
-  /** 报价来源:命中 ai_pricing 还是回落兜底表 */
-  source: 'ai_pricing' | 'fallback'
+  /** 报价来源:只可能命中 ai_pricing */
+  source: 'ai_pricing'
   category: MediaCategory
-  /** 免费模型豁免 */
-  free: boolean
 }
-
-/**
- * 兜底单位价(积分/单位)。只用于 `ai_pricing` 没有对应定价行的模型。
- * 取值与 2026-10-30 Agnes 媒体定价迁移对齐:图片 ¥0.20/张、视频 ¥0.20/次;
- * 语音/声纹/视频合成的固定成本较低,保留原值。
- */
-export const MEDIA_FALLBACK_UNIT_POINTS: Readonly<Record<MediaCategory, number>> = Object.freeze({
-  image: 20,
-  video: 20,
-  audio: 2,
-  voiceprint: 2,
-  video_compose: 30,
-})
 
 /** 单位数归一化:非正/非有限一律按 1,防止 0 元或负数扣费。 */
 function normalizeUnits(units: number | undefined): number {
@@ -76,80 +60,58 @@ function computeCostCents(costUnitPrice: number | null | undefined, units: numbe
   return Math.round(costUnitPrice * units * 1e6) / 1e6
 }
 
-/** 纯兜底报价(不读库),供测试与无定价行场景使用。 */
-export function estimateFallbackMediaPoints(category: MediaCategory, units = 1): number {
-  const safeUnits = normalizeUnits(units)
-  const applied = category === 'video' ? 1 : safeUnits
-  return Math.ceil(MEDIA_FALLBACK_UNIT_POINTS[category] * applied)
+/** 该类别要求的 ai_pricing billing_mode。 */
+export function requiredBillingMode(
+  category: MediaCategory,
+): 'per_image' | 'per_video' | 'per_call' {
+  if (category === 'image') return 'per_image'
+  if (category === 'video') return 'per_video'
+  return 'per_call'
 }
 
 /**
- * 按定价行快照报价。`free=true` 时无条件 0 积分(免费模型)。
- * 传入的 `pricing` 必须是当前生效行;为空则回落兜底表。
+ * 按定价行快照报价。
+ *
+ * 返回 null 表示“不可售”:调用方必须拒绝请求,不能回落到任何默认价。
+ * 单价 0 也视为不可售 —— 本产品不再提供免费媒体模型。
  */
 export function quoteMediaPoints(input: {
   category: MediaCategory
   units?: number
   pricing?: MediaPricingSnapshot | null
-  free?: boolean
-}): MediaPointsQuote {
+}): MediaPointsQuote | null {
   const units = normalizeUnits(input.units)
   const category = input.category
   const pricing = input.pricing ?? null
+  if (!pricing) return null
 
-  if (input.free) {
-    return {
-      points: 0,
-      units,
-      appliedUnits: 0,
-      unitPricePoints: 0,
-      costCents: null,
-      source: 'fallback',
-      category,
-      free: true,
-    }
-  }
+  const expectedMode = requiredBillingMode(category)
+  if (pricing.billingMode !== expectedMode) return null
 
-  const perUnit = pricing?.perUnitPrice
-  if (pricing && typeof perUnit === 'number' && Number.isFinite(perUnit) && perUnit >= 0) {
-    if (category === 'image' && pricing.billingMode === 'per_image') {
-      return {
-        points: Math.ceil(perUnit * units),
-        units,
-        appliedUnits: units,
-        unitPricePoints: perUnit,
-        costCents: computeCostCents(pricing.costUnitPrice, units),
-        source: 'ai_pricing',
-        category,
-        free: false,
-      }
-    }
-    if (category === 'video' && pricing.billingMode === 'per_video') {
-      const appliedUnits = pricing.videoUnit === 'second' ? units : 1
-      return {
-        points: Math.ceil(perUnit * appliedUnits),
-        units,
-        appliedUnits,
-        unitPricePoints: perUnit,
-        costCents: computeCostCents(pricing.costUnitPrice, appliedUnits),
-        source: 'ai_pricing',
-        category,
-        free: false,
-      }
-    }
-  }
+  const perUnitRaw = pricing.perUnitPrice
+  const costUnit = pricing.costUnitPrice
+  const costUsable = typeof costUnit === 'number' && Number.isFinite(costUnit) && costUnit > 0
+  const costFallbackPrice = costUsable ? (costUnit as number) * 3 : null
+  // 零售价优先用 per_unit_price;缺失时按成本价 ×3 生成,不允许免费。
+  const perUnit =
+    typeof perUnitRaw === 'number' && Number.isFinite(perUnitRaw) && perUnitRaw > 0
+      ? perUnitRaw
+      : costFallbackPrice
+  if (perUnit === null || !Number.isFinite(perUnit) || perUnit <= 0) return null
 
-  const appliedUnits = category === 'video' ? 1 : units
-  const unitPricePoints = MEDIA_FALLBACK_UNIT_POINTS[category]
+  const appliedUnits =
+    category === 'image' || (category === 'video' && pricing.videoUnit === 'second') ? units : 1
+  const points = Math.ceil(perUnit * appliedUnits)
+  if (!Number.isFinite(points) || points <= 0) return null
+
   return {
-    points: Math.ceil(unitPricePoints * appliedUnits),
+    points,
     units,
     appliedUnits,
-    unitPricePoints,
-    costCents: null,
-    source: 'fallback',
+    unitPricePoints: perUnit,
+    costCents: computeCostCents(pricing.costUnitPrice, appliedUnits),
+    source: 'ai_pricing',
     category,
-    free: false,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

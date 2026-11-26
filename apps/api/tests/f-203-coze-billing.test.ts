@@ -1,3 +1,7 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 /**
  * F-203 / 2026-11-26:Coze workflow 只扣 AI 积分,平台成本另记 ai_cost_records。
  *
@@ -16,15 +20,36 @@ const mocks = vi.hoisted(() => ({
   settleLlmPointsUsage: vi.fn(),
 }))
 
-vi.mock('../src/plugins/ws-helpers.js', () => ({ wsUpgradeRequiresCredential: () => () => undefined }))
-vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn(), createBlacklist: vi.fn(() => ({ async has() { return false }, async add() {}, async revoke() {} })) }))
+vi.mock('../src/plugins/ws-helpers.js', () => ({
+  wsUpgradeRequiresCredential: () => () => undefined,
+}))
+vi.mock('@ihui/auth', () => ({
+  verifyAccessToken: vi.fn(),
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
+}))
 vi.mock('jose', () => ({
   SignJWT: class {
-    setProtectedHeader() { return this }
-    setIssuer() { return this }
-    setExpirationTime() { return this }
-    setNotBefore() { return this }
-    async sign() { return 'jwt' }
+    setProtectedHeader() {
+      return this
+    }
+    setIssuer() {
+      return this
+    }
+    setExpirationTime() {
+      return this
+    }
+    setNotBefore() {
+      return this
+    }
+    async sign() {
+      return 'jwt'
+    }
   },
 }))
 vi.mock('drizzle-orm', () => ({
@@ -39,7 +64,13 @@ vi.mock('../src/utils/n8n-env.js', () => ({
 }))
 vi.mock('../src/db/index.js', () => ({
   registerPoolTrackerCleanup: vi.fn(),
-  db: { execute: vi.fn(async () => ({})), select: vi.fn(), insert: vi.fn(), update: vi.fn(), delete: vi.fn() },
+  db: {
+    execute: vi.fn(async () => ({})),
+    select: vi.fn(),
+    insert: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
 }))
 vi.mock('../src/db/video-task-queries.js', () => ({
   createVideoTask: vi.fn(),
@@ -71,6 +102,8 @@ vi.mock('../src/plugins/ai-cost.js', () => ({
   recordAiCost: mocks.recordAiCost,
 }))
 vi.mock('../src/services/ai-points-billing.js', () => ({
+  DEFAULT_MAX_COMPLETION_TOKENS: 4096,
+  MAX_COMPLETION_TOKENS: 131_072,
   ensureLlmPointsBalance: mocks.ensureLlmPointsBalance,
   settleLlmPointsUsage: mocks.settleLlmPointsUsage,
 }))
@@ -94,8 +127,15 @@ function makeReply() {
     statusCode: 200,
     body: undefined as unknown,
     sent: false,
-    status(c: number) { this.statusCode = c; return this },
-    send(b: unknown) { this.body = b; this.sent = true; return this },
+    status(c: number) {
+      this.statusCode = c
+      return this
+    },
+    send(b: unknown) {
+      this.body = b
+      this.sent = true
+      return this
+    },
   }
 }
 
@@ -125,8 +165,9 @@ beforeEach(() => {
   mocks.resolveAiCost.mockReset().mockResolvedValue({ cost: 3.2, currency: 'CNY', pricing: null })
   mocks.recordAiCost.mockReset().mockResolvedValue({ cost: 4, currency: 'CNY' })
   mocks.ensureLlmPointsBalance.mockReset().mockResolvedValue(true)
-  mocks.settleLlmPointsUsage.mockReset().mockImplementation(
-    async (input: { promptTokens: number; completionTokens: number }) => {
+  mocks.settleLlmPointsUsage
+    .mockReset()
+    .mockImplementation(async (input: { promptTokens: number; completionTokens: number }) => {
       const points = Math.ceil(input.promptTokens + input.completionTokens)
       return {
         deducted: points,
@@ -141,8 +182,7 @@ beforeEach(() => {
           points,
         },
       }
-    },
-  )
+    })
 })
 
 describe('Coze workflow 两本账计费', () => {
@@ -155,7 +195,8 @@ describe('Coze workflow 两本账计费', () => {
       expect.anything(),
       'coze-price-model',
       1,
-      0,
+      4096,
+      { source: 'coze_workflow_chat', referenceId: 'coze:coze-id' },
     )
     expect(mocks.settleLlmPointsUsage).toHaveBeenCalledWith({
       userId: 'u1',
@@ -165,6 +206,7 @@ describe('Coze workflow 两本账计费', () => {
       source: 'coze_workflow_chat',
       description: 'Coze 工作流对话',
       referenceId: 'coze:coze-id',
+      holdReferenceId: 'coze:coze-id',
     })
     expect(mocks.recordAiCost).toHaveBeenCalledWith(
       expect.objectContaining({ model: 'coze-price-model', cost: 4, totalTokens: 2 }),
@@ -190,3 +232,4 @@ describe('Coze workflow 两本账计费', () => {
     expect((server as unknown as { tokenBalance?: unknown }).tokenBalance).toBeUndefined()
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -59,19 +59,16 @@ describe('售价倒挂 — 成本下限与官方 free 冲突', () => {
   })
 })
 
-describe('售价倒挂 — 0x 免费档不得被目录价回填成正价', () => {
-  it('配置价回填扫描与更新都排除 points_multiplier<=0', () => {
-    expect(adminSrc).toContain('coalesce(m.points_multiplier, 1) > 0')
+describe('全收费 — points_multiplier 不再提供免费豁免', () => {
+  it('配置价回填、重定价、清扫、种子回填都不再按 points_multiplier 跳过', () => {
+    expect(adminSrc).not.toContain('coalesce(m.points_multiplier, 1) > 0')
+    expect(seedSrc).not.toContain('coalesce(m.points_multiplier, 1) > 0')
+    expect(resolverSrc).not.toContain('coalesce(m.points_multiplier, 1) > 0')
+    expect(resolverSrc).not.toContain('coalesce(points_multiplier, 1) > 0')
   })
 
-  it('种子回填排除 0x 与 relay_price_multiplier=0.0000', () => {
-    expect(seedSrc).toContain('coalesce(m.points_multiplier, 1) > 0')
+  it('种子回填仍排除 relay_price_multiplier=0 的停售行', () => {
     expect(seedSrc).toContain("coalesce(m.relay_price_multiplier, '1.0000') NOT IN ('0', '0.0000')")
-  })
-
-  it('重定价/清扫/官方价应用不得覆盖 0x 行', () => {
-    expect(resolverSrc).toContain('coalesce(m.points_multiplier, 1) > 0')
-    expect(resolverSrc).toContain('coalesce(points_multiplier, 1) > 0')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

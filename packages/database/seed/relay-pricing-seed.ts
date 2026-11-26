@@ -137,10 +137,8 @@ export async function seedRelayPricing(): Promise<void> {
       AND m.is_relay_public = true
       AND m.input_price_per_1k = 0
       AND m.output_price_per_1k = 0
-      -- 0x 免费档(含 points_multiplier=0 / relay_price_multiplier=0.0000)不得回填售价:
-      -- 免费是产品承诺,不能因为 ai_pricing 有目录价就把“展示价”重新写正(实际虽不扣分,
-      -- 后台仍会显示成收费,和目录 0x 冲突)。
-      AND coalesce(m.points_multiplier, 1) > 0
+      -- 2026-11-26 全收费:points_multiplier 已退出计费,不再作为“免费档”跳过回填。
+      -- 停售/不对外 relay 的行仍按 relay_price_multiplier=0 排除。
       AND coalesce(m.relay_price_multiplier, '1.0000') NOT IN ('0', '0.0000')
   `)
 

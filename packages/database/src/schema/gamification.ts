@@ -29,6 +29,12 @@ export const userPoints = pgTable('user_points', {
     .notNull()
     .unique(),
   points: integer('points').default(0).notNull(),
+  /**
+   * 已被 AI/媒体调用预扣、但尚未结算的积分。
+   * 可消费余额 = points + daily_points - reserved_points。
+   * 只由 points-service 的 reserve/release/settle 事务维护，禁止其它入口直接改。
+   */
+  reservedPoints: integer('reserved_points').default(0).notNull(),
   totalEarned: integer('total_earned').default(0).notNull(),
   totalSpent: integer('total_spent').default(0).notNull(),
   level: integer('level').default(1).notNull(),
@@ -67,7 +73,7 @@ export const pointTransactions = pgTable(
     amount: integer('amount').notNull(),
     balanceAfter: integer('balance_after').notNull(),
     description: varchar('description', { length: 255 }),
-    referenceId: varchar('reference_id', { length: 64 }),
+    referenceId: varchar('reference_id', { length: 160 }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
@@ -85,12 +91,56 @@ export const pointTransactions = pgTable(
     // 只覆盖带稳定 referenceId 的入口(callback / career / coze);crew/stock 无 ref,靠调用点天然单次。
     aiSettlementRefUnique: uniqueIndex('ux_point_transactions_ai_settlement_ref')
       .on(t.userId, t.source, t.referenceId)
-      .where(sql`${t.type} = 'spend' AND ${t.source} IN ('llm_chat', 'crew_llm', 'stock_analysis', 'ai_career_advice', 'coze_workflow_chat') AND ${t.referenceId} IS NOT NULL`),
+      .where(
+        sql`${t.type} = 'spend' AND ${t.source} IN ('llm_chat', 'crew_llm', 'stock_analysis', 'ai_career_advice', 'coze_workflow_chat') AND ${t.referenceId} IS NOT NULL`,
+      ),
     // 媒体生成结算的并发兜底:同一用户 + ai_media + reference_id 只允许一条 spend 流水。
     // 与上面的 AI 结算索引分开,避免把媒体 source 塞进 LLM 口径后误伤其他 source。
     mediaSettlementRefUnique: uniqueIndex('ux_point_transactions_media_settlement_ref')
       .on(t.userId, t.source, t.referenceId)
-      .where(sql`${t.type} = 'spend' AND ${t.source} = 'ai_media' AND ${t.referenceId} IS NOT NULL`),
+      .where(
+        sql`${t.type} = 'spend' AND ${t.source} = 'ai_media' AND ${t.referenceId} IS NOT NULL`,
+      ),
+  }),
+)
+
+/**
+ * 积分预扣(hold)台账。
+ *
+ * 一次 AI/媒体调用在开工前按最大可能用量冻结积分；结算时按真实用量扣费，
+ * 差额自动释放。这样并发请求不能靠“同一笔余额多次过预检”把平台成本转嫁出去。
+ *
+ * 状态:
+ * - held     冻结中，占用 user_points.reserved_points；
+ * - settled  已结算，冻结额已释放并转为正式 spend；
+ * - released 主动释放(上游失败/用户取消)；
+ * - expired  TTL 到期自动释放。
+ *
+ * 唯一键只约束 held，保证同一请求重试不会重复冻结；已释放后同一 referenceId
+ * 仍可用于下一轮，但不会出现两条同时生效的 hold。
+ */
+export const pointHolds = pgTable(
+  'point_holds',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    source: varchar('source', { length: 32 }).notNull(),
+    referenceId: varchar('reference_id', { length: 160 }).notNull(),
+    modelId: varchar('model_id', { length: 128 }),
+    amount: integer('amount').notNull(),
+    status: varchar('status', { length: 16 }).default('held').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    settledAt: timestamp('settled_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userRefIdx: index('ix_point_holds_user_ref').on(t.userId, t.referenceId),
+    activeUnique: uniqueIndex('ux_point_holds_user_source_ref_active')
+      .on(t.userId, t.source, t.referenceId)
+      .where(sql`${t.status} = 'held'`),
+    expiryIdx: index('ix_point_holds_status_expiry').on(t.status, t.expiresAt),
   }),
 )
 

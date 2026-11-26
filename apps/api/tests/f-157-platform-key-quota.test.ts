@@ -52,6 +52,8 @@ vi.mock('../src/services/daily-credits.js', () => ({
 }))
 
 vi.mock('../src/services/ai-points-billing.js', () => ({
+  DEFAULT_MAX_COMPLETION_TOKENS: 4096,
+  MAX_COMPLETION_TOKENS: 131_072,
   quoteLlmPoints: mocks.quoteLlmPoints,
   settleLlmPointsUsage: mocks.settleLlmPointsUsage,
   ensureLlmPointsBalance: async (
@@ -73,6 +75,20 @@ vi.mock('../src/services/ai-points-billing.js', () => ({
     }
     return true
   },
+}))
+
+vi.mock('../src/services/points-service.js', () => ({
+  reservePointsUsage: vi.fn(async (input: { userId: string; amount: number }) => {
+    const balance = await mocks.getSpendableBalance(input.userId)
+    return {
+      shortfall: Math.max(0, input.amount - balance.available),
+      remaining: balance.available,
+      deducted: 0,
+      alreadySettled: false,
+      alreadyHeld: false,
+    }
+  }),
+  releasePointsHold: vi.fn(async () => 0),
 }))
 
 vi.mock('../src/services/context-manager-service.js', () => ({
@@ -176,6 +192,8 @@ describe('F-157 平台 Key 大模型调用必须计量并受用户额度约束',
       totalTokens: 1,
       multiplier: 10,
       points: 1,
+      pricingModelId: 'agnes/agnes-2.5-flash',
+      pricingSource: 'ai_pricing',
     })
     mocks.settleLlmPointsUsage.mockReset().mockResolvedValue({
       deducted: 1,

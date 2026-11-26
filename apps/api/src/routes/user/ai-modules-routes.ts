@@ -30,7 +30,11 @@ import { aiServiceFetch, AiServiceTimeoutError } from '../../utils/ai-service-fe
 import { resolveDefaultChatModel } from '../../utils/retired-providers.js'
 import { recordAiCost } from '../../plugins/ai-cost.js'
 import { estimateTokens } from '../../services/context-manager-service.js'
-import { ensureLlmPointsBalance, settleLlmPointsUsage } from '../../services/ai-points-billing.js'
+import {
+  ensureLlmPointsBalance,
+  settleLlmPointsUsage,
+  DEFAULT_MAX_COMPLETION_TOKENS,
+} from '../../services/ai-points-billing.js'
 import { checkPlatformKeyQuota } from './ai-capabilities-routes.js'
 import {
   findAiIndexBanners,
@@ -108,6 +112,7 @@ async function settleCareerAdviceUsage(input: {
       source: 'ai_career_advice',
       description: 'AI 生涯指导',
       referenceId: `career-advice:${request.id}`,
+      holdReferenceId: `career-advice:${request.id}`,
     })
     if (settlement.shortfall > 0) {
       request.log.warn(
@@ -388,8 +393,18 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const model = resolveDefaultChatModel()
-    // 2026-11-26: AI 调用只预检 AI 积分,不再看钱包余额。
-    if (!(await ensureLlmPointsBalance(request, reply, model, estimateTokens(prompt), 0))) return
+    // 2026-11-26: AI 调用只预检 AI 积分,不再看钱包余额;按 prompt + 4K 输出冻结。
+    if (
+      !(await ensureLlmPointsBalance(
+        request,
+        reply,
+        model,
+        estimateTokens(prompt),
+        DEFAULT_MAX_COMPLETION_TOKENS,
+        { source: 'ai_career_advice', referenceId: `career-advice:${request.id}` },
+      ))
+    )
+      return
 
     // 2026-11-13 F-99:此前手写 fetch 只带 Content-Type,ai-service /api/llm/complete
     // 默认需 JWT ⇒ 恒 401,却被 catch 成 200 + 静态模板,功能长期静默失效。

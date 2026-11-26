@@ -2,11 +2,21 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { and, eq, sql } from 'drizzle-orm'
-import { pointTransactions, userPoints, type UserPoints, type PointTransaction } from '@ihui/database'
+import { and, eq, lt, sql } from 'drizzle-orm'
+import {
+  pointTransactions,
+  pointHolds,
+  userPoints,
+  type UserPoints,
+  type PointTransaction,
+} from '@ihui/database'
 import { db } from '../db/index.js'
 import { ensureDailyCreditRow, adjustPoints, type DbTx } from '../db/gamification-queries.js'
 import { availableOf } from './daily-credits.js'
+import { bizDayKey } from '../utils/biz-day.js'
+
+/** 单次 AI/媒体调用预扣积分的默认冻结时长；到期未结算自动释放。 */
+export const POINTS_HOLD_TTL_MS = 15 * 60 * 1000
 
 export interface PointsResult {
   points: UserPoints
@@ -67,6 +77,267 @@ export async function spendPoints(
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+export interface ReservePointsUsageInput {
+  userId: string
+  /** 本次最多可能扣掉的积分(整数,>0) */
+  amount: number
+  /** 流水来源,必须与最终 settlePointsUsage 的 source 一致 */
+  source: string
+  /** 稳定唯一引用;重试同一引用只冻结一次 */
+  referenceId: string
+  modelId?: string
+  /** 冻结时长,默认 15 分钟 */
+  ttlMs?: number
+}
+
+export interface ReservePointsUsageResult {
+  /** 新建/命中的 hold id;余额不足时为 null */
+  holdId: string | null
+  /** 本次实际冻结的积分(命中已有 hold 时为原冻结额) */
+  reserved: number
+  /** 冻结后的可用余额 */
+  remaining: number
+  /** 同一引用已有生效 hold,本次未重复冻结 */
+  alreadyHeld: boolean
+  /** 同一引用已经结算过,本次不再冻结 */
+  alreadySettled: boolean
+  /** 余额不足未冻结的部分 */
+  shortfall: number
+}
+
+/**
+ * 开工前预扣积分。按“最多可能用量”冻结,结算时按真实用量扣费并释放差额。
+ *
+ * 这是并发防线的关键:预检只读余额会出现两个请求同时通过、最后只能扣到 0 的
+ * 情况;冻结把“未来可能花的钱”从事前余额里拿掉,第二个请求必须等第一个结算/释放。
+ */
+export async function reservePointsUsage(
+  input: ReservePointsUsageInput,
+): Promise<ReservePointsUsageResult> {
+  const amount = Math.max(0, Math.floor(input.amount))
+  if (amount <= 0 || !input.referenceId) {
+    return {
+      holdId: null,
+      reserved: 0,
+      remaining: 0,
+      alreadyHeld: false,
+      alreadySettled: false,
+      shortfall: amount,
+    }
+  }
+
+  await ensureDailyCreditRow(input.userId)
+  await releaseExpiredPointHolds(input.userId)
+
+  return db.transaction(async (tx) => {
+    const [account] = await tx
+      .select()
+      .from(userPoints)
+      .where(eq(userPoints.userId, input.userId))
+      .limit(1)
+      .for('update')
+    if (!account) throw new Error('积分账户不存在')
+
+    const [existingHold] = await tx
+      .select({ id: pointHolds.id, amount: pointHolds.amount })
+      .from(pointHolds)
+      .where(
+        and(
+          eq(pointHolds.userId, input.userId),
+          eq(pointHolds.source, input.source),
+          eq(pointHolds.referenceId, input.referenceId),
+          eq(pointHolds.status, 'held'),
+        ),
+      )
+      .limit(1)
+    if (existingHold) {
+      return {
+        holdId: existingHold.id,
+        reserved: existingHold.amount,
+        remaining: availableOf(account),
+        alreadyHeld: true,
+        alreadySettled: false,
+        shortfall: 0,
+      }
+    }
+
+    const [existingSpend] = await tx
+      .select({ amount: pointTransactions.amount })
+      .from(pointTransactions)
+      .where(
+        and(
+          eq(pointTransactions.userId, input.userId),
+          eq(pointTransactions.type, 'spend'),
+          eq(pointTransactions.source, input.source),
+          eq(pointTransactions.referenceId, input.referenceId),
+        ),
+      )
+      .limit(1)
+    if (existingSpend) {
+      return {
+        holdId: null,
+        reserved: 0,
+        remaining: availableOf(account),
+        alreadyHeld: false,
+        alreadySettled: true,
+        shortfall: 0,
+      }
+    }
+
+    const available = availableOf(account)
+    if (available < amount) {
+      return {
+        holdId: null,
+        reserved: 0,
+        remaining: available,
+        alreadyHeld: false,
+        alreadySettled: false,
+        shortfall: amount - available,
+      }
+    }
+
+    const [updated] = await tx
+      .update(userPoints)
+      .set({
+        reservedPoints: sql`${userPoints.reservedPoints} + ${amount}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(userPoints.userId, input.userId))
+      .returning()
+    if (!updated) throw new Error('积分冻结失败')
+
+    const expiresAt = new Date(Date.now() + (input.ttlMs ?? POINTS_HOLD_TTL_MS))
+    const [hold] = await tx
+      .insert(pointHolds)
+      .values({
+        userId: input.userId,
+        source: input.source,
+        referenceId: input.referenceId,
+        modelId: input.modelId ?? null,
+        amount,
+        status: 'held',
+        expiresAt,
+      })
+      .returning({ id: pointHolds.id })
+    if (!hold) throw new Error('积分冻结流水创建失败')
+
+    return {
+      holdId: hold.id,
+      reserved: amount,
+      remaining: availableOf(updated),
+      alreadyHeld: false,
+      alreadySettled: false,
+      shortfall: 0,
+    }
+  })
+}
+
+/** 查询一笔仍生效的冻结额;用于产物已交付但定价行临时失效时按预扣额结算。 */
+export async function getActivePointsHoldAmount(input: {
+  userId: string
+  source: string
+  referenceId: string
+}): Promise<number | null> {
+  const [hold] = await db
+    .select({ amount: pointHolds.amount })
+    .from(pointHolds)
+    .where(
+      and(
+        eq(pointHolds.userId, input.userId),
+        eq(pointHolds.source, input.source),
+        eq(pointHolds.referenceId, input.referenceId),
+        eq(pointHolds.status, 'held'),
+      ),
+    )
+    .limit(1)
+  return hold?.amount ?? null
+}
+
+/** 主动释放一笔未结算的 hold(上游失败/用户取消)。返回是否命中。 */
+export async function releasePointsHold(input: {
+  userId: string
+  source: string
+  referenceId: string
+  status?: 'released' | 'expired'
+}): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const [account] = await tx
+      .select()
+      .from(userPoints)
+      .where(eq(userPoints.userId, input.userId))
+      .limit(1)
+      .for('update')
+    if (!account) return false
+
+    const [hold] = await tx
+      .select({ id: pointHolds.id, amount: pointHolds.amount })
+      .from(pointHolds)
+      .where(
+        and(
+          eq(pointHolds.userId, input.userId),
+          eq(pointHolds.source, input.source),
+          eq(pointHolds.referenceId, input.referenceId),
+          eq(pointHolds.status, 'held'),
+        ),
+      )
+      .limit(1)
+    if (!hold) return false
+
+    await tx
+      .update(pointHolds)
+      .set({ status: input.status ?? 'released', settledAt: new Date() })
+      .where(eq(pointHolds.id, hold.id))
+    await tx
+      .update(userPoints)
+      .set({
+        reservedPoints: sql`GREATEST(${userPoints.reservedPoints} - ${hold.amount}, 0)`,
+        updatedAt: new Date(),
+      })
+      .where(eq(userPoints.userId, input.userId))
+    return true
+  })
+}
+
+/** 释放该用户所有已到期的 hold;在每次预扣/余额读取前懒执行,避免定时任务依赖。 */
+export async function releaseExpiredPointHolds(userId: string): Promise<number> {
+  return db.transaction(async (tx) => {
+    // 与 reserve/release/settle 统一先锁 user_points 行,避免过期释放和新增冻结并发时
+    // 把「刚冻结进来」的额度误当成过期额度扣掉。
+    const [account] = await tx
+      .select({ id: userPoints.id })
+      .from(userPoints)
+      .where(eq(userPoints.userId, userId))
+      .limit(1)
+      .for('update')
+    if (!account) return 0
+
+    const expired = await tx
+      .update(pointHolds)
+      .set({ status: 'expired', settledAt: new Date() })
+      .where(
+        and(
+          eq(pointHolds.userId, userId),
+          eq(pointHolds.status, 'held'),
+          lt(pointHolds.expiresAt, new Date()),
+        ),
+      )
+      .returning({ amount: pointHolds.amount })
+    if (expired.length === 0) return 0
+
+    const total = expired.reduce((sum, row) => sum + row.amount, 0)
+    if (total > 0) {
+      await tx
+        .update(userPoints)
+        .set({
+          reservedPoints: sql`GREATEST(${userPoints.reservedPoints} - ${total}, 0)`,
+          updatedAt: new Date(),
+        })
+        .where(eq(userPoints.userId, userId))
+    }
+    return total
+  })
+}
+
 export interface SettlePointsUsageInput {
   userId: string
   /** 本次应扣积分(整数,>=0) */
@@ -76,6 +347,13 @@ export interface SettlePointsUsageInput {
   description?: string
   /** 幂等键:同一用户、同一来源、同一引用只结算一次 */
   referenceId?: string
+  /**
+   * 预扣 hold 的引用键。默认与 referenceId 相同;媒体结算的幂等键是 taskId,
+   * 而预扣发生在 taskId 生成前,需要单独传 request.id。
+   */
+  holdReferenceId?: string
+  /** 预扣 hold 的 source,默认与 source 相同 */
+  holdSource?: string
 }
 
 export interface SettlePointsUsageResult {
@@ -105,8 +383,13 @@ export async function settlePointsUsage(
 ): Promise<SettlePointsUsageResult> {
   const amount = Math.max(0, Math.floor(input.amount))
   await ensureDailyCreditRow(input.userId)
+  await releaseExpiredPointHolds(input.userId)
+
+  const holdSource = input.holdSource ?? input.source
+  const holdReferenceId = input.holdReferenceId ?? input.referenceId
+
   return db.transaction(async (tx) => {
-    const [account] = await tx
+    let [account] = await tx
       .select()
       .from(userPoints)
       .where(eq(userPoints.userId, input.userId))
@@ -114,7 +397,23 @@ export async function settlePointsUsage(
       .for('update')
     if (!account) throw new Error('积分账户不存在')
 
-    const availableBefore = availableOf(account)
+    let hold: { id: string; amount: number } | null = null
+    if (holdReferenceId) {
+      const [activeHold] = await tx
+        .select({ id: pointHolds.id, amount: pointHolds.amount })
+        .from(pointHolds)
+        .where(
+          and(
+            eq(pointHolds.userId, input.userId),
+            eq(pointHolds.source, holdSource),
+            eq(pointHolds.referenceId, holdReferenceId),
+            eq(pointHolds.status, 'held'),
+          ),
+        )
+        .limit(1)
+      hold = activeHold ?? null
+    }
+
     if (input.referenceId) {
       const [existing] = await tx
         .select({ amount: pointTransactions.amount })
@@ -129,22 +428,58 @@ export async function settlePointsUsage(
         )
         .limit(1)
       if (existing) {
+        if (hold) {
+          await tx
+            .update(pointHolds)
+            .set({ status: 'released', settledAt: new Date() })
+            .where(eq(pointHolds.id, hold.id))
+          const [released] = await tx
+            .update(userPoints)
+            .set({
+              reservedPoints: sql`GREATEST(${userPoints.reservedPoints} - ${hold.amount}, 0)`,
+              updatedAt: new Date(),
+            })
+            .where(eq(userPoints.userId, input.userId))
+            .returning()
+          if (released) account = released
+        }
         return {
           deducted: Math.abs(existing.amount),
-          remaining: availableBefore,
+          remaining: availableOf(account),
           shortfall: 0,
           alreadySettled: true,
         }
       }
     }
 
+    if (hold) {
+      await tx
+        .update(pointHolds)
+        .set({ status: 'settled', settledAt: new Date() })
+        .where(eq(pointHolds.id, hold.id))
+      const [released] = await tx
+        .update(userPoints)
+        .set({
+          reservedPoints: sql`GREATEST(${userPoints.reservedPoints} - ${hold.amount}, 0)`,
+          updatedAt: new Date(),
+        })
+        .where(eq(userPoints.userId, input.userId))
+        .returning()
+      if (released) account = released
+    }
+
+    const availableBefore = availableOf(account)
     if (amount <= 0 || availableBefore <= 0) {
       return { deducted: 0, remaining: availableBefore, shortfall: amount, alreadySettled: false }
     }
 
     const deducted = Math.min(availableBefore, amount)
     const shortfall = amount - deducted
-    const dailyDeduct = Math.min(Math.max(0, account.dailyPoints), deducted)
+    // 跨日未刷新的昨日赠送不属于今日可用余额;只允许扣「今天」的赠送额,
+    // 否则会把昨天残留的 daily_points 扣掉、永久余额不动,等于白送一次调用。
+    const todayDaily =
+      account.dailyPointsDate === bizDayKey() ? Math.max(0, account.dailyPoints) : 0
+    const dailyDeduct = Math.min(todayDaily, deducted)
     const permanentDeduct = deducted - dailyDeduct
 
     const [updated] = await tx

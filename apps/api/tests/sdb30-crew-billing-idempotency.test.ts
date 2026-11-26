@@ -147,36 +147,61 @@ vi.mock('../src/plugins/ai-cost.js', () => ({
   recordAiCost: mocks.recordAiCost,
 }))
 vi.mock('../src/services/daily-credits.js', () => ({
-  getSpendableBalance: vi.fn(async () => ({ available: 1_000_000, permanent: 1_000_000, daily: 0 })),
+  getSpendableBalance: vi.fn(async () => ({
+    available: 1_000_000,
+    permanent: 1_000_000,
+    daily: 0,
+  })),
 }))
 vi.mock('../src/services/ai-points-billing.js', () => ({
+  DEFAULT_MAX_COMPLETION_TOKENS: 4096,
+  MAX_COMPLETION_TOKENS: 131_072,
   quoteLlmPoints: vi.fn(async (input: { promptTokens: number; completionTokens: number }) => {
     const totalTokens = input.promptTokens + input.completionTokens
     const points = Math.max(1, Math.ceil(totalTokens / 1000))
-    return { ...input, totalTokens, multiplier: 1, points }
-  }),
-  settleLlmPointsUsage: vi.fn(async (input: {
-    userId: string
-    source: string
-    promptTokens: number
-    completionTokens: number
-  }) => {
-    const points = Math.max(1, Math.ceil((input.promptTokens + input.completionTokens) / 1000))
-    store.settles.push({ userId: input.userId, amount: points, source: input.source })
     return {
-      deducted: points,
-      remaining: 1_000_000 - points,
-      shortfall: 0,
-      alreadySettled: false,
-      quote: {
-        promptTokens: input.promptTokens,
-        completionTokens: input.completionTokens,
-        totalTokens: input.promptTokens + input.completionTokens,
-        multiplier: 1,
-        points,
-      },
+      ...input,
+      totalTokens,
+      multiplier: 1,
+      points,
+      pricingModelId: 'agnes/default',
+      pricingSource: 'ai_pricing',
     }
   }),
+  settleLlmPointsUsage: vi.fn(
+    async (input: {
+      userId: string
+      source: string
+      promptTokens: number
+      completionTokens: number
+    }) => {
+      const points = Math.max(1, Math.ceil((input.promptTokens + input.completionTokens) / 1000))
+      store.settles.push({ userId: input.userId, amount: points, source: input.source })
+      return {
+        deducted: points,
+        remaining: 1_000_000 - points,
+        shortfall: 0,
+        alreadySettled: false,
+        quote: {
+          promptTokens: input.promptTokens,
+          completionTokens: input.completionTokens,
+          totalTokens: input.promptTokens + input.completionTokens,
+          multiplier: 1,
+          points,
+        },
+      }
+    },
+  ),
+}))
+vi.mock('../src/services/points-service.js', () => ({
+  reservePointsUsage: vi.fn(async () => ({
+    shortfall: 0,
+    remaining: 1_000_000,
+    deducted: 0,
+    alreadySettled: false,
+    alreadyHeld: false,
+  })),
+  releasePointsHold: vi.fn(async () => 0),
 }))
 vi.mock('../src/plugins/token-balance-service.js', () => ({
   getWalletBalance: mocks.getWalletBalance,
@@ -219,10 +244,12 @@ beforeEach(() => {
       pricing: null,
     }),
   )
-  mocks.recordAiCost.mockImplementation(async (input: { totalTokens: number; requestType: string }) => {
-    store.costs.push({ totalTokens: input.totalTokens, requestType: input.requestType })
-    return { cost: 0, currency: 'CNY' }
-  })
+  mocks.recordAiCost.mockImplementation(
+    async (input: { totalTokens: number; requestType: string }) => {
+      store.costs.push({ totalTokens: input.totalTokens, requestType: input.requestType })
+      return { cost: 0, currency: 'CNY' }
+    },
+  )
   mocks.aiServiceFetch.mockImplementation(async () => {
     const total = nextUsage()
     store.upstreamCalls++

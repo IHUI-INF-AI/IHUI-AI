@@ -14,12 +14,18 @@
  * 默认模型:经 utils/retired-providers.ts 的唯一解析入口取(调用方显式 → .env LITELLM_MODEL
  * → 非退役的末位兜底链),本文件不再写死任何 provider 档。
  */
+import { randomUUID } from 'node:crypto'
 import type { FastifyRequest } from 'fastify'
 import { config } from '../config/index.js'
 import { logger } from './clawdbot/logger.js'
 import { recordAiCost, resolveAiCost } from '../plugins/ai-cost.js'
-import { getSpendableBalance } from './daily-credits.js'
-import { quoteLlmPoints, settleLlmPointsUsage } from './ai-points-billing.js'
+import {
+  quoteLlmPoints,
+  settleLlmPointsUsage,
+  DEFAULT_MAX_COMPLETION_TOKENS,
+  MAX_COMPLETION_TOKENS,
+} from './ai-points-billing.js'
+import { releasePointsHold, reservePointsUsage } from './points-service.js'
 import { estimateTokens } from './context-manager-service.js'
 import { AppError } from '../errors/AppError.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
@@ -122,20 +128,31 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
   if (opts.tools && opts.tools.length > 0) body.tools = opts.tools
   if (opts.toolChoice) body.tool_choice = opts.toolChoice
 
-  // 2026-11-26: AI 调用只预检 AI 积分,不再看钱包余额。
-  // 预估只算 prompt 侧;模型免费(0 倍率)时直接放行,零积分也能用免费模型。
+  // 2026-11-26: AI 调用只预检 AI 积分,不再看钱包余额;按 prompt + maxTokens 冻结。
+  const billingReferenceId = `crew:${opts.sessionId ?? 'adhoc'}:${randomUUID()}`
   if (opts.userId) {
     const promptEstimate = estimateTokens(opts.messages.map((m) => m.content).join('\n'))
+    const maxCompletion = Math.min(
+      MAX_COMPLETION_TOKENS,
+      Math.max(1, opts.maxTokens ?? DEFAULT_MAX_COMPLETION_TOKENS),
+    )
     const quote = await quoteLlmPoints({
       modelId: model,
       promptTokens: promptEstimate,
-      completionTokens: 0,
+      completionTokens: maxCompletion,
     })
-    if (quote.points > 0) {
-      const balance = await getSpendableBalance(opts.userId)
-      if (quote.points > balance.available) {
-        throw new AppError('积分不足,请充值或兑换积分后重试', 402, 'INSUFFICIENT_POINTS')
-      }
+    if (quote.pricingSource !== 'ai_pricing') {
+      throw new AppError(`模型 ${model} 未配置成本定价,暂不可售`, 503, 'MODEL_PRICING_MISSING')
+    }
+    const reservation = await reservePointsUsage({
+      userId: opts.userId,
+      amount: quote.points,
+      source: 'crew_llm',
+      referenceId: billingReferenceId,
+      modelId: model,
+    })
+    if (reservation.shortfall > 0) {
+      throw new AppError('积分不足,请充值或兑换积分后重试', 402, 'INSUFFICIENT_POINTS')
     }
   }
 
@@ -153,6 +170,13 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
 
   if (!resp.ok) {
     const errText = await resp.text().catch(() => '')
+    if (opts.userId) {
+      await releasePointsHold({
+        userId: opts.userId,
+        source: 'crew_llm',
+        referenceId: billingReferenceId,
+      }).catch(() => undefined)
+    }
     throw new Error(`ai-service /api/llm/complete HTTP ${resp.status}: ${errText.slice(0, 300)}`)
   }
 
@@ -168,6 +192,13 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
 
   // ai-service 返回 error 字段时表示 LLM 调用失败
   if (data.error) {
+    if (opts.userId) {
+      await releasePointsHold({
+        userId: opts.userId,
+        source: 'crew_llm',
+        referenceId: billingReferenceId,
+      }).catch(() => undefined)
+    }
     throw new Error(data.error_message || `ai-service LLM 调用失败(model=${model})`)
   }
 
@@ -224,6 +255,8 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
         completionTokens: result.usage.completionTokens,
         source: 'crew_llm',
         description: opts.sessionId ? `Crew LLM ${opts.sessionId}` : 'Crew LLM',
+        referenceId: billingReferenceId,
+        holdReferenceId: billingReferenceId,
       })
       if (settlement.shortfall > 0) {
         logger.warn(
@@ -237,6 +270,11 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
         )
       }
     } catch (e) {
+      await releasePointsHold({
+        userId: opts.userId,
+        source: 'crew_llm',
+        referenceId: billingReferenceId,
+      }).catch(() => undefined)
       logger.warn({ err: e }, '[CrewLLM] settleLlmPointsUsage 失败,整笔记为欠额')
     }
 

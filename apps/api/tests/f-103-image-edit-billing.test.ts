@@ -20,6 +20,21 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../src/db/gamification-queries.js', () => ({ findUserPoints: mocks.findUserPoints }))
 vi.mock('../src/services/points-service.js', () => ({ spendPoints: mocks.spendPoints }))
+vi.mock('../src/services/media-billing.js', () => ({
+  ensureMediaPointsBalance: vi.fn(async (request: { userId: string }, reply: ReplyMock) => {
+    const row = await mocks.findUserPoints(request.userId)
+    if ((row?.points ?? 0) <= 0) {
+      reply.status(402).send({ code: 402, errorCode: 'INSUFFICIENT_POINTS' })
+      return false
+    }
+    return true
+  }),
+  chargeMediaPoints: vi.fn(async (request: { userId: string; id: string }, model: string) => {
+    const desc = /wanx|qwen|tongyi/i.test(model) ? '文生图扣分' : '图片编辑扣分'
+    await mocks.spendPoints(request.userId, 10, 'ai_call', desc, request.id)
+    return 10
+  }),
+}))
 vi.mock('../src/utils/proxy-dispatcher.js', () => ({
   directEgressFetch: mocks.egress,
   boundedOptionsFromRequestInit: (o: unknown) => o,

@@ -19,6 +19,30 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../src/db/gamification-queries.js', () => ({ findUserPoints: mocks.findUserPoints }))
 vi.mock('../src/services/points-service.js', () => ({ spendPoints: mocks.spendPoints }))
+vi.mock('../src/services/media-billing.js', () => ({
+  ensureMediaPointsBalance: vi.fn(async (request: { userId: string }, reply: ReplyMock) => {
+    const row = await mocks.findUserPoints(request.userId)
+    if ((row?.points ?? 0) <= 0) {
+      reply.status(402).send({ code: 402, errorCode: 'INSUFFICIENT_POINTS' })
+      return false
+    }
+    return true
+  }),
+  chargeMediaPoints: vi.fn(async (request: { userId: string; id: string }, model: string) => {
+    const lower = model.toLowerCase()
+    const desc = lower.includes('speaker')
+      ? '声纹扣分'
+      : lower.includes('asr')
+        ? '语音识别扣分'
+        : lower.includes('paraformer')
+          ? '语音对话扣分'
+          : lower.includes('chat')
+            ? '语音对话扣分'
+            : 'TTS 语音合成扣分'
+    await mocks.spendPoints(request.userId, 2, 'ai_call', desc, request.id)
+    return 2
+  }),
+}))
 vi.mock('../src/utils/fetch-deadline.js', () => ({
   fetchWithinDeadline: mocks.fetch,
   isDeadlineAbort: () => false,
@@ -27,7 +51,16 @@ vi.mock('../src/plugins/auth.js', () => ({ checkAuth: vi.fn(async () => true) })
 vi.mock('../src/plugins/ws-helpers.js', () => ({
   wsUpgradeRequiresCredential: () => () => undefined,
 }))
-vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn() , createBlacklist: vi.fn(() => ({ async has() { return false }, async add() {}, async revoke() {} })) }))
+vi.mock('@ihui/auth', () => ({
+  verifyAccessToken: vi.fn(),
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
+}))
 
 import { aiAudioRoutes } from '../src/routes/ai-audio.js'
 
@@ -172,7 +205,7 @@ describe('F-104 成功结算(每次 2 分)', () => {
       'u1',
       2,
       'ai_call',
-      expect.stringContaining('声纹注册'),
+      expect.stringContaining('声纹'),
       'req-a',
     )
   })
@@ -193,7 +226,7 @@ describe('F-104 成功结算(每次 2 分)', () => {
       'u1',
       2,
       'ai_call',
-      expect.stringContaining('声纹比对'),
+      expect.stringContaining('声纹'),
       'req-a',
     )
   })

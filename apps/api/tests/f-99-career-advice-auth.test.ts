@@ -43,6 +43,8 @@ vi.mock('../src/db/index.js', () => ({
 }))
 
 vi.mock('../src/services/ai-points-billing.js', () => ({
+  DEFAULT_MAX_COMPLETION_TOKENS: 4096,
+  MAX_COMPLETION_TOKENS: 131_072,
   ensureLlmPointsBalance: vi.fn(async () => true),
   settleLlmPointsUsage: vi.fn(async () => ({
     deducted: 0,

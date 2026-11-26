@@ -26,7 +26,12 @@ import {
   multimodalBody,
 } from './_shared.js'
 import { inferPointsMultiplier } from '../../services/points-multiplier.js'
-import { settleLlmPointsUsage, ensureLlmPointsBalance } from '../../services/ai-points-billing.js'
+import {
+  settleLlmPointsUsage,
+  ensureLlmPointsBalance,
+  readMaxCompletionTokens,
+} from '../../services/ai-points-billing.js'
+import { releasePointsHold } from '../../services/points-service.js'
 import { recordAiCost } from '../../plugins/ai-cost.js'
 import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
 import { bareMediaModelId } from '@ihui/shared'
@@ -133,6 +138,8 @@ export { inferPointsMultiplier }
 interface TokenUsage {
   promptTokens: number
   completionTokens: number
+  /** 部分网关只回 total_tokens;有它时至少不能按 0 结算 */
+  totalTokens?: number
 }
 
 /** 从 LLM 响应中安全提取 token 用量(unknown + 类型守卫,禁用 any) */
@@ -143,6 +150,7 @@ function extractTokenUsage(data: unknown): TokenUsage {
   const usage = obj.usage
   if (typeof usage === 'object' && usage !== null) {
     const u = usage as Record<string, unknown>
+    const total = typeof u.total_tokens === 'number' ? u.total_tokens : undefined
     return {
       promptTokens:
         typeof u.prompt_tokens === 'number'
@@ -156,18 +164,31 @@ function extractTokenUsage(data: unknown): TokenUsage {
           : typeof u.output_tokens === 'number'
             ? u.output_tokens
             : 0,
+      totalTokens: total,
     }
   }
   // Gemini 格式:usageMetadata.promptTokenCount / candidatesTokenCount
   const meta = obj.usageMetadata
   if (typeof meta === 'object' && meta !== null) {
     const m = meta as Record<string, unknown>
+    const total = typeof m.totalTokenCount === 'number' ? m.totalTokenCount : undefined
     return {
       promptTokens: typeof m.promptTokenCount === 'number' ? m.promptTokenCount : 0,
       completionTokens: typeof m.candidatesTokenCount === 'number' ? m.candidatesTokenCount : 0,
+      totalTokens: total,
     }
   }
   return { promptTokens: 0, completionTokens: 0 }
+}
+
+/** 响应体字符数按 4:1 粗估输出 token;仅在网关不返回 usage 时兜底,宁高不低。 */
+function estimateCompletionTokens(data: unknown): number {
+  try {
+    const raw = typeof data === 'string' ? data : JSON.stringify(data ?? '')
+    return Math.max(1, Math.ceil(raw.length / 4))
+  } catch {
+    return 1
+  }
 }
 
 /** 请求体字符数按 4:1 粗估 prompt token;只用于开工前余额预检,不是最终账单。 */
@@ -181,7 +202,7 @@ function estimatePromptTokens(body: unknown): number {
 }
 
 /**
- * 调用前余额检查:按请求体估算 prompt 侧积分,余额不足 402;零成本模型豁免。
+ * 调用前余额检查:按 prompt + max_tokens 冻结积分,余额不足 402;未定价 503。
  * 返回 false 表示已响应,调用方需 return。
  */
 export async function ensurePointsBalance(
@@ -190,11 +211,19 @@ export async function ensurePointsBalance(
   modelId: string,
 ): Promise<boolean> {
   const estimatedPromptTokens = estimatePromptTokens(request.body)
-  return ensureLlmPointsBalance(request, reply, modelId, estimatedPromptTokens, 0)
+  return ensureLlmPointsBalance(
+    request,
+    reply,
+    modelId,
+    estimatedPromptTokens,
+    readMaxCompletionTokens(request.body),
+    { source: 'llm_chat', referenceId: request.id },
+  )
 }
 
 /**
- * 调用后按实际 token 数扣 AI 积分:零成本/无 usage 豁免;扣分失败不阻塞响应。
+ * 调用后按实际 token 数扣 AI 积分;无 usage 时用请求/响应字符数估算兜底,
+ * 绝不因为网关少回一个字段就整笔免单。
  * 统一走 ai-points-billing,与 Crew / 回调 / 股票 / 生涯 / Coze 同一份公式。
  */
 export async function chargePointsForCall(
@@ -205,8 +234,19 @@ export async function chargePointsForCall(
 ): Promise<void> {
   const userId = request.userId
   if (!userId) return
-  const { promptTokens, completionTokens } = extractTokenUsage(data)
-  if (promptTokens + completionTokens <= 0) return // 无 token 用量信息,跳过避免误扣
+  const usage = extractTokenUsage(data)
+  let promptTokens = usage.promptTokens
+  let completionTokens = usage.completionTokens
+  if (promptTokens + completionTokens <= 0) {
+    // 网关只回 total_tokens 时按输出价结算(更贵的一侧),避免把成本按输入价贱卖。
+    if (typeof usage.totalTokens === 'number' && usage.totalTokens > 0) {
+      completionTokens = usage.totalTokens
+    } else {
+      promptTokens = estimatePromptTokens(request.body)
+      completionTokens = estimateCompletionTokens(data)
+    }
+  }
+
   // 平台真实成本与用户积分是两本账:成本先落 ai_cost_records,再结算用户积分。
   // 成本失败不阻塞积分,积分失败也不丢成本;两边各自留痕。
   try {
@@ -218,7 +258,16 @@ export async function chargePointsForCall(
       completionTokens,
       totalTokens: promptTokens + completionTokens,
       requestType: 'llm_chat',
-      metadata: JSON.stringify({ referenceId, source: 'proxy_llm' }),
+      metadata: JSON.stringify({
+        referenceId,
+        source: 'proxy_llm',
+        usageSource:
+          usage.promptTokens + usage.completionTokens > 0
+            ? 'upstream'
+            : usage.totalTokens
+              ? 'total_only'
+              : 'estimated',
+      }),
     })
   } catch (err) {
     request.log?.warn?.({ err, userId, modelId, referenceId }, '[proxy-llm] 平台成本落账失败')
@@ -232,6 +281,7 @@ export async function chargePointsForCall(
       source: 'llm_chat',
       description: `LLM 调用扣分(model=${modelId}, tokens=${promptTokens + completionTokens})`,
       referenceId,
+      holdReferenceId: request.id,
     })
     if (settlement.shortfall > 0) {
       request.log.warn(
@@ -240,6 +290,11 @@ export async function chargePointsForCall(
       )
     }
   } catch (err) {
+    await releasePointsHold({
+      userId,
+      source: 'llm_chat',
+      referenceId: request.id,
+    }).catch(() => undefined)
     // 扣分失败不阻塞已生成的响应;平台成本已在上面独立落账,不受影响。
     request.log?.warn?.({ err, userId, modelId, referenceId }, '[proxy-llm] 积分结算失败')
   }

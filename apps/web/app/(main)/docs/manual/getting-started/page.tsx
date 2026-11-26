@@ -62,7 +62,7 @@ export default function ManualGettingStartedPage() {
           </ol>
           <p className="font-[weight:inherit] rounded bg-muted/60 p-3 text-label">
             <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
-            <strong>提示</strong>:无需信用卡,无隐藏消费,积分用完可继续用免费模型(如 DeepSeek)或充值。
+            <strong>提示</strong>:无需信用卡,无隐藏消费;平台不提供免费模型,所有 AI 调用都按积分计费,积分用完可充值或在钱包按 1 分 = 1 积分兑换。
           </p>
         </div>
         <ManualFigure

@@ -1273,8 +1273,8 @@ export async function syncConfigPricesFromPricing(): Promise<ConfigPriceSyncResu
     from ai_model_config_models m
     where coalesce(m.input_price_per_1k, 0) <= 0
       and coalesce(m.output_price_per_1k, 0) <= 0
-      -- 0x 免费档不参与回填:展示 0x 的模型售价必须保持 0/0,不能被目录价重新写正。
-      and coalesce(m.points_multiplier, 1) > 0
+      -- 2026-11-26 全收费:不再按 points_multiplier 跳过 0x 档,
+      -- 所有模型都必须有正价;免费档由迁移清零/下架,而不是在回填时豁免。
       and lower(m.model_id) not like '%:free'
       -- 动态成本模型零单价是合法状态,不计入"待回填"缺口
       and not exists (
@@ -1308,8 +1308,7 @@ export async function syncConfigPricesFromPricing(): Promise<ConfigPriceSyncResu
     where lower(m.model_id) = s.mid
       and coalesce(m.input_price_per_1k, 0) <= 0
       and coalesce(m.output_price_per_1k, 0) <= 0
-      -- 同扫描面:0x 免费档禁止被目录价回填成正价。
-      and coalesce(m.points_multiplier, 1) > 0
+      -- 同扫描面:全收费后 0x 档也要回填正价,不再豁免。
     returning m.id
   `)
   const updated = rowsOf<Record<string, unknown>>(updRes).length

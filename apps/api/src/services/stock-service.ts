@@ -12,13 +12,16 @@
  * 3. 分析记录持久化到 stock_analyses 表
  */
 
+import { randomUUID } from 'node:crypto'
 import { and, count, desc, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { stockAnalyses } from '@ihui/database'
 import type { TokenBalanceService } from '../plugins/token-balance-service.js'
 import { resolveAiCost, recordAiCost } from '../plugins/ai-cost.js'
-import { getSpendableBalance } from './daily-credits.js'
 import { quoteLlmPoints, settleLlmPointsUsage } from './ai-points-billing.js'
+import { getSpendableBalance } from './daily-credits.js'
+import { releasePointsHold, reservePointsUsage } from './points-service.js'
+import { AppError } from '../errors/AppError.js'
 import { degradedMode, getBulkhead } from '../plugins/resilience-extended.js'
 import { logger } from '../utils/logger.js'
 
@@ -232,8 +235,8 @@ export async function executeStockAnalysis(
     }
   }
 
-  // 2026-11-26: Stock 分析只扣 AI 积分,不再预扣钱包。
-  // 预估按输入 + 固定输出上限折算积分;模型免费(0 倍率)时直接放行。
+  // 2026-11-26: Stock 分析只扣 AI 积分,不再预扣钱包;按输入 + 800 输出冻结。
+  const billingReferenceId = `stock:${req.conversationId ?? 'adhoc'}:${randomUUID()}`
   const inputTokens = Math.ceil(req.question.length / 4)
   const estimatedCompletionTokens = 800
   const quote = await quoteLlmPoints({
@@ -241,10 +244,23 @@ export async function executeStockAnalysis(
     promptTokens: inputTokens,
     completionTokens: estimatedCompletionTokens,
   })
-  if (req.userId && quote.points > 0) {
-    const balance = await getSpendableBalance(req.userId)
-    if (balance.available < quote.points) {
-      throw new Error(`积分不足: 需要 ${quote.points} 积分, 剩余 ${balance.available} 积分`)
+  if (quote.pricingSource !== 'ai_pricing') {
+    throw new AppError(`模型 ${cfg.modelId} 未配置成本定价,暂不可售`, 503, 'MODEL_PRICING_MISSING')
+  }
+  if (req.userId) {
+    const reservation = await reservePointsUsage({
+      userId: req.userId,
+      amount: quote.points,
+      source: 'stock_analysis',
+      referenceId: billingReferenceId,
+      modelId: cfg.modelId,
+    })
+    if (reservation.shortfall > 0) {
+      throw new AppError(
+        `积分不足: 需要 ${quote.points} 积分, 剩余 ${reservation.remaining} 积分`,
+        402,
+        'INSUFFICIENT_POINTS',
+      )
     }
   }
 
@@ -260,6 +276,14 @@ export async function executeStockAnalysis(
     },
   )
 
+  if (degraded && req.userId) {
+    await releasePointsHold({
+      userId: req.userId,
+      source: 'stock_analysis',
+      referenceId: billingReferenceId,
+    }).catch(() => undefined)
+  }
+
   const result: StockAnalysisResult = {
     symbol: req.symbol,
     analysis: ai.content,
@@ -269,8 +293,9 @@ export async function executeStockAnalysis(
   }
 
   // 3. 两本账分开:用户积分按倍率扣;平台成本按真实价格记 ai_cost_records。
-  if (!degraded && req.userId && ai.tokensUsed > 0) {
-    const completionTokens = Math.max(0, ai.tokensUsed - inputTokens)
+  if (!degraded && req.userId) {
+    const completionTokens =
+      ai.tokensUsed > 0 ? Math.max(0, ai.tokensUsed - inputTokens) : estimatedCompletionTokens
     try {
       const settlement = await settleLlmPointsUsage({
         userId: req.userId,
@@ -279,6 +304,8 @@ export async function executeStockAnalysis(
         completionTokens,
         source: 'stock_analysis',
         description: `Stock ${req.symbol}`,
+        referenceId: billingReferenceId,
+        holdReferenceId: billingReferenceId,
       })
       if (settlement.shortfall > 0) {
         logger.warn('[stock-service] 积分不足,已部分扣费', {
@@ -288,6 +315,11 @@ export async function executeStockAnalysis(
         })
       }
     } catch (err) {
+      await releasePointsHold({
+        userId: req.userId,
+        source: 'stock_analysis',
+        referenceId: billingReferenceId,
+      }).catch(() => undefined)
       logger.error('[stock-service] 积分结算失败', { error: (err as Error).message })
     }
 
