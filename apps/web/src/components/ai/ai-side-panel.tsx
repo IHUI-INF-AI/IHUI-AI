@@ -528,38 +528,50 @@ export function AISidePanel() {
     if (!cdpTab || !sessionId) return null
     return { tabId: cdpTab.id, sessionId, title: cdpTab.title, url: cdpTab.url }
   }, [])
+  const getDefaultPipUrl = () =>
+    typeof window !== 'undefined' ? window.location.origin : 'https://www.aizhs.top'
+
   // 服务端活跃会话发现:AI 直接开 Browser Hub、或 Web 工作面没有 CDP tab 时,
-  // 旧逻辑只能报“先开浏览器”。这里复用最新会话;一个都没有就自动建 about:blank,
+  // 旧逻辑只能报“先开浏览器”。这里复用最新会话;一个都没有就自动建当前站首页,
   // 让「在工作面内停靠监看」和「按模板监看」都不再要求用户先手动开标签。
+  // 不能建 about:blank —— 服务端 SSRF 闸只允许 http/https,会直接 400。
   const resolvePipSessionTarget = React.useCallback(async () => {
     const tabTarget = resolvePipTarget()
     if (tabTarget) return tabTarget
+    // 列表失败(老构建的精确端点未代理、瞬时 5xx)不能直接判死:
+    // 后面仍尝试创建新会话;只有创建也失败才返回 null。
+    let sessionId: string | null = null
     try {
       const res = await listBrowserSessions()
       const ids = res.success ? (res.data?.session_ids ?? []) : []
-      const sessionId = ids.length > 0 ? ids[ids.length - 1] : null
-      if (sessionId) {
-        try {
-          const info = await getBrowserSessionInfo(sessionId)
-          if (info.success && info.data) {
-            return {
-              tabId: '',
-              sessionId,
-              title: info.data.title || '',
-              url: info.data.url || 'about:blank',
-            }
+      const last = ids[ids.length - 1]
+      sessionId = last ?? null
+    } catch {
+      sessionId = null
+    }
+    if (sessionId) {
+      try {
+        const info = await getBrowserSessionInfo(sessionId)
+        if (info.success && info.data) {
+          return {
+            tabId: '',
+            sessionId,
+            title: info.data.title || '',
+            url: info.data.url || 'about:blank',
           }
-        } catch {
-          // 会话已被关闭:继续走自动建新会话,不让陈旧 id 卡住入口
         }
+      } catch {
+        // 会话已被关闭:继续走自动建新会话,不让陈旧 id 卡住入口
       }
-      const created = await createBrowserSession({ url: 'about:blank' })
+    }
+    try {
+      const created = await createBrowserSession({ url: getDefaultPipUrl() })
       if (!created.success || !created.data) return null
       return {
         tabId: '',
         sessionId: created.data.session_id,
         title: created.data.title || '',
-        url: created.data.url || 'about:blank',
+        url: created.data.url || getDefaultPipUrl(),
       }
     } catch {
       return null
@@ -621,7 +633,7 @@ export function AISidePanel() {
       return
     }
     const latest = useWorkPanelStore.getState()
-    latest.openPipSession(target.sessionId, target.url || 'about:blank', target.title)
+    latest.openPipSession(target.sessionId, target.url || getDefaultPipUrl(), target.title)
     latest.openPanel()
   }, [resolvePipSessionTarget, tc])
 
@@ -633,7 +645,7 @@ export function AISidePanel() {
       const target = await resolvePipSessionTarget()
       const res = await startBrowserTaskTemplate(templateId, {
         session_id: target?.sessionId,
-        url: target?.url || undefined,
+        url: target?.url || getDefaultPipUrl(),
       })
       if (!res.success || !res.data) {
         toast.error(tc('pictureInPicture.templateMenuLabel'), {
@@ -648,7 +660,7 @@ export function AISidePanel() {
           (tab) => tab.state.mode === 'cdp' && tab.state.sessionId === sessionId,
         )
         if (existing) latest.setActiveTab(existing.id)
-        else latest.openCdpSession(url || 'about:blank', sessionId, title || url || '')
+        else latest.openCdpSession(url || getDefaultPipUrl(), sessionId, title || url || '')
         latest.openPanel()
       }
       if (isTauri()) {
