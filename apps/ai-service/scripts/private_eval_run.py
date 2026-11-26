@@ -134,7 +134,7 @@ async def _run(args: argparse.Namespace) -> int:
 
     items = load_dataset(dataset_path)
     if not items:
-        print(f"[未判定] 题库 {res.path} 解析出 0 条可用题(空文件或全坏行),枚举到 0 候选不记绿(§0.3)。")
+        print(f"[未判定] 题库 {dataset_path} 解析出 0 条可用题(空文件或全坏行),枚举到 0 候选不记绿(§0.3)。")
         return EXIT_UNDETERMINED
     if len(items) < args.min_judged:
         print(f"[未判定] 题数 {len(items)} < 判动阈值 {args.min_judged},样本太小噪声会打翻哨兵,本轮不裁决。")
@@ -142,7 +142,7 @@ async def _run(args: argparse.Namespace) -> int:
 
     # 真跑才接网关;--dry 只做装载与计划,证明链路通而不调模型。
     if args.dry_run:
-        print(f"[DRY] 题库={res.path} 解析 {len(items)} 条题,计划送裁判 model={args.judge_model or '<default>'};未发起任何网络/模型调用。")
+        print(f"[DRY] 题库={dataset_path} 解析 {len(items)} 条题,计划送裁判 model={args.judge_model or '<default>'};未发起任何网络/模型调用。")
         return EXIT_OK
 
     from app.core.llm_gateway import llm_gateway  # 仅真跑时再导,避免自检/装载路径拉起网关

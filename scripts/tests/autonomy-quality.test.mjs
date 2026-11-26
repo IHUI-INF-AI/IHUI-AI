@@ -39,8 +39,9 @@ test('调参校验:坏值当场抛,不设的值一律不拼 flag(让 Python 默�
   assert.throws(() => Q.resolveQualityConfig({ ruler: { minDelta: 0 } }), /minDelta/)
   assert.throws(() => Q.resolveQualityConfig({ ruler: { minDelta: 1.5 } }), /minDelta/)
   assert.throws(() => Q.resolveQualityConfig({ ruler: { datasetDir: '   ' } }), /datasetDir/)
-  const tuned = Q.resolveQualityConfig({ ruler: { mode: 'observe', minJudged: 5, window: 2, minDelta: 0.2, datasetDir: 'D:/x/eval' } })
-  assert.deepEqual(tuned.tune, { minJudged: 5, window: 2, minDelta: 0.2 })
+  assert.throws(() => Q.resolveQualityConfig({ ruler: { judgeModel: '   ' } }), /judgeModel/)
+  const tuned = Q.resolveQualityConfig({ ruler: { mode: 'observe', minJudged: 5, window: 2, minDelta: 0.2, judgeModel: 'agnes/agnes-2.5-flash', datasetDir: 'D:/x/eval' } })
+  assert.deepEqual(tuned.tune, { minJudged: 5, window: 2, minDelta: 0.2, judgeModel: 'agnes/agnes-2.5-flash' })
   assert.equal(tuned.datasetDir, 'D:/x/eval')
 })
 
@@ -48,15 +49,15 @@ test('argv 组装:未配置的参数不得出现在命令行里(否则两处默�
   assert.deepEqual(Q.buildRulerArgv('S.py', 'v1').slice(1), ['--version', 'v1'])
   assert.deepEqual(Q.buildRulerArgv('S.py', 'v1', {}).slice(1), ['--version', 'v1'])
   assert.deepEqual(Q.buildRulerArgv('S.py', 'v1', { minJudged: 5 }).slice(1), ['--version', 'v1', '--min-judged', '5'])
-  const full = Q.buildRulerArgv('S.py', 'v2', { minJudged: 5, window: 3, minDelta: 0.25 })
-  assert.deepEqual(full, ['S.py', '--version', 'v2', '--min-judged', '5', '--window', '3', '--min-delta', '0.25'])
+  const full = Q.buildRulerArgv('S.py', 'v2', { minJudged: 5, window: 3, minDelta: 0.25, judgeModel: 'agnes/agnes-2.5-flash' })
+  assert.deepEqual(full, ['S.py', '--version', 'v2', '--min-judged', '5', '--window', '3', '--min-delta', '0.25', '--judge-model', 'agnes/agnes-2.5-flash'])
   assert.deepEqual(Q.buildRulerArgv('S.py', null).slice(1), ['--version', 'unknown'], '缺版本号必须落 unknown 占位而非空串参数')
 })
 
 test('调参端到端:配置值 ⇒ 子进程 argv 真带上 flag 与 PRIVATE_EVAL_DIR', () => {
   const seen = {}
   const root = process.cwd().replace(/\\/g, '/')
-  const cfg = Q.resolveQualityConfig({ ruler: { mode: 'observe', minJudged: 4, window: 2, minDelta: 0.3, datasetDir: 'D:/DevEnv/Temp/probe' } })
+  const cfg = Q.resolveQualityConfig({ ruler: { mode: 'observe', minJudged: 4, window: 2, minDelta: 0.3, judgeModel: 'agnes/agnes-2.5-flash', datasetDir: 'D:/DevEnv/Temp/probe' } })
   const r = Q.runRuler({
     mode: cfg.mode,
     root,
@@ -79,6 +80,7 @@ test('调参端到端:配置值 ⇒ 子进程 argv 真带上 flag 与 PRIVATE_EV
   assert.ok(seen.args.includes('--min-judged') && seen.args[seen.args.indexOf('--min-judged') + 1] === '4', JSON.stringify(seen.args))
   assert.ok(seen.args.includes('--window') && seen.args[seen.args.indexOf('--window') + 1] === '2')
   assert.ok(seen.args.includes('--min-delta') && seen.args[seen.args.indexOf('--min-delta') + 1] === '0.3')
+  assert.ok(seen.args.includes('--judge-model') && seen.args[seen.args.indexOf('--judge-model') + 1] === 'agnes/agnes-2.5-flash')
   assert.equal(seen.env.PRIVATE_EVAL_DIR, 'D:/DevEnv/Temp/probe')
 })
 
