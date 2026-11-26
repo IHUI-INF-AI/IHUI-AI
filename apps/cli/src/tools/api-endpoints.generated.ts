@@ -8,12 +8,12 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: scripts/scan-api-routes.mjs
-// sourceCommit: 1b5772276cfe7d76504f337feef79d7cfa2e876b
-// inputsSha256: 06efecb605e035ce106fadc213c1f01721dd5f2a2ab65667fee95ba82564dfc8
+// sourceCommit: cb49983b61e342736f081ebaa78d8c816537a0dc
+// inputsSha256: c942dfe54ae12040bb30ca0637fe3e7d791f20f8885bb7affc57da87320742bd
 // input: apps/api/src/plugins/terminal-cleanup.ts c561f522419123bcf264e279c6aa5f9e5bf66b1d07fbe983bb0e6e6298f7f61a
-// input: apps/api/src/plugins/terminal-ws.ts d1693b1743170adb38494d59c2c026053eec50be1e67e011ae40d9ea286a06d9
+// input: apps/api/src/plugins/terminal-ws.ts 0de7893a231fa3964ac2ea8122feeb9546980a0f6925e869dba7e5cbfb4de465
 // input: apps/api/src/routes/ab-testing.ts 18d5edae3f025b98897bc36989f48373956aaffcdb010ebfe97060b8d537a2ec
-// input: apps/api/src/routes/account-pool.ts 64f51ff7a34245cddea2bc30a3c23653707c1ed7befc5302fb8919fb03e44294
+// input: apps/api/src/routes/account-pool.ts 0c219b7c2fc261beda223bfdc2973f86b86caa8a052343ec89962dfd6a546b0e
 // input: apps/api/src/routes/admin-agreements.ts 4720ebf136250ea6a0ec03c98ab84e9a08a8d3648cb40efb7080a764a7135203
 // input: apps/api/src/routes/admin-api-platform.ts 92ee852595ba16b93c3d314a0740a0c45a44f93cf4cfdd3354c31bfec6f6ff61
 // input: apps/api/src/routes/admin-asks.ts fafeebe648e4723a2383e586c6626913affa00450ff507db1652baaa979b643b
@@ -73,7 +73,7 @@
 // input: apps/api/src/routes/admin-sys/role-routes.ts 605849ac58e2653022e064ada1db4a7146feaf74fc847b0869c10812a1e551af
 // input: apps/api/src/routes/admin-sys/user-routes.ts 0a378a0816fd158fa781930704294386004258378a308f018f220a35cfaf7ca4
 // input: apps/api/src/routes/admin-zone.ts ede968ce024cd53a3a2f780ce05ffb759f0f5efe3cee59e16dd57fdad60f6506
-// input: apps/api/src/routes/admin.ts 90b83787245e311056479b7b4ee7b1386cff7e6ccda9a3d92ee06ba5cf5b243a
+// input: apps/api/src/routes/admin.ts 5e56b0bbdaea5dc8e40cb9947b3469c01baea5f0ffd5f4a3e81b1c8aad51ad68
 // input: apps/api/src/routes/admin/ai-gc.ts 9d2effa5f15a354879b0b328061b26d4f8759a300e75f90e96d64de785c9d131
 // input: apps/api/src/routes/admin/auth-accounts.ts baae4aa94dbc61ef4515142af2c0acebffb94d7ad228e9694786c4ce787405c9
 // input: apps/api/src/routes/admin/auth-info.ts 253c88440229262e9b761204a746f7474f967ea5e4b8ca575928ce28c458c647
@@ -101,22 +101,22 @@
 // input: apps/api/src/routes/admin/oss-files.ts 67741bc9bd8b67b80caaf7c76abbae760ce021044a9d6ed6991ad63dd9e77b53
 // input: apps/api/src/routes/admin/redemption-codes.ts b446e2d74de912aa71c5db1bd4386e4e57de939a22f02ed2de14ad35063fe899
 // input: apps/api/src/routes/admin/relay-account-pool-capability.ts 83614418e9170b6dca1200f38764b37b48107eedb11252e96e14683db55f0da3
-// input: apps/api/src/routes/admin/relay-account-pool.ts da2ba6f0a3ab643a314e6b7d9f4a2b102320401cb4527cf825b68a92b4dd54ec
+// input: apps/api/src/routes/admin/relay-account-pool.ts 26c2e3dbe8985229f31fd264bb41bc7a33b71b14ea74d689f225ae7314e2e857
 // input: apps/api/src/routes/admin/relay-alert-rules.ts 1331c0cf38fe1c64e8150cb46a8773ffaf976aacfd6ba4a79bbe2e09d5056a73
 // input: apps/api/src/routes/admin/relay-api-keys.ts a1839177e0a2ed19a594a434d112c56cd9590fd693280df009c754737ba06e92
 // input: apps/api/src/routes/admin/relay-auth-sessions.ts 4424bdcea06db66eaa20f0e08b7973238a310e6daa860d2612a695865bb484ad
 // input: apps/api/src/routes/admin/relay-capacity.ts 2d455ec04800c9a0b7c67196bdcb7edd561fc745e8be93d3fd7cbe4089e040f4
-// input: apps/api/src/routes/admin/relay-channels.ts e9a553ced33b26a25486863d18d3ad8c4b52de7fa8b5c8cd326cefc141c6bd68
+// input: apps/api/src/routes/admin/relay-channels.ts f5d48bda9edfd24956fa2fe716364c31be5691d5220d62490b174c3920abb5a9
 // input: apps/api/src/routes/admin/relay-commission.ts 480d6c5b88b3cc71f06e7af040b4c430491a442f5757bf94feba823842d4422d
 // input: apps/api/src/routes/admin/relay-data-management.ts 3545cf75fd28926581a07bedca6e304d7d77b6858a37364d2956e2b2472e1b65
-// input: apps/api/src/routes/admin/relay-discovery.ts afc705128943f1f4e2210d4040fad41feb01ea9b917ff3b28b58988225fdc700
+// input: apps/api/src/routes/admin/relay-discovery.ts c1ec14bb1cf0c0ecbe03f6bdd6ada0de20c948969545eb2c695a1108d8ce7218
 // input: apps/api/src/routes/admin/relay-enterprise.ts 7ba81ab0fba653c50adf21842dcc7870e05f825cbfffd11deb10e4cfa3d99297
 // input: apps/api/src/routes/admin/relay-error-rules.ts 86b1b470271d44abfc5edbea9bb946439afce750f4b0ea71ca04a9cfa0a2f954
 // input: apps/api/src/routes/admin/relay-insights.ts 07fd64c21408746f82a26ab88a0e260489c2137bceace5ea9fa8d37c6ef667cc
 // input: apps/api/src/routes/admin/relay-key-pool.ts 946e81adda38b69e93985df10fd3c6b214f2d522281d6288319d5eec07ec7010
 // input: apps/api/src/routes/admin/relay-key-scheduling.ts 9e046ae2f2a0eadb0f0af9af1a4bfe1bc3f8f4e07674eb45693695d5a8e7f477
 // input: apps/api/src/routes/admin/relay-logs.ts 1151b5f8b36192be9db00b9e66e941ca34cd6b443a6c9a6cbc9fd032c1e94ff3
-// input: apps/api/src/routes/admin/relay-models.ts f7a125f8165fa2b88f2e5c7b42882399951e690cd70128be53c9b60b770e1e64
+// input: apps/api/src/routes/admin/relay-models.ts a5884e05e4f24fcc2a989d96c483aa3adfc61c1ead999684e0a564d338aa4ed5
 // input: apps/api/src/routes/admin/relay-param-ops.ts 1a341cc3a44f730fd6ae222dc1f35b0a658f5092b1d67ad151ae167b395270b2
 // input: apps/api/src/routes/admin/relay-peak-pricing.ts d9badaaf24c3906d8e7dba20e7c00210b395d7ad558260eee6654916175e2d78
 // input: apps/api/src/routes/admin/relay-plugins.ts dfa6575856a892617a545fa1755bde8bdf1f7c7991fb651ebbcf8ee0b2de3151
@@ -158,36 +158,36 @@
 // input: apps/api/src/routes/agentic-service.ts 4630e85dc0dfea7220326ef68b1536b1e53f3b86ae9ade5b9a0dd9079758ebd2
 // input: apps/api/src/routes/agents-kanban.ts a0c47969e8a6fb1ebaed6691716fc25e731c8d117f07d7bfba518fd9a4bc8f8a
 // input: apps/api/src/routes/agents.ts 8bda5b711f3b95e37093994a59cefedd10e2bf80edc3fe23d58ba60cb33bec8e
-// input: apps/api/src/routes/ai-audio.ts 8bbccb29bc9bc3628091b531bb1d58c3990add1064e9215cd02d298c3196afd7
+// input: apps/api/src/routes/ai-audio.ts 5082f7de9d1d9b756c2a5e532da03033d28f80455ea14913b1b9a49e9a587c2e
 // input: apps/api/src/routes/ai-callback.ts 8adb30fbc97a4dc17b9c56a3f217140e851939c57228981d510e044cd4c7b538
-// input: apps/api/src/routes/ai-chat-stream.ts f59c3aaa48dfce4fd88876af8ac1d5eaa21dd356f90d31f8c74ed91e1bb05203
+// input: apps/api/src/routes/ai-chat-stream.ts 52131341a51da1593a0e1ab646cbd14e437bd40fdc4cfb85e330df5e641177ef
 // input: apps/api/src/routes/ai-education.ts 81933f8380640964029745e01c82aeb31b6da4e64c1045576f40af18d1ad7047
 // input: apps/api/src/routes/ai-extended.ts b542b43d99ddf9cd008d1408359623231f2e6c4fdff8f6c03b38fc01fbbdac33
 // input: apps/api/src/routes/ai-feed.ts c72b9cfe38d273e1f8c7b54e72b89178cab26e49ec653b7e414070042fe01c18
-// input: apps/api/src/routes/ai-frontend-routes.ts 4dd6164e9219d608ce10eb18174c92282aa6d37a0c1fc083665193bf0ab5b00a
+// input: apps/api/src/routes/ai-frontend-routes.ts 6f5e6b30a2cd8818113ee3086fc5740a886d302f63c938d102d73a50b2371910
 // input: apps/api/src/routes/ai-generation.ts fabeac4922500cd968c3417d5fddbd256ccd1da48bbc42efe25292b1578c4377
 // input: apps/api/src/routes/ai-grading.ts 2fac23d1b3d8f6b08aab5c435016656151f5da08cbedea7ca74c08889e9127d7
-// input: apps/api/src/routes/ai-image-edit.ts d51397e6640f207a2e11b16ad032fd0ea9b5acc73b29736151838c7ecc77bc4f
+// input: apps/api/src/routes/ai-image-edit.ts f48406bbe002aa7d099b6560a25ea6ad36d0236f10ebdaedecd146c68d1dc142
 // input: apps/api/src/routes/ai-marking-proxy.ts a8a73b56241286de52dcaa55754872927c2a25cd6a59dedaa1a92ba2eb877e54
 // input: apps/api/src/routes/ai-pricing.ts 85eeced16440cd5f64818db1f5ff5a736548a8f8dec4c16b82066ef0f88750de
 // input: apps/api/src/routes/ai-skills-proxy.ts b8b03e8979827ccf5e6b2678a48699a343480ce1c2344c70f5d6a0cc47aefcff
 // input: apps/api/src/routes/ai-task-templates.ts 6216d887b5f2f308f842409989cedf3e3069d5586ed262741d6c2483351c92bc
 // input: apps/api/src/routes/ai-tutor-routes.ts 097cb5a747ee45848de0f88246594e2a7fa529e1c5cce57a417a0a016e7272cb
-// input: apps/api/src/routes/ai-user-model-chat.ts 9fdd22aab4a696421c6573e00b1a011def21813365d426171f43559d2d4f131f
+// input: apps/api/src/routes/ai-user-model-chat.ts 1e6b09bc3c7d9292d47bf2d49ef8c642e81f638ec75502990eb7b91a1ac4b86d
 // input: apps/api/src/routes/ai-vendors.ts af2c67960bf08f4730a2bfc52dfe01dbe8eca89f6ed735917fb6d131a3bf8cf7
 // input: apps/api/src/routes/ai-vendors/luyala.ts 27d2dbb9657db85bba957d89a9b7246b3a01f20981e3fd25f080a43306132205
 // input: apps/api/src/routes/ai-vendors/proxy-anthropic.ts 3db08948d9ffa3937896f096c422d54de23f0bed0ac16495a3a875b493c2100f
-// input: apps/api/src/routes/ai-vendors/proxy-extended-media.ts 0c6ce359200218ee934bcca1bf06f2bb5d569023c11c15e988fc6e144407bd76
-// input: apps/api/src/routes/ai-vendors/proxy-extended-media2.ts fffa30043c09c50ea555afaf20b045401ec2f35d380107e409269000e8eea99a
-// input: apps/api/src/routes/ai-vendors/proxy-extended-media3.ts 134a0adaee85a11cb155edbc050891cf435855f1a238d001df69b79ceb8160bf
-// input: apps/api/src/routes/ai-vendors/proxy-extended-media4.ts 96fe3ea14e3ffc52104ddb5f431f14ef28f0945100d4172f4e8d951705ba05e1
-// input: apps/api/src/routes/ai-vendors/proxy-extended-media5.ts a1646c3e44eeab66ef740804316db49005cb55f1ac84567376351d8e8fe3503f
-// input: apps/api/src/routes/ai-vendors/proxy-extended.ts e20840523cab25bddc33d2ecb9cf847cf9de6e648689c05172385eb30f75f7c9
-// input: apps/api/src/routes/ai-vendors/proxy-llm.ts c789d4cb76e6023951004d2d380367a7923d7286ad2a7e45f201946ae8b99fbc
-// input: apps/api/src/routes/ai-vendors/proxy-media.ts 23adb46cce179b209198aa6de96aa040ad7968fe5732c16a6a56055db2036239
-// input: apps/api/src/routes/ai-vendors/proxy-openai-compat.ts 96ceaaa7d2525e5a9719c270a9940b555a375a5e1580dbb9202f115bd435d0ad
-// input: apps/api/src/routes/ai-vendors/proxy-tools.ts 1bf687b662fadd2b94a8f1edee4340f85e8d8d0308d19f39b6b24cf1f0366cf3
-// input: apps/api/src/routes/ai-video-compose.ts 54cbcb71593a9a5e5dc1c88a434b9ea97378ba42a5320e69d04d4004faab8195
+// input: apps/api/src/routes/ai-vendors/proxy-extended-media.ts 5004796567fcbfce56dd38d1db4ec31d275cb22eaeaffa0cc16aba07d0668876
+// input: apps/api/src/routes/ai-vendors/proxy-extended-media2.ts 198391e7f387ecd6075977dfed9e28933198f3ffb34fb07b1f2e795b43d3492a
+// input: apps/api/src/routes/ai-vendors/proxy-extended-media3.ts 3d690df97b7e61f73df8e6f0b668323bd7f8a0cd8f57514fcee47c1881217721
+// input: apps/api/src/routes/ai-vendors/proxy-extended-media4.ts 113aa9e2e73caf9225a38cffd4d8c9f711630b7964234e6d2713ba04d37300f3
+// input: apps/api/src/routes/ai-vendors/proxy-extended-media5.ts e8cc457914b4a2671ad8cd4df9e920731ff97ea0facd45a2f2f796f0f44feddc
+// input: apps/api/src/routes/ai-vendors/proxy-extended.ts b7dc453bdee0b6b4b7fcb45ff21baad1d433e490132d825c2130ee9e0d41bcae
+// input: apps/api/src/routes/ai-vendors/proxy-llm.ts cc424b14006a5b028007017393602906a57dd37a129fd647583bc53a282c0f02
+// input: apps/api/src/routes/ai-vendors/proxy-media.ts 742c767890e8351dd3dbb65d67c7ba7a145063b9768fe53afb3fdee2e1e806aa
+// input: apps/api/src/routes/ai-vendors/proxy-openai-compat.ts 938b6561a63a9d7a785e93c3d3b8d580ced4349bd9ab9122f0797ad5a1361b1e
+// input: apps/api/src/routes/ai-vendors/proxy-tools.ts 5f533c6f4ce47a03e12fd5f04c1fd5e6ed2640445359007a268eae2a09c8e004
+// input: apps/api/src/routes/ai-video-compose.ts 92467e8acfcc9aa6ca33b32b06cce3d25aa78c654c5039a8d5cc68dfc5153d51
 // input: apps/api/src/routes/ai-world.ts cd4f99d091ab65232c17f61124da1e53dab6c9bbb7ae45c300b56e9f16987e25
 // input: apps/api/src/routes/algorithm-record.ts 62dc4bc568978063899b4b801b2a8c023330e7f0752df5e4630e9b63537f8e17
 // input: apps/api/src/routes/analytics.ts 83f82d3247625b9b66c6142d7d40c9bfb021a7fb6da0103134a8c38723095e13
@@ -195,7 +195,7 @@
 // input: apps/api/src/routes/api-key-shares.ts 2870ea6c21b74fdaede177450b27220effba99fed2c0c5543b7ed226acfd5d89
 // input: apps/api/src/routes/app-version.ts 6f93b5cf86ca6cba72d5cb25f51172e2cc8919fed04ce5912cdf3c944c9da0a3
 // input: apps/api/src/routes/apple-app-site-association.ts 00bd8024aa9888fb6def9683f4ddb8fb8af4798ce219470402483b4c24d9b7e5
-// input: apps/api/src/routes/articles.ts f6a30b41615d7671f2038ce45bcc426a9693366675d17176aefd5908221f1976
+// input: apps/api/src/routes/articles.ts 6b17e44b752f6b9444761caccb6baaeb3cba73d3194bcb7a07ca2d0722e64e8c
 // input: apps/api/src/routes/artifacts.ts 4db96889654807e715e67bacbe5fd7840ad642a903f4640e2c191f16d5cde101
 // input: apps/api/src/routes/ask-extended.ts 92e25efdc612fe6eac9824cd9b1de73f37182f01e7939323f67ec8f9d0e2fcd2
 // input: apps/api/src/routes/audit-evidence-export.ts cd0b5fae06985b9bc49498ac00b50483144bf09f293c76fe196e1ca2c74fa7c5
@@ -203,16 +203,16 @@
 // input: apps/api/src/routes/audit.ts aeccde11c91afebe08cab6318f4e0691ac02b50b92c88640e8085f4827a37ff3
 // input: apps/api/src/routes/auth-carrier.ts dae32d20dd53fdfd7a0cdfa9e60d11383f54c61cdd06a4e6ad4564fd4c301b8e
 // input: apps/api/src/routes/auth-codes.ts 0b1d3f0f2259d9384446ac7c37739c38ef3bdeb166d0d6da737e2e758a29bf4a
-// input: apps/api/src/routes/auth-extended.ts d7246969f74f3761476d93dc80ae7ceb4588781986059e54178f9a0e45774dc7
+// input: apps/api/src/routes/auth-extended.ts 67f37612596f1b77c00c2c734ca718bbe2486185c7e1b175f378b531ff118057
 // input: apps/api/src/routes/auth-identity.ts 05e91877850169b86b2e45a9662e2858f930ca87fb5224dd37f15ac37d66fa1a
 // input: apps/api/src/routes/auth-passkey.ts ccd9edb12a2a590054e737a02362ef5d0d8e737cfcb7309b1897a27bd8790fae
-// input: apps/api/src/routes/auth-sso.ts 16afbdf449f3c34f7088136c7a812c2807821efafff35ac3f6ce784ef9f383e4
+// input: apps/api/src/routes/auth-sso.ts bf53a865237d3d7a2eabeec9db3a04678de4614c659fcb0882181ba0d22d8d0d
 // input: apps/api/src/routes/auth.ts b2db052c84a815eed0ace7ec7c9399ac76adcff062a6c3c62587c972c59d97aa
 // input: apps/api/src/routes/automations.ts 3b49b7851fa21fbfc581a5cab42d595c3e0f618c6bfb0e61ce8edbd94a8606b9
 // input: apps/api/src/routes/behavior.ts ae3e373609cd8d3bb718d96c8e8c82315bd668e33fbfb4238d7a38aaa913ccaf
-// input: apps/api/src/routes/bi-dashboard.ts 8a90c5ee374f3ed8be800242963060954587ec9064c332329a7b2c58cc35ee9e
+// input: apps/api/src/routes/bi-dashboard.ts f586b7b4ce81170f9a146be5727da1153b99280ad28e161892d7fe55811718bd
 // input: apps/api/src/routes/billing.ts b9122359ea1ca9b195d311a76fa9f874cfba69e339a3771912fe883e3eed8444
-// input: apps/api/src/routes/browser.ts 5bee2164f2dc462511de5fac2a14252ad0b2eba7b8dcb167f5fdc29c8d043901
+// input: apps/api/src/routes/browser.ts 53856a73b9769efc1c3ac280ee5671e013e951a0f1def1db89c8be1bec57f657
 // input: apps/api/src/routes/callback-log.ts 4eb7a74e016668d8bd3aed93e0c278b902445ff07e6843c2d0b8bfb0e2f4641a
 // input: apps/api/src/routes/canary.ts 86291ea98c354e7d43f893521ae9583525dd39d152c6fe68dc753e5e6fdb4549
 // input: apps/api/src/routes/capability-apps.ts b4031b9babb30ec0102dac2a89ed94ed8ef34f3ac4ac84b948712a679c6c1c97
@@ -226,12 +226,12 @@
 // input: apps/api/src/routes/chat-resume.ts dd833321582715376e656d8eb10e837081b6253922afee64324d0301c1d0d1d5
 // input: apps/api/src/routes/chat-skills.ts 6839fc6c87335dae0d95a7fcb29d525827e173f3ed7dedfbb4468c082c338d35
 // input: apps/api/src/routes/chat-templates.ts 6a134c38e402fc31c0d2a3678dbd0100321c5f747f737fbe41bfd34189485119
-// input: apps/api/src/routes/chat.ts 0167f57f3287440f6c76939a333a03a7856c62eed71fac653a55fd785d165075
+// input: apps/api/src/routes/chat.ts 150f6580fd0d25106f051d4980be46e1683e4a4bf1ae43690d0099946580f147
 // input: apps/api/src/routes/checkin-proxy.ts 9253dc0c1cf7576a02af5db008ad78a7b7f6bab090a3a31f8fddd174a69593c0
 // input: apps/api/src/routes/chunked-upload.ts 3224a1abfe047507b6ea58cd67dcf8a5f8356f8de250f5c01fac53022ff9136c
 // input: apps/api/src/routes/circle-mobile-routes.ts ed78d538def18074d768090a031821b98869edac4f0c4f8c0f3867fad8041c0a
 // input: apps/api/src/routes/clawdbot.ts b85e1c6628708fa9fc5e3076867bbc39f4d658b613aa52192833f44989668d2b
-// input: apps/api/src/routes/cli-import.ts 0f863d0ec553fc7317ab03f69aebe361d0a2e36c11e527261fda9ee8625b2a3e
+// input: apps/api/src/routes/cli-import.ts c5d55d187c663f1aecaf3f6acd3b692721e56a3f4cbc331eb12f142d3f4fd876
 // input: apps/api/src/routes/cli-tool-approval-audit.ts dcba021e37dee1c3836589bd0e961b60949840de8192013ddf422aa4b8aff8c4
 // input: apps/api/src/routes/cli-tool-invoke-audit.ts b2e5ee494901943ab3f9a5652abe0ef21b16d1edce042dba2346aff3d592e785
 // input: apps/api/src/routes/command-acks.ts c1d0411fc65673ddbf9ee3cc29c269f642cf8630a5346ad9cfb56a6f701137ba
@@ -241,6 +241,7 @@
 // input: apps/api/src/routes/community/circles.ts 97d4051576bb9a534ec6addbcbb232f6793eb00fb48330a868797161a771009c
 // input: apps/api/src/routes/community/posts.ts 4a6b663800055e58f92e28ad32d9082450815320a01f9e46d27cac590ac980c2
 // input: apps/api/src/routes/community/topics.ts 66b8d03fd5e02b7dbf7aeca3b4c2ca980978137b29c5c205394c2a61d1d01a73
+// input: apps/api/src/routes/connector-oauth-callback-proxy.ts 4ad1cc0bf7a9ffcd5abb9aff63d07e92f2822f2d08185a79ecb4580507166d91
 // input: apps/api/src/routes/content-extended.ts 6f8969cf41a86355a2cf6948b299d387d14a3d6d9cb2cb1dd00252d431f5f6f6
 // input: apps/api/src/routes/content.ts b23597dd07ada8b94975c6593974348721837d723f930febce4125e48282189a
 // input: apps/api/src/routes/context-mentions.ts 3b9b09a1eb3fc31443c4bcaa8850519471a238a681ebf880d4208f71a9cb1785
@@ -255,7 +256,7 @@
 // input: apps/api/src/routes/credits-usage.ts c4bf23736f783af572694a5f73d18a4258d7af757ae9c77a53c92717a9e56c2e
 // input: apps/api/src/routes/crew.ts 734c864a9a05c100bcb9c89c82f119974218b432d383ee5285a23d2a7b22b11f
 // input: apps/api/src/routes/customer-service.ts 704e6c2bb6e78dca4f6d05f6a5676bb978208d618bf1873797db95a977389838
-// input: apps/api/src/routes/debug.ts 22a0ed886e290cfb4e7e20fe66bbfe9ab3c2ac50aa19675125b04e9cf98af70e
+// input: apps/api/src/routes/debug.ts 12ee5b6cdfa73739b558667503cad3669ea014754ac01adf4e7cea41daffd113
 // input: apps/api/src/routes/deploy-diagnosis.ts 1918701a39caf8f6d1632906e4680159b46cc2807450b59c7dd1b72e1d38f99a
 // input: apps/api/src/routes/design.ts 6a3abdaaafcce79e8afc56cdd93c2f16ecb1d7d3225c0a237e5f0019ee22476f
 // input: apps/api/src/routes/desktop-prefs.ts 7e227ddec40006fc025b91376bcf2358e4db91f0ed485f40c3c8b867ae958ee7
@@ -267,10 +268,10 @@
 // input: apps/api/src/routes/developer.ts ac937bfa9d1d7e840e98c73377486da27e8b984676cccfa8d3cfeea5ad700466
 // input: apps/api/src/routes/developer/api-key-groups.ts 3fa0c8085fc3d5365f0292f6457a9fc5d1c709f59db57c9144ae0c4e1312eecb
 // input: apps/api/src/routes/developer/webhooks.ts 48f24645874853213e582323a16f60e3c7e529f9229c832ecbcffee1c48d589a
-// input: apps/api/src/routes/devices.ts 09b70022de2c1320e91d072a9b8f1a17996571b4eceae1e7a4e5aa558333a8db
+// input: apps/api/src/routes/devices.ts 9c7d51217ab4e1b39604ebd43c4c821beee1de6a5ed1f47a259eea3b49e0cadf
 // input: apps/api/src/routes/dict.ts 1285dbe8dbb6810946134b3604ed0d242c6128d2fa7dde4a2ba8e83d04586a55
 // input: apps/api/src/routes/distribution.ts cdbd458587c0b34512a9795228ffaf520f9d137677731e85610fad8d9b7d753f
-// input: apps/api/src/routes/drama.ts 48434237c5c5a75b5befa9540211890b1d46c8ccb51eb820760fe868a169613e
+// input: apps/api/src/routes/drama.ts 569ee9fa078a2ae98748fbe6d9cdac3e182c6c4e9fedb619c3aa051c872a6ca4
 // input: apps/api/src/routes/earnings-routes.ts af2c721f372a4545ee72b8af9100f1b7d00dbc1cb01c0663aef943649f8d0ae1
 // input: apps/api/src/routes/edu-ai-management.ts daca44e871644ed77941fba825fc6caecf3e318df00df13de709061053679662
 // input: apps/api/src/routes/edu-canteen.ts 0669b874d309889099c81e5d1ee99f765100c11db1b6430d367c1558517b8e01
@@ -283,14 +284,16 @@
 // input: apps/api/src/routes/engine-control-frames.ts 3e7f892a6acc088b99c1665bb62cb74bbf397e044f3ec3fe08a2f2583ba6e70b
 // input: apps/api/src/routes/engine-voice.ts 264bd0e158363761190ba2981c985a061d1af998bca79bd04f3acd3d12a9eb1f
 // input: apps/api/src/routes/exam-marking.ts 18b06f4cd03ebf964b1a8fff1348b4b1929d148977efcf378e91e1bea78e5555
-// input: apps/api/src/routes/exam.ts 9f04d9d9a9074801b62938312e518cae85108203678686760a5a0245291b34e8
+// input: apps/api/src/routes/exam.ts 14f36c3cc6c960ec59273f63d703ac602b4a5bed6878e30ab60b4f63ef3167b0
 // input: apps/api/src/routes/feature-center.ts 78a059e676cbf1ccca7829c58fbe0aa9ce93c23551933566681614eb46e8d474
 // input: apps/api/src/routes/file-version.ts bc9fb34bd0c70e8c0f434efa19b3dacb4d6c4ca0d238f86a5595a4bc59f1291b
 // input: apps/api/src/routes/files.ts 8843b14afb6c97cac5e9cf9ebe218641a896bd864d04f8822479dc226d4266e3
+// input: apps/api/src/routes/fin-accounting.ts 7b8a04c4c11b0afaec34fc68ccbac787ab85d4f37a1ba11568adf372e873568c
+// input: apps/api/src/routes/fin-tax-routes.ts b217af3cbada013bf9fe0974ae47ba251066906eb9a942c2aa29ab1a5126cc9c
 // input: apps/api/src/routes/finance-extended.ts 5a69ef80268630ca6b965c4ab13abf517eebbffc7c012a5aa37bb82a2017674d
 // input: apps/api/src/routes/finance.ts a0d7f6c28fc81897568ab0fe294d423003959923123974efcfe6efe57c91e8d9
 // input: apps/api/src/routes/gamification-admin.ts 0b73884b0610cdb9ab493673e2f2690f0ffabb1206dbc9763bc8b1e23239206e
-// input: apps/api/src/routes/gamification.ts 06e90e10d9e31ddf1ffc64cd21ddae142b83733ddf3417cc85001637b4d0d6eb
+// input: apps/api/src/routes/gamification.ts 165910d0b97a41f8130ad386687f191f1dbf1a0b35ec2986d864b980924491aa
 // input: apps/api/src/routes/gdpr.ts 02c180c0e822a3c25cb161ccfa3c9139b1e65e582f0e64a6bed8f1c3c8389527
 // input: apps/api/src/routes/gen-table.ts 4419db031d7858c78bf383a91bbd602052a76af2c36aba521bcea235044a61fc
 // input: apps/api/src/routes/github-app.ts 49738376a06235040560af6a64df9a4936acbef59f620d3f9865960e74d727ef
@@ -301,15 +304,24 @@
 // input: apps/api/src/routes/health.ts e71fff58c66c73e911bea391d9eb341a0b1ebb5f2953b661a13ce5406468eb85
 // input: apps/api/src/routes/hooks.ts d58072ba5dfc8d43069769ff12a6a46465e022985f2faa1e91cc6954c5d97181
 // input: apps/api/src/routes/hr-approval.ts 4ceb9b6d2193a95464ae2445a23d311ac0219df142e15c011b90a52597302e16
-// input: apps/api/src/routes/hr-attendance.ts 2eb74f47713dc19453f718e01b1648a00dd0d52010f4615ac339a592f7046c6e
-// input: apps/api/src/routes/hr-daily.ts 2776ccf3ce5b19d1c64bd5f771294e3a24ec2612279dd6eec13cf8577eb9d6a8
+// input: apps/api/src/routes/hr-attendance.ts 61463674e5eaa9f85c8b7dc0cbf2c2ca4db8a0983cf26f660cc6442e79945cfe
+// input: apps/api/src/routes/hr-comp.ts 41ea7053709a16205bd58fdac86e32af5a07ed116a7bc7d80e6dea94fcc0cdeb
+// input: apps/api/src/routes/hr-daily.ts 049ee3e9e68aa3f9649dd1635a75fe222a1ec45d4d06593951ca7b5ad7387c01
+// input: apps/api/src/routes/hr-expense.ts f27e2fce9f34ca0a49a8f2b67fb4b9bbde0b6cf67e69d348605f9fe713a28890
+// input: apps/api/src/routes/hr-grade.ts b6fb328f9aaeff0cce0efa5becbd3902cd65364059efccdc13b92db201a6fa9a
 // input: apps/api/src/routes/hr-import.ts f03913dd714442cf10470fe31dab0377ab72261cdb4b3533b2e68e27c7ebf773
 // input: apps/api/src/routes/hr-jobs.ts 8c4524e448d17b16d2fc4c8ac6c80ba987f97aa97e672240157fde35a9a935cb
-// input: apps/api/src/routes/hr-payroll.ts c08f236d38797d0336ac06be87744f7f117bcc1b4b32db63540f714c185b9168
+// input: apps/api/src/routes/hr-lifecycle.ts 98b37d76cb56d69fbbb76ba78641afa0500002932000fd6f650f62dc6c38c620
+// input: apps/api/src/routes/hr-payout.ts b981afc28e6f38da4ff006172027ee3317d8ef35eb8d1c29cc5c91e05a8e54ac
+// input: apps/api/src/routes/hr-payroll.ts f48b214f9821d56160e8a50fe96eb41c31e8eb3ec53a6cda198973fda914d60c
+// input: apps/api/src/routes/hr-perf.ts 4b19bf21fea4c992900e379a0a77a7f930c970fd345f5dc08fb331f44cc51b79
+// input: apps/api/src/routes/hr-salary-config.ts 5688b4b0d6252951346d35b6b6bce2088fedf1a02a481c871c97bca2967674c5
 // input: apps/api/src/routes/hr-settle.ts b2add3f5615c47630ce37819bc437eca1aa24f1058313de5a4e4b46610e827b2
+// input: apps/api/src/routes/hr-shift-social.ts 5181227de38307d11684878b5692f79362f34bbe623dafbca8258a7a745ed5b5
+// input: apps/api/src/routes/hr-training.ts 44e3cdfaa657ad095465b1b331d5d8a7f01f58c31fd1eb1d4ba30073d3ff33c0
 // input: apps/api/src/routes/i18n-dashboard.ts 3880bb04a25b18411cedc4e49b456c862b2facbb4dce84d2d3a4f01cea2e4a1e
 // input: apps/api/src/routes/im-gateway.ts e8ffa1060b1bdb4dae44d290bd74c825f5d25080da4d1c3d0ff535155374ab42
-// input: apps/api/src/routes/index.ts 9dbbe332b43d96098ed0fd7caabfcb09b20fa37583c8bff169718aa36803e377
+// input: apps/api/src/routes/index.ts b69aee8c751a7f442e3d5ed37c2425b361826f954aec793d6d9630c9dc336f0b
 // input: apps/api/src/routes/interactions.ts 7a71d6505cc7269d149ac5fd00fb1ca23d0ec3bfe251036195c43f40d9098383
 // input: apps/api/src/routes/internal-relay-account-pool-credential.ts 7aed0f31db02509320a624568c80e91c4b30b1a84f9677fb19717957ee2f91d7
 // input: apps/api/src/routes/internal-relay-user-pool.ts c499672cebd7af6028ddd1db3f54536bbc12c8de162f2c095e3d9b2636420a7f
@@ -318,7 +330,7 @@
 // input: apps/api/src/routes/knowledge-card.ts 4dab94089087609493718183b7c7cad8b953e6b454cf052f948e4983fc69a468
 // input: apps/api/src/routes/knowledge-rag.ts 281ad24035ce39751a89e6f88649bf3710c64675fac2a05deeb576acca06d653
 // input: apps/api/src/routes/knowledge-team.ts b4ae8ac67608d9e3f8555933378f70b3b42e6f9c0214b29d58a2dd8257894ef8
-// input: apps/api/src/routes/landing.ts 3ccf5f020e6825a3ea76ee5f059a41d75e28ab39b5df7f1ade223be1eb2ea4e9
+// input: apps/api/src/routes/landing.ts 7f92784e54541a54b1d410312f6b3aafb228d8d245b9e0683ace3075cb2b32e3
 // input: apps/api/src/routes/leaderboard.ts d31e8c241864935a2ab056b54417002a73469855e0bccb8431919d44ca2d1425
 // input: apps/api/src/routes/learn.ts cd236c36c547a99d5432d3cef3c6d583c59419b21ee5d005879dede0eba12f0f
 // input: apps/api/src/routes/learn/get-lesson-video.ts d142c2575c712dd9a2b996f1b4fc856a75de64a09c42fddc9e8f7a78f2245a53
@@ -334,7 +346,7 @@
 // input: apps/api/src/routes/legacy-work-wechat.ts f0646aff5fe4f18f6f119b5a53e6ae67fbe1c27c75037efb5ef1958def5cfef7
 // input: apps/api/src/routes/live-gifts.ts d2caf281c4972c658cb336e2275125c115a02a3a1835232a249bf66597fadd60
 // input: apps/api/src/routes/live.ts 19b84d2c2130a61e8b05cbdec6f181d580af89b40ca291d548a51d8f0f6298ee
-// input: apps/api/src/routes/llm-models.ts 1125698f040cde707a38247cd432e01790da24f86580b966f2a8f08cb8e90114
+// input: apps/api/src/routes/llm-models.ts 3786f688efaab815217f991777c8c3ec03fad7d20189aefb5952149c1de00da1
 // input: apps/api/src/routes/mail.ts 9cae33369f63d2e1bd63367274a2c21971fc0626408c96f94cf949292dee2a91
 // input: apps/api/src/routes/mcp-extended.ts 73f20c2ae7598192f89c56abb2f6427703668360b5472fc8b0552be891287ae5
 // input: apps/api/src/routes/member.ts 72401d268cbd5e756158cf72f9c381ae27d960452697a22a49d3f2bbf47dacbb
@@ -348,18 +360,18 @@
 // input: apps/api/src/routes/miniapp-public-fallback-routes.ts f4c7899f1bfc281f86cf52f4b833097ee63e0d655a619af55dad8dfe3c307a37
 // input: apps/api/src/routes/miniprogram.ts 091ec103013e22bf8e03a94fc9d44492f3e824a3f0595b7d485724aca0fa8ea0
 // input: apps/api/src/routes/misc-extended.ts 2cde3dea5f660472deb2e2608cba2e257f065d0ba4cd0811a4d372f9369f1ef4
-// input: apps/api/src/routes/mobile-chat-routes.ts 4fb4c7ceaf2d8dbd63570289fb219893c134cfed06280744898b76bbe109d32b
+// input: apps/api/src/routes/mobile-chat-routes.ts 23612df57fe3300ad9b910b96e1d0ed3ba00904ac77e7bab5fd1c9be7baea828
 // input: apps/api/src/routes/monitor.ts 0f0afb5bccec52b840b9b5eae357280620559696e9bc1f1e904dcd298c834e53
 // input: apps/api/src/routes/n8n-proxy.ts f7ada55f9a6ee8a15abfde62fa173aea45488fc8683513f7b10eef7d3578c9cc
 // input: apps/api/src/routes/news.ts ff7cbf8b6232281ec101ce5c60be4c84dd6a0232610e2993058cda33a9fb8ffb
 // input: apps/api/src/routes/newsletter.ts c6b32f9c428888240d5b11cf82e0bbfe9a677218abb524e70caf2272c66a42a4
 // input: apps/api/src/routes/notification-extended.ts bf4e2d13b87b271deb7db5ddf201f1ac4f3e279ef6c5ee8335670edde519b319
-// input: apps/api/src/routes/notifications.ts b02e4f761e00b8de047fd8dd90ee6862fb3a437b31adc4f309117ac2749c3361
+// input: apps/api/src/routes/notifications.ts aa5aeeae3094706cce6e9ff23fe9247ab84073ac835455bf2558374875ae8d74
 // input: apps/api/src/routes/oauth-authorization-server.ts adcdf7c15f3c4ab67390f003b1e4f9626f40e29a6b7ee5944e95877f2ccd810c
 // input: apps/api/src/routes/oauth-keys.ts c9f5d2162c76c20ed92786931c71c682efa3f9ba49a8c63ab4c2029a3242437d
 // input: apps/api/src/routes/oauth-register.ts 390b0abfc170f55b0860b819bd0de9d9043eb75ca4bfcc196b1e892e0cd0b8be
 // input: apps/api/src/routes/oauth-tokens.ts e2d16f553b6878b12b9030aae0e79631edcd428b4dbb48e3033b5f72910fc883
-// input: apps/api/src/routes/openclaw-routes.ts 1cab1a143212fc1fba12848439b49fe3a3cb55b4b145ecd5fba062b647cb2bc2
+// input: apps/api/src/routes/openclaw-routes.ts 09d3eb7c5ceb1dcad843cf9af8187bd715550de14f5270f93bd7274f8e619905
 // input: apps/api/src/routes/orchestration.ts 265526bf5dcc42d4ea636ac2bdea83338c78b6606b1d72d66c312e4307368be0
 // input: apps/api/src/routes/order.ts f8ca8f320d5cfd4a054a5c6254b8047f755d6b4b7f0b798d1bba49fcfa010c36
 // input: apps/api/src/routes/org-billing.ts c051d3daef80dc0fb62c599eb6068cfdf71ddeb4d674b5679519e105d8ccd4d1
@@ -373,15 +385,14 @@
 // input: apps/api/src/routes/other/business-card-routes.ts f5ca6f0e5570d01cc12f5015f1556bdd7d9639147c7fd929003fd1e874d56cf2
 // input: apps/api/src/routes/other/developer-routes.ts 1dc47037e0d3de890a9d37646afb3de72a5ea9b533da77cd5cbee6be8578cddf
 // input: apps/api/src/routes/other/drama-routes.ts 12f983dc5a18e82e47f2ba10c6c4efe6a22cba362269538724c07a3c24ccecec
-// input: apps/api/src/routes/other/history-routes.ts 3c8a668604c3bda16e9f2792a27ceb6880ae65740dea522c3fdb883006dbccf7
-// input: apps/api/src/routes/other/image-gen-routes.ts d0c21b9cba556707dfec21224ef837292d2c21a719444687ba7ed3f75ad9b917
-// input: apps/api/src/routes/other/index.ts 6a9bfa59dbd656d850c1ea5c22b5ef78a2f1f288f592cfe9d0789a8b6527b8af
+// input: apps/api/src/routes/other/image-gen-routes.ts 58c649a383bf562ca03fe6b4d4095ab79b55e45182c3c3f48c5f68ad58390978
+// input: apps/api/src/routes/other/index.ts 364efe7679880dd907fbf3272c71402def54ccdab7c3f9b6cbacc7cdff95a4d1
 // input: apps/api/src/routes/other/knowledge-base-routes.ts 2bc3ef176b6be2c82da1b8c3cf2de6e85f1fe9dfaacd16cbf289316028eecdad
 // input: apps/api/src/routes/other/llm-stream-routes.ts 6c06486b6a56f331dfeda7a856eb93726d9b8b533d416db6589277991c9be1b7
-// input: apps/api/src/routes/other/member-routes.ts 1368b4f2f7f8b4916ce24833b6ba8584b5780c3d4f69a204e773054fa5bf657a
+// input: apps/api/src/routes/other/member-routes.ts 4e04d7beaf6a5b7cc67d185d1e7d2d9aa9e5395bba033fe0883c0bde4c3a28a2
 // input: apps/api/src/routes/other/message-routes.ts 34bca5c77a5686d55e4844526885be322862a5e28b937cbcfc2ce2329d58255f
 // input: apps/api/src/routes/other/notes-routes.ts 77844449e064a9ad2ee2ec76db7ae54624e8c7095daf78b73ce89765d253f9c3
-// input: apps/api/src/routes/other/notification-routes.ts cf56640774f316f1ff790aec927748a6302d316e181a49b373f9f24963d17255
+// input: apps/api/src/routes/other/notification-routes.ts 7e61b61ad2643db5e888274723a9685ee7b50e354f492906bd31233a782564c4
 // input: apps/api/src/routes/other/oss-resource-routes.ts efc41dcd19016ebe6e8f211b8cfea87ea469094a973c68ffa029ae4b53fd9e57
 // input: apps/api/src/routes/other/pdf-routes.ts b133f4c9e9f076f23394d4ccd4c6709259db1522db922164c6be6757c131e6b7
 // input: apps/api/src/routes/other/recruitment-routes.ts 0c7aaf22e14e1ef5d6b6c921d219cc022a4b7808889c75c72ec844fbe70c9d6d
@@ -404,7 +415,7 @@
 // input: apps/api/src/routes/plaza.ts 457ec3380cb595b716542ddddac40598bfce51a9d49da5d10c433b9944b0467f
 // input: apps/api/src/routes/plugins.ts f5b7414d7ee2529d80395b6180e7e8ddc8e44bd890ccd2fbb65c0fe139237efb
 // input: apps/api/src/routes/point.ts b73a705db1e028f745ef72da95152a9366c6002862b38b7e66684218964bdf95
-// input: apps/api/src/routes/points-mall-user.ts 1adff81ccf02ea66b260bdf82d48d4bdd5af1ee2ac8ffc60bead5a8801e274ad
+// input: apps/api/src/routes/points-mall-user.ts 9b4581f26e41cbc64fc3da19ae75074b78da35433e3c6dd3b4e2fac64a0fd244
 // input: apps/api/src/routes/points-tasks.ts 3d03cce27ac0a2066ac734fb6852f161f286eeefc653e69fc2fd5b297c86e6f2
 // input: apps/api/src/routes/pricing-rules.ts 6de6cc69b9afb9015096989cb25d72048ab2322f9c0a5b929127862403eac942
 // input: apps/api/src/routes/pricing.ts 171479017bc4444b6b1d32461519c92eb9393f5f92e383b455ff28f43efe2c2b
@@ -412,19 +423,19 @@
 // input: apps/api/src/routes/product-identity.ts df0bd59674cd557443766df0e26d4d78e3a41bcaf7832f11aa6e6be0afaed679
 // input: apps/api/src/routes/promotions.ts a83fd35d5d07a225f46bdef480cc5db4096bef98216a063b8263eacacbdbd58d
 // input: apps/api/src/routes/public-socket.ts 0c8ccd3669f4a47568e141f6c832e76ea0bf5cc3f62b1ba4b76db3401da88135
-// input: apps/api/src/routes/public-status.ts 9c44e73c085b228a8b4e6a2acf6baa144e081173c26805ce946a658a6e7c2674
+// input: apps/api/src/routes/public-status.ts 6195633f2e6d9da156d7043f0d6326198acb79716ceb6ff1c1ca08159e6154e4
 // input: apps/api/src/routes/publish-analytics.ts 5cfcbc7b7adfa3f81a37a14d129cd235e04221f5527b3aaa5d5784e522bcf68c
-// input: apps/api/src/routes/publish-routes.ts 1d918fedd531470a08e346cf2fbb5c11253f8039afcf04f909c65e2a89c01144
-// input: apps/api/src/routes/push.ts bbe1cd02feda86a719b31f649a9e8337f94a3f7c098720c3282d7a0e5004bbf3
+// input: apps/api/src/routes/publish-routes.ts 67b928455175f74540a6b8bc8c371c736487f841e0ce8a668644bd75b0c33e9c
+// input: apps/api/src/routes/push.ts 2316acd6bf00d6b28668f3c237246c22bac8bc541fa8e6d433ae0c2b44a45f53
 // input: apps/api/src/routes/ranking.ts 8a532280d1a2593643f697d73b1f48d4459636c9dc292a2935649734d78d7902
 // input: apps/api/src/routes/rbac.ts 0865fd5262291fb4acb40b2e7586e94e8ae97bb7726081007de5375fe8a8e866
 // input: apps/api/src/routes/reasoning-translation.ts 2af6cabdbe0f59d68009550e395f33c6e631b4cc6f95910a2b1833740985f23e
 // input: apps/api/src/routes/refund-audit.ts bd90d040e2045f4c8adcbc7edaeb65db5b19faa0af9458d9ba2297fe09c3abab
 // input: apps/api/src/routes/registry-sync.ts fdd0f83463c86e52bdfd2b80866ac57bb84e91051490028b13ba2ef61c1fb8db
-// input: apps/api/src/routes/relay-conversations.ts fe36632cb8f08d1b86ae2534752f378cc1568058bb02a8c4e5c5d34dd46178af
+// input: apps/api/src/routes/relay-conversations.ts 9da8e2704fd8386d6ef8cc5148e8d0603d56b3fb61bdab3e83981fe5004e9f0b
 // input: apps/api/src/routes/relay-enterprise.ts 3fe671d7572926f4ee55d2557b416352241d4cb67fc793e508e5c642fef42f61
-// input: apps/api/src/routes/relay-monitor-public.ts e1b28860035b5d25d7394b20017f5081665862749ae1ccc1ec24424df61193fc
-// input: apps/api/src/routes/relay-public.ts e8c37d7464830f04ee0151439029560d5d64ffe3ef2fe45493e86b4e16373e9f
+// input: apps/api/src/routes/relay-monitor-public.ts 067bb2301460d074b9a86e7a14e38d6457fcf7459867ba18d1ab3e09ec37dde7
+// input: apps/api/src/routes/relay-public.ts 58f38581f2d6599944b6b57819aed62c665b3388a71bd0160a2ac75191a33085
 // input: apps/api/src/routes/remote-device.ts 4f7d5f2e47444c593038ff3466eec5c97128899138d1beafe9cc4aaff1a8c607
 // input: apps/api/src/routes/remote-extended.ts ae2c0bf465f116d7762d503be18fea454363bc5734951a32028feeabae6e8670
 // input: apps/api/src/routes/repo-wiki.ts 8dcc1c0c3c61563c741f4a79136a24387f0972a1757ab00bf6b4f09e9ccfba80
@@ -451,8 +462,8 @@
 // input: apps/api/src/routes/spec.ts 7c6c411ab26c525298b06afb56e73fa62ccc318bdd44840e00912988f601434e
 // input: apps/api/src/routes/srs-review.ts ba5adb3eaf13c876779775a2d63b6e7d77e6273faf2090da58e17abe10e53519
 // input: apps/api/src/routes/srs.ts fee6af96fdfd153ada0d848ec08aca6a8f2952938bb3238f8b2f2e163786afa3
-// input: apps/api/src/routes/statistics.ts fc16141e7d9af1178e724df39962dc41461dcedf746775e27c1e848395cba246
-// input: apps/api/src/routes/stock.ts 8b811984203763a27f5af4a9a50bcef6d4d2f157aecb671bdbf678a2383d14c5
+// input: apps/api/src/routes/statistics.ts 2cb525f4328842c7ad0a78103acd8596b37265436df92fbf48712d2f7aef81f5
+// input: apps/api/src/routes/stock.ts d52730924323b015adb0c71a56fe766e26d244e8ab454846f5903b32b5be84a9
 // input: apps/api/src/routes/subagent-dispatch.ts 0d0a2c8e166fb797c182ebe091facd5b5754ff3e0eb512bba58104b32d59ac6e
 // input: apps/api/src/routes/subagents-extended-routes.ts 6f38fc84f407a6d90ad6546ae2db8a5fba5971f7d7c446b1d7be3e07281f105a
 // input: apps/api/src/routes/super-agent-webhook.ts ee4c6ec935eb6fec20141b3d1210d2c4f7f119660b6c3c09bc4dc6994256dd36
@@ -463,13 +474,14 @@
 // input: apps/api/src/routes/tasks.ts a436cbc9873265abb486929b25c1e57dcd7d14b2d058842f879a2eebfb663a93
 // input: apps/api/src/routes/tbox-points.ts 2b02b36018499aa7f3bd6145d6148249b58d2073bc4165b281c31a0ba34fb96f
 // input: apps/api/src/routes/tbox.ts 76f6429274b7475c839d930c2459a91288f62e53ef8034d987d4b3b09953d0a9
-// input: apps/api/src/routes/teacher.ts 69d689b916e6afa9ebc39431b1fccf4346de689a34d85fade40baafcdf5431a4
+// input: apps/api/src/routes/teacher.ts 3a76d62fb2e9e1f3376f103d5c261dc306f2110123ebee8c865f8c3cd3265128
 // input: apps/api/src/routes/team-memory.ts 0e45149616d719f8122c0806ab6526545058ec3921e53288d1a423ed9440caef
 // input: apps/api/src/routes/teams.ts bbb322dd3cf2e53a6e761cdedc69437274664e0873e6e644448c9dd8b59022f3
 // input: apps/api/src/routes/telemetry.ts 9344d8a70a453ab29991e2927e7549424314e70b348020be199d61ab36a61792
-// input: apps/api/src/routes/tenant.ts 924cafe1f086b2ef672a210ed40c1a7482a8f3824417f96f224ef1177dd577f9
+// input: apps/api/src/routes/tenant-platform-apps.ts 885795750f39dd03d4d2996778ffa74293e07a0bedc741de3f5f7d71ebc3b808
+// input: apps/api/src/routes/tenant.ts 73073c399c3eae5a23014beb3db66a8ff66ca4ea84e82ffd575bef6c86b8e058
 // input: apps/api/src/routes/tencent-hunyuan-3d.ts af7843dd4ea486941740ee078c44feb4b1bf3a6e74331d90326a1cdb77f10d48
-// input: apps/api/src/routes/terminal.ts a5e1bddecdaa20b1a2825c8c30b253be4c24a176c8a47a2ed970a8276c1c63fe
+// input: apps/api/src/routes/terminal.ts 2b7514133269a7a1eeffe2e5409c3695acc27a47fb445698a05f0cf0205ecee6
 // input: apps/api/src/routes/tools.ts 07fda86da14b92eac33d0e4770da4df4f8a12232eb9605e5f73d51440f40edac
 // input: apps/api/src/routes/topic.ts c42ee513cddaba60740736bc62aeba24747bbdff3a1c33bf0af61893b647c2f5
 // input: apps/api/src/routes/trader-stats.ts 7b8fc59702deb5e3c386882d6537a9269c851c9f4699b09814d3475f6c6722d6
@@ -481,11 +493,11 @@
 // input: apps/api/src/routes/user-llm-configs-v2.ts 88df2043b9b02ee66c51b3db5332ea84be6f023c9fe58a057d5c265f087e828d
 // input: apps/api/src/routes/user-llm-configs.ts 18c0909e721508e7dd7e0192b30357d67729b087cf33e52a68d23bef18fd1d86
 // input: apps/api/src/routes/user-security-routes.ts 8c688fc16358a705d6865353c3a1f69dd57bcca7d3f6088782e4dde17ee315b0
-// input: apps/api/src/routes/user.ts 8ed25aba6ca5ce03d6aa21881cf9d5f2e76bc117d250fcaa22342d22da11b0c6
+// input: apps/api/src/routes/user.ts 6a5e4e16c7810b29496750460f787e445ce1291942b5115240eb590809f65a7c
 // input: apps/api/src/routes/user/ai-capabilities-routes.ts c5948704b7e558509cc5967b667267b44f9f3f7a7d084ae84bd0818e8cd5353d
 // input: apps/api/src/routes/user/ai-feed-routes.ts b2fcffc7c04044bd54a962d7ab5e40b15545d373ea5f40727af4a3a22e030616
 // input: apps/api/src/routes/user/ai-models-routes.ts 43cf36fa99f3a2b57d7e0879b0a42a9b8813d2cd3d9e0dc38f19fabf0a38a0ac
-// input: apps/api/src/routes/user/ai-modules-routes.ts 10183f03ea1ed1341d93452b8d9b72b6968c94bfde7f07872ca6e847b8ed27bf
+// input: apps/api/src/routes/user/ai-modules-routes.ts 1a9dd5af484229dd10c4548138c17953f6079b0eca13ee75b4495f2e7a9a884f
 // input: apps/api/src/routes/user/ai-users-routes.ts a010e0659397a508d68b4d47d7385cf2ceb5bb6394d101c0f6cbe27f2f09bd00
 // input: apps/api/src/routes/user/aigc-routes.ts 4be95e0469b1a7b70e5b5ca8e8c72f4c440ec16391d499fd007f8d0fbb965aeb
 // input: apps/api/src/routes/user/articles-routes.ts 43e74d4c4eab21e9cdaaf64ffbf4365546ed3fb062c178466b47df1a6668594d
@@ -509,33 +521,37 @@
 // input: apps/api/src/routes/user/withdrawal-routes.ts 414d3db919873c478e058a0adaec476dae7bd7256abb19cbdf9c61d4ffb7eb23
 // input: apps/api/src/routes/usercenter.ts f7178928305d39c09bcd65cfcb7e3cd8f97974cbf2c258357c48a4b71656f728
 // input: apps/api/src/routes/users.ts 7c818ffd814cdc32f672d7d8540b4d318525a9c9a9d815b9c92214fb912134a8
-// input: apps/api/src/routes/v1-ai-core.ts 405bfa40a1ae50d15241e707dfdbea970aca552c23d28670e763ba76d0040520
+// input: apps/api/src/routes/v1-ai-core.ts e86601f63f07ae07762f11bf59699dc86f9d386dd1f468d72cde186bc1a80dc1
 // input: apps/api/src/routes/v1-apply-diff.ts 5ed140ae07c604412ae4357a36d1da75c0924a54fa582416db71e66a777e6589
 // input: apps/api/src/routes/v1-assistants.ts b27bda1b02c6d186dba0dc1dcc235fd7ee62058481e5d271411be6021120f367
 // input: apps/api/src/routes/v1-batches.ts ec4227ae914e5d71814d122f27eedac1c724bff42f22e3e73838f064d2064006
-// input: apps/api/src/routes/v1-codebase-search.ts 8c848a8e9481bd0feb7bb30346cbac065f5738e51a368346d6c5f234fc12d4c9
-// input: apps/api/src/routes/v1-gemini.ts cabc483b23b7747ba396e765eead6d7695796d47a3411cfe78e46747f5000c27
+// input: apps/api/src/routes/v1-codebase-search.ts 75da434039540431969fe072702866accc67fd935f377a94a7c0ed718894ded8
+// input: apps/api/src/routes/v1-gemini.ts 5f2c2b15f28aec9d693daf75599ea7f7ce1b333a320247b27fcb9f835d86d0a9
 // input: apps/api/src/routes/v1-knowledge-tools.ts 68272d5454cb3987d70bdfbd42543a9afc628a8ddf252b98da5a3c4728662585
-// input: apps/api/src/routes/v1-mcp-gateway.ts 07234b361862bd761d43a917828d7a983193416bda41a365b53040bb9b1faea1
+// input: apps/api/src/routes/v1-mcp-gateway.ts d676993739cad4328607a415ff59702f420060cdba4f77b8001e40da9e8d6cd3
 // input: apps/api/src/routes/v1-messages.ts d58dab76dc37d0ab978f1efd3310c31342239520ce8974d9cea916fc0d42be28
 // input: apps/api/src/routes/v1-midjourney.ts de3544809ff0b3303e8a3057dc3ba8210e806f1fd7f51be251d8caa5beb7e398
-// input: apps/api/src/routes/v1-multimodal.ts b2bf80528be37f9d495b1947ba8c82ca07b72d868e9280cf5322dc124cb97aee
+// input: apps/api/src/routes/v1-multimodal.ts 7b60ddb271014b45dcd4a89bb963d22e3641da977a3486596e7b30a94ed0ac7c
 // input: apps/api/src/routes/v1-protocol-completeness.ts ab481fcaf7b6923e47840f766dc56e3b73caf9bfb5a95fefcaf5e079fb87d78a
-// input: apps/api/src/routes/v1-public.ts d4aea3833c754f27cc1c286903081ded2218a4b957d2726efe783959f7959ea8
+// input: apps/api/src/routes/v1-public.ts c0dfdfaca9cdefda4b0f1427315d2b5c3520c7fbcf4df3d377ca68c7b6fbabeb
 // input: apps/api/src/routes/v1-realtime.ts 244f7b8b1dd833dc45edb73e3df15fc99b0fd42ff33c7b8e1a02507a570d5738
 // input: apps/api/src/routes/v1-rerank-moderations.ts 6f3c8f04aaeea9d983d5473d05057778584666b0b9ede91cd7838206b891942d
 // input: apps/api/src/routes/v1-responses.ts 872299cc0a550c3471cd86822fcf5539b27a79a7580765de5a3ba95d3609fde1
 // input: apps/api/src/routes/vip.ts 9c3376f78c5aeadfd9e11cd3af12b71948ea43504128a878d8d779665882c9cb
 // input: apps/api/src/routes/visit-tracking.ts 1f117c7b0fa7a41d1e211f27e6aab70e7bf6cd866aa92b0c0e4755cad7c2963b
 // input: apps/api/src/routes/voice-notes.ts bb77f9699c589f1c4872377e5d5e2c2e2864681696a6b8dbe359dc648238693c
-// input: apps/api/src/routes/wallet.ts e9b9848c3e3c164221259234778fc8c6e98a7f6e1925251c2c606b986d13dba6
+// input: apps/api/src/routes/wallet.ts 7cc01f19dcfe8a60084128d2f484ed06c7b5dd8d2b48c58f9a0ce1b73f83f32f
 // input: apps/api/src/routes/webhooks-trigger.ts 3f5aa09d6914cadb4e00dbfbe39ccc74271bd9fa4ab720b1366b25a4aa9ddfb8
 // input: apps/api/src/routes/webhooks.ts ef68432e284a8015ffb58caef782fe4d916cb716a9ddfb74158d508e47a26063
 // input: apps/api/src/routes/webrtc-voice.ts 0ebb2d4598015cca4a622445d65c36324e10037bfe9ada2a481d2680cdcb8cf7
+// input: apps/api/src/routes/wechat-hub-automation.ts f2392f5cdc703df08d9587c36f80d8bde44d9aa10132801752f7884ab21fe827
+// input: apps/api/src/routes/wechat-hub-knowledge.ts e421c9c4c488f38b5e54d128461e9116177333ee332ed7533a20591dfdb3e676
+// input: apps/api/src/routes/wechat-hub-operations.ts b0267eab78c454491c8b666d444b822a580fc33fbcb4412316aba1e2655d1e0e
+// input: apps/api/src/routes/wechat-hub.ts fd42dcab5e9dd08f670aa65f93774b93fb4f5f859fd0624a81544266489a7f39
 // input: apps/api/src/routes/workbook.ts 862f58a45acfbfa77aa7797eab1f400f7383970a6536c0de5da3152cbb83fdcd
 // input: apps/api/src/routes/workflow-todo.ts e4d577391942c9823503765372fe1ac8b7bcf3b24cb6437eda2119cab775539e
 // input: apps/api/src/routes/workflows.ts 318798d73ee1c56ae145dbce4a4f35bc730bb957ad527d3d55f1669a9713b8a8
-// input: apps/api/src/routes/workspace-ai.ts 0e6cd91e1e6cf0e51c026f619cc273c4c5f2570c64c0b7f26eb03bdb79b28a04
+// input: apps/api/src/routes/workspace-ai.ts bba2ebb3766dd7ce73cdae587b48673e80f500ecb7ad40cb4fdfbfd303d0bcc5
 // input: apps/api/src/routes/workspace-attribution.ts bd51c5c306c2f6a32409b5e0a8b6537bce1e6ce4319c4de36de35fdb822a9531
 // input: apps/api/src/routes/workspace-permissions.ts 7c1cc269d738035a02bc178dbfc7f3977c69805a314918dcbe49eb84e79ee5fa
 // input: apps/api/src/routes/workspace.ts 1fe876332c86e27f1f1c93f735bc93e176d8d2d48c2942831763113c4fa89123
@@ -543,10 +559,10 @@
 // input: apps/api/src/routes/ws/live-chat.ts b62d43a236f572dc42dd7fe46ca94a766b4f7f01db63b0d03e1ffe6c1e118112
 // input: apps/api/src/routes/zhs-legacy.ts f980c89ead7bcc839a3ebb0ed3fcfcc93c455b0c53242b08b22ab3ef4541aaae
 // input: apps/api/src/routes/zhs-organization.ts e59e6576a310c14c2a917b15e81a418b2d1510edd45c8339b1907b6ad8dd6738
-// input: packages/design-tokens/src/index.ts 74cd658ce6f667a5877e9da21fd52fa299d6de9d937788b6fb7f52d05c99754e
-// files: 534
-// endpoints: 5633
-// generatedAt: 2026-11-20T13:59:32.137Z
+// input: packages/design-tokens/src/index.ts 9994da0906704666b2858e0a974ee723c3cb59b65af14051fdabc0b4d6840a33
+// files: 550
+// endpoints: 5918
+// generatedAt: 2026-11-26T12:52:56.198Z
 // IHUI-GEN-PIN-END
 export const API_ENDPOINTS_RAW = `GET	/.well-known/apple-app-site-association	.well-known	apps/api/src/routes/apple-app-site-association.ts	exact
 GET	/.well-known/oauth-authorization-server	.well-known	apps/api/src/routes/oauth-authorization-server.ts	exact
@@ -599,9 +615,6 @@ POST	/admin/relay/dsml/parse	admin	apps/api/src/routes/admin/relay-dsml-parse.ts
 GET	/admin/relay/models/unavailable	admin	apps/api/src/routes/admin/relay-model-availability.ts	inferred
 POST	/admin/relay/pat-onboarding	admin	apps/api/src/routes/admin/relay-signing-admin.ts	inferred
 GET	/admin/relay/signature-protocols	admin	apps/api/src/routes/admin/relay-signing-admin.ts	inferred
-GET	/admin/relay/switch-targets	admin	apps/api/src/routes/admin/relay-switch-admin.ts	inferred
-POST	/admin/relay/switch-targets/:id/capture	admin	apps/api/src/routes/admin/relay-switch-admin.ts	inferred
-POST	/admin/relay/switch-targets/:id/switch	admin	apps/api/src/routes/admin/relay-switch-admin.ts	inferred
 GET	/admin/relay/upstream-capability-matrix	admin	apps/api/src/routes/admin/relay-signing-admin.ts	inferred
 POST	/admin/relay/welfare/plan	admin	apps/api/src/routes/admin/relay-welfare-claim.ts	inferred
 GET	/admin/relay/welfare/status	admin	apps/api/src/routes/admin/relay-welfare-claim.ts	inferred
@@ -737,9 +750,14 @@ GET	/api/admin/ai-pricing/audits	admin	apps/api/src/routes/admin.ts	exact
 POST	/api/admin/ai-pricing/backfill-call-cost	admin	apps/api/src/routes/admin.ts	exact
 POST	/api/admin/ai-pricing/backfill-cost	admin	apps/api/src/routes/admin.ts	exact
 GET	/api/admin/ai-pricing/channel-cost	admin	apps/api/src/routes/admin.ts	exact
+GET	/api/admin/ai-pricing/list	admin	apps/api/src/routes/admin.ts	exact
+GET	/api/admin/ai-pricing/missing-costs	admin	apps/api/src/routes/admin.ts	exact
+POST	/api/admin/ai-pricing/missing-costs/quarantine	admin	apps/api/src/routes/admin.ts	exact
 GET	/api/admin/ai-pricing/models	admin	apps/api/src/routes/admin.ts	exact
 PATCH	/api/admin/ai-pricing/models/:id	admin	apps/api/src/routes/admin.ts	exact
 GET	/api/admin/ai-pricing/overview	admin	apps/api/src/routes/admin.ts	exact
+GET	/api/admin/ai-pricing/point-holds	admin	apps/api/src/routes/admin.ts	exact
+POST	/api/admin/ai-pricing/point-holds/cleanup	admin	apps/api/src/routes/admin.ts	exact
 GET	/api/admin/ai-pricing/profit	admin	apps/api/src/routes/admin.ts	exact
 POST	/api/admin/ai-pricing/reprice-placeholders	admin	apps/api/src/routes/admin.ts	exact
 POST	/api/admin/ai-pricing/sweep	admin	apps/api/src/routes/admin.ts	exact
@@ -2367,6 +2385,7 @@ GET	/api/admin/visit-tracking/visits	admin	apps/api/src/routes/statistics.ts	exa
 POST	/api/admin/wallet/adjust	admin	apps/api/src/routes/wallet.ts	exact
 GET	/api/admin/wallet/balance	admin	apps/api/src/routes/wallet.ts	exact
 GET	/api/admin/wallet/bank-cards	admin	apps/api/src/routes/wallet.ts	exact
+POST	/api/admin/wallet/convert-to-points	admin	apps/api/src/routes/wallet.ts	exact
 GET	/api/admin/wallet/flows	admin	apps/api/src/routes/wallet.ts	exact
 POST	/api/admin/wallet/recharge	admin	apps/api/src/routes/wallet.ts	exact
 GET	/api/admin/wallet/recharge/records	admin	apps/api/src/routes/wallet.ts	exact
@@ -2766,6 +2785,11 @@ POST	/api/ai/getimg/generate	ai	apps/api/src/routes/ai-vendors/proxy-extended-me
 POST	/api/ai/gladia/transcribe	ai	apps/api/src/routes/ai-vendors/proxy-extended-media5.ts	exact
 POST	/api/ai/google/veo3	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
 GET	/api/ai/history	ai	apps/api/src/routes/ai-user-model-chat.ts	exact
+PATCH	/api/ai/history/:id/pinned	ai	apps/api/src/routes/ai-user-model-chat.ts	exact
+PATCH	/api/ai/history/:id/title	ai	apps/api/src/routes/ai-user-model-chat.ts	exact
+POST	/api/ai/history/batch-archive	ai	apps/api/src/routes/ai-user-model-chat.ts	exact
+POST	/api/ai/history/batch-delete	ai	apps/api/src/routes/ai-user-model-chat.ts	exact
+POST	/api/ai/history/batch-folder	ai	apps/api/src/routes/ai-user-model-chat.ts	exact
 POST	/api/ai/hume/tts	ai	apps/api/src/routes/ai-vendors/proxy-extended-media5.ts	exact
 GET	/api/ai/hume/voices	ai	apps/api/src/routes/ai-vendors/proxy-extended-media5.ts	exact
 POST	/api/ai/hunyuan/3d/submit	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
@@ -2800,6 +2824,7 @@ POST	/api/ai/mcp/servers	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
 DELETE	/api/ai/mcp/servers/:id	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
 POST	/api/ai/mcp/servers/:id/:id	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
 GET	/api/ai/mcp/servers/:id/tools	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
+GET	/api/ai/mcp/tools	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
 POST	/api/ai/mcp/tools/call	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
 GET	/api/ai/mcp/usage	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
 POST	/api/ai/minimax/music	ai	apps/api/src/routes/ai-vendors/proxy-extended-media.ts	exact
@@ -3065,6 +3090,7 @@ POST	/api/articles	articles	apps/api/src/routes/content.ts	exact
 DELETE	/api/articles/:id	articles	apps/api/src/routes/content.ts	exact
 GET	/api/articles/:id	articles	apps/api/src/routes/articles.ts	exact
 PUT	/api/articles/:id	articles	apps/api/src/routes/content.ts	exact
+GET	/api/articles/rss.xml	articles	apps/api/src/routes/articles.ts	exact
 GET	/api/artifacts	artifacts	apps/api/src/routes/artifacts.ts	exact
 GET	/api/artifacts/:id/download	artifacts	apps/api/src/routes/artifacts.ts	exact
 GET	/api/asks	asks	apps/api/src/routes/community/asks.ts	exact
@@ -3204,6 +3230,7 @@ GET	/api/auth/sso/logout	auth	apps/api/src/routes/auth-extended.ts	exact
 POST	/api/auth/sso/logout	auth	apps/api/src/routes/auth-sso.ts	exact
 POST	/api/auth/sso/refresh	auth	apps/api/src/routes/auth-sso.ts	exact
 GET	/api/auth/sso/validate	auth	apps/api/src/routes/auth-sso.ts	exact
+GET	/api/auth/tenant-providers	auth	apps/api/src/routes/auth-extended.ts	exact
 DELETE	/api/auth/user-sk/:skId	auth	apps/api/src/routes/auth-extended.ts	exact
 PUT	/api/auth/user-sk/:skId	auth	apps/api/src/routes/auth-extended.ts	exact
 POST	/api/auth/user-sk/create	auth	apps/api/src/routes/auth-extended.ts	exact
@@ -3245,11 +3272,14 @@ DELETE	/api/behavior/watch/all	behavior	apps/api/src/routes/behavior.ts	exact
 GET	/api/behavior/watch/count	behavior	apps/api/src/routes/behavior.ts	exact
 GET	/api/behavior/watch/list	behavior	apps/api/src/routes/behavior.ts	exact
 GET	/api/billings	billings	apps/api/src/routes/agents.ts	exact
-DELETE	/api/browse-history	browse-history	apps/api/src/routes/other/history-routes.ts	exact
-GET	/api/browse-history	browse-history	apps/api/src/routes/other/history-routes.ts	exact
-POST	/api/browse-history/visit	browse-history	apps/api/src/routes/other/history-routes.ts	exact
+DELETE	/browse-history	browse-history	apps/api/src/routes/other/history-routes.ts	inferred
+GET	/browse-history	browse-history	apps/api/src/routes/other/history-routes.ts	inferred
+POST	/browse-history/visit	browse-history	apps/api/src/routes/other/history-routes.ts	inferred
 POST	/api/browser/probe	browser	apps/api/src/routes/browser.ts	exact
 POST	/api/browser/screenshot	browser	apps/api/src/routes/browser.ts	exact
+GET	/api/browser/task-templates	browser	apps/api/src/routes/browser.ts	exact
+POST	/api/browser/task-templates	browser	apps/api/src/routes/browser.ts	exact
+DELETE	/api/browser/task-templates/:templateId	browser	apps/api/src/routes/browser.ts	exact
 DELETE	/api/business-card/:id	business-card	apps/api/src/routes/other/business-card-routes.ts	exact
 GET	/api/business-card/:id	business-card	apps/api/src/routes/other/business-card-routes.ts	exact
 POST	/api/business-card/:id	business-card	apps/api/src/routes/other/business-card-routes.ts	exact
@@ -3262,6 +3292,7 @@ GET	/api/business-card/list	business-card	apps/api/src/routes/other/business-car
 GET	/api/business-card/mine	business-card	apps/api/src/routes/other/business-card-routes.ts	exact
 GET	/api/business-card/stats	business-card	apps/api/src/routes/other/business-card-routes.ts	exact
 GET	/api/cache/agent-category-dict/categories	cache	apps/api/src/routes/agent-category-dict.ts	exact
+GET	/api/callback/connectors/oauth	callback	apps/api/src/routes/connector-oauth-callback-proxy.ts	exact
 DELETE	/api/callback-log/:id	callback-log	apps/api/src/routes/callback-log.ts	exact
 GET	/api/callback-log/:id	callback-log	apps/api/src/routes/callback-log.ts	exact
 POST	/api/callback-log/call	callback-log	apps/api/src/routes/callback-log.ts	exact
@@ -3809,9 +3840,19 @@ GET	/api/devices/claim	devices	apps/api/src/routes/devices.ts	exact
 POST	/api/devices/heartbeat	devices	apps/api/src/routes/devices.ts	exact
 POST	/api/devices/pair-code	devices	apps/api/src/routes/devices.ts	exact
 POST	/api/devices/pair-exchange	devices	apps/api/src/routes/devices.ts	exact
+POST	/api/devices/self-token	devices	apps/api/src/routes/devices.ts	exact
+GET	/api/devices/tasks/:id	devices	apps/api/src/routes/devices.ts	exact
+GET	/api/devices/tasks/:id/approval	devices	apps/api/src/routes/devices.ts	exact
+POST	/api/devices/tasks/:id/approval	devices	apps/api/src/routes/devices.ts	exact
+POST	/api/devices/tasks/:id/approval/decision	devices	apps/api/src/routes/devices.ts	exact
+POST	/api/devices/tasks/:id/attach	devices	apps/api/src/routes/devices.ts	exact
+POST	/api/devices/tasks/:id/cancel	devices	apps/api/src/routes/devices.ts	exact
 POST	/api/devices/tasks/:id/complete	devices	apps/api/src/routes/devices.ts	exact
 POST	/api/devices/tasks/:id/fail	devices	apps/api/src/routes/devices.ts	exact
+POST	/api/devices/tasks/:id/lease	devices	apps/api/src/routes/devices.ts	exact
 POST	/api/devices/tasks/:id/progress	devices	apps/api/src/routes/devices.ts	exact
+POST	/api/devices/tasks/:id/retry	devices	apps/api/src/routes/devices.ts	exact
+POST	/api/devices/tasks/:id/stream	devices	apps/api/src/routes/devices.ts	exact
 DELETE	/api/devices/token	devices	apps/api/src/routes/devices.ts	exact
 PUT	/api/devices/token	devices	apps/api/src/routes/devices.ts	exact
 GET	/api/distribution/commission-rates	distribution	apps/api/src/routes/distribution.ts	exact
@@ -4161,9 +4202,6 @@ GET	/api/education-platform/sync/log	education-platform	apps/api/src/routes/educ
 GET	/api/embed-proxy/raw	embed-proxy	apps/api/src/routes/embed-proxy.ts	exact
 POST	/api/embed-proxy/raw	embed-proxy	apps/api/src/routes/embed-proxy.ts	exact
 POST	/v1/embeddings	embeddings	apps/api/src/routes/v1-ai-core.ts	exact
-GET	/employees	employees	apps/api/src/routes/hr-salary-config.ts	inferred
-POST	/employees	employees	apps/api/src/routes/hr-salary-config.ts	inferred
-DELETE	/employees/:id	employees	apps/api/src/routes/hr-salary-config.ts	inferred
 POST	/api/engine/rpc	engine	apps/api/src/routes/engine-control-frames.ts	exact
 POST	/api/engine/voice/sessions	engine	apps/api/src/routes/engine-voice.ts	exact
 DELETE	/api/engine/voice/sessions/:sid	engine	apps/api/src/routes/engine-voice.ts	exact
@@ -4300,6 +4338,103 @@ GET	/v1/files/:id/versions	files	apps/api/src/routes/v1-knowledge-tools.ts	exact
 POST	/v1/files/complete	files	apps/api/src/routes/v1-knowledge-tools.ts	exact
 POST	/v1/files/upload-chunk	files	apps/api/src/routes/v1-knowledge-tools.ts	exact
 POST	/v1/files/upload-init	files	apps/api/src/routes/v1-knowledge-tools.ts	exact
+GET	/api/fin-accounting/assets/:assetId	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+PATCH	/api/fin-accounting/assets/:assetId	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/assets/:assetId/dispose	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/bulk/close-period	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/clients	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/clients	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/clients/:id	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+PATCH	/api/fin-accounting/clients/:id	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/clients/:id/archive	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/clients/:id/bind-ledger	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+POST	/api/fin-accounting/clients/:id/filing-calendar	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+GET	/api/fin-accounting/clients/:id/tax-profiles	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+POST	/api/fin-accounting/clients/:id/tax-profiles	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+POST	/api/fin-accounting/filing-calendar/backfill	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+GET	/api/fin-accounting/filing-tasks	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+PATCH	/api/fin-accounting/filing-tasks/:id	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+POST	/api/fin-accounting/filing-tasks/:id/derive	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+POST	/api/fin-accounting/filing-tasks/:id/mark-zero	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+POST	/api/fin-accounting/filing-tasks/bulk-derive	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+POST	/api/fin-accounting/filing-tasks/bulk-mark-zero	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+GET	/api/fin-accounting/filing/deadlines	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+POST	/api/fin-accounting/filing/deadlines/remind	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+GET	/api/fin-accounting/filing/returns	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+GET	/api/fin-accounting/filing/returns/:id	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+PATCH	/api/fin-accounting/filing/returns/:id	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+POST	/api/fin-accounting/filing/returns/:id/review	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+POST	/api/fin-accounting/filing/returns/:id/submit	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+POST	/api/fin-accounting/filing/returns/generate	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+GET	/api/fin-accounting/filing/returns/summary	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+GET	/api/fin-accounting/filing/summary	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+DELETE	/api/fin-accounting/invoices/:id	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/invoices/:id/link-voucher	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+PATCH	/api/fin-accounting/invoices/:id/status	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/invoices/:id/verify	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+PATCH	/api/fin-accounting/ledgers/:id	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/accounts	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers/:id/accounts	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+PATCH	/api/fin-accounting/ledgers/:id/accounts/:code	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/assets	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers/:id/assets	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers/:id/assets/depreciate	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/assets/depreciation-preview	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/assets/summary	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/aux-report	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/balance-sheet	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/bank-accounts	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers/:id/bank-accounts	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers/:id/bank-accounts/:accountId/statements/import	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/cash-flow	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers/:id/close	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/detail-ledger	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/general-ledger	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/income-statement	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/invoices	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers/:id/invoices	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers/:id/invoices/import	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/invoices/summary	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/journal	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/opening	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+PUT	/api/fin-accounting/ledgers/:id/opening	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/opening/summary	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/periods	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/reconcile	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers/:id/reopen	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/review-queue	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/review-summary	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/statements	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers/:id/statements/auto-match	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/trial-balance	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers/:id/trial-balance/refresh	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/vouchers	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers/:id/vouchers	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers/:id/vouchers/import	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers/:id/vouchers/post-batch	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/ledgers/:id/year-end	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/year-end/:year	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/ledgers/:id/year-ends	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/statements/:id/ignore	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/statements/:id/match	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/statements/:id/unmatch	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/statements/attach	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+PATCH	/api/fin-accounting/tax-profiles/:id	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+POST	/api/fin-accounting/tax-profiles/:id/deactivate	fin-accounting	apps/api/src/routes/fin-tax-routes.ts	exact
+DELETE	/api/fin-accounting/vouchers/:id	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/vouchers/:id	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+PATCH	/api/fin-accounting/vouchers/:id	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/vouchers/:id/approve-review	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+GET	/api/fin-accounting/vouchers/:id/attachments	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/vouchers/:id/attachments	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+DELETE	/api/fin-accounting/vouchers/:id/attachments/:attachmentId	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/vouchers/:id/post	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/vouchers/:id/reject-review	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/vouchers/:id/reverse	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
+POST	/api/fin-accounting/vouchers/:id/submit-review	fin-accounting	apps/api/src/routes/fin-accounting.ts	exact
 POST	/api/finance/agent-withdrawal/:id/approve	finance	apps/api/src/routes/finance-extended.ts	exact
 POST	/api/finance/agent-withdrawal/:id/reject	finance	apps/api/src/routes/finance-extended.ts	exact
 POST	/api/finance/agent-withdrawal/apply	finance	apps/api/src/routes/finance-extended.ts	exact
@@ -4432,15 +4567,47 @@ GET	/api/hr-attendance/employees	hr-attendance	apps/api/src/routes/hr-attendance
 POST	/api/hr-attendance/employees	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
 GET	/api/hr-attendance/leave	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
 POST	/api/hr-attendance/leave	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
+GET	/api/hr-attendance/leave/:id/approval	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
 PUT	/api/hr-attendance/leave/:id/approve	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
 GET	/api/hr-attendance/me	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
 POST	/api/hr-attendance/me/link-requests/:id/:action	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
+GET	/api/hr-attendance/my-leaves	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
+GET	/api/hr-attendance/my-monthly	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
+GET	/api/hr-attendance/my-records	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
 POST	/api/hr-attendance/sync/run	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
 GET	/api/hr-attendance/sync/status	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
+GET	/api/hr-comp/bonus-payments	hr-comp	apps/api/src/routes/hr-comp.ts	exact
+POST	/api/hr-comp/bonus-payments	hr-comp	apps/api/src/routes/hr-comp.ts	exact
+POST	/api/hr-comp/bonus/calc	hr-comp	apps/api/src/routes/hr-comp.ts	exact
+POST	/api/hr-comp/payroll/review	hr-comp	apps/api/src/routes/hr-comp.ts	exact
+GET	/api/hr-comp/payroll/review-trail	hr-comp	apps/api/src/routes/hr-comp.ts	exact
+POST	/api/hr-comp/payroll/submit	hr-comp	apps/api/src/routes/hr-comp.ts	exact
+GET	/api/hr-comp/severance-records	hr-comp	apps/api/src/routes/hr-comp.ts	exact
+POST	/api/hr-comp/severance-records	hr-comp	apps/api/src/routes/hr-comp.ts	exact
+POST	/api/hr-comp/severance/calc	hr-comp	apps/api/src/routes/hr-comp.ts	exact
 GET	/api/hr-daily/daily	hr-daily	apps/api/src/routes/hr-daily.ts	exact
 GET	/api/hr-daily/leave-balance	hr-daily	apps/api/src/routes/hr-daily.ts	exact
+GET	/api/hr-daily/punch-fix	hr-daily	apps/api/src/routes/hr-daily.ts	exact
 POST	/api/hr-daily/punch-fix	hr-daily	apps/api/src/routes/hr-daily.ts	exact
 PUT	/api/hr-daily/punch-fix/:id/approve	hr-daily	apps/api/src/routes/hr-daily.ts	exact
+GET	/api/hr-expense	hr-expense	apps/api/src/routes/hr-expense.ts	exact
+POST	/api/hr-expense	hr-expense	apps/api/src/routes/hr-expense.ts	exact
+GET	/api/hr-expense/:id	hr-expense	apps/api/src/routes/hr-expense.ts	exact
+POST	/api/hr-expense/:id/decide	hr-expense	apps/api/src/routes/hr-expense.ts	exact
+POST	/api/hr-expense/:id/link-voucher	hr-expense	apps/api/src/routes/hr-expense.ts	exact
+POST	/api/hr-expense/:id/pay	hr-expense	apps/api/src/routes/hr-expense.ts	exact
+POST	/api/hr-expense/:id/void	hr-expense	apps/api/src/routes/hr-expense.ts	exact
+GET	/api/hr-expense/my	hr-expense	apps/api/src/routes/hr-expense.ts	exact
+GET	/api/hr-expense/my/approvers	hr-expense	apps/api/src/routes/hr-expense.ts	exact
+POST	/api/hr-expense/my/submit	hr-expense	apps/api/src/routes/hr-expense.ts	exact
+POST	/api/hr-grade/current-bulk	hr-grade	apps/api/src/routes/hr-grade.ts	exact
+GET	/api/hr-grade/current/:employeeId	hr-grade	apps/api/src/routes/hr-grade.ts	exact
+GET	/api/hr-grade/distribution	hr-grade	apps/api/src/routes/hr-grade.ts	exact
+GET	/api/hr-grade/grades	hr-grade	apps/api/src/routes/hr-grade.ts	exact
+POST	/api/hr-grade/grades	hr-grade	apps/api/src/routes/hr-grade.ts	exact
+PATCH	/api/hr-grade/grades/:id	hr-grade	apps/api/src/routes/hr-grade.ts	exact
+POST	/api/hr-grade/grant	hr-grade	apps/api/src/routes/hr-grade.ts	exact
+GET	/api/hr-grade/history/:employeeId	hr-grade	apps/api/src/routes/hr-grade.ts	exact
 GET	/api/hr-import/batches	hr-import	apps/api/src/routes/hr-import.ts	exact
 POST	/api/hr-import/batches	hr-import	apps/api/src/routes/hr-import.ts	exact
 DELETE	/api/hr-import/batches/:id	hr-import	apps/api/src/routes/hr-import.ts	exact
@@ -4450,6 +4617,50 @@ POST	/api/hr-import/rows/:rowId/resolve	hr-import	apps/api/src/routes/hr-import.
 GET	/api/hr-jobs	hr-jobs	apps/api/src/routes/hr-jobs.ts	exact
 POST	/api/hr-jobs/:name/run	hr-jobs	apps/api/src/routes/hr-jobs.ts	exact
 GET	/api/hr-jobs/:name/runs	hr-jobs	apps/api/src/routes/hr-jobs.ts	exact
+GET	/api/hr-lifecycle/candidates	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/candidates	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/candidates/:id/advance	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/candidates/:id/hire	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/candidates/:id/interviews	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+GET	/api/hr-lifecycle/contracts	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/contracts	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/contracts/:id/expire	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/contracts/:id/renew	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/contracts/:id/sign	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/contracts/:id/terminate	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+GET	/api/hr-lifecycle/contracts/expiring	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+GET	/api/hr-lifecycle/contracts/summary	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+GET	/api/hr-lifecycle/interviews	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/interviews/:id/feedback	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+GET	/api/hr-lifecycle/openings	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/openings	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/openings/:id/status	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+GET	/api/hr-lifecycle/overview	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+GET	/api/hr-lifecycle/probation/due	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+GET	/api/hr-lifecycle/probation/reviews	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/probation/reviews	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+GET	/api/hr-lifecycle/recruitment/summary	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+GET	/api/hr-lifecycle/resignations	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/resignations	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/resignations/:id/approve	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/resignations/:id/cancel	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+GET	/api/hr-lifecycle/resignations/:id/certificate	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+POST	/api/hr-lifecycle/resignations/:id/settle	hr-lifecycle	apps/api/src/routes/hr-lifecycle.ts	exact
+GET	/api/hr-payout/bank-coverage	hr-payout	apps/api/src/routes/hr-payout.ts	exact
+GET	/api/hr-payout/batches	hr-payout	apps/api/src/routes/hr-payout.ts	exact
+POST	/api/hr-payout/batches	hr-payout	apps/api/src/routes/hr-payout.ts	exact
+POST	/api/hr-payout/batches/:id/export	hr-payout	apps/api/src/routes/hr-payout.ts	exact
+POST	/api/hr-payout/batches/:id/paid	hr-payout	apps/api/src/routes/hr-payout.ts	exact
+POST	/api/hr-payout/batches/:id/submit	hr-payout	apps/api/src/routes/hr-payout.ts	exact
+GET	/api/hr-payout/employees/:employeeId/bank	hr-payout	apps/api/src/routes/hr-payout.ts	exact
+PUT	/api/hr-payout/employees/:employeeId/bank	hr-payout	apps/api/src/routes/hr-payout.ts	exact
+GET	/api/hr-payout/my-payslips	hr-payout	apps/api/src/routes/hr-payout.ts	exact
+POST	/api/hr-payout/my-payslips/:id/acknowledge	hr-payout	apps/api/src/routes/hr-payout.ts	exact
+GET	/api/hr-payout/payslips	hr-payout	apps/api/src/routes/hr-payout.ts	exact
+POST	/api/hr-payout/payslips/:id/acknowledge	hr-payout	apps/api/src/routes/hr-payout.ts	exact
+POST	/api/hr-payout/payslips/generate	hr-payout	apps/api/src/routes/hr-payout.ts	exact
+POST	/api/hr-payout/payslips/push	hr-payout	apps/api/src/routes/hr-payout.ts	exact
+GET	/api/hr-payout/summary	hr-payout	apps/api/src/routes/hr-payout.ts	exact
 POST	/api/hr-payroll/calculate	hr-payroll	apps/api/src/routes/hr-payroll.ts	exact
 POST	/api/hr-payroll/handoff	hr-payroll	apps/api/src/routes/hr-payroll.ts	exact
 POST	/api/hr-payroll/handoff/export	hr-payroll	apps/api/src/routes/hr-payroll.ts	exact
@@ -4459,9 +4670,57 @@ GET	/api/hr-payroll/mine/periods	hr-payroll	apps/api/src/routes/hr-payroll.ts	ex
 GET	/api/hr-payroll/periods	hr-payroll	apps/api/src/routes/hr-payroll.ts	exact
 POST	/api/hr-payroll/revert	hr-payroll	apps/api/src/routes/hr-payroll.ts	exact
 POST	/api/hr-payroll/status	hr-payroll	apps/api/src/routes/hr-payroll.ts	exact
+GET	/api/hr-perf/cycles	hr-perf	apps/api/src/routes/hr-perf.ts	exact
+POST	/api/hr-perf/cycles	hr-perf	apps/api/src/routes/hr-perf.ts	exact
+POST	/api/hr-perf/cycles/:id/close	hr-perf	apps/api/src/routes/hr-perf.ts	exact
+GET	/api/hr-perf/cycles/:id/distribution	hr-perf	apps/api/src/routes/hr-perf.ts	exact
+POST	/api/hr-perf/cycles/:id/launch	hr-perf	apps/api/src/routes/hr-perf.ts	exact
+GET	/api/hr-perf/cycles/:id/reviews	hr-perf	apps/api/src/routes/hr-perf.ts	exact
+POST	/api/hr-perf/cycles/:id/status	hr-perf	apps/api/src/routes/hr-perf.ts	exact
+GET	/api/hr-perf/my/reviews	hr-perf	apps/api/src/routes/hr-perf.ts	exact
+POST	/api/hr-perf/reviews/:id/admin-decide	hr-perf	apps/api/src/routes/hr-perf.ts	exact
+POST	/api/hr-perf/reviews/:id/decide	hr-perf	apps/api/src/routes/hr-perf.ts	exact
+POST	/api/hr-perf/reviews/:id/manager	hr-perf	apps/api/src/routes/hr-perf.ts	exact
+POST	/api/hr-perf/reviews/:id/self	hr-perf	apps/api/src/routes/hr-perf.ts	exact
+GET	/api/hr-salary-config/employees	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
+POST	/api/hr-salary-config/employees	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
+DELETE	/api/hr-salary-config/employees/:id	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
+GET	/api/hr-salary-config/insurance	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
+POST	/api/hr-salary-config/insurance	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
+GET	/api/hr-salary-config/insurance/ready	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
+POST	/api/hr-salary-config/tax-profile	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
+GET	/api/hr-salary-config/tax-profile/:employeeId	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
 POST	/api/hr-settle/daily	hr-settle	apps/api/src/routes/hr-settle.ts	exact
 GET	/api/hr-settle/monthly	hr-settle	apps/api/src/routes/hr-settle.ts	exact
 POST	/api/hr-settle/monthly	hr-settle	apps/api/src/routes/hr-settle.ts	exact
+GET	/api/hr-shift/assignments	hr-shift	apps/api/src/routes/hr-shift-social.ts	exact
+POST	/api/hr-shift/assignments	hr-shift	apps/api/src/routes/hr-shift-social.ts	exact
+DELETE	/api/hr-shift/assignments/:id	hr-shift	apps/api/src/routes/hr-shift-social.ts	exact
+GET	/api/hr-shift/calendar	hr-shift	apps/api/src/routes/hr-shift-social.ts	exact
+GET	/api/hr-shift/shifts	hr-shift	apps/api/src/routes/hr-shift-social.ts	exact
+POST	/api/hr-shift/shifts	hr-shift	apps/api/src/routes/hr-shift-social.ts	exact
+DELETE	/api/hr-shift/shifts/:id	hr-shift	apps/api/src/routes/hr-shift-social.ts	exact
+PATCH	/api/hr-shift/shifts/:id	hr-shift	apps/api/src/routes/hr-shift-social.ts	exact
+GET	/api/hr-shift/social-changes	hr-shift	apps/api/src/routes/hr-shift-social.ts	exact
+POST	/api/hr-shift/social-changes	hr-shift	apps/api/src/routes/hr-shift-social.ts	exact
+POST	/api/hr-shift/social-changes/:id/accepted	hr-shift	apps/api/src/routes/hr-shift-social.ts	exact
+POST	/api/hr-shift/social-changes/:id/failed	hr-shift	apps/api/src/routes/hr-shift-social.ts	exact
+POST	/api/hr-shift/social-changes/:id/submit	hr-shift	apps/api/src/routes/hr-shift-social.ts	exact
+GET	/api/hr-shift/social-changes/summary	hr-shift	apps/api/src/routes/hr-shift-social.ts	exact
+GET	/api/hr-training/courses	hr-training	apps/api/src/routes/hr-training.ts	exact
+POST	/api/hr-training/courses	hr-training	apps/api/src/routes/hr-training.ts	exact
+PATCH	/api/hr-training/courses/:id	hr-training	apps/api/src/routes/hr-training.ts	exact
+POST	/api/hr-training/enrollments/:id/complete	hr-training	apps/api/src/routes/hr-training.ts	exact
+POST	/api/hr-training/enrollments/:id/drop	hr-training	apps/api/src/routes/hr-training.ts	exact
+POST	/api/hr-training/enrollments/:id/reopen	hr-training	apps/api/src/routes/hr-training.ts	exact
+GET	/api/hr-training/my/enrollments	hr-training	apps/api/src/routes/hr-training.ts	exact
+GET	/api/hr-training/my/hours	hr-training	apps/api/src/routes/hr-training.ts	exact
+GET	/api/hr-training/plans	hr-training	apps/api/src/routes/hr-training.ts	exact
+POST	/api/hr-training/plans	hr-training	apps/api/src/routes/hr-training.ts	exact
+POST	/api/hr-training/plans/:id/enroll	hr-training	apps/api/src/routes/hr-training.ts	exact
+GET	/api/hr-training/plans/:id/enrollments	hr-training	apps/api/src/routes/hr-training.ts	exact
+GET	/api/hr-training/plans/:id/progress	hr-training	apps/api/src/routes/hr-training.ts	exact
+POST	/api/hr-training/plans/:id/status	hr-training	apps/api/src/routes/hr-training.ts	exact
 GET	/api/im-gateway/adapters	im-gateway	apps/api/src/routes/im-gateway.ts	exact
 POST	/api/im-gateway/adapters	im-gateway	apps/api/src/routes/im-gateway.ts	exact
 GET	/api/im-gateway/messages	im-gateway	apps/api/src/routes/im-gateway.ts	exact
@@ -4482,8 +4741,6 @@ POST	/v1/images/inpaint	images	apps/api/src/routes/v1-multimodal.ts	exact
 POST	/v1/images/style-transfer	images	apps/api/src/routes/v1-multimodal.ts	exact
 POST	/v1/images/variations	images	apps/api/src/routes/v1-protocol-completeness.ts	exact
 POST	/v1/images/virtual-try-on	images	apps/api/src/routes/v1-multimodal.ts	exact
-GET	/insurance	insurance	apps/api/src/routes/hr-salary-config.ts	inferred
-POST	/insurance	insurance	apps/api/src/routes/hr-salary-config.ts	inferred
 GET	/api/integrations	integrations	apps/api/src/routes/system.ts	exact
 POST	/api/integrations	integrations	apps/api/src/routes/system.ts	exact
 DELETE	/api/integrations/:id	integrations	apps/api/src/routes/system.ts	exact
@@ -5017,6 +5274,7 @@ GET	/api/notifications/logs	notifications	apps/api/src/routes/notification-exten
 GET	/api/notifications/preferences	notifications	apps/api/src/routes/notification-extended.ts	exact
 PUT	/api/notifications/preferences	notifications	apps/api/src/routes/notification-extended.ts	exact
 POST	/api/notifications/read-all	notifications	apps/api/src/routes/notifications.ts	exact
+POST	/api/notifications/state-query	notifications	apps/api/src/routes/notifications.ts	exact
 GET	/api/notifications/unread-count	notifications	apps/api/src/routes/notifications.ts	exact
 POST	/api/oauth/access_token	oauth	apps/api/src/routes/auth-extended.ts	exact
 POST	/api/oauth/authorize/confirm	oauth	apps/api/src/routes/auth-extended.ts	exact
@@ -5334,6 +5592,20 @@ GET	/api/publish/monitor/overview	publish	apps/api/src/routes/publish-routes.ts	
 POST	/api/publish/monitor/refresh-metrics	publish	apps/api/src/routes/publish-routes.ts	exact
 POST	/api/publish/monitor/verify	publish	apps/api/src/routes/publish-routes.ts	exact
 GET	/api/publish/platforms	publish	apps/api/src/routes/publish-routes.ts	exact
+GET	/api/publish/pools	publish	apps/api/src/routes/publish-routes.ts	exact
+POST	/api/publish/pools	publish	apps/api/src/routes/publish-routes.ts	exact
+DELETE	/api/publish/pools/:poolId	publish	apps/api/src/routes/publish-routes.ts	exact
+GET	/api/publish/pools/:poolId	publish	apps/api/src/routes/publish-routes.ts	exact
+PATCH	/api/publish/pools/:poolId	publish	apps/api/src/routes/publish-routes.ts	exact
+GET	/api/publish/pools/:poolId/events	publish	apps/api/src/routes/publish-routes.ts	exact
+POST	/api/publish/pools/:poolId/members	publish	apps/api/src/routes/publish-routes.ts	exact
+DELETE	/api/publish/pools/:poolId/members/:accountId	publish	apps/api/src/routes/publish-routes.ts	exact
+POST	/api/publish/pools/:poolId/probe	publish	apps/api/src/routes/publish-routes.ts	exact
+POST	/api/publish/pools/accounts/:accountId/probe	publish	apps/api/src/routes/publish-routes.ts	exact
+POST	/api/publish/pools/accounts/:accountId/reauth	publish	apps/api/src/routes/publish-routes.ts	exact
+GET	/api/publish/pools/accounts/:accountId/session	publish	apps/api/src/routes/publish-routes.ts	exact
+POST	/api/publish/pools/bootstrap	publish	apps/api/src/routes/publish-routes.ts	exact
+GET	/api/publish/pools/keeper/status	publish	apps/api/src/routes/publish-routes.ts	exact
 GET	/api/publish/running	publish	apps/api/src/routes/publish-routes.ts	exact
 POST	/api/publish/scan-login/:taskId/cancel	publish	apps/api/src/routes/publish-routes.ts	exact
 POST	/api/publish/scan-login/:taskId/interact	publish	apps/api/src/routes/publish-routes.ts	exact
@@ -5814,8 +6086,6 @@ DELETE	/api/tasks/devices/:deviceId	tasks	apps/api/src/routes/tasks.ts	exact
 POST	/api/tasks/dispatch	tasks	apps/api/src/routes/tasks.ts	exact
 POST	/api/tasks/register-device	tasks	apps/api/src/routes/tasks.ts	exact
 POST	/api/tasks/result	tasks	apps/api/src/routes/tasks.ts	exact
-POST	/tax-profile	tax-profile	apps/api/src/routes/hr-salary-config.ts	inferred
-GET	/tax-profile/:employeeId	tax-profile	apps/api/src/routes/hr-salary-config.ts	inferred
 POST	/api/tbox	tbox	apps/api/src/routes/tbox.ts	exact
 DELETE	/api/tbox/:id	tbox	apps/api/src/routes/tbox.ts	exact
 PUT	/api/tbox/:id	tbox	apps/api/src/routes/tbox.ts	exact
@@ -5835,6 +6105,7 @@ GET	/api/tbox-points/points	tbox-points	apps/api/src/routes/tbox-points.ts	exact
 GET	/api/teacher/:id	teacher	apps/api/src/routes/teacher.ts	exact
 GET	/api/teacher/:id/courses	teacher	apps/api/src/routes/teacher.ts	exact
 POST	/api/teacher/:id/follow	teacher	apps/api/src/routes/teacher.ts	exact
+GET	/api/teacher/:id/reviews	teacher	apps/api/src/routes/teacher.ts	exact
 GET	/api/teacher/list	teacher	apps/api/src/routes/teacher.ts	exact
 GET	/api/team-memory	team-memory	apps/api/src/routes/team-memory.ts	exact
 POST	/api/team-memory	team-memory	apps/api/src/routes/team-memory.ts	exact
@@ -5855,6 +6126,10 @@ PATCH	/api/teams/:id/members/:userId	teams	apps/api/src/routes/teams.ts	exact
 GET	/api/teams/invitations	teams	apps/api/src/routes/teams.ts	exact
 POST	/api/teams/invitations/:token/accept	teams	apps/api/src/routes/teams.ts	exact
 POST	/api/teams/invitations/:token/reject	teams	apps/api/src/routes/teams.ts	exact
+GET	/api/tenant-platform-apps	tenant-platform-apps	apps/api/src/routes/tenant-platform-apps.ts	exact
+DELETE	/api/tenant-platform-apps/:platform	tenant-platform-apps	apps/api/src/routes/tenant-platform-apps.ts	exact
+PUT	/api/tenant-platform-apps/:platform	tenant-platform-apps	apps/api/src/routes/tenant-platform-apps.ts	exact
+POST	/api/tenant-platform-apps/import-env	tenant-platform-apps	apps/api/src/routes/tenant-platform-apps.ts	exact
 GET	/api/tenants	tenants	apps/api/src/routes/tenant.ts	exact
 POST	/api/tenants	tenants	apps/api/src/routes/tenant.ts	exact
 DELETE	/api/tenants/:id	tenants	apps/api/src/routes/tenant.ts	exact
@@ -6015,10 +6290,17 @@ GET	/api/v1/ai/capabilities/invoke	v1	apps/api/src/routes/other/ai-capability-ro
 POST	/api/v1/ai/capabilities/invoke	v1	apps/api/src/routes/user/ai-capabilities-routes.ts	exact
 GET	/api/v1/ai/capabilities/list	v1	apps/api/src/routes/other/ai-capability-routes.ts	exact
 POST	/api/v1/codebase/index	v1	apps/api/src/routes/v1-codebase-search.ts	exact
+GET	/api/v1/codebase/rebuild-candidates	v1	apps/api/src/routes/v1-codebase-search.ts	exact
 DELETE	/api/v1/codebase/repo/:repoId	v1	apps/api/src/routes/v1-codebase-search.ts	exact
 GET	/api/v1/codebase/repo/:repoId/chunks	v1	apps/api/src/routes/v1-codebase-search.ts	exact
+GET	/api/v1/codebase/repo/:repoId/edges	v1	apps/api/src/routes/v1-codebase-search.ts	exact
+GET	/api/v1/codebase/repo/:repoId/entities	v1	apps/api/src/routes/v1-codebase-search.ts	exact
 GET	/api/v1/codebase/repo/:repoId/file	v1	apps/api/src/routes/v1-codebase-search.ts	exact
 DELETE	/api/v1/codebase/repo/:repoId/files	v1	apps/api/src/routes/v1-codebase-search.ts	exact
+GET	/api/v1/codebase/repo/:repoId/index-state	v1	apps/api/src/routes/v1-codebase-search.ts	exact
+GET	/api/v1/codebase/repos	v1	apps/api/src/routes/v1-codebase-search.ts	exact
+DELETE	/api/v1/codebase/repos/:repoId/path	v1	apps/api/src/routes/v1-codebase-search.ts	exact
+PUT	/api/v1/codebase/repos/:repoId/path	v1	apps/api/src/routes/v1-codebase-search.ts	exact
 POST	/api/v1/codebase/search	v1	apps/api/src/routes/v1-codebase-search.ts	exact
 GET	/api/v1/codebase/stats	v1	apps/api/src/routes/v1-codebase-search.ts	exact
 GET	/api/v1/content/create	v1	apps/api/src/routes/other/v1-content-routes.ts	exact
@@ -6084,6 +6366,7 @@ POST	/api/voice-notes/:id/archive	voice-notes	apps/api/src/routes/voice-notes.ts
 POST	/api/wallet/adjust	wallet	apps/api/src/routes/wallet.ts	exact
 GET	/api/wallet/balance	wallet	apps/api/src/routes/wallet.ts	exact
 GET	/api/wallet/bank-cards	wallet	apps/api/src/routes/wallet.ts	exact
+POST	/api/wallet/convert-to-points	wallet	apps/api/src/routes/wallet.ts	exact
 GET	/api/wallet/flows	wallet	apps/api/src/routes/wallet.ts	exact
 POST	/api/wallet/recharge	wallet	apps/api/src/routes/wallet.ts	exact
 GET	/api/wallet/recharge/records	wallet	apps/api/src/routes/wallet.ts	exact
@@ -6103,6 +6386,14 @@ POST	/api/webrtc-voice/end	webrtc-voice	apps/api/src/routes/webrtc-voice.ts	exac
 POST	/api/webrtc-voice/ice-candidate	webrtc-voice	apps/api/src/routes/webrtc-voice.ts	exact
 POST	/api/webrtc-voice/offer	webrtc-voice	apps/api/src/routes/webrtc-voice.ts	exact
 POST	/api/webrtc-voice/session	webrtc-voice	apps/api/src/routes/webrtc-voice.ts	exact
+GET	/api/wechat-hub/accounts	wechat-hub	apps/api/src/routes/wechat-hub.ts	exact
+POST	/api/wechat-hub/accounts	wechat-hub	apps/api/src/routes/wechat-hub.ts	exact
+POST	/api/wechat-hub/analyze	wechat-hub	apps/api/src/routes/wechat-hub.ts	exact
+GET	/api/wechat-hub/capabilities	wechat-hub	apps/api/src/routes/wechat-hub.ts	exact
+POST	/api/wechat-hub/jobs/run	wechat-hub	apps/api/src/routes/wechat-hub-automation.ts	exact
+POST	/api/wechat-hub/mcp/call	wechat-hub	apps/api/src/routes/wechat-hub.ts	exact
+GET	/api/wechat-hub/mcp/tools	wechat-hub	apps/api/src/routes/wechat-hub.ts	exact
+POST	/api/wechat-hub/send	wechat-hub	apps/api/src/routes/wechat-hub.ts	exact
 POST	/api/workbook/close	workbook	apps/api/src/routes/workbook.ts	exact
 POST	/api/workbook/open	workbook	apps/api/src/routes/workbook.ts	exact
 POST	/api/workbook/read	workbook	apps/api/src/routes/workbook.ts	exact
@@ -6147,10 +6438,20 @@ POST	/api/workspace/fs/delete	workspace	apps/api/src/routes/workspace-ai.ts	exac
 POST	/api/workspace/fs/edit	workspace	apps/api/src/routes/workspace-ai.ts	exact
 POST	/api/workspace/fs/glob	workspace	apps/api/src/routes/workspace-ai.ts	exact
 POST	/api/workspace/fs/grep	workspace	apps/api/src/routes/workspace-ai.ts	exact
+POST	/api/workspace/fs/locate	workspace	apps/api/src/routes/workspace-ai.ts	exact
+POST	/api/workspace/fs/locate-batch	workspace	apps/api/src/routes/workspace-ai.ts	exact
+POST	/api/workspace/fs/mkdir	workspace	apps/api/src/routes/workspace-ai.ts	exact
+POST	/api/workspace/fs/move	workspace	apps/api/src/routes/workspace-ai.ts	exact
 POST	/api/workspace/fs/open	workspace	apps/api/src/routes/workspace-ai.ts	exact
 POST	/api/workspace/fs/read	workspace	apps/api/src/routes/workspace-ai.ts	exact
 GET	/api/workspace/fs/recent	workspace	apps/api/src/routes/workspace-ai.ts	exact
 POST	/api/workspace/fs/run	workspace	apps/api/src/routes/workspace-ai.ts	exact
+POST	/api/workspace/fs/stat	workspace	apps/api/src/routes/workspace-ai.ts	exact
+POST	/api/workspace/fs/watch	workspace	apps/api/src/routes/workspace-ai.ts	exact
+POST	/api/workspace/fs/watcher/create	workspace	apps/api/src/routes/workspace-ai.ts	exact
+POST	/api/workspace/fs/watcher/events	workspace	apps/api/src/routes/workspace-ai.ts	exact
+POST	/api/workspace/fs/watcher/remove	workspace	apps/api/src/routes/workspace-ai.ts	exact
+GET	/api/workspace/fs/watchers	workspace	apps/api/src/routes/workspace-ai.ts	exact
 POST	/api/workspace/fs/write	workspace	apps/api/src/routes/workspace-ai.ts	exact
 DELETE	/api/workspace/permission	workspace	apps/api/src/routes/workspace-permissions.ts	exact
 GET	/api/workspace/permission	workspace	apps/api/src/routes/workspace-permissions.ts	exact
@@ -6182,5 +6483,5 @@ GET	/api/wrong-questions	wrong-questions	apps/api/src/routes/wrong-questions.ts	
 POST	/api/wrong-questions	wrong-questions	apps/api/src/routes/wrong-questions.ts	exact
 GET	/ws/live-chat	ws	apps/api/src/routes/ws/live-chat.ts	exact
 `
-export const API_ENDPOINTS_GENERATED_AT = '2026-11-20T13:59:32.137Z'
-export const API_ENDPOINT_LINE_COUNT = 5633
+export const API_ENDPOINTS_GENERATED_AT = '2026-11-26T12:52:56.198Z'
+export const API_ENDPOINT_LINE_COUNT = 5918

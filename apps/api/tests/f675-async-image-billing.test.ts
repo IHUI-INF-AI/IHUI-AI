@@ -47,7 +47,26 @@ const spies = vi.hoisted(() => ({
 
 vi.mock('../src/services/relay-billing-service.js', async (importOriginal) => {
   const actual = await importOriginal<typeof RelayBilling>()
-  return { ...actual, recordCall: spies.recordCall }
+  return {
+    ...actual,
+    recordCall: spies.recordCall,
+    // F-727 定价闸:本夹具只锁“创建即扣费”,定价/余额由纯 mock 放行
+    calculateCost: vi.fn(async () => ({
+      inputCostCents: 0,
+      outputCostCents: 0,
+      totalCostCents: 2,
+      cacheReadCostCents: 0,
+      cacheCreationCostCents: 0,
+      multiplier: 1,
+      peakMultiplier: 1,
+      baseInputPricePer1k: 0,
+      baseOutputPricePer1k: 0,
+      source: 'ai_pricing',
+      billingMode: 'per_image',
+      unitsApplied: 1,
+    })),
+    getSpendableCostBalance: vi.fn(async () => ({ unlimited: true, cents: 0 })),
+  }
 })
 
 const v1Multimodal = await import('../src/routes/v1-multimodal.js')

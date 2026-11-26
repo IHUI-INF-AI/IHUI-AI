@@ -205,8 +205,10 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
         if (seenModelIds.has(key)) continue
         seenModelIds.add(key)
         const multiplier = Math.max(0, toNumber(r.relayPriceMultiplier, 1))
-        const inputBase = toNumber(r.inputPricePer1k, 0)
-        const outputBase = toNumber(r.outputPricePer1k, 0)
+        // OpenRouter 动态路由模型用 -100000 作为「按实际成本」哨兵价,
+        // 直接透出会让客户端看到负价格;公开目录按 0 展示,billingMode 仍标 dynamic_cost。
+        const inputBase = Math.max(0, toNumber(r.inputPricePer1k, 0))
+        const outputBase = Math.max(0, toNumber(r.outputPricePer1k, 0))
         const p = pricingMap.get(key)
         const billingMode = (p?.billingMode as PublicRelayModelItem['billingMode']) ?? 'token'
         const perUnit = toNumber(p?.perUnitPrice, 0)

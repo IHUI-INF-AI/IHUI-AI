@@ -237,6 +237,7 @@ export async function chargePointsForCall(
   const usage = extractTokenUsage(data)
   let promptTokens = usage.promptTokens
   let completionTokens = usage.completionTokens
+  let estimatedSide = false
   if (promptTokens + completionTokens <= 0) {
     // 网关只回 total_tokens 时按输出价结算(更贵的一侧),避免把成本按输入价贱卖。
     if (typeof usage.totalTokens === 'number' && usage.totalTokens > 0) {
@@ -244,6 +245,18 @@ export async function chargePointsForCall(
     } else {
       promptTokens = estimatePromptTokens(request.body)
       completionTokens = estimateCompletionTokens(data)
+      estimatedSide = true
+    }
+  } else {
+    // 2026-11-26:上游只回一侧 usage 时,缺失侧独立估算。
+    // 旧逻辑只在 prompt+completion 都为 0 时兜底,单边缺失会让该侧永久按 0 计费。
+    if (promptTokens <= 0) {
+      promptTokens = estimatePromptTokens(request.body)
+      estimatedSide = true
+    }
+    if (completionTokens <= 0) {
+      completionTokens = estimateCompletionTokens(data)
+      estimatedSide = true
     }
   }
 
@@ -261,8 +274,9 @@ export async function chargePointsForCall(
       metadata: JSON.stringify({
         referenceId,
         source: 'proxy_llm',
-        usageSource:
-          usage.promptTokens + usage.completionTokens > 0
+        usageSource: estimatedSide
+          ? 'partially_estimated'
+          : usage.promptTokens + usage.completionTokens > 0
             ? 'upstream'
             : usage.totalTokens
               ? 'total_only'

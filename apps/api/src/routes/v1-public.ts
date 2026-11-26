@@ -83,6 +83,7 @@ import {
   forwardToChannel,
   pipeChannelStream,
   type ForwardResult,
+  type PipedStreamStats,
 } from '../services/relay-upstream-forwarder.js'
 import {
   mapForwardFailureToHttp,
@@ -991,33 +992,54 @@ async function streamChatCompletion(
    * (预扣不退、llm_call_logs 无该行,既不能退款也不能审计)。客户端断连是高频事件,
    * 沉淀量按流量线性累积。
    *
-   * 结算口径:抛错时 pipeChannelStream 的 stats 未回填,拿不到可确认的已用 token,
-   * 因此按 0 计费 —— `settlePreDeduction` 全额退回预扣,同时落一行 error 流水
-   * (原因与渠道写进 metadata)。绝不按"已写出多少字符"倒推补扣:那是猜的用量。
+   * 2026-11-26 收口:F-722 原来按 0 计费(全额退预扣),上游已生成并计费的部分平台收 0。
+   * pipeChannelStream 现在每帧回调 onStats,断连时拿得到已写出的 prompt/completion;
+   * 有产出按 'partial' 结算,零产出才按 'error' 全额退。绝不按未确认的 max_tokens 倒扣。
    */
   const settleAbortedChannelStream = (params: {
     reason: string
     channel: SelectedChannelKey | null
     clientDisconnected: boolean
+    stats?: PipedStreamStats | null
   }): void => {
     if (!opts.apiKeyId || !opts.userId) return
+    const partial = params.stats ?? null
+    // 只有“确实从上游拿到过数据”才算 partial:catch 早于 pipe 启动、或上游
+    // 连接失败没有任何 stats 时,仍按 0 计费全额退预扣,不能凭本地 prompt 文本倒扣。
+    const hasUpstreamOutput =
+      partial !== null &&
+      (partial.promptTokens > 0 || partial.completionTokens > 0 || partial.responseText.length > 0)
+    const promptTokens =
+      partial && hasUpstreamOutput
+        ? partial.promptTokens > 0
+          ? partial.promptTokens
+          : Math.ceil((opts.promptText ?? '').length / 4)
+        : 0
+    const completionTokens =
+      partial && hasUpstreamOutput
+        ? partial.completionTokens > 0
+          ? partial.completionTokens
+          : Math.ceil((partial.responseText ?? '').length / 4)
+        : 0
+    const hasOutput = hasUpstreamOutput && promptTokens + completionTokens > 0
     const latency = persistableLatency(opts.sw.stop())
     void recordCall({
       apiKeyId: opts.apiKeyId,
       userId: opts.userId,
       model,
       prompt: opts.promptText ?? '',
-      response: null,
-      promptTokens: 0,
-      completionTokens: 0,
-      totalTokens: 0,
+      response: partial?.responseText ?? null,
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
       latencyMs: latency.latencyMs,
-      status: 'error',
+      status: hasOutput ? 'partial' : 'error',
       errorMessage: params.reason,
       metadata: {
         stream: true,
         // 已向客户端写出过帧后中断:区别于"零帧返回"的上游失败
         abortedMidStream: true,
+        ...(hasOutput ? { partialBilling: true } : {}),
         ...(params.clientDisconnected ? { clientDisconnected: true } : {}),
         ...(params.channel ? { channel: params.channel.groupName } : {}),
         ...(opts.modelMappingMeta ?? {}),
@@ -1048,6 +1070,8 @@ async function streamChatCompletion(
     let channelWroteToClient = false
     /** F-337:本请求已交给流式处理的渠道(成功记录已延后到流结束后,收尾要用它) */
     let streamedChannel: SelectedChannelKey | null = null
+    // 流中途抛错时 stats 还没返回;onStats 持有同一个可变对象,供 catch 分支按已产出结算
+    let partialStats: PipedStreamStats | null = null
     try {
       // 渠道路径同样应用参数覆盖系统(与 ai-service 路径同源)
       const baseBody: Record<string, unknown> = { messages, model }
@@ -1118,6 +1142,7 @@ async function streamChatCompletion(
       while (fwd && fwd.ok) {
         upstreamHttpStatus = fwd.response.status
         streamedChannel = fwd.channel
+        partialStats = null
         stats = await pipeChannelStream(fwd.response, {
           // verbatim 转发上游 OpenAI chunk;legacy text 模式改为解析后按 text chunk 重发
           ...(isTextFlavor
@@ -1134,6 +1159,9 @@ async function streamChatCompletion(
                 },
               }),
           signal: controller.signal,
+          onStats: (s) => {
+            partialStats = s
+          },
         })
         const retryableEnvelope = stats.envelopeError?.retryable === true
         if (retryableEnvelope && !channelWroteToClient && envelopeAttempt < 2) {
@@ -1212,12 +1240,21 @@ async function streamChatCompletion(
           // F-679: 优先采用上游真实 usage 的 promptTokens(同函数 usage 帧已用该真值),
           // 仅在缺失时才回落字符估算,避免中文 prompt 被 /4 系统性低估 2-3 倍、
           // 账号池台账与用户账单对不上。
-          const promptTokens = stats.streamError
-            ? 0
-            : streamPromptTokens > 0
-              ? streamPromptTokens
-              : Math.ceil((opts.promptText ?? '').length / 4)
-          const completionTokens = stats.streamError ? 0 : stats.completionTokens
+          // 2026-11-26:流内 error 帧但已写出正文时按 partial 结算,不再整单归零。
+          const hasPartialOutput =
+            stats.streamError !== null && (stats.responseText.length > 0 || streamPromptTokens > 0)
+          const promptTokens =
+            stats.streamError && !hasPartialOutput
+              ? 0
+              : streamPromptTokens > 0
+                ? streamPromptTokens
+                : Math.ceil((opts.promptText ?? '').length / 4)
+          const completionTokens =
+            stats.streamError && !hasPartialOutput
+              ? 0
+              : stats.completionTokens > 0
+                ? stats.completionTokens
+                : Math.ceil(responseText.length / 4)
           // 格②(2026-09-26):耗时改由单调钟样本经唯一适配器投影(不可信 ⇒ 0 + latencyTrusted:false)
           const latency = persistableLatency(opts.sw.stop())
           void recordCall({
@@ -1232,10 +1269,11 @@ async function streamChatCompletion(
             cacheReadTokens: stats.cacheReadTokens,
             cacheCreationTokens: stats.cacheCreationTokens,
             latencyMs: latency.latencyMs,
-            status: stats.streamError ? 'error' : 'success',
+            status: stats.streamError ? (hasPartialOutput ? 'partial' : 'error') : 'success',
             metadata: {
               stream: true,
               channel: fwd.channel.groupName,
+              ...(hasPartialOutput ? { partialBilling: true } : {}),
               ...(opts.modelMappingMeta ?? {}),
               latencyTrusted: latency.latencyTrusted,
             },
@@ -1297,6 +1335,7 @@ async function streamChatCompletion(
           reason: msg,
           channel: streamedChannel,
           clientDisconnected: msg === 'client disconnected',
+          stats: partialStats,
         })
         return
       }

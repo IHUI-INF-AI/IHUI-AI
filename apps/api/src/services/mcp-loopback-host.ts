@@ -20,8 +20,9 @@
  *  4. 计数器:requests / notFound / forbidden / abortedOnUnregister —— 拒绝与中止
  *     都是可读数字,不是"静默什么都不发生"。
  *
- * 边界(诚实):本次交付的是服务本体与判据;把 `routes/mcp-extended.ts` 的每条
- * 路由搬进本服务、并让网关按 token 转发,是第二步(会动网关契约,单独一轮)。
+ * 业务路由:`mcp-business-routes.ts` 把 `routes/mcp-extended.ts` 的 12 条路由
+ * 全部注册进本服务(支持 `/mcp/projects/:id` 这类参数路径),handler 通过注入的
+ * Fastify `inject` 适配器回到既有路由,保证鉴权/DB 逻辑只有一份实现。
  */
 
 import { randomBytes } from 'node:crypto'
@@ -37,14 +38,36 @@ export interface McpRouteContext {
   req: IncomingMessage
   res: ServerResponse
   signal: AbortSignal
+  /** `/mcp/projects/:id` 这类参数路径的捕获值。 */
+  params: Readonly<Record<string, string>>
 }
 
 export type McpRouteHandler = (ctx: McpRouteContext) => Promise<void> | void
 
 interface RouteEntry {
+  pattern: string
+  regex: RegExp
+  paramNames: string[]
   token: string
   handler: McpRouteHandler
   inFlight: Set<AbortController>
+}
+
+const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+function compileRoutePattern(pattern: string): { regex: RegExp; paramNames: string[] } {
+  const paramNames: string[] = []
+  const source = pattern
+    .split('/')
+    .map((segment) => {
+      if (segment.startsWith(':') && segment.length > 1) {
+        paramNames.push(segment.slice(1))
+        return '([^/]+)'
+      }
+      return escapeRegex(segment)
+    })
+    .join('/')
+  return { regex: new RegExp(`^${source}$`), paramNames }
 }
 
 export interface McpLoopbackCounters {
@@ -87,8 +110,9 @@ export class McpLoopbackHost {
     if (this.routes.has(path)) {
       throw new McpRouteRegistrationError('duplicate-path', path)
     }
+    const { regex, paramNames } = compileRoutePattern(path)
     const token = randomBytes(24).toString('base64url')
-    this.routes.set(path, { token, handler, inFlight: new Set() })
+    this.routes.set(path, { pattern: path, regex, paramNames, token, handler, inFlight: new Set() })
     return token
   }
 
@@ -112,15 +136,32 @@ export class McpLoopbackHost {
     return this.boundPort
   }
 
+  private match(path: string): { entry: RouteEntry; params: Record<string, string> } | null {
+    const exact = this.routes.get(path)
+    if (exact) return { entry: exact, params: {} }
+    for (const entry of this.routes.values()) {
+      if (!entry.pattern.includes(':')) continue
+      const matched = entry.regex.exec(path)
+      if (!matched) continue
+      const params: Record<string, string> = {}
+      entry.paramNames.forEach((name, index) => {
+        params[name] = decodeURIComponent(matched[index + 1] ?? '')
+      })
+      return { entry, params }
+    }
+    return null
+  }
+
   private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     this.counters.requests += 1
     const path = (req.url ?? '').split('?')[0] ?? ''
-    const entry = this.routes.get(path)
-    if (!entry) {
+    const matched = this.match(path)
+    if (!matched) {
       this.counters.notFound += 1
       json(res, 404, { error: 'route-not-registered' })
       return
     }
+    const { entry, params } = matched
     const token = req.headers[MCP_ROUTE_TOKEN_HEADER]
     if (typeof token !== 'string' || token !== entry.token) {
       this.counters.forbidden += 1
@@ -131,7 +172,7 @@ export class McpLoopbackHost {
     entry.inFlight.add(controller)
     res.on('close', () => entry.inFlight.delete(controller))
     try {
-      await entry.handler({ req, res, signal: controller.signal })
+      await entry.handler({ req, res, signal: controller.signal, params })
     } catch (err) {
       if (!controller.signal.aborted) {
         json(res, 500, { error: 'route-handler-failed', detail: String(err) })

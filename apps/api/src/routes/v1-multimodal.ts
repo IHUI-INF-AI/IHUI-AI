@@ -39,7 +39,13 @@
  * 22. POST   /v1/images/generations/async  — 异步文生图(任务编排骨架,202 + task id)(images:write)
  * 23. GET    /v1/images/generations/async/:id — 异步图片任务状态轮询(images:read)
  */
-import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
+import type {
+  FastifyInstance,
+  FastifyPluginAsync,
+  FastifyReply,
+  FastifyRequest,
+  preHandlerAsyncHookHandler,
+} from 'fastify'
 import { z } from 'zod'
 import type {
   V1AudioVoicesResponse,
@@ -59,7 +65,13 @@ import { requireCapability } from '../utils/capability-guard.js'
 import type { Redis } from 'ioredis'
 import { error } from '../utils/response.js'
 import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
-import { recordCall, refundTaskCall } from '../services/relay-billing-service.js'
+import {
+  recordCall,
+  refundTaskCall,
+  calculateCost,
+  getSpendableCostBalance,
+} from '../services/relay-billing-service.js'
+import { multimodalPriceRequest } from '../services/multimodal-pricing-gate.js'
 import { logger } from '../utils/logger.js'
 import { forwardToChannel, type SelectedChannelKey } from '../services/relay-upstream-forwarder.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../config/body-limits.js'
@@ -78,7 +90,8 @@ const INTERNAL_BASE = `http://localhost:${process.env.PORT || 8802}`
 //   per_image  → 分/张 × 张数
 //   per_video  → 分/次 或 分/秒(video_unit)
 //   per_call   → 三档价按上下文(chat 端点场景,这里不涉及)
-// 无定价行的模型 calculateCost 回退 0(免费),不阻断调用。
+// 无 active 正定价行的模型不允许出图/出视频/出声:鉴权后先过 requireMultimodalPrice,
+// 报价为 0 或定价查询不可用直接 503,不再回退 0 免费放行。
 // 计费时机:提交/返回成功即扣(乐观计费,防漏损);任务查询发现 failed 时
 // refundTaskCall 按 costCents 全额退款(幂等,refunded 标记防重)。
 // =============================================================================
@@ -87,6 +100,103 @@ const INTERNAL_BASE = `http://localhost:${process.env.PORT || 8802}`
 function apiKeyOf(request: Parameters<typeof getUserId>[0]): { id: string; userId: string } | null {
   const apiKey = (request as FastifyRequest & { apiKey?: { id: string; userId: string } }).apiKey
   return apiKey ?? null
+}
+
+/**
+ * 多模态调用前定价闸(2026-11-26 补偿 P0)。
+ *
+ * 历史行为:image/video 先请求上游、成功后才 fire-and-forget 计费;无定价行时
+ * calculateCost 回退 0,等于先出图后免费。本闸在鉴权/能力/限频之后、上游之前执行:
+ *   - 定价查询不可用 → 503(不拿缓存猜价);
+ *   - 报价 <= 0 → 503(未定价/零价/0 倍率一律不卖);
+ *   - 音频端点也走这里,per_call 价缺失同样 503。
+ * 只拦定价,不冻结余额;余额不足仍由 recordCall 的预扣/结算链路处理。
+ */
+function requireMultimodalPrice(): preHandlerAsyncHookHandler {
+  return async (request, reply) => {
+    if (request.method !== 'POST') return
+    const routeUrl = request.routeOptions?.url ?? request.url.split('?')[0] ?? request.url
+    const ctx = multimodalPriceRequest(routeUrl, request.body)
+    if (!ctx) return
+    let quote: Awaited<ReturnType<typeof calculateCost>>
+    try {
+      quote = await calculateCost(
+        ctx.model,
+        0,
+        0,
+        { callType: ctx.callType, units: ctx.units },
+        apiKeyOf(request)?.userId,
+      )
+    } catch (err) {
+      logger.error('[billing] 多模态定价闸查询异常,拒绝调用', {
+        route: routeUrl,
+        model: ctx.model,
+        error: err instanceof Error ? err.message : String(err),
+      })
+      await reply.status(503).send(error(503, '定价服务暂不可用，请稍后重试'))
+      return
+    }
+    if (quote.source === 'unavailable' || quote.totalCostCents <= 0) {
+      logger.warn('[billing] 多模态模型无有效正价,拒绝调用', {
+        route: routeUrl,
+        model: ctx.model,
+        callType: ctx.callType,
+        units: ctx.units,
+        source: quote.source,
+        billingMode: quote.billingMode,
+        totalCostCents: quote.totalCostCents,
+      })
+      await reply.status(503).send(error(503, '该模型未配置有效价格，暂不可调用'))
+      return
+    }
+    // 2026-11-26:图片/视频的“分/张、分/次”若小于 1 分,基本可判定是单位写错
+    // (gpt-image-2/2.5 的 0.02~0.03 分/张 vs 真实成本约 29 分/张),先拒绝而不是按错价卖。
+    if (ctx.callType !== 'chat' && quote.totalCostCents < 1) {
+      logger.warn('[billing] 多模态单价低于 1 分,按错价拒绝调用', {
+        route: routeUrl,
+        model: ctx.model,
+        callType: ctx.callType,
+        units: ctx.units,
+        totalCostCents: quote.totalCostCents,
+        billingMode: quote.billingMode,
+      })
+      await reply.status(503).send(error(503, '该模型价格单位异常，暂不可调用'))
+      return
+    }
+    // 媒体路径没有预扣凭证,至少在上游调用前确认成本余额够本次报价,
+    // 避免“先生成成功、后结算扣不到钱”。并发超支仍需后续媒体预扣收口。
+    // 音频(ctx.callType='chat')走内部 AI 积分账(ai-audio.ts 的 chargeMediaPoints),
+    // 不查 API Key 成本余额,否则会误伤“有积分但 Key 成本余额为 0”的用户。
+    const apiKey = apiKeyOf(request)
+    if (apiKey && ctx.callType !== 'chat') {
+      let balance: Awaited<ReturnType<typeof getSpendableCostBalance>>
+      try {
+        balance = await getSpendableCostBalance(apiKey.id)
+      } catch (err) {
+        logger.error('[billing] 多模态余额预检异常,拒绝调用', {
+          route: routeUrl,
+          model: ctx.model,
+          error: err instanceof Error ? err.message : String(err),
+        })
+        await reply.status(503).send(error(503, '余额服务暂不可用，请稍后重试'))
+        return
+      }
+      if (!balance) {
+        await reply.status(401).send(error(401, 'API Key 不可用'))
+        return
+      }
+      if (!balance.unlimited && balance.cents < quote.totalCostCents) {
+        logger.warn('[billing] 多模态余额不足,拒绝调用', {
+          route: routeUrl,
+          model: ctx.model,
+          requiredCents: quote.totalCostCents,
+          availableCents: balance.cents,
+        })
+        await reply.status(402).send(error(402, '成本余额不足，请先充值'))
+        return
+      }
+    }
+  }
 }
 
 /**
@@ -960,7 +1070,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('audio:read'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('audio:read'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1013,7 +1128,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('audio:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('audio:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1069,7 +1189,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('audio:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('audio:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1126,7 +1251,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('audio:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('audio:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1190,7 +1320,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('audio:read'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('audio:read'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1249,7 +1384,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('audio:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('audio:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1300,7 +1440,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('audio:read'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('audio:read'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1355,7 +1500,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('audio:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('audio:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1425,7 +1575,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('images:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1610,7 +1765,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('images:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1660,7 +1820,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('images:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1708,7 +1873,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('images:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1755,7 +1925,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('images:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1802,7 +1977,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('images:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1853,7 +2033,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('videos:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('videos:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1941,7 +2126,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('videos:read'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('videos:read'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2072,7 +2262,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('videos:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('videos:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2138,7 +2333,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('threed:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('threed:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2250,7 +2450,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('generation:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('generation:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2313,7 +2518,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('generation:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('generation:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2375,7 +2585,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('generation:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('generation:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2427,7 +2642,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('images:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2511,7 +2731,12 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           404: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
+      preHandler: [
+        requireApiKeyAuth,
+        requireCapability('images:write'),
+        requireApiKeyQuota(),
+        requireMultimodalPrice(),
+      ],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)

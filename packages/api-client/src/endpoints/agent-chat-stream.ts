@@ -18,6 +18,7 @@
  * 传输层(重连/退避/读超时/续传游标)复用 client.ts 的唯一实现,本文件不写第二份。
  */
 import type { AgentChatMessage } from '@ihui/types'
+import { ACP_METHODS, acpMethodHeaders } from '../agent-protocol.js'
 import {
   fetchApi,
   getBaseUrl,
@@ -215,6 +216,7 @@ export function streamAgentChat(
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
+      ...acpMethodHeaders(ACP_METHODS.sessionPrompt),
     }
     const token = getToken()
     if (token) headers.Authorization = `Bearer ${token}`

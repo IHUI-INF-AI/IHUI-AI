@@ -580,12 +580,20 @@ fn get_admin_window_info() -> AdminWindowInfo {
 /// Tauri 2 没有 JS 端 toggle API,必须在 Rust 端做。
 #[tauri::command]
 fn toggle_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
-    if window.is_devtools_open() {
-        window.close_devtools();
-    } else {
-        window.open_devtools();
+    #[cfg(feature = "devtools")]
+    {
+        if window.is_devtools_open() {
+            window.close_devtools();
+        } else {
+            window.open_devtools();
+        }
+        return Ok(());
     }
-    Ok(())
+    #[cfg(not(feature = "devtools"))]
+    {
+        let _ = window;
+        Err("当前构建未启用开发者工具".to_string())
+    }
 }
 
 /// 真正退出应用(供前端 menu dispatcher 调用,2026-07-25 立)。
