@@ -69,7 +69,7 @@ export default function ContactPlatformActions({
         ) : null}
       </div>
       {syncMutation.data ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="font-[weight:inherit] text-label text-muted-foreground">
           {syncMutation.data.result.ok
             ? `同步完成：新增 ${syncMutation.data.inserted}，更新 ${syncMutation.data.updated}`
             : `同步未执行：${syncMutation.data.result.reason ?? syncMutation.data.result.status}`}

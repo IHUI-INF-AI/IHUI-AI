@@ -70,13 +70,13 @@ export default function HrLifecyclePage() {
     <FeaturePageShell title={t('title')} description={t('desc')}>
       <HasPermi
         code={HR_VIEW_PERM}
-        fallback={<p className="text-sm text-muted-foreground">{t('noPerm')}</p>}
+        fallback={<p className="font-[weight:inherit] text-body text-muted-foreground">{t('noPerm')}</p>}
       >
         <div className="mb-3 flex flex-wrap gap-1">
           {tabs.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs ${
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-label ${
                 tab === key ? 'bg-muted font-medium' : 'text-muted-foreground hover:bg-muted/60'
               }`}
               onClick={() => setTab(key)}
@@ -97,7 +97,7 @@ export default function HrLifecyclePage() {
         {tab === 'recruit' && (
           <HasPermi
             code={RECRUIT_PERM}
-            fallback={<p className="text-sm text-muted-foreground">{t('recruitNoPerm')}</p>}
+            fallback={<p className="font-[weight:inherit] text-body text-muted-foreground">{t('recruitNoPerm')}</p>}
           >
             <div className="space-y-3">
               <RecruitTab />
@@ -108,7 +108,7 @@ export default function HrLifecyclePage() {
         {tab === 'interview' && (
           <HasPermi
             code={RECRUIT_PERM}
-            fallback={<p className="text-sm text-muted-foreground">{t('recruitNoPerm')}</p>}
+            fallback={<p className="font-[weight:inherit] text-body text-muted-foreground">{t('recruitNoPerm')}</p>}
           >
             <InterviewTab />
           </HasPermi>

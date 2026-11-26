@@ -72,7 +72,7 @@ export default function AccountsPanel({
       <div className="flex items-center justify-between gap-2">
         <div>
           <h2 className="text-body font-semibold">微信账号</h2>
-          <p className="text-xs text-muted-foreground">
+          <p className="font-[weight:inherit] text-label text-muted-foreground">
             一个账号一条长连接；凭据加密存储，前端只看到状态与脱敏信息。
           </p>
         </div>
@@ -103,7 +103,7 @@ export default function AccountsPanel({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-body font-semibold">{account.label}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="font-[weight:inherit] text-label text-muted-foreground">
                         {BACKEND_LABELS[account.backend] ?? account.backend}
                         {account.externalId ? ` · ${account.externalId}` : ''}
                         {account.allowlistEnabled ? ' · 白名单' : ''}
@@ -111,11 +111,11 @@ export default function AccountsPanel({
                     </div>
                     <WechatStatusBadge status={account.status} />
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="font-[weight:inherit] text-label text-muted-foreground">
                     最近轮询：{formatTime(account.lastPollAt)}
                   </p>
                   {account.lastError ? (
-                    <p className="line-clamp-2 break-words text-xs text-red-600 dark:text-red-400">
+                    <p className="font-[weight:inherit] line-clamp-2 break-words text-label text-red-600 dark:text-red-400">
                       {account.lastError}
                     </p>
                   ) : null}

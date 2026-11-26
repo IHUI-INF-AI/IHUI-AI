@@ -64,10 +64,10 @@ export default function BroadcastCard({ accountId }: { accountId: string }) {
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={4}
-            className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+            className="font-[weight:inherit] w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-body outline-none focus:border-stroke-focus"
             placeholder="群发文案；不带标签时发给全部未拉黑联系人。"
           />
-          <p className="text-xs text-muted-foreground">{text.length} / 5000</p>
+          <p className="font-[weight:inherit] text-label text-muted-foreground">{text.length} / 5000</p>
         </div>
         <div className="grid grid-cols-1 gap-3 min-[800px]:grid-cols-[1fr_auto]">
           <div className="space-y-1">

@@ -236,7 +236,7 @@ export function ResignTab() {
             <div className="text-[11px] text-muted-foreground">{t('settleHint')}</div>
             <div className="flex flex-wrap gap-3">
               {CHECKLIST_KEYS.map((k) => (
-                <label key={k} className="flex items-center gap-1 text-xs">
+                <label key={k} className="font-[weight:inherit] flex items-center gap-1 text-label">
                   <input
                     type="checkbox"
                     checked={Boolean(settleFor.checks[k])}

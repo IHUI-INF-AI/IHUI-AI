@@ -25,7 +25,7 @@ export function Card({
   return (
     <section className="rounded-lg border border-stroke-subtle bg-card p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">{title}</h2>
+        <h2 className="text-body font-semibold">{title}</h2>
         {actions}
       </div>
       {children}
@@ -34,7 +34,7 @@ export function Card({
 }
 
 export function Empty({ text }: { text: string }) {
-  return <p className="py-3 text-center text-xs text-muted-foreground">{text}</p>
+  return <p className="font-[weight:inherit] py-3 text-center text-label text-muted-foreground">{text}</p>
 }
 
 /** 状态徽章:ok 绿 / warn 黄 / danger 红 / 其余灰(词表与页内 hrTone 同一真相源) */

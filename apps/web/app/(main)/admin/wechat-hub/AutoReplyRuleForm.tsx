@@ -114,7 +114,7 @@ export default function AutoReplyRuleForm({ accountId, rule, visible, onSaved, o
       </CardHeader>
       <CardContent className="space-y-3">
         {!visible ? (
-          <p className="text-sm text-muted-foreground">从左侧选择规则，或点「新建规则」。</p>
+          <p className="font-[weight:inherit] text-body text-muted-foreground">从左侧选择规则，或点「新建规则」。</p>
         ) : (
           <>
             <div className="grid grid-cols-1 gap-3 min-[760px]:grid-cols-2">
@@ -172,7 +172,7 @@ export default function AutoReplyRuleForm({ accountId, rule, visible, onSaved, o
                 onChange={(event) => setForm({ ...form, replyText: event.target.value })}
                 rows={4}
                 maxLength={5000}
-                className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+                className="font-[weight:inherit] w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-body outline-none focus:border-stroke-focus"
                 placeholder={
                   form.matchType === 'agent'
                     ? '例如：你是智汇 AI 的客服，语气专业、简短；先回答问题，再引导对方留下需求。不确定的价格不要乱报。'
@@ -180,7 +180,7 @@ export default function AutoReplyRuleForm({ accountId, rule, visible, onSaved, o
                 }
               />
               {form.matchType === 'agent' ? (
-                <p className="text-xs text-muted-foreground">
+                <p className="font-[weight:inherit] text-label text-muted-foreground">
                   AI 模式会带上最近 30 条会话上下文，并自动检索该账号的知识库，再调用 IHUI 的 LLM
                   网关；仍走白名单、敏感词、限流与审计。群聊建议配合关键词和冷却秒数，避免刷屏。
                 </p>

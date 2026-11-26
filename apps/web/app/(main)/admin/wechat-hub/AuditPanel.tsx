@@ -66,12 +66,12 @@ export default function AuditPanel({ accountId }: { accountId: string }) {
             }
           />
         ) : actionsQuery.isLoading ? (
-          <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+          <div className="font-[weight:inherit] flex items-center gap-2 py-6 text-body text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             加载审计…
           </div>
         ) : (actionsQuery.data ?? []).length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] py-6 text-center text-body text-muted-foreground">
             暂无动作。连接、发送、分析都会在这里留痕。
           </p>
         ) : (
@@ -89,14 +89,14 @@ export default function AuditPanel({ accountId }: { accountId: string }) {
               <TableBody>
                 {(actionsQuery.data ?? []).map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                    <TableCell className="font-[weight:inherit] whitespace-nowrap text-label text-muted-foreground">
                       {formatTime(item.createdAt)}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{item.action}</TableCell>
-                    <TableCell className="max-w-[220px] break-all text-xs">
+                    <TableCell className="font-[weight:inherit] font-mono text-label">{item.action}</TableCell>
+                    <TableCell className="font-[weight:inherit] max-w-[220px] break-all text-label">
                       {item.target ?? '—'}
                     </TableCell>
-                    <TableCell className="text-xs">
+                    <TableCell className="font-[weight:inherit] text-label">
                       <span
                         className={cn(
                           'rounded-md px-1.5 py-0.5',
@@ -108,7 +108,7 @@ export default function AuditPanel({ accountId }: { accountId: string }) {
                         {item.status}
                       </span>
                     </TableCell>
-                    <TableCell className="max-w-[260px] break-words text-xs text-muted-foreground">
+                    <TableCell className="font-[weight:inherit] max-w-[260px] break-words text-label text-muted-foreground">
                       {item.error ?? '—'}
                     </TableCell>
                   </TableRow>

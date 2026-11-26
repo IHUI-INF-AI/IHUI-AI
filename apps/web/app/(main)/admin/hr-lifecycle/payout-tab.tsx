@@ -165,7 +165,7 @@ export function PayoutTab() {
         {!summary ? (
           <Empty text={t('loading')} />
         ) : (
-          <div className="flex flex-wrap gap-4 text-xs tabular-nums">
+          <div className="font-[weight:inherit] flex flex-wrap gap-4 text-label tabular-nums">
             <span>
               {t('payoutLatestBatch')}:{' '}
               {summary.batch ? <Badge status={summary.batch.status} /> : t('noneBatch')}
@@ -290,7 +290,7 @@ export function PayoutTab() {
 
       {exported && (
         <Card title={t('exportResult')}>
-          <p className="text-xs text-muted-foreground">
+          <p className="font-[weight:inherit] text-label text-muted-foreground">
             {exported.fileName} · {t('headCount')} {exported.rows} ·{' '}
             {fmtMoney(exported.totalAmount)} · sha256 {exported.fileHash.slice(0, 12)}
           </p>
@@ -382,7 +382,7 @@ export function PayoutTab() {
         {!cover ? (
           <Empty text={t('loading')} />
         ) : (
-          <div className="space-y-1 text-xs">
+          <div className="font-[weight:inherit] space-y-1 text-label">
             <p className="text-muted-foreground">
               {t('coverageHint', {
                 total: Number(cover.total ?? 0),

@@ -80,7 +80,7 @@ export default function ConversationExportButton({
         value={format}
         onChange={(event) => setFormat(event.target.value as WechatExportFormat)}
         aria-label="导出格式"
-        className="h-8 rounded-md border border-stroke-field bg-transparent px-2 text-xs outline-none focus:border-stroke-focus"
+        className="font-[weight:inherit] h-8 rounded-md border border-stroke-field bg-transparent px-2 text-label outline-none focus:border-stroke-focus"
       >
         {FORMATS.map((item) => (
           <option key={item.value} value={item.value}>
@@ -101,7 +101,7 @@ export default function ConversationExportButton({
         )}
         导出
       </Button>
-      {notice ? <span className="text-xs text-muted-foreground">{notice}</span> : null}
+      {notice ? <span className="font-[weight:inherit] text-label text-muted-foreground">{notice}</span> : null}
     </div>
   )
 }

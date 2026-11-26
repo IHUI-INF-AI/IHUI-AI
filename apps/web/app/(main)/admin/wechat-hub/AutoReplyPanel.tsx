@@ -61,12 +61,12 @@ export default function AutoReplyPanel({ accountId }: { accountId: string }) {
             新建规则
           </Button>
           {rulesQuery.isLoading ? (
-            <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+            <div className="font-[weight:inherit] flex items-center gap-2 py-4 text-body text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               加载规则…
             </div>
           ) : rules.length === 0 ? (
-            <p className="py-4 text-sm text-muted-foreground">还没有规则。</p>
+            <p className="font-[weight:inherit] py-4 text-body text-muted-foreground">还没有规则。</p>
           ) : (
             <div className="max-h-[520px] space-y-1 overflow-y-auto pr-1">
               {rules.map((rule) => (
@@ -85,8 +85,8 @@ export default function AutoReplyPanel({ accountId }: { accountId: string }) {
                     }}
                     className="min-w-0 flex-1 text-left"
                   >
-                    <span className="block truncate text-sm font-medium">{rule.name}</span>
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                    <span className="block truncate text-body font-medium">{rule.name}</span>
+                    <span className="font-[weight:inherit] mt-0.5 block truncate text-label text-muted-foreground">
                       {rule.matchType === 'agent' ? 'AI 智能回复' : rule.matchType} ·{' '}
                       {rule.keywords.join(' / ') ||
                         (rule.matchType === 'agent' ? '全部消息' : '无关键词')}

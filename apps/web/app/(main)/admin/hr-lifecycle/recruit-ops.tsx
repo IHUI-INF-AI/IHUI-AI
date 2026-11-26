@@ -62,7 +62,7 @@ export function RecruitOps() {
         {!s ? (
           <Empty text={t('loading')} />
         ) : (
-          <div className="space-y-1 text-xs">
+          <div className="font-[weight:inherit] space-y-1 text-label">
             <div className="flex flex-wrap gap-4 tabular-nums">
               <span>
                 {t('openingsTotal')}: <b>{s.openings.total}</b>
