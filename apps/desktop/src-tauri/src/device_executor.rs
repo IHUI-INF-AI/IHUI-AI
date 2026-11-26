@@ -154,12 +154,31 @@ pub fn read_status() -> DeviceExecutorStatus {
     }
 }
 
-fn find_ihui() -> Option<String> {
+/// 找 CLI 的调用形态。**内置优先**：安装包 resource_dir/cli 里带一份与桌面端同版本发布的
+/// CLI(npm-dist 产物)，PATH 里用户自己装的 ihui 只作兜底 —— 反过来的话，用户装了旧版全局
+/// 包就会命中旧版(连 `device adopt` 子命令都没有)，而"一键启用"又没有可见的失败原因。
+/// CLI 是 JS，运行时同样随包分发(resource_dir/node/node.exe)，见 `find_node`。
+struct IhuiCmd {
+    program: String,
+    pre_args: Vec<String>,
+}
+
+impl IhuiCmd {
+    fn command(&self) -> Command {
+        let mut c = hidden_command(&self.program);
+        for a in &self.pre_args {
+            c.arg(a);
+        }
+        c
+    }
+}
+
+fn where_first(name: &str) -> Option<String> {
     #[cfg(windows)]
     let probe = "where";
     #[cfg(not(windows))]
     let probe = "which";
-    let out = hidden_command(probe).arg("ihui").output().ok()?;
+    let out = hidden_command(probe).arg(name).output().ok()?;
     if !out.status.success() {
         return None;
     }
@@ -175,7 +194,59 @@ fn find_ihui() -> Option<String> {
     }
 }
 
-pub fn start_executor() -> Result<DeviceExecutorStatus, String> {
+/// 找 Node 运行时。**内置优先**:安装包 resource_dir/node/node.exe 与桌面端同包发布,
+/// 用户不必先装 Node。2026-11-26 实测:"用户机器没有 Node"和"没有 ihui 命令"一样常见,
+/// 两种都不该让「一键启用」退化成一句看不懂的报错。PATH / 常见安装位只作兜底。
+fn find_node(app: Option<&AppHandle>) -> Option<String> {
+    if let Some(app) = app {
+        if let Ok(dir) = app.path().resource_dir() {
+            #[cfg(windows)]
+            let cand = dir.join("node").join("node.exe");
+            #[cfg(not(windows))]
+            let cand = dir.join("node").join("node");
+            if cand.is_file() {
+                return Some(cand.to_string_lossy().to_string());
+            }
+        }
+    }
+    if let Some(n) = where_first("node") {
+        return Some(n);
+    }
+    #[cfg(windows)]
+    for p in [
+        r"C:\Program Files\nodejs\node.exe",
+        r"C:\Program Files (x86)\nodejs\node.exe",
+    ] {
+        if std::path::Path::new(p).is_file() {
+            return Some(p.to_string());
+        }
+    }
+    None
+}
+
+fn find_ihui(app: Option<&AppHandle>) -> Option<IhuiCmd> {
+    // 1) 安装包内置 CLI(与桌面端版本绑定,永不漂)
+    if let Some(app) = app {
+        if let Ok(dir) = app.path().resource_dir() {
+            let js = dir.join("cli").join("dist").join("index.js");
+            if js.is_file() {
+                if let Some(node) = find_node(Some(app)) {
+                    return Some(IhuiCmd {
+                        program: node,
+                        pre_args: vec![js.to_string_lossy().to_string()],
+                    });
+                }
+            }
+        }
+    }
+    // 2) 用户自己装的全局 ihui
+    where_first("ihui").map(|p| IhuiCmd {
+        program: p,
+        pre_args: Vec::new(),
+    })
+}
+
+pub fn start_executor(app: &AppHandle) -> Result<DeviceExecutorStatus, String> {
     if !cfg!(windows) {
         return Err("当前平台暂不支持：执行器托管只在 Windows 桌面端提供".into());
     }
@@ -199,8 +270,10 @@ pub fn start_executor() -> Result<DeviceExecutorStatus, String> {
             return Err(format!("启动计划任务失败: {msg}"));
         }
     } else {
-        let exe = find_ihui().ok_or_else(|| {
-            "没找到 ihui 命令：请先安装 CLI 并执行 ihui device pair <配对码>".to_string()
+        let ihui = find_ihui(Some(app)).ok_or_else(|| {
+            "没找到 ihui：安装包内置 CLI 需要宿主 Node(PATH 里没有 node)。装上 Node 后重试，\
+             或在命令行 npm i -g ihui-cli 用全局版兜底"
+                .to_string()
         })?;
         let log = log_path().ok_or_else(|| "定位日志目录失败".to_string())?;
         // 追加写：每次启动不让上一轮现场（含失败原因）消失。
@@ -212,7 +285,8 @@ pub fn start_executor() -> Result<DeviceExecutorStatus, String> {
         let err_file = out_file
             .try_clone()
             .map_err(|e| format!("复制日志句柄失败: {e}"))?;
-        let mut cmd = hidden_command(&exe);
+        // CLI 自己解析 device start 的参数；这里只负责把它拉到常驻。
+        let mut cmd = ihui.command();
         cmd.arg("device")
             .arg("start")
             .stdin(Stdio::null())
@@ -318,7 +392,8 @@ pub fn toggle_from_tray(app: &AppHandle) {
         let outcome = if running {
             tauri::async_runtime::spawn_blocking(stop_executor).await
         } else {
-            tauri::async_runtime::spawn_blocking(start_executor).await
+            let app_for_start = app.clone();
+            tauri::async_runtime::spawn_blocking(move || start_executor(&app_for_start)).await
         };
         match outcome {
             Ok(Ok(_)) => {}
@@ -366,8 +441,9 @@ pub async fn device_executor_status() -> Result<DeviceExecutorStatus, String> {
 
 /// 启动本机设备执行器(供远端设备任务调度使用)
 #[tauri::command]
-pub async fn device_executor_start() -> Result<DeviceExecutorStatus, String> {
-    tauri::async_runtime::spawn_blocking(start_executor)
+pub async fn device_executor_start(app: AppHandle) -> Result<DeviceExecutorStatus, String> {
+    let app_for_start = app.clone();
+    tauri::async_runtime::spawn_blocking(move || start_executor(&app_for_start))
         .await
         .map_err(|e| format!("启动执行器失败: {e}"))?
 }
@@ -444,9 +520,10 @@ pub async fn device_executor_adopt(
     if !std::path::Path::new(&chosen).is_dir() {
         return Err(format!("工作区不存在或不是目录: {chosen}"));
     }
-    let ihui = find_ihui().ok_or_else(|| {
-        // 包名是 ihui-cli(bin 名 ihui);写成 @ihui/cli 会让用户照抄一条 404 的命令。
-        "找不到 ihui 命令。请先在命令行执行 npm i -g ihui-cli,装好回到这里点「启用」重试".to_string()
+    let ihui = find_ihui(Some(&app)).ok_or_else(|| {
+        // 内置 CLI 需要宿主 Node;两条路都没有时给出可执行的一条命令。
+        "没找到可用的 ihui：装上 Node(安装包内置 CLI 依赖它),或在命令行执行 npm i -g ihui-cli 后重试"
+            .to_string()
     })?;
     // 把工作区注入载荷：CLI 侧 workspace 的优先级是 stdin > --dir > cwd,这里两条都给。
     let mut payload_value: serde_json::Value =
@@ -464,7 +541,7 @@ pub async fn device_executor_adopt(
         serde_json::to_string(&payload_value).map_err(|e| format!("接入载荷序列化失败: {e}"))?;
     let dir = chosen.clone();
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-        let mut cmd = hidden_command(&ihui);
+        let mut cmd = ihui.command();
         cmd.arg("device")
             .arg("adopt")
             .arg("--dir")
