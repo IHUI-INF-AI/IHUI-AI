@@ -3806,7 +3806,7 @@
     "paid": "Paid",
     "searchPlaceholder": "Search agents",
     "title": "Agent Market",
-    "uses": "uses"
+    "uses": "Uses"
   },
   "agentReviewList": {
     "author": "Author",
@@ -7511,7 +7511,7 @@
     "currentBundle": "Currently running: {{bundle}}",
     "bundleEmbedded": "Built-in bundle",
     "bundleOta": "Hot update",
-    "readyBody": "Update downloaded. Tap Update to apply it now.",
+    "readyBody": "Update downloaded. Tap Update Now to apply it now.",
     "installingHint": "The app restarts automatically — usually within seconds.",
     "restartNow": "Restart now",
     "apkTitle": "New version {{version}} available",
