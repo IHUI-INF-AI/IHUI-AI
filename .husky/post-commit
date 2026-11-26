@@ -10,7 +10,7 @@
 # 日志都动了(07:19:21/24/34),07:31:17 那枚一条没动。防复发闸见
 # scripts/check-husky-hook-form.mjs(钩子必须是 sh 薄壳,node 正文只能在 scripts/lib)。
 # 根治:与 .husky/pre-commit 同型 —— 本文件只做 sh 薄壳,经
-#   wscript //nologo scripts/hook-run-hidden.vbs(GUI 子系统,自身不依赖 node)
+#   node scripts/hook-run-hidden.mjs(无 WSH 依赖,windowsHide + per-run 日志)
 # 启动正文 scripts/lib/post-commit-hook.js(node 逻辑整体在那边,含 git 写锁 /
 # push-guard / pollution / tag-sync / plan-heal / plan-state-heal 各段,日志 label
 # 与段编号与迁入前逐字一致)。
@@ -23,13 +23,13 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OB
 # 代价:这里不再能回显失败摘要 —— 失败看日志(post-commit*.log),或跑
 # `node scripts/lib/post-commit-hook.js` 手动复跑。要恢复同步:HUSKY_POST_COMMIT_SYNC=1。
 if [ "$HUSKY_POST_COMMIT_SYNC" = "1" ]; then
-  wscript //nologo scripts/hook-run-hidden.vbs post-commit scripts/lib/post-commit-hook.js "$@" || {
+  node scripts/hook-run-hidden.mjs post-commit scripts/lib/post-commit-hook.js "$@" || {
     printf '%s\n' "❌ post-commit 链失败(commit 已落地;推送/自愈段未完成)—— 日志末 40 行:" >&2
     tail -40 .ihui-agent/state/hook-logs/post-commit.log >&2 || true
     printf '%s\n' "   手动复跑:node scripts/lib/post-commit-hook.js;推送核验:node scripts/git-push-converge.mjs" >&2
     exit 1
   }
 else
-  wscript //nologo scripts/hook-run-hidden.vbs post-commit scripts/lib/post-commit-hook.js "$@" >/dev/null 2>&1 &
+  node scripts/hook-run-hidden.mjs post-commit scripts/lib/post-commit-hook.js "$@" >/dev/null 2>&1 &
   printf '%s\n' "⏱  post-commit 已转入后台(push-guard=手动 / tag-sync=停用 / plan-heal);日志 .ihui-agent/state/hook-logs/post-commit*.log"
 fi
