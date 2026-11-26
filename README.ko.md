@@ -2227,6 +2227,13 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🚀 기능/개선:补积分冻结健康大盘与公示价成本回填 (aa203ce9)
+- 📚 문서:unify R10.3 at six sessions (daf59ccd)
+- 🔧 기타:R8 画中画收起/展开/收起态重开按钮语义（3 断言） (9a6e21fb)
+- 🚀 기능/개선:allow six concurrent sessions per owner (26842f19)
+- 🔧 기타:补窗口收起回快照与提示文案用例 (dc101a74)
+- 📚 문서:record R10.3 pip wall (a66b29c6)
+- 🚀 기능/개선:render multi-session pip wall in one panel (4833cd70)
 - 🔧 기타:合并后补齐合并工具自动追加的溯源水印 (064257d5)
 - 📚 문서:自动登记 2026-11-26 近期更新 (3aa846a7)
 - 📚 문서:对标落地 RP — 接 auto-evolve 外部质量尺子(尺子本体已入库,在等题库/守门接线) (e27d8cff)

@@ -99,6 +99,13 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🚀 Feature/Improvement:补积分冻结健康大盘与公示价成本回填 (aa203ce9)
+- 📚 Docs:unify R10.3 at six sessions (daf59ccd)
+- 🔧 Chore/Other:R8 画中画收起/展开/收起态重开按钮语义（3 断言） (9a6e21fb)
+- 🚀 Feature/Improvement:allow six concurrent sessions per owner (26842f19)
+- 🔧 Chore/Other:补窗口收起回快照与提示文案用例 (dc101a74)
+- 📚 Docs:record R10.3 pip wall (a66b29c6)
+- 🚀 Feature/Improvement:render multi-session pip wall in one panel (4833cd70)
 - 🔧 Chore/Other:合并后补齐合并工具自动追加的溯源水印 (064257d5)
 - 📚 Docs:自动登记 2026-11-26 近期更新 (3aa846a7)
 - 📚 Docs:对标落地 RP — 接 auto-evolve 外部质量尺子(尺子本体已入库,在等题库/守门接线) (e27d8cff)

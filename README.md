@@ -84,6 +84,13 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🚀 新功能/改进:补积分冻结健康大盘与公示价成本回填 (aa203ce9)
+- 📚 文档:unify R10.3 at six sessions (daf59ccd)
+- 🔧 工程/其他:R8 画中画收起/展开/收起态重开按钮语义（3 断言） (9a6e21fb)
+- 🚀 新功能/改进:allow six concurrent sessions per owner (26842f19)
+- 🔧 工程/其他:补窗口收起回快照与提示文案用例 (dc101a74)
+- 📚 文档:record R10.3 pip wall (a66b29c6)
+- 🚀 新功能/改进:render multi-session pip wall in one panel (4833cd70)
 - 🔧 工程/其他:合并后补齐合并工具自动追加的溯源水印 (064257d5)
 - 📚 文档:自动登记 2026-11-26 近期更新 (3aa846a7)
 - 📚 文档:对标落地 RP — 接 auto-evolve 外部质量尺子(尺子本体已入库,在等题库/守门接线) (e27d8cff)
