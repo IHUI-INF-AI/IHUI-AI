@@ -6,7 +6,7 @@ import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { rpx } from '@/utils/rpx'
 
-import { rnRadius, taroSpacing } from '@ihui/design-tokens'
+import { taroType, rnRadius, taroSpacing } from '@ihui/design-tokens'
 
 /**
  * CenterItem 盒子卡片组件
@@ -46,7 +46,7 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
     >
       <Text
         style={{
-          fontSize: rpx(30),
+          fontSize: taroType.strong.fontSize,
           fontWeight: 'bold',
           color: 'var(--color-foreground)',
           marginBottom: rpx(16),
@@ -107,7 +107,7 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
                   ) : null}
                   <Text
                     style={{
-                      fontSize: rpx(22),
+                      fontSize: taroType.caption.fontSize,
                       color: 'var(--color-muted-foreground)',
                     }}
                   >
@@ -117,7 +117,7 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
               ) : null}
               <Text
                 style={{
-                  fontSize: rpx(26),
+                  fontSize: taroType.bodySm.fontSize,
                   fontWeight: '500',
                   color: 'var(--color-foreground)',
                   display: 'block',
@@ -140,7 +140,7 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
                 {item.categoryName ? (
                   <Text
                     style={{
-                      fontSize: rpx(20),
+                      fontSize: taroType.badge.fontSize,
                       color: 'var(--color-muted-foreground)',
                     }}
                   >
@@ -150,7 +150,7 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
                 {typeof item.views === 'number' ? (
                   <Text
                     style={{
-                      fontSize: rpx(20),
+                      fontSize: taroType.badge.fontSize,
                       color: 'var(--color-muted-foreground)',
                     }}
                   >

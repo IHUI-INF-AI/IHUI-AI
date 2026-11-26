@@ -9,7 +9,7 @@ import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { rpx } from '@/utils/rpx'
 
-import { rnRadius, taroSpacing } from '@ihui/design-tokens'
+import { taroType, rnRadius, taroSpacing } from '@ihui/design-tokens'
 import { onToast } from '@/host/on-toast'
 const copyIcon = aizhsUrl('remote-images/copy.png')
 
@@ -118,7 +118,7 @@ export default function InformationItem({
         {item.date ? (
           <Text
             style={{
-              fontSize: rpx(26),
+              fontSize: taroType.bodySm.fontSize,
               color: TIMELINE_COLOR,
               display: 'block',
               marginBottom: rpx(12),
@@ -130,7 +130,7 @@ export default function InformationItem({
         {/* 标题(对齐 RN title:fontSize 16 → 32rpx / lineHeight 22 → 44rpx / 字重 600) */}
         <Text
           style={{
-            fontSize: rpx(32),
+            fontSize: taroType.title.fontSize,
             lineHeight: '44rpx',
             fontWeight: '600',
             color: 'var(--color-foreground)',
@@ -144,7 +144,7 @@ export default function InformationItem({
         {item.content ? (
           <Text
             style={{
-              fontSize: rpx(28),
+              fontSize: taroType.body.fontSize,
               color: 'var(--color-muted-foreground)',
               lineHeight: '40rpx',
               display: 'block',
@@ -183,7 +183,7 @@ export default function InformationItem({
               >
                 <Text
                   style={{
-                    fontSize: rpx(24),
+                    fontSize: taroType.label.fontSize,
                     lineHeight: '28rpx',
                     fontWeight: '600',
                     color: 'var(--color-foreground)',
@@ -196,7 +196,7 @@ export default function InformationItem({
             {typeof item.views === 'number' ? (
               <Text
                 style={{
-                  fontSize: rpx(24),
+                  fontSize: taroType.label.fontSize,
                   lineHeight: '28rpx',
                   color: 'var(--color-text-tertiary)',
                 }}

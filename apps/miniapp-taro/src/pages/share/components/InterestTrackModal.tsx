@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
+import { taroType, rnRadius } from '@ihui/design-tokens'
 
 import { useTt, t } from '@/i18n'
 import { View, Text, ScrollView } from '@tarojs/components'
@@ -121,7 +121,7 @@ export default function InterestTrackModal({
         <View style={{ padding: `${rpx(32)} ${rpx(32)} ${rpx(16)}` }}>
           <Text
             style={{
-              fontSize: rpx(34),
+              fontSize: taroType.titleLg.fontSize,
               fontWeight: 'bold',
               color: 'var(--color-foreground)',
               display: 'block',
@@ -132,7 +132,7 @@ export default function InterestTrackModal({
           </Text>
           <Text
             style={{
-              fontSize: rpx(24),
+              fontSize: taroType.label.fontSize,
               color: 'var(--color-muted-foreground)',
               display: 'block',
               textAlign: 'center',
@@ -168,7 +168,7 @@ export default function InterestTrackModal({
                 >
                   <Text
                     style={{
-                      fontSize: rpx(28),
+                      fontSize: taroType.body.fontSize,
                       fontWeight: 500,
                       color: isSelected ? 'var(--color-foreground)' : 'var(--color-foreground)',
                     }}
@@ -178,7 +178,7 @@ export default function InterestTrackModal({
                   {track.desc ? (
                     <Text
                       style={{
-                        fontSize: rpx(22),
+                        fontSize: taroType.caption.fontSize,
                         color: isSelected
                           ? 'var(--color-white-80)'
                           : 'var(--color-muted-foreground)',
@@ -208,7 +208,9 @@ export default function InterestTrackModal({
             onClick={onClose}
             hoverClass="opacity-60"
           >
-            <Text style={{ fontSize: rpx(28), color: 'var(--color-muted-foreground)' }}>
+            <Text
+              style={{ fontSize: taroType.body.fontSize, color: 'var(--color-muted-foreground)' }}
+            >
               {tt('shareInterestTrackModal.text1', '跳过')}
             </Text>
           </View>
@@ -223,7 +225,13 @@ export default function InterestTrackModal({
             onClick={handleConfirm}
             hoverClass="opacity-60"
           >
-            <Text style={{ fontSize: rpx(28), color: 'var(--color-foreground)', fontWeight: 500 }}>
+            <Text
+              style={{
+                fontSize: taroType.body.fontSize,
+                color: 'var(--color-foreground)',
+                fontWeight: 500,
+              }}
+            >
               {tt('tail.20', '确认选择{count}', {
                 count: selectedIds.size > 0 ? `(${selectedIds.size})` : '',
               })}

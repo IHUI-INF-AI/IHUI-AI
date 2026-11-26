@@ -40,7 +40,7 @@ const erweimaImg = aizhsUrl('remote-images/erweima.png')
 import { rpx, px } from '@/utils/rpx'
 import type { CarouselItem } from '@ihui/types'
 import type { TitleSwitchScrollTitleItem } from '@ihui/types'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, taroType } from '@ihui/design-tokens'
 import type { AgentInfo } from '@/components/AgentListPanel'
 import type { DrawerModelGroup, DrawerUserInfo, DrawerChatItem } from '@/components/DrawerComponent'
 import './index.css'
@@ -730,7 +730,7 @@ export default function Community() {
               onClick={() => setShowServicePopup(true)}
               hoverClass="opacity-60"
             >
-              <Text style={{ fontSize: rpx(24), color: 'var(--color-primary)' }}>
+              <Text style={{ fontSize: taroType.label.fontSize, color: 'var(--color-primary)' }}>
                 {tt('wallet.recharge.fail.contactService', '联系客服')}
               </Text>
             </View>
@@ -917,7 +917,11 @@ export default function Community() {
                 onClick={() => setShowServicePopup(false)}
                 hoverClass="opacity-60"
               >
-                <Text style={{ fontSize: rpx(40), color: 'var(--color-foreground)' }}>×</Text>
+                <Text
+                  style={{ fontSize: taroType.heading.fontSize, color: 'var(--color-foreground)' }}
+                >
+                  ×
+                </Text>
               </View>
             </View>
           </View>
