@@ -141,7 +141,9 @@ export function preflightOpts(gates = {}) {
   return {
     requireSmoke: true,
     smokeCommand: normalized.cmd,
-    smokeTimeoutMs: 20000,
+    // 20s 在冷启动/并发满载时不够(2026-11-26 实测同一 CLI --version 32.5s 返回 1.0.0,
+    // 被判 timeout-ETIMEDOUT 拦在派发前);60s 给足冷启动,仍能在真挂死时熔断。
+    smokeTimeoutMs: 60000,
   }
 }
 

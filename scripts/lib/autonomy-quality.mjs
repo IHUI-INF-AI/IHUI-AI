@@ -81,6 +81,12 @@ export function resolveQualityConfig(gates = {}) {
     if (!v) throw new Error('ruler.judgeModel 不能为空串(要么不填=网关默认,要么给模型名)')
     tune.judgeModel = v
   }
+  // 免费档裁判节奏(2026-11-26):判 40 题时逐题间隔，避免 5/min 级免费限额把中段打成 unjudged。
+  if (r.judgePaceSec !== undefined && r.judgePaceSec !== null) {
+    const v = Number(r.judgePaceSec)
+    if (!Number.isFinite(v) || v < 0) throw new Error(`ruler.judgePaceSec 必须是非负秒数(现值 ${String(r.judgePaceSec)})`)
+    tune.judgePaceSec = v
+  }
   let datasetDir = null
   if (r.datasetDir !== undefined && r.datasetDir !== null) {
     datasetDir = String(r.datasetDir).trim()
@@ -94,6 +100,10 @@ export function resolveQualityConfig(gates = {}) {
     if (!Number.isInteger(limit) || limit < 0) throw new Error(`ruler.stampLimit 必须是非负整数(现值 ${String(r.stampLimit)})`)
     const timeoutMs = r.stampTimeoutMs === undefined || r.stampTimeoutMs === null ? 240_000 : Number(r.stampTimeoutMs)
     if (!Number.isInteger(timeoutMs) || timeoutMs < 10_000) throw new Error(`ruler.stampTimeoutMs 必须 ≥10000 的整数(现值 ${String(r.stampTimeoutMs)})`)
+    const minInterval = r.stampMinInterval === undefined || r.stampMinInterval === null ? null : Number(r.stampMinInterval)
+    if (minInterval !== null && (!Number.isFinite(minInterval) || minInterval < 0)) {
+      throw new Error(`ruler.stampMinInterval 必须是非负秒数(现值 ${String(r.stampMinInterval)})`)
+    }
     stamp = {
       generate: true,
       candidateModel: r.candidateModel === undefined || r.candidateModel === null ? 'auto' : String(r.candidateModel).trim(),
@@ -101,6 +111,7 @@ export function resolveQualityConfig(gates = {}) {
       prompts: r.prompts === undefined || r.prompts === null ? '' : String(r.prompts).trim(),
       limit,
       timeoutMs,
+      minInterval,
     }
     if (!stamp.candidateModel) throw new Error('ruler.candidateModel 不能为空串(要么不填=auto,要么给模型名)')
   } else if (r.generate !== undefined && r.generate !== null && r.generate !== false) {
@@ -159,6 +170,7 @@ export function buildRulerArgv(script, version, tune = null) {
   if (Number.isInteger(tune.window) && tune.window > 0) argv.push('--window', String(tune.window))
   if (Number.isFinite(tune.minDelta) && tune.minDelta > 0 && tune.minDelta <= 1) argv.push('--min-delta', String(tune.minDelta))
   if (tune.judgeModel) argv.push('--judge-model', String(tune.judgeModel))
+  if (Number.isFinite(tune.judgePaceSec) && tune.judgePaceSec >= 0) argv.push('--pace', String(tune.judgePaceSec))
   return argv
 }
 
@@ -173,6 +185,7 @@ export function buildStampArgv(script, version, stamp = null) {
   if (stamp.baselineModel) argv.push('--baseline-model', String(stamp.baselineModel))
   if (stamp.prompts) argv.push('--prompts', String(stamp.prompts))
   if (Number.isInteger(stamp.limit) && stamp.limit > 0) argv.push('--limit', String(stamp.limit))
+  if (Number.isFinite(stamp.minInterval) && stamp.minInterval >= 0) argv.push('--min-interval', String(stamp.minInterval))
   return argv
 }
 

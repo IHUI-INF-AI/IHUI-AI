@@ -148,7 +148,9 @@ async def _run(args: argparse.Namespace) -> int:
     from app.core.llm_gateway import llm_gateway  # 仅真跑时再导,避免自检/装载路径拉起网关
 
     results: list[PairwiseResult | None] = []
-    for item in items:
+    for index, item in enumerate(items):
+        if index and args.pace > 0:
+            await asyncio.sleep(args.pace)
         try:
             results.append(await judge_pair(llm_gateway, item, judge_model=args.judge_model))
         except Exception as exc:  # noqa: BLE001 - 单题裁判异常降级为 unjudged,不拖垮整轮
@@ -284,6 +286,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="私有成对胜率评测(复现 SmolTalkBench)+ 骤降趋势哨兵")
     parser.add_argument("--version", default="unknown", help="本版标识(git 尖/标签/evolve轮次),写进趋势账")
     parser.add_argument("--judge-model", default=None, help="裁判模型,空则用网关默认")
+    parser.add_argument("--pace", type=float, default=0.0, help="逐题裁判之间最小间隔秒(免费档防 429;0=不限速)")
     parser.add_argument("--min-judged", type=int, default=8, help="判动所需最小可判题数(小于此不裁决,§0.3)")
     parser.add_argument("--min-delta", type=float, default=0.10, help="相对基线下降多少算骤降")
     parser.add_argument("--window", type=int, default=5, help="基线取近 N 个历史点均值")
