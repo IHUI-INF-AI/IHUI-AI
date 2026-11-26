@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { fetchApi, fetchText, fetchRaw, aiServiceBaseUrl, fetchWithAuthRefresh } from '../client.js'
+import { ACP_METHODS, acpMethodHeaders } from '../agent-protocol.js'
 
 export type ChatRole = 'user' | 'assistant' | 'system'
 
@@ -212,6 +213,7 @@ export interface ConversationMessage {
 export function createConversation(input: { title?: string; model?: string } = {}) {
   return fetchApi<{ conversation: ConversationDetail }>('/api/chat/conversations', {
     method: 'POST',
+    headers: acpMethodHeaders(ACP_METHODS.sessionNew),
     body: JSON.stringify(input),
   })
 }
@@ -686,6 +688,7 @@ export function sendMessage(
     `/api/chat/conversations/${encodeURIComponent(id)}/messages`,
     {
       method: 'POST',
+      headers: acpMethodHeaders(ACP_METHODS.sessionPrompt),
       body: JSON.stringify({ content, role, metadata, reasoning }),
     },
   )

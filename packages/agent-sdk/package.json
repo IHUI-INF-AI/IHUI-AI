@@ -30,6 +30,9 @@
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
+  "dependencies": {
+    "@ihui/types": "workspace:*"
+  },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
   "homepage": "https://aizhs.top"
 }

@@ -7,7 +7,8 @@
  *
  * 判据:ACP 方法名字面量(`session/new` / `session/prompt` / `session/cancel` /
  * `session/update` / `initialize` / `authenticate` / `session/load`)只许出现在
- * `@ihui/agent-sdk` 里;其它端要么从这里 import 常量,要么就是第二真相源。
+ * `@ihui/types` 的单一真相源(`packages/types/src/agent-protocol.ts`);agent-sdk
+ * 只做转发,其它端要么 import 常量,要么就是第二真相源。
  *
  * 2026-11-26 存量债(按 2026-11-23 机主口径登记,不假装它已清):
  *  - `apps/cli/src/acp/server.ts` 仍硬编码三处 —— 该 app 尚未依赖 `@ihui/agent-sdk`,
@@ -37,7 +38,11 @@ const SCAN_PATHS = ['apps/web', 'apps/mobile-rn', 'apps/miniapp-taro', 'apps/cli
  */
 const BASELINE = new Map()
 
-const ALLOW_PREFIXES = ['packages/agent-sdk/src/', 'packages/agent-sdk/tests/']
+const ALLOW_PREFIXES = [
+  'packages/types/src/agent-protocol.ts',
+  'packages/agent-sdk/src/',
+  'packages/agent-sdk/tests/',
+]
 const ALLOW_PATTERNS = [/\/tests\//, /\/__tests__\//, /\/fixtures\//]
 
 function allowed(path) {
@@ -103,7 +108,7 @@ export function main() {
     console.log(`  · 存量债 ${file} —— ${BASELINE.get(file)}`)
   }
   for (const file of offenders) {
-    console.log(`  ❌ ${file} 自带协议字面量(应改用 @ihui/agent-sdk 的 ACP_METHODS)`)
+    console.log(`  ❌ ${file} 自带协议字面量(应改用 @ihui/types 的 ACP_METHODS)`)
   }
   if (!offenders.length) {
     console.log('  ✅ 除 sdk 与测试外,无第二份方法名字面量')

@@ -11,38 +11,19 @@
  * 而类型检查两处都过 —— 只有跨端契约测试和单一方法表能拦住。
  *
  * 三端复用口径:
- *  - web / RN / 小程序只经 `@ihui/agent-sdk` 取这些常量,不各自写字符串;
+ *  - 常量本体在 `@ihui/types`(纯常量,浏览器/小程序可引),本文件只做 SDK 侧转发;
+ *  - web / RN / 小程序经 `@ihui/api-client` 或 `@ihui/types` 拿到同一份方法表;
  *  - 差异只在 UI 适配层(渲染、布局、事件订阅),协议名与错误码同一份;
- *  - 任何新增方法先进这张表,再落实现。
+ *  - 任何新增方法先进 `@ihui/types/src/agent-protocol.ts`,再落实现。
  */
 
-import { AGENT_SDK_ERROR_CODES } from './protocol.js'
-
-/** ACP 方法名(请求)与通知名。键是三端共用的**语义名**,值是线上一字不差的字面量。 */
-export const ACP_METHODS = {
-  initialize: 'initialize',
-  authenticate: 'authenticate',
-  sessionNew: 'session/new',
-  sessionLoad: 'session/load',
-  sessionPrompt: 'session/prompt',
-  sessionCancel: 'session/cancel',
-  sessionUpdate: 'session/update',
-} as const
-
-export type AcpMethodKey = keyof typeof ACP_METHODS
-export type AcpMethodName = (typeof ACP_METHODS)[AcpMethodKey]
-
-/** 请求类方法(有 response)。`session/update` 是通知,不在其内。 */
-export const ACP_REQUEST_METHODS: readonly AcpMethodName[] = [
-  ACP_METHODS.initialize,
-  ACP_METHODS.authenticate,
-  ACP_METHODS.sessionNew,
-  ACP_METHODS.sessionLoad,
-  ACP_METHODS.sessionPrompt,
-  ACP_METHODS.sessionCancel,
-]
-
-export const ACP_NOTIFICATION_METHODS: readonly AcpMethodName[] = [ACP_METHODS.sessionUpdate]
-
-export { AGENT_SDK_ERROR_CODES }
+export {
+  ACP_METHODS,
+  ACP_NOTIFICATION_METHODS,
+  ACP_REQUEST_METHODS,
+  AGENT_SDK_ERROR_CODES,
+  AGENT_PROTOCOL_METHOD_HEADER,
+  acpMethodHeaders,
+} from '@ihui/types'
+export type { AcpMethodKey, AcpMethodName } from '@ihui/types'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
