@@ -68,7 +68,9 @@ jobs:
     # 2026-09-17:幽灵 run 防护——并行会话频繁 push main 会为 tags-only workflow
     # 创建 0-job 空 run 并标 failure(GitHub 行为);此守卫使其变为 skipped。
     if: startsWith(github.ref, 'refs/tags/desktop-v') || github.event_name == 'workflow_dispatch'
-    runs-on: ${{ matrix.runner }}
+    # 2026-11-26:Windows 构建可切到 self-hosted(vars.WIN_RUNNER=self-hosted 时启用),
+    # 用于 GitHub 托管 runner 排队数小时时走本机快速通道;未设该变量时行为与原来逐字一致。
+    runs-on: ${{ matrix.label == 'windows-x64' && vars.WIN_RUNNER == 'self-hosted' && fromJSON('["self-hosted","windows","x64"]') || matrix.runner }}
     timeout-minutes: 60
     env:
       # 与 release-cli 同一把开关:四项凭据齐备才置 true(step-level if 不支持 secrets
