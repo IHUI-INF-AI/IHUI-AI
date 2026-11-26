@@ -140,18 +140,35 @@ export class ChannelDispatcher {
     this.opts.onAudit?.(record)
   }
 
-  /** 真派发口:先查表,未注册即拒(计数 + 审计),绝不"按名字硬发"。 */
-  dispatch<T>(name: string, kind: ChannelKind, fn: (spec: ChannelSpec) => T): T {
+  /** 只查表不执行:未注册即拒(计数 + 审计)。给"先判合法性、再自己跑逻辑"的调用方用。 */
+  guard(name: string, kind: ChannelKind): ChannelSpec {
     const spec = this.registry.resolve(name, kind)
-    const at = this.opts.now?.() ?? new Date().toISOString()
     if (!spec) {
       const k = keyOf(name, kind)
       this.rejectionCounts.set(k, (this.rejectionCounts.get(k) ?? 0) + 1)
-      this.audit({ at, channel: name, kind, outcome: 'rejected', owner: null })
+      this.audit({
+        at: this.opts.now?.() ?? new Date().toISOString(),
+        channel: name,
+        kind,
+        outcome: 'rejected',
+        owner: null,
+      })
       throw new ChannelRejected(name, kind)
     }
+    return spec
+  }
+
+  /** 真派发口:先查表,未注册即拒(计数 + 审计),绝不"按名字硬发"。 */
+  dispatch<T>(name: string, kind: ChannelKind, fn: (spec: ChannelSpec) => T): T {
+    const spec = this.guard(name, kind)
     this.allowedCount += 1
-    this.audit({ at, channel: name, kind, outcome: 'allowed', owner: spec.owner })
+    this.audit({
+      at: this.opts.now?.() ?? new Date().toISOString(),
+      channel: name,
+      kind,
+      outcome: 'allowed',
+      owner: spec.owner,
+    })
     return fn(spec)
   }
 

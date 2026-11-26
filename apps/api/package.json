@@ -60,6 +60,7 @@
     "@fastify/websocket": "^11.3.0",
     "@firecrawl/anydoc": "0.2.4",
     "@ihui/auth": "workspace:*",
+    "@ihui/agent-sdk": "workspace:*",
     "@ihui/context-compaction": "workspace:*",
     "@ihui/database": "workspace:*",
     "@ihui/attendance-core": "workspace:*",
