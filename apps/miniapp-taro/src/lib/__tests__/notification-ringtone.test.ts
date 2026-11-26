@@ -144,11 +144,11 @@ describe('后端偏好 hydration 归一化', () => {
 })
 
 describe('播放与去抖', () => {
-  it('开启状态播放当前选中铃声,src 指向包内 WAV', () => {
+  it('开启状态播放当前选中铃声,src 指向包内 MP3', () => {
     writeStoredRingtoneId('dingdong')
     expect(playNotificationRingtone()).toBe(true)
     const ctx = mocks.ctxs[mocks.ctxs.length - 1]
-    expect(ctx?.src).toBe('/static/sounds/ringtone-dingdong.wav')
+    expect(ctx?.src).toBe('/static/sounds/ringtone-dingdong.mp3')
     expect(ctx?.play).toHaveBeenCalledTimes(1)
   })
 
@@ -169,13 +169,13 @@ describe('播放与去抖', () => {
     expect(previewRingtone('waterdrop')).toBe(true)
     expect(previewRingtone('marimba')).toBe(true)
     const last = mocks.ctxs[mocks.ctxs.length - 1]
-    expect(last?.src).toBe('/static/sounds/ringtone-marimba.wav')
+    expect(last?.src).toBe('/static/sounds/ringtone-marimba.mp3')
   })
 
   it('试听未知 id 同样回落默认铃声', () => {
     expect(previewRingtone('bogus')).toBe(true)
     const last = mocks.ctxs[mocks.ctxs.length - 1]
-    expect(last?.src).toBe('/static/sounds/ringtone-dingdong.wav')
+    expect(last?.src).toBe('/static/sounds/ringtone-dingdong.mp3')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

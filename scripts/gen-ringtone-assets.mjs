@@ -11,10 +11,22 @@
  * 用与 web 播放器一致的合成算法(主音 + 2/3 次谐波、6ms 起音、指数衰减)渲染 16bit PCM WAV,
  * 一次产出三端副本。
  *
+ * 编码分化(2026-11-26):小程序端主包受微信 2 MiB 硬限,8 枚 16 kHz WAV 合计 124,518 B,
+ * 是主包减到 90% 水位线以上最好的一块空间 ⇒ 小程序端改编码 48kbps 单声道 MP3
+ * (合计 28,216 B,省 96,302 B,听感对短提示音无损可辨)。web/RN 仍用 WAV:RN 的
+ * `withNotificationSounds.cjs` 把 wav 灌进 Android res/raw,改动会波及原生通知渠道,
+ * 与本票「主包体积」目标无关,刻意不动。三端音符表仍是同一张,只差容器。
+ *
+ * MP3 编码器为 ffmpeg(PATH 或 FFMPEG_BIN 指定),经 stdin/stdout pipe 直传、不落临时文件;
+ * 同一 WAV 连编两次 md5 一致(libmp3lame 确定性),故 --check 的尺寸比对依然有效。
+ * ffmpeg 只在「重新生成资产」时需要:产物 MP3 已入库,构建/CI 直接用,不引入构建期依赖。
+ *
  * 用法:node scripts/gen-ringtone-assets.mjs [--check]
- *   --check 只比对尺寸/存在性,不写盘(CI/守门用)
+ *   --check 只比对尺寸/存在性,不写盘(CI/守门用);mp3 端重算预期尺寸需 ffmpeg,
+ *   取不到 ffmpeg 时 exit 2「未判定」并点名 FFMPEG_BIN —— 不冒红也不静默记绿。
  */
 
+import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -27,6 +39,46 @@ const TARGET_DIRS = [
   join(rootDir, 'apps/miniapp-taro/src/static/sounds'),
   join(rootDir, 'apps/mobile-rn/assets/sounds'),
 ]
+
+/** 小程序端主包受 2 MiB 硬限,单独编码 MP3;其余端保留 WAV(RN 原生 raw 依赖 wav 文件名)。 */
+const MP3_OUTPUT_DIR = join(rootDir, 'apps/miniapp-taro/src/static/sounds')
+const MP3_EXT = 'mp3'
+/** 48kbps 单声道:16 kHz 合成提示音 Nyquist 8 kHz,码率足够且尺寸最小。 */
+const MP3_ENCODE_ARGS = [
+  '-hide_banner',
+  '-loglevel',
+  'error',
+  '-f',
+  'wav',
+  '-i',
+  'pipe:0',
+  '-codec:a',
+  'libmp3lame',
+  '-b:a',
+  '48k',
+  '-ac',
+  '1',
+  '-f',
+  'mp3',
+  'pipe:1',
+]
+
+/** WAV → MP3,纯 pipe 不落临时文件;编码确定性由 libmp3lame 保证(实测同输入 md5 一致)。 */
+function encodeMp3(wavBuffer) {
+  const ffmpeg = process.env.FFMPEG_BIN || 'ffmpeg'
+  try {
+    return execFileSync(ffmpeg, MP3_ENCODE_ARGS, { input: wavBuffer, maxBuffer: 4 * 1024 * 1024 })
+  } catch (e) {
+    // ffmpeg 取不到 ⇒ 无法重算 mp3 预期尺寸:显式「未判定」(exit 2),不冒红也不静默记绿。
+    if (e?.code === 'ENOENT' || e?.status !== 0) {
+      console.error(
+        `[ringtone] 未判定:无法执行 ffmpeg(${ffmpeg}) 重算 MP3 预期尺寸;请设 FFMPEG_BIN 指向 ffmpeg 可执行文件。`,
+      )
+      process.exit(2)
+    }
+    throw e
+  }
+}
 
 // 16 kHz 而非 44.1 kHz:音符最高 1500 Hz、三次谐波 4500 Hz < Nyquist 8 kHz,
 // 合成波形不会被裁掉;而 8 枚 WAV 从 334 KB 降到约 120 KB —— 小程序主包 2 MB
@@ -112,9 +164,11 @@ let written = 0
 const problems = []
 
 for (const spec of specs) {
-  const buffer = renderWav(spec)
-  const fileName = `ringtone-${spec.id}.wav`
+  const wavBuffer = renderWav(spec)
   for (const dir of TARGET_DIRS) {
+    const isMp3 = dir === MP3_OUTPUT_DIR
+    const buffer = isMp3 ? encodeMp3(wavBuffer) : wavBuffer
+    const fileName = `ringtone-${spec.id}.${isMp3 ? MP3_EXT : 'wav'}`
     if (checkOnly) {
       const target = join(dir, fileName)
       if (!existsSync(target)) problems.push(`缺失:${target}`)

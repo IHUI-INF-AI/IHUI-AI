@@ -25,9 +25,12 @@ import { NOTIFICATION_RINGTONE_KEY, NOTIFICATION_SOUND_ENABLED_KEY } from '@/con
 /** 连发去抖窗口:短时间连炸只响一次(与 web/RN 同口径 1200ms) */
 const MIN_PLAY_INTERVAL_MS = 1200
 
-/** 包内铃声资产路径(scripts/gen-ringtone-assets.mjs 从同一音符表渲染) */
+/**
+ * 包内铃声资产路径(scripts/gen-ringtone-assets.mjs 从同一音符表渲染)。
+ * 小程序端主包受 2 MiB 硬限,8 枚铃声单独编码 MP3(见生成脚本头注);web/RN 仍用 WAV。
+ */
 function ringtoneSrc(id: RingtoneId): string {
-  return `/static/sounds/ringtone-${id}.wav`
+  return `/static/sounds/ringtone-${id}.mp3`
 }
 
 /* -------------------------------------------------------------------------- */
