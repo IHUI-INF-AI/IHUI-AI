@@ -10,5 +10,3 @@
 ## 号段租约登记区(取号器专用,千段租约制)
 - [x] RP-28 〔千段租约〕 本机=lichunchuan-a47da79b 段=RP-19~RP-28(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 - [x] RP-10 〔千段租约〕 本机=lichunchuan-a47da79b 段=RP-1~RP-10(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
-- [x] R10.1 停靠监看零前置（2026-11-26）：`resolvePipSessionTarget` Web 端复用 CDP tab、无 tab 查最近会话、无会话自动建；`startPipFromTemplate` 无目标也传 URL；新增五语言 `dockCreateFailed`；`ai-pip-monitor` 的 `ws.onclose` 不再误报 MJPEG 状态；PR #273 MERGED（merge `d6a96ea2e75b2a7287645865b94f9e5d403e0ecf`）
-- [x] R10.1d 零会话停靠收口（2026-11-26）：生产精确 `/api/browser/sessions` 与 `/api/browser/task-templates` rewrite；自动建会话/模板兜底改用 `window.location.origin`，不再发 `about:blank`；后端新增 `DEFAULT_BROWSER_URL`（`IHUI_BROWSER_DEFAULT_URL` 可覆盖，默认 `https://www.aizhs.top/`），`POST /sessions` 与模板 start 无 URL 时用默认页；生产 Web BUILD_ID `i6JZqtsr2wXYzYzFUh-kC`，真实 UI 零会话一键停靠“运行中”稳定 15 秒，模板 `auto_created=true`，测试会话已清理 `remaining=0`；PR #274 MERGED（merge `45803a51967d0be511bb37298861c41e47cd4ff0`）
