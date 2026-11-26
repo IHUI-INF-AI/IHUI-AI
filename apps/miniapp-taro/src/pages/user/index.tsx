@@ -59,6 +59,7 @@ import LineIcon from '@/components/LineIcon'
 import { ICONS } from '@/components/LineIcon/icons'
 import './index.css'
 import { onToast } from '@/host/on-toast'
+import { openDrawerLabel, openDrawerMenu } from '@/utils/drawer-actions'
 
 const defaultAvatar = TABBAR_HOME_ICON_URL
 
@@ -234,7 +235,11 @@ function renderMarkdown(content: string): ReactNode {
         <ThemeRoot key={idx}>
           <Text
             key={idx}
-            style={{ fontSize: taroType.bodySm.fontSize, color: 'var(--color-muted-foreground)', lineHeight: 1.6 }}
+            style={{
+              fontSize: taroType.bodySm.fontSize,
+              color: 'var(--color-muted-foreground)',
+              lineHeight: 1.6,
+            }}
           >
             {boldParts.map((part, i) =>
               i % 2 === 1 ? (
@@ -830,30 +835,28 @@ export default function UserIndex() {
           }
           onMenuItemClick={(item) => {
             toggleDrawer()
-            // 根据菜单项 key 跳转不同页面
-            const menuRouteMap: Record<string, string> = {
-              appStore: '/pages/index/index',
-              demand: '/pages/demand/index',
-              inspiration: '/pages/inspiration/index',
-              dynamic: '/pages/dynamic/index',
-              course: '/pkg-learn/course/list',
-            }
-            const route = menuRouteMap[item.key]
-            if (route) Taro.navigateTo({ url: route })
+            // 分组菜单 key→路由走 utils/drawer-actions 单一源:
+            // 旧表里的 /pages/demand|inspiration|dynamic 三个页早就不存在,点了无任何反馈
+            openDrawerMenu(item.key, tt)
           }}
           onLabelItemClick={(item) => {
             toggleDrawer()
-            const labelRouteMap: Record<string, string> = {
-              company: '/pages/company/index',
-              freebie: '/pages/freebie/index',
-            }
-            const route = labelRouteMap[item.key]
-            if (route) Taro.navigateTo({ url: route })
+            // 旧表把 company/freebie 写死成 /pages/company|freebie/index(两个都不存在);
+            // 正解与 AI 社区页同一出口:公司→分销页,领取资料→复制飞书链接
+            openDrawerLabel(item.key, tt)
           }}
           onChatItemClick={handleChatItemClick}
           onCreateChat={() => {
             toggleDrawer()
-            Taro.switchTab({ url: '/pages/index/index' })
+            // /pages/index/index 不是 tabBar 页:原写法 switchTab 必失败,点了等于没反应
+            Taro.navigateTo({
+              url: '/pages/index/index',
+              fail: () =>
+                Taro.navigateTo({
+                  url: '/pkg-ai/ai/chat',
+                  fail: () => onToast(t('community.text8'), { kind: 'error' }),
+                }),
+            })
           }}
           onRemoveChat={(chat) => {
             Taro.showModal({
@@ -1343,7 +1346,11 @@ export default function UserIndex() {
                         {/* 当前时间(对齐 RN audioTime fontSize 12dp) */}
                         <Text
                           className="text-label text-muted-foreground"
-                          style={{ flexShrink: 0, width: rpx(taroSpacing['4xl']), textAlign: 'right' }}
+                          style={{
+                            flexShrink: 0,
+                            width: rpx(taroSpacing['4xl']),
+                            textAlign: 'right',
+                          }}
                         >
                           {formatAudioTime(audioCurrentTime[index] || 0)}
                         </Text>

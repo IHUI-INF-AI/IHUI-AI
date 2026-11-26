@@ -198,7 +198,6 @@ const TAB_COMMAND_SPECS: readonly { id: string; label: string; path: string }[] 
   { id: 'tab:agent', label: '切到「AI agent」tab', path: '/pages/community/index' },
   { id: 'tab:square', label: '切到「广场」tab', path: '/pages/plaza/index/index' },
   { id: 'tab:mine', label: '切到「我的」tab', path: '/pages/user/index' },
-  { id: 'tab:share', label: '切到「分享星球」tab', path: '/pages/share/index' },
 ]
 
 const TAB_COMMANDS: readonly TaroInvokeCommand[] = TAB_COMMAND_SPECS.flatMap((spec) => {

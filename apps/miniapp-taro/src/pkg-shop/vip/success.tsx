@@ -173,7 +173,8 @@ export default function VipSuccessPage() {
           Taro.redirectTo({ url: '/pkg-shop/vip/index' })
         }}
         onGoHome={() => {
-          Taro.switchTab({ url: '/pages/index/index' })
+          // 回首页 tab(智汇AI)。/pages/index/index 不是 tabBar 页,switchTab 打它必失败
+          Taro.switchTab({ url: '/pages/community/index' })
         }}
         footerLink={{
           title: tt('vip.success.shareTitle', '分享好友赚佣金'),

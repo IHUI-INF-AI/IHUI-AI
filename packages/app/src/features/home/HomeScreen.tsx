@@ -15,7 +15,7 @@ import type {
 } from '../../types'
 import { useFontMultiplier } from '../../components/MoreLink'
 import { SectionHeader } from '../../components/SectionHeader'
-import { ScreenSkeleton } from '../../components/ScreenStates'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { HOME_CARD_PADDING_PX, HOME_PAGE_GUTTER_X_PX } from '@ihui/shared/ui/home-layout-spec'
@@ -113,7 +113,7 @@ export function HomeScreen({
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
           <Text style={styles.greeting} numberOfLines={1}>
-            {t(getGreetingKey())},{userNickname || t('home.guest')}
+            {t(getGreetingKey())}，{userNickname || t('home.guest')}
           </Text>
           <Text style={styles.welcome}>{t('home.welcome')}</Text>
         </View>
@@ -157,16 +157,13 @@ export function HomeScreen({
       {afterDiscover}
       {nothingToShow ? (
         <View style={styles.section}>
-          <View style={[styles.card, styles.emptyCard]}>
-            <Text style={[styles.mutedText, styles.emptyText]}>{t('home.progressEmpty')}</Text>
-            <TouchableOpacity
-              style={styles.primaryBtn}
-              onPress={onNavigateCourses}
-              accessibilityRole="button"
-            >
-              <Text style={styles.primaryBtnText}>{t('nav.courses')}</Text>
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            icon={<BookOpen size={26} color={tk.text.secondary} />}
+            title={t('home.progressEmpty')}
+            actionLabel={t('nav.courses')}
+            onAction={onNavigateCourses}
+            colorScheme={colorScheme}
+          />
         </View>
       ) : (
         <>
@@ -198,16 +195,13 @@ export function HomeScreen({
                 </View>
               </TouchableOpacity>
             ) : (
-              <View style={[styles.card, styles.emptyCard]}>
-                <Text style={[styles.mutedText, styles.emptyText]}>{t('home.progressEmpty')}</Text>
-                <TouchableOpacity
-                  style={styles.primaryBtn}
-                  onPress={onNavigateCourses}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.primaryBtnText}>{t('nav.courses')}</Text>
-                </TouchableOpacity>
-              </View>
+              <EmptyState
+                icon={<BookOpen size={26} color={tk.text.secondary} />}
+                title={t('home.progressEmpty')}
+                actionLabel={t('nav.courses')}
+                onAction={onNavigateCourses}
+                colorScheme={colorScheme}
+              />
             )}
           </View>
 
@@ -220,10 +214,11 @@ export function HomeScreen({
               style={styles.sectionHeader}
             />
             {lives.length === 0 ? (
-              <View style={[styles.card, styles.emptyCenter]}>
-                <Video size={18} color={tk.text.secondary} />
-                <Text style={styles.emptyHint}>{t('live.empty')}</Text>
-              </View>
+              <EmptyState
+                icon={<Video size={26} color={tk.text.secondary} />}
+                title={t('live.empty')}
+                colorScheme={colorScheme}
+              />
             ) : (
               lives.map((l) => (
                 <TouchableOpacity
@@ -245,11 +240,11 @@ export function HomeScreen({
                     </View>
                     {l.lecturerName ? (
                       <Text style={styles.metaText}>
-                        {t('live.lecturer')}:{l.lecturerName}
+                        {t('live.lecturer')}：{l.lecturerName}
                       </Text>
                     ) : null}
                     <Text style={styles.metaTertiary}>
-                      {t('live.startAt')}:{l.startTimeText}
+                      {t('live.startAt')}：{l.startTimeText}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -266,10 +261,11 @@ export function HomeScreen({
               style={styles.sectionHeader}
             />
             {recommends.length === 0 ? (
-              <View style={[styles.card, styles.emptyCenter]}>
-                <BookOpen size={18} color={tk.text.secondary} />
-                <Text style={styles.emptyHint}>{t('course.empty')}</Text>
-              </View>
+              <EmptyState
+                icon={<BookOpen size={26} color={tk.text.secondary} />}
+                title={t('course.empty')}
+                colorScheme={colorScheme}
+              />
             ) : (
               recommends.map((c) => (
                 <TouchableOpacity
@@ -405,15 +401,6 @@ function createStyles(tk: AppThemeTokens) {
       // 不再叠 1px 硬边框:底色已分区,描边会把卡片读成"凹下去的洞"
       backgroundColor: tk.surface.card,
     },
-    emptyCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    emptyText: { flex: 1, marginRight: rnSpacing.md },
-    emptyCenter: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: rnSpacing.xl,
-      gap: rnSpacing['xs-loose'],
-    },
-    emptyHint: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     cardSpacing: { marginTop: rnSpacing['sm-loose'] },
     cardHeaderRow: {
       flexDirection: 'row',
@@ -439,7 +426,6 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.success.deepText,
     },
-    mutedText: { fontSize: rnType.bodySm.size, lineHeight: 19, color: tk.text.secondary },
     progressBar: {
       marginTop: rnSpacing['sm-loose'],
       height: 6,
@@ -448,17 +434,6 @@ function createStyles(tk: AppThemeTokens) {
       overflow: 'hidden',
     },
     progressFill: { height: 6, backgroundColor: tk.success.DEFAULT },
-    primaryBtn: {
-      paddingVertical: 7,
-      paddingHorizontal: rnSpacing['md-loose'],
-      borderRadius: rnRadius.md,
-      backgroundColor: tk.brand.cta,
-    },
-    primaryBtnText: {
-      fontSize: rnType.bodySm.size,
-      fontWeight: '600',
-      color: tk.brand.ctaForeground,
-    },
     menuGrid: { flexDirection: 'row', flexWrap: 'wrap' },
     menuCell: {
       width: '33.333%',
