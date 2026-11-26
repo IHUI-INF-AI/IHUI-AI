@@ -42,14 +42,15 @@
     "minJudged": 10,
     "window": 5,
     "minDelta": 0.1,
+    "judgeModel": "agnes/agnes-2.5-flash",
     "datasetDir": "D:/DevEnv/private-eval",
     "generate": true,
     "candidateModel": "agnes-3.0-flash",
     "baselineModel": "agnes-2.5-flash",
-    "stampLimit": 12,
-    "stampTimeoutMs": 240000,
+    "stampLimit": 40,
+    "stampTimeoutMs": 900000,
     "tuneNote": "尺子调参透传(2026-11-26 立):四键全可省,省了就用 pairwise_eval.py / private_eval_run.py 那份唯一默认(min-judged=8 / window=5 / min-delta=0.10)。这里只透传**取值**,阈值语义与默认值仍住在 Python 那份(§0.6),Node 侧零副本 —— buildRulerArgv 是 flag 名唯一映射点,未配置的键一律不拼进命令行,避免两处默认漂移。minJudged/window=正整数,minDelta=(0,1] 小数,datasetDir=题库根绝对路径(不填则子进程按自己的候选根解析)。**题库十来题时把 minJudged 调小**,否则自主环会永远停在『可判题数不足』、尺子形同哑火。改完这些不重跑 loadGates 不会生效:loadGates 走 resolveQualityConfig(单源),由 auto-evolve 每轮现读。",
-    "modeNote": "质量尺子档(2026-11-26 立,RP-45 接线;判分与骤降的唯一真相源在 apps/ai-service/app/services/pairwise_eval.py,本块只控强度,不含任何阈值副本)。**本尺量的是当版默认对话模型在固定题面的表现(模型轴),不是代码 diff 的行为;代码面仍由提交门链判。** off = 落账后不起尺子进程(缺省档;无题库/裁判不稳时用它避免恒 undetermined 噪声,§5e-1 可整改性准入)。observe = 每次 artifact-committed 后跑一次,把 ok/regression/undetermined 记进台账并寄信,但不拦派发。enforce = observe 全部行为 + 骤降即挂停派牌;牌只对 regression 生效,undetermined 永不挂牌(题库没建或裁判抖一下就锁死整环,正是 §12e 禁止的恒红门形状)。切 enforce 的前置与 humanValveMode 同一条纪律:先在 observe 真跑出 ≥1 条 quality-ok,证明题路与模型都在,再升档。**2026-11-26 实测基线点**(12 题,候选 agnes-3.0-flash vs 参照 agnes-2.5-flash):win=1/loss=10/tie=1(basis=11,胜率 9.1%)——首次跑通,但也说明“新模型不一定更适合对话”,且免费档 429 会让自动重跑不稳定;故暂不升 enforce,待裁判模型/额度稳定并跑出 ≥1 条 quality-ok 再议。2026-11-26 晚已切 observe:本机派单面现读 0 张可派,尺子只在 artifact-committed 后才起进程,不会空转灌噪声;额度/裁判仍不稳,故暂不升 enforce。generate=true 已配好:切档后每次落账会先按当版模型戳印题库再判分(不配则题库答案永不变、胜率是水平线)。"
+    "modeNote": "质量尺子档(2026-11-26 立,RP-45 接线;判分与骤降的唯一真相源在 apps/ai-service/app/services/pairwise_eval.py,本块只控强度,不含任何阈值副本)。**本尺量的是当版默认对话模型在固定题面的表现(模型轴),不是代码 diff 的行为;代码面仍由提交门链判。** off = 落账后不起尺子进程(缺省档;无题库/裁判不稳时用它避免恒 undetermined 噪声,§5e-1 可整改性准入)。observe = 每次 artifact-committed 后跑一次,把 ok/regression/undetermined 记进台账并寄信,但不拦派发。enforce = observe 全部行为 + 骤降即挂停派牌;牌只对 regression 生效,undetermined 永不挂牌(题库没建或裁判抖一下就锁死整环,正是 §12e 禁止的恒红门形状)。切 enforce 的前置与 humanValveMode 同一条纪律:先在 observe 真跑出 ≥1 条 quality-ok,证明题路与模型都在,再升档。**2026-11-26 实测基线点**(12 题,候选 agnes-3.0-flash vs 参照 agnes-2.5-flash):win=1/loss=10/tie=1(basis=11,胜率 9.1%)——首次跑通,但也说明“新模型不一定更适合对话”,且免费档 429 会让自动重跑不稳定;故暂不升 enforce,待裁判模型/额度稳定并跑出 ≥1 条 quality-ok 再议。judgeModel 现钉 `agnes/agnes-2.5-flash`(基线裁判,保守;与 candidate 3.0-flash 不同一档),付费 `agnes-3.0-pro` 实测每次预扣 $0.026、账户余额仅 $0.0005 ⇒ 未启用,充值后只改本键即可切付费。2026-11-26 晚题库已扩到 40 行(仓外),免费 2.5-flash 裁判读数 win=8/loss=32(20%,basis=40,unjudged=0);这是**非付费基线裁判**读数,不得读成付费裁判结论。generate 已改 40 题全量戳印,`private_eval_stamp.py` 拒绝用少于上一版的行数覆盖题库,429 不会把 40 题缩回 12 题。2026-11-26 晚已切 observe:本机派单面现读 0 张可派,尺子只在 artifact-committed 后才起进程,不会空转灌噪声;额度/裁判仍不稳,故暂不升 enforce。generate=true 已配好:切档后每次落账会先按当版模型戳印题库再判分(不配则题库答案永不变、胜率是水平线)。"
   },
   "codeRuler": {
     "mode": "observe",

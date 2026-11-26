@@ -74,6 +74,13 @@ export function resolveQualityConfig(gates = {}) {
     if (!Number.isFinite(v) || v <= 0 || v > 1) throw new Error(`ruler.minDelta 必须是 (0,1] 的小数(现值 ${String(r.minDelta)})`)
     tune.minDelta = v
   }
+  // 裁判模型显式化(2026-11-26):不配时沿用 private_eval_run.py 的网关默认,
+  // 配了才透传 --judge-model;这样换付费/独立裁判只需改配置,不改判分脚本。
+  if (r.judgeModel !== undefined && r.judgeModel !== null) {
+    const v = String(r.judgeModel).trim()
+    if (!v) throw new Error('ruler.judgeModel 不能为空串(要么不填=网关默认,要么给模型名)')
+    tune.judgeModel = v
+  }
   let datasetDir = null
   if (r.datasetDir !== undefined && r.datasetDir !== null) {
     datasetDir = String(r.datasetDir).trim()
@@ -151,6 +158,7 @@ export function buildRulerArgv(script, version, tune = null) {
   if (Number.isInteger(tune.minJudged) && tune.minJudged > 0) argv.push('--min-judged', String(tune.minJudged))
   if (Number.isInteger(tune.window) && tune.window > 0) argv.push('--window', String(tune.window))
   if (Number.isFinite(tune.minDelta) && tune.minDelta > 0 && tune.minDelta <= 1) argv.push('--min-delta', String(tune.minDelta))
+  if (tune.judgeModel) argv.push('--judge-model', String(tune.judgeModel))
   return argv
 }
 

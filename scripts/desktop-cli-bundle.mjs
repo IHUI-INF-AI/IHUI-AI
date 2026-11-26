@@ -110,6 +110,56 @@ if (checkOnly) {
   process.exit(0)
 }
 
+// 0) 前置:CLI 的 workspace 依赖必须先有 dist —— esbuild 按 package.json 的 import 字段
+//    实打实解析 dist/index.js,缺一个就 `Could not resolve "@ihui/api-client"`。
+//    CI 是「纯 Rust 化」形态(见 release-desktop.yml 的 Install beforeBuildCommand deps 注释),
+//    只装根包 sharp、不跑 packages build ⇒ 0.1.94 三平台全栽在这一步。这里按需补齐:
+//    缺一个就整闭包构建一次(turbo 按依赖拓扑排,缓存命中时只花几秒)。
+const CLI_WORKSPACE_DEPS = [
+  'types',
+  'shared',
+  'i18n',
+  'design-tokens',
+  'api-client',
+  'context-compaction',
+  'dom-actions',
+  'agent-sdk',
+]
+const depDistMissing = (name) =>
+  !fs.existsSync(path.join(root, 'packages', name, 'dist', 'index.js'))
+const missingDeps = CLI_WORKSPACE_DEPS.filter(depDistMissing)
+if (missingDeps.length > 0) {
+  console.log(`[cli-bundle] workspace 依赖缺 dist: ${missingDeps.join(', ')} ⇒ 先构建依赖闭包`)
+  const pnpmBin = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+  const depBuild = spawnSync(
+    pnpmBin,
+    [
+      'exec',
+      'turbo',
+      'run',
+      'build',
+      '--filter=@ihui/agent-sdk',
+      '--filter=@ihui/api-client',
+      '--filter=@ihui/context-compaction',
+      '--filter=@ihui/design-tokens',
+      '--filter=@ihui/dom-actions',
+      '--filter=@ihui/i18n',
+      '--filter=@ihui/shared',
+      '--filter=@ihui/types',
+    ],
+    {
+      cwd: root,
+      stdio: 'inherit',
+      shell: process.platform === 'win32',
+      windowsHide: true,
+    },
+  )
+  if (depBuild.error) fail(`构建 CLI 依赖失败: ${depBuild.error.message}`)
+  if (depBuild.status !== 0) fail(`构建 CLI 依赖退出码 ${depBuild.status}`)
+  const stillMissing = CLI_WORKSPACE_DEPS.filter(depDistMissing)
+  if (stillMissing.length > 0) fail(`依赖构建后仍缺 dist: ${stillMissing.join(', ')}`)
+}
+
 // 1) 构建自包含 npm 产物(esbuild 单文件 + 语言包旁随)
 const build = spawnSync(process.execPath, [path.join('scripts', 'build-npm.mjs')], {
   cwd: cliDir,

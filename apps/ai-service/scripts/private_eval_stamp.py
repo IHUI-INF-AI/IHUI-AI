@@ -288,6 +288,13 @@ async def _run(args: argparse.Namespace) -> int:
         print("[未判定] 没有任何一题同时拿到候选与参照 ⇒ 不写题库、不冒称跑过(§0.3)")
         return EXIT_UNDETERMINED
 
+    # 扩题后防缩表(2026-11-26):40 题题库遇到 429/个别题失败时，rows 会少于上一版；
+    # 直接写回等于静默把题库缩回 12 题。宁可本轮 undetermined 保留旧题库，也不缩表冒充新一期。
+    prev_count = len(prev)
+    if prev_count and len(rows) < prev_count:
+        print(f"[未判定] 本轮 {len(rows)} 行 < 上一版 {prev_count} 行 ⇒ 拒绝缩表写回，旧题库原样保留")
+        return EXIT_UNDETERMINED
+
     if args.dry_run:
         print(f"[DRY] 不写盘;正式落点应为 {out_path}")
         return EXIT_OK
