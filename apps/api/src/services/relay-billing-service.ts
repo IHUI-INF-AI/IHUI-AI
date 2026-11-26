@@ -2636,7 +2636,9 @@ async function applySettlementDelta(
 export async function releasePreDeduction(pre: PreDeduction): Promise<void> {
   if (pre.tokens <= 0 && pre.cents <= 0) return
   try {
-    await applySettlementDelta(pre, -pre.tokens, -pre.cents)
+    // applySettlementDelta 的 delta 语义为「预扣 - 实际」:正数退款、负数补扣。
+    // 释放未消费预扣必须传正数把余额加回;传负数会二次扣款。
+    await applySettlementDelta(pre, pre.tokens, pre.cents)
   } catch (err) {
     logger.error('[billing] 释放预扣失败(余额可能被挂住,需对账)', {
       apiKeyId: pre.apiKeyId,
