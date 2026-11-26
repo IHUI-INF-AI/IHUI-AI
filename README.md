@@ -84,6 +84,10 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🐞 修复:beforeBuildCommand 自动补齐 CLI workspace 依赖 dist (542e06e1)
+- 🐞 修复:CJK 感知 usage 兜底并补断流 partial 结算 (19191473)
+- 📚 文档:公开证据对齐最终 main c24fbf66 (42c46ab4)
+- 🚀 新功能/改进:接代码面私有尺子(仓外12隐藏用例,落账前候选vs main) (093e832a)
 - 🐞 修复:封死免费模型上架并清理公开免费行 (7c91e54d)
 - 🚀 新功能/改进:通过申请回执带剩余额度，卡片直接显示还能通过几个 (4049f421)
 - 🚀 新功能/改进:bridge checkpoint resume across native PIP windows (e9633d7e)

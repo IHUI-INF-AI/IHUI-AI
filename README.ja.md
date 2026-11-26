@@ -2227,6 +2227,10 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🐞 修正:beforeBuildCommand 自动补齐 CLI workspace 依赖 dist (542e06e1)
+- 🐞 修正:CJK 感知 usage 兜底并补断流 partial 结算 (19191473)
+- 📚 ドキュメント:公开证据对齐最终 main c24fbf66 (42c46ab4)
+- 🚀 機能/改善:接代码面私有尺子(仓外12隐藏用例,落账前候选vs main) (093e832a)
 - 🐞 修正:封死免费模型上架并清理公开免费行 (7c91e54d)
 - 🚀 機能/改善:通过申请回执带剩余额度，卡片直接显示还能通过几个 (4049f421)
 - 🚀 機能/改善:bridge checkpoint resume across native PIP windows (e9633d7e)
