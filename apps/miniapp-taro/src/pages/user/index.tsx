@@ -30,7 +30,7 @@ import DrawerComponent, {
   type DrawerChatItem,
 } from '@/components/DrawerComponent'
 import UserInfoCard from '@/components/UserInfoCard'
-import LoginPopUp from '@/components/LoginPopUp'
+import LoginPopUp, { DEFAULT_AVATAR } from '@/components/LoginPopUp'
 import { beginMiniappSso, getSsoLoginUrl, SSO_REDIRECT_URI } from '@/utils/sso'
 // 2026-11-26 修回:此前从 `@/pages/webview/index` 取 named export,而 pages/webview 整个在
 // subPackages 里 —— 微信分包规则下主包不能依赖分包,该导出解析为 undefined,
@@ -52,7 +52,6 @@ const shezhiIcon = aizhsUrl('remote-images/shezhi.png')
 const gonggaoIcon = aizhsUrl('remote-images/gonggao.png')
 const downloadIcon = aizhsUrl('remote-images/download.png')
 const yejiaoIcon = aizhsUrl('remote-images/yejiao.png')
-import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
 import ThemeRoot from '@/components/ThemeRoot'
 import { useAppTheme } from '@/lib/theme'
 import LineIcon from '@/components/LineIcon'
@@ -61,7 +60,7 @@ import './index.css'
 import { onToast } from '@/host/on-toast'
 import { openDrawerLabel, openDrawerMenu } from '@/utils/drawer-actions'
 
-const defaultAvatar = TABBAR_HOME_ICON_URL
+const defaultAvatar = DEFAULT_AVATAR
 
 /**
  * bindUser 请求参数(对齐原项目 onLogin L587-624 接口字段)。

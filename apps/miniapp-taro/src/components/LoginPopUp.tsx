@@ -3,9 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt } from '@/i18n'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
-import { View, Text, Image, Button } from '@tarojs/components'
+import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
 import LineIcon from '@/components/LineIcon'
 import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
@@ -49,6 +49,7 @@ import {
   LOGIN_POPUP_SECONDARY_BUTTON_MARGIN_BOTTOM_PX,
 } from '@ihui/shared/ui/login-popup-spec'
 import { onToast } from '@/host/on-toast'
+import { setLoginPopupVisible } from '@/lib/login-popup-visibility'
 
 /**
  * LoginPopUp 登录弹窗 — 对齐 mobile-rn 端底部抽屉形态(2026-11-26 机主定档)。
@@ -121,7 +122,7 @@ export interface LoginPopUpProps {
   onLogout?: () => void
 }
 
-const DEFAULT_AVATAR = '/static/default-avatar.png'
+export const DEFAULT_AVATAR = '/static/default-avatar.png'
 
 /// 可见几何数字唯一源在 @ihui/shared/ui/login-popup-spec(与 RN 端同表);本文件只做 rpx 换算 + 挂 Taro 原语。
 const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
@@ -158,6 +159,24 @@ export default function LoginPopUp({
   const [pwdAccount, setPwdAccount] = useState('')
   const [pwdValue, setPwdValue] = useState('')
   const [pwdSubmitting, setPwdSubmitting] = useState(false)
+
+  // 底部抽屉打开期间隐藏宿主页的自定义 tabBar:否则它会浮在抽屉之上,
+  // 把密码登录/协议行/footer 全挡住(2026-11-26 开发者工具实拍确认)。
+  useEffect(() => {
+    setLoginPopupVisible(visible)
+    if (!visible || process.env.TARO_ENV === 'h5') {
+      return () => setLoginPopupVisible(false)
+    }
+    try {
+      Taro.hideTabBar({ animation: false })
+    } catch {}
+    return () => {
+      try {
+        Taro.showTabBar({ animation: false })
+      } catch {}
+      setLoginPopupVisible(false)
+    }
+  }, [visible])
 
   if (!visible) return null
 
@@ -211,8 +230,10 @@ export default function LoginPopUp({
       <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       {/* 抽屉主体 = 角色档 panel → xl(12);圆角只上方,贴底整宽(对齐 RN sheet)。 */}
       <View
-        className="relative w-full bg-card ui-panel rounded-t-xl"
+        className="relative w-full bg-card ui-panel rounded-t-xl flex flex-col"
         style={{
+          height: '78vh',
+          overflow: 'hidden',
           paddingTop: toUnit(LOGIN_POPUP_SHEET_PADDING_TOP_PX),
           paddingLeft: toUnit(LOGIN_POPUP_CARD_PADDING_X_PX),
           paddingRight: toUnit(LOGIN_POPUP_CARD_PADDING_X_PX),
@@ -229,6 +250,7 @@ export default function LoginPopUp({
             height: toUnit(LOGIN_POPUP_DRAG_BAR_HEIGHT_PX),
             background: 'var(--color-border)',
             marginBottom: toUnit(LOGIN_POPUP_DRAG_BAR_MARGIN_BOTTOM_PX),
+            flexShrink: 0,
           }}
         />
         {/* 右上 × 关闭(矢量 LineIcon,与 RN lucide X 同槽) */}
@@ -252,6 +274,12 @@ export default function LoginPopUp({
           />
         </View>
 
+        {/* 内容区独立滚动:抽屉固定 78vh,长内容不顶穿屏幕,协议/footer 可滚到。 */}
+        <ScrollView
+          scrollY
+          className="w-full"
+          style={{ flex: 1, minHeight: 0 }}
+        >
         {/* 授权卡标题/描述(RN 授权卡模式;缺省不渲染,不影响现有调用点) */}
         {title ? (
           <Text
@@ -693,6 +721,7 @@ export default function LoginPopUp({
             ) : null}
           </View>
         ) : null}
+        </ScrollView>
       </View>
     </View>
   )
