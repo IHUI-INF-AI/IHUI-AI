@@ -2211,7 +2211,7 @@ class BrowserHub:
 
     # AIS-029:单主体并存会话上限。`_sessions` 原本无上限 —— 单个登录用户反复
     # POST /sessions 即可无限创建 Chromium BrowserContext(内存/句柄耗尽)。
-    _MAX_SESSIONS_PER_OWNER: int = 5
+    _MAX_SESSIONS_PER_OWNER: int = 6
 
     def __init__(self) -> None:
         self._playwright: Any | None = None
@@ -2348,7 +2348,7 @@ class BrowserHub:
         for sid, row in list(self._persisted_sessions.items()):
             if sid not in live_ids and now - float(row.get("updated_at") or 0) <= _SESSION_STORE_MAX_AGE_SECONDS:
                 rows.append(row)
-        # 同一账号最多保留 5 条(与 _MAX_SESSIONS_PER_OWNER 对齐);超龄的直接清掉。
+        # 同一账号最多保留 6 条(与 _MAX_SESSIONS_PER_OWNER 对齐);超龄的直接清掉。
         rows = [
             row for row in rows
             if now - float(row.get("updated_at") or 0) <= _SESSION_STORE_MAX_AGE_SECONDS

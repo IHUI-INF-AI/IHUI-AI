@@ -240,7 +240,32 @@ describe('FriendsAutomationCard', () => {
     renderCard()
 
     await waitFor(() => expect(screen.getByText('暂无操作记录')).toBeTruthy())
-    expect(screen.getByText('暂无待处理申请。')).toBeTruthy()
+    expect(screen.getByText(/暂无待处理申请/)).toBeTruthy()
+  })
+
+  it('窗口收起回退快照时提示数据是旧的，并给出快照年龄', async () => {
+    vi.mocked(wechatHubApi.friendsOverview).mockResolvedValue(
+      makeOverview({
+        scan: {
+          ok: true,
+          status: 'ok',
+          reason: null,
+          requests: [],
+          scannedAt: BASE_AT,
+          rawCount: 27,
+          entered: true,
+          entryExcluded: 1,
+          stale: true,
+          staleReason: 'window-hidden',
+          cacheAgeMs: 90_000,
+        },
+      }),
+    )
+
+    renderCard()
+
+    await waitFor(() => expect(screen.getByText(/微信窗口已收起/)).toBeTruthy())
+    expect(screen.getByText(/90 秒前采集的快照/)).toBeTruthy()
   })
 
   it('桥侧关闭时显示扫描不可用提示', async () => {

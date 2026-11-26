@@ -120,8 +120,8 @@ describe('scanFriendRequests（读路径）', () => {
     expect(view.ok).toBe(true)
     expect(view.rawCount).toBe(3)
     expect(view.requests).toEqual([
-      { requestId: 'r1', nickname: '张三', source: '手机通讯录', kind: 'friend', clickable: true, seenAt: NOW - 5000 },
-      { requestId: 'r2', nickname: '某群', source: '群聊分享', kind: 'group-invite', clickable: false, seenAt: expect.any(Number) },
+      { requestId: 'r1', nickname: '张三', nicknameSource: 'control', source: '手机通讯录', kind: 'friend', clickable: true, seenAt: NOW - 5000 },
+      { requestId: 'r2', nickname: '某群', nicknameSource: 'control', source: '群聊分享', kind: 'group-invite', clickable: false, seenAt: expect.any(Number) },
     ])
   })
 
@@ -152,6 +152,32 @@ describe('scanFriendRequests（读路径）', () => {
     )
     const view = await scanFriendRequests('u1', 'acc-1')
     expect(view).toMatchObject({ status: 'failed', ok: false, reason: 'HTTP 502: bad gateway' })
+  })
+
+  it('窗口收起时桥回上次快照：透传 stale 与快照年龄，仍算 ok', async () => {
+    hoisted.performAction.mockResolvedValue(
+      scanBridgeResult([{ requestId: 'r1', nickname: '张三', clickable: true }], {
+        stale: true,
+        staleReason: 'window-hidden',
+        cacheAgeMs: 42000,
+        cached: true,
+      }),
+    )
+    const view = await scanFriendRequests('u1', 'acc-1')
+    expect(view.ok).toBe(true)
+    expect(view.stale).toBe(true)
+    expect(view.staleReason).toBe('window-hidden')
+    expect(view.cacheAgeMs).toBe(42000)
+    expect(view.requests[0].nickname).toBe('张三')
+  })
+
+  it('窗口收起且无历史快照：折 failed，但原因翻成人话', async () => {
+    hoisted.performAction.mockResolvedValue(
+      bridgeActionResult({ ok: false, reason: 'window-hidden-or-empty', data: { rawCount: 0 } }),
+    )
+    const view = await scanFriendRequests('u1', 'acc-1')
+    expect(view.status).toBe('failed')
+    expect(view.reason).toContain('微信窗口已收起')
   })
 })
 

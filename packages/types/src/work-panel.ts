@@ -42,6 +42,12 @@ export type WebViewMode =
    */
   | 'pip'
   /**
+   * pip-wall(2026-11-26):多会话同屏监看 —— 一个工作面 tab 内用网格同时渲染
+   * 多个 Browser Hub 会话的只读 MJPEG 画面;每格独立连接、独立任务条/接管。
+   * 与 pip 单会话停靠共用 AiPipMonitor,只是布局从 1 格变 N 格。
+   */
+  | 'pip-wall'
+  /**
    * docked(2026-10-25):停靠内嵌浏览器 —— 页面画在原生 docked webview 里
    * (Rust `embedded_browser_dock.rs`),前端只持一个占位 Tab 记录 url/title。
    * 消费方 web-work-panel.tsx / GlobalTopBar.tsx 已在比 `=== 'docked'`,
@@ -49,7 +55,14 @@ export type WebViewMode =
    */
   | 'docked'
 
-/** 工作展示区单个 Tab */
+/** 多会话同屏监看中的单个会话引用 */
+export interface PipSessionRef {
+  sessionId: string
+  url: string
+  title?: string
+}
+
+ /** 工作展示区单个 Tab */
 export interface WorkPanelTab {
   /** 唯一 ID(uuid 或 url+timestamp) */
   id: string
@@ -93,6 +106,8 @@ export interface WebViewState {
   sessionId?: string
   /** 代理 iframe URL(mode='proxy' 时使用,指向 /api/embed-proxy/raw) */
   proxyUrl?: string
+  /** 多会话同屏监看列表(mode='pip-wall' 时使用) */
+  pipSessions?: PipSessionRef[]
 }
 
 /** 导航选项 */

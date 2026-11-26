@@ -638,9 +638,9 @@ export function AISidePanel() {
     latest.openPanel()
   }, [resolvePipSessionTarget, tc])
 
-  // 监看全部:一次把所有活跃 Browser Hub 会话各开一个工作面内嵌监看 tab。
-  // TRAE 的文章只给单窗口监看;多会话同时跑时,用户不该靠反复关闭/重开来切换。
-  // 仍复用 openPipSession 的“同会话只开一个 tab”不变量,最后聚焦最早那个,顺序稳定。
+  // 监看全部:把所有活跃 Browser Hub 会话放进同一个工作面 tab 的网格里同屏监看。
+  // 不再逐个开 tab —— TRAE 只有单窗口,IHUI 的多会话要的是“一眼全看到”,
+  // 不是再让用户在多个标签之间切换。
   const monitorAllPipSessions = React.useCallback(async () => {
     const MAX_MONITOR_ALL = 6
     let ids: string[] = []
@@ -673,17 +673,14 @@ export function AISidePanel() {
             }
           }
         } catch {
-          // 单个会话刚被关闭:保留 tab 并让 AiPipMonitor 自己报“画面已断开”,不拖垮其余会话。
+          // 单个会话刚被关闭:仍放进墙里,由该格 AiPipMonitor 自己报“画面已断开”;
+          // 一格失败不能把其余会话一起拖黑。
         }
         return { sessionId, url: getDefaultPipUrl(), title: '' }
       }),
     )
     const latest = useWorkPanelStore.getState()
-    for (const target of targets) {
-      latest.openPipSession(target.sessionId, target.url, target.title)
-    }
-    const first = targets[0]
-    if (first) latest.openPipSession(first.sessionId, first.url, first.title)
+    latest.openPipWall(targets, tc('pictureInPicture.monitorWall'))
     latest.openPanel()
     if (ids.length > MAX_MONITOR_ALL) {
       toast.warning(tc('pictureInPicture.monitorAllSessions'), {

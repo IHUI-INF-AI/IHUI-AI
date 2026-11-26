@@ -147,10 +147,16 @@ function buildScanView(result: WechatActionResult, now: number): WechatFriendSca
     }
   }
   if (!result.ok) {
+    const rawReason = result.reason ?? asString(data.reason)
+    // 微信窗口收起时 Qt 不渲染界面树，读不到元素——这不是链路故障，给一句人看得懂的说明。
+    const reason =
+      rawReason && rawReason.includes('window-hidden')
+        ? '微信窗口已收起（界面没在渲染），把微信放出来就会自动扫描'
+        : rawReason
     return {
       ok: false,
       status: 'failed',
-      reason: result.reason ?? asString(data.reason) ?? '桥扫描失败',
+      reason: reason ?? '桥扫描失败',
       requests: [],
       scannedAt: now,
       rawCount: asNumber(data.rawCount) ?? 0,
