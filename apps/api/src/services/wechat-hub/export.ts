@@ -13,6 +13,7 @@ import {
   renderChatLab,
   renderHtml,
   renderMarkdown,
+  renderPostgresSql,
   type ExportConversationMeta,
   type ExportMessageRow,
 } from './export-formats.js'
@@ -20,7 +21,15 @@ import {
 const DEFAULT_LIMIT = 5_000
 const MAX_LIMIT = 20_000
 const EXCEL_CELL_LIMIT = 32_000
-const EXPORT_FORMATS: WechatExportFormat[] = ['jsonl', 'csv', 'html', 'markdown', 'xlsx', 'chatlab']
+const EXPORT_FORMATS: WechatExportFormat[] = [
+  'jsonl',
+  'csv',
+  'html',
+  'markdown',
+  'xlsx',
+  'chatlab',
+  'sql',
+]
 const CSV_HEADER = [
   'conversation_id',
   'conversation_title',
@@ -260,6 +269,16 @@ export async function exportAccountMessages(
       filename: `${prefix}.chatlab.json`,
       mimeType: 'application/json;charset=utf-8',
       content: JSON.stringify(renderChatLab(label, conversationMeta, messageRows), null, 2),
+      count: messageRows.length,
+      encoding: 'utf8',
+    }
+  }
+
+  if (format === 'sql') {
+    return {
+      filename: `${prefix}.sql`,
+      mimeType: 'application/sql;charset=utf-8',
+      content: renderPostgresSql(label, conversationMeta, messageRows, timezone),
       count: messageRows.length,
       encoding: 'utf8',
     }
