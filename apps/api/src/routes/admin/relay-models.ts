@@ -28,6 +28,7 @@ import { isRelayProviderCode } from '../../services/relay-account-format.js'
 import { ensureProviderConfigRow } from '../../jobs/relay-models-sync.js'
 import { invalidatePointsMultiplierOverrides } from '../../services/points-multiplier-resolver.js'
 import { inferPointsMultiplier } from '../../services/points-multiplier.js'
+import { assertPricedForPublish } from '../../services/model-pricing-admin.js'
 
 const listQuerySchema = paginationSchema.extend({
   /** 上架状态:all / public / private */
@@ -70,6 +71,16 @@ async function isGlobalConfigModelRow(modelRowId: number): Promise<boolean> {
     .where(eq(aiModelConfigModels.id, modelRowId))
     .limit(1)
   return row?.ownerUuid === null
+}
+
+/**
+ * 上架前价格闸门(2026-11-26 全收费):
+ * 任何把 isRelayPublic 从 false 翻到 true 的入口都必须先过这里。
+ * 未定价模型即使被手动点「上架」也拒绝,避免零价/缺价模型进入售卖面。
+ */
+async function publishPriceError(modelRowId: number): Promise<string | null> {
+  const check = await assertPricedForPublish(modelRowId)
+  return check.ok ? null : (check.reason ?? '模型未定价,不能上架')
 }
 
 /** BYOK 抽成率更新(0~1,3 位小数;0.10=10%) */
@@ -222,6 +233,8 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
           .status(400)
           .send(error(400, '只有全局配置(owner_uuid 为空)下的模型才能上架到公开运营池'))
       }
+      const priceErr = await publishPriceError(modelRowId)
+      if (priceErr) return reply.status(400).send(error(400, priceErr))
       const [updated] = await db
         .update(aiModelConfigModels)
         .set({
@@ -256,6 +269,10 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
       return reply
         .status(400)
         .send(error(400, '只有全局配置(owner_uuid 为空)下的模型才能上架到公开运营池'))
+    }
+    if (d.isRelayPublic === true) {
+      const priceErr = await publishPriceError(rowId)
+      if (priceErr) return reply.status(400).send(error(400, priceErr))
     }
     if (d.isRelayPublic !== undefined) setData.isRelayPublic = d.isRelayPublic
     if (d.relayPriceMultiplier !== undefined) setData.relayPriceMultiplier = d.relayPriceMultiplier
@@ -313,6 +330,11 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
           .status(400)
           .send(error(400, '只有全局配置(owner_uuid 为空)下的模型才能上架到公开运营池'))
       }
+      // 下架→上架:必须已有正价(2026-11-26 全收费闸门)
+      if (!existing.isRelayPublic) {
+        const priceErr = await publishPriceError(Number(p.data.id))
+        if (priceErr) return reply.status(400).send(error(400, priceErr))
+      }
 
       const [updated] = await db
         .update(aiModelConfigModels)
@@ -333,7 +355,8 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
   // 立因:codex/doubao 适配器无 listModels(上游无列模型端点),同步 job 拉不到清单 ⇒
   //       永远不会自动建模型行;而端点 2(POST /admin/relay/models)只接受「已存在的 modelRowId」
   //       做 UPDATE 上架 ⇒ 无行可上架,死锁。本端点补齐「从零 INSERT」这条腿,使这两个平台
-  //       (及任何无 listModels 平台)也能由 admin 手动登记模型给用户可选。
+  //       (及任何无 listModels 平台)也能由 admin 手动登记模型行。
+  //      登记后不自动上架:必须先补价,再走 toggle(价格闸门在那里)。
   // 转发安全:缺父表行时复用同步 job 的 ensureProviderConfigRow 建(base_url 仅登记字段,
   //          转发恒走适配器,不影响真实路由);codex/doubao 转发不消费 model 名(见各自适配器头注)。
   // 幂等:按 (config_id, model_id) 唯一约束 onConflictDoNothing,重复登记不报错。
@@ -358,14 +381,16 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
       const { configId, created } = await ensureProviderConfigRow(providerCode)
 
       // 2) 子行 upsert(按 config_id+model_id 幂等;不覆盖既有行,避免抹掉 admin 手置字段)
+      // 2026-11-26 全收费:手动登记也只登记,不自动上架。缺价模型若直接公开,
+      // 用户调用会 503;必须先补成本价/售价,再走 toggle 上架(那里还有价格闸门)。
       const rows = await db
         .insert(aiModelConfigModels)
         .values({
           configId,
           modelId,
           displayName: displayName ?? modelId,
-          enabled: true,
-          isRelayPublic: true,
+          enabled: false,
+          isRelayPublic: false,
           pointsMultiplier: inferPointsMultiplier(modelId).toFixed(2),
         })
         .onConflictDoNothing({

@@ -1119,15 +1119,8 @@ export async function assertPricedForPublish(modelRowId: number): Promise<Publis
   const pout = asNum(row['pout'])
   const tier = row['tier'] ? String(row['tier']) : ''
   const outNotApplicable = row['out_na'] === true || row['out_na'] === 'true'
-  // 上游真免费模型(OpenRouter 的 ":free" 后缀)零价是合法状态,必须放行,
-  // 否则运营无法上架免费模型 —— 护栏只针对"该收费却没定价"的漏计费。
-  if (/:free\b/i.test(modelId)) {
-    return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
-  }
-  // 厂商官方价目明确标注的免费模型(零价同样是合法状态)
-  if (tier === 'official-free') {
-    return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
-  }
+  // 2026-11-26 全收费:不再给 ":free" / official-free 零价豁免。
+  // 免费变体只登记、不上架;任何要公开售卖的模型都必须是正价。
   // 非 token 计费(按张/按秒/按次):ai_pricing 里有正的单位价即可上架,
   // 配置行的 token 价保持 0 不代表白送。
   const bmode = row['bmode'] ? String(row['bmode']) : 'token'

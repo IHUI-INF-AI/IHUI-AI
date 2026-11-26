@@ -121,17 +121,6 @@ const PROVIDER_CONFIG_NAME: Partial<Record<RelayProviderCode, string>> = {
   codearts: 'CodeArts 账号池(反代)',
 }
 
-/**
- * 自动上架的新行默认是否公开(2026-11-24 立)。
- * qoder 例外:上游 SDK available_models_update 一次推 14 个 id,其中大量 isNew;
- * 机主定档「跟现有 qoder 模型一致」=先登记、不自动放开给终端用户,由 admin 逐条上架。
- * 只影响**新插入行**;onConflictDoNothing 永不覆盖 admin 手置的公开状态。
- * 其它平台维持原有自动公开语义,避免扩大本次策略变更面。
- */
-export function defaultRelayModelPublic(providerCode: string | undefined): boolean {
-  return providerCode !== 'qoder'
-}
-
 /** 平台是否有可拉取的模型清单接口(2026-11-24 修):listModels 与 listModelsDetailed 任一存在即有能力。
  *  qoder 只实现 listModelsDetailed(SDK available_models_update 帧 / CLI 回落),旧门只认 listModels
  *  会把 qoder 整家跳过 —— 与服务层 fetchUpstreamModelIds(两种接口都试)判据分裂,导致 qoder
@@ -143,18 +132,17 @@ export function hasModelCatalogCapability(
 }
 
 /** 单模型 upsert:按 (config_id, model_id) 唯一约束。
- *  - 新行:插入(enabled=true, 公开状态按 defaultRelayModelPublic)。
- *  - 已存在且 enabled=true:不动(尊重管理员手置的 is_relay_public / 展示名 / 定价)。
- *  - 已存在但 enabled=false(曾被自动下架):原地复活 enabled=true —— 上游重新上架时
- *    模型能自动恢复,否则软下架-row 会被 onConflictDoNothing 永久跳过、再也回不来。
- *    复活只翻 enabled,不碰公开状态/定价(管理员下架意图仍被尊重)。 */
+ *  2026-11-26 全收费闸门:
+ *  - 新行只登记,enabled=false / is_relay_public=false;同步腿拿不到可核实成本价,
+ *    若自动启用会把缺价模型放进公开面(用户调用即 503),按 0 成本又会变成免费模型。
+ *  - 已存在行一律不动(onConflictDoNothing),不再自动复活 enabled=false 的旧行;
+ *    上游重新上架时由管理员补价后显式上架,避免每轮同步把隔离状态翻回去。 */
 async function upsertRelayModel(
   configId: number,
   modelId: string,
-  providerCode?: string,
 ): Promise<RelayModelWriteOutcome> {
-  // 2026-11-26:非聊天模型(embedding/rerank/图像/视频/音频/翻译/审核)与 free 变体
-  // 不进 LLM 售卖面。这里在写入前拦截,避免上游清单每 15 分钟又把它们插回来/复活。
+  // 非聊天模型(embedding/rerank/图像/视频/音频/翻译/审核)与 free 变体
+  // 不进 LLM 售卖面。这里在写入前拦截,避免上游清单每 15 分钟又把它们插回来。
   if (shouldDisableOnMissingCost(classifyModelKind(modelId))) {
     return 'exists'
   }
@@ -164,21 +152,14 @@ async function upsertRelayModel(
       configId,
       modelId,
       displayName: modelId,
-      enabled: true,
-      isRelayPublic: defaultRelayModelPublic(providerCode),
+      enabled: false,
+      isRelayPublic: false,
       pointsMultiplier: inferPointsMultiplier(modelId).toFixed(2),
     })
-    .onConflictDoUpdate({
+    .onConflictDoNothing({
       target: [aiModelConfigModels.configId, aiModelConfigModels.modelId],
-      // 只在"本行已下架"时复活;enabled=true 的行 set 成同样值=无副作用更新,
-      // 但会刷新 updatedAt。为彻底不打扰活跃行,where 限 enabled=false。
-      set: { enabled: true, updatedAt: new Date() },
-      where: eq(aiModelConfigModels.enabled, false),
     })
     .returning({ id: aiModelConfigModels.id })
-  // onConflictDoUpdate+where 未命中(=活跃行)时 returning 也为空,需区分 inserted/revived/exists。
-  // drizzle 无法直接区分,复活与新增都算"写入成功";调用方只关心 inserted 计数,
-  // 这里用 rows 是否非空判断:复活返回 id ⇒ 计 inserted(语义=本轮有写入动作)。
   return rows.length > 0 ? 'inserted' : 'exists'
 }
 
@@ -374,10 +355,9 @@ export async function syncRelayProviderModels(options: {
   }
 
   const fetchUpstream = options.fetchUpstream ?? fetchUpstreamModelIdsForProvider
-  // 把平台码绑进默认 writer:qoder 走保守公开策略,其余平台不变。
+  // 把平台码绑进默认 writer(2026-11-26 起全平台新行统一不公开/不启用;
   // 显式注入 options.write 的调用方(测试/admin)仍完全掌控写入语义。
-  const write: RelayModelWriter =
-    options.write ?? ((cid, mid) => upsertRelayModel(cid, mid, providerCode))
+  const write: RelayModelWriter = options.write ?? ((cid, mid) => upsertRelayModel(cid, mid))
 
   // 1. 现拉上游清单(适配器无 listModels ⇒ ok=false 跳过)
   let upstreamIds: string[] = []

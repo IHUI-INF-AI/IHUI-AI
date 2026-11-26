@@ -138,7 +138,11 @@ def is_free_model_variant(model_id: str) -> bool:
 
 
 def is_llm_sellable_model(model_id: str, model_tags: list[str]) -> bool:
-    """只有 chat 标签且不是 free 变体的模型才进 LLM 启用面。"""
+    """是否为「LLM 售卖候选」:chat 标签且不是 free 变体。
+
+    注意:这是候选判定,不是上架判定。2026-11-26 起新同步行一律
+    enabled=false;真正上架还必须有可核实成本价(见 _insert_model 调用处)。
+    """
     return "chat" in model_tags and not is_free_model_variant(model_id)
 
 # xAI /v1/models 的 *_text_token_price 单位是 1e-10 USD/token(12500 = $1.25/1M)。
@@ -1980,14 +1984,8 @@ class ModelSyncService:
                         self._row_cost(r, "cost_input_price_per_1k"),
                         self._row_cost(r, "cost_output_price_per_1k"),
                     )
-                # 安全阀自动下架标记(上游恢复返回后自动重新上架)
-                auto_delisted_ids: set[str] = set()
-                for r in existing_rows:
-                    if (
-                        self._row_metadata(r).get("auto_delisted_reason")
-                        == "anomalous_upstream_list"
-                    ):
-                        auto_delisted_ids.add(r["model_id"])
+                # 2026-11-26 全收费:不再自动恢复公开。auto_delisted 只作历史标记,
+                # 公开动作统一由补价后的管理员上架执行。
 
                 # F3.6 别名映射后的 upstream_ids(用于下架比对)
                 upstream_ids: set[str] = set()
@@ -2085,10 +2083,12 @@ class ModelSyncService:
                         if dry_run:
                             preview_new.append(aliased_id)
                         else:
-                            # 新模型:INSERT(chat 档自动上架;图像/视频等媒体档默认不上架)
-                            # 2026-11-26:非 chat 与 free 变体登记但 enabled=false,
-                            # 不进 LLM 售卖面;避免缺 token 成本的模型反复出现在 503 清单。
-                            llm_sellable = is_llm_sellable_model(aliased_id, model_tags)
+                            # 新模型:只登记,不自动售卖(2026-11-26 全收费闸门)。
+                            # 同步腿拿不到「可核实的上游成本价」,若按 chat 标签直接
+                            # enabled/public,就会把缺价模型放进公开面,用户调用即 503;
+                            # 若按 0 成本启用,又会变成免费模型。故所有新行一律
+                            # enabled=false / is_relay_public=false,由定价管线补价后
+                            # 再由管理员显式上架。非 chat / free 变体同样只登记。
                             await self._insert_model(
                                 conn, config_id, aliased_id, display_name, ctx_len,
                                 input_price, output_price, model_tags,
@@ -2103,8 +2103,8 @@ class ModelSyncService:
                                 release_date=release_date,
                                 deprecation_date=deprecation_date,
                                 metadata=metadata_json,
-                                enabled=llm_sellable,
-                                is_relay_public=llm_sellable,
+                                enabled=False,
+                                is_relay_public=False,
                             )
                         new_count += 1
                     else:
@@ -2125,8 +2125,9 @@ class ModelSyncService:
                                 release_date=release_date,
                                 deprecation_date=deprecation_date,
                                 metadata=metadata_json,
-                                # 安全阀曾自动下架、本轮上游又返回的模型 ⇒ 自动恢复上架
-                                restore_relay_public=db_model_id in auto_delisted_ids,
+                                # 2026-11-26 全收费:同步腿不再自动恢复公开。
+                                # 上游恢复返回只说明模型还在,不代表已有可核实成本价;
+                                # 公开动作统一由补价后的管理员上架执行。
                                 existing_cost=existing_cost.get(db_model_id),
                             )
 
@@ -2311,12 +2312,11 @@ class ModelSyncService:
             fields.append("last_synced_at")
             placeholders.append("now()")  # SQL 函数,不需要 placeholder
 
-        # ON CONFLICT DO UPDATE:更新存在的字段
-        # 2026-11-26:enabled 跟随 excluded.enabled —— 非 chat/free 新行保持 false,
-        # 不会因为上游每轮同步又被打开;is_relay_public 不在这里覆盖,
-        # 保留管理员手置的公开状态(自动下架恢复走 _update_model 的 restore_relay_public)。
+        # ON CONFLICT DO UPDATE:更新存在的字段。
+        # 2026-11-26 全收费:不再写 enabled —— 新行统一 false,但已存在行可能
+        # 已被管理员补价上架;同步腿若用 excluded.enabled 覆盖,会把在售行关掉。
+        # 上架/下架只由定价管线与管理员显式动作决定。
         update_parts = [
-            "enabled = excluded.enabled",
             "context_length = $4",
             "updated_at = now()",
         ]
@@ -2374,13 +2374,10 @@ class ModelSyncService:
         release_date: str,
         deprecation_date: str,
         metadata: dict[str, Any] | None = None,
-        restore_relay_public: bool = False,
         existing_cost: tuple[float | None, float | None] | None = None,
     ) -> None:
         """F4.5 动态构造 UPDATE SQL(根据列存在性决定更新哪些字段)。
         v4:metadata(jsonb,富元数据)。
-        restore_relay_public:安全阀曾自动下架的模型重新出现在上游清单时,
-        恢复 is_relay_public(仅 chat 模型;管理员手动下架的行没有该标记,不会被动恢复)。
         existing_cost:存量行现有成本价(cost_in/cost_out),仅用于判定该行是否已有
         成本定价;同步腿对两类情形都不写售价列(见下)。
         """
@@ -2424,12 +2421,8 @@ class ModelSyncService:
                 )
                 params.append(param_value)
                 idx += 1
-        # 安全阀自动下架标记的模型重新出现在上游 ⇒ 恢复上架(仅 chat 模型)
-        if restore_relay_public:
-            set_parts.append(f"is_relay_public = ${idx}")
-            params.append("chat" in model_tags)
-            idx += 1
-
+        # 2026-11-26 全收费:同步腿不恢复 is_relay_public。上游恢复返回只说明
+        # 模型还在,不代表已有可核实成本价;公开动作统一由补价后的管理员执行。
         # last_synced_at(每次同步刷新,用 SQL now() 函数,不需要 placeholder)
         if columns.get("last_synced_at", False):
             set_parts.append("last_synced_at = now()")
@@ -2476,26 +2469,6 @@ class ModelSyncService:
             return float(v)
         except (TypeError, ValueError):
             return None
-
-    @staticmethod
-    def _row_metadata(row: Any) -> dict[str, Any]:
-        """把 DB metadata 列规范成 dict(asyncpg 默认把 jsonb 返回成字符串)。
-
-        迁移未应用时 SELECT 用 `NULL::jsonb AS metadata` 降级,行里一定有该列;
-        但单测/调用方可能传只含 model_id + is_relay_public 的最小行(或列被
-        老版本查询裁掉),此时缺列不该让整轮同步炸掉 —— 按"无标记"处理即可。
-        """
-        try:
-            meta = row["metadata"]
-        except (KeyError, IndexError, TypeError):
-            return {}
-        if isinstance(meta, str):
-            try:
-                parsed = json.loads(meta)
-            except (ValueError, TypeError):
-                return {}
-            return parsed if isinstance(parsed, dict) else {}
-        return meta if isinstance(meta, dict) else {}
 
     async def _check_tags_column_exists(self, conn: Any) -> bool:
         """F3.4 查询 ai_model_config_models 表是否有 tags 字段(带缓存)。
