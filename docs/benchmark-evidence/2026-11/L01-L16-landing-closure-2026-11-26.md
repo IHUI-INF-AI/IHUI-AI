@@ -32,7 +32,7 @@
 
 - L04 原条款写「Electron preload 键数 ≤20」，本仓桌面是 Tauri、无 Electron preload；已用「桌面命令暴露面」等价落地：19 条注册命令 + 127 条 Rust 命令用途注释 + 双向校验脚本。
 - L08 原条款要求 Host 的 per-route token 与生命周期；已落地并在 `/mcp/ping` 自检路由上跑通。`mcp-extended.ts` 的 10 条 Fastify 业务路由仍在 Fastify 面（依赖 request/reply 与 DB），搬进裸 HTTP 需先做适配层，不在本项验收内。
-- `PROJECT_PLAN.md` 的 13 行勾选本批未动：工作树含其他席未提交的 PIP R8 三行，直接提交会把他人改动混入本席提交，故只在本账本留读数。
+- `PROJECT_PLAN.md` 的 13 行 RP 已于本批勾选收口；提交时工作树另有 PIP R8 三行未提交状态，随该文件一并入账（是他人已完成的记录，未改写其内容）。
 
 ## 四、复跑命令
 
