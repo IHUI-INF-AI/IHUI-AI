@@ -8,8 +8,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: scripts/scan-api-routes.mjs
-// sourceCommit: 654a165fd995a57b38de87a8793a201f02b0ddfb
-// inputsSha256: f301f33bfeaf1e0aed99e45e36b6993b18969017170094c1775710f5f0abecd5
+// sourceCommit: cb49983b61e342736f081ebaa78d8c816537a0dc
+// inputsSha256: c942dfe54ae12040bb30ca0637fe3e7d791f20f8885bb7affc57da87320742bd
 // input: apps/api/src/plugins/terminal-cleanup.ts c561f522419123bcf264e279c6aa5f9e5bf66b1d07fbe983bb0e6e6298f7f61a
 // input: apps/api/src/plugins/terminal-ws.ts 0de7893a231fa3964ac2ea8122feeb9546980a0f6925e869dba7e5cbfb4de465
 // input: apps/api/src/routes/ab-testing.ts 18d5edae3f025b98897bc36989f48373956aaffcdb010ebfe97060b8d537a2ec
@@ -183,7 +183,7 @@
 // input: apps/api/src/routes/ai-vendors/proxy-extended-media4.ts 113aa9e2e73caf9225a38cffd4d8c9f711630b7964234e6d2713ba04d37300f3
 // input: apps/api/src/routes/ai-vendors/proxy-extended-media5.ts e8cc457914b4a2671ad8cd4df9e920731ff97ea0facd45a2f2f796f0f44feddc
 // input: apps/api/src/routes/ai-vendors/proxy-extended.ts b7dc453bdee0b6b4b7fcb45ff21baad1d433e490132d825c2130ee9e0d41bcae
-// input: apps/api/src/routes/ai-vendors/proxy-llm.ts e301ab6892e9111faac042e81d8c6c0b56a62a6cf37683fa9e6a05a918f6bd93
+// input: apps/api/src/routes/ai-vendors/proxy-llm.ts cc424b14006a5b028007017393602906a57dd37a129fd647583bc53a282c0f02
 // input: apps/api/src/routes/ai-vendors/proxy-media.ts 742c767890e8351dd3dbb65d67c7ba7a145063b9768fe53afb3fdee2e1e806aa
 // input: apps/api/src/routes/ai-vendors/proxy-openai-compat.ts 938b6561a63a9d7a785e93c3d3b8d580ced4349bd9ab9122f0797ad5a1361b1e
 // input: apps/api/src/routes/ai-vendors/proxy-tools.ts 5f533c6f4ce47a03e12fd5f04c1fd5e6ed2640445359007a268eae2a09c8e004
@@ -435,7 +435,7 @@
 // input: apps/api/src/routes/relay-conversations.ts 9da8e2704fd8386d6ef8cc5148e8d0603d56b3fb61bdab3e83981fe5004e9f0b
 // input: apps/api/src/routes/relay-enterprise.ts 3fe671d7572926f4ee55d2557b416352241d4cb67fc793e508e5c642fef42f61
 // input: apps/api/src/routes/relay-monitor-public.ts 067bb2301460d074b9a86e7a14e38d6457fcf7459867ba18d1ab3e09ec37dde7
-// input: apps/api/src/routes/relay-public.ts d6e7cb8abdfd00cebc924ff8f577117a9dd8f0f8df264964fb0a334cce843099
+// input: apps/api/src/routes/relay-public.ts 58f38581f2d6599944b6b57819aed62c665b3388a71bd0160a2ac75191a33085
 // input: apps/api/src/routes/remote-device.ts 4f7d5f2e47444c593038ff3466eec5c97128899138d1beafe9cc4aaff1a8c607
 // input: apps/api/src/routes/remote-extended.ts ae2c0bf465f116d7762d503be18fea454363bc5734951a32028feeabae6e8670
 // input: apps/api/src/routes/repo-wiki.ts 8dcc1c0c3c61563c741f4a79136a24387f0972a1757ab00bf6b4f09e9ccfba80
@@ -531,9 +531,9 @@
 // input: apps/api/src/routes/v1-mcp-gateway.ts d676993739cad4328607a415ff59702f420060cdba4f77b8001e40da9e8d6cd3
 // input: apps/api/src/routes/v1-messages.ts d58dab76dc37d0ab978f1efd3310c31342239520ce8974d9cea916fc0d42be28
 // input: apps/api/src/routes/v1-midjourney.ts de3544809ff0b3303e8a3057dc3ba8210e806f1fd7f51be251d8caa5beb7e398
-// input: apps/api/src/routes/v1-multimodal.ts 0fbd560048f2c2a9c4318d9e9ffc5dfff35cd372e3a039ba7bcc4489ec6f0ad8
+// input: apps/api/src/routes/v1-multimodal.ts 7b60ddb271014b45dcd4a89bb963d22e3641da977a3486596e7b30a94ed0ac7c
 // input: apps/api/src/routes/v1-protocol-completeness.ts ab481fcaf7b6923e47840f766dc56e3b73caf9bfb5a95fefcaf5e079fb87d78a
-// input: apps/api/src/routes/v1-public.ts c365a1ee16dfcda95e72a6f9342a741613d8ab84dad14a41fe41f9baecffab11
+// input: apps/api/src/routes/v1-public.ts c0dfdfaca9cdefda4b0f1427315d2b5c3520c7fbcf4df3d377ca68c7b6fbabeb
 // input: apps/api/src/routes/v1-realtime.ts 244f7b8b1dd833dc45edb73e3df15fc99b0fd42ff33c7b8e1a02507a570d5738
 // input: apps/api/src/routes/v1-rerank-moderations.ts 6f3c8f04aaeea9d983d5473d05057778584666b0b9ede91cd7838206b891942d
 // input: apps/api/src/routes/v1-responses.ts 872299cc0a550c3471cd86822fcf5539b27a79a7580765de5a3ba95d3609fde1
@@ -562,7 +562,7 @@
 // input: packages/design-tokens/src/index.ts 9994da0906704666b2858e0a974ee723c3cb59b65af14051fdabc0b4d6840a33
 // files: 550
 // endpoints: 5918
-// generatedAt: 2026-11-26T11:52:05.418Z
+// generatedAt: 2026-11-26T12:52:56.198Z
 // IHUI-GEN-PIN-END
 export const API_ENDPOINTS_RAW = `GET	/.well-known/apple-app-site-association	.well-known	apps/api/src/routes/apple-app-site-association.ts	exact
 GET	/.well-known/oauth-authorization-server	.well-known	apps/api/src/routes/oauth-authorization-server.ts	exact
@@ -6483,5 +6483,5 @@ GET	/api/wrong-questions	wrong-questions	apps/api/src/routes/wrong-questions.ts	
 POST	/api/wrong-questions	wrong-questions	apps/api/src/routes/wrong-questions.ts	exact
 GET	/ws/live-chat	ws	apps/api/src/routes/ws/live-chat.ts	exact
 `
-export const API_ENDPOINTS_GENERATED_AT = '2026-11-26T11:52:05.418Z'
+export const API_ENDPOINTS_GENERATED_AT = '2026-11-26T12:52:56.198Z'
 export const API_ENDPOINT_LINE_COUNT = 5918
