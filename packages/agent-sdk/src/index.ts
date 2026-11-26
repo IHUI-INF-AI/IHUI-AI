@@ -8,7 +8,7 @@ export {
   DEFAULT_KILL_GRACE_MS,
   DEFAULT_PERMISSION_TIMEOUT_MS,
   DEFAULT_STDERR_LIMIT,
-} from './query.js';
+} from './query.js'
 export type {
   AgentEvent,
   CanUseTool,
@@ -16,9 +16,19 @@ export type {
   QueryOptions,
   QueryResult,
   ToolPermissionRequest,
-} from './query.js';
+} from './query.js'
 
-export { AgentSdkError, JsonRpcPeer, NdjsonDecoder, encodeMessage } from './protocol.js';
+export { AgentSdkError, JsonRpcPeer, NdjsonDecoder, encodeMessage } from './protocol.js'
+// L03/RP-7 审批反向通道三队列(审批/备份/恢复):断线不丢、重连按序补发
+export { ApprovalChannel, ApprovalChannelError, APPROVAL_QUEUE_KINDS } from './approval-channel.js'
+export type {
+  ApprovalChannelErrorCode,
+  ApprovalChannelStats,
+  ApprovalDecisionKind,
+  ApprovalEnvelope,
+  ApprovalQueueKind,
+  ApprovalRequestInput,
+} from './approval-channel.js'
 export type {
   AgentSdkErrorCode,
   AgentSdkErrorOptions,
@@ -39,5 +49,5 @@ export type {
   PermissionOptionKind,
   SessionUpdate,
   StopReason,
-} from './protocol.js';
+} from './protocol.js'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
