@@ -288,11 +288,46 @@ export function resolveProductExe(product, env = process.env) {
   }
   const standard = roots.find((p) => fs.existsSync(p))
   if (standard) return standard
+  // 注册表 App Paths(HKCU→HKLM):非标准安装目录的权威定位,2026-11-26 实测本机
+  // HKCU\...\App Paths\Doubao.exe 直指 D:\Huorong\doubao\app\Doubao.exe(盘根兜底扫不到这层)。
+  const fromRegistry = exePathsFromAppPathsRegistry(product, env).find(
+    (p) => fs.existsSync(p) && path.basename(p).toLowerCase() === image.toLowerCase(),
+  )
+  if (fromRegistry) return fromRegistry
   // 最后一道兜底:开始菜单/桌面 .lnk(豆包等装在非标准目录且进程没开时靠它)
   const fromLnk = exePathsFromShortcuts(product, env).find(
     (p) => fs.existsSync(p) && path.basename(p).toLowerCase() === image.toLowerCase(),
   )
   return fromLnk ?? ''
+}
+
+/**
+ * 从注册表 App Paths 取安装 exe(HKCU → HKLM 64 → HKLM 32)。
+ * PS7 + UTF8 读回:中文安装路径(实测有 D:\电脑软件\…)在非 65001 码页会被吃掉(§5f)。
+ * product 只来自内部常量,仍按 PS 单引号规则转义。
+ */
+export function exePathsFromAppPathsRegistry(product, env = process.env, opts = {}) {
+  const ps = powershellPath(env)
+  const image = `${product}.exe`.replace(/'/g, "''")
+  const script = [
+    "$ErrorActionPreference='SilentlyContinue';",
+    '[Console]::OutputEncoding=[Text.Encoding]::UTF8;',
+    "$paths=@('HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\',",
+    "'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\',",
+    "'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\App Paths\\');",
+    `$paths | ForEach-Object { $v=(Get-ItemProperty -Path (Join-Path $_ '${image}') -Name '(default)' -ErrorAction SilentlyContinue).'(default)'; if ($v) { $v } }`,
+  ].join(' ')
+  const execFn = opts.execFn ?? ((cmd, args) =>
+    execFileSync(cmd, args, { encoding: 'utf8', windowsHide: true, timeout: 12_000, env }))
+  try {
+    const out = execFn(ps, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script])
+    return String(out)
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+  } catch {
+    return []
+  }
 }
 
 /** 本机固定盘根(C:/ D:/ G:/ ...),用于客户端装在非系统盘时的 exe 兜底扫描(2026-11 修) */
@@ -644,6 +679,7 @@ export const __test__ = {
   closeProduct,
   launchProduct,
   extractExePathsFromLnk,
+  exePathsFromAppPathsRegistry,
   powershellPath,
   RUN_AS_USER_SCRIPT,
 }

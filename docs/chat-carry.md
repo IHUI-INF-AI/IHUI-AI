@@ -112,7 +112,7 @@ node scripts/chat-carry.mjs --provider workbuddy --from <旧uid> --revive-window
 
 本机实测(2026-11-22 13:12):窗口 180 分钟 ⇒ 复活 5 条真实会话(含 11:56:18 那条「完成所有计划任务 协同并发运行」),新号可见会话 1 → 6 条;`--audit` 复核 `workbuddy 库=236 可见=6`。写库前自动整库备份(`workbuddy.db.pre-carry-<runId>.bak`)。
 
-## 6. 豆包(cloud)—— 能做的是「归档 + 交接单」,不是文件级迁移
+## 6. 豆包(cloud)—— 归档 + 交接单是保底,「Claude 源暂存 → 扫描导入」是原生路径(2026-11-26 取证升级)
 
 ### 2026-11-24 二次取证:上一版「官方导入」只对了一半
 
@@ -216,6 +216,27 @@ node scripts/doubao-build-import.mjs --archive <归档目录> --out conversation
 | `import/authorize` / `get_coze_oauth_code` | 无效 `code` → 710010702;空 `client_id` → 710010703,授权码需 native 侧参数 |
 
 ⇒ **结论**:有效 cookie 下官方内部 API 可达,但 `import/start` 仍卡「产品授权码 + 服务端已登记的资源 URI」,`import/entry/list` 只暴露 Coze;桌面端 native 调用链未取到签名。API 全自动不成立,UI 也不是「选文件」而是扫描式入口 ⇒ 当前确定可用的跨号续聊只剩 `handoff.md` 交接单(文本)或 `--replay` 文本回放(不推荐)。
+
+### 2026-11-26 扫描式入口逆向取证:Doubao.dll 的 `agent_asset_migration` 契约
+
+对 `D:\Huorong\doubao\app\Doubao.dll`(335MB,当次实测安装面已从 Program Files 迁到此处)做字符串取证,扫描式入口的本机数据面契约全部现形:
+
+- **提供方模块**:`aha\components\agent_asset_migration\apps\{claude_code,codex,trae_work}\*_asset_provider.cc`;
+- **Claude Code 面**:`<HOME>/.claude.json`、`<HOME>/.claude`、`CLAUDE.md` + 枚举 `projects`;会话文件 = `<HOME>/.claude/projects/<cwd编码>/<sessionId>.jsonl`(编码规则实测 `D:\DevEnv\Temp` → `D--DevEnv-Temp`);
+- **Codex 面**:`<HOME>/.codex`(`config.toml`/`AGENTS.md`/`.codex-global-state.json`/`state_5.sqlite`,sqlite 不可用时回落数 session 文件);**TraeWork 面**:扫其 sqlite `chat_session/project` 表;
+- **打包上传**:`session_asset_utils.cc` 把会话 jsonl 过滤(剔 `redacted_thinking`/内部元数据)分片成 `part_N.jsonl` → 组 `sessions_*.jsonl` + `assets.jsonl` → 上传 → **服务端把标准会话 jsonl 逐条投料成新号云端原生会话**(入口文案:「导入后,数据将会自动同步至云端」);
+- 应用检测面 = `HKCU/HKLM Uninstall + App Paths + msstore`(与豆包自己检测飞书/企微同一模块),`.claude` 数据目录存在即可被 Claude Code 提供方扫到。
+
+⇒ 上节「API 全自动不成立」不变,但**「手搓文件没有入口」这条结论作废**:入口不收"文件",收"本机 Claude Code/Codex 应用的会话" ⇒ 把豆包归档转写成合法形态的 Claude 会话 jsonl 放进 `~/.claude/projects`,豆包扫描即可见「Claude Code:N 条可导入」,点导入 = 原生逐条历史进新号。
+
+### 2026-11-26 Claude 源暂存:`node scripts/doubao-claude-stage.mjs`
+
+- 库:`scripts/lib/doubao-claude-stage.mjs`(排序/多模态归一**复用** `toChatGptConversation` 的 mapping 链,§0.6;user/assistant 记录按真实 Claude Code v2.1 形态;图片转 Anthropic `image` block,语音留转写文本);
+- CLI:`node scripts/doubao-claude-stage.mjs --archive <归档目录> [--home <家目录>] [--limit n] [--test-token t]` 干跑,加 `--apply` 落盘(先写 undo 清单 `.ihui-agent/state/doubao-claude-stage/*.json`,只新建目标、同名冲突整体拒绝);`--undo <manifest> [--apply]` 按清单回收(逐文件校验 sessionId,不认目录名);
+- 真实家目录要点:agent 沙箱的 `os.homedir()` 不是登录用户家目录,**必须显式 `--home C:\Users\<登录用户>`**,否则暂存进沙箱 profile 扫不到;
+- 边界(不夸大):扫描/导入动作发生在豆包设置 UI + 登录用户账号面,本工具零 cookie 零网络;**服务端对新号扫描导入的真实落库效果尚未 UI 实测**,首跑必须用 `--test-token` 小样本验证后再全量,验证不通过就撤暂存、退回交接单口径;
+- **调试参数事故记录(2026-11-26 实测)**:给豆包带 `--remote-debugging-port` 拉起的实例呈现游客态(「登录」按钮),且关端时会把游客 cookie 回写覆盖 `Default` 档登录态(Preferences `user_id` 清空实锤) ⇒ **不要拿正式 profile 测调试端口**;登录态可用 `scripts/switch-client-account.mjs --to 19390097993 --provider doubao` 幂等重写恢复(号池票面回灌),`resolveProductExe` 已补 App Paths 注册表兜底(装在 D:\Huorong\doubao 非标准目录也能拉起)。
+- 测试:`node --test scripts/tests/doubao-claude-stage.test.mjs scripts/tests/trae-client-process-apppaths.test.mjs`(数字现读)。
 
 ## 7. 小浣熊（Raccoon Work）—— 已安装，profile 空根已补 marker 解锁
 
