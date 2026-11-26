@@ -37,6 +37,22 @@ export type {
   ApprovalQueueKind,
   ApprovalRequestInput,
 } from './approval-channel.js'
+// L05/RP-8 动态通道注册表:通道名唯一真相源 + 未注册即拒(计数/审计)
+export {
+  CHANNEL_KINDS,
+  CHANNEL_NAME_PATTERN,
+  ChannelDispatcher,
+  ChannelRegistry,
+  ChannelRegistryError,
+  ChannelRejected,
+} from './channel-registry.js'
+export type {
+  ChannelAuditRecord,
+  ChannelDispatcherOptions,
+  ChannelKind,
+  ChannelRegistryErrorCode,
+  ChannelSpec,
+} from './channel-registry.js'
 export type {
   AgentSdkErrorCode,
   AgentSdkErrorOptions,
