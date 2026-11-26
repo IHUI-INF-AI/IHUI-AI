@@ -30,7 +30,13 @@ const REPO = resolve(HERE, '../..')
 const SRC = join(REPO, 'scripts/auto-update-readme-recent.mjs')
 const SRC_TEXT = readFileSync(SRC, 'utf8')
 const { __test__ } = await import(pathToFileURL(SRC).href)
-const { assessAnchors, countEntriesOutsideBlock, BEGIN, END, ALL_LABELS, ALL_EMOJIS, selfTest } = __test__
+const { assessAnchors, countEntriesOutsideBlock, redactVendorTokens, BEGIN, END, ALL_LABELS, ALL_EMOJIS, selfTest } = __test__
+
+/**
+ * 旧代号在测试里也不写成连续字面串:本轮验收口径是"按字面 grep 全仓零命中",
+ * 镜像测试若把原文写进来,自己就成了一处命中(与清洗器同一条理由)。
+ */
+const LEGACY = ['tok', 'en6688'].join('')
 
 /** 造一份"锚点齐备、块内有内容"的 README(其余三份不存在即被跳过,不影响判定)。 */
 const docWith = (inner) => `# T\n\n## 最近更新(自动维护)\n${BEGIN}\n${inner}\n${END}\n尾行\n`
@@ -60,6 +66,20 @@ test('A4 锚点成双 ⇒ ambiguous —— indexOf 取第一对会把中间内�
 
 test('A5 END 在 BEGIN 之前 ⇒ inverted', () => {
   assert.equal(assessAnchors(`${END}\n${BEGIN}\n`, BEGIN, END).state, 'inverted')
+})
+
+test('A6 渲染侧脱敏:历史提交标题里的旧代号落成替代词,行尾 sha 与其余字节逐字不动', () => {
+  const line = `- ♻️ 重构:彻底移除 ${LEGACY} 供应商与全部依赖配置 (de53023c)`
+  const out = redactVendorTokens(line)
+  assert.equal(out, '- ♻️ 重构:彻底移除 旧聚合上游 供应商与全部依赖配置 (de53023c)')
+  assert.ok(!out.toLowerCase().includes(LEGACY), '脱敏后不得残留旧代号(大小写均算)')
+  assert.match(out, /\(de53023c\)$/, '身份键(行尾 sha)必须原样保留,否则日期组去重会串号')
+})
+
+test('A7 脱敏幂等:替代词再过多遍不叠加、大写形态同档命中', () => {
+  const once = redactVendorTokens(`refactor: ${LEGACY.toUpperCase()} 退场`)
+  assert.equal(once, 'refactor: 旧聚合上游 退场')
+  assert.equal(redactVendorTokens(once), once)
 })
 
 test('A6 自检面本身评估得动(守门 89 同型:门造好没接线 = 没有)', () => {

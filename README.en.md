@@ -161,7 +161,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 📚 Docs:登记账号锁定策略 Never 的三条前提与判据联动(防后人在开 RDP/抬阈值时回潮成远程 DoS) (795bf2e7)
 - 🐞 Fix:补齐 IntroducePopup 五语 48 条会员权益字典 (04261fc6)
 - ⚡ Perf:铃声改 16kHz 重渲染,主包 2186KB→1921KB 过微信 2048KB 上限 (414d4431)
-- ♻️ Refactor:彻底移除 token6688 供应商与全部依赖配置 (de53023c)
+- ♻️ Refactor:彻底移除 旧聚合上游 供应商与全部依赖配置 (de53023c)
 - 🚀 Feature/Improvement:账号锁定策略判据(阈值0=>4625仅观测,4740仍红)+README 点名两枚隐形门(门89 R4 清零) (baaa331e)
 - 🐞 Fix:资讯族屏补搜索占位文案、清洗正文 markdown 标题/列表标记、修正详情重试文案与点赞胶囊对齐 (fcf0f48b)
 - 🚀 Feature/Improvement:auto 换腿对用户完全无感 —— 下线 fallback 横幅与气泡交代行 (fe6bb212)

@@ -84,5 +84,7 @@ if accumulated_content or accumulated_reasoning:
 
 ## 未覆盖
 
-全部 provider `astream` 实现（anthropic / doubao / zhipu / kling / volcengine / token6688 / dashscope / agnes / lmstudio / llama_cpp / openai 等）、`app/services/async_gen_close.py`、`routers/agents.py` / `agent_runtime.py` / `langgraph.py` / `llm.py` 的生成器包装与断开检测函数体、`provider_slot` 实现、`app/sio/handlers.py:449-455` 的 astream 消费、`middleware/audit.py` 与 `middleware/llm_metrics.py` 的收口逻辑——均未读正文，仅由 grep 命中定位。
+全部 provider `astream` 实现（anthropic / doubao / zhipu / kling / volcengine / 旧聚合上游 / dashscope / agnes / lmstudio / llama_cpp / openai 等）、`app/services/async_gen_close.py`、`routers/agents.py` / `agent_runtime.py` / `langgraph.py` / `llm.py` 的生成器包装与断开检测函数体、`provider_slot` 实现、`app/sio/handlers.py:449-455` 的 astream 消费、`middleware/audit.py` 与 `middleware/llm_metrics.py` 的收口逻辑——均未读正文，仅由 grep 命中定位。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+
+<!-- 2026-11-26 供应商代号脱敏:已下线聚合上游的旧代号在本文档中统一表述为「旧聚合上游」/legacy-aggregator,原记录语义与结论不变。 -->

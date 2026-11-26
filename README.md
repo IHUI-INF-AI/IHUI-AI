@@ -1541,7 +1541,7 @@ Two structural gates are named here so they cannot be re-invented or bypassed si
 - 🐞 修复:移除未读标题前的 6px 品牌色圆点，避免被读成残留项目符号 (311f2522)
 - 🔧 工程/其他:声纹克隆下线文案五语收口并同步小程序路由产物 (07381df1)
 - 📚 文档:登记账号锁定策略 Never 的三条前提与判据联动(防后人在开 RDP/抬阈值时回潮成远程 DoS) (795bf2e7)
-- ♻️ 重构:彻底移除 token6688 供应商与全部依赖配置 (de53023c)
+- ♻️ 重构:彻底移除 旧聚合上游 供应商与全部依赖配置 (de53023c)
 - [`scripts/security/check-audit-policy.mjs`](./scripts/security/check-audit-policy.mjs) — fails when a
   forensic-critical Windows audit subcategory (account lockout, logon, credential validation, service
   installation, firewall rule change) is not set to `Success and Failure`; without it every downstream

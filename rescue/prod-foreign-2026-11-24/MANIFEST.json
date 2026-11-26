@@ -3,7 +3,7 @@
   "createdAt": "2026-11-24T09:37:58.520Z",
   "source": "D:\\DevEnv\\ihui-prod",
   "sourceHead": "b216021c2b945e300fcfe70a3f6bcda41c63c05f",
-  "note": "生产签出外来改动的无损快照。为解除部署环 git merge --ff-only 的路径重叠阻断而落仓。逐条 sha256/gitBlobSha1 可用于证明快照与原盘内容一致,也用于日后回取。",
+  "note": "生产签出外来改动的无损快照。为解除部署环 git merge --ff-only 的路径重叠阻断而落仓。逐条 sha256/gitBlobSha1 可用于证明快照与原盘内容一致,也用于日后回取。2026-11-26 脱敏:单个已下线供应商的 provider 路径在本索引中以 [redacted-legacy-provider] 占位,bytes/mtime/哈希仍为原始快照值,记录未删除,fileCount 与 totalBytes 不变。",
   "fileCount": 101,
   "totalBytes": 35017020,
   "files": [
@@ -118,7 +118,8 @@
       "class": "A 本机工作树同内容"
     },
     {
-      "rel": "apps/ai-service/app/providers/token6688_provider.py",
+      "rel": "apps/ai-service/app/providers/[redacted-legacy-provider].py",
+      "relRedacted": true,
       "present": true,
       "bytes": 71958,
       "mtime": "2026-11-24T02:14:33.784Z",
