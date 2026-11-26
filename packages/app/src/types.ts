@@ -307,6 +307,7 @@ export type {
   BusinessCardScreenProps,
   CourseEnrollItem,
   CourseEnrollScreenProps,
+  NotificationRingtoneConfig,
   NotificationSettingsItem,
   NotificationSettingsLink,
   NotificationSettingsRow,

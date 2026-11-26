@@ -262,6 +262,28 @@ export interface NotificationSettingsLink {
   onPress: () => void
 }
 
+/**
+ * 通知设置「铃声区块」端侧配置(2026-11-26 三端统一)。
+ * 共享屏只负责渲染与回调,不内联任何平台的音频播放/本地存储/后端同步:
+ * ① 文案为端侧「已解析文本」(RN 与小程序 i18n key 不同,传 key 会让一端显示原始键);
+ * ② id 列表取共享曲目表 RINGTONE_IDS,名称由端侧注入(含缺词兜底);
+ * ③ 三个动作全部回调到端侧,播放/持久化各端自实现。
+ */
+export interface NotificationRingtoneConfig {
+  soundEnabled: boolean
+  soundToggleLabel: string
+  ringtoneId: string
+  ringtoneIds: readonly string[]
+  /** id -> 端侧已解析显示名(i18n 命中或品类兜底后的最终文本) */
+  ringtoneNames: Readonly<Record<string, string>>
+  title: string
+  desc: string
+  previewLabel: string
+  onToggleSound: (enabled: boolean) => void
+  onSelectRingtone: (id: string) => void
+  onPreviewRingtone: (id: string) => void
+}
+
 /** NotificationSettingsScreen props */
 export interface NotificationSettingsScreenProps {
   t: TFunction
@@ -278,6 +300,8 @@ export interface NotificationSettingsScreenProps {
   extraLinks?: readonly NotificationSettingsLink[]
   extraLinksTitle?: string
   colorScheme?: 'light' | 'dark'
+  /** 可选:传了才渲染铃声区块;未传的端维持旧形态,零波及。 */
+  ringtone?: NotificationRingtoneConfig
 }
 
 /** 客服信息(CustomerServiceScreen) */

@@ -4,8 +4,10 @@
 
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, Switch, StyleSheet } from 'react-native'
+import { Check, Play } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
+  NotificationRingtoneConfig,
   NotificationSettingsItem,
   NotificationSettingsLink,
   NotificationSettingsRow,
@@ -18,6 +20,7 @@ import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 通知设置共享屏 — props 注入式跨端组件 */
 export type {
+  NotificationRingtoneConfig,
   NotificationSettingsItem,
   NotificationSettingsLink,
   NotificationSettingsRow,
@@ -39,6 +42,7 @@ export function NotificationSettingsScreen({
   extraLinks,
   extraLinksTitle,
   colorScheme = 'light',
+  ringtone,
 }: NotificationSettingsScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -91,6 +95,35 @@ export function NotificationSettingsScreen({
             </View>
           ))}
         </View>
+        {ringtone ? (
+          <>
+            <View style={styles.card}>
+              <View style={styles.row}>
+                <Text style={styles.label}>{ringtone.soundToggleLabel}</Text>
+                <Switch
+                  value={ringtone.soundEnabled}
+                  onValueChange={ringtone.onToggleSound}
+                  trackColor={{ false: tk.border.light, true: tk.brand.DEFAULT }}
+                />
+              </View>
+            </View>
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>{ringtone.title}</Text>
+              <Text style={styles.sectionDesc}>{ringtone.desc}</Text>
+              {ringtone.ringtoneIds.map((id) => (
+                <RingtoneRow
+                  key={id}
+                  name={ringtone.ringtoneNames[id] || id}
+                  selected={ringtone.ringtoneId === id}
+                  onSelect={() => ringtone.onSelectRingtone(id)}
+                  onPreview={() => ringtone.onPreviewRingtone(id)}
+                  previewLabel={ringtone.previewLabel}
+                  colorScheme={colorScheme}
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         {success ? <Text style={styles.successText}>{success}</Text> : null}
         {extraLinks && extraLinks.length > 0 ? (
@@ -157,8 +190,17 @@ function createStyles(tk: AppThemeTokens) {
     sectionTitle: {
       ...rnType.label,
       color: tk.text.secondary,
-      marginBottom: rnSpacing.sm,
+      marginBottom: rnSpacing.xs,
     },
+    sectionDesc: { ...rnType.caption, color: tk.text.medium, marginBottom: rnSpacing.sm },
+    ringtoneRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
+    ringtoneName: { flex: 1 },
+    previewBtn: { padding: rnSpacing.xs },
     linkRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -181,5 +223,47 @@ function createStyles(tk: AppThemeTokens) {
     saveBtnDisabled: { backgroundColor: tk.text.secondary },
     saveBtnText: { color: tk.surface.light, ...rnType.title },
   })
+}
+
+interface RingtoneRowProps {
+  name: string
+  selected: boolean
+  previewLabel: string
+  colorScheme: 'light' | 'dark'
+  onSelect: () => void
+  onPreview: () => void
+}
+
+/** 单个铃声选项:整行可选中(radio 语义),右侧独立试听按钮,选中态有读屏等价标签。 */
+function RingtoneRow({
+  name,
+  selected,
+  previewLabel,
+  colorScheme,
+  onSelect,
+  onPreview,
+}: RingtoneRowProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+  return (
+    <TouchableOpacity
+      style={styles.ringtoneRow}
+      onPress={onSelect}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: selected }}
+      accessibilityLabel={name}
+    >
+      <Text style={[styles.label, styles.ringtoneName]}>{name}</Text>
+      <TouchableOpacity
+        onPress={onPreview}
+        accessibilityRole="button"
+        accessibilityLabel={previewLabel}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Play size={18} color={tk.text.medium} />
+      </TouchableOpacity>
+      {selected ? <Check size={18} color={tk.brand.DEFAULT} strokeWidth={3} /> : null}
+    </TouchableOpacity>
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
