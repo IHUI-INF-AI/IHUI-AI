@@ -413,6 +413,13 @@ export function closeClientForWrite(provider, env = process.env) {
     closed: closed.closed === true,
     forced: closed.forced === true,
     exePath,
+    // 关断诊断(2026-11-26):关不掉时点名残留 pid / 跨会话结论 / 逐 pid 错误,
+    // 否则机主只看到"关不掉",不知道是权限、守护重启还是跨会话失败。
+    pids: closed.pids ?? hit.pids,
+    crossSession: closed.via ?? '',
+    closeErrors: Array.isArray(closed.results)
+      ? closed.results.filter((r) => !r.ok).map((r) => `${r.pid}:${r.error || '?'}`)
+      : [],
   }
 }
 
@@ -423,8 +430,16 @@ export function closeClientForWrite(provider, env = process.env) {
  */
 export function assertClientClosed(info) {
   if (!info?.wasRunning || info.closed) return
+  const diag = [
+    `残留pid=${Array.isArray(info.pids) && info.pids.length ? info.pids.join(',') : '?'}`,
+    `跨会话=${info.crossSession || '未走'}`,
+    ...(Array.isArray(info.closeErrors) && info.closeErrors.length
+      ? [`逐pid错误=${info.closeErrors.join(' | ')}`]
+      : []),
+  ].join(';')
   throw new WriteError(
-    `已尝试关闭 ${info.product} 但进程仍在运行(或关断结果未判定)⇒ 拒绝写入:运行中的客户端会用内存态覆写登录态。请手动退出 ${info.product} 后重试`,
+    `已尝试关闭 ${info.product} 但进程仍在运行(或关断结果未判定)⇒ 拒绝写入:运行中的客户端会用内存态覆写登录态。` +
+      `[关断诊断] ${diag}。请手动退出 ${info.product} 后重试`,
     'target-locked',
   )
 }

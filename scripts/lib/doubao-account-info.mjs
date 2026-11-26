@@ -62,6 +62,70 @@ export function normalizeDoubaoMobile(raw) {
 }
 
 /**
+ * 切号前置:判定这枚票是否仍被豆包服务端认作有效登录(2026-11-26)。
+ * 号池票可能是历史导入时被 UTF-8 解码损坏/早已过期的死票;写回腿只保证"落点写进去了",
+ * 客户端启动后仍判未登录。写回前问服务端一次,accepted 才写,rejected 直接 fail-closed。
+ * @returns {Promise<{verdict:'accepted'|'rejected'|'undetermined',reason:string,mobile:string|null}>}
+ */
+export async function verifyDoubaoSession(cookies, opts = {}) {
+  const cookieHeader = cookieHeaderFromCookies(cookies)
+  if (!cookieHeader) return { verdict: 'undetermined', reason: 'no-cookie-header', mobile: null }
+  const fetchImpl = opts.fetchImpl ?? globalThis.fetch.bind(globalThis)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 6000)
+  try {
+    const qs = new URLSearchParams({
+      language: 'zh', device_platform: 'web', doubao_device_platform: 'desktop',
+      aid: DOUBAO_ACCOUNT_AID, real_aid: DOUBAO_ACCOUNT_AID,
+      pkg_type: 'release_version', version_code: '20800', pc_version: '3.46.0',
+      'use-olympus-account': '1',
+      ...(opts.deviceId ? { device_id: opts.deviceId } : {}),
+    }).toString()
+    const res = await fetchImpl(`${DOUBAO_ACCOUNT_INFO_URL}?${qs}`, {
+      method: 'POST',
+      headers: {
+        cookie: cookieHeader, 'content-type': 'application/json',
+        accept: 'application/json, text/plain, */*',
+        referer: 'https://www.doubao.com/chat/', origin: 'https://www.doubao.com',
+        'user-agent': DOUBAO_UA,
+      },
+      body: '{}', signal: controller.signal,
+    })
+    if (!res.ok) return { verdict: 'undetermined', reason: `http-${res.status}`, mobile: null }
+    const json = await res.json()
+    const info = json?.data?.base_account_info
+    if (json?.code === 0 && info) {
+      return {
+        verdict: 'accepted', reason: '',
+        mobile: normalizeDoubaoMobile(info.mobile ?? info.mobile_number ?? info.phone ?? null),
+      }
+    }
+    const msg = String(json?.msg ?? '')
+    // code=0 但无账号信息 = 票未关联登录态;710012001 = 明确过期
+    if (json?.code === 0 || /过期|失效|未登录|请重新登录/.test(msg)) {
+      return {
+        verdict: 'rejected',
+        reason: msg || '服务端未返回账号信息(票未关联登录态)',
+        mobile: null,
+      }
+    }
+    return {
+      verdict: 'undetermined',
+      reason: `code=${String(json?.code ?? '?')} ${msg}`.trim(),
+      mobile: null,
+    }
+  } catch (e) {
+    return {
+      verdict: 'undetermined',
+      reason: e && typeof e === 'object' && e.name === 'AbortError' ? 'timeout' : 'network',
+      mobile: null,
+    }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
  * 读取豆包账号手机号(全号或掩码)。返回 null = 上游未给出可解析的号码。
  * @param {Array<Record<string, unknown>>} cookies 豆包整包 cookies
  * @param {{fetchImpl?: typeof fetch, timeoutMs?: number, deviceId?: string}} [opts]
