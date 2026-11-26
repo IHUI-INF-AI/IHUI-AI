@@ -42,8 +42,8 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 20rpx;
-  margin-bottom: 48rpx;
+  gap: var(--spacing-sm-loose);
+  margin-bottom: var(--spacing-2xl);
 }
 
 .login-logo-box {
@@ -64,7 +64,7 @@
 }
 
 .login-welcome {
-  font-size: 44rpx;
+  font-size: var(--text-headline);
   font-weight: 700;
   letter-spacing: 1rpx;
   color: var(--color-foreground);
@@ -75,24 +75,24 @@
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
   padding: 14rpx 20rpx;
   border-radius: var(--radius-md);
   border: 1rpx solid var(--color-danger);
   background-color: var(--color-muted);
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
 }
 
 .login-error-icon {
-  width: 28rpx;
-  height: 28rpx;
-  margin-top: 4rpx;
+  width: var(--spacing-md-loose);
+  height: var(--spacing-md-loose);
+  margin-top: var(--spacing-2xs);
   flex-shrink: 0;
 }
 
 .login-error-text {
   flex: 1;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   line-height: 36rpx;
   color: var(--color-danger);
 }
@@ -101,9 +101,9 @@
 .login-tabbar {
   display: flex;
   flex-direction: row;
-  margin-bottom: 28rpx;
+  margin-bottom: var(--spacing-md-loose);
   /* 8rpx = 4px,与 RN `padding: 4` / web `p-1` 同档;原 6rpx(3px)少 1px */
-  padding: 8rpx;
+  padding: var(--spacing-xs);
   border-radius: var(--radius-lg);
   background-color: var(--color-muted);
   border: 1rpx solid var(--color-stroke-default);
@@ -116,7 +116,7 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-md);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
   font-weight: 500;
   /* 标签单行展示,防"手机号登录"在激活态折行(对齐 RN tabText 单行) */
@@ -155,7 +155,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  height: 80rpx;
+  height: var(--spacing-4xl);
   border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -186,7 +186,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
 .login-code-input {
@@ -194,7 +194,7 @@
 }
 
 .login-sendcode {
-  height: 80rpx;
+  height: var(--spacing-4xl);
   padding: 0 24rpx;
   border: 1rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
@@ -202,7 +202,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   font-weight: 500;
   white-space: nowrap;
@@ -226,13 +226,13 @@
 
 /* ===== 忘记密码 ===== */
 .login-forgot {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-foreground);
 }
 
 /* ===== 协议行(对齐 RN agreementRow:16×16 checkbox + 链接) ===== */
 .login-agreement {
-  margin-bottom: 28rpx;
+  margin-bottom: var(--spacing-md-loose);
   display: flex;
   flex-direction: column;
 }
@@ -241,7 +241,7 @@
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  gap: 12rpx;
+  gap: var(--spacing-xs-loose);
 }
 
 .lm-contract-checkbox {
@@ -249,11 +249,11 @@
 }
 
 .custom-checkbox {
-  width: 32rpx;
-  height: 32rpx;
+  width: var(--spacing-lg);
+  height: var(--spacing-lg);
   border: 2rpx solid var(--color-stroke-default);
   border-radius: var(--radius-md);
-  margin-top: 4rpx;
+  margin-top: var(--spacing-2xs);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -279,7 +279,7 @@
 
 .login-agreement-text {
   flex: 1;
-  font-size: 24rpx;
+  font-size: var(--text-label);
   line-height: 40rpx;
   color: var(--color-muted-foreground);
 }
@@ -292,13 +292,13 @@
   display: flex;
   align-items: center;
   margin-left: auto;
-  margin-top: 4rpx;
+  margin-top: var(--spacing-2xs);
 }
 
 .login-agreement-error {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-danger);
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 
 /* ===== 自动登录(密码 tab 协议行右侧,对齐 RN autoLoginRow) ===== */
@@ -306,35 +306,35 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8rpx;
+  gap: var(--spacing-xs);
 }
 
 .login-autologin .custom-checkbox {
-  width: 28rpx;
-  height: 28rpx;
+  width: var(--spacing-md-loose);
+  height: var(--spacing-md-loose);
   margin-top: 0;
 }
 
 .login-autologin-text {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 
 /* ===== 主登录按钮(对齐 RN loginBtn:主题黑白底,亮色纯黑/暗色纯白;圆角按角色档 control→sm) ===== */
 .login-primary-btn {
-  height: 80rpx;
+  height: var(--spacing-4xl);
   border-radius: var(--radius-md);
   background-color: var(--color-brand);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
 }
 
 .login-primary-btn-text {
   /* brand 底配主题反色文字(黑底白字/白底黑字) */
   color: var(--color-primary-foreground);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 500;
 }
 
@@ -344,7 +344,7 @@
 
 /* ===== 第三方登录区(对齐 RN thirdPartyArea) ===== */
 .login-thirdparty {
-  margin-top: 40rpx;
+  margin-top: var(--spacing-xl);
   display: flex;
   flex-direction: column;
 }
@@ -355,18 +355,18 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 16rpx;
-  height: 80rpx;
+  gap: var(--spacing-sm);
+  height: var(--spacing-4xl);
   border-radius: var(--radius-md);
   background: var(--color-miniapp-green);
   color: var(--color-miniapp-green-foreground);
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 500;
 }
 
 .login-wechat-icon {
-  width: 40rpx;
-  height: 40rpx;
+  width: var(--spacing-xl);
+  height: var(--spacing-xl);
 }
 
 /* "或"分隔线(对齐 RN thirdPartyDivider) */
@@ -374,7 +374,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  margin: 32rpx 0;
+  margin: var(--spacing-lg) 0;
 }
 
 .login-divider-line {
@@ -384,7 +384,7 @@
 }
 
 .login-divider-text {
-  font-size: 24rpx;
+  font-size: var(--text-label);
   color: var(--color-muted-foreground);
   margin: 0 20rpx;
 }
@@ -399,7 +399,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 
@@ -409,18 +409,18 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 8rpx;
-  margin-top: 28rpx;
-  padding-bottom: 40rpx;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-md-loose);
+  padding-bottom: var(--spacing-xl);
 }
 
 .login-register-text {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
 
 .login-register-link {
-  font-size: 28rpx;
+  font-size: var(--text-body);
   font-weight: 500;
   color: var(--color-foreground);
 }
@@ -432,7 +432,7 @@
   left: 0;
   right: 0;
   z-index: 20;
-  margin-top: 8rpx;
+  margin-top: var(--spacing-xs);
   border-radius: var(--radius-md);
   border: 1rpx solid var(--color-stroke-default);
   background-color: var(--color-card);
@@ -450,14 +450,14 @@
 .login-history-item-main {
   flex: 1;
   padding: 18rpx 12rpx 18rpx 0;
-  font-size: 28rpx;
+  font-size: var(--text-body);
   line-height: 40rpx;
   color: var(--color-foreground);
 }
 
 .login-history-item-del {
-  padding: 8rpx 0 8rpx 12rpx;
-  font-size: 32rpx;
+  padding: var(--spacing-xs) 0 8rpx 12rpx;
+  font-size: var(--text-title);
   color: var(--color-muted-foreground);
 }
 
@@ -467,7 +467,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

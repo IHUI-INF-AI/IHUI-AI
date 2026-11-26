@@ -189,7 +189,7 @@ export default function Login() {
     if (emailLoading) return
     if (!requireAgree()) return
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !emailCode) {
-      Taro.showToast({ title: t('login.phoneInvalid'), icon: 'none' })
+      Taro.showToast({ title: t('login.emailInvalid'), icon: 'none' })
       return
     }
     setEmailLoading(true)

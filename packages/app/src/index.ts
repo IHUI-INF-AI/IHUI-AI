@@ -73,7 +73,6 @@ export { AnnouncementScreen } from './features/announcement/AnnouncementScreen'
 export { LivePlaybackListScreen } from './features/live-playback/LivePlaybackListScreen'
 export { RefundHistoryScreen } from './features/refund-history/RefundHistoryScreen'
 export { CourseQAListScreen } from './features/course-qa-list/CourseQAListScreen'
-export { HelpDetailScreen } from './features/help-detail/HelpDetailScreen'
 export { ArticleDetailScreen } from './features/article-detail/ArticleDetailScreen'
 export { PrivacyScreen } from './features/privacy/PrivacyScreen'
 export { AgreementScreen } from './features/agreement/AgreementScreen'
@@ -150,7 +149,6 @@ export { CertApplyScreen } from './features/cert-apply/CertApplyScreen'
 export { SettingsAccountScreen } from './features/settings-account/SettingsAccountScreen'
 export { LiveListScreen } from './features/live-list/LiveListScreen'
 export { CouponScreen } from './features/coupon/CouponScreen'
-export { FollowingScreen } from './features/following/FollowingScreen'
 export { RankingScreen } from './features/ranking/RankingScreen'
 export { PointsMallScreen } from './features/points-mall/PointsMallScreen'
 export { ExamScreen } from './features/exam/ExamScreen'
@@ -167,7 +165,6 @@ export { AgentMarketScreen } from './features/agent-market/AgentMarketScreen'
 export { AgentReviewListScreen } from './features/agent-review-list/AgentReviewListScreen'
 export { LiveScreen } from './features/live/LiveScreen'
 export { ActivityScreen } from './features/activity/ActivityScreen'
-export { FavoritesScreen } from './features/favorites/FavoritesScreen'
 export { CheckInScreen } from './features/check-in/CheckInScreen'
 /** 批次 15:消息/记录/关系类(私聊/群聊/系统/详情/积分/学习/收益/邀请/关注/收藏) */
 export { MessageDirectScreen } from './features/message-direct/MessageDirectScreen'
@@ -186,7 +183,6 @@ export { N8nModelScreen } from './features/n8n-model/N8nModelScreen'
 export { ModelEditScreen } from './features/model-edit/ModelEditScreen'
 export { AigcListScreen } from './features/aigc-list/AigcListScreen'
 /** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
-export { AssistantScreen } from './features/assistant/AssistantScreen'
 export { AiGroupScreen } from './features/ai-group/AiGroupScreen'
 export { AigcCoverScreen } from './features/aigc-cover/AigcCoverScreen'
 export { AigcPublishScreen } from './features/aigc-publish/AigcPublishScreen'
@@ -332,7 +328,6 @@ export { AgentSettingScreen } from './features/agent-setting/AgentSettingScreen'
 export { AgentCreateScreen } from './features/agent-create/AgentCreateScreen'
 export { AgentEditScreen } from './features/agent-edit/AgentEditScreen'
 export { AgentChatScreen } from './features/agent-chat/AgentChatScreen'
-export { CourseScreen } from './features/course-screen/CourseScreen'
 export { CourseTabScreen } from './features/course-tab/CourseTabScreen'
 export type { CourseTabScreenProps } from './features/course-tab/CourseTabScreen'
 export { CourseFilterScreen } from './features/course-filter/CourseFilterScreen'
@@ -346,7 +341,6 @@ export { CircleMemberScreen } from './features/circle-member/CircleMemberScreen'
 /** 批次 26-28(2026-07-29):分销/考试/财务/首页/实名/推广/招募/推荐/团队/视频/权益(12 屏迁移自 mobile-rn) */
 export { DistributionScreen } from './features/distribution/DistributionScreen'
 export { ExamQuestionScreen } from './features/exam-question/ExamQuestionScreen'
-export { FinanceScreen } from './features/finance/FinanceScreen'
 export { HomeScreen } from './features/home/HomeScreen'
 export { IdentityVerifyScreen } from './features/identity-verify/IdentityVerifyScreen'
 export { PromoteScreen } from './features/promote/PromoteScreen'
@@ -416,8 +410,6 @@ export type {
 } from './features/more-course/MoreCourseScreen'
 export { PlazaScreen } from './features/plaza/PlazaScreen'
 export type { PlazaScreenProps } from './features/plaza/PlazaScreen'
-export { SquareScreen } from './features/square/SquareScreen'
-export type { SquareScreenProps } from './features/square/SquareScreen'
 export type { ArticleItem } from './types'
 export { SetNeedScreen } from './features/set-need/SetNeedScreen'
 export { StudyPublishScreen } from './features/study-publish/StudyPublishScreen'
@@ -435,9 +427,6 @@ export type { StudyVideoItem } from './features/study-index/StudyIndexScreen'
 export type { StudyModelPreview } from './features/study-index/StudyIndexScreen'
 
 /** 批次 39(2026-08-15):AI 助手 N8n */
-export { AiAssistantN8nScreen } from './features/ai-assistant-n8n/AiAssistantN8nScreen'
-export type { AiAssistantN8nScreenProps } from './features/ai-assistant-n8n/AiAssistantN8nScreen'
-export type { N8nMessage } from './features/ai-assistant-n8n/AiAssistantN8nScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -1430,3 +1419,29 @@ export type {
   PressableCardProps,
   ScreenSkeletonProps,
 } from './components/ScreenStates'
+
+// API 密钥屏(2026-11-26 接线):此屏此前**从未从包出口导出**,`exports` 通配的
+// `./features/*` 又只覆盖一层目录,所以 RN 与小程序的 `@ihui/rn-app` 都取不到它 ——
+// RN 只能自建 605 行、小程序跟 RN 壳,共享层这 617 行成了第三种实现。
+// 现由 RN 壳薄化后直接消费,三端首次同源。
+export { ApiKeysScreen } from './features/api-keys/ApiKeysScreen'
+export type {
+  ApiKeysScreenProps,
+  CreateApiKeyInput,
+  ApiKeyInfo,
+  ApiKeyPermission,
+  ApiKeyPermissionOption,
+  ApiKeyUsage,
+} from '@ihui/types'
+
+// 群组屏(2026-11-26 接线):与 ApiKeys 同因 —— 此屏从未从包出口导出,RN 自建 464 行、
+// 小程序跟壳,共享层 613 行零渲染。现由 RN 壳薄化后消费,三端同源。
+export { GroupsScreen } from './features/groups/GroupsScreen'
+export type {
+  GroupsScreenProps,
+  GroupView,
+  GroupFormValues,
+  GroupConfirmOptions,
+} from './features/groups/GroupsScreen'
+
+

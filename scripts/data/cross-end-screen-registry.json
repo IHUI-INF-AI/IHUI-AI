@@ -212,6 +212,11 @@
       "miniapp": "pkg-about/about/business-license/index"
     },
     {
+      "shared": "packages/app/src/features/devices/DevicesScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/DevicesScreen.tsx",
+      "miniapp": "pkg-user/devices/index"
+    },
+    {
       "shared": "packages/app/src/features/cart/CartScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/CartScreen.tsx",
       "miniapp": "pkg-shop/cart/index"
@@ -512,7 +517,7 @@
       "miniapp": "pkg-user/favorites/index"
     },
     {
-      "shared": "packages/app/src/features/favorites/FavoritesScreen.tsx",
+      "shared": "packages/app/src/features/favorite/FavoriteScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/FavoritesScreen.tsx",
       "miniapp": "pkg-mirror/favorites/index"
     },
@@ -1057,7 +1062,7 @@
       "miniapp": "pkg-mirror3/spec/index"
     },
     {
-      "shared": "packages/app/src/features/square/SquareScreen.tsx",
+      "shared": "packages/app/src/features/article-list/ArticleListScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/NewsScreen.tsx",
       "miniapp": "pkg-user/square/index"
     },

@@ -21,7 +21,6 @@ import {
   Coins,
   Compass,
   Cpu,
-  CreditCard,
   Crown,
   FileText,
   Files,
@@ -1050,12 +1049,6 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         Icon: Wallet,
         route: 'Withdraw',
         target: { type: 'route', name: 'Withdraw' },
-      },
-      {
-        labelKey: 'bankCard.title',
-        Icon: CreditCard,
-        route: 'BankCard',
-        target: { type: 'route', name: 'BankCard' },
       },
       {
         labelKey: 'vipCompare.title',

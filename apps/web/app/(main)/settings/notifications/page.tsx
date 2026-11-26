@@ -24,6 +24,20 @@ import {
 } from '@/lib/tauri-bridge'
 import { resolveSystemPermissionView } from './system-permission-display'
 
+/** 铃声 id → 词条键。用具名字面量表而不是模板拼接键:
+ *  拼接出来的键在词典缺键时渲染出裸键名,且 check-i18n-placeholder-arity 的静态判据认不出它。
+ *  RingtoneId 是封闭联合,新增铃声时这里会漏键 ⇒ 由 Record<RingtoneId, string> 编译期兜住。 */
+const RINGTONE_NAME_KEYS: Record<RingtoneId, string> = {
+  dingdong: 'ringtoneNames.dingdong',
+  tritone: 'ringtoneNames.tritone',
+  waterdrop: 'ringtoneNames.waterdrop',
+  doublebell: 'ringtoneNames.doublebell',
+  bubble: 'ringtoneNames.bubble',
+  marimba: 'ringtoneNames.marimba',
+  chime: 'ringtoneNames.chime',
+  knock: 'ringtoneNames.knock',
+}
+
 interface NotificationPrefs {
   emailEnabled: boolean
   systemNotif: boolean
@@ -390,7 +404,7 @@ export default function NotificationsPage() {
                         }`}
                       >
                         <span className="min-w-0 flex-1 text-body">
-                          {t(`ringtoneNames.${ring.id}`)}
+                          {t(RINGTONE_NAME_KEYS[ring.id])}
                         </span>
                         <Tooltip content={t('ringtonePreview')}>
                           <span

@@ -114,6 +114,7 @@
     "check:api-key-leak": "node scripts/check-api-key-leak.mjs",
     "check:api-credential-prefix": "node scripts/check-api-credential-prefix.mjs",
     "check:i18n-keys": "node scripts/check-i18n-keys.mjs",
+    "check:i18n-keys:ends": "node scripts/check-i18n-keys.mjs --target=miniapp-taro && node scripts/check-i18n-keys.mjs --target=mobile-rn",
     "check:i18n-locale-content-language": "node scripts/check-i18n-locale-content-language.mjs",
     "check:i18n-locale-content-language:strict": "node scripts/check-i18n-locale-content-language.mjs --strict",
     "check:api-routes": "node scripts/check-api-routes.mjs",
