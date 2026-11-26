@@ -1986,8 +1986,16 @@ export const COMMIT_MSG_FACE = {
   UNDETERMINED: 'undetermined',
 }
 
-/** 钩子里被调用的检查脚本形态:`scripts/<name>.mjs`(含经 hook-run-hidden.vbs 包装那一层)。 */
+/** 钩子里被调用的检查脚本形态:`scripts/<name>.mjs`(含经隐藏包装那一层)。 */
 const COMMIT_MSG_CHECK_RE = /scripts\/[A-Za-z0-9._-]+\.mjs/g
+
+/**
+ * 派发器不是门。2026-11-26 钩子从 .vbs 包装迁到 `node scripts/hook-run-hidden.mjs
+ * <label> <script>` 后,包装自身也是 .mjs ⇒ 上面的宽正则会把它当成一道门去复跑,
+ * 而复跑不带 `<label> <script>` 参数必定 exit 2(usage),被归因层读成"本任务的红"。
+ * 这里按名字显式排除派发器;真正的门仍由同一行的 `scripts/check-*.mjs` 正常入账。
+ */
+const HOOK_DISPATCHERS = new Set(['hook-run-hidden.mjs'])
 
 /**
  * 从钩子文本里现读"它实际调用了哪些检查、哪一条是 blocking"。
@@ -2006,6 +2014,7 @@ export function parseCommitMsgStageChecks(hookText) {
     if (!line || line.startsWith('#')) continue
     for (const m of line.matchAll(COMMIT_MSG_CHECK_RE)) {
       const script = m[0].slice('scripts/'.length)
+      if (HOOK_DISPATCHERS.has(script)) continue
       if (seen.has(script)) continue
       seen.add(script)
       // `|| true` 只在这一处出现时必须落在**同一行、该脚本之后**:Git Bash 的 `||` 串
