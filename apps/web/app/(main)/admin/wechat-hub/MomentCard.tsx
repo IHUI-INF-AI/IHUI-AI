@@ -30,7 +30,7 @@ import {
   formatMomentFields,
   formatMomentMediaStats,
 } from './moment-status'
-import { formatMomentComments } from './moment-comment-format'
+import { formatMomentComments, formatMomentBody } from './moment-comment-format'
 import MomentArchivePanel from './MomentArchivePanel'
 import MomentLocalMedia from './MomentLocalMedia'
 
@@ -56,6 +56,10 @@ export default function MomentCard({
   const [error, setError] = React.useState<string | null>(null)
   const [fetchError, setFetchError] = React.useState<string | null>(null)
   const [fetchPages, setFetchPages] = React.useState('10')
+  const [expandedMomentIds, setExpandedMomentIds] = React.useState<Record<string, boolean>>({})
+
+  const toggleMomentBody = (momentId: string) =>
+    setExpandedMomentIds((prev) => ({ ...prev, [momentId]: !prev[momentId] }))
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -200,6 +204,9 @@ export default function MomentCard({
               {fetchResult.moments.map((moment) => {
                 const extra = formatMomentExtra(moment)
                 const commentView = formatMomentComments(moment.commentsData)
+                const body = formatMomentBody(moment.content)
+                const expanded = Boolean(expandedMomentIds[moment.id])
+                const bodyText = body.collapsed && !expanded ? body.text : moment.content
                 return (
                   <div key={moment.id} className="rounded-md bg-muted/40 p-2 text-sm">
                     <div className="flex items-center justify-between gap-2">
@@ -208,7 +215,16 @@ export default function MomentCard({
                         {momentTime(moment.createdAt)}
                       </span>
                     </div>
-                    <p className="mt-1 whitespace-pre-wrap break-words">{moment.content}</p>
+                    <p className="mt-1 whitespace-pre-wrap break-words">{bodyText}</p>
+                    {body.collapsed ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleMomentBody(moment.id)}
+                        className="mt-0.5 text-xs text-muted-foreground underline-offset-2 hover:underline"
+                      >
+                        {expanded ? '收起' : '展开全文'}
+                      </button>
+                    ) : null}
                     {moment.mediaUrls.length > 0 ? (
                       <p className="mt-1 text-xs text-muted-foreground">
                         {moment.mediaUrls.length} 个媒体

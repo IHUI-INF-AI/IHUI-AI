@@ -62,6 +62,106 @@ export type GroupWriteRateWindowMap = Map<string, number[]>
 const defaultUsedSet: GroupWriteUsedSet = new Map()
 const defaultRateWindows: GroupWriteRateWindowMap = new Map()
 
+/** 审计保留条数：只留最近 20 次，够回溯「谁什么时候动了哪个群」，又不会把 metadata 撑大。 */
+export const GROUP_WRITE_AUDIT_KEEP = 20
+
+/**
+ * 一次群写动作的审计记录。
+ *
+ * 为什么存在：频次窗口原先只活在进程内，服务重启（或者 blue-green 换实例）后计数清零，
+ * 「每小时 3 次」的闸就形同虚设。所以每次执行成功后把时间戳与这次动作的轮廓写回账号 metadata，
+ * 重启后先读回来再判频次；顺带留下一条可回溯的操作痕迹。
+ */
+export interface GroupWriteAuditEntry {
+  at: number
+  action: GroupWriteAction
+  conversationId: string | null
+  chatTitle: string
+  memberIds: string[]
+  ok: boolean
+  status: string | null
+}
+
+/** 账号 metadata 里的群写运行态：最近一小时的时间戳 + 最近若干次动作。 */
+export interface GroupWriteRuntimeState {
+  stamps: number[]
+  audit: GroupWriteAuditEntry[]
+}
+
+const EMPTY_RUNTIME: GroupWriteRuntimeState = { stamps: [], audit: [] }
+
+function finiteNumber(value: unknown): number | null {
+  const n = asNumber(value)
+  return n !== null && Number.isFinite(n) && n > 0 ? n : null
+}
+
+/** 从账号 metadata 读群写运行态；脏值一律剔除，读不懂就当没记过。 */
+export function readGroupWriteRuntime(metadata: unknown, now = Date.now()): GroupWriteRuntimeState {
+  const root = asRecord(metadata)
+  const raw = asRecord(root.groupWriteRuntime)
+  if (!raw) return { ...EMPTY_RUNTIME }
+  const cutoff = now - PEAK_RATE_WINDOW_MS
+  const stamps: number[] = []
+  if (Array.isArray(raw.stamps)) {
+    for (const item of raw.stamps) {
+      const ts = finiteNumber(item)
+      if (ts !== null && ts > cutoff) stamps.push(ts)
+    }
+  }
+  const audit: GroupWriteAuditEntry[] = []
+  if (Array.isArray(raw.audit)) {
+    for (const item of raw.audit) {
+      const entry = asRecord(item)
+      if (!entry) continue
+      const at = finiteNumber(entry.at)
+      const action = asStringArray([entry.action])[0] as GroupWriteAction | undefined
+      if (at === null || !action) continue
+      audit.push({
+        at,
+        action,
+        conversationId: asStringArray([entry.conversationId])[0] ?? null,
+        chatTitle: asStringArray([entry.chatTitle])[0] ?? '',
+        memberIds: asStringArray(entry.memberIds),
+        ok: entry.ok === true,
+        status: asStringArray([entry.status])[0] ?? null,
+      })
+    }
+  }
+  return { stamps: stamps.slice(-GROUP_WRITE_AUDIT_KEEP * 3), audit: audit.slice(-GROUP_WRITE_AUDIT_KEEP) }
+}
+
+/** 追加一条审计并截到保留上限；纯函数，便于单测直接断言裁剪与顺序。 */
+export function appendGroupWriteAudit(
+  audit: GroupWriteAuditEntry[],
+  entry: GroupWriteAuditEntry,
+): GroupWriteAuditEntry[] {
+  return [...audit, entry].slice(-GROUP_WRITE_AUDIT_KEEP)
+}
+
+/**
+ * 算下一次落库的运行态：只有桥真的执行成功才往频次窗口里加一次；
+ * 审计不论成败都记，失败的那条带上 status，便于事后区分「被闸拦下」与「桥报错」。
+ */
+export function nextGroupWriteRuntime(
+  runtime: GroupWriteRuntimeState,
+  outcome: Omit<GroupWriteAuditEntry, 'at'>,
+  now = Date.now(),
+): GroupWriteRuntimeState {
+  const cutoff = now - PEAK_RATE_WINDOW_MS
+  const stamps = runtime.stamps.filter((stamp) => stamp > cutoff)
+  if (outcome.ok) stamps.push(now)
+  const audit = appendGroupWriteAudit(runtime.audit, { ...outcome, at: now })
+  return { stamps, audit }
+}
+
+/** 把运行态写回账号 metadata；只覆盖 groupWriteRuntime 一个键。失败只记日志，不影响已有结果。 */
+export async function persistGroupWriteRuntime(
+  accountId: string,
+  state: GroupWriteRuntimeState,
+): Promise<void> {
+  await patchAccountMetadata(accountId, { groupWriteRuntime: state })
+}
+
 let cachedSecret: Buffer | null = null
 
 /**
@@ -379,6 +479,54 @@ export function recordGroupWriteSuccess(
   const stamps = (map.get(accountId) ?? []).filter((stamp) => stamp > cutoff)
   stamps.push(ts)
   map.set(accountId, stamps)
+}
+
+/** 审计视图：路由与 MCP 两条入口共用一份拼装逻辑，避免两边字段漂移。 */
+export interface GroupWriteAuditView {
+  entries: Array<{
+    at: string
+    action: GroupWriteAction
+    conversationId: string | null
+    chatTitle: string
+    memberIds: string[]
+    ok: boolean
+    status: string | null
+  }>
+  windowCount: number
+  windowLimit: number
+  remaining: number
+}
+
+export function buildGroupWriteAuditView(
+  runtime: GroupWriteRuntimeState,
+  policy: WechatGroupWritePolicy,
+): GroupWriteAuditView {
+  return {
+    entries: runtime.audit.map((entry) => ({
+      at: new Date(entry.at).toISOString(),
+      action: entry.action,
+      conversationId: entry.conversationId,
+      chatTitle: entry.chatTitle,
+      memberIds: entry.memberIds,
+      ok: entry.ok,
+      status: entry.status,
+    })),
+    windowCount: runtime.stamps.length,
+    windowLimit: policy.maxActionsPerHour,
+    remaining: Math.max(policy.maxActionsPerHour - runtime.stamps.length, 0),
+  }
+}
+
+/** 读账号群写运行态；路由层先过账号归属校验再展示。 */
+export async function getGroupWriteRuntimeView(
+  userId: string,
+  accountId: string,
+): Promise<{ runtime: GroupWriteRuntimeState; policy: WechatGroupWritePolicy }> {
+  const account = await assertAccountForUser(userId, accountId)
+  return {
+    runtime: readGroupWriteRuntime(account.metadata),
+    policy: readGroupWritePolicy(account.metadata),
+  }
 }
 
 /** 读账号当前群写策略；路由层先过账号归属校验再展示。 */

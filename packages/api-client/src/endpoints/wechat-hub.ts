@@ -33,6 +33,7 @@ import type {
   WechatContactUpdateInput,
   WechatContactView,
   WechatConversationView,
+  WechatBridgeStatusView,
   WechatDigestScheduleInput,
   WechatDigestScheduleView,
   WechatExportInput,
@@ -41,6 +42,7 @@ import type {
   WechatGroupActionPlan,
   WechatGroupMemberView,
   WechatGroupMembersSyncResult,
+  WechatGroupWriteAuditView,
   WechatGroupWritePolicy,
   WechatHistorySyncInput,
   WechatHistorySyncResult,
@@ -551,6 +553,30 @@ export async function updateWechatGroupWritePolicy(
     { method: 'PUT', body: JSON.stringify(patch) },
   )
   if (!res.success) throw new ApiError(res.error || '保存群写策略失败', res.status, res.errorCode)
+  return res.data
+}
+
+/** GET /api/wechat-hub/accounts/:id/groups/audit — 最近 20 次群写动作与窗口余量 */
+export async function fetchWechatGroupWriteAudit(
+  accountId: string,
+): Promise<WechatGroupWriteAuditView> {
+  const res = await fetchApi<WechatGroupWriteAuditView>(
+    `/wechat-hub/accounts/${accountId}/groups/audit`,
+    { method: 'GET' },
+  )
+  if (!res.success) throw new ApiError(res.error || '获取群写审计失败', res.status, res.errorCode)
+  return res.data
+}
+
+/** GET /api/wechat-hub/accounts/:id/bridge-status — 3 秒内探一次桥，桥没起来也返回视图 */
+export async function fetchWechatBridgeStatus(
+  accountId: string,
+): Promise<WechatBridgeStatusView> {
+  const res = await fetchApi<WechatBridgeStatusView>(
+    `/wechat-hub/accounts/${accountId}/bridge-status`,
+    { method: 'GET', timeoutMs: 10_000 },
+  )
+  if (!res.success) throw new ApiError(res.error || '桥体检失败', res.status, res.errorCode)
   return res.data
 }
 

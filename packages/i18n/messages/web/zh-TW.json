@@ -12035,6 +12035,7 @@
     "stepThinking": "思考",
     "stop": "停止生成",
     "steer": "立即引導(當前工具完成後生效)",
+    "sendFailed": "訊息傳送失敗,請重試",
     "steerFailed": "引導失敗(佇列已滿或串流已結束),請稍後重試",
     "steerNoticeBar": {
       "title": "已引導 {count} 次",

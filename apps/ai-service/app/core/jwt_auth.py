@@ -164,6 +164,29 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         if request.method == "OPTIONS":
             return await call_next(request)
 
+        # MJPEG 画面流：浏览器 <img> 不能带 Authorization 头，只能用 query token。
+        # 与 WS 同口径（短票、仅这条路径、只放行 access 类型），其余 HTTP 端点仍强制 Bearer。
+        if path.endswith("/mjpeg"):
+            query_token = request.query_params.get("token", "").strip()
+            if query_token:
+                payload = self._verify_token(query_token)
+                if payload is None:
+                    return JSONResponse(
+                        status_code=401,
+                        content={"code": 401, "message": "Invalid or expired token"},
+                    )
+                if payload.get("type") == "refresh":
+                    return JSONResponse(
+                        status_code=401,
+                        content={"code": 401, "message": "Refresh token cannot be used as access token"},
+                    )
+                user_id = principal_from_payload(payload)
+                request.state.user_id = user_id
+                request.state.role_id = payload.get("roleId", 0)
+                request.state.jwt_payload = payload
+                _bind_inbound_user_header(request, user_id)
+                return await call_next(request)
+
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             # 前端 Next.js 代理到本服务时,内存 token 为空可能仅携带 cookie。

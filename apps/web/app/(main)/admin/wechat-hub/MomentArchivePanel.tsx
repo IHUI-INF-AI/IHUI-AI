@@ -15,7 +15,7 @@ import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import type { WechatMomentArchiveView } from '@ihui/types'
 import { wechatHubApi } from './wechat-hub-api'
-import { formatMomentComments } from './moment-comment-format'
+import { formatMomentComments, dedupeMomentLikeUsers } from './moment-comment-format'
 import MomentLocalMedia from './MomentLocalMedia'
 
 const ARCHIVE_PAGE_SIZE = 50
@@ -102,6 +102,7 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
           {moments.map((moment) => {
             const commentView = formatMomentComments(moment.commentsData)
             const previewLines = commentView.lines.slice(0, 2)
+            const likes = dedupeMomentLikeUsers(moment.likeUsers)
             return (
               <div key={moment.id} className="rounded-md bg-muted/40 p-2 text-sm">
               <div className="flex items-center justify-between gap-2">
@@ -126,11 +127,11 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
                 {moment.mediaAvailableCount !== undefined
                   ? ` · 本地可读 ${moment.mediaAvailableCount}/${moment.mediaCount ?? moment.mediaUrls.length}`
                   : ''}
-                {moment.likeUsers && moment.likeUsers.length > 0
-                  ? ` · 点赞 ${moment.likeUsers.length} 人`
+                {likes.length > 0
+                  ? ` · 点赞 ${likes.length} 人：${likes.slice(0, 6).join('、')}${likes.length > 6 ? ` 等 ${likes.length} 人` : ''}`
                   : ''}
                 {commentView.total > 0
-                  ? ` · 评论 ${commentView.total} 条`
+                  ? ` · 评论 ${commentView.total} 条（显示前 ${Math.min(commentView.total, previewLines.length)} 条）`
                   : ''}
               </p>
               {commentView.total > 0 ? (
@@ -138,9 +139,6 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
                   {previewLines.map((line, index) => (
                     <p key={index} className="whitespace-pre-wrap break-words">{line}</p>
                   ))}
-                  {commentView.total > previewLines.length ? (
-                    <p className="whitespace-pre-wrap">等 {commentView.total} 条</p>
-                  ) : null}
                 </div>
               ) : null}
               {moment.mediaMissingCount && moment.mediaMissingCount > 0 ? (

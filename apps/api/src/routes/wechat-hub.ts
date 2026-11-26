@@ -43,6 +43,8 @@ import {
 } from '../services/wechat-hub/operations.js'
 import { broadcast } from '../services/wechat-hub/broadcast.js'
 import { searchKnowledge } from '../services/wechat-hub/knowledge.js'
+import { probeBridgeForAccount } from '../services/wechat-hub/bridge-probe.js'
+import { getGroupWriteRuntimeView, buildGroupWriteAuditView } from '../services/wechat-hub/group-writes.js'
 import { answerError, requireUserId } from './wechat-hub-route-utils.js'
 
 const backendSchema = z.enum(['ilink', 'bridge', 'mock'])
@@ -452,6 +454,30 @@ const MCP_TOOLS: WechatMcpTool[] = [
         model: { type: 'string', description: '可选，指定归纳/写查询的模型' },
       },
       required: ['accountId', 'question'],
+    },
+  },
+  {
+    name: 'wechat_bridge_status',
+    description:
+      '桥体检：3 秒内探一次桥的 /status，返回是否可达、HTTP 状态、驱动名、驱动内部状态、待取队列与响应耗时。桥没起来也照常返回，并用 error 说明是端口不通、鉴权失败还是账号没配桥地址，不会抛 500。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        accountId: { type: 'string' },
+      },
+      required: ['accountId'],
+    },
+  },
+  {
+    name: 'wechat_group_audit',
+    description:
+      '群写审计：返回最近 20 次群管理动作（成功与被闸拦下的都记，失败带错误码）与当前一小时窗口的已用/上限/剩余次数。频次已落库，服务重启后照样算数。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        accountId: { type: 'string' },
+      },
+      required: ['accountId'],
     },
   },
   {
@@ -1015,6 +1041,15 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
           return reply.send(
             success(await askWithSql(userId, accountId, question, { model })),
           )
+        }
+        case 'wechat_bridge_status': {
+          const accountId = readArg(args, 'accountId')
+          return reply.send(success(await probeBridgeForAccount(userId, accountId)))
+        }
+        case 'wechat_group_audit': {
+          const accountId = readArg(args, 'accountId')
+          const { runtime, policy } = await getGroupWriteRuntimeView(userId, accountId)
+          return reply.send(success(buildGroupWriteAuditView(runtime, policy)))
         }
         case 'wechat_group_action': {
           const accountId = readArg(args, 'accountId')

@@ -40,7 +40,10 @@ import {
 import {
   assertGroupWriteAllowed,
   issueGroupPlan,
+  nextGroupWriteRuntime,
+  persistGroupWriteRuntime,
   readGroupWritePolicy,
+  readGroupWriteRuntime,
   recordGroupWriteSuccess,
 } from './group-writes.js'
 import { wechatHubManager } from './manager.js'
@@ -551,21 +554,46 @@ export async function runGroupAction(
   }
 
   let result: WechatActionResult
+  // 频次窗口从账号 metadata 读回来，服务重启后「每小时 N 次」不会因为内存清空而重开。
+  const runtime = readGroupWriteRuntime(account.metadata)
+  const windows = new Map<string, number[]>()
+  if (runtime.stamps.length > 0) windows.set(accountId, runtime.stamps)
+  const auditBase = {
+    action: input.action,
+    conversationId: input.conversationId ?? null,
+    chatTitle: conversationTitle || input.title?.trim() || '',
+    memberIds: asStringArray(input.memberIds),
+  }
+  const recordOutcome = async (ok: boolean, status: string | null): Promise<void> => {
+    try {
+      await persistGroupWriteRuntime(accountId, nextGroupWriteRuntime(runtime, { ...auditBase, ok, status }))
+    } catch (error) {
+      // 审计写不进去不能反过来影响动作结果，只留痕。
+      logger.warn('[wechat-hub] 群写审计落库失败', {
+        accountId,
+        action: input.action,
+        err: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
   try {
-    assertGroupWriteAllowed(policy, { accountId, input })
+    assertGroupWriteAllowed(policy, { accountId, input, rateWindows: windows })
     result = await wechatHubManager.performAction(userId, accountId, action, payload)
   } catch (e) {
+    const errorCode = e instanceof AppError ? (e.errorCode ?? null) : 'BRIDGE_THREW'
     logger.warn('[wechat-hub] 群写动作被拒绝或执行失败', {
       accountId,
       action: input.action,
       targetCount: asStringArray(input.memberIds).length,
-      errorCode: e instanceof AppError ? e.errorCode : 'BRIDGE_THREW',
+      errorCode: errorCode ?? 'UNKNOWN',
       err: e instanceof Error ? e.message : String(e),
     })
+    await recordOutcome(false, errorCode)
     throw e
   }
   if (result.ok) {
-    recordGroupWriteSuccess(accountId)
+    recordGroupWriteSuccess(accountId, undefined, windows)
   } else {
     logger.warn('[wechat-hub] 群写动作桥返回未成功', {
       accountId,
@@ -575,6 +603,7 @@ export async function runGroupAction(
       reason: result.reason,
     })
   }
+  await recordOutcome(result.ok, result.ok ? null : String(result.status ?? 'failed'))
   await applyGroupLocalState(accountId, input.conversationId, input, result)
   return result
 }

@@ -20,12 +20,14 @@ import {
   fromAgentStatus,
   type ElementPackTone,
 } from '@ihui/shared/chat/element-pack'
-// 2026-11-08 B 类:Enter 提交判据走跨端唯一出口(三条 IME 腿 + 收尾闩锁 + 空内容)
+// 2026-11-08 B 类:Enter 提交判据走跨端唯一出口(四条 IME 腿 + 收尾同按判据 + 空内容)
 import {
   INITIAL_COMPOSITION_LATCH,
+  isCompositionEndPress,
   noteCompositionEnd,
   noteCompositionStart,
   noteKeyDown,
+  noteKeyUp,
   shouldSubmitOnEnter,
   type CompositionLatch,
 } from '@ihui/shared/chat/enter-submit'
@@ -409,7 +411,12 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
               defaultPrevented: e.defaultPrevented,
               localComposing: compositionLatch.current.active,
               nativeComposing: native.isComposing || native.keyCode === 229,
-              justEndedComposing: compositionLatch.current.justEnded,
+              // 腿三:只挡与 compositionend 同一次按键的那一下(旧写法直接填 justEnded
+              // 会把"上屏后按 Enter 发送"吃掉,中文输入下必现发送无反应)
+              justEndedComposing: isCompositionEndPress(
+                compositionLatch.current,
+                performance.now(),
+              ),
               hasContent: input.trim().length > 0,
             })
             // 先判定再消费:compositionend 后的第一次 keydown 必须看到 justEnded 才拦得住
@@ -423,7 +430,11 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
             compositionLatch.current = noteCompositionStart()
           }}
           onCompositionEnd={() => {
-            compositionLatch.current = noteCompositionEnd()
+            compositionLatch.current = noteCompositionEnd(performance.now())
+          }}
+          onKeyUp={() => {
+            // 按键抬起 ⇒ 结束输入法的那次按键已完整发生,清闩锁:下一次 Enter 是发送而非确认候选词
+            compositionLatch.current = noteKeyUp(compositionLatch.current)
           }}
           placeholder={t('agent.inputTaskPlaceholder')}
           disabled={status === 'running'}

@@ -22,9 +22,12 @@ import {
   syncContacts,
 } from '../services/wechat-hub/operations.js'
 import {
+  buildGroupWriteAuditView,
   getGroupWritePolicy,
+  getGroupWriteRuntimeView,
   saveGroupWritePolicy,
 } from '../services/wechat-hub/group-writes.js'
+import { probeBridgeForAccount } from '../services/wechat-hub/bridge-probe.js'
 import { wechatHubManager } from '../services/wechat-hub/manager.js'
 import { pushMemberMapForAccount } from '../services/wechat-hub/member-map-sync.js'
 import { answerError, requireUserId } from './wechat-hub-route-utils.js'
@@ -191,6 +194,38 @@ export const wechatHubOperationsRoutes: FastifyPluginAsync = async (server) => {
       try {
         const patch = parseOrThrow(groupPolicySchema, request.body ?? {})
         return reply.send(success(await saveGroupWritePolicy(requireUserId(request), request.params.id, patch)))
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  // 桥体检：3 秒内探一次 /status，把驱动、账号目录、队列长度带回来，桥没起来也照常返回。
+  server.get<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/bridge-status',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        return reply.send(
+          success(await probeBridgeForAccount(requireUserId(request), request.params.id)),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  // 群写审计：最近 20 次动作（含被闸拦下的失败），以及当前一小时窗口里还剩几次额度。
+  server.get<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/groups/audit',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const { runtime, policy } = await getGroupWriteRuntimeView(
+          requireUserId(request),
+          request.params.id,
+        )
+        return reply.send(success(buildGroupWriteAuditView(runtime, policy)))
       } catch (e) {
         return answerError(reply, e)
       }

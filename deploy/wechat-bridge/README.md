@@ -20,6 +20,26 @@ pwsh -NoProfile -File C:\IHUI-AI\data\wechat-bridge\start-bridge.ps1 -Port 8849
 schtasks /Run /TN "IHUI-WeChat-Bridge-Watchdog"
 ```
 
+### 换一台机器怎么落地
+
+`data/wechat-bridge/` 下的启动器与看门狗是本机产物、不进 git，所以换机器用参数化脚本生成，
+不用手抄环境变量：
+
+```powershell
+# 先看计划（默认就是 dry-run，不落盘）
+pwsh -NoProfile -File deploy/wechat-bridge/provision.ps1 -PythonExe "C:\IHUI-AI\data\wechat-bridge\venv\Scripts\python.exe"
+
+# 确认无误后落盘，并注册登录自启与每 5 分钟巡检
+pwsh -NoProfile -File deploy/wechat-bridge/provision.ps1 -Apply -RegisterTasks `
+  -PythonExe "C:\IHUI-AI\data\wechat-bridge\venv\Scripts\python.exe"
+```
+
+脚本会先卡三道：桥服务在不在、sidecar Python 在不在、`xwechat_files` 下能不能找到唯一一个
+含 `db_storage\sns\sns.db` 的账号目录（多个会列出来让你用 `-Account` 指定，不猜）。
+生成的两个脚本会先过 PowerShell 语法解析再落盘，旧的先备份成 `.bak`。
+`-DbDir`、`-Account`、`-Port`、`-TaskPrefix`、`-OutDir` 都可改；落盘后管理台「桥体检」
+应显示 `driver=db`、`status=db-sidecar-ready`。
+
 当前真实归档 715 条；媒体原件 207 个已落盘，1032 个因 qpic 票据过期不可得。桥不会把
 「暂时无法查看」占位图或伪造图片写进归档；管理台按真实文件显示缺失数。
 

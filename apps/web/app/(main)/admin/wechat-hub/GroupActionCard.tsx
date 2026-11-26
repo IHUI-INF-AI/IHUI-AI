@@ -119,6 +119,8 @@ export default function GroupActionCard({
       setError(null)
       setResult(data)
       setPlan(null)
+      // 审计卡无论成败都会多一条，执行完就刷新，别让用户以为没记上
+      void qc.invalidateQueries({ queryKey: ['wechat-hub', 'group-write-audit', accountId] })
       if (data.ok) {
         void qc.invalidateQueries({ queryKey: ['wechat-hub', 'conversations', accountId] })
         void qc.invalidateQueries({ queryKey: ['wechat-hub', 'group-members', accountId] })
@@ -127,6 +129,8 @@ export default function GroupActionCard({
     onError: (e) => {
       setResult(null)
       setError(describeGroupActionError(e))
+      // 被闸拦下也会记一条审计（带错误码），这里同样刷新
+      void qc.invalidateQueries({ queryKey: ['wechat-hub', 'group-write-audit', accountId] })
     },
   })
 

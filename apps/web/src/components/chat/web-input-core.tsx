@@ -20,9 +20,11 @@ import { Tooltip } from '@/components/feedback'
 import { shouldSubmitOnEnter } from './enter-submit-policy'
 import {
   INITIAL_COMPOSITION_LATCH,
+  isCompositionEndPress,
   noteCompositionEnd,
   noteCompositionStart,
   noteKeyDown,
+  noteKeyUp,
 } from '@ihui/shared/chat/enter-submit'
 
 // 2026-11-16 用户定档:输入不设字数上限(移除 MAX_LENGTH 截断),字符计数仅作参考。
@@ -123,8 +125,14 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
     // 为什么不能只靠 e.nativeEvent.isComposing(单腿):部分引擎的合成事件不带该标志。
     // 为什么本地腿还不够(腿三才是本票的漏点):部分引擎里"确认候选词"的那一次 Enter 排在
     // compositionend **之后**,此刻本地腿已被置回 false、事件腿也是 false,两腿并集放行
-    // ⇒ 用拼音/假名打字时按 Enter 会把半成品发出去。闩锁由 compositionend 置起、
-    // 被任意一次 keydown 消费一次即失效(故只挡那一次,不会把后续真提交也吃掉)。
+    // ⇒ 用拼音/假名打字时按 Enter 会把半成品发出去。
+    //
+    // 2026-11-26 根治:腿三原先等于 latch.justEnded(无条件),把"空格/数字键选词上屏 → 按 Enter
+    // 发送"这条最常见的中文路径整条吃掉(用户看到的就是"输入完按 Enter 发不出去、要按第二次")。
+    // 现在腿三改由 isCompositionEndPress 裁决:只拦与 compositionend 属于同一次物理按键的那一下
+    // keydown —— 判据的两条腿是"按键抬起(keyup)立刻清闩锁"与"有效期上限兜底"。
+    // 装配细节:compositionend 必须把 performance.now() 传进 noteCompositionEnd,
+    // 否则判据只能退回保守档(见共享层注释),中文发送会复发。
     const [latch, setLatch] = React.useState(INITIAL_COMPOSITION_LATCH)
     // 装配期取的是本次 keydown 之前的闩锁快照;消费(清闩锁)发生在判据之后,
     // 顺序与共享层用例「收尾闩锁消费过一次之后 ⇒ 恢复提交」一致。
@@ -301,7 +309,11 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
               defaultPrevented: e.defaultPrevented,
               localComposing: latch.active,
               nativeComposing: e.nativeEvent.isComposing,
-              justEndedComposing: latch.justEnded,
+              // 腿三:只挡"与 compositionend 同一次按键"的那一下(见组件头注释与共享层
+              // isCompositionEndPress)。不得退回 latch.justEnded —— 那会把中文发送整条废掉。
+              justEndedComposing: isCompositionEndPress(latch, performance.now()),
+              // 腿四:旧引擎在 IME 处理期给 keyCode 229,这类 keydown 一律不提交。
+              imeKeyCode229: e.nativeEvent.keyCode === 229,
               // 空命令 + 无输入不提交(落回 awaiting/空态)。web 的 awaiting 队列在
               // use-message-send 内,这里只保证不发出空消息。
               hasContent: text.trim().length > 0,
@@ -334,7 +346,15 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
             }
           }}
           onCompositionStart={() => setLatch(noteCompositionStart())}
-          onCompositionEnd={() => setLatch(noteCompositionEnd())}
+          onCompositionEnd={() => {
+            // 收尾时刻是腿三判据的唯一输入:不传就只剩保守档,中文"上屏后第一次 Enter"会被吃掉。
+            setLatch(noteCompositionEnd(performance.now()))
+          }}
+          onKeyUp={() => {
+            // 按键抬起 = "结束输入法的那一次按键"已经完整发生:立刻清闩锁,下一次 Enter 就是发送。
+            // 用函数式 setState 吃恒等转移(闩锁未置起时引用不变)⇒ 普通打字零额外渲染。
+            setLatch(noteKeyUp)
+          }}
           onPaste={onPaste}
           placeholder={placeholder}
           rows={DEFAULT_LINES}

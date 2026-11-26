@@ -76,4 +76,56 @@ describe('三腿判据行为(任一腿成立即不提交)', () => {
     expect(shouldSubmitOnEnter({ ...base, defaultPrevented: true })).toBe(false)
   })
 })
+
+/**
+ * 2026-11-26 跨端接线形状守卫(防"上屏后首次 Enter 被吞"回潮)。
+ *
+ * 事故形态:腿三曾把闩锁的布尔位直接填进判据(`justEndedComposing: latch.justEnded`),
+ * 于是空格/数字键选词上屏后——闩锁刚置起、还没被任何 keydown 消费——用户按下的**真·发送 Enter**
+ * 被判成"确认候选词"吃掉,且完全静默(用户看到的就是"输入完按 Enter 发不出去,要按第二次")。
+ *
+ * 为什么要在 shared 的守卫里跨端读源文件:这条缺陷的复发点不在判据本体,而在**接线**——
+ * 判据再纯,任何一端把布尔位直填回去就复发一次。两端(web 输入框 / 扩展侧栏)都被逐行钉住。
+ * 新增端接这条判据时,把它的接线文件加进 END_WIRINGS 即可。
+ */
+describe('腿三接线形状:任何端都不得把闩锁布尔位直填进判据', () => {
+  const repoRoot = path.resolve(SRC_DIR, '..', '..', '..')
+  const END_WIRINGS = [
+    path.join(repoRoot, 'apps', 'web', 'src', 'components', 'chat', 'web-input-core.tsx'),
+    path.join(
+      repoRoot,
+      'apps',
+      'extension',
+      'entrypoints',
+      'sidepanel',
+      'components',
+      'AgentRuntimePanel.tsx',
+    ),
+  ].filter((file) => fs.existsSync(file))
+
+  it('至少扫到一处真实接线(防"路径写错 ⇒ 永绿")', () => {
+    expect(END_WIRINGS.length).toBeGreaterThan(0)
+  })
+
+  it('justEndedComposing 必须来自 isCompositionEndPress,不得是闩锁布尔位', () => {
+    for (const file of END_WIRINGS) {
+      const src = fs.readFileSync(file, 'utf8')
+      expect(src).toContain('isCompositionEndPress(')
+      // 复发形态:`justEndedComposing: latch.justEnded` / `… current.justEnded`
+      expect(src).not.toMatch(/justEndedComposing\s*:\s*(?:[\w.]+\s*)?justEnded\b/)
+    }
+  })
+
+  it('收尾必须带上时刻、按键抬起必须清闩锁、229 哨兵必须在(缺一条都会让中文发送复发或漏发)', () => {
+    for (const file of END_WIRINGS) {
+      const src = fs.readFileSync(file, 'utf8')
+      // 漏传时刻 ⇒ 判据退回保守档 ⇒ "上屏后第一次 Enter"又被吃
+      expect(src).toMatch(/noteCompositionEnd\(\s*performance\.now\(\)\s*\)/)
+      // 少了 keyup 清闩锁 ⇒ "松开空格再按 Enter"被吃(keyup 是权威信号)
+      expect(src).toMatch(/noteKeyUp/)
+      // 少了 229 哨兵 ⇒ 旧引擎的 IME 处理期 Enter 会把半截拼音发出去
+      expect(src).toMatch(/229/)
+    }
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
