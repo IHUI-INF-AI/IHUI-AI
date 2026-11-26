@@ -138,9 +138,9 @@ Add-Type -AssemblyName UIAutomationTypes
 
 $script:HandledIds = New-Object 'System.Collections.Generic.HashSet[string]'
 
-$AcceptButtonNames = @('通过', '接受', '同意', '添加')
-$GroupInvitePattern = '群聊邀请|邀请你加入|群邀请|加入群聊|邀请加入群'
-$FriendRequestPattern = '朋友验证|朋友请求|添加朋友|新的朋友|来自朋友|验证消息'
+$AcceptButtonNames = @('通过', '接受', '同意')
+$GroupInvitePattern = '群聊邀请|邀请你加入|群邀请|加入群聊|邀请加入群|邀请你加入群聊'
+$FriendRequestPattern = '朋友验证|朋友请求|添加朋友|新的朋友|来自朋友|验证消息|请求添加|添加你为朋友|加你为好友|好友请求'
 
 # 通讯录里的导航入口（点进去才是列表）：它们本身不是申请。
 # 2026-11-26 实测踩过：扫描把「新的朋友」这个入口行当成一条申请上报，昵称必然为空。
@@ -352,6 +352,9 @@ function Get-FriendRequests($root) {
     $rowLines = if ($isAcceptButton) { Get-RowText $el 3 } else { $lines }
     $rowText = ($rowLines -join ' ')
     $kind = Classify-Kind $rowText
+    # 按钮才是最强信号：行内有「通过/接受」但文案没命中关键词时，仍按好友申请上报，
+    # 否则真实申请（文案各版本不同）会被静默丢掉。历史行、导航行都没有按钮，不会误报。
+    if ($null -eq $kind -and $isAcceptButton) { $kind = 'friend' }
     if ($null -eq $kind) { continue }
     # 导航入口（「新的朋友」「群聊」这类）没有「通过/接受」按钮，一律不是申请
     if (-not $isAcceptButton -and (Test-NavEntry $el)) { $entryExcluded += 1; continue }
@@ -407,6 +410,7 @@ function Get-FriendRequests($root) {
     rawCount      = $rawCount
     historyCount  = $historyCount
     entryExcluded = $entryExcluded
+    elementCount  = @($elements).Count
     items         = $items
   }
 }
@@ -516,6 +520,24 @@ try {
       }
     }
     $sw.Stop()
+    # 窗口在托盘/最小化/被遮挡时 UIA 读不到子树，这时报「0 条待处理」会骗人，必须报失败并给出原因。
+    if ($friendScan.elementCount -lt 5) {
+      Write-Payload ([ordered]@{
+        ok           = $false
+        status       = 'failed'
+        reason       = 'window-hidden-or-empty'
+        detail       = "微信主窗口不可见或 UIA 子树为空（元素数=$($friendScan.elementCount)，visible=$($windowInfo.visible)）；请在微信里点开主窗口后重试"
+        requests     = @()
+        scannedAt    = [long][DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+        rawCount     = $friendScan.rawCount
+        historyCount = $friendScan.historyCount
+        entered      = [bool]$navigated
+        navigated    = [bool]$navigated
+        window       = $windowInfo
+        elapsedMs    = $sw.ElapsedMilliseconds
+      })
+      exit 11
+    }
     Write-Payload ([ordered]@{
       ok         = $true
       status     = 'ok'
