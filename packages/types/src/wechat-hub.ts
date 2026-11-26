@@ -206,14 +206,7 @@ export interface WechatAutoReplyPreviewResult {
 }
 
 /** 微信消息导出格式 */
-export type WechatExportFormat =
-  | 'jsonl'
-  | 'csv'
-  | 'html'
-  | 'markdown'
-  | 'xlsx'
-  | 'chatlab'
-  | 'sql'
+export type WechatExportFormat = 'jsonl' | 'csv' | 'html' | 'markdown' | 'xlsx' | 'chatlab' | 'sql'
 
 /** 微信消息导出入参 */
 export interface WechatExportInput {
@@ -372,6 +365,8 @@ export type WechatFriendRequestKind = 'friend' | 'group-invite'
 export interface WechatFriendRequestView {
   requestId: string
   nickname: string
+  /** 昵称为空时由桥标记 unavailable;非空且桥未报时回 control。 */
+  nicknameSource?: 'control' | 'unavailable'
   source: string
   kind: WechatFriendRequestKind
   /** UIA 里有 InvokePattern 才算可点；不可点的只能人工去客户端处理。 */
@@ -389,6 +384,10 @@ export interface WechatFriendScanView {
   scannedAt: number
   /** 桥侧真实读到的原始条目数（过滤前），用来核对有没有被静默丢弃。 */
   rawCount: number
+  /** 本次是否真正进入了「新的朋友」入口；false 表示桥跳过了入口扫描。 */
+  entered?: boolean
+  /** 入口外被排除的条目数，用于区分「入口没进去」与「进去但为空」。 */
+  entryExcluded?: number
 }
 
 /** 通过申请的回执；requestId 原样带回，便于审计对账。 */
