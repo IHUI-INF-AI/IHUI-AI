@@ -390,7 +390,14 @@ def _persist_token(config: MCPOAuthConfig, token: MCPOAuthToken) -> None:
         # 都没有才退回历史明文(仅兼容,不是推荐态)。
         mode = os.environ.get("MCP_OAUTH_PROTECT", "").strip().lower()
         if not mode:
-            mode = "dpapi" if dpapi_available() else ("fernet" if key else "plaintext")
+            mode = "dpapi" if dpapi_available() else ("fernet" if key else "none")
+        if mode == "none":
+            # 明文凭据零落盘:没有 OS 保护器、也没配 Fernet key 时,宁可不落盘。
+            # 历史明文文件仍可读(见 _load_persisted_token),但下一次写入必须升级。
+            logger.warning(
+                "无 OS 保护器且未配置 MCP_OAUTH_ENCRYPTION_KEY,拒绝以明文落盘 OAuth Token"
+            )
+            return
         if mode == "dpapi":
             try:
                 content = dpapi_encode(payload.encode("utf-8"))
