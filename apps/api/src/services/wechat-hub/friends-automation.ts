@@ -29,7 +29,7 @@ import { patchAccountMetadata } from './account-store.js'
 import { asNumber, asRecord, asString } from './views.js'
 
 /** 审计保留条数：最近 20 条，够回溯谁什么时候通过了哪条申请。 */
-export const FRIENDS_AUDIT_KEEP = 20
+export const FRIENDS_AUDIT_KEEP = 200
 /** 频次滑动窗口：最近一小时内成功通过的次数。 */
 export const FRIENDS_RATE_WINDOW_MS = 3_600_000
 /** 日上限的滚动窗口：24 小时。 */
@@ -439,6 +439,16 @@ export async function updateFriendsPolicy(
     friendAutomation: { ...next, audit: readFriendsAudit(account.metadata) },
   })
   return next
+}
+
+/** 审计导出：把该账号留存的通过/拒绝记录整包给出（最新的在后），供人工核对或存证。 */
+export async function readFriendsAuditExport(
+  userId: string,
+  accountId: string,
+): Promise<{ entries: WechatFriendAuditEntry[]; count: number; keep: number }> {
+  const account = await assertAccountForUser(userId, accountId)
+  const entries = readFriendsAudit(account.metadata)
+  return { entries, count: entries.length, keep: FRIENDS_AUDIT_KEEP }
 }
 
 /** 聚合读：策略 + 最新扫描 + 最近审计，前端一次拉齐。force=true 时要求桥做一次实时采集。 */

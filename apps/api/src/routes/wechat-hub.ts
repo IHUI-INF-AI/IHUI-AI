@@ -47,6 +47,7 @@ import { probeBridgeForAccount } from '../services/wechat-hub/bridge-probe.js'
 import { getGroupWriteRuntimeView, buildGroupWriteAuditView } from '../services/wechat-hub/group-writes.js'
 import {
   acceptFriendRequest,
+  readFriendsAuditExport,
   readFriendsOverview,
   readFriendsPolicyView,
   updateFriendsPolicy,
@@ -741,6 +742,40 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
             }),
           ),
         )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.get<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/friends/audit',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const view = await readFriendsAuditExport(requireUserId(request), request.params.id)
+        const query = (request.query ?? {}) as Record<string, unknown>
+        if (query.format === 'csv') {
+          const header = 'at,ok,status,requestId,nickname,errorCode'
+          const rows = view.entries.map((entry) =>
+            [
+              new Date(entry.at).toISOString(),
+              entry.ok ? 'true' : 'false',
+              entry.status ?? '',
+              entry.requestId ?? '',
+              entry.nickname ?? '',
+              entry.errorCode ?? '',
+            ]
+              .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+              .join(','),
+          )
+          const filename = `friends-audit-${Date.now()}.csv`
+          return reply
+            .header('content-type', 'text/csv; charset=utf-8')
+            .header('content-disposition', `attachment; filename="${filename}"`)
+            .send([header, ...rows].join('\r\n'))
+        }
+        return reply.send(success(view))
       } catch (e) {
         return answerError(reply, e)
       }

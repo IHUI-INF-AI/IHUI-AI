@@ -11,7 +11,11 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { WechatActionResult, WechatFriendAuditEntry, WechatFriendsPolicy } from '@ihui/types'
+import type {
+  WechatActionResult,
+  WechatFriendAuditEntry,
+  WechatFriendsPolicy,
+} from '@ihui/types'
 
 const hoisted = vi.hoisted(() => ({
   performAction: vi.fn(),
@@ -50,10 +54,7 @@ function bridgeActionResult(overrides: Partial<WechatActionResult>): WechatActio
   return { ok: false, status: 'failed', data: {}, reason: null, ...overrides }
 }
 
-function scanBridgeResult(
-  requests: unknown[],
-  extra: Record<string, unknown> = {},
-): WechatActionResult {
+function scanBridgeResult(requests: unknown[], extra: Record<string, unknown> = {}): WechatActionResult {
   return bridgeActionResult({
     ok: true,
     status: 'accepted',
@@ -120,21 +121,8 @@ describe('scanFriendRequests（读路径）', () => {
   it('桥在线时归一化待处理申请，字段别名兜底', async () => {
     hoisted.performAction.mockResolvedValue(
       scanBridgeResult([
-        {
-          requestId: 'r1',
-          nickname: '张三',
-          source: '手机通讯录',
-          kind: 'friend',
-          clickable: true,
-          seenAt: NOW - 5000,
-        },
-        {
-          requestId: 'r2',
-          nickname: '某群',
-          source: '群聊分享',
-          kind: 'group-invite',
-          clickable: false,
-        },
+        { requestId: 'r1', nickname: '张三', source: '手机通讯录', kind: 'friend', clickable: true, seenAt: NOW - 5000 },
+        { requestId: 'r2', nickname: '某群', source: '群聊分享', kind: 'group-invite', clickable: false },
         { requestId: '', nickname: '脏条目' },
       ]),
     )
@@ -143,24 +131,8 @@ describe('scanFriendRequests（读路径）', () => {
     expect(view.ok).toBe(true)
     expect(view.rawCount).toBe(3)
     expect(view.requests).toEqual([
-      {
-        requestId: 'r1',
-        nickname: '张三',
-        nicknameSource: 'control',
-        source: '手机通讯录',
-        kind: 'friend',
-        clickable: true,
-        seenAt: NOW - 5000,
-      },
-      {
-        requestId: 'r2',
-        nickname: '某群',
-        nicknameSource: 'control',
-        source: '群聊分享',
-        kind: 'group-invite',
-        clickable: false,
-        seenAt: expect.any(Number),
-      },
+      { requestId: 'r1', nickname: '张三', nicknameSource: 'control', source: '手机通讯录', kind: 'friend', clickable: true, seenAt: NOW - 5000 },
+      { requestId: 'r2', nickname: '某群', nicknameSource: 'control', source: '群聊分享', kind: 'group-invite', clickable: false, seenAt: expect.any(Number) },
     ])
   })
 
@@ -250,11 +222,9 @@ describe('acceptFriendRequest（写路径四道闸）', () => {
 
   it('requestId 不在当前扫描结果里：404 + REQUEST_NOT_FOUND，不发 friend.accept', async () => {
     setMetadata({ friendAutomation: { enabled: true, maxAcceptsPerHour: 3, audit: [] } })
-    hoisted.performAction.mockResolvedValue(
-      scanBridgeResult([
-        { requestId: 'r-other', nickname: '别人', kind: 'friend', clickable: true },
-      ]),
-    )
+    hoisted.performAction.mockResolvedValue(scanBridgeResult([
+      { requestId: 'r-other', nickname: '别人', kind: 'friend', clickable: true },
+    ]))
     await expect(acceptFriendRequest('u1', 'acc-1', 'r-missing')).rejects.toMatchObject({
       statusCode: 404,
       errorCode: 'REQUEST_NOT_FOUND',
@@ -267,31 +237,14 @@ describe('acceptFriendRequest（写路径四道闸）', () => {
     setMetadata({ friendAutomation: { enabled: true, maxAcceptsPerHour: 3, audit: [] } })
     hoisted.performAction
       .mockResolvedValueOnce(
-        scanBridgeResult([
-          {
-            requestId: 'r1',
-            nickname: '张三',
-            source: '群聊分享',
-            kind: 'friend',
-            clickable: true,
-          },
-        ]),
+        scanBridgeResult([{ requestId: 'r1', nickname: '张三', source: '群聊分享', kind: 'friend', clickable: true }]),
       )
       .mockResolvedValueOnce(
-        bridgeActionResult({
-          ok: true,
-          status: 'accepted',
-          data: { status: 'accepted', requestId: 'r1' },
-        }),
+        bridgeActionResult({ ok: true, status: 'accepted', data: { status: 'accepted', requestId: 'r1' } }),
       )
     const view = await acceptFriendRequest('u1', 'acc-1', 'r1')
     expect(view).toMatchObject({ ok: true, status: 'accepted', requestId: 'r1' })
-    expect(hoisted.performAction.mock.calls[1]).toMatchObject([
-      'u1',
-      'acc-1',
-      'friend.accept',
-      { requestId: 'r1' },
-    ])
+    expect(hoisted.performAction.mock.calls[1]).toMatchObject(['u1', 'acc-1', 'friend.accept', { requestId: 'r1' }])
     const patch = hoisted.patchMetadata.mock.calls[0]?.[1] as {
       friendAutomation: { audit: WechatFriendAuditEntry[] }
     }
@@ -330,13 +283,14 @@ describe('acceptFriendRequest（写路径四道闸）', () => {
     })
   })
 
-  it('审计超过 20 条截断：新条目保留，最旧条目丢弃', async () => {
+  it('审计超过保留上限截断：新条目保留，最旧条目丢弃', async () => {
     const existing = seedAudit(
       Array.from({ length: FRIENDS_AUDIT_KEEP }, (_, i) => ({
         requestId: `old-${i}`,
         ok: i % 2 === 0,
       })),
-      7_200_000,
+      // 全部落在 24 小时窗口之外，避免触发每日上限，只验证截断行为
+      3 * 86_400_000,
     )
     setMetadata({
       friendAutomation: {
@@ -348,24 +302,15 @@ describe('acceptFriendRequest（写路径四道闸）', () => {
       },
     })
     hoisted.performAction
-      .mockResolvedValueOnce(
-        scanBridgeResult([
-          { requestId: 'r-new', nickname: '新人', kind: 'friend', clickable: true },
-        ]),
-      )
-      .mockResolvedValueOnce(
-        bridgeActionResult({ ok: true, status: 'accepted', data: { status: 'accepted' } }),
-      )
+      .mockResolvedValueOnce(scanBridgeResult([{ requestId: 'r-new', nickname: '新人', kind: 'friend', clickable: true }]))
+      .mockResolvedValueOnce(bridgeActionResult({ ok: true, status: 'accepted', data: { status: 'accepted' } }))
     await acceptFriendRequest('u1', 'acc-1', 'r-new')
     const patch = hoisted.patchMetadata.mock.calls[0]?.[1] as {
       friendAutomation: { audit: WechatFriendAuditEntry[] }
     }
     expect(patch.friendAutomation.audit).toHaveLength(FRIENDS_AUDIT_KEEP)
     expect(patch.friendAutomation.audit.some((e) => e.requestId === 'old-0')).toBe(false)
-    expect(patch.friendAutomation.audit[FRIENDS_AUDIT_KEEP - 1]).toMatchObject({
-      requestId: 'r-new',
-      ok: true,
-    })
+    expect(patch.friendAutomation.audit[FRIENDS_AUDIT_KEEP - 1]).toMatchObject({ requestId: 'r-new', ok: true })
   })
 
   it('24 小时上限：小时内没超但一天已满 ⇒ 429，不调桥', async () => {

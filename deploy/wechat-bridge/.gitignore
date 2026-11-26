@@ -9,3 +9,4 @@
 node_modules/
 .bridge-friends-scan.json
 .bridge-test-friends-scan.json
+.bridge-friends-kill

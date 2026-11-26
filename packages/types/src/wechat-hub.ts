@@ -441,7 +441,7 @@ export interface WechatFriendAuditEntry {
 export interface WechatFriendsOverview {
   policy: WechatFriendsPolicy
   scan: WechatFriendScanView
-  /** 最近审计，最多 20 条；前端只展示最近 5 条。 */
+  /** 最近审计，最多 200 条；前端只展示最近 5 条。 */
   audit: WechatFriendAuditEntry[]
 }
 
