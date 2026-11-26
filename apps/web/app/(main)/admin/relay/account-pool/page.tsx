@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { fetchApi } from '@/lib/api'
 import { apiFailureToError } from '@ihui/shared/utils'
@@ -611,6 +611,8 @@ function fmtDetailValue(v: unknown, f: Intl.DateTimeFormat): string {
 
 export default function AdminRelayAccountPoolPage() {
   const locale = useLocale()
+  const t = useTranslations('accountPool')
+  const tCheckin = useTranslations('checkin')
   const qc = useQueryClient()
   const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [page, setPage] = React.useState(1)
@@ -904,21 +906,35 @@ export default function AdminRelayAccountPoolPage() {
 
   const checkinRunMut = useMutation({
     mutationFn: async (id: string) => {
-      const r = await fetchApi<{ record: { ok?: boolean; credits?: number | null } | null }>(
-        `/api/admin/relay/accounts/${id}/checkin-run`,
-        { method: 'POST' },
-      )
+      const r = await fetchApi<{
+        record: { ok?: boolean; credits?: number | null; message?: string | null } | null
+      }>(`/api/admin/relay/accounts/${id}/checkin-run`, { method: 'POST' })
       if (!r.success) throw new Error(r.error)
       return r.data
     },
     onSuccess: (d) => {
-      const credits = d.record?.credits
-      toast.success(
-        credits !== null && credits !== undefined ? `签到成功,积分 +${credits}` : '签到完成',
-      )
+      const record = d.record
+      const message = record?.message?.trim()
+      if (record?.ok === true) {
+        const credits = record.credits
+        toast.success(t('checkinSuccess'), {
+          description:
+            credits !== null && credits !== undefined
+              ? `${tCheckin('colCreditsDelta')} +${credits}`
+              : undefined,
+        })
+      } else if (record?.ok === false) {
+        toast.error(message || t('actionFailed'))
+      } else {
+        toast.warning(`${t('checkin')}: ${tCheckin('resultUnknown')}`, {
+          description: message || undefined,
+        })
+      }
+    },
+    onSettled: () => {
       void checkinStatusQuery.refetch()
     },
-    onError: (e: Error) => toast.error(e.message || '触发签到失败'),
+    onError: (e: Error) => toast.error(e.message || t('actionFailed')),
   })
 
   // 补全手机号:掩码名账号回填官方绑定全号(后端校验前 3 后 2 吻合,不吻合 400 如实报)
