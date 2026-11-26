@@ -3329,41 +3329,6 @@
       "breakpoints": true
     },
     {
-      "version": "7",
-      "idx": 480,
-      "when": 1795571400000,
-      "tag": "20261126120000_seed_verified_llm_costs",
-      "breakpoints": true
-    },
-    {
-      "version": "7",
-      "idx": 481,
-      "when": 1795576800000,
-      "tag": "20261126133000_purge_unpriced_chat_models",
-      "breakpoints": true
-    },
-    {
-      "version": "7",
-      "idx": 482,
-      "when": 1795577400000,
-      "tag": "20261126134000_model_ingest_price_gate",
-      "breakpoints": true
-    },
-    {
-      "version": "7",
-      "idx": 483,
-      "when": 1795578000000,
-      "tag": "20261126135000_publish_verified_llm_models",
-      "breakpoints": true
-    },
-    {
-      "version": "7",
-      "idx": 484,
-      "when": 1795578600000,
-      "tag": "20261126140000_ensure_official_deepseek_model",
-      "breakpoints": true
-    },
-    {
       "idx": 485,
       "version": "7",
       "when": 1795583400000,
@@ -3382,6 +3347,20 @@
       "version": "7",
       "when": 1795585800000,
       "tag": "20261126193000_normalize_blocklist_case",
+      "breakpoints": true
+    },
+    {
+      "idx": 488,
+      "version": "7",
+      "when": 1795585800001,
+      "tag": "20261125233000_device_task_execution",
+      "breakpoints": true
+    },
+    {
+      "idx": 489,
+      "version": "7",
+      "when": 1795585800002,
+      "tag": "20261126023000_device_task_approval",
       "breakpoints": true
     }
   ]
