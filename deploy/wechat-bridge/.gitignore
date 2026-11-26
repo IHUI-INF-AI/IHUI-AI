@@ -7,3 +7,5 @@
 .bridge-test-members.json
 .bridge-media/
 node_modules/
+.bridge-friends-scan.json
+.bridge-test-friends-scan.json
