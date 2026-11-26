@@ -188,6 +188,15 @@ export { AigcCoverScreen } from './features/aigc-cover/AigcCoverScreen'
 export { AigcPublishScreen } from './features/aigc-publish/AigcPublishScreen'
 /** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态,4 屏迁移自 mobile-rn) */
 export { AgentScreen } from './features/agent-screen/AgentScreen'
+/** 智汇AI 社区首页(小程序 pages/community ↔ web /community 的共享屏,2026-11-27) */
+export { CommunityHomeScreen } from './features/community-home/CommunityHomeScreen'
+export type {
+  CommunityHomeAgent,
+  CommunityHomeBanner,
+  CommunityHomeCategory,
+  CommunityHomeLabels,
+  CommunityHomeScreenProps,
+} from './features/community-home/CommunityHomeScreen'
 export { AiAssistantScreen } from './features/ai-assistant/AiAssistantScreen'
 export { AiCareerScreen } from './features/ai-career/AiCareerScreen'
 export { AI_CAREER_QUESTIONS, AI_CAREER_REQUIRED_FIELDS } from './features/ai-career/questions'

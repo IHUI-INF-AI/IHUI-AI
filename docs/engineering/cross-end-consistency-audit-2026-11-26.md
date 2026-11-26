@@ -640,4 +640,14 @@ AI应用商店 `pages/agent-market/index` / 广场 `pages/plaza/index/index` / �
 | 11 | 下拉刷新 / 触底加载（`usePullDownRefresh`/`useReachBottom`） | 12 条 + 「更多」跳市场 | 端内差异：web 分页语义 |
 | 12 | 微信分享（`useShareAppMessage`/`useShareTimeline`） | 未做 | 平台差异：web 无此通道 |
 
-**结论**（2026-11-26 23:40 更新）：12 块里 **7 块对齐**（含第 1 块端内壳等价；第 2/5 块本轮补齐）、**5 块有意不做**（二维码名片、微信 JSAPI 支付、返回顶部、下拉刷新/触底、微信分享，均属端内/平台差异）。至此 `/community` 与小程序社区页在信息架构和可见交互上无差异，剩余 5 块都不该在 web 复制：二维码属端内扫码场景、支付走 web 既有页、滚动/刷新/分享是容器能力。
+**结论**（2026-11-26 23:40 更新）：12 块里 **7 块对齐**（含第 1 块端内壳等价；第 2/5 块本轮补齐）、**5 块有意不做**（二维码名片、微信 JSAPI 支付、返回顶部、下拉刷新/触底、微信分享，均属端内/平台差异）。
+
+## §16 社区首页抽共享屏（2026-11-27，只落屏、未接线）
+
+**做了什么**：新建 `packages/app/src/features/community-home/CommunityHomeScreen.tsx`，把小程序 `pages/community/index` 与 web `/community` 共有的七块结构收成一份纯 UI 共享屏：标题/副标题 + 帖子入口、搜索行（含语音/图搜两个提示入口）、运营轮播、分类胶囊（带 `icon`）、最近使用（空态文案）、我的智能体（空则整块隐藏）、智能体推荐（双列卡）。数据、登录、支付、跳转全部由宿主注入（与 `AgentMarketScreen` 同约）。
+
+**契约**：`labels` 由宿主按自己的 i18n 命名空间翻译后传入（共享层不假设键名，避免把 web 的 `community.*` 键强推给 RN）；`colorScheme`、`keyword`、`onSearch`、各区块数组与 `onPress*` 回调均为 props。
+
+**为什么只落屏不接线**：RN 的 `HomeMain`（首页/智汇AI位）目前是课程首页容器（`apps/mobile-rn/src/screens/HomeScreen.tsx`，115KB，内含 Drawer/TabBar/课程数据），把它换成社区首页等于换整个主 tab 的内容与数据面，且本机没有 `adb`/模拟器可验收 —— 盲改会同时动导航语义与首屏数据，风险高于收益。共享屏先就位，接线（宿主容器 + Drawer/TabBar 壳 + 五入口 IA）留作独立一步。
+
+**验证**：`pnpm --filter @ihui/rn-app exec tsc --noEmit` 通过（exit 0）；未改任何 RN 端内文件，RN 侧零像素变化。至此 `/community` 与小程序社区页在信息架构和可见交互上无差异，剩余 5 块都不该在 web 复制：二维码属端内扫码场景、支付走 web 既有页、滚动/刷新/分享是容器能力。
