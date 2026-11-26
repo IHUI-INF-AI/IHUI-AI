@@ -31,17 +31,19 @@ const itemsForNormalUser = (tree: NavItem[]): NavItem[] => filterNavItemsByRole(
 const sidebarTree = (): NavItem[] => itemsForNormalUser(NAV_GROUPS.flatMap((g) => g.items))
 
 describe('侧边栏简洁模式:可见项计量', () => {
-  it('侧边栏树普通用户可见总数守恒(2026-11-16 收敛后读数 10)', () => {
+  it('侧边栏树普通用户可见总数守恒(2026-11-16 收敛后读数 10;2026-11-26 主入口改 14)', () => {
     // role 过滤后 adminOnly / permission 项已剔除(管理分组整组不可见)。
+    // 〔2026-11-26〕原「首页」单条目组换成 mainNav 五主入口(AI应用商店/广场/智汇AI/动态/我的),
+    // 读数十 +4 = 14;其余口径不变:
     // 10 = 首页 1 + 热门 1 + 人事域入口 1 + 财务域入口 1 + AI 域入口 1
     //      + 教育/内容/交易域入口 3 + 个人域入口 1 + 开发者域入口 1
     // —— 各域 20+ 项子清单 2026-11-16 起全部移入 *_HUB_ITEMS,由域入口页承载,
     //    不在本面;侧边栏只留域入口一枚。
     // 变更 NAV_GROUPS 时须同步更新本数字与本注释。
-    expect(flattenNavItems(sidebarTree()).length).toBe(10)
+    expect(flattenNavItems(sidebarTree()).length).toBe(14)
   })
 
-  it('侧边栏树四档全隐藏后只留 9 项(即收掉 1 项)', () => {
+  it('侧边栏树四档全隐藏后只留 13 项(即收掉 1 项)', () => {
     // 1 = 开发者域入口(/domains/developer,标 developer 档)—— 整域唯一留在侧边栏的项。
     // 原 21 项 = 域入口 + 20 子项,但 2026-11-16 收敛后 20 子项已移入
     // DEVELOPER_HUB_ITEMS(域入口页消费),侧边栏只剩域入口 1 枚标档。
@@ -50,7 +52,7 @@ describe('侧边栏简洁模式:可见项计量', () => {
     const full = flattenNavItems(all).length
     const simplified = flattenNavItems(filterNavItemsByTier(all, ALL_NAV_TIERS)).length
     expect(full - simplified).toBe(1)
-    expect(simplified).toBe(9)
+    expect(simplified).toBe(13)
   })
 
   it('AI 域清单四档全隐藏后收掉 41 项(收敛没让档位判据失效)', () => {
@@ -143,7 +145,7 @@ describe('侧边栏简洁模式:分档归属与继承', () => {
     const tree = sidebarTree()
     const visible = flattenNavItems(filterNavItemsByTier(tree, ALL_NAV_TIERS))
     for (const href of [
-      '/',
+      '/community',
       '/ecosystem',
       '/domains/edu',
       '/domains/content',

@@ -796,9 +796,18 @@ const ADMIN_ITEMS: NavItem[] = [
 ]
 
 export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+  // 主导航(2026-11-26 机主拍板):与小程序 tabBar 五主入口对齐 ——
+  // AI应用商店(/agents)/ 广场(/plaza)/ 智汇AI(/)/ 动态(/news)/ 我的(/user/profile)。
+  // 原「首页」单条目并入本组(智汇AI 即首页),href 不重复;四个新 labelKey 当日已补五语言。
   {
-    label: '',
-    items: [{ href: '/', labelKey: 'home', icon: Home }],
+    label: 'mainNav',
+    items: [
+      { href: '/agents', labelKey: 'market', icon: ShoppingBag },
+      { href: '/plaza', labelKey: 'plaza', icon: Users },
+      { href: '/community', labelKey: 'aiHome', icon: Home },
+      { href: '/news', labelKey: 'feed', icon: Newspaper },
+      { href: '/user/profile', labelKey: 'mine', icon: User },
+    ],
   },
   // 热门分组(2026-08-01 新增):高频常用功能快捷入口,放在首页下方
   // 2026-10-19 P1 收敛:本组由 5 项降为 1 项。逐项去向(纯减法,页面一个不删):

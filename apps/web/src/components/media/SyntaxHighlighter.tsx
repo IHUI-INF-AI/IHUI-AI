@@ -16,7 +16,10 @@ interface PrismProps {
 }
 
 const SyntaxHighlighter = dynamic(
-  () => import('react-syntax-highlighter').then((mod) => mod.Prism as ComponentType<PrismProps>),
+  () =>
+    import('react-syntax-highlighter/dist/esm/prism').then(
+      (mod) => mod.default as unknown as ComponentType<PrismProps>,
+    ),
   { ssr: false },
 )
 

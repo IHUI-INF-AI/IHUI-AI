@@ -276,7 +276,7 @@ afterEach(() => {
 })
 
 describe('P2 收敛第二批:AI 域 / 个人域结构', () => {
-  it('① 两域顶层各只剩 1 枚域入口(14→1、5→1),NAV_GROUPS 仍 9 组', () => {
+  it('① 两域顶层各只剩 1 枚域入口(14→1、5→1),NAV_GROUPS 仍 11 组', () => {
     expect(aiGroup.items.map((i) => i.href)).toEqual(['/domains/ai'])
     expect(personalGroup.items.map((i) => i.href)).toEqual(['/domains/personal'])
     expect(aiGroup.items[0]?.labelKey).toBe('aiGroupLabel')
@@ -286,10 +286,14 @@ describe('P2 收敛第二批:AI 域 / 个人域结构', () => {
     expect(
       Object.fromEntries(NAV_GROUPS.map((g) => [g.label || '(home)', g.items.length])),
     ).toEqual({
-      '(home)': 1,
+      // 〔2026-11-26〕机主拍板「一级导航统一为小程序 tabBar」:原 `(home)` 单条目组
+      // 被 mainNav 五主入口取代(AI应用商店/广场/智汇AI/动态/我的),条目 1 → 5,
+      // 分组数 11 → 11(仅组内条目增减,组数不变),顶层项合计 12 → 16;其余分组逐条未动。
+      // 注:financeGroup 实为 2 项(2026-11-23 增页),本快照原记 1 属陈旧读数,一并校正。
+      mainNav: 5,
       hotGroupLabel: 1,
       hrGroup: 1,
-      financeGroup: 1,
+      financeGroup: 2,
       aiGroupLabel: 1,
       adminGroupLabel: 1,
       eduGroup: 1,
@@ -301,7 +305,7 @@ describe('P2 收敛第二批:AI 域 / 个人域结构', () => {
       developerGroup: 1,
     })
     expect(NAV_GROUPS).toHaveLength(11)
-    expect(NAV_GROUPS.reduce((n, g) => n + g.items.length, 0)).toBe(11)
+    expect(NAV_GROUPS.reduce((n, g) => n + g.items.length, 0)).toBe(16)
     // 条目没被删,只是不再平铺:域清单顶层条目数 == 收敛前两分组顶层条目数
     // 〔2026-10-30〕AI 域 +1(收敛后新入口 `/account-pool`,见上方快照注记)
     // 〔2026-11-16〕财务部 `/finance-ai` 移出到独立 financeGroup —— 它本不在本快照

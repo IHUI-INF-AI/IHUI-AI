@@ -63,7 +63,10 @@ type PrismComponent = typeof PrismType
 // 且未就绪期间必须留住 <pre><code class="language-xxx"> 这层 DOM(markdown-body.test.tsx ② 钉的就是它)。
 let prismLoader: Promise<PrismComponent> | null = null
 function loadPrism(): Promise<PrismComponent> {
-  if (prismLoader === null) prismLoader = import('react-syntax-highlighter').then((m) => m.Prism)
+  if (prismLoader === null)
+    prismLoader = import('react-syntax-highlighter/dist/esm/prism').then(
+      (m) => m.default as unknown as PrismComponent,
+    )
   return prismLoader
 }
 

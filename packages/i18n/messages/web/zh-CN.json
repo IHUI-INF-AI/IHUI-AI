@@ -31563,4 +31563,38 @@
     "chime": "风铃",
     "knock": "敲门"
   }
-}
+,
+  "adminAiModels": {
+    "telemetry": {
+      "title": "模型运行监测"
+    ,
+      "subtitle": "近 60 分钟 · 数据来自调用流水",
+      "callsLabel": "近 1h 调用",
+      "tokensLabel": "近 1h Token",
+      "qpsLabel": "当前 QPS",
+      "tpsLabel": "当前 Token/s",
+      "errorLabel": "错误率",
+      "p95Label": "P95 延迟",
+      "last5m": "近 5 分钟均值",
+      "activeConfigs": "{count} 个配置有流量",
+      "attributed": "已归属 {pct}",
+      "unattributed": "未归属 {count} 次",
+      "ioSplit": "输入 {input} · 输出 {output}",
+      "noTraffic": "近 1 小时暂无调用",
+      "chartTitle": "每分钟调用",
+      "chartPeak": "峰值 {count} 次/分",
+      "chartHover": "{time} · {calls} 次 · {tokens} tok",
+      "updatedAt": "更新于 {time}",
+      "refresh": "刷新",
+      "fullMonitor": "完整监控",
+      "column": "近 1h 运行态",
+      "columnHint": "调用与 Token 数来自调用流水，按配置 ID 归属",
+      "cellCalls": "{count} 次 · {tokens} tok",
+      "cellRates": "QPS {qps} · {tps} tok/s",
+      "cellNoCalls": "近 1 小时无调用",
+      "cellErrors": "错误 {count}",
+      "cellTip": "近 1 小时：调用 {calls} 次，Token {tokens}，错误 {errors} 次，P95 {p95}，最近调用 {last}",
+      "noLatency": "无延迟样本",
+      "loadFailed": "运行数据读取失败",
+      "retry": "重试"}
+  }}

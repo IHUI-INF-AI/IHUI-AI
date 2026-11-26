@@ -85,6 +85,7 @@ export const PUBLIC_HTML_CACHE_RULES: PublicHtmlCacheRule[] = [
   { source: '/agents', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
   { source: '/models', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
   { source: '/plaza', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
+  { source: '/community', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
   { source: '/ai-world', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
   { source: '/skills-market', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
   { source: '/mcp-store', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
