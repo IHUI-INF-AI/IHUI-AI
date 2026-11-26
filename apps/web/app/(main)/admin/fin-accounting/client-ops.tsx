@@ -111,7 +111,7 @@ export function ClientOps({ clients, ledgers }: { clients: FinClient[]; ledgers:
       {!clientId ? (
         <Empty text={t('pickClientHint')} />
       ) : (
-        <div className="space-y-2 text-xs">
+        <div className="font-[weight:inherit] space-y-2 text-label">
           <div className="flex flex-wrap gap-2">
             <input
               className={field}

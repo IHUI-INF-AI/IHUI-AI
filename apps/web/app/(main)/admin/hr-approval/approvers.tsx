@@ -88,7 +88,7 @@ export function ApproverChain({
           placeholder={t('approverUuidHint')}
         />
         <button
-          className="rounded-md border border-stroke-default px-2 py-1 text-xs hover:bg-muted"
+          className="font-[weight:inherit] rounded-md border border-stroke-default px-2 py-1 text-label hover:bg-muted"
           onClick={() => {
             add(manual)
             setManual('')

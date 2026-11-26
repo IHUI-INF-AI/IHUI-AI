@@ -52,7 +52,7 @@ export function ReconCard({ ledgerId, period }: { ledgerId: string; period: stri
       {!recon ? (
         <Empty text={t('loading')} />
       ) : (
-        <div className="flex flex-wrap gap-4 text-xs tabular-nums">
+        <div className="font-[weight:inherit] flex flex-wrap gap-4 text-label tabular-nums">
           <span>
             {t('bookBankBalance')}: <b>{money2(Number(recon.bookBankBalance))}</b>
           </span>

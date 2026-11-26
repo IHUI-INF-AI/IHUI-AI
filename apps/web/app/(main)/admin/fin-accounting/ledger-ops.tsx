@@ -145,7 +145,7 @@ export function LedgerOpsCard({ ledgers }: { ledgers: FinLedger[] }) {
                 </option>
               ))}
             </select>
-            <label className="flex items-center gap-1 text-xs">
+            <label className="font-[weight:inherit] flex items-center gap-1 text-label">
               <input
                 type="checkbox"
                 checked={reviewRequired}

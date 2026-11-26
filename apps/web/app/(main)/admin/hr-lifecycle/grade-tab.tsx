@@ -186,7 +186,7 @@ export function GradeTab() {
         ) : (
           <div className="flex flex-wrap gap-2">
             {dist.map((d) => (
-              <div key={String(d.gradeCode)} className="rounded-md border border-stroke-subtle px-3 py-1.5 text-xs">
+              <div key={String(d.gradeCode)} className="font-[weight:inherit] rounded-md border border-stroke-subtle px-3 py-1.5 text-label">
                 <b>{d.gradeCode ? String(d.gradeCode) : '-'}</b>
                 <span className="ml-1 tabular-nums text-muted-foreground">{String(d.count)}</span>
               </div>

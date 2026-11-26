@@ -192,7 +192,7 @@ export function FlowsPanel() {
             />
           </label>
           <button
-            className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50"
+            className="font-[weight:inherit] rounded-md bg-primary px-3 py-1.5 text-body text-primary-foreground disabled:opacity-50"
             disabled={saveMut.isPending}
             onClick={() => saveMut.mutate()}
           >
@@ -200,7 +200,7 @@ export function FlowsPanel() {
           </button>
           {form.id && (
             <button
-              className="rounded-md border border-stroke-default px-3 py-1.5 text-sm hover:bg-muted"
+              className="font-[weight:inherit] rounded-md border border-stroke-default px-3 py-1.5 text-body hover:bg-muted"
               onClick={() => setForm(EMPTY)}
             >
               {t('cancel')}
