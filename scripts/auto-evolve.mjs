@@ -56,6 +56,7 @@ import { loadHumanGates, summarize as summarizeHumanGates } from './human-gates.
 import { loadPolicy, decide, POLICY_PATH } from './autonomy-decision.mjs'
 // 消息板只做"近窗摘要",不建游标:自治会话短命且没有稳定 actor id,存游标会读出"上次同票"的旧游标。
 import { readChannel, renderDigest } from './board.mjs'
+import { runCodeEval, compareCodeEval } from './private-code-eval.mjs'
 // 票键唯一实现(§0.6 单一真相源):本器不再自持一份,改从 lib 收口处取,转出保持既有导出面不变。
 import { ticketKeyOf } from './lib/ticket-key.mjs'
 // 自我面核验复用门 299 的清单解析器(§0.6:锚点表与"锚点怎么算命中"只有一份实现)
@@ -2443,6 +2444,81 @@ function readGuardListText() {
   }
 }
 
+/**
+ * 代码面私有尺子配置(2026-11-26 立)。
+ * `off` = 不跑;`observe` = 跑并记账但不拦落账;`enforce` = 候选通过数低于基线即拦。
+ * 非法档/缺用例文件一律按未判定处理:observe 放行留痕,enforce 拦下(§0.3 fail-closed)。
+ */
+export function resolveCodeRulerConfig(gates = {}) {
+  const c = gates && typeof gates.codeRuler === 'object' && gates.codeRuler !== null ? gates.codeRuler : {}
+  const mode = c.mode === undefined || c.mode === null ? 'off' : String(c.mode)
+  if (!['off', 'observe', 'enforce'].includes(mode)) throw new Error(`codeRuler.mode 只能是 off|observe|enforce(现值 ${JSON.stringify(c.mode)})`)
+  const casesFile = c.casesFile === undefined || c.casesFile === null ? '' : String(c.casesFile).trim()
+  const timeoutMs = Number.isInteger(c.timeoutMs) && c.timeoutMs > 0 ? c.timeoutMs : 120_000
+  return { mode, casesFile, timeoutMs }
+}
+
+/**
+ * 落账前跑代码面隐藏用例:候选工作树 vs HEAD 基线各跑一遍,只比通过数。
+ * 这里只做"取数 + 判定 + 记账";拦截由 landTicketArtifacts 的 preCommitGate 出口执行。
+ */
+export function runCodeRulerGate({ gates = {}, ticketKey = '', files = [] } = {}) {
+  let cfg
+  try {
+    cfg = resolveCodeRulerConfig(gates)
+  } catch (e) {
+    record({ mode: 'code-ruler', action: 'code-ruler-undetermined', ticketKey, why: String(e?.message ?? e) })
+    return { ok: true, state: 'undetermined', why: String(e?.message ?? e) }
+  }
+  if (cfg.mode === 'off') return { ok: true, state: 'off', skipped: true }
+  if (!cfg.casesFile) {
+    record({ mode: 'code-ruler', action: 'code-ruler-undetermined', ticketKey, why: 'codeRuler.casesFile 未配置' })
+    return { ok: cfg.mode !== 'enforce', state: 'undetermined', why: 'codeRuler.casesFile 未配置' }
+  }
+  const base = join('D:/DevEnv/Temp', `ihui-code-base-${Date.now()}-${process.pid}`)
+  let added = false
+  try {
+    mkdirSync('D:/DevEnv/Temp', { recursive: true })
+    gitRaw(['worktree', 'add', '--detach', base, 'HEAD'], ROOT, { timeout: 120_000, maxBuffer: 16 * 1024 * 1024 })
+    added = true
+    const candidate = runCodeEval({ target: ROOT, casesFile: cfg.casesFile, timeoutMs: cfg.timeoutMs })
+    const baseline = runCodeEval({ target: base, casesFile: cfg.casesFile, timeoutMs: cfg.timeoutMs })
+    const cmp = compareCodeEval(candidate, baseline)
+    record({
+      mode: 'code-ruler',
+      action: `code-ruler-${cmp.state}`,
+      ticketKey,
+      candidatePassed: candidate.passed,
+      candidateTotal: candidate.total,
+      baselinePassed: baseline.passed,
+      baselineTotal: baseline.total,
+      delta: cmp.delta ?? null,
+      files: files.slice(0, 20),
+      why: cmp.why,
+    })
+    const block = cfg.mode === 'enforce' && cmp.state !== 'ok'
+    return {
+      ok: !block,
+      state: cmp.state,
+      action: block ? 'artifact-code-regression' : null,
+      why: cmp.why,
+      codeRuler: { state: cmp.state, candidate, baseline, delta: cmp.delta ?? null },
+    }
+  } catch (e) {
+    const why = `代码面尺子未判定:${e?.message ?? e}`
+    record({ mode: 'code-ruler', action: 'code-ruler-undetermined', ticketKey, why })
+    return { ok: cfg.mode !== 'enforce', state: 'undetermined', why }
+  } finally {
+    if (added) {
+      try {
+        gitRaw(['worktree', 'remove', '--force', base], ROOT, { timeout: 120_000, maxBuffer: 16 * 1024 * 1024 })
+      } catch {
+        // 清理失败不影响判定;下一轮 worktree add 会因路径已存在显式报错,不会静默复用旧基线。
+      }
+    }
+  }
+}
+
 export function landTicketArtifacts({
   ticketKey,
   ticketText,
@@ -2450,6 +2526,7 @@ export function landTicketArtifacts({
   statusFn,
   commitFn,
   dryRun = false,
+  preCommitGate = null,
   protectedFaceOf = (files) => partitionProtectedFaces(files, readGuardListText()),
 }) {
   const parsed = parseArtifactManifest(manifestText, ticketKey)
@@ -2506,6 +2583,20 @@ export function landTicketArtifacts({
     IHUI_TICKET_LINE: String(ticketText ?? '').slice(0, 120),
     // 席位短名进 AI 归属 notes;缺它 notes 那一腿只能记未判定,审计链断在这里。
     IHUI_AGENT_SESSION_ID: 'auto-evolve',
+  }
+  // 代码面私有尺子(2026-11-26 立):提交前对候选工作树与 HEAD 基线跑同一套仓外隐藏用例。
+  // 放在 commitFn 之前,是为了"没赢 main 就不落账";observe 档只记账不拦,enforce 档回归即拦。
+  if (typeof preCommitGate === 'function') {
+    const gate = preCommitGate({ ticketKey, files: dirty, dropped })
+    if (gate && gate.ok === false) {
+      return {
+        action: gate.action || 'artifact-code-regression',
+        files: dirty,
+        dropped,
+        why: gate.why || '代码面私有尺子判红',
+        codeRuler: gate.codeRuler ?? null,
+      }
+    }
   }
   let r
   try {
@@ -3458,6 +3549,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         manifestText: declaredManifest ?? derivedManifest,
         statusFn: gitPorcelainOf,
         commitFn: runLandCommit,
+        preCommitGate: (ctx) => runCodeRulerGate({ gates, ticketKey: key, files: ctx?.files ?? [] }),
         dryRun: false,
       })
       record({
