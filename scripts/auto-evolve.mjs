@@ -54,6 +54,8 @@ import { createHmac, randomUUID } from 'node:crypto'
 import { loadCaps, parseLedger, evaluate, chargeLine } from './cost-breaker.mjs'
 import { loadHumanGates, summarize as summarizeHumanGates } from './human-gates.mjs'
 import { loadPolicy, decide, POLICY_PATH } from './autonomy-decision.mjs'
+// 消息板只做"近窗摘要",不建游标:自治会话短命且没有稳定 actor id,存游标会读出"上次同票"的旧游标。
+import { readChannel, renderDigest } from './board.mjs'
 // 票键唯一实现(§0.6 单一真相源):本器不再自持一份,改从 lib 收口处取,转出保持既有导出面不变。
 import { ticketKeyOf } from './lib/ticket-key.mjs'
 // 自我面核验复用门 299 的清单解析器(§0.6:锚点表与"锚点怎么算命中"只有一份实现)
@@ -122,6 +124,36 @@ import {
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** 调度器接线的锚点(guardian 派发层 import 同一组路径,不另拼第二份 —— §0.6 单一真相源) */
 export const GATES_JSON = join(ROOT, 'scripts', 'data', 'auto-evolve-gates.json')
+/**
+ * 派发前闸选项(2026-11-26 立):路径核验之外,必须用同一入口真装载一次。
+ * 没配 `sessionSmokeCommandTemplate` 就判 undetermined 并喊人 —— 不允许"文件在位"冒充"能起来";
+ * 实测 `@ihui/agent-sdk` 链接缺失时路径全绿、4 次真派全挂在 ERR_MODULE_NOT_FOUND。
+ */
+export function preflightOpts(gates = {}) {
+  const raw = gates.sessionSmokeCommandTemplate
+  // 探针也必须用派发进程自己的运行时:12:00 的服务身份轮次里裸 `node` 从机器级 PATH
+  // 解析成了另一个运行时,路径全在位却 `runtime-smoke:exit=1` —— 与真会话同一条病。
+  const normalized =
+    typeof raw === 'string' && raw.trim()
+      ? normalizeSessionRuntime(raw, process.execPath)
+      : { cmd: raw, replaced: false }
+  return {
+    requireSmoke: true,
+    smokeCommand: normalized.cmd,
+    smokeTimeoutMs: 20000,
+  }
+}
+
+/** 派发时把板上近 30 分钟的最后 5 条塞进 prompt —— 通知靠调度侧主动送,不靠会话轮询。 */
+export function boardDigestLines(now = Date.now()) {
+  try {
+    const rows = ['autonomy', 'general', 'api-web'].flatMap((ch) => readChannel(ch))
+    return renderDigest(rows, { now, windowMs: 30 * 60 * 1000, limit: 5 })
+  } catch {
+    // 板子坏了不该拖垮派发:摘要缺席即可,派发判据不依赖它。
+    return []
+  }
+}
 /** 人工阀分类语料(判据实现住在 lib/human-valve.mjs,这里只取它的语料文件)。
  *  必须排在 ROOT 之后:const 声明有 TDZ,放在上面会让本器一被 import 就 ReferenceError。 */
 export const VALVE_LIST_JSON = join(ROOT, 'scripts', 'data', 'human-valve-list.json')
@@ -570,6 +602,19 @@ export function normalizeSessionRuntime(cmdText, execPath = process.execPath) {
     replaced: true,
     why: `模板首 token 是裸 node ⇒ 换成当前进程运行时(${exe})`,
   }
+}
+
+/**
+ * cmd.exe 的 `/s /c` 会剥掉命令行最外层那一对引号(微软文档明写):首 token 是
+ * 带空格的绝对路径时,剥完就断在 `C:\...\User`,会话连进程都没起来(2026-11-26 实测 probe
+ * stderr: `'C:\Users\Administrator\AppData\Local\Doubao\User' 不是内部或外部命令`)。
+ * 修法不是去掉引号,而是**再包一层**:`cmd /d /s /c ""C:\a b\node.exe" ..."`。
+ * 只在首 token 被引号包住时补;非 Windows/裸命令不动(不猜)。
+ */
+export function wrapCommandForCmdExe(cmd) {
+  const t = String(cmd ?? '')
+  if (!/^\s*"/.test(t)) return t
+  return `"${t}"`
 }
 
 /**
@@ -1964,6 +2009,7 @@ function dispatchSession(gates, ticket, dryRun) {
     ``,
     renderTicketScope(scope),
     ``,
+    ...boardDigestLines(),
     `按 AGENTS.md 全部强制条款执行本票;只改本任务文件。`,
     `**取材纪律(2026-11-04 立,有实测依据)**:禁止整份读取 \`PROJECT_PLAN.md\` / \`AGENTS.md\`(本仓现读`,
     `台账数万行、规则正文近 9.6 万字节 —— 一次全文读就把本会话的上下文吃光,实测到的一轮是`,
@@ -2024,7 +2070,7 @@ function dispatchSession(gates, ticket, dryRun) {
   const cmd = rt.cmd
   const t0 = Date.now()
   // windowsVerbatimArguments 必带(同 probe:node 对 cmd.exe 的默认引用改写会毁模板内引号)
-  const r = spawnSync('cmd.exe', ['/d', '/s', '/c', cmd], {
+  const r = spawnSync('cmd.exe', ['/d', '/s', '/c', wrapCommandForCmdExe(cmd)], {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     windowsHide: true,
@@ -2812,14 +2858,14 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     // ---- 派发前闸(2026-11-01 立):执行体不在位 ⇒ 整轮不派,不拿真票去撞 ----
     // 病灶:这条腿 2026-10-25 起在本机死了 6 天(48 轮仅 1 成功),而台账里每一枚失败
     // 都被记成「票失败」并计入连败,3 次即封票 48h —— 调度器自伤却把债摊派给真工作。
-    let pf = preflightSessionRunner(gates.sessionCommandTemplate, ROOT)
+    let pf = preflightSessionRunner(gates.sessionCommandTemplate, ROOT, preflightOpts(gates))
     // 瞬时不在位(别席 install 正把 tsx 重挂)先复核再停派——判据单源见 `preflightRecheckPlan`。
     for (let attempt = 1; attempt <= 3; attempt++) {
       const plan = preflightRecheckPlan(pf.state, attempt)
       if (!plan.recheck) break
       // 同步等:本器整轮就是同步流程(取票/起会话都阻塞),异步等待不会让任何人受益。
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, plan.delayMs)
-      const again = preflightSessionRunner(gates.sessionCommandTemplate, ROOT)
+      const again = preflightSessionRunner(gates.sessionCommandTemplate, ROOT, preflightOpts(gates))
       console.error(
         `♻ 派发前闸复核 ${attempt}/${plan.recheck ? 2 : 0}:${pf.why} → ${again.why}(state=${again.state})`,
       )
@@ -3444,6 +3490,8 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
               version,
               tune: gates.quality.tune ?? null,
               datasetDir: gates.quality.datasetDir ?? null,
+              stamp: gates.quality.stamp ?? null,
+              timeoutMs: 300_000,
             })
             const verdict = qr.verdict === 'skipped' ? null : qr.verdict
             let holdUntil = null
@@ -3627,7 +3675,7 @@ async function probeSession({ gates, dryRun = false } = {}) {
     const t0 = Date.now()
     // windowsVerbatimArguments 必带:node 对 cmd.exe 有默认引用改写,会把模板里的引号拼进
     // 模块路径(实测 'D:\IHUI-AI\"D:\...\"' 型报错);verbatim + 模板零内嵌引号 = 双保险
-    const r = spawnSync('cmd.exe', ['/d', '/s', '/c', cmd], {
+    const r = spawnSync('cmd.exe', ['/d', '/s', '/c', wrapCommandForCmdExe(cmd)], {
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: ROOT,
       windowsHide: true,
@@ -3704,7 +3752,7 @@ function printStatus() {
   console.log(
     `闸门:enabled=${gates.enabled} 预算 ${dispatched}/${gates.dailyDispatchBudget} 轮(今日) 连败阈值 ${gates.failureStreakLimit} 封禁 ${gates.quarantineHours}h 会话上限 ${gates.maxSessionMinutes}min`,
   )
-  const pfStatus = preflightSessionRunner(gates.sessionCommandTemplate, ROOT)
+  const pfStatus = preflightSessionRunner(gates.sessionCommandTemplate, ROOT, preflightOpts(gates))
   const pfReadout =
     pfStatus.state === 'ready'
       ? `在位核验 ${pfStatus.checked.length} 枚全通过 ⇒ 可派`
@@ -4683,6 +4731,7 @@ export const __test__ = {
   readPoolWinnability,
   renderTicketScope,
   normalizeSessionRuntime,
+  wrapCommandForCmdExe,
   classifySessionWrites,
   GateShapeError,
   ticketKeyOf,

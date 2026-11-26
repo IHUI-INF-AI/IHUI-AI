@@ -52,6 +52,7 @@ fn main() {
             "store_account_keepalive_target",
             "store_account_probe",
             "get_admin_window_info",
+            "get_native_bridge_manifest",
             "toggle_devtools",
             "quit_app",
             "set_caption_button_theme",

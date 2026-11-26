@@ -1533,6 +1533,7 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
             }
         }
         SentinelAction::Devtools => {
+            #[cfg(feature = "devtools")]
             if let Some(wv) = active_wv() {
                 wv.open_devtools();
             }

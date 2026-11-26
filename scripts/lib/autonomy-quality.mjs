@@ -79,7 +79,27 @@ export function resolveQualityConfig(gates = {}) {
     datasetDir = String(r.datasetDir).trim()
     if (!datasetDir) throw new Error('ruler.datasetDir 给了值却是空串(要么不填,要么给绝对路径)')
   }
-  return { mode, holdHours, tune, datasetDir }
+  // 逐版本戳印(2026-11-26 立):不配 generate 时维持旧的"读现成题库"语义;
+  // 配了 generate 才在判分前先用当版模型生成 candidate,否则题库里的答案永不变、胜率是一条水平线。
+  let stamp = null
+  if (r.generate === true) {
+    const limit = r.stampLimit === undefined || r.stampLimit === null ? 0 : Number(r.stampLimit)
+    if (!Number.isInteger(limit) || limit < 0) throw new Error(`ruler.stampLimit 必须是非负整数(现值 ${String(r.stampLimit)})`)
+    const timeoutMs = r.stampTimeoutMs === undefined || r.stampTimeoutMs === null ? 240_000 : Number(r.stampTimeoutMs)
+    if (!Number.isInteger(timeoutMs) || timeoutMs < 10_000) throw new Error(`ruler.stampTimeoutMs 必须 ≥10000 的整数(现值 ${String(r.stampTimeoutMs)})`)
+    stamp = {
+      generate: true,
+      candidateModel: r.candidateModel === undefined || r.candidateModel === null ? 'auto' : String(r.candidateModel).trim(),
+      baselineModel: r.baselineModel === undefined || r.baselineModel === null ? '' : String(r.baselineModel).trim(),
+      prompts: r.prompts === undefined || r.prompts === null ? '' : String(r.prompts).trim(),
+      limit,
+      timeoutMs,
+    }
+    if (!stamp.candidateModel) throw new Error('ruler.candidateModel 不能为空串(要么不填=auto,要么给模型名)')
+  } else if (r.generate !== undefined && r.generate !== null && r.generate !== false) {
+    throw new Error(`ruler.generate 只能是布尔值(现值 ${JSON.stringify(r.generate)})`)
+  }
+  return { mode, holdHours, tune, datasetDir, stamp }
 }
 
 /**
@@ -135,7 +155,23 @@ export function buildRulerArgv(script, version, tune = null) {
 }
 
 /**
+ * 组"逐版戳印"argv —— 与 `apps/ai-service/scripts/private_eval_stamp.py` 的 argparse 契约对齐。
+ * 只在 `ruler.generate=true` 时调用;flag 名同样只在这里出现一次。
+ */
+export function buildStampArgv(script, version, stamp = null) {
+  const argv = [script, '--version', String(version || 'unknown')]
+  if (!stamp || typeof stamp !== 'object') return argv
+  if (stamp.candidateModel) argv.push('--candidate-model', String(stamp.candidateModel))
+  if (stamp.baselineModel) argv.push('--baseline-model', String(stamp.baselineModel))
+  if (stamp.prompts) argv.push('--prompts', String(stamp.prompts))
+  if (Number.isInteger(stamp.limit) && stamp.limit > 0) argv.push('--limit', String(stamp.limit))
+  return argv
+}
+
+/**
  * 起尺子进程。所有失败路径都收进返回值,绝不抛(调用方在主链上,抛了就会打断落账)。
+ * `stamp`(可选):`ruler.generate=true` 时先用当版模型给固定题面生成 candidate(逐版本),
+ *   再交给判分脚本;戳印失败 ⇒ undetermined,绝不拿**上一版的旧答案**冒充本轮测过(§0.3)。
  * tune/datasetDir:来自 resolveQualityConfig 的取值;datasetDir 入参保留给调用方显式覆盖
  * (端到端证明/试跑用),它优先于配置值。不给则子进程按自己的候选根解析(§15b 落点纪律)。
  */
@@ -149,6 +185,7 @@ export function runRuler({
   platform = process.platform,
   datasetDir = null,
   tune = null,
+  stamp = null,
 } = {}) {
   if (mode === 'off') return { verdict: 'skipped', rc: null, tail: '', why: '档位 off,未起进程' }
   const plan = resolveRulerPlan(root, env, platform)
@@ -157,6 +194,39 @@ export function runRuler({
   }
   const dir = datasetDir || tune?.datasetDir || null
   const childEnv = dir ? { ...env, PRIVATE_EVAL_DIR: String(dir) } : env
+
+  if (stamp?.generate) {
+    const stampScript = dirname(plan.script) + '/private_eval_stamp.py'
+    if (!existsSync(stampScript)) {
+      return { verdict: 'undetermined', rc: null, tail: '', why: `题库戳印器不在位:${stampScript}` }
+    }
+    const stampArgv = buildStampArgv(stampScript, version, stamp)
+    let sr
+    try {
+      sr = spawnFn(plan.interpreter, stampArgv, {
+        encoding: 'utf8',
+        timeout: stamp.timeoutMs ?? 240_000,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        maxBuffer: 8 << 20,
+        cwd: dirname(stampScript),
+        env: childEnv,
+      })
+    } catch (e) {
+      return { verdict: 'undetermined', rc: null, tail: '', why: `题库戳印抛错:${String(e?.message ?? e).slice(0, 160)}` }
+    }
+    if (sr?.error || sr?.status !== 0) {
+      const tail = String(sr?.stdout ?? '').split(/\r?\n/).filter(Boolean).slice(-1)[0] ?? ''
+      return {
+        verdict: 'undetermined',
+        rc: sr?.status ?? null,
+        tail,
+        why: `题库戳印失败(exit=${sr?.status ?? 'null'}${sr?.error ? `,${sr.error}` : ''})⇒ 本轮判不了,不拿旧题库冒充`,
+        stampRc: sr?.status ?? null,
+      }
+    }
+  }
+
   const argv = buildRulerArgv(plan.script, version, tune)
   let r
   try {
@@ -244,6 +314,7 @@ export const __test__ = Object.freeze({
   QUALITY_HOLD_ACTION,
   runRuler,
   buildRulerArgv,
+  buildStampArgv,
   resolveQualityConfig,
   resolveRulerPlan,
   mapRulerExit,

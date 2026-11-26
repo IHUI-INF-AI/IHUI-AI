@@ -207,10 +207,13 @@ ok(
     const gates = JSON.parse(
       readFileSync(join(ROOT, 'scripts', 'data', 'auto-evolve-gates.json'), 'utf8'),
     )
-    const pf = preflightSessionRunner(gates.sessionCommandTemplate, liveRootBack)
+    const pf = preflightSessionRunner(gates.sessionCommandTemplate, liveRootBack, {
+      requireSmoke: true,
+      smokeCommand: gates.sessionSmokeCommandTemplate,
+    })
     if (pf.state !== 'ready')
       console.log(`     现读 state=${pf.state} missing=${pf.missing.join(',')} why=${pf.why}`)
-    return pf.state === 'ready'
+    return pf.state === 'ready' && pf.smoke?.ok === true
   })(),
 )
 
@@ -382,6 +385,69 @@ ok(
     const iLaunch = src.indexOf('isLaunchFailureText(blob)')
     const iEnv = src.indexOf('ENV_FAILURE_SIGNS.find')
     return iMeaning > 0 && iLaunch > 0 && iEnv > 0 && iMeaning < iLaunch && iLaunch < iEnv
+  })(),
+)
+
+// T33–T36 真实装载探针(2026-11-26 立)。
+// 立因:路径全在位而 @ihui/agent-sdk 工作区链接缺失,4 次真派全挂在 ERR_MODULE_NOT_FOUND,
+// 而旧 preflight 只看文件在不在 ⇒ 放行。四条成对锁:探针真跑、失败拦停、没配不许静默退化成 ready、
+// 路径缺时不再跑探针(判据顺序不能被后面的探针掩盖)。
+ok(
+  'T33 探针真跑:同一入口 --version 通过 ⇒ ready 且 smoke=ok',
+  (() => {
+    const pf = preflightSessionRunner(
+      `node ${REPO_ROOT_TOKEN}/apps/cli/node_modules/tsx/dist/cli.mjs ${REPO_ROOT_TOKEN}/apps/cli/src/index.ts --version`,
+      liveRootBack,
+      {
+        requireSmoke: true,
+        smokeCommand: `node ${REPO_ROOT_TOKEN}/apps/cli/node_modules/tsx/dist/cli.mjs ${REPO_ROOT_TOKEN}/apps/cli/src/index.ts --version`,
+      },
+    )
+    return pf.state === 'ready' && pf.smoke?.ok === true && pf.checked.some((c) => c.smoke)
+  })(),
+)
+
+ok(
+  'T34 探针失败:模块解不出 ⇒ missing 并点名 runtime-smoke(不是 ready,更不是记票失败)',
+  (() => {
+    const pf = preflightSessionRunner(
+      `node ${REPO_ROOT_TOKEN}/apps/cli/src/index.ts --version`,
+      liveRootBack,
+      {
+        requireSmoke: true,
+        smokeCommand: `node -e "console.error('ERR_MODULE_NOT_FOUND'); process.exit(1)"`,
+      },
+    )
+    return (
+      pf.state === 'missing' &&
+      pf.missing.length === 1 &&
+      pf.missing[0].startsWith('runtime-smoke:') &&
+      pf.smoke?.ok === false
+    )
+  })(),
+)
+
+ok(
+  'T35 要求探针却没配 ⇒ undetermined:不许拿"文件在位"冒充"能起来"(§0.3)',
+  preflightSessionRunner(
+    `node ${REPO_ROOT_TOKEN}/apps/cli/src/index.ts --version`,
+    liveRootBack,
+    { requireSmoke: true, smokeCommand: '' },
+  ).state === 'undetermined',
+)
+
+ok(
+  'T36 判序锁:路径缺先报 missing,不再跑探针(后面的绿灯不得盖住前面的缺口)',
+  (() => {
+    const pf = preflightSessionRunner(
+      `node ${REPO_ROOT_TOKEN}/__ihui-absent-fixture__/dist/index.js`,
+      liveRootBack,
+      {
+        requireSmoke: true,
+        smokeCommand: `node -e "process.exit(0)"`,
+      },
+    )
+    return pf.state === 'missing' && !pf.checked.some((c) => c.smoke)
   })(),
 )
 

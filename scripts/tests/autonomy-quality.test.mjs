@@ -28,6 +28,7 @@ test('档位与牌寿命形状校验:越界即抛,不静默回落', () => {
     holdHours: 6,
     tune: {},
     datasetDir: null,
+    stamp: null,
   })
 })
 
@@ -80,6 +81,84 @@ test('调参端到端:配置值 ⇒ 子进程 argv 真带上 flag 与 PRIVATE_EV
   assert.ok(seen.args.includes('--min-delta') && seen.args[seen.args.indexOf('--min-delta') + 1] === '0.3')
   assert.equal(seen.env.PRIVATE_EVAL_DIR, 'D:/DevEnv/Temp/probe')
 })
+
+test('逐版戳印配置:generate=true 才带模型与预算;坏值当场抛', () => {
+  assert.equal(Q.resolveQualityConfig({ ruler: { mode: 'observe' } }).stamp, null, '没配 generate 不得偷偷启用')
+  assert.throws(() => Q.resolveQualityConfig({ ruler: { generate: 'yes' } }), /ruler\.generate/)
+  assert.throws(() => Q.resolveQualityConfig({ ruler: { generate: true, stampLimit: -1 } }), /stampLimit/)
+  assert.throws(() => Q.resolveQualityConfig({ ruler: { generate: true, stampTimeoutMs: 1000 } }), /stampTimeoutMs/)
+  const stamp = Q.resolveQualityConfig({
+    ruler: { mode: 'observe', generate: true, candidateModel: 'agnes-3.0-flash', baselineModel: 'agnes-2.5-flash', stampLimit: 12 },
+  }).stamp
+  assert.deepEqual(stamp, {
+    generate: true,
+    candidateModel: 'agnes-3.0-flash',
+    baselineModel: 'agnes-2.5-flash',
+    prompts: '',
+    limit: 12,
+    timeoutMs: 240000,
+  })
+  assert.deepEqual(Q.buildStampArgv('S.py', 'v1', stamp).slice(1), [
+    '--version',
+    'v1',
+    '--candidate-model',
+    'agnes-3.0-flash',
+    '--baseline-model',
+    'agnes-2.5-flash',
+    '--limit',
+    '12',
+  ])
+})
+
+test('戳印失败 ⇒ undetermined 且不再起判分(不拿旧题库冒充本轮测过)', () => {
+  const root = process.cwd().replace(/\\/g, '/')
+  let calls = 0
+  const r = Q.runRuler({
+    mode: 'observe',
+    root,
+    version: 'b'.repeat(40),
+    stamp: { generate: true, candidateModel: 'auto', baselineModel: '', prompts: '', limit: 0, timeoutMs: 240000 },
+    env: {},
+    platform: 'win32',
+    spawnFn: () => {
+      calls++
+      return { status: 2, stdout: '[未判定] 题库没建\n', stderr: '' }
+    },
+  })
+  if (r.verdict === 'undetermined' && r.why.includes('不在位')) {
+    assert.ok(true, '精简检出处:戳印器不在位即未判定,也是正解')
+    return
+  }
+  assert.equal(r.verdict, 'undetermined')
+  assert.equal(calls, 1, '戳印失败后不得再起判分进程')
+  assert.match(r.why, /题库戳印失败/)
+})
+
+test('戳印成功才轮到判分:两次 spawn 的 argv 各走各的契约', () => {
+  const root = process.cwd().replace(/\\/g, '/')
+  const calls = []
+  const r = Q.runRuler({
+    mode: 'observe',
+    root,
+    version: 'c'.repeat(40),
+    stamp: { generate: true, candidateModel: 'agens', baselineModel: 'base', prompts: '', limit: 12, timeoutMs: 240000 },
+    env: {},
+    platform: 'win32',
+    spawnFn: (file, args) => {
+      calls.push(args)
+      return { status: 0, stdout: calls.length === 2 ? '哨兵: ok\n' : '[已落盘] 12 行\n', stderr: '' }
+    },
+  })
+  if (r.verdict === 'undetermined' && r.why.includes('不在位')) {
+    assert.ok(true, '精简检出处:尺子不在位即未判定,也是正解')
+    return
+  }
+  assert.equal(r.verdict, 'ok')
+  assert.equal(calls.length, 2)
+  assert.ok(calls[0][0].endsWith('private_eval_stamp.py'), JSON.stringify(calls[0]))
+  assert.ok(calls[1][0].endsWith('private_eval_run.py'), JSON.stringify(calls[1]))
+})
+
 
 test('退码三态映射:未知退码/信号/异常一律 undetermined,绝不默认 ok', () => {
   assert.equal(Q.mapRulerExit({ status: 0 }), 'ok')
