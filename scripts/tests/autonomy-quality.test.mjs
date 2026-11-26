@@ -92,6 +92,7 @@ test('逐版戳印配置:generate=true 才带模型与预算;坏值当场抛', (
   assert.throws(() => Q.resolveQualityConfig({ ruler: { generate: true, stampLimit: -1 } }), /stampLimit/)
   assert.throws(() => Q.resolveQualityConfig({ ruler: { generate: true, stampTimeoutMs: 1000 } }), /stampTimeoutMs/)
   assert.throws(() => Q.resolveQualityConfig({ ruler: { generate: true, stampMinInterval: -1 } }), /stampMinInterval/)
+  assert.throws(() => Q.resolveQualityConfig({ ruler: { generate: true, stampMaxTokens: 100 } }), /stampMaxTokens/)
   const stamp = Q.resolveQualityConfig({
     ruler: { mode: 'observe', generate: true, candidateModel: 'agnes-3.0-flash', baselineModel: 'agnes-2.5-flash', stampLimit: 12, stampMinInterval: 20 },
   }).stamp
@@ -103,6 +104,8 @@ test('逐版戳印配置:generate=true 才带模型与预算;坏值当场抛', (
     limit: 12,
     timeoutMs: 240000,
     minInterval: 20,
+    maxTokens: null,
+    systemPromptFile: '',
   })
   assert.deepEqual(Q.buildStampArgv('S.py', 'v1', stamp).slice(1), [
     '--version',
@@ -116,6 +119,22 @@ test('逐版戳印配置:generate=true 才带模型与预算;坏值当场抛', (
     '--min-interval',
     '20',
   ])
+  const fullStamp = Q.resolveQualityConfig({
+    ruler: {
+      mode: 'observe',
+      generate: true,
+      candidateModel: 'agnes-3.0-flash',
+      baselineModel: 'agnes-2.5-flash',
+      stampLimit: 40,
+      stampMinInterval: 20,
+      stampMaxTokens: 1600,
+      systemPromptFile: 'D:/IHUI-AI/apps/ai-service/scripts/private-eval-system-prompt.v2.txt',
+    },
+  }).stamp
+  assert.equal(fullStamp.maxTokens, 1600)
+  assert.equal(fullStamp.systemPromptFile, 'D:/IHUI-AI/apps/ai-service/scripts/private-eval-system-prompt.v2.txt')
+  assert.ok(Q.buildStampArgv('S.py', 'v2', fullStamp).includes('--max-tokens'))
+  assert.ok(Q.buildStampArgv('S.py', 'v2', fullStamp).includes('--system-prompt-file'))
 })
 
 test('戳印失败 ⇒ undetermined 且不再起判分(不拿旧题库冒充本轮测过)', () => {
