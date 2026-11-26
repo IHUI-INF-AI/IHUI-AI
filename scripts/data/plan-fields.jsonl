@@ -1,3 +1,16 @@
 {"key":"RP-37#USDTTRC20ADDRESS仍空","owner":"机主收款地址面","waiting":"none","updatedAt":"2026-11-12T17:48:08.983Z","updatedBy":"plan-fields-reclassify"}
 {"key":"D05#多用户协作会话","owner":"协作会话域 chat-collab 席","waiting":"none","updatedAt":"2026-11-12T17:48:08.983Z","updatedBy":"plan-fields-reclassify"}
 {"key":"Y-58#RN发布链路余两格","owner":"","waiting":"none","blocking":"①site-apk 站点落点缺失:生产签出副本 ihui-prod 本机任何候选根都不存在,下次出包会在 publish 腿失败;②Play 现网签名身份未量到(appSigningInfo 对本应用回 HTML 404,官网 keystore 62:B0:FF:0E… 与 EAS 那枚 62:0C:C9:58… 不同源)","next":"①把生产签出副本恢复到 D:/DevEnv/ihui-prod(不得落仓内 .DevEnv/,会造守门 208 嵌套 git 仓);②以本机 key 提交是否被拒属未判定,提交前必须先量一次,不得凭「应该可以」","evidence":["发布链五腿已由 scripts/release-mobile-rn.mjs 收成一处分档读数(OTA 两渠道实测 ready、Play 授权与轨道实测在位)","行内认领已释放@2026-11-05/stale-claim-strip#mw2toa1q-3","归属口径:未认领(unassigned),合入 origin/main 时门 234 A1 点名缺交代(2026-11-05)"],"updatedAt":"2026-11-11T12:24:47.773Z","updatedBy":"plan-fields-reclassify"}
+{"key":"RP-1#对标落地L01/P0统一权限决策对象Permis","owner":"权限面","waiting":"none","blocking":"无","updatedAt":"2026-11-25T23:55:25.340Z","updatedBy":"plan-fields-extract"}
+{"key":"RP-2#对标落地L02/P0JobObject执行器","owner":"终端执行面","waiting":"none","blocking":"无","updatedAt":"2026-11-25T23:55:58.377Z","updatedBy":"plan-fields-extract"}
+{"key":"RP-3#对标落地L04/P0preload暴露面预算","owner":"桌面暴露面","waiting":"none","blocking":"无","updatedAt":"2026-11-25T23:55:58.377Z","updatedBy":"plan-fields-extract"}
+{"key":"RP-4#对标落地L09/P0凭据与OAuth检查点","owner":"凭据面","waiting":"none","blocking":"无","updatedAt":"2026-11-25T23:55:58.377Z","updatedBy":"plan-fields-extract"}
+{"key":"RP-5#对标落地L13/P0安全窗口工厂createSe","owner":"窗口安全面","waiting":"none","blocking":"无","updatedAt":"2026-11-25T23:55:58.378Z","updatedBy":"plan-fields-extract"}
+{"key":"RP-6#对标落地L15/P0监听面基线","owner":"监听面","waiting":"none","blocking":"无","updatedAt":"2026-11-25T23:55:58.378Z","updatedBy":"plan-fields-extract"}
+{"key":"RP-7#对标落地L03/P1审批反向通道","owner":"审批通道面","waiting":"none","blocking":"无","updatedAt":"2026-11-25T23:55:58.378Z","updatedBy":"plan-fields-extract"}
+{"key":"RP-8#对标落地L05/P1动态IPC注册表","owner":"IPC注册面","waiting":"none","blocking":"无","updatedAt":"2026-11-25T23:55:58.378Z","updatedBy":"plan-fields-extract"}
+{"key":"RP-9#对标落地L06/P1本地运行时策略热更新","owner":"运行时策略面","waiting":"none","blocking":"无","updatedAt":"2026-11-25T23:55:58.378Z","updatedBy":"plan-fields-extract"}
+{"key":"RP-19#对标落地L08/P1MCPHost回环服务","owner":"MCP网关面","waiting":"none","blocking":"无","updatedAt":"2026-11-25T23:55:58.378Z","updatedBy":"plan-fields-extract"}
+{"key":"RP-20#对标落地L10/P1遥测本地默认","owner":"遥测面","waiting":"none","blocking":"无","updatedAt":"2026-11-25T23:55:58.378Z","updatedBy":"plan-fields-extract"}
+{"key":"RP-21#对标落地L14/P1三端共用协议层","owner":"三端协议面","waiting":"none","blocking":"无","updatedAt":"2026-11-25T23:55:58.378Z","updatedBy":"plan-fields-extract"}
+{"key":"RP-23#对标落地L16/P1取证与QA口径固化","owner":"取证口径面","waiting":"none","blocking":"无","updatedAt":"2026-11-25T23:55:58.378Z","updatedBy":"plan-fields-extract"}

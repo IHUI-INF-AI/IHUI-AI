@@ -12033,6 +12033,7 @@
     "stepThinking": "Thinking",
     "stop": "Stop generating",
     "steer": "Steer now (applies after current tool finishes)",
+    "sendFailed": "Failed to send the message, please try again",
     "steerFailed": "Steering failed (queue full or stream ended), please try again later",
     "steerNoticeBar": {
       "title": "Steered {count} times",
