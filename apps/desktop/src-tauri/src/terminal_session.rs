@@ -34,6 +34,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+// L02 三场景验收（真实进程；仅 Windows + 测试配置编译）
+#[cfg(all(test, windows))]
+#[path = "terminal_session_job_scenarios.rs"]
+mod job_scenarios;
+
 /// 环形缓冲字节上限。超过后最旧输出被覆盖（Trae `buffer.rs` 封顶语义）。
 /// 默认 1 MiB——足够回滚屏（scrollback）一屏到几屏，又不至于无界吃内存。
 pub const RING_BYTES: usize = 1024 * 1024;
@@ -330,6 +335,38 @@ impl JobObject {
     /// 裸句柄（供 AssignProcessToJobObject 等接收 HANDLE 的 API 用）。
     pub fn raw(&self) -> winapi::shared::ntdef::HANDLE {
         self.handle
+    }
+
+    /// 作业内当前活跃进程数（L02 验收的客观读数：子进程退出后必须读到 0）。
+    ///
+    /// 走 `QueryInformationJobObject(JobObjectBasicAccountingInformation)`，不枚举进程表 ——
+    /// 枚举会漏已 detach / 已改父的进程，正是本模块要避免的那种"看起来干净"。
+    /// 查询失败返回 `None`（不默认 0，§0.3 没判不写成判过）。
+    pub fn active_processes(&self) -> Option<u32> {
+        use winapi::um::jobapi2::QueryInformationJobObject;
+        use winapi::um::winnt::{
+            JOBOBJECT_BASIC_ACCOUNTING_INFORMATION, JobObjectBasicAccountingInformation,
+        };
+        unsafe {
+            let mut info: JOBOBJECT_BASIC_ACCOUNTING_INFORMATION = std::mem::zeroed();
+            let mut returned: winapi::shared::minwindef::DWORD = 0;
+            let ok = QueryInformationJobObject(
+                self.handle,
+                JobObjectBasicAccountingInformation,
+                &mut info as *mut _ as *mut _,
+                std::mem::size_of::<JOBOBJECT_BASIC_ACCOUNTING_INFORMATION>() as u32,
+                &mut returned,
+            );
+            if ok == 0 {
+                return None;
+            }
+            Some(info.ActiveProcesses)
+        }
+    }
+
+    /// 整树终止（超时场景的清理动作）。返回是否成功下发。
+    pub fn terminate(&self, exit_code: u32) -> bool {
+        unsafe { winapi::um::jobapi2::TerminateJobObject(self.handle, exit_code) != 0 }
     }
 }
 

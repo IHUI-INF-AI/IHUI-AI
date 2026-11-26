@@ -7,6 +7,7 @@
 import { Card, CardContent } from '@ihui/ui-react'
 import type { ReactNode } from 'react'
 import type { WechatAnalysisResult } from '@ihui/types'
+import { buildBarRows, type BarRow } from './analysis-chart'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -17,7 +18,42 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
+/** 纯 CSS 横条：宽度按最大值归一，右列是真实计数，不引入图表库也不会误导 */
+function Bars({ rows }: { rows: BarRow[] }) {
+  return (
+    <div className="space-y-1.5">
+      {rows.map((row) => (
+        <div key={row.key} className="flex items-center gap-2 text-xs">
+          <span className="w-28 shrink-0 truncate text-muted-foreground" title={row.label}>
+            {row.label}
+          </span>
+          <div className="relative h-1.5 min-w-0 flex-1 rounded-sm bg-muted">
+            <div
+              className="absolute inset-y-0 left-0 rounded-sm bg-primary"
+              style={{ width: `${Math.max(2, Math.round(row.ratio * 100))}%` }}
+            />
+          </div>
+          <span className="w-10 shrink-0 text-right tabular-nums">{row.value}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function AnalysisResultView({ result }: { result: WechatAnalysisResult }) {
+  const keywordBars = buildBarRows(
+    result.keywords.map((item) => ({ key: item.word, label: item.word, value: item.count })),
+    10,
+  )
+  const participantBars = buildBarRows(
+    result.participants.map((item) => ({
+      key: item.id,
+      label: item.name ?? item.id,
+      value: item.messageCount,
+    })),
+    10,
+  )
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -52,32 +88,14 @@ export default function AnalysisResultView({ result }: { result: WechatAnalysisR
           </ul>
         </Section>
       ) : null}
-      {result.keywords.length > 0 ? (
+      {keywordBars.length > 0 ? (
         <Section title="关键词">
-          <div className="flex flex-wrap gap-1.5">
-            {result.keywords.map((item) => (
-              <span
-                key={item.word}
-                className="rounded-md bg-muted px-2 py-0.5 text-xs text-foreground"
-              >
-                {item.word} · {item.count}
-              </span>
-            ))}
-          </div>
+          <Bars rows={keywordBars} />
         </Section>
       ) : null}
-      {result.participants.length > 0 ? (
+      {participantBars.length > 0 ? (
         <Section title="参与者">
-          <div className="flex flex-wrap gap-1.5">
-            {result.participants.map((item) => (
-              <span
-                key={item.id}
-                className="rounded-md border border-stroke-subtle px-2 py-0.5 text-xs"
-              >
-                {item.name ?? item.id} · {item.messageCount}
-              </span>
-            ))}
-          </div>
+          <Bars rows={participantBars} />
         </Section>
       ) : null}
       {result.relations && result.relations.length > 0 ? (

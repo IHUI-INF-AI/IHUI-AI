@@ -54,6 +54,8 @@ import { recordCall } from '../services/relay-billing-service.js'
 import { startStopwatch } from '../utils/elapsed-ms.js'
 import { persistableLatency } from '../utils/latency-persistence.js'
 import { success, error } from '../utils/response.js'
+// L01 统一权限决策:入口准入
+import { permissionDeniedMessage, requireEntryPermission } from '../services/permission-entries.js'
 // 内部调用主体:与 v1-knowledge-tools / v1-multimodal 同一个出口(单一真相源,不另签一份)
 import { mintInternalJwt } from './v1-shared.js'
 // F-49(2026-11-08):转发统一走仓内既有 deadline 实现(默认 60s + AiServiceTimeoutError),
@@ -286,6 +288,19 @@ const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { name, arguments: args } = parsed.data
+
+    // L01:入口准入(参数级判据仍在 ai-service 侧;这里只判"这条入口这次调用可否进入")。
+    try {
+      await requireEntryPermission({
+        entry: 'mcp',
+        sessionId: request.id,
+        userId: apiKey.userId,
+      })
+    } catch (e) {
+      const denied = permissionDeniedMessage(e)
+      if (denied) return reply.status(403).send(error(403, denied))
+      throw e
+    }
     // 格②(2026-09-26):原 `const startTime = Date.now()` 是墙钟 epoch,换成单调钟表
     const sw = startStopwatch()
 

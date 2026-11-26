@@ -1480,6 +1480,41 @@ class BrowserSession:
     async def task_state(self) -> dict[str, Any]:
         return self._task_state()
 
+    async def live_state(self) -> dict[str, Any]:
+        """PIP HTTP 通道用的轻量状态:不取 cookies,只给画面配套的导航/任务/phase。"""
+        return {
+            "url": await self.get_current_url(),
+            "title": await self.get_title(),
+            "phase": dict(self._phase_state),
+            **self._task_state(),
+        }
+
+    def persisted_state(self) -> dict[str, Any]:
+        """可跨进程恢复的任务/phase 快照(仅内部持久化用,不对外)。"""
+        import copy
+
+        return {
+            "task": copy.deepcopy(self._task),
+            "phase": copy.deepcopy(self._phase_state),
+            "phase_source": self._phase_source,
+        }
+
+    def restore_persisted_state(self, record: dict[str, Any]) -> None:
+        """启动恢复:任务与 phase 原样接回,检查点等待继续计时。"""
+        task = record.get("task")
+        if not isinstance(task, dict):
+            return
+        import copy
+
+        self._task = copy.deepcopy(task)
+        phase = record.get("phase")
+        if isinstance(phase, dict) and phase.get("phase") in self._PHASE_VALUES:
+            self._phase_state = copy.deepcopy(phase)
+            self._phase_source = str(record.get("phase_source") or "system")
+        active = active_checkpoint(self._task)
+        if active is not None:
+            self._schedule_checkpoint_timeout(active)
+
     async def enter_checkpoint(
         self, checkpoint_id: str, reason: str | None = None
     ) -> dict[str, Any]:
@@ -2103,6 +2138,46 @@ def _registration_session_matches(
 # ---------------------------------------------------------------------------
 # BrowserHub:单例,管理持续运行的 Chromium 实例
 # ---------------------------------------------------------------------------
+_SESSION_STORE_VERSION = 1
+_SESSION_STORE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
+
+
+def _session_store_path() -> Path:
+    configured = os.environ.get("IHUI_BROWSER_SESSION_STORE_PATH", "").strip()
+    if configured:
+        return Path(configured).expanduser()
+    return Path.home() / ".ihui" / "browser-sessions.json"
+
+
+def _read_persisted_sessions() -> list[dict[str, Any]]:
+    path = _session_store_path()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return []
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"[browser_hub] 会话持久化文件不可读,忽略: {exc}")
+        return []
+    if not isinstance(payload, dict) or payload.get("version") != _SESSION_STORE_VERSION:
+        return []
+    rows = payload.get("sessions")
+    return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+
+
+def _write_persisted_sessions(rows: list[dict[str, Any]]) -> None:
+    path = _session_store_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    payload = {"version": _SESSION_STORE_VERSION, "sessions": rows}
+    tmp.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    try:
+        os.chmod(tmp, 0o600)
+    except OSError:
+        pass
+    tmp.replace(path)
+    logger.info(f"[browser_hub] 已持久化 {len(rows)} 个会话到 {path}")
+
+
 class BrowserHub:
     """浏览器中枢:管理持续运行的 Chromium 实例 + 多 session。
 
@@ -2133,6 +2208,17 @@ class BrowserHub:
         # tab 级作用域登记表:tab_id → 创建时盖的章(属主 + 会话态)。
         # 动作面 require_tab 只认这张表;`_sessions` 是"会话存续",两者缺一不可。
         self._tab_registry: dict[str, BrowserTabRegistration] = {}
+        # 2026-11-26:服务重启不再丢会话。记录只含会话元数据/任务/phase,不含 cookie;
+        # 启动时按原 session_id 重建页面,任务条与检查点等待一并接回。
+        self._persisted_sessions: dict[str, dict[str, Any]] = {
+            str(row.get("session_id")): row
+            for row in _read_persisted_sessions()
+            if row.get("session_id") and row.get("owner_user_id")
+        }
+        self._persist_lock = asyncio.Lock()
+        self._restored = False
+        self._restoring = False
+        self._snapshot_task: asyncio.Task[None] | None = None
 
     async def start(self) -> None:
         """启动 Chromium 实例(应用启动时调用)。"""
@@ -2162,9 +2248,20 @@ class BrowserHub:
             await asyncio.get_running_loop().run_in_executor(self._executor, _sync_start)
             self._started = True
             logger.info("[browser_hub] Chromium 实例已启动")
+            await self._restore_persisted_sessions()
+            if self._snapshot_task is None or self._snapshot_task.done():
+                self._snapshot_task = asyncio.create_task(self._session_snapshot_loop())
 
     async def stop(self) -> None:
         """关闭 Chromium 实例(应用关闭时调用)。"""
+        if self._snapshot_task is not None:
+            self._snapshot_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._snapshot_task
+            self._snapshot_task = None
+        if self._started:
+            # 先落一次最新快照;即使本次是正常停机,下次启动也要把会话接回来。
+            await self.persist_sessions()
         async with self._lock:
             for session_id in list(self._sessions.keys()):
                 await self._close_session_internal(session_id)
@@ -2186,7 +2283,113 @@ class BrowserHub:
             self._browser = None
             self._playwright = None
             self._started = False
+            self._restored = False
             logger.info("[browser_hub] Chromium 实例已关闭")
+
+    async def persist_sessions(self) -> None:
+        """把当前活会话的元数据/任务/phase 原子落盘;失败只告警,不影响主链路。"""
+        if self._restoring:
+            return
+        rows: list[dict[str, Any]] = []
+        now = time.time()
+        live_ids = set(self._sessions)
+        for sid, session in list(self._sessions.items()):
+            existing = self._persisted_sessions.get(sid) or {}
+            try:
+                url = await session.get_current_url()
+                title = await session.get_title()
+            except Exception:
+                # 停机时 page 可能已被浏览器关闭；已有记录必须原样保留，
+                # 不能因为这一轮读不到 URL 就把恢复的唯一副本写成空数组。
+                if not existing:
+                    continue
+                url = str(existing.get("url") or "about:blank")
+                title = str(existing.get("title") or "")
+            row = {
+                **existing,
+                "session_id": sid,
+                "owner_user_id": session.owner_user_id,
+                "url": url,
+                "title": title,
+                "updated_at": now,
+            }
+            row.update(session.persisted_state())
+            self._persisted_sessions[sid] = row
+            rows.append(row)
+        # 未恢复成功的旧会话记录不能因为「这次没活着」就被快照抹掉；
+        # 保留它，下次启动仍有机会按原 session_id 接回。
+        for sid, row in list(self._persisted_sessions.items()):
+            if sid not in live_ids and now - float(row.get("updated_at") or 0) <= _SESSION_STORE_MAX_AGE_SECONDS:
+                rows.append(row)
+        # 同一账号最多保留 5 条(与 _MAX_SESSIONS_PER_OWNER 对齐);超龄的直接清掉。
+        rows = [
+            row for row in rows
+            if now - float(row.get("updated_at") or 0) <= _SESSION_STORE_MAX_AGE_SECONDS
+        ]
+        rows.sort(key=lambda row: float(row.get("updated_at") or 0), reverse=True)
+        bounded: list[dict[str, Any]] = []
+        owner_counts: dict[str, int] = {}
+        for row in rows:
+            owner = str(row.get("owner_user_id") or "")
+            count = owner_counts.get(owner, 0)
+            if count >= self._MAX_SESSIONS_PER_OWNER:
+                continue
+            owner_counts[owner] = count + 1
+            bounded.append(row)
+        async with self._persist_lock:
+            try:
+                await asyncio.to_thread(_write_persisted_sessions, bounded)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(f"[browser_hub] 会话持久化失败: {exc}")
+
+    async def _session_snapshot_loop(self) -> None:
+        while self._started:
+            try:
+                await asyncio.sleep(5)
+                if self._started:
+                    await self.persist_sessions()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(f"[browser_hub] 会话快照循环异常: {exc}")
+
+    async def _restore_persisted_sessions(self) -> None:
+        """进程启动后按原 session_id 重建页面;任务/phase 交给会话自己接回。"""
+        if self._restored:
+            return
+        self._restored = True
+        self._restoring = True
+        now = time.time()
+        rows = sorted(
+            self._persisted_sessions.values(),
+            key=lambda row: float(row.get("updated_at") or 0),
+            reverse=True,
+        )
+        for row in rows:
+            sid = str(row.get("session_id") or "")
+            owner = str(row.get("owner_user_id") or "")
+            if not sid or not owner or sid in self._sessions:
+                continue
+            if now - float(row.get("updated_at") or 0) > _SESSION_STORE_MAX_AGE_SECONDS:
+                self._persisted_sessions.pop(sid, None)
+                continue
+            try:
+                session = await self.create_session(
+                    url=str(row.get("url") or "") or None,
+                    session_id=sid,
+                    viewport=row.get("viewport") if isinstance(row.get("viewport"), dict) else None,
+                    user_agent=str(row.get("user_agent") or "") or None,
+                    owner_user_id=owner,
+                    chat_session_id=str(row.get("chat_session_id") or "") or None,
+                    dedupe=False,
+                )
+                session.restore_persisted_state(row)
+                logger.info(f"[browser_hub] 已恢复会话 {sid} ({row.get('url') or 'about:blank'})")
+            except Exception as exc:  # noqa: BLE001
+                # 页面被平台关闭/URL 失效不能拖垮整个服务;记录留到下次再试。
+                logger.warning(f"[browser_hub] 恢复会话 {sid} 失败: {exc}")
+        self._restoring = False
+        await self.persist_sessions()
 
     async def create_session(
         self,
@@ -2196,6 +2399,7 @@ class BrowserHub:
         user_agent: str | None = None,
         owner_user_id: str | None = None,
         chat_session_id: str | None = None,
+        dedupe: bool = True,
     ) -> BrowserSession:
         """创建新的浏览器会话(带 URL 幂等去重)。
 
@@ -2219,7 +2423,7 @@ class BrowserHub:
                 raise ValueError(f"URL 不允许访问: {reason}")
 
         # ---- 幂等去重:同一 URL 短时间内的重复请求返回已有会话 ----
-        if url:
+        if url and dedupe:
             import time as _time
             now = _time.monotonic()
             # 清理过期条目
@@ -2282,6 +2486,22 @@ class BrowserHub:
         if url:
             import time as _time
             self._recent_creations[url] = (session_id, _time.monotonic())
+        record = self._persisted_sessions.get(session_id) or {}
+        record.update(
+            {
+                "session_id": session_id,
+                "owner_user_id": owner_user_id,
+                "chat_session_id": chat_session_id,
+                "url": url or record.get("url") or "about:blank",
+                "viewport": vp,
+                "user_agent": ua,
+                "updated_at": time.time(),
+            }
+        )
+        self._persisted_sessions[session_id] = record
+        if self._restored:
+            # 新建会话立即落一条,进程在下一个 5s 快照前崩溃也能恢复。
+            asyncio.create_task(self.persist_sessions())
         logger.info(f"[browser_hub] 创建 session {session_id} (url={url})")
         return session
 
@@ -2372,7 +2592,9 @@ class BrowserHub:
             old_registration = self._tab_registry.get(session_id)
             url = await old.get_current_url()
             vp = old.viewport
-            await self._close_session_internal(session_id)
+            old_state = old.persisted_state()
+            old_record = self._persisted_sessions.get(session_id) or {}
+            await self._close_session_internal(session_id, forget=True)
             new_id = str(uuid.uuid4())
             session = await self._build_session(
                 url=url or None,
@@ -2381,7 +2603,14 @@ class BrowserHub:
                 user_agent=old._user_agent,
                 owner_user_id=old.owner_user_id,
             )
+            session.restore_persisted_state(old_state)
             self._sessions[new_id] = session
+            self._persisted_sessions[new_id] = {
+                **old_record,
+                "session_id": new_id,
+                "url": url or old_record.get("url") or "about:blank",
+                "updated_at": time.time(),
+            }
             self._register_tab(
                 new_id,
                 old.owner_user_id,
@@ -2390,6 +2619,7 @@ class BrowserHub:
             if url:
                 import time as _time
                 self._recent_creations[url] = (new_id, _time.monotonic())
+            asyncio.create_task(self.persist_sessions())
             logger.info(f"[browser_hub] 风控墙重建 session {session_id} -> {new_id} (url={url})")
             return session
 
@@ -2473,7 +2703,11 @@ class BrowserHub:
     async def close_tab(self, scope: BrowserTabScope) -> bool:
         """按作用域关闭这一枚 tab:先过 `require_tab`,再走既有内部关闭出口。"""
         session = self.require_tab(scope)
-        return await self._close_session_internal(session.session_id)
+        async with self._lock:
+            ok = await self._close_session_internal(session.session_id, forget=True)
+        if ok:
+            await self.persist_sessions()
+        return ok
 
     # ---- 外部 Chrome 扫码登录(2026-09-02 新增,2026-09-16 改为复用用户真实 profile)----
     async def launch_external_chrome(
@@ -2710,12 +2944,17 @@ class BrowserHub:
         if self.get_session(session_id, owner_user_id) is None:
             return False
         async with self._lock:
-            return await self._close_session_internal(session_id)
+            ok = await self._close_session_internal(session_id, forget=True)
+        if ok:
+            await self.persist_sessions()
+        return ok
 
-    async def _close_session_internal(self, session_id: str) -> bool:
+    async def _close_session_internal(self, session_id: str, *, forget: bool = False) -> bool:
         session = self._sessions.pop(session_id, None)
         if not session:
             return False
+        if forget:
+            self._persisted_sessions.pop(session_id, None)
         # 摘账:登记与存续同生命周期。留着一条已关 tab 的登记 = 作用域判定会先"命中"
         # 一枚不存在的 tab(require_tab 的第 5 步会兜住并摘掉,但那条路径是异常残留,
         # 不能当常规回收口)。

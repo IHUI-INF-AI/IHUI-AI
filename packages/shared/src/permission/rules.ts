@@ -138,7 +138,14 @@ export interface ApprovalFacts {
  */
 export interface RuleMatch {
   always?: true
+  /** 工具名匹配:`p` 本身或 `p.` 前缀(历史语义,保留给族级规则)。 */
   tool?: string | readonly string[]
+  /**
+   * 工具名**精确**相等(2026-11-26,入口族窄 allow 用)。`tool` 是前缀语义,`crew.tool.execute`
+   * 会把 `crew.tool.execute.unknown` 一起放进来 —— 要给"这一条入口"放行、又不给同前缀的后来者
+   * 搭车,必须用这一格。两者可同时给(合取)。
+   */
+  toolExact?: string | readonly string[]
   toolFamily?: ApprovalToolFamily
   outsideWorkspace?: boolean
   credentialPath?: boolean
@@ -712,6 +719,10 @@ function matchRule(match: RuleMatch, facts: ApprovalFacts): boolean {
   if (match.tool !== undefined) {
     const wanted = Array.isArray(match.tool) ? match.tool : [match.tool]
     checks.push(wanted.some((t) => toolMatchesPattern(String(t), facts.tool)))
+  }
+  if (match.toolExact !== undefined) {
+    const wanted = Array.isArray(match.toolExact) ? match.toolExact : [match.toolExact]
+    checks.push(wanted.some((t) => String(t).trim() === facts.tool.trim()))
   }
   if (match.toolFamily !== undefined) checks.push(facts.toolFamily === match.toolFamily)
   if (match.outsideWorkspace !== undefined)

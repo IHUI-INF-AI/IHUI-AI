@@ -31,6 +31,8 @@ import {
   getScrollback,
   TERMINAL_HISTORY_PAGE_MAX,
 } from '../services/terminal-service.js'
+// L01 统一权限决策:入口准入走同一出口(参数级判据仍由终端 ACL 与 requireTerminalAccess 管)
+import { permissionDeniedMessage, requireEntryPermission } from '../services/permission-entries.js'
 
 export const terminalRoutes: FastifyPluginAsync = async (server) => {
   // 鉴权 helper(同 v1-apply-diff.ts 模式)
@@ -95,6 +97,19 @@ export const terminalRoutes: FastifyPluginAsync = async (server) => {
     const parsed = createSchema.safeParse(request.body ?? {})
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    // L01:入口准入。放行凭据落 evidenceRef(allow.entry.terminal-session),拒绝按同一话术回 403。
+    try {
+      await requireEntryPermission({
+        entry: 'terminal',
+        sessionId: request.id,
+        userId: request.userId,
+      })
+    } catch (e) {
+      const denied = permissionDeniedMessage(e)
+      if (denied) return reply.status(403).send(error(403, denied))
+      throw e
     }
 
     try {
