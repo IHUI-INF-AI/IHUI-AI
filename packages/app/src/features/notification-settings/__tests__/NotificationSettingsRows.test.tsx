@@ -111,5 +111,45 @@ describe('NotificationSettingsScreen 端侧数据驱动', () => {
     )
     expect(screen.queryByText('settings.notificationsTitle')).toBeNull()
   })
+
+  it('铃声区块：传 ringtone 后标题/开关/各铃声名都渲染', () => {
+    const onToggleSound = vi.fn()
+    const onSelectRingtone = vi.fn()
+    const onPreviewRingtone = vi.fn()
+    render(
+      <NotificationSettingsScreen
+        {...baseProps}
+        items={[{ key: 'pushEnabled', label: '推送', enabled: true }]}
+        ringtone={{
+          soundEnabled: true,
+          soundToggleLabel: '新消息提示音',
+          ringtoneId: 'chime',
+          ringtoneIds: ['chime', 'knock'],
+          ringtoneNames: { chime: '和弦铃', knock: '轻敲' },
+          title: '通知铃声',
+          desc: '选择提示音',
+          previewLabel: '试听',
+          onToggleSound,
+          onSelectRingtone,
+          onPreviewRingtone,
+        }}
+      />,
+    )
+    expect(screen.getByText('新消息提示音')).toBeTruthy()
+    expect(screen.getByText('通知铃声')).toBeTruthy()
+    expect(screen.getByText('和弦铃')).toBeTruthy()
+    expect(screen.getByText('轻敲')).toBeTruthy()
+  })
+
+  it('阴性对照：不传 ringtone 时铃声区块整块不出现（未接入端零波及）', () => {
+    render(
+      <NotificationSettingsScreen
+        {...baseProps}
+        items={[{ key: 'pushEnabled', label: '推送', enabled: true }]}
+      />,
+    )
+    expect(screen.queryByText('通知铃声')).toBeNull()
+    expect(screen.queryByText('新消息提示音')).toBeNull()
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

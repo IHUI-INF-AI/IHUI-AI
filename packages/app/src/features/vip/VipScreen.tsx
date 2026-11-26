@@ -487,14 +487,15 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
+      // 描边参与选中态切换(active 换金色),默认态走中性角色档,不用 transparent 占位。
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tk.stroke.subtle,
     },
     methodCardActive: { borderColor: baseTokens.vip.gold, backgroundColor: tk.surface.muted },
     methodBadge: {
       width: 26,
       height: 26,
-      borderRadius: 13,
+      borderRadius: '50%',
       textAlign: 'center',
       lineHeight: rnType.subtitle.lineHeight,
       overflow: 'hidden',

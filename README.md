@@ -1588,3 +1588,4 @@ Two structural gates are named here so they cannot be re-invented or bypassed si
 - 📚 文档:auto 无感口径的残留注释与 props 说明归位 (822d71e4)
 - 🚀 新功能/改进:取证地基两件——审计策略哨兵与安全事件增量落盘 (2e21b060)
 - 📚 文档:纠正七十四 WorkBuddy CLI serve 直起成功但两条 run 卡账号鉴权门，判定未翻转 (d2b0bdb1)
+- ♻️ 重构:彻底移除 旧聚合上游 供应商与全部依赖配置 (de53023c)

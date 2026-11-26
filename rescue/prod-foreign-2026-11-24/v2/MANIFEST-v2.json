@@ -2,7 +2,7 @@
   "kind": "prod-checkout-foreign-work-v2",
   "createdAt": "2026-11-24T11:19:15.692Z",
   "source": "D:\\DevEnv\\ihui-prod",
-  "note": "v2 增量:首次快照(15:5x)之后新增/变化的改动,含其它会话正在写的 oauth-queries.ts / auth-extended.ts。用于覆盖\"快照时点之后仍在变化\"的窗口。",
+  "note": "v2 增量:首次快照(15:5x)之后新增/变化的改动,含其它会话正在写的 oauth-queries.ts / auth-extended.ts。用于覆盖\"快照时点之后仍在变化\"的窗口。2026-11-26 脱敏:单个已下线供应商的 provider 路径在本索引中以 [redacted-legacy-provider] 占位,bytes/mtime/哈希仍为原始快照值,记录未删除,fileCount 与 totalBytes 不变。",
   "fileCount": 105,
   "totalBytes": 35250308,
   "files": [
@@ -106,7 +106,8 @@
       "sha256": "53021c9b77aa3b1692813a6a1dc878306e80be095e222445627d55ecb0332cf2"
     },
     {
-      "rel": "apps/ai-service/app/providers/token6688_provider.py",
+      "rel": "apps/ai-service/app/providers/[redacted-legacy-provider].py",
+      "relRedacted": true,
       "xy": " M",
       "present": true,
       "bytes": 71958,

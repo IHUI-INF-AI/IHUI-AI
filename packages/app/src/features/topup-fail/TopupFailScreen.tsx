@@ -22,7 +22,7 @@ export type { TopupFailScreenProps }
  */
 export function TopupFailScreen({
   t,
-  reason = '充值未完成,请稍后重试',
+  reason = '充值未完成，请稍后重试',
   onRetry,
   onContactService,
   onBack,

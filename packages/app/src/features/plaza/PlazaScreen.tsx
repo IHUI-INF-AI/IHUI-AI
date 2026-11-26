@@ -467,14 +467,14 @@ function createStyles(tk: AppThemeTokens) {
     // 外层只留"在 column 里排下一张"的布局档;卡面档(内边距/圆角/底色/描边)在下面的 card,
     // 由内层 View 承载 —— 拆层是为了把按压态从 Pressable 的 style 上摘下来(守门 131 那一型)。
     cardBox: {
-      marginBottom: 9,
+      marginBottom: rnSpacing.sm,
     } as ViewStyle,
     card: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
-      backgroundColor: tk.surface.light,
-      borderWidth: 1,
-      borderColor: 'transparent',
+      // 暗色下 surface.light(#262626) 与页底(#242424)只差 2 阶,卡片融进背景;
+      // surface.card 暗色 #1A1A1A 才有分层。按压态 cardPressed 只换底色,无需透明描边占位。
+      backgroundColor: tk.surface.card,
     } as ViewStyle,
     cardPressed: {
       backgroundColor: tk.surface.muted,

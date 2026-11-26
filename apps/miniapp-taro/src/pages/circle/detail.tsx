@@ -372,7 +372,7 @@ export default function CircleDetailPage() {
                 ))}
               </View>
             ) : (
-              <EmptyState title={tt('circle.detail.noComments', '暂无评论,快来抢沙发')} />
+              <EmptyState title={tt('circle.detail.noComments', '暂无评论，快来抢沙发')} />
             )}
           </View>
         </ScrollView>

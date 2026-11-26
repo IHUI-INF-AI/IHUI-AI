@@ -3,21 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Check, Play } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnSpacing, rnType } from '@ihui/design-tokens'
+import { NotificationSettingsScreen as SharedNotificationSettingsScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
@@ -54,6 +47,7 @@ const CHANNEL_ROWS: ChannelRow[] = [
 
 export function NotificationSettingsScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const [settings, setSettings] = useState<NotificationSettingsMap | null>(null)
   const [soundEnabledState, setSoundEnabledState] = useState(true)
@@ -168,6 +162,17 @@ export function NotificationSettingsScreen() {
     }
   }
 
+  // UI 已整体下沉到 @ihui/rn-app 共享屏(与小程序端同一份渲染)。
+  // 本壳只保留四处:①导航条 ②loading/error 宿主惯例 ③取数/持久化/响铃 lib ④端侧文案注入。
+  const items = CHANNEL_ROWS.map((row) => ({
+    key: row.key,
+    label: t(row.labelKey),
+    enabled: Boolean(settings?.[row.key]),
+  }))
+  const ringtoneNames = Object.fromEntries(
+    RINGTONE_ID_LIST.map((id) => [id, t(`notificationSettings.ringtoneNames.${id}`)]),
+  )
+
   return (
     <View style={styles.container}>
       <NavChrome>
@@ -186,109 +191,42 @@ export function NotificationSettingsScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <>
-            <View style={styles.card}>
-              <Text style={styles.desc}>{t('notificationSettings.desc')}</Text>
-            </View>
-
-            <View style={styles.card}>
-              {CHANNEL_ROWS.map((row) => (
-                <View key={row.key} style={styles.row}>
-                  <Text style={styles.rowLabel}>{t(row.labelKey)}</Text>
-                  <Switch
-                    value={Boolean(settings?.[row.key])}
-                    onValueChange={(v) => handleChannelToggle(row.key, v)}
-                    trackColor={{ true: tokens.brand.cta, false: tokens.surface.muted }}
-                  />
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.card}>
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>{t('notificationSettings.soundToggle')}</Text>
-                <Switch
-                  value={soundEnabledState}
-                  onValueChange={(v) => void handleSoundToggle(v)}
-                  trackColor={{ true: tokens.brand.cta, false: tokens.surface.muted }}
-                />
-              </View>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>{t('notificationSettings.ringtoneTitle')}</Text>
-              <Text style={styles.sectionDesc}>{t('notificationSettings.ringtoneDesc')}</Text>
-              {RINGTONE_ID_LIST.map((id) => (
-                <RingtoneRow
-                  key={id}
-                  name={t(`notificationSettings.ringtoneNames.${id}`)}
-                  selected={ringtoneId === id}
-                  onSelect={() => handleSelectRingtone(id)}
-                  onPreview={() => handlePreview(id)}
-                  previewLabel={t('notificationSettings.ringtonePreview')}
-                />
-              ))}
-            </View>
-
-            <TouchableOpacity
-              style={styles.linkRow}
-              onPress={() => navigation.navigate('MessageCenter')}
-              accessibilityRole="button"
-              activeOpacity={0.7}
-            >
-              <Text style={styles.rowLabel}>{t('messageCenter.title')}</Text>
-            </TouchableOpacity>
-
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            {success ? <Text style={styles.successText}>{success}</Text> : null}
-
-            <TouchableOpacity
-              style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-              onPress={handleSave}
-              disabled={saving}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.saveBtnText}>
-                {saving ? t('notificationSettings.saving') : t('notificationSettings.save')}
-              </Text>
-            </TouchableOpacity>
-          </>
+          <SharedNotificationSettingsScreen
+            t={t}
+            items={items}
+            onToggle={handleChannelToggle}
+            onSave={() => void handleSave()}
+            onBack={() => navigation.goBack()}
+            loading={false}
+            saving={saving}
+            error=""
+            success={success}
+            showHeader={false}
+            colorScheme={resolvedTheme}
+            extraLinks={[
+              {
+                key: 'message-center',
+                label: t('messageCenter.title'),
+                onPress: () => navigation.navigate('MessageCenter'),
+              },
+            ]}
+            ringtone={{
+              soundEnabled: soundEnabledState,
+              soundToggleLabel: t('notificationSettings.soundToggle'),
+              ringtoneId,
+              ringtoneIds: RINGTONE_ID_LIST,
+              ringtoneNames,
+              title: t('notificationSettings.ringtoneTitle'),
+              desc: t('notificationSettings.ringtoneDesc'),
+              previewLabel: t('notificationSettings.ringtonePreview'),
+              onToggleSound: (v) => void handleSoundToggle(v),
+              onSelectRingtone: (id) => handleSelectRingtone(id as RingtoneId),
+              onPreviewRingtone: (id) => handlePreview(id as RingtoneId),
+            }}
+          />
         )}
       </ScrollView>
     </View>
-  )
-}
-
-interface RingtoneRowProps {
-  name: string
-  selected: boolean
-  previewLabel: string
-  onSelect: () => void
-  onPreview: () => void
-}
-
-/** 单个铃声选项:整行可选中(radio 语义),右侧独立试听按钮;选中态有读屏等价标签。 */
-function RingtoneRow({ name, selected, previewLabel, onSelect, onPreview }: RingtoneRowProps) {
-  return (
-    <TouchableOpacity
-      style={styles.ringtoneRow}
-      onPress={onSelect}
-      accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
-      accessibilityLabel={name}
-      activeOpacity={0.7}
-    >
-      <Text style={[styles.rowLabel, styles.flexOne]}>{name}</Text>
-      <TouchableOpacity
-        onPress={onPreview}
-        accessibilityRole="button"
-        accessibilityLabel={previewLabel}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Play size={18} color={tokens.text.medium} />
-      </TouchableOpacity>
-      {selected ? <Check size={18} color={tokens.brand.DEFAULT} strokeWidth={3} /> : null}
-    </TouchableOpacity>
   )
 }
 
@@ -296,48 +234,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
   body: { padding: rnSpacing.lg, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
   centerBox: { alignItems: 'center', justifyContent: 'center', paddingVertical: rnSpacing['3xl'] },
-  card: {
-    padding: rnSpacing.lg,
-    borderRadius: rnRadius.lg,
-    backgroundColor: tokens.surface.card,
-    gap: rnSpacing.sm,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: rnSpacing.md,
-    gap: rnSpacing.md,
-  },
-  ringtoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: rnSpacing.md,
-    gap: rnSpacing.md,
-  },
-  rowLabel: { ...rnType.body, color: tokens.text.primary },
-  flexOne: { flex: 1 },
-  desc: { ...rnType.body, color: tokens.text.secondary },
-  sectionTitle: { ...rnType.body, fontWeight: '600', color: tokens.text.primary },
-  sectionDesc: { fontSize: rnType.label.size, color: tokens.text.medium },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: rnSpacing.md,
-  },
   errorText: { ...rnType.body, color: tokens.danger.deepText },
-  successText: { ...rnType.body, color: tokens.success.deepText },
   retryText: { ...rnType.body, color: tokens.brandAccent.deep, marginTop: rnSpacing.sm },
-  saveBtn: {
-    marginTop: rnSpacing.sm,
-    borderRadius: rnRadius.md,
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: tokens.brand.cta,
-  },
-  saveBtnDisabled: { backgroundColor: tokens.text.secondary },
-  saveBtnText: { color: tokens.brand.ctaForeground, ...rnType.title },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -5,7 +5,7 @@
 import { useState, useMemo, type CSSProperties } from 'react'
 import { useI18n, useTt, type TtFn } from '@/i18n'
 import { View, Text } from '@tarojs/components'
-import { cn, rnRadius, TARO_RPX_PER_PX, taroSpacing } from '@ihui/design-tokens'
+import { cn, rnRadius, TARO_RPX_PER_PX, taroSpacing, taroType } from '@ihui/design-tokens'
 import {
   MODEL_LIST_AGENT_GLYPH_PX,
   MODEL_LIST_BADGE_FONT_PX,
@@ -377,7 +377,12 @@ export default function ModelList({
                     background: 'var(--color-muted)',
                   }}
                 >
-                  <Text style={{ fontSize: rpx(20), color: 'var(--color-muted-foreground)' }}>
+                  <Text
+                    style={{
+                      fontSize: taroType.badge.fontSize,
+                      color: 'var(--color-muted-foreground)',
+                    }}
+                  >
                     {model.name.charAt(0)}
                   </Text>
                 </View>
@@ -485,7 +490,7 @@ export default function ModelList({
               <View className="flex items-center">
                 <Text
                   style={{
-                    fontSize: rpx(20),
+                    fontSize: taroType.badge.fontSize,
                     color: 'var(--color-muted-foreground)',
                     marginRight: rpx(taroSpacing['xs-loose']),
                   }}
@@ -584,7 +589,10 @@ export default function ModelList({
                           }}
                         >
                           <Text
-                            style={{ fontSize: rpx(20), color: 'var(--color-muted-foreground)' }}
+                            style={{
+                              fontSize: taroType.badge.fontSize,
+                              color: 'var(--color-muted-foreground)',
+                            }}
                           >
                             {model.name.charAt(0)}
                           </Text>
@@ -603,7 +611,7 @@ export default function ModelList({
                       <View className="flex items-center">
                         <Text
                           style={{
-                            fontSize: rpx(20),
+                            fontSize: taroType.badge.fontSize,
                             color: 'var(--color-muted-foreground)',
                             marginRight: rpx(taroSpacing['xs-loose']),
                           }}

@@ -93,7 +93,7 @@ export default function PlazaIndex() {
         setError('')
       } catch (e) {
         logger.error('plaza/index', 'load plaza list failed', e)
-        setError(tt('plaza.index.loadFail', '加载失败,请稍后重试'))
+        setError(tt('plaza.index.loadFail', '加载失败，请稍后重试'))
       } finally {
         busyRef.current = false
         setLoading(false)

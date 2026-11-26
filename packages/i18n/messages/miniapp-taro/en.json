@@ -4402,6 +4402,9 @@
     "loadFailed": "Failed to load"
   },
   "webViewPortal": {
+    "hrMyPerf": "My performance",
+    "hrMyTraining": "My training",
+    "hrMyExpense": "My expenses",
     "news": "News",
     "learnTopic": "Topic Lessons",
     "kbSearch": "Knowledge Search",

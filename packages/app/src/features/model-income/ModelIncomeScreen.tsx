@@ -424,7 +424,7 @@ function createStyles(tk: AppThemeTokens) {
     payRadio: {
       width: 18,
       height: 18,
-      borderRadius: 9,
+      borderRadius: '50%',
       borderWidth: 2,
       borderColor: tk.brandAccent.deep,
       backgroundColor: tk.brand.cta,

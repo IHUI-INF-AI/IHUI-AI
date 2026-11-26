@@ -417,7 +417,9 @@ function createStyles(tk: AppThemeTokens) {
     tagLive: { backgroundColor: tk.danger.DEFAULT },
     tagUpcoming: { backgroundColor: tk.warning.DEFAULT },
     tagText: { fontSize: rnType.label.size, fontWeight: '600', color: '#FFFFFF' },
-    tagUpcomingText: { color: '#1A1A1A' },
+    // 直播标签红底(#dc2626)压白字;预告标签黄底(#f59e0b)上白字对比不足,
+    // 用专为 amber 底校准的 onAmber(#5c230e,明暗同值,对比≥4.5),不再硬编码近黑。
+    tagUpcomingText: { color: tk.warning.onAmber },
     metaText: { marginTop: rnSpacing.xs, fontSize: rnType.bodySm.size, color: tk.text.secondary },
     metaTertiary: { marginTop: rnSpacing.xs, fontSize: rnType.label.size, color: tk.text.medium },
     priceText: {

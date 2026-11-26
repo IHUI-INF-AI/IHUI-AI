@@ -161,8 +161,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
-      borderWidth: 1,
-      borderColor: 'transparent',
+      // 卡片无选中态切换、底色已分区,无需 1px 透明描边占位。
       marginBottom: rnSpacing['sm-loose'],
     },
     cardHeader: {

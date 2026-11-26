@@ -5,7 +5,7 @@
 import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { rpx } from '@/utils/rpx'
-import { rnRadius, taroSpacing } from '@ihui/design-tokens'
+import { taroType, rnRadius, taroSpacing } from '@ihui/design-tokens'
 
 /**
  * NewTitle 热门资讯列表组件
@@ -40,7 +40,7 @@ export default function NewTitle({ items, onItemClick }: NewTitleProps) {
     >
       <Text
         style={{
-          fontSize: rpx(30),
+          fontSize: taroType.strong.fontSize,
           fontWeight: 'bold',
           color: 'var(--color-foreground)',
           marginBottom: rpx(16),
@@ -74,7 +74,7 @@ export default function NewTitle({ items, onItemClick }: NewTitleProps) {
           />
           <Text
             style={{
-              fontSize: rpx(28),
+              fontSize: taroType.body.fontSize,
               color: 'var(--color-foreground)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',

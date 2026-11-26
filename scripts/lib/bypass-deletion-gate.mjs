@@ -81,7 +81,7 @@ export function judgeBypassDeletions({
     // 仍然照旧判红,门的阈值不变。
     // 2026-11-26 同一格补 rescue/**:该族是 AGENTS §0.14 生产签出外来改动快照(v1/v2 MANIFEST),
     // 其 `rel` 字段是**库存记录**——记录"快照当时该路径存在",不是 import/require,删了被引路径
-    // 不影响干净检出构建。实测 de53023c(token6688 下线,带 intentional-delete 的有权裁决)被这格
+    // 不影响干净检出构建。实测 de53023c(旧聚合上游下线,带 intentional-delete 的有权裁决)被这格
     // 卡成恒红,与上方 model-edit-save 批同型;判据只扩到 path-literal 形态,与 scripts/** 先例
     // 一字同权,alias/relative 照旧判红。
     const INVENTORY_RECORD_ROOTS = ['scripts/', 'rescue/']

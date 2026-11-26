@@ -7,7 +7,6 @@
 // extraLinks(小程序 3 条小程序可达目标 / RN 1 条 MessageCenter)。
 import { useCallback, useMemo, useState } from 'react'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { View, Text, Image } from '@tarojs/components'
 import { NotificationSettingsScreen as SharedNotificationSettingsScreen } from '@ihui/rn-app/features/notification-settings/NotificationSettingsScreen'
 import type { NotificationSettingsLink, NotificationSettingsRow } from '@ihui/types'
 import {
@@ -22,7 +21,6 @@ import {
   updateNotificationSettingsKv,
 } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import Switch from '@/components/Switch'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useI18n } from '@/i18n'
 import { useAppTheme } from '@/lib/theme'
@@ -148,6 +146,40 @@ export default function NotificationPage() {
     previewRingtone(id)
   }, [])
 
+  // 铃声区块配置:文案走小程序自己的 setting.notification.* 词典(含缺词兜底),
+  // UI 渲染交给共享屏,与 RN 端同一份渲染层(2026-11-26 三端统一)。
+  const ringtoneNames = useMemo(
+    () =>
+      Object.fromEntries(
+        RINGTONE_IDS.map((id) => [id, tt(`setting.notification.ringtone.${id}`, RINGTONE_FALLBACK[id])]),
+      ),
+    [tt],
+  )
+  const ringtone = useMemo(
+    () => ({
+      soundEnabled,
+      soundToggleLabel: tt('setting.notification.soundLabel', '新消息提示音'),
+      ringtoneId,
+      ringtoneIds: RINGTONE_IDS,
+      ringtoneNames,
+      title: tt('setting.notification.ringtoneTitle', '通知铃声'),
+      desc: tt('setting.notification.ringtoneDesc', '选择一条通知提示音'),
+      previewLabel: tt('setting.notification.ringtonePreview', '试听'),
+      onToggleSound: onToggleSound,
+      onSelectRingtone: (id: string) => onSelectRingtone(id as RingtoneId),
+      onPreviewRingtone: (id: string) => onPreviewRingtone(id as RingtoneId),
+    }),
+    [
+      soundEnabled,
+      ringtoneId,
+      ringtoneNames,
+      onToggleSound,
+      onSelectRingtone,
+      onPreviewRingtone,
+      tt,
+    ],
+  )
+
   const items: readonly NotificationSettingsRow[] = useMemo(
     () =>
       list.map((item) => ({
@@ -248,64 +280,8 @@ export default function NotificationPage() {
         onBack={onBack}
         onRetry={() => void load()}
         colorScheme={resolved}
+        ringtone={ringtone}
       />
-      <View className="px-[20rpx] pb-[24rpx]">
-        {/* 新消息提示音:默认开启,关闭立即静音并同步后端 soundEnabled */}
-        <View className="flex items-center justify-between p-[20rpx] bg-card rounded-lg mb-[16rpx]">
-          <Text className="text-body text-foreground">
-            {tt('setting.notification.soundLabel', '新消息提示音')}
-          </Text>
-          <Switch checked={soundEnabled} onCheckedChange={onToggleSound} />
-        </View>
-
-        {/* 通知铃声:8 个自制合成音,点选写入后端 ringtone + 本地缓存,右侧可试听 */}
-        <View className="p-[20rpx] bg-card rounded-lg">
-          <Text className="block text-strong font-semibold text-foreground mb-[8rpx]">
-            {tt('setting.notification.ringtoneTitle', '通知铃声')}
-          </Text>
-          <View className="flex flex-col">
-            {RINGTONE_IDS.map((id) => {
-              const active = id === ringtoneId
-              return (
-                <View
-                  key={id}
-                  role="radio"
-                  aria-checked={active}
-                  className="flex items-center justify-between py-[20rpx]"
-                  hoverClass="opacity-60"
-                  onClick={() => onSelectRingtone(id)}
-                >
-                  <Text
-                    className={
-                      active
-                        ? 'text-body font-semibold text-foreground'
-                        : 'text-body text-foreground'
-                    }
-                  >
-                    {tt(`setting.notification.ringtone.${id}`, RINGTONE_FALLBACK[id])}
-                  </Text>
-                  <View className="flex flex-row items-center gap-[16rpx]">
-                    <View
-                      role="button"
-                      aria-label={tt('setting.notification.ringtonePreview', '试听')}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onPreviewRingtone(id)
-                      }}
-                      className="px-[16rpx] h-[48rpx] leading-[48rpx] rounded-sm bg-muted text-muted-foreground text-body-sm"
-                    >
-                      {tt('setting.notification.ringtonePreview', '试听')}
-                    </View>
-                    {active ? (
-                      <Image src="/static/images/icons/check.svg" className="h-6 w-6" />
-                    ) : null}
-                  </View>
-                </View>
-              )
-            })}
-          </View>
-        </View>
-      </View>
     </ThemeRoot>
   )
 }

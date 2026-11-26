@@ -4402,6 +4402,9 @@
     "loadFailed": "載入失敗"
   },
   "webViewPortal": {
+    "hrMyPerf": "我的績效",
+    "hrMyTraining": "我的培訓",
+    "hrMyExpense": "我的報銷",
     "news": "資訊",
     "learnTopic": "課程專題",
     "kbSearch": "知識庫檢索",

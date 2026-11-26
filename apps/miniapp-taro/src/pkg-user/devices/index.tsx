@@ -45,7 +45,10 @@ export default function DevicesPage() {
         content: message,
         confirmText,
         cancelText: t('common.cancel'),
-        confirmColor: '#d93025',
+        // 保留:native API Taro.showModal confirmColor 需 hex,不支持 CSS 变量;
+        // 值对齐 --color-danger(亮 #dc2626,取亮值与 theme.json 静态回退一致),
+        // 与 developer / contracts 两处危险操作同色,不再用孤立的 #d93025。
+        confirmColor: '#dc2626',
       })
         .then((res) => Boolean(res.confirm))
         .catch(() => false),

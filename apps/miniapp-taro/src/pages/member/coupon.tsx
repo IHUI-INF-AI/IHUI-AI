@@ -17,7 +17,6 @@
  * ⇒ 排版与词条真相源 = 共享屏;改这一屏的外观/文案去改 packages/app,不再动本页。
  */
 import ThemeRoot from '@/components/ThemeRoot'
-import { Alert } from '@/rn-compat/apis'
 import { useTheme } from '@/rn-compat/theme'
 import { fetchApi } from '@ihui/api-client'
 import { CouponScreen as SharedCouponScreen } from '@ihui/rn-app/features/coupon/CouponScreen'
@@ -102,7 +101,11 @@ export default function CouponPageScreen() {
         onRefresh={refresh}
         onBack={() => Taro.navigateBack()}
         colorScheme={resolvedTheme}
-        onUseCoupon={() => Alert.alert('', t('coupon.useHint'))}
+        // 2026-11-25 轻提示落档:文案是纯告知(「请前往商品页使用」/各语言 8-32 字符),
+        // 走 showModal 会弹带确认钮的模态框、打断浏览;showToast 2s 自动消失,符合"能少一步就少一步"。
+        onUseCoupon={() =>
+          void Taro.showToast({ title: t('coupon.useHint'), icon: 'none', duration: 2000 })
+        }
         onOpenCouponCenter={() => void Taro.navigateTo({ url: '/pages/member/coupon-list' })}
       />
     </ThemeRoot>

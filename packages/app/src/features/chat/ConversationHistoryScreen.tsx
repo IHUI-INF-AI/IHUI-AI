@@ -176,7 +176,7 @@ export function ConversationHistoryScreen({
       {degraded && !loading ? (
         <View style={styles.noticeRow}>
           <Text style={styles.noticeText}>
-            {tt('ai.historyPage.fallbackNotice', '服务端会话加载失败,当前显示本机历史记录')}
+            {tt('ai.historyPage.fallbackNotice', '服务端会话加载失败，当前显示本机历史记录')}
           </Text>
           <TouchableOpacity style={styles.retry} onPress={onRetry} accessibilityRole="button">
             <Text style={styles.retryText}>{tt('common.retry', '重试')}</Text>
@@ -265,7 +265,7 @@ export function ConversationHistoryScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.light },
+    container: { flex: 1, backgroundColor: tk.surface.bg },
     searchRow: {
       flexDirection: 'row',
       alignItems: 'center',

@@ -140,7 +140,7 @@ export function AigcCoverScreen({
 function createStyles(tk: AppThemeTokens) {
   const primary = tk.brand.DEFAULT
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.light },
+    container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: {
       marginTop: rnSpacing.sm,

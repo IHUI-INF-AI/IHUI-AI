@@ -28,7 +28,7 @@ import type { ReactElement } from 'react'
 import { Text, View } from '@tarojs/components'
 import type { ChatNotice, NoticeKind } from '@ihui/shared/chat/notice-log'
 import { rpx } from '@/utils/rpx'
-import { taroSpacing } from '@ihui/design-tokens'
+import { taroSpacing, taroType } from '@ihui/design-tokens'
 
 /**
  * 语义色取端内 CSS 变量(即设计 token 的运行时形态,与 RN 的 `tokens.*` 同源,
@@ -82,7 +82,7 @@ export function NoticeLog({ notices }: { notices: readonly ChatNotice[] }): Reac
           />
           <Text
             style={{
-              fontSize: rpx(22),
+              fontSize: taroType.caption.fontSize,
               lineHeight: rpx(32),
               color: 'var(--color-text-tertiary)',
               marginRight: rpx(taroSpacing.xs),
@@ -95,7 +95,7 @@ export function NoticeLog({ notices }: { notices: readonly ChatNotice[] }): Reac
             selectable
             style={{
               flex: 1,
-              fontSize: rpx(24),
+              fontSize: taroType.label.fontSize,
               lineHeight: rpx(32),
               color: 'var(--color-muted-foreground)',
             }}
