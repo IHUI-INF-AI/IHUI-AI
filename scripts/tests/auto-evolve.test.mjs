@@ -24,6 +24,7 @@ import {
   classifySessionWrites,
   normalizeSessionRuntime,
   wrapCommandForCmdExe,
+  preflightOpts,
   judgeLandingProof,
   WRITE_TOOL_NAMES,
   classifySessionFailure,
@@ -744,6 +745,14 @@ test('⑮e cmd.exe /s /c 外层补引号:带空格的首 token 不被剥断', ()
   assert.equal(wrapCommandForCmdExe('node D:/a.mjs'), 'node D:/a.mjs', '裸命令不得被改')
   assert.equal(wrapCommandForCmdExe('  "D:/x y/node.exe" D:/a.mjs'), '"  "D:/x y/node.exe" D:/a.mjs"',
     '前导空白保留在引号内(命令语义不变)')
+})
+
+test('⑮f 探针模板的裸 node 也换成当次运行时(服务身份 PATH 不再参与)', () => {
+  const p = preflightOpts({ sessionSmokeCommandTemplate: 'node D:/a/tsx.mjs D:/a/index.ts --version' })
+  assert.equal(p.requireSmoke, true)
+  assert.ok(p.smokeCommand.includes(process.execPath), `探针必须用本进程运行时,实得:${p.smokeCommand}`)
+  assert.ok(!p.smokeCommand.startsWith('node '), '裸 node 不得留在探针首 token')
+  assert.equal(preflightOpts({}).smokeCommand, undefined, '没配探针 ⇒ 原样 undefined(交由 requireSmoke 判 undetermined)')
 })
 
 /**

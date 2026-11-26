@@ -130,9 +130,16 @@ export const GATES_JSON = join(ROOT, 'scripts', 'data', 'auto-evolve-gates.json'
  * 实测 `@ihui/agent-sdk` 链接缺失时路径全绿、4 次真派全挂在 ERR_MODULE_NOT_FOUND。
  */
 export function preflightOpts(gates = {}) {
+  const raw = gates.sessionSmokeCommandTemplate
+  // 探针也必须用派发进程自己的运行时:12:00 的服务身份轮次里裸 `node` 从机器级 PATH
+  // 解析成了另一个运行时,路径全在位却 `runtime-smoke:exit=1` —— 与真会话同一条病。
+  const normalized =
+    typeof raw === 'string' && raw.trim()
+      ? normalizeSessionRuntime(raw, process.execPath)
+      : { cmd: raw, replaced: false }
   return {
     requireSmoke: true,
-    smokeCommand: gates.sessionSmokeCommandTemplate,
+    smokeCommand: normalized.cmd,
     smokeTimeoutMs: 20000,
   }
 }
