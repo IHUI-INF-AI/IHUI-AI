@@ -12,4 +12,3 @@
 - [x] RP-28 〔千段租约〕 本机=lichunchuan-a47da79b 段=RP-19~RP-28(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 - [x] RP-10 〔千段租约〕 本机=lichunchuan-a47da79b 段=RP-1~RP-10(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 
-- [ ] B25 [deploy-feedback] [deploy_outcome/alert_firing] swap-fail /deploy/swap-fail 部署异常 ⇒ 排查链路并修复（登记@2026-11-26/deploy-feedback;来源:deploy_outcome;证据:dims=(none) action=swap-fail 窗口=1440min count=1 first=2026-11-26T14:43:49.982Z last=2026-11-26T14:43:49.982Z route=/deploy/swap-fail cause="web 蓝绿切换失败,未切流,保持当前在线版本"）
