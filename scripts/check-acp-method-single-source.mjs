@@ -22,6 +22,8 @@ import { execFileSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { hideComments, readWorktreeFile } from './lib/face-reader.mjs'
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const METHOD_LITERALS = ['session/new', 'session/prompt', 'session/cancel', 'session/update', 'session/load']
@@ -29,13 +31,11 @@ const METHOD_LITERALS = ['session/new', 'session/prompt', 'session/cancel', 'ses
 /** 三端面:web / RN / 小程序 + CLI(ACP 客户端)。api 是服务端,不在本闸射程。 */
 const SCAN_PATHS = ['apps/web', 'apps/mobile-rn', 'apps/miniapp-taro', 'apps/cli', 'packages']
 
-/** 已知债:每一条都必须带"为什么现在还在"。 */
-const BASELINE = new Map([
-  ['apps/cli/src/acp/server.ts', '尚未依赖 @ihui/agent-sdk,接依赖需单独一轮动 lockfile'],
-  ['apps/cli/src/acp/recovery-policy.ts', '同上:CLI acp 子模块共用同一份未接依赖的状态'],
-  ['apps/cli/src/acp/session-replay.ts', '同上:CLI acp 子模块共用同一份未接依赖的状态'],
-  ['apps/cli/src/acp/subagent-journal.ts', '同上:CLI acp 子模块共用同一份未接依赖的状态'],
-])
+/**
+ * 已知债:2026-11-26 已清零 —— CLI 接上了 `@ihui/agent-sdk` 依赖并改用 ACP_METHODS。
+ * 表保留是为了下次真需要登记时不再改结构;空表即"零容忍"。
+ */
+const BASELINE = new Map()
 
 const ALLOW_PREFIXES = ['packages/agent-sdk/src/', 'packages/agent-sdk/tests/']
 const ALLOW_PATTERNS = [/\/tests\//, /\/__tests__\//, /\/fixtures\//]
@@ -65,8 +65,24 @@ function isSourceFile(path) {
   return /\.(ts|tsx|js|mjs|cjs)$/.test(path) && !/\.d\.ts$/.test(path)
 }
 
+/**
+ * `git grep -l` 会把"注释里提到协议名"的文件也列进来(如 `* 转成 session/update 载荷`)。
+ * 注释不是第二真相源,只按**代码**判:读 worktree 面,`hideComments` 之后再查字面量。
+ * 读不到就按"有命中"处理(fail-safe:宁可多报一次,不可漏报)。
+ */
+function hasLiteralInCode(file) {
+  let source
+  try {
+    source = readWorktreeFile(ROOT, file)
+  } catch {
+    return true
+  }
+  const code = hideComments(source)
+  return METHOD_LITERALS.some((lit) => code.includes(lit))
+}
+
 export function main() {
-  const files = grepFiles().filter(isSourceFile)
+  const files = grepFiles().filter(isSourceFile).filter(hasLiteralInCode)
   let sdk = 0
   let test = 0
   const baselineHit = []

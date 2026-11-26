@@ -15,6 +15,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+// L14:方法名常量来自 sdk 契约,测试按"字面量或常量引用"两种形态核对
+import { ACP_METHODS } from '@ihui/agent-sdk';
 
 import {
   canRetryAfterCrash,
@@ -96,7 +98,11 @@ describe('已登记方法', () => {
       path.join(process.cwd(), 'src', 'acp', 'server.ts'),
       'utf8',
     )
-    const missing = registeredMethods().filter((m) => !src.includes(`'${m}'`))
+    const missing = registeredMethods().filter((m) => {
+      // L14 之后 server.ts 不再写字面量,改用 ACP_METHODS.<prop>;两种形态都算"真实存在"。
+      const viaConstant = Object.entries(ACP_METHODS).find(([, value]) => value === m)?.[0]
+      return !src.includes(`'${m}'`) && !(viaConstant && src.includes(`ACP_METHODS.${viaConstant}`))
+    })
     expect(missing, `这些方法登记了但 server.ts 里没有:${missing.join(', ')}`).toEqual([])
   })
 })
