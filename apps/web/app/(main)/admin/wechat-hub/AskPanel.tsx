@@ -35,6 +35,7 @@ export default function AskPanel({ accountId }: { accountId: string }) {
   const [result, setResult] = React.useState<WechatAskResult | null>(null)
   const [sqlResult, setSqlResult] = React.useState<WechatAskSqlResult | null>(null)
   const [error, setError] = React.useState<string | null>(null)
+  const [rowsOpen, setRowsOpen] = React.useState(false)
 
   const conversationsQuery = useQuery({
     queryKey: ['wechat-hub', 'conversations', accountId],
@@ -52,11 +53,13 @@ export default function AskPanel({ accountId }: { accountId: string }) {
       setResult(data)
       setSqlResult(null)
       setError(null)
+      setRowsOpen(false)
     },
     onError: (e) => {
       setResult(null)
       setSqlResult(null)
       setError(e instanceof Error ? e.message : '问聊天记录失败')
+      setRowsOpen(false)
     },
   })
 
@@ -67,11 +70,13 @@ export default function AskPanel({ accountId }: { accountId: string }) {
       setSqlResult(data)
       setResult(null)
       setError(null)
+      setRowsOpen(false)
     },
     onError: (e) => {
       setSqlResult(null)
       setResult(null)
       setError(e instanceof Error ? e.message : '生成查询失败')
+      setRowsOpen(false)
     },
   })
 
@@ -81,6 +86,11 @@ export default function AskPanel({ accountId }: { accountId: string }) {
     else askMutation.mutate()
   }
   const pending = askMutation.isPending || sqlMutation.isPending
+  const sqlRows: Record<string, unknown>[] =
+    sqlResult && Array.isArray(sqlResult.rows) ? sqlResult.rows : []
+  const rowsAvailable = sqlResult !== null && Array.isArray(sqlResult.rows)
+  const sqlColumns = sqlRows.length > 0 ? Object.keys(sqlRows[0] ?? {}) : []
+  const cellText = (value: unknown) => (value === null || value === undefined ? '' : String(value))
 
   return (
     <div className="space-y-3">
@@ -171,6 +181,55 @@ export default function AskPanel({ accountId }: { accountId: string }) {
                     {sqlResult.sql}
                   </p>
                 </div>
+              ) : null}
+              {sqlRows.length > 0 ? (
+                <div className="space-y-1">
+                  <Button variant="ghost" size="sm" onClick={() => setRowsOpen((open) => !open)}>
+                    {rowsOpen ? '收起结果明细' : '查看结果明细'}
+                  </Button>
+                  {rowsOpen ? (
+                    <div className="space-y-1">
+                      {sqlResult.rowCount >= 50 ? (
+                        <p className="text-[11px] text-muted-foreground">已达 50 行上限，结果已截断</p>
+                      ) : null}
+                      <div className="overflow-x-auto rounded-md border border-stroke-subtle">
+                        <table className="w-full text-[12px]">
+                          <thead>
+                            <tr className="border-b border-stroke-subtle text-left text-muted-foreground">
+                              {sqlColumns.map((column) => (
+                                <th
+                                  key={column}
+                                  className="max-w-[240px] px-2 py-1.5 font-medium break-all"
+                                >
+                                  {column}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sqlRows.slice(0, 10).map((row, rowIndex) => (
+                              <tr key={rowIndex} className="border-b border-stroke-subtle last:border-b-0">
+                                {sqlColumns.map((column) => (
+                                  <td
+                                    key={column}
+                                    className="max-w-[240px] px-2 py-1.5 align-top break-all"
+                                  >
+                                    {cellText(row[column])}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {sqlRows.length > 10 ? (
+                        <p className="text-[11px] text-muted-foreground">表格仅展示前 10 行</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : rowsAvailable && sqlRows.length === 0 && sqlResult.sql ? (
+                <p className="text-[12px] text-muted-foreground">查询没有返回行</p>
               ) : null}
             </div>
           ) : null}
