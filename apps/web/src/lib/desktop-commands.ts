@@ -55,9 +55,13 @@ export const DESKTOP_COMMANDS = {
   updateV2Stage: 'update_v2_stage',
   /** 重启并安装更新(owner: tauri-bridge) */
   updateV2Restart: 'update_v2_restart',
+  /** 启动握手:取 nativeBridge 版本 + 方法清单/摘要(owner: native-bridge-handshake) */
+  getNativeBridgeManifest: 'get_native_bridge_manifest',
 } as const
 
 export type DesktopCommand = (typeof DESKTOP_COMMANDS)[keyof typeof DESKTOP_COMMANDS]
 /** 通道名必须是注册表里的值,调用点写变量时用这个类型收口。 */
 export type DesktopCommandName = keyof typeof DESKTOP_COMMANDS
+/** 注册表里的全部 snake_case 命令值(握手比对与 CI 双向校验都读它,别再另抄一份)。 */
+export const DESKTOP_COMMAND_VALUES = Object.values(DESKTOP_COMMANDS) as DesktopCommand[]
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

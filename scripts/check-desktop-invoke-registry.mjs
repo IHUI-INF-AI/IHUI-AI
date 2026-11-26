@@ -23,6 +23,9 @@ import { readWorktreeFile } from './lib/face-reader.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const REGISTRY = 'apps/web/src/lib/desktop-commands.ts'
+const NATIVE_MANIFEST = 'apps/desktop/src-tauri/src/native_bridge.rs'
+/** L04 暴露面预算:注册表就是 web→Rust 的完整暴露面,键数不得超过 20。 */
+const BRIDGE_BUDGET = 20
 
 function gitGrepLines(pattern, paths) {
   try {
@@ -62,22 +65,38 @@ export function readRegistryValues() {
   return values
 }
 
+/** L07:壳侧 `BRIDGE_COMMANDS` 是握手清单真源,必须与 web 注册表逐名一致。 */
+export function readNativeBridgeCommands() {
+  const src = readWorktreeFile(ROOT, NATIVE_MANIFEST)
+  const block = (src.split('pub const BRIDGE_COMMANDS')[1] ?? '').split('];')[0]
+  return [...block.matchAll(/"([a-z0-9_]+)"/g)].map((m) => m[1])
+}
+
 export function main() {
   const literals = gitGrepLines("invoke\\(\\s*['\"][a-z0-9_]+['\"]", ['apps/web/src']).filter(
     (line) => !line.startsWith(`${REGISTRY}:`),
   )
   const values = readRegistryValues()
+  const nativeCommands = readNativeBridgeCommands()
   const missingInRust = values.filter((name) => !commandExistsInRust(name))
   const duplicates = values.filter((name, i) => values.indexOf(name) !== i)
-  const offenders = literals.length + missingInRust.length + duplicates.length
+  const onlyWeb = values.filter((name) => !nativeCommands.includes(name))
+  const onlyNative = nativeCommands.filter((name) => !values.includes(name))
+  const manifestDrift = onlyWeb.length + onlyNative.length
+  const overBudget = Math.max(0, values.length - BRIDGE_BUDGET)
+  const offenders =
+    literals.length + missingInRust.length + duplicates.length + manifestDrift + overBudget
   const state = offenders ? 'red' : 'ok'
   console.log(
-    `[L05 桌面通道注册表] state=${state} 注册=${values.length} 调用点字面量=${literals.length} 无对应命令=${missingInRust.length} 重名=${duplicates.length}`,
+    `[L05/L07 桌面通道注册表] state=${state} 注册=${values.length} 调用点字面量=${literals.length} 无对应命令=${missingInRust.length} 重名=${duplicates.length} 桥清单=${nativeCommands.length} 清单差异=${manifestDrift} 预算=${values.length}/${BRIDGE_BUDGET}`,
   )
   for (const line of literals) console.log(`  ❌ 调用点写死命令名(应改 DESKTOP_COMMANDS.*): ${line}`)
   for (const name of missingInRust) console.log(`  ❌ 注册表登记了 Rust 侧不存在的命令: ${name}`)
   for (const name of duplicates) console.log(`  ❌ 注册表内重复登记: ${name}`)
-  if (!offenders) console.log('  ✅ 命令名单一来源,且每条都能在 Rust 侧找到实现')
+  for (const name of onlyWeb) console.log(`  ❌ web 有、壳侧握手清单缺: ${name}`)
+  for (const name of onlyNative) console.log(`  ❌ 壳侧握手清单有、web 注册表缺: ${name}`)
+  if (overBudget > 0) console.log(`  ❌ 暴露面超预算: ${values.length} > ${BRIDGE_BUDGET}`)
+  if (!offenders) console.log('  ✅ 命令名单一来源、壳侧清单一致且未超暴露面预算')
   process.exit(offenders ? 1 : 0)
 }
 

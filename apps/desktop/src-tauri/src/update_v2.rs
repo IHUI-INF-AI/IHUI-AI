@@ -924,8 +924,50 @@ fn status_from_eval(ctx: &Context, eval: &Evaluation) -> UpdateStatus {
     }
 }
 
-async fn fetch_feed() -> Result<Feed, String> {
-    let url = std::env::var("IHUI_FEED_URL").unwrap_or_else(|_| DEFAULT_FEED_URL.to_string());
+/// 灰度通道:stable 用默认 feed;beta/canary 在 URL 上带 `channel=`。
+/// 未知值一律回 stable,不因拼错就拿到一个不存在的 feed。
+fn normalize_update_channel(raw: &str) -> &'static str {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "beta" => "beta",
+        "canary" => "canary",
+        _ => "stable",
+    }
+}
+
+fn append_update_channel(url: &str, channel: &str) -> String {
+    if channel == "stable" {
+        return url.to_string();
+    }
+    let sep = if url.contains('?') { '&' } else { '?' };
+    format!("{url}{sep}channel={channel}")
+}
+
+/// 候选顺序:本地代理(若有)在前,官方源兜底。纯函数,便于测试。
+fn build_feed_candidates(official: &str, proxy: Option<&str>, channel: &str) -> Vec<String> {
+    let official_url = append_update_channel(official, channel);
+    match proxy.map(str::trim).filter(|p| !p.is_empty()) {
+        Some(proxy_url) => {
+            let proxy_url = append_update_channel(proxy_url, channel);
+            if proxy_url == official_url {
+                vec![official_url]
+            } else {
+                vec![proxy_url, official_url]
+            }
+        }
+        None => vec![official_url],
+    }
+}
+
+fn feed_candidates() -> Vec<String> {
+    let official = std::env::var("IHUI_FEED_URL").unwrap_or_else(|_| DEFAULT_FEED_URL.to_string());
+    let channel = normalize_update_channel(
+        &std::env::var("IHUI_UPDATE_CHANNEL").unwrap_or_else(|_| "stable".to_string()),
+    );
+    let proxy = std::env::var("IHUI_UPDATE_PROXY").ok();
+    build_feed_candidates(&official, proxy.as_deref(), channel)
+}
+
+async fn fetch_feed_once(url: &str) -> Result<Feed, String> {
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(8))
         .timeout(Duration::from_secs(30))
@@ -933,7 +975,7 @@ async fn fetch_feed() -> Result<Feed, String> {
         .build()
         .map_err(|e| format!("http: {e}"))?;
     let response = client
-        .get(&url)
+        .get(url)
         .send()
         .await
         .map_err(|e| format!("feed: {e}"))?;
@@ -950,6 +992,24 @@ async fn fetch_feed() -> Result<Feed, String> {
         return Err("feed too large".into());
     }
     Feed::from_json(&String::from_utf8_lossy(&bytes))
+}
+
+async fn fetch_feed() -> Result<Feed, String> {
+    let candidates = feed_candidates();
+    let mut last_error = String::from("feed: no candidate");
+    for (index, url) in candidates.iter().enumerate() {
+        match fetch_feed_once(url).await {
+            Ok(feed) => return Ok(feed),
+            Err(error) => {
+                let has_fallback = index + 1 < candidates.len();
+                if has_fallback {
+                    eprintln!("[update_v2] 本地更新代理不可用,回退官方源: {error} ({url})");
+                }
+                last_error = error;
+            }
+        }
+    }
+    Err(last_error)
 }
 
 fn platform_tag() -> &'static str {
@@ -1661,6 +1721,50 @@ mod tests {
         );
         assert!(out.join("ihui-app.exe").is_file());
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn update_channel_normalizes_unknown_to_stable() {
+        assert_eq!(normalize_update_channel("BETA"), "beta");
+        assert_eq!(normalize_update_channel("canary"), "canary");
+        assert_eq!(normalize_update_channel("nightly"), "stable");
+    }
+
+    #[test]
+    fn update_channel_appends_query_with_correct_separator() {
+        assert_eq!(append_update_channel("https://aizhs.top/feed.json", "stable"), "https://aizhs.top/feed.json");
+        assert_eq!(
+            append_update_channel("https://aizhs.top/feed.json", "beta"),
+            "https://aizhs.top/feed.json?channel=beta"
+        );
+        assert_eq!(
+            append_update_channel("https://aizhs.top/feed.json?os=win", "canary"),
+            "https://aizhs.top/feed.json?os=win&channel=canary"
+        );
+    }
+
+    #[test]
+    fn proxy_candidates_prefer_proxy_then_fall_back_to_official() {
+        let candidates = build_feed_candidates(
+            "https://aizhs.top/desktop-feed.json",
+            Some("http://127.0.0.1:8081/feed.json"),
+            "beta",
+        );
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates[0], "http://127.0.0.1:8081/feed.json?channel=beta");
+        assert_eq!(candidates[1], "https://aizhs.top/desktop-feed.json?channel=beta");
+    }
+
+    #[test]
+    fn empty_proxy_uses_official_only() {
+        let candidates =
+            build_feed_candidates("https://aizhs.top/desktop-feed.json", Some("   "), "stable");
+        assert_eq!(candidates, vec!["https://aizhs.top/desktop-feed.json".to_string()]);
+    }
+
+    #[test]
+    fn bad_signature_is_rejected() {
+        assert!(verify_signature(b"payload", "not-a-valid-signature").is_err());
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

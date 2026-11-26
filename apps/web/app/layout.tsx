@@ -13,6 +13,7 @@ import {
   type LocaleCode,
 } from '@/lib/locale-cookie'
 import { Toaster } from '@/components/common'
+import { NativeBridgeBanner } from '@/components/native-bridge-banner'
 // 实时汇率预热 + 展示货币首帧口径播种(2026-11-14 立):任意页面首屏即拉取,
 // 供全站金额按即时汇率换算;SSR 口径经 cookie 播种,会格式化金额的服务端页面
 // 各自再调用 seedServerCurrency(layout 与 page 是不同模块实例)。
@@ -269,6 +270,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       suppressHydrationWarning
     >
       <body className="font-sans antialiased">
+        <NativeBridgeBanner />
         {/*
           Bootstrap script(React hydrate 前同步执行):
           1. z-index 变量:自研 IDE 注入 <style> 覆盖 --z-sticky / --z-modal 等,
