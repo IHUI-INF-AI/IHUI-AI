@@ -45,6 +45,7 @@ import type { AgentInfo } from '@/components/AgentListPanel'
 import type { DrawerModelGroup, DrawerUserInfo, DrawerChatItem } from '@/components/DrawerComponent'
 import './index.css'
 import { onToast } from '@/host/on-toast'
+import { openDrawerLabel, openDrawerMenu } from '@/utils/drawer-actions'
 
 /* ============ 类型定义 ============ */
 
@@ -535,36 +536,16 @@ export default function Community() {
 
   function handleDrawerGoPage(item: { key: string }) {
     setShowDrawer(false)
-    const routeMap: Record<string, string> = {
-      appStore: '/pages/index/index', // 对齐原项目 gopage: 跳首页 AI 对话
-      demand: '/pkg-ai/ranking/index', // 对齐原项目 square: 跳需求广场
-      inspiration: '/pkg-ai/aigc/list', // 对齐原项目 aigc: 跳 AIGC 创作列表
-      dynamic: '/pages/share/index', // 对齐原项目 share: 跳 AI 资讯
-      course: '/pkg-learn/course/list', // 对齐原项目 studyindex: 跳课程
-    }
-    const url = routeMap[item.key]
-    if (url) {
-      // appStore 是 tabBar 页:只能 switchTab。失败兜底绝不能再用 navigateTo 打同一个
-      // tabBar 页(微信硬约束,navigateTo 打 tab 页必然失败),否则点了完全没反馈。
-      if (item.key === 'appStore') {
-        Taro.switchTab({
-          url,
-          fail: () => onToast(tt('community.text8', '页面未配置'), { kind: 'error' }),
-        })
-      } else {
-        Taro.navigateTo({
-          url,
-          fail: () => onToast(tt('community.text8', '页面未配置'), { kind: 'error' }),
-        })
-      }
-    }
+    // key→路由的单一源在 utils/drawer-nav:此前本页与「我的」页各抄一份,漂移出 5 个死路由
+    openDrawerMenu(item.key, tt)
   }
 
   function handleDrawerLabelClick(item: { key: string }) {
     setShowDrawer(false)
     if (item.key === 'newChat') {
-      // 对齐原项目 addNewChat:跳首页 AI 对话;失败降级到已注册聊天页并给反馈
-      Taro.switchTab({
+      // 对齐原项目 addNewChat:跳首页 AI 对话。/pages/index/index 不是 tabBar 页,
+      // 原来先 switchTab 必然失败(再走 fallback 等于多打一发必败调用),直接 navigateTo
+      Taro.navigateTo({
         url: '/pages/index/index',
         fail: () =>
           Taro.navigateTo({
@@ -572,31 +553,9 @@ export default function Community() {
             fail: () => onToast(tt('community.text8', '页面未配置'), { kind: 'error' }),
           }),
       })
-    } else if (item.key === 'company') {
-      // 对齐原项目 gotocompany:跳分销页。fallback 必须是 app.config.ts 里注册的
-      // /pages/distribution/company/index(分包 root=pages/distribution);旧写法
-      // /pages/company/index 根本不存在,两次跳转都会静默失败。
-      Taro.navigateTo({
-        url: '/pages/distribution/index',
-        fail: () =>
-          Taro.navigateTo({
-            url: '/pages/distribution/company/index',
-            fail: () => onToast(tt('community.text8', '页面未配置'), { kind: 'error' }),
-          }),
-      })
-    } else if (item.key === 'freebie') {
-      // 对齐原项目 lingqu:复制飞书 wiki 链接到剪贴板
-      const feishuUrl =
-        'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncrymnIh?from=from_copylink'
-      Taro.setClipboardData({
-        data: feishuUrl,
-        success: () =>
-          onToast(tt('community.copy9', '链接已复制,请在浏览器打开'), {
-            kind: 'info',
-            duration: 2000,
-          }),
-        fail: () => onToast(tt('community.failed10', '复制失败,请重试'), { kind: 'error' }),
-      })
+    } else if (item.key === 'company' || item.key === 'freebie') {
+      // 公司入口与领取资料同走 utils/drawer-actions(带 fail 反馈,不再各处抄一份跳转)
+      openDrawerLabel(item.key, tt)
     }
   }
 

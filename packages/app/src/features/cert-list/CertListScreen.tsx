@@ -94,7 +94,6 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: 'transparent',
     },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     label: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },

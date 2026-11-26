@@ -281,7 +281,9 @@ export default function NavBar({
       onBack()
     } else {
       Taro.navigateBack({ delta: 1 }).catch(() => {
-        Taro.switchTab({ url: '/pages/index/index' })
+        // 无历史可退时回首页 tab。/pages/index/index 不是 tabBar 页(它只是入口页),
+        // 原写法 switchTab 打它必然失败 ⇒ 返回键在 tab 页上点了没反应
+        Taro.switchTab({ url: '/pages/community/index' })
       })
     }
   }

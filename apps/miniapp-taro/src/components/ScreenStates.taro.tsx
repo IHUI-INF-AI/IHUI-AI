@@ -4,7 +4,7 @@
 
 import type { CSSProperties } from 'react'
 import { View, Text } from '@tarojs/components'
-import { taroType } from '@ihui/design-tokens'
+import { rnRadius, taroType } from '@ihui/design-tokens'
 import { SCREEN_STATES_STATE_MIN_HEIGHT_PX } from '@ihui/shared/ui/screen-states-spec'
 import LineIcon, { type IconName } from './LineIcon'
 import './ScreenStates.taro.css'
@@ -16,7 +16,7 @@ import './ScreenStates.taro.css'
  *   RN raw dp × 2 = rpx(750 设计稿基准)。toRpx 的入参一律是**RN 端 StyleSheet 的 px 原值**
  *   (函数内部 ×2 落 rpx),因此骨架块尺寸与 RN 同数:44/12/10/92,不得再自行折半。
  * 取档一律走 packages/design-tokens 的**同一份档位表**,不在本文件里重写数值:
- *   rnSpacing{lg:16,md:12,sm:8} → 32/24/16 rpx;rnRadius{lg:8,md:6,sm:4} → 16/12/8 rpx。
+ *   rnSpacing{lg:16,md:12,sm:8} → 32/24/16 rpx;rnRadius{md:6,lg:8,2xl:16} → 12/16/32 rpx(4px 档已于 2026-11-26 删除)。
  * 颜色一律引用 app.css 语义变量(暗色经 ThemeRoot .dark 自动适配),与 RN tk.* 一一映射。
  *
  * 平台差异如实登记:**触感(haptics)在小程序端无对应能力**,故不提供该 prop;
@@ -28,12 +28,12 @@ const toRpx = (px: number): string => `${px * 2}rpx`
 type Scheme = 'light' | 'dark'
 
 /* ────────────── 档位常量:Rpackage/design-tokens 的档位表在此落地为 rpx ────────────── */
-const SP = { lg: 16, md: 12, sm: 8 } as const // rnSpacing
-const RD = { lg: 8, md: 6, sm: 4 } as const // rnRadius
+const SP = { lg: 16, md: 12, sm: 8 } as const // rnSpacing(端内仅有该三档,非圆角常量)
 
+/** 圆角一律取 packages/design-tokens 的 rnRadius 单源,本文件不再自持 *_RADIUS 副本。 */
 const blockBase = (): CSSProperties => ({
   backgroundColor: 'var(--color-muted)',
-  borderRadius: toRpx(RD.sm),
+  borderRadius: toRpx(rnRadius.md),
 })
 
 /* ────────────────────────── 1. 骨架屏 ────────────────────────── */
@@ -69,7 +69,7 @@ export function ScreenSkeleton({
                   ...blockBase(),
                   height: toRpx(92),
                   width: '100%',
-                  borderRadius: toRpx(RD.md),
+                  borderRadius: toRpx(rnRadius.md),
                 }}
               />
               <View
@@ -95,7 +95,7 @@ export function ScreenSkeleton({
             alignItems: variant === 'card' ? 'flex-start' : 'center',
             gap: toRpx(SP.md),
             padding: variant === 'card' ? toRpx(SP.lg) : toRpx(SP.md + 2),
-            borderRadius: toRpx(RD.lg),
+            borderRadius: toRpx(rnRadius.lg),
             backgroundColor: 'var(--color-card)',
           }}
         >
@@ -104,7 +104,7 @@ export function ScreenSkeleton({
             style={{
               width: toRpx(44),
               height: toRpx(44),
-              borderRadius: toRpx(RD.md),
+              borderRadius: toRpx(rnRadius.md),
               ...blockBase(),
             }}
           />
