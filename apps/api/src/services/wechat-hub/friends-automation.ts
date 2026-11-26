@@ -32,16 +32,32 @@ import { asNumber, asRecord, asString } from './views.js'
 export const FRIENDS_AUDIT_KEEP = 20
 /** 频次滑动窗口：最近一小时内成功通过的次数。 */
 export const FRIENDS_RATE_WINDOW_MS = 3_600_000
+/** 日上限的滚动窗口：24 小时。 */
+export const FRIENDS_DAY_WINDOW_MS = 86_400_000
 /** 每小时默认通过上限；策略没配或配错时回落这个值。 */
 export const FRIENDS_DEFAULT_MAX_PER_HOUR = 3
+/** 每 24 小时默认上限；只靠每小时 3 个也能一天过 72 个，风控上太激进。 */
+export const FRIENDS_DEFAULT_MAX_PER_DAY = 10
+/** 两次通过之间的默认最小间隔（秒）：防连续点通过，触发平台风控。 */
+export const FRIENDS_DEFAULT_MIN_GAP_SECONDS = 60
 /** 频次允许配置的上下限，超出一律夹到边界，避免后台填个 9999 把闸放开。 */
 const FRIENDS_LIMIT_MIN = 1
 const FRIENDS_LIMIT_MAX = 10
+const FRIENDS_DAILY_MIN = 1
+const FRIENDS_DAILY_MAX = 50
+const FRIENDS_GAP_MIN = 0
+const FRIENDS_GAP_MAX = 1800
 
 function clampLimit(raw: unknown, fallback: number): number {
   const n = asNumber(raw)
   if (n === null) return fallback
   return Math.min(Math.max(Math.trunc(n), FRIENDS_LIMIT_MIN), FRIENDS_LIMIT_MAX)
+}
+
+function clampIn(raw: unknown, fallback: number, min: number, max: number): number {
+  const n = asNumber(raw)
+  if (n === null) return fallback
+  return Math.min(Math.max(Math.trunc(n), min), max)
 }
 
 /** 从账号 metadata 读好友自动化策略；字段缺失或类型不对都回落缺省，默认关闭。 */
@@ -51,6 +67,18 @@ export function readFriendsPolicy(metadata: unknown): WechatFriendsPolicy {
   return {
     enabled: raw.enabled === true,
     maxAcceptsPerHour: clampLimit(raw.maxAcceptsPerHour, FRIENDS_DEFAULT_MAX_PER_HOUR),
+    maxAcceptsPerDay: clampIn(
+      raw.maxAcceptsPerDay,
+      FRIENDS_DEFAULT_MAX_PER_DAY,
+      FRIENDS_DAILY_MIN,
+      FRIENDS_DAILY_MAX,
+    ),
+    minGapSeconds: clampIn(
+      raw.minGapSeconds,
+      FRIENDS_DEFAULT_MIN_GAP_SECONDS,
+      FRIENDS_GAP_MIN,
+      FRIENDS_GAP_MAX,
+    ),
   }
 }
 
@@ -81,8 +109,23 @@ export function readFriendsAudit(metadata: unknown): WechatFriendAuditEntry[] {
 
 /** 窗口内已成功通过的次数；失败尝试不占额度。 */
 export function acceptedInWindow(audit: WechatFriendAuditEntry[], now: number): number {
-  const cutoff = now - FRIENDS_RATE_WINDOW_MS
+  return acceptedSince(audit, now, FRIENDS_RATE_WINDOW_MS)
+}
+
+/** 指定窗口内成功通过的条数；窗口按滚动时间算，不按自然日。 */
+export function acceptedSince(
+  audit: WechatFriendAuditEntry[],
+  now: number,
+  windowMs: number,
+): number {
+  const cutoff = now - windowMs
   return audit.filter((entry) => entry.ok && entry.at > cutoff).length
+}
+
+/** 最近一次成功通过的时间；没有就回 null（用于最小间隔判定）。 */
+export function lastAcceptedAt(audit: WechatFriendAuditEntry[]): number | null {
+  const times = audit.filter((entry) => entry.ok).map((entry) => entry.at)
+  return times.length ? Math.max(...times) : null
 }
 
 /**
@@ -290,6 +333,42 @@ export async function acceptFriendRequest(
     )
   }
 
+  // 每天（滚动 24 小时）上限：每小时 3 个连跑一天就是 72 个，风控上不能只靠小时闸。
+  const dayLimit = policy.maxAcceptsPerDay ?? FRIENDS_DEFAULT_MAX_PER_DAY
+  if (acceptedSince(audit, now, FRIENDS_DAY_WINDOW_MS) >= dayLimit) {
+    await appendAudit(accountId, account.metadata, {
+      at: now,
+      requestId: trimmedRequestId,
+      nickname: '',
+      ok: false,
+      status: 'rate-limited',
+      errorCode: 'RATE_LIMITED',
+    })
+    throw new AppError(`24 小时内最多通过 ${dayLimit} 个申请，今天到此为止`, 429, 'RATE_LIMITED')
+  }
+
+  // 两次通过之间的最小间隔：连续点「通过」是最容易被判异常的行为，默认隔 60 秒。
+  const gapSeconds = policy.minGapSeconds ?? FRIENDS_DEFAULT_MIN_GAP_SECONDS
+  if (gapSeconds > 0) {
+    const lastOkAt = lastAcceptedAt(audit)
+    const waitMs = lastOkAt === null ? 0 : lastOkAt + gapSeconds * 1000 - now
+    if (waitMs > 0) {
+      await appendAudit(accountId, account.metadata, {
+        at: now,
+        requestId: trimmedRequestId,
+        nickname: '',
+        ok: false,
+        status: 'rate-limited',
+        errorCode: 'RATE_LIMITED',
+      })
+      throw new AppError(
+        `与上一次通过间隔不足 ${gapSeconds} 秒，请 ${Math.ceil(waitMs / 1000)} 秒后再试`,
+        429,
+        'RATE_LIMITED',
+      )
+    }
+  }
+
   // 先强制实时重扫确认申请还在列表里（不能用桥缓存，否则刚进来的申请会被误判 not-found），找不到就不盲发到桥。
   const scan = buildScanView(
     await callBridgeAction(userId, accountId, 'friend.scan', { force: true }),
@@ -343,6 +422,18 @@ export async function updateFriendsPolicy(
   const next: WechatFriendsPolicy = {
     enabled: patch.enabled ?? current.enabled,
     maxAcceptsPerHour: clampLimit(patch.maxAcceptsPerHour, current.maxAcceptsPerHour),
+    maxAcceptsPerDay: clampIn(
+      patch.maxAcceptsPerDay,
+      current.maxAcceptsPerDay ?? FRIENDS_DEFAULT_MAX_PER_DAY,
+      FRIENDS_DAILY_MIN,
+      FRIENDS_DAILY_MAX,
+    ),
+    minGapSeconds: clampIn(
+      patch.minGapSeconds,
+      current.minGapSeconds ?? FRIENDS_DEFAULT_MIN_GAP_SECONDS,
+      FRIENDS_GAP_MIN,
+      FRIENDS_GAP_MAX,
+    ),
   }
   await patchAccountMetadata(accountId, {
     friendAutomation: { ...next, audit: readFriendsAudit(account.metadata) },
