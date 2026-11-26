@@ -102,6 +102,45 @@ test('undetermined 不折绿:fetch/ref/merge-base 失败均显式 exit 2 档', (
   }
 })
 
+test('直连 fetch 失败后用环境代理重试,成功即继续判定', () => {
+  const calls = []
+  let fetchCalls = 0
+  const r = keepLatest({
+    env: { HTTPS_PROXY: 'http://127.0.0.1:62010' },
+    run(args) {
+      calls.push(args)
+      if (args[4] === 'fetch') {
+        fetchCalls += 1
+        if (fetchCalls === 1) throw new Error('direct reset')
+        assert.equal(args[1], 'http.proxy=http://127.0.0.1:62010')
+        return ''
+      }
+      if (args[0] === 'rev-parse') return A
+      throw new Error('unexpected command')
+    },
+  })
+  assert.equal(r.state, 'up-to-date')
+  assert.equal(fetchCalls, 2)
+  assert.equal(
+    calls.some((args) => args[0] === 'merge' || args[0] === 'push'),
+    false,
+  )
+})
+
+test('已知死亡的 7897 环境代理不重试,避免把一次失败拖成两次', () => {
+  const calls = []
+  const r = keepLatest({
+    env: { HTTPS_PROXY: 'http://127.0.0.1:7897' },
+    run(args) {
+      calls.push(args)
+      if (args[4] === 'fetch') throw new Error('direct reset')
+      throw new Error('unexpected command')
+    },
+  })
+  assert.equal(r.state, 'undetermined')
+  assert.equal(calls.filter((args) => args[4] === 'fetch').length, 1)
+})
+
 test('diverged 两边都有独有提交时绝不调用写执行器', () => {
   const calls = []
   const r = keepLatest({
