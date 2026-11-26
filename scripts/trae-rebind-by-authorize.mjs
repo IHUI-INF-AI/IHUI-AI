@@ -340,14 +340,72 @@ async function main(argv) {
     }
     console.log(`✅ 换出新票,BOUND=${receipt?.boundDeviceId ?? '-'} status=${receipt?.bindStatus ?? '-'}`)
 
+    /**
+     * 验明正身(2026-11-26 立):授权码通道认的是**浏览器里当前登录的号**,不是命令行给的 uid。
+     * 浏览器若挂着别的号,直接回写就是把别人的票塞进这条记录(串号),后果比切号失败严重得多。
+     * 所以换票后必须用新票调 GetUserInfo,UserID 与目标不符 ⇒ 拒绝回写,池一个字节都不动。
+     */
+    const infoRes = await fetch('https://api.trae.cn/cloudide/api/v3/trae/GetUserInfo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-cloudide-token': payload.token },
+      body: JSON.stringify({ IDEVersion: IDE_VERSION }),
+    })
+    let profileInfo = {}
+    try {
+      profileInfo = JSON.parse(await infoRes.text())?.Result ?? {}
+    } catch {
+      profileInfo = {}
+    }
+    if (!infoRes.ok || !profileInfo.UserID) {
+      console.error(`❌ 换票后拉不到档案(HTTP ${infoRes.status}),无法确认号主 ⇒ 拒绝回写(未改动池)`)
+      continue
+    }
+    if (String(profileInfo.UserID) !== uid) {
+      console.error(
+        `❌ 浏览器里登录的是 uid=${profileInfo.UserID}(${profileInfo.NonPlainTextMobile ?? '?'}),` +
+          `不是目标 ${uid}(${r.name}) ⇒ 拒绝回写(未改动池)`,
+      )
+      console.error('   请在浏览器里退出该账号、用目标号登录后重跑本命令。')
+      continue
+    }
+    console.log(`✅ 号主已核对:${profileInfo.ScreenName ?? ''} / ${profileInfo.NonPlainTextMobile ?? ''}`)
+
     if (dryRun) continue
 
-    // 回写:新票 + 设备材料落进 secretsEnc(以后这枚号在本机就是"有设备材料"的正常号)
+    // 回写:新票 + 本机设备材料 + 现拉档案(缺 storeRegion 客户端会判 need-update 又去换票)
     const prev = secretsOf(r) ?? {}
+    const region = String(profileInfo.Region ?? profileInfo.AIRegion ?? prev?.profile?.account?.storeRegion ?? 'CN')
+    const account = {
+      username: String(profileInfo.ScreenName ?? ''),
+      iss: '',
+      iat: 0,
+      organization: '',
+      work_country: '',
+      email: String(profileInfo.NonPlainTextEmail ?? ''),
+      avatar_url: String(profileInfo.AvatarUrl ?? ''),
+      description: '',
+      scope: 'marscode',
+      loginScope: 'trae',
+      nonPlainTextMobile: String(profileInfo.NonPlainTextMobile ?? ''),
+      storeCountryCode: '',
+      storeCountrySrc: '',
+      storeRegion: region,
+      userTag: 'cn',
+      migrateToSG: profileInfo.MigrateToSG === true,
+    }
+    const profile = {
+      host: 'https://api.trae.cn',
+      userRegion: { region, _aiRegion: region },
+      // 客户端判 VALID_TOKEN 会看发证时间;沿用旧值会让它又走 NEED_REFRESH
+      tokenReleaseAt: new Date().toISOString(),
+      account,
+    }
     const nextSecrets = {
       ...prev,
       deviceKeyPem: dev.privateKeyPem,
       devicePubPem: dev.publicKeyPem,
+      profile,
+      sessionTemplate: { ...profile, userId: uid },
     }
     const applied = await db
       .update(aiRelayAccountPool)
@@ -358,6 +416,12 @@ async function main(argv) {
         secretsEnc: encryptField(JSON.stringify(nextSecrets)),
         deviceId,
         machineId,
+        // 重绑成功 = 本机已能换票,把"疑似坏了"的健康标记一并扶正(与 relogin-auto 同口径)
+        healthStatus: 'healthy',
+        tempUnschedulable: false,
+        refreshFailureCount: 0,
+        consecutiveFailures: 0,
+        lastErrorMessage: null,
         lastRefreshAt: new Date(),
         updatedAt: new Date(),
       })

@@ -45,6 +45,14 @@ const proc = await import(
 const ex = await import(
   pathToFileURL(path.join(ROOT, 'scripts', 'lib', 'trae-auth-extract.mjs')).href
 )
+// 客户端「票窗」判据单源:预检不能只看 CheckLogin,还要问"客户端会不会用这张票"(2026-11-26 立)
+const tokenWindow = await import(
+  pathToFileURL(path.join(ROOT, 'scripts', 'lib', 'trae-token-window.mjs')).href
+)
+// 回滚归属判据单源(基线比对),与测试共用同一枚实现
+const ownerCheck = await import(
+  pathToFileURL(path.join(ROOT, 'scripts', 'lib', 'trae-rollback-owner.mjs')).href
+)
 
 const { eq, and, sql } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
@@ -226,6 +234,7 @@ function decodePoolRow(row: any) {
  *
  * rt 轮换:该通道换票成功会轮换 refreshToken ⇒ 池里那枚当场作废,同轮 CAS 回写。
  */
+
 type PreflightResult =
   | {
       decision: 'ok'
@@ -239,7 +248,14 @@ type PreflightResult =
   | { decision: 'undetermined'; reason: string }
 
 async function preflightTraeDeviceMatch(
-  dec: { token?: string; refreshToken: string | null },
+  dec: {
+    token?: string
+    refreshToken: string | null
+    /** 票到期时刻(池里 tokenExpiresAt);缺省 ⇒ 无法判定票窗,只能走换票腿 */
+    tokenExpiresAt?: string | Date | null
+    /** 发签时刻(profile.tokenReleaseAt);用于客户端"总寿命 1/3 已耗"那条判据 */
+    tokenReleaseAt?: string | Date | null
+  },
   store: Record<string, unknown>,
 ): Promise<PreflightResult> {
   /**
@@ -258,7 +274,15 @@ async function preflightTraeDeviceMatch(
    *   200 且 Result.IsLogin===true ⇒ ok(把现成 token 当票用,rt 原样写回,登进去后客户端自己续)
    *   200 且 IsLogin===false     ⇒ 继续走 ①(rt 换票),由换票结论定档
    *   其它(5xx/网络)             ⇒ 继续走 ①(不把环境问题当拒收)
+   *
+   * ⚠️ 2026-11-26 修正(本条是"切过去当场登出"的真正根因):
+   * `IsLogin=true` 只证明"这张票上游认",**不证明客户端会用**。客户端启动先按票窗判:
+   * 剩余 ≤24h、或总寿命的 1/3 已耗掉 ⇒ `NEED_REFRESH`,必先拿 rt 换票;换不出就
+   * `clearUserInfo` 当场登出。实测:15978545189 那枚票还能查用量、CheckLogin 也 true,
+   * 但只剩 8h 且 rt 已废 ⇒ 写回 15 秒内就被客户端自己清空。
+   * 所以 existing-token 这条腿的门槛从"IsLogin"抬高到"票窗 valid";票窗不足必须真换票。
    */
+  let ticketVerdict: string = ''
   if (dec.token) {
     try {
       const r = await fetch(proto.TRAE_CHECK_LOGIN_URL, {
@@ -277,14 +301,29 @@ async function preflightTraeDeviceMatch(
             ? (body.Result as Record<string, unknown>)
             : null
         if (result?.IsLogin === true) {
-          // 现成 token 有效:直接用它(不换票、不轮换 rt),rt 留给客户端自己续
-          return {
-            decision: 'ok',
+          /**
+           * 票窗判据(与客户端 MS() 同款,单源 scripts/lib/trae-token-window.mjs):
+           *   valid        ⇒ 现成票可用,rt 不必验证(不轮换、不动池)
+           *   need-refresh ⇒ 客户端启动必先换票 ⇒ 必须真换一次;换不出就拒切
+           *   need-login   ⇒ 票已过期,连换票都不用试
+           */
+          const verdict = tokenWindow.traeTokenVerdict({
             token: dec.token,
-            refreshToken: null,
-            expiresAt: null,
-            via: 'existing-token',
+            expiresAt: dec.tokenExpiresAt ?? null,
+            tokenReleaseAt: dec.tokenReleaseAt ?? null,
+          })
+          if (verdict === tokenWindow.TRAE_TOKEN_VERDICT.VALID) {
+            // 现成 token 有效:直接用它(不换票、不轮换 rt),rt 留给客户端自己续
+            return {
+              decision: 'ok',
+              token: dec.token,
+              refreshToken: null,
+              expiresAt: null,
+              via: 'existing-token',
+            }
           }
+          // 票窗不足:这条腿作废,落下去真换票;连 rt 都没有时由下面的分支给出票窗专用理由
+          ticketVerdict = verdict
         }
       }
     } catch {
@@ -292,6 +331,19 @@ async function preflightTraeDeviceMatch(
     }
   }
   if (!dec.refreshToken) {
+    if (ticketVerdict === tokenWindow.TRAE_TOKEN_VERDICT.NEED_REFRESH) {
+      const hours = tokenWindow.traeTokenLeftHours({
+        expiresAt: dec.tokenExpiresAt ?? null,
+      })
+      const left = Number.isFinite(hours) ? `${Math.max(hours, 0).toFixed(1)}h` : '不足 24h'
+      return {
+        decision: 'rejected',
+        reason:
+          `票窗只剩 ${left}(≤24h,客户端启动必先拿 refreshToken 换票),而池里这枚号没有 rt ⇒ ` +
+          '写回后一定当场登出。先用 cookie 通道补一张长票:' +
+          '`node scripts/trae-rebind-by-cookie.mjs --uid <uid>`(无需短信/扫码)',
+      }
+    }
     return {
       decision: 'rejected',
       reason: '池内该号既没有可用 token 也没有 refreshToken:客户端启动无从登录,不能写回',
@@ -430,17 +482,42 @@ function rejectReasonOf(
  * 不做这一步的话:该通道每次都轮换 rt,池里那枚立刻作废,10 分钟内的下一次切号预检就会
  * 拿旧票重放 —— 上游视角等于我们自己制造一次 rt 重放。
  */
+/**
+ * 预检换票成功后,把 secrets 里的 profile.tokenReleaseAt 扶到"现在"(2026-11-26 立)。
+ * 客户端判据 n = (expiredAt - tokenReleaseAt)/3 > 剩余 ⇒ NEED_REFRESH;
+ * 若发签时刻还是几个月前,14 天的新票也可能被这条 1/3 支路判成"该换票",
+ * 客户端就会拿我们刚写回的 rt 再换一次 —— 池里这枚立刻又废。
+ */
+function withTokenReleaseNow(secretsEnc: unknown, now: Date): string | null {
+  if (!secretsEnc || typeof secretsEnc !== 'string') return null
+  try {
+    const parsed = JSON.parse(decryptField(secretsEnc)) as Record<string, unknown>
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+    const profile =
+      parsed.profile && typeof parsed.profile === 'object' && !Array.isArray(parsed.profile)
+        ? (parsed.profile as Record<string, unknown>)
+        : {}
+    parsed.profile = { ...profile, tokenReleaseAt: now.toISOString() }
+    return encryptField(JSON.stringify(parsed))
+  } catch {
+    return null
+  }
+}
+
 async function persistPreflightTicket(
   row: Record<string, unknown>,
   r: { token: string; refreshToken: string | null; expiresAt: Date | null },
 ): Promise<boolean> {
+  const now = new Date()
+  const bumpedSecrets = withTokenReleaseNow(row.secretsEnc, now)
   const applied = await db
     .update(aiRelayAccountPool)
     .set({
       tokenEnc: encryptField(r.token),
       ...(r.refreshToken ? { refreshTokenEnc: encryptField(r.refreshToken) } : {}),
       ...(r.expiresAt ? { tokenExpiresAt: r.expiresAt } : {}),
-      lastRefreshAt: new Date(),
+      ...(bumpedSecrets ? { secretsEnc: bumpedSecrets } : {}),
+      lastRefreshAt: now,
       refreshFailureCount: 0,
       credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
       updatedAt: new Date(),
@@ -762,8 +839,19 @@ export async function main(argv: string[]): Promise<number> {
     return 2
   }
   // decodePoolRow 的成功分支形状(已在上方 error 分支 return):收窄成预检入参
+  const decProfile = (dec as { profile?: Record<string, unknown> | null }).profile ?? null
+  const ticketWindowNow = tokenWindow.traeTokenVerdict({
+    token: dec.token,
+    expiresAt: (row as { tokenExpiresAt?: string | Date | null }).tokenExpiresAt ?? null,
+    tokenReleaseAt: (decProfile?.tokenReleaseAt ?? null) as string | Date | null,
+  })
   const pre = await preflightTraeDeviceMatch(
-    dec as { token?: string; refreshToken: string | null },
+    {
+      token: dec.token,
+      refreshToken: dec.refreshToken,
+      tokenExpiresAt: (row as { tokenExpiresAt?: string | Date | null }).tokenExpiresAt ?? null,
+      tokenReleaseAt: (decProfile?.tokenReleaseAt ?? null) as string | Date | null,
+    },
     preflightStore,
   )
   if (pre.decision === 'rejected') {
@@ -773,15 +861,54 @@ export async function main(argv: string[]): Promise<number> {
     process.stderr.write(`❌ 拒绝切号(未改动任何本机文件,现登录态保持原样)\n   ${pre.reason}\n`)
     process.stderr.write(
       '   出路(按可行性排序):\n' +
-        '   ① 本机重新登录一次该号(短信/扫码),让服务端把 refreshToken 绑到本机设备身份;\n' +
-        '   ② 或改切一枚本机登录过的号:`node scripts/switch-client-account.mjs --list --provider trae`;\n' +
-        '   ③ 跨机迁移该号时,须连同**签发它的那台设备**的客户端设备注册材料一并迁移\n' +
+        '   ① 池里有该号 cookie 时,用授权码通道自动重绑(无需短信/扫码):\n' +
+        `      node scripts/trae-rebind-by-cookie.mjs --uid ${String(row.uid)}\n` +
+        '   ② 系统浏览器已登录该号时,走授权页重绑:\n' +
+        `      node scripts/trae-rebind-by-authorize.mjs --uid ${String(row.uid)}\n` +
+        '   ③ 本机重新登录一次该号(短信/扫码),让服务端把 refreshToken 绑到本机设备身份;\n' +
+        '   ④ 或改切一枚本机登录过的号:`node scripts/switch-client-account.mjs --list --provider trae`;\n' +
+        '   ⑤ 跨机迁移该号时,须连同**签发它的那台设备**的客户端设备注册材料一并迁移\n' +
         '      (客户端 `ahaDeviceService` 的设备身份,与 storage.json 里 icube-dc 密钥对不是同一层)。\n',
     )
     process.stdout.write(`${JSON.stringify(report)}\n`)
     return 1
   }
   if (pre.decision === 'undetermined') {
+    /**
+     * 2026-11-26 二次修正:undetermined 放行**只对票窗够的号成立**。
+     * 票窗不足时,"客户端启动必先换票"是确定事实,而"rt 能不能换"没判出来 ⇒
+     * 放行就是把号写进去赌一把,赌输 = 客户端当场登出。这类号一律拒切。
+     */
+    if (ticketWindowNow !== tokenWindow.TRAE_TOKEN_VERDICT.VALID) {
+      const hours = tokenWindow.traeTokenLeftHours({
+        expiresAt: (row as { tokenExpiresAt?: string | Date | null }).tokenExpiresAt ?? null,
+      })
+      const left = Number.isFinite(hours)
+        ? String(Math.max(Number(hours), 0).toFixed(1)) + 'h'
+        : '不足 24h'
+      steps.push('abort-preflight-undetermined-ticket-window(票窗不足,未判定即拒切)')
+      report.outcome = 'rejected-preflight'
+      report.preflight = {
+        decision: 'undetermined',
+        reason: pre.reason,
+        ticketWindow: ticketWindowNow,
+        abortedBy: 'ticket-window',
+      }
+      process.stderr.write(
+        '❌ 拒绝切号(未改动任何本机文件,现登录态保持原样)\n' +
+          '   票窗只剩 ' +
+          left +
+          '(≤24h,客户端启动必先换票),而换票预检未判定: ' +
+          pre.reason +
+          '\n' +
+          '   这种组合下放行 = 拿现登录态赌客户端换票能成;赌输就是当场登出。\n' +
+          '   先把票修到 >24h 再切: node scripts/trae-rebind-by-cookie.mjs --uid ' +
+          String(row.uid) +
+          '\n',
+      )
+      process.stdout.write(JSON.stringify(report) + '\n')
+      return 1
+    }
     /**
      * undetermined 不再中止(2026-11-12 实测修正):该端点在本机对任何带设备证明的请求都回 504,
      * 若这里 abort,一键切号会把每一枚号都挡在门外 —— 包括本机正登录着的那枚。
@@ -914,7 +1041,12 @@ export async function main(argv: string[]): Promise<number> {
       tokenExpiresAt: writeExpiresAt,
       refreshExpiresAt: row.refreshExpiresAt,
       name: row.name,
-      profile: dec.profile,
+      // 预检换出新票时,发签时刻一并扶到"现在":让客户端直接用这张票,
+      // 不再触发它自己的换票(否则它会轮换掉我们刚写回池的 rt)
+      profile:
+        pre.decision === 'ok' && pre.via !== 'existing-token'
+          ? { ...(dec.profile ?? {}), tokenReleaseAt: new Date().toISOString() }
+          : dec.profile,
       sessionTemplate: dec.sessionTemplate,
       lastRefreshAt: row.lastRefreshAt,
       updatedAt: row.updatedAt,
@@ -1135,19 +1267,67 @@ export async function main(argv: string[]): Promise<number> {
             dllPath: dllNow,
             tables: ['project', 'user_configuration'],
           })
-          const bad = Object.entries(owner as Record<string, string[]>).filter(([, uids]) =>
+          let bad = Object.entries(owner as Record<string, string[]>).filter(([, uids]) =>
             uids.some((u) => u && u !== oldUid),
           )
-          report.rollbackOwnerCheck = {
-            expected: oldUid,
-            owners: owner,
-            mismatched: bad.map(([t]) => t),
+          /**
+           * 切前基线比对(2026-11-26 立,修误报;判据本体住 scripts/lib/trae-rollback-owner.mjs)。
+           *
+           * 原判据"回滚后只剩 oldUid"在**用过一阵的老机器**上恒不成立:本机库本来就可能躺着
+           * 多枚历史号的 project / user_configuration 残留(本次实测:回滚后 owners 仍是
+           * 256600094542297 / 4052179693353144 / 4135677762212986 / 2257723987855312 四枚,
+           * 而 vscdb 备份里同四枚各有 101/8/7/2 个键 —— 切前就是这副样子,回滚本身是干净的)。
+           *
+           * 改法:先按旧判据粗筛,**只有命中时**才解密切前 db 备份取基线(正常切号零额外开销),
+           * 基线里本来就有的 uid 不算错位,只有"回滚后冒出新归属"才是真 mismatch。
+           */
+          let judgedAgainstBaseline = false
+          if (bad.length > 0) {
+            let baseline: Record<string, string[]> | null = null
+            try {
+              const dbBackup = (journal.backupPaths() as string[]).find((p) =>
+                /ai-agent__database\.db$/i.test(p),
+              )
+              if (dbBackup && fs.existsSync(dbBackup)) {
+                baseline = (await carry.readTableUidOwners({
+                  dbFile: dbBackup,
+                  dllPath: dllNow,
+                  tables: ['project', 'user_configuration'],
+                })) as Record<string, string[]>
+              }
+            } catch {
+              baseline = null
+            }
+            if (baseline) {
+              const mismatched = ownerCheck.pickOwnerMismatches(
+                owner as Record<string, string[]>,
+                baseline,
+                oldUid,
+              ) as string[]
+              bad = (bad as [string, string[]][]).filter(([t]) => mismatched.includes(t))
+              judgedAgainstBaseline = true
+              report.rollbackOwnerCheck = {
+                expected: oldUid,
+                owners: owner,
+                baselineOwners: baseline,
+                mismatched,
+                judgedAgainstBaseline: true,
+              }
+            }
+          }
+          if (!judgedAgainstBaseline) {
+            report.rollbackOwnerCheck = {
+              expected: oldUid,
+              owners: owner,
+              mismatched: bad.map(([t]) => t),
+            }
           }
           if (bad.length > 0) {
             const detail = bad.map(([t, u]) => `${t}=${u.join('/')}`).join(', ')
             steps.push('rollback-owner-mismatch')
             process.stderr.write(
-              `❌ 回滚后数据归属仍与登录态不一致(${detail};期望 ${oldUid})。\n` +
+              `❌ 回滚后数据归属仍与登录态不一致(${detail};` +
+                `${judgedAgainstBaseline ? '切前基线比对后仍有新归属' : `期望 ${oldUid}`}）。\n` +
                 '   正向 `node scripts/switch-client-account.mjs` 重切同一枚号即可把归属搬正;\n' +
                 `   或人工用备份还原:${journal.dir}\n`,
             )
@@ -1155,7 +1335,11 @@ export async function main(argv: string[]): Promise<number> {
             process.stdout.write(`${JSON.stringify(report)}\n`)
             return 1
           }
-          steps.push('rollback-owner-verified')
+          steps.push(
+            judgedAgainstBaseline
+              ? 'rollback-owner-verified(切前基线一致)'
+              : 'rollback-owner-verified',
+          )
         }
       } catch (e) {
         // 核对不了不改判(report 里留具名未判定),但绝不静默当成已核对
