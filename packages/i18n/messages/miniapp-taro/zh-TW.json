@@ -141,7 +141,34 @@
     "loginFailed": "登入失敗,請重試",
     "wechatOneClick": "微信一鍵登入",
     "webAuthLogin": "網頁授權登入",
-    "agreement": "登入即代表同意《使用者條款》和《隱私權政策》"
+    "agreement": "登入即代表同意《使用者條款》和《隱私權政策》",
+    "getCode": "取得驗證碼",
+    "phoneInvalid": "請輸入正確的手機號",
+    "emailInvalid": "請輸入正確的電子郵件",
+    "wechatUnavailable": "目前環境暫不支援微信登入",
+    "ssoUnavailable": "網頁授權登入暫未開放,請使用手機號或電子郵件驗證碼登入",
+    "brand": "智匯AI",
+    "phoneLogin": "手機號登入",
+    "codePlaceholder": "請輸入驗證碼",
+    "wechatLogin": "微信登入",
+    "codeCountdownSuffix": "秒後重新取得",
+    "ssoLoginTitle": "智匯AI網頁授權登入",
+    "emailLogin": "電子郵件登入",
+    "email": "電子郵件",
+    "emailPlaceholder": "請輸入電子郵件",
+    "clearHistory": "清空全部",
+    "code": "驗證碼",
+    "sending": "傳送中…",
+    "phone": "手機號",
+    "autoLogin": "自動登入",
+    "or": "或",
+    "noAccount": "沒有帳號?",
+    "registerNow": "立即註冊",
+    "agreePrefix": "我已閱讀並同意",
+    "termsOfService": "《使用者協議》",
+    "and": "和",
+    "privacyPolicy": "《隱私政策》",
+    "agreeRequired": "請先閱讀並同意服務協議和隱私政策"
   },
   "forgot": {
     "step1": "第一步:驗證手機號",
@@ -449,7 +476,8 @@
     "y1": "{p1}時長",
     "y2": "購買智慧體:{p1}",
     "follow": "關注",
-    "follower": "粉絲"
+    "follower": "粉絲",
+    "loadFailedTapRetry": "載入失敗，點擊重試"
   },
   "action": {
     "like": "點讚",
@@ -1042,6 +1070,21 @@
       "branch": {
         "ariaLabel": "對話分支"
       }
+    },
+    "compactionBoundary": {
+      "title": "上下文已壓縮",
+      "summary": "摺疊 {n} 則 · {before} → {after} token",
+      "collapse": "收起",
+      "expand": "檢視壓縮前關鍵片段",
+      "removedRange": "摺疊範圍"
+    },
+    "contextLedger": {
+      "title": "上下文七類明細",
+      "round": "第 {n} 輪",
+      "collapse": "收起",
+      "expand": "展開",
+      "total": "已用 {used} / 上限 {limit} · {percent}",
+      "windowUnknown": "視窗未知 · 已用 {used}"
     }
   },
   "share": {
@@ -1531,7 +1574,8 @@
       "fillInfo": "請填寫完整資訊",
       "verifying": "驗證中",
       "verifyOk": "驗證成功",
-      "verifyFail": "驗證失敗"
+      "verifyFail": "驗證失敗",
+      "navFailed": "頁面未設定"
     },
     "rankEmpty": "暫無排行數據",
     "statsTitle": "收益概覽",
@@ -1552,7 +1596,8 @@
     "pending": "待結算",
     "withdrawMin": "滿 ¥{amount} 方可提現",
     "products": "分銷商品",
-    "sales": "已售 {count} 件"
+    "sales": "已售 {count} 件",
+    "navFailed": "頁面未設定"
   },
   "about": {
     "ctaDesc": "注冊即得 1000 積分,全模型免費試用,無需信用卡。",
@@ -2271,7 +2316,8 @@
       "targetGroupEnterprise": "企業",
       "discountNone": "不參與",
       "discountPartial": "部分參與",
-      "discountFull": "全部參與"
+      "discountFull": "全部參與",
+      "saveSuccess": "儲存成功"
     }
   },
   "devSpace": {
@@ -3633,7 +3679,8 @@
       "mobileUnsupported": "終端功能暫不支持行動端"
     },
     "questionNoSession": "無法定位會話，此題無法作答",
-    "questionFailed": "提交失敗，請重試"
+    "questionFailed": "提交失敗，請重試",
+    "hookFailureTitle": "Hook 執行失敗:{name}"
   },
   "tabBar": {
     "community": "智匯社群",
@@ -3708,7 +3755,8 @@
     "d2": "需求廣場",
     "d3": "我的一人公司",
     "d4": "領取免費資料",
-    "d5": "建立新對話"
+    "d5": "建立新對話",
+    "crossEnd": "來自其它端"
   },
   "userUserCard": {
     "view1": "查看相關訂單",
@@ -7216,6 +7264,7 @@
   },
   "hrAttendance": {
     "title": "人事部 · 考勤",
+    "checkIn": "簽到",
     "tabDepartments": "部門",
     "tabEmployees": "員工",
     "tabRule": "考勤規則",
@@ -7435,5 +7484,11 @@
     "noOnlineHint": "現在沒有任何裝置在線。任務派出去會排隊等它上線；如果那台就是你自己的電腦，請在桌面端「設定 → 裝置管理」點「一鍵啟用」。",
     "offlineHint": "這台裝置目前離線：派過去的任務會排隊，它上線後自動執行。",
     "delegateOfflineHint": "它現在不在線，任務會在它上線後自動開始。"
+  },
+  "uiText": {
+    "nicknameLengthHint": "2-16 個字元"
+  },
+  "commission": {
+    "myLabel": "我的佣金"
   }
 }

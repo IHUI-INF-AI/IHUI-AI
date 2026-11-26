@@ -38,18 +38,6 @@
       "rationale": "同一无障碍名称槽位:RN 由调用方给本地化字面量(屏幕阅读器只会念这一个字符串),小程序给 i18n 键由端内取词;两端都只喂 ariaLabel/accessibilityLabel,不参与可见渲染。"
     },
     {
-      "pair": "UserInfoCard",
-      "ours": "onEdit",
-      "theirs": "onClick",
-      "kind": "event",
-      "owner": "cross-end-props-parity",
-      "evidence": {
-        "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:102",
-        "mini": "packages/types/src/ui-native-components.ts:206"
-      },
-      "rationale": "同一资料编辑激活槽位:RN 在头像与昵称两个 Touchable 上各绑 onEdit,小程序在头部容器绑 onClick(同位置显示铅笔图标);两端都是点击头像/昵称区进入资料编辑。"
-    },
-    {
       "pair": "VideoPlayer",
       "ours": "onProgress",
       "theirs": "onTimeUpdate",
@@ -288,30 +276,6 @@
         "mini": "apps/miniapp-taro/src/components/VideoPlayer.tsx:31"
       },
       "rationale": "同一播放结束回调槽位:RN onComplete ↔ 小程序 onEnded(共享类型显式登记映射);两端都在播放结束时无参回调上层,供标记课时完成。"
-    },
-    {
-      "pair": "UserInfoCard",
-      "ours": "onRecharge",
-      "theirs": "onWallet",
-      "kind": "event",
-      "owner": "ihui-mobile-props",
-      "rationale": "同一充值动作:RN onRecharge(跳 Wallet) ↔ 小程序 onWallet(跳智汇值余额/充值页)。",
-      "evidence": {
-        "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:101",
-        "mini": "apps/miniapp-taro/src/components/UserInfoCard.tsx:95"
-      }
-    },
-    {
-      "pair": "UserInfoCard",
-      "ours": "onLevelIntro",
-      "theirs": "onOpenLevel",
-      "kind": "event",
-      "owner": "ihui-mobile-props",
-      "rationale": "同一等级介绍入口:RN onLevelIntro(等级 Modal/介绍) ↔ 小程序 onOpenLevel(等级介绍页)。",
-      "evidence": {
-        "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:111",
-        "mini": "apps/miniapp-taro/src/components/UserInfoCard.tsx:103"
-      }
     },
     {
       "pair": "Carousel",

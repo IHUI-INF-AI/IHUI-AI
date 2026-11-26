@@ -12353,6 +12353,7 @@
     "pdfPageJump": "跳转到页",
     "pdfPageJumpLabel": "页码",
     "pptxNotes": "备注",
+    "pptxOutline": "文字大纲",
     "csvPreviewMeta": "共 {rows} 行 × {cols} 列",
     "csvExpand": "展开全部",
     "csvCollapse": "收起",
@@ -14434,6 +14435,25 @@
     "totalCount": "共 {count} 人"
   },
   "docs": {
+    "repositoryFiles": {
+      "title": "文档文件",
+      "description": "仓库 docs 下的 PDF、Office、表格、图片、音视频等非 Markdown 文件，按原格式直接预览",
+      "loading": "加载中...",
+      "preview": "预览",
+      "count": "共 {count} 个"
+    },
+    "projectFiles": {
+      "count": "共 {count} 个",
+      "description": "项目工作区上传的文件，按原格式直接预览",
+      "download": "下载原文件",
+      "exitFullscreen": "退出全屏",
+      "fullscreen": "全屏",
+      "loading": "加载中...",
+      "preview": "预览",
+      "previewFailed": "预览失败，请下载后查看",
+      "retry": "重试",
+      "title": "我的项目文件"
+    },
     "navAgent": "Agent 开发",
     "navApi": "API 文档",
     "navDevelopers": "开发者",
@@ -15204,7 +15224,10 @@
       "symbolPlaceholder": "股票代码，如 AAPL 或 600519",
       "time": "时间",
       "title": "AI 股票分析",
-      "tokenBalance": "AI 积分余额", "permanent": "永久积分", "daily": "今日赠送", "dailyHint": "每日赠送 100 积分，当天有效",
+      "tokenBalance": "AI 积分余额",
+      "permanent": "永久积分",
+      "daily": "今日赠送",
+      "dailyHint": "每日赠送 100 积分，当天有效",
       "tokensUsed": "Token 消耗",
       "total": "总额",
       "used": "已用",
@@ -16019,7 +16042,11 @@
     "description": "一站式发现 API、Agent、文档、模型与 SDK",
     "documents": {
       "catAll": "全部",
+      "catAllFormats": "全部格式",
+      "clearFilters": "清除筛选",
+      "formatFilter": "格式",
       "close": "关闭",
+      "previewFailed": "预览失败,请稍后重试",
       "description": "查阅接入与开发文档",
       "loading": "加载中...",
       "noMatch": "暂无匹配的文档",
@@ -20206,6 +20233,10 @@
     "schedulerNextRun": "下次 {time}"
   },
   "nav": {
+    "market": "AI应用商店",
+    "aiHome": "智汇AI",
+    "feed": "动态",
+    "mine": "我的",
     "checkin": "签到助手",
     "monitorWallboard": "监控大屏",
     "ecosystemHub": "生态市场",
@@ -26985,7 +27016,19 @@
   },
   "community": {
     "follow": "关注",
-    "follower": "粉丝"
+    "follower": "粉丝",
+    "title": "智汇AI",
+    "subtitle": "智能体社区：发现并用好每一个 AI",
+    "posts": "帖子",
+    "searchPlaceholder": "搜索智能体",
+    "banners": "精选推荐",
+    "categories": "分类",
+    "recent": "最近使用",
+    "recentHint": "最近用过",
+    "recentEmpty": "还没有使用记录，去挑一个智能体吧",
+    "myAgents": "我的智能体",
+    "recommended": "智能体推荐",
+    "unknownAgent": "未知智能体"
   },
   "profileEdit": {
     "retry": "重试",
@@ -31509,6 +31552,15 @@
     "expStatusPaid": "已付款",
     "expStatusVoided": "已作废",
     "uploading": "上传中…"
+  },
+  "ringtoneNames": {
+    "dingdong": "叮咚",
+    "tritone": "三音阶",
+    "waterdrop": "水滴",
+    "doublebell": "双铃",
+    "bubble": "气泡",
+    "marimba": "马林巴",
+    "chime": "风铃",
+    "knock": "敲门"
   }
 }
-

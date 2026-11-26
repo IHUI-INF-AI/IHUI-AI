@@ -12308,6 +12308,7 @@
     "pdfPageJump": "跳轉到頁",
     "pdfPageJumpLabel": "頁碼",
     "pptxNotes": "備註",
+    "pptxOutline": "文字大綱",
     "csvPreviewMeta": "共 {rows} 列 × {cols} 欄",
     "csvExpand": "展開全部",
     "csvCollapse": "收合",
@@ -14389,6 +14390,25 @@
     "totalCount": "共 {count} 人"
   },
   "docs": {
+    "repositoryFiles": {
+      "title": "文檔檔案",
+      "description": "倉庫 docs 下的 PDF、Office、表格、圖片、音頻、視頻等非 Markdown 檔案，依原格式直接預覽",
+      "loading": "載入中...",
+      "preview": "預覽",
+      "count": "共 {count} 個"
+    },
+    "projectFiles": {
+      "count": "共 {count} 個",
+      "description": "專案工作區上傳的檔案，依原格式直接預覽",
+      "download": "下載原檔案",
+      "exitFullscreen": "退出全螢幕",
+      "fullscreen": "全螢幕",
+      "loading": "載入中...",
+      "preview": "預覽",
+      "previewFailed": "預覽失敗，請下載後查看",
+      "retry": "重試",
+      "title": "我的專案檔案"
+    },
     "navAgent": "Agent 開發",
     "navApi": "API 文檔",
     "navDevelopers": "開發者",
@@ -15159,7 +15179,10 @@
       "symbolPlaceholder": "股票代碼，如 AAPL 或 600519",
       "time": "時間",
       "title": "AI 股票分析",
-      "tokenBalance": "AI 積分餘額", "permanent": "永久積分", "daily": "今日贈送", "dailyHint": "每日贈送 100 積分，當天有效",
+      "tokenBalance": "AI 積分餘額",
+      "permanent": "永久積分",
+      "daily": "今日贈送",
+      "dailyHint": "每日贈送 100 積分，當天有效",
       "tokensUsed": "Token 消耗",
       "total": "總額",
       "used": "已用",
@@ -15801,7 +15824,11 @@
     "description": "一站式發現 API、Agent、文檔、模型與 SDK",
     "documents": {
       "catAll": "全部",
+      "catAllFormats": "全部格式",
+      "clearFilters": "清除篩選",
+      "formatFilter": "格式",
       "close": "關閉",
+      "previewFailed": "預覽失敗,請稍後重試",
       "description": "查閱接入與開發文檔",
       "loading": "加載中...",
       "noMatch": "暫無匹配的文檔",
@@ -19938,6 +19965,10 @@
     "schedulerNextRun": "下次 {time}"
   },
   "nav": {
+    "market": "AI應用商店",
+    "aiHome": "智匯AI",
+    "feed": "動態",
+    "mine": "我的",
     "checkin": "簽到助手",
     "monitorWallboard": "監控大屏",
     "ecosystemHub": "生態市場",
@@ -26567,7 +26598,19 @@
   },
   "community": {
     "follow": "關注",
-    "follower": "粉絲"
+    "follower": "粉絲",
+    "title": "智匯AI",
+    "subtitle": "智慧體社群：發現並用好每一個 AI",
+    "posts": "貼文",
+    "searchPlaceholder": "搜尋智慧體",
+    "banners": "精選推薦",
+    "categories": "分類",
+    "recent": "最近使用",
+    "recentHint": "最近用過",
+    "recentEmpty": "還沒有使用紀錄，去挑一個智慧體吧",
+    "myAgents": "我的智慧體",
+    "recommended": "智慧體推薦",
+    "unknownAgent": "未知智慧體"
   },
   "profileEdit": {
     "retry": "重試",
@@ -31101,6 +31144,15 @@
     "expStatusPaid": "已付款",
     "expStatusVoided": "已作廢",
     "uploading": "上傳中…"
+  },
+  "ringtoneNames": {
+    "dingdong": "叮咚",
+    "tritone": "三音階",
+    "waterdrop": "水滴",
+    "doublebell": "雙鈴",
+    "bubble": "氣泡",
+    "marimba": "馬林巴",
+    "chime": "風鈴",
+    "knock": "敲門"
   }
 }
-

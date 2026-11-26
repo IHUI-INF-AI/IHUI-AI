@@ -752,6 +752,7 @@ test('⑮f 探针模板的裸 node 也换成当次运行时(服务身份 PATH �
   assert.equal(p.requireSmoke, true)
   assert.ok(p.smokeCommand.includes(process.execPath), `探针必须用本进程运行时,实得:${p.smokeCommand}`)
   assert.ok(!p.smokeCommand.startsWith('node '), '裸 node 不得留在探针首 token')
+  assert.equal(p.smokeTimeoutMs, 60000, '冷启动实测 32.5s，20s 会把能起来的执行体误拦；探针预算必须 ≥60s')
   assert.equal(preflightOpts({}).smokeCommand, undefined, '没配探针 ⇒ 原样 undefined(交由 requireSmoke 判 undetermined)')
 })
 

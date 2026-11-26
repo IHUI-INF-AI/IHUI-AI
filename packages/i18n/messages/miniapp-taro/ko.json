@@ -141,7 +141,34 @@
     "loginFailed": "로그인 실패, 다시 시도해 주세요",
     "wechatOneClick": "WeChat 원클릭 로그인",
     "webAuthLogin": "웹 인증 로그인",
-    "agreement": "로그인하면 이용약관 및 개인정보 처리방침에 동의하는 것으로 간주됩니다"
+    "agreement": "로그인하면 이용약관 및 개인정보 처리방침에 동의하는 것으로 간주됩니다",
+    "getCode": "인증번호 받기",
+    "phoneInvalid": "올바른 휴대폰 번호를 입력하세요",
+    "emailInvalid": "올바른 이메일을 입력하세요",
+    "wechatUnavailable": "현재 환경에서는 위챗 로그인을 사용할 수 없습니다",
+    "ssoUnavailable": "웹 인증 로그인이 아직 지원되지 않습니다. 휴대폰 또는 이메일 인증번호로 로그인하세요.",
+    "brand": "IHUI AI",
+    "phoneLogin": "휴대폰",
+    "codePlaceholder": "인증번호 입력",
+    "wechatLogin": "위챗",
+    "codeCountdownSuffix": "초 후 재전송",
+    "ssoLoginTitle": "IHUI AI 웹 인증 로그인",
+    "emailLogin": "이메일",
+    "email": "이메일",
+    "emailPlaceholder": "이메일을 입력하세요",
+    "clearHistory": "모두 지우기",
+    "code": "인증번호",
+    "sending": "전송 중…",
+    "phone": "휴대폰 번호",
+    "autoLogin": "자동 로그인",
+    "or": "또는",
+    "noAccount": "계정이 없으신가요?",
+    "registerNow": "지금 가입",
+    "agreePrefix": "다음을 읽고 동의합니다",
+    "termsOfService": "이용약관",
+    "and": "및",
+    "privacyPolicy": "개인정보 처리방침",
+    "agreeRequired": "먼저 이용약관과 개인정보 처리방침을 읽고 동의하세요"
   },
   "forgot": {
     "step1": "1단계: 휴대폰 인증",
@@ -449,7 +476,8 @@
     "y1": "{p1} 시간",
     "y2": "에이전트 구매:{p1}",
     "follow": "팔로우",
-    "follower": "팔로워"
+    "follower": "팔로워",
+    "loadFailedTapRetry": "불러오지 못했습니다. 탭하여 다시 시도"
   },
   "action": {
     "like": "좋아요",
@@ -1042,6 +1070,21 @@
       "branch": {
         "ariaLabel": "대화 분기"
       }
+    },
+    "compactionBoundary": {
+      "title": "컨텍스트가 압축됨",
+      "summary": "{n}개 접힘 · {before} → {after} token",
+      "collapse": "접기",
+      "expand": "압축 전 핵심 구간 보기",
+      "removedRange": "접힌 범위"
+    },
+    "contextLedger": {
+      "title": "컨텍스트 7개 분류 내역",
+      "round": "{n}번째 라운드",
+      "collapse": "접기",
+      "expand": "펼치기",
+      "total": "사용 {used} / 한도 {limit} · {percent}",
+      "windowUnknown": "윈도우 알 수 없음 · 사용 {used}"
     }
   },
   "share": {
@@ -1531,7 +1574,8 @@
       "fillInfo": "정보를 완전히 입력하세요",
       "verifying": "확인 중",
       "verifyOk": "확인 성공",
-      "verifyFail": "확인 실패"
+      "verifyFail": "확인 실패",
+      "navFailed": "페이지가 구성되지 않았습니다"
     },
     "rankEmpty": "랭킹 데이터 없음",
     "statsTitle": "수익 개요",
@@ -1552,7 +1596,8 @@
     "pending": "정산 대기",
     "withdrawMin": "¥{amount} 이상부터 출금 가능",
     "products": "유통 상품",
-    "sales": "{count}개 판매됨"
+    "sales": "{count}개 판매됨",
+    "navFailed": "페이지가 구성되지 않았습니다"
   },
   "about": {
     "ctaDesc": "가입 즉시 1,000 크레딧 제공, 모든 모델 무료 체험, 신용 카드 불필요.",
@@ -2271,7 +2316,8 @@
       "targetGroupEnterprise": "기업",
       "discountNone": "참여 안 함",
       "discountPartial": "부분 참여",
-      "discountFull": "전체 참여"
+      "discountFull": "전체 참여",
+      "saveSuccess": "저장되었습니다"
     }
   },
   "devSpace": {
@@ -3633,7 +3679,8 @@
       "mobileUnsupported": "모바일 터미널 미지원"
     },
     "questionNoSession": "세션을 찾을 수 없어 답변할 수 없습니다",
-    "questionFailed": "제출 실패, 다시 시도하세요"
+    "questionFailed": "제출 실패, 다시 시도하세요",
+    "hookFailureTitle": "Hook 실행 실패: {name}"
   },
   "tabBar": {
     "community": "커뮤니티",
@@ -3708,7 +3755,8 @@
     "d2": "수요 광장",
     "d3": "내 원맨 컴퍼니",
     "d4": "무료 자료 받기",
-    "d5": "새 대화 만들기"
+    "d5": "새 대화 만들기",
+    "crossEnd": "다른 기기에서"
   },
   "userUserCard": {
     "view1": "관련 주문 보기",
@@ -7216,6 +7264,7 @@
   },
   "hrAttendance": {
     "title": "인사부 · 근태",
+    "checkIn": "체크인",
     "tabDepartments": "부서",
     "tabEmployees": "직원",
     "tabRule": "근태 규칙",
@@ -7435,5 +7484,11 @@
     "noOnlineHint": "현재 온라인 상태인 기기가 없습니다. 보낸 작업은 기기가 온라인이 될 때까지 대기합니다. 그 기기가 본인 컴퓨터라면 데스크톱 앱의 \"설정 → 기기 관리\"에서 \"원클릭 활성화\"를 누르세요.",
     "offlineHint": "이 기기는 오프라인입니다. 보낸 작업은 대기하다가 기기가 온라인이 되면 자동으로 실행됩니다.",
     "delegateOfflineHint": "지금은 오프라인이라, 기기가 온라인이 되면 작업이 자동으로 시작됩니다."
+  },
+  "uiText": {
+    "nicknameLengthHint": "2~16자"
+  },
+  "commission": {
+    "myLabel": "내 커미션"
   }
 }

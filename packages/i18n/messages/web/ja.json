@@ -12287,6 +12287,7 @@
     "pdfPageJump": "ページへ移動",
     "pdfPageJumpLabel": "ページ番号",
     "pptxNotes": "ノート",
+    "pptxOutline": "テキストアウトライン",
     "csvPreviewMeta": "{rows} 行 × {cols} 列",
     "csvExpand": "すべて表示",
     "csvCollapse": "折りたたむ",
@@ -14454,6 +14455,25 @@
     "totalCount": "計 {count} 人"
   },
   "docs": {
+    "repositoryFiles": {
+      "title": "リポジトリのファイル",
+      "description": "docs リポジトリ内の PDF・Office・表計算・画像・音声・動画などの非 Markdown ファイルを元の形式でプレビュー",
+      "loading": "読み込み中...",
+      "preview": "プレビュー",
+      "count": "全 {count} 件"
+    },
+    "projectFiles": {
+      "count": "全 {count} 件",
+      "description": "プロジェクトワークスペースにアップロードしたファイルを元の形式でプレビュー",
+      "download": "元のファイルをダウンロード",
+      "exitFullscreen": "全画面表示を終了",
+      "fullscreen": "全画面表示",
+      "loading": "読み込み中...",
+      "preview": "プレビュー",
+      "previewFailed": "プレビューに失敗しました。ダウンロードしてご確認ください",
+      "retry": "再試行",
+      "title": "プロジェクトのファイル"
+    },
     "navAgent": "Agent開発",
     "navApi": "APIドキュメント",
     "navDevelopers": "開発者",
@@ -15224,7 +15244,10 @@
       "symbolPlaceholder": "銘柄コード（例: AAPL / 600519）",
       "time": "時間",
       "title": "AI 株価分析",
-      "tokenBalance": "AI ポイント残高", "permanent": "永久ポイント", "daily": "本日付与", "dailyHint": "毎日 100 ポイント付与（当日のみ有効）",
+      "tokenBalance": "AI ポイント残高",
+      "permanent": "永久ポイント",
+      "daily": "本日付与",
+      "dailyHint": "毎日 100 ポイント付与（当日のみ有効）",
       "tokensUsed": "トークン消費",
       "total": "合計",
       "used": "使用",
@@ -16055,7 +16078,11 @@
     "description": "API、Agent、ドキュメント、モデル、SDKの",
     "documents": {
       "catAll": "すべて",
+      "catAllFormats": "すべての形式",
+      "clearFilters": "フィルターをクリア",
+      "formatFilter": "形式",
       "close": "閉じる",
+      "previewFailed": "プレビューに失敗しました。もう一度お試しください。",
       "description": "・ドキュメントを",
       "loading": "読み込み中...",
       "noMatch": "するドキュメントはありません",
@@ -19881,6 +19908,10 @@
     "none": "なし"
   },
   "nav": {
+    "market": "AIストア",
+    "aiHome": "智匯AI",
+    "feed": "フィード",
+    "mine": "マイページ",
     "ecosystemHub": "エコシステムマーケット",
     "adminRelayInsights": "インサイト",
     "adminRelayEnterprise": "エンタープライズ",
@@ -26697,7 +26728,19 @@
   },
   "community": {
     "follow": "フォロー",
-    "follower": "フォロワー"
+    "follower": "フォロワー",
+    "title": "智匯AI",
+    "subtitle": "エージェントコミュニティ — すべての AI を見つけて使いこなす",
+    "posts": "投稿",
+    "searchPlaceholder": "エージェントを検索",
+    "banners": "おすすめ",
+    "categories": "カテゴリ",
+    "recent": "最近使用",
+    "recentHint": "最近使用しました",
+    "recentEmpty": "まだ利用履歴がありません。エージェントを選んで始めましょう",
+    "myAgents": "マイエージェント",
+    "recommended": "おすすめエージェント",
+    "unknownAgent": "不明なエージェント"
   },
   "profileEdit": {
     "retry": "再試行",
@@ -31508,6 +31551,15 @@
     "expStatusPaid": "支払済み",
     "expStatusVoided": "無効化",
     "uploading": "アップロード中…"
+  },
+  "ringtoneNames": {
+    "dingdong": "ディンドン",
+    "tritone": "トライトーン",
+    "waterdrop": "水滴",
+    "doublebell": "ダブルベル",
+    "bubble": "バブル",
+    "marimba": "マリンバ",
+    "chime": "チャイム",
+    "knock": "ノック"
   }
 }
-

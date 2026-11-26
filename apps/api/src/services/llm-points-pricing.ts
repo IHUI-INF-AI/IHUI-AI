@@ -40,9 +40,11 @@ export interface LlmPointsRates {
   outputPointsPer1k: number
   /** 命中的 ai_pricing.model_id，便于审计 */
   pricingModelId: string
-  /** 上游成本价（分/千 token），仅用于日志/审计 */
+  /** 上游成本价（分/千 token），仅用于日志/审计；retail 回退时为零售价 */
   inputCostPer1k: number
   outputCostPer1k: number
+  /** 成本来源:config=成本列;retail=ai_pricing 零售价回退(真实成本未知) */
+  costBasis: 'config' | 'retail'
   /** 展示用单值：取输入/输出较高的一侧 */
   displayMultiplier: number
 }
@@ -191,6 +193,7 @@ export async function getLlmPointsRates(modelId: string): Promise<LlmPointsRates
     pricingModelId: costRow?.modelId ?? tokenPriceRow?.modelId ?? '',
     inputCostPer1k: configUsable ? inputCost : listInput,
     outputCostPer1k: configUsable ? outputCost : listOutput,
+    costBasis: configUsable ? 'config' : 'retail',
     displayMultiplier: Math.max(inputPointsPer1k, outputPointsPer1k),
   }
   cache.set(cacheKey, { value: rates, expiresAt: Date.now() + CACHE_TTL_MS })

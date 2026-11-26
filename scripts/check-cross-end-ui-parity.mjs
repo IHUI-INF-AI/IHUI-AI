@@ -4693,7 +4693,12 @@ export function buildWebRnPairs(ledgerText, webFiles = [], rnFiles = [], webEvid
     const webEvidenceRaw = row.data?.webEvidence
     let webEvidence = null
     if (webEvidenceRaw !== undefined && webEvidenceRaw !== null) {
-      const anchored = /^(.+):(\d+)$/.exec(String(webEvidenceRaw))
+      // 只要求**开头**能锚定 `path:行号`,不要求整串就是路径(2026-11-26):
+      // 登记表里有 `path:96 GET /api/x;:112 DELETE /api/y` 这种「行号 + 该行做了什么」的
+      // 写法。它比裸路径信息更多,却因尾部说明被判「未判定」。锚定取首个 path:行 即可,
+      // 尾部说明不影响「这条证据来自这个文件的这一行」的判据。
+      // 仍要求以路径开头(: `.exec` 从 0 位起),纯文本描述照样锚不上 ⇒ 判别力没有放松。
+      const anchored = /^(.+?):(\d+(?:,\d+)*)/.exec(String(webEvidenceRaw))
       if (!anchored) {
         pending.push({
           web: route,
