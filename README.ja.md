@@ -2227,6 +2227,7 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🔧 その他:合并后补齐合并工具自动追加的溯源水印 (064257d5)
 - 📚 ドキュメント:自动登记 2026-11-26 近期更新 (3aa846a7)
 - 📚 ドキュメント:对标落地 RP — 接 auto-evolve 外部质量尺子(尺子本体已入库,在等题库/守门接线) (e27d8cff)
 - 🚀 機能/改善:豆包归档→Claude Code 会话 staging 导入工具(先写undo清单可回滚) (783236ab)
