@@ -206,8 +206,12 @@ mod tests {
 
     #[test]
     fn remote_clients_are_rejected_by_pipe_flags() {
-        // 常量由 windows-sys 提供;这里只钉"位在",防止后续改成 0 后远端 SMB 可连。
-        assert_eq!(PIPE_REJECT_REMOTE_CLIENTS, 0x0000_0008);
+        // 受限管道的创建标志必须含 PIPE_REJECT_REMOTE_CLIENTS(0x8);
+        // 只断言 windows-sys 常量等于 8 是空转,这里钉的是本仓真正传给 CreateNamedPipeW 的值。
+        assert_eq!(
+            crate::ipc_channel_acl::RESTRICTED_PIPE_MODE & PIPE_REJECT_REMOTE_CLIENTS,
+            PIPE_REJECT_REMOTE_CLIENTS
+        );
     }
 
     #[test]
