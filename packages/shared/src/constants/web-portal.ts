@@ -789,6 +789,27 @@ export const WEB_PORTAL_SECTIONS = [
         domain: 'apps',
         fallbackLabel: 'AI 应用台',
       },
+      {
+        key: 'hrMyPerf',
+        titleKey: 'webViewPortal.hrMyPerf',
+        path: '/hr/my-perf',
+        domain: 'hr',
+        fallbackLabel: '我的绩效',
+      },
+      {
+        key: 'hrMyTraining',
+        titleKey: 'webViewPortal.hrMyTraining',
+        path: '/hr/my-training',
+        domain: 'hr',
+        fallbackLabel: '我的培训',
+      },
+      {
+        key: 'hrMyExpense',
+        titleKey: 'webViewPortal.hrMyExpense',
+        path: '/hr/my-expense',
+        domain: 'hr',
+        fallbackLabel: '我的报销',
+      },
     ],
   },
   {

@@ -4402,6 +4402,9 @@
     "loadFailed": "読み込み失敗"
   },
   "webViewPortal": {
+    "hrMyPerf": "自分の評価",
+    "hrMyTraining": "自分の研修",
+    "hrMyExpense": "自分の経費精算",
     "news": "ニュース",
     "learnTopic": "テーマ講座",
     "kbSearch": "ナレッジ検索",

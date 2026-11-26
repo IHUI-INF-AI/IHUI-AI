@@ -4747,6 +4747,9 @@
     "loadFailed": "불러오기 실패"
   },
   "webViewPortal": {
+    "hrMyPerf": "내 성과",
+    "hrMyTraining": "내 교육",
+    "hrMyExpense": "내 경비 정산",
     "news": "뉴스",
     "learnTopic": "주제 강의",
     "kbSearch": "지식 검색",

@@ -4747,6 +4747,9 @@
     "loadFailed": "加载失败"
   },
   "webViewPortal": {
+    "hrMyPerf": "我的绩效",
+    "hrMyTraining": "我的培训",
+    "hrMyExpense": "我的报销",
     "news": "资讯",
     "learnTopic": "课程专题",
     "kbSearch": "知识库检索",
