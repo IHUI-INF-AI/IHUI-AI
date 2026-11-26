@@ -9604,6 +9604,7 @@
       "emptyState": "暂无内容",
       "openWindow": "打开画中画窗口",
       "dockInWorkPanel": "在工作面内停靠监看",
+      "dockCreateFailed": "无法创建监看会话，请重试；也可以让 AI 先打开浏览器。",
       "readOnly": "只读",
       "handover": "接管",
       "statusConnecting": "连接中",

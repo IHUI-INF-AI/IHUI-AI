@@ -9580,6 +9580,7 @@
       "emptyState": "暫無內容",
       "openWindow": "開啟畫中畫視窗",
       "dockInWorkPanel": "在工作面內停靠監看",
+      "dockCreateFailed": "無法建立監看會話，請重試；也可以讓 AI 先開啟瀏覽器。",
       "readOnly": "唯讀",
       "handover": "接管",
       "statusConnecting": "連線中",
