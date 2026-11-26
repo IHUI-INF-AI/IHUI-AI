@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 6a3625a8f3591f0c83fc9694fa77a91b04338dc7
-// inputsSha256: 6a3298eeb1ff00ff43ef76e03d989d27e0a75a4af29662d0bd34db358474e520
+// sourceCommit: 1f665a09cbb4776f73810729a6cbcdb5b07697fc
+// inputsSha256: f5441c98c815bbbc49fd38f7608e181462ec0e7ca1a06211673fdb81b2da9dbb
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -172,13 +172,13 @@
 // input: apps/web/app/(main)/admin/exam/records/page.tsx 66edcb2907e55a9a47d1d60a878233400949c085414f803b81c61bf99098e66b
 // input: apps/web/app/(main)/admin/exchange-rates/page.tsx 339b2cec9cbd529976487ed01b76538f4db15e030a87d0d0c22e46e76021b852
 // input: apps/web/app/(main)/admin/feedbacks/page.tsx 0b8f7f587d4aa6002725aacf6ef4e4daf723e5925ff9238a9d09c85822b7d98d
-// input: apps/web/app/(main)/admin/fin-accounting/page.tsx 56873cdccc37983b97691cbe0db48d91f422575b9a50c2edef0f11b843368374
+// input: apps/web/app/(main)/admin/fin-accounting/page.tsx 6114b2c43b6c76676fdfe9751348027de4ef55e20939e6cfff2520244ca457ea
 // input: apps/web/app/(main)/admin/finance-ai/page.tsx d47cc0eac1413389d82de3e00122350aa88645cec54b4dfa95ec386444330b3a
 // input: apps/web/app/(main)/admin/github-app/page.tsx d39fce19cc0f920f2ff0b342e5bd5427c08849e625d83164d02f6f17424c83d9
 // input: apps/web/app/(main)/admin/gray-release/page.tsx 9c5c20a621aeacf9952fb5a13794b28d5242cec27ca696ddaef205b212708429
 // input: apps/web/app/(main)/admin/help/page.tsx eff70194426b19eee76958dfac04d6a1444f2220736d73164af54a4bd1f20eec
 // input: apps/web/app/(main)/admin/home-schema/page.tsx dc4ce8e0553789f28c2f88cccff8671c82af3c526e7b095b5186f140257af627
-// input: apps/web/app/(main)/admin/hr-approval/page.tsx 76e508ab6ec7d3370fb41eb5a3b5d105f1e31d56266574b834a4d31b687aaf46
+// input: apps/web/app/(main)/admin/hr-approval/page.tsx ae1085805c377e19ccb4cce822d2e1685db337dc1bb868e996c351ea690cd957
 // input: apps/web/app/(main)/admin/hr-attendance/page.tsx 528e5df162b97390825fef0107701a0cc3abaedd0ea236df20b33ea185c26d66
 // input: apps/web/app/(main)/admin/hr-data/page.tsx 9a7e33cbbf1eaa69262eadb8f23cbd3b769360601e03fca7a3904a8dd050f1bf
 // input: apps/web/app/(main)/admin/hr-lifecycle/page.tsx 9d364344cf07949a619f119e0aea37649f23bc4a2e6297b7fcf82f1c5a8afef1
@@ -965,7 +965,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx bf75df2bfcad093f6ec6405984b9a3fa2e7cba0c353f405066f6809c382bceca
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-25T20:42:42.168Z
+// generatedAt: 2026-11-26T03:28:32.219Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
