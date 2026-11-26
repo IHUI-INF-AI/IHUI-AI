@@ -27028,7 +27028,9 @@
     "recentEmpty": "还没有使用记录，去挑一个智能体吧",
     "myAgents": "我的智能体",
     "recommended": "智能体推荐",
-    "unknownAgent": "未知智能体"
+    "unknownAgent": "未知智能体",
+    "voiceHint": "语音搜索请在完整版使用",
+    "imageHint": "图片搜索请在完整版使用"
   },
   "profileEdit": {
     "retry": "重试",

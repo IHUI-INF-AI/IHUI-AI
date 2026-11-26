@@ -26740,7 +26740,9 @@
     "recentEmpty": "まだ利用履歴がありません。エージェントを選んで始めましょう",
     "myAgents": "マイエージェント",
     "recommended": "おすすめエージェント",
-    "unknownAgent": "不明なエージェント"
+    "unknownAgent": "不明なエージェント",
+    "voiceHint": "音声検索は完全版でご利用ください",
+    "imageHint": "画像検索は完全版でご利用ください"
   },
   "profileEdit": {
     "retry": "再試行",

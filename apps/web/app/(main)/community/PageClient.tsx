@@ -9,7 +9,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Bot, ChevronRight, Clock3, Loader2, Plus, Search } from 'lucide-react'
+import { Bot, ChevronRight, Clock3, ImageIcon, Loader2, Mic, Plus, Search } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { AgentGrid } from '../agents/AgentGrid'
 import { fetchAgents, fetchCategories } from '../agents/helpers'
@@ -136,15 +137,37 @@ export default function CommunityPageClient() {
             {t('posts')}
           </Link>
         </div>
-        <label className="relative block">
+        {/* 对齐小程序 pages/community 的 InputArea:右侧两个入口只提示「完整版使用」,
+            不假装可点(小程序端同一句提示,web 端不另造交互) */}
+        <div className="relative block">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             placeholder={t('searchPlaceholder')}
-            className="ui-control h-10 w-full rounded-md border border-border bg-card pl-9 pr-3 text-body text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="ui-control h-10 w-full rounded-md border border-border bg-card pl-9 pr-24 text-body text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
-        </label>
+          <span className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => toast.info(t('voiceHint'))}
+              title={t('voiceHint')}
+              aria-label={t('voiceHint')}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <Mic className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => toast.info(t('imageHint'))}
+              title={t('imageHint')}
+              aria-label={t('imageHint')}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <ImageIcon className="h-4 w-4" />
+            </button>
+          </span>
+        </div>
       </header>
 
       {banners.length > 0 ? (
@@ -195,8 +218,19 @@ export default function CommunityPageClient() {
               <Link
                 key={c.categoryId}
                 href={`/agents/categories/${c.categoryId}`}
-                className="rounded-full border border-border bg-card px-3 py-1 text-body text-foreground transition-colors hover:bg-secondary/60"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-body text-foreground transition-colors hover:bg-secondary/60"
               >
+                {/* 小程序分类胶囊带 fenlei_icon 图标;接口 Category.icon 有值就同屏显示,空值退回纯文字 */}
+                {c.icon ? (
+                  <Image
+                    src={c.icon}
+                    alt=""
+                    width={16}
+                    height={16}
+                    unoptimized
+                    className="h-4 w-4 shrink-0 rounded-sm object-cover"
+                  />
+                ) : null}
                 {c.name}
               </Link>
             ))}

@@ -26740,7 +26740,9 @@
     "recentEmpty": "아직 사용 기록이 없습니다. 에이전트를 선택해 시작하세요",
     "myAgents": "내 에이전트",
     "recommended": "추천 에이전트",
-    "unknownAgent": "알 수 없는 에이전트"
+    "unknownAgent": "알 수 없는 에이전트",
+    "voiceHint": "음성 검색은 전체 버전에서 사용할 수 있습니다",
+    "imageHint": "이미지 검색은 전체 버전에서 사용할 수 있습니다"
   },
   "profileEdit": {
     "retry": "다시 시도",

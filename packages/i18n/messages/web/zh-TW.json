@@ -26610,7 +26610,9 @@
     "recentEmpty": "還沒有使用紀錄，去挑一個智慧體吧",
     "myAgents": "我的智慧體",
     "recommended": "智慧體推薦",
-    "unknownAgent": "未知智慧體"
+    "unknownAgent": "未知智慧體",
+    "voiceHint": "語音搜尋請在完整版使用",
+    "imageHint": "圖片搜尋請在完整版使用"
   },
   "profileEdit": {
     "retry": "重試",

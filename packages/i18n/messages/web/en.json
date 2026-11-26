@@ -26450,7 +26450,9 @@
     "recentEmpty": "No usage yet — pick an agent to get started",
     "myAgents": "My agents",
     "recommended": "Recommended agents",
-    "unknownAgent": "Unknown agent"
+    "unknownAgent": "Unknown agent",
+    "voiceHint": "Voice search is available in the full version",
+    "imageHint": "Image search is available in the full version"
   },
   "profileEdit": {
     "retry": "Retry",

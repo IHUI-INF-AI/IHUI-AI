@@ -610,6 +610,8 @@ AI应用商店 `pages/agent-market/index` / 广场 `pages/plaza/index/index` / �
 3. **登记保留（Phase 3）**：`paddingBottom=96`（悬浮 TabBar 让位）、`borderRadius=24`（移动端底部弹层）这类端内几何，走 `cross-end-allowed-diffs` 登记，不改。
 4. **不做**：web 侧 `py=1×37` 这类 1px hairline 与 `py=80` 固定条内边距，属 web 端内节奏，不进归一。
 
+**Phase 1 复核修正（2026-11-26 23:35，实测判据后）**：上文第 1 条不可照字面执行 —— `decide-style-tier-forks.mjs --check` 现读 `missing.total=7 / settled=7 / extendable=[] / ok=true`，即 7 个缺位值已全部有在期决策（`scripts/data/style-tier-fork-decisions.jsonl` 的 `bucket:"missingTier"` 9 条）；且准入线是**两端各自 ≥100 处**，`9/8/7` 还撞 `TYPE_STEPS` 头注「低于 badge 10px 三端一律不再合法」。结论：**补表本轮不做**（做了等于给非法字号开口子），Phase 1 实际已由既有决策收口；`28/36/56/80` 仍按 14.4 的端内保留处理。
+
 ### 14.4 验收规则（做 Phase 2 时必须遵守）
 
 - 每屏改前/改后各一张同视口截图，逐屏比对；单处位移 >2px 必须有设计签字，否则退回。
@@ -626,10 +628,10 @@ AI应用商店 `pages/agent-market/index` / 广场 `pages/plaza/index/index` / �
 | # | 小程序区块 | web 实现 | 判定 |
 |---|---|---|---|
 | 1 | `NavBar` + `ThemeRoot` 端内壳 | web 沿用侧边栏/工作区壳 + 页面标题 | 端内壳差异，等价 |
-| 2 | `InputArea` 搜索（含语音、图片搜索按钮） | 搜索框（300ms 防抖打 `/api/agents/list?keyword=`） | **部分对齐**：两个按钮小程序自己也只弹"请在完整版使用" |
+| 2 | `InputArea` 搜索（含语音、图片搜索按钮） | 搜索框（300ms 防抖打 `/api/agents/list?keyword=`）+ 右侧麦克风/图片按钮，点击弹同一句「请在完整版使用」（`toast.info`） | 对齐（按钮只提示、不假装可点，与小程序同语义） |
 | 3 | 运营轮播（`Carousel` + gradient-border） | 渐变底 + 背景图卡片，数据源 `/api/content/banner/list?position=home&status=1` | 对齐（图片挂掉不破图） |
 | 4 | 联系客服 / 二维码名片弹窗（`mingpian.png`+`erweima.png`） | 未做 | 有意不做：web 有独立客服入口，二维码属端内场景 |
-| 5 | 分类筛选（`fenlei_icon` 图标 + 文字，选中换图） | 文字胶囊，链到 `/agents/categories/{id}` | **部分对齐**：无图标状态 |
+| 5 | 分类筛选（`fenlei_icon` 图标 + 文字，选中换图） | 胶囊带 `Category.icon`（接口有值就同屏 16×16 显示，空值退回纯文字），链到 `/agents/categories/{id}` | 对齐（图标源与小程序同为接口字段） |
 | 6 | `RecentAgents` 最近使用 | 横向卡片（头像/名称/“最近用过”），空则空态文案 | 对齐 |
 | 7 | `MyAgents` 我的智能体 | 胶囊行（最多 8 个），无内容整块隐藏 | 对齐 |
 | 8 | 「智能体推荐」+「帖子」+「更多」+ `AgentListPanel` | `AgentGrid`（12 条）+ `/plaza/new` + `/agents` | 对齐 |
@@ -638,4 +640,4 @@ AI应用商店 `pages/agent-market/index` / 广场 `pages/plaza/index/index` / �
 | 11 | 下拉刷新 / 触底加载（`usePullDownRefresh`/`useReachBottom`） | 12 条 + 「更多」跳市场 | 端内差异：web 分页语义 |
 | 12 | 微信分享（`useShareAppMessage`/`useShareTimeline`） | 未做 | 平台差异：web 无此通道 |
 
-**结论**：12 块里 **8 块对齐（含 2 块部分对齐）**、4 块属端内/平台差异，核心内容没有缺项。若要 1:1，只剩「分类图标」「语音/图搜按钮」「二维码名片」三处需要产品确认要不要在 web 复制——它们都不是信息架构问题。
+**结论**（2026-11-26 23:40 更新）：12 块里 **7 块对齐**（含第 1 块端内壳等价；第 2/5 块本轮补齐）、**5 块有意不做**（二维码名片、微信 JSAPI 支付、返回顶部、下拉刷新/触底、微信分享，均属端内/平台差异）。至此 `/community` 与小程序社区页在信息架构和可见交互上无差异，剩余 5 块都不该在 web 复制：二维码属端内扫码场景、支付走 web 既有页、滚动/刷新/分享是容器能力。
