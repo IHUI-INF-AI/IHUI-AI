@@ -163,9 +163,12 @@ async function callKept<T>(fn: () => Promise<T>, fallback: string): Promise<T> {
  */
 
 /** GET /wechat-hub/accounts/:id/friends/requests — 策略 + 扫描结果 + 审计聚合视图 */
-async function fetchWechatFriendsOverview(accountId: string): Promise<WechatFriendsOverview> {
+async function fetchWechatFriendsOverview(
+  accountId: string,
+  force = false,
+): Promise<WechatFriendsOverview> {
   const res = await fetchApi<WechatFriendsOverview>(
-    `/wechat-hub/accounts/${accountId}/friends/requests`,
+    `/wechat-hub/accounts/${accountId}/friends/requests${force ? '?force=1' : ''}`,
     { method: 'GET' },
   )
   if (!res.success) throw new ApiError(res.error || '获取新朋友申请失败', res.status, res.errorCode)
@@ -333,8 +336,8 @@ export const wechatHubApi = {
     >,
   ): Promise<WechatGroupWritePolicy> =>
     callKept(() => updateWechatGroupWritePolicy(id, patch), '保存群写策略失败'),
-  friendsOverview: (id: string): Promise<WechatFriendsOverview> =>
-    callKept(() => fetchWechatFriendsOverview(id), '获取新朋友申请失败'),
+  friendsOverview: (id: string, force = false): Promise<WechatFriendsOverview> =>
+    callKept(() => fetchWechatFriendsOverview(id, force), '获取新朋友申请失败'),
   acceptFriend: (
     id: string,
     requestId: string,
