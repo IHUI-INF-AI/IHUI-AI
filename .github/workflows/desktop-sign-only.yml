@@ -39,9 +39,13 @@ jobs:
           $keyFile = Join-Path $env:RUNNER_TEMP 'ihui-updater-ci.key'
           $raw = $env:DESKTOP_TAURI_PRIVATE_KEY
           $keyText = $raw
-          if ($raw -notmatch 'untrusted comment') {
+          if ($raw -match 'untrusted comment') {
+            $keyText = $raw
+          } else {
+            # 纯 base64 私钥内容:去掉换行/空格再写入(signer 按 base64 解码整段内容)
+            $keyText = ($raw -replace '\s', '')
             try {
-              $decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($raw))
+              $decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($keyText))
               if ($decoded -match 'untrusted comment') { $keyText = $decoded }
             } catch { }
           }
