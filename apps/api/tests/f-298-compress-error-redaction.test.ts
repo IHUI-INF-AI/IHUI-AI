@@ -56,6 +56,16 @@ vi.mock('../src/plugins/auth.js', () => ({
   authenticate: mockAuthenticate,
 }))
 
+// 2026-11-26:/compress 已接入积分预扣/结算;本文件只锁上游错误脱敏,计费放行。
+vi.mock('../src/services/ai-points-billing.js', () => ({
+  ensureLlmPointsBalance: vi.fn(async () => true),
+  settleLlmPointsUsage: vi.fn(async () => ({})),
+  readMaxCompletionTokens: vi.fn(() => 8192),
+}))
+vi.mock('../src/services/points-service.js', () => ({
+  releasePointsHold: vi.fn(async () => true),
+}))
+
 // 路由文件与 chat-queries 的真实实现都会 import db/index;这里给空壳,
 // 让离线用例不加载真实连接池(与 chat-fork-branch-endpoint.test.ts 同一手法)。
 vi.mock('../src/db/index.js', () => {
