@@ -18,6 +18,7 @@ const FORMATS: Array<{ value: WechatExportFormat; label: string }> = [
   { value: 'markdown', label: 'Markdown' },
   { value: 'xlsx', label: 'Excel' },
   { value: 'chatlab', label: 'ChatLab JSON' },
+  { value: 'sql', label: 'PostgreSQL SQL' },
 ]
 
 /** xlsx 返回 base64，其余是 UTF-8 文本；两种都落成 Blob 再下载。 */

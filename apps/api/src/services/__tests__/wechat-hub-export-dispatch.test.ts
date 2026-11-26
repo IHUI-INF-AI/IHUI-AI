@@ -139,6 +139,30 @@ describe('exportAccountMessages 格式分发', () => {
     expect(bytes.length).toBeGreaterThan(1_000)
   })
 
+  it('sql 是幂等 PostgreSQL 脚本，单引号翻倍不拼坏语句', async () => {
+    hoisted.select.mockReturnValueOnce(chain(conversations)).mockReturnValueOnce(chain(messageRows))
+    const result = await exportAccountMessages('u1', 'acc-1', {
+      format: 'sql',
+      timezone: 'Asia/Shanghai',
+    })
+    expect(result.filename.endsWith('.sql')).toBe(true)
+    expect(result.mimeType).toContain('application/sql')
+    expect(result.content).toContain('CREATE TABLE IF NOT EXISTS wechat_hub_export_messages')
+    expect(result.content).toContain('ON CONFLICT (message_id) DO NOTHING')
+    // 两条消息各一条 INSERT，不多不漏
+    expect(result.content.match(/INSERT INTO wechat_hub_export_messages/g) ?? []).toHaveLength(2)
+    // 时区偏移必须写进字面量：报价 01:00Z 在北京时间是 09:00+08:00
+    expect(result.content).toContain(`'2026-11-24 09:00:00+08:00'::timestamptz`)
+    expect(result.content.trimEnd().endsWith('COMMIT;')).toBe(true)
+  })
+
+  it('sql 渲染函数把单引号翻倍，正文里的引号不会截断语句', async () => {
+    const { sqlLiteral } = await import('../wechat-hub/export-formats')
+    expect(sqlLiteral("他说'稍等'")).toBe("'他说''稍等'''")
+    expect(sqlLiteral(null)).toBe('NULL')
+    expect(sqlLiteral(undefined)).toBe('NULL')
+  })
+
   it('非法时区直接 400，不静默退回 UTC', async () => {
     hoisted.select.mockReturnValueOnce(chain(conversations)).mockReturnValueOnce(chain(messageRows))
     await expect(
