@@ -86,6 +86,8 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
   const [policyError, setPolicyError] = React.useState<FriendErrorView | null>(null)
   const [acceptError, setAcceptError] = React.useState<FriendErrorView | null>(null)
   const [pendingRequestId, setPendingRequestId] = React.useState<string | null>(null)
+  const [exporting, setExporting] = React.useState(false)
+  const [exportError, setExportError] = React.useState<string | null>(null)
 
   // 后端策略刷新后，未手动改过的草稿跟随最新值，避免输入框显示旧上限
   React.useEffect(() => {
@@ -148,6 +150,26 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
 
   const auditEntries = audit.slice(-5).reverse()
 
+  // 审计导出走带鉴权的 Blob 下载：接口要 Bearer token，直接给 <a href> 会被 401 挡掉。
+  const handleExportAudit = async () => {
+    setExporting(true)
+    setExportError(null)
+    try {
+      const blob = await wechatHubApi.friendsAuditCsv(accountId)
+      const stamp = new Date().toISOString().slice(0, 10)
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `friends-audit-${stamp}.csv`
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : '导出审计失败')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   if (overviewQuery.isLoading && !overview) {
     return (
       <Card>
@@ -174,21 +196,32 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
               <span className="text-xs text-muted-foreground">已关闭，开启后才会点客户端</span>
             )}
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={overviewQuery.isFetching}
-            onClick={() => {
-              // 手动刷新走实时采集：桥在后台用消息点击读一次，不会把微信拉到前台
-              forceNextScan.current = true
-              void overviewQuery.refetch()
-            }}
-          >
-            {overviewQuery.isFetching ? (
-              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-            ) : null}
-            <span>立即扫描</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={exporting || overviewQuery.isLoading}
+              onClick={() => void handleExportAudit()}
+            >
+              {exporting ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+              <span>导出审计</span>
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={overviewQuery.isFetching}
+              onClick={() => {
+                // 手动刷新走实时采集：桥在后台用消息点击读一次，不会把微信拉到前台
+                forceNextScan.current = true
+                void overviewQuery.refetch()
+              }}
+            >
+              {overviewQuery.isFetching ? (
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              <span>立即扫描</span>
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-2 rounded-md border border-stroke-field p-3">
@@ -334,6 +367,8 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
         {acceptError ? (
           <Alert variant="danger" title={acceptError.title} description={acceptError.detail || undefined} />
         ) : null}
+
+        {exportError ? <Alert variant="danger" title="导出审计失败" description={exportError} /> : null}
 
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">

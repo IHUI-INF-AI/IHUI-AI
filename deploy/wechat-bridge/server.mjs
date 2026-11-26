@@ -525,11 +525,31 @@ async function runMomentFetch(body) {
 }
 
 /** 好友自动化开关：请求处理时实时读取，不在模块加载时缓存。 */
+/** 一键熔断：文件存在即全面停摆（扫描/通过/巡检都不做），不用改环境变量也不用重启。 */
+const FRIENDS_KILL_FILE = process.env.BRIDGE_FRIENDS_KILL_FILE ?? join(ROOT, '.bridge-friends-kill')
+
+function friendsKilled() {
+  try {
+    return existsSync(FRIENDS_KILL_FILE)
+  } catch {
+    return false
+  }
+}
+
 function friendsAutomationEnabled() {
-  return process.env.BRIDGE_FRIENDS_AUTOMATION === 'on'
+  return process.env.BRIDGE_FRIENDS_AUTOMATION === 'on' && !friendsKilled()
 }
 
 function friendsDisabledBody() {
+  if (friendsKilled()) {
+    return {
+      ok: false,
+      status: 'disabled',
+      reason: 'kill-switch',
+      errorCode: 'WECHAT_FRIENDS_KILLED',
+      hint: `桥侧熔断文件存在（${FRIENDS_KILL_FILE}），删掉它就恢复`,
+    }
+  }
   return { ok: false, status: 'disabled', reason: 'friends-automation-off' }
 }
 
@@ -732,6 +752,7 @@ async function handle(req, res) {
       driver: DRIVER_NAME,
       queued: queue.length,
       seq,
+      friendsKillSwitch: friendsKilled(),
       moments: momentQueue.length,
       momentSeq,
     })
