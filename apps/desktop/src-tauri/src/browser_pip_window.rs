@@ -15,7 +15,7 @@
 //!
 //! 多窗:每会话一个 label(`ai-browser-pip-<session>`)。旧版全仓唯一 label 的
 //! 单例窗会让第二个会话把第一个监看窗顶掉,和 TRAE 可同时看多个任务的形态不一致。
-//! 这里按会话保存几何/收起状态,允许最多 5 个窗口(与服务端单主体会话上限一致)。
+//! 这里按会话保存几何/收起状态,允许最多 6 个窗口(与服务端单主体会话上限一致)。
 
 use std::{
     collections::HashMap,
@@ -34,7 +34,7 @@ const AI_PIP_MIN_HEIGHT: f64 = 200.0;
 const AI_PIP_COLLAPSED_HEIGHT: f64 = 32.0;
 const AI_PIP_MARGIN: f64 = 24.0;
 const AI_PIP_CASCADE_STEP: f64 = 40.0;
-const AI_PIP_MAX_WINDOWS: usize = 5;
+const AI_PIP_MAX_WINDOWS: usize = 6;
 
 fn pip_window_label(session_id: &str) -> String {
     format!("{AI_PIP_WINDOW_LABEL_PREFIX}-{session_id}")
@@ -97,6 +97,11 @@ where
 /// 记当前几何,供同会话下次打开沿用。用户点关闭和代码主动销毁都必须走这里,
 /// 否则 `destroy()` 不触发 `CloseRequested`,尺寸/位置会丢。
 fn remember_pip_geometry(win: &WebviewWindow) {
+    // 最大化是临时查看态,不能把整屏尺寸写成下次打开的默认几何;
+    // 还原时 Resized 会自然把正常尺寸写回来。
+    if win.is_maximized().unwrap_or(false) {
+        return;
+    }
     let label = win.label().to_string();
     let pos = win.outer_position().ok().map(|p| (p.x, p.y));
     let size = if geometry_for(&label).collapsed {
@@ -163,7 +168,7 @@ struct BrowserPipClosed {
     session_id: String,
 }
 
-/// 主窗口右上角内侧;多窗按打开顺序向下错开,避免完全叠在一起。
+/// 主窗口右下角内侧;多窗按打开顺序向上错开,避免完全叠在一起。
 /// 同一会话有上次位置时优先还原它。
 fn pip_open_position(app: &AppHandle, label: &str) -> (i32, i32) {
     if let Some(pos) = geometry_for(label).pos {
@@ -180,11 +185,25 @@ fn pip_open_position(app: &AppHandle, label: &str) -> (i32, i32) {
         .keys()
         .filter(|name| is_pip_window_label(name))
         .count();
-    let x = pos.x + size.width as i32 - ((AI_PIP_WIDTH + AI_PIP_MARGIN) * scale) as i32;
-    let y = pos.y
-        + (AI_PIP_MARGIN * scale) as i32
-        + (open_count as f64 * AI_PIP_CASCADE_STEP * scale) as i32;
-    (x.max(0), y.max(0))
+    pip_open_position_for(pos.x, pos.y, size.width, size.height, scale, open_count)
+}
+
+/// 纯几何:主窗右下角内侧,多窗向上错开,并夹在主窗可见范围内。
+/// 抽成纯函数是为了单测能覆盖 DPI / 多窗级联 / 主窗过小的边界。
+fn pip_open_position_for(
+    main_x: i32,
+    main_y: i32,
+    main_width: u32,
+    main_height: u32,
+    scale: f64,
+    open_count: usize,
+) -> (i32, i32) {
+    let x = main_x + main_width as i32 - ((AI_PIP_WIDTH + AI_PIP_MARGIN) * scale) as i32;
+    let y = main_y + main_height as i32
+        - ((AI_PIP_HEIGHT + AI_PIP_MARGIN) * scale) as i32
+        - (open_count as f64 * AI_PIP_CASCADE_STEP * scale) as i32;
+    let min_y = main_y + (AI_PIP_MARGIN * scale) as i32;
+    (x.max(0), y.max(min_y).max(0))
 }
 
 /// 只把 token 注入预期 origin 的页面。`initialization_script` 会在每次页面
@@ -457,11 +476,23 @@ pub fn set_browser_pip_collapsed(window: WebviewWindow, collapsed: bool) -> Resu
         if geometry_for(&label).collapsed {
             return Ok(true);
         }
+        // 最大化态先还原,否则收起会把整屏宽度带进标题条;等待窗口管理器
+        // 完成还原后再记正常几何。80ms 只在这一条用户点击路径上,不阻塞常驻循环。
+        if win.is_maximized().unwrap_or(false) {
+            let _ = win.unmaximize();
+            std::thread::sleep(std::time::Duration::from_millis(80));
+        }
         // 先按完整窗记一次几何,再打开收起标记,后续 Resized 不会覆盖它。
         remember_pip_geometry(&win);
         let inner = win
             .inner_size()
             .map_err(|e| format!("读取画中画窗尺寸失败: {e}"))?;
+        // 以已记住的正常宽度为准:即使 unmaximize 尚未落到 inner_size,
+        // 也不会把整屏宽度写进 32px 标题条。
+        let collapsed_width = geometry_for(&label)
+            .size
+            .map(|size| size.0)
+            .unwrap_or(inner.width);
         win.set_resizable(false)
             .map_err(|e| format!("锁定画中画窗缩放失败: {e}"))?;
         update_geometry(&label, |geometry| geometry.collapsed = true);
@@ -470,7 +501,7 @@ pub fn set_browser_pip_collapsed(window: WebviewWindow, collapsed: bool) -> Resu
                 .map_err(|e| format!("设置收起最小尺寸失败: {e}"))?;
             // set_size 设的是内容区尺寸;用 inner_size 保住宽度,不把阴影边框
             // 也当成内容再算一遍,否则收起时宽度会莫名多出 20 多像素。
-            win.set_size(tauri::PhysicalSize::new(inner.width, collapsed_h))
+            win.set_size(tauri::PhysicalSize::new(collapsed_width, collapsed_h))
                 .map_err(|e| format!("收起画中画窗失败: {e}"))?;
             Ok(())
         })();
@@ -652,6 +683,30 @@ mod tests {
         assert_eq!(clamp_pip_pixels(900, 600, 1.5), (900, 600));
         // DPI 读不到时按 100% 处理,不能让 NaN 变成非法尺寸。
         assert_eq!(clamp_pip_pixels(200, 120, f64::NAN), (320, 200));
+    }
+
+    #[test]
+    fn pip_open_position_defaults_to_bottom_right_and_cascades_up() {
+        // 1920×1080 主窗、(100,100) 起点、100% DPI:首窗右下角留 24px 边距。
+        assert_eq!(
+            pip_open_position_for(100, 100, 1920, 1080, 1.0, 0),
+            (1576, 876)
+        );
+        // 第二个窗从首窗位置向上错开 40px,不再向右下越界。
+        assert_eq!(
+            pip_open_position_for(100, 100, 1920, 1080, 1.0, 1),
+            (1576, 836)
+        );
+        // HiDPI 下窗口物理像素变大,仍以主窗右下角为锚点。
+        assert_eq!(pip_open_position_for(0, 0, 2560, 1440, 1.5, 0), (1894, 984));
+    }
+
+    #[test]
+    fn pip_open_position_never_leaves_main_window_top() {
+        // 主窗矮于一个窗口 + 多重级联时,夹到主窗顶部 24px 处,不能跑到屏幕外。
+        assert_eq!(pip_open_position_for(0, 0, 800, 300, 1.0, 3), (356, 24));
+        // 主窗 x 太窄时也不允许负坐标。
+        assert_eq!(pip_open_position_for(0, 0, 400, 900, 1.0, 0).0, 0);
     }
 
     #[test]
