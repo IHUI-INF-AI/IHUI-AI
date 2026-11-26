@@ -1925,7 +1925,18 @@ export function applyDoubao(payload, opts = {}) {
           const plain = extract.decodeDoubaoSafeStorageValue
             ? extract.decodeDoubaoSafeStorageValue(rawPlain, e.name)
             : extract.stripDoubaoAppPrefix(rawPlain)
-          if (plain !== e.value) return false
+          if (plain === e.value) continue
+          // msToken 是二进制票,字节↔latin1 往返;存量号池票含 U+FFFD(历史解码损坏),
+          // 写入时 >0xFF 码点被截断,读回无法逐字相等。按"写入字节"复核:只要读回字节
+          // 与写入字节一致就算自检通过 —— 损坏是池侧存量问题,不阻塞 10 条登录票写回。
+          if (!doubaoNeedsAppPrefix(e.name) && plain.length === e.value.length) {
+            let byteEqual = true
+            for (let i = 0; i < plain.length; i++) {
+              if (plain.charCodeAt(i) !== (e.value.charCodeAt(i) & 0xff)) { byteEqual = false; break }
+            }
+            if (byteEqual) continue
+          }
+          return false
         }
         return true
       } finally {
