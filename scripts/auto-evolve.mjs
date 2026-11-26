@@ -105,6 +105,19 @@ import {
 import { parseGuardList, matchProtected } from './lib/immutable-guard.mjs'
 // 票面指纹与生成器同一把尺(§0.6):比对双方都走 autonomy-candidates 的那一个实现
 import { planFaceDigestFromHead } from './lib/plan-face-digest.mjs'
+// 质量维接线(2026-11-26 立):本器**零判分判据** —— 胜率/骤降的唯一真相源在
+// apps/ai-service/app/services/pairwise_eval.py 的 detect_regression,这里只经尺子 CLI 的
+// 退出码(0 ok / 1 regression / 2 undetermined)读结论,再按档位决定记不记账、挂不挂停派牌。
+import {
+  QUALITY_HOLD_ACTION,
+  buildQualityLedgerRow,
+  qualityHoldPath,
+  readQualityHold,
+  resolveQualityConfig,
+  runRuler,
+  shouldHold,
+  writeQualityHold,
+} from './lib/autonomy-quality.mjs'
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** 调度器接线的锚点(guardian 派发层 import 同一组路径,不另拼第二份 —— §0.6 单一真相源) */
@@ -283,6 +296,15 @@ export function loadGates(readFile = (p) => readFileSync(p, 'utf8')) {
     throw new GateShapeError(
       `闸门形状坏:parkCooldownHours 必须是正整数(现值 ${String(g.parkCooldownHours)})`,
     )
+  }
+  // 质量尺子档(2026-11-26 立):缺 `ruler` = 'off'(尺子题库刻意在仓外,没题就跑不出东西,
+  // 每轮记 undetermined 只会把台账灌成噪声);形状坏 ⇒ GateShapeError ⇒ main exit 2 未判定,
+  // 绝不"读不到就当放开"(§0.10 失效方向是多要一次定向说明,不是多放一次跳门)。
+  // 裁决口径全在尺子那一份 Python 实现里,本处不重算(§0.6)。
+  try {
+    g.quality = resolveQualityConfig(g)
+  } catch (e) {
+    throw new GateShapeError(`闸门形状坏:${e?.message ?? e}`)
   }
   return g
 }
@@ -2759,6 +2781,28 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
   console.log(
     `🛡 人工阀清单:自决 ${gateCounts.autonomous} 条 / 停机等人 ${gateCounts.gates} 条(命中即安全停机,不重试不绕行)`,
   )
+  // ---- 质量停派牌(2026-11-26 立):上一轮尺子判到 regression 且档位 enforce ⇒ 本轮让路 ----
+  // 只在 enforce × 未过期挂牌时停；undetermined/牌坏/未挂一律放行(§12e:题库没建就停派 = 恒红门)。
+  if (!dryRun) {
+    const hold = readQualityHold(qualityHoldPath(ROOT))
+    if (hold.held) {
+      record({ mode: 'quality', action: QUALITY_HOLD_ACTION, until: hold.until, why: `质量停派牌在效期内(挂于版本 ${hold.version || '?'}:${hold.reason})⇒ 本轮不派发` })
+      console.log(`⏸ 质量停派:至 ${hold.until}(解除=人删 .ihui-agent/state/auto-evolve-quality-hold.json 或等到期)`)
+      if (!escapeThrottled(undefined, 'auto-evolve:quality-hold')) {
+        const delivered = sendEscapeMail(
+          gates,
+          'auto-evolve:quality-hold',
+          '[auto-evolve] 私有评测判到质量骤降，已停派',
+          `停派至:${String(hold.until)}\n裁决:regression(成对胜率较近窗基线跌破阈值)\n出路:1) 查那一版改了什么并回滚/修复;2) 认可波动则删牌 .ihui-agent/state/auto-evolve-quality-hold.json;3) gates.ruler.mode 改回 observe 或 off(只改记账强度,不改判据)。`,
+        )
+        if (delivered) markEscape(undefined, 'auto-evolve:quality-hold')
+      }
+      return
+    }
+    if (hold.undetermined) {
+      console.log(`❓ 质量停派牌未判定:${hold.reason}(保守放行,本轮照派,§0.3)`)
+    }
+  }
   const lock = acquireLock()
   if (lock.held) {
     console.log(`⏭ 上一轮仍在跑(pid=${lock.pid ?? '?'})⇒ 本轮让路(单实例闸)`)
@@ -3384,6 +3428,50 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         console.log(
           `✅ 落账:代提交 ${landed.files.length} 枚 —— ${landed.files.join(', ')}${landed.dropped.length ? `(剔除无改动 ${landed.dropped.length} 枚)` : ''}`,
         )
+        // ── 质量维(2026-11-26 立,RP-45):改动**已落账**才测,拿当次 HEAD 全量 sha 当版本号
+        //    跑仓外成对尺子 —— 这一腿就是原文"按提交逐次跑评测、曲线骤降当场暴露坏合并"。
+        // 三条硬约束:① 档位 off ⇒ 进程都不起(题库没建时不灌噪声,§5e-1 可整改性);
+        // ② 整段 try/catch ⇒ 质量腿炸了绝不影响**已经成功**的落账(落账是结果,尺子是观测);
+        //    但失败必须响(记 quality-leg-error + 大声打日志),不许静默成"没这回事"(§0.3);
+        // ③ 判分/骤降口径**只在尺子那一份 Python 实现里**,本处只读退出码与末行,零复算(§0.6)。
+        if (gates.quality.mode !== 'off') {
+          try {
+            const headSha = gitRaw(['rev-parse', 'HEAD'], ROOT).trim()
+            const version = /^[0-9a-f]{40}$/.test(headSha) ? headSha : `ticket:${key}`
+            const qr = runRuler({ mode: gates.quality.mode, root: ROOT, version })
+            const verdict = qr.verdict === 'skipped' ? null : qr.verdict
+            let holdUntil = null
+            if (verdict !== null && shouldHold({ mode: gates.quality.mode, verdict })) {
+              holdUntil = writeQualityHold(qualityHoldPath(ROOT), {
+                hours: gates.quality.holdHours,
+                version,
+                verdict,
+                tail: qr.tail,
+              })
+            }
+            if (verdict !== null) {
+              record({ ...buildQualityLedgerRow({ verdict, rc: qr.rc, tail: qr.tail, why: qr.why, holdUntil }), ticketKey: key })
+            }
+            if (verdict === 'regression') {
+              console.log(`⚠ 质量尺子:本版较近期基线**骤降**(rc=${qr.rc})${holdUntil ? ` ⇒ 已挂停派牌至 ${holdUntil}` : '（档位 observe:只记账不拦）'}`)
+              if (!escapeThrottled(undefined, 'auto-evolve:quality-regression')) {
+                const delivered = sendEscapeMail(
+                  gates,
+                  'auto-evolve:quality-regression',
+                  '[auto-evolve] 私有成对评测判到本版骤降',
+                  `版本(落账后 HEAD 全量 sha):${version}\n票键:${key}\n尺子末行读数:${qr.tail || qr.why || '（无）'}\n停派牌:${holdUntil ?? '未挂（observe 档只记不拦）'}`,
+                  'critical',
+                )
+                if (delivered) markEscape(undefined, 'auto-evolve:quality-regression')
+              }
+            } else {
+              console.log(`ℹ 质量尺子:${qr.verdict}${qr.rc === null ? '' : `(rc=${qr.rc})`}${qr.why || qr.tail ? ` —— ${String(qr.why || qr.tail).slice(0, 160)}` : ''}`)
+            }
+          } catch (e) {
+            record({ mode: 'quality', action: 'quality-leg-error', ticketKey: key, why: `质量腿自身抛错(不影响已成功的落账):${String(e?.message ?? e).slice(0, 200)}` })
+            console.error(`⚠ 质量腿异常(已吞,落账不受影响):${String(e?.message ?? e).slice(0, 160)}`)
+          }
+        }
       } else if (landed.action === 'artifact-commit-failed') {
         console.error(`⚠ 落账未落地(${landed.action}):${landed.why} ⇒ 本轮照常收尾,下一轮重试`)
       } else {

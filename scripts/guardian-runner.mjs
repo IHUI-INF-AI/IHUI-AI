@@ -8217,6 +8217,31 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- 私有质量尺子的接线与保密(1 项,blocking,2026-11-26 立 RP-45)---
+  // 立因:尺子的价值全在"接在主链上 + 题库对 agent 不可见"这两件事,而两者坏掉时都不报错 ——
+  // 摘一行调用,自主环照跑、台账退回只有 dispatched 零质量读数;题库被写进仓,自治会话
+  // git grep 一遍就能背题,外部尺子退化成自我打分(原文靠"Swarm 不知道评测存在"防的就是这一型)。
+  {
+    id: '328',
+    label: '📏 质量尺子接线与保密(blocking:Q1 接线存续 / Q2 题库未泄 / Q3 入口唯一)',
+    script: 'check-quality-ruler-wiring.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_QUALITY_RULER_WIRING',
+    stagedTriggers: ['scripts/', 'apps/ai-service/'],
+    onFailHint: [
+      '',
+      '  💡 三型红各自的方向不同,别一律靠"关门"解决:',
+      '     Q1 接线被拆 ⇒ 把 lib/autonomy-quality.mjs 的四处调用接回 scripts/auto-evolve.mjs(要调强度请动',
+      '        scripts/data/auto-evolve-gates.json 的 ruler.mode = off|observe|enforce,**不要摘线**);',
+      '     Q2 题库泄进被审面 ⇒ 把 pairwise-dataset.jsonl / pairwise-trend.jsonl 移出仓库到仓库外批准根',
+      '        (PRIVATE_EVAL_DIR 或 D:/DevEnv/private-eval/),题库本身永不进版本库;',
+      '     Q3 第二入口 ⇒ 尺子调用只许走 lib/autonomy-quality.mjs 一处,第二个调用口会让取值路径各漂各的。',
+      '     判分与骤降口径的唯一真相源在 apps/ai-service/app/services/pairwise_eval.py,本门不重算(§0.6)。',
+      '     单独复现:node scripts/check-quality-ruler-wiring.mjs [--staged] [--self-test]。',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
