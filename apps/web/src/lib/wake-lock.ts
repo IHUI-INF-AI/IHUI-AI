@@ -23,6 +23,8 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { isTauri } from './tauri-bridge'
+// L05:命令名统一从注册表取
+import { DESKTOP_COMMANDS } from './desktop-commands'
 
 export type WakeLockSource = 'desktop' | 'web' | 'none'
 
@@ -49,7 +51,7 @@ async function requestHandle(): Promise<WakeLockHandle> {
         return {
           source: 'desktop',
           release: () => {
-            void invoke('set_sleep_prevention', { active: false }).catch(() => {})
+            void invoke(DESKTOP_COMMANDS.setSleepPrevention, { active: false }).catch(() => {})
           },
         }
       }

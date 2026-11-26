@@ -7,6 +7,8 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { isTauri } from '@/lib/tauri-bridge'
+// L05:命令名统一从注册表取
+import { DESKTOP_COMMANDS } from './desktop-commands'
 
 /**
  * 桌面端「托盘/关闭/徽章」偏好的唯一前端出口(2026-09-28 立,用户已批准的桌面功能)。
@@ -245,7 +247,7 @@ export async function resolveCloseChoice(
     return
   }
   try {
-    await invoke('resolve_close_choice', { choice, remember })
+    await invoke(DESKTOP_COMMANDS.resolveCloseChoice, { choice, remember })
   } catch (error) {
     console.warn('[desktop-prefs] resolve_close_choice 失败:', error)
   }
@@ -293,7 +295,7 @@ export async function setDesktopBadge(unreadCount: number): Promise<void> {
       ? Math.min(Math.trunc(unreadCount), 0xffffffff)
       : 0
   try {
-    await invoke('set_desktop_badge', { unread })
+    await invoke(DESKTOP_COMMANDS.setDesktopBadge, { unread })
   } catch (error) {
     console.warn('[desktop-prefs] set_desktop_badge 失败:', error)
   }

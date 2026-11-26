@@ -8,6 +8,8 @@ import { invoke, Channel } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 import { isTauriRuntime } from './api-base-url'
+// L05:命令名统一从注册表取,调用点不再写字面量
+import { DESKTOP_COMMANDS } from './desktop-commands'
 
 export { formatFileSize } from '@ihui/shared/utils/format'
 
@@ -66,13 +68,13 @@ export async function setWindowTitle(title: string): Promise<void> {
  */
 export async function openAiPipWindow(sessionId: string, accessToken: string): Promise<void> {
   requireTauri()
-  await invoke('open_browser_pip_window', { sessionId, accessToken })
+  await invoke(DESKTOP_COMMANDS.openBrowserPipWindow, { sessionId, accessToken })
 }
 
 /** 关闭桌面端 AI 画中画监看窗。传 sessionId 只关该会话;不传则关闭全部。 */
 export async function closeAiPipWindow(sessionId?: string): Promise<void> {
   if (!isTauri()) return
-  await invoke('close_browser_pip_window', { sessionId: sessionId ?? null })
+  await invoke(DESKTOP_COMMANDS.closeBrowserPipWindow, { sessionId: sessionId ?? null })
 }
 
 /**
@@ -104,7 +106,7 @@ export async function handoverAiPipWindow(
   title: string,
 ): Promise<void> {
   requireTauri()
-  await invoke('handover_browser_pip_window', { sessionId, url, title })
+  await invoke(DESKTOP_COMMANDS.handoverBrowserPipWindow, { sessionId, url, title })
 }
 
 /** 非 Tauri 环境统一抛错(用于文件读写等无安全默认值的场景)。 */
@@ -248,7 +250,7 @@ export async function enableAutostart(): Promise<void> {
   // 插件按 current_exe 写入，落在 versions/<ver>/ihui-app.exe；立即改回稳定
   // Launcher，避免下一次开机绕过 Launcher 直接拉起旧 payload。
   try {
-    await invoke('update_v2_sync_autostart')
+    await invoke(DESKTOP_COMMANDS.updateV2SyncAutostart)
   } catch (err) {
     console.warn('[autostart] sync launcher path failed:', err)
   }
@@ -284,7 +286,7 @@ export async function isTrayAlwaysVisible(): Promise<boolean> {
  */
 export async function setTrayAlwaysVisible(enabled: boolean): Promise<void> {
   if (!isTauri()) return
-  await invoke('set_tray_always_visible', { enabled })
+  await invoke(DESKTOP_COMMANDS.setTrayAlwaysVisible, { enabled })
 }
 
 // ================== 窗口控制 ==================
@@ -341,7 +343,10 @@ export async function setCaptionButtonTheme(darkBg: boolean): Promise<void> {
   try {
     // tauri v2 命令入参按 camelCase 从 JS 侧取(Rust 侧签名是 `dark_bg`,与本仓
     // `absolute:` / `delay:` / `format:` 同一写法);写成 `dark_bg` 会被判「缺参」。
-    await invoke('set_caption_button_theme', { label: getCurrentWindow().label, darkBg })
+    await invoke(DESKTOP_COMMANDS.setCaptionButtonTheme, {
+      label: getCurrentWindow().label,
+      darkBg,
+    })
   } catch {
     // 宿主未注册/窗口已销毁:保持原生当前档,不制造二次故障
   }
@@ -1174,19 +1179,19 @@ export type MenuActionId =
 /** 唤起 / 创建 admin 窗口(Rust 端 open_admin_window)。已存在则 show + focus。 */
 export async function openAdminWindow(): Promise<void> {
   if (!isTauri()) return
-  await invoke('open_admin_window')
+  await invoke(DESKTOP_COMMANDS.openAdminWindow)
 }
 
 /** 切换 webview 开发者工具(Rust 端 toggle_devtools)。 */
 export async function toggleDevtools(): Promise<void> {
   if (!isTauri()) return
-  await invoke('toggle_devtools')
+  await invoke(DESKTOP_COMMANDS.toggleDevtools)
 }
 
 /** 真正退出应用(Rust 端 quit_app,绕过 closeWindow 的"隐藏到托盘"语义)。 */
 export async function quitApp(): Promise<void> {
   if (!isTauri()) return
-  await invoke('quit_app')
+  await invoke(DESKTOP_COMMANDS.quitApp)
 }
 
 // ================== 通知系统级权限三态查询(P3-07①)==================
@@ -1240,7 +1245,7 @@ export async function querySystemNotificationPermission(): Promise<SystemNotific
     return { state: 'unjudged', reason: 'platform-not-tauri', source: 'platform' }
   }
   try {
-    const raw: unknown = await invoke('query_notification_permission')
+    const raw: unknown = await invoke(DESKTOP_COMMANDS.queryNotificationPermission)
     return normalizeSystemNotificationPermission(raw)
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err)
@@ -1434,7 +1439,7 @@ export async function saveWindowState(): Promise<void> {
   if (!isTauri()) return
   try {
     const label = getCurrentWindow().label
-    await invoke('save_window_state', { label })
+    await invoke(DESKTOP_COMMANDS.saveWindowState, { label })
   } catch {
     // 非 Tauri 环境或调用失败,静默忽略
   }
@@ -1445,7 +1450,7 @@ export async function restoreWindowState(): Promise<void> {
   if (!isTauri()) return
   try {
     const label = getCurrentWindow().label
-    await invoke('restore_window_state', { label })
+    await invoke(DESKTOP_COMMANDS.restoreWindowState, { label })
   } catch {
     // 非 Tauri 环境或调用失败,静默忽略
   }
@@ -1456,7 +1461,7 @@ export async function resetWindowState(): Promise<void> {
   if (!isTauri()) return
   try {
     const label = getCurrentWindow().label
-    await invoke('reset_window_state', { label })
+    await invoke(DESKTOP_COMMANDS.resetWindowState, { label })
   } catch {
     // 非 Tauri 环境或调用失败,静默忽略
   }
@@ -1486,7 +1491,7 @@ export async function setTrayStatus(
 ): Promise<void> {
   if (!isTauri()) return
   try {
-    await invoke('set_tray_status', { status, unread: normalizeUnreadArg(unread) })
+    await invoke(DESKTOP_COMMANDS.setTrayStatus, { status, unread: normalizeUnreadArg(unread) })
   } catch {
     // 非桌面端或 tray 未初始化,静默忽略
   }
@@ -1563,13 +1568,13 @@ export async function updateV2TakeRollbackNotice(): Promise<UpdateV2RollbackNoti
 /** 后台暂存；命令本身立即返回，真正进度走 `update-v2` 事件。 */
 export async function updateV2Stage(): Promise<void> {
   if (!isTauri()) return
-  await invoke('update_v2_stage')
+  await invoke(DESKTOP_COMMANDS.updateV2Stage)
 }
 
 /** 调用前必须先 flush 草稿；Rust 侧用退出码 42 把进程交棒给父 Launcher。 */
 export async function updateV2Restart(): Promise<void> {
   if (!isTauri()) return
-  await invoke('update_v2_restart')
+  await invoke(DESKTOP_COMMANDS.updateV2Restart)
 }
 
 /** 设置页“退回上一版”：只写 pending，重启后由 Launcher 切。 */
