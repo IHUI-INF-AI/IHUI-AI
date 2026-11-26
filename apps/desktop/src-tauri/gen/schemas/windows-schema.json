@@ -2493,6 +2493,12 @@
           "markdownDescription": "Enables the clipboard_set command without any pre-configured scope."
         },
         {
+          "description": "Enables the close_browser_pip_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-close-browser-pip-window",
+          "markdownDescription": "Enables the close_browser_pip_window command without any pre-configured scope."
+        },
+        {
           "description": "Enables the close_in_chrome command without any pre-configured scope.",
           "type": "string",
           "const": "allow-close-in-chrome",
@@ -2691,6 +2697,12 @@
           "markdownDescription": "Enables the get_desktop_prefs command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_native_bridge_manifest command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-native-bridge-manifest",
+          "markdownDescription": "Enables the get_native_bridge_manifest command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_tray_always_visible command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-tray-always-visible",
@@ -2719,6 +2731,12 @@
           "type": "string",
           "const": "allow-git-workspace-status",
           "markdownDescription": "Enables the git_workspace_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the handover_browser_pip_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-handover-browser-pip-window",
+          "markdownDescription": "Enables the handover_browser_pip_window command without any pre-configured scope."
         },
         {
           "description": "Enables the keyboard_hotkey command without any pre-configured scope.",
@@ -2821,6 +2839,12 @@
           "type": "string",
           "const": "allow-open-admin-window",
           "markdownDescription": "Enables the open_admin_window command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the open_browser_pip_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-browser-pip-window",
+          "markdownDescription": "Enables the open_browser_pip_window command without any pre-configured scope."
         },
         {
           "description": "Enables the open_in_chrome command without any pre-configured scope.",
@@ -2937,6 +2961,12 @@
           "markdownDescription": "Enables the screenshot_screen command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_browser_pip_collapsed command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-browser-pip-collapsed",
+          "markdownDescription": "Enables the set_browser_pip_collapsed command without any pre-configured scope."
+        },
+        {
           "description": "Enables the set_browser_settings command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-browser-settings",
@@ -3043,6 +3073,12 @@
           "type": "string",
           "const": "allow-toggle-always-on-top",
           "markdownDescription": "Enables the toggle_always_on_top command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the toggle_browser_pip_collapsed command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-toggle-browser-pip-collapsed",
+          "markdownDescription": "Enables the toggle_browser_pip_collapsed command without any pre-configured scope."
         },
         {
           "description": "Enables the toggle_devtools command without any pre-configured scope.",
@@ -3315,6 +3351,12 @@
           "markdownDescription": "Denies the clipboard_set command without any pre-configured scope."
         },
         {
+          "description": "Denies the close_browser_pip_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-close-browser-pip-window",
+          "markdownDescription": "Denies the close_browser_pip_window command without any pre-configured scope."
+        },
+        {
           "description": "Denies the close_in_chrome command without any pre-configured scope.",
           "type": "string",
           "const": "deny-close-in-chrome",
@@ -3513,6 +3555,12 @@
           "markdownDescription": "Denies the get_desktop_prefs command without any pre-configured scope."
         },
         {
+          "description": "Denies the get_native_bridge_manifest command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-native-bridge-manifest",
+          "markdownDescription": "Denies the get_native_bridge_manifest command without any pre-configured scope."
+        },
+        {
           "description": "Denies the get_tray_always_visible command without any pre-configured scope.",
           "type": "string",
           "const": "deny-get-tray-always-visible",
@@ -3541,6 +3589,12 @@
           "type": "string",
           "const": "deny-git-workspace-status",
           "markdownDescription": "Denies the git_workspace_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the handover_browser_pip_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-handover-browser-pip-window",
+          "markdownDescription": "Denies the handover_browser_pip_window command without any pre-configured scope."
         },
         {
           "description": "Denies the keyboard_hotkey command without any pre-configured scope.",
@@ -3643,6 +3697,12 @@
           "type": "string",
           "const": "deny-open-admin-window",
           "markdownDescription": "Denies the open_admin_window command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_browser_pip_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-browser-pip-window",
+          "markdownDescription": "Denies the open_browser_pip_window command without any pre-configured scope."
         },
         {
           "description": "Denies the open_in_chrome command without any pre-configured scope.",
@@ -3759,6 +3819,12 @@
           "markdownDescription": "Denies the screenshot_screen command without any pre-configured scope."
         },
         {
+          "description": "Denies the set_browser_pip_collapsed command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-browser-pip-collapsed",
+          "markdownDescription": "Denies the set_browser_pip_collapsed command without any pre-configured scope."
+        },
+        {
           "description": "Denies the set_browser_settings command without any pre-configured scope.",
           "type": "string",
           "const": "deny-set-browser-settings",
@@ -3865,6 +3931,12 @@
           "type": "string",
           "const": "deny-toggle-always-on-top",
           "markdownDescription": "Denies the toggle_always_on_top command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the toggle_browser_pip_collapsed command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-toggle-browser-pip-collapsed",
+          "markdownDescription": "Denies the toggle_browser_pip_collapsed command without any pre-configured scope."
         },
         {
           "description": "Denies the toggle_devtools command without any pre-configured scope.",
