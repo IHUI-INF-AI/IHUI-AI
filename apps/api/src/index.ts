@@ -19,6 +19,12 @@ import {
   startRuntimePolicyProbe,
   stopRuntimePolicy,
 } from './config/runtime-policy.js'
+// L08(2026-11-26):MCP 回环 host 的启动/收口;默认关,IHUI_MCP_LOOPBACK=1 才起。
+import {
+  startMcpLoopbackBootstrap,
+  stopMcpLoopbackBootstrap,
+  type McpLoopbackHandle,
+} from './services/mcp-loopback-bootstrap.js'
 import type { Worker } from 'bullmq'
 import type { FastifyInstance } from 'fastify'
 import { buildServer } from './server.js'
@@ -143,6 +149,8 @@ const SHUTDOWN_DEADLINE_MS = 10_000
 let isListening = false
 /** L06 事件循环探针的停止句柄;shutdown 时先撤探针再走相位。 */
 let stopRuntimeProbe: (() => void) | null = null
+/** L08 MCP 回环 host 句柄;未开启时为 null,shutdown 相位容忍 null。 */
+let mcpLoopback: McpLoopbackHandle | null = null
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -480,6 +488,11 @@ async function start() {
     stopRuntimePolicy()
     server.log.info({ signal }, 'Shutting down...')
     const phases: ShutdownPhase[] = [
+      {
+        name: 'mcp-loopback-stop',
+        timeoutMs: 3_000,
+        run: () => stopMcpLoopbackBootstrap(mcpLoopback),
+      },
       syncStopPhase('stopAiWorldSyncScheduler', stopAiWorldSyncScheduler),
       syncStopPhase('stopRankingScheduler', stopRankingScheduler),
       syncStopPhase('stopTrendingScheduler', stopTrendingScheduler),
@@ -569,6 +582,8 @@ async function start() {
     stopRuntimeProbe = startRuntimePolicyProbe((lagMs) => {
       logger.warn('事件循环 p95 超出 runtime-policy 阈值', { p95Ms: Math.round(lagMs) })
     })
+    // L08:开关打开才起回环 host;失败已回滚,不影响主服务。
+    mcpLoopback = await startMcpLoopbackBootstrap(process.env, server.log)
     // F-524:poolTracker 的 onClose 清理已移入 buildServer(),worker 与 API 共用,
     // 避免重复注册 onClose 钩子。
     await listenWithinDeadline(server)
