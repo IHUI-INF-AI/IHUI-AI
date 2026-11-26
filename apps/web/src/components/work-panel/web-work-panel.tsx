@@ -50,6 +50,7 @@ import { Tooltip } from '@/components/feedback'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 
 import { CdpBrowserView } from './cdp-browser-view'
+import { PipWall } from './pip-wall'
 import { AiPipMonitor } from '@/components/browser-pip/ai-pip-monitor'
 
 /** 两组停靠标签是否等价(字段级逐项比对,避免无意义的状态替换)。 */
@@ -266,6 +267,8 @@ export function WebWorkPanel() {
   const proxyUrl = activeTab?.state.proxyUrl
   const isCdpMode = rawMode === 'cdp' && !!sessionId
   const isPipMode = rawMode === 'pip' && !!sessionId
+  const isPipWallMode = rawMode === 'pip-wall' && !!activeTab?.state.pipSessions?.length
+  const isReadOnlyPip = isPipMode || isPipWallMode
   const isDockedMode = rawMode === 'docked'
   const isProxyMode = rawMode === 'proxy' && !!proxyUrl
   const mode: 'iframe' | 'screenshot' | 'external' =
@@ -276,8 +279,8 @@ export function WebWorkPanel() {
   const title = activeTab?.state.title
   const error = activeTab?.state.error
   const isLoading = status === 'loading'
-  const canBack = isPipMode ? false : activeTab ? activeTab.historyIndex > 0 : false
-  const canForward = isPipMode
+  const canBack = isReadOnlyPip ? false : activeTab ? activeTab.historyIndex > 0 : false
+  const canForward = isReadOnlyPip
     ? false
     : activeTab
       ? activeTab.historyIndex < activeTab.history.length - 1
@@ -293,7 +296,7 @@ export function WebWorkPanel() {
 
   const handleAddressSubmit = React.useCallback(() => {
     // 停靠/画中画监看都是"跟随已有 Browser Hub 会话",地址栏不是导航入口。
-    if (isPipMode) return
+    if (isReadOnlyPip) return
     if (!isDockedMode) {
       navigate(addressInput, 'user')
       return
@@ -302,25 +305,25 @@ export function WebWorkPanel() {
     if (!raw) return
     const target = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
     void runDockAction(() => dockedBrowserNavigate(target))
-  }, [addressInput, isDockedMode, isPipMode, navigate, runDockAction])
+  }, [addressInput, isDockedMode, isReadOnlyPip, navigate, runDockAction])
 
   const handleBack = React.useCallback(() => {
-    if (isPipMode) return
+    if (isReadOnlyPip) return
     if (isDockedMode) void runDockAction(dockedBrowserBack)
     else back()
-  }, [back, isDockedMode, isPipMode, runDockAction])
+  }, [back, isDockedMode, isReadOnlyPip, runDockAction])
 
   const handleForward = React.useCallback(() => {
-    if (isPipMode) return
+    if (isReadOnlyPip) return
     if (isDockedMode) void runDockAction(dockedBrowserForward)
     else forward()
-  }, [forward, isDockedMode, isPipMode, runDockAction])
+  }, [forward, isDockedMode, isReadOnlyPip, runDockAction])
 
   const handleReload = React.useCallback(() => {
-    if (isPipMode) return
+    if (isReadOnlyPip) return
     if (isDockedMode) void runDockAction(dockedBrowserReload)
     else reload()
-  }, [isDockedMode, isPipMode, reload, runDockAction])
+  }, [isDockedMode, isReadOnlyPip, reload, runDockAction])
 
   // 元素点选(2026-10-24):独立窗口有的能力,停靠档不能少 —— 复用同一份 PICK_JS,
   // Rust 端把它 eval 进停靠 webview,点选结果仍走 embedded-browser://element-picked
@@ -338,10 +341,10 @@ export function WebWorkPanel() {
   }, [activeTab?.id, addressInput])
 
   const handleHome = React.useCallback(() => {
-    if (isPipMode) return
+    if (isReadOnlyPip) return
     if (isDockedMode) void runDockAction(dockedBrowserHome)
     else navigate('https://aizhs.top/', 'user')
-  }, [isDockedMode, isPipMode, navigate, runDockAction])
+  }, [isDockedMode, isReadOnlyPip, navigate, runDockAction])
 
   // 停靠浏览器**内部**标签栏(2026-10-24 用户要求「多标签栏都应该有」):
   // 标签状态归 Rust 会话(每个标签一个子 webview,hide/show 切换),这里只做渲染 +
@@ -909,6 +912,29 @@ export function WebWorkPanel() {
             </div>
             <div data-ihui-dock-host className="min-h-0 w-full flex-1" />
           </div>
+        ) : isPipWallMode && activeTab?.state.pipSessions ? (
+          <PipWall
+            sessions={activeTab.state.pipSessions}
+            onHandover={(target) => {
+              const latest = useWorkPanelStore.getState()
+              const wallTab = latest.tabs.find(
+                (tab) => tab.id === activeTab.id && tab.state.mode === 'pip-wall',
+              )
+              // 接管某一格=结束整张墙的只读监看,把该会话切成可操作 CDP tab。
+              if (wallTab) latest.closeTab(wallTab.id)
+              const cdpTab = latest.tabs.find(
+                (tab) => tab.state.mode === 'cdp' && tab.state.sessionId === target.sessionId,
+              )
+              if (cdpTab) latest.setActiveTab(cdpTab.id)
+              else
+                latest.openCdpSession(
+                  target.url || 'about:blank',
+                  target.sessionId,
+                  target.title || target.url || '',
+                )
+              latest.openPanel()
+            }}
+          />
         ) : isPipMode && sessionId ? (
           <div className="h-full w-full overflow-hidden">
             <AiPipMonitor
