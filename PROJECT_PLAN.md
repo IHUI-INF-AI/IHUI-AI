@@ -10,4 +10,3 @@
 ## 号段租约登记区(取号器专用,千段租约制)
 - [x] RP-28 〔千段租约〕 本机=lichunchuan-a47da79b 段=RP-19~RP-28(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 - [x] RP-10 〔千段租约〕 本机=lichunchuan-a47da79b 段=RP-1~RP-10(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
-- [x] R10.2 多会话同时监看（2026-11-26）：AI 面板“更多选项”新增「监看全部活跃会话」，一键把 Browser Hub 全部活跃会话分别停靠成工作面 pip tab（最多最近 6 个，超出提示），逐个 `openPipSession` 复用同会话 tab、最后回焦最早 tab；单会话信息失败不阻断其余；五语言 `monitorAllSessions`/`monitorAllLimit`；生产 BUILD_ID `6JqzJAzl9qICqftenVsMt`，真实 UI 三会话标签、example/httpbin/example.org 分别“运行中”；PR #277 MERGED（merge `ba47dc91b9001f29de177c2eeb10d53b0577cc47`）
