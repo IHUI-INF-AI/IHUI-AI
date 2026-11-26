@@ -19,7 +19,7 @@
 | L05 动态通道注册表 | `packages/agent-sdk/src/channel-registry.ts`、`apps/web/src/lib/desktop-commands.ts`、`apps/api/src/websocket/chat-server.ts` | SDK 13/13（含 L12 域隔离）；live-chat 16/16（未知 type 回 400 且留拒绝计数）；`check-desktop-invoke-registry` → `注册=20 调用点字面量=0 无对应命令=0 重名=0 桥清单=20 清单差异=0 预算=20/20` | B | 完成 |
 | L06 运行时策略热更新 | `apps/api/src/config/runtime-policy.ts`，接线 `server.ts` 请求超时、`plugins/queue.ts` worker 并发、`index.ts` 探针节拍 | 5/5；热加载实测 1.085s（SLA 5s）；非法字段整份拒绝，审计 jsonl 带 by/why | B | 完成 |
 | L07 桥版本握手 | `apps/desktop/src-tauri/src/native_bridge.rs`、`apps/web/src/lib/native-bridge-handshake.ts`、`native-bridge-state.ts`、`components/native-bridge-banner.tsx` | web 7/7；Rust 2/2；注册表与壳侧清单均为 20、差异 0；协议/清单/摘要任一不符 → 首屏红条明示 + `invokeIpc` 全局拒绝 | B | 完成 |
-| L08 MCP Host 回环服务 | `apps/api/src/services/mcp-loopback-host.ts`、`mcp-loopback-bootstrap.ts`，`index.ts` 启停相位 | 5/5 + 3/3；真起 HTTP；未注册 404、token 缺失/错误 403、注销 abort 在飞请求并计数；默认关，开启后只绑 `127.0.0.1` | B | 完成 |
+| L08 MCP Host 回环服务 | `apps/api/src/services/mcp-loopback-host.ts`、`mcp-business-routes.ts`、`mcp-loopback-bootstrap.ts`，`index.ts` 启停相位 | 5/5 + 3/3 + 4/4；真起 HTTP；15 条 `mcp-extended` 业务路由全部注册进 Host（含 `/projects/:id` 等参数路径），经 Fastify inject 回注单源业务实现；route token 不下泄；未注册 404、token 缺失/错误 403、注销 abort 在飞请求并计数；`check:mcp-loopback-routes` 15=15、missing=0、extra=0 | A | 完成 |
 | L09 凭据保险箱 | `packages/auth/src/credentials/` + `apps/ai-service/app/services/mcp_oauth_dpapi.py`，消费点 `mcp_oauth.py` 的检查点读写 | 包 6/6；MCP OAuth 持久化 34 passed；Windows 默认 DPAPI 落盘（`IHUI-DPAPI-V1:` 信封），明文 token 不入盘；无保护器/无 Fernet key 时默认拒绝落盘（`plaintext` 仅显式开发 opt-in）；封装失败拒绝写、不回落明文；上一份好检查点不被坏写覆盖；`clear_memory_copy()` 清内存副本 | A | 完成 |
 | L10 遥测本地默认 | `apps/api/src/services/telemetry-policy.ts`，接线 `plugins/otel.ts` | 11/11；默认 off/local，远端需 `IHUI_TELEMETRY_REMOTE`；13 键白名单 + 6 类凭据正则抹除 + 128 字符截断 | A | 完成 |
 | L11 更新链路 | `apps/desktop/src-tauri/src/update_v2.rs`：签名校验既有（失败即拒）、本地代理候选 + 官方源回退告警、stable/beta/canary 通道 | `cargo test --lib update_v2::tests` 15 passed（含新增 5 条：通道归一/URL 拼接/代理候选/空代理/坏签名拒绝）；`fetch_feed` 逐候选尝试，失败回退 `eprintln` 告警 | B | 完成 |
@@ -40,7 +40,7 @@
 ## 三、边界说明（避免把等价替代读成原条款）
 
 - L04 原条款写「Electron preload 键数 ≤20」，本仓桌面是 Tauri、无 Electron preload；已用「桌面命令暴露面」等价落地：20 条注册命令（含握手命令）+ 127 条 Rust 命令用途注释 + 双向校验脚本。
-- L08 原条款要求 Host 的 per-route token 与生命周期；已落地并在 `/mcp/ping` 自检路由上跑通。`mcp-extended.ts` 的 10 条 Fastify 业务路由仍在 Fastify 面（依赖 request/reply 与 DB），搬进裸 HTTP 需先做适配层，不在本项验收内。
+- L08 原条款要求 Host 的 per-route token 与生命周期；本批已把 `mcp-extended.ts` 的 **15 条**业务路由全部注册进回环 Host（`mcp-business-routes.ts`）。参数路径由 Host 的 pattern 匹配捕获，handler 经 `server.inject` 回注 Fastify，鉴权、属主过滤与 DB 仍只有 `mcp-extended.ts` 一份实现；`check:mcp-loopback-routes` 断言两侧路由表 15=15、missing=0、extra=0、duplicate=0。原先“业务路由只在 Fastify 面”的边界已闭合。
 - `PROJECT_PLAN.md` 的 13 行 RP 已于本批勾选收口；L07/L11/L12 在该文件没有 RP 行，落点与读数以本账本为准。提交计划时工作树另有 PIP R8 三行未提交状态，随该文件一并入账（是他人已完成的记录，未改写其内容）。
 
 ## 四、复跑命令

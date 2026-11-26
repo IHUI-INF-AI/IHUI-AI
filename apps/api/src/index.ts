@@ -26,7 +26,7 @@ import {
   type McpLoopbackHandle,
 } from './services/mcp-loopback-bootstrap.js'
 import type { Worker } from 'bullmq'
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, InjectOptions } from 'fastify'
 import { buildServer } from './server.js'
 import { assertInternalAuthModeAtStartup } from './plugins/internal-service-token.js'
 import { assertInternalSecretAuthModeAtStartup } from './plugins/internal-secret-auth.js'
@@ -582,8 +582,22 @@ async function start() {
     stopRuntimeProbe = startRuntimePolicyProbe((lagMs) => {
       logger.warn('事件循环 p95 超出 runtime-policy 阈值', { p95Ms: Math.round(lagMs) })
     })
-    // L08:开关打开才起回环 host;失败已回滚,不影响主服务。
-    mcpLoopback = await startMcpLoopbackBootstrap(process.env, server.log)
+    // L08:开关打开才起回环 host;15 条业务路由经 Fastify inject 回注,
+    // 鉴权/DB 逻辑只在 routes/mcp-extended.ts 保留一份。
+    mcpLoopback = await startMcpLoopbackBootstrap(process.env, server.log, async (request) => {
+      const injectOptions: InjectOptions = {
+        method: request.method as InjectOptions['method'],
+        url: request.url,
+        headers: request.headers,
+        payload: request.payload,
+      }
+      const injected = await server.inject(injectOptions)
+      return {
+        statusCode: injected.statusCode,
+        headers: injected.headers,
+        payload: injected.payload,
+      }
+    })
     // F-524:poolTracker 的 onClose 清理已移入 buildServer(),worker 与 API 共用,
     // 避免重复注册 onClose 钩子。
     await listenWithinDeadline(server)

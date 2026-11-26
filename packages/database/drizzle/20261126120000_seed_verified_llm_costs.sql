@@ -47,24 +47,51 @@ SET cost_input_price_per_1k = v.cost_in,
 FROM v
 WHERE lower(m.model_id) = v.model_id;
 
-WITH v(model_id, cost_in, cost_out) AS (
+-- ai_pricing 的 token 单价口径是「对客零售价」,不是采购成本;
+-- 这里必须写 retail_in/retail_out。先更新已有最新 token 行(尤其是历史 1/2 分
+-- 占位价或 1/7 分倒挂价),只有在完全没有 token 行时才插入,避免重复行。
+WITH v(model_id, retail_in, retail_out) AS (
   VALUES
-    ('deepseek-v4-flash-1017',      0.648000::numeric, 2.592000::numeric),
-    ('deepseek-v4-pro-official',    2.851200::numeric, 8.553600::numeric),
-    ('kimi-k3-1',                   4.320000::numeric,21.600000::numeric),
+    ('deepseek-v4-flash-1017',      0.648000::numeric,  2.592000::numeric),
+    ('deepseek-v4-pro-official',    2.851200::numeric,  8.553600::numeric),
+    ('kimi-k3-1',                   4.320000::numeric, 21.600000::numeric),
     ('claude-opus-4.1',            32.400000::numeric,162.000000::numeric),
-    ('glm-5.0',                     2.160000::numeric, 6.912000::numeric),
-    ('hy4std',                      0.900720::numeric, 2.701080::numeric),
-    ('hy4flash',                    0.151200::numeric, 0.606960::numeric)
+    ('glm-5.0',                     2.160000::numeric,  6.912000::numeric),
+    ('hy4std',                      0.900720::numeric,  2.701080::numeric),
+    ('hy4flash',                    0.151200::numeric,  0.606960::numeric)
+)
+UPDATE ai_pricing p
+SET input_token_price = v.retail_in,
+    output_token_price = v.retail_out,
+    currency = 'CNY'
+FROM v
+WHERE lower(p.model_id) = v.model_id
+  AND p.billing_mode = 'token'
+  AND p.id = (
+    SELECT p2.id
+    FROM ai_pricing p2
+    WHERE lower(p2.model_id) = v.model_id
+      AND p2.billing_mode = 'token'
+    ORDER BY p2.effective_at DESC NULLS LAST, p2.id DESC
+    LIMIT 1
+  );
+
+WITH v(model_id, retail_in, retail_out) AS (
+  VALUES
+    ('deepseek-v4-flash-1017',      0.648000::numeric,  2.592000::numeric),
+    ('deepseek-v4-pro-official',    2.851200::numeric,  8.553600::numeric),
+    ('kimi-k3-1',                   4.320000::numeric, 21.600000::numeric),
+    ('claude-opus-4.1',            32.400000::numeric,162.000000::numeric),
+    ('glm-5.0',                     2.160000::numeric,  6.912000::numeric),
+    ('hy4std',                      0.900720::numeric,  2.701080::numeric),
+    ('hy4flash',                    0.151200::numeric,  0.606960::numeric)
 )
 INSERT INTO ai_pricing (model_id, billing_mode, input_token_price, output_token_price, currency, effective_at)
-SELECT v.model_id, 'token', v.cost_in, v.cost_out, 'CNY', now()
+SELECT v.model_id, 'token', v.retail_in, v.retail_out, 'CNY', now()
 FROM v
 WHERE NOT EXISTS (
   SELECT 1 FROM ai_pricing p
   WHERE lower(p.model_id) = v.model_id
     AND p.billing_mode = 'token'
-    AND p.input_token_price > 0
-    AND p.output_token_price > 0
 );
 -- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
