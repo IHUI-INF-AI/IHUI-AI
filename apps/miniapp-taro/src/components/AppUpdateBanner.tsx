@@ -91,8 +91,8 @@ export function AppUpdateBanner() {
     flexDirection: 'column',
     gap: 10,
     padding: '12px 16px',
-    backgroundColor: 'var(--color-surface-card, #ffffff)',
-    borderBottom: '1px solid var(--color-border-medium, rgba(0, 0, 0, 0.08))',
+    backgroundColor: 'var(--color-card)',
+    borderBottom: '1px solid var(--color-border-medium)',
     boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
     transform: entered && !closing ? 'translateY(0)' : 'translateY(-110%)',
     transition: `transform ${SLIDE_MS}ms ease`,
@@ -112,7 +112,7 @@ export function AppUpdateBanner() {
     borderRadius: rnRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'var(--color-brand-accent-light, rgba(99, 102, 241, 0.12))',
+    backgroundColor: 'var(--color-brand-accent-light)',
   }
   const titleWrapStyle: CSSProperties = {
     flex: 1,
@@ -122,12 +122,12 @@ export function AppUpdateBanner() {
     gap: 2,
   }
   const titleStyle: CSSProperties = {
-    color: 'var(--color-text-primary, #111111)',
+    color: 'var(--color-foreground)',
     fontSize: 15,
     fontWeight: 600,
   }
   const bodyStyle: CSSProperties = {
-    color: 'var(--color-text-secondary, #666666)',
+    color: 'var(--color-muted-foreground)',
     fontSize: 12,
     lineHeight: '18px',
   }
@@ -138,7 +138,7 @@ export function AppUpdateBanner() {
     borderRadius: rnRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'var(--color-surface-muted, rgba(0, 0, 0, 0.05))',
+    backgroundColor: 'var(--color-muted)',
   }
   const footerStyle: CSSProperties = {
     display: 'flex',
@@ -154,12 +154,12 @@ export function AppUpdateBanner() {
     paddingTop: 8,
     paddingBottom: 8,
     borderRadius: rnRadius.lg,
-    backgroundColor: 'var(--color-primary, #4f46e5)',
+    backgroundColor: 'var(--color-primary)',
     borderWidth: 1,
-    borderColor: 'var(--color-border-medium, rgba(0, 0, 0, 0.08))',
+    borderColor: 'var(--color-border-medium)',
   }
   const actionTextStyle: CSSProperties = {
-    color: 'var(--color-primary-foreground, #ffffff)',
+    color: 'var(--color-primary-foreground)',
     fontSize: 14,
     fontWeight: 600,
   }
@@ -168,14 +168,14 @@ export function AppUpdateBanner() {
     <View style={wrapStyle}>
       <View style={headerStyle}>
         <View style={iconBadgeStyle}>
-          <Text style={{ fontSize: 18, color: 'var(--color-brand-accent-deep, #4338ca)' }}>↑</Text>
+          <Text style={{ fontSize: 18, color: 'var(--color-brand-accent-deep)' }}>↑</Text>
         </View>
         <View style={titleWrapStyle}>
           <Text style={titleStyle}>{t('appUpdate.title')}</Text>
           <Text style={bodyStyle}>{t('appUpdate.readyBody')}</Text>
         </View>
         <View style={closeBtnStyle} hoverClass="opacity-60" onClick={handleClose}>
-          <Text style={{ fontSize: 16, color: 'var(--color-text-secondary, #666666)' }}>×</Text>
+          <Text style={{ fontSize: 16, color: 'var(--color-muted-foreground)' }}>×</Text>
         </View>
       </View>
       <View style={footerStyle}>

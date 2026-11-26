@@ -321,9 +321,9 @@ function createStyles(tk: AppThemeTokens) {
     userCard: {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
-      backgroundColor: tk.surface.light,
-      borderWidth: 1,
-      borderColor: 'transparent',
+      // 暗色下 surface.light(#262626) 与页底(#242424)只差 2 阶,卡片融进背景;
+      // surface.card 暗色 #1A1A1A 才有分层。底色已分区,不再叠 1px 透明描边占位。
+      backgroundColor: tk.surface.card,
       gap: rnSpacing.md,
     },
     /** 头像 + 昵称/身份/联系方式一行;userExtra 另起一行,避免动作行被挤压在头像右侧半栏 */

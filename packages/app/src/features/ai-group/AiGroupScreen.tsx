@@ -238,7 +238,7 @@ export function AiGroupScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.light },
+    container: { flex: 1, backgroundColor: tk.surface.bg },
     header: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingTop: rnSpacing.md,

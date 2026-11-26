@@ -75,7 +75,7 @@ const TRADER_POWER = '1600W'
 
 // 权益特性是产品展示,非业务数据,保留前端静态
 const FEATURES: VipTraderFeature[] = [
-  { id: 'distribution', icon: Award, title: '享受大额分销资格,入驻社区服务商名列' },
+  { id: 'distribution', icon: Award, title: '享受大额分销资格，入驻社区服务商名列' },
   {
     id: 'ai_courses',
     icon: GraduationCap,
@@ -83,11 +83,11 @@ const FEATURES: VipTraderFeature[] = [
   },
   { id: 'founder_qa', icon: Handshake, title: '创始人一对一随时答疑陪跑' },
   { id: 'agent_beta', icon: FlaskConical, title: '最新研发 Agent 内测资格一年' },
-  { id: 'vip_max_discount', icon: Gem, title: '会员等级拉满,享受全部最高折扣' },
+  { id: 'vip_max_discount', icon: Gem, title: '会员等级拉满，享受全部最高折扣' },
   { id: 'custom_agent', icon: Zap, title: '插队定制独家 Agent 功能 8 折优惠' },
   { id: 'all_rights', icon: Gift, title: '会员享受的全部权益' },
   { id: 'incubation', icon: Rocket, title: 'AI+垂类账号孵化优先陪跑机会' },
-  { id: 'secondary', icon: Globe, title: '二级分销权益,快速扩张团队及收益' },
+  { id: 'secondary', icon: Globe, title: '二级分销权益，快速扩张团队及收益' },
   { id: 'offline', icon: Building2, title: '公司总部入驻及线下学习实操机会' },
   { id: 'computing', icon: Lightbulb, title: `操盘手赠送 ${TRADER_POWER} 算力` },
   { id: 'knowledge', icon: FolderOpen, title: '开通个人知识库超大 20G 空间' },
@@ -263,7 +263,7 @@ export function VipTraderScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.light },
+    container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },

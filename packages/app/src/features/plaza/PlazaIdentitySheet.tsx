@@ -146,12 +146,12 @@ function createStyles(tk: AppThemeTokens) {
     avatarBox: {
       width: 56,
       height: 56,
-      borderRadius: 28,
+      borderRadius: '50%',
     } as ViewStyle,
     avatarImage: {
       width: 56,
       height: 56,
-      borderRadius: 28,
+      borderRadius: '50%',
     } as ImageStyle,
     avatarFallback: {
       alignItems: 'center',

@@ -69,10 +69,10 @@ export default function AgentMarketPage() {
             })),
           )
         } else {
-          setError(apiFailureToText(res, tt('agentMarket.loadFailed', '加载失败,请重试')))
+          setError(apiFailureToText(res, tt('agentMarket.loadFailed', '加载失败，请重试')))
         }
       } catch {
-        setError(tt('agentMarket.loadFailed', '加载失败,请重试'))
+        setError(tt('agentMarket.loadFailed', '加载失败，请重试'))
       } finally {
         setLoading(false)
       }

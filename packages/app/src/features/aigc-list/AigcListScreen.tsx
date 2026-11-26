@@ -291,7 +291,7 @@ export function AigcListScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.light },
+    container: { flex: 1, backgroundColor: tk.surface.bg },
     carousel: { flexGrow: 0, marginTop: rnSpacing.sm },
     carouselContent: {
       paddingHorizontal: rnSpacing['sm-loose'],

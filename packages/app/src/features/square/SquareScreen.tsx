@@ -88,7 +88,7 @@ export function SquareScreen({
     const time = item.createdAt ? formatRelativeTime(item.createdAt) : ''
     const views = item.viewCount ?? 0
     const source = item.sourceName
-    const sourceText = source && source !== 'Not_Support' ? `来源:${source}` : '来源:网络'
+    const sourceText = source && source !== 'Not_Support' ? `来源：${source}` : '来源：网络'
 
     return (
       // 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过

@@ -25,6 +25,7 @@ import { ELEVATION_STEPS, rnRadius, rnCssLight, rnSpacing, rnType } from '@ihui/
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 import { payModeLabel, providerDisplayName } from './provider-mappings'
+import { PROVIDER_BRAND_COLORS } from './provider-colors'
 
 /** 模型广场共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ModelPlazaItem, ModelPlazaProvider, ModelPlazaScreenProps }
@@ -43,22 +44,27 @@ const TYPE_TABS: { id: ModelPlazaTypeFilter; labelKey: string }[] = [
  * 改用「首字母 + 厂商品牌色背景圆」作为视觉占位。
  * 缺省回退: provider.id 首字母大写 + 中性灰背景。
  */
-const PROVIDER_ICONS: Record<string, { letter: string; bg: string }> = {
-  openai: { letter: 'O', bg: '#10A37F' },
-  anthropic: { letter: 'A', bg: '#D97757' },
-  google: { letter: 'G', bg: '#4285F4' },
-  cloudflare: { letter: 'C', bg: '#F38020' },
-  stepfun: { letter: 'S', bg: '#E94560' },
-  nvidia: { letter: 'N', bg: '#76B900' },
+/**
+ * 厂商图标首字母映射。
+ * 品牌底色不在此写字面量:唯一来源是 provider-colors.ts 的 PROVIDER_BRAND_COLORS
+ * (外部品牌资产、不随主题变换,该文件在此前是无人 import 的死代码)。
+ * 这里只保留"厂商 id → 首字母"的展示映射,bg 在 providerIcon() 里按 id 现取单一源。
+ */
+const PROVIDER_LETTERS: Record<string, string> = {
+  openai: 'O',
+  anthropic: 'A',
+  google: 'G',
+  cloudflare: 'C',
+  stepfun: 'S',
+  nvidia: 'N',
 }
 
 function providerIcon(providerId: string): { letter: string; bg: string } {
-  return (
-    PROVIDER_ICONS[providerId] ?? {
-      letter: providerId.charAt(0).toUpperCase() || '?',
-      bg: baseTokens.gray['400'],
-    }
-  )
+  const brandColors = PROVIDER_BRAND_COLORS as Record<string, string>
+  return {
+    letter: PROVIDER_LETTERS[providerId] ?? (providerId.charAt(0).toUpperCase() || '?'),
+    bg: brandColors[providerId] ?? baseTokens.gray['400'],
+  }
 }
 
 /**
@@ -344,7 +350,7 @@ function createStyles(tk: AppThemeTokens) {
     providerTabIcon: {
       width: 18,
       height: 18,
-      borderRadius: 18 / 2,
+      borderRadius: '50%',
       alignItems: 'center',
       justifyContent: 'center',
     },

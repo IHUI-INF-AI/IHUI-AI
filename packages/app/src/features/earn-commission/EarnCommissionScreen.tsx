@@ -65,11 +65,11 @@ export function EarnCommissionScreen({
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <View style={styles.introCard}>
           <Text style={styles.introTitle}>
-            {t('earnCommission.introTitle') || '邀请好友,赚取佣金'}
+            {t('earnCommission.introTitle') || '邀请好友，赚取佣金'}
           </Text>
           <Text style={styles.introDesc}>
             {t('earnCommission.introDesc') ||
-              '加入我们的分佣计划,邀请好友注册成为会员,您将获得会员费 20% 的佣金收益'}
+              '加入我们的分佣计划，邀请好友注册成为会员，您将获得会员费 20% 的佣金收益'}
           </Text>
           <View style={styles.statsArea}>
             <View style={styles.statsItem}>

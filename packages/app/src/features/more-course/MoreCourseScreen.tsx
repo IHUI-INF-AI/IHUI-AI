@@ -97,7 +97,7 @@ export function MoreCourseScreen({
             </Text>
             <View style={styles.metaRow}>
               <Text style={styles.instructor} numberOfLines={1}>
-                {'讲师:' + (item.instructor || '匿名')}
+                {'讲师：' + (item.instructor || '匿名')}
               </Text>
               <Text style={styles.lessonCount}>{item.lessonCount ?? 0} 课时</Text>
             </View>
@@ -186,7 +186,7 @@ export function MoreCourseScreen({
                 colorScheme={colorScheme}
               />
             ) : (
-              <EmptyState title="暂无课程,敬请期待" colorScheme={colorScheme} />
+              <EmptyState title="暂无课程，敬请期待" colorScheme={colorScheme} />
             )
           }
           ListFooterComponent={

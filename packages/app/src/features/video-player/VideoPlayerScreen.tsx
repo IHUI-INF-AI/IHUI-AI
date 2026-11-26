@@ -417,7 +417,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     noUrlText: { fontSize: rnType.subtitle.size, color: tk.gray[400] },
     playerHint: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.gray[500] },
-    body: { flex: 1, backgroundColor: tk.surface.light, padding: rnSpacing['md-loose'] },
+    body: { flex: 1, backgroundColor: tk.surface.bg, padding: rnSpacing['md-loose'] },
     infoCard: {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
