@@ -1752,11 +1752,50 @@ function asBlob(rawEv) {
 }
 
 /**
- * 写回配方(2026-10-28 本机实证):豆包登录态 = 字节 passport 族 cookie 整包。
+ * 豆包逐键原生 Cookie 元数据(2026-11-26 实测钉死)。
+ * 原来所有行写同一套默认值(has_expires=0、expires_utc=0、is_secure=1…),豆包启动即
+ * `Cookie load problem: 6, domain: .bytedance.com` + `has_login:0` —— 客户端拒绝加载
+ * 无过期时间的持久化会话票。有效票写回照样判未登录,证明是写回格式坏,不是票死。
+ * 这里按本机原生库逐键复刻:会话票必须 has_expires=1 + 远期 expires_utc。
+ */
+const DOUBAO_COOKIE_META = Object.freeze({
+  sessionid: { isSecure: 1, isHttpOnly: 1, sameSite: 0, ttlDays: 30 },
+  sid_tt: { isSecure: 1, isHttpOnly: 1, sameSite: 0, ttlDays: 30 },
+  uid_tt: { isSecure: 1, isHttpOnly: 1, sameSite: 0, ttlDays: 30 },
+  sessionid_ss: { isSecure: 1, isHttpOnly: 1, sameSite: 0, ttlDays: 30 },
+  uid_tt_ss: { isSecure: 1, isHttpOnly: 1, sameSite: 0, ttlDays: 30 },
+  sid_ucp_v1: { isSecure: 1, isHttpOnly: 1, sameSite: 0, ttlDays: 30 },
+  ssid_ucp_v1: { isSecure: 1, isHttpOnly: 1, sameSite: 0, ttlDays: 30 },
+  sid_guard: { isSecure: 1, isHttpOnly: 1, sameSite: 0, ttlDays: 365 },
+  msToken: { isSecure: 1, isHttpOnly: 0, sameSite: 0, ttlDays: 7 },
+  odin_tt: { isSecure: 0, isHttpOnly: 1, sameSite: -1, ttlDays: 365 },
+  ttwid: { isSecure: 1, isHttpOnly: 1, sameSite: 0, ttlDays: 365 },
+})
+const DOUBAO_COOKIE_META_FALLBACK = Object.freeze({
+  isSecure: 1, isHttpOnly: 1, sameSite: 0, ttlDays: 30,
+})
+
+/** msToken 是无魔数二进制票,不能套豆包 32 字节头;其余键套头 */
+export function doubaoNeedsAppPrefix(name) {
+  return String(name ?? '') !== 'msToken'
+}
+
+export function doubaoCookieRowMeta(name, nowUs) {
+  const m = DOUBAO_COOKIE_META[String(name ?? '')] ?? DOUBAO_COOKIE_META_FALLBACK
+  return {
+    expires_utc: nowUs + BigInt(m.ttlDays) * 86_400_000_000n,
+    is_secure: m.isSecure,
+    is_httponly: m.isHttpOnly,
+    same_site: m.sameSite,
+  }
+}
+
+/**
+ * 写回配方(2026-10-28 本机实证,2026-11-26 元数据/编码修正):豆包登录态 = 字节 passport 族 cookie 整包。
  * 落点是 Chromium 旧列名 schema 的 Cookies 库(NOT NULL 全列),值 = v10 封
- * (32 字节豆包自家头 + utf8 真值,AES-256-GCM,密钥 = Local State os_crypt 剥
- * DPAPI 前缀后 CurrentUser 解)。行存在 ⇒ UPDATE(host_key,name),不存在 ⇒ INSERT
- * (默认值镜像本机实证的 ttwid 行)。进程控制走 CLIENT_IMAGES['Doubao'](main() 关/拉)。
+ * (32 字节豆包自家头 + utf8 真值;msToken 例外=裸二进制 latin1,AES-256-GCM,
+ * 密钥 = Local State os_crypt 剥 DPAPI 前缀后 CurrentUser 解)。行存在 ⇒ UPDATE 全列,
+ * 不存在 ⇒ INSERT(逐键原生元数据)。进程控制走 CLIENT_IMAGES['Doubao'](main() 关/拉)。
  */
 export function applyDoubao(payload, opts = {}) {
   const extract = opts.extract
@@ -1822,7 +1861,9 @@ export function applyDoubao(payload, opts = {}) {
       backupFile = backupOf(dbFile)
       const nowUs = chromiumNowUs()
       const upd = db.prepare(
-        "UPDATE cookies SET value = '', encrypted_value = ?, last_update_utc = ?, last_access_utc = ? WHERE host_key = ? AND name = ?",
+        "UPDATE cookies SET value = '', encrypted_value = ?, last_update_utc = ?, last_access_utc = ?," +
+          ' expires_utc = ?, is_secure = ?, is_httponly = ?, has_expires = 1, samesite = ?' +
+          ' WHERE host_key = ? AND name = ?',
       )
       const ins = db.prepare(
         'INSERT INTO cookies (creation_utc, host_key, top_frame_site_key, name, value, encrypted_value, path,' +
@@ -1831,13 +1872,23 @@ export function applyDoubao(payload, opts = {}) {
           ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       )
       for (const e of entries) {
-        const blob = encryptSafeStorageBlob(extract.wrapDoubaoAppPrefix(e.value), key)
-        const r = upd.run(blob, nowUs, nowUs, e.host, e.name)
+        // msToken 无豆包魔数(二进制票),其余键套 32 字节头;写后按同一读法自检
+        const plaintext = doubaoNeedsAppPrefix(e.name)
+          ? extract.wrapDoubaoAppPrefix(e.value)
+          : Buffer.from(e.value, 'latin1')
+        const blob = encryptSafeStorageBlob(plaintext, key)
+        const meta = doubaoCookieRowMeta(e.name, nowUs)
+        const expStr = String(meta.expires_utc)
+        const r = upd.run(
+          blob, nowUs, nowUs, expStr, meta.is_secure, meta.is_httponly, meta.same_site,
+          e.host, e.name,
+        )
         if (Number(r.changes ?? 0) === 0) {
-          // 行不存在 ⇒ 按本机实证 ttwid 行的默认值族新建(非会话票一律 NOT NULL 补齐)
+          // 行不存在 ⇒ 用该键的原生元数据族新建(NOT NULL 全列补齐)
           ins.run(
             nowUs, e.host, '', e.name, '', blob, '/',
-            0, 1, 1, nowUs, 0, 1, 1, 0, 2, 443, nowUs, 1, 0,
+            expStr, meta.is_secure, meta.is_httponly, nowUs, 1, 1, 1, meta.same_site,
+            2, 443, nowUs, 1, 0,
           )
         }
         written.push(`${e.host}/${e.name}`)
@@ -1855,9 +1906,10 @@ export function applyDoubao(payload, opts = {}) {
             .get(e.host, e.name)
           const blob = asBlob(row?.encrypted_value)
           if (!blob) return false
-          const plain = extract.stripDoubaoAppPrefix(
-            extract.decryptOsCryptString(blob, key, { rawBuffer: true }),
-          )
+          const rawPlain = extract.decryptOsCryptString(blob, key, { rawBuffer: true })
+          const plain = extract.decodeDoubaoSafeStorageValue
+            ? extract.decodeDoubaoSafeStorageValue(rawPlain, e.name)
+            : extract.stripDoubaoAppPrefix(rawPlain)
           if (plain !== e.value) return false
         }
         return true
@@ -2246,6 +2298,7 @@ async function loadExtract() {
     doubaoCandidateUserDataDirs: (env) => doubao.candidateUserDataDirs(env),
     wrapDoubaoAppPrefix: doubao.wrapDoubaoAppPrefix,
     stripDoubaoAppPrefix: doubao.stripDoubaoAppPrefix,
+    decodeDoubaoSafeStorageValue: doubao.decodeDoubaoSafeStorageValue,
     decryptOsCryptString: doubao.decryptOsCryptString,
     loomyCandidateRoamingDirs: (env) => loomy.candidateRoamingDirs(env),
     // 小浣熊写回只需要 JWT 解码(取替换前 uid 与到期元数据),复用提取器的唯一实现
@@ -2401,5 +2454,7 @@ export const __test__ = {
   applyRaccoon,
   WriteError,
   CREDENTIAL_KEYS,
+  doubaoNeedsAppPrefix,
+  doubaoCookieRowMeta,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
