@@ -48,6 +48,7 @@
       ]
     },
     "allow-get-app-info",
+    "allow-get-native-bridge-manifest",
     "allow-store-read-entry",
     "allow-store-write-entry",
     "allow-git-authorize-workspace",

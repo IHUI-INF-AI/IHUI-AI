@@ -27,8 +27,8 @@ use tauri::{AppHandle, Emitter, Manager, Url, WebviewUrl, WebviewWindow, Webview
 
 /// 每个会话的 AI 画中画窗口 label 前缀。
 pub const AI_PIP_WINDOW_LABEL_PREFIX: &str = "ai-browser-pip";
-const AI_PIP_WIDTH: f64 = 508.0;
-const AI_PIP_HEIGHT: f64 = 339.0;
+const AI_PIP_WIDTH: f64 = 960.0;
+const AI_PIP_HEIGHT: f64 = 540.0;
 const AI_PIP_MIN_WIDTH: f64 = 320.0;
 const AI_PIP_MIN_HEIGHT: f64 = 200.0;
 /// 收起时只留顶部状态栏;32px 与页面 header 的 h-8 一致。
@@ -79,12 +79,13 @@ struct PipGeometry {
 static AI_PIP_GEOMETRY: LazyLock<Mutex<HashMap<String, PipGeometry>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-/// 1/4 屏默认尺寸:宽、高各取当前显示器逻辑尺寸的 25%,并托底到可读最小值。
-/// 文章明确「右下角 1/4 屏 + 置顶」且「尺寸别缩到 1/4 屏以下」;固定 420×280
-/// 在 2K/4K 上只剩 1/5 屏宽,字看不清,所以按显示器算,而不是写死一组像素。
+/// 1/4 屏默认尺寸:取主窗口内容区的 50%×50%,面积正好是主窗可用区的 1/4。
+/// 主窗最大化时就是整屏右下角 1/4;主窗没铺满时也不会做出一个和主窗一样大的
+/// “小窗”。文章要求「尺寸别缩到 1/4 屏以下」,这里按面积算,不是按宽高各 25%
+/// (那只有 1/16 面积,连报错弹窗都看不清)。
 fn pip_quarter_size(screen_width: f64, screen_height: f64) -> (f64, f64) {
-    let width = (screen_width * 0.25).max(AI_PIP_MIN_WIDTH);
-    let height = (screen_height * 0.25).max(AI_PIP_MIN_HEIGHT);
+    let width = (screen_width * 0.5).max(AI_PIP_MIN_WIDTH);
+    let height = (screen_height * 0.5).max(AI_PIP_MIN_HEIGHT);
     (width.round(), height.round())
 }
 
@@ -95,6 +96,14 @@ fn pip_default_size(win: &WebviewWindow) -> (f64, f64) {
     } else {
         1.0
     };
+    // 主窗内容区优先:主窗没最大化时,按显示器算会得到一个几乎和主窗一样大的
+    // “小窗”。只有拿不到有效主窗尺寸时才回落到显示器。
+    if let Ok(inner) = win.inner_size() {
+        let logical = inner.to_logical::<f64>(scale);
+        if logical.width >= AI_PIP_MIN_WIDTH && logical.height >= AI_PIP_MIN_HEIGHT {
+            return pip_quarter_size(logical.width, logical.height);
+        }
+    }
     let Some(monitor) = win.current_monitor().ok().flatten() else {
         return (AI_PIP_WIDTH, AI_PIP_HEIGHT);
     };
@@ -102,7 +111,8 @@ fn pip_default_size(win: &WebviewWindow) -> (f64, f64) {
     pip_quarter_size(logical.width, logical.height)
 }
 
-/// 上次尺寸不能把窗口缩到看不了;下限仍是 320×200 逻辑像素,
+/// 保存几何的兜底下限,避免历史脏数据把窗口缩成指甲盖;真实下限由建窗时的
+/// `min_inner_size(1/4 屏)` 约束,用户拖不到 1/4 屏以下。
 /// 按当前 DPI 换算成物理像素后再夹。
 fn clamp_pip_pixels(width: u32, height: u32, scale: f64) -> (u32, u32) {
     let scale = if scale.is_finite() && scale > 0.0 {
@@ -756,30 +766,33 @@ mod tests {
     }
 
     #[test]
-    fn pip_default_size_is_quarter_of_monitor() {
-        assert_eq!(pip_quarter_size(2032.0, 1355.0), (508.0, 339.0));
-        assert_eq!(pip_quarter_size(1920.0, 1080.0), (480.0, 270.0));
+    fn pip_default_size_is_quarter_of_main_area() {
+        // 1/4 屏按面积算:宽高各 50%;主窗最大化时就是整屏 1/4。
+        assert_eq!(pip_quarter_size(2032.0, 1355.0), (1016.0, 678.0));
+        assert_eq!(pip_quarter_size(1920.0, 1080.0), (960.0, 540.0));
+        assert_eq!(pip_quarter_size(1115.0, 729.0), (558.0, 365.0));
+        assert_eq!(pip_quarter_size(800.0, 600.0), (400.0, 300.0));
         // 小屏托底到可读最小值,不能缩成指甲盖。
-        assert_eq!(pip_quarter_size(800.0, 600.0), (320.0, 200.0));
+        assert_eq!(pip_quarter_size(600.0, 400.0), (320.0, 200.0));
     }
 
     #[test]
     fn pip_open_position_defaults_to_bottom_right_and_cascades_up() {
-        // 1920×1080 主窗、(100,100) 起点、100% DPI、1/4 屏 480×270:
+        // 1920×1080 主窗、(100,100) 起点、100% DPI、1/4 屏 960×540:
         // 首窗右下角留 24px 边距。
         assert_eq!(
-            pip_open_position_for(100, 100, 1920, 1080, 480.0, 270.0, 1.0, 0),
-            (1516, 886)
+            pip_open_position_for(100, 100, 1920, 1080, 960.0, 540.0, 1.0, 0),
+            (1036, 616)
         );
         // 第二个窗从首窗位置向上错开 40px,不再向右下越界。
         assert_eq!(
-            pip_open_position_for(100, 100, 1920, 1080, 480.0, 270.0, 1.0, 1),
-            (1516, 846)
+            pip_open_position_for(100, 100, 1920, 1080, 960.0, 540.0, 1.0, 1),
+            (1036, 576)
         );
         // HiDPI 下窗口物理像素变大,仍以主窗右下角为锚点。
         assert_eq!(
-            pip_open_position_for(0, 0, 2560, 1440, 640.0, 360.0, 1.5, 0),
-            (1564, 864)
+            pip_open_position_for(0, 0, 2560, 1440, 1280.0, 720.0, 1.5, 0),
+            (604, 324)
         );
     }
 
