@@ -825,26 +825,17 @@ IHUI-AI/
 
 **数据库迁移**:`packages/database/drizzle/20260729120000_relay_billing.sql`(幂等,加字段 + 建表)
 
-**平台积分计价方案**(2026-07-31 立,对标 WorkBuddy / Qoder 内置模型积分消耗倍数):
+**平台积分计价方案**(2026-11-26 全收费·成本加成版,详见 [`docs/credit-pricing.md`](../credit-pricing.md)):
 
-| 倍数档位 | `points_multiplier` | 单次 1K token 扣分 | 推荐场景                          | 模型示例                                          |
-| -------- | ------------------- | ------------------ | --------------------------------- | ------------------------------------------------- |
-| **免费** | 0                   | 0 积分             | 本地模型 / 内测免费 / 教学体验    | `ollama/llama3` / `pollinations/*` / `llm7/*`     |
-| **经济** | 1                   | 1 积分             | 大流量基础场景 / 国产高性价比模型 | `deepseek-chat` / `qwen-turbo` / `gpt-4o-mini`    |
-| **标准** | 3                   | 3 积分             | 主力对话模型 / 性价比均衡         | `gpt-4o` / `claude-3-5-sonnet` / `gemini-1.5-pro` |
-| **高级** | 10                  | 10 积分            | 复杂推理 / 长上下文 / 高质量场景  | `claude-opus-4` / `gpt-4-turbo` / `gemini-pro-1M` |
-| **旗舰** | 30                  | 30 积分            | 顶级推理 / 多模态 / 企业关键链路  | `gpt-5` / `o1` / `o3` / `claude-opus-thinking`    |
-
-- **计费公式**:`扣分 = (输入 token + 输出 token) / 1000 × points_multiplier × 1 积分基准`
-- **DB 字段**:`ai_model_config_models.points_multiplier numeric(5,2) default 1.00`(5 档固定选项,不允许自由输入)
-- **管理端入口**:`/admin/ai-models` → 编辑模型 → "积分消耗倍数"下拉
-- **前端展示**:AI 输入框模型选择器每个模型显示倍数徽章(免费绿/×1 灰/×3 蓝/×10 紫/×30 金)
-- **扣分时机**:LLM 调用**完成后**按实际 `usage.token` 扣分(不预扣,避免失败回滚复杂度)
-- **零成本豁免**:`points_multiplier=0` 的模型(本地/zero_cost)不校验余额,不扣分
-- **余额不足兜底**:返回 `402 Payment Required`,响应体含 `free_models` 引导用户切免费模型
-- **失败不扣分**:LLM 5xx/超时/4xx 均不扣分,事务保护积分账户一致性
-- **完整方案文档**:[`docs/credit-pricing.md`](docs/credit-pricing.md)(计费公式 / 5 档梯度表 / 积分来源 / 扣分时机 / 兜底策略 / 失败保护 / 管理端能力 / 与其他规则关系)
-- **数据库迁移**:`packages/database/drizzle/20260801010100_add_points_multiplier.sql`(幂等,加字段 + 批量设置现有模型默认倍数)
+- **计费公式**:`扣分 = ceil(prompt/1000 × input_points_per_1k + completion/1000 × output_points_per_1k)`;输入/输出分开计价,不再乘 `points_multiplier`。
+- **费率来源**:`ai_model_config_models.cost_input_price_per_1k` / `cost_output_price_per_1k`(采购成本)× 3,最低 0.1 积分/千 token;同一 model_id 多渠道取最高成本。
+- **不提供免费模型**:`points_multiplier` 已退出计费链路;成本为 0 也按 0.1 积分/千 token 地板收费。
+- **未定价不卖**:成本列 `NULL` 的模型预检直接 503 `MODEL_PRICING_MISSING`,不允许零价放行。
+- **预扣冻结**:调用前按 prompt + max_tokens 冻结积分(`point_holds` + `user_points.reserved_points`),结算按真实 usage 多退少补;TTL 15 分钟。
+- **无 usage 不跳过**:同步代理按 total/字符估算,异步回调至少 1 token 结算。
+- **余额不足**:402 `INSUFFICIENT_POINTS`;上游已产生成本时部分结算,差额 `shortfall` 审计,不产生负余额。
+- **重复引用**:409 `DUPLICATE_REQUEST` / `REQUEST_IN_PROGRESS`,防止 `request-id` 重放免费调用。
+- **迁移**:`20261126070000_points_hold_and_media_price_guard.sql`(冻结表 + reserved + cost_status + 内置媒体补价)。
 
 #### B5. AI 网关核心补强(对标并超越 OmniRoute,2026-07-30 立)
 

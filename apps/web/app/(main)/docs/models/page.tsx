@@ -473,13 +473,13 @@ judge: "gpt-4o"   # 用 GPT-4o 评分选最佳答案`}
           </ul>
           <CodeBlock
             language="json"
-            code={`# 模型积分系数示例
+            code={`# 模型积分费率示例（积分/千 token，输入/输出分开）
 {
-  "gpt-4o": 3.0,           // 3x 积分
-  "claude-opus-4": 5.0,    // 5x 积分
-  "qwen3-plus": 1.0,       // 标准
-  "deepseek-v3.2": 0.3,    // 0.3x 积分(便宜)
-  "ollama:llama3.3": 0     // 免费(本地)
+  "gpt-4o":          { "input": 5.94,  "output": 23.76 },
+  "claude-opus-4":   { "input": 9.90,  "output": 39.60 },
+  "qwen3-plus":      { "input": 1.00,  "output": 1.00 },
+  "deepseek-v3.2":   { "input": 0.30,  "output": 0.30 },
+  "ollama:llama3.3": { "input": 0.10,  "output": 0.10 } // 成本为 0 也按最低地板收费，不免费
 }`}
           />
         </div>

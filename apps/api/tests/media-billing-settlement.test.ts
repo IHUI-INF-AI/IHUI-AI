@@ -10,6 +10,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   settlePointsUsage: vi.fn(),
+  reservePointsUsage: vi.fn(),
+  releasePointsHold: vi.fn(async () => 0),
   findActivePricingForMode: vi.fn(),
   getSpendableBalance: vi.fn(),
   recordAiCost: vi.fn(async () => ({ cost: 1, currency: 'CNY' })),
@@ -17,6 +19,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../src/services/points-service.js', () => ({
   settlePointsUsage: mocks.settlePointsUsage,
+  reservePointsUsage: mocks.reservePointsUsage,
+  releasePointsHold: mocks.releasePointsHold,
 }))
 
 vi.mock('../src/services/pricing-service.js', () => ({
@@ -67,10 +71,12 @@ describe('媒体积分结算', () => {
       perUnitPrice: 20,
       videoUnit: null,
     })
-    mocks.getSpendableBalance.mockReset().mockResolvedValue({
-      permanent: 0,
-      daily: 0,
-      available: 0,
+    mocks.reservePointsUsage.mockReset().mockResolvedValue({
+      shortfall: 0,
+      remaining: 0,
+      deducted: 0,
+      alreadySettled: false,
+      alreadyHeld: false,
     })
     mocks.recordAiCost.mockClear()
   })
@@ -86,6 +92,7 @@ describe('媒体积分结算', () => {
         amount: 40,
         source: 'ai_media',
         referenceId: 'img:task-1',
+        holdReferenceId: undefined,
       }),
     )
   })
@@ -184,8 +191,14 @@ describe('媒体积分结算', () => {
     expect((request as { log: { warn: ReturnType<typeof vi.fn> } }).log.warn).toHaveBeenCalled()
   })
 
-  it('预检 402 返回 INSUFFICIENT_POINTS 与结构化报价', async () => {
-    mocks.getSpendableBalance.mockResolvedValueOnce({ permanent: 10, daily: 0, available: 10 })
+  it('预检按本次报价冻结;余额不足 402 返回结构化报价', async () => {
+    mocks.reservePointsUsage.mockResolvedValueOnce({
+      shortfall: 30,
+      remaining: 10,
+      deducted: 0,
+      alreadySettled: false,
+      alreadyHeld: false,
+    })
     const request = makeRequest()
     const reply = makeReply()
 
@@ -197,6 +210,20 @@ describe('媒体积分结算', () => {
       errorCode: 'INSUFFICIENT_POINTS',
       data: { balance: 10, required: 40, category: 'image', applied_units: 2 },
     })
+    expect(mocks.reservePointsUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 40, source: 'ai_media' }),
+    )
+  })
+
+  it('未定价媒体在预检直接 503,不允许跑到上游再免费', async () => {
+    mocks.findActivePricingForMode.mockResolvedValueOnce(null)
+    const request = makeRequest()
+    const reply = makeReply()
+
+    const ok = await ensureMediaPointsBalance(request, reply as never, 'unknown-video', 'video', 5)
+    expect(ok).toBe(false)
+    expect(reply.code).toBe(503)
+    expect(reply.body).toMatchObject({ errorCode: 'MEDIA_PRICING_MISSING' })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -334,15 +334,13 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
       // 不收 width/height/num_frames/frame_rate
       // v2.0 分支保留仅为显式传旧模型时透传原参数(上游已 503,不做业务拦截)
       const isV25 = model.startsWith('agnes-video-2.5')
-      // 计费(2026-11-25):统一走 ai_pricing;按秒模型用 duration 作为 units,
-      // 按次模型由报价函数自动折算为 1 次。
-      // duration 未显式传时,不能按 1 秒计(会严重少收):
-      // - v2.0 用 num_frames/frame_rate 还原真实时长;
-      // - v2.5 上游不收时长参数,按默认 5 秒计。
+      // 计费(2026-11-26):统一走 ai_pricing;按秒模型 units 必须来自服务端可验证的真实时长。
+      // - v2.5 上游根本不收 duration,固定按默认 5 秒生成 ⇒ 绝不能信客户端传的 duration=1;
+      // - v2.0 用 num_frames/frame_rate 还原真实时长。
       const fallbackSeconds = isV25
         ? 5
         : Math.max(1, Math.round((rest.num_frames ?? 121) / (rest.frame_rate ?? 24)))
-      const billingUnits = rest.duration ?? fallbackSeconds
+      const billingUnits = isV25 ? 5 : fallbackSeconds
       if (!(await ensureMediaPointsBalance(request, reply, model, 'video', billingUnits))) return
       const payload = isV25
         ? {

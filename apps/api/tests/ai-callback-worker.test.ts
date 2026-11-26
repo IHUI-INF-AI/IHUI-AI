@@ -295,6 +295,7 @@ describe('AI callback worker billing (F-203 口径 B)', () => {
       billingShortfallPoints: 0,
       pointsQuote: 48,
       pointsMultiplier: 10,
+      usageSource: 'upstream',
     })
   })
 
@@ -327,6 +328,7 @@ describe('AI callback worker billing (F-203 口径 B)', () => {
       billingShortfallPoints: 28,
       pointsQuote: 48,
       pointsMultiplier: 10,
+      usageSource: 'upstream',
     })
     expect(server.log.warn).toHaveBeenCalled()
   })

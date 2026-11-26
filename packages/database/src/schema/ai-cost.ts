@@ -48,6 +48,13 @@ export const aiCostRecords = pgTable(
     pricingRuleVersion: integer('pricing_rule_version'),
     /** 结算明细:系数链(基础价 × 档位 × 错峰)快照 */
     pricingDetail: jsonb('pricing_detail'),
+    /**
+     * 成本可信度(2026-11-26):
+     * - priced:命中定价，`cost` 可用于毛利核算；
+     * - unknown:无定价/定价引擎回退，`cost` 是 0 占位，不能当真实成本；
+     * - zero_cost:媒体显式成本价为 0，`cost=0` 是已知事实。
+     */
+    costStatus: varchar('cost_status', { length: 16 }).default('priced').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({

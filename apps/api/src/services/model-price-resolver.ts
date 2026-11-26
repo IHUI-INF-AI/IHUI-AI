@@ -526,8 +526,6 @@ export async function sweepUnpricedModels(
     where m.enabled = true
       and coalesce(m.input_price_per_1k, 0) = 0
       and coalesce(m.output_price_per_1k, 0) = 0
-      -- 0x 免费档不属于“待定价”:它的零价是产品承诺,不是占位缺口。
-      and coalesce(m.points_multiplier, 1) > 0
       and not exists (
         select 1 from ai_pricing p
         where p.model_id = lower(m.model_id)
@@ -709,8 +707,6 @@ export async function repricePlaceholderModels(
     from ai_model_config_models m
     join ai_model_config c on c.id = m.config_id
     where lower(m.model_id) not like '%:free'
-      -- 0x 免费档不参与重定价/下架:零价是承诺,不是占位缺口。
-      and coalesce(m.points_multiplier, 1) > 0
       -- 动态成本模型(2026-11-14):零单价是合法状态,由 billing_mode='dynamic_cost' 标记已有定价,
       -- 不得再被当作"零价"重定价或下架。
       and not exists (
@@ -820,8 +816,7 @@ export async function repricePlaceholderModels(
                 cost_output_price_per_1k = '${costOut}',
                 metadata = coalesce(metadata, '{}'::jsonb) || '${meta}'::jsonb,
                 updated_at = now()
-          where lower(model_id) = '${modelId.replace(/'/g, "''")}'
-            and coalesce(points_multiplier, 1) > 0`,
+          where lower(model_id) = '${modelId.replace(/'/g, "''")}'`,
       ),
     )
   }
@@ -870,7 +865,12 @@ async function applyOfficialEntry(
     })
   } else if (isFree) {
     // 无成本才是真免费;有本地成本时按成本×3 收费,避免"官方 free"覆盖采购事实
-    await applyPricing({ modelId, inputTokenPrice: inP, outputTokenPrice: outP, billingMode: 'token' })
+    await applyPricing({
+      modelId,
+      inputTokenPrice: inP,
+      outputTokenPrice: outP,
+      billingMode: 'token',
+    })
   } else if (isToken) {
     await applyPricing({
       modelId,
@@ -909,7 +909,9 @@ async function applyOfficialEntry(
       outputNotApplicable: entry.outputNotApplicable === true,
       note: entry.note ?? null,
       profitFactor: profit,
-      costGuard: freeCostGuard || (isToken && (costIn > (entry.inputPer1k ?? 0) || costOut > (entry.outputPer1k ?? 0))),
+      costGuard:
+        freeCostGuard ||
+        (isToken && (costIn > (entry.inputPer1k ?? 0) || costOut > (entry.outputPer1k ?? 0))),
       retrievedAt: entry.retrievedAt,
       resolvedAt: new Date().toISOString(),
       reason: 'official-catalog',
@@ -932,9 +934,7 @@ async function applyOfficialEntry(
               metadata = coalesce(metadata, '{}'::jsonb) || '${meta}'::jsonb,
               is_relay_public = case when enabled then true else is_relay_public end,
               updated_at = now()
-        where lower(model_id) = '${modelId.replace(/'/g, "''")}'
-          -- 0x 免费档不得被官方目录价改成正价(含 official-free-cost-guard)。
-          and coalesce(points_multiplier, 1) > 0`,
+        where lower(model_id) = '${modelId.replace(/'/g, "''")}'`,
     ),
   )
 }

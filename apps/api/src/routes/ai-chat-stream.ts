@@ -42,6 +42,7 @@ import {
 // realpath 归一、档位取服务端权限行,回调只按 messageId 读(不再读会话级 workspacePath)。
 import { bindMessagePermissionStamp } from '../services/message-permission-stamp.js'
 import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
+import { ensureLlmPointsBalance, readMaxCompletionTokens } from '../services/ai-points-billing.js'
 // G-998168 票5:首帧耗时分段归因 —— 所有计时一律走 elapsed-ms 唯一出口(格②),
 // 裸 performance.now() 差值在端内是判红项。
 import { startStopwatch, type ElapsedSample } from '../utils/elapsed-ms.js'
@@ -1596,6 +1597,26 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         })
       }
 
+      // 2026-11-26:流式聊天此前只靠回调结算,余额 0 也能先跑完再欠账。
+      // 回调幂等键 = `${conversationId}:${messageId}`(见 ai-callback.ts),
+      // 这里用同一键冻结,回调结算时自动释放;缺任一 id 不冻(回调键不可对齐)。
+      const billingConversationId = metadata?.conversationId
+      const billingMessageId = metadata?.messageId
+      if (request.userId && resolvedModel && billingConversationId && billingMessageId) {
+        const ok = await ensureLlmPointsBalance(
+          request,
+          reply,
+          resolvedModel,
+          Math.floor(estimateMessagesTokens(finalMessages)),
+          readMaxCompletionTokens({ max_tokens: maxTokens }),
+          {
+            source: 'llm_chat',
+            referenceId: `${billingConversationId}:${billingMessageId}`,
+          },
+        )
+        if (!ok) return
+      }
+
       return streamToClient(
         request,
         reply,
@@ -1895,6 +1916,24 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
             resetAt: budgetGate.resetAt,
           },
         })
+      }
+
+      // /chat/answer 与 /chat/stream 同型:回调键对齐后冻结,避免续答链路绕过余额。
+      const answerConversationId = metadata?.conversationId
+      const answerMessageId = metadata?.messageId
+      if (userId && resolvedModel && answerConversationId && answerMessageId) {
+        const ok = await ensureLlmPointsBalance(
+          request,
+          reply,
+          resolvedModel,
+          Math.floor(estimateMessagesTokens(finalMessages)),
+          readMaxCompletionTokens({ max_tokens: maxTokens }),
+          {
+            source: 'llm_chat',
+            referenceId: `${answerConversationId}:${answerMessageId}`,
+          },
+        )
+        if (!ok) return
       }
 
       return streamToClient(

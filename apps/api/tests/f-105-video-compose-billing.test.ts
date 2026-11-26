@@ -20,6 +20,22 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../src/db/gamification-queries.js', () => ({ findUserPoints: mocks.findUserPoints }))
 vi.mock('../src/services/points-service.js', () => ({ spendPoints: mocks.spendPoints }))
+// 真实 media-billing 已改为 ai_pricing 报价 + point_holds 冻结;这组旧回归锁只验证
+// 路由“先查余额再调上游、成功后扣一次”的调用顺序,故用最小替身保留旧断言。
+vi.mock('../src/services/media-billing.js', () => ({
+  ensureMediaPointsBalance: vi.fn(async (request: { userId: string }, reply: ReplyMock) => {
+    const row = await mocks.findUserPoints(request.userId)
+    if ((row?.points ?? 0) <= 0) {
+      reply.status(402).send({ code: 402, errorCode: 'INSUFFICIENT_POINTS' })
+      return false
+    }
+    return true
+  }),
+  chargeMediaPoints: vi.fn(async (request: { userId: string; id: string }) => {
+    await mocks.spendPoints(request.userId, 30, 'ai_call', '视频编排扣分', request.id)
+    return 30
+  }),
+}))
 vi.mock('../src/routes/ai-vendors/_shared.js', () => ({
   requireAuth: vi.fn(async () => true),
   callVendor: mocks.callVendor,

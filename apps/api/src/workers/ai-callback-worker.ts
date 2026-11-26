@@ -252,54 +252,69 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
 
       // G3 + F-203(口径 B): 用户扣 AI 积分,平台成本单独记 ai_cost_records,两本账分离。
       // 设计:消息持久化成功后才结算;结算失败不 rethrow(BullMQ 重试会重复扣费,idempotencyKey 兜底)。
-      if (tokens && tokens > 0 && userId) {
+      // 2026-11-26:网关只回 total_tokens 或完全不回 usage 时,也必须结算,不能整笔免单。
+      if (userId) {
         if (!model) {
           server.log.warn(
             { userId, tokens },
             'ai callback job 缺 model,无法按成本计价,跳过扣费与成本记录',
           )
         } else {
+          const usagePrompt = Math.max(0, promptTokens ?? 0)
+          const reportedTotal = Math.max(0, tokens ?? 0)
+          const usageCompletion =
+            completionTokens !== undefined && completionTokens !== null
+              ? Math.max(0, completionTokens)
+              : Math.max(0, reportedTotal - usagePrompt)
+          // 完全没有 usage 时按 1 token 计费,保证“成功调用但零 usage”不变成免费。
+          const billedPrompt = usagePrompt
+          const billedCompletion = usageCompletion > 0 ? usageCompletion : 1
+          const billedTotal = billedPrompt + billedCompletion
           try {
             // 1. 成本单独解析:用于 ai_cost_records,不再与用户扣分同源
             const actual = await resolveAiCost({
               model,
-              promptTokens: promptTokens ?? 0,
-              completionTokens: completionTokens ?? 0,
+              promptTokens: billedPrompt,
+              completionTokens: billedCompletion,
             })
             const costCents = Math.ceil(actual.cost)
 
             // 2. 结算 AI 积分:上游已发生成本,能扣多少扣多少,差额落 metadata 形成欠额审计
             let settlement: LlmPointsSettlement | null = null
-            if (model) {
-              settlement = await settleLlmPointsUsage({
-                userId,
-                modelId: model,
-                promptTokens: promptTokens ?? 0,
-                completionTokens: completionTokens ?? 0,
-                source: 'llm_chat',
-                description: `LLM chat ${model}`,
-                referenceId: idempotencyKey,
-              })
-              if (settlement.shortfall > 0) {
-                server.log.warn(
-                  {
-                    userId,
-                    points: settlement.quote.points,
-                    deducted: settlement.deducted,
-                    shortfall: settlement.shortfall,
-                    model,
-                  },
-                  'AI points insufficient, message persisted but partially charged',
-                )
-              }
+            settlement = await settleLlmPointsUsage({
+              userId,
+              modelId: model,
+              promptTokens: billedPrompt,
+              completionTokens: billedCompletion,
+              source: 'llm_chat',
+              description: `LLM chat ${model}`,
+              referenceId: idempotencyKey,
+            })
+            if (settlement.shortfall > 0) {
+              server.log.warn(
+                {
+                  userId,
+                  points: settlement.quote.points,
+                  deducted: settlement.deducted,
+                  shortfall: settlement.shortfall,
+                  model,
+                },
+                'AI points insufficient, message persisted but partially charged',
+              )
             }
 
             const billing = {
-              pointsDeducted: settlement?.deducted ?? 0,
-              pointsBalanceAfter: settlement?.remaining ?? null,
-              billingShortfallPoints: settlement?.shortfall ?? 0,
-              pointsQuote: settlement?.quote.points ?? 0,
-              pointsMultiplier: settlement?.quote.multiplier ?? null,
+              pointsDeducted: settlement.deducted,
+              pointsBalanceAfter: settlement.remaining,
+              billingShortfallPoints: settlement.shortfall,
+              pointsQuote: settlement.quote.points,
+              pointsMultiplier: settlement.quote.multiplier,
+              usageSource:
+                completionTokens !== undefined && completionTokens !== null
+                  ? 'upstream'
+                  : reportedTotal > 0
+                    ? 'total_only'
+                    : 'fallback_one_token',
             }
 
             // 3. 记平台成本到 ai_cost_records;用户扣分由上面的积分结算单独产生
@@ -307,9 +322,9 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
               userId,
               model,
               provider: provider ?? 'unknown',
-              promptTokens: promptTokens ?? 0,
-              completionTokens: completionTokens ?? 0,
-              totalTokens: tokens,
+              promptTokens: billedPrompt,
+              completionTokens: billedCompletion,
+              totalTokens: billedTotal,
               requestType: 'chat',
               cost: costCents,
               currency: actual.currency,

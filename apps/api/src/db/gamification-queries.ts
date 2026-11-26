@@ -27,6 +27,7 @@ const userPointsFields = {
   id: userPoints.id,
   userId: userPoints.userId,
   points: userPoints.points,
+  reservedPoints: userPoints.reservedPoints,
   totalEarned: userPoints.totalEarned,
   totalSpent: userPoints.totalSpent,
   level: userPoints.level,
@@ -308,7 +309,10 @@ async function adjustPointsInTx(
         type: data.type,
         source: data.source,
         amount,
-        balanceAfter: finalPoints.points + finalPoints.dailyPoints,
+        balanceAfter:
+          finalPoints.points +
+          (finalPoints.dailyPointsDate === bizDayKey() ? finalPoints.dailyPoints : 0) -
+          finalPoints.reservedPoints,
         description: data.description,
         referenceId: data.referenceId,
       })
@@ -334,7 +338,7 @@ async function adjustPointsInTx(
     .where(
       and(
         eq(userPoints.userId, data.userId),
-        sql`${userPoints.dailyPoints} + ${userPoints.points} >= ${amount}`,
+        sql`${userPoints.dailyPoints} + ${userPoints.points} - ${userPoints.reservedPoints} >= ${amount}`,
       ),
     )
     .returning(userPointsFields)
@@ -356,7 +360,7 @@ async function adjustPointsInTx(
       type: data.type,
       source: data.source,
       amount: -amount,
-      balanceAfter: pointsRow.points + pointsRow.dailyPoints,
+      balanceAfter: pointsRow.points + pointsRow.dailyPoints - pointsRow.reservedPoints,
       description: data.description,
       referenceId: data.referenceId,
     })
@@ -396,7 +400,12 @@ export async function deductPermanentPoints(data: {
         totalSpent: sql`${userPoints.totalSpent} + ${amount}`,
         updatedAt: new Date(),
       })
-      .where(and(eq(userPoints.userId, data.userId), sql`${userPoints.points} >= ${amount}`))
+      .where(
+        and(
+          eq(userPoints.userId, data.userId),
+          sql`${userPoints.points} - ${userPoints.reservedPoints} >= ${amount}`,
+        ),
+      )
       .returning(userPointsFields)
     const pointsRow = updated[0]
     if (!pointsRow) throw new Error('积分余额不足')
@@ -413,7 +422,10 @@ export async function deductPermanentPoints(data: {
         // 互相 import 会形成环,故按同一判据就地算(跨日未刷新的赠送额不计入)。
         balanceAfter:
           Math.max(0, pointsRow.points) +
-          (pointsRow.dailyPointsDate === bizDayKey(data.at) ? Math.max(0, pointsRow.dailyPoints) : 0),
+          (pointsRow.dailyPointsDate === bizDayKey(data.at)
+            ? Math.max(0, pointsRow.dailyPoints)
+            : 0) -
+          Math.max(0, pointsRow.reservedPoints),
         description: data.description,
         referenceId: data.referenceId,
       })

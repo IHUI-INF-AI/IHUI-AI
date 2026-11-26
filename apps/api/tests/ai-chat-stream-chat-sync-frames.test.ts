@@ -52,6 +52,10 @@ vi.mock('jose', () => ({
     }
   },
 }))
+vi.mock('../src/services/ai-points-billing.js', () => ({
+  ensureLlmPointsBalance: vi.fn(async () => true),
+  readMaxCompletionTokens: vi.fn((body: { max_tokens?: number }) => body.max_tokens ?? 4096),
+}))
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',

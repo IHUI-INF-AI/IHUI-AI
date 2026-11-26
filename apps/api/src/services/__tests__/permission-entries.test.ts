@@ -11,11 +11,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import {
-  PermissionDeniedError,
-  decidePermission,
-  requirePermission,
-} from '../permission-decision.js'
+import { PermissionDeniedError, decidePermission } from '../permission-decision.js'
 import {
   PERMISSION_ENTRY_ALLOW_RULES,
   PERMISSION_ENTRY_RULE_SET,

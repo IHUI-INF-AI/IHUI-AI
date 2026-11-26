@@ -125,7 +125,7 @@ describe('每日赠送额度 — 真实 DB 语义', () => {
     await setDailyState(user.id, { points: 500, dailyPoints: 30, date: bizDayKey() })
 
     const balance = await getSpendableBalance(user.id)
-    expect(balance).toEqual({ permanent: 500, daily: 30, available: 530 })
+    expect(balance).toEqual({ permanent: 500, daily: 30, available: 530, reserved: 0 })
 
     const state = await getDailyCreditState(user.id)
     expect(state.remaining).toBe(30)
@@ -202,7 +202,12 @@ describe('每日赠送额度 — 真实 DB 语义', () => {
       source: 'llm_chat',
       referenceId: 'req-idem-1',
     })
-    expect(first).toMatchObject({ deducted: 60, remaining: 240, shortfall: 0, alreadySettled: false })
+    expect(first).toMatchObject({
+      deducted: 60,
+      remaining: 240,
+      shortfall: 0,
+      alreadySettled: false,
+    })
 
     const second = await settlePointsUsage({
       userId: user.id,
@@ -210,7 +215,12 @@ describe('每日赠送额度 — 真实 DB 语义', () => {
       source: 'llm_chat',
       referenceId: 'req-idem-1',
     })
-    expect(second).toMatchObject({ deducted: 60, remaining: 240, shortfall: 0, alreadySettled: true })
+    expect(second).toMatchObject({
+      deducted: 60,
+      remaining: 240,
+      shortfall: 0,
+      alreadySettled: true,
+    })
 
     const after = await ensureDailyCreditRow(user.id)
     expect(after.dailyPoints).toBe(40)
@@ -236,7 +246,9 @@ describe('每日赠送额度 — 真实 DB 语义', () => {
         }),
       ),
     )
-    expect(results.reduce((sum, item) => sum + (item.alreadySettled ? 0 : item.deducted), 0)).toBe(60)
+    expect(results.reduce((sum, item) => sum + (item.alreadySettled ? 0 : item.deducted), 0)).toBe(
+      60,
+    )
     expect(results.filter((item) => item.alreadySettled)).toHaveLength(1)
     const after = await ensureDailyCreditRow(user.id)
     expect(after.dailyPoints).toBe(40)

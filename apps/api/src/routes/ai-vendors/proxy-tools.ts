@@ -24,7 +24,11 @@ import { buildN8nWebhookUrl, isSafeN8nWebhookPath } from '../../utils/n8n-webhoo
 import { db } from '../../db/index.js'
 import { resolveAiCost, recordAiCost } from '../../plugins/ai-cost.js'
 import { resolveDefaultChatModel } from '../../utils/retired-providers.js'
-import { ensureLlmPointsBalance, settleLlmPointsUsage } from '../../services/ai-points-billing.js'
+import {
+  ensureLlmPointsBalance,
+  settleLlmPointsUsage,
+  DEFAULT_MAX_COMPLETION_TOKENS,
+} from '../../services/ai-points-billing.js'
 import {
   createVideoTask,
   findVideoTasksByUser,
@@ -957,7 +961,18 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       // Coze 的定价模型只用于积分/成本换算;上游工作流本身不变。
       const pricingModel = process.env.COZE_PRICING_MODEL?.trim() || resolveDefaultChatModel()
       const promptEstimate = Math.ceil(body.text.length / 4)
-      if (!(await ensureLlmPointsBalance(request, reply, pricingModel, promptEstimate, 0))) return
+      const cozeBillingReference = `coze:${request.id ?? chatId}`
+      if (
+        !(await ensureLlmPointsBalance(
+          request,
+          reply,
+          pricingModel,
+          promptEstimate,
+          DEFAULT_MAX_COMPLETION_TOKENS,
+          { source: 'coze_workflow_chat', referenceId: cozeBillingReference },
+        ))
+      )
+        return
       try {
         server.pushNotification(userId, {
           type: 'coze_workflow',
@@ -1047,7 +1062,8 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
             completionTokens,
             source: 'coze_workflow_chat',
             description: 'Coze 工作流对话',
-            referenceId: `coze:${chatId}`,
+            referenceId: cozeBillingReference,
+            holdReferenceId: cozeBillingReference,
           })
           if (settlement.shortfall > 0) {
             request.log.warn(

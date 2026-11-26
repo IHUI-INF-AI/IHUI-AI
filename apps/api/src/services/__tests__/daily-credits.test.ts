@@ -13,6 +13,7 @@ const baseRow = {
   id: '00000000-0000-4000-8000-000000000001',
   userId: '00000000-0000-4000-8000-000000000002',
   points: 0,
+  reservedPoints: 0,
   totalEarned: 0,
   totalSpent: 0,
   level: 1,

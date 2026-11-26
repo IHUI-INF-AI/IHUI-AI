@@ -9,7 +9,8 @@
  *   本文件从 apps/web 提取到共享层,4 端(web/extension/mobile-rn/cli)统一 import。
  *   仅作后端 /llm/models 不可达时的最小降级,主数据源是 /llm/models 动态拉取
  *   (后端已实现 provider 健康检查 + 自动过滤)。
- *   兜底列表仅保留项目已验证连通的主力 stepfun + Cloudflare 免费 zero_cost 模型。
+ *   兜底列表仅保留项目已验证连通的主力智汇AI 模型 + Cloudflare 低成本档;
+ *   2026-11-26 全收费后不再保留任何“免费”展示档。
  *
  * 各端形态适配:
  *   - web 端直接使用 FallbackModel(value/label/vendor),见 model-selector.tsx。
@@ -77,13 +78,13 @@ export const FALLBACK_MODELS: FallbackModel[] = [
     vendor: 'ihui_relay',
     isOfficial: true,
   },
-  // === Cloudflare Workers AI(免费 zero_cost,无需 key)===
+  // === Cloudflare Workers AI(原 free 档,2026-11-26 起也收费,不再标“免费”)===
   {
     value: '@cf/zai-org/glm-4.7-flash',
-    label: 'GLM-4.7 Flash (CF 免费)',
+    label: 'GLM-4.7 Flash (CF)',
     vendor: 'cloudflare_workers_ai',
-    // 0 = 免费(zero_cost provider),显示"免费"无小数
-    pointsMultiplier: 0,
+    // 成本为 0 也按 0.1 积分/千 token 地板收费,不再展示“免费”
+    pointsMultiplier: 1,
     isOfficial: true,
   },
 ]
