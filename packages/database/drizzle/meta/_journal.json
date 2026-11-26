@@ -3362,6 +3362,13 @@
       "when": 1795578600000,
       "tag": "20261126140000_ensure_official_deepseek_model",
       "breakpoints": true
+    },
+    {
+      "idx": 485,
+      "version": "7",
+      "when": 1795583400000,
+      "tag": "20261126183000_block_free_model_publish",
+      "breakpoints": true
     }
   ]
 }
