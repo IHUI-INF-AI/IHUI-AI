@@ -88,8 +88,10 @@ describe('settlePermissionDecision', () => {
     expect(settled.evidenceRef).toBeNull()
     expect(settled.reason).toContain('allow-without-evidence')
     expect(audit).toHaveBeenCalledTimes(1)
-    expect(audit.mock.calls[0]?.[0]).toBe('user-1')
-    expect(audit.mock.calls[0]?.[1]).toEqual({
+    // vi.fn 无参签名 ⇒ mock.calls 的元组类型是 [],直接索引会 TS2493;按真实入参断言一次再取值
+    const firstCall = audit.mock.calls[0] as unknown as [string, { facts: unknown[] }]
+    expect(firstCall?.[0]).toBe('user-1')
+    expect(firstCall?.[1]).toEqual({
       facts: [{ sessionId: 'sess-1', toolName: 'terminal_run', route: 'denied' }],
     })
   })
@@ -103,7 +105,8 @@ describe('settlePermissionDecision', () => {
     )
 
     expect(settled.kind).toBe('allow')
-    expect(audit.mock.calls[0]?.[1]).toEqual({
+    const firstCall = audit.mock.calls[0] as unknown as [string, { facts: unknown[] }]
+    expect(firstCall?.[1]).toEqual({
       facts: [{ sessionId: 'sess-1', toolName: 'terminal_run', route: 'approved' }],
     })
   })
