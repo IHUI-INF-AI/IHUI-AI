@@ -106,6 +106,31 @@ public class WeChatFriendsWin {
 
 [void][WeChatFriendsWin]::MakeAware()
 
+# 仅用于「点开通讯录 → 新的朋友」这个导航动作：Qt 的列表单元常不暴露 Invoke，
+# 只能按中心点左键单击。除导航外任何写动作仍走 InvokePattern，不走坐标点击。
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class WeChatFriendsClick {
+  [DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] private static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
+  [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr h, int cmd);
+  [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+  public static bool IsForeground(IntPtr h) { return GetForegroundWindow() == h; }
+  public static void At(int x, int y) {
+    SetCursorPos(x, y);
+    mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
+    mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+  }
+  // 导航前的一次性前台化：Qt 在后台时对 ListItem 的 Invoke/Select 会「返回成功但不切页」
+  public static void Activate(IntPtr h) {
+    ShowWindow(h, 9); // SW_RESTORE
+    SetForegroundWindow(h);
+  }
+}
+'@
+
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 
@@ -116,6 +141,11 @@ $script:HandledIds = New-Object 'System.Collections.Generic.HashSet[string]'
 $AcceptButtonNames = @('通过', '接受', '同意', '添加')
 $GroupInvitePattern = '群聊邀请|邀请你加入|群邀请|加入群聊|邀请加入群'
 $FriendRequestPattern = '朋友验证|朋友请求|添加朋友|新的朋友|来自朋友|验证消息'
+
+# 通讯录里的导航入口（点进去才是列表）：它们本身不是申请。
+# 2026-11-26 实测踩过：扫描把「新的朋友」这个入口行当成一条申请上报，昵称必然为空。
+$NavEntryNames = @('新的朋友', '群聊', '标签', '公众号', '服务号', '通讯录管理')
+$NavEntryClassPattern = 'ContactsCellGroupView'
 
 function Write-Stderr([string]$message) {
   [Console]::Error.WriteLine('[wechat-friends] ' + $message)
@@ -227,8 +257,56 @@ function Get-RowText($el, [int]$levels = 3) {
   return @($collected)
 }
 
-function Classify-Kind([string]$text) {
-  if ($text -match $GroupInvitePattern) { return 'group-invite' }
+function Test-NavEntry($el) {
+  try {
+    $name = ([string]$el.Cached.Name).Trim()
+    $cls = [string]$el.Cached.ClassName
+    if ($NavEntryNames -contains $name -and $cls -match $NavEntryClassPattern) { return $true }
+  } catch { }
+  return $false
+}
+
+# 找到通讯录里的「新的朋友」入口行；找不到返回 $null。
+function Find-NavEntry($root) {
+  $elements = Get-AllElements $root
+  foreach ($el in $elements) {
+    try {
+      $name = ([string]$el.Cached.Name).Trim()
+      $cls = [string]$el.Cached.ClassName
+      if ($name -eq '新的朋友' -and $cls -match $NavEntryClassPattern) { return $el }
+    } catch { }
+  }
+  return $null
+}
+
+# 打开「新的朋友」页：这是导航动作，不点任何「通过」。返回是否发生了导航。
+function Open-NewFriendsPage($root, $main) {
+  $nav = Find-NavEntry $root
+  if ($null -eq $nav) { return $false }
+  # 先前台化：Qt 在后台时 ListItem 的 Invoke/Select 会返回成功但不切页（2026-11-26 实测）
+  try { [WeChatFriendsClick]::Activate($main); Start-Sleep -Milliseconds 300 } catch { }
+  # 1) SelectionItem 优先（Qt 分组行实测三模式齐全，Select 是最贴近用户点击的语义）
+  try {
+    $sel = $nav.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+    if ($null -ne $sel) { $sel.Select(); Start-Sleep -Milliseconds 500 }
+  } catch { }
+  # 2) 再补一次 Invoke
+  $pat = Test-InvokePattern $nav
+  if ($null -ne $pat) {
+    try { $pat.Invoke(); return $true } catch { }
+  }
+  # 3) 最后退路：中心点左键（仅导航）
+  try {
+    $rect = $nav.Cached.BoundingRectangle
+    if ($rect.Width -le 2 -or $rect.Height -le 2) { return $false }
+    [WeChatFriendsClick]::At([int]($rect.X + $rect.Width / 2), [int]($rect.Y + $rect.Height / 2))
+    return $true
+  } catch {
+    return $false
+  }
+}
+
+function Classify-Kind([string]$text) {  if ($text -match $GroupInvitePattern) { return 'group-invite' }
   if ($text -match $FriendRequestPattern) { return 'friend' }
   return $null
 }
@@ -256,6 +334,8 @@ function Split-NicknameSource([string[]]$lines, [string]$kind) {
 function Get-FriendRequests($root) {
   $elements = Get-AllElements $root
   $rawCount = 0
+  $historyCount = 0
+  $entryExcluded = 0
   $items = @()
   $seenSignatures = New-Object 'System.Collections.Generic.HashSet[string]'
 
@@ -266,19 +346,20 @@ function Get-FriendRequests($root) {
     $lines = Get-ElementLines $name
     if ($lines.Count -eq 0) { continue }
     $rawCount += 1
+    if ($name -match '已添加|已通过|已拒绝|已过期') { $historyCount += 1 }
 
     $isAcceptButton = ($ctlType -eq 'Button' -and ($AcceptButtonNames -contains $name.Trim()))
     $rowLines = if ($isAcceptButton) { Get-RowText $el 3 } else { $lines }
     $rowText = ($rowLines -join ' ')
     $kind = Classify-Kind $rowText
     if ($null -eq $kind) { continue }
+    # 导航入口（「新的朋友」「群聊」这类）没有「通过/接受」按钮，一律不是申请
+    if (-not $isAcceptButton -and (Test-NavEntry $el)) { $entryExcluded += 1; continue }
 
-    # 点击目标：优先行内「通过/接受/同意」按钮；否则取当前行元素本身。
-    $target = $el
-    $targetName = $name
-    $targetType = $ctlType
-    $targetClass = $cls
-    if (-not $isAcceptButton) {
+    # 只有行内真的存在「通过/接受/同意」按钮才算申请；没有按钮的行不上报，
+    # 否则会把导航入口、历史已处理行都当成待处理申请。
+    $acceptButton = if ($isAcceptButton) { $el } else { $null }
+    if ($null -eq $acceptButton) {
       try {
         $buttons = $el.FindAll(
           [System.Windows.Automation.TreeScope]::Descendants,
@@ -288,15 +369,18 @@ function Get-FriendRequests($root) {
         foreach ($b in $buttons) {
           $bName = if ($null -ne $b.Cached.Name) { $b.Cached.Name.Trim() } else { '' }
           if ($AcceptButtonNames -contains $bName) {
-            $target = $b
-            $targetName = $b.Cached.Name
-            $targetType = Get-ControlTypeName $b.Cached.ControlType
-            $targetClass = if ($null -ne $b.Cached.ClassName) { $b.Cached.ClassName } else { '' }
+            $acceptButton = $b
             break
           }
         }
       } catch { }
     }
+    if ($null -eq $acceptButton) { continue }
+
+    $target = $acceptButton
+    $targetName = if ($null -ne $target.Cached.Name) { $target.Cached.Name } else { '' }
+    $targetType = Get-ControlTypeName $target.Cached.ControlType
+    $targetClass = if ($null -ne $target.Cached.ClassName) { $target.Cached.ClassName } else { '' }
 
     $pattern = Test-InvokePattern $target
     $clickable = ($null -ne $pattern)
@@ -307,18 +391,24 @@ function Get-FriendRequests($root) {
     $ns = Split-NicknameSource $rowLines $kind
     $requestId = ConvertTo-Base64Url $signature
     $items += [ordered]@{
-      requestId = $requestId
-      nickname  = $ns.nickname
-      source    = $ns.source
-      kind      = $kind
-      clickable = $clickable
-      seenAt    = [long][DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
-      signature = $signature
-      element   = $target
+      requestId      = $requestId
+      nickname       = $ns.nickname
+      nicknameSource = $(if ($ns.nickname) { 'control' } else { 'unavailable' })
+      source         = $ns.source
+      kind           = $kind
+      clickable      = $clickable
+      seenAt         = [long][DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+      signature      = $signature
+      element        = $target
     }
   }
 
-  return [ordered]@{ rawCount = $rawCount; items = $items }
+  return [ordered]@{
+    rawCount      = $rawCount
+    historyCount  = $historyCount
+    entryExcluded = $entryExcluded
+    items         = $items
+  }
 }
 
 function Write-Payload($payload) {
@@ -406,16 +496,23 @@ try {
 
   # ---------- Scan：只读枚举 ----------
   if ($mode -eq 'Scan') {
+    # 先把「新的朋友」页打开（导航，不点任何「通过」），否则枚举到的只是通讯录入口行
+    $navigated = Open-NewFriendsPage $root $main
+    if ($navigated) {
+      Start-Sleep -Milliseconds 800
+      $root = [System.Windows.Automation.AutomationElement]::FromHandle($main)
+    }
     $friendScan = Get-FriendRequests $root
     $requests = @()
     foreach ($item in $friendScan.items) {
       $requests += [ordered]@{
-        requestId = $item.requestId
-        nickname  = $item.nickname
-        source    = $item.source
-        kind      = $item.kind
-        clickable = $item.clickable
-        seenAt    = $item.seenAt
+        requestId      = $item.requestId
+        nickname       = $item.nickname
+        nicknameSource = $item.nicknameSource
+        source         = $item.source
+        kind           = $item.kind
+        clickable      = $item.clickable
+        seenAt         = $item.seenAt
       }
     }
     $sw.Stop()
@@ -426,6 +523,10 @@ try {
       requests   = $requests
       scannedAt  = [long][DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
       rawCount   = $friendScan.rawCount
+      historyCount = $friendScan.historyCount
+      entryExcluded = $friendScan.entryExcluded
+      entered    = [bool]$navigated
+      navigated  = [bool]$navigated
       window     = $windowInfo
       elapsedMs  = $sw.ElapsedMilliseconds
     })
@@ -478,6 +579,18 @@ try {
     if ($item.signature -eq $signatureText) { $match = $item; break }
   }
 
+  # 当前不在「新的朋友」页时先导航一次再匹配（导航不点任何申请）
+  if ($null -eq $match) {
+    if (Open-NewFriendsPage $root $main) {
+      Start-Sleep -Milliseconds 800
+      $root = [System.Windows.Automation.AutomationElement]::FromHandle($main)
+      $friendScan = Get-FriendRequests $root
+      foreach ($item in $friendScan.items) {
+        if ($item.signature -eq $signatureText) { $match = $item; break }
+      }
+    }
+  }
+
   if ($null -eq $match) {
     # 找不到或控件名/类型/类名已变化：一律视为 stale-request，宁可不点。
     $sw.Stop()
@@ -518,6 +631,54 @@ try {
     exit 8
   }
 
+  # 关键校验：Qt 在后台时会「Invoke 返回成功但不生效」，所以点完必须回读一次，
+  # 只有该条申请真的从列表消失才算通过；否则做一次受控的坐标点击兜底。
+  $clickPath = 'invoke'
+  Start-Sleep -Milliseconds 1200
+  $post = Get-FriendRequests ([System.Windows.Automation.AutomationElement]::FromHandle($main))
+  $still = $null
+  foreach ($item in $post.items) { if ($item.signature -eq $signatureText) { $still = $item; break } }
+  if ($null -ne $still) {
+    $clickPath = 'invoke-ineffective'
+    try {
+      [WeChatFriendsClick]::Activate($main)
+      Start-Sleep -Milliseconds 300
+      if (-not [WeChatFriendsClick]::IsForeground($main)) { throw '窗口未能前台化' }
+      $rect = $still.element.Current.BoundingRectangle
+      if ($rect.Width -le 2 -or $rect.Height -le 2) { throw '按钮矩形无效' }
+      $cx = [int]($rect.X + $rect.Width / 2)
+      $cy = [int]($rect.Y + $rect.Height / 2)
+      $screen = [System.Windows.Forms.SystemInformation]::VirtualScreen
+      if ($cx -lt $screen.X -or $cy -lt $screen.Y -or $cx -gt ($screen.X + $screen.Width) -or $cy -gt ($screen.Y + $screen.Height)) {
+        throw '按钮中心不在可见屏幕内'
+      }
+      [WeChatFriendsClick]::At($cx, $cy)
+      $clickPath = 'click'
+      Start-Sleep -Milliseconds 1200
+      $post = Get-FriendRequests ([System.Windows.Automation.AutomationElement]::FromHandle($main))
+      $still = $null
+      foreach ($item in $post.items) { if ($item.signature -eq $signatureText) { $still = $item; break } }
+    } catch {
+      $clickPath = 'click-failed:' + ($_.Exception.Message -replace "`r?`n", ' ')
+    }
+  }
+
+  if ($null -ne $still) {
+    # 点了但条目仍在：如实报「点击无效」，不重试、不谎报成功。
+    $sw.Stop()
+    Write-Payload ([ordered]@{
+      ok        = $false
+      status    = 'failed'
+      reason    = 'click-ineffective'
+      errorCode = 'click-ineffective'
+      requestId = $RequestId
+      nickname  = $match.nickname
+      clickPath = $clickPath
+      elapsedMs = $sw.ElapsedMilliseconds
+    })
+    exit 10
+  }
+
   [void]$script:HandledIds.Add($RequestId)
   $sw.Stop()
   Write-Payload ([ordered]@{
@@ -528,6 +689,7 @@ try {
     errorCode = $null
     nickname  = $match.nickname
     kind      = $match.kind
+    clickPath = $clickPath
   })
   exit 0
 } catch {
