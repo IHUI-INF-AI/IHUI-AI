@@ -131,7 +131,7 @@ export default function CreateAccountDialog({ onCreated }: { onCreated: () => vo
                   onChange={(e) => setBaseUrl(e.target.value)}
                   placeholder="http://127.0.0.1:8848"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="font-[weight:inherit] text-label text-muted-foreground">
                   约定 GET /status、GET /messages?since=、POST /message、POST /typing。
                 </p>
               </div>

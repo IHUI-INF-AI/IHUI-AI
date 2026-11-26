@@ -169,13 +169,13 @@ export default function DigestPanel({ accountId }: { accountId: string }) {
             立即生成并发送
           </Button>
           {current?.lastRunAt ? (
-            <span className="text-xs text-muted-foreground">
+            <span className="font-[weight:inherit] text-label text-muted-foreground">
               上次 {formatTime(current.lastRunAt)} · {current.lastStatus ?? '未知'}
             </span>
           ) : null}
         </div>
         {current ? (
-          <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          <div className="font-[weight:inherit] rounded-md bg-muted/40 px-3 py-2 text-label text-muted-foreground">
             每天 {String(current.hour).padStart(2, '0')}:{String(current.minute).padStart(2, '0')} ·{' '}
             {current.timezone} · {current.enabled ? '已启用' : '未启用'} ·{' '}
             {current.target ? `推送到 ${current.target}` : '目标为空，只生成不发送'}

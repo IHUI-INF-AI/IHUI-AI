@@ -57,7 +57,7 @@ export default function HistorySyncButton({ accountId }: { accountId: string }) 
         )}
         自动回填
       </Button>
-      {notice ? <span className="text-xs text-muted-foreground">{notice}</span> : null}
+      {notice ? <span className="font-[weight:inherit] text-label text-muted-foreground">{notice}</span> : null}
     </div>
   )
 }

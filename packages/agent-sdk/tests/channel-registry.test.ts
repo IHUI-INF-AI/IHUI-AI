@@ -15,13 +15,19 @@ import {
   ChannelRegistry,
   ChannelRegistryError,
   ChannelRejected,
+  type ChannelDomain,
 } from '../src/channel-registry.js'
 
-const spec = (name: string, kind: 'call' | 'listen' | 'subscribe' = 'call') => ({
+const spec = (
+  name: string,
+  kind: 'call' | 'listen' | 'subscribe' = 'call',
+  domain?: ChannelDomain,
+) => ({
   name,
   kind,
   owner: 'packages/agent-sdk',
   purpose: '测试用通道',
+  ...(domain ? { domain } : {}),
 })
 
 describe('L05 通道注册表', () => {
@@ -115,6 +121,66 @@ describe('L05 派发器', () => {
     const d = new ChannelDispatcher(r, { onAudit: (rec) => lines.push(rec.outcome) })
     d.dispatch('known.channel', 'call', () => 0)
     expect(lines).toEqual(['allowed'])
+  })
+})
+
+describe('L12 通道域隔离', () => {
+  it('三域可各自登记;跨域复用同名直接拒', () => {
+    const r = new ChannelRegistry()
+    r.register(spec('agent.tool.call', 'call', 'agent'))
+    r.register(spec('ui.panel.open', 'call', 'ui'))
+    r.register(spec('remote.session.attach', 'call', 'remote-session'))
+    expect(r.size).toBe(3)
+    expect(() => r.register(spec('agent.tool.call', 'call', 'ui'))).toThrow(/cross-domain-name/)
+  })
+
+  it('每域独立版本号 + 健康检查', () => {
+    const r = new ChannelRegistry()
+    r.register(spec('ui.panel.open', 'call', 'ui'))
+    r.registerDomain('ui', { version: '2.1.0' })
+    expect(r.domainPolicy('ui')?.version).toBe('2.1.0')
+    expect(r.domainHealth('ui')).toMatchObject({
+      domain: 'ui',
+      version: '2.1.0',
+      channels: 1,
+      healthy: true,
+    })
+    // 只登记策略、没有通道 → 不健康;完全没策略也 false
+    r.registerDomain('agent', { version: '1.0.0' })
+    expect(r.domainHealth('agent').healthy).toBe(false)
+    expect(r.domainHealth('remote-session').healthy).toBe(false)
+  })
+
+  it('域 ACL deny 生效:已注册通道也被拒,审计按域分表', () => {
+    const r = new ChannelRegistry()
+    r.register(spec('ui.panel.open', 'call', 'ui'))
+    r.register(spec('agent.tool.call', 'call', 'agent'))
+    r.registerDomain('ui', { version: '1.0.0', acl: { deny: ['ui.panel.open'] } })
+    const d = new ChannelDispatcher(r, { now: () => '2026-11-26T00:00:00.000Z' })
+
+    expect(() => d.guard('ui.panel.open', 'call', 'ui')).toThrow(ChannelRejected)
+    expect(d.rejections().get('call:ui.panel.open')).toBe(1)
+    expect(d.auditByDomain('ui')).toHaveLength(1)
+    expect(d.auditByDomain('ui')[0]?.code).toBe('acl-denied')
+    expect(d.auditByDomain('agent')).toHaveLength(0)
+    expect(d.rejectedCount('ui')).toBe(1)
+  })
+
+  it('allow 清单只放行列出的通道', () => {
+    const r = new ChannelRegistry()
+    r.register(spec('ui.panel.open', 'call', 'ui'))
+    r.register(spec('ui.panel.close', 'call', 'ui'))
+    r.registerDomain('ui', { version: '1.0.0', acl: { allow: ['ui.panel.open'] } })
+    const d = new ChannelDispatcher(r)
+    expect(d.guard('ui.panel.open', 'call', 'ui').name).toBe('ui.panel.open')
+    expect(() => d.guard('ui.panel.close', 'call', 'ui')).toThrow(/ACL/)
+  })
+
+  it('默认域仍是 agent,既有调用点不用改', () => {
+    const r = new ChannelRegistry()
+    r.register(spec('mcp.tool.call'))
+    expect(r.resolve('mcp.tool.call', 'call')?.domain).toBe('agent')
+    expect(r.resolve('mcp.tool.call', 'call', 'ui')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

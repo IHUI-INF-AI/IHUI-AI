@@ -23,8 +23,14 @@ const PIPE_ACCESS_DUPLEX: u32 = 0x0000_0003;
 const PIPE_TYPE_BYTE: u32 = 0x0000_0000;
 const PIPE_READMODE_BYTE: u32 = 0x0000_0000;
 const PIPE_WAIT: u32 = 0x0000_0000;
+/// `PIPE_REJECT_REMOTE_CLIENTS`:拒绝 SMB 远端连接,只允许本机进程接入。
+const PIPE_REJECT_REMOTE_CLIENTS: u32 = 0x0000_0008;
 const PIPE_UNLIMITED_INSTANCES: u32 = 255;
 const PIPE_PREFIX: &str = r"\\.\pipe\";
+
+/// 受限管道创建标志(byte 模式 + 拒绝远端)。单列常量,测试可直接钉位。
+pub const RESTRICTED_PIPE_MODE: u32 =
+    PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AclError {
@@ -184,6 +190,21 @@ mod win {
             default_timeout: u32,
             security_attributes: *const SecurityAttributes,
         ) -> Handle;
+        pub fn ConnectNamedPipe(handle: Handle, overlapped: *mut c_void) -> i32;
+        pub fn ReadFile(
+            handle: Handle,
+            buffer: *mut c_void,
+            bytes_to_read: u32,
+            bytes_read: *mut u32,
+            overlapped: *mut c_void,
+        ) -> i32;
+        pub fn WriteFile(
+            handle: Handle,
+            buffer: *const c_void,
+            bytes_to_write: u32,
+            bytes_written: *mut u32,
+            overlapped: *mut c_void,
+        ) -> i32;
         pub fn CloseHandle(handle: Handle) -> i32;
     }
 }
@@ -199,6 +220,88 @@ impl Drop for RestrictedPipe {
         unsafe {
             win::CloseHandle(self.handle);
         }
+    }
+}
+
+#[cfg(windows)]
+impl RestrictedPipe {
+    /// 阻塞等待客户端接入;`ERROR_PIPE_CONNECTED(535)` 视为已连接。
+    pub fn connect(&self) -> Result<(), AclError> {
+        let ok = unsafe { win::ConnectNamedPipe(self.handle, std::ptr::null_mut()) };
+        if ok != 0 {
+            return Ok(());
+        }
+        let error = std::io::Error::last_os_error();
+        if error.raw_os_error() == Some(535) {
+            Ok(())
+        } else {
+            Err(AclError::CreateFailed(format!("ConnectNamedPipe: {error}")))
+        }
+    }
+
+    /// 读一帧(命名管道 byte 模式,帧边界由调用方按换行/长度自行切)。
+    pub fn recv(&self, max_bytes: usize) -> Result<Vec<u8>, AclError> {
+        let mut buffer = vec![0u8; max_bytes];
+        let mut read: u32 = 0;
+        let ok = unsafe {
+            win::ReadFile(
+                self.handle,
+                buffer.as_mut_ptr().cast(),
+                max_bytes as u32,
+                &mut read,
+                std::ptr::null_mut(),
+            )
+        };
+        if ok == 0 {
+            return Err(AclError::CreateFailed(format!(
+                "ReadFile: {}",
+                std::io::Error::last_os_error()
+            )));
+        }
+        buffer.truncate(read as usize);
+        Ok(buffer)
+    }
+
+    /// 写一帧,必须整段写完;短写按失败处理,不把半帧当成功。
+    pub fn send(&self, payload: &[u8]) -> Result<(), AclError> {
+        let mut written: u32 = 0;
+        let ok = unsafe {
+            win::WriteFile(
+                self.handle,
+                payload.as_ptr().cast(),
+                payload.len() as u32,
+                &mut written,
+                std::ptr::null_mut(),
+            )
+        };
+        if ok == 0 {
+            return Err(AclError::CreateFailed(format!(
+                "WriteFile: {}",
+                std::io::Error::last_os_error()
+            )));
+        }
+        if written as usize != payload.len() {
+            return Err(AclError::CreateFailed(format!(
+                "short write: {written}/{}",
+                payload.len()
+            )));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(not(windows))]
+impl RestrictedPipe {
+    pub fn connect(&self) -> Result<(), AclError> {
+        Err(AclError::Unsupported("named pipes are Windows-only"))
+    }
+
+    pub fn recv(&self, _max_bytes: usize) -> Result<Vec<u8>, AclError> {
+        Err(AclError::Unsupported("named pipes are Windows-only"))
+    }
+
+    pub fn send(&self, _payload: &[u8]) -> Result<(), AclError> {
+        Err(AclError::Unsupported("named pipes are Windows-only"))
     }
 }
 
@@ -238,7 +341,7 @@ pub fn create_restricted_pipe(name: &str, user_sid: &str) -> Result<RestrictedPi
         let handle = win::CreateNamedPipeW(
             name_utf16.as_ptr(),
             PIPE_ACCESS_DUPLEX,
-            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
+            RESTRICTED_PIPE_MODE,
             PIPE_UNLIMITED_INSTANCES,
             64 * 1024,
             64 * 1024,

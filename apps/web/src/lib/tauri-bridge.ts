@@ -10,6 +10,7 @@ import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialo
 import { isTauriRuntime } from './api-base-url'
 // L05:命令名统一从注册表取,调用点不再写字面量
 import { DESKTOP_COMMANDS } from './desktop-commands'
+import { isNativeBridgeFeaturesEnabled } from './native-bridge-state'
 
 export { formatFileSize } from '@ihui/shared/utils/format'
 
@@ -234,6 +235,11 @@ export function dispatchByIpcCode<T>(
  * 未包一层的地方 `String(e)` 会变成 `[object Object]`,用户看到的是"报错比不报更糟"。
  */
 async function invokeIpc<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  // L07:桥握手失败(版本/清单/摘要任一不符)后,所有桌面命令统一拒绝,
+  // 不让"点了没反应"再出现;首屏 NativeBridgeBanner 负责把原因显示出来。
+  if (!isNativeBridgeFeaturesEnabled()) {
+    throw new Error('桌面桥版本不匹配,入口已禁用(见首屏提示)')
+  }
   try {
     return await invoke<T>(cmd, args)
   } catch (e) {

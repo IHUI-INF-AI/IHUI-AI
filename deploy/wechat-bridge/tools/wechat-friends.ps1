@@ -111,13 +111,40 @@ public class WeChatFriendsWin {
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
+public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
 public static class WeChatFriendsClick {
   [DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);
   [DllImport("user32.dll")] private static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
   [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr h, int cmd);
   [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
   [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
+  [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr h, out RECT r);
+  [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr h, out RECT r);
   public static bool IsForeground(IntPtr h) { return GetForegroundWindow() == h; }
+  // 后台点击：直接往窗口投递鼠标消息，不需要窗口在前台、不会闪屏、不动真实光标。
+  // 2026-11-26 实测：Qt 的 XTabBarItem / ContactsCellGroupView 对 Invoke/Select 一律“返回成功但不动作”，
+  // 只有真实鼠标消息才认，所以导航与兜底点击都走这条。
+  public static bool ClickBackground(IntPtr h, int screenX, int screenY) {
+    RECT wr; RECT cr;
+    if (!GetWindowRect(h, out wr)) return false;
+    if (!GetClientRect(h, out cr)) return false;
+    int cx = screenX - wr.Left;
+    int cy = screenY - wr.Top;
+    if (cx < 0 || cy < 0 || cx > cr.Right || cy > cr.Bottom) return false;
+    int lp = (cy << 16) | (cx & 0xFFFF);
+    PostMessage(h, 0x0200, IntPtr.Zero, (IntPtr)lp);      // WM_MOUSEMOVE
+    System.Threading.Thread.Sleep(60);
+    PostMessage(h, 0x0201, (IntPtr)1, (IntPtr)lp);        // WM_LBUTTONDOWN (MK_LBUTTON)
+    System.Threading.Thread.Sleep(60);
+    PostMessage(h, 0x0202, IntPtr.Zero, (IntPtr)lp);      // WM_LBUTTONUP
+    return true;
+  }
+  // 把微信压到所有窗口后面（不改位置/大小、不抢焦点）：用户不用它时就不挡屏，但 UIA 树仍可读。
+  public static bool ParkBehind(IntPtr h) {
+    return SetWindowPos(h, new IntPtr(1), 0, 0, 0, 0, 0x0002 | 0x0001 | 0x0010); // HWND_BOTTOM | NOMOVE | NOSIZE | NOACTIVATE
+  }
   public static void At(int x, int y) {
     SetCursorPos(x, y);
     mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
@@ -279,31 +306,67 @@ function Find-NavEntry($root) {
   return $null
 }
 
-# 打开「新的朋友」页：这是导航动作，不点任何「通过」。返回是否发生了导航。
+# 主标签栏里的「通讯录」页签；用户刚点开微信时停在「微信」聊天页，需要先切过去。
+function Find-ContactTab($root) {
+  $elements = Get-AllElements $root
+  foreach ($el in $elements) {
+    $name = ([string]$el.Cached.Name).Trim()
+    $ctl = Get-ControlTypeName $el.Cached.ControlType
+    if ($name -eq '通讯录' -and ($ctl -eq 'Button' -or $ctl -eq 'TabItem')) { return $el }
+  }
+  return $null
+}
+
+# 判断当前是不是「新的朋友」页。可靠判据：通讯录根页一定有「群聊NNN」入口行，
+# 进页之后只剩「新的朋友」这个页标题，群聊入口就没了（页标题本身也叫「新的朋友」，
+# 所以不能用「有新的朋友行」反推在根页——这正是最早那个假申请的来源）。
+function Test-InNewFriendsPage($root) {
+  $elements = Get-AllElements $root
+  foreach ($el in $elements) {
+    try {
+      $name = ([string]$el.Cached.Name).Trim()
+      $cls = [string]$el.Cached.ClassName
+      if ($cls -match $NavEntryClassPattern -and $name -match '^群聊') { return $false }
+    } catch { }
+  }
+  # 没有任何「群聊」入口行：要么不在通讯录，要么已经进了新朋友页。
+  foreach ($el in $elements) {
+    try {
+      if (([string]$el.Cached.Name).Trim() -eq '新的朋友') { return $true }
+    } catch { }
+  }
+  return $false
+}
+
+# 打开「新的朋友」页（导航动作，不点任何「通过」）。返回 $true 表示已经停在「新的朋友」页。
 function Open-NewFriendsPage($root, $main) {
-  $nav = Find-NavEntry $root
-  if ($null -eq $nav) { return $false }
-  # 先前台化：Qt 在后台时 ListItem 的 Invoke/Select 会返回成功但不切页（2026-11-26 实测）
-  try { [WeChatFriendsClick]::Activate($main); Start-Sleep -Milliseconds 300 } catch { }
-  # 1) SelectionItem 优先（Qt 分组行实测三模式齐全，Select 是最贴近用户点击的语义）
-  try {
-    $sel = $nav.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
-    if ($null -ne $sel) { $sel.Select(); Start-Sleep -Milliseconds 500 }
-  } catch { }
-  # 2) 再补一次 Invoke
-  $pat = Test-InvokePattern $nav
-  if ($null -ne $pat) {
-    try { $pat.Invoke(); return $true } catch { }
+  if (Test-InNewFriendsPage $root) { return $true }
+  # 第一跳：可能停在聊天页，先切「通讯录」主标签（后台消息点击，不闪屏、不动光标）
+  if ($null -eq (Find-NavEntry $root)) {
+    $tab = Find-ContactTab $root
+    if ($null -ne $tab) {
+      # 必须用 Current 取实时矩形：Qt 的 Cached 矩形常为 0，按缓存算坐标会点空。
+      $tabRect = $tab.Current.BoundingRectangle
+      if ($tabRect.Width -gt 2 -and $tabRect.Height -gt 2) {
+        [void][WeChatFriendsClick]::ClickBackground($main, [int]($tabRect.X + $tabRect.Width / 2), [int]($tabRect.Y + $tabRect.Height / 2))
+        Start-Sleep -Milliseconds 1000
+        $root = [System.Windows.Automation.AutomationElement]::FromHandle($main)
+      }
+    }
   }
-  # 3) 最后退路：中心点左键（仅导航）
-  try {
-    $rect = $nav.Cached.BoundingRectangle
-    if ($rect.Width -le 2 -or $rect.Height -le 2) { return $false }
-    [WeChatFriendsClick]::At([int]($rect.X + $rect.Width / 2), [int]($rect.Y + $rect.Height / 2))
-    return $true
-  } catch {
-    return $false
+  # 第二跳：点入口行。Qt 对 Invoke/Select 一律“成功但不动作”，必须发真实鼠标消息。
+  # 最多点两次，每次点完都回读界面状态；已经进页就不再点，避免来回切。
+  for ($i = 0; $i -lt 2; $i++) {
+    if (Test-InNewFriendsPage $root) { return $true }
+    $nav = Find-NavEntry $root
+    if ($null -eq $nav) { return $false }
+    $navRect = $nav.Current.BoundingRectangle
+    if ($navRect.Width -le 2 -or $navRect.Height -le 2) { return $false }
+    [void][WeChatFriendsClick]::ClickBackground($main, [int]($navRect.X + $navRect.Width / 2), [int]($navRect.Y + $navRect.Height / 2))
+    Start-Sleep -Milliseconds 1600
+    $root = [System.Windows.Automation.AutomationElement]::FromHandle($main)
   }
+  return (Test-InNewFriendsPage $root)
 }
 
 function Classify-Kind([string]$text) {  if ($text -match $GroupInvitePattern) { return 'group-invite' }
@@ -500,12 +563,9 @@ try {
 
   # ---------- Scan：只读枚举 ----------
   if ($mode -eq 'Scan') {
-    # 先把「新的朋友」页打开（导航，不点任何「通过」），否则枚举到的只是通讯录入口行
+    # 先把「新的朋友」页打开（导航，不点任何「通过」），否则枚举到的只是通讯录入口行。
     $navigated = Open-NewFriendsPage $root $main
-    if ($navigated) {
-      Start-Sleep -Milliseconds 800
-      $root = [System.Windows.Automation.AutomationElement]::FromHandle($main)
-    }
+    $root = [System.Windows.Automation.AutomationElement]::FromHandle($main)
     $friendScan = Get-FriendRequests $root
     $requests = @()
     foreach ($item in $friendScan.items) {
@@ -537,6 +597,10 @@ try {
         elapsedMs    = $sw.ElapsedMilliseconds
       })
       exit 11
+    }
+    # 采集完成后把微信压到所有窗口后面：用户不用它时就不挡屏，但 UIA 树仍可读，下次扫描不用再惊醒它。
+    if ($windowInfo.visible -and -not $windowInfo.minimized) {
+      try { [void][WeChatFriendsClick]::ParkBehind($main) } catch { }
     }
     Write-Payload ([ordered]@{
       ok         = $true
@@ -663,19 +727,13 @@ try {
   if ($null -ne $still) {
     $clickPath = 'invoke-ineffective'
     try {
-      [WeChatFriendsClick]::Activate($main)
-      Start-Sleep -Milliseconds 300
-      if (-not [WeChatFriendsClick]::IsForeground($main)) { throw '窗口未能前台化' }
+      # 兜底也用后台消息点击：不把窗口拉到前台、不动真实光标。窗口必须在当前会话可见（在后面没关系）。
       $rect = $still.element.Current.BoundingRectangle
       if ($rect.Width -le 2 -or $rect.Height -le 2) { throw '按钮矩形无效' }
       $cx = [int]($rect.X + $rect.Width / 2)
       $cy = [int]($rect.Y + $rect.Height / 2)
-      $screen = [System.Windows.Forms.SystemInformation]::VirtualScreen
-      if ($cx -lt $screen.X -or $cy -lt $screen.Y -or $cx -gt ($screen.X + $screen.Width) -or $cy -gt ($screen.Y + $screen.Height)) {
-        throw '按钮中心不在可见屏幕内'
-      }
-      [WeChatFriendsClick]::At($cx, $cy)
-      $clickPath = 'click'
+      if (-not [WeChatFriendsClick]::ClickBackground($main, $cx, $cy)) { throw '后台点击投递失败（坐标落在客户区外）' }
+      $clickPath = 'click-background'
       Start-Sleep -Milliseconds 1200
       $post = Get-FriendRequests ([System.Windows.Automation.AutomationElement]::FromHandle($main))
       $still = $null

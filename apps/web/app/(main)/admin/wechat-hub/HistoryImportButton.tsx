@@ -85,7 +85,7 @@ export default function HistoryImportButton({ accountId }: { accountId: string }
         )}
         导入历史
       </Button>
-      {notice ? <span className="text-xs text-muted-foreground">{notice}</span> : null}
+      {notice ? <span className="font-[weight:inherit] text-label text-muted-foreground">{notice}</span> : null}
     </div>
   )
 }

@@ -129,10 +129,10 @@ export default function MomentCard({
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 rows={4}
-                className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+                className="font-[weight:inherit] w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-body outline-none focus:border-stroke-focus"
                 placeholder="这条会发到账号朋友圈。"
               />
-              <p className="text-xs text-muted-foreground">{text.length} / 5000</p>
+              <p className="font-[weight:inherit] text-label text-muted-foreground">{text.length} / 5000</p>
             </div>
             <div className="space-y-1">
               <Label htmlFor="wechat-moment-media">图片 URL（逗号或换行分隔，可选）</Label>
@@ -148,12 +148,12 @@ export default function MomentCard({
         <div className="space-y-2 rounded-md border border-stroke-field p-3">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <p className="text-sm font-medium">遍历朋友圈</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-body font-medium">遍历朋友圈</p>
+              <p className="font-[weight:inherit] text-label text-muted-foreground">
                 OCR 后台滚屏，默认 10 页，最多 30 页；wcfhttp 刷新最新页并等回调。
               </p>
               <div className="mt-2 flex items-center gap-2">
-                <Label htmlFor="wechat-moment-pages" className="text-xs text-muted-foreground">
+                <Label htmlFor="wechat-moment-pages" className="font-[weight:inherit] text-label text-muted-foreground">
                   页数
                 </Label>
                 <Input
@@ -163,7 +163,7 @@ export default function MomentCard({
                   max={30}
                   value={fetchPages}
                   onChange={(e) => setFetchPages(e.target.value)}
-                  className="h-7 w-16 px-2 text-xs"
+                  className="font-[weight:inherit] h-7 w-16 px-2 text-label"
                 />
               </div>
             </div>
@@ -194,11 +194,11 @@ export default function MomentCard({
             />
           ) : null}
           {fetchResult && fetchResult.fields ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="font-[weight:inherit] text-label text-muted-foreground">
               {formatMomentFields(fetchResult.fields)}
             </p>
           ) : null}
-          {mediaStats ? <p className="text-xs text-muted-foreground">{mediaStats}</p> : null}
+          {mediaStats ? <p className="font-[weight:inherit] text-label text-muted-foreground">{mediaStats}</p> : null}
           {fetchResult && fetchResult.moments.length > 0 ? (
             <div className="max-h-64 space-y-2 overflow-auto pr-1">
               {fetchResult.moments.map((moment) => {
@@ -208,10 +208,10 @@ export default function MomentCard({
                 const expanded = Boolean(expandedMomentIds[moment.id])
                 const bodyText = body.collapsed && !expanded ? body.text : moment.content
                 return (
-                  <div key={moment.id} className="rounded-md bg-muted/40 p-2 text-sm">
+                  <div key={moment.id} className="font-[weight:inherit] rounded-md bg-muted/40 p-2 text-body">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium">{moment.authorName}</span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="font-[weight:inherit] text-label text-muted-foreground">
                         {momentTime(moment.createdAt)}
                       </span>
                     </div>
@@ -220,20 +220,20 @@ export default function MomentCard({
                       <button
                         type="button"
                         onClick={() => toggleMomentBody(moment.id)}
-                        className="mt-0.5 text-xs text-muted-foreground underline-offset-2 hover:underline"
+                        className="font-[weight:inherit] mt-0.5 text-label text-muted-foreground underline-offset-2 hover:underline"
                       >
                         {expanded ? '收起' : '展开全文'}
                       </button>
                     ) : null}
                     {moment.mediaUrls.length > 0 ? (
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">
                         {moment.mediaUrls.length} 个媒体
                         {moment.imageCount ? ` · ${moment.imageCount} 张图片` : ''}
                         {moment.videoCount ? ` · ${moment.videoCount} 段视频` : ''}
                       </p>
                     ) : null}
                     {moment.mediaLocalDir ? (
-                      <p className="mt-1 break-all text-xs text-muted-foreground">
+                      <p className="font-[weight:inherit] mt-1 break-all text-label text-muted-foreground">
                         本地媒体：{moment.mediaLocalDir}
                       </p>
                     ) : null}
@@ -241,18 +241,18 @@ export default function MomentCard({
                       <MomentLocalMedia accountId={accountId} momentId={moment.id} />
                     ) : null}
                     {moment.mediaDownloadError ? (
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">
                         图片未落盘：{moment.mediaDownloadError}
                       </p>
                     ) : null}
                     {moment.likeUsers && moment.likeUsers.length > 0 ? (
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">
                         点赞：{moment.likeUsers.slice(0, 6).join('、')}
                         {moment.likeUsers.length > 6 ? ` 等 ${moment.likeUsers.length} 人` : ''}
                       </p>
                     ) : null}
                     {commentView.total > 0 ? (
-                      <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                      <div className="font-[weight:inherit] mt-1 space-y-0.5 text-label text-muted-foreground">
                         {commentView.lines.map((line, index) => (
                           <p key={index} className="whitespace-pre-wrap break-words">
                             {index === 0 ? '评论：' : ''}
@@ -264,7 +264,7 @@ export default function MomentCard({
                         ) : null}
                       </div>
                     ) : null}
-                    {extra ? <p className="mt-1 text-xs text-muted-foreground">{extra}</p> : null}
+                    {extra ? <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">{extra}</p> : null}
                   </div>
                 )
               })}
@@ -307,3 +307,4 @@ export default function MomentCard({
     </Card>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

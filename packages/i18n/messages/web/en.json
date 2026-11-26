@@ -9581,6 +9581,8 @@
       "openWindow": "Open Picture-in-Picture Window",
       "dockInWorkPanel": "Dock Monitor in Work Panel",
       "dockCreateFailed": "Could not create the monitor session. Retry, or let the AI open a browser first.",
+      "monitorAllSessions": "Monitor all active sessions",
+      "monitorAllLimit": "Too many active sessions; only the latest few were opened.",
       "readOnly": "Read-only",
       "handover": "Take over",
       "statusConnecting": "Connecting",

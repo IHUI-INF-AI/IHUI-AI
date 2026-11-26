@@ -27,6 +27,7 @@ import {
   Minus,
   PictureInPicture2,
   MonitorPlay,
+  LayoutGrid,
   ChevronUp,
   SquareTerminal,
   Columns2,
@@ -635,6 +636,60 @@ export function AISidePanel() {
     const latest = useWorkPanelStore.getState()
     latest.openPipSession(target.sessionId, target.url || getDefaultPipUrl(), target.title)
     latest.openPanel()
+  }, [resolvePipSessionTarget, tc])
+
+  // 监看全部:一次把所有活跃 Browser Hub 会话各开一个工作面内嵌监看 tab。
+  // TRAE 的文章只给单窗口监看;多会话同时跑时,用户不该靠反复关闭/重开来切换。
+  // 仍复用 openPipSession 的“同会话只开一个 tab”不变量,最后聚焦最早那个,顺序稳定。
+  const monitorAllPipSessions = React.useCallback(async () => {
+    const MAX_MONITOR_ALL = 6
+    let ids: string[] = []
+    try {
+      const res = await listBrowserSessions()
+      ids = res.success ? (res.data?.session_ids ?? []) : []
+    } catch {
+      ids = []
+    }
+    if (ids.length === 0) {
+      const target = await resolvePipSessionTarget()
+      if (!target) {
+        toast.error(tc('pictureInPicture.monitorAllSessions'), {
+          description: tc('pictureInPicture.dockCreateFailed'),
+        })
+        return
+      }
+      ids = [target.sessionId]
+    }
+    const selected = ids.slice(-MAX_MONITOR_ALL)
+    const targets = await Promise.all(
+      selected.map(async (sessionId) => {
+        try {
+          const info = await getBrowserSessionInfo(sessionId)
+          if (info.success && info.data) {
+            return {
+              sessionId,
+              url: info.data.url || getDefaultPipUrl(),
+              title: info.data.title || '',
+            }
+          }
+        } catch {
+          // 单个会话刚被关闭:保留 tab 并让 AiPipMonitor 自己报“画面已断开”,不拖垮其余会话。
+        }
+        return { sessionId, url: getDefaultPipUrl(), title: '' }
+      }),
+    )
+    const latest = useWorkPanelStore.getState()
+    for (const target of targets) {
+      latest.openPipSession(target.sessionId, target.url, target.title)
+    }
+    const first = targets[0]
+    if (first) latest.openPipSession(first.sessionId, first.url, first.title)
+    latest.openPanel()
+    if (ids.length > MAX_MONITOR_ALL) {
+      toast.warning(tc('pictureInPicture.monitorAllSessions'), {
+        description: tc('pictureInPicture.monitorAllLimit'),
+      })
+    }
   }, [resolvePipSessionTarget, tc])
 
   // 按模板监看:服务端一次完成“复用会话或自动建会话 + 绑定任务”,
@@ -3150,6 +3205,16 @@ export function AISidePanel() {
                         >
                           <MonitorPlay className={MENU_ITEM_ICON_CLASS} />
                           <span className="truncate">{tc('pictureInPicture.dockInWorkPanel')}</span>
+                        </DropdownMenu.Item>
+                      )}
+                      {pipSupported && (
+                        <DropdownMenu.Item
+                          data-testid="ai-panel-monitor-all-pip"
+                          className={MENU_ITEM_CLASS}
+                          onSelect={() => void monitorAllPipSessions()}
+                        >
+                          <LayoutGrid className={MENU_ITEM_ICON_CLASS} />
+                          <span className="truncate">{tc('pictureInPicture.monitorAllSessions')}</span>
                         </DropdownMenu.Item>
                       )}
                       {pipSupported && isTauri() && (

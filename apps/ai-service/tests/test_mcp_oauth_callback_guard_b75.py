@@ -246,8 +246,13 @@ def test_intact_persist_file_not_backed_up(tmp_path):
     assert list(tmp_path.glob("*.corrupt-*")) == []
 
 
-def test_persist_write_unique_tmp_and_replace(tmp_path):
+def test_persist_write_unique_tmp_and_replace(tmp_path, monkeypatch):
     """写入走唯一 tmp 名 + 原子 replace:tmp 不残留,最后一次写胜出。"""
+    # 2026-11-26(L09):默认已禁止明文落盘;本用例只测原子写,显式用 Fernet 加密档。
+    from cryptography.fernet import Fernet
+
+    monkeypatch.setenv("MCP_OAUTH_PROTECT", "fernet")
+    monkeypatch.setenv("MCP_OAUTH_ENCRYPTION_KEY", Fernet.generate_key().decode())
     persist = tmp_path / "token.json"
     _persist_token(MCPOAuthConfig(persist_path=str(persist)), MCPOAuthToken(access_token="t1"))
     assert persist.exists()

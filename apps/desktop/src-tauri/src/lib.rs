@@ -7,6 +7,7 @@
 // 同一判序 + 同一 ASCII 原因码 + 同样的「拒时具名出声」)。内置网段/域名族表刻意不复制,
 // 详见模块头注与 `apps/desktop/tests/egress-env-keys-parity.test.mjs`。
 mod egress_gate;
+mod native_bridge;
 // 2026-09-17 薄壳化配套:线上前端自动刷新 + 断网兜底守卫(详见模块文档)
 mod auto_refresh;
 // 2026-11-24 立:稳定 Launcher 的壳侧更新链——feed v2 灰度/签名 zip 暂存/pending 指针/重启胶囊。
@@ -106,6 +107,8 @@ mod system_memory;
 // 2026-11-23 立(B2-02):IPC 命名管道安全描述符边界(当前用户 + SYSTEM 两条 ACE;
 // 创建失败即拒,绝不回落无 DACL 裸管道)。非 Windows 显式返回 Unsupported。
 mod ipc_channel_acl;
+#[cfg(windows)]
+mod approval_pipe;
 // 2026-11-24 立(P3-01):ALPC 通道抽象层(open/close/挂接外部 SD 三面 + fail-closed
 // 错误码族 + RAII 句柄槽)。ALPC 后端未取证落 Unjudged;兜底复用 ipc_channel_acl 受限管道。
 mod ipc_channel;
@@ -5776,6 +5779,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_app_info,
+            native_bridge::get_native_bridge_manifest,
             git_channel_ipc::git_authorize_workspace,
             git_channel_ipc::git_workspace_status,
             git_channel_ipc::git_workspace_diff,

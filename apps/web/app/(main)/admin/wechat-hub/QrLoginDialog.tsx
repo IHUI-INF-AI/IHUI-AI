@@ -67,13 +67,13 @@ export default function QrLoginDialog({
               className="h-56 w-56 rounded-md border border-stroke-subtle object-contain"
             />
           ) : qrQuery.data?.qrcode ? (
-            <code className="max-w-full break-all rounded-md bg-muted px-3 py-2 text-xs">
+            <code className="font-[weight:inherit] max-w-full break-all rounded-md bg-muted px-3 py-2 text-label">
               {qrQuery.data.qrcode}
             </code>
           ) : (
-            <p className="text-sm text-muted-foreground">二维码尚未生成，请稍后重试。</p>
+            <p className="font-[weight:inherit] text-body text-muted-foreground">二维码尚未生成，请稍后重试。</p>
           )}
-          <p className="text-xs text-muted-foreground">
+          <p className="font-[weight:inherit] text-label text-muted-foreground">
             状态：{statusQuery.data?.status ?? 'unknown'}
           </p>
         </div>

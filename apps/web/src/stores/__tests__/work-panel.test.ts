@@ -653,6 +653,18 @@ describe('useWorkPanelStore - 工作面内停靠画中画', () => {
     expect(s.tabs).toHaveLength(1)
     expect(s.activeTabId).toBe(firstId)
   })
+
+  it('多会话逐个停靠后每个会话一个 pip tab,最后聚焦最早那个', () => {
+    const ids = ['sess-a', 'sess-b', 'sess-c']
+    ids.forEach((id, i) => {
+      useWorkPanelStore.getState().openPipSession(id, `https://e${i}.example`, `会话 ${i}`)
+    })
+    useWorkPanelStore.getState().openPipSession(ids[0]!, 'https://e0.example', '会话 0')
+    const s = useWorkPanelStore.getState()
+    expect(s.tabs).toHaveLength(3)
+    expect(s.tabs.map((tab) => tab.state.sessionId)).toEqual(ids)
+    expect(s.activeTabId).toBe(s.tabs[0]?.id)
+  })
 })
 
 describe('useWorkPanelStore - 窗口尺寸', () => {

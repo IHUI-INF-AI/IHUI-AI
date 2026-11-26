@@ -9616,6 +9616,8 @@
       "openWindow": "PiP ウィンドウを開く",
       "dockInWorkPanel": "ワークパネル内に監視をドッキング",
       "dockCreateFailed": "監視セッションを作成できません。再試行するか、AI に先にブラウザを開かせてください。",
+      "monitorAllSessions": "すべてのアクティブセッションを監視",
+      "monitorAllLimit": "アクティブセッションが多すぎるため、最新のいくつかのみを開きました。",
       "readOnly": "読み取り専用",
       "handover": "引き継ぐ",
       "statusConnecting": "接続中",

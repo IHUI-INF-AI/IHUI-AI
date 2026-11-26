@@ -160,10 +160,10 @@ export default function SendPanel({ accountId }: { accountId: string }) {
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={5}
-              className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+              className="font-[weight:inherit] w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-body outline-none focus:border-stroke-focus"
               placeholder="支持多行；iLink 会剥离 Markdown 标记后按纯文本发送。"
             />
-            <p className="text-xs text-muted-foreground">{text.length} / 5000</p>
+            <p className="font-[weight:inherit] text-label text-muted-foreground">{text.length} / 5000</p>
           </div>
         )}
         <div className="grid grid-cols-1 gap-3 min-[800px]:grid-cols-[1fr_1fr_auto]">
@@ -208,7 +208,7 @@ export default function SendPanel({ accountId }: { accountId: string }) {
             )}
             {dryRun ? '预演' : '发送'}
           </Button>
-          <span className="text-xs text-muted-foreground">
+          <span className="font-[weight:inherit] text-label text-muted-foreground">
             账号状态：{statusQuery.data?.status ?? '未知'}
           </span>
         </div>
