@@ -2087,8 +2087,9 @@ class ModelSyncService:
                             # 同步腿拿不到「可核实的上游成本价」,若按 chat 标签直接
                             # enabled/public,就会把缺价模型放进公开面,用户调用即 503;
                             # 若按 0 成本启用,又会变成免费模型。故所有新行一律
-                            # enabled=false / is_relay_public=false,由定价管线补价后
-                            # 再由管理员显式上架。非 chat / free 变体同样只登记。
+                            # enabled=false / is_relay_public=false,并交给数据库准入
+                            # 触发器兜底:没有 ai_pricing 正价的登记行会被直接拒绝入库。
+                            # 由定价管线补价后再由管理员显式上架。
                             await self._insert_model(
                                 conn, config_id, aliased_id, display_name, ctx_len,
                                 input_price, output_price, model_tags,

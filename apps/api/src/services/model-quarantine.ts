@@ -3,18 +3,18 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 缺成本模型按类型隔离(2026-11-26 立)。
+ * 缺成本/零成本模型按类型隔离(2026-11-26 立)。
  *
  * 规则(用户 2026-11-26 确认):
  * - 非聊天模型(embedding/rerank/图像/视频/音频/翻译/审核)从 LLM 售卖面移出:
  *   is_relay_public=false 且 enabled=false,不再进入 LLM 调用面。
  * - free 变体直接下架:不提供免费模型。
  * - 合作方别名/数字 ID/测试别名仅内部路由:is_relay_public=false,但保留 enabled。
- * - 真实聊天模型缺成本:先 is_relay_public=false,避免用户点到 503;补价后再上架。
+ * - 真实聊天模型缺成本/成本为 0:先 is_relay_public=false,避免用户点到 503;补价后再上架。
  *
  * 不硬编成本价。补价仍走 backfillCostPrices / 人工合同价。
  */
-import { and, eq, inArray, isNull, or } from 'drizzle-orm'
+import { and, eq, inArray, isNull, lte, or } from 'drizzle-orm'
 import { aiModelConfigModels } from '@ihui/database'
 import { db } from '../db/index.js'
 import {
@@ -65,6 +65,8 @@ async function loadMissingCostRows(): Promise<MissingCostQuarantineItem[]> {
         or(
           isNull(aiModelConfigModels.costInputPricePer1k),
           isNull(aiModelConfigModels.costOutputPricePer1k),
+          lte(aiModelConfigModels.costInputPricePer1k, 0),
+          lte(aiModelConfigModels.costOutputPricePer1k, 0),
         ),
       ),
     )
@@ -89,6 +91,8 @@ async function countPublicMissingCost(): Promise<number> {
         or(
           isNull(aiModelConfigModels.costInputPricePer1k),
           isNull(aiModelConfigModels.costOutputPricePer1k),
+          lte(aiModelConfigModels.costInputPricePer1k, 0),
+          lte(aiModelConfigModels.costOutputPricePer1k, 0),
         ),
       ),
     )

@@ -146,9 +146,10 @@
 - `assertPricedForPublish` 继续拦截上架零价/1分2分占位价；`getUnpricedAlerts` 每日巡检在架零价与近 7 天零价调用。
 - `GET /admin/ai-pricing/missing-costs?days=30&limit=500`：列出 `cost_input/output_price_per_1k` 任一为 `NULL` 的启用模型，按近 N 天调用量排序。这些模型会被 LLM 计费 fail-closed（503），运营按榜单补成本价即可恢复售卖。
 - `POST /admin/ai-pricing/missing-costs/quarantine`：按模型类型隔离缺成本模型，默认 `dryRun=true`。非聊天模型（embedding/rerank/图像/视频/音频/翻译/审核）与 `-free` 变体直接 `enabled=false`；合作方别名、数字 ID、测试别名仅 `is_relay_public=false`；真实聊天模型先取消公开等待补价。隔离后公开面不再出现缺价 503。
-- 同步腿（`apps/api` 的 `relay-models-sync` / `trae-models-sync` 与 `apps/ai-service` 的 `model_sync`）一律不再自动上架：新行只登记 `enabled=false` / `is_relay_public=false`，已存在行不覆盖启用态，也不自动复活；上游恢复返回不代表已有可核实成本价。补价后由管理员显式上架。
+- 同步腿（`apps/api` 的 `relay-models-sync` / `trae-models-sync` 与 `apps/ai-service` 的 `model_sync`）一律不再自动上架：新行按 `enabled=false` / `is_relay_public=false` 写入，并由数据库准入触发器直接拒绝未定价登记行（连行都不落库）；已存在行不覆盖启用态，也不自动复活。补价后由管理员显式上架。
 - 上架接口（`POST /admin/relay/models`、`PUT /admin/relay/models/:id`、`POST /admin/relay/models/:id/toggle`、手动登记后的上架）统一过 `assertPricedForPublish`；零价、缺价与 1分/2分占位价直接 400。`:free` 与 `official-free` 的零价豁免已移除。
 - 2026-11-26 补价迁移 `20261126120000_seed_verified_llm_costs.sql`：按 LiteLLM 公开价表补 7 个可精确命中的聊天模型（DeepSeek V4 Flash/Pro、Kimi K3.1 Pro、Claude Opus 4.1、GLM-5、腾讯 Hy4/Hy4 Flash），成本按 USD/token × 720000 换成分/千，零售价 = 成本 × 3；只补价、不自动上架。其余无同名/同族可核实条目的候选继续停售，不硬编。
+- 2026-11-26 清理与上架迁移：`20261126133000_purge_unpriced_chat_models.sql` 删除剩余 32 个缺价聊天候选（含清理前被回填成零价/低价的 4 个）；`20261126134000_model_ingest_price_gate.sql` 新增数据库触发器，未定价的 `enabled=false`/`is_relay_public=false` 新行直接拒绝入库；`20261126135000_publish_verified_llm_models.sql` 上架上述 7 个已补价模型，并把任何公开但成本缺失/为 0 的历史行强制取消公开（本机清出 41 行历史零价公开）。
 - `GET /admin/ai-pricing/models?onlyProblems=true` 仍可查人工调价问题行；成本回填用 `backfillCostPrices`：先按 `metadata.priceSource.profitFactor` 反推，再用 `ai_pricing` 同模型 token 公示价 / 3 兜底，仍无公示价的模型保持 `null` 并继续 fail-closed。
 
 ### 3.6 MAGI-2
@@ -240,4 +241,5 @@
 | 2026-11-26 | 移动端 Agent 聊天（普通与 SSE 流式）接入预扣/结算；流式按 `usage` 帧结算，无 usage 时按正文估算，接管/仅重放分支释放 hold，不再免费调用上游 |
 | 2026-11-26 | 缺成本模型按类型隔离：新增 `model-kind-classifier` 与 `POST /admin/ai-pricing/missing-costs/quarantine`；非聊天/free 下架，别名仅取消公开；本机执行后公开面缺价 503 从 13 降到 0，剩余待补价聊天模型 39 个 |
 | 2026-11-26 | 堵住同步腿自动上架：所有同步新行 `enabled=false` / `is_relay_public=false`，不再自动复活；上架入口统一价格闸门；新增补价迁移 7 个可核实聊天模型（成本×3，只补价不上架） |
+| 2026-11-26 | 清理与准入：删除 32 个缺价聊天候选；数据库触发器拒绝未定价登记行入库；上架 7 个已补价模型；公开面零成本/缺成本行全部下架（本机 41 行） |
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

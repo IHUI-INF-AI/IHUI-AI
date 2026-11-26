@@ -1232,7 +1232,7 @@ export async function getMissingCostModels(args?: {
       group by 1
     ) u on u.mid = lower(m.model_id)
     where m.enabled = true
-      and (m.cost_input_price_per_1k is null or m.cost_output_price_per_1k is null)
+      and (coalesce(m.cost_input_price_per_1k, 0) <= 0 or coalesce(m.cost_output_price_per_1k, 0) <= 0)
   `)
   const summary = rowsOf<Record<string, unknown>>(summaryRes)[0] ?? {}
 
@@ -1256,7 +1256,7 @@ export async function getMissingCostModels(args?: {
       group by 1
     ) u on u.mid = lower(m.model_id)
     where m.enabled = true
-      and (m.cost_input_price_per_1k is null or m.cost_output_price_per_1k is null)
+      and (coalesce(m.cost_input_price_per_1k, 0) <= 0 or coalesce(m.cost_output_price_per_1k, 0) <= 0)
     order by lower(m.model_id), c.provider_code, m.config_id desc, calls desc
     limit ${limit}
   `)

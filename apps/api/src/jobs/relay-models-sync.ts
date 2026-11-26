@@ -13,7 +13,8 @@
  *
  * 与 model-discovery-cron(relay-pool-model-discovery-sync)的分工:
  *   discovery 写 ai_relay_discovery(status='discovered',等人工审批定价),刻意不写正式表;
- *   本 job 直写正式表 ai_model_config_models(is_relay_public=true 立即可见),补齐最后一公里。
+ *   本 job 直写正式表 ai_model_config_models(新行 enabled=false/public=false,补价后显式上架),
+ *   补齐最后一公里。
  *
  * 覆盖面:号池「有可调度号」且「适配器实现任一清单接口(listModels / listModelsDetailed)」的中继平台。
  *   - 适配器两种清单接口都没有(如 doubao/minimax/codex)⇒ 跳过(无法自动拉清单),如实记 skipped;
@@ -133,8 +134,9 @@ export function hasModelCatalogCapability(
 
 /** 单模型 upsert:按 (config_id, model_id) 唯一约束。
  *  2026-11-26 全收费闸门:
- *  - 新行只登记,enabled=false / is_relay_public=false;同步腿拿不到可核实成本价,
- *    若自动启用会把缺价模型放进公开面(用户调用即 503),按 0 成本又会变成免费模型。
+ *  - 新行按 enabled=false / is_relay_public=false 写入;若无 ai_pricing 正价,
+ *    数据库准入触发器会直接拒绝该行(连登记行都不落库)。同步腿拿不到可核实
+ *    成本价,所以自动同步的未定价模型不会再污染售卖面。
  *  - 已存在行一律不动(onConflictDoNothing),不再自动复活 enabled=false 的旧行;
  *    上游重新上架时由管理员补价后显式上架,避免每轮同步把隔离状态翻回去。 */
 async function upsertRelayModel(

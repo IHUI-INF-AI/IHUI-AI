@@ -45,9 +45,9 @@ export type TraeModelWriter = (configId: number, modelId: string) => Promise<Tra
 
 /**
  * 单模型 upsert:利用 (config_id, model_id) 唯一约束 onConflictDoNothing。
- * 2026-11-26 全收费闸门:新行只登记,enabled=false / is_relay_public=false。
- * 同步腿拿不到可核实成本价,自动公开会把缺价模型卖给用户(调用即 503),
- * 按 0 成本又会变成免费模型;补价后由管理员显式上架。
+ * 2026-11-26 全收费闸门:新行按 enabled=false / is_relay_public=false 写入;
+ * 若无 ai_pricing 正价,数据库准入触发器会直接拒绝该行(连登记行都不落库)。
+ * 补价后由管理员显式上架。
  * 不更新既有行(避免覆盖管理员手置的 is_relay_public / relay_display_name / 定价)。
  */
 async function upsertTraeModel(configId: number, modelId: string): Promise<TraeModelWriteOutcome> {
