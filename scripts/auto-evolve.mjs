@@ -598,6 +598,19 @@ export function normalizeSessionRuntime(cmdText, execPath = process.execPath) {
 }
 
 /**
+ * cmd.exe 的 `/s /c` 会剥掉命令行最外层那一对引号(微软文档明写):首 token 是
+ * 带空格的绝对路径时,剥完就断在 `C:\...\User`,会话连进程都没起来(2026-11-26 实测 probe
+ * stderr: `'C:\Users\Administrator\AppData\Local\Doubao\User' 不是内部或外部命令`)。
+ * 修法不是去掉引号,而是**再包一层**:`cmd /d /s /c ""C:\a b\node.exe" ..."`。
+ * 只在首 token 被引号包住时补;非 Windows/裸命令不动(不猜)。
+ */
+export function wrapCommandForCmdExe(cmd) {
+  const t = String(cmd ?? '')
+  if (!/^\s*"/.test(t)) return t
+  return `"${t}"`
+}
+
+/**
  * 自我面核验(2026-11-05 立):本器**从盘上被 spawn 运行**,而多会话共树时盘上那份
  * 可能是某席从旧基线改的半成品 —— 今天实测到的正是这一形:工作树 2851 行 vs HEAD 2263 行,
  * 且缺当天全部 7 条判据锚点。那种时刻照派 = 拿半成品当执行体,烧掉一个班次还会把票记成"会话成功";
@@ -2050,7 +2063,7 @@ function dispatchSession(gates, ticket, dryRun) {
   const cmd = rt.cmd
   const t0 = Date.now()
   // windowsVerbatimArguments 必带(同 probe:node 对 cmd.exe 的默认引用改写会毁模板内引号)
-  const r = spawnSync('cmd.exe', ['/d', '/s', '/c', cmd], {
+  const r = spawnSync('cmd.exe', ['/d', '/s', '/c', wrapCommandForCmdExe(cmd)], {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     windowsHide: true,
@@ -3655,7 +3668,7 @@ async function probeSession({ gates, dryRun = false } = {}) {
     const t0 = Date.now()
     // windowsVerbatimArguments 必带:node 对 cmd.exe 有默认引用改写,会把模板里的引号拼进
     // 模块路径(实测 'D:\IHUI-AI\"D:\...\"' 型报错);verbatim + 模板零内嵌引号 = 双保险
-    const r = spawnSync('cmd.exe', ['/d', '/s', '/c', cmd], {
+    const r = spawnSync('cmd.exe', ['/d', '/s', '/c', wrapCommandForCmdExe(cmd)], {
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: ROOT,
       windowsHide: true,
@@ -4711,6 +4724,7 @@ export const __test__ = {
   readPoolWinnability,
   renderTicketScope,
   normalizeSessionRuntime,
+  wrapCommandForCmdExe,
   classifySessionWrites,
   GateShapeError,
   ticketKeyOf,

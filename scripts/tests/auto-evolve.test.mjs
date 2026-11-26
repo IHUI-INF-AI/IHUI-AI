@@ -23,6 +23,7 @@ import {
   VALVE_LIST_JSON,
   classifySessionWrites,
   normalizeSessionRuntime,
+  wrapCommandForCmdExe,
   judgeLandingProof,
   WRITE_TOOL_NAMES,
   classifySessionFailure,
@@ -586,8 +587,8 @@ test('⑬h 发射端接线:会话清单优先 → 转录派生兜底 → 都没�
   const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
   const at = src.indexOf('const declaredManifest = readArtifactManifest(key)')
   assert.ok(at > 0, '落账腿必须先读会话清单(会话写的那份永远是第一顺位)')
-  const block = src.slice(at, at + 900)
-  assert.match(block, /declaredManifest == null \? manifestTextFromPaths\(key, res\.wrotePaths\)/,
+  const block = src.slice(at, at + 1400)
+  assert.match(block, /const derivedManifest = declaredMissing \? manifestTextFromPaths\(key, res\.wrotePaths\) : null/,
     '会话没写时才允许派生,且证据必须取 res.wrotePaths')
   assert.match(block, /manifestText: declaredManifest \?\? derivedManifest/, '真送进落账腿的必须是两者之一')
   assert.match(block, /manifestSource,/, '台账必须记来源,否则回看时分不清是会话写的还是补的')
@@ -735,6 +736,14 @@ test('⑮d 接线锁:真起子进程的两处都必须过归一,且读数进台�
     /runtimeNormalized: res\.runtimeNormalized \?\? null/.test(src),
     '归一与否必须记进台账(否则下次只剩一个 exit=1 没人看得见成因)',
   )
+})
+
+test('⑮e cmd.exe /s /c 外层补引号:带空格的首 token 不被剥断', () => {
+  const inner = '"C:/Program Files/node.exe" D:/a b/x.mjs --json'
+  assert.equal(wrapCommandForCmdExe(inner), `"${inner}"`, '首 token 带引号必须再包一层')
+  assert.equal(wrapCommandForCmdExe('node D:/a.mjs'), 'node D:/a.mjs', '裸命令不得被改')
+  assert.equal(wrapCommandForCmdExe('  "D:/x y/node.exe" D:/a.mjs'), '"  "D:/x y/node.exe" D:/a.mjs"',
+    '前导空白保留在引号内(命令语义不变)')
 })
 
 /**
