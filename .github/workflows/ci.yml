@@ -311,6 +311,13 @@ jobs:
         id: assert-web-build-script
         run: node -e "const p=require('./apps/web/package.json'); if(!p.scripts||!p.scripts.build){console.error('apps/web 缺 build 脚本 -> turbo run build 会静默跳过,web 端本次从未被构建验证');process.exit(1)} console.log('web build =',p.scripts.build)"
 
+      # RP-2(L02/P0):进程树清树路径必须在 required CI 通道里阻断。
+      # 判定范围是"清树代码路径静态完整"(三场景锚点 + 单测数),不宣称运行时进程数=0
+      # (那需要 Windows+Rust 真跑进程树,本 CI 无 cargo job)。任一锚点被删即非零退出。
+      - name: Job Object cleanup path audit
+        id: job-object-cleanup
+        run: node scripts/check-job-object-cleanup.mjs --head
+
       - name: Build
         id: build
         # desktop(tauri) 构建极重且发布由专门工作流负责,CI 仅验证其余包可构建;

@@ -5947,6 +5947,32 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- RP-2 进程树清树路径静态审计(1 项,blocking)---
+  {
+    id: '241b',
+    label:
+      'RP-2 Job Object 清树路径静态在位:timeout→kill_inner(TimedOut)、显式/崩溃→TerminateJobObject+libc_killpg(spawn 后 attach_job_object)、退出兜底→orphan_guard kill-on-close 挂 run(),11 锚点去注释后判定,terminal 单测≥8(判静态路径完整,不伪称运行时"进程数=0")',
+    script: 'check-job-object-cleanup.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_JOB_OBJECT_CLEANUP',
+    stagedTriggers: [
+      'apps/desktop/src-tauri/src/terminal_session.rs',
+      'apps/desktop/src-tauri/src/orphan_guard.rs',
+      'apps/desktop/src-tauri/src/lib.rs',
+      'scripts/check-job-object-cleanup.mjs',
+    ],
+    onFailHint: [
+      '',
+      '① 看清单:node scripts/check-job-object-cleanup.mjs --worktree',
+      '② 自检:node scripts/check-job-object-cleanup.mjs --self-test(11 锚点逐条变异咬合)',
+      '③ 修:清树路径任一锚点被删/改名 ⇒ 同步改门体与镜像测试,不许静默移除判据;',
+      '   运行时"子进程退出后进程数=0"需 Windows+Rust 真跑进程树,本门不覆盖该断言。',
+      '紧急跳过:HUSKY_SKIP_JOB_OBJECT_CLEANUP=1(须在提交信息写明理由)',
+      '',
+    ].join('\n'),
+  },
+
   // --- 读数零分母 / 定时器句柄覆盖(2026-10-25 立;支付轮询僵尸 + 看板 NaN% 上屏)(1 项,blocking)---
   {
     id: '244',

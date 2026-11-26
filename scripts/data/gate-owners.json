@@ -720,6 +720,10 @@
       "owner": null
     },
     {
+      "script": "check-job-object-cleanup.mjs",
+      "owner": null
+    },
+    {
       "script": "check-killer-parity-ends.mjs",
       "owner": null
     },
