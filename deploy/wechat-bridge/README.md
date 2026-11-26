@@ -188,9 +188,27 @@ UIA 驱动失败（抛错、`ok=false`、或 0 条且 `stopReason=error`）且 `
 
 `tools/wechat-friends.ps1` 用 .NET 自带的 System.Windows.Automation 枚举微信桌面端控件树，不引入任何第三方包，不做 DLL 注入、不读微信进程内存、不改微信文件。提供三条能力：
 
-- `POST /friends/scan`（只读）：枚举「通讯录 → 新的朋友」里待处理的好友申请与群聊邀请，返回 `requests[]`（`requestId、nickname、source、kind（friend | group-invite）、clickable、seenAt`）、`rawCount`（过滤前原始条目数）与 `scannedAt`，全程不点击、不切页。
+- `POST /friends/scan`（只读）：枚举「通讯录 → 新的朋友」里待处理的好友申请与群聊邀请，返回 `requests[]`（`requestId、nickname、source、kind（friend | group-invite）、clickable、seenAt`）、`rawCount`（过滤前原始条目数）、`historyCount`（已添加/已拒绝等历史行）、`entered`（是否真的进了「新的朋友」页）与 `scannedAt`。为了进页会做一次**后台点击导航**：向窗口投递真实鼠标消息（`WM_MOUSEMOVE/WM_LBUTTONDOWN/WM_LBUTTONUP`），不抢焦点、不动真实光标、不闪屏；除此之外不点任何按钮。
 - `POST /friends/accept`（写动作）：body `{ "requestId": "..." }`。脚本是无状态的，`requestId` 为 base64url 编码的 `kind|controlType|className|name`；执行前先用同一套枚举重新取控件，控件名/类型/类名与扫描时完全一致才 `InvokePattern.Invoke()`，找不到或对不上一律返回 `stale-request`，宁可不点也不瞎点。
 - `POST /action` 通道：`{ "action": "friend.scan" }`、`{ "action": "friend.accept", "requestId": "..." }` 走与独立路由同一套 handler，供上游 `bridge-adapter.performAction` 消费。
+
+扫描结果缓存与巡检（2026-11-26 起）：
+
+- 默认读缓存：内存 + 磁盘快照 `.bridge-friends-scan.json`（`BRIDGE_FRIENDS_SNAPSHOT` 可改路径），桥重启后仍能给出上次成功结果。
+- 后台 60s 巡检：缓存超过 180s 才真采一次；`{"force": true}` 强制实时采；并发请求共用同一个 in-flight。
+- 窗口被收进托盘时 Qt 不重建界面树，读不到元素。这时不谎报失败：回上次成功快照并标 `stale: true`、`staleReason: "window-hidden"`、`cacheAgeMs`；没有任何历史快照才返回 `failed`。收起期间巡检降到 10 分钟一次，不空耗。
+- `{"wake": true}`：用一次微信全局热键（Ctrl+Alt+W）把窗口从托盘唤回来再采实时数据（实测 1.6s、27 个条目）。这条会把微信短暂顶到前台，所以只在调用方显式要求时执行，且脚本做完立刻把焦点还给原前台窗口。
+
+窗口状态与可读性（实测口径）：
+
+| 微信窗口状态 | UIA 可读元素 | 扫描结果 |
+| --- | --- | --- |
+| 正常打开，在前台 | 75–112 | 实时 |
+| 正常打开，被其他窗口完全盖住 | 75 | 实时（289ms） |
+| 程序化 `ShowWindow` 唤出 | 1 | 读不到，属预期 |
+| 收进托盘 / 隐藏 | 0–1 | 回退过期快照（或 `-Wake` 唤回） |
+
+结论：**只要微信窗口没被收进托盘，自动化就能在后台静默跑，不占用户屏幕**；收进托盘后只能读旧快照，需要实时数据时用 `wake: true`。
 
 四道闸缺一不可：
 
@@ -206,9 +224,15 @@ UIA 驱动失败（抛错、`ok=false`、或 0 条且 `stopReason=error`）且 `
 ```powershell
 # 只读自检：枚举 UIA 树摘要（顶层窗口、控件类型、可见名称、类名、是否带 InvokePattern），不点、不切页
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/wechat-friends.ps1 -SelfTest
+
+# 窗口在托盘里、要实时数据：用微信热键唤回再扫（会短暂把微信顶到前台）
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/wechat-friends.ps1 -Scan -Wake
+
+# 5.1 语法回归（桥用 powershell.exe 5.1 拉脚本，7 的 ?? 之类语法会让整条链路静默失败）
+powershell -NoProfile -ExecutionPolicy Bypass -File test/friends-script-51-parse.ps1
 ```
 
-读不到微信主窗口时返回 `{"ok":false,"status":"failed","reason":"本机不可达","detail":"<UIA 报错原文>"}`：先确认微信已登录且主窗口已从托盘展开（最小化/托盘隐藏时 UIA 拿不到 600x500 以上的主窗），再看 `detail` 里的报错原文；脚本不会伪造控件树。扫描返回 0 条时 `rawCount` 仍会给出过滤前的原始条目数，可据此判断是界面未停留在「新的朋友」页，还是当前版本 UIA 未暴露可识别条目。
+读不到微信主窗口时返回 `{"ok":false,"status":"failed","reason":"本机不可达","detail":"<UIA 报错原文>"}`：先确认微信已登录且主窗口已从托盘展开（最小化/托盘隐藏时 UIA 拿不到 600x500 以上的主窗），再看 `detail` 里的报错原文；脚本不会伪造控件树。窗口存在但枚举到的元素少于 5 个时返回 `ok:false, reason:"window-hidden-or-empty"`（多半是收在托盘或刚被程序化隐藏，Qt 没重建界面树），这时用 `-Wake` 或 `{"wake":true}` 唤回；上游已把这种情况翻成「回上次快照 + 标 stale」，不会让前端满屏报错。扫描返回 0 条时 `rawCount` 仍会给出过滤前的原始条目数，可据此判断是界面未停留在「新的朋友」页，还是当前版本 UIA 未暴露可识别条目。
 
 新增环境变量：
 
@@ -218,6 +242,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/wechat-friends.ps1 -Se
 | `BRIDGE_FRIENDS_SCRIPT`       | `tools/wechat-friends.ps1`             | 好友自动化 ps1 路径                                                                   |
 | `BRIDGE_FRIENDS_POWERSHELL`   | 系统 PowerShell 5.1                    | PowerShell 可执行文件路径，未设置时复用 `BRIDGE_OCR_POWERSHELL`                       |
 | `BRIDGE_FRIENDS_TIMEOUT_MS`   | `20000`                                | 子进程硬超时（1s–60s）；超时 kill 子进程并返回 `failed/timeout`，不让请求挂死         |
+| `BRIDGE_FRIENDS_SNAPSHOT`     | `.bridge-friends-scan.json`            | 上次成功扫描的落盘快照；窗口收起时用它回退，桥重启后仍可用                            |
 
 ## 可选：本地 DB sidecar（默认关闭，显式授权）
 

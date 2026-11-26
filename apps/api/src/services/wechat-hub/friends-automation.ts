@@ -239,12 +239,13 @@ async function appendAudit(
 export async function scanFriendRequests(
   userId: string,
   accountId: string,
-  options: { force?: boolean } = {},
+  options: { force?: boolean; wake?: boolean } = {},
 ): Promise<WechatFriendScanView> {
   await assertAccountForUser(userId, accountId)
   const now = Date.now()
   const result = await callBridgeAction(userId, accountId, 'friend.scan', {
     force: options.force === true,
+    wake: options.wake === true,
   })
   return buildScanView(result, now)
 }
@@ -353,12 +354,15 @@ export async function updateFriendsPolicy(
 export async function readFriendsOverview(
   userId: string,
   accountId: string,
-  options: { force?: boolean } = {},
+  options: { force?: boolean; wake?: boolean } = {},
 ): Promise<WechatFriendsOverview> {
   const account = await assertAccountForUser(userId, accountId)
   const policy = readFriendsPolicy(account.metadata)
   const audit = readFriendsAudit(account.metadata)
-  const scan = await scanFriendRequests(userId, accountId, { force: options.force === true })
+  const scan = await scanFriendRequests(userId, accountId, {
+    force: options.force === true,
+    wake: options.wake === true,
+  })
   return { policy, scan, audit }
 }
 

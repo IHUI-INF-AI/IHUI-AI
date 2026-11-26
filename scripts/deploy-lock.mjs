@@ -1885,12 +1885,24 @@ function breakStale({ dir = lockDir(), reason, log = (...a) => console.log(...a)
       ok: false,
       why: `拒绝:归档现场失败,不得静默覆盖(原始 meta 已逐字打到 stderr),锁 ${dir} 未被触碰`,
     }
-  const claim = claimStaleLock(
+  let claim = claimStaleLock(
     dir,
     state,
     `人工 break-stale:${why}(执行前四态=${state.kind},锁龄 ${age.ageMs}ms 来源 ${age.source})`,
     { suffix: 'break-stale' },
   )
+  // Windows 上 meta.json 刚写完时可能被杀软/索引短暂占用,改名会 EPERM。短暂退避后重试(每次重试都会
+  // 重新比对锁身份,锁被换掉就落 identity-mismatch),仍失败才交给人工;不改成直接删锁。
+  for (let attempt = 0; attempt < 3 && !claim.ok && claim.code === 'EPERM'; attempt += 1) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400)
+    claim = claimStaleLock(
+      dir,
+      state,
+      `人工 break-stale 重试 ${attempt + 1}:${why}(改名曾 EPERM)`,
+      { suffix: 'break-stale' },
+    )
+    log(claim.log)
+  }
   log(claim.log)
   return { ok: claim.ok, why: claim.ok ? `已断锁,现场=${claim.archived}` : `未断:${claim.log}` }
 }

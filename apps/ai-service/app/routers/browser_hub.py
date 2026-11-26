@@ -49,6 +49,7 @@ import base64
 import json
 import logging
 import os
+import time
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
@@ -388,13 +389,21 @@ async def screenshot(
 
 
 @router.get("/sessions/{session_id}/mjpeg")
-async def mjpeg_stream(session_id: str, token: str = "") -> StreamingResponse:
+async def mjpeg_stream(
+    session_id: str,
+    token: str = "",
+    fps: int = 0,
+) -> StreamingResponse:
     """MJPEG 画面流：WS 被 CDN 阻断时的同源高帧率兜底。
 
-    与 `/ws/{session_id}` 共用同一条 CDP screencast，不额外截图、不降帧率；
+    与 `/ws/{session_id}` 共用同一条 CDP screencast，不额外截图；`fps` 为
+    每观众限速（0 表示不限，1–30 有效）。同屏墙 6 路时每格按 8fps 拉流，
+    服务端 screencast 仍按页面重绘出帧，但每格不再把全部帧压进网络与解码器。
     每个观众一条有界队列，慢观众只保留最新帧。鉴权走 query token（与 WS 同源），
     因为浏览器 `<img>` / EventSource 无法带 Authorization 头。
     """
+    if fps and not 1 <= fps <= 30:
+        raise HTTPException(status_code=400, detail="fps 必须在 1 到 30 之间或省略")
     payload = verify_access_token(token) if token else None
     if payload is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -419,13 +428,22 @@ async def mjpeg_stream(session_id: str, token: str = "") -> StreamingResponse:
 
     await session.start_screencast(on_frame)
 
+    min_interval = (1.0 / fps) if fps else 0.0
+
     async def generate() -> Any:
+        last_emit = 0.0
         try:
             while True:
                 try:
                     data_b64, _meta = await asyncio.wait_for(queue.get(), timeout=2.0)
                 except asyncio.TimeoutError:
                     continue
+                if min_interval:
+                    now = time.monotonic()
+                    if last_emit and now - last_emit < min_interval:
+                        # 限速只丢这一帧；队列里保留的始终是最新帧。
+                        continue
+                    last_emit = now
                 try:
                     jpeg = base64.b64decode(data_b64)
                 except Exception:
