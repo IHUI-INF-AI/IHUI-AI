@@ -2227,10 +2227,20 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🐞 修正:封死免费模型上架并清理公开免费行 (7c91e54d)
+- 🚀 機能/改善:通过申请回执带剩余额度，卡片直接显示还能通过几个 (4049f421)
+- 🚀 機能/改善:bridge checkpoint resume across native PIP windows (e9633d7e)
+- 🚀 機能/改善:质量尺子调参透传层(配置可调 minJudged/window/minDelta/datasetDir) (039ce4dd)
+- 🔧 その他:登记 WorkBuddy 暴露会话指纹 (4fcc94e9)
+- 🚀 機能/改善:dev 看守接入 main 自动追新 (8fdc16c4)
+- 🐞 修正:修正 7 个模型零售价并补齐生产官方 DeepSeek 行 (e2317ccd)
+- 🐞 修正:enforce quarter-screen defaults and dynamic capability labels (54e96413)
+- 🔧 その他:私有评测补 --validate/--init-template 与 datasetDir 透传 (75c0c21d)
+- 🚀 機能/改善:close TRAE parity gaps (8ff87338)
+- 🔧 その他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (41dc3ba4)
 - 📚 ドキュメント:固化 6/6 安全 benchmark 报告与账本读数 (074f3ae1)
 - 🚀 機能/改善:三端共享 ACP 契约并发布安全 benchmark (791c94d1)
 - 🚀 機能/改善:register all 15 mcp-extended routes on loopback host (9d9b5714)
-- 🐞 修正:修正 7 个模型零售价并补齐生产官方 DeepSeek 行 (e2317ccd)
 - 🐞 修正:fetch 直连失败后回退环境代理 (ca969fea)
 - 🐞 修正:清理缺价聊天模型并启用入库价格闸门 (10747f43)
 - 🐞 修正:同步腿不再自动上架未定价模型并补 7 个可核实成本价 (d0be4a01)
