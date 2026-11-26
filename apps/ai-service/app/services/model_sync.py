@@ -127,6 +127,20 @@ _RETRY_BASE_DELAYS: tuple[float, ...] = (1.0, 2.0, 4.0)
 # 超过此阈值的模型视为极端高价,跳过 INSERT 并 log warning
 MAX_PRICE_PER_1K_TOKENS = 100
 
+# 2026-11-26:免费变体不进 LLM 售卖面(不提供免费模型)。
+# 与 apps/api/src/services/model-kind-classifier.ts 的 FREE_SUFFIX 保持一致。
+_FREE_MODEL_RE = re.compile(r"(?:^|[-_/])free(?:$|[-_/])", re.IGNORECASE)
+
+
+def is_free_model_variant(model_id: str) -> bool:
+    """`*-free` / `*_free` / `*/free` 变体:可以登记,但不能 enabled 售卖。"""
+    return bool(_FREE_MODEL_RE.search(model_id.strip()))
+
+
+def is_llm_sellable_model(model_id: str, model_tags: list[str]) -> bool:
+    """只有 chat 标签且不是 free 变体的模型才进 LLM 启用面。"""
+    return "chat" in model_tags and not is_free_model_variant(model_id)
+
 # xAI /v1/models 的 *_text_token_price 单位是 1e-10 USD/token(12500 = $1.25/1M)。
 # 换到 cents/1k:× 1e-10(→USD/token) × 1000(k) × 100(→cents)= × 1e-5
 _XAI_TOKEN_PRICE_TO_CENTS_PER_1K = 1e-5
@@ -2072,6 +2086,9 @@ class ModelSyncService:
                             preview_new.append(aliased_id)
                         else:
                             # 新模型:INSERT(chat 档自动上架;图像/视频等媒体档默认不上架)
+                            # 2026-11-26:非 chat 与 free 变体登记但 enabled=false,
+                            # 不进 LLM 售卖面;避免缺 token 成本的模型反复出现在 503 清单。
+                            llm_sellable = is_llm_sellable_model(aliased_id, model_tags)
                             await self._insert_model(
                                 conn, config_id, aliased_id, display_name, ctx_len,
                                 input_price, output_price, model_tags,
@@ -2086,7 +2103,8 @@ class ModelSyncService:
                                 release_date=release_date,
                                 deprecation_date=deprecation_date,
                                 metadata=metadata_json,
-                                is_relay_public="chat" in model_tags,
+                                enabled=llm_sellable,
+                                is_relay_public=llm_sellable,
                             )
                         new_count += 1
                     else:
@@ -2220,6 +2238,7 @@ class ModelSyncService:
         release_date: str,
         deprecation_date: str,
         metadata: dict[str, Any] | None = None,
+        enabled: bool = True,
         is_relay_public: bool = True,
     ) -> None:
         """F4.5 动态构造 INSERT SQL(根据列存在性决定写哪些字段)。
@@ -2243,11 +2262,11 @@ class ModelSyncService:
             "config_id", "model_id", "display_name", "context_length",
             "enabled", "is_relay_public", "relay_price_multiplier",
         ]
-        placeholders = ["$1", "$2", "$3", "$4", "true", "$5", "'1.0000'"]
+        placeholders = ["$1", "$2", "$3", "$4", "$5", "$6", "'1.0000'"]
         params: list[Any] = [
-            config_id, model_id, display_name, ctx_len, is_relay_public,
+            config_id, model_id, display_name, ctx_len, enabled, is_relay_public,
         ]
-        idx = 6  # 下一个 placeholder 编号
+        idx = 7  # 下一个 placeholder 编号
 
         # tags 字段(v2 已有)
         if tags_column_exists:
@@ -2293,18 +2312,18 @@ class ModelSyncService:
             placeholders.append("now()")  # SQL 函数,不需要 placeholder
 
         # ON CONFLICT DO UPDATE:更新存在的字段
+        # 2026-11-26:enabled 跟随 excluded.enabled —— 非 chat/free 新行保持 false,
+        # 不会因为上游每轮同步又被打开;is_relay_public 不在这里覆盖,
+        # 保留管理员手置的公开状态(自动下架恢复走 _update_model 的 restore_relay_public)。
         update_parts = [
-            "is_relay_public = excluded.is_relay_public",
-            "enabled = true",
+            "enabled = excluded.enabled",
             "context_length = $4",
             "updated_at = now()",
         ]
         if tags_column_exists:
-            update_parts.append("tags = $6")
+            update_parts.append("tags = $7")
         # F4.5 新字段的 ON CONFLICT UPDATE
-        update_idx = 6
-        if tags_column_exists:
-            update_idx = 7
+        update_idx = 8 if tags_column_exists else 7
         for col_name, _param_value in f4_5_fields:
             if columns.get(col_name, False):
                 update_parts.append(

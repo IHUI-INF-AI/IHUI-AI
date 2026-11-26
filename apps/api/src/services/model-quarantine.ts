@@ -106,7 +106,9 @@ export async function quarantineMissingCostModels(opts?: {
     ...publicRows.map((row) => row.id),
     ...disableRows.map((row) => row.id),
   ])
-  const pendingPricingChat = rows.filter((row) => row.kind === 'chat').length
+  const pendingPricingChat = new Set(
+    rows.filter((row) => row.kind === 'chat').map((row) => row.modelId.toLowerCase()),
+  ).size
 
   if (!dryRun) {
     const unpublishIds = [...unpublishIdSet]

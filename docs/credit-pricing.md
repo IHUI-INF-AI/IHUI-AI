@@ -146,7 +146,7 @@
 - `assertPricedForPublish` 继续拦截上架零价/1分2分占位价；`getUnpricedAlerts` 每日巡检在架零价与近 7 天零价调用。
 - `GET /admin/ai-pricing/missing-costs?days=30&limit=500`：列出 `cost_input/output_price_per_1k` 任一为 `NULL` 的启用模型，按近 N 天调用量排序。这些模型会被 LLM 计费 fail-closed（503），运营按榜单补成本价即可恢复售卖。
 - `POST /admin/ai-pricing/missing-costs/quarantine`：按模型类型隔离缺成本模型，默认 `dryRun=true`。非聊天模型（embedding/rerank/图像/视频/音频/翻译/审核）与 `-free` 变体直接 `enabled=false`；合作方别名、数字 ID、测试别名仅 `is_relay_public=false`；真实聊天模型先取消公开等待补价。隔离后公开面不再出现缺价 503。
-- 同步腿（`relay-models-sync` / `trae-models-sync`）写入前用 `classifyModelKind` 拦截非聊天与免费变体，避免上游清单每 15 分钟又把它们插回来或复活。
+- 同步腿（`apps/api` 的 `relay-models-sync` / `trae-models-sync` 与 `apps/ai-service` 的 `model_sync`）写入前用类型判据拦截：非 chat 与免费变体登记但 `enabled=false`，且 `ON CONFLICT` 不再把 `enabled` 强制写回 `true`，避免上游清单每轮又把它们打开或复活。
 - `GET /admin/ai-pricing/models?onlyProblems=true` 仍可查人工调价问题行；成本回填用 `backfillCostPrices`：先按 `metadata.priceSource.profitFactor` 反推，再用 `ai_pricing` 同模型 token 公示价 / 3 兜底，仍无公示价的模型保持 `null` 并继续 fail-closed。
 
 ### 3.6 MAGI-2
