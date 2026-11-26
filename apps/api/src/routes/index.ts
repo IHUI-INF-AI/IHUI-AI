@@ -594,6 +594,7 @@ import { subagentsExtendedRoutes } from './subagents-extended-routes.js'
 import { aiTutorRoutes } from './ai-tutor-routes.js'
 // AI 批改 thin 代理(只转发到 ai-service /api/ai-marking/grade,不落库)
 import { aiMarkingProxyRoutes } from './ai-marking-proxy.js'
+import { aiBridgeProxyRoutes } from './ai-bridge-proxy.js'
 // Newsletter 订阅路由(定价页转化率优化配套,lead capture)
 import newsletterRoutes from './newsletter.js'
 // Google Play 封闭测试招募名单(网页收集邮箱 + admin 导出 CSV)
@@ -1421,6 +1422,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(aiTutorRoutes, { prefix: '/api' })
   // AI 批改 thin 代理(/api/ai-marking/grade → 透传到 ai-service,不落库)
   server.register(aiMarkingProxyRoutes, { prefix: '/api' })
+  // ai-service 桥接代理(2026-11-23 立:/api/prompts|connectors|research —— 移动端开发态 404 根治)
+  server.register(aiBridgeProxyRoutes)
   // Newsletter 订阅(定价页转化率优化配套:subscribe/unsubscribe + admin list/send)
   server.register(newsletterRoutes, { prefix: '/api/newsletter' })
   // Google Play 封闭测试招募名单(公开报名/状态查询 + admin 列表/导出 CSV)
