@@ -577,7 +577,9 @@ if [ -z "$HUSKY_SKIP_REPO_WEIGHT" ]; then
   fi
   # 新增维(差值棘轮,2026-11-25):只看本次推送相对远端面的增量,不看存量。
   # 口径 = 对 PUSH_REFS 每条分支行,量 rev-list --objects <远端sha>..<本地sha> 的对象字节和;
-  # 新分支(远端 sha 全 0)按整条历史量。纯 tag 行跳过(前面已有纯 tag 推送豁免)。
+  # 新分支(远端 sha 全 0)按 origin/main 合并基点量(2026-11-26 修正:原按整条历史量把
+  # 主线存量全算成"本次新增",任何新分支都恒超预算 ⇒ 逼人跳钩,与判据定义不符)。
+  # 纯 tag 行跳过(前面已有纯 tag 推送豁免)。
   _push_obj_budget="${REPO_PUSH_OBJECTS_MB:-50}"
   _push_new_bytes=0
   _push_measured=0
@@ -586,7 +588,15 @@ if [ -z "$HUSKY_SKIP_REPO_WEIGHT" ]; then
       [ -z "$_p_lsha" ] && continue
       case "$_p_lref" in refs/tags/*) continue ;; esac
       if [ -z "$_p_rsha" ] || printf '%s' "$_p_rsha" | grep -qE '^0+$'; then
-        _p_range="$_p_lsha"
+        # 新分支:与上方 push-scope 同源,相对 origin/main 的合并基点取差集,只量本分支
+        # 真正新增的对象。取不到基点 ⇒ 保留整条历史并告警,绝不把"取不到面"读成"零新增"。
+        _p_base="$(git merge-base origin/main "$_p_lsha" 2>/dev/null)"
+        if [ -n "$_p_base" ]; then
+          _p_range="${_p_base}..$_p_lsha"
+        else
+          printf '%s\n' "⚠️  新分支 ${_p_lref#refs/heads/} 取不到 origin/main 合并基点 ⇒ 新增维按整条历史量(可能误报超预算,不静默放行)" >&2
+          _p_range="$_p_lsha"
+        fi
       else
         _p_range="$_p_rsha..$_p_lsha"
       fi
