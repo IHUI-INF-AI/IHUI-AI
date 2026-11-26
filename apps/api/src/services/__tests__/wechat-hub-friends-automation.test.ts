@@ -244,6 +244,8 @@ describe('acceptFriendRequest（写路径四道闸）', () => {
       )
     const view = await acceptFriendRequest('u1', 'acc-1', 'r1')
     expect(view).toMatchObject({ ok: true, status: 'accepted', requestId: 'r1' })
+    // 回执带剩余额度：本次刚用掉 1 个，小时上限 3 ⇒ 剩 2；日上限缺省 10 ⇒ 剩 9
+    expect(view).toMatchObject({ remainingThisHour: 2, remainingToday: 9 })
     expect(hoisted.performAction.mock.calls[1]).toMatchObject(['u1', 'acc-1', 'friend.accept', { requestId: 'r1' }])
     const patch = hoisted.patchMetadata.mock.calls[0]?.[1] as {
       friendAutomation: { audit: WechatFriendAuditEntry[] }

@@ -414,6 +414,10 @@ export interface WechatFriendAcceptView {
   requestId: string
   reason: string | null
   errorCode: string | null
+  /** 回执里的剩余今日额度（成功/失败都返回，前端据此提示「今天还能通过几个」）。 */
+  remainingToday?: number
+  /** 回执里的剩余本小时额度。 */
+  remainingThisHour?: number
 }
 
 /** 好友自动化策略：默认关，开启后才允许点客户端。 */

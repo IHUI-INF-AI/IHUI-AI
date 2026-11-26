@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl'
 import { AlertTriangle, ArrowUpRight } from 'lucide-react'
 import { listBrowserCheckpointAttention, type BrowserCheckpointAttention } from '@ihui/api-client'
 
+import { isTauri } from '@/lib/tauri-bridge'
 import { useWorkPanelStore } from '@/stores/work-panel'
 
 const POLL_MS = 5_000
@@ -62,14 +63,43 @@ export function BrowserCheckpointNotice() {
   }, [])
 
   // 画中画里点「已处理,继续」后，同一窗口立即撤掉提示；失败时下一次轮询会把它带回来。
+  // 原生画中画是独立 Tauri 窗口，本地 CustomEvent 出不了那个 webview，所以桌面端
+  // 额外通过 Tauri 事件总线把 sessionId 发到 main 窗口，避免多等一轮 5 秒轮询。
   useEffect(() => {
-    const onResumed = (event: Event) => {
-      const sessionId = (event as CustomEvent<{ sessionId?: string }>).detail?.sessionId
+    let disposed = false
+    let unlisten: (() => void) | undefined
+
+    const dismiss = (sessionId?: string) => {
       if (!sessionId) return
       setRows((prev) => prev.filter((row) => row.session_id !== sessionId))
     }
+
+    const onResumed = (event: Event) => {
+      dismiss((event as CustomEvent<{ sessionId?: string }>).detail?.sessionId)
+    }
     window.addEventListener('ihui:browser-checkpoint-resumed', onResumed)
-    return () => window.removeEventListener('ihui:browser-checkpoint-resumed', onResumed)
+
+    if (isTauri()) {
+      void import('@tauri-apps/api/event')
+        .then(({ listen }) =>
+          listen<{ sessionId?: string }>('ihui:browser-checkpoint-resumed', (event) => {
+            dismiss(event.payload?.sessionId)
+          }),
+        )
+        .then((stop) => {
+          if (disposed) stop()
+          else unlisten = stop
+        })
+        .catch(() => {
+          // 事件总线不可用时保留轮询兜底，不影响提示条主链路。
+        })
+    }
+
+    return () => {
+      disposed = true
+      unlisten?.()
+      window.removeEventListener('ihui:browser-checkpoint-resumed', onResumed)
+    }
   }, [])
 
   const onHandle = useCallback(() => {
