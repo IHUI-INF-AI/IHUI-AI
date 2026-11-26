@@ -334,6 +334,87 @@ async def test_checkpoint_route_rejects_unknown_id(api):
     assert res.json()["detail"].startswith("checkpoint_not_found:")
 
 
+async def test_start_template_auto_creates_session_when_none_exists(api, monkeypatch):
+    created: dict[str, Any] = {}
+
+    async def fake_create_session(url=None, owner_user_id=None, **_kwargs):
+        session = FakeSession()
+        session.session_id = "auto-1"
+        session._url = url
+        created.update(url=url, owner=owner_user_id, session=session)
+        return session
+
+    async def fake_persist():
+        return None
+
+    monkeypatch.setattr(browser_hub_router.hub, "create_session", fake_create_session)
+    monkeypatch.setattr(browser_hub_router.hub, "list_sessions", lambda _user_id: [])
+    monkeypatch.setattr(browser_hub_router.hub, "persist_sessions", fake_persist)
+    res = await api.post(
+        "/api/browser/task-templates/login-handoff/start",
+        json={"url": "https://example.com/"},
+    )
+    assert res.status_code == 200
+    data = res.json()["data"]
+    assert data["session_id"] == "auto-1"
+    assert data["auto_created"] is True
+    assert data["task"]["template_id"] == "login-handoff"
+    assert created["url"] == "https://example.com/"
+    assert created["owner"] == "u-route"
+
+
+async def test_start_template_reuses_existing_session_without_creating(api, monkeypatch):
+    called = {"create": 0}
+
+    async def should_not_create(**_kwargs):
+        called["create"] += 1
+        raise AssertionError("已有会话时不得新建")
+
+    async def fake_persist():
+        return None
+
+    monkeypatch.setattr(browser_hub_router.hub, "create_session", should_not_create)
+    monkeypatch.setattr(browser_hub_router.hub, "persist_sessions", fake_persist)
+    res = await api.post(
+        "/api/browser/task-templates/form-commit/start",
+        json={"session_id": "tab-1"},
+    )
+    assert res.status_code == 200
+    data = res.json()["data"]
+    assert data["session_id"] == "tab-1"
+    assert data["auto_created"] is False
+    assert data["task"]["template_id"] == "form-commit"
+    assert called["create"] == 0
+
+
+async def test_start_template_auto_create_failure_closes_created_session(api, monkeypatch):
+    class BadSession(FakeSession):
+        async def start_task(self, payload):
+            raise TaskValidationError("task_invalid_goal", "goal 不能为空")
+
+    session = BadSession()
+    session.session_id = "auto-bad"
+    closed: list[str] = []
+
+    async def fake_create_session(**_kwargs):
+        return session
+
+    async def fake_close_session(session_id, owner_user_id=None):
+        closed.append(session_id)
+        return True
+
+    monkeypatch.setattr(browser_hub_router.hub, "create_session", fake_create_session)
+    monkeypatch.setattr(browser_hub_router.hub, "list_sessions", lambda _user_id: [])
+    monkeypatch.setattr(browser_hub_router.hub, "close_session", fake_close_session)
+    res = await api.post(
+        "/api/browser/task-templates/login-handoff/start",
+        json={},
+    )
+    assert res.status_code == 400
+    assert res.json()["detail"].startswith("task_invalid_goal:")
+    assert closed == ["auto-bad"]
+
+
 async def test_cross_owner_route_is_404_not_403(api, monkeypatch):
     def deny(_scope):
         raise BrowserTabScopeError(TAB_SCOPE_OWNER_MISMATCH, "tab-1")

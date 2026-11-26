@@ -217,6 +217,36 @@ export interface BindBrowserTaskRequest {
   checkpoint_timeout_seconds?: number
 }
 
+/** 按模板开监看:没有现成会话时由服务端自动创建 */
+export interface StartBrowserTaskTemplateRequest {
+  session_id?: string
+  url?: string
+  goal?: string
+  checkpoint_timeout_seconds?: number
+}
+
+export interface StartBrowserTaskTemplateResult {
+  session_id: string
+  url: string
+  title: string
+  auto_created: boolean
+  task: BrowserTaskSnapshot
+}
+
+/** 一键按模板开监看(有会话复用,无会话自动建) */
+export async function startBrowserTaskTemplate(
+  templateId: string,
+  req: StartBrowserTaskTemplateRequest = {},
+): Promise<ApiResult<StartBrowserTaskTemplateResult>> {
+  return fetchApi<StartBrowserTaskTemplateResult>(
+    `/api/browser/task-templates/${encodeURIComponent(templateId)}/start`,
+    {
+      method: 'POST',
+      body: JSON.stringify(req),
+    },
+  )
+}
+
 /** 任务模板目录(内置只读 + 当前用户自定义) */
 export async function listBrowserTaskTemplates(): Promise<
   ApiResult<{ templates: BrowserTaskTemplate[]; count: number }>

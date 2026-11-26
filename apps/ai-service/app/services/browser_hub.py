@@ -56,6 +56,11 @@ from playwright.sync_api import (
 )
 
 from ..core.logging import get_logger
+from .browser_secret_store import (
+    StorageStateError,
+    decrypt_storage_state,
+    encrypt_storage_state,
+)
 from .browser_task import (
     CHECKPOINT_WAIT_TIMEOUT_SECONDS,
     TaskValidationError,
@@ -1499,6 +1504,21 @@ class BrowserSession:
             "phase_source": self._phase_source,
         }
 
+    async def capture_storage_state(self) -> dict[str, Any] | None:
+        """抓取 Cookie/localStorage 快照;失败返回 None,由调用方保留旧密文。
+
+        必须在专用线程里跑:sync_playwright 对象不能跨线程。
+        """
+        def _sync() -> dict[str, Any] | None:
+            try:
+                state = self._context.storage_state()
+                return state if isinstance(state, dict) else None
+            except Exception as exc:  # noqa: BLE001
+                logger.debug(f"[browser_hub] 抓取 storage_state 失败 {self.session_id}: {exc}")
+                return None
+
+        return await self._run_sync(_sync)
+
     def restore_persisted_state(self, record: dict[str, Any]) -> None:
         """启动恢复:任务与 phase 原样接回,检查点等待继续计时。"""
         task = record.get("task")
@@ -2305,6 +2325,7 @@ class BrowserHub:
                     continue
                 url = str(existing.get("url") or "about:blank")
                 title = str(existing.get("title") or "")
+            storage_state = await session.capture_storage_state()
             row = {
                 **existing,
                 "session_id": sid,
@@ -2313,6 +2334,12 @@ class BrowserHub:
                 "title": title,
                 "updated_at": now,
             }
+            if storage_state:
+                try:
+                    row["storage_state"] = encrypt_storage_state(storage_state)
+                except StorageStateError as exc:
+                    logger.warning(f"[browser_hub] 会话 {sid} 登录态加密失败,保留旧密文: {exc}")
+            # 抓不到或加密失败时保留 existing 里的密文;不能用空状态覆盖登录态。
             row.update(session.persisted_state())
             self._persisted_sessions[sid] = row
             rows.append(row)
@@ -2374,6 +2401,14 @@ class BrowserHub:
                 self._persisted_sessions.pop(sid, None)
                 continue
             try:
+                storage_state: dict[str, Any] | None = None
+                token = str(row.get("storage_state") or "")
+                if token:
+                    try:
+                        storage_state = decrypt_storage_state(token)
+                    except StorageStateError as exc:
+                        # 密钥丢失/密文损坏时仍恢复页面与任务,但不能假装登录态还在。
+                        logger.warning(f"[browser_hub] 恢复会话 {sid} 的登录态失败: {exc}")
                 session = await self.create_session(
                     url=str(row.get("url") or "") or None,
                     session_id=sid,
@@ -2382,6 +2417,7 @@ class BrowserHub:
                     owner_user_id=owner,
                     chat_session_id=str(row.get("chat_session_id") or "") or None,
                     dedupe=False,
+                    storage_state=storage_state,
                 )
                 session.restore_persisted_state(row)
                 logger.info(f"[browser_hub] 已恢复会话 {sid} ({row.get('url') or 'about:blank'})")
@@ -2400,6 +2436,7 @@ class BrowserHub:
         owner_user_id: str | None = None,
         chat_session_id: str | None = None,
         dedupe: bool = True,
+        storage_state: dict[str, Any] | None = None,
     ) -> BrowserSession:
         """创建新的浏览器会话(带 URL 幂等去重)。
 
@@ -2410,6 +2447,10 @@ class BrowserHub:
         `__session_id` 同型;HTTP 主链路没有这一路输入,传 None)。创建即登记到
         `_tab_registry`,此后动作面只认登记;幂等复用档也必须同会话态才对上,
         否则 A 会话开的 tab 会被 B 会话的重复创建请求直接接走。
+
+        2026-11-26:内部恢复路径可传 `storage_state`(Cookie/localStorage),
+        让 AI-SERVICE 重启后不是只恢复一个未登录的 URL,而是接回原浏览器状态。
+        这是内部参数,不暴露到 HTTP 请求体。
         """
         if not self._started or not self._browser:
             await self.start()
@@ -2478,6 +2519,7 @@ class BrowserHub:
             viewport=vp,
             user_agent=ua,
             owner_user_id=owner_user_id,
+            storage_state=storage_state,
         )
 
         self._sessions[session_id] = session
@@ -2512,6 +2554,7 @@ class BrowserHub:
         viewport: dict[str, int],
         user_agent: str,
         owner_user_id: str | None = None,
+        storage_state: dict[str, Any] | None = None,
     ) -> BrowserSession:
         """创建独立 BrowserContext 会话;初始导航命中反爬/风控墙时自动重建。
 
@@ -2522,12 +2565,16 @@ class BrowserHub:
         assert browser is not None
 
         def _sync_create() -> tuple[BrowserContext, Page]:
-            context = browser.new_context(
-                viewport=cast(ViewportSize, viewport),
-                locale="zh-CN",
-                timezone_id="Asia/Shanghai",
-                user_agent=user_agent,
-            )
+            context_kwargs: dict[str, Any] = {
+                "viewport": cast(ViewportSize, viewport),
+                "locale": "zh-CN",
+                "timezone_id": "Asia/Shanghai",
+                "user_agent": user_agent,
+            }
+            # 只在恢复/重建路径注入;空对象没有意义,反而让新会话多拷一份空状态。
+            if storage_state:
+                context_kwargs["storage_state"] = storage_state
+            context = browser.new_context(**context_kwargs)
             # 2026-08-02 fix:隐藏 webdriver + 补齐指纹(抖音/微信等对自动化检测严格,
             # headless Playwright 默认 webdriver=true 会被风控拦截)
             context.add_init_script(_ANTI_DETECT_SCRIPT)
@@ -2594,6 +2641,14 @@ class BrowserHub:
             vp = old.viewport
             old_state = old.persisted_state()
             old_record = self._persisted_sessions.get(session_id) or {}
+            # 先抓旧 context 的 Cookie/localStorage,再用它建新 context。
+            # 风控重建不能把用户刚登录好的状态丢掉,否则"刷新一次就退出登录"。
+            old_storage = await old.capture_storage_state()
+            if not old_storage and old_record.get("storage_state"):
+                try:
+                    old_storage = decrypt_storage_state(str(old_record["storage_state"]))
+                except StorageStateError as exc:
+                    logger.warning(f"[browser_hub] 重建会话 {session_id} 登录态解密失败: {exc}")
             await self._close_session_internal(session_id, forget=True)
             new_id = str(uuid.uuid4())
             session = await self._build_session(
@@ -2602,15 +2657,22 @@ class BrowserHub:
                 viewport=vp,
                 user_agent=old._user_agent,
                 owner_user_id=old.owner_user_id,
+                storage_state=old_storage,
             )
             session.restore_persisted_state(old_state)
             self._sessions[new_id] = session
-            self._persisted_sessions[new_id] = {
+            new_record = {
                 **old_record,
                 "session_id": new_id,
                 "url": url or old_record.get("url") or "about:blank",
                 "updated_at": time.time(),
             }
+            if old_storage:
+                try:
+                    new_record["storage_state"] = encrypt_storage_state(old_storage)
+                except StorageStateError as exc:
+                    logger.warning(f"[browser_hub] 重建会话 {session_id} 登录态加密失败: {exc}")
+            self._persisted_sessions[new_id] = new_record
             self._register_tab(
                 new_id,
                 old.owner_user_id,
