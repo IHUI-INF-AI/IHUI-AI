@@ -8,7 +8,7 @@ export {
   DEFAULT_KILL_GRACE_MS,
   DEFAULT_PERMISSION_TIMEOUT_MS,
   DEFAULT_STDERR_LIMIT,
-} from './query.js';
+} from './query.js'
 export type {
   AgentEvent,
   CanUseTool,
@@ -16,9 +16,9 @@ export type {
   QueryOptions,
   QueryResult,
   ToolPermissionRequest,
-} from './query.js';
+} from './query.js'
 
-export { AgentSdkError, JsonRpcPeer, NdjsonDecoder, encodeMessage } from './protocol.js';
+export { AgentSdkError, JsonRpcPeer, NdjsonDecoder, encodeMessage } from './protocol.js'
 export type {
   AgentSdkErrorCode,
   AgentSdkErrorOptions,
@@ -39,5 +39,13 @@ export type {
   PermissionOptionKind,
   SessionUpdate,
   StopReason,
-} from './protocol.js';
+} from './protocol.js'
+
+export {
+  APPROVAL_QUEUES,
+  ApprovalChannel,
+  ApprovalChannelError,
+  assertApprovalRequest,
+} from './approval-channel.js'
+export type { ApprovalQueue, ApprovalRequest, ChannelTrust } from './approval-channel.js'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
