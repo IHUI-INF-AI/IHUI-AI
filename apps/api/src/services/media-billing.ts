@@ -18,6 +18,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import {
   getActivePointsHoldAmount,
+  getPointsHoldPricingSnapshot,
   releasePointsHold,
   reservePointsUsage,
   settlePointsUsage,
@@ -100,6 +101,13 @@ export async function ensureMediaPointsBalance(
       referenceId: request.id,
       modelId,
       ttlMs: MEDIA_HOLD_TTL_MS,
+      pricingSnapshot: {
+        category,
+        units: quote.units,
+        unitPricePoints: quote.unitPricePoints,
+        videoUnit: quote.videoUnit ?? null,
+        frozenAt: new Date().toISOString(),
+      },
     })
     // 同 LLM:request.id 可被客户端伪造复用,已结算/在跑的引用不能再放上游。
     if (reservation.alreadySettled) {
@@ -153,6 +161,30 @@ export async function ensureMediaPointsBalance(
  * `referenceId` 必须是稳定唯一的业务引用(任务 id / request.id)；
  * `holdReferenceId` 默认 request.id，与预检冻结的 hold 对齐。
  */
+/**
+ * 用预扣时的单位价快照重建报价。管理员在 60 分钟冻结窗口内调价/下架,
+ * 结算仍按用户预检时确认的价格,不按新价补差。
+ */
+function quoteFromHoldSnapshot(
+  snapshot: Record<string, unknown> | null,
+  category: MediaCategory,
+  units: number,
+): MediaPointsQuote | null {
+  if (!snapshot || snapshot.category !== category) return null
+  const unit = snapshot.unitPricePoints
+  if (typeof unit !== 'number' || !Number.isFinite(unit) || unit <= 0) return null
+  return quoteMediaPoints({
+    category,
+    units,
+    pricing: {
+      billingMode: requiredBillingMode(category),
+      perUnitPrice: unit,
+      videoUnit: snapshot.videoUnit === 'second' ? 'second' : 'call',
+      costUnitPrice: null,
+    },
+  })
+}
+
 export async function chargeMediaPoints(
   request: FastifyRequest,
   modelId: string,
@@ -161,9 +193,16 @@ export async function chargeMediaPoints(
   referenceId: string,
   holdReferenceId = request.id,
 ): Promise<number> {
-  const quote = await resolveMediaPointsQuote(modelId, category, units)
   const userId = request.userId
   if (!userId || !referenceId) return 0
+  const snapshot = await getPointsHoldPricingSnapshot({
+    userId,
+    source: MEDIA_BILLING_SOURCE,
+    referenceId: holdReferenceId,
+  })
+  const quote =
+    quoteFromHoldSnapshot(snapshot, category, units) ??
+    (await resolveMediaPointsQuote(modelId, category, units))
   if (!quote) {
     // 预检时已有定价、产物交付时定价行刚好过期/被下架:不能 0 元放走。
     // 按开工前冻结的金额结算(那是用户当时确认过的最高价),无 hold 才留告警。

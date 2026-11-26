@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   settlePointsUsage: vi.fn(),
   reservePointsUsage: vi.fn(),
   releasePointsHold: vi.fn(async () => 0),
+  getPointsHoldPricingSnapshot: vi.fn(async () => null),
+  getActivePointsHoldAmount: vi.fn(async () => null),
   findActivePricingForMode: vi.fn(),
   getSpendableBalance: vi.fn(),
   recordAiCost: vi.fn(async () => ({ cost: 1, currency: 'CNY' })),
@@ -21,6 +23,8 @@ vi.mock('../src/services/points-service.js', () => ({
   settlePointsUsage: mocks.settlePointsUsage,
   reservePointsUsage: mocks.reservePointsUsage,
   releasePointsHold: mocks.releasePointsHold,
+  getPointsHoldPricingSnapshot: mocks.getPointsHoldPricingSnapshot,
+  getActivePointsHoldAmount: mocks.getActivePointsHoldAmount,
 }))
 
 vi.mock('../src/services/pricing-service.js', () => ({
@@ -79,6 +83,8 @@ describe('媒体积分结算', () => {
       alreadyHeld: false,
     })
     mocks.recordAiCost.mockClear()
+    mocks.getPointsHoldPricingSnapshot.mockReset().mockResolvedValue(null)
+    mocks.getActivePointsHoldAmount.mockReset().mockResolvedValue(null)
   })
 
   it('成功后按报价金额走 settlePointsUsage(source=ai_media)', async () => {
@@ -94,6 +100,39 @@ describe('媒体积分结算', () => {
         referenceId: 'img:task-1',
         holdReferenceId: undefined,
       }),
+    )
+  })
+
+  it('按预扣快照单价结算,窗口内调价不影响在途任务', async () => {
+    mocks.getPointsHoldPricingSnapshot.mockResolvedValueOnce({
+      category: 'image',
+      unitPricePoints: 50,
+      videoUnit: null,
+    })
+    // 当前价已涨到 999,但在途任务仍按冻结时 50 分/张结算
+    mocks.findActivePricingForMode.mockResolvedValueOnce({
+      billingMode: 'per_image',
+      perUnitPrice: 999,
+      videoUnit: null,
+    })
+    mocks.settlePointsUsage.mockResolvedValueOnce({
+      deducted: 100,
+      remaining: 0,
+      shortfall: 0,
+      alreadySettled: false,
+    })
+    const result = await chargeMediaPoints(
+      makeRequest(),
+      'gpt-image-1',
+      'image',
+      2,
+      'img:task-snap',
+    )
+    expect(mocks.getPointsHoldPricingSnapshot).toHaveBeenCalled()
+
+    expect(result).toBe(100)
+    expect(mocks.settlePointsUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 100, referenceId: 'img:task-snap' }),
     )
   })
 

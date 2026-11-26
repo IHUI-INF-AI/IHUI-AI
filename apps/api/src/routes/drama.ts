@@ -12,6 +12,7 @@ import {
   analyzePacing,
   suggestChapterOutline,
 } from '../services/ai/plot-advisor-service.js'
+import { callRealLlm } from '../services/crew-llm-adapter.js'
 
 const enhanceBodySchema = z.object({
   title: z.transform(emptyToUndefined).pipe(z.string().optional()),
@@ -66,39 +67,24 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
       const { content, instruction } = parsed.data
 
       let rewritten: string
-      const aiServiceUrl = process.env.AI_SERVICE_URL
-      if (aiServiceUrl) {
-        try {
-          const prompt = instruction
-            ? `改写以下剧本对白,要求:${instruction}。只返回改写后的对白文本,不要解释。\n\n原文:${content}`
-            : `优化以下剧本对白,使其更自然生动。只返回改写后的对白文本,不要解释。\n\n原文:${content}`
-          const llmResp = await fetch(`${aiServiceUrl}/api/llm/complete`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              messages: [{ role: 'user', content: prompt }],
-              metadata: { source: 'drama-enhance-line', scriptId: id, sceneIndex, lineIndex },
-            }),
-          })
-          if (llmResp.ok) {
-            const llmData = (await llmResp.json().catch(() => ({}))) as {
-              content?: string
-              result?: string
-            }
-            const llmText = (llmData.content ?? llmData.result ?? '').trim()
-            rewritten = llmText || content
-          } else {
-            request.log.warn(
-              { status: llmResp.status },
-              'drama enhanceLine LLM 调用失败,降级为原文',
-            )
-            rewritten = content
-          }
-        } catch (e) {
-          request.log.warn({ err: e }, 'drama enhanceLine LLM 异常,降级为原文')
-          rewritten = content
-        }
-      } else {
+      try {
+        const prompt = instruction
+          ? `改写以下剧本对白,要求:${instruction}。只返回改写后的对白文本,不要解释。\n\n原文:${content}`
+          : `优化以下剧本对白,使其更自然生动。只返回改写后的对白文本,不要解释。\n\n原文:${content}`
+        // 2026-11-26:改走 callRealLlm,统一预扣/结算(crew_llm),不再直连 ai-service 免费调用。
+        const result = await callRealLlm({
+          messages: [{ role: 'user', content: prompt }],
+          maxTokens: 800,
+          temperature: 0.7,
+          userId: request.userId,
+          request,
+          sessionId: `drama:${id}:${sceneIndex}:${lineIndex}`,
+        })
+        const llmText = (result.content ?? '').trim()
+        rewritten = llmText || content
+      } catch (e) {
+        // 余额不足/未定价/上游失败:不阻断改写功能,降级为原文;预扣 hold 由 callRealLlm 释放。
+        request.log.warn({ err: e }, 'drama enhanceLine LLM 异常,降级为原文')
         rewritten = content
       }
 

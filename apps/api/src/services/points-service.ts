@@ -86,6 +86,8 @@ export interface ReservePointsUsageInput {
   /** 稳定唯一引用;重试同一引用只冻结一次 */
   referenceId: string
   modelId?: string
+  /** 预扣时的费率/单位价快照,结算按其计算 */
+  pricingSnapshot?: Record<string, unknown>
   /** 冻结时长,默认 15 分钟 */
   ttlMs?: number
 }
@@ -215,6 +217,7 @@ export async function reservePointsUsage(
         referenceId: input.referenceId,
         modelId: input.modelId ?? null,
         amount,
+        pricingSnapshot: input.pricingSnapshot ?? null,
         status: 'held',
         expiresAt,
       })
@@ -230,6 +233,61 @@ export async function reservePointsUsage(
       shortfall: 0,
     }
   })
+}
+
+/** 查询一笔仍生效的冻结(含预扣快照);用于结算按原报价而非当前价。 */
+export async function getActivePointsHold(input: {
+  userId: string
+  source: string
+  referenceId: string
+}): Promise<{ amount: number; pricingSnapshot: Record<string, unknown> | null } | null> {
+  const [hold] = await db
+    .select({
+      amount: pointHolds.amount,
+      pricingSnapshot: pointHolds.pricingSnapshot,
+    })
+    .from(pointHolds)
+    .where(
+      and(
+        eq(pointHolds.userId, input.userId),
+        eq(pointHolds.source, input.source),
+        eq(pointHolds.referenceId, input.referenceId),
+        eq(pointHolds.status, 'held'),
+      ),
+    )
+    .limit(1)
+  if (!hold) return null
+  return {
+    amount: hold.amount,
+    pricingSnapshot:
+      typeof hold.pricingSnapshot === 'object' && hold.pricingSnapshot !== null
+        ? (hold.pricingSnapshot as Record<string, unknown>)
+        : null,
+  }
+}
+
+/** 查询最近一笔预扣的定价快照(含已过期/已释放),结算按当时报价,不受调价影响。 */
+export async function getPointsHoldPricingSnapshot(input: {
+  userId: string
+  source: string
+  referenceId: string
+}): Promise<Record<string, unknown> | null> {
+  const [hold] = await db
+    .select({ pricingSnapshot: pointHolds.pricingSnapshot })
+    .from(pointHolds)
+    .where(
+      and(
+        eq(pointHolds.userId, input.userId),
+        eq(pointHolds.source, input.source),
+        eq(pointHolds.referenceId, input.referenceId),
+      ),
+    )
+    .orderBy(sql`${pointHolds.createdAt} desc`)
+    .limit(1)
+  if (!hold || typeof hold.pricingSnapshot !== 'object' || hold.pricingSnapshot === null) {
+    return null
+  }
+  return hold.pricingSnapshot as Record<string, unknown>
 }
 
 /** 查询一笔仍生效的冻结额;用于产物已交付但定价行临时失效时按预扣额结算。 */
@@ -507,4 +565,57 @@ export async function settlePointsUsage(
 
     return { deducted, remaining: availableOf(updated), shortfall, alreadySettled: false }
   })
+}
+
+/**
+ * 批量回收过期冻结 + 清理历史行(2026-11-26 立)。
+ *
+ * 原来只有用户下次请求时懒释放,长期不活跃用户的 `held` 会一直占着
+ * `reserved_points`,历史 settled/released 行也会无限增长。本函数供每日任务调用:
+ * - 过期 held → expired,并按用户汇总回退 reserved(一条语句,避免 N 次往返);
+ * - 非 held 且超过保留期的行直接删除(默认 90 天,审计期内保留)。
+ */
+export async function cleanupPointHolds(options?: {
+  retentionDays?: number
+}): Promise<{ expired: number; releasedPoints: number; deleted: number }> {
+  const retentionDays = Math.min(Math.max(Math.trunc(options?.retentionDays ?? 90), 7), 365)
+  const expiredRes = await db.execute(sql`
+    with expired as (
+      update point_holds
+      set status = 'expired', settled_at = now()
+      where status = 'held' and expires_at < now()
+      returning user_id, amount
+    ),
+    agg as (
+      select user_id, count(*)::int as holds, sum(amount)::int as total
+      from expired
+      group by user_id
+    )
+    update user_points p
+    set reserved_points = greatest(p.reserved_points - agg.total, 0),
+        updated_at = now()
+    from agg
+    where p.user_id = agg.user_id
+    returning agg.total, agg.holds
+  `)
+  const expiredRows =
+    (expiredRes as unknown as { rows?: Array<{ total: number; holds: number }> }).rows ??
+    (Array.isArray(expiredRes)
+      ? (expiredRes as unknown as Array<{ total: number; holds: number }>)
+      : [])
+  const releasedPoints = expiredRows.reduce((sum, r) => sum + Number(r.total ?? 0), 0)
+  const expired = expiredRows.reduce((sum, r) => sum + Number(r.holds ?? 0), 0)
+
+  const deleteRes = await db.execute(sql`
+    delete from point_holds
+    where status <> 'held'
+      and settled_at is not null
+      and settled_at < now() - (${retentionDays}::int * interval '1 day')
+  `)
+  const deleted = Number(
+    (deleteRes as unknown as { rowCount?: number }).rowCount ??
+      (deleteRes as unknown as { rows?: unknown[] }).rows?.length ??
+      0,
+  )
+  return { expired, releasedPoints, deleted }
 }

@@ -51,7 +51,8 @@
 - 调用前按 **prompt 估算 + 客户端声明的 max_tokens** 冻结，而不是只查 prompt 余额。
 - `max_tokens` 兼容 `max_tokens` / `max_completion_tokens` / `maxTokens` / `max_output_tokens`；未传默认 4096，硬上限 131072。
 - 冻结写入 `user_points.reserved_points` 与 `point_holds`；可用余额 = `points + 当日 daily_points - reserved_points`。
-- 冻结 TTL 15 分钟，到期由 `releaseExpiredPointHolds` 懒释放；释放与冻结都在 `user_points` 行锁内完成，避免并发误释放。
+- 冻结 TTL 15 分钟，到期由 `releaseExpiredPointHolds` 懒释放；每日 `pricing-guard` 任务再跑一次 `cleanupPointHolds`，把长期不活跃用户的过期 hold 批量置 `expired` 并回退 `reserved_points`，同时删除 90 天前的历史行。
+- 冻结时把当次费率写入 `point_holds.pricing_snapshot`（输入/输出积分每千 token、`pricing_model_id`、冻结时间）；结算优先按快照算，管理员在 15 分钟窗口内调价不会改变在途请求的扣费。
 - 预检结果：
   - 无成本价 → `503 MODEL_PRICING_MISSING`，不发起上游；
   - 定价异常 → `503 MODEL_PRICING_INVALID`；
@@ -62,6 +63,7 @@
 ### 2.3 结算
 
 - 上游成功后按**真实 usage** 结算：先释放 hold 的 `reserved`，再按实际积分扣当日赠送、再扣永久积分；多冻结部分自动退回。
+- 结算费率优先取 `point_holds.pricing_snapshot`；快照缺失（老数据/无 hold 的异步回调）才读当前费率。快照存在时不再查实时价，避免“预检一个价、结算另一个价”。
 - 余额不足时部分结算：扣到 0，`shortfall` 返回日志/任务 metadata，不产生负余额。
 - 上游成功但没有 usage：
   - 同步代理按 `total_tokens`；没有总量则按字符数估算；
@@ -114,7 +116,7 @@
 
 ### 3.3 预检、冻结与结算
 
-- 预检按本次报价冻结，TTL **60 分钟**（视频排队+生成可能超过 15 分钟）。
+- 预检按本次报价冻结，TTL **60 分钟**（视频排队+生成可能超过 15 分钟）；冻结时把 `category / unit_price_points / video_unit / units` 写入 `pricing_snapshot`，结算按快照单价重算，窗口内调价/下架不影响在途任务。
 - 预检余额不足 402；无价 503；同 `request.id` 重复提交 409。
 - 产物成功后按 `taskId`（或业务引用）幂等结算；`holdReferenceId` 默认 `request.id`，与预扣对齐。
 - 产物已交付但定价行在结算时失效：按**预扣额**结算，不允许 0 元放走；只有连预扣都没有时才留成本告警。
@@ -135,7 +137,16 @@
 
 这些行的 `cost_unit_price` 暂为 `NULL`：成本账会标 `unknown`，不会伪装成 0。其余动态媒体模型（Kling、Runway、Luma、Vidu、PixVerse、Flux、Recraft、Bria、Stability 等）**必须在 `ai_pricing` 有对应行才能卖**；没有就 503，这是有意的“未定价不卖”，不是故障。
 
-### 3.5 MAGI-2
+### 3.5 后台定价护栏（2026-11-26 加固）
+
+- `POST /admin/ai-pricing/upsert`：`token` 模式必须同时给 `inputTokenPrice > 0`、`outputTokenPrice > 0`；`per_image` / `per_video` 的 `perUnitPrice` 与 `per_call` 的三档价也必须全大于 0。零价不再能通过接口写入。
+- 媒体写入时若带 `costUnitPrice > 0`，任何一档零售价都必须 `>= 成本 × 3`；低于成本加成线直接 400，避免后台把在架媒体改成负毛利。
+- `PATCH /admin/ai-pricing/models/:id`（人工调价）：输入/输出两个方向都必须大于 0，服务层 `updateModelPrice` 同一判据再兜一层，绕过路由也写不进零价。
+- `assertPricedForPublish` 继续拦截上架零价/1分2分占位价；`getUnpricedAlerts` 每日巡检在架零价与近 7 天零价调用。
+- `GET /admin/ai-pricing/missing-costs?days=30&limit=500`：列出 `cost_input/output_price_per_1k` 任一为 `NULL` 的启用模型，按近 N 天调用量排序。这些模型会被 LLM 计费 fail-closed（503），运营按榜单补成本价即可恢复售卖。
+- `GET /admin/ai-pricing/models?onlyProblems=true` 仍可查人工调价问题行；成本回填用 `backfillCostPrices`。
+
+### 3.6 MAGI-2
 
 - 别名：`magi-2` / `magi-2-preview` / `magi-2-preview-latest`。
 - `per_video`、`video_unit='second'`、`per_unit_price=74 分/秒`；30 秒约 2,220 积分（¥22.20）。
@@ -183,7 +194,8 @@
 
 | 场景 | 行为 |
 | --- | --- |
-| LLM 无成本定价 | 503 `MODEL_PRICING_MISSING`，不发起上游 |
+| LLM 无成本定价 | 503 `MODEL_PRICING_MISSING`，不发起上游；后台 `missing-costs` 出补价清单 |
+| 后台写零价/负价 | 400 拒绝；`updateModelPrice` 服务层再次拒绝，绕过路由也写不进 |
 | LLM 余额不足 | 402 `INSUFFICIENT_POINTS`，不发起上游 |
 | 同 `referenceId` 已结算/在跑 | 409 `DUPLICATE_REQUEST` / `REQUEST_IN_PROGRESS`，不放上游 |
 | LLM 上游 5xx/超时/4xx | 释放 hold，不扣分 |

@@ -38,6 +38,7 @@ import {
   backfillCallCosts,
   getChannelCostReport,
   getUnpricedAlerts,
+  getMissingCostModels,
   syncConfigPricesFromPricing,
   type ChannelGroupBy,
   listModelPricing,
@@ -364,6 +365,30 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
+  // GET /ai-pricing/missing-costs - 缺上游成本价的启用模型清单(2026-11-26 立)
+  // 这些模型会被 LLM 计费层 fail-closed(503);按近 N 天调用量排序,供运营补价。
+  server.get(
+    '/ai-pricing/missing-costs',
+    {
+      schema: {
+        summary: '缺成本价的启用模型清单',
+        description:
+          '列出 cost_input/output_price_per_1k 任一为 null 的启用模型。缺成本价时 LLM 计费 fail-closed,调用会返回 503。',
+        tags: ['admin'],
+      },
+    },
+    async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>
+      const days = q['days'] ? Number(q['days']) : 30
+      const limit = q['limit'] ? Number(q['limit']) : 500
+      const data = await getMissingCostModels({
+        days: Number.isFinite(days) ? days : 30,
+        limit: Number.isFinite(limit) ? limit : 500,
+      })
+      return reply.send(success(data))
+    },
+  )
+
   // GET /ai-pricing/models - 定价列表(问题行优先排序)
   server.get(
     '/ai-pricing/models',
@@ -415,6 +440,11 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       }
       if (b.inputPer1k < 0 || b.outputPer1k < 0) {
         return reply.status(400).send(error(400, '价格不能为负'))
+      }
+      if (!(b.inputPer1k > 0) || !(b.outputPer1k > 0)) {
+        return reply
+          .status(400)
+          .send(error(400, '人工调价必须同时给出大于 0 的输入/输出价;免费模型不再允许'))
       }
       const result = await updateModelPrice({
         modelRowId: Number(params.id),
@@ -606,7 +636,47 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
               .send(error(400, 'per_call 模式必须提供完整 tieredCallPrices 三档(均大于 0)'))
           }
         }
-        // token 模式沿用既有语义:未传单价按 0 处理(免费模型),历史行为不变
+        // 成本加成底线:成本已知时,任何一档零售价都不得低于成本 ×3;
+        // 否则后台可以把媒体价改成负毛利,预扣时看着有价、实际每单赔钱。
+        const costUnit = b.costUnitPrice
+        if (typeof costUnit === 'number' && Number.isFinite(costUnit) && costUnit > 0) {
+          const floor = costUnit * 3
+          let lowest: number | null = null
+          if (billingMode === 'per_image' || billingMode === 'per_video') {
+            lowest = typeof b.perUnitPrice === 'number' ? b.perUnitPrice : null
+          } else if (billingMode === 'per_call' && b.tieredCallPrices) {
+            lowest = Math.min(
+              b.tieredCallPrices.le256k,
+              b.tieredCallPrices.mid,
+              b.tieredCallPrices.gt512k,
+            )
+          }
+          if (lowest !== null && lowest < floor) {
+            return reply
+              .status(400)
+              .send(
+                error(
+                  400,
+                  `零售价不能低于成本×3(成本 ${costUnit} 分/单位,最低 ${floor} 分/单位);请提高售价或修正成本价`,
+                ),
+              )
+          }
+        }
+        // token 模式从 2026-11-26 起强制双价大于 0:系统内不再保留免费模型。
+        if (billingMode === 'token') {
+          const pin = b.inputTokenPrice
+          const pout = b.outputTokenPrice
+          if (typeof pin !== 'number' || typeof pout !== 'number' || pin <= 0 || pout <= 0) {
+            return reply
+              .status(400)
+              .send(
+                error(
+                  400,
+                  'token 模式必须提供大于 0 的 inputTokenPrice / outputTokenPrice;不再允许免费模型,输出不适用请改用 per_call',
+                ),
+              )
+          }
+        }
         const row = await upsertPricing({
           modelId: b.modelId,
           inputTokenPrice: b.inputTokenPrice ?? 0,
