@@ -736,10 +736,6 @@
       "apps/web/src/hooks/use-subagent-dispatch.ts": [
         "useCreateDispatch"
       ],
-      "apps/web/src/hooks/use-updater.ts": [
-        "RESTART_COUNTDOWN_SECONDS",
-        "UPDATER_PENDING_EVENT"
-      ],
       "apps/web/src/lib/ai-panel-bucket.ts": [
         "AI_FLOAT_SNAP_DISTANCE",
         "AI_PANEL_BREAKPOINTS",
@@ -766,9 +762,6 @@
       ],
       "apps/web/src/lib/remember-credentials.ts": [
         "credentialStorage"
-      ],
-      "apps/web/src/lib/update-manifest-verify.ts": [
-        "UPDATE_MANIFEST_PATH"
       ],
       "apps/web/src/stores/work-panel.ts": [
         "WORK_PANEL_MAX_WIDTH",
