@@ -733,6 +733,8 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
           success(
             await readFriendsOverview(requireUserId(request), request.params.id, {
               force: (request.query as Record<string, unknown> | undefined)?.force === '1',
+              // wake=1：微信收在托盘时用一次热键把它唤回来再采实时数据（会把微信短暂顶到前台，默认不带）。
+              wake: (request.query as Record<string, unknown> | undefined)?.wake === '1',
             }),
           ),
         )

@@ -596,6 +596,8 @@ const FRIENDS_SNAPSHOT_FILE =
   process.env.BRIDGE_FRIENDS_SNAPSHOT ?? join(ROOT, '.bridge-friends-scan.json')
 let friendsScanCache = loadSnapshot(FRIENDS_SNAPSHOT_FILE)
 let friendsScanInFlight = null
+/** 上一轮扫描时微信窗口是否收起（收起时读不到界面，巡检降频到 10 分钟，别每分钟白跑一次）。 */
+let friendsWindowHidden = false
 
 function scanViaCache(force) {
   if (!force) {
@@ -606,6 +608,7 @@ function scanViaCache(force) {
     }
   }
   friendsScanInFlight = runFriendsScript(['-Scan']).then((raw) => {
+    friendsWindowHidden = Boolean(raw && raw.window && raw.window.visible === false)
     const next = applyScanResult(raw, friendsScanCache)
     if (next.cache && next.cache !== friendsScanCache) saveSnapshot(FRIENDS_SNAPSHOT_FILE, next.cache)
     friendsScanCache = next.cache
@@ -622,6 +625,8 @@ function startFriendsScanLoop() {
       if (friendsScanInFlight) return
       const age = friendsScanCache ? Date.now() - friendsScanCache.at : Infinity
       if (age < FRIENDS_SCAN_CACHE_MS) return
+      // 窗口收起时读不到界面，10 分钟内不再重试；用户一旦把微信放出来，下一轮就会采到真实数据。
+      if (friendsWindowHidden && age < FRIENDS_SCAN_STALE_MS) return
       const body = await scanViaCache(true)
       const stale = body?.cacheAgeMs && body.cacheAgeMs > FRIENDS_SCAN_STALE_MS
       if (stale) console.warn('[friends] 巡检结果偏旧:', body.cacheAgeMs)
@@ -632,8 +637,12 @@ function startFriendsScanLoop() {
   timer.unref?.()
 }
 
-async function handleFriendsScan(force) {
+async function handleFriendsScan(force, wake) {
   if (!friendsAutomationEnabled()) return friendsDisabledBody()
+  if (wake === true) {
+    // 显式要求唤醒：直接用热键把微信唤回来再扫，不走缓存（唤醒本身就要立刻验证有效）。
+    return runFriendsScript(['-Scan', '-Wake'])
+  }
   return scanViaCache(Boolean(force))
 }
 
@@ -894,7 +903,7 @@ async function handle(req, res) {
     }
 
     if (path === '/friends/scan') {
-      const result = await handleFriendsScan(body?.force === true)
+      const result = await handleFriendsScan(body?.force === true, body?.wake === true)
       return json(res, 200, result)
     }
 
@@ -908,7 +917,7 @@ async function handle(req, res) {
       if (action === 'friend.scan' || action === 'friend.accept') {
         const raw =
           action === 'friend.scan'
-            ? await handleFriendsScan(body.force === true)
+            ? await handleFriendsScan(body.force === true, body.wake === true)
             : await handleFriendsAccept(body.requestId)
         const wrapped = friendsToActionResult(raw)
         if (!wrapped.ok) {

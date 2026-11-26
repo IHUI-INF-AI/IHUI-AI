@@ -22,6 +22,8 @@ param(
   [switch]$Scan,
   [switch]$Accept,
   [switch]$SelfTest,
+  # 仅在窗口收进托盘（UIA 子树为空）时用一次微信全局热键把它唤回来；默认不带，绝不擅自动用户的窗口。
+  [switch]$Wake,
   [string]$RequestId = ''
 )
 
@@ -145,6 +147,26 @@ public static class WeChatFriendsClick {
   public static bool ParkBehind(IntPtr h) {
     return SetWindowPos(h, new IntPtr(1), 0, 0, 0, 0, 0x0002 | 0x0001 | 0x0010); // HWND_BOTTOM | NOMOVE | NOSIZE | NOACTIVATE
   }
+  [DllImport("user32.dll")] private static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+  // 微信被收进托盘后，程序化 ShowWindow 唤不出界面树（Qt 判定不可见就不重建 UI，实测元素恒为 1）。
+  // 只有走微信自己的全局热键（Ctrl+Alt+W）才会真正恢复渲染：实测唤回后元素从 1 变成 112。
+  // 这条会短暂把微信顶到前台，因此只能在调用方显式要求时用（-Wake）。
+  public static bool WakeWeChat() {
+    keybd_event(0x11, 0, 0, UIntPtr.Zero);   // Ctrl
+    keybd_event(0x12, 0, 0, UIntPtr.Zero);   // Alt
+    keybd_event(0x57, 0, 0, UIntPtr.Zero);   // W
+    keybd_event(0x57, 0, 2, UIntPtr.Zero);
+    keybd_event(0x12, 0, 2, UIntPtr.Zero);
+    keybd_event(0x11, 0, 2, UIntPtr.Zero);
+    return true;
+  }
+  // 唤回后把焦点还给原来的前台窗口，别把用户当前的工作窗口抢走。
+  public static bool GiveBackFocus(IntPtr h) {
+    if (h == IntPtr.Zero) return false;
+    keybd_event(0x12, 0, 0, UIntPtr.Zero); keybd_event(0x12, 0, 2, UIntPtr.Zero);
+    return SetForegroundWindow(h);
+  }
+  public static IntPtr Foreground() { return GetForegroundWindow(); }
   public static void At(int x, int y) {
     SetCursorPos(x, y);
     mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
@@ -522,6 +544,26 @@ try {
     rect      = [ordered]@{ x = $mainRect[0]; y = $mainRect[1]; w = $mainRect[2]; h = $mainRect[3] }
   }
 
+  # 窗口收在托盘/最小化时，Qt 不重建 UI，UIA 子树恒为空；只有微信自己的全局热键能唤回。
+  # 唤回会把微信短暂顶到前台，所以只在调用方显式给 -Wake 时做，做完立刻把焦点还给原窗口。
+  if ($Wake) {
+    $preCount = 0
+    try { $preCount = (Get-AllElements $root).Count } catch { }
+    if (-not $windowInfo.visible -or $windowInfo.minimized -or $preCount -lt 5) {
+      $prevFg = [WeChatFriendsClick]::Foreground()
+      [void][WeChatFriendsClick]::WakeWeChat()
+      Start-Sleep -Milliseconds 900
+      $next = [WeChatFriendsWin]::FindMain()
+      if ($next -ne [IntPtr]::Zero) { $main = $next }
+      $root = [System.Windows.Automation.AutomationElement]::FromHandle($main)
+      $windowInfo.visible = [bool][WeChatFriendsWin]::IsVisible($main)
+      $windowInfo.minimized = [bool][WeChatFriendsWin]::IsMinimized($main)
+      $windowInfo.woken = $true
+      [void][WeChatFriendsClick]::GiveBackFocus($prevFg)
+      Start-Sleep -Milliseconds 400
+    }
+  }
+
   # ---------- SelfTest：只枚举摘要，不点、不切页 ----------
   if ($mode -eq 'SelfTest') {
     $elements = @()
@@ -597,10 +639,6 @@ try {
         elapsedMs    = $sw.ElapsedMilliseconds
       })
       exit 11
-    }
-    # 采集完成后把微信压到所有窗口后面：用户不用它时就不挡屏，但 UIA 树仍可读，下次扫描不用再惊醒它。
-    if ($windowInfo.visible -and -not $windowInfo.minimized) {
-      try { [void][WeChatFriendsClick]::ParkBehind($main) } catch { }
     }
     Write-Payload ([ordered]@{
       ok         = $true

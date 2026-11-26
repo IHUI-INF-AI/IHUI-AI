@@ -168,7 +168,7 @@ describe('scanFriendRequests（读路径）', () => {
     expect(view.stale).toBe(true)
     expect(view.staleReason).toBe('window-hidden')
     expect(view.cacheAgeMs).toBe(42000)
-    expect(view.requests[0].nickname).toBe('张三')
+    expect(view.requests[0]?.nickname).toBe('张三')
   })
 
   it('窗口收起且无历史快照：折 failed，但原因翻成人话', async () => {
