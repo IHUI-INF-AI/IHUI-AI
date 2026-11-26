@@ -9,7 +9,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('./client.js', () => ({
+vi.mock('../src/client.js', () => ({
   fetchApi: vi.fn(),
   fetchText: vi.fn(),
   fetchRaw: vi.fn(),
@@ -17,13 +17,17 @@ vi.mock('./client.js', () => ({
   aiServiceBaseUrl: 'http://ai-service.test',
 }))
 
-import { fetchApi } from './client.js'
+import { fetchApi } from '../src/client.js'
 import {
   ACP_METHODS,
   AGENT_PROTOCOL_METHOD_HEADER,
   AGENT_SDK_ERROR_CODES,
-} from './agent-protocol.js'
-import { createConversation, sendMessage } from './endpoints/chat.js'
+} from '../src/agent-protocol.js'
+import {
+  ACP_METHODS as TYPE_ACP_METHODS,
+  AGENT_SDK_ERROR_CODES as TYPE_ERROR_CODES,
+} from '@ihui/types'
+import { createConversation, sendMessage } from '../src/endpoints/chat.js'
 
 const mockedFetchApi = vi.mocked(fetchApi)
 
@@ -34,9 +38,8 @@ beforeEach(() => {
 
 describe('L14 api-client 协议头', () => {
   it('协议常量是单源真值', () => {
-    expect(ACP_METHODS.sessionNew).toBe('session/new')
-    expect(ACP_METHODS.sessionPrompt).toBe('session/prompt')
-    expect(AGENT_SDK_ERROR_CODES).toEqual(['PROTOCOL', 'RPC', 'SPAWN', 'AGENT_EXIT', 'ABORTED'])
+    expect(ACP_METHODS).toBe(TYPE_ACP_METHODS)
+    expect(AGENT_SDK_ERROR_CODES).toBe(TYPE_ERROR_CODES)
   })
 
   it('createConversation 携带 session/new', async () => {

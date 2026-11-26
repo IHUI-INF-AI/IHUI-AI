@@ -84,6 +84,8 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🚀 新功能/改进:三端共享 ACP 契约并发布安全 benchmark (791c94d1)
+- 🚀 新功能/改进:register all 15 mcp-extended routes on loopback host (9d9b5714)
 - 🐞 修复:修正 7 个模型零售价并补齐生产官方 DeepSeek 行 (e2317ccd)
 - 🐞 修复:fetch 直连失败后回退环境代理 (ca969fea)
 - 🐞 修复:清理缺价聊天模型并启用入库价格闸门 (10747f43)

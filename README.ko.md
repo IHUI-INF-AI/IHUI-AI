@@ -2227,6 +2227,8 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🚀 기능/개선:三端共享 ACP 契约并发布安全 benchmark (791c94d1)
+- 🚀 기능/개선:register all 15 mcp-extended routes on loopback host (9d9b5714)
 - 🐞 수정:修正 7 个模型零售价并补齐生产官方 DeepSeek 行 (e2317ccd)
 - 🐞 수정:fetch 直连失败后回退环境代理 (ca969fea)
 - 🐞 수정:清理缺价聊天模型并启用入库价格闸门 (10747f43)
