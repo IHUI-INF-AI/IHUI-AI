@@ -19,6 +19,14 @@ export type {
 } from './query.js'
 
 export { AgentSdkError, JsonRpcPeer, NdjsonDecoder, encodeMessage } from './protocol.js'
+// L14/RP-21 三端共用协议契约(方法表 + 错误码单一真相源)
+export {
+  ACP_METHODS,
+  ACP_NOTIFICATION_METHODS,
+  ACP_REQUEST_METHODS,
+  AGENT_SDK_ERROR_CODES,
+} from './contract.js'
+export type { AcpMethodKey, AcpMethodName } from './contract.js'
 // L03/RP-7 审批反向通道三队列(审批/备份/恢复):断线不丢、重连按序补发
 export { ApprovalChannel, ApprovalChannelError, APPROVAL_QUEUE_KINDS } from './approval-channel.js'
 export type {

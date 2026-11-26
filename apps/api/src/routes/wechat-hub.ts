@@ -45,6 +45,12 @@ import { broadcast } from '../services/wechat-hub/broadcast.js'
 import { searchKnowledge } from '../services/wechat-hub/knowledge.js'
 import { probeBridgeForAccount } from '../services/wechat-hub/bridge-probe.js'
 import { getGroupWriteRuntimeView, buildGroupWriteAuditView } from '../services/wechat-hub/group-writes.js'
+import {
+  acceptFriendRequest,
+  readFriendsOverview,
+  readFriendsPolicyView,
+  updateFriendsPolicy,
+} from '../services/wechat-hub/friends-automation.js'
 import { answerError, requireUserId } from './wechat-hub-route-utils.js'
 
 const backendSchema = z.enum(['ilink', 'bridge', 'mock'])
@@ -125,6 +131,11 @@ const groupActionNameSchema = z.enum(['create', 'invite', 'kick', 'rename', 'ann
 
 const switchChatSchema = z.object({
   title: z.string().trim().min(1).max(120),
+})
+
+const friendsPolicySchema = z.object({
+  enabled: z.boolean().optional(),
+  maxAcceptsPerHour: z.coerce.number().int().min(1).max(10).optional(),
 })
 
 const broadcastKindSchema = z.enum(['text', 'image', 'file', 'link', 'card'])
@@ -706,6 +717,76 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
           body.url,
         )
         return reply.send(success({ ok: true }))
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  // 新朋友：聚合视图（策略 + 扫描 + 最近审计）。扫描是读路径，桥故障也返 200 + status failed。
+  server.get<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/friends/requests',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        return reply.send(
+          success(await readFriendsOverview(requireUserId(request), request.params.id)),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  // 通过申请是写动作：body 必须显式带 confirmed:true，缺省或非 true 一律 400。
+  server.post<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/friends/accept',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const body =
+          typeof request.body === 'object' && request.body !== null && !Array.isArray(request.body)
+            ? (request.body as Record<string, unknown>)
+            : {}
+        if (body.confirmed !== true) {
+          throw new AppError('请显式确认后再通过申请', 400, 'CONFIRM_REQUIRED')
+        }
+        const requestId = typeof body.requestId === 'string' ? body.requestId.trim() : ''
+        if (!requestId) {
+          throw new AppError('缺少 requestId', 400, 'WECHAT_FRIENDS_REQUEST_ID_REQUIRED')
+        }
+        return reply.send(
+          success(await acceptFriendRequest(requireUserId(request), request.params.id, requestId)),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.get<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/friends/policy',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        return reply.send(
+          success(await readFriendsPolicyView(requireUserId(request), request.params.id)),
+        )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.put<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/friends/policy',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const patch = parseOrThrow(friendsPolicySchema, request.body ?? {})
+        return reply.send(
+          success(await updateFriendsPolicy(requireUserId(request), request.params.id, patch)),
+        )
       } catch (e) {
         return answerError(reply, e)
       }

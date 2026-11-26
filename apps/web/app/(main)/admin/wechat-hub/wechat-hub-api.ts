@@ -26,6 +26,7 @@ import {
   disconnectWechatAccount,
   exportWechatMessages,
   importWechatMessages as importWechatMessagesApi,
+  fetchApi,
   fetchWechatAccounts,
   fetchWechatActions,
   fetchWechatAutoReplyRules,
@@ -98,6 +99,9 @@ import type {
   WechatDigestScheduleView,
   WechatExportInput,
   WechatExportResult,
+  WechatFriendAcceptView,
+  WechatFriendsOverview,
+  WechatFriendsPolicy,
   WechatGroupActionInput,
   WechatGroupActionPlan,
   WechatGroupMemberView,
@@ -150,6 +154,59 @@ async function callKept<T>(fn: () => Promise<T>, fallback: string): Promise<T> {
     if (e instanceof ApiError) throw e
     throw new Error(e instanceof Error ? e.message : fallback)
   }
+}
+
+/**
+ * 新朋友自动化端点：桥侧写动作默认关，需 BRIDGE_FRIENDS_AUTOMATION=on 且账号策略显式开启。
+ * 信封处理与群写端点同形：失败分支把 status / errorCode 一并塞进 ApiError，
+ * 交给面板按错误码分流中文结论；读取路径（扫描/策略/审计）不触发任何写动作。
+ */
+
+/** GET /wechat-hub/accounts/:id/friends/requests — 策略 + 扫描结果 + 审计聚合视图 */
+async function fetchWechatFriendsOverview(accountId: string): Promise<WechatFriendsOverview> {
+  const res = await fetchApi<WechatFriendsOverview>(
+    `/wechat-hub/accounts/${accountId}/friends/requests`,
+    { method: 'GET' },
+  )
+  if (!res.success) throw new ApiError(res.error || '获取新朋友申请失败', res.status, res.errorCode)
+  return res.data
+}
+
+/** POST /wechat-hub/accounts/:id/friends/accept — 必须显式 confirmed:true 才放行写动作 */
+async function acceptWechatFriend(
+  accountId: string,
+  requestId: string,
+  confirmed: boolean,
+): Promise<WechatFriendAcceptView> {
+  const res = await fetchApi<WechatFriendAcceptView>(
+    `/wechat-hub/accounts/${accountId}/friends/accept`,
+    { method: 'POST', body: JSON.stringify({ requestId, confirmed }) },
+  )
+  if (!res.success) throw new ApiError(res.error || '通过好友申请失败', res.status, res.errorCode)
+  return res.data
+}
+
+/** GET /wechat-hub/accounts/:id/friends/policy — 好友自动化开关与每小时上限 */
+async function fetchWechatFriendsPolicy(accountId: string): Promise<WechatFriendsPolicy> {
+  const res = await fetchApi<WechatFriendsPolicy>(
+    `/wechat-hub/accounts/${accountId}/friends/policy`,
+    { method: 'GET' },
+  )
+  if (!res.success) throw new ApiError(res.error || '获取新朋友策略失败', res.status, res.errorCode)
+  return res.data
+}
+
+/** PUT /wechat-hub/accounts/:id/friends/policy */
+async function updateWechatFriendsPolicy(
+  accountId: string,
+  patch: Partial<Pick<WechatFriendsPolicy, 'enabled' | 'maxAcceptsPerHour'>>,
+): Promise<WechatFriendsPolicy> {
+  const res = await fetchApi<WechatFriendsPolicy>(
+    `/wechat-hub/accounts/${accountId}/friends/policy`,
+    { method: 'PUT', body: JSON.stringify(patch) },
+  )
+  if (!res.success) throw new ApiError(res.error || '保存新朋友策略失败', res.status, res.errorCode)
+  return res.data
 }
 
 export const wechatHubApi = {
@@ -276,6 +333,21 @@ export const wechatHubApi = {
     >,
   ): Promise<WechatGroupWritePolicy> =>
     callKept(() => updateWechatGroupWritePolicy(id, patch), '保存群写策略失败'),
+  friendsOverview: (id: string): Promise<WechatFriendsOverview> =>
+    callKept(() => fetchWechatFriendsOverview(id), '获取新朋友申请失败'),
+  acceptFriend: (
+    id: string,
+    requestId: string,
+    confirmed: boolean,
+  ): Promise<WechatFriendAcceptView> =>
+    callKept(() => acceptWechatFriend(id, requestId, confirmed), '通过好友申请失败'),
+  friendsPolicy: (id: string): Promise<WechatFriendsPolicy> =>
+    callKept(() => fetchWechatFriendsPolicy(id), '获取新朋友策略失败'),
+  updateFriendsPolicy: (
+    id: string,
+    patch: Partial<Pick<WechatFriendsPolicy, 'enabled' | 'maxAcceptsPerHour'>>,
+  ): Promise<WechatFriendsPolicy> =>
+    callKept(() => updateWechatFriendsPolicy(id, patch), '保存新朋友策略失败'),
   switchChat: (id: string, title: string): Promise<WechatActionResult> =>
     call(() => switchWechatChat(id, title), '切换微信会话失败'),
   publishMoment: (id: string, input: WechatMomentInput): Promise<WechatActionResult> =>
