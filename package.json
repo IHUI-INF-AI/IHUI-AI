@@ -304,8 +304,8 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,mjs,cjs}": [
-      "eslint --fix --cache --cache-location node_modules/.cache/eslint/eslintcache --ignore-pattern '**/migration-final-review/**' --ignore-pattern '**/migration-audit/**' --ignore-pattern '**/migration-audit-report/**' --ignore-pattern '**/public/**' --ignore-pattern '**/e2e/**' --ignore-pattern '**/next-env.d.ts'"
+      "node node_modules/eslint/bin/eslint.js --fix --cache --cache-location node_modules/.cache/eslint/eslintcache --ignore-pattern '**/migration-final-review/**' --ignore-pattern '**/migration-audit/**' --ignore-pattern '**/migration-audit-report/**' --ignore-pattern '**/public/**' --ignore-pattern '**/e2e/**' --ignore-pattern '**/next-env.d.ts'"
     ],
-    "*.{ts,tsx,js,jsx,json,md,yml,yaml,css,scss}": "prettier --write"
+    "*.{ts,tsx,js,jsx,json,md,yml,yaml,css,scss}": "node node_modules/prettier/bin/prettier.cjs --write"
   }
 }
