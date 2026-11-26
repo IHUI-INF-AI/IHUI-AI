@@ -93,6 +93,8 @@ import { useEnvironmentInfoStore } from '@/stores/environment-info'
 import { useTerminalDockStore } from '@/stores/terminal-dock'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import {
+  createBrowserSession,
+  getBrowserSessionInfo,
   getConversation,
   getConversationHistory,
   getMessages,
@@ -526,17 +528,39 @@ export function AISidePanel() {
     if (!cdpTab || !sessionId) return null
     return { tabId: cdpTab.id, sessionId, title: cdpTab.title, url: cdpTab.url }
   }, [])
-  // 桌面端补一层服务端活跃会话发现:AI 直接开 Browser Hub 时右侧没有 CDP tab,
-  // 旧逻辑只能报“先开浏览器”。这里返回一个无 tabId 的只读目标,够开原生监看窗。
+  // 服务端活跃会话发现:AI 直接开 Browser Hub、或 Web 工作面没有 CDP tab 时,
+  // 旧逻辑只能报“先开浏览器”。这里复用最新会话;一个都没有就自动建 about:blank,
+  // 让「在工作面内停靠监看」和「按模板监看」都不再要求用户先手动开标签。
   const resolvePipSessionTarget = React.useCallback(async () => {
     const tabTarget = resolvePipTarget()
     if (tabTarget) return tabTarget
-    if (!isTauri()) return null
     try {
       const res = await listBrowserSessions()
       const ids = res.success ? (res.data?.session_ids ?? []) : []
       const sessionId = ids.length > 0 ? ids[ids.length - 1] : null
-      return sessionId ? { tabId: '', sessionId, title: '', url: '' } : null
+      if (sessionId) {
+        try {
+          const info = await getBrowserSessionInfo(sessionId)
+          if (info.success && info.data) {
+            return {
+              tabId: '',
+              sessionId,
+              title: info.data.title || '',
+              url: info.data.url || 'about:blank',
+            }
+          }
+        } catch {
+          // 会话已被关闭:继续走自动建新会话,不让陈旧 id 卡住入口
+        }
+      }
+      const created = await createBrowserSession({ url: 'about:blank' })
+      if (!created.success || !created.data) return null
+      return {
+        tabId: '',
+        sessionId: created.data.session_id,
+        title: created.data.title || '',
+        url: created.data.url || 'about:blank',
+      }
     } catch {
       return null
     }
@@ -592,7 +616,7 @@ export function AISidePanel() {
     const target = await resolvePipSessionTarget()
     if (!target) {
       toast.error(tc('pictureInPicture.dockInWorkPanel'), {
-        description: tc('pictureInPicture.templateNoSession'),
+        description: tc('pictureInPicture.dockCreateFailed'),
       })
       return
     }

@@ -606,7 +606,10 @@ export function AiPipMonitor({
     }
     ws.onclose = (event) => {
       if (disposed) return
-      setConnected(false)
+      // WS 关闭不等于画面断开:MJPEG 主通道可能仍在推帧。只有两条通道都没有
+      // 首帧时才回到“连接中”,否则会把正常动态画面误报成断线(生产 CDN
+      // 不透传 Upgrade 时必现)。
+      if (!mjpegStarted) setConnected(false)
       if (event.code !== 1000) {
         if (!mjpegStarted && !mjpegAbort && fallbackTimer === null) {
           setPhase('error')
