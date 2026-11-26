@@ -206,7 +206,14 @@ export interface WechatAutoReplyPreviewResult {
 }
 
 /** 微信消息导出格式 */
-export type WechatExportFormat = 'jsonl' | 'csv' | 'html' | 'markdown' | 'xlsx' | 'chatlab'
+export type WechatExportFormat =
+  | 'jsonl'
+  | 'csv'
+  | 'html'
+  | 'markdown'
+  | 'xlsx'
+  | 'chatlab'
+  | 'sql'
 
 /** 微信消息导出入参 */
 export interface WechatExportInput {
