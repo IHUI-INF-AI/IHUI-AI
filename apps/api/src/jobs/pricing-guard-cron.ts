@@ -22,6 +22,7 @@ import { cleanupPointHolds } from '../services/points-service.js'
 import { db } from '../db/index.js'
 
 let task: ScheduledTask | null = null
+let holdSweepTask: ScheduledTask | null = null
 
 export function startPricingGuardScheduler(): void {
   if (task) return
@@ -78,7 +79,26 @@ export function startPricingGuardScheduler(): void {
     },
     { timezone: 'Asia/Shanghai' },
   )
+  // 过期冻结只靠每日 09:00 回收会让 stale held 最长挂 24 小时;
+  // 改为每 10 分钟扫一次,冻结 TTL(15 分钟)最多多占用一个周期。
+  holdSweepTask = cron.schedule(
+    '*/10 * * * *',
+    async () => {
+      try {
+        const holds = await cleanupPointHolds({ retentionDays: 90 })
+        if (holds.expired > 0 || holds.deleted > 0) {
+          logger.info('[point-holds] 周期回收', holds)
+        }
+      } catch (e) {
+        logger.error('[point-holds] 周期回收异常', {
+          err: e instanceof Error ? e.message : String(e),
+        })
+      }
+    },
+    { timezone: 'Asia/Shanghai' },
+  )
   logger.info('[pricing-guard] cron started ("0 9 * * *" Asia/Shanghai)')
+  logger.info('[point-holds] sweep cron started ("*/10 * * * *" Asia/Shanghai)')
 }
 
 export function stopPricingGuardScheduler(): void {
@@ -86,6 +106,11 @@ export function stopPricingGuardScheduler(): void {
     task.stop()
     task = null
     logger.info('[pricing-guard] cron scheduler stopped')
+  }
+  if (holdSweepTask) {
+    holdSweepTask.stop()
+    holdSweepTask = null
+    logger.info('[point-holds] sweep cron stopped')
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
