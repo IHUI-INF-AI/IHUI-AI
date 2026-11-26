@@ -486,6 +486,37 @@ export function ipInCidr(ip: string, cidr: string): boolean {
  * 调用前检查 API Key 余额是否允许调用。
  * estimatedTokens 用于预估是否够用(允许传入 0 = 不预检 token,只检查 Key 状态)。
  */
+/**
+ * 只读查询 Key 当前可花的「成本余额」(分),供媒体定价闸在调用上游前做余额预检。
+ *
+ * 媒体路径历史上是「先出图/出视频,成功后才 fire-and-forget 计费」,没有预扣。
+ * 这里至少挡住“余额为 0 / 不够本次报价”的请求,避免生成完才发现扣不到钱。
+ * 不做冻结:并发仍可能超支,真正的冻结要等媒体预扣凭证接入(后续项)。
+ * 返回 null 表示 Key 不存在或已停用;unlimited=true 表示 -1 不限额度。
+ */
+export async function getSpendableCostBalance(
+  apiKeyId: string,
+): Promise<{ unlimited: boolean; cents: number } | null> {
+  const [row] = await dbRead
+    .select({
+      id: developerApiKeys.id,
+      status: developerApiKeys.status,
+      costBalanceCents: developerApiKeys.costBalanceCents,
+    })
+    .from(developerApiKeys)
+    .where(eq(developerApiKeys.id, apiKeyId))
+    .limit(1)
+  if (!row || row.status !== 'active') return null
+
+  const groupInfo = await getKeyGroup(apiKeyId)
+  if (groupInfo && groupInfo.enabled) {
+    if (groupInfo.sharedCostBalanceCents === -1) return { unlimited: true, cents: 0 }
+    return { unlimited: false, cents: Math.max(0, groupInfo.sharedCostBalanceCents) }
+  }
+  if (row.costBalanceCents === -1) return { unlimited: true, cents: 0 }
+  return { unlimited: false, cents: Math.max(0, row.costBalanceCents) }
+}
+
 export async function checkQuota(
   apiKeyId: string,
   estimatedTokens = 0,
@@ -924,42 +955,50 @@ export async function calculateCost(
     source = 'model_config'
   }
 
-  // ── 动态成本计费(2026-11-14 立)──
-  // 无公开报价的模型不写固定单价,按本次调用上游回传的真实成本 × PROFIT_FACTOR × 倍率链记账;
-  // 上游未回传(或非正数)⇒ 平台最低 1 分/次兜底(fail-closed),明细由 recordCall 落 metadata。
+  // ── 动态成本计费(2026-11-14 立;2026-11-26 收口)──
+  // 无公开报价的模型不写固定单价,按本次调用上游回传的真实成本 × PROFIT_FACTOR × 倍率链记账。
+  // 上游未回传(或非正数)时,优先用该模型的正标价按 token 计费——OpenRouter 的
+  // -100000 哨兵价会被 Math.max(0) 归零,因此不会把负价当成收入;标价也缺失时才落到
+  // 平台最低 1 分/次兜底,避免 14 个动态模型全部按 1 分钱跑真实流量。
   if (pricingRow && billingMode === 'dynamic_cost') {
     const rawUsd = options?.upstreamCostUsd
-    const usd =
-      typeof rawUsd === 'number' && Number.isFinite(rawUsd) && rawUsd > 0 ? rawUsd : null
+    const usd = typeof rawUsd === 'number' && Number.isFinite(rawUsd) && rawUsd > 0 ? rawUsd : null
     const dynamicCostCents =
       usd !== null ? roundCents(usd * usdToCny() * 100 * PROFIT_FACTOR * multiplier) : 0
+    const listInputPricePer1k = Math.max(0, Number(baseInputPricePer1k) || 0)
+    const listOutputPricePer1k = Math.max(0, Number(baseOutputPricePer1k) || 0)
+    const listInputCostCents =
+      usd === null ? roundCents(((listInputPricePer1k * promptTokens) / 1000) * multiplier) : 0
+    const listOutputCostCents =
+      usd === null ? roundCents(((listOutputPricePer1k * completionTokens) / 1000) * multiplier) : 0
+    const listTokenCostCents = roundCents(listInputCostCents + listOutputCostCents)
     const total =
       usd !== null
         ? roundCents(dynamicCostCents + creditsCostCents)
-        : roundCents(DYNAMIC_COST_FALLBACK_CENTS * multiplier + creditsCostCents)
-    if (usd === null && shouldWarnDynamicFallback(dbModelId)) {
-      logger.warn('[billing] 动态成本模型未回传上游成本,按最低 1 分/次兜底', {
+        : listTokenCostCents > 0
+          ? roundCents(listTokenCostCents + creditsCostCents)
+          : roundCents(DYNAMIC_COST_FALLBACK_CENTS * multiplier + creditsCostCents)
+    if (usd === null && listTokenCostCents <= 0 && shouldWarnDynamicFallback(dbModelId)) {
+      logger.warn('[billing] 动态成本模型未回传上游成本且无正标价,按最低 1 分/次兜底', {
         model: dbModelId,
         promptTokens,
         completionTokens,
       })
     }
     return {
-      inputCostCents: 0,
-      outputCostCents: 0,
+      inputCostCents: listInputCostCents,
+      outputCostCents: listOutputCostCents,
       totalCostCents: total,
       cacheReadCostCents: 0,
       cacheCreationCostCents: 0,
       multiplier,
       peakMultiplier,
-      baseInputPricePer1k: 0,
-      baseOutputPricePer1k: 0,
+      baseInputPricePer1k: listInputPricePer1k,
+      baseOutputPricePer1k: listOutputPricePer1k,
       source,
       billingMode: 'dynamic_cost',
       unitsApplied: 0,
-      ...(usd !== null
-        ? { dynamicCostUsd: usd, dynamicCostCents }
-        : { dynamicCostFallback: true }),
+      ...(usd !== null ? { dynamicCostUsd: usd, dynamicCostCents } : { dynamicCostFallback: true }),
       ...creditsPart,
     }
   }
@@ -1012,8 +1051,14 @@ export async function calculateCost(
 
     if (billingMode === 'per_call') {
       // 分档按请求上下文(promptTokens);image/video 端点打到 per_call 模型时
-      // promptTokens 为 0 → 命中 le256k 档(即基础档价),不额外惩罚
-      const picked = pickPerCallPrice(pricingRow.tieredCallPrices, promptTokens)
+      // promptTokens 为 0 → 命中 le256k 档(即基础档价),不额外惩罚。
+      // 2026-11-26:三档价缺失时回退 per_unit_price(音频/声纹等按次行只配了单价,
+      // 旧实现直接落 token 分支,0 token ⇒ 0 元,公开音频端点会被定价闸判成未定价)。
+      const picked =
+        pickPerCallPrice(pricingRow.tieredCallPrices, promptTokens) ??
+        (Number(pricingRow.perUnitPrice) > 0
+          ? { price: Number(pricingRow.perUnitPrice), tier: 'le256k' as const }
+          : null)
       if (picked) {
         const total = Math.max(0, roundCents(picked.price * units * multiplier + creditsCostCents))
         return {

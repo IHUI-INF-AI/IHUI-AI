@@ -697,6 +697,12 @@ export interface PipeStreamOptions {
    */
   promptText?: string
   /**
+   * 每处理完一帧回调当前聚合统计(2026-11-26 加)。
+   * 供调用方在 pipe 中途抛错/客户端断连时拿到已产出的部分用量,避免整单按 0 结算。
+   * 回调收到的是同一个可变对象,调用方只应读取、不应修改或长期保存副本。
+   */
+  onStats?: (stats: PipedStreamStats) => void
+  /**
    * 空闲心跳间隔(ms)。verbatim 模式下若距上次真实写出超过该时长,写一帧 SSE 注释 `: ping`;
    * 0 = 关闭。不传走 `RELAY_STREAM_HEARTBEAT_MS`,默认 5000(与 qoder2api-hub 对齐)。
    * textMode(legacy completions)没有 verbatim 写口,天然不心跳。
@@ -891,9 +897,13 @@ export async function pipeChannelStream(
         const line = buffer.slice(0, nl).replace(/\r$/, '')
         buffer = buffer.slice(nl + 1)
         handleLine(line)
+        opts.onStats?.(stats)
       }
     }
-    if (buffer.trim()) handleLine(buffer.trim())
+    if (buffer.trim()) {
+      handleLine(buffer.trim())
+      opts.onStats?.(stats)
+    }
   } finally {
     stopHeartbeat()
     opts.signal?.removeEventListener('abort', abort)
@@ -904,7 +914,8 @@ export async function pipeChannelStream(
   // ⇒ 计费公式的 input 侧(promptTokens)永久为 0(结构性少收);而 total>0 但
   // prompt=completion=0 时旧判据又完全不触发,整单按 0 计费。现按「明细是否为 0」判定:
   //  - total>0:上游只给总量,无法拆 input/output ⇒ completion=total、prompt 记 0 并告警;
-  //  - total=0:按请求体估算 prompt、按正文长度估算 completion,两部分都补。
+  //  - total=0:按请求体估算 prompt、按正文长度估算 completion,两部分都补;
+  //  - 只有一侧为 0:缺失侧独立估算,不能因为另一侧有值就整单放过(2026-11-26 收口)。
   if (stats.promptTokens === 0 && stats.completionTokens === 0) {
     if (stats.totalTokens > 0) {
       stats.completionTokens = stats.totalTokens
@@ -919,6 +930,17 @@ export async function pipeChannelStream(
       stats.completionTokens = Math.ceil(stats.responseText.length / 4)
       stats.totalTokens = stats.promptTokens + stats.completionTokens
     }
+  } else if (stats.promptTokens === 0 || stats.completionTokens === 0) {
+    const promptText = opts.promptText ?? promptTextByResponse.get(upstream) ?? ''
+    if (stats.promptTokens === 0) stats.promptTokens = Math.ceil(promptText.length / 4)
+    if (stats.completionTokens === 0)
+      stats.completionTokens = Math.ceil(stats.responseText.length / 4)
+    stats.totalTokens = stats.promptTokens + stats.completionTokens
+    logger.warn('[relay-upstream] usage_fallback reason=one_side_missing', {
+      httpStatus: stats.httpStatus,
+      promptTokens: stats.promptTokens,
+      completionTokens: stats.completionTokens,
+    })
   }
   // F-337:整条流没有任何 choices/usage(只发 [DONE] 的空流)、且没有显式 error 帧
   // ⇒ 上游故障被伪装成成功流。留底 streamError,调用方据此不记 success/不白扣输入 token。
