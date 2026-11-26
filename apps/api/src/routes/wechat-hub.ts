@@ -730,7 +730,11 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
       if (!(await checkAuth(request, reply))) return
       try {
         return reply.send(
-          success(await readFriendsOverview(requireUserId(request), request.params.id)),
+          success(
+            await readFriendsOverview(requireUserId(request), request.params.id, {
+              force: (request.query as Record<string, unknown> | undefined)?.force === '1',
+            }),
+          ),
         )
       } catch (e) {
         return answerError(reply, e)

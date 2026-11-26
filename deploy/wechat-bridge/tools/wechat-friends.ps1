@@ -690,36 +690,21 @@ try {
     exit 6
   }
 
+  # Qt 的按钮即使没有 InvokePattern 也能用后台鼠标消息点，所以这里不再直接放弃。
   $pattern = Test-InvokePattern $match.element
+  $clickPath = 'invoke'
   if ($null -eq $pattern) {
-    $sw.Stop()
-    Write-Payload ([ordered]@{
-      ok        = $false
-      status    = 'failed'
-      reason    = 'not-clickable'
-      errorCode = 'not-clickable'
-      requestId = $RequestId
-    })
-    exit 7
-  }
-
-  try {
-    $pattern.Invoke()
-  } catch {
-    $sw.Stop()
-    Write-Payload ([ordered]@{
-      ok        = $false
-      status    = 'failed'
-      reason    = ($_.Exception.Message -replace "`r?`n", ' ')
-      errorCode = 'invoke-failed'
-      requestId = $RequestId
-    })
-    exit 8
+    $clickPath = 'no-invoke-pattern'
+  } else {
+    try {
+      $pattern.Invoke()
+    } catch {
+      $clickPath = 'invoke-error'
+    }
   }
 
   # 关键校验：Qt 在后台时会「Invoke 返回成功但不生效」，所以点完必须回读一次，
-  # 只有该条申请真的从列表消失才算通过；否则做一次受控的坐标点击兜底。
-  $clickPath = 'invoke'
+  # 只有该条申请真的从列表消失才算通过；否则做一次后台消息点击兜底。
   Start-Sleep -Milliseconds 1200
   $post = Get-FriendRequests ([System.Windows.Automation.AutomationElement]::FromHandle($main))
   $still = $null

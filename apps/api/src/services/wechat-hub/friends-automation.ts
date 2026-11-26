@@ -85,13 +85,25 @@ export function acceptedInWindow(audit: WechatFriendAuditEntry[], now: number): 
   return audit.filter((entry) => entry.ok && entry.at > cutoff).length
 }
 
+/**
+ * 解析昵称来源：桥只允许报 `control` / `unavailable`，其它脏值按昵称推导。
+ * 空昵称一律 `unavailable`——绝不允许把读不到人名的条目标成 control；
+ * 非空昵称桥没报或报错值时回落 `control`（行内文本确实读到了）。
+ */
+function resolveNicknameSource(nickname: string, rawSource: unknown): 'control' | 'unavailable' {
+  if (!nickname) return 'unavailable'
+  return rawSource === 'control' || rawSource === 'unavailable' ? rawSource : 'control'
+}
+
 function normalizeRequest(raw: unknown): WechatFriendRequestView | null {
   const item = asRecord(raw)
   const requestId = asString(item.requestId)
   if (!requestId) return null
+  const nickname = asString(item.nickname) ?? ''
   return {
     requestId,
-    nickname: asString(item.nickname) ?? '',
+    nickname,
+    nicknameSource: resolveNicknameSource(nickname, item.nicknameSource),
     source: asString(item.source) ?? '',
     kind: item.kind === 'group-invite' ? 'group-invite' : 'friend',
     clickable: item.clickable === true,
@@ -130,6 +142,8 @@ function buildScanView(result: WechatActionResult, now: number): WechatFriendSca
       requests: [],
       scannedAt: now,
       rawCount: 0,
+      entered: false,
+      entryExcluded: 0,
     }
   }
   if (!result.ok) {
@@ -140,9 +154,12 @@ function buildScanView(result: WechatActionResult, now: number): WechatFriendSca
       requests: [],
       scannedAt: now,
       rawCount: asNumber(data.rawCount) ?? 0,
+      entered: false,
+      entryExcluded: 0,
     }
   }
   const rawRequests = Array.isArray(data.requests) ? data.requests : []
+  // 空昵称条目允许原样保留进视图：只由 nicknameSource 标明「未读到」，后端不过滤、不补占位文本。
   const requests = rawRequests
     .map(normalizeRequest)
     .filter((item): item is WechatFriendRequestView => item !== null)
@@ -153,6 +170,8 @@ function buildScanView(result: WechatActionResult, now: number): WechatFriendSca
     requests,
     scannedAt: asNumber(data.scannedAt) ?? now,
     rawCount: asNumber(data.rawCount) ?? rawRequests.length,
+    entered: data.entered === true,
+    entryExcluded: asNumber(data.entryExcluded) ?? 0,
   }
 }
 
@@ -211,10 +230,13 @@ async function appendAudit(
 export async function scanFriendRequests(
   userId: string,
   accountId: string,
+  options: { force?: boolean } = {},
 ): Promise<WechatFriendScanView> {
   await assertAccountForUser(userId, accountId)
   const now = Date.now()
-  const result = await callBridgeAction(userId, accountId, 'friend.scan', {})
+  const result = await callBridgeAction(userId, accountId, 'friend.scan', {
+    force: options.force === true,
+  })
   return buildScanView(result, now)
 }
 
@@ -258,8 +280,11 @@ export async function acceptFriendRequest(
     )
   }
 
-  // 先重新扫描确认申请还在列表里，找不到就不盲发到桥。
-  const scan = buildScanView(await callBridgeAction(userId, accountId, 'friend.scan', {}), now)
+  // 先强制实时重扫确认申请还在列表里（不能用桥缓存，否则刚进来的申请会被误判 not-found），找不到就不盲发到桥。
+  const scan = buildScanView(
+    await callBridgeAction(userId, accountId, 'friend.scan', { force: true }),
+    now,
+  )
   const match = scan.requests.find((item) => item.requestId === trimmedRequestId)
   if (!match) {
     await appendAudit(accountId, account.metadata, {
@@ -315,15 +340,16 @@ export async function updateFriendsPolicy(
   return next
 }
 
-/** 聚合读：策略 + 最新扫描 + 最近审计，前端一次拉齐。 */
+/** 聚合读：策略 + 最新扫描 + 最近审计，前端一次拉齐。force=true 时要求桥做一次实时采集。 */
 export async function readFriendsOverview(
   userId: string,
   accountId: string,
+  options: { force?: boolean } = {},
 ): Promise<WechatFriendsOverview> {
   const account = await assertAccountForUser(userId, accountId)
   const policy = readFriendsPolicy(account.metadata)
   const audit = readFriendsAudit(account.metadata)
-  const scan = await scanFriendRequests(userId, accountId)
+  const scan = await scanFriendRequests(userId, accountId, { force: options.force === true })
   return { policy, scan, audit }
 }
 
