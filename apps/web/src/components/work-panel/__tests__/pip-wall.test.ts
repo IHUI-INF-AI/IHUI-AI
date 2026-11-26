@@ -1,0 +1,23 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+import { describe, expect, it } from 'vitest'
+
+import { resolvePipWallStreamFps } from '../pip-wall'
+
+describe('resolvePipWallStreamFps', () => {
+  it('1–3 路保持全速，不额外限速', () => {
+    expect(resolvePipWallStreamFps(1)).toBeUndefined()
+    expect(resolvePipWallStreamFps(3)).toBeUndefined()
+  })
+
+  it('4 路以上每格降到 8fps，避免多路 MJPEG 同时占满解码器', () => {
+    expect(resolvePipWallStreamFps(4)).toBe(8)
+    expect(resolvePipWallStreamFps(6)).toBe(8)
+  })
+
+  it('非法/空路数不返回限速值', () => {
+    expect(resolvePipWallStreamFps(0)).toBeUndefined()
+    expect(resolvePipWallStreamFps(-1)).toBeUndefined()
+  })
+})
