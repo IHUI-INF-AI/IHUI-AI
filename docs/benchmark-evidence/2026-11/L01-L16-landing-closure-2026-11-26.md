@@ -27,7 +27,7 @@
 | L13 安全窗口工厂 | `apps/desktop/src-tauri/Cargo.toml`、`desktop-build.mjs`、`scripts/check-window-security.mjs` | `红=0 过=7 警=1`；生产默认无 devtools，显式 opt-in 才能开 | B | 完成 |
 | L14 三端共用协议层 | `packages/types/src/agent-protocol.ts`（唯一真相源），`packages/agent-sdk/src/contract.ts` 转发，`packages/api-client/src/agent-protocol.ts` + 三端 `agent-protocol.ts` 出口；`chat.ts` / `agent-chat-stream.ts` / `agent-runtime.ts` 业务请求带 `x-ihui-acp-method` | SDK contract 6/6；api-client 3/3；`check:acp-three-end` files=9 missing=0 problems=0 ends=3；`check:acp-method-single-source` state=ok 命中=8 sdk=4 测试=4 存量债=0 越界=0；agent-sdk/api-client typecheck 0 | A | 完成 |
 | L15 监听面基线 | `apps/api/src/config/listen-surface-policy.ts`，`index.ts` 启动前断言 | 6/6；回环放行；非回环必须显式开关 + TLS/域套接字，且不得开明文 Basic；production fail-closed | B | 完成 |
-| L16 QA 三档口径 | `docs/benchmark-evidence/QA-standards-and-evidence-tiers.md`、`wave2-ihui-landing-v2-2026-11-26.md`、`benchmarks/ihui-agent-safety/`、`l16-public-rubric-crosswalk-2026-11-26.md` | 三档口径固化；新增确定性 6 项 benchmark（`6/6`、exit 0、报告 gitHead `2b76bc5c`）；L01–L16 对照 OWASP ASVS / OWASP LLM Top 10 / NIST AI RMF 的公开尺子；202/401/refusal 不得写成模型闭环 | B | 完成 |
+| L16 QA 三档口径 | `docs/benchmark-evidence/QA-standards-and-evidence-tiers.md`、`wave2-ihui-landing-v2-2026-11-26.md`、`benchmarks/ihui-agent-safety/`、`l16-public-rubric-crosswalk-2026-11-26.md` | 三档口径固化；新增确定性 6 项 benchmark（`6/6`、exit 0、报告 gitHead `c24fbf66`）；L01–L16 对照 OWASP ASVS / OWASP LLM Top 10 / NIST AI RMF 的公开尺子；202/401/refusal 不得写成模型闭环 | B | 完成 |
 
 ## 二、L09 消费侧补记（原缺口已闭合）
 
