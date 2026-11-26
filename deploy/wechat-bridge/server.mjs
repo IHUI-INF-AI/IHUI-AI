@@ -598,8 +598,14 @@ let friendsScanCache = loadSnapshot(FRIENDS_SNAPSHOT_FILE)
 let friendsScanInFlight = null
 /** 上一轮扫描时微信窗口是否收起（收起时读不到界面，巡检降频到 10 分钟，别每分钟白跑一次）。 */
 let friendsWindowHidden = false
+/**
+ * 窗口收在托盘/最小化时是否允许巡检自己用热键把微信唤回来（唤回会把窗口顶到前台 1~3 秒）。
+ * 默认 0=关闭：不替用户做主抢焦点；显式设 BRIDGE_FRIENDS_AUTO_WAKE_MS 才启用，最小 5 分钟一次。
+ */
+const FRIENDS_AUTO_WAKE_MS = Math.max(0, Number(process.env.BRIDGE_FRIENDS_AUTO_WAKE_MS ?? 0) || 0)
+let friendsLastAutoWakeAt = 0
 
-function scanViaCache(force) {
+function scanViaCache(force, wake = false) {
   if (!force) {
     if (friendsScanInFlight) return friendsScanInFlight
     if (friendsScanCache) {
@@ -614,7 +620,7 @@ function scanViaCache(force) {
       })
     }
   }
-  friendsScanInFlight = runFriendsScript(['-Scan']).then((raw) => {
+  friendsScanInFlight = runFriendsScript(wake ? ['-Scan', '-Wake'] : ['-Scan']).then((raw) => {
     friendsWindowHidden = Boolean(raw && raw.window && raw.window.visible === false)
     const next = applyScanResult(raw, friendsScanCache)
     if (next.cache && next.cache !== friendsScanCache) saveSnapshot(FRIENDS_SNAPSHOT_FILE, next.cache)
@@ -634,7 +640,13 @@ function startFriendsScanLoop() {
       if (age < FRIENDS_SCAN_CACHE_MS) return
       // 窗口收起时读不到界面，10 分钟内不再重试；用户一旦把微信放出来，下一轮就会采到真实数据。
       if (friendsWindowHidden && age < FRIENDS_SCAN_STALE_MS) return
-      const body = await scanViaCache(true)
+      // 收起超过 10 分钟仍没恢复：只有显式开了自愈才唤一次（默认关闭，不替用户抢焦点）。
+      if (friendsWindowHidden && !FRIENDS_AUTO_WAKE_MS) return
+      const shouldWake =
+        friendsWindowHidden && Date.now() - friendsLastAutoWakeAt >= Math.max(300_000, FRIENDS_AUTO_WAKE_MS)
+      if (friendsWindowHidden && !shouldWake) return
+      if (shouldWake) friendsLastAutoWakeAt = Date.now()
+      const body = await scanViaCache(true, shouldWake)
       const stale = body?.cacheAgeMs && body.cacheAgeMs > FRIENDS_SCAN_STALE_MS
       if (stale) console.warn('[friends] 巡检结果偏旧:', body.cacheAgeMs)
     } catch (e) {

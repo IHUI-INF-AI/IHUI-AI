@@ -1904,6 +1904,21 @@ function breakStale({ dir = lockDir(), reason, log = (...a) => console.log(...a)
     log(claim.log)
   }
   log(claim.log)
+  // rename 被占用（Windows 上杀软/索引或残留句柄会 EPERM）时留最后一格人工出口：归档已完成、
+  // 且锁还是刚才判死的那一把（身份逐字段比对）才直接清理目录；锁已换人就放弃，不碰别人的锁。
+  if (!claim.ok && claim.code === 'EPERM') {
+    const nowState = readMeta(dir)
+    if (archived && lockIdentity(nowState) === lockIdentity(state)) {
+      try {
+        rmSync(dir, { recursive: true, force: true })
+      } catch {
+        /* 清理失败走原失败口径 */
+      }
+      if (!existsSync(dir)) {
+        return { ok: true, why: `已断锁（rename 被占用 ⇒ 归档后直接清理），现场=${archived}` }
+      }
+    }
+  }
   return { ok: claim.ok, why: claim.ok ? `已断锁,现场=${claim.archived}` : `未断:${claim.log}` }
 }
 
