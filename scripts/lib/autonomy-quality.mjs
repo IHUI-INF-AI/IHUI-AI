@@ -43,7 +43,11 @@ export const QUALITY_LEDGER_ACTION_BY_VERDICT = Object.freeze({
 })
 export const QUALITY_HOLD_ACTION = 'quality-hold-skip'
 
-/** 读 gates 里的尺子档(形状坏抛错,由 loadGates 当场落 exit 2;不给默认值兜开放行为)。 */
+/**
+ * 读 gates 里的尺子档(形状坏抛错,由 loadGates 当场落 exit 2;不给默认值兜开放行为)。
+ * 调参只透传**取值**,阈值语义与默认值仍住在 pairwise_eval.py / private_eval_run.py(§0.6) ——
+ * 没有这一层,题库十来题时自主环会永远停在"历史/样本不足",尺子形同哑火。
+ */
 export function resolveQualityConfig(gates = {}) {
   const r = gates && typeof gates.ruler === 'object' && gates.ruler !== null ? gates.ruler : {}
   const mode = r.mode === undefined || r.mode === null ? DEFAULT_QUALITY_MODE : String(r.mode)
@@ -57,7 +61,25 @@ export function resolveQualityConfig(gates = {}) {
       throw new Error(`ruler.holdHours 必须是 1..${MAX_QUALITY_HOLD_HOURS} 的正整数(现值 ${String(r.holdHours)})`)
     }
   }
-  return { mode, holdHours }
+  // 调参只校验**取值**,flag 名由 runRuler 单点映射(CLI 参数是尺子脚本的契约,不散进配置层)。
+  const tune = {}
+  for (const key of ['minJudged', 'window']) {
+    if (r[key] === undefined || r[key] === null) continue
+    const v = Number(r[key])
+    if (!Number.isInteger(v) || v < 1) throw new Error(`ruler.${key} 必须是正整数(现值 ${String(r[key])})`)
+    tune[key] = v
+  }
+  if (r.minDelta !== undefined && r.minDelta !== null) {
+    const v = Number(r.minDelta)
+    if (!Number.isFinite(v) || v <= 0 || v > 1) throw new Error(`ruler.minDelta 必须是 (0,1] 的小数(现值 ${String(r.minDelta)})`)
+    tune.minDelta = v
+  }
+  let datasetDir = null
+  if (r.datasetDir !== undefined && r.datasetDir !== null) {
+    datasetDir = String(r.datasetDir).trim()
+    if (!datasetDir) throw new Error('ruler.datasetDir 给了值却是空串(要么不填,要么给绝对路径)')
+  }
+  return { mode, holdHours, tune, datasetDir }
 }
 
 /**
@@ -100,9 +122,22 @@ export function qualityHoldPath(root) {
 }
 
 /**
+ * 组尺子 argv —— flag 名只在这里出现一次(与 private_eval_run.py 的 argparse 契约对齐);
+ * 未配置的调参**不拼进去**,让 Python 那份默认值继续做主,避免两处默认漂移(§0.6)。
+ */
+export function buildRulerArgv(script, version, tune = null) {
+  const argv = [script, '--version', String(version || 'unknown')]
+  if (!tune || typeof tune !== 'object') return argv
+  if (Number.isInteger(tune.minJudged) && tune.minJudged > 0) argv.push('--min-judged', String(tune.minJudged))
+  if (Number.isInteger(tune.window) && tune.window > 0) argv.push('--window', String(tune.window))
+  if (Number.isFinite(tune.minDelta) && tune.minDelta > 0 && tune.minDelta <= 1) argv.push('--min-delta', String(tune.minDelta))
+  return argv
+}
+
+/**
  * 起尺子进程。所有失败路径都收进返回值,绝不抛(调用方在主链上,抛了就会打断落账)。
- * datasetDir:显式指定题库根并透传给子进程 env(PRIVATE_EVAL_DIR);不给则子进程按自己的
- * 候选根解析。有它才能在不污染常驻批准根的前提下做端到端证明/试跑(§15b 落点纪律)。
+ * tune/datasetDir:来自 resolveQualityConfig 的取值;datasetDir 入参保留给调用方显式覆盖
+ * (端到端证明/试跑用),它优先于配置值。不给则子进程按自己的候选根解析(§15b 落点纪律)。
  */
 export function runRuler({
   mode,
@@ -113,16 +148,19 @@ export function runRuler({
   env = process.env,
   platform = process.platform,
   datasetDir = null,
+  tune = null,
 } = {}) {
   if (mode === 'off') return { verdict: 'skipped', rc: null, tail: '', why: '档位 off,未起进程' }
   const plan = resolveRulerPlan(root, env, platform)
   if (!plan.ok) {
     return { verdict: 'undetermined', rc: null, tail: '', why: `尺子不在位:${plan.missing.join(' / ')}` }
   }
-  const childEnv = datasetDir ? { ...env, PRIVATE_EVAL_DIR: String(datasetDir) } : env
+  const dir = datasetDir || tune?.datasetDir || null
+  const childEnv = dir ? { ...env, PRIVATE_EVAL_DIR: String(dir) } : env
+  const argv = buildRulerArgv(plan.script, version, tune)
   let r
   try {
-    r = spawnFn(plan.interpreter, [plan.script, '--version', String(version || 'unknown')], {
+    r = spawnFn(plan.interpreter, argv, {
       encoding: 'utf8',
       timeout: timeoutMs,
       windowsHide: true,
@@ -138,7 +176,7 @@ export function runRuler({
   if (r?.error) {
     return { verdict: 'undetermined', rc: null, tail, why: `spawn error ${r.error}(${String(r?.stderr ?? '').slice(0, 120)})` }
   }
-  return { verdict: mapRulerExit({ status: r?.status, signal: r?.signal }), rc: r?.status, tail, why: '' }
+  return { verdict: mapRulerExit({ status: r?.status, signal: r?.signal }), rc: r?.status, tail, why: '', argv }
 }
 
 function pickVerdictLine(spawned) {
@@ -205,6 +243,7 @@ export const __test__ = Object.freeze({
   QUALITY_LEDGER_ACTION_BY_VERDICT,
   QUALITY_HOLD_ACTION,
   runRuler,
+  buildRulerArgv,
   resolveQualityConfig,
   resolveRulerPlan,
   mapRulerExit,
