@@ -667,6 +667,63 @@ describe('useWorkPanelStore - 工作面内停靠画中画', () => {
   })
 })
 
+describe('useWorkPanelStore - 多会话同屏墙', () => {
+  beforeEach(() => resetStore())
+
+  it('openPipWall 只建一个 tab,里面绑定多个会话', () => {
+    useWorkPanelStore.getState().openPipWall(
+      [
+        { sessionId: 'sess-a', url: 'https://a.example', title: 'A' },
+        { sessionId: 'sess-b', url: 'https://b.example', title: 'B' },
+        { sessionId: 'sess-c', url: 'https://c.example', title: 'C' },
+      ],
+      '多会话同屏',
+    )
+    const s = useWorkPanelStore.getState()
+    expect(s.open).toBe(true)
+    expect(s.tabs).toHaveLength(1)
+    expect(s.tabs[0]?.state.mode).toBe('pip-wall')
+    expect(s.tabs[0]?.title).toBe('多会话同屏')
+    expect(s.tabs[0]?.state.pipSessions?.map((x) => x.sessionId)).toEqual([
+      'sess-a',
+      'sess-b',
+      'sess-c',
+    ])
+    expect(s.activeTabId).toBe(s.tabs[0]?.id)
+  })
+
+  it('重复 openPipWall 复用同一墙 tab,只替换会话列表', () => {
+    useWorkPanelStore.getState().openPipWall([
+      { sessionId: 'sess-a', url: 'https://a.example' },
+      { sessionId: 'sess-b', url: 'https://b.example' },
+    ])
+    const firstId = useWorkPanelStore.getState().tabs[0]?.id
+    useWorkPanelStore.getState().openPipWall([{ sessionId: 'sess-c', url: 'https://c.example' }])
+    const s = useWorkPanelStore.getState()
+    expect(s.tabs).toHaveLength(1)
+    expect(s.activeTabId).toBe(firstId)
+    expect(s.tabs[0]?.state.pipSessions?.map((x) => x.sessionId)).toEqual(['sess-c'])
+  })
+
+  it('openPipWall 去重并只保留最近 6 路', () => {
+    const sessions = Array.from({ length: 8 }, (_, i) => ({
+      sessionId: `sess-${i}`,
+      url: `https://e${i}.example`,
+    }))
+    useWorkPanelStore.getState().openPipWall([...sessions, sessions[0]!])
+    const wall = useWorkPanelStore.getState().tabs[0]?.state.pipSessions ?? []
+    expect(wall).toHaveLength(6)
+    expect(wall.map((x) => x.sessionId)).toEqual([
+      'sess-2',
+      'sess-3',
+      'sess-4',
+      'sess-5',
+      'sess-6',
+      'sess-7',
+    ])
+  })
+})
+
 describe('useWorkPanelStore - 窗口尺寸', () => {
   beforeEach(() => resetStore())
 
