@@ -22415,7 +22415,8 @@
     "dataVisibility": "Data Visibility",
     "dataVisibilityDesc": "Control who can see your profile information",
     "desc": {
-      "notificationSound": "Receive Notice H"
+      "notificationSound": "Receive Notice H",
+      "notificationRingtone": "Play the selected ringtone when a new notification arrives"
     },
     "device": {
       "empty": "No login devices",
@@ -22594,7 +22595,8 @@
       "title": "IP Whitelist"
     },
     "labels": {
-      "notificationSound": "Notice"
+      "notificationSound": "Notice",
+      "notificationRingtone": "Notification ringtone"
     },
     "langZh": "Chinese",
     "llmConfigsDesc": "Configure LLM providers and parameters",
@@ -22857,6 +22859,17 @@
     "devices": {
       "navTitle": "Devices",
       "navDesc": "Review signed-in devices and manage their sessions"
+    },
+    "ringtonePreview": "Preview",
+    "ringtoneNames": {
+      "dingdong": "Door bell",
+      "tritone": "Rising triad",
+      "waterdrop": "Water drop",
+      "doublebell": "Double bell",
+      "bubble": "Bubble",
+      "marimba": "Marimba",
+      "chime": "Chime",
+      "knock": "Knock"
     }
   },
   "shareContentPage": {

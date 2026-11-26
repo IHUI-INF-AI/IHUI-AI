@@ -22653,7 +22653,8 @@
     "dataVisibility": "データ公開範囲",
     "dataVisibilityDesc": "他のユーザーに対するプロフィールの公開範囲を制御",
     "desc": {
-      "notificationSound": "通知受信時に音声を再生"
+      "notificationSound": "通知受信時に音声を再生",
+      "notificationRingtone": "新しい通知が届いたときに選択した音を再生します"
     },
     "device": {
       "empty": "コンテンツはまだありません。おしみに",
@@ -22832,7 +22833,8 @@
       "title": "IPホワイトリスト"
     },
     "labels": {
-      "notificationSound": "通知音声"
+      "notificationSound": "通知音声",
+      "notificationRingtone": "通知音"
     },
     "langZh": "中国語",
     "llmConfigsDesc": "LLMプロバイダとパラメータを設定",
@@ -23095,7 +23097,18 @@
     "codeIndexEgressOptOut": "コードセマンティック索引を作成しない",
     "codeIndexEgressOptOutDesc": "コードスニペットはベクトル化による索引作成のために外部送信されません",
     "autoMemoryOptOut": "自動長期記憶を無効にする",
-    "autoMemoryOptOutDesc": "対話を横断セッションの好みや合意に抽出しません"
+    "autoMemoryOptOutDesc": "対話を横断セッションの好みや合意に抽出しません",
+    "ringtonePreview": "試聴",
+    "ringtoneNames": {
+      "dingdong": "ドアベル",
+      "tritone": "上昇トライアド",
+      "waterdrop": "水滴",
+      "doublebell": "二連ベル",
+      "bubble": "気泡",
+      "marimba": "マリンバ",
+      "chime": "チャイム",
+      "knock": "ノック"
+    }
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI 生成",

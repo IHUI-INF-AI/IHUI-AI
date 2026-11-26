@@ -29,6 +29,7 @@ import AccountsPanel from './AccountsPanel'
 import AnalysisPanel from './AnalysisPanel'
 import AuditPanel from './AuditPanel'
 import AutoReplyPanel from './AutoReplyPanel'
+import BridgeStatusCard from './BridgeStatusCard'
 import CapabilitiesStrip from './CapabilitiesStrip'
 import ContactsPanel from './ContactsPanel'
 import ConversationsPanel from './ConversationsPanel'
@@ -151,6 +152,10 @@ export default function PageClient() {
           void qc.invalidateQueries({ queryKey: ['wechat-hub'] })
         }}
       />
+
+      {selected && selected.backend === 'bridge' ? (
+        <BridgeStatusCard accountId={selected.id} />
+      ) : null}
 
       {selected ? (
         <Tabs value={tab} onValueChange={(value) => setTab(value as TabKey)}>

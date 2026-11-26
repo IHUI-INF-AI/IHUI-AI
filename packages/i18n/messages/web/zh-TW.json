@@ -22575,7 +22575,8 @@
     "dataVisibility": "數據可見性",
     "dataVisibilityDesc": "控制誰可以查看您的個人資料信息",
     "desc": {
-      "notificationSound": "接收通知時播放聲音"
+      "notificationSound": "接收通知時播放聲音",
+      "notificationRingtone": "收到新通知時播放所選鈴聲"
     },
     "device": {
       "empty": "暫無登錄設備",
@@ -22754,7 +22755,8 @@
       "title": "IP 白名單"
     },
     "labels": {
-      "notificationSound": "通知聲音"
+      "notificationSound": "通知聲音",
+      "notificationRingtone": "通知鈴聲"
     },
     "langZh": "中文",
     "llmConfigsDesc": "配置大語言模型提供商與參數",
@@ -23017,6 +23019,17 @@
     "devices": {
       "navTitle": "裝置管理",
       "navDesc": "查看已登入的裝置並管理工作階段"
+    },
+    "ringtonePreview": "試聽",
+    "ringtoneNames": {
+      "dingdong": "門鈴",
+      "tritone": "上揚三音",
+      "waterdrop": "水滴",
+      "doublebell": "雙響鈴",
+      "bubble": "氣泡",
+      "marimba": "木琴",
+      "chime": "和弦鈴",
+      "knock": "輕敲"
     }
   },
   "shareContentPage": {
