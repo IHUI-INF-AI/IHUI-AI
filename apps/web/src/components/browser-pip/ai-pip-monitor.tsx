@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react'
 import { buildBrowserWsUrl, setBrowserWsToken } from '@ihui/api-client'
+import { ihuiIpc } from '@/lib/tauri-ipc'
 
 import { useBrowserPipLabels } from '@/hooks/use-browser-pip-labels'
 import {
@@ -149,8 +150,9 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
     const host = isTauri()
     setTauriHost(host)
     if (!host) return
-    void import('@tauri-apps/api/window')
-      .then(({ getCurrentWindow }) => getCurrentWindow().setTitle('AI 画中画监看'))
+    void ihuiIpc
+      .getCurrentWindow()
+      .setTitle('AI 画中画监看')
       .catch(() => {
         /* 标题只是外观,失败不影响监看 */
       })
@@ -175,8 +177,9 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
     const wantPinned = window.localStorage.getItem(PIN_STORAGE_KEY) !== '0'
     setPinned(wantPinned)
     if (!wantPinned) {
-      void import('@tauri-apps/api/window')
-        .then(({ getCurrentWindow }) => getCurrentWindow().setAlwaysOnTop(false))
+      void ihuiIpc
+        .getCurrentWindow()
+        .setAlwaysOnTop(false)
         .catch(() => {
           /* 取不到窗口时保持 Rust 建窗默认置顶 */
         })
@@ -188,8 +191,7 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
     const next = !pinned
     setPinBusy(true)
     try {
-      const { getCurrentWindow } = await import('@tauri-apps/api/window')
-      await getCurrentWindow().setAlwaysOnTop(next)
+      await ihuiIpc.getCurrentWindow().setAlwaysOnTop(next)
       window.localStorage.setItem(PIN_STORAGE_KEY, next ? '1' : '0')
       setPinned(next)
     } catch {

@@ -21,7 +21,7 @@
  * 且已有事后重连兜底,故不在此重建锁。
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { ihuiIpc } from './tauri-ipc'
 import { isTauri } from './tauri-bridge'
 
 export type WakeLockSource = 'desktop' | 'web' | 'none'
@@ -44,12 +44,12 @@ let acquisition: Promise<WakeLockHandle> | null = null
 async function requestHandle(): Promise<WakeLockHandle> {
   if (isTauri()) {
     try {
-      const report = await invoke<DesktopReport>('set_sleep_prevention', { active: true })
+      const report = await ihuiIpc.call<DesktopReport>('set_sleep_prevention', { active: true })
       if (report?.state === 'supported') {
         return {
           source: 'desktop',
           release: () => {
-            void invoke('set_sleep_prevention', { active: false }).catch(() => {})
+            void ihuiIpc.call('set_sleep_prevention', { active: false }).catch(() => {})
           },
         }
       }

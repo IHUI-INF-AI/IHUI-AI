@@ -10,6 +10,9 @@
  * 执行逻辑不在这里，也不在桌面端 —— 常驻进程是 CLI `ihui device start`。
  */
 
+import { ihuiIpc } from './tauri-ipc'
+import { isTauriRuntime } from './api-base-url'
+
 export interface DeviceExecutorStatus {
   supported: boolean
   paired: boolean
@@ -21,13 +24,11 @@ export interface DeviceExecutorStatus {
 
 /** 当前是否在 Tauri 客户端（不是浏览器预览） */
 export function isDesktopHost(): boolean {
-  if (typeof window === 'undefined') return false
-  return Boolean((window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__)
+  return isTauriRuntime()
 }
 
 async function invokeCmd<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const { invoke } = await import('@tauri-apps/api/core')
-  return invoke<T>(cmd, args)
+  return ihuiIpc.call<T>(cmd, args)
 }
 
 export function getDeviceExecutorStatus(): Promise<DeviceExecutorStatus> {

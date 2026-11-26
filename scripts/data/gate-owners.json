@@ -1576,6 +1576,10 @@
       "owner": null
     },
     {
+      "script": "check-tauri-ipc-budget.mjs",
+      "owner": null
+    },
+    {
       "script": "check-task-claims.mjs",
       "owner": null
     },

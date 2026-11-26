@@ -809,12 +809,14 @@ function auditDeepLinkMechanism(rawRust, rawBridge, rawNav) {
     // 顺序判据比的是**调用点**:桥接端可以把命令名提成常量(声明行必然在文件靠前处),
     // 拿裸字面量的首个出现当调用点会把"声明"读成"调用",顺序结论整个反掉。
     const listenAt = bridgeText.search(/listen(?:<[^>]*>)?\(\s*'desktop-deep-link'/)
+    // RP-3 后桥接端改走 ihuiIpc.call;G6 盯的是"先 listen 后 take"这条时序,
+    // 不是函数名本身。invoke 与 call 两个名字都要认,否则门会把重构误判成链路断裂。
     const takeCallRe = new RegExp(
-      `invoke(?:<[^>]*>)?\\(\\s*(?:'${G_DEEP_LINK_TAKE_COMMAND}'|DEEP_LINK_TAKE_COMMAND\\b)`,
+      `(?:invoke|call)(?:<[^>]*>)?\\(\\s*(?:'${G_DEEP_LINK_TAKE_COMMAND}'|DEEP_LINK_TAKE_COMMAND\\b)`,
     )
     const invokeAt = bridgeText.search(takeCallRe)
     if (invokeAt < 0)
-      say(`G6 桥接端注册完监听后未取回积压(缺 invoke(${G_DEEP_LINK_TAKE_COMMAND}…))—— 冷启动的登录码仍会留在队列里`)
+      say(`G6 桥接端注册完监听后未取回积压(缺 invoke/call(${G_DEEP_LINK_TAKE_COMMAND}…))—— 冷启动的登录码仍会留在队列里`)
     else if (invokeAt < listenAt)
       say('G6 取回积压排在 listen() 之前 —— 先取后订阅等于把补投投给还不存在的监听')
     if (/new\s+Set[<(]/.test(block))

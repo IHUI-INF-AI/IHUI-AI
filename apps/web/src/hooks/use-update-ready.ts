@@ -17,6 +17,7 @@ import {
   type UpdateV2RollbackNotice,
   type UpdateV2Status,
 } from '@/lib/tauri-bridge'
+import { ihuiIpc } from '@/lib/tauri-ipc'
 
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
 
@@ -99,9 +100,8 @@ export function useUpdateReady() {
         console.warn('[update-v2] rollback notice failed:', err)
       }
       await checkAndStage()
-      const { listen } = await import('@tauri-apps/api/event')
       if (disposed) return
-      unlisten = await listen<UpdateV2Event>('update-v2', (event) => {
+      unlisten = await ihuiIpc.listen<UpdateV2Event>('update-v2', (event) => {
         const payload = event.payload
         if (payload.phase === 'ready') {
           void refreshLocal()

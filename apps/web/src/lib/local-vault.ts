@@ -97,15 +97,15 @@ export interface VaultEntryChannel {
 /** IPC 调用结果:必须保留「通道不可用」与「命令成功但值为空」两种语义 */
 type InvokeResult<T> = { status: 'ok'; value: T } | { status: 'error' }
 
-/** 懒加载 Tauri IPC(动态 import,避免浏览器 bundle 引入 Tauri 依赖) */
+/** 懒加载 RP-3 单一 IPC 命名空间(动态 import,避免浏览器 bundle 引入 Tauri 依赖) */
 async function invokeDesktopStore<T>(
   command: 'store_read_entry' | 'store_write_entry',
   args: Record<string, unknown>,
 ): Promise<InvokeResult<T>> {
   if (!isDesktopEnv()) return { status: 'error' }
   try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    return { status: 'ok', value: await invoke<T>(command, args) }
+    const { ihuiIpc } = await import('./tauri-ipc')
+    return { status: 'ok', value: await ihuiIpc.call<T>(command, args) }
   } catch {
     return { status: 'error' }
   }

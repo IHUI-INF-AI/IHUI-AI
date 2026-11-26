@@ -9,6 +9,7 @@ import { useEffect } from 'react'
 import { listBrowserSessions } from '@ihui/api-client'
 
 import { isTauri, openAiPipWindow } from '@/lib/tauri-bridge'
+import { ihuiIpc } from '@/lib/tauri-ipc'
 import { useAuthStore } from '@/stores/auth'
 
 /** 自动监看开关:默认开;用户可在 AI 侧栏菜单里关掉。 */
@@ -52,8 +53,7 @@ export function useAutoAiPip(): void {
         if (fresh.length === 0) return
         if (window.localStorage.getItem(AI_PIP_AUTO_KEY) === '0') return
 
-        const { getAllWindows } = await import('@tauri-apps/api/window')
-        const windows = await getAllWindows()
+        const windows = await ihuiIpc.getAllWindows()
         const openLabels = new Set(windows.map((win) => win.label))
         const openCount = [...openLabels].filter(
           (label) => label === 'ai-browser-pip' || label.startsWith('ai-browser-pip-'),

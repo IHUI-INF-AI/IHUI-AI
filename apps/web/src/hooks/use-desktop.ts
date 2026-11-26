@@ -44,6 +44,7 @@ import {
   type DesktopPrefsPatch,
 } from '@/lib/desktop-prefs-bridge'
 import { logger } from '@/lib/logger'
+import { ihuiIpc } from '@/lib/tauri-ipc'
 
 /**
  * useDesktop — 客户端(Tauri WebView)能力统一 hook(2026-07-25 立)
@@ -442,11 +443,8 @@ export function useDesktopEvents(): void {
     let pendingPromise: Promise<void> | null = null
 
     pendingPromise = (async () => {
-      // 并行 import 而非串行 await:少一段 chunk 往返就少一段"窗口在、监听未生效"的丢动作窗口期
-      const [{ listen }, { invoke }] = await Promise.all([
-        import('@tauri-apps/api/event'),
-        import('@tauri-apps/api/core'),
-      ])
+      // RP-3:事件与命令统一从单一命名空间取;不再由业务代码直接动态 import @tauri-apps/*
+      const { listen, call } = ihuiIpc
       if (cancelled) return
 
       // 托盘菜单事件
@@ -458,7 +456,7 @@ export function useDesktopEvents(): void {
       // 没有这一步时,冷启动/页面重载窗口期内点「新建对话/切换主题/设置/检查更新」会静默消失,
       // 用户只能再点一次 —— 这正是本闸门立项的那一型。
       try {
-        const backlog = await invoke<string[]>(TRAY_TAKE_COMMAND)
+        const backlog = await call<string[]>(TRAY_TAKE_COMMAND)
         for (const action of backlog) applyTrayAction(action)
       } catch (err) {
         // 取不回积压 = 这一段窗口期的托盘动作确实丢了,必须喊出来而不是静默继续
@@ -561,13 +559,9 @@ export function useDesktopDeepLink(): void {
     let pendingPromise: Promise<void> | null = null
 
     pendingPromise = (async () => {
-      // 并行 import 而非串行 await:少一段 chunk 往返就少一段"窗口在、监听未生效"的丢码窗口期
-      const [{ listen }, { invoke }, { handleDesktopDeepLink }] = await Promise.all([
-        import('@tauri-apps/api/event'),
-        import('@tauri-apps/api/core'),
-        // 动态 import 避免浏览器端加载 desktop bridge 模块
-        import('@/lib/sso-desktop-bridge'),
-      ])
+      // RP-3:事件与命令统一从单一命名空间取;只有 sso bridge 仍动态加载(避免浏览器端加载桌面模块)
+      const { listen, call } = ihuiIpc
+      const { handleDesktopDeepLink } = await import('@/lib/sso-desktop-bridge')
       if (cancelled) return
 
       unlistenDeepLink = await listen<string>('desktop-deep-link', (event) => {
@@ -576,7 +570,7 @@ export function useDesktopDeepLink(): void {
 
       // 注册成功之后才取积压:在此之前的抵达都被 Rust 侧暂存(不会投给不存在的监听)
       try {
-        const backlog = await invoke<string[]>(DEEP_LINK_TAKE_COMMAND)
+        const backlog = await call<string[]>(DEEP_LINK_TAKE_COMMAND)
         for (const url of backlog) {
           await deliverDeepLinkUrl(url)
         }

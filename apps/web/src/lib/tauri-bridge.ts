@@ -2,11 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// tauri 桥接依赖:运行时由 Tauri WebView 注入,构建时 next.config.ts transpilePackages 解析。
-// pnpm workspace 已将 @tauri-apps/api 与 @tauri-apps/plugin-dialog 链接到 web node_modules。
-import { invoke, Channel } from '@tauri-apps/api/core'
-import { getCurrentWindow } from '@tauri-apps/api/window'
-import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
+// Tauri 原生能力只走 RP-3 单一命名空间;本文件不再直接 import @tauri-apps/*。
+import { ihuiIpc, type IpcChannel } from './tauri-ipc'
 import { isTauriRuntime } from './api-base-url'
 
 export { formatFileSize } from '@ihui/shared/utils/format'
@@ -54,7 +51,7 @@ export function getLocalizedAppName(): string {
  */
 export async function setWindowTitle(title: string): Promise<void> {
   if (!isTauri()) return
-  await getCurrentWindow().setTitle(title)
+  await ihuiIpc.getCurrentWindow().setTitle(title)
 }
 
 /**
@@ -66,13 +63,13 @@ export async function setWindowTitle(title: string): Promise<void> {
  */
 export async function openAiPipWindow(sessionId: string, accessToken: string): Promise<void> {
   requireTauri()
-  await invoke('open_browser_pip_window', { sessionId, accessToken })
+  await ihuiIpc.call('open_browser_pip_window', { sessionId, accessToken })
 }
 
 /** 关闭桌面端 AI 画中画监看窗。传 sessionId 只关该会话;不传则关闭全部。 */
 export async function closeAiPipWindow(sessionId?: string): Promise<void> {
   if (!isTauri()) return
-  await invoke('close_browser_pip_window', { sessionId: sessionId ?? null })
+  await ihuiIpc.call('close_browser_pip_window', { sessionId: sessionId ?? null })
 }
 
 /**
@@ -84,13 +81,13 @@ export async function closeAiPipWindow(sessionId?: string): Promise<void> {
  */
 export async function setAiPipCollapsed(collapsed: boolean): Promise<boolean> {
   requireTauri()
-  return invoke<boolean>('set_browser_pip_collapsed', { collapsed })
+  return ihuiIpc.call<boolean>('set_browser_pip_collapsed', { collapsed })
 }
 
 /** 切换收起/展开,不依赖页面本地 state;刷新后也能正确还原。 */
 export async function toggleAiPipCollapsed(): Promise<boolean> {
   requireTauri()
-  return invoke<boolean>('toggle_browser_pip_collapsed')
+  return ihuiIpc.call<boolean>('toggle_browser_pip_collapsed')
 }
 
 /**
@@ -104,7 +101,7 @@ export async function handoverAiPipWindow(
   title: string,
 ): Promise<void> {
   requireTauri()
-  await invoke('handover_browser_pip_window', { sessionId, url, title })
+  await ihuiIpc.call('handover_browser_pip_window', { sessionId, url, title })
 }
 
 /** 非 Tauri 环境统一抛错(用于文件读写等无安全默认值的场景)。 */
@@ -233,7 +230,7 @@ export function dispatchByIpcCode<T>(
  */
 async function invokeIpc<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   try {
-    return await invoke<T>(cmd, args)
+    return await ihuiIpc.call<T>(cmd, args)
   } catch (e) {
     throw toDesktopIpcError(e)
   }
@@ -244,11 +241,11 @@ async function invokeIpc<T>(cmd: string, args?: Record<string, unknown>): Promis
 /** 启用开机自启(参数 --minimized 已在 Rust 端 plugin init 配置)。 */
 export async function enableAutostart(): Promise<void> {
   if (!isTauri()) return
-  await invoke('plugin:autostart|enable')
+  await ihuiIpc.call('plugin:autostart|enable')
   // 插件按 current_exe 写入，落在 versions/<ver>/ihui-app.exe；立即改回稳定
   // Launcher，避免下一次开机绕过 Launcher 直接拉起旧 payload。
   try {
-    await invoke('update_v2_sync_autostart')
+    await ihuiIpc.call('update_v2_sync_autostart')
   } catch (err) {
     console.warn('[autostart] sync launcher path failed:', err)
   }
@@ -257,13 +254,13 @@ export async function enableAutostart(): Promise<void> {
 /** 禁用开机自启。 */
 export async function disableAutostart(): Promise<void> {
   if (!isTauri()) return
-  await invoke('plugin:autostart|disable')
+  await ihuiIpc.call('plugin:autostart|disable')
 }
 
 /** 查询当前开机自启状态。 */
 export async function isAutostartEnabled(): Promise<boolean> {
   if (!isTauri()) return false
-  return await invoke<boolean>('plugin:autostart|is_enabled')
+  return await ihuiIpc.call<boolean>('plugin:autostart|is_enabled')
 }
 
 // ================== 托盘常驻 ==================
@@ -275,7 +272,7 @@ export async function isAutostartEnabled(): Promise<boolean> {
  */
 export async function isTrayAlwaysVisible(): Promise<boolean> {
   if (!isTauri()) return true
-  return await invoke<boolean>('get_tray_always_visible')
+  return await ihuiIpc.call<boolean>('get_tray_always_visible')
 }
 
 /**
@@ -284,7 +281,7 @@ export async function isTrayAlwaysVisible(): Promise<boolean> {
  */
 export async function setTrayAlwaysVisible(enabled: boolean): Promise<void> {
   if (!isTauri()) return
-  await invoke('set_tray_always_visible', { enabled })
+  await ihuiIpc.call('set_tray_always_visible', { enabled })
 }
 
 // ================== 窗口控制 ==================
@@ -292,27 +289,27 @@ export async function setTrayAlwaysVisible(enabled: boolean): Promise<void> {
 /** 显示主窗口(用于 TS 侧主动唤起,如托盘菜单的 TS 调用)。 */
 export async function showMainWindow(): Promise<void> {
   if (!isTauri()) return
-  const label = getCurrentWindow().label
-  await invoke('plugin:window|show', { label })
+  const label = ihuiIpc.getCurrentWindow().label
+  await ihuiIpc.call('plugin:window|show', { label })
 }
 
 /** 隐藏主窗口(最小化到托盘)。 */
 export async function hideMainWindow(): Promise<void> {
   if (!isTauri()) return
-  const label = getCurrentWindow().label
-  await invoke('plugin:window|hide', { label })
+  const label = ihuiIpc.getCurrentWindow().label
+  await ihuiIpc.call('plugin:window|hide', { label })
 }
 
 /** 切换主窗口显示/隐藏(用于全局快捷键的 TS 侧调用,如果需要)。 */
 export async function toggleMainWindow(): Promise<boolean> {
   if (!isTauri()) return false
-  const label = getCurrentWindow().label
-  const visible = await invoke<boolean>('plugin:window|is_visible', { label })
+  const label = ihuiIpc.getCurrentWindow().label
+  const visible = await ihuiIpc.call<boolean>('plugin:window|is_visible', { label })
   if (visible) {
-    await invoke('plugin:window|hide', { label })
+    await ihuiIpc.call('plugin:window|hide', { label })
   } else {
-    await invoke('plugin:window|show', { label })
-    await invoke('plugin:window|set_focus', { label })
+    await ihuiIpc.call('plugin:window|show', { label })
+    await ihuiIpc.call('plugin:window|set_focus', { label })
   }
   return !visible
 }
@@ -320,8 +317,8 @@ export async function toggleMainWindow(): Promise<boolean> {
 /** 最小化主窗口。非 Tauri 环境静默忽略。 */
 export async function minimizeWindow(): Promise<void> {
   if (!isTauri()) return
-  const label = getCurrentWindow().label
-  await invoke('plugin:window|minimize', { label })
+  const label = ihuiIpc.getCurrentWindow().label
+  await ihuiIpc.call('plugin:window|minimize', { label })
 }
 
 /**
@@ -341,7 +338,10 @@ export async function setCaptionButtonTheme(darkBg: boolean): Promise<void> {
   try {
     // tauri v2 命令入参按 camelCase 从 JS 侧取(Rust 侧签名是 `dark_bg`,与本仓
     // `absolute:` / `delay:` / `format:` 同一写法);写成 `dark_bg` 会被判「缺参」。
-    await invoke('set_caption_button_theme', { label: getCurrentWindow().label, darkBg })
+    await ihuiIpc.call('set_caption_button_theme', {
+      label: ihuiIpc.getCurrentWindow().label,
+      darkBg,
+    })
   } catch {
     // 宿主未注册/窗口已销毁:保持原生当前档,不制造二次故障
   }
@@ -350,44 +350,44 @@ export async function setCaptionButtonTheme(darkBg: boolean): Promise<void> {
 /** 最大化主窗口(已最大化则无变化)。非 Tauri 环境静默忽略。 */
 export async function maximizeWindow(): Promise<void> {
   if (!isTauri()) return
-  const label = getCurrentWindow().label
-  await invoke('plugin:window|maximize', { label })
+  const label = ihuiIpc.getCurrentWindow().label
+  await ihuiIpc.call('plugin:window|maximize', { label })
 }
 
 /** 还原最大化窗口。非 Tauri 环境静默忽略。 */
 export async function unmaximizeWindow(): Promise<void> {
   if (!isTauri()) return
-  const label = getCurrentWindow().label
-  await invoke('plugin:window|unmaximize', { label })
+  const label = ihuiIpc.getCurrentWindow().label
+  await ihuiIpc.call('plugin:window|unmaximize', { label })
 }
 
 /** 切换最大化/还原(双击标题栏等场景)。非 Tauri 环境静默忽略。 */
 export async function toggleMaximizeWindow(): Promise<boolean> {
   if (!isTauri()) return false
-  const label = getCurrentWindow().label
-  await invoke('plugin:window|toggle_maximize', { label })
-  return await invoke<boolean>('plugin:window|is_maximized', { label })
+  const label = ihuiIpc.getCurrentWindow().label
+  await ihuiIpc.call('plugin:window|toggle_maximize', { label })
+  return await ihuiIpc.call<boolean>('plugin:window|is_maximized', { label })
 }
 
 /** 查询主窗口是否已最大化。非 Tauri 环境返回 false。 */
 export async function isWindowMaximized(): Promise<boolean> {
   if (!isTauri()) return false
-  const label = getCurrentWindow().label
-  return await invoke<boolean>('plugin:window|is_maximized', { label })
+  const label = ihuiIpc.getCurrentWindow().label
+  return await ihuiIpc.call<boolean>('plugin:window|is_maximized', { label })
 }
 
 /** 关闭主窗口(实际行为由 Rust 端 on_window_event 决定:最小化到托盘而非退出)。 */
 export async function closeWindow(): Promise<void> {
   if (!isTauri()) return
-  const label = getCurrentWindow().label
-  await invoke('plugin:window|close', { label })
+  const label = ihuiIpc.getCurrentWindow().label
+  await ihuiIpc.call('plugin:window|close', { label })
 }
 
 /** 启动窗口拖拽(自定义标题栏用,鼠标按下时调用,系统接管移动)。 */
 export async function startWindowDrag(): Promise<void> {
   if (!isTauri()) return
-  const label = getCurrentWindow().label
-  await invoke('plugin:window|start_dragging', { label })
+  const label = ihuiIpc.getCurrentWindow().label
+  await ihuiIpc.call('plugin:window|start_dragging', { label })
 }
 
 /**
@@ -403,7 +403,7 @@ export async function startResize(
   direction: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw',
 ): Promise<void> {
   if (!isTauri()) return
-  const label = getCurrentWindow().label
+  const label = ihuiIpc.getCurrentWindow().label
   try {
     await invokeIpc('start_resize', { direction, label })
   } catch (e) {
@@ -447,7 +447,7 @@ export async function toggleAlwaysOnTop(): Promise<boolean> {
  */
 export function onMaximizeChange(callback: (maximized: boolean) => void): () => void {
   if (!isTauri()) return () => {}
-  const win = getCurrentWindow()
+  const win = ihuiIpc.getCurrentWindow()
   let cancelled = false
   let unlistenFn: (() => void) | null = null
   let lastInvokeAt = 0
@@ -510,7 +510,7 @@ export function onMaximizeChange(callback: (maximized: boolean) => void): () => 
  */
 export function onWindowFocusChange(callback: (focused: boolean) => void): () => void {
   if (!isTauri()) return () => {}
-  const win = getCurrentWindow()
+  const win = ihuiIpc.getCurrentWindow()
   let cancelled = false
   const cleanups: Array<() => void> = []
 
@@ -549,7 +549,7 @@ export function onWindowFocusChange(callback: (focused: boolean) => void): () =>
 export async function isWindowFocused(): Promise<boolean> {
   if (!isTauri()) return true
   try {
-    return await getCurrentWindow().isFocused()
+    return await ihuiIpc.getCurrentWindow().isFocused()
   } catch {
     return true
   }
@@ -560,12 +560,12 @@ export async function isWindowFocused(): Promise<boolean> {
  * 返回 'light' | 'dark' | undefined(非 Tauri 或失败)。
  * 2026-08-16 修复:此前 invoke('plugin:os|theme') 命令不存在(tauri-plugin-os
  * 无 theme 命令,theme 是 window API),catch 后恒 undefined → 主题跟随从未生效。
- * 改用 getCurrentWindow().theme()。
+ * 改用 ihuiIpc.getCurrentWindow().theme()。
  */
 export async function getSystemTheme(): Promise<'light' | 'dark' | undefined> {
   if (!isTauri()) return undefined
   try {
-    const theme = await getCurrentWindow().theme()
+    const theme = await ihuiIpc.getCurrentWindow().theme()
     return theme ?? undefined
   } catch {
     return undefined
@@ -578,7 +578,7 @@ export async function getSystemTheme(): Promise<'light' | 'dark' | undefined> {
  */
 export function onSystemThemeChange(callback: (theme: 'light' | 'dark') => void): () => void {
   if (!isTauri()) return () => {}
-  const win = getCurrentWindow()
+  const win = ihuiIpc.getCurrentWindow()
   // 2026-08-16 修复竞态:cleanup 先于 onThemeChanged Promise resolve 时,
   // unlisten 仍为 undefined 会泄漏监听器(pendingPromise 模式,与 useDesktopEvents 一致)。
   let cancelled = false
@@ -613,7 +613,7 @@ export interface DesktopAppInfo {
 export async function getDesktopAppInfo(): Promise<DesktopAppInfo | null> {
   if (!isTauri()) return null
   try {
-    return await invoke<DesktopAppInfo>('get_app_info')
+    return await ihuiIpc.call<DesktopAppInfo>('get_app_info')
   } catch {
     return null
   }
@@ -647,7 +647,7 @@ export async function openExternalUrl(url: string, windowName = '_blank'): Promi
     // invoke 若挂起(IPC 通道死/webview 半死态)则 await 永不返回,
     // 竞速 5s 超时:超时按失败返回 false,绝不把用户留在"无反馈"里。
     await Promise.race([
-      invoke('plugin:shell|open', { path: url }),
+      ihuiIpc.call('plugin:shell|open', { path: url }),
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error('shell open timeout (5s)')), 5_000),
       ),
@@ -1015,7 +1015,7 @@ export async function onEmbeddedBrowserElementPicked(
 ): Promise<() => void> {
   if (!isTauri()) return () => {}
   try {
-    const { listen } = await import('@tauri-apps/api/event')
+    const { listen } = ihuiIpc
     const unlisten = await listen<string>('embedded-browser://element-picked', (e) =>
       handler(e.payload),
     )
@@ -1078,7 +1078,7 @@ export async function onDockedBrowserTabs(
 ): Promise<() => void> {
   if (!isTauri()) return () => {}
   try {
-    const { listen } = await import('@tauri-apps/api/event')
+    const { listen } = ihuiIpc
     const unlisten = await listen<{ tabs: DockedBrowserTab[] }>(
       'embedded-browser://dock-tabs',
       (e) => handler(e.payload?.tabs ?? []),
@@ -1150,7 +1150,7 @@ export async function dockedBrowserHistoryClear(): Promise<DockedBrowserStore | 
 export async function onDockedBrowserPoppedOut(handler: () => void): Promise<() => void> {
   if (!isTauri()) return () => {}
   try {
-    const { listen } = await import('@tauri-apps/api/event')
+    const { listen } = ihuiIpc
     return await listen('embedded-browser://dock-popped-out', () => handler())
   } catch (e) {
     const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
@@ -1174,19 +1174,19 @@ export type MenuActionId =
 /** 唤起 / 创建 admin 窗口(Rust 端 open_admin_window)。已存在则 show + focus。 */
 export async function openAdminWindow(): Promise<void> {
   if (!isTauri()) return
-  await invoke('open_admin_window')
+  await ihuiIpc.call('open_admin_window')
 }
 
 /** 切换 webview 开发者工具(Rust 端 toggle_devtools)。 */
 export async function toggleDevtools(): Promise<void> {
   if (!isTauri()) return
-  await invoke('toggle_devtools')
+  await ihuiIpc.call('toggle_devtools')
 }
 
 /** 真正退出应用(Rust 端 quit_app,绕过 closeWindow 的"隐藏到托盘"语义)。 */
 export async function quitApp(): Promise<void> {
   if (!isTauri()) return
-  await invoke('quit_app')
+  await ihuiIpc.call('quit_app')
 }
 
 // ================== 通知系统级权限三态查询(P3-07①)==================
@@ -1240,7 +1240,7 @@ export async function querySystemNotificationPermission(): Promise<SystemNotific
     return { state: 'unjudged', reason: 'platform-not-tauri', source: 'platform' }
   }
   try {
-    const raw: unknown = await invoke('query_notification_permission')
+    const raw: unknown = await ihuiIpc.call('query_notification_permission')
     return normalizeSystemNotificationPermission(raw)
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err)
@@ -1256,7 +1256,7 @@ export async function querySystemNotificationPermission(): Promise<SystemNotific
 export async function sendDesktopNotification(title: string, body: string): Promise<void> {
   if (!isTauri()) return
   try {
-    let granted = await invoke<boolean>('plugin:notification|is_permission_granted')
+    let granted = await ihuiIpc.call<boolean>('plugin:notification|is_permission_granted')
     if (!granted) {
       // P3-07①: 先用系统级三态区分"用户在系统里关了通知"(denied) 与
       // "权限尚未申请 / 查询链路故障"(unjudged)。系统明确 denied 时 toast 总开关
@@ -1264,11 +1264,11 @@ export async function sendDesktopNotification(title: string, body: string): Prom
       // 保持原 plugin 请求路径(fail-closed 不默认放行,也不误判为用户拒绝)。
       const system = await querySystemNotificationPermission()
       if (system.state === 'denied') return
-      const permission = await invoke<string>('plugin:notification|request_permission')
+      const permission = await ihuiIpc.call<string>('plugin:notification|request_permission')
       granted = permission === 'granted'
     }
     if (granted) {
-      await invoke('plugin:notification|notify', { options: { title, body } })
+      await ihuiIpc.call('plugin:notification|notify', { options: { title, body } })
     }
   } catch {
     // 权限被拒或调用失败,静默忽略
@@ -1351,7 +1351,7 @@ export async function pickFile(
 ): Promise<string | null> {
   if (!isTauri()) return null
   try {
-    const result = await openDialog({
+    const result = await ihuiIpc.openDialog({
       multiple: false,
       filters: filters.map((f) => ({
         name: f.name,
@@ -1374,7 +1374,7 @@ export async function pickFiles(
 ): Promise<string[]> {
   if (!isTauri()) return []
   try {
-    const result = await openDialog({
+    const result = await ihuiIpc.openDialog({
       multiple: true,
       filters: filters.map((f) => ({
         name: f.name,
@@ -1395,7 +1395,7 @@ export async function pickFiles(
 export async function pickDirectory(): Promise<string | null> {
   if (!isTauri()) return null
   try {
-    const result = await openDialog({ directory: true, multiple: false })
+    const result = await ihuiIpc.openDialog({ directory: true, multiple: false })
     return typeof result === 'string' ? result : null
   } catch {
     return null
@@ -1414,7 +1414,7 @@ export async function pickSavePath(
 ): Promise<string | null> {
   if (!isTauri()) return null
   try {
-    const result = await saveDialog({
+    const result = await ihuiIpc.saveDialog({
       defaultPath: defaultName,
       filters: filters.map((f) => ({
         name: f.name,
@@ -1433,8 +1433,8 @@ export async function pickSavePath(
 export async function saveWindowState(): Promise<void> {
   if (!isTauri()) return
   try {
-    const label = getCurrentWindow().label
-    await invoke('save_window_state', { label })
+    const label = ihuiIpc.getCurrentWindow().label
+    await ihuiIpc.call('save_window_state', { label })
   } catch {
     // 非 Tauri 环境或调用失败,静默忽略
   }
@@ -1444,8 +1444,8 @@ export async function saveWindowState(): Promise<void> {
 export async function restoreWindowState(): Promise<void> {
   if (!isTauri()) return
   try {
-    const label = getCurrentWindow().label
-    await invoke('restore_window_state', { label })
+    const label = ihuiIpc.getCurrentWindow().label
+    await ihuiIpc.call('restore_window_state', { label })
   } catch {
     // 非 Tauri 环境或调用失败,静默忽略
   }
@@ -1455,8 +1455,8 @@ export async function restoreWindowState(): Promise<void> {
 export async function resetWindowState(): Promise<void> {
   if (!isTauri()) return
   try {
-    const label = getCurrentWindow().label
-    await invoke('reset_window_state', { label })
+    const label = ihuiIpc.getCurrentWindow().label
+    await ihuiIpc.call('reset_window_state', { label })
   } catch {
     // 非 Tauri 环境或调用失败,静默忽略
   }
@@ -1470,7 +1470,7 @@ export async function resetWindowState(): Promise<void> {
  */
 export async function clearWebViewCache(): Promise<OkResult> {
   if (!isTauri()) return { ok: false }
-  return await invoke<OkResult>('clear_webview_cache')
+  return await ihuiIpc.call<OkResult>('clear_webview_cache')
 }
 
 /**
@@ -1486,7 +1486,7 @@ export async function setTrayStatus(
 ): Promise<void> {
   if (!isTauri()) return
   try {
-    await invoke('set_tray_status', { status, unread: normalizeUnreadArg(unread) })
+    await ihuiIpc.call('set_tray_status', { status, unread: normalizeUnreadArg(unread) })
   } catch {
     // 非桌面端或 tray 未初始化,静默忽略
   }
@@ -1546,36 +1546,36 @@ function emptyUpdateV2Status(): UpdateV2Status {
 
 export async function updateV2Check(): Promise<UpdateV2Status> {
   if (!isTauri()) return emptyUpdateV2Status()
-  return invoke<UpdateV2Status>('update_v2_check')
+  return ihuiIpc.call<UpdateV2Status>('update_v2_check')
 }
 
 export async function updateV2Ready(): Promise<UpdateV2Status> {
   if (!isTauri()) return emptyUpdateV2Status()
-  return invoke<UpdateV2Status>('update_v2_ready')
+  return ihuiIpc.call<UpdateV2Status>('update_v2_ready')
 }
 
 /** 读取并消费 Launcher 的自动回滚通知（读一次即删，避免反复弹）。 */
 export async function updateV2TakeRollbackNotice(): Promise<UpdateV2RollbackNotice | null> {
   if (!isTauri()) return null
-  return invoke<UpdateV2RollbackNotice | null>('update_v2_take_rollback_notice')
+  return ihuiIpc.call<UpdateV2RollbackNotice | null>('update_v2_take_rollback_notice')
 }
 
 /** 后台暂存；命令本身立即返回，真正进度走 `update-v2` 事件。 */
 export async function updateV2Stage(): Promise<void> {
   if (!isTauri()) return
-  await invoke('update_v2_stage')
+  await ihuiIpc.call('update_v2_stage')
 }
 
 /** 调用前必须先 flush 草稿；Rust 侧用退出码 42 把进程交棒给父 Launcher。 */
 export async function updateV2Restart(): Promise<void> {
   if (!isTauri()) return
-  await invoke('update_v2_restart')
+  await ihuiIpc.call('update_v2_restart')
 }
 
 /** 设置页“退回上一版”：只写 pending，重启后由 Launcher 切。 */
 export async function updateV2Rollback(): Promise<UpdateV2Status> {
   if (!isTauri()) return emptyUpdateV2Status()
-  return invoke<UpdateV2Status>('update_v2_rollback')
+  return ihuiIpc.call<UpdateV2Status>('update_v2_rollback')
 }
 
 // ================== Computer Control ==================
@@ -1621,7 +1621,7 @@ export async function screenshotScreen(
   region?: ScreenshotRegion,
 ): Promise<ScreenshotResult> {
   requireTauri()
-  return await invoke<ScreenshotResult>('screenshot_screen', {
+  return await ihuiIpc.call<ScreenshotResult>('screenshot_screen', {
     displayIndex: displayIndex ?? null,
     region: region ?? null,
   })
@@ -1635,7 +1635,7 @@ export async function screenshotScreen(
  */
 export async function mouseMove(x: number, y: number, absolute?: boolean): Promise<OkResult> {
   requireTauri()
-  return await invoke<OkResult>('mouse_move', { x, y, absolute: absolute ?? null })
+  return await ihuiIpc.call<OkResult>('mouse_move', { x, y, absolute: absolute ?? null })
 }
 
 /**
@@ -1652,7 +1652,7 @@ export async function mouseClick(
   count?: number,
 ): Promise<OkResult> {
   requireTauri()
-  return await invoke<OkResult>('mouse_click', {
+  return await ihuiIpc.call<OkResult>('mouse_click', {
     x,
     y,
     button: button ?? null,
@@ -1668,7 +1668,7 @@ export async function mouseClick(
  */
 export async function mouseScroll(deltaY: number, x?: number, y?: number): Promise<OkResult> {
   requireTauri()
-  return await invoke<OkResult>('mouse_scroll', {
+  return await ihuiIpc.call<OkResult>('mouse_scroll', {
     deltaY,
     x: x ?? null,
     y: y ?? null,
@@ -1682,7 +1682,7 @@ export async function mouseScroll(deltaY: number, x?: number, y?: number): Promi
  */
 export async function keyboardType(text: string, delay?: number): Promise<OkResult> {
   requireTauri()
-  return await invoke<OkResult>('keyboard_type', { text, delay: delay ?? null })
+  return await ihuiIpc.call<OkResult>('keyboard_type', { text, delay: delay ?? null })
 }
 
 /**
@@ -1691,7 +1691,7 @@ export async function keyboardType(text: string, delay?: number): Promise<OkResu
  */
 export async function keyboardPress(key: string): Promise<OkResult> {
   requireTauri()
-  return await invoke<OkResult>('keyboard_press', { key })
+  return await ihuiIpc.call<OkResult>('keyboard_press', { key })
 }
 
 /**
@@ -1700,7 +1700,7 @@ export async function keyboardPress(key: string): Promise<OkResult> {
  */
 export async function keyboardHotkey(keys: string[]): Promise<OkResult> {
   requireTauri()
-  return await invoke<OkResult>('keyboard_hotkey', { keys })
+  return await ihuiIpc.call<OkResult>('keyboard_hotkey', { keys })
 }
 
 /**
@@ -1709,7 +1709,7 @@ export async function keyboardHotkey(keys: string[]): Promise<OkResult> {
  */
 export async function getActiveWindow(): Promise<ActiveWindowResult> {
   requireTauri()
-  return await invoke<ActiveWindowResult>('active_window')
+  return await ihuiIpc.call<ActiveWindowResult>('active_window')
 }
 
 /** 剪贴板读取结果。 */
@@ -1723,7 +1723,7 @@ export interface ClipboardResult {
  */
 export async function clipboardGet(format?: 'text' | 'image'): Promise<ClipboardResult> {
   requireTauri()
-  return await invoke<ClipboardResult>('clipboard_get', { format: format ?? null })
+  return await ihuiIpc.call<ClipboardResult>('clipboard_get', { format: format ?? null })
 }
 
 /**
@@ -1733,7 +1733,7 @@ export async function clipboardGet(format?: 'text' | 'image'): Promise<Clipboard
  */
 export async function clipboardSet(content: string, format?: 'text' | 'image'): Promise<OkResult> {
   requireTauri()
-  return await invoke<OkResult>('clipboard_set', { content, format: format ?? null })
+  return await ihuiIpc.call<OkResult>('clipboard_set', { content, format: format ?? null })
 }
 
 // ================== 桌面宿主 git 通道(2026-09-28 V3 #72) ==================
@@ -2446,9 +2446,9 @@ export interface WbHistoryItem {
   summary: string
 }
 
-function progressChannel(onProgress?: WbProgressHandler): Channel<WbProgressEvent> | undefined {
+function progressChannel(onProgress?: WbProgressHandler): IpcChannel<WbProgressEvent> | undefined {
   if (!onProgress) return undefined
-  const ch = new Channel<WbProgressEvent>()
+  const ch = ihuiIpc.channel<WbProgressEvent>()
   ch.onmessage = onProgress
   return ch
 }

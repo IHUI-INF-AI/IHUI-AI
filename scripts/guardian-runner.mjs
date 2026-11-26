@@ -5619,6 +5619,30 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- RP-3 Tauri IPC 暴露面预算(1 项,blocking)---
+  {
+    id: '223b',
+    label:
+      'RP-3 桌面 IPC 单一命名空间预算:web 生产源码只经 apps/web/src/lib/tauri-ipc.ts 取原生能力,ihuiIpc ≤20 键且每键带 owner/purpose,禁裸 @tauri-apps/* import 与裸 window.__TAURI_*',
+    script: 'check-tauri-ipc-budget.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TAURI_IPC_BUDGET',
+    stagedTriggers: [
+      'apps/web/src/lib/tauri-ipc.ts',
+      'apps/web/src',
+      'scripts/check-tauri-ipc-budget.mjs',
+    ],
+    onFailHint: [
+      '',
+      '① 看清单:node scripts/check-tauri-ipc-budget.mjs --worktree',
+      '② 自检:node scripts/check-tauri-ipc-budget.mjs --self-test',
+      '③ 修:业务代码统一 import { ihuiIpc } from "@/lib/tauri-ipc";新增键必须写 owner/purpose 注释;窗口期探测只留 api-base-url.ts',
+      '紧急跳过:HUSKY_SKIP_TAURI_IPC_BUDGET=1(须在提交信息写明理由)',
+      '',
+    ].join('\n'),
+  },
+
   // --- 生成器资源释放(1 项,warn;升 blocking 前置见门体头注)---
   {
     id: '225',

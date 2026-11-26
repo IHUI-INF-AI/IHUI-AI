@@ -311,6 +311,12 @@ jobs:
         id: assert-web-build-script
         run: node -e "const p=require('./apps/web/package.json'); if(!p.scripts||!p.scripts.build){console.error('apps/web 缺 build 脚本 -> turbo run build 会静默跳过,web 端本次从未被构建验证');process.exit(1)} console.log('web build =',p.scripts.build)"
 
+      # RP-3(L04/P0):桌面 IPC 暴露面预算必须在 required CI 通道里阻断。
+      # 直连 @tauri-apps/* 或 ihuiIpc 超 20 键,这条 step 直接非零退出,不等发版后才发现。
+      - name: Tauri IPC surface budget
+        id: ipc-budget
+        run: node scripts/check-tauri-ipc-budget.mjs --head
+
       - name: Build
         id: build
         # desktop(tauri) 构建极重且发布由专门工作流负责,CI 仅验证其余包可构建;

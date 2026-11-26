@@ -313,7 +313,7 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - check-sanitizer-bypass check-selftest-registrant-evaluates check-sequence-lag check-shared-nonde-node-purity check-shared-type-not-redeclared check-sheet-flex-contract check-shrinkable-text-button check-sidebar-width-consistency
 - check-site-footer check-skip-env-promise check-slash-command-wired check-solito-residue check-sqlite-write-paths check-sse-dispatch-parity check-sse-frame-watermark check-sse-no-blind-merge
 - check-sse-parser-parity check-staged-deletions check-staged-files check-staged-files-count check-staged-pollution check-staged-resurrection check-stale-baseline-sentinel check-stale-copy
-- check-stale-dist check-stale-revert check-stale-stashes check-style-key-consumption check-subagent-permission-inherited check-sweeper-liveness check-tagsview-visual check-tailwind-class-conflict
+- check-stale-dist check-stale-revert check-stale-stashes check-style-key-consumption check-subagent-permission-inherited check-sweeper-liveness check-tagsview-visual check-tailwind-class-conflict check-tauri-ipc-budget
 - check-test-collection-runs check-theme-prop-wiring check-token-literal-debt check-token-sync-registry check-tool-activity-coverage check-tool-arg-routing-identity check-tool-arg-validation-wired check-tool-contract-declared
 - check-tool-display-resolvable check-tool-exec-budget check-tool-family-registered check-tool-name-display-coverage check-tool-registry-integrity check-tool-schema-projection check-truncation-accounting check-ts-ignore
 - check-turn-ordinal-lock check-txn-cancel-boundary check-ui-react-usage check-ui-spec-mirror check-uncommitted-age check-upload-budget check-v3-62-conversation-mount check-verbatim-resurrection

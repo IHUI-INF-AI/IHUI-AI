@@ -50,6 +50,7 @@ import {
 } from '@/lib/browser-pip'
 import { useBrowserPipLabels } from '@/hooks/use-browser-pip-labels'
 import { isTauri, openAiPipWindow, closeAiPipWindow } from '@/lib/tauri-bridge'
+import { ihuiIpc } from '@/lib/tauri-ipc'
 
 /** 层栈 id(见 @/lib/overlay-stack):画布右键菜单浮层 */
 const CDP_CTX_MENU_OVERLAY_ID = 'cdp-browser-view-ctx-menu'
@@ -318,21 +319,17 @@ export function CdpBrowserView({
     let disposed = false
     const unlisteners: Array<() => void> = []
     void Promise.all([
-      import('@tauri-apps/api/event').then(({ listen }) =>
-        listen<{ sessionId?: string }>('browser-pip://closed', (event) => {
-          const closed = event.payload?.sessionId
-          if (closed) nativePipSessionsRef.current.delete(closed)
-          setPipOn(nativePipSessionsRef.current.has(currentSessionRef.current))
-        }),
-      ),
-      import('@tauri-apps/api/event').then(({ listen }) =>
-        listen<{ sessionId?: string }>('browser-pip://handover', (event) => {
-          const closed = event.payload?.sessionId
-          if (closed) nativePipSessionsRef.current.delete(closed)
-          setPipOn(nativePipSessionsRef.current.has(currentSessionRef.current))
-          canvasRef.current?.focus()
-        }),
-      ),
+      ihuiIpc.listen<{ sessionId?: string }>('browser-pip://closed', (event) => {
+        const closed = event.payload?.sessionId
+        if (closed) nativePipSessionsRef.current.delete(closed)
+        setPipOn(nativePipSessionsRef.current.has(currentSessionRef.current))
+      }),
+      ihuiIpc.listen<{ sessionId?: string }>('browser-pip://handover', (event) => {
+        const closed = event.payload?.sessionId
+        if (closed) nativePipSessionsRef.current.delete(closed)
+        setPipOn(nativePipSessionsRef.current.has(currentSessionRef.current))
+        canvasRef.current?.focus()
+      }),
     ]).then((listeners) => {
       if (disposed) {
         listeners.forEach((unlisten) => unlisten())

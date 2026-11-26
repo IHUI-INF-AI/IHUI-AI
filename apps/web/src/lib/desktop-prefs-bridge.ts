@@ -5,7 +5,7 @@
 // 平台特有:依赖 Tauri IPC(`window.__TAURI_INTERNALS__` 注入的 invoke 通道)与宿主事件总线,
 // 只服务"桌面壳加载 apps/web"这一形态;浏览器与其他端没有对应能力,因此不进 packages/ 共享层。
 
-import { invoke } from '@tauri-apps/api/core'
+import { ihuiIpc } from '@/lib/tauri-ipc'
 import { isTauri } from '@/lib/tauri-bridge'
 
 /**
@@ -200,7 +200,7 @@ export function isDesktopPrefsAvailable(): boolean {
 export async function getDesktopPrefs(): Promise<DesktopPrefs | null> {
   if (!isDesktopPrefsAvailable()) return defaultDesktopPrefs()
   try {
-    return normalizeDesktopPrefs(await invoke<unknown>('get_desktop_prefs'))
+    return normalizeDesktopPrefs(await ihuiIpc.call<unknown>('get_desktop_prefs'))
   } catch (error) {
     console.warn('[desktop-prefs] get_desktop_prefs 失败:', error)
     return null
@@ -216,7 +216,7 @@ export async function setDesktopPrefs(patch: DesktopPrefsPatch): Promise<Desktop
   try {
     // 线上补丁两种拼法都带(camelCase 保契约、snake_case 保宿主真读得到),见 WIRE_KEY_ALIASES
     return normalizeDesktopPrefs(
-      await invoke<unknown>('set_desktop_prefs', { patch: toWirePatch(patch) }),
+      await ihuiIpc.call<unknown>('set_desktop_prefs', { patch: toWirePatch(patch) }),
     )
   } catch (error) {
     console.warn('[desktop-prefs] set_desktop_prefs 失败:', error)
@@ -245,7 +245,7 @@ export async function resolveCloseChoice(
     return
   }
   try {
-    await invoke('resolve_close_choice', { choice, remember })
+    await ihuiIpc.call('resolve_close_choice', { choice, remember })
   } catch (error) {
     console.warn('[desktop-prefs] resolve_close_choice 失败:', error)
   }
@@ -293,7 +293,7 @@ export async function setDesktopBadge(unreadCount: number): Promise<void> {
       ? Math.min(Math.trunc(unreadCount), 0xffffffff)
       : 0
   try {
-    await invoke('set_desktop_badge', { unread })
+    await ihuiIpc.call('set_desktop_badge', { unread })
   } catch (error) {
     console.warn('[desktop-prefs] set_desktop_badge 失败:', error)
   }
