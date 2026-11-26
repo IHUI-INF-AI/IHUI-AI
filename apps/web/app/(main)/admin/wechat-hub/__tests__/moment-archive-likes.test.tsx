@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 归档面板：点赞昵称去重后展示名单与超额人数，评论超 2 条用「共 N 条」提示完整条数。
+ * 归档面板：点赞昵称去重后展示名单与超额人数，评论在统计行一次说清「N 条（显示前 M 条）」，不再重复计数。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
@@ -52,7 +52,7 @@ afterEach(() => {
 })
 
 describe('MomentArchivePanel 点赞去重与评论计数', () => {
-  it('点赞按昵称去重后展示名单，评论超 2 条显示共 N 条', async () => {
+  it('点赞按昵称去重后展示名单，评论条数与显示范围在同一行说清', async () => {
     vi.mocked(wechatHubApi.fetchMomentArchive).mockResolvedValue({
       storage: 'database',
       total: 1,
@@ -78,12 +78,12 @@ describe('MomentArchivePanel 点赞去重与评论计数', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText('被抓到 1 次 · 点赞 3 人：阿花、大强、wxid_c · 评论 3 条'),
+        screen.getByText('被抓到 1 次 · 点赞 3 人：阿花、大强、wxid_c · 评论 3 条（显示前 2 条）'),
       ).toBeTruthy(),
     )
     expect(screen.getByText('阿花：第一条')).toBeTruthy()
     expect(screen.getByText('大强：第二条')).toBeTruthy()
-    expect(screen.getByText('共 3 条')).toBeTruthy()
+    expect(screen.queryByText('共 3 条')).toBeNull()
   })
 
   it('点赞超过 6 人时只列 6 个，等 N 人用去重后总人数', async () => {
@@ -115,3 +115,4 @@ describe('MomentArchivePanel 点赞去重与评论计数', () => {
     )
   })
 })
+
