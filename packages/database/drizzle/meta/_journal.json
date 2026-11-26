@@ -3376,6 +3376,13 @@
       "when": 1795585200000,
       "tag": "20261126190000_blocklist_and_block_unpriced_insert",
       "breakpoints": true
+    },
+    {
+      "idx": 487,
+      "version": "7",
+      "when": 1795585800000,
+      "tag": "20261126193000_normalize_blocklist_case",
+      "breakpoints": true
     }
   ]
 }
