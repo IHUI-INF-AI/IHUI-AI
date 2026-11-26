@@ -32,9 +32,11 @@ import {
   fetchWechatCapabilities,
   fetchWechatCommands,
   fetchWechatContacts,
+  fetchWechatBridgeStatus,
   fetchWechatConversations,
   fetchWechatDigestSchedule,
   fetchWechatGroupMembers,
+  fetchWechatGroupWriteAudit,
   fetchWechatGroupWritePolicy,
   fetchWechatKnowledge,
   fetchWechatJobs,
@@ -100,6 +102,8 @@ import type {
   WechatGroupActionPlan,
   WechatGroupMemberView,
   WechatGroupMembersSyncResult,
+  WechatBridgeStatusView,
+  WechatGroupWriteAuditView,
   WechatGroupWritePolicy,
   WechatHistorySyncInput,
   WechatHistorySyncResult,
@@ -310,6 +314,10 @@ export const wechatHubApi = {
     call(() => askWechat(id, input), '问聊天记录失败'),
   askSql: (id: string, input: { question: string }): Promise<WechatAskSqlResult> =>
     call(() => askWechatSql(id, input), '生成查询失败'),
+  groupAudit: (id: string): Promise<WechatGroupWriteAuditView> =>
+    callKept(() => fetchWechatGroupWriteAudit(id), '获取群写审计失败'),
+  bridgeStatus: (id: string): Promise<WechatBridgeStatusView> =>
+    callKept(() => fetchWechatBridgeStatus(id), '桥体检失败'),
   jobs: (id: string): Promise<WechatJobView[]> =>
     call(() => fetchWechatJobs(id), '获取定时任务失败'),
   saveJob: (id: string, input: WechatJobInput): Promise<WechatJobView> =>

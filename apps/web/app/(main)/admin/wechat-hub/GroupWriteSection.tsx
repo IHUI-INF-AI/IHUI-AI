@@ -11,6 +11,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import GroupActionCard from './GroupActionCard'
+import GroupWriteAuditCard from './GroupWriteAuditCard'
 import GroupWritePolicyCard from './GroupWritePolicyCard'
 import { wechatHubApi } from './wechat-hub-api'
 
@@ -28,6 +29,7 @@ export default function GroupWriteSection({ accountId }: { accountId: string }) 
         loading={policyQuery.isLoading}
       />
       <GroupActionCard accountId={accountId} writeEnabled={policyQuery.data?.enabled ?? false} />
+      <GroupWriteAuditCard accountId={accountId} />
     </div>
   )
 }
