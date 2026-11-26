@@ -83,6 +83,39 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 <!-- END GENERATED NUMBERS -->
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-26**
+- 🚀 新功能/改进:R9.4 HTTP-first monitor + restart recovery (8870bfb4)
+- 🔧 工程/其他:登记四处 RN 样式档位在期分叉并修正过期登记 (c4e3c1f6)
+- 🔧 工程/其他:审计 mock.calls 元组显式断言,消除 TS2493 (40b2bde1)
+- 🐞 修复:三处跨端文案漂移按 web 基准统一 (38ad1cf2)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (fe62f59a)
+- ♻️ 重构:端口族判据解锁 ask/create 迁共享壳 (5f2fe78f)
+- 🐞 修复:内容防丢闸 JSONL 注释识别补 # 前缀(与 origin/main 同字节,收敛前置) (8500b9c1)
+- 🚀 新功能/改进:登录弹窗对齐 RN 底部抽屉,跨端几何档真收敛 (1919bf73)
+- ⚡ 性能:铃声改 48kbps MP3,主包 1934KB→1838KB 过 90% 水位线 (49869c83)
+- 🚀 新功能/改进:L09 CredentialStore 接口 + Windows DPAPI 保护器 + 明文零落盘文件后端(6测试全绿+真机往返) (5cc50c13)
+- 🐞 修复:C7 原生弹窗清零 + C5 字号落档 26 处(补回被 merge displace 的第19/20枚) (276ea485)
+- 🚀 新功能/改进:L16 取证与QA口径固化 + L04 第一层 IPC 命令面棘轮门(基线122) (c442d134)
+- 🔧 工程/其他:群动作与策略保存后主动刷新审计卡 (179e5f92)
+- 🔧 工程/其他:审计视图抽成共用函数并补 HTTP 契约测试；归档评论计数并成一句 (7d914add)
+- ♻️ 重构:通知设置铃声区块提取进共享屏三端统一 (cd949668)
+- 🐞 修复:修掉 build-fail 的 TS2345 —— scroll-jump 测试用类型门窄化,不再硬 cast 可空读数 (1912c19b)
+- 🐞 修复:修掉 build-fail 的 TS2345 —— scroll-jump 测试用类型门窄化,不再硬 cast 可空读数 (40d5cc23)
+- 🔧 工程/其他:补充部署脚本的版权水印行（纯格式，无逻辑改动） (1924bf5c)
+- 🔧 工程/其他:生产栈纳入 ai-service（8803）自愈，LLM 单点不再静默缺席 (599976d0)
+- 🐞 修复:移动双端样式收口——页底分层、伪token、描边角色档、圆角与标点统一 (4cdb925c)
+- 🔧 工程/其他:MCP 补齐桥体检与群写审计两条入口 (d447a087)
+- 🔧 工程/其他:群写频次落库并留审计、桥体检接口与卡片、朋友圈长文折叠、问数结果可复制、换机部署脚本 (e9ac2468)
+- 🚀 新功能/改进:R9 MJPEG 高帧兜底 + 批量 ack + 多窗验收收口 (9abca15d)
+- 📚 文档:收敛后同步英文 README 数字块(生成物,按 16b 协议普通提交) (de767bd9)
+- 🐞 修复:号池换号交代改按事件来源渲染 —— store 通道停在 platform 时自己的号池也能看到换号交代 (3947ec21)
+- 🔧 工程/其他:13 条 RP 行补归属/在等交代并把证据指针迁入 docs/benchmark-evidence (2bfc11a5)
+- 🚀 新功能/改进:引入统一权限决策对象 PermissionDecision 与唯一 decide() 入口(L01/P0) (1ee1792e)
+- 📚 文档:落库 wave2 对标清单与 QA 报告到 docs/benchmark-evidence/2026-11 (8a9a3c49)
+- 🐞 修复:根治 IME 上屏后首个 Enter 被吞(中文输入发送无反应) (8e59b165)
+- 🔧 工程/其他:最近更新块随本轮提交刷新(渲染侧脱敏器在位,块内无旧代号) (bc296c40)
+- 🔧 工程/其他:零命中收口——README 变更日志与 3 份已入库迁移头注旧代号脱敏 (2524ff00)
+
 **2026-11-25**
 - 📚 文档:钉钉真人授权完成+以本人身份调通讯录验证通过——任务#35收口 (9e2ec138)
 - 🚀 新功能/改进:补最小化收起与可靠恢复 (85b5a0d3)
@@ -1541,7 +1574,7 @@ Two structural gates are named here so they cannot be re-invented or bypassed si
 - 🐞 修复:移除未读标题前的 6px 品牌色圆点，避免被读成残留项目符号 (311f2522)
 - 🔧 工程/其他:声纹克隆下线文案五语收口并同步小程序路由产物 (07381df1)
 - 📚 文档:登记账号锁定策略 Never 的三条前提与判据联动(防后人在开 RDP/抬阈值时回潮成远程 DoS) (795bf2e7)
-- ♻️ 重构:彻底移除 token6688 供应商与全部依赖配置 (de53023c)
+- ♻️ 重构:彻底移除旧聚合上游供应商与全部依赖配置 (de53023c)
 - [`scripts/security/check-audit-policy.mjs`](./scripts/security/check-audit-policy.mjs) — fails when a
   forensic-critical Windows audit subcategory (account lockout, logon, credential validation, service
   installation, firewall rule change) is not set to `Success and Failure`; without it every downstream
