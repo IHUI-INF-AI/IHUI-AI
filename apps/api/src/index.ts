@@ -9,6 +9,16 @@ import {
   // Google 回调地址 / 出站代理启动自检(2026-11-21 线上"回调有问题"根治;判据本体可单测)
   collectOAuthConfigWarningsAtStartup,
 } from './config/index.js'
+// L15 监听面组合策略(2026-11-26):回环放行;非回环需 opt-in + TLS/套接字;
+// 明文 Basic + 全网卡是禁组合。production 违规 fail-closed,其余档位只告警。
+import { assertListenSurface } from './config/listen-surface-policy.js'
+// L06 运行时策略热更新(2026-11-26):runtime-policy.json 轮询热加载,整份拒非法文档;
+// 变更留 who/when/why 审计;消费者为 requestTimeout / 队列并发 / 事件循环探针。
+import {
+  startRuntimePolicy,
+  startRuntimePolicyProbe,
+  stopRuntimePolicy,
+} from './config/runtime-policy.js'
 import type { Worker } from 'bullmq'
 import type { FastifyInstance } from 'fastify'
 import { buildServer } from './server.js'
@@ -131,6 +141,8 @@ const SHUTDOWN_DEADLINE_MS = 10_000
 
 /** listen 成功之后置真:此后任何启动尾部异常都不该杀掉一个正在服务的进程。 */
 let isListening = false
+/** L06 事件循环探针的停止句柄;shutdown 时先撤探针再走相位。 */
+let stopRuntimeProbe: (() => void) | null = null
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -462,6 +474,10 @@ async function start() {
   const shutdown = async (signal: string, requestedExitCode = 0): Promise<void> => {
     if (shuttingDown) return
     shuttingDown = true
+    // L06:探针与策略轮询先停 —— 它们挂着 unref 定时器,留着走完相位只会多写审计。
+    stopRuntimeProbe?.()
+    stopRuntimeProbe = null
+    stopRuntimePolicy()
     server.log.info({ signal }, 'Shutting down...')
     const phases: ShutdownPhase[] = [
       syncStopPhase('stopAiWorldSyncScheduler', stopAiWorldSyncScheduler),
@@ -538,6 +554,21 @@ async function start() {
   }
 
   try {
+    // L15:bind 之前先过组合判据。production 违规直接抛错(不落到 listen);
+    // 非 production 返回告警决策,由这里记一行,不改变本地调试习惯。
+    const listenDecision = assertListenSurface(process.env, { isProduction: isProductionGuard })
+    if (listenDecision) {
+      logger.warn('监听面策略告警(非 production 不拦)', {
+        code: listenDecision.code,
+        host: listenDecision.host,
+      })
+    }
+    // L06:策略先于监听启动 —— 消费者(server.requestTimeout 等)在 buildServer 时已就位,
+    // 这里只负责把文件轮询与探针挂上;文件缺失时用内置默认,不阻断启动。
+    startRuntimePolicy(process.env)
+    stopRuntimeProbe = startRuntimePolicyProbe((lagMs) => {
+      logger.warn('事件循环 p95 超出 runtime-policy 阈值', { p95Ms: Math.round(lagMs) })
+    })
     // F-524:poolTracker 的 onClose 清理已移入 buildServer(),worker 与 API 共用,
     // 避免重复注册 onClose 钩子。
     await listenWithinDeadline(server)

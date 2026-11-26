@@ -36,6 +36,8 @@
  */
 
 /** 恢复语义四档。 */
+// L14:方法名不再本地写字面量,统一取 @ihui/agent-sdk 的 ACP_METHODS(单一真相源)
+import { ACP_METHODS } from '@ihui/agent-sdk'
 export type RecoveryKind =
   /** 只读:崩溃后可无条件重试。 */
   | 'read'
@@ -127,7 +129,7 @@ const REGISTRY: Readonly<Record<string, RecoveryKind>> = Object.freeze({
 
   // ── 控制类 ────────────────────────────────────────────────────────────
   'session/close': 'control',
-  'session/cancel': 'control',
+  [ACP_METHODS.sessionCancel]: 'control',
   'x.ai/mcp/reconnect': 'control',
 })
 

@@ -78,6 +78,7 @@ pub struct IpcAclReply {
     pub alpc_status: String,
 }
 
+/// 以指定用户 SID 自检 IPC 命名管道的 ACL 与传输(诊断用,不建常驻通道)
 #[tauri::command]
 pub fn ipc_channel_selftest(user_sid: String) -> IpcAclReply {
     let leaf = format!("ihui-ipc-{}-{}", std::process::id(), chrono_like_millis());
@@ -109,6 +110,7 @@ pub struct NativeModuleReply {
     pub reason: String,
 }
 
+/// 探测指定 DLL 的 native ABI 版本与可加载性(只读诊断)
 #[tauri::command]
 pub fn native_module_probe(path: String) -> NativeModuleReply {
     let report = crate::native_module_abi::probe_native_module(&path);

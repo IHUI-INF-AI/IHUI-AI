@@ -6,6 +6,8 @@ import type { FastifyPluginAsync } from 'fastify'
 import fp from 'fastify-plugin'
 import { Queue, QueueEvents, Worker, type ConnectionOptions, type Job } from 'bullmq'
 import { config } from '../config/index.js'
+// L06:worker 并发从 runtime-policy 读,且订阅热更新(见 createWorker)
+import { getRuntimePolicy, subscribeRuntimePolicy } from '../config/runtime-policy.js'
 import { queueNameWithDbIdentity } from '../services/relay-queue-name.js'
 
 /**
@@ -230,7 +232,14 @@ export function createWorker<T>(
   }
   const worker = new Worker<T>(queueName, processor, {
     connection,
-    concurrency: 5,
+    // L06:并发由 runtime-policy 提供(默认 5),热更新时按新值调整在飞工作单元数。
+    concurrency: getRuntimePolicy().backgroundLimit.maxConcurrent,
+  })
+  const unsubscribePolicy = subscribeRuntimePolicy((policy) => {
+    worker.concurrency = policy.backgroundLimit.maxConcurrent
+  })
+  worker.on('closing', () => {
+    unsubscribePolicy()
   })
   worker.on('error', (err) => {
     server.log.error({ err, queue: queueName }, 'worker error')
