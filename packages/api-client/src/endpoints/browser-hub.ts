@@ -57,11 +57,42 @@ export interface BrowserSessionList {
   count: number
 }
 
+/** 检查点等待项(聊天输入区提示条;2026-11-26 补) */
+export interface BrowserCheckpointAttention {
+  session_id: string
+  task_id: string | null
+  goal: string | null
+  url: string
+  title: string
+  timed_out: boolean
+  phase: { phase?: string; reason?: string | null }
+  checkpoint: {
+    id: string
+    label: string
+    label_key: string | null
+    match: string | null
+    status: 'pending' | 'active' | 'done'
+    entered_at: string | null
+    done_at: string | null
+    timed_out: boolean
+  }
+}
+
 /** 列出当前用户所有 Browser Hub 会话 */
 export async function listBrowserSessions(): Promise<ApiResult<BrowserSessionList>> {
   return fetchApi<BrowserSessionList>('/api/browser/sessions', {
     method: 'GET',
   })
+}
+
+/** 列出检查点正在等用户处理的会话(聊天输入区提示条轮询) */
+export async function listBrowserCheckpointAttention(): Promise<
+  ApiResult<{ sessions: BrowserCheckpointAttention[]; count: number }>
+> {
+  return fetchApi<{ sessions: BrowserCheckpointAttention[]; count: number }>(
+    '/api/browser/sessions/attention',
+    { method: 'GET' },
+  )
 }
 
 /** 创建浏览器会话(每个会话=独立 BrowserContext + Page) */

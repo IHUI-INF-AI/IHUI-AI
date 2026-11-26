@@ -1450,6 +1450,24 @@ async def test_task_start_and_checkpoint_flow():
     assert session._task["checkpoints"][0]["status"] == "done"
 
 
+async def test_checkpoint_attention_only_while_active():
+    session = _make_session(page=FakePage(url="https://a.com/"))
+    assert session.checkpoint_attention() is None
+    await session.start_task(_task_payload())
+    assert session.checkpoint_attention() is None
+
+    await session.enter_checkpoint("checkout")
+    item = session.checkpoint_attention()
+    assert item is not None
+    assert item["session_id"] == session.session_id
+    assert item["checkpoint"]["id"] == "checkout"
+    assert item["checkpoint"]["status"] == "active"
+    assert item["timed_out"] is False
+
+    await session.resume_checkpoint()
+    assert session.checkpoint_attention() is None
+
+
 async def test_navigation_auto_enters_first_matching_checkpoint():
     session = _make_session(page=FakePage(url="https://a.com/"))
     await session.start_task(_task_payload())

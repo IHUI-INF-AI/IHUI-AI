@@ -24,6 +24,7 @@ import { ModelSelector } from '@/components/chat/model-selector'
 import { AgentPicker } from '@/components/chat/agent-picker'
 import { LaserHaloRing } from '@/components/chat/laser-halo-ring'
 import { AgentNoticeBar } from '@/components/chat/agent-notice-bar'
+import { BrowserCheckpointNotice } from '@/components/chat/browser-checkpoint-notice'
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import type { SelectedToolItem } from '@/components/chat/selected-tools-panel'
@@ -1337,6 +1338,8 @@ export function MessageInput({
         {/* D01(2026-10-25 立)对话内 Agent 选择器:输入卡上方的「已切换 XX 专家」交代条。
             形态复用 steer-notice-bar 同族的 FoldableSection;未选专家时自渲染为 null。 */}
         <AgentNoticeBar />
+        {/* 2026-11-26:浏览器检查点在对话输入区提示,补 TRAE 文章「在对话里提示确认」。 */}
+        <BrowserCheckpointNotice />
         {/* D06(2026-10-27 装车)审查对象选择条:票面三类目标(未提交 diff / 指定分支 /
             指定 commit)+ 文件/片段两档补充。与 InputNoticeBanner 同区(输入框上方),
             只在 review 模式渲染;摘掉这一行 ⇒ `review-target-wiring.test.tsx` 的挂载判据红。 */}

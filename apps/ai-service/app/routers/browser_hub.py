@@ -269,6 +269,23 @@ async def list_sessions(user_id: str = Depends(get_current_user_id)) -> dict[str
     }
 
 
+@router.get("/sessions/attention")
+async def list_attention(
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """聊天输入区提示条:当前检查点正在等用户处理的会话。
+
+    只返回检查点等待项,不把普通 phase waiting / gate 混进来 —— 登录墙有
+    画中画状态条兜底,聊天里只提示"必须点继续"的人工节点,避免刷屏。
+    """
+    rows = await hub.list_checkpoint_attention(user_id)
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {"sessions": rows, "count": len(rows)},
+    }
+
+
 @router.get("/sessions/{session_id}")
 async def get_session_info(
     session_id: str,

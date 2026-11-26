@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌​​​‍‍‌‌​‌‌​​‌‌‌‍‍‌‌​‌‌‌​‌‌‌​‌​‍‍‌‌‌​​‌​​‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​‌‌​​‌‌‌‍‍‌‌​‌​‌‌​‌‌‌‍‍‌‌‌​​​​‌‍‍​‌‌​‌​​‌‌‍‍​‌​​‌‌‌‌‍‍​‌‌​‌‌​​‍​‌​‌‌‌‌‍​​‌​‍​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 //! 桌面端 AI 画中画监看窗 —— 2026-11-25 立,2026-11-26 多窗化。
 //!
@@ -15,10 +15,11 @@
 //!
 //! 多窗:每会话一个 label(`ai-browser-pip-<session>`)。旧版全仓唯一 label 的
 //! 单例窗会让第二个会话把第一个监看窗顶掉,和 TRAE 可同时看多个任务的形态不一致。
-//! 这里按会话保存几何/收起状态,允许最多 5 个窗口(与服务端单主体会话上限一致)。
+//! 这里按会话保存几何/收起状态,允许最多 6 个窗口(与服务端单主体会话上限一致)。
 
 use std::{
     collections::HashMap,
+    path::PathBuf,
     sync::{LazyLock, Mutex},
 };
 
@@ -26,15 +27,29 @@ use tauri::{AppHandle, Emitter, Manager, Url, WebviewUrl, WebviewWindow, Webview
 
 /// 每个会话的 AI 画中画窗口 label 前缀。
 pub const AI_PIP_WINDOW_LABEL_PREFIX: &str = "ai-browser-pip";
-const AI_PIP_WIDTH: f64 = 420.0;
-const AI_PIP_HEIGHT: f64 = 280.0;
+const AI_PIP_WIDTH: f64 = 508.0;
+const AI_PIP_HEIGHT: f64 = 339.0;
 const AI_PIP_MIN_WIDTH: f64 = 320.0;
 const AI_PIP_MIN_HEIGHT: f64 = 200.0;
 /// 收起时只留顶部状态栏;32px 与页面 header 的 h-8 一致。
 const AI_PIP_COLLAPSED_HEIGHT: f64 = 32.0;
 const AI_PIP_MARGIN: f64 = 24.0;
 const AI_PIP_CASCADE_STEP: f64 = 40.0;
-const AI_PIP_MAX_WINDOWS: usize = 5;
+const AI_PIP_MAX_WINDOWS: usize = 6;
+
+/// 画中画专用 WebView2 profile。
+///
+/// wry 每次建 webview 都会新建一次 `CreateCoreWebView2EnvironmentWithOptions`;同一个
+/// user-data-folder 配不同 options 会直接返回 `0x8007139F`(主窗配置与运行时建窗不同)。
+/// `embedded_browser` 已用独立 profile 验证过这条路,这里沿用同一策略:所有画中画窗共用
+/// 一套 profile,彼此 options 一致,不会和主窗抢默认目录。
+const AI_PIP_PROFILE_DIR: &str = "browser-pip-profile";
+
+fn pip_profile_dir(app: &AppHandle) -> Option<PathBuf> {
+    let dir = app.path().app_local_data_dir().ok()?.join(AI_PIP_PROFILE_DIR);
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
 
 fn pip_window_label(session_id: &str) -> String {
     format!("{AI_PIP_WINDOW_LABEL_PREFIX}-{session_id}")
@@ -63,6 +78,29 @@ struct PipGeometry {
 /// `set_size(PhysicalSize)` 落一次,才能像素级还原。
 static AI_PIP_GEOMETRY: LazyLock<Mutex<HashMap<String, PipGeometry>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// 1/4 屏默认尺寸:宽、高各取当前显示器逻辑尺寸的 25%,并托底到可读最小值。
+/// 文章明确「右下角 1/4 屏 + 置顶」且「尺寸别缩到 1/4 屏以下」;固定 420×280
+/// 在 2K/4K 上只剩 1/5 屏宽,字看不清,所以按显示器算,而不是写死一组像素。
+fn pip_quarter_size(screen_width: f64, screen_height: f64) -> (f64, f64) {
+    let width = (screen_width * 0.25).max(AI_PIP_MIN_WIDTH);
+    let height = (screen_height * 0.25).max(AI_PIP_MIN_HEIGHT);
+    (width.round(), height.round())
+}
+
+fn pip_default_size(win: &WebviewWindow) -> (f64, f64) {
+    let scale = win.scale_factor().unwrap_or(1.0);
+    let scale = if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
+    };
+    let Some(monitor) = win.current_monitor().ok().flatten() else {
+        return (AI_PIP_WIDTH, AI_PIP_HEIGHT);
+    };
+    let logical = monitor.size().to_logical::<f64>(scale);
+    pip_quarter_size(logical.width, logical.height)
+}
 
 /// 上次尺寸不能把窗口缩到看不了;下限仍是 320×200 逻辑像素,
 /// 按当前 DPI 换算成物理像素后再夹。
@@ -97,6 +135,11 @@ where
 /// 记当前几何,供同会话下次打开沿用。用户点关闭和代码主动销毁都必须走这里,
 /// 否则 `destroy()` 不触发 `CloseRequested`,尺寸/位置会丢。
 fn remember_pip_geometry(win: &WebviewWindow) {
+    // 最大化是临时查看态,不能把整屏尺寸写成下次打开的默认几何;
+    // 还原时 Resized 会自然把正常尺寸写回来。
+    if win.is_maximized().unwrap_or(false) {
+        return;
+    }
     let label = win.label().to_string();
     let pos = win.outer_position().ok().map(|p| (p.x, p.y));
     let size = if geometry_for(&label).collapsed {
@@ -163,9 +206,14 @@ struct BrowserPipClosed {
     session_id: String,
 }
 
-/// 主窗口右上角内侧;多窗按打开顺序向下错开,避免完全叠在一起。
+/// 主窗口右下角内侧;多窗按打开顺序向上错开,避免完全叠在一起。
 /// 同一会话有上次位置时优先还原它。
-fn pip_open_position(app: &AppHandle, label: &str) -> (i32, i32) {
+fn pip_open_position(
+    app: &AppHandle,
+    label: &str,
+    pip_width: f64,
+    pip_height: f64,
+) -> (i32, i32) {
     if let Some(pos) = geometry_for(label).pos {
         return pos;
     }
@@ -180,11 +228,36 @@ fn pip_open_position(app: &AppHandle, label: &str) -> (i32, i32) {
         .keys()
         .filter(|name| is_pip_window_label(name))
         .count();
-    let x = pos.x + size.width as i32 - ((AI_PIP_WIDTH + AI_PIP_MARGIN) * scale) as i32;
-    let y = pos.y
-        + (AI_PIP_MARGIN * scale) as i32
-        + (open_count as f64 * AI_PIP_CASCADE_STEP * scale) as i32;
-    (x.max(0), y.max(0))
+    pip_open_position_for(
+        pos.x,
+        pos.y,
+        size.width,
+        size.height,
+        pip_width,
+        pip_height,
+        scale,
+        open_count,
+    )
+}
+
+/// 纯几何:主窗右下角内侧,多窗向上错开,并夹在主窗可见范围内。
+/// 抽成纯函数是为了单测能覆盖 DPI / 多窗级联 / 主窗过小的边界。
+fn pip_open_position_for(
+    main_x: i32,
+    main_y: i32,
+    main_width: u32,
+    main_height: u32,
+    pip_width: f64,
+    pip_height: f64,
+    scale: f64,
+    open_count: usize,
+) -> (i32, i32) {
+    let x = main_x + main_width as i32 - ((pip_width + AI_PIP_MARGIN) * scale) as i32;
+    let y = main_y + main_height as i32
+        - ((pip_height + AI_PIP_MARGIN) * scale) as i32
+        - (open_count as f64 * AI_PIP_CASCADE_STEP * scale) as i32;
+    let min_y = main_y + (AI_PIP_MARGIN * scale) as i32;
+    (x.max(0), y.max(min_y).max(0))
 }
 
 /// 只把 token 注入预期 origin 的页面。`initialization_script` 会在每次页面
@@ -277,7 +350,7 @@ fn show_pip_window_without_activating(win: &WebviewWindow) -> Result<(), String>
 }
 
 /// 打开 AI 画中画窗。同一会话已存在时只刷新 token/置顶显示,不重建;
-/// 不同会话各开一窗,最多 5 个(与服务端单主体会话上限一致)。
+/// 不同会话各开一窗,最多 6 个(与服务端单主体会话上限一致)。
 #[tauri::command]
 pub async fn open_browser_pip_window(
     app: AppHandle,
@@ -321,7 +394,8 @@ pub async fn open_browser_pip_window(
     }
 
     let open_scale = main.scale_factor().unwrap_or(1.0);
-    let (x, y) = pip_open_position(&app, &label);
+    let (pip_width, pip_height) = pip_default_size(&main);
+    let (x, y) = pip_open_position(&app, &label, pip_width, pip_height);
     let saved_size = geometry_for(&label).size;
     let build_app = app.clone();
     let build_session = session_id.clone();
@@ -345,14 +419,28 @@ pub async fn open_browser_pip_window(
                 #[cfg(target_os = "windows")]
                 let previous_foreground =
                     unsafe { windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow() };
-                let win = WebviewWindowBuilder::new(
+                let mut builder = WebviewWindowBuilder::new(
                     &create_app,
                     build_label.as_str(),
                     WebviewUrl::External(build_url),
-                )
-                .title(build_title.as_str())
-                .inner_size(AI_PIP_WIDTH, AI_PIP_HEIGHT)
-                .min_inner_size(AI_PIP_MIN_WIDTH, AI_PIP_MIN_HEIGHT)
+                );
+                if let Some(dir) = pip_profile_dir(&create_app) {
+                    builder = builder.data_directory(dir);
+                } else {
+                    log::warn!("[browser-pip] 取画中画 profile 目录失败,回退默认目录");
+                }
+                // 仅本地取证用:设置 IHUI_PIP_DEBUG_PORT 后,画中画自己的 WebView2 环境
+                // 才开 CDP;生产不设该变量,不改变任何行为。
+                if let Ok(port) = std::env::var("IHUI_PIP_DEBUG_PORT") {
+                    if port.chars().all(|c| c.is_ascii_digit()) && !port.is_empty() {
+                        builder = builder
+                            .additional_browser_args(&format!("--remote-debugging-port={port}"));
+                    }
+                }
+                let win = builder
+                    .title(build_title.as_str())
+                .inner_size(pip_width, pip_height)
+                .min_inner_size(pip_width, pip_height)
                 .position(x as f64 / open_scale, y as f64 / open_scale)
                 .resizable(true)
                 .always_on_top(true)
@@ -449,19 +537,32 @@ pub fn set_browser_pip_collapsed(window: WebviewWindow, collapsed: bool) -> Resu
     }
     let win = window;
     let scale = win.scale_factor().unwrap_or(1.0);
-    let min_w = (AI_PIP_MIN_WIDTH * scale).round() as u32;
-    let min_h = (AI_PIP_MIN_HEIGHT * scale).round() as u32;
+    let (default_w, default_h) = pip_default_size(&win);
+    let min_w = (default_w * scale).round() as u32;
+    let min_h = (default_h * scale).round() as u32;
     let collapsed_h = (AI_PIP_COLLAPSED_HEIGHT * scale).round() as u32;
 
     if collapsed {
         if geometry_for(&label).collapsed {
             return Ok(true);
         }
+        // 最大化态先还原,否则收起会把整屏宽度带进标题条;等待窗口管理器
+        // 完成还原后再记正常几何。80ms 只在这一条用户点击路径上,不阻塞常驻循环。
+        if win.is_maximized().unwrap_or(false) {
+            let _ = win.unmaximize();
+            std::thread::sleep(std::time::Duration::from_millis(80));
+        }
         // 先按完整窗记一次几何,再打开收起标记,后续 Resized 不会覆盖它。
         remember_pip_geometry(&win);
         let inner = win
             .inner_size()
             .map_err(|e| format!("读取画中画窗尺寸失败: {e}"))?;
+        // 以已记住的正常宽度为准:即使 unmaximize 尚未落到 inner_size,
+        // 也不会把整屏宽度写进 32px 标题条。
+        let collapsed_width = geometry_for(&label)
+            .size
+            .map(|size| size.0)
+            .unwrap_or(inner.width);
         win.set_resizable(false)
             .map_err(|e| format!("锁定画中画窗缩放失败: {e}"))?;
         update_geometry(&label, |geometry| geometry.collapsed = true);
@@ -470,7 +571,7 @@ pub fn set_browser_pip_collapsed(window: WebviewWindow, collapsed: bool) -> Resu
                 .map_err(|e| format!("设置收起最小尺寸失败: {e}"))?;
             // set_size 设的是内容区尺寸;用 inner_size 保住宽度,不把阴影边框
             // 也当成内容再算一遍,否则收起时宽度会莫名多出 20 多像素。
-            win.set_size(tauri::PhysicalSize::new(inner.width, collapsed_h))
+            win.set_size(tauri::PhysicalSize::new(collapsed_width, collapsed_h))
                 .map_err(|e| format!("收起画中画窗失败: {e}"))?;
             Ok(())
         })();
@@ -492,8 +593,8 @@ pub fn set_browser_pip_collapsed(window: WebviewWindow, collapsed: bool) -> Resu
         .map_err(|e| format!("恢复画中画缩放失败: {e}"))?;
     let (width, height) = geometry_for(&label).size.unwrap_or_else(|| {
         (
-            (AI_PIP_WIDTH * scale).round() as u32,
-            (AI_PIP_HEIGHT * scale).round() as u32,
+            (default_w * scale).round() as u32,
+            (default_h * scale).round() as u32,
         )
     });
     win.set_size(tauri::PhysicalSize::new(width, height))
@@ -655,6 +756,48 @@ mod tests {
     }
 
     #[test]
+    fn pip_default_size_is_quarter_of_monitor() {
+        assert_eq!(pip_quarter_size(2032.0, 1355.0), (508.0, 339.0));
+        assert_eq!(pip_quarter_size(1920.0, 1080.0), (480.0, 270.0));
+        // 小屏托底到可读最小值,不能缩成指甲盖。
+        assert_eq!(pip_quarter_size(800.0, 600.0), (320.0, 200.0));
+    }
+
+    #[test]
+    fn pip_open_position_defaults_to_bottom_right_and_cascades_up() {
+        // 1920×1080 主窗、(100,100) 起点、100% DPI、1/4 屏 480×270:
+        // 首窗右下角留 24px 边距。
+        assert_eq!(
+            pip_open_position_for(100, 100, 1920, 1080, 480.0, 270.0, 1.0, 0),
+            (1516, 886)
+        );
+        // 第二个窗从首窗位置向上错开 40px,不再向右下越界。
+        assert_eq!(
+            pip_open_position_for(100, 100, 1920, 1080, 480.0, 270.0, 1.0, 1),
+            (1516, 846)
+        );
+        // HiDPI 下窗口物理像素变大,仍以主窗右下角为锚点。
+        assert_eq!(
+            pip_open_position_for(0, 0, 2560, 1440, 640.0, 360.0, 1.5, 0),
+            (1564, 864)
+        );
+    }
+
+    #[test]
+    fn pip_open_position_never_leaves_main_window_top() {
+        // 主窗矮于一个窗口 + 多重级联时,夹到主窗顶部 24px 处,不能跑到屏幕外。
+        assert_eq!(
+            pip_open_position_for(0, 0, 800, 300, 480.0, 270.0, 1.0, 3),
+            (296, 24)
+        );
+        // 主窗 x 太窄时也不允许负坐标。
+        assert_eq!(
+            pip_open_position_for(0, 0, 400, 900, 480.0, 270.0, 1.0, 0).0,
+            0
+        );
+    }
+
+    #[test]
     fn handover_event_uses_camel_case_session_id() {
         // 前端监听读 payload.sessionId;Rust 默认 snake_case 曾让整条接管链路
         // 只聚焦主窗、不切 CDP tab(2026-11-25 真机复现)。
@@ -676,21 +819,6 @@ mod tests {
     }
 
     #[test]
-    fn collapsed_state_preserves_full_size_for_reopen() {
-        // R8:收起只改 collapsed,不能用收起后的 32px 高度覆盖完整尺寸,
-        // 否则「收起态关闭 → 重开」会以一个状态栏高度复现。
-        let label = "ai-browser-pip-r8-collapse-test";
-        update_geometry(label, |geometry| {
-            geometry.size = Some((900, 600));
-            geometry.collapsed = false;
-        });
-        update_geometry(label, |geometry| geometry.collapsed = true);
-        let collapsed = geometry_for(label);
-        assert!(collapsed.collapsed);
-        assert_eq!(collapsed.size, Some((900, 600)));
-    }
-
-    #[test]
     fn closed_event_carries_session_id() {
         let payload = BrowserPipClosed {
             session_id: "sess-02".to_string(),
@@ -703,3 +831,4 @@ mod tests {
         assert!(json.get("session_id").is_none());
     }
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

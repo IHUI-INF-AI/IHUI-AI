@@ -42,6 +42,8 @@ export function useBrowserPipLabels(): BrowserPipLabels {
     close: t('close'),
     minimize: t('minimize'),
     expandWindow: t('expandWindow'),
+    maximize: t('maximize'),
+    restore: t('restore'),
     expandTask: t('expandTask'),
     collapseTask: t('collapseTask'),
     checkpointLabels: {
