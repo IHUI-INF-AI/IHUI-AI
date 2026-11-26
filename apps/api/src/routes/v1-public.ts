@@ -54,6 +54,7 @@ import {
 } from '../plugins/api-key-auth.js'
 import { requireCapability } from '../utils/capability-guard.js'
 import { error, success } from '../utils/response.js'
+import { estimateTextTokens } from '../utils/token-estimate.js'
 import {
   deriveModelSpec,
   modelSpecToWire,
@@ -1013,13 +1014,13 @@ async function streamChatCompletion(
       partial && hasUpstreamOutput
         ? partial.promptTokens > 0
           ? partial.promptTokens
-          : Math.ceil((opts.promptText ?? '').length / 4)
+          : estimateTextTokens(opts.promptText)
         : 0
     const completionTokens =
       partial && hasUpstreamOutput
         ? partial.completionTokens > 0
           ? partial.completionTokens
-          : Math.ceil((partial.responseText ?? '').length / 4)
+          : estimateTextTokens(partial.responseText)
         : 0
     const hasOutput = hasUpstreamOutput && promptTokens + completionTokens > 0
     const latency = persistableLatency(opts.sw.stop())
@@ -1248,13 +1249,13 @@ async function streamChatCompletion(
               ? 0
               : streamPromptTokens > 0
                 ? streamPromptTokens
-                : Math.ceil((opts.promptText ?? '').length / 4)
+                : estimateTextTokens(opts.promptText)
           const completionTokens =
             stats.streamError && !hasPartialOutput
               ? 0
               : stats.completionTokens > 0
                 ? stats.completionTokens
-                : Math.ceil(responseText.length / 4)
+                : estimateTextTokens(responseText)
           // 格②(2026-09-26):耗时改由单调钟样本经唯一适配器投影(不可信 ⇒ 0 + latencyTrusted:false)
           const latency = persistableLatency(opts.sw.stop())
           void recordCall({
@@ -1502,11 +1503,14 @@ async function streamChatCompletion(
       // ai-service usage 帧 / 渠道 [USAGE] 帧捕获),缺失才回退"字符 ÷ 4"估算。旧代码无条件估算,
       // 中文(≈1.5 字/token 而非 4)系统性少计 2~3 倍,与同函数 include_usage 分支(用真值)口径分裂。
       // F-89:completion 估算兜底只用真实产出文本(responseText 不含错误文案)。
-      const estimatePromptTokens = Math.ceil((opts.promptText ?? '').length / 4)
-      const estimateCompletionTokens = Math.ceil(responseText.length / 4)
+      const estimatePromptTokens = estimateTextTokens(opts.promptText)
+      const estimateCompletionTokens = estimateTextTokens(responseText)
       const promptTokens = streamPromptTokens > 0 ? streamPromptTokens : estimatePromptTokens
+      // 2026-11-26:流内错误但已有正文时也要按 partial 结算,不能把已产出内容归零。
       const completionTokens = streamError
-        ? 0
+        ? responseText.length > 0
+          ? estimateCompletionTokens
+          : 0
         : streamCompletionTokens > 0
           ? streamCompletionTokens
           : estimateCompletionTokens

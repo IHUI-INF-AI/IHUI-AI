@@ -8,6 +8,7 @@
 import { z } from 'zod'
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { success, error } from '../../utils/response.js'
+import { estimateTextTokens } from '../../utils/token-estimate.js'
 import { buildSchema } from '../../utils/swagger.js'
 import { callVendor as newCallVendor } from '../../services/vendor-caller-service.js'
 import {
@@ -181,21 +182,21 @@ function extractTokenUsage(data: unknown): TokenUsage {
   return { promptTokens: 0, completionTokens: 0 }
 }
 
-/** 响应体字符数按 4:1 粗估输出 token;仅在网关不返回 usage 时兜底,宁高不低。 */
+/** 响应体按 CJK 感知估算输出 token;仅在网关不返回 usage 时兜底,宁高不低。 */
 function estimateCompletionTokens(data: unknown): number {
   try {
     const raw = typeof data === 'string' ? data : JSON.stringify(data ?? '')
-    return Math.max(1, Math.ceil(raw.length / 4))
+    return Math.max(1, estimateTextTokens(raw))
   } catch {
     return 1
   }
 }
 
-/** 请求体字符数按 4:1 粗估 prompt token;只用于开工前余额预检,不是最终账单。 */
+/** 请求体按 CJK 感知估算 prompt token;只用于开工前余额预检,不是最终账单。 */
 function estimatePromptTokens(body: unknown): number {
   try {
     const raw = typeof body === 'string' ? body : JSON.stringify(body ?? '')
-    return Math.ceil(raw.length / 4)
+    return estimateTextTokens(raw)
   } catch {
     return 0
   }

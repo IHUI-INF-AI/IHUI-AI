@@ -262,6 +262,29 @@ jobs:
             fi
           done
 
+      # 2026-11-26:beforeBuildCommand 现在要打 CLI 内置产物(desktop-cli-bundle.mjs),
+      # 而 esbuild 按 package.json 的 import 字段解析 @ihui/* 的 dist ⇒ 三个平台都必须先有
+      # pnpm workspace 依赖,否则 0.1.94 的 `Could not resolve "@ihui/api-client"` 会原样复现。
+      # 只给非 Windows 补装:Windows 在下方「Install beforeBuildCommand deps」已装。
+      - name: Setup Node.js (CLI bundle deps)
+        if: runner.os != 'Windows'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm (CLI bundle deps)
+        if: runner.os != 'Windows'
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+
+      - name: Install workspace deps (CLI bundle, non-Windows)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+
       # 2026-09-17:纯 Rust 化后无 node_modules,tauri-action 默认 `npm run tauri` 会失败——
       # 全局装独立 CLI(约 10 秒)并显式指定 tauriScript
       # 2026-09-27 改钉版本:原先写 `@tauri-apps/cli@^2` ⇒ 每次 CI 都取最新 2.x,而 tauri-cli
@@ -336,8 +359,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "为 beforeBuildCommand 装根包依赖(sharp) —— pnpm 认 workspace: 协议,且产物落在仓库根 node_modules"
-          pnpm install --frozen-lockfile --filter ihui-ai
+          echo "为 beforeBuildCommand 装 workspace 依赖(sharp + CLI 内置产物所需的 @ihui/* dist 构建链) —— pnpm 认 workspace: 协议,且产物落在仓库根 node_modules"
+          pnpm install --frozen-lockfile
           # 用脚本自己的解析方式验证(createRequire from apps/desktop):
           # 这才是 beforeBuildCommand 真实走的那条解析链,别用 require('sharp') 糊过去。
           node -e "const {createRequire}=require('module'); const r=createRequire(process.cwd()+'/apps/desktop/package.json'); const s=r('sharp'); console.log('sharp ok | libvips=', s.versions.vips)"

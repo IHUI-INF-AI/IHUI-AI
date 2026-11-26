@@ -46,6 +46,7 @@ import { fetch as undiciFetch } from 'undici'
 // 静默回落的可观测面(2026-10-26):计数走业务指标族的唯一出口,provider 归属走号池快照
 // (同一把 isRelayPoolRowSchedulable 尺子,带 5 秒缓存,只在回落这一格里才问一次)
 import { logger } from '../utils/logger.js'
+import { estimateTextTokens } from '../utils/token-estimate.js'
 import {
   recordRelayUpstreamFallback,
   type RelayUpstreamFallbackReason,
@@ -926,15 +927,15 @@ export async function pipeChannelStream(
       })
     } else {
       const promptText = opts.promptText ?? promptTextByResponse.get(upstream) ?? ''
-      stats.promptTokens = Math.ceil(promptText.length / 4)
-      stats.completionTokens = Math.ceil(stats.responseText.length / 4)
+      stats.promptTokens = estimateTextTokens(promptText)
+      stats.completionTokens = estimateTextTokens(stats.responseText)
       stats.totalTokens = stats.promptTokens + stats.completionTokens
     }
   } else if (stats.promptTokens === 0 || stats.completionTokens === 0) {
     const promptText = opts.promptText ?? promptTextByResponse.get(upstream) ?? ''
-    if (stats.promptTokens === 0) stats.promptTokens = Math.ceil(promptText.length / 4)
+    if (stats.promptTokens === 0) stats.promptTokens = estimateTextTokens(promptText)
     if (stats.completionTokens === 0)
-      stats.completionTokens = Math.ceil(stats.responseText.length / 4)
+      stats.completionTokens = estimateTextTokens(stats.responseText)
     stats.totalTokens = stats.promptTokens + stats.completionTokens
     logger.warn('[relay-upstream] usage_fallback reason=one_side_missing', {
       httpStatus: stats.httpStatus,

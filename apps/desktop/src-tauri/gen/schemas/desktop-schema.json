@@ -2907,6 +2907,12 @@
           "markdownDescription": "Enables the qoder_reset_probe command without any pre-configured scope."
         },
         {
+          "description": "Enables the query_notification_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-query-notification-permission",
+          "markdownDescription": "Enables the query_notification_permission command without any pre-configured scope."
+        },
+        {
           "description": "Enables the quit_app command without any pre-configured scope.",
           "type": "string",
           "const": "allow-quit-app",
@@ -2989,6 +2995,12 @@
           "type": "string",
           "const": "allow-set-desktop-prefs",
           "markdownDescription": "Enables the set_desktop_prefs command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_sleep_prevention command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-sleep-prevention",
+          "markdownDescription": "Enables the set_sleep_prevention command without any pre-configured scope."
         },
         {
           "description": "Enables the set_tray_always_visible command without any pre-configured scope.",
@@ -3091,6 +3103,24 @@
           "type": "string",
           "const": "allow-toggle-fullscreen",
           "markdownDescription": "Enables the toggle_fullscreen command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the update_v2_restart command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-update-v2-restart",
+          "markdownDescription": "Enables the update_v2_restart command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the update_v2_stage command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-update-v2-stage",
+          "markdownDescription": "Enables the update_v2_stage command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the update_v2_sync_autostart command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-update-v2-sync-autostart",
+          "markdownDescription": "Enables the update_v2_sync_autostart command without any pre-configured scope."
         },
         {
           "description": "Enables the workbuddy_quarantine_delete command without any pre-configured scope.",
@@ -3765,6 +3795,12 @@
           "markdownDescription": "Denies the qoder_reset_probe command without any pre-configured scope."
         },
         {
+          "description": "Denies the query_notification_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-query-notification-permission",
+          "markdownDescription": "Denies the query_notification_permission command without any pre-configured scope."
+        },
+        {
           "description": "Denies the quit_app command without any pre-configured scope.",
           "type": "string",
           "const": "deny-quit-app",
@@ -3847,6 +3883,12 @@
           "type": "string",
           "const": "deny-set-desktop-prefs",
           "markdownDescription": "Denies the set_desktop_prefs command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_sleep_prevention command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-sleep-prevention",
+          "markdownDescription": "Denies the set_sleep_prevention command without any pre-configured scope."
         },
         {
           "description": "Denies the set_tray_always_visible command without any pre-configured scope.",
@@ -3949,6 +3991,24 @@
           "type": "string",
           "const": "deny-toggle-fullscreen",
           "markdownDescription": "Denies the toggle_fullscreen command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_v2_restart command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-update-v2-restart",
+          "markdownDescription": "Denies the update_v2_restart command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_v2_stage command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-update-v2-stage",
+          "markdownDescription": "Denies the update_v2_stage command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_v2_sync_autostart command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-update-v2-sync-autostart",
+          "markdownDescription": "Denies the update_v2_sync_autostart command without any pre-configured scope."
         },
         {
           "description": "Denies the workbuddy_quarantine_delete command without any pre-configured scope.",
