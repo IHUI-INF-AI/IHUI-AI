@@ -2227,6 +2227,7 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🔧 기타:增加本机应急签名通道(workflow_dispatch,只签名不构建) (55baff81)
 - 🐞 수정:NSIS 模板残留手改登记为侧车补丁,修复 Tauri CLI 2.11.4 漂移校验 (1f3fd2e8)
 - 🐞 수정:UserInfoCard 同名不同物整对裁决 not-applicable(26 键外置),清 3 条失效映射;InputArea selectedModelVendor 落账。props-parity 由既有红转为 exit 0 (d3d593d1)
 - 🐞 수정:llm_chat 补记平台成本账 (2d4b9e53)

@@ -37,7 +37,15 @@ jobs:
           $exe = "${{ inputs.exe_path }}"
           if (-not (Test-Path -LiteralPath $exe)) { throw "安装包不存在: $exe" }
           $keyFile = Join-Path $env:RUNNER_TEMP 'ihui-updater-ci.key'
-          [IO.File]::WriteAllText($keyFile, $env:DESKTOP_TAURI_PRIVATE_KEY)
+          $raw = $env:DESKTOP_TAURI_PRIVATE_KEY
+          $keyText = $raw
+          if ($raw -notmatch 'untrusted comment') {
+            try {
+              $decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($raw))
+              if ($decoded -match 'untrusted comment') { $keyText = $decoded }
+            } catch { }
+          }
+          [IO.File]::WriteAllText($keyFile, $keyText)
           $tauri = 'C:\IHUI-R10-release-0196\node_modules\.bin\tauri.cmd'
           if (-not (Test-Path -LiteralPath $tauri)) { throw "tauri CLI 不存在: $tauri" }
           if ([string]::IsNullOrEmpty($env:DESKTOP_TAURI_KEY_PASSWORD)) {
@@ -52,4 +60,5 @@ jobs:
           Copy-Item -LiteralPath $sig -Destination $out -Force
           $len = (Get-Item -LiteralPath $out).Length
           Write-Output "OK: sig -> $out ($len bytes)"
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
