@@ -182,6 +182,21 @@ class TaskTemplateRequest(BaseModel):
     )
 
 
+class StartTaskTemplateRequest(BaseModel):
+    """按模板开跑:有现成会话就复用,没有就自动建一个再绑定。
+
+    一条 URL 是“给没有活跃 CDP tab 的新用户”用的;不传则开 about:blank,
+    由 AI 后续导航。已有会话时 URL 被忽略,永远不抢现有 tab 的页面。
+    """
+
+    session_id: str | None = Field(None, description="已有 Browser Hub 会话 id")
+    url: str | None = Field(None, description="没有会话时自动创建的初始 URL")
+    goal: str | None = Field(None, description="覆盖模板目标(可选)")
+    checkpoint_timeout_seconds: int | None = Field(
+        None, description="覆盖模板检查点等待上限(秒),60..3600"
+    )
+
+
 # =============================================================================
 # 会话管理
 # =============================================================================
@@ -537,6 +552,71 @@ async def save_task_template(
         "code": 0,
         "message": "模板已保存",
         "data": {"template": {**template, "source": "custom"}},
+    }
+
+
+@router.post("/task-templates/{template_id}/start")
+async def start_task_template(
+    template_id: str,
+    body: StartTaskTemplateRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """一键按模板开监看:没有现成 Browser Hub 会话时自动创建。
+
+    这是替代“先开浏览器标签、再按模板监看”两段式的前端入口。已有会话时
+    只复用并绑定,不改变页面;没有会话时按传入 URL 建一个,URL 为空则
+    about:blank,等 AI/用户后续导航。任务绑定失败会回收刚建的会话,
+    不留下占名额的空白 context。
+    """
+    auto_created = False
+    session = None
+    if body.session_id:
+        try:
+            session = hub.require_tab(_tab_scope(body.session_id, user_id))
+        except BrowserTabScopeError as exc:
+            raise _tab_scope_denial(exc) from exc
+    else:
+        try:
+            before_ids = set(hub.list_sessions(user_id))
+            session = await hub.create_session(
+                url=body.url or None,
+                owner_user_id=user_id,
+            )
+            # create_session 对同 URL 有幂等去重,可能直接返回已有会话;
+            # 那种情况不能标成 auto_created,否则任务校验失败时会误关别人的旧会话。
+            auto_created = session.session_id not in before_ids
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        task_body = TaskBindRequest(
+            template_id=template_id,
+            goal=body.goal,
+            checkpoint_timeout_seconds=body.checkpoint_timeout_seconds,
+        )
+        snapshot = await session.start_task(_task_payload(task_body, user_id))
+    except TaskValidationError as exc:
+        if auto_created:
+            await hub.close_session(session.session_id, owner_user_id=user_id)
+        raise _task_denial(exc) from exc
+
+    await hub.persist_sessions()
+    try:
+        url = await session.get_current_url()
+        title = await session.get_title()
+    except Exception:  # noqa: BLE001 — 页面被平台关闭时仍要把会话/任务交给前端
+        url = body.url or "about:blank"
+        title = ""
+    return {
+        "code": 0,
+        "message": "模板已启动" if not auto_created else "已自动创建监看会话并启动模板",
+        "data": {
+            "session_id": session.session_id,
+            "url": url,
+            "title": title,
+            "auto_created": auto_created,
+            "task": snapshot,
+        },
     }
 
 

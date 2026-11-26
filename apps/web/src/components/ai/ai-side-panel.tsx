@@ -96,8 +96,8 @@ import {
   getConversation,
   getConversationHistory,
   getMessages,
-  bindBrowserTask,
   listBrowserSessions,
+  startBrowserTaskTemplate,
 } from '@ihui/api-client'
 import { parsePendingQuestion } from '@/lib/pending-question'
 // 2026-11:新建对话时把「提示留痕」一并归零(与 RN 的 handleDrawerCreateNewChat 同语义),
@@ -524,7 +524,7 @@ export function AISidePanel() {
         : state.tabs.find((tab) => tab.state.mode === 'cdp' && tab.state.sessionId)
     const sessionId = cdpTab?.state.sessionId ?? null
     if (!cdpTab || !sessionId) return null
-    return { tabId: cdpTab.id, sessionId, title: cdpTab.title }
+    return { tabId: cdpTab.id, sessionId, title: cdpTab.title, url: cdpTab.url }
   }, [])
   // 桌面端补一层服务端活跃会话发现:AI 直接开 Browser Hub 时右侧没有 CDP tab,
   // 旧逻辑只能报“先开浏览器”。这里返回一个无 tabId 的只读目标,够开原生监看窗。
@@ -536,7 +536,7 @@ export function AISidePanel() {
       const res = await listBrowserSessions()
       const ids = res.success ? (res.data?.session_ids ?? []) : []
       const sessionId = ids.length > 0 ? ids[ids.length - 1] : null
-      return sessionId ? { tabId: '', sessionId, title: '' } : null
+      return sessionId ? { tabId: '', sessionId, title: '', url: '' } : null
     } catch {
       return null
     }
@@ -585,22 +585,47 @@ export function AISidePanel() {
       },
     })
   }, [pipLabels, resolvePipSessionTarget, tc])
-  // 按模板监看:先绑定任务(服务端校验/展开),再开浮窗;浮窗连上后从服务端快照拿到任务条。
+
+  // 工作面内停靠:与浮窗共用同一 Browser Hub session / AiPipMonitor,
+  // 但不另开窗口;适合一边和 AI 对话一边盯着画面(更接近 IDE 内嵌监看)。
+  const dockPipFromPanel = React.useCallback(async () => {
+    const target = await resolvePipSessionTarget()
+    if (!target) {
+      toast.error(tc('pictureInPicture.dockInWorkPanel'), {
+        description: tc('pictureInPicture.templateNoSession'),
+      })
+      return
+    }
+    const latest = useWorkPanelStore.getState()
+    latest.openPipSession(target.sessionId, target.url || 'about:blank', target.title)
+    latest.openPanel()
+  }, [resolvePipSessionTarget, tc])
+
+  // 按模板监看:服务端一次完成“复用会话或自动建会话 + 绑定任务”,
+  // 前端不再要求用户先手动开一个浏览器标签。为什么不是前端两步:
+  // 中间任一步失败都会留下空会话/半绑定任务,服务端一个原子入口更容易回滚。
   const startPipFromTemplate = React.useCallback(
     async (templateId: string) => {
       const target = await resolvePipSessionTarget()
-      if (!target) {
-        toast.error(tc('pictureInPicture.templateMenuLabel'), {
-          description: tc('pictureInPicture.templateNoSession'),
-        })
-        return
-      }
-      const res = await bindBrowserTask(target.sessionId, { template_id: templateId })
-      if (!res.success) {
+      const res = await startBrowserTaskTemplate(templateId, {
+        session_id: target?.sessionId,
+        url: target?.url || undefined,
+      })
+      if (!res.success || !res.data) {
         toast.error(tc('pictureInPicture.templateMenuLabel'), {
           description: res.error || tc('pictureInPicture.taskFailed'),
         })
         return
+      }
+      const { session_id: sessionId, url, title, auto_created: autoCreated } = res.data
+      const focusSessionTab = () => {
+        const latest = useWorkPanelStore.getState()
+        const existing = latest.tabs.find(
+          (tab) => tab.state.mode === 'cdp' && tab.state.sessionId === sessionId,
+        )
+        if (existing) latest.setActiveTab(existing.id)
+        else latest.openCdpSession(url || 'about:blank', sessionId, title || url || '')
+        latest.openPanel()
       }
       if (isTauri()) {
         // 桌面端:绑定模板后直接开原生监看窗;任务条由 WS 从服务端取,不在前端复制。
@@ -609,7 +634,7 @@ export function AISidePanel() {
           toast.error(tc('pictureInPicture.templateMenuLabel'))
           return
         }
-        void openAiPipWindow(target.sessionId, accessToken).catch((error) => {
+        void openAiPipWindow(sessionId, accessToken).catch((error) => {
           toast.error(tc('pictureInPicture.templateMenuLabel'), {
             description: error instanceof Error ? error.message : String(error),
           })
@@ -617,15 +642,17 @@ export function AISidePanel() {
         return
       }
       await openBrowserPipMonitor({
-        sessionId: target.sessionId,
-        title: target.title,
+        sessionId,
+        title: title || target?.title || '',
         labels: pipLabels,
-        onHandover: () => {
-          const latest = useWorkPanelStore.getState()
-          if (latest.tabs.some((tab) => tab.id === target.tabId)) latest.setActiveTab(target.tabId)
-          latest.openPanel()
-        },
+        onHandover: focusSessionTab,
       })
+      if (autoCreated) {
+        // 仅提示一次,不改变任何业务状态;用户看到的是同一个监看窗。
+        toast.success(tc('pictureInPicture.templateMenuLabel'), {
+          description: tc('pictureInPicture.templateAutoCreated'),
+        })
+      }
     },
     [pipLabels, resolvePipSessionTarget, tc],
   )
@@ -3077,6 +3104,16 @@ export function AISidePanel() {
                         >
                           <PictureInPicture2 className={MENU_ITEM_ICON_CLASS} />
                           <span className="truncate">{tc('pictureInPicture.openWindow')}</span>
+                        </DropdownMenu.Item>
+                      )}
+                      {pipSupported && (
+                        <DropdownMenu.Item
+                          data-testid="ai-panel-dock-pip"
+                          className={MENU_ITEM_CLASS}
+                          onSelect={() => void dockPipFromPanel()}
+                        >
+                          <MonitorPlay className={MENU_ITEM_ICON_CLASS} />
+                          <span className="truncate">{tc('pictureInPicture.dockInWorkPanel')}</span>
                         </DropdownMenu.Item>
                       )}
                       {pipSupported && isTauri() && (

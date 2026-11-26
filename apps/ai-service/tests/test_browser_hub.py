@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import json
 import time
 from types import SimpleNamespace
 
@@ -181,6 +182,7 @@ class FakeContext:
         self.init_scripts: list[str] = []
         self.cookies_urls: list[str] | None = None
         self.cookies_result = cookies_result or []
+        self.storage_state_result: dict = {"cookies": [], "origins": []}
         self.launch_kwargs: dict = {}
 
     def new_page(self) -> FakePage:
@@ -197,6 +199,9 @@ class FakeContext:
     def cookies(self, urls: list[str] | None = None) -> list[dict]:
         self.cookies_urls = urls
         return self.cookies_result
+
+    def storage_state(self) -> dict:
+        return self.storage_state_result
 
     def new_cdp_session(self, page) -> FakeCdp:
         self.cdp_session_calls += 1
@@ -1277,6 +1282,65 @@ async def test_build_session_no_url_skips_challenge_check():
 # ---------------------------------------------------------------------------
 # BrowserHub:recreate_session(风控墙重建)
 # ---------------------------------------------------------------------------
+
+
+async def test_capture_storage_state_returns_cookie_snapshot():
+    loop = asyncio.get_running_loop()
+    context = FakeContext()
+    context.storage_state_result = {
+        "cookies": [{"name": "sid", "value": "secret"}],
+        "origins": [],
+    }
+    session = _make_session(context=context)
+    state = await session.capture_storage_state()
+    assert state == context.storage_state_result
+
+
+async def test_create_session_injects_restored_storage_state():
+    loop = asyncio.get_running_loop()
+    browser = FakeBrowser()
+    h = _make_hub(loop, browser=browser)
+    state = {"cookies": [{"name": "sid", "value": "secret"}], "origins": []}
+    session = await h.create_session(
+        url="https://a.com",
+        session_id="s-restored",
+        storage_state=state,
+    )
+    assert session.session_id == "s-restored"
+    assert browser.contexts[0].launch_kwargs["storage_state"] == state
+
+
+async def test_persist_sessions_encrypts_storage_state(monkeypatch, tmp_path):
+    monkeypatch.setenv("IHUI_BROWSER_SESSION_STORE_PATH", str(tmp_path / "sessions.json"))
+    monkeypatch.setenv("IHUI_BROWSER_STATE_KEY_PATH", str(tmp_path / "state.key"))
+    loop = asyncio.get_running_loop()
+    h = _make_hub(loop, browser=FakeBrowser())
+    session = await h.create_session(
+        url="https://a.com",
+        session_id="s1",
+        owner_user_id="u1",
+    )
+    storage = {
+        "cookies": [
+            {
+                "name": "sid",
+                "value": "cookie-secret",
+                "domain": ".a.com",
+                "path": "/",
+            }
+        ],
+        "origins": [
+            {"origin": "https://a.com", "localStorage": [{"name": "token", "value": "local-secret"}]}
+        ],
+    }
+    session._context.storage_state_result = storage
+    await h.persist_sessions()
+    payload = json.loads((tmp_path / "sessions.json").read_text(encoding="utf-8"))
+    row = next(item for item in payload["sessions"] if item["session_id"] == "s1")
+    token = row["storage_state"]
+    assert "cookie-secret" not in token
+    assert "local-secret" not in token
+    assert bh.decrypt_storage_state(token) == storage
 
 
 async def test_recreate_session_nonexistent():
