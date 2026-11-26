@@ -44,7 +44,7 @@ import {
 import { broadcast } from '../services/wechat-hub/broadcast.js'
 import { searchKnowledge } from '../services/wechat-hub/knowledge.js'
 import { probeBridgeForAccount } from '../services/wechat-hub/bridge-probe.js'
-import { getGroupWriteRuntimeView } from '../services/wechat-hub/group-writes.js'
+import { getGroupWriteRuntimeView, buildGroupWriteAuditView } from '../services/wechat-hub/group-writes.js'
 import { answerError, requireUserId } from './wechat-hub-route-utils.js'
 
 const backendSchema = z.enum(['ilink', 'bridge', 'mock'])
@@ -1049,22 +1049,7 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
         case 'wechat_group_audit': {
           const accountId = readArg(args, 'accountId')
           const { runtime, policy } = await getGroupWriteRuntimeView(userId, accountId)
-          return reply.send(
-            success({
-              entries: runtime.audit.map((entry) => ({
-                at: new Date(entry.at).toISOString(),
-                action: entry.action,
-                conversationId: entry.conversationId,
-                chatTitle: entry.chatTitle,
-                memberIds: entry.memberIds,
-                ok: entry.ok,
-                status: entry.status,
-              })),
-              windowCount: runtime.stamps.length,
-              windowLimit: policy.maxActionsPerHour,
-              remaining: Math.max(policy.maxActionsPerHour - runtime.stamps.length, 0),
-            }),
-          )
+          return reply.send(success(buildGroupWriteAuditView(runtime, policy)))
         }
         case 'wechat_group_action': {
           const accountId = readArg(args, 'accountId')

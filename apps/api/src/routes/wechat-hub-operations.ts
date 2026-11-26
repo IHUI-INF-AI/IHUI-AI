@@ -22,6 +22,7 @@ import {
   syncContacts,
 } from '../services/wechat-hub/operations.js'
 import {
+  buildGroupWriteAuditView,
   getGroupWritePolicy,
   getGroupWriteRuntimeView,
   saveGroupWritePolicy,
@@ -224,22 +225,7 @@ export const wechatHubOperationsRoutes: FastifyPluginAsync = async (server) => {
           requireUserId(request),
           request.params.id,
         )
-        return reply.send(
-          success({
-            entries: runtime.audit.map((entry) => ({
-              at: new Date(entry.at).toISOString(),
-              action: entry.action,
-              conversationId: entry.conversationId,
-              chatTitle: entry.chatTitle,
-              memberIds: entry.memberIds,
-              ok: entry.ok,
-              status: entry.status,
-            })),
-            windowCount: runtime.stamps.length,
-            windowLimit: policy.maxActionsPerHour,
-            remaining: Math.max(policy.maxActionsPerHour - runtime.stamps.length, 0),
-          }),
-        )
+        return reply.send(success(buildGroupWriteAuditView(runtime, policy)))
       } catch (e) {
         return answerError(reply, e)
       }

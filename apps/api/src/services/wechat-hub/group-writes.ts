@@ -481,6 +481,42 @@ export function recordGroupWriteSuccess(
   map.set(accountId, stamps)
 }
 
+/** 审计视图：路由与 MCP 两条入口共用一份拼装逻辑，避免两边字段漂移。 */
+export interface GroupWriteAuditView {
+  entries: Array<{
+    at: string
+    action: GroupWriteAction
+    conversationId: string | null
+    chatTitle: string
+    memberIds: string[]
+    ok: boolean
+    status: string | null
+  }>
+  windowCount: number
+  windowLimit: number
+  remaining: number
+}
+
+export function buildGroupWriteAuditView(
+  runtime: GroupWriteRuntimeState,
+  policy: WechatGroupWritePolicy,
+): GroupWriteAuditView {
+  return {
+    entries: runtime.audit.map((entry) => ({
+      at: new Date(entry.at).toISOString(),
+      action: entry.action,
+      conversationId: entry.conversationId,
+      chatTitle: entry.chatTitle,
+      memberIds: entry.memberIds,
+      ok: entry.ok,
+      status: entry.status,
+    })),
+    windowCount: runtime.stamps.length,
+    windowLimit: policy.maxActionsPerHour,
+    remaining: Math.max(policy.maxActionsPerHour - runtime.stamps.length, 0),
+  }
+}
+
 /** 读账号群写运行态；路由层先过账号归属校验再展示。 */
 export async function getGroupWriteRuntimeView(
   userId: string,
