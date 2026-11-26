@@ -46,7 +46,7 @@ jobs:
             } catch { }
           }
           [IO.File]::WriteAllText($keyFile, $keyText)
-          $tauri = 'C:\IHUI-R10-release-0196\node_modules\.bin\tauri.cmd'
+          $tauri = 'C:\IHUI-R10-release-0196\apps\desktop\node_modules\.bin\tauri.cmd'
           if (-not (Test-Path -LiteralPath $tauri)) { throw "tauri CLI 不存在: $tauri" }
           if ([string]::IsNullOrEmpty($env:DESKTOP_TAURI_KEY_PASSWORD)) {
             & $tauri signer sign -f $keyFile $exe

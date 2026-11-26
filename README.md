@@ -84,6 +84,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🔧 工程/其他:签名通道兼容 base64 私钥内容 (795dd0fe)
 - 🔧 工程/其他:增加本机应急签名通道(workflow_dispatch,只签名不构建) (55baff81)
 - 🐞 修复:NSIS 模板残留手改登记为侧车补丁,修复 Tauri CLI 2.11.4 漂移校验 (1f3fd2e8)
 - 🐞 修复:UserInfoCard 同名不同物整对裁决 not-applicable(26 键外置),清 3 条失效映射;InputArea selectedModelVendor 落账。props-parity 由既有红转为 exit 0 (d3d593d1)
