@@ -50,6 +50,7 @@ import {
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { repricePlaceholderModels } from '../services/model-price-resolver.js'
 import { cleanupPointHolds, getPointHoldHealth } from '../services/points-service.js'
+import { quarantineMissingCostModels } from '../services/model-quarantine.js'
 import { hashPassword } from '../utils/password-crypto.js'
 import { db } from '../db/index.js'
 import { orders, users, projects, aiPricing } from '@ihui/database'
@@ -426,6 +427,26 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         days: Number.isFinite(days) ? days : 30,
         limit: Number.isFinite(limit) ? limit : 500,
       })
+      return reply.send(success(data))
+    },
+  )
+
+  // POST /ai-pricing/missing-costs/quarantine - 按类型隔离缺成本模型(2026-11-26 立)
+  // 默认 dryRun=true;运营确认后传 { dryRun: false } 才写库。
+  // 非聊天模型与 free 变体下架;别名仅取消公开;真实聊天模型先取消公开,补价后再上架。
+  server.post(
+    '/ai-pricing/missing-costs/quarantine',
+    {
+      schema: {
+        summary: '按类型隔离缺成本模型',
+        description:
+          '非聊天模型(embedding/rerank/图像/视频/音频/翻译/审核)下架,free 变体下架,合作方/数字/测试别名仅取消公开,真实聊天模型取消公开等待补价。默认 dryRun=true。',
+        tags: ['admin'],
+      },
+    },
+    async (request, reply) => {
+      const body = (request.body ?? {}) as { dryRun?: boolean }
+      const data = await quarantineMissingCostModels({ dryRun: body.dryRun !== false })
       return reply.send(success(data))
     },
   )

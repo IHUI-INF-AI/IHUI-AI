@@ -35,6 +35,7 @@ import { aiModelConfigModels } from '@ihui/database'
 import { fetchUpstreamModelIdsForProvider } from '../services/relay-account-pool-service.js'
 import { isRelayProviderCode, type RelayProviderCode } from '../services/relay-account-format.js'
 import { inferPointsMultiplier } from '../services/points-multiplier.js'
+import { classifyModelKind, shouldDisableOnMissingCost } from '../services/model-kind-classifier.js'
 
 /** 单条写入的结局:新增 / 已存在跳过 */
 type TraeModelWriteOutcome = 'inserted' | 'exists'
@@ -47,6 +48,10 @@ export type TraeModelWriter = (configId: number, modelId: string) => Promise<Tra
  * 不更新既有行(避免覆盖管理员手置的 is_relay_public / relay_display_name / 定价)。
  */
 async function upsertTraeModel(configId: number, modelId: string): Promise<TraeModelWriteOutcome> {
+  // 2026-11-26:非聊天模型与 free 变体不进 LLM 售卖面,防止同步腿重新插入。
+  if (shouldDisableOnMissingCost(classifyModelKind(modelId))) {
+    return 'exists'
+  }
   const rows = await db
     .insert(aiModelConfigModels)
     .values({

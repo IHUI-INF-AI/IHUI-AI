@@ -145,6 +145,8 @@
 - `PATCH /admin/ai-pricing/models/:id`（人工调价）：输入/输出两个方向都必须大于 0，服务层 `updateModelPrice` 同一判据再兜一层，绕过路由也写不进零价。
 - `assertPricedForPublish` 继续拦截上架零价/1分2分占位价；`getUnpricedAlerts` 每日巡检在架零价与近 7 天零价调用。
 - `GET /admin/ai-pricing/missing-costs?days=30&limit=500`：列出 `cost_input/output_price_per_1k` 任一为 `NULL` 的启用模型，按近 N 天调用量排序。这些模型会被 LLM 计费 fail-closed（503），运营按榜单补成本价即可恢复售卖。
+- `POST /admin/ai-pricing/missing-costs/quarantine`：按模型类型隔离缺成本模型，默认 `dryRun=true`。非聊天模型（embedding/rerank/图像/视频/音频/翻译/审核）与 `-free` 变体直接 `enabled=false`；合作方别名、数字 ID、测试别名仅 `is_relay_public=false`；真实聊天模型先取消公开等待补价。隔离后公开面不再出现缺价 503。
+- 同步腿（`relay-models-sync` / `trae-models-sync`）写入前用 `classifyModelKind` 拦截非聊天与免费变体，避免上游清单每 15 分钟又把它们插回来或复活。
 - `GET /admin/ai-pricing/models?onlyProblems=true` 仍可查人工调价问题行；成本回填用 `backfillCostPrices`：先按 `metadata.priceSource.profitFactor` 反推，再用 `ai_pricing` 同模型 token 公示价 / 3 兜底，仍无公示价的模型保持 `null` 并继续 fail-closed。
 
 ### 3.6 MAGI-2
@@ -234,4 +236,5 @@
 | 2026-11-26 | 全收费改造：LLM 改输入/输出分离的成本×3 计价，取消 0 倍率与免费档；预检按 prompt+max_tokens 冻结，新增 `point_holds` / `reserved_points`；无 usage 不再跳过；媒体删除全部兜底价，未定价 503；新增 `ai_cost_records.cost_status`；补 14 个内置媒体/语音零售价 |
 | 2026-11-26 | 计费观测与成本回填：新增 `GET /admin/ai-pricing/point-holds` 健康接口与管控台卡片、手动回收按钮；`backfillCostPrices` 增加 `ai_pricing` 公示价 / 3 兜底，仍无价模型继续 fail-closed |
 | 2026-11-26 | 移动端 Agent 聊天（普通与 SSE 流式）接入预扣/结算；流式按 `usage` 帧结算，无 usage 时按正文估算，接管/仅重放分支释放 hold，不再免费调用上游 |
+| 2026-11-26 | 缺成本模型按类型隔离：新增 `model-kind-classifier` 与 `POST /admin/ai-pricing/missing-costs/quarantine`；非聊天/free 下架，别名仅取消公开；本机执行后公开面缺价 503 从 13 降到 0，剩余待补价聊天模型 39 个 |
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
