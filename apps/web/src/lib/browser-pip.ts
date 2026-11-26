@@ -67,6 +67,9 @@ export interface BrowserPipLabels extends BrowserPipBaseLabels {
   close: string
   minimize: string
   expandWindow: string
+  /** 一键最大化 / 还原;旧版文案包缺省时组件回退中文。 */
+  maximize?: string
+  restore?: string
   task: string
   pin: string
   unpin: string

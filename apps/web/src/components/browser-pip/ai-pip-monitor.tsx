@@ -12,6 +12,7 @@ import {
   LoaderCircle,
   Lock,
   Maximize2,
+  Minimize2,
   Minus,
   Pin,
   PinOff,
@@ -36,6 +37,7 @@ import {
   handoverAiPipWindow,
   isTauri,
   toggleAiPipCollapsed,
+  toggleAiPipMaximized,
 } from '@/lib/tauri-bridge'
 import { useAuthStore } from '@/stores/auth'
 
@@ -117,6 +119,8 @@ export function AiPipMonitor({
   const [pinBusy, setPinBusy] = useState(false)
   const [taskExpanded, setTaskExpanded] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const [maximized, setMaximized] = useState(false)
+  const [maxBusy, setMaxBusy] = useState(false)
   // `isTauri()` 在 SSR 恒为 false、客户端首帧为 true;直接写进 JSX 会触发
   // hydration mismatch。先渲染与 SSR 一致的 false,挂载后再显示桌面控件。
   const [tauriHost, setTauriHost] = useState(false)
@@ -174,6 +178,12 @@ export function AiPipMonitor({
     // 页面若在收起态被刷新,窗口只有 32px 高;按实际高度还原按钮语义,
     // 避免图标显示「最小化」但点击命令实际是「展开」的错位。
     setCollapsed(window.innerHeight <= 100)
+    void import('@tauri-apps/api/window')
+      .then(({ getCurrentWindow }) => getCurrentWindow().isMaximized())
+      .then(setMaximized)
+      .catch(() => {
+        /* 取不到最大化态时按还原态渲染,点击仍会走真实窗口命令 */
+      })
   }, [tauriHost])
 
   useEffect(() => {
@@ -235,13 +245,40 @@ export function AiPipMonitor({
 
   const onMinimize = useCallback(() => {
     // 不占任务栏的小窗直接 OS minimize 会失去恢复入口;Rust 把它压成 32px
-    // 标题条,窗口仍在置顶可见,再点同一枚按钮展开。
-    void toggleAiPipCollapsed()
-      .then(setCollapsed)
-      .catch(() => {
+    // 标题条,窗口仍在置顶可见,再点同一枚按钮展开。最大化态先还原,
+    // 否则收起会把整屏尺寸带进几何记忆。
+    void (async () => {
+      try {
+        if (maximized) {
+          const next = await toggleAiPipMaximized()
+          setMaximized(next)
+        }
+        const next = await toggleAiPipCollapsed()
+        setCollapsed(next)
+      } catch {
         /* 收起失败保持原窗 */
-      })
-  }, [])
+      }
+    })()
+  }, [maximized])
+
+  const onToggleMaximize = useCallback(() => {
+    if (!isTauri() || maxBusy) return
+    setMaxBusy(true)
+    void (async () => {
+      try {
+        // 收起态直接最大化会留下 32px 的逻辑高度;先展开再走系统最大化。
+        if (collapsed) {
+          const next = await toggleAiPipCollapsed()
+          setCollapsed(next)
+        }
+        setMaximized(await toggleAiPipMaximized())
+      } catch {
+        /* 失败保持原窗,不假装切成功 */
+      } finally {
+        setMaxBusy(false)
+      }
+    })()
+  }, [collapsed, maxBusy])
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
@@ -639,6 +676,15 @@ export function AiPipMonitor({
     }
   }, [sessionId, pipToken, reconnectKey, streamFps])
 
+  const announceResume = useCallback(() => {
+    if (typeof window === 'undefined') return
+    window.dispatchEvent(
+      new CustomEvent('ihui:browser-checkpoint-resumed', {
+        detail: { sessionId },
+      }),
+    )
+  }, [sessionId])
+
   const onContinue = useCallback(() => {
     const checkpointId = activeCheckpoint?.id
     if (!checkpointId) return
@@ -647,6 +693,7 @@ export function AiPipMonitor({
     const ws = wsRef.current
     if (ws && ws.readyState === 1) {
       ws.send(JSON.stringify({ type: 'checkpoint_resume', checkpoint_id: checkpointId }))
+      announceResume()
       window.setTimeout(() => setResumeBusy(false), 1500)
       return
     }
@@ -665,6 +712,7 @@ export function AiPipMonitor({
           },
         )
         if (!resp.ok) throw new Error(`checkpoint ${resp.status}`)
+        announceResume()
         const state = await fetch(`/api/browser/sessions/${encodeURIComponent(sessionId)}/state`, {
           headers: { Authorization: `Bearer ${pipToken}` },
           cache: 'no-store',
@@ -682,7 +730,7 @@ export function AiPipMonitor({
         window.setTimeout(() => setResumeBusy(false), 600)
       }
     })()
-  }, [activeCheckpoint?.id, pipToken, sessionId])
+  }, [activeCheckpoint?.id, announceResume, pipToken, sessionId])
 
   const onHandover = useCallback(async () => {
     if (embedded && onHandoverRequest) {
@@ -778,6 +826,18 @@ export function AiPipMonitor({
               className="grid h-6 w-6 place-items-center rounded-md text-slate-400 transition-colors hover:bg-white/10 hover:text-slate-200"
             >
               {collapsed ? <Maximize2 className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+            </button>
+          )}
+          {tauriHost && !collapsed && (
+            <button
+              type="button"
+              onClick={onToggleMaximize}
+              disabled={maxBusy}
+              aria-label={maximized ? (labels.restore ?? '还原') : (labels.maximize ?? '最大化')}
+              title={maximized ? (labels.restore ?? '还原') : (labels.maximize ?? '最大化')}
+              className="grid h-6 w-6 place-items-center rounded-md text-slate-400 transition-colors hover:bg-white/10 hover:text-slate-200 disabled:opacity-50"
+            >
+              {maximized ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
             </button>
           )}
           {tauriHost && (

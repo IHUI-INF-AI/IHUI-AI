@@ -12,8 +12,8 @@
  *
  * 行为:
  * 1. 复用号池现成的 fetchUpstreamModelIdsForProvider('trae') 现拉上游清单(自动挑可调度账号);
- * 2. 对每个 id:按 (config_id, model_id) 唯一约束 onConflictDoNothing —— 新模型自动插入
- *    (enabled=true, is_relay_public=true, 立即可见于中转站模型列表),已存在则跳过(不覆盖
+ * 2. 对每个 id:按 (config_id, model_id) 唯一约束 onConflictDoNothing —— 新模型只登记
+ *    (enabled=false, is_relay_public=false,补价后由管理员显式上架),已存在则跳过(不覆盖
  *    管理员手置的展示名/定价);
  * 3. 跨上游去重:trae 内同 model_id 重复行保留最早一条 enabled=true,其余置 false(不删除,
  *    保留审计痕迹)。查询期 /api/relay/models/public 另有一层兜底去重,此处使 DB 本身更干净。
@@ -45,10 +45,13 @@ export type TraeModelWriter = (configId: number, modelId: string) => Promise<Tra
 
 /**
  * 单模型 upsert:利用 (config_id, model_id) 唯一约束 onConflictDoNothing。
+ * 2026-11-26 全收费闸门:新行按 enabled=false / is_relay_public=false 写入;
+ * 若无 ai_pricing 正价,数据库准入触发器会直接拒绝该行(连登记行都不落库)。
+ * 补价后由管理员显式上架。
  * 不更新既有行(避免覆盖管理员手置的 is_relay_public / relay_display_name / 定价)。
  */
 async function upsertTraeModel(configId: number, modelId: string): Promise<TraeModelWriteOutcome> {
-  // 2026-11-26:非聊天模型与 free 变体不进 LLM 售卖面,防止同步腿重新插入。
+  // 非聊天模型与 free 变体不进 LLM 售卖面,防止同步腿重新插入。
   if (shouldDisableOnMissingCost(classifyModelKind(modelId))) {
     return 'exists'
   }
@@ -58,8 +61,8 @@ async function upsertTraeModel(configId: number, modelId: string): Promise<TraeM
       configId,
       modelId,
       displayName: modelId,
-      enabled: true,
-      isRelayPublic: true,
+      enabled: false,
+      isRelayPublic: false,
       pointsMultiplier: inferPointsMultiplier(modelId).toFixed(2),
     })
     .onConflictDoNothing({ target: [aiModelConfigModels.configId, aiModelConfigModels.modelId] })

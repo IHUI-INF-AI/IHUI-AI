@@ -101,7 +101,6 @@ import {
   stopRelayModelsSyncScheduler,
   resolveModelSyncCron,
   DEFAULT_MODEL_SYNC_CRON,
-  defaultRelayModelPublic,
   hasModelCatalogCapability,
   resolveStaleModelIds,
   AUTO_DELIST_MAX_RATIO,
@@ -167,7 +166,8 @@ describe('syncRelayProviderModels — 编排与早退', () => {
     expect(r.inserted).toBe(2)
     expect(r.exists).toBe(0)
     expect(r.configRowCreated).toBe(false)
-    expect(insertValues.find((v) => v.modelId === 'gpt-x')?.isRelayPublic).toBe(true)
+    expect(insertValues.find((v) => v.modelId === 'gpt-x')?.isRelayPublic).toBe(false)
+    expect(insertValues.find((v) => v.modelId === 'gpt-x')?.enabled).toBe(false)
   })
 
   it('qoder 新上架模型默认不公开(跟现有 qoder 口径;不自动放开)', async () => {
@@ -184,14 +184,9 @@ describe('syncRelayProviderModels — 编排与早退', () => {
       insertValues.filter((v) => v.modelId === 'auto' || v.modelId === 'qmodel_latest'),
     ).toHaveLength(2)
     for (const v of insertValues) {
+      expect(v.enabled).toBe(false)
       expect(v.isRelayPublic).toBe(false)
     }
-  })
-
-  it('默认公开策略只在 qoder 收口,其余平台不变', () => {
-    expect(defaultRelayModelPublic('qoder')).toBe(false)
-    expect(defaultRelayModelPublic('trae')).toBe(true)
-    expect(defaultRelayModelPublic(undefined)).toBe(true)
   })
 
   it('清单能力门:qoder 仅实现 listModelsDetailed 也判有能力(不被整家跳过)', () => {

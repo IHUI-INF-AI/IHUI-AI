@@ -3327,6 +3327,41 @@
       "when": 1795560600000,
       "tag": "20261126090000_point_hold_pricing_snapshot",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 480,
+      "when": 1795571400000,
+      "tag": "20261126120000_seed_verified_llm_costs",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 481,
+      "when": 1795576800000,
+      "tag": "20261126133000_purge_unpriced_chat_models",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 482,
+      "when": 1795577400000,
+      "tag": "20261126134000_model_ingest_price_gate",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 483,
+      "when": 1795578000000,
+      "tag": "20261126135000_publish_verified_llm_models",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 484,
+      "when": 1795578600000,
+      "tag": "20261126140000_ensure_official_deepseek_model",
+      "breakpoints": true
     }
   ]
 }
