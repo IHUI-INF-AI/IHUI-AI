@@ -44,7 +44,7 @@
 - 有 token 至少扣 1 积分；零 token 才返回 0。
 - `points_multiplier` 已退出计费链路，仅作为历史字段保留；迁移已把所有 `<=0` 的倍率清零/回填。
 
-实现：`apps/api/src/services/llm-points-pricing.ts` 负责成本→费率，`ai-points-billing.ts` 负责换算、冻结、结算；`proxy-llm.ts`、AI 回调 worker、Crew 子 LLM、股票分析、生涯建议、Coze workflow 共用同一份。
+实现：`apps/api/src/services/llm-points-pricing.ts` 负责成本→费率，`ai-points-billing.ts` 负责换算、冻结、结算；`proxy-llm.ts`、`/ai/llm/chat`、对话压缩、WS capability/provider、AI 回调 worker、Crew 子 LLM、股票分析、生涯建议、Coze workflow 共用同一份。
 
 ### 2.2 预检与冻结
 
@@ -73,6 +73,9 @@
 | 入口 | 结算 source | 平台成本 |
 | --- | --- | --- |
 | 普通 LLM 代理（含 LangChain Agent） | `llm_chat` | `ai_cost_records` |
+| `/ai/llm/chat`（设计页 HTML 生成等无会话代理） | `llm_chat` | `ai_cost_records` |
+| `/conversations/:id/compress` 对话压缩 | `llm_chat` | `ai_cost_records` |
+| WS `/v1/ai/capabilities/ws/stream` 与 provider WS | `llm_chat` | `ai_cost_records` |
 | AI 回调 worker | `llm_chat` | `ai_cost_records` |
 | Crew 子 LLM | `crew_llm` | `ai_cost_records` |
 | 股票分析 | `stock_analysis` | `ai_cost_records` |

@@ -122,6 +122,12 @@ import {
 } from '../utils/conversation-archive.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import {
+  ensureLlmPointsBalance,
+  readMaxCompletionTokens,
+  settleLlmPointsUsage,
+} from '../services/ai-points-billing.js'
+import { releasePointsHold } from '../services/points-service.js'
+import {
   USER_PREFERENCE_GROUPS,
   findUserPreferences,
   upsertUserPreference,
@@ -2204,6 +2210,23 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000)
+    // 2026-11-26:压缩也是真实 LLM 调用,且没有 conversationId/messageId 回调票,
+    // 必须网关侧预扣 + 按 usage 结算;否则 /conversations/:id/compress 是免费模型口子。
+    const compressModel = owned.conversation.model || FALLBACK_MODEL
+    const compressPromptTokens = Math.max(1, estimateMessagesTokens(llmMessages as ChatMessage[]))
+    const compressReference = `chat-compress:${id}:${request.id}`
+    const compressAllowed = await ensureLlmPointsBalance(
+      request,
+      reply,
+      compressModel,
+      compressPromptTokens,
+      readMaxCompletionTokens(request.body, 8192),
+      { source: 'llm_chat', referenceId: compressReference },
+    )
+    if (!compressAllowed) {
+      clearTimeout(timeout)
+      return
+    }
     let aiResult: {
       content?: string
       model?: string
@@ -2232,6 +2255,11 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           },
           '对话压缩调用上游失败(原文仅写服务端日志,不回客户端)',
         )
+        await releasePointsHold({
+          userId,
+          source: 'llm_chat',
+          referenceId: compressReference,
+        }).catch(() => undefined)
         return reply
           .status(502)
           .send(error(502, COMPRESS_FAILED_MESSAGE, COMPRESS_UPSTREAM_ERROR_CODE))
@@ -2239,6 +2267,9 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       aiResult = (await resp.json()) as typeof aiResult
     } catch (e) {
       request.log.warn({ err: e }, '对话压缩调用上游异常(原文仅写服务端日志,不回客户端)')
+      await releasePointsHold({ userId, source: 'llm_chat', referenceId: compressReference }).catch(
+        () => undefined,
+      )
       return reply
         .status(502)
         .send(error(502, COMPRESS_FAILED_MESSAGE, COMPRESS_UPSTREAM_ERROR_CODE))
@@ -2251,12 +2282,47 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         { upstreamError: truncateUpstreamLogBody(String(aiResult.error)) },
         '对话压缩上游返回业务错误(原文仅写服务端日志,不回客户端)',
       )
+      await releasePointsHold({ userId, source: 'llm_chat', referenceId: compressReference }).catch(
+        () => undefined,
+      )
       return reply
         .status(502)
         .send(error(502, COMPRESS_FAILED_MESSAGE, COMPRESS_UPSTREAM_ERROR_CODE))
     }
 
     const content = aiResult.content ?? ''
+    const usageObj =
+      typeof aiResult.usage === 'object' && aiResult.usage !== null
+        ? (aiResult.usage as {
+            prompt_tokens?: number
+            completion_tokens?: number
+            total_tokens?: number
+          })
+        : undefined
+    const promptUsed = Math.max(
+      0,
+      Number(usageObj?.prompt_tokens ?? compressPromptTokens) || compressPromptTokens,
+    )
+    const completionUsed = Math.max(
+      0,
+      Number(usageObj?.completion_tokens ?? 0) ||
+        (usageObj?.total_tokens ? Math.max(0, Number(usageObj.total_tokens) - promptUsed) : 0) ||
+        Math.max(1, Math.ceil(content.length / 2)),
+    )
+    try {
+      await settleLlmPointsUsage({
+        userId,
+        modelId: aiResult.model?.trim() || compressModel,
+        promptTokens: promptUsed,
+        completionTokens: completionUsed,
+        source: 'llm_chat',
+        description: `对话压缩 ${compressModel}`,
+        referenceId: compressReference,
+        holdReferenceId: compressReference,
+      })
+    } catch (e) {
+      request.log.error({ err: e, userId, compressReference }, '[chat/compress] 积分结算失败')
+    }
     await saveCompressedContext(id, content)
 
     return reply.send(

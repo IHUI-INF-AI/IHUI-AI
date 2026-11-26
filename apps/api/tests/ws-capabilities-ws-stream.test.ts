@@ -53,6 +53,21 @@ vi.mock('../src/utils/logger.js', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }))
 
+// 2026-11-26:WS capability 已接入积分预扣/结算;本文件只测流式协议与取消语义,
+// 计费口径由 ai-points-billing / ws 计费回归各自钉住,这里放行并避免真库依赖。
+vi.mock('../src/services/ai-points-billing.js', () => ({
+  DEFAULT_MAX_COMPLETION_TOKENS: 4096,
+  readMaxCompletionTokens: vi.fn(() => 4096),
+  reserveLlmPoints: vi.fn(async () => ({ ok: true, quote: { points: 1 } })),
+  settleLlmPointsUsage: vi.fn(async () => ({})),
+}))
+vi.mock('../src/services/points-service.js', () => ({
+  releasePointsHold: vi.fn(async () => true),
+}))
+vi.mock('../src/utils/retired-providers.js', () => ({
+  resolveDefaultChatModel: vi.fn(() => 'gpt-4o'),
+}))
+
 vi.mock('../src/routes/ai-vendors.js', () => ({
   cloneTimbre: vi.fn().mockResolvedValue(undefined),
 }))

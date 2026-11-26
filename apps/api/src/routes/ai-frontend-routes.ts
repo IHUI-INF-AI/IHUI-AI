@@ -27,6 +27,14 @@ import { db } from '../db/index.js'
 import { aiGcContent, mcpServers } from '@ihui/database'
 import { toUserFriendlyMessage } from '@ihui/shared'
 import { isUuidString } from '../utils/uuid.js'
+import { resolveDefaultChatModel } from '../utils/retired-providers.js'
+import {
+  ensureLlmPointsBalance,
+  readMaxCompletionTokens,
+  settleLlmPointsUsage,
+} from '../services/ai-points-billing.js'
+import { releasePointsHold } from '../services/points-service.js'
+import { estimateTokens } from '../services/context-manager-service.js'
 
 type GcType = 'text' | 'image' | 'audio' | 'video'
 
@@ -182,6 +190,120 @@ function gcHistoryHandler(gcType: GcType) {
       request.log.error(e)
       return reply.status(500).send(error(500, '查询生成历史失败'))
     }
+  }
+}
+
+/** 宽松 token 估算:输入来自 z.looseObject,content 可能是数组/对象,不能让 NaN 穿透到定价。 */
+function estimateChatPromptTokens(messages: unknown[]): number {
+  let total = 0
+  for (const m of messages) {
+    const content =
+      typeof m === 'object' && m !== null ? (m as { content?: unknown }).content : undefined
+    const text =
+      typeof content === 'string'
+        ? content
+        : content === undefined || content === null
+          ? ''
+          : JSON.stringify(content)
+    total += estimateTokens(text) + 4
+  }
+  return Math.max(1, total)
+}
+
+/**
+ * LLM 非流式代理 + 积分预扣/结算。
+ *
+ * `/ai/llm/chat` 没有 conversationId/messageId,因此 ai-service 的异步回调不会入账;
+ * 这里必须在网关同步完成“预扣 → 上游 → 按真实 usage 多退少补”。上游失败要主动释放
+ * hold,否则冻结会一直压到 15 分钟过期,用户可用余额被白占。
+ */
+async function proxyLlmWithPoints(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  body: { messages: unknown[]; model?: string },
+) {
+  const userId = request.userId
+  if (!userId) return reply.status(401).send(error(401, '请先登录'))
+  const model = body.model?.trim() || resolveDefaultChatModel()
+  const messages = body.messages
+  const promptTokens = estimateChatPromptTokens(messages)
+  const maxCompletionTokens = readMaxCompletionTokens(request.body)
+  const referenceId = `llm-proxy:${request.id}`
+  const source = 'llm_chat'
+
+  const allowed = await ensureLlmPointsBalance(
+    request,
+    reply,
+    model,
+    promptTokens,
+    maxCompletionTokens,
+    { source, referenceId },
+  )
+  if (!allowed) return
+
+  try {
+    const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: request.headers.authorization ?? '',
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(60_000),
+    })
+    const data = (await resp.json().catch(() => ({}))) as {
+      content?: string
+      model?: string
+      usage?: {
+        prompt_tokens?: number
+        completion_tokens?: number
+        total_tokens?: number
+      }
+      error?: string
+    }
+    if (!resp.ok) {
+      await releasePointsHold({ userId, source, referenceId })
+      const code = resp.status === 401 ? 401 : 502
+      return reply.status(code).send(error(code, `ai-service 调用失败: ${resp.status}`))
+    }
+
+    const promptUsed = Math.max(
+      0,
+      Number(data.usage?.prompt_tokens ?? promptTokens) || promptTokens,
+    )
+    const completionUsed = Math.max(
+      0,
+      Number(data.usage?.completion_tokens ?? 0) ||
+        (data.usage?.total_tokens
+          ? Math.max(0, Number(data.usage.total_tokens) - promptUsed)
+          : 0) ||
+        estimateTokens(typeof data.content === 'string' ? data.content : '') ||
+        1,
+    )
+    try {
+      await settleLlmPointsUsage({
+        userId,
+        modelId: typeof data.model === 'string' && data.model.trim() ? data.model : model,
+        promptTokens: promptUsed,
+        completionTokens: completionUsed,
+        source,
+        description: `LLM 代理 ${model}`,
+        referenceId,
+        holdReferenceId: referenceId,
+      })
+    } catch (e) {
+      // 上游成本已发生:结算异常不能让响应变成 502,否则用户拿不到结果又白付一次。
+      // hold 仍保留,过期释放;日志用于补账。
+      request.log.error(
+        { err: e, userId, referenceId, model },
+        '[ai-frontend] LLM 代理积分结算失败',
+      )
+    }
+    return reply.send(success(data))
+  } catch (e) {
+    await releasePointsHold({ userId, source, referenceId }).catch(() => undefined)
+    request.log.error(e)
+    return reply.status(502).send(error(502, `ai-service 调用异常: ${toUserFriendlyMessage(e)}`))
   }
 }
 
@@ -521,6 +643,8 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
 
   // POST /ai/llm/chat — LLM 对话(代理到 ai-service /api/llm/complete)
+  // 2026-11-26:设计页 HTML 生成走这里,没有 conversationId ⇒ 异步回调不会扣分;
+  // 网关侧同步预扣 + 按 usage 结算,避免成为“无会话免费 LLM 通道”。
   server.post('/ai/llm/chat', async (request, reply) => {
     const parsed = llmChatBody.safeParse(request.body)
     if (!parsed.success) {
@@ -535,7 +659,7 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
       // (否则 ai-service 会拿伪造 userId 签回调票,替他人扣费/写他人会话)。
       metadata: { ...(parsed.data.metadata ?? {}), userId: request.userId },
     }
-    return proxyToAiService('/api/llm/complete', request, reply, body)
+    return proxyLlmWithPoints(request, reply, body)
   })
 
   // POST /ai/llm/fim — FIM 代码补全(2026-09-07 立,代理到 ai-service /api/llm/fim)。

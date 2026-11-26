@@ -48,6 +48,7 @@ import asyncio
 import base64
 import json
 import logging
+import os
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
@@ -76,6 +77,13 @@ from ..services.browser_task_template_store import (
 )
 
 logger = logging.getLogger(__name__)
+
+# 无初始 URL 时的安全默认页。不能退化成 about:blank:服务端 create_session
+# 的 SSRF 闸只允许 http/https,about: 会直接 400;没有默认页,"模板免开标签"
+# 和"停靠监看自动建会话"都会在零会话时失败。自建部署可用环境变量覆盖。
+DEFAULT_BROWSER_URL = os.environ.get(
+    "IHUI_BROWSER_DEFAULT_URL", "https://www.aizhs.top/"
+)
 
 router = APIRouter(prefix="/browser", tags=["browser-hub"])
 
@@ -128,7 +136,7 @@ def _tab_scope_denial(exc: BrowserTabScopeError) -> HTTPException:
 # Schema
 # =============================================================================
 class CreateSessionRequest(BaseModel):
-    url: str | None = Field(None, description="初始 URL(可选,不传则打开 about:blank)")
+    url: str | None = Field(None, description="初始 URL(可选,不传则打开 IHUI_BROWSER_DEFAULT_URL)")
     viewport_width: int = Field(1280, description="视口宽度")
     viewport_height: int = Field(720, description="视口高度")
     user_agent: str | None = Field(None, description="自定义 User-Agent")
@@ -185,8 +193,9 @@ class TaskTemplateRequest(BaseModel):
 class StartTaskTemplateRequest(BaseModel):
     """按模板开跑:有现成会话就复用,没有就自动建一个再绑定。
 
-    一条 URL 是“给没有活跃 CDP tab 的新用户”用的;不传则开 about:blank,
-    由 AI 后续导航。已有会话时 URL 被忽略,永远不抢现有 tab 的页面。
+    一条 URL 是“给没有活跃 CDP tab 的新用户”用的;不传则打开
+    IHUI_BROWSER_DEFAULT_URL(默认本站首页),由 AI 后续导航。已有会话时 URL 被忽略,
+    永远不抢现有 tab 的页面。
     """
 
     session_id: str | None = Field(None, description="已有 Browser Hub 会话 id")
@@ -208,7 +217,7 @@ async def create_session(
     """创建新的浏览器会话。"""
     try:
         session = await hub.create_session(
-            url=body.url,
+            url=body.url or DEFAULT_BROWSER_URL,
             viewport={"width": body.viewport_width, "height": body.viewport_height},
             user_agent=body.user_agent,
             owner_user_id=user_id,
@@ -565,8 +574,8 @@ async def start_task_template(
 
     这是替代“先开浏览器标签、再按模板监看”两段式的前端入口。已有会话时
     只复用并绑定,不改变页面;没有会话时按传入 URL 建一个,URL 为空则
-    about:blank,等 AI/用户后续导航。任务绑定失败会回收刚建的会话,
-    不留下占名额的空白 context。
+    打开 IHUI_BROWSER_DEFAULT_URL,等 AI/用户后续导航。任务绑定失败会回收刚建的
+    会话,不留下占名额的空白 context。
     """
     auto_created = False
     session = None
@@ -579,7 +588,7 @@ async def start_task_template(
         try:
             before_ids = set(hub.list_sessions(user_id))
             session = await hub.create_session(
-                url=body.url or None,
+                url=body.url or DEFAULT_BROWSER_URL,
                 owner_user_id=user_id,
             )
             # create_session 对同 URL 有幂等去重,可能直接返回已有会话;
@@ -605,7 +614,7 @@ async def start_task_template(
         url = await session.get_current_url()
         title = await session.get_title()
     except Exception:  # noqa: BLE001 — 页面被平台关闭时仍要把会话/任务交给前端
-        url = body.url or "about:blank"
+        url = body.url or DEFAULT_BROWSER_URL
         title = ""
     return {
         "code": 0,

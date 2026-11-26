@@ -49,6 +49,8 @@ function makeOverview(overrides: Partial<WechatFriendsOverview> = {}): WechatFri
       requests: [],
       scannedAt: BASE_AT,
       rawCount: 0,
+      entered: false,
+      entryExcluded: 0,
     },
     audit: [],
     ...overrides,
@@ -85,6 +87,8 @@ describe('FriendsAutomationCard', () => {
           reason: null,
           scannedAt: BASE_AT,
           rawCount: 1,
+      entered: true,
+      entryExcluded: 1,
           requests: [
             {
               requestId: 'req-1',
@@ -92,6 +96,7 @@ describe('FriendsAutomationCard', () => {
               source: '二维码名片',
               kind: 'friend',
               clickable: true,
+              nicknameSource: 'control',
               seenAt: BASE_AT,
             },
           ],
@@ -122,6 +127,8 @@ describe('FriendsAutomationCard', () => {
           reason: null,
           scannedAt: BASE_AT,
           rawCount: 1,
+      entered: true,
+      entryExcluded: 1,
           requests: [
             {
               requestId: 'req-1',
@@ -129,6 +136,7 @@ describe('FriendsAutomationCard', () => {
               source: '群聊推荐',
               kind: 'group-invite',
               clickable: true,
+              nicknameSource: 'control',
               seenAt: BASE_AT,
             },
           ],
@@ -168,6 +176,8 @@ describe('FriendsAutomationCard', () => {
           reason: null,
           scannedAt: BASE_AT,
           rawCount: 1,
+      entered: true,
+      entryExcluded: 1,
           requests: [
             {
               requestId: 'req-1',
@@ -175,6 +185,7 @@ describe('FriendsAutomationCard', () => {
               source: '二维码名片',
               kind: 'friend',
               clickable: true,
+              nicknameSource: 'control',
               seenAt: BASE_AT,
             },
           ],
@@ -242,6 +253,8 @@ describe('FriendsAutomationCard', () => {
           requests: [],
           scannedAt: BASE_AT,
           rawCount: 0,
+      entered: false,
+      entryExcluded: 0,
         },
       }),
     )
@@ -265,6 +278,8 @@ describe('FriendsAutomationCard', () => {
           requests: [],
           scannedAt: BASE_AT,
           rawCount: 0,
+      entered: false,
+      entryExcluded: 0,
         },
       }),
     )

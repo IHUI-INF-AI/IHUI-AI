@@ -139,8 +139,118 @@ export async function quoteLlmPoints(input: {
   }
 }
 
+/** 预检失败的结构化结果:HTTP/WS 共用同一套错误码与文案,避免两条通道漂移。 */
+export interface LlmReservationFailure {
+  ok: false
+  status: number
+  errorCode: string
+  message: string
+  data?: Record<string, unknown>
+}
+
+export interface LlmReservationSuccess {
+  ok: true
+  userId: string
+  referenceId: string
+  source: string
+  quote: LlmPointsQuote
+  reservation: ReservePointsUsageResult
+}
+
+export type LlmReservationResult = LlmReservationSuccess | LlmReservationFailure
+
 /**
- * 调用前预检 + 冻结。
+ * 预检 + 冻结的结构化入口(不直接写 HTTP 响应)。
+ *
+ * WS 通道无法用 FastifyReply,所以把“报价 → 未定价/异常拦截 → 冻结 → 重放/并发拦截
+ * → 余额不足拦截”收在这里;HTTP 的 `ensureLlmPointsBalance` 只是它的一层 reply 适配。
+ */
+export async function reserveLlmPoints(input: {
+  userId: string
+  modelId: string
+  promptTokens: number
+  maxCompletionTokens?: number
+  source?: string
+  referenceId: string
+}): Promise<LlmReservationResult> {
+  const maxCompletionTokens = input.maxCompletionTokens ?? DEFAULT_MAX_COMPLETION_TOKENS
+  const quote = await quoteLlmPoints({
+    modelId: input.modelId,
+    promptTokens: input.promptTokens,
+    completionTokens: maxCompletionTokens,
+  })
+  if (quote.pricingSource !== 'ai_pricing') {
+    return {
+      ok: false,
+      status: 503,
+      errorCode: 'MODEL_PRICING_MISSING',
+      message: '该模型未配置成本定价,暂不可售;请联系管理员补价后再试',
+      data: { model: input.modelId },
+    }
+  }
+  if (quote.points <= 0) {
+    return {
+      ok: false,
+      status: 503,
+      errorCode: 'MODEL_PRICING_INVALID',
+      message: '该模型定价异常,暂不可售',
+      data: { model: input.modelId, pricingModelId: quote.pricingModelId },
+    }
+  }
+
+  const source = input.source ?? 'llm_chat'
+  const reservation = await reservePointsUsage({
+    userId: input.userId,
+    amount: quote.points,
+    source,
+    referenceId: input.referenceId,
+    modelId: input.modelId,
+  })
+  if (reservation.alreadySettled) {
+    return {
+      ok: false,
+      status: 409,
+      errorCode: 'DUPLICATE_REQUEST',
+      message: '该请求已完成计费,不能重复调用;请发起新的请求',
+    }
+  }
+  if (reservation.alreadyHeld) {
+    return {
+      ok: false,
+      status: 409,
+      errorCode: 'REQUEST_IN_PROGRESS',
+      message: '该请求正在处理中,请勿重复提交',
+    }
+  }
+  if (reservation.shortfall > 0) {
+    return {
+      ok: false,
+      status: 402,
+      errorCode: 'INSUFFICIENT_POINTS',
+      message: '积分不足,请充值或兑换积分后重试',
+      data: {
+        balance: reservation.remaining,
+        required: quote.points,
+        model: input.modelId,
+        maxCompletionTokens,
+        inputPointsPer1k: quote.inputPointsPer1k,
+        outputPointsPer1k: quote.outputPointsPer1k,
+        pricingModelId: quote.pricingModelId,
+      },
+    }
+  }
+  return {
+    ok: true,
+    userId: input.userId,
+    referenceId: input.referenceId,
+    source,
+    quote,
+    reservation,
+  }
+}
+
+/**
+ * 调用前预检 + 冻结(HTTP 适配层)。
  *
  * - 未定价模型直接 503,不再用“免费模型”放行;
  * - 按 prompt + 本次声明的 max_tokens 冻结,并发请求不能重复使用同一笔余额;
@@ -157,71 +267,20 @@ export async function ensureLlmPointsBalance(
   const userId = request.userId
   if (!userId) return true
   try {
-    const quote = await quoteLlmPoints({
+    const result = await reserveLlmPoints({
+      userId,
       modelId,
       promptTokens: estimatedPromptTokens,
-      completionTokens: maxCompletionTokens,
+      maxCompletionTokens,
+      source: options.source ?? 'llm_chat',
+      referenceId: options.referenceId ?? request.id,
     })
-    if (quote.pricingSource !== 'ai_pricing') {
-      reply.status(503).send({
-        code: 503,
-        errorCode: 'MODEL_PRICING_MISSING',
-        message: '该模型未配置成本定价,暂不可售;请联系管理员补价后再试',
-        data: { model: modelId },
-      })
-      return false
-    }
-    if (quote.points <= 0) {
-      reply.status(503).send({
-        code: 503,
-        errorCode: 'MODEL_PRICING_INVALID',
-        message: '该模型定价异常,暂不可售',
-        data: { model: modelId, pricingModelId: quote.pricingModelId },
-      })
-      return false
-    }
-
-    const referenceId = options.referenceId ?? request.id
-    const source = options.source ?? 'llm_chat'
-    const reservation = await reservePointsUsage({
-      userId,
-      amount: quote.points,
-      source,
-      referenceId,
-      modelId,
-    })
-    // request.id 可被客户端通过 request-id 头复用;若同一引用已结算/正在跑,
-    // 绝不能再放一次上游调用,否则“幂等”会变成免费重放漏洞。
-    if (reservation.alreadySettled) {
-      reply.status(409).send({
-        code: 409,
-        errorCode: 'DUPLICATE_REQUEST',
-        message: '该请求已完成计费,不能重复调用;请发起新的请求',
-      })
-      return false
-    }
-    if (reservation.alreadyHeld) {
-      reply.status(409).send({
-        code: 409,
-        errorCode: 'REQUEST_IN_PROGRESS',
-        message: '该请求正在处理中,请勿重复提交',
-      })
-      return false
-    }
-    if (reservation.shortfall > 0) {
-      reply.status(402).send({
-        code: 402,
-        errorCode: 'INSUFFICIENT_POINTS',
-        message: '积分不足,请充值或兑换积分后重试',
-        data: {
-          balance: reservation.remaining,
-          required: quote.points,
-          model: modelId,
-          maxCompletionTokens,
-          inputPointsPer1k: quote.inputPointsPer1k,
-          outputPointsPer1k: quote.outputPointsPer1k,
-          pricingModelId: quote.pricingModelId,
-        },
+    if (!result.ok) {
+      reply.status(result.status).send({
+        code: result.status,
+        errorCode: result.errorCode,
+        message: result.message,
+        ...(result.data ? { data: result.data } : {}),
       })
       return false
     }

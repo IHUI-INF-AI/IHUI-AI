@@ -596,8 +596,20 @@ const nextConfig: NextConfig = {
           destination: `${IHUI_AI_PROXY_TARGET}/api/browser/task-templates/:path*`,
         },
         {
+          // 2026-11-26:无会话时前端要 POST 到 /api/browser/sessions 自动建监看会话。
+          // `:path*` 不覆盖无子路径的精确端点,漏了这条会掉到 8802 兜底成 500,
+          // 表现为“无法创建监看会话”。GET 列表同样依赖它。
+          source: '/api/browser/sessions',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/browser/sessions`,
+        },
+        {
           source: '/api/browser/sessions/:path*',
           destination: `${IHUI_AI_PROXY_TARGET}/api/browser/sessions/:path*`,
+        },
+        {
+          // 模板列表/新建的无子路径端点同样不能被 :path* 漏掉。
+          source: '/api/browser/task-templates',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/browser/task-templates`,
         },
         // 2026-08-08 新增:Meta-Learner 自进化系统路由转发到 ai-service 8803
         // 原因:meta_learning router 注册在 ai-service(prefix="/api/admin/meta-learner"),

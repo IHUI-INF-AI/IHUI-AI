@@ -38,6 +38,17 @@ vi.mock('../src/db/index.js', () => ({
   dbClient: {},
 }))
 
+// 2026-11-26:/ai/llm/chat 已接入积分预扣与结算;本用例只锁 metadata 主体覆盖,
+// 计费走独立回归(ai-points-billing.test.ts),这里必须放行否则会 503。
+vi.mock('../src/services/ai-points-billing.js', () => ({
+  ensureLlmPointsBalance: vi.fn(async () => true),
+  settleLlmPointsUsage: vi.fn(async () => ({})),
+  readMaxCompletionTokens: vi.fn(() => 4096),
+}))
+vi.mock('../src/services/points-service.js', () => ({
+  releasePointsHold: vi.fn(async () => true),
+}))
+
 import { aiFrontendRoutes } from '../src/routes/ai-frontend-routes.js'
 
 describe('F-102 /ai/llm/chat 不得采信客户端 metadata.userId', () => {

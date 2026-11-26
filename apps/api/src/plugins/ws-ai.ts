@@ -5,12 +5,22 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
+import { randomUUID } from 'node:crypto'
 import { wsAuth, WS_CLOSE, WsUserConnectionLimiter, WsRateLimiter } from './ws-helpers.js'
 import { cloneTimbre } from '../routes/ai-vendors.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 import { logger } from '../utils/logger.js'
+import {
+  DEFAULT_MAX_COMPLETION_TOKENS,
+  readMaxCompletionTokens,
+  reserveLlmPoints,
+  settleLlmPointsUsage,
+} from '../services/ai-points-billing.js'
+import { releasePointsHold } from '../services/points-service.js'
+import { estimateTokens } from '../services/context-manager-service.js'
+import { resolveDefaultChatModel } from '../utils/retired-providers.js'
 
 /**
  * F-461:消息收发时刷新 ws-auto-recovery 的活动时间(内存时间戳,轻量、不落库)。
@@ -652,10 +662,40 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         }
         controller?.abort()
         controller = new AbortController()
+        // 2026-11-26:WS capability 也是 LLM 真实调用,必须与 HTTP 聊天同口径预扣;
+        // 否则 /v1/ai/capabilities/ws/stream 就是绕过 /chat/stream 计费的免费口子。
+        const billingModel = model?.trim() || resolveDefaultChatModel()
+        const billingReference = `ws-capability:${userId}:${randomUUID()}`
+        const billing = await reserveLlmPoints({
+          userId,
+          modelId: billingModel,
+          promptTokens: Math.max(1, estimateTokens(prompt)),
+          maxCompletionTokens: readMaxCompletionTokens(msg, DEFAULT_MAX_COMPLETION_TOKENS),
+          source: 'llm_chat',
+          referenceId: billingReference,
+        }).catch((e) => {
+          server.log.error({ err: e, userId }, 'ws-capability 积分预检异常')
+          return null
+        })
+        if (!billing?.ok) {
+          send(socket, {
+            event: 'capability.error',
+            code: billing?.status ?? 503,
+            errorCode: billing?.errorCode ?? 'POINTS_SERVICE_UNAVAILABLE',
+            message: billing?.message ?? '积分服务暂不可用,请稍后重试',
+            data: billing?.data,
+          })
+          return
+        }
         const startTs = Date.now()
         send(socket, { event: 'capability.start', capabilityName, ts: startTs })
 
         let accumulated = ''
+        let settledUsage: {
+          prompt_tokens?: number
+          completion_tokens?: number
+          total_tokens?: number
+        } | null = null
         try {
           const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
             method: 'POST',
@@ -670,6 +710,11 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
           })
           if (!resp.ok || !resp.body) {
             const errText = await resp.text().catch(() => '')
+            await releasePointsHold({
+              userId,
+              source: 'llm_chat',
+              referenceId: billingReference,
+            }).catch(() => undefined)
             send(socket, {
               event: 'capability.error',
               message: `AI service ${resp.status}`,
@@ -703,6 +748,13 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
                     data: { content: ev.content },
                   })
                 } else if (evType === 'done') {
+                  if (typeof ev.usage === 'object' && ev.usage !== null) {
+                    settledUsage = ev.usage as {
+                      prompt_tokens?: number
+                      completion_tokens?: number
+                      total_tokens?: number
+                    }
+                  }
                   send(socket, {
                     event: 'capability.done',
                     model: ev.model,
@@ -724,7 +776,47 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
               }
             }
           }
+          if (settledUsage) {
+            const promptUsed = Math.max(
+              0,
+              Number(settledUsage.prompt_tokens ?? Math.max(1, estimateTokens(prompt))) ||
+                Math.max(1, estimateTokens(prompt)),
+            )
+            const completionUsed = Math.max(
+              0,
+              Number(settledUsage.completion_tokens ?? 0) ||
+                (settledUsage.total_tokens
+                  ? Math.max(0, Number(settledUsage.total_tokens) - promptUsed)
+                  : 0) ||
+                Math.max(1, estimateTokens(accumulated)),
+            )
+            try {
+              await settleLlmPointsUsage({
+                userId,
+                modelId: billingModel,
+                promptTokens: promptUsed,
+                completionTokens: completionUsed,
+                source: 'llm_chat',
+                description: `WS capability ${billingModel}`,
+                referenceId: billingReference,
+                holdReferenceId: billingReference,
+              })
+            } catch (e) {
+              server.log.error({ err: e, userId, billingReference }, 'ws-capability 积分结算失败')
+            }
+          } else {
+            await releasePointsHold({
+              userId,
+              source: 'llm_chat',
+              referenceId: billingReference,
+            }).catch(() => undefined)
+          }
         } catch (e) {
+          await releasePointsHold({
+            userId,
+            source: 'llm_chat',
+            referenceId: billingReference,
+          }).catch(() => undefined)
           if ((e as Error).name !== 'AbortError') {
             send(socket, {
               event: 'capability.error',
@@ -811,10 +903,40 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
           }
           controller?.abort()
           controller = new AbortController()
+          // 2026-11-26:Provider WS 同样是 LLM 真实调用,按 capability 通道同口径预扣。
+          const billingModel = model?.trim() || resolveDefaultChatModel()
+          const billingReference = `ws-provider:${provider}:${userId}:${randomUUID()}`
+          const billing = await reserveLlmPoints({
+            userId,
+            modelId: billingModel,
+            promptTokens: Math.max(1, estimateTokens(prompt)),
+            maxCompletionTokens: readMaxCompletionTokens(msg, DEFAULT_MAX_COMPLETION_TOKENS),
+            source: 'llm_chat',
+            referenceId: billingReference,
+          }).catch((e) => {
+            server.log.error({ err: e, userId, provider }, 'ws-provider 积分预检异常')
+            return null
+          })
+          if (!billing?.ok) {
+            send(socket, {
+              event: 'capability.error',
+              provider,
+              code: billing?.status ?? 503,
+              errorCode: billing?.errorCode ?? 'POINTS_SERVICE_UNAVAILABLE',
+              message: billing?.message ?? '积分服务暂不可用,请稍后重试',
+              data: billing?.data,
+            })
+            return
+          }
           const startTs = Date.now()
           send(socket, { event: 'capability.start', capabilityName, provider, ts: startTs })
 
           let accumulated = ''
+          let settledUsage: {
+            prompt_tokens?: number
+            completion_tokens?: number
+            total_tokens?: number
+          } | null = null
           try {
             const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
               method: 'POST',
@@ -829,6 +951,11 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             })
             if (!resp.ok || !resp.body) {
               const errText = await resp.text().catch(() => '')
+              await releasePointsHold({
+                userId,
+                source: 'llm_chat',
+                referenceId: billingReference,
+              }).catch(() => undefined)
               send(socket, {
                 event: 'capability.error',
                 provider,
@@ -864,6 +991,13 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
                       data: { content: ev.content },
                     })
                   } else if (evType === 'done') {
+                    if (typeof ev.usage === 'object' && ev.usage !== null) {
+                      settledUsage = ev.usage as {
+                        prompt_tokens?: number
+                        completion_tokens?: number
+                        total_tokens?: number
+                      }
+                    }
                     send(socket, {
                       event: 'capability.done',
                       provider,
@@ -887,7 +1021,50 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
                 }
               }
             }
+            if (settledUsage) {
+              const promptUsed = Math.max(
+                0,
+                Number(settledUsage.prompt_tokens ?? Math.max(1, estimateTokens(prompt))) ||
+                  Math.max(1, estimateTokens(prompt)),
+              )
+              const completionUsed = Math.max(
+                0,
+                Number(settledUsage.completion_tokens ?? 0) ||
+                  (settledUsage.total_tokens
+                    ? Math.max(0, Number(settledUsage.total_tokens) - promptUsed)
+                    : 0) ||
+                  Math.max(1, estimateTokens(accumulated)),
+              )
+              try {
+                await settleLlmPointsUsage({
+                  userId,
+                  modelId: billingModel,
+                  promptTokens: promptUsed,
+                  completionTokens: completionUsed,
+                  source: 'llm_chat',
+                  description: `WS provider ${provider} ${billingModel}`,
+                  referenceId: billingReference,
+                  holdReferenceId: billingReference,
+                })
+              } catch (e) {
+                server.log.error(
+                  { err: e, userId, provider, billingReference },
+                  'ws-provider 积分结算失败',
+                )
+              }
+            } else {
+              await releasePointsHold({
+                userId,
+                source: 'llm_chat',
+                referenceId: billingReference,
+              }).catch(() => undefined)
+            }
           } catch (e) {
+            await releasePointsHold({
+              userId,
+              source: 'llm_chat',
+              referenceId: billingReference,
+            }).catch(() => undefined)
             if ((e as Error).name !== 'AbortError') {
               send(socket, {
                 event: 'capability.error',
