@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * D166 useLinkPreview hook 测试(2026-09-30 立)。
  *
@@ -34,7 +33,12 @@ afterEach(() => {
 
 const okEnvelope = {
   success: true,
-  data: { status: 'ok', url: 'https://example.com/', title: 'Example Domain', description: 'For use in examples.' },
+  data: {
+    status: 'ok',
+    url: 'https://example.com/',
+    title: 'Example Domain',
+    description: 'For use in examples.',
+  },
 } as const
 
 function okFetch() {
@@ -49,6 +53,35 @@ describe('detectPastedUrl — 粘贴文本里的第一条 http(s) 链接', () =>
   it('剪掉尾随中英文标点', () => {
     expect(detectPastedUrl('https://example.com/a。')).toBe('https://example.com/a')
     expect(detectPastedUrl('(https://example.com/a)')).toBe('https://example.com/a')
+    expect(detectPastedUrl('（https://example.com/a）')).toBe('https://example.com/a')
+  })
+
+  // 2026-11-26 实报复现:中文正文紧贴链接(全角逗号后直接接中文),旧实现把整段吞进
+  // host ⇒ 伪 IDN 主机 ⇒ DNS 失败 ⇒ 卡片只剩"暂时无法判定"。以下为根因回归钉。
+  it('中文正文紧贴链接 ⇒ 在中文标点处截断', () => {
+    expect(
+      detectPastedUrl(
+        'https://example.com，绑定“表单提交确认”模板，进入“确认提交”检查点，停在检查点等我处理。',
+      ),
+    ).toBe('https://example.com')
+    expect(detectPastedUrl('https://example.com/a，后面是说明')).toBe('https://example.com/a')
+    expect(detectPastedUrl('看这个https://example.com:8080/x！快点')).toBe(
+      'https://example.com:8080/x',
+    )
+  })
+
+  it('主机标签 ASCII 与中文混排 ⇒ 在混排处截断(不伪造 IDN 主机)', () => {
+    expect(detectPastedUrl('https://example.com绑定')).toBe('https://example.com')
+    expect(detectPastedUrl('https://example.com中文路径')).toBe('https://example.com')
+  })
+
+  it('纯中文标签(IDN)与中文路径不被误伤', () => {
+    expect(detectPastedUrl('https://例子.com/帮助文档')).toBe('https://例子.com/帮助文档')
+  })
+
+  it('协议头之后没有主机字符 ⇒ null', () => {
+    expect(detectPastedUrl('https://')).toBeNull()
+    expect(detectPastedUrl('https://，之后是正文')).toBeNull()
   })
 
   it('无链接/非 http 协议 ⇒ null', () => {
@@ -67,13 +100,22 @@ describe('useLinkPreview 三态映射(票面验收 ①)', () => {
     })
     expect(result.current.preview?.status).toBe('loading')
     await waitFor(() => expect(result.current.preview?.status).toBe('ok'))
-    expect(result.current.preview).toMatchObject({ title: 'Example Domain', description: 'For use in examples.' })
+    expect(result.current.preview).toMatchObject({
+      title: 'Example Domain',
+      description: 'For use in examples.',
+    })
   })
 
   it('404 ⇒ unavailable,与 401 ⇒ undetermined 严格区别(把没判写成判过禁令)', async () => {
     vi.mocked(fetchApi)
-      .mockResolvedValueOnce({ success: true, data: { status: 'unavailable', url: 'u', reason: 'http_404' } } as never)
-      .mockResolvedValueOnce({ success: true, data: { status: 'undetermined', url: 'p', reason: 'http_401' } } as never)
+      .mockResolvedValueOnce({
+        success: true,
+        data: { status: 'unavailable', url: 'u', reason: 'http_404' },
+      } as never)
+      .mockResolvedValueOnce({
+        success: true,
+        data: { status: 'undetermined', url: 'p', reason: 'http_401' },
+      } as never)
     const first = renderHook(() => useLinkPreview())
     act(() => {
       first.result.current.probeFromPaste('https://gone.example.com/x')
@@ -102,6 +144,22 @@ describe('useLinkPreview 三态映射(票面验收 ①)', () => {
       expect.stringContaining('/api/url-preview/preview?url='),
       expect.objectContaining({ timeoutMs: LINK_PREVIEW_TRANSPORT_TIMEOUT_MS }),
     )
+  })
+
+  // 2026-11-26 实报端到端钉:粘贴"链接 + 中文正文"时,请求携带的必须是截断后的干净 URL,
+  // 否则伪 IDN 主机进探测链 ⇒ 卡片只会显示"暂时无法判定"。
+  it('中文正文紧贴链接:探测请求携带截断后的干净 URL', async () => {
+    okFetch()
+    const { result } = renderHook(() => useLinkPreview())
+    act(() => {
+      result.current.probeFromPaste('https://example.com，绑定“表单提交确认”模板，进入检查点')
+    })
+    await waitFor(() => expect(result.current.preview?.status).toBe('ok'))
+    expect(vi.mocked(fetchApi)).toHaveBeenCalledWith(
+      '/api/url-preview/preview?url=https%3A%2F%2Fexample.com',
+      expect.objectContaining({ timeoutMs: LINK_PREVIEW_TRANSPORT_TIMEOUT_MS }),
+    )
+    expect(result.current.preview).toMatchObject({ status: 'ok', url: 'https://example.com' })
   })
 })
 
@@ -179,7 +237,10 @@ describe('不阻断发送(票面显式断言)', () => {
     })
     expect(send).toHaveBeenCalledTimes(1)
     // 且未产生 unhandled rejection(preview 稳定落在 undetermined 即探测链路已收口)。
-    expect(result.current.preview).toMatchObject({ status: 'undetermined', url: 'https://fail.example.com/' })
+    expect(result.current.preview).toMatchObject({
+      status: 'undetermined',
+      url: 'https://fail.example.com/',
+    })
   })
 })
 
