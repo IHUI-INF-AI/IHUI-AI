@@ -90,6 +90,24 @@ function isForbiddenHost(hostname: string): boolean {
   return false
 }
 
+/**
+ * 主机字形校验(fail-closed)。
+ *
+ * 2026-11-26 实报:前端把"链接后面紧贴的中文正文"吞进 host(`https://example.com，绑定…`),
+ * `new URL()` 不报错而是把它当伪 IDN 主机(`example.xn--com,,,-…`)解析"成功",于是一路走到
+ * DNS 失败,三态只剩"未判定"。URL 规范里的 hostname 在解析后应是小写 ASCII 标签、punycode
+ * 或 IP 字面量;含逗号/空格等越界字符的一律判非法,绝不拿去解析(DNS)或建连。
+ */
+const HOST_LABEL_RE = /^[a-z0-9](?:[a-z0-9_-]{0,61}[a-z0-9])?$/i
+const IPV6_LITERAL_RE = /^[0-9a-f:.]+$/i
+
+function isPlausibleHostname(hostname: string): boolean {
+  const h = hostname.replace(/^\[|\]$/g, '')
+  if (h.length === 0 || h.length > 253) return false
+  if (h.includes(':')) return IPV6_LITERAL_RE.test(h)
+  return h.split('.').every((label) => HOST_LABEL_RE.test(label))
+}
+
 /** DNS 解析级校验:hostname 全部解析地址逐一判禁(防 DNS 重绑定)。 */
 async function defaultResolveForbidden(hostname: string): Promise<boolean> {
   try {
@@ -188,6 +206,10 @@ export async function probeUrl(
   }
   if (first.protocol !== 'http:' && first.protocol !== 'https:') {
     return undetermined('unsupported_scheme')
+  }
+  // 主机字形不合法(典型:中文正文被吞进 host 的伪 IDN)⇒ 未判定,不进 DNS、不发请求。
+  if (!isPlausibleHostname(first.hostname)) {
+    return undetermined('invalid_host')
   }
 
   const deadline = Date.now() + timeoutMs

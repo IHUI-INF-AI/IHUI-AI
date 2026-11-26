@@ -140,6 +140,32 @@ describe('probeUrl 三态封闭', () => {
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
+  // 2026-11-26 实报回归:中文正文紧贴链接被吞进 host ⇒ `new URL` 当伪 IDN 主机解析"成功"
+  // ⇒ 旧实现拿它去解析 DNS ⇒ 失败 ⇒ 卡片只剩"暂时无法判定"。主机会形校验必须在 DNS 之前。
+  it('中文正文被吞进 host ⇒ undetermined invalid_host,不进 DNS 不发请求', async () => {
+    const fetchImpl = vi.fn()
+    const resolveForbidden = vi.fn(async () => false)
+    const result = await probeUrl('https://example.com，绑定“表单提交确认”模板', {
+      fetchImpl,
+      resolveForbidden,
+    })
+    expect(result.status).toBe('undetermined')
+    expect(result).toMatchObject({ reason: 'invalid_host' })
+    expect(resolveForbidden).not.toHaveBeenCalled()
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('纯中文 IDN 主机不被误伤(punycode 后可正常探测)', async () => {
+    const fetchImpl = vi.fn(async () => htmlResponse(OK_HTML))
+    const result = await probeUrl('https://例子.com/', {
+      fetchImpl,
+      resolveForbidden: resolveAllowed,
+    })
+    expect(result.status).toBe('ok')
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(String(vi.mocked(fetchImpl).mock.calls[0]?.[0])).toContain('xn--')
+  })
+
   it('非 HTML 2xx ⇒ ok 无标题(可读,不误报读不到)', async () => {
     const fetchImpl = vi.fn(
       async () =>

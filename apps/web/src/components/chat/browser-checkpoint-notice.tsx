@@ -4,12 +4,17 @@
 
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { AlertTriangle, ArrowUpRight } from 'lucide-react'
 import { listBrowserCheckpointAttention, type BrowserCheckpointAttention } from '@ihui/api-client'
 
-import { isTauri, openAiPipWindow } from '@/lib/tauri-bridge'
+import {
+  closePreparedAiPipWindow,
+  isTauri,
+  openAiPipWindow,
+  prepareAiPipWindow,
+} from '@/lib/tauri-bridge'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkPanelStore } from '@/stores/work-panel'
 
@@ -31,6 +36,9 @@ export function BrowserCheckpointNotice() {
   const token = useAuthStore((s) => s.token)
   const openPipSession = useWorkPanelStore((s) => s.openPipSession)
   const [rows, setRows] = useState<BrowserCheckpointAttention[]>([])
+  // 已预建的会话 → 预建时的 token。只预建列表第一条（提示条只有第一条可点），
+  // 其余行等升到第一条再建；避免 6 条会话同时冷启动抢 UI 线程。
+  const preparedRef = useRef<Map<string, string>>(new Map())
 
   useEffect(() => {
     let cancelled = false
@@ -104,6 +112,46 @@ export function BrowserCheckpointNotice() {
     }
   }, [])
 
+  // 提示条一出现就预建隐藏画中画窗，把 WebView2 冷启动藏进用户读提示条的时间；
+  // 点「去处理」时只 show，不再现等 1.3–1.8s。只预建第一条，且检查点消失后
+  // 只关「仍隐藏」的窗——用户已经点开的窗不误杀。
+  useEffect(() => {
+    if (!isTauri() || !token) return
+
+    const first = rows[0]
+    if (first && !preparedRef.current.has(first.session_id)) {
+      preparedRef.current.set(first.session_id, token)
+      void prepareAiPipWindow(first.session_id, token)
+        .then((supported) => {
+          if (!supported) preparedRef.current.delete(first.session_id)
+        })
+        .catch(() => {
+          preparedRef.current.delete(first.session_id)
+        })
+    }
+
+    const active = new Set(rows.map((row) => row.session_id))
+    for (const sessionId of Array.from(preparedRef.current.keys())) {
+      if (active.has(sessionId)) continue
+      preparedRef.current.delete(sessionId)
+      void closePreparedAiPipWindow(sessionId).catch(() => {
+        // 清理失败不阻塞提示条；最差留一个隐藏窗到应用退出。
+      })
+    }
+  }, [rows, token])
+
+  // 组件卸载（切走聊天页）时把预建但没点开的隐藏窗收掉；已显示的用户窗由
+  // 画中画自己的关闭/接管链路管理，这里同样只关隐藏态。
+  useEffect(() => {
+    const prepared = preparedRef.current
+    return () => {
+      for (const sessionId of prepared.keys()) {
+        void closePreparedAiPipWindow(sessionId).catch(() => {})
+      }
+      prepared.clear()
+    }
+  }, [])
+
   const onHandle = useCallback(() => {
     const first = rows[0]
     if (!first) return
@@ -111,7 +159,9 @@ export function BrowserCheckpointNotice() {
     // 正在等待的浏览器监看窗拉出来，不再先展开右侧工作面。
     if (isTauri() && token) {
       void openAiPipWindow(first.session_id, token).catch(() => {
-        // 原生窗创建失败时退回停靠监看，保证这一步仍然可处理。
+        // 预建窗还没就绪/创建失败时，先清掉隐藏态，再退回停靠监看，
+        // 保证这一步仍然可处理，也不留不可见的僵尸窗。
+        void closePreparedAiPipWindow(first.session_id).catch(() => {})
         openPipSession(
           first.session_id,
           first.url || 'about:blank',
