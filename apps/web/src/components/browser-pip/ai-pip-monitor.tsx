@@ -85,11 +85,14 @@ interface BrowserHubMessage {
 export function AiPipMonitor({
   sessionId,
   embedded = false,
+  streamFps,
   onHandover: onHandoverRequest,
 }: {
   sessionId: string
   /** 停靠在工作面内:不占用整屏、不显示原生窗控、接管改走主工作面 */
   embedded?: boolean
+  /** MJPEG 每观众限速（1–30）；多路同屏时降低解码/带宽，单路不传保持全速 */
+  streamFps?: number
   onHandover?: () => void
 }) {
   const labels = useBrowserPipLabels()
@@ -460,8 +463,10 @@ export function AiPipMonitor({
       void (async () => {
         let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
         try {
+          const fpsQuery =
+            streamFps && streamFps >= 1 && streamFps <= 30 ? `&fps=${streamFps}` : ''
           const resp = await fetch(
-            `/api/browser/sessions/${encodeURIComponent(sessionId)}/mjpeg?token=${encodeURIComponent(pipToken)}`,
+            `/api/browser/sessions/${encodeURIComponent(sessionId)}/mjpeg?token=${encodeURIComponent(pipToken)}${fpsQuery}`,
             {
               headers: { Authorization: `Bearer ${pipToken}` },
               cache: 'no-store',
@@ -632,7 +637,7 @@ export function AiPipMonitor({
         /* 已断开 */
       }
     }
-  }, [sessionId, pipToken, reconnectKey])
+  }, [sessionId, pipToken, reconnectKey, streamFps])
 
   const onContinue = useCallback(() => {
     const checkpointId = activeCheckpoint?.id

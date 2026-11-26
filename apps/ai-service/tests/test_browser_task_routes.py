@@ -425,6 +425,18 @@ async def test_cross_owner_route_is_404_not_403(api, monkeypatch):
     assert res.json()["detail"] == "会话不存在: tab-1"
 
 
+async def test_mjpeg_fps_is_validated_before_streaming(api):
+    """6 路同屏限速参数必须先校验，不能让 0/负数/超大值混进流。"""
+    for fps in ("31", "0", "-1"):
+        res = await api.get(f"/api/browser/sessions/tab-1/mjpeg?fps={fps}")
+        if fps == "0":
+            # 0 是显式“不限速”，进入鉴权；未带 token 时应当是 401 而不是 400。
+            assert res.status_code == 401
+        else:
+            assert res.status_code == 400
+            assert "fps" in res.json()["detail"]
+
+
 def test_ws_task_messages_roundtrip(route_app, monkeypatch):
     """WS 任务分支过真实 WebSocket 握手/收发,不只测会话方法。"""
     app, _session = route_app

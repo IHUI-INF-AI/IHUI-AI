@@ -15,6 +15,14 @@ import { AiPipMonitor } from '@/components/browser-pip/ai-pip-monitor'
  * 每格独立 `AiPipMonitor`,独立连接、任务条、检查点、接管。与单会话 pip 的差别
  * 只有布局:把 1 格放大换成 N 格并排,协议和状态机完全复用。
  */
+/**
+ * 4 路以上每格只保留 8fps：6 路全速会把 6 条 MJPEG 同时压进浏览器解码器，
+ * 小格监看不需要 15–30fps；1–3 路仍走全速，保持放大核对时的流畅度。
+ */
+export function resolvePipWallStreamFps(count: number): number | undefined {
+  return count > 3 ? 8 : undefined
+}
+
 export function PipWall({
   sessions,
   onHandover,
@@ -24,6 +32,7 @@ export function PipWall({
 }) {
   const t = useTranslations('aiChat.pictureInPicture')
   const count = Math.min(6, sessions.length)
+  const streamFps = resolvePipWallStreamFps(count)
 
   return (
     <div className="flex h-full w-full flex-col bg-[#05070a]" data-testid="pip-wall">
@@ -62,6 +71,7 @@ export function PipWall({
                 <AiPipMonitor
                   sessionId={session.sessionId}
                   embedded
+                  streamFps={streamFps}
                   onHandover={() => onHandover(session)}
                 />
               </div>
