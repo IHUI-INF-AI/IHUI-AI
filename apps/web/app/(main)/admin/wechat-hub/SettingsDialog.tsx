@@ -131,10 +131,10 @@ export default function SettingsDialog({
               value={allowedTargets}
               onChange={(e) => setAllowedTargets(e.target.value)}
               rows={3}
-              className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+              className="font-[weight:inherit] w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-body outline-none focus:border-stroke-focus"
               placeholder={'wxid_xxx\nroom_xxx'}
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="font-[weight:inherit] text-label text-muted-foreground">
               白名单开启但清单为空时当前实现会放行，建议先把常用目标填进来。
             </p>
           </div>
@@ -145,7 +145,7 @@ export default function SettingsDialog({
               value={blockedWords}
               onChange={(e) => setBlockedWords(e.target.value)}
               rows={3}
-              className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+              className="font-[weight:inherit] w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-body outline-none focus:border-stroke-focus"
               placeholder="刷单&#10;返利"
             />
           </div>
@@ -179,8 +179,8 @@ export default function SettingsDialog({
                 {testMutation.isPending ? '测试中…' : '测试'}
               </Button>
             </div>
-            {testNotice ? <p className="text-xs text-muted-foreground">{testNotice}</p> : null}
-            <p className="text-xs text-muted-foreground">
+            {testNotice ? <p className="font-[weight:inherit] text-label text-muted-foreground">{testNotice}</p> : null}
+            <p className="font-[weight:inherit] text-label text-muted-foreground">
               只允许公网 HTTPS；留空关闭。若账号已配置 bridge webhookSecret，会附带 HMAC-SHA256
               签名头，接收方可按时间戳 + 原始 body 验签。
             </p>
@@ -193,7 +193,7 @@ export default function SettingsDialog({
               onChange={(e) => setAgentModel(e.target.value)}
               placeholder="如 doubao-pro-32k；留空用全局 WECHAT_HUB_AGENT_MODEL"
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="font-[weight:inherit] text-label text-muted-foreground">
               只影响本账号的 AI 自动回复（agent 规则）；群聊怕烧额度可以单独换成小模型。
             </p>
           </div>

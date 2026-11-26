@@ -1242,6 +1242,58 @@ test('doubao:池号没有 cookie 捆绑包 ⇒ no-template 点名(不猜不落�
   assert.throws(() => L.applyDoubao(payload, { extract }), (e) => e?.code === 'no-template')
 })
 
+test(
+  'doubao:回灌腿 name 形态 cookie 必须可写回(2026-11-26 157 误报 no-template 根因)',
+  { skip: IS_WINDOWS ? false : 'DPAPI 仅 Windows 可用' },
+  () => {
+    const scratch = mkScratch('local-login-doubao-name-cookie')
+    try {
+      const udata = path.join(scratch, 'User Data')
+      fs.mkdirSync(path.join(udata, 'Default', 'Network'), { recursive: true })
+      const aesKey = crypto.randomBytes(32)
+      if (!writeLocalState(udata, aesKey)) return
+      const dbFile = path.join(udata, 'Default', 'Network', 'Cookies')
+      const { DatabaseSync } = require('node:sqlite')
+      const db = new DatabaseSync(dbFile)
+      db.exec(
+        `CREATE TABLE cookies (creation_utc INTEGER NOT NULL UNIQUE PRIMARY KEY, host_key TEXT NOT NULL,` +
+          ` top_frame_site_key TEXT NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL,` +
+          ` encrypted_value BLOB NOT NULL, path TEXT NOT NULL, expires_utc INTEGER NOT NULL,` +
+          ` is_secure INTEGER NOT NULL, is_httponly INTEGER NOT NULL, last_access_utc INTEGER NOT NULL,` +
+          ` has_expires INTEGER NOT NULL, is_persistent INTEGER NOT NULL, priority INTEGER NOT NULL,` +
+          ` samesite INTEGER NOT NULL, source_scheme INTEGER NOT NULL, source_port INTEGER NOT NULL,` +
+          ` last_update_utc INTEGER NOT NULL, source_type INTEGER NOT NULL, has_cross_site_ancestor INTEGER NOT NULL)`,
+      )
+      db.close()
+
+      // relay-doubao-session-sync.ts 落库形态就是 {name,host,value};写回腿不得只认 key
+      const payload = L.normalizePayload({
+        uid: 'auto:name-shape',
+        token: 't',
+        target: udata,
+        cookies: [{ name: 'sessionid', host: '.doubao.com', value: 'name-shape-session' }],
+        secrets: {},
+      })
+      const result = L.applyDoubao(payload, { extract })
+      const ro = new DatabaseSync(dbFile, { readOnly: true })
+      try {
+        const row = ro
+          .prepare("SELECT encrypted_value FROM cookies WHERE name='sessionid' AND host_key='.doubao.com'")
+          .get()
+        const plain = extract.stripDoubaoAppPrefix(
+          extract.decryptOsCryptString(Buffer.from(row.encrypted_value), aesKey, { rawBuffer: true }),
+        )
+        assert.equal(plain, 'name-shape-session')
+      } finally {
+        ro.close()
+      }
+      noPlaintext(result, ['name-shape-session'])
+    } finally {
+      rmScratch(scratch)
+    }
+  },
+)
+
 test('doubao:显式 profile 不存在 ⇒ no-target(不回落 Default 冒充成功)', () => {
   const scratch = mkScratch('local-login-doubao-profile')
   try {

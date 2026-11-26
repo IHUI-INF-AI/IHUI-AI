@@ -1814,8 +1814,15 @@ export function doubaoCookieRowMeta(name, nowUs) {
  */
 export function applyDoubao(payload, opts = {}) {
   const extract = opts.extract
+  // 2026-11-26:客户端回灌腿写 cookiesEnc 时按跨界载荷用 {name,host,value},
+  // 老导入腿用 {key,host,value};两者是同一枚豆包 cookie。写回腿必须两种都认,
+  // 否则池里有完整票也会被过滤成空包、误报 no-template(157 切号实测踩中)。
   const entries = (Array.isArray(payload.cookies) ? payload.cookies : [])
-    .map((c) => ({ host: asText(c?.host), name: asText(c?.key), value: asText(c?.value) }))
+    .map((c) => ({
+      host: asText(c?.host),
+      name: asText(c?.key) || asText(c?.name),
+      value: asText(c?.value),
+    }))
     .filter((c) => c.host && c.name && c.value)
   if (entries.length === 0) {
     throw new WriteError(

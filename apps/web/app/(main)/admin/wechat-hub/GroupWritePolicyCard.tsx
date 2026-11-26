@@ -70,7 +70,7 @@ export default function GroupWritePolicyCard({
 
   if (loading && !policy) {
     return (
-      <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+      <div className="font-[weight:inherit] flex items-center gap-2 py-2 text-body text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
         <span>加载群写策略…</span>
       </div>
@@ -92,7 +92,7 @@ export default function GroupWritePolicyCard({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4" />
-          <p className="text-sm font-medium">群写动作开关</p>
+          <p className="text-body font-medium">群写动作开关</p>
         </div>
         <Switch
           checked={policy.enabled}
@@ -103,12 +103,12 @@ export default function GroupWritePolicyCard({
       </div>
       {policy.enabled ? (
         <>
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             单次最多 {policy.maxTargetsPerAction} 人，每小时最多 {policy.maxActionsPerHour} 次
           </p>
           <div className="grid grid-cols-1 gap-3 min-[800px]:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="wechat-group-max-targets" className="text-xs text-muted-foreground">
+              <Label htmlFor="wechat-group-max-targets" className="font-[weight:inherit] text-label text-muted-foreground">
                 单次人数上限
               </Label>
               <Input
@@ -121,11 +121,11 @@ export default function GroupWritePolicyCard({
                   setTargetsDraft(e.target.value)
                   setDraftTouched(true)
                 }}
-                className="h-8 w-24 px-2 text-sm"
+                className="font-[weight:inherit] h-8 w-24 px-2 text-body"
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="wechat-group-max-actions" className="text-xs text-muted-foreground">
+              <Label htmlFor="wechat-group-max-actions" className="font-[weight:inherit] text-label text-muted-foreground">
                 每小时次数上限
               </Label>
               <Input
@@ -138,7 +138,7 @@ export default function GroupWritePolicyCard({
                   setActionsDraft(e.target.value)
                   setDraftTouched(true)
                 }}
-                className="h-8 w-24 px-2 text-sm"
+                className="font-[weight:inherit] h-8 w-24 px-2 text-body"
               />
             </div>
           </div>
@@ -159,19 +159,19 @@ export default function GroupWritePolicyCard({
               <span>保存上限</span>
             </Button>
             {targetsDraft && targetsLimit === null ? (
-              <span className="text-xs text-red-500">
+              <span className="font-[weight:inherit] text-label text-red-500">
                 单次人数需为 {MIN_LIMIT}–{MAX_LIMIT} 的整数
               </span>
             ) : null}
             {actionsDraft && actionsLimit === null ? (
-              <span className="text-xs text-red-500">
+              <span className="font-[weight:inherit] text-label text-red-500">
                 每小时次数需为 {MIN_LIMIT}–{MAX_LIMIT} 的整数
               </span>
             ) : null}
           </div>
         </>
       ) : (
-        <p className="text-sm text-muted-foreground">
+        <p className="font-[weight:inherit] text-body text-muted-foreground">
           写动作默认关闭，打开后仍受单次 {policy.maxTargetsPerAction} 人 / 每小时{' '}
           {policy.maxActionsPerHour} 次限制。
         </p>
@@ -182,3 +182,4 @@ export default function GroupWritePolicyCard({
     </div>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
