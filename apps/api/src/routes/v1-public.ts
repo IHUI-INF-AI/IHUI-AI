@@ -2233,6 +2233,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           userId: apiKey.userId,
           estimatedPromptTokens: Math.ceil(promptText.length / 4),
           estimatedCompletionTokens: maxTokens ?? 1024,
+          // 2026-11-27:LLM 也必须 strict fail-closed。此前 DB 故障时
+          // preDeductQuota 会降级返回 null,请求照常放上游,等于免费调用。
+          strict: true,
         })
       } catch (err) {
         // 计费熔断(F,2026-09-16):定价不可用(查询失败且无缓存)时 fail-closed
@@ -2247,7 +2250,18 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             },
           })
         }
-        throw err
+        request.log.error(
+          { err, model: billingModel, apiKeyId: apiKey.id },
+          '[billing] LLM 预扣失败,拒绝调用',
+        )
+        return reply.status(503).send({
+          error: {
+            message:
+              'Billing precharge failed (balance store unreachable). Please retry shortly.',
+            type: 'billing_unavailable',
+            code: 'billing_unavailable',
+          },
+        })
       }
     }
 
