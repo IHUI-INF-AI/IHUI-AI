@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-query-notification-permission"
+description = "Enables the query_notification_permission command without any pre-configured scope."
+commands.allow = ["query_notification_permission"]
+
+[[permission]]
+identifier = "deny-query-notification-permission"
+description = "Denies the query_notification_permission command without any pre-configured scope."
+commands.deny = ["query_notification_permission"]
