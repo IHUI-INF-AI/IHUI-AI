@@ -2408,6 +2408,11 @@ export interface PreDeductInput {
    */
   callType?: 'chat' | 'image' | 'video' | 'audio'
   billingUnits?: number
+  /**
+   * 严格模式:DB/定价异常时直接抛错,不降级为「无预扣」。
+   * 媒体路径必须开启——否则预扣写库失败会静默放行,并发下仍可超支。
+   */
+  strict?: boolean
 }
 
 /**
@@ -2547,6 +2552,8 @@ export async function preDeductQuota(input: PreDeductInput): Promise<PreDeductio
   } catch (err) {
     // 计费熔断(F):定价不可用必须向上穿透(fail-closed),不得降级为"无预扣"放行
     if (err instanceof BillingUnavailableError) throw err
+    // 媒体严格模式:预扣写库失败同样 fail-closed,由路由转 503,不再静默放行
+    if (input.strict) throw err
     logger.error('[billing] preDeductQuota failed(降级为无预扣)', {
       apiKeyId: input.apiKeyId,
       model: input.model,

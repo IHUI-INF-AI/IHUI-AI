@@ -138,7 +138,7 @@ function releaseMediaHoldIfUncharged(request: FastifyRequest): void {
  *   - 定价查询不可用 → 503(不拿缓存猜价);
  *   - 报价 <= 0 → 503(未定价/零价/0 倍率一律不卖);
  *   - 音频端点也走这里,per_call 价缺失同样 503。
- * 只拦定价,不冻结余额;余额不足仍由 recordCall 的预扣/结算链路处理。
+ * 只拦定价与余额;通过后图片/视频会预扣冻结本次报价(音频走内部积分账)。
  */
 function requireMultimodalPrice(): preHandlerAsyncHookHandler {
   return async (request, reply) => {
@@ -191,10 +191,10 @@ function requireMultimodalPrice(): preHandlerAsyncHookHandler {
       await reply.status(503).send(error(503, '该模型价格单位异常，暂不可调用'))
       return
     }
-    // 媒体路径没有预扣凭证,至少在上游调用前确认成本余额够本次报价,
-    // 避免“先生成成功、后结算扣不到钱”。并发超支仍需后续媒体预扣收口。
+    // 媒体路径在上游调用前先做余额预检,再预扣冻结本次报价,
+    // 避免「先生成成功、后结算扣不到钱」以及并发请求同时通过预检把余额花穿。
     // 音频(ctx.callType='audio')走内部 AI 积分账(ai-audio.ts 的 chargeMediaPoints),
-    // 不查 API Key 成本余额,否则会误伤“有积分但 Key 成本余额为 0”的用户。
+    // 不查 API Key 成本余额,否则会误伤「有积分但 Key 成本余额为 0」的用户。
     const apiKey = apiKeyOf(request)
     if (apiKey && ctx.callType !== 'audio') {
       let balance: Awaited<ReturnType<typeof getSpendableCostBalance>>
@@ -236,6 +236,8 @@ function requireMultimodalPrice(): preHandlerAsyncHookHandler {
           estimatedCompletionTokens: 0,
           callType: ctx.callType,
           billingUnits: ctx.units,
+          // 媒体必须 fail-closed:预扣写库失败不能降级为「不冻结直接放行」
+          strict: true,
         })
       } catch (err) {
         logger.error('[billing] 多模态预扣失败,拒绝调用', {

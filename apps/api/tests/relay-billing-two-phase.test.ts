@@ -253,6 +253,74 @@ describe('relay-billing-service — 两段式计费(2026-09-12 立)', () => {
       expect(mockDbUpdate).not.toHaveBeenCalled()
     })
 
+    it('strict 模式:预扣写库失败向上抛,不降级为无预扣', async () => {
+      mockDbReadSelect
+        .mockReturnValueOnce(
+          chain([
+            {
+              id: 'key-strict',
+              userId: 'user-1',
+              status: 'active',
+              tokenBalance: 10000,
+              costBalanceCents: 5000,
+            },
+          ]),
+        )
+        .mockReturnValueOnce(chain([]))
+        .mockReturnValueOnce(chain([{ inputTokenPrice: 10, outputTokenPrice: 30 }]))
+      mockDbUpdate.mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockRejectedValue(new Error('db down')),
+          }),
+        }),
+      })
+
+      await expect(
+        preDeductQuota({
+          apiKeyId: 'key-strict',
+          model: 'gpt-test',
+          userId: 'user-1',
+          estimatedPromptTokens: 400,
+          estimatedCompletionTokens: 100,
+          strict: true,
+        }),
+      ).rejects.toThrow('db down')
+    })
+
+    it('非 strict 模式:预扣写库失败仍降级为 null', async () => {
+      mockDbReadSelect
+        .mockReturnValueOnce(
+          chain([
+            {
+              id: 'key-loose',
+              userId: 'user-1',
+              status: 'active',
+              tokenBalance: 10000,
+              costBalanceCents: 5000,
+            },
+          ]),
+        )
+        .mockReturnValueOnce(chain([]))
+        .mockReturnValueOnce(chain([{ inputTokenPrice: 10, outputTokenPrice: 30 }]))
+      mockDbUpdate.mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockRejectedValue(new Error('db down')),
+          }),
+        }),
+      })
+
+      const result = await preDeductQuota({
+        apiKeyId: 'key-loose',
+        model: 'gpt-test',
+        userId: 'user-1',
+        estimatedPromptTokens: 400,
+        estimatedCompletionTokens: 100,
+      })
+      expect(result).toBeNull()
+    })
+
     it('Key 不存在 → null', async () => {
       mockDbReadSelect.mockReturnValueOnce(chain([]))
       const result = await preDeductQuota({
