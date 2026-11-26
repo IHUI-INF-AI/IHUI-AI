@@ -131,7 +131,7 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
                   ? ` · 点赞 ${likes.length} 人：${likes.slice(0, 6).join('、')}${likes.length > 6 ? ` 等 ${likes.length} 人` : ''}`
                   : ''}
                 {commentView.total > 0
-                  ? ` · 评论 ${commentView.total} 条`
+                  ? ` · 评论 ${commentView.total} 条（显示前 ${Math.min(commentView.total, previewLines.length)} 条）`
                   : ''}
               </p>
               {commentView.total > 0 ? (
@@ -139,9 +139,6 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
                   {previewLines.map((line, index) => (
                     <p key={index} className="whitespace-pre-wrap break-words">{line}</p>
                   ))}
-                  {commentView.total > previewLines.length ? (
-                    <p className="whitespace-pre-wrap">共 {commentView.total} 条</p>
-                  ) : null}
                 </div>
               ) : null}
               {moment.mediaMissingCount && moment.mediaMissingCount > 0 ? (

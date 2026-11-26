@@ -62,6 +62,8 @@ export default function GroupWritePolicyCard({
       setDraftTouched(false)
       setPolicyError(null)
       void qc.invalidateQueries({ queryKey: ['wechat-hub', 'group-write-policy', accountId] })
+      // 上限改了，审计卡上的「本小时还剩 N 次」跟着变，一起刷
+      void qc.invalidateQueries({ queryKey: ['wechat-hub', 'group-write-audit', accountId] })
     },
     onError: (e) => setPolicyError(describeGroupActionError(e)),
   })
