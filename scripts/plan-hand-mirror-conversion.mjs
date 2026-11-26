@@ -1134,6 +1134,28 @@ export function judgeConversion({
     else if (barrelFullyCovered(pageText, sharedText, shellText))
       pageTokens.delete('@/components')
   }
+  // 平台端口族(2026-11-26 立):端内 `@/host/*` / `@/utils/api-bridge` 是小程序侧的
+  // **平台注入端口**,与 RN 壳的 `useHostPorts()` / `AsyncKvPort` / `MediaPort` / `createAsk`
+  // 是同一能力在两个平台的实现 —— 共享屏本就靠 props 注入承接它们(AskCreateScreen 的
+  // category/reward/anonymous/images/draft 全是 props)。旧口径按字面找名字,小程序端口名
+  // 永远不出现在 RN 壳里 ⇒ 结构性无法销,把这类页误判成「私有能力」而拒转。
+  // 销账只在**壳里真有等价注入证据**时成立(不整族放水):缺任一证据就留拦。
+  // 反例:壳里只有注释提到 useHostPorts ⇒ maskComments 已遮掉,判不出 ⇒ 留拦。
+  if (pageTokens.size) {
+    const portEvidence =
+      /(?:useHostPorts|AsyncKvPort|MediaPort|createAskDraftPort|createAskMediaPort)\b/.test(
+        shellText,
+      ) &&
+      /(?:createAsk|apiFailureToText|useHostPorts)\b/.test(shellText)
+    if (portEvidence) {
+      for (const tok of [
+        '@/host/on-toast',
+        '@/host/ask-create-ports',
+        '@/utils/api-bridge',
+      ])
+        pageTokens.delete(tok)
+    }
+  }
   // 跨端通用能力:壳侧有该类实现 ⇒ 页面那份是重复接线(转壳后由 RN 壳本体承接)。
   // 但"整族销账"只在精确核对没有判负时才成立(2026-11-01 立):
   //   ① 导航族:上面 coveredNavigation 已逐目标反查过 route-map,一旦有目标在壳里查不到,
@@ -1407,6 +1429,28 @@ function main(argv) {
       'S7b 钩子里还有别的语句 ⇒ 仍算(必须人工)',
       titleOnlyLifecycle(`useDidShow(() => { Taro.setNavigationBarTitle({ title: t('a.b') }); refresh() })`),
       false,
+    )
+    // S7g/S7h:平台端口族(2026-11-26)。正例壳有等价注入 ⇒ 销账转壳;反例端口只出现在注释里
+    // ⇒ maskComments 遮掉后判不出 ⇒ 留拦(假销账比误拒危险)。
+    P(
+      'S7g 端内平台端口在 RN 壳有等价注入(useHostPorts+createAsk)⇒ 销账可转',
+      judgeConversion({
+        spec: 'packages/app/src/features/ask-create/AskCreateScreen.tsx',
+        pageText: `import { createAskDraftPort } from '@/host/ask-create-ports'\nimport { onToast } from '@/host/on-toast'\nimport { unwrapApi } from '@/utils/api-bridge'`,
+        shellText: `import { AskCreateScreen } from '@ihui/rn-app'\nconst { onToast } = useHostPorts()\nconst p = createAsk(...)\nexport default function AskCreateScreen(){return <AskCreateScreen/>}`,
+        sharedText: '',
+      }).kind,
+      'convertible',
+    )
+    P(
+      'S7h 壳里只有注释提到端口(遮注释后无证据)⇒ 仍判 private,不假销账',
+      judgeConversion({
+        spec: 'packages/app/src/features/ask-create/AskCreateScreen.tsx',
+        pageText: `import { createAskDraftPort } from '@/host/ask-create-ports'`,
+        shellText: `import { AskCreateScreen } from '@ihui/rn-app'\n// useHostPorts 与 createAsk 在此注入`,
+        sharedText: '',
+      }).kind,
+      'page-only-capability',
     )
     // S7c–S7f:useEffect 那一族此前没人认(实测 news/list / dev-space / teacher/detail 三页被误拒)
     P(
