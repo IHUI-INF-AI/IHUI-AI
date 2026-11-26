@@ -16,7 +16,7 @@
  * 服务身份(LocalSystem)下:探测/关闭用 tasklist/taskkill(跨会话可用);
  * 重新拉起必须换桌面用户身份(CreateProcessAsUser),由 apps/api/scripts/run-as-user.ps1 执行。
  */
-import { execFileSync, spawn } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -328,6 +328,26 @@ function killPidsCrossSession(product, pids, env = process.env, run = execFileSy
 }
 
 /**
+ * taskkill 静默封装(2026-11-26):taskkill.exe 报错是 GBK 中文,execFileSync 未接管 stdio 时
+ * 会透传到父进程 stderr,被 UTF-8 解码成一屏 `????`,把真正的关断失败原因盖掉。
+ * 这里 stdio:'ignore' 吞掉原生输出,最终判定一律由 closeProduct 的 probe 给出(fail-closed)。
+ */
+function taskkillQuiet(pid, force, env) {
+  const args = ['/PID', String(pid)]
+  if (force) args.push('/F')
+  try {
+    spawnSync('taskkill.exe', args, {
+      windowsHide: true,
+      timeout: 8000,
+      env,
+      stdio: 'ignore',
+    })
+  } catch {
+    /* 由 waitOnce 的 probe 给最终判定 */
+  }
+}
+
+/**
  * 优雅关闭:对主进程发 WM_CLOSE(taskkill 不带 /F,等同点窗口关闭),等全部进程退出。
  * @returns {{wasRunning:boolean, closed:boolean, pids:number[]}}
  */
@@ -340,7 +360,7 @@ export function closeProduct(product, opts = {}) {
   if (pids.length === 0) return { wasRunning: false, closed: true, pids: [] }
   for (const pid of pids) {
     try {
-      execFileSync('taskkill.exe', ['/PID', String(pid)], { windowsHide: true, timeout: 8000, env })
+      taskkillQuiet(pid, false, env)
     } catch {
       /* 该 pid 已退出,或无权发消息 —— 由下方轮询给出最终判定 */
     }
@@ -358,7 +378,7 @@ export function closeProduct(product, opts = {}) {
   // 托盘常驻/窗口收不到消息时再补一轮(覆盖"第一次消息被忽略"的情形),仍不退就交回人工
   for (const pid of pids) {
     try {
-      execFileSync('taskkill.exe', ['/PID', String(pid)], { windowsHide: true, timeout: 8000, env })
+      taskkillQuiet(pid, false, env)
     } catch {
       /* 同上 */
     }
@@ -372,7 +392,7 @@ export function closeProduct(product, opts = {}) {
    */
   for (const pid of pids) {
     try {
-      execFileSync('taskkill.exe', ['/PID', String(pid), '/F'], { windowsHide: true, timeout: 8000, env })
+      taskkillQuiet(pid, true, env)
     } catch {
       /* 已退出或无权 —— 由下方轮询给出最终判定 */
     }
@@ -524,7 +544,7 @@ export function launchProduct(exePath, opts = {}) {
       // spawn 会瞬退(主进程还没起来就退出码 0 消失),而双击语义能稳定拉起。
       primaryKind = 'explorer'
       first = primary('explorer', () => {
-        run('explorer.exe', [exePath], { windowsHide: true, timeout: 15_000, env })
+        run('explorer.exe', [exePath], { timeout: 15_000, env })
       })
     }
     if (first.launched) return first
@@ -539,23 +559,14 @@ export function launchProduct(exePath, opts = {}) {
    *   主通道是 helper(服务身份)→ 交 shell(explorer,双击语义);
    *   主通道是 explorer(桌面身份)→ 降级 detached spawn 派生。
    */
-  function viaShell(firstError, primaryKind) {
-    const useSpawn = primaryKind === 'explorer'
-    const label = useSpawn ? 'spawn 补充通道' : 'shell 通道'
-    const via = useSpawn ? 'explorer+spawn' : 'primary+shell'
-    const okVia = useSpawn ? 'spawn' : 'shell'
+  function viaShell(firstError, _primaryKind) {
+    // 2026-11-26:两条补充通道统一走 explorer —— 直接 spawn Electron 客户端会瞬退
+    // (实测 via=spawn 后 5s 进程归零),双击语义才稳定。
+    const label = 'shell 补充通道'
+    const via = 'explorer+explorer'
+    const okVia = 'explorer'
     try {
-      if (useSpawn) {
-        const child = spawn(exePath, [], {
-          cwd: path.dirname(exePath),
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: false,
-        })
-        child.unref()
-      } else {
-        run('explorer.exe', [exePath], { windowsHide: true, timeout: 15_000, env })
-      }
+      run('explorer.exe', [exePath], { timeout: 15_000, env })
     } catch (e) {
       return {
         launched: false,
