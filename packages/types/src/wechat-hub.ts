@@ -421,6 +421,10 @@ export interface WechatFriendsPolicy {
   enabled: boolean
   /** 每小时最多通过几个申请，超出返回 RATE_LIMITED。 */
   maxAcceptsPerHour: number
+  /** 每天（滚动 24 小时）最多通过几个申请，超出同样 RATE_LIMITED；默认 10。 */
+  maxAcceptsPerDay?: number
+  /** 两次通过之间至少隔多少秒，防连点触发风控；默认 60，0 表示不限。 */
+  minGapSeconds?: number
 }
 
 /** 一条好友自动化审计，保留最近 20 条写回账号 metadata。 */

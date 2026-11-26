@@ -136,6 +136,9 @@ const switchChatSchema = z.object({
 const friendsPolicySchema = z.object({
   enabled: z.boolean().optional(),
   maxAcceptsPerHour: z.coerce.number().int().min(1).max(10).optional(),
+  // 24 小时滚动上限 + 两次通过的最小间隔（秒）：防连点、防一天刷太多触发风控。
+  maxAcceptsPerDay: z.coerce.number().int().min(1).max(50).optional(),
+  minGapSeconds: z.coerce.number().int().min(0).max(1800).optional(),
 })
 
 const broadcastKindSchema = z.enum(['text', 'image', 'file', 'link', 'card'])
