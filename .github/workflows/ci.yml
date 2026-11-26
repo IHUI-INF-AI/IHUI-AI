@@ -311,6 +311,10 @@ jobs:
         id: assert-web-build-script
         run: node -e "const p=require('./apps/web/package.json'); if(!p.scripts||!p.scripts.build){console.error('apps/web 缺 build 脚本 -> turbo run build 会静默跳过,web 端本次从未被构建验证');process.exit(1)} console.log('web build =',p.scripts.build)"
 
+      - name: Secure window baseline audit (RP-5)
+        id: secure-window-baseline
+        run: node scripts/check-secure-window-baseline.mjs --head
+
       - name: Build
         id: build
         # desktop(tauri) 构建极重且发布由专门工作流负责,CI 仅验证其余包可构建;

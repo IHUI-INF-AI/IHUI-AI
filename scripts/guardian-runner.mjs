@@ -8217,6 +8217,35 @@ const checks = [
       '',
     ].join('\n'),
   },
+
+  // RP-5(L13/P0):安全窗口基线静态审计。锁 Tauri 配置面三项安全基线不回退
+  // (withGlobalTauri:false / CSP 无 eval / 无 Electron 式不安全项)+ devtools 命令面↔
+  // 授权面配对可追溯 + 4 处 WebviewWindowBuilder 创建点。诚实只判静态可判部分,
+  // 不伪称运行时"三安全项已开"(Tauri/WebView2 无 Electron 同名开关,需 Windows 真跑)。
+  {
+    id: '327b',
+    label: '🪟 安全窗口基线静态审计(RP-5:安全项回退/devtools 单边授权/窗口创建点丢失 ⇒ 阻断)',
+    script: 'check-secure-window-baseline.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/desktop/src-tauri/tauri.conf.json',
+      'apps/desktop/src-tauri/capabilities/default.json',
+      'apps/desktop/src-tauri/build.rs',
+      'apps/desktop/src-tauri/src/**/*.rs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 RP-5 安全窗口基线被破坏。常见原因:',
+      '     - tauri.conf.json 把 withGlobalTauri 改 true,或 CSP 清空/引入 unsafe-eval;',
+      '     - 出现 nodeIntegration:true / contextIsolation:false / webSecurity:false 回退;',
+      '     - devtools 命令在 build.rs 注册却无 capability 授权(隐藏命令),或反之(孤立授权);',
+      '     - 4 处 WebviewWindowBuilder::new 创建点被无声删除。',
+      '  本门只判静态可判部分,"运行时三安全项已开"需 Windows + WebView2 真跑,本门不伪称。',
+      '  单独复现:node scripts/check-secure-window-baseline.mjs [--head|--staged|--worktree|--self-test]。',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===

@@ -1392,6 +1392,10 @@
       "owner": null
     },
     {
+      "script": "check-secure-window-baseline.mjs",
+      "owner": null
+    },
+    {
       "script": "check-selftest-registrant-evaluates.mjs",
       "owner": null
     },
