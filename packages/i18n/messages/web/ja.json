@@ -26740,7 +26740,9 @@
     "recentEmpty": "まだ利用履歴がありません。エージェントを選んで始めましょう",
     "myAgents": "マイエージェント",
     "recommended": "おすすめエージェント",
-    "unknownAgent": "不明なエージェント"
+    "unknownAgent": "不明なエージェント",
+    "voiceHint": "音声検索は完全版でご利用ください",
+    "imageHint": "画像検索は完全版でご利用ください"
   },
   "profileEdit": {
     "retry": "再試行",
@@ -31562,4 +31564,38 @@
     "chime": "チャイム",
     "knock": "ノック"
   }
-}
+,
+  "adminAiModels": {
+    "telemetry": {
+      "title": "モデル稼働モニタリング"
+    ,
+      "subtitle": "直近 60 分 · 呼び出しログ由来",
+      "callsLabel": "直近 1 時間の呼び出し",
+      "tokensLabel": "直近 1 時間の Token",
+      "qpsLabel": "現在の QPS",
+      "tpsLabel": "現在の Token/s",
+      "errorLabel": "エラー率",
+      "p95Label": "P95 レイテンシ",
+      "last5m": "直近 5 分の平均",
+      "activeConfigs": "{count} 件の設定にトラフィック",
+      "attributed": "紐付け済み {pct}",
+      "unattributed": "未紐付け {count} 件",
+      "ioSplit": "入力 {input} · 出力 {output}",
+      "noTraffic": "直近 1 時間は呼び出しなし",
+      "chartTitle": "1 分あたりの呼び出し",
+      "chartPeak": "ピーク {count} 回/分",
+      "chartHover": "{time} · {calls} 回 · {tokens} tok",
+      "updatedAt": "{time} 更新",
+      "refresh": "更新",
+      "fullMonitor": "詳細モニタリング",
+      "column": "直近 1 時間の稼働状況",
+      "columnHint": "呼び出し回数と Token 数は呼び出しログ由来、設定 ID で紐付け",
+      "cellCalls": "{count} 回 · {tokens} tok",
+      "cellRates": "QPS {qps} · {tps} tok/s",
+      "cellNoCalls": "直近 1 時間は呼び出しなし",
+      "cellErrors": "エラー {count}",
+      "cellTip": "直近 1 時間：呼び出し {calls} 回、Token {tokens}、エラー {errors} 回、P95 {p95}、最終呼び出し {last}",
+      "noLatency": "レイテンシ標本なし",
+      "loadFailed": "稼働データの取得に失敗",
+      "retry": "再試行"}
+  }}

@@ -26610,7 +26610,9 @@
     "recentEmpty": "還沒有使用紀錄，去挑一個智慧體吧",
     "myAgents": "我的智慧體",
     "recommended": "智慧體推薦",
-    "unknownAgent": "未知智慧體"
+    "unknownAgent": "未知智慧體",
+    "voiceHint": "語音搜尋請在完整版使用",
+    "imageHint": "圖片搜尋請在完整版使用"
   },
   "profileEdit": {
     "retry": "重試",
@@ -31155,4 +31157,38 @@
     "chime": "風鈴",
     "knock": "敲門"
   }
-}
+,
+  "adminAiModels": {
+    "telemetry": {
+      "title": "模型運行監測"
+    ,
+      "subtitle": "近 60 分鐘 · 資料來自呼叫流水",
+      "callsLabel": "近 1h 呼叫",
+      "tokensLabel": "近 1h Token",
+      "qpsLabel": "目前 QPS",
+      "tpsLabel": "目前 Token/s",
+      "errorLabel": "錯誤率",
+      "p95Label": "P95 延遲",
+      "last5m": "近 5 分鐘均值",
+      "activeConfigs": "{count} 個設定有流量",
+      "attributed": "已歸屬 {pct}",
+      "unattributed": "未歸屬 {count} 次",
+      "ioSplit": "輸入 {input} · 輸出 {output}",
+      "noTraffic": "近 1 小時暫無呼叫",
+      "chartTitle": "每分鐘呼叫",
+      "chartPeak": "峰值 {count} 次/分",
+      "chartHover": "{time} · {calls} 次 · {tokens} tok",
+      "updatedAt": "更新於 {time}",
+      "refresh": "重新整理",
+      "fullMonitor": "完整監控",
+      "column": "近 1h 運行狀態",
+      "columnHint": "呼叫與 Token 數來自呼叫流水，依設定 ID 歸屬",
+      "cellCalls": "{count} 次 · {tokens} tok",
+      "cellRates": "QPS {qps} · {tps} tok/s",
+      "cellNoCalls": "近 1 小時無呼叫",
+      "cellErrors": "錯誤 {count}",
+      "cellTip": "近 1 小時：呼叫 {calls} 次，Token {tokens}，錯誤 {errors} 次，P95 {p95}，最近呼叫 {last}",
+      "noLatency": "無延遲樣本",
+      "loadFailed": "運行資料讀取失敗",
+      "retry": "重試"}
+  }}

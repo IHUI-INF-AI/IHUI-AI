@@ -26450,7 +26450,9 @@
     "recentEmpty": "No usage yet — pick an agent to get started",
     "myAgents": "My agents",
     "recommended": "Recommended agents",
-    "unknownAgent": "Unknown agent"
+    "unknownAgent": "Unknown agent",
+    "voiceHint": "Voice search is available in the full version",
+    "imageHint": "Image search is available in the full version"
   },
   "profileEdit": {
     "retry": "Retry",
@@ -31146,4 +31148,38 @@
     "chime": "Chime",
     "knock": "Knock"
   }
-}
+,
+  "adminAiModels": {
+    "telemetry": {
+      "title": "Model runtime"
+    ,
+      "subtitle": "Last 60 min · from call logs",
+      "callsLabel": "Calls (1h)",
+      "tokensLabel": "Tokens (1h)",
+      "qpsLabel": "Current QPS",
+      "tpsLabel": "Current tokens/s",
+      "errorLabel": "Error rate",
+      "p95Label": "P95 latency",
+      "last5m": "5-min average",
+      "activeConfigs": "{count} configs with traffic",
+      "attributed": "{pct} attributed",
+      "unattributed": "{count} unattributed",
+      "ioSplit": "In {input} · Out {output}",
+      "noTraffic": "No calls in the last hour",
+      "chartTitle": "Calls per minute",
+      "chartPeak": "Peak {count}/min",
+      "chartHover": "{time} · {calls} calls · {tokens} tok",
+      "updatedAt": "Updated {time}",
+      "refresh": "Refresh",
+      "fullMonitor": "Full monitoring",
+      "column": "Runtime (1h)",
+      "columnHint": "Calls and tokens from call logs, attributed by config ID",
+      "cellCalls": "{count} calls · {tokens} tok",
+      "cellRates": "QPS {qps} · {tps} tok/s",
+      "cellNoCalls": "No calls in 1h",
+      "cellErrors": "{count} errors",
+      "cellTip": "Last hour: {calls} calls, {tokens} tokens, {errors} errors, P95 {p95}, last call {last}",
+      "noLatency": "No latency samples",
+      "loadFailed": "Failed to load runtime data",
+      "retry": "Retry"}
+  }}

@@ -120,7 +120,10 @@ const MermaidDiagram = dynamic(() => import('@/components/media/MermaidDiagram')
 import type { Prism as PrismType } from 'react-syntax-highlighter'
 type PrismComponent = typeof PrismType
 const SyntaxHighlighter = dynamic(
-  (): Promise<PrismComponent> => import('react-syntax-highlighter').then((m) => m.Prism),
+  (): Promise<PrismComponent> =>
+    import('react-syntax-highlighter/dist/esm/prism').then(
+      (m) => m.default as unknown as PrismComponent,
+    ),
   {
     ssr: false,
     loading: () => null,

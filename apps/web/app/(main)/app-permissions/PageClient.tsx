@@ -7,7 +7,6 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
-import { useTheme } from 'next-themes'
 
 import { AppPermissionScreen } from '@ihui/rn-app/pilot'
 import { createAppPermissionT } from '@/lib/rn-pilot/app-permission-view-model'
@@ -22,10 +21,23 @@ import { createAppPermissionT } from '@/lib/rn-pilot/app-permission-view-model'
 export default function AppPermissionPageClient() {
   const t = useTranslations('appPermission')
   const router = useRouter()
-  const { resolvedTheme } = useTheme()
+
+  // 2026-11-26 修复:本页原用 next-themes `useTheme().resolvedTheme` 推导 colorScheme,
+  // 实测在暗色档下仍拿到 'light'(本端 next-themes 上下文与 ThemeProvider 实例不同源),
+  // 导致共享屏整页卡片走亮色 token(#FFF),在暗色壳里出现 8 张白卡。
+  // 改为直接读权威事实源 `<html class="dark">`(见 src/stores/theme.ts:23 注记:
+  // .dark 由 next-themes(attribute="class")统一管理),用 MutationObserver 跟随切换。
+  const [colorScheme, setColorScheme] = React.useState<'light' | 'dark'>('light')
+  React.useEffect(() => {
+    const el = document.documentElement
+    const sync = () => setColorScheme(el.classList.contains('dark') ? 'dark' : 'light')
+    sync()
+    const mo = new MutationObserver(sync)
+    mo.observe(el, { attributes: true, attributeFilter: ['class'] })
+    return () => mo.disconnect()
+  }, [])
 
   const tShared = React.useMemo(() => createAppPermissionT(t as (key: string) => string), [t])
-  const colorScheme = resolvedTheme === 'dark' ? 'dark' : 'light'
   // 保留改造前 BackButton 的降级语义:无浏览历史(直接打开)时回设置页
   const goBack = React.useCallback(() => {
     if (typeof window !== 'undefined' && window.history.length <= 1) router.push('/settings')

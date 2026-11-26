@@ -26740,7 +26740,9 @@
     "recentEmpty": "아직 사용 기록이 없습니다. 에이전트를 선택해 시작하세요",
     "myAgents": "내 에이전트",
     "recommended": "추천 에이전트",
-    "unknownAgent": "알 수 없는 에이전트"
+    "unknownAgent": "알 수 없는 에이전트",
+    "voiceHint": "음성 검색은 전체 버전에서 사용할 수 있습니다",
+    "imageHint": "이미지 검색은 전체 버전에서 사용할 수 있습니다"
   },
   "profileEdit": {
     "retry": "다시 시도",
@@ -31562,4 +31564,38 @@
     "chime": "차임",
     "knock": "노크"
   }
-}
+,
+  "adminAiModels": {
+    "telemetry": {
+      "title": "모델 런타임 모니터링"
+    ,
+      "subtitle": "최근 60분 · 호출 로그 기반",
+      "callsLabel": "최근 1시간 호출",
+      "tokensLabel": "최근 1시간 Token",
+      "qpsLabel": "현재 QPS",
+      "tpsLabel": "현재 Token/s",
+      "errorLabel": "오류율",
+      "p95Label": "P95 지연",
+      "last5m": "최근 5분 평균",
+      "activeConfigs": "{count}개 구성에 트래픽",
+      "attributed": "귀속 {pct}",
+      "unattributed": "미귀속 {count}건",
+      "ioSplit": "입력 {input} · 출력 {output}",
+      "noTraffic": "최근 1시간 호출 없음",
+      "chartTitle": "분당 호출",
+      "chartPeak": "최대 {count}회/분",
+      "chartHover": "{time} · {calls}회 · {tokens} tok",
+      "updatedAt": "{time} 갱신",
+      "refresh": "새로고침",
+      "fullMonitor": "전체 모니터링",
+      "column": "최근 1시간 상태",
+      "columnHint": "호출 횟수와 Token 수는 호출 로그 기반, 구성 ID로 귀속",
+      "cellCalls": "{count}회 · {tokens} tok",
+      "cellRates": "QPS {qps} · {tps} tok/s",
+      "cellNoCalls": "최근 1시간 호출 없음",
+      "cellErrors": "오류 {count}",
+      "cellTip": "최근 1시간: 호출 {calls}회, Token {tokens}, 오류 {errors}회, P95 {p95}, 최근 호출 {last}",
+      "noLatency": "지연 샘플 없음",
+      "loadFailed": "런타임 데이터 조회 실패",
+      "retry": "다시 시도"}
+  }}

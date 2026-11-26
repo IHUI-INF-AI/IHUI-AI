@@ -104,6 +104,13 @@ export function resolveQualityConfig(gates = {}) {
     if (minInterval !== null && (!Number.isFinite(minInterval) || minInterval < 0)) {
       throw new Error(`ruler.stampMinInterval 必须是非负秒数(现值 ${String(r.stampMinInterval)})`)
     }
+    // 生成上限与产品人设(2026-11-26):40 题 32 负里 11 处判据提到截断,
+    // 800 token 会把长答案切半;人设则决定"像朋友还是像教程"。
+    const maxTokens = r.stampMaxTokens === undefined || r.stampMaxTokens === null ? null : Number(r.stampMaxTokens)
+    if (maxTokens !== null && (!Number.isInteger(maxTokens) || maxTokens < 256)) {
+      throw new Error(`ruler.stampMaxTokens 必须是 ≥256 的整数(现值 ${String(r.stampMaxTokens)})`)
+    }
+    const systemPromptFile = r.systemPromptFile === undefined || r.systemPromptFile === null ? '' : String(r.systemPromptFile).trim()
     stamp = {
       generate: true,
       candidateModel: r.candidateModel === undefined || r.candidateModel === null ? 'auto' : String(r.candidateModel).trim(),
@@ -112,6 +119,8 @@ export function resolveQualityConfig(gates = {}) {
       limit,
       timeoutMs,
       minInterval,
+      maxTokens,
+      systemPromptFile,
     }
     if (!stamp.candidateModel) throw new Error('ruler.candidateModel 不能为空串(要么不填=auto,要么给模型名)')
   } else if (r.generate !== undefined && r.generate !== null && r.generate !== false) {
@@ -184,6 +193,8 @@ export function buildStampArgv(script, version, stamp = null) {
   if (stamp.candidateModel) argv.push('--candidate-model', String(stamp.candidateModel))
   if (stamp.baselineModel) argv.push('--baseline-model', String(stamp.baselineModel))
   if (stamp.prompts) argv.push('--prompts', String(stamp.prompts))
+  if (stamp.systemPromptFile) argv.push('--system-prompt-file', String(stamp.systemPromptFile))
+  if (Number.isInteger(stamp.maxTokens) && stamp.maxTokens > 0) argv.push('--max-tokens', String(stamp.maxTokens))
   if (Number.isInteger(stamp.limit) && stamp.limit > 0) argv.push('--limit', String(stamp.limit))
   if (Number.isFinite(stamp.minInterval) && stamp.minInterval >= 0) argv.push('--min-interval', String(stamp.minInterval))
   return argv

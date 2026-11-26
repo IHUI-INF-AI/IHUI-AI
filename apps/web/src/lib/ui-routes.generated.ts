@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 6ea104f966246e9c3ffddd889b4e2ac6f53dfa51
-// inputsSha256: 4e20d9b2d90514cb6e67eec5a12c1cf66c364e5ec4a1c6e0adc390df2cdb2dcf
+// sourceCommit: 88e45fd4fe259d93418bfa1ee7159f37c3a744c1
+// inputsSha256: 2cf2b1a67ad55b1c56a17a47ec37ec6daecbc8051e05ebe0aa22a14bd1355e2c
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -450,6 +450,7 @@
 // input: apps/web/app/(main)/cloud-run/page.tsx 33ecf8d6d2bf8844eb45d5d7257fd2b6bbdc0c891acc33382a8bbf94ffbaa13c
 // input: apps/web/app/(main)/comments/page.tsx 5ce339f4885a779bbf4dc12138881c8316bb1ee14c14aa256278ec2a29d7e806
 // input: apps/web/app/(main)/commission/plan/page.tsx f0f7b16e69dc3d073f46aff3906324505c1485dcda007b4926fa797846d95dfc
+// input: apps/web/app/(main)/community/page.tsx 68b92d2122e93839b949abff6af81ea08d870ce2a2f10a4ca69fe9701cde8a7d
 // input: apps/web/app/(main)/compare/ihui-vs-autogen/page.tsx 1b2edb69907af975a7e3f37843479cacc491e213963282b042c99db31dbb9d54
 // input: apps/web/app/(main)/compare/ihui-vs-bolt-new/page.tsx 7ec4ce0eb20069a5b7a70a348de01c6708038dde69a7df366bc1e0bc4616d832
 // input: apps/web/app/(main)/compare/ihui-vs-claude-code/page.tsx a7909fab2b1dc57d5435572e9188a430f04d39ef59fe5ae747671e4c32e272b2
@@ -832,7 +833,7 @@
 // input: apps/web/app/(main)/settings/llm/page.tsx 33971a847f01d8bdf10692af698fe91335feac6e9ed338a50d259cc3d29ace13
 // input: apps/web/app/(main)/settings/login-security/page.tsx ddbc601276093ef27da03107327149b75db30d729ca0008ac518704f44ba5282
 // input: apps/web/app/(main)/settings/model-record/page.tsx 78a61366baf0ec24668df118f15696b5a510a4f9cca437a5803be68b1d5f1b0c
-// input: apps/web/app/(main)/settings/notifications/page.tsx c0b18ef29aa872eda112d7c2e3728e6fe74cd99abbf1693904c0a8e8c3cf2d64
+// input: apps/web/app/(main)/settings/notifications/page.tsx b4009edcf9632d1c7cd0a4180089201a2671d3dac33857de1d8d4a5a33f563f3
 // input: apps/web/app/(main)/settings/page.tsx a0500fce4c689704e2593c030177cf689db5e1e897d11c3b2d08111d37fc9215
 // input: apps/web/app/(main)/settings/preferences/page.tsx 08771b77ce88fd9023459caaaf89ef228e7020f86b084950db590fa088d44890
 // input: apps/web/app/(main)/settings/privacy/page.tsx b33ffed42f185de95451eea3c278001eeff720cfe99143f2d2a42345649699d6
@@ -965,7 +966,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx bf75df2bfcad093f6ec6405984b9a3fa2e7cba0c353f405066f6809c382bceca
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-26T08:10:00.983Z
+// generatedAt: 2026-11-26T15:37:22.121Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1406,6 +1407,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/cloud-run', param: false, group: 'cloud-run' },
   { path: '/comments', param: false, group: 'comments' },
   { path: '/commission/plan', param: false, group: 'commission' },
+  { path: '/community', param: false, group: 'community' },
   { path: '/compare', param: false, group: 'compare' },
   { path: '/compare/ihui-vs-autogen', param: false, group: 'compare' },
   { path: '/compare/ihui-vs-bolt-new', param: false, group: 'compare' },

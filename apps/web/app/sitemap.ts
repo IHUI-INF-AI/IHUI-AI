@@ -71,6 +71,7 @@ const PAGES: Array<{
   { path: '/ai-career', changeFrequency: 'weekly', priority: 0.6 },
   { path: '/announcements', changeFrequency: 'weekly', priority: 0.6 },
   { path: '/plaza', changeFrequency: 'daily', priority: 0.7 },
+  { path: '/community', changeFrequency: 'daily', priority: 0.8 },
   { path: '/asks', changeFrequency: 'daily', priority: 0.6 },
   { path: '/circles', changeFrequency: 'weekly', priority: 0.6 },
   { path: '/members', changeFrequency: 'weekly', priority: 0.6 },

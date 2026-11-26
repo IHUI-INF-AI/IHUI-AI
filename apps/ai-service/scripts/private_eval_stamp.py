@@ -136,14 +136,16 @@ def write_dataset(path: Path | str, rows: list[dict[str, str]]) -> None:
             Path(tmp).unlink(missing_ok=True)
 
 
-async def _generate_one(gateway: Any, model: str | None, system_prompt: str, instruction: str) -> str:
+async def _generate_one(
+    gateway: Any, model: str | None, system_prompt: str, instruction: str, max_tokens: int = 1600
+) -> str:
     r = await gateway.complete(
         [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": instruction},
         ],
         model=model or None,
-        max_tokens=800,
+        max_tokens=max_tokens,
     )
     return str(r.get("content") or "").strip()
 
@@ -157,6 +159,7 @@ async def _fill(
     retries: int = 2,
     retry_backoff: float = 8.0,
     min_interval: float = 1.0,
+    max_tokens: int = 1600,
 ) -> list[str | None]:
     gateway = None
     sem = asyncio.Semaphore(max(1, concurrency))
@@ -183,7 +186,7 @@ async def _fill(
             for attempt in range(retries + 1):
                 await _pace()
                 try:
-                    answer = await _generate_one(gateway, model, system_prompt, text)
+                    answer = await _generate_one(gateway, model, system_prompt, text, max_tokens=max_tokens)
                     return answer or None
                 except Exception as exc:  # noqa: BLE001 - 单题失败降级为剔除/重试,不拖垮整轮
                     if attempt < retries:
@@ -239,6 +242,7 @@ async def _run(args: argparse.Namespace) -> int:
         retries=args.retries,
         retry_backoff=args.retry_backoff,
         min_interval=args.min_interval,
+        max_tokens=args.max_tokens,
     )
 
     # 2) reference:优先上一版同 item_id 的 candidate;缺失的用基线模型补。
@@ -253,6 +257,7 @@ async def _run(args: argparse.Namespace) -> int:
             retries=args.retries,
             retry_backoff=args.retry_backoff,
             min_interval=args.min_interval,
+            max_tokens=args.max_tokens,
         )
         # 按顺序回填到缺基线的 item_id
         it = iter(base_answers)
@@ -369,6 +374,7 @@ def main() -> int:
     parser.add_argument("--retries", type=int, default=2, help="单题失败重试次数(429/上游抖动)")
     parser.add_argument("--retry-backoff", type=float, default=8.0, help="重试退避基数秒(逐次翻倍)")
     parser.add_argument("--min-interval", type=float, default=1.2, help="两次模型调用之间的最小间隔秒")
+    parser.add_argument("--max-tokens", type=int, default=1600, help="单题生成上限 tokens(默认 1600,过小会截断长答案)")
     parser.add_argument("--limit", type=int, default=0, help="只跑前 N 题(烟测用;0=全量)")
     parser.add_argument("--dry-run", action="store_true", help="只生成并报数,不写题库")
     parser.add_argument("--self-test", action="store_true", help="纯函数形状锁,零网络")
