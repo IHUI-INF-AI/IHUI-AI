@@ -349,6 +349,8 @@ export type WechatBridgeAction =
   | 'moment.publish'
   | 'moment.fetch'
   | 'chat.switch'
+  | 'friend.scan'
+  | 'friend.accept'
 
 /** 桥动作结果；data 由桥原样返回，平台侧只做展示与审计。 */
 export interface WechatActionResult {
@@ -356,6 +358,71 @@ export interface WechatActionResult {
   status: 'accepted' | 'unsupported' | 'failed'
   data: Record<string, unknown>
   reason: string | null
+}
+
+/** 好友申请的类型：加好友请求与进群邀请分开，前端标签与提示文案都按这个区分。 */
+export type WechatFriendRequestKind = 'friend' | 'group-invite'
+
+/**
+ * 桥扫描出来的一条待处理申请。
+ *
+ * requestId 是桥侧用控件指纹算出来的标识，通过时必须拿它重新枚举并比对控件名，
+ * 所以这里只存标识与展示字段，不存任何 UIA 句柄——跨进程句柄本来也传不过来。
+ */
+export interface WechatFriendRequestView {
+  requestId: string
+  nickname: string
+  source: string
+  kind: WechatFriendRequestKind
+  /** UIA 里有 InvokePattern 才算可点；不可点的只能人工去客户端处理。 */
+  clickable: boolean
+  /** 桥侧扫描到这条的时间戳。 */
+  seenAt: number
+}
+
+/** 好友扫描结果；status 为 disabled 时 requests 一定为空，前端据此显示关闭文案。 */
+export interface WechatFriendScanView {
+  ok: boolean
+  status: 'ok' | 'disabled' | 'failed'
+  reason: string | null
+  requests: WechatFriendRequestView[]
+  scannedAt: number
+  /** 桥侧真实读到的原始条目数（过滤前），用来核对有没有被静默丢弃。 */
+  rawCount: number
+}
+
+/** 通过申请的回执；requestId 原样带回，便于审计对账。 */
+export interface WechatFriendAcceptView {
+  ok: boolean
+  status: 'accepted' | 'disabled' | 'failed'
+  requestId: string
+  reason: string | null
+  errorCode: string | null
+}
+
+/** 好友自动化策略：默认关，开启后才允许点客户端。 */
+export interface WechatFriendsPolicy {
+  enabled: boolean
+  /** 每小时最多通过几个申请，超出返回 RATE_LIMITED。 */
+  maxAcceptsPerHour: number
+}
+
+/** 一条好友自动化审计，保留最近 20 条写回账号 metadata。 */
+export interface WechatFriendAuditEntry {
+  at: number
+  requestId: string
+  nickname: string
+  ok: boolean
+  status: string
+  errorCode: string | null
+}
+
+/** 「新朋友」卡片的后端聚合视图：策略 + 扫描结果 + 审计。 */
+export interface WechatFriendsOverview {
+  policy: WechatFriendsPolicy
+  scan: WechatFriendScanView
+  /** 最近审计，最多 20 条；前端只展示最近 5 条。 */
+  audit: WechatFriendAuditEntry[]
 }
 
 /** 群管理动作入参 */

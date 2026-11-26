@@ -17,6 +17,7 @@
  */
 
 import { createServer } from 'node:http'
+import { execFile } from 'node:child_process'
 import { appendFile, mkdir, readFile, readdir, stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { dirname, extname, join, resolve, sep } from 'node:path'
@@ -54,6 +55,20 @@ const MOMENT_MEDIA_ROOT = (() => {
 })()
 const MEDIA_NAME_RE = /^[0-9A-Za-z._-]+$/
 const MEDIA_MAX_BYTES = 50 * 1024 * 1024
+
+/**
+ * 好友 / 群邀请自动化：写动作默认关闭。开关在每次请求处理时读取，便于测试切换；
+ * 不为 `on` 时两条路由直接返回 disabled，不启动任何子进程、不做任何 UIA 动作。
+ */
+const FRIENDS_SCRIPT = process.env.BRIDGE_FRIENDS_SCRIPT ?? join(ROOT, 'tools', 'wechat-friends.ps1')
+const FRIENDS_POWERSHELL =
+  process.env.BRIDGE_FRIENDS_POWERSHELL ??
+  process.env.BRIDGE_OCR_POWERSHELL ??
+  'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'
+const FRIENDS_TIMEOUT_MS = Math.min(
+  Math.max(Number(process.env.BRIDGE_FRIENDS_TIMEOUT_MS ?? 20_000) || 20_000, 1_000),
+  60_000,
+)
 /** 直接 `node server.mjs` 启动；被测试/其它模块 import 时不绑定端口、不加载驱动。 */
 const IS_MAIN = process.argv[1]
   ? resolve(process.argv[1]) === fileURLToPath(import.meta.url)
@@ -508,6 +523,101 @@ async function runMomentFetch(body) {
   }
 }
 
+/** 好友自动化开关：请求处理时实时读取，不在模块加载时缓存。 */
+function friendsAutomationEnabled() {
+  return process.env.BRIDGE_FRIENDS_AUTOMATION === 'on'
+}
+
+function friendsDisabledBody() {
+  return { ok: false, status: 'disabled', reason: 'friends-automation-off' }
+}
+
+/** stdout 只取第一段合法 JSON；PowerShell 告警文本不当作 JSON 解析。 */
+function parseFriendsJson(stdout) {
+  const raw = String(stdout ?? '').trim()
+  if (!raw) return null
+  const first = raw.indexOf('{')
+  const last = raw.lastIndexOf('}')
+  if (first < 0 || last <= first) return null
+  try {
+    return JSON.parse(raw.slice(first, last + 1))
+  } catch {
+    return null
+  }
+}
+
+/** 子进程调 ps1，20s 硬超时；超时 kill 子进程并返回 failed，绝不挂死、绝不抛 500。 */
+function runFriendsScript(args) {
+  return new Promise((resolve) => {
+    let settled = false
+    const finish = (body) => {
+      if (settled) return
+      settled = true
+      resolve(body)
+    }
+    const child = execFile(
+      FRIENDS_POWERSHELL,
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', FRIENDS_SCRIPT, ...args],
+      { timeout: FRIENDS_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024, windowsHide: true },
+      (error, stdout, stderr) => {
+        const parsed = parseFriendsJson(stdout)
+        if (parsed && typeof parsed === 'object') return finish(parsed)
+        if (error && error.killed) {
+          return finish({ ok: false, status: 'failed', reason: 'timeout' })
+        }
+        const detail =
+          (stderr && String(stderr).trim()) || (error && error.message) || 'script-no-json'
+        finish({ ok: false, status: 'failed', reason: detail.slice(0, 300) })
+      },
+    )
+    // 双保险：execFile timeout 之外再手动兜底 kill，避免请求挂死。
+    setTimeout(() => {
+      if (settled) return
+      try {
+        child.kill()
+      } catch {
+        /* 进程已退出 */
+      }
+      finish({ ok: false, status: 'failed', reason: 'timeout' })
+    }, FRIENDS_TIMEOUT_MS).unref()
+  })
+}
+
+async function handleFriendsScan() {
+  if (!friendsAutomationEnabled()) return friendsDisabledBody()
+  return runFriendsScript(['-Scan'])
+}
+
+async function handleFriendsAccept(requestId) {
+  if (!friendsAutomationEnabled()) return friendsDisabledBody()
+  const id = String(requestId ?? '').trim()
+  if (!id) {
+    return {
+      ok: false,
+      status: 'failed',
+      reason: 'request-id-required',
+      errorCode: 'request-id-required',
+      requestId: '',
+    }
+  }
+  return runFriendsScript(['-Accept', '-RequestId', id])
+}
+
+/** 桥响应体折算成 /action 通道形状：成功 {ok:true,data}，失败 {ok:false,status,reason,...}。 */
+function friendsToActionResult(result) {
+  if (result?.ok === true) {
+    return { ok: true, status: result.status ?? 'ok', data: result }
+  }
+  return {
+    ok: false,
+    status: result?.status ?? 'failed',
+    error: result?.reason ?? '动作失败',
+    reason: result?.reason ?? '动作失败',
+    errorCode: result?.errorCode ?? null,
+    data: result ?? {},
+  }
+}
+
 async function handle(req, res) {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
   const path = url.pathname.replace(/\/+$/, '') || '/'
@@ -530,6 +640,8 @@ async function handle(req, res) {
         '/action',
         '/typing',
         '/ingest',
+        '/friends/scan',
+        '/friends/accept',
       ],
     })
   }
@@ -732,11 +844,39 @@ async function handle(req, res) {
       }
     }
 
+    if (path === '/friends/scan') {
+      const result = await handleFriendsScan()
+      return json(res, 200, result)
+    }
+
+    if (path === '/friends/accept') {
+      const result = await handleFriendsAccept(body.requestId)
+      return json(res, 200, result)
+    }
+
     if (path === '/action') {
+      const action = String(body.action ?? '')
+      if (action === 'friend.scan' || action === 'friend.accept') {
+        const raw =
+          action === 'friend.scan'
+            ? await handleFriendsScan()
+            : await handleFriendsAccept(body.requestId)
+        const wrapped = friendsToActionResult(raw)
+        if (!wrapped.ok) {
+          return json(res, 200, {
+            ok: false,
+            status: wrapped.status,
+            error: wrapped.error,
+            reason: wrapped.reason,
+            errorCode: wrapped.errorCode,
+            data: wrapped.data,
+          })
+        }
+        return json(res, 200, { ok: true, data: wrapped.data })
+      }
       if (!driver.action)
         return json(res, 200, { ok: false, status: 'unsupported', error: '驱动不支持动作' })
       try {
-        const action = String(body.action ?? '')
         const result =
           action === 'moment.fetch' ? await runMomentFetch(body) : await driver.action(action, body)
         if (result?.status === 'unsupported') {

@@ -34,6 +34,7 @@ import CapabilitiesStrip from './CapabilitiesStrip'
 import ContactsPanel from './ContactsPanel'
 import ConversationsPanel from './ConversationsPanel'
 import DigestPanel from './DigestPanel'
+import FriendsAutomationCard from './FriendsAutomationCard'
 import GroupOpsPanel from './GroupOpsPanel'
 import KnowledgePanel from './KnowledgePanel'
 import SendPanel from './SendPanel'
@@ -230,6 +231,9 @@ export default function PageClient() {
               backend={selected.backend}
               readOnly={readOnlyOcr}
             />
+            {selected.backend === 'bridge' && !readOnlyOcr ? (
+              <FriendsAutomationCard accountId={selected.id} />
+            ) : null}
           </TabsContent>
           {readOnlyOcr ? null : (
             <>

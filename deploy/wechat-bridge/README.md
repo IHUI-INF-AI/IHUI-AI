@@ -184,6 +184,41 @@ UIA 驱动失败（抛错、`ok=false`、或 0 条且 `stopReason=error`）且 `
 | `BRIDGE_UIA_FALLBACK`   | `on`                   | `uia` 失败后自动回退 OCR；`off` 关闭回退                                         |
 | `BRIDGE_UIA_FORCE_FAIL` | `0`                    | `1` 时 UIA 驱动直接失败、不触碰微信，专供回退测试                                |
 
+## 好友 / 群邀请自动化（默认关闭，显式授权）
+
+`tools/wechat-friends.ps1` 用 .NET 自带的 System.Windows.Automation 枚举微信桌面端控件树，不引入任何第三方包，不做 DLL 注入、不读微信进程内存、不改微信文件。提供三条能力：
+
+- `POST /friends/scan`（只读）：枚举「通讯录 → 新的朋友」里待处理的好友申请与群聊邀请，返回 `requests[]`（`requestId、nickname、source、kind（friend | group-invite）、clickable、seenAt`）、`rawCount`（过滤前原始条目数）与 `scannedAt`，全程不点击、不切页。
+- `POST /friends/accept`（写动作）：body `{ "requestId": "..." }`。脚本是无状态的，`requestId` 为 base64url 编码的 `kind|controlType|className|name`；执行前先用同一套枚举重新取控件，控件名/类型/类名与扫描时完全一致才 `InvokePattern.Invoke()`，找不到或对不上一律返回 `stale-request`，宁可不点也不瞎点。
+- `POST /action` 通道：`{ "action": "friend.scan" }`、`{ "action": "friend.accept", "requestId": "..." }` 走与独立路由同一套 handler，供上游 `bridge-adapter.performAction` 消费。
+
+四道闸缺一不可：
+
+1. **默认关闭**：`BRIDGE_FRIENDS_AUTOMATION` 不为 `on` 时，scan 与 accept 一律返回 `{ok:false,status:"disabled",reason:"friends-automation-off"}`，不启动子进程、不做任何 UIA 动作；开关在每次请求处理时读取，不在启动时缓存。
+2. **requestId 二次校验**：accept 前重新枚举并比对控件签名，对不上即 `stale-request`；同一次进程内同一 requestId 最多 Invoke 一次，重复调用返回 `already-handled`。
+3. **每小时频次上限**：在 API 侧策略层执行（桥侧不做频次统计）。
+4. **审计留痕**：在 API 侧账号 metadata 记录时间、requestId、昵称、结果、错误码（桥侧只透传结果）。
+
+风险提示：通过申请、同意进群是真实点击客户端的写动作，频率过高或行为异常可能触发平台风控甚至封号；该能力仅允许本人账号、本机离线环境使用，账号与后果由使用者自行承担。
+
+排障：
+
+```powershell
+# 只读自检：枚举 UIA 树摘要（顶层窗口、控件类型、可见名称、类名、是否带 InvokePattern），不点、不切页
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/wechat-friends.ps1 -SelfTest
+```
+
+读不到微信主窗口时返回 `{"ok":false,"status":"failed","reason":"本机不可达","detail":"<UIA 报错原文>"}`：先确认微信已登录且主窗口已从托盘展开（最小化/托盘隐藏时 UIA 拿不到 600x500 以上的主窗），再看 `detail` 里的报错原文；脚本不会伪造控件树。扫描返回 0 条时 `rawCount` 仍会给出过滤前的原始条目数，可据此判断是界面未停留在「新的朋友」页，还是当前版本 UIA 未暴露可识别条目。
+
+新增环境变量：
+
+| 变量                          | 默认                                   | 说明                                                                                  |
+| ----------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------- |
+| `BRIDGE_FRIENDS_AUTOMATION`   | `off`                                  | `on` 才开放好友/群邀请自动化；写动作需显式授权                                        |
+| `BRIDGE_FRIENDS_SCRIPT`       | `tools/wechat-friends.ps1`             | 好友自动化 ps1 路径                                                                   |
+| `BRIDGE_FRIENDS_POWERSHELL`   | 系统 PowerShell 5.1                    | PowerShell 可执行文件路径，未设置时复用 `BRIDGE_OCR_POWERSHELL`                       |
+| `BRIDGE_FRIENDS_TIMEOUT_MS`   | `20000`                                | 子进程硬超时（1s–60s）；超时 kill 子进程并返回 `failed/timeout`，不让请求挂死         |
+
 ## 可选：本地 DB sidecar（默认关闭，显式授权）
 
 UIA/OCR 拿不到图片 URL、点赞、评论、折叠全文和作者 wxid 时，可另起独立 DB sidecar。它不 vendor 第三方包，只在外部 venv 安装 `wechatauto-replica`，通过 `BRIDGE_MOMENT_DRIVER=db` 接管朋友圈；聊天仍走原 `BRIDGE_DRIVER`。默认 `BRIDGE_DB_SIDECAR=off`，不设 `on` 时驱动直接返回 `unsupported`，绝不自动读库。
