@@ -116,8 +116,13 @@ public static class WeChatFriendsClick {
   [DllImport("user32.dll")] private static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
   [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr h, int cmd);
   [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
   [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
   public static bool IsForeground(IntPtr h) { return GetForegroundWindow() == h; }
+  // 把微信压到所有窗口后面（不改位置/大小、不抢焦点）：用户不用它时就不挡屏，但 UIA 树仍可读。
+  public static bool ParkBehind(IntPtr h) {
+    return SetWindowPos(h, new IntPtr(1), 0, 0, 0, 0, 0x0002 | 0x0001 | 0x0010); // HWND_BOTTOM | NOMOVE | NOSIZE | NOACTIVATE
+  }
   public static void At(int x, int y) {
     SetCursorPos(x, y);
     mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
@@ -537,6 +542,10 @@ try {
         elapsedMs    = $sw.ElapsedMilliseconds
       })
       exit 11
+    }
+    # 采集完成后把微信压到所有窗口后面：用户不用它时就不挡屏，但 UIA 树仍可读，下次扫描不用再惊醒它。
+    if ($windowInfo.visible -and -not $windowInfo.minimized) {
+      try { [void][WeChatFriendsClick]::ParkBehind($main) } catch { }
     }
     Write-Payload ([ordered]@{
       ok         = $true
