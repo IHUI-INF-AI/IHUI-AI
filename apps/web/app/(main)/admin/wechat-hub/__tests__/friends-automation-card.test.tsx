@@ -314,4 +314,26 @@ describe('FriendsAutomationCard', () => {
     await waitFor(() => expect(screen.getByText('申请扫描失败')).toBeTruthy())
     expect(screen.getByText('UIA 挂不到微信窗口')).toBeTruthy()
   })
+
+  it('点「导出审计」走 API 拿 Blob 并触发下载', async () => {
+    const blob = new Blob(['at,ok\r\n'], { type: 'text/csv' })
+    const csv = vi.fn().mockResolvedValue(blob)
+    Object.assign(wechatHubApi as unknown as Record<string, unknown>, { friendsAuditCsv: csv })
+    const createObjectURL = vi.fn(() => 'blob:friends-audit')
+    const revokeObjectURL = vi.fn()
+    Object.assign(URL, { createObjectURL, revokeObjectURL })
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    vi.mocked(wechatHubApi.friendsOverview).mockResolvedValue(makeOverview())
+    renderCard()
+
+    const button = await screen.findByText('导出审计')
+    fireEvent.click(button)
+
+    await waitFor(() => expect(csv).toHaveBeenCalledWith('account-1'))
+    expect(createObjectURL).toHaveBeenCalledWith(blob)
+    expect(clickSpy).toHaveBeenCalledTimes(1)
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:friends-audit')
+    clickSpy.mockRestore()
+  })
 })

@@ -39,7 +39,6 @@ import { spawn, spawnSync } from 'node:child_process'
 import { createInterface } from 'node:readline/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { forceUtf8Stdio } from './lib/force-utf8-stdio.mjs'
-import { traeTicketWindowTag } from './lib/trae-token-window.mjs'
 
 forceUtf8Stdio() // 治 Windows 控制台中文乱码:先钉 UTF-8,早于任何中文输出
 
@@ -250,26 +249,12 @@ export function fmtCountRow(r, i) {
   return `  [${i + 1}] ${r.providerCode}  池内 ${r.total} 行(启用 ${r.enabled})`
 }
 
-export function fmtAccountRow(r, i, nowMs = Date.now()) {
+export function fmtAccountRow(r, i) {
   const exp = r.tokenExpiresAt ? String(r.tokenExpiresAt).slice(0, 10) : '无到期'
   const pool = r.ownerUserId ? '个人池' : '运营池'
-  /**
-   * 票窗标注(2026-11-26 立;判据单源 scripts/lib/trae-token-window.mjs,与客户端 MS() 同款):
-   * `剩余 ≤24h 或 总寿命/3 已耗 ⇒ NEED_REFRESH`,只有 >24h 才直接用现成票。
-   * 票窗不足的号切过去会不会登出全押在 rt 上 —— 这一格必须在下单前抬到人眼前。
-   */
-  const windowTag = r.tokenExpiresAt
-    ? traeTicketWindowTag(
-        {
-          expiresAt: r.tokenExpiresAt,
-          tokenReleaseAt: r.tokenReleaseAt ?? r.profile?.tokenReleaseAt ?? null,
-        },
-        nowMs,
-      )
-    : ''
   return (
     `  [${i + 1}] ${r.name}  健康=${r.healthStatus} 启用=${r.isEnabled ? '是' : '否'}` +
-    ` 摘除=${r.tempUnschedulable ? '是' : '否'} token到期=${exp} 归属=${pool}${windowTag}`
+    ` 摘除=${r.tempUnschedulable ? '是' : '否'} token到期=${exp} 归属=${pool}`
   )
 }
 
@@ -414,28 +399,6 @@ async function main() {
       (platform === 'trae' ? ' --force' : '') +
       (doubaoProfile ? ` --profile "${doubaoProfile}"` : '')
     out(`\n将执行:\n  ${cmdLine}\n\n对话:${carry.text}\n${procNote}\n`)
-    /**
-     * Trae 票窗告警(2026-11-26 立)。客户端启动判据:
-     *   剩余寿命 ≤24h,或 (总寿命/3 > 剩余寿命) ⇒ 先拿 refreshToken 换票,只有 >24h 才直接用票。
-     * 所以"票只剩几小时"的号,切过去成不成全押在 rt 上;rt 一废就是 15 秒验收里被
-     * 客户端当场登出 + 整组回滚。这里把风险与两条修票入口直接摆在确认行之前。
-     */
-    if (platform === 'trae' && target.tokenExpiresAt) {
-      const tag = traeTicketWindowTag({
-        expiresAt: target.tokenExpiresAt,
-        tokenReleaseAt: target.tokenReleaseAt ?? target.profile?.tokenReleaseAt ?? null,
-      })
-      if (tag) {
-        err(
-          `\n⚠️ 票窗告警:这枚号的 access token ${tag.trim()}。\n` +
-            '   Trae 客户端启动会先拿 refreshToken 换票;rt 若已失效(20403/10101),写回 15 秒内被当场登出。\n' +
-            '   ← 写前预检已按同款判据处理:rt 还能换票 ⇒ 自动换出长票再切;换不出 ⇒ 直接拒绝,\n' +
-            '     一个本机文件都不写(不再"写进去再回滚")。\n' +
-            `   想先把池里这枚号的票修好再切:node scripts/trae-rebind-by-cookie.mjs --uid ${target.uid}\n` +
-            `   系统浏览器已登录该号时:node scripts/trae-rebind-by-authorize.mjs --uid ${target.uid}\n`,
-        )
-      }
-    }
     const yes = (await rl.question('确认执行请输入 y(其它任意键取消): ')).trim().toLowerCase()
     if (yes !== 'y') {
       out('已取消,未改动任何登录态。\n')

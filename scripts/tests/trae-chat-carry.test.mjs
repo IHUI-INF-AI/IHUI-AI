@@ -342,27 +342,19 @@ test('readTableUidOwners: 只读列出各表 user_id 归属(回滚后核对用)'
   }
 })
 
-test('接线锁: 预检未判定只在票窗不足时中止(2026-11-12 / 2026-11-26 合题)', () => {
+test('接线锁: 预检未判定不得中止切号(2026-11-12 事故回归)', () => {
   const src = fs.readFileSync(
     path.resolve(HERE, '../../apps/api/scripts/relay-trae-chat-switch.ts'),
     'utf8',
   )
-  // 2026-11-12:该端点在本机对任何带 DeviceProof 的请求回 504 ⇒ 票窗够的号不能因为
-  // "没判出来"被挡在门外(含本机正登录着的那枚),仍降级为告警、由客户端验收兜底。
-  assert.match(src, /warn-preflight-undetermined/, '票窗够时仍降级为告警并继续')
-  // 2026-11-26:票窗 ≤24h 时"客户端必先换票"是确定事实,而 rt 能不能换没判出来 ⇒
-  // 放行就是拿现登录态赌一把,赌输=客户端当场登出。这类号必须拒切。
-  assert.match(
-    src,
-    /abort-preflight-undetermined-ticket-window/,
-    '票窗不足 + 换票未判定必须拒切',
+  // 该端点在本机对任何带 DeviceProof 的请求回 504;若 undetermined 走 abort,
+  // 一键切号会把每一枚号都挡在门外(含本机正登录着的那枚)。
+  assert.equal(
+    /abort-preflight-undetermined/.test(src),
+    false,
+    'undetermined 不得作为中止步(504 是环境表现,不是票废了)',
   )
-  const iGuard = src.indexOf('ticketWindowNow !== tokenWindow.TRAE_TOKEN_VERDICT.VALID')
-  const iAbort = src.indexOf('abort-preflight-undetermined-ticket-window')
-  assert.ok(iGuard > 0 && iAbort > iGuard, '中止必须被"票窗不足"这个条件包住')
-  // 票窗判据必须走单源 lib,不许在本文件里另写一份阈值
-  assert.match(src, /trae-token-window\.mjs/, '票窗判据必须 import 单源 lib')
-  assert.match(src, /traeTokenVerdict\(/, '票窗判定必须调单源函数')
+  assert.match(src, /warn-preflight-undetermined/, '未判定应降级为告警并继续,由客户端验收兜底')
   // 只有上游明确拒收(4xx + 具名码)才可 rejected;10101 走的是 400,不能只认 401/403。
   // 2026-11-12 起具名码分类住在协议层单源(classifyExchangeReject),本处只断"接线到了它",
   // 不再把码字面抄进测试 —— 抄一份就等于在测试里维护第二份判据(§0.6)。
