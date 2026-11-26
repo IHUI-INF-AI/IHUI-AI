@@ -2227,6 +2227,7 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 📚 ドキュメント:固化 6/6 安全 benchmark 报告与账本读数 (074f3ae1)
 - 🚀 機能/改善:三端共享 ACP 契约并发布安全 benchmark (791c94d1)
 - 🚀 機能/改善:register all 15 mcp-extended routes on loopback host (9d9b5714)
 - 🐞 修正:修正 7 个模型零售价并补齐生产官方 DeepSeek 行 (e2317ccd)

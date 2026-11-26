@@ -84,6 +84,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 📚 文档:固化 6/6 安全 benchmark 报告与账本读数 (074f3ae1)
 - 🐞 修复:协议测试移入 tests 面并同步最近更新 (eb5e876f)
 - 🚀 新功能/改进:三端共享 ACP 契约并发布安全 benchmark (791c94d1)
 - 🚀 新功能/改进:register all 15 mcp-extended routes on loopback host (9d9b5714)

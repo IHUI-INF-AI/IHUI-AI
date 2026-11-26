@@ -1,7 +1,7 @@
 {
   "schema": "ihui-agent-safety-benchmark/v1",
-  "generatedAt": "2026-11-26T09:20:19.148Z",
-  "gitHead": "d576c848a86e60807b6adf7db1491221c85f1cca",
+  "generatedAt": "2026-11-26T10:06:04.205Z",
+  "gitHead": "074f3ae1f6ff60398288d8011a7b104711360d30",
   "scope": [
     "桌面命令暴露面",
     "生产窗口安全",
@@ -29,7 +29,7 @@
       "exitCode": 0,
       "stdout": "[L05/L07 桌面通道注册表] state=ok 注册=20 调用点字面量=0 无对应命令=0 重名=0 桥清单=20 清单差异=0 预算=20/20\n  ✅ 命令名单一来源、壳侧清单一致且未超暴露面预算",
       "stderr": "",
-      "durationMs": 1410
+      "durationMs": 1204
     },
     {
       "id": "window-security",
@@ -38,7 +38,7 @@
       "exitCode": 0,
       "stdout": "[L13 窗口安全断言] face=head state=ok 红=0 过=7 警=1\n  ✅ withGlobalTauri:false\n  ✅ csp:default-src 在位\n  ✅ csp:无 unsafe-eval\n  ✅ csp:script-src 受限:'self'\n  ✅ cargo:tauri 默认特性不含 devtools\n  ✅ cargo:devtools 为显式 opt-in feature\n  ✅ capabilities:扫 2 份、93 条权限,无裸 * / 无 shell 执行族\n  ⚠️  capabilities:default.json 的 remote 面暴露 allow-embedded-browser-devtools,allow-toggle-devtools(建议改本地面,未阻塞)",
       "stderr": "",
-      "durationMs": 423
+      "durationMs": 378
     },
     {
       "id": "mcp-loopback-route-parity",
@@ -54,7 +54,7 @@
       "exitCode": 0,
       "stdout": "mcp-loopback-route-parity {\"fastifyRoutes\":15,\"adapterRoutes\":15,\"missing\":[],\"extra\":[],\"duplicate\":0}",
       "stderr": "",
-      "durationMs": 71
+      "durationMs": 47
     },
     {
       "id": "acp-three-end-contract",
@@ -69,7 +69,7 @@
       "exitCode": 0,
       "stdout": "acp-three-end-contract {\"files\":9,\"missing\":0,\"problems\":0,\"ends\":3}",
       "stderr": "",
-      "durationMs": 66
+      "durationMs": 51
     },
     {
       "id": "acp-method-single-source",
@@ -78,7 +78,7 @@
       "exitCode": 0,
       "stdout": "[L14 协议单一真相源] state=ok 命中=10 sdk=5 测试=5 存量债=0 越界=0\n  ✅ 除 sdk 与测试外,无第二份方法名字面量",
       "stderr": "",
-      "durationMs": 413
+      "durationMs": 402
     },
     {
       "id": "r8-real-window",

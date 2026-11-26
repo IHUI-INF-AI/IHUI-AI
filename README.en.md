@@ -99,6 +99,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 📚 Docs:固化 6/6 安全 benchmark 报告与账本读数 (074f3ae1)
 - 🚀 Feature/Improvement:三端共享 ACP 契约并发布安全 benchmark (791c94d1)
 - 🚀 Feature/Improvement:register all 15 mcp-extended routes on loopback host (9d9b5714)
 - 🐞 Fix:修正 7 个模型零售价并补齐生产官方 DeepSeek 行 (e2317ccd)
