@@ -269,6 +269,19 @@ async def get_session_info(
     }
 
 
+@router.get("/sessions/{session_id}/state")
+async def get_session_state(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """PIP 轻量状态:导航、任务、phase；不读 cookies,适合 1s 轮询。"""
+    try:
+        session = hub.require_tab(_tab_scope(session_id, user_id))
+    except BrowserTabScopeError as exc:
+        raise _tab_scope_denial(exc) from exc
+    return {"code": 0, "message": "ok", "data": await session.live_state()}
+
+
 @router.delete("/sessions/{session_id}")
 async def close_session(
     session_id: str,
@@ -559,6 +572,7 @@ async def bind_task(
         snapshot = await session.start_task(_task_payload(body, user_id))
     except TaskValidationError as exc:
         raise _task_denial(exc) from exc
+    await hub.persist_sessions()
     return {"code": 0, "message": "任务已绑定", "data": {"task": snapshot}}
 
 
@@ -595,6 +609,7 @@ async def handle_checkpoint(
             data = await session.resume_checkpoint(body.checkpoint_id)
     except TaskValidationError as exc:
         raise _task_denial(exc) from exc
+    await hub.persist_sessions()
     return {"code": 0, "message": "检查点已更新", "data": data}
 
 
