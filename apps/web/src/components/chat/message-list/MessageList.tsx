@@ -168,8 +168,8 @@ export function MessageList({
   const chatStore = usePaneChatStore()
   const paneId = useOptionalPaneId()
   // 换腿交代只对「我的号池」可见(2026-11-26 定档):pool 通道是用户自己的账号资产,
-  // platform/auto 走的都是我们的路由,一律静默。
-  const modelChannel = chatStore((s) => s.currentModelChannel)
+  // platform/auto 走的都是我们的路由,一律静默。闸不做在 store 通道上,只认事件来源
+  // —— 事件唯一生产者就是号池分支,store 通路不带通道时也不会漏显示。
 
   // 2026-11-15:去掉「步骤/命令/叙述」档位切换与过滤 —— 思考、工具调用、正文
   // 统一按同一条流式时间线完整呈现,不再按档位裁掉活动条目。
@@ -768,8 +768,13 @@ export function MessageList({
             换腿是基础设施的容错,不是用户要处理的事件,横幅反而放大焦虑。
             但「我的号池」通道例外:那是用户自己的账号,哪一号限流/额度不足、换到了哪一号,
             属于用户自己的资产状态,必须交代(2026-11-26 用户明确定档)。
-            判据只有一条:本轮走的是 pool 通道 ⇒ 渲染;platform(auto/平台模型)⇒ 静默。 */}
-        {fallbackNotice && modelChannel === 'pool' && (
+            判据只有一条:事件本身由 pool 通道产生(setFallbackNotice 唯一生产者是
+            send-message 的号池分支)⇒ 渲染;platform(auto/平台模型)从不发这个事件 ⇒ 静默。
+            2026-11-26 修:此前用 store 的 currentModelChannel 做闸,但 UI 的通路单参
+            onModelChange 不带通道,store 长期停在 'platform',号池模型经 isPoolModelId
+            命中就发了,闸却判 false ⇒ 用户自己的号池换号反而看不到交代。改按事件判,
+            store 通道与本次实际通道不一致时也不误伤。 */}
+        {fallbackNotice && (
           <FallbackBanner
             fallbackNotice={fallbackNotice}
             onClearFallbackNotice={onClearFallbackNotice}

@@ -325,4 +325,80 @@ export function renderChatLab(
     })),
   }
 }
+
+/** SQL 字面量：只把单引号翻倍（standard_conforming_strings 下反斜杠按字面处理），其余原样。 */
+export function sqlLiteral(value: string | null | undefined): string {
+  if (value === null || value === undefined) return 'NULL'
+  return `'${value.replace(/'/g, "''")}'`
+}
+
+/** 目标时区的 `+08:00` 形式偏移，供 timestamptz 字面量带时区写入。 */
+function zoneOffsetText(date: Date, timezone: string): string {
+  const offset = zoneOffsetMinutes(date, timezone)
+  const sign = offset >= 0 ? '+' : '-'
+  const abs = Math.abs(offset)
+  const hours = String(Math.floor(abs / 60)).padStart(2, '0')
+  const minutes = String(abs % 60).padStart(2, '0')
+  return `${sign}${hours}:${minutes}`
+}
+
+/**
+ * PostgreSQL 导出：一张固定表 `wechat_hub_export_messages` + 幂等 INSERT。
+ *
+ * 为什么不是 `COPY` 或裸 `INSERT` 堆：拿去做归档/迁移的人会重复导入同一份文件，
+ * 主键 message_id 配 `ON CONFLICT DO NOTHING` 才不会把同一句话存两遍；
+ * 时间统一写成带偏移的 timestamptz 字面量，跨时区导入不会漂。
+ */
+export function renderPostgresSql(
+  accountLabel: string,
+  conversations: ExportConversationMeta[],
+  messages: ExportMessageRow[],
+  timezone: string,
+  exportedAt = new Date(),
+): string {
+  const titles = new Map(conversations.map((item) => [item.id, item]))
+  const lines: string[] = [
+    '-- IHUI AI · 微信聊天记录导出（PostgreSQL）',
+    `-- 账号：${accountLabel.replace(/[\r\n]+/g, ' ')} · 时区：${timezone} · 导出时间：${exportedAt.toISOString()}`,
+    `-- 消息数：${messages.length} · 表：wechat_hub_export_messages（按 message_id 幂等）`,
+    'BEGIN;',
+    'CREATE TABLE IF NOT EXISTS wechat_hub_export_messages (',
+    '  message_id text PRIMARY KEY,',
+    '  conversation_id text NOT NULL,',
+    '  conversation_title text NOT NULL,',
+    '  conversation_kind text NOT NULL,',
+    '  direction text NOT NULL,',
+    '  kind text NOT NULL,',
+    '  sender_id text,',
+    '  sender_name text,',
+    '  content text NOT NULL,',
+    '  media_url text,',
+    '  sent_at timestamptz NOT NULL',
+    ');',
+  ]
+  for (const message of messages) {
+    const conversation = titles.get(message.conversationId)
+    const title = message.conversationTitle || conversation?.title || '（未命名会话）'
+    const sentAt = `${formatInZone(message.sentAt, timezone)}${zoneOffsetText(message.sentAt, timezone)}`
+    lines.push(
+      'INSERT INTO wechat_hub_export_messages (message_id, conversation_id, conversation_title, conversation_kind, direction, kind, sender_id, sender_name, content, media_url, sent_at) VALUES (' +
+        [
+          sqlLiteral(message.platformMessageId || message.id),
+          sqlLiteral(message.conversationId),
+          sqlLiteral(title),
+          sqlLiteral(message.conversationKind || conversation?.kind || 'single'),
+          sqlLiteral(message.direction),
+          sqlLiteral(message.kind),
+          sqlLiteral(message.senderId),
+          sqlLiteral(message.senderName),
+          sqlLiteral(message.content),
+          sqlLiteral(message.mediaUrl),
+          `'${sentAt}'::timestamptz`,
+        ].join(', ') +
+        ') ON CONFLICT (message_id) DO NOTHING;',
+    )
+  }
+  lines.push('COMMIT;', '')
+  return lines.join('\n')
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
