@@ -15,6 +15,7 @@ import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import type { WechatMomentArchiveView } from '@ihui/types'
 import { wechatHubApi } from './wechat-hub-api'
+import { formatMomentComments } from './moment-comment-format'
 import MomentLocalMedia from './MomentLocalMedia'
 
 const ARCHIVE_PAGE_SIZE = 50
@@ -98,8 +99,11 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
 
       {archive && moments.length > 0 ? (
         <div className="max-h-64 space-y-2 overflow-auto pr-1">
-          {moments.map((moment) => (
-            <div key={moment.id} className="rounded-md bg-muted/40 p-2 text-sm">
+          {moments.map((moment) => {
+            const commentView = formatMomentComments(moment.commentsData)
+            const previewLines = commentView.lines.slice(0, 2)
+            return (
+              <div key={moment.id} className="rounded-md bg-muted/40 p-2 text-sm">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium">
                   {moment.authorName.trim() || '未命名'}
@@ -125,10 +129,20 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
                 {moment.likeUsers && moment.likeUsers.length > 0
                   ? ` · 点赞 ${moment.likeUsers.length} 人`
                   : ''}
-                {moment.commentsData && moment.commentsData.length > 0
-                  ? ` · 评论 ${moment.commentsData.length} 条`
+                {commentView.total > 0
+                  ? ` · 评论 ${commentView.total} 条`
                   : ''}
               </p>
+              {commentView.total > 0 ? (
+                <div className="mt-0.5 space-y-0.5 text-xs text-muted-foreground">
+                  {previewLines.map((line, index) => (
+                    <p key={index} className="whitespace-pre-wrap break-words">{line}</p>
+                  ))}
+                  {commentView.total > previewLines.length ? (
+                    <p className="whitespace-pre-wrap">等 {commentView.total} 条</p>
+                  ) : null}
+                </div>
+              ) : null}
               {moment.mediaMissingCount && moment.mediaMissingCount > 0 ? (
                 <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
                   {moment.mediaMissingCount}{' '}
@@ -143,8 +157,9 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
               {moment.mediaLocalDir ? (
                 <MomentLocalMedia accountId={accountId} momentId={moment.momentKey ?? moment.id} />
               ) : null}
-            </div>
-          ))}
+              </div>
+            )
+          })}
         </div>
       ) : null}
 

@@ -30,6 +30,7 @@ import {
   formatMomentFields,
   formatMomentMediaStats,
 } from './moment-status'
+import { formatMomentComments } from './moment-comment-format'
 import MomentArchivePanel from './MomentArchivePanel'
 import MomentLocalMedia from './MomentLocalMedia'
 
@@ -198,6 +199,7 @@ export default function MomentCard({
             <div className="max-h-64 space-y-2 overflow-auto pr-1">
               {fetchResult.moments.map((moment) => {
                 const extra = formatMomentExtra(moment)
+                const commentView = formatMomentComments(moment.commentsData)
                 return (
                   <div key={moment.id} className="rounded-md bg-muted/40 p-2 text-sm">
                     <div className="flex items-center justify-between gap-2">
@@ -233,17 +235,18 @@ export default function MomentCard({
                         {moment.likeUsers.length > 6 ? ` 等 ${moment.likeUsers.length} 人` : ''}
                       </p>
                     ) : null}
-                    {moment.commentsData && moment.commentsData.length > 0 ? (
-                      <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
-                        评论：
-                        {moment.commentsData
-                          .slice(0, 4)
-                          .map((item) => item.content)
-                          .join(' / ')}
-                        {moment.commentsData.length > 4
-                          ? ` 等 ${moment.commentsData.length} 条`
-                          : ''}
-                      </p>
+                    {commentView.total > 0 ? (
+                      <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                        {commentView.lines.map((line, index) => (
+                          <p key={index} className="whitespace-pre-wrap break-words">
+                            {index === 0 ? '评论：' : ''}
+                            {line}
+                          </p>
+                        ))}
+                        {commentView.total > commentView.lines.length ? (
+                          <p className="whitespace-pre-wrap">等 {commentView.total} 条</p>
+                        ) : null}
+                      </div>
                     ) : null}
                     {extra ? <p className="mt-1 text-xs text-muted-foreground">{extra}</p> : null}
                   </div>
