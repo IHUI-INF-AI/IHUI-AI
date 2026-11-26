@@ -36,6 +36,12 @@ export type WebViewMode =
   | 'external'
   | 'cdp'
   /**
+   * pip(2026-11-26):工作面内停靠的 AI 画中画监看 —— 同一 Browser Hub
+   * session,画在 Web 端 canvas 里,不另开 Document PiP/Tauri 窗。
+   * 与独立窗共用 AiPipMonitor 组件,任务条/检查点/接管语义完全一致。
+   */
+  | 'pip'
+  /**
    * docked(2026-10-25):停靠内嵌浏览器 —— 页面画在原生 docked webview 里
    * (Rust `embedded_browser_dock.rs`),前端只持一个占位 Tab 记录 url/title。
    * 消费方 web-work-panel.tsx / GlobalTopBar.tsx 已在比 `=== 'docked'`,

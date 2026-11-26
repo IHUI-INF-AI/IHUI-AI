@@ -367,6 +367,8 @@ interface WorkPanelState {
   onEmbedNavigation: (url: string, title?: string, kind?: 'nav' | 'loaded') => void
   /** 直接用已有 sessionId 打开 CDP tab(扫码登录用,跳过 probeEmbed 探测 + createBrowserSession) */
   openCdpSession: (url: string, sessionId: string, title?: string) => void
+  /** 在工作面内停靠 AI 画中画监看(同一 Browser Hub session,不另开窗) */
+  openPipSession: (sessionId: string, url: string, title?: string) => void
   /**
    * 切换会话作用域(D50②):把活视图 stash 进旧作用域的桶,再装入新作用域的桶
    * (无桶 → 空视图)。conversationId=null 退回全局桶。同值调用为 no-op。
@@ -1073,6 +1075,37 @@ export const useWorkPanelStore = create<WorkPanelState>()(
           status: 'loaded',
           url,
           mode: 'cdp',
+          sessionId,
+          title: title ?? url,
+        }
+        set({
+          open: true,
+          tabs: [...tabs, tab],
+          activeTabId: tab.id,
+          addressInput: url,
+          recentUrls: [
+            { url, title: title ?? url, visitedAt: Date.now() },
+            ...recentUrls.filter((r) => r.url !== url),
+          ].slice(0, MAX_RECENT_URLS),
+        })
+      },
+
+      openPipSession: (sessionId, url, title) => {
+        const { tabs, recentUrls } = get()
+        // 同一 Browser Hub 会话只允许一个停靠监看 tab;重复打开就聚焦原 tab,
+        // 不复制 MJPEG/state 连接,也不把已有 CDP tab 换成只读监看。
+        const existing = tabs.find(
+          (tab) => tab.state.mode === 'pip' && tab.state.sessionId === sessionId,
+        )
+        if (existing) {
+          set({ open: true, activeTabId: existing.id, addressInput: url })
+          return
+        }
+        const tab = createTab(url, title)
+        tab.state = {
+          status: 'loaded',
+          url,
+          mode: 'pip',
           sessionId,
           title: title ?? url,
         }

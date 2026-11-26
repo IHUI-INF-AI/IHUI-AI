@@ -50,6 +50,7 @@ import { Tooltip } from '@/components/feedback'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 
 import { CdpBrowserView } from './cdp-browser-view'
+import { AiPipMonitor } from '@/components/browser-pip/ai-pip-monitor'
 
 /** 两组停靠标签是否等价(字段级逐项比对,避免无意义的状态替换)。 */
 function dockTabsEqual(a: DockedBrowserTab[], b: DockedBrowserTab[]): boolean {
@@ -264,18 +265,23 @@ export function WebWorkPanel() {
   const sessionId = activeTab?.state.sessionId
   const proxyUrl = activeTab?.state.proxyUrl
   const isCdpMode = rawMode === 'cdp' && !!sessionId
+  const isPipMode = rawMode === 'pip' && !!sessionId
   const isDockedMode = rawMode === 'docked'
   const isProxyMode = rawMode === 'proxy' && !!proxyUrl
   const mode: 'iframe' | 'screenshot' | 'external' =
-    rawMode === 'native' || rawMode === 'cdp'
+    rawMode === 'native' || rawMode === 'cdp' || rawMode === 'pip'
       ? 'external'
       : (rawMode as 'iframe' | 'screenshot' | 'external')
   const screenshot = activeTab?.state.screenshot
   const title = activeTab?.state.title
   const error = activeTab?.state.error
   const isLoading = status === 'loading'
-  const canBack = activeTab ? activeTab.historyIndex > 0 : false
-  const canForward = activeTab ? activeTab.historyIndex < activeTab.history.length - 1 : false
+  const canBack = isPipMode ? false : activeTab ? activeTab.historyIndex > 0 : false
+  const canForward = isPipMode
+    ? false
+    : activeTab
+      ? activeTab.historyIndex < activeTab.history.length - 1
+      : false
 
   // 停靠档工具条直连原生命令(2026-10-24 用户反馈「独立窗口有的功能这里没有」):
   // 停靠浏览器是 OS 级子 webview,store 的 iframe/代理导航对它无效 —— 不接就是死按钮。
@@ -286,6 +292,8 @@ export function WebWorkPanel() {
   }, [])
 
   const handleAddressSubmit = React.useCallback(() => {
+    // 停靠/画中画监看都是"跟随已有 Browser Hub 会话",地址栏不是导航入口。
+    if (isPipMode) return
     if (!isDockedMode) {
       navigate(addressInput, 'user')
       return
@@ -294,22 +302,25 @@ export function WebWorkPanel() {
     if (!raw) return
     const target = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
     void runDockAction(() => dockedBrowserNavigate(target))
-  }, [addressInput, isDockedMode, navigate, runDockAction])
+  }, [addressInput, isDockedMode, isPipMode, navigate, runDockAction])
 
   const handleBack = React.useCallback(() => {
+    if (isPipMode) return
     if (isDockedMode) void runDockAction(dockedBrowserBack)
     else back()
-  }, [back, isDockedMode, runDockAction])
+  }, [back, isDockedMode, isPipMode, runDockAction])
 
   const handleForward = React.useCallback(() => {
+    if (isPipMode) return
     if (isDockedMode) void runDockAction(dockedBrowserForward)
     else forward()
-  }, [forward, isDockedMode, runDockAction])
+  }, [forward, isDockedMode, isPipMode, runDockAction])
 
   const handleReload = React.useCallback(() => {
+    if (isPipMode) return
     if (isDockedMode) void runDockAction(dockedBrowserReload)
     else reload()
-  }, [isDockedMode, reload, runDockAction])
+  }, [isDockedMode, isPipMode, reload, runDockAction])
 
   // 元素点选(2026-10-24):独立窗口有的能力,停靠档不能少 —— 复用同一份 PICK_JS,
   // Rust 端把它 eval 进停靠 webview,点选结果仍走 embedded-browser://element-picked
@@ -327,9 +338,10 @@ export function WebWorkPanel() {
   }, [activeTab?.id, addressInput])
 
   const handleHome = React.useCallback(() => {
+    if (isPipMode) return
     if (isDockedMode) void runDockAction(dockedBrowserHome)
     else navigate('https://aizhs.top/', 'user')
-  }, [isDockedMode, navigate, runDockAction])
+  }, [isDockedMode, isPipMode, navigate, runDockAction])
 
   // 停靠浏览器**内部**标签栏(2026-10-24 用户要求「多标签栏都应该有」):
   // 标签状态归 Rust 会话(每个标签一个子 webview,hide/show 切换),这里只做渲染 +
@@ -896,6 +908,27 @@ export function WebWorkPanel() {
               </button>
             </div>
             <div data-ihui-dock-host className="min-h-0 w-full flex-1" />
+          </div>
+        ) : isPipMode && sessionId ? (
+          <div className="h-full w-full overflow-hidden">
+            <AiPipMonitor
+              sessionId={sessionId}
+              embedded
+              onHandover={() => {
+                const latest = useWorkPanelStore.getState()
+                const pipTab = latest.tabs.find(
+                  (tab) => tab.state.mode === 'pip' && tab.state.sessionId === sessionId,
+                )
+                const cdpTab = latest.tabs.find(
+                  (tab) => tab.state.mode === 'cdp' && tab.state.sessionId === sessionId,
+                )
+                // 接管=结束只读监看,释放 MJPEG/state 轮询;与独立窗接管关闭浮窗同语义。
+                if (pipTab) latest.closeTab(pipTab.id)
+                if (cdpTab) latest.setActiveTab(cdpTab.id)
+                else latest.openCdpSession(url || 'about:blank', sessionId, title || url || '')
+                latest.openPanel()
+              }}
+            />
           </div>
         ) : isCdpMode && sessionId ? (
           <CdpBrowserView
