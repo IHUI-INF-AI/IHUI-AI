@@ -21,6 +21,7 @@ import {
   type LlmPointsRates,
 } from './llm-points-pricing.js'
 import {
+  getPointsHoldPricingSnapshot,
   reservePointsUsage,
   settlePointsUsage,
   type ReservePointsUsageResult,
@@ -111,14 +112,32 @@ function ratesForQuote(rates: LlmPointsRates | null): {
   }
 }
 
+/** 预扣快照里的费率(结算按它算,避免调价影响在途请求)。 */
+export interface LlmRatesOverride {
+  inputPointsPer1k: number
+  outputPointsPer1k: number
+  pricingModelId?: string | null
+  pricingSource?: string
+}
+
 /** 读取模型当前费率并算出应扣积分。 */
 export async function quoteLlmPoints(input: {
   modelId: string
   promptTokens: number
   completionTokens: number
+  /** 结算时传预扣快照;缺省才读当前费率 */
+  ratesOverride?: LlmRatesOverride | null
 }): Promise<LlmPointsQuote> {
-  const rates = await getLlmPointsRates(input.modelId)
-  const effective = ratesForQuote(rates)
+  const rates = input.ratesOverride ? null : await getLlmPointsRates(input.modelId)
+  const effective = input.ratesOverride
+    ? {
+        inputPointsPer1k: input.ratesOverride.inputPointsPer1k,
+        outputPointsPer1k: input.ratesOverride.outputPointsPer1k,
+        pricingModelId: input.ratesOverride.pricingModelId ?? null,
+        pricingSource: (input.ratesOverride.pricingSource ??
+          'ai_pricing') as LlmPointsQuote['pricingSource'],
+      }
+    : ratesForQuote(rates)
   const promptTokens = Math.max(0, Math.floor(input.promptTokens))
   const completionTokens = Math.max(0, Math.floor(input.completionTokens))
   return {
@@ -205,6 +224,13 @@ export async function reserveLlmPoints(input: {
     source,
     referenceId: input.referenceId,
     modelId: input.modelId,
+    pricingSnapshot: {
+      inputPointsPer1k: quote.inputPointsPer1k,
+      outputPointsPer1k: quote.outputPointsPer1k,
+      pricingModelId: quote.pricingModelId,
+      pricingSource: quote.pricingSource,
+      frozenAt: new Date().toISOString(),
+    },
   })
   if (reservation.alreadySettled) {
     return {
@@ -311,15 +337,39 @@ export async function settleLlmPointsUsage(input: {
   holdReferenceId?: string
   holdSource?: string
 }): Promise<LlmPointsSettlement> {
-  const quote = await quoteLlmPoints(input)
+  const holdSource = input.holdSource ?? input.source
+  const holdReferenceId = input.holdReferenceId ?? input.referenceId
+  let ratesOverride: LlmRatesOverride | null = null
+  if (holdReferenceId) {
+    const snap = await getPointsHoldPricingSnapshot({
+      userId: input.userId,
+      source: holdSource,
+      referenceId: holdReferenceId,
+    })
+    if (
+      snap &&
+      typeof snap.inputPointsPer1k === 'number' &&
+      Number.isFinite(snap.inputPointsPer1k) &&
+      typeof snap.outputPointsPer1k === 'number' &&
+      Number.isFinite(snap.outputPointsPer1k)
+    ) {
+      ratesOverride = {
+        inputPointsPer1k: snap.inputPointsPer1k,
+        outputPointsPer1k: snap.outputPointsPer1k,
+        pricingModelId: typeof snap.pricingModelId === 'string' ? snap.pricingModelId : undefined,
+        pricingSource: snap.pricingSource === 'unknown_default' ? 'unknown_default' : 'ai_pricing',
+      }
+    }
+  }
+  const quote = await quoteLlmPoints({ ...input, ratesOverride })
   const settlement = await settlePointsUsage({
     userId: input.userId,
     amount: quote.points,
     source: input.source,
     description: input.description ?? `${input.modelId} 用量 ${quote.totalTokens} tokens`,
     referenceId: input.referenceId,
-    holdReferenceId: input.holdReferenceId ?? input.referenceId,
-    holdSource: input.holdSource ?? input.source,
+    holdReferenceId,
+    holdSource,
   })
   return { ...settlement, quote }
 }

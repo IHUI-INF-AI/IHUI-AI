@@ -44,6 +44,8 @@ export interface MediaPointsQuote {
   /** 报价来源:只可能命中 ai_pricing */
   source: 'ai_pricing'
   category: MediaCategory
+  /** 视频计价单位(按次/按秒);其它类别为 null。用于冻结快照结算 */
+  videoUnit?: 'call' | 'second' | null
 }
 
 /** 单位数归一化:非正/非有限一律按 1,防止 0 元或负数扣费。 */
@@ -112,6 +114,14 @@ export function quoteMediaPoints(input: {
     costCents: computeCostCents(pricing.costUnitPrice, appliedUnits),
     source: 'ai_pricing',
     category,
+    videoUnit:
+      category === 'video'
+        ? pricing.videoUnit === 'second'
+          ? 'second'
+          : pricing.videoUnit === 'call'
+            ? 'call'
+            : null
+        : null,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

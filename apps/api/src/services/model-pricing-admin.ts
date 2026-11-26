@@ -323,6 +323,11 @@ export async function updateModelPrice(args: {
 
   const inP = Math.round(args.inputPer1k * 1e6) / 1e6
   const outP = Math.round(args.outputPer1k * 1e6) / 1e6
+  if (!(inP > 0) || !(outP > 0)) {
+    throw new Error(
+      '人工调价必须同时给出大于 0 的输入/输出价(分/千 token);免费模型与输出不适用模型请走 per_call 或下架',
+    )
+  }
 
   await args.applyPricing({
     modelId: args.modelId.toLowerCase(),
@@ -583,10 +588,23 @@ export interface CostBackfillResult {
   scanned: number
   /** 本次回填行数 */
   updated: number
-  /** 候选里缺 profitFactor、无法反推的行数 */
+  /** 候选里既无 profitFactor 也无公示价、无法反推的行数 */
   skipped: number
+  /** 按来源拆分,便于判断回填可信度 */
+  bySource: { metadata: number; catalog: number }
 }
 
+/**
+ * 成本列回填(2026-11-14 立,2026-11-26 扩展公示价兜底)。
+ *
+ * 两段幂等更新,只碰 cost_* 仍为空的行:
+ * 1. 有 `metadata.priceSource.profitFactor` 的,按历史售价反推;
+ * 2. 没有留痕但 `ai_pricing` 有同模型 token 公示价的,按 `公示价 / PROFIT_FACTOR` 反推。
+ *
+ * 第 2 段只用于把"有售价、没成本"的模型从 fail-closed 里救回来:成本由平台自己设定的
+ * 公示价倒推,毛利率恒等于 PROFIT_FACTOR,不会比公示价更亏;仍然没有公示价的模型继续
+ * 返回 null,由 LLM 预检 fail-closed 503,不白送。
+ */
 export async function backfillCostPrices(): Promise<CostBackfillResult> {
   const scanRes = await db.execute(sql`
     select count(*)::int as n
@@ -595,7 +613,7 @@ export async function backfillCostPrices(): Promise<CostBackfillResult> {
   `)
   const scanned = asNum(rowsOf<{ n: number }>(scanRes)[0]?.n)
 
-  const updatedRes = await db.execute(sql`
+  const metadataRes = await db.execute(sql`
     with src as (
       select id,
              input_price_per_1k,
@@ -615,8 +633,39 @@ export async function backfillCostPrices(): Promise<CostBackfillResult> {
       and s.pf >= 1
     returning m.id
   `)
-  const updated = rowsOf<Record<string, unknown>>(updatedRes).length
-  return { scanned, updated, skipped: Math.max(0, scanned - updated) }
+  const metadataUpdated = rowsOf<Record<string, unknown>>(metadataRes).length
+
+  const catalogRes = await db.execute(sql`
+    with src as (
+      select distinct on (lower(model_id))
+             lower(model_id) as mid,
+             input_token_price as ip,
+             output_token_price as op
+      from ai_pricing
+      where coalesce(billing_mode, 'token') = 'token'
+        and input_token_price > 0
+        and output_token_price > 0
+        and (expires_at is null or expires_at > now())
+      order by lower(model_id), effective_at desc
+    )
+    update ai_model_config_models m
+    set cost_input_price_per_1k = round(s.ip / ${PROFIT_FACTOR}, 6),
+        cost_output_price_per_1k = round(s.op / ${PROFIT_FACTOR}, 6),
+        updated_at = now()
+    from src s
+    where lower(m.model_id) = s.mid
+      and (m.cost_input_price_per_1k is null or m.cost_output_price_per_1k is null)
+    returning m.id
+  `)
+  const catalogUpdated = rowsOf<Record<string, unknown>>(catalogRes).length
+
+  const updated = metadataUpdated + catalogUpdated
+  return {
+    scanned,
+    updated,
+    skipped: Math.max(0, scanned - updated),
+    bySource: { metadata: metadataUpdated, catalog: catalogUpdated },
+  }
 }
 
 // =============================================================================
@@ -1142,6 +1191,100 @@ export interface UnpricedAlertRow {
   calls: number
   /** 这些零价调用估算烧掉的上游采购成本(分);售价为 0 时是唯一可量化的损失 */
   estimatedCostCents: number
+}
+
+export interface MissingCostModelRow {
+  modelId: string
+  providerCode: string
+  configId: number
+  inputCostPer1k: number | null
+  outputCostPer1k: number | null
+  inputPricePer1k: number
+  outputPricePer1k: number
+  calls: number
+}
+
+export interface MissingCostReport {
+  days: number
+  /** 启用中但成本列缺失的 distinct model_id 数 */
+  total: number
+  /** 近 N 天有调用、却因缺成本被 fail-closed 的 distinct model_id 数 */
+  calling: number
+  rows: MissingCostModelRow[]
+}
+
+/**
+ * 缺成本模型清单(2026-11-26 立)。
+ *
+ * `getLlmPointsRates` 只认 `cost_input/output_price_per_1k`,两者任一为 null 即返回 null,
+ * 调用侧按 fail-closed 返回 503。后台需要一张按调用量排序的补价清单,否则 500+ 个
+ * 模型会静默不可用。这里只读不写;补价走人工调价或 backfillCostPrices。
+ */
+export async function getMissingCostModels(args?: {
+  days?: number
+  limit?: number
+}): Promise<MissingCostReport> {
+  const span = Math.min(Math.max(Math.trunc(args?.days ?? 30), 1), 365)
+  const limit = Math.min(Math.max(Math.trunc(args?.limit ?? 500), 1), 2000)
+  const summaryRes = await db.execute(sql`
+    select
+      count(distinct lower(m.model_id))::int as total,
+      count(distinct case when coalesce(u.calls, 0) > 0 then lower(m.model_id) end)::int as calling
+    from ai_model_config_models m
+    left join (
+      select lower(model) as mid, count(*)::int as calls
+      from llm_call_logs
+      where created_at >= now() - (${span}::int * interval '1 day')
+        and status in ('success', 'partial')
+      group by 1
+    ) u on u.mid = lower(m.model_id)
+    where m.enabled = true
+      and (m.cost_input_price_per_1k is null or m.cost_output_price_per_1k is null)
+  `)
+  const summary = rowsOf<Record<string, unknown>>(summaryRes)[0] ?? {}
+
+  const res = await db.execute(sql`
+    select distinct on (lower(m.model_id), c.provider_code)
+      m.model_id,
+      c.provider_code,
+      m.config_id,
+      m.cost_input_price_per_1k,
+      m.cost_output_price_per_1k,
+      coalesce(m.input_price_per_1k, 0) as input_price_per_1k,
+      coalesce(m.output_price_per_1k, 0) as output_price_per_1k,
+      coalesce(u.calls, 0)::int as calls
+    from ai_model_config_models m
+    join ai_model_config c on c.id = m.config_id
+    left join (
+      select lower(model) as mid, count(*)::int as calls
+      from llm_call_logs
+      where created_at >= now() - (${span}::int * interval '1 day')
+        and status in ('success', 'partial')
+      group by 1
+    ) u on u.mid = lower(m.model_id)
+    where m.enabled = true
+      and (m.cost_input_price_per_1k is null or m.cost_output_price_per_1k is null)
+    order by lower(m.model_id), c.provider_code, m.config_id desc, calls desc
+    limit ${limit}
+  `)
+  const rows = rowsOf<Record<string, unknown>>(res).map((r) => ({
+    modelId: String(r['model_id'] ?? ''),
+    providerCode: String(r['provider_code'] ?? ''),
+    configId: asNum(r['config_id']),
+    inputCostPer1k:
+      r['cost_input_price_per_1k'] === null ? null : asNum(r['cost_input_price_per_1k']),
+    outputCostPer1k:
+      r['cost_output_price_per_1k'] === null ? null : asNum(r['cost_output_price_per_1k']),
+    inputPricePer1k: asNum(r['input_price_per_1k']),
+    outputPricePer1k: asNum(r['output_price_per_1k']),
+    calls: asNum(r['calls']),
+  }))
+  return {
+    days: span,
+    total: asNum(summary['total']),
+    calling: asNum(summary['calling']),
+    rows,
+  }
 }
 
 export interface UnpricedAlertReport {

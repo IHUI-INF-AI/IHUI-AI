@@ -3320,6 +3320,13 @@
       "when": 1795558800000,
       "tag": "20261126070000_points_hold_and_media_price_guard",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 479,
+      "when": 1795560600000,
+      "tag": "20261126090000_point_hold_pricing_snapshot",
+      "breakpoints": true
     }
   ]
 }

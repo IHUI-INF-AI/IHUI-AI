@@ -240,7 +240,32 @@ describe('FriendsAutomationCard', () => {
     renderCard()
 
     await waitFor(() => expect(screen.getByText('暂无操作记录')).toBeTruthy())
-    expect(screen.getByText('暂无待处理申请。')).toBeTruthy()
+    expect(screen.getByText(/暂无待处理申请/)).toBeTruthy()
+  })
+
+  it('窗口收起回退快照时提示数据是旧的，并给出快照年龄', async () => {
+    vi.mocked(wechatHubApi.friendsOverview).mockResolvedValue(
+      makeOverview({
+        scan: {
+          ok: true,
+          status: 'ok',
+          reason: null,
+          requests: [],
+          scannedAt: BASE_AT,
+          rawCount: 27,
+          entered: true,
+          entryExcluded: 1,
+          stale: true,
+          staleReason: 'window-hidden',
+          cacheAgeMs: 90_000,
+        },
+      }),
+    )
+
+    renderCard()
+
+    await waitFor(() => expect(screen.getByText(/微信窗口已收起/)).toBeTruthy())
+    expect(screen.getByText(/90 秒前采集的快照/)).toBeTruthy()
   })
 
   it('桥侧关闭时显示扫描不可用提示', async () => {
@@ -288,5 +313,27 @@ describe('FriendsAutomationCard', () => {
 
     await waitFor(() => expect(screen.getByText('申请扫描失败')).toBeTruthy())
     expect(screen.getByText('UIA 挂不到微信窗口')).toBeTruthy()
+  })
+
+  it('点「导出审计」走 API 拿 Blob 并触发下载', async () => {
+    const blob = new Blob(['at,ok\r\n'], { type: 'text/csv' })
+    const csv = vi.fn().mockResolvedValue(blob)
+    Object.assign(wechatHubApi as unknown as Record<string, unknown>, { friendsAuditCsv: csv })
+    const createObjectURL = vi.fn(() => 'blob:friends-audit')
+    const revokeObjectURL = vi.fn()
+    Object.assign(URL, { createObjectURL, revokeObjectURL })
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    vi.mocked(wechatHubApi.friendsOverview).mockResolvedValue(makeOverview())
+    renderCard()
+
+    const button = await screen.findByText('导出审计')
+    fireEvent.click(button)
+
+    await waitFor(() => expect(csv).toHaveBeenCalledWith('account-1'))
+    expect(createObjectURL).toHaveBeenCalledWith(blob)
+    expect(clickSpy).toHaveBeenCalledTimes(1)
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:friends-audit')
+    clickSpy.mockRestore()
   })
 })

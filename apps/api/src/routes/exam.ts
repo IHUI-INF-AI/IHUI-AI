@@ -74,6 +74,14 @@ import {
 } from '../db/exam-extended-queries.js'
 import { success, error } from '../utils/response.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+import { resolveDefaultChatModel } from '../utils/retired-providers.js'
+import {
+  ensureLlmPointsBalance,
+  readMaxCompletionTokens,
+  settleLlmPointsUsage,
+} from '../services/ai-points-billing.js'
+import { estimateTokens } from '../services/context-manager-service.js'
+import { releasePointsHold } from '../services/points-service.js'
 import { isAppError } from '../errors/AppError.js'
 import { contentEqual } from '@ihui/shared'
 
@@ -1133,6 +1141,20 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     ]
       .filter(Boolean)
       .join('\n')
+    // 2026-11-26:首次讲解是真实 LLM 生成,必须预扣+结算;已缓存回放仍免费。
+    const explainModel = resolveDefaultChatModel()
+    const explainPromptTokens = Math.max(1, estimateTokens(`${systemPrompt}\n${userContent}`))
+    const explainReference = `exam-explain:${row.id}:${request.id}`
+    const explainAllowed = await ensureLlmPointsBalance(
+      request,
+      reply,
+      explainModel,
+      explainPromptTokens,
+      readMaxCompletionTokens({ max_tokens: 1200 }),
+      { source: 'llm_chat', referenceId: explainReference },
+    )
+    if (!explainAllowed) return
+
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 30_000)
     let explanation: string
@@ -1146,10 +1168,18 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
             { role: 'user', content: userContent },
           ],
           temperature: 0.3,
+          max_tokens: 1200,
+          model: explainModel,
+          metadata: { source: 'exam-explain', userId, questionId: row.questionId },
         }),
         signal: controller.signal,
       })
       if (!res.ok) {
+        await releasePointsHold({
+          userId,
+          source: 'llm_chat',
+          referenceId: explainReference,
+        }).catch(() => undefined)
         return reply.status(502).send(error(502, `AI 服务返回 ${res.status}`))
       }
       const json = (await res.json()) as {
@@ -1157,12 +1187,54 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
         error?: boolean
         error_message?: string
         stub?: boolean
+        model?: string
+        usage?: {
+          prompt_tokens?: number
+          completion_tokens?: number
+          total_tokens?: number
+        }
       }
       if (json.error || json.stub || !json.content) {
+        await releasePointsHold({
+          userId,
+          source: 'llm_chat',
+          referenceId: explainReference,
+        }).catch(() => undefined)
         return reply.status(502).send(error(502, json.error_message ?? 'AI 讲解生成失败'))
       }
       explanation = json.content
+      const promptUsed = Math.max(
+        0,
+        Number(json.usage?.prompt_tokens ?? explainPromptTokens) || explainPromptTokens,
+      )
+      const completionUsed = Math.max(
+        0,
+        Number(json.usage?.completion_tokens ?? 0) ||
+          (json.usage?.total_tokens
+            ? Math.max(0, Number(json.usage.total_tokens) - promptUsed)
+            : 0) ||
+          Math.max(1, estimateTokens(explanation)),
+      )
+      try {
+        await settleLlmPointsUsage({
+          userId,
+          modelId: json.model?.trim() || explainModel,
+          promptTokens: promptUsed,
+          completionTokens: completionUsed,
+          source: 'llm_chat',
+          description: `错题讲解 ${explainModel}`,
+          referenceId: explainReference,
+          holdReferenceId: explainReference,
+        })
+      } catch (e) {
+        request.log.error({ err: e, userId, explainReference }, '[exam/explain] 积分结算失败')
+      }
     } catch (e) {
+      await releasePointsHold({
+        userId,
+        source: 'llm_chat',
+        referenceId: explainReference,
+      }).catch(() => undefined)
       request.log.error(e)
       const msg = e instanceof Error && e.name === 'AbortError' ? 'AI 讲解超时' : 'AI 讲解生成失败'
       return reply.status(502).send(error(502, msg))

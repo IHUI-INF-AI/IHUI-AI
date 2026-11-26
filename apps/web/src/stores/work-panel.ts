@@ -26,7 +26,7 @@ import { WORK_PANEL_STORAGE_KEY } from '@ihui/shared/constants'
  */
 export type WorkPanelOpenSource =
   'user' | 'ai-tool' | 'markdown-link' | 'markdown-image' | 'user-attachment-image'
-import type { WebViewMode, WebViewStatus, WorkPanelTab } from '@ihui/types'
+import type { WebViewMode, WebViewStatus, WorkPanelTab, PipSessionRef } from '@ihui/types'
 import type { PersistStorage } from 'zustand/middleware'
 
 import { createPersistConfig, ssrStorage } from './persist-helpers'
@@ -369,6 +369,8 @@ interface WorkPanelState {
   openCdpSession: (url: string, sessionId: string, title?: string) => void
   /** 在工作面内停靠 AI 画中画监看(同一 Browser Hub session,不另开窗) */
   openPipSession: (sessionId: string, url: string, title?: string) => void
+  /** 多会话同屏监看:一个 tab 内网格渲染多个 Browser Hub 会话,每格独立只读流 */
+  openPipWall: (sessions: PipSessionRef[], title?: string) => void
   /**
    * 切换会话作用域(D50②):把活视图 stash 进旧作用域的桶,再装入新作用域的桶
    * (无桶 → 空视图)。conversationId=null 退回全局桶。同值调用为 no-op。
@@ -1118,6 +1120,64 @@ export const useWorkPanelStore = create<WorkPanelState>()(
             { url, title: title ?? url, visitedAt: Date.now() },
             ...recentUrls.filter((r) => r.url !== url),
           ].slice(0, MAX_RECENT_URLS),
+        })
+      },
+
+      openPipWall: (sessions, title) => {
+        const unique = sessions
+          .filter((s) => s.sessionId)
+          .filter((s, i, arr) => arr.findIndex((x) => x.sessionId === s.sessionId) === i)
+          .slice(-6)
+        if (unique.length === 0) return
+        const { tabs, recentUrls } = get()
+        const existing = tabs.find((tab) => tab.state.mode === 'pip-wall')
+        const first = unique[0]!
+        const wallTitle = title ?? first.title ?? first.url
+        const nextRecent = [
+          { url: first.url, title: wallTitle, visitedAt: Date.now() },
+          ...recentUrls.filter((r) => r.url !== first.url),
+        ].slice(0, MAX_RECENT_URLS)
+        if (existing) {
+          set({
+            open: true,
+            activeTabId: existing.id,
+            addressInput: first.url,
+            recentUrls: nextRecent,
+            tabs: tabs.map((tab) =>
+              tab.id === existing.id
+                ? {
+                    ...tab,
+                    title: wallTitle,
+                    url: first.url,
+                    state: {
+                      ...tab.state,
+                      status: 'loaded',
+                      url: first.url,
+                      mode: 'pip-wall',
+                      pipSessions: unique,
+                      title: wallTitle,
+                    },
+                    updatedAt: Date.now(),
+                  }
+                : tab,
+            ),
+          })
+          return
+        }
+        const tab = createTab(first.url, wallTitle)
+        tab.state = {
+          status: 'loaded',
+          url: first.url,
+          mode: 'pip-wall',
+          pipSessions: unique,
+          title: wallTitle,
+        }
+        set({
+          open: true,
+          tabs: [...tabs, tab].slice(-MAX_TABS),
+          activeTabId: tab.id,
+          addressInput: first.url,
+          recentUrls: nextRecent,
         })
       },
 

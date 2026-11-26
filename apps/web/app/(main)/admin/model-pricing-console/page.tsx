@@ -104,6 +104,19 @@ interface ChannelCostReport {
   }
 }
 
+interface PointHoldHealth {
+  asOf: string
+  held: { count: number; points: number; oldestAgeMinutes: number }
+  staleHeld: { count: number; points: number }
+  last24h: {
+    expired: { count: number; points: number }
+    settled: { count: number; points: number }
+    released: { count: number; points: number }
+  }
+  bySource: Array<{ source: string; status: string; count: number; points: number }>
+  reservedMismatch: { users: number; points: number }
+}
+
 interface Item {
   id: number
   configId: number
@@ -226,6 +239,16 @@ export default function PricingConsolePage() {
     refetchInterval: 60_000,
   })
 
+  const holdHealth = useQuery({
+    queryKey: ['pricing-point-holds'],
+    queryFn: async () => {
+      const r = await fetchApi<PointHoldHealth>(`${BASE}/point-holds`)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    refetchInterval: 60_000,
+  })
+
   const list = useQuery({
     queryKey: ['pricing-models', q, provider, onlyProblems],
     queryFn: async () => {
@@ -321,6 +344,57 @@ export default function PricingConsolePage() {
       void qc.invalidateQueries({ queryKey: ['pricing-channel-cost'] })
     },
     onError: (e: Error) => setNotice(`配置价同步失败:${e.message}`),
+  })
+
+  const backfillCosts = useMutation({
+    mutationFn: async () => {
+      const r = await fetchApi<{
+        scanned: number
+        updated: number
+        skipped: number
+        bySource: { metadata: number; catalog: number }
+      }>(`${BASE}/backfill-cost`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      setNotice(
+        `模型成本回填:待补 ${d.scanned} 行,回填 ${d.updated} 行` +
+          `(历史留痕 ${d.bySource?.metadata ?? 0}/公示价 ${d.bySource?.catalog ?? 0})` +
+          `,仍缺成本 ${d.skipped} 行(继续 fail-closed)`,
+      )
+      void qc.invalidateQueries({ queryKey: ['pricing-overview'] })
+      void qc.invalidateQueries({ queryKey: ['pricing-models'] })
+      void qc.invalidateQueries({ queryKey: ['pricing-unpriced-alerts'] })
+      void qc.invalidateQueries({ queryKey: ['pricing-profit'] })
+    },
+    onError: (e: Error) => setNotice(`模型成本回填失败:${e.message}`),
+  })
+
+  const cleanupHolds = useMutation({
+    mutationFn: async () => {
+      const r = await fetchApi<{ expired: number; releasedPoints: number; deleted: number }>(
+        `${BASE}/point-holds/cleanup`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        },
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      setNotice(
+        `冻结回收:过期 ${d.expired} 笔,回退 ${d.releasedPoints} 积分,清理历史 ${d.deleted} 行`,
+      )
+      void qc.invalidateQueries({ queryKey: ['pricing-point-holds'] })
+    },
+    onError: (e: Error) => setNotice(`冻结回收失败:${e.message}`),
   })
 
   const backfillCalls = useMutation({
@@ -425,7 +499,20 @@ export default function PricingConsolePage() {
             价格单位:分/千 token(括号内为 元/百万 token)。零价 = 白送,兜底 = 猜价待复核。
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => backfillCosts.mutate()}
+            disabled={backfillCosts.isPending}
+            className="font-[weight:inherit] inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-label hover:bg-muted disabled:opacity-50"
+          >
+            {backfillCosts.isPending ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : (
+              <Coins className="size-3" />
+            )}
+            回填缺成本
+          </button>
           <button
             type="button"
             onClick={() => sweep.mutate()}
@@ -438,6 +525,19 @@ export default function PricingConsolePage() {
               <RefreshCw className="size-3" />
             )}
             巡检零价
+          </button>
+          <button
+            type="button"
+            onClick={() => cleanupHolds.mutate()}
+            disabled={cleanupHolds.isPending}
+            className="font-[weight:inherit] inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-label hover:bg-muted disabled:opacity-50"
+          >
+            {cleanupHolds.isPending ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : (
+              <Wallet className="size-3" />
+            )}
+            回收冻结
           </button>
           <button
             type="button"
@@ -508,6 +608,84 @@ export default function PricingConsolePage() {
           tone="ok"
         />
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="font-[weight:inherit] text-body">
+            积分冻结健康
+            {holdHealth.data ? (
+              <span className="ml-2 text-[10px] font-normal text-muted-foreground">
+                更新于 {new Date(holdHealth.data.asOf).toLocaleTimeString('zh-CN')}
+              </span>
+            ) : null}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {holdHealth.isLoading ? (
+            <div className="font-[weight:inherit] flex items-center gap-2 text-label text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" /> 加载冻结数据…
+            </div>
+          ) : holdHealth.isError ? (
+            <div className="font-[weight:inherit] text-label text-red-600">
+              冻结数据加载失败:{holdHealth.error.message}
+            </div>
+          ) : holdHealth.data ? (
+            <>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <StatCard
+                  icon={<Wallet className="size-5" />}
+                  label="在途冻结"
+                  value={`${holdHealth.data.held.count} 笔`}
+                  hint={`${holdHealth.data.held.points.toLocaleString('zh-CN')} 积分 · 最老 ${holdHealth.data.held.oldestAgeMinutes} 分钟`}
+                  tone={holdHealth.data.staleHeld.count > 0 ? 'warn' : 'ok'}
+                />
+                <StatCard
+                  icon={<AlertTriangle className="size-5" />}
+                  label="过期未回收"
+                  value={`${holdHealth.data.staleHeld.count} 笔`}
+                  hint={`${holdHealth.data.staleHeld.points.toLocaleString('zh-CN')} 积分;每日任务会自动回收`}
+                  tone={holdHealth.data.staleHeld.count > 0 ? 'bad' : 'ok'}
+                />
+                <StatCard
+                  icon={<CheckCircle2 className="size-5" />}
+                  label="24h 结算"
+                  value={`${holdHealth.data.last24h.settled.count} 笔`}
+                  hint={`收回 ${holdHealth.data.last24h.settled.points.toLocaleString('zh-CN')} 积分 · 过期回收 ${holdHealth.data.last24h.expired.points.toLocaleString('zh-CN')} · 主动释放 ${holdHealth.data.last24h.released.points.toLocaleString('zh-CN')}`}
+                  tone="ok"
+                />
+                <StatCard
+                  icon={<ShieldCheck className="size-5" />}
+                  label="reserved 账面偏差"
+                  value={`${holdHealth.data.reservedMismatch.users} 户`}
+                  hint={`差额 ${holdHealth.data.reservedMismatch.points.toLocaleString('zh-CN')} 积分;应为 0`}
+                  tone={holdHealth.data.reservedMismatch.users > 0 ? 'bad' : 'ok'}
+                />
+              </div>
+              {holdHealth.data.bySource.filter((r) => r.status === 'held').length > 0 ? (
+                <div className="space-y-1">
+                  <div className="font-[weight:inherit] text-[10px] text-muted-foreground">
+                    在途冻结按来源(前 6)
+                  </div>
+                  {holdHealth.data.bySource
+                    .filter((r) => r.status === 'held')
+                    .slice(0, 6)
+                    .map((r) => (
+                      <div
+                        key={`${r.source}-${r.status}`}
+                        className="flex justify-between gap-4 font-mono text-label"
+                      >
+                        <span>{r.source}</span>
+                        <span>
+                          {r.count} 笔 · {r.points.toLocaleString('zh-CN')} 积分
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </CardContent>
+      </Card>
 
       {unpricedAlerts.data &&
       (unpricedAlerts.data.publishedUnpriced > 0 || unpricedAlerts.data.callingUnpriced > 0) ? (

@@ -88,21 +88,32 @@ beforeEach(() => {
 })
 
 describe('readFriendsPolicy', () => {
-  it('缺省默认关闭，每小时 3 次', () => {
-    expect(readFriendsPolicy(undefined)).toEqual({ enabled: false, maxAcceptsPerHour: 3 })
+  it('缺省默认关闭：每小时 3 个、每 24 小时 10 个、间隔 60 秒', () => {
+    expect(readFriendsPolicy(undefined)).toEqual({
+      enabled: false,
+      maxAcceptsPerHour: 3,
+      maxAcceptsPerDay: 10,
+      minGapSeconds: 60,
+    })
     expect(readFriendsPolicy({ friendAutomation: null })).toEqual({
       enabled: false,
       maxAcceptsPerHour: 3,
+      maxAcceptsPerDay: 10,
+      minGapSeconds: 60,
     })
   })
 
-  it('非法类型回落缺省，越界数值夹到 1..10', () => {
+  it('非法类型回落缺省，越界数值夹到边界', () => {
     const policy = readFriendsPolicy({
-      friendAutomation: { enabled: 'yes', maxAcceptsPerHour: 99 },
+      friendAutomation: { enabled: 'yes', maxAcceptsPerHour: 99, maxAcceptsPerDay: 999, minGapSeconds: -5 },
     })
-    expect(policy).toEqual({ enabled: false, maxAcceptsPerHour: 10 })
-    const lower = readFriendsPolicy({ friendAutomation: { maxAcceptsPerHour: 0 } })
+    expect(policy.enabled).toBe(false)
+    expect(policy.maxAcceptsPerHour).toBe(10)
+    expect(policy.maxAcceptsPerDay).toBe(50)
+    expect(policy.minGapSeconds).toBe(0)
+    const lower = readFriendsPolicy({ friendAutomation: { maxAcceptsPerHour: 0, maxAcceptsPerDay: 0 } })
     expect(lower.maxAcceptsPerHour).toBe(1)
+    expect(lower.maxAcceptsPerDay).toBe(1)
   })
 })
 
@@ -120,8 +131,8 @@ describe('scanFriendRequests（读路径）', () => {
     expect(view.ok).toBe(true)
     expect(view.rawCount).toBe(3)
     expect(view.requests).toEqual([
-      { requestId: 'r1', nickname: '张三', source: '手机通讯录', kind: 'friend', clickable: true, seenAt: NOW - 5000 },
-      { requestId: 'r2', nickname: '某群', source: '群聊分享', kind: 'group-invite', clickable: false, seenAt: expect.any(Number) },
+      { requestId: 'r1', nickname: '张三', nicknameSource: 'control', source: '手机通讯录', kind: 'friend', clickable: true, seenAt: NOW - 5000 },
+      { requestId: 'r2', nickname: '某群', nicknameSource: 'control', source: '群聊分享', kind: 'group-invite', clickable: false, seenAt: expect.any(Number) },
     ])
   })
 
@@ -152,6 +163,32 @@ describe('scanFriendRequests（读路径）', () => {
     )
     const view = await scanFriendRequests('u1', 'acc-1')
     expect(view).toMatchObject({ status: 'failed', ok: false, reason: 'HTTP 502: bad gateway' })
+  })
+
+  it('窗口收起时桥回上次快照：透传 stale 与快照年龄，仍算 ok', async () => {
+    hoisted.performAction.mockResolvedValue(
+      scanBridgeResult([{ requestId: 'r1', nickname: '张三', clickable: true }], {
+        stale: true,
+        staleReason: 'window-hidden',
+        cacheAgeMs: 42000,
+        cached: true,
+      }),
+    )
+    const view = await scanFriendRequests('u1', 'acc-1')
+    expect(view.ok).toBe(true)
+    expect(view.stale).toBe(true)
+    expect(view.staleReason).toBe('window-hidden')
+    expect(view.cacheAgeMs).toBe(42000)
+    expect(view.requests[0]?.nickname).toBe('张三')
+  })
+
+  it('窗口收起且无历史快照：折 failed，但原因翻成人话', async () => {
+    hoisted.performAction.mockResolvedValue(
+      bridgeActionResult({ ok: false, reason: 'window-hidden-or-empty', data: { rawCount: 0 } }),
+    )
+    const view = await scanFriendRequests('u1', 'acc-1')
+    expect(view.status).toBe('failed')
+    expect(view.reason).toContain('微信窗口已收起')
   })
 })
 
@@ -246,15 +283,24 @@ describe('acceptFriendRequest（写路径四道闸）', () => {
     })
   })
 
-  it('审计超过 20 条截断：新条目保留，最旧条目丢弃', async () => {
+  it('审计超过保留上限截断：新条目保留，最旧条目丢弃', async () => {
     const existing = seedAudit(
       Array.from({ length: FRIENDS_AUDIT_KEEP }, (_, i) => ({
         requestId: `old-${i}`,
         ok: i % 2 === 0,
       })),
-      7_200_000,
+      // 全部落在 24 小时窗口之外，避免触发每日上限，只验证截断行为
+      3 * 86_400_000,
     )
-    setMetadata({ friendAutomation: { enabled: true, maxAcceptsPerHour: 10, audit: existing } })
+    setMetadata({
+      friendAutomation: {
+        enabled: true,
+        maxAcceptsPerHour: 10,
+        maxAcceptsPerDay: 50,
+        minGapSeconds: 0,
+        audit: existing,
+      },
+    })
     hoisted.performAction
       .mockResolvedValueOnce(scanBridgeResult([{ requestId: 'r-new', nickname: '新人', kind: 'friend', clickable: true }]))
       .mockResolvedValueOnce(bridgeActionResult({ ok: true, status: 'accepted', data: { status: 'accepted' } }))
@@ -266,6 +312,47 @@ describe('acceptFriendRequest（写路径四道闸）', () => {
     expect(patch.friendAutomation.audit.some((e) => e.requestId === 'old-0')).toBe(false)
     expect(patch.friendAutomation.audit[FRIENDS_AUDIT_KEEP - 1]).toMatchObject({ requestId: 'r-new', ok: true })
   })
+
+  it('24 小时上限：小时内没超但一天已满 ⇒ 429，不调桥', async () => {
+    const existing = seedAudit(
+      Array.from({ length: 10 }, (_, i) => ({ requestId: `d-${i}`, ok: true, status: 'accepted' })),
+      3 * 3_600_000, // 3 小时前，落在 24 小时窗口、落在小时窗口之外
+    )
+    setMetadata({
+      friendAutomation: {
+        enabled: true,
+        maxAcceptsPerHour: 10,
+        maxAcceptsPerDay: 10,
+        minGapSeconds: 0,
+        audit: existing,
+      },
+    })
+    await expect(acceptFriendRequest('u1', 'acc-1', 'r-new')).rejects.toMatchObject({
+      statusCode: 429,
+      errorCode: 'RATE_LIMITED',
+      message: expect.stringContaining('24 小时'),
+    })
+    expect(hoisted.performAction).not.toHaveBeenCalled()
+  })
+
+  it('最小间隔：上一次通过才过 30 秒 ⇒ 429 并说清还要等多久', async () => {
+    const existing = seedAudit([{ requestId: 'g-1', ok: true, status: 'accepted' }], 30_000)
+    setMetadata({
+      friendAutomation: {
+        enabled: true,
+        maxAcceptsPerHour: 10,
+        maxAcceptsPerDay: 50,
+        minGapSeconds: 60,
+        audit: existing,
+      },
+    })
+    await expect(acceptFriendRequest('u1', 'acc-1', 'r-new')).rejects.toMatchObject({
+      statusCode: 429,
+      errorCode: 'RATE_LIMITED',
+      message: expect.stringContaining('间隔不足 60 秒'),
+    })
+    expect(hoisted.performAction).not.toHaveBeenCalled()
+  })
 })
 
 describe('策略读写与聚合视图', () => {
@@ -273,7 +360,12 @@ describe('策略读写与聚合视图', () => {
     const existing = seedAudit([{ requestId: 'old-1', ok: true }])
     setMetadata({ friendAutomation: { enabled: false, maxAcceptsPerHour: 2, audit: existing } })
     const next = await updateFriendsPolicy('u1', 'acc-1', { enabled: true, maxAcceptsPerHour: 99 })
-    expect(next).toEqual({ enabled: true, maxAcceptsPerHour: 10 })
+    expect(next).toEqual({
+      enabled: true,
+      maxAcceptsPerHour: 10,
+      maxAcceptsPerDay: 10,
+      minGapSeconds: 60,
+    })
     const patch = hoisted.patchMetadata.mock.calls[0]?.[1] as {
       friendAutomation: { audit: WechatFriendAuditEntry[] }
     }
@@ -283,7 +375,12 @@ describe('策略读写与聚合视图', () => {
   it('readFriendsPolicyView 读出 metadata 策略', async () => {
     setMetadata({ friendAutomation: { enabled: true, maxAcceptsPerHour: 5 } })
     const policy = await readFriendsPolicyView('u1', 'acc-1')
-    expect(policy).toEqual<WechatFriendsPolicy>({ enabled: true, maxAcceptsPerHour: 5 })
+    expect(policy).toEqual<WechatFriendsPolicy>({
+      enabled: true,
+      maxAcceptsPerHour: 5,
+      maxAcceptsPerDay: 10,
+      minGapSeconds: 60,
+    })
   })
 
   it('readFriendsOverview 拼装 policy + scan + audit', async () => {
@@ -293,7 +390,12 @@ describe('策略读写与聚合视图', () => {
       scanBridgeResult([{ requestId: 'r1', nickname: '张三', kind: 'friend', clickable: true }]),
     )
     const overview = await readFriendsOverview('u1', 'acc-1')
-    expect(overview.policy).toEqual({ enabled: true, maxAcceptsPerHour: 3 })
+    expect(overview.policy).toEqual({
+      enabled: true,
+      maxAcceptsPerHour: 3,
+      maxAcceptsPerDay: 10,
+      minGapSeconds: 60,
+    })
     expect(overview.scan.status).toBe('ok')
     expect(overview.scan.requests[0]?.requestId).toBe('r1')
     expect(overview.audit).toHaveLength(1)
@@ -314,4 +416,3 @@ describe('策略读写与聚合视图', () => {
     expect(audit[0]?.requestId).toBe('ok-1')
   })
 })
-

@@ -42,7 +42,11 @@ import {
 // realpath 归一、档位取服务端权限行,回调只按 messageId 读(不再读会话级 workspacePath)。
 import { bindMessagePermissionStamp } from '../services/message-permission-stamp.js'
 import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
-import { ensureLlmPointsBalance, readMaxCompletionTokens } from '../services/ai-points-billing.js'
+import {
+  ensureLlmPointsBalance,
+  readMaxCompletionTokens,
+  settleLlmPointsUsage,
+} from '../services/ai-points-billing.js'
 // G-998168 票5:首帧耗时分段归因 —— 所有计时一律走 elapsed-ms 唯一出口(格②),
 // 裸 performance.now() 差值在端内是判红项。
 import { startStopwatch, type ElapsedSample } from '../utils/elapsed-ms.js'
@@ -614,6 +618,17 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         parentMessageId?: string
         siblingIndex?: number
       }
+      /**
+       * 2026-11-26:流内 usage 帧同步结算。没有 conversationId/messageId 的直连客户端
+       * 不能再靠回调免单;有 ID 时 referenceId 与回调幂等键完全一致,双路径互不重复扣。
+       */
+      billing?: {
+        referenceId: string
+        source: string
+        userId: string
+        modelId: string
+        promptEstimate: number
+      }
     },
     extraFirstEvents: Array<{ key: string; payload: unknown }> = [],
   ): Promise<void> {
@@ -774,6 +789,37 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       const messageId =
         typeof p.messageId === 'string' && p.messageId ? p.messageId : ledgerMessageId
       if (eventName === 'usage') {
+        // 2026-11-26:usage 帧即结算点。无 conversationId/messageId 的直连客户端
+        // 也能按真实 token 结算,不再依赖异步回调的幂等键。
+        if (opts.billing) {
+          const usage = p.usage
+          const u = usage && typeof usage === 'object' ? (usage as Record<string, unknown>) : {}
+          const promptUsed = Math.max(
+            0,
+            Number(u.promptTokens ?? opts.billing.promptEstimate) || opts.billing.promptEstimate,
+          )
+          const completionUsed = Math.max(
+            0,
+            Number(u.completionTokens ?? 0) ||
+              (u.totalTokens ? Math.max(0, Number(u.totalTokens) - promptUsed) : 0) ||
+              1,
+          )
+          void settleLlmPointsUsage({
+            userId: opts.billing.userId,
+            modelId: typeof p.model === 'string' && p.model.trim() ? p.model : opts.billing.modelId,
+            promptTokens: promptUsed,
+            completionTokens: completionUsed,
+            source: opts.billing.source,
+            description: `聊天流 ${opts.billing.modelId}`,
+            referenceId: opts.billing.referenceId,
+            holdReferenceId: opts.billing.referenceId,
+          }).catch((e) => {
+            request.log.error(
+              { err: e, userId: opts.billing?.userId, referenceId: opts.billing?.referenceId },
+              '[chat/stream] usage 帧积分结算失败',
+            )
+          })
+        }
         const rawLedger = p.contextLedger
         if (!rawLedger || typeof rawLedger !== 'object') return // 旧帧代际差:无账本可落,不是全 0
         void recordContextLedger(
@@ -1598,23 +1644,44 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       }
 
       // 2026-11-26:流式聊天此前只靠回调结算,余额 0 也能先跑完再欠账。
-      // 回调幂等键 = `${conversationId}:${messageId}`(见 ai-callback.ts),
-      // 这里用同一键冻结,回调结算时自动释放;缺任一 id 不冻(回调键不可对齐)。
+      // 回调幂等键 = `${conversationId}:${messageId}`(见 ai-callback.ts);缺 ID 时
+      // 生成服务端引用,并让 usage 帧同步结算 —— 不再出现“缺元数据 = 免费”。
       const billingConversationId = metadata?.conversationId
       const billingMessageId = metadata?.messageId
-      if (request.userId && resolvedModel && billingConversationId && billingMessageId) {
+      const billingReferenceId =
+        billingConversationId && billingMessageId
+          ? `${billingConversationId}:${billingMessageId}`
+          : `chat-stream:${request.id}:${randomUUID()}`
+      const billingPromptTokens = Math.floor(estimateMessagesTokens(finalMessages))
+      let billing:
+        | {
+            referenceId: string
+            source: string
+            userId: string
+            modelId: string
+            promptEstimate: number
+          }
+        | undefined
+      if (request.userId && resolvedModel) {
         const ok = await ensureLlmPointsBalance(
           request,
           reply,
           resolvedModel,
-          Math.floor(estimateMessagesTokens(finalMessages)),
+          billingPromptTokens,
           readMaxCompletionTokens({ max_tokens: maxTokens }),
           {
             source: 'llm_chat',
-            referenceId: `${billingConversationId}:${billingMessageId}`,
+            referenceId: billingReferenceId,
           },
         )
         if (!ok) return
+        billing = {
+          referenceId: billingReferenceId,
+          source: 'llm_chat',
+          userId: request.userId,
+          modelId: resolvedModel,
+          promptEstimate: billingPromptTokens,
+        }
       }
 
       return streamToClient(
@@ -1654,6 +1721,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // P1 #26(2026-09-16):知识库注入开关(默认开,false 关闭)
           knowledgeContext,
           metadata,
+          billing,
         },
         extraFirstEvents,
       )
@@ -1918,22 +1986,44 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         })
       }
 
-      // /chat/answer 与 /chat/stream 同型:回调键对齐后冻结,避免续答链路绕过余额。
+      // /chat/answer 与 /chat/stream 同型:缺 conversationId/messageId 不再跳过冻结,
+      // 由服务端生成引用并让 usage 帧同步结算;有 ID 时与回调共用同一幂等键。
       const answerConversationId = metadata?.conversationId
       const answerMessageId = metadata?.messageId
-      if (userId && resolvedModel && answerConversationId && answerMessageId) {
+      const answerReferenceId =
+        answerConversationId && answerMessageId
+          ? `${answerConversationId}:${answerMessageId}`
+          : `chat-answer:${request.id}:${randomUUID()}`
+      const answerPromptTokens = Math.floor(estimateMessagesTokens(finalMessages))
+      let answerBilling:
+        | {
+            referenceId: string
+            source: string
+            userId: string
+            modelId: string
+            promptEstimate: number
+          }
+        | undefined
+      if (userId && resolvedModel) {
         const ok = await ensureLlmPointsBalance(
           request,
           reply,
           resolvedModel,
-          Math.floor(estimateMessagesTokens(finalMessages)),
+          answerPromptTokens,
           readMaxCompletionTokens({ max_tokens: maxTokens }),
           {
             source: 'llm_chat',
-            referenceId: `${answerConversationId}:${answerMessageId}`,
+            referenceId: answerReferenceId,
           },
         )
         if (!ok) return
+        answerBilling = {
+          referenceId: answerReferenceId,
+          source: 'llm_chat',
+          userId,
+          modelId: resolvedModel,
+          promptEstimate: answerPromptTokens,
+        }
       }
 
       return streamToClient(
@@ -1971,6 +2061,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // P1 #26(2026-09-16):续答同样支持知识库注入开关(默认开)
           knowledgeContext,
           metadata,
+          billing: answerBilling,
         },
         extraFirstEvents,
       )

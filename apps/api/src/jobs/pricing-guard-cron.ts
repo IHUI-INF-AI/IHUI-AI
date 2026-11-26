@@ -18,6 +18,7 @@ import { logger } from '../utils/logger.js'
 import { getUnpricedAlerts, syncConfigPricesFromPricing } from '../services/model-pricing-admin.js'
 import { repricePlaceholderModels } from '../services/model-price-resolver.js'
 import { upsertPricing } from '../services/pricing-service.js'
+import { cleanupPointHolds } from '../services/points-service.js'
 import { db } from '../db/index.js'
 
 let task: ScheduledTask | null = null
@@ -52,7 +53,10 @@ export function startPricingGuardScheduler(): void {
           updated: synced.updated,
           skipped: synced.skipped,
         })
-        // 3) 最后巡检
+        // 3) 回收过期冻结并清理 90 天前历史行,防止 reserved_points 被不活跃用户长期占住。
+        const holds = await cleanupPointHolds({ retentionDays: 90 })
+        logger.info('[pricing-guard] 冻结回收', holds)
+        // 4) 最后巡检
         const r = await getUnpricedAlerts(7)
         if (r.publishedUnpriced > 0 || r.callingUnpriced > 0) {
           logger.warn('[pricing-guard] 零价模型告警', {

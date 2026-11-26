@@ -130,6 +130,8 @@ export const pointHolds = pgTable(
     referenceId: varchar('reference_id', { length: 160 }).notNull(),
     modelId: varchar('model_id', { length: 128 }),
     amount: integer('amount').notNull(),
+    /** 预扣时的费率/单位价快照;结算按它算,避免 15/60 分钟内调价影响在途请求。 */
+    pricingSnapshot: jsonb('pricing_snapshot'),
     status: varchar('status', { length: 16 }).default('held').notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     settledAt: timestamp('settled_at', { withTimezone: true }),

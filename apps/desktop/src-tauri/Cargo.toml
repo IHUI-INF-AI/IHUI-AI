@@ -87,6 +87,8 @@ real-machine-tests = ["tauri/test"]
 # 开发态由 scripts/desktop-build.mjs 在 `--dev` 分支显式追加 `--features devtools`,
 # 生产 `tauri build` 不带该 feature。
 devtools = ["tauri/devtools"]
+# R8 真机自检:只在显式 --features r8-selftest 时编译;生产默认不带。
+r8-selftest = []
 
 [target.'cfg(windows)'.dependencies]
 # 2026-10-16 省内存:WebView2 的内存目标档位。wry 的 WebViewExtWindows 暴露了

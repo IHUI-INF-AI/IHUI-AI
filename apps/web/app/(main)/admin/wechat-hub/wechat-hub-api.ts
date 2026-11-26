@@ -27,6 +27,7 @@ import {
   exportWechatMessages,
   importWechatMessages as importWechatMessagesApi,
   fetchApi,
+  fetchRaw,
   fetchWechatAccounts,
   fetchWechatActions,
   fetchWechatAutoReplyRules,
@@ -189,6 +190,11 @@ async function acceptWechatFriend(
   return res.data
 }
 
+/** GET /wechat-hub/accounts/:id/friends/audit?format=csv — 审计导出（CSV 附件，带 BOM） */
+async function exportWechatFriendsAuditCsv(accountId: string): Promise<Blob> {
+  return fetchRaw(`/wechat-hub/accounts/${accountId}/friends/audit?format=csv`, { method: 'GET' })
+}
+
 /** GET /wechat-hub/accounts/:id/friends/policy — 好友自动化开关与每小时上限 */
 async function fetchWechatFriendsPolicy(accountId: string): Promise<WechatFriendsPolicy> {
   const res = await fetchApi<WechatFriendsPolicy>(
@@ -344,6 +350,8 @@ export const wechatHubApi = {
     confirmed: boolean,
   ): Promise<WechatFriendAcceptView> =>
     callKept(() => acceptWechatFriend(id, requestId, confirmed), '通过好友申请失败'),
+  friendsAuditCsv: (id: string): Promise<Blob> =>
+    callKept(() => exportWechatFriendsAuditCsv(id), '导出好友审计失败'),
   friendsPolicy: (id: string): Promise<WechatFriendsPolicy> =>
     callKept(() => fetchWechatFriendsPolicy(id), '获取新朋友策略失败'),
   updateFriendsPolicy: (

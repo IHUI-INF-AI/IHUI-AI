@@ -47,6 +47,7 @@ import { probeBridgeForAccount } from '../services/wechat-hub/bridge-probe.js'
 import { getGroupWriteRuntimeView, buildGroupWriteAuditView } from '../services/wechat-hub/group-writes.js'
 import {
   acceptFriendRequest,
+  readFriendsAuditExport,
   readFriendsOverview,
   readFriendsPolicyView,
   updateFriendsPolicy,
@@ -136,6 +137,9 @@ const switchChatSchema = z.object({
 const friendsPolicySchema = z.object({
   enabled: z.boolean().optional(),
   maxAcceptsPerHour: z.coerce.number().int().min(1).max(10).optional(),
+  // 24 小时滚动上限 + 两次通过的最小间隔（秒）：防连点、防一天刷太多触发风控。
+  maxAcceptsPerDay: z.coerce.number().int().min(1).max(50).optional(),
+  minGapSeconds: z.coerce.number().int().min(0).max(1800).optional(),
 })
 
 const broadcastKindSchema = z.enum(['text', 'image', 'file', 'link', 'card'])
@@ -733,9 +737,45 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
           success(
             await readFriendsOverview(requireUserId(request), request.params.id, {
               force: (request.query as Record<string, unknown> | undefined)?.force === '1',
+              // wake=1：微信收在托盘时用一次热键把它唤回来再采实时数据（会把微信短暂顶到前台，默认不带）。
+              wake: (request.query as Record<string, unknown> | undefined)?.wake === '1',
             }),
           ),
         )
+      } catch (e) {
+        return answerError(reply, e)
+      }
+    },
+  )
+
+  server.get<{ Params: { id: string } }>(
+    '/wechat-hub/accounts/:id/friends/audit',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      try {
+        const view = await readFriendsAuditExport(requireUserId(request), request.params.id)
+        const query = (request.query ?? {}) as Record<string, unknown>
+        if (query.format === 'csv') {
+          const header = 'at,ok,status,requestId,nickname,errorCode'
+          const rows = view.entries.map((entry) =>
+            [
+              new Date(entry.at).toISOString(),
+              entry.ok ? 'true' : 'false',
+              entry.status ?? '',
+              entry.requestId ?? '',
+              entry.nickname ?? '',
+              entry.errorCode ?? '',
+            ]
+              .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+              .join(','),
+          )
+          const filename = `friends-audit-${Date.now()}.csv`
+          return reply
+            .header('content-type', 'text/csv; charset=utf-8')
+            .header('content-disposition', `attachment; filename="${filename}"`)
+            .send([header, ...rows].join('\r\n'))
+        }
+        return reply.send(success(view))
       } catch (e) {
         return answerError(reply, e)
       }

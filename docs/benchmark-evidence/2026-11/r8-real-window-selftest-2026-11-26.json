@@ -1,0 +1,24 @@
+{
+  "authMode": "real-login",
+  "before": {
+    "height": 420,
+    "width": 630
+  },
+  "collapsed": {
+    "height": 48,
+    "width": 630
+  },
+  "expanded": {
+    "height": 420,
+    "width": 630
+  },
+  "heightDelta": 0,
+  "ok": true,
+  "origin": "https://www.aizhs.top",
+  "reopened": {
+    "height": 420,
+    "width": 630
+  },
+  "scaleFactor": 1.5,
+  "session": "e3baccfb-e637-47f1-a33e-7c16cb08958c"
+}

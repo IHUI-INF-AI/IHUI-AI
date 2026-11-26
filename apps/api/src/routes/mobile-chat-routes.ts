@@ -69,6 +69,14 @@ import { escapeHtml } from '../websocket/chat-server.js'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { isUuidString } from '../utils/uuid.js'
 import { success, error } from '../utils/response.js'
+import {
+  ensureLlmPointsBalance,
+  readMaxCompletionTokens,
+  settleLlmPointsUsage,
+} from '../services/ai-points-billing.js'
+import { releasePointsHold } from '../services/points-service.js'
+import { estimateTokens } from '../services/context-manager-service.js'
+import { resolveDefaultChatModel } from '../utils/retired-providers.js'
 // 批次 3(2026-11-06):RN Agent 流与主聊天网关复用**同一套**账本写入函数,
 // 不复制第二套落库逻辑;写入失败由 store 自己 try/catch,转发循环只负责调用。
 import {
@@ -130,10 +138,39 @@ async function nicknameOf(userId: string): Promise<string> {
 /** Agent 流式回复的服务端兜底超时(与 /ai/chat/stream 同档,防上游卡死时连接无限挂起)。 */
 const AGENT_STREAM_TIMEOUT_MS = 5 * 60_000
 
+/** 移动端 Agent 请求没有 max_tokens 参数,预扣按这个上限兜底;结算仍以真实 usage 为准。 */
+const AGENT_MAX_COMPLETION_TOKENS = 4096
+
+interface LlmUsage {
+  prompt_tokens?: number
+  completion_tokens?: number
+  total_tokens?: number
+}
+
+/** 从上游 usage 帧里取 token 数;只有 contextLedger、没有任何 token 字段时返回 undefined。 */
+function parseLlmUsage(value: unknown): LlmUsage | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const raw = value as Record<string, unknown>
+  const pick = (k: string): number | undefined => {
+    const n = Number(raw[k])
+    return Number.isFinite(n) && n >= 0 ? n : undefined
+  }
+  const usage: LlmUsage = {
+    prompt_tokens: pick('prompt_tokens'),
+    completion_tokens: pick('completion_tokens'),
+    total_tokens: pick('total_tokens'),
+  }
+  return usage.prompt_tokens === undefined &&
+    usage.completion_tokens === undefined &&
+    usage.total_tokens === undefined
+    ? undefined
+    : usage
+}
+
 /** 上游帧归类:只认正文增量 / 完成 / 错误三类,其余(usage、工具帧等)一律不进本端点的事件序列。 */
 type AgentStreamFrame =
   | { kind: 'delta'; content: string }
-  | { kind: 'done'; finishReason?: string }
+  | { kind: 'done'; finishReason?: string; usage?: LlmUsage }
   | { kind: 'error'; message: string }
   | null
 
@@ -153,6 +190,7 @@ function parseAgentStreamFrame(payload: string, eventName: string | null): Agent
     error_message?: unknown
     error?: unknown
     finishReason?: unknown
+    usage?: unknown
   }
   try {
     json = JSON.parse(payload) as typeof json
@@ -168,6 +206,7 @@ function parseAgentStreamFrame(payload: string, eventName: string | null): Agent
     return {
       kind: 'done',
       finishReason: typeof json.finishReason === 'string' ? json.finishReason : undefined,
+      usage: parseLlmUsage(json.usage),
     }
   }
   if (typeof json.content === 'string' && (type === 'chunk' || type === 'delta' || type === null)) {
@@ -378,7 +417,26 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
     for (const m of history) llmMessages.push({ role: m.role, content: m.content })
     llmMessages.push({ role: 'user', content: parsed.data.content })
 
+    // 2026-11-26:移动端 Agent 聊天同样走真实 LLM,且没有 conversationId/messageId 回调票,
+    // 必须网关侧预扣 + 按 usage 结算;否则 /agents/:id/messages 是免费模型口子。
+    const usedModel = found.agent.agentModel?.trim() || resolveDefaultChatModel()
+    const promptTokens = Math.max(
+      1,
+      estimateTokens(llmMessages.map((m) => `${m.role}: ${m.content}`).join('\n')),
+    )
+    const billingReference = `mobile-agent:${id}:${request.id}`
+    const allowed = await ensureLlmPointsBalance(
+      request,
+      reply,
+      usedModel,
+      promptTokens,
+      readMaxCompletionTokens({ max_tokens: AGENT_MAX_COMPLETION_TOKENS }),
+      { source: 'llm_chat', referenceId: billingReference },
+    )
+    if (!allowed) return
+
     let assistantContent: string
+    let billed = false
     try {
       const resp = await aiServiceSystemFetch('/api/llm/complete', {
         method: 'POST',
@@ -390,15 +448,53 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
       }
       const data = (await resp.json()) as {
         content?: string
+        model?: string
         error?: boolean
         error_message?: string
+        usage?: LlmUsage
       }
       if (data.error) {
         return reply.status(502).send(error(502, data.error_message ?? '模型调用失败'))
       }
       assistantContent = String(data.content ?? '')
+      const promptUsed = Math.max(
+        0,
+        Number(data.usage?.prompt_tokens ?? promptTokens) || promptTokens,
+      )
+      const completionUsed = Math.max(
+        0,
+        Number(data.usage?.completion_tokens ?? 0) ||
+          (data.usage?.total_tokens
+            ? Math.max(0, Number(data.usage.total_tokens) - promptUsed)
+            : 0) ||
+          estimateTokens(assistantContent) ||
+          1,
+      )
+      try {
+        await settleLlmPointsUsage({
+          userId,
+          modelId: data.model?.trim() || usedModel,
+          promptTokens: promptUsed,
+          completionTokens: completionUsed,
+          source: 'llm_chat',
+          description: `移动端 Agent 聊天 ${usedModel}`,
+          referenceId: billingReference,
+          holdReferenceId: billingReference,
+        })
+        billed = true
+      } catch (e) {
+        request.log.error({ err: e, userId, billingReference }, '[mobile-agent] 积分结算失败')
+      }
     } catch {
       return reply.status(503).send(error(503, 'AI service unavailable'))
+    } finally {
+      if (!billed) {
+        await releasePointsHold({
+          userId,
+          source: 'llm_chat',
+          referenceId: billingReference,
+        }).catch(() => undefined)
+      }
     }
 
     // 成功才写回会话:两条消息一起落库,失败路径不留下"发了但历史里没有"的半截态。
@@ -476,6 +572,34 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
     const userMessageId = `msg_${now}_u`
     const assistantMessageId = `msg_${now}_a`
 
+    // 2026-11-26:流式同样是真实 LLM 调用。预扣放在 hijack 之前(余额不足/未定价还能回 JSON);
+    // 只有真正发起新上游的请求才结算,接管/仅重放分支立即释放 hold,不白压余额。
+    const streamModel = found.agent.agentModel?.trim() || resolveDefaultChatModel()
+    const streamPromptTokens = Math.max(
+      1,
+      estimateTokens(llmMessages.map((m) => `${m.role}: ${m.content}`).join('\n')),
+    )
+    const streamBillingReference = `mobile-agent-stream:${id}:${request.id}`
+    const streamAllowed = await ensureLlmPointsBalance(
+      request,
+      reply,
+      streamModel,
+      streamPromptTokens,
+      readMaxCompletionTokens({ max_tokens: AGENT_MAX_COMPLETION_TOKENS }),
+      { source: 'llm_chat', referenceId: streamBillingReference },
+    )
+    if (!streamAllowed) return
+    let streamBillingFinalized = false
+    const releaseStreamHold = async (): Promise<void> => {
+      if (streamBillingFinalized) return
+      streamBillingFinalized = true
+      await releasePointsHold({
+        userId,
+        source: 'llm_chat',
+        referenceId: streamBillingReference,
+      }).catch(() => undefined)
+    }
+
     reply.hijack()
     const raw = reply.raw
     raw.writeHead(200, sseHeadersOf(request))
@@ -504,6 +628,7 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
               { replayKey, lastSeq, replayed: missed.length },
               '[AgentStream] stream takeover',
             )
+            await releaseStreamHold()
             return
           }
           if (isStreamActive(replayKey)) {
@@ -515,6 +640,7 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
               { replayKey, lastSeq, replayed: missed.length },
               '[AgentStream] replay-only (upstream gone)',
             )
+            await releaseStreamHold()
             raw.end()
             return
           }
@@ -571,6 +697,7 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
     let upstreamError: string | null = null
     let sawDone = false
     let finishReason = 'stop'
+    let streamUsage: LlmUsage | undefined
 
     try {
       emitEvent(
@@ -624,6 +751,15 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
           if (!line.startsWith('data:')) continue
           const payload = line.slice(5).replace(/^\s/, '')
           if (payload === '') continue
+          // usage 帧不进客户端事件序列,但结算要用;先于账本采集解析一次 token 数。
+          if (pendingEvent === 'usage') {
+            try {
+              const usage = parseLlmUsage(JSON.parse(payload))
+              if (usage) streamUsage = usage
+            } catch {
+              // 非 JSON usage 帧:保持 undefined,最终按正文估算
+            }
+          }
           // 批次 3:账本帧旁路采集先于归类 —— 这三类帧本来就不进客户端事件序列
           // (parseAgentStreamFrame 返回 null 后 continue),但落库不受此影响。
           captureMobileLedgerFrame(
@@ -655,6 +791,7 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
           }
           sawDone = true
           if (frame.finishReason) finishReason = frame.finishReason
+          if (frame.usage) streamUsage = frame.usage
         }
         if (upstreamError || sawDone) break
         // G-714 ④:窗口饱和即暂停 drain;被显式放弃时停止透传(客户端按全量重取恢复)。
@@ -684,6 +821,37 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
       }
       const sessionRow = await findLatestSession(id, userId)
       const appended = await appendMessages(sessionRow.id, [userMsg, assistantMsg])
+      const promptUsed = Math.max(
+        0,
+        Number(streamUsage?.prompt_tokens ?? streamPromptTokens) || streamPromptTokens,
+      )
+      const completionUsed = Math.max(
+        0,
+        Number(streamUsage?.completion_tokens ?? 0) ||
+          (streamUsage?.total_tokens
+            ? Math.max(0, Number(streamUsage.total_tokens) - promptUsed)
+            : 0) ||
+          estimateTokens(assistantContent) ||
+          1,
+      )
+      try {
+        await settleLlmPointsUsage({
+          userId,
+          modelId: streamModel,
+          promptTokens: promptUsed,
+          completionTokens: completionUsed,
+          source: 'llm_chat',
+          description: `移动端 Agent 流式聊天 ${streamModel}`,
+          referenceId: streamBillingReference,
+          holdReferenceId: streamBillingReference,
+        })
+        streamBillingFinalized = true
+      } catch (e) {
+        request.log.error(
+          { err: e, userId, streamBillingReference },
+          '[mobile-agent-stream] 积分结算失败',
+        )
+      }
       emitEvent(
         session,
         JSON.stringify({
@@ -721,6 +889,7 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
       clearTimeout(serverTimeout)
       stopHeartbeat()
       finishSession(session)
+      await releaseStreamHold()
       ;(session.raw ?? raw).end()
     }
   })

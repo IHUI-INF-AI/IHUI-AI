@@ -44,14 +44,16 @@
 - 有 token 至少扣 1 积分；零 token 才返回 0。
 - `points_multiplier` 已退出计费链路，仅作为历史字段保留；迁移已把所有 `<=0` 的倍率清零/回填。
 
-实现：`apps/api/src/services/llm-points-pricing.ts` 负责成本→费率，`ai-points-billing.ts` 负责换算、冻结、结算；`proxy-llm.ts`、`/ai/llm/chat`、对话压缩、WS capability/provider、AI 回调 worker、Crew 子 LLM、股票分析、生涯建议、Coze workflow 共用同一份。
+实现：`apps/api/src/services/llm-points-pricing.ts` 负责成本→费率，`ai-points-billing.ts` 负责换算、冻结、结算；`proxy-llm.ts`、`/ai/llm/chat`、对话压缩、WS capability/provider、AI 回调 worker、Crew 子 LLM、股票分析、生涯建议、Coze workflow、移动端 Agent 聊天与流式聊天共用同一份。
 
 ### 2.2 预检与冻结
 
 - 调用前按 **prompt 估算 + 客户端声明的 max_tokens** 冻结，而不是只查 prompt 余额。
 - `max_tokens` 兼容 `max_tokens` / `max_completion_tokens` / `maxTokens` / `max_output_tokens`；未传默认 4096，硬上限 131072。
 - 冻结写入 `user_points.reserved_points` 与 `point_holds`；可用余额 = `points + 当日 daily_points - reserved_points`。
-- 冻结 TTL 15 分钟，到期由 `releaseExpiredPointHolds` 懒释放；释放与冻结都在 `user_points` 行锁内完成，避免并发误释放。
+- 冻结 TTL 15 分钟，到期由 `releaseExpiredPointHolds` 懒释放；每日 `pricing-guard` 任务再跑一次 `cleanupPointHolds`，把长期不活跃用户的过期 hold 批量置 `expired` 并回退 `reserved_points`，同时删除 90 天前的历史行。
+- 冻结时把当次费率写入 `point_holds.pricing_snapshot`（输入/输出积分每千 token、`pricing_model_id`、冻结时间）；结算优先按快照算，管理员在 15 分钟窗口内调价不会改变在途请求的扣费。
+- 运维观测：`GET /admin/ai-pricing/point-holds` 返回当前 held 笔数/积分、最老冻结时长、过期未回收、近 24h 结算/释放/过期、按 source 分布、`reserved_points` 与 held 汇总的账面偏差；`POST /admin/ai-pricing/point-holds/cleanup` 可手动触发同一套回收逻辑。
 - 预检结果：
   - 无成本价 → `503 MODEL_PRICING_MISSING`，不发起上游；
   - 定价异常 → `503 MODEL_PRICING_INVALID`；
@@ -62,6 +64,7 @@
 ### 2.3 结算
 
 - 上游成功后按**真实 usage** 结算：先释放 hold 的 `reserved`，再按实际积分扣当日赠送、再扣永久积分；多冻结部分自动退回。
+- 结算费率优先取 `point_holds.pricing_snapshot`；快照缺失（老数据/无 hold 的异步回调）才读当前费率。快照存在时不再查实时价，避免“预检一个价、结算另一个价”。
 - 余额不足时部分结算：扣到 0，`shortfall` 返回日志/任务 metadata，不产生负余额。
 - 上游成功但没有 usage：
   - 同步代理按 `total_tokens`；没有总量则按字符数估算；
@@ -114,7 +117,7 @@
 
 ### 3.3 预检、冻结与结算
 
-- 预检按本次报价冻结，TTL **60 分钟**（视频排队+生成可能超过 15 分钟）。
+- 预检按本次报价冻结，TTL **60 分钟**（视频排队+生成可能超过 15 分钟）；冻结时把 `category / unit_price_points / video_unit / units` 写入 `pricing_snapshot`，结算按快照单价重算，窗口内调价/下架不影响在途任务。
 - 预检余额不足 402；无价 503；同 `request.id` 重复提交 409。
 - 产物成功后按 `taskId`（或业务引用）幂等结算；`holdReferenceId` 默认 `request.id`，与预扣对齐。
 - 产物已交付但定价行在结算时失效：按**预扣额**结算，不允许 0 元放走；只有连预扣都没有时才留成本告警。
@@ -135,7 +138,16 @@
 
 这些行的 `cost_unit_price` 暂为 `NULL`：成本账会标 `unknown`，不会伪装成 0。其余动态媒体模型（Kling、Runway、Luma、Vidu、PixVerse、Flux、Recraft、Bria、Stability 等）**必须在 `ai_pricing` 有对应行才能卖**；没有就 503，这是有意的“未定价不卖”，不是故障。
 
-### 3.5 MAGI-2
+### 3.5 后台定价护栏（2026-11-26 加固）
+
+- `POST /admin/ai-pricing/upsert`：`token` 模式必须同时给 `inputTokenPrice > 0`、`outputTokenPrice > 0`；`per_image` / `per_video` 的 `perUnitPrice` 与 `per_call` 的三档价也必须全大于 0。零价不再能通过接口写入。
+- 媒体写入时若带 `costUnitPrice > 0`，任何一档零售价都必须 `>= 成本 × 3`；低于成本加成线直接 400，避免后台把在架媒体改成负毛利。
+- `PATCH /admin/ai-pricing/models/:id`（人工调价）：输入/输出两个方向都必须大于 0，服务层 `updateModelPrice` 同一判据再兜一层，绕过路由也写不进零价。
+- `assertPricedForPublish` 继续拦截上架零价/1分2分占位价；`getUnpricedAlerts` 每日巡检在架零价与近 7 天零价调用。
+- `GET /admin/ai-pricing/missing-costs?days=30&limit=500`：列出 `cost_input/output_price_per_1k` 任一为 `NULL` 的启用模型，按近 N 天调用量排序。这些模型会被 LLM 计费 fail-closed（503），运营按榜单补成本价即可恢复售卖。
+- `GET /admin/ai-pricing/models?onlyProblems=true` 仍可查人工调价问题行；成本回填用 `backfillCostPrices`：先按 `metadata.priceSource.profitFactor` 反推，再用 `ai_pricing` 同模型 token 公示价 / 3 兜底，仍无公示价的模型保持 `null` 并继续 fail-closed。
+
+### 3.6 MAGI-2
 
 - 别名：`magi-2` / `magi-2-preview` / `magi-2-preview-latest`。
 - `per_video`、`video_unit='second'`、`per_unit_price=74 分/秒`；30 秒约 2,220 积分（¥22.20）。
@@ -183,7 +195,8 @@
 
 | 场景 | 行为 |
 | --- | --- |
-| LLM 无成本定价 | 503 `MODEL_PRICING_MISSING`，不发起上游 |
+| LLM 无成本定价 | 503 `MODEL_PRICING_MISSING`，不发起上游；后台 `missing-costs` 出补价清单 |
+| 后台写零价/负价 | 400 拒绝；`updateModelPrice` 服务层再次拒绝，绕过路由也写不进 |
 | LLM 余额不足 | 402 `INSUFFICIENT_POINTS`，不发起上游 |
 | 同 `referenceId` 已结算/在跑 | 409 `DUPLICATE_REQUEST` / `REQUEST_IN_PROGRESS`，不放上游 |
 | LLM 上游 5xx/超时/4xx | 释放 hold，不扣分 |
@@ -219,4 +232,6 @@
 | 2026-07-31 | 初版立稿（LLM 倍率计费） |
 | 2026-11-25 | 媒体计价收口到 `ai_pricing`；新增按秒计费与 MAGI-2 定价；新增钱包→积分兑换桥 |
 | 2026-11-26 | 全收费改造：LLM 改输入/输出分离的成本×3 计价，取消 0 倍率与免费档；预检按 prompt+max_tokens 冻结，新增 `point_holds` / `reserved_points`；无 usage 不再跳过；媒体删除全部兜底价，未定价 503；新增 `ai_cost_records.cost_status`；补 14 个内置媒体/语音零售价 |
+| 2026-11-26 | 计费观测与成本回填：新增 `GET /admin/ai-pricing/point-holds` 健康接口与管控台卡片、手动回收按钮；`backfillCostPrices` 增加 `ai_pricing` 公示价 / 3 兜底，仍无价模型继续 fail-closed |
+| 2026-11-26 | 移动端 Agent 聊天（普通与 SSE 流式）接入预扣/结算；流式按 `usage` 帧结算，无 usage 时按正文估算，接管/仅重放分支释放 hold，不再免费调用上游 |
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

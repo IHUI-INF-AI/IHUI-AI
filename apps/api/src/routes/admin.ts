@@ -38,6 +38,7 @@ import {
   backfillCallCosts,
   getChannelCostReport,
   getUnpricedAlerts,
+  getMissingCostModels,
   syncConfigPricesFromPricing,
   type ChannelGroupBy,
   listModelPricing,
@@ -48,6 +49,7 @@ import {
 } from '../services/model-pricing-admin.js'
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { repricePlaceholderModels } from '../services/model-price-resolver.js'
+import { cleanupPointHolds, getPointHoldHealth } from '../services/points-service.js'
 import { hashPassword } from '../utils/password-crypto.js'
 import { db } from '../db/index.js'
 import { orders, users, projects, aiPricing } from '@ihui/database'
@@ -170,6 +172,44 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
+  // GET /ai-pricing/point-holds - 积分冻结健康(2026-11-26 立)
+  // held 总量/最老冻结/stale 未回收/24h 终态/reserved 账面偏差,全部只读聚合。
+  server.get(
+    '/ai-pricing/point-holds',
+    {
+      schema: {
+        summary: '积分冻结健康大盘',
+        description:
+          '返回当前 held 积分数、过期未回收数、近 24 小时结算/释放/过期数、按 source 分布,以及 reserved_points 账面偏差。',
+        tags: ['admin'],
+      },
+    },
+    async (_request, reply) => {
+      const data = await getPointHoldHealth()
+      return reply.send(success(data))
+    },
+  )
+
+  // POST /ai-pricing/point-holds/cleanup - 手动回收过期冻结(每日任务外的运维兜底)
+  server.post(
+    '/ai-pricing/point-holds/cleanup',
+    {
+      schema: {
+        summary: '手动回收过期积分冻结',
+        description:
+          '立即把过期 held 置 expired 并回退 reserved_points,同时清理超过保留期的历史行。',
+        tags: ['admin'],
+      },
+    },
+    async (request, reply) => {
+      const body = (request.body ?? {}) as { retentionDays?: unknown }
+      const raw = Number(body.retentionDays)
+      const retentionDays = Number.isFinite(raw) ? Math.trunc(raw) : undefined
+      const result = await cleanupPointHolds({ retentionDays })
+      return reply.send(success(result))
+    },
+  )
+
   // GET /ai-pricing/profit - 利润看板(收入/成本/毛利/毛利率,2026-11-14 立)
   // 口径:成本只统计 metadata.providerCostCents 已落账的调用;成本未知行只计收入、
   // 不计利润,并用 costCoverage 暴露覆盖度,避免"未知成本当零成本"虚增毛利。
@@ -213,14 +253,16 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // POST /ai-pricing/backfill-cost - 回填模型采购成本列(幂等,2026-11-14 立)
-  // 只处理 cost_* 为空且 profitFactor>=1 的行;重复调用不会覆盖已有成本。
+  // 两段:先按 metadata.priceSource.profitFactor 反推;再用 ai_pricing 同模型 token
+  // 公示价 / PROFIT_FACTOR 兜底。只碰 cost_* 仍为空的行,已有成本不动。
   server.post(
     '/ai-pricing/backfill-cost',
     {
       schema: {
         summary: '回填模型采购成本列',
         description:
-          '按 metadata.priceSource.profitFactor 反推历史模型的采购成本;幂等,已有成本的行不动。',
+          '按历史 profitFactor 或同模型 token 公示价反推采购成本;幂等,已有成本的行不动。' +
+          '仍无公示价的模型保持 null,LLM 调用继续 fail-closed。',
         tags: ['admin'],
       },
     },
@@ -364,6 +406,30 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
+  // GET /ai-pricing/missing-costs - 缺上游成本价的启用模型清单(2026-11-26 立)
+  // 这些模型会被 LLM 计费层 fail-closed(503);按近 N 天调用量排序,供运营补价。
+  server.get(
+    '/ai-pricing/missing-costs',
+    {
+      schema: {
+        summary: '缺成本价的启用模型清单',
+        description:
+          '列出 cost_input/output_price_per_1k 任一为 null 的启用模型。缺成本价时 LLM 计费 fail-closed,调用会返回 503。',
+        tags: ['admin'],
+      },
+    },
+    async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>
+      const days = q['days'] ? Number(q['days']) : 30
+      const limit = q['limit'] ? Number(q['limit']) : 500
+      const data = await getMissingCostModels({
+        days: Number.isFinite(days) ? days : 30,
+        limit: Number.isFinite(limit) ? limit : 500,
+      })
+      return reply.send(success(data))
+    },
+  )
+
   // GET /ai-pricing/models - 定价列表(问题行优先排序)
   server.get(
     '/ai-pricing/models',
@@ -415,6 +481,11 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       }
       if (b.inputPer1k < 0 || b.outputPer1k < 0) {
         return reply.status(400).send(error(400, '价格不能为负'))
+      }
+      if (!(b.inputPer1k > 0) || !(b.outputPer1k > 0)) {
+        return reply
+          .status(400)
+          .send(error(400, '人工调价必须同时给出大于 0 的输入/输出价;免费模型不再允许'))
       }
       const result = await updateModelPrice({
         modelRowId: Number(params.id),
@@ -606,7 +677,47 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
               .send(error(400, 'per_call 模式必须提供完整 tieredCallPrices 三档(均大于 0)'))
           }
         }
-        // token 模式沿用既有语义:未传单价按 0 处理(免费模型),历史行为不变
+        // 成本加成底线:成本已知时,任何一档零售价都不得低于成本 ×3;
+        // 否则后台可以把媒体价改成负毛利,预扣时看着有价、实际每单赔钱。
+        const costUnit = b.costUnitPrice
+        if (typeof costUnit === 'number' && Number.isFinite(costUnit) && costUnit > 0) {
+          const floor = costUnit * 3
+          let lowest: number | null = null
+          if (billingMode === 'per_image' || billingMode === 'per_video') {
+            lowest = typeof b.perUnitPrice === 'number' ? b.perUnitPrice : null
+          } else if (billingMode === 'per_call' && b.tieredCallPrices) {
+            lowest = Math.min(
+              b.tieredCallPrices.le256k,
+              b.tieredCallPrices.mid,
+              b.tieredCallPrices.gt512k,
+            )
+          }
+          if (lowest !== null && lowest < floor) {
+            return reply
+              .status(400)
+              .send(
+                error(
+                  400,
+                  `零售价不能低于成本×3(成本 ${costUnit} 分/单位,最低 ${floor} 分/单位);请提高售价或修正成本价`,
+                ),
+              )
+          }
+        }
+        // token 模式从 2026-11-26 起强制双价大于 0:系统内不再保留免费模型。
+        if (billingMode === 'token') {
+          const pin = b.inputTokenPrice
+          const pout = b.outputTokenPrice
+          if (typeof pin !== 'number' || typeof pout !== 'number' || pin <= 0 || pout <= 0) {
+            return reply
+              .status(400)
+              .send(
+                error(
+                  400,
+                  'token 模式必须提供大于 0 的 inputTokenPrice / outputTokenPrice;不再允许免费模型,输出不适用请改用 per_call',
+                ),
+              )
+          }
+        }
         const row = await upsertPricing({
           modelId: b.modelId,
           inputTokenPrice: b.inputTokenPrice ?? 0,

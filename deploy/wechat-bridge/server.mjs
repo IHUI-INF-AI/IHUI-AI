@@ -25,6 +25,7 @@ import { fileURLToPath } from 'node:url'
 import { isMomentMessage, mergeMoments, nextMomentCursor, parseMomentMessage } from './moments.mjs'
 import { appendMomentArchive, readMomentArchive } from './moments-archive.mjs'
 import { loadMemberMap, mergeMemberMap, saveMemberMap } from './members-map.mjs'
+import { applyScanResult, loadSnapshot, saveSnapshot } from './friends-scan-cache.mjs'
 
 const ROOT = dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.BRIDGE_PORT ?? 8848)
@@ -524,11 +525,31 @@ async function runMomentFetch(body) {
 }
 
 /** 好友自动化开关：请求处理时实时读取，不在模块加载时缓存。 */
+/** 一键熔断：文件存在即全面停摆（扫描/通过/巡检都不做），不用改环境变量也不用重启。 */
+const FRIENDS_KILL_FILE = process.env.BRIDGE_FRIENDS_KILL_FILE ?? join(ROOT, '.bridge-friends-kill')
+
+function friendsKilled() {
+  try {
+    return existsSync(FRIENDS_KILL_FILE)
+  } catch {
+    return false
+  }
+}
+
 function friendsAutomationEnabled() {
-  return process.env.BRIDGE_FRIENDS_AUTOMATION === 'on'
+  return process.env.BRIDGE_FRIENDS_AUTOMATION === 'on' && !friendsKilled()
 }
 
 function friendsDisabledBody() {
+  if (friendsKilled()) {
+    return {
+      ok: false,
+      status: 'disabled',
+      reason: 'kill-switch',
+      errorCode: 'WECHAT_FRIENDS_KILLED',
+      hint: `桥侧熔断文件存在（${FRIENDS_KILL_FILE}），删掉它就恢复`,
+    }
+  }
   return { ok: false, status: 'disabled', reason: 'friends-automation-off' }
 }
 
@@ -590,23 +611,42 @@ function runFriendsScript(args) {
  */
 const FRIENDS_SCAN_CACHE_MS = 180_000
 const FRIENDS_SCAN_STALE_MS = 600_000
-let friendsScanCache = null // { at, body }
+/** 上次成功快照落盘，桥重启后仍能给出「过期但真实」的结果，而不是一片失败。 */
+const FRIENDS_SNAPSHOT_FILE =
+  process.env.BRIDGE_FRIENDS_SNAPSHOT ?? join(ROOT, '.bridge-friends-scan.json')
+let friendsScanCache = loadSnapshot(FRIENDS_SNAPSHOT_FILE)
 let friendsScanInFlight = null
+/** 上一轮扫描时微信窗口是否收起（收起时读不到界面，巡检降频到 10 分钟，别每分钟白跑一次）。 */
+let friendsWindowHidden = false
+/**
+ * 窗口收在托盘/最小化时是否允许巡检自己用热键把微信唤回来（唤回会把窗口顶到前台 1~3 秒）。
+ * 默认 0=关闭：不替用户做主抢焦点；显式设 BRIDGE_FRIENDS_AUTO_WAKE_MS 才启用，最小 5 分钟一次。
+ */
+const FRIENDS_AUTO_WAKE_MS = Math.max(0, Number(process.env.BRIDGE_FRIENDS_AUTO_WAKE_MS ?? 0) || 0)
+let friendsLastAutoWakeAt = 0
 
-function scanViaCache(force) {
+function scanViaCache(force, wake = false) {
   if (!force) {
     if (friendsScanInFlight) return friendsScanInFlight
     if (friendsScanCache) {
       const age = Date.now() - friendsScanCache.at
-      return Promise.resolve({ ...friendsScanCache.body, cached: true, cacheAgeMs: age })
+      // 快照太旧（超过 10 分钟）也标记过期：前端据此提示「这是 X 分钟前的结果」，不把旧数据当新的。
+      const stale = age > FRIENDS_SCAN_STALE_MS
+      return Promise.resolve({
+        ...friendsScanCache.body,
+        cached: true,
+        cacheAgeMs: age,
+        ...(stale ? { stale: true, staleReason: 'cache-old' } : {}),
+      })
     }
   }
-  friendsScanInFlight = runFriendsScript(['-Scan']).then((body) => {
-    if (body && body.ok === true) {
-      friendsScanCache = { at: Date.now(), body }
-    }
+  friendsScanInFlight = runFriendsScript(wake ? ['-Scan', '-Wake'] : ['-Scan']).then((raw) => {
+    friendsWindowHidden = Boolean(raw && raw.window && raw.window.visible === false)
+    const next = applyScanResult(raw, friendsScanCache)
+    if (next.cache && next.cache !== friendsScanCache) saveSnapshot(FRIENDS_SNAPSHOT_FILE, next.cache)
+    friendsScanCache = next.cache
     friendsScanInFlight = null
-    return body
+    return next.body
   })
   return friendsScanInFlight
 }
@@ -618,7 +658,15 @@ function startFriendsScanLoop() {
       if (friendsScanInFlight) return
       const age = friendsScanCache ? Date.now() - friendsScanCache.at : Infinity
       if (age < FRIENDS_SCAN_CACHE_MS) return
-      const body = await scanViaCache(true)
+      // 窗口收起时读不到界面，10 分钟内不再重试；用户一旦把微信放出来，下一轮就会采到真实数据。
+      if (friendsWindowHidden && age < FRIENDS_SCAN_STALE_MS) return
+      // 收起超过 10 分钟仍没恢复：只有显式开了自愈才唤一次（默认关闭，不替用户抢焦点）。
+      if (friendsWindowHidden && !FRIENDS_AUTO_WAKE_MS) return
+      const shouldWake =
+        friendsWindowHidden && Date.now() - friendsLastAutoWakeAt >= Math.max(300_000, FRIENDS_AUTO_WAKE_MS)
+      if (friendsWindowHidden && !shouldWake) return
+      if (shouldWake) friendsLastAutoWakeAt = Date.now()
+      const body = await scanViaCache(true, shouldWake)
       const stale = body?.cacheAgeMs && body.cacheAgeMs > FRIENDS_SCAN_STALE_MS
       if (stale) console.warn('[friends] 巡检结果偏旧:', body.cacheAgeMs)
     } catch (e) {
@@ -628,8 +676,12 @@ function startFriendsScanLoop() {
   timer.unref?.()
 }
 
-async function handleFriendsScan(force) {
+async function handleFriendsScan(force, wake) {
   if (!friendsAutomationEnabled()) return friendsDisabledBody()
+  if (wake === true) {
+    // 显式要求唤醒：直接用热键把微信唤回来再扫，不走缓存（唤醒本身就要立刻验证有效）。
+    return runFriendsScript(['-Scan', '-Wake'])
+  }
   return scanViaCache(Boolean(force))
 }
 
@@ -700,6 +752,7 @@ async function handle(req, res) {
       driver: DRIVER_NAME,
       queued: queue.length,
       seq,
+      friendsKillSwitch: friendsKilled(),
       moments: momentQueue.length,
       momentSeq,
     })
@@ -890,7 +943,7 @@ async function handle(req, res) {
     }
 
     if (path === '/friends/scan') {
-      const result = await handleFriendsScan(body?.force === true)
+      const result = await handleFriendsScan(body?.force === true, body?.wake === true)
       return json(res, 200, result)
     }
 
@@ -904,7 +957,7 @@ async function handle(req, res) {
       if (action === 'friend.scan' || action === 'friend.accept') {
         const raw =
           action === 'friend.scan'
-            ? await handleFriendsScan(body.force === true)
+            ? await handleFriendsScan(body.force === true, body.wake === true)
             : await handleFriendsAccept(body.requestId)
         const wrapped = friendsToActionResult(raw)
         if (!wrapped.ok) {
