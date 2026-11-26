@@ -10,6 +10,7 @@ import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialo
 import { isTauriRuntime } from './api-base-url'
 // L05:命令名统一从注册表取,调用点不再写字面量
 import { DESKTOP_COMMANDS } from './desktop-commands'
+import { compareVersions } from './app-version-gate'
 import { isNativeBridgeFeaturesEnabled } from './native-bridge-state'
 
 export { formatFileSize } from '@ihui/shared/utils/format'
@@ -67,9 +68,57 @@ export async function setWindowTitle(title: string): Promise<void> {
  * Browser Hub WS,拿帧/任务条/检查点/phase,因此桌面端也能看到与网页版同源的
  * 只读监看和「已处理,继续」,而不是把 Browser Hub 任务硬塞进本地浏览器。
  */
-export async function openAiPipWindow(sessionId: string, accessToken: string): Promise<void> {
+export async function openAiPipWindow(
+  sessionId: string,
+  accessToken: string,
+  show?: boolean,
+): Promise<void> {
   requireTauri()
-  await invoke(DESKTOP_COMMANDS.openBrowserPipWindow, { sessionId, accessToken })
+  // 0.1.96 旧壳不认 show 字段;只在预建路径显式传,普通点击保持旧三参调用,
+  // 这样前端可以先上线而不会打挂旧桌面端。
+  await invoke(DESKTOP_COMMANDS.openBrowserPipWindow, {
+    sessionId,
+    accessToken,
+    ...(show === undefined ? {} : { show }),
+  })
+}
+
+/** R11 预建窗最低桌面版本；低于它的旧壳不认 show/onlyHidden 字段。 */
+const AI_PIP_PREWARM_MIN_VERSION = '0.1.97'
+let aiPipPrewarmSupport: Promise<boolean> | null = null
+
+/**
+ * 当前桌面壳是否支持隐藏预建（0.1.97+）。
+ *
+ * 前端先上线时，0.1.96 旧壳必须继续走原来的「点击才建窗」路径；否则
+ * `show=false` 会被旧命令当成普通打开，检查点一出现就弹窗。
+ */
+export function canPrewarmAiPipWindow(): Promise<boolean> {
+  if (!isTauri()) return Promise.resolve(false)
+  aiPipPrewarmSupport ??= getDesktopAppInfo().then((info) =>
+    info ? compareVersions(info.version, AI_PIP_PREWARM_MIN_VERSION) >= 0 : false,
+  )
+  return aiPipPrewarmSupport
+}
+
+/**
+ * 预建隐藏画中画窗（2026-11-26 R11）。
+ *
+ * 复用 `open_browser_pip_window` 的 `show=false`：检查点提示条一出现就调用，
+ * 把 WebView2 冷启动提前到用户阅读提示条的时间；点「去处理」时同 label 的
+ * 隐藏窗只需 show，不再现等。失败不阻塞提示条，调用方需要 catch。
+ * 返回 false 表示当前壳版本不支持，调用方不应保留「已预建」记录。
+ */
+export async function prepareAiPipWindow(sessionId: string, accessToken: string): Promise<boolean> {
+  if (!(await canPrewarmAiPipWindow())) return false
+  await openAiPipWindow(sessionId, accessToken, false)
+  return true
+}
+
+/** 关闭预建但未显示的画中画窗；已经显示的用户窗不动。 */
+export async function closePreparedAiPipWindow(sessionId: string): Promise<void> {
+  if (!(await canPrewarmAiPipWindow())) return
+  await invoke(DESKTOP_COMMANDS.closeBrowserPipWindow, { sessionId, onlyHidden: true })
 }
 
 /** 关闭桌面端 AI 画中画监看窗。传 sessionId 只关该会话;不传则关闭全部。 */

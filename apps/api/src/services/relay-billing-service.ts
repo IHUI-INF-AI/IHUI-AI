@@ -2368,6 +2368,8 @@ async function markRefundPending(taskId: string, lastError: string): Promise<Ref
 export interface PreDeduction {
   apiKeyId: string
   userId: string
+  /** 预扣时请求的模型名,用于退款/对账日志定位。 */
+  model?: string
   tokens: number
   cents: number
   /**
@@ -2459,7 +2461,7 @@ export async function preDeductQuota(input: PreDeductInput): Promise<PreDeductio
     if (tokensToDeduct <= 0 && centsToDeduct <= 0) return null
 
     const groupInfo = await getKeyGroup(input.apiKeyId)
-    const base = { apiKeyId: row.id, userId: row.userId }
+    const base = { apiKeyId: row.id, userId: row.userId, model: input.model }
 
     if (groupInfo && groupInfo.enabled) {
       if (groupInfo.sharedTokenBalance === -1 && groupInfo.sharedCostBalanceCents === -1)
@@ -2622,6 +2624,27 @@ async function applySettlementDelta(
       .update(developerApiKeys)
       .set({ tokenBalance: tokenExpr, costBalanceCents: centsExpr, updatedAt: new Date() })
       .where(eq(developerApiKeys.id, pre.apiKeyId))
+  }
+}
+
+/**
+ * 释放未消费的预扣凭证(2026-11-27 立)。
+ *
+ * 媒体在 preHandler 已预扣、但请求在上游成功计费前失败时,必须把预扣原路退回,
+ * 否则 API Key 的 token/成本余额会被永久挂住。仅在结算未发生时调用。
+ */
+export async function releasePreDeduction(pre: PreDeduction): Promise<void> {
+  if (pre.tokens <= 0 && pre.cents <= 0) return
+  try {
+    await applySettlementDelta(pre, -pre.tokens, -pre.cents)
+  } catch (err) {
+    logger.error('[billing] 释放预扣失败(余额可能被挂住,需对账)', {
+      apiKeyId: pre.apiKeyId,
+      model: pre.model,
+      tokens: pre.tokens,
+      cents: pre.cents,
+      error: err instanceof Error ? err.message : String(err),
+    })
   }
 }
 

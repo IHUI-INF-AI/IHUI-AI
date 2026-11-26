@@ -70,6 +70,9 @@ import {
   refundTaskCall,
   calculateCost,
   getSpendableCostBalance,
+  preDeductQuota,
+  releasePreDeduction,
+  type PreDeduction,
 } from '../services/relay-billing-service.js'
 import { multimodalPriceRequest } from '../services/multimodal-pricing-gate.js'
 import { logger } from '../utils/logger.js'
@@ -100,6 +103,31 @@ const INTERNAL_BASE = `http://localhost:${process.env.PORT || 8802}`
 function apiKeyOf(request: Parameters<typeof getUserId>[0]): { id: string; userId: string } | null {
   const apiKey = (request as FastifyRequest & { apiKey?: { id: string; userId: string } }).apiKey
   return apiKey ?? null
+}
+
+interface MediaHoldState {
+  pre: PreDeduction
+  charged: boolean
+  released: boolean
+}
+
+/** 媒体预扣凭证按请求存放;WeakMap 不阻止请求对象回收。 */
+const mediaHolds = new WeakMap<FastifyRequest, MediaHoldState>()
+
+/** 标记本请求已进入计费,禁止响应结束时退回预扣。 */
+function markMediaHoldCharged(request: FastifyRequest): PreDeduction | null {
+  const state = mediaHolds.get(request)
+  if (!state) return null
+  state.charged = true
+  return state.pre
+}
+
+/** 响应结束仍未计费(上游失败/路由未出账)时,把预扣原路退回。 */
+function releaseMediaHoldIfUncharged(request: FastifyRequest): void {
+  const state = mediaHolds.get(request)
+  if (!state || state.charged || state.released) return
+  state.released = true
+  void releasePreDeduction(state.pre)
 }
 
 /**
@@ -195,6 +223,47 @@ function requireMultimodalPrice(): preHandlerAsyncHookHandler {
         await reply.status(402).send(error(402, '成本余额不足，请先充值'))
         return
       }
+
+      // 2026-11-27:媒体也走两段式预扣。先冻结本次报价,避免并发请求同时通过
+      // 余额预检后把余额花穿;上游失败/未出账时由 finish/close 钩子原路退回。
+      let pre: PreDeduction | null = null
+      try {
+        pre = await preDeductQuota({
+          apiKeyId: apiKey.id,
+          model: ctx.model,
+          userId: apiKey.userId,
+          estimatedPromptTokens: 0,
+          estimatedCompletionTokens: 0,
+          callType: ctx.callType,
+          billingUnits: ctx.units,
+        })
+      } catch (err) {
+        logger.error('[billing] 多模态预扣失败,拒绝调用', {
+          route: routeUrl,
+          model: ctx.model,
+          error: err instanceof Error ? err.message : String(err),
+        })
+        await reply.status(503).send(error(503, '计费服务暂不可用，请稍后重试'))
+        return
+      }
+      if (pre) {
+        if (pre.cents < quote.totalCostCents) {
+          // 余额预检与预扣之间被并发请求扣走,按余额不足处理,不留半截冻结。
+          await releasePreDeduction(pre)
+          logger.warn('[billing] 多模态预扣不足,拒绝调用', {
+            route: routeUrl,
+            model: ctx.model,
+            requiredCents: quote.totalCostCents,
+            preDeductedCents: pre.cents,
+          })
+          await reply.status(402).send(error(402, '成本余额不足，请先充值'))
+          return
+        }
+        mediaHolds.set(request, { pre, charged: false, released: false })
+        const release = () => releaseMediaHoldIfUncharged(request)
+        reply.raw.once('finish', release)
+        reply.raw.once('close', release)
+      }
     }
   }
 }
@@ -217,6 +286,7 @@ function chargeMultimodal(
 ): void {
   const apiKey = apiKeyOf(request)
   if (!apiKey) return
+  const preDeducted = markMediaHoldCharged(request as FastifyRequest)
   void recordCall({
     apiKeyId: apiKey.id,
     userId: apiKey.userId,
@@ -233,6 +303,7 @@ function chargeMultimodal(
     providerCode: args.channel?.providerCode,
     configId: args.channel?.configId,
     keyPoolId: args.channel?.keyPoolId,
+    preDeducted,
     metadata: {
       endpoint: `v1_${args.callType === 'image' ? 'images' : 'videos'}_generations`,
       ...(args.channel ? { relayDirect: true } : {}),
@@ -2404,6 +2475,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
             status: 'success',
             callType: 'image',
             billingUnits: 1,
+            preDeducted: markMediaHoldCharged(request),
             metadata: { endpoint: 'v1_3d_generations', task_id: submittedTaskId },
           })
           // submitStatus 在 mapper 回调内被改写,TS 的控制流分析看不到这一层赋值
@@ -2689,6 +2761,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           status: 'success',
           callType: 'image',
           billingUnits: 1,
+          preDeducted: markMediaHoldCharged(request),
           metadata: { endpoint: 'v1_images_generations_async', task_id: task.id },
         })
       }

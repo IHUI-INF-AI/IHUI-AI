@@ -21,6 +21,7 @@ use std::{
     collections::HashMap,
     path::PathBuf,
     sync::{LazyLock, Mutex},
+    time::{Duration, Instant},
 };
 
 use tauri::{AppHandle, Emitter, Manager, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
@@ -302,7 +303,7 @@ fn pip_window_title(session_id: &str) -> String {
 /// 收起/置顶/重连时 Windows 会先把监看窗激活,主窗里的键盘输入就断了。
 /// `WS_EX_TOOLWINDOW` 同时兜住 Alt-Tab/任务栏隐藏(与 skip_taskbar 双保险)。
 #[cfg(target_os = "windows")]
-fn apply_pip_window_styles(win: &WebviewWindow) -> Result<(), String> {
+fn apply_pip_window_styles(win: &WebviewWindow, show: bool) -> Result<(), String> {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{
         GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, HWND_TOPMOST,
@@ -319,22 +320,19 @@ fn apply_pip_window_styles(win: &WebviewWindow) -> Result<(), String> {
         if next != ex {
             SetWindowLongPtrW(native, GWL_EXSTYLE, next);
         }
-        // 样式位设置后强制落一次 Z 序/显示,但带 SWP_NOACTIVATE,不抢前台。
-        let _ = SetWindowPos(
-            native,
-            Some(HWND_TOPMOST),
-            0,
-            0,
-            0,
-            0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
-        );
+        // 样式位设置后强制落一次 Z 序；只有本次要显示时才带 SWP_SHOWWINDOW,
+        // 预建隐藏窗不能被这里顺手 show 出来。
+        let mut flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE;
+        if show {
+            flags |= SWP_SHOWWINDOW;
+        }
+        let _ = SetWindowPos(native, Some(HWND_TOPMOST), 0, 0, 0, 0, flags);
     }
     Ok(())
 }
 
 #[cfg(not(target_os = "windows"))]
-fn apply_pip_window_styles(_win: &WebviewWindow) -> Result<(), String> {
+fn apply_pip_window_styles(_win: &WebviewWindow, _show: bool) -> Result<(), String> {
     Ok(())
 }
 
@@ -361,11 +359,24 @@ fn show_pip_window_without_activating(win: &WebviewWindow) -> Result<(), String>
 
 /// 打开 AI 画中画窗。同一会话已存在时只刷新 token/置顶显示,不重建;
 /// 不同会话各开一窗,最多 6 个(与服务端单主体会话上限一致)。
+///
+/// `show=False` 为预建隐藏窗:检查点提示条出现时把 WebView2 冷启动提前,
+/// 用户点「去处理」时同 label 窗口只需 show,不再现等 1.3–1.8s。
 #[tauri::command]
 pub async fn open_browser_pip_window(
     app: AppHandle,
     session_id: String,
     access_token: String,
+    show: Option<bool>,
+) -> Result<(), String> {
+    ensure_browser_pip_window(app, session_id, access_token, show.unwrap_or(true)).await
+}
+
+async fn ensure_browser_pip_window(
+    app: AppHandle,
+    session_id: String,
+    access_token: String,
+    show: bool,
 ) -> Result<(), String> {
     if access_token.is_empty() || access_token.len() > 4096 {
         return Err("访问令牌长度非法".to_string());
@@ -386,11 +397,26 @@ pub async fn open_browser_pip_window(
         let _ = existing.eval(&token_script);
         // 新建窗在 `build()` 后、首次 show 前拿不到 HWND;此时重复点击不能报错，
         // 否则自动监看 4s 轮询会把「正在创建」误报成失败。样式等首次创建流程会补。
-        if let Err(e) = apply_pip_window_styles(&existing) {
-            log::debug!("[browser-pip] 窗口仍在创建,跳过重复应用样式: {e}");
-            return Ok(());
+        // 预建窗可能仍在 `build()` 中;给最多 3 秒等 HWND 就绪,避免用户
+        // 在提示条刚出现时点击被直接打回停靠监看。预建正常在 1.2–2.5s 完成,
+        // 命中已就绪窗口时这一循环一次都不会进。
+        let ready_deadline = Instant::now() + Duration::from_secs(3);
+        loop {
+            match apply_pip_window_styles(&existing, show) {
+                Ok(()) => break,
+                Err(e) if Instant::now() < ready_deadline => {
+                    log::debug!("[browser-pip] 窗口仍在创建,等待 HWND 就绪: {e}");
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                }
+                Err(e) => {
+                    log::debug!("[browser-pip] 窗口 3 秒内仍未就绪,本次点击退回停靠监看: {e}");
+                    return Err(format!("画中画窗口尚未就绪: {e}"));
+                }
+            }
         }
-        show_pip_window_without_activating(&existing)?;
+        if show {
+            show_pip_window_without_activating(&existing)?;
+        }
         return Ok(());
     }
 
@@ -413,6 +439,7 @@ pub async fn open_browser_pip_window(
     let build_script = token_script.clone();
     let build_url = url.clone();
     let build_title = pip_window_title(&session_id);
+    let build_started = Instant::now();
 
     // WebView2 控制器必须在 UI 线程创建;从 async 命令线程直接 build 会报
     // HRESULT(0x8007139F) "Expecting object to be local"(2026-11-25 真机实测,
@@ -458,17 +485,21 @@ pub async fn open_browser_pip_window(
                 .focused(false)
                 .decorations(false)
                 .shadow(true)
+                .visible(show)
                 .initialization_script(&build_script)
                 .build()
                 .map_err(|e| format!("打开 AI 画中画窗口失败: {e}"))?;
 
-                // build 默认 visible(true)，WebView2 控制器已在 UI 线程同步创建；
-                // 这时 hwnd 已就绪，可以立刻装 NOACTIVATE，不需要再 show/hide。
-                win.show()
-                    .map_err(|e| format!("显示 AI 画中画窗口失败: {e}"))?;
-                apply_pip_window_styles(&win)?;
-                show_pip_window_without_activating(&win)?;
-                apply_pip_window_styles(&win)?;
+                // build 默认 visible(true)；预建窗显式 visible(false)，不闪屏。
+                if show {
+                    win.show()
+                        .map_err(|e| format!("显示 AI 画中画窗口失败: {e}"))?;
+                }
+                apply_pip_window_styles(&win, show)?;
+                if show {
+                    show_pip_window_without_activating(&win)?;
+                    apply_pip_window_styles(&win, true)?;
+                }
                 #[cfg(target_os = "windows")]
                 if !previous_foreground.0.is_null() {
                     // SAFETY: 句柄来自建窗之前的前台窗口;只做一次前台还原。
@@ -524,7 +555,9 @@ pub async fn open_browser_pip_window(
                     }
                 });
                 log::info!(
-                    "[browser-pip] 打开 AI 画中画监看窗 session={build_session} label={build_label}"
+                    "[browser-pip] {} AI 画中画监看窗 session={build_session} label={build_label} build_ms={}",
+                    if show { "打开" } else { "预建" },
+                    build_started.elapsed().as_millis()
                 );
                 Ok(())
             })();
@@ -627,12 +660,19 @@ pub fn toggle_browser_pip_collapsed(window: WebviewWindow) -> Result<bool, Strin
 
 /// 关闭 AI 画中画窗。传 `session_id` 只关对应会话;不传则关闭全部监看窗。
 #[tauri::command]
-pub fn close_browser_pip_window(app: AppHandle, session_id: Option<String>) -> Result<(), String> {
+pub fn close_browser_pip_window(
+    app: AppHandle,
+    session_id: Option<String>,
+    only_hidden: Option<bool>,
+) -> Result<(), String> {
+    let only_hidden = only_hidden.unwrap_or(false);
     if let Some(session_id) = session_id {
         validate_pip_session(&session_id)?;
         if let Some(win) = app.get_webview_window(&pip_window_label(&session_id)) {
-            win.close()
-                .map_err(|e| format!("关闭 AI 画中画窗口失败: {e}"))?;
+            if !only_hidden || !win.is_visible().unwrap_or(false) {
+                win.close()
+                    .map_err(|e| format!("关闭 AI 画中画窗口失败: {e}"))?;
+            }
         }
         return Ok(());
     }
@@ -644,6 +684,9 @@ pub fn close_browser_pip_window(app: AppHandle, session_id: Option<String>) -> R
         .collect();
     for label in labels {
         if let Some(win) = app.get_webview_window(&label) {
+            if only_hidden && win.is_visible().unwrap_or(false) {
+                continue;
+            }
             let _ = win.close();
         }
     }
