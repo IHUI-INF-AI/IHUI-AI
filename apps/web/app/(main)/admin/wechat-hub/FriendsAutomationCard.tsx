@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍‌​‌‌​‌‌‌​‌​​‌‌‌​‍‍‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 
@@ -48,7 +48,10 @@ function describeFriendError(e: unknown): FriendErrorView {
   const rawMessage = e instanceof Error ? e.message : ''
   const mappedTitle = errorCode ? FRIEND_ERROR_TITLES[errorCode] : undefined
   if (mappedTitle) {
-    return { title: mappedTitle, detail: rawMessage && rawMessage !== mappedTitle ? rawMessage : '' }
+    return {
+      title: mappedTitle,
+      detail: rawMessage && rawMessage !== mappedTitle ? rawMessage : '',
+    }
   }
   return { title: rawMessage || '操作失败', detail: '' }
 }
@@ -208,7 +211,10 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
             <>
               <div className="flex flex-wrap items-end gap-2">
                 <div className="space-y-1">
-                  <Label htmlFor="wechat-friends-max-per-hour" className="text-xs text-muted-foreground">
+                  <Label
+                    htmlFor="wechat-friends-max-per-hour"
+                    className="text-xs text-muted-foreground"
+                  >
                     每小时上限
                   </Label>
                   <Input
@@ -251,7 +257,11 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
             </p>
           )}
           {policyError ? (
-            <Alert variant="danger" title={policyError.title} description={policyError.detail || undefined} />
+            <Alert
+              variant="danger"
+              title={policyError.title}
+              description={policyError.detail || undefined}
+            />
           ) : null}
         </div>
 
@@ -261,9 +271,19 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
             title="桥未开启好友自动化（BRIDGE_FRIENDS_AUTOMATION），扫描不可用"
           />
         ) : scan?.status === 'failed' ? (
-          <Alert variant="danger" title="申请扫描失败" description={scan.reason || '桥未返回原因'} />
+          <Alert
+            variant="danger"
+            title="申请扫描失败"
+            description={scan.reason || '桥未返回原因'}
+          />
         ) : scan ? (
           <div className="space-y-2">
+            {scan.stale ? (
+              <p className="text-xs text-amber-600">
+                微信窗口已收起，界面读不到实时数据；下面是{' '}
+                {Math.round((scan.cacheAgeMs ?? 0) / 1000)} 秒前采集的快照，打开微信后会自动更新。
+              </p>
+            ) : null}
             {scan.requests.length === 0 ? (
               <p className="text-xs text-muted-foreground">
                 暂无待处理申请（本次扫描枚举 {scan.rawCount} 个界面元素，入口与历史行已排除）。
@@ -323,7 +343,11 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
         )}
 
         {acceptError ? (
-          <Alert variant="danger" title={acceptError.title} description={acceptError.detail || undefined} />
+          <Alert
+            variant="danger"
+            title={acceptError.title}
+            description={acceptError.detail || undefined}
+          />
         ) : null}
 
         <div className="space-y-1.5">
@@ -360,7 +384,9 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
           <Alert
             variant="danger"
             title="读取新朋友数据失败"
-            description={overviewQuery.error instanceof Error ? overviewQuery.error.message : undefined}
+            description={
+              overviewQuery.error instanceof Error ? overviewQuery.error.message : undefined
+            }
           />
         ) : null}
         {/* useConfirm 的弹窗必须挂进组件树，否则二次确认点了没反应 */}
@@ -369,3 +395,4 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
     </Card>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -172,6 +172,9 @@ function buildScanView(result: WechatActionResult, now: number): WechatFriendSca
     rawCount: asNumber(data.rawCount) ?? rawRequests.length,
     entered: data.entered === true,
     entryExcluded: asNumber(data.entryExcluded) ?? 0,
+    stale: data.stale === true,
+    staleReason: asString(data.staleReason),
+    cacheAgeMs: asNumber(data.cacheAgeMs) ?? undefined,
   }
 }
 

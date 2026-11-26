@@ -206,7 +206,14 @@ export interface WechatAutoReplyPreviewResult {
 }
 
 /** 微信消息导出格式 */
-export type WechatExportFormat = 'jsonl' | 'csv' | 'html' | 'markdown' | 'xlsx' | 'chatlab' | 'sql'
+export type WechatExportFormat =
+  | 'jsonl'
+  | 'csv'
+  | 'html'
+  | 'markdown'
+  | 'xlsx'
+  | 'chatlab'
+  | 'sql'
 
 /** 微信消息导出入参 */
 export interface WechatExportInput {
@@ -365,8 +372,12 @@ export type WechatFriendRequestKind = 'friend' | 'group-invite'
 export interface WechatFriendRequestView {
   requestId: string
   nickname: string
-  /** 昵称为空时由桥标记 unavailable;非空且桥未报时回 control。 */
-  nicknameSource?: 'control' | 'unavailable'
+  /**
+   * 昵称来源：`control` 表示从行内控件真实读到；`unavailable` 表示这一行确实读不到人名
+   * （例如只抓到按钮、或页面结构变了）。读不到时允许 nickname 为空串，但前端必须据此
+   * 显示「昵称未读到」而不是留白或填占位符，避免让人以为对方真的没名字。
+   */
+  nicknameSource: 'control' | 'unavailable'
   source: string
   kind: WechatFriendRequestKind
   /** UIA 里有 InvokePattern 才算可点；不可点的只能人工去客户端处理。 */
@@ -382,12 +393,18 @@ export interface WechatFriendScanView {
   reason: string | null
   requests: WechatFriendRequestView[]
   scannedAt: number
-  /** 桥侧真实读到的原始条目数（过滤前），用来核对有没有被静默丢弃。 */
+  /** 进入「新的朋友」页面后真实读到的候选元素数（过滤前），用来核对有没有被静默丢弃。 */
   rawCount: number
-  /** 本次是否真正进入了「新的朋友」入口；false 表示桥跳过了入口扫描。 */
-  entered?: boolean
-  /** 入口外被排除的条目数，用于区分「入口没进去」与「进去但为空」。 */
-  entryExcluded?: number
+  /** 本次扫描是否真的进入了「新的朋友」页面（未进入时说明只读到了通讯录入口）。 */
+  entered: boolean
+  /** 被判定为导航入口（通讯录里的「新的朋友」行）而排除的行数。 */
+  entryExcluded: number
+  /** 本次结果是上一次成功采集的快照（微信窗口被收起时读不到界面，不谎报失败）；此时数据可能不是最新。 */
+  stale?: boolean
+  /** 快照过期的原因；stale=true 时才有值。 */
+  staleReason?: string | null
+  /** 结果来自缓存时，距上次成功采集的毫秒数。 */
+  cacheAgeMs?: number
 }
 
 /** 通过申请的回执；requestId 原样带回，便于审计对账。 */

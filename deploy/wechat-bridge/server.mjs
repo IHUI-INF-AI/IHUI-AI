@@ -25,6 +25,7 @@ import { fileURLToPath } from 'node:url'
 import { isMomentMessage, mergeMoments, nextMomentCursor, parseMomentMessage } from './moments.mjs'
 import { appendMomentArchive, readMomentArchive } from './moments-archive.mjs'
 import { loadMemberMap, mergeMemberMap, saveMemberMap } from './members-map.mjs'
+import { applyScanResult, loadSnapshot, saveSnapshot } from './friends-scan-cache.mjs'
 
 const ROOT = dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.BRIDGE_PORT ?? 8848)
@@ -590,7 +591,10 @@ function runFriendsScript(args) {
  */
 const FRIENDS_SCAN_CACHE_MS = 180_000
 const FRIENDS_SCAN_STALE_MS = 600_000
-let friendsScanCache = null // { at, body }
+/** 上次成功快照落盘，桥重启后仍能给出「过期但真实」的结果，而不是一片失败。 */
+const FRIENDS_SNAPSHOT_FILE =
+  process.env.BRIDGE_FRIENDS_SNAPSHOT ?? join(ROOT, '.bridge-friends-scan.json')
+let friendsScanCache = loadSnapshot(FRIENDS_SNAPSHOT_FILE)
 let friendsScanInFlight = null
 
 function scanViaCache(force) {
@@ -601,12 +605,12 @@ function scanViaCache(force) {
       return Promise.resolve({ ...friendsScanCache.body, cached: true, cacheAgeMs: age })
     }
   }
-  friendsScanInFlight = runFriendsScript(['-Scan']).then((body) => {
-    if (body && body.ok === true) {
-      friendsScanCache = { at: Date.now(), body }
-    }
+  friendsScanInFlight = runFriendsScript(['-Scan']).then((raw) => {
+    const next = applyScanResult(raw, friendsScanCache)
+    if (next.cache && next.cache !== friendsScanCache) saveSnapshot(FRIENDS_SNAPSHOT_FILE, next.cache)
+    friendsScanCache = next.cache
     friendsScanInFlight = null
-    return body
+    return next.body
   })
   return friendsScanInFlight
 }
