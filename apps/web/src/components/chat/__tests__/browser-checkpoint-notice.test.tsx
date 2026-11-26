@@ -12,6 +12,12 @@ vi.mock('next-intl', () => ({
 
 vi.mock('@ihui/api-client', () => ({
   listBrowserCheckpointAttention: vi.fn(),
+  setTokenProvider: vi.fn(),
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: (selector: (state: { token: string | null }) => unknown) =>
+    selector({ token: null }),
 }))
 
 import { listBrowserCheckpointAttention } from '@ihui/api-client'

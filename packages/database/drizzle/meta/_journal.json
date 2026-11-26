@@ -3362,6 +3362,27 @@
       "when": 1795578600000,
       "tag": "20261126140000_ensure_official_deepseek_model",
       "breakpoints": true
+    },
+    {
+      "idx": 485,
+      "version": "7",
+      "when": 1795583400000,
+      "tag": "20261126183000_block_free_model_publish",
+      "breakpoints": true
+    },
+    {
+      "idx": 486,
+      "version": "7",
+      "when": 1795585200000,
+      "tag": "20261126190000_blocklist_and_block_unpriced_insert",
+      "breakpoints": true
+    },
+    {
+      "idx": 487,
+      "version": "7",
+      "when": 1795585800000,
+      "tag": "20261126193000_normalize_blocklist_case",
+      "breakpoints": true
     }
   ]
 }
