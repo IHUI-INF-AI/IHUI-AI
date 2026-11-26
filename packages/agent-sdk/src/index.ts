@@ -53,6 +53,19 @@ export type {
   ChannelRegistryErrorCode,
   ChannelSpec,
 } from './channel-registry.js'
+// L12/RP-26 通道域隔离:agent/ui/remote-session 三域独立 ACL/版本/健康/审计分表
+export {
+  CHANNEL_DOMAINS,
+  DOMAIN_PREFIXES,
+  DomainChannelRouter,
+  DomainRejected,
+} from './channel-domain.js'
+export type {
+  ChannelDomain,
+  DomainAuditRecord,
+  DomainConfig,
+  DomainRejectReason,
+} from './channel-domain.js'
 export type {
   AgentSdkErrorCode,
   AgentSdkErrorOptions,
