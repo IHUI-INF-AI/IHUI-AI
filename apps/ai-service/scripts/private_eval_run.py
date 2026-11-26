@@ -43,7 +43,10 @@ from app.services.pairwise_eval import (  # noqa: E402
 from app.services.private_eval_store import (  # noqa: E402
     load_dataset,
     resolve_dataset_path,
+    scan_dataset,
+    template_path,
     trend_ledger_path,
+    write_template,
 )
 
 EXIT_OK = 0
@@ -59,14 +62,75 @@ def _print_rate(label: str, rate: WinRate | None) -> None:
     print(f"  {label}: 胜率={pct}  win={rate.win} loss={rate.loss} tie={rate.tie} unjudged={rate.unjudged} 可判basis={rate.basis}")
 
 
-async def _run(args: argparse.Namespace) -> int:
-    res = resolve_dataset_path()
-    dataset_path = res.path
-    if not res.found or dataset_path is None:
-        print(f"[未判定] 题库不在批准落点(env 覆盖或候选根),不回落工作树、也不冒称通过(§0.3)。tried={res.tried} winner_index={res.winner_index}")
-        if res.winner_index >= 0:
-            print("         根已挂上但题库文件缺失 —— 先在该路径放 pairwise-dataset.jsonl 再跑。")
+def _validate(args: argparse.Namespace) -> int:
+    """只体检题库形状,**只报计数、不打印任何题面文字**(计数可以进日志/终端,题目不行)。"""
+    target: Path | None = None
+    if args.dataset:
+        explicit = Path(args.dataset)
+        if not explicit.exists():
+            print(f"[未判定] --dataset 指向的文件不存在:{explicit}")
+            return EXIT_UNDETERMINED
+        target = explicit
+    else:
+        res = resolve_dataset_path()
+        found = res.path
+        if not res.found or found is None:
+            tpl = template_path()
+            print(f"[体检] 批准落点里没有正式题库(tried={res.tried} winner_index={res.winner_index})")
+            if tpl.exists():
+                s = scan_dataset(tpl)
+                print(f"  但发现模板未被替换:{tpl} 行数={s.total} 可用=0 ⇒ 结论:template-only")
+                print("  出路:把模板行换成真实对话题(item_id 别以 TEMPLATE- 开头),另存为同目录 pairwise-dataset.jsonl。")
+                return EXIT_UNDETERMINED
+            print("  先跑 `--init-template` 在仓外生成占位模板,换成真题后另存为 pairwise-dataset.jsonl。")
+            return EXIT_UNDETERMINED
+        target = found
+
+    s = scan_dataset(target)
+    print("=" * 60)
+    print(f"题库体检  路径={target}")
+    print(
+        f"  行数={s.total} 可用={s.usable} 模板占位={s.template} 重复={s.duplicate} 坏行={s.malformed} 缺字段={s.missing_field}"
+    )
+    print(f"  结论:{s.verdict}")
+    print("=" * 60)
+    if s.verdict == "usable":
+        print(f"→ 退出 0:可跑。建议首版用 observe 档手动跑:`--version <落账sha>`(题数 >= {args.min_judged} 才出裁决)。")
+        return EXIT_OK
+    if s.verdict == "template-only":
+        print("→ 退出 2:文件里只剩占位模板行,装载器不会拿它们出题 ⇒ 还没有真题。")
+        print("         把模板行换成真实对话题(item_id 别以 TEMPLATE- 开头)另存为 pairwise-dataset.jsonl。")
         return EXIT_UNDETERMINED
+    print("→ 退出 2:没有可用条目 ⇒ 不冒称可跑,也不冒称跑过(§0.3)。")
+    return EXIT_UNDETERMINED
+
+
+def _init_template() -> int:
+    """在仓外批准根生成**占位**模板:文件名与正式题库不同,装载器永远读不到它。"""
+    p = template_path()
+    n = write_template(p)
+    print(f"[模板已生成] {p} 共 {n} 行")
+    print("  这些行的 item_id 以 TEMPLATE- 开头 ⇒ 即使被误放进正式题库也会被装载器跳过(不会假绿)。")
+    print("  下一步:换成真实对话题,另存为同目录的 pairwise-dataset.jsonl(题库永不进 git,这是保密轴)。")
+    print("  自查形状:python scripts/private_eval_run.py --validate")
+    return EXIT_OK
+
+
+async def _run(args: argparse.Namespace) -> int:
+    if args.dataset:
+        dataset_path = Path(args.dataset)
+        if not dataset_path.exists():
+            print(f"[未判定] --dataset 指向的文件不存在:{dataset_path}(不回落工作树去凑,§0.3)")
+            return EXIT_UNDETERMINED
+    else:
+        res = resolve_dataset_path()
+        found = res.path
+        if not res.found or found is None:
+            print(f"[未判定] 题库不在批准落点(env 覆盖或候选根),不回落工作树、也不冒称通过(§0.3)。tried={res.tried} winner_index={res.winner_index}")
+            if res.winner_index >= 0:
+                print("         根已挂上但题库文件缺失 —— 先在该路径放 pairwise-dataset.jsonl 再跑。")
+            return EXIT_UNDETERMINED
+        dataset_path = found
 
     items = load_dataset(dataset_path)
     if not items:
@@ -226,10 +290,17 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="只装载与计划,不调模型、不落账")
     parser.add_argument("--no-append", action="store_true", help="跑完不写趋势账(调试用)")
     parser.add_argument("--self-test", action="store_true", help="纯函数形状锁,零网络")
+    parser.add_argument("--validate", action="store_true", help="只报题库形状计数(绝不打印题面),退 0=可跑 / 退 2=未判定")
+    parser.add_argument("--init-template", action="store_true", help="在仓外批准根生成占位模板(文件名与正式题库不同)")
+    parser.add_argument("--dataset", default=None, help="显式指定题库 jsonl 路径(默认走批准落点解析)")
     args = parser.parse_args()
 
     if args.self_test:
         return _self_test()
+    if args.init_template:
+        return _init_template()
+    if args.validate:
+        return _validate(args)
     try:
         return asyncio.run(_run(args))
     except Exception as exc:  # noqa: BLE001 - 脚本自身异常必须 exit 2,绝不冒 0

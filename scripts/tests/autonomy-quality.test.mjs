@@ -23,7 +23,62 @@ test('档位与牌寿命形状校验:越界即抛,不静默回落', () => {
   assert.throws(() => Q.resolveQualityConfig({ ruler: { mode: 'always' } }), /ruler\.mode 只能是 off\|observe\|enforce/)
   assert.throws(() => Q.resolveQualityConfig({ ruler: { holdHours: 0 } }), /ruler\.holdHours/)
   assert.throws(() => Q.resolveQualityConfig({ ruler: { holdHours: 999 } }), /ruler\.holdHours/)
-  assert.deepEqual(Q.resolveQualityConfig({ ruler: { mode: 'enforce', holdHours: 6 } }), { mode: 'enforce', holdHours: 6 })
+  assert.deepEqual(Q.resolveQualityConfig({ ruler: { mode: 'enforce', holdHours: 6 } }), {
+    mode: 'enforce',
+    holdHours: 6,
+    tune: {},
+    datasetDir: null,
+  })
+})
+
+// ---- 调参透传:配置只校验取值,flag 名由 lib 单点映射(§0.6) ---- #
+test('调参校验:坏值当场抛,不设的值一律不拼 flag(让 Python 默认值继续做主)', () => {
+  assert.throws(() => Q.resolveQualityConfig({ ruler: { minJudged: 0 } }), /minJudged 必须是正整数/)
+  assert.throws(() => Q.resolveQualityConfig({ ruler: { window: 2.5 } }), /window 必须是正整数/)
+  assert.throws(() => Q.resolveQualityConfig({ ruler: { minDelta: 0 } }), /minDelta/)
+  assert.throws(() => Q.resolveQualityConfig({ ruler: { minDelta: 1.5 } }), /minDelta/)
+  assert.throws(() => Q.resolveQualityConfig({ ruler: { datasetDir: '   ' } }), /datasetDir/)
+  const tuned = Q.resolveQualityConfig({ ruler: { mode: 'observe', minJudged: 5, window: 2, minDelta: 0.2, datasetDir: 'D:/x/eval' } })
+  assert.deepEqual(tuned.tune, { minJudged: 5, window: 2, minDelta: 0.2 })
+  assert.equal(tuned.datasetDir, 'D:/x/eval')
+})
+
+test('argv 组装:未配置的参数不得出现在命令行里(否则两处默认会漂移)', () => {
+  assert.deepEqual(Q.buildRulerArgv('S.py', 'v1').slice(1), ['--version', 'v1'])
+  assert.deepEqual(Q.buildRulerArgv('S.py', 'v1', {}).slice(1), ['--version', 'v1'])
+  assert.deepEqual(Q.buildRulerArgv('S.py', 'v1', { minJudged: 5 }).slice(1), ['--version', 'v1', '--min-judged', '5'])
+  const full = Q.buildRulerArgv('S.py', 'v2', { minJudged: 5, window: 3, minDelta: 0.25 })
+  assert.deepEqual(full, ['S.py', '--version', 'v2', '--min-judged', '5', '--window', '3', '--min-delta', '0.25'])
+  assert.deepEqual(Q.buildRulerArgv('S.py', null).slice(1), ['--version', 'unknown'], '缺版本号必须落 unknown 占位而非空串参数')
+})
+
+test('调参端到端:配置值 ⇒ 子进程 argv 真带上 flag 与 PRIVATE_EVAL_DIR', () => {
+  const seen = {}
+  const root = process.cwd().replace(/\\/g, '/')
+  const cfg = Q.resolveQualityConfig({ ruler: { mode: 'observe', minJudged: 4, window: 2, minDelta: 0.3, datasetDir: 'D:/DevEnv/Temp/probe' } })
+  const r = Q.runRuler({
+    mode: cfg.mode,
+    root,
+    version: 'a'.repeat(40),
+    tune: cfg.tune,
+    datasetDir: cfg.datasetDir,
+    env: {},
+    platform: 'win32',
+    spawnFn: (file, args, opts) => {
+      seen.args = args
+      seen.env = opts.env
+      return { status: 1, stdout: '哨兵: regression\n', stderr: '' }
+    },
+  })
+  if (r.verdict === 'undetermined' && r.why.includes('不在位')) {
+    assert.ok(true, '精简检出处:尺子不在位即未判定,也是正解')
+    return
+  }
+  assert.equal(r.verdict, 'regression')
+  assert.ok(seen.args.includes('--min-judged') && seen.args[seen.args.indexOf('--min-judged') + 1] === '4', JSON.stringify(seen.args))
+  assert.ok(seen.args.includes('--window') && seen.args[seen.args.indexOf('--window') + 1] === '2')
+  assert.ok(seen.args.includes('--min-delta') && seen.args[seen.args.indexOf('--min-delta') + 1] === '0.3')
+  assert.equal(seen.env.PRIVATE_EVAL_DIR, 'D:/DevEnv/Temp/probe')
 })
 
 test('退码三态映射:未知退码/信号/异常一律 undetermined,绝不默认 ok', () => {
@@ -106,6 +161,20 @@ test('真跑形状:argv 带版本号,stdio 显式接管且 windowsHide(§12g/§5
   assert.equal(seen.opts.windowsHide, true, '派生进程必须 windowsHide(§5b 机器级默认)')
   assert.equal(r.verdict, 'regression')
   assert.ok(r.tail.includes('regression'), r.tail)
+})
+
+test('datasetDir 必须透传成子进程 PRIVATE_EVAL_DIR(不污染常驻批准根才能试跑)', () => {
+  const seenEnv = {}
+  const root = process.cwd().replace(/\\/g, '/')
+  const fake = (file, args, opts) => {
+    Object.assign(seenEnv, opts.env || {})
+    return { status: 2, stdout: '哨兵: unjudged 基线样本不足\n', stderr: '' }
+  }
+  const r = Q.runRuler({ mode: 'observe', root, version: 'e'.repeat(40), datasetDir: 'D:/DevEnv/Temp/ihui-ruler-proof', env: {}, platform: 'win32', spawnFn: fake })
+  assert.equal(r.verdict, 'undetermined', '退 2 必须读成未判定')
+  assert.equal(seenEnv.PRIVATE_EVAL_DIR, 'D:/DevEnv/Temp/ihui-ruler-proof')
+  const noDir = Q.runRuler({ mode: 'observe', root, version: 'f'.repeat(40), env: {}, platform: 'win32', spawnFn: () => ({ status: 0, stdout: '', stderr: '' }) })
+  assert.equal(noDir.verdict, 'ok')
 })
 
 test('台账行形状:动作名一一对应、无题面字段、why 限长且不换行', () => {

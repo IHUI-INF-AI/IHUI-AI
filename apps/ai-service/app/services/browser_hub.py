@@ -1494,6 +1494,34 @@ class BrowserSession:
             **self._task_state(),
         }
 
+    def checkpoint_attention(self) -> dict[str, Any] | None:
+        """当前是否有等待用户处理的检查点;有则返回聊天提示所需的最小快照。
+
+        只读内存任务快照,不取页面 URL/title —— 调用方先筛出"确实在等"的会话,
+        再按需补导航信息,避免每轮轮询都把每个会话的 page 读一遍。
+        """
+        snapshot = task_snapshot(self._task)
+        if not snapshot:
+            return None
+        active = next(
+            (
+                cp
+                for cp in snapshot.get("checkpoints") or []
+                if isinstance(cp, dict) and cp.get("status") == "active"
+            ),
+            None,
+        )
+        if not active:
+            return None
+        return {
+            "session_id": self.session_id,
+            "task_id": snapshot.get("task_id"),
+            "goal": snapshot.get("goal"),
+            "checkpoint": active,
+            "phase": dict(self._phase_state),
+            "timed_out": bool(active.get("timed_out")),
+        }
+
     def persisted_state(self) -> dict[str, Any]:
         """可跨进程恢复的任务/phase 快照(仅内部持久化用,不对外)。"""
         import copy
@@ -3001,6 +3029,33 @@ class BrowserHub:
             for sid, s in self._sessions.items()
             if owner_user_id is None or _same_owner(s.owner_user_id, owner_user_id)
         ]
+
+    async def list_checkpoint_attention(
+        self, owner_user_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """列出"检查点正在等用户"的会话,供聊天输入区提示条轮询。
+
+        先走内存任务快照过滤,只有命中检查点的会话才读 URL/title;
+        最多 6 个会话,轮询成本被压在个位数页面读取。
+        """
+        rows: list[dict[str, Any]] = []
+        for sid, session in list(self._sessions.items()):
+            if owner_user_id is not None and not _same_owner(
+                session.owner_user_id, owner_user_id
+            ):
+                continue
+            item = session.checkpoint_attention()
+            if not item:
+                continue
+            try:
+                item["url"] = await session.get_current_url()
+                item["title"] = await session.get_title()
+            except Exception:
+                item["url"] = ""
+                item["title"] = ""
+            rows.append(item)
+        rows.sort(key=lambda row: str(row.get("checkpoint", {}).get("entered_at") or ""))
+        return rows
 
     async def close_session(self, session_id: str, owner_user_id: str | None = None) -> bool:
         if self.get_session(session_id, owner_user_id) is None:

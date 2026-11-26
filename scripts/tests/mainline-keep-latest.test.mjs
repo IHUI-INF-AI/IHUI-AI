@@ -15,6 +15,7 @@ import {
   MAINLINE_KEEP_LATEST_INTERVAL_MS,
   MAINLINE_KEEP_LATEST_TICK,
   sweepMainlineKeepLatest,
+  startMainlineSweepTimer,
 } from '../mainline-keep-latest.mjs'
 import { GIT_EGRESS_DIRECT_ARGS } from '../lib/face-reader.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -444,6 +445,60 @@ test('sweep 坏结论/抛错一律降级未判定,不冒绿', async () => {
       rmScratch(dir)
     }
   }
+})
+
+test('常驻看守:异步 sweep 不重入,stop 后定时器不再触发', async () => {
+  let callback = null
+  let cleared = null
+  let runs = 0
+  let release = null
+  const gate = new Promise((resolve) => {
+    release = resolve
+  })
+  const timer = startMainlineSweepTimer({
+    startImmediately: false,
+    setIntervalImpl: (fn) => {
+      callback = fn
+      return 42
+    },
+    clearIntervalImpl: (id) => {
+      cleared = id
+    },
+    sweepImpl: async () => {
+      runs += 1
+      await gate
+      return { state: 'up-to-date' }
+    },
+  })
+  callback()
+  callback()
+  assert.equal(runs, 1)
+  release()
+  await new Promise((resolve) => setImmediate(resolve))
+  await timer.tick()
+  assert.equal(runs, 2)
+  timer.stop()
+  callback()
+  await timer.tick()
+  assert.equal(runs, 2)
+  assert.equal(cleared, 42)
+})
+
+test('常驻看守:sweep 抛错只记一行,不把 dev 看守带崩', async () => {
+  const logs = []
+  const timer = startMainlineSweepTimer({
+    startImmediately: false,
+    setIntervalImpl: () => 1,
+    clearIntervalImpl: () => {},
+    logger: (line) => logs.push(line),
+    sweepImpl: async () => {
+      throw new Error('boom')
+    },
+  })
+  assert.equal(await timer.tick(), null)
+  assert.equal(logs.length, 1)
+  assert.match(logs[0], /看守异常/)
+  timer.stop()
 })
 
 test('sweep diverged 只日志不写分支,并落盘冷却', async () => {

@@ -3438,7 +3438,13 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
           try {
             const headSha = gitRaw(['rev-parse', 'HEAD'], ROOT).trim()
             const version = /^[0-9a-f]{40}$/.test(headSha) ? headSha : `ticket:${key}`
-            const qr = runRuler({ mode: gates.quality.mode, root: ROOT, version })
+            const qr = runRuler({
+              mode: gates.quality.mode,
+              root: ROOT,
+              version,
+              tune: gates.quality.tune ?? null,
+              datasetDir: gates.quality.datasetDir ?? null,
+            })
             const verdict = qr.verdict === 'skipped' ? null : qr.verdict
             let holdUntil = null
             if (verdict !== null && shouldHold({ mode: gates.quality.mode, verdict })) {

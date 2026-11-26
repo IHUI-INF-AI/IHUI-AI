@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +31,15 @@ _ROOT_CANDIDATES = [
     "C:/DevEnv/private-eval",
 ]
 _DATASET_NAME = "pairwise-dataset.jsonl"
+_TEMPLATE_DATASET_NAME = "pairwise-dataset.TEMPLATE.jsonl"
+# 模板行的 item_id 前缀:装载器**主动跳过**,不计入可用题。
+# 为什么必须跳过而不是照判:有人会把模板直接改名成正式题库就跑,那几行占位文字
+# 会被裁判当成真题出胜率 —— 账面一个数,实际什么都没测(§0.3 的另一种形:冒绿)。
+_TEMPLATE_PREFIX = "TEMPLATE-"
+
+
+def is_template_row(item_id: str) -> bool:
+    return str(item_id).startswith(_TEMPLATE_PREFIX)
 
 
 @dataclass
@@ -77,28 +86,63 @@ def resolve_dataset_path(env: dict[str, str] | None = None) -> DatasetResolution
     return DatasetResolution(candidate if candidate.exists() else None, tried, winner_index)
 
 
-def load_dataset(path: Path) -> list[EvalItem]:
-    """读 jsonl 题库成 EvalItem 列表;坏行丢弃并计坏行数(不因一行崩读废整轮)。
+@dataclass
+class DatasetScan:
+    """题库体检结果 —— **只有计数,没有任何题面文字**(保密轴:计数可以进日志/终端,题目不行)。"""
 
-    返回前按 item_id 去重保序:同 id 重复 = 一份题被两个会话/两批数据带进来,
-    在分母里是两条但其实是同一题,会让胜率虚高/失真 —— 折到第一枚,重复数单列回报。
+    total: int = 0
+    usable: int = 0
+    template: int = 0
+    duplicate: int = 0
+    malformed: int = 0
+    missing_field: int = 0
+
+    def to_dict(self) -> dict[str, int]:
+        return asdict(self)
+
+    @property
+    def verdict(self) -> str:
+        if self.usable > 0:
+            return "usable"
+        if self.template > 0 and self.duplicate == 0 and self.malformed == 0:
+            return "template-only"
+        return "empty"
+
+
+def _scan_rows(path: Path) -> tuple[list[EvalItem], DatasetScan]:
+    """一次读盘同时给出条目与计数(体检与真跑共用同一把尺,不各写一份 §0.6)。
+
+    按 item_id 去重保序:同 id 重复 = 一份题被两批数据带进来,在分母里是两条但其实是
+    同一题,会让胜率虚高 ⇒ 折到首枚并计入 duplicate 报数。
     """
+    scan = DatasetScan()
     items: list[EvalItem] = []
     seen: set[str] = set()
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
         if not line:
             continue
+        scan.total += 1
         try:
-            obj: dict[str, Any] = json.loads(line)
+            obj: Any = json.loads(line)
         except json.JSONDecodeError:
+            scan.malformed += 1
+            continue
+        if not isinstance(obj, dict):
+            scan.malformed += 1
             continue
         if not all(k in obj for k in ("item_id", "instruction", "candidate", "reference")):
+            scan.missing_field += 1
             continue
         item_id = str(obj["item_id"])
+        if is_template_row(item_id):
+            scan.template += 1
+            continue
         if item_id in seen:
+            scan.duplicate += 1
             continue
         seen.add(item_id)
+        scan.usable += 1
         items.append(
             EvalItem(
                 item_id=item_id,
@@ -107,7 +151,50 @@ def load_dataset(path: Path) -> list[EvalItem]:
                 reference=str(obj["reference"]),
             )
         )
-    return items
+    return items, scan
+
+
+def load_dataset(path: Path) -> list[EvalItem]:
+    """读 jsonl 题库成 EvalItem 列表(模板行/坏行/重复行一律不进取用集)。"""
+    return _scan_rows(path)[0]
+
+
+def scan_dataset(path: Path) -> DatasetScan:
+    """只体检不裁决:给出可用/模板/重复/坏行计数(供 --validate 与机主建库时自查)。"""
+    return _scan_rows(path)[1]
+
+
+def template_path(env: dict[str, str] | None = None) -> Path:
+    """模板落点(与正式题库同批准根,但文件名不同 ⇒ 装载器永远读不到它)。"""
+    env = dict(os.environ if env is None else env)
+    return Path(_roots(env)[0]) / _TEMPLATE_DATASET_NAME
+
+
+def write_template(path: Path) -> int:
+    """生成**占位**模板:题面写明是待替换的示例,不冒充真题库。返回写入行数。"""
+    rows = [
+        {
+            "item_id": "TEMPLATE-1",
+            "instruction": "〔把这里换成真实用户会问的话〕",
+            "candidate": "〔待测版本的回答〕",
+            "reference": "〔当作基线的回答(旧版或人工好答案)〕",
+        },
+        {
+            "item_id": "TEMPLATE-2",
+            "instruction": "〔换一题:要求助手解释一个概念〕",
+            "candidate": "〔新版回答〕",
+            "reference": "〔基线回答〕",
+        },
+        {
+            "item_id": "TEMPLATE-3",
+            "instruction": "〔换一题:情绪support类,考察是否自然体贴〕",
+            "candidate": "〔新版回答〕",
+            "reference": "〔基线回答〕",
+        },
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
+    return len(rows)
 
 
 def trend_ledger_path(env: dict[str, str] | None = None) -> Path:
@@ -118,5 +205,12 @@ def trend_ledger_path(env: dict[str, str] | None = None) -> Path:
     return root / "pairwise-trend.jsonl"
 
 
-__test__ = {"resolve_dataset_path": resolve_dataset_path, "load_dataset": load_dataset}
+__test__ = {
+    "resolve_dataset_path": resolve_dataset_path,
+    "load_dataset": load_dataset,
+    "scan_dataset": scan_dataset,
+    "is_template_row": is_template_row,
+    "write_template": write_template,
+    "template_path": template_path,
+}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

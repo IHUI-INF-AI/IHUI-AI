@@ -30,6 +30,7 @@
  *       详见 BACKEND 段落;逃生档 `--no-backend`(后端由你自己管)。
  *   1. 前台 spawn `next dev [--turbopack] -p 8801`(stdio / 退出码透传);
  *   1.5 运行期看守:每 30s 复探后端,掉线自动经 dev-stack 重拉(冷却 60s 防刷屏);
+ *       同一看守周期调用 main 保活 sweep(内部 15min 节流),让 dev 常驻期间自动追新;
  *   2. (仅默认档)等 http://localhost:8801 就绪后,以 detached 后台进程跑
  *      `warm-dev-routes.mjs`(默认 PRIORITY_ROUTES 全量 36 条),
  *      日志 .ihui-agent/tmp/dev-logs/web-warmup.log;
@@ -70,6 +71,7 @@ import { randomBytes } from 'node:crypto'
 // dev 锁的归属判据只有一份,住在 deploy-lock.mjs:这里 import 它,不在启动器里再拼一遍
 // "锁目录在不在 / meta 怎么读"(两处算同一件事必漂移,本仓记过多次)。
 import { acquire, release, lockOwnedBy } from './deploy-lock.mjs'
+import { startMainlineSweepTimer } from './mainline-keep-latest.mjs'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const WEB_DIR = path.join(REPO_ROOT, 'apps', 'web')
@@ -569,6 +571,7 @@ dev.on('exit', (code) => quit(code ?? 0))
 
 // 1.5) 运行期后端看守(next dev 已在跑 ⇒ 现在掉线不再阻断,改为自动重拉)
 startBackendWatchdog()
+startMainlineSweepTimer({ logger: log })
 
 // 2) 等 dev server 就绪(180s 上限;dev 已在前台跑,这里只是等待,不阻塞它)
 async function waitReady() {

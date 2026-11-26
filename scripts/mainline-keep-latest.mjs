@@ -540,6 +540,39 @@ export function resetUpToDateWindowsForTest() {
   upToDateWindows.clear()
 }
 
+export function startMainlineSweepTimer({
+  intervalMs = 30_000,
+  logger = (line) => console.log(line),
+  sweepImpl = sweepMainlineKeepLatest,
+  setIntervalImpl = setInterval,
+  clearIntervalImpl = clearInterval,
+  startImmediately = true,
+} = {}) {
+  let busy = false
+  let stopped = false
+  const tick = async () => {
+    if (busy || stopped) return null
+    busy = true
+    try {
+      return await sweepImpl({ logger })
+    } catch (e) {
+      logger(`ℹ️ main 保活:看守异常(不阻断 dev):${String(e?.message ?? e).slice(0, 160)}`)
+      return null
+    } finally {
+      busy = false
+    }
+  }
+  const timer = setIntervalImpl(() => void tick(), intervalMs)
+  if (startImmediately) void tick()
+  return {
+    tick,
+    stop() {
+      stopped = true
+      clearIntervalImpl(timer)
+    },
+  }
+}
+
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) process.exitCode = main(process.argv.slice(2))
 
@@ -547,6 +580,7 @@ export const __test__ = {
   classify,
   keepLatest,
   sweepMainlineKeepLatest,
+  startMainlineSweepTimer,
   resetUpToDateWindowsForTest,
   MAINLINE_KEEP_LATEST_INTERVAL_MS,
   runSelfTest,

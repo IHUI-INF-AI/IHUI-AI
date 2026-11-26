@@ -391,15 +391,27 @@ export async function acceptFriendRequest(
     requestId: trimmedRequestId,
   })
   const view = buildAcceptView(bridgeResult, trimmedRequestId)
-  await appendAudit(accountId, account.metadata, {
+  const entry: WechatFriendAuditEntry = {
     at: now,
     requestId: trimmedRequestId,
     nickname: match.nickname,
     ok: view.ok,
     status: view.status,
     errorCode: view.errorCode,
-  })
-  return view
+  }
+  await appendAudit(accountId, account.metadata, entry)
+  // 回执里带上剩余额度：前端不必再猜「还能点几个」，成功或失败都能看到当前窗口余量。
+  const nextAudit = [...audit, entry].slice(-FRIENDS_AUDIT_KEEP)
+  const quotaDayLimit = policy.maxAcceptsPerDay ?? FRIENDS_DEFAULT_MAX_PER_DAY
+  const remainingToday = Math.max(
+    quotaDayLimit - acceptedSince(nextAudit, now, FRIENDS_DAY_WINDOW_MS),
+    0,
+  )
+  const remainingThisHour = Math.max(
+    policy.maxAcceptsPerHour - acceptedInWindow(nextAudit, now),
+    0,
+  )
+  return { ...view, remainingToday, remainingThisHour }
 }
 
 /** 读账号好友自动化策略；路由层先过归属校验再展示。 */

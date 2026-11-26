@@ -97,6 +97,23 @@ export async function toggleAiPipCollapsed(): Promise<boolean> {
 }
 
 /**
+ * 一键最大化 / 还原 AI 画中画窗。
+ *
+ * 走 Tauri 原生 `maximize/unmaximize`,由系统按当前显示器工作区处理,
+ * 不另算一套尺寸;Rust 的几何记忆会跳过最大化态,关闭重开仍回到原尺寸。
+ */
+export async function toggleAiPipMaximized(): Promise<boolean> {
+  requireTauri()
+  const win = getCurrentWindow()
+  if (await win.isMaximized()) {
+    await win.unmaximize()
+    return false
+  }
+  await win.maximize()
+  return true
+}
+
+/**
  * 从 AI 画中画监看窗「一键接管」:由 Rust 拉回主窗、投递 handover 事件并关浮窗。
  * 不走页面侧 getAllWindows/setFocus —— 远程 origin 的窗口 ACL 会单独卡这两项,
  * 失败后只剩 `window.close()`,主窗仍在后台,等于没接管。
