@@ -46,6 +46,24 @@ export {
   ChannelRegistryError,
   ChannelRejected,
 } from './channel-registry.js'
+// L07/RP-24 桥版本握手:HELLO 摘要 + mismatch 禁用入口 + fail-closed 首屏门 + bundle 静态校验
+export {
+  BRIDGE_METHOD_PATTERN,
+  BRIDGE_PROTOCOL_VERSION,
+  BridgeHandshakeError,
+  computeMethodDigest,
+  createBridgeHello,
+  createFailClosedGate,
+  negotiateBridge,
+  scanBridgeCalls,
+} from './bridge-handshake.js'
+export type {
+  BridgeEntrypointSpec,
+  BridgeHandshakeErrorCode,
+  BridgeHello,
+  BridgeNegotiationResult,
+  NativeBridgeManifest,
+} from './bridge-handshake.js'
 export type {
   ChannelAuditRecord,
   ChannelDispatcherOptions,
