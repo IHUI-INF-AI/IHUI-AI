@@ -84,6 +84,15 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🐞 修复:补齐drama/exam与流式聊天收费,冻结写入定价快照并加后台零价/负毛利护栏 (4eff1347)
+- 🐞 修复:扫描不再把「读不到窗口」当成 0 条待处理 (21be142d)
+- 📚 文档:record R10 / R10.1 / R10.1d PIP closure (0127f690)
+- 🐞 修复:新朋友卡片移到「联系人与群成员」并对 bridge 账号常显 (d776c568)
+- 🐞 修复:default monitor URL and exact session rewrites (f95f0cff)
+- 🐞 修复:收口无会话 LLM 与 WS 免费通道 (681278e4)
+- 📚 文档:账本补记 PROJECT_PLAN 13 行已勾选 (e6e04f72)
+- 📚 文档:L01-L16 13 项勾选收口（账本 2026-11-26） (8875c777)
+- 🚀 新功能/改进:L09 收口 —— MCP OAuth 检查点默认 DPAPI 封装、失败不回落明文、退出清内存副本 (f8366476)
 - 🚀 新功能/改进:R10 全面超越——登录态跨重启、模板自动建会话、工作面停靠监看 (b10f10ab)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (740b8f4c)
 - 🚀 新功能/改进:L03 审批反向通道三队列协议(断线不丢/重连按序补发/requestId 幂等,7 测试) (063d485b)

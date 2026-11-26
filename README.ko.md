@@ -2227,6 +2227,15 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🐞 수정:补齐drama/exam与流式聊天收费,冻结写入定价快照并加后台零价/负毛利护栏 (4eff1347)
+- 🐞 수정:扫描不再把「读不到窗口」当成 0 条待处理 (21be142d)
+- 📚 문서:record R10 / R10.1 / R10.1d PIP closure (0127f690)
+- 🐞 수정:新朋友卡片移到「联系人与群成员」并对 bridge 账号常显 (d776c568)
+- 🐞 수정:default monitor URL and exact session rewrites (f95f0cff)
+- 🐞 수정:收口无会话 LLM 与 WS 免费通道 (681278e4)
+- 📚 문서:账本补记 PROJECT_PLAN 13 行已勾选 (e6e04f72)
+- 📚 문서:L01-L16 13 项勾选收口（账本 2026-11-26） (8875c777)
+- 🚀 기능/개선:L09 收口 —— MCP OAuth 检查点默认 DPAPI 封装、失败不回落明文、退出清内存副本 (f8366476)
 - 🚀 기능/개선:R10 全面超越——登录态跨重启、模板自动建会话、工作面停靠监看 (b10f10ab)
 - 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (740b8f4c)
 - 🚀 기능/개선:L03 审批反向通道三队列协议(断线不丢/重连按序补发/requestId 幂等,7 测试) (063d485b)
