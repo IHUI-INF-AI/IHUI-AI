@@ -47,7 +47,7 @@ export default function DeleteAccountDialog({
           </DialogDescription>
         </DialogHeader>
         {error ? <Alert variant="danger" title="删除失败" description={error} /> : null}
-        <p className="text-sm">确认删除「{account?.label}」？</p>
+        <p className="font-[weight:inherit] text-body">确认删除「{account?.label}」？</p>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             取消

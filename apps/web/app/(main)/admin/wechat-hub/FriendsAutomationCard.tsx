@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍‌​‌‌​‌‌‌​‌​​‌‌‌​‍‍‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 
@@ -143,7 +143,7 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
   if (overviewQuery.isLoading && !overview) {
     return (
       <Card>
-        <CardContent className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+        <CardContent className="font-[weight:inherit] flex items-center gap-2 py-2 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>读取新朋友申请…</span>
         </CardContent>
@@ -157,13 +157,13 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <UserPlus className="h-4 w-4" />
-            <p className="text-sm font-medium">新朋友</p>
+            <p className="text-body font-medium">新朋友</p>
             {policy?.enabled ? (
-              <span className="text-xs text-muted-foreground">
+              <span className="font-[weight:inherit] text-label text-muted-foreground">
                 已开启，每小时最多 {policy.maxAcceptsPerHour} 个
               </span>
             ) : (
-              <span className="text-xs text-muted-foreground">已关闭，开启后才会点客户端</span>
+              <span className="font-[weight:inherit] text-label text-muted-foreground">已关闭，开启后才会点客户端</span>
             )}
           </div>
           <Button
@@ -183,7 +183,7 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4" />
-              <p className="text-sm font-medium">自动化策略</p>
+              <p className="text-body font-medium">自动化策略</p>
             </div>
             <Switch
               checked={policy?.enabled ?? false}
@@ -196,7 +196,7 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
             <>
               <div className="flex flex-wrap items-end gap-2">
                 <div className="space-y-1">
-                  <Label htmlFor="wechat-friends-max-per-hour" className="text-xs text-muted-foreground">
+                  <Label htmlFor="wechat-friends-max-per-hour" className="font-[weight:inherit] text-label text-muted-foreground">
                     每小时上限
                   </Label>
                   <Input
@@ -209,7 +209,7 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
                       setLimitDraft(event.target.value)
                       setDraftTouched(true)
                     }}
-                    className="h-8 w-24 px-2 text-sm"
+                    className="font-[weight:inherit] h-8 w-24 px-2 text-body"
                   />
                 </div>
                 <Button
@@ -228,13 +228,13 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
                 </Button>
               </div>
               {limitDraft && !limitValid ? (
-                <span className="text-xs text-red-500">
+                <span className="font-[weight:inherit] text-label text-red-500">
                   每小时上限需为 {MIN_LIMIT}–{MAX_LIMIT} 的整数
                 </span>
               ) : null}
             </>
           ) : (
-            <p className="text-sm text-muted-foreground">
+            <p className="font-[weight:inherit] text-body text-muted-foreground">
               写动作默认关闭，开启后仍受每小时 {policy?.maxAcceptsPerHour ?? MAX_LIMIT} 个上限约束。
             </p>
           )}
@@ -253,7 +253,7 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
         ) : scan ? (
           <div className="space-y-2">
             {scan.requests.length === 0 ? (
-              <p className="text-xs text-muted-foreground">暂无待处理申请。</p>
+              <p className="font-[weight:inherit] text-label text-muted-foreground">暂无待处理申请。</p>
             ) : (
               <ul className="space-y-2">
                 {scan.requests.map((request) => {
@@ -270,19 +270,19 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline gap-x-2">
-                          <span className="truncate text-sm">{request.nickname}</span>
-                          <span className="text-xs text-muted-foreground">
+                          <span className="font-[weight:inherit] truncate text-body">{request.nickname}</span>
+                          <span className="font-[weight:inherit] text-label text-muted-foreground">
                             {KIND_LABELS[request.kind]}
                           </span>
-                          <span className="text-xs text-muted-foreground">
+                          <span className="font-[weight:inherit] text-label text-muted-foreground">
                             {formatAt(request.seenAt)}
                           </span>
                         </div>
                         {request.source ? (
-                          <p className="text-xs text-muted-foreground">来源：{request.source}</p>
+                          <p className="font-[weight:inherit] text-label text-muted-foreground">来源：{request.source}</p>
                         ) : null}
                         {cannotClick ? (
-                          <p className="text-xs text-amber-600">控件不可点，请人工处理</p>
+                          <p className="font-[weight:inherit] text-label text-amber-600">控件不可点，请人工处理</p>
                         ) : null}
                       </div>
                       <Button
@@ -303,7 +303,7 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
             )}
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground">暂无扫描结果。</p>
+          <p className="font-[weight:inherit] text-label text-muted-foreground">暂无扫描结果。</p>
         )}
 
         {acceptError ? (
@@ -312,13 +312,13 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
 
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">最近操作</span>
-            <span className="text-xs text-muted-foreground">最近 5 条</span>
+            <span className="text-body font-medium">最近操作</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">最近 5 条</span>
           </div>
           {auditEntries.length === 0 ? (
-            <p className="text-xs text-muted-foreground">暂无操作记录</p>
+            <p className="font-[weight:inherit] text-label text-muted-foreground">暂无操作记录</p>
           ) : (
-            <ul className="space-y-0.5 text-xs">
+            <ul className="font-[weight:inherit] space-y-0.5 text-label">
               {auditEntries.map((entry, index) => (
                 <li
                   key={`${entry.at}-${entry.requestId}-${index}`}
@@ -353,3 +353,4 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
     </Card>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

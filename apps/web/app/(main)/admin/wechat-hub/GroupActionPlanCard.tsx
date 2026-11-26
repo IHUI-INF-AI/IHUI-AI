@@ -34,22 +34,22 @@ export default function GroupActionPlanCard({
   return (
     <div className="space-y-2 rounded-md border border-stroke-field p-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="flex items-center gap-2 text-sm font-medium">
+        <p className="flex items-center gap-2 text-body font-medium">
           <Users className="h-4 w-4" />
           <span>预览影响面：{plan.chatTitle || '未命名群'}</span>
         </p>
-        <span className="text-xs text-muted-foreground">
+        <span className="font-[weight:inherit] text-label text-muted-foreground">
           {expired ? '预览已过期' : `剩余 ${remainingSeconds} 秒`}
         </span>
       </div>
-      <p className="text-sm text-foreground/90">{plan.effect}</p>
+      <p className="font-[weight:inherit] text-body text-foreground/90">{plan.effect}</p>
       {plan.targets.length > 0 ? (
-        <ul className="space-y-1 rounded-md bg-muted/40 p-2 text-sm">
+        <ul className="font-[weight:inherit] space-y-1 rounded-md bg-muted/40 p-2 text-body">
           {plan.targets.map((target) => (
             <li key={target.memberId} className="flex items-baseline justify-between gap-2">
               <span>{target.name || target.memberId}</span>
               {target.reason ? (
-                <span className="text-xs text-muted-foreground">{target.reason}</span>
+                <span className="font-[weight:inherit] text-label text-muted-foreground">{target.reason}</span>
               ) : null}
             </li>
           ))}
@@ -60,7 +60,7 @@ export default function GroupActionPlanCard({
           {plan.warnings.map((warning) => (
             <p
               key={warning}
-              className="flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-500"
+              className="font-[weight:inherit] flex items-start gap-1.5 text-label text-amber-600 dark:text-amber-500"
             >
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>{warning}</span>
@@ -89,3 +89,4 @@ export default function GroupActionPlanCard({
     </div>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

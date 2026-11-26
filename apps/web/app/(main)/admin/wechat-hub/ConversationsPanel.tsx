@@ -74,11 +74,11 @@ function MessageBubble({
     <div className={cn('flex w-full', outbound ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'max-w-[80%] rounded-lg px-3 py-2 text-sm',
+          'font-[weight:inherit] max-w-[80%] rounded-lg px-3 py-2 text-body',
           outbound ? 'bg-cta text-cta-foreground' : 'bg-muted text-foreground',
         )}
       >
-        <p className="mb-1 text-xs opacity-80">
+        <p className="font-[weight:inherit] mb-1 text-label opacity-80">
           {outbound ? '我' : (message.senderName ?? message.senderId ?? '未知')} ·{' '}
           {formatTime(message.sentAt)}
           {message.kind !== 'text' ? ` · ${message.kind}` : ''}
@@ -86,7 +86,7 @@ function MessageBubble({
         <p className="whitespace-pre-wrap break-words">{message.content || '(空消息)'}</p>
         {message.mediaUrl ? (
           <a
-            className="mt-1 block break-all text-xs underline opacity-80"
+            className="font-[weight:inherit] mt-1 block break-all text-label underline opacity-80"
             href={message.mediaUrl}
             target="_blank"
             rel="noreferrer"
@@ -112,7 +112,7 @@ function MessageBubble({
             {voiceNote ? (
               <span
                 className={cn(
-                  'text-xs',
+                  'font-[weight:inherit] text-label',
                   voiceNote.level === 'warning' && 'text-amber-600 dark:text-amber-500',
                   voiceNote.level === 'error' && 'text-red-600 dark:text-red-500',
                   voiceNote.level === 'info' && 'opacity-80',
@@ -197,12 +197,12 @@ export default function ConversationsPanel({
             全部消息
           </Button>
           {conversationsQuery.isLoading ? (
-            <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+            <div className="font-[weight:inherit] flex items-center gap-2 py-4 text-body text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               加载会话…
             </div>
           ) : conversations.length === 0 ? (
-            <p className="py-4 text-sm text-muted-foreground">
+            <p className="font-[weight:inherit] py-4 text-body text-muted-foreground">
               暂无会话。收到第一条消息后会自动归并到这里。
             </p>
           ) : (
@@ -217,7 +217,7 @@ export default function ConversationsPanel({
                     conversationId === item.id ? 'bg-muted text-foreground' : 'hover:bg-muted/60',
                   )}
                 >
-                  <span className="flex items-center gap-1.5 text-sm font-medium">
+                  <span className="flex items-center gap-1.5 text-body font-medium">
                     {item.kind === 'group' ? (
                       <Users className="h-3.5 w-3.5 text-muted-foreground" />
                     ) : (
@@ -230,7 +230,7 @@ export default function ConversationsPanel({
                       </span>
                     ) : null}
                   </span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                  <span className="font-[weight:inherit] mt-0.5 block text-label text-muted-foreground">
                     {item.kind} · {formatTime(item.lastMessageAt)}
                   </span>
                 </button>
@@ -245,7 +245,7 @@ export default function ConversationsPanel({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-body font-semibold">{selected?.title || '全部消息'}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="font-[weight:inherit] text-label text-muted-foreground">
                 {selected ? selected.platformChatId : '最近 200 条'}
               </p>
             </div>
@@ -279,7 +279,7 @@ export default function ConversationsPanel({
               </Button>
             </div>
           </div>
-          {switchNotice ? <p className="text-xs text-muted-foreground">{switchNotice}</p> : null}
+          {switchNotice ? <p className="font-[weight:inherit] text-label text-muted-foreground">{switchNotice}</p> : null}
           {messagesQuery.isError ? (
             <Alert
               variant="danger"
@@ -289,12 +289,12 @@ export default function ConversationsPanel({
               }
             />
           ) : messagesQuery.isLoading ? (
-            <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+            <div className="font-[weight:inherit] flex items-center gap-2 py-8 text-body text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               加载消息…
             </div>
           ) : messages.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
+            <p className="font-[weight:inherit] py-8 text-center text-body text-muted-foreground">
               暂无消息。iLink 只收私聊；群聊请使用本地桥后端。
             </p>
           ) : (

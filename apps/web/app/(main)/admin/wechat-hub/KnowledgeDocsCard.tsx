@@ -37,8 +37,8 @@ function DocRow({
   return (
     <div className="flex items-center justify-between gap-3 rounded-md border border-stroke-subtle px-3 py-2">
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium">{doc.title}</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="truncate text-body font-medium">{doc.title}</p>
+        <p className="font-[weight:inherit] text-label text-muted-foreground">
           {doc.chunkCount} 个切片
           {doc.createdAt ? ` · ${new Date(doc.createdAt).toLocaleString()}` : ''}
         </p>
@@ -112,10 +112,10 @@ export default function KnowledgeDocsCard({ accountId }: { accountId: string }) 
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={6}
-            className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+            className="font-[weight:inherit] w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-body outline-none focus:border-stroke-focus"
             placeholder="粘贴制度、价格表、FAQ；入库后按切片检索。"
           />
-          <p className="text-xs text-muted-foreground">{text.length} / 200000</p>
+          <p className="font-[weight:inherit] text-label text-muted-foreground">{text.length} / 200000</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -126,7 +126,7 @@ export default function KnowledgeDocsCard({ accountId }: { accountId: string }) 
             <span>入库</span>
           </Button>
           {ingestMutation.data ? (
-            <span className="text-xs text-muted-foreground">
+            <span className="font-[weight:inherit] text-label text-muted-foreground">
               已切 {ingestMutation.data.chunkCount} 片
             </span>
           ) : null}
@@ -143,9 +143,9 @@ export default function KnowledgeDocsCard({ accountId }: { accountId: string }) 
 
         <div className="space-y-2">
           {docsQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">加载文档…</p>
+            <p className="font-[weight:inherit] text-body text-muted-foreground">加载文档…</p>
           ) : docs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">还没有文档，先入库一份。</p>
+            <p className="font-[weight:inherit] text-body text-muted-foreground">还没有文档，先入库一份。</p>
           ) : (
             docs.map((doc) => (
               <DocRow
@@ -179,16 +179,16 @@ export default function KnowledgeDocsCard({ accountId }: { accountId: string }) 
         </div>
         {hits ? (
           hits.length === 0 ? (
-            <p className="text-sm text-muted-foreground">没有命中。</p>
+            <p className="font-[weight:inherit] text-body text-muted-foreground">没有命中。</p>
           ) : (
             <div className="space-y-2">
               {hits.map((hit) => (
                 <div
                   key={`${hit.docId}-${hit.chunkIndex}`}
-                  className="rounded-md border border-stroke-subtle p-3 text-sm"
+                  className="font-[weight:inherit] rounded-md border border-stroke-subtle p-3 text-body"
                 >
                   <p className="whitespace-pre-wrap">{hit.content}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">
                     doc {hit.docId} · 切片 {hit.chunkIndex} · score {hit.score.toFixed(3)}
                   </p>
                 </div>

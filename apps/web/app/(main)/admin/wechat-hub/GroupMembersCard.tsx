@@ -94,30 +94,30 @@ export default function GroupMembersCard({ accountId }: { accountId: string }) {
           </Button>
         </div>
         {syncMutation.isError ? (
-          <p className="text-sm text-destructive">
+          <p className="font-[weight:inherit] text-body text-destructive">
             {syncMutation.error instanceof Error ? syncMutation.error.message : '同步群成员失败'}
           </p>
         ) : syncMutation.data && !syncMutation.data.result.ok ? (
-          <p className="text-sm text-destructive">
+          <p className="font-[weight:inherit] text-body text-destructive">
             {syncMutation.data.result.reason ||
               (syncMutation.data.result.status === 'unsupported'
                 ? '当前后端不支持主动拉群成员'
                 : '同步群成员失败')}
           </p>
         ) : syncMutation.data ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             已同步 {syncMutation.data.synced} 人，移除 {syncMutation.data.removed} 人。
           </p>
         ) : null}
         {conversationId === 'none' ? (
-          <p className="text-sm text-muted-foreground">先选择一个群。</p>
+          <p className="font-[weight:inherit] text-body text-muted-foreground">先选择一个群。</p>
         ) : membersQuery.isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="font-[weight:inherit] flex items-center gap-2 text-body text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             加载成员…
           </div>
         ) : (membersQuery.data ?? []).length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             暂无成员快照。点「拉取成员」从桥同步，或等入站消息自动补。
           </p>
         ) : (
@@ -125,13 +125,13 @@ export default function GroupMembersCard({ accountId }: { accountId: string }) {
             {(membersQuery.data ?? []).map((member) => (
               <div
                 key={member.id}
-                className="flex items-center justify-between rounded-md bg-muted/50 px-2 py-1.5 text-sm"
+                className="font-[weight:inherit] flex items-center justify-between rounded-md bg-muted/50 px-2 py-1.5 text-body"
               >
                 <span className="truncate">
                   {member.nickname || member.memberId}
-                  <span className="ml-2 text-xs text-muted-foreground">{member.role}</span>
+                  <span className="font-[weight:inherit] ml-2 text-label text-muted-foreground">{member.role}</span>
                 </span>
-                <span className="ml-2 shrink-0 text-xs text-muted-foreground">
+                <span className="font-[weight:inherit] ml-2 shrink-0 text-label text-muted-foreground">
                   @{member.memberId}
                 </span>
               </div>
