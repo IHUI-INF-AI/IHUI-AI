@@ -147,6 +147,20 @@ test('⑤ 检查清单从 .husky/commit-msg 现读,blocking 按 `|| true` 分流
   // ⇒ 现读为 blocking。本行钉的是**今天这份真钩子**的形态,不是把 warn 档判据改硬:判据仍在 lib,
   // warn 分支的覆盖由下面那条合成钩子承担 —— 拿真钩子钉 warn 等于钉一件已经不存在的事。
   assert.equal(style.blocking, true, '样式门现为 blocking(钩子已去掉 `|| true`);它红了必须能定责')
+  // 2026-11-26:派发器从 .vbs 迁到 `node scripts/hook-run-hidden.mjs <label> <script>` 后,
+  // 包装自身也是 .mjs。若被当成一道门复跑,它缺参数必 exit 2(usage),会被归因层读成
+  // "本任务的红"并拒绝提交 —— 真钩子的解析结果里绝不能出现派发器。
+  assert.ok(
+    !checks.some((c) => c.script === 'hook-run-hidden.mjs'),
+    'node 派发器被当成门复跑 ⇒ usage exit 2 会被误判为本任务红',
+  )
+  const dispatchHook =
+    'node scripts/hook-run-hidden.mjs commit-msg-style scripts/check-style-verification.mjs "$1"\n'
+  assert.deepEqual(
+    ATTR.parseCommitMsgStageChecks(dispatchHook).map((c) => c.script),
+    ['check-style-verification.mjs'],
+    '派发形态只应入账真正的门,不该把包装算进去',
+  )
   // 阴性:注释里出现的路径不是"钩子调用",拿它去复跑就是造一个没人跑过的检查
   assert.deepEqual(ATTR.parseCommitMsgStageChecks('# node scripts/foo.mjs\n'), [])
   // warn 档判据本体仍在(钩子哪天把 `|| true` 加回来就得认它)

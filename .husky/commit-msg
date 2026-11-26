@@ -9,7 +9,7 @@ if [ -z "$GIT_INDEX_FILE" ] || [ ! -f "$GIT_INDEX_FILE" ]; then
   unset GIT_INDEX_FILE
 fi
 unset GIT_DIR GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_QUARANTINE_PATH
-# ─── 弹窗根治(2026-09-22,统一经 wscript 隐藏包装,详见 scripts/hook-run-hidden.vbs) ───
+# ─── 弹窗根治(2026-09-22 立,2026-11-26 迁至无 WSH 包装,详见 scripts/hook-run-hidden.mjs) ───
 # 原 2 处裸 node 在无 console 上下文触发 commit 时各弹一个可见控制台窗口。
 # 输出转入 .ihui-agent/state/hook-logs/,每次调用后回显日志末尾,保证警告仍对用户可见。
 
@@ -17,7 +17,7 @@ unset GIT_DIR GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIE
 # .css 改动时要求 commit message 附 Verified-DOM trailer
 # 跳过:HUSKY_SKIP_STYLE_VERIFY=1
 # 2026-11-04 三态化:去掉 || true,失败/未判定均阻断(exit 1/2),不再 advisory 恒绿
-wscript //nologo scripts/hook-run-hidden.vbs commit-msg-style scripts/check-style-verification.mjs "$1"
+node scripts/hook-run-hidden.mjs commit-msg-style scripts/check-style-verification.mjs "$1"
 _style_rc=$?
 tail -5 .ihui-agent/state/hook-logs/commit-msg-style.log >&2 || true
 
@@ -29,14 +29,14 @@ tail -5 .ihui-agent/state/hook-logs/commit-msg-style.log >&2 || true
 #   就是全仓冻结(§12e),而这条判据的强制面本来就注册在 push 门(blocking)。判红/未判定都在
 #   stderr 点名,不许被读成"通过":末行自带结论,`undeclared` 与 `未判定` 两词都会原样出现在回显里。
 # 跳过:HUSKY_SKIP_IMMUTABLE_GUARD=1(门体自读该变量,手动复跑同样生效)
-wscript //nologo scripts/hook-run-hidden.vbs commit-msg-immutable-guard scripts/check-immutable-guard.mjs --staged --message-file "$1" || true
+node scripts/hook-run-hidden.mjs commit-msg-immutable-guard scripts/check-immutable-guard.mjs --staged --message-file "$1" || true
 echo "[IG 预警] 判定面=索引:共享索引里他人暂存件也会入镜(本段只报不拦);提交自己的面由 push 门逐枚判,那里才是硬墙。" >&2 || true
 tail -8 .ihui-agent/state/hook-logs/commit-msg-immutable-guard.log >&2 || true
 
 # Commit scope 一致性预警(2026-07-26 立,AGENTS.md §16 配套)
 # 检测 commit message scope 与 staged 文件领域是否匹配,防止 git add -A 混入其他 agent 改动
 # 原语义:本 hook 的末命令,退出码即 hook 退出码(非零阻断);warn 输出回显保证可见
-wscript //nologo scripts/hook-run-hidden.vbs commit-msg-scope scripts/check-commit-scope-consistency.mjs "$1"
+node scripts/hook-run-hidden.mjs commit-msg-scope scripts/check-commit-scope-consistency.mjs "$1"
 _scope_rc=$?
 tail -5 .ihui-agent/state/hook-logs/commit-msg-scope.log >&2 || true
 

@@ -130,16 +130,20 @@ function judgeShebang(text, p) {
 }
 
 /**
- * 纯函数 H2:薄壳经 wscript 引用的包装文件与 node 正文必须在同一面存在。
- * 只解析 `wscript ... <vbs> <label> <script>` 这一形态;不引用 vbs 的钩子(直调 node)
- * 也红 —— 那正是 H1 拦的形态,由 H1 点名,本判据不重复计。
+ * 纯函数 H2:薄壳引用的包装文件与 node 正文必须在同一面存在。
+ * 认两种派发形态(2026-11-26 迁移,缺一即等于把门架空):
+ *   ① 历史 `wscript ... <vbs> <label> <script>`(WSH 尚在的机器仍可解析);
+ *   ② 现行 `node scripts/hook-run-hidden.mjs <label> <script>`(本机无 WSH 后的唯一出路)。
+ * 钩子直接裸跑 node 正文(不经包装)仍由 H1 点名,本判据不重复计。
  */
 function judgeDispatchRefs(text, facePaths) {
   const hits = []
   for (const rawLine of String(text).split('\n')) {
     const line = rawLine.trim()
     if (/^(#|\/\/|\*|\/\*)/.test(line)) continue // 注释里的示例形态不是出路,拿它判死链就是自造恒红
-    const m = /wscript\s+(?:\/\/nologo\s+)?(\S+\.vbs)\s+(\S+)\s+(\S+)/i.exec(line)
+    const legacy = /wscript\s+(?:\/\/nologo\s+)?(\S+\.vbs)\s+(\S+)\s+(\S+)/i.exec(line)
+    const modern = /node\s+(\S*hook-run-hidden\.mjs)\s+(\S+)\s+(\S+)/i.exec(line)
+    const m = modern ?? legacy
     if (!m) continue
     for (const ref of [m[1], m[3]]) {
       const rel = ref.replace(/\\/g, '/')
@@ -407,6 +411,23 @@ function selfTest() {
       '#!/bin/sh\n#   wscript //nologo scripts/hook-run-hidden.vbs(GUI 子系统)\nprintf x\n'
     const hits = judgeDispatchRefs(commented, new Set(['.husky/x']))
     if (hits.length !== 0) throw new Error(`注释被当成引用去判在位性:${JSON.stringify(hits)}`)
+  })
+  const NODE_SHELL =
+    '#!/bin/sh\nnode scripts/hook-run-hidden.mjs post-commit scripts/lib/post-commit-hook.js "$@"\n'
+  t('T4b H2:现行 node 包装缺失必判红(迁移后门不得被架空)', () => {
+    const facePaths = new Set(['.husky/post-commit', 'scripts/lib/post-commit-hook.js'])
+    const hits = judgeDispatchRefs(NODE_SHELL, facePaths)
+    if (hits.length !== 1 || !/hook-run-hidden\.mjs/.test(hits[0].detail))
+      throw new Error(`node 包装缺失未被点名:${JSON.stringify(hits)}`)
+  })
+  t('T5c H2:现行形态包装与正文都在位 ⇒ 不报', () => {
+    const facePaths = new Set([
+      '.husky/post-commit',
+      'scripts/hook-run-hidden.mjs',
+      'scripts/lib/post-commit-hook.js',
+    ])
+    if (judgeDispatchRefs(NODE_SHELL, facePaths).length !== 0)
+      throw new Error('齐备的 node 派发薄壳被误判')
   })
   t('T6 清单过滤:直属钩子名收,README/子目录/非钩子名一律不收', () => {
     const list = [
