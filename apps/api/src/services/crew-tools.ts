@@ -25,6 +25,8 @@ import { callRealLlm } from './crew-llm-adapter.js'
 import { knowledgeRagService } from './knowledge-rag-service.js'
 import { ensureSafeFetchUrl, safeFetch } from '../utils/ssrf-guard.js'
 import type { ToolDefinition, ToolHandler, ToolContext } from './clawdbot/tools.js'
+// L01 统一权限决策:内置工具入口准入(动作级判据仍在各 handler 内)
+import { permissionDeniedMessage, requireEntryPermission } from './permission-entries.js'
 
 // 2026-07-21 安全审计加固:移除 exec(shell),统一改用 execFile
 // 原 execAsync(cmd, { shell: 默认 = /bin/sh }) 即使白名单匹配后,shell 仍会解析
@@ -464,6 +466,18 @@ export async function executeCrewTool(
   const tool = CREW_TOOLS.find((t) => t.def.function.name === name)
   if (!tool) {
     return { success: false, error: `工具 "${name}" 不存在` }
+  }
+  // L01:入口准入。拒绝以既有返回形态回给调用方(不抛,避免打断 Crew 循环)。
+  try {
+    await requireEntryPermission({
+      entry: 'crew',
+      sessionId: context?.sessionId ?? `crew-tool:${name}`,
+      userId: context?.userId ?? null,
+    })
+  } catch (e) {
+    const denied = permissionDeniedMessage(e)
+    if (denied) return { success: false, error: denied }
+    throw e
   }
   logger.info({ tool: name, args: Object.keys(args) }, '[CrewTools] 执行工具')
   const start = Date.now()

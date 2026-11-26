@@ -27,6 +27,7 @@ import {
   type ApprovalGrant,
   type ApprovalHistoryEntry,
   type ApprovalRequest,
+  type ApprovalRule,
   type ApprovalResult,
   type PermissionDecision,
   type PermissionEvidenceRef,
@@ -54,6 +55,13 @@ export interface PermissionDecideDeps {
   readonly grants?: readonly ApprovalGrant[]
   /** 会话内近因历史(自动复核用)。 */
   readonly history?: readonly ApprovalHistoryEntry[]
+  /**
+   * 规则集。缺省走 `APPROVAL_RULES`;调用方要加"入口族窄 allow"时必须传**合并后的整份**规则
+   * (引擎的 `options.rules` 是整份替换,不是追加 —— 少了这一句,后来人按"追加"理解就会
+   * 悄悄把 deny 族整族去掉)。
+   * 参见 `permission-entries.ts` 的 `PERMISSION_ENTRY_RULE_SET`。
+   */
+  readonly rules?: readonly ApprovalRule[]
   /** 非授权类决策的有效期;缺省 60 秒。 */
   readonly ttlMs?: number
   /** 审计出口(测试可注入);缺省走 `recordToolApprovalAuditIngest`。 */
@@ -114,7 +122,7 @@ export function computePermissionDecision(
       tier: input.tier ?? undefined,
     },
   }
-  const result = decideApproval(request, { history: deps.history })
+  const result = decideApproval(request, { history: deps.history, rules: deps.rules })
   const evidenceRef = evidenceOf(result, deps.grants ?? [])
   const ttlMs = deps.ttlMs ?? PERMISSION_DECISION_DEFAULT_TTL_MS
   const grantExpiry =
