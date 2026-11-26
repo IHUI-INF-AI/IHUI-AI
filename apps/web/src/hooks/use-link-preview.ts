@@ -56,19 +56,107 @@ interface UrlPreviewData {
   reason?: string
 }
 
-/** http(s) 链接识别:取粘贴文本里第一条(宽松边界,尾随标点在剪掉一步处理)。 */
-const URL_DETECT_RE = /https?:\/\/[^\s<>"'`]+/i
-/** 尾随标点:中英句读/括号在 URL 语义外(如"看下 https://a.com/b。"),剪掉。 */
-const TRAILING_PUNCT_RE = /[.,;:!?\u3002\uFF0C\uFF1B\uFF1A\uFF01\uFF1F\u3001\u3009\u300B)\]}]+$/u
+/** http(s) 起始锚(只认 http/https,大小写不敏感)。 */
+const URL_START_RE = /https?:\/\//i
 
-/** 从粘贴文本提取第一条 http(s) 链接;没有则 null。纯函数(测试与 hook 共用,禁止第二份)。 */
+/**
+ * 硬边界:URL 语义之外的字符 —— Unicode 空白/控制符、ASCII 引号与尖括号、中英文引号、
+ * 顿号、括号、CJK 标点与全角符号。
+ *
+ * 2026-11-26 实报根因:旧实现只用"空白 + ASCII 引号"当边界,于是中文正文紧贴链接时
+ * (`https://example.com，绑定"…"` 全角逗号后直接接中文)整段被吞进 host;`new URL()`
+ * 把它当成伪 IDN 主机(example.xn--com,,,—…)解析"成功",探测一路走到 DNS 失败,
+ * 卡片只剩"暂时无法判定"。边界必须在**扫描时**截断,不能只靠事后剪尾标点。
+ */
+const URL_BOUNDARY_RE =
+  /[\s\u0000-\u001F\u007F<>"'`\u200B-\u200F\u2018-\u201F\u2026\u2014\u2015\u3000-\u303F\uFE10-\uFE19\uFF01-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF65]/
+
+/** 尾随标点(URL 语义外):中英句读、引号、括号、省略号、破折号,剪掉。 */
+const TRAILING_PUNCT_RE =
+  /[.,;:!?'"`\u3002\uFF0C\uFF1B\uFF1A\uFF01\uFF1F\u3001\u3009\u300B\u300D\u300F\u3011\uFF09\)\]\}]+$/u
+
+/** 主机合法字符(URL 解析后 hostname 已是小写 ASCII 或 punycode;含逗号的伪 IDN 一律不认)。 */
+const HOSTNAME_RE = /^(?:\[[0-9a-f:.]+\]|[a-z0-9._-]+)$/i
+
+/** 主机标签扫描态:空 / 已见 ASCII / 已见非 ASCII(IDN 标签)。 */
+type HostLabelState = 'empty' | 'ascii' | 'wide'
+
+function isWideChar(ch: string): boolean {
+  return (ch.codePointAt(0) ?? 0) > 0x7f
+}
+
+/**
+ * 从 authorityStart(协议 `//` 之后)起扫到 URL 的结束位置。
+ *
+ * - 任何硬边界字符即止(中文标点/全角符号/引号/空白);
+ * - authority(host[:port])段内:同一个标签里 ASCII 与非 ASCII 混排 ⇒ 判定为"正文粘连",
+ *   在第一个越界字符处截断(`example.com绑定` ⇒ `example.com`);纯中文标签(IDN,如
+ *   `例子.com`)放行,路径/查询段里的中文也放行(后端 `new URL` 会自行百分号编码)。
+ */
+function scanUrlEnd(text: string, authorityStart: number): number {
+  let label: HostLabelState = 'empty'
+  let inAuthority = true
+  for (let i = authorityStart; i < text.length; i++) {
+    const ch = text[i] as string
+    if (URL_BOUNDARY_RE.test(ch)) return i
+    if (!inAuthority) continue
+    if (ch === '/' || ch === '?' || ch === '#') {
+      inAuthority = false
+      continue
+    }
+    if (ch === '.' || ch === '@') {
+      label = 'empty'
+      continue
+    }
+    if (ch === ':' || ch === '[' || ch === ']' || ch === '%') continue
+    if (/[A-Za-z0-9_-]/.test(ch)) {
+      if (label === 'wide') return i
+      label = 'ascii'
+      continue
+    }
+    if (isWideChar(ch)) {
+      if (label === 'ascii') return i
+      label = 'wide'
+      continue
+    }
+    return i
+  }
+  return text.length
+}
+
+/** 候选必须是可解析的 http(s) 且主机字符合法(防"伪 IDN 主机"混进探测链)。 */
+function isValidHttpUrl(candidate: string): boolean {
+  try {
+    const parsed = new URL(candidate)
+    return (
+      (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+      parsed.hostname.length > 0 &&
+      HOSTNAME_RE.test(parsed.hostname)
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 从粘贴文本提取第一条 http(s) 链接;没有则 null。纯函数(测试与 hook 共用,禁止第二份)。
+ *
+ * 扫描截断 + 尾随标点清理后仍要过 URL 解析校验;极小概率的残留按"最长合法前缀"回退
+ * (最多 8 步,成本有界),绝不把解不动的字符串丢给探测端冒充"未判定"。
+ */
 export function detectPastedUrl(text: string): string | null {
   if (!text) return null
-  const m = URL_DETECT_RE.exec(text)
-  if (!m || !m[0]) return null
-  const trimmed = m[0].replace(TRAILING_PUNCT_RE, '')
-  // 剪完协议头后必须还有主机字符(" http:// "本身不算链接)。
-  return /^https?:\/\/\S+/i.test(trimmed) ? trimmed : null
+  const m = URL_START_RE.exec(text)
+  if (!m) return null
+  const start = m.index
+  // 主机扫描从协议 `//` 之后起算:scheme 本身不是 authority,否则 '//' 会把状态提前判成"已出 authority"。
+  const authorityStart = start + m[0].length
+  let candidate = text.slice(start, scanUrlEnd(text, authorityStart)).replace(TRAILING_PUNCT_RE, '')
+  for (let attempt = 0; attempt < 8 && candidate.length > 0; attempt++) {
+    if (isValidHttpUrl(candidate)) return candidate
+    candidate = candidate.slice(0, -1).replace(TRAILING_PUNCT_RE, '')
+  }
+  return null
 }
 
 export interface UseLinkPreviewReturn {
