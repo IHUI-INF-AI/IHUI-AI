@@ -517,6 +517,10 @@
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
     },
+    "scripts/check-listen-baseline.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选(def=head)"
+    },
     "scripts/check-live-doc-duplicates.mjs": {
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"

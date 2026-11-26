@@ -8217,6 +8217,39 @@ const checks = [
       '',
     ].join('\n'),
   },
+
+  // RP-6(L15/P0):监听面基线静态审计。锁默认回环绑定五处不回退 + 无生产全网卡硬编码/
+  // 明文密码/入站 Basic + 网络策略评审清单在位。诚实只判静态可判部分,不伪称运行时
+  // "无 0.0.0.0 监听"(运行态由 check-service-baseline.mjs 采集)。327b 为 RP-5 占用,本票用 327c。
+  {
+    id: '327c',
+    label: '🔌 监听面基线静态审计(RP-6:回环绑定回退/全网卡硬编码/明文密码/入站 Basic ⇒ 阻断)',
+    script: 'check-listen-baseline.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/api/src/config/index.ts',
+      'apps/api/src/index.ts',
+      'apps/api/src/worker-entry.ts',
+      'apps/cli/src/lib/sso.ts',
+      'apps/cli/src/server/http-server.ts',
+      'docs/security/listen-surface-policy.md',
+      'apps/api/src/**/*.ts',
+      'apps/cli/src/**/*.ts',
+    ],
+    onFailHint: [
+      '',
+      '  💡 RP-6 监听面基线被破坏。常见原因:',
+      '     - api config/index.ts 或 index.ts 的 HOST 默认值被改成 0.0.0.0;',
+      '     - cli SSO / http-server / worker 健康检查的回环绑定被去掉;',
+      '     - 生产源码硬编码 0.0.0.0 绑定、文件明文密码字面量、入站明文 Basic 校验;',
+      '     - docs/security/listen-surface-policy.md 的组合禁令句被删。',
+      '  出站调第三方的 Authorization: Basic(paypal/ai-vendors/im-gateway)合法,不在禁止列。',
+      '  本门只判静态可判部分,"运行时无 0.0.0.0 监听"由部署态 check-service-baseline.mjs 采集,本门不伪称。',
+      '  单独复现:node scripts/check-listen-baseline.mjs [--head|--staged|--worktree|--self-test]。',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===

@@ -768,6 +768,10 @@
       "owner": null
     },
     {
+      "script": "check-listen-baseline.mjs",
+      "owner": null
+    },
+    {
       "script": "check-live-doc-archive-reinflation.mjs",
       "owner": null
     },
