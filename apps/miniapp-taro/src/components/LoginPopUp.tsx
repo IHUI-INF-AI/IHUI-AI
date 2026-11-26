@@ -7,6 +7,7 @@ import { useState } from 'react'
 import Taro from '@tarojs/taro'
 import { View, Text, Image, Button } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
+import LineIcon from '@/components/LineIcon'
 import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import { rpx } from '@/utils/rpx'
 import {
@@ -25,33 +26,51 @@ import {
   LOGIN_POPUP_BUTTON_FONT_PX,
   LOGIN_POPUP_CARD_PADDING_X_PX,
   LOGIN_POPUP_CARD_PADDING_BOTTOM_PX,
-  LOGIN_POPUP_DIALOG_PADDING_TOP_PX,
-  LOGIN_POPUP_DIALOG_MAX_WIDTH_PX,
+  LOGIN_POPUP_SHEET_PADDING_TOP_PX,
+  LOGIN_POPUP_DRAG_BAR_WIDTH_PX,
+  LOGIN_POPUP_DRAG_BAR_HEIGHT_PX,
+  LOGIN_POPUP_DRAG_BAR_MARGIN_BOTTOM_PX,
+  LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX,
+  LOGIN_POPUP_CLOSE_ICON_FONT_PX,
+  LOGIN_POPUP_CLOSE_INSET_PX,
+  LOGIN_POPUP_TITLE_MARGIN_BOTTOM_PX,
+  LOGIN_POPUP_DESC_MARGIN_BOTTOM_PX,
+  LOGIN_POPUP_ICON_BADGE_SIZE_PX,
+  LOGIN_POPUP_ICON_BADGE_MARGIN_RIGHT_PX,
+  LOGIN_POPUP_ICON_GLYPH_FONT_PX,
+  LOGIN_POPUP_AGREEMENT_FONT_PX,
+  LOGIN_POPUP_AGREEMENT_GAP_PX,
+  LOGIN_POPUP_CHECKBOX_SIZE_PX,
+  LOGIN_POPUP_AGREEMENT_MARK_PX,
+  LOGIN_POPUP_NOTE_FONT_PX,
+  LOGIN_POPUP_NOTE_MARGIN_TOP_PX,
+  LOGIN_POPUP_FOOTER_MARGIN_TOP_PX,
+  LOGIN_POPUP_FOOTER_GAP_PX,
+  LOGIN_POPUP_SECONDARY_BUTTON_MARGIN_BOTTOM_PX,
 } from '@ihui/shared/ui/login-popup-spec'
 import { onToast } from '@/host/on-toast'
 
 /**
- * LoginPopUp 登录弹窗 — 对齐原项目 loginPopUp/index.vue
+ * LoginPopUp 登录弹窗 — 对齐 mobile-rn 端底部抽屉形态(2026-11-26 机主定档)。
  *
- * 平台特有:本端是**居中弹窗**承载 —— 顶距四边同档、靠 maxWidth 居中,关闭走底部整宽文字按钮;
- * RN 端是底部抽屉(拖拽条 + 右上 × + 授权卡),两套顶距/宽度档属承载机制差异而非取值分叉,
- * 逐档裁决与不成对理由见 @ihui/shared/ui/login-popup-spec 头注(AGENTS §3)。
+ * 承载形态:两端统一为**底部抽屉** —— 拖拽条在顶、右上 × 关闭、卡整宽贴底、
+ * 圆角只上方。此前小程序是居中弹窗(底部整宽文字关闭 + 300 宽上限),RN 是底部抽屉;
+ * 本票把小程序对齐到 RN 的 sheet 承载,几何档共用 @ihui/shared/ui/login-popup-spec
+ * (逐档裁决见该文件头注)。这是一次真收敛:小程序端真实渲染拖拽条/×/图标徽标/协议行/
+ * hint 行/footer,原"仅 RN 引用"的那些档两端都取数,不再是单端分叉。
  *
- * Passkey(WebAuthn)平台豁免(G-874 / AGENTS §9,小程序端豁免标注):
- * 平台独占:小程序无 WebAuthn —— 本端登录弹窗不提供 Passkey 入口,不是漏做;
+ * Passkey(WebAuthn)平台豁免(G-874 / AGENTS §9):小程序无 WebAuthn,不提供 Passkey 入口;
  * web 入口在 packages/ui-react 的 login-form(passkey-login-button)。
  *
- * 含:遮罩 + 弹窗主体 + 头像选择 + 昵称输入 + 角色显示(普通用户/会员/操盘手) + 升级按钮
+ * 含:遮罩 + 抽屉主体 + 拖拽条 + 右上关闭 + 头像选择 + 昵称输入 + 图标徽标 +
+ * 角色显示(普通用户/会员/操盘手) + 升级按钮 + 微信一键登录 + 网页授权登录 +
+ * 密码登录兜底 + 协议勾选 + 资料操作 footer。
  *
  * 角色判定(对齐原项目 loginPopUp/index.vue line 35-39):
- * - isVip==0 && identityTypy==0 → 普通用户(text-muted-foreground)
- * - isVip==1 && identityTypy==0 → 会员(text-warning)
- * - isVip==1 && identityTypy==1 → 操盘手(text-primary)
- *
- * 升级按钮显示条件(对齐原项目 line 41):仅 isVip===0 && identityTypy===0 时显示。
- *
- * 注:identityTypy 字段保留原项目拼写(原项目 loginPopUp/index.vue line 35 即为 identityTypy,
- * 非 identityType),本组件沿用以保持与后端契约一致。
+ * - isVip==0 && identityTypy==0 → 普通用户
+ * - isVip==1 && identityTypy==0 → 会员
+ * - isVip==1 && identityTypy==1 → 操盘手
+ * 升级按钮仅 isVip===0 && identityTypy===0 显示。identityTypy 保留原项目拼写(后端契约)。
  */
 /** 保存载荷(与 RN LoginPopUpSavePayload 同形;phone 本端走微信一键登录不暴露手动输入,故可缺省) */
 export interface LoginPopUpSavePayload {
@@ -76,52 +95,29 @@ export interface LoginPopUpProps {
   onChooseAvatar?: (avatarUrl: string) => void
   onNicknameChange?: (nickname: string) => void
   onUpgrade?: () => void
-  /** 一键登录回调(微信手机号登录,对齐原项目 getPhoneNumber L577-712)。
-   *  传入 loginCode(Taro.login code)+ phoneCode(onGetPhoneNumber e.detail.code)。 */
+  /** 一键登录回调(微信手机号登录):传入 loginCode(Taro.login code)+ phoneCode(onGetPhoneNumber e.detail.code)。 */
   onOneClickLogin?: (result: { loginCode: string; phoneCode: string }) => Promise<void>
   /**
-   * 账号密码兜底回调 —— 只在微信手机号一键验证拿不到时给退路用(未配置手机号权限、
-   * 用户拒授权、或压根没开该能力的 appid)。传入才渲染「密码登录」这一格,不传弹窗里
-   * 一行都不多 —— 与 `onOneClickLogin` 同一条"传入才渲染"的规矩。
+   * 账号密码兜底回调 —— 只在微信手机号一键验证拿不到时给退路用。传入才渲染「密码登录」这一格。
    */
   onPasswordLogin?: (account: string, password: string) => Promise<void>
   /**
-   * 网页授权登录回调(G-957,2026-10-26)—— 用网页端账号(含 Google 等第三方)登录
-   * 小程序的通道:打开 web 中转页 /sso/login 完成授权,sso_code 经 wx.miniProgram
-   * postMessage 回传、由 webview 页 onMessage 换登录态(回传腿已接管)。传入才渲染
-   * 这一行,与 `onOneClickLogin`/`onPasswordLogin` 同一条"传入才渲染"的规矩;
-   * 导航由宿主页(pages/user)接管,本组件不持有 webview 路由(见既有"弹窗源码
-   * 不往 webview 那条死路导航"锁 —— 那条链现在有双方接管,锁的形状不变)。
+   * 网页授权登录回调(G-957)—— 导航由宿主页(pages/user)接管,本组件只回调。
    */
   onWebAuthLogin?: () => void
-  /**
-   * 协议勾选态(受控;与 RN 端 agreeChecked 同槽)。
-   * 传入 onAgreeChange 才渲染协议行 —— 与 onOneClickLogin 同一条"传入才渲染"的规矩。
-   */
+  /** 协议勾选态(受控;与 RN 端 agreeChecked 同槽)。传入 onAgreeChange 才渲染协议行。 */
   agreeChecked?: boolean
-  /**
-   * 协议勾选变化回调(受控回传新的勾选态)。
-   * 与 RN 端 onAgreeChange 同槽;登录前的拦截由宿主页决定,组件只持有并回传态。
-   */
+  /** 协议勾选变化回调(受控回传新的勾选态)。 */
   onAgreeChange?: (checked: boolean) => void
   // ===== 与 RN 端同名同义的授权卡 / 资料操作槽位(传入即渲染,不传零增量)=====
-  /** 弹窗标题(授权卡模式) */
   title?: string
-  /** 弹窗描述(授权卡模式) */
   description?: string
-  /** 主按钮文案(授权卡模式) */
   primaryLabel?: string
-  /** 主按钮点击(授权卡模式) */
   onPrimary?: () => void
-  /** 次按钮文案(授权卡模式) */
   secondaryLabel?: string
-  /** 次按钮点击(授权卡模式) */
   onSecondary?: () => void
-  /** 绑定手机号回调(carrierLogin 运营商一键登录拿到手机号并回填后触发) */
   onBindPhone?: () => void
-  /** 保存回调(回传 {avatar, nickname}) */
   onSave?: (payload: LoginPopUpSavePayload) => void
-  /** 登出回调 */
   onLogout?: () => void
 }
 
@@ -143,7 +139,6 @@ export default function LoginPopUp({
   onWebAuthLogin,
   agreeChecked = false,
   onAgreeChange,
-  // ===== B4 块:对齐 RN 公开属性(授权卡模式 / 资料操作)=====
   title,
   description,
   primaryLabel,
@@ -169,7 +164,6 @@ export default function LoginPopUp({
   const isVip = userInfo?.isVip ?? 0
   const identityTypy = userInfo?.identityTypy ?? 0
 
-  // 角色显示(对齐原项目 loginPopUp/index.vue line 35-39)
   const isOperator = isVip === 1 && identityTypy === 1
   const isMember = isVip === 1 && identityTypy === 0
   const isNormal = isVip === 0 && identityTypy === 0
@@ -184,12 +178,7 @@ export default function LoginPopUp({
       ? 'text-warning'
       : 'text-muted-foreground'
 
-  // 升级按钮:仅 普通用户(isVip===0 && identityTypy===0) 显示(对齐原项目 line 41)
   const showUpgrade = isNormal
-
-  // 头像选择:微信小程序用 <Button open-type="chooseAvatar"> + onChooseAvatar 事件
-  // (对齐原项目 loginPopUp/index.vue 的 chooseAvatar 实现)。
-  // H5 端 openType 不生效,用 Taro.chooseImage 兜底(见 Button onClick)。
 
   const handleNicknameInput = (e: { detail: { value?: string } }) => {
     const val = e.detail.value ?? ''
@@ -197,32 +186,79 @@ export default function LoginPopUp({
     onNicknameChange?.(val)
   }
 
+  /** 行首图标徽标:与 RN ProfileForm 的 User/BadgeCheck/Phone 同槽,两端共用尺寸档。 */
+  const badge = (name: 'user' | 'shield-check' | 'phone') => (
+    <View
+      className="flex items-center justify-center rounded-2xl border border-solid border-[var(--color-border)]"
+      style={{
+        width: toUnit(LOGIN_POPUP_ICON_BADGE_SIZE_PX),
+        height: toUnit(LOGIN_POPUP_ICON_BADGE_SIZE_PX),
+        marginRight: toUnit(LOGIN_POPUP_ICON_BADGE_MARGIN_RIGHT_PX),
+        flexShrink: 0,
+      }}
+    >
+      <LineIcon
+        name={name}
+        size={LOGIN_POPUP_ICON_GLYPH_FONT_PX}
+        color="var(--color-muted-foreground)"
+      />
+    </View>
+  )
+
   return (
-    <View className="fixed inset-0 z-[1500] flex items-center justify-center" onClick={onClose}>
+    <View className="fixed inset-0 z-[1500] flex items-end" onClick={onClose}>
       {/* 遮罩层 */}
       <View className="absolute inset-0 bg-[var(--color-black-50)]" />
-      {/* 弹窗主体 = 角色档 panel(弹窗 / 底部弹层)→ xl(12)。旧写法在这里挂 `ui-bubble`
-          并按 bubble 档取 rounded-2xl(16) —— 它是登录弹窗,不是会话流里的消息气泡,
-          两端同一元素因此一档之差(守门 150 对 panel 取 2xl 判红,依据见 radius.js RADIUS_ROLES)。 */}
+      {/* 抽屉主体 = 角色档 panel → xl(12);圆角只上方,贴底整宽(对齐 RN sheet)。 */}
       <View
-        className="relative bg-card ui-panel rounded-xl w-[85%]"
+        className="relative w-full bg-card ui-panel rounded-t-xl"
         style={{
-          paddingTop: toUnit(LOGIN_POPUP_DIALOG_PADDING_TOP_PX),
+          paddingTop: toUnit(LOGIN_POPUP_SHEET_PADDING_TOP_PX),
           paddingLeft: toUnit(LOGIN_POPUP_CARD_PADDING_X_PX),
           paddingRight: toUnit(LOGIN_POPUP_CARD_PADDING_X_PX),
           paddingBottom: toUnit(LOGIN_POPUP_CARD_PADDING_BOTTOM_PX),
-          maxWidth: toUnit(LOGIN_POPUP_DIALOG_MAX_WIDTH_PX),
         }}
         onClick={(e) => e.stopPropagation()}
         hoverClass="opacity-60"
       >
-        {/* 授权卡标题/描述(RN 授权卡模式;本端缺省不渲染,不影响现有调用点) */}
+        {/* 拖拽条(对齐 RN dragBar;尺寸走共享档) */}
+        <View
+          className="mx-auto rounded-2xl"
+          style={{
+            width: toUnit(LOGIN_POPUP_DRAG_BAR_WIDTH_PX),
+            height: toUnit(LOGIN_POPUP_DRAG_BAR_HEIGHT_PX),
+            background: 'var(--color-border)',
+            marginBottom: toUnit(LOGIN_POPUP_DRAG_BAR_MARGIN_BOTTOM_PX),
+          }}
+        />
+        {/* 右上 × 关闭(矢量 LineIcon,与 RN lucide X 同槽) */}
+        <View
+          className="absolute flex items-center justify-center"
+          style={{
+            top: toUnit(LOGIN_POPUP_CLOSE_INSET_PX),
+            right: toUnit(LOGIN_POPUP_CLOSE_INSET_PX),
+            width: toUnit(LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX),
+            height: toUnit(LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX),
+          }}
+          ariaRole="button"
+          ariaLabel={tt('common.close', '关闭')}
+          hoverClass="opacity-60"
+          onClick={onClose}
+        >
+          <LineIcon
+            name="x"
+            size={LOGIN_POPUP_CLOSE_ICON_FONT_PX}
+            color="var(--color-muted-foreground)"
+          />
+        </View>
+
+        {/* 授权卡标题/描述(RN 授权卡模式;缺省不渲染,不影响现有调用点) */}
         {title ? (
           <Text
-            className="font-semibold text-foreground text-center"
+            className="font-semibold text-foreground text-center block"
             style={{
               fontSize: toUnit(LOGIN_POPUP_TITLE_FONT_PX),
-              marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
+              marginBottom: toUnit(LOGIN_POPUP_TITLE_MARGIN_BOTTOM_PX),
             }}
           >
             {title}
@@ -230,10 +266,10 @@ export default function LoginPopUp({
         ) : null}
         {description ? (
           <Text
-            className="text-muted-foreground text-center"
+            className="text-muted-foreground text-center block"
             style={{
               fontSize: toUnit(LOGIN_POPUP_BODY_FONT_PX),
-              marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
+              marginBottom: toUnit(LOGIN_POPUP_DESC_MARGIN_BOTTOM_PX),
             }}
           >
             {description}
@@ -263,7 +299,7 @@ export default function LoginPopUp({
             className="w-full rounded-md border border-border flex items-center justify-center"
             style={{
               height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX),
-              marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
+              marginBottom: toUnit(LOGIN_POPUP_SECONDARY_BUTTON_MARGIN_BOTTOM_PX),
             }}
             onClick={onSecondary}
             hoverClass="opacity-60"
@@ -277,7 +313,7 @@ export default function LoginPopUp({
           </View>
         ) : null}
 
-        {/* 头像区:圆形头像(rounded-full 豁免,AGENTS.md §4 头像豁免) */}
+        {/* 头像区:圆角头像(头像豁免) */}
         <View
           className="flex flex-col items-center"
           style={{ marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX) }}
@@ -336,37 +372,58 @@ export default function LoginPopUp({
           </Text>
         </View>
 
-        {/* 昵称输入 */}
-        <View style={{ marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX) }}>
+        {/* 昵称输入(带行首图标徽标) */}
+        <View
+          className="flex items-center rounded-md border border-solid border-[var(--color-border)]"
+          style={{
+            height: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX),
+            paddingLeft: toUnit(LOGIN_POPUP_ROW_PADDING_X_PX),
+            paddingRight: toUnit(LOGIN_POPUP_ROW_PADDING_X_PX),
+            marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
+          }}
+        >
+          {badge('user')}
           <FocusInput
             value={nickname}
             placeholder={tt('user.profile.nicknamePlaceholder', '请输入用户名')}
             maxlength={20}
             onInput={handleNicknameInput}
-            className="w-full rounded-md bg-muted text-foreground"
+            className="w-full bg-transparent text-foreground"
             style={{
-              height: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX),
-              paddingLeft: toUnit(LOGIN_POPUP_ROW_PADDING_X_PX),
-              paddingRight: toUnit(LOGIN_POPUP_ROW_PADDING_X_PX),
               fontSize: toUnit(LOGIN_POPUP_BODY_FONT_PX),
             }}
           />
         </View>
-
-        {/* 角色显示 + 升级按钮 */}
-        <View
-          className="flex items-center justify-between"
-          style={{ marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX) }}
+        {/* 昵称长度 hint(对齐 RN hintText;共享字号档) */}
+        <Text
+          className="block text-muted-foreground"
+          style={{
+            fontSize: toUnit(LOGIN_POPUP_NOTE_FONT_PX),
+            marginTop: toUnit(LOGIN_POPUP_NOTE_MARGIN_TOP_PX),
+            marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
+          }}
         >
+          {tt('uiText.nicknameLengthHint', '2-16 个字符')}
+        </Text>
+
+        {/* 角色显示 + 升级按钮(带行首图标徽标) */}
+        <View
+          className="flex items-center rounded-md border border-solid border-[var(--color-border)]"
+          style={{
+            height: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX),
+            paddingLeft: toUnit(LOGIN_POPUP_ROW_PADDING_X_PX),
+            paddingRight: toUnit(LOGIN_POPUP_ROW_PADDING_X_PX),
+            marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
+          }}
+        >
+          {badge('shield-check')}
           <Text
-            className={`font-medium ${roleClass}`}
+            className={`flex-1 font-medium ${roleClass}`}
             style={{ fontSize: toUnit(LOGIN_POPUP_BODY_FONT_PX) }}
           >
             {roleText}
           </Text>
-          {/* 「立即升级」是可点按钮(与 RN styles.upgradeButton 同一元素、同一 spec 盒档)
-              ⇒ 角色 control → sm(4);旧写法 rounded-md 取的是 chip 档,同一元素两端各一档。 */}
-          {showUpgrade && (
+          {showUpgrade ? (
             <View
               className="bg-warning rounded-md flex items-center justify-center"
               style={{
@@ -384,12 +441,10 @@ export default function LoginPopUp({
                 {tt('vip.upgradeNow', '立即升级')}
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
 
-        {/* 微信一键登录 Button(对齐原项目 getPhoneNumber L577-712)。
-            openType="getPhoneNumber" 仅微信小程序端生效,H5 端降级为普通按钮不触发 onGetPhoneNumber。
-            仅当父组件传入 onOneClickLogin 回调时渲染。 */}
+        {/* 微信一键登录 Button(openType="getPhoneNumber" 仅微信小程序端生效)。 */}
         {onOneClickLogin ? (
           <Button
             openType="getPhoneNumber"
@@ -403,7 +458,6 @@ export default function LoginPopUp({
                 onToast(tt('login.getPhoneFail', '获取手机号失败'), { kind: 'error' })
                 return
               }
-              // 获取微信 login code(对齐原项目:Taro.login → api.openId → api.getPhoneNumber)
               try {
                 const loginRes = await Taro.login()
                 const loginCode = loginRes.code
@@ -434,8 +488,7 @@ export default function LoginPopUp({
           </Button>
         ) : null}
 
-        {/* 网页授权登录(G-957):用网页端账号(含 Google 等第三方)登录小程序的通道。
-            与密码兜底同一退路形态:一行收起入口,点一下即由宿主页打开 web 中转页。 */}
+        {/* 网页授权登录(G-957):一行收起入口,点一下由宿主页打开 web 中转页。 */}
         {onWebAuthLogin ? (
           <View
             style={{ marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX) }}
@@ -444,18 +497,17 @@ export default function LoginPopUp({
           >
             <Text
               className="text-label text-muted-foreground"
-              style={{ lineHeight: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX) }}
+              style={{
+                lineHeight: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX),
+                fontSize: toUnit(LOGIN_POPUP_NOTE_FONT_PX),
+              }}
             >
               {tt('login.webAuthLogin', '网页授权登录')}
             </Text>
           </View>
         ) : null}
 
-        {/* 账号密码兜底(2026-10-23 机主定档:小程序不该有登录页,这条是"微信手机号一键验证
-            拿不到"时的退路 —— 权限没开通、用户拒授权、或 appid 压根没该能力)。
-            默认收起成一行文字入口,点开才出字段:它是退路,不该跟一键登录抢第一眼。
-            样式全部走全局那一份(app.css 的「登录字段」块)+ Tailwind 全局 utility,
-            不在这里再写一套输入框视觉。 */}
+        {/* 账号密码兜底:默认收起成一行文字入口,点开才出字段。 */}
         {onPasswordLogin ? (
           <View className="w-full" style={{ marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX) }}>
             {pwdOpen ? (
@@ -536,7 +588,10 @@ export default function LoginPopUp({
             ) : (
               <Text
                 className="text-label text-muted-foreground"
-                style={{ lineHeight: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX) }}
+                style={{
+                  lineHeight: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX),
+                  fontSize: toUnit(LOGIN_POPUP_NOTE_FONT_PX),
+                }}
                 onClick={() => setPwdOpen(true)}
               >
                 {tt('login.passwordLogin', '密码登录')}
@@ -545,48 +600,50 @@ export default function LoginPopUp({
           </View>
         ) : null}
 
-        {/* 用户协议勾选(受控;传入 onAgreeChange 才渲染,与 RN 端协议行同槽) */}
+        {/* 用户协议勾选(受控;传入 onAgreeChange 才渲染)。勾选框内用矢量 LineIcon check。 */}
         {onAgreeChange ? (
           <View
             className="w-full flex items-center justify-center"
             style={{
               marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
-              gap: toUnit(8),
+              gap: toUnit(LOGIN_POPUP_AGREEMENT_GAP_PX),
             }}
             onClick={() => onAgreeChange(!agreeChecked)}
             hoverClass="opacity-60"
           >
             <View
-              className="flex items-center justify-center rounded-full border border-solid"
+              className="flex items-center justify-center rounded-md border border-solid"
               style={{
-                width: toUnit(18),
-                height: toUnit(18),
+                width: toUnit(LOGIN_POPUP_CHECKBOX_SIZE_PX),
+                height: toUnit(LOGIN_POPUP_CHECKBOX_SIZE_PX),
                 borderColor: agreeChecked ? 'var(--color-primary)' : 'var(--color-border)',
                 background: agreeChecked ? 'var(--color-primary)' : 'transparent',
               }}
             >
               {agreeChecked ? (
-                <Text
-                  className="text-primary-foreground"
-                  style={{ fontSize: toUnit(12), lineHeight: toUnit(12) }}
-                >
-                  {'✓'}
-                </Text>
+                <LineIcon
+                  name="check"
+                  size={LOGIN_POPUP_AGREEMENT_MARK_PX}
+                  color="var(--color-primary-foreground)"
+                />
               ) : null}
             </View>
-            <Text className="text-label text-muted-foreground">
+            <Text
+              className="text-muted-foreground"
+              style={{ fontSize: toUnit(LOGIN_POPUP_AGREEMENT_FONT_PX) }}
+            >
               {tt('login.agreement', '登录即代表同意《用户协议》和《隐私政策》')}
             </Text>
           </View>
         ) : null}
 
-        {/* 资料操作按钮(RN footer:保存 / 绑定手机 / 登出;缺省不渲染,不影响现有调用点) */}
+        {/* 资料操作 footer(保存 / 绑定手机 / 登出) */}
         {onSave || onBindPhone || onLogout ? (
           <View
             className="w-full flex items-center"
             style={{
-              gap: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
-              marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
+              gap: toUnit(LOGIN_POPUP_FOOTER_GAP_PX),
+              marginTop: toUnit(LOGIN_POPUP_FOOTER_MARGIN_TOP_PX),
             }}
           >
             {onSave ? (
@@ -636,21 +693,6 @@ export default function LoginPopUp({
             ) : null}
           </View>
         ) : null}
-
-        {/* 关闭按钮 */}
-        <View
-          className="w-full rounded-md bg-muted flex items-center justify-center"
-          style={{ height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX) }}
-          onClick={onClose}
-          hoverClass="opacity-60"
-        >
-          <Text
-            className="text-foreground"
-            style={{ fontSize: toUnit(LOGIN_POPUP_BUTTON_FONT_PX) }}
-          >
-            {tt('common.close', '关闭')}
-          </Text>
-        </View>
       </View>
     </View>
   )
