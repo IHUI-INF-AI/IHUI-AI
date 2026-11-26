@@ -604,7 +604,14 @@ function scanViaCache(force) {
     if (friendsScanInFlight) return friendsScanInFlight
     if (friendsScanCache) {
       const age = Date.now() - friendsScanCache.at
-      return Promise.resolve({ ...friendsScanCache.body, cached: true, cacheAgeMs: age })
+      // 快照太旧（超过 10 分钟）也标记过期：前端据此提示「这是 X 分钟前的结果」，不把旧数据当新的。
+      const stale = age > FRIENDS_SCAN_STALE_MS
+      return Promise.resolve({
+        ...friendsScanCache.body,
+        cached: true,
+        cacheAgeMs: age,
+        ...(stale ? { stale: true, staleReason: 'cache-old' } : {}),
+      })
     }
   }
   friendsScanInFlight = runFriendsScript(['-Scan']).then((raw) => {

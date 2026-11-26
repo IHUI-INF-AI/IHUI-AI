@@ -103,6 +103,23 @@ public class WeChatFriendsWin {
 
   public static bool IsVisible(IntPtr h) { return IsWindowVisible(h); }
   public static bool IsMinimized(IntPtr h) { return IsIconic(h); }
+
+  // 找「有没有微信窗口」——不挑大小、不挑可见性。主窗被最小化时 GetWindowRect 退化成 0 尺寸，
+  // FindMain 会拒收；这时必须能认出「窗口在、只是最小化了」，否则会把「最小化」误报成「本机不可达」。
+  public static IntPtr FindAny(string title) {
+    IntPtr best = IntPtr.Zero;
+    EnumWindows(delegate(IntPtr h, IntPtr l) {
+      StringBuilder cls = new StringBuilder(256);
+      GetClassName(h, cls, 256);
+      if (!IsWeChatClass(cls.ToString())) return true;
+      StringBuilder t = new StringBuilder(256);
+      GetWindowText(h, t, 256);
+      if (t.ToString() != title) return true;
+      best = h;
+      return false;
+    }, IntPtr.Zero);
+    return best;
+  }
 }
 '@
 
@@ -143,7 +160,15 @@ public static class WeChatFriendsClick {
     PostMessage(h, 0x0202, IntPtr.Zero, (IntPtr)lp);      // WM_LBUTTONUP
     return true;
   }
-  // 把微信压到所有窗口后面（不改位置/大小、不抢焦点）：用户不用它时就不挡屏，但 UIA 树仍可读。
+  // 后台滚轮：列表被滚下去后「新的朋友」入口行会被虚拟化掉（实测只剩群聊/公众号几行），
+  // 读到空列表就导航不了。往窗口投递 WM_MOUSEWHEEL（lParam 用屏幕坐标）把它滚回顶部，不占屏、不动光标。
+  public static bool WheelBackground(IntPtr h, int screenX, int screenY, int delta) {
+    int wp = (delta << 16);
+    int lp = ((screenY & 0xFFFF) << 16) | (screenX & 0xFFFF);
+    PostMessage(h, 0x020A, (IntPtr)wp, (IntPtr)lp);   // WM_MOUSEWHEEL
+    return true;
+  }
+  // 把微信压到所有窗口后面（不改位置/大小、不抢焦点）；补齐遗失的方法头（2026-11-26 修）。
   public static bool ParkBehind(IntPtr h) {
     return SetWindowPos(h, new IntPtr(1), 0, 0, 0, 0, 0x0002 | 0x0001 | 0x0010); // HWND_BOTTOM | NOMOVE | NOSIZE | NOACTIVATE
   }
@@ -344,18 +369,25 @@ function Find-ContactTab($root) {
 # 所以不能用「有新的朋友行」反推在根页——这正是最早那个假申请的来源）。
 function Test-InNewFriendsPage($root) {
   $elements = Get-AllElements $root
+  $hasGroupEntry = $false
+  $hasNewFriendRow = $false
   foreach ($el in $elements) {
     try {
       $name = ([string]$el.Cached.Name).Trim()
       $cls = [string]$el.Cached.ClassName
-      if ($cls -match $NavEntryClassPattern -and $name -match '^群聊') { return $false }
+      if ($cls -match $NavEntryClassPattern -and $name -match '^群聊') { $hasGroupEntry = $true }
+      if ($cls -match 'ContactsCellNewFriendView') { $hasNewFriendRow = $true }
     } catch { }
   }
-  # 没有任何「群聊」入口行：要么不在通讯录，要么已经进了新朋友页。
+  # 通讯录根页必有「群聊NNN」入口行；进了「新的朋友」页它就不在，只剩 ContactsCellNewFriendView 行。
+  # 旧判据还要求页面标题元素叫「新的朋友」，但宽窗口布局下这个标题不暴露，会把「已经在页里」误判成没进。
+  if ($hasGroupEntry) { return $false }
+  if ($hasNewFriendRow) { return $true }
   foreach ($el in $elements) {
     try {
       if (([string]$el.Cached.Name).Trim() -eq '新的朋友') { return $true }
-    } catch { }
+    } catch {
+    }
   }
   return $false
 }
@@ -372,6 +404,25 @@ function Open-NewFriendsPage($root, $main) {
       if ($tabRect.Width -gt 2 -and $tabRect.Height -gt 2) {
         [void][WeChatFriendsClick]::ClickBackground($main, [int]($tabRect.X + $tabRect.Width / 2), [int]($tabRect.Y + $tabRect.Height / 2))
         Start-Sleep -Milliseconds 1000
+        $root = [System.Windows.Automation.AutomationElement]::FromHandle($main)
+      }
+    }
+  }
+  # 「新的朋友」入口行在列表顶部，列表一旦被滚下去它会被虚拟化掉（实测只剩群聊/公众号几行）。
+  # 找不到入口时先往列表中心投几格滚轮向上，把它滚回来；同样是后台消息，不占屏、不动光标。
+  if ($null -eq (Find-NavEntry $root)) {
+    $list = $null
+    foreach ($el in (Get-AllElements $root)) {
+      try { if (([string]$el.Cached.Name).Trim() -eq '通讯录' -and (Get-ControlTypeName $el.Cached.ControlType) -eq 'List') { $list = $el; break } } catch { }
+    }
+    if ($null -ne $list) {
+      $lr = $list.Current.BoundingRectangle
+      if ($lr.Width -gt 2 -and $lr.Height -gt 2) {
+        for ($w = 0; $w -lt 8; $w++) {
+          [void][WeChatFriendsClick]::WheelBackground($main, [int]($lr.X + $lr.Width / 2), [int]($lr.Y + $lr.Height / 2), 120)
+          Start-Sleep -Milliseconds 120
+        }
+        Start-Sleep -Milliseconds 400
         $root = [System.Windows.Automation.AutomationElement]::FromHandle($main)
       }
     }
@@ -517,7 +568,41 @@ $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
 try {
   $main = [WeChatFriendsWin]::FindMain()
+  if ($main -eq [IntPtr]::Zero -and $Wake) {
+    # 最小化/托盘态下 FindMain 会拒收；显式要求唤醒时先用热键把窗口唤回来，再重新找一次。
+    [void][WeChatFriendsClick]::WakeWeChat()
+    Start-Sleep -Milliseconds 900
+    $main = [WeChatFriendsWin]::FindMain()
+  }
   if ($main -eq [IntPtr]::Zero) {
+    # 主窗被最小化/收进托盘时 FindMain 拒收（GetWindowRect 会退化成 0 尺寸）。这跟「本机没微信」不是一回事：
+    # 要按「窗口在、但界面读不到」上报，桥才能回上次快照并标注过期，而不是把整条链路报成不可达。
+    $any = [WeChatFriendsWin]::FindAny('微信')
+    if ($any -ne [IntPtr]::Zero) {
+      $sw.Stop()
+      Write-Payload ([ordered]@{
+        ok           = $false
+        status       = 'failed'
+        reason       = 'window-hidden-or-empty'
+        detail       = '微信主窗口存在但处于最小化/收起状态，Qt 不渲染界面树，读不到元素；用 -Wake 或 {"wake":true} 唤醒后重试'
+        requests     = @()
+        scannedAt    = [long][DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+        rawCount     = 0
+        historyCount = 0
+        entered      = $false
+        navigated    = $false
+        window       = [ordered]@{
+          hwnd      = $any.ToInt64()
+          class     = [WeChatFriendsWin]::ClassNameOf($any)
+          title     = [WeChatFriendsWin]::TitleOf($any)
+          visible   = $false
+          minimized = $true
+          rect      = [ordered]@{ x = 0; y = 0; w = 0; h = 0 }
+        }
+        elapsedMs    = $sw.ElapsedMilliseconds
+      })
+      exit 11
+    }
     $sw.Stop()
     Write-Payload ([ordered]@{
       ok        = $false
@@ -622,7 +707,25 @@ try {
       }
     }
     $sw.Stop()
-    # 窗口在托盘/最小化/被遮挡时 UIA 读不到子树，这时报「0 条待处理」会骗人，必须报失败并给出原因。
+    # 没进「新的朋友」页就读到的只是通讯录其他行，报成功等于谎报「没有待处理申请」。
+    if (-not $navigated) {
+      Write-Payload ([ordered]@{
+        ok           = $false
+        status       = 'failed'
+        reason       = 'new-friends-page-unreachable'
+        detail       = "没进到「新的朋友」页（元素数=$($friendScan.elementCount)，rawCount=$($friendScan.rawCount)）；入口行被滚动虚拟化或界面未就绪，已尝试滚轮回顶"
+        requests     = @()
+        scannedAt    = [long][DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+        rawCount     = $friendScan.rawCount
+        historyCount = $friendScan.historyCount
+        entryExcluded = $friendScan.entryExcluded
+        entered      = $false
+        navigated    = $false
+        window       = $windowInfo
+        elapsedMs    = $sw.ElapsedMilliseconds
+      })
+      exit 12
+    }
     if ($friendScan.elementCount -lt 5) {
       Write-Payload ([ordered]@{
         ok           = $false
