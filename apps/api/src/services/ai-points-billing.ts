@@ -16,10 +16,13 @@
  */
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import {
+  LLM_COST_MARKUP,
   LLM_UNKNOWN_POINTS_PER_1K,
   getLlmPointsRates,
   type LlmPointsRates,
 } from './llm-points-pricing.js'
+import { recordAiCost } from '../plugins/ai-cost.js'
+import { logger } from '../utils/logger.js'
 import {
   getPointsHoldPricingSnapshot,
   reservePointsUsage,
@@ -371,6 +374,61 @@ export async function settleLlmPointsUsage(input: {
     holdReferenceId,
     holdSource,
   })
+
+  // 2026-11-26:llm_chat 的用户积分与平台成本是两本账。此前 chat/stream、移动端、
+  // ai-frontend、exam 只扣积分、不写 ai_cost_records,利润表看不到上游成本。
+  // crew/stock 已在自己的适配器里 recordAiCost,这里只补 source='llm_chat',避免双记。
+  if (!settlement.alreadySettled && input.source === 'llm_chat' && quote.totalTokens > 0) {
+    try {
+      let costBasis: 'config' | 'retail' | 'points_3x' = 'points_3x'
+      let costCents = 0
+      const rates = await getLlmPointsRates(input.modelId)
+      if (rates) {
+        costBasis = rates.costBasis
+        if (rates.costBasis === 'config') {
+          costCents =
+            (quote.promptTokens / 1000) * rates.inputCostPer1k +
+            (quote.completionTokens / 1000) * rates.outputCostPer1k
+        }
+      }
+      if (costBasis !== 'config') {
+        // 真实成本未知时按已收积分的 1/3 估算上游成本,并标 unknown;
+        // 不把 ai_pricing 零售价直接当成本,避免把毛利算没。
+        costCents = quote.points / LLM_COST_MARKUP
+      }
+      await recordAiCost({
+        userId: input.userId,
+        model: input.modelId,
+        provider: 'ihui_points',
+        promptTokens: quote.promptTokens,
+        completionTokens: quote.completionTokens,
+        totalTokens: quote.totalTokens,
+        requestType: input.source,
+        callType: 'chat',
+        cost: Math.max(0, Math.round(costCents * 100) / 100),
+        currency: 'CNY',
+        costStatus: costBasis === 'config' ? 'priced' : 'unknown',
+        metadata: JSON.stringify({
+          billingReferenceId: input.referenceId ?? null,
+          holdReferenceId: holdReferenceId ?? null,
+          pricingModelId: quote.pricingModelId,
+          pricingSource: quote.pricingSource,
+          costBasis,
+          points: quote.points,
+          deducted: settlement.deducted,
+          shortfall: settlement.shortfall,
+        }),
+      })
+    } catch (err) {
+      // 成本账失败不能影响用户结算;留痕待补。
+      logger.warn('[ai-points-billing] llm_chat 成本记账失败(不影响积分结算)', {
+        userId: input.userId,
+        model: input.modelId,
+        err: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
   return { ...settlement, quote }
 }
 
