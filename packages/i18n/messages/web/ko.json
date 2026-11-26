@@ -9615,6 +9615,7 @@
       "emptyState": "표시할 내용 없음",
       "openWindow": "화면 중 화면 창 열기",
       "dockInWorkPanel": "작업 패널에 모니터링 고정",
+      "dockCreateFailed": "모니터링 세션을 만들 수 없습니다. 다시 시도하거나 AI가 먼저 브라우저를 열게 하세요.",
       "readOnly": "읽기 전용",
       "handover": "이어받기",
       "statusConnecting": "연결 중",
