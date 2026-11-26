@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   settlePointsUsage: vi.fn(),
   getPointsHoldPricingSnapshot: vi.fn(),
   getLlmPointsRates: vi.fn(),
+  recordAiCost: vi.fn(),
 }))
 
 vi.mock('../src/services/points-service.js', () => ({
@@ -21,8 +22,13 @@ vi.mock('../src/services/points-service.js', () => ({
 }))
 
 vi.mock('../src/services/llm-points-pricing.js', () => ({
+  LLM_COST_MARKUP: 3,
   LLM_UNKNOWN_POINTS_PER_1K: 30,
   getLlmPointsRates: mocks.getLlmPointsRates,
+}))
+
+vi.mock('../src/plugins/ai-cost.js', () => ({
+  recordAiCost: mocks.recordAiCost,
 }))
 
 import { settleLlmPointsUsage } from '../src/services/ai-points-billing.js'
@@ -36,12 +42,14 @@ describe('settleLlmPointsUsage 定价快照', () => {
       alreadySettled: false,
     })
     mocks.getPointsHoldPricingSnapshot.mockReset().mockResolvedValue(null)
+    mocks.recordAiCost.mockReset().mockResolvedValue({ cost: 0, currency: 'CNY' })
     mocks.getLlmPointsRates.mockReset().mockResolvedValue({
       inputPointsPer1k: 999,
       outputPointsPer1k: 999,
       pricingModelId: 'test/model',
       inputCostPer1k: 333,
       outputCostPer1k: 333,
+      costBasis: 'config',
       displayMultiplier: 999,
     })
   })
@@ -64,6 +72,14 @@ describe('settleLlmPointsUsage 定价快照', () => {
     expect(result.quote.points).toBe(40)
     expect(mocks.settlePointsUsage).toHaveBeenCalledWith(
       expect.objectContaining({ amount: 40, referenceId: 'conv:msg' }),
+    )
+    expect(mocks.recordAiCost).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'test/model',
+        requestType: 'llm_chat',
+        costStatus: 'priced',
+        cost: 666,
+      }),
     )
   })
 
