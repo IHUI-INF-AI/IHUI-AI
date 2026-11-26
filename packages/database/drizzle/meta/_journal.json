@@ -3362,6 +3362,13 @@
       "when": 1795585800002,
       "tag": "20261126023000_device_task_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 490,
+      "version": "7",
+      "when": 1795585800003,
+      "tag": "20261126235000_guard_token_price_floor",
+      "breakpoints": true
     }
   ]
 }
