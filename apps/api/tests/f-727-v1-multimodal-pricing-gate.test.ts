@@ -27,12 +27,15 @@ describe('F-727 v1 多模态定价上下文', () => {
     expect(multimodalPriceRequest('/images/generations', { model: 'm' })?.units).toBe(1)
   })
 
-  it('videos 先按 1 个计费单位探价(按秒/按次都由定价行决定)', () => {
-    expect(multimodalPriceRequest('/videos/generations', { model: 'veo-3' })).toEqual({
+  it('videos 按 duration 冻结,缺省/非法回落 1,上限 300 秒', () => {
+    expect(multimodalPriceRequest('/videos/generations', { model: 'veo-3', duration: 10 })).toEqual({
       model: 'veo-3',
       callType: 'video',
-      units: 1,
+      units: 10,
     })
+    expect(multimodalPriceRequest('/videos/generations', { model: 'veo-3' })?.units).toBe(1)
+    expect(multimodalPriceRequest('/videos/generations', { model: 'veo-3', duration: 0 })?.units).toBe(1)
+    expect(multimodalPriceRequest('/videos/generations', { model: 'veo-3', duration: 999 })?.units).toBe(300)
   })
 
   it('audio 单列 audio 计价,优先命中 per_call 行', () => {

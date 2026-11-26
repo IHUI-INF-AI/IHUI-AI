@@ -6,7 +6,8 @@
  * v1 多模态定价闸的纯解析器(2026-11-26)。
  *
  * 把「路由 → 计费类型 / 模型 / 单位数」的判定从路由文件抽出来,便于单测锁住:
- * - image 取 n(1~10),video 先按 1 个单位探价(按秒模型也会 >0);
+ * - image 取 n(1~10);video 按请求的 duration 取 1~300 秒(按次定价会忽略 units),
+ *   保证预扣冻结的是实际时长而不是 1 秒;
  * - audio 走 per_call 的 audio 计价(2026-11-26 单列,避免落到 token 行);
  * - music/3d/generation 走 image 口径,兼容 per_call / per_image 两种定价行。
  *
@@ -39,6 +40,13 @@ export function multimodalPriceRequest(
   if (callType === 'image') {
     const rawN = Number(payload.n)
     units = Number.isFinite(rawN) ? Math.max(1, Math.min(10, Math.floor(rawN))) : 1
+  } else if (callType === 'video') {
+    // 按秒定价时 units=duration;按次定价 calculateCost 会忽略 units。
+    // 上限 300 秒防止异常 duration 冻结过大,同时余额不足会直接 402。
+    const rawDuration = Number(payload.duration)
+    units = Number.isFinite(rawDuration)
+      ? Math.max(1, Math.min(300, Math.floor(rawDuration)))
+      : 1
   }
   return { model, callType, units }
 }
