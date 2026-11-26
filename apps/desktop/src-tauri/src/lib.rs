@@ -107,6 +107,8 @@ mod system_memory;
 // 2026-11-23 立(B2-02):IPC 命名管道安全描述符边界(当前用户 + SYSTEM 两条 ACE;
 // 创建失败即拒,绝不回落无 DACL 裸管道)。非 Windows 显式返回 Unsupported。
 mod ipc_channel_acl;
+#[cfg(windows)]
+mod approval_pipe;
 // 2026-11-24 立(P3-01):ALPC 通道抽象层(open/close/挂接外部 SD 三面 + fail-closed
 // 错误码族 + RAII 句柄槽)。ALPC 后端未取证落 Unjudged;兜底复用 ipc_channel_acl 受限管道。
 mod ipc_channel;
