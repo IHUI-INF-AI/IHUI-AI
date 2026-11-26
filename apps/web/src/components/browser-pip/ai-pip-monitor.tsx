@@ -500,8 +500,7 @@ export function AiPipMonitor({
       void (async () => {
         let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
         try {
-          const fpsQuery =
-            streamFps && streamFps >= 1 && streamFps <= 30 ? `&fps=${streamFps}` : ''
+          const fpsQuery = streamFps && streamFps >= 1 && streamFps <= 30 ? `&fps=${streamFps}` : ''
           const resp = await fetch(
             `/api/browser/sessions/${encodeURIComponent(sessionId)}/mjpeg?token=${encodeURIComponent(pipToken)}${fpsQuery}`,
             {
@@ -683,6 +682,15 @@ export function AiPipMonitor({
         detail: { sessionId },
       }),
     )
+    // 原生画中画是独立 Tauri webview，本地 CustomEvent 传不到主窗聊天页；
+    // 桌面端再走一次事件总线，让提示条立即撤掉而不是等下一轮 5 秒轮询。
+    if (isTauri()) {
+      void import('@tauri-apps/api/event')
+        .then(({ emitTo }) => emitTo('main', 'ihui:browser-checkpoint-resumed', { sessionId }))
+        .catch(() => {
+          // 事件总线失败不阻塞恢复；聊天页仍有轮询兜底。
+        })
+    }
   }, [sessionId])
 
   const onContinue = useCallback(() => {
