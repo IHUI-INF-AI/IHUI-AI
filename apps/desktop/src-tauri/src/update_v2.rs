@@ -184,6 +184,7 @@ impl Drop for TempTree {
 // Tauri commands
 // ---------------------------------------------------------------------------
 
+/// 检查更新(launcher 上下文不可用时返回 unsupported,不假装成功)
 #[tauri::command]
 pub async fn update_v2_check(app: AppHandle) -> Result<UpdateStatus, String> {
     let ctx = match context(&app) {
@@ -354,6 +355,7 @@ pub fn update_v2_take_rollback_notice(app: AppHandle) -> Result<Option<RollbackN
     Ok(Some(notice))
 }
 
+/// 返回本地更新准备状态(前端 flush 草稿/窗口状态后可交棒重启)
 #[tauri::command]
 pub fn update_v2_ready(app: AppHandle) -> Result<UpdateStatus, String> {
     let ctx = context(&app)?;

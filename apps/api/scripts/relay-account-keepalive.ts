@@ -39,7 +39,9 @@ const { db, dbRead } = await import('../src/db/index.js')
 const scheduler = await import('../src/services/relay-account-pool-scheduler.js')
 const { KEEPALIVE_FOREVER_KEY, CLIENT_ACTIVE_AT_KEY } = scheduler
 // 与调度层同一把适配器出口(§0.6):诊断判「能不能刷」不许另立一份平台清单
-const { getRelayAdapter } = await import('../src/services/relay-upstream-adapters.js')
+const { getRelayAdapter, isRefreshableProviderCode } = await import(
+  '../src/services/relay-upstream-adapters.js'
+)
 // 注册表住在 upstream-adapters/index(api 常驻时 worker 首行调它);独立进程必须自己注册,
 // 否则 getRelayAdapter 恒 undefined ⇒ --once 报 refreshed=0 什么都不刷、--explain 报「未注册」
 // 也是假象 —— 诊断出口得先具备被诊断的能力。
@@ -450,7 +452,11 @@ export async function explainAccount(
     deferRefresh: verdict.defer,
     deferReason: verdict.reason,
     adapterRegistered: Boolean(adapter),
+    // 方法存在 ≠ 真能刷新(2026-11-26):doubao/loomy 的 refreshToken 是恒 null 空壳,
+    // adapterCanRefresh 只看 typeof 会显示 true,把「永久保活登记了却从不续票」伪装成可刷。
+    // 调度器真实闸门是 isRefreshableProviderCode,诊断必须同口径,否则现场第一眼就走偏。
     adapterCanRefresh: typeof adapter?.refreshToken === 'function',
+    reallyRefreshable: isRefreshableProviderCode(providerCode),
     keepaliveIdleDays: scheduler.keepaliveIdleDays(),
     keepaliveForeverHours: foreverHours,
     idleCutoffStd: new Date(now.getTime() - (scheduler.keepaliveIdleDays() ?? 0) * 86400_000),
@@ -496,7 +502,8 @@ export async function main(argv: string[]): Promise<number> {
       `诊断 ${a.provider}/${a.explain}: 登记=${info.ok ? (info.keepAliveForever ? '永久保活✓' : '未登记') : '池无此行'} ` +
         `本轮结论=${info.ok ? (info.deferRefresh ? `让位(${info.deferReason})` : `可接管(${info.deferReason})`) : 'n/a'} ` +
         `探测=${String(info.clientRunning ?? 'unjudged(absent)')} ` +
-        `适配器可刷=${info.adapterCanRefresh} ` +
+        `适配器方法=${info.adapterCanRefresh} 真可刷=${info.reallyRefreshable}` +
+        `${info.ok && info.reallyRefreshable === false ? '(平台无实证续期端点:永久保活仅登记,不会自动续票)' : ''} ` +
         `再凭证=${info.recredentialable} 健康可调度=${info.healthIsSchedulable} 摘除=${info.tempUnschedulable}\n`,
     )
     return info.ok ? 0 : 1

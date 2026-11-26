@@ -56,6 +56,8 @@ import { setFastify } from './utils/logger.js'
 import { wildcardContentTypeParser, applyUploadsStaticHardening } from './utils/static-hardening.js'
 import { isAppError } from './errors/index.js'
 import { config, isDevelopmentRuntime } from './config/index.js'
+// L06:请求接收上界由运行时策略提供,并随热更新同步(见下方 requestTimeout 处)
+import { getRuntimePolicy, subscribeRuntimePolicy } from './config/runtime-policy.js'
 import { GLOBAL_JSON_BODY_LIMIT } from './config/body-limits.js'
 import authPlugin from './plugins/auth.js'
 // O4 数据作用域闸:统一调用主体(principal)必须在 rls-context 之前注册 ——
@@ -322,7 +324,15 @@ export async function buildServer(): Promise<FastifyInstance> {
   if (server.server) {
     server.server.headersTimeout = 20_000
     server.server.keepAliveTimeout = 15_000
-    server.server.requestTimeout = 300_000
+    // L06(2026-11-26):上界改由 runtime-policy 提供(默认 300s,与上面取值理由一致),
+    // 热更新时同步生效 —— Node 在每次请求开始时读该值,不需要重启进程。
+    server.server.requestTimeout = getRuntimePolicy().timeout.requestMs
+    const unsubscribePolicy = subscribeRuntimePolicy((policy) => {
+      if (server.server) server.server.requestTimeout = policy.timeout.requestMs
+    })
+    server.addHook('onClose', async () => {
+      unsubscribePolicy()
+    })
     // 全局活跃连接硬顶：per-IP 闸管不住「上万个 IP 各开几条」这一型，这一档管的是
     // 单实例 FD/内存被耗尽的最后一格。0 可由 IHUI_HTTP_MAX_CONNECTIONS 明确关掉，
     // 取值算式与"为什么宁可取宽"见 resolveMaxConnections 头注。

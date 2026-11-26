@@ -631,6 +631,30 @@ describe('useWorkPanelStore - 代理导航历史语义(2026-09-02 fix)', () => {
   })
 })
 
+describe('useWorkPanelStore - 工作面内停靠画中画', () => {
+  beforeEach(() => resetStore())
+
+  it('openPipSession 打开 pip tab 并绑定 Browser Hub session', () => {
+    useWorkPanelStore.getState().openPipSession('sess-1', 'https://example.com', '示例')
+    const s = useWorkPanelStore.getState()
+    expect(s.open).toBe(true)
+    expect(s.tabs).toHaveLength(1)
+    expect(s.tabs[0]?.state.mode).toBe('pip')
+    expect(s.tabs[0]?.state.sessionId).toBe('sess-1')
+    expect(s.tabs[0]?.url).toBe('https://example.com')
+    expect(s.activeTabId).toBe(s.tabs[0]?.id)
+  })
+
+  it('同一 session 重复停靠只聚焦原 tab,不复制 MJPEG 连接', () => {
+    useWorkPanelStore.getState().openPipSession('sess-1', 'https://example.com', '示例')
+    const firstId = useWorkPanelStore.getState().tabs[0]?.id
+    useWorkPanelStore.getState().openPipSession('sess-1', 'https://example.com', '示例')
+    const s = useWorkPanelStore.getState()
+    expect(s.tabs).toHaveLength(1)
+    expect(s.activeTabId).toBe(firstId)
+  })
+})
+
 describe('useWorkPanelStore - 窗口尺寸', () => {
   beforeEach(() => resetStore())
 

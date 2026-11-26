@@ -456,6 +456,7 @@ fn localized_app_name() -> &'static str {
     }
 }
 
+/// 返回应用名/版本/平台等运行信息(版本取 tauri.conf.json 的运行时值)
 #[tauri::command]
 fn get_app_info(app: tauri::AppHandle) -> AppInfo {
     AppInfo {
@@ -470,6 +471,7 @@ fn get_app_info(app: tauri::AppHandle) -> AppInfo {
 // 2026-10-16:`pick_free_port` 随外部 Chrome 方案(CDP 端口分配)一并删除 ——
 // 内嵌浏览器不需要调试端口,登录态直读窗口自己的 cookie jar。
 
+/// 按方向启动窗口拖拽调整(label 指定目标窗口,缺省当前窗口)
 #[tauri::command]
 fn start_resize(
     direction: String,
@@ -546,6 +548,7 @@ fn toggle_always_on_top(
     Ok(next)
 }
 
+/// 返回管理后台窗口的固定尺寸/标题/最小尺寸(供前端布局)
 #[tauri::command]
 fn get_admin_window_info() -> AdminWindowInfo {
     AdminWindowInfo {
@@ -1574,6 +1577,7 @@ fn require_computer_control() -> Result<(), String> {
     }
 }
 
+/// 截取指定显示器(可选区域)画面(高敏;需 IHUI_DESKTOP_COMPUTER_CONTROL=1)
 #[tauri::command]
 async fn screenshot_screen(
     display_index: Option<usize>,
@@ -1611,6 +1615,7 @@ async fn screenshot_screen(
     Ok(ScreenshotResult { screenshot })
 }
 
+/// 移动鼠标到坐标(absolute=false 时按相对位移)
 #[tauri::command]
 async fn mouse_move(x: f64, y: f64, absolute: Option<bool>) -> Result<OkResult, String> {
     require_computer_control()?;
@@ -1626,6 +1631,7 @@ async fn mouse_move(x: f64, y: f64, absolute: Option<bool>) -> Result<OkResult, 
     Ok(OkResult { ok: true })
 }
 
+/// 在坐标处点击鼠标(可指定按键与点击次数)
 #[tauri::command]
 async fn mouse_click(
     x: f64,
@@ -1654,6 +1660,7 @@ async fn mouse_click(
     Ok(OkResult { ok: true })
 }
 
+/// 输入文本(单次上限 10000 字符,超限拒收)
 #[tauri::command]
 async fn keyboard_type(text: String, delay: Option<u64>) -> Result<OkResult, String> {
     require_computer_control()?;
@@ -1689,6 +1696,7 @@ async fn keyboard_type(text: String, delay: Option<u64>) -> Result<OkResult, Str
     Ok(OkResult { ok: true })
 }
 
+/// 滚动滚轮(可先移动到指定坐标再滚)
 #[tauri::command]
 async fn mouse_scroll(
     delta_y: f64,
@@ -1708,6 +1716,7 @@ async fn mouse_scroll(
     Ok(OkResult { ok: true })
 }
 
+/// 按下并释放单个按键(键名解析失败即拒)
 #[tauri::command]
 async fn keyboard_press(key: String) -> Result<OkResult, String> {
     require_computer_control()?;
@@ -1717,6 +1726,7 @@ async fn keyboard_press(key: String) -> Result<OkResult, String> {
     Ok(OkResult { ok: true })
 }
 
+/// 按组合键(最多 10 个键,超限拒收)
 #[tauri::command]
 async fn keyboard_hotkey(keys: Vec<String>) -> Result<OkResult, String> {
     require_computer_control()?;
@@ -1832,6 +1842,7 @@ mod active_window_impl {
     }
 }
 
+/// 返回当前前台窗口(标题/进程/句柄)
 #[tauri::command]
 fn active_window() -> Result<ActiveWindowResult, String> {
     Ok(ActiveWindowResult {
@@ -2028,6 +2039,7 @@ fn ensure_in_app_data(
 /// 2026-11-06 加固:与 read_binary_file 对齐补大小上限,防无界 read_to_string 打爆内存。
 const MAX_TEXT_FILE_SIZE: u64 = 50 * 1024 * 1024;
 
+/// 读取应用数据目录内的文本文件(路径 canonicalize 后必须仍在 app data 内)
 #[tauri::command]
 async fn read_text_file(app: tauri::AppHandle, path: String) -> Result<ReadTextResult, IpcError> {
     // F-084:async 命令里跑同步大 IO 会占满 async worker,其他 IPC 只能排队。
@@ -2058,6 +2070,7 @@ async fn read_text_file(app: tauri::AppHandle, path: String) -> Result<ReadTextR
 /// (base64 编码会膨胀约 4/3,GB 级文件会把内存直接打爆)。
 const MAX_BINARY_FILE_SIZE: u64 = 50 * 1024 * 1024;
 
+/// 读取应用数据目录内的二进制文件(超大小上限按权限拒绝)
 #[tauri::command]
 async fn read_binary_file(app: tauri::AppHandle, path: String) -> Result<ReadBinaryResult, IpcError> {
     let path = ensure_in_app_data(&app, &path)?;
@@ -2214,6 +2227,7 @@ mod security_limits_tests {
     }
 }
 
+/// 写入应用数据目录内的文本文件(超大小上限拒收)
 #[tauri::command]
 async fn write_text_file(
     app: tauri::AppHandle,
@@ -2239,6 +2253,7 @@ async fn write_text_file(
 /// F-084:条数上限 —— 无界收集会在超大目录上把内存/延迟一起放大,超限直接报错。
 const MAX_DIR_ENTRIES: usize = 10_000;
 
+/// 列出应用数据目录内某目录的条目(有条数上限)
 #[tauri::command]
 async fn list_dir(app: tauri::AppHandle, path: String) -> Result<DirListResult, IpcError> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -2699,6 +2714,7 @@ async fn clear_webview_cache(app: tauri::AppHandle) -> Result<ClearCacheResult, 
     .map_err(|e| format!("清理任务执行失败: {}", e))?
 }
 
+/// 清理本实例的 WebView2 缓存目录(只删缓存类,数据目录保留;非 Windows 恒为空操作)
 #[cfg(not(target_os = "windows"))]
 #[tauri::command]
 async fn clear_webview_cache(_app: tauri::AppHandle) -> Result<ClearCacheResult, String> {
@@ -3672,6 +3688,7 @@ mod desktop_badge_tests {
     }
 }
 
+/// 读剪贴板(凭据窃取面;需 IHUI_DESKTOP_COMPUTER_CONTROL=1)
 #[tauri::command]
 async fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String> {
     // R8 复评:读剪贴板是凭据窃取面(用户复制密码/token 后被 XSS 静默读走),
@@ -3764,6 +3781,7 @@ fn check_clipboard_image_dimensions(width: u32, height: u32) -> Result<(), Strin
     Ok(())
 }
 
+/// 写剪贴板(只写不读,正常粘贴链路不受闸门影响)
 #[tauri::command]
 async fn clipboard_set(
     content: String,

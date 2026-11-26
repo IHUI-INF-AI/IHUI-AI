@@ -28,13 +28,27 @@ vi.mock('@tarojs/components', () => {
     Stub.displayName = `Taro${tag}`
     return Stub
   }
-  return { View: make('div'), Text: make('span'), Image: make('img'), Button: make('button') }
+  return {
+    View: make('div'),
+    Text: make('span'),
+    Image: make('img'),
+    Button: make('button'),
+    ScrollView: make('div'),
+  }
 })
 vi.mock('@tarojs/taro', () => ({
-  default: { navigateTo: vi.fn(), showToast: vi.fn(), login: vi.fn() },
+  default: {
+    navigateTo: vi.fn(),
+    showToast: vi.fn(),
+    login: vi.fn(),
+    hideTabBar: vi.fn(),
+    showTabBar: vi.fn(),
+  },
   navigateTo: vi.fn(),
   showToast: vi.fn(),
   login: vi.fn(),
+  hideTabBar: vi.fn(),
+  showTabBar: vi.fn(),
 }))
 vi.mock('@/i18n', () => ({
   useTt: () => (_k: string, fb: string) => fb,

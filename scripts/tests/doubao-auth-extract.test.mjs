@@ -4,7 +4,7 @@
 
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { deriveAccountUid } from '../lib/doubao-auth-extract.mjs'
+import { deriveAccountUid, decodeDoubaoSafeStorageValue } from '../lib/doubao-auth-extract.mjs'
 
 /**
  * 票 Y-25 钉:同账号换会话票(sessionid 族轮换)后,派生的稳定 uid 不变、仍命中旧行。
@@ -56,5 +56,15 @@ test('空输入不炸,退回 bundle 档', () => {
 test('uid_tt 值不含 cookie 明文(uid 是哈希,零凭据回显)', () => {
   const { uid } = deriveAccountUid(entries({ sessionid: 'x', uid: 'SECRET-UID-VALUE' }))
   assert.ok(!uid.includes('SECRET-UID-VALUE'), 'uid 是 sha256 摘要,不得含原值明文')
+})
+
+test('msToken 是二进制票:latin1 往返零丢失,不能按 UTF-8 解码成 U+FFFD(2026-11-26 根因)', () => {
+  const raw = Buffer.from([0x95, 0xab, 0x85, 0xae, 0x29, 0x04, 0xf7, 0xd0, 0xd8, 0x13, 0xff, 0x80])
+  const text = decodeDoubaoSafeStorageValue(raw, 'msToken')
+  assert.equal(Buffer.from(text, 'latin1').equals(raw), true, 'latin1 往返必须逐字节相等')
+  assert.equal(text.includes('\uFFFD'), false, 'latin1 不产生替换字符')
+  // 对照:普通会话票仍按豆包魔数剥头(这里无魔数 ⇒ 原样 utf8)
+  const plain = decodeDoubaoSafeStorageValue(Buffer.from('abc', 'utf8'), 'sessionid')
+  assert.equal(plain, 'abc')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -41,7 +41,7 @@ export default function AutoReplyPreview({
           }}
           rows={3}
           maxLength={2_000}
-          className="w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
+          className="font-[weight:inherit] w-full rounded-md border border-stroke-field bg-transparent px-3 py-2 text-body outline-none focus:border-stroke-focus"
           placeholder="输入一条客户消息，看看 AI 会怎么回"
         />
         <div className="flex items-center gap-2">
@@ -57,7 +57,7 @@ export default function AutoReplyPreview({
             )}
             生成预览
           </Button>
-          <span className="text-xs text-muted-foreground">规则：{rule.name}</span>
+          <span className="font-[weight:inherit] text-label text-muted-foreground">规则：{rule.name}</span>
         </div>
         {previewMutation.isError ? (
           <Alert
@@ -69,7 +69,7 @@ export default function AutoReplyPreview({
           />
         ) : null}
         {previewMutation.data ? (
-          <div className="whitespace-pre-wrap break-words rounded-md border border-stroke-field bg-muted/40 p-3 text-sm">
+          <div className="font-[weight:inherit] whitespace-pre-wrap break-words rounded-md border border-stroke-field bg-muted/40 p-3 text-body">
             {previewMutation.data.replyText || '(模型返回空文本)'}
           </div>
         ) : null}

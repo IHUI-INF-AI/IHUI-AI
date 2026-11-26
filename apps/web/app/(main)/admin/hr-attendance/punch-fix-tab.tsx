@@ -182,7 +182,7 @@ export function PunchFixTab({ t }: { t: ReturnType<typeof useTranslations> }) {
           />
         </label>
         <button
-          className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50"
+          className="font-[weight:inherit] rounded-md bg-primary px-3 py-1.5 text-body text-primary-foreground disabled:opacity-50"
           disabled={submit.isPending}
           onClick={() => submit.mutate()}
         >
@@ -204,7 +204,7 @@ export function PunchFixTab({ t }: { t: ReturnType<typeof useTranslations> }) {
             <option value="">{t('allStatus')}</option>
           </select>
         </label>
-        <span className="text-xs text-muted-foreground">
+        <span className="font-[weight:inherit] text-label text-muted-foreground">
           {t('punchTotal', { count: listQuery.data?.total ?? 0 })}
         </span>
       </div>

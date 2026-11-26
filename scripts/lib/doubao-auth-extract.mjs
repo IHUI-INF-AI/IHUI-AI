@@ -108,6 +108,21 @@ export function wrapDoubaoAppPrefix(value) {
 }
 
 /**
+ * 豆包 Cookie 明文 → 可往返字符串(2026-11-26 实证修正)。
+ * 绝大多数票是「32 字节豆包魔数 + ASCII/UTF-8 真值」;**msToken 例外**:原生库里是
+ * 无魔数的二进制票。旧版无条件 `.toString('utf8')` 会把不可解码字节变成 U+FFFD
+ * (号池里 11 枚 msToken 全带替换字符),写回后字节损坏、客户端 `Cookie load problem`。
+ * 这里对 msToken 用 latin1 一一映射字节↔码点,写出端同样以 latin1 还原,零信息丢失。
+ */
+export function decodeDoubaoSafeStorageValue(plaintextOrBuf, name) {
+  const buf = Buffer.isBuffer(plaintextOrBuf)
+    ? plaintextOrBuf
+    : Buffer.from(String(plaintextOrBuf ?? ''), 'utf8')
+  if (String(name ?? '') === 'msToken') return buf.toString('latin1')
+  return stripDoubaoAppPrefix(buf)
+}
+
+/**
  * Chromium os_crypt cookie 密文(v10/v11 + nonce12 + ct + tag16,AES-256-GCM)→ 明文。
  * opts.rawBuffer=true ⇒ 返回 Buffer(豆包自家 24 字节二进制头需字节级剥除,先转 utf8 会产生
  * U+FFFD 不可逆损毁 —— 2026-10-27 实证);默认返回 utf8 字符串(旧签名兼容)。
@@ -214,7 +229,10 @@ export function readCookieSessionRows(userDataDir, profile, opts = {}) {
           source: 'cookies',
           key: name,
           host,
-          value: stripDoubaoAppPrefix(decryptOsCryptString(blob, aesKey, { rawBuffer: true })),
+          value: decodeDoubaoSafeStorageValue(
+            decryptOsCryptString(blob, aesKey, { rawBuffer: true }),
+            name,
+          ),
         })
       } catch (e) {
         skips.push(`cookie ${host}/${name} 解密未判定: ${e instanceof Error ? e.message : String(e)}`)
@@ -492,6 +510,7 @@ export const __test__ = {
   summarizeEntry,
   pickImportableEntries,
   stripDoubaoAppPrefix,
+  decodeDoubaoSafeStorageValue,
   wrapDoubaoAppPrefix,
   deriveAccountUid,
   SESSION_COOKIE_NAMES,

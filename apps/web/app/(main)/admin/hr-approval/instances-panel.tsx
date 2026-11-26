@@ -113,7 +113,7 @@ export function InstancesPanel() {
           placeholder={t('optionalUuid')}
         />
         <button
-          className="inline-flex items-center gap-1 rounded-md border border-stroke-default px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50"
+          className="font-[weight:inherit] inline-flex items-center gap-1 rounded-md border border-stroke-default px-3 py-1.5 text-body hover:bg-muted disabled:opacity-50"
           disabled={escalateMut.isPending}
           onClick={() => escalateMut.mutate()}
         >
@@ -133,7 +133,7 @@ export function InstancesPanel() {
           />
         </label>
         <button
-          className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50"
+          className="font-[weight:inherit] rounded-md bg-primary px-3 py-1.5 text-body text-primary-foreground disabled:opacity-50"
           disabled={submitMut.isPending}
           onClick={() => submitMut.mutate()}
         >

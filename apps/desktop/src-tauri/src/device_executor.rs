@@ -431,6 +431,7 @@ pub fn spawn_tray_watch(app: &AppHandle) {
 
 // ===== Tauri commands（渲染端只拿状态，不传命令/路径）=====
 
+/// 读取本机设备执行器状态(只读)
 #[tauri::command]
 pub async fn device_executor_status() -> Result<DeviceExecutorStatus, String> {
     tauri::async_runtime::spawn_blocking(read_status)
@@ -438,6 +439,7 @@ pub async fn device_executor_status() -> Result<DeviceExecutorStatus, String> {
         .map_err(|e| format!("读取执行器状态失败: {e}"))
 }
 
+/// 启动本机设备执行器(供远端设备任务调度使用)
 #[tauri::command]
 pub async fn device_executor_start(app: AppHandle) -> Result<DeviceExecutorStatus, String> {
     let app_for_start = app.clone();
@@ -446,6 +448,7 @@ pub async fn device_executor_start(app: AppHandle) -> Result<DeviceExecutorStatu
         .map_err(|e| format!("启动执行器失败: {e}"))?
 }
 
+/// 停止本机设备执行器
 #[tauri::command]
 pub async fn device_executor_stop() -> Result<DeviceExecutorStatus, String> {
     tauri::async_runtime::spawn_blocking(stop_executor)
@@ -495,6 +498,7 @@ fn pick_workspace(app: &AppHandle) -> Result<String, String> {
  * `-w, --workspace` 先吃掉（2026-11-26 自验实测：传了目录却落盘成 cwd，任务跑错目录），
  * stdin 是这条路上唯一不会被 argv 解析抢走的通道。
  */
+/// 用一次性接入载荷接入/接管执行器(载荷超过 8KB 直接拒收)
 #[tauri::command]
 pub async fn device_executor_adopt(
     app: AppHandle,

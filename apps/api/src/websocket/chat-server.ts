@@ -20,6 +20,44 @@ import { db } from '../db/index.js'
 import { WsRateLimiter } from '../plugins/ws-helpers.js'
 // ihui_live_danmaku_total:chat-server 不持有 fastify 实例,走模块级桥接函数打点
 import { recordLiveDanmaku } from '../plugins/business-metrics.js'
+// L05(2026-11-26):WS 消息类型也进通道注册表 —— 未知 type 不再"静默什么都不发生",
+// 而是被注册表拒绝、计数并回一帧 400(此前未知 type 直接落到函数末尾,客户端无感)。
+import { ChannelDispatcher, ChannelRegistry } from '@ihui/agent-sdk'
+
+/** 客户端消息类型 → 注册表通道名。新增类型必须在这里登记,否则运行期被拒。 */
+const CHAT_CHANNEL_BY_TYPE: Record<string, string> = {
+  ping: 'chat.message.ping',
+  history: 'chat.message.history',
+  send: 'chat.message.send',
+}
+
+const chatChannelRegistry = new ChannelRegistry()
+chatChannelRegistry.registerMany([
+  {
+    name: 'chat.message.ping',
+    kind: 'call',
+    owner: 'apps/api/src/websocket/chat-server',
+    purpose: '心跳,回 pong',
+  },
+  {
+    name: 'chat.message.history',
+    kind: 'call',
+    owner: 'apps/api/src/websocket/chat-server',
+    purpose: '拉取最近 N 条弹幕',
+  },
+  {
+    name: 'chat.message.send',
+    kind: 'call',
+    owner: 'apps/api/src/websocket/chat-server',
+    purpose: '发送弹幕(落库并广播)',
+  },
+])
+const chatChannelDispatcher = new ChannelDispatcher(chatChannelRegistry)
+
+/** 观测/测试口:某通道(`kind:name`)被拒次数。 */
+export function chatChannelRejectionCount(key: string): number {
+  return chatChannelDispatcher.rejections().get(key) ?? 0
+}
 
 export const HISTORY_PAGE_SIZE = 50
 const MAX_CONTENT_LENGTH = 2000
@@ -216,6 +254,16 @@ export class LiveChatServer {
     } catch {
       room.sendTo(ws, JSON.stringify({ type: 'error', code: 400, message: '消息不是合法 JSON' }))
       return
+    }
+
+    // L05:未知 type 在注册表处被拒(计数 + 审计),并明确回错误帧。
+    if (!CHAT_CHANNEL_BY_TYPE[msg.type]) {
+      try {
+        chatChannelDispatcher.guard(`chat.message.${String(msg.type)}`, 'call')
+      } catch {
+        room.sendTo(ws, JSON.stringify({ type: 'error', code: 400, message: '未知消息类型' }))
+        return
+      }
     }
 
     if (msg.type === 'ping') {

@@ -147,6 +147,34 @@ const FACE_TXT = {
 // ─── 映射表(每条含取值依据,rn 路径 = [常量名, ...嵌套键]) ───
 const MAPPINGS = [
   {
+    label: 'aiInputGlow.DEFAULT ↔ --color-ai-input-glow',
+    rn: { light: ['rnLightTokens', 'aiInputGlow', 'DEFAULT'], dark: ['rnDarkTokens', 'aiInputGlow', 'DEFAULT'] },
+    css: { light: '--color-ai-input-glow', dark: '--color-ai-input-glow' },
+    basis:
+      '2026-11-26 由 plan-rn-token-pairing 量得(R2):RN 亮档 #8b5cf6 / 暗档 (同亮) 与源 --color-ai-input-glow 在 :root/@theme 与 .dark 两个面各自同值;同值候选 3 个(--color-ai-input-glow, --chart-5, --color-rank-avatar-end),其中与 RN 档名同名的只有 --color-ai-input-glow(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'aiInputGlow.soft ↔ --color-ai-input-glow-soft',
+    rn: { light: ['rnLightTokens', 'aiInputGlow', 'soft'], dark: ['rnDarkTokens', 'aiInputGlow', 'soft'] },
+    css: { light: '--color-ai-input-glow-soft', dark: '--color-ai-input-glow-soft' },
+    basis:
+      '2026-11-26 由 plan-rn-token-pairing 量得(R1):RN 亮档 rgba(139, 92, 246, 0.1) / 暗档 (同亮) 与源 --color-ai-input-glow-soft 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-ai-input-glow-soft)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'aiInputGlow.strong ↔ --color-ai-input-glow-strong',
+    rn: { light: ['rnLightTokens', 'aiInputGlow', 'strong'], dark: ['rnDarkTokens', 'aiInputGlow', 'strong'] },
+    css: { light: '--color-ai-input-glow-strong', dark: '--color-ai-input-glow-strong' },
+    basis:
+      '2026-11-26 由 plan-rn-token-pairing 量得(R1):RN 亮档 rgba(139, 92, 246, 0.18) / 暗档 (同亮) 与源 --color-ai-input-glow-strong 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-ai-input-glow-strong)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
+    label: 'gray.400 ↔ --color-neutral-400',
+    rn: { light: ['rnLightTokens', 'gray', '400'], dark: ['rnDarkTokens', 'gray', '400'] },
+    css: { light: '--color-neutral-400', dark: '--color-neutral-400' },
+    basis:
+      '2026-11-26 由 plan-rn-token-pairing 量得(R4-scale):RN 亮档 #a3a3a3 / 暗档 (同亮) 与源 --color-neutral-400 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-text-tertiary, --color-neutral-400),其中与 RN 档名同名的只有 --color-neutral-400(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
+  },
+  {
     label: 'gray.50 ↔ --color-neutral-50',
     rn: { light: ['rnLightTokens', 'gray', '50'], dark: ['rnDarkTokens', 'gray', '50'] },
     css: { light: '--color-neutral-50', dark: '--color-neutral-50' },

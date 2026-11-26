@@ -244,7 +244,7 @@ export function CompTab() {
         ) : (
           <div className="space-y-2">
             {social.slice(0, 15).map((c) => (
-              <div key={String(c.id)} className="flex flex-wrap items-center gap-2 text-xs">
+              <div key={String(c.id)} className="font-[weight:inherit] flex flex-wrap items-center gap-2 text-label">
                 <span>{String(c.changeType)}</span>
                 <span className="text-muted-foreground">{String(c.effectiveMonth)}</span>
                 <Badge status={String(c.status)} />
@@ -291,7 +291,7 @@ export function CompTab() {
           </Button>
         </div>
         {lastBonus && (
-          <p className="mt-2 text-xs">
+          <p className="font-[weight:inherit] mt-2 text-label">
             税额 <Money v={lastBonus.taxAmount} /> / 实发 <Money v={lastBonus.netAmount} />
             （税率 {String((lastBonus.calcDetail as Row)?.rate ?? '-')}）
           </p>
@@ -340,7 +340,7 @@ export function CompTab() {
           </Button>
         </div>
         {lastSeverance && (
-          <p className="text-xs">
+          <p className="font-[weight:inherit] text-label">
             补偿 <Money v={lastSeverance.compensationAmount} /> / 免税{' '}
             <Money v={lastSeverance.exemptAmount} /> / 个税 <Money v={lastSeverance.taxAmount} /> /
             实发 <Money v={lastSeverance.netAmount} />
@@ -360,7 +360,7 @@ export function CompTab() {
         ) : (
           <ul className="mt-2 space-y-1">
             {periods.slice(0, 12).map((p) => (
-              <li key={String(p.periodMonth)} className="flex flex-wrap items-center gap-2 text-xs">
+              <li key={String(p.periodMonth)} className="font-[weight:inherit] flex flex-wrap items-center gap-2 text-label">
                 <span className="font-mono">{String(p.periodMonth)}</span>
                 <Badge status={String(p.status)} />
                 {String(p.status) === 'calculated' && (

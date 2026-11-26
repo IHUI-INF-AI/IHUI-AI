@@ -229,7 +229,7 @@ export function ContractOps() {
         {!s ? (
           <Empty text={t('loading')} />
         ) : (
-          <div className="flex flex-wrap gap-4 text-xs tabular-nums">
+          <div className="font-[weight:inherit] flex flex-wrap gap-4 text-label tabular-nums">
             <span>
               {t('contractTotal')}: <b>{s.total}</b>
             </span>

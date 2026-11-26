@@ -40,7 +40,7 @@ export default function CapabilitiesStrip({
         <Card key={item.backend}>
           <CardContent className="space-y-2 p-3 min-[640px]:p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold">{item.label}</p>
+              <p className="text-body font-semibold">{item.label}</p>
               <span
                 className={cn(
                   'rounded-md px-1.5 py-0.5 text-[10px]',
@@ -52,7 +52,7 @@ export default function CapabilitiesStrip({
                 {COMPLIANCE_LABELS[item.compliance]}
               </span>
             </div>
-            <p className="line-clamp-2 text-xs text-muted-foreground">{item.notes}</p>
+            <p className="font-[weight:inherit] line-clamp-2 text-label text-muted-foreground">{item.notes}</p>
             <div className="flex flex-wrap gap-1">
               {SUPPORT_LABELS.map(([key, label]) => {
                 const enabled = item.supports[key]

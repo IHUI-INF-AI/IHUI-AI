@@ -222,7 +222,7 @@ export function GapTab({ ledgers }: { ledgers: FinLedger[] }) {
               <Empty text="加载中" />
             ) : (
               <div className="space-y-2">
-                <div className="flex flex-wrap gap-4 text-xs">
+                <div className="font-[weight:inherit] flex flex-wrap gap-4 text-label">
                   <span>
                     现金净变动: <b>{num(cashQ.data.netChange)}</b>
                   </span>
@@ -261,7 +261,7 @@ export function GapTab({ ledgers }: { ledgers: FinLedger[] }) {
               </Button>
             }
           >
-            <p className="text-xs text-muted-foreground">
+            <p className="font-[weight:inherit] text-label text-muted-foreground">
               前置:12 月已结账、次年 1 月未结账;年结凭证开在次年 1 月 1 日。
             </p>
           </Card>
@@ -280,7 +280,7 @@ export function GapTab({ ledgers }: { ledgers: FinLedger[] }) {
                   </option>
                 ))}
               </select>
-              <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-stroke-default px-2 py-1 text-xs">
+              <label className="font-[weight:inherit] inline-flex cursor-pointer items-center gap-1 rounded-md border border-stroke-default px-2 py-1 text-label">
                 <Upload className="h-3.5 w-3.5" />
                 上传附件
                 <input
@@ -315,7 +315,7 @@ export function GapTab({ ledgers }: { ledgers: FinLedger[] }) {
             ) : (
               <ul className="space-y-1">
                 {filing.slice(0, 12).map((t) => (
-                  <li key={String(t.id)} className="flex flex-wrap items-center gap-2 text-xs">
+                  <li key={String(t.id)} className="font-[weight:inherit] flex flex-wrap items-center gap-2 text-label">
                     <span>{String(t.taxType)}</span>
                     <span className="text-muted-foreground">{String(t.period)}</span>
                     <b>{num(t.taxAmount)}</b>

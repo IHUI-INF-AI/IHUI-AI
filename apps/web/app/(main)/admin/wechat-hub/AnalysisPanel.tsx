@@ -154,7 +154,7 @@ export default function AnalysisPanel({ accountId }: { accountId: string }) {
               <Label htmlFor="wechat-analysis-force">强制重算（忽略缓存）</Label>
             </div>
             {run ? (
-              <span className="text-xs text-muted-foreground">
+              <span className="font-[weight:inherit] text-label text-muted-foreground">
                 状态：{run.status}
                 {run.model ? ` · ${run.model}` : ''}
                 {run.tokens ? ` · ${run.tokens} tokens` : ''}

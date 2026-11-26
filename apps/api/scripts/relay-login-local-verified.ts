@@ -65,8 +65,13 @@ const wbCarry = await import(
 const doubaoAutoCarry = await import(
   pathToFileURL(path.join(REPO_ROOT, 'scripts', 'lib', 'doubao-auto-carry.mjs')).href
 )
+/** 豆包切号前置票核验(2026-11-26 假绿根治):明确 rejected 就不写回,undetermined 只告警 */
+const doubaoAccountInfo = await import(
+  pathToFileURL(path.join(REPO_ROOT, 'scripts', 'lib', 'doubao-account-info.mjs')).href
+)
 const { snapshotApp, compareSnapshots } = continuity
 type SnapshotResult = Awaited<ReturnType<typeof snapshotApp>>
+type TicketVerification = Awaited<ReturnType<typeof doubaoAccountInfo.verifyDoubaoSession>>
 
 /** 豆包走自家登录态面(不在 CONTINUITY_FACE/APPS 映射表内,判据见 doubao-continuity-face.mjs) */
 const DOUBAO_PROVIDER = 'doubao'
@@ -187,6 +192,8 @@ export interface VerifiedSwitchResult {
    * export 与 replay 两段都在内,失败只记这里、不翻转 ok。
    */
   doubaoCarry: { export: unknown; replay: unknown } | null
+  /** 豆包写回前票有效性核验(null = 非豆包 / dry-run / 未执行) */
+  ticketVerification: TicketVerification | null
   notes: string[]
 }
 
@@ -223,6 +230,8 @@ export async function runVerifiedSwitch(opts: {
     /** 2026-11-24 新增:写回后按安装包探针分流「导入入口 / 交接单」;旧测试夹具可省略,回退到 replay。 */
     prepareImport?: typeof doubaoAutoCarry.prepareImport
   }
+  /** 测试注入:替换豆包票核验,入参整行(假件无需真解密);测试进程未注入 ⇒ 不核验不碰网络 */
+  verifyDoubaoTicket?: (row: PoolRowLike) => Promise<TicketVerification>
 }): Promise<VerifiedSwitchResult> {
   const doLoad = opts.loadRow ?? loadPoolRow
   const doWrite = opts.writeBack ?? loginAccountLocal
@@ -234,6 +243,13 @@ export async function runVerifiedSwitch(opts: {
   const isTestEnv = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test'
   /** 豆包回放腿:未注入且在测试进程 ⇒ null(不碰真实 cookie/网络);生产走真模块。 */
   const doDoubaoCarry = opts.doubaoCarryImpl ?? (isTestEnv ? null : doubaoAutoCarry)
+  /** 票核验腿:未注入且在测试进程 ⇒ null(不碰真网络);生产走真模块。 */
+  const doVerifyTicket =
+    opts.verifyDoubaoTicket ??
+    (isTestEnv
+      ? null
+      : (r: PoolRowLike) =>
+          doubaoAccountInfo.verifyDoubaoSession(decryptAccountCredentials(r).cookies))
 
   const row = await doLoad(opts.provider, opts.uid)
 
@@ -254,6 +270,36 @@ export async function runVerifiedSwitch(opts: {
   const before = takeSnap()
   if (face && before?.state !== 'ok') notes.push(`切号前快照未判定:${before?.why ?? '?'}`)
 
+  /**
+   * 豆包切号前置票核验:写回前问服务端一次。rejected ⇒ fail-closed(不写回、不拉起),
+   * undetermined(网络失败/未知 code)⇒ 只告警不阻断,不把接口漂移当票失效。
+   */
+  let ticketVerification: TicketVerification | null = null
+  if (isDoubaoFace && !opts.dryRun && doVerifyTicket) {
+    try {
+      ticketVerification = await doVerifyTicket(row)
+      if (ticketVerification.verdict === 'rejected') {
+        notes.push(
+          `豆包票已失效[${ticketVerification.reason}]:服务端不再认这枚登录态,写回只会得到未登录客户端。` +
+            '请在豆包里真实登录该号后重跑 node scripts/relay-account-pool.mjs --from doubao 重新采集入池',
+        )
+        return {
+          ok: false, provider: opts.provider, uid: row.uid, dryRun: false,
+          wroteBack: false, continuityFace: Boolean(face), before, after: null,
+          verdict: 'undetermined', compare: null, writeBack: null,
+          resumeCarry: null, doubaoCarry: null, ticketVerification, notes,
+        }
+      }
+      if (ticketVerification.verdict === 'undetermined') {
+        notes.push(`豆包票有效性未判定[${ticketVerification.reason}]:继续写回,成败以写回自检为准`)
+      }
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e)
+      notes.push(`豆包票有效性核验异常:${reason};继续写回,成败以写回自检为准`)
+      ticketVerification = { verdict: 'undetermined', reason, mobile: null }
+    }
+  }
+
   if (opts.dryRun) {
     notes.push('dry-run:未写回、未拍 after')
     return {
@@ -270,6 +316,7 @@ export async function runVerifiedSwitch(opts: {
       writeBack: null,
       resumeCarry: null,
       doubaoCarry: null,
+      ticketVerification: null,
       notes,
     }
   }
@@ -445,6 +492,7 @@ export async function runVerifiedSwitch(opts: {
     writeBack,
     resumeCarry,
     doubaoCarry,
+    ticketVerification,
     notes,
   }
 }
@@ -503,6 +551,11 @@ export function main(argv: string[], io: MainIo = {}): number {
         r.writeBack
           ? `写回: ok=${r.writeBack.ok} 落点=${r.writeBack.targetFile} 备份=${r.writeBack.backupFile}`
           : '写回: (dry-run 或未执行)',
+        r.ticketVerification
+          ? `票有效性: ${r.ticketVerification.verdict}` +
+            `${r.ticketVerification.reason ? ` [${r.ticketVerification.reason}]` : ''}` +
+            `${r.ticketVerification.mobile ? ` mobile=${r.ticketVerification.mobile}` : ''}`
+          : '',
         ...(r.writeBack?.notes ?? []).map((n) => `  · ${n}`),
         r.resumeCarry ? '对话随行: 已执行(明细见上方 notes)' : '',
         ...(r.doubaoCarry

@@ -710,7 +710,7 @@ export function DocsTab({ ledgers }: { ledgers: FinLedger[] }) {
 
           {linkTarget && (
             <Card title={t('linkPanelTitle')}>
-              <div className="flex flex-wrap items-center gap-2 text-xs">
+              <div className="font-[weight:inherit] flex flex-wrap items-center gap-2 text-label">
                 <span className="text-muted-foreground">
                   {linkTarget.kind === 'invoice' ? t('linkInvoiceHint') : t('matchStatementHint')}
                 </span>

@@ -82,7 +82,16 @@ interface BrowserHubMessage {
  * - 任务卡默认一行,点开才展开目标/运行要求/检查点;命中检查点时自动展开一次;
  * - 补置顶开关(记忆偏好)、重新连接、窗口内只读标识;创建后不抢焦点。
  */
-export function AiPipMonitor({ sessionId }: { sessionId: string }) {
+export function AiPipMonitor({
+  sessionId,
+  embedded = false,
+  onHandover: onHandoverRequest,
+}: {
+  sessionId: string
+  /** 停靠在工作面内:不占用整屏、不显示原生窗控、接管改走主工作面 */
+  embedded?: boolean
+  onHandover?: () => void
+}) {
   const labels = useBrowserPipLabels()
   const labelsRef = useRef(labels)
   labelsRef.current = labels
@@ -146,7 +155,8 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     // 独立窗的 native 标题在 Windows 上会被外壳窗控落成应用名;页面加载完
     // 再显式写一次,任务栏/Alt-Tab 才认得出这是「AI 画中画监看」。
-    const host = isTauri()
+    // 停靠态不碰原生窗口:同一组件跑在主 Web 窗里,不能把主窗标题改掉。
+    const host = !embedded && isTauri()
     setTauriHost(host)
     if (!host) return
     void import('@tauri-apps/api/window')
@@ -154,7 +164,7 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
       .catch(() => {
         /* 标题只是外观,失败不影响监看 */
       })
-  }, [])
+  }, [embedded])
 
   useEffect(() => {
     if (!tauriHost) return
@@ -171,7 +181,7 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
   }, [token])
 
   useEffect(() => {
-    if (!isTauri()) return
+    if (!isTauri() || embedded) return
     const wantPinned = window.localStorage.getItem(PIN_STORAGE_KEY) !== '0'
     setPinned(wantPinned)
     if (!wantPinned) {
@@ -181,7 +191,7 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
           /* 取不到窗口时保持 Rust 建窗默认置顶 */
         })
     }
-  }, [])
+  }, [embedded])
 
   const togglePin = useCallback(async () => {
     if (!isTauri() || pinBusy) return
@@ -233,7 +243,10 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
     const onResize = () => {
-      setTooSmall(window.innerWidth < PIP_MIN_WIDTH || window.innerHeight < PIP_MIN_HEIGHT)
+      // 停靠态按容器布局自适应,不能拿整个浏览器窗口尺寸判定"太小"。
+      setTooSmall(
+        embedded ? false : window.innerWidth < PIP_MIN_WIDTH || window.innerHeight < PIP_MIN_HEIGHT,
+      )
     }
     onResize()
     window.addEventListener('resize', onResize)
@@ -241,7 +254,7 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
       window.clearInterval(timer)
       window.removeEventListener('resize', onResize)
     }
-  }, [])
+  }, [embedded])
 
   useEffect(() => {
     if (!taskView || status.kind !== 'waiting') return
@@ -299,13 +312,10 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
       if (stateBusy) return
       stateBusy = true
       try {
-        const resp = await fetch(
-          `/api/browser/sessions/${encodeURIComponent(sessionId)}/state`,
-          {
-            headers: { Authorization: `Bearer ${pipToken}` },
-            cache: 'no-store',
-          },
-        )
+        const resp = await fetch(`/api/browser/sessions/${encodeURIComponent(sessionId)}/state`, {
+          headers: { Authorization: `Bearer ${pipToken}` },
+          cache: 'no-store',
+        })
         if (!resp.ok) return
         const body = (await resp.json()) as {
           data?: {
@@ -424,7 +434,12 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
       }
       const paintJpeg = async (frame: Uint8Array) => {
         const blob = new Blob(
-          [frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength) as ArrayBuffer],
+          [
+            frame.buffer.slice(
+              frame.byteOffset,
+              frame.byteOffset + frame.byteLength,
+            ) as ArrayBuffer,
+          ],
           { type: 'image/jpeg' },
         )
         try {
@@ -591,7 +606,10 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
     }
     ws.onclose = (event) => {
       if (disposed) return
-      setConnected(false)
+      // WS 关闭不等于画面断开:MJPEG 主通道可能仍在推帧。只有两条通道都没有
+      // 首帧时才回到“连接中”,否则会把正常动态画面误报成断线(生产 CDN
+      // 不透传 Upgrade 时必现)。
+      if (!mjpegStarted) setConnected(false)
       if (event.code !== 1000) {
         if (!mjpegStarted && !mjpegAbort && fallbackTimer === null) {
           setPhase('error')
@@ -642,10 +660,10 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
           },
         )
         if (!resp.ok) throw new Error(`checkpoint ${resp.status}`)
-        const state = await fetch(
-          `/api/browser/sessions/${encodeURIComponent(sessionId)}/state`,
-          { headers: { Authorization: `Bearer ${pipToken}` }, cache: 'no-store' },
-        )
+        const state = await fetch(`/api/browser/sessions/${encodeURIComponent(sessionId)}/state`, {
+          headers: { Authorization: `Bearer ${pipToken}` },
+          cache: 'no-store',
+        })
         if (state.ok) {
           const body = (await state.json()) as {
             data?: { task?: unknown; phase?: { phase?: string } }
@@ -662,6 +680,10 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
   }, [activeCheckpoint?.id, pipToken, sessionId])
 
   const onHandover = useCallback(async () => {
+    if (embedded && onHandoverRequest) {
+      onHandoverRequest()
+      return
+    }
     if (!isTauri()) {
       window.close()
       return
@@ -672,10 +694,16 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
       // Rust 侧失败时至少不要让监看窗挂在屏幕上;主窗按钮会由 closed 事件复位。
       window.close()
     }
-  }, [currentUrl, pageTitle, sessionId])
+  }, [currentUrl, embedded, onHandoverRequest, pageTitle, sessionId])
 
   return (
-    <div className="relative h-screen w-screen select-none overflow-hidden bg-[#05070a] text-slate-200">
+    <div
+      className={
+        embedded
+          ? 'relative h-full w-full select-none overflow-hidden bg-[#05070a] text-slate-200'
+          : 'relative h-screen w-screen select-none overflow-hidden bg-[#05070a] text-slate-200'
+      }
+    >
       <canvas
         ref={canvasRef}
         className="pointer-events-none absolute inset-0 h-full w-full object-contain"
@@ -770,15 +798,17 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
               className={`h-3 w-3 ${status.kind === 'connecting' ? 'animate-spin' : ''}`}
             />
           </button>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={labels.close}
-            title={labels.close}
-            className="grid h-6 w-6 place-items-center rounded-md text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-300"
-          >
-            <X className="h-3 w-3" />
-          </button>
+          {!embedded && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={labels.close}
+              title={labels.close}
+              className="grid h-6 w-6 place-items-center rounded-md text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-300"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
         </div>
       </header>
 

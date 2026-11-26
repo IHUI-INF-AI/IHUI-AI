@@ -3523,6 +3523,7 @@ fn require_trae_dir() -> Result<PathBuf, IpcError> {
     })
 }
 
+/// 探测本机 Trae 客户端数据目录(只读;未安装返回 None,可用 IHUI_TRAE_DIR 覆盖)
 #[tauri::command]
 pub fn checkin_detect_trae_dir() -> Result<Option<String>, IpcError> {
     Ok(detect_trae_dir().map(|p| p.display().to_string()))
@@ -3560,6 +3561,7 @@ fn capture_jwts_core() -> Result<Vec<CapturedAccount>, IpcError> {
     Ok(accounts)
 }
 
+/// 收割本机各站点 JWT 明文(高敏;先过原生确认闸,确认后才返回可导入账号)
 #[tauri::command]
 pub fn checkin_capture_jwts(app: tauri::AppHandle) -> Result<Vec<CapturedAccount>, IpcError> {
     // Y-83(2026-11-20):凭据收割属高敏操作,先过原生确认闸,杜绝注入页面无交互拖走明文。
@@ -3571,6 +3573,7 @@ pub fn checkin_capture_jwts(app: tauri::AppHandle) -> Result<Vec<CapturedAccount
     capture_jwts_core()
 }
 
+/// 重置设备标识与登录态(可选机器码/浏览器 Cookie/深度重置;先过原生确认闸)
 #[tauri::command(async)]
 pub fn checkin_reset_device_ids(
     app: tauri::AppHandle,
@@ -4038,6 +4041,7 @@ pub async fn checkin_audit_trae_residual() -> Result<ResidualAuditReport, IpcErr
         .map_err(|e| IpcError::internal(format!("审计任务异常退出: {e}")))
 }
 
+/// 把当前 Trae 打卡配置备份为按用户归档的快照
 #[tauri::command]
 pub fn checkin_snapshot_backup(
     app: tauri::AppHandle,
@@ -4048,6 +4052,7 @@ pub fn checkin_snapshot_backup(
     snapshot_backup(&trae, &data_dir, &user_id)
 }
 
+/// 用指定用户快照覆盖当前打卡配置(破坏性;先过原生确认闸)
 #[tauri::command]
 pub fn checkin_snapshot_restore(
     app: tauri::AppHandle,
@@ -4063,12 +4068,14 @@ pub fn checkin_snapshot_restore(
     snapshot_restore(&trae, &data_dir, &user_id)
 }
 
+/// 列出已有快照摘要(只读)
 #[tauri::command]
 pub fn checkin_snapshot_list(app: tauri::AppHandle) -> Result<Vec<SnapshotSummary>, IpcError> {
     let data_dir = app_data_dir_or_err(&app)?;
     Ok(snapshot_list(&data_dir))
 }
 
+/// 永久删除指定用户快照(不可恢复;先过原生确认闸)
 #[tauri::command]
 pub fn checkin_snapshot_delete(app: tauri::AppHandle, user_id: String) -> Result<(), IpcError> {
     crate::require_native_confirm(
@@ -4528,6 +4535,7 @@ fn jwt_payload_exp(token: &str) -> i64 {
         .unwrap_or(0)
 }
 
+/// 读取本机已登录 Qoder 客户端的会话凭据(未登录返回 not_found)
 #[tauri::command]
 pub fn checkin_capture_qoder() -> Result<Vec<CapturedQoderSession>, IpcError> {
     let sessions = capture_qoder_sessions();
@@ -4987,6 +4995,7 @@ pub fn capture_workbuddy_sessions() -> Vec<CapturedWorkbuddySession> {
     Vec::new()
 }
 
+/// 读取本机已登录 WorkBuddy 桌面端的登录态(未登录返回 not_found)
 #[tauri::command]
 pub fn checkin_capture_workbuddy() -> Result<Vec<CapturedWorkbuddySession>, IpcError> {
     let sessions = capture_workbuddy_sessions();
@@ -5185,6 +5194,7 @@ pub fn capture_minimax_sessions() -> Vec<CapturedMinimaxSession> {
     out
 }
 
+/// 读取本机已登录 MiniMax Code 的登录态(未登录返回 not_found)
 #[tauri::command]
 pub fn checkin_capture_minimax() -> Result<Vec<CapturedMinimaxSession>, IpcError> {
     let sessions = capture_minimax_sessions();

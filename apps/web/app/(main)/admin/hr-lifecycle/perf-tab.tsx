@@ -215,7 +215,7 @@ export function PerfTab() {
             ) : (
               <div className="flex flex-wrap gap-2">
                 {dist.map((d) => (
-                  <div key={String(d.grade)} className="rounded-md border border-stroke-subtle px-3 py-1.5 text-xs">
+                  <div key={String(d.grade)} className="font-[weight:inherit] rounded-md border border-stroke-subtle px-3 py-1.5 text-label">
                     <Star className="mr-1 inline h-3 w-3" />
                     <b>{String(d.grade)}</b> <span className="tabular-nums">{String(d.count)}</span>
                   </div>

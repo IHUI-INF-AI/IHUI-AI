@@ -117,7 +117,7 @@ export function FilingBoard({ clients }: { clients: FinClient[] }) {
           <Empty text={t('loading')} />
         ) : (
           <div className="space-y-2">
-            <div className="flex flex-wrap gap-4 text-xs tabular-nums">
+            <div className="font-[weight:inherit] flex flex-wrap gap-4 text-label tabular-nums">
               <span>
                 {t('filingTotal')}: <b>{s.total}</b>
               </span>

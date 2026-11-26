@@ -24,6 +24,8 @@ import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import * as acp from '@agentclientprotocol/sdk';
 import { setBaseUrl, type ToolDeltaEvent } from '@ihui/api-client';
+// L14:ACP 方法名取 sdk 契约,不在 CLI 本地写第二份字面量
+import { ACP_METHODS } from '@ihui/agent-sdk';
 import { registerCliTokenProvider } from '../lib/auth-refresh.js';
 import {
   createToolDeltaPreviewStore,
@@ -1925,9 +1927,9 @@ export function buildAcpAgentApp(opts: AcpServerOptions): acp.AgentApp {
     .agent({ name: 'ihui-cli' })
     .onRequest('initialize', (ctx) => agent.initialize(ctx.params))
     .onRequest('authenticate', (ctx) => agent.authenticate(ctx.params))
-    .onRequest('session/new', (ctx) => agent.newSession(ctx.params))
-    .onRequest('session/load', (ctx) => agent.loadSession(ctx.params, ctx.client))
-    .onRequest('session/prompt', (ctx) => agent.prompt(ctx.params, ctx.client))
+    .onRequest(ACP_METHODS.sessionNew, (ctx) => agent.newSession(ctx.params))
+    .onRequest(ACP_METHODS.sessionLoad, (ctx) => agent.loadSession(ctx.params, ctx.client))
+    .onRequest(ACP_METHODS.sessionPrompt, (ctx) => agent.prompt(ctx.params, ctx.client))
     .onRequest('session/close', (ctx) => {
       rpcMethod(async (p: acp.CloseSessionRequest) => {
         agent.closeSession?.(p);
@@ -2139,7 +2141,7 @@ export function buildAcpAgentApp(opts: AcpServerOptions): acp.AgentApp {
       castParams<Parameters<IhuiAcpAgent['planWorkflow']>[0]>(),
       (ctx) => rpcMethod((p: Parameters<IhuiAcpAgent['planWorkflow']>[0]) => agent.planWorkflow(p))(ctx.params),
     )
-    .onNotification('session/cancel', (ctx) => agent.cancel(ctx.params));
+    .onNotification(ACP_METHODS.sessionCancel, (ctx) => agent.cancel(ctx.params));
 }
 
 export function startAcpServer(opts: AcpServerOptions): acp.AgentConnection {

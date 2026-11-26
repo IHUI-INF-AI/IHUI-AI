@@ -27,6 +27,7 @@ import LineIcon, { type IconName } from '@/components/LineIcon'
 import { COLORS } from '@/constants/style'
 import { MINI_TAB_PAGE_ROUTES } from '@/constants/tab-bar-pages'
 import BottomFadeMask from '@/components/BottomFadeMask'
+import { useLoginPopupVisible } from '@/lib/login-popup-visibility'
 import {
   TAB_BAR_HEIGHT,
   TAB_BAR_ICON_SIZE,
@@ -81,6 +82,7 @@ function buildGlowStyle(ink: string) {
 
 export default function CustomTabBar() {
   const { resolved } = useAppTheme()
+  const loginPopupVisible = useLoginPopupVisible()
   const barSurface = glassBarSurface(resolved)
   const [current, setCurrent] = useState<string>(() => {
     try {
@@ -104,6 +106,8 @@ export default function CustomTabBar() {
   const ink = COLORS.brandAccentDeep[resolved]
   const muted = COLORS.textSecondary[resolved]
   const glowStyle = buildGlowStyle(ink)
+
+  if (loginPopupVisible) return null
 
   return (
     <>

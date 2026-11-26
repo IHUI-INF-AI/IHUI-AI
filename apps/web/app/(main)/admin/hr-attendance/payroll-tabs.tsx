@@ -961,7 +961,7 @@ export function PayrollTab({ t }: { t: TFunc }) {
 
       {/* 算薪前体检:缺哪档费率/哪些参保地歧义,先修配置再算,免得整月被拒 */}
       {readyQuery.data && !readyQuery.data.ready && (
-        <div className="space-y-1 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs">
+        <div className="font-[weight:inherit] space-y-1 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-label">
           <div className="flex items-center gap-1 font-medium text-destructive">
             <TriangleAlert className="h-3.5 w-3.5" />
             {t('insuranceIssuesTitle')}

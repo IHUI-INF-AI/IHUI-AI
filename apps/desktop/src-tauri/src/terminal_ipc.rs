@@ -86,6 +86,7 @@ pub struct StartArgs {
     pub timeout_ms: Option<u64>,
 }
 
+/// 启动受 Job Object 管理的终端会话(program/args/cwd/超时)
 #[tauri::command]
 pub fn terminal_start(
     args: StartArgs,
@@ -97,6 +98,7 @@ pub fn terminal_start(
     Ok(serde_json::json!({ "id": id }))
 }
 
+/// 轮询会话状态(不读输出,只刷新信息)
 #[tauri::command]
 pub fn terminal_poll(id: u64, mgr: State<'_, TerminalManager>) -> Result<serde_json::Value, String> {
     let snap = mgr
@@ -109,6 +111,7 @@ pub fn terminal_poll(id: u64, mgr: State<'_, TerminalManager>) -> Result<serde_j
     serde_json::to_value(w).map_err(|e| format!("序列化会话快照失败: {e}"))
 }
 
+/// 读取会话输出(max 默认 64KB、硬顶 1MB;返回丢弃计数与输出序号)
 #[tauri::command]
 pub fn terminal_read(
     id: u64,
@@ -130,6 +133,7 @@ pub fn terminal_read(
     })
 }
 
+/// 向会话 stdin 写入数据
 #[tauri::command]
 pub fn terminal_write(
     id: u64,
@@ -146,6 +150,7 @@ pub fn terminal_write(
         })
 }
 
+/// 终止会话进程树并返回终止后的状态
 #[tauri::command]
 pub fn terminal_kill(id: u64, mgr: State<'_, TerminalManager>) -> Result<serde_json::Value, String> {
     let snap = mgr
@@ -158,11 +163,13 @@ pub fn terminal_kill(id: u64, mgr: State<'_, TerminalManager>) -> Result<serde_j
     serde_json::to_value(w).map_err(|e| format!("序列化会话快照失败: {e}"))
 }
 
+/// 列出当前全部终端会话
 #[tauri::command]
 pub fn terminal_list(mgr: State<'_, TerminalManager>) -> Vec<SessionWire> {
     mgr.list().into_iter().map(Into::into).collect()
 }
 
+/// 移除已结束的会话(session 不存在即错)
 #[tauri::command]
 pub fn terminal_remove(id: u64, mgr: State<'_, TerminalManager>) -> Result<(), String> {
     mgr.remove(id)

@@ -106,7 +106,7 @@ export default function ContactsPanel({
             </Button>
           </div>
           {backend === 'ilink' || readOnly ? (
-            <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+            <p className="font-[weight:inherit] rounded-md bg-muted px-3 py-2 text-label text-muted-foreground">
               {readOnly
                 ? '截图 OCR 只读接入不提供平台联系人同步/删除；备注、标签与屏蔽只存本地，入站时自动归档。'
                 : 'iLink 官方通道不提供平台联系人同步/删除；备注、标签与屏蔽只存本地，入站时自动归档。'}
@@ -120,12 +120,12 @@ export default function ContactsPanel({
             />
           )}
           {contactsQuery.isLoading ? (
-            <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+            <div className="font-[weight:inherit] flex items-center gap-2 py-4 text-body text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               加载联系人…
             </div>
           ) : contacts.length === 0 ? (
-            <p className="py-4 text-sm text-muted-foreground">暂无联系人。</p>
+            <p className="font-[weight:inherit] py-4 text-body text-muted-foreground">暂无联系人。</p>
           ) : (
             <div className="max-h-[520px] space-y-1 overflow-y-auto pr-1">
               {contacts.map((item) => (
@@ -137,7 +137,7 @@ export default function ContactsPanel({
                     contactId === item.id ? 'bg-muted text-foreground' : 'hover:bg-muted/60'
                   }`}
                 >
-                  <span className="flex items-center gap-2 text-sm font-medium">
+                  <span className="flex items-center gap-2 text-body font-medium">
                     <span className="truncate">
                       {item.remark || item.displayName || item.platformUserId}
                     </span>
@@ -147,7 +147,7 @@ export default function ContactsPanel({
                       </span>
                     ) : null}
                   </span>
-                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                  <span className="font-[weight:inherit] mt-0.5 block truncate text-label text-muted-foreground">
                     {item.platformUserId} · 最近 {formatTime(item.lastSeenAt)}
                   </span>
                 </button>
@@ -165,7 +165,7 @@ export default function ContactsPanel({
           </CardHeader>
           <CardContent className="space-y-3">
             {!selected ? (
-              <p className="text-sm text-muted-foreground">先从左侧选择一位联系人。</p>
+              <p className="font-[weight:inherit] text-body text-muted-foreground">先从左侧选择一位联系人。</p>
             ) : (
               <>
                 <div className="grid grid-cols-1 gap-3 min-[760px]:grid-cols-2">
@@ -209,7 +209,7 @@ export default function ContactsPanel({
                     )}
                     保存
                   </Button>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="font-[weight:inherit] text-label text-muted-foreground">
                     微信号：{selected.platformUserId}
                   </span>
                 </div>

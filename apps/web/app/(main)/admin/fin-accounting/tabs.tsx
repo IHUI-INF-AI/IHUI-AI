@@ -36,7 +36,7 @@ export function Card({
   return (
     <section className="rounded-lg border border-stroke-subtle bg-card p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">{title}</h2>
+        <h2 className="text-body font-semibold">{title}</h2>
         {actions}
       </div>
       {children}
@@ -45,7 +45,7 @@ export function Card({
 }
 
 export function Empty({ text }: { text: string }) {
-  return <p className="py-3 text-center text-xs text-muted-foreground">{text}</p>
+  return <p className="font-[weight:inherit] py-3 text-center text-label text-muted-foreground">{text}</p>
 }
 
 export function StatusBadge({ status }: { status: string }) {
@@ -291,7 +291,7 @@ export function VouchersTab({ ledgers }: { ledgers: FinLedger[] }) {
             ) : (
               <ul className="space-y-1">
                 {queue.map((v) => (
-                  <li key={v.id} className="flex flex-wrap items-center gap-2 text-xs">
+                  <li key={v.id} className="font-[weight:inherit] flex flex-wrap items-center gap-2 text-label">
                     <span className="font-mono">{v.voucherNo}</span>
                     <span>{v.summary ?? '-'}</span>
                     <span className="text-muted-foreground">
@@ -494,7 +494,7 @@ export function ReportsTab({ ledgers }: { ledgers: FinLedger[] }) {
         <>
           <Card title={t('trialBalanceTitle')}>
             {tbQ.data ? (
-              <div className="flex flex-wrap gap-4 text-xs">
+              <div className="font-[weight:inherit] flex flex-wrap gap-4 text-label">
                 <span>
                   {t('debit')}: <b>{tbQ.data.totalDebit}</b>
                 </span>
@@ -515,7 +515,7 @@ export function ReportsTab({ ledgers }: { ledgers: FinLedger[] }) {
 
           <Card title={t('balanceSheetTitle')}>
             {bsQ.data ? (
-              <div className="space-y-2 text-xs">
+              <div className="font-[weight:inherit] space-y-2 text-label">
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
                   <div>
                     <p className="mb-1 text-[11px] text-muted-foreground">{t('assets')}</p>
@@ -564,7 +564,7 @@ export function ReportsTab({ ledgers }: { ledgers: FinLedger[] }) {
 
           <Card title={t('incomeStatementTitle')}>
             {isQ.data ? (
-              <div className="flex flex-wrap gap-4 text-xs">
+              <div className="font-[weight:inherit] flex flex-wrap gap-4 text-label">
                 <span>
                   {isQ.data.current.revenue.label}: <b>{isQ.data.current.revenue.amount}</b>
                 </span>

@@ -80,7 +80,7 @@ export function BoardTab() {
         {cards.map((c) => (
           <div key={c.key} className="rounded-lg border border-stroke-subtle bg-card p-3">
             <p className="text-[11px] text-muted-foreground">{c.label}</p>
-            <p className="mt-1 text-xl font-semibold tabular-nums">{c.value}</p>
+            <p className="mt-1 text-heading font-semibold tabular-nums">{c.value}</p>
             <p className="mt-0.5 text-[11px] text-muted-foreground">{c.hint}</p>
           </div>
         ))}

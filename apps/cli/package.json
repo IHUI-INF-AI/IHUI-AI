@@ -42,6 +42,7 @@
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.3.0",
+    "@ihui/agent-sdk": "workspace:*",
     "@ihui/api-client": "workspace:*",
     "@ihui/context-compaction": "workspace:*",
     "@ihui/design-tokens": "workspace:*",

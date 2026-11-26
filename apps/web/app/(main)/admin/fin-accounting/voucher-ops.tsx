@@ -180,7 +180,7 @@ export function VoucherOpsTab({ ledgers }: { ledgers: FinLedger[] }) {
         <>
           <Card title={t('reviewSummaryTitle')}>
             {review ? (
-              <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
+              <div className="font-[weight:inherit] grid grid-cols-2 gap-2 text-label sm:grid-cols-5">
                 <span>
                   {t('rvNotSubmitted')}: <b>{review.notSubmitted ?? 0}</b>
                 </span>
@@ -204,7 +204,7 @@ export function VoucherOpsTab({ ledgers }: { ledgers: FinLedger[] }) {
 
           <Card title={t('voucherOpsTitle')}>
             {selected.length > 0 && (
-              <div className="mb-2 flex items-center gap-2 text-xs">
+              <div className="font-[weight:inherit] mb-2 flex items-center gap-2 text-label">
                 <span>
                   {t('selectedCount')} {selected.length}
                 </span>
@@ -305,7 +305,7 @@ export function VoucherOpsTab({ ledgers }: { ledgers: FinLedger[] }) {
               </table>
             )}
             {editing && (
-              <div className="mt-3 flex flex-wrap items-end gap-2 rounded-md bg-muted/40 p-2 text-xs">
+              <div className="font-[weight:inherit] mt-3 flex flex-wrap items-end gap-2 rounded-md bg-muted/40 p-2 text-label">
                 <input
                   className={field}
                   placeholder={t('vSummary')}

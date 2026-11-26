@@ -16,7 +16,7 @@
  * 服务身份(LocalSystem)下:探测/关闭用 tasklist/taskkill(跨会话可用);
  * 重新拉起必须换桌面用户身份(CreateProcessAsUser),由 apps/api/scripts/run-as-user.ps1 执行。
  */
-import { execFileSync, spawn } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -182,6 +182,58 @@ function powershellPath(env = process.env) {
  * 取 Win32_Process 里**不含 `--type=`** 的那个(Electron 子进程都带该参数),拿不到再按
  * 常见安装根兜底;全失败 ⇒ ''(调用方如实回报"已关闭但未能自动拉起")。
  */
+/**
+ * 从 .lnk 二进制里提取 exe 路径(2026-11-26):开始菜单快捷方式指向非标准安装目录时
+ * (豆包装在 D:\Huorong\doubao\),仅靠进程列表/标准目录扫不到 —— 进程没开就彻底拿不到。
+ * COM WScript.Shell 在本机被安全策略拦,改纯 Node 正则扫 ASCII 与 UTF-16LE 路径。
+ */
+export function extractExePathsFromLnk(buf) {
+  const bytes = Buffer.isBuffer(buf) ? buf : Buffer.from(String(buf ?? ''))
+  const out = new Set()
+  for (const enc of ['latin1', 'utf16le']) {
+    const text = bytes.toString(enc)
+    const clean = enc === 'utf16le' ? text.replace(/\x00/g, '') : text
+    for (const m of clean.matchAll(/[A-Za-z]:\\[^\r\n"<>|]{1,260}?\.exe/gi)) {
+      out.add(m[0])
+    }
+  }
+  return [...out]
+}
+
+/** 快捷方式文件名不一定用英文产品名:豆包开始菜单项就是「豆包.lnk」 */
+const LNK_PRODUCT_NAMES = Object.freeze({ Doubao: ['doubao', '豆包'] })
+
+/** 扫开始菜单/桌面的 .lnk,提取目标 exe(进程未运行时的路径兜底) */
+function exePathsFromShortcuts(product, env) {
+  const names = LNK_PRODUCT_NAMES[product] ?? [product]
+  const dirs = []
+  for (const base of [
+    env.APPDATA && path.join(env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+    env.PUBLIC && path.join(env.PUBLIC, 'Desktop'),
+    env.USERPROFILE && path.join(env.USERPROFILE, 'Desktop'),
+  ]) {
+    if (base) dirs.push(base)
+  }
+  const found = []
+  const walk = (dir, depth) => {
+    if (depth > 3) return
+    let entries = []
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
+    for (const e of entries) {
+      const p = path.join(dir, e.name)
+      if (e.isDirectory()) walk(p, depth + 1)
+      else if (
+        e.name.toLowerCase().endsWith('.lnk') &&
+        names.some((n) => e.name.toLowerCase().includes(n.toLowerCase()))
+      ) {
+        try { found.push(...extractExePathsFromLnk(fs.readFileSync(p))) } catch { /* 跳过 */ }
+      }
+    }
+  }
+  for (const d of dirs) walk(d, 0)
+  return found
+}
+
 export function resolveProductExe(product, env = process.env) {
   const ps = powershellPath(env)
   const image = `${product}.exe`
@@ -234,7 +286,13 @@ export function resolveProductExe(product, env = process.env) {
   for (const drive of listFixedDriveRoots(env)) {
     roots.push(path.join(drive, product, image))
   }
-  return roots.find((p) => fs.existsSync(p)) ?? ''
+  const standard = roots.find((p) => fs.existsSync(p))
+  if (standard) return standard
+  // 最后一道兜底:开始菜单/桌面 .lnk(豆包等装在非标准目录且进程没开时靠它)
+  const fromLnk = exePathsFromShortcuts(product, env).find(
+    (p) => fs.existsSync(p) && path.basename(p).toLowerCase() === image.toLowerCase(),
+  )
+  return fromLnk ?? ''
 }
 
 /** 本机固定盘根(C:/ D:/ G:/ ...),用于客户端装在非系统盘时的 exe 兜底扫描(2026-11 修) */
@@ -328,6 +386,26 @@ function killPidsCrossSession(product, pids, env = process.env, run = execFileSy
 }
 
 /**
+ * taskkill 静默封装(2026-11-26):taskkill.exe 报错是 GBK 中文,execFileSync 未接管 stdio 时
+ * 会透传到父进程 stderr,被 UTF-8 解码成一屏 `????`,把真正的关断失败原因盖掉。
+ * 这里 stdio:'ignore' 吞掉原生输出,最终判定一律由 closeProduct 的 probe 给出(fail-closed)。
+ */
+function taskkillQuiet(pid, force, env) {
+  const args = ['/PID', String(pid)]
+  if (force) args.push('/F')
+  try {
+    spawnSync('taskkill.exe', args, {
+      windowsHide: true,
+      timeout: 8000,
+      env,
+      stdio: 'ignore',
+    })
+  } catch {
+    /* 由 waitOnce 的 probe 给最终判定 */
+  }
+}
+
+/**
  * 优雅关闭:对主进程发 WM_CLOSE(taskkill 不带 /F,等同点窗口关闭),等全部进程退出。
  * @returns {{wasRunning:boolean, closed:boolean, pids:number[]}}
  */
@@ -340,7 +418,7 @@ export function closeProduct(product, opts = {}) {
   if (pids.length === 0) return { wasRunning: false, closed: true, pids: [] }
   for (const pid of pids) {
     try {
-      execFileSync('taskkill.exe', ['/PID', String(pid)], { windowsHide: true, timeout: 8000, env })
+      taskkillQuiet(pid, false, env)
     } catch {
       /* 该 pid 已退出,或无权发消息 —— 由下方轮询给出最终判定 */
     }
@@ -358,7 +436,7 @@ export function closeProduct(product, opts = {}) {
   // 托盘常驻/窗口收不到消息时再补一轮(覆盖"第一次消息被忽略"的情形),仍不退就交回人工
   for (const pid of pids) {
     try {
-      execFileSync('taskkill.exe', ['/PID', String(pid)], { windowsHide: true, timeout: 8000, env })
+      taskkillQuiet(pid, false, env)
     } catch {
       /* 同上 */
     }
@@ -372,7 +450,7 @@ export function closeProduct(product, opts = {}) {
    */
   for (const pid of pids) {
     try {
-      execFileSync('taskkill.exe', ['/PID', String(pid), '/F'], { windowsHide: true, timeout: 8000, env })
+      taskkillQuiet(pid, true, env)
     } catch {
       /* 已退出或无权 —— 由下方轮询给出最终判定 */
     }
@@ -524,7 +602,7 @@ export function launchProduct(exePath, opts = {}) {
       // spawn 会瞬退(主进程还没起来就退出码 0 消失),而双击语义能稳定拉起。
       primaryKind = 'explorer'
       first = primary('explorer', () => {
-        run('explorer.exe', [exePath], { windowsHide: true, timeout: 15_000, env })
+        run('explorer.exe', [exePath], { timeout: 15_000, env })
       })
     }
     if (first.launched) return first
@@ -539,23 +617,14 @@ export function launchProduct(exePath, opts = {}) {
    *   主通道是 helper(服务身份)→ 交 shell(explorer,双击语义);
    *   主通道是 explorer(桌面身份)→ 降级 detached spawn 派生。
    */
-  function viaShell(firstError, primaryKind) {
-    const useSpawn = primaryKind === 'explorer'
-    const label = useSpawn ? 'spawn 补充通道' : 'shell 通道'
-    const via = useSpawn ? 'explorer+spawn' : 'primary+shell'
-    const okVia = useSpawn ? 'spawn' : 'shell'
+  function viaShell(firstError, _primaryKind) {
+    // 2026-11-26:两条补充通道统一走 explorer —— 直接 spawn Electron 客户端会瞬退
+    // (实测 via=spawn 后 5s 进程归零),双击语义才稳定。
+    const label = 'shell 补充通道'
+    const via = 'explorer+explorer'
+    const okVia = 'explorer'
     try {
-      if (useSpawn) {
-        const child = spawn(exePath, [], {
-          cwd: path.dirname(exePath),
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: false,
-        })
-        child.unref()
-      } else {
-        run('explorer.exe', [exePath], { windowsHide: true, timeout: 15_000, env })
-      }
+      run('explorer.exe', [exePath], { timeout: 15_000, env })
     } catch (e) {
       return {
         launched: false,
@@ -574,6 +643,7 @@ export const __test__ = {
   listProductPids,
   closeProduct,
   launchProduct,
+  extractExePathsFromLnk,
   powershellPath,
   RUN_AS_USER_SCRIPT,
 }

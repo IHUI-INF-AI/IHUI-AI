@@ -62,6 +62,8 @@ const LOOMY_SYNC_CRON_PATTERN = '*/10 * * * *'
 const ZCODE_SYNC_CRON_PATTERN = '*/10 * * * *'
 /** 每 10 分钟把本机小浣熊登录态回灌进号池(小浣熊适配器无 refreshToken,池侧只能跟随) */
 const RACCOON_SYNC_CRON_PATTERN = '*/10 * * * *'
+/** 每 10 分钟把本机豆包整包 cookies 回灌进号池(豆包无 refreshToken,票轮换只发生在桌面端) */
+const DOUBAO_SYNC_CRON_PATTERN = '*/10 * * * *'
 /**
  * 每 6 小时自动同步一次号池模型目录(model-discovery-sync)。
  *
@@ -277,6 +279,8 @@ export const runZcodeSessionSync = (): Promise<ClientSyncOutcome> =>
   runClientSessionSync('sync-zcode-client-session.mjs')
 export const runRaccoonSessionSync = (): Promise<ClientSyncOutcome> =>
   runClientSessionSync('sync-raccoon-client-session.mjs')
+export const runDoubaoSessionSync = (): Promise<ClientSyncOutcome> =>
+  runClientSessionSync('sync-doubao-client-session.mjs')
 
 /**
  * 接管前「当场再探测一次客户端」的调用方侧实现(2026-11-10 C 档)。
@@ -441,6 +445,17 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
           opts: { removeOnComplete: 100, removeOnFail: 500 },
         },
       )
+      // 豆包(2026-11-26 补缺):桌面客户端滚动 cookies 是唯一票源,池侧 refreshToken 恒 null。
+      // 没有这条回灌腿,永久保活和自动签到只会拿旧 cookies 空转。
+      await queue.upsertJobScheduler(
+        'doubao-session-sync-cron',
+        { pattern: DOUBAO_SYNC_CRON_PATTERN },
+        {
+          name: 'doubao-session-sync',
+          data: {},
+          opts: { removeOnComplete: 100, removeOnFail: 500 },
+        },
+      )
       // 模型目录自动同步(2026-11-18):上游上新进发现表待审批,下架的待审批行自动退役
       await queue.upsertJobScheduler(
         'model-discovery-cron',
@@ -489,6 +504,7 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
       server.log.info({ pattern: LOOMY_SYNC_CRON_PATTERN }, 'loomy-session-sync scheduled')
       server.log.info({ pattern: ZCODE_SYNC_CRON_PATTERN }, 'zcode-session-sync scheduled')
       server.log.info({ pattern: RACCOON_SYNC_CRON_PATTERN }, 'raccoon-session-sync scheduled')
+      server.log.info({ pattern: DOUBAO_SYNC_CRON_PATTERN }, 'doubao-session-sync scheduled')
       server.log.info({ pattern: MODEL_DISCOVERY_CRON_PATTERN }, 'model-discovery-sync scheduled')
     } catch (err) {
       server.log.error({ err }, 'failed to schedule relay-account-pool sweep')
@@ -533,7 +549,8 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
         job.name === 'minimax-session-sync' ||
         job.name === 'loomy-session-sync' ||
         job.name === 'zcode-session-sync' ||
-        job.name === 'raccoon-session-sync'
+        job.name === 'raccoon-session-sync' ||
+        job.name === 'doubao-session-sync'
       ) {
         // 脚本名单源在命名出口里,调度分支与手动触发口走同一条路
         const outcome = await (job.name === 'qoder-session-sync'
@@ -546,7 +563,9 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
                 ? runZcodeSessionSync()
                 : job.name === 'raccoon-session-sync'
                   ? runRaccoonSessionSync()
-                  : runTraeSessionSync())
+                  : job.name === 'doubao-session-sync'
+                    ? runDoubaoSessionSync()
+                    : runTraeSessionSync())
         // 退出码 2 = 未判定(本机无对应客户端/解密失败/tsx 缺失):服务器部署形态
         // 的常态,记 warn 不记 failure(它不该进 BullMQ 失败重试风暴)
         if (outcome.code === 2) {

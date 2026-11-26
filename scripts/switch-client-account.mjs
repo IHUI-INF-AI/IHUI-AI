@@ -394,19 +394,34 @@ async function dispatch(plan) {
   try {
     return await run()
   } finally {
-    if (client?.wasRunning) {
-      try {
-        const re = ll.relaunchClient(client)
-        if (!re.restarted) {
-          process.stderr.write(`⚠️ 豆包未能自动重新打开:${re.error || '未知原因'};请手动启动\n`)
-        }
-      } catch (e) {
-        process.stderr.write(
-          `⚠️ 豆包重新打开异常:${e instanceof Error ? e.message : String(e)};请手动启动\n`,
-        )
+    // 豆包写完无条件拉起(2026-11-26):切号前客户端没开时,relaunchClient 的
+    // wasRunning 语义永远不拉,新号登录态落盘却不开窗 ⇒ 机主以为切号失败。
+    try {
+      const re = await relaunchDoubao()
+      if (re.attempted && !re.restarted) {
+        process.stderr.write(`⚠️ 豆包未能自动重新打开:${re.error || '未知原因'};请手动启动\n`)
       }
+    } catch (e) {
+      process.stderr.write(
+        `⚠️ 豆包重新打开异常:${e instanceof Error ? e.message : String(e)};请手动启动\n`,
+      )
     }
   }
+}
+
+/**
+ * 豆包写完后拉起:即使切号前没开也拉。exe 经 resolveProductExe 解析(进程没开时落 .lnk 兜底)。
+ * @returns {{attempted:boolean, restarted:boolean, error:string, via:string}}
+ */
+export async function relaunchDoubao() {
+  const tpc = await import(
+    pathToFileURL(path.join(ROOT, 'scripts', 'lib', 'trae-client-process.mjs')).href
+  )
+  const exePath = tpc.resolveProductExe('Doubao')
+  if (!exePath) return { attempted: true, restarted: false, error: '拿不到豆包 exe 路径(.lnk 兜底也未命中)', via: '' }
+  const helperPath = path.join(ROOT, 'apps', 'api', 'scripts', 'run-as-user.ps1')
+  const launched = tpc.launchProduct(exePath, { product: 'Doubao', helperPath })
+  return { attempted: true, restarted: launched.launched === true, error: launched.error || '', via: launched.via || '' }
 }
 
 async function main(argv) {

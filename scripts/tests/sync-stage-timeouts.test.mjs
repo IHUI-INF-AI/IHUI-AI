@@ -45,7 +45,7 @@ test('① 窗口取值来自生产实测锚,且两段之和必须真的小于 wo
   assert.ok(WORKER_OUTER_TIMEOUT_MS < 600_000, '外层必须小于每 10 分钟节拍,不让一轮跨拍')
 })
 
-test('② 同值单源:六条腿与 worker 外层的数值必须与 lib 常量逐字相等', () => {
+test('② 同值单源:七条腿与 worker 外层的数值必须与 lib 常量逐字相等', () => {
   const legs = [
     'scripts/sync-qoder-client-session.mjs',
     'scripts/sync-trae-client-session.mjs',
@@ -54,6 +54,8 @@ test('② 同值单源:六条腿与 worker 外层的数值必须与 lib 常量�
     'scripts/sync-loomy-client-session.mjs',
     'scripts/sync-zcode-client-session.mjs',
     'scripts/sync-raccoon-client-session.mjs',
+    // 2026-11-26:豆包整包 cookies 回灌腿(无 refreshToken,同样按落库节拍单源)
+    'scripts/sync-doubao-client-session.mjs',
   ]
   for (const p of legs) {
     const src = read(p)
@@ -65,7 +67,8 @@ test('② 同值单源:六条腿与 worker 外层的数值必须与 lib 常量�
     }
   }
   const worker = read('apps/api/src/workers/relay-account-pool-worker.ts')
-  const m = worker.match(/timeout:\s*([0-9_]+),/)
+  // worker 外层改用具名常量后,钉的仍是那个字面值本身(不再认 spawn 选项的 timeout: 形态)
+  const m = worker.match(/const\s+CLIENT_SYNC_TIMEOUT_MS\s*=\s*([0-9_]+)/)
   assert.ok(m, 'worker 外层 timeout 数值取不到 ⇒ 未判定,不冒绿')
   assert.equal(
     Number(m[1].replace(/_/g, '')),

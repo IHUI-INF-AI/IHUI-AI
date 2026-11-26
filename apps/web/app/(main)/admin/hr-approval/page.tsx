@@ -41,7 +41,7 @@ export default function HrApprovalPage() {
         {tabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs ${
+            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-label ${
               tab === key ? 'bg-muted font-medium' : 'text-muted-foreground hover:bg-muted/60'
             }`}
             onClick={() => setTab(key)}

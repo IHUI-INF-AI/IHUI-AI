@@ -88,6 +88,7 @@ import {
   LiveChatServer,
   LiveChatRoom,
   __resetLiveChatServerForTest,
+  chatChannelRejectionCount,
 } from '../../src/websocket/chat-server.js'
 
 function makeMockSocket(): WebSocket {
@@ -202,6 +203,22 @@ describe('LiveChatServer', () => {
     const err = sent.find((s) => s.includes('"error"'))
     expect(err).toBeDefined()
     expect(err).toContain('"code":400')
+  })
+
+  it('handleMessage — 未知 type 走注册表拒绝 → 400 错误帧(不再静默丢弃)', async () => {
+    const s1 = makeMockSocket()
+    const room = server.join('42', s1 as WebSocket)
+    await server.handleMessage(room, s1 as WebSocket, JSON.stringify({ type: 'exec' }), 'u1')
+    const sent = (s1 as unknown as { _sent: string[] })._sent
+    expect(sent.some((s) => s.includes('"error"') && s.includes('"code":400'))).toBe(true)
+    expect(sent.some((s) => s.includes('"pong"'))).toBe(false)
+  })
+
+  it('handleMessage — 未知 type 在注册表里留拒绝计数', async () => {
+    const s1 = makeMockSocket()
+    const room = server.join('42', s1 as WebSocket)
+    await server.handleMessage(room, s1 as WebSocket, JSON.stringify({ type: 'exec' }), 'u1')
+    expect(chatChannelRejectionCount('call:chat.message.exec')).toBeGreaterThan(0)
   })
 
   it('handleMessage — send empty content → 400 error', async () => {

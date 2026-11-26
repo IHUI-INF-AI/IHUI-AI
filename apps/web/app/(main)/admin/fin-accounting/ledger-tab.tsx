@@ -332,7 +332,7 @@ export function LedgerTab({ ledgers }: { ledgers: FinLedger[] }) {
             {!openingQ.data ? (
               <Empty text={t('loading')} />
             ) : (
-              <div className="mb-2 space-y-1 text-xs text-muted-foreground">
+              <div className="font-[weight:inherit] mb-2 space-y-1 text-label text-muted-foreground">
                 <p>{t('openingHint')}</p>
                 <p className="tabular-nums">
                   {openingQ.data.period ?? period} · {t('debit')}{' '}
