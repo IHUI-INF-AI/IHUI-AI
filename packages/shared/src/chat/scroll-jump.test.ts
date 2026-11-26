@@ -100,7 +100,11 @@ describe('滚动事件 → 几何折算的唯一收口(三端形状差异)', () 
     })
     expect(r).toEqual({ scrollTop: 1200, contentHeight: 5000, viewportHeight: 600 })
     expect(canComputeJumpVisibility(r as ScrollJumpReading)).toBe(true)
-    expect(computeJumpVisibility(r as ScrollJumpReading)).toEqual({
+    // computeJumpVisibility 只吃「几何齐全」的形状(contentHeight/viewportHeight 不可空),
+    // Reading 里这两个是可空 —— 不许硬 cast 混过去(2026-11-26 这条曾把 packages/shared 的
+    // tsc 构建整条打断,连带生产部署 build-fail)。先过同一把硬门再喂,读数仍是同一份。
+    if (!r || !canComputeJumpVisibility(r)) throw new Error('RN 形状应折算出完整几何')
+    expect(computeJumpVisibility(r)).toEqual({
       isFarFromTop: true,
       isFarFromBottom: true,
     })
