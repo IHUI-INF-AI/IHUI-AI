@@ -182,6 +182,51 @@ function powershellPath(env = process.env) {
  * 取 Win32_Process 里**不含 `--type=`** 的那个(Electron 子进程都带该参数),拿不到再按
  * 常见安装根兜底;全失败 ⇒ ''(调用方如实回报"已关闭但未能自动拉起")。
  */
+/**
+ * 从 .lnk 二进制里提取 exe 路径(2026-11-26):开始菜单快捷方式指向非标准安装目录时
+ * (豆包装在 D:\Huorong\doubao\),仅靠进程列表/标准目录扫不到 —— 进程没开就彻底拿不到。
+ * COM WScript.Shell 在本机被安全策略拦,改纯 Node 正则扫 ASCII 与 UTF-16LE 路径。
+ */
+export function extractExePathsFromLnk(buf) {
+  const bytes = Buffer.isBuffer(buf) ? buf : Buffer.from(String(buf ?? ''))
+  const out = new Set()
+  for (const enc of ['latin1', 'utf16le']) {
+    const text = bytes.toString(enc)
+    const clean = enc === 'utf16le' ? text.replace(/\x00/g, '') : text
+    for (const m of clean.matchAll(/[A-Za-z]:\\[^\r\n"<>|]{1,260}?\.exe/gi)) {
+      out.add(m[0])
+    }
+  }
+  return [...out]
+}
+
+/** 扫开始菜单/桌面的 .lnk,提取目标 exe(进程未运行时的路径兜底) */
+function exePathsFromShortcuts(product, env) {
+  const dirs = []
+  for (const base of [
+    env.APPDATA && path.join(env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+    env.PUBLIC && path.join(env.PUBLIC, 'Desktop'),
+    env.USERPROFILE && path.join(env.USERPROFILE, 'Desktop'),
+  ]) {
+    if (base) dirs.push(base)
+  }
+  const found = []
+  const walk = (dir, depth) => {
+    if (depth > 3) return
+    let entries = []
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
+    for (const e of entries) {
+      const p = path.join(dir, e.name)
+      if (e.isDirectory()) walk(p, depth + 1)
+      else if (e.name.toLowerCase().endsWith('.lnk') && e.name.toLowerCase().includes(product.toLowerCase())) {
+        try { found.push(...extractExePathsFromLnk(fs.readFileSync(p))) } catch { /* 跳过 */ }
+      }
+    }
+  }
+  for (const d of dirs) walk(d, 0)
+  return found
+}
+
 export function resolveProductExe(product, env = process.env) {
   const ps = powershellPath(env)
   const image = `${product}.exe`
@@ -234,7 +279,13 @@ export function resolveProductExe(product, env = process.env) {
   for (const drive of listFixedDriveRoots(env)) {
     roots.push(path.join(drive, product, image))
   }
-  return roots.find((p) => fs.existsSync(p)) ?? ''
+  const standard = roots.find((p) => fs.existsSync(p))
+  if (standard) return standard
+  // 最后一道兜底:开始菜单/桌面 .lnk(豆包等装在非标准目录且进程没开时靠它)
+  const fromLnk = exePathsFromShortcuts(product, env).find(
+    (p) => fs.existsSync(p) && path.basename(p).toLowerCase() === image.toLowerCase(),
+  )
+  return fromLnk ?? ''
 }
 
 /** 本机固定盘根(C:/ D:/ G:/ ...),用于客户端装在非系统盘时的 exe 兜底扫描(2026-11 修) */
@@ -585,6 +636,7 @@ export const __test__ = {
   listProductPids,
   closeProduct,
   launchProduct,
+  extractExePathsFromLnk,
   powershellPath,
   RUN_AS_USER_SCRIPT,
 }
