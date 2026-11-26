@@ -1,7 +1,7 @@
 {
   "schema": "ihui-agent-safety-benchmark/v1",
-  "generatedAt": "2026-11-26T12:00:36.709Z",
-  "gitHead": "2b76bc5c555ab8894ab1c1be4a7ce5c39214b8c3",
+  "generatedAt": "2026-11-26T12:59:33.125Z",
+  "gitHead": "c24fbf662dd0d3c7eb77fd3d672fdb53a0ade3c7",
   "scope": [
     "桌面命令暴露面",
     "生产窗口安全",
@@ -29,16 +29,16 @@
       "exitCode": 0,
       "stdout": "[L05/L07 桌面通道注册表] state=ok 注册=20 调用点字面量=0 无对应命令=0 重名=0 桥清单=20 清单差异=0 预算=20/20\n  ✅ 命令名单一来源、壳侧清单一致且未超暴露面预算",
       "stderr": "",
-      "durationMs": 2028
+      "durationMs": 1292
     },
     {
       "id": "window-security",
       "title": "生产窗口安全工厂无红项",
       "ok": true,
       "exitCode": 0,
-      "stdout": "[L13 窗口安全断言] face=head state=ok 红=0 过=7 警=1\n  ✅ withGlobalTauri:false\n  ✅ csp:default-src 在位\n  ✅ csp:无 unsafe-eval\n  ✅ csp:script-src 受限:'self'\n  ✅ cargo:tauri 默认特性不含 devtools\n  ✅ cargo:devtools 为显式 opt-in feature\n  ✅ capabilities:扫 2 份、93 条权限,无裸 * / 无 shell 执行族\n  ⚠️  capabilities:default.json 的 remote 面暴露 allow-embedded-browser-devtools,allow-toggle-devtools(建议改本地面,未阻塞)",
+      "stdout": "[L13 窗口安全断言] face=head state=ok 红=0 过=7 警=1\n  ✅ withGlobalTauri:false\n  ✅ csp:default-src 在位\n  ✅ csp:无 unsafe-eval\n  ✅ csp:script-src 受限:'self'\n  ✅ cargo:tauri 默认特性不含 devtools\n  ✅ cargo:devtools 为显式 opt-in feature\n  ✅ capabilities:扫 2 份、94 条权限,无裸 * / 无 shell 执行族\n  ⚠️  capabilities:default.json 的 remote 面暴露 allow-embedded-browser-devtools,allow-toggle-devtools(建议改本地面,未阻塞)",
       "stderr": "",
-      "durationMs": 613
+      "durationMs": 402
     },
     {
       "id": "mcp-loopback-route-parity",
@@ -54,7 +54,7 @@
       "exitCode": 0,
       "stdout": "mcp-loopback-route-parity {\"fastifyRoutes\":15,\"adapterRoutes\":15,\"missing\":[],\"extra\":[],\"duplicate\":0}",
       "stderr": "",
-      "durationMs": 94
+      "durationMs": 56
     },
     {
       "id": "acp-three-end-contract",
@@ -69,7 +69,7 @@
       "exitCode": 0,
       "stdout": "acp-three-end-contract {\"files\":9,\"missing\":0,\"problems\":0,\"ends\":3}",
       "stderr": "",
-      "durationMs": 104
+      "durationMs": 61
     },
     {
       "id": "acp-method-single-source",
@@ -78,7 +78,7 @@
       "exitCode": 0,
       "stdout": "[L14 协议单一真相源] state=ok 命中=10 sdk=5 测试=5 存量债=0 越界=0\n  ✅ 除 sdk 与测试外,无第二份方法名字面量",
       "stderr": "",
-      "durationMs": 628
+      "durationMs": 341
     },
     {
       "id": "r8-real-window",
