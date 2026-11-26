@@ -9605,6 +9605,8 @@
       "openWindow": "打开画中画窗口",
       "dockInWorkPanel": "在工作面内停靠监看",
       "dockCreateFailed": "无法创建监看会话，请重试；也可以让 AI 先打开浏览器。",
+      "monitorAllSessions": "监看全部活跃会话",
+      "monitorAllLimit": "活跃会话过多，已只打开最新的几个。",
       "readOnly": "只读",
       "handover": "接管",
       "statusConnecting": "连接中",
