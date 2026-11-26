@@ -44,12 +44,14 @@ WebSocket 协议:
 """
 from __future__ import annotations
 
+import asyncio
+import base64
 import json
 import logging
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from ..core.jwt_auth import get_current_user_id, principal_from_payload, verify_access_token
@@ -345,6 +347,69 @@ async def screenshot(
         content=png_bytes,
         media_type="image/png",
         headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+    )
+
+
+@router.get("/sessions/{session_id}/mjpeg")
+async def mjpeg_stream(session_id: str, token: str = "") -> StreamingResponse:
+    """MJPEG 画面流：WS 被 CDN 阻断时的同源高帧率兜底。
+
+    与 `/ws/{session_id}` 共用同一条 CDP screencast，不额外截图、不降帧率；
+    每个观众一条有界队列，慢观众只保留最新帧。鉴权走 query token（与 WS 同源），
+    因为浏览器 `<img>` / EventSource 无法带 Authorization 头。
+    """
+    payload = verify_access_token(token) if token else None
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = principal_from_payload(payload)
+    try:
+        session = hub.require_tab(_tab_scope(session_id, user_id))
+    except BrowserTabScopeError as exc:
+        raise _tab_scope_denial(exc) from exc
+
+    queue: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue(maxsize=1)
+
+    async def on_frame(data_b64: str, metadata: dict[str, Any]) -> None:
+        if queue.full():
+            try:
+                queue.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+        try:
+            queue.put_nowait((data_b64, metadata))
+        except asyncio.QueueFull:
+            pass
+
+    await session.start_screencast(on_frame)
+
+    async def generate() -> Any:
+        try:
+            while True:
+                try:
+                    data_b64, _meta = await asyncio.wait_for(queue.get(), timeout=2.0)
+                except asyncio.TimeoutError:
+                    continue
+                try:
+                    jpeg = base64.b64decode(data_b64)
+                except Exception:
+                    continue
+                yield (
+                    b"--frame\r\n"
+                    b"Content-Type: image/jpeg\r\n"
+                    b"Content-Length: " + str(len(jpeg)).encode("ascii") + b"\r\n\r\n"
+                    + jpeg + b"\r\n"
+                )
+        finally:
+            session.remove_frame_handler(on_frame)
+
+    return StreamingResponse(
+        generate(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, no-transform",
+            "Pragma": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 

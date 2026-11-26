@@ -1655,6 +1655,15 @@ class BrowserSession:
             self._screencast_frame_queue = None
             self._screenshot_task = asyncio.create_task(self._screenshot_loop())
 
+    def remove_frame_handler(
+        self, on_frame: Callable[[str, dict[str, Any]], Coroutine[Any, Any, None]]
+    ) -> None:
+        """摘掉一个观众回调（HTTP MJPEG 断开时用）；不主动停流，其他观众还在收。"""
+        try:
+            self._frame_handlers.remove(on_frame)
+        except ValueError:
+            pass
+
     def _enqueue_screencast_frame(self, params: dict[str, Any]) -> None:
         """主 loop 回调:把同步 CDP 线程送来的帧放进 asyncio 队列。"""
         if not self._screencast_running:
@@ -1705,6 +1714,22 @@ class BrowserSession:
             )
 
         await self._run_sync(_sync_ack)
+
+    async def _ack_and_pump_screencast(self, frames: list[dict[str, Any]]) -> None:
+        """一次 executor 调用里批量 ack 所有帧并泵事件，避免逐帧 ack 把帧率压到个位数。"""
+
+        def _sync_ack_and_pump() -> None:
+            cdp = self._ensure_cdp()
+            for params in frames:
+                session_id = params.get("sessionId")
+                if session_id is not None:
+                    cdp.send(
+                        "Page.screencastFrameAck", {"sessionId": session_id}
+                    )
+            # ack 后 Chrome 才会继续出下一帧；零等待调用把事件派发出来。
+            self._page.wait_for_timeout(0)
+
+        await self._run_sync(_sync_ack_and_pump)
 
     async def _fanout_frame(
         self, data_b64: str, metadata: dict[str, Any]
@@ -1784,14 +1809,14 @@ class BrowserSession:
                     frames.append(queue.get_nowait())
                 except asyncio.QueueEmpty:
                     break
-            for params in frames:
-                sid = params.get("sessionId")
-                try:
-                    await self._ack_screencast_frame(sid)
-                except asyncio.CancelledError:
-                    raise
-                except Exception as e:
-                    logger.debug(f"[browser_hub] screencast ack 失败: {e}")
+            # 一批帧只进一次 executor：批量 ack + 泵事件，再广播最后一帧。
+            # 逐帧 ack 会让每帧各排一次单线程 executor，满载时帧率被压到个位数。
+            try:
+                await self._ack_and_pump_screencast(frames)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.debug(f"[browser_hub] screencast ack+pump 失败: {e}")
             payload = None
             for params in frames:
                 candidate = self._screencast_payload(params)
@@ -1801,13 +1826,6 @@ class BrowserSession:
                 last = payload
                 await self._fanout_frame(*payload)
                 last_broadcast = time.monotonic()
-            # ack 后 Chrome 才会继续出下一帧;这里再泵一次让下一批事件进来。
-            try:
-                await self._pump_screencast_events()
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                logger.debug(f"[browser_hub] screencast pump 失败: {e}")
 
     async def _screenshot_loop(self) -> None:
         """兜底截图循环(在 main loop 运行,截图操作在 executor 线程执行)。"""
