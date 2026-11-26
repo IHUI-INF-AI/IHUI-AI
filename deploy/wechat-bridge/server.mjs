@@ -583,9 +583,54 @@ function runFriendsScript(args) {
   })
 }
 
-async function handleFriendsScan() {
+/**
+ * 扫描结果缓存 + 3 分钟后台巡检。
+ * 2026-11-26 起扫描全程走后台消息点击，不会把微信窗口拉到前台、不会闪屏，
+ * 所以可以放心定时跑；卡片读缓存即可秒开，不必每次请求都等一次采集。
+ */
+const FRIENDS_SCAN_CACHE_MS = 180_000
+const FRIENDS_SCAN_STALE_MS = 600_000
+let friendsScanCache = null // { at, body }
+let friendsScanInFlight = null
+
+function scanViaCache(force) {
+  if (!force) {
+    if (friendsScanInFlight) return friendsScanInFlight
+    if (friendsScanCache) {
+      const age = Date.now() - friendsScanCache.at
+      return Promise.resolve({ ...friendsScanCache.body, cached: true, cacheAgeMs: age })
+    }
+  }
+  friendsScanInFlight = runFriendsScript(['-Scan']).then((body) => {
+    if (body && body.ok === true) {
+      friendsScanCache = { at: Date.now(), body }
+    }
+    friendsScanInFlight = null
+    return body
+  })
+  return friendsScanInFlight
+}
+
+function startFriendsScanLoop() {
+  const timer = setInterval(async () => {
+    try {
+      if (!friendsAutomationEnabled()) return
+      if (friendsScanInFlight) return
+      const age = friendsScanCache ? Date.now() - friendsScanCache.at : Infinity
+      if (age < FRIENDS_SCAN_CACHE_MS) return
+      const body = await scanViaCache(true)
+      const stale = body?.cacheAgeMs && body.cacheAgeMs > FRIENDS_SCAN_STALE_MS
+      if (stale) console.warn('[friends] 巡检结果偏旧:', body.cacheAgeMs)
+    } catch (e) {
+      console.warn('[friends] 后台巡检失败:', e instanceof Error ? e.message : e)
+    }
+  }, 60_000)
+  timer.unref?.()
+}
+
+async function handleFriendsScan(force) {
   if (!friendsAutomationEnabled()) return friendsDisabledBody()
-  return runFriendsScript(['-Scan'])
+  return scanViaCache(Boolean(force))
 }
 
 async function handleFriendsAccept(requestId) {
@@ -845,7 +890,7 @@ async function handle(req, res) {
     }
 
     if (path === '/friends/scan') {
-      const result = await handleFriendsScan()
+      const result = await handleFriendsScan(body?.force === true)
       return json(res, 200, result)
     }
 
@@ -959,6 +1004,7 @@ if (IS_MAIN) {
       `[wechat-bridge] listening on http://${HOST}:${PORT} driver=${DRIVER_NAME} moment=${MOMENT_DRIVER_NAME}`,
     )
     startDriverPoll()
+    startFriendsScanLoop()
   })
 }
 
