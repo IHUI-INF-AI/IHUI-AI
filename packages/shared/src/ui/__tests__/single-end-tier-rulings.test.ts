@@ -319,11 +319,18 @@ describe('waivers.<族>.singleEndTiers —— 单侧档裁定账的机读锁', (
   it('⑤ 本锁有牙:凑平/吞掉取数点/清单腐烂三种改坏都能被同一把尺子量到', () => {
     const f = LOADED.find((x) => x.family === 'LoginPopUp')
     if (!f) throw new Error('找不到 LoginPopUp 的裁定账(本用例的前提没了)')
-    const owned = f.rulings.find((r) => r.side === 'miniapp')
-    if (!owned) throw new Error('LoginPopUp 没有小程序侧裁定(本用例的前提没了)')
+    // 2026-11-26 契约反转后本族唯一单侧档在 RN 侧(字形行盒),不再固定取 miniapp 侧:
+    // 取第一条裁定并按它登记的 side 动态决定"哪端是 owner / 往哪端补引用",尺子照样有牙。
+    const owned = f.rulings[0]
+    if (!owned) throw new Error('LoginPopUp 裁定账为空(本用例的前提没了)')
+    const ownerSide = owned.side
+    const otherSide: Side = ownerSide === 'miniapp' ? 'rn' : 'miniapp'
 
     // 甲:往另一端补一条引用(典型动机 = 让 diffCount 变小)⇒ 归属/单侧性必须红
-    const padded = { ...f.srcs, rn: `${f.srcs.rn}\nconst __padded = ${owned.tier}\n` }
+    const padded = {
+      ...f.srcs,
+      [otherSide]: `${f.srcs[otherSide]}\nconst __padded = ${owned.tier}\n`,
+    }
     expect(
       rulingProblems(f.family, f.rulings, padded, f.exported).some((p) => p.includes(owned.tier)),
       '另一端补引用没被拦 ⇒ 尺子没牙(凑平可过关)',
@@ -332,7 +339,7 @@ describe('waivers.<族>.singleEndTiers —— 单侧档裁定账的机读锁', (
     // 乙:把 owner 端的取数点删掉(元素被吞/接线脱了)⇒ 同样必须红
     const stripped = {
       ...f.srcs,
-      miniapp: f.srcs.miniapp.split(owned.tier).join('__gone__'),
+      [ownerSide]: f.srcs[ownerSide].split(owned.tier).join('__gone__'),
     }
     expect(
       rulingProblems(f.family, f.rulings, stripped, f.exported).some((p) => p.includes(owned.tier)),

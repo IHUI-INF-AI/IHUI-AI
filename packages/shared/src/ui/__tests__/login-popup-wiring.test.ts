@@ -83,6 +83,9 @@ type LegName = (typeof LEGS)[number]['name']
  * ③ 现状两端都在用的档**必须全部登记**(漏登记 ⇒ 红灯,不许静默少测)。
  */
 const CROSS_END_TIERS = [
+  'LOGIN_POPUP_AGREEMENT_FONT_PX',
+  'LOGIN_POPUP_AGREEMENT_GAP_PX',
+  'LOGIN_POPUP_AGREEMENT_MARK_PX',
   'LOGIN_POPUP_AVATAR_BOX_PX',
   'LOGIN_POPUP_AVATAR_HINT_GAP_PX',
   'LOGIN_POPUP_BODY_FONT_PX',
@@ -91,13 +94,31 @@ const CROSS_END_TIERS = [
   'LOGIN_POPUP_CARD_PADDING_BOTTOM_PX',
   'LOGIN_POPUP_CARD_PADDING_X_PX',
   'LOGIN_POPUP_CHANGE_HINT_FONT_PX',
+  'LOGIN_POPUP_CHECKBOX_SIZE_PX',
+  'LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX',
+  'LOGIN_POPUP_CLOSE_ICON_FONT_PX',
+  'LOGIN_POPUP_CLOSE_INSET_PX',
+  'LOGIN_POPUP_DESC_MARGIN_BOTTOM_PX',
+  'LOGIN_POPUP_DRAG_BAR_HEIGHT_PX',
+  'LOGIN_POPUP_DRAG_BAR_MARGIN_BOTTOM_PX',
+  'LOGIN_POPUP_DRAG_BAR_WIDTH_PX',
+  'LOGIN_POPUP_FOOTER_GAP_PX',
+  'LOGIN_POPUP_FOOTER_MARGIN_TOP_PX',
+  'LOGIN_POPUP_ICON_BADGE_MARGIN_RIGHT_PX',
+  'LOGIN_POPUP_ICON_BADGE_SIZE_PX',
+  'LOGIN_POPUP_ICON_GLYPH_FONT_PX',
+  'LOGIN_POPUP_NOTE_FONT_PX',
+  'LOGIN_POPUP_NOTE_MARGIN_TOP_PX',
   'LOGIN_POPUP_PILL_FONT_PX',
   'LOGIN_POPUP_PILL_HEIGHT_PX',
   'LOGIN_POPUP_PILL_PADDING_X_PX',
   'LOGIN_POPUP_ROW_HEIGHT_PX',
   'LOGIN_POPUP_ROW_PADDING_X_PX',
+  'LOGIN_POPUP_SECONDARY_BUTTON_MARGIN_BOTTOM_PX',
   'LOGIN_POPUP_SECTION_GAP_PX',
+  'LOGIN_POPUP_SHEET_PADDING_TOP_PX',
   'LOGIN_POPUP_TITLE_FONT_PX',
+  'LOGIN_POPUP_TITLE_MARGIN_BOTTOM_PX',
 ] as const
 
 /**
@@ -123,151 +144,11 @@ const SINGLE_END_TIERS: ReadonlyArray<{
   kind: 'A' | 'B'
   why: string
 }> = [
-  // ── 小程序端单侧(dialog 承载) ──
-  {
-    tier: 'LOGIN_POPUP_DIALOG_PADDING_TOP_PX',
-    owner: 'miniapp-taro',
-    kind: 'B',
-    why: 'B 与 RN SHEET_PADDING_TOP 8 同一卡顶内距:居中卡四边均匀 24 vs 抽屉顶被拖拽条占用 8,取任一端会破另一端版',
-  },
-  {
-    tier: 'LOGIN_POPUP_DIALOG_MAX_WIDTH_PX',
-    owner: 'miniapp-taro',
-    kind: 'A',
-    why: 'A 居中弹窗形态独有(卡靠屏居中需要宽度上限 300);RN 抽屉整宽,没有宽度上限这一档',
-  },
-  // ── RN 端单侧(sheet / 授权卡 / 资料卡独有) ──
-  {
-    tier: 'LOGIN_POPUP_SHEET_PADDING_TOP_PX',
-    owner: 'mobile-rn',
-    kind: 'B',
-    why: 'B 同上:抽屉顶距 8 被拖拽条占用,与小程序居中卡 24 是同一槽位的承载差异',
-  },
-  {
-    tier: 'LOGIN_POPUP_DRAG_BAR_WIDTH_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 抽屉把手独有;小程序居中卡没有把手',
-  },
-  {
-    tier: 'LOGIN_POPUP_DRAG_BAR_HEIGHT_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 同上:把手高度',
-  },
-  {
-    tier: 'LOGIN_POPUP_DRAG_BAR_MARGIN_BOTTOM_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 同上:把手与内容的距离(与分块间距同值但语义独立,不并档)',
-  },
-  {
-    tier: 'LOGIN_POPUP_TITLE_MARGIN_BOTTOM_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 标题底距:小程序标题块已存在但底距走 SECTION_GAP,未取本档(同一槽位另一枚档,待收敛)',
-  },
-  {
-    tier: 'LOGIN_POPUP_DESC_MARGIN_BOTTOM_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 授权卡描述块;小程序弹窗无描述',
-  },
-  {
-    tier: 'LOGIN_POPUP_SECONDARY_BUTTON_MARGIN_BOTTOM_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 授权卡次按钮与协议行之间的留白;小程序无次按钮与协议行',
-  },
-  {
-    tier: 'LOGIN_POPUP_AGREEMENT_FONT_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 协议行;小程序登录协议由微信授权面板承载,整行不存在',
-  },
-  {
-    tier: 'LOGIN_POPUP_AGREEMENT_GAP_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 协议勾选框与文案间距;小程序无该行',
-  },
-  {
-    tier: 'LOGIN_POPUP_CHECKBOX_SIZE_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 协议勾选框;小程序无该行',
-  },
-  {
-    tier: 'LOGIN_POPUP_AGREEMENT_MARK_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 勾选内 lucide Check 的 size;小程序无该行',
-  },
-  {
-    tier: 'LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 右上 × 关闭钮;小程序关闭是底部整宽文字按钮(承载形态差异,两档不得互抄)',
-  },
-  {
-    tier: 'LOGIN_POPUP_CLOSE_ICON_FONT_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A × 字形字号;小程序无该元素',
-  },
   {
     tier: 'LOGIN_POPUP_CLOSE_ICON_LINE_HEIGHT_PX',
     owner: 'mobile-rn',
     kind: 'A',
-    why: 'A × 字形行盒(18+4 的基线补偿);小程序无该元素',
-  },
-  {
-    tier: 'LOGIN_POPUP_CLOSE_INSET_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A × 按钮距卡顶/右;小程序无该元素',
-  },
-  {
-    tier: 'LOGIN_POPUP_ICON_BADGE_SIZE_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 资料行首图标徽标;小程序资料卡行没有前缀徽标',
-  },
-  {
-    tier: 'LOGIN_POPUP_ICON_BADGE_MARGIN_RIGHT_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 同上:徽标与输入/文字的间距',
-  },
-  {
-    tier: 'LOGIN_POPUP_ICON_GLYPH_FONT_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 徽标内 lucide 图标尺寸;小程序无该元素',
-  },
-  {
-    tier: 'LOGIN_POPUP_NOTE_FONT_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 行内 hint/error 行;小程序校验失败走 Taro.showToast,没有行内提示块',
-  },
-  {
-    tier: 'LOGIN_POPUP_NOTE_MARGIN_TOP_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 同上:hint/error 行顶距 -6(负值,门 SL 现读漏报的那一枚)',
-  },
-  {
-    tier: 'LOGIN_POPUP_FOOTER_MARGIN_TOP_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 保存/登出块;小程序弹窗没有该块(保存由父页面承载)',
-  },
-  {
-    tier: 'LOGIN_POPUP_FOOTER_GAP_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 同上:保存/登出按钮横向间距',
+    why: 'A 2026-11-26 后本族唯一真单侧档:RN 关闭钮用字形 ×,需行盒补偿 22;小程序用矢量 LineIcon(无字行盒),该档另一端没有对应元素',
   },
 ]
 
@@ -278,13 +159,7 @@ const SINGLE_END_TIERS: ReadonlyArray<{
  * "有人把 8 改成 24 把两端拉平"(那样每枚仍只在各自端出现,归属表全绿,而抽屉顶部
  * 会把拖拽条挤下去)。本表把"必须不同值"写成断言,并配 ⑫ 的变异自证。
  */
-const MECHANISM_TIER_PAIRS: ReadonlyArray<{ a: string; b: string; why: string }> = [
-  {
-    a: 'LOGIN_POPUP_DIALOG_PADDING_TOP_PX',
-    b: 'LOGIN_POPUP_SHEET_PADDING_TOP_PX',
-    why: '同一卡顶内距:居中卡 24(四边均匀)vs 抽屉 8(拖拽条占位);拉平会破一端版',
-  },
-]
+const MECHANISM_TIER_PAIRS: ReadonlyArray<{ a: string; b: string; why: string }> = []
 
 /**
  * 端内未具名档 —— 门 128 读得出、却**不该进 spec** 的那一型(2026-10-28 现读)。
@@ -1075,15 +950,17 @@ describe('LoginPopUp 跨端档位一致性(O02 票④)', () => {
   })
 
   it('⑧ 单端档归属表:每枚只在登记的那一端有取数点(另一端补引用 = 凑平,必须红)', () => {
-    expect(SINGLE_END_TIERS.length, '归属表空了 ⇒ 这条尺子没在测任何东西').toBeGreaterThan(20)
+    // 2026-11-26 契约反转后本族只剩 1 枚真单侧档(CLOSE_ICON_LINE_HEIGHT:RN 字形行盒,
+    // 小程序矢量图标无该元素)。尺子的牙靠"恰好这一枚 + ⑨ 变异"钉住,不靠条数堆砌。
+    expect(SINGLE_END_TIERS.length, '归属表空了 ⇒ 这条尺子没在测任何东西').toBe(1)
     expect(
-      SINGLE_END_TIERS.filter((x) => x.kind === 'A').length,
-      'A 类应为大多数(本族是 dialog↔sheet 两承载,大部分档另一端根本没有该元素)',
-    ).toBeGreaterThan(20)
+      SINGLE_END_TIERS.map((x) => x.tier),
+      '单端表被换成了别的档 ⇒ 收敛裁决漂了,重新裁决后再改本表',
+    ).toEqual(['LOGIN_POPUP_CLOSE_ICON_LINE_HEIGHT_PX'])
     expect(
-      SINGLE_END_TIERS.filter((x) => x.kind === 'B').length,
-      'B 类(同一卡顶内距两端各一档)至少 1 对',
-    ).toBeGreaterThan(0)
+      SINGLE_END_TIERS.every((x) => x.kind === 'A'),
+      '本族已无 B 类机制对(两端承载统一),出现 B 类即裁决过期',
+    ).toBe(true)
     expect(
       singleEndProblems(LEG_SRC),
       '单端档归属被破坏(要么真实取数点丢了,要么有人往另一端补引用凑平)',
@@ -1091,23 +968,22 @@ describe('LoginPopUp 跨端档位一致性(O02 票④)', () => {
   })
 
   it('⑨ 本锁有牙:两端各做一次变异 ⇒ ⑧ 必须红', () => {
-    // 变异一:往"另一端"补一个取数点 —— 本票明令禁止的"给单端补数字凑平"。
-    const tier = 'LOGIN_POPUP_DIALOG_MAX_WIDTH_PX'
+    // 变异一:往"另一端"(小程序)补一个单侧档取数点 —— 明令禁止的"凑平"。
+    const tier = 'LOGIN_POPUP_CLOSE_ICON_LINE_HEIGHT_PX'
     const padded: Record<LegName, string> = {
       ...LEG_SRC,
-      'mobile-rn': `${LEG_SRC['mobile-rn']}\nconst __probe = { width: ${tier} }\n`,
+      'miniapp-taro': `${LEG_SRC['miniapp-taro']}\nconst __probe = { lineHeight: ${tier} }\n`,
     }
-    expect(padded['mobile-rn']).not.toBe(LEG_SRC['mobile-rn'])
+    expect(padded['miniapp-taro']).not.toBe(LEG_SRC['miniapp-taro'])
     expect(
       singleEndProblems(padded).length,
       '另一端补引用后归属判据仍绿 ⇒ 锁拦不住"凑平"',
     ).toBeGreaterThan(0)
 
-    // 变异二:把 owner 那一端的真实取数点删掉(元素被误删 / 退化回裸数字)。
-    const rnTier = 'LOGIN_POPUP_FOOTER_GAP_PX'
+    // 变异二:把 owner(RN)那一端的真实取数点删掉(元素被误删 / 退化回裸数字)。
     const stripped: Record<LegName, string> = {
       ...LEG_SRC,
-      'mobile-rn': LEG_SRC['mobile-rn'].replaceAll(rnTier, '__gone__'),
+      'mobile-rn': LEG_SRC['mobile-rn'].replaceAll(tier, '__gone__'),
     }
     expect(stripped['mobile-rn']).not.toBe(LEG_SRC['mobile-rn'])
     expect(
@@ -1133,10 +1009,10 @@ describe('LoginPopUp 跨端档位一致性(O02 票④)', () => {
       '凭空加一枚无人引用的档后幻影判据仍绿 ⇒ 导出面没人对账',
     ).toBeGreaterThan(0)
 
-    const onlyMiniTier = 'LOGIN_POPUP_DIALOG_MAX_WIDTH_PX'
+    const onlyRnTier = 'LOGIN_POPUP_CLOSE_ICON_LINE_HEIGHT_PX'
     const stripped: Record<LegName, string> = {
       ...LEG_SRC,
-      'miniapp-taro': LEG_SRC['miniapp-taro'].replaceAll(onlyMiniTier, '__gone__'),
+      'mobile-rn': LEG_SRC['mobile-rn'].replaceAll(onlyRnTier, '__gone__'),
     }
     expect(
       phantomTierProblems({ legSrcs: stripped, specExports: exports }).length,
@@ -1144,21 +1020,24 @@ describe('LoginPopUp 跨端档位一致性(O02 票④)', () => {
     ).toBeGreaterThan(0)
   })
 
-  it('⑫ B 类机制对:同一卡顶内距两端各一档且必须不同值(拉平 = 破一端版 ⇒ 红)', () => {
-    expect(MECHANISM_TIER_PAIRS.length, '机制对清单空了 ⇒ 这条尺子没在测任何东西').toBeGreaterThan(
-      0,
-    )
+  it('⑫ 承载统一后无 B 类机制对(2026-11-26:两端都是 sheet,卡顶内距同为一份档)', () => {
+    // 旧裁决是 dialog(24)↔sheet(8)两档、必须不同值;机主定档统一为 sheet 后,
+    // 该对已撤销(DIALOG_PADDING_TOP 档删除),两端卡顶内距都引用 SHEET_PADDING_TOP。
+    // 这里断言"机制对确实清空"且"两端都在用同一枚卡顶内距档"(否则是假收敛)。
+    expect(
+      MECHANISM_TIER_PAIRS.length,
+      '本族承载已统一,若又出现机制对 ⇒ 有人在重新引入 dialog↔sheet 分叉,先重裁决',
+    ).toBe(0)
+    expect(
+      tiersUsedByBoth(LEG_SRC['miniapp-taro'], LEG_SRC['mobile-rn']).includes(
+        'LOGIN_POPUP_SHEET_PADDING_TOP_PX',
+      ),
+      '两端未同时引用卡顶内距档 ⇒ 承载统一是假的(某端仍用裸值/旧档)',
+    ).toBe(true)
     expect(
       mechanismPairProblems(LEG_SRC, TIER_VALUES),
-      '机制对判据被破坏(档被删/拉平/无人消费)',
+      '机制对判据被破坏(空表下仍不该有问题)',
     ).toEqual([])
-    // 变异:把抽屉顶距改成 24(与居中卡拉平)⇒ 必须红。
-    const flattened = new Map(TIER_VALUES)
-    flattened.set('LOGIN_POPUP_SHEET_PADDING_TOP_PX', 24)
-    expect(
-      mechanismPairProblems(LEG_SRC, flattened).length,
-      '把两端顶距拉平后判据仍绿 ⇒ 锁只认"每枚只在各自端",拦不住凑平',
-    ).toBeGreaterThan(0)
   })
 
   it('⑬ 端内未具名档:40px 只在小程序(不得入 spec、出处仍在)', () => {
