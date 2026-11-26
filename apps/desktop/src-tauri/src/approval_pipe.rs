@@ -89,10 +89,11 @@ pub fn serve_once(session_id: &str, response: &str) -> io::Result<String> {
     let name = pipe_name(session_id);
     let pipe = create_restricted_pipe(&name, &sid).map_err(to_io)?;
     pipe.connect().map_err(to_io)?;
-    let request = pipe.recv(APPROVAL_PIPE_MAX_MESSAGE).map_err(to_io)?;
-    pipe.send(response.as_bytes()).map_err(to_io)?;
-    String::from_utf8(request)
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "审批请求不是 UTF-8"))
+    let request = read_server_frame(&pipe)?;
+    let mut reply = response.as_bytes().to_vec();
+    reply.push(b'\n');
+    pipe.send(&reply).map_err(to_io)?;
+    Ok(request)
 }
 
 /// 客户端:连管道 → 发一条请求 → 读一条应答。
@@ -103,13 +104,71 @@ pub fn request_once(session_id: &str, request: &str) -> io::Result<String> {
     let name = pipe_name(session_id);
     let handle = open_client(&name)?;
     let result = (|| {
-        write_once(handle, request)?;
-        read_once(handle)
+        let mut framed = request.as_bytes().to_vec();
+        framed.push(b'\n');
+        write_all(handle, &framed)?;
+        read_client_frame(handle)
     })();
     unsafe {
         CloseHandle(handle);
     }
     result
+}
+
+/// 命名管道 byte 模式不保消息边界:必须按换行分帧,不能假设一次 ReadFile 就是一条。
+fn read_server_frame(pipe: &crate::ipc_channel_acl::RestrictedPipe) -> io::Result<String> {
+    let mut accumulated = Vec::new();
+    loop {
+        let chunk = pipe.recv(APPROVAL_PIPE_MAX_MESSAGE).map_err(to_io)?;
+        if chunk.is_empty() {
+            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "审批请求在帧结束前断开"));
+        }
+        accumulated.extend_from_slice(&chunk);
+        if let Some(end) = accumulated.iter().position(|byte| *byte == b'\n') {
+            accumulated.truncate(end);
+            break;
+        }
+        if accumulated.len() > APPROVAL_PIPE_MAX_MESSAGE {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "审批请求过长"));
+        }
+    }
+    String::from_utf8(accumulated)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "审批请求不是 UTF-8"))
+        .map(|text| text.trim_end_matches('\r').to_string())
+}
+
+fn read_client_frame(handle: HANDLE) -> io::Result<String> {
+    let mut accumulated = Vec::new();
+    loop {
+        let mut buffer = vec![0u8; 4096];
+        let mut read: u32 = 0;
+        let ok = unsafe {
+            ReadFile(
+                handle,
+                buffer.as_mut_ptr().cast(),
+                buffer.len() as u32,
+                &mut read,
+                std::ptr::null_mut(),
+            )
+        };
+        if ok == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        if read == 0 {
+            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "审批应答在帧结束前断开"));
+        }
+        accumulated.extend_from_slice(&buffer[..read as usize]);
+        if let Some(end) = accumulated.iter().position(|byte| *byte == b'\n') {
+            accumulated.truncate(end);
+            break;
+        }
+        if accumulated.len() > APPROVAL_PIPE_MAX_MESSAGE {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "审批应答过长"));
+        }
+    }
+    String::from_utf8(accumulated)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "审批应答不是 UTF-8"))
+        .map(|text| text.trim_end_matches('\r').to_string())
 }
 
 fn to_io(error: crate::ipc_channel_acl::AclError) -> io::Error {
@@ -146,42 +205,27 @@ fn open_client(name: &str) -> io::Result<HANDLE> {
     Err(last_error.unwrap_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "命名管道连接超时")))
 }
 
-fn read_once(handle: HANDLE) -> io::Result<String> {
-    let mut buffer = vec![0u8; APPROVAL_PIPE_MAX_MESSAGE];
-    let mut read: u32 = 0;
-    let ok = unsafe {
-        ReadFile(
-            handle,
-            buffer.as_mut_ptr().cast(),
-            buffer.len() as u32,
-            &mut read,
-            std::ptr::null_mut(),
-        )
-    };
-    if ok == 0 {
-        return Err(io::Error::last_os_error());
-    }
-    String::from_utf8(buffer[..read as usize].to_vec())
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "审批应答不是 UTF-8"))
-}
-
-fn write_once(handle: HANDLE, payload: &str) -> io::Result<()> {
-    let bytes = payload.as_bytes();
-    let mut written: u32 = 0;
-    let ok = unsafe {
-        WriteFile(
-            handle,
-            bytes.as_ptr().cast(),
-            bytes.len() as u32,
-            &mut written,
-            std::ptr::null_mut(),
-        )
-    };
-    if ok == 0 {
-        return Err(io::Error::last_os_error());
-    }
-    if written as usize != bytes.len() {
-        return Err(io::Error::new(io::ErrorKind::Other, "审批应答写入不完整"));
+fn write_all(handle: HANDLE, bytes: &[u8]) -> io::Result<()> {
+    let mut offset = 0usize;
+    while offset < bytes.len() {
+        let remaining = &bytes[offset..];
+        let mut written: u32 = 0;
+        let ok = unsafe {
+            WriteFile(
+                handle,
+                remaining.as_ptr().cast(),
+                remaining.len() as u32,
+                &mut written,
+                std::ptr::null_mut(),
+            )
+        };
+        if ok == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        if written == 0 {
+            return Err(io::Error::new(io::ErrorKind::WriteZero, "审批应答写入 0 字节"));
+        }
+        offset += written as usize;
     }
     Ok(())
 }

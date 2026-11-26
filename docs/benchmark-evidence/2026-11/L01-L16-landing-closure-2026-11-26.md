@@ -14,7 +14,7 @@
 |---|---|---|---|---|
 | L01 统一权限决策对象 | `apps/api/src/services/permission-entries.ts`、`permission-decision.ts`，terminal/mcp/crew 三入口接线 | 16/16 测试；`RuleMatch.toolExact` 新字段；无 `evidenceRef` 拒绝并留审计 | B | 完成 |
 | L02 Job Object 执行器 | `apps/desktop/src-tauri/src/terminal_session.rs` + `terminal_session_job_scenarios.rs` | 真机 3 用例（正常退出 / 超时 / CTRL+C），Job 内进程数归零 | A | 完成 |
-| L03 审批反向通道 | `packages/agent-sdk/src/approval-channel.ts`、`apps/desktop/src-tauri/src/approval_pipe.rs`（传输层） | 审批/备份/恢复三队列，seq 全局单调，断线不丢；7 断言；管道 3/3（复用 `ipc_channel_acl` 当前用户+SYSTEM ACL、远端连接拒绝、真实建管/连接/收发往返） | A | 完成 |
+| L03 审批反向通道 | `packages/agent-sdk/src/approval-channel.ts`、`apps/desktop/src-tauri/src/approval_pipe.rs`（传输层） | 审批/备份/恢复三队列，seq 全局单调，断线不丢；7 断言；管道 3/3（复用 `ipc_channel_acl` 当前用户+SYSTEM ACL、真实建管/连接/收发往返、换行分帧防 byte 模式粘包） | A | 完成 |
 | L04 命令暴露面文档 | 17 个 Rust 文件 127 条 `#[tauri::command]`；`scripts/check-tauri-command-doc-owner.mjs` | `state=ok 文件=17 命令=127 缺文档=0 存量债=0 新增越界=0`；`cargo check --lib` 通过 | B | 完成 |
 | L05 动态通道注册表 | `packages/agent-sdk/src/channel-registry.ts`、`apps/web/src/lib/desktop-commands.ts`、`apps/api/src/websocket/chat-server.ts` | SDK 13/13（含 L12 域隔离）；live-chat 16/16（未知 type 回 400 且留拒绝计数）；`check-desktop-invoke-registry` → `注册=20 调用点字面量=0 无对应命令=0 重名=0 桥清单=20 清单差异=0 预算=20/20` | B | 完成 |
 | L06 运行时策略热更新 | `apps/api/src/config/runtime-policy.ts`，接线 `server.ts` 请求超时、`plugins/queue.ts` worker 并发、`index.ts` 探针节拍 | 5/5；热加载实测 1.085s（SLA 5s）；非法字段整份拒绝，审计 jsonl 带 by/why | B | 完成 |
