@@ -199,6 +199,110 @@ describe('runVerifiedSwitch(全注入,零真库零真写)', () => {
   })
 })
 
+describe('豆包票有效性核验(2026-11-26 假绿回归锁:写回成功≠服务端认这枚票)', () => {
+  /** 只喂快照腿,绝不读本机 Cookies 库 */
+  const ticketSnap = () =>
+    ({
+      app: 'doubao',
+      state: 'ok',
+      sessions: { count: 12, digest: 'a'.repeat(16) },
+      sessionIds: ['d0', 'd1'],
+      accountDigests: ['f'.repeat(12)],
+    }) as never
+
+  const ticket = (
+    verdict: 'accepted' | 'rejected' | 'undetermined',
+    reason = '',
+    mobile: string | null = null,
+  ) => ({ verdict, reason, mobile })
+
+  it('rejected 死票 ⇒ fail-closed:写回腿零调用、ok=false、notes 点名重采', async () => {
+    const writeBack = vi.fn(async () => ({
+      ok: true,
+      notes: [],
+      targetFile: 'X:\\Cookies',
+      backupFile: 'X:\\Cookies.bak',
+    })) as never
+    const r = await runVerifiedSwitch({
+      provider: 'doubao',
+      loadRow: async () => FAKE_ROW,
+      writeBack,
+      snapshotDoubao: () => ticketSnap(),
+      compare: fakeCompare(0),
+      verifyDoubaoTicket: async () => ticket('rejected', '服务端未返回账号信息'),
+    })
+    expect(writeBack).not.toHaveBeenCalled()
+    expect(r.ok).toBe(false)
+    expect(r.wroteBack).toBe(false)
+    expect(r.writeBack).toBeNull()
+    expect(r.ticketVerification?.verdict).toBe('rejected')
+    expect(r.notes.some((n) => n.includes('豆包票已失效'))).toBe(true)
+    expect(r.notes.some((n) => n.includes('--from doubao'))).toBe(true)
+  })
+
+  it('accepted 有效票 ⇒ 照常写回、ok=true、核验结论落到结果面', async () => {
+    const writeBack = vi.fn(async () => ({
+      ok: true,
+      notes: [],
+      targetFile: 'X:\\Cookies',
+      backupFile: 'X:\\Cookies.bak',
+    })) as never
+    const r = await runVerifiedSwitch({
+      provider: 'doubao',
+      loadRow: async () => FAKE_ROW,
+      writeBack,
+      snapshotDoubao: () => ticketSnap(),
+      compare: fakeCompare(0),
+      verifyDoubaoTicket: async () => ticket('accepted', '', '+86 157******40'),
+    })
+    expect(writeBack).toHaveBeenCalledTimes(1)
+    expect(r.ok).toBe(true)
+    expect(r.wroteBack).toBe(true)
+    expect(r.ticketVerification?.verdict).toBe('accepted')
+    expect(r.ticketVerification?.mobile).toBe('+86 157******40')
+  })
+
+  it('undetermined ⇒ 只告警不阻断,仍写回且 ok=true(接口漂移不冒充票死)', async () => {
+    const writeBack = vi.fn(async () => ({
+      ok: true,
+      notes: [],
+      targetFile: 'X:\\Cookies',
+      backupFile: 'X:\\Cookies.bak',
+    })) as never
+    const r = await runVerifiedSwitch({
+      provider: 'doubao',
+      loadRow: async () => FAKE_ROW,
+      writeBack,
+      snapshotDoubao: () => ticketSnap(),
+      compare: fakeCompare(0),
+      verifyDoubaoTicket: async () => ticket('undetermined', '网络超时'),
+    })
+    expect(writeBack).toHaveBeenCalledTimes(1)
+    expect(r.ok).toBe(true)
+    expect(r.ticketVerification?.verdict).toBe('undetermined')
+    expect(r.notes.some((n) => n.includes('豆包票有效性未判定'))).toBe(true)
+  })
+
+  it('测试进程未注入核验腿 ⇒ ticketVerification=null、零真网络', async () => {
+    const r = await runVerifiedSwitch({
+      provider: 'doubao',
+      loadRow: async () => FAKE_ROW,
+      writeBack: async () =>
+        ({
+          ok: true,
+          notes: [],
+          targetFile: 'X:\\Cookies',
+          backupFile: 'X:\\Cookies.bak',
+        }) as never,
+      snapshotDoubao: () => ticketSnap(),
+      compare: fakeCompare(0),
+    })
+    expect(r.ticketVerification).toBeNull()
+    expect(r.ok).toBe(true)
+    expect(r.notes.some((n) => n.includes('豆包票有效性'))).toBe(false)
+  })
+})
+
 describe('CONTINUITY_FACE 映射(与 switch-continuity-check APPS 同源口径)', () => {
   it('本地正库八平台齐:qoder/minimax/codex/zcode/opencode + workbuddy/codearts/loomy(2026-10-31 取证推翻旧口径)', () => {
     for (const k of [
