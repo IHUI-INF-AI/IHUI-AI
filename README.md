@@ -84,6 +84,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 📚 文档:0.1.96 发版说明与回滚方案 (8e5856db)
 - 🐞 修复:beforeBuildCommand 自动补齐 CLI workspace 依赖 dist (542e06e1)
 - 🐞 修复:CJK 感知 usage 兜底并补断流 partial 结算 (19191473)
 - 📚 文档:公开证据对齐最终 main c24fbf66 (42c46ab4)

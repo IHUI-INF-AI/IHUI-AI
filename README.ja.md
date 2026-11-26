@@ -2227,6 +2227,7 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 📚 ドキュメント:0.1.96 发版说明与回滚方案 (8e5856db)
 - 🐞 修正:beforeBuildCommand 自动补齐 CLI workspace 依赖 dist (542e06e1)
 - 🐞 修正:CJK 感知 usage 兜底并补断流 partial 结算 (19191473)
 - 📚 ドキュメント:公开证据对齐最终 main c24fbf66 (42c46ab4)

@@ -99,6 +99,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 📚 Docs:0.1.96 发版说明与回滚方案 (8e5856db)
 - 🐞 Fix:beforeBuildCommand 自动补齐 CLI workspace 依赖 dist (542e06e1)
 - 🐞 Fix:CJK 感知 usage 兜底并补断流 partial 结算 (19191473)
 - 📚 Docs:公开证据对齐最终 main c24fbf66 (42c46ab4)
