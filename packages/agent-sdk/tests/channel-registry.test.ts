@@ -91,6 +91,15 @@ describe('L05 派发器', () => {
     expect(d.allowed).toBe(0)
   })
 
+  it('guard 只查表:未注册拒绝并计数,已注册返回 spec', () => {
+    const r = new ChannelRegistry()
+    r.register(spec('known.channel'))
+    const d = new ChannelDispatcher(r)
+    expect(d.guard('known.channel', 'call').owner).toBe('packages/agent-sdk')
+    expect(() => d.guard('ghost.channel', 'call')).toThrow(ChannelRejected)
+    expect(d.rejections().get('call:ghost.channel')).toBe(1)
+  })
+
   it('审计环有上界,只留最近 N 条', () => {
     const r = new ChannelRegistry()
     r.register(spec('known.channel'))

@@ -232,6 +232,9 @@ importers:
       '@firecrawl/anydoc':
         specifier: 0.2.4
         version: 0.2.4
+      '@ihui/agent-sdk':
+        specifier: workspace:*
+        version: link:../../packages/agent-sdk
       '@ihui/attendance-core':
         specifier: workspace:*
         version: link:../../packages/attendance-core
