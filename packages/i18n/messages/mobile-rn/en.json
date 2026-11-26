@@ -350,7 +350,12 @@
     "googleNotConfigured": "Google login is not configured; set EXPO_PUBLIC_GOOGLE_CLIENT_ID in .env.",
     "sdkPending": "{name} login is only available on the web; the native SDK is not integrated on mobile.\nYou can use the “IHUI AI web authorized login” button to authorize in the browser.",
     "agree": "Agree",
-    "agreeTermsTitle": "Agree to the Terms of Service"
+    "agreeTermsTitle": "Agree to the Terms of Service",
+    "loginFailed": "Login failed, please try again",
+    "wechatOneClick": "One-click WeChat Login",
+    "webAuthLogin": "Sign in via web authorization",
+    "login": "Login",
+    "passwordLogin": "Password login"
   },
   "loginCountry": {
     "cn": "China",
@@ -953,7 +958,13 @@
     },
     "loadFailed": "Failed to load",
     "admissionAhead": "{n} ahead of you",
-    "hookFailureTitle": "Hook execution failed: {name}"
+    "hookFailureTitle": "Hook execution failed: {name}",
+    "questionSubmitting": "Submitting…",
+    "questionSubmit": "Submit",
+    "questionWithdraw": "Withdraw",
+    "questionAnswer": "Answer",
+    "questionNoSession": "Cannot locate the session, so this question cannot be answered",
+    "questionFailed": "Submission failed, please retry"
   },
   "settings": {
     "title": "Settings",
@@ -1881,7 +1892,9 @@
     "enroll": "Enroll Now",
     "pay": "Pay ¥{amount}",
     "lessons": "Lessons",
-    "completed": "Completed"
+    "completed": "Completed",
+    "learning": "In progress",
+    "locked": "Locked"
   },
   "courseEnroll": {
     "title": "Enroll in Courses",
@@ -2530,6 +2543,12 @@
     }
   },
   "apiKeys": {
+    "copied": "Copied",
+    "subtitle": "Create a key to call the open API from third-party apps. Grant only the permissions you need.",
+    "permissionsRequired": "Select at least one permission",
+    "callsTotal": "{times} calls total",
+    "rateLimitLabel": "Rate limit (per minute)",
+    "rateLimitPerMinute": "{rateLimit} / min",
     "title": "API Keys",
     "createTitle": "Create key",
     "nameLabel": "Name",
@@ -7676,6 +7695,26 @@
       "eraseCard": "Data Erasure"
     },
     "groups": {
+      "error": "Failed",
+      "description": "Description",
+      "groupNameRequired": "Group name is required",
+      "deleteTitle": "Delete group",
+      "confirmDelete": "Delete this group?",
+      "createGroup": "Create Group",
+      "groupName": "Group name",
+      "edit": "Edit",
+      "save": "Save",
+      "allGroups": "All groups",
+      "empty": "No groups yet. Create your first group",
+      "custom": "Custom",
+      "members": "Members",
+      "createdAt": "Created at",
+      "owner": "Owner",
+      "membersUnavailable": "The backend exposes no member list endpoint, so only the member count is shown.",
+      "userId": "User ID",
+      "addMember": "Add member",
+      "memberList": "Members",
+      "delete": "Delete",
       "title": "My Groups"
     },
     "stt": {
@@ -7740,6 +7779,7 @@
   },
   "hrAttendance": {
     "title": "HR · Attendance",
+    "checkIn": "Check in",
     "tabDepartments": "Departments",
     "tabEmployees": "Employees",
     "tabRule": "Attendance Rules",
@@ -7971,5 +8011,10 @@
       "btnConfirm": "Contact advisor"
     },
     "closeA11y": "Close introduction popup"
+  },
+  "chatRoom": {
+    "incompleteUserInfo": "User information is incomplete, please sign in again",
+    "wechatOnly": "WeChat files can only be sent in the mini program",
+    "cannotOpenLink": "Cannot open this link"
   }
 }

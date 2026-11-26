@@ -141,7 +141,34 @@
     "loginFailed": "登录失败,请重试",
     "wechatOneClick": "微信一键登录",
     "webAuthLogin": "网页授权登录",
-    "agreement": "登录即代表同意《用户协议》和《隐私政策》"
+    "agreement": "登录即代表同意《用户协议》和《隐私政策》",
+    "getCode": "获取验证码",
+    "phoneInvalid": "请输入正确的手机号",
+    "emailInvalid": "请输入正确的邮箱",
+    "wechatUnavailable": "当前环境暂不支持微信登录",
+    "ssoUnavailable": "网页授权登录暂未开放,请使用手机号或邮箱验证码登录",
+    "brand": "智汇AI",
+    "phoneLogin": "手机号登录",
+    "codePlaceholder": "请输入验证码",
+    "wechatLogin": "微信登录",
+    "codeCountdownSuffix": "秒后重新获取",
+    "ssoLoginTitle": "智汇AI网页授权登录",
+    "emailLogin": "邮箱登录",
+    "email": "邮箱",
+    "emailPlaceholder": "请输入邮箱",
+    "clearHistory": "清空全部",
+    "code": "验证码",
+    "sending": "发送中…",
+    "phone": "手机号",
+    "autoLogin": "自动登录",
+    "or": "或",
+    "noAccount": "没有账号?",
+    "registerNow": "立即注册",
+    "agreePrefix": "我已阅读并同意",
+    "termsOfService": "《用户协议》",
+    "and": "和",
+    "privacyPolicy": "《隐私政策》",
+    "agreeRequired": "请先阅读并同意服务协议和隐私政策"
   },
   "forgot": {
     "step1": "第一步:验证手机号",
@@ -449,7 +476,8 @@
     "y1": "{p1}时长",
     "y2": "购买智能体:{p1}",
     "follow": "关注",
-    "follower": "粉丝"
+    "follower": "粉丝",
+    "loadFailedTapRetry": "加载失败，点击重试"
   },
   "action": {
     "like": "点赞",
@@ -1042,6 +1070,21 @@
       "branch": {
         "ariaLabel": "对话分支"
       }
+    },
+    "compactionBoundary": {
+      "title": "上下文已压缩",
+      "summary": "折叠 {n} 条 · {before} → {after} token",
+      "collapse": "收起",
+      "expand": "查看压缩前关键片段",
+      "removedRange": "折叠范围"
+    },
+    "contextLedger": {
+      "title": "上下文七类明细",
+      "round": "第 {n} 轮",
+      "collapse": "收起",
+      "expand": "展开",
+      "total": "已用 {used} / 上限 {limit} · {percent}",
+      "windowUnknown": "窗口未知 · 已用 {used}"
     }
   },
   "share": {
@@ -1531,7 +1574,8 @@
       "fillInfo": "请填写完整信息",
       "verifying": "验证中",
       "verifyOk": "验证成功",
-      "verifyFail": "验证失败"
+      "verifyFail": "验证失败",
+      "navFailed": "页面未配置"
     },
     "rankEmpty": "暂无排行数据",
     "statsTitle": "收益概览",
@@ -1552,7 +1596,8 @@
     "pending": "待结算",
     "withdrawMin": "满 ¥{amount} 方可提现",
     "products": "分销商品",
-    "sales": "已售 {count} 件"
+    "sales": "已售 {count} 件",
+    "navFailed": "页面未配置"
   },
   "about": {
     "ctaDesc": "注册即得 1000 积分,全模型免费试用,无需信用卡。",
@@ -2271,7 +2316,8 @@
       "targetGroupEnterprise": "企业",
       "discountNone": "不参与",
       "discountPartial": "部分参与",
-      "discountFull": "全部参与"
+      "discountFull": "全部参与",
+      "saveSuccess": "保存成功"
     }
   },
   "devSpace": {
@@ -3633,7 +3679,8 @@
       "mobileUnsupported": "终端功能暂不支持移动端"
     },
     "questionNoSession": "无法定位会话，此题无法作答",
-    "questionFailed": "提交失败，请重试"
+    "questionFailed": "提交失败，请重试",
+    "hookFailureTitle": "Hook 执行失败:{name}"
   },
   "tabBar": {
     "community": "智汇社区",
@@ -3708,7 +3755,8 @@
     "d2": "需求广场",
     "d3": "我的一人公司",
     "d4": "领取免费资料",
-    "d5": "创建新对话"
+    "d5": "创建新对话",
+    "crossEnd": "来自其它端"
   },
   "userUserCard": {
     "view1": "查看相关订单",
@@ -7219,6 +7267,7 @@
   },
   "hrAttendance": {
     "title": "人事部 · 考勤",
+    "checkIn": "签到",
     "tabDepartments": "部门",
     "tabEmployees": "员工",
     "tabRule": "考勤规则",
@@ -7435,5 +7484,11 @@
     "noOnlineHint": "现在没有任何设备在线。任务派出去会排队等它上线；如果那台就是你自己的电脑，请在桌面端「设置 → 设备管理」点「一键启用」。",
     "offlineHint": "这台设备当前离线：派过去的任务会排队，它上线后自动执行。",
     "delegateOfflineHint": "它现在不在线，任务会在它上线后自动开始。"
+  },
+  "uiText": {
+    "nicknameLengthHint": "2-16 个字符"
+  },
+  "commission": {
+    "myLabel": "我的佣金"
   }
 }

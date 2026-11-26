@@ -141,7 +141,34 @@
     "loginFailed": "ログインに失敗しました。もう一度お試しください",
     "wechatOneClick": "WeChatワンタップログイン",
     "webAuthLogin": "Web認証ログイン",
-    "agreement": "ログインすると、ユーザー規約とプライバシーポリシーに同意したものとみなされます"
+    "agreement": "ログインすると、ユーザー規約とプライバシーポリシーに同意したものとみなされます",
+    "getCode": "認証コードを取得",
+    "phoneInvalid": "正しい電話番号を入力してください",
+    "emailInvalid": "正しいメールアドレスを入力してください",
+    "wechatUnavailable": "この環境ではWeChatログインを利用できません",
+    "ssoUnavailable": "Web認可ログインは未対応です。電話番号またはメールの認証コードでログインしてください。",
+    "brand": "IHUI AI",
+    "phoneLogin": "電話番号",
+    "codePlaceholder": "認証コードを入力",
+    "wechatLogin": "WeChat",
+    "codeCountdownSuffix": "秒後に再取得",
+    "ssoLoginTitle": "IHUI AI Web認可ログイン",
+    "emailLogin": "メール",
+    "email": "メールアドレス",
+    "emailPlaceholder": "メールアドレスを入力",
+    "clearHistory": "すべて消去",
+    "code": "認証コード",
+    "sending": "送信中…",
+    "phone": "電話番号",
+    "autoLogin": "自動ログイン",
+    "or": "または",
+    "noAccount": "アカウントをお持ちでないですか?",
+    "registerNow": "今すぐ登録",
+    "agreePrefix": "以下を読み、同意します",
+    "termsOfService": "利用規約",
+    "and": "および",
+    "privacyPolicy": "プライバシーポリシー",
+    "agreeRequired": "先に利用規約とプライバシーポリシーを読み、同意してください"
   },
   "forgot": {
     "step1": "ステップ1: 電話番号認証",
@@ -449,7 +476,8 @@
     "y1": "{p1}時間",
     "y2": "エージェント購入:{p1}",
     "follow": "フォロー",
-    "follower": "フォロワー"
+    "follower": "フォロワー",
+    "loadFailedTapRetry": "読み込みに失敗しました。タップして再試行"
   },
   "action": {
     "like": "いいね",
@@ -1042,6 +1070,21 @@
       "branch": {
         "ariaLabel": "会話ブランチ"
       }
+    },
+    "compactionBoundary": {
+      "title": "コンテキストが圧縮されました",
+      "summary": "{n} 件を折り畳み · {before} → {after} token",
+      "collapse": "折りたたむ",
+      "expand": "圧縮前の重要箇所を見る",
+      "removedRange": "折り畳み範囲"
+    },
+    "contextLedger": {
+      "title": "コンテキスト7分類の内訳",
+      "round": "第 {n} ラウンド",
+      "collapse": "折りたたむ",
+      "expand": "展開",
+      "total": "使用 {used} / 上限 {limit} · {percent}",
+      "windowUnknown": "ウィンドウ不明 · 使用 {used}"
     }
   },
   "share": {
@@ -1531,7 +1574,8 @@
       "fillInfo": "情報を完全に入力してください",
       "verifying": "確認中",
       "verifyOk": "確認成功",
-      "verifyFail": "確認失敗"
+      "verifyFail": "確認失敗",
+      "navFailed": "ページが設定されていません"
     },
     "rankEmpty": "ランキングデータがありません",
     "statsTitle": "収益概要",
@@ -1552,7 +1596,8 @@
     "pending": "決済待ち",
     "withdrawMin": "¥{amount} 以上で出金できます",
     "products": "販売商品",
-    "sales": "{count} 件販売"
+    "sales": "{count} 件販売",
+    "navFailed": "ページが設定されていません"
   },
   "about": {
     "ctaDesc": "登録で 1,000 クレジットを獲得、全モデル無料体験、クレジットカート不要。",
@@ -2271,7 +2316,8 @@
       "targetGroupEnterprise": "企業",
       "discountNone": "不参加",
       "discountPartial": "一部参加",
-      "discountFull": "全て参加"
+      "discountFull": "全て参加",
+      "saveSuccess": "保存しました"
     }
   },
   "devSpace": {
@@ -3633,7 +3679,8 @@
       "mobileUnsupported": "端末ではターミナル未対応"
     },
     "questionNoSession": "セッションを特定できないため回答できません",
-    "questionFailed": "送信に失敗しました。再試行してください"
+    "questionFailed": "送信に失敗しました。再試行してください",
+    "hookFailureTitle": "Hook の実行に失敗:{name}"
   },
   "tabBar": {
     "community": "コミュニティ",
@@ -3708,7 +3755,8 @@
     "d2": "ニーズ広場",
     "d3": "私のワンストップ会社",
     "d4": "無料資料を取得",
-    "d5": "新しい会話を作成"
+    "d5": "新しい会話を作成",
+    "crossEnd": "別端末から"
   },
   "userUserCard": {
     "view1": "関連注文を見る",
@@ -7216,6 +7264,7 @@
   },
   "hrAttendance": {
     "title": "人事部 · 勤怠",
+    "checkIn": "チェックイン",
     "tabDepartments": "部門",
     "tabEmployees": "従業員",
     "tabRule": "勤怠ルール",
@@ -7435,5 +7484,11 @@
     "noOnlineHint": "現在オンラインのデバイスはありません。送信したタスクは、いずれかのデバイスがオンラインになるまで待機します。そのデバイスがご自身のパソコンなら、デスクトップ版の「設定 → デバイス管理」で「ワンクリックで有効化」を押してください。",
     "offlineHint": "このデバイスはオフラインです。送信したタスクは待機し、オンラインになった時点で自動実行されます。",
     "delegateOfflineHint": "現在オフラインのため、タスクはオンラインになった時点で自動的に開始されます。"
+  },
+  "uiText": {
+    "nicknameLengthHint": "2〜16文字"
+  },
+  "commission": {
+    "myLabel": "マイコミッション"
   }
 }

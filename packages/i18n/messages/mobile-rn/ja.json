@@ -350,7 +350,12 @@
     "googleNotConfigured": "Googleログイン未設定。.env で EXPO_PUBLIC_GOOGLE_CLIENT_ID を設定してください。",
     "sdkPending": "{name}ログインはWeb版のみ対応。モバイルにはネイティブSDKが未統合です。\n「智汇AI Web権限ログイン」ボタンでブラウザ認証に進めます。",
     "agree": "同意",
-    "agreeTermsTitle": "サービス条項への同意確認"
+    "agreeTermsTitle": "サービス条項への同意確認",
+    "loginFailed": "ログインに失敗しました。もう一度お試しください",
+    "wechatOneClick": "WeChatワンタップログイン",
+    "webAuthLogin": "Web認証ログイン",
+    "login": "ログイン",
+    "passwordLogin": "パスワードログイン"
   },
   "loginCountry": {
     "cn": "中国",
@@ -953,7 +958,13 @@
     },
     "loadFailed": "読み込みに失敗しました",
     "admissionAhead": "前に {n} 件あります",
-    "hookFailureTitle": "Hook の実行に失敗:{name}"
+    "hookFailureTitle": "Hook の実行に失敗:{name}",
+    "questionSubmitting": "送信中…",
+    "questionSubmit": "送信",
+    "questionWithdraw": "取り消し",
+    "questionAnswer": "回答",
+    "questionNoSession": "セッションを特定できないため、この質問には回答できません",
+    "questionFailed": "送信に失敗しました。再試行してください"
   },
   "settings": {
     "title": "設定",
@@ -1881,7 +1892,9 @@
     "enroll": "今すぐ申し込む",
     "pay": "¥{amount} を支払う",
     "lessons": "コース目次",
-    "completed": "修了済み"
+    "completed": "修了済み",
+    "learning": "学習中",
+    "locked": "ロック中"
   },
   "courseEnroll": {
     "title": "コース申込",
@@ -2530,6 +2543,12 @@
     }
   },
   "apiKeys": {
+    "copied": "コピーしました",
+    "subtitle": "サードパーティアプリから API を呼び出すためのキーを作成します。権限は必要最小限に。",
+    "permissionsRequired": "権限を1つ以上選択してください",
+    "callsTotal": "累計 {times} 回",
+    "rateLimitLabel": "レート上限（毎分）",
+    "rateLimitPerMinute": "毎分 {rateLimit} 回",
     "title": "API キー",
     "createTitle": "キーを作成",
     "nameLabel": "名前",
@@ -7676,6 +7695,26 @@
       "eraseCard": "データ消去"
     },
     "groups": {
+      "error": "失敗",
+      "description": "説明",
+      "groupNameRequired": "グループ名は必須です",
+      "deleteTitle": "グループを削除",
+      "confirmDelete": "このグループを削除しますか？",
+      "createGroup": "グループ作成",
+      "groupName": "グループ名",
+      "edit": "編集",
+      "save": "保存",
+      "allGroups": "すべてのグループ",
+      "empty": "グループはまだありません",
+      "custom": "カスタム",
+      "members": "メンバー数",
+      "createdAt": "作成日時",
+      "owner": "オーナー",
+      "membersUnavailable": "バックエンドにメンバー一覧 API がないため、メンバー数のみ表示します",
+      "userId": "ユーザーID",
+      "addMember": "メンバー追加",
+      "memberList": "メンバー管理",
+      "delete": "削除",
       "title": "マイグループ"
     },
     "stt": {
@@ -7740,6 +7779,7 @@
   },
   "hrAttendance": {
     "title": "人事部 · 勤怠",
+    "checkIn": "チェックイン",
     "tabDepartments": "部門",
     "tabEmployees": "従業員",
     "tabRule": "勤怠ルール",
@@ -7971,5 +8011,10 @@
       "btnConfirm": "アドバイザーに連絡"
     },
     "closeA11y": "紹介ポップアップを閉じる"
+  },
+  "chatRoom": {
+    "incompleteUserInfo": "ユーザー情報が不完全です。再度ログインしてください",
+    "wechatOnly": "WeChatファイルはミニプログラム内でのみ送信できます",
+    "cannotOpenLink": "このリンクを開けません"
   }
 }
