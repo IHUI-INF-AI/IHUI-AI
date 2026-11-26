@@ -99,6 +99,18 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-26**
+- 🐞 Fix:NSIS 模板残留手改登记为侧车补丁,修复 Tauri CLI 2.11.4 漂移校验 (1f3fd2e8)
+- 🐞 Fix:UserInfoCard 同名不同物整对裁决 not-applicable(26 键外置),清 3 条失效映射;InputArea selectedModelVendor 落账。props-parity 由既有红转为 exit 0 (d3d593d1)
+- 🐞 Fix:llm_chat 补记平台成本账 (2d4b9e53)
+- 🐞 Fix:40题免费裁判预算 (eea59756)
+- 🚀 Feature/Improvement:免费档节奏与探针预算 (f9288892)
+- 🐞 Fix:补登录/兜底/追问卡/铃声名文案键 x5 语言;miniapp-taro 与 mobile-rn 的 --target 门零缺失,web placeholder-arity 归零 (b54882cd)
+- 🐞 Fix:迁移链对齐 -- journal 移除 5 条已删迁移,补录 2 条漏登记(device_task_execution/device_task_approval,均幂等);journal 与磁盘 sql 零缺口 (1a38a513)
+- 🐞 Fix:按调用类型选价并补 LLM 积分零售价下限 (d8206c1b)
+- 🐞 Fix:显式题库路径不再引用未定义 res (64275cb8)
+- 📚 Docs:记 40 题免费裁判读数与付费阻塞 (4107a8cf)
+- 🚀 Feature/Improvement:40题题库防缩表并启用全量戳印 (f0d5c0c8)
+- 🚀 Feature/Improvement:质量尺支持显式裁判模型 (cf664048)
 - 📚 Docs:0.1.96 发版说明与回滚方案 (8e5856db)
 - 🐞 Fix:beforeBuildCommand 自动补齐 CLI workspace 依赖 dist (542e06e1)
 - 🐞 Fix:CJK 感知 usage 兜底并补断流 partial 结算 (19191473)

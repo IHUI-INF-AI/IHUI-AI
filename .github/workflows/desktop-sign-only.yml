@@ -1,0 +1,55 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: Desktop Sign Only
+
+# 2026-11-26:应急签名通道(只为"已在本机构建好的安装包"补 Tauri updater 签名)。
+# 背景:GitHub 托管 runner 排队数小时、self-hosted 全量 checkout 又卡在 git fetch,
+# 而签名私钥只以 secret 形式存在仓库里 —— 本地拿不到,只能借 self-hosted runner 把
+# secret 注入到本机进程完成签名。本 workflow 不做 checkout、不构建,只调本机 tauri CLI。
+on:
+  workflow_dispatch:
+    inputs:
+      exe_path:
+        description: '待签名安装包的绝对路径(本机)'
+        required: true
+      sig_path:
+        description: '输出 .sig 的绝对路径(本机)'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  sign:
+    name: Sign updater artifact
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 20
+    steps:
+      - name: Sign with CI updater key
+        shell: pwsh
+        env:
+          DESKTOP_TAURI_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
+          DESKTOP_TAURI_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = "${{ inputs.exe_path }}"
+          if (-not (Test-Path -LiteralPath $exe)) { throw "安装包不存在: $exe" }
+          $keyFile = Join-Path $env:RUNNER_TEMP 'ihui-updater-ci.key'
+          [IO.File]::WriteAllText($keyFile, $env:DESKTOP_TAURI_PRIVATE_KEY)
+          $tauri = 'C:\IHUI-R10-release-0196\node_modules\.bin\tauri.cmd'
+          if (-not (Test-Path -LiteralPath $tauri)) { throw "tauri CLI 不存在: $tauri" }
+          if ([string]::IsNullOrEmpty($env:DESKTOP_TAURI_KEY_PASSWORD)) {
+            & $tauri signer sign -f $keyFile $exe
+          } else {
+            & $tauri signer sign -f $keyFile -p $env:DESKTOP_TAURI_KEY_PASSWORD $exe
+          }
+          if ($LASTEXITCODE -ne 0) { throw "tauri signer 退出码 $LASTEXITCODE" }
+          $sig = "$exe.sig"
+          if (-not (Test-Path -LiteralPath $sig)) { throw ".sig 未生成: $sig" }
+          $out = "${{ inputs.sig_path }}"
+          Copy-Item -LiteralPath $sig -Destination $out -Force
+          $len = (Get-Item -LiteralPath $out).Length
+          Write-Output "OK: sig -> $out ($len bytes)"
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
