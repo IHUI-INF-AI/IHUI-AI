@@ -1534,4 +1534,21 @@ test('applyRaccoon:profile marker 就绪后写进 profile/agent/config/auth.json
     rmScratch(scratch)
   }
 })
+
+test('doubao:逐键原生元数据 —— 会话票必须 has_expires + 远期到期(2026-11-26 Cookie load problem 根因)', () => {
+  const nowUs = 13440066071948699n
+  const s = L.doubaoCookieRowMeta('sessionid', nowUs)
+  const guard = L.doubaoCookieRowMeta('sid_guard', nowUs)
+  const mst = L.doubaoCookieRowMeta('msToken', nowUs)
+  // 原先所有行 has_expires=0/expires_utc=0 ⇒ 豆包启动 `Cookie load problem: 6` + 未登录
+  assert.ok(s.expires_utc > nowUs, '会话票必须有远期 expires_utc')
+  assert.equal(s.expires_utc - nowUs, 30n * 86_400_000_000n)
+  assert.equal(guard.expires_utc - nowUs, 365n * 86_400_000_000n)
+  assert.equal(mst.expires_utc - nowUs, 7n * 86_400_000_000n)
+  assert.equal(s.is_secure, 1)
+  assert.equal(mst.is_httponly, 0, 'msToken 非 httpOnly,不可照搬会话票元数据')
+  // msToken 是无魔数二进制票,不能套豆包 32 字节头
+  assert.equal(L.doubaoNeedsAppPrefix('msToken'), false)
+  assert.equal(L.doubaoNeedsAppPrefix('sessionid'), true)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
