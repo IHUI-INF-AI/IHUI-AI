@@ -153,6 +153,11 @@ async function upsertRelayModel(
   modelId: string,
   providerCode?: string,
 ): Promise<RelayModelWriteOutcome> {
+  // 2026-11-26:非聊天模型(embedding/rerank/图像/视频/音频/翻译/审核)与 free 变体
+  // 不进 LLM 售卖面。这里在写入前拦截,避免上游清单每 15 分钟又把它们插回来/复活。
+  if (shouldDisableOnMissingCost(classifyModelKind(modelId))) {
+    return 'exists'
+  }
   const rows = await db
     .insert(aiModelConfigModels)
     .values({
@@ -213,6 +218,7 @@ async function dedupModelsInDb(configId: number): Promise<number> {
 
 // eq 延迟到此处(保持顶部 import 简洁,与本文件其他 drizzle 用法一致)
 import { eq, isNotNull, and } from 'drizzle-orm'
+import { classifyModelKind, shouldDisableOnMissingCost } from '../services/model-kind-classifier.js'
 
 /** 自动下架安全阀(2026-11-24 立):单轮"启用中模型"下架比例超过此值、且绝对条数超过下限,
  *  判定上游清单异常/部分返回,本轮不下架只告警 —— 防止上游一次抖动把整家平台清空。

@@ -104,6 +104,18 @@ interface ChannelCostReport {
   }
 }
 
+interface MissingCostQuarantineResult {
+  dryRun: boolean
+  scannedRows: number
+  distinctModels: number
+  publicBefore: number
+  publicAfter: number
+  unpublished: number
+  disabled: number
+  byKind: Record<string, number>
+  pendingPricingChat: number
+}
+
 interface PointHoldHealth {
   asOf: string
   held: { count: number; points: number; oldestAgeMinutes: number }
@@ -448,6 +460,47 @@ export default function PricingConsolePage() {
     onError: (e: Error) => setNotice(`巡检失败:${e.message}`),
   })
 
+  const quarantineMissingCosts = useMutation({
+    mutationFn: async () => {
+      const preview = await fetchApi<MissingCostQuarantineResult>(
+        `${BASE}/missing-costs/quarantine`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dryRun: true }),
+        },
+      )
+      if (!preview.success) throw new Error(preview.error)
+      const p = preview.data
+      const confirmed = window.confirm(
+        `缺成本模型 ${p.distinctModels} 个：将下架非聊天/free ${p.disabled} 个，取消公开 ${p.unpublished} 个，剩余待补价聊天模型 ${p.pendingPricingChat} 个。确认执行？`,
+      )
+      if (!confirmed) return null
+      const applied = await fetchApi<MissingCostQuarantineResult>(
+        `${BASE}/missing-costs/quarantine`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dryRun: false }),
+        },
+      )
+      if (!applied.success) throw new Error(applied.error)
+      return applied.data
+    },
+    onSuccess: (d) => {
+      if (!d) {
+        setNotice('已取消：未写库')
+        return
+      }
+      setNotice(
+        `隔离完成：下架 ${d.disabled} 个，取消公开 ${d.unpublished} 个，仍公开的缺价模型 ${d.publicAfter} 个`,
+      )
+      void qc.invalidateQueries({ queryKey: ['pricing-models'] })
+      void qc.invalidateQueries({ queryKey: ['pricing-overview'] })
+    },
+    onError: (e: Error) => setNotice(`隔离失败：${e.message}`),
+  })
+
   const syncCatalog = useMutation({
     mutationFn: async () => {
       const r = await fetchApi<{ scanned: number; inserted: number; existing: number }>(
@@ -512,6 +565,19 @@ export default function PricingConsolePage() {
               <Coins className="size-3" />
             )}
             回填缺成本
+          </button>
+          <button
+            type="button"
+            onClick={() => quarantineMissingCosts.mutate()}
+            disabled={quarantineMissingCosts.isPending}
+            className="font-[weight:inherit] inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-label hover:bg-muted disabled:opacity-50"
+          >
+            {quarantineMissingCosts.isPending ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : (
+              <AlertTriangle className="size-3" />
+            )}
+            隔离缺价
           </button>
           <button
             type="button"
