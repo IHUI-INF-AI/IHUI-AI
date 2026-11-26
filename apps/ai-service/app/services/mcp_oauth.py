@@ -39,6 +39,19 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 import httpx
 
+from .mcp_oauth_dpapi import (
+    available as dpapi_available,
+)
+from .mcp_oauth_dpapi import (
+    decode as dpapi_decode,
+)
+from .mcp_oauth_dpapi import (
+    encode as dpapi_encode,
+)
+from .mcp_oauth_dpapi import (
+    is_encoded as dpapi_is_encoded,
+)
+
 logger = logging.getLogger(__name__)
 
 # 默认超时(秒)
@@ -327,17 +340,25 @@ def _load_persisted_token(config: MCPOAuthConfig) -> MCPOAuthToken | None:
         raw = path.read_text(encoding="utf-8").strip()
     except OSError as exc:
         raise OAuthPersistUnread(f"OAuth 凭据读不到,不能把它说成没有令牌: {exc}") from exc
+    # DPAPI 信封在非 Windows / 换用户后解不开:这是"读不到",不是"没有令牌"。
+    # 必须在下面的内容损坏降级之前拦住,否则会把唯一一份凭据备份后当作空态。
+    if dpapi_is_encoded(raw) and not dpapi_available():
+        raise OAuthPersistUnread("凭据是 DPAPI 封装,但当前平台/用户不可解,不能当成没有令牌")
     try:
         if not raw:
             return None
-        # 优先加密读取:环境变量 MCP_OAUTH_ENCRYPTION_KEY 提供 Fernet key
-        from cryptography.fernet import Fernet
-
-        key = os.environ.get("MCP_OAUTH_ENCRYPTION_KEY", "")
-        if key:
-            data = json.loads(Fernet(key.encode()).decrypt(raw.encode("utf-8")).decode("utf-8"))
+        if dpapi_is_encoded(raw):
+            data = json.loads(dpapi_decode(raw).decode("utf-8"))
         else:
-            data = json.loads(raw)
+            # 兼容旧格式:环境变量 MCP_OAUTH_ENCRYPTION_KEY 提供 Fernet key,
+            # 否则是历史明文 JSON(读得出就继续用,下一次写入会升级成 DPAPI)。
+            from cryptography.fernet import Fernet
+
+            key = os.environ.get("MCP_OAUTH_ENCRYPTION_KEY", "")
+            if key:
+                data = json.loads(Fernet(key.encode()).decrypt(raw.encode("utf-8")).decode("utf-8"))
+            else:
+                data = json.loads(raw)
         return MCPOAuthToken.from_dict(data)
     except Exception as e:  # noqa: BLE001 - 任何异常降级内存模式
         logger.warning("读持久化 OAuth Token 失败(降级内存): %s", e)
@@ -353,8 +374,6 @@ def _persist_token(config: MCPOAuthConfig, token: MCPOAuthToken) -> None:
     if not config.persist_path:
         return
     try:
-        from cryptography.fernet import Fernet
-
         path = Path(config.persist_path)
         try:
             path.stat()
@@ -366,11 +385,32 @@ def _persist_token(config: MCPOAuthConfig, token: MCPOAuthToken) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(token.to_dict(), ensure_ascii=False)
         key = os.environ.get("MCP_OAUTH_ENCRYPTION_KEY", "")
-        content = (
-            Fernet(key.encode()).encrypt(payload.encode("utf-8")).decode("utf-8")
-            if key
-            else payload
-        )
+        # 保护方式优先级:显式 MCP_OAUTH_PROTECT > 平台默认。
+        # Windows 默认 DPAPI(明文零落盘);其它平台有 Fernet key 用 Fernet,
+        # 都没有才退回历史明文(仅兼容,不是推荐态)。
+        mode = os.environ.get("MCP_OAUTH_PROTECT", "").strip().lower()
+        if not mode:
+            mode = "dpapi" if dpapi_available() else ("fernet" if key else "plaintext")
+        if mode == "dpapi":
+            try:
+                content = dpapi_encode(payload.encode("utf-8"))
+            except Exception as e:  # noqa: BLE001 - 封装失败绝不退回明文
+                logger.warning("DPAPI 封装 OAuth Token 失败,拒绝以明文落盘: %s", e)
+                return
+        elif mode == "fernet":
+            if not key:
+                logger.warning(
+                    "MCP_OAUTH_PROTECT=fernet 但未配置 MCP_OAUTH_ENCRYPTION_KEY,拒绝以明文落盘"
+                )
+                return
+            from cryptography.fernet import Fernet
+
+            content = Fernet(key.encode()).encrypt(payload.encode("utf-8")).decode("utf-8")
+        elif mode == "plaintext":
+            content = payload
+        else:
+            logger.warning("未知 MCP_OAUTH_PROTECT=%s,拒绝落盘", mode)
+            return
         tmp_path = path.with_name(
             f"{path.name}.tmp-{os.getpid()}-{uuid.uuid4().hex[:8]}"
         )
@@ -593,8 +633,18 @@ class MCPOAuthClient:
             return await self.fetch_token()
 
     async def close(self) -> None:
-        """释放底层 httpx 连接。"""
+        """释放底层 httpx 连接。凭据内存副本由 `clear_memory_copy()` 单独清。"""
         await self._client.aclose()
+
+    def clear_memory_copy(self) -> None:
+        """清掉进程内凭据副本(L09「退出清内存」的落点)。
+
+        只清内存,不动磁盘检查点:需要连磁盘一起撤权时走 `clear_auth()`。
+        """
+        self._token = None
+        self._authorization_code = None
+        self._code_verifier = None
+        self._state = ""
 
     # ------------------------------------------------------------------
     # 凭据清除(控制帧 `mcp_clear_auth`,2026-10-28 立)
@@ -631,12 +681,7 @@ class MCPOAuthClient:
         而磁盘上那份还在。
         """
         had_token = self._token is not None
-        self._token = None
-        # 授权码流的一次性凭据也一并作废(它是"待兑换的授权",不是已授权态,
-        # 但留着它等于留着一条可兑换的路径)。
-        self._authorization_code = None
-        self._code_verifier = None
-        self._state = ""
+        self.clear_memory_copy()
 
         persist_removed = True
         error: str | None = None

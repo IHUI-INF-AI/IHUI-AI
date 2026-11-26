@@ -254,8 +254,12 @@ def test_persist_write_unique_tmp_and_replace(tmp_path):
     assert list(tmp_path.glob("*.tmp-*")) == []
     # 并发写不再共用固定 .json.tmp:连续两次写均成功,最终内容为最后一次
     _persist_token(MCPOAuthConfig(persist_path=str(persist)), MCPOAuthToken(access_token="t2"))
-    import json as _json
+    # 2026-11-26(L09):Windows 默认 DPAPI 落盘,盘上不再是可直接 json.loads 的明文;
+    # 判据改读回检查点(明文/加密/DPAPI 三种格式都能读),写入原子性仍照旧。
+    from app.services.mcp_oauth import _load_persisted_token
 
-    assert _json.loads(persist.read_text(encoding="utf-8"))["access_token"] == "t2"
+    restored = _load_persisted_token(MCPOAuthConfig(persist_path=str(persist)))
+    assert restored is not None
+    assert restored.access_token == "t2"
     assert list(tmp_path.glob("*.tmp-*")) == []
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
