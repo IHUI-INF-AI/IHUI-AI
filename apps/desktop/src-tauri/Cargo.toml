@@ -31,7 +31,7 @@ indexmap = { version = "1.9.3", features = ["std"] }
 # `Window::add_child`(多 webview 单窗),该 API 在 Tauri 2 里挂在 `unstable` feature
 # 下(docs.rs:"Available on crate feature unstable only")。用户 2026-10-16 拍板启用,
 # 以换取真·多标签(切换不重载)。desktop-only,不影响移动端。
-tauri = { version = "2.11", features = ["tray-icon", "devtools", "unstable"] }
+tauri = { version = "2.11", features = ["tray-icon", "unstable"] }
 tauri-plugin-deep-link = "2.4"
 tauri-plugin-dialog = "2.7"
 tauri-plugin-fs = "2.5"
@@ -81,6 +81,12 @@ fs2 = "0.4"
 # 跑真机测试时 cargo test --features real-machine-tests -- --ignored。
 [features]
 real-machine-tests = ["tauri/test"]
+# L13(2026-11-26):devtools 不再进生产构建的默认特性集合。
+# 此前 `tauri` 的 features 里常开 "devtools",等于生产包也带 DevTools —— 判据见
+# scripts/check-window-security.mjs(它同时钉 CSP / withGlobalTauri / 裸权限)。
+# 开发态由 scripts/desktop-build.mjs 在 `--dev` 分支显式追加 `--features devtools`,
+# 生产 `tauri build` 不带该 feature。
+devtools = ["tauri/devtools"]
 
 [target.'cfg(windows)'.dependencies]
 # 2026-10-16 省内存:WebView2 的内存目标档位。wry 的 WebViewExtWindows 暴露了

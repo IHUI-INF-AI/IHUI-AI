@@ -400,6 +400,8 @@ async function main(argv = process.argv.slice(2)) {
           'tauri',
           '--',
           sub,
+          // 生产构建不得带 devtools(L13);dev 档显式开,二进制的特性集合才与生产一致
+          ...(opts.dev ? ['--features', 'devtools'] : []),
           ...(opts.debug ? ['--debug'] : []),
           ...(unsignedConfig ? ['--config', unsignedConfig] : []),
           ...opts.passthrough,
@@ -408,6 +410,8 @@ async function main(argv = process.argv.slice(2)) {
           ...prefix,
           'tauri',
           sub,
+          // 生产构建不得带 devtools(L13);dev 档显式开
+          ...(opts.dev ? ['--features', 'devtools'] : []),
           ...(opts.debug ? ['--debug'] : []),
           ...(unsignedConfig ? ['--config', unsignedConfig] : []),
           ...opts.passthrough,
