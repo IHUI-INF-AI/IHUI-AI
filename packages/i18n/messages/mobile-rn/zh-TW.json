@@ -3806,7 +3806,7 @@
     "paid": "付費",
     "searchPlaceholder": "搜尋智慧體",
     "title": "智慧體市場",
-    "uses": "次使用"
+    "uses": "使用次數"
   },
   "agentReviewList": {
     "author": "作者",
@@ -7511,7 +7511,7 @@
     "currentBundle": "目前執行:{{bundle}}",
     "bundleEmbedded": "內建套件",
     "bundleOta": "熱更新",
-    "readyBody": "更新已下載完成，點「更新」立即生效",
+    "readyBody": "更新已下載完成，點「立即更新」立即生效",
     "installingHint": "應用程式會自動重新啟動，通常只需幾秒",
     "restartNow": "立即重新啟動",
     "apkTitle": "發現新版本 {{version}}",

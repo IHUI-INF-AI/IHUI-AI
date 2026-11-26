@@ -3806,7 +3806,7 @@
     "paid": "有料",
     "searchPlaceholder": "エージェントを検索",
     "title": "エージェント市場",
-    "uses": "回使用"
+    "uses": "使用回数"
   },
   "agentReviewList": {
     "author": "著者",
@@ -7511,7 +7511,7 @@
     "currentBundle": "現在実行中:{{bundle}}",
     "bundleEmbedded": "内蔵パッケージ",
     "bundleOta": "ホットアップデート",
-    "readyBody": "更新のダウンロードが完了しました。「更新」をタップするとすぐに反映されます。",
+    "readyBody": "更新のダウンロードが完了しました。「今すぐ更新」をタップするとすぐに反映されます。",
     "installingHint": "アプリは自動的に再起動します（通常は数秒）。",
     "restartNow": "今すぐ再起動",
     "apkTitle": "新しいバージョン {{version}} があります",

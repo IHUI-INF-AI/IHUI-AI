@@ -1000,6 +1000,18 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as exc:  # noqa: BLE001
         logger.warning("[media_tasks] 收尾轮询启动失败(忽略): %s", exc)
 
+    # 2026-11-26:浏览器会话跨重启恢复。后台启动 Chromium + 按持久化记录
+    # 重建同一 session_id,不阻塞 API 首包;恢复进度见 .ihui/browser-sessions.json。
+    async def _restore_browser_sessions() -> None:
+        try:
+            from app.services.browser_hub import hub
+            await hub.start()
+            logger.info("[browser_hub] 开机恢复完成: %s 个会话", len(hub.list_sessions()))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[browser_hub] 开机恢复失败(忽略,首次使用会再启动): %s", exc)
+
+    asyncio.create_task(_restore_browser_sessions())
+
     yield
     # P0 修复(2026-08-02):移除 yield 后的 shutdown_telemetry() 重复调用,
     # 保留末尾(所有 cleanup 之后)的 shutdown_telemetry() 作为最后清理,避免重复 shutdown。

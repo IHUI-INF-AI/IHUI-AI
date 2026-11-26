@@ -272,24 +272,70 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
     let ws: WebSocket
     let fallbackTimer: number | null = null
     let fallbackBusy = false
-    let fallbackStream: HTMLImageElement | null = null
-    let fallbackStreamTimer: number | null = null
-    let fallbackStreamStarted = false
+    let mjpegAbort: AbortController | null = null
+    let mjpegStarted = false
+    let mjpegRetryTimer: number | null = null
+    let mjpegFailures = 0
+    let stateTimer: number | null = null
+    let stateBusy = false
     const stopFallback = () => {
       if (fallbackTimer !== null) {
         window.clearInterval(fallbackTimer)
         fallbackTimer = null
       }
-      if (fallbackStreamTimer !== null) {
-        window.clearInterval(fallbackStreamTimer)
-        fallbackStreamTimer = null
+      if (mjpegRetryTimer !== null) {
+        window.clearTimeout(mjpegRetryTimer)
+        mjpegRetryTimer = null
       }
-      if (fallbackStream) {
-        fallbackStream.src = ''
-        fallbackStream.parentNode?.removeChild(fallbackStream)
-        fallbackStream = null
+      mjpegAbort?.abort()
+      mjpegAbort = null
+      mjpegStarted = false
+    }
+    /**
+     * WS 只作为低延迟通道；PIP 不把「WS 能连上」当画面前置条件。
+     * 生产 EdgeOne 不转发 Upgrade 时，直接走同源 MJPEG，首帧不再等错误事件。
+     */
+    const refreshHttpState = async () => {
+      if (stateBusy) return
+      stateBusy = true
+      try {
+        const resp = await fetch(
+          `/api/browser/sessions/${encodeURIComponent(sessionId)}/state`,
+          {
+            headers: { Authorization: `Bearer ${pipToken}` },
+            cache: 'no-store',
+          },
+        )
+        if (!resp.ok) return
+        const body = (await resp.json()) as {
+          data?: {
+            url?: string
+            title?: string
+            phase?: { phase?: string }
+            task?: unknown
+          }
+        }
+        const data = body.data
+        if (!data || disposed) return
+        if (typeof data.url === 'string') setCurrentUrl(data.url)
+        if (typeof data.title === 'string') setPageTitle(data.title)
+        if (data.task !== undefined) setTaskRaw(data.task)
+        const phaseValue = data.phase?.phase
+        if (phaseValue === 'waiting' || phaseValue === 'gate' || phaseValue === 'error') {
+          setPhase(phaseValue)
+        } else if (phaseValue === 'running') {
+          setPhase('running')
+        }
+      } catch {
+        /* 状态轮询是增强；画面/任务下一轮继续 */
+      } finally {
+        stateBusy = false
       }
-      fallbackStreamStarted = false
+    }
+    const startHttpState = () => {
+      if (stateTimer !== null) return
+      void refreshHttpState()
+      stateTimer = window.setInterval(() => void refreshHttpState(), 1000)
     }
     const drawPipFrame = (source: CanvasImageSource, width: number, height: number) => {
       if (disposed) return
@@ -344,44 +390,145 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
       fallbackTimer = window.setInterval(() => void pumpFallback(), 250)
     }
     /**
-     * 优先兼容通道：同源 MJPEG 直接承接 CDP screencast，动态页面维持 20~30fps，
-     * 不再用 4fps 截图轮询当主画面。MJPEG 4s 内没有首帧时才退回截图轮询。
+     * 主画面通道：同源 MJPEG 直接承接 CDP screencast，动态页面维持 15fps 量级。
+     * WS 只作为低延迟传输；即使 WS 被 CDN 拒绝，MJPEG 首帧也会立即到达。
+     *
+     * 这里不用 `<img src=multipart>`：Chromium/WebView2 对 multipart 的 `load`
+     * 事件不可靠，实测会在整条流结束前一直不触发，导致主通道静默退化成截图轮询。
+     * 改为 fetch 流 + 手写 multipart 解析，每解出一张 JPEG 就直接画到 canvas。
      */
     const startFallback = () => {
-      if (disposed || fallbackStream || fallbackTimer !== null) return
-      const stream = new Image()
-      fallbackStream = stream
-      stream.alt = ''
-      stream.style.cssText =
-        'position:fixed;left:-10px;top:-10px;width:1px;height:1px;opacity:0;pointer-events:none;'
-      stream.onload = () => {
-        fallbackStreamStarted = true
-        setConnected(true)
-        setPhase('running')
-        setError('')
+      if (disposed || mjpegAbort || mjpegRetryTimer !== null) return
+      const controller = new AbortController()
+      mjpegAbort = controller
+      const marker = new TextEncoder().encode('--frame')
+      const headerEndMarker = new TextEncoder().encode('\r\n\r\n')
+      const findBytes = (haystack: Uint8Array, needle: Uint8Array, from = 0): number => {
+        for (let i = from; i <= haystack.length - needle.length; i += 1) {
+          let matched = true
+          for (let j = 0; j < needle.length; j += 1) {
+            if (haystack[i + j] !== needle[j]) {
+              matched = false
+              break
+            }
+          }
+          if (matched) return i
+        }
+        return -1
       }
-      stream.onerror = () => {
-        stopFallback()
-        startScreenshotFallback()
+      const concatBytes = (left: Uint8Array, right: Uint8Array): Uint8Array<ArrayBufferLike> => {
+        const out = new Uint8Array(left.length + right.length)
+        out.set(left, 0)
+        out.set(right, left.length)
+        return out
       }
-      stream.src = `/api/browser/sessions/${encodeURIComponent(sessionId)}/mjpeg?token=${encodeURIComponent(pipToken)}`
-      document.body.appendChild(stream)
-      fallbackStreamTimer = window.setInterval(() => {
-        if (disposed || !fallbackStreamStarted || !stream.naturalWidth) return
-        drawPipFrame(stream, stream.naturalWidth, stream.naturalHeight)
-      }, 40)
+      const paintJpeg = async (frame: Uint8Array) => {
+        const blob = new Blob(
+          [frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength) as ArrayBuffer],
+          { type: 'image/jpeg' },
+        )
+        try {
+          const bitmap = await createImageBitmap(blob)
+          if (!disposed) drawPipFrame(bitmap, bitmap.width, bitmap.height)
+          bitmap.close()
+        } catch {
+          const img = new Image()
+          const objectUrl = URL.createObjectURL(blob)
+          img.onload = () => {
+            if (!disposed) drawPipFrame(img, img.naturalWidth || 1280, img.naturalHeight || 720)
+            URL.revokeObjectURL(objectUrl)
+          }
+          img.onerror = () => URL.revokeObjectURL(objectUrl)
+          img.src = objectUrl
+        }
+      }
+      void (async () => {
+        let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
+        try {
+          const resp = await fetch(
+            `/api/browser/sessions/${encodeURIComponent(sessionId)}/mjpeg?token=${encodeURIComponent(pipToken)}`,
+            {
+              headers: { Authorization: `Bearer ${pipToken}` },
+              cache: 'no-store',
+              signal: controller.signal,
+            },
+          )
+          if (!resp.ok || !resp.body) throw new Error(`mjpeg ${resp.status}`)
+          reader = resp.body.getReader()
+          let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array(0)
+          while (!disposed && !controller.signal.aborted) {
+            const { done, value } = await reader.read()
+            if (done) break
+            if (!value?.length) continue
+            buffer = concatBytes(buffer, value)
+            // 一块 chunk 里可能有多帧；必须循环拆到不足一帧为止。
+            for (;;) {
+              const frameStartMarker = findBytes(buffer, marker)
+              if (frameStartMarker < 0) break
+              if (frameStartMarker > 0) buffer = buffer.slice(frameStartMarker)
+              const headerEnd = findBytes(buffer, headerEndMarker, marker.length)
+              if (headerEnd < 0) break
+              const header = new TextDecoder().decode(buffer.slice(marker.length, headerEnd))
+              const lengthMatch = /Content-Length:\s*(\d+)/i.exec(header)
+              if (!lengthMatch) {
+                buffer = buffer.slice(headerEnd + headerEndMarker.length)
+                continue
+              }
+              const frameBytesStart = headerEnd + headerEndMarker.length
+              const frameBytesEnd = frameBytesStart + Number(lengthMatch[1])
+              if (buffer.length < frameBytesEnd) break
+              const frame = buffer.slice(frameBytesStart, frameBytesEnd)
+              buffer = buffer.slice(frameBytesEnd)
+              if (!mjpegStarted) {
+                mjpegStarted = true
+                mjpegFailures = 0
+                setConnected(true)
+                setPhase('running')
+                setError('')
+                if (fallbackTimer !== null) {
+                  window.clearInterval(fallbackTimer)
+                  fallbackTimer = null
+                }
+              }
+              await paintJpeg(frame)
+            }
+          }
+        } catch {
+          // 断流、超时、token 过期都走统一重试；不把 MJPEG 的失败伪装成画面错误。
+        } finally {
+          if (mjpegAbort === controller) mjpegAbort = null
+          if (!disposed && !controller.signal.aborted) {
+            mjpegFailures += 1
+            if (mjpegFailures >= 3) {
+              startScreenshotFallback()
+            } else {
+              mjpegRetryTimer = window.setTimeout(() => {
+                mjpegRetryTimer = null
+                if (!disposed) startFallback()
+              }, 1200)
+            }
+          }
+        }
+      })()
       window.setTimeout(() => {
-        if (disposed || fallbackStreamStarted) return
-        stopFallback()
+        if (disposed || mjpegStarted) return
+        // 4s 内连首帧都没有：保留 MJPEG 重试，同时用截图轮询保证静态页也有画面。
         startScreenshotFallback()
       }, 4000)
     }
+    // 先开 HTTP 主通道，再尝试 WS；WS 成功才停 MJPEG。这样 CDN 断 Upgrade
+    // 时不会出现任何「画面已断开」的空窗。
+    startFallback()
+    startHttpState()
     try {
       ws = new WebSocket(buildBrowserWsUrl(sessionId))
     } catch {
-      setPhase('error')
-      setError(labelsRef.current.error)
-      startFallback()
+      // WS 不可用不影响画面：MJPEG 已在上面启动，这里只留一个可观测告警。
+      if (!mjpegAbort && fallbackTimer === null) {
+        setPhase('error')
+        setError(labelsRef.current.error)
+        startFallback()
+      }
       return
     }
     wsRef.current = ws
@@ -435,22 +582,31 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
     }
     ws.onerror = () => {
       if (disposed) return
-      setPhase('error')
-      setError(labelsRef.current.error)
+      // MJPEG 还在推流时，WS 失败只说明 CDN 没透传 Upgrade，不是画面故障。
+      if (!mjpegStarted && !mjpegAbort && fallbackTimer === null) {
+        setPhase('error')
+        setError(labelsRef.current.error)
+      }
       startFallback()
     }
     ws.onclose = (event) => {
       if (disposed) return
       setConnected(false)
       if (event.code !== 1000) {
-        setPhase('error')
-        setError(event.reason || labelsRef.current.error)
+        if (!mjpegStarted && !mjpegAbort && fallbackTimer === null) {
+          setPhase('error')
+          setError(event.reason || labelsRef.current.error)
+        }
         startFallback()
       }
     }
     return () => {
       disposed = true
       stopFallback()
+      if (stateTimer !== null) {
+        window.clearInterval(stateTimer)
+        stateTimer = null
+      }
       wsRef.current = null
       try {
         ws.close(1000)
@@ -462,13 +618,48 @@ export function AiPipMonitor({ sessionId }: { sessionId: string }) {
 
   const onContinue = useCallback(() => {
     const checkpointId = activeCheckpoint?.id
-    const ws = wsRef.current
-    if (!checkpointId || !ws || ws.readyState !== 1) return
+    if (!checkpointId) return
     setResumeBusy(true)
     setTaskExpanded(false)
-    ws.send(JSON.stringify({ type: 'checkpoint_resume', checkpoint_id: checkpointId }))
-    window.setTimeout(() => setResumeBusy(false), 1500)
-  }, [activeCheckpoint?.id])
+    const ws = wsRef.current
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: 'checkpoint_resume', checkpoint_id: checkpointId }))
+      window.setTimeout(() => setResumeBusy(false), 1500)
+      return
+    }
+    // MJPEG 模式下 WS 本来就不通；检查点恢复走同源 HTTP，不能让人卡在等待态。
+    void (async () => {
+      try {
+        const resp = await fetch(
+          `/api/browser/sessions/${encodeURIComponent(sessionId)}/checkpoint`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${pipToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'resume', checkpoint_id: checkpointId }),
+          },
+        )
+        if (!resp.ok) throw new Error(`checkpoint ${resp.status}`)
+        const state = await fetch(
+          `/api/browser/sessions/${encodeURIComponent(sessionId)}/state`,
+          { headers: { Authorization: `Bearer ${pipToken}` }, cache: 'no-store' },
+        )
+        if (state.ok) {
+          const body = (await state.json()) as {
+            data?: { task?: unknown; phase?: { phase?: string } }
+          }
+          if (body.data?.task !== undefined) setTaskRaw(body.data.task)
+          if (body.data?.phase?.phase === 'running') setPhase('running')
+        }
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error))
+      } finally {
+        window.setTimeout(() => setResumeBusy(false), 600)
+      }
+    })()
+  }, [activeCheckpoint?.id, pipToken, sessionId])
 
   const onHandover = useCallback(async () => {
     if (!isTauri()) {

@@ -1,9 +1,9 @@
 {
   "appUpdate": {
-    "title": "新しいバージョンがあります",
-    "action": "更新",
+    "title": "アプリ更新",
+    "action": "今すぐ更新",
     "close": "閉じる",
-    "readyBody": "更新のダウンロードが完了しました。「更新」をタップするとすぐに反映されます。"
+    "readyBody": "更新のダウンロードが完了しました。「今すぐ更新」をタップするとすぐに反映されます。"
   },
   "checkIn": {
     "title": "毎日チェックイン"
@@ -4882,7 +4882,7 @@
     "paid": "有料",
     "searchPlaceholder": "エージェントを検索",
     "title": "エージェント市場",
-    "uses": "利用回数"
+    "uses": "使用回数"
   },
   "agentReviewList": {
     "author": "著者",
