@@ -42,6 +42,8 @@ export * from './permission-axis.js'
 export * from './approval-decision.js'
 // 推理强度档位封闭集合(D130,2026-09-30 立):跨端 wire 值域第四落点,由守门 C5/C6 与既有三处对账。
 export * from './reasoning-effort.js'
+// L14:ACP 方法表与错误码单一真相源(agent-sdk / api-client / 三端共用,2026-11-26)
+export * from './agent-protocol.js'
 
 // 旧架构迁移补齐类型 (2026-07-22)
 // 来源: git commit 3ee96cf09 旧架构 client/src/api/* 中存在但新架构未独立导出的类型

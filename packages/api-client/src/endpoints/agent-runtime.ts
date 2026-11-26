@@ -9,6 +9,7 @@ import {
   fetchWithAuthRefresh,
   isAbortError,
 } from '../client.js'
+import { ACP_METHODS, acpMethodHeaders } from '../agent-protocol.js'
 // G-693(2026-10-01 立):读环空闲判据 —— canonical 在 packages/shared/src/utils/stream-idle.ts,
 // 本包零依赖不得反向 import(会成环),故走包内逐字移植;漂移由
 // tests/g-693-stream-idle-parity.test.ts 钉住(先例:frame-watermark.js / error-serialize.js)。
@@ -791,6 +792,7 @@ export async function executeAgentStream(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'text/event-stream',
+    ...acpMethodHeaders(ACP_METHODS.sessionPrompt),
     ...(options.headers ?? {}),
   }
   // D138(承 V4 #96):续传头的写入收敛到 client.ts 的唯一出口(本文件不再直写该头)
@@ -1007,6 +1009,7 @@ export async function executeAgentRuntimeStream(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'text/event-stream',
+    ...acpMethodHeaders(ACP_METHODS.sessionPrompt),
     ...(options.headers ?? {}),
   }
   // D138(承 V4 #96):续传头的写入收敛到 client.ts 的唯一出口(本文件不再直写该头)
