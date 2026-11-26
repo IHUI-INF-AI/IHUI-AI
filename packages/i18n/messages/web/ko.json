@@ -22652,7 +22652,8 @@
     "dataVisibility": "데이터 가시성",
     "dataVisibilityDesc": "프로필 정보 표시 범위 제어",
     "desc": {
-      "notificationSound": "수신알림시간"
+      "notificationSound": "수신알림시간",
+      "notificationRingtone": "새 알림이 오면 선택한 벨소리를 재생합니다"
     },
     "device": {
       "empty": "콘텐츠가 없습니다",
@@ -22831,7 +22832,8 @@
       "title": "IP 화이트리스트"
     },
     "labels": {
-      "notificationSound": "알림"
+      "notificationSound": "알림",
+      "notificationRingtone": "알림 벨소리"
     },
     "langZh": "중국어",
     "llmConfigsDesc": "LLM 제공자 및 매개변수 설정",
@@ -23094,7 +23096,18 @@
     "codeIndexEgressOptOut": "코드 의미 인덱스 생성 중단",
     "codeIndexEgressOptOutDesc": "코드 분할 데이터가 외부로 전송되어 벡터화 및 인덱싱에 사용되는 것을 방지합니다.",
     "autoMemoryOptOut": "자동 장기 기억 비활성화",
-    "autoMemoryOptOutDesc": "대화가 세션 간 선호도 또는 약속으로 추출되지 않습니다."
+    "autoMemoryOptOutDesc": "대화가 세션 간 선호도 또는 약속으로 추출되지 않습니다.",
+    "ringtonePreview": "미리 듣기",
+    "ringtoneNames": {
+      "dingdong": "초인종",
+      "tritone": "상승 3음",
+      "waterdrop": "물방울",
+      "doublebell": "더블 벨",
+      "bubble": "거품",
+      "marimba": "마림바",
+      "chime": "차임",
+      "knock": "노크"
+    }
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI 생성",

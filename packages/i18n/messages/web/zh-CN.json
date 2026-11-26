@@ -22977,7 +22977,8 @@
     "dataVisibility": "数据可见性",
     "dataVisibilityDesc": "控制谁可以查看您的个人资料信息",
     "desc": {
-      "notificationSound": "接收通知时播放声音"
+      "notificationSound": "接收通知时播放声音",
+      "notificationRingtone": "收到新通知时播放所选铃声"
     },
     "device": {
       "empty": "暂无登录设备",
@@ -23156,7 +23157,8 @@
       "title": "IP 白名单"
     },
     "labels": {
-      "notificationSound": "通知声音"
+      "notificationSound": "通知声音",
+      "notificationRingtone": "通知铃声"
     },
     "langZh": "中文",
     "llmConfigsDesc": "配置大语言模型提供商与参数",
@@ -23419,6 +23421,17 @@
     "devices": {
       "navTitle": "设备管理",
       "navDesc": "查看已登录的设备并管理会话"
+    },
+    "ringtonePreview": "试听",
+    "ringtoneNames": {
+      "dingdong": "门铃",
+      "tritone": "上扬三音",
+      "waterdrop": "水滴",
+      "doublebell": "双响铃",
+      "bubble": "气泡",
+      "marimba": "木琴",
+      "chime": "和弦铃",
+      "knock": "轻敲"
     }
   },
   "shareContentPage": {

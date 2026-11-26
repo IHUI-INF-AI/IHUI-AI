@@ -45,9 +45,13 @@ function argValue(name) {
   return idx >= 0 ? process.argv[idx + 1] : ''
 }
 
+// 兜底路径由 tauri.conf.json 现读派生(产品名 + 版本):硬编码版本号每发一次版就腐烂一次
+const desktopConf = JSON.parse(
+  readFileSync(new URL('../apps/desktop/src-tauri/tauri.conf.json', import.meta.url), 'utf8'),
+)
 const installer = resolve(
   argValue('--installer') ||
-    'apps/desktop/src-tauri/target/release/bundle/nsis/智汇AI_0.1.93_x64-setup.exe',
+    `apps/desktop/src-tauri/target/release/bundle/nsis/${desktopConf.productName}_${desktopConf.version}_x64-setup.exe`,
 )
 
 function fail(message, root) {
@@ -250,7 +254,13 @@ try {
   const bakFile = `${stateFile}.bak`
   const bakBefore = readFileSync(bakFile, 'utf8')
   rmSync(stateFile)
-  run('静默 /UPDATE（仅 .bak 标记）零弹窗', setup, ['/S', '/UPDATE', `/D=${installDir}`], TIMEOUT_UPDATE_MS, 2)
+  run(
+    '静默 /UPDATE（仅 .bak 标记）零弹窗',
+    setup,
+    ['/S', '/UPDATE', `/D=${installDir}`],
+    TIMEOUT_UPDATE_MS,
+    2,
+  )
   writeFileSync(stateFile, before, 'utf8')
 
   rmSync(stateFile)
