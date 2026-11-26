@@ -619,3 +619,134 @@ export async function cleanupPointHolds(options?: {
   )
   return { expired, releasedPoints, deleted }
 }
+
+/** 从 drizzle db.execute 的两种返回形态里取 rows(driver 升级前后兼容)。 */
+function holdRows<T>(result: unknown): T[] {
+  return (result as { rows?: T[] }).rows ?? (Array.isArray(result) ? (result as T[]) : [])
+}
+
+export interface PointHoldHealth {
+  asOf: string
+  /** 当前仍处于 held 的冻结(含已过期但尚未被回收的 stale 行) */
+  held: { count: number; points: number; oldestAgeMinutes: number }
+  /** expires_at 已过但仍 status=held,等待每日任务/懒释放回收 */
+  staleHeld: { count: number; points: number }
+  /** 近 24 小时终态:过期回收 / 正常结算 / 主动释放 */
+  last24h: {
+    expired: { count: number; points: number }
+    settled: { count: number; points: number }
+    released: { count: number; points: number }
+  }
+  /** 近 24 小时按 source 拆分,定位哪个业务口冻结最多 */
+  bySource: Array<{ source: string; status: string; count: number; points: number }>
+  /** user_points.reserved_points 与 point_holds held 汇总不一致的账户 */
+  reservedMismatch: { users: number; points: number }
+}
+
+/**
+ * 积分冻结健康大盘(2026-11-26 立)。
+ *
+ * 只看日志无法回答"现在压了多少积分、有没有过期没释放、账面 reserved 是否漂移",
+ * 这里把 point_holds 的实时状态聚合成一屏可观测指标;只读,不修改任何数据。
+ */
+export async function getPointHoldHealth(): Promise<PointHoldHealth> {
+  const heldRes = await db.execute(sql`
+    select count(*)::int as count,
+           coalesce(sum(amount), 0)::bigint as points,
+           min(created_at) as oldest
+    from point_holds
+    where status = 'held'
+  `)
+  const heldRow = holdRows<{
+    count: number
+    points: number | string
+    oldest: Date | string | null
+  }>(heldRes)[0]
+  const heldCount = Number(heldRow?.count ?? 0)
+  const heldPoints = Number(heldRow?.points ?? 0)
+  const oldestMs = heldRow?.oldest ? new Date(heldRow.oldest).getTime() : NaN
+  const oldestAgeMinutes = Number.isFinite(oldestMs)
+    ? Math.max(0, Math.trunc((Date.now() - oldestMs) / 60_000))
+    : 0
+
+  const staleRes = await db.execute(sql`
+    select count(*)::int as count, coalesce(sum(amount), 0)::bigint as points
+    from point_holds
+    where status = 'held' and expires_at < now()
+  `)
+  const staleRow = holdRows<{ count: number; points: number | string }>(staleRes)[0]
+  const staleHeld = {
+    count: Number(staleRow?.count ?? 0),
+    points: Number(staleRow?.points ?? 0),
+  }
+
+  const last24Res = await db.execute(sql`
+    select status, count(*)::int as count, coalesce(sum(amount), 0)::bigint as points
+    from point_holds
+    where status in ('expired', 'settled', 'released')
+      and settled_at >= now() - interval '24 hours'
+    group by status
+  `)
+  const last24h: PointHoldHealth['last24h'] = {
+    expired: { count: 0, points: 0 },
+    settled: { count: 0, points: 0 },
+    released: { count: 0, points: 0 },
+  }
+  for (const row of holdRows<{ status: string; count: number; points: number | string }>(
+    last24Res,
+  )) {
+    if (row.status === 'expired' || row.status === 'settled' || row.status === 'released') {
+      last24h[row.status] = { count: Number(row.count ?? 0), points: Number(row.points ?? 0) }
+    }
+  }
+
+  const bySourceRes = await db.execute(sql`
+    select source, status, count(*)::int as count, coalesce(sum(amount), 0)::bigint as points
+    from point_holds
+    where status = 'held'
+       or (status in ('expired', 'settled', 'released')
+           and settled_at >= now() - interval '24 hours')
+    group by source, status
+    order by count desc, source asc
+    limit 40
+  `)
+  const bySource = holdRows<{
+    source: string
+    status: string
+    count: number
+    points: number | string
+  }>(bySourceRes).map((row) => ({
+    source: row.source,
+    status: row.status,
+    count: Number(row.count ?? 0),
+    points: Number(row.points ?? 0),
+  }))
+
+  const mismatchRes = await db.execute(sql`
+    with held as (
+      select user_id, sum(amount)::bigint as points
+      from point_holds
+      where status = 'held'
+      group by user_id
+    )
+    select count(*)::int as users,
+           coalesce(sum(abs(p.reserved_points - coalesce(h.points, 0))), 0)::bigint as points
+    from user_points p
+    left join held h on h.user_id = p.user_id
+    where p.reserved_points <> coalesce(h.points, 0)
+  `)
+  const mismatchRow = holdRows<{ users: number; points: number | string }>(mismatchRes)[0]
+  const reservedMismatch = {
+    users: Number(mismatchRow?.users ?? 0),
+    points: Number(mismatchRow?.points ?? 0),
+  }
+
+  return {
+    asOf: new Date().toISOString(),
+    held: { count: heldCount, points: heldPoints, oldestAgeMinutes },
+    staleHeld,
+    last24h,
+    bySource,
+    reservedMismatch,
+  }
+}

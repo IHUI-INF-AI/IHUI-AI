@@ -49,6 +49,7 @@ import {
 } from '../services/model-pricing-admin.js'
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { repricePlaceholderModels } from '../services/model-price-resolver.js'
+import { cleanupPointHolds, getPointHoldHealth } from '../services/points-service.js'
 import { hashPassword } from '../utils/password-crypto.js'
 import { db } from '../db/index.js'
 import { orders, users, projects, aiPricing } from '@ihui/database'
@@ -171,6 +172,44 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
+  // GET /ai-pricing/point-holds - 积分冻结健康(2026-11-26 立)
+  // held 总量/最老冻结/stale 未回收/24h 终态/reserved 账面偏差,全部只读聚合。
+  server.get(
+    '/ai-pricing/point-holds',
+    {
+      schema: {
+        summary: '积分冻结健康大盘',
+        description:
+          '返回当前 held 积分数、过期未回收数、近 24 小时结算/释放/过期数、按 source 分布,以及 reserved_points 账面偏差。',
+        tags: ['admin'],
+      },
+    },
+    async (_request, reply) => {
+      const data = await getPointHoldHealth()
+      return reply.send(success(data))
+    },
+  )
+
+  // POST /ai-pricing/point-holds/cleanup - 手动回收过期冻结(每日任务外的运维兜底)
+  server.post(
+    '/ai-pricing/point-holds/cleanup',
+    {
+      schema: {
+        summary: '手动回收过期积分冻结',
+        description:
+          '立即把过期 held 置 expired 并回退 reserved_points,同时清理超过保留期的历史行。',
+        tags: ['admin'],
+      },
+    },
+    async (request, reply) => {
+      const body = (request.body ?? {}) as { retentionDays?: unknown }
+      const raw = Number(body.retentionDays)
+      const retentionDays = Number.isFinite(raw) ? Math.trunc(raw) : undefined
+      const result = await cleanupPointHolds({ retentionDays })
+      return reply.send(success(result))
+    },
+  )
+
   // GET /ai-pricing/profit - 利润看板(收入/成本/毛利/毛利率,2026-11-14 立)
   // 口径:成本只统计 metadata.providerCostCents 已落账的调用;成本未知行只计收入、
   // 不计利润,并用 costCoverage 暴露覆盖度,避免"未知成本当零成本"虚增毛利。
@@ -214,14 +253,16 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // POST /ai-pricing/backfill-cost - 回填模型采购成本列(幂等,2026-11-14 立)
-  // 只处理 cost_* 为空且 profitFactor>=1 的行;重复调用不会覆盖已有成本。
+  // 两段:先按 metadata.priceSource.profitFactor 反推;再用 ai_pricing 同模型 token
+  // 公示价 / PROFIT_FACTOR 兜底。只碰 cost_* 仍为空的行,已有成本不动。
   server.post(
     '/ai-pricing/backfill-cost',
     {
       schema: {
         summary: '回填模型采购成本列',
         description:
-          '按 metadata.priceSource.profitFactor 反推历史模型的采购成本;幂等,已有成本的行不动。',
+          '按历史 profitFactor 或同模型 token 公示价反推采购成本;幂等,已有成本的行不动。' +
+          '仍无公示价的模型保持 null,LLM 调用继续 fail-closed。',
         tags: ['admin'],
       },
     },

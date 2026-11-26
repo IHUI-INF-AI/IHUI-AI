@@ -588,10 +588,23 @@ export interface CostBackfillResult {
   scanned: number
   /** 本次回填行数 */
   updated: number
-  /** 候选里缺 profitFactor、无法反推的行数 */
+  /** 候选里既无 profitFactor 也无公示价、无法反推的行数 */
   skipped: number
+  /** 按来源拆分,便于判断回填可信度 */
+  bySource: { metadata: number; catalog: number }
 }
 
+/**
+ * 成本列回填(2026-11-14 立,2026-11-26 扩展公示价兜底)。
+ *
+ * 两段幂等更新,只碰 cost_* 仍为空的行:
+ * 1. 有 `metadata.priceSource.profitFactor` 的,按历史售价反推;
+ * 2. 没有留痕但 `ai_pricing` 有同模型 token 公示价的,按 `公示价 / PROFIT_FACTOR` 反推。
+ *
+ * 第 2 段只用于把"有售价、没成本"的模型从 fail-closed 里救回来:成本由平台自己设定的
+ * 公示价倒推,毛利率恒等于 PROFIT_FACTOR,不会比公示价更亏;仍然没有公示价的模型继续
+ * 返回 null,由 LLM 预检 fail-closed 503,不白送。
+ */
 export async function backfillCostPrices(): Promise<CostBackfillResult> {
   const scanRes = await db.execute(sql`
     select count(*)::int as n
@@ -600,7 +613,7 @@ export async function backfillCostPrices(): Promise<CostBackfillResult> {
   `)
   const scanned = asNum(rowsOf<{ n: number }>(scanRes)[0]?.n)
 
-  const updatedRes = await db.execute(sql`
+  const metadataRes = await db.execute(sql`
     with src as (
       select id,
              input_price_per_1k,
@@ -620,8 +633,39 @@ export async function backfillCostPrices(): Promise<CostBackfillResult> {
       and s.pf >= 1
     returning m.id
   `)
-  const updated = rowsOf<Record<string, unknown>>(updatedRes).length
-  return { scanned, updated, skipped: Math.max(0, scanned - updated) }
+  const metadataUpdated = rowsOf<Record<string, unknown>>(metadataRes).length
+
+  const catalogRes = await db.execute(sql`
+    with src as (
+      select distinct on (lower(model_id))
+             lower(model_id) as mid,
+             input_token_price as ip,
+             output_token_price as op
+      from ai_pricing
+      where coalesce(billing_mode, 'token') = 'token'
+        and input_token_price > 0
+        and output_token_price > 0
+        and (expires_at is null or expires_at > now())
+      order by lower(model_id), effective_at desc
+    )
+    update ai_model_config_models m
+    set cost_input_price_per_1k = round(s.ip / ${PROFIT_FACTOR}, 6),
+        cost_output_price_per_1k = round(s.op / ${PROFIT_FACTOR}, 6),
+        updated_at = now()
+    from src s
+    where lower(m.model_id) = s.mid
+      and (m.cost_input_price_per_1k is null or m.cost_output_price_per_1k is null)
+    returning m.id
+  `)
+  const catalogUpdated = rowsOf<Record<string, unknown>>(catalogRes).length
+
+  const updated = metadataUpdated + catalogUpdated
+  return {
+    scanned,
+    updated,
+    skipped: Math.max(0, scanned - updated),
+    bySource: { metadata: metadataUpdated, catalog: catalogUpdated },
+  }
 }
 
 // =============================================================================

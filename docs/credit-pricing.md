@@ -53,6 +53,7 @@
 - 冻结写入 `user_points.reserved_points` 与 `point_holds`；可用余额 = `points + 当日 daily_points - reserved_points`。
 - 冻结 TTL 15 分钟，到期由 `releaseExpiredPointHolds` 懒释放；每日 `pricing-guard` 任务再跑一次 `cleanupPointHolds`，把长期不活跃用户的过期 hold 批量置 `expired` 并回退 `reserved_points`，同时删除 90 天前的历史行。
 - 冻结时把当次费率写入 `point_holds.pricing_snapshot`（输入/输出积分每千 token、`pricing_model_id`、冻结时间）；结算优先按快照算，管理员在 15 分钟窗口内调价不会改变在途请求的扣费。
+- 运维观测：`GET /admin/ai-pricing/point-holds` 返回当前 held 笔数/积分、最老冻结时长、过期未回收、近 24h 结算/释放/过期、按 source 分布、`reserved_points` 与 held 汇总的账面偏差；`POST /admin/ai-pricing/point-holds/cleanup` 可手动触发同一套回收逻辑。
 - 预检结果：
   - 无成本价 → `503 MODEL_PRICING_MISSING`，不发起上游；
   - 定价异常 → `503 MODEL_PRICING_INVALID`；
@@ -144,7 +145,7 @@
 - `PATCH /admin/ai-pricing/models/:id`（人工调价）：输入/输出两个方向都必须大于 0，服务层 `updateModelPrice` 同一判据再兜一层，绕过路由也写不进零价。
 - `assertPricedForPublish` 继续拦截上架零价/1分2分占位价；`getUnpricedAlerts` 每日巡检在架零价与近 7 天零价调用。
 - `GET /admin/ai-pricing/missing-costs?days=30&limit=500`：列出 `cost_input/output_price_per_1k` 任一为 `NULL` 的启用模型，按近 N 天调用量排序。这些模型会被 LLM 计费 fail-closed（503），运营按榜单补成本价即可恢复售卖。
-- `GET /admin/ai-pricing/models?onlyProblems=true` 仍可查人工调价问题行；成本回填用 `backfillCostPrices`。
+- `GET /admin/ai-pricing/models?onlyProblems=true` 仍可查人工调价问题行；成本回填用 `backfillCostPrices`：先按 `metadata.priceSource.profitFactor` 反推，再用 `ai_pricing` 同模型 token 公示价 / 3 兜底，仍无公示价的模型保持 `null` 并继续 fail-closed。
 
 ### 3.6 MAGI-2
 
@@ -231,4 +232,5 @@
 | 2026-07-31 | 初版立稿（LLM 倍率计费） |
 | 2026-11-25 | 媒体计价收口到 `ai_pricing`；新增按秒计费与 MAGI-2 定价；新增钱包→积分兑换桥 |
 | 2026-11-26 | 全收费改造：LLM 改输入/输出分离的成本×3 计价，取消 0 倍率与免费档；预检按 prompt+max_tokens 冻结，新增 `point_holds` / `reserved_points`；无 usage 不再跳过；媒体删除全部兜底价，未定价 503；新增 `ai_cost_records.cost_status`；补 14 个内置媒体/语音零售价 |
+| 2026-11-26 | 计费观测与成本回填：新增 `GET /admin/ai-pricing/point-holds` 健康接口与管控台卡片、手动回收按钮；`backfillCostPrices` 增加 `ai_pricing` 公示价 / 3 兜底，仍无价模型继续 fail-closed |
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
