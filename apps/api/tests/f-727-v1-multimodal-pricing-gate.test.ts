@@ -35,10 +35,10 @@ describe('F-727 v1 多模态定价上下文', () => {
     })
   })
 
-  it('audio 走 per_call 的 chat 计价', () => {
+  it('audio 单列 audio 计价,优先命中 per_call 行', () => {
     expect(multimodalPriceRequest('/audio/speech', { model: 'gpt-4o-mini-tts' })).toEqual({
       model: 'gpt-4o-mini-tts',
-      callType: 'chat',
+      callType: 'audio',
       units: 1,
     })
   })

@@ -151,7 +151,7 @@ function requireMultimodalPrice(): preHandlerAsyncHookHandler {
     }
     // 2026-11-26:图片/视频的“分/张、分/次”若小于 1 分,基本可判定是单位写错
     // (gpt-image-2/2.5 的 0.02~0.03 分/张 vs 真实成本约 29 分/张),先拒绝而不是按错价卖。
-    if (ctx.callType !== 'chat' && quote.totalCostCents < 1) {
+    if ((ctx.callType === 'image' || ctx.callType === 'video') && quote.totalCostCents < 1) {
       logger.warn('[billing] 多模态单价低于 1 分,按错价拒绝调用', {
         route: routeUrl,
         model: ctx.model,
@@ -165,10 +165,10 @@ function requireMultimodalPrice(): preHandlerAsyncHookHandler {
     }
     // 媒体路径没有预扣凭证,至少在上游调用前确认成本余额够本次报价,
     // 避免“先生成成功、后结算扣不到钱”。并发超支仍需后续媒体预扣收口。
-    // 音频(ctx.callType='chat')走内部 AI 积分账(ai-audio.ts 的 chargeMediaPoints),
+    // 音频(ctx.callType='audio')走内部 AI 积分账(ai-audio.ts 的 chargeMediaPoints),
     // 不查 API Key 成本余额,否则会误伤“有积分但 Key 成本余额为 0”的用户。
     const apiKey = apiKeyOf(request)
-    if (apiKey && ctx.callType !== 'chat') {
+    if (apiKey && ctx.callType !== 'audio') {
       let balance: Awaited<ReturnType<typeof getSpendableCostBalance>>
       try {
         balance = await getSpendableCostBalance(apiKey.id)

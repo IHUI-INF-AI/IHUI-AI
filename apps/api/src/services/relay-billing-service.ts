@@ -342,13 +342,14 @@ export interface CalculateCostCacheOptions {
   /** prompt cache 创建写入的 token 数(按 input price × 1.25 计费) */
   cacheCreationTokens?: number
   /**
-   * 调用类型(2026-09-13 多模态计费):chat(默认)|image|video。
+   * 调用类型(2026-09-13 多模态计费):chat(默认)|image|video|audio。
+   * 2026-11-26:audio 单列,避免音频按 chat 选中更新的 token 行而绕过 per_call 价。
    * 定价行 billingMode 与之匹配时走按次/按张/按视频分支:
    *   per_image → perUnitPrice × units(张数)
    *   per_video → perUnitPrice × units(videoUnit='second' 按秒,'call' 按次)
-   *   per_call  → tieredCallPrices 按 promptTokens 分档(≤256K/≤512K/>512K),chat 专用
+   *   per_call  → tieredCallPrices 按 promptTokens 分档(≤256K/≤512K/>512K),chat/audio 共用
    */
-  callType?: 'chat' | 'image' | 'video'
+  callType?: 'chat' | 'image' | 'video' | 'audio'
   /** 多模态计费单位数:image=张数;video=次数或秒数(默认 1) */
   units?: number
   /**
@@ -788,7 +789,26 @@ export class BillingUnavailableError extends Error {
   }
 }
 
-async function queryPricingRows(dbModelId: string) {
+type PricingCallType = NonNullable<CalculateCostCacheOptions['callType']>
+
+/** 按调用类型优先选定价行,避免「更新的 token 行」把图片/视频/音频顶到 0 token 分支。 */
+const PREFERRED_BILLING_MODES: Record<PricingCallType, string[]> = {
+  chat: ['token', 'per_credit', 'per_call', 'dynamic_cost'],
+  image: ['per_image', 'per_call'],
+  video: ['per_video', 'per_call'],
+  audio: ['per_call'],
+}
+
+/** 纯选择器:同模式内保持传入顺序(调用方已按 effective_at DESC 排序),无兼容模式回退第一行。 */
+export function selectPricingRowForCallType<T extends { billingMode: string | null }>(
+  rows: T[],
+  callType: PricingCallType,
+): T | undefined {
+  const preferredModes = PREFERRED_BILLING_MODES[callType]
+  return rows.find((row) => preferredModes.includes(row.billingMode ?? 'token')) ?? rows[0]
+}
+
+async function queryPricingRows(dbModelId: string, callType: PricingCallType = 'chat') {
   const [modelRow] = await dbRead
     .select({
       id: aiModelConfigModels.id,
@@ -801,7 +821,10 @@ async function queryPricingRows(dbModelId: string) {
     .where(eq(aiModelConfigModels.modelId, dbModelId))
     .limit(1)
 
-  const [pricingRow] = await dbRead
+  // 同一模型可能同时存在 per_image/per_video/per_call/token 多个 active 行:
+  // 旧实现只按 effective_at 取最新一条,图片/视频可能落到 token 行(0 token ⇒ 0 元)。
+  // 现在先按 callType 取兼容模式(同模式内仍按 effective_at 最新),没有再回退最新行。
+  const rows = await dbRead
     .select({
       inputTokenPrice: aiPricing.inputTokenPrice,
       outputTokenPrice: aiPricing.outputTokenPrice,
@@ -823,7 +846,9 @@ async function queryPricingRows(dbModelId: string) {
       ),
     )
     .orderBy(desc(aiPricing.effectiveAt))
-    .limit(1)
+    .limit(20)
+
+  const pricingRow = selectPricingRowForCallType(rows, callType)
 
   return { modelRow, pricingRow }
 }
@@ -847,18 +872,21 @@ export async function calculateCost(
   // 因为 DB ai_model_config_models.model_id 存的是不带前缀的原始 model 名。
   // 2026-09-13:追加官方名归一,客户端任意大小写都能命中(计费漏损兜底)。
   const dbModelId = normalizeModelId(stripLiteLLMPrefix(model))
+  const callType = options?.callType ?? 'chat'
+  // 缓存必须按 callType 分键:同一个模型 image/chat 命中的定价行不同,共用一个键会互相污染。
+  const pricingKey = `${dbModelId}::${callType}`
 
   // 1+2. 定价查询(带 5min 内存缓存,计费熔断见上方 F 注释)
   let modelRow: PricingCacheEntry['modelRow']
   let pricingRow: PricingCacheEntry['pricingRow']
   let pricingDegraded = false
   try {
-    const fresh = await queryPricingRows(dbModelId)
+    const fresh = await queryPricingRows(dbModelId, callType)
     modelRow = fresh.modelRow
     pricingRow = fresh.pricingRow
-    pricingCache.set(dbModelId, { at: Date.now(), modelRow, pricingRow })
+    pricingCache.set(pricingKey, { at: Date.now(), modelRow, pricingRow })
   } catch (e) {
-    const cached = pricingCache.get(dbModelId)
+    const cached = pricingCache.get(pricingKey)
     if (cached && Date.now() - cached.at < PRICING_CACHE_TTL_MS) {
       modelRow = cached.modelRow
       pricingRow = cached.pricingRow
@@ -921,7 +949,6 @@ export async function calculateCost(
   // preDeductQuota 据此抛 BillingUnavailableError,v1 网关返回 503 宁拒不放。
   let source: CalculateCostResult['source'] = pricingDegraded ? 'unavailable' : 'default'
   let billingMode: CalculateCostResult['billingMode'] = 'token'
-  const callType = options?.callType ?? 'chat'
   const units = Math.max(0, Math.ceil(options?.units ?? 1))
 
   // ── 积分维度成本(F-720,2026-11-14)──
@@ -2374,10 +2401,10 @@ export interface PreDeductInput {
   /** 预估 completion token 数(调用方传 max_tokens,未传建议 1024) */
   estimatedCompletionTokens: number
   /**
-   * 多模态计费(2026-09-13):callType=image|video 时按定价行 billingMode 预估;
+   * 多模态计费(2026-09-13):callType=image|video|audio 时按定价行 billingMode 预估;
    * units=image 张数 / video 次数或秒数。per_call 走 estimatedPromptTokens 分档。
    */
-  callType?: 'chat' | 'image' | 'video'
+  callType?: 'chat' | 'image' | 'video' | 'audio'
   billingUnits?: number
 }
 

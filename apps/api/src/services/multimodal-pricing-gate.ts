@@ -7,12 +7,12 @@
  *
  * 把「路由 → 计费类型 / 模型 / 单位数」的判定从路由文件抽出来,便于单测锁住:
  * - image 取 n(1~10),video 先按 1 个单位探价(按秒模型也会 >0);
- * - audio 走 per_call 的 chat 计价;
+ * - audio 走 per_call 的 audio 计价(2026-11-26 单列,避免落到 token 行);
  * - music/3d/generation 走 image 口径,兼容 per_call / per_image 两种定价行。
  *
  * 返回 null 表示 preHandler 不拦价(例如 GET 轮询、请求体没有 model 的 400 请求)。
  */
-export type MultimodalPriceCallType = 'chat' | 'image' | 'video'
+export type MultimodalPriceCallType = 'chat' | 'image' | 'video' | 'audio'
 
 export interface MultimodalPriceContext {
   model: string
@@ -33,7 +33,7 @@ export function multimodalPriceRequest(
     : normalizedRoute.startsWith('/videos')
       ? 'video'
       : normalizedRoute.startsWith('/audio')
-        ? 'chat'
+        ? 'audio'
         : 'image'
   let units = 1
   if (callType === 'image') {

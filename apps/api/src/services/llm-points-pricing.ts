@@ -9,22 +9,21 @@
  * 无法覆盖输出远贵于输入的成本结构。本文件把 `ai_pricing` 的上游成本价
  * 直接换算成用户侧“积分/千 token”：
  *
- *   input_points_per_1k  = max(0.1, cost_input_price_per_1k  × 3)
- *   output_points_per_1k = max(0.1, cost_output_price_per_1k × 3)
+ *   input_points_per_1k  = max(0.1, cost_input_price_per_1k  × 3, ai_pricing.input)
+ *   output_points_per_1k = max(0.1, cost_output_price_per_1k × 3, ai_pricing.output)
  *
- * 成本取 `ai_model_config_models.cost_*_price_per_1k`（采购成本），**不是**
- * `ai_pricing.input/output_token_price`（那是对客零售价）。用零售价×3 会把
- * 历史倒挂价继续放大，无法止血；成本列缺失/为 null 的模型一律 fail-closed。
+ * 成本优先取 `ai_model_config_models.cost_*_price_per_1k`（采购成本）×3；同时
+ * 读取 `ai_pricing.input/output_token_price` 的 token 零售价作为下限（2026-11-26
+ * 补）。零售价本身已含成本加成，直接作为下限，不能再×3 二次放大。这样
+ * 「config cost=0」和「config cost 明显低于零售价」的模型都不会继续按 0.1
+ * 地板价或过低倍率少收。
  *
- * 3 倍是成本加成的最低毛利线；0.1 积分/千 token 是“零成本/极廉价模型”的
- * 收费地板，保证任何模型都不会因为成本为 0 而重新变成免费。
- *
- * 没有 `ai_pricing` token 行的模型返回 null：调用方必须 fail-closed，
- * 不能拿历史倍率兜底白送。
+ * 3 倍是配置成本的成本加成最低毛利线；0.1 积分/千 token 是绝对收费地板。
+ * 两边都没有正价时返回 null，调用方必须 fail-closed，不能白送。
  */
 
-import { and, eq, isNotNull, sql } from 'drizzle-orm'
-import { aiModelConfigModels } from '@ihui/database'
+import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
+import { aiModelConfigModels, aiPricing } from '@ihui/database'
 import { db } from '../db/index.js'
 
 /** 成本加成倍数：3x 成本，覆盖支付通道/税费/基础设施前的毛利约 66.7%。 */
@@ -87,7 +86,6 @@ export async function getLlmPointsRates(modelId: string): Promise<LlmPointsRates
   let costRow:
     | { modelId: string; costInput: string | number | null; costOutput: string | number | null }
     | undefined
-  let pricingModelId = ''
   for (const candidate of candidateModelIds(modelId)) {
     const [row] = await db
       .select({
@@ -108,37 +106,91 @@ export async function getLlmPointsRates(modelId: string): Promise<LlmPointsRates
       .limit(1)
     if (row) {
       costRow = row
-      pricingModelId = row.modelId
       break
     }
   }
 
-  if (!costRow) {
-    cache.set(cacheKey, { value: null, expiresAt: Date.now() + NEGATIVE_CACHE_TTL_MS })
-    return null
+  const inputCost = costRow ? Number(costRow.costInput) : 0
+  const outputCost = costRow ? Number(costRow.costOutput) : 0
+  const configUsable =
+    Boolean(costRow) &&
+    Number.isFinite(inputCost) &&
+    Number.isFinite(outputCost) &&
+    inputCost > 0 &&
+    outputCost > 0
+
+  // 2026-11-26:无论 config 成本是否可用,都读取 ai_pricing 的 token 零售价,
+  // 并用它作为积分/千 token 的下限。零售价本身已含成本加成,直接作为下限,
+  // 不再×3;这样「config cost=0」和「config cost 明显低于零售价」的模型
+  // 都不会继续按 0.1 地板价或低倍率少收。
+  let tokenPriceRow:
+    | {
+        modelId: string
+        inputTokenPrice: string | number | null
+        outputTokenPrice: string | number | null
+      }
+    | undefined
+  for (const candidate of candidateModelIds(modelId)) {
+    const [row] = await db
+      .select({
+        modelId: aiPricing.modelId,
+        inputTokenPrice: aiPricing.inputTokenPrice,
+        outputTokenPrice: aiPricing.outputTokenPrice,
+      })
+      .from(aiPricing)
+      .where(
+        and(
+          sql`lower(${aiPricing.modelId}) = ${candidate.toLowerCase()}`,
+          sql`${aiPricing.effectiveAt} <= now()`,
+          sql`(${aiPricing.expiresAt} IS NULL OR ${aiPricing.expiresAt} > now())`,
+          eq(aiPricing.billingMode, 'token'),
+          sql`${aiPricing.inputTokenPrice} > 0`,
+          sql`${aiPricing.outputTokenPrice} > 0`,
+        ),
+      )
+      .orderBy(desc(aiPricing.effectiveAt))
+      .limit(1)
+    if (row) {
+      tokenPriceRow = row
+      break
+    }
   }
 
-  const inputCost = Number(costRow.costInput)
-  const outputCost = Number(costRow.costOutput)
-  if (
-    !Number.isFinite(inputCost) ||
-    !Number.isFinite(outputCost) ||
-    inputCost < 0 ||
-    outputCost < 0
-  ) {
+  const listInput = tokenPriceRow ? Number(tokenPriceRow.inputTokenPrice) : 0
+  const listOutput = tokenPriceRow ? Number(tokenPriceRow.outputTokenPrice) : 0
+  const listUsable =
+    Boolean(tokenPriceRow) &&
+    Number.isFinite(listInput) &&
+    Number.isFinite(listOutput) &&
+    listInput > 0 &&
+    listOutput > 0
+
+  if (!configUsable && !listUsable) {
     cache.set(cacheKey, { value: null, expiresAt: Date.now() + NEGATIVE_CACHE_TTL_MS })
     return null
   }
 
   const round6 = (n: number) => Math.round(n * 1e6) / 1e6
-  const inputPointsPer1k = round6(Math.max(LLM_MIN_POINTS_PER_1K, inputCost * LLM_COST_MARKUP))
-  const outputPointsPer1k = round6(Math.max(LLM_MIN_POINTS_PER_1K, outputCost * LLM_COST_MARKUP))
+  const inputPointsPer1k = round6(
+    Math.max(
+      LLM_MIN_POINTS_PER_1K,
+      configUsable ? inputCost * LLM_COST_MARKUP : 0,
+      listUsable ? listInput : 0,
+    ),
+  )
+  const outputPointsPer1k = round6(
+    Math.max(
+      LLM_MIN_POINTS_PER_1K,
+      configUsable ? outputCost * LLM_COST_MARKUP : 0,
+      listUsable ? listOutput : 0,
+    ),
+  )
   const rates: LlmPointsRates = {
     inputPointsPer1k,
     outputPointsPer1k,
-    pricingModelId,
-    inputCostPer1k: inputCost,
-    outputCostPer1k: outputCost,
+    pricingModelId: costRow?.modelId ?? tokenPriceRow?.modelId ?? '',
+    inputCostPer1k: configUsable ? inputCost : listInput,
+    outputCostPer1k: configUsable ? outputCost : listOutput,
     displayMultiplier: Math.max(inputPointsPer1k, outputPointsPer1k),
   }
   cache.set(cacheKey, { value: rates, expiresAt: Date.now() + CACHE_TTL_MS })
