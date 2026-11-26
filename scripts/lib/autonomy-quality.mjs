@@ -99,13 +99,27 @@ export function qualityHoldPath(root) {
   return root + '/.ihui-agent/state/auto-evolve-quality-hold.json'
 }
 
-/** 起尺子进程。所有失败路径都收进返回值,绝不抛(调用方在主链上,抛了就会打断落账)。 */
-export function runRuler({ mode, root, version, spawnFn = spawnSync, timeoutMs = 180_000, env = process.env, platform = process.platform } = {}) {
+/**
+ * 起尺子进程。所有失败路径都收进返回值,绝不抛(调用方在主链上,抛了就会打断落账)。
+ * datasetDir:显式指定题库根并透传给子进程 env(PRIVATE_EVAL_DIR);不给则子进程按自己的
+ * 候选根解析。有它才能在不污染常驻批准根的前提下做端到端证明/试跑(§15b 落点纪律)。
+ */
+export function runRuler({
+  mode,
+  root,
+  version,
+  spawnFn = spawnSync,
+  timeoutMs = 180_000,
+  env = process.env,
+  platform = process.platform,
+  datasetDir = null,
+} = {}) {
   if (mode === 'off') return { verdict: 'skipped', rc: null, tail: '', why: '档位 off,未起进程' }
   const plan = resolveRulerPlan(root, env, platform)
   if (!plan.ok) {
     return { verdict: 'undetermined', rc: null, tail: '', why: `尺子不在位:${plan.missing.join(' / ')}` }
   }
+  const childEnv = datasetDir ? { ...env, PRIVATE_EVAL_DIR: String(datasetDir) } : env
   let r
   try {
     r = spawnFn(plan.interpreter, [plan.script, '--version', String(version || 'unknown')], {
@@ -115,6 +129,7 @@ export function runRuler({ mode, root, version, spawnFn = spawnSync, timeoutMs =
       stdio: ['ignore', 'pipe', 'pipe'],
       maxBuffer: 8 << 20,
       cwd: dirname(plan.script),
+      env: childEnv,
     })
   } catch (e) {
     return { verdict: 'undetermined', rc: null, tail: '', why: `尺子调用抛错:${String(e?.message ?? e).slice(0, 160)}` }

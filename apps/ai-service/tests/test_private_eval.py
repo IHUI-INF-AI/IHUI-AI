@@ -237,4 +237,87 @@ def test_load_dataset_dedupes_by_item_id(tmp_path: Any) -> None:
     assert [i.item_id for i in items] == ["a", "b"], "重复 item_id 必须折到首枚,坏行丢弃"
     assert items[0].candidate == "c1", "去重应保第一份"
 
+
+# ---- 模板行不可用(防"没人改就直接假绿") ---- #
+def test_template_rows_are_not_usable(tmp_path: Any) -> None:
+    from app.services.private_eval_store import load_dataset, scan_dataset, write_template
+
+    f = tmp_path / "pairwise-dataset.jsonl"
+    n = write_template(f)
+    assert n == 3
+    assert load_dataset(f) == [], "纯模板文件必须一条可用题都不给(否则会拿占位文字出题)"
+    s = scan_dataset(f)
+    assert s.usable == 0 and s.template == 3 and s.verdict == "template-only", s.to_dict()
+
+
+def test_scan_counts_each_defect_kind(tmp_path: Any) -> None:
+    import json as _json
+
+    from app.services.private_eval_store import scan_dataset
+
+    dicts = [
+        {"item_id": "ok1", "instruction": "i", "candidate": "c", "reference": "r"},
+        {"item_id": "ok1", "instruction": "i", "candidate": "c", "reference": "r"},
+        {"item_id": "ok2", "instruction": "i2", "candidate": "c2", "reference": "r2"},
+        {"item_id": "TEMPLATE-x", "instruction": "i", "candidate": "c", "reference": "r"},
+        {"item_id": "miss", "instruction": "i", "candidate": "c"},
+    ]
+    lines = [_json.dumps(d, ensure_ascii=False) for d in dicts]
+    lines.append("not-json{")  # 坏行
+    f = tmp_path / "pairwise-dataset.jsonl"
+    f.write_text("\n".join(lines), encoding="utf-8")
+    s = scan_dataset(f)
+    assert (s.total, s.usable, s.duplicate, s.template, s.missing_field, s.malformed) == (6, 2, 1, 1, 1, 1), s.to_dict()
+    assert s.verdict == "usable"
+
+
+# ---- CLI 装车证据:子进程真跑,零网络零密钥,且**绝不泄题** ---- #
+def test_cli_init_template_then_validate(tmp_path: Any) -> None:
+    """装车证据:子进程真跑 CLI。零网络零密钥,且**绝不泄题**。"""
+    import json as _json
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    app_root = Path(__file__).resolve().parents[1]
+    child_env = {**os.environ, "PRIVATE_EVAL_DIR": str(tmp_path), "PYTHONIOENCODING": "utf-8"}
+
+    def run_cli(*flags: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, "scripts/private_eval_run.py", *flags],
+            cwd=app_root,
+            env=child_env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=240,
+            check=False,
+        )
+
+    t = run_cli("--init-template")
+    assert t.returncode == 0, (t.stdout or "") + (t.stderr or "")
+    tpl = tmp_path / "pairwise-dataset.TEMPLATE.jsonl"
+    assert tpl.exists(), "模板应落在批准根内,且文件名不带正式题库名"
+    assert not (tmp_path / "pairwise-dataset.jsonl").exists(), "生成模板不得顺手造出正式题库(那会变成可用题=0 的假状态)"
+
+    v = run_cli("--validate")
+    assert v.returncode == 2, v.stdout  # 只有模板未被替换 ⇒ 未判定,绝不冒绿
+    assert "template-only" in v.stdout
+
+    secret_text = "绝不该出现在终端里的机密题面"
+    (tmp_path / "pairwise-dataset.jsonl").write_text(
+        "\n".join(
+            _json.dumps({"item_id": f"x{i}", "instruction": secret_text, "candidate": "c", "reference": "r"}, ensure_ascii=False)
+            for i in range(4)
+        ),
+        encoding="utf-8",
+    )
+    v2 = run_cli("--validate")
+    assert v2.returncode == 0, v2.stdout
+    assert "可用=4" in v2.stdout
+    assert secret_text not in (v2.stdout or "") + (v2.stderr or ""), "体检档绝不允许打印题面文字(保密轴)"
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

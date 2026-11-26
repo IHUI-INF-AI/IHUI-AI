@@ -108,6 +108,20 @@ test('真跑形状:argv 带版本号,stdio 显式接管且 windowsHide(§12g/§5
   assert.ok(r.tail.includes('regression'), r.tail)
 })
 
+test('datasetDir 必须透传成子进程 PRIVATE_EVAL_DIR(不污染常驻批准根才能试跑)', () => {
+  const seenEnv = {}
+  const root = process.cwd().replace(/\\/g, '/')
+  const fake = (file, args, opts) => {
+    Object.assign(seenEnv, opts.env || {})
+    return { status: 2, stdout: '哨兵: unjudged 基线样本不足\n', stderr: '' }
+  }
+  const r = Q.runRuler({ mode: 'observe', root, version: 'e'.repeat(40), datasetDir: 'D:/DevEnv/Temp/ihui-ruler-proof', env: {}, platform: 'win32', spawnFn: fake })
+  assert.equal(r.verdict, 'undetermined', '退 2 必须读成未判定')
+  assert.equal(seenEnv.PRIVATE_EVAL_DIR, 'D:/DevEnv/Temp/ihui-ruler-proof')
+  const noDir = Q.runRuler({ mode: 'observe', root, version: 'f'.repeat(40), env: {}, platform: 'win32', spawnFn: () => ({ status: 0, stdout: '', stderr: '' }) })
+  assert.equal(noDir.verdict, 'ok')
+})
+
 test('台账行形状:动作名一一对应、无题面字段、why 限长且不换行', () => {
   assert.equal(Q.buildQualityLedgerRow({ verdict: 'ok', rc: 0 }).action, 'quality-ok')
   assert.equal(Q.buildQualityLedgerRow({ verdict: 'regression', rc: 1 }).action, 'quality-regression')
