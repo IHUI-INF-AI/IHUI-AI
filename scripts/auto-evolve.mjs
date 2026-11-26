@@ -3585,7 +3585,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
               tune: gates.quality.tune ?? null,
               datasetDir: gates.quality.datasetDir ?? null,
               stamp: gates.quality.stamp ?? null,
-              timeoutMs: 300_000,
+              timeoutMs: 900_000,
             })
             const verdict = qr.verdict === 'skipped' ? null : qr.verdict
             let holdUntil = null
