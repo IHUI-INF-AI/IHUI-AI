@@ -77,8 +77,8 @@
   position: absolute;
   top: 0;
   right: 0;
-  min-width: 48rpx;
-  min-height: 48rpx;
+  min-width: var(--spacing-2xl);
+  min-height: var(--spacing-2xl);
   line-height: 48rpx;
   text-align: center;
   font-size: var(--text-title);

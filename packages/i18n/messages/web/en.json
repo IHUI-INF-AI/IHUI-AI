@@ -12306,6 +12306,7 @@
     "pdfPageJump": "Jump to page",
     "pdfPageJumpLabel": "Page number",
     "pptxNotes": "Notes",
+    "pptxOutline": "Text outline",
     "csvPreviewMeta": "{rows} rows × {cols} cols",
     "csvExpand": "Show all",
     "csvCollapse": "Collapse",
@@ -14380,6 +14381,25 @@
     "totalCount": "{count} total"
   },
   "docs": {
+    "repositoryFiles": {
+      "title": "Repository files",
+      "description": "Non-Markdown files from the docs repository — PDF, Office, spreadsheets, images, audio and video — previewed in their original format",
+      "loading": "Loading...",
+      "preview": "Preview",
+      "count": "{count} files"
+    },
+    "projectFiles": {
+      "count": "{count} files",
+      "description": "Files uploaded to your project workspaces, previewed in their original format",
+      "download": "Download original",
+      "exitFullscreen": "Exit fullscreen",
+      "fullscreen": "Fullscreen",
+      "loading": "Loading...",
+      "preview": "Preview",
+      "previewFailed": "Preview failed — download the file to view it",
+      "retry": "Retry",
+      "title": "My project files"
+    },
     "navAgent": "Agent Development",
     "navApi": "API Docs",
     "navDevelopers": "Developers",
@@ -15150,7 +15170,10 @@
       "symbolPlaceholder": "Symbol, e.g. AAPL or 600519",
       "time": "Time",
       "title": "AI Stock Analysis",
-      "tokenBalance": "AI Points Balance", "permanent": "Permanent", "daily": "Daily grant", "dailyHint": "100 daily points expire at the end of the day",
+      "tokenBalance": "AI Points Balance",
+      "permanent": "Permanent",
+      "daily": "Daily grant",
+      "dailyHint": "100 daily points expire at the end of the day",
       "tokensUsed": "Tokens used",
       "total": "Total",
       "used": "Used",
@@ -15792,7 +15815,11 @@
     "description": "One-stop discovery of APIs, Agents, docs, models and SDKs",
     "documents": {
       "catAll": "All",
+      "catAllFormats": "All formats",
+      "clearFilters": "Clear filters",
+      "formatFilter": "Format",
       "close": "Close",
+      "previewFailed": "Preview failed. Please try again.",
       "description": "Browse integration and dev docs",
       "loading": "Loading...",
       "noMatch": "No matching documents",
@@ -19778,6 +19805,10 @@
     "schedulerNextRun": "Next {time}"
   },
   "nav": {
+    "market": "AI Store",
+    "aiHome": "IHUI AI",
+    "feed": "Feed",
+    "mine": "Me",
     "checkin": "Check-in",
     "ecosystemHub": "Ecosystem Market",
     "adminRelayInsights": "Insights",
@@ -26407,7 +26438,19 @@
   },
   "community": {
     "follow": "Following",
-    "follower": "Followers"
+    "follower": "Followers",
+    "title": "IHUI AI",
+    "subtitle": "The agent community — find and get the most from every AI",
+    "posts": "Posts",
+    "searchPlaceholder": "Search agents",
+    "banners": "Featured",
+    "categories": "Categories",
+    "recent": "Recently used",
+    "recentHint": "Last used recently",
+    "recentEmpty": "No usage yet — pick an agent to get started",
+    "myAgents": "My agents",
+    "recommended": "Recommended agents",
+    "unknownAgent": "Unknown agent"
   },
   "profileEdit": {
     "retry": "Retry",
@@ -31092,6 +31135,15 @@
     "expStatusPaid": "Paid",
     "expStatusVoided": "Voided",
     "uploading": "Uploading…"
+  },
+  "ringtoneNames": {
+    "dingdong": "Ding-dong",
+    "tritone": "Tritone",
+    "waterdrop": "Water drop",
+    "doublebell": "Double bell",
+    "bubble": "Bubble",
+    "marimba": "Marimba",
+    "chime": "Chime",
+    "knock": "Knock"
   }
 }
-

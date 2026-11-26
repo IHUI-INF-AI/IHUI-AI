@@ -141,7 +141,34 @@
     "loginFailed": "Login failed, please try again",
     "wechatOneClick": "One-click WeChat Login",
     "webAuthLogin": "Sign in via web authorization",
-    "agreement": "By continuing, you agree to the User Agreement and Privacy Policy"
+    "agreement": "By continuing, you agree to the User Agreement and Privacy Policy",
+    "getCode": "Get code",
+    "phoneInvalid": "Enter a valid phone number",
+    "emailInvalid": "Enter a valid email",
+    "wechatUnavailable": "WeChat login is unavailable in this environment",
+    "ssoUnavailable": "Web authorization login is not available yet. Please sign in with a phone or email code.",
+    "brand": "IHUI AI",
+    "phoneLogin": "Phone",
+    "codePlaceholder": "Enter code",
+    "wechatLogin": "WeChat",
+    "codeCountdownSuffix": "s to resend",
+    "ssoLoginTitle": "IHUI AI web authorization login",
+    "emailLogin": "Email",
+    "email": "Email",
+    "emailPlaceholder": "Enter your email",
+    "clearHistory": "Clear all",
+    "code": "Code",
+    "sending": "Sending…",
+    "phone": "Phone",
+    "autoLogin": "Auto sign-in",
+    "or": "or",
+    "noAccount": "No account?",
+    "registerNow": "Sign up",
+    "agreePrefix": "I have read and agree to",
+    "termsOfService": "Terms of Service",
+    "and": "and",
+    "privacyPolicy": "Privacy Policy",
+    "agreeRequired": "Please read and agree to the Terms of Service and Privacy Policy first"
   },
   "forgot": {
     "step1": "Step 1: Verify phone",
@@ -449,7 +476,8 @@
     "y1": "{p1} duration",
     "y2": "Buy agent: {p1}",
     "follow": "Following",
-    "follower": "Followers"
+    "follower": "Followers",
+    "loadFailedTapRetry": "Failed to load, tap to retry"
   },
   "action": {
     "like": "Like",
@@ -1042,6 +1070,21 @@
       "branch": {
         "ariaLabel": "Chat branch"
       }
+    },
+    "compactionBoundary": {
+      "title": "Context compacted",
+      "summary": "{n} messages folded · {before} → {after} tokens",
+      "collapse": "Collapse",
+      "expand": "View key snippets before compaction",
+      "removedRange": "Folded range"
+    },
+    "contextLedger": {
+      "title": "Context breakdown (7 categories)",
+      "round": "Round {n}",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "total": "Used {used} / limit {limit} · {percent}",
+      "windowUnknown": "Window unknown · used {used}"
     }
   },
   "share": {
@@ -1531,7 +1574,8 @@
       "fillInfo": "Please fill in complete information",
       "verifying": "Verifying",
       "verifyOk": "Verification successful",
-      "verifyFail": "Verification failed"
+      "verifyFail": "Verification failed",
+      "navFailed": "Page not configured"
     },
     "rankEmpty": "No ranking data",
     "statsTitle": "Revenue Overview",
@@ -1552,7 +1596,8 @@
     "pending": "Pending",
     "withdrawMin": "Minimum ¥{amount} to withdraw",
     "products": "Products",
-    "sales": "{count} sold"
+    "sales": "{count} sold",
+    "navFailed": "Page not configured"
   },
   "about": {
     "ctaDesc": "Sign up and get 1,000 credits, free trial of all models, no credit card required.",
@@ -2271,7 +2316,8 @@
       "targetGroupEnterprise": "Enterprise",
       "discountNone": "Not eligible",
       "discountPartial": "Partially eligible",
-      "discountFull": "Fully eligible"
+      "discountFull": "Fully eligible",
+      "saveSuccess": "Saved"
     }
   },
   "devSpace": {
@@ -3633,7 +3679,8 @@
       "mobileUnsupported": "Terminal is not supported on mobile"
     },
     "questionNoSession": "Cannot locate the session — this question cannot be answered",
-    "questionFailed": "Submit failed, please retry"
+    "questionFailed": "Submit failed, please retry",
+    "hookFailureTitle": "Hook execution failed: {name}"
   },
   "tabBar": {
     "community": "Community",
@@ -3708,7 +3755,8 @@
     "d2": "Demand Plaza",
     "d3": "My One-Person Company",
     "d4": "Free Resources",
-    "d5": "New Chat"
+    "d5": "New Chat",
+    "crossEnd": "From another device"
   },
   "userUserCard": {
     "view1": "View related orders",
@@ -7216,6 +7264,7 @@
   },
   "hrAttendance": {
     "title": "HR · Attendance",
+    "checkIn": "Check in",
     "tabDepartments": "Departments",
     "tabEmployees": "Employees",
     "tabRule": "Attendance Rules",
@@ -7435,5 +7484,11 @@
     "noOnlineHint": "No device is online right now. Tasks you send will queue until one comes online. If that device is your own computer, open Settings → Devices in the desktop app and click \"Enable in one click\".",
     "offlineHint": "This device is offline: tasks queue up and run automatically once it comes online.",
     "delegateOfflineHint": "It is offline now; the task will start automatically once it comes online."
+  },
+  "uiText": {
+    "nicknameLengthHint": "2–16 characters"
+  },
+  "commission": {
+    "myLabel": "My commission"
   }
 }

@@ -34,7 +34,7 @@ export default function LikeFavoriteShare({
     <View className="flex items-center justify-around py-md bg-card mt-sm">
       <View
         className="flex flex-col items-center justify-center"
-        style={{ width: '80rpx', minHeight: '80rpx' }}
+        style={{ width: 'var(--spacing-4xl)', minHeight: 'var(--spacing-4xl)' }}
         ariaRole="button"
         ariaLabel={tt('action.like', '点赞')}
         onClick={onLike}
@@ -55,7 +55,7 @@ export default function LikeFavoriteShare({
       </View>
       <View
         className="flex flex-col items-center justify-center"
-        style={{ width: '80rpx', minHeight: '80rpx' }}
+        style={{ width: 'var(--spacing-4xl)', minHeight: 'var(--spacing-4xl)' }}
         ariaRole="button"
         ariaLabel={tt('action.favorite', '收藏')}
         onClick={onFavorite}
@@ -76,7 +76,7 @@ export default function LikeFavoriteShare({
       </View>
       <View
         className="flex flex-col items-center justify-center"
-        style={{ width: '80rpx', minHeight: '80rpx' }}
+        style={{ width: 'var(--spacing-4xl)', minHeight: 'var(--spacing-4xl)' }}
         ariaRole="button"
         ariaLabel={tt('action.share', '分享')}
         onClick={onShare}

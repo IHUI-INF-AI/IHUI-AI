@@ -350,7 +350,12 @@
     "googleNotConfigured": "Google 登入未配置，請在 .env 設定 EXPO_PUBLIC_GOOGLE_CLIENT_ID。",
     "sdkPending": "{name} 登入請使用網頁端,移動端暫未集成原生 SDK。\n您也可以使用\"智匯AI網頁授權登入\"按鈕跳轉網頁端授權。",
     "agree": "同意",
-    "agreeTermsTitle": "確認同意服務條款"
+    "agreeTermsTitle": "確認同意服務條款",
+    "loginFailed": "登入失敗,請重試",
+    "wechatOneClick": "微信一鍵登入",
+    "webAuthLogin": "網頁授權登入",
+    "login": "登入",
+    "passwordLogin": "密碼登入"
   },
   "loginCountry": {
     "cn": "中國",
@@ -953,7 +958,13 @@
     },
     "loadFailed": "載入失敗",
     "admissionAhead": "前面還有 {n} 位",
-    "hookFailureTitle": "Hook 執行失敗:{name}"
+    "hookFailureTitle": "Hook 執行失敗:{name}",
+    "questionSubmitting": "提交中…",
+    "questionSubmit": "提交",
+    "questionWithdraw": "撤回",
+    "questionAnswer": "回答",
+    "questionNoSession": "無法定位會話,此題無法作答",
+    "questionFailed": "提交失敗,請重試"
   },
   "settings": {
     "title": "設定",
@@ -1881,7 +1892,9 @@
     "enroll": "立即報名",
     "pay": "支付 ¥{amount}",
     "lessons": "課程目錄",
-    "completed": "已學完"
+    "completed": "已學完",
+    "learning": "學習中",
+    "locked": "未解鎖"
   },
   "courseEnroll": {
     "title": "報名課程",
@@ -2530,6 +2543,12 @@
     }
   },
   "apiKeys": {
+    "copied": "已複製",
+    "subtitle": "建立金鑰後即可在第三方應用呼叫開放介面，權限依最小化授予。",
+    "permissionsRequired": "至少選擇一項權限",
+    "callsTotal": "累計呼叫 {times} 次",
+    "rateLimitLabel": "速率上限（每分鐘）",
+    "rateLimitPerMinute": "每分鐘 {rateLimit} 次",
     "title": "API 金鑰",
     "createTitle": "建立金鑰",
     "nameLabel": "名稱",
@@ -7676,6 +7695,26 @@
       "eraseCard": "數據擦除"
     },
     "groups": {
+      "error": "操作失敗",
+      "description": "群組描述",
+      "groupNameRequired": "群組名稱不能為空",
+      "deleteTitle": "刪除群組",
+      "confirmDelete": "確定刪除該群組？",
+      "createGroup": "創建群組",
+      "groupName": "群組名稱",
+      "edit": "編輯",
+      "save": "保存",
+      "allGroups": "全部群組",
+      "empty": "暫無群組，點擊右上角創建",
+      "custom": "自定義",
+      "members": "成員數",
+      "createdAt": "創建時間",
+      "owner": "群主",
+      "membersUnavailable": "後端未提供成員清單介面,此處僅顯示成員數",
+      "userId": "用戶 ID",
+      "addMember": "添加成員",
+      "memberList": "成員管理",
+      "delete": "刪除",
       "title": "我的群組"
     },
     "stt": {
@@ -7740,6 +7779,7 @@
   },
   "hrAttendance": {
     "title": "人事部 · 考勤",
+    "checkIn": "簽到",
     "tabDepartments": "部門",
     "tabEmployees": "員工",
     "tabRule": "考勤規則",
@@ -7971,5 +8011,10 @@
       "btnConfirm": "聯絡顧問"
     },
     "closeA11y": "關閉介紹彈窗"
+  },
+  "chatRoom": {
+    "incompleteUserInfo": "使用者資訊不完整,請重新登入",
+    "wechatOnly": "微信檔案請在小程式內傳送",
+    "cannotOpenLink": "無法開啟該連結"
   }
 }
