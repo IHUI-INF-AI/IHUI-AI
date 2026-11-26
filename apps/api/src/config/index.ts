@@ -522,4 +522,25 @@ export function collectOAuthConfigWarningsAtStartup(): string[] {
   if (!isProductionGuard) return []
   return collectOAuthConfigWarnings(process.env as OAuthConfigEnv)
 }
+
+// RP-9 / L06 本地运行时策略热加载的唯一配置出口。
+export {
+  DEFAULT_POLL_INTERVAL_MS,
+  DEFAULT_RUNTIME_POLICY,
+  MAX_POLL_INTERVAL_MS,
+  RUNTIME_POLICY_FILENAME,
+  RuntimePolicyWatcher,
+  contentHash,
+  loadRuntimePolicy,
+  parseRuntimePolicy,
+  runtimePolicySchema,
+  toAuditLogParams,
+} from './runtime-policy.js'
+export type {
+  RuntimePolicy,
+  RuntimePolicyAuditEvent,
+  RuntimePolicyParseResult,
+  RuntimePolicyRejectCode,
+  RuntimePolicyWatcherOptions,
+} from './runtime-policy.js'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
