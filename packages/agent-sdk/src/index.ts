@@ -53,6 +53,37 @@ export type {
   ChannelRegistryErrorCode,
   ChannelSpec,
 } from './channel-registry.js'
+// L07/RP-24 桥版本握手:HELLO 摘要 + mismatch 禁用入口 + fail-closed 首屏门 + bundle 静态校验
+export {
+  BRIDGE_METHOD_PATTERN,
+  BRIDGE_PROTOCOL_VERSION,
+  BridgeHandshakeError,
+  computeMethodDigest,
+  createBridgeHello,
+  createFailClosedGate,
+  negotiateBridge,
+  scanBridgeCalls,
+} from './bridge-handshake.js'
+export type {
+  BridgeEntrypointSpec,
+  BridgeHandshakeErrorCode,
+  BridgeHello,
+  BridgeNegotiationResult,
+  NativeBridgeManifest,
+} from './bridge-handshake.js'
+// L12/RP-26 通道域隔离:agent/ui/remote-session 三域独立 ACL/版本/健康/审计分表
+export {
+  CHANNEL_DOMAINS,
+  DOMAIN_PREFIXES,
+  DomainChannelRouter,
+  DomainRejected,
+} from './channel-domain.js'
+export type {
+  ChannelDomain,
+  DomainAuditRecord,
+  DomainConfig,
+  DomainRejectReason,
+} from './channel-domain.js'
 export type {
   AgentSdkErrorCode,
   AgentSdkErrorOptions,
