@@ -3,11 +3,15 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 朋友圈评论结构化格式化单测：普通署名、回复关系、昵称回退、超限截断与脏值兜底逐档对账。
+ * 朋友圈展示文案纯函数单测：评论署名与回复、正文折叠截断、点赞昵称去重、超限与脏值兜底逐档对账。
  */
 import { describe, expect, it } from 'vitest'
 import type { WechatMomentCommentView } from '@ihui/types'
-import { formatMomentComments } from '../moment-comment-format'
+import {
+  dedupeMomentLikeUsers,
+  formatMomentBody,
+  formatMomentComments,
+} from '../moment-comment-format'
 
 function cmt(overrides: Partial<WechatMomentCommentView>): WechatMomentCommentView {
   return {
@@ -109,5 +113,51 @@ describe('moment-comment-format / 截断与兜底', () => {
       cmt({ commentId: 'c1', nickname: '阿花', content: '第一行\n第二行' }),
     ])
     expect(result.lines).toEqual(['阿花：第一行\n第二行'])
+  })
+})
+
+describe('moment-comment-format / 正文折叠截断', () => {
+  it('120 字以内原样返回，不出现折叠态', () => {
+    const short = '短正文'
+    expect(formatMomentBody(short)).toEqual({ text: short, collapsed: false })
+  })
+
+  it('恰好 120 字不截断，不出现折叠态', () => {
+    const exact = '长'.repeat(120)
+    expect(formatMomentBody(exact)).toEqual({ text: exact, collapsed: false })
+  })
+
+  it('超过 120 字截断为前 120 字并补省略号，标记折叠态', () => {
+    const long = '长'.repeat(121)
+    expect(formatMomentBody(long)).toEqual({
+      text: `${'长'.repeat(120)}…`,
+      collapsed: true,
+    })
+  })
+
+  it('null、undefined 与非字符串按空串处理，不抛异常', () => {
+    expect(formatMomentBody(null)).toEqual({ text: '', collapsed: false })
+    expect(formatMomentBody(undefined)).toEqual({ text: '', collapsed: false })
+  })
+
+  it('截断时换行原样保留，不在结构化阶段吞掉', () => {
+    const mixed = `第一行\n${'长'.repeat(121)}`
+    const result = formatMomentBody(mixed)
+    expect(result.collapsed).toBe(true)
+    expect(result.text).toEqual(`第一行\n${'长'.repeat(116)}…`)
+  })
+})
+
+describe('moment-comment-format / 点赞昵称去重', () => {
+  it('trim 后剔除空串，同名只保留首次出现顺序', () => {
+    expect(
+      dedupeMomentLikeUsers(['阿花', '阿花', ' 大强 ', '大强', '', '   ', 'wxid_c']),
+    ).toEqual(['阿花', '大强', 'wxid_c'])
+  })
+
+  it('null、undefined 与非字符串元素返回空数组，不抛异常', () => {
+    expect(dedupeMomentLikeUsers(null)).toEqual([])
+    expect(dedupeMomentLikeUsers(undefined)).toEqual([])
+    expect(dedupeMomentLikeUsers([123, null, undefined, ''] as unknown as string[])).toEqual([])
   })
 })

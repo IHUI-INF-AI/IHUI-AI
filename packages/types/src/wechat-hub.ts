@@ -407,6 +407,46 @@ export interface WechatGroupWritePolicy {
   maxActionsPerHour: number
 }
 
+/** 一次群写动作的审计记录；发生在账号 metadata 里，服务重启也留得住。 */
+export interface WechatGroupWriteAuditEntry {
+  /** ISO 时间 */
+  at: string
+  action: string
+  conversationId: string | null
+  chatTitle: string
+  memberIds: string[]
+  /** 桥是否真的执行成功；false 表示被闸拦下或桥报错 */
+  ok: boolean
+  /** 失败时的错误码，成功为 null */
+  status: string | null
+}
+
+/** 群写审计视图：最近 20 次动作 + 当前窗口剩余额度 */
+export interface WechatGroupWriteAuditView {
+  entries: WechatGroupWriteAuditEntry[]
+  /** 最近一小时已成功执行的次数 */
+  windowCount: number
+  windowLimit: number
+  /** 还能执行几次；到 0 就必须等窗口滑过 */
+  remaining: number
+}
+
+/** 桥体检结果；reachable=false 时 error 会给一句人话，httpStatus 为 null。 */
+export interface WechatBridgeStatusView {
+  baseUrl: string
+  reachable: boolean
+  httpStatus: number | null
+  latencyMs: number
+  driver: string | null
+  online: boolean | null
+  status: string | null
+  mode: string | null
+  account: string | null
+  queued: number | null
+  momentSeq: number | null
+  error: string | null
+}
+
 /** 从桥同步群成员快照的结果 */
 export interface WechatGroupMembersSyncResult {
   synced: number

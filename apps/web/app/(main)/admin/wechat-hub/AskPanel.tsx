@@ -24,9 +24,50 @@ import {
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import type { WechatAskResult, WechatAskSqlResult } from '@ihui/types'
+import { buildResultCsv } from './copy-result-csv'
 import { wechatHubApi } from './wechat-hub-api'
 
 const EXAMPLES = ['上周关于预算聊了什么', '最近3天客户投诉了哪些问题', '这个月谁最活跃']
+
+/** 先走 navigator.clipboard；不可用或抛错时降级到隐藏 textarea + execCommand，返回是否成功。 */
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  if (
+    typeof navigator !== 'undefined' &&
+    navigator.clipboard &&
+    typeof navigator.clipboard.writeText === 'function'
+  ) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      // 落到 execCommand 降级路径
+    }
+  }
+  if (typeof document === 'undefined') return false
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.readOnly = true
+  textarea.style.position = 'fixed'
+  textarea.style.top = '0'
+  textarea.style.left = '0'
+  textarea.style.width = '1px'
+  textarea.style.height = '1px'
+  textarea.style.opacity = '0'
+  textarea.style.pointerEvents = 'none'
+  textarea.style.border = '0'
+  textarea.style.padding = '0'
+  textarea.style.margin = '0'
+  document.body.appendChild(textarea)
+  textarea.select()
+  textarea.setSelectionRange(0, textarea.value.length)
+  try {
+    return document.execCommand('copy')
+  } catch {
+    return false
+  } finally {
+    document.body.removeChild(textarea)
+  }
+}
 
 export default function AskPanel({ accountId }: { accountId: string }) {
   const [question, setQuestion] = React.useState('')
@@ -36,6 +77,15 @@ export default function AskPanel({ accountId }: { accountId: string }) {
   const [sqlResult, setSqlResult] = React.useState<WechatAskSqlResult | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [rowsOpen, setRowsOpen] = React.useState(false)
+  const [copiedKey, setCopiedKey] = React.useState<string | null>(null)
+  const [copyError, setCopyError] = React.useState<{ key: string; message: string } | null>(null)
+  const copyTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  React.useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+    }
+  }, [])
 
   const conversationsQuery = useQuery({
     queryKey: ['wechat-hub', 'conversations', accountId],
@@ -54,12 +104,16 @@ export default function AskPanel({ accountId }: { accountId: string }) {
       setSqlResult(null)
       setError(null)
       setRowsOpen(false)
+      setCopiedKey(null)
+      setCopyError(null)
     },
     onError: (e) => {
       setResult(null)
       setSqlResult(null)
       setError(e instanceof Error ? e.message : '问聊天记录失败')
       setRowsOpen(false)
+      setCopiedKey(null)
+      setCopyError(null)
     },
   })
 
@@ -71,12 +125,16 @@ export default function AskPanel({ accountId }: { accountId: string }) {
       setResult(null)
       setError(null)
       setRowsOpen(false)
+      setCopiedKey(null)
+      setCopyError(null)
     },
     onError: (e) => {
       setSqlResult(null)
       setResult(null)
       setError(e instanceof Error ? e.message : '生成查询失败')
       setRowsOpen(false)
+      setCopiedKey(null)
+      setCopyError(null)
     },
   })
 
@@ -91,6 +149,22 @@ export default function AskPanel({ accountId }: { accountId: string }) {
   const rowsAvailable = sqlResult !== null && Array.isArray(sqlResult.rows)
   const sqlColumns = sqlRows.length > 0 ? Object.keys(sqlRows[0] ?? {}) : []
   const cellText = (value: unknown) => (value === null || value === undefined ? '' : String(value))
+
+  const runCopy = async (text: string, key: string) => {
+    const ok = await copyTextToClipboard(text)
+    if (ok) {
+      setCopyError(null)
+      setCopiedKey(key)
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+      copyTimerRef.current = setTimeout(() => {
+        setCopiedKey(null)
+        copyTimerRef.current = null
+      }, 2000)
+    } else {
+      setCopiedKey(null)
+      setCopyError({ key, message: '当前浏览器不允许自动复制，请手动选中' })
+    }
+  }
 
   return (
     <div className="space-y-3">
@@ -174,12 +248,20 @@ export default function AskPanel({ accountId }: { accountId: string }) {
               {sqlResult.note ? <Alert variant="warning" title="这次没走查询" description={sqlResult.note} /> : null}
               {sqlResult.sql ? (
                 <div className="space-y-1">
-                  <p className="text-[11px] text-muted-foreground">
-                    模型写的查询（已由服务端加上本账号隔离与行数上限后执行）
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      模型写的查询（已由服务端加上本账号隔离与行数上限后执行）
+                    </p>
+                    <Button variant="ghost" size="sm" onClick={() => runCopy(sqlResult.sql ?? '', 'sql')}>
+                      {copiedKey === 'sql' ? '已复制' : '复制 SQL'}
+                    </Button>
+                  </div>
                   <p className="rounded-md border border-stroke-subtle p-2 text-[12px] text-muted-foreground whitespace-pre-wrap break-words">
                     {sqlResult.sql}
                   </p>
+                  {copyError?.key === 'sql' ? (
+                    <p className="text-[11px] text-muted-foreground">{copyError.message}</p>
+                  ) : null}
                 </div>
               ) : null}
               {sqlRows.length > 0 ? (
@@ -189,6 +271,18 @@ export default function AskPanel({ accountId }: { accountId: string }) {
                   </Button>
                   {rowsOpen ? (
                     <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => runCopy(buildResultCsv(sqlColumns, sqlRows), 'csv')}
+                        >
+                          {copiedKey === 'csv' ? '已复制' : '复制结果 CSV'}
+                        </Button>
+                        {copyError?.key === 'csv' ? (
+                          <p className="text-[11px] text-muted-foreground">{copyError.message}</p>
+                        ) : null}
+                      </div>
                       {sqlResult.rowCount >= 50 ? (
                         <p className="text-[11px] text-muted-foreground">已达 50 行上限，结果已截断</p>
                       ) : null}
