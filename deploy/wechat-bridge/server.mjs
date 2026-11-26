@@ -904,7 +904,7 @@ async function handle(req, res) {
       if (action === 'friend.scan' || action === 'friend.accept') {
         const raw =
           action === 'friend.scan'
-            ? await handleFriendsScan()
+            ? await handleFriendsScan(body.force === true)
             : await handleFriendsAccept(body.requestId)
         const wrapped = friendsToActionResult(raw)
         if (!wrapped.ok) {
