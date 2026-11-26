@@ -253,7 +253,9 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
         ) : scan ? (
           <div className="space-y-2">
             {scan.requests.length === 0 ? (
-              <p className="font-[weight:inherit] text-label text-muted-foreground">暂无待处理申请。</p>
+              <p className="font-[weight:inherit] text-label text-muted-foreground">
+                暂无待处理申请（本次扫描枚举 {scan.rawCount} 个界面元素，入口与历史行已排除）。
+              </p>
             ) : (
               <ul className="space-y-2">
                 {scan.requests.map((request) => {
@@ -270,7 +272,9 @@ export default function FriendsAutomationCard({ accountId }: { accountId: string
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline gap-x-2">
-                          <span className="font-[weight:inherit] truncate text-body">{request.nickname}</span>
+                          <span className="font-[weight:inherit] truncate text-body">
+                            {request.nickname || '（昵称未读到）'}
+                          </span>
                           <span className="font-[weight:inherit] text-label text-muted-foreground">
                             {KIND_LABELS[request.kind]}
                           </span>
