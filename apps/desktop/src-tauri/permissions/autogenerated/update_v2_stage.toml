@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-update-v2-stage"
+description = "Enables the update_v2_stage command without any pre-configured scope."
+commands.allow = ["update_v2_stage"]
+
+[[permission]]
+identifier = "deny-update-v2-stage"
+description = "Denies the update_v2_stage command without any pre-configured scope."
+commands.deny = ["update_v2_stage"]

@@ -14,6 +14,8 @@ export {
   type PostQuestionResponseResult,
 } from './question-response-transport.js'
 export * from './endpoints/control-frames.js'
+// L14:ACP 方法表/错误码三端出口(单一真相源在 @ihui/types)
+export * from './agent-protocol.js'
 // 客户端签名注入点(三端唯一落点):setClientSignatureProvider / resolveClientSignature /
 // applyClientSignature。算法本体在 @ihui/shared 的 utils/client-sign,本包只做 header 注入。
 // 后缀必须是 .js:本包纯 ESM(见 client.ts 同处注释),无后缀在 dist 里会被 Node ESM 判找不到模块。

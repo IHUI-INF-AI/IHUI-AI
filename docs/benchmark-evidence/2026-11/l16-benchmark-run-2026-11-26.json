@@ -1,0 +1,141 @@
+{
+  "schema": "ihui-agent-safety-benchmark/v1",
+  "generatedAt": "2026-11-26T12:59:33.125Z",
+  "gitHead": "c24fbf662dd0d3c7eb77fd3d672fdb53a0ade3c7",
+  "scope": [
+    "桌面命令暴露面",
+    "生产窗口安全",
+    "MCP 回环路由覆盖",
+    "三端 ACP 契约",
+    "ACP 字面量单一真相源",
+    "R8 真实窗口几何"
+  ],
+  "nonClaims": [
+    "本报告不是第三方认证,也不含竞品排名。",
+    "每个结论都由同仓脚本/证据 JSON 复算;第三方可克隆后复跑。",
+    "不覆盖数据库、外网服务与真实用户流量。"
+  ],
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "score": "6/6"
+  },
+  "checks": [
+    {
+      "id": "desktop-invoke-registry",
+      "title": "桌面命令暴露面与调用点一致",
+      "ok": true,
+      "exitCode": 0,
+      "stdout": "[L05/L07 桌面通道注册表] state=ok 注册=20 调用点字面量=0 无对应命令=0 重名=0 桥清单=20 清单差异=0 预算=20/20\n  ✅ 命令名单一来源、壳侧清单一致且未超暴露面预算",
+      "stderr": "",
+      "durationMs": 1292
+    },
+    {
+      "id": "window-security",
+      "title": "生产窗口安全工厂无红项",
+      "ok": true,
+      "exitCode": 0,
+      "stdout": "[L13 窗口安全断言] face=head state=ok 红=0 过=7 警=1\n  ✅ withGlobalTauri:false\n  ✅ csp:default-src 在位\n  ✅ csp:无 unsafe-eval\n  ✅ csp:script-src 受限:'self'\n  ✅ cargo:tauri 默认特性不含 devtools\n  ✅ cargo:devtools 为显式 opt-in feature\n  ✅ capabilities:扫 2 份、94 条权限,无裸 * / 无 shell 执行族\n  ⚠️  capabilities:default.json 的 remote 面暴露 allow-embedded-browser-devtools,allow-toggle-devtools(建议改本地面,未阻塞)",
+      "stderr": "",
+      "durationMs": 402
+    },
+    {
+      "id": "mcp-loopback-route-parity",
+      "title": "MCP 回环 Host 覆盖全部业务路由",
+      "ok": true,
+      "report": {
+        "fastifyRoutes": 15,
+        "adapterRoutes": 15,
+        "missing": [],
+        "extra": [],
+        "duplicate": 0
+      },
+      "exitCode": 0,
+      "stdout": "mcp-loopback-route-parity {\"fastifyRoutes\":15,\"adapterRoutes\":15,\"missing\":[],\"extra\":[],\"duplicate\":0}",
+      "stderr": "",
+      "durationMs": 56
+    },
+    {
+      "id": "acp-three-end-contract",
+      "title": "web/RN/小程序共享同一份 ACP 契约",
+      "ok": true,
+      "report": {
+        "files": 9,
+        "missing": 0,
+        "problems": 0,
+        "ends": 3
+      },
+      "exitCode": 0,
+      "stdout": "acp-three-end-contract {\"files\":9,\"missing\":0,\"problems\":0,\"ends\":3}",
+      "stderr": "",
+      "durationMs": 61
+    },
+    {
+      "id": "acp-method-single-source",
+      "title": "ACP 方法名只有一份真相源",
+      "ok": true,
+      "exitCode": 0,
+      "stdout": "[L14 协议单一真相源] state=ok 命中=10 sdk=5 测试=5 存量债=0 越界=0\n  ✅ 除 sdk 与测试外,无第二份方法名字面量",
+      "stderr": "",
+      "durationMs": 341
+    },
+    {
+      "id": "r8-real-window",
+      "title": "真实登录态 PIP 收起/展开/重开几何闭环",
+      "ok": true,
+      "debug": {
+        "authMode": "real-login",
+        "before": {
+          "height": 420,
+          "width": 630
+        },
+        "collapsed": {
+          "height": 48,
+          "width": 630
+        },
+        "expanded": {
+          "height": 420,
+          "width": 630
+        },
+        "heightDelta": 0,
+        "ok": true,
+        "origin": "https://www.aizhs.top",
+        "reopened": {
+          "height": 420,
+          "width": 630
+        },
+        "scaleFactor": 1.5,
+        "session": "e3baccfb-e637-47f1-a33e-7c16cb08958c"
+      },
+      "release": {
+        "authMode": "real-login",
+        "before": {
+          "height": 420,
+          "width": 630
+        },
+        "collapsed": {
+          "height": 48,
+          "width": 630
+        },
+        "expanded": {
+          "height": 420,
+          "width": 630
+        },
+        "heightDelta": 0,
+        "ok": true,
+        "origin": "https://www.aizhs.top",
+        "reopened": {
+          "height": 420,
+          "width": 630
+        },
+        "scaleFactor": 1.5,
+        "session": "38bd7071-ce32-46fd-a0b5-aa766512e2c7"
+      },
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": "",
+      "durationMs": 0
+    }
+  ]
+}

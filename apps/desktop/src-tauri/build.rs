@@ -134,6 +134,16 @@ fn main() {
             // 2026-11-05(桌面 store 越权 P0):替代 store:default 的两条白名单命令。
             "store_read_entry",
             "store_write_entry",
+            // 2026-11-26 L07 桥握手(0.1.96 P0):BRIDGE_COMMANDS(native_bridge.rs)里有
+            // 五条命令只在 invoke_handler 注册、从未进过本命令表 ⇒ tauri-build 不生成
+            // allow-<命令> 权限条目 ⇒ 远程页(https://aizhs.top / www.aizhs.top)一调就
+            // 被 ACL 拒(Command xxx not allowed by ACL),表现为按钮点了没反应。
+            // (get_native_bridge_manifest 已在 get_admin_window_info 之后登记,不重复。)
+            "query_notification_permission",
+            "set_sleep_prevention",
+            "update_v2_sync_autostart",
+            "update_v2_stage",
+            "update_v2_restart",
         ])),
     )
     .expect("failed to run tauri-build");

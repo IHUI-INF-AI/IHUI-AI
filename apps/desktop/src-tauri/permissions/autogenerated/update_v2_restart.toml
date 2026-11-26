@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-update-v2-restart"
+description = "Enables the update_v2_restart command without any pre-configured scope."
+commands.allow = ["update_v2_restart"]
+
+[[permission]]
+identifier = "deny-update-v2-restart"
+description = "Denies the update_v2_restart command without any pre-configured scope."
+commands.deny = ["update_v2_restart"]

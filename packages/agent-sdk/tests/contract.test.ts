@@ -13,6 +13,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
+import { ACP_METHODS as TYPES_ACP_METHODS } from '@ihui/types'
 
 import {
   ACP_METHODS,
@@ -51,6 +52,10 @@ describe('L14 三端共用协议契约', () => {
     expect(AGENT_SDK_ERROR_CODES).toEqual(['PROTOCOL', 'RPC', 'SPAWN', 'AGENT_EXIT', 'ABORTED'])
     expect(Array.isArray(AGENT_SDK_ERROR_CODES)).toBe(true)
     expect(AGENT_SDK_ERROR_CODES.length).toBe(5)
+  })
+
+  it('SDK 转发的是 @ihui/types 的同一份方法表,不是第二份副本', () => {
+    expect(ACP_METHODS).toBe(TYPES_ACP_METHODS)
   })
 
   it('键是语义名、值是线上字面量:sessionNew/sessionPrompt 不许反过来', () => {
