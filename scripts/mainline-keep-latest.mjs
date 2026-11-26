@@ -7,7 +7,7 @@
  * 本机 main 历史线保活:只快进追上 origin/main,绝不推送、合并分叉或改写历史。
  *
  * 所有 git 派生复用 face-reader 的 gitRaw(绝对 git、windowsHide、显式 stdio、有界超时);
- * fetch 第一趟直接复用 GIT_EGRESS_DIRECT_ARGS,避开本机已知不通的 7897 代理。
+ * fetch 先走直连避开仓库里已知不通的 7897 代理,失败后再用环境代理重试一次。
  * 判据与 IO 分离:classify 只吃 sha/祖先关系/计数,--self-test 不派生 git、不写盘。
  */
 /* eslint-disable no-console -- CLI 工具,需 console 输出诊断信息 */
@@ -127,18 +127,41 @@ function acquireWriteLock() {
   })
 }
 
+function proxyEgressArgs(env = process.env) {
+  const proxy = env.HTTPS_PROXY || env.https_proxy || env.HTTP_PROXY || env.http_proxy || ''
+  if (!proxy || /127\.0\.0\.1:7897\b/.test(proxy)) return null
+  return ['-c', `http.proxy=${proxy}`, '-c', `https.proxy=${proxy}`]
+}
+
+function fetchMainline(run, env = process.env) {
+  const attempts = [GIT_EGRESS_DIRECT_ARGS]
+  const viaProxy = proxyEgressArgs(env)
+  if (viaProxy) attempts.push(viaProxy)
+  let lastError = null
+  for (const egress of attempts) {
+    try {
+      run([...egress, 'fetch', 'origin', '+main:refs/remotes/origin/main'], {
+        timeout: GIT_TIMEOUT_MS,
+      })
+      return
+    } catch (e) {
+      lastError = e
+    }
+  }
+  throw lastError
+}
+
 /** IO 编排。默认 root 由脚本自身位置推导,不依赖共享工作区的 cwd。 */
 export function keepLatest({
   root = ROOT,
   run = (args, opts) => gitRaw(args, root, opts),
   acquireWriteLock: acquireLock = acquireWriteLock,
+  env = process.env,
 } = {}) {
   let localSha = null
   let remoteSha = null
   try {
-    run([...GIT_EGRESS_DIRECT_ARGS, 'fetch', 'origin', '+main:refs/remotes/origin/main'], {
-      timeout: GIT_TIMEOUT_MS,
-    })
+    fetchMainline(run, env)
     localSha = readSha(run(['rev-parse', '--verify', 'HEAD^{commit}'], { timeout: GIT_TIMEOUT_MS }))
     remoteSha = readSha(
       run(['rev-parse', '--verify', 'refs/remotes/origin/main^{commit}'], {
