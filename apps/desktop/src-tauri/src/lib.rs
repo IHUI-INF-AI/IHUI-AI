@@ -109,6 +109,8 @@ mod system_memory;
 mod ipc_channel_acl;
 #[cfg(windows)]
 mod approval_pipe;
+#[cfg(feature = "r8-selftest")]
+mod r8_selftest;
 // 2026-11-24 立(P3-01):ALPC 通道抽象层(open/close/挂接外部 SD 三面 + fail-closed
 // 错误码族 + RAII 句柄槽)。ALPC 后端未取证落 Unjudged;兜底复用 ipc_channel_acl 受限管道。
 mod ipc_channel;
@@ -5774,6 +5776,25 @@ pub fn run() {
                     }
                 }
             });
+            #[cfg(feature = "r8-selftest")]
+            if std::env::var("IHUI_R8_SELFTEST").as_deref() == Ok("1") {
+                let handle = app.handle().clone();
+                let out_path = std::env::var("IHUI_R8_SELFTEST_OUT").unwrap_or_else(|_| {
+                    "C:\\IHUI-Build\\r8-selftest-result.json".to_string()
+                });
+                tauri::async_runtime::spawn(async move {
+                    let result = r8_selftest::run(handle.clone()).await;
+                    let payload = match &result {
+                        Ok(value) => value.clone(),
+                        Err(error) => serde_json::json!({ "ok": false, "error": error }),
+                    };
+                    let _ = std::fs::write(
+                        &out_path,
+                        serde_json::to_string_pretty(&payload).unwrap_or_else(|_| payload.to_string()),
+                    );
+                    handle.exit(if result.is_ok() { 0 } else { 1 });
+                });
+            }
             let _ = app;
             Ok(())
         })
