@@ -9,7 +9,7 @@
 > 审计对象：`D:/IHUI-AI` monorepo（`apps/web`、`apps/mobile-rn`、`apps/miniapp-taro`、`packages/app`）
 > 审计时点：2026-11-26｜口径：全部为本次现读（HEAD blob），命令见文末附录，可逐条复现
 > 基线诉求：页面、样式、功能三端全量一致并可互通；样式以 web 端与 RN 端为主
-> **2026-11-27 现读更新**：`agent-create`、`aigc-cover`、`bank-card` 已闭环；`connectors / learn / note-list / security-settings / self-media` 5 项已按用户委托裁决（门户/移动专属/只读/接受平台差）并结清；功能账为 `97 已闭环 / 0 需裁决 / 0 真待补`。本文保留 2026-11-26 审计基线，当前结论以 `docs/engineering/rn-miniapp-parity-matrix.md` 与项目主报告为准。
+> **2026-11-27 现读更新**：`agent-create`、`aigc-cover`、`bank-card` 已闭环（BankCard 已从只读投影升级为新增/删除/设默认写闭环，提交 `713f12a3`）；`connectors / learn / note-list / security-settings / self-media` 5 项已按用户委托裁决（门户/移动专属/只读/接受平台差）并结清；功能账为 `97 已闭环 / 0 需裁决 / 0 真待补`。全量路由契约的 `rn-only` 已收口为 `62 条 / 51 屏 / 0 待审 / 14 own`：41 屏落 `cross-end-rn-only-verdicts.jsonl` 平台差，10 屏沿用既有 `not-applicable`，`memory/new` 由小程序 `pkg-mirror2/memory/index` 的 `MemoryScreen` 新建弹窗真实承载并转 own。项目台账已新增 `闭环状态` 列，现读 **63/63 = 100% 已解决 / 0 待处理**：此前 14 行闭环，本轮再收 `F-05` 支付渠道矩阵、`I-05` 分享路径、`I-08` 支付回跳，以及 `S-05/S-06/S-07` 三端样式档存量债（存量冻结、新增只减不增）。逐行证据见 `docs/engineering/cross-end-ledger-closure-2026-11-27.md`；本文保留 2026-11-26 审计基线，当前结论以 `docs/engineering/rn-miniapp-parity-matrix.md` 与项目主报告为准。
 
 ---
 

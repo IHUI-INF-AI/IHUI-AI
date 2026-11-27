@@ -16,6 +16,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import { getPaymentOrderDetail } from '@ihui/api-client'
+import {
+  PAYMENT_RESULT_MAX_POLLS,
+  PAYMENT_RESULT_POLL_INTERVAL_MS,
+  normalizePaymentResultStatus,
+  type PaymentResultStatus,
+} from '@ihui/shared/pay'
 import { PayResultScreen as SharedPayResultScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -25,11 +31,11 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type Route = RouteProp<RootStackParamList, 'PayResult'>
 
 /** 支付结果三态(对齐 miniapp PayStatus) */
-type PayStatus = 'pending' | 'paid' | 'failed'
+type PayStatus = PaymentResultStatus
 
-/** 轮询间隔与上限(对齐 miniapp:setInterval 2s × 30 次) */
-const POLL_INTERVAL_MS = 2000
-const MAX_POLL_COUNT = 30
+/** 轮询间隔与上限(共享契约:2s × 30 次) */
+const POLL_INTERVAL_MS = PAYMENT_RESULT_POLL_INTERVAL_MS
+const MAX_POLL_COUNT = PAYMENT_RESULT_MAX_POLLS
 
 export function PayResultScreen() {
   const { t } = useI18n()
@@ -51,9 +57,8 @@ export function PayResultScreen() {
     setChecking(false)
     // 查询失败保持当前状态(对齐 miniapp catch → pending)
     if (!res.success || !res.data) return statusRef.current
-    // 状态映射对齐 miniapp getPayResult:仅 paid/pending 有意义,其余视为失败
-    const next: PayStatus =
-      res.data.status === 'paid' ? 'paid' : res.data.status === 'pending' ? 'pending' : 'failed'
+    // 状态映射走共享契约:paid/pending/processing 三态,其余统一 failed
+    const next = normalizePaymentResultStatus(res.data.status)
     statusRef.current = next
     setStatus(next)
     setAmount(res.data.amount ?? 0)

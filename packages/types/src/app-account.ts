@@ -363,6 +363,16 @@ export interface BankCardItem {
   holder: string
   bankName: string
   isDefault: boolean
+  /** 历史提现投影卡(只读):只能用于展示,不能删除/设默认 */
+  readOnly?: boolean
+}
+
+/** 新增银行卡入参(卡号只走请求体,不进入列表 DTO) */
+export interface BankCardInput {
+  number: string
+  holder: string
+  bankName: string
+  isDefault?: boolean
 }
 
 /** BankCardScreen props */
@@ -374,6 +384,10 @@ export interface BankCardScreenProps {
   error: string
   onRefresh: () => void
   onBack: () => void
+  /** 注入写能力;缺省时保持只读列表(Web 等未接写入的载体不受影响) */
+  onAddCard?: (input: BankCardInput) => Promise<void>
+  onDeleteCard?: (id: string) => Promise<void>
+  onSetDefaultCard?: (id: string) => Promise<void>
   colorScheme?: 'light' | 'dark'
 }
 

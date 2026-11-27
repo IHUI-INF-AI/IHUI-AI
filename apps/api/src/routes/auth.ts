@@ -83,6 +83,13 @@ import {
   type RiskEvaluationResult,
 } from '../services/risk-engine-service.js'
 import { verifyTurnstile } from '../services/turnstile-service.js'
+// 异地提醒收敛(2026-11-27):地区记忆 + 回环/内网/自动化出口白名单,见 services/login-region-memory.ts
+import {
+  evaluateLoginRegion,
+  isLoginAlertIgnoredIp,
+  rememberLoginRegion,
+} from '../services/login-region-memory.js'
+import { ipRegionKey } from '../utils/ip-region.js'
 // 2026-11-17 立:客户端签名(X-IHUI-Client)的服务端薄壳 —— 算法唯一实现在 @ihui/shared
 import { verifyClientSignature, isClientSignatureStrict } from '../services/client-signature.js'
 import { db } from '../db/index.js'
@@ -380,15 +387,6 @@ const LOGIN_WITHDRAWAL_SAMPLE_SIZE = 50
 /** withdrawal_flows.status: 2 = completed */
 const WITHDRAWAL_STATUS_COMPLETED = 2
 
-function ipRegionKey(ip: string): string {
-  const v4 = /^(\d{1,3}\.\d{1,3})\./.exec(ip)
-  if (v4) return v4[1]!
-  if (ip.includes(':')) {
-    return ip.split(':').slice(0, 2).join(':').toLowerCase()
-  }
-  return ip
-}
-
 function headerValue(request: FastifyRequest, name: string): string | undefined {
   const raw = request.headers[name]
   return Array.isArray(raw) ? raw[0] : raw
@@ -451,11 +449,12 @@ async function buildLoginRiskContext(
   userId: string,
 ): Promise<RiskContext> {
   const ip = request.ip
+  const fingerprint = normalizeDeviceFingerprint(request.headers['x-device-fingerprint'])
   const ctx: RiskContext = {
     userId,
     ip,
     userAgent: headerValue(request, 'user-agent'),
-    deviceFingerprint: headerValue(request, 'x-device-fingerprint'),
+    deviceFingerprint: fingerprint,
   }
   try {
     const rep = await getIpReputationService(request.server.redis ?? null).getIpReputation(ip)
@@ -465,16 +464,62 @@ async function buildLoginRiskContext(
     request.log.warn({ err: e }, 'login risk: ip reputation unavailable')
   }
   try {
-    const lastIp = await request.server.redis.get(LOGIN_LAST_IP_KEY(userId))
-    if (lastIp) ctx.loginRegionChanged = ipRegionKey(lastIp) !== ipRegionKey(ip)
+    // 2026-11-27:判据从"和上一次登录比"改成"最近 N 天有没有在这个地区登录过"。
+    // 回环 / 内网 / 自动化出口没有地理信号,直接不判定(见 login-region-memory.ts)。
+    if (isLoginAlertIgnoredIp(ip)) {
+      ctx.loginRegionChanged = false
+    } else {
+      const verdict = await evaluateLoginRegion(
+        request.server.redis ?? null,
+        userId,
+        ipRegionKey(ip),
+        () => seedLoginRegionsFromDevices(userId),
+      )
+      ctx.loginRegionChanged = verdict === 'novel'
+    }
+    ctx.newDevice = await isNewLoginDevice(userId, fingerprint)
   } catch (e) {
-    request.log.warn({ err: e }, 'login risk: last-login-ip lookup failed')
+    request.log.warn({ err: e }, 'login risk: region / device signal failed')
   }
   await attachLoginBehaviorRiskSignals(ctx, request, userId)
   return ctx
 }
 
-/** 记录本次成功登录 IP(供下一次 R001 判断;Redis 不可用时降级为不判断) */
+/** 用历史登录设备里的 IP 补齐"已知地区"(该用户首次判定时跑一次,避免自己的常用地被误报)。 */
+async function seedLoginRegionsFromDevices(userId: string): Promise<string[]> {
+  const rows = await db
+    .select({ ip: userDevices.ip })
+    .from(userDevices)
+    .where(eq(userDevices.userId, userId))
+    .limit(200)
+  const keys = new Set<string>()
+  for (const row of rows) {
+    const ip = row.ip
+    if (!ip || isLoginAlertIgnoredIp(ip)) continue
+    keys.add(ipRegionKey(ip))
+  }
+  return [...keys]
+}
+
+/**
+ * 是否"新设备"。
+ * 首个设备(该用户名下还没有任何设备记录)是注册/首登的既成事实,不算新设备,不提醒。
+ */
+async function isNewLoginDevice(userId: string, fingerprint: string | undefined): Promise<boolean> {
+  if (!fingerprint) return false
+  const totalRows = await db
+    .select({ c: count() })
+    .from(userDevices)
+    .where(eq(userDevices.userId, userId))
+  if (Number(totalRows[0]?.c ?? 0) === 0) return false
+  const sameRows = await db
+    .select({ c: count() })
+    .from(userDevices)
+    .where(and(eq(userDevices.userId, userId), eq(userDevices.fingerprintHash, fingerprint)))
+  return Number(sameRows[0]?.c ?? 0) === 0
+}
+
+/** 记录本次成功登录 IP(兼容保留:老键只用于取证,不再参与异地判定) */
 async function rememberLoginIp(request: FastifyRequest, userId: string): Promise<void> {
   try {
     await request.server.redis.set(
@@ -485,6 +530,17 @@ async function rememberLoginIp(request: FastifyRequest, userId: string): Promise
     )
   } catch (e) {
     request.log.warn({ err: e }, 'login risk: remember last-login-ip failed')
+  }
+}
+
+/** 登录成功后记住本次登录地区(下次同地区不再提醒)。 */
+async function rememberLoginLocation(request: FastifyRequest, userId: string): Promise<void> {
+  const ip = request.ip
+  if (isLoginAlertIgnoredIp(ip)) return
+  try {
+    await rememberLoginRegion(request.server.redis ?? null, userId, ipRegionKey(ip))
+  } catch (e) {
+    request.log.warn({ err: e }, 'login risk: remember login region failed')
   }
 }
 
@@ -1064,6 +1120,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       // 评估之后再写入,避免本次登录 IP 与自己比较
       await rememberLoginIp(request, String(user.id))
+      await rememberLoginLocation(request, String(user.id))
 
       // 2FA 检查:若用户已启用 2FA,返回 challenge token(5min),前端走 /auth/2fa/login-verify 二次校验
       // 注意:必须 skipResponseSanitization,否则 challengeToken(JWT)会被响应脱敏层改写成 ***
@@ -1239,6 +1296,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '登录请求被风控拦截，请联系客服'))
       }
       await rememberLoginIp(request, String(user.id))
+      await rememberLoginLocation(request, String(user.id))
 
       // 2FA 检查:若用户已启用 2FA,返回 challenge token(5min),前端走 /auth/2fa/login-verify 二次校验
       // 注意:必须 skipResponseSanitization,否则 challengeToken(JWT)会被响应脱敏层改写成 ***

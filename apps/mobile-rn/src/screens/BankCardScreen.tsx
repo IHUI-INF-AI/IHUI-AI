@@ -7,7 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import { BankCardScreen as SharedBankCardScreen, type BankCardItem } from '@ihui/rn-app'
+import { BankCardScreen as SharedBankCardScreen, type BankCardInput, type BankCardItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -45,6 +45,41 @@ export function BankCardScreen() {
     void load()
   }
 
+  const addCard = useCallback(
+    async (input: BankCardInput) => {
+      const res = await fetchApi<BankCardItem>('/wallet/bank-cards', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      })
+      if (!res.success) throw new Error(res.error)
+      await load()
+    },
+    [load],
+  )
+
+  const deleteCard = useCallback(
+    async (id: string) => {
+      const res = await fetchApi<null>(`/wallet/bank-cards/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      })
+      if (!res.success) throw new Error(res.error)
+      await load()
+    },
+    [load],
+  )
+
+  const setDefaultCard = useCallback(
+    async (id: string) => {
+      const res = await fetchApi<null>(
+        `/wallet/bank-cards/${encodeURIComponent(id)}/default`,
+        { method: 'PATCH' },
+      )
+      if (!res.success) throw new Error(res.error)
+      await load()
+    },
+    [load],
+  )
+
   return (
     <SharedBankCardScreen
       t={t}
@@ -54,6 +89,9 @@ export function BankCardScreen() {
       error={error}
       onRefresh={onRefresh}
       onBack={() => navigation.goBack()}
+      onAddCard={addCard}
+      onDeleteCard={deleteCard}
+      onSetDefaultCard={setDefaultCard}
       colorScheme={resolvedTheme}
     />
   )

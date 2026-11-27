@@ -10274,6 +10274,9 @@ from ..tools import (  # noqa: E402
 from ..tools import (  # noqa: E402
     precheck_content as _precheck_content,
 )
+from ..tools import (  # noqa: E402
+    prepare_publish_draft as _prepare_publish_draft,
+)
 
 # 2026-11-27(超级 App 发布链路只读段):账号清单 + 发布前预检。
 # 只读数据库与本地适配器,不解密凭据、不创建发布任务、不打开浏览器。
@@ -16509,6 +16512,43 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        # 2026-11-27(一句话超级入口):账号→出稿→合规→草稿一次完成,仍不发布。
+        name="prepare_publish_draft",
+        description=(
+            "一句话需求一次完成“查可用账号 → 生成标题/正文/话题词 → 合规自检 → 写入发布草稿”。"
+            "先按 platforms 查当前用户已接入且可用的账号,没有账号直接失败,不先扣模型点数;"
+            "合规有阻断项时返回 PREFLIGHT_BLOCKED 且不落库。产物仍是 status=draft,"
+            "必须由登录用户到 /publish/history 展开并点“确认发布”才会进调度。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "brief": {"type": "string", "minLength": 2, "maxLength": 2000, "description": "一句话需求/主题"},
+                "platforms": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "items": {"type": "string"},
+                    "description": "目标平台 id 数组,如 douyin/xiaohongshu/wechat",
+                },
+                "tone": {"type": "string", "maxLength": 80, "description": "语气,默认口语化自然聊天"},
+                "format": {"type": "string", "enum": ["md", "html"], "description": "草稿格式,默认 md"},
+                "profile": {
+                    "type": "string",
+                    "enum": ["generic", "ihui_koubo"],
+                    "description": "合规预设档,默认 ihui_koubo(470-490字/标题16字/5话题词)",
+                },
+                "min_chars": {"type": "integer", "minimum": 0, "maximum": 20000, "description": "正文最少字符数,默认 470"},
+                "max_chars": {"type": "integer", "minimum": 0, "maximum": 20000, "description": "正文最多字符数,默认 490"},
+                "title_chars": {"type": "integer", "minimum": 0, "maximum": 60, "description": "标题精确字数,默认 16"},
+                "hashtag_count": {"type": "integer", "minimum": 0, "maximum": 30, "description": "话题词精确个数,默认 5"},
+                "require_ai_disclosure": {"type": "boolean", "description": "是否要求 AI 标识,默认 false"},
+            },
+            "required": ["brief", "platforms"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         # 2026-11-27(草稿编辑闸门):原地改 draft,重新预检,仍不执行、不排期。
         name="update_publish_draft",
         description=(
@@ -19067,6 +19107,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "list_publish_tasks": _list_publish_tasks,
     "publish_preflight": _publish_preflight,
     "create_publish_draft": _create_publish_draft,
+    "prepare_publish_draft": _prepare_publish_draft,
     "get_publish_stats": _get_publish_stats,
     "get_publish_task": _get_publish_task,
     "get_publish_acceptance": _get_publish_acceptance,

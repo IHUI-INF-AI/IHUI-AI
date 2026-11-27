@@ -14,8 +14,8 @@ const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..')
 const TOOLS_INIT = join(REPO_ROOT, 'apps/ai-service/app/tools/__init__.py')
 
 describe('能力目录 v0', () => {
-  it('恰好 37 条能力', () => {
-    expect(CAPABILITY_CATALOG).toHaveLength(37)
+  it('恰好 38 条能力', () => {
+    expect(CAPABILITY_CATALOG).toHaveLength(38)
   })
 
   it('id 唯一且是 domain.verb 形态', () => {
