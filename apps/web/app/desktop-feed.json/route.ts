@@ -113,7 +113,12 @@ export async function GET() {
       // 读 `payload`（launcher Feed::payload_for），两条链互不干扰。
       const merged =
         isValidPayload(DESKTOP_LATEST) && DESKTOP_LATEST.version === version
-          ? { ...DESKTOP_FEED_V2, platforms: DESKTOP_LATEST.platforms }
+          ? {
+              ...DESKTOP_FEED_V2,
+              // Tauri v1 的 RemoteRelease 要求 pub_date 必填，v2 客户端不读它。
+              pub_date: DESKTOP_LATEST.pub_date,
+              platforms: DESKTOP_LATEST.platforms,
+            }
           : DESKTOP_FEED_V2
       return Response.json(merged, {
         headers: {
