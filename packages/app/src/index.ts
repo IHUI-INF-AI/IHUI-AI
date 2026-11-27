@@ -346,6 +346,7 @@ export { CourseCommentScreen } from './features/course-comment/CourseCommentScre
 export { CircleChatScreen } from './features/circle-chat/CircleChatScreen'
 export { CircleCreateScreen } from './features/circle-create/CircleCreateScreen'
 export { CircleDetailScreen } from './features/circle-detail/CircleDetailScreen'
+export { CircleIndexScreen } from './features/circle-index/CircleIndexScreen'
 export { CircleMemberScreen } from './features/circle-member/CircleMemberScreen'
 /** 批次 26-28(2026-07-29):分销/考试/财务/首页/实名/推广/招募/推荐/团队/视频/权益(12 屏迁移自 mobile-rn) */
 export { DistributionScreen } from './features/distribution/DistributionScreen'
@@ -855,6 +856,9 @@ export type {
   CircleCreateScreenProps,
   CircleChatMessage,
   CircleChatScreenProps,
+  CircleListItem,
+  CircleListScreenProps,
+  CirclePostItem,
   /** 批次 26-28(2026-07-29):分销/考试/财务/首页/实名/推广/招募/推荐/团队/视频/权益(12 屏) */
   DistributionProduct,
   DistributionInfo,
@@ -1452,5 +1456,3 @@ export type {
   GroupFormValues,
   GroupConfirmOptions,
 } from './features/groups/GroupsScreen'
-
-
