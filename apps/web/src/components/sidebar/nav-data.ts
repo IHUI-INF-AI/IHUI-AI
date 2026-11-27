@@ -627,6 +627,8 @@ export const AI_HUB_ITEMS: NavItem[] = [
   // /models 整合原 ModelsSidebar 15 项(主功能/业务/财务/资源四组扁平化为三级子菜单)
   { href: '/models', labelKey: 'models', icon: Bot, children: MODELS_CHILDREN },
   { href: '/agents', labelKey: 'agents', icon: Bot },
+  // 总管控制台（2026-11-28 立）：注册表 + 运行只读面 + 删除审批；只读控制面，不替代聊天入口。
+  { href: '/master', labelKey: 'masterConsole', icon: Bot },
   // 2026-10-20 简洁模式:`experimental` —— Agent 运行时调试台,是开发期产物,不是用户功能
   {
     href: '/agent-workbench',
