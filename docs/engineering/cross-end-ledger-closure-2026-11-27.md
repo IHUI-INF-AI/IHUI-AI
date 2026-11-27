@@ -122,9 +122,10 @@ BankCard 原先只有 `withdrawal_flows.account_info` 的只读投影，没有�
 ### 提现接银行卡选择（2026-11-27，2026-11-28 三端收口）
 - **共享屏**：`WithdrawScreenProps` 增 `bankCards` / `selectedBankCardId` / `onSelectBankCard`；到账方式为 `bank` 时渲染已绑定卡 chips（默认卡带标记），选中后隐藏自由文本账号输入，可“手动输入”回退。
 - **Web**：提现页按需查询 `/api/wallet/bank-cards`，只把 `{id, 掩码 label, isDefault}` 传给共享屏；提交改走 `/api/wallet/withdraw`，选卡时传 `bankCardId`，不再让客户端手输完整卡号。2026-11-28 补一处边角：Web 也过滤 `readOnly` 历史提现投影，避免用户选中后被服务端按 id 查不到（提交 `f03d92b6`）。
+- **回归用例**：新增 Playwright“提现选卡过滤历史只读投影卡”，拦截 `GET /api/wallet/bank-cards` 注入一张 `readOnly` 历史卡 + 一张可编辑卡；断言可编辑卡可见、历史银行 `toHaveCount(0)`。单测 3 passed / 6.6s，整 spec 4 passed / 16.8s；提交 `099a6b95`（仅测试文件，无需重部署）。RN 同步补“历史只读投影卡不进入提现选卡”，wallet 15/15、三文件合计 19/19；提交 `40cb38b6`（仅测试文件）。
 - **RN/小程序**：`apps/mobile-rn/src/screens/WithdrawScreen.tsx` 挂载时拉 `/api/wallet/bank-cards`，过滤 `readOnly`，自动选中默认卡；提交体改为 `{accountType:'bank', bankCardId}` 或 `{accountType:'bank', account}`，不再把 id 塞进 `account`、不再用后端不认的 `accountType='bank_card'`。小程序 `pkg-user` 提现页经 `@rn-shells/WithdrawScreen` 复用同一壳，自动获得同契约（提交 `8077b159`）。
 - **API**：`withdrawSchema` 支持可选 `bankCardId`；服务端用 `listStoredBankCards(userId)` 找到卡后解密完整卡号、强制 `accountType=bank`，落库 `accountInfo.account` 为完整卡号并附 `bankCardId` 审计字段；未绑定 id / 类型不匹配返回 400。该入口同时修正了旧 Web 提交把 `accountInfo` 发给只收 `amount` query 的 `/api/finance/withdrawal/apply` 的错位。
-- **验证**：API 应用层 `tsc --noEmit` 0；Web `typecheck` 0；RN `/wallet` 相关 3 个测试文件 **18/18**（wallet 14 + bank-card-screen/wiring 4），含“已绑定默认卡自动选中并只提交 bankCardId”“未选卡且未填账户阻止提交”；RN typecheck、小程序 typecheck 均通过。新增 2 条真实 DB 提现用例（bankCardId 解密落库、无效 id/类型 400），随 `wallet-routes.real.test.ts` 25/25 通过。
+- **验证**：API 应用层 `tsc --noEmit` 0；Web `typecheck` 0；RN `/wallet` 相关 3 个测试文件 **19/19**（wallet 15 + bank-card-screen/wiring 4），含“已绑定默认卡自动选中并只提交 bankCardId”“未选卡且未填账户阻止提交”“历史只读投影卡不进入选择列表”；RN typecheck、小程序 typecheck 均通过。新增 2 条真实 DB 提现用例（bankCardId 解密落库、无效 id/类型 400），随 `wallet-routes.real.test.ts` 25/25 通过。
 - **类型构建边角**：`@ihui/types` 的 `WithdrawBankCardOption`/`bankCards` 源类型已在 d0a5 落盘，但发布构建因 `TextEncoder`/`AbortSignal` 缺 DOM lib 失败、dist 未更新，导致 Web `typecheck` 报 props 不存在；本轮给 `packages/types/tsconfig.json` 显式补 `DOM` lib，`pnpm --filter @ihui/types build` 原子换入 dist，随后 Web `typecheck` 0。该修复随 `f03d92b6` 提交。
 
 ### OpenAPI 落盘（2026-11-27）
@@ -135,12 +136,12 @@ BankCard 原先只有 `withdrawal_flows.account_info` 的只读投影，没有�
 - **结果**：`node scripts/check-cross-end-route-contract.mjs --write` 跑通，contractRows 932 → **934**，Web 路由 934 = web-only 536 + mini-native **214** + mini-webview 97 + rn-only 62 + mini-native-own 14 + mini-native-direct 10 + rn-pending 1；真缺口 0（未分类 0 / 承载缺账 0 / 小程序路由不存在 0 / 门户缺失 0），rn-only 复核 51/51、0 待审。
 - **哈希**：`contractHash=2482724b5b9bc2c744e214b2d3d9efbf4087620406e509351b2491196249e14e`；随后 `--check` exit 0 `PASS`，原先卡住全量生成的 `community`、`publish/account-pool` 两处上游 gap 已由本轮工作树收口。
 - **连带产物**：`apps/mobile-rn/src/navigation/linking.screens.generated.ts` 同步重生成 301/301 行（240 屏 + 60 alias）；`apps/web/src/lib/ui-routes.generated.ts` 无变化（945 条）。
-- **真机**：本机无 adb / Android 模拟器 / iOS Simulator / 微信开发者工具，无法产出 RN、小程序真机截图；替代验收为 `pnpm --filter @ihui/miniapp-taro build:weapp` exit 0（RN 修复后重建，产物含新提现契约）+ RN 共享屏单测 18/18 + Web E2E 3/3，真机项保留为设备环境边界。
+- **真机**：本机无 adb / Android 模拟器 / iOS Simulator / 微信开发者工具，无法产出 RN、小程序真机截图；替代验收为 `pnpm --filter @ihui/miniapp-taro build:weapp` exit 0（RN 修复后重建，产物含新提现契约）+ RN 共享屏单测 19/19 + Web E2E 4/4，真机项保留为设备环境边界。
 
 ### 生产部署、并发与三端复验（2026-11-28）
 - **部署序列**：`01:33:51` 完成 `HEAD=d0a5f97e4a`；`02:39:06` 完成 `HEAD=73121f8036`（DB 事务锁 + 真实库/跨进程测试进生产）；`03:27:29` 完成 `HEAD=89c7d5f9a6`（并行合并版，已含 RN 提现修复 `8077b159`）；`03:32:32` merge 到 `HEAD=f03d92b6cb`，**03:50:23 部署完成** `HEAD=f03d92b6cb`。最终 8801/8802 `/api/health` 均 200，web 活跃 blue(:8851) `updatedAt=03:46:52`，api 活跃 blue(:8842) `updatedAt=03:49:10`。
 - **生产并发复验**：用 E2E 真实登录态 `auth_token` 组 Bearer 头，对 8801 生产 API 并发两次同卡号 `POST /api/wallet/bank-cards`：**201 + 409**，GET 落库只 **1 张**可编辑卡；再创建两张卡并发 `PATCH /:id/default`：**200 + 200**，GET 两张卡 `isDefault=true` 仅 **1 张**。验收后按 id 删除测试卡，未留数据。
-- **新版 E2E**：`wallet-bank-cards.spec.ts` 在 8801 部署 `73121f8036` 后 **3 passed / 13.9s**；最终 `f03d92b6cb` 部署后再跑 **3 passed / 10.9s**（2 条 auth setup + 1 条用例）。用已登录 storageState 直查 DOM：`testid_bank_name=1 holder=1 number=1 save=1`，证明生产产物含 5 个 testID，不是兜底选择器假绿。
+- **新版 E2E**：`wallet-bank-cards.spec.ts` 在 8801 部署 `73121f8036` 后 **3 passed / 13.9s**；最终 `f03d92b6cb` 部署后再跑 **3 passed / 10.9s**（2 条 auth setup + 1 条用例）；补“提现选卡过滤历史只读投影卡”回归用例后同 spec **4 passed / 16.8s**（2 setup + 2 用例，单独跑该用例 3 passed / 6.6s）。用已登录 storageState 直查 DOM：`testid_bank_name=1 holder=1 number=1 save=1`，证明生产产物含 5 个 testID，不是兜底选择器假绿。
 - **最终口径**：production `HEAD=f03d92b6cb`；代码面 `f03d92b6cb` 已推 `origin/main`（本文档随后提交，后续并行任务可能继续推进 `origin/main`）；`8077b159`（RN/小程序提现契约）、`73121f8036`（数据库事务锁）、`f03d92b6cb`（Web 过滤只读投影 + `@ihui/types` DOM 构建修复）均已在生产。代码、测试、文档、远端提交与部署无未闭环项；真机截图因本机无设备保留为环境边界。
 
-> 本轮提交：`73121f8036`（DB 锁/真实库/跨进程脚本）、`8077b159`（RN/小程序提现接卡）、`f03d92b6cb`（Web 只读过滤 + types 构建修复）；本文档随后单独提交。
+> 本轮提交：`73121f8036`（DB 锁/真实库/跨进程脚本）、`8077b159`（RN/小程序提现接卡）、`f03d92b6cb`（Web 只读过滤 + types 构建修复）、`099a6b95`（Web 提现只读过滤回归用例）、`40cb38b6`（RN 提现只读过滤回归用例）；本文档随后单独提交。

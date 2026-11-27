@@ -335,6 +335,40 @@ describe('WithdrawScreen 提现流程', () => {
     ).toHaveLength(0)
   })
 
+  it('历史只读投影卡不进入提现选卡', async () => {
+    apiMocks.fetchApi.mockImplementation((url: string) => {
+      if (String(url).includes('/wallet/bank-cards')) {
+        return Promise.resolve({
+          success: true,
+          data: [
+            {
+              id: 'readonly-1',
+              number: '**** **** **** 9999',
+              holder: '历史持卡人',
+              bankName: '历史银行',
+              isDefault: true,
+              readOnly: true,
+            },
+            {
+              id: 'editable-1',
+              number: '**** **** **** 1111',
+              holder: '可编辑持卡人',
+              bankName: '可编辑银行',
+              isDefault: false,
+              readOnly: false,
+            },
+          ],
+        })
+      }
+      return Promise.resolve({ success: true })
+    })
+
+    const { getByText, queryByText } = render(<WithdrawScreen />)
+    await waitFor(() => expect(getByText(/可编辑银行/)).toBeTruthy())
+    // 历史提现投影只有掩码、没有可解密绑定 id，不能出现在选择列表。
+    expect(queryByText(/历史银行/)).toBeNull()
+  })
+
   it('已绑定默认卡:自动选中并只提交 bankCardId', async () => {
     apiMocks.fetchApi.mockImplementation((url: string) => {
       if (String(url).includes('/wallet/bank-cards')) {
