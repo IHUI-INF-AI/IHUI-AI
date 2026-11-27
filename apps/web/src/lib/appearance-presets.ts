@@ -15,7 +15,7 @@ import {
   type AppearanceConfig,
 } from '@/stores/appearance-settings'
 
-export type BuiltInPresetId = 'default' | 'reading' | 'compact' | 'focus' | 'accessible'
+export type BuiltInPresetId = 'default' | 'reading' | 'compact' | 'focus' | 'accessible' | 'pink'
 
 export interface BuiltInAppearancePreset {
   id: BuiltInPresetId
@@ -26,12 +26,14 @@ export interface BuiltInAppearancePreset {
     | 'presetBuiltinCompact'
     | 'presetBuiltinFocus'
     | 'presetBuiltinAccessible'
+    | 'presetBuiltinPink'
   descKey:
     | 'presetBuiltinDefaultDesc'
     | 'presetBuiltinReadingDesc'
     | 'presetBuiltinCompactDesc'
     | 'presetBuiltinFocusDesc'
     | 'presetBuiltinAccessibleDesc'
+    | 'presetBuiltinPinkDesc'
   overrides: Partial<AppearanceConfig>
 }
 
@@ -101,6 +103,35 @@ export const BUILT_IN_APPEARANCE_PRESETS: readonly BuiltInAppearancePreset[] = [
       mobileFontBoost: true,
       reduceMotion: true,
       userBubbleWidth: 90,
+    },
+  },
+  {
+    id: 'pink',
+    nameKey: 'presetBuiltinPink',
+    descKey: 'presetBuiltinPinkDesc',
+    // 粉色界面(2026-11-27):柔粉底 + 玫红主色,亮暗各一套;走既有 customTheme 通道,
+    // 不改 tokens.css 源头,也不新增第二套主题系统。
+    overrides: {
+      accentColor: 'rose',
+      customTheme: {
+        enabled: true,
+        light: {
+          primary: '#c23a72',
+          background: '#fff5f8',
+          foreground: '#3f1f2d',
+          card: '#ffffff',
+          muted: '#fde7f0',
+          border: '#f3c8db',
+        },
+        dark: {
+          primary: '#f472b6',
+          background: '#1b1016',
+          foreground: '#fbe9f1',
+          card: '#251722',
+          muted: '#33202c',
+          border: '#4a2c3b',
+        },
+      },
     },
   },
 ]

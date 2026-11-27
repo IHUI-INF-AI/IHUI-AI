@@ -595,6 +595,8 @@ html.dark [data-accent-preview='rose'] {
  * Provider 把亮/暗两套色板写成 --custom-{mode}-* 内联变量;
  * 这里只做「语义 token → 自定义色」的映射,切主题由 .dark 选择器完成。
  * 放在 accent 段之后 ⇒ 自定义主题优先于预设主色。
+ * 2026-11-27 补侧栏与工作区面板:粉色等整屏主题若只染主内容区、侧栏仍是中性灰,
+ * 观感是"半套主题";hover/active 由色板前景与 muted 混出,不新增色板键。
  * ---------------------------------------------------------------------- */
 html[data-custom-theme='true'] {
   --color-primary: var(--custom-light-primary);
@@ -619,6 +621,25 @@ html[data-custom-theme='true'] {
   --color-secondary-foreground: var(--custom-light-foreground);
   --color-accent: var(--custom-light-muted);
   --color-accent-foreground: var(--custom-light-foreground);
+  --color-sidebar: var(--custom-light-muted);
+  --color-sidebar-foreground: var(--custom-light-foreground);
+  --color-sidebar-hover: color-mix(
+    in srgb,
+    var(--custom-light-foreground) 5%,
+    var(--custom-light-muted)
+  );
+  --color-sidebar-active: color-mix(
+    in srgb,
+    var(--custom-light-foreground) 8%,
+    var(--custom-light-muted)
+  );
+  --color-sidebar-active-hover: color-mix(
+    in srgb,
+    var(--custom-light-foreground) 12%,
+    var(--custom-light-muted)
+  );
+  --color-sidebar-item-hover-bg: var(--custom-light-card);
+  --color-shell-panel: var(--custom-light-card);
 }
 
 html.dark[data-custom-theme='true'] {
@@ -644,6 +665,29 @@ html.dark[data-custom-theme='true'] {
   --color-secondary-foreground: var(--custom-dark-foreground);
   --color-accent: var(--custom-dark-muted);
   --color-accent-foreground: var(--custom-dark-foreground);
+  --color-sidebar: var(--custom-dark-muted);
+  --color-sidebar-foreground: var(--custom-dark-foreground);
+  --color-sidebar-hover: color-mix(
+    in srgb,
+    var(--custom-dark-background) 55%,
+    var(--custom-dark-muted)
+  );
+  --color-sidebar-active: color-mix(
+    in srgb,
+    var(--custom-dark-background) 72%,
+    var(--custom-dark-muted)
+  );
+  --color-sidebar-active-hover: color-mix(
+    in srgb,
+    var(--custom-dark-background) 82%,
+    var(--custom-dark-muted)
+  );
+  --color-sidebar-item-hover-bg: color-mix(
+    in srgb,
+    var(--custom-dark-background) 40%,
+    var(--custom-dark-muted)
+  );
+  --color-shell-panel: var(--custom-dark-card);
 }
 
 /* ---- v2:阅读辅助 --------------------------------------------------------

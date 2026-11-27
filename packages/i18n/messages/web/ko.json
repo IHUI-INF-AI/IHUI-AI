@@ -29847,7 +29847,9 @@
     "accentEmerald": "에메랄드",
     "accentAmber": "앰버",
     "accentRose": "로즈"
-  },
+  ,
+    "presetBuiltinPink": "핑크",
+    "presetBuiltinPinkDesc": "부드러운 핑크 배경과 로즈 포인트. 라이트/다크 모두 지원"},
   "checkinAssistant": {
     "taskPanelTitle": "태스크 패널",
     "taskPanelNoAccount": "계정 미연결",

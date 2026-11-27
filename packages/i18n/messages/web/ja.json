@@ -29847,7 +29847,9 @@
     "accentEmerald": "エメラルド",
     "accentAmber": "アンバー",
     "accentRose": "ローズ"
-  },
+  ,
+    "presetBuiltinPink": "ピンク",
+    "presetBuiltinPinkDesc": "淡いピンクの背景とローズのアクセント。ライト／ダーク両対応"},
   "checkinAssistant": {
     "taskPanelTitle": "タスクパネル",
     "taskPanelNoAccount": "アカウント未登録",
