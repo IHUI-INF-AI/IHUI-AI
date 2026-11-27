@@ -2227,6 +2227,7 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-27**
+- 📚 문서:同步 Recent updates 与新增文件水印 (018ec08b3)
 - 🐞 수정:收口计费冻结/欠费/成本账剩余缺陷 (b232f3230)
 - 🐞 수정:桌面构建链与登录自启全静默，消除前台黑窗 (73f4a2082)
 - 🐞 수정:樱花粉皮肤加深色板,点选后肉眼可辨 (1701a5f52)
