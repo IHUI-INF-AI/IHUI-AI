@@ -17,6 +17,7 @@
  *   POST   /publish/accounts/:accountId/verify   测试连接
  *   GET    /publish/accounts/:accountId/risk     账号风险评分(风控引擎,2026-08-17)
  *   POST   /publish/preflight                   发布前预检(不创建任务,透传 ai-service)
+ *   POST   /publish/prepare-draft                一句话出稿 + 合规 + 只落草稿(透传 ai-service)
  *   POST   /publish/tasks                        创建发布任务(支持 dryRun=true 短路:本地返回 adapter 可用性,不转发 ai-service)
  *   GET    /publish/tasks                        列出任务
  *   GET    /publish/tasks/:taskId                任务详情
@@ -115,7 +116,8 @@ const PLATFORM_REGISTRY: readonly PlatformRegistryEntry[] = [
     // 原 buvid3 不被适配器读取 ⇒ 用户"填了等于没填"。见 tests/publish-credential-field-parity.test.ts
     requiresCredentials: ['sessdata', 'bili_jct', 'dedeuserid'],
     needsBrowser: false,
-    setupHint: 'B 站 Cookie 凭据(SESSDATA / bili_jct / dedeuserid),参考 docs/PUBLISH_SETUP.md#bilibili',
+    setupHint:
+      'B 站 Cookie 凭据(SESSDATA / bili_jct / dedeuserid),参考 docs/PUBLISH_SETUP.md#bilibili',
   },
   {
     platformId: 'wechat',
@@ -144,7 +146,8 @@ const PLATFORM_REGISTRY: readonly PlatformRegistryEntry[] = [
     // 2026-09-27 键名对账:抖音适配器(douyin.py)走开放平台 OAuth 四键,不读 cookie。
     requiresCredentials: ['access_token', 'open_id', 'client_key', 'client_secret'],
     needsBrowser: false,
-    setupHint: '抖音开放平台 OAuth 凭据(access_token/open_id/client_key/client_secret),参考 docs/PUBLISH_SETUP.md#douyin',
+    setupHint:
+      '抖音开放平台 OAuth 凭据(access_token/open_id/client_key/client_secret),参考 docs/PUBLISH_SETUP.md#douyin',
   },
   {
     platformId: 'kuaishou',
@@ -154,7 +157,8 @@ const PLATFORM_REGISTRY: readonly PlatformRegistryEntry[] = [
     // 2026-09-27 键名对账:快手适配器(kuaishou.py)走开放平台 access_token/app_id/app_secret,不读 cookie。
     requiresCredentials: ['access_token', 'app_id', 'app_secret'],
     needsBrowser: false,
-    setupHint: '快手开放平台 OAuth 凭据(access_token/app_id/app_secret),参考 docs/PUBLISH_SETUP.md#kuaishou',
+    setupHint:
+      '快手开放平台 OAuth 凭据(access_token/app_id/app_secret),参考 docs/PUBLISH_SETUP.md#kuaishou',
   },
   {
     platformId: 'weibo',
@@ -212,7 +216,8 @@ const PLATFORM_REGISTRY: readonly PlatformRegistryEntry[] = [
     // 2026-09-27 键名对账:视频号适配器(shipinhao.py)读 wechat_channels(cookie 名),泛键 cookie 不被读取。
     requiresCredentials: ['wechat_channels'],
     needsBrowser: true,
-    setupHint: '视频号 Cookie(wechat_channels)+ Playwright 浏览器内核,参考 docs/PUBLISH_SETUP.md#shipinhao',
+    setupHint:
+      '视频号 Cookie(wechat_channels)+ Playwright 浏览器内核,参考 docs/PUBLISH_SETUP.md#shipinhao',
   },
 ] as const
 
@@ -482,6 +487,11 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
 
   // ===== 任务管理 =====
 
+  // 一句话出稿(2026-11-27):AI 出稿 + 合规自检 + 只落草稿,不排期、不发布。
+  server.post('/publish/prepare-draft', async (request, reply) => {
+    await proxyToAiService(request, reply, '/prepare-draft')
+  })
+
   // 发布前预检(2026-11-27):不创建任务,先告诉调用方哪个账号/平台会拦。
   server.post('/publish/preflight', async (request, reply) => {
     await proxyToAiService(request, reply, '/preflight')
@@ -731,11 +741,7 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/publish/pools/accounts/:accountId/probe', async (request, reply) => {
     const { accountId } = request.params as { accountId: string }
-    await proxyToAiService(
-      request,
-      reply,
-      `/pools/accounts/${encodeURIComponent(accountId)}/probe`,
-    )
+    await proxyToAiService(request, reply, `/pools/accounts/${encodeURIComponent(accountId)}/probe`)
   })
 
   server.post('/publish/pools/accounts/:accountId/reauth', async (request, reply) => {
@@ -796,7 +802,9 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
     await proxyToAiService(
       request,
       reply,
-      qs ? `/pools/${encodeURIComponent(poolId)}/events?${qs}` : `/pools/${encodeURIComponent(poolId)}/events`,
+      qs
+        ? `/pools/${encodeURIComponent(poolId)}/events?${qs}`
+        : `/pools/${encodeURIComponent(poolId)}/events`,
     )
   })
 

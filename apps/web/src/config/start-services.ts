@@ -43,7 +43,7 @@ export const START_SERVICES: readonly StartService[] = [
     ],
     title: 'AI 内容生产',
     desc: '一句话出稿、合规自检并落下草稿，人工确认后才发布',
-    href: '/ai-generation',
+    href: '/publish/ai-draft',
     icon: 'pen',
     surfaces: ['web'],
     agentTool: 'prepare_publish_draft',

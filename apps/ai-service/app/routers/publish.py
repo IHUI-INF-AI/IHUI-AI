@@ -79,6 +79,7 @@ from app.services.publish.metrics_collector import (
 from app.services.publish.post_publish_verifier import verify_published
 from app.services.publish.preflight import run_preflight
 from app.services.publish.scheduler import publish_scheduler
+from app.tools.pipeline_tools import prepare_publish_draft as run_prepare_publish_draft
 
 logger = get_logger(__name__)
 
@@ -293,6 +294,21 @@ class DraftUpdateRequest(BaseModel):
     title_length: int | None = None
     hashtag_count: int | None = None
     require_ai_disclosure: bool | None = None
+
+
+class PrepareDraftRequest(BaseModel):
+    """一句话出稿请求：只落草稿，不排期、不调平台。"""
+
+    brief: str = Field(..., min_length=1, max_length=2000, description="一句话需求")
+    platforms: list[str] = Field(..., min_length=1, max_length=10, description="目标平台")
+    tone: str = Field(default="口语化、自然聊天", max_length=80)
+    profile: str = Field(default="ihui_koubo", max_length=64)
+    format: str = Field(default="md", pattern=r"^(md|html)$")
+    min_chars: int = Field(default=470, ge=0, le=20000)
+    max_chars: int = Field(default=490, ge=0, le=20000)
+    title_chars: int = Field(default=16, ge=0, le=60)
+    hashtag_count: int = Field(default=5, ge=0, le=30)
+    require_ai_disclosure: bool = False
 
 
 class RescheduleRequest(BaseModel):
@@ -943,6 +959,33 @@ async def _find_idempotent_task(
         "scheduled_at": row["scheduled_at"].isoformat() if row["scheduled_at"] else None,
         "created_at": row["created_at"].isoformat() if row["created_at"] else None,
     }
+
+
+@router.post("/prepare-draft")
+async def prepare_draft(body: PrepareDraftRequest, request: Request) -> dict[str, Any]:
+    """一句话需求 → 出稿 → 合规自检 → 落草稿（人工确认后才允许发布）。
+
+    工具结果统一走 200 + code=0，前端据 `data.ok` 区分业务结果：
+    NO_ACCOUNT / PREFLIGHT_BLOCKED 等是可解释结果，不是 HTTP 网关错误。
+    """
+    user_id = _get_user_id(request)
+    result = await run_prepare_publish_draft(
+        {
+            "brief": body.brief,
+            "platforms": body.platforms,
+            "tone": body.tone,
+            "profile": body.profile,
+            "format": body.format,
+            "min_chars": body.min_chars,
+            "max_chars": body.max_chars,
+            "title_chars": body.title_chars,
+            "hashtag_count": body.hashtag_count,
+            "require_ai_disclosure": body.require_ai_disclosure,
+            "__user_id": user_id,
+            "__session_id": request.headers.get("x-session-id"),
+        }
+    )
+    return _wrap_ok(result)
 
 
 @router.post("/preflight")
