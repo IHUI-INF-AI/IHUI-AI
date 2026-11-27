@@ -15,11 +15,31 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { checkInternalServiceToken } from '../plugins/internal-service-token.js'
+import { AppError } from '../errors/AppError.js'
 import {
+  cloneAgentDefinition,
+  createAgentDefinition,
+  getAgentDefinition,
+  listAgentDefinitionVersions,
+  listAgentDefinitions,
   resolveAgentDefinitionForInternal,
+  rollbackAgentDefinition,
+  setAgentDefinitionEnabled,
   snapshotAgentDefinitionsForInternal,
+  updateAgentDefinition,
   type AgentRegistryActor,
+  type CreateAgentDefinitionInput,
+  type UpdateAgentDefinitionInput,
 } from '../services/agent-registry-service.js'
+import {
+  createDeleteApproval,
+  precheckDelete,
+  restoreAgentDefinition,
+} from '../services/agent-registry-approval-service.js'
+import {
+  publishAgentRegistryChanged,
+  snapshotVersionFromUpdatedAt,
+} from '../services/agent-registry-invalidation.js'
 import {
   appendRunEvent,
   createOrUpdateRun,
@@ -159,6 +179,59 @@ const internalAuditSchema = z
   })
   .strict()
 
+const registryOpsSchema = z
+  .object({
+    action: z.enum([
+      'list',
+      'inspect',
+      'create',
+      'update',
+      'clone',
+      'disable',
+      'enable',
+      'rollback',
+      'precheck_delete',
+      'delete',
+      'restore',
+    ]),
+    id: z.string().uuid().optional(),
+    name: z.string().min(1).max(64).optional(),
+    displayName: z.string().min(1).max(100).optional(),
+    description: z.string().max(4000).optional(),
+    scope: scopeSchema.optional(),
+    teamId: z.string().uuid().nullish(),
+    role: z.string().max(32).optional(),
+    systemPrompt: z.string().max(32768).optional(),
+    model: z.string().max(100).nullish(),
+    temperature: z.number().min(0).max(2).optional(),
+    maxTokens: z.number().int().min(1).max(200000).nullish(),
+    tools: z.array(z.string().max(80)).max(64).optional(),
+    skills: z.array(z.string().max(80)).max(64).optional(),
+    permissions: z.record(z.string(), z.unknown()).optional(),
+    memoryPolicy: z.record(z.string(), z.unknown()).optional(),
+    budget: z.record(z.string(), z.unknown()).optional(),
+    concurrencyLimit: z.number().int().min(1).max(8).optional(),
+    isDispatchable: z.boolean().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+    ifVersion: z.number().int().positive().optional(),
+    targetVersion: z.number().int().positive().optional(),
+    precheckToken: z.string().min(20).max(4096).optional(),
+    reason: z.string().max(500).optional(),
+    query: z.string().max(80).optional(),
+    status: z.enum(['active', 'disabled', 'deleted']).optional(),
+    limit: z.number().int().min(1).max(100).default(20),
+    cursor: z.string().max(256).optional(),
+    includeVersions: z.boolean().default(false),
+  })
+  .strict()
+
+function requireField<T>(value: T | undefined | null, name: string): T {
+  if (value === undefined || value === null) {
+    throw new AppError(`action 缺少字段 ${name}`, 400, 'AGENT_ACTION_INVALID')
+  }
+  return value
+}
+
 export async function agentRegistryInternalRoutes(server: FastifyInstance): Promise<void> {
   server.addHook('preHandler', async (request, reply) => {
     const ok = await checkInternalServiceToken(request, reply, { scope: 'agent-registry' })
@@ -237,5 +310,151 @@ export async function agentRegistryInternalRoutes(server: FastifyInstance): Prom
     const body = parseOrThrow(internalAuditSchema, request.body)
     const auditId = await recordInternalAgentAudit(actorOf(request), body)
     return reply.status(201).send(withRequestId(request, success({ auditId })))
+  })
+
+  /**
+   * 给总管工具的注册表 action 面（P3-04）。只暴露定义域动作；
+   * `purge` 永远不在这里，模型不能彻底删除。删除/回滚仍只创建审批，
+   * 不代替用户在卡片上确认。
+   */
+  server.post('/ops', async (request, reply) => {
+    const body = parseOrThrow(registryOpsSchema, request.body)
+    const actor = actorOf(request)
+    let result: unknown
+
+    switch (body.action) {
+      case 'list':
+        result = await listAgentDefinitions(actor, {
+          status: body.status,
+          search: body.query,
+          limit: body.limit,
+          cursor: body.cursor,
+        })
+        break
+      case 'inspect': {
+        const definition = await getAgentDefinition(
+          actor,
+          requireField(body.id, 'id'),
+        )
+        result = body.includeVersions
+          ? {
+              definition,
+              versions: await listAgentDefinitionVersions(actor, definition.id, 50),
+            }
+          : definition
+        break
+      }
+      case 'create':
+        result = await createAgentDefinition(actor, {
+          scope: requireField(body.scope, 'scope') as 'personal' | 'team' | 'system',
+          name: requireField(body.name, 'name'),
+          displayName: requireField(body.displayName, 'displayName'),
+          description: body.description,
+          role: body.role,
+          systemPrompt: requireField(body.systemPrompt, 'systemPrompt'),
+          model: body.model,
+          temperature: body.temperature,
+          maxTokens: body.maxTokens,
+          tools: body.tools,
+          skills: body.skills,
+          permissions: body.permissions,
+          memoryPolicy: body.memoryPolicy,
+          budget: body.budget,
+          concurrencyLimit: body.concurrencyLimit,
+          isDispatchable: body.isDispatchable,
+          metadata: body.metadata,
+          teamId: body.teamId,
+          reason: body.reason,
+        } as CreateAgentDefinitionInput)
+        break
+      case 'update':
+        result = await updateAgentDefinition(actor, requireField(body.id, 'id'), {
+          ifVersion: requireField(body.ifVersion, 'ifVersion'),
+          name: body.name,
+          displayName: body.displayName,
+          description: body.description,
+          role: body.role,
+          systemPrompt: body.systemPrompt,
+          model: body.model,
+          temperature: body.temperature,
+          maxTokens: body.maxTokens,
+          tools: body.tools,
+          skills: body.skills,
+          permissions: body.permissions,
+          memoryPolicy: body.memoryPolicy,
+          budget: body.budget,
+          concurrencyLimit: body.concurrencyLimit,
+          isDispatchable: body.isDispatchable,
+          metadata: body.metadata,
+          reason: body.reason,
+        } as UpdateAgentDefinitionInput)
+        break
+      case 'clone':
+        result = await cloneAgentDefinition(actor, requireField(body.id, 'id'), {
+          name: requireField(body.name, 'name'),
+          displayName: body.displayName,
+          scope: body.scope as 'personal' | 'team' | 'system' | undefined,
+          teamId: body.teamId,
+          reason: body.reason,
+        })
+        break
+      case 'disable':
+        result = await setAgentDefinitionEnabled(
+          actor,
+          requireField(body.id, 'id'),
+          false,
+          requireField(body.ifVersion, 'ifVersion'),
+        )
+        break
+      case 'enable':
+        result = await setAgentDefinitionEnabled(
+          actor,
+          requireField(body.id, 'id'),
+          true,
+          requireField(body.ifVersion, 'ifVersion'),
+        )
+        break
+      case 'rollback':
+        result = await rollbackAgentDefinition(
+          actor,
+          requireField(body.id, 'id'),
+          requireField(body.targetVersion, 'targetVersion'),
+          requireField(body.ifVersion, 'ifVersion'),
+        )
+        break
+      case 'precheck_delete':
+        result = await precheckDelete(actor, requireField(body.id, 'id'))
+        break
+      case 'delete':
+        result = await createDeleteApproval(
+          actor,
+          requireField(body.id, 'id'),
+          requireField(body.precheckToken, 'precheckToken'),
+          body.reason,
+        )
+        break
+      case 'restore':
+        result = await restoreAgentDefinition(actor, requireField(body.id, 'id'))
+        break
+      default:
+        throw new AppError(`未知 action ${String(body.action)}`, 400, 'AGENT_ACTION_INVALID')
+    }
+
+    const mutating =
+      !['list', 'inspect', 'precheck_delete', 'delete'].includes(body.action) &&
+      !(typeof result === 'object' && result !== null && 'requiresApproval' in result)
+    if (mutating) {
+      const record =
+        result !== null && typeof result === 'object'
+          ? (result as Record<string, unknown>)
+          : {}
+      await publishAgentRegistryChanged(request.server, {
+        version: snapshotVersionFromUpdatedAt(record.updatedAt),
+        ids: typeof record.id === 'string' ? [record.id] : [],
+        action: `internal.${body.action}`,
+      })
+    }
+
+    return reply.send(withRequestId(request, success({ action: body.action, result })))
   })
 }
