@@ -267,6 +267,16 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
           </Tooltip>
         </div>
       </div>
+      {pdfSelection ? (
+        <div className="border-y bg-background p-2" data-testid="pdf-anchor-capture">
+          <AnnotationAnchorCapture
+            anchor={{ kind: 'pdf', page: pdfSelection.page }}
+            initialNote={pdfSelection.excerpt}
+            source="pdf-selection"
+            onDispose={() => setPdfSelection(null)}
+          />
+        </div>
+      ) : null}
       <div className="relative flex-1 overflow-auto">
         {rendering && (
           <div className="absolute right-3 top-3 z-10 rounded bg-black/60 px-2 py-1 text-label text-white">
@@ -297,16 +307,6 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
           )}
         </div>
       </div>
-      {pdfSelection ? (
-        <div className="border-t bg-background p-2" data-testid="pdf-anchor-capture">
-          <AnnotationAnchorCapture
-            anchor={{ kind: 'pdf', page: pdfSelection.page }}
-            initialNote={pdfSelection.excerpt}
-            source="pdf-selection"
-            onDispose={() => setPdfSelection(null)}
-          />
-        </div>
-      ) : null}
     </div>
   )
 }
