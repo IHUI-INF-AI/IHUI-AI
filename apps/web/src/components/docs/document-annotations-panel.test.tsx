@@ -160,5 +160,7 @@ describe('DocumentAnnotationsPanel', () => {
     expect(received[0]?.page).toBe(2)
     expect(received[0]?.text).toContain('PDF 第 2 页 · AI 全文')
     expect(received[0]?.text).toContain('请基于这条 AI 预审意见')
+    expect(received[0]?.autoSend).toBe(true)
+    expect(received[0]?.autoSendPrompt).toContain('可执行')
   })
 })

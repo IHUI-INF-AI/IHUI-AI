@@ -69,6 +69,10 @@ export interface AnchorReferenceDetail {
   readonly excerpt?: string
   /** 用户填写的批注正文(增量字段;旧消费者不读) */
   readonly note?: string
+  /** 交给主 AI 时直接发送，而不是只落一个待发送 chip（AI finding handoff 用） */
+  readonly autoSend?: boolean
+  /** autoSend 时追加到消息正文的简短指令；缺省由 text 内容承担 */
+  readonly autoSendPrompt?: string
 }
 
 /** 单一派发点:window 级 CustomEvent,与 D22 消费者同通道同机制。 */
