@@ -1048,6 +1048,8 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
             completionTokens,
             totalTokens: promptTokens + completionTokens,
             requestType: 'coze_workflow_chat',
+            // 同一 Coze 计费引用只落一条成本;重试/重放不双记。
+            idempotencyKey: `llm_cost:${cozeBillingReference}`,
             cost: Math.ceil(actual.cost),
             currency: actual.currency,
           })

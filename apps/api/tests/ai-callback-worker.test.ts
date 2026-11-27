@@ -271,6 +271,8 @@ describe('AI callback worker billing (F-203 口径 B)', () => {
       source: 'llm_chat',
       description: 'LLM chat gpt-x',
       referenceId: 'idem-1',
+      // 回调 worker 自己写 ai_cost_records,明确避让内部成本账,避免双记。
+      costRecordedByCaller: true,
     })
     // 旧链路(deductTokens 按 token 数)不得再被调用
     expect(

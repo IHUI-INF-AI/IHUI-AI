@@ -1,0 +1,15 @@
+-- © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+-- Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+--
+-- 2026-11-27 成本账幂等键独立成列。
+--
+-- 背景:上一版把 idempotencyKey 写进 metadata(text) 并用 metadata->>'idempotencyKey'
+-- 查重,但 PostgreSQL 的 ->> 只接受 json/jsonb,text 列会直接报
+-- "operator does not exist: text ->> unknown",导致带幂等键的成本记账全部失败。
+-- 改为独立 varchar 列 + 唯一索引:查重走 B-tree,并发重放由唯一索引兜底。
+
+ALTER TABLE ai_cost_records
+  ADD COLUMN IF NOT EXISTS idempotency_key varchar(128);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ai_cost_idempotency_key_uq
+  ON ai_cost_records (idempotency_key);

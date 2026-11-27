@@ -3981,7 +3981,7 @@ if (-not $dryrun) { Invoke-DbMigrate }
 # 执行环触发,这就是"870 枚在桶里、库里零行"的断点。
 # 与 Invoke-DbMigrate 共用 apps/api/.env 的 DATABASE_URL(进程级 env 已设置,这里再兜底一次)
 function Invoke-DbSeedSteps {
-    Log "DB seed(packages/database 中转站定价+历史课程视频草稿,--only=13,14)"
+    Log "DB seed(packages/database 中转站定价+历史课程视频草稿+媒体上游成本,--only=13,14,16)"
     $apiEnv = "$Root\apps\api\.env"
     if (Test-Path $apiEnv) {
         Get-Content $apiEnv | ForEach-Object {
@@ -3990,7 +3990,7 @@ function Invoke-DbSeedSteps {
     }
     Push-Location "$Root\packages\database"
     try {
-        $seedOut = & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') exec tsx seed/index.ts --only=13,14 2>&1 | Out-String
+        $seedOut = & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') exec tsx seed/index.ts --only=13,14,16 2>&1 | Out-String
         $seedOut | Write-Host
         if ($LASTEXITCODE -eq 0) {
             Ok "seed 完成(exit 0)"
@@ -4000,7 +4000,7 @@ function Invoke-DbSeedSteps {
             $seedExit1 = $LASTEXITCODE
             Log "WARN  seed 失败(exit $seedExit1),60 秒后同轮重试 1 次(独立一次新执行,疑似 PG 重启/备份窗口)"
             Start-Sleep -Seconds 60
-            $seedOut2 = & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') exec tsx seed/index.ts --only=13,14 2>&1 | Out-String
+            $seedOut2 = & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') exec tsx seed/index.ts --only=13,14,16 2>&1 | Out-String
             $seedOut2 | Write-Host
             $seedExit2 = $LASTEXITCODE
             if ($seedExit2 -eq 0) { Log "OK    seed 瞬时失败已重试成功,疑似 PG 重启/备份窗口" }

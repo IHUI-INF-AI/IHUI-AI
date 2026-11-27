@@ -48,11 +48,14 @@ describe('daily-credits 纯口径', () => {
   })
 
   it('脏数据不把 used 算成负数：remaining 反而大于常量时按 remaining 抬 granted', () => {
-    const state = dailyCreditStateOf({
-      ...baseRow,
-      dailyPoints: 150,
-      dailyPointsDate: '2026-11-23',
-    })
+    const state = dailyCreditStateOf(
+      {
+        ...baseRow,
+        dailyPoints: 150,
+        dailyPointsDate: '2026-11-23',
+      },
+      new Date('2026-11-23T14:00:00Z'),
+    )
     expect(state.granted).toBe(150)
     expect(state.used).toBe(0)
     expect(state.remaining).toBe(150)
@@ -82,12 +85,14 @@ describe('daily-credits 纯口径', () => {
     expect(state.date).toBe('2026-11-24')
   })
 
-  it('availableOf = 永久余额 + 今日赠送剩余，两段负值都夹到 0', () => {
+  it('availableOf = 永久余额 + 今日赠送剩余；欠费会先吃掉赠送额', () => {
     const at = new Date('2026-11-23T02:00:00Z')
     const today = '2026-11-23'
     expect(availableOf({ points: 500, dailyPoints: 100, dailyPointsDate: today }, at)).toBe(600)
     expect(availableOf({ points: 0, dailyPoints: 100, dailyPointsDate: today }, at)).toBe(100)
-    expect(availableOf({ points: -20, dailyPoints: 100, dailyPointsDate: today }, at)).toBe(100)
+    // 永久欠费 -20 先由今日赠送抵消，剩 80 可用；欠费超过赠送则夹到 0。
+    expect(availableOf({ points: -20, dailyPoints: 100, dailyPointsDate: today }, at)).toBe(80)
+    expect(availableOf({ points: -120, dailyPoints: 100, dailyPointsDate: today }, at)).toBe(0)
     expect(availableOf({ points: 500, dailyPoints: -30, dailyPointsDate: today }, at)).toBe(500)
   })
 

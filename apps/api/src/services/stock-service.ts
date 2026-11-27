@@ -315,12 +315,11 @@ export async function executeStockAnalysis(
         })
       }
     } catch (err) {
-      await releasePointsHold({
-        userId: req.userId,
-        source: 'stock_analysis',
-        referenceId: billingReferenceId,
-      }).catch(() => undefined)
-      logger.error('[stock-service] 积分结算失败', { error: (err as Error).message })
+      // 上游 AI 已实际调用并返回内容:不能释放 hold 变成免费。
+      // settleLlmPointsUsage 已标记 settle_pending,交给周期任务重试。
+      logger.error('[stock-service] 积分结算失败,已留待结算重试', {
+        error: (err as Error).message,
+      })
     }
 
     try {
@@ -337,6 +336,8 @@ export async function executeStockAnalysis(
         completionTokens,
         totalTokens: ai.tokensUsed,
         requestType: 'stock_analysis',
+        // 同一股票分析计费引用只落一条成本。
+        idempotencyKey: `llm_cost:${billingReferenceId}`,
         cost: Math.ceil(actual.cost),
         currency: actual.currency,
       })

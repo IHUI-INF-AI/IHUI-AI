@@ -36,6 +36,13 @@ interface MediaCostEntry {
 const COSTS: MediaCostEntry[] = [
   // ── 图片 ────────────────────────────────────────────────────────────────
   {
+    modelId: 'agnes-image-2.0-flash',
+    billingMode: 'per_image',
+    costUnitPrice: 7.2,
+    source: 'https://wiki.agnes-ai.com/en/docs/pricing',
+    note: '1K 输出 $0.010/张 × 7.2 = 7.2 分/张；与 2.1/2.5 同价',
+  },
+  {
     modelId: 'agnes-image-2.1-flash',
     billingMode: 'per_image',
     costUnitPrice: 7.2,
@@ -196,6 +203,31 @@ const COSTS: MediaCostEntry[] = [
 ]
 
 export async function seedMediaCostPricing(): Promise<void> {
+  // gpt-image-2 / 2.5 / flare / sunburst 的历史行是早期占位价(0.02~0.03 分/张),
+  // 低于 1 分地板且没有可核实的上游成本;这批模型也没有 relay_public 配置。
+  // 按“未定价不卖”直接过期停售,不硬编假成本;后台补到真实成本后再重新上架。
+  const expiredGptImage = await db.execute(sql`
+    UPDATE ai_pricing
+       SET expires_at = now()
+     WHERE lower(model_id) IN (
+       'gpt-image-2', 'gpt-image-2.5', 'gpt-image-2.5-flare', 'gpt-image-2.5-sunburst'
+     )
+       AND per_unit_price < 1
+       AND (expires_at IS NULL OR expires_at > now())
+    RETURNING model_id
+  `)
+  const expiredRows = ((expiredGptImage as { rows?: Array<{ model_id: string }> }).rows ??
+    (Array.isArray(expiredGptImage)
+      ? (expiredGptImage as Array<{ model_id: string }>)
+      : [])) as Array<{ model_id: string }>
+  if (expiredRows.length > 0) {
+    console.info(
+      `[media-cost] 已过期 ${expiredRows.length} 条 gpt-image 占位低价行(未定价不卖):${[
+        ...new Set(expiredRows.map((row) => row.model_id)),
+      ].join(', ')}`,
+    )
+  }
+
   let updated = 0
   const missing: string[] = []
 
@@ -209,7 +241,10 @@ export async function seedMediaCostPricing(): Promise<void> {
           AND (expires_at IS NULL OR expires_at > now())
         RETURNING model_id
     `)
-    const rows = result as unknown as Array<{ model_id: string }>
+    const rows = ((result as { rows?: Array<{ model_id: string }> }).rows ??
+      (Array.isArray(result) ? (result as Array<{ model_id: string }>) : [])) as Array<{
+      model_id: string
+    }>
     if (rows.length === 0) {
       missing.push(entry.modelId)
     } else {
@@ -222,18 +257,30 @@ export async function seedMediaCostPricing(): Promise<void> {
     console.warn(`[media-cost] 未找到当前生效行（需人工确认）：${missing.join(', ')}`)
   }
 
-  // 自检：除 gpt-5.6（按次文本行）外，所有当前生效的媒体定价行都应有成本价。
+  // 自检：只对“真的可能卖出去”的媒体行告警——有正零售价且存在启用的 relay_public
+  // 配置。gpt-image 系列当前没有公开配置(不可售),缺成本不应被当成在售缺口;
+  // 一旦后台重新上架,这里的告警会立刻出现,继续 fail-closed。
   const uncovered = await db.execute(sql`
-    SELECT model_id
-      FROM ai_pricing
-     WHERE billing_mode IN ('per_image', 'per_video', 'per_call')
-       AND model_id <> 'gpt-5.6'
-       AND effective_at <= now()
-       AND (expires_at IS NULL OR expires_at > now())
-       AND cost_unit_price IS NULL
-     ORDER BY model_id
+    SELECT p.model_id
+      FROM ai_pricing p
+     WHERE p.billing_mode IN ('per_image', 'per_video', 'per_call')
+       AND p.model_id <> 'gpt-5.6'
+       AND p.per_unit_price > 0
+       AND p.effective_at <= now()
+       AND (p.expires_at IS NULL OR p.expires_at > now())
+       AND p.cost_unit_price IS NULL
+       AND EXISTS (
+         SELECT 1 FROM ai_model_config_models m
+          WHERE lower(m.model_id) = lower(p.model_id)
+            AND m.enabled = true
+            AND m.is_relay_public = true
+       )
+     ORDER BY p.model_id
   `)
-  const uncoveredRows = uncovered as unknown as Array<{ model_id: string }>
+  const uncoveredRows = ((uncovered as { rows?: Array<{ model_id: string }> }).rows ??
+    (Array.isArray(uncovered)
+      ? (uncovered as Array<{ model_id: string }>)
+      : [])) as Array<{ model_id: string }>
   if (uncoveredRows.length > 0) {
     console.warn(
       `[media-cost] 仍有 ${uncoveredRows.length} 条媒体定价行缺少成本价：${uncoveredRows

@@ -25,6 +25,7 @@ import { recordAiCost } from '../plugins/ai-cost.js'
 import { logger } from '../utils/logger.js'
 import {
   getPointsHoldPricingSnapshot,
+  markPointHoldPendingSettlement,
   reservePointsUsage,
   settlePointsUsage,
   type ReservePointsUsageResult,
@@ -339,6 +340,11 @@ export async function settleLlmPointsUsage(input: {
   referenceId?: string
   holdReferenceId?: string
   holdSource?: string
+  /**
+   * 调用方已单独把平台成本写进 ai_cost_records(proxy-llm / ai-callback-worker)。
+   * 置 true 后本函数只结算用户积分,不再重复写成本。
+   */
+  costRecordedByCaller?: boolean
 }): Promise<LlmPointsSettlement> {
   const holdSource = input.holdSource ?? input.source
   const holdReferenceId = input.holdReferenceId ?? input.referenceId
@@ -365,60 +371,63 @@ export async function settleLlmPointsUsage(input: {
     }
   }
   const quote = await quoteLlmPoints({ ...input, ratesOverride })
-  const settlement = await settlePointsUsage({
-    userId: input.userId,
-    amount: quote.points,
-    source: input.source,
-    description: input.description ?? `${input.modelId} 用量 ${quote.totalTokens} tokens`,
-    referenceId: input.referenceId,
-    holdReferenceId,
-    holdSource,
-  })
+  let settlement: SettlePointsUsageResult
+  try {
+    settlement = await settlePointsUsage({
+      userId: input.userId,
+      amount: quote.points,
+      source: input.source,
+      description: input.description ?? `${input.modelId} 用量 ${quote.totalTokens} tokens`,
+      referenceId: input.referenceId,
+      holdReferenceId,
+      holdSource,
+    })
+  } catch (err) {
+    // 上游已经产生成本,积分结算失败不能顺带把成本账也丢掉;
+    // 同时把 hold 标成待结算,保留冻结并由周期任务重试,绝不直接释放成免费。
+    try {
+      if (!input.costRecordedByCaller && input.source === 'llm_chat' && quote.totalTokens > 0) {
+        await recordLlmCostOnce(input, quote, {
+          deducted: 0,
+          shortfall: quote.points,
+        })
+      }
+    } catch (costErr) {
+      logger.warn('[ai-points-billing] 结算失败后成本记账仍失败', {
+        userId: input.userId,
+        model: input.modelId,
+        err: costErr instanceof Error ? costErr.message : String(costErr),
+      })
+    }
+    if (holdReferenceId) {
+      try {
+        await markPointHoldPendingSettlement({
+          userId: input.userId,
+          source: holdSource,
+          referenceId: holdReferenceId,
+          amount: quote.points,
+          settlementReferenceId: input.referenceId,
+          description: input.description ?? `${input.modelId} 用量 ${quote.totalTokens} tokens`,
+        })
+      } catch (markErr) {
+        logger.error('[ai-points-billing] 标记待结算失败,hold 仍在 TTL 内', {
+          userId: input.userId,
+          model: input.modelId,
+          holdReferenceId,
+          err: markErr instanceof Error ? markErr.message : String(markErr),
+        })
+      }
+    }
+    throw err
+  }
 
   // 2026-11-26:llm_chat 的用户积分与平台成本是两本账。此前 chat/stream、移动端、
   // ai-frontend、exam 只扣积分、不写 ai_cost_records,利润表看不到上游成本。
-  // crew/stock 已在自己的适配器里 recordAiCost,这里只补 source='llm_chat',避免双记。
-  if (!settlement.alreadySettled && input.source === 'llm_chat' && quote.totalTokens > 0) {
+  // crew/stock/proxy/callback 已在自己的调用点 recordAiCost,这里只补 source='llm_chat',
+  // 且由 costRecordedByCaller 明确避让,避免同一次调用双记成本。
+  if (!input.costRecordedByCaller && input.source === 'llm_chat' && quote.totalTokens > 0) {
     try {
-      let costBasis: 'config' | 'retail' | 'points_3x' = 'points_3x'
-      let costCents = 0
-      const rates = await getLlmPointsRates(input.modelId)
-      if (rates) {
-        costBasis = rates.costBasis
-        if (rates.costBasis === 'config') {
-          costCents =
-            (quote.promptTokens / 1000) * rates.inputCostPer1k +
-            (quote.completionTokens / 1000) * rates.outputCostPer1k
-        }
-      }
-      if (costBasis !== 'config') {
-        // 真实成本未知时按已收积分的 1/3 估算上游成本,并标 unknown;
-        // 不把 ai_pricing 零售价直接当成本,避免把毛利算没。
-        costCents = quote.points / LLM_COST_MARKUP
-      }
-      await recordAiCost({
-        userId: input.userId,
-        model: input.modelId,
-        provider: 'ihui_points',
-        promptTokens: quote.promptTokens,
-        completionTokens: quote.completionTokens,
-        totalTokens: quote.totalTokens,
-        requestType: input.source,
-        callType: 'chat',
-        cost: Math.max(0, Math.round(costCents * 100) / 100),
-        currency: 'CNY',
-        costStatus: costBasis === 'config' ? 'priced' : 'unknown',
-        metadata: JSON.stringify({
-          billingReferenceId: input.referenceId ?? null,
-          holdReferenceId: holdReferenceId ?? null,
-          pricingModelId: quote.pricingModelId,
-          pricingSource: quote.pricingSource,
-          costBasis,
-          points: quote.points,
-          deducted: settlement.deducted,
-          shortfall: settlement.shortfall,
-        }),
-      })
+      await recordLlmCostOnce(input, quote, settlement)
     } catch (err) {
       // 成本账失败不能影响用户结算;留痕待补。
       logger.warn('[ai-points-billing] llm_chat 成本记账失败(不影响积分结算)', {
@@ -430,6 +439,62 @@ export async function settleLlmPointsUsage(input: {
   }
 
   return { ...settlement, quote }
+}
+
+/**
+ * 同一次 LLM 调用的成本只落一次:
+ * 以 metadata.billingReferenceId 作为幂等键,避免“结算成功但响应丢失后整条链路重试”
+ * 或“先结算后成本记账”之间产生双份成本。
+ */
+async function recordLlmCostOnce(
+  input: {
+    userId: string
+    modelId: string
+    referenceId?: string
+  },
+  quote: LlmPointsQuote,
+  settlement: Pick<SettlePointsUsageResult, 'deducted' | 'shortfall'>,
+): Promise<void> {
+  let costBasis: 'config' | 'retail' | 'points_3x' = 'points_3x'
+  let costCents = 0
+  const rates = await getLlmPointsRates(input.modelId)
+  if (rates) {
+    costBasis = rates.costBasis
+    if (rates.costBasis === 'config') {
+      costCents =
+        (quote.promptTokens / 1000) * rates.inputCostPer1k +
+        (quote.completionTokens / 1000) * rates.outputCostPer1k
+    }
+  }
+  if (costBasis !== 'config') {
+    // 真实成本未知时按已收积分的 1/3 估算上游成本,并标 unknown;
+    // 不把 ai_pricing 零售价直接当成本,避免把毛利算没。
+    costCents = quote.points / LLM_COST_MARKUP
+  }
+
+  await recordAiCost({
+    userId: input.userId,
+    model: input.modelId,
+    provider: 'ihui_points',
+    promptTokens: quote.promptTokens,
+    completionTokens: quote.completionTokens,
+    totalTokens: quote.totalTokens,
+    requestType: 'llm_chat',
+    callType: 'chat',
+    idempotencyKey: input.referenceId ? `llm_cost:${input.referenceId}` : undefined,
+    cost: Math.max(0, Math.round(costCents * 100) / 100),
+    currency: 'CNY',
+    costStatus: costBasis === 'config' ? 'priced' : 'unknown',
+    metadata: JSON.stringify({
+      billingReferenceId: input.referenceId ?? null,
+      pricingModelId: quote.pricingModelId,
+      pricingSource: quote.pricingSource,
+      costBasis,
+      points: quote.points,
+      deducted: settlement.deducted,
+      shortfall: settlement.shortfall,
+    }),
+  })
 }
 
 export type { ReservePointsUsageResult }
