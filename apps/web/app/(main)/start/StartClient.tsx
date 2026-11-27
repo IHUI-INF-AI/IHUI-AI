@@ -101,12 +101,16 @@ export default function StartClient() {
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { key: 'draft', label: '待确认草稿', value: queue.draft, href: '/publish/history' },
-              { key: 'scheduled', label: '已排期', value: queue.scheduled, href: '/publish/history' },
-              { key: 'running', label: '发布中', value: queue.running, href: '/publish/history' },
-              { key: 'failed', label: '失败待处理', value: queue.failed, href: '/publish/history' },
+              { key: 'draft', label: '待确认草稿', value: queue.draft, status: 'draft' },
+              { key: 'scheduled', label: '已排期', value: queue.scheduled, status: 'scheduled' },
+              { key: 'running', label: '发布中', value: queue.running, status: 'running' },
+              { key: 'failed', label: '失败待处理', value: queue.failed, status: 'failed' },
             ].map((item) => (
-              <Link key={item.key} href={item.href} className="block">
+              <Link
+                key={item.key}
+                href={`/publish/history?status=${item.status}`}
+                className="block"
+              >
                 <Card className="transition-colors hover:bg-muted/40">
                   <CardContent className="p-4">
                     <div className="text-caption text-muted-foreground">{item.label}</div>
