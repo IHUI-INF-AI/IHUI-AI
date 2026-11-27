@@ -98,4 +98,21 @@ node scripts/sync-itcp-package.mjs --check                   # 独立包与源�
 3. 重要批次提交后打轻量保护 `git tag <name> <sha>`（本票打了 `itcp-recovery-2026-11-27`）并建 backup 分支；
 4. 推送需显式开窗（`PUSH_WINDOW`）；未开窗时 `git-push-guard` 拒推是**设计**，不是故障——不得代开窗口；
 5. 分叉时走 `scripts/git-sync-converge.mjs`（索引层合并、不碰工作区、`assertNoSilentRevert` fail-closed），不要手工 `reset --hard`。
+
+## 六、双仓同步的操作口径（2026-11-27 立）
+
+两远端：`origin`（GitHub）与 `gitee`。要求**任意时刻 main 三端一致**（本地 = origin = gitee）。
+
+口径：
+
+1. 先收敛 origin：`PUSH_WINDOW=1 node scripts/git-sync-converge.mjs --rounds 3`（索引层合并、不碰工作区、`assertNoSilentRevert` fail-closed）。
+2. 再把 origin 的 SHA 推给 gitee：`git push gitee origin/main:refs/heads/main`。
+3. 三端核对：`git rev-parse HEAD` / `git ls-remote origin refs/heads/main` / `git ls-remote gitee refs/heads/main` 三者必须相等。
+
+两个必须知道的边界：
+
+- gitee **首次追赶历史**时，`.husky/pre-push` 的闸会拦：仓库重量预算（本次报“引入 374MB 新对象 > 50MB”）、推送区间大文件闸（`.ihui-agent/archive/PROJECT_PLAN_*.md` 单份 16MB/9MB，按“增量 > 2MB”判）。前者有官方应急开关 `HUSKY_SKIP_REPO_WEIGHT=1`；后者无开关，只能清理归档历史（会重写 SHA、需全会话停机协调）。本次追赶用 `HUSKY_SKIP_REPO_WEIGHT=1` 放行了前者。
+- 一旦追上，后续增量很小，正常 `git push gitee` 即可过闸。当前推送门有 `rc=1` 但按机主 2026-11-23 改定“默认允许跳钩”放行，留痕在 `.ihui-agent/state/pre-push-skips.jsonl`（kind=`push-gate-default-skip`）——这是**跳过的门**，不是判定通过。
+
+事实核对（2026-11-27 现读）：三端 = `1c769f0be9f`；`tool-call-resilience` 9 + `argument-validator` 46 = 55/55；保护 tag `dual-sync-2026-11-27`。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
