@@ -2226,6 +2226,28 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 ## 最近の更新 (自動維持)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-27**
+- 🐞 修正:头像菜单字号项与设置页同名(聊天字号) (506a560a639)
+- 🐞 修正:外观子菜单主题项对齐主题卡四选一（随系统/珍珠白/曜石黑/樱花粉） (eb69a5ac7c3)
+- 🚀 機能/改善:头像菜单按 Qoder 式分组整理，外观设置收进子菜单 (aeaa2bd2443)
+- 🚀 機能/改善:主题色改三字名(随系统/珍珠白/曜石黑/樱花粉) (86046f21a5c)
+- 🐞 修正:媒体计费卡去重并显示倍率 (b6b123b90aa)
+- 📚 ドキュメント:补明 08db→A40E 换锚顺序 (0fc2771b36d)
+- 📚 ドキュメント:修正 v2 feed 换锚顺序注释 (057b92818e2)
+- 📚 ドキュメント:明确换锚顺序，0.1.97 zip 仍用 08db、0.1.98 起才切 A40E (8b242158b1a)
+- 📚 ドキュメント:修正 legacy 兼容提交号并注明 pub_date 必填 (0dcff280b9e)
+- 🔧 その他:链接预览卡升级为站点字母块与标题域名双行版式 (aa23811b0c8)
+- 🐞 修正:HTML 查看到主对话改用 .txt 安全载体 (ba691eaa675)
+- 🐞 修正:补 chat.officePreviewLabel 五语言词条 (c472e75bed2)
+- 🐞 修正:已上架中转站 token 模型不再显示免费 (e2f2e6eb026)
+- 🚀 機能/改善:主题设置收拢为一张「主题」卡(明暗+主题色) (2952c6f4808)
+- 🐞 修正:合并 feed 补 pub_date，满足 Tauri v1 RemoteRelease 必填字段 (754b7cafc29)
+- 📚 ドキュメント:记录 legacy platforms 并入 v2 feed 的兼容收口 (be62a7ebe6c)
+- 🐞 修正:v2 feed 并入同版本 legacy platforms，兼容 0.1.93 及更老 v1 客户端 (e7868a68a90)
+- 🔧 その他:重烘 legacy feed 快照，补 size/sha256 供 v1/v2 双解析 (825d7ddb165)
+- 🐞 修正:updater 条目支持可选 size/sha256，v2 兼容字段 (8b47b88428d)
+- 🐞 修正:修复查看器 AI 面板被 max-h 约束塌成 2px (44cff6c75ec)
+
 **2026-11-26**
 - 🔧 その他:移除用完即弃的本机应急签名 workflow(密钥不经仓库/不依赖常驻 runner) (18fc666c)
 - 🚀 機能/改善:烘焙 0.1.96 更新清单(windows-x86_64 正式签名) (1fa5e93f)
