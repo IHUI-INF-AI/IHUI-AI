@@ -17,6 +17,7 @@
     "isolatedModules": true,
     "paths": {
       "@/*": ["./src/*"],
+      "@h5-home-preview": ["./src/pages/index/h5-home-preview.tsx"],
       "react-native": ["./src/rn-compat/index.ts"],
       "lucide-react-native": ["./src/rn-compat/icons-generated.tsx"],
       "@react-navigation/native": ["./src/rn-compat/navigation.tsx"],

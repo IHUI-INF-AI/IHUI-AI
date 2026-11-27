@@ -20,7 +20,7 @@ type ProcessShim = {
   nextTick: (cb: (...args: unknown[]) => void, ...args: unknown[]) => void
 }
 
-const g = globalThis as typeof globalThis & { process?: ProcessShim }
+const g = globalThis as unknown as { process?: ProcessShim }
 
 if (typeof g.process === 'undefined') {
   g.process = {
