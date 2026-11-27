@@ -8,7 +8,7 @@
  * 事实来源(只读代码,不反向覆盖代码):
  * - 10 个内置角色的提示词:apps/ai-service/app/services/prompt_registry.py 的 DEFAULT_PROMPTS。
  *   直接解析源文件,不在本脚本里复制第二份提示词 —— 代码改了,种子重跑即同步。
- * - master 提示词:apps/ai-service/app/prompts/master.md。文件不存在或为空 = 未就绪,
+ * - master 提示词:apps/ai-service/app/agents/master.md。文件不存在或为空 = 未就绪,
  *   `--include-master` 时**跳过并明说**,绝不写入占位提示词冒充已完成。
  *
  * 幂等口径(验收:重复执行 0 变更):
@@ -42,18 +42,27 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '../../../..')
 const PROMPT_REGISTRY_PY = resolve(REPO_ROOT, 'apps/ai-service/app/services/prompt_registry.py')
-const MASTER_PROMPT_MD = resolve(REPO_ROOT, 'apps/ai-service/app/prompts/master.md')
+const MASTER_PROMPT_MD = resolve(REPO_ROOT, 'apps/ai-service/app/agents/master.md')
+
+/** master 的可调用工具面；与 apps/ai-service/app/agents/master_profile.py 同源，种子只做落库。 */
+const MASTER_TOOLS = ['agent_registry', 'agent_ops', 'master_memory']
 
 /** prompt_registry.py 里的 10 个内置角色(DEFAULT_PROMPTS 的键) */
 interface BuiltinPromptSeed {
   name: string
   description: string
   content: string
+  /** 显示名缺省沿用 description；master 单独给短名 */
+  displayName?: string
+  /** 角色缺省沿用 name；master 用 custom（name 不在封闭角色集） */
+  role?: string
+  /** 工具面缺省为空；master 落三件套 */
+  tools?: string[]
 }
 
-/** 种子只接管这些字段;其余(model/tools/budget/...)保持库里既有值,避免覆盖管理员配置 */
+/** 种子只接管这些字段;model/skills/budget/... 保持库里既有值,避免覆盖管理员配置 */
 type ManagedField =
-  'displayName' | 'description' | 'role' | 'systemPrompt' | 'isBuiltin' | 'isDispatchable'
+  'displayName' | 'description' | 'role' | 'systemPrompt' | 'tools' | 'isBuiltin' | 'isDispatchable'
 
 const DEFAULT_PROMPTS_MARKER = 'DEFAULT_PROMPTS: dict[str, dict[str, str]] = {'
 
@@ -225,13 +234,13 @@ function buildSeedRow(seed: BuiltinPromptSeed, isDispatchable: boolean): SeedRow
   return {
     scope: 'system',
     name: seed.name,
-    displayName: seed.description,
+    displayName: seed.displayName ?? seed.description,
     description: seed.description,
-    role: seed.name,
+    role: seed.role ?? seed.name,
     systemPrompt: seed.content,
     promptVersion: 1,
     model: null,
-    tools: [],
+    tools: seed.tools ?? [],
     skills: [],
     permissions: {},
     memoryPolicy: {},
@@ -291,6 +300,7 @@ function diffManaged(existing: AgentDefinition, next: SeedRow): ManagedPatch {
   if (existing.description !== next.description) patch.description = next.description
   if (existing.role !== next.role) patch.role = next.role
   if (existing.systemPrompt !== next.systemPrompt) patch.systemPrompt = next.systemPrompt
+  if (JSON.stringify(existing.tools) !== JSON.stringify(next.tools)) patch.tools = next.tools
   if (existing.isBuiltin !== next.isBuiltin) patch.isBuiltin = next.isBuiltin
   if (existing.isDispatchable !== next.isDispatchable) patch.isDispatchable = next.isDispatchable
   return patch
@@ -350,7 +360,10 @@ async function main(): Promise<void> {
     }
     return {
       name: 'master',
+      displayName: '总管',
       description: '总管:唯一有管理权限的常驻主智能体人格(不可被派发为 worker)',
+      role: 'custom',
+      tools: MASTER_TOOLS,
       content,
     }
   })()
