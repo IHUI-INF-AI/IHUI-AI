@@ -546,6 +546,9 @@ export interface OfficePreviewProps {
   readonly annotationPins?: readonly PreviewAnnotationPin[]
   readonly focusedAnnotationId?: string | null
   readonly onAnnotationSelect?: (id: string) => void
+  readonly documentId?: string
+  readonly documentName?: string
+  readonly onAnnotationsMutated?: () => void
 }
 
 /** 源码文本的解析进度形态:idle = 还没开始(只有切到源码档才解析)。
@@ -569,6 +572,9 @@ export function OfficePreview({
   annotationPins,
   focusedAnnotationId = null,
   onAnnotationSelect,
+  documentId,
+  documentName,
+  onAnnotationsMutated,
 }: OfficePreviewProps) {
   const t = useTranslations('chat')
   const kind = ext.toLowerCase().replace(/^\./, '')
@@ -753,6 +759,9 @@ export function OfficePreview({
               annotationPins={annotationPins}
               focusedAnnotationId={focusedAnnotationId}
               onAnnotationSelect={onAnnotationSelect}
+              documentId={documentId}
+              documentName={documentName}
+              onAnnotationsMutated={onAnnotationsMutated}
             />
           )}
         </>

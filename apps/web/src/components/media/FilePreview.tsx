@@ -107,6 +107,9 @@ interface FilePreviewProps {
   annotationPins?: readonly PreviewAnnotationPin[]
   focusedAnnotationId?: string | null
   onAnnotationSelect?: (id: string) => void
+  documentId?: string
+  documentName?: string
+  onAnnotationsMutated?: () => void
 }
 
 export function FilePreview({
@@ -121,6 +124,9 @@ export function FilePreview({
   annotationPins,
   focusedAnnotationId,
   onAnnotationSelect,
+  documentId,
+  documentName,
+  onAnnotationsMutated,
 }: FilePreviewProps) {
   const normalizedExt = ext?.replace(/^\./, '').toLowerCase() ?? ''
   const detectedType = React.useMemo(() => {
@@ -155,6 +161,9 @@ export function FilePreview({
         annotationPins={annotationPins}
         focusedAnnotationId={focusedAnnotationId}
         onAnnotationSelect={onAnnotationSelect}
+        documentId={documentId}
+        documentName={documentName}
+        onAnnotationsMutated={onAnnotationsMutated}
       />
     )
   }
@@ -175,6 +184,9 @@ export function FilePreview({
         annotationPins={annotationPins}
         focusedAnnotationId={focusedAnnotationId}
         onAnnotationSelect={onAnnotationSelect}
+        documentId={documentId}
+        documentName={documentName}
+        onAnnotationsMutated={onAnnotationsMutated}
       />
     )
   }

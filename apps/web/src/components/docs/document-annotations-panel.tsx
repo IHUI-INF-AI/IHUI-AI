@@ -278,7 +278,7 @@ export function DocumentAnnotationsPanel({
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-xs text-muted-foreground">
             <MessageSquare className="h-5 w-5 opacity-40" />
             <p>还没有批注</p>
-            <p className="text-[10px]">在正文选中文字或点击 PPTX 元素,备注后会同步到这里</p>
+            <p className="text-[10px]">点查看器里的「AI 预审」让 AI 自动落点,也可选中文字留下人工上下文</p>
           </div>
         ) : (
           roots.map((root) => {
@@ -302,6 +302,11 @@ export function DocumentAnnotationsPanel({
               >
                 <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
                   <span className="font-medium text-foreground">{root.author}</span>
+                  {root.origin === 'ai' ? (
+                    <span className="rounded bg-violet-500/10 px-1 py-0.5 font-medium text-violet-700 dark:text-violet-300">
+                      AI 预审
+                    </span>
+                  ) : null}
                   <span>{formatTime(root.createdAt)}</span>
                   {root.status === 'resolved' ? (
                     <span className="rounded bg-emerald-500/10 px-1 py-0.5 text-emerald-700 dark:text-emerald-300">
