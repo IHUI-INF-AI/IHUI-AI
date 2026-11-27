@@ -57,6 +57,23 @@ export {
   httpStatusForErrorCode,
   isRetryableErrorCode,
 } from './agent-registry/contracts'
+export {
+  MASTER_AGENT_NAME,
+  BUILTIN_AGENT_NAMES,
+  RESERVED_AGENT_NAMES,
+  AGENT_NAME_MAX_LENGTH,
+  AGENT_NAME_PATTERN,
+  CANONICAL_AGENT_NAME_PATTERN,
+  type AgentNameIssue,
+  type NormalizeAgentNameOptions,
+  type NormalizedAgentName,
+  canonicalAgentName,
+  isReservedAgentName,
+  isValidAgentName,
+  isAvailableAgentName,
+  normalizeAgentName,
+  buildCloneAgentName,
+} from './agent-registry/naming'
 export * from './context'
 export * from './spec'
 export * from './plan'
