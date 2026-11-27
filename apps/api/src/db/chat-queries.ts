@@ -1371,6 +1371,37 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
       .where(eq(chatMessages.conversationId, input.conversationId))
     const maxTurn = Number(turnRows[0]?.maxTurn ?? 0)
     const role = input.role ?? 'user'
+    // 2026-11-28(A4 顺序倒置根治·第二层加固):版本混杂时,客户端补写既可能不带 id,
+    // 也可能带一个与网关 barrier 不同的 id;两种都会在助手落库后到达,表现为
+    // assistant 后紧跟一条同文 user(turn+1,界面变成 user→assistant→user)。
+    // 不再要求 input.id 为空:同 id 已由上方幂等挡掉,不同 id 在这里按"最后一次写入
+    // 的时间"折叠——最近一条是 assistant 且它前面是同文 user,或最近一条本身就是
+    // 同文 user,只要最近写入发生在 3s 内,就视为同一轮补写并返回既有行。
+    // 窗口从"前一条 user 的落库时间"改为"最后一条消息的落库时间":真实一轮模型耗时
+    // 可能超过 2s,用前一条 user 计时会漏掉流尾补写(生产实测 2.35s)。
+    if (role === 'user') {
+      const tail = await tx
+        .select()
+        .from(chatMessages)
+        .where(eq(chatMessages.conversationId, input.conversationId))
+        .orderBy(desc(chatMessages.createdAt), desc(chatMessages.id))
+        .limit(2)
+      const last = tail[0]
+      const beforeLast = tail[1]
+      const lastAgeMs = last
+        ? Date.now() - new Date(last.createdAt).getTime()
+        : Number.POSITIVE_INFINITY
+      if (lastAgeMs >= 0 && lastAgeMs <= 3_000) {
+        if (last?.role === 'user' && last.content === input.content) return last
+        if (
+          last?.role === 'assistant' &&
+          beforeLast?.role === 'user' &&
+          beforeLast.content === input.content
+        ) {
+          return beforeLast
+        }
+      }
+    }
     // 2026-11-27(A4 顺序倒置根治):助手回复优先钉在**它回答的那条消息**的 turn 上。
     // 普通发送锚 userMessageId(用户消息),regenerate 锚 parentMessageId(版本族根)。
     // 只读 max 仍有一个窗口:回调到达前用户又发了一条,回复会被挂到后一轮 —— 消息都在,

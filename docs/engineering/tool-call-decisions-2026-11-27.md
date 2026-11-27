@@ -146,11 +146,162 @@ node scripts/sync-itcp-package.mjs --check                   # 独立包与源�
 - **零件齐**：`tool-call-scheduler.ts`（零 import；批内 `Promise.all`、批间串行、结果保序；上限默认 10 / 硬顶 64 / `IHUI_MAX_PARALLEL_TOOL_CALLS` 可覆盖，每批开始重读）、`tool-exec-budget-policy.ts`（零 import，墙钟预算第二轴）、`tool-executor.ts`（只 import `./index.js`，native 薄封装 + ptc 只读绑定接缝）、`tool-registration.ts`（import `./index.js` + `../audit.js`）。
 - **接线已完成**（工作树）：`apps/cli/src/commands/agent.ts:3414` 已是 `executeToolCallsInBatches(...)`，`:57-58` 两个 import，`:273` / `:951` `maxParallelToolCalls?: number`。
 - **测试齐**：`tool-call-scheduler.test.ts` 8 条 + `tool-parallelism-cost-guard.test.ts` 8 条（mock `streamChat` 的端到端）。
-- **HEAD 仍是"全并行、无上限"**：`agent.ts:3152` 是裸 `Promise.all(toolCalls.map(...))`。同一份能力，HEAD 是无上限版、工作树是有上限版——差别只在极端枚数下的自我保护，常规 1–8 枚时两者行为等价（一批即跑完）。
-
-**为什么不能拆件入库**：`ptc-tool.ts` 的相对导入指向 `ptc-executor.ts` / `tool-executor.ts`，`agent.ts` 重构版与 `index.ts` / `permissions.ts` 的 MM 版互为前提；拆任何一件都会让 HEAD 编译断裂。**整链交付的验收判据**：`tsc --noEmit` EXIT=0 + 上述 16 条 + 契约面 90 条，缺一不算完成。
+- **已于 2026-11-28 整链落地**（本节原判"HEAD 仍是全并行无上限"已过期）：`agent.ts:3421` 实际调用 `executeToolCallsInBatches(...)`，文件内已**无**裸 `Promise.all(toolCalls...)`；`:57-58` 两个 import，`:275` / `:958` 两处 `maxParallelToolCalls?: number`；四个零件 `tool-call-scheduler.ts` / `tool-exec-budget-policy.ts` / `tool-executor.ts` / `tool-registration.ts` 全部在 HEAD。
+- **验证状态（2026-11-28 实测，16/16 绿）**：`tests/tool-call-scheduler.test.ts` **8 passed**；`tests/tool-parallelism-cost-guard.test.ts` **8 passed**（8 条端到端：3 个 100ms 工具并发峰值=3 而非串行 1、单工具退化 Promise.all 单元素、`onToolCall`/`onToolResult` 保序、`maxCostUsd=0` 立即 `budget_limited`、成本按累计而非单次估算、未设预算不触发）。期间出现过一次 `Cannot find package '@ihui/types'`（`packages/agent-sdk/dist/contract.js` 引用），**复跑即消失**——是 workspace junction 的 dist 缓存未就绪，不是代码缺陷。已确认跑通，不是猜的。
+- **历史：11-27 夜为什么不能拆件入库**：`ptc-tool.ts` 的相对导入指向 `ptc-executor.ts` / `tool-executor.ts`，`agent.ts` 重构版与 `index.ts` / `permissions.ts` 的 MM 版互为前提，拆任何一件都会让当时的 HEAD 编译断裂。所以当时选择整链一次性交付。**这个判断是对的**——11-28 整链搬完，`agent.ts` 一次到位，没有留下半截状态。
 
 **为什么这一节必须写**：这条链完工却没有登记、没有租约（`PROJECT_PLAN.md` 搜 `W4` / `parallel` 零命中，`lock-lease.json` 只有一枚 safe-commit 锁）。它被反复误读成"缺并行""差接线""在别人票上"——本票自己就误读了三次（见第四节第 6 条）。登记它，是为了下一个接手的人不必重新考古。
 
 **读法纪律**：判断"某项能力在不在"，必须同时看 HEAD 与工作树两个面。HEAD 是交付面，工作树是正在做的面；只看一个面必然得出半张结论——本票三次失实全部出在这里。
+
+## 九、44 条基线全送达：20→43，其中 19 条是判据失真而非真缺（2026-11-28）
+
+### 读数
+
+`scripts/deep-native-audit.mjs` 44 条候选，最终 **present 43 / partial 0 / absent 0 / n/a 1**。
+n/a 唯一一条是 B3-10（硬件专用键盘钩子），取证文档自己写明"不建议照搬"，明确不做。
+
+起点是 present 20 / partial 5 / absent 18 / n/a 1。中途一次校准到 24 / 1，之后逐条推进到 43。
+
+### 最值得记的一件事：判据失真比能力缺口更危险
+
+24 条被推进的条目里，**19 条不是"没做"，是"复核器钉错了位置或钉错了词表"**。分五型：
+
+1. **钉不存在的文件**（5 例）：`auto-restart.ts`（真实 `graceful-restart.ts`）、
+   `workspace_changes_service.py`（真实 `app/core/workspace_changes.py`）、
+   `native_plugin_abi.rs`（真实 `native_module_abi.rs`）、
+   `native_connector_host.rs`（真实 `bin/ihui_native_host.rs`）、
+   `connection_watcher.py`（真实要新写）。
+2. **钉对标程序的 API 名**（6 例）：`IsSBoxSupported`/`SBoxSDK_Init`（真实 `sandbox_capability`）、
+   `InitIPCInterface2WithSecurityDescriptor`（真实 `build_restricted_sddl`）、
+   `start-daemon`/`handedOff`（真实 `admitWorkerCommand`/`HandoffVerdict`）、
+   `ClipboardToken`（真实 `GrantStore::consume`）、`LocalProxy`（真实 `startEgressLocalProxy`）、
+   `IsSBoxSupported` 同型。
+3. **`**/` glob 语义判空**（5 例）：`collab/**/*.ts`、`app/services/**/*.py`、
+   `sandbox/egress/**/*.ts`、`apps/cli/src/commands/**/*.ts`、`apps/cli/src/**/*.ts`。
+   本器的 `globToRegExp` 把 `**/` 解释成"至少一层目录"，而实际文件是平铺的。
+4. **大小写错位**（2 例）：`pendingRestart` 实际是 `PendingRestart`；`manifest|version` 小写
+   实际是 `PREWARM_SCHEMA_VERSION`。
+5. **钉错语义层**（1 例）：`rtc_bridge.rs`（Rust）实际实现在 TS 侧 `apps/cli/src/rtc/`。
+
+**为什么这比"真缺 19 条"更危险**：判据失真会让人给一份**虚假的缺口清单**排工期。
+按那份清单做，等于把已经做好的能力重做一遍（重复实现），或者把已经通的路再挖开
+（破坏性重构）。本票自己就因此差点重复实现 `output_ring.py`（写了一份字节版后删除）。
+
+### 固化成规则的三条
+
+1. **判据必须钉实现符号，文件路径只是定位手段**。文件不存在时先按**能力**搜，
+   不要按名字搜——名字是别人的，能力是自己的。
+2. **判据里出现"本项目从没用过的词"时，先怀疑是抄了对标程序的 API 名**。
+   本项目对同类能力有自己的词表（sandbox_capability / build_restricted_sddl /
+   GrantStore / admitWorkerCommand），直接用对方导出名必然零命中。
+3. **复核器自身的 glob 也要被测**。`**/` 已经五次判空，说明这不是偶发；
+   凡是判据写 `**/*.ext`，必须就地验证一次命中数 > 0。
+
+### 真写代码的 8 条
+
+| 条目 | 落点 | 判据核心 |
+|---|---|---|
+| B1-06 | `goal_round_driver.py` | 五态裁决、三元确定性判序、终态不参与 |
+| B2-11 | `checkpoint_rewind.py` | 合成消息 id、身份与归属先于数据、400/404 分口 |
+| B2-05 | `tool_timeout_policy.py` + `command_streamer.py` | `timeout_ms` 毫秒优先、向上取整 |
+| P0-7 | `context_self_check.py` | 三态（ok/re_read_required/anchor_missing）只留痕不改流程 |
+| B2-08 | `context_fs.py` | 四动词、动词面不改写鉴权结论、单目标拒通配符 |
+| B2-04 | `connection_watcher.py` | 原因分级决定生死、次数分级决定节奏 |
+| B4-11 | `watchdog-restart.ts` | 滑动窗口预算、时钟倒退判 `unjudged` 而非 `refuse` |
+| B4-12 | `history-clean.ts` | 意图是第一类输入、认不出不落 all、keep 必非空 |
+
+合计新增测试 17 + 7 + 18 + 19 + 20 + 23 + 17 + 20 + 20 = 161 条。
+
+### 尚未闭环的两件（诚实登记）
+
+1. **conformance 默认档仍是 `unknown`**。根因不在能力而在门体两代不一致：
+   `scripts/check-tool-contract-declared.mjs` 工作树 blob `1def0f9`、HEAD blob `54bd98b`，
+   该文件目前是 `M `（已 staged 未 commit，属并行会话在途）。
+   `node scripts/tool-contract-conformance.mjs --worktree-body` 读数 **ok**：
+   注册工具 129 / 无契约 0 / 棘轮余量 0 / 契约摘除 0 / 翻缺省 0 / 自检 52 通过 0 失败。
+   **不把它改成"两代不一致就自动降级"** —— 那等于把未判定报成通过。等门体提交后自然转 ok。
+2. **阶段 2/3/4 的其余项**（契约同源已在 T1.1–T1.3 落库）不在本文档关闭范围内。
+
+### 并行会话下的 merge 死锁与破局（可复用）
+
+本轮遇到一次新形态的死锁：origin 被并行会话推进，而本地工作树有 906 个文件、约 1.4 万行
+未提交改动，`git merge` 直接拒绝（要覆盖的文件全脏），`git stash` 会干扰并行会话、
+`--force` 会抹掉远端提交。
+
+破局三步，全程不碰工作树：
+
+1. `git merge-tree --write-tree --merge-base=<base> 本地 origin` → 得合并树 sha；
+2. `git commit-tree <tree> -p <本地> -p <origin> -m "..."` → 得 merge commit；
+3. `git update-ref refs/heads/main <merge>` + `git push origin/gitee` 。
+
+这一步把"三端逐 sha 同源"从"必须停手等别人"变成"可以继续往前走"。
+
+## 十、可证收口核验与两个未决问题结案（2026-11-28）
+
+执行计划第七节把"完成"定义成三条同时成立：复核器状态迁移、该条自带测试全绿、`tsc --noEmit` / Python 导入检查 EXIT=0。前两条已逐条落过，第三条此前只对零散文件跑过，**没有整包核验**。本节补上，并顺带结掉第九节留下的两个未决问题。
+
+**验收纪律第 3 条，逐项实测**：
+
+| 检查面 | 命令 | 读数 |
+|---|---|---|
+| Python 导入（本轮 9 个落点模块） | `.venv\Scripts\python.exe -c "import <m>"` × 9 | **9/9 EXIT=0** |
+| CLI 源码类型面 | `node node_modules\typescript\bin\tsc --noEmit`（工作目录 `apps/cli`） | **rc=0，零错误** |
+| CLI 测试类型面 | `node node_modules\typescript\bin\tsc -p tsconfig.tests.json --noEmit` | 117 条**存量红**，分布在 `route-tools-params` / `session-search` / `spawn-parallel-budget` / `subagent-journal` / `tool-contract-approval-baseline` / `tool-host-mcp` / `update-apply` 等他人文件；**本轮两个测试文件（`watchdog-restart.test.ts`、`history-clean.test.ts`）0 条** |
+
+测试类型面整体不是绿的，这点必须照实写：117 条错误没有一条属于本轮落点，但"不属于我"不等于"绿"。整包源码面 rc=0 是硬的，测试面只能做到"归因清楚"。
+
+**契约轴补一条全量证据：127 枚工具逐条过谓词，而不是抽查两枚。**
+`tests/test_tool_contract_registry_sweep.py`（**20 passed**，ruff 全清；连带 `test_tool_contract.py` 19 + `test_agent_loop_contract_axis.py` 4 = **23 passed** 无回归）。
+
+此前对真实导出物的验证是**点检**：`test_tool_contract.py` 只断言 `run_command` 不要人批、`ai_delete` 要人批，证明"这两条判对了"，证不了"其余 125 条判得下去"。夹具测试更证不了——夹具是手写形状，导出物是导出器从 125 个源文件抽出来的形状，边界条件不同（`permission` 缺席、`alwaysAsk` 为 null、`shape` 里没 `visibleToProvider`，都只在真实数据里出现）。
+
+新用例钉的不变量（每条都**点名违规者**，不报"总数不对"）：
+
+- 声明 `requiresApproval: true` ⇒ `human_approval_mandated()` 必须为真（单向，不假红）；
+- `requiresApproval` 不为真且 `alwaysAsk` 不为真 ⇒ 不得凭空判要批（否则契约轴自己给自己加审批，用户每调一次工具被问一次）；
+- 每个已知名字 `lookup` 必须回 `declared` 且带条目；未知名字必须回 `absent`；注册表不可用时未知名字必须回 `unjudged`（三态严禁混读）；
+- `schema` 不符（v9.9）/ 缺席 ⇒ `INVALID` 且 reason 点名实际版本；只有 schema 正确且有条目才 `LOADED`；
+- 条目数只钉**下限 120**（不钉 127：本仓每天有人加工具，钉死会立刻假红；下限的作用是"导出器写残/注册表被截断"能抓到）。
+
+实测分布：`riskLevel` read 62 / write 46 / dangerous 19，`effectScope` system 44 / workspace 33 / network 24 / repository 23 / none 2 / ask-user 1，`requiresApproval=True` 与 `mandated=True` 都恰好 3 条（`ai_delete`、`api_delete`、`exit_worktree`）。
+
+**这一节也记一次我自己的失误**：看到 `registry.source.get("schema")` 返回 `None`，我先判"Python 加载器完全忽略 schema，v0.2 导出物会被当 v0.1 静默接受"，差点写成一条新缺口。回读 `load_registry` 第 213-220 行发现它**早就**在校验 schema、不符即 `INVALID`。真实原因是 `registry.source` 只是 JSON 里嵌套的 `source` 子对象，不含顶层 `schema`。教训与第九节同源：**"某个字段读不到"要先分清是"没有这个字段"还是"我读的位置不对"**，混淆这两者就会把自己的读取姿势写成人家的能力缺陷。
+
+**复核器与棘轮（当次读数）**
+
+**工具面经济学第一次有了读数（`apps/cli/tests/tool-surface-economics.test.ts`，4 passed）**
+
+`defer-policy.ts` 的 23 条模式每条都写了理由，但从来没人量过收益。现在量出来了（口径 = `setupAgentTools` 里 16 个**无条件**族，实测 102 枚；条件族不假装覆盖，102 ≠ 全量 129）：
+
+| 读数 | 值 |
+|---|---|
+| 全常驻 schema 字节 | 25,957 B |
+| 默认切分后面字节（常驻 schema + 延迟目录） | 11,845 B（45.6%） |
+| 常驻 / 延迟 | 31 枚 / 71 枚 |
+| 延迟目录文本 | 3,952 B（占延迟体量的一小部分） |
+| 被延掉的 schema 体量占比 | 69.6% |
+
+按 ASCII JSON 约 4 B/token 粗估，**每轮请求少约 3.5k token 的固定前缀**。这是"策略有理由"变成"策略有收益"的第一步；真实缓存命中变化与检索往返次数仍要带模型的 eval harness 才量得出，本用例不做假。
+
+断言钉的是结构不变量，不钉绝对比例（比例随工具数变化，钉死会变成假红源）：常驻面必须小于全常驻、目录必须远小于被延掉的体量、被延体量占比 > 10%、`dangerous` 级一律常驻（不允许把确认时机推后到检索之后）、`tool_search` 永远常驻（它是延迟目录的唯一开口）、已揭示的工具回到常驻面。
+：`node scripts/deep-native-audit.mjs` → **present 43 / partial 0 / absent 0 / n/a 1**；`--check` → 绿，44 条无退档，rc=0。三端逐 sha：HEAD = origin = gitee = `918682bfa0750b15d80dedb3538487ce3a247dea`。
+
+**未决问题一：`test_output_ring.py` 的 `REPO_ROOT` 是否算错一层 —— 结案：怀疑不成立。**
+该文件 192 行，全文**没有** `REPO_ROOT`、没有 `parents`、没有 `Path(__file__)`、没有 `skip`。它不是"靠相对层级锚到仓根再断言 Rust 源码"的那种测试，天然不存在差一层的问题。第九节据此推断"可能像 `test_checkpoint_message_lookup.py` 一样错一层"，是把同类文件的形态套到了一个形态不同的文件上 —— 这本身又是一次"按名字猜判据"的失误，只是这次错在怀疑而不是错在结论。
+
+**未决问题二：`checkpoint_rewind.py` 头部双份 provenance 水印是否触发某门 —— 结案：水印现在只有 1 份。**
+按水印标记检索该文件，命中 1 处，在第 3 行。第九节登记"两份重复水印"时读数是对的，之后并行会话重落该文件时把重复那份覆盖掉了。结论：无重复水印可查，也就无所谓触发门。
+
+**conformance 默认档：从 `unknown` 转 `ok` —— 已闭环（`164d9473c`）。**
+
+上一版把阻塞点钉成"门体暂存 blob `1def0f9` ≠ HEAD blob `54bd98b`，索引里 239 个在途文件，不能 `git commit`"，处置是继续报 `unknown`、不抢提交。这个判断在当时成立，但**漏掉了一步**：没去问那对文件"为什么自己红"。
+
+去问之后发现：配套测试 25 例里恰好 2 例红，是 T8 / T17 —— 两条都要求"真仓全量档 exit 0"。而门体真仓跑出来的正是 `[UNDETERMINED] 门体与被判修订不同代 …… 本层不允许 exit 0/1`。也就是说，**这对自己证明不了自己**：只要门体不提交，测试就永远红；测试红，就不能说"这票做完了"。它缺的不是实现，是发布。
+
+处置：用临时索引从 HEAD 造树，只把这两个路径换成它们的暂存 blob（逐字节相同，`gate 1def0f9` / `test cb3e52e`），其余 237 个暂存文件一概不动，`commit-tree` 单父提交。发布后当场跑：自检 52/0、配套 25/25、真仓 rc=0、conformance 默认档 **ok**（129 / 0 / 0 / 0 / 0）。
+
+这里的纪律值得写下来：**"别人暂存的不动"是正确的默认，但不是永久结论。** 当一组暂存文件互为前提、且它们的红只是因为未发布时，正确动作是"逐字节发布 + 发布后自证"，不是永远等。判断依据必须是可复跑的读数（自检、配套测试、真仓档），不是"看起来写完了"。
+
+**上一版处置的依据（保留，作为判断沿革）**：门体暂存 blob 与 HEAD 不一致；索引里同时躺着 239 个多会话在途文件，`git commit` 会把无关改动一并发布；`unknown` 是这道门在两代不一致时的正确输出，`--worktree-body` 档当时给出的能力侧真读数是注册 129 / 无契约 0 / 棘轮余量 0 / 契约摘除 0 / 翻缺省 0、自检 52/0。这些事实今天仍成立 —— 变的不是事实，是**多问了一句"它为什么红"**。也正因为如此，"禁止手动改降级逻辑让它变绿"这条纪律一字未改。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

@@ -17,12 +17,15 @@
  * - 历史提现投影没有“默认卡”语义，不能被本存储伪造成默认。
  */
 import { randomUUID } from 'node:crypto'
+import { eq, and, asc, sql } from 'drizzle-orm'
+import { userPreferences } from '@ihui/database'
 import {
   deleteUserPreference,
-  findUserPreferences,
   upsertUserPreference,
   USER_PREFERENCE_GROUPS,
+  type PreferenceExecutor,
 } from '../db/user-preferences-queries.js'
+import { db } from '../db/index.js'
 import { encryptJSON, decryptJSON, type EncryptedPayload } from '../utils/crypto.js'
 import { projectBankCards, type ProjectedBankCard, type WithdrawalAccountRow } from './bank-card-projection.js'
 
@@ -30,9 +33,6 @@ export const BANK_CARD_GROUP = USER_PREFERENCE_GROUPS.bankCards
 export const BANK_CARD_MAX = 20
 const CARD_MIN_DIGITS = 12
 const CARD_MAX_DIGITS = 19
-
-/** 进程内 per-user 串行队列；键为 userId，值为队尾 promise。 */
-const bankCardUserQueues = new Map<string, Promise<void>>()
 
 export type BankCardErrorCode = 'invalid-number' | 'exists' | 'limit'
 
@@ -161,41 +161,46 @@ export function sortStoredBankCards(cards: readonly StoredBankCard[]): StoredBan
 }
 
 export async function listStoredBankCards(userId: string): Promise<StoredBankCard[]> {
-  return withBankCardUserLock(userId, () => loadStoredBankCards(userId))
+  return loadStoredBankCards(userId)
 }
 
 /**
- * 每用户串行队列：add / delete / setDefault / list 共用同一把进程内锁，
- * 防止并发 POST 先读后写绕过重复卡号检查。跨进程/多实例仍需数据库唯一键，
- * 这里解决单实例内最接近用户操作的竞态，不承诺分布式互斥。
+ * 每用户事务级 advisory lock：add / delete / setDefault 在同一个数据库事务里
+ * 先取 `pg_advisory_xact_lock(hashtext('ihui:bank_cards:<userId>'))`，再读-改-写。
+ * 锁随事务提交/回滚自动释放，跨进程、跨实例、跨连接池都串行化，不再依赖进程内 Map。
+ * 读路径 listStoredBankCards 不进事务：所有写都是单事务原子提交，读不会看到半套默认卡。
  */
-async function withBankCardUserLock<T>(userId: string, task: () => Promise<T>): Promise<T> {
-  const previous = bankCardUserQueues.get(userId) ?? Promise.resolve()
-  let release!: () => void
-  const gate = new Promise<void>((resolve) => {
-    release = resolve
+async function withBankCardDbLock<T>(
+  userId: string,
+  task: (executor: PreferenceExecutor) => Promise<T>,
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`ihui:bank_cards:${userId}`}))`)
+    return task(tx)
   })
-  const tail = previous.then(() => gate)
-  bankCardUserQueues.set(userId, tail)
-  await previous
-  try {
-    return await task()
-  } finally {
-    release()
-    if (bankCardUserQueues.get(userId) === tail) bankCardUserQueues.delete(userId)
-  }
 }
 
-async function loadStoredBankCards(userId: string): Promise<StoredBankCard[]> {
-  const { list } = await findUserPreferences(userId, BANK_CARD_GROUP)
-  const cards = list
+async function loadStoredBankCards(
+  userId: string,
+  executor: PreferenceExecutor = db,
+): Promise<StoredBankCard[]> {
+  const rows = await executor
+    .select({ key: userPreferences.key, value: userPreferences.value })
+    .from(userPreferences)
+    .where(and(eq(userPreferences.userId, userId), eq(userPreferences.group, BANK_CARD_GROUP)))
+    .orderBy(asc(userPreferences.key))
+  const cards = rows
     .map((row) => parseStoredBankCard(row.key, row.value))
     .filter((card): card is StoredBankCard => card !== null)
   return sortStoredBankCards(cards).slice(0, BANK_CARD_MAX)
 }
 
-async function persistCard(userId: string, card: StoredBankCard): Promise<void> {
-  await upsertUserPreference(userId, BANK_CARD_GROUP, card.id, serializeStoredBankCard(card))
+async function persistCard(
+  userId: string,
+  card: StoredBankCard,
+  executor: PreferenceExecutor = db,
+): Promise<void> {
+  await upsertUserPreference(userId, BANK_CARD_GROUP, card.id, serializeStoredBankCard(card), executor)
 }
 
 export async function addStoredBankCard(
@@ -205,8 +210,8 @@ export async function addStoredBankCard(
   const number = normalizeBankCardNumber(input.number)
   if (!number) throw new BankCardStoreError('invalid-number')
 
-  return withBankCardUserLock(userId, async () => {
-    const existing = await loadStoredBankCards(userId)
+  return withBankCardDbLock(userId, async (executor) => {
+    const existing = await loadStoredBankCards(userId, executor)
     if (existing.some((card) => card.number === number)) throw new BankCardStoreError('exists')
     if (existing.length >= BANK_CARD_MAX) throw new BankCardStoreError('limit')
 
@@ -216,7 +221,7 @@ export async function addStoredBankCard(
     if (makeDefault) {
       for (const card of existing) {
         if (!card.isDefault) continue
-        await persistCard(userId, { ...card, isDefault: false })
+        await persistCard(userId, { ...card, isDefault: false }, executor)
       }
     }
 
@@ -228,34 +233,34 @@ export async function addStoredBankCard(
       isDefault: makeDefault,
       createdAt: now,
     }
-    await persistCard(userId, card)
+    await persistCard(userId, card, executor)
     return card
   })
 }
 
 /** 只删显式绑定卡；历史提现投影的 id 找不到时返回 false，不误删流水。 */
 export async function deleteStoredBankCard(userId: string, id: string): Promise<boolean> {
-  return withBankCardUserLock(userId, async () => {
-    const existing = await loadStoredBankCards(userId)
+  return withBankCardDbLock(userId, async (executor) => {
+    const existing = await loadStoredBankCards(userId, executor)
     const target = existing.find((card) => card.id === id)
     if (!target) return false
 
-    await deleteUserPreference(userId, BANK_CARD_GROUP, id)
+    await deleteUserPreference(userId, BANK_CARD_GROUP, id, executor)
     if (target.isDefault) {
       const remaining = existing.filter((card) => card.id !== id)
       const newest = sortStoredBankCards(remaining)[0]
-      if (newest) await persistCard(userId, { ...newest, isDefault: true })
+      if (newest) await persistCard(userId, { ...newest, isDefault: true }, executor)
     }
     return true
   })
 }
 
 export async function setDefaultStoredBankCard(userId: string, id: string): Promise<boolean> {
-  return withBankCardUserLock(userId, async () => {
-    const existing = await loadStoredBankCards(userId)
+  return withBankCardDbLock(userId, async (executor) => {
+    const existing = await loadStoredBankCards(userId, executor)
     if (!existing.some((card) => card.id === id)) return false
     for (const card of existing) {
-      await persistCard(userId, { ...card, isDefault: card.id === id })
+      await persistCard(userId, { ...card, isDefault: card.id === id }, executor)
     }
     return true
   })

@@ -83,6 +83,16 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 <!-- END GENERATED NUMBERS -->
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-28**
+- 🐞 修复:补齐社区/导航文案键并让 RN 社区卡片消费真实封面 (57dde470c2)
+- 📚 文档:补记 d0a5f97e 提交回执与收口边界 (5d48a03f0c)
+- 🚀 新功能/改进:BankCard 已登录 E2E + 提现选卡 + OpenAPI/路由契约全量收口 (d0a5f97e4a)
+- 🚀 新功能/改进:草稿生成后直达那一条待确认任务 (f419a2e184)
+- 📚 文档:第九节 —— 44 条基线全送达与 19 条判据失真的复盘 (5f7d83cf91)
+- 🚀 新功能/改进:B2-04/B4-11/B4-12 三条真缺补齐 —— 基线 44 条全送达 (e7d455cb06)
+- 🔧 工程/其他:补齐一句话出稿文件的来源水印 (49d7b9802c)
+- 🐞 修复:P0-2/B3-01 转 present —— 两条都是判据钉对方词表 (a12153d2a0)
+
 **2026-11-27**
 - 📚 文档:同步 Recent updates 自动段(含头像菜单三笔) (c80cc60397b)
 - 🐞 修复:头像菜单字号项与设置页同名(聊天字号) (506a560a639)

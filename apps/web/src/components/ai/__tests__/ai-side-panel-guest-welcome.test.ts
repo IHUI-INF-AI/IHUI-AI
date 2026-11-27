@@ -29,9 +29,12 @@ describe('AI 面板 · 游客欢迎面', () => {
     expect(SRC).toMatch(/allow && d73Expanded && !floatMode/)
   })
 
-  it('未登录发送统一弹登录并保留草稿', () => {
-    expect(SRC).toMatch(/if \(!ready\) return false/)
+  it('未登录发送统一弹登录并保留草稿;已登录不得被 ready 卡死', () => {
+    // 回归目标:曾经 `if (!ready) return false` 放在 isAuthenticated 之前,
+    // bootstrap ready 未翻真时已登录用户的发送被整块吞掉(无请求/无提示)。
+    expect(SRC).not.toMatch(/if \(!ready\) return false/)
     expect(SRC).toMatch(/if \(!isAuthenticated\) \{/)
+    expect(SRC).toMatch(/if \(ready\) \{/)
     expect(SRC).toMatch(/openLoginDialogOnce\(/)
     // 返回 false = MessageInput 不清空输入框(不静默丢字)
     expect(SRC).toMatch(/return false/)

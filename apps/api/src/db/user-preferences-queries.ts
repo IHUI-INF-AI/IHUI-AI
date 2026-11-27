@@ -5,6 +5,14 @@
 import { eq, and, asc, sql } from 'drizzle-orm'
 import { db } from './index.js'
 import { userPreferences, type UserPreference } from '@ihui/database'
+import type { Database } from '@ihui/database'
+
+/**
+ * 允许调用方把偏好读写放进同一个数据库事务：银行卡写操作需要事务级
+ * advisory lock 串行化跨进程/跨实例的读-改-写，不能只靠进程内队列。
+ * 事务对象与主库对象在 select/insert/delete 三个方法上结构一致。
+ */
+export type PreferenceExecutor = Pick<Database, 'select' | 'insert' | 'delete'>
 
 /**
  * `user_preferences.group` 取值的唯一具名出口(2026-10-18 收口单/复数分叉)。
@@ -42,6 +50,9 @@ export const USER_PREFERENCE_GROUPS = {
   // (全局配置 + 工作区覆盖 + 单条消息覆盖)。与 'preferences' 分开:
   // 外观快照体积随消息数增长,不能挤进设置页通用的 preferences 键空间。
   appearance: 'appearance',
+  // 会话输入草稿(2026-11-27 I-03):key=会话 id 或 'new',value=待发送草稿 JSON。
+  // 输入态按账号跨端共享,但不属于"设置偏好",故独立 group。
+  chatDraft: 'chat_draft',
   // 显式绑定的银行卡(2026-11-27 BankCard 写闭环):key=卡 id,value=AES-GCM 加密 JSON。
   // 历史提现投影仍是只读来源,两者在 GET /wallet/bank-cards 合并;不新开表/不迁移。
   bankCards: 'bank_cards',
@@ -95,8 +106,9 @@ export async function upsertUserPreference(
   group: string,
   key: string,
   value: string | null,
+  executor: PreferenceExecutor = db,
 ): Promise<UserPreference | undefined> {
-  const rows = await db
+  const rows = await executor
     .insert(userPreferences)
     .values({ userId, group, key, value })
     .onConflictDoUpdate({
@@ -112,8 +124,9 @@ export async function deleteUserPreference(
   userId: string,
   group: string,
   key: string,
+  executor: PreferenceExecutor = db,
 ): Promise<boolean> {
-  const rows = await db
+  const rows = await executor
     .delete(userPreferences)
     .where(
       and(

@@ -158,6 +158,11 @@ class PublishScheduler:
         self._task_users: dict[str, str | None] = {}
         self._history: list[dict[str, Any]] = []  # 内存 LRU 历史
         self._started = False
+        # 可观测心跳:供 /publish/stats 暴露“调度器是否真在巡检”,不只看进程是否活着。
+        # last_poll_at 是“本轮尝试开始时间”,即使 DB 失败也会推进,便于区分死循环/卡住。
+        self._last_poll_at: datetime | None = None
+        self._last_poll_ok: bool | None = None
+        self._last_due_count = 0
         # 持有 spawn 出的 task 引用,避免 CPython GC 回收未完成的 task
         self._pending_tasks: set[asyncio.Task[None]] = set()
 
@@ -229,6 +234,47 @@ class PublishScheduler:
         self._user_running.clear()
         self._reserved.clear()
         self._task_users.clear()
+
+    def status_snapshot(self) -> dict[str, Any]:
+        """返回调度器心跳快照(只含运行态,不含任何用户/任务数据)。
+
+        state 语义:
+        - stopped:进程内调度器未启动;
+        - warming:已启动但还没跑完第一轮巡检(启动后有 30s 预热延迟);
+        - stale:最后一轮 DB 不可用,或心跳超过 3 个轮询周期没推进;
+        - ok:心跳在预算内且最近一轮 DB 正常。
+
+        用于 /publish/stats 与入口页展示“定时任务真的会被巡检”,避免用户以为
+        排期后一定会发,实际调度协程早已停摆。
+        """
+        now = datetime.now(UTC)
+        age_sec = (
+            int((now - self._last_poll_at).total_seconds())
+            if self._last_poll_at is not None
+            else None
+        )
+        if not self._started:
+            state = "stopped"
+        elif self._last_poll_at is None:
+            state = "warming"
+        elif self._last_poll_ok is not True or (
+            age_sec is not None and age_sec > _POLL_INTERVAL_SEC * 3
+        ):
+            state = "stale"
+        else:
+            state = "ok"
+
+        return {
+            "state": state,
+            "healthy": state == "ok",
+            "started": self._started,
+            "lastPollAt": self._last_poll_at.isoformat() if self._last_poll_at else None,
+            "lastPollOk": self._last_poll_ok,
+            "ageSec": age_sec,
+            "pollIntervalSec": _POLL_INTERVAL_SEC,
+            "dueCount": self._last_due_count,
+            "runningCount": len(self._running),
+        }
 
     # ===== DB 连接 =====
 
@@ -332,6 +378,8 @@ class PublishScheduler:
         await asyncio.sleep(30)
         backoff = _DB_BACKOFF_BASE_SEC
         while self._started:
+            self._last_poll_at = datetime.now(UTC)
+            self._last_due_count = 0
             try:
                 ok = await self._poll_once()
             except asyncio.CancelledError:
@@ -339,6 +387,7 @@ class PublishScheduler:
             except Exception as e:
                 logger.warning("[publish.scheduler] poll error: %s: %s", type(e).__name__, e)
                 ok = False
+            self._last_poll_ok = ok
             if ok:
                 backoff = _DB_BACKOFF_BASE_SEC
                 await asyncio.sleep(_POLL_INTERVAL_SEC)
@@ -393,6 +442,7 @@ class PublishScheduler:
                 """,
                 now,
             )
+            self._last_due_count = len(rows)
             for r in rows:
                 task_id = r["task_id"]
                 user_id = r["user_id"] or ""

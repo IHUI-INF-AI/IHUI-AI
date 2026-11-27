@@ -444,6 +444,14 @@ export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBoot
         if (inFlightBootstrap === (runMarker as unknown as Promise<void>)) {
           inFlightBootstrap = null
         }
+        // 2026-11-28 修复:本轮是**模块级单例**,它的收口不能随某个组件实例卸载一起消失。
+        // 现场:AISidePanel 的首个实例先起 bootstrap,组件随后重挂;cleanup 把 cancelled 置真,
+        // 旧轮在 `/auth/refresh` 成功后的 `if (cancelled) return` 直接退出,而新实例看到
+        // `inFlightBootstrap` 仍在场又跳过 ⇒ sharedOutcome 永远 ready=false,全站登录门卡死
+        // (实测 refresh 200、无 `/auth/me`、ready 连续 8s 为 false)。故 finally 无条件发布
+        // ready:卸载只该停止组件级副作用,不该停止全局引导的完成信号。
+        // cancelled 仍保留在 `/auth/me` 分支:卸载后不得再 expireSession/写用户态(见 D 组回归锁)。
+        setReady(true)
       }
     })()
     return () => {

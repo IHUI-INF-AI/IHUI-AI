@@ -21,6 +21,8 @@ import { fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { PLATFORM_KEY } from '../helpers'
 import { TaskProgressBar } from '@/components/publish/TaskProgressBar'
+import { buildConfirmBody, toLocalDateTimeInputValue } from './confirm-helpers'
+import { formatScheduledDistance } from './schedule-helpers'
 
 interface Target {
   readonly platform: string
@@ -48,6 +50,7 @@ export interface TaskCardProps {
     readonly title: string
     readonly status: string
     readonly createdAt?: string
+    readonly scheduledAt?: string | null
     readonly platformCount?: number
     readonly format?: string
     readonly targets?: ReadonlyArray<Target>
@@ -108,7 +111,15 @@ function fmtDuration(ms?: number): string {
 export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps) {
   const t = useTranslations('publish')
   const toast = useToast()
-  const [acting, setActing] = React.useState<'cancel' | 'retry' | 'confirm' | null>(null)
+  const [acting, setActing] = React.useState<
+    'cancel' | 'retry' | 'confirm' | 'reschedule' | null
+  >(null)
+  const [confirmMode, setConfirmMode] = React.useState<'now' | 'later'>('now')
+  const [confirmAt, setConfirmAt] = React.useState('')
+  const [confirmError, setConfirmError] = React.useState<string | null>(null)
+  const [rescheduling, setRescheduling] = React.useState(false)
+  const [rescheduleAt, setRescheduleAt] = React.useState('')
+  const [rescheduleError, setRescheduleError] = React.useState<string | null>(null)
   const [draftPreview, setDraftPreview] = React.useState<string | null>(null)
   const [previewLoading, setPreviewLoading] = React.useState(false)
   const [editing, setEditing] = React.useState(false)
@@ -149,6 +160,8 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
     if (!expanded) {
       setEditing(false)
       setEditError(null)
+      setRescheduling(false)
+      setRescheduleError(null)
     }
   }, [expanded])
   // 2026-08-17:有真实单平台结果(platforms)时优先用它统计/渲染,否则回退 targets
@@ -161,20 +174,17 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
     : targets.filter((tg) => tg.status === 'failed').length
   const total = usePlatforms ? platforms.length : targets.length
   const running = task.status === 'running' || task.status === 'pending'
-  const canCancel = task.status === 'running' || task.status === 'pending'
+  const canCancel =
+    task.status === 'running' || task.status === 'pending' || task.status === 'scheduled'
+  const canReschedule = task.status === 'scheduled' || task.status === 'pending'
   const canRetry = task.status === 'failed' || task.status === 'partial'
   const canConfirm = task.status === 'draft'
 
-  async function handleAction(action: 'cancel' | 'retry' | 'confirm') {
+  async function handleAction(action: 'cancel' | 'retry') {
     if (!task.taskId) return
-    if (action === 'confirm' && !window.confirm(t('history.confirmPrompt'))) return
+    if (action === 'cancel' && !window.confirm(t('history.cancelPrompt'))) return
     setActing(action)
-    const label =
-      action === 'cancel'
-        ? t('history.cancel')
-        : action === 'retry'
-          ? t('history.retry')
-          : t('history.confirm')
+    const label = action === 'cancel' ? t('history.cancel') : t('history.retry')
     try {
       const r = await fetchApi<unknown>(`/api/publish/tasks/${task.taskId}/${action}`, {
         method: 'POST',
@@ -183,10 +193,92 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
         toast.error(r.error || label)
         return
       }
-      toast.success(action === 'confirm' ? t('history.confirmed') : label)
+      toast.success(action === 'cancel' ? t('history.cancelled') : label)
       onChanged?.()
     } catch (e) {
       toast.error((e as Error).message)
+    } finally {
+      setActing(null)
+    }
+  }
+
+  async function handleConfirm() {
+    if (!task.taskId) return
+    const built = buildConfirmBody({ mode: confirmMode, localDateTime: confirmAt })
+    if (!built.ok) {
+      setConfirmError(
+        built.errorCode === 'MISSING_TIME'
+          ? t('history.confirmTimeRequired')
+          : built.errorCode === 'INVALID_TIME'
+            ? t('history.confirmTimeInvalid')
+            : t('history.confirmTimePast'),
+      )
+      return
+    }
+    setConfirmError(null)
+    const prompt =
+      confirmMode === 'later'
+        ? t('history.confirmLaterPrompt', { time: confirmAt.replace('T', ' ') })
+        : t('history.confirmPrompt')
+    if (!window.confirm(prompt)) return
+
+    setActing('confirm')
+    try {
+      const r = await fetchApi<unknown>(`/api/publish/tasks/${task.taskId}/confirm`, {
+        method: 'POST',
+        body: JSON.stringify(built.body),
+      })
+      if (!r.success) {
+        toast.error(r.error || t('history.confirm'))
+        return
+      }
+      toast.success(
+        confirmMode === 'later' ? t('history.confirmScheduled') : t('history.confirmed'),
+      )
+      onChanged?.()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setActing(null)
+    }
+  }
+
+  function openReschedule() {
+    const base = task.scheduledAt ? new Date(task.scheduledAt) : new Date(Date.now() + 60 * 60 * 1000)
+    setRescheduleAt(toLocalDateTimeInputValue(base))
+    setRescheduleError(null)
+    setRescheduling(true)
+  }
+
+  async function handleReschedule() {
+    if (!task.taskId) return
+    const built = buildConfirmBody({ mode: 'later', localDateTime: rescheduleAt })
+    if (!built.ok) {
+      setRescheduleError(
+        built.errorCode === 'MISSING_TIME'
+          ? t('history.confirmTimeRequired')
+          : built.errorCode === 'INVALID_TIME'
+            ? t('history.confirmTimeInvalid')
+            : t('history.confirmTimePast'),
+      )
+      return
+    }
+    setRescheduleError(null)
+    setActing('reschedule')
+    try {
+      const r = await fetchApi<unknown>(`/api/publish/tasks/${task.taskId}/reschedule`, {
+        method: 'POST',
+        body: JSON.stringify(built.body),
+      })
+      if (!r.success) {
+        setRescheduleError(r.error || t('history.confirmTimeInvalid'))
+        return
+      }
+      toast.success(t('history.rescheduled', { time: rescheduleAt.replace('T', ' ') }))
+      setRescheduling(false)
+      onChanged?.()
+    } catch (e) {
+      setRescheduleError((e as Error).message)
     } finally {
       setActing(null)
     }
@@ -250,6 +342,16 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
                 {task.createdAt ? TIME_FMT.format(new Date(task.createdAt)) : '-'}
               </span>
               {typeof task.platformCount === 'number' && <span>平台数: {task.platformCount}</span>}
+              {task.scheduledAt && (
+                <span>
+                  {t('history.scheduledAt')}: {TIME_FMT.format(new Date(task.scheduledAt))}
+                  {task.status === 'scheduled' && (
+                    <span className="ml-1 text-amber-700 dark:text-amber-400">
+                      {formatScheduledDistance(task.scheduledAt)}
+                    </span>
+                  )}
+                </span>
+              )}
               {task.format && <span className="font-mono">{task.format}</span>}
             </div>
           </div>
@@ -427,7 +529,111 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
                 {task.error}
               </pre>
             )}
-            {(canCancel || canRetry || canConfirm) && (
+            {canReschedule && rescheduling && (
+              <div className="space-y-2 rounded-md border border-input bg-background p-3">
+                <label className="flex flex-wrap items-center gap-2" htmlFor={`reschedule-${task.id}`}>
+                  <span className="text-label text-muted-foreground">{t('history.rescheduleAt')}</span>
+                  <input
+                    id={`reschedule-${task.id}`}
+                    type="datetime-local"
+                    value={rescheduleAt}
+                    min={toLocalDateTimeInputValue(new Date(Date.now() + 60_000))}
+                    disabled={acting === 'reschedule'}
+                    onChange={(e) => {
+                      setRescheduleAt(e.target.value)
+                      setRescheduleError(null)
+                    }}
+                    className="rounded-md border border-input bg-transparent px-2 py-1 text-body"
+                  />
+                </label>
+                {rescheduleError && (
+                  <p role="alert" className="text-label text-rose-600 dark:text-rose-400">
+                    {rescheduleError}
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    disabled={!task.taskId || acting !== null}
+                    onClick={() => void handleReschedule()}
+                  >
+                    {acting === 'reschedule' ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : null}
+                    {t('history.rescheduleSave')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={acting !== null}
+                    onClick={() => {
+                      setRescheduling(false)
+                      setRescheduleError(null)
+                    }}
+                  >
+                    {t('history.cancelEdit')}
+                  </Button>
+                </div>
+              </div>
+            )}
+            {canConfirm && !editing && (
+              <div className="space-y-2 rounded-md border border-input bg-background p-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground">{t('history.confirmWhen')}</span>
+                  <button
+                    type="button"
+                    aria-pressed={confirmMode === 'now'}
+                    onClick={() => {
+                      setConfirmMode('now')
+                      setConfirmError(null)
+                    }}
+                    className={
+                      confirmMode === 'now'
+                        ? 'rounded-md border border-primary bg-primary/10 px-2 py-1 text-primary'
+                        : 'rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/40'
+                    }
+                  >
+                    {t('history.confirmNow')}
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={confirmMode === 'later'}
+                    onClick={() => {
+                      setConfirmMode('later')
+                      setConfirmError(null)
+                    }}
+                    className={
+                      confirmMode === 'later'
+                        ? 'rounded-md border border-primary bg-primary/10 px-2 py-1 text-primary'
+                        : 'rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/40'
+                    }
+                  >
+                    {t('history.confirmLater')}
+                  </button>
+                  {confirmMode === 'later' && (
+                    <label className="flex flex-wrap items-center gap-2">
+                      <span className="text-muted-foreground">{t('history.confirmAt')}</span>
+                      <input
+                        type="datetime-local"
+                        value={confirmAt}
+                        min={toLocalDateTimeInputValue(new Date(Date.now() + 60_000))}
+                        onChange={(e) => {
+                          setConfirmAt(e.target.value)
+                          setConfirmError(null)
+                        }}
+                        className="rounded-md border border-input bg-transparent px-2 py-1 text-body"
+                      />
+                    </label>
+                  )}
+                </div>
+                {confirmError && (
+                  <p role="alert" className="text-label text-rose-600 dark:text-rose-400">
+                    {confirmError}
+                  </p>
+                )}
+              </div>
+            )}
+            {(canCancel || canRetry || canConfirm || canReschedule) && (
               <div className="flex items-center gap-2 pt-1">
                 {canConfirm && !editing && (
                   <Button
@@ -446,14 +652,24 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
                   <Button
                     size="sm"
                     disabled={!task.taskId || acting !== null}
-                    onClick={() => void handleAction('confirm')}
+                    onClick={() => void handleConfirm()}
                   >
                     {acting === 'confirm' ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
                     ) : (
                       <Loader2 className="h-3 w-3 opacity-0" />
                     )}
-                    {t('history.confirm')}
+                    {confirmMode === 'later' ? t('history.confirmLater') : t('history.confirm')}
+                  </Button>
+                )}
+                {canReschedule && !rescheduling && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!task.taskId || acting !== null}
+                    onClick={openReschedule}
+                  >
+                    {t('history.reschedule')}
                   </Button>
                 )}
                 {canCancel && (

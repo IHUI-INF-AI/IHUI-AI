@@ -867,14 +867,19 @@ export function AISidePanel() {
   // 主面板/浮窗两处输入区共用,避免两份接线漂移。
   // 2026-11-27 口径修正:未登录也渲染欢迎面,发送动作在此统一收口 ——
   // 匿名点发送只弹登录弹窗并返回 false(MessageInput 据此保留草稿),不静默丢字;
-  // 登录态尚未 bootstrap 完(ready=false)时直接吞掉本次点击,避免误弹登录框。
+  // 2026-11-28 修复:只在「未登录」时拦截。已登录但 bootstrap 的 ready 尚未翻真时
+  // 不能吞掉发送(否则整块面板所有发送都无请求/无提示);登录弹窗仍等 ready 后再弹,
+  // 避免冷启动时误打断。真实凭据失效由 createConversation 的 401 兜底引导重登。
   const sendMessageWithAttachments = React.useCallback(
     (content: string, attachments?: ChatAttachmentInput[]) => {
-      if (!ready) return false
       if (!isAuthenticated) {
-        openLoginDialogOnce(
-          typeof window === 'undefined' ? '/' : window.location.pathname + window.location.search,
-        )
+        if (ready) {
+          openLoginDialogOnce(
+            typeof window === 'undefined'
+              ? '/'
+              : window.location.pathname + window.location.search,
+          )
+        }
         return false
       }
       return attachments && attachments.length > 0

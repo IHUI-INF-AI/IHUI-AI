@@ -48,6 +48,9 @@ export function WithdrawScreen({
   onRecords,
   texts,
   submitting = false,
+  bankCards,
+  selectedBankCardId,
+  onSelectBankCard,
 }: WithdrawScreenProps & WithdrawBalanceOptions) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -117,7 +120,37 @@ export function WithdrawScreen({
             </>
           ) : null}
 
-          {seg.showAccount ? (
+          {method === 'bank' && bankCards && bankCards.length > 0 && onSelectBankCard ? (
+            <>
+              <Text style={styles.label}>{tx.bankCardLabel ?? '选择银行卡'}</Text>
+              <View style={styles.bankCardRow}>
+                {bankCards.map((card) => {
+                  const active = card.id === selectedBankCardId
+                  return (
+                    <TouchableOpacity
+                      key={card.id}
+                      style={[styles.bankCardItem, active && styles.bankCardItemActive]}
+                      onPress={() => onSelectBankCard(card.id)}
+                    >
+                      <Text style={[styles.bankCardText, active && styles.bankCardTextActive]}>
+                        {card.isDefault ? `${card.label} · 默认` : card.label}
+                      </Text>
+                    </TouchableOpacity>
+                  )
+                })}
+                {selectedBankCardId ? (
+                  <TouchableOpacity
+                    style={styles.bankCardItem}
+                    onPress={() => onSelectBankCard('')}
+                  >
+                    <Text style={styles.bankCardText}>手动输入</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </>
+          ) : null}
+
+          {seg.showAccount && !(method === 'bank' && selectedBankCardId) ? (
             <>
               <Text style={styles.label}>{tx.accountLabel ?? '收款账户'}</Text>
               <TextField
@@ -216,6 +249,26 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
       marginTop: rnSpacing.sm,
     },
+    bankCardRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing.sm,
+      marginTop: rnSpacing.sm,
+    },
+    bankCardItem: {
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
+      borderRadius: rnRadius.md,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.muted,
+    },
+    bankCardItemActive: {
+      borderColor: tk.brandAccent.deep,
+      backgroundColor: tk.surface.light,
+    },
+    bankCardText: { ...rnType.caption, color: tk.text.secondary },
+    bankCardTextActive: { color: tk.brand.DEFAULT, fontWeight: '600' },
     methodItem: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,

@@ -381,6 +381,10 @@ export function MessageInput({
     resetReferences,
     detachReferences,
   } = useMessageReferences()
+  // AI finding handoff: 引用 chip 落位后自动发送，避免“交给主 AI”只停在输入框。
+  // 值放在 ref，等 references 真正更新后再提交，确保 submit 闭包拿到新增引用；同一事件只发一次。
+  const autoSendAfterReference = React.useRef<string | null>(null)
+  const referencesBeforeAutoSend = React.useRef(references.length)
   // 强制加载工作区所有 agent 规则文件(AGENTS.md/CLAUDE.md 等,任意层级)作为可见参考块(2026-08-29)
   const agentMdRefs = useAgentMdReference()
   // 被用户手动移除的 agent 参考块 id(仅隐藏展示,不影响 workspaceContext 注入)
@@ -743,15 +747,40 @@ export function MessageInput({
   // 派发 ihui:add-text-reference,输入框统一消费转成文本引用 chip
   React.useEffect(() => {
     const onAddTextRef = (e: Event) => {
-      const detail = (e as CustomEvent<{ text?: string; paneId?: string | null }>).detail
+      const detail = (
+        e as CustomEvent<{
+          text?: string
+          paneId?: string | null
+          autoSend?: boolean
+          autoSendPrompt?: string
+        }>
+      ).detail
       if (!matchesPaneEvent(detail?.paneId, paneId)) return
       const text = detail?.text
-      if (text) addTextReference(text)
+      if (text) {
+        if (detail?.autoSend) {
+          autoSendAfterReference.current =
+            detail.autoSendPrompt?.trim() || '请处理这条 AI 预审结论。'
+        }
+        addTextReference(text)
+      }
     }
     window.addEventListener('ihui:add-text-reference', onAddTextRef as EventListener)
     return () =>
       window.removeEventListener('ihui:add-text-reference', onAddTextRef as EventListener)
   }, [addTextReference, paneId])
+  // 自动发送 effect 需要“当前渲染”的 submit 闭包(其中 references 已包含新 chip),
+  // 但不应因为函数每次换身份而重跑 effect;这里保留最新引用,effect 只观察 references 数量。
+  const submitLatestRef = React.useRef(submitAndDismissLinkPreview)
+  submitLatestRef.current = submitAndDismissLinkPreview
+  React.useEffect(() => {
+    const prompt = autoSendAfterReference.current
+    if (prompt !== null && references.length > referencesBeforeAutoSend.current) {
+      autoSendAfterReference.current = null
+      void submitLatestRef.current(prompt)
+    }
+    referencesBeforeAutoSend.current = references.length
+  }, [references.length])
   // D184(2026-09-29 立,对齐竞品 chatSession.selectionActions):选中文本作为附件 ——
   // MessageItem「作为附件添加」按钮派发 ihui:add-selection-attachment,此处包装为
   // "选中的文本.txt" 附件文件走 addFileReferences 三档校验(G-833)通道;容量满(max_files)
