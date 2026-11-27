@@ -113,7 +113,8 @@ const ENTRIES = [
   {
     id: 'P0-4', title: '沙箱能力探测三态 fail-closed',
     probes: [
-      { path: 'apps/desktop/src-tauri/src/**/*.rs', pattern: 'IsSBoxSupported|sbox_supported|SBoxSDK_Init', label: '探测符号' },
+      { path: 'apps/desktop/src-tauri/src/sandbox_ipc.rs', pattern: 'sandbox_capability|CapabilityReply|sandbox_tiers', label: '能力探测入口' },
+      { path: 'apps/desktop/src-tauri/src/sandbox_token.rs', pattern: 'TokenDaclProbe|UnjudgedCause|gate_enforcement', label: '三态 fail-closed' },
     ],
   },
   {
@@ -152,7 +153,8 @@ const ENTRIES = [
   {
     id: 'B2-02', title: 'IPC 通道安全描述符 / ACL',
     probes: [
-      { path: 'apps/desktop/src-tauri/src/**/*.rs', pattern: 'InitIPCInterface2WithSecurityDescriptor|ipc_security_descriptor', label: 'SD 构建符号' },
+      { path: 'apps/desktop/src-tauri/src/ipc_channel_acl.rs', pattern: 'build_restricted_sddl|validate_restricted_sddl', label: 'SDDL 构建/校验' },
+      { path: 'apps/desktop/src-tauri/src/ipc_channel_acl.rs', pattern: 'create_restricted_pipe|RestrictedPipe', label: '受限管道' },
     ],
   },
   {
@@ -276,7 +278,8 @@ const ENTRIES = [
   {
     id: 'B2-07', title: '常驻原生模块统一 ABI',
     probes: [
-      { path: 'apps/desktop/src-tauri/src/native_plugin_abi.rs', label: 'ABI 模块' },
+      { path: 'apps/desktop/src-tauri/src/native_module_abi.rs', pattern: 'BpInterfaceHeader|validate_interface_header', label: 'ABI 头校验' },
+      { path: 'apps/desktop/src-tauri/src/native_module_abi.rs', pattern: 'load_native_module|probe_native_module', label: '装载/探测' },
     ],
   },
   {
@@ -307,7 +310,8 @@ const ENTRIES = [
   {
     id: 'B3-06', title: '剪贴板一次性读取令牌',
     probes: [
-      { path: 'apps/desktop/src-tauri/src/**/*.rs', pattern: 'clipboard.*token|ClipboardToken', label: '令牌语义' },
+      { path: 'apps/desktop/src-tauri/src/clipboard_grant.rs', pattern: 'GRANT_TTL_MS|MAX_PENDING_GRANTS', label: '令牌 TTL 与上限' },
+      { path: 'apps/desktop/src-tauri/src/clipboard_grant.rs', pattern: 'fn consume|GrantVerdict', label: '一次性消费' },
     ],
   },
   {
