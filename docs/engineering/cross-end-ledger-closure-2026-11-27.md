@@ -99,5 +99,15 @@ BankCard 原先只有 `withdrawal_flows.account_info` 的只读投影，没有�
 - **映射/承载台账**：`scripts/data/web-rn-screen-map.jsonl` 登记 `wallet/bank-cards → packages/app/src/features/bank-card/BankCardScreen.tsx`；`scripts/data/web-mp-route-carrier-ledger.jsonl` 的 `bank-card` 改为 `webCarried:true`、`webRows:[{web:"wallet/bank-cards",status:"aligned"}]`。
 - **路由契约**：BankCard 行归 `mini-native`：`/wallet/bank-cards` → 共享 `BankCardScreen` → 小程序 `pkg-user/bank-card/index`；契约快照 933 行（932 + BankCard），`mini-native` 213 → 214。全量 `--write` 仍被远端 2 个上游 gap（`community`、`publish/account-pool`）拦住，本轮按生成器实际行并入并保留原基线，待并行任务收口后重跑。`start` 作为 Web 专属超级入口已补 `excluded` 映射，闭合 Web↔RN 的 unmapped。
 - **Web 验证**：`pnpm --filter @ihui/web typecheck` 0；`eslint` 对新增页与钱包入口 0；本地 dev `/wallet/bank-cards` 返回 200，未登录渲染鉴权门“请先登录后管理银行卡”。
-- **仍未闭环**：已登录浏览器内新增/删除/设默认的端到端验收尚未做；`build:weapp` 与本地/远端工作树对齐仍受并行任务影响。
+- **仍未闭环**：已登录浏览器内新增/删除/设默认的端到端验收尚未做；真机/模拟器不可用，RN/小程序无实机截图。
+- **构建验证**：`pnpm --filter @ihui/miniapp-taro build:weapp` 本轮实测 exit 0，产出 `apps/miniapp-taro/dist`；此前 `@ihui/shared ./chat/slash-commands` 导出缺失本轮未复现，未改构建代码。
+
+### BankCard 并发正确性（2026-11-27）
+
+- **单实例串行**：`apps/api/src/services/bank-card-store.ts` 增加进程内每用户队列 `bankCardUserQueues` 与 `withBankCardUserLock()`，同用户的新增、删除、设默认按到达顺序串行，任务完成或抛错都在 `finally` 释放，队列空后删除键。
+- **读一致性**：`listStoredBankCards()` 走同一把锁并调用内部 `loadStoredBankCards()`，避免写操作期间 GET 读到“旧默认已取消、新默认未写入”的中间态。
+- **并发夹具**：新增 `apps/api/src/services/__tests__/bank-card-store-concurrency.test.ts`，用 `vi.hoisted` 内存 store + 8ms 延迟放大竞态；覆盖“同用户并发新增同一卡号只成功 1 张、另一张报 `exists`”与“不同用户不互相阻塞”。
+- **验证**：BankCard 相关 4 个测试文件 23/23 通过（store 5 + concurrency 2 + projection 3 + 路由形状 13）；API 全量 `tsc --noEmit` 0；ESLint 0。
+- **边界**：该锁只覆盖单进程/单实例内最接近用户操作的竞态，不承诺分布式互斥；跨进程、多实例仍需数据库唯一键或事务级约束，代码注释已写明。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

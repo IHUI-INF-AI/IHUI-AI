@@ -18,6 +18,7 @@ import { BackButton } from '@/components/common'
 import { StatsCards } from './StatsCards'
 import { FilterBar } from './FilterBar'
 import { TaskCard } from './TaskCard'
+import { normalizeHistoryStatusFilter } from './history-helpers'
 
 interface Target {
   platform: string
@@ -89,6 +90,12 @@ export default function HistoryPage() {
   React.useEffect(() => {
     void load()
   }, [load])
+
+  // /start 的“待确认草稿/失败待处理”卡带 ?status= 进来；未知值回退 all。
+  React.useEffect(() => {
+    const next = normalizeHistoryStatusFilter(new URLSearchParams(window.location.search).get('status'))
+    setFilterStatus(next)
+  }, [])
 
   function toggle(id: number) {
     setExpanded((prev) => {
