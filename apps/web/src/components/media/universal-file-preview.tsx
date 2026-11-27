@@ -45,6 +45,10 @@ export interface UniversalFilePreviewProps {
   /** 当前从页内 pin 或侧栏选中的线程根 id */
   readonly focusedAnnotationId?: string | null
   readonly onAnnotationSelect?: (id: string) => void
+  /** 文档中心提供 documentId 后,PDF 查看器才显示 AI 预审入口 */
+  readonly documentId?: string
+  readonly documentName?: string
+  readonly onAnnotationsMutated?: () => void
 }
 
 /** 浏览器不解析、改由服务端 LibreOffice 转 PDF 的旧版文档格式。 */
@@ -58,6 +62,9 @@ export function UniversalFilePreview({
   annotationPins,
   focusedAnnotationId,
   onAnnotationSelect,
+  documentId,
+  documentName,
+  onAnnotationsMutated,
 }: UniversalFilePreviewProps) {
   // FileViewerDialog / 文档集市把带鉴权的原始地址先取成 blob:,地址本身没有后缀;
   // 此时必须以调用方给的展示文件名作为第二判据,否则所有 blob 预览都会误判 download。
@@ -83,6 +90,9 @@ export function UniversalFilePreview({
           annotationPins={annotationPins}
           focusedAnnotationId={focusedAnnotationId}
           onAnnotationSelect={onAnnotationSelect}
+          documentId={documentId}
+          documentName={documentName || displayName}
+          onAnnotationsMutated={onAnnotationsMutated}
         />
       )
     case 'office':
@@ -118,6 +128,9 @@ export function UniversalFilePreview({
           annotationPins={annotationPins}
           focusedAnnotationId={focusedAnnotationId}
           onAnnotationSelect={onAnnotationSelect}
+          documentId={documentId}
+          documentName={documentName || displayName}
+          onAnnotationsMutated={onAnnotationsMutated}
         />
       )
     case 'delimited':

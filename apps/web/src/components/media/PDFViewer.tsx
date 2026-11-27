@@ -15,10 +15,13 @@ import {
   AlertCircle,
   Type,
   MessageSquare,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
+import { toast } from '@/components/common'
 import type { PreviewAnnotationPin } from '@/lib/document-annotations'
+import { reviewDocumentFragment, saveAiFindings } from '@/lib/document-annotations'
 import { AnnotationAnchorCapture } from '@/components/chat/annotation-anchor'
 import { PDFTextLayer } from './PDFTextLayer'
 
@@ -30,6 +33,10 @@ interface PDFViewerProps {
   annotationPins?: readonly PreviewAnnotationPin[]
   focusedAnnotationId?: string | null
   onAnnotationSelect?: (id: string) => void
+  /** 文档中心场景才有 documentId;聊天附件不传,不出现 AI 预审入口 */
+  documentId?: string
+  documentName?: string
+  onAnnotationsMutated?: () => void
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- PDF.js API 类型定义不完整,用 any 简化集成 */
@@ -66,6 +73,9 @@ export function PDFViewer({
   annotationPins = [],
   focusedAnnotationId = null,
   onAnnotationSelect,
+  documentId,
+  documentName,
+  onAnnotationsMutated,
 }: PDFViewerProps) {
   const t = useTranslations('a11y')
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
@@ -77,6 +87,7 @@ export function PDFViewer({
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [rendering, setRendering] = React.useState(false)
+  const [aiReviewBusy, setAiReviewBusy] = React.useState(false)
   const [textSelectable, setTextSelectable] = React.useState(true)
   const [pdfjsState, setPdfjsState] = React.useState<AnyPdfLib | null>(null)
   const [pdfSelection, setPdfSelection] = React.useState<{
@@ -91,6 +102,49 @@ export function PDFViewer({
     () => annotationPins.filter((pin) => pin.kind === 'pdf' && pin.page === page),
     [annotationPins, page],
   )
+
+  const runAiReview = React.useCallback(async () => {
+    if (!documentId || !pageState.pdfPage || aiReviewBusy) return
+    setAiReviewBusy(true)
+    try {
+      const content = await pageState.pdfPage.getTextContent()
+      const text = (content?.items ?? [])
+        .map((item: { str?: string }) => (typeof item.str === 'string' ? item.str : ''))
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+      if (text.length < 20) {
+        toast.error('本页没有可审阅的文字（可能是扫描页）')
+        return
+      }
+      const findings = await reviewDocumentFragment({
+        title: documentName || 'PDF 文档',
+        anchor: { kind: 'pdf', page },
+        text: text.slice(0, 12_000),
+      })
+      if (findings.length === 0) {
+        toast.success('AI 预审完成：本页没有发现需要标注的问题')
+        return
+      }
+      const saved = await saveAiFindings({
+        documentId,
+        label: `PDF 第 ${page} 页 · AI 预审`,
+        anchorKind: 'pdf',
+        anchor: { kind: 'pdf', page },
+        findings,
+      })
+      onAnnotationsMutated?.()
+      if (saved.created.length === 0) {
+        toast.success('AI 预审没有新增意见（同一位置已去重）')
+      } else {
+        toast.success(`AI 预审发现 ${saved.created.length} 条新意见`)
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'AI 预审失败，请稍后重试')
+    } finally {
+      setAiReviewBusy(false)
+    }
+  }, [aiReviewBusy, documentId, documentName, onAnnotationsMutated, page, pageState.pdfPage])
 
   React.useEffect(() => {
     let cancelled = false
@@ -271,6 +325,24 @@ export function PDFViewer({
               <ZoomIn className="h-4 w-4" />
             </button>
           </Tooltip>
+          {documentId ? (
+            <Tooltip content="AI 预审本页">
+              <button
+                type="button"
+                onClick={() => void runAiReview()}
+                disabled={aiReviewBusy || !pageState.pdfPage}
+                aria-label="AI 预审本页"
+                className="flex items-center gap-1 rounded-md bg-violet-600 px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-60"
+              >
+                {aiReviewBusy ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                AI 预审
+              </button>
+            </Tooltip>
+          ) : null}
           <Tooltip content={textSelectable ? t('textSelectionOff') : t('textSelectionOn')}>
             <button
               onClick={() => setTextSelectable((v) => !v)}

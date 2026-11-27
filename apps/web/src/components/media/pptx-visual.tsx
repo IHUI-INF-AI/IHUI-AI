@@ -6,10 +6,12 @@
 
 import * as React from 'react'
 import type JSZip from 'jszip'
-import { Loader2, MessageSquare } from 'lucide-react'
+import { Loader2, MessageSquare, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import type { PreviewAnnotationPin } from '@/lib/document-annotations'
+import type { AiReviewFinding, PreviewAnnotationPin } from '@/lib/document-annotations'
+import { reviewDocumentFragment, saveAiFindings } from '@/lib/document-annotations'
 import { AnnotationAnchorCapture } from '@/components/chat/annotation-anchor'
+import { toast } from '@/components/common'
 
 /**
  * PPTX 版式化预览(2026-11-26 立)。
@@ -1009,6 +1011,19 @@ function shapeNameOf(shape: PptxVisualShape, index: number): string {
   return shape.name || `#${index + 1}`
 }
 
+function shapeTextOf(shape: PptxVisualShape): string {
+  if (shape.kind === 'text') {
+    return shape.paragraphs
+      .map((paragraph) => paragraph.runs.map((run) => run.text).join('').trim())
+      .filter(Boolean)
+      .join('\n')
+  }
+  if (shape.kind === 'table') {
+    return shape.rows.map((row) => row.join(' | ')).join('\n')
+  }
+  return ''
+}
+
 function ShapeHit({
   shape,
   label,
@@ -1048,6 +1063,8 @@ function VisualSlideView({
   annotationPins = [],
   focusedAnnotationId = null,
   onAnnotationSelect,
+  onAiReview,
+  aiReviewBusy = false,
 }: {
   slide: PptxVisualSlide
   cx: number
@@ -1056,6 +1073,8 @@ function VisualSlideView({
   annotationPins?: readonly PreviewAnnotationPin[]
   focusedAnnotationId?: string | null
   onAnnotationSelect?: (id: string) => void
+  onAiReview?: () => void
+  aiReviewBusy?: boolean
 }) {
   const slidePins = annotationPins.filter(
     (pin) => pin.kind === 'pptx' && pin.slide === slide.index,
@@ -1187,6 +1206,25 @@ function VisualSlideView({
           </p>
         ) : null}
       </div>
+      <div className="mt-1 flex items-center justify-between px-0.5 text-[10px] text-muted-foreground">
+        <span>第 {slide.index} 张</span>
+        {onAiReview ? (
+          <button
+            type="button"
+            onClick={onAiReview}
+            disabled={aiReviewBusy}
+            className="flex items-center gap-1 rounded bg-violet-600 px-1.5 py-0.5 font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-60"
+            aria-label={`AI 预审第 ${slide.index} 张`}
+          >
+            {aiReviewBusy ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Sparkles className="h-3 w-3" />
+            )}
+            AI 预审
+          </button>
+        ) : null}
+      </div>
       {(slide.notes || slide.index > 0) && (
         <figcaption className="mt-1 flex items-start gap-2 px-1 text-label text-muted-foreground">
           <span className="shrink-0 tabular-nums">#{slide.index}</span>
@@ -1202,19 +1240,85 @@ export function PptxPreview({
   annotationPins = [],
   focusedAnnotationId = null,
   onAnnotationSelect,
+  documentId,
+  documentName,
+  onAnnotationsMutated,
 }: {
   data: ArrayBuffer
   annotationPins?: readonly PreviewAnnotationPin[]
   focusedAnnotationId?: string | null
   onAnnotationSelect?: (id: string) => void
+  documentId?: string
+  documentName?: string
+  onAnnotationsMutated?: () => void
 }) {
   const t = useTranslations('chat')
   const [deck, setDeck] = React.useState<PptxVisualDeck | null>(null)
   const [failed, setFailed] = React.useState(false)
+  const [aiReviewSlide, setAiReviewSlide] = React.useState<number | null>(null)
   const [selected, setSelected] = React.useState<{
     readonly slide: number
     readonly element: string
   } | null>(null)
+
+  const runAiReview = React.useCallback(
+    async (slide: PptxVisualSlide) => {
+      if (!documentId || aiReviewSlide !== null) return
+      const elements = slide.shapes
+        .map((shape, index) => ({ name: shapeNameOf(shape, index), text: shapeTextOf(shape) }))
+        .filter((item) => item.text)
+      const text = elements.map((item) => `[${item.name}]\n${item.text}`).join('\n\n')
+      if (text.length < 20) {
+        toast.error('这张幻灯片没有可审阅的文字')
+        return
+      }
+      setAiReviewSlide(slide.index)
+      try {
+        const findings = await reviewDocumentFragment({
+          title: documentName || 'PPTX 演示文稿',
+          anchor: { kind: 'pptx', slide: slide.index },
+          text: text.slice(0, 12_000),
+          elements,
+        })
+        if (findings.length === 0) {
+          toast.success('AI 预审完成：这张没有发现需要标注的问题')
+          return
+        }
+        const fallback = elements[0]?.name
+        const groups = new Map<string, AiReviewFinding[]>()
+        for (const finding of findings) {
+          const element =
+            finding.element && elements.some((item) => item.name === finding.element)
+              ? finding.element
+              : fallback
+          if (!element) continue
+          const group = groups.get(element) ?? []
+          group.push(finding)
+          groups.set(element, group)
+        }
+        let created = 0
+        for (const [element, group] of groups) {
+          const saved = await saveAiFindings({
+            documentId,
+            label: `第 ${slide.index} 张 · ${element} · AI 预审`,
+            anchorKind: 'pptx',
+            anchor: { kind: 'pptx', slide: slide.index, element },
+            findings: group,
+          })
+          created += saved.created.length
+        }
+        onAnnotationsMutated?.()
+        toast.success(
+          created > 0 ? `AI 预审发现 ${created} 条新意见` : 'AI 预审没有新增意见（同一位置已去重）',
+        )
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'AI 预审失败，请稍后重试')
+      } finally {
+        setAiReviewSlide(null)
+      }
+    },
+    [aiReviewSlide, documentId, documentName, onAnnotationsMutated],
+  )
 
   React.useEffect(() => {
     let cancelled = false
@@ -1271,6 +1375,8 @@ export function PptxPreview({
             annotationPins={annotationPins}
             focusedAnnotationId={focusedAnnotationId}
             onAnnotationSelect={onAnnotationSelect}
+            onAiReview={documentId ? () => void runAiReview(slide) : undefined}
+            aiReviewBusy={aiReviewSlide === slide.index}
           />
         ))}
       </div>
