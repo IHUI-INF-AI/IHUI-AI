@@ -2,58 +2,43 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-'use client'
+/**
+ * theme-skins — 主题色(皮肤)定义(2026-11-27 立)。
+ *
+ * 皮肤 = 一套 customTheme 色板(亮/暗各一),走既有 --custom-* 通道;
+ * 这里只放数据与判等,不写 CSS、不新增主题系统。
+ * 新增皮肤:在此加常量,并在外观设置的主题卡里加一个入口。
+ */
 
-import { Sun, Moon, Monitor } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
-import { cn } from '@/lib/utils'
+import type { CustomThemeConfig } from '@/stores/appearance-settings'
 
-interface Props {
-  t: (k: string) => string
-  mounted: boolean
-  theme: string | undefined
-  onSelect: (key: 'light' | 'dark' | 'system') => void
+export const PINK_SKIN: CustomThemeConfig = {
+  enabled: true,
+  light: {
+    primary: '#c23a72',
+    background: '#fff5f8',
+    foreground: '#3f1f2d',
+    card: '#ffffff',
+    muted: '#fde7f0',
+    border: '#f3c8db',
+  },
+  dark: {
+    primary: '#f472b6',
+    background: '#1b1016',
+    foreground: '#fbe9f1',
+    card: '#251722',
+    muted: '#33202c',
+    border: '#4a2c3b',
+  },
 }
 
-const THEMES = [
-  { key: 'light' as const, icon: Sun, labelKey: 'themeLight' },
-  { key: 'dark' as const, icon: Moon, labelKey: 'themeDark' },
-  { key: 'system' as const, icon: Monitor, labelKey: 'themeSystem' },
-]
-
-export function ThemeCard({ t, mounted, theme, onSelect }: Props) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Sun className="h-4 w-4 shrink-0" />
-          <span className="whitespace-nowrap">{t('theme')}</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2">
-          {THEMES.map((item) => {
-            const Icon = item.icon
-            const active = mounted && theme === item.key
-            return (
-              <button
-                key={item.key}
-                onClick={() => onSelect(item.key)}
-                className={cn(
-                  'flex flex-col items-center gap-2 rounded-md border p-3 text-body transition-colors',
-                  active
-                    ? 'border-brand-accent-deep bg-primary/5 text-primary'
-                    : 'hover:bg-accent hover:text-accent-foreground',
-                )}
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                <span className="whitespace-nowrap">{t(item.labelKey)}</span>
-              </button>
-            )
-          })}
-        </div>
-      </CardContent>
-    </Card>
+/** 当前自定义主题是否就是粉色皮肤(亮/暗两套逐键相等才算,用户自定义过的颜色不算) */
+export function isPinkSkin(theme: CustomThemeConfig): boolean {
+  if (!theme.enabled) return false
+  return (['light', 'dark'] as const).every((mode) =>
+    (Object.keys(PINK_SKIN[mode]) as (keyof CustomThemeConfig['light'])[]).every(
+      (key) => theme[mode][key].toLowerCase() === PINK_SKIN[mode][key].toLowerCase(),
+    ),
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

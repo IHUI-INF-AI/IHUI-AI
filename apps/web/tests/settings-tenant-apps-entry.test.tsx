@@ -69,7 +69,6 @@ vi.mock('@/components/settings', () => ({
   TwoFactorAuth: () => null,
   ThemeBackupSync: () => null,
 }))
-vi.mock('../app/(main)/settings/ThemeCard', () => ({ ThemeCard: () => null }))
 vi.mock('../app/(main)/settings/LanguageCard', () => ({ LanguageCard: () => null }))
 vi.mock('../app/(main)/settings/SidebarCard', () => ({ SidebarCard: () => null }))
 vi.mock('../app/(main)/settings/MiniappQrCard', () => ({ MiniappQrCard: () => null }))

@@ -7,7 +7,6 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations, useLocale } from 'next-intl'
-import { useTheme } from 'next-themes'
 import { Building2, ChevronRight, Palette } from 'lucide-react'
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
@@ -23,7 +22,6 @@ import {
   ThemeBackupSync,
 } from '@/components/settings'
 
-import { ThemeCard } from './ThemeCard'
 import { LanguageCard } from './LanguageCard'
 import { SidebarCard } from './SidebarCard'
 import { MiniappQrCard } from './MiniappQrCard'
@@ -38,8 +36,6 @@ export default function SettingsPage() {
   const t = useTranslations('settings')
   const ta = useTranslations('appearanceSettings')
   const locale = useLocale()
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = React.useState(false)
   const [collapsed, setCollapsed] = React.useState(false)
 
   const roleId = useAuthStore((s) => s.user?.roleId)
@@ -52,7 +48,6 @@ export default function SettingsPage() {
   })
 
   React.useEffect(() => {
-    setMounted(true)
     setCollapsed(localStorage.getItem(SIDEBAR_KEY) === 'true')
   }, [])
 
@@ -82,7 +77,7 @@ export default function SettingsPage() {
             <Link
               href="/settings/appearance"
               data-testid="settings-appearance-entry"
-              className="group flex items-center gap-3 rounded-md border p-4 transition-colors hover:bg-accent min-[640px]:col-span-2"
+              className="group flex items-center gap-3 rounded-sm border p-4 transition-colors hover:bg-accent min-[640px]:col-span-2"
             >
               <Palette className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
               <div className="min-w-0 flex-1">
@@ -94,7 +89,6 @@ export default function SettingsPage() {
                 aria-hidden="true"
               />
             </Link>
-            <ThemeCard t={t} mounted={mounted} theme={theme} onSelect={(k) => setTheme(k)} />
             <LanguageCard t={t} locale={locale} onSelect={switchLocale} />
             <SidebarCard t={t} collapsed={collapsed} onToggle={toggleCollapsed} />
             <MiniappQrCard t={t} />
@@ -104,7 +98,7 @@ export default function SettingsPage() {
               <Link
                 href="/settings/tenant-apps"
                 data-testid="tenant-apps-entry"
-                className="group flex items-center gap-3 rounded-md border p-4 transition-colors hover:bg-accent min-[640px]:col-span-2"
+                className="group flex items-center gap-3 rounded-sm border p-4 transition-colors hover:bg-accent min-[640px]:col-span-2"
               >
                 <Building2 className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
                 <div className="min-w-0 flex-1">

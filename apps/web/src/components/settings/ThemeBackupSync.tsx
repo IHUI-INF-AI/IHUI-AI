@@ -16,16 +16,6 @@ import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui-react
 const SIDEBAR_KEY = 'sidebar-collapsed'
 const THEME_BACKUP_KEY = 'theme-backup'
 
-/**
- * 主题标签 i18n 静态映射表 — 用于消除 `t(`theme${capitalize(th)}`)` 动态拼接
- * th ∈ ['light', 'dark', 'system'] → i18n key ['themeLight', 'themeDark', 'themeSystem']
- */
-const THEME_LABEL_KEY: Record<'light' | 'dark' | 'system', string> = {
-  light: 'themeLight',
-  dark: 'themeDark',
-  system: 'themeSystem',
-}
-
 interface ThemeConfig {
   theme: string
   sidebar: string
@@ -43,11 +33,6 @@ export function ThemeBackupSync() {
   const setLocale = useLanguageStore((s) => s.setLocale)
   const fileRef = React.useRef<HTMLInputElement>(null)
   const [transitioning, setTransitioning] = React.useState(false)
-  // 2026-10-14 修复:useTheme() 在 SSR/首帧返回 undefined,客户端水合后才拿到真实 theme,
-  // 直接用 theme 派生按钮 variant 会导致服务端 HTML 与客户端首帧 className 不一致 → hydration mismatch。
-  // 用 mounted 守卫:首帧(服务端与客户端水合)统一按未挂载处理,水合后再应用高亮,消除控制台报错。
-  const [mounted, setMounted] = React.useState(false)
-  React.useEffect(() => setMounted(true), [])
 
   const buildConfig = (): ThemeConfig => ({
     theme: theme ?? 'system',
@@ -110,11 +95,6 @@ export function ThemeBackupSync() {
     if (importedLocale) window.location.reload()
   }
 
-  const handleQuickSwitch = async (target: string) => {
-    if (target === theme) return
-    await smoothApply({ theme: target })
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -127,23 +107,6 @@ export function ThemeBackupSync() {
         <p className="font-[weight:inherit] text-body text-muted-foreground">
           {t('themeBackup.desc')}
         </p>
-
-        {/* 平滑快速切换 */}
-        <div className="flex gap-2">
-          {(['light', 'dark', 'system'] as const).map((th) => (
-            <Button
-              key={th}
-              variant={mounted && theme === th ? 'default' : 'outline'}
-              size="sm"
-              disabled={transitioning}
-              onClick={() => handleQuickSwitch(th)}
-              className="flex-1"
-            >
-              {transitioning && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
-              {t(THEME_LABEL_KEY[th] ?? 'themeUnknown')}
-            </Button>
-          ))}
-        </div>
 
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport} className="flex-1">

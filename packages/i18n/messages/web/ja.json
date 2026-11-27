@@ -29859,7 +29859,10 @@
     "accentRose": "ローズ"
   ,
     "presetBuiltinPink": "ピンク",
-    "presetBuiltinPinkDesc": "淡いピンクの背景とローズのアクセント。ライト／ダーク両対応"},
+    "presetBuiltinPinkDesc": "淡いピンクの背景とローズのアクセント。ライト／ダーク両対応",
+    "themeModeLabel": "ライト・ダーク",
+    "themeSkinLabel": "テーマカラー",
+    "themeSkinDefault": "デフォルト"},
   "checkinAssistant": {
     "taskPanelTitle": "タスクパネル",
     "taskPanelNoAccount": "アカウント未登録",

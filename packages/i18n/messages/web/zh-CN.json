@@ -30140,7 +30140,10 @@
     "accentRose": "玫红"
   ,
     "presetBuiltinPink": "粉色",
-    "presetBuiltinPinkDesc": "柔粉底色与玫红主色，明暗两套都调好了"},
+    "presetBuiltinPinkDesc": "柔粉底色与玫红主色，明暗两套都调好了",
+    "themeModeLabel": "明暗",
+    "themeSkinLabel": "主题色",
+    "themeSkinDefault": "默认"},
   "checkinAssistant": {
     "taskPanelTitle": "任务面板",
     "taskPanelNoAccount": "未绑定账号",

@@ -41,23 +41,6 @@ describe('内置预设', () => {
     expect(state.tone).toBe(APPEARANCE_DEFAULTS.tone)
   })
 
-  it('粉色预设开启自定义主题(亮暗各一套合法色板)并选中玫瑰主色,不碰排版字段', () => {
-    const pink = BUILT_IN_APPEARANCE_PRESETS.find((preset) => preset.id === 'pink')
-    expect(pink).toBeTruthy()
-    useAppearanceStore.getState().update(pink!.overrides)
-    const state = useAppearanceStore.getState()
-    expect(state.accentColor).toBe('rose')
-    expect(state.customTheme.enabled).toBe(true)
-    for (const mode of ['light', 'dark'] as const) {
-      for (const value of Object.values(state.customTheme[mode])) {
-        expect(value, `customTheme.${mode}`).toMatch(/^#[0-9a-f]{6}$/)
-      }
-    }
-    expect(state.fontFamily).toBe(APPEARANCE_DEFAULTS.fontFamily)
-    expect(state.uiScale).toBe(APPEARANCE_DEFAULTS.uiScale)
-    expect(state.messageDensity).toBe(APPEARANCE_DEFAULTS.messageDensity)
-  })
-
   it('默认预设置回全部默认值,自定义预设不被删除', () => {
     useAppearanceStore.getState().update({ uiScale: 1.3, bionicReading: true })
     useAppearancePresetsStore.getState().addPreset('保留我', { uiScale: 1.3 })

@@ -31,8 +31,8 @@ export default function AppearanceSettingsPage() {
   const t = useTranslations('appearanceSettings')
   // 区块跳转:设置项已接近 50 个,长页需要快速定位;标签复用各卡片既有标题,不新增文案
   const sections = [
-    { id: 'appearance-presets', label: t('presetsTitle') },
     { id: 'appearance-theme', label: t('themeTitle') },
+    { id: 'appearance-presets', label: t('presetsTitle') },
     { id: 'appearance-custom-theme', label: t('customThemeTitle') },
     { id: 'appearance-typography', label: t('typographyTitle') },
     { id: 'appearance-layout', label: t('layoutTitle') },
@@ -75,11 +75,11 @@ export default function AppearanceSettingsPage() {
               </button>
             ))}
           </nav>
-          <div id="appearance-presets" className="scroll-mt-4">
-            <PresetCard />
-          </div>
           <div id="appearance-theme" className="scroll-mt-4">
             <ThemeCard />
+          </div>
+          <div id="appearance-presets" className="scroll-mt-4">
+            <PresetCard />
           </div>
           <div id="appearance-custom-theme" className="scroll-mt-4">
             <CustomThemeCard />

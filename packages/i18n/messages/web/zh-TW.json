@@ -29722,7 +29722,10 @@
     "accentRose": "玫瑰紅"
   ,
     "presetBuiltinPink": "粉紅",
-    "presetBuiltinPinkDesc": "柔粉底色與玫瑰紅主色，明暗兩套都調好了"},
+    "presetBuiltinPinkDesc": "柔粉底色與玫瑰紅主色，明暗兩套都調好了",
+    "themeModeLabel": "明暗",
+    "themeSkinLabel": "主題色",
+    "themeSkinDefault": "預設"},
   "checkinAssistant": {
     "taskPanelTitle": "任務面板",
     "taskPanelNoAccount": "未綁定帳號",

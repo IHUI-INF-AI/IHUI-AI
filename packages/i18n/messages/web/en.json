@@ -29562,7 +29562,10 @@
     "accentRose": "Rose"
   ,
     "presetBuiltinPink": "Pink",
-    "presetBuiltinPinkDesc": "Soft pink surfaces with rose accents, tuned for both light and dark"},
+    "presetBuiltinPinkDesc": "Soft pink surfaces with rose accents, tuned for both light and dark",
+    "themeModeLabel": "Light / dark",
+    "themeSkinLabel": "Theme color",
+    "themeSkinDefault": "Default"},
   "checkinAssistant": {
     "taskPanelTitle": "Task Panel",
     "taskPanelNoAccount": "No Account Linked",
