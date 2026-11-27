@@ -287,7 +287,7 @@ function createStyles(tk: AppThemeTokens) {
     postMetaStat: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 2,
+      gap: rnSpacing['2xs'],
     },
   })
 }

@@ -8,14 +8,14 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 4265d81684f6cad46e8102de133a1ded98139d28
-// inputsSha256: 8b6ee53bd036ffe6d1864c65b8f7b9a3f7752d116ec3843ba473ceb31ea3bb13
+// sourceCommit: 0a4a20f5523dc8802a5d48050a57ff62a2e83771
+// inputsSha256: aef8049c696b9cae735ed5c851362877e8da5e5edec8b23acc2ab1941c7f70c9
 // input: apps/miniapp-taro/src/api/distribution-normalize.ts 0ade93b40fc74fa0a6ee1aab60799a80d9317e4eca41f1cb6ccb878f95aadf6d
 // input: apps/miniapp-taro/src/api/index.ts e575c3a394569ad98c94580c97bebff185cfd4e60f4d91e8792b5117a2854bbb
 // input: apps/miniapp-taro/src/api/order-normalize.ts ac45439228bec81c57cc4135fda449d1e667c154cce9e006b497a7107aa73e37
 // input: apps/miniapp-taro/src/api/social.ts fd88850ce0063cb633cf6aec38b9b982a1f11406481a5032a36227a3ea87dec4
 // input: apps/miniapp-taro/src/api/vip-mine.ts 219ef79cdcd635472bb5b6bf7c4ad5b7c985b7405fd0943ea1572018d8adf2fd
-// input: apps/miniapp-taro/src/app.config.ts c31cf88f1f325af19e61a3682bebb19bb42a5140d426714609b3e01965a47ff0
+// input: apps/miniapp-taro/src/app.config.ts 8b0e0c85a20beba4ff07a30999affe9608f404027222cd81225c2bd05756fdc7
 // input: apps/miniapp-taro/src/app.tsx 5c5d8bfcae0c9a18ed9f6597e029a3b8b1a8db42b4076d1afbb3f9410cf30613
 // input: apps/miniapp-taro/src/components/AgentListPanel.tsx f2ff1b323bb560cfede810aa0819cc905af0dbbc08d4f020e2ee8097ff2002db
 // input: apps/miniapp-taro/src/components/AgentRuntimePanel.tsx 559479045ccfcc7fec034dd8cef3d523bee35e94c039b14ed72214e1ae8c45ab
@@ -167,11 +167,11 @@
 // input: apps/miniapp-taro/src/pages/ask/list.config.ts 9c44f19d24466e90e80c2e61f3c12589a2e30f6c8f5c7d6e3ef0ee1d430389a5
 // input: apps/miniapp-taro/src/pages/ask/list.tsx 8f8f1dd42fe353e628128a4364b1164565d6b7bd0b98cde9ce1877efea4fed05
 // input: apps/miniapp-taro/src/pages/circle/create.config.ts 49e399da33dde0f9b488c4eae4da9cfa85198acb9251490f0808704b276b2280
-// input: apps/miniapp-taro/src/pages/circle/create.tsx 5f31e1564983c98d1773545df10a9884e651e8cebba01369241d7c3a543295b4
+// input: apps/miniapp-taro/src/pages/circle/create.tsx 183f283f03f3e2f44b86a7b8fb120138cc226b360e4c5aa258cea8f1138e478a
 // input: apps/miniapp-taro/src/pages/circle/detail.config.ts 02a99a996fe88e037152bfe6d517bfbc4297dfba5e99bfcdcc09434000a3ec3d
-// input: apps/miniapp-taro/src/pages/circle/detail.tsx 721aa6e2b72910ca6b8834da29bc5abad6828112a3bf91d9480ff1a221f047cc
+// input: apps/miniapp-taro/src/pages/circle/detail.tsx 5fd1ed0ee65a7526f43948c9a8e1e603426b35e1c01ae12bb88e0d3c719848c9
 // input: apps/miniapp-taro/src/pages/circle/index.config.ts e6a9fe349f445846b4963be0c1e4a3b15304c27ce10c5bdfb9ca6b27fd4bb44b
-// input: apps/miniapp-taro/src/pages/circle/index.tsx 7ab509cb0073dc3614504acce5ea76ba5f4d4fb881d8714b41007a0880c9f9ff
+// input: apps/miniapp-taro/src/pages/circle/index.tsx 6a339ccc2e1aeddced0dfcd2fb132c3220ad1b555657cbd478451776286bc84b
 // input: apps/miniapp-taro/src/pages/community/components/MyAgents.tsx 1525fc44a517be41c6e6682b608882dbfa8714c712a6cd91a97401548982ffe8
 // input: apps/miniapp-taro/src/pages/community/components/RecentAgents.tsx 83875e98cf5151f27777442bc0db32e3e2a46906162283151f4cf55078809a99
 // input: apps/miniapp-taro/src/pages/community/index.config.ts d32fc25a34242a000e69788cec19b8ccef0333be9a285eec0d2cd2abec61fb8f
@@ -312,7 +312,7 @@
 // input: apps/miniapp-taro/src/pkg-ai/ai-assistant/index.tsx 8b06fba3ddf554892a03c769b261bb421a2947dfa9b0bc2160d55aa1ae3c95dc
 // input: apps/miniapp-taro/src/pkg-ai/ai-career/index.tsx 1286ab6752e4499fcb7d82ab73adf67bf15bb6960293543b775afcb02205967d
 // input: apps/miniapp-taro/src/pkg-ai/ai-chat-detail/index.tsx 373998777b340f7c83ff38d1ffed9edd4b99925ec884e9f1e360ba5c522ec700
-// input: apps/miniapp-taro/src/pkg-ai/ai-circle/index.tsx fc9884ab217a217434b54f5ab10c82b26052641e2262cf2b1410ce9c443c35fd
+// input: apps/miniapp-taro/src/pkg-ai/ai-circle/index.tsx 53de3935d17209ecaa425b02f148844f2a37169c8f086f68d91e634d94fd7968
 // input: apps/miniapp-taro/src/pkg-ai/ai-group/index.tsx 1317ac6190b29f19d092c894698bcb77ba37ac9267012ea9f76eeb47883e9078
 // input: apps/miniapp-taro/src/pkg-ai/ai-skill/detail/index.config.ts 681099dc7d0f69394b6bb1105eb03350c768296538f30949f1a72dc8bbae1944
 // input: apps/miniapp-taro/src/pkg-ai/ai-skill/detail/index.tsx f45a214b249d72dd3913ce78ddea17390cc73521606d90a591eddc8f1977e544
@@ -628,6 +628,7 @@
 // input: apps/miniapp-taro/src/pkg-user/circle-create/index.tsx 3c527d3d5ffdb092ff0fa87867d2391b402bfca5cfd9a5534cf50b8fc5dceb07
 // input: apps/miniapp-taro/src/pkg-user/circle-detail/index.config.ts 24ee1e6a5f35e730d971396116df68aaa6c31151d485f0249d37eefec511407e
 // input: apps/miniapp-taro/src/pkg-user/circle-detail/index.tsx 7077c702289a7752dea6c3a1cf9f04a29d8ad32eaa88d61d2eade9338fa6c2a6
+// input: apps/miniapp-taro/src/pkg-user/circle-index/index.config.ts 94a8bc48711efb654f828c0f4b270e0886430bf22ba9bc9c3ccf8ab00099d98e
 // input: apps/miniapp-taro/src/pkg-user/circle-index/index.tsx 621111fbfff235ade148eb27bf434c535269c8a70c822cf0efaf14342196987d
 // input: apps/miniapp-taro/src/pkg-user/circle-member/index.tsx 5a005a7ec728e1472e71f4d8f0f60fcd549710ecfbe902171bb2dcc65de38bf3
 // input: apps/miniapp-taro/src/pkg-user/cloud-runs/index.tsx dd086710052e9987dd48dab38b5a89849bc808a210991411fb672fd5ea748fb5
@@ -809,7 +810,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 668 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=206(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-11-27T07:45:33.495Z
+// generatedAt: 2026-11-27T08:24:42.617Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
@@ -1973,11 +1974,18 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
     requiresParams: false,
   },
   {
+    path: '/pkg-user/circle-index/index',
+    title: '圈子',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
     path: '/pkg-user/circle-detail/index',
     title: '圈子详情',
     tab: false,
     subPackageRoot: 'pkg-user',
-    requiresParams: false,
+    requiresParams: true,
   },
   {
     path: '/pkg-user/ranking-detail/index',
@@ -2026,7 +2034,7 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
     title: '话题',
     tab: false,
     subPackageRoot: 'pkg-content',
-    requiresParams: true,
+    requiresParams: false,
   },
   {
     path: '/pkg-content/topic/detail',
@@ -2460,7 +2468,7 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
     title: '圈子详情',
     tab: false,
     subPackageRoot: 'pages/circle',
-    requiresParams: true,
+    requiresParams: false,
   },
   {
     path: '/pages/circle/create',

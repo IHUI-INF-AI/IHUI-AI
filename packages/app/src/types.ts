@@ -373,6 +373,9 @@ export type {
   /** 批次 24(2026-07-29):Circle 系(圈子)4 屏 */
   CircleMemberItem,
   CircleMemberScreenProps,
+  CircleListItem,
+  CircleListScreenProps,
+  CirclePostItem,
   CircleDetailItem,
   CircleDetailScreenProps,
   CircleCreateScreenProps,

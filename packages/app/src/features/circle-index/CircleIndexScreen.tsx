@@ -245,7 +245,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     joinedBadge: {
       paddingHorizontal: rnSpacing.xs,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.xs,
       backgroundColor: tk.surface.light,
     },
