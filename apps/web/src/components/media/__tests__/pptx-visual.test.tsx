@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import JSZip from 'jszip'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,6 +10,10 @@ vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
 }))
 
+import {
+  ADD_TEXT_REFERENCE_EVENT,
+  type AnchorReferenceDetail,
+} from '@/components/chat/annotation-anchor'
 import { parsePptxVisual, PptxPreview } from '../pptx-visual'
 
 const NS =
@@ -183,6 +187,32 @@ describe('parsePptxVisual', () => {
     expect(bgCard?.style.backgroundImage).toContain('data:image/png;base64,')
     await waitFor(() => expect(screen.getByTestId('pptx-outline')).toBeTruthy())
     expect(screen.getByTestId('pptx-outline').textContent).toContain('第二页正文')
+  })
+
+  it('点击版式元素出 PPTX 批注采集卡,并派发 slide/element 结构化锚点', async () => {
+    render(<PptxPreview data={await makePptx()} />)
+    const hits = await screen.findAllByTestId('pptx-shape-hit')
+    expect(hits.length).toBeGreaterThan(0)
+    fireEvent.click(hits[0] as HTMLElement)
+
+    const card = screen.getByTestId('pptx-anchor-capture')
+    expect(card.querySelector('[data-anchor-kind="pptx"]')).toBeTruthy()
+
+    const note = card.querySelector('[data-testid="annotation-anchor-note"]') as HTMLTextAreaElement
+    fireEvent.change(note, { target: { value: '把正文换成结论' } })
+    const received: AnchorReferenceDetail[] = []
+    const listener = (e: Event): void => {
+      received.push((e as CustomEvent<AnchorReferenceDetail>).detail)
+    }
+    window.addEventListener(ADD_TEXT_REFERENCE_EVENT, listener)
+    fireEvent.click(card.querySelector('[data-action="add"]') as HTMLButtonElement)
+    window.removeEventListener(ADD_TEXT_REFERENCE_EVENT, listener)
+
+    expect(received).toHaveLength(1)
+    expect(received[0]?.source).toBe('pptx-element')
+    expect(received[0]?.anchor).toEqual({ kind: 'pptx', slide: 1, element: '正文 1' })
+    expect(received[0]?.slide).toBe(1)
+    expect(received[0]?.element).toBe('正文 1')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

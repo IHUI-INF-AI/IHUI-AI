@@ -8,6 +8,7 @@ import * as React from 'react'
 import type JSZip from 'jszip'
 import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { AnnotationAnchorCapture } from '@/components/chat/annotation-anchor'
 
 /**
  * PPTX 版式化预览(2026-11-26 立)。
@@ -39,6 +40,8 @@ interface PptxBox {
   readonly h: number
   /** 旋转角度(度,顺时针;DrawingML rot 60000 单位已归一化)。 */
   readonly rotation?: number
+  /** OOXML `cNvPr/@name`;批注锚点优先用它,缺失时渲染层用稳定序号兜底。 */
+  readonly name?: string
 }
 
 interface PptxRun {
@@ -569,6 +572,12 @@ function shapeRadius(spPr: Element | undefined): number | string | undefined {
   return undefined
 }
 
+/** PPTX 自带的形状名(通常为“标题 1”“文本框 2”等),用于稳定批注锚点。 */
+function shapeName(el: Element): string | undefined {
+  const name = firstDesc(el, 'cNvPr')?.getAttribute('name')?.trim()
+  return name || undefined
+}
+
 async function parseTextShape(
   sp: Element,
   layoutPlaceholders: Map<string, { box: RawBox; fontSize: number | null }>,
@@ -595,6 +604,7 @@ async function parseTextShape(
   return {
     kind: 'text',
     ...box,
+    name: shapeName(sp),
     rotation: rotationOf(spPr),
     paragraphs,
     fill,
@@ -635,6 +645,7 @@ async function parsePictureShape(
   return {
     kind: 'image',
     ...box,
+    name: shapeName(pic),
     rotation: rotationOf(pic),
     src: `data:${mimeOfPath(rel.target)};base64,${base64}`,
   }
@@ -654,7 +665,7 @@ function parseTableShape(frame: Element, cx: number, cy: number): PptxTableShape
     ),
   )
   if (rows.length === 0) return null
-  return { kind: 'table', ...box, rotation: rotationOf(frame), rows }
+  return { kind: 'table', ...box, name: shapeName(frame), rotation: rotationOf(frame), rows }
 }
 
 export async function parsePptxVisual(buffer: ArrayBuffer): Promise<PptxVisualDeck> {
@@ -993,7 +1004,48 @@ function TableShapeView({ shape }: { shape: PptxTableShape }) {
   )
 }
 
-function VisualSlideView({ slide, cx, cy }: { slide: PptxVisualSlide; cx: number; cy: number }) {
+function ShapeHit({
+  shape,
+  label,
+  slide,
+  onSelect,
+}: {
+  shape: PptxVisualShape
+  label: string
+  slide: number
+  onSelect: (slide: number, element: string) => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className="absolute z-20 rounded-sm border-0 bg-transparent p-0 transition-colors hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+      style={{
+        left: `${shape.x * 100}%`,
+        top: `${shape.y * 100}%`,
+        width: `${shape.w * 100}%`,
+        height: `${shape.h * 100}%`,
+        transform: shape.rotation ? `rotate(${shape.rotation}deg)` : undefined,
+      }}
+      onClick={() => onSelect(slide, label)}
+      data-testid="pptx-shape-hit"
+      data-pptx-element={label}
+    />
+  )
+}
+
+function VisualSlideView({
+  slide,
+  cx,
+  cy,
+  onSelect,
+}: {
+  slide: PptxVisualSlide
+  cx: number
+  cy: number
+  onSelect?: (slide: number, element: string) => void
+}) {
   return (
     <figure data-testid="pptx-visual-slide" className="mx-auto w-full max-w-[880px]">
       <div
@@ -1031,6 +1083,17 @@ function VisualSlideView({ slide, cx, cy }: { slide: PptxVisualSlide; cx: number
             />
           )
         })}
+        {onSelect
+          ? slide.shapes.map((shape, index) => (
+              <ShapeHit
+                key={`hit-${index}`}
+                shape={shape}
+                label={shape.name || `#${index + 1}`}
+                slide={slide.index}
+                onSelect={onSelect}
+              />
+            ))
+          : null}
         {slide.shapes.length === 0 ? (
           <p className="absolute inset-0 flex items-center justify-center text-label text-muted-foreground">
             —
@@ -1051,10 +1114,15 @@ export function PptxPreview({ data }: { data: ArrayBuffer }) {
   const t = useTranslations('chat')
   const [deck, setDeck] = React.useState<PptxVisualDeck | null>(null)
   const [failed, setFailed] = React.useState(false)
+  const [selected, setSelected] = React.useState<{
+    readonly slide: number
+    readonly element: string
+  } | null>(null)
 
   React.useEffect(() => {
     let cancelled = false
     setFailed(false)
+    setSelected(null)
     parsePptxVisual(data)
       .then((d) => {
         if (!cancelled) setDeck(d)
@@ -1086,9 +1154,24 @@ export function PptxPreview({ data }: { data: ArrayBuffer }) {
 
   return (
     <div data-testid="pptx-visual-deck">
+      {selected ? (
+        <div className="border-b bg-background p-2" data-testid="pptx-anchor-capture">
+          <AnnotationAnchorCapture
+            anchor={{ kind: 'pptx', slide: selected.slide, element: selected.element }}
+            source="pptx-element"
+            onDispose={() => setSelected(null)}
+          />
+        </div>
+      ) : null}
       <div className="max-h-[480px] space-y-4 overflow-auto bg-muted/30 p-3">
         {deck.slides.map((slide) => (
-          <VisualSlideView key={slide.index} slide={slide} cx={deck.cx} cy={deck.cy} />
+          <VisualSlideView
+            key={slide.index}
+            slide={slide}
+            cx={deck.cx}
+            cy={deck.cy}
+            onSelect={(slideNumber, element) => setSelected({ slide: slideNumber, element })}
+          />
         ))}
       </div>
       <details className="border-t bg-background px-3 py-2 text-label text-muted-foreground">

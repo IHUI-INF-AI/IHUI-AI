@@ -22,6 +22,7 @@ import { success, error } from '../utils/response.js'
 import { parsePositiveInt } from '../utils/positive-int.js'
 import { calculateCost, findActivePricingForMode } from '../services/pricing-service.js'
 import { resolvePrice, type ResolvedPrice } from '../services/pricing-engine.js'
+import { getLlmPointsRates } from '../services/llm-points-pricing.js'
 import { checkOrgSpendBudget } from '../services/org-policy-service.js'
 import { getUserDailyCostLimit } from '../services/budget-alert-service.js'
 import { config } from '../config/index.js'
@@ -497,6 +498,8 @@ export async function resolveAiCost(input: {
   let cost = input.cost
   let costCurrency = input.currency
   let pricingKnown = input.cost !== undefined
+  // 采购成本不可用、退回 ai_pricing 零售价时，金额只是参考值，不能标记为已知成本。
+  let retailFallback = false
   // G4 计费弹性(2026-10-30 立):开关开且未手动传 cost 时,优先按 pricing_rules
   // 组合价(基础价 × 档位 × 错峰)解析;开关关 / 未命中规则 / 解析异常 ⇒
   // pricing 为 null,走下方 calculateCost 既有路径,存量结算行为逐字节不变。
@@ -509,6 +512,31 @@ export async function resolveAiCost(input: {
       timestamp: new Date(),
     })
     if (pricing) pricingKnown = true
+  }
+  if (cost === undefined && !pricing) {
+    // 平台成本优先用采购成本列(ai_model_config_models.cost_*),而不是 ai_pricing 的
+    // 零售价。零售价含成本加成,直接当成本会把毛利算没;采购成本缺失时才退回零售价
+    // 作为“未知成本的参考值”。供应商前缀(provider/model)由 getLlmPointsRates 归一。
+    try {
+      const rates = await getLlmPointsRates(input.model)
+      if (rates?.costBasis === 'config') {
+        const round6 = (v: number) => Math.round(v * 1e6) / 1e6
+        cost = round6(
+          (input.promptTokens / 1000) * rates.inputCostPer1k +
+            (input.completionTokens / 1000) * rates.outputCostPer1k,
+        )
+        pricingKnown = true
+        if (costCurrency === undefined) costCurrency = 'CNY'
+      } else if (rates) {
+        // 有零售价、没有采购成本：下面仍会算出参考金额，但状态必须是 unknown。
+        retailFallback = true
+      }
+    } catch (err) {
+      // 成本查询失败不能阻塞成本落账,继续走下面的零售价回退。
+      logger.warn(
+        `[ai-cost] 采购成本解析失败,回退定价引擎: model=${input.model} err=${String(err)}`,
+      )
+    }
   }
   if (cost === undefined) {
     if (pricing) {
@@ -534,7 +562,8 @@ export async function resolveAiCost(input: {
           logger.warn(`[ai-cost] 模型无定价配置,成本标记 unknown: model=${input.model}`)
         }
       } else {
-        pricingKnown = true
+        // 采购成本缺失时，calculateCost 给出的是零售价参考值，只能是 unknown。
+        pricingKnown = !retailFallback
       }
       cost = result.totalCost
       // 币种口径跟定价引擎走,不在这里另拍一份(§0.6)
