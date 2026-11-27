@@ -12367,7 +12367,8 @@
     "predictiveEditDelete": "刪除",
     "secretMaskShow": "顯示憑證",
     "secretMaskHide": "隱藏憑證"
-  },
+  ,
+    "officePreviewLabel": "Office 線上預覽"},
   "chatHistory": {
     "moveToGroup": "移動到分組",
     "moveSelectedToGroup": "移動所選到分組",

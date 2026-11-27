@@ -12412,7 +12412,8 @@
     "predictiveEditDelete": "删除",
     "secretMaskShow": "显示凭据",
     "secretMaskHide": "隐藏凭据"
-  },
+  ,
+    "officePreviewLabel": "Office 在线预览"},
   "chatHistory": {
     "moveToGroup": "移动到分组",
     "moveSelectedToGroup": "移动所选到分组",

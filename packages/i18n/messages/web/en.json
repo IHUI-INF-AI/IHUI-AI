@@ -12367,7 +12367,8 @@
     "interruptedNoticeUserCancelled": "You cancelled this answer, content may be incomplete",
     "secretMaskShow": "Show credentials",
     "secretMaskHide": "Hide credentials"
-  },
+  ,
+    "officePreviewLabel": "Office preview"},
   "chatHistory": {
     "moveToGroup": "Move to group",
     "moveSelectedToGroup": "Move selected to group",
