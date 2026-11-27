@@ -11,6 +11,7 @@
  *   V1 每个 tokens 角色必须 ∈ 皮肤映射 ∪ 豁免台账(族通配);都不在 ⇒ 红并点名。
  *   V2 高对比块(html[data-high-contrast])必须排在皮肤段之后(同特异度后写者胜,顺序即优先级)。
  *   V3 皮肤段内引用的 --custom-* 变量必须由 store 色板真实产出(防拼错静默失效)。
+ *   V4 亮/暗两档映射的角色集合必须一致(单侧新增 = 另一档漏配,切换明暗时半套换肤)。
  *
  * 取材面纪律(AGENTS §0.4):默认 HEAD blob;--staged 判索引 blob;--worktree 人工逃生舱;
  * 取不到 ⇒ exit 2 未判定。判面与取数一律走 scripts/lib/face-reader.mjs(门 118/312 要求)。
@@ -93,6 +94,21 @@ function check(globalsCss, tokensCss, ledger) {
     uncovered.push(role)
   }
 
+  // V4:亮/暗两档映射集合必须一致(只在单侧加角色 = 另一档漏配)
+  if (blocks.length === 2) {
+    const [light, dark] = blocks.map((b) => {
+      const set = new Set()
+      for (const m of b.body.matchAll(/^\s*--color-([a-z0-9-]+)\s*:/gm)) set.add(m[1])
+      return set
+    })
+    const onlyLight = [...light].filter((r) => !dark.has(r))
+    const onlyDark = [...dark].filter((r) => !light.has(r))
+    if (onlyLight.length)
+      problems.push(`亮档独有映射(暗档漏配):${onlyLight.map((r) => `--color-${r}`).join(' ')}`)
+    if (onlyDark.length)
+      problems.push(`暗档独有映射(亮档漏配):${onlyDark.map((r) => `--color-${r}`).join(' ')}`)
+  }
+
   const hcIdx = globalsCss.indexOf("html[data-high-contrast='true']")
   const skinIdx = blocks.length ? Math.min(...blocks.map((b) => b.index)) : -1
   if (hcIdx >= 0 && skinIdx >= 0 && hcIdx < skinIdx)
@@ -124,10 +140,18 @@ function selfTest() {
   const ledger = [{ pattern: 'success-*', reason: '语义色恒定' }]
   const ok = check(skin + "html[data-high-contrast='true'] { --color-border: #000; }", tokens, ledger)
   const hcBad = check("html[data-high-contrast='true'] { --color-border: #000; }\n" + skin, tokens, ledger)
+  const asym = check(
+    "html[data-custom-theme='true'] {\n--color-background: var(--custom-light-card);\n}\n" +
+      "html.dark[data-custom-theme='true'] {\n--color-background: var(--custom-dark-card);\n--color-muted: var(--custom-dark-muted);\n}\n" +
+      "html[data-high-contrast='true'] { --color-border: #000; }",
+    tokens,
+    ledger,
+  )
   const cases = [
     ['未登记角色被点名', ok.uncovered.includes('mystery')],
     ['家族豁免生效', !ok.uncovered.includes('success-500')],
     ['高对比倒序判红', hcBad.problems.some((p) => p.includes('高对比块'))],
+    ['亮暗不对称判红', asym.problems.some((p) => p.includes('亮档漏配'))],
   ]
   let bad = 0
   for (const [name, pass] of cases) {
