@@ -229,4 +229,167 @@ def resolve_context_uri(uri: object, roots: object, policy: object) -> dict[str,
     canonical = _SCHEME + ns + "/" + root.strip("/") + "/" + "/".join(segments)
     return _emit(Verdict.ALLOWED.value, ns, canonical, Reason.OK.value,
                  "解析与鉴权合一完成:形状认、白名单命中、八类安全判据全通过")
+
+
+# ---------------------------------------------------------------------------
+# 动词面(B2-08,2026-11-27 立):在已鉴权的虚拟 URI 上挂 ls / cat / glob / stat
+# ---------------------------------------------------------------------------
+
+
+class Verb(StrEnum):
+    """四动词:列目录 / 读文件 / 通配 / 元信息。"""
+
+    LS = "ls"
+    CAT = "cat"
+    GLOB = "glob"
+    STAT = "stat"
+
+
+VERBS: frozenset[str] = frozenset(v.value for v in Verb)
+
+DEFAULT_VERB_LIMIT = 200
+MAX_VERB_LIMIT = 2000
+
+
+class VerbReason(StrEnum):
+    """动词面专属 reason;鉴权层的 Reason 原样透传,不在本枚举里重复。"""
+
+    OK = "ok"
+    UNKNOWN_VERB = "unknown_verb"
+    PATTERN_MISSING = "pattern_missing"
+    PATTERN_UNSAFE = "pattern_unsafe"
+    WILDCARD_ON_SINGLE = "wildcard_on_single_target"
+    LIMIT_CLAMPED = "limit_clamped"
+
+
+_WILDCARD_CHARS: tuple[str, ...] = ("*", "?", "[", "]")
+
+
+def _has_wildcard(text: str) -> bool:
+    """单目标动词的形状判据:URI 里出现通配符即命中(那是 glob 的输入,不是路径)。"""
+    return any(ch in text for ch in _WILDCARD_CHARS)
+
+
+def _clamp_limit(limit: object) -> tuple[int, bool]:
+    """返回 (生效上限, 是否被钳制)。
+
+    `None` 是"调用方没给"⇒ 用默认且**不算钳制**(钳制专指"给了但不合法");
+    非 int / bool / 非正 / 超硬上限 ⇒ 夹到边界并标记为钳制。
+    """
+    if limit is None:
+        return DEFAULT_VERB_LIMIT, False
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+        return DEFAULT_VERB_LIMIT, True
+    if limit > MAX_VERB_LIMIT:
+        return MAX_VERB_LIMIT, True
+    return limit, False
+
+
+def _pattern_is_safe(pattern: object) -> bool:
+    """glob 模式安全判据:非空 str,且不含控制字符/编码绕过/绝对注入/穿越段。"""
+    if not isinstance(pattern, str) or not pattern.strip():
+        return False
+    if _has_control_char(pattern) or _has_percent_encoding(pattern):
+        return False
+    if _is_absolute_injection(pattern):
+        return False
+    return ".." not in pattern.split("/")
+
+
+def _verb_emit(verdict: str, verb: str, reason: str, detail: str, *,
+               canonical_path: str | None = None,
+               plan: dict[str, object] | None = None) -> dict[str, object]:
+    """动词面唯一返回出口:allowed 必带 canonical_path + plan,其余必为空。"""
+    if verdict == Verdict.ALLOWED.value:
+        if canonical_path is None or plan is None:
+            return _verb_emit(Verdict.UNJUDGED.value, verb, Reason.HALF_STATE.value,
+                              "动词面半态:allowed 但缺 canonical_path/plan,改判未判定",
+                              canonical_path=None, plan=None)
+    else:
+        canonical_path = None
+        plan = None
+    return {
+        "verdict": verdict,
+        "verb": verb,
+        "reason": reason,
+        "detail": detail,
+        "canonical_path": canonical_path,
+        "plan": plan,
+    }
+
+
+def plan_verb(
+    verb: object,
+    uri: object,
+    roots: object,
+    policy: object,
+    *,
+    pattern: object = None,
+    limit: object = None,
+) -> dict[str, object]:
+    """在 ``context://`` URI 上规划一个动词(纯判据,不读磁盘)。
+
+    判序:
+      1  verb 不在 VERBS                  ⇒ unjudged / unknown_verb
+      2  resolve_context_uri 非 allowed    ⇒ 原样透传(动词面绝不改写鉴权结论)
+      3  glob 的 pattern 缺失/不安全       ⇒ unjudged / pattern_missing|pattern_unsafe
+      4  cat 落在目录形状(URI 以 / 结尾) ⇒ denied / verb_dir_mismatch
+      5  limit 非法或超上限                ⇒ 夹到边界并标 limit_clamped(不拒绝但明示)
+      6  全通过                            ⇒ allowed + plan{verb,canonical,pattern,limit,clamped}
+
+    刻意不做:不 open / 不 listdir / 不 glob.glob —— 本层只回答"允不允许、按什么参数读",
+    真正的 IO 由调用方在宿主 FS 上做,且必须先把 canonical_path 换算成宿主路径。
+    """
+    if not isinstance(verb, str) or verb not in VERBS:
+        return _verb_emit(
+            Verdict.UNJUDGED.value,
+            verb if isinstance(verb, str) else "",
+            VerbReason.UNKNOWN_VERB.value,
+            "动词不认(取不到),点名:ls/cat/glob/stat",
+        )
+
+    auth = resolve_context_uri(uri, roots, policy)
+    if auth.get("verdict") != Verdict.ALLOWED.value:
+        return _verb_emit(
+            str(auth.get("verdict")),
+            verb,
+            str(auth.get("reason")),
+            str(auth.get("detail")),
+        )
+
+    canonical = str(auth.get("canonical_path"))
+
+    if verb == Verb.GLOB.value:
+        if not isinstance(pattern, str) or not pattern.strip():
+            return _verb_emit(
+                Verdict.UNJUDGED.value, verb, VerbReason.PATTERN_MISSING.value,
+                "glob 缺 pattern(取不到),点名:需显式给出相对模式,不默认 **/*",
+            )
+        if not _pattern_is_safe(pattern):
+            return _verb_emit(
+                Verdict.DENIED.value, verb, VerbReason.PATTERN_UNSAFE.value,
+                "glob pattern 含穿越/绝对注入/编码绕过/控制字符,拒绝",
+            )
+
+    if verb in (Verb.CAT.value, Verb.STAT.value) and _has_wildcard(str(uri)):
+        return _verb_emit(
+            Verdict.DENIED.value, verb, VerbReason.WILDCARD_ON_SINGLE.value,
+            "单目标动词(cat/stat)遇到通配符 URI,拒绝:通配是 glob 的输入,不是路径",
+        )
+
+    effective_limit, clamped = _clamp_limit(limit)
+    plan: dict[str, object] = {
+        "verb": verb,
+        "canonical_path": canonical,
+        "pattern": pattern if verb == Verb.GLOB.value else None,
+        "limit": effective_limit,
+        "clamped": clamped,
+    }
+    detail = "动词规划通过:鉴权已过,参数形状合法"
+    if clamped:
+        detail = f"动词规划通过但 limit 被夹到 {effective_limit}(原值不合法或超上限)"
+    return _verb_emit(
+        Verdict.ALLOWED.value, verb, VerbReason.OK.value, detail,
+        canonical_path=canonical, plan=plan,
+    )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
