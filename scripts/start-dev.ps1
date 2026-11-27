@@ -369,7 +369,12 @@ function Start-ServiceProcess {
     $cmdFull = "$env:ComSpec /c `"cd /d `"$Cwd`" && ($cmdLine) >> `"$logPath`" 2>> `"$errPath`"`""
     $job = Start-Job -ScriptBlock {
       param($cmdFull)
-      $startup = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = 0 }
+      # 2026-11-27 实测(WMI 派生禁窗口径,本机取样):CreateFlags 是 STARTUPINFO.dwFlags,不是
+      # CreateProcess 创建标志 —— 填 CREATE_NO_WINDOW(0x08000000) 会让 Invoke-CimMethod 返回 21(进程起不来);
+      # 且 ShowWindow 必须显式 [uint16]0:写成裸 0 时建出的是 SInt32,Create 抛"类型不匹配"
+      # (旧写法一直在静默降级到通道 2,breakaway 从未生效)。[uint16]0 时 cmd.exe / node.exe
+      # 的新控制台实测 visible=False。**不要在这里加 CreateFlags。**
+      $startup = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }
       Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
         CommandLine               = $cmdFull
         ProcessStartupInformation = $startup
