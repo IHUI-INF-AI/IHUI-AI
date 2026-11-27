@@ -28,6 +28,7 @@ export interface StatsCardsProps {
       readonly success?: number
       readonly failed?: number
       readonly partial?: number
+      readonly draft?: number
     }
   }
 }
@@ -35,9 +36,12 @@ export interface StatsCardsProps {
 export function StatsCards({ stats }: StatsCardsProps) {
   const t = useTranslations('publish')
   const total = stats.tasks?.total ?? 0
+  const draft = stats.tasks?.draft ?? 0
   const success = stats.tasks?.success ?? 0
   const failed = stats.tasks?.failed ?? 0
-  const rate = total && success ? `${((success / total) * 100).toFixed(1)}%` : '-'
+  // 草稿还没进调度,不该把成功率分母拉低;总任务卡仍如实显示全部记录。
+  const executed = Math.max(0, total - draft)
+  const rate = executed && success ? `${((success / executed) * 100).toFixed(1)}%` : '-'
 
   return (
     <StatGrid cols={4}>

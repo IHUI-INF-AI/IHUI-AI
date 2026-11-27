@@ -84,6 +84,7 @@ export function FilterBar({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('history.allStatus')}</SelectItem>
+              <SelectItem value="draft">{t('history.statusDraft')}</SelectItem>
               <SelectItem value="success">{t('history.statusSuccess')}</SelectItem>
               <SelectItem value="failed">{t('history.statusFailed')}</SelectItem>
               <SelectItem value="skipped">{t('history.statusSkipped')}</SelectItem>

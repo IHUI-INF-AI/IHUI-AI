@@ -5,8 +5,9 @@
 /**
  * 多平台发布路由代理 — 把 /api/publish/* 透传到 ai-service 的 /api/publish/*。
  *
- * 端点清单(完整代理,16 个 + 2 个本地端点):
+ * 端点清单(完整代理,含 2 个本地端点):
  *   GET    /publish/platforms                    列出所有支持的平台元数据(透传 ai-service)
+ *   GET    /publish/acceptance                   发布能力验收矩阵(适配器/登录/真实发布证据三态)
  *   GET    /publish/adapters/status              本地端点:返回 13 平台 adapter 可用性矩阵(无需 ai-service 在线)
  *   POST   /publish/upload                       multipart 上传内容文件(docx/pdf/image/video/md/html)
  *   GET    /publish/accounts/:userId             列出用户的所有平台账号
@@ -15,12 +16,16 @@
  *   DELETE /publish/accounts/:accountId          删除账号
  *   POST   /publish/accounts/:accountId/verify   测试连接
  *   GET    /publish/accounts/:accountId/risk     账号风险评分(风控引擎,2026-08-17)
+ *   POST   /publish/preflight                   发布前预检(不创建任务,透传 ai-service)
  *   POST   /publish/tasks                        创建发布任务(支持 dryRun=true 短路:本地返回 adapter 可用性,不转发 ai-service)
  *   GET    /publish/tasks                        列出任务
  *   GET    /publish/tasks/:taskId                任务详情
  *   POST   /publish/tasks/:taskId/cancel         取消任务
+ *   POST   /publish/tasks/:taskId/confirm        人工确认草稿(转 scheduled)
+ *   PATCH  /publish/tasks/:taskId/draft          编辑草稿(重新预检,仍保持 draft)
  *   POST   /publish/tasks/:taskId/reschedule     改期定时任务
  *   POST   /publish/tasks/:taskId/retry          重试失败平台
+ *   POST   /publish/tasks/:taskId/resume         人工接管后恢复 auth 失败平台
  *   GET    /publish/history                      历史记录
  *   GET    /publish/stats                        统计
  *   GET    /publish/credentials-key/generate     生成加密密钥
@@ -405,6 +410,15 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
   })
 
   /**
+   * 发布能力验收矩阵(2026-11-26 新增):有适配器 / 登录有效 / 真实发过 三态分开。
+   * 透传 ai-service GET /publish/acceptance;platform 可选过滤。
+   */
+  server.get('/publish/acceptance', async (request, reply) => {
+    const qs = request.url.split('?')[1] ?? ''
+    await proxyToAiService(request, reply, qs ? `/acceptance?${qs}` : '/acceptance')
+  })
+
+  /**
    * 本地端点(2026-07-30 立):返回 13 平台 adapter 可用性矩阵,无需 ai-service 在线。
    * 用于 verify-publish-adapters.mjs 脚本 + 前端"发布向导"展示哪些平台可立即发布。
    * 响应结构:{ code: 0, message: 'success', data: { items: [...], count, summary } }
@@ -468,6 +482,11 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
 
   // ===== 任务管理 =====
 
+  // 发布前预检(2026-11-27):不创建任务,先告诉调用方哪个账号/平台会拦。
+  server.post('/publish/preflight', async (request, reply) => {
+    await proxyToAiService(request, reply, '/preflight')
+  })
+
   server.post('/publish/tasks', async (request, reply) => {
     // dryRun 短路(2026-07-30 立):body.dryRun=true 或 query.dryRun=true 时,
     // 本地返回每个平台的可用性,不转发 ai-service(避免 stub adapter 静默成功误导用户)。
@@ -513,6 +532,18 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
     await proxyToAiService(request, reply, `/tasks/${encodeURIComponent(taskId)}/cancel`)
   })
 
+  // 人工确认草稿(2026-11-27):Agent 只能落 draft,必须由登录用户在 UI 点确认。
+  server.post('/publish/tasks/:taskId/confirm', async (request, reply) => {
+    const { taskId } = request.params as { taskId: string }
+    await proxyToAiService(request, reply, `/tasks/${encodeURIComponent(taskId)}/confirm`)
+  })
+
+  // 人工编辑草稿(2026-11-27):与 Agent 的 update_publish_draft 共用同一套合并/预检。
+  server.patch('/publish/tasks/:taskId/draft', async (request, reply) => {
+    const { taskId } = request.params as { taskId: string }
+    await proxyToAiService(request, reply, `/tasks/${encodeURIComponent(taskId)}/draft`)
+  })
+
   // 改期定时任务(2026-08-17 新增)
   server.post('/publish/tasks/:taskId/reschedule', async (request, reply) => {
     const { taskId } = request.params as { taskId: string }
@@ -522,6 +553,13 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
   server.post('/publish/tasks/:taskId/retry', async (request, reply) => {
     const { taskId } = request.params as { taskId: string }
     await proxyToAiService(request, reply, `/tasks/${encodeURIComponent(taskId)}/retry`)
+  })
+
+  // 人工接管后恢复(2026-11-27):只重试带 auth challenge 的失败平台;
+  // 登录态还没恢复时 ai-service 会回 409 auth_still_required。
+  server.post('/publish/tasks/:taskId/resume', async (request, reply) => {
+    const { taskId } = request.params as { taskId: string }
+    await proxyToAiService(request, reply, `/tasks/${encodeURIComponent(taskId)}/resume`)
   })
 
   // ===== 历史 / 统计 / 密钥 / 运行中 =====

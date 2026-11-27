@@ -7,7 +7,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Plus, Package, Clock, PackageOpen } from 'lucide-react'
+import { Plus, Package, Clock, PackageOpen, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BTN_NEW_CONVERSATION_CLASS } from '@/lib/nav-styles'
 import { Tooltip } from '@/components/feedback'
@@ -44,6 +44,45 @@ export function SidebarQuickActions({
 
   return (
     <>
+      {/* 工作台入口(2026-11-27):/start 八卡是"一人公司操作系统"的每日入口。
+          没有这个侧边栏入口,八卡只是藏在 URL 里的页面;放在新建任务上方,
+          不改变新建任务的流式门控能力。 */}
+      <div className={cn('mb-1', collapsed && 'flex justify-center')}>
+        {collapsed ? (
+          <Tooltip content={t('workbench')} side="right">
+            <Link
+              href="/start"
+              onClick={onCloseMobile}
+              aria-label={t('workbench')}
+              aria-current={pathname.startsWith('/start') ? 'page' : undefined}
+              className={cn(
+                'flex h-9 w-9 items-center justify-center rounded-md transition-colors',
+                pathname.startsWith('/start')
+                  ? 'bg-cta text-cta-foreground'
+                  : 'text-muted-foreground hover:bg-sidebar-item-hover-bg hover:text-foreground',
+              )}
+            >
+              <Sparkles className="h-5 w-5" />
+            </Link>
+          </Tooltip>
+        ) : (
+          <Link
+            href="/start"
+            onClick={onCloseMobile}
+            aria-current={pathname.startsWith('/start') ? 'page' : undefined}
+            className={cn(
+              BTN_NEW_CONVERSATION_CLASS,
+              pathname.startsWith('/start')
+                ? 'bg-cta text-cta-foreground font-semibold'
+                : 'text-muted-foreground hover:bg-sidebar-item-hover-bg hover:text-foreground',
+            )}
+          >
+            <Sparkles className="h-5 w-5 shrink-0" />
+            <span className="min-w-0 whitespace-nowrap text-left">{t('workbench')}</span>
+          </Link>
+        )}
+      </div>
+
       {/* 新建任务按钮(对齐旧架构 .nav-new-chat,黑白对调主题)
             2026-07-19 用户反馈:整体偏灰,不再用极端黑/白对比;
             2026-11-11 用户反馈:该按钮与导航项不同,不需要「选中」语义,却常驻灰底,

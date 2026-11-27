@@ -104,6 +104,11 @@ def test_manifest_categorization_and_params():
     assert param.required is True
     assert param.type == "string"
 
+    content = next(c for c in manifest if c.id == "generate_content")
+    assert content.category == "content"
+    acceptance = next(c for c in manifest if c.id == "get_publish_acceptance")
+    assert acceptance.category == "publish"
+
 
 def test_manifest_admin_and_health():
     """write_file 为 admin 专属;web_search 依赖网络标记为 degraded。"""
