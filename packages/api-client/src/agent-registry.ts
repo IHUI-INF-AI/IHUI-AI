@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 总管智能体 · 统一注册表客户端（R1）。
@@ -20,6 +21,12 @@ export type RegistryAgentRole = AgentRole
 export type AgentApprovalStatus = ApprovalStatus
 export type AgentApprovalAction = 'delete' | 'purge' | 'rollback'
 export type AgentRunStatus = RunStatus
+
+export interface AgentDefinitionStats {
+  runs7d: number
+  successRate: number
+  costPoints7d: string
+}
 
 export interface AgentDefinitionView {
   id: string
@@ -54,6 +61,7 @@ export interface AgentDefinitionView {
   promptHash?: string
   promptLength?: number
   auditId?: string
+  stats?: AgentDefinitionStats
 }
 
 export interface AgentDefinitionListParams {
@@ -64,6 +72,7 @@ export interface AgentDefinitionListParams {
   teamId?: string
   limit?: number
   offset?: number
+  cursor?: string
   [key: string]: string | number | boolean | null | undefined
 }
 
@@ -174,6 +183,16 @@ export interface DeleteApprovalResult {
   auditId?: string
 }
 
+export interface RollbackApprovalResult {
+  requiresApproval: true
+  approvalId: string
+  status: 'pending'
+  expiresAt: string
+  activeRuns: number
+  impactHash: string
+  auditId?: string
+}
+
 export interface AgentApprovalView {
   id: string
   action: AgentApprovalAction
@@ -244,8 +263,9 @@ export interface AgentRunArtifactsResponse {
 
 export interface ApproveResult {
   approval: AgentApprovalView
-  definition: AgentDefinitionView
+  definition: AgentDefinitionView | null
   auditId: string
+  purged?: boolean
 }
 
 function unwrap<T>(result: { success: true; data: T } | { success: false; error: string }): T {
@@ -343,9 +363,9 @@ export async function rollbackAgentDefinition(
   id: string,
   targetVersion: number,
   ifVersion: number,
-): Promise<AgentDefinitionView> {
+): Promise<AgentDefinitionView | RollbackApprovalResult> {
   return unwrap(
-    await fetchApi<AgentDefinitionView>(
+    await fetchApi<AgentDefinitionView | RollbackApprovalResult>(
       `/agent-registry/definitions/${encodeURIComponent(id)}/rollback`,
       { method: 'POST', body: JSON.stringify({ targetVersion, ifVersion }) },
     ),
@@ -371,6 +391,19 @@ export async function requestDeleteAgentDefinition(
       method: 'DELETE',
       body: JSON.stringify({ precheckToken, reason }),
     }),
+  )
+}
+
+export async function requestPurgeAgentDefinition(
+  id: string,
+  confirmName: string,
+  reason?: string,
+): Promise<DeleteApprovalResult> {
+  return unwrap(
+    await fetchApi<DeleteApprovalResult>(
+      `/agent-registry/definitions/${encodeURIComponent(id)}/purge`,
+      { method: 'POST', body: JSON.stringify({ confirmName, reason }) },
+    ),
   )
 }
 
@@ -459,3 +492,4 @@ export async function getAgentRunStats(runId: string): Promise<Record<string, un
     ),
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

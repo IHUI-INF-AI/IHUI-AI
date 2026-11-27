@@ -82,7 +82,7 @@
 ### 6. 归零口径
 
 - F0 完成判据：`node scripts/check-agent-contract-single-source.mjs` → `重复枚举: 0`。
-- 全仓盘点：`--all` 目前 14 处 `legacy pending`（R1 9 / W1 5），随各线迁移递减；
+- 全仓盘点：`--all` 目前 8 处 `legacy pending`（R1 3 / W1 5），随各线迁移递减；
   `--strict-legacy` 可在合并前当硬门用。
 - 迁移完成后可删的兼容层：`packages/shared/src/subagents/index.ts` 的 `AgentRole`/`SubagentRole` 5 值别名、
   `OrchestrationMode` 11 值兼容联合（barrel 翻名后）。
@@ -114,12 +114,23 @@
    - `a2a` 在本仓没有卡片表（`a2a_service.py` 只是代码路径），预检返回 `unverified`，
      不伪造 0、也不拿它当阻断。UI 必须原样展示这一桶。
 
-4. **本切片未做、不能报“R1 全绿”**
-   - `Idempotency-Key`（POST 同 key 同结果）尚未接 Redis；
-   - 分页仍是 `limit/offset`，未实现 `cursor`；
-   - `purge` / 活跃运行下的 `rollback` 尚未生成审批（当前 rollback 遇活跃运行直接 `APPROVAL_REQUIRED`，没有 approvalId）；
-   - 内部端点 `/api/internal/agent-registry/*` 尚未建；
-   - `stats`（runs7d/successRate/costPoints7d）未进列表响应。
+4. **本轮已补齐（收口切片）**
+   - `Idempotency-Key`：`agent-registry-idempotency.ts`，同 key 同 body 10 分钟回放，不同 body 409，Redis 不可用 fail-open；
+   - 分页 `cursor`：base64url(`updatedAt|id`)，按 `(updatedAt,id)` 倒序，非法游标 400 `INVALID_CURSOR`；
+   - 列表 `stats`：按当前页定义聚合近 7 天 `runs7d / successRate / costPoints7d`；
+   - `purge`：仅管理员、软删满 30 天、`confirmName` 二次确认，生成 pending 审批；执行时把定义与全部版本快照写入审批 `impact_snapshot.archive` 作为归档，再删除定义；
+   - 活跃运行下的 `rollback`：生成 pending 审批并返回 `428 + approvalId + activeRuns + impactHash`；批准后按目标快照写回并 `version+1`；
+   - 内部只读端点：`GET /api/internal/agent-registry/snapshot`、`GET /definitions/resolve`，票据 scope 新增 `agent-registry`；
+   - 审计一致性：`recordAuditLog(params, tx?)` 支持调用方事务；软删/purge/rollback 的审计与业务写入同事务，审计失败会整体回滚；
+   - 灰度开关：`AGENT_REGISTRY_WRITE=false` 关闭全部写面，`AGENT_REGISTRY_DELETE=false` 关闭删除/恢复/审批面；默认开启，显式 false 才关闭。
+
+5. **本切片仍未做、合并评审要带着看**
+   - `POST /api/internal/agent-registry/ops`（27 action）、`POST /runs`、`POST /runs/:id/events`、`POST /audit` 未建，留给 R2；
+   - `purge` 的归档落在审批 JSONB，不是对象存储/JSONL 冷归档；大提示词与多版本会让审批行变大，长期方案待拍板；
+   - `Idempotency-Key` 在 Redis 不可用时 fail-open，存在重复创建风险；规格未写死是否允许；
+   - `AGENT_VERSION_CONFLICT` 仍不能在响应 `data` 里带 `currentVersion`：`AppError` 没有 details，全局 errorHandler 不返回 data；
+   - 预检 `audit` 域已排除 `delete_requested/purge_requested/rollback_requested` 三条自写审计，否则审批请求自身会改变 impactHash、执行前复检永远不过；这条口径需要在安全评审确认；
+   - 真库用例默认跳过，需显式 `AGENT_REGISTRY_REAL_DB=1` + 独立库 `ihui_agent_test_fresh`；已实测 create/detail/cursor+stats/预检→软删→恢复/活跃运行回滚审批/purge 归档 5 组全过。
 
 ## F1 · 数据库地基（feat/ma-db）
 

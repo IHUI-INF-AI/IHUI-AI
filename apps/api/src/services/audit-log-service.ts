@@ -215,59 +215,79 @@ function toRows(raw: unknown): Record<string, unknown>[] {
  *
  * @returns 新日志 id;落库失败(表未建等)返回 undefined
  */
-export async function recordAuditLog(params: RecordAuditLogParams): Promise<string | undefined> {
+type AuditTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+export async function recordAuditLog(
+  params: RecordAuditLogParams,
+  tx?: AuditTx,
+): Promise<string | undefined> {
   const timestamp = new Date().toISOString()
 
-  try {
-    return await db.transaction(async (tx) => {
-      // 串行化审计日志写入,固定 lock key
-      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('audit_log_chain'))`)
+  const run = async (handle: AuditTx): Promise<string | undefined> => {
+    // 串行化审计日志写入,固定 lock key
+    await handle.execute(sql`SELECT pg_advisory_xact_lock(hashtext('audit_log_chain'))`)
 
-      // 在事务内获取链尾 hash(表不存在时降级为创世哈希)
-      let prevHash = GENESIS_HASH
-      try {
-        const raw = await tx.execute(sql`
-          SELECT current_hash FROM audit_logs_chain ORDER BY seq DESC LIMIT 1
-        `)
-        const h = toRows(raw)[0]?.['current_hash']
-        prevHash = h === null || h === undefined ? GENESIS_HASH : String(h)
-      } catch {
-        prevHash = GENESIS_HASH
-      }
-
-      // F-275:新行改用 v2 哈希(把 ip / user_agent 证据列纳入输入)。metadata 与
-      // INSERT 其余列保持原样,不改表结构、不写版本标记 —— 兼容判定放在 verify 侧:
-      // 对每行同时试 v1/v2,存量行匹配 v1、新行匹配 v2,零迁移、零读端改动。
-      const currentHash = computeAuditHash(
-        prevHash,
-        {
-          timestamp,
-          userId: params.userId ?? null,
-          action: params.action,
-          resourceType: params.resourceType ?? null,
-          resourceId: params.resourceId ?? null,
-          result: params.result ?? null,
-          metadata: params.metadata ?? null,
-          ip: params.ip ?? null,
-          userAgent: params.userAgent ?? null,
-        },
-        2,
-      )
-
-      const metadataJson = JSON.stringify(params.metadata ?? {})
-      const insertRaw = await tx.execute(sql`
-        INSERT INTO audit_logs_chain
-          (timestamp, user_id, action, resource_type, resource_id, ip, user_agent, result, metadata, prev_hash, current_hash)
-        VALUES
-          (${timestamp}::timestamptz, ${params.userId ?? null}::uuid, ${params.action},
-           ${params.resourceType ?? null}, ${params.resourceId ?? null}, ${params.ip ?? null},
-           ${params.userAgent ?? null}, ${params.result ?? null}, ${metadataJson}::jsonb,
-           ${prevHash}, ${currentHash})
-        RETURNING id
+    // 在事务内获取链尾 hash(表不存在时降级为创世哈希)
+    let prevHash = GENESIS_HASH
+    try {
+      const raw = await handle.execute(sql`
+        SELECT current_hash FROM audit_logs_chain ORDER BY seq DESC LIMIT 1
       `)
-      const id = toRows(insertRaw)[0]?.['id']
-      return id === null || id === undefined ? undefined : String(id)
-    })
+      const h = toRows(raw)[0]?.['current_hash']
+      prevHash = h === null || h === undefined ? GENESIS_HASH : String(h)
+    } catch {
+      prevHash = GENESIS_HASH
+    }
+
+    // F-275:新行改用 v2 哈希(把 ip / user_agent 证据列纳入输入)。metadata 与
+    // INSERT 其余列保持原样,不改表结构、不写版本标记 —— 兼容判定放在 verify 侧:
+    // 对每行同时试 v1/v2,存量行匹配 v1、新行匹配 v2,零迁移、零读端改动。
+    const currentHash = computeAuditHash(
+      prevHash,
+      {
+        timestamp,
+        userId: params.userId ?? null,
+        action: params.action,
+        resourceType: params.resourceType ?? null,
+        resourceId: params.resourceId ?? null,
+        result: params.result ?? null,
+        metadata: params.metadata ?? null,
+        ip: params.ip ?? null,
+        userAgent: params.userAgent ?? null,
+      },
+      2,
+    )
+
+    const metadataJson = JSON.stringify(params.metadata ?? {})
+    const insertRaw = await handle.execute(sql`
+      INSERT INTO audit_logs_chain
+        (timestamp, user_id, action, resource_type, resource_id, ip, user_agent, result, metadata, prev_hash, current_hash)
+      VALUES
+        (${timestamp}::timestamptz, ${params.userId ?? null}::uuid, ${params.action},
+         ${params.resourceType ?? null}, ${params.resourceId ?? null}, ${params.ip ?? null},
+         ${params.userAgent ?? null}, ${params.result ?? null}, ${metadataJson}::jsonb,
+         ${prevHash}, ${currentHash})
+      RETURNING id
+    `)
+    const id = toRows(insertRaw)[0]?.['id']
+    return id === null || id === undefined ? undefined : String(id)
+  }
+
+  // 外部事务传入时必须把失败抛回调用方，让业务动作一起回滚；
+  // 自开事务时保留“表未建降级”的旧语义，返回 undefined。
+  if (tx) {
+    try {
+      return await run(tx)
+    } catch (e) {
+      logger.warn('[audit-log-service] recordAuditLog in caller transaction failed', {
+        error: (e as Error).message,
+      })
+      throw e
+    }
+  }
+
+  try {
+    return await db.transaction(run)
   } catch (e) {
     logger.warn('[audit-log-service] recordAuditLog transaction failed', {
       error: (e as Error).message,

@@ -11,9 +11,9 @@
  * - 内置定义拒绝删除；软删保留 30 天才允许彻底删。
  */
 
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { and, desc, eq, sql } from 'drizzle-orm'
-import { agentDefinitions, agentManagementApprovals } from '@ihui/database'
+import { agentDefinitionVersions, agentDefinitions, agentManagementApprovals } from '@ihui/database'
 import { httpStatusForErrorCode, type ApprovalStatus, type AgentErrorCode } from '@ihui/shared'
 import { AppError } from '../errors/AppError.js'
 import { db } from '../db/index.js'
@@ -21,6 +21,8 @@ import { logger } from '../utils/logger.js'
 import {
   canManageDefinition,
   findDefinitionOrThrow,
+  isRegistryAdmin,
+  rollbackUpdateFromSnapshot,
   toDefinitionView,
   writeDefinitionVersion,
   writeRegistryAudit,
@@ -32,6 +34,7 @@ import {
   precheckDefinitionDeletion,
   recheckBeforeExecution,
   verifyPrecheckToken,
+  type PrecheckReport,
   type PrecheckResult,
 } from './agent-registry-precheck-service.js'
 
@@ -64,8 +67,9 @@ export interface DeleteApprovalResult {
 
 export interface ApproveApprovalResult {
   approval: AgentApprovalView
-  definition: AgentDefinitionView
+  definition: AgentDefinitionView | null
   auditId: string
+  purged?: boolean
 }
 
 function fail(code: AgentErrorCode, message: string): never {
@@ -181,6 +185,114 @@ export async function createDeleteApproval(
   }
 }
 
+function purgeImpactHash(
+  report: PrecheckReport,
+  versions: Array<typeof agentDefinitionVersions.$inferSelect>,
+): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        reportHash: report.impactHash,
+        versions: versions.map((version) => ({
+          version: version.version,
+          changeKind: version.changeKind,
+          snapshot: version.snapshot,
+          createdAt: version.createdAt.toISOString(),
+        })),
+      }),
+    )
+    .digest('hex')
+}
+
+/**
+ * 发起彻底清除审批（仅管理员，软删满 30 天）。
+ *
+ * “先归档再删”：本仓没有对象存储归档器，把定义与全部版本快照完整写进
+ * approval.impact_snapshot 作为证据，审批行不随定义 CASCADE 删除。
+ */
+export async function createPurgeApproval(
+  actor: AgentRegistryActor,
+  definitionId: string,
+  confirmName: string,
+  reason: string | undefined,
+): Promise<DeleteApprovalResult> {
+  if (!isRegistryAdmin(actor)) fail('AGENT_FORBIDDEN', '只有系统管理员可以彻底清除定义')
+  const definition = await findDefinitionOrThrow(definitionId)
+  if (definition.isBuiltin) fail('AGENT_PROTECTED', '内置定义不能彻底清除')
+  if (definition.status !== 'deleted' || definition.purgeAfter === null) {
+    fail('AGENT_NOT_RESTORABLE', '定义未处于待清除状态')
+  }
+  if (definition.purgeAfter.getTime() > Date.now()) {
+    fail('AGENT_PURGE_TOO_EARLY', '30 天保留期未满，不能彻底清除')
+  }
+  if (confirmName !== definition.name) {
+    fail('APPROVAL_MISMATCH', '输入的定义名与清除目标不一致')
+  }
+
+  const report = await buildPrecheckReport(definition)
+  if (report.blocking.length > 0) {
+    fail('AGENT_DELETE_BLOCKED', '存在阻断项，不能发起彻底清除')
+  }
+  const versions = await db
+    .select()
+    .from(agentDefinitionVersions)
+    .where(eq(agentDefinitionVersions.definitionId, definition.id))
+    .orderBy(agentDefinitionVersions.version)
+
+  const impactHash = purgeImpactHash(report, versions)
+  const token = randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + APPROVAL_TTL_MS)
+  const inserted = await db
+    .insert(agentManagementApprovals)
+    .values({
+      definitionId: definition.id,
+      definitionName: definition.name,
+      definitionVersion: definition.version,
+      action: 'purge',
+      actorUserId: actor.userId,
+      status: 'pending',
+      precheckTokenHash: createHash('sha256').update(token).digest('hex'),
+      impactHash,
+      impactSnapshot: {
+        ...report,
+        kind: 'purge',
+        archive: {
+          definition: toDefinitionView(definition, true),
+          versions: versions.map((version) => ({
+            version: version.version,
+            changeKind: version.changeKind,
+            snapshot: version.snapshot,
+            createdAt: version.createdAt.toISOString(),
+          })),
+        },
+      } as unknown as Record<string, unknown>,
+      reason: reason ?? null,
+      requestId: actor.requestId ?? null,
+      traceId: actor.traceId ?? null,
+      ip: actor.ip ?? null,
+      userAgent: actor.userAgent ?? null,
+      expiresAt,
+    })
+    .returning()
+  const approval = inserted[0]
+  if (!approval) fail('AGENT_INTERNAL_ERROR', '创建清除审批后未返回行')
+
+  const auditId = await writeRegistryAudit(
+    actor,
+    'agent.definition.purge_requested',
+    definition,
+    'success',
+    { approvalId: approval.id, impactHash, archivedVersions: versions.length },
+  )
+  return {
+    approvalId: approval.id,
+    status: 'pending',
+    expiresAt: approval.expiresAt.toISOString(),
+    impact: approval.impactSnapshot,
+    auditId,
+  }
+}
+
 /** 当前用户的审批列表。只返回自己的审批，不返回他人影响快照。 */
 export async function listApprovals(
   actor: AgentRegistryActor,
@@ -249,6 +361,251 @@ export async function rejectApproval(
   return toApprovalView(approval)
 }
 
+async function executePurgeApproval(
+  actor: AgentRegistryActor,
+  row: typeof agentManagementApprovals.$inferSelect,
+  reason: string | undefined,
+): Promise<ApproveApprovalResult> {
+  if (!isRegistryAdmin(actor)) fail('AGENT_FORBIDDEN', '只有系统管理员可以彻底清除定义')
+  const definition = await findDefinitionOrThrow(row.definitionId ?? '')
+  if (definition.status !== 'deleted' || definition.purgeAfter === null) {
+    fail('AGENT_NOT_RESTORABLE', '定义未处于待清除状态')
+  }
+  if (definition.purgeAfter.getTime() > Date.now()) {
+    fail('AGENT_PURGE_TOO_EARLY', '30 天保留期未满，不能彻底清除')
+  }
+  if (definition.version !== row.definitionVersion) {
+    fail('APPROVAL_MISMATCH', '定义版本已变化，审批失效')
+  }
+
+  const versions = await db
+    .select()
+    .from(agentDefinitionVersions)
+    .where(eq(agentDefinitionVersions.definitionId, definition.id))
+    .orderBy(agentDefinitionVersions.version)
+  const report = await buildPrecheckReport(definition)
+  if (report.blocking.length > 0) {
+    fail('AGENT_DELETE_BLOCKED', '执行前复检出现阻断项')
+  }
+  if (purgeImpactHash(report, versions) !== row.impactHash) {
+    fail('APPROVAL_MISMATCH', '归档快照或影响面已变化，审批失效')
+  }
+
+  try {
+    const executed = await db.transaction(async (tx) => {
+      const locked = await tx
+        .select()
+        .from(agentManagementApprovals)
+        .where(eq(agentManagementApprovals.id, row.id))
+        .for('update')
+        .limit(1)
+      const lockedRow = locked[0]
+      if (!lockedRow) fail('APPROVAL_NOT_FOUND', '审批不存在')
+      if (lockedRow.status !== 'pending') fail('APPROVAL_CONSUMED', '审批已被处理')
+
+      const now = new Date()
+      const auditId = await writeRegistryAudit(
+        actor,
+        'agent.definition.purged',
+        definition,
+        'success',
+        {
+          approvalId: row.id,
+          impactHash: row.impactHash,
+          archivedVersions: versions.length,
+          reason: reason ?? row.reason,
+        },
+        tx,
+      )
+
+      const deleted = await tx
+        .delete(agentDefinitions)
+        .where(
+          and(
+            eq(agentDefinitions.id, definition.id),
+            eq(agentDefinitions.version, definition.version),
+          ),
+        )
+        .returning({ id: agentDefinitions.id })
+      if (!deleted[0]) fail('AGENT_VERSION_CONFLICT', '定义版本已变化，审批失效')
+
+      const consumed = await tx
+        .update(agentManagementApprovals)
+        .set({
+          status: 'consumed',
+          decidedAt: now,
+          consumedAt: now,
+          errorMessage: null,
+        })
+        .where(
+          and(
+            eq(agentManagementApprovals.id, row.id),
+            eq(agentManagementApprovals.status, 'pending'),
+          ),
+        )
+        .returning()
+      const consumedRow = consumed[0]
+      if (!consumedRow) fail('APPROVAL_CONSUMED', '审批已被处理')
+      return { consumedRow, auditId }
+    })
+    return {
+      approval: toApprovalView(executed.consumedRow),
+      definition: null,
+      auditId: executed.auditId,
+      purged: true,
+    }
+  } catch (error) {
+    if (error instanceof AppError) {
+      await db
+        .update(agentManagementApprovals)
+        .set({ status: 'failed', errorMessage: error.message.slice(0, 500) })
+        .where(
+          and(
+            eq(agentManagementApprovals.id, row.id),
+            eq(agentManagementApprovals.status, 'pending'),
+          ),
+        )
+        .catch(() => undefined)
+      throw error
+    }
+    logger.warn('[agent-registry] purge failed', { error: (error as Error).message })
+    fail('AGENT_INTERNAL_ERROR', '执行彻底清除失败')
+  }
+}
+
+async function executeRollbackApproval(
+  actor: AgentRegistryActor,
+  row: typeof agentManagementApprovals.$inferSelect,
+  reason: string | undefined,
+): Promise<ApproveApprovalResult> {
+  const definition = await findDefinitionOrThrow(row.definitionId ?? '')
+  if (!(await canManageDefinition(actor, definition))) {
+    fail('AGENT_FORBIDDEN', '无权执行该审批')
+  }
+  if (definition.status === 'deleted') fail('AGENT_DELETED', '已删除的定义不能回滚')
+  if (definition.version !== row.definitionVersion) {
+    fail('APPROVAL_MISMATCH', '定义版本已变化，审批失效')
+  }
+  const targetVersion = Number(row.impactSnapshot.targetVersion)
+  if (!Number.isInteger(targetVersion) || targetVersion <= 0) {
+    fail('APPROVAL_MISMATCH', '审批缺少有效目标版本')
+  }
+  const targetRows = await db
+    .select()
+    .from(agentDefinitionVersions)
+    .where(
+      and(
+        eq(agentDefinitionVersions.definitionId, definition.id),
+        eq(agentDefinitionVersions.version, targetVersion),
+      ),
+    )
+    .limit(1)
+  const target = targetRows[0]
+  if (!target) fail('AGENT_NOT_FOUND', '目标版本不存在')
+  const expectedHash = createHash('sha256')
+    .update(
+      JSON.stringify({
+        kind: 'rollback',
+        definitionId: definition.id,
+        definitionVersion: row.definitionVersion,
+        targetVersion,
+        targetSnapshot: target.snapshot,
+      }),
+    )
+    .digest('hex')
+  if (expectedHash !== row.impactHash) {
+    fail('APPROVAL_MISMATCH', '目标版本快照已变化，审批失效')
+  }
+
+  try {
+    const executed = await db.transaction(async (tx) => {
+      const locked = await tx
+        .select()
+        .from(agentManagementApprovals)
+        .where(eq(agentManagementApprovals.id, row.id))
+        .for('update')
+        .limit(1)
+      const lockedRow = locked[0]
+      if (!lockedRow) fail('APPROVAL_NOT_FOUND', '审批不存在')
+      if (lockedRow.status !== 'pending') fail('APPROVAL_CONSUMED', '审批已被处理')
+
+      const now = new Date()
+      const updated = await tx
+        .update(agentDefinitions)
+        .set(rollbackUpdateFromSnapshot(target.snapshot, definition.version + 1, actor.userId))
+        .where(
+          and(
+            eq(agentDefinitions.id, definition.id),
+            eq(agentDefinitions.version, definition.version),
+          ),
+        )
+        .returning()
+      const updatedDefinition = updated[0]
+      if (!updatedDefinition) fail('AGENT_VERSION_CONFLICT', '定义版本已变化，审批失效')
+
+      await writeDefinitionVersion(
+        tx,
+        updatedDefinition,
+        'rollback',
+        actor.userId,
+        reason ?? `审批回滚到 v${targetVersion}`,
+      )
+      const auditId = await writeRegistryAudit(
+        actor,
+        'agent.definition.rolled_back',
+        updatedDefinition,
+        'success',
+        {
+          approvalId: row.id,
+          fromVersion: definition.version,
+          toVersion: targetVersion,
+          newVersion: updatedDefinition.version,
+        },
+        tx,
+      )
+      const consumed = await tx
+        .update(agentManagementApprovals)
+        .set({
+          status: 'consumed',
+          decidedAt: now,
+          consumedAt: now,
+          errorMessage: null,
+        })
+        .where(
+          and(
+            eq(agentManagementApprovals.id, row.id),
+            eq(agentManagementApprovals.status, 'pending'),
+          ),
+        )
+        .returning()
+      const consumedRow = consumed[0]
+      if (!consumedRow) fail('APPROVAL_CONSUMED', '审批已被处理')
+      return { consumedRow, updatedDefinition, auditId }
+    })
+    return {
+      approval: toApprovalView(executed.consumedRow),
+      definition: toDefinitionView(executed.updatedDefinition, true),
+      auditId: executed.auditId,
+    }
+  } catch (error) {
+    if (error instanceof AppError) {
+      await db
+        .update(agentManagementApprovals)
+        .set({ status: 'failed', errorMessage: error.message.slice(0, 500) })
+        .where(
+          and(
+            eq(agentManagementApprovals.id, row.id),
+            eq(agentManagementApprovals.status, 'pending'),
+          ),
+        )
+        .catch(() => undefined)
+      throw error
+    }
+    logger.warn('[agent-registry] rollback approval failed', { error: (error as Error).message })
+    fail('AGENT_INTERNAL_ERROR', '执行回滚失败')
+  }
+}
+
 /** 批准并执行软删。行锁 + 状态 CAS + 重跑预检，三者缺一不可。 */
 export async function approveApproval(
   actor: AgentRegistryActor,
@@ -273,8 +630,14 @@ export async function approveApproval(
   if (typedName !== row.definitionName) {
     fail('APPROVAL_MISMATCH', '输入的定义名与审批目标不一致')
   }
+  if (row.action === 'purge') {
+    return executePurgeApproval(actor, row, reason)
+  }
+  if (row.action === 'rollback') {
+    return executeRollbackApproval(actor, row, reason)
+  }
   if (row.action !== 'delete') {
-    fail('FEATURE_DISABLED', `审批动作 ${row.action} 的执行为后续切片`)
+    fail('FEATURE_DISABLED', `审批动作 ${row.action} 暂不支持`)
   }
 
   const definition = await findDefinitionOrThrow(row.definitionId ?? '')
@@ -329,6 +692,19 @@ export async function approveApproval(
         reason ?? '审批删除',
       )
 
+      const auditId = await writeRegistryAudit(
+        actor,
+        'agent.definition.deleted',
+        updatedDefinition,
+        'success',
+        {
+          approvalId: id,
+          precheckHash: row.precheckTokenHash,
+          impactHash: row.impactHash,
+        },
+        tx,
+      )
+
       const consumed = await tx
         .update(agentManagementApprovals)
         .set({
@@ -343,24 +719,13 @@ export async function approveApproval(
         .returning()
       const consumedRow = consumed[0]
       if (!consumedRow) fail('APPROVAL_CONSUMED', '审批已被处理')
-      return { updatedDefinition, consumedRow }
+      return { updatedDefinition, consumedRow, auditId }
     })
 
-    const auditId = await writeRegistryAudit(
-      actor,
-      'agent.definition.deleted',
-      executed.updatedDefinition,
-      'success',
-      {
-        approvalId: id,
-        precheckHash: row.precheckTokenHash,
-        impactHash: row.impactHash,
-      },
-    )
     return {
       approval: toApprovalView(executed.consumedRow),
       definition: toDefinitionView(executed.updatedDefinition),
-      auditId,
+      auditId: executed.auditId,
     }
   } catch (error) {
     if (error instanceof AppError) {

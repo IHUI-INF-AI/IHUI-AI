@@ -243,12 +243,20 @@ export async function buildPrecheckReport(definition: AgentDefinition): Promise<
   if (memory.ids.length > 0)
     warnings.push(finding('memory', memory.ids, '有记忆引用；删除后记忆不会自动清'))
 
+  // 排除本次删除/清除/回滚请求自己写下的三条审计：审批创建会在预检之后写一条
+  // `*_requested`，若把它计入 impactHash，执行前复检必然判定“影响面变化”，
+  // 审批永远批不过。其余管理动作仍计为警告，保留“近 7 天有人动过”的证据。
   const auditRows = await probe('audit', () =>
     db.execute(sql`
       SELECT id::text AS id FROM audit_logs_chain
       WHERE resource_type = 'agent_definition'
         AND resource_id = ${id}
         AND timestamp >= now() - interval '7 days'
+        AND action NOT IN (
+          'agent.definition.delete_requested',
+          'agent.definition.purge_requested',
+          'agent.definition.rollback_requested'
+        )
       LIMIT 100
     `),
   )

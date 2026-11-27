@@ -15,11 +15,12 @@
  * 同一份 scope/owner/team 再裁一次，防止内部票据被拿去跨用户读定义。
  */
 
-import { createHash } from 'node:crypto'
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm'
+import { createHash, randomBytes } from 'node:crypto'
+import { and, desc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm'
 import {
   agentDefinitionVersions,
   agentDefinitions,
+  agentManagementApprovals,
   agentRuns,
   teamMembers,
   type AgentDefinition,
@@ -48,6 +49,12 @@ export interface AgentRegistryActor {
   traceId?: string
   ip?: string
   userAgent?: string
+}
+
+export interface AgentDefinitionStats {
+  runs7d: number
+  successRate: number
+  costPoints7d: string
 }
 
 /** 定义的对外视图。systemPrompt 只在详情里返回，列表不返回。 */
@@ -84,6 +91,7 @@ export interface AgentDefinitionView {
   promptHash?: string
   promptLength?: number
   auditId?: string
+  stats?: AgentDefinitionStats
 }
 
 export interface AgentDefinitionListQuery {
@@ -94,6 +102,7 @@ export interface AgentDefinitionListQuery {
   search?: string
   limit?: number
   offset?: number
+  cursor?: string
 }
 
 export interface AgentDefinitionListResult {
@@ -101,6 +110,17 @@ export interface AgentDefinitionListResult {
   total: number
   limit: number
   offset: number
+  nextCursor: string | null
+}
+
+export interface RollbackApprovalResult {
+  requiresApproval: true
+  approvalId: string
+  status: 'pending'
+  expiresAt: string
+  activeRuns: number
+  impactHash: string
+  auditId?: string
 }
 
 export interface CreateAgentDefinitionInput {
@@ -165,8 +185,12 @@ function fail(code: AgentErrorCode, message: string): never {
   throw new AppError(message, httpStatusForErrorCode(code), code)
 }
 
+export function isRegistryAdmin(actor: AgentRegistryActor): boolean {
+  return actor.roleId === 1
+}
+
 function isAdmin(actor: AgentRegistryActor): boolean {
-  return actor.roleId >= 1
+  return isRegistryAdmin(actor)
 }
 
 function assertScopedNameValid(name: string, allowReserved: boolean): string {
@@ -274,29 +298,35 @@ export async function writeDefinitionVersion(
   })
 }
 
+type RegistryTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
 export async function writeRegistryAudit(
   actor: AgentRegistryActor,
   action: string,
   definition: Pick<AgentDefinition, 'id' | 'name' | 'version'>,
   result: 'success' | 'failure',
   metadata: Record<string, unknown>,
+  tx?: RegistryTx,
 ): Promise<string> {
-  const id = await recordAuditLog({
-    userId: actor.userId,
-    action,
-    resourceType: 'agent_definition',
-    resourceId: definition.id,
-    ip: actor.ip,
-    userAgent: actor.userAgent,
-    result,
-    metadata: {
-      ...metadata,
-      name: definition.name,
-      version: definition.version,
-      requestId: actor.requestId ?? null,
-      traceId: actor.traceId ?? null,
+  const id = await recordAuditLog(
+    {
+      userId: actor.userId,
+      action,
+      resourceType: 'agent_definition',
+      resourceId: definition.id,
+      ip: actor.ip,
+      userAgent: actor.userAgent,
+      result,
+      metadata: {
+        ...metadata,
+        name: definition.name,
+        version: definition.version,
+        requestId: actor.requestId ?? null,
+        traceId: actor.traceId ?? null,
+      },
     },
-  })
+    tx,
+  )
   if (id === undefined) {
     if (result === 'success') fail('AUDIT_UNAVAILABLE', '审计链写入失败，动作已拒绝')
     return ''
@@ -372,6 +402,29 @@ export async function findDefinitionOrThrow(id: string): Promise<AgentDefinition
   return row
 }
 
+interface DefinitionCursor {
+  updatedAt: Date
+  id: string
+}
+
+function decodeDefinitionCursor(raw: string): DefinitionCursor {
+  try {
+    const decoded = Buffer.from(raw, 'base64url').toString('utf8')
+    const separator = decoded.lastIndexOf('|')
+    if (separator <= 0) throw new Error('separator missing')
+    const id = decoded.slice(separator + 1)
+    const updatedAt = new Date(decoded.slice(0, separator))
+    if (!id || Number.isNaN(updatedAt.getTime())) throw new Error('cursor malformed')
+    return { updatedAt, id }
+  } catch {
+    throw new AppError('分页游标非法', 400, 'INVALID_CURSOR')
+  }
+}
+
+function encodeDefinitionCursor(updatedAt: Date, id: string): string {
+  return Buffer.from(`${updatedAt.toISOString()}|${id}`, 'utf8').toString('base64url')
+}
+
 /** 列表。非管理员只返回可见集合；team 过滤同时校验成员关系。 */
 export async function listAgentDefinitions(
   actor: AgentRegistryActor,
@@ -407,27 +460,146 @@ export async function listAgentDefinitions(
     filters.push(or(...visible))
   }
 
-  const where = filters.length > 0 ? and(...filters) : undefined
+  const whereBase = filters.length > 0 ? and(...filters) : undefined
+  const cursor = query.cursor ? decodeDefinitionCursor(query.cursor) : null
+  if (cursor) {
+    filters.push(
+      or(
+        lt(agentDefinitions.updatedAt, cursor.updatedAt),
+        and(eq(agentDefinitions.updatedAt, cursor.updatedAt), lt(agentDefinitions.id, cursor.id)),
+      ),
+    )
+  }
+  const wherePage = filters.length > 0 ? and(...filters) : undefined
+  const effectiveOffset = cursor ? 0 : offset
+
   const [rows, countRows] = await Promise.all([
     db
       .select()
       .from(agentDefinitions)
-      .where(where)
-      .orderBy(desc(agentDefinitions.updatedAt))
-      .limit(limit)
-      .offset(offset),
+      .where(wherePage)
+      .orderBy(desc(agentDefinitions.updatedAt), desc(agentDefinitions.id))
+      .limit(limit + 1)
+      .offset(effectiveOffset),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(agentDefinitions)
-      .where(where),
+      .where(whereBase),
   ])
 
+  const pageRows = rows.slice(0, limit)
+  const hasMore = rows.length > limit
+  const nextCursor =
+    hasMore && pageRows.length > 0
+      ? encodeDefinitionCursor(
+          pageRows[pageRows.length - 1]!.updatedAt,
+          pageRows[pageRows.length - 1]!.id,
+        )
+      : null
+
+  const statsByDefinition = new Map<string, AgentDefinitionStats>()
+  if (pageRows.length > 0) {
+    const statRows = await db
+      .select({
+        definitionId: agentRuns.definitionId,
+        runs7d: sql<number>`count(*)::int`,
+        successRate: sql<string>`coalesce(avg(case when ${agentRuns.status} = 'succeeded' then 1.0 else 0.0 end), 0)::text`,
+        costPoints7d: sql<string>`coalesce(sum(${agentRuns.costPoints}), 0)::text`,
+      })
+      .from(agentRuns)
+      .where(
+        and(
+          inArray(
+            agentRuns.definitionId,
+            pageRows.map((row) => row.id),
+          ),
+          gte(agentRuns.createdAt, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)),
+        ),
+      )
+      .groupBy(agentRuns.definitionId)
+    for (const stat of statRows) {
+      if (!stat.definitionId) continue
+      statsByDefinition.set(stat.definitionId, {
+        runs7d: stat.runs7d,
+        successRate: Math.round(Number(stat.successRate) * 10_000) / 10_000,
+        costPoints7d: stat.costPoints7d,
+      })
+    }
+  }
+
   return {
-    list: rows.map((row) => toDefinitionView(row)),
+    list: pageRows.map((row) => ({
+      ...toDefinitionView(row),
+      ...(statsByDefinition.has(row.id) ? { stats: statsByDefinition.get(row.id) } : {}),
+    })),
     total: countRows[0]?.count ?? 0,
     limit,
-    offset,
+    offset: effectiveOffset,
+    nextCursor,
   }
+}
+
+/** 内部快照：绕过可见性，返回全部定义（含墓碑）与完整提示词，仅供内部票据调用。 */
+export async function snapshotAgentDefinitionsForInternal(input: {
+  updatedAfter?: Date
+  includeDeleted?: boolean
+  limit?: number
+}): Promise<AgentDefinitionView[]> {
+  const filters = []
+  if (input.updatedAfter) filters.push(gte(agentDefinitions.updatedAt, input.updatedAfter))
+  if (!input.includeDeleted) filters.push(sql`${agentDefinitions.status} <> 'deleted'`)
+  const rows = await db
+    .select()
+    .from(agentDefinitions)
+    .where(filters.length > 0 ? and(...filters) : undefined)
+    .orderBy(desc(agentDefinitions.updatedAt), desc(agentDefinitions.id))
+    .limit(Math.min(Math.max(input.limit ?? 500, 1), 1000))
+  return rows.map((row) => toDefinitionView(row, true))
+}
+
+/**
+ * 内部解析：按 id 或 name 找定义，再做一次与 API 相同的可见性裁切。
+ * systemPrompt 对内部票据完整返回，因为运行时必须拿到提示词才能执行。
+ */
+export async function resolveAgentDefinitionForInternal(
+  actor: AgentRegistryActor,
+  input: {
+    id?: string
+    name?: string
+    scope?: Scope
+    teamId?: string
+    ownerUserId?: string
+  },
+): Promise<AgentDefinitionView> {
+  if (input.id) {
+    const row = await findDefinitionOrThrow(input.id)
+    if (row.status === 'deleted') fail('AGENT_DELETED', '定义已删除')
+    if (!(await canReadDefinition(actor, row))) fail('AGENT_FORBIDDEN', '无权解析该定义')
+    return toDefinitionView(row, true)
+  }
+  if (!input.name) fail('AGENT_NOT_FOUND', '缺少 id 或 name')
+  const filters = [
+    eq(agentDefinitions.name, input.name),
+    sql`${agentDefinitions.status} <> 'deleted'`,
+  ]
+  if (input.scope !== undefined) filters.push(eq(agentDefinitions.scope, input.scope))
+  if (input.teamId !== undefined) filters.push(eq(agentDefinitions.teamId, input.teamId))
+  if (input.ownerUserId !== undefined) {
+    filters.push(eq(agentDefinitions.ownerUserId, input.ownerUserId))
+  }
+  const rows = await db
+    .select()
+    .from(agentDefinitions)
+    .where(and(...filters))
+    .limit(20)
+  const candidates: AgentDefinition[] = []
+  for (const row of rows) {
+    if (await canReadDefinition(actor, row)) candidates.push(row)
+  }
+  if (candidates.length === 0) fail('AGENT_NOT_FOUND', `没有可见的定义 ${input.name}`)
+  const priority: Record<Scope, number> = { personal: 0, team: 1, system: 2 }
+  candidates.sort((left, right) => priority[left.scope] - priority[right.scope])
+  return toDefinitionView(candidates[0]!, true)
 }
 
 /** 详情。systemPrompt 只对 owner/team_admin/admin 返回；其余可见者拿到 hash 与长度。 */
@@ -797,13 +969,138 @@ export async function getAgentDefinitionVersion(
   }
 }
 
-/** 回滚。无活跃运行时直接生成 version+1；有活跃运行时本阶段返回 APPROVAL_REQUIRED。 */
+export interface RollbackUpdateFields {
+  name: string
+  displayName: string
+  description: string
+  role: string
+  systemPrompt: string
+  promptVersion: number
+  model: string | null
+  temperature: string
+  maxTokens: number | null
+  tools: string[]
+  skills: string[]
+  permissions: Record<string, unknown>
+  memoryPolicy: Record<string, unknown>
+  budget: Record<string, unknown>
+  concurrencyLimit: number
+  status: DefinitionStatus
+  isDispatchable: boolean
+  marketAgentId: string | null
+  metadata: Record<string, unknown>
+}
+
+/** 从已校验的版本快照生成可写字段；回滚审批执行与直滚共用同一套键。 */
+export function rollbackUpdateFromSnapshot(
+  snapshot: Record<string, unknown>,
+  version: number,
+  updatedBy: string,
+): RollbackUpdateFields & { version: number; updatedBy: string; updatedAt: Date } {
+  const required = [
+    'name',
+    'displayName',
+    'description',
+    'role',
+    'systemPrompt',
+    'promptVersion',
+    'model',
+    'temperature',
+    'maxTokens',
+    'tools',
+    'skills',
+    'permissions',
+    'memoryPolicy',
+    'budget',
+    'concurrencyLimit',
+    'status',
+    'isDispatchable',
+    'marketAgentId',
+    'metadata',
+  ]
+  const missing = required.filter((key) => !(key in snapshot))
+  if (missing.length > 0) {
+    fail('AGENT_INTERNAL_ERROR', `版本快照缺字段: ${missing.join(',')}`)
+  }
+  return {
+    name: String(snapshot.name),
+    displayName: String(snapshot.displayName),
+    description: String(snapshot.description),
+    role: String(snapshot.role),
+    systemPrompt: String(snapshot.systemPrompt),
+    promptVersion: Number(snapshot.promptVersion),
+    model: snapshot.model === null ? null : String(snapshot.model),
+    temperature: String(snapshot.temperature),
+    maxTokens: snapshot.maxTokens === null ? null : Number(snapshot.maxTokens),
+    tools: snapshot.tools as string[],
+    skills: snapshot.skills as string[],
+    permissions: snapshot.permissions as Record<string, unknown>,
+    memoryPolicy: snapshot.memoryPolicy as Record<string, unknown>,
+    budget: snapshot.budget as Record<string, unknown>,
+    concurrencyLimit: Number(snapshot.concurrencyLimit),
+    status: snapshot.status as DefinitionStatus,
+    isDispatchable: Boolean(snapshot.isDispatchable),
+    marketAgentId: snapshot.marketAgentId === null ? null : String(snapshot.marketAgentId),
+    metadata: snapshot.metadata as Record<string, unknown>,
+    version,
+    updatedBy,
+    updatedAt: new Date(),
+  }
+}
+
+async function createRollbackApproval(
+  actor: AgentRegistryActor,
+  current: AgentDefinition,
+  targetVersion: number,
+  targetSnapshot: Record<string, unknown>,
+  impactHash: string,
+  activeRuns: number,
+): Promise<string> {
+  const placeholderToken = randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+  const inserted = await db
+    .insert(agentManagementApprovals)
+    .values({
+      definitionId: current.id,
+      definitionName: current.name,
+      definitionVersion: current.version,
+      action: 'rollback',
+      actorUserId: actor.userId,
+      status: 'pending',
+      precheckTokenHash: createHash('sha256').update(placeholderToken).digest('hex'),
+      impactHash: impactHash.replace(/^sha256:/, ''),
+      impactSnapshot: {
+        kind: 'rollback',
+        targetVersion,
+        targetSnapshot,
+        activeRuns,
+      },
+      reason: `回滚到 v${targetVersion}`,
+      requestId: actor.requestId ?? null,
+      traceId: actor.traceId ?? null,
+      ip: actor.ip ?? null,
+      userAgent: actor.userAgent ?? null,
+      expiresAt,
+    })
+    .returning({ id: agentManagementApprovals.id })
+  const approval = inserted[0]
+  if (!approval) fail('AGENT_INTERNAL_ERROR', '创建回滚审批后未返回行')
+  await writeRegistryAudit(actor, 'agent.definition.rollback_requested', current, 'success', {
+    approvalId: approval.id,
+    targetVersion,
+    activeRuns,
+    impactHash,
+  })
+  return approval.id
+}
+
+/** 回滚。无活跃运行时直接生成 version+1；有活跃运行时创建一次性审批。 */
 export async function rollbackAgentDefinition(
   actor: AgentRegistryActor,
   id: string,
   targetVersion: number,
   ifVersion: number,
-): Promise<AgentDefinitionView> {
+): Promise<AgentDefinitionView | RollbackApprovalResult> {
   const current = await findDefinitionOrThrow(id)
   await assertCanManage(actor, current)
   if (current.version !== ifVersion) {
@@ -814,18 +1111,6 @@ export async function rollbackAgentDefinition(
     )
   }
   if (current.status === 'deleted') fail('AGENT_DELETED', '已删除的定义不能回滚')
-  const activeRows = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(agentRuns)
-    .where(
-      and(
-        eq(agentRuns.definitionId, id),
-        inArray(agentRuns.status, ['queued', 'running', 'paused', 'blocked']),
-      ),
-    )
-  if ((activeRows[0]?.count ?? 0) > 0) {
-    fail('APPROVAL_REQUIRED', '有活跃运行，回滚需要审批')
-  }
 
   const versionRows = await db
     .select()
@@ -839,6 +1124,49 @@ export async function rollbackAgentDefinition(
     .limit(1)
   const target = versionRows[0]
   if (!target) fail('AGENT_NOT_FOUND', '目标版本不存在')
+
+  const activeRows = await db
+    .select({ id: agentRuns.id, status: agentRuns.status })
+    .from(agentRuns)
+    .where(
+      and(
+        eq(agentRuns.definitionId, id),
+        inArray(agentRuns.status, ['queued', 'running', 'paused', 'blocked']),
+      ),
+    )
+    .orderBy(desc(agentRuns.startedAt))
+    .limit(50)
+  const activeRuns = activeRows.length
+
+  if (activeRuns > 0) {
+    const impactHash = `sha256:${createHash('sha256')
+      .update(
+        JSON.stringify({
+          kind: 'rollback',
+          definitionId: id,
+          definitionVersion: current.version,
+          targetVersion,
+          targetSnapshot: target.snapshot,
+        }),
+      )
+      .digest('hex')}`
+    const approvalId = await createRollbackApproval(
+      actor,
+      current,
+      targetVersion,
+      target.snapshot,
+      impactHash,
+      activeRuns,
+    )
+    return {
+      requiresApproval: true,
+      approvalId,
+      status: 'pending',
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      activeRuns,
+      impactHash,
+    }
+  }
 
   const snap = target.snapshot as Record<string, unknown>
   const required = [

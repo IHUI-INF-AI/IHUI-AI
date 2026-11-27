@@ -25,10 +25,12 @@ import {
   type Scope,
 } from '@ihui/shared'
 import { requireAuth } from '../plugins/require-permission.js'
+import { AppError } from '../errors/AppError.js'
 import { parseOrThrow, success } from '../utils/response.js'
 import {
   approveApproval,
   createDeleteApproval,
+  createPurgeApproval,
   getApproval,
   listApprovals,
   precheckDelete,
@@ -57,6 +59,7 @@ import {
   listDefinitionRuns,
   listRunArtifacts,
 } from '../services/agent-registry-runs-service.js'
+import { runIdempotent } from '../services/agent-registry-idempotency.js'
 
 const uuidSchema = z.string().uuid('必须是 UUID')
 const nameSchema = z.string().min(1).max(64)
@@ -133,6 +136,7 @@ const listQuerySchema = z.object({
   teamId: uuidSchema.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
+  cursor: z.string().max(200).optional(),
 })
 
 const enableSchema = z
@@ -153,6 +157,13 @@ const deleteApprovalSchema = z
   })
   .strict()
 
+const purgeApprovalSchema = z
+  .object({
+    confirmName: z.string().min(1).max(32),
+    reason: z.string().max(300).optional(),
+  })
+  .strict()
+
 const approveSchema = z
   .object({
     typedName: z.string().min(1).max(100),
@@ -166,12 +177,14 @@ const approvalListQuerySchema = z.object({
   status: z.enum(APPROVAL_STATUSES).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
+  cursor: z.string().max(200).optional(),
 })
 
 const definitionRunsQuerySchema = z.object({
   status: z.enum(RUN_STATUSES).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
+  cursor: z.string().max(200).optional(),
 })
 
 const runLogsQuerySchema = z.object({
@@ -198,8 +211,34 @@ function withRequestId<T>(request: FastifyRequest, data: T): T & { requestId: st
   return { ...data, requestId: request.id }
 }
 
+/**
+ * 灰度开关（01 §11.1）。默认开启，只有显式 `false` 才关闭：
+ * 这不是 rollout 默认，而是本仓已经上线服务的 kill switch 口径 ——
+ * 开关名必须能在一分钟内把写面打回只读，同时不改变开发/测试的默认可用性。
+ */
+function assertRegistryWriteEnabled(request: FastifyRequest): void {
+  const path = request.url.split('?')[0] ?? request.url
+  const method = request.method
+  if (method === 'GET' || method === 'HEAD') return
+  if (method === 'POST' && path.endsWith('/precheck-delete')) return
+
+  if (process.env.AGENT_REGISTRY_WRITE === 'false') {
+    throw new AppError('注册表写面已关闭（AGENT_REGISTRY_WRITE=false）', 503, 'FEATURE_DISABLED')
+  }
+
+  const destructive =
+    method === 'DELETE' ||
+    path.endsWith('/purge') ||
+    path.endsWith('/restore') ||
+    path.includes('/approvals/')
+  if (destructive && process.env.AGENT_REGISTRY_DELETE === 'false') {
+    throw new AppError('注册表删除面已关闭（AGENT_REGISTRY_DELETE=false）', 503, 'FEATURE_DISABLED')
+  }
+}
+
 export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAuth)
+  server.addHook('preHandler', async (request) => assertRegistryWriteEnabled(request))
 
   server.get('/definitions', async (request, reply) => {
     const actor = actorOf(request)
@@ -212,6 +251,7 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
       search: query.q,
       limit: query.limit,
       offset: query.offset,
+      cursor: query.cursor,
     })
     return reply.send(
       withRequestId(
@@ -219,7 +259,7 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
         success({
           items: result.list,
           total: result.total,
-          nextCursor: null,
+          nextCursor: result.nextCursor,
           limit: result.limit,
           offset: result.offset,
         }),
@@ -230,8 +270,13 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
   server.post('/definitions', async (request, reply) => {
     const actor = actorOf(request)
     const body = parseOrThrow(createDefinitionSchema, request.body)
-    const created = await createAgentDefinition(actor, body as CreateAgentDefinitionInput)
-    return reply.status(201).send(withRequestId(request, success(created)))
+    return runIdempotent(request.server, request, reply, 'definitions.create', async () => {
+      const created = await createAgentDefinition(actor, body as CreateAgentDefinitionInput)
+      return {
+        statusCode: 201,
+        body: withRequestId(request, success(created)),
+      }
+    })
   })
 
   server.get('/definitions/:id', async (request, reply) => {
@@ -257,24 +302,33 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
     const actor = actorOf(request)
     const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
     const body = parseOrThrow(cloneDefinitionSchema, request.body ?? {})
-    const cloned = await cloneAgentDefinition(actor, params.id, body as CloneAgentDefinitionInput)
-    return reply.status(201).send(withRequestId(request, success(cloned)))
+    return runIdempotent(request.server, request, reply, 'definitions.clone', async () => {
+      const cloned = await cloneAgentDefinition(actor, params.id, body as CloneAgentDefinitionInput)
+      return {
+        statusCode: 201,
+        body: withRequestId(request, success(cloned)),
+      }
+    })
   })
 
   server.post('/definitions/:id/enable', async (request, reply) => {
     const actor = actorOf(request)
     const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
     const body = parseOrThrow(enableSchema, request.body)
-    const updated = await setAgentDefinitionEnabled(actor, params.id, true, body.ifVersion)
-    return reply.send(withRequestId(request, success(updated)))
+    return runIdempotent(request.server, request, reply, 'definitions.enable', async () => {
+      const updated = await setAgentDefinitionEnabled(actor, params.id, true, body.ifVersion)
+      return { statusCode: 200, body: withRequestId(request, success(updated)) }
+    })
   })
 
   server.post('/definitions/:id/disable', async (request, reply) => {
     const actor = actorOf(request)
     const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
     const body = parseOrThrow(enableSchema, request.body)
-    const updated = await setAgentDefinitionEnabled(actor, params.id, false, body.ifVersion)
-    return reply.send(withRequestId(request, success(updated)))
+    return runIdempotent(request.server, request, reply, 'definitions.disable', async () => {
+      const updated = await setAgentDefinitionEnabled(actor, params.id, false, body.ifVersion)
+      return { statusCode: 200, body: withRequestId(request, success(updated)) }
+    })
   })
 
   server.get('/definitions/:id/versions', async (request, reply) => {
@@ -302,13 +356,18 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
     const actor = actorOf(request)
     const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
     const body = parseOrThrow(rollbackSchema, request.body)
-    const updated = await rollbackAgentDefinition(
-      actor,
-      params.id,
-      body.targetVersion,
-      body.ifVersion,
-    )
-    return reply.send(withRequestId(request, success(updated)))
+    return runIdempotent(request.server, request, reply, 'definitions.rollback', async () => {
+      const result = await rollbackAgentDefinition(
+        actor,
+        params.id,
+        body.targetVersion,
+        body.ifVersion,
+      )
+      if ('requiresApproval' in result) {
+        return { statusCode: 428, body: withRequestId(request, success(result)) }
+      }
+      return { statusCode: 200, body: withRequestId(request, success(result)) }
+    })
   })
 
   server.post('/definitions/:id/precheck-delete', async (request, reply) => {
@@ -322,15 +381,29 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
     const actor = actorOf(request)
     const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
     const body = parseOrThrow(deleteApprovalSchema, request.body)
-    const approval = await createDeleteApproval(actor, params.id, body.precheckToken, body.reason)
-    return reply.status(202).send(withRequestId(request, success(approval)))
+    return runIdempotent(request.server, request, reply, 'definitions.delete', async () => {
+      const approval = await createDeleteApproval(actor, params.id, body.precheckToken, body.reason)
+      return { statusCode: 202, body: withRequestId(request, success(approval)) }
+    })
+  })
+
+  server.post('/definitions/:id/purge', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const body = parseOrThrow(purgeApprovalSchema, request.body)
+    return runIdempotent(request.server, request, reply, 'definitions.purge', async () => {
+      const approval = await createPurgeApproval(actor, params.id, body.confirmName, body.reason)
+      return { statusCode: 202, body: withRequestId(request, success(approval)) }
+    })
   })
 
   server.post('/definitions/:id/restore', async (request, reply) => {
     const actor = actorOf(request)
     const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
-    const restored = await restoreAgentDefinition(actor, params.id)
-    return reply.send(withRequestId(request, success(restored)))
+    return runIdempotent(request.server, request, reply, 'definitions.restore', async () => {
+      const restored = await restoreAgentDefinition(actor, params.id)
+      return { statusCode: 200, body: withRequestId(request, success(restored)) }
+    })
   })
 
   server.get('/approvals', async (request, reply) => {
@@ -356,16 +429,20 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
     const actor = actorOf(request)
     const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
     const body = parseOrThrow(approveSchema, request.body)
-    const result = await approveApproval(actor, params.id, body.typedName, body.reason)
-    return reply.send(withRequestId(request, success(result)))
+    return runIdempotent(request.server, request, reply, 'approvals.approve', async () => {
+      const result = await approveApproval(actor, params.id, body.typedName, body.reason)
+      return { statusCode: 200, body: withRequestId(request, success(result)) }
+    })
   })
 
   server.post('/approvals/:id/reject', async (request, reply) => {
     const actor = actorOf(request)
     const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
     const body = parseOrThrow(rejectSchema, request.body)
-    const approval = await rejectApproval(actor, params.id, body.reason)
-    return reply.send(withRequestId(request, success(approval)))
+    return runIdempotent(request.server, request, reply, 'approvals.reject', async () => {
+      const approval = await rejectApproval(actor, params.id, body.reason)
+      return { statusCode: 200, body: withRequestId(request, success(approval)) }
+    })
   })
 
   server.get('/definitions/:id/runs', async (request, reply) => {
