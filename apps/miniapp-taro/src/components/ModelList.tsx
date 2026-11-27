@@ -2,7 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useState, useMemo, type CSSProperties } from 'react'
+import { useState, useMemo, useEffect, useRef, type CSSProperties } from 'react'
+import Taro from '@tarojs/taro'
 import { useI18n, useTt, type TtFn } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { cn, rnRadius, TARO_RPX_PER_PX, taroSpacing, taroType } from '@ihui/design-tokens'
@@ -115,7 +116,11 @@ export interface ModelListProps {
   animateEntrance?: boolean
   /** 外层容器样式(与 RN 端同名同义) */
   style?: CSSProperties
+  /** 列表内容尺寸变化(与 RN 端同名同义):父容器按内容自适应高度时消费 */
+  onContentSizeChange?: (width: number, height: number) => void
 }
+
+let MODEL_LIST_MEASURE_SEQ = 0
 
 const TYPE_LABELS = (tt: TtFn): Record<string, string> => ({
   talk: tt('ModelList.d1', '对话'),
@@ -128,6 +133,7 @@ const TYPE_LABELS = (tt: TtFn): Record<string, string> => ({
 
 export default function ModelList({
   models = [],
+  groups,
   selectedId,
   onSelect,
   loading = false,
@@ -141,10 +147,41 @@ export default function ModelList({
   onSelectChange,
   animateEntrance = true,
   style,
+  onContentSizeChange,
 }: ModelListProps) {
   const tt = useTt()
   const { locale } = useI18n()
   const [historyExpanded, setHistoryExpanded] = useState(false)
+  const measureIdRef = useRef('')
+  if (!measureIdRef.current) measureIdRef.current = `model-list-measure-${++MODEL_LIST_MEASURE_SEQ}`
+  const measureId = measureIdRef.current
+
+  // 小程序没有 ScrollView.onContentSizeChange:在渲染后用节点查询量内容尺寸。
+  // 只在调用方真要消费时测量;取不到 rect 不回调,不派发 0 尺寸假数据。
+  useEffect(() => {
+    if (!onContentSizeChange) return
+    const timer = setTimeout(() => {
+      const query = Taro.createSelectorQuery()
+      query.select(`#${measureId}`).boundingClientRect()
+      query.exec((res) => {
+        const rect = res?.[0] as { width?: number; height?: number } | undefined
+        if (!rect || typeof rect.width !== 'number' || typeof rect.height !== 'number') return
+        onContentSizeChange(rect.width, rect.height)
+      })
+    }, 50)
+    return () => clearTimeout(timer)
+  }, [
+    measureId,
+    onContentSizeChange,
+    loading,
+    models,
+    groups,
+    currentType,
+    historyExpanded,
+    selectedIds,
+    showAgentMode,
+    variant,
+  ])
 
   /** 选择态:selectedIds(与 RN 同名)优先;退化到本端历史的单值 selectedId */
   const selectedSet = useMemo(() => {
@@ -186,7 +223,7 @@ export default function ModelList({
     // ===== popup 模式:对齐原项目 ModelList.vue(分类弹出列表 + slideUp 动画)=====
     if (loading) {
       return (
-        <View style={{ padding: '10rpx 0 0', ...(style ?? {}) }}>
+        <View id={measureId} style={{ padding: '10rpx 0 0', ...(style ?? {}) }}>
           {Array.from({ length: 3 }).map((_, i) => (
             <View
               key={i}
@@ -225,6 +262,7 @@ export default function ModelList({
     if (!models.length) {
       return (
         <View
+          id={measureId}
           className="flex items-center justify-center"
           style={{
             paddingTop: toUnit(MODEL_LIST_EMPTY_PADDING_Y_PX),
@@ -245,6 +283,7 @@ export default function ModelList({
 
     return (
       <View
+        id={measureId}
         className="flex flex-col"
         style={{
           background: 'transparent',
@@ -650,7 +689,7 @@ export default function ModelList({
   // ===== 默认 'list' 模式:兼容 ChatDrawers 等旧调用 =====
   if (loading) {
     return (
-      <View className="px-md py-sm" style={style}>
+      <View id={measureId} className="px-md py-sm" style={style}>
         {Array.from({ length: 3 }).map((_, i) => (
           <View key={i} className="flex items-center py-md animate-pulse">
             <View className="w-10 h-10 mr-md rounded-lg bg-muted" />
@@ -672,6 +711,7 @@ export default function ModelList({
       // 该档取值依据 = 规则 2 取紧凑档,空态盒上下无贴边/裁切风险)。
       // 形态沿用 popup 变体:className 只留布局,留白走 inline 函数形态(不用 '40rpx' 字符串字面量)。
       <View
+        id={measureId}
         className="flex items-center justify-center"
         style={{
           paddingTop: toUnit(MODEL_LIST_EMPTY_PADDING_Y_PX),
@@ -691,7 +731,7 @@ export default function ModelList({
   }
 
   return (
-    <View className="px-md py-xs" style={style}>
+    <View id={measureId} className="px-md py-xs" style={style}>
       {/* 默认列表:只展示"最新 + 对话类" */}
       {split.primary.map((model) => {
         const selected = selectedSet.has(String(model.id))

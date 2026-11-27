@@ -79,6 +79,7 @@ import {
 } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BrandIcon } from './brand-icon'
+import { inferVendor } from '../lib/vendor-infer'
 
 import { rnRadiusFor, rnSpacing, rnType, rnCssLight, rnGeometry } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
@@ -231,8 +232,6 @@ export interface InputAreaProps {
   onOpenModelSelect?: () => void
   /** 已选模型名(按钮上显示;未选时按钮显示「自动」兜底,对齐 web AUTO_OPTION) */
   selectedModelName?: string | null
-  /** 已选模型厂商(与 web BrandIcon 同图标;未选/未知时渲染 Sparkles 兜底) */
-  selectedModelVendor?: string | null
   /** 清除已选模型(按钮内「×」,selectedModelName 存在时显示) */
   onClearModel?: () => void
   /** 打开模型参数配置(按钮旁滑杆钮) */
@@ -364,7 +363,6 @@ export function InputArea({
   voiceNoteNode,
   onOpenModelSelect,
   selectedModelName = null,
-  selectedModelVendor = null,
   onClearModel,
   onOpenModelConfig,
   transparentBackground = false,
@@ -512,6 +510,7 @@ export function InputArea({
   // 模型触发钮:与 web ModelSelector 触发钮同形(ghost:无边框无底色,hover 才换 accent)。
   // 品牌图标 16 + 模型名(截断 160) + ChevronDown 14;未选时 Sparkles + 「自动」。
   // 「× 清除」与触发钮同级并列,不嵌进钮内(防触摸冒泡,2026-10-18 事故)。
+  const modelVendor = inferVendor(selectedModelName)
   const modelButtonNode = hasModelSelect ? (
     <View style={styles.modelRow}>
       <TouchableOpacity
@@ -522,12 +521,8 @@ export function InputArea({
         accessibilityLabel={t('chat.selectModel')}
         accessibilityState={{ selected: !!selectedModelName }}
       >
-        {selectedModelVendor ? (
-          <BrandIcon
-            vendor={selectedModelVendor}
-            size={rnGeometry.glyphSm}
-            color={tokens.text.primary}
-          />
+        {modelVendor ? (
+          <BrandIcon vendor={modelVendor} size={rnGeometry.glyphSm} color={tokens.text.primary} />
         ) : (
           <Sparkles size={rnGeometry.glyphSm} color={tokens.text.secondary} />
         )}
