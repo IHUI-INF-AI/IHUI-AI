@@ -3,16 +3,24 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import { MessageSquare } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { CircleDetailItem, CircleDetailScreenProps } from '../../types'
+import type { CircleDetailItem, CircleDetailScreenProps, CirclePostItem } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 圈子详情/Props 类型 re-export(单一来源 @ihui/types) */
-export type { CircleDetailItem, CircleDetailScreenProps }
+export type { CircleDetailItem, CircleDetailScreenProps, CirclePostItem }
 
 /**
  * 圈子详情共享屏 — props 注入式跨端组件
@@ -32,22 +40,33 @@ export function CircleDetailScreen({
   onPressMembers,
   onBack,
   onRetry,
+  posts = [],
+  postsLoading = false,
+  postsError = '',
   colorScheme = 'light',
 }: CircleDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
   if (loading) {
-    return <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
+    return (
+      <View style={styles.container}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
+      </View>
+    )
   }
   if (error || !item) {
     return (
-      <ErrorState
-        message={error || t('circleDetail.loadFailed')}
-        onRetry={onRetry}
-        retryLabel={t('common.back')}
-        colorScheme={colorScheme}
-      />
+      <View style={styles.container}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <ErrorState
+          message={error || t('circleDetail.loadFailed')}
+          onRetry={onRetry}
+          retryLabel={onRetry ? t('common.retry') : undefined}
+          colorScheme={colorScheme}
+        />
+      </View>
     )
   }
 
@@ -58,11 +77,13 @@ export function CircleDetailScreen({
       <View style={styles.statsRow}>
         <View style={styles.statBadge}>
           <Text style={styles.statText}>
-            {t('circleDetail.members', { count: item.memberCount })}
+            {item.memberCount} {t('circleDetail.members')}
           </Text>
         </View>
         <View style={styles.statBadge}>
-          <Text style={styles.statText}>{t('circleDetail.posts', { count: item.postCount })}</Text>
+          <Text style={styles.statText}>
+            {item.postCount} {t('circleDetail.posts')}
+          </Text>
         </View>
       </View>
       <Text style={styles.description}>{item.description || '—'}</Text>
@@ -89,6 +110,45 @@ export function CircleDetailScreen({
           <TouchableOpacity style={[styles.actionBtn, styles.actionBtnPrimary]} onPress={onJoin}>
             <Text style={styles.actionBtnPrimaryText}>{t('circleDetail.join')}</Text>
           </TouchableOpacity>
+        )}
+      </View>
+
+      <View style={styles.postsSection}>
+        <Text style={styles.postsTitle}>{t('circleDetail.posts')}</Text>
+        {postsLoading ? (
+          <View style={styles.postsState}>
+            <ActivityIndicator color={tk.text.secondary} />
+            <Text style={styles.postsStateText}>{t('circle.index.loading')}</Text>
+          </View>
+        ) : postsError ? (
+          <Text style={styles.postsError}>{postsError}</Text>
+        ) : posts.length === 0 ? (
+          <Text style={styles.postsEmpty}>{t('circle.empty')}</Text>
+        ) : (
+          posts.map((post) => (
+            <View key={post.id} style={styles.postCard}>
+              <Text style={styles.postTitle} numberOfLines={2}>
+                {post.title}
+              </Text>
+              {post.content ? (
+                <Text style={styles.postContent} numberOfLines={3}>
+                  {post.content}
+                </Text>
+              ) : null}
+              <View style={styles.postMeta}>
+                {post.authorName ? (
+                  <Text style={styles.postMetaText} numberOfLines={1}>
+                    {post.authorName}
+                  </Text>
+                ) : null}
+                <Text style={styles.postMetaText}>{post.createdAt.slice(0, 10)}</Text>
+                <View style={styles.postMetaStat}>
+                  <MessageSquare size={12} color={tk.text.secondary} />
+                  <Text style={styles.postMetaText}>{post.replyCount}</Text>
+                </View>
+              </View>
+            </View>
+          ))
         )}
       </View>
     </ScrollView>
@@ -165,6 +225,69 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
       fontSize: rnType.title.size,
       fontWeight: '600',
+    },
+    postsSection: {
+      marginTop: rnSpacing['2xl'],
+      gap: rnSpacing.sm,
+    },
+    postsTitle: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    postsState: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: rnSpacing.xs,
+      paddingVertical: rnSpacing.xl,
+    },
+    postsStateText: {
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+    },
+    postsError: {
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+      paddingVertical: rnSpacing.md,
+    },
+    postsEmpty: {
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      paddingVertical: rnSpacing.xl,
+    },
+    postCard: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: tk.border.light,
+      borderRadius: rnRadius.md,
+      backgroundColor: tk.surface.card,
+      padding: rnSpacing.md,
+      gap: rnSpacing.xs,
+    },
+    postTitle: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    postContent: {
+      fontSize: rnType.label.size,
+      lineHeight: rnType.label.lineHeight,
+      color: tk.text.secondary,
+    },
+    postMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+      marginTop: rnSpacing.xs,
+    },
+    postMetaText: {
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+    },
+    postMetaStat: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
     },
   })
 }

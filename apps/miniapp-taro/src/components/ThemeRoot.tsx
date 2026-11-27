@@ -3,11 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { View } from '@tarojs/components'
-import type { PropsWithChildren } from 'react'
+import type { CSSProperties, PropsWithChildren } from 'react'
 import { useThemeRoot } from '@/lib/theme'
 
 interface ThemeRootProps extends PropsWithChildren<unknown> {
   className?: string
+  style?: CSSProperties
 }
 
 /**
@@ -22,8 +23,12 @@ interface ThemeRootProps extends PropsWithChildren<unknown> {
  * 用法:<ThemeRoot> 替换页面原根 <View className="page-xxx"> →
  *       <ThemeRoot className="page-xxx">(原 className 传入,不丢样式)。
  */
-export default function ThemeRoot({ children, className = '' }: ThemeRootProps) {
+export default function ThemeRoot({ children, className = '', style }: ThemeRootProps) {
   const { themeClass } = useThemeRoot()
   const cls = ['theme-root', themeClass, className].filter(Boolean).join(' ')
-  return <View className={cls}>{children}</View>
+  return (
+    <View className={cls} style={style}>
+      {children}
+    </View>
+  )
 }
