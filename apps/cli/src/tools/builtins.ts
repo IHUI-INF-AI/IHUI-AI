@@ -664,6 +664,22 @@ export const read_file: Tool = {
   description:
     '读取文件内容(带行号,代码语法高亮)。参数:path(文件路径,相对工作区根目录),offset(可选,起始行号 1-based),limit(可选,最多读取行数)。支持文本文件;PDF/PPTX/image 等二进制文件返回类型提示。文件超 token 预算时返回带续读 offset 的部分视图;同一会话内文件未变时重复读返回 Wasted call 短路。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'fs.read',
+      reason: '只读读取工作区文件内容,不修改文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 32 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 80, from: 'head' },
+    },
+  },
   parameters: {
     path: { type: 'string', description: '要读取的文件路径' },
     offset: { type: 'number', description: '起始行号(1-based)。缺省从第 1 行读。' },
@@ -966,6 +982,22 @@ export const list_dir: Tool = {
   },
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'fs.listDir',
+      reason: '只读列出工作区目录条目,不修改文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 32 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 80, from: 'head' },
+    },
+  },
   async execute(args, ctx): Promise<ToolResult> {
     const dirPath = (args.path as string) || '.';
     const abs = resolvePath(ctx, dirPath);
@@ -1093,6 +1125,22 @@ export const grep: Tool = {
   },
   required: ['pattern'],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'search.grep',
+      reason: '只读在工作区搜索文本(ripgrep),不修改文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 32 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 80, from: 'head' },
+    },
+  },
   async execute(args, ctx): Promise<ToolResult> {
     const pattern = args.pattern as string;
     if (!pattern) return { success: false, output: '', error: '缺少 pattern 参数' };
@@ -1185,6 +1233,22 @@ export const glob: Tool = {
   },
   required: ['pattern'],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'search.glob',
+      reason: '只读按 glob 模式匹配工作区文件,不修改文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 32 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 80, from: 'head' },
+    },
+  },
   async execute(args, ctx): Promise<ToolResult> {
     const pattern = args.pattern as string;
     if (!pattern) return { success: false, output: '', error: '缺少 pattern 参数' };
@@ -1417,6 +1481,25 @@ export const run_command: Tool = {
   description:
     '在沙盒中执行 shell 命令(带超时和路径限制)。参数:command(shell 命令),background(可选 true=后台执行立即返回 task_id),timeout_ms(可选前台超时,默认 30000)。前台命令超时且可收编时自动转入后台继续执行并返回 task_id(sleep 等纯等待命令除外)。',
   dangerLevel: 'dangerous',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'cmd.run',
+      // 内容匹配来源:规则可写 `command:git commit*` 只放行具体命令(见 permissions.ts 的 RuleMatchContext)。
+      matchSources: ['command'],
+      reason: '在沙盒执行 shell 命令,可能产生任意副作用(写文件/出网/启进程),危险动作须人确认',
+      riskLevel: 'dangerous',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     command: { type: 'string', description: '要执行的 shell 命令' },
     background: { type: 'boolean', description: '后台执行,立即返回 task_id(用 list_background_tasks/get_command_output/wait_command 查询)' },
@@ -1542,6 +1625,22 @@ export const list_background_tasks: Tool = {
   name: 'list_background_tasks',
   description: '列出后台任务(running/exited/killed/error 状态)。无参数。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'task.list',
+      reason: '只读列出后台任务清单,不修改文件与进程,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 32 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 80, from: 'head' },
+    },
+  },
   parameters: {},
   required: [],
   async execute(_args, _ctx): Promise<ToolResult> {
@@ -1563,6 +1662,22 @@ export const get_command_output: Tool = {
   name: 'get_command_output',
   description: '获取后台任务的累计输出(stdout/stderr + 状态)。参数:task_id,tail(可选,最后 N 行)。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'task.output',
+      reason: '只读读取后台命令输出,不修改文件与进程,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 32 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 80, from: 'head' },
+    },
+  },
   parameters: {
     task_id: { type: 'string', description: '后台任务 ID(bg_xxx)' },
     tail: { type: 'number', description: '仅返回最后 N 行(可选,默认全部)' },
@@ -1605,6 +1720,22 @@ export const wait_command: Tool = {
   name: 'wait_command',
   description: '等待后台任务结束(不杀进程)。返回三态可分辨:观察到终态则报该终态;等待窗口用尽仍未终态则明确报"未等到终态/状态未知",不会把超时当作结论。参数:task_id,timeout_ms(默认 30000;<=0 为一次非阻塞探询)。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'task.wait',
+      reason: '只读等待后台命令结束并取其输出,不修改文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 32 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 80, from: 'head' },
+    },
+  },
   parameters: {
     task_id: { type: 'string', description: '后台任务 ID' },
     timeout_ms: { type: 'number', description: '等待超时(毫秒,默认 30000)' },
@@ -1672,6 +1803,23 @@ export const kill_command: Tool = {
   name: 'kill_command',
   description: '终止后台任务(SIGTERM,5 秒后强杀 SIGKILL)。参数:task_id。',
   dangerLevel: 'dangerous',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'task.kill',
+      reason: '终止后台命令进程,中断正在运行的任务,危险动作须人确认',
+      riskLevel: 'dangerous',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     task_id: { type: 'string', description: '后台任务 ID' },
   },

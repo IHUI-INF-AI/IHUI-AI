@@ -228,7 +228,7 @@ describe('OAuth 回调:空主体标识不得建号、不得发 token', () => {
       url: '/api/auth/wechat/callback',
       payload: { code: 'FAKE-CODE', state: 's' },
     })
-    expect(res.statusCode).toBe(400)
+    expect(res.statusCode).toBe(503)
     expect(dbMocks.createUser).not.toHaveBeenCalled()
   })
 })

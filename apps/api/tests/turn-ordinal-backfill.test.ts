@@ -26,17 +26,6 @@ const MIGRATION_FILE = join(DRIZZLE_DIR, '20260926140000_backfill_turn_ordinal.s
 const JOURNAL_FILE = join(DRIZZLE_DIR, 'meta/_journal.json')
 
 const TAG = '20260926140000_backfill_turn_ordinal'
-/**
- * 2026-11-23 的三条历史迁移共用/倒序了 when(生成时手写时间戳),已在生产应用;
- * 这里不重写 journal(会改变 drizzle 已应用迁移的记账),只在“全表唯一性”判据里登记豁免。
- * 新条目仍必须唯一,下面的集合不参与任何新票。
- */
-const LEGACY_DUP_WHEN_TAGS = new Set([
-  '20261123090000_ai_model_chat_history_pinned',
-  '20261123120000_ai_model_chat_history_folder',
-  '20261123140000_ai_model_chat_history_title',
-  '20261123170000_fin_filing_return',
-])
 
 interface JournalEntry {
   idx: number
@@ -286,11 +275,17 @@ describe('D35 迁移记账(journal ↔ sql)', () => {
     expect(mine.when).toBeGreaterThan(prev.when)
   })
 
-  it('idx 唯一 / when 唯一(历史豁免项除外) / tag↔sql 双向双射', () => {
+  it('idx 唯一 / when 严格递增且唯一 / tag↔sql 双向双射', () => {
     const idxs = entries.map((e) => e.idx)
     expect(new Set(idxs).size).toBe(idxs.length)
-    const whens = entries.filter((e) => !LEGACY_DUP_WHEN_TAGS.has(e.tag)).map((e) => e.when)
+    const whens = entries.map((e) => e.when)
     expect(new Set(whens).size).toBe(whens.length)
+    for (let i = 1; i < entries.length; i++) {
+      expect(
+        entries[i]!.when,
+        `journal 第 ${i} 条 ${entries[i]!.tag} 的 when 未严格大于前一条`,
+      ).toBeGreaterThan(entries[i - 1]!.when)
+    }
     const tags = entries.map((e) => e.tag)
     expect(new Set(tags).size).toBe(tags.length)
 

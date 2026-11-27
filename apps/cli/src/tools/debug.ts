@@ -424,6 +424,23 @@ export const debug_launch: Tool = {
   description:
     '启动 debug adapter 并 launch 程序进行调试(支持 node/js-debug-adapter 和 python/debugpy)。返回 sessionId 供后续 debug 工具使用。adapter 未安装时返回 debug-unavailable 错误。用法:debug_launch({ type: "node"|"python", command: "script.js"|"script.py", args?, cwd?, env?, stopOnEntry? })',
   dangerLevel: 'dangerous',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'debug.launch',
+      reason: '启动 debug adapter 并 launch 程序调试,会启动被调试进程,危险动作须人确认',
+      riskLevel: 'dangerous',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     type: { type: 'string', description: '调试语言:node 或 python', enum: ['node', 'python', 'web'] },
     command: { type: 'string', description: '要调试的程序路径(如 script.js / script.py)' },
@@ -503,6 +520,23 @@ export const debug_attach: Tool = {
   description:
     'attach 到已运行的 debug adapter(远程调试已运行的进程)。返回 sessionId。用法:debug_attach({ type: "node"|"python", port: 9229, host? })',
   dangerLevel: 'dangerous',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'debug.attach',
+      reason: 'attach 到已运行进程做远程调试,接入外部进程运行状态,危险动作须人确认',
+      riskLevel: 'dangerous',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     type: { type: 'string', description: '调试语言:node 或 python', enum: ['node', 'python', 'web'] },
     port: { type: 'number', description: '目标进程的调试端口' },
@@ -568,6 +602,23 @@ export const debug_set_breakpoints: Tool = {
   description:
     '设置断点(支持条件断点)。返回 DAP 验证后的断点列表(verified/message)。用法:debug_set_breakpoints({ sessionId, file, lines: [{line, condition?}] })',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'debug.setBreakpoints',
+      reason: '在调试程序内设置断点,改变其执行流暂停点,须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     sessionId: { type: 'string', description: 'debug_launch 或 debug_attach 返回的 sessionId' },
     file: { type: 'string', description: '文件绝对路径或相对路径' },
@@ -622,6 +673,23 @@ export const debug_continue: Tool = {
   description:
     '继续执行程序,等待下一个 stopped 事件(断点/异常/暂停)。返回停止信息 {reason, threadId}。用法:debug_continue({ sessionId })',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'debug.continue',
+      reason: '继续执行被调试程序,推进其运行至下一暂停点,须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     sessionId: { type: 'string', description: 'debug session ID' },
   },
@@ -661,6 +729,23 @@ export const debug_step: Tool = {
   description:
     '单步执行(next/stepIn/stepOut)。等待 stopped 事件后返回。用法:debug_step({ sessionId, stepType: "next"|"stepIn"|"stepOut" })',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'debug.step',
+      reason: '单步执行被调试程序(next/stepIn/stepOut),推进其运行,须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     sessionId: { type: 'string', description: 'debug session ID' },
     stepType: { type: 'string', description: '步进类型', enum: ['next', 'stepIn', 'stepOut'] },
@@ -706,6 +791,22 @@ export const debug_get_stack_trace: Tool = {
   description:
     '获取当前线程的调用栈(在 stopped 状态下使用)。返回 StackFrame 列表(id/function/file/line/column)。用法:debug_get_stack_trace({ sessionId })',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'debug.stackTrace',
+      reason: '只读获取被调试线程的调用栈,不改变其执行状态,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     sessionId: { type: 'string', description: 'debug session ID' },
   },
@@ -759,6 +860,22 @@ export const debug_get_variables: Tool = {
   description:
     '获取变量列表(需先 get_stack_trace 获取 frameId)。内部调用 scopes + variables。用法:debug_get_variables({ sessionId, frameId, scope?: "local"|"global"|"closure" })',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'debug.variables',
+      reason: '只读读取调试上下文的变量列表,不改变程序执行状态,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     sessionId: { type: 'string', description: 'debug session ID' },
     frameId: { type: 'number', description: '栈帧 ID(从 debug_get_stack_trace 获取)' },
@@ -834,6 +951,22 @@ export const debug_eval: Tool = {
   description:
     '在调试上下文中求值表达式(repl 上下文)。返回 {result, type}。用法:debug_eval({ sessionId, expression, frameId? })',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'debug.eval',
+      reason: '在调试上下文求值表达式(repl),可能在被调试进程内执行代码,须人确认',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     sessionId: { type: 'string', description: 'debug session ID' },
     expression: { type: 'string', description: '要求值的表达式' },
@@ -876,6 +1009,23 @@ export const debug_disconnect: Tool = {
   description:
     '断开 debug session(发送 disconnect 请求 + 终止 adapter 子进程)。用法:debug_disconnect({ sessionId })',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'debug.disconnect',
+      reason: '断开 debug session 并终止 adapter 子进程,中断调试中的程序,须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     sessionId: { type: 'string', description: '要关闭的 debug session ID' },
   },
@@ -908,6 +1058,22 @@ export const debug_list_sessions: Tool = {
   description:
     '列出所有活跃的 debug session。返回 [{sessionId, language, status, startedAt, lastActivityAt}]。用法:debug_list_sessions()',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'debug.listSessions',
+      reason: '只读列出活跃 debug session,不改变任何进程状态,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {},
   required: [],
   async execute(_args, ctx): Promise<ToolResult> {

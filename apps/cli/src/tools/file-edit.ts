@@ -238,6 +238,25 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
       content: { type: 'string', description: '文件完整内容' },
     },
     required: ['path', 'content'],
+    contract: {
+      shape: { visibleToProvider: true, input: { type: 'object' } },
+      permission: {
+        permissionKey: 'fs.write',
+        // 内容匹配来源:规则可写 `path:src/**` 授权/拒绝具体路径(见 permissions.ts 的 RuleMatchContext)。
+        matchSources: ['path'],
+        reason: '创建或覆盖工作区文件是写入副作用,须人确认;执行前已有 checkPathWritePermission 路径写权限闸',
+        riskLevel: 'write',
+        effectScope: 'workspace',
+        requiresApproval: false,
+        confirmation: { mode: 'interactive' },
+      },
+      resultBudget: {
+        inlineLimitBytes: 16 * 1024,
+        providerVisibleLimitBytes: 72_000,
+        policy: 'truncate',
+        preview: { bytes: 3_600, lines: 40, from: 'head' },
+      },
+    },
     async execute(args, execCtx): Promise<ToolResult> {
       const filePath = args.path as string;
       const content = args.content as string;
@@ -435,6 +454,24 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
       patch: { type: 'string', description: '多个 SEARCH/REPLACE 块(格式: <<<<<<< SEARCH\\n...\\n=======\\n...\\n>>>>>>> REPLACE)' },
     },
     required: ['path'],
+    contract: {
+      shape: { visibleToProvider: true, input: { type: 'object' } },
+      permission: {
+        permissionKey: 'fs.edit',
+        matchSources: ['path'],
+        reason: '编辑工作区文件是写入副作用,须人确认;执行前已有 checkPathWritePermission 路径写权限闸,冲突由 hunkTracker 检测',
+        riskLevel: 'write',
+        effectScope: 'workspace',
+        requiresApproval: false,
+        confirmation: { mode: 'interactive' },
+      },
+      resultBudget: {
+        inlineLimitBytes: 16 * 1024,
+        providerVisibleLimitBytes: 72_000,
+        policy: 'truncate',
+        preview: { bytes: 3_600, lines: 40, from: 'head' },
+      },
+    },
     async execute(args, execCtx): Promise<ToolResult> {
       const filePath = args.path as string;
       if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
@@ -573,6 +610,24 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
       path: { type: 'string', description: '要删除的文件路径' },
     },
     required: ['path'],
+    contract: {
+      shape: { visibleToProvider: true, input: { type: 'object' } },
+      permission: {
+        permissionKey: 'fs.delete',
+        matchSources: ['path'],
+        reason: '删除工作区文件是破坏性动作,须人确认;执行前已有 checkPathWritePermission 路径写权限闸',
+        riskLevel: 'dangerous',
+        effectScope: 'workspace',
+        requiresApproval: false,
+        confirmation: { mode: 'interactive' },
+      },
+      resultBudget: {
+        inlineLimitBytes: 16 * 1024,
+        providerVisibleLimitBytes: 72_000,
+        policy: 'truncate',
+        preview: { bytes: 3_600, lines: 40, from: 'head' },
+      },
+    },
     async execute(args, _execCtx): Promise<ToolResult> {
       const filePath = args.path as string;
       if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };

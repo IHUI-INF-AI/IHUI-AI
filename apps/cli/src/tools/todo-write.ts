@@ -155,6 +155,23 @@ export const todo_write: Tool = {
   name: 'todo_write',
   description: '管理任务清单。参数:todos(数组,每项含 id/content/status[pending|in_progress|completed|cancelled|blocked]/priority[high|medium|low])。可选 merge(默认 false,全量替换;true 时保留旧列表中未在新列表出现的 id)。用于跟踪多步任务的进度,提升可观测性。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'todo.write',
+      reason: '写入/更新任务清单,改变会话任务状态,须人确认',
+      riskLevel: 'write',
+      effectScope: 'workspace',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     todos: {
       type: 'array',

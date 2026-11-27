@@ -15,7 +15,7 @@ import { MessageSquare } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CircleDetailItem, CircleDetailScreenProps, CirclePostItem } from '../../types'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -178,7 +178,7 @@ function createStyles(tk: AppThemeTokens) {
     statBadge: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadiusFor.chip,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -197,7 +197,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       flex: 1,
       paddingVertical: rnSpacing.md,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadiusFor.control,
       alignItems: 'center',
     },
     actionBtnPrimary: { backgroundColor: tk.brand.cta },
@@ -259,7 +259,7 @@ function createStyles(tk: AppThemeTokens) {
     postCard: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadiusFor.card,
       backgroundColor: tk.surface.card,
       padding: rnSpacing.md,
       gap: rnSpacing.xs,

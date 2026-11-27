@@ -9,8 +9,8 @@
  *   本文件从 apps/web 提取到共享层,4 端(web/extension/mobile-rn/cli)统一 import。
  *   仅作后端 /llm/models 不可达时的最小降级,主数据源是 /llm/models 动态拉取
  *   (后端已实现 provider 健康检查 + 自动过滤)。
- *   兜底列表仅保留项目已验证连通的主力智汇AI 模型 + Cloudflare 低成本档;
- *   2026-11-26 全收费后不再保留任何“免费”展示档。
+ *   2026-11-27 起兜底只保留「智能路由」哨兵(`auto`),由服务端 auto 路由现选可用档;
+ *   不再硬编码任何厂商模型 id —— 死档会让「列表拉取失败」直接变成「首帧必失败」。
  *
  * 各端形态适配:
  *   - web 端直接使用 FallbackModel(value/label/vendor),见 model-selector.tsx。
@@ -45,48 +45,60 @@ export interface FallbackModel {
   locked?: boolean
 }
 
-/** 兜底模型:仅后端不可达时使用(主数据源是 /llm/models 动态拉取) */
-export const FALLBACK_MODELS: FallbackModel[] = [
-  // 2026-10-26 stepfun 永久退役(机主:订阅失效、明确不再续费)⇒ 原先列在这里的
-  // stepfun/step-router-v1 与 stepfun/step-3.7-flash 两档已摘除:本表是后端
-  // /llm/models 不可达时用户**唯一**还能选到的档位,挂着必然失败的退役档
-  // = 让人选到一条死路。退役名单的单一真相源见 apps/api/src/utils/retired-providers.ts
-  // 与 Python 侧 app/core/default_model.py(两侧逐字对账,改一处必须同改另一处)。
-  // === 智汇AI(ihui_relay 主力模型,后端 relay 聚合,input_price=0)===
+/**
+ * 动态智能路由哨兵(2026-11-27 立)。
+ *
+ * ai-service 在 `model === "auto"` 或为空时调用 `_resolve_auto_model()`
+ * (apps/ai-service/app/core/llm_gateway.py:2250/2659),从 model_availability
+ * 的可用池里按健康度、成本与能力现挑一档 —— 兜底表不需要、也不应该再硬编码
+ * 任何厂商模型 id。
+ *
+ * 为什么这张表只剩哨兵:
+ *  - `ihui/*` 全部失效。ihui_relay/SwiftAPI 上游已于 2026-10-24 弃用移除
+ *    (apps/ai-service/app/core/model_naming.py:21-23);生产价格目录 16,476 行里
+ *    `ihui/*` 命中 0 条。继续挂着 = "模型列表拉取失败 ⇒ 首帧必失败"。
+ *  - `@cf/zai-org/glm-4.7-flash` 额度已耗尽(model-selector 内既有注释),
+ *    留着会把断网用户再送进一条死路。
+ *  - `stepfun/*` 2026-10-26 永久退役,由 apps/api/src/utils/retired-providers.ts
+ *    与 Python 侧 default_model.py 统一守卫。
+ */
+export const AUTO_MODEL_ID = 'auto'
+
+/** 已死/已退役前缀:任何候选写回本表前先过这道闸,防止死档复活。 */
+export const DEAD_FALLBACK_PREFIXES = ['ihui/', 'stepfun/'] as const
+
+/** 候选 id 是否命中已死前缀(大小写不敏感;空值不算死档)。 */
+export function isDeadFallbackModelId(id: string | null | undefined): boolean {
+  const m = (id ?? '').trim().toLowerCase()
+  if (!m) return false
+  return DEAD_FALLBACK_PREFIXES.some((prefix) => m.startsWith(prefix))
+}
+
+/** 兜底原始表:列出的是"语义",不是厂商模型 id。 */
+const RAW_FALLBACK_MODELS: FallbackModel[] = [
   {
-    value: 'ihui/Auto-Model',
-    label: '智汇AI Auto',
+    value: AUTO_MODEL_ID,
+    label: '智能路由 (智汇AI)',
     vendor: 'ihui_relay',
-    // 自动路由:真实扣分按 `ihui/auto-model` 档位(3),不再写 0 冒充免费
-    isOfficial: true,
-  },
-  {
-    value: 'ihui/glm-5.3',
-    label: 'GLM-5.3 (智汇AI)',
-    vendor: 'ihui_relay',
-    isOfficial: true,
-  },
-  {
-    value: 'ihui/deepseek-v4-flash-0731',
-    label: 'DeepSeek V4 Flash (智汇AI)',
-    vendor: 'ihui_relay',
-    isOfficial: true,
-  },
-  {
-    value: 'ihui/gpt-5.6',
-    label: 'GPT-5.6 (智汇AI)',
-    vendor: 'ihui_relay',
-    isOfficial: true,
-  },
-  // === Cloudflare Workers AI(原 free 档,2026-11-26 起也收费,不再标“免费”)===
-  {
-    value: '@cf/zai-org/glm-4.7-flash',
-    label: 'GLM-4.7 Flash (CF)',
-    vendor: 'cloudflare_workers_ai',
-    // 成本为 0 也按 0.1 积分/千 token 地板收费,不再展示“免费”
-    pointsMultiplier: 1,
+    // 展示按标准档(3);真实扣分以后端 auto 路由选中的模型为准。
+    pointsMultiplier: 3,
     isOfficial: true,
   },
 ]
+
+/** 兜底模型:仅后端不可达时使用(主数据源是 /llm/models 动态拉取) */
+export const FALLBACK_MODELS: FallbackModel[] = RAW_FALLBACK_MODELS.filter(
+  (m) => !isDeadFallbackModelId(m.value),
+)
+
+/**
+ * 取兜底默认档。
+ *
+ * 恒返回可发送的 id:表被误删空时回落到 `auto`,而不是让调用方拿 `list[0]!`
+ * 崩在空表上,或退回一条已死的厂商档。
+ */
+export function pickFallbackModelId(): string {
+  return FALLBACK_MODELS[0]?.value ?? AUTO_MODEL_ID
+}
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

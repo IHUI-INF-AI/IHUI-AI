@@ -280,6 +280,22 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
     name: 'dispatch_subagent',
     description: '派生子 agent 执行独立子任务(有独立 context,适合并行/隔离任务)。嵌套深度不超过 3 层。参数:task(任务描述,应清晰、独立、可验证),persona(角色预设:researcher/coder/reviewer/planner/general,自动配置工具白名单和 system prompt,默认 general),tools(额外工具白名单,与 persona 叠加过滤,可选),maxIterations(最大迭代数,可选,默认按 persona 或 10)。扩展参数:isolation(none/worktree,启用 git worktree 隔离工作区),resumeFrom(subagent id,从持久化状态恢复 transcript 继续),capabilityMode(read-only/read-write/execute/all,覆盖 persona 工具白名单),keepWorktree(成功后是否保留 worktree,默认 false)。',
     dangerLevel: 'read',
+    contract: {
+      shape: { visibleToProvider: true, input: { type: 'object' } },
+      permission: {
+        permissionKey: 'agent.dispatch',
+        reason: '派生子 agent 执行独立子任务(独立 context):子 agent 的写操作由它自己的工具契约逐枚判定,本层不重复要批;本身不 fork 系统进程',
+        riskLevel: 'read',
+        effectScope: 'workspace',
+        requiresApproval: false,
+      },
+      resultBudget: {
+        inlineLimitBytes: 16 * 1024,
+        providerVisibleLimitBytes: 72_000,
+        policy: 'truncate',
+        preview: { bytes: 3_600, lines: 40, from: 'head' },
+      },
+    },
     // 见 SUBAGENT_EXEC_BUDGET_MS 的推导:整条子 loop 一档,取封顶值而不是默认值
     execBudget: { ms: SUBAGENT_EXEC_BUDGET_MS },
     parameters: {
@@ -789,6 +805,23 @@ export function createSpawnParallelTool(parentOpts: SubagentParentOptions): Tool
     description:
       '并行 fork N 个子进程跑子 agent(真并行,OS 级独立进程,非单进程 async)。适合需要真正并行的多子任务场景。每个请求含 persona(角色)/task(任务)/model(模型)/isolation(none/worktree)/maxIterations/timeoutSeconds。可选 topology(star/mesh/chain/hierarchical)和 maxWorkers(并发上限)。',
     dangerLevel: 'dangerous',
+    contract: {
+      shape: { visibleToProvider: true, input: { type: 'object' } },
+      permission: {
+        permissionKey: 'agent.spawnParallel',
+        reason: '并行 fork N 个 OS 级子进程跑子 agent,消耗系统资源(CPU/内存),危险动作须人确认',
+        riskLevel: 'dangerous',
+        effectScope: 'system',
+        requiresApproval: false,
+        confirmation: { mode: 'interactive' },
+      },
+      resultBudget: {
+        inlineLimitBytes: 16 * 1024,
+        providerVisibleLimitBytes: 72_000,
+        policy: 'truncate',
+        preview: { bytes: 3_600, lines: 40, from: 'head' },
+      },
+    },
     parameters: {
       requests: {
         type: 'array',

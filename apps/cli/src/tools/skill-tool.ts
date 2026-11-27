@@ -87,6 +87,22 @@ const skillTool: Tool = {
     + 'command/env checks, then return the full instructions; idempotent when already loaded '
     + 'this session. Returns stable code 428 when prerequisites are unmet; satisfy them and retry.',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'skill.invoke',
+      reason: '只读会话 skill 目录并回传说明正文:不写文件、不触网;前置命令检查只读环境事实',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 32 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 120, from: 'head' },
+    },
+  },
   parameters: {
     name: { type: 'string', description: 'Skill name (case-insensitive, match the catalog name)' },
     model: {

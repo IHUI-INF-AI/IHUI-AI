@@ -69,6 +69,7 @@ const DISALLOWED_PATHS = [
   '/workspace/',
   '/memory/',
   '/publish/',
+  '/start/',
   '/plan/',
   '/spec/',
   '/schedule/',

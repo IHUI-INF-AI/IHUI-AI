@@ -12,6 +12,7 @@ import { OfficeConvertPreview } from './office-convert-preview'
 import { DelimitedFilePreview } from '@/components/file-preview/delimited-file-preview'
 import { PreviewErrorCard, fileNameOf } from '@/components/file-preview/preview-error-card'
 import { previewExtOf, previewKindOf } from '@/lib/file-preview-kind'
+import type { PreviewAnnotationPin } from '@/lib/document-annotations'
 import { toMediaStreamUrl } from '@/lib/media-proxy'
 import { cn } from '@/lib/utils'
 
@@ -39,12 +40,25 @@ export interface UniversalFilePreviewProps {
   /** 归一化扩展名;缺省从展示文件名/地址推导(blob 地址无后缀时靠 name) */
   readonly ext?: string
   readonly className?: string
+  /** 文档中心下发的页内批注 pin(PDF 页级 / PPTX 元素级) */
+  readonly annotationPins?: readonly PreviewAnnotationPin[]
+  /** 当前从页内 pin 或侧栏选中的线程根 id */
+  readonly focusedAnnotationId?: string | null
+  readonly onAnnotationSelect?: (id: string) => void
 }
 
 /** 浏览器不解析、改由服务端 LibreOffice 转 PDF 的旧版文档格式。 */
 const CONVERTIBLE_OFFICE_EXTS = new Set(['doc', 'ppt', 'odt', 'odp', 'ods', 'rtf'])
 
-export function UniversalFilePreview({ src, name, ext, className }: UniversalFilePreviewProps) {
+export function UniversalFilePreview({
+  src,
+  name,
+  ext,
+  className,
+  annotationPins,
+  focusedAnnotationId,
+  onAnnotationSelect,
+}: UniversalFilePreviewProps) {
   // FileViewerDialog / 文档集市把带鉴权的原始地址先取成 blob:,地址本身没有后缀;
   // 此时必须以调用方给的展示文件名作为第二判据,否则所有 blob 预览都会误判 download。
   const explicitExt = ext?.replace(/^\./, '').toLowerCase() ?? ''
@@ -60,7 +74,17 @@ export function UniversalFilePreview({ src, name, ext, className }: UniversalFil
     case 'audio':
       return <AudioPreview src={src} name={displayName} className={className} />
     case 'pdf':
-      return <FilePreview url={src} type="pdf" name={displayName} className={className} />
+      return (
+        <FilePreview
+          url={src}
+          type="pdf"
+          name={displayName}
+          className={className}
+          annotationPins={annotationPins}
+          focusedAnnotationId={focusedAnnotationId}
+          onAnnotationSelect={onAnnotationSelect}
+        />
+      )
     case 'office':
       // 支持清单的唯一真相源仍是 OfficePreview 的 SUPPORTED_EXTS;docx/xlsx/xls/pptx
       // 在浏览器内真渲染,旧版 doc/ppt/odt/rtf 走服务端 LibreOffice → PDF。
@@ -91,6 +115,9 @@ export function UniversalFilePreview({ src, name, ext, className }: UniversalFil
           name={displayName}
           ext={resolvedExt}
           className={className}
+          annotationPins={annotationPins}
+          focusedAnnotationId={focusedAnnotationId}
+          onAnnotationSelect={onAnnotationSelect}
         />
       )
     case 'delimited':

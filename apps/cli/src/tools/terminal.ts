@@ -247,6 +247,23 @@ export const terminal_open: Tool = {
   name: 'terminal_open',
   description: '创建长驻 PTY 终端会话(交互式 shell,如 pnpm dev / python repl)。参数:command(要执行的命令),cwd(可选,工作目录,默认工作区根),cols(可选,列数,默认 80),rows(可选,行数,默认 24)。返回 sessionId。',
   dangerLevel: 'dangerous',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'term.open',
+      reason: '创建长驻 PTY 终端会话并启动交互式 shell(如 pnpm dev/repl),会启动系统级进程,危险动作须人确认',
+      riskLevel: 'dangerous',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     command: { type: 'string', description: '要执行的 shell 命令(如 pnpm dev)' },
     cwd: { type: 'string', description: '工作目录(默认工作区根目录)' },
@@ -349,6 +366,23 @@ export const terminal_send: Tool = {
   name: 'terminal_send',
   description: '向 PTY 终端会话发送输入(模拟键盘输入)。参数:sessionId,input(要发送的文本),pressEnter(可选,默认 false,是否在末尾追加 \\r 回车)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'term.send',
+      reason: '向 PTY 终端会话发送输入(模拟键盘),可驱动该会话内运行的程序执行动作,须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     sessionId: { type: 'string', description: 'terminal_open 返回的 sessionId' },
     input: { type: 'string', description: '要发送的输入文本' },
@@ -411,6 +445,22 @@ export const terminal_read: Tool = {
   name: 'terminal_read',
   description: '读取 PTY 终端会话的累积输出(返回自上次读取以来的新输出)。参数:sessionId,timeout(可选,等待新输出的超时毫秒数,默认 3000)。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'term.read',
+      reason: '只读读取 PTY 终端会话的累积输出,不发送输入、不改变进程状态,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 32 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 80, from: 'head' },
+    },
+  },
   parameters: {
     sessionId: { type: 'string', description: 'terminal_open 返回的 sessionId' },
     timeout: { type: 'number', description: '等待新输出的超时毫秒数(默认 3000)' },
@@ -450,6 +500,22 @@ export const terminal_resize: Tool = {
   name: 'terminal_resize',
   description: '调整 PTY 终端会话的尺寸(列数 x 行数)。参数:sessionId,cols,rows。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'term.resize',
+      reason: '只调整 PTY 终端会话尺寸(列x行),不改变进程状态与输出内容,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 32 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 80, from: 'head' },
+    },
+  },
   parameters: {
     sessionId: { type: 'string', description: 'terminal_open 返回的 sessionId' },
     cols: { type: 'number', description: '新的列数' },
@@ -488,6 +554,23 @@ export const terminal_close: Tool = {
   name: 'terminal_close',
   description: '关闭 PTY 终端会话(终止进程,释放资源)。参数:sessionId。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'term.close',
+      reason: '关闭 PTY 终端会话并终止其进程、释放资源,中断该会话内运行的任务,须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     sessionId: { type: 'string', description: 'terminal_open 返回的 sessionId' },
   },
@@ -515,6 +598,23 @@ export const terminal_exec_sandboxed: Tool = {
   name: 'terminal_exec_sandboxed',
   description: '在 OS 级沙箱内一次性执行命令(策略白名单 + 路径授权 + 资源限制,输出受控)。需沙箱已启用(settings.sandbox.enabled=true 或 IHUI_SANDBOX_ENABLED=1)。参数:command(命令),cwd(可选,默认工作区根)。',
   dangerLevel: 'dangerous',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'term.execSandboxed',
+      reason: '在 OS 级沙箱内一次性执行命令(白名单+路径授权+资源限制),仍会执行代码,危险动作须人确认',
+      riskLevel: 'dangerous',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     command: { type: 'string', description: '要在沙箱内执行的命令' },
     cwd: { type: 'string', description: '工作目录(默认工作区根目录)' },

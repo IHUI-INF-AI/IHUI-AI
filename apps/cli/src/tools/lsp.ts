@@ -787,6 +787,22 @@ export const lsp_goto_definition: Tool = {
   description:
     '使用 LSP 精确定位符号定义位置(支持的语言与对应服务器全在 apps/cli/src/lsp/language-table.ts 一张表里,按文件扩展名自动选择;先调 lsp_server_status 可看本机当前哪几门真的可用)。基于完整类型系统,精度远超 codegraph/goto_definition 的正则匹配。输入文件路径 + 1-based 行号/列号,返回所有定义位置(file:line:col)。LSP 不可用时降级提示用 codegraph。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'lsp.def',
+      reason: '只读 LSP 定位符号定义,不修改文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     file: { type: 'string', description: '文件路径(相对于工作区根目录)' },
     line: { type: 'number', description: '行号(1-based,从 1 开始)' },
@@ -842,6 +858,22 @@ export const lsp_find_references: Tool = {
   description:
     '使用 LSP 查找符号所有引用位置(支持的语言与对应服务器全在 apps/cli/src/lsp/language-table.ts 一张表里,按文件扩展名自动选择;先调 lsp_server_status 可看本机当前哪几门真的可用)。基于完整类型系统,精度远超 codegraph/find_references 的正则匹配。输入文件路径 + 1-based 行号/列号,返回所有引用位置(file:line:col)。LSP 不可用时降级提示用 codegraph。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'lsp.refs',
+      reason: '只读 LSP 查找符号引用,不修改文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     file: { type: 'string', description: '文件路径(相对于工作区根目录)' },
     line: { type: 'number', description: '行号(1-based,从 1 开始)' },
@@ -899,6 +931,22 @@ export const lsp_diagnostics: Tool = {
   description:
     '使用 LSP 获取文件的类型错误和警告诊断(支持的语言与对应服务器全在 apps/cli/src/lsp/language-table.ts 一张表里,按文件扩展名自动选择;先调 lsp_server_status 可看本机当前哪几门真的可用)。比正则解析精确得多(能检测类型错误、未使用变量等)。输入文件路径,返回诊断列表(severity + line:col + message)。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'lsp.diagnostics',
+      reason: '只读 LSP 获取类型错误与警告,不修改文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     file: { type: 'string', description: '文件路径(相对于工作区根目录)' },
   },
@@ -952,6 +1000,22 @@ export const lsp_hover: Tool = {
   description:
     '使用 LSP 获取符号的 hover 信息(类型签名、文档注释等;支持的语言与对应服务器全在 apps/cli/src/lsp/language-table.ts 一张表里,按文件扩展名自动选择;先调 lsp_server_status 可看本机当前哪几门真的可用)。输入文件路径 + 1-based 行号/列号,返回符号的类型信息和文档。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'lsp.hover',
+      reason: '只读 LSP 获取符号 hover 信息(类型签名/文档),无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     file: { type: 'string', description: '文件路径(相对于工作区根目录)' },
     line: { type: 'number', description: '行号(1-based,从 1 开始)' },
@@ -1014,6 +1078,22 @@ export const lsp_server_status: Tool = {
   description:
     '列出本机各语言服务器的真实可用状态(语言表全表 × 逐候选探测)。返回每门语言的状态(ready / not-installed / version-too-low / probe-timeout / probe-failed)、实测版本、不可用的具体原因与安装出路,并对需要工程根标记的语言(如 Cargo.toml / go.mod)提示当前工作区是否具备。其它 lsp_* 工具失败时,先用本工具定位是哪一档问题,不要盲重试。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'lsp.serverStatus',
+      reason: '只读列出各语言服务器可用状态,不修改文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     language: {
       type: 'string',

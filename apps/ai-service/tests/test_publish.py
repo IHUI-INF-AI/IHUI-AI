@@ -359,6 +359,21 @@ async def test_scheduler_submit_task_scheduled_returns_scheduled() -> None:
     assert len(spawned) == 0
 
 
+async def test_scheduler_submit_task_as_draft_never_spawns() -> None:
+    """as_draft=True 且 DB 不可用时拒绝落草稿,绝不降级成执行。"""
+    sched = PublishScheduler()
+    sched._get_conn = AsyncMock(return_value=None)  # type: ignore[assignment]
+    spawned: list[Any] = []
+    sched._spawn_task = lambda coro: spawned.append(coro)  # type: ignore[assignment]
+    content = PublishContent(format="md", title="草稿", text="hello")
+    targets = [{"platform": "wordpress", "account_id": 1, "config": {}}]
+    result = await sched.submit_task("task-draft", "user-1", content, targets, as_draft=True)
+    assert result["ok"] is False
+    assert result["status"] == "failed"
+    assert result["error"] == "draft_persist_failed"
+    assert len(spawned) == 0
+
+
 # =============================================================================
 # 5. 发布任务状态机(success/partial/failed)
 # =============================================================================

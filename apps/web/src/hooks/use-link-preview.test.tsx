@@ -230,6 +230,24 @@ describe('防双抓(票面铁律:预检不得变成抓取两次)', () => {
     expect(vi.mocked(fetchApi)).toHaveBeenCalledTimes(1)
   })
 
+  it('先看 A 再看 B、又粘回 A ⇒ 重新探测 A,卡片不停在 B 上', async () => {
+    okFetch()
+    const { result } = renderHook(() => useLinkPreview())
+    act(() => {
+      result.current.probeFromPaste('https://a.example.com/')
+    })
+    await waitFor(() => expect(result.current.preview?.url).toBe('https://a.example.com/'))
+    act(() => {
+      result.current.probeFromPaste('https://b.example.com/')
+    })
+    await waitFor(() => expect(result.current.preview?.url).toBe('https://b.example.com/'))
+    act(() => {
+      result.current.probeFromPaste('https://a.example.com/')
+    })
+    await waitFor(() => expect(result.current.preview?.url).toBe('https://a.example.com/'))
+    expect(vi.mocked(fetchApi)).toHaveBeenCalledTimes(3)
+  })
+
   it('不同 URL 各探测一次(记账按 URL 计,不误伤)', async () => {
     okFetch()
     const { result } = renderHook(() => useLinkPreview())

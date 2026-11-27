@@ -117,7 +117,7 @@ function GradeCell({ metric, ready }: { metric: ConfigTelemetry | undefined; rea
     >
       <button
         type="button"
-        className="inline-flex cursor-default rounded-sm border-0 bg-transparent p-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-stroke-focus"
+        className="inline-flex cursor-default border-0 bg-transparent p-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-stroke-focus"
       >
         <GradeBadge grade={grade} />
       </button>
@@ -248,7 +248,7 @@ export function AiModelsTable({
                             {badges.map((badge) => (
                               <span
                                 key={badge.text}
-                                className={`rounded border px-1 py-0 text-[10px] ${badge.tone}`}
+                                className={`rounded-md border px-1 py-0 text-[10px] ${badge.tone}`}
                               >
                                 {badge.text}
                               </span>
@@ -265,7 +265,7 @@ export function AiModelsTable({
                       <span>{item.providerCode}</span>
                       {item.isRelayProvider && (
                         <Tooltip content={t('providerRelayHint')}>
-                          <span className="cursor-help whitespace-nowrap rounded border border-violet-200 bg-violet-50 px-1 py-0.5 font-sans text-[10px] font-medium leading-4 text-violet-700 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-300">
+                          <span className="cursor-help whitespace-nowrap rounded-md border border-violet-200 bg-violet-50 px-1 py-0.5 font-sans text-[10px] font-medium leading-4 text-violet-700 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-300">
                             {t('providerRelay')}
                           </span>
                         </Tooltip>
