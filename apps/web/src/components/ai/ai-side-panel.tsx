@@ -44,7 +44,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { FLOATING_VIEWPORT_PADDING_PX } from '@ihui/shared/ui/floating-layer-spec'
 import { IconButton } from '@ihui/ui-react'
 import { rnRadius } from '@ihui/design-tokens'
-import { toast, AuthGatePrompt } from '@/components/common'
+import { toast } from '@/components/common'
 import {
   isDocumentPictureInPictureSupported,
   openPictureInPictureWindow,
@@ -110,6 +110,7 @@ import { clearNotices } from '@/lib/notice-log-store'
 // Runtime 插话能力声明落库口(会话元数据 → store)
 import { noteRuntimeCapabilities } from '@/hooks/use-chat/runtime-capabilities'
 import { fetchApi } from '@/lib/api'
+import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
 import { judgePageAdvance } from '@/lib/pagination-stall'
 // P1-6 断点续传(片3,2026-10-21):编排与 ChatPaneBody 共用 useResumeBranch 一份出口
 import { useResumeBranch } from '@/hooks/use-chat/resume-stream'
@@ -746,9 +747,11 @@ export function AISidePanel() {
     [pipLabels, resolvePipSessionTarget, tc],
   )
   const tcommon = useTranslations('common')
-  // 登录态门(与 settings 页同型):未就绪/未登录不发注定 401 的会话历史请求,消息区改显登录引导
-  const tGate = useTranslations('chatHistory')
+  // 登录态门(与 settings 页同型):未就绪/未登录不发注定 401 的会话历史请求。
+  // 2026-11-27 口径修正:欢迎面(含小方招手图)对匿名用户同样渲染 —— 登录门只挡
+  // 「发请求 / 发消息」,不再连欢迎面整块一起挡(见 sendMessageWithAttachments 与主体分支)。
   const { ready, allow } = useAuthGate()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
   // 性能修复(2026-07-25):全解构 → 单字段 selector。
   // zustand action 函数引用稳定,不会触发重渲染;state 字段(open/width/isResizing)
@@ -862,12 +865,23 @@ export function AISidePanel() {
   // 2026-11-27 立:MessageInput 的 onSend 第二参是「服务端提正文的文档附件」。
   // 直接传 sendMessage 会把附件数组错当成 SendMessageOptions;这里做唯一适配,
   // 主面板/浮窗两处输入区共用,避免两份接线漂移。
+  // 2026-11-27 口径修正:未登录也渲染欢迎面,发送动作在此统一收口 ——
+  // 匿名点发送只弹登录弹窗并返回 false(MessageInput 据此保留草稿),不静默丢字;
+  // 登录态尚未 bootstrap 完(ready=false)时直接吞掉本次点击,避免误弹登录框。
   const sendMessageWithAttachments = React.useCallback(
-    (content: string, attachments?: ChatAttachmentInput[]) =>
-      attachments && attachments.length > 0
+    (content: string, attachments?: ChatAttachmentInput[]) => {
+      if (!ready) return false
+      if (!isAuthenticated) {
+        openLoginDialogOnce(
+          typeof window === 'undefined' ? '/' : window.location.pathname + window.location.search,
+        )
+        return false
+      }
+      return attachments && attachments.length > 0
         ? sendMessage(content, { attachments })
-        : sendMessage(content),
-    [sendMessage],
+        : sendMessage(content)
+    },
+    [ready, isAuthenticated, sendMessage],
   )
   const subAgentActivities = useChatStore((s) => s.subAgentActivities)
   const chatError = useChatStore((s) => s.error)
@@ -3311,10 +3325,11 @@ export function AISidePanel() {
             {/* D73 多任务窗格(G-100):未拆分时主体直挂(与挂载前逐字同构,观感零变化);
                 拆分后由容器画窗格树,主体唯一、固定在根窗格,其余窗格为承载标记(边界 1)。
                 2026-11-11:浮窗档(含手机)不画窗格树 —— 360px 里再分两栏每栏不到 170px,
-                输入框必然溢出;拆分布局本身保留在 store 里,停靠回 ≥1280 自动复原。 */}
-            {!allow ? (
-              <AuthGatePrompt message={tGate('loginRequired')} />
-            ) : d73Expanded && !floatMode ? (
+                输入框必然溢出;拆分布局本身保留在 store 里,停靠回 ≥1280 自动复原。
+                2026-11-27:匿名用户不再被整块挡在登录提示后面 —— 欢迎面(小方招手图 +
+                快捷指令卡 + 模板 chips)照常渲染,登录门只收口在发送动作上;窗格树仍只对
+                已登录用户开放(匿名没有可承载的会话)。 */}
+            {allow && d73Expanded && !floatMode ? (
               <div className="relative flex min-h-0 flex-1 flex-col" data-d73-host="">
                 <PaneSplitContainer
                   renderPaneContent={(paneConversationId, paneId) =>
