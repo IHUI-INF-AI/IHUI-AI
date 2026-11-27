@@ -153,6 +153,8 @@ export function xlsxColumnRef(col: number): string {
 export const OFFICE_REVIEW_MAX_BLOCKS = 20
 export const OFFICE_REVIEW_MAX_CHARS = 30_000
 const OFFICE_REVIEW_BLOCK_CHARS = 6_000
+/** 一个 block 最多覆盖的段落数;否则 118 段会被并成 1 块,pin 只能落在第 1 段,失去定位价值。 */
+const OFFICE_REVIEW_MAX_BLOCK_PARAGRAPHS = 8
 
 /**
  * DOCX 段落 → 可定位 block。docx-preview 没有页码,段落序号就是它与正文、pin 的唯一共同坐标。
@@ -187,7 +189,11 @@ export function buildDocxReviewBlocks(
     if (!text) continue
     lastNonEmpty = i
     if (!buffer.length) start = i
-    if (buffer.length && chars + text.length > OFFICE_REVIEW_BLOCK_CHARS) {
+    if (
+      buffer.length &&
+      (buffer.length >= OFFICE_REVIEW_MAX_BLOCK_PARAGRAPHS ||
+        chars + text.length > OFFICE_REVIEW_BLOCK_CHARS)
+    ) {
       flush(i)
       start = i
     }
