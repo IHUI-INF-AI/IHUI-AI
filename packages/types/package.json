@@ -67,6 +67,11 @@
       "import": "./dist/chat-sync-contract.js",
       "default": "./dist/chat-sync-contract.js"
     },
+    "./agent-registry": {
+      "types": "./dist/agent-registry.d.ts",
+      "import": "./dist/agent-registry.js",
+      "default": "./dist/agent-registry.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

@@ -24,6 +24,7 @@ import { join } from 'node:path'
 import { mkdirSync } from 'node:fs'
 
 import { registerRoutes } from './routes/index.js'
+import { agentRegistryRoutes } from './routes/agent-registry.js'
 import { livenessRoutes } from './routes/liveness.js'
 import { relayDiagnosticsRoutes } from './routes/admin/relay-diagnostics.js'
 import { systemUpdateCheckRoutes } from './routes/admin/update-check.js'
@@ -461,6 +462,10 @@ export async function buildServer(): Promise<FastifyInstance> {
   })
 
   registerRoutes(server)
+
+  // 总管智能体统一注册表（R1）。独立插件注册，避免把新端点塞进 routes/index.ts
+  // 那个巨型清单；前缀与 01 §4.1 固定契约一致。
+  server.register(agentRegistryRoutes, { prefix: '/api/agent-registry' })
 
   // 根路径健康检查(兼容 CI e2e.yml 的 curl localhost:8802/health 与 k8s/dns 存活探针)
   // 完整就绪探针走 /api/health/ready(DB/Redis/AI service 三项连通性)

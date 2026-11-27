@@ -30,6 +30,7 @@ export * from './endpoints/news-category.js'
 export * from './endpoints/search-history.js'
 export * from './endpoints/super-agent.js'
 export * from './endpoints/sign-ups.js'
+export * from './agent-registry.js'
 
 export {
   fetchApi,

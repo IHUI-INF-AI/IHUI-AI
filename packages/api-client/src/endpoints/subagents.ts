@@ -28,12 +28,18 @@
  */
 import { fetchApi } from '../client.js'
 
-/** Agent 角色(对齐 API Zod agentRole enum) */
-export type AgentRole = 'researcher' | 'coder' | 'reviewer' | 'architect' | 'debugger'
+/**
+ * Agent 角色(对齐 API Zod agentRole enum)。
+ * 值集仍保留旧派单域的 5 个席位；注册表 10+custom 是另一域（见 @ihui/types/agent-registry），
+ * 不在这里直接替换，避免向旧派单服务端发送它尚未支持的席位。
+ */
+type SubagentSeat = 'researcher' | 'coder' | 'reviewer' | 'architect' | 'debugger'
+export type AgentRole = SubagentSeat
 
-/** 编排模式(对齐 API Zod orchestration enum) */
-export type OrchestrationMode =
+/** 编排模式(对齐 API Zod orchestration enum；含历史别名 with_communication) */
+type SubagentPattern =
   'pipeline' | 'parallel' | 'debate' | 'vote' | 'critique' | 'decomposed' | 'with_communication'
+export type OrchestrationMode = SubagentPattern
 
 /** 优先级(对齐 API Zod priority enum) */
 export type DispatchPriority = 'low' | 'normal' | 'high' | 'urgent'

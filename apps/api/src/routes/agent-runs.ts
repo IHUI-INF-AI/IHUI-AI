@@ -71,7 +71,13 @@ export const RUN_IDEMPOTENCY_TTL_MS = 24 * 3600 * 1000
 /** 每个 owner 保留的 run id 索引上限(游标列表没有 total,深翻不划算,超出即截断最旧)。 */
 export const MAX_INDEXED_RUNS = 1_000
 
-export type AgentRunStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'
+/**
+ * O10 的 Redis run 语义面只有 5 态，且拼写是 cancelled；
+ * 总管 `agent_runs` 账本是 8 态且 canceled 单 l。两者不是同一域，
+ * 这里保留旧值集并改名，禁止被契约扫描器误当成新账本状态。
+ */
+type RedisRunState = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'
+export type AgentRunStatus = RedisRunState
 
 export interface AgentRunRecord {
   /** 内部 runId:uuidv4,熵足够,永不作为对外标识外泄。 */
@@ -260,12 +266,10 @@ export function createAgentRunRoutes(deps: AgentRunRoutesDeps): FastifyPluginAsy
     app.post('/', async (request, reply) => {
       const body = createSchema.safeParse(request.body)
       if (!body.success) {
-        return reply
-          .code(400)
-          .send({
-            ...error(400, body.error.issues[0]?.message ?? 'invalid body'),
-            errorCode: 'VALIDATION_FAILED',
-          })
+        return reply.code(400).send({
+          ...error(400, body.error.issues[0]?.message ?? 'invalid body'),
+          errorCode: 'VALIDATION_FAILED',
+        })
       }
       const ownerUserId = requireOwner(request)
       const ownerKey = `user:${ownerUserId}`

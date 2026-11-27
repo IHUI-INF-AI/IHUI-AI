@@ -198,7 +198,9 @@ function atomicWriteText(file: string, content: string): void {
 // 1. Swarm — 群体智能多 Agent 编排
 // =============================================================================
 
-export type SwarmAgentRole = 'coordinator' | 'worker' | 'reviewer'
+/** Swarm 内部席位（coordinator/worker/reviewer），不是注册表 AgentRole 的 10+custom。 */
+type SwarmSeat = 'coordinator' | 'worker' | 'reviewer'
+export type SwarmAgentRole = SwarmSeat
 export type SwarmStatus = 'planning' | 'executing' | 'completed' | 'failed'
 
 export interface SwarmAgent {

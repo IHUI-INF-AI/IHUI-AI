@@ -1,0 +1,416 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+/**
+ * 总管智能体 · 统一注册表公共端点（R1 / P1-07 / P1-08 / P1-11）。
+ *
+ * 挂载：`/api/agent-registry`。所有端点先过 requireAuth，再由服务层做
+ * scope/owner/team 三档裁决；路由层不写业务判断，避免出现第二套权限口径。
+ *
+ * 本文件当前只放"定义 + 版本"面。删除预检/一次性审批/运行读取在后续切片补，
+ * 但路径已经按 01 §4.2 固定，后补不会改前端契约。
+ */
+
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
+import { z } from 'zod'
+import {
+  AGENT_ROLE_VALUES,
+  APPROVAL_STATUSES,
+  DEFINITION_STATUSES,
+  RUN_STATUSES,
+  SCOPES,
+  type AgentRegistryRole,
+  type DefinitionStatus,
+  type RunStatus,
+  type Scope,
+} from '@ihui/shared'
+import { requireAuth } from '../plugins/require-permission.js'
+import { parseOrThrow, success } from '../utils/response.js'
+import {
+  approveApproval,
+  createDeleteApproval,
+  getApproval,
+  listApprovals,
+  precheckDelete,
+  rejectApproval,
+  restoreAgentDefinition,
+} from '../services/agent-registry-approval-service.js'
+import {
+  cloneAgentDefinition,
+  createAgentDefinition,
+  getAgentDefinition,
+  getAgentDefinitionVersion,
+  listAgentDefinitionVersions,
+  listAgentDefinitions,
+  rollbackAgentDefinition,
+  setAgentDefinitionEnabled,
+  updateAgentDefinition,
+  type AgentRegistryActor,
+  type CloneAgentDefinitionInput,
+  type CreateAgentDefinitionInput,
+  type UpdateAgentDefinitionInput,
+} from '../services/agent-registry-service.js'
+import {
+  getAgentRun,
+  getAgentRunStats,
+  listAgentRunEvents,
+  listDefinitionRuns,
+  listRunArtifacts,
+} from '../services/agent-registry-runs-service.js'
+
+const uuidSchema = z.string().uuid('必须是 UUID')
+const nameSchema = z.string().min(1).max(64)
+const displayNameSchema = z.string().min(1).max(100)
+const descriptionSchema = z.string().max(4000)
+const jsonObjectSchema = z.record(z.string(), z.unknown())
+const roleSchema = z.enum(AGENT_ROLE_VALUES)
+const scopeSchema = z.enum(SCOPES)
+const definitionStatusSchema = z.enum(DEFINITION_STATUSES)
+
+const createDefinitionSchema = z.object({
+  scope: scopeSchema,
+  name: nameSchema,
+  displayName: displayNameSchema,
+  description: descriptionSchema.optional(),
+  role: roleSchema.optional(),
+  systemPrompt: z.string().max(32768).optional(),
+  model: z.string().max(100).nullable().optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().int().min(1).max(200000).nullable().optional(),
+  tools: z.array(z.string().max(80)).max(64).optional(),
+  skills: z.array(z.string().max(80)).max(64).optional(),
+  permissions: jsonObjectSchema.optional(),
+  memoryPolicy: jsonObjectSchema.optional(),
+  budget: jsonObjectSchema.optional(),
+  concurrencyLimit: z.number().int().min(1).max(8).optional(),
+  isDispatchable: z.boolean().optional(),
+  marketAgentId: uuidSchema.nullable().optional(),
+  metadata: jsonObjectSchema.optional(),
+  teamId: uuidSchema.nullable().optional(),
+  reason: z.string().max(300).optional(),
+})
+
+const updateDefinitionSchema = z
+  .object({
+    ifVersion: z.number().int().positive(),
+    name: nameSchema.optional(),
+    displayName: displayNameSchema.optional(),
+    description: descriptionSchema.optional(),
+    role: roleSchema.optional(),
+    systemPrompt: z.string().max(32768).optional(),
+    model: z.string().max(100).nullable().optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    maxTokens: z.number().int().min(1).max(200000).nullable().optional(),
+    tools: z.array(z.string().max(80)).max(64).optional(),
+    skills: z.array(z.string().max(80)).max(64).optional(),
+    permissions: jsonObjectSchema.optional(),
+    memoryPolicy: jsonObjectSchema.optional(),
+    budget: jsonObjectSchema.optional(),
+    concurrencyLimit: z.number().int().min(1).max(8).optional(),
+    isDispatchable: z.boolean().optional(),
+    marketAgentId: uuidSchema.nullable().optional(),
+    metadata: jsonObjectSchema.optional(),
+    changeSummary: z.string().max(300).optional(),
+    reason: z.string().max(300).optional(),
+  })
+  .strict()
+
+const cloneDefinitionSchema = z
+  .object({
+    name: nameSchema.optional(),
+    displayName: displayNameSchema.optional(),
+    scope: scopeSchema.optional(),
+    teamId: uuidSchema.nullable().optional(),
+    reason: z.string().max(300).optional(),
+  })
+  .strict()
+
+const listQuerySchema = z.object({
+  scope: scopeSchema.optional(),
+  status: definitionStatusSchema.optional(),
+  role: roleSchema.optional(),
+  q: z.string().max(100).optional(),
+  teamId: uuidSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+})
+
+const enableSchema = z
+  .object({ ifVersion: z.number().int().positive(), reason: z.string().max(300).optional() })
+  .strict()
+const rollbackSchema = z
+  .object({
+    targetVersion: z.number().int().positive(),
+    ifVersion: z.number().int().positive(),
+    reason: z.string().max(300).optional(),
+  })
+  .strict()
+
+const deleteApprovalSchema = z
+  .object({
+    precheckToken: z.string().min(20).max(4096),
+    reason: z.string().max(300).optional(),
+  })
+  .strict()
+
+const approveSchema = z
+  .object({
+    typedName: z.string().min(1).max(100),
+    reason: z.string().max(300).optional(),
+  })
+  .strict()
+
+const rejectSchema = z.object({ reason: z.string().max(300).optional() }).strict()
+
+const approvalListQuerySchema = z.object({
+  status: z.enum(APPROVAL_STATUSES).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+})
+
+const definitionRunsQuerySchema = z.object({
+  status: z.enum(RUN_STATUSES).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+})
+
+const runLogsQuerySchema = z.object({
+  afterSeq: z.coerce.number().int().min(0).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+})
+
+function actorOf(request: FastifyRequest): AgentRegistryActor {
+  const userId = request.userId
+  if (!userId) {
+    throw Object.assign(new Error('Authentication required'), { statusCode: 401 })
+  }
+  return {
+    userId,
+    roleId: request.jwtPayload?.roleId ?? request.internalUserRoleId ?? 0,
+    requestId: request.id,
+    traceId: (request.headers['x-trace-id'] as string | undefined) ?? undefined,
+    ip: request.ip,
+    userAgent: request.headers['user-agent'],
+  }
+}
+
+function withRequestId<T>(request: FastifyRequest, data: T): T & { requestId: string } {
+  return { ...data, requestId: request.id }
+}
+
+export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
+  server.addHook('preHandler', requireAuth)
+
+  server.get('/definitions', async (request, reply) => {
+    const actor = actorOf(request)
+    const query = parseOrThrow(listQuerySchema, request.query)
+    const result = await listAgentDefinitions(actor, {
+      scope: query.scope as Scope | undefined,
+      status: query.status as DefinitionStatus | undefined,
+      role: query.role as AgentRegistryRole | undefined,
+      teamId: query.teamId,
+      search: query.q,
+      limit: query.limit,
+      offset: query.offset,
+    })
+    return reply.send(
+      withRequestId(
+        request,
+        success({
+          items: result.list,
+          total: result.total,
+          nextCursor: null,
+          limit: result.limit,
+          offset: result.offset,
+        }),
+      ),
+    )
+  })
+
+  server.post('/definitions', async (request, reply) => {
+    const actor = actorOf(request)
+    const body = parseOrThrow(createDefinitionSchema, request.body)
+    const created = await createAgentDefinition(actor, body as CreateAgentDefinitionInput)
+    return reply.status(201).send(withRequestId(request, success(created)))
+  })
+
+  server.get('/definitions/:id', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const definition = await getAgentDefinition(actor, params.id)
+    return reply.send(withRequestId(request, success(definition)))
+  })
+
+  server.patch('/definitions/:id', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const body = parseOrThrow(updateDefinitionSchema, request.body)
+    const updated = await updateAgentDefinition(
+      actor,
+      params.id,
+      body as UpdateAgentDefinitionInput,
+    )
+    return reply.send(withRequestId(request, success(updated)))
+  })
+
+  server.post('/definitions/:id/clone', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const body = parseOrThrow(cloneDefinitionSchema, request.body ?? {})
+    const cloned = await cloneAgentDefinition(actor, params.id, body as CloneAgentDefinitionInput)
+    return reply.status(201).send(withRequestId(request, success(cloned)))
+  })
+
+  server.post('/definitions/:id/enable', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const body = parseOrThrow(enableSchema, request.body)
+    const updated = await setAgentDefinitionEnabled(actor, params.id, true, body.ifVersion)
+    return reply.send(withRequestId(request, success(updated)))
+  })
+
+  server.post('/definitions/:id/disable', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const body = parseOrThrow(enableSchema, request.body)
+    const updated = await setAgentDefinitionEnabled(actor, params.id, false, body.ifVersion)
+    return reply.send(withRequestId(request, success(updated)))
+  })
+
+  server.get('/definitions/:id/versions', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const query = parseOrThrow(
+      z.object({ limit: z.coerce.number().int().min(1).max(100).default(50) }),
+      request.query,
+    )
+    const versions = await listAgentDefinitionVersions(actor, params.id, query.limit)
+    return reply.send(withRequestId(request, success({ items: versions })))
+  })
+
+  server.get('/definitions/:id/versions/:version', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(
+      z.object({ id: uuidSchema, version: z.coerce.number().int().positive() }),
+      request.params,
+    )
+    const version = await getAgentDefinitionVersion(actor, params.id, params.version)
+    return reply.send(withRequestId(request, success(version)))
+  })
+
+  server.post('/definitions/:id/rollback', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const body = parseOrThrow(rollbackSchema, request.body)
+    const updated = await rollbackAgentDefinition(
+      actor,
+      params.id,
+      body.targetVersion,
+      body.ifVersion,
+    )
+    return reply.send(withRequestId(request, success(updated)))
+  })
+
+  server.post('/definitions/:id/precheck-delete', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const report = await precheckDelete(actor, params.id)
+    return reply.send(withRequestId(request, success(report)))
+  })
+
+  server.delete('/definitions/:id', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const body = parseOrThrow(deleteApprovalSchema, request.body)
+    const approval = await createDeleteApproval(actor, params.id, body.precheckToken, body.reason)
+    return reply.status(202).send(withRequestId(request, success(approval)))
+  })
+
+  server.post('/definitions/:id/restore', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const restored = await restoreAgentDefinition(actor, params.id)
+    return reply.send(withRequestId(request, success(restored)))
+  })
+
+  server.get('/approvals', async (request, reply) => {
+    const actor = actorOf(request)
+    const query = parseOrThrow(approvalListQuerySchema, request.query)
+    const result = await listApprovals(actor, query.status, query.limit, query.offset)
+    return reply.send(
+      withRequestId(
+        request,
+        success({ items: result.items, total: result.total, nextCursor: null }),
+      ),
+    )
+  })
+
+  server.get('/approvals/:id', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const approval = await getApproval(actor, params.id)
+    return reply.send(withRequestId(request, success(approval)))
+  })
+
+  server.post('/approvals/:id/approve', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const body = parseOrThrow(approveSchema, request.body)
+    const result = await approveApproval(actor, params.id, body.typedName, body.reason)
+    return reply.send(withRequestId(request, success(result)))
+  })
+
+  server.post('/approvals/:id/reject', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const body = parseOrThrow(rejectSchema, request.body)
+    const approval = await rejectApproval(actor, params.id, body.reason)
+    return reply.send(withRequestId(request, success(approval)))
+  })
+
+  server.get('/definitions/:id/runs', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const query = parseOrThrow(definitionRunsQuerySchema, request.query)
+    const result = await listDefinitionRuns(actor, params.id, {
+      status: query.status as RunStatus | undefined,
+      limit: query.limit,
+      offset: query.offset,
+    })
+    return reply.send(
+      withRequestId(
+        request,
+        success({ items: result.items, total: result.total, nextCursor: null }),
+      ),
+    )
+  })
+
+  server.get('/runs/:runId', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ runId: uuidSchema }), request.params)
+    const run = await getAgentRun(actor, params.runId)
+    return reply.send(withRequestId(request, success(run)))
+  })
+
+  server.get('/runs/:runId/logs', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ runId: uuidSchema }), request.params)
+    const query = parseOrThrow(runLogsQuerySchema, request.query)
+    const result = await listAgentRunEvents(actor, params.runId, query)
+    return reply.send(withRequestId(request, success(result)))
+  })
+
+  server.get('/runs/:runId/artifacts', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ runId: uuidSchema }), request.params)
+    const result = await listRunArtifacts(actor, params.runId)
+    return reply.send(withRequestId(request, success(result)))
+  })
+
+  server.get('/runs/:runId/stats', async (request, reply) => {
+    const actor = actorOf(request)
+    const params = parseOrThrow(z.object({ runId: uuidSchema }), request.params)
+    const stats = await getAgentRunStats(actor, params.runId)
+    return reply.send(withRequestId(request, success(stats)))
+  })
+}

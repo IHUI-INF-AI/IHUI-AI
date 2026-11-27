@@ -16,8 +16,9 @@ export type PatrolType = 'ci' | 'dependency' | 'log' | 'deadlink' | 'workspace' 
 /** 巡检任务状态:active=启用中;paused=已暂停 */
 export type PatrolStatus = 'active' | 'paused'
 
-/** 单次巡检结论状态:ok=正常;issue=发现问题;error=执行失败 */
-export type PatrolRunStatus = 'ok' | 'issue' | 'error'
+/** 单次巡检结论:ok=正常;issue=发现问题;error=执行失败。与账本 RunStatus 不同域，不复用其值集。 */
+type PatrolConclusion = 'ok' | 'issue' | 'error'
+export type PatrolRunStatus = PatrolConclusion
 
 /** 上次巡检结果(服务端 jsonb) */
 export interface PatrolLastResult {

@@ -88,6 +88,39 @@
   `OrchestrationMode` 11 值兼容联合（barrel 翻名后）。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
 
+## R1 · 注册表 API（feat/ma-api）
+
+> R1 实际改动面比原清单多两处，均为 F0 已登记给 R1 的跨线项：
+> `packages/types/src/index.ts` 导出 agent-registry + package.json 子路径；
+> `packages/api-client` 的旧枚举改为“值集单源 + 语义别名”，不再抄第二份 union。
+
+1. **已清 6 处 legacy pending（仅改名，不改值集）**
+   - `apps/api/src/routes/agent-runs.ts`：O10 Redis run 状态 → `RedisRunState`，保留 `cancelled` 5 态；
+   - `apps/api/src/routes/v1-assistants.ts`：OpenAI Assistants 状态 → `AssistantsRunState`；
+   - `apps/api/src/services/workspace-ai-service.ts`：Swarm 席位 → `SwarmSeat`；
+   - `packages/api-client/src/endpoints/patrol.ts`：巡检结论 → `PatrolConclusion`；
+   - `packages/api-client/src/endpoints/subagents.ts`：旧派单 5 席位 / 7 编排 → `SubagentSeat` / `SubagentPattern`。
+   这些名字与原 `RunStatus/AgentRole/OrchestrationMode` 是不同域，直接改值集会改坏旧协议；
+   因此只把“类型名”从契约扫描器的后缀命中面移开，运行期值不变。
+
+2. **剩 3 处 legacy pending，需 R2/派单服务一起拍板**
+   - `apps/api/src/routes/subagent-dispatch.ts:270,292,293`：Zod 仍是 5 角色 / 7 编排。
+   - 角色扩到 10+custom 需要 `subagent-dispatch-service` 的 `DispatchInput` 与 Python 侧都能接；
+     编排扩到 9 模式需要写入前 `normalizeOrchestrationMode()`，否则 `with_communication` 会进账本。
+   - R1 不在本切片单方面改 Zod，避免 API 收得下、执行侧接不住。
+
+3. **删除预检的 12 域只落地 11 域**
+   - `runs/dispatch/jobs/sessions/cron/workflow/team/market/memory/audit/external` 均有查询落点；
+   - `a2a` 在本仓没有卡片表（`a2a_service.py` 只是代码路径），预检返回 `unverified`，
+     不伪造 0、也不拿它当阻断。UI 必须原样展示这一桶。
+
+4. **本切片未做、不能报“R1 全绿”**
+   - `Idempotency-Key`（POST 同 key 同结果）尚未接 Redis；
+   - 分页仍是 `limit/offset`，未实现 `cursor`；
+   - `purge` / 活跃运行下的 `rollback` 尚未生成审批（当前 rollback 遇活跃运行直接 `APPROVAL_REQUIRED`，没有 approvalId）；
+   - 内部端点 `/api/internal/agent-registry/*` 尚未建；
+   - `stats`（runs7d/successRate/costPoints7d）未进列表响应。
+
 ## F1 · 数据库地基（feat/ma-db）
 
 > 本文件只登记"需要改别人文件/需要别的 lane 决策"的事项,格式:谁 / 为什么 / 建议改法 / 影响任务。

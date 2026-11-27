@@ -108,7 +108,10 @@ interface ThreadMessage {
   metadata: Record<string, string> | null
 }
 
-type RunStatus = 'queued' | 'in_progress' | 'completed' | 'failed' | 'cancelled' | 'expired'
+/** OpenAI Assistants 的 run 状态，与总管账本 RunStatus 不同域（in_progress/expired 等值不可互换）。 */
+type AssistantsRunState =
+  'queued' | 'in_progress' | 'completed' | 'failed' | 'cancelled' | 'expired'
+type RunStatus = AssistantsRunState
 
 /** Run 用量统计 */
 interface RunUsage {
