@@ -418,7 +418,7 @@ describe('Auth Extended API', () => {
       consentRedis.clear()
     })
 
-    it('路由注册:8 平台均返回非 404(参数缺失时 400,未配置时 400)', async () => {
+    it('路由注册:8 平台均返回非 404(参数缺失时 400,未配置时 503)', async () => {
       for (const platform of supportedPlatforms) {
         const res = await app.inject({
           method: 'POST',
@@ -459,49 +459,68 @@ describe('Auth Extended API', () => {
       expect(res.json().message).toContain('不支持的平台')
     })
 
-    it('微信未配置:返回 400 + "微信 OAuth 未配置"', async () => {
+    it('微信未配置:返回 503 + "微信 OAuth 未配置"', async () => {
       await seedConsent('wechat')
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/wechat/callback',
         payload: { code: 'fake', state: 'fake' },
       })
-      expect(res.statusCode).toBe(400)
+      expect(res.statusCode).toBe(503)
       expect(res.json().message).toContain('微信')
     })
 
-    it('企业微信未配置:返回 400 + "企业微信未配置"', async () => {
+    it('企业微信未配置:返回 503 + "企业微信未配置"', async () => {
       await seedConsent('enterpriseWechat')
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/enterpriseWechat/callback',
         payload: { code: 'fake', state: 'fake' },
       })
-      expect(res.statusCode).toBe(400)
+      expect(res.statusCode).toBe(503)
       expect(res.json().message).toContain('企业微信')
     })
 
-    it('钉钉未配置:返回 400 + "钉钉 OAuth 未配置"', async () => {
+    it('钉钉未配置:返回 503 + "钉钉 OAuth 未配置"', async () => {
       await seedConsent('dingtalk')
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/dingtalk/callback',
         payload: { code: 'fake', state: 'fake' },
       })
-      expect(res.statusCode).toBe(400)
+      expect(res.statusCode).toBe(503)
       expect(res.json().message).toContain('钉钉')
     })
 
-    it('飞书未配置:返回 400 + "飞书 OAuth 未配置"', async () => {
+    it('飞书未配置:返回 503 + "飞书 OAuth 未配置"', async () => {
       await seedConsent('feishu')
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/feishu/callback',
         payload: { code: 'fake', state: 'fake' },
       })
-      expect(res.statusCode).toBe(400)
+      expect(res.statusCode).toBe(503)
       expect(res.json().message).toContain('飞书')
     })
+
+    const unavailableProviders = [
+      ['google', 'Google'],
+      ['github', 'GitHub'],
+      ['apple', 'Apple'],
+      ['alipay', '支付宝'],
+    ] as const
+    for (const [platform, label] of unavailableProviders) {
+      it(`${platform} 未配置:统一返回 503 且点名平台`, async () => {
+        await seedConsent(platform)
+        const res = await app.inject({
+          method: 'POST',
+          url: `/api/auth/${platform}/callback`,
+          payload: { code: 'fake', state: 'fake' },
+        })
+        expect(res.statusCode).toBe(503)
+        expect(res.json().message).toContain(label)
+      })
+    }
 
     it('GET 兼容版本:GET /api/auth/wechat/callback?code=fake&state=fake 同样可路由(转发到 POST)', async () => {
       // GET 侧只是注入式转发到 POST,state 一并带过去 ⇒ 同意闸在 POST 内同样生效
@@ -510,8 +529,8 @@ describe('Auth Extended API', () => {
         method: 'GET',
         url: '/api/auth/wechat/callback?code=fake&state=fake',
       })
-      // GET 版本内部转发到 POST handler,应返回相同结果(400 微信未配置)
-      expect(res.statusCode).toBe(400)
+      // GET 版本内部转发到 POST handler,应返回相同结果(503 微信未配置)
+      expect(res.statusCode).toBe(503)
       expect(res.json().message).toContain('微信')
     })
   })

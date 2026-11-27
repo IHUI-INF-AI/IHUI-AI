@@ -230,15 +230,8 @@ type JournalEntry = { idx: number; when: number; tag: string }
  *  ③ 它之后每一条 `when` 都严格大于前一条 —— 单调追加没被人改写。
  * (绝对 idx 的钉法留在用例里:追加不改既有 idx,改了即说明有人重排历史条目。)
  */
-// 2026-11-23 的历史迁移在生成时手写了倒序/重复的 when,已在生产应用。
-// 不重写 journal(会改变 drizzle 已应用迁移的记账);只在这条“全局追加序”判据里豁免这四票,
-// 新票不在集合内,所以插队/同号仍会红。
-const LEGACY_JOURNAL_WHEN_TAGS = new Set([
-  '20261123090000_ai_model_chat_history_pinned',
-  '20261123120000_ai_model_chat_history_folder',
-  '20261123140000_ai_model_chat_history_title',
-  '20261123170000_fin_filing_return',
-])
+// journal 在 2026-11-27 已把 2026-11-23 生成时手写倒序/重复的 when 归一为严格递增,
+// 因此下面不再保留历史豁免集合;任何新票插队/同号都会直接红。
 
 function journalProblems(entries: JournalEntry[], tag: string): string[] {
   const problems: string[] = []
@@ -258,9 +251,6 @@ function journalProblems(entries: JournalEntry[], tag: string): string[] {
   for (let i = pos! + 1; i < entries.length; i++) {
     const current = entries[i]!
     const previous = entries[i - 1]!
-    if (LEGACY_JOURNAL_WHEN_TAGS.has(current.tag) || LEGACY_JOURNAL_WHEN_TAGS.has(previous.tag)) {
-      continue
-    }
     if (!(current.when > previous.when)) {
       problems.push(
         `第 ${i} 条 when=${current.when} 未严格大于前一条 ${previous.when}(追加序被改写)`,

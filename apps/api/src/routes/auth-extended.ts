@@ -221,7 +221,15 @@ function sendLoginCredentialError(reply: FastifyReply, err: unknown) {
     return
   }
   if (err instanceof TenantPlatformAppError) {
-    reply.status(400).send(error(400, err.message))
+    // 契约(2026-11-27):认证类端点遇到“凭据缺失/损坏”一律 503,与 thirdPartyUnavailable 同形;
+    // 平台被显式停用是权限态,给 403;其余配置用法错误(平台非法/缺 secret/跨租户环境键)仍 400。
+    const status =
+      err.code === 'CREDENTIALS_DISABLED'
+        ? 403
+        : err.code === 'CREDENTIALS_MISSING' || err.code === 'CREDENTIALS_CORRUPTED'
+          ? 503
+          : 400
+    reply.status(status).send(error(status, err.message))
     return
   }
   throw err
@@ -3291,7 +3299,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       switch (platform) {
         case 'google': {
           if (!isGoogleConfigured())
-            return reply.status(400).send(error(400, 'Google OAuth 未配置'))
+            return thirdPartyUnavailable(reply, 'Google OAuth', ['GOOGLE_APP_ID', 'GOOGLE_SECRET'])
           const info = await exchangeGoogleCode(code)
           openId = info.openId
           email = info.email
@@ -3303,7 +3311,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           const ghClientId = process.env.GITHUB_CLIENT_ID
           const ghSecret = process.env.GITHUB_CLIENT_SECRET
           if (!ghClientId || !ghSecret)
-            return reply.status(400).send(error(400, 'GitHub OAuth 未配置'))
+            return thirdPartyUnavailable(reply, 'GitHub OAuth', [
+              'GITHUB_CLIENT_ID',
+              'GITHUB_CLIENT_SECRET',
+            ])
           const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
             method: 'POST',
             headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
@@ -3368,7 +3379,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
               }
             : undefined
           if (!wecomCreds && !isWecomSuiteConfigured())
-            return reply.status(400).send(error(400, '企业微信未配置'))
+            return thirdPartyUnavailable(reply, '企业微信', [
+              'WECOM_CORP_ID',
+              'WECOM_SECRET',
+              'WECOM_SUITE_ID',
+            ])
           const session = wecomCreds
             ? await wecomPcCode2session(code, wecomCreds)
             : await wecomCode2session(code)
@@ -3447,11 +3462,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           // Apple OAuth 框架实现:接收 code/state,尝试用预签名 client_secret 换取 token。
           // 完整实现需用 Apple 私钥签名 client_secret JWT,此处支持两种模式:
           //   1) APPLE_CLIENT_SECRET 已为签名后的 JWT → 真实交换并解码 id_token
-          //   2) 未配置 → 返回回调已接收的框架响应
+          //   2) 未配置 client_secret → 503 点名缺键(不再是 200 框架成功)
           const appleClientId = process.env.APPLE_CLIENT_ID
           const appleClientSecret = process.env.APPLE_CLIENT_SECRET
           if (!appleClientId) {
-            return reply.status(400).send(error(400, 'Apple OAuth 未配置 (APPLE_CLIENT_ID 缺失)'))
+            return thirdPartyUnavailable(reply, 'Apple OAuth', ['APPLE_CLIENT_ID'])
           }
           if (appleClientSecret) {
             const tokenRes = await fetch('https://appleid.apple.com/auth/token', {
@@ -3496,21 +3511,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
             email = appleClaims.email
             break
           }
-          // 框架返回:未配置私钥,仅确认收到回调
-          return reply.send(
-            success({
-              status: 'apple_callback_received',
-              code,
-              state: bodyParsed.data.state,
-              note: '需配置 Apple 私钥生成 client_secret JWT (APPLE_CLIENT_SECRET) 以完成 token 交换',
-              missing: {
-                clientSecret: true,
-                teamId: !process.env.APPLE_TEAM_ID,
-                keyId: !process.env.APPLE_KEY_ID,
-                privateKey: !process.env.APPLE_PRIVATE_KEY,
-              },
-            }),
-          )
+          // 2026-11-27 契约统一:未配置私钥不是“回调已接收”的成功态,一律 503 点名缺键。
+          // 旧版回 200 success({status:'apple_callback_received'}) 与真登录同信封,消费方会误读为成功。
+          return thirdPartyUnavailable(reply, 'Apple OAuth', ['APPLE_CLIENT_SECRET'])
         }
         case 'alipay': {
           // 支付宝使用 auth_code → access_token 模式(与 Google/微信一致,但需在请求体
@@ -3518,9 +3521,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           // 这里兼容两种字段名以提升韧性。
           const alipayAuthCode = (request.body as { auth_code?: string }).auth_code ?? code
           if (!isAlipayLoginConfigured())
-            return reply
-              .status(400)
-              .send(error(400, '支付宝 OAuth 未配置 (ALIPAY_APP_ID/ALIPAY_PRIVATE_KEY 缺失)'))
+            return thirdPartyUnavailable(reply, '支付宝 OAuth', [
+              'ALIPAY_APP_ID',
+              'ALIPAY_PRIVATE_KEY',
+            ])
           const token = await exchangeAlipayCode(alipayAuthCode)
           let info: { nick?: string; avatar?: string } = {}
           try {
@@ -4426,9 +4430,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     try {
       if (provider === 'oidc') {
         if (!isOidcConfigured())
-          return reply
-            .status(400)
-            .send(error(400, 'OIDC 未配置 (OIDC_ISSUER/CLIENT_ID/CLIENT_SECRET/REDIRECT_URI 缺失)'))
+          return thirdPartyUnavailable(reply, 'OIDC', [
+            'OIDC_ISSUER',
+            'OIDC_CLIENT_ID',
+            'OIDC_CLIENT_SECRET',
+            'OIDC_REDIRECT_URI',
+          ])
         authUrl = await buildOidcAuthorizationUrl(
           {
             issuer: process.env.OIDC_ISSUER!,
@@ -4440,9 +4447,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         )
       } else if (provider === 'discord') {
         if (!isDiscordConfigured())
-          return reply
-            .status(400)
-            .send(error(400, 'Discord 未配置 (DISCORD_CLIENT_ID/CLIENT_SECRET/REDIRECT_URI 缺失)'))
+          return thirdPartyUnavailable(reply, 'Discord', [
+            'DISCORD_CLIENT_ID',
+            'DISCORD_CLIENT_SECRET',
+            'DISCORD_REDIRECT_URI',
+          ])
         const p = createDiscordProvider({
           clientId: process.env.DISCORD_CLIENT_ID!,
           clientSecret: process.env.DISCORD_CLIENT_SECRET!,
@@ -4452,9 +4461,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       } else {
         // provider === 'linuxdo'(z.enum 已限定为 oidc | discord | linuxdo)
         if (!isLinuxdoConfigured())
-          return reply
-            .status(400)
-            .send(error(400, 'LinuxDo 未配置 (LINUXDO_CLIENT_ID/CLIENT_SECRET/REDIRECT_URI 缺失)'))
+          return thirdPartyUnavailable(reply, 'LinuxDo', [
+            'LINUXDO_CLIENT_ID',
+            'LINUXDO_CLIENT_SECRET',
+            'LINUXDO_REDIRECT_URI',
+          ])
         const p = createLinuxdoProvider({
           clientId: process.env.LINUXDO_CLIENT_ID!,
           clientSecret: process.env.LINUXDO_CLIENT_SECRET!,
@@ -4486,7 +4497,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       .safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    if (!isOidcConfigured()) return reply.status(400).send(error(400, 'OIDC 未配置'))
+    if (!isOidcConfigured()) return thirdPartyUnavailable(reply, 'OIDC', ['OIDC_ISSUER'])
     // state CSRF 校验(新流程强制;存量无 state 回调兼容放行)
     const stateCheck = await enforceOAuthState(request, reply, 'oidc', parsed.data.state)
     if (stateCheck.denied) return stateCheck.denied
@@ -4562,7 +4573,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       .safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    if (!isDiscordConfigured()) return reply.status(400).send(error(400, 'Discord 未配置'))
+    if (!isDiscordConfigured())
+      return thirdPartyUnavailable(reply, 'Discord', ['DISCORD_CLIENT_ID'])
     try {
       const provider = createDiscordProvider({
         clientId: process.env.DISCORD_CLIENT_ID!,
@@ -4624,7 +4636,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       .safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    if (!isLinuxdoConfigured()) return reply.status(400).send(error(400, 'LinuxDo 未配置'))
+    if (!isLinuxdoConfigured())
+      return thirdPartyUnavailable(reply, 'LinuxDo', ['LINUXDO_CLIENT_ID'])
     const stateCheck = await enforceOAuthState(request, reply, 'linuxdo', parsed.data.state)
     if (stateCheck.denied) return stateCheck.denied
     try {
@@ -4693,9 +4706,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       if (!isTelegramConfigured())
-        return reply
-          .status(400)
-          .send(error(400, 'Telegram 未配置 (TELEGRAM_BOT_TOKEN/BOT_USERNAME 缺失)'))
+        return thirdPartyUnavailable(reply, 'Telegram', [
+          'TELEGRAM_BOT_TOKEN',
+          'TELEGRAM_BOT_USERNAME',
+        ])
       // 接收 phone/email(可选)——当前未使用,主 agent 后续可基于此关联已有账号
       const bodySchema = z
         .object({
@@ -4734,7 +4748,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
-      if (!isTelegramConfigured()) return reply.status(400).send(error(400, 'Telegram 未配置'))
+      if (!isTelegramConfigured())
+        return thirdPartyUnavailable(reply, 'Telegram', ['TELEGRAM_BOT_TOKEN'])
       const parsed = z.object({ authToken: z.string().min(1) }).safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
