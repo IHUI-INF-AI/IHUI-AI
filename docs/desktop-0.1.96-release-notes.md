@@ -100,8 +100,8 @@ Tauri 2 的命令 ACL 是三处登记缺一即失效：
 - 验证：生产 `https://aizhs.top/desktop-feed.json` 返回 `schema=2`、`version=0.1.96`、header `x-desktop-feed-schema: 2`；用 launcher 的 `Feed::from_json` 实解析 PASS、`evaluate(0.1.95)` → offer 0.1.96；zip 公开下载 6,350,308 字节、sha256 匹配、08db 公钥验签 PASS；解包后 manifest 的 sha256/size 与 ihui-app.exe 一致；`cargo check` 双锚改动 exit 0（1m25s）。
 - 部署：main `8f28929b` 于 09:48 被 IHUI-DEPLOYLOOP 取到，10:00 前 feed 已切 v2。
 - 仍缺：macOS / Linux 无 0.1.96 产物（v2 feed 只含 Windows payload，legacy `platforms` 未随之下发，mac/linux 老客户端本轮不会收到更新）；安装包仍未做 Authenticode。
-### 补充：legacy platforms 兼容（提交 `8b47b884` / `825d7ddb` / `e7868a68`）
+### 补充：legacy platforms 兼容（提交 `8b47b884` / `825d7ddb` / `754b7caf`）
 
-- 0.1.93 及更老的 Windows 客户端仍走 Tauri 安装器，只认 `platforms`；v2-only feed 会让这批用户看不到任何更新。`/desktop-feed.json` 现在在同版本时把 legacy `platforms` 并入 v2 响应，v2 客户端仍优先读 `payload`，两条链互不干扰。
+- 0.1.93 及更老的 Windows 客户端仍走 Tauri 安装器，只认 `platforms`；v2-only feed 会让这批用户看不到任何更新。`/desktop-feed.json` 现在在同版本时把 legacy `platforms` 与 `pub_date` 一并并入 v2 响应（Tauri v1 的 RemoteRelease 要求 pub_date 必填），v2 客户端仍优先读 `payload`，两条链互不干扰。
 - 客户端 `Feed` 的 `Payload` 要求 `size` / `sha256` 必填，所以给 `latest.json` 的 Windows 条目补了 `size=35,803,702`、`sha256=dccb1b4f…` 并重烘 `desktop-latest.generated.ts`；`desktop-feed.generated.ts` 的平台条目类型同步放开这两个可选字段。
 - 验证：用真实 launcher 解析器 `Feed::from_json` 跑 `payload` + `platforms` 合并 feed → `PARSE_OK`、`evaluate(0.1.95)` 仍 offer v2 zip（6,350,308 字节）；`pnpm --filter @ihui/web typecheck` 通过。
