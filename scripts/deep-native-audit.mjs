@@ -146,7 +146,7 @@ const ENTRIES = [
     id: 'B1-06', title: '目标自动续轮竞争裁决',
     probes: [
       { path: 'apps/ai-service/app/services/goal_round_driver.py', label: 'driver 模块' },
-      { path: 'apps/ai-service/app/services/**/*.py', pattern: 'competing_queued|competingQueued|valid_reservation', label: '竞争裁决符号' },
+      { path: 'apps/ai-service/app/services/goal_round_driver.py', pattern: 'competing_queued|valid_reservation', label: '竞争裁决符号' },
     ],
   },
   {
@@ -249,7 +249,8 @@ const ENTRIES = [
   {
     id: 'B1-08', title: '工作区变更盘上快照兜底',
     probes: [
-      { path: 'apps/ai-service/app/services/workspace_changes_service.py', label: '盘上快照模块' },
+      { path: 'apps/ai-service/app/core/workspace_changes.py', pattern: 'class TurnWorkspaceChangeSet|snapshot_turn_workspace', label: '盘上快照模块' },
+      { path: 'apps/ai-service/app/services/agent_engine.py', pattern: 'snapshot_turn_workspace', label: '回合接入点' },
     ],
   },
   {
