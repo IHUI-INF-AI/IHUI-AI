@@ -1347,24 +1347,45 @@ export const getRelatedNews = (
 export const likeNews = (id: string | number) =>
   post<{ liked?: boolean; likeCount?: number }>(`/news/articles/${encodeURIComponent(id)}/like`)
 
-export interface Circle {
-  id: string | number
-  title: string
-  content: string
-  images?: string[]
-  author?: string
-  avatar?: string
-  createTime: string
-  likes?: number
-  comments?: number
+/** 圈子(group)—— GET /circles 的真实业务对象(与 web /circles 同字段) */
+export interface CircleGroup {
+  id: string
+  name: string
+  slug?: string
+  description?: string | null
+  coverImage?: string | null
+  memberCount: number
+  postCount: number
+  isJoined?: boolean
+  createdAt?: string
 }
-export const getCircleList = (params?: { page?: number; pageSize?: number }) =>
-  get<{ list: Circle[]; total: number }>('/circles', params)
+
+/** 圈子帖子(group 内 circle_posts)—— 与 /circles/:id/posts 同字段 */
+export interface CirclePost {
+  id: string
+  circleId?: string
+  title: string
+  content?: string | null
+  images?: string[]
+  authorName?: string | null
+  authorAvatar?: string | null
+  replyCount: number
+  likeCount?: number
+  isPinned?: boolean
+  createdAt: string
+}
+
+export const getCircleList = (params?: { page?: number; pageSize?: number; search?: string }) =>
+  get<{ list: CircleGroup[]; total: number }>('/circles', params)
 export const getCircleDetail = (id: string | number) =>
   // 数据缺失时显式回 null(逼调用方处理)而非伪装成 undefined 的正常返回,崩溃点后移到页面层
-  get<{ circle: Circle }>(`/circles/${encodeURIComponent(id)}`).then((r) => r?.circle ?? null)
-export const createCircle = (data: { title: string; content: string; images?: string[] }) =>
-  post('/circles', data)
+  get<{ circle: CircleGroup }>(`/circles/${encodeURIComponent(id)}`).then((r) => r?.circle ?? null)
+export const getCirclePosts = (
+  id: string | number,
+  params?: { page?: number; pageSize?: number },
+) => get<{ list: CirclePost[]; total: number }>(`/circles/${encodeURIComponent(id)}/posts`, params)
+/** 建圈子(group)—— POST /circles 后端 zod 要求 name,可选 description */
+export const createCircle = (data: { name: string; description?: string }) => post('/circles', data)
 
 export interface Ask {
   id: string | number
@@ -1415,7 +1436,7 @@ export const getTopicList = (params?: { page?: number; pageSize?: number }) =>
     total: number
   }>('/topics', params)
 export const getTopicDetail = (id: string | number) =>
-  get<{ id: string; name: string; posts: Circle[] }>(`/topics/${encodeURIComponent(id)}`)
+  get<{ id: string; name: string; posts: CirclePost[] }>(`/topics/${encodeURIComponent(id)}`)
 
 /* ============ 教育扩展 ============ */
 
@@ -1583,6 +1604,8 @@ interface AgentRawRow {
   name: string
   description: string | null
   avatar: string | null
+  cover?: string | null
+  categoryId?: string | null
   usageCount: number
   isVipExclusive: boolean | null
   agentPrompt: string | null
@@ -1593,23 +1616,43 @@ interface AgentRawRow {
 /**
  * 获取智能体列表(对接后端 GET /api/agents/list)。
  * 后端返回 { list: Agent[], total, page, pageSize },此处映射为前端 AgentInfo 兼容结构。
+ *
+ * 后端单页上限是 100(传 pageSize=200 仍只回 100),而社区分类是端内本地过滤；
+ * 只取第一页会让第 100 条之后的分类(例如 AI 编程)整类消失。这里按 total 顺序翻页
+ * 拉全量再交给页面切窗口,调用方仍按一次"全量列表"使用。
  */
-export const getAgentList = () =>
-  get<{ list: AgentRawRow[]; total: number; page: number; pageSize: number }>('/agents/list', {
-    pageSize: 200,
-  }).then((res) => ({
-    list: (res.list || []).map((a) => ({
+const AGENT_LIST_PAGE_SIZE = 100
+const AGENT_LIST_MAX_PAGES = 20
+
+export const getAgentList = async () => {
+  const raw: AgentRawRow[] = []
+  let total = 0
+  for (let page = 1; page <= AGENT_LIST_MAX_PAGES; page++) {
+    const res = await get<{ list: AgentRawRow[]; total: number; page: number; pageSize: number }>(
+      '/agents/list',
+      { page, pageSize: AGENT_LIST_PAGE_SIZE },
+    )
+    const batch = Array.isArray(res.list) ? res.list : []
+    total = res.total || 0
+    raw.push(...batch)
+    if (batch.length === 0 || raw.length >= total) break
+  }
+  return {
+    list: raw.map((a) => ({
       id: String(a.agentId),
       name: a.name,
       desc: a.description ?? '',
       avatar: a.avatar ?? undefined,
+      cover: a.cover ?? undefined,
+      categoryId: a.categoryId ?? undefined,
       uses: a.usageCount,
       isVipExclusive: a.isVipExclusive ?? false,
     })),
-    total: res.total,
-    page: res.page,
-    pageSize: res.pageSize,
-  }))
+    total: raw.length,
+    page: 1,
+    pageSize: raw.length,
+  }
+}
 
 /**
  * 获取智能体详情(对接后端 GET /api/agents/:agentId)。

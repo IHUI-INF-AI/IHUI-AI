@@ -34,7 +34,6 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { type LearnCategory } from './LearnScreen'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import type { MainStackParamList } from '../navigation/tab-utils'
 
 const PAGE_SIZE = 12
 
@@ -47,8 +46,7 @@ const CATEGORY_ID_MAP: Readonly<Record<string, string>> = {
   data: '4',
 }
 
-type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'CourseMain'>
-type RootNav = NativeStackNavigationProp<RootStackParamList>
+type RootNav = NativeStackNavigationProp<RootStackParamList, 'Course'>
 
 /** Course → PopularCourses 卡片项。
  *  isVip 恒 false:服务端从不发 tags(旧 GET /api/course 也是常量 tags: [],新 /api/learn
@@ -91,11 +89,21 @@ function toCourseListItems(items: Course[]): CourseTabScreenProps['courses'] {
   }))
 }
 
-export function CourseScreen() {
+export interface CourseScreenViewProps {
+  /** RN tab 页常驻底部导航;小程序作为普通页承载时传 false,避免与端内原生 tabBar 重影 */
+  showTabBar?: boolean
+  /** 端内 `?keyword=` 深链的初始搜索词(教师主页/Banner 用);RN 导航不传,默认空 */
+  initialKeyword?: string
+}
+
+export function CourseScreenView({
+  showTabBar = true,
+  initialKeyword = '',
+}: CourseScreenViewProps) {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
-  const navigation = useNavigation<NavigationProp>()
-  const rootNav = navigation.getParent<RootNav>()
+  const navigation = useNavigation<RootNav>()
+  const rootNav = navigation
   // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
   const insets = useSafeAreaInsets()
   const tabBarBlurTargetRef = useRef<View>(null)
@@ -105,7 +113,7 @@ export function CourseScreen() {
   const [initialCourses, setInitialCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [keyword, setKeyword] = useState('')
+  const [keyword, setKeyword] = useState(initialKeyword)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [progress, setProgress] = useState<ProgressOverview | null>(null)
@@ -164,23 +172,23 @@ export function CourseScreen() {
       title: cat.name,
     })
 
-  /** 底部 Tab 切换(课程非主 Tab,TabBar 常驻供切换;对齐原内容页底部导航) */
+  /** 底部 Tab 切换(课程为 RootStack 内容屏,TabBar 常驻供切换;对齐原内容页底部导航) */
   const handleTabChange = (key: TabBarKey): void => {
     switch (key) {
       case 'aiShop':
-        navigation.navigate('AiMain')
+        navigation.navigate('Main', { screen: 'AiMain' })
         break
       case 'home':
-        navigation.navigate('HomeMain')
+        navigation.navigate('Main', { screen: 'HomeMain' })
         break
       case 'mine':
-        navigation.navigate('ProfileMain')
+        navigation.navigate('Main', { screen: 'ProfileMain' })
         break
       case 'plaza':
-        rootNav?.navigate('Plaza')
+        navigation.navigate('Main', { screen: 'PlazaMain' })
         break
       case 'news':
-        rootNav?.navigate('News')
+        navigation.navigate('Main', { screen: 'NewsMain' })
         break
     }
   }
@@ -214,8 +222,13 @@ export function CourseScreen() {
         />
       </BlurTargetView>
       {/* 底部导航(课程非原项目 5 主 Tab,TabBar 常驻无高亮,可切换主 Tab;对齐原内容页导航) */}
-      <TabBar onChange={handleTabChange} blurTarget={tabBarBlurTargetRef} />
+      {showTabBar ? <TabBar onChange={handleTabChange} blurTarget={tabBarBlurTargetRef} /> : null}
     </View>
   )
+}
+
+/** RN 导航入口:课程 Tab 屏(保持原签名,不接收端内参数) */
+export function CourseScreen() {
+  return <CourseScreenView />
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

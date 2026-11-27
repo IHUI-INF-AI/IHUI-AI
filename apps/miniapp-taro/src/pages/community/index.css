@@ -126,7 +126,7 @@
 .community-carousel-wrapper {
   width: 100%;
   border: 1px solid var(--color-stroke-default);
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -135,7 +135,7 @@
 .community-carousel-gradient {
   position: relative;
   width: 100%;
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-lg);
   background: linear-gradient(
     235deg,
     var(--color-accent) 6%,
@@ -150,7 +150,7 @@
 
 .community-carousel-inner {
   width: 100%;
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--color-card);
   box-sizing: border-box;
@@ -159,7 +159,7 @@
 /* ===== 搜索框区域(对齐原项目 showSearchBox 条件渲染) ===== */
 
 .community-search-area {
-  margin: 10rpx 0;
+  margin: 0;
 }
 
 /* ===== 横向滚动智能体列表容器 ===== */
@@ -424,38 +424,48 @@
    FlatList contentContainer padding 16dp→32rpx / paddingBottom 32dp→64rpx) ===== */
 
 .community-ailist-content {
-  padding: 0 var(--spacing-lg) var(--spacing-3xl);
+  /* 横向 padding 归零:外层 community-content-area 已有 32rpx 留白。
+     原先再加 --spacing-lg 会把推荐区整体右移 16px,标题和卡片都比「最近使用」多缩进一层。 */
+  padding: 0 0 var(--spacing-3xl);
+  margin-top: var(--spacing-2xl);
   min-height: 800rpx;
   box-sizing: border-box;
 }
 
-/* RN: 共享屏 title paddingHorizontal 10dp→20rpx / paddingTop+Bottom 8dp→16rpx / fontSize 22dp→44rpx /
-   fontWeight 700 / color text.primary */
+/* RN: 共享屏 sectionTitle 已统一到 heading 20 / 600 */
 .community-agent-list-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-sm) var(--spacing-sm-loose);
+  padding: 0;
   margin-bottom: 0;
 }
 
 .community-agent-list-title {
-  font-size: var(--text-headline);
-  font-weight: 700;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
   color: var(--color-foreground);
 }
 
-.community-agent-list-posts {
-  font-size: var(--text-label);
-  color: var(--color-muted-foreground);
+/* weapp 的 Text numberOfLines 在自定义组合样式下不生效(2026-11-27 实测),
+   推荐卡标题/描述统一用 CSS 多行截断,保证双列卡片行高一致。 */
+.community-line-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
 .community-agent-list-more {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: var(--spacing-2xs);
-  font-size: var(--text-label);
+  gap: var(--spacing-xs);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
   color: var(--color-muted-foreground);
 }
 

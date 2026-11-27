@@ -693,3 +693,160 @@ AI应用商店 `pages/agent-market/index` / 广场 `pages/plaza/index/index` / �
 4. RN 验收走 H5（本机无 adb/模拟器），真机 iOS/Android 的触感与 safe-area 未在本轮取证。
 5. 小程序截图分辨率受开发者工具窗口最小化影响（224×448 档），信息架构与卡片结构可辨，像素级视觉请以 web/RN 截图为准。
 6. 本轮的 `RootNavigator`、10 份 i18n 走 blob 模式落地，不携带工作树里其他并行任务的 `CommunityScreen` 路由与 `CirclePost` 类型改动。
+
+## §18 社区首页视觉二审（2026-11-27 16:58）
+
+**结论**：§17 的“结构已齐”推进到“视觉可验收”；web 桌面为基准，RN / 小程序在字号、控件高度、卡片比例与间距上逐项对齐。
+
+- 共享 RN 屏：banner 高度三端统一 128；遮罩改为 1×128 透明→黑 60 的竖向渐变，不再有两段纯色横带；图源失败保留营销位，切品牌深色兜底，不再白字压浅底。推荐卡标题 16/22、正文 12/18、minHeight 264；网格行距 16；底部 `contentPaddingBottom` 默认 96，RN 宿主传 180 让开 90px TabBar 淡出层。搜索框在共享层补 `minHeight: 40`，压掉 `TextField` 的 48 下限，与 web 的 40px 输入框同高。
+- 无图 banner 兜底统一为深底白字 + 同心圆纹理，3 档色值循环；色板单源在 `packages/shared/src/ui/community-banner-spec.ts`，web / RN / 小程序都从这里取，不再各自写一份浅色渐变。web 截图实测 240×128，三档背景 `rgb(49,46,129) / rgb(19,78,74) / rgb(120,53,15)`，标题白色。
+- 小程序：`Carousel` 显式 `height={128}`；无图态用同一色板 inline 注入，CSS 只负责摘掉通用浅色渐变；分类胶囊 active 实底 primary；推荐卡支持 `cover`，API 保留 `cover/categoryId`；关键词与分类改为同一组合筛选（先搜后点分类不会丢搜索词，反之亦然），筛选后关闭 loadMore，再点已选项取消并恢复首屏。推荐卡垂直尺寸改为 px 锁定：卡宽 `calc(50% - 7px)`、minHeight 266、封面 128、头像 64/圆角 14、标题 16/22、描述 13/18、价格 12/16，折算与 web/RN 同高，不再随 390 设备 ×1.04 放大。
+- web：分类胶囊同页过滤 + 二次点击取消；`AgentAvatarImage` / `AgentCoverImage` 失败回落首字母圆牌；卡片高度 264 / 标题 16/22 / 封面上圆角 14；banner 图失败走深色兜底，不出现破图图标。
+- web 种子图改为同源 `/seed-image`（根路径，避开 `/api/:path*` 重写）：固定只代理 `picsum.photos` / `fastly.picsum.photos`，https + 手动跟随最多 3 跳并逐跳校验主机，返回 `content-type` 必须 `image/*`；单跳 5.5s 超时、最多 2 次尝试，成功缓存 1 天。5 张 banner seed 串行实测 200（1.25–4.1s），分类下 CodeBuddy / CodeMaster 封面也走通；未放宽 CSP，也未改 8803 运行副本。
+- banner 渐变压暗改为铺满整卡的 inline `linear-gradient(to top, rgba(0,0,0,.66), rgba(0,0,0,.34) 46%, rgba(0,0,0,.06))`，不再只压文字条；浅色图上的白字对比度稳定。`loading="eager"` 让 5 张同屏图一起进加载队列；卡片底色始终先铺对应深色档，图片 pending 时也不会出现浅灰空壳。
+- 校验：`@ihui/rn-app`、`@ihui/mobile-rn`、`@ihui/web`、`@ihui/miniapp-taro` 的 `tsc --noEmit` 全过（先重建 `@ihui/api-client` dist，清掉旧的 `clearChatDraft/getChatDraft/saveChatDraft` 声明缺口）；小程序 `build:weapp` exit 0，主包 1,860,604 B / 2,097,152 B，余量 236,548 B。
+- RN 分类实测：登录后点击「AI 编程助手」，只剩 CodeBuddy / CodeMaster 两张，chip 黑底白字（`rn-16-category.png`）。web 分类实测：chip `bg rgb(0,0,0)`、`color rgb(255,255,255)`，两张真实封面；5 张 banner 全量加载后截屏 `web-community-final.png`。
+
+**仍开放（不冒充已做）**
+
+1. 小程序分类筛选、深色 banner、px 锁定卡已落在代码与构建产物里，但微信开发者工具退出后 9423 automator 不可连，最新构建未再截图 / 量 266 的实测值；API 侧已核对 5 个分类均有数据（编程 2 / 写作 22 / 绘画 22 / 教育 14 / 营销 36）。
+2. `/seed-image` 只覆盖 `picsum.photos` / `fastly.picsum.photos`；其他公网封面仍走 `/api/media/image`，8803 运行副本的 TLS 502 对非 seed 图仍会触发首字母兜底。CSP 未改。
+3. 本轮代码改动均未提交；工作树混有并行任务改动，提交时只挑本票文件。
+
+## §19 小程序分类空列表修复、登录取证与三端视觉终验（2026-11-27 20:20）
+
+**结论**：§18 唯一未闭环的小程序实拍项已闭环。分类筛选从「点 AI 编程助手后 0 卡」修到「稳定 2 卡」；关键词与分类组合筛选在最新构建上实测回到 0 卡空态；搜索、分类胶囊、banner、section 标题四处 1–2px 的 rpx 缩放差已按 web 设备像素锁定。生产构建 `build:weapp` exit 0，主包 1,861,054 B / 2,097,152 B，余量 236,098 B，产物 `BASE_URL=https://www.aizhs.top/api`。
+
+**两个真实功能 bug**
+
+1. **分类主键拿错**：`GET /api/agents/categories` 返回的是 `categoryId`，没有 `id`。`loadCategories` 旧写法 `id: c.id || String(idx)` 把 5 个分类的主键写成 `"0"…"4"`，而智能体行是 UUID，点「AI 编程助手」后永远命中 0 条。已改为 `id: c.categoryId || c.id || String(idx)`，胶囊 active 与列表过滤共用同一主键。
+2. **列表只拉了第一页**：`getAgentList()` 旧实现固定 `pageSize:200`，后端单页硬上限 100；`/agents/list?pageSize=200&page=1` 实测 `total=124, list=100`，AI 编程分类（`9ada4bf9-7601-4aac-8867-605773ce077e`）完全不在第一页，第 2 页才返回 24 条。旧端内本地筛选只看第一页，所以分类必空。已改为 `AGENT_LIST_PAGE_SIZE=100`、`AGENT_LIST_MAX_PAGES=20`，按 `total` 顺序翻页合并全量后再做关键词 + 分类组合过滤，避免 loadMore 把未筛选项追加回来。
+
+**取证与登录**
+
+- 纯 storage 注入 token 不成立：tokenStore 是内存单例，冷启动/注入后不会重读 storage；未登录态打开社区会被 auth 端点的 401 导回 `pages/user/index`。改用「我的」页 `LoginPopUp` 的密码登录（`18600001234 / Ihui@2026`）走真实 `setToken` 链路，token 333 字符，`switchTab('/pages/community/index')` 成功落在社区页；随后所有截图均在该登录会话内完成。token 的 JWT 有效期为 15 分钟，过期后的冷启动会按既有 401 策略清凭据并回登录宿主，不是本次筛选 bug。
+- 构建环境注意：本地 `apps/miniapp-taro/node_modules/@ihui/*` 是 `C:\Users\Administrator\AppData\Local\Temp\ihui-miniapp-sync` 的 junction，镜像曾缺 `community-banner-spec` 与 `chat/slash-commands`，导致 `build:weapp` 报 `ModuleNotFoundError`。刷新 shared/src、api-client/dist、types/dist 镜像后 `tsc --noEmit` exit 0、`build:weapp` exit 0；这是本地取证镜像问题，不是仓库源码缺文件。
+
+**最终实测几何（微信开发者工具 automator，逻辑 390×844）**
+
+| 元素 | 实测 |
+|---|---|
+| `.community-search-area` | 358×40，left 16 / top 172.78 |
+| `.community-carousel-wrapper` | 358×128，top 236.78 |
+| `.community-category-row` | 358×68，top 428.78 |
+| `.community-category-chip` | 98.59×30 |
+| `.community-agent-grid` | 358×1394，top 645.25 |
+| `.community-agent-card` | 172×266，左 16 / 右 202（水平缝 14） |
+| `.community-card-cover` | 170×128 |
+| `.community-card-body` | 170×136 |
+| `.community-agent-list-title` | 100×28 |
+
+- 搜索 40、胶囊 30、banner 128、section 标题 28 均与 web 同档；网格 5 行×266 + 4×16 = 1394，双列缝 14。此前 41.59 / 31.20 / 130 / 29 的差值来自 `rpx` 在 390 宽下的 ×1.04 缩放。
+- Taro 的 CSS `px` 会被 pxtransform 成 `rpx`：`.community-carousel-wrapper { height:128px }` 实测被压成 66px，`.community-agent-list-title { font-size:20px }` 实测变成 10px 高。已改为 banner 高度 inline `height:'128px'`、标题 CSS 用大写 `20PX/28PX` 跳过转换；第二次构建后实测恢复 128 与 100×28。这是本轮唯一一次「修复引入回归、再由实测抓回」的记录。
+
+**功能实拍**
+
+- 分类：点「AI 编程助手」后 `cards=2`，标题 `CodeBuddy 智能编程助手` / `CodeMaster 代码审查官`，截图 `mini-v5-category.png`。
+- 组合筛选：保持「AI 编程助手」active，搜索「写作」并回车，`cards=0`，页面显示「暂无智能体」，同一帧里搜索词、active 胶囊、空态齐全，截图 `mini-v5-combined-top.png`；滚动后的空态截图 `mini-v5-combined-empty.png`。
+- 首页：`mini-v5-combined-top.png` 同时覆盖 128 banner、搜索行、5 个分类胶囊、最近空态与推荐标题；banner 单张满宽（轮播过渡帧的取证假象已避开）。
+
+**生产构建与归档**
+
+- 生产构建命令：`pnpm run build:weapp`（未注入本地 `TARO_APP_*`，读取 `.env.production`）；exit 0，主包 1,861,054 B / 2,097,152 B，余量 236,098 B；`dist/20170.js` 选中 `https://www.aizhs.top/api`。
+- 归档截图：`docs/engineering/assets/community-miniapp-2026-11-27.png`（首页/组合空态同帧）、`community-miniapp-grid-2026-11-27.png`（AI 编程 2 卡）、`community-miniapp-combined-empty-2026-11-27.png`（组合空态滚动位）。旧归档图已替换。
+
+**仍开放（不冒充已做）**
+
+1. 本轮代码仍未提交；工作树混有并行任务改动，提交时只挑本票文件。`packages/shared/src/ui/community-banner-spec.ts` 在当前索引里被识别成 rename，提交前需确认它作为 add 落地，不要带上无关的 `file-preview-dialog.tsx` 删除。
+2. `/seed-image` 仍只覆盖 `picsum.photos` / `fastly.picsum.photos`；其他公网封面走 `/api/media/image`，8803 运行副本 TLS 502 时仍回落首字母。CSP 未改。
+3. RN 验收仍是 H5（390×844）证据，真机 iOS/Android 的 safe-area 与滚动惯性未在本轮取证。
+4. 生产构建已落到 `dist`，但未触发部署；部署按约定只写 marker，由 `node scripts/prod-deploy-now.mjs --no-wait` 消费。
+
+## §20 RN 社区顶栏四向投影修复（2026-11-27 20:50）
+
+**结论**：用户实拍「顶部白色玻璃条只有下投影被整片盖住、左右与上缘也贴着屏边看不到」不是补一层 `filter` 能修的，根因是**投影面与圆角裁剪同体 + 正文兄弟层后绘制**。已拆层并约束投影半径，H5 390×844 同角度复验四边均可见；顶栏几何未移动（仍 x10/y6/370×46），底栏圆角裁剪不回退。
+
+**结构修复**
+
+1. `theme/glass-bar-surface.ts`：`GLASS_BAR_SURFACE` 去掉 `overflow: hidden`，只保留背景/描边/圆角/`ELEVATION_STEPS.lg` 投影/web 模糊；新增 `GLASS_BAR_CLIP` 承接 12 圆角 + `overflow: hidden`，只裁内部内容。阴影从此不再被自身盒裁剪。
+2. 投影半径按停靠留边收口，而不是盲取 `.lg` 的 12：`GLASS_BAR_ELEVATION_RADIUS_PX = TAB_BAR_MARGIN_H_PX = 10`，`offsetY 4` ⇒ 上翼 6 恰好等于 `TAB_BAR_GAP_TOP_PX`，左右翼 10 恰好贴满屏幕内缘。此前半径 12 会在左右和上缘各被屏边硬裁 2px，正是实拍里的直边。
+3. `NavChrome.tsx`：渲染拆成「投影面 wrap → 圆角 clip → NavBar」三层；wrap 增加 `position: relative + zIndex: 2`，把下投影画在后续不透明的 `CommunityMainScreen.body` 之上。此前正文的 `surface.bg` 从 y52 起铺色，正好从玻璃条下沿盖住整段投影。
+4. `TabBar.styles.ts` / `TabBar.tsx`：底栏同样拆出 `clip` 子层承载 BlurView / rimLight / 图标行；投影留在外层 container。底栏 12 圆角、顶部选中指示条和图标行高均保持，不因去掉 overflow 而溢出圆角。
+5. `App.tsx` 的 `ROUTE_ROOT_BG` 补 `PlazaMain / NewsMain`（并行主 Tab 改组后新增的两个 NavBar 路由），保持 `nav-chrome-route-parity` 判据全绿；只补根部状态栏带同档 `surface.bg`，不改页面内容。
+
+**验证**
+
+- H5 实测：顶栏 `x=10 / y=6 / 370×46`，computed shadow `rgba(0,0,0,0.12) 0px 4px 10px 0px`，`overflow: visible`，`zIndex: 2`。
+- 像素采样（2x 截图）：下沿 y104 起 `222 → 226 → 231 → 235 → 239 → 242 → 244 → 245`，约 28px 完整渐变；左缘 `244 → 225`、右缘 `244 → 231 → 225`、上缘 `244 → 225`，四边均有渐变，无硬裁切线。
+- 截图：`docs/engineering/assets/community-rn-topbar-shadow-2026-11-27.png`（780×1688，390×844@2x，社区首页同角度）；`community-rn-topbar-shadow-crop-2026-11-27.png`（顶部 780×210 放大证据，四边渐变可见）。
+- 自动化：新增 `apps/mobile-rn/tests/glass-bar-surface.test.ts` 4 条结构锁（面层不得 overflow、裁剪层必须 overflow+圆角、NavChrome 必须 zIndex、阴影半径必须锚定留边）；与 `nav-chrome-route-parity.test.ts` 合跑 `2 files / 9 tests passed`；`@ihui/mobile-rn` `tsc --noEmit` exit 0。
+
+**仍开放（不冒充已做）**
+
+1. 本轮取证是 Expo Web（H5）390×844；iOS/Android 真机的 `shadowPath`、Android elevation 轮廓与 safe-area 顶距未实拍，代码面已按 RN 三端同源写法收口。
+2. 顶/底栏共用面结构变了，但底栏只做了 H5 同屏复验（圆角与图标/指示条正常）；原生底栏 BlurView 的最终观感需真机回归。
+3. 工作树仍有并行任务改动；本票只动 `glass-bar-surface.ts`、`NavChrome.tsx`、`TabBar.tsx`、`TabBar.styles.ts`、`App.tsx` 的两条路由底色与新增测试，提交时不要带上无关文件。
+
+## §21 社区首页三端终版归档与封面契约收口（2026-11-27 20:55）
+
+**结论**：三端社区首页的视觉证据链补齐，RN 归档不再是旧 HomeScreen；小程序封面字段从 API 到页面的链路已打通，通知里的「cover 未透出」一项可关闭。后端种子数据 `cover` 仍为 null，因此三端继续走统一头像兜底 —— 是数据未填，不是端内缺字段。
+
+**终版截图归档**
+
+| 端 | 文件 | 说明 |
+|---|---|---|
+| web | `docs/engineering/assets/community-web-light-2026-11-27.png` | 800×900 右栏；5 张真实 seed banner、3 列推荐卡；2026-11-27 17:49 实拍 |
+| RN/H5 | `docs/engineering/assets/community-rn-h5-2026-11-27.png` | 390×844@2x 全屏；社区首页 + 四向投影顶栏；已替换 10:10 的旧 HomeScreen 归档 |
+| RN/H5 顶栏 | `community-rn-topbar-shadow-2026-11-27.png` / `...-crop...png` | 顶栏投影整屏与 780×210 放大 |
+| 小程序 | `community-miniapp-2026-11-27.png`、`community-miniapp-grid-2026-11-27.png`、`community-miniapp-combined-empty-2026-11-27.png` | 首页/组合空态、AI 编程 2 卡、滚动空态 |
+
+**小程序封面 / banner 契约（关闭旧开放项）**
+
+- `apps/miniapp-taro/src/api/index.ts` 的 `AgentRawRow` 已补 `cover?: string | null`，`getAgentList` 映射 `cover: a.cover ?? undefined`；`pages/community/index.tsx` 的 `AgentCard` 先取 `a.cover`，无封面才回退 `a.avatar`。旧报告里「API 层未透出 cover，需下一轮改 api/index.ts」已不成立。
+- `content/home` 的 banner 运行时字段是 `imageUrl`，`coverUrl` 为空。小程序已按 `coverUrl → imageUrl → image → cover` 优先级解析，5 条 banner 均能拿到 `https://picsum.photos/seed/...`；web 走同一字段，三端不再出现「只读 coverUrl 导致无图」。
+- 实测本地 API：5 条 banner `imageUrl` 全有值，`coverUrl=null`；`/agents/list` 前 20 条 `cover` 全为 null。结论：前端链路完整，封面视觉仍为头像兜底；要变成真封面必须补内容数据，不能在前端伪造。
+
+**本轮校验**
+
+- `@ihui/mobile-rn` `tsc --noEmit` exit 0；`glass-bar-surface` 4 条 + `nav-chrome-route-parity` 5 条，共 9 tests passed；ESLint 0。
+- `@ihui/miniapp-taro` `tsc --noEmit` exit 0；现有 `dist` 构建于 20:18，晚于社区页最后改动 20:07，生产 API 与 §19 主包尺寸未回退。
+- web 当前 3000 壳在未登录态只展示空社区（`/api/auth/refresh` 401），本表 web 图取自有登录态的 8877 实拍；登录 E2E 仍不在本票范围。
+
+**仍开放（不冒充已做）**
+
+1. 小程序/后端种子数据 `cover` 全为 null，真封面需要内容侧补图；前端已保留优先级，不需要再改代码。
+2. iOS/Android 真机未实拍，RN 仍以 H5 390×844 取证；safe-area 与原生 BlurView 观感待真机。
+3. 未触发部署；仍按约定只写 marker，不直接运行部署脚本。
+4. 工作树 444 项并行改动未提交；本票相关文件仍未提交，提交时需逐文件挑拣。
+
+## §22 终局收口（2026-11-27 21:10）
+
+**结论**：社区首页三端视觉与前端字段链路已收口，当前工作树中的可用证据、测试、归档均完成。以下四项不是“下一轮建议”，是本轮已核到边的终点；继续盲做只会伪造数据或破坏并行工作树，故在此关闭。
+
+**1. 真封面数据：前端已闭环，内容资产不在代码侧**
+
+- API 列、`cover` 映射、卡片优先级、banner `imageUrl` 兜底均已验证；本地 124 条智能体的 `cover` 全为 `null`，5 条 banner 的 `coverUrl` 全为 `null` 但 `imageUrl` 全有值。三端头像兜底是当前数据的真实上限。
+- 不为 124 个智能体伪造封面：那会把内容缺失伪装成已交付，破坏“证据可追溯”纪律。真封面只能由内容侧补图；前端无需再改。
+
+**2. 原生 RN：本机无 Android 设备/模拟器，iOS 在 Windows 上不可运行**
+
+- `adb`、`emulator` 均不在 PATH，`ANDROID_HOME`/`ANDROID_SDK_ROOT` 为空，常用 SDK 目录不存在；无 `emulator`/`qemu` 进程。没有可后台无窗口启动的 Android 运行面。
+- iOS 原生验证需要 macOS + Xcode，本机 Windows 无法产出真机/模拟器证据。RN 视觉验收以 Expo H5 390×844 为最终可复现实证；这不是“再补一轮真机截图”能解决的，是平台边界。
+
+**3. 提交：按仓库 12i 私有索引通道收口**
+
+- 当前 local HEAD `e8142039`；`origin/main` 已推进到 `9206e08b`，两者分叉。`CommunityMainScreen.tsx` 与 `community-banner-spec.ts` 在 origin/main 和 `D:/DevEnv/ihui-prod` 均不存在。
+- 工作树 444 项变更混有并行任务，不做整体提交。本票只把 35 条声明路径送进 `scripts/isolated-git.mjs` 的私有索引（不写共享 `.git/index`），提交后由 post-commit guard 自动推送；远端前移时走 `git-sync-converge.mjs` 的索引层合流。
+
+**4. 部署：推送落地后只写 marker**
+
+- `scripts/prod-deploy-now.mjs` 的 marker 由 SYSTEM 守护消费，部署对象是 `D:/DevEnv/ihui-prod` 的 origin/main checkout，不是本工作树。
+- 本次提交推送落地后才写 marker；按既有约束只用 marker 触发，不直接运行 `ihui-deploy.ps1`。部署结论以 `deploy-loop.log` 与 `last-green.sha` 为准，不以 exit=0 冒充成功。
+
+**最终校验记录**
+
+- `@ihui/mobile-rn`: `tsc --noEmit` exit 0；9 tests passed；ESLint 0。
+- `@ihui/miniapp-taro`: `tsc --noEmit` exit 0；dist 构建与生产 API 未回退。
+- H5 投影像素、三端终版截图、封面/banner API 实读均已归档；Expo 8806 临时服务已停止，未留后台进程。
+
+**关闭**：本轮不再给后续建议。三端社区首页可验收部分已全部落地；原生与生产发布受平台/仓库集成边界限制，已如实记录，不冒充完成。

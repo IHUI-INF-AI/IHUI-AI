@@ -13,7 +13,7 @@ import { StyleSheet } from 'react-native'
 import type { ViewStyle, TextStyle, ImageStyle } from 'react-native'
 import { tokens as tk } from '../theme/active-tokens'
 import { rnRadius, withAlpha, rnSpacing } from '@ihui/design-tokens'
-import { GLASS_BAR_SURFACE } from '../theme/glass-bar-surface'
+import { GLASS_BAR_CLIP, GLASS_BAR_SURFACE } from '../theme/glass-bar-surface'
 import {
   TAB_BAR_FONT_SIZE_ACTIVE_PX,
   TAB_BAR_FONT_SIZE_PX,
@@ -106,18 +106,24 @@ export const tabBarStyles = {
   } satisfies ViewStyle,
 
   /**
-   * 液态玻璃胶囊:图标行(高 TAB_BAR_HEIGHT)包进同一块玻璃 —— 圆角 + 细描边 + 投影。
-   * 2026-10-28 六稿:五稿的 Android blurMethod='dimezisBlurView' 实机仍出实心白 —— expo-blur
-   * SDK 55+ 的 Android 模糊还须配 blurTarget(缺省即退实心 LIGHT tint 白块),故 Android 不再
-   * 渲染 BlurView,运行时注入 0.88 磨砂实底(见 TabBar.tsx);此处默认色仅 web/iOS 生效。
+   * 液态玻璃胶囊外框:高度 + 背景/描边/圆角/**四向投影**。
+   * 2026-11-27 投影修复:外框不再 `overflow:hidden`(那会把投影裁在盒子里);
+   * 圆角裁内容下沉到 `clip` 子层,BlurView/rimLight 仍被 12 圆角收住。
    */
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
     height: TAB_BAR_HEIGHT,
     // 背景 / 描边 / 圆角 / 阴影 / web 模糊与顶栏共用同一枚玻璃面(theme/glass-bar-surface.ts)
     ...GLASS_BAR_SURFACE,
+  } satisfies ViewStyle,
+
+  /** 内容裁剪层:玻璃圆角内裁 BlurView/rimLight/图标行,投影仍由外层 container 投出 */
+  clip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    // 与顶栏同一枚圆角裁剪;不得把 overflow 写回 container
+    ...GLASS_BAR_CLIP,
   } satisfies ViewStyle,
 
   /** 真背景模糊层(expo-blur BlurView 的 absolute fill,仅 iOS 端渲染,置于图标行之下) */
@@ -141,9 +147,11 @@ export const tabBarStyles = {
 
   item: {
     flex: 1,
+    // 由裁剪层拉满实际内容高(外框 62 含上下 hairline,内层约 60);
+    // 不再写死 62,否则选中态顶部指示条会被圆角裁剪掉一截。
+    alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
-    height: TAB_BAR_HEIGHT,
     paddingVertical: rnSpacing.xs,
   } satisfies ViewStyle,
 

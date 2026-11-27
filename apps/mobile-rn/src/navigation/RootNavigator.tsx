@@ -31,6 +31,7 @@ import NotificationPanel, { PushBanner } from '../components/NotificationPanel'
 import { useI18n } from '../i18n'
 import { LoginScreen } from '../screens/LoginScreen'
 import { HomeScreen } from '../screens/HomeScreen'
+import CommunityMainScreen from '../screens/CommunityMainScreen'
 import { ChatScreen } from '../screens/ChatScreen'
 import { ChatWorkbenchScreen } from '../screens/ChatWorkbenchScreen'
 import { ProfileScreen } from '../screens/ProfileScreen'
@@ -251,6 +252,7 @@ import IncomeScreen from '../screens/IncomeScreen'
 import { AgentDetailScreen } from '../screens/AgentDetailScreen'
 import { AgentChatScreen } from '../screens/AgentChatScreen'
 import { AgentMarketScreen } from '../screens/AgentMarketScreen'
+import { CommunityScreen } from '../screens/CommunityScreen'
 import { AgentCreateScreen } from '../screens/AgentCreateScreen'
 import { AgentEditScreen } from '../screens/AgentEditScreen'
 import { ArticleDetailScreen } from '../screens/ArticleDetailScreen'
@@ -574,7 +576,7 @@ export type RootStackParamList = {
   About: undefined
   Status: undefined
   SignUp: undefined
-  CirclePost: undefined
+  CirclePost: { circleId?: string; circleName?: string } | undefined
   Invitations: undefined
   Letters: undefined
   LetterChat: { memberId: string; memberName: string }
@@ -670,6 +672,7 @@ export type RootStackParamList = {
   AgentDetail: { id: string }
   AgentChat: { agentId: string; name: string }
   AgentMarket: undefined
+  Community: undefined
   AgentCreate: undefined
   AgentEdit: { id: string }
   ArticleDetail: { id: string }
@@ -717,8 +720,10 @@ export type RootStackParamList = {
   AigcPublish: undefined
   // H10-H18 新增路由(复刻 Uniapp 缺失页面)
   Learn: undefined
-  News: undefined
-  Plaza: undefined
+  /** 课程列表（从 MainTabs 下移为 RootStack 屏，TabBar 无对应可见 tab） */
+  Course: undefined
+  /** 直播列表（从 MainTabs 下移为 RootStack 屏，TabBar 无对应可见 tab） */
+  Live: undefined
   CoursePlanet: undefined
   LearnDevelop: undefined
   StudyIndex: undefined
@@ -860,10 +865,10 @@ function MainNavigator() {
         lazy: false,
       }}
     >
-      <MainTabs.Screen name="HomeMain" component={HomeScreen} />
-      <MainTabs.Screen name="CourseMain" component={CourseScreen} />
       <MainTabs.Screen name="AiMain" component={AgentScreen} />
-      <MainTabs.Screen name="LiveMain" component={LiveScreen} />
+      <MainTabs.Screen name="PlazaMain" component={PlazaScreen} />
+      <MainTabs.Screen name="HomeMain" component={CommunityMainScreen} />
+      <MainTabs.Screen name="NewsMain" component={NewsScreen} />
       <MainTabs.Screen name="ProfileMain" component={ProfileScreen} />
     </MainTabs.Navigator>
   )
@@ -1308,6 +1313,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="AgentDetail" component={AgentDetailScreen} />
             <RootStack.Screen name="AgentChat" component={AgentChatScreen} />
             <RootStack.Screen name="AgentMarket" component={AgentMarketScreen} />
+            <RootStack.Screen name="Community" component={CommunityScreen} />
             <RootStack.Screen name="AgentCreate" component={AgentCreateScreen} />
             <RootStack.Screen name="AgentEdit" component={AgentEditScreen} />
             <RootStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
@@ -1348,8 +1354,8 @@ function RootNavigatorInner() {
             <RootStack.Screen name="AigcPublish" component={AigcPublishScreen} />
             {/* H10-H18 新增 Screen(复刻 Uniapp 缺失页面) */}
             <RootStack.Screen name="Learn" component={LearnScreen} />
-            <RootStack.Screen name="News" component={NewsScreen} />
-            <RootStack.Screen name="Plaza" component={PlazaScreen} />
+            <RootStack.Screen name="Course" component={CourseScreen} />
+            <RootStack.Screen name="Live" component={LiveScreen} />
             <RootStack.Screen name="CoursePlanet" component={CoursePlanetScreen} />
             <RootStack.Screen name="LearnDevelop" component={LearnDevelopScreen} />
             <RootStack.Screen name="StudyIndex" component={StudyIndexScreen} />

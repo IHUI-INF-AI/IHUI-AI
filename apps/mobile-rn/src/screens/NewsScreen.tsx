@@ -110,7 +110,7 @@ export default function NewsScreenWrapper() {
         navigation.navigate('Main', { screen: 'HomeMain' })
         break
       case 'plaza':
-        navigation.navigate('Plaza')
+        navigation.navigate('Main', { screen: 'PlazaMain' })
         break
       case 'mine':
         navigation.navigate('Main', { screen: 'ProfileMain' })

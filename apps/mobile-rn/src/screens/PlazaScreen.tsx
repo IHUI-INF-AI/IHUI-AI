@@ -107,9 +107,16 @@ const PLAZA_TRACK_FALLBACK_KEYS: ReadonlyArray<{ id: string; nameKey: string }> 
  * 跨栈导航 helper — React Navigation v6 的 navigate 重载对 RootStackParamList
  * 联合类型推断失败,需在 helper 内部隔离类型断言。
  */
-function navigateRoot(nav: RootNav | undefined, route: keyof RootStackParamList): void {
+function navigateRoot(
+  nav: RootNav | undefined,
+  route: string,
+  params?: Record<string, unknown>,
+): void {
   if (nav) {
-    nav.navigate(route as never)
+    const loose = nav as unknown as {
+      navigate: (name: string, params?: Record<string, unknown>) => void
+    }
+    loose.navigate(route, params)
   }
 }
 
@@ -156,7 +163,7 @@ export function PlazaScreen() {
         navigation.navigate('Main', { screen: 'HomeMain' })
         break
       case 'news':
-        navigation.navigate('News')
+        navigation.navigate('Main', { screen: 'NewsMain' })
         break
       case 'mine':
         navigation.navigate('Main', { screen: 'ProfileMain' })
@@ -334,11 +341,11 @@ export function PlazaScreen() {
   const handleDrawerNavigate = (tab: DrawerTab) => {
     setDrawerVisible(false)
     if (tab === 'square') {
-      navigateRoot(rootNav, 'Plaza')
+      navigateRoot(rootNav, 'Main', { screen: 'PlazaMain' })
       return
     }
     if (tab === 'share') {
-      navigateRoot(rootNav, 'News')
+      navigateRoot(rootNav, 'Main', { screen: 'NewsMain' })
       return
     }
     navigateDrawerTab(rootNav, tab)

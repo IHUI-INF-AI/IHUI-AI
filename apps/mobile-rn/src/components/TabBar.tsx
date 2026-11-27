@@ -136,45 +136,48 @@ export default function TabBar({ activeTab, onChange, labels, blurTarget }: TabB
             },
           ]}
         >
-          {Platform.OS === 'ios' || androidBlur ? (
-            <BlurView
-              intensity={resolvedTheme === 'dark' ? 68 : 74}
-              tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
-              blurMethod={androidBlur ? 'dimezisBlurView' : undefined}
-              blurTarget={blurTarget}
-              style={tabBarStyleSheet.blurFill}
-            />
-          ) : null}
-          {resolvedTheme !== 'dark' ? (
-            <View style={tabBarStyleSheet.rimLight} pointerEvents="none" />
-          ) : null}
-          {TABS.map((tab) => {
-            const isActive = tab.key === activeTab
-            return (
-              <Tappable
-                key={tab.key}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isActive }}
-                accessibilityLabel={t(tab.label)}
-                onPress={handlePress(tab.key)}
-                style={tabBarStyleSheet.item}
-              >
-                {/* 2026-09-23 修复 P1:选中态顶部指示条(3px 高强调档,左右留边圆角)。
-                  原选中态仅白色 vs 灰色文字,区分度极低;新增指示条 + 强调色文字 + 粗体三重区分。 */}
-                {isActive ? <View style={tabBarStyleSheet.activeIndicator} /> : null}
-                <TabBarIcon tab={tab} isActive={isActive} />
-                <Text
-                  style={[
-                    tabBarStyleSheet.label,
-                    isActive ? tabBarStyleSheet.labelActive : tabBarStyleSheet.labelInactive,
-                  ]}
-                  numberOfLines={1}
+          {/* 圆角裁剪层:投影留在外层 container,BlurView/rimLight/图标行收进内层裁圆角 */}
+          <View style={tabBarStyleSheet.clip}>
+            {Platform.OS === 'ios' || androidBlur ? (
+              <BlurView
+                intensity={resolvedTheme === 'dark' ? 68 : 74}
+                tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
+                blurMethod={androidBlur ? 'dimezisBlurView' : undefined}
+                blurTarget={blurTarget}
+                style={tabBarStyleSheet.blurFill}
+              />
+            ) : null}
+            {resolvedTheme !== 'dark' ? (
+              <View style={tabBarStyleSheet.rimLight} pointerEvents="none" />
+            ) : null}
+            {TABS.map((tab) => {
+              const isActive = tab.key === activeTab
+              return (
+                <Tappable
+                  key={tab.key}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isActive }}
+                  accessibilityLabel={t(tab.label)}
+                  onPress={handlePress(tab.key)}
+                  style={tabBarStyleSheet.item}
                 >
-                  {labels?.[tab.key] ?? t(tab.label)}
-                </Text>
-              </Tappable>
-            )
-          })}
+                  {/* 2026-09-23 修复 P1:选中态顶部指示条(3px 高强调档,左右留边圆角)。
+                    原选中态仅白色 vs 灰色文字,区分度极低;新增指示条 + 强调色文字 + 粗体三重区分。 */}
+                  {isActive ? <View style={tabBarStyleSheet.activeIndicator} /> : null}
+                  <TabBarIcon tab={tab} isActive={isActive} />
+                  <Text
+                    style={[
+                      tabBarStyleSheet.label,
+                      isActive ? tabBarStyleSheet.labelActive : tabBarStyleSheet.labelInactive,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {labels?.[tab.key] ?? t(tab.label)}
+                  </Text>
+                </Tappable>
+              )
+            })}
+          </View>
         </View>
       </View>
     </View>

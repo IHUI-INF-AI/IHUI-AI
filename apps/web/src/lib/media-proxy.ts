@@ -30,6 +30,16 @@ const IMG_WHITELIST_HOSTS = [
   'test-for-dp.oss-cn-guangzhou.aliyuncs.com',
 ] as const
 
+/**
+ * seed 图源专用同源代理（2026-11-27）。
+ *
+ * banner / cover 的种子数据都指向 picsum；它不在 CSP img-src 白名单，走 ai-service
+ * `/api/media/image` 又会被运行进程的 TLS 故障打成 502。Next 的 `/api/seed-image`
+ * 用 Node fetch 取图并同源返回，既不放宽 CSP，也不依赖 ai-service。
+ * 其它任意公网图仍走原代理，这里只多这两个固定主机。
+ */
+const SEED_IMAGE_HOSTS = new Set(['picsum.photos', 'fastly.picsum.photos'])
+
 function isWhitelistedHost(host: string): boolean {
   const h = host.toLowerCase()
   if (IMG_WHITELIST_HOSTS.includes(h as (typeof IMG_WHITELIST_HOSTS)[number])) return true
@@ -89,6 +99,10 @@ export function toMediaImageUrl(url?: string | null): string {
   if (/^https?:\/\//i.test(value)) {
     try {
       const u = new URL(value)
+      // seed 图源走 Next 同源路由（CSP 仍 self；Node fetch 不受 ai-service TLS 故障影响）。
+      if (SEED_IMAGE_HOSTS.has(u.hostname.toLowerCase())) {
+        return `/seed-image?url=${encodeURIComponent(value)}`
+      }
       // 白名单域名直连(CSP img-src 已放行);其余任意公网直链走同源代理。
       if (isWhitelistedHost(u.hostname)) return value
     } catch {
