@@ -1,0 +1,51 @@
+{
+  "face": "worktree",
+  "webRoutes": 932,
+  "rnScreens": 361,
+  "miniPages": 343,
+  "registryEntries": 260,
+  "carrierLedgerRows": 278,
+  "categories": {
+    "web-only": 535,
+    "mini-native": 213,
+    "mini-webview": 97,
+    "rn-only": 64,
+    "mini-native-direct": 10,
+    "mini-native-own": 12,
+    "rn-pending": 1
+  },
+  "gaps": {
+    "unclassified": 0,
+    "carrierGap": 0,
+    "miniRouteMissing": 0,
+    "portalPageMissing": 0,
+    "total": 0
+  },
+  "gapItems": {
+    "unclassified": [],
+    "carrierGap": [],
+    "miniRouteMissing": [],
+    "portalPageMissing": []
+  },
+  "review": {
+    "rnOnly": 64,
+    "rnOnlyScreens": 53,
+    "rnOnlyDecided": 10,
+    "rnOnlyNeedsReview": 43,
+    "rnOnlyReview": "scripts/data/cross-end-route-contract-rn-only-review.json",
+    "rnPending": 1,
+    "miniNativeOwn": 12,
+    "miniNativeDirect": 10,
+    "note": "rn-only 是 RN 有屏但既无共享屏登记、也无小程序直接 shell 承载的按平台差候选；其中已有 not-applicable 裁决的 10 屏不重复派单，其余 43 屏待产品/端侧复核；rn-pending 是待真机验收；mini-native-direct 是小程序直接 import RN shell 的真实承载；mini-native-own 是页头显式声明对齐 RN 屏的小程序手写页。四者都不冒充共享屏全量承载"
+  },
+  "contractHash": "dd758e6e7b956b23f872564971560c5117221507adbdc3fcedf5b01c0837166c",
+  "contractRows": 932,
+  "sources": [
+    "scripts/data/cross-end-screen-registry.json",
+    "scripts/data/web-mp-route-carrier-ledger.jsonl",
+    "scripts/data/web-rn-screen-map.jsonl",
+    "scripts/data/miniapp-mirror-verdicts.jsonl",
+    "scripts/data/cross-end-mini-own-manual.json",
+    "apps/miniapp-taro/src/app.config.ts"
+  ]
+}

@@ -1,0 +1,387 @@
+{
+  "note": "rn-only 逐屏复核清单；这些 Web 路由在 RN 有屏，但既无共享屏登记，也无小程序直接 shell 承载。已有 not-applicable 裁决的屏不重复派单，其余才需产品/端侧裁决补页或接受平台差。",
+  "totalRoutes": 64,
+  "totalScreens": 53,
+  "decidedNotApplicable": 10,
+  "needsReview": 43,
+  "screens": [
+    {
+      "rn": "apps/mobile-rn/src/screens/AgentCategoriesScreen.tsx",
+      "routes": ["agents/categories", "agents/categories/[id]"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/AgentRuntimeScreen.tsx",
+      "routes": ["agent-runtime"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/AgreementByTypeScreen.tsx",
+      "routes": ["agreement/[type]"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/AiCareerScreen.tsx",
+      "routes": ["ai-career"],
+      "priorVerdicts": [
+        {
+          "verdict": "not-applicable",
+          "route": "-",
+          "at": "2026-11-02"
+        }
+      ],
+      "disposition": "decided-not-applicable"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/AiWorldCreateScreen.tsx",
+      "routes": ["ai-world/create"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/AiWorldHistoryScreen.tsx",
+      "routes": ["ai-world/history"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/ApiKeysScreen.tsx",
+      "routes": ["models/keys", "settings/api-keys"],
+      "priorVerdicts": [
+        {
+          "verdict": "not-applicable",
+          "route": "-",
+          "at": "2026-11-11T05:10:05+08:00"
+        }
+      ],
+      "disposition": "decided-not-applicable"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/ArticleEditScreen.tsx",
+      "routes": ["articles/edit"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/ArticleHotScreen.tsx",
+      "routes": ["articles/hot"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/AskEditScreen.tsx",
+      "routes": ["asks/edit/[id]"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/BusinessCardEditScreen.tsx",
+      "routes": ["business-card/edit"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/BusinessCardScreen.tsx",
+      "routes": ["business-card"],
+      "priorVerdicts": [
+        {
+          "verdict": "not-applicable",
+          "route": "-",
+          "at": "2026-11-06"
+        }
+      ],
+      "disposition": "decided-not-applicable"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/ChatTemplatesScreen.tsx",
+      "routes": ["chat/templates"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/DashboardScreen.tsx",
+      "routes": ["bi-dashboard"],
+      "priorVerdicts": [
+        {
+          "verdict": "not-applicable",
+          "route": "-",
+          "at": "2026-10-25"
+        }
+      ],
+      "disposition": "decided-not-applicable"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/DeveloperConversationsScreen.tsx",
+      "routes": ["developer/conversations"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/DeveloperLimitsScreen.tsx",
+      "routes": ["developer/limits"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/DeveloperNotificationsScreen.tsx",
+      "routes": ["developer/notifications"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/DeveloperSettingsScreen.tsx",
+      "routes": ["developer/settings"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/DistributionCompanyScreen.tsx",
+      "routes": ["distribution/commission", "distribution/company"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/EduAttendanceQrScreen.tsx",
+      "routes": ["edu/edu-management/attendance"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/EduEnrollmentScreen.tsx",
+      "routes": ["edu/edu-management/enrollment"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/EduMealScreen.tsx",
+      "routes": ["edu/edu-management/meal"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/EduMyAttendanceScreen.tsx",
+      "routes": ["edu/attendance"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/EduParentBindScreen.tsx",
+      "routes": ["edu/parent/bind"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/EduScheduleScreen.tsx",
+      "routes": ["edu/edu-management/schedule"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/EduSchedulingScreen.tsx",
+      "routes": ["edu/edu-management/scheduling"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/GroupsScreen.tsx",
+      "routes": ["groups"],
+      "priorVerdicts": [
+        {
+          "verdict": "not-applicable",
+          "route": "-",
+          "at": "2026-11-11T05:10:05+08:00"
+        }
+      ],
+      "disposition": "decided-not-applicable"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/ImageGenCreateScreen.tsx",
+      "routes": ["image-gen"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/KnowledgeBaseEditScreen.tsx",
+      "routes": ["knowledge-base/edit", "knowledge-base/edit/[id]"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/KnowledgeRagManageScreen.tsx",
+      "routes": ["knowledge-cards"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/KnowledgeRagScreen.tsx",
+      "routes": ["knowledge-rag"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/LearnMapScreen.tsx",
+      "routes": ["edu-ai/map", "learn/map"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/LearnReviewScreen.tsx",
+      "routes": ["learn/review"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/LoginScreen.tsx",
+      "routes": ["login"],
+      "priorVerdicts": [
+        {
+          "verdict": "not-applicable",
+          "route": "-",
+          "at": "2026-10-25"
+        }
+      ],
+      "disposition": "decided-not-applicable"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/McpStoreScreen.tsx",
+      "routes": ["mcp-store", "registry"],
+      "priorVerdicts": [
+        {
+          "verdict": "not-applicable",
+          "route": "-",
+          "at": "2026-10-25"
+        }
+      ],
+      "disposition": "decided-not-applicable"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/MemoryNewScreen.tsx",
+      "routes": ["memory/new"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/PatrolScreen.tsx",
+      "routes": ["patrol"],
+      "priorVerdicts": [
+        {
+          "verdict": "not-applicable",
+          "route": "-",
+          "at": "2026-11-11T05:10:05+08:00"
+        }
+      ],
+      "disposition": "decided-not-applicable"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/PdfToolsScreen.tsx",
+      "routes": ["tools/pdf"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/PlazaNewScreen.tsx",
+      "routes": ["plaza/new"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/PublishAccountsScreen.tsx",
+      "routes": ["publish/accounts"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/PublishAnalyticsScreen.tsx",
+      "routes": ["publish/analytics"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/PublishCalendarScreen.tsx",
+      "routes": ["publish/calendar"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/PublishNewScreen.tsx",
+      "routes": ["publish/new"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/PurchaseScreen.tsx",
+      "routes": ["purchase", "wallet/recharge"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/RepoWikiScreen.tsx",
+      "routes": ["repo-wiki"],
+      "priorVerdicts": [
+        {
+          "verdict": "not-applicable",
+          "route": "-",
+          "at": "2026-11-11T05:10:05+08:00"
+        }
+      ],
+      "disposition": "decided-not-applicable"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/ResourcesScreen.tsx",
+      "routes": ["resources", "resources/[id]"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/SecurityCenterScreen.tsx",
+      "routes": ["settings/authorizations", "settings/security-log"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/SelfHealingScreen.tsx",
+      "routes": ["self-healing"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/TeamKnowledgeScreen.tsx",
+      "routes": ["team-knowledge"],
+      "priorVerdicts": [
+        {
+          "verdict": "not-applicable",
+          "route": "-",
+          "at": "2026-11-11T05:10:05+08:00"
+        }
+      ],
+      "disposition": "decided-not-applicable"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/TeamMemoryScreen.tsx",
+      "routes": ["team-memory"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/UserArticlesScreen.tsx",
+      "routes": ["student/my-articles", "user/articles"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/VoiceSttScreen.tsx",
+      "routes": ["tools/voice-stt"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/WorkspaceScreen.tsx",
+      "routes": ["workspace", "workspace/permissions"],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    }
+  ]
+}

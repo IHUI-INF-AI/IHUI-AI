@@ -9,6 +9,7 @@
 > 审计对象：`D:/IHUI-AI` monorepo（`apps/web`、`apps/mobile-rn`、`apps/miniapp-taro`、`packages/app`）
 > 审计时点：2026-11-26｜口径：全部为本次现读（HEAD blob），命令见文末附录，可逐条复现
 > 基线诉求：页面、样式、功能三端全量一致并可互通；样式以 web 端与 RN 端为主
+> **2026-11-27 现读更新**：`agent-create`、`aigc-cover`、`bank-card` 已闭环；功能账为 `92 已闭环 / 5 需裁决 / 0 真待补`。本文保留 2026-11-26 审计基线，当前结论以 `docs/engineering/rn-miniapp-parity-matrix.md` 与项目主报告为准。
 
 ---
 
@@ -73,13 +74,13 @@
 | `help/[slug]` | 无 slug 详情轴（浏览量/更新时间/上下篇/相关/分类筛选） | RN 只渲染 id/问题/答案 |
 | `edu/edu-management/attendance` | 无统计、请假、审批、批量点名、签退、趋势、导出、rotate-qr-secret | 教师考勤管理台在 RN 是子集 |
 
-**(C) 产品裁决阻塞 8 条（不是技术能解）**
+**(C) 产品裁决阻塞 8 条（2026-11-27：3 已闭环，余 5 条）**
 
 | # | 屏 | 阻塞类别 | 一句话 |
 |---|---|---|---|
-| 1 | `agent-create` | 结构 | 移动端创建的是"运行时智能体"（`POST /agents`）还是"市场智能体"（`POST /agents/create`）？两端 schema 不同，硬改任一侧都会破坏产品语义 |
-| 2 | `aigc-cover` | API | 全仓无"写回作品封面"端点，只能如实提示"开发中" |
-| 3 | `bank-card` | API | `GET /wallet/bank-cards` 是恒空占位，缺表 |
+| 1 | `agent-create` | 结构 | **已闭环**：移动端创建运行时智能体，共享屏按 `variant` 隐藏市场字段，不再硬合并两种对象 |
+| 2 | `aigc-cover` | API | **已闭环**：`PATCH /api/ai/aigc/records/:taskId/cover` 只更新作品 `output.coverUrl` |
+| 3 | `bank-card` | API | **已闭环（只读投影）**：`GET /wallet/bank-cards` 从 `withdrawal_flows.account_info` 投影；绑卡写入仍待建表 |
 | 4 | `connectors` | 结构 | 共享屏缺 `onCreate/onEditConfig/onOpenDoc` 三个端口，UI 无处挂 |
 | 5 | `learn` | 结构 | web 的 `/learn` 是课程列表，不是"学情+热门+推荐"首页；要不要建是产品决策 |
 | 6 | `note-list` | 结构 | 共享屏读全站公开笔记（`notes` 表），web 的 `/api/edu/notes` 强制按 userId 过滤；两域字段不可映射 |
@@ -644,6 +645,8 @@ AI应用商店 `pages/agent-market/index` / 广场 `pages/plaza/index/index` / �
 
 ## §16 社区首页抽共享屏（2026-11-27，只落屏、未接线）
 
+> 后续进展见 §17：RN 已完成接线，小程序已补齐同构区块；本节「未接线」的结论已被取代，保留为过程记录。
+
 **做了什么**：新建 `packages/app/src/features/community-home/CommunityHomeScreen.tsx`，把小程序 `pages/community/index` 与 web `/community` 共有的七块结构收成一份纯 UI 共享屏：标题/副标题 + 帖子入口、搜索行（含语音/图搜两个提示入口）、运营轮播、分类胶囊（带 `icon`）、最近使用（空态文案）、我的智能体（空则整块隐藏）、智能体推荐（双列卡）。数据、登录、支付、跳转全部由宿主注入（与 `AgentMarketScreen` 同约）。
 
 **契约**：`labels` 由宿主按自己的 i18n 命名空间翻译后传入（共享层不假设键名，避免把 web 的 `community.*` 键强推给 RN）；`colorScheme`、`keyword`、`onSearch`、各区块数组与 `onPress*` 回调均为 props。
@@ -651,3 +654,42 @@ AI应用商店 `pages/agent-market/index` / 广场 `pages/plaza/index/index` / �
 **为什么只落屏不接线**：RN 的 `HomeMain`（首页/智汇AI位）目前是课程首页容器（`apps/mobile-rn/src/screens/HomeScreen.tsx`，115KB，内含 Drawer/TabBar/课程数据），把它换成社区首页等于换整个主 tab 的内容与数据面，且本机没有 `adb`/模拟器可验收 —— 盲改会同时动导航语义与首屏数据，风险高于收益。共享屏先就位，接线（宿主容器 + Drawer/TabBar 壳 + 五入口 IA）留作独立一步。
 
 **验证**：`pnpm --filter @ihui/rn-app exec tsc --noEmit` 通过（exit 0）；未改任何 RN 端内文件，RN 侧零像素变化。至此 `/community` 与小程序社区页在信息架构和可见交互上无差异，剩余 5 块都不该在 web 复制：二维码属端内扫码场景、支付走 web 既有页、滚动/刷新/分享是容器能力。
+
+## §17 社区首页三端接线与同构收口（2026-11-27）
+
+**结论**：三端首屏已按同一信息架构与同一套视觉档位收口，一级导航仍是「AI应用商店 / 广场 / 智汇AI / 动态 / 我的」。RN 的 `HomeMain` 已由共享屏宿主替换，小程序补齐标题/搜索/分类/最近空态/双列推荐卡，web `/community` 复用同一份共享屏。搜索与分类筛选在 RN H5 实测可用；小程序在后台静默（微信开发者工具保持最小化，未置顶、未抢焦点）完成登录与截图验收。
+
+**RN 端**
+
+- 新增 `apps/mobile-rn/src/screens/CommunityMainScreen.tsx`（约 390 行），作为 `packages/app/src/features/community-home/CommunityHomeScreen.tsx` 的宿主：数据、翻译、路由全部在端内注入，壳沿用 `NavChrome + NavBar + Drawer + TabBar(activeTab="home")`。
+- `RootNavigator.tsx` 只改两处：引入 `CommunityMainScreen`、把 `MainTabs` 的 `HomeMain` 组件从 `HomeScreen` 换成它。`CourseMain`、Drawer「课程」入口、RootStack `Home` 均保留，课程首页不丢。
+- 共享屏本轮升级：搜索行改成「输入框 + 黑色圆形放大镜按钮」，分类胶囊支持选中态（黑底反白），推荐卡改为「封面区 + 头像 + 名称 + 2 行描述 + 免费/价格徽标」，`useWindowDimensions` 响应式 2 列（<700）／ 3 列（≥700），`free` label 改为可选以兼容既有 web 宿主。
+- 卡片右列溢出修复：`flexBasis` 改 `width`，并给卡片、标题、描述补 `minWidth: 0` / `flexShrink: 1`，避免长中文标题的 min-content 把 41% 的卡撑到贴边。
+
+**小程序端**
+
+- `apps/miniapp-taro/src/pages/community/index.tsx` 按共享屏顺序重排：标题 + 副标题 +「帖子」按钮 → 搜索行 → 轮播 →「分类」标题 + 常驻胶囊 → 联系客服 → 最近使用（空态常驻）→ 智能体推荐（双列封面卡 + 更多）。
+- 搜索行去掉 `InputArea` 的语音/图片/加号/发送一排控件，改为 `Input` + 圆形搜索按钮；`confirmType="search"` 支持键盘搜索，回车与点按钮同一条 `handleSearchSend`。
+- 推荐区从单列 `AgentListPanel` 改为双列卡片：封面区（头像大图或 ✨ 占位）、名称、两行描述、免费/价格；月费智能体仍保留原 `handlePurchase` 支付弹窗路径。
+- `FloatBox` 新增 `defaultOpen` prop，社区页传 `false`：赚米/客服/反馈三个悬浮按钮默认收起，只留右侧细箭头，不再压住智能体卡片。
+- 后端相对素材路径统一经 `resolveCommunityAssetUrl` 拼到 Web 站点底座（与 RN `resolveWebAssetUrl` 同口径），轮播 `coverUrl` 与智能体 `avatar` 不再出现白块；本轮截图已能看到卡片头像正常加载。
+- 删掉因移除「帖子」文字而变成死规则的 `.community-agent-list-posts` CSS；构建门 C8 死规则由 15 降到 12，`build:weapp` exit 0。
+
+**验收证据**
+
+| 端 | 通道 | 结果 |
+|---|---|---|
+| RN | Playwright H5，390×844，`--disable-web-security` | `innerWidth=390`、`scrollWidth=390`，推荐卡左 12 / 右 378，无横向溢出；标题/副标题/帖子/搜索/轮播/分类/最近空态/推荐九块齐全；分类与关键词筛选此前已实测生效 |
+| 小程序 | 微信开发者工具 automator，后台 `miniProgram.screenshot` | 登录 token 333 字符；页面文本 50 条覆盖标题、副标题、帖子、5 张 banner 标题、分类、5 个胶囊、最近空态、推荐标题 + 12 张卡；滚动到 650 可见双列卡与头像；开发者工具全程最小化，未置顶 |
+| Web | `/community` 复用共享屏 | 既有亮/暗截图仍有效；本轮共享屏字段与列宽改动对 web 向后兼容（`free` 可选、`minWidth` 只影响长标题收缩） |
+
+截图归档：`docs/engineering/assets/community-miniapp-2026-11-27.png`（首屏）、`community-miniapp-grid-2026-11-27.png`（双列推荐）、`community-rn-h5-2026-11-27.png`（RN 首屏）、`community-web-light-2026-11-26.png` / `community-web-dark-2026-11-26.png`（web 既有）。
+
+**仍未做（明确登记，不冒充已做）**
+
+1. 小程序推荐卡的封面目前用 `avatar` 放大占位；小程序 API 层 `AgentRawRow` 还未透出后端已有的 `cover` 字段，等下一轮改 `apps/miniapp-taro/src/api/index.ts` 后可直接换成真封面。
+2. 本地 `content/home` 的 5 条 banner `coverUrl` 全为空，所以三端都只显示标题 + 灰底；属内容数据，不是布局缺陷。
+3. 小程序「联系客服」二维码弹窗、返回顶部、下拉刷新、微信分享仍按平台差异保留，不在 web/RN 复制。
+4. RN 验收走 H5（本机无 adb/模拟器），真机 iOS/Android 的触感与 safe-area 未在本轮取证。
+5. 小程序截图分辨率受开发者工具窗口最小化影响（224×448 档），信息架构与卡片结构可辨，像素级视觉请以 web/RN 截图为准。
+6. 本轮的 `RootNavigator`、10 份 i18n 走 blob 模式落地，不携带工作树里其他并行任务的 `CommunityScreen` 路由与 `CirclePost` 类型改动。

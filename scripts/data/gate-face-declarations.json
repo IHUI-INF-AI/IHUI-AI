@@ -1185,6 +1185,10 @@
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
     },
+    "scripts/check-cross-end-route-contract.mjs": {
+      "face": "worktree",
+      "reason": "契约产物与当前工作树共同重落;--staged 时由门内 argv 覆盖为索引面"
+    },
     "scripts/check-web-mp-route-carriers.mjs": {
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"

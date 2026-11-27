@@ -447,7 +447,7 @@ T1 判的是**工作树**(不是 HEAD 面),所以「本轮哪些包真的需要�
 
 ---
 
-## 3c. 跨端三把新尺(299/300/301,2026-11-05 落地,均 blocking)
+## 3c. 跨端四把尺(299/300/301/329,2026-11-05 起落地,均 blocking)
 
 > 编号 = `scripts/guardian-runner.mjs` 注册 id;判据唯一实现在各脚本头注与 `scripts/lib/**`;存量/读数一律现读(`AGENTS.md §0.1`)。
 
@@ -468,6 +468,12 @@ T1 判的是**工作树**(不是 HEAD 面),所以「本轮哪些包真的需要�
 - **判什么**:共享屏的 web 路由在小程序侧是否真有承接路由;缺承载 / 路由不存在 / 别名冲突 ⇒ 红,认不出的单列「未判定」。基线读数(现读):272 屏 / 承载 253 / 缺承载 0 / 路由不存在 0 / 未判定 1 / 合法 18 / 别名 1 / 冲突 0。
 - **面**:`apps/web/`、`apps/miniapp-taro/src/app.config.ts`、`packages/app/src/features/`、`scripts/data/web-rn-screen-map.jsonl`、`scripts/data/cross-end-screen-registry.json`、`scripts/data/web-mp-route-carrier-{ledger,legal}.jsonl`。
 - **出口**:`node scripts/check-web-mp-route-carriers.mjs [--staged|--gate|--json|--explain|--self-test]`;应急 `HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS=1`。
+
+### 第 329 项 check-cross-end-route-contract.mjs(全量 Web↔小程序路由契约)
+
+- **判什么**:932 条 Web 功能路由逐条归入唯一承载体(`mini-native`/`mini-native-direct`/`mini-native-own`/`mini-webview`/`rn-only`/`rn-pending`/`web-only`);出现未分类、承载缺账、小程序路由不存在或门户页缺失 ⇒ 红。`rn-only` 64 条去重 53 屏,其中 10 屏已有 `not-applicable` 裁决、43 屏待产品复核;`mini-native-direct` 10 条是小程序直接 import RN shell 的真实承载、`mini-native-own` 12 条是手写对齐页、`community` 1 条是待验收,不冒充共享屏全量承载。
+- **面**:默认 worktree、`--staged` 索引;读 `web-rn-screen-map.jsonl`、`cross-end-screen-registry.json`、`web-mp-route-carrier-{ledger,legal}.jsonl`、小程序 343 页清单。契约产物 `cross-end-route-contract.jsonl`/`-summary.json`/`-rn-only-review.json` 与当前面必须同代。
+- **出口**:`node scripts/check-cross-end-route-contract.mjs [--write|--check|--json|--staged|--head]`;`--check` 同时校验 64 条 rn-only 的 53 屏逐屏复核清单(含 10 屏已裁 / 43 屏待审的状态)。pre-commit 面编号 `329`,push 面编号 `329p`(同脚本、同判据,避免 runner 同号冲突);`--push-gate --only=329p` 可单独复跑。应急 `HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT=1`。
 
 ---
 
@@ -595,9 +601,11 @@ HUSKY_SKIP_TYPECHECK=1 git push   # 紧急 push,不推荐
 | 299 | `scripts/check-miniapp-shell-form.mjs` | `HUSKY_SKIP_MINIAPP_SHELL_FORM=1` | blocking(新增复制页;存量 93 页棘轮) |
 | 300 | `scripts/check-api-endpoint-delta.mjs` | `HUSKY_SKIP_API_ENDPOINT_DELTA=1` | blocking(未登记端内独有前缀) |
 | 301 | `scripts/check-web-mp-route-carriers.mjs` | `HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS=1` | blocking(缺承载/路由不存在/冲突) |
+| 329 | `scripts/check-cross-end-route-contract.mjs` | `HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT=1` | blocking(932 Web 路由逐条 carrier;漂移/未知即红) |
+| 329p | `scripts/check-cross-end-route-contract.mjs` | `HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT=1` | blocking(push 面同判据,防绕过 pre-commit 直推) |
 | 86 | `scripts/check-verify-tmp-files.mjs` | `HUSKY_SKIP_VERIFY_TMP_FILES=1` | blocking(2026-11-06 由 warn 升档;前置 = 全量档存量 0) |
 
-> 九个变量名以 `scripts/guardian-runner.mjs` 的 `skipEnv` 现值为准(`AGENTS.md §0.8`);跳过只免本次退出码,不销账、不删台账,且必须留痕(守门 89 同款纪律)。
+> 各跳过变量名以 `scripts/guardian-runner.mjs` 的 `skipEnv` 现值为准(`AGENTS.md §0.8`);跳过只免本次退出码,不销账、不删台账,且必须留痕(守门 89 同款纪律)。
 
 ---
 

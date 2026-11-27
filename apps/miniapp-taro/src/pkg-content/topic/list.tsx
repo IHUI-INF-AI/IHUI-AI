@@ -15,8 +15,11 @@ import LineIcon from '@/components/LineIcon'
 
 interface TopicItem {
   id: string
-  name: string
-  count: number
+  title?: string
+  coverImage?: string
+  name?: string
+  count?: number
+  lessonCount?: number
   coverUrl?: string
   description?: string
   participantCount?: number
@@ -83,7 +86,7 @@ export default function TopicListPage() {
     (id: string) => {
       if (from === 'create') {
         const item = list.find((t) => t.id === id)
-        Taro.eventCenter.trigger(TOPIC_EVENT, item?.name || '')
+        Taro.eventCenter.trigger(TOPIC_EVENT, item?.title || item?.name || '')
         Taro.navigateBack()
       } else {
         Taro.navigateTo({ url: `/pkg-content/topic/detail?id=${id}` })
@@ -168,10 +171,10 @@ export default function TopicListPage() {
                     hoverClass="opacity-85"
                     onClick={() => goDetail(item.id)}
                   >
-                    {item.coverUrl ? (
+                    {(item.coverImage ?? item.coverUrl) ? (
                       <Image
                         className="w-[100rpx] h-[100rpx] rounded-md bg-muted shrink-0"
-                        src={item.coverUrl}
+                        src={(item.coverImage ?? item.coverUrl) as string}
                         mode="aspectFill"
                       />
                     ) : (
@@ -182,7 +185,7 @@ export default function TopicListPage() {
                     )}
                     <View className="flex-1 ml-[24rpx] min-w-0">
                       <Text className="block text-strong text-foreground font-semibold overflow-hidden ihui-ellipsis whitespace-nowrap">
-                        #{item.name}
+                        #{item.title ?? item.name ?? ''}
                       </Text>
                       {item.description ? (
                         <Text className="block text-label text-[var(--color-text-tertiary)] mt-[8rpx] overflow-hidden ihui-ellipsis whitespace-nowrap">
@@ -196,7 +199,9 @@ export default function TopicListPage() {
                           })}
                         </Text>
                         <Text className="text-caption text-[var(--color-text-tertiary)]">
-                          {tt('topic.list.posts', '{n} 篇内容', { n: item.count || 0 })}
+                          {tt('topic.list.posts', '{n} 篇内容', {
+                            n: item.count ?? item.lessonCount ?? 0,
+                          })}
                         </Text>
                       </View>
                     </View>
