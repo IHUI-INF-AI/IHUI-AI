@@ -58,6 +58,7 @@ vi.mock('../../plugins/auth.js', () => ({
 
 import {
   clearUrlPreviewCache,
+  isPreviewProxyHost,
   probeUrl,
   urlPreviewRoutes,
   URL_PREVIEW_TIMEOUT_MS,
@@ -533,6 +534,18 @@ describe('GET /api/url-preview/preview 路由面', () => {
     expect(indexSrc).toMatch(
       /server\.register\(\s*urlPreviewRoutes\s*,\s*\{\s*prefix:\s*'\/api\/url-preview'/u,
     )
+  })
+})
+
+describe('固定国际站点代理白名单', () => {
+  it('只允许白名单域名及其子域', () => {
+    expect(isPreviewProxyHost('github.com')).toBe(true)
+    expect(isPreviewProxyHost('gist.github.com')).toBe(true)
+    expect(isPreviewProxyHost('raw.githubusercontent.com')).toBe(true)
+    expect(isPreviewProxyHost('github.com.evil.example')).toBe(false)
+    expect(isPreviewProxyHost('notgithub.com')).toBe(false)
+    expect(isPreviewProxyHost('127.0.0.1')).toBe(false)
+    expect(isPreviewProxyHost('localhost')).toBe(false)
   })
 })
 

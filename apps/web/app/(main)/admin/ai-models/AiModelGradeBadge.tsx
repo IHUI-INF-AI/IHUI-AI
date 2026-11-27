@@ -57,7 +57,7 @@ export function GradeBadge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 whitespace-nowrap rounded border font-medium tabular-nums',
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-md border font-medium tabular-nums',
         size === 'sm' ? 'px-1.5 py-0.5 text-[10px] leading-4' : 'px-2 py-0.5 text-label',
         TIER_STYLE[grade.tier],
       )}

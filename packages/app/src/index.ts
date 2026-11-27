@@ -1456,5 +1456,3 @@ export type {
   GroupFormValues,
   GroupConfirmOptions,
 } from './features/groups/GroupsScreen'
-
-

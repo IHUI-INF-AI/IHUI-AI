@@ -82,6 +82,7 @@ node scripts/sync-itcp-package.mjs --check                   # 独立包与源�
 - 不做“没有失效正确性来源”的缓存。
 - 落地器收尾报红不回滚，但也不许替它报绿；红面属存量时如实标注，属本票引入时当场修。
 - 报告里出现的“已入库”必须有 `git show HEAD:<path>` 能取到的证据（本票有过一次失实：`aea20418d` 整票回滚后仍被写成已入库）。
+- 断言“全仓没有 X”之前必须给出搜索面（文件/glob），且至少覆盖 `apps/cli/src/**` 与 `packages/**` 两个根。本票三次同类失实的第三次就在这里：只在 `apps/cli/src/tools/index.ts` 里查 `Promise.all` 零命中，就断言“执行串行、并行度 1”；真相是 `apps/cli/src/commands/agent.ts:3152` **早就有 `Promise.all`** 的全并行，两处 `for (const call of toolCalls)` 只是“执行前顺序触发副作用”（3118 起）与“执行后保序写账”（3230 起）。**不得再把这两处 `for` 读成串行执行器**。
 
 ## 五、并行会话下的提交安全（2026-11-27 事故复盘）
 
