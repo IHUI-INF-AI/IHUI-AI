@@ -24,7 +24,7 @@
  * 方法选型:用带字节上限的 GET 而不是 HEAD —— 大量站点对 HEAD 返回 404/405,
  * 会把"能读的页面"误判成"读不到"(反向造假);GET 首段读满 128KB 即 abort 断流。
  *
- * 安全:JWT 鉴权 + 每 userId 内存限流 + SSRF 防护(数值化 IP 判定 + DNS 解析级复检,
+ * 安全:可选 JWT(有则按 userId 限流,无则按 IP 限流)+ SSRF 防护(数值化 IP 判定 + DNS 解析级复检,
  * 重定向落点逐跳复检,口径对齐 embed-proxy)+ 3s 总时限 + 字节上限。
  *
  * 已知局限(与 embed-proxy 同):非 UTF-8(GBK 等)页面标题可能乱码 —— 只影响
@@ -33,7 +33,7 @@
 
 import * as dns from 'node:dns'
 
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 
 import { authenticate } from '../plugins/auth.js'
@@ -699,26 +699,28 @@ function isRateLimited(key: string): boolean {
 }
 
 export const urlPreviewRoutes: FastifyPluginAsync = async (server) => {
-  const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
+  /**
+   * 鉴权改为「可选」(2026-11-27 实报根因)。
+   *
+   * 原实现无条件 `authenticate`,token 一过期就回 401,前端把 401 归入
+   * undetermined('probe_request_failed'),卡片只剩"网络不可达" —— 用户看到的是
+   * "我自己项目为什么不显示图标",实际连一次出站探测都没发生。预览是只读、
+   * 不落盘、不碰用户数据的公共能力(`ok` 只回标题/摘要/图标),没有必须绑定身份的
+   * 理由;登录态只用来做更精确的限流键,缺失时按 IP 限流。
+   */
+  server.get('/preview', async (request, reply) => {
     try {
       await authenticate(request)
-    } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      const message = (e as Error).message || '操作失败,请稍后重试'
-      return reply.status(statusCode).send(error(statusCode, message))
+    } catch {
+      // 未登录/过期 token 一律放行:探测结果与身份无关,滥用由下面的限流兜住。
     }
-  }
-
-  // GET /preview — 轻量探测一条链接(三态封闭;结果仅供提示,不得阻断发送)
-  server.get('/preview', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
 
     const parsed = previewQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    if (isRateLimited(request.userId)) {
+    const rateKey = request.userId ?? `ip:${request.ip}`
+    if (isRateLimited(rateKey)) {
       return reply.status(429).send(error(429, '链接预览探测过于频繁,请稍后再试'))
     }
     try {

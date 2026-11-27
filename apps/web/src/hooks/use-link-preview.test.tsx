@@ -148,6 +148,16 @@ describe('useLinkPreview 三态映射(票面验收 ①)', () => {
     )
   })
 
+  it('后端 5xx ⇒ 未判定且 reason 保留状态码(不再笼统报"网络不可达")', async () => {
+    vi.mocked(fetchApi).mockResolvedValue({ success: false, error: 'bad gateway', status: 502 })
+    const { result } = renderHook(() => useLinkPreview())
+    act(() => {
+      result.current.probeFromPaste('https://down.example.com/')
+    })
+    await waitFor(() => expect(result.current.preview?.status).toBe('undetermined'))
+    expect(result.current.preview).toMatchObject({ reason: 'http_502' })
+  })
+
   // 2026-11-26 实报端到端钉:粘贴"链接 + 中文正文"时,请求携带的必须是截断后的干净 URL,
   // 否则伪 IDN 主机进探测链 ⇒ 卡片只会显示"暂时无法判定"。
   it('中文正文紧贴链接:探测请求携带截断后的干净 URL', async () => {

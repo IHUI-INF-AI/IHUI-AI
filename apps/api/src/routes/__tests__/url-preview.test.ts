@@ -10,7 +10,7 @@
  *    401/超时/SSRF 内网 ⇒ undetermined(区别化,"把没判写成判过"禁令)。
  * 2. 超时显式 3s 生效,且**请求数 == 1**(不重试、绝不两次抓正文)。
  * 3. 重定向手动跟随(落点 SSRF 复检);非 HTML 2xx ⇒ ok 无标题(不误报读不到)。
- * 4. 路由面:鉴权 401 / 参数 400 / 注册即装车(prefix 漂移即红,D29 口径)。
+ * 4. 路由面:未登录放行 / 参数 400 / 注册即装车(prefix 漂移即红,D29 口径)。
  */
 
 import { readFileSync } from 'node:fs'
@@ -442,15 +442,21 @@ describe('GET /api/url-preview/preview 路由面', () => {
     return app
   }
 
-  it('未登录 401', async () => {
+  it('未登录/token 过期仍可探测(200),不再因 401 退化成"网络不可达"', async () => {
+    const fetchStub = h.undiciFetchStub
+    fetchStub.mockReset()
+    fetchStub.mockImplementation(async (input: string | URL | Request) =>
+      String(input) === 'https://example.com/' ? htmlResponse(OK_HTML) : notFoundResponse(),
+    )
     const app = await build()
     authState.fail = true
     try {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/url-preview/preview?url=https://example.com/',
+        url: '/api/url-preview/preview?url=https%3A%2F%2Fexample.com%2F',
       })
-      expect(res.statusCode).toBe(401)
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data).toMatchObject({ status: 'ok', title: 'Example Domain' })
     } finally {
       authState.fail = false
       await app.close()
