@@ -10,5 +10,11 @@
     "rn": "apps/mobile-rn/src/screens/TopicListScreen.tsx",
     "mini": "pkg-content/topic/list",
     "evidence": "Web /topics 与小程序页均为专题列表 + 搜索 + 分页 + 详情；两端同用 /topics 端点，本轮已同步 title/coverImage 字段。证据：apps/web/app/(main)/topics/page.tsx:54；apps/miniapp-taro/src/pkg-content/topic/list.tsx:5,136；apps/mobile-rn/src/screens/TopicListScreen.tsx:54"
+  },
+  {
+    "web": "edu/attendance",
+    "rn": "apps/mobile-rn/src/screens/EduMyAttendanceScreen.tsx",
+    "mini": "pkg-user/edu-my-attendance/index",
+    "evidence": "Web /edu/attendance 与小程序 pkg-user/edu-my-attendance/index 均为学生本人考勤：列表 + 自签；同用 GET /edu-ai-management/attendance/me 与 POST /edu-ai-management/attendance/self-check-in，身份按登录态收敛。证据：apps/miniapp-taro/src/pkg-user/edu-my-attendance/index.tsx:7-9；apps/mobile-rn/src/screens/EduMyAttendanceScreen.tsx"
   }
 ]

@@ -471,9 +471,9 @@ T1 判的是**工作树**(不是 HEAD 面),所以「本轮哪些包真的需要�
 
 ### 第 329 项 check-cross-end-route-contract.mjs(全量 Web↔小程序路由契约)
 
-- **判什么**:932 条 Web 功能路由逐条归入唯一承载体(`mini-native`/`mini-native-direct`/`mini-native-own`/`mini-webview`/`rn-only`/`rn-pending`/`web-only`);出现未分类、承载缺账、小程序路由不存在或门户页缺失 ⇒ 红。`rn-only` 64 条去重 53 屏,其中 10 屏已有 `not-applicable` 裁决、43 屏待产品复核;`mini-native-direct` 10 条是小程序直接 import RN shell 的真实承载、`mini-native-own` 12 条是手写对齐页、`community` 1 条是待验收,不冒充共享屏全量承载。
+- **判什么**:932 条 Web 功能路由逐条归入唯一承载体(`mini-native`/`mini-native-direct`/`mini-native-own`/`mini-webview`/`rn-only`/`rn-pending`/`web-only`);出现未分类、承载缺账、小程序路由不存在或门户页缺失 ⇒ 红。`rn-only` 63 条去重 52 屏,其中 10 屏已有 `not-applicable` 裁决、42 屏待产品复核;`mini-native-direct` 10 条是小程序直接 import RN shell 的真实承载、`mini-native-own` 13 条是手写对齐/人工复核页、`community` 1 条是待验收,不冒充共享屏全量承载。
 - **面**:默认 worktree、`--staged` 索引;读 `web-rn-screen-map.jsonl`、`cross-end-screen-registry.json`、`web-mp-route-carrier-{ledger,legal}.jsonl`、小程序 343 页清单。契约产物 `cross-end-route-contract.jsonl`/`-summary.json`/`-rn-only-review.json` 与当前面必须同代。
-- **出口**:`node scripts/check-cross-end-route-contract.mjs [--write|--check|--json|--staged|--head]`;`--check` 同时校验 64 条 rn-only 的 53 屏逐屏复核清单(含 10 屏已裁 / 43 屏待审的状态)。pre-commit 面编号 `329`,push 面编号 `329p`(同脚本、同判据,避免 runner 同号冲突);`--push-gate --only=329p` 可单独复跑。应急 `HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT=1`。
+- **出口**:`node scripts/check-cross-end-route-contract.mjs [--write|--check|--json|--staged|--head]`;`--check` 同时校验 63 条 rn-only 的 52 屏逐屏复核清单(含 10 屏已裁 / 42 屏待审的状态)。pre-commit 面编号 `329`,push 面编号 `329p`(同脚本、同判据,避免 runner 同号冲突);`--push-gate --only=329p` 可单独复跑。应急 `HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT=1`。
 
 ---
 
