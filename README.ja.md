@@ -2227,6 +2227,10 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-27**
+- 🐞 修正:normalize provider-prefixed model for pricing and prefer config cost (3bbb1bb22)
+- 📚 ドキュメント:Recent updates 跟随水印提交 (5e83603a4)
+- 🐞 修正:预览卡图标去掉懒加载,内联 data URL 即时显示 (a14f9eef3)
+- 🐞 修正:限定 isJoined 子查询外层 circles.id (77ccee1a6)
 - 📚 ドキュメント:同步 Recent updates 与新增文件水印 (018ec08b3)
 - 🐞 修正:收口计费冻结/欠费/成本账剩余缺陷 (b232f3230)
 - 🐞 修正:桌面构建链与登录自启全静默，消除前台黑窗 (73f4a2082)

@@ -2227,6 +2227,10 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-27**
+- 🐞 수정:normalize provider-prefixed model for pricing and prefer config cost (3bbb1bb22)
+- 📚 문서:Recent updates 跟随水印提交 (5e83603a4)
+- 🐞 수정:预览卡图标去掉懒加载,内联 data URL 即时显示 (a14f9eef3)
+- 🐞 수정:限定 isJoined 子查询外层 circles.id (77ccee1a6)
 - 📚 문서:同步 Recent updates 与新增文件水印 (018ec08b3)
 - 🐞 수정:收口计费冻结/欠费/成本账剩余缺陷 (b232f3230)
 - 🐞 수정:桌面构建链与登录自启全静默，消除前台黑窗 (73f4a2082)

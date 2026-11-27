@@ -99,6 +99,10 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-27**
+- 🐞 Fix:normalize provider-prefixed model for pricing and prefer config cost (3bbb1bb22)
+- 📚 Docs:Recent updates 跟随水印提交 (5e83603a4)
+- 🐞 Fix:预览卡图标去掉懒加载,内联 data URL 即时显示 (a14f9eef3)
+- 🐞 Fix:限定 isJoined 子查询外层 circles.id (77ccee1a6)
 - 📚 Docs:同步 Recent updates 与新增文件水印 (018ec08b3)
 - 🐞 Fix:收口计费冻结/欠费/成本账剩余缺陷 (b232f3230)
 - 🐞 Fix:桌面构建链与登录自启全静默，消除前台黑窗 (73f4a2082)

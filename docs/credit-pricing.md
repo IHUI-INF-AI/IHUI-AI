@@ -38,7 +38,8 @@
 \text{output\_points\_per\_1k} = \max(0.1,\ \text{cost\_output\_price\_per\_1k} \times 3)
 \]
 
-- 成本取 `ai_model_config_models.cost_input_price_per_1k` / `cost_output_price_per_1k`；同一 model_id 多渠道时取**最高成本**，避免低价渠道把用户价压穿。
+- 成本取 `ai_model_config_models.cost_input_price_per_1k` / `cost_output_price_per_1k`；同一 model_id 多渠道时取**最高成本**，避免低价渠道把用户价压穿。费率查找与 `ai_cost_records` 成本解析都支持 `provider/model`、`provider:model` 前缀：先按原样精确查，查不到再剥前缀用裸模型名查；否则上游回传带前缀的模型会被静默记成 unknown/0 成本。
+- `ai_cost_records` 未显式传成本时，也优先用上面两列采购成本；采购成本缺失才退回 `ai_pricing` 零售价作为参考值并标记未知，不再直接拿零售价冒充采购成本。
 - `3×` 是最低毛利线；`0.1 积分/千 token`（¥1/百万 token）是收费地板，成本为 0 的模型也不能免费。
 - 成本列为 `NULL`（未知）的模型：**预检直接 503，不卖**，直到管理员补齐成本价。
 - 有 token 至少扣 1 积分；零 token 才返回 0。
