@@ -152,6 +152,27 @@ describe('FileViewerDialog', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('HTML 交接主对话时改用 .txt 安全载体,避免上传白名单拒收', async () => {
+    vi.mocked(fetchRaw).mockResolvedValue(
+      new Blob(['<html><body>报告正文</body></html>'], { type: 'text/html' }),
+    )
+
+    render(
+      <FileViewerDialog
+        target={{ name: '报告.html', src: '/api/files/html-report' }}
+        onClose={() => {}}
+      />,
+    )
+
+    await screen.findByTestId('universal-preview')
+    fireEvent.click(screen.getByLabelText('aiContinueChat'))
+
+    const pending = useFileHandoffStore.getState().pending
+    expect(pending).toHaveLength(1)
+    expect(pending[0]?.file.name).toBe('报告.html.txt')
+    expect(pending[0]?.file.type).toBe('text/plain')
+  })
+
   it('关闭时回调 onClose', async () => {
     const onClose = vi.fn()
     vi.mocked(fetchRaw).mockResolvedValue(new Blob(['x']))

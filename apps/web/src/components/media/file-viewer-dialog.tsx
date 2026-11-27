@@ -133,8 +133,14 @@ export function FileViewerDialog({ target, onClose }: Props) {
       toast.error(t('aiTooLarge'))
       return
     }
-    const file = new File([blob], target.name, {
-      type: blob.type || 'application/octet-stream',
+    // HTML/HTM 可预览、可 AI 解读,但上传白名单出于 XSS 风险明确拒收(见
+    // apps/api/src/utils/file-type-validator.ts 顶部注释)。交接时改挂 .txt 文本载体:
+    // 内容仍是原 HTML 源码,主聊天正文提取照读,既不破上传安全闸,也不弹“类型不支持”。
+    const ext = target.name.split('.').pop()?.toLowerCase() ?? ''
+    const textCarrier = ext === 'html' || ext === 'htm'
+    const handoffName = textCarrier ? `${target.name}.txt` : target.name
+    const file = new File([blob], handoffName, {
+      type: textCarrier ? 'text/plain' : blob.type || 'application/octet-stream',
       lastModified: Date.now(),
     })
     useFileHandoffStore.getState().enqueue({ file, prompt: t('aiContinuePrompt') })
