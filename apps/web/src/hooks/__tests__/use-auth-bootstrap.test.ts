@@ -479,4 +479,38 @@ describe('G. 瞬时失败后的有界自愈:节拍到点必须补刷(2026-11-18)
     }
   })
 })
+
+/**
+ * 2026-11-28 回归锁:模块级单例的完成信号不能随组件卸载丢。
+ *
+ * 现场:AISidePanel 的先挂实例起 bootstrap 后组件重挂,cleanup 把旧轮 cancelled 置真;
+ * 旧轮在 `/auth/refresh` 成功后的 `if (cancelled) return` 退出,新实例因 `inFlightBootstrap`
+ * 仍在场跳过 ⇒ sharedOutcome 永远 ready=false(实测 refresh 200、无 `/auth/me`)。
+ */
+describe('H. 组件卸载不得让模块级 bootstrap 永久停在 ready=false(2026-11-28)', () => {
+  it('refresh 在途时卸载 ⇒ 旧轮仍发布 ready,新挂载实例不再重发刷新', async () => {
+    useAuthStore.setState({ isAuthenticated: true })
+    let resolveRefresh!: (token: string | null) => void
+    mocks.refreshAccessTokenOnce.mockImplementation(
+      () =>
+        new Promise<string | null>((resolve) => {
+          resolveRefresh = resolve
+        }),
+    )
+
+    const first = renderHook(() => useAuthBootstrap())
+    await waitFor(() => expect(mocks.refreshAccessTokenOnce).toHaveBeenCalledTimes(1))
+    // 与 AISidePanel 重挂同形:refresh 还挂着就卸载
+    first.unmount()
+
+    resolveRefresh('fresh-access-token')
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    const second = renderHook(() => useAuthBootstrap())
+    await waitFor(() => expect(second.result.current.ready).toBe(true))
+
+    // 旧轮已把单例收口成 ready ⇒ 新实例不得再发一次 refresh
+    expect(mocks.refreshAccessTokenOnce).toHaveBeenCalledTimes(1)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
