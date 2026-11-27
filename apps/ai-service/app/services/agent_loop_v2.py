@@ -5839,6 +5839,25 @@ class AgentLoopV2:
 
             self._current_iteration = i
 
+            # P0-7(2026-11-27 立):**回合前上下文自检**。三种"静默残缺"都不报错 ——
+            # 工具结果被有界环丢了中段(带"中间丢弃 N 字符"标记)、工具返回空串、
+            # truncated=True 但 content 为空。模型只会基于"看起来正常"的残缺上下文继续推理。
+            # 本钩子**只留痕不改流程**:自检属观测面,命中与失败都不得打断主循环
+            # (打断会把"上下文有点脏"升级成"这一轮直接失败",代价远大于收益)。
+            try:
+                from ..core.context_self_check import check_context as _context_self_check
+
+                _ctx_report = _context_self_check(messages)
+                if not _ctx_report.is_clean():
+                    logger.warning(
+                        "P0-7 回合前上下文自检命中 iteration=%s status=%s findings=%s",
+                        i,
+                        _ctx_report.status,
+                        [(f.index, f.status) for f in _ctx_report.findings],
+                    )
+            except Exception as e:  # noqa: BLE001 - 自检失败不得打断主循环
+                logger.debug("P0-7 上下文自检不可用(已跳过): %s", e)
+
             # 机读轮次/耗时计数:每轮唯一挂点。上限投影自本循环的 max_iterations,
             # 不在别处另立一套;记账属观测面,失败降级不得影响主循环。
             if self._session_id:

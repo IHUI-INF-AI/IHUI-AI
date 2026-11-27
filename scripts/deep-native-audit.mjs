@@ -170,7 +170,8 @@ const ENTRIES = [
   {
     id: 'B2-05', title: '命令级 timeout_ms 入参',
     probes: [
-      { path: 'apps/ai-service/app/routers/agent_runtime.py', pattern: 'timeout_ms', label: 'timeout_ms 入参' },
+      { path: 'apps/ai-service/app/core/tool_timeout_policy.py', pattern: 'timeout_ms', label: 'run_command 毫秒入参' },
+      { path: 'apps/ai-service/app/services/command_streamer.py', pattern: 'timeout_ms', label: '命令流毫秒入参' },
     ],
   },
   {

@@ -270,6 +270,33 @@ def _clamp_timeout(timeout: int) -> int:
     return timeout
 
 
+def _resolve_timeout_seconds(timeout: int, timeout_ms: int | None = None) -> int:
+    """把 `timeout`(秒) / `timeout_ms`(毫秒) 归一到**秒**,clamp 到 1-1800。
+
+    **这是 B2-05 的落点(2026-11-27 立)**:模型侧工具契约给的是 `timeout_ms`(毫秒,
+    与 TS `run_command` 的入参同名同单位),而本模块此前只有秒级的 `timeout`。
+    后果不是"少一个字段",是**单位错位 1000 倍**:模型传 `timeout_ms=30000`(想要 30 秒),
+    若这个数被当作秒用,clamp 后变成 1800 秒 —— 命令卡 30 分钟,调用方还以为设的是 30 秒。
+
+    归一规则:
+      - `timeout_ms` 显式给了就以它为准(毫秒),秒级 `timeout` 忽略;
+      - 毫秒转秒**向上取整**:`29_500ms` 必须是 30s 而不是 29s —— 向下取整会让"设置 29.5 秒"
+        的调用比预期早 0.5 秒被杀,那是另一种静默的错;
+      - 非法值(`<= 0` / 非整数 / bool)一律落到 `timeout`,不静默当成 1 秒。
+
+    `bool` 是 `int` 的子类,`timeout_ms=True` 会被 `int()` 读成 1 —— 显式排除,避免
+    "传了个布尔当超时"变成 1 毫秒。
+    """
+    if timeout_ms is not None and not isinstance(timeout_ms, bool):
+        try:
+            ms = int(timeout_ms)
+        except (TypeError, ValueError):
+            ms = 0
+        if ms > 0:
+            return _clamp_timeout(max(1, (ms + 999) // 1000))
+    return _clamp_timeout(timeout)
+
+
 def _inject_session_identity(
     env: dict[str, str] | None, session_id: str | None = None
 ) -> dict[str, str] | None:
@@ -407,6 +434,7 @@ async def stream_command(
     timeout: int = 300,
     env: dict[str, str] | None = None,
     session_id: str | None = None,
+    timeout_ms: int | None = None,
 ) -> AsyncGenerator[dict[str, Any], None]:
     """流式执行命令,yield 事件流。
 
@@ -418,16 +446,18 @@ async def stream_command(
     Args:
         command: 要执行的命令(单条,exec 模式不经过 shell)
         cwd: 工作目录
-        timeout: 超时秒数(clamp 到 1-1800)
+        timeout: 超时秒数(clamp 到 1-1800);`timeout_ms` 显式给出时被它覆盖
         env: 额外环境变量(合并到 os.environ)
         session_id: 显式执行会话身份;缺省从执行上下文取,都取不到则不注入
+        timeout_ms: 超时毫秒(模型侧工具契约的入参名,优先于 `timeout`;见
+            `_resolve_timeout_seconds` 的换算与取整纪律)
     """
     ok, reason = validate_command(command)
     if not ok:
         yield {"type": "exit", "returncode": -1, "duration_ms": 0.0, "error": reason}
         return
 
-    timeout = _clamp_timeout(timeout)
+    timeout = _resolve_timeout_seconds(timeout, timeout_ms)
     args = parse_command(command)
     if not args:
         yield {
@@ -535,6 +565,7 @@ async def run_command_simple(
     cwd: str | None = None,
     timeout: int = 60,
     session_id: str | None = None,
+    timeout_ms: int | None = None,
 ) -> dict[str, Any]:
     """同步包装器:收集所有输出,返回聚合结果。
 
@@ -548,7 +579,9 @@ async def run_command_simple(
     error: str | None = None
     timed_out = False
 
-    async for event in stream_command(command, cwd=cwd, timeout=timeout, session_id=session_id):
+    async for event in stream_command(
+        command, cwd=cwd, timeout=timeout, session_id=session_id, timeout_ms=timeout_ms
+    ):
         etype = event.get("type")
         if etype == "stdout":
             stdout_parts.append(event.get("content", ""))

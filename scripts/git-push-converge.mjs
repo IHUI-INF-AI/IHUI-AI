@@ -45,15 +45,14 @@
  *   1 — 存在推送失败或分叉(需人工)
  *
  * 用法:
- *   node scripts/git-push-converge.mjs                         # 默认仅核验 origin(唯一远端)
+ *   node scripts/git-push-converge.mjs                         # 默认推送/核验已配置的 origin+gitee
  *   node scripts/git-push-converge.mjs --remotes=origin,mirror # 显式指定仓(应急通道)
  *   node scripts/git-push-converge.mjs --branch=dev            # 指定分支(默认 main)
  *   node scripts/git-push-converge.mjs --force-with-lease      # 分叉时按已确认远端 sha 显式 lease 强推(慎用)
  *
- * ⚠️ 默认 remotes=origin(2026-09-18 收紧):仓库现只有 origin 一个远端
- *    (国内镜像仓 Gitee/GitCode 已于 2026-10-23 整体弃用,远端配置与镜像作业同时删除),
- *    本地手推镜像仓这条路径已不存在。每次 push 触发仓库级 pre-push 全量 typecheck(数分钟),
- *    故默认只核验 origin。
+ * ⚠️ 2026-11-27 机主令:origin(GitHub) 与 gitee(Gitee) 的 main 是同一生产分支的两个写远端,
+ *    必须逐 sha 同源;只推一边 = 事故。默认自动纳入本仓已配置的 origin+gitee,显式 --remotes= 优先。
+ *    临时夹具/CI 只有 origin 时自动退化为 origin;每次 push 触发仓库级 pre-push 全量门(数分钟)。
  */
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
@@ -103,12 +102,12 @@ import { resolveGitBin } from './lib/gitdir.mjs'
 const USAGE = Object.freeze([
   '用法: node scripts/git-push-converge.mjs [选项]',
   '  --help / -h              只打用法,rc=0:不 fetch、不 push、不写任何状态',
-  '  --remotes=<a,b>          指定远端(默认 origin)',
+  '  --remotes=<a,b>          指定远端(默认自动纳入已配置的 origin+gitee)',
   '  --branch=<name>          指定分支(默认 main)',
   '  --force-with-lease       分叉时按本次确认的远端 sha 显式 lease 强推;拿不到 sha 则不推',
   '  --timeout=<ms>           单仓网络超时(默认 180000)',
   '  --root=<目录>             测试注入缝:改 push-state/HEAD 的取材树,生产链不得传',
-  '  默认档 = fetch→收敛→push(会改动 origin,非只读);要只读核验请跑 node scripts/check-push-sync.mjs。',
+  '  默认档 = fetch→收敛→push→双远端逐 sha 复核(会改动远端,非只读);只读核验用 node scripts/check-push-sync.mjs / check-remote-parity.mjs。',
   '  退出码: 0 收敛/已同步/远端领先待 ff · 1 推送失败或分叉 · 2 用法错(未知旗标)',
 ])
 
@@ -135,7 +134,28 @@ function findUnknownFlag(argv) {
   return null
 }
 
-const CLI_ARGS = process.argv.slice(2)
+/**
+ * 值旗兼容 `--key=value` 与 `--key value` 两种写法。
+ * 2026-11-27 规范命令按人最顺手的 `--branch main` 书写,本器必须能吃下;
+ * 裸 `--branch`(后面没有值或紧跟另一枚旗)仍由 findUnknownFlag 判用法错,不静默退默认档。
+ */
+function normalizeArgv(argv) {
+  const valueFlags = new Set(['--branch', '--remotes', '--timeout', '--root'])
+  const out = []
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i]
+    const next = argv[i + 1]
+    if (valueFlags.has(a) && next !== undefined && !next.startsWith('-')) {
+      out.push(`${a}=${next}`)
+      i += 1
+    } else {
+      out.push(a)
+    }
+  }
+  return out
+}
+
+const CLI_ARGS = normalizeArgv(process.argv.slice(2))
 {
   const bad = findUnknownFlag(CLI_ARGS)
   if (bad !== null) {
@@ -163,13 +183,28 @@ const ROOT = hasRootFlag
   : resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_BIN = resolveGitBin() || 'git'
 
-const remotes = getArg('remotes', 'origin')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean)
 const branch = getArg('branch', 'main')
 const allowLease = hasFlag('force-with-lease')
 const TIMEOUT_MS = Number(getArg('timeout', '180000'))
+
+/**
+ * 默认远端 = 本仓实际配置的 origin + gitee(2026-11-27 机主令:双远端必须同源)。
+ * 临时夹具/CI 只有 origin 时自动退化为 origin,避免把"没配 gitee"误判成推送失败;
+ * 显式 `--remotes=` 永远优先。
+ */
+function defaultRemotes() {
+  const configured = (git(['remote']) || '')
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const wanted = ['origin', 'gitee'].filter((r) => configured.includes(r))
+  return (wanted.length > 0 ? wanted : ['origin']).join(',')
+}
+
+const remotes = getArg('remotes', defaultRemotes())
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
 
 /**
  * lease 的期望只认这一轮已经确认过的远端 sha。
@@ -313,14 +348,65 @@ function healViaGuard() {
     timeout: 600_000,
     // 逐字保留改动前的强制同步档:GUARD_ASYNC=0 让 guard 在本进程里推完再返回,
     // 否则它 spawn 后台 worker 后秒回 exit 0 ⇒ 本脚本会把"什么都没推"报成 PUSHED。
-    env: { ...process.env, GUARD_ASYNC: '0', GUARD_WORKER: '' },
+    // 2026-11-27:唯一收尾出口本身就是"显式推送窗口",必须给 guard 开 PUSH_WINDOW=1;
+    // 否则 guard 会以"窗口未开启"拒推,出现 origin 没推、gitee 已推的分叉。
+    env: { ...process.env, GUARD_ASYNC: '0', GUARD_WORKER: '', PUSH_WINDOW: '1' },
   })
 }
 
 let hasFailure = false
 const results = []
 
+/**
+ * 双远端预检(2026-11-27 分叉事故根治):
+ * 任何一边不可推/领先/分叉,本轮**一枚远端都不推**,避免"先推成功一边、另一边失败"留下
+ * origin 与 gitee 不一致。预检只读(ls-remote + 必要时 fetch),不产生 push。
+ */
+function inspectRemoteForPreflight(remote) {
+  const out = git(['ls-remote', remote, `refs/heads/${branch}`])
+  if (out === null || out.trim() === '') return { status: 'UNREACHABLE', why: 'ls-remote 失败/分支不存在' }
+  const remoteSha = out.split('\t')[0]
+  if (!/^[0-9a-f]{40,64}$/.test(remoteSha)) return { status: 'UNREACHABLE', why: '远端 sha 形态不合法' }
+  if (remoteSha === localHead) return { status: 'ALREADY', sha: remoteSha }
+  if (git(['cat-file', '-e', remoteSha]) === null) {
+    git(['fetch', remote, trackingFetchRefspec(remote, branch)], { timeout: TIMEOUT_MS })
+  }
+  const remoteIsAncestor =
+    git(['merge-base', '--is-ancestor', remoteSha, localHead]) !== null &&
+    git(['cat-file', '-e', remoteSha]) !== null
+  const localIsAncestor =
+    git(['merge-base', '--is-ancestor', localHead, remoteSha]) !== null &&
+    git(['cat-file', '-e', remoteSha]) !== null
+  if (localIsAncestor && !remoteIsAncestor) return { status: 'BEHIND', sha: remoteSha }
+  if (remoteIsAncestor && !localIsAncestor) return { status: 'PUSH', sha: remoteSha }
+  return { status: 'DIVERGED', sha: remoteSha }
+}
+
+let preflightBlocked = false
+// 双远端才做"一枚都不推"预检;单远端/显式 lease 场景没有两边分叉风险,保持旧语义。
+if (remotes.length >= 2 && !allowLease) {
+  for (const remote of remotes) {
+    const p = inspectRemoteForPreflight(remote)
+    if (p.status === 'ALREADY' || p.status === 'PUSH') {
+      console.log(`${remote.padEnd(8)} 🧭 PRECHECK ${p.status}(${p.sha.slice(0, 11)})`)
+    } else {
+      preflightBlocked = true
+      results.push({ remote, status: `PRECHECK_${p.status}` })
+      console.log(
+        `${remote.padEnd(8)} 🛑 PRECHECK ${p.status}${
+          p.sha ? `(${p.sha.slice(0, 11)})` : ''
+        }${p.why ? ` ${p.why}` : ''}`,
+      )
+    }
+  }
+}
+if (preflightBlocked) {
+  hasFailure = true
+  console.log('\n⛔ 双远端预检未通过:本轮不推任何远端(避免只推一边留下不一致);先收敛/恢复后再跑。')
+}
+
 for (const remote of remotes) {
+  if (preflightBlocked) break
   const label = remote.padEnd(8)
   // 1. 远端 tip(单次 ls-remote,比 fetch 轻得多)
   const remoteTip = git(['ls-remote', remote, `refs/heads/${branch}`])
@@ -328,7 +414,7 @@ for (const remote of remotes) {
     results.push({ remote, status: 'UNREACHABLE' })
     console.log(`${label} ❌ UNREACHABLE(网络/权限)`)
     hasFailure = true
-    continue
+    break
   }
   const remoteSha = remoteTip.split('\t')[0]
   if (remoteSha === localHead) {
@@ -357,7 +443,8 @@ for (const remote of remotes) {
     console.log(
       noteEvidence(startProv, ';本行结论依据 = ls-remote 现读远端 tip(当下量的),**本次未现推**'),
     )
-    continue
+    hasFailure = true
+    break
   }
   if (remoteIsAncestor && !localIsAncestor) {
     // 本地领先:若后台推送正在进行(guard 异步化),显示 PUSHING 而非重复触发
@@ -399,6 +486,7 @@ for (const remote of remotes) {
         console.log(noteEvidence(afterProv))
         hasFailure = true
       }
+      if (hasFailure) break
       continue
     }
     // 本地领先 → 推(镜像仓:直推但放宽超时,门禁由 CI 承担)
@@ -421,6 +509,7 @@ for (const remote of remotes) {
       results.push({ remote, status: 'PUSHED' })
       console.log(`${label} 🚀 PUSHED(${localHead.slice(0, 11)})`)
     }
+    if (hasFailure) break
     continue
   }
   // 既非祖先关系 → 分叉。
@@ -472,6 +561,7 @@ for (const remote of remotes) {
     )
   }
   hasFailure = true
+  break
 }
 
 // ─── 汇总 ───
@@ -480,5 +570,30 @@ console.log(`\n收敛结果: ${summary}`)
 // 末行再报一次开跑时那条读数的出处:多仓时上面的逐行注脚容易被截掉,而"这一轮的结论
 // 有多少来自当下、有多少压在历史读纸上"必须是**不用翻上文就能答**的问题(2026-09-28)。
 console.log(`汇总出处: ${startProv.text}`)
+
+// ─── 双远端逐 sha 同源复核(2026-11-27 机主令)───
+// 逐行 PUSHED/ALREADY 不等于"两边已经一致":任何一边在推送窗口里被并发推进,这里必须再量一次。
+// 即使前面已经失败,也照量不误:失败后到底两边是"都落后"还是"一边已推/一边没推",必须现读才知道。
+// 判据只有一份(check-remote-parity.mjs),本器不另写一套 sha 比较。
+// 只在双远端档复核;单远端(--remotes=origin)与空远端夹具保持旧语义。
+if (remotes.length >= 2) {
+  const parity = gitWithOutput(
+    [
+      'scripts/check-remote-parity.mjs',
+      `--branch=${branch}`,
+      `--remotes=${remotes.join(',')}`,
+    ],
+    process.execPath,
+    { timeout: 180_000 },
+  )
+  if (!parity.ok) {
+    hasFailure = true
+    console.log('\n❌ 双远端一致性复核失败(见下;不得宣称收尾完成)')
+    console.log(tailEvidence(parity.text) || '**未取到复核输出(未判定)**')
+  } else if (parity.text) {
+    console.log(parity.text)
+  }
+}
+
 process.exit(hasFailure ? 1 : 0)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

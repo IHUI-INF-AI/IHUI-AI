@@ -40,6 +40,7 @@
 <!-- 2026-11-01 守门 207 体积清偿(本票第六批):「只读对账尺子」的旧短副本 + 第四批/第五批两枚历史登记,共 4 行整行逐字移入 .ihui-agent/archive/AGENTS_trim-2026-11-01b.md(该件此刻真在审面里);规则条款一条未减,判据唯一真相源仍在本文。盘符/gitdir 形态按当次实测。 -->
 - **自动档写活文档的硬规矩**:底稿一律取被审面(`git show HEAD:<文档>` / `scripts/lib/face-reader.mjs`),落盘走对象空间(临时索引 + `commit-tree` + CAS,不写工作树);落地前自证"父提交里每条 `[x]` 复合主键本次仍为 `[x]`",不成立拒绝落地。**改写整行时还必须断言 `dispositionOf`(归他人/等条件/等拍板/可做)、`claimMarkOf`(租约)、`keyOfRow`(主键) 三维逐行不变,任一变了就整行还原**账面要现读,不能只看守门 RC)。
 ## 2. 项目概览
+- **项目愿景(2026-11-27 机主定案)**:做 AI 时代第一 AI Super App、做这个时代最前沿的项目——以「以人为本、重交付结果」为总纲,把 AI 能力收束为用户真正能用、能验收、能付费的结果;交付至上,只卖已交付的价值,不卖过程、不卖概念、不卖未落地功能;用户只为结果付费,不为预期预付。交付价值是唯一增长飞轮。
 <!-- 2026-11-20 门207清偿第1批·区丁:事故复盘与参考外置条 共5行整行逐字移入.ihui-agent/archive/AGENTS_trim-2026-11-20.md -->
 ## 3. 代码风格
 - 做减法、最小化、零冗余;复用现有代码与模式;不创建文档文件(除非明确要求);不加 license header;每页面 < 250 行;时间用 `Intl.DateTimeFormat`。
@@ -94,6 +95,7 @@
 - **测试隔离铁律(强制)**:测试一律禁止连生产库(PG 8810/Redis 8811);共享连接池必须 monkeypatch;跑两次 + 行数不变才算通过。
 ## 5b. `.git` 存续治理(强制)
 - **嵌套 ref 存续**:`git update-ref` 对 depth ≥2 嵌套命名空间静默假成功;对齐 `origin/main` 唯一正解 = `git fetch origin main` → `node scripts/git-refs-heal.mjs`(FETCH_HEAD 权威值固化 packed-refs);禁止手工 update-ref/松散直写 origin/main;禁止 `HUSKY_SKIP_COMMIT_LOSS_CHECK=1` 绕 30a。远端 stale 分支出路 = `git-refs-heal.mjs --refresh-remote`(fetch --prune 连期望清单一起摘)。
+- **双远端逐 sha 同源(强制,2026-11-27 机主令)**:本仓 `main` 同时写 `origin`(GitHub) 与 `gitee`(Gitee),两者是同一生产分支的两个写远端,**不是主备关系**。任何“推送 / 收尾 / 完成”的硬判据只有一个:`local HEAD == origin/main == gitee/main`(逐 sha 相等);任一边 behind / ahead / diverged / 分支缺失 / remote 未配置都不得报完成。唯一收尾出口 = `node scripts/git-push-converge.mjs --branch main`(默认自动纳入已配置的 origin+gitee,并在推送后强制跑 `check-remote-parity`);只读复核 = `node scripts/check-remote-parity.mjs --branch main`。**禁止**只跑 `git push origin` 或 `git push gitee` 单腿后宣称完成;并发远端推进时先 `fetch` + `git merge-tree --write-tree` + `git commit-tree` 对象层合并,再双推;分叉/失败先收敛,禁止强推。推送前先对全部远端做只读预检,任一边 UNREACHABLE/BEHIND/DIVERGED 则本轮**一枚远端都不推**;推送中途失败立即停止,不推剩余远端,禁止留下“一边已推、一边没推”的单腿现场。完整口径见 `docs/git-remote-parity.md`。
 - **worktree/索引自愈**(`heal-worktree-tracked.mjs`,挂 guardian tick):①恢复被外部删除的跟踪文件(索引==HEAD ∧ HEAD 存在)——**先问删除意图账**:该路径最新一条留痕若仍是 `report-only`(摘标未超 TTL,默认 2h,`IHUI_STAGED_INTENT_TTL_HOURS`)则只报数不代裁;超 TTL 而归属会话已不在 ⇒ 回盘并把逐字路径清单写回同一本账;②对齐幻影漂移(索引==HEAD ∧ 工作区==某祖先版本);③刷新落后索引(逐路径 update-index,绝不全局 reset);**MERGE_HEAD 在 ⇒ 各写索引层整轮让路**。
 - **恢复源增量刷新**:`git-backup-refresh.mjs` 由 guardian 每轮先 `--check` 再增量刷——**关键自愈层不得挂在会自己消失的计划任务上**(兜底可以,唯一挂点不行)。
 - **派生进程纪律**:`spawn/exec` 一律 `windowsHide: true`(机器级默认钩子 `install-console-window-hook.mjs --apply`,换机必跑;不得因钩子省略逐点参数);**派生 git 必须显式 stdio**(§12g);`NODE_OPTIONS` 钩子文件必须 `.mjs` 且放仓库外。禁弹窗排查先查 `HKCU\Console\%%Startup` 委托键。
