@@ -37,6 +37,13 @@ import {
   restoreAgentDefinition,
 } from '../services/agent-registry-approval-service.js'
 import {
+  getAgentRun,
+  getAgentRunStats,
+  listAgentRunEvents,
+  listDefinitionRuns,
+  listRunArtifacts,
+} from '../services/agent-registry-runs-service.js'
+import {
   publishAgentRegistryChanged,
   snapshotVersionFromUpdatedAt,
 } from '../services/agent-registry-invalidation.js'
@@ -193,8 +200,16 @@ const registryOpsSchema = z
       'precheck_delete',
       'delete',
       'restore',
+      'run_list',
+      'run_get',
+      'run_logs',
+      'run_artifacts',
+      'run_stats',
+      'health',
     ]),
     id: z.string().uuid().optional(),
+    runId: z.string().uuid().optional(),
+    definitionId: z.string().uuid().optional(),
     name: z.string().min(1).max(64).optional(),
     displayName: z.string().min(1).max(100).optional(),
     description: z.string().max(4000).optional(),
@@ -219,6 +234,10 @@ const registryOpsSchema = z
     reason: z.string().max(500).optional(),
     query: z.string().max(80).optional(),
     status: z.enum(['active', 'disabled', 'deleted']).optional(),
+    runStatus: z
+      .enum(['queued', 'running', 'paused', 'succeeded', 'failed', 'canceled', 'timeout', 'blocked'])
+      .optional(),
+    afterSeq: z.number().int().min(0).optional(),
     limit: z.number().int().min(1).max(100).default(20),
     cursor: z.string().max(256).optional(),
     includeVersions: z.boolean().default(false),
@@ -436,12 +455,52 @@ export async function agentRegistryInternalRoutes(server: FastifyInstance): Prom
       case 'restore':
         result = await restoreAgentDefinition(actor, requireField(body.id, 'id'))
         break
+      case 'run_list':
+        result = await listDefinitionRuns(actor, requireField(body.definitionId, 'definitionId'), {
+          status: body.runStatus,
+          limit: body.limit,
+          offset: 0,
+        })
+        break
+      case 'run_get':
+        result = await getAgentRun(actor, requireField(body.runId, 'runId'))
+        break
+      case 'run_logs':
+        result = await listAgentRunEvents(actor, requireField(body.runId, 'runId'), {
+          afterSeq: body.afterSeq,
+          limit: body.limit,
+        })
+        break
+      case 'run_artifacts':
+        result = await listRunArtifacts(actor, requireField(body.runId, 'runId'))
+        break
+      case 'run_stats':
+        result = await getAgentRunStats(actor, requireField(body.runId, 'runId'))
+        break
+      case 'health':
+        result = {
+          ok: true,
+          service: 'agent-registry',
+          serverTime: new Date().toISOString(),
+        }
+        break
       default:
         throw new AppError(`未知 action ${String(body.action)}`, 400, 'AGENT_ACTION_INVALID')
     }
 
     const mutating =
-      !['list', 'inspect', 'precheck_delete', 'delete'].includes(body.action) &&
+      ![
+        'list',
+        'inspect',
+        'precheck_delete',
+        'delete',
+        'run_list',
+        'run_get',
+        'run_logs',
+        'run_artifacts',
+        'run_stats',
+        'health',
+      ].includes(body.action) &&
       !(typeof result === 'object' && result !== null && 'requiresApproval' in result)
     if (mutating) {
       const record =

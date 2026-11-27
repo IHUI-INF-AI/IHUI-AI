@@ -718,6 +718,17 @@ class MemoryService:
                 )
         return self._row_to_semantic(row)
 
+    async def delete_semantic(self, user_id: str, memory_id: str) -> bool:
+        """按 id + 属主删除一条语义记忆；返回是否真的删到。"""
+        pool = await _get_pool()
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM agent_memory_semantic WHERE id = $1::uuid AND user_id = $2::uuid",
+                memory_id,
+                user_id,
+            )
+        return str(result).endswith("1")
+
     async def recall(
         self,
         user_id: str,

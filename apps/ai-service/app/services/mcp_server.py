@@ -28,6 +28,18 @@ from urllib.parse import parse_qs, quote_plus, urlparse
 
 # 会话寻址投递的 kind 值域单源(§0.6):工具 schema 的 enum 与 handler 校验同吃这一份白名单
 from app.services.agent_comm import _NAMABLE_MESSAGE_TYPES
+from app.services.master_tools.memory import (
+    DESCRIPTION as _MASTER_MEMORY_DESC,
+    INPUT_SCHEMA as _MASTER_MEMORY_SCHEMA,
+)
+from app.services.master_tools.ops import (
+    DESCRIPTION as _MASTER_OPS_DESC,
+    INPUT_SCHEMA as _MASTER_OPS_SCHEMA,
+)
+from app.services.master_tools.registry import (
+    DESCRIPTION as _MASTER_REGISTRY_DESC,
+    INPUT_SCHEMA as _MASTER_REGISTRY_SCHEMA,
+)
 
 if TYPE_CHECKING:
     from .agent_orchestrator import AgentOrchestrator
@@ -18325,6 +18337,21 @@ _TOOLS: list[MCPTool] = [
             "additionalProperties": False,
         },
     ),
+    MCPTool(
+        name="agent_registry",
+        description=_MASTER_REGISTRY_DESC,
+        input_schema=_MASTER_REGISTRY_SCHEMA,
+    ),
+    MCPTool(
+        name="agent_ops",
+        description=_MASTER_OPS_DESC,
+        input_schema=_MASTER_OPS_SCHEMA,
+    ),
+    MCPTool(
+        name="master_memory",
+        description=_MASTER_MEMORY_DESC,
+        input_schema=_MASTER_MEMORY_SCHEMA,
+    ),
 ]
 
 
@@ -18992,9 +19019,51 @@ async def _tool_get_diagnostics(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _tool_agent_registry(arguments: dict[str, Any]) -> dict[str, Any]:
+    from app.services.master_tools.registry import agent_registry_tool
+
+    user_id = str(arguments.get("__user_id") or "").strip()
+    if not user_id:
+        return {
+            "ok": False,
+            "action": str(arguments.get("action") or ""),
+            "error": {"code": "AGENT_USER_REQUIRED", "message": "缺少 __user_id，拒绝越权访问注册表"},
+        }
+    return await agent_registry_tool.handle(arguments, user_id=user_id)
+
+
+async def _tool_agent_ops(arguments: dict[str, Any]) -> dict[str, Any]:
+    from app.services.master_tools.ops import agent_ops_tool
+
+    user_id = str(arguments.get("__user_id") or "").strip()
+    if not user_id:
+        return {
+            "ok": False,
+            "action": str(arguments.get("action") or ""),
+            "error": {"code": "AGENT_USER_REQUIRED", "message": "缺少 __user_id，拒绝越权访问运行"},
+        }
+    return await agent_ops_tool.handle(arguments, user_id=user_id)
+
+
+async def _tool_master_memory(arguments: dict[str, Any]) -> dict[str, Any]:
+    from app.services.master_tools.memory import master_memory_tool
+
+    user_id = str(arguments.get("__user_id") or "").strip()
+    if not user_id:
+        return {
+            "ok": False,
+            "action": str(arguments.get("action") or ""),
+            "error": {"code": "AGENT_USER_REQUIRED", "message": "缺少 __user_id，拒绝越权访问记忆"},
+        }
+    return await master_memory_tool.handle(arguments, user_id=user_id)
+
+
 _TOOL_HANDLERS: dict[str, Any] = {
     # ===== 工具定义 deferral 反查工具(2026-09-02 立)=====
     "get_tool_schema": _tool_get_tool_schema,
+    "agent_registry": _tool_agent_registry,
+    "agent_ops": _tool_agent_ops,
+    "master_memory": _tool_master_memory,
     "search_codebase": _tool_search_codebase,
     "list_symbol_definitions": _tool_list_symbol_definitions,
     "read_project_rule": _tool_read_project_rule,

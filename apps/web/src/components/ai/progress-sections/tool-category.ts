@@ -203,6 +203,10 @@ const EXACT_MAP: Readonly<Record<string, CategoryKey>> = {
   // 任务编排类工具(团队任务板 / 可续跑子代理),与 Agent/Task 同档
   team_task: 'task_management',
   orchestrate_agents: 'task_management',
+  // 总管智能体三工具(R3):注册表、运行控制、长期记忆
+  agent_registry: 'task_management',
+  agent_ops: 'task_management',
+  master_memory: 'task_management',
   // 旧名:历史会话的工具调用仍按 task_management 展示
   dispatch_subagent: 'task_management',
   subagent_job: 'task_management',
