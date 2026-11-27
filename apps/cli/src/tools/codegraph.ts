@@ -391,6 +391,22 @@ export const codegraph: Tool = {
   description:
     '构建工作区代码符号依赖图(扫描 .ts/.tsx/.js/.jsx 文件的 import 语句)。输出每个文件的依赖列表 + 反向依赖(谁依赖我)。用于理解代码结构、影响面分析。零外部依赖,纯正则解析,覆盖 90% 场景。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'codegraph.build',
+      reason: '只读扫描工作区 import 构建符号依赖图,不修改文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     file: {
       type: 'string',
@@ -505,6 +521,22 @@ export const goto_definition: Tool = {
   description:
     '查找符号定义位置(基于正则扫描 function/const/let/var/class/interface/type/enum 定义模式)。返回 file:line:col + 上下文。零 LSP 依赖,适合快速定位符号定义。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'codegraph.def',
+      reason: '只读查找符号定义位置,不修改文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     symbol: { type: 'string', description: '要查找的符号名(标识符)' },
   },
@@ -578,6 +610,22 @@ export const find_references: Tool = {
   description:
     '查找符号所有引用位置(import 语句 + 代码内使用,排除定义本身)。用于评估重命名影响面、查找未使用符号。返回 file:line:col + 引用类型 + 上下文。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'codegraph.refs',
+      reason: '只读查找符号所有引用,不修改文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     symbol: { type: 'string', description: '要查找的符号名(标识符)' },
   },

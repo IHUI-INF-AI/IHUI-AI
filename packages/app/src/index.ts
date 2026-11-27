@@ -851,14 +851,14 @@ export type {
   /** 批次 24(2026-07-29):Circle 系(圈子)4 屏 */
   CircleMemberItem,
   CircleMemberScreenProps,
+  CircleListItem,
+  CircleListScreenProps,
   CircleDetailItem,
   CircleDetailScreenProps,
+  CirclePostItem,
   CircleCreateScreenProps,
   CircleChatMessage,
   CircleChatScreenProps,
-  CircleListItem,
-  CircleListScreenProps,
-  CirclePostItem,
   /** 批次 26-28(2026-07-29):分销/考试/财务/首页/实名/推广/招募/推荐/团队/视频/权益(12 屏) */
   DistributionProduct,
   DistributionInfo,

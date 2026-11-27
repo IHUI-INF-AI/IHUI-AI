@@ -247,6 +247,22 @@ const browserPageSnapshot: Tool = {
   },
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.page.snapshot',
+      reason: '只读获取页面语义快照(可读文本+交互元素大纲),不改变页面状态,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     try {
       const { session } = await getBrowserSession()
@@ -276,6 +292,23 @@ const browserPageClick: Tool = {
   parameters: { handle: { type: 'string', description: 'Handle like el:<scope>:<serial>' } },
   required: ['handle'],
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.page.click',
+      reason: '点击页面元素,触发页面行为(可能提交表单/跳转),须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     const handle = typeof args.handle === 'string' ? args.handle : ''
     if (!handle) return fail('PARAM_INVALID', 'handle is required')
@@ -306,6 +339,23 @@ const browserPageType: Tool = {
   },
   required: ['handle', 'text'],
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.page.type',
+      reason: '向页面输入框输入文本(模拟真实按键),改变页面输入状态,须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     const handle = typeof args.handle === 'string' ? args.handle : ''
     const text = typeof args.text === 'string' ? args.text : ''
@@ -349,6 +399,23 @@ const browserPageSelect: Tool = {
   },
   required: ['handle', 'value'],
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.page.select',
+      reason: '选择下拉框选项,改变页面表单状态,须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     const handle = typeof args.handle === 'string' ? args.handle : ''
     const value = typeof args.value === 'string' ? args.value : ''
@@ -383,6 +450,23 @@ const browserPageHover: Tool = {
   parameters: { handle: { type: 'string', description: 'Target handle' } },
   required: ['handle'],
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.page.hover',
+      reason: '悬停页面元素(派发 hover 事件),可能触发悬浮菜单/状态变化,须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     const handle = typeof args.handle === 'string' ? args.handle : ''
     if (!handle) return fail('PARAM_INVALID', 'handle is required')
@@ -411,6 +495,23 @@ const browserPagePressKey: Tool = {
   },
   required: ['handle', 'key'],
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.page.pressKey',
+      reason: '向页面发送真实按键(Enter/Tab/Escape 等),可能提交/导航,须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     const handle = typeof args.handle === 'string' ? args.handle : ''
     const key = typeof args.key === 'string' ? args.key : ''
@@ -447,6 +548,22 @@ const browserPagePickAtPoint: Tool = {
   },
   required: ['x', 'y'],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.page.pickAtPoint',
+      reason: '只读命中测试视口坐标定位元素,不改变页面状态,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     const x = Number(args.x)
     const y = Number(args.y)
@@ -494,6 +611,22 @@ const browserPageScroll: Tool = {
   },
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.page.scroll',
+      reason: '滚动页面或可滚动元素,只改变视口位置不触发业务动作,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     const direction = typeof args.direction === 'string' ? args.direction : 'down'
     const amount = typeof args.amount === 'number' && args.amount > 0 ? Math.floor(args.amount) : 600
@@ -542,6 +675,22 @@ const browserPageWaitFor: Tool = {
   },
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.page.waitFor',
+      reason: '只读等待页面满足条件或超时,不主动改变页面状态,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     const text = typeof args.text === 'string' && args.text !== '' ? args.text : undefined
     const textGone = typeof args.textGone === 'string' && args.textGone !== '' ? args.textGone : undefined
@@ -588,6 +737,23 @@ const browserPageDrag: Tool = {
   },
   required: ['from', 'to'],
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.page.drag',
+      reason: '拖拽页面元素(带真实按压),触发拖放交互,须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     const from = typeof args.from === 'string' ? args.from : ''
     const to = typeof args.to === 'string' ? args.to : ''

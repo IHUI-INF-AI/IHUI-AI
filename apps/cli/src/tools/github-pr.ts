@@ -155,6 +155,23 @@ const gh_pr_create: Tool = {
   name: 'gh_pr_create',
   description: '创建 GitHub Pull Request。参数:title(标题,必填),body(描述),head(源分支,必填),base(目标分支,默认当前),draft(布尔,草稿)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'gh.pr.create',
+      reason: '创建 GitHub Pull Request,在远端仓库新增公开的 PR,触网写远端,须人确认',
+      riskLevel: 'write',
+      effectScope: 'network',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     title: { type: 'string', description: 'PR 标题' },
     body: { type: 'string', description: 'PR 描述(markdown)' },
@@ -200,6 +217,22 @@ const gh_pr_list: Tool = {
   },
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'gh.pr.list',
+      reason: '只读列出 GitHub PR,不改远端状态,无需批准',
+      riskLevel: 'read',
+      effectScope: 'network',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args, ctx): Promise<ToolResult> {
     const state = (args.state as string) || 'open';
     const limit = typeof args.limit === 'number' ? args.limit : 20;
@@ -224,6 +257,22 @@ const gh_pr_view: Tool = {
   },
   required: ['number'],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'gh.pr.view',
+      reason: '只读查看 GitHub PR 详情,不改远端状态,无需批准',
+      riskLevel: 'read',
+      effectScope: 'network',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args, ctx): Promise<ToolResult> {
     const number = args.number;
     if (typeof number !== 'number') return { success: false, output: '', error: '缺少 number 参数(PR 编号)' };
@@ -243,6 +292,23 @@ const gh_pr_review: Tool = {
   name: 'gh_pr_review',
   description: '提交 PR Review。参数:number(PR 编号,必填),event(APPROVE/REQUEST_CHANGES/COMMENT,必填),body(评论文本)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'gh.pr.review',
+      reason: '提交 PR Review(APPROVE/REQUEST_CHANGES),影响 PR 审批结论,须人确认',
+      riskLevel: 'write',
+      effectScope: 'network',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     number: { type: 'number', description: 'PR 编号' },
     event: { type: 'string', description: 'review 类型:APPROVE/REQUEST_CHANGES/COMMENT' },
@@ -274,6 +340,23 @@ const gh_pr_merge: Tool = {
   name: 'gh_pr_merge',
   description: 'DANGEROUS: 合并 GitHub PR。参数:number(PR 编号,必填),method(merge/squash/rebase,默认 merge),delete_branch(布尔,合并后删除分支)。需 args.confirm===true。',
   dangerLevel: 'dangerous',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'gh.pr.merge',
+      reason: '合并 GitHub PR,改变远端分支历史,属破坏性动作,须人确认',
+      riskLevel: 'dangerous',
+      effectScope: 'network',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     number: { type: 'number', description: 'PR 编号' },
     method: { type: 'string', description: '合并方式:merge/squash/rebase(默认 merge)' },
@@ -307,6 +390,23 @@ const gh_pr_comment: Tool = {
   name: 'gh_pr_comment',
   description: '在 PR 上添加评论。参数:number(PR 编号,必填),body(评论内容,必填)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'gh.pr.comment',
+      reason: '在 PR 上添加公开评论,写入远端,须人确认',
+      riskLevel: 'write',
+      effectScope: 'network',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     number: { type: 'number', description: 'PR 编号' },
     body: { type: 'string', description: '评论内容(markdown)' },
@@ -334,6 +434,23 @@ const gh_pr_close: Tool = {
   name: 'gh_pr_close',
   description: '关闭 GitHub PR。参数:number(PR 编号,必填),comment(关闭时的评论,可选)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'gh.pr.close',
+      reason: '关闭 GitHub PR,改变其状态,须人确认',
+      riskLevel: 'write',
+      effectScope: 'network',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     number: { type: 'number', description: 'PR 编号' },
     comment: { type: 'string', description: '关闭时的评论(可选)' },
@@ -364,6 +481,23 @@ const gh_pr_reopen: Tool = {
   name: 'gh_pr_reopen',
   description: '重新打开已关闭的 GitHub PR。参数:number(PR 编号,必填)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'gh.pr.reopen',
+      reason: '重新打开已关闭的 PR,改变其状态,须人确认',
+      riskLevel: 'write',
+      effectScope: 'network',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     number: { type: 'number', description: 'PR 编号' },
   },
@@ -388,6 +522,23 @@ const gh_pr_checkout: Tool = {
   name: 'gh_pr_checkout',
   description: '切换到 PR 对应的分支(git checkout)。参数:number(PR 编号,必填)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'gh.pr.checkout',
+      reason: '切换到 PR 对应分支(git checkout),改变本地工作区内容指向,须人确认',
+      riskLevel: 'write',
+      effectScope: 'repository',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     number: { type: 'number', description: 'PR 编号' },
   },
@@ -416,6 +567,23 @@ const gh_issue_create: Tool = {
   name: 'gh_issue_create',
   description: '创建 GitHub Issue。参数:title(标题,必填),body(描述),labels(标签数组)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'gh.issue.create',
+      reason: '创建 GitHub Issue,在远端新增公开条目,触网写远端,须人确认',
+      riskLevel: 'write',
+      effectScope: 'network',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     title: { type: 'string', description: 'Issue 标题' },
     body: { type: 'string', description: 'Issue 描述(markdown)' },
@@ -460,6 +628,22 @@ const gh_issue_list: Tool = {
   },
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'gh.issue.list',
+      reason: '只读列出 GitHub Issue,不改远端状态,无需批准',
+      riskLevel: 'read',
+      effectScope: 'network',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args, ctx): Promise<ToolResult> {
     const state = (args.state as string) || 'open';
     const labels = args.labels as string | undefined;
@@ -487,6 +671,23 @@ const gh_release_create: Tool = {
   name: 'gh_release_create',
   description: 'DANGEROUS: 创建 GitHub Release。参数:tag(标签名,必填),title(Release 标题),notes(发布说明),draft(布尔,草稿),prerelease(布尔,预发布)。需 args.confirm===true。',
   dangerLevel: 'dangerous',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'gh.release.create',
+      reason: '创建 GitHub Release,对外发布版本(通常关联 tag),属破坏性动作,须人确认',
+      riskLevel: 'dangerous',
+      effectScope: 'network',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     tag: { type: 'string', description: '标签名(如 v1.0.0)' },
     title: { type: 'string', description: 'Release 标题' },

@@ -147,6 +147,23 @@ export const run_tests: Tool = {
   name: 'run_tests',
   description: '运行项目测试套件并返回结构化结果。参数:filter(字符串,测试文件名过滤,可选)。',
   dangerLevel: 'dangerous',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'test.run',
+      reason: '运行项目测试套件,可能执行测试代码产生副作用,危险动作须人确认',
+      riskLevel: 'dangerous',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     filter: { type: 'string', description: '测试文件名过滤(传给 jest -t 或 vitest 过滤)' },
   },
