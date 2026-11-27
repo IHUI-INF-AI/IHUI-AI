@@ -270,12 +270,9 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
         )
       }
     } catch (e) {
-      await releasePointsHold({
-        userId: opts.userId,
-        source: 'crew_llm',
-        referenceId: billingReferenceId,
-      }).catch(() => undefined)
-      logger.warn({ err: e }, '[CrewLLM] settleLlmPointsUsage 失败,整笔记为欠额')
+      // 上游成本已发生、结果已返回:不能释放 hold 变成免费。
+      // settleLlmPointsUsage 已把 hold 标成 settle_pending,由周期任务重试。
+      logger.warn({ err: e }, '[CrewLLM] settleLlmPointsUsage 失败,已留待结算重试')
     }
 
     const billing = {
@@ -295,6 +292,8 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
         completionTokens: result.usage.completionTokens,
         totalTokens: result.usage.totalTokens,
         requestType: opts.sessionId ? 'crew_session' : 'crew',
+        // 同一 Crew 计费引用重放只落一条成本,避免与内部结算/重试双记。
+        idempotencyKey: `llm_cost:${billingReferenceId}`,
         // 成本账显式传上游成本;用户积分已由 settleLlmPointsUsage 单独结算,两本账分离
         cost: costCents,
         currency: actual.currency,

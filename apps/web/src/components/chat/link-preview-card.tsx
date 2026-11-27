@@ -177,7 +177,7 @@ export function LinkPreviewCard({
             src={iconSrc}
             alt=""
             aria-hidden
-            loading="lazy"
+            decoding="async"
             referrerPolicy="no-referrer"
             onError={() => setFailedIcon(preview.icon ?? null)}
             className="h-5 w-5 rounded-[3px] object-contain"

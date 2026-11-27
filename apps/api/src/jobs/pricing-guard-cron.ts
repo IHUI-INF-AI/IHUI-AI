@@ -18,7 +18,7 @@ import { logger } from '../utils/logger.js'
 import { getUnpricedAlerts, syncConfigPricesFromPricing } from '../services/model-pricing-admin.js'
 import { repricePlaceholderModels } from '../services/model-price-resolver.js'
 import { upsertPricing } from '../services/pricing-service.js'
-import { cleanupPointHolds } from '../services/points-service.js'
+import { cleanupPointHolds, retryPendingPointHolds } from '../services/points-service.js'
 import { db } from '../db/index.js'
 
 let task: ScheduledTask | null = null
@@ -54,7 +54,12 @@ export function startPricingGuardScheduler(): void {
           updated: synced.updated,
           skipped: synced.skipped,
         })
-        // 3) 回收过期冻结并清理 90 天前历史行,防止 reserved_points 被不活跃用户长期占住。
+        // 3) 先重试“结算失败但已交付”的待结算 hold;再回收真正过期的 held,
+        //    防止把仍应收费的在途请求当过期释放。
+        const pendingRetry = await retryPendingPointHolds(100)
+        if (pendingRetry.scanned > 0) {
+          logger.info('[point-holds] 待结算重试', pendingRetry)
+        }
         const holds = await cleanupPointHolds({ retentionDays: 90 })
         logger.info('[pricing-guard] 冻结回收', holds)
         // 4) 最后巡检
@@ -80,11 +85,15 @@ export function startPricingGuardScheduler(): void {
     { timezone: 'Asia/Shanghai' },
   )
   // 过期冻结只靠每日 09:00 回收会让 stale held 最长挂 24 小时;
-  // 改为每 10 分钟扫一次,冻结 TTL(15 分钟)最多多占用一个周期。
+  // 改为每 10 分钟扫一次,冻结 TTL(60 分钟)最多多占用一个周期。
   holdSweepTask = cron.schedule(
     '*/10 * * * *',
     async () => {
       try {
+        const pendingRetry = await retryPendingPointHolds(100)
+        if (pendingRetry.scanned > 0) {
+          logger.info('[point-holds] 周期待结算重试', pendingRetry)
+        }
         const holds = await cleanupPointHolds({ retentionDays: 90 })
         if (holds.expired > 0 || holds.deleted > 0) {
           logger.info('[point-holds] 周期回收', holds)

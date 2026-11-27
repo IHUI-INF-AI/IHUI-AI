@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   settlePointsUsage: vi.fn(),
   reservePointsUsage: vi.fn(),
   releasePointsHold: vi.fn(async () => 0),
+  markPointHoldPendingSettlement: vi.fn(async () => true),
   getPointsHoldPricingSnapshot: vi.fn(async () => null),
   getActivePointsHoldAmount: vi.fn(async () => null),
   findActivePricingForMode: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock('../src/services/points-service.js', () => ({
   settlePointsUsage: mocks.settlePointsUsage,
   reservePointsUsage: mocks.reservePointsUsage,
   releasePointsHold: mocks.releasePointsHold,
+  markPointHoldPendingSettlement: mocks.markPointHoldPendingSettlement,
   getPointsHoldPricingSnapshot: mocks.getPointsHoldPricingSnapshot,
   getActivePointsHoldAmount: mocks.getActivePointsHoldAmount,
 }))
@@ -193,7 +195,7 @@ describe('媒体积分结算', () => {
     )
   })
 
-  it('未配置成本价或命中积分幂等时不重复写成本', async () => {
+  it('未配置成本价不写 0 成本;命中积分幂等时仍按幂等键补记成本', async () => {
     const request = makeRequest()
     await chargeMediaPoints(request, 'gpt-image-1', 'image', 2, 'img:task-no-cost')
     expect(mocks.recordAiCost).not.toHaveBeenCalled()
@@ -211,7 +213,11 @@ describe('媒体积分结算', () => {
       alreadySettled: true,
     })
     await chargeMediaPoints(request, 'gpt-image-1', 'image', 2, 'img:task-dup')
-    expect(mocks.recordAiCost).not.toHaveBeenCalled()
+    // 成本账幂等由 recordAiCost 的 idempotencyKey 保证;调用点不能因为积分幂等就跳过,
+    // 否则首次“结算成功、成本失败”的重试永远补不上成本。
+    expect(mocks.recordAiCost).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotencyKey: 'media_cost:img:task-dup' }),
+    )
   })
 
   it('成本落账失败不回滚积分,产物照常交付', async () => {

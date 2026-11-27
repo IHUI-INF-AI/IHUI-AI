@@ -50,10 +50,11 @@
 
 - 调用前按 **prompt 估算 + 客户端声明的 max_tokens** 冻结，而不是只查 prompt 余额。
 - `max_tokens` 兼容 `max_tokens` / `max_completion_tokens` / `maxTokens` / `max_output_tokens`；未传默认 4096，硬上限 131072。
-- 冻结写入 `user_points.reserved_points` 与 `point_holds`；可用余额 = `points + 当日 daily_points - reserved_points`。
-- 冻结 TTL 15 分钟，到期由 `releaseExpiredPointHolds` 懒释放；每日 `pricing-guard` 任务再跑一次 `cleanupPointHolds`，把长期不活跃用户的过期 hold 批量置 `expired` 并回退 `reserved_points`，同时删除 90 天前的历史行。
-- 冻结时把当次费率写入 `point_holds.pricing_snapshot`（输入/输出积分每千 token、`pricing_model_id`、冻结时间）；结算优先按快照算，管理员在 15 分钟窗口内调价不会改变在途请求的扣费。
-- 运维观测：`GET /admin/ai-pricing/point-holds` 返回当前 held 笔数/积分、最老冻结时长、过期未回收、近 24h 结算/释放/过期、按 source 分布、`reserved_points` 与 held 汇总的账面偏差；`POST /admin/ai-pricing/point-holds/cleanup` 可手动触发同一套回收逻辑。
+- 冻结写入 `user_points.reserved_points` 与 `point_holds`；可用余额 = `max(0, points + 当日 daily_points - reserved_points)`。`points` 可为负数：那是已发生、冻结不足形成的欠费，后续充值/赠送先抵消欠费，欠费期间可用余额恒为 0。每日赠送发放时也先补平负余额，剩余部分才进入当天可花额度，避免赠送跨日作废后欠费本金被高估。
+- 冻结 TTL 60 分钟，到期由 `releaseExpiredPointHolds` 懒释放；每 10 分钟一次的 `pricing-guard` 任务会先重试 `settle_pending`，再批量回收真正过期的 `held`，同时删除 90 天前终态历史行。结算不先跑过期回收：在途请求即使越过 `expires_at`，也优先按原 hold 结算，避免“先过期再找不到 hold”的短收。
+- 冻结时把当次费率写入 `point_holds.pricing_snapshot`（输入/输出积分每千 token、`pricing_model_id`、冻结时间）；结算优先按快照算，管理员在 60 分钟窗口内调价不会改变在途请求的扣费。
+- 结算事务失败会做 3 次瞬时错误重试；仍失败时调用方把 hold 标记为 `settle_pending`（保留 reserved、续期 6 小时），由周期任务重试，不直接释放成免费。异步回调等无预扣链路会落一条 0 冻结的 `settle_pending` 行作为重试队列。
+- 运维观测：`GET /admin/ai-pricing/point-holds` 返回当前 held 笔数/积分、最老冻结时长、过期未回收、`settle_pending` 待重试、近 24h 结算/释放/过期、按 source 分布、`reserved_points` 与 held 汇总的账面偏差；`POST /admin/ai-pricing/point-holds/cleanup` 可手动触发同一套回收逻辑。
 - 预检结果：
   - 无成本价 → `503 MODEL_PRICING_MISSING`，不发起上游；
   - 定价异常 → `503 MODEL_PRICING_INVALID`；
@@ -65,7 +66,7 @@
 
 - 上游成功后按**真实 usage** 结算：先释放 hold 的 `reserved`，再按实际积分扣当日赠送、再扣永久积分；多冻结部分自动退回。
 - 结算费率优先取 `point_holds.pricing_snapshot`；快照缺失（老数据/无 hold 的异步回调）才读当前费率。快照存在时不再查实时价，避免“预检一个价、结算另一个价”。
-- 余额不足时部分结算：扣到 0，`shortfall` 返回日志/任务 metadata，不产生负余额。
+- 余额不足时部分结算：能扣多少扣多少，差额直接计入 `user_points.points` 负余额（欠费），并返回 `shortfall` 供审计；欠费不清零、不静默消失，后续充值/赠送自动抵消，欠费期间 `available` 恒为 0。
 - 上游成功但没有 usage：
   - 同步代理按 `total_tokens`；没有总量则按字符数估算；
   - 异步回调按 `prompt_tokens + completion_tokens`，再不行至少按 1 token 结算，不再“无 usage 就跳过”。
@@ -117,11 +118,11 @@
 
 ### 3.3 预检、冻结与结算
 
-- 预检按本次报价冻结，TTL **60 分钟**（视频排队+生成可能超过 15 分钟）；冻结时把 `category / unit_price_points / video_unit / units` 写入 `pricing_snapshot`，结算按快照单价重算，窗口内调价/下架不影响在途任务。
+- 预检按本次报价冻结，TTL **60 分钟**（视频排队+生成可能超过 15 分钟）；冻结时把 `category / unit_price_points / video_unit / units / cost_unit_price` 写入 `pricing_snapshot`，结算按快照单价重算，窗口内调价/下架不影响在途任务；成本账也按冻结成本落，不因定价行下架而变成 `unknown`。
 - 预检余额不足 402；无价 503；同 `request.id` 重复提交 409。
 - 产物成功后按 `taskId`（或业务引用）幂等结算；`holdReferenceId` 默认 `request.id`，与预扣对齐。
-- 产物已交付但定价行在结算时失效：按**预扣额**结算，不允许 0 元放走；只有连预扣都没有时才留成本告警。
-- 同一 `user_id + source + reference_id` 只允许一条 `spend` 流水；重复回调返回 `alreadySettled`，不重复扣。
+- 产物已交付但定价行在结算时失效：按**预扣额**结算，不允许 0 元放走；只有连预扣都没有时才留成本告警。结算事务失败时 hold 标记 `settle_pending`，保留 reserved 并由周期任务重试，不释放成免费。
+- 同一 `user_id + source + reference_id` 只允许一条 `spend` 流水；重复回调返回 `alreadySettled`，不重复扣。成本账以 `ai_cost_records.idempotency_key`（`media_cost:<referenceId>` / `llm_cost:<referenceId>`）唯一索引去重，重复回调即使命中积分幂等也会补记缺失成本，不会双记。
 - 平台成本：`cost_unit_price` 已配置时写 `ai_cost_records`（`requestType=media_*`），状态 `priced`/`zero_cost`；未配置则标 `unknown`、不伪造 0 成本。
 
 ### 3.4 当前已补价的内置媒体链路
@@ -136,7 +137,7 @@
 | `image-edit` / `jimeng4` / `jimeng_t2i_v40` / `jimeng_t2i_v31` / `watermark-image` | per_image | 20 / 张 |
 | `watermark-video` | per_video（call） | 100 / 次 |
 
-这些行的 `cost_unit_price` 暂为 `NULL`：成本账会标 `unknown`，不会伪装成 0。其余动态媒体模型（Kling、Runway、Luma、Vidu、PixVerse、Flux、Recraft、Bria、Stability 等）**必须在 `ai_pricing` 有对应行才能卖**；没有就 503，这是有意的“未定价不卖”，不是故障。
+这些内置固定动作的成本价仍以管理端补录为准；成本账会标 `unknown`，不会伪装成 0。可核实上游成本的 24 条媒体行由 `packages/database/seed/media-cost-pricing-seed.ts` 回填 `cost_unit_price`（部署 seed 步骤 16，幂等），覆盖 Agnes、Grok、MOSS、Qwen、Z-Image、Magi-2、MiniMax H3、Lyria 等；其余动态媒体模型（Kling、Runway、Luma、Vidu、PixVerse、Flux、Recraft、Bria、Stability 等）**必须在 `ai_pricing` 有对应行才能卖**；没有就 503，这是有意的“未定价不卖”，不是故障。`gpt-image-2` / `2.5` / `flare` / `sunburst` 的历史占位价（0.02~0.03 分/张）低于 1 分地板且无可核实成本，seed 会统一置 `expires_at=now()` 停售，补到真实成本后再上架。
 
 ### 3.5 后台定价护栏（2026-11-26 加固）
 
@@ -173,7 +174,7 @@
 
 1. **用户积分与平台成本分离**：LLM 用户价按成本×3 生成，成本账按真实成本记，两边不再要求相等。
 2. **成本可信度显式化**：`ai_cost_records.cost_status` = `priced` / `unknown` / `zero_cost`；无价不再静默写 0 当真实成本。
-3. **部分结算**：上游已发生、余额不足时扣到 0，差额审计，不产生负余额。
+3. **部分结算 + 负余额欠费**：上游已发生、余额不足时按可用余额先扣，差额写入 `user_points.points` 负值；后续充值/每日赠送先抵消欠费，欠费期间可用余额恒为 0，不再“扣到 0 就消失”。
 4. **钱包→积分桥**：`POST /api/wallet/convert-to-points`，1 分 = 1 积分，事务内扣钱包、加积分、写双向流水。
 5. **余额口径统一**：所有“够不够付”都走 `getSpendableBalance`（永久 + 当日赠送 - 冻结）。
 
@@ -206,14 +207,14 @@
 | 同 `referenceId` 已结算/在跑 | 409 `DUPLICATE_REQUEST` / `REQUEST_IN_PROGRESS`，不放上游 |
 | LLM 上游 5xx/超时/4xx | 释放 hold，不扣分 |
 | LLM 成功但无 usage | 按 total/字符估算；异步回调至少 1 token，不再跳过 |
-| 上游已产生成本但余额不足 | 部分结算，扣到 0，`shortfall` 审计 |
+| 上游已产生成本但余额不足 | 部分结算，差额计入负余额欠费，`shortfall` 审计；欠费未清前不可再发起新调用 |
 | 媒体无定价行 | 503 `MEDIA_PRICING_MISSING`，不发起上游 |
 | 媒体余额不足 | 402，带 `required / units / applied_units / unit_points` |
-| 媒体成功后余额被并发花掉 | 部分结算，不产生负余额 |
+| 媒体成功后余额被并发花掉 | 部分结算，差额计入负余额欠费，不再白送 |
 | 媒体重复回调 | `ai_media` + `referenceId` 幂等，返回 `alreadySettled` |
 | 媒体定价行结算时失效 | 按预扣额结算；无预扣才留成本告警 |
 | 媒体成本价未配置 | `cost_status=unknown`，不伪造 0 |
-| 扣分事务失败 | 已交付产物不回收；释放 hold + 日志，由对账处理 |
+| 扣分事务失败 | 已交付产物不回收；hold 标记 `settle_pending` 并保留 reserved，周期任务重试；不释放成免费 |
 | 钱包兑换并发同 key | 行锁 + 部分唯一索引，只成功一次 |
 | 钱包兑换余额不足 | `INSUFFICIENT_WALLET_BALANCE`，不产生半截账 |
 

@@ -152,7 +152,7 @@ describe('普通 LLM 代理 — 成本与积分双账', () => {
     expect((request as { log: { warn: ReturnType<typeof vi.fn> } }).log.warn).toHaveBeenCalled()
   })
 
-  it('积分结算失败被吞掉,并释放预扣 hold', async () => {
+  it('积分结算失败被吞掉,但不释放预扣 hold(留给待结算重试)', async () => {
     mocks.settleLlmPointsUsage.mockRejectedValueOnce(new Error('points db down'))
     const request = makeRequest()
 
@@ -164,9 +164,9 @@ describe('普通 LLM 代理 — 成本与积分双账', () => {
         'req-4',
       ),
     ).resolves.toBeUndefined()
-    expect(mocks.releasePointsHold).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 'u-1', source: 'llm_chat', referenceId: 'req-pre' }),
-    )
+    // 上游成本已发生、响应已交付:释放 hold 等于这一单免费。
+    // 统一结算内部会把 hold 标成 settle_pending,由周期任务重试。
+    expect(mocks.releasePointsHold).not.toHaveBeenCalled()
     expect((request as { log: { warn: ReturnType<typeof vi.fn> } }).log.warn).toHaveBeenCalled()
   })
 

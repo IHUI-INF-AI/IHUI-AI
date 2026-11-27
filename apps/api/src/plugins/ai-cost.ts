@@ -393,6 +393,11 @@ export interface CostRecordInput {
   /** G4 用量维度:会员档位键(member/vip/svip),可空;落 ai_cost_records.tier */
   tier?: string | null
   /**
+   * 成本账幂等键。同一业务引用(媒体任务/LLM billing reference)重放时只落一条成本;
+   * 会写入 metadata.idempotencyKey,不新增列。
+   */
+  idempotencyKey?: string
+  /**
    * 成本币种(ISO 4217)。仅供 Prometheus 标签如实标注:
    * 缺省取定价引擎返回的 currency(现值 CNY),再兜底 'CNY'。
    * 落库列 ai_cost_records 无币种字段,故不影响 DB 写入。
@@ -566,6 +571,32 @@ export async function recordAiCost(
   const tenantId =
     input.tenantId ?? (input.userId ? await resolveTenantIdForUser(input.userId) : undefined)
 
+  // 成本账幂等:同一业务引用重放只落一条,避免“结算失败重试/回调重放”双记成本。
+  // 2026-11-27:改用独立列 + 唯一索引。旧实现用 metadata->>'idempotencyKey',
+  // 但 metadata 是 text 列,PostgreSQL 根本没有 text ->> 操作符,线上会直接报错。
+  let metadata = input.metadata
+  if (input.idempotencyKey) {
+    const [existing] = await db
+      .select({ id: aiCostRecords.id })
+      .from(aiCostRecords)
+      .where(eq(aiCostRecords.idempotencyKey, input.idempotencyKey))
+      .limit(1)
+    if (existing) return { cost, currency: costCurrency ?? 'CNY' }
+    let metaObj: Record<string, unknown> = {}
+    if (input.metadata) {
+      try {
+        const parsed = JSON.parse(input.metadata) as unknown
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          metaObj = parsed as Record<string, unknown>
+        }
+      } catch {
+        metaObj = { rawMetadata: input.metadata }
+      }
+    }
+    metaObj.idempotencyKey = input.idempotencyKey
+    metadata = JSON.stringify(metaObj)
+  }
+
   recordAiCallSample({
     vendor: input.provider,
     model: input.model,
@@ -591,7 +622,8 @@ export async function recordAiCost(
       cached: input.cached ?? false,
       requestType: input.requestType ?? 'chat',
       promptHash: input.promptHash,
-      metadata: input.metadata,
+      metadata,
+      idempotencyKey: input.idempotencyKey ?? null,
       // G4 用量维度 + 结算明细(未命中规则时全 null,与旧行形态一致)
       tier: input.tier ?? null,
       pricingRuleId: pricing?.ruleId ?? null,
@@ -600,6 +632,10 @@ export async function recordAiCost(
       costStatus: input.costStatus ?? (pricingKnown ? 'priced' : 'unknown'),
     })
   } catch (err) {
+    // 并发重放同一幂等键时唯一索引会拒绝第二条;这不算成本写失败,如实返回本次计算值。
+    if ((err as { code?: string } | null)?.code === '23505' && input.idempotencyKey) {
+      return { cost, currency: costCurrency ?? 'CNY' }
+    }
     // 成本落库失败 ⇒ 大屏上这条 AI 调用有计数但没有 DB 明细,必须留痕(不吞异常,原样上抛)
     recordAiCostWriteFailure(input.provider, input.model)
     throw err
