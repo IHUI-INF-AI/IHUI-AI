@@ -27,9 +27,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
-/// 与 tauri.conf.json `plugins.updater.pubkey` 同一把 minisign 公钥。
-/// CI 必须校验两处一致，避免换钥只换一处。
-const UPDATE_PUBKEY_B64: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI1RDdFNjdFQTJCMURCMDgKUldRSTI3R2lmdWJYdFJuYXhoQ1pQekNOcUNKOUplWWQ1QVJPK25OakFrL2NmS0ZrREZDbThwbEUK";
+/// v2 更新包的信任锚（迁移期双钥匙）：
+/// - A40E05DD769D7961：与 tauri.conf.json `plugins.updater.pubkey` 一致，0.1.97 起由它签 zip；
+/// - B5D7E67EA2B1DB08（08db）：2026-11-24 稳定 Launcher 至 0.1.96 的客户端钉死的旧锚。
+/// 旧客户端只认 08db，所以 0.1.96 引导版 zip 仍用 08db 签；新客户端两把都认，下一版起统一走 A40E。
+const UPDATE_PUBKEYS_B64: [&str; 2] = [
+    "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE0MEUwNURENzY5RDc5NjEKUldSaGVaMTIzUVVPcE5aK29STWhYQ1ZzeGY1T00ycWhFbWpmSTl2OWN5ZjlkR2twMlBkakdJdlMK",
+    "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI1RDdFNjdFQTJCMURCMDgKUldRSTI3R2lmdWJYdFJuYXhoQ1pQekNOcUNKOUplWWQ1QVJPK25OakFrL2NmS0ZrREZDbThwbEUK",
+];
 const DEFAULT_FEED_URL: &str = "https://aizhs.top/desktop-feed.json";
 const MAX_FEED_BYTES: u64 = 2 * 1024 * 1024;
 const MAX_ZIP_BYTES: u64 = 300 * 1024 * 1024;
@@ -1036,12 +1041,22 @@ fn verify_signature(zip: &[u8], signature: &str) -> Result<(), String> {
     {
         return Ok(());
     }
-    let public_key = PublicKey::from_base64(UPDATE_PUBKEY_B64)
-        .map_err(|e| format!("minisign public key: {e}"))?;
     let signature = Signature::decode(signature).map_err(|e| format!("minisign signature: {e}"))?;
-    public_key
-        .verify(zip, &signature, false)
-        .map_err(|e| format!("minisign verify: {e}"))
+    let mut last_error = String::new();
+    for key_b64 in UPDATE_PUBKEYS_B64 {
+        let public_key = match PublicKey::from_base64(key_b64) {
+            Ok(key) => key,
+            Err(e) => {
+                last_error = format!("minisign public key: {e}");
+                continue;
+            }
+        };
+        match public_key.verify(zip, &signature, false) {
+            Ok(()) => return Ok(()),
+            Err(e) => last_error = format!("minisign verify: {e}"),
+        }
+    }
+    Err(last_error)
 }
 
 #[derive(Debug, Deserialize)]
