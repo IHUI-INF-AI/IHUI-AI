@@ -245,19 +245,19 @@ body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 -apple-system
 header{position:sticky;top:0;z-index:9;padding:14px 20px;background:var(--card);border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 header h1{margin:0;font-size:16px}
 header .stats{color:var(--muted);font-size:12px}
-header input{flex:1;min-width:180px;padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:var(--bg);color:var(--text);outline:none}
+header input{flex:1;min-width:180px;padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);outline:none}
 main{max-width:860px;margin:0 auto;padding:16px 14px 60px}
-.conv{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:14px 0;overflow:hidden}
+.conv{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:14px 0;overflow:hidden}
 .conv h2{font-size:15px;margin:0;padding:12px 16px;border-bottom:1px solid var(--line)}
 .conv h2 small{font-weight:400;color:var(--muted);margin-left:8px;font-size:12px}
 .stream{padding:12px 14px}
 .day{text-align:center;margin:10px 0}
-.day span{font-size:12px;color:var(--muted);background:var(--bg);padding:2px 10px;border-radius:999px}
+.day span{font-size:12px;color:var(--muted);background:var(--bg);padding:2px 10px;border-radius:6px}
 .row{display:flex;flex-direction:column;margin:10px 0;max-width:76%}
 .row.in{align-items:flex-start}
 .row.out{align-items:flex-end;margin-left:auto}
 .meta{display:flex;gap:6px;font-size:12px;color:var(--muted);margin-bottom:3px}
-.bubble{padding:8px 11px;border-radius:10px;background:var(--in);border:1px solid var(--line);white-space:normal;word-break:break-word}
+.bubble{padding:8px 11px;border-radius:16px;background:var(--in);border:1px solid var(--line);white-space:normal;word-break:break-word}
 .row.out .bubble{background:var(--out);border-color:transparent;color:#0b1a0e}
 @media (prefers-color-scheme:dark){.row.out .bubble{color:#eaf7ec}}
 .row.hide{display:none}
