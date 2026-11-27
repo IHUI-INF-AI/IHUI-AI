@@ -20,7 +20,6 @@ import { tokens } from '../theme/active-tokens'
 import {
   checkPaymentStatus,
   fetchApi,
-  createWechatAppPayment,
   getMembershipInfo,
   getVipLevels,
   type MembershipInfo,
@@ -41,7 +40,11 @@ import { BottomPopup } from '../components/BottomPopup'
 import { appAlert, BottomPops } from '../components/BottomPops'
 import { PurchaseNoticePopUp } from '../components/PurchaseNoticePopUp'
 import { IntroducePopup } from '../components/IntroducePopup'
-import { isWeChatInstalled, openWeChatPayment } from '../lib/wechat-pay'
+import {
+  createVipWechatOrder,
+  isWeChatInstalled,
+  openVipWechatPayment,
+} from '../lib/wechat-pay'
 import { useI18n, t as tStatic } from '../i18n'
 import { useRefreshOnFocus } from '../hooks'
 import { useTheme } from '../context/ThemeContext'
@@ -131,6 +134,8 @@ interface PricePlan {
   defAmount: number
   detail: string
   durationDays: number
+  /** 后端 VIP 等级 id；小程序 JSAPI 下单 POST /vip/order 必传 */
+  vipLevelId: string
 }
 
 /** 连续包月折扣率(对齐 Uniapp 连续订阅优惠) */
@@ -193,6 +198,7 @@ function buildPricePlans(
       defAmount,
       detail: detailText(lv.durationDays, true, t),
       durationDays: lv.durationDays,
+      vipLevelId: lv.id,
     })
     // 按月购买档(原价)
     const monthlyCycle =
@@ -209,6 +215,7 @@ function buildPricePlans(
       defAmount,
       detail: detailText(lv.durationDays, false, t),
       durationDays: lv.durationDays,
+      vipLevelId: lv.id,
     })
   }
   return plans
@@ -399,11 +406,10 @@ export function VipScreen() {
                   return
                 }
 
-                // 2. 创建微信 APP 支付订单(后端返回签名参数)
-                // orderType=1 表示 VIP 会员订单(对齐后端 orderType 枚举)
-                const payRes = await createWechatAppPayment({
+                // 2. 创建 VIP 支付订单：小程序走 JSAPI，RN 走 APP 支付
+                const payRes = await createVipWechatOrder({
+                  levelId: plan.vipLevelId,
                   amount: plan.amount,
-                  orderType: 1,
                   description: plan.cycle,
                 })
                 if (!payRes.success || !payRes.data) {
@@ -419,13 +425,13 @@ export function VipScreen() {
                   return
                 }
 
-                // 4. 调起微信 APP 支付(传签名参数给 react-native-wechat-lib)
-                if (!payRes.data.prepayData) {
+                // 4. 调起支付：小程序 wx.requestPayment，RN 原生 SDK
+                if (!payRes.data.prepayData && !payRes.data.payInfo) {
                   setToast(t('payment.nativeUnavailable'))
                   setPurchasingId(null)
                   return
                 }
-                const paySuccess = await openWeChatPayment(payRes.data.prepayData)
+                const paySuccess = await openVipWechatPayment(payRes.data)
                 if (!paySuccess) {
                   // 用户取消支付
                   setToast(t('payment.payCancelled'))

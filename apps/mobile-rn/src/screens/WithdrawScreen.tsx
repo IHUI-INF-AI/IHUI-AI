@@ -11,18 +11,30 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getBalance } from '@ihui/api-client'
 import { getTokens, TextField, WithdrawScreen as SharedWithdrawScreen } from '@ihui/rn-app'
+import type { WithdrawBankCardOption } from '@ihui/types'
 import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
+interface BankCardDto {
+  id: string
+  number: string
+  holder: string
+  bankName: string
+  isDefault: boolean
+  readOnly?: boolean
+}
+
 export function WithdrawScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
   const [amount, setAmount] = useState('')
-  const [bankCardId, setBankCardId] = useState('')
+  const [accountInfo, setAccountInfo] = useState('')
+  const [selectedBankCardId, setSelectedBankCardId] = useState('')
+  const [bankCards, setBankCards] = useState<WithdrawBankCardOption[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -56,20 +68,49 @@ export function WithdrawScreen() {
     }
   }, [])
 
+  // 已绑定银行卡：只取掩码做选择，完整卡号由服务端按 bankCardId 解密。
+  // 历史提现投影卡带 readOnly，不能作为 bankCardId 提交，故不进选择列表。
+  useEffect(() => {
+    let cancelled = false
+    void fetchApi<BankCardDto[]>('/api/wallet/bank-cards')
+      .then((res) => {
+        if (cancelled || !res.success || !Array.isArray(res.data)) return
+        const usable = res.data.filter((card) => !card.readOnly)
+        setBankCards(
+          usable.map((card) => ({
+            id: card.id,
+            label: `${card.bankName || '银行卡'} ${card.number}`,
+            isDefault: card.isDefault,
+          })),
+        )
+        setSelectedBankCardId((current) => current || usable.find((card) => card.isDefault)?.id || '')
+      })
+      .catch(() => {
+        // 银行卡列表失败不阻断手输卡号；提交时仍可由用户手动填写账户。
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   /**
    * 真正打提现接口的那一步（可被 TOTP 验证成功后原样重放）。
    * 返回值语义：stepup = 需要先过两步验证（面板已弹出）；其余为普通失败/成功。
    */
   const submitWithdraw = async (): Promise<'ok' | 'stepup' | 'fail'> => {
     const num = Number(amount)
+    const usingBoundCard = selectedBankCardId.length > 0
     try {
       const resp = await fetchApi<unknown>('/api/wallet/withdraw', {
         method: 'POST',
         body: JSON.stringify({
           // XUI-014:输入是元,后端 /api/wallet/withdraw 的 amount 单位是分 —— 必须乘 100。
           amount: Math.round(num * 100),
-          account: bankCardId,
-          accountType: 'bank_card',
+          // 选已绑定卡：只传 id，服务端解密完整卡号；手输：account 承载完整卡号。
+          // 不再把 id 塞进 account、也不再用后端不认的 accountType='bank_card'。
+          ...(usingBoundCard
+            ? { accountType: 'bank', bankCardId: selectedBankCardId }
+            : { accountType: 'bank', account: accountInfo.trim() }),
         }),
       })
       if (!resp.success) {
@@ -85,7 +126,8 @@ export function WithdrawScreen() {
       }
       setSuccess(t('withdraw.success'))
       setAmount('')
-      setBankCardId('')
+      setAccountInfo('')
+      setSelectedBankCardId('')
       return 'ok'
     } catch {
       setError(t('withdraw.failed'))
@@ -147,6 +189,10 @@ export function WithdrawScreen() {
       setError(t('withdraw.minAmount'))
       return
     }
+    if (!selectedBankCardId && !accountInfo.trim()) {
+      setError(t('withdraw.bankCardPlaceholder'))
+      return
+    }
     // 二次确认弹窗(对齐原项目提现确认交互:先确认再发起)
     appAlert(t('withdraw.confirmTitle'), t('withdraw.confirmMessage', { amount: num.toFixed(2) }), [
       { text: t('common.cancel'), style: 'cancel' },
@@ -159,19 +205,31 @@ export function WithdrawScreen() {
   // 值与 tokens 不同源 ⇒ tokens.css 改色永不跟随;而深色下 brand.cta 翻成纯白,
   // 配同批写死的浅色前景 ⇒ 提交按钮上的文字在深色模式里对比度 1:1(隐形)。
   const tk = getTokens(resolvedTheme)
+  const methods = [{ id: 'bank', label: t('wallet.methodBank') }]
 
   return (
     <View style={styles.root}>
       <SharedWithdrawScreen
         t={t}
         amount={amount}
-        bankCardId={bankCardId}
         balance={balance}
         loading={loading}
         error={error}
         success={success}
         onAmountChange={setAmount}
-        onBankCardIdChange={setBankCardId}
+        methods={methods}
+        method="bank"
+        accountInfo={accountInfo}
+        onAccountInfoChange={(text) => {
+          setAccountInfo(text)
+          setError('')
+        }}
+        bankCards={bankCards}
+        selectedBankCardId={selectedBankCardId}
+        onSelectBankCard={(id) => {
+          setSelectedBankCardId(id)
+          setError('')
+        }}
         // 「全部提现」:共享屏的 resolveWithdrawSegments 以 typeof onFillAll === 'function' 门控,
         // RN 侧此前一个都没传 ⇒ 这一行在小程序有、在 RN 根本不渲染(不是死按钮,是功能缺口)。
         // 刻意不加千分位:RN 侧提交走 Number(amount),带逗号会直接 NaN(小程序踩过,见其 parseWithdrawAmount)。
