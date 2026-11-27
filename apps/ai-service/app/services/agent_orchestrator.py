@@ -60,6 +60,28 @@ from .tool_context_boundary import scan_and_frame_tool_result
 
 logger = logging.getLogger(__name__)
 
+# Orchestrator 的步骤状态是“编排语义”，agent_runs 的列是“注册表枚举”，两者不能直接相等。
+# `completed` 直写会被 R1 的 run 写面按非法枚举拒绝，事件进 outbox 重试后变孤儿。
+_RUN_REGISTRY_STATUS: dict[str, str] = {
+    "completed": "succeeded",
+    "succeeded": "succeeded",
+    "failed": "failed",
+    "stub": "failed",
+    "skipped": "canceled",
+    "canceled": "canceled",
+    "cancelled": "canceled",
+    "timeout": "timeout",
+    "blocked": "blocked",
+    "running": "running",
+    "paused": "paused",
+    "queued": "queued",
+}
+
+
+def to_run_registry_status(status: str) -> str:
+    """把步骤状态收敛到 agent_runs 允许的枚举；未知状态一律 failed，不编造成功。"""
+    return _RUN_REGISTRY_STATUS.get(status, "failed")
+
 
 @dataclass
 class AgentDefinition:
@@ -407,10 +429,15 @@ class AgentOrchestrator:
 
         async def finish(result: AgentStepResult) -> AgentStepResult:
             if ledger_session is not None:
+                registry_status = to_run_registry_status(result.status)
+                error_code = result.error_code
+                error_message = result.error if result.status in ("failed", "stub") else None
+                if result.status == "stub":
+                    error_code = error_code or "AGENT_STUB_RESULT"
                 await ledger_session.status(
-                    result.status,
-                    error_code=result.error_code,
-                    error_message=result.error if result.status == "failed" else None,
+                    registry_status,
+                    error_code=error_code,
+                    error_message=error_message,
                 )
                 for index, call in enumerate(result.tool_calls, start=1):
                     await ledger_session.append(

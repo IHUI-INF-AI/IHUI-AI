@@ -10,7 +10,12 @@ from typing import Any
 import pytest
 
 from app.services.agent_definition import RuntimeAgentDefinition
-from app.services.agent_orchestrator import AgentOrchestrator, AgentRegistry, AgentStepResult
+from app.services.agent_orchestrator import (
+    AgentOrchestrator,
+    AgentRegistry,
+    AgentStepResult,
+    to_run_registry_status,
+)
 from app.services.agent_resolver import AgentResolveError
 
 
@@ -84,6 +89,56 @@ async def test_provider_resolve_error_returns_code(monkeypatch: pytest.MonkeyPat
     assert result.status == "failed"
     assert result.error_code == "AGENT_DISABLED"
     assert result.error == "定义已停用"
+
+
+@pytest.mark.asyncio
+async def test_ledger_gets_registry_enum_not_completed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`completed` 是编排语义；agent_runs 只认 succeeded，直写会被 R1 拒绝。"""
+    statuses: list[tuple[str, str | None]] = []
+
+    class FakeSession:
+        def __init__(self, _run_id: str) -> None:
+            pass
+
+        async def status(
+            self, status: str, *, error_code: str | None = None, error_message: str | None = None
+        ) -> None:
+            statuses.append((status, error_code))
+
+        async def append(self, _event_type: str, _payload: dict[str, Any]) -> None:
+            pass
+
+    class FakeLedger:
+        def session(self, run_id: str) -> FakeSession:
+            return FakeSession(run_id)
+
+    runtime = _runtime()
+    orchestrator = AgentOrchestrator(
+        registry=AgentRegistry(),
+        definition_provider=lambda _ref: runtime,
+        run_ledger=FakeLedger(),  # type: ignore[arg-type]
+    )
+
+    async def fake_run(agent, user_input, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return AgentStepResult(
+            agent_name=agent.name,
+            input=user_input,
+            output="ok",
+            status="completed",
+            tool_calls=[{"tool": "read_file", "ok": True}],
+        )
+
+    monkeypatch.setattr(orchestrator, "_run_agent", fake_run)
+    await orchestrator.invoke("reviewer-readonly", "跑", run_id="run-1")
+
+    assert statuses == [("running", None), ("succeeded", None)]
+
+
+def test_stub_result_never_lands_as_success() -> None:
+    assert to_run_registry_status("completed") == "succeeded"
+    assert to_run_registry_status("stub") == "failed"
+    assert to_run_registry_status("skipped") == "canceled"
+    assert to_run_registry_status("not-a-status") == "failed"
 
 
 @pytest.mark.asyncio
@@ -188,6 +243,6 @@ async def test_run_ledger_records_status_and_tool_steps(monkeypatch: pytest.Monk
     assert result.status == "completed"
     assert ledger.session_obj.events == [
         ("status", {"status": "running"}),
-        ("status", {"status": "completed", "error_code": None, "error_message": None}),
+        ("status", {"status": "succeeded", "error_code": None, "error_message": None}),
         ("step", {"iteration": 1, "tool": "read_file", "ok": True, "blocked": False}),
     ]
