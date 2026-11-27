@@ -203,7 +203,7 @@ export function ModelDetailDialog({
               icon={<Zap className="h-3.5 w-3.5" />}
               label={t('market.inputPrice')}
               value={
-                isMetered
+                isMetered || model.relayPublic
                   ? '—'
                   : typeof model.inputPrice !== 'number'
                     ? '—'
@@ -216,7 +216,7 @@ export function ModelDetailDialog({
               icon={<Gift className="h-3.5 w-3.5" />}
               label={t('market.outputPrice')}
               value={
-                isMetered
+                isMetered || model.relayPublic
                   ? '—'
                   : typeof outputPrice !== 'number'
                     ? '—'

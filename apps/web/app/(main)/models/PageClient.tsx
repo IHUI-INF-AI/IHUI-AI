@@ -50,7 +50,7 @@ export default function ModelsPageClient() {
   }, [MODELS, providerParam])
 
   const total = list.length
-  const freeCount = list.filter((m) => m.inputPrice === 0).length
+  const freeCount = list.filter((m) => m.inputPrice === 0 && !m.relayPublic).length
   const providerCount = new Set(list.map((m) => m.provider)).size
   const highlightCount = list.filter((m) => m.highlight).length
 

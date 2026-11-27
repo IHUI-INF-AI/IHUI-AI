@@ -176,7 +176,7 @@ export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
       switch (filter) {
         case 'free':
           // 媒体/动态成本模型可能没有 token 标价(0),但它们不是免费模型。
-          return m.inputPrice === 0 && !isMeteredRelay(m)
+          return m.inputPrice === 0 && !m.relayPublic
         case 'longContext':
           return m.contextLength >= 200000
         case 'reasoning':
@@ -277,7 +277,7 @@ export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
   )
 
   const freeTotal = React.useMemo(
-    () => list.filter((m) => m.inputPrice === 0 && !isMeteredRelay(m)).length,
+    () => list.filter((m) => m.inputPrice === 0 && !m.relayPublic).length,
     [list],
   )
   const highlightTotal = React.useMemo(() => list.filter((m) => m.highlight).length, [list])
@@ -687,7 +687,7 @@ function ModelCardGrid({
       {/* 价格 — token 模型展示输入/输出价;媒体/动态成本模型展示单位价,避免 0 被当成免费 */}
       {isMeteredRelay(model) ? (
         <RelayMeteredSummary model={model} />
-      ) : (
+      ) : model.relayPublic ? null : (
         <div className="rounded-md bg-muted/50 px-2 py-1.5 text-label">
           <div className="flex items-center justify-between [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <span className="inline-flex items-center gap-1 text-muted-foreground">
@@ -929,6 +929,14 @@ function ModelCardList({
           </span>
           {isMeteredRelay(model) ? (
             <RelayMeteredInline model={model} />
+          ) : model.relayPublic ? (
+            <span className="inline-flex items-center gap-0.5" suppressHydrationWarning>
+              <Zap className="h-3 w-3" />
+              {formatCny(
+                (model.relayEffectiveInputPricePer1k ?? model.relayInputPricePer1k ?? 0) * 10,
+              )}
+              {t('perMillion')}
+            </span>
           ) : (
             <span className="inline-flex items-center gap-0.5" suppressHydrationWarning>
               <Zap className="h-3 w-3" />
