@@ -4,21 +4,20 @@
 
 import { Suspense } from 'react'
 import PageClient from './PageClient'
-import { LoginWithTurnstile } from '@/components/login/LoginWithTurnstile'
 
 // /login 是软路由:不渲染独立页面,挂载时打开全局 LoginDialog + 回到前一页。
 // output:'export' 模式要求 useSearchParams() 被 <Suspense> 边界包裹。
 //
-// Turnstile 集成(2026-07-31):用 LoginWithTurnstile 包裹 PageClient(方案 B - HOC wrapper)。
-// - 配置 NEXT_PUBLIC_TURNSTILE_SITE_KEY 时:建立 TurnstileContext + 渲染 TurnstileWidget,
-//   深层登录表单可通过 useTurnstile() 拿 token 附带到登录请求;onSubmitCapture 拦截未验证提交。
-// - 未配置时:LoginWithTurnstile 直接返回 children,行为完全不变(向后兼容,不阻塞登录)。
+// 2026-11-28 移除本页的 LoginWithTurnstile 包裹(历史:2026-07-31 用方案 B HOC 包裹,
+// 想让登录表单拿到 token)。事实是这条链根本不成立:真正提交表单的是根布局常驻的
+// LoginDialog,它是另一棵树,拿不到本页 Provider 的 Context;而 PageClient 非 QR 模式
+// 返回 null —— 包裹层里就只剩一个 TurnstileWidget,它成了页面上唯一的在流内元素,
+// 被顶到文档最顶端(用户实测:一个没人能点的裸 CF 验证框挂在不相关的页面上)。
+// 弹窗侧的人机验证由 LoginDialog 自己的实例负责,本页不需要、也不该再摆一个。
 export default function Page() {
   return (
     <Suspense fallback={null}>
-      <LoginWithTurnstile>
-        <PageClient />
-      </LoginWithTurnstile>
+      <PageClient />
     </Suspense>
   )
 }

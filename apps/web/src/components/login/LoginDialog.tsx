@@ -200,9 +200,18 @@ export function LoginDialog() {
                     />
                   </LoginWithTurnstile>
                 ) : mode === 'register' ? (
-                  <RegisterFormContent onSuccess={() => setMode('login')} />
+                  // 2026-11-28:注册卡也接 provider —— 只为让「发送验证码」拿得到 token
+                  // （发码闸 escalate 超阈值后强制人机验证，无控件可做就是死胡同）。
+                  // 提交动作服务端不验 token，故不接管提交闸（enforceSubmitGate=false）。
+                  <LoginWithTurnstile enforceSubmitGate={false}>
+                    <RegisterFormContent onSuccess={() => setMode('login')} />
+                  </LoginWithTurnstile>
                 ) : (
-                  <ForgotPasswordForm />
+                  // 2026-11-28:找回密码同理 —— ForgotPasswordForm 早已 useTurnstile()，
+                  // 但此前这层从未套 provider，token 恒为 null，重发验证码必被发码闸打回。
+                  <LoginWithTurnstile enforceSubmitGate={false}>
+                    <ForgotPasswordForm />
+                  </LoginWithTurnstile>
                 )}
               </AuthShell>
             </div>
@@ -237,9 +246,13 @@ export function LoginDialog() {
                   <LoginFormContent onSuccess={handleLoginSuccess} />
                 </LoginWithTurnstile>
               ) : mode === 'register' ? (
-                <RegisterFormContent onSuccess={() => setMode('login')} />
+                <LoginWithTurnstile enforceSubmitGate={false}>
+                  <RegisterFormContent onSuccess={() => setMode('login')} />
+                </LoginWithTurnstile>
               ) : (
-                <ForgotPasswordForm />
+                <LoginWithTurnstile enforceSubmitGate={false}>
+                  <ForgotPasswordForm />
+                </LoginWithTurnstile>
               )}
             </AuthShell>
           )}

@@ -10,10 +10,14 @@ import { LoginWithTurnstile } from '@/components/login/LoginWithTurnstile'
 // SSO 页复用 LoginFormContent;必须同时套 LoginWithTurnstile,否则服务端启用
 // TURNSTILE_SECRET_KEY 时,页面没有 widget、登录体也没有 turnstileToken,
 // 会被 /api/auth/login 的浏览器上下文闸判 403「人机验证失败」。
+// 2026-11-28:本页必须用 widgetPlacement="slot" —— PageClient 的根是 position:fixed 的
+// AuthShellPage(全屏遮罩),inline 落点会让 widget 成为容器里唯一的在流内元素,被顶到
+// 页面最顶端、遮罩后面(用户实测「弹窗右上方孤零零一个 CF 验证窗」)。slot 由 PageClient
+// 在 AuthShell 卡片内部落位,验证框只会出现在表单下方。
 export default function Page() {
   return (
     <Suspense fallback={null}>
-      <LoginWithTurnstile>
+      <LoginWithTurnstile widgetPlacement="slot">
         <PageClient />
       </LoginWithTurnstile>
     </Suspense>

@@ -27,6 +27,7 @@ import { AuthShell, AuthShellPage } from '@/components/auth/AuthShell'
 import { LoginFormContent } from '@/components/login/LoginFormContent'
 import { RegisterFormContent } from '@/components/login/RegisterFormContent'
 import { ForgotPasswordForm } from '@/components/login/ForgotPasswordForm'
+import { TurnstileSlot } from '@/components/login/LoginWithTurnstile'
 
 /**
  * SSO 统一登录页(2026-07-22 重做:复用主站 LoginFormContent,功能完全同步)
@@ -425,6 +426,10 @@ export default function SsoLoginPage() {
         ) : (
           <ForgotPasswordForm />
         )}
+        {/* 2026-11-28:人机验证落在卡片内、表单下方。本页根节点是 fixed 全屏遮罩,
+            不能让 LoginWithTurnstile 用 inline 落点(会被顶到页面顶端)。已登录/交接完成
+            两张卡不验证人机,故只有这个"表单卡"分支放 slot。 */}
+        <TurnstileSlot className="mt-3" />
       </AuthShell>
     </AuthShellPage>
   )

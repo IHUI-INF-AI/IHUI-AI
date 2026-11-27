@@ -125,15 +125,26 @@ function TwoFactorPanel({
 function useWebLoginApiClient(
   request2faCode: (challengeToken: string) => Promise<string>,
 ): LoginApiClient {
-  const { token: turnstileToken } = useTurnstile()
+  const { token: turnstileToken, reset: resetTurnstile } = useTurnstile()
   const turnstileTokenRef = React.useRef(turnstileToken)
   turnstileTokenRef.current = turnstileToken
+  // 2026-11-28 增:token 是一次性票据，登录请求一发出就被 siteverify 核销。
+  // 失败（密码输错 / 验证码错 / 2FA 取消）后再拿同一枚 token 重试，会被后端判 403
+  // 「人机验证失败,请重试」。这里在失败分支主动重置 widget，让重试拿到新票。
+  const resetTurnstileRef = React.useRef(resetTurnstile)
+  resetTurnstileRef.current = resetTurnstile
 
   return React.useMemo<LoginApiClient>(() => {
     const buildLoginBody = (base: Record<string, string>): string => {
       const tk = turnstileTokenRef.current
       if (tk) base.turnstileToken = tk
       return JSON.stringify(base)
+    }
+
+    /** 登录尝试失败 ⇒ 本轮 token 已作废，重置 widget（成功则弹窗关闭/跳转，不必再挑战） */
+    const resetOnFailure = (res: ApiResult<LoginResult>): ApiResult<LoginResult> => {
+      if (!res.success) resetTurnstileRef.current()
+      return res
     }
 
     /**
@@ -162,7 +173,7 @@ function useWebLoginApiClient(
             method: 'POST',
             body: buildLoginBody(body),
           }),
-        )
+        ).then(resetOnFailure)
       },
       loginByEmailCode: async (email, code) =>
         with2fa(
@@ -170,14 +181,14 @@ function useWebLoginApiClient(
             method: 'POST',
             body: buildLoginBody({ email, code }),
           }),
-        ),
+        ).then(resetOnFailure),
       loginBySms: async (phone, code) =>
         with2fa(
           fetchApi<LoginResponseWith2fa>('/api/auth/login/sms', {
             method: 'POST',
             body: buildLoginBody({ phone, code }),
           }),
-        ),
+        ).then(resetOnFailure),
       sendEmailCode: async (email) =>
         fetchApi<{ sent: boolean }>('/api/auth/email/code', {
           method: 'POST',
