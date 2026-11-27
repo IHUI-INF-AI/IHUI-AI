@@ -160,6 +160,22 @@ export const web_search: Tool = {
   description:
     '使用 DuckDuckGo 搜索引擎查询关键词,返回 top 5 结果(标题+URL+摘要)。适合查询最新文档、技术方案、错误信息等。免费无 API key。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'net.webSearch',
+      reason: '用搜索引擎查询关键词,访问外部网络,触网须人确认',
+      riskLevel: 'read',
+      effectScope: 'network',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     query: {
       type: 'string',

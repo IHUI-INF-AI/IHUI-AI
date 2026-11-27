@@ -504,6 +504,23 @@ export function createBatchEditTool(ctx: EditToolContext, stat?: (path: string) 
     description:
       '多文件原子编辑(事务性提交)。参数:operations(操作数组),atomic(默认 true,任一失败回滚),dryRun(只预览不写入),confirm(delete 操作或 atomic=false 时需 true),bulkApproveTicket(删除候选 ≥20 时两阶段护栏 approve 相凭据,需先 check 再回传)。返回 BatchEditResult JSON。',
     dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'fs.batchEdit',
+      reason: '多文件原子编辑(事务性提交),同时修改多个文件,须人确认',
+      riskLevel: 'write',
+      effectScope: 'workspace',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
     parameters: {
       operations: {
         type: 'array',
@@ -851,6 +868,23 @@ export function createBatchUndoTool(ctx: EditToolContext, stat?: (path: string) 
     description:
       '回滚之前的 batch_edit。参数:checkpointId(batch_edit 返回的 ID)。从 checkpoint 恢复所有受影响文件到原始状态。',
     dangerLevel: 'dangerous',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'fs.batchUndo',
+      reason: '回滚之前的 batch_edit,覆盖多文件到检查点状态,危险动作须人确认',
+      riskLevel: 'dangerous',
+      effectScope: 'workspace',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
     parameters: {
       checkpointId: { type: 'string', description: 'batch_edit 返回的 checkpointId' },
     },
@@ -967,6 +1001,22 @@ export function createBatchPreviewTool(ctx: EditToolContext): Tool {
     description:
       '预览多文件编辑的 unified diff(不实际写入)。参数:operations(操作数组)。返回每个操作的 diff 预览。',
     dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'fs.batchPreview',
+      reason: '只读预览多文件编辑的 unified diff,不实际写入,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
     parameters: {
       operations: {
         type: 'array',

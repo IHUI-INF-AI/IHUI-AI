@@ -32,6 +32,22 @@ const git_status: Tool = {
   },
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.status',
+      reason: '只读 git 工作区状态,不修改仓库与文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'repository',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args, ctx): Promise<ToolResult> {
     const porcelain = args.porcelain === true;
     const cmdArgs = ['status'];
@@ -54,6 +70,22 @@ const git_diff: Tool = {
   },
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.diff',
+      reason: '只读 git 差异,不修改仓库与文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'repository',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 32 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 80, from: 'head' },
+    },
+  },
   async execute(args, ctx): Promise<ToolResult> {
     const staged = args.staged === true;
     const filePath = args.path as string | undefined;
@@ -85,6 +117,22 @@ const git_log: Tool = {
   },
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.log',
+      reason: '只读 git 提交历史,不修改仓库与文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'repository',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 32 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 80, from: 'head' },
+    },
+  },
   async execute(args, ctx): Promise<ToolResult> {
     const count = typeof args.count === 'number' ? args.count : 10;
     const oneline = args.oneline === true;
@@ -106,6 +154,23 @@ const git_add: Tool = {
   name: 'git_add',
   description: '将文件添加到 git 暂存区(git add)。参数:files(字符串数组,要添加的文件路径,必填)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.add',
+      reason: '修改 git 暂存区(暂存文件),是可逆的仓库状态写入,须人确认',
+      riskLevel: 'write',
+      effectScope: 'repository',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 8 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     files: {
       type: 'array',
@@ -267,6 +332,23 @@ const git_commit: Tool = {
   description:
     '提交暂存区到 git 仓库(git commit)。参数:message(字符串,提交信息,必填),amend(布尔,修改上一次提交),paths(字符串数组,按范围提交:只提交这些路径的已暂存内容,走临时索引,不影响其它已暂存文件)。',
   dangerLevel: 'dangerous',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.commit',
+      reason: '写入 git 提交历史,amend 档会改写既有提交,属破坏性动作,须人确认',
+      riskLevel: 'dangerous',
+      effectScope: 'repository',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 8 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     message: { type: 'string', description: '提交信息' },
     amend: { type: 'boolean', description: '修改上一次提交(--amend)' },

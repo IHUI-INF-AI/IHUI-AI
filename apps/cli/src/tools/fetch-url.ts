@@ -111,6 +111,24 @@ export const fetch_url: Tool = {
   name: 'fetch_url',
   description: '抓取 URL 内容并转为纯文本(去脚本/样式/导航)。参数:url(http/https URL,必填)。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'net.fetchUrl',
+      // 内容匹配来源:规则可写 `url:https://example.com*` 精确授权域名(见 permissions.ts 的 RuleMatchContext)。
+      matchSources: ['url'],
+      reason: '抓取外部 URL 并转纯文本,访问外部网络,触网须人确认',
+      riskLevel: 'read',
+      effectScope: 'network',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     url: { type: 'string', description: '要抓取的 http/https URL' },
   },
