@@ -38,7 +38,13 @@ async function loadPdfjs(): Promise<AnyPdfLib> {
     pdfjsPromise = (async () => {
       const mod = await import('pdfjs-dist')
       const pdfjs = mod as AnyPdfLib
-      pdfjs.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs'
+      // public/ 静态资源默认带 7 天缓存;每次 pdfjs 升级后浏览器仍可能拿旧 worker,
+      // 与主线程版本不一致会报 `Unknown action from worker: test` 并永久转圈。
+      // 把主线程自己的版本作为查询参数,既复用同版本缓存,又天然绕开旧版本缓存。
+      const workerVersion = typeof pdfjs.version === 'string' ? pdfjs.version : ''
+      pdfjs.GlobalWorkerOptions.workerSrc = `/pdfjs/pdf.worker.min.mjs${
+        workerVersion ? `?v=${encodeURIComponent(workerVersion)}` : ''
+      }`
       return pdfjs
     })()
   }
