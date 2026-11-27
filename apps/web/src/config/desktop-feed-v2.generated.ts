@@ -2,14 +2,32 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * 桌面端 v2 feed 的编译期快照。
- *
- * 默认 null：/desktop-feed.json 继续输出 legacy 安装器 feed（迁移期不把老客户端打挂）。
- * 发版时运行 scripts/desktop-feed-v2.mjs --ts-out 本文件，写入 schema=2 的 zip feed；
- * 之后 route 优先返回 v2，客户端走“后台暂存 + 常驻胶囊”链。
- */
-export const DESKTOP_FEED_V2: Record<string, unknown> | null = {
+// AUTO-GENERATED — 由 scripts/desktop-feed-v2.mjs 的格式生成（2026-11-27 手工烘焙 0.1.96）。
+// 发版步骤见 docs/desktop-update-v2.md。
+// 注意：0.1.96 客户端 update_v2 仍钉旧信任锚 08db，因此这一版 zip 用 08db 签名做引导；
+// 下一版（0.1.97+）二进制改为同时信任 A40E 与 08db，此后 zip 统一用 A40E 签。
+
+export interface DesktopFeedV2Payload {
+  schema: 2
+  version: string
+  channel?: string
+  rollout?: { percent: number; salt?: string }
+  minSupported?: string | null
+  revoked?: string[]
+  rollbackTo?: string | null
+  notes?: string | null
+  payload: {
+    url: string
+    size: number
+    sha256: string
+    signature: string
+    format: string
+    platform?: string
+    minLauncher?: string
+  }
+}
+
+export const DESKTOP_FEED_V2: DesktopFeedV2Payload = {
   "schema": 2,
   "version": "0.1.96",
   "channel": "stable",
