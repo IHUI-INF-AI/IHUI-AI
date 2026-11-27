@@ -14389,6 +14389,27 @@
       "count": "{count} files"
     },
     "projectFiles": {
+      "aiHint": "Put AI to work on this file: summarize it, extract key points, or ask questions about its content.",
+      "aiAnalyze": "AI analyze",
+      "aiAsk": "Ask",
+      "aiClose": "Close AI analyze",
+      "aiContinueChat": "Continue in chat",
+      "aiContinuePrompt": "Please read this file and tell me its 3 most important points.",
+
+      "aiCopy": "Copy",
+      "aiCopied": "Copied",
+      "aiError": "AI analysis failed. Please retry.",
+      "aiKeypoints": "Key points",
+      "aiQuestionPlaceholder": "Ask about this document…",
+      "aiReading": "AI is reading the document…",
+      "aiSend": "Send question",
+      "aiSource": "Based on {chars} characters",
+      "aiStart": "Generate summary",
+      "aiSummary": "Summary",
+      "aiTitle": "AI document assistant",
+      "aiTooLarge": "Files over 20 MB are not supported for AI analysis yet",
+      "aiTruncated": "Long document — beginning and end were used",
+      "aiUnsupported": "AI text analysis is not available for this file type yet",
       "count": "{count} files",
       "description": "Files uploaded to your project workspaces, previewed in their original format",
       "download": "Download original",
@@ -31162,20 +31183,18 @@
     "marimba": "Marimba",
     "chime": "Chime",
     "knock": "Knock"
-  }
-,
+  },
   "adminAiModels": {
     "telemetry": {
-      "title": "Model runtime"
-    ,
-      "subtitle": "Last 60 min · from call logs",
+      "title": "Model runtime",
+      "subtitle": "Last 60 min · real calls (excl. tests)",
       "callsLabel": "Calls (1h)",
       "tokensLabel": "Tokens (1h)",
       "qpsLabel": "Current QPS",
       "tpsLabel": "Current tokens/s",
       "errorLabel": "Error rate",
       "p95Label": "P95 latency",
-      "last5m": "5-min average",
+      "last5m": "5-min average · load",
       "activeConfigs": "{count} configs with traffic",
       "attributed": "{pct} attributed",
       "unattributed": "{count} unattributed",
@@ -31196,5 +31215,33 @@
       "cellTip": "Last hour: {calls} calls, {tokens} tokens, {errors} errors, P95 {p95}, last call {last}",
       "noLatency": "No latency samples",
       "loadFailed": "Failed to load runtime data",
-      "retry": "Retry"}
-  }}
+      "retry": "Retry"
+    ,
+      "cellUnavailable": "Runtime data unavailable",
+      "grade": {
+        "column": "Rating"
+      ,
+        "rubricTitle": "Scoring rubric (last 60 min)",
+        "rubricError": "Error rate: ≤0.5% = 100 · ≤1% = 90 · ≤2% = 78 · ≤5% = 60 · ≤10% = 30 · >10% = 0",
+        "rubricLatency": "End-to-end P95: ≤3s = 100 · ≤8s = 88 · ≤15s = 70 · ≤30s = 40 · >30s = 10",
+        "rubricCombine": "Overall score is the lower of the two (weakest dimension decides): ≥90 Excellent · ≥75 Good · ≥60 Fair · <60 Poor",
+        "rubricSample": "At least 20 calls in the last hour with latency samples are required; otherwise \"Insufficient data\"",
+        "rubricLoad": "QPS/TPS are load indicators only and do not affect quality; there is no universal industry number—tune thresholds to your SLO",
+        "tier": {
+          "excellent": "Excellent"
+        ,
+          "good": "Good",
+          "fair": "Fair",
+          "poor": "Poor",
+          "insufficient": "Insufficient data"},
+        "score": "{score} pts",
+        "overall": "Overall",
+        "tipDetail": "Error {errorPct} · P95 {p95} · {calls} calls",
+        "tipShortBoard": "Overall score is the lower of the two dimensions; the weakest one decides the tier",
+        "tipNeedSample": "{calls} calls in the last hour; at least 20 are required for a rating",
+        "tipNoLatency": "{calls} calls in the last hour, but no usable latency samples",
+        "rubricLatencyNote": "P95 includes full generation time; read it alongside token volume for long outputs"}}
+  ,
+    "providerRelay": "Relay",
+    "providerRelayHint": "Account-pool relay provider; forwarding is handled by its adapter"}
+}

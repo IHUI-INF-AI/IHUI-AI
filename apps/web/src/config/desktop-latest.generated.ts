@@ -7,13 +7,14 @@
 import type { DesktopFeedPayload } from './desktop-feed-payload'
 
 export const DESKTOP_LATEST: DesktopFeedPayload = {
-  "version": "0.1.94",
-  "notes": "桌面端安装包(Tauri 2 + Rust + React)。详见 CHANGELOG。",
-  "pub_date": "2026-11-25T22:11:01Z",
+  "version": "0.1.96",
+  "notes": "桌面桥 ACL 修复：补齐 6 条桥命令授权（get_native_bridge_manifest / query_notification_permission / set_sleep_prevention / update_v2_sync_autostart / update_v2_stage / update_v2_restart），修复首屏红条「桌面桥版本不匹配 / 桌面入口已禁用」。Windows 安装包为官方 updater 私钥签名（A40E05DD）。",
+  "pub_date": "2026-11-27T00:50:09Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaGVaMTIzUVVPcEp1OXlCVHRkU3FoOW5NU1oxQTdCODYvNU1rOXBHMUtuRTJzaThQS25NYTNhR3NhWWxVVmZJU2FMbXRNVjl0aHFtRVd5T1UrNWt4NXFtQm1GcHhKOGdJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1NjQzMDY1CWZpbGU65pm65rGHQUlfMC4xLjk0X3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjEuOTQKS2dTTWR3T2hGbjg1eDNoNXlpdXhEZnZDcFkrcS95dG8zNUh3SGg4N1NzdE5OTk9MdnMxN3A4a1h4S0lBeGFrdTErbVZLOXcxN2hRZXhGanR2TllJQnc9PQo=",
-      "url": "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.94/AI_0.1.94_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaGVaMTIzUVVPcE9aWDJWNmozeTljdTg4aXd6VWVxTDY2ejRRUng3Mnp2SG5kUGlEQ2RvMkdIbTl2WHdlemZzV0FTY0FzV0t4SlF2RkFObXQ5UjBlWVB3RlE2ampoSXdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1NzQwNTY4CWZpbGU65pm65rGHQUlfMC4xLjk2X3g2NC1zZXR1cC5leGUKNHRBRVZneUFUcnQ2Z1JrRzc4Q1htT1ZDUnFNYUdSQ05MWWhTRGg3cVF4RXBRNGYxamtTblhXazduUmpEQjdrWDY5N1hURllWY1FFaFZvMHJNT3RyQWc9PQo=",
+      "url": "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.96/AI_0.1.96_x64-setup.exe"
     }
   }
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

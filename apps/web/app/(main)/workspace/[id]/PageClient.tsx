@@ -142,7 +142,13 @@ export default function ProjectDetailPage() {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (!res.ok) throw new Error(td('previewFailed'))
-      setPreview({ file, url: window.URL.createObjectURL(await res.blob()), loading: false })
+      const blob = await res.blob()
+      setPreview({
+        file,
+        url: window.URL.createObjectURL(blob),
+        blob,
+        loading: false,
+      })
     } catch {
       setPreview({ file, url: null, loading: false })
     }

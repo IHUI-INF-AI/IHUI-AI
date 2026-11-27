@@ -14463,6 +14463,27 @@
       "count": "총 {count}개"
     },
     "projectFiles": {
+      "aiHint": "이 파일을 AI에 직접 넘겨 전체 요약, 핵심 추출, 내용 질문을 할 수 있습니다.",
+      "aiAnalyze": "AI 해석",
+      "aiAsk": "질문",
+      "aiClose": "AI 해석 닫기",
+      "aiContinueChat": "대화에서 계속",
+      "aiContinuePrompt": "이 파일을 읽고 가장 중요한 정보 3가지를 알려 주세요.",
+
+      "aiCopy": "복사",
+      "aiCopied": "복사됨",
+      "aiError": "AI 분석에 실패했습니다. 다시 시도하세요",
+      "aiKeypoints": "핵심 추출",
+      "aiQuestionPlaceholder": "이 문서에 대해 질문…",
+      "aiReading": "AI가 문서를 읽는 중…",
+      "aiSend": "질문 보내기",
+      "aiSource": "{chars}자 기반",
+      "aiStart": "요약 생성",
+      "aiSummary": "요약",
+      "aiTitle": "AI 문서 도우미",
+      "aiTooLarge": "20MB를 초과하는 파일은 아직 AI 분석을 지원하지 않습니다",
+      "aiTruncated": "문서가 길어 앞부분과 끝부분을 사용했습니다",
+      "aiUnsupported": "이 파일 형식은 아직 AI 텍스트 분석을 지원하지 않습니다",
       "count": "총 {count}개",
       "description": "프로젝트 워크스페이스에 업로드한 파일을 원본 형식으로 미리보기",
       "download": "원본 파일 다운로드",
@@ -31578,20 +31599,18 @@
     "marimba": "마림바",
     "chime": "차임",
     "knock": "노크"
-  }
-,
+  },
   "adminAiModels": {
     "telemetry": {
-      "title": "모델 런타임 모니터링"
-    ,
-      "subtitle": "최근 60분 · 호출 로그 기반",
+      "title": "모델 런타임 모니터링",
+      "subtitle": "최근 60분 · 실제 호출 로그(테스트 제외)",
       "callsLabel": "최근 1시간 호출",
       "tokensLabel": "최근 1시간 Token",
       "qpsLabel": "현재 QPS",
       "tpsLabel": "현재 Token/s",
       "errorLabel": "오류율",
       "p95Label": "P95 지연",
-      "last5m": "최근 5분 평균",
+      "last5m": "최근 5분 평균 · 부하",
       "activeConfigs": "{count}개 구성에 트래픽",
       "attributed": "귀속 {pct}",
       "unattributed": "미귀속 {count}건",
@@ -31612,5 +31631,33 @@
       "cellTip": "최근 1시간: 호출 {calls}회, Token {tokens}, 오류 {errors}회, P95 {p95}, 최근 호출 {last}",
       "noLatency": "지연 샘플 없음",
       "loadFailed": "런타임 데이터 조회 실패",
-      "retry": "다시 시도"}
-  }}
+      "retry": "다시 시도"
+    ,
+      "cellUnavailable": "런타임 데이터를 사용할 수 없음",
+      "grade": {
+        "column": "등급"
+      ,
+        "rubricTitle": "평가 기준(최근 60분)",
+        "rubricError": "오류율: ≤0.5% = 100점 · ≤1% = 90 · ≤2% = 78 · ≤5% = 60 · ≤10% = 30 · >10% = 0",
+        "rubricLatency": "종단 간 P95: ≤3s = 100점 · ≤8s = 88 · ≤15s = 70 · ≤30s = 40 · >30s = 10",
+        "rubricCombine": "종합 점수는 두 항목 중 낮은 점수(취약 항목이 등급 결정): ≥90 우수 · ≥75 양호 · ≥60 보통 · <60 미흡",
+        "rubricSample": "최근 1시간 호출 20회 이상과 지연 샘플이 있어야 평가하며, 없으면 \"표본 부족\"",
+        "rubricLoad": "QPS/TPS는 부하 지표일 뿐 품질 평가에 포함되지 않음. 업계 표준 수치는 없으며 프로젝트 SLO에 맞게 조정",
+        "tier": {
+          "excellent": "우수"
+        ,
+          "good": "양호",
+          "fair": "보통",
+          "poor": "미흡",
+          "insufficient": "표본 부족"},
+        "score": "{score}점",
+        "overall": "전체",
+        "tipDetail": "오류율 {errorPct} · P95 {p95} · 표본 {calls}회",
+        "tipShortBoard": "종합 점수는 두 항목 중 낮은 점수이며 취약 항목이 등급을 결정",
+        "tipNeedSample": "최근 1시간 {calls}회 호출, 평가에는 20회 이상 필요",
+        "tipNoLatency": "최근 1시간 {calls}회 호출했지만 사용 가능한 지연 샘플 없음",
+        "rubricLatencyNote": "P95는 전체 생성 시간을 포함하므로 긴 출력은 Token 양과 함께 해석해야 함"}}
+  ,
+    "providerRelay": "리버스",
+    "providerRelayHint": "계정 풀 리버스 프록시 플랫폼이며, 포워딩은 전용 어댑터가 처리합니다"}
+}

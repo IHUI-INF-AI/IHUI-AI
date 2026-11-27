@@ -20,6 +20,7 @@ import { StatusBar } from './status-bar'
 import { TerminalPanel } from './terminal-panel'
 import { AgentPane } from './agent-pane'
 import { McpPane } from './mcp-pane'
+import { IDEFilePreviewDialog } from './file-preview-dialog'
 
 /** 根据活动视图渲染左侧面板 */
 function SidePanel() {
@@ -130,6 +131,7 @@ export function IDELayout() {
         </div>
       </div>
       <StatusBar />
+      <IDEFilePreviewDialog />
     </div>
   )
 }

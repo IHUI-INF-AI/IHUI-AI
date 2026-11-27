@@ -7,7 +7,9 @@ import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
 import { BackButton } from '@/components/common'
 import { PublishedDocsSection } from '@/components/docs/published-docs-section'
-import { BookOpen, Rocket, Container, Wrench, Brain } from 'lucide-react'
+import { RepositoryFilesSection } from '@/components/docs/repository-files-section'
+import { ProjectFilesSection } from '@/components/docs/project-files-section'
+import { BookOpen, Rocket, Container, Wrench, Brain, Files, ArrowRight } from 'lucide-react'
 import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 const SITE_URL = 'https://aizhs.top'
@@ -146,6 +148,19 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
+const PREVIEW_FORMAT_LABELS = [
+  'Markdown',
+  'PDF',
+  'Word / Excel / PPTX 版式',
+  '旧版 Word / PPT 转换',
+  'AI 总结 / 要点 / 问答',
+  'CSV / TSV',
+  '图片',
+  '音视频',
+  '3D',
+  '压缩包',
+] as const
+
 const docSections = [
   {
     title: '使用说明手册',
@@ -203,6 +218,43 @@ export default function DocsIndexPage() {
         dangerouslySetInnerHTML={{ __html: jsonLdHtml(docsJsonLd) }}
       />
 
+      <section className="rounded-xl border bg-gradient-to-br from-primary/5 via-card to-primary/10 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="rounded-lg bg-primary/10 p-2">
+              <Files className="h-5 w-5 text-primary" />
+            </span>
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold">文档中心</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                不下载也能看:Markdown、PDF、Word / Excel / PPTX 版式、旧版 .doc/.ppt 转换预览、CSV、图片、音视频、3D、压缩包统一预览;打开文档即可让 AI 读取正文、生成摘要、提取要点或继续问答,也能一键把文件带入主 AI 对话继续处理,原文件下载与全屏阅读随取随用。
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {PREVIEW_FORMAT_LABELS.map((label) => (
+                  <span
+                    key={label}
+                    className={
+                      label.startsWith('AI')
+                        ? 'rounded-full border border-violet-300/70 bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300'
+                        : 'rounded-full border bg-background/70 px-2 py-0.5 text-xs text-muted-foreground'
+                    }
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <Link
+            href="/feature-center/documents"
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border bg-background px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-accent"
+          >
+            浏览文档集市
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </section>
+
       <div className="grid grid-cols-1 gap-6 min-[768px]:grid-cols-2">
         {docSections.map((section) => (
           <section key={section.title} className="rounded-lg border bg-card p-3">
@@ -216,7 +268,9 @@ export default function DocsIndexPage() {
               </span>
               <h2 className="text-lg font-semibold">{section.title}</h2>
             </div>
-            <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">{section.description}</p>
+            <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">
+              {section.description}
+            </p>
             <ul className="mt-4 space-y-3">
               {section.items.map((item) => (
                 <li key={item.href}>
@@ -225,7 +279,9 @@ export default function DocsIndexPage() {
                     className="block rounded-lg border bg-background p-3 transition-colors hover:bg-accent"
                   >
                     <div className="font-medium text-body">{item.name}</div>
-                    <div className="font-[weight:inherit] text-label text-muted-foreground">{item.desc}</div>
+                    <div className="font-[weight:inherit] text-label text-muted-foreground">
+                      {item.desc}
+                    </div>
                   </Link>
                 </li>
               ))}
@@ -234,6 +290,9 @@ export default function DocsIndexPage() {
         ))}
         <PublishedDocsSection />
       </div>
+
+      <RepositoryFilesSection />
+      <ProjectFilesSection />
 
       <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
         <p className="font-[weight:inherit] text-body text-muted-foreground">

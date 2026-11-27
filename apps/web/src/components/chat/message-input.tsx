@@ -12,6 +12,7 @@ import {
   ICON_BUTTON_ACTION_BASE_CLASS,
   ICON_BUTTON_ACTION_DISABLED_CLASS,
 } from '@ihui/design-tokens'
+import type { ChatAttachmentInput } from '@ihui/types'
 
 import { cn } from '@/lib/utils'
 import { MENU_ITEM_CLASS, MENU_ITEM_ICON_CLASS } from '@/lib/menu-item'
@@ -86,6 +87,7 @@ import { useSlashAction } from '@/hooks/use-slash-action'
 import {
   CHAT_ATTACHMENT_ACCEPT,
   CHAT_ATTACHMENT_MAX_FILES,
+  CHAT_ATTACHMENT_MAX_SIZE_BYTES,
   canSendReferences,
   useMessageReferences,
 } from '@/hooks/use-message-references'
@@ -135,6 +137,7 @@ import {
   type FollowUpMode,
 } from '@ihui/shared/chat/queue-interactions'
 import { useAiPanelStore } from '@/stores/ai-panel'
+import { useFileHandoffStore } from '@/stores/file-handoff'
 import { getMessages } from '@ihui/api-client'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@ihui/shared/plugins-data'
 
@@ -255,8 +258,8 @@ export function PromptPolishEntry({
 // mimeToLabel / useMentionFiles / useAiSkills 已提取到 use-lazy-resource-hooks(2026-07-30)。
 
 interface MessageInputProps {
-  /** onSend 返回 true=已提交可清空输入框,false=未发送需保留输入内容(如未登录/创建会话失败) */
-  onSend: (content: string) => Promise<boolean> | boolean
+  /** onSend 返回 true=已提交可清空输入框,false=未发送需保留输入内容(如未登录/创建会话失败);attachments=由服务端提正文的文档类附件 */
+  onSend: (content: string, attachments?: ChatAttachmentInput[]) => Promise<boolean> | boolean
   onStop: () => void
   isStreaming: boolean
   placeholder: string
@@ -780,6 +783,49 @@ export function MessageInput({
         onAddSelectionAttachment as EventListener,
       )
   }, [addFileReferences, t, paneId])
+  // 文件查看器 → 主对话交接(2026-11-27 立):查看器把 File 放进跨组件队列并打开 AISidePanel,
+  // 根窗格输入区在此消费。关闭态面板不挂载 MessageInput,所以必须走队列而不是一次性事件;
+  // 消费即删,避免面板重开时重复上传同一份文件。
+  const pendingFileHandoffs = useFileHandoffStore((s) => s.pending)
+  React.useEffect(() => {
+    if (pendingFileHandoffs.length === 0) return
+    const items = useFileHandoffStore.getState().consumeForPane(paneId)
+    if (items.length === 0) return
+    let addedPrompt = ''
+    for (const item of items) {
+      const rejections = addFileReferences([item.file])
+      for (const rejection of rejections) {
+        if (rejection.code === 'max_files') {
+          toast.error(
+            t('selectionActions.attachmentLimitReached', { limit: CHAT_ATTACHMENT_MAX_FILES }),
+          )
+        } else if (rejection.code === 'accept') {
+          toast.error(
+            t('attachRejectType', {
+              count: rejection.fileNames.length,
+              names: rejection.fileNames.join('、'),
+            }),
+          )
+        } else {
+          toast.error(
+            t('attachRejectSize', {
+              max: Math.floor(CHAT_ATTACHMENT_MAX_SIZE_BYTES / (1024 * 1024)),
+              count: rejection.fileNames.length,
+              names: rejection.fileNames.join('、'),
+            }),
+          )
+        }
+      }
+      if (item.prompt) addedPrompt = addedPrompt ? `${addedPrompt}\n\n${item.prompt}` : item.prompt
+    }
+    if (addedPrompt) {
+      setValue((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${addedPrompt}` : addedPrompt))
+    }
+    requestAnimationFrame(() => {
+      inputCoreRef.current?.focus()
+      inputCoreRef.current?.resize()
+    })
+  }, [pendingFileHandoffs, addFileReferences, paneId, setValue, t])
   // D22 会话拖入输入框引用(2026-09-19 立,遵循统一工程规范):侧栏会话行 draggable,
   // dataTransfer 携带 application/x-ihui-conversation JSON;drop 后拉取会话消息
   // 拼成对话快照文本引用(失败回退用标题),与文件拖拽通道互不影响。

@@ -39,9 +39,19 @@ vi.mock('@/components/media/PDFViewer', () => ({
 }))
 
 vi.mock('@/components/media/office-preview', () => ({
-  SUPPORTED_EXTS: new Set(['docx', 'xlsx', 'pptx']),
+  SUPPORTED_EXTS: new Set(['docx', 'xlsx', 'xls', 'pptx']),
   OfficePreview: ({ src, ext }: { src: string; ext: string }) =>
     React.createElement('div', { 'data-testid': 'office-stub', 'data-src': src, 'data-ext': ext }),
+}))
+
+vi.mock('@/components/media/office-convert-preview', () => ({
+  OfficeConvertPreview: ({ src, name, ext }: { src: string; name: string; ext: string }) =>
+    React.createElement('div', {
+      'data-testid': 'office-convert-stub',
+      'data-src': src,
+      'data-name': name,
+      'data-ext': ext,
+    }),
 }))
 
 import { DelimitedFilePreview } from '../delimited-file-preview'
@@ -128,12 +138,18 @@ describe('W 组:派发器装车与判型分流', () => {
     expect(screen.getByTestId('office-stub').getAttribute('data-ext')).toBe('xlsx')
   })
 
-  it('office 族里 SUPPORTED_EXTS 不收的扩展名(老 .xls)判不支持,不转交', () => {
+  it('xls 也转交 OfficePreview(旧版表格走 SheetJS 原生预览)', () => {
     render(<RichFilePreview href="/d/old.xls" ext="xls" />)
-    expect(screen.getByTestId('file-preview-error-card').getAttribute('data-preview-failure')).toBe(
-      'unsupported',
-    )
+    expect(screen.getByTestId('office-stub').getAttribute('data-ext')).toBe('xls')
+  })
+
+  it('office 族里 SUPPORTED_EXTS 不收的旧版 .doc 转交服务端转换预览,不退化成下载卡', () => {
+    render(<RichFilePreview href="/d/old.doc" ext="doc" />)
+    const stub = screen.getByTestId('office-convert-stub')
+    expect(stub.getAttribute('data-ext')).toBe('doc')
+    expect(stub.getAttribute('data-src')).toBe('/d/old.doc')
     expect(screen.queryByTestId('office-stub')).toBeNull()
+    expect(screen.queryByTestId('file-preview-error-card')).toBeNull()
   })
 
   it('未知扩展名给错误卡而不是空白', () => {
@@ -151,10 +167,7 @@ describe('W 组:派发器装车与判型分流', () => {
   })
 
   it('反向锁:会话流渲染位必须真的引用派发器(改了判据没接线 = 一路绿灯)', () => {
-    const wired = readFileSync(
-      path.join(HERE, '..', '..', 'ai', 'markdown-stream.tsx'),
-      'utf8',
-    )
+    const wired = readFileSync(path.join(HERE, '..', '..', 'ai', 'markdown-stream.tsx'), 'utf8')
     expect(wired).toContain("from '@/components/file-preview'")
     expect(wired).toContain('<RichFilePreview')
     // 旧的三行分支不得复活成第二套并行实现
@@ -212,7 +225,9 @@ describe('分隔符表格:表头固定 / 列宽自适应 / 行数诚实', () => 
     const cells = await screen.findAllByTestId('delimited-header-cell')
     const widths = cells.map((c) => (c as HTMLElement).style.width)
     expect(widths.every((w) => /^\d+ch$/.test(w))).toBe(true)
-    expect(Number(widths[1]?.replace('ch', ''))).toBeGreaterThan(Number(widths[0]?.replace('ch', '')))
+    expect(Number(widths[1]?.replace('ch', ''))).toBeGreaterThan(
+      Number(widths[0]?.replace('ch', '')),
+    )
   })
 
   it('超出上限:共 N 行与仅预览前 M 行同时可见,DOM 真的只有 M 行', async () => {
@@ -331,9 +346,9 @@ describe('失败态:每型各一条文案 + 始终保留下载出口,不得白�
   it('解析后零数据行也判 empty(有表头分隔符但全是空字段)', async () => {
     stubFetch({ body: ',,\n,,\n' })
     render(<DelimitedFilePreview src="/d/z.csv" format="csv" delimiter="," />)
-    expect((await screen.findByTestId('file-preview-error-card')).getAttribute('data-preview-failure')).toBe(
-      'empty',
-    )
+    expect(
+      (await screen.findByTestId('file-preview-error-card')).getAttribute('data-preview-failure'),
+    ).toBe('empty')
   })
 
   it('fetch 抛异常判 failed 而不是白屏或挂起', async () => {
@@ -353,14 +368,9 @@ describe('失败态:每型各一条文案 + 始终保留下载出口,不得白�
 // --------------------------------------------------------------- 错误卡本体 ----
 
 describe('PreviewErrorCard:六态各一条文案,永不缺出口', () => {
-  const cases: readonly ('tooLarge' | 'typeMismatch' | 'corrupt' | 'empty' | 'unsupported' | 'failed')[] = [
-    'tooLarge',
-    'typeMismatch',
-    'corrupt',
-    'empty',
-    'unsupported',
-    'failed',
-  ]
+  const cases: readonly (
+    'tooLarge' | 'typeMismatch' | 'corrupt' | 'empty' | 'unsupported' | 'failed'
+  )[] = ['tooLarge', 'typeMismatch', 'corrupt', 'empty', 'unsupported', 'failed']
 
   it.each(cases)('%s:有 role=status 的卡、图标、下载出口', (failure) => {
     render(<PreviewErrorCard failure={failure} ext="csv" href="/d/a.csv?sig=1" />)

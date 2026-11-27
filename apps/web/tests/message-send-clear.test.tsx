@@ -252,5 +252,57 @@ describe('useMessageSend — 发送即清空回归', () => {
     expect(currentValue).toBe('')
     expect(onSend).toHaveBeenCalledWith('hello')
   })
+
+  it('文档类附件把 fileId 作为第二参上行,图片/文本不误入', async () => {
+    const onSend = vi.fn().mockResolvedValue(true)
+    const inputCoreRef: React.RefObject<{
+      resize: () => void
+      focus: () => void
+      setSelectionRange: () => void
+    }> = { current: { resize: () => {}, focus: () => {}, setSelectionRange: () => {} } }
+    let currentValue = '看看这份报告'
+    const { result } = renderHook(() =>
+      useMessageSend({
+        value: currentValue,
+        setValue: (v: React.SetStateAction<string>) => {
+          currentValue = typeof v === 'function' ? v(currentValue) : v
+        },
+        isStreaming: false,
+        isHighRisk: false,
+        references: [
+          {
+            id: 'ref-doc',
+            type: 'file',
+            label: '季度报告.docx',
+            fileId: '00000000-0000-4000-8000-000000000001',
+            size: 2048,
+            uploadState: 'ready',
+          },
+          {
+            id: 'ref-text',
+            type: 'text',
+            label: '一段引用文本',
+          },
+        ],
+        resetReferences: () => {},
+        addFileReference: () => {},
+        onSend,
+        inputCoreRef,
+        draftKey: 'chat:draft',
+      }),
+    )
+
+    await act(async () => {
+      result.current.submit()
+    })
+
+    expect(onSend).toHaveBeenCalledWith(expect.stringContaining('看看这份报告'), [
+      {
+        fileId: '00000000-0000-4000-8000-000000000001',
+        name: '季度报告.docx',
+        size: 2048,
+      },
+    ])
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

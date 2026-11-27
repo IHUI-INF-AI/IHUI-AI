@@ -4,6 +4,7 @@
 
 import { create } from 'zustand'
 import { logger } from '@/lib/logger'
+import { needsFileViewer } from '@/lib/file-preview-kind'
 import {
   browseDirectory,
   getWorkspaceGitBranches,
@@ -151,6 +152,11 @@ interface IDEWorkspaceState {
   openTabs: EditorTab[]
   /** 活动 tab id */
   activeTabId: string | null
+  /**
+   * 二进制预览目标(2026-11-26):IDE 文件树里图片/PDF/Office/音视频等"编辑器渲染不了"的档,
+   * 不再开编辑器 tab,而是交给统一全格式查看器;文本/代码档仍照旧进编辑器。
+   */
+  previewFile: { path: string; name: string } | null
   /** diff 文件列表 */
   diffFiles: DiffFile[]
   /** 活动 diff 文件 id */
@@ -183,6 +189,10 @@ interface IDEWorkspaceState {
   restoreExpandedFolders: () => void
   selectFile: (fileId: string) => void
   openFile: (file: FileNode) => void
+  /** 打开二进制预览(不建编辑器 tab) */
+  openPreview: (file: FileNode) => void
+  /** 关闭二进制预览 */
+  closePreview: () => void
   closeTab: (tabId: string) => void
   setActiveTab: (tabId: string) => void
   setActiveDiffFile: (fileId: string) => void
@@ -208,6 +218,7 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
   selectedFileId: null,
   openTabs: [],
   activeTabId: null,
+  previewFile: null,
   diffFiles: [],
   activeDiffFileId: null,
   diffViewMode: 'split',
@@ -246,8 +257,19 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
 
   selectFile: (fileId) => set({ selectedFileId: fileId }),
 
+  openPreview: (file) =>
+    set({ previewFile: { path: file.path, name: file.name }, selectedFileId: file.id }),
+  closePreview: () => set({ previewFile: null }),
+
   openFile: (file) => {
     if (file.type !== 'file') return
+    const ext = file.name.includes('.') ? (file.name.split('.').pop()?.toLowerCase() ?? '') : ''
+    // 2026-11-26:图片/PDF/Office/表格/音视频/3D/zip 不再塞进代码编辑器(会显示成乱码),
+    // 直接开统一全格式查看器;文本与无后缀档保持原路径。
+    if (needsFileViewer(ext)) {
+      set({ previewFile: { path: file.path, name: file.name }, selectedFileId: file.id })
+      return
+    }
     const state = get()
     const existing = state.openTabs.find((t) => t.fileId === file.id)
     if (existing) {

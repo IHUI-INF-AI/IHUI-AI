@@ -266,6 +266,10 @@ import { aiImageEditRoutes } from './ai-image-edit.js'
 // R68 补建：M-21 开放平台 Feature Center 后端路由
 import { featureCenterRoutes } from './feature-center.js'
 
+// 旧版 Office / OpenDocument → PDF 预览转换(文档中心/项目文件/IDE 共用)
+import { officePreviewRoutes } from './office-preview.js'
+import { officeAiRoutes } from './office-ai.js'
+
 // 插件市场后端路由(2026-07-22 立,复用 user_preferences 表,零迁移)
 import { pluginsRoutes } from './plugins.js'
 
@@ -1091,6 +1095,11 @@ export function registerRoutes(server: FastifyInstance) {
   // ===== R68 补建：M-21 开放平台 Feature Center =====
   // M-21: Feature Center 后端路由（6端点）
   server.register(featureCenterRoutes, { prefix: '/api/feature-center' })
+
+  // 旧版 Office / OpenDocument → PDF 预览转换(单端点:POST /api/office/preview)
+  server.register(officePreviewRoutes, { prefix: '/api/office' })
+  // AI 文档解读(单端点:POST /api/office/analyze + 流式 /stream)
+  server.register(officeAiRoutes, { prefix: '/api/office' })
 
   // 插件市场后端路由(2026-07-22 立,4端点:GET /installed + POST/DELETE /:id/install + PATCH /:id/preferences)
   server.register(pluginsRoutes, { prefix: '/api/plugins' })

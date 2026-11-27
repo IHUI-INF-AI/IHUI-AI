@@ -320,6 +320,7 @@ export {
   setStreamBaseUrl,
   streamChat,
   getToken,
+  getBaseUrl,
   isAbortError,
   fetchAiServiceJson,
   fetchRaw,

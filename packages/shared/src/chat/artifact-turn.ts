@@ -38,6 +38,7 @@ export const ARTIFACT_KIND_BY_EXT: Readonly<Record<string, ArtifactKind>> = {
   md: 'document',
   pptx: 'presentation',
   xlsx: 'spreadsheet',
+  xls: 'spreadsheet',
   csv: 'spreadsheet',
 }
 

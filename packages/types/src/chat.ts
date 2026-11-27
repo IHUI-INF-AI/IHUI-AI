@@ -192,6 +192,21 @@ export interface ApiChatMessage {
 }
 
 /**
+ * 主对话附件的跨端契约(2026-11-27 立)。
+ *
+ * 语义:客户端只上传文件、拿到 `/files/upload/form` 返回的 fileId,发送消息时把 fileId
+ * 随请求上送;正文提取由服务端完成(网页端拿不到 DOC/PDF 的稳定文本层,不能在前端硬解)。
+ * `name/mimeType/size` 仅用于服务端日志与错误文案,真实归属与落盘路径一律由
+ * `upload-file-registry` 按 fileId 读回,客户端自报字段不可信。
+ */
+export interface ChatAttachmentInput {
+  readonly fileId: string
+  readonly name: string
+  readonly mimeType?: string
+  readonly size?: number
+}
+
+/**
  * streamRunner 回调集合
  */
 export interface StreamRunnerCallbacks {

@@ -14398,6 +14398,27 @@
       "count": "共 {count} 個"
     },
     "projectFiles": {
+      "aiHint": "讓 AI 在目前檔案上直接工作：總結全文、提煉關鍵資訊，或針對內容提問。",
+      "aiAnalyze": "AI 解讀",
+      "aiAsk": "問答",
+      "aiClose": "關閉 AI 解讀",
+      "aiContinueChat": "在對話中繼續",
+      "aiContinuePrompt": "請閱讀這份檔案，並告訴我最關鍵的 3 個資訊。",
+
+      "aiCopy": "複製",
+      "aiCopied": "已複製",
+      "aiError": "AI 分析失敗，請重試",
+      "aiKeypoints": "提取要點",
+      "aiQuestionPlaceholder": "針對這份文件提問…",
+      "aiReading": "AI 正在閱讀文件…",
+      "aiSend": "傳送問題",
+      "aiSource": "基於 {chars} 個字元",
+      "aiStart": "產生摘要",
+      "aiSummary": "總結",
+      "aiTitle": "AI 文件助手",
+      "aiTooLarge": "檔案超過 20MB，暫不支援 AI 分析",
+      "aiTruncated": "文件較長，已截取開頭與結尾",
+      "aiUnsupported": "目前檔案類型暫不支援 AI 文字分析",
       "count": "共 {count} 個",
       "description": "專案工作區上傳的檔案，依原格式直接預覽",
       "download": "下載原檔案",
@@ -31171,20 +31192,18 @@
     "marimba": "馬林巴",
     "chime": "風鈴",
     "knock": "敲門"
-  }
-,
+  },
   "adminAiModels": {
     "telemetry": {
-      "title": "模型運行監測"
-    ,
-      "subtitle": "近 60 分鐘 · 資料來自呼叫流水",
+      "title": "模型運行監測",
+      "subtitle": "近 60 分鐘 · 真實呼叫流水(不含測試)",
       "callsLabel": "近 1h 呼叫",
       "tokensLabel": "近 1h Token",
       "qpsLabel": "目前 QPS",
       "tpsLabel": "目前 Token/s",
       "errorLabel": "錯誤率",
       "p95Label": "P95 延遲",
-      "last5m": "近 5 分鐘均值",
+      "last5m": "近 5 分鐘均值 · 負載",
       "activeConfigs": "{count} 個設定有流量",
       "attributed": "已歸屬 {pct}",
       "unattributed": "未歸屬 {count} 次",
@@ -31205,5 +31224,33 @@
       "cellTip": "近 1 小時：呼叫 {calls} 次，Token {tokens}，錯誤 {errors} 次，P95 {p95}，最近呼叫 {last}",
       "noLatency": "無延遲樣本",
       "loadFailed": "運行資料讀取失敗",
-      "retry": "重試"}
-  }}
+      "retry": "重試"
+    ,
+      "cellUnavailable": "執行資料暫不可用",
+      "grade": {
+        "column": "評級"
+      ,
+        "rubricTitle": "評分口徑（近 60 分鐘）",
+        "rubricError": "錯誤率：≤0.5% = 100 分 · ≤1% = 90 · ≤2% = 78 · ≤5% = 60 · ≤10% = 30 · >10% = 0",
+        "rubricLatency": "端到端 P95：≤3s = 100 分 · ≤8s = 88 · ≤15s = 70 · ≤30s = 40 · >30s = 10",
+        "rubricCombine": "綜合分取兩項較低分（短板決定等級）：≥90 優秀 · ≥75 良好 · ≥60 一般 · <60 較差",
+        "rubricSample": "近 1 小時 ≥20 次呼叫且有延遲樣本才評級，否則「樣本不足」",
+        "rubricLoad": "QPS/TPS 只表示負載，不參與品質評分；行業沒有統一數值，閾值可按專案 SLO 調整",
+        "tier": {
+          "excellent": "優秀"
+        ,
+          "good": "良好",
+          "fair": "一般",
+          "poor": "較差",
+          "insufficient": "樣本不足"},
+        "score": "{score} 分",
+        "overall": "整體",
+        "tipDetail": "錯誤率 {errorPct} · P95 {p95} · 樣本 {calls} 次",
+        "tipShortBoard": "綜合分取兩項較低分，短板決定等級",
+        "tipNeedSample": "近 1 小時 {calls} 次呼叫；樣本需 ≥20 次才評級",
+        "tipNoLatency": "近 1 小時 {calls} 次呼叫，但沒有可用的延遲樣本",
+        "rubricLatencyNote": "P95 含完整生成耗時，長輸出模型應結合 Token 量解讀"}}
+  ,
+    "providerRelay": "反代",
+    "providerRelayHint": "此配置屬於號池反代平台，轉發由對應適配器處理"}
+}

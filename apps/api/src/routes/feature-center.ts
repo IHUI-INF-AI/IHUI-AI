@@ -4,13 +4,14 @@
 
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { eq, sql } from 'drizzle-orm'
-import { existsSync } from 'node:fs'
+import { createReadStream, existsSync } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
-import { join, basename } from 'node:path'
+import { basename, join, resolve, sep } from 'node:path'
 import { db } from '../db/index.js'
 import { agents, docs, sdks, aiModelConfig } from '@ihui/database'
 import { success } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
+import { canonicalMimeOfExtension } from '../utils/file-type-validator.js'
 import { fetchProviderHealth, isProviderHardUnavailable } from '../lib/llm-provider-health.js'
 
 // docs/ 目录路径(开发环境从根目录或 apps/api 启动均可,生产环境 = /app/docs)
@@ -88,19 +89,104 @@ async function isAdmin(request: FastifyRequest): Promise<boolean> {
   }
 }
 
-// 递归扫描 docs/ 目录下所有 .md 文件,返回相对路径(用 / 分隔)
-async function scanDocsRecursive(dir: string, base = ''): Promise<string[]> {
+// 递归扫描 docs/ 目录,返回相对路径(用 / 分隔);accept 决定哪些文件名收进结果
+async function scanDocsRecursive(
+  dir: string,
+  base: string,
+  accept: (name: string) => boolean,
+): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true })
   const results: string[] = []
   for (const entry of entries) {
     const rel = base ? `${base}/${entry.name}` : entry.name
     if (entry.isDirectory()) {
-      results.push(...(await scanDocsRecursive(join(dir, entry.name), rel)))
-    } else if (entry.name.endsWith('.md') && entry.name !== 'README.md') {
+      results.push(...(await scanDocsRecursive(join(dir, entry.name), rel, accept)))
+    } else if (accept(entry.name)) {
       results.push(rel)
     }
   }
   return results.sort()
+}
+
+// 文档中心可浏览的非 Markdown 文件档(办公/表格/文本/图片/归档)。
+// 刻意不收源码脚本(mjs/sh/ts 等):它们是仓库工具,不是文档中心的"文件"。
+const DOC_FILE_EXTS: ReadonlySet<string> = new Set([
+  'pdf',
+  'doc',
+  'docx',
+  'xls',
+  'xlsx',
+  'ppt',
+  'pptx',
+  'odt',
+  'ods',
+  'odp',
+  'rtf',
+  'epub',
+  'csv',
+  'tsv',
+  'txt',
+  'json',
+  'html',
+  'htm',
+  'png',
+  'jpg',
+  'jpeg',
+  'gif',
+  'webp',
+  'bmp',
+  'svg',
+  'avif',
+  'mp3',
+  'm4a',
+  'wav',
+  'aac',
+  'flac',
+  'ogg',
+  'mp4',
+  'webm',
+  'mov',
+  'm4v',
+  'glb',
+  'gltf',
+  'obj',
+  'stl',
+  'log',
+  'jsonl',
+  'zip',
+])
+
+/** 小写无点扩展名(文件名无点 ⇒ 空串)。 */
+function extOfName(name: string): string {
+  const dot = name.lastIndexOf('.')
+  return dot > 0 ? name.slice(dot + 1).toLowerCase() : ''
+}
+
+/** 文件档 → 文档中心列表的 format 徽章(与 apps/web 的 previewKindOf 同义,只做展示分组)。 */
+function docFormatOf(
+  ext: string,
+): 'pdf' | 'office' | 'delimited' | 'text' | 'image' | 'audio' | 'video' | 'three' | 'download' {
+  if (ext === 'pdf') return 'pdf'
+  if (
+    ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf', 'epub'].includes(ext)
+  ) {
+    return 'office'
+  }
+  if (ext === 'csv' || ext === 'tsv') return 'delimited'
+  if (['txt', 'json', 'jsonl', 'log', 'html', 'htm'].includes(ext)) return 'text'
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif'].includes(ext)) return 'image'
+  if (['mp3', 'm4a', 'wav', 'aac', 'flac'].includes(ext)) return 'audio'
+  if (['mp4', 'webm', 'ogg', 'mov', 'm4v'].includes(ext)) return 'video'
+  if (['glb', 'gltf', 'obj', 'stl'].includes(ext)) return 'three'
+  return 'download'
+}
+
+/** 文件档 Content-Type:已登记档走上表白名单的 canonical MIME,svg/html 单独兜底。 */
+function docMimeOf(ext: string): string {
+  if (ext === 'svg') return 'image/svg+xml'
+  if (ext === 'avif') return 'image/avif'
+  if (ext === 'html' || ext === 'htm') return 'text/plain; charset=utf-8'
+  return canonicalMimeOfExtension(ext) ?? 'application/octet-stream'
 }
 
 // 判断文档是否对普通用户公开:
@@ -112,7 +198,9 @@ function isDocPublic(relPath: string): boolean {
     const topDir = parts[0]
     return topDir === 'developer' || topDir === 'user' || topDir === 'enterprise-service'
   }
-  return PUBLIC_DOC_SLUGS.has(relPath.replace(/\.md$/, ''))
+  const lastDot = relPath.lastIndexOf('.')
+  const slug = lastDot > 0 ? relPath.slice(0, lastDot) : relPath
+  return PUBLIC_DOC_SLUGS.has(slug)
 }
 
 // 从相对路径推导分类(用于前端分组展示)
@@ -139,41 +227,90 @@ function deriveCategory(relPath: string): string {
   return 'guide'
 }
 
-// 读取 docs/ 下所有 .md 文件列表(递归,运行时直读,合并到文档中心)
+// 读取 docs/ 下可浏览的文件列表(递归,运行时直读,合并到文档中心)
+// Markdown 按正文索引;其余文档型文件(pdf/office/表格/文本/图片/归档)按文件直出,
+// 前端用同一套 UniversalFilePreview 预览。
 // admin=true 返回全部,admin=false 只返回公开文档(子目录全公开 + 顶层白名单)
-async function readFileDocs(admin: boolean): Promise<
-  Array<{
-    id: string
-    title: string
-    description: string
-    excerpt: string
-    category: string
-    format: 'markdown'
-    url: string
-    updatedAt: string
-  }>
-> {
+type DocListFormat =
+  | 'markdown'
+  | 'pdf'
+  | 'office'
+  | 'delimited'
+  | 'text'
+  | 'image'
+  | 'audio'
+  | 'video'
+  | 'three'
+  | 'download'
+
+interface DocListItem {
+  id: string
+  title: string
+  description: string
+  excerpt: string
+  category: string
+  format: DocListFormat
+  url: string
+  updatedAt: string
+}
+
+async function readFileDocs(admin: boolean): Promise<DocListItem[]> {
   try {
-    const allFiles = await scanDocsRecursive(DOCS_DIR)
-    const mdFiles = allFiles.filter((f) => admin || isDocPublic(f))
-    return await Promise.all(
-      mdFiles.map(async (relPath) => {
-        const filePath = join(DOCS_DIR, relPath)
-        // slug 用相对路径(去掉 .md),前端通过 slug 请求 content 时还原路径
-        const slug = relPath.replace(/\.md$/, '')
-        const [content, stats] = await Promise.all([readFile(filePath, 'utf-8'), stat(filePath)])
-        return {
-          id: `file:${slug}`,
-          title: extractMarkdownTitle(content, slug),
-          description: '',
-          excerpt: extractExcerpt(content),
-          category: deriveCategory(relPath),
-          format: 'markdown' as const,
-          url: '',
-          updatedAt: stats.mtime.toISOString(),
+    const [mdFiles, docFiles] = await Promise.all([
+      scanDocsRecursive(DOCS_DIR, '', (name) => name.endsWith('.md') && name !== 'README.md'),
+      scanDocsRecursive(DOCS_DIR, '', (name) => DOC_FILE_EXTS.has(extOfName(name))),
+    ])
+    const visibleMd = mdFiles.filter((f) => admin || isDocPublic(f))
+    const visibleDocs = docFiles.filter((f) => admin || isDocPublic(f))
+
+    const mdItems = await Promise.all(
+      visibleMd.map(async (relPath): Promise<DocListItem | null> => {
+        try {
+          const filePath = join(DOCS_DIR, relPath)
+          // slug 用相对路径(去掉 .md),前端通过 slug 请求 content 时还原路径
+          const slug = relPath.replace(/\.md$/, '')
+          const [content, stats] = await Promise.all([readFile(filePath, 'utf-8'), stat(filePath)])
+          return {
+            id: `file:${slug}`,
+            title: extractMarkdownTitle(content, slug),
+            description: '',
+            excerpt: extractExcerpt(content),
+            category: deriveCategory(relPath),
+            format: 'markdown',
+            url: '',
+            updatedAt: stats.mtime.toISOString(),
+          }
+        } catch {
+          return null
         }
       }),
     )
+
+    const fileItems = await Promise.all(
+      visibleDocs.map(async (relPath): Promise<DocListItem | null> => {
+        try {
+          const stats = await stat(join(DOCS_DIR, relPath))
+          const ext = extOfName(basename(relPath))
+          return {
+            id: `file:${relPath}`,
+            title: basename(relPath).replace(/\.[^.]+$/, ''),
+            description: relPath,
+            excerpt: '',
+            category: deriveCategory(relPath),
+            format: docFormatOf(ext),
+            url: `/api/feature-center/documents/file/${relPath
+              .split('/')
+              .map(encodeURIComponent)
+              .join('/')}`,
+            updatedAt: stats.mtime.toISOString(),
+          }
+        } catch {
+          return null
+        }
+      }),
+    )
+
+    return [...mdItems, ...fileItems].filter((item): item is DocListItem => item !== null)
   } catch {
     return []
   }
@@ -297,22 +434,31 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
   server.get('/documents', async (request, reply) => {
     try {
       const admin = await isAdmin(request)
-      const [dbRows, fileDocs] = await Promise.all([
-        db
-          .select({
-            id: docs.id,
-            title: docs.title,
-            category: docs.category,
-            slug: docs.slug,
-            content: docs.content,
-            updatedAt: docs.updatedAt,
-          })
-          .from(docs)
-          .where(eq(docs.status, 'published'))
-          .limit(200),
+      // DB 只承载运营录入的 markdown;仓库文件档不依赖数据库。此前 Promise.all
+      // 在 DB 不可用时整段 catch 成空列表,会把 docs/ 下的 PDF/Office/图片一起藏掉。
+      const dbQuery = db
+        .select({
+          id: docs.id,
+          title: docs.title,
+          category: docs.category,
+          slug: docs.slug,
+          content: docs.content,
+          updatedAt: docs.updatedAt,
+        })
+        .from(docs)
+        .where(eq(docs.status, 'published'))
+        .limit(200)
+      const [dbRows, files] = await Promise.all([
+        Promise.resolve(dbQuery).then(
+          (rows) => rows,
+          (reason: unknown) => {
+            server.log.warn({ err: reason }, '[feature-center] DB 文档查询失败,仅返回文件档')
+            return null
+          },
+        ),
         readFileDocs(admin),
       ])
-      const dbList = dbRows.map((r) => ({
+      const dbList = (dbRows ?? []).map((r) => ({
         id: r.id,
         title: r.title,
         description: '',
@@ -324,7 +470,7 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
       }))
       // 合并:DB 优先,文件 slug 去重(DB 已有的 slug 不再从文件重复加载)
       const dbSlugs = new Set(dbList.map((d) => d.url.replace('/docs/', '')))
-      const merged = [...dbList, ...fileDocs.filter((d) => !dbSlugs.has(d.id.replace('file:', '')))]
+      const merged = [...dbList, ...files.filter((d) => !dbSlugs.has(d.id.replace('file:', '')))]
       return reply.send(success(merged))
     } catch (e) {
       server.log.error(e)
@@ -436,8 +582,51 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // -------------------------------------------------------------------------
-  // GET /models - 模型集市列表
+  // GET /documents/file/* - 文档中心非 Markdown 文件直出(预览/下载)
+  // 权限与列表同源:子目录(developer/user/enterprise-service)公开,顶层仅管理员;
+  // 只放行 DOC_FILE_EXTS 白名单,html 一律按纯文本下发(不执行),svg 走 sandbox CSP。
   // -------------------------------------------------------------------------
+  server.get('/documents/file/*', async (request, reply) => {
+    try {
+      const wildcard = (request.params as { '*': string })['*'] ?? ''
+      let relPath = wildcard
+      try {
+        relPath = decodeURIComponent(wildcard)
+      } catch {
+        return reply.code(404).send()
+      }
+      relPath = relPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
+      if (!relPath || relPath.includes('..') || relPath.includes('\0')) {
+        return reply.code(404).send()
+      }
+      const ext = extOfName(basename(relPath))
+      if (!DOC_FILE_EXTS.has(ext)) return reply.code(404).send()
+
+      if (!isDocPublic(relPath)) {
+        const admin = await isAdmin(request)
+        if (!admin) return reply.code(404).send()
+      }
+
+      const root = resolve(DOCS_DIR)
+      const filePath = resolve(root, relPath)
+      if (!filePath.startsWith(root + sep)) return reply.code(404).send()
+      const stats = await stat(filePath)
+      if (!stats.isFile()) return reply.code(404).send()
+
+      const isHtml = ext === 'html' || ext === 'htm'
+      const res = reply
+        .header('Content-Type', docMimeOf(ext))
+        .header('Content-Length', String(stats.size))
+        .header('X-Content-Type-Options', 'nosniff')
+      if (isHtml || ext === 'svg') {
+        res.header('Content-Security-Policy', 'sandbox')
+      }
+      return res.send(createReadStream(filePath))
+    } catch {
+      return reply.code(404).send()
+    }
+  })
+
   server.get('/models', async (_request, reply) => {
     try {
       const rows = await db

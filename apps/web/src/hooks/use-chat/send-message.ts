@@ -166,6 +166,7 @@ import { applyQuestionResolvedEvent, parseQuestionResolvedPayload } from './ques
 // Runtime 插话能力声明落库口(帧载荷 → store;D69 runtimeSupportsInterjection 的数据源)
 import { noteRuntimeCapabilities } from './runtime-capabilities'
 import type { PlanStep, TerminalTask } from '@ihui/types/ai'
+import type { ChatAttachmentInput } from '@ihui/types'
 /**
  * 发送链"建会话后同步 URL"的唯一落点出口(RP-46,2026-11-16 立):
  * - opts.stayOnPage === true:板块页就地发起 —— 保留当前 pathname,不换页;
@@ -242,6 +243,10 @@ export interface SendMessageOptions {
    *  不在工作台前缀内 —— 缺省行为必然把用户从板块页拽到 chat 页,违背「板块就地发起」。
    *  该选项让板块页声明"我就在本页起会话",面板照常承接流式回复。 */
   stayOnPage?: boolean
+  /** 2026-11-27 立:本轮随消息上行的文档类附件(服务端按 fileId 取回字节并提正文注入)。
+   *  只有 `ReferenceItem.type === 'file'` 且已完成上传(fileId 已回写)才进此数组;
+   *  图片/视频/文本引用仍在正文内联,不重复解析。 */
+  attachments?: ChatAttachmentInput[]
 }
 
 /**
@@ -354,6 +359,12 @@ export function createSendMessage(
   const sendMessage = async (content: string, opts?: SendMessageOptions): Promise<boolean> => {
     const text = content.trim()
     if (!text) return false
+    // 2026-11-27 立:文档附件元数据要随 user 消息一起落库。只靠正文里的
+    // `> 📎 文件名` 无法在下一轮找回 fileId;metadata.attachments 是会话级文件
+    // 续读的唯一索引(网关按 fileId 从上传登记表重新提正文)。
+    const attachmentInputs = opts?.attachments?.slice(0, 10) ?? []
+    const attachmentMetadata =
+      attachmentInputs.length > 0 ? { attachments: attachmentInputs } : undefined
     // 重新生成模式:跳过斜杠命令拦截/AI 自动模式检测(用户问题来自历史,不应再触发)
     const isRegenerate = opts?.regenerate === true
     // 票59(3/3):regenerate 的 sibling 入族坐标(由 regenerateMessage 从 /regenerate 响应取)
@@ -1090,6 +1101,11 @@ export function createSendMessage(
           // 未设置时不传该 key,保持上游默认行为。
           // 2026-11-15:外观设置里的回复风格会追加在自定义 prompt 之后(见上方合并逻辑)。
           ...(mergedSystemPrompt ? { systemPrompt: mergedSystemPrompt } : {}),
+          // 2026-11-27:文档类附件只上送 fileId/name,正文提取在 API 侧完成(客户端解不了
+          // PDF/旧版 Office 的稳定文本层)。无附件时该 key 不出现,请求体与接线前一致。
+          ...(opts?.attachments && opts.attachments.length > 0
+            ? { attachments: opts.attachments }
+            : {}),
         },
         // V3 #58(2026-09-26 立):权限模式档位透传 —— ai-service 工具审批门据此
         // 决定高危工具是否弹审批(bypass-permissions 不拦截;accept-edits 放行
@@ -1917,7 +1933,7 @@ export function createSendMessage(
           conversationId,
           text,
           'user',
-          undefined,
+          attachmentMetadata,
           undefined,
           undefined,
           chatStore,

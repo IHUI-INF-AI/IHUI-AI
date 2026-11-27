@@ -20,6 +20,7 @@
  */
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import type { ChatAttachmentInput } from '@ihui/types'
 
 import { MessageInput } from '@/components/chat/message-input'
 import { MessageList } from '@/components/chat/message-list/MessageList'
@@ -36,6 +37,13 @@ export function WorkbenchNewTask({ resetSeq }: WorkbenchNewTaskProps) {
   const t = useTranslations('chat')
   const chatStore = usePaneChatStore()
   const { messages, isStreaming, currentModel, sendMessage, stop, setModel } = useChat()
+  const sendMessageWithAttachments = React.useCallback(
+    (content: string, attachments?: ChatAttachmentInput[]) =>
+      attachments && attachments.length > 0
+        ? sendMessage(content, { attachments })
+        : sendMessage(content),
+    [sendMessage],
+  )
 
   React.useEffect(() => {
     if (resetSeq <= 0) return
@@ -74,7 +82,7 @@ export function WorkbenchNewTask({ resetSeq }: WorkbenchNewTaskProps) {
       )}
       {/* 输入面即内核:首发建会话后由发送链把 URL 换成深链,壳无缝换装 ChatPaneBody */}
       <MessageInput
-        onSend={sendMessage}
+        onSend={sendMessageWithAttachments}
         onStop={stop}
         isStreaming={isStreaming}
         placeholder={t('placeholder')}

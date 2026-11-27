@@ -61,7 +61,7 @@ vi.mock('pdfjs-dist', () => ({
   getDocument: vi.fn(() => ({ promise: Promise.resolve({ numPages: 5 }) })),
 }))
 
-import { OfficePreview, xlsxColumnRef } from '../office-preview'
+import { OfficePreview, xlsxCellCss, xlsxColumnRef } from '../office-preview'
 import { PdfEmbed } from '../message-file-preview'
 
 // ------------------------------------------------------------- fixtures ----
@@ -74,15 +74,34 @@ function toArrayBuffer(x: unknown): ArrayBuffer {
 /** 用 SheetJS 现场生成最小 xlsx:两个 sheet,内容可辨识。 */
 function makeXlsx(): ArrayBuffer {
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(
-    wb,
-    XLSX.utils.aoa_to_sheet([
-      ['A1', 'A2'],
-      ['A3', 'A4'],
-    ]),
-    '表A',
-  )
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['A1', 'A2'],
+    ['A3', 'A4'],
+  ])
+  ws['!cols'] = [{ wch: 20 }, { wch: 8 }]
+  XLSX.utils.book_append_sheet(wb, ws, '表A')
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['B1']]), '表B')
+  return toArrayBuffer(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }))
+}
+
+/** 合并表头:首行 A:B 跨两列,用来锁 colSpan 与覆盖格去重。 */
+function makeMergedXlsx(): ArrayBuffer {
+  const wb = XLSX.utils.book_new()
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['合并表头', ''],
+    ['左', '右'],
+  ])
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }]
+  XLSX.utils.book_append_sheet(wb, ws, '合并表')
+  return toArrayBuffer(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }))
+}
+
+/** 带公式的单元格:值用于表格展示,公式用于选中后的公式栏。 */
+function makeFormulaXlsx(): ArrayBuffer {
+  const wb = XLSX.utils.book_new()
+  const ws = XLSX.utils.aoa_to_sheet([['值'], [2]])
+  ws['A2'] = { t: 'n', f: 'SUM(1,1)', v: 2 }
+  XLSX.utils.book_append_sheet(wb, ws, '公式表')
   return toArrayBuffer(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }))
 }
 
@@ -180,6 +199,15 @@ describe('OfficePreview 四态降级', () => {
     expect(getCalls).toHaveLength(0)
   })
 
+  it('xls:SheetJS 读旧版二进制工作簿并渲染表格', async () => {
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['OLD_A1']]), '旧表')
+    const body = toArrayBuffer(XLSX.write(wb, { type: 'array', bookType: 'xls' }))
+    stubFetch({ head: { size: 100 }, get: { body } })
+    render(<OfficePreview src="https://x/legacy.xls" ext="xls" />)
+    await waitFor(() => expect(screen.getByTestId('xlsx-table').textContent).toContain('OLD_A1'))
+  })
+
   it('懒加载态:超 10MB 先出按钮,点击后才拉取并渲染(xlsx)', async () => {
     stubFetch({ head: { size: 15 * MB }, get: { body: makeXlsx() } })
     render(<OfficePreview src="https://x/big.xlsx" ext="xlsx" />)
@@ -191,6 +219,17 @@ describe('OfficePreview 四态降级', () => {
     )
     await screen.findByTestId('xlsx-table')
     await waitFor(() => expect(screen.getByTestId('xlsx-table').textContent).toContain('A1'))
+  })
+
+  it('blob: 地址跳过 HEAD 直接 GET(统一查看器交来的已是内存字节)', async () => {
+    const spy = stubFetch({ get: { body: makeXlsx() } })
+    render(<OfficePreview src="blob:http://localhost/abc" ext="xlsx" />)
+    await waitFor(() =>
+      expect(screen.getByTestId('office-preview').dataset.officeState).toBe('ready'),
+    )
+    const headCalls = spy.mock.calls.filter((c) => (c[1] as { method?: string })?.method === 'HEAD')
+    expect(headCalls).toHaveLength(0)
+    expect(spy).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -223,6 +262,41 @@ describe('OfficePreview 渲染面', () => {
     await waitFor(() => expect(screen.getByTestId('xlsx-table').textContent).toContain('A3'))
     fireEvent.click(screen.getByText('A3')) // body 第 1 行(工作表第 2 行)第 1 列 → A2
     expect(screen.getByTestId('xlsx-selection').textContent).toBe('WORD_SELECTED(A2)')
+  })
+
+  it('xlsx:ARGB 填充/字体/对齐映射成 CSS,缺少样式时不强行改表格默认', () => {
+    const cell = {
+      s: {
+        fill: { fgColor: { rgb: 'FFFFFF00' } },
+        font: { bold: true, color: { rgb: 'FFFF0000' }, sz: 14 },
+        alignment: { horizontal: 'center' },
+      },
+    } as unknown as Parameters<typeof xlsxCellCss>[0]
+    expect(xlsxCellCss(cell)).toEqual({
+      backgroundColor: '#FFFF00',
+      color: '#FF0000',
+      fontWeight: 700,
+      fontSize: '14px',
+      textAlign: 'center',
+    })
+    expect(xlsxCellCss(undefined)).toBeUndefined()
+  })
+
+  it('xlsx:合并单元格按 colSpan 渲染,被覆盖格不重复出格', async () => {
+    stubFetch({ head: { size: 100 }, get: { body: makeMergedXlsx() } })
+    render(<OfficePreview src="https://x/merged.xlsx" ext="xlsx" />)
+    await waitFor(() => expect(screen.getByTestId('xlsx-table').textContent).toContain('合并表头'))
+    const merged = screen.getByText('合并表头').closest('th')
+    expect(merged?.getAttribute('colspan')).toBe('2')
+    expect(screen.getAllByTestId('xlsx-cell')).toHaveLength(2)
+  })
+
+  it('xlsx:选中带公式的单元格后,公式栏显示公式而不是只显示结果', async () => {
+    stubFetch({ head: { size: 100 }, get: { body: makeFormulaXlsx() } })
+    render(<OfficePreview src="https://x/formula.xlsx" ext="xlsx" />)
+    await waitFor(() => expect(screen.getByTestId('xlsx-table').textContent).toContain('2'))
+    fireEvent.click(screen.getByText('2'))
+    expect(screen.getByTestId('xlsx-formula').textContent).toContain('=SUM(1,1)')
   })
 
   it('pptx:jszip 降级解析出逐 slide 文本大纲,slide1 带讲者备注', async () => {

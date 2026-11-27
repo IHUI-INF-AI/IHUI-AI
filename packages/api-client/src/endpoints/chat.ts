@@ -68,6 +68,16 @@ export interface ChatMessageMetadata {
    *  来源:ai-service plan_updated 同源快照 → /api/ai/callback → worker 浅合并落库;
    *  消费:web 历史水合映射回 message.planSteps(缺失 = 老消息,安静降级) */
   planSteps?: Array<Record<string, unknown>>
+  /** 主对话文档附件元数据(2026-11-27 立,会话级文件上下文)。
+   *  来源:web 在用户消息落库时把本轮 fileId/name 随 metadata 写入(只在 file 类引用);
+   *  消费:网关在下一轮没有新增附件时,按 fileId 从 upload-file-registry 重新提正文,
+   *  让“继续/展开刚才那份报告”仍能读原文件。缺失 = 老消息或该轮没有文件附件。 */
+  attachments?: Array<{
+    fileId: string
+    name: string
+    mimeType?: string
+    size?: number
+  }>
   /** permissionMode(G-165 立):这条回答生成时**服务端自己的**权限档记录。
    *  来源:ai-callback 侧按 会话 metadata.workspacePath → workspace_permissions 反查后盖章
    *  (不采信客户端自报);拼写是 wire(kebab)值,与 @ihui/types/permission-mode 同源。

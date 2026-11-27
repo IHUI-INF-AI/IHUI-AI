@@ -34,6 +34,7 @@ import { buildSseCorsHeaders } from '../plugins/cors-origin.js'
 import {
   createMessage,
   findConversationById,
+  findRecentUserAttachmentMessages,
   patchConversationMetadata,
   replaceMessages,
   setConversationAdditionalDirectories,
@@ -58,6 +59,11 @@ import {
 import { persistMessageArchive } from '../utils/conversation-archive.js'
 import { loadRepoWikiContext } from '../services/repo-wiki-context.js'
 import { clampKnowledgeBlock, loadKnowledgeContext } from '../services/knowledge-chat-context.js'
+import {
+  buildChatAttachmentContext,
+  collectPersistedAttachments,
+  MAX_CONVERSATION_ATTACHMENT_MESSAGES,
+} from '../services/chat-attachment-context.js'
 // G6 企业治理面(2026-10-30 立):模型准入检查点(ORG_POLICIES_ENABLED 关=直通,行为逐字节不变)
 import { guardModelAdmission } from '../services/org-policy-service.js'
 // 批次 3(2026-11-06):预算停止 / 上下文账本 / 压缩边界的落库出口。
@@ -345,6 +351,23 @@ const chatStreamSchema = z.object({
       }),
     )
     .min(1),
+  /**
+   * 2026-11-27 立:主对话文档附件。
+   * 客户端只上送 /files/upload/form 返回的 fileId;正文由服务端按 fileId 读回并注入。
+   * 不在此声明会被 zod strip 静默丢弃 —— 与 workspaceContext/mode 同型断链,模型只看到
+   * 正文里那行 `> 📎 文件名`。name/mime/size 仅用于日志与错误文案,归属仍只认登记表。
+   */
+  attachments: z
+    .array(
+      z.object({
+        fileId: z.string().min(16).max(64),
+        name: z.string().min(1).max(255),
+        mimeType: z.string().max(200).optional(),
+        size: z.number().int().nonnegative().optional(),
+      }),
+    )
+    .max(10)
+    .optional(),
   sessionId: z.string().optional(),
   /** 差距①(2026-10-30 立,发送准入上 wire 网关侧):客户端预生成的输入 ID,
    *  上游 admission 帧按它原样回显配对。不在此声明会被 zod strip 静默丢弃
@@ -1438,6 +1461,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       }
       const {
         messages: rawMessages,
+        attachments,
         sessionId,
         // 差距①(2026-10-30 立):inputId —— 不在这里解构就会被静默留在 parsed.data 里
         // ⇒ 上游收不到而界面看着正常(同 D130/sandboxMode 那一型)。
@@ -1475,7 +1499,14 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       const resolvedModel = model ?? modelId
 
       // F-03:先核会话归属(含 SSE 重放接管前的入口),非本人/不存在直接 404。
-      if (!(await isConversationOwnedBy(metadata?.conversationId, request.userId))) {
+      // 2026-11-27:保留整行 conversation 供会话级附件索引读取(不再二次查询)。
+      const ownedConversation = metadata?.conversationId
+        ? await findConversationById(metadata.conversationId)
+        : undefined
+      if (
+        metadata?.conversationId &&
+        (!ownedConversation || ownedConversation.userId !== request.userId)
+      ) {
         return reply.status(404).send(error(404, '会话不存在'))
       }
 
@@ -1500,9 +1531,97 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       // P38 跨端同步:修复 messages 结构异常(非法 role/空 content/连续重复/开头 assistant/末尾无响应 user)
       // 共享函数 @ihui/types/message-repair,与 CLI repairSessionHistory / ai-service repair_messages 同源
       // keepTrailingUser: 末尾 user 是本次发送的输入,必须保留(否则模型只能看到旧上下文)
-      const { repaired: messages } = repairMessages(rawMessages, {
+      const { repaired: repairedMessages } = repairMessages(rawMessages, {
         keepTrailingUser: true,
       })
+      const messages = repairedMessages as ChatMessage[]
+
+      // 2026-11-27 立:主对话附件正文注入。
+      // 客户端只上送 fileId;此处按登记表取回字节、提正文,再并进**本轮最后一条 user**
+      // 的 content。之所以不新建 system 消息,是因为不同上游对 system 位置支持不一致;
+      // 之所以放在压缩前,是让 60k 附件正文也进入 token 预算与 88% 压缩判定。
+      //
+      // 会话级续读(同日追加):用户下一轮只说“继续”时没有新的 attachments,
+      // 从最近带附件的 user 消息 metadata 里取回 fileId 再读一次。否则消息落库后
+      // fileId 丢失,模型只剩上一轮回答,追问就断。当前轮有附件时不回看历史,
+      // 避免把旧文件与新文件一起塞满上下文。
+      let contextAttachments = attachments ?? []
+      let attachmentSource: 'current' | 'conversation' = 'current'
+      if (contextAttachments.length === 0 && metadata?.conversationId && request.userId) {
+        // 优先读会话级索引:上下文压缩会 replaceMessages,消息级 metadata 随旧行消失,
+        // 会话级 recentAttachments 仍保留最近一次上传的 fileId。
+        const conversationMeta =
+          typeof ownedConversation?.metadata === 'object' && ownedConversation.metadata !== null
+            ? (ownedConversation.metadata as Record<string, unknown>)
+            : null
+        const registryAttachments = collectPersistedAttachments([
+          {
+            role: 'user',
+            metadata: {
+              attachments: conversationMeta?.recentAttachments,
+            },
+          },
+        ])
+        if (registryAttachments.length > 0) {
+          contextAttachments = registryAttachments
+          attachmentSource = 'conversation'
+        } else {
+          try {
+            const recentAttachmentMessages = await findRecentUserAttachmentMessages(
+              metadata.conversationId,
+              MAX_CONVERSATION_ATTACHMENT_MESSAGES,
+            )
+            const persistedAttachments = collectPersistedAttachments(recentAttachmentMessages)
+            if (persistedAttachments.length > 0) {
+              contextAttachments = persistedAttachments
+              attachmentSource = 'conversation'
+            }
+          } catch (e: unknown) {
+            request.log.warn(
+              { err: e instanceof Error ? e.message : String(e) },
+              '[chat-attachment] 会话历史附件读取失败(不阻塞本轮)',
+            )
+          }
+        }
+      }
+      if (contextAttachments.length > 0 && request.userId) {
+        const attachmentContext = await buildChatAttachmentContext(
+          request.userId,
+          contextAttachments,
+          { source: attachmentSource },
+        )
+        if (attachmentContext.text) {
+          let lastUserIndex = -1
+          for (let i = messages.length - 1; i >= 0; i -= 1) {
+            if (messages[i]?.role === 'user') {
+              lastUserIndex = i
+              break
+            }
+          }
+          if (lastUserIndex >= 0) {
+            const lastUser = messages[lastUserIndex]
+            if (lastUser) {
+              messages[lastUserIndex] = {
+                ...lastUser,
+                content: `${lastUser.content}\n\n${attachmentContext.text}`,
+              }
+            }
+          }
+        }
+        request.log.info(
+          {
+            userId: request.userId,
+            source: attachmentSource,
+            files: attachmentContext.files.map((file) => ({
+              name: file.name,
+              chars: file.chars,
+              truncated: file.truncated,
+              error: file.error ?? null,
+            })),
+          },
+          '[chat-attachment] context prepared',
+        )
+      }
 
       // P39 跨端统一:88% 阈值自动压缩上下文(共享包 @ihui/context-compaction)
       // CLI / API / ai-service 共用同一套规则,前端传 contextLimit 触发,压缩结果通过 SSE 通知前端

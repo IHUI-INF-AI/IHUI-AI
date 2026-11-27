@@ -17,6 +17,7 @@ import {
   Copy,
   Check,
   List,
+  Sparkles,
   X,
   ChevronLeft,
   ChevronRight,
@@ -25,11 +26,13 @@ import { useTranslations } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-import { fetchApi } from '@/lib/api'
+import { fetchApi, fetchRaw } from '@/lib/api'
 import { Tooltip } from '@/components/feedback'
 import { Card, CardContent, Input, Button } from '@ihui/ui-react'
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { FeatureCenterHeader, FeatureCenterNav } from '@/components/feature-center'
+import { FileViewerDialog, type FileViewerTarget } from '@/components/media/file-viewer-dialog'
+import { UniversalFilePreview } from '@/components/media/universal-file-preview'
 import { formatDateOnly } from '@/lib/date-utils'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 
@@ -39,7 +42,17 @@ interface DocItem {
   description: string
   excerpt: string
   category: string
-  format: 'markdown' | 'pdf' | 'html'
+  format:
+    | 'markdown'
+    | 'pdf'
+    | 'office'
+    | 'delimited'
+    | 'text'
+    | 'image'
+    | 'audio'
+    | 'video'
+    | 'three'
+    | 'download'
   url: string
   updatedAt: string
 }
@@ -71,7 +84,29 @@ const CATEGORY_LABELS: Record<string, string> = {
 const FORMAT_LABELS: Record<string, string> = {
   markdown: 'Markdown',
   pdf: 'PDF',
+  office: 'Office',
+  delimited: '表格',
+  text: '文本',
+  image: '图片',
+  audio: '音频',
+  video: '视频',
+  three: '3D',
+  download: '文件',
   html: 'HTML',
+}
+
+// format → 徽章配色(只做视觉分组,不影响判型与渲染)
+const FORMAT_BADGE_CLASS: Record<string, string> = {
+  markdown: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+  pdf: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+  office: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  delimited: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  text: 'bg-slate-500/10 text-slate-600 dark:text-slate-300',
+  image: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  audio: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+  video: 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400',
+  three: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+  download: 'bg-muted text-muted-foreground',
 }
 
 // TOC 标题项
@@ -179,12 +214,14 @@ const DOC_PREVIEW_OVERLAY_ID = 'feature-center-documents-preview'
 
 export default function DocumentsPage() {
   const t = useTranslations('featureCenter.documents')
+  const fileT = useTranslations('docs.projectFiles')
   const { data, isLoading } = useQuery({
     queryKey: ['feature-center-docs'],
     queryFn: fetchDocs,
   })
   const [keyword, setKeyword] = React.useState('')
   const [category, setCategory] = React.useState('全部')
+  const [format, setFormat] = React.useState('all')
   const [previewId, setPreviewId] = React.useState<string | null>(null)
   // 用户通过点击 markdown 内部 .md 链接跳转的目标 slug(覆盖 previewSlug)
   const [navigatedSlug, setNavigatedSlug] = React.useState<string | null>(null)
@@ -203,6 +240,18 @@ export default function DocumentsPage() {
     return ['全部', ...unique.sort()]
   }, [data])
 
+  // 只显示当前数据里真实存在的格式,避免出现点进去必然空列表的筛选项
+  const formats = React.useMemo(() => {
+    const present = new Set((data ?? []).map((d) => d.format))
+    return Object.keys(FORMAT_LABELS).filter((key) => present.has(key as DocItem['format']))
+  }, [data])
+
+  const formatCounts = React.useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const item of data ?? []) counts.set(item.format, (counts.get(item.format) ?? 0) + 1)
+    return counts
+  }, [data])
+
   const list = React.useMemo(() => {
     const all = data ?? []
     return all.filter((item) => {
@@ -211,11 +260,14 @@ export default function DocumentsPage() {
         item.title.toLowerCase().includes(keyword.toLowerCase()) ||
         item.excerpt.toLowerCase().includes(keyword.toLowerCase())
       const matchCategory = category === '全部' || item.category === category
-      return matchKeyword && matchCategory
+      const matchFormat = format === 'all' || item.format === format
+      return matchKeyword && matchCategory && matchFormat
     })
-  }, [data, keyword, category])
+  }, [data, keyword, category, format])
 
   const previewDoc = list.find((d) => d.id === previewId) ?? null
+  // Markdown 走正文渲染;其余文件档(pdf/office/表格/文本/图片/归档)走统一全格式预览直出
+  const isMarkdownPreview = previewDoc?.format === 'markdown'
 
   // 当前预览文档的 slug(含子目录路径,如 developer/incentive-program/course)
   // 用于 ReactMarkdown 改写相对图片路径 ./images/xxx.png → /api/feature-center/documents/asset/<dir>/images/xxx.png
@@ -240,7 +292,7 @@ export default function DocumentsPage() {
       if (!res.success) throw new Error(res.error)
       return res.data.content
     },
-    enabled: !!previewId,
+    enabled: !!previewId && isMarkdownPreview,
   })
 
   // 点击 markdown 内部 .md 链接时加载目标文档内容(覆盖 previewContent)
@@ -261,6 +313,45 @@ export default function DocumentsPage() {
   const displayContent = navigatedSlug ? (navigatedContent ?? '') : (previewContent ?? '')
   const displaySlug = navigatedSlug ?? previewSlug
   const displayLoading = navigatedSlug ? navigatedLoading : previewLoading
+  // 非 Markdown 文档直接拿列表里给的文件直出地址(不经 content 接口)
+  const filePreviewSrc = previewDoc && !isMarkdownPreview ? previewDoc.url : ''
+  const filePreviewName = previewDoc
+    ? previewDoc.description.split('/').pop() || previewDoc.title || ''
+    : ''
+  // 文件档带鉴权取字节:直接给 <img>/<iframe> 用裸 URL 不会带 Authorization,
+  // 顶层文档(仅管理员)会 401;统一取 blob 后再渲染,和项目文件/IDE 同一条路径。
+  const [filePreviewUrl, setFilePreviewUrl] = React.useState('')
+  const [filePreviewBlob, setFilePreviewBlob] = React.useState<Blob | null>(null)
+  const [filePreviewFailed, setFilePreviewFailed] = React.useState(false)
+  const [fileAiTarget, setFileAiTarget] = React.useState<FileViewerTarget | null>(null)
+  React.useEffect(() => {
+    if (!filePreviewSrc) {
+      setFilePreviewUrl('')
+      setFilePreviewBlob(null)
+      setFilePreviewFailed(false)
+      return
+    }
+    let cancelled = false
+    let objectUrl: string | null = null
+    setFilePreviewUrl('')
+    setFilePreviewBlob(null)
+    setFilePreviewFailed(false)
+    setFileAiTarget(null)
+    void fetchRaw(filePreviewSrc)
+      .then((blob) => {
+        if (cancelled) return
+        objectUrl = URL.createObjectURL(blob)
+        setFilePreviewBlob(blob)
+        setFilePreviewUrl(objectUrl)
+      })
+      .catch(() => {
+        if (!cancelled) setFilePreviewFailed(true)
+      })
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [filePreviewSrc])
 
   // 从当前显示内容提取 TOC
   const tocItems = React.useMemo(() => extractToc(displayContent), [displayContent])
@@ -383,12 +474,14 @@ export default function DocumentsPage() {
   function closePreview() {
     setPreviewId(null)
     setNavigatedSlug(null)
+    setFileAiTarget(null)
   }
 
   // 上一篇/下一篇导航:切换 previewId 并清空 navigated 状态(滚动到顶部由 displaySlug effect 处理)
   function goToDoc(doc: DocItem) {
     setPreviewId(doc.id)
     setNavigatedSlug(null)
+    setFileAiTarget(null)
   }
 
   return (
@@ -425,6 +518,35 @@ export default function DocumentsPage() {
         </div>
       </div>
 
+      {/* 格式筛选:直接按判型表分组,Office/PDF/图片/音视频可一键只看 */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-muted-foreground">{t('formatFilter')}</span>
+        {[{ key: 'all', label: t('catAllFormats'), count: (data ?? []).length }]
+          .concat(
+            formats.map((key) => ({
+              key,
+              label: FORMAT_LABELS[key] ?? key,
+              count: formatCounts.get(key) ?? 0,
+            })),
+          )
+          .map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setFormat(item.key)}
+              className={
+                'rounded-full border px-2.5 py-0.5 text-xs transition-colors ' +
+                (format === item.key
+                  ? 'border-brand-accent-deep bg-cta text-cta-foreground'
+                  : 'border-border text-muted-foreground hover:bg-muted')
+              }
+            >
+              {item.label}
+              <span className="ml-1 tabular-nums opacity-60">{item.count}</span>
+            </button>
+          ))}
+      </div>
+
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -432,8 +554,19 @@ export default function DocumentsPage() {
         </div>
       ) : list.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          <CardContent className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
             {t('noMatch')}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setKeyword('')
+                setCategory('全部')
+                setFormat('all')
+              }}
+            >
+              {t('clearFilters')}
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -442,11 +575,18 @@ export default function DocumentsPage() {
             const formatLabel = FORMAT_LABELS[item.format] ?? item.format
             const categoryLabel = CATEGORY_LABELS[item.category] ?? item.category
             return (
-              <Card key={item.id} className="flex h-full flex-col">
+              <Card
+                key={item.id}
+                className="flex h-full flex-col transition-shadow hover:shadow-md"
+              >
                 <CardContent className="min-[640px]:p-3 flex flex-1 flex-col gap-3 p-3">
                   {/* 顶部:format 标签 + 分类徽章 */}
                   <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${
+                        FORMAT_BADGE_CLASS[item.format] ?? 'bg-muted text-muted-foreground'
+                      }`}
+                    >
                       <FileType2 className="h-3 w-3" />
                       {formatLabel}
                     </span>
@@ -522,18 +662,38 @@ export default function DocumentsPage() {
                     <List className="h-4 w-4" />
                   </Button>
                 )}
+                {filePreviewSrc ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setFileAiTarget({
+                        name: filePreviewName,
+                        load: filePreviewBlob
+                          ? async () => filePreviewBlob as Blob
+                          : () => fetchRaw(filePreviewSrc),
+                      })
+                    }
+                    className="gap-1.5"
+                  >
+                    <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                    <span className="hidden text-xs sm:inline">{fileT('aiAnalyze')}</span>
+                  </Button>
+                ) : null}
                 <Button variant="ghost" size="sm" onClick={closePreview}>
                   {t('close')}
                 </Button>
               </div>
             </div>
-            {/* 阅读进度条:2px 高,随内容滚动百分比填充 */}
-            <div className="h-0.5 shrink-0 overflow-hidden rounded-md bg-muted">
-              <div
-                className="h-full bg-cta transition-[width] duration-100 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+            {/* 阅读进度条:2px 高,随内容滚动百分比填充(文件档无阅读进度,不显示) */}
+            {isMarkdownPreview && (
+              <div className="h-0.5 shrink-0 overflow-hidden rounded-md bg-muted">
+                <div
+                  className="h-full bg-cta transition-[width] duration-100 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            )}
             {/* 上一篇 / 下一篇文档导航 */}
             {navIndex >= 0 && (navPrev || navNext) && (
               <div className="flex shrink-0 items-center justify-between gap-2">
@@ -571,7 +731,26 @@ export default function DocumentsPage() {
                 )}
               </div>
             )}
-            {displayLoading ? (
+            {filePreviewSrc ? (
+              <div className="flex-1 overflow-auto rounded-md border p-2">
+                {filePreviewFailed ? (
+                  <p className="py-8 text-center text-body text-muted-foreground">
+                    {t('previewFailed')}
+                  </p>
+                ) : filePreviewUrl ? (
+                  <UniversalFilePreview
+                    src={filePreviewUrl}
+                    name={filePreviewName}
+                    className="max-h-[60vh]"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center py-8 text-muted-foreground">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t('loading')}
+                  </div>
+                )}
+              </div>
+            ) : displayLoading ? (
               <div className="flex items-center justify-center py-8 text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 {t('loading')}
@@ -766,6 +945,10 @@ export default function DocumentsPage() {
           </CardContent>
         </Card>
       )}
+
+      {fileAiTarget ? (
+        <FileViewerDialog target={fileAiTarget} onClose={() => setFileAiTarget(null)} />
+      ) : null}
     </div>
   )
 }
