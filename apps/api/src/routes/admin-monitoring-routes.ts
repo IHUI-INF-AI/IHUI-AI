@@ -15,6 +15,13 @@ import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import {
+  collectAiModelModelsTelemetryV2,
+  collectAiModelTelemetryV2,
+  collectRecentAiModelCalls,
+  resolveTelemetryWindow,
+} from '../services/ai-model-telemetry-v2.js'
+import { collectAiModelGovernance } from '../services/ai-model-governance.js'
+import {
   apiLogs,
   systemEvents,
   monitorAlerts,
@@ -72,6 +79,19 @@ const apiLogQuerySchema = z.object({
   status: z.transform(emptyToUndefined).pipe(z.enum(['2xx', '4xx', '5xx', 'all']).optional()),
   endpoint: z.transform(emptyToUndefined).pipe(z.string().max(512).optional()),
   method: z.transform(emptyToUndefined).pipe(z.string().max(16).optional()),
+})
+
+const telemetryWindowSchema = z.enum(['1h', '24h', '7d']).default('1h')
+const telemetryQuerySchema = z.object({ window: telemetryWindowSchema })
+const telemetryModelsQuerySchema = z.object({
+  configId: z.coerce.number().int().positive(),
+  window: telemetryWindowSchema,
+})
+const telemetryCallsQuerySchema = z.object({
+  configId: z.coerce.number().int().positive(),
+  window: telemetryWindowSchema,
+  model: z.transform(emptyToUndefined).pipe(z.string().max(128).optional()),
+  limit: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(1).max(100).default(20)),
 })
 
 // 公网可达例外(与 admin-ops-wallboard.ts / admin-monitor-panels.ts / menu-routers-routes.ts 同一条定档):
@@ -390,6 +410,80 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
   server.get('/monitoring/services', async (_req, reply) => {
     const list = await checkServiceHealth(server)
     return reply.send(success({ list }))
+  })
+
+  /**
+   * 大模型配置运行遥测 v2(2026-11-27 深化)。
+   * - window: 1h / 24h / 7d,长尾模型不再被 1h 样本卡死;
+   * - byConfig 带错误分类、TTFT、成本;模型级与调用明细走独立端点;
+   * - 数据面只读 llm_call_logs,未归属流水单列,不摊进配置行。
+   */
+  server.get('/ai-model-config/telemetry', async (request, reply) => {
+    // 响应体里的 promptTokens/completionTokens/tokens 是**计费聚合值**,不是凭据。
+    // response-sanitizer 按字段名子串 "token" 统一打码,会把聚合值变成 "***",
+    // 前端 formatCompact(Number("***")) 得到 NaN(8890 真机已复现)。
+    // 四个端点都只返回只读聚合/模型元数据,无 secret;按 admin 可信上下文整端点豁免。
+    request.skipResponseSanitization = true
+    const query = telemetryQuerySchema.safeParse(request.query)
+    if (!query.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      return reply.send(
+        success(await collectAiModelTelemetryV2(resolveTelemetryWindow(query.data.window))),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询模型运行遥测失败'))
+    }
+  })
+
+  server.get('/ai-model-config/telemetry/models', async (request, reply) => {
+    request.skipResponseSanitization = true
+    const query = telemetryModelsQuerySchema.safeParse(request.query)
+    if (!query.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      return reply.send(
+        success(
+          await collectAiModelModelsTelemetryV2(
+            query.data.configId,
+            resolveTelemetryWindow(query.data.window),
+          ),
+        ),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询模型级遥测失败'))
+    }
+  })
+
+  server.get('/ai-model-config/telemetry/calls', async (request, reply) => {
+    request.skipResponseSanitization = true
+    const query = telemetryCallsQuerySchema.safeParse(request.query)
+    if (!query.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      return reply.send(
+        success(
+          await collectRecentAiModelCalls(
+            query.data.configId,
+            query.data.model ?? null,
+            resolveTelemetryWindow(query.data.window),
+            query.data.limit,
+          ),
+        ),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询调用明细失败'))
+    }
+  })
+
+  server.get('/ai-model-config/health', async (request, reply) => {
+    request.skipResponseSanitization = true
+    try {
+      return reply.send(success(await collectAiModelGovernance()))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询模型配置治理快照失败'))
+    }
   })
 
   server.get('/performance-dashboard/endpoints', async (_req, reply) => {
