@@ -777,9 +777,7 @@ export function MessageInput({
     const prompt = autoSendAfterReference.current
     if (prompt !== null && references.length > referencesBeforeAutoSend.current) {
       autoSendAfterReference.current = null
-      requestAnimationFrame(() => {
-        void submitLatestRef.current(prompt)
-      })
+      void submitLatestRef.current(prompt)
     }
     referencesBeforeAutoSend.current = references.length
   }, [references.length])
