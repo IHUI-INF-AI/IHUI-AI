@@ -22,7 +22,7 @@
 | 维度 | 真相源文件 | RN 消费入口 | 小程序消费入口 | 说明 |
 | --- | --- | --- | --- | --- |
 | 颜色 | `rn-tokens.ts` ↔ `styles/tokens.css` | `getRnTokens(mode)` | `var(--color-*)` / `getRnTokens` | 由 `sync-rn-tokens.mjs` 派生,改色只改 tokens.css |
-| 圆角 | `radius.js` | `rnRadius` / `rnRadiusFor[role]` | `rnRadius` / `RADIUS_REM` / `var(--radius-*)` | 角色→档位唯一映射见 `RADIUS_ROLES` |
+| 圆角 | `radius.js` | `rnRadiusFor[role]`(组件唯一入口;`rnRadius` 仅 token 内部/几何) | `rnRadiusFor[role]` / `RADIUS_REM` / `var(--radius-*)` | 角色→档位唯一映射见 `RADIUS_ROLES`;tab/筛选 pill/导航项→`chip` |
 | 几何 | `geometry.js` | `rnGeometry`(dp) | `taroGeometry`(rpx=dp×2) | 命中块/图标/抽屉宽等 |
 | **间距** | **`spacing.ts`(本轮新增)** | `rnSpacing` / `rnSpacingFor[role]` | `taroSpacing` / `taroSpacingFor[role]`(rpx) | 4px 基,语义角色见 `SPACING_ROLES` |
 | **字号** | **`typography.ts`(本轮新增)** | `rnType[step]` → `{fontSize,lineHeight,weight}` | `taroType[step]` → `{fontSize:rpx,...}` | 与 geometry 文字档对齐 |
@@ -82,7 +82,7 @@ md  → 0 2px 8px /0.08   lg  → 0 4px 16px /0.12   xl → 0 8px 24px /0.16
 | UserInfoCard | card(lg) | cardPad(lg) | strong/label | md | `surface.card` | `mobile-rn UserInfoCard` | `@/components/UserInfoCard` |
 
 **契约铁律**:同表内同一组件,RN 与小程序在圆角/间距/字号/阴影上必须取同一 token 档。
-若出现 `rnRadius.lg` 对 `rounded-xl`(12) 这类跨档偏差,即触发门 128 红。
+若出现 `rnRadiusFor.<角色>` 与 `rounded-*` 的档位不等(例如 chip 取了 12px 而非 6px),即触发门 128/150 红。
 
 ---
 

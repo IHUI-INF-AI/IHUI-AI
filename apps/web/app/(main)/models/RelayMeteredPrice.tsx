@@ -195,7 +195,7 @@ export function RelayMeteredPanel({ model }: { model: Model }) {
   const plans = model.relaySubscriptionPlans ?? []
 
   return (
-    <div className="space-y-1 rounded-md border border-sky-500/25 bg-sky-500/5 px-2 py-1.5 text-label">
+    <div className="space-y-1 rounded-xl border border-sky-500/25 bg-sky-500/5 px-2 py-1.5 text-label">
       <PanelRow label={t('relay.billingMode')} value={modeLabel(mode, model.relayVideoUnit, t)} />
       <PanelRow
         label={mode === 'dynamic_cost' ? t('relay.minCharge') : t('relay.unitPrice')}

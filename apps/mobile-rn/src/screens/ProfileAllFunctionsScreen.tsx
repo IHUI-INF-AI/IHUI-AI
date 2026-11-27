@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BackChevron, TextField } from '@ihui/rn-app'
-import { rnRadius, rnType, rnSpacing } from '@ihui/design-tokens'
+import { rnRadiusFor, rnType, rnSpacing } from '@ihui/design-tokens'
 import {
   BadgeCheck,
   BookOpen,
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   searchField: {
     height: 44,
     paddingHorizontal: rnSpacing['md-loose'],
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadiusFor.control,
     borderWidth: 1,
     borderColor: tokens.border.medium,
     backgroundColor: tokens.surface.light,
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     gap: rnSpacing.md,
     paddingHorizontal: rnSpacing['md-loose'],
     paddingVertical: rnSpacing['sm-loose'],
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadiusFor.card,
     borderWidth: 1,
     borderColor: 'transparent',
     backgroundColor: tokens.surface.light,
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   sectionIcon: {
     width: 36,
     height: 36,
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadiusFor.chip,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.surface.muted,
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     minWidth: 24,
     height: 20,
     paddingHorizontal: rnSpacing['xs-loose'],
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadiusFor.chip,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.surface.muted,
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   card: {
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadiusFor.card,
     borderWidth: 1,
     borderColor: 'transparent',
     backgroundColor: tokens.surface.light,
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
   emptyIcon: {
     width: 56,
     height: 56,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: rnRadiusFor.hero,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.surface.muted,

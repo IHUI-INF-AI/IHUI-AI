@@ -420,7 +420,7 @@ export function AiDocumentPanel({ file, name, className, autoRun = true, onClose
             <p>{error}</p>
             <button
               type="button"
-              className="mt-2 rounded border border-destructive/30 px-2 py-1 text-[11px] hover:bg-destructive/10"
+              className="mt-2 rounded-md border border-destructive/30 px-2 py-1 text-[11px] hover:bg-destructive/10"
               onClick={() => void run(mode, question)}
             >
               {t('retry')}

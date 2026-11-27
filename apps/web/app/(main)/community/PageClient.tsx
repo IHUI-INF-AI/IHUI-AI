@@ -228,7 +228,7 @@ export default function CommunityPageClient() {
                     width={16}
                     height={16}
                     unoptimized
-                    className="h-4 w-4 shrink-0 rounded-sm object-cover"
+                    className="h-4 w-4 shrink-0 rounded-xs object-cover"
                   />
                 ) : null}
                 {c.name}
