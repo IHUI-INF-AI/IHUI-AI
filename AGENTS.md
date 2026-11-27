@@ -310,7 +310,7 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - check-public-admin-default check-push-sync check-python-import-landed check-qoder-session-sync-task check-readme-recent-containment check-readout-and-timer-hygiene check-registry-sync-health check-registry-worktree-superset
 - check-relay-capacity-zero check-relay-queue-db-isolation check-replacement-chars check-rich-anchor-renderer-single-source check-rn-app-migration check-rn-compat-coverage check-rn-double-header check-rn-global-css-sync
 - check-rn-interaction-hygiene check-rn-interop-fn-style check-rn-type-floor check-root-guard-consistency check-root-guard-manifest-sync check-rounded-overflow check-ruff-python check-safe-parse
-- check-sanitizer-bypass check-selftest-registrant-evaluates check-sequence-lag check-shared-nonde-node-purity check-shared-type-not-redeclared check-sheet-flex-contract check-shrinkable-text-button check-sidebar-width-consistency
+- check-sanitizer-bypass check-selftest-registrant-evaluates check-sequence-lag check-shared-nonde-node-purity check-shared-type-not-redeclared check-sheet-flex-contract check-shrinkable-text-button check-sidebar-width-consistency check-skin-surface-coverage
 - check-site-footer check-skip-env-promise check-slash-command-wired check-solito-residue check-sqlite-write-paths check-sse-dispatch-parity check-sse-frame-watermark check-sse-no-blind-merge
 - check-sse-parser-parity check-staged-deletions check-staged-files check-staged-files-count check-staged-pollution check-staged-resurrection check-stale-baseline-sentinel check-stale-copy
 - check-stale-dist check-stale-revert check-stale-stashes check-style-key-consumption check-subagent-permission-inherited check-sweeper-liveness check-tagsview-visual check-tailwind-class-conflict
@@ -323,8 +323,3 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
 - **防膨胀器物存活由门判**(`scripts/check-bloat-guards-alive.mjs`):按终态符号存在性判,不判 diff;git-guardian/prune-tmp-scratch 关键机制被整份退回即红;自查 `node scripts/check-bloat-guards-alive.mjs --self-test`,无应急跳过变量,档位以 runner 现值为准。
 - **横向边线单一源由门判**(`scripts/check-horizontal-gutter.mjs`):首页关键 padding/margin 必须走 `home-layout-spec`,新页面自造横向值即红;存量在 `scripts/data/horizontal-gutter-baseline.json` 差值棘轮;自查 `node scripts/check-horizontal-gutter.mjs`,无应急跳过变量。
-
-## 23. 桌面零窗口铁律:部署只准投递 marker(强制,2026-11-27 立)
-- **任何 agent/自动化会话都不得直跑 `deploy\win\ihui-deploy.ps1`**(含 `-dryrun` / `-diagnose` / `-deployLatest`)。`pwsh -File` 起进程时会在会话 1 新开一个**可见控制台**,而一轮部署要跑 10~30 分钟 ⇒ 桌面长时间挂着 `Administrator: …pwsh.exe`。2026-11-27 安全日志 4688 已锁定创建者是 agent 沙箱的 pwsh(`-File …\ihui-deploy.ps1 -deployLatest`),**不是** `IHUI-DEPLOYLOOP`、**不是**计划任务。
-- 唯一入口:`node scripts/prod-deploy-now.mjs --no-wait`(只新建 `deploy\win\.deploy-now.request`;由 Session 0 的 `IHUI-DEPLOYLOOP` 无窗口执行,`--no-wait` 秒回、不占会话超时)。进度看 `deploy\win\deploy-loop.log`,不要靠新开窗口看输出。
-- 人工在自己已打开的终端里排障可以直跑(**窗口是用户主动开的**);机器派生、脚本派生、agent 派生一律走上面唯一入口。Node 派生侧的 `windowsHide` 由 §5f 的机器级钩子兜底;PowerShell 派生同受本条约束。

@@ -1,0 +1,260 @@
+[
+  {
+    "pattern": "black-*",
+    "reason": "结构透明度阶:叠层 alpha,随皮肤会破坏既有层级",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "black",
+    "reason": "纯黑结构色:叠层基准",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "white-*",
+    "reason": "结构透明度阶:叠层 alpha,随皮肤会破坏既有层级",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "white",
+    "reason": "纯白结构色:叠层基准",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "brand-*",
+    "reason": "品牌主红资产(logo/强调),不随皮肤",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "brand",
+    "reason": "品牌主红资产(logo/强调),不随皮肤",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "success-*",
+    "reason": "语义·成功色恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "warning-*",
+    "reason": "语义·警告色恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "danger-*",
+    "reason": "语义·危险色恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "destructive-*",
+    "reason": "语义·危险色恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "info-*",
+    "reason": "语义·信息色恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "info",
+    "reason": "语义·信息色恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "gold-*",
+    "reason": "语义·金色/VIP 恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "gold",
+    "reason": "语义·金色/VIP 恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "vip-*",
+    "reason": "VIP 金色档恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "rank-*",
+    "reason": "排行装饰(金银铜/头像渐变),语义恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "toast-*",
+    "reason": "提示条语义色恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "notification-*",
+    "reason": "提示条语义色恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "warm-bg",
+    "reason": "暖色提示条语义",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "scrim-*",
+    "reason": "遮罩:对比度优先,恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "scrim",
+    "reason": "遮罩:对比度优先,恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "neutral-*",
+    "reason": "中性结构阶:组件结构灰,不属皮肤面",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "model-type-*",
+    "reason": "模型类型徽章语义(文本/图像/AV)",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "miniapp-green-*",
+    "reason": "小程序品牌绿恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "miniapp-green",
+    "reason": "小程序品牌绿恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "payment-purple-*",
+    "reason": "支付品牌渐变恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "alipay-blue",
+    "reason": "第三方平台品牌色恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "wechat-green",
+    "reason": "第三方平台品牌色恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "ai-input-glow-*",
+    "reason": "AI 输入光晕装饰(品牌红)",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "agent-name",
+    "reason": "AI 名称色:web 零消费,暂不接入皮肤",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "chat-bubble-user",
+    "reason": "微信绿语义气泡色恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "foreground-rgb",
+    "reason": "rgb 三元组:当前零消费,透明叠层兼容占位",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "primary-rgb",
+    "reason": "rgb 三元组:当前零消费,透明叠层兼容占位",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "muted-rgb",
+    "reason": "rgb 三元组:当前零消费,透明叠层兼容占位",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "pink-tint",
+    "reason": "粉色装饰 tint:语义 pink 恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "stroke-inverse",
+    "reason": "深底反白描边:叠层 alpha,随皮肤会消失",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "gradient-*",
+    "reason": "装饰渐变(卡片左右),品牌资产",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "success",
+    "reason": "语义·成功色恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "warning",
+    "reason": "语义·警告色恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "danger",
+    "reason": "语义·危险色恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "destructive",
+    "reason": "语义·危险色恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "stroke-danger",
+    "reason": "语义·危险描边恒定",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  },
+  {
+    "pattern": "ai-input-glow",
+    "reason": "AI 输入光晕基色(品牌红)",
+    "owner": "web-ui",
+    "until": "2027-12-31"
+  }
+]
