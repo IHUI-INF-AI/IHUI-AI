@@ -119,7 +119,7 @@ const ENTRIES = [
   {
     id: 'P0-5', title: '终态前输出完成闸门（drain）',
     probes: [
-      { path: 'apps/ai-service/app/services/background_job_registry.py', label: '有界输出环模块' },
+      { path: 'apps/ai-service/app/services/output_ring.py', pattern: 'class OutputRing|_SETTLEMENT_STATUSES', label: '有界输出环 + 四态结算' },
       { path: 'apps/desktop/src-tauri/src/terminal_session.rs', pattern: 'drain_complete|output_drain|OutputDrain', label: 'drain 闸门' },
     ],
   },
@@ -189,22 +189,22 @@ const ENTRIES = [
   {
     id: 'B3-03', title: '协作 CLI 身份三档 + 退出码契约',
     probes: [
-      { path: 'apps/cli/src/commands/collab/**/*.ts', label: 'collab 命令' },
-      { path: 'apps/cli/src/**/*.ts', pattern: 'RuntimeOwner|nextOffset', label: '身份/部分结果符号' },
+      { path: 'apps/cli/src/commands/collab/exit-codes.ts', pattern: 'EXIT|exit', label: '协作退出码契约' },
+      { path: 'apps/cli/src/commands/collab/identity.ts', pattern: 'RuntimeOwner|nextOffset', label: '身份三档/部分结果' },
     ],
   },
   {
     id: 'B3-04', title: '系统提交内存 OOM 预判',
     probes: [
       { path: 'apps/desktop/src-tauri/src/system_memory.rs', label: '内存模块' },
-      { path: 'apps/desktop/src-tauri/src/**/*.rs', pattern: 'commit_limit|commitLimit', label: 'commit charge 符号' },
+      { path: 'apps/desktop/src-tauri/src/system_memory.rs', pattern: 'total_commit_bytes|avail_commit_bytes', label: 'commit charge 符号' },
     ],
   },
   {
     id: 'B4-02', title: '父子 env 白名单透传集',
     probes: [
       { path: 'apps/cli/src/sandbox/env-channel.ts', label: 'env-channel 模块' },
-      { path: 'apps/cli/src/sandbox/env-guard.ts', pattern: 'whitelist|allowlist|ALLOW', label: '白名单集' },
+      { path: 'apps/cli/src/sandbox/env-guard.ts', pattern: 'EnvRoute|ROUTES|checkEnvKey', label: 'env 路由白名单集' },
     ],
   },
   {
