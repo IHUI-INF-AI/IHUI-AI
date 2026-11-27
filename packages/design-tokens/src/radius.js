@@ -8,7 +8,9 @@
  *
  * 消费方式:
  *  - Tailwind v3 端(mobile-rn NativeWind / miniapp-taro)→ tailwind-preset.js 取 RADIUS_REM
- *  - JS 数值场景(RN StyleSheet.create、各端内联 style)→ 取 rnRadius(px 数值)
+ *  - RN/JS 组件样式 → 按元素角色取 `rnRadiusFor.<role>`(唯一允许的组件圆角写法)
+ *  - token 内部 / 几何计算 / 生成式字符串 → 取 `rnRadius` / `RADIUS_CSS_PX`;不得用于组件
+ *    `borderRadius`,那只是档位值,没有回答"这个元素该取哪一档"
  *  - web(Tailwind v4 @theme)/ CSS 端 → 写 var(--radius-*),其值由
  *    scripts/check-radius-single-source.mjs 与本表逐档对账(CSS 无法 import JS,故以守门保同源)
  *
@@ -20,6 +22,8 @@
  *     而 v3 端裸 rounded 走 Tailwind 默认 4px;现统一 DEFAULT=8px 与 web 对齐。
  *  3. 2026-11-26 机主定档:删除 4px 档(原 sm),全部并入 md=6px ——
  *     4px 控件圆角过小,项目最小控件圆角自此为 6px,不再保留 sm 档位名。
+ *  4. 2026-11-27 消息筛选 tab 12px 事件:初始快照直接写 `rnRadius.xl`,有 token 无角色;
+ *     自此组件样式只认 `rnRadiusFor.<role>`,step 出口降为 token 内部/几何计算。
  *
  * 改档位只需改本表的 RADIUS_STEPS 一处。
  */
@@ -57,7 +61,7 @@ export const RADIUS_ROLES = {
   tiny: 'xs',
   /** 小元素:按钮、输入框(2026-11-26 起与 chip 同取 md=6px,4px 档已删除) */
   control: 'md',
-  /** 中等元素:导航项、chip */
+  /** 中等元素:导航项、chip、tab/筛选 pill(统一按 chip 取 md=6px,不另立 tab 角色) */
   chip: 'md',
   /** 较大元素:卡片、下拉(2026-09-27 用户定档:卡片一律此档,不取 xl) */
   card: 'lg',
@@ -100,7 +104,10 @@ export const RADIUS_CSS_VAR = {
   '2xl': '--radius-2xl',
 }
 
-/** RN / JS 侧消费入口:StyleSheet.create 里写 borderRadius: rnRadius.lg */
+/**
+ * 档位值出口(px):仅 token 内部、几何计算、生成式字符串使用。
+ * 组件样式禁止 `borderRadius: rnRadius.<step>` 借档;按元素角色取 `rnRadiusFor.<role>`。
+ */
 export const rnRadius = RADIUS_STEPS
 
 /**

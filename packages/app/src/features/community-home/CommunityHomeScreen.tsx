@@ -25,7 +25,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { TextField } from '../../components/TextField'
@@ -187,11 +187,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: rnSpacing.xs,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: rnRadiusFor.chip,
     paddingHorizontal: rnSpacing.md,
     height: 32,
   },
-  chipIcon: { width: 16, height: 16, borderRadius: 2 },
+  chipIcon: { width: 16, height: 16, borderRadius: rnRadiusFor.tiny },
   chipText: { fontSize: rnType.body.size },
   empty: { fontSize: rnType.body.size },
   avatar: { width: 32, height: 32, borderRadius: 16 },

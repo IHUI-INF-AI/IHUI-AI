@@ -11,7 +11,7 @@ import { useFontMultiplier } from '../../components/MoreLink'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 import { isCapabilityOff, resolveOptionalPort } from '../../host/ports'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /**
  * ProfileScreen — 跨端共享「个人资料」页。
@@ -443,7 +443,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       gap: rnSpacing.xs,
       paddingHorizontal: rnSpacing['md-loose'],
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadiusFor.control,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

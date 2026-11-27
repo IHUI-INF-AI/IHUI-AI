@@ -54,7 +54,7 @@ export default function MomentArchivePanel({ accountId }: { accountId: string })
   const canPage = archive?.storage === 'database'
 
   return (
-    <div className="space-y-2 rounded-md border border-stroke-field p-3">
+    <div className="space-y-2 rounded-xl border border-stroke-field p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-body font-medium">朋友圈归档</p>

@@ -4,12 +4,8 @@
 
 import { useState, type ComponentPropsWithRef } from 'react'
 import { TextInput, type StyleProp, type TextStyle } from 'react-native'
-import { rnRadius } from '@ihui/design-tokens'
-import {
-  INPUT_HEIGHT_PX,
-  INPUT_PADDING_X_PX,
-  INPUT_RADIUS_TIER,
-} from '@ihui/shared/ui/input-spec'
+import { rnRadiusFor } from '@ihui/design-tokens'
+import { INPUT_HEIGHT_PX, INPUT_PADDING_X_PX } from '@ihui/shared/ui/input-spec'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
 
 /**
@@ -58,12 +54,13 @@ export type TextFieldProps = Omit<
 const RESTING_BORDER: TextStyle = {
   borderWidth: 1,
   // 以下三档几何此前完全缺失(输入区文字贴边框、方角与全站 rounded-sm..2xl 体系不协调)。
-  // 取值一律读 @ihui/shared/ui/input-spec —— 与 web 壳(ui-react)和 RN 规范壳(ui-native)
-  // 同一份常量,不再由本组件另定一套(AGENTS §0.6 单一真相源)。
+  // 高度/横向内边距读 @ihui/shared/ui/input-spec,与 web 壳(ui-react)和 RN 规范壳(ui-native)
+  // 同一份常量;圆角按组件角色归位到 rnRadiusFor.control(2026-11-27 角色门立),
+  // 不再由本组件另定一套,也不再运行时按 step 字面量取档(AGENTS §0.6 单一真相源 + UI_GUIDELINES §3.1)。
   // 纵向内边距按 spec 的口径「不下沉」:高度已由 INPUT_HEIGHT_PX 单点定档。
   minHeight: INPUT_HEIGHT_PX,
   paddingHorizontal: INPUT_PADDING_X_PX,
-  borderRadius: rnRadius[INPUT_RADIUS_TIER],
+  borderRadius: rnRadiusFor.control,
   borderColor: 'transparent',
   // RN Web 的 TextInput 在 :focus-visible 上自带浏览器 outline(默认 auto 深色),
   // 会与下面自绘的聚焦描边叠成第二圈 —— 全屏展开态里就是那圈被读成"黑色描边"的线。
