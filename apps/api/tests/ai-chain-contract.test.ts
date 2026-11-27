@@ -81,9 +81,22 @@ vi.mock('../src/db/index.js', () => ({
     delete: vi.fn(() => ({ where: vi.fn().mockResolvedValue(undefined) })),
     execute: vi.fn().mockResolvedValue([]),
   },
-  dbRead: {},
+  dbRead: {
+    select: vi.fn(() => createChainableMock()),
+    execute: vi.fn().mockResolvedValue([]),
+  },
   dbClient: {},
 }))
+
+// 计费不是本文件锁定的契约面:字段名映射与模型清单才是,预扣/结算直接放行。
+vi.mock('../src/services/ai-points-billing.js', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    ensureLlmPointsBalance: async () => true,
+    settleLlmPointsUsage: async () => ({ points: 0, deducted: 0, shortfall: 0 }),
+  }
+})
 
 // Mock @ihui/types message-repair(避免依赖真实实现)
 vi.mock('@ihui/types', async (importOriginal) => {

@@ -54,15 +54,18 @@ describe('B. 统一写端点反向回写接线', () => {
 
   it('单条 PATCH:改名 / 置顶回写小程序表', () => {
     expect(src).toMatch(/backflowMiniappPatch\(userId, owned\.conversation/)
-    expect(src).toMatch(/parsed\.data\.title !== undefined \|\| parsed\.data\.pinned !== undefined/)
+    expect(src).toMatch(/parsed\.data\.title !== undefined/)
+    expect(src).toMatch(/parsed\.data\.pinned !== undefined/)
   })
 
   it('单条 DELETE:只在统一表真删掉之后联动删小程序历史行', () => {
-    expect(src).toMatch(/if \(removed\.length > 0\) \{\s*const backflowed = await backflowMiniappRemove/)
+    expect(src).toMatch(
+      /if \(removed\.length > 0\) \{\s*const backflowed = await backflowMiniappRemove/,
+    )
   })
 
   it('批量:删除在 switch 之前收 refs、归档在写后回写', () => {
-    expect(src).toMatch(/collectMiniappRefs\(userId, ownedRows\.map/)
+    expect(src).toMatch(/collectMiniappRefs\(\s*userId,\s*ownedRows\.map/)
     expect(src).toMatch(/backflowMiniappPatchMany\(/)
     expect(src).toMatch(/removeMiniappHistoryRows\(userId, miniappRefsToRemove\)/)
   })

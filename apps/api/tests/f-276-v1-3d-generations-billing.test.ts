@@ -66,6 +66,9 @@ vi.mock('../src/services/relay-billing-service.js', async (importOriginal) => {
       unitsApplied: 1,
     })),
     getSpendableCostBalance: vi.fn(async () => ({ unlimited: true, cents: 0 })),
+    // 本夹具只锁 recordCall/退款;预扣/释放不打真库。
+    preDeductQuota: vi.fn(async () => null),
+    releasePreDeduction: vi.fn(async () => undefined),
   }
 })
 

@@ -8,7 +8,10 @@
 
 > 票面:把 `packages/types/src/tool-contract.ts` 的契约字段从"声明"推进到"有真实消费者",
 > 并让守门 `scripts/check-tool-contract-declared.mjs` 的读数是权威口径。
-> 现状:HEAD 面 **129 枚工具全部带契约**(守门 `注册工具数 129 / 无契约数 0 / 棘轮余量 0`),
+> 口径勘误:此前写的"HEAD 面 129 枚全部带契约"是**索引面**读数,已按三面实测改正。
+> 三面实测 —— 索引面 122 处 `contract: {` 声明(129 枚全覆盖)/ 工作树 123 处(130 枚,含未入库的 `ptc-tool.ts`)/
+> **HEAD 面只有 8 处声明、15 枚带契约、114 枚无契约**(存量违规 139 处由各文件计数锚点承载,棘轮只禁新增)。
+> 也就是说:契约补齐停在索引与工作树,尚未进入 HEAD —— 本账第 1 节那张表的"消费"结论,对 HEAD 只覆盖那 15 枚。
 > tsc EXIT=0,契约面四支测试 48 条全绿(23+6+5+14)。
 
 ## 1. 字段 → 消费者 → 行为影响
@@ -41,7 +44,7 @@
   未声明来源的工具对内容规则恒不命中——内容规则不会经工具名正则悄悄开闸。不传上下文的旧调用与改前逐字节同结论。
   `tool-name:` 前缀是唯一例外:工具名总是可得,写 `tool-name:foo` 等价裸名 `foo`(含尾部 `*` 通配),不要求声明。
 
-## 3. 守门的抽取口径(为什么 129 是权威数)
+## 3. 守门的抽取口径(129 是"工具数"的权威口径,不是"带契约数")
 
 `scripts/check-tool-contract-declared.mjs` 有三条结构化判据,**只用来排除假阳性,不放宽真缺契约**:
 
@@ -56,7 +59,8 @@
 
 ## 4. 复验命令
 
-- 守门全量:`node scripts/check-tool-contract-declared.mjs`(129/0/棘轮 0/摘除 0/flip-audit 0,RC0)
+- 守门判 HEAD 面:`node scripts/check-tool-contract-declared.mjs`(129/114/棘轮 0/摘除 0;门体跨代时恒 UNDETERMINED=rc2,须先对齐门体)
+- 守门判索引面:`node scripts/check-tool-contract-declared.mjs --staged`(129/0/棘轮 0/摘除 0/flip-audit 0)
 - 守门自检:`node scripts/check-tool-contract-declared.mjs --self-test`(52/52)
 - 镜像:`node --test scripts/tests/check-tool-contract-declared.test.mjs`(25/25)
 - 契约面测试(在 `apps/cli` 目录):

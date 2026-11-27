@@ -28,6 +28,10 @@ import Fastify, { type FastifyInstance } from 'fastify'
 const mocks = vi.hoisted(() => ({
   getWalletBalance: vi.fn(),
   settleWalletUsage: vi.fn(),
+  quoteLlmPoints: vi.fn(),
+  settleLlmPointsUsage: vi.fn(),
+  reservePointsUsage: vi.fn(),
+  releasePointsHold: vi.fn(),
   resolveAiCost: vi.fn(),
   recordAiCost: vi.fn(),
 }))
@@ -55,6 +59,25 @@ vi.mock('../src/plugins/token-balance-service.js', () => ({
   getWalletBalance: mocks.getWalletBalance,
   settleWalletUsage: mocks.settleWalletUsage,
 }))
+
+// 2026-11-26 起 LLM 走 AI 积分,不再看钱包余额;这里按真实契约桩住定价、预扣与结算。
+vi.mock('../src/services/ai-points-billing.js', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    quoteLlmPoints: mocks.quoteLlmPoints,
+    settleLlmPointsUsage: mocks.settleLlmPointsUsage,
+  }
+})
+
+vi.mock('../src/services/points-service.js', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    reservePointsUsage: mocks.reservePointsUsage,
+    releasePointsHold: mocks.releasePointsHold,
+  }
+})
 
 vi.mock('../src/plugins/ai-cost.js', () => ({
   resolveAiCost: mocks.resolveAiCost,
@@ -119,6 +142,26 @@ describe('F-97 /v1/ai/capabilities/invoke 必须带调用者身份并如实报�
       .mockResolvedValue({ deducted: 1, remaining: 99_999, shortfall: 0 })
     mocks.resolveAiCost.mockReset().mockResolvedValue({ cost: 1, currency: 'CNY', pricing: null })
     mocks.recordAiCost.mockReset().mockResolvedValue(undefined)
+    mocks.quoteLlmPoints.mockReset().mockResolvedValue({
+      points: 10,
+      pricingSource: 'ai_pricing',
+      pricingModelId: 'agnes/agnes-2.5-flash',
+      multiplier: 1,
+    })
+    mocks.reservePointsUsage.mockReset().mockResolvedValue({
+      amount: 10,
+      reserved: 10,
+      shortfall: 0,
+      balance: 90,
+    })
+    mocks.settleLlmPointsUsage.mockReset().mockResolvedValue({
+      deducted: 10,
+      remaining: 90,
+      shortfall: 0,
+      alreadySettled: false,
+      quote: { points: 10, multiplier: 1 },
+    })
+    mocks.releasePointsHold.mockReset().mockResolvedValue(undefined)
   })
 
   const call = (headers: Record<string, string> = { authorization: USER_TOKEN }) =>
@@ -172,8 +215,10 @@ describe('F-97 /v1/ai/capabilities/invoke 必须带调用者身份并如实报�
     expect(headers.Authorization).toBe(USER_TOKEN)
     expect(headers['Content-Type']).toBe('application/json')
 
-    // 计费通道:归属调用者 userId,而不是系统身份
-    expect(mocks.getWalletBalance).toHaveBeenCalledWith('f97-user')
+    // 计费通道:归属调用者 userId,按 AI 积分预扣,而不是系统身份/钱包余额
+    expect(mocks.reservePointsUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'f97-user', source: 'crew_llm' }),
+    )
     expect(mocks.recordAiCost).toHaveBeenCalledTimes(1)
     expect((mocks.recordAiCost.mock.calls[0]![0] as { userId: string }).userId).toBe('f97-user')
   })
@@ -229,17 +274,22 @@ describe('F-97 /v1/ai/capabilities/invoke 必须带调用者身份并如实报�
     expect(res.statusCode).toBe(401)
     expect((res.json() as { code: number }).code).toBe(401)
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(mocks.getWalletBalance).not.toHaveBeenCalled()
+    expect(mocks.reservePointsUsage).not.toHaveBeenCalled()
   })
 
   it('⑦ 余额不足:402 计费闸生效,且不发起上游调用', async () => {
-    mocks.getWalletBalance.mockResolvedValue(0)
+    mocks.reservePointsUsage.mockResolvedValue({
+      amount: 10,
+      reserved: 0,
+      shortfall: 10,
+      balance: 0,
+    })
 
     const res = await call()
     expect(res.statusCode).toBe(402)
     const body = res.json() as { code: number; errorCode?: string }
     expect(body.code).toBe(402)
-    expect(body.errorCode).toBe('INSUFFICIENT_BALANCE')
+    expect(body.errorCode).toBe('INSUFFICIENT_POINTS')
     expect(fetchMock).not.toHaveBeenCalled()
     expect(mocks.recordAiCost).not.toHaveBeenCalled()
   })

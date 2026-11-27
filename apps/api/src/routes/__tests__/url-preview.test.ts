@@ -56,7 +56,12 @@ vi.mock('../../plugins/auth.js', () => ({
   }),
 }))
 
-import { probeUrl, urlPreviewRoutes, URL_PREVIEW_TIMEOUT_MS } from '../url-preview.js'
+import {
+  clearUrlPreviewCache,
+  probeUrl,
+  urlPreviewRoutes,
+  URL_PREVIEW_TIMEOUT_MS,
+} from '../url-preview.js'
 
 /** 公网放行的解析注入(纯函数测试统一用)。 */
 const resolveAllowed = async () => false
@@ -436,6 +441,11 @@ describe('probeUrl 超时与一次探测(票面验收 ②)', () => {
 // ─────────────────────────────────────────────────────────────
 
 describe('GET /api/url-preview/preview 路由面', () => {
+  beforeEach(() => {
+    // 模块级缓存跨用例带状态会让"请求数"断言假红,每个用例先清空。
+    clearUrlPreviewCache()
+  })
+
   async function build() {
     const app = Fastify()
     await app.register(urlPreviewRoutes, { prefix: '/api/url-preview' })
@@ -485,6 +495,34 @@ describe('GET /api/url-preview/preview 路由面', () => {
       expect(fetchStub).toHaveBeenCalledTimes(4)
     } finally {
       vi.unstubAllGlobals()
+      await app.close()
+    }
+  })
+
+  it('同 URL 第二次命中缓存,不再重复出站', async () => {
+    const fetchStub = h.undiciFetchStub
+    fetchStub.mockReset()
+    fetchStub.mockImplementation(async (input: string | URL | Request) =>
+      String(input) === 'https://example.com/' ? htmlResponse(OK_HTML) : notFoundResponse(),
+    )
+    const app = await build()
+    try {
+      const first = await app.inject({
+        method: 'GET',
+        url: '/api/url-preview/preview?url=https%3A%2F%2Fexample.com%2F',
+      })
+      expect(first.statusCode).toBe(200)
+      expect(fetchStub).toHaveBeenCalledTimes(4)
+
+      const second = await app.inject({
+        method: 'GET',
+        url: '/api/url-preview/preview?url=https%3A%2F%2Fexample.com%2F',
+      })
+      expect(second.statusCode).toBe(200)
+      expect(second.json().data).toMatchObject({ status: 'ok', title: 'Example Domain' })
+      // 页面 + 3 个 favicon 兜底只在首次发生;第二次必须零出站。
+      expect(fetchStub).toHaveBeenCalledTimes(4)
+    } finally {
       await app.close()
     }
   })
