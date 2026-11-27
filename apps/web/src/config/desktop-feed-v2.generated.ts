@@ -5,7 +5,7 @@
 // AUTO-GENERATED — 由 scripts/desktop-feed-v2.mjs 的格式生成（2026-11-27 手工烘焙 0.1.96）。
 // 发版步骤见 docs/desktop-update-v2.md。
 // 注意：0.1.96 客户端 update_v2 仍钉旧信任锚 08db，因此这一版 zip 用 08db 签名做引导；
-// 下一版（0.1.97+）二进制改为同时信任 A40E 与 08db，此后 zip 统一用 A40E 签。
+// 0.1.97 的 zip 仍必须用 08db 签（0.1.96 只认旧锚）；0.1.97 装好（双锚）后，0.1.98 起 zip 才切 A40E。
 
 export interface DesktopFeedV2Payload {
   schema: 2
