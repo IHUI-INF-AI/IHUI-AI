@@ -30,6 +30,8 @@ import { useClipboard } from '@/hooks/use-clipboard'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { openWorkspaceFileInIde } from '@/lib/workspace-file-open'
 import { fileMentionBasename } from '@/lib/file-mention'
+// 结果文本里的 URL 抽取必须与链接预览同一份边界判据(中文正文紧跟时不能整段吞进主机)
+import { detectPastedUrl } from '@/hooks/use-link-preview'
 import {
   describeToolActivityByStatus,
   describeToolCall,
@@ -892,9 +894,9 @@ function extractUrl(
 
   // result 中提取(可能是字符串或对象)
   if (typeof result === 'string') {
-    // 从结果文本中匹配第一个 URL
-    const match = result.match(/https?:\/\/[^\s"'<>]+/i)
-    if (match) return match[0]
+    // 与链接预览同一判据:结果文本常是"标题+URL+中文正文"连写,正则式提前截断会吞正文
+    const url = detectPastedUrl(result)
+    if (url) return url
   } else if (result && typeof result === 'object') {
     const obj = result as Record<string, unknown>
     const fromResult = (obj.url as string) || (obj.href as string) || (obj.link as string)
