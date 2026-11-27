@@ -15,20 +15,20 @@ import type { CustomThemeConfig } from '@/stores/appearance-settings'
 export const PINK_SKIN: CustomThemeConfig = {
   enabled: true,
   light: {
-    primary: '#c23a72',
-    background: '#fff5f8',
+    primary: '#db2777',
+    background: '#fff1f7',
     foreground: '#3f1f2d',
-    card: '#ffffff',
-    muted: '#fde7f0',
-    border: '#f3c8db',
+    card: '#fff8fb',
+    muted: '#ffdcec',
+    border: '#f5bcd5',
   },
   dark: {
     primary: '#f472b6',
-    background: '#1b1016',
+    background: '#201017',
     foreground: '#fbe9f1',
-    card: '#251722',
-    muted: '#33202c',
-    border: '#4a2c3b',
+    card: '#2b1520',
+    muted: '#3a1e2b',
+    border: '#532c3f',
   },
 }
 
