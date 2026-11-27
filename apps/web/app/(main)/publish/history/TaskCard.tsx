@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast'
 import { PLATFORM_KEY } from '../helpers'
 import { TaskProgressBar } from '@/components/publish/TaskProgressBar'
 import { buildConfirmBody, toLocalDateTimeInputValue } from './confirm-helpers'
+import { formatScheduledDistance } from './schedule-helpers'
 
 interface Target {
   readonly platform: string
@@ -344,6 +345,11 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
               {task.scheduledAt && (
                 <span>
                   {t('history.scheduledAt')}: {TIME_FMT.format(new Date(task.scheduledAt))}
+                  {task.status === 'scheduled' && (
+                    <span className="ml-1 text-amber-700 dark:text-amber-400">
+                      {formatScheduledDistance(task.scheduledAt)}
+                    </span>
+                  )}
                 </span>
               )}
               {task.format && <span className="font-mono">{task.format}</span>}

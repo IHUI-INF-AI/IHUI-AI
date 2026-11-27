@@ -1238,6 +1238,12 @@ async def list_tasks(
             idx += 1
 
         where = f"WHERE {' AND '.join(conditions)}"
+        # 已排期任务按计划时间正序:最该发的排最前,超时任务不会被新创建的任务压到后面。
+        order_by = (
+            "scheduled_at ASC NULLS LAST, created_at DESC"
+            if status == "scheduled"
+            else "created_at DESC"
+        )
         args.extend([limit, offset])
         rows = await conn.fetch(
             f"""
@@ -1247,7 +1253,7 @@ async def list_tasks(
                    error, created_at, updated_at
             FROM publish_tasks t
             {where}
-            ORDER BY created_at DESC
+            ORDER BY {order_by}
             LIMIT ${idx} OFFSET ${idx + 1}
             """,
             *args,
@@ -1787,7 +1793,12 @@ async def get_stats(
                 count(*) FILTER (WHERE status='draft') as draft,
                 count(*) FILTER (WHERE status='cancelled') as cancelled,
                 count(*) FILTER (WHERE status='running') as running,
-                count(*) FILTER (WHERE status='scheduled') as scheduled
+                count(*) FILTER (WHERE status='scheduled') as scheduled,
+                count(*) FILTER (
+                    WHERE status='scheduled'
+                      AND scheduled_at < NOW() - INTERVAL '5 minutes'
+                ) as overdue,
+                min(scheduled_at) FILTER (WHERE status='scheduled') as next_scheduled_at
             FROM publish_tasks
             WHERE user_id=$1 AND created_at >= $2
             """,
@@ -1833,8 +1844,15 @@ async def get_stats(
                 "cancelled": task_stats["cancelled"],
                 "running": task_stats["running"],
                 "scheduled": task_stats["scheduled"],
+                "overdue": task_stats["overdue"],
+                "nextScheduledAt": (
+                    task_stats["next_scheduled_at"].isoformat()
+                    if task_stats["next_scheduled_at"]
+                    else None
+                ),
             },
             "platforms": platforms,
+            "scheduler": publish_scheduler.status_snapshot(),
             "runningTasks": publish_scheduler.list_running(user_id),
         })
     finally:

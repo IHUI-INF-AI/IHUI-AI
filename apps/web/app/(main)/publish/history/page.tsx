@@ -18,6 +18,7 @@ import { BackButton } from '@/components/common'
 import { StatsCards } from './StatsCards'
 import { FilterBar } from './FilterBar'
 import { TaskCard } from './TaskCard'
+import { SchedulerBanner, type SchedulerSnapshot } from './SchedulerBanner'
 import { normalizeHistoryStatusFilter, normalizeHistoryTaskFocus } from './history-helpers'
 
 interface Target {
@@ -57,7 +58,10 @@ interface Stats {
     success?: number
     failed?: number
     partial?: number
+    overdue?: number
+    nextScheduledAt?: string | null
   }
+  scheduler?: SchedulerSnapshot
 }
 
 export default function HistoryPage() {
@@ -71,26 +75,52 @@ export default function HistoryPage() {
   const [expanded, setExpanded] = React.useState<Set<number>>(new Set())
   const [focusTaskId, setFocusTaskId] = React.useState<string | null>(null)
 
-  const load = React.useCallback(async () => {
-    setLoading(true)
-    try {
-      const [histRes, statsRes] = await Promise.all([
-        apiOrThrow<{ items?: Task[]; list?: Task[] } | Task[]>('/api/publish/tasks?limit=50'),
-        apiOrThrow<Stats>('/api/publish/stats').catch(() => ({})),
-      ])
-      const list = Array.isArray(histRes) ? histRes : (histRes.items ?? histRes.list ?? [])
-      setTasks(list)
-      setStats(statsRes)
-    } catch (e) {
-      toast.error((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }, [toast])
+  const load = React.useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true)
+      try {
+        const [histRes, statsRes] = await Promise.all([
+          apiOrThrow<{ items?: Task[]; list?: Task[] } | Task[]>('/api/publish/tasks?limit=50'),
+          apiOrThrow<Stats>('/api/publish/stats').catch(() => ({})),
+        ])
+        const list = Array.isArray(histRes) ? histRes : (histRes.items ?? histRes.list ?? [])
+        setTasks(list)
+        setStats(statsRes)
+      } catch (e) {
+        // 后台轮询失败不弹 toast:网络抖动时不要让用户每隔 20 秒被打断一次。
+        if (!silent) toast.error((e as Error).message)
+      } finally {
+        if (!silent) setLoading(false)
+      }
+    },
+    [toast],
+  )
 
   React.useEffect(() => {
     void load()
   }, [load])
+
+  const hasActiveTasks = tasks.some(
+    (task) => task.status === 'scheduled' || task.status === 'running' || task.status === 'pending',
+  )
+
+  // 有排期/发布中的任务时,20 秒静默刷新一次:调度器到点执行后,用户不用手点刷新就能看到状态变化。
+  // 没有活动任务时不轮询,避免空页面持续打 DB。
+  React.useEffect(() => {
+    if (!hasActiveTasks) return
+    const timer = window.setInterval(() => void load(true), 20_000)
+    return () => window.clearInterval(timer)
+  }, [hasActiveTasks, load])
+
+  // 切回标签页时补一次静默刷新,覆盖浏览器后台节流导致定时器暂停的情况。
+  React.useEffect(() => {
+    if (!hasActiveTasks) return
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void load(true)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [hasActiveTasks, load])
 
   // /start 的“待确认草稿/失败待处理”卡带 ?status= 进来；未知值回退 all。
   // 一句话出稿成功后的“去确认”还会带 ?task=，这里一起收，避免用户到了列表再翻。
@@ -148,6 +178,11 @@ export default function HistoryPage() {
   return (
     <div className="px-4 space-y-4">
       <BackButton />
+      <SchedulerBanner
+        scheduler={stats.scheduler}
+        overdue={stats.tasks?.overdue}
+        nextScheduledAt={stats.tasks?.nextScheduledAt}
+      />
       <StatsCards stats={stats} />
       <FilterBar
         filterPlatform={filterPlatform}
