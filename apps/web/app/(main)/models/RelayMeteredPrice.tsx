@@ -142,6 +142,9 @@ export function RelayMeteredSummary({ model }: { model: Model }) {
           value={unitPriceText(model, mode, t)}
         />
       </div>
+      <div className="mt-1.5">
+        <PanelRow label={t('relay.multiplier')} value={multiplierText(model)} muted />
+      </div>
       {mode === 'dynamic_cost' && reference > 0 && (
         <div className="mt-1.5">
           <PanelRow

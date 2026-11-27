@@ -722,7 +722,7 @@ function ModelCardGrid({
       )}
 
       {/* 中转站价格对比(2026-09-16 立):官方价 vs 实付价 + 倍率 + 缓存读写价 */}
-      {model.relayPublic && <RelayPriceCompare model={model} />}
+      {model.relayPublic && !isMeteredRelay(model) && <RelayPriceCompare model={model} />}
 
       {/* 上架时间 — 单独一行,无容器包裹(仅当存在 releasedAt) */}
       {model.releasedAt && (
