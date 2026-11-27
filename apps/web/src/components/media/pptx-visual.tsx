@@ -596,7 +596,9 @@ async function parseTextShape(
 ): Promise<PptxTextShape | null> {
   const spPr = firstKid(sp, 'spPr')
   const ph = firstDesc(sp, 'ph')
-  const phType = ph?.getAttribute('type') ?? null
+  // `p:ph` 的 type 可省略;PowerPoint 默认模板的正文占位符常只写 idx。
+  // 若把缺失 type 当成“无版式”,整页正文会被吞掉,AI 全文预审也读不到。
+  const phType = ph ? (ph.getAttribute('type') ?? 'body') : null
   const phKey = placeholderKey(sp)
   const inherited = phKey ? layoutPlaceholders.get(phKey) : undefined
   const raw = readBox(spPr) ?? inherited?.box ?? null
