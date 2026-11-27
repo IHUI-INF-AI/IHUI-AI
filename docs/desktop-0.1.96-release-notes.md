@@ -96,7 +96,7 @@ Tauri 2 的命令 ACL 是三处登记缺一即失效：
 
 - 发现：生产 feed 此前只有 legacy `platforms`（url + signature），缺 `size` / `sha256`，也没有 `schema=2` 的 `payload`。客户端 `update_v2.rs` 的 `Feed` 反序列化把 `Payload.size` / `sha256` 设为必填，因此 Windows 0.1.94+ 的 v2 检查在解析阶段就失败，自动更新实际不通。
 - 修复：新增 v2 载荷 `ihui-0.1.96-windows-x86_64.zip`（6,350,308 字节，sha256 `0e06638763c842d90775fecb43c1afc170d5c556dc6cd127f00729471a274e14`，内含 ihui-app.exe 15,425,536 字节 + manifest.json），上传 Release，并把 `apps/web/src/config/desktop-feed-v2.generated.ts` 烘焙为 schema=2、rollout 100、payload 直指 Release 资产（提交 `6464dc99`）。
-- 签名：0.1.96 客户端 `update_v2.rs` 仍钉旧信任锚 `B5D7E67EA2B1DB08`（keynum `08dbb1a27ee6d7b5`），所以引导 zip 用该私钥签；0.1.96 内嵌 A40E 与 08db 两串公钥，但 v2 验签只走 08db。随后把 `update_v2.rs` 改为双信任锚（A40E + 08db，提交 `8f28929b`），0.1.97 起新客户端两把都认，zip 统一改 A40E 签。
+- 签名：0.1.96 客户端 `update_v2.rs` 仍钉旧信任锚 `B5D7E67EA2B1DB08`（keynum `08dbb1a27ee6d7b5`），所以引导 zip 用该私钥签；0.1.96 内嵌 A40E 与 08db 两串公钥，但 v2 验签只走 08db。随后把 `update_v2.rs` 改为双信任锚（A40E + 08db，提交 `8f28929b`），0.1.97 起新客户端两把都认；但换锚必须顺序走：0.1.97 的 zip 仍用 08db 签（0.1.96 只认旧锚），等 0.1.97 覆盖后再让 0.1.98 起的 zip 切 A40E。
 - 验证：生产 `https://aizhs.top/desktop-feed.json` 返回 `schema=2`、`version=0.1.96`、header `x-desktop-feed-schema: 2`；用 launcher 的 `Feed::from_json` 实解析 PASS、`evaluate(0.1.95)` → offer 0.1.96；zip 公开下载 6,350,308 字节、sha256 匹配、08db 公钥验签 PASS；解包后 manifest 的 sha256/size 与 ihui-app.exe 一致；`cargo check` 双锚改动 exit 0（1m25s）。
 - 部署：main `8f28929b` 于 09:48 被 IHUI-DEPLOYLOOP 取到，10:00 前 feed 已切 v2。
 - 仍缺：macOS / Linux 无 0.1.96 产物（v2 feed 只含 Windows payload，legacy `platforms` 未随之下发，mac/linux 老客户端本轮不会收到更新）；安装包仍未做 Authenticode。
