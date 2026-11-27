@@ -934,15 +934,16 @@ if (isWorkerMode) {
           // 2026-09-20 弹窗根治(用户反馈"git 上传时总弹 cmd 窗口,应后台静默"):
           // WMI Win32_Process.Create 默认给新进程分配**可见的新控制台**(node.exe 是
           // 控制台程序),watchdog 一活 40 分钟 → 每次 commit 后弹一个黑窗且久挂不退。
-          // 修法:传 Win32_ProcessStartup 启动参数,与 worker/watchdog 的 node 层
-          // windowsHide:true 对齐 ——
-          //   CreateFlags = CREATE_NO_WINDOW (0x08000000) → 新进程不分配可见控制台
-          //   ShowWindow  = SW_HIDE (0)                  → 双保险
+          // 2026-11-27 实测推翻旧写法:Win32_ProcessStartup.CreateFlags 是 **STARTUPINFO.dwFlags**,
+          //   不是 CreateProcess 创建标志。旧代码填 0x80000000、按注释填 CREATE_NO_WINDOW(0x08000000),
+          //   两种都会让 Create 直接返回 21(参数无效)**进程根本没起来** —— 本兜底自 2026-09-20 起一直空转;
+          //   只给 ShowWindow = SW_HIDE(0) 时 ret=0,cmd.exe / node.exe 实测新控制台均 visible=False。
+          //   本机原始测试:WMI 派生 + CreateFlags=<非 STARTF 值> ⇒ ret=21;ShowWindow=0 ⇒ ret=0 且零可见窗口。
           // 派生结果落盘 .ihui-agent/state/wmi-watchdog-last.txt(ret/pid/alive),失败也留痕。
           const wdOutFile = resolve(process.cwd(), '.ihui-agent/state/wmi-watchdog-last.txt')
           const wdScript =
             `try { ` +
-            `$s = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{CreateFlags=[uint32]2147483648; ShowWindow=[uint16]0}; ` +
+            `$s = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ShowWindow=[uint16]0}; ` +
             `$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create ` +
             `-Arguments @{CommandLine='${cmdLine.replace(/'/g, "''")}'; ProcessStartupInformation=$s}; ` +
             `$alive = if ($r.ProcessId) { [bool](Get-Process -Id $r.ProcessId -ErrorAction SilentlyContinue) } else { $false }; ` +
