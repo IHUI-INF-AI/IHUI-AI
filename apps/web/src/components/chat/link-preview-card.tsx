@@ -50,6 +50,40 @@ export function LinkPreviewCard({
 
   if (!preview) return null
 
+  // 把后端 reason 映射成具体人话:同一句"暂时无法判定"会让用户无法判断是登录墙、
+  // 超时还是地址被拦。未知 reason 才回落到三态总文案(未判定 ≠ 读不到)。
+  const reasonText = (fallback: 'unavailable' | 'undetermined'): string => {
+    const reason = ('reason' in preview ? preview.reason : '') ?? ''
+    switch (reason) {
+      case 'timeout':
+        return t('reasonTimeout')
+      case 'network_error':
+      case 'probe_error':
+      case 'probe_request_failed':
+        return t('reasonNetwork')
+      case 'ssrf_blocked':
+        return t('reasonBlocked')
+      case 'invalid_host':
+      case 'invalid_url':
+      case 'unsupported_scheme':
+        return t('reasonInvalid')
+      case 'read_error':
+        return t('reasonReadError')
+      case 'http_401':
+      case 'http_403':
+        return t('reasonLogin')
+      case 'http_429':
+        return t('reasonRateLimited')
+      case 'http_404':
+        return t('reasonNotFound')
+      case 'http_410':
+        return t('reasonGone')
+      default:
+        if (reason?.startsWith('http_5')) return t('reasonServerError')
+        return fallback === 'unavailable' ? t('unavailable') : t('undetermined')
+    }
+  }
+
   const icon =
     preview.status === 'loading' ? (
       <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
@@ -65,20 +99,20 @@ export function LinkPreviewCard({
   if (preview.status === 'loading') {
     body = <span className="text-muted-foreground">{t('loading')}</span>
   } else if (preview.status === 'unavailable') {
-    body = (
-      <span className="font-medium text-destructive">
-        {t('unavailable')}
-        <span className="ml-2 font-normal text-muted-foreground/70">{`(${preview.reason})`}</span>
-      </span>
-    )
+    body = <span className="font-medium text-destructive">{reasonText('unavailable')}</span>
   } else if (preview.status === 'undetermined') {
-    body = <span className="text-muted-foreground">{t('undetermined')}</span>
+    body = <span className="text-muted-foreground">{reasonText('undetermined')}</span>
   } else {
     body = (
       <span className="min-w-0">
         <span className="block truncate font-medium">
           {preview.title ?? hostnameOf(preview.url)}
         </span>
+        {preview.title ? (
+          <span className="block truncate text-[11px] text-muted-foreground/60">
+            {hostnameOf(preview.url)}
+          </span>
+        ) : null}
         {preview.description ? (
           <span className="mt-0.5 line-clamp-2 block text-muted-foreground">
             {preview.description}

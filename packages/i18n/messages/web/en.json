@@ -11145,6 +11145,16 @@
       "loading": "Loading link preview...",
       "unavailable": "Unable to read link preview",
       "undetermined": "Could not determine this link (it may require sign-in or timed out); it will still be read after sending",
+      "reasonLogin": "This link requires sign-in or permission; it will still be read after sending",
+      "reasonTimeout": "The link timed out; it will still be read after sending",
+      "reasonNetwork": "Network unreachable; it will still be read after sending",
+      "reasonBlocked": "This address is blocked by security policy and will not be read automatically",
+      "reasonInvalid": "Invalid link address; ignored",
+      "reasonReadError": "Could not read the page content; it will still be read after sending",
+      "reasonRateLimited": "The site is rate-limiting access; it will still be read after sending",
+      "reasonNotFound": "Page not found (404)",
+      "reasonGone": "Page gone (410)",
+      "reasonServerError": "Upstream server error (5xx)",
       "dismiss": "Dismiss preview"
     },
     "referencePreview": {

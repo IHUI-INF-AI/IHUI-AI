@@ -11190,6 +11190,16 @@
       "loading": "正在加载链接预览...",
       "unavailable": "无法读取链接预览",
       "undetermined": "暂时无法判定该链接（可能需要登录或响应超时），发送后仍会尝试读取",
+      "reasonLogin": "该链接需要登录或没有访问权限，发送后仍会尝试读取",
+      "reasonTimeout": "链接响应超时，发送后仍会尝试读取",
+      "reasonNetwork": "网络不可达，发送后仍会尝试读取",
+      "reasonBlocked": "该地址被安全策略拦截，不会自动读取",
+      "reasonInvalid": "链接地址不合法，已忽略",
+      "reasonReadError": "页面内容读取失败，发送后仍会尝试读取",
+      "reasonRateLimited": "对方限制了访问频率，发送后仍会尝试读取",
+      "reasonNotFound": "页面不存在（404）",
+      "reasonGone": "页面已下线（410）",
+      "reasonServerError": "对方服务器异常（5xx）",
       "dismiss": "关闭预览"
     },
     "referencePreview": {

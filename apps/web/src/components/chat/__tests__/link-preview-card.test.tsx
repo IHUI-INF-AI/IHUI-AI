@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * D166 链接预览卡测试(2026-09-30 立)。
  *
@@ -57,6 +56,7 @@ describe('LinkPreviewCard 三态区别化(票面验收 ①)', () => {
     })
     expect(screen.getByTestId('link-preview-card').dataset.previewStatus).toBe('ok')
     expect(screen.getByText('Example Domain')).toBeTruthy()
+    expect(screen.getByText('example.com')).toBeTruthy()
     expect(screen.getByText('For use in examples.')).toBeTruthy()
   })
 
@@ -68,11 +68,24 @@ describe('LinkPreviewCard 三态区别化(票面验收 ①)', () => {
   it('unavailable 与 undetermined 文案严格区别', () => {
     const { unmount } = renderCard({ status: 'unavailable', url: 'u', reason: 'http_404' })
     expect(screen.getByTestId('link-preview-card').dataset.previewStatus).toBe('unavailable')
-    expect(screen.getByText('unavailable')).toBeTruthy()
+    expect(screen.getByText('reasonNotFound')).toBeTruthy()
     unmount()
 
     renderCard({ status: 'undetermined', url: 'u', reason: 'http_401' })
     expect(screen.getByTestId('link-preview-card').dataset.previewStatus).toBe('undetermined')
+    expect(screen.getByText('reasonLogin')).toBeTruthy()
+  })
+
+  it('reason 逐类映射;未知 reason 才回落总文案', () => {
+    const { unmount } = renderCard({ status: 'undetermined', url: 'u', reason: 'timeout' })
+    expect(screen.getByText('reasonTimeout')).toBeTruthy()
+    unmount()
+
+    const second = renderCard({ status: 'unavailable', url: 'u', reason: 'http_503' })
+    expect(screen.getByText('reasonServerError')).toBeTruthy()
+    second.unmount()
+
+    renderCard({ status: 'undetermined', url: 'u', reason: 'mystery' })
     expect(screen.getByText('undetermined')).toBeTruthy()
   })
 
