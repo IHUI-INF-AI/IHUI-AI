@@ -1,0 +1,25 @@
+{
+  "name": "@ihui/tool-contract",
+  "version": "0.1.0",
+  "description": "IHUI Tool Contract Protocol (ITCP) v0.1 —— 工具契约的类型面、派生谓词与规范正文。零依赖、零运行时,可脱离本仓直接采纳或对照落地。",
+  "license": "Apache-2.0",
+  "author": "李春川 (Li Chunchuan) <https://aizhs.top>",
+  "homepage": "https://aizhs.top",
+  "files": [
+    "src",
+    "docs",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "types": "src/tool-contract.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "tool-contract",
+    "itcp",
+    "function-calling",
+    "agent-harness",
+    "llm-tools"
+  ]
+}
