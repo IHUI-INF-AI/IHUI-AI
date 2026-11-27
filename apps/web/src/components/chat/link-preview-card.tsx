@@ -84,38 +84,67 @@ export function LinkPreviewCard({
     }
   }
 
+  const host = preview.status === 'ok' ? hostnameOf(preview.url) : ''
+  // 站点字母块:不请求 favicon(既有 SSRF 面不动),用主机首字母做轻量站点标识。
+  const monogramHost = host.replace(/^www\./i, '')
+  const monogram = /^[a-z0-9]/i.test(monogramHost) ? monogramHost.charAt(0).toUpperCase() : null
+
   const icon =
     preview.status === 'loading' ? (
-      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
+      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
     ) : preview.status === 'unavailable' ? (
-      <X className="h-4 w-4 shrink-0 text-destructive" aria-hidden />
+      <X className="h-3.5 w-3.5" aria-hidden />
     ) : preview.status === 'undetermined' ? (
-      <ShieldQuestion className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      <ShieldQuestion className="h-3.5 w-3.5" aria-hidden />
     ) : (
-      <Globe className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      <Globe className="h-3.5 w-3.5" aria-hidden />
     )
+
+  const tileTone =
+    preview.status === 'ok'
+      ? 'border-border/70 bg-gradient-to-br from-muted to-muted/40 text-foreground/70'
+      : preview.status === 'loading'
+        ? 'border-border/50 bg-muted/50 text-muted-foreground'
+        : preview.status === 'undetermined'
+          ? 'border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+          : 'border-destructive/25 bg-destructive/10 text-destructive'
 
   let body: React.ReactNode
   if (preview.status === 'loading') {
-    body = <span className="text-muted-foreground">{t('loading')}</span>
+    body = (
+      <span className="block truncate text-[12.5px] leading-5 text-muted-foreground">
+        {t('loading')}
+      </span>
+    )
   } else if (preview.status === 'unavailable') {
-    body = <span className="font-medium text-destructive">{reasonText('unavailable')}</span>
+    body = (
+      <span className="block truncate text-[12.5px] font-medium leading-5 text-destructive/90">
+        {reasonText('unavailable')}
+      </span>
+    )
   } else if (preview.status === 'undetermined') {
-    body = <span className="text-muted-foreground">{reasonText('undetermined')}</span>
+    body = (
+      <span className="block truncate text-[12.5px] leading-5 text-muted-foreground">
+        {reasonText('undetermined')}
+      </span>
+    )
   } else {
     body = (
-      <span className="min-w-0">
-        <span className="block truncate font-medium">
-          {preview.title ?? hostnameOf(preview.url)}
+      <span className="block min-w-0">
+        <span className="block truncate text-[13px] font-medium leading-5 text-foreground">
+          {preview.title ?? host}
         </span>
         {preview.title ? (
-          <span className="block truncate text-[11px] text-muted-foreground/60">
-            {hostnameOf(preview.url)}
-          </span>
-        ) : null}
-        {preview.description ? (
-          <span className="mt-0.5 line-clamp-2 block text-muted-foreground">
-            {preview.description}
+          <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] leading-4 text-muted-foreground">
+            <span className="truncate">{host}</span>
+            {preview.description ? (
+              <>
+                <span className="shrink-0 text-muted-foreground/40" aria-hidden>
+                  ·
+                </span>
+                <span className="truncate text-muted-foreground/80">{preview.description}</span>
+              </>
+            ) : null}
           </span>
         ) : null}
       </span>
@@ -127,18 +156,28 @@ export function LinkPreviewCard({
       data-testid={testId ?? 'link-preview-card'}
       data-preview-status={preview.status}
       role="status"
+      title={preview.status === 'ok' ? preview.url : undefined}
       className={cn(
-        'mx-1 mb-1 flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-label',
+        'mx-1 mb-1.5 flex items-center gap-2.5 rounded-xl border border-border/60 bg-card/85 px-2 py-1.5 text-label shadow-sm backdrop-blur-sm transition-colors hover:border-border',
         className,
       )}
     >
-      {icon}
+      <span
+        aria-hidden
+        className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-lg border', tileTone)}
+      >
+        {preview.status === 'ok' && monogram ? (
+          <span className="text-[13px] font-semibold tracking-tight">{monogram}</span>
+        ) : (
+          icon
+        )}
+      </span>
       <div className="min-w-0 flex-1">{body}</div>
       <button
         type="button"
         onClick={onDismiss}
         aria-label={t('dismiss')}
-        className="shrink-0 rounded-md p-0.5 text-muted-foreground/60 transition-colors hover:text-foreground"
+        className="-mr-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <X className="h-3.5 w-3.5" aria-hidden />
       </button>
