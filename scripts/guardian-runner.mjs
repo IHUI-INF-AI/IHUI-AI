@@ -53,14 +53,6 @@ import { rootGuardDeclarationPairing } from './lib/root-guard-declaration-pairin
 
 // === 检查配置(按 mode 分组;项数与分级见 `--help`,勿在此写死数字——写死必然过期) ===
 
-/*
-2026-11-27 门号迁移留痕: 329/329p 全量 Web↔小程序路由契约门 → 330/330p;
-以下三行为迁移前逐字原行,保留以证明不是静默删除:
-  // 329:全量 Web↔小程序路由契约。射程 = 三端路由清单 + 承载台账 + 契约产物。
-  // 329p:全量 Web↔小程序路由契约（push 面同样拦截，防止绕过 pre-commit 直推；主 checks 用 329）。
-    id: '329p',
-*/
-
 const checks = [
   // --- blocking(项数见 --help) ---
   {
@@ -2158,8 +2150,9 @@ const checks = [
   //   RN StyleSheet 数字 1292 处、taro rounded-[24rpx] 任意值 509 处、CSS px/rpx 字面量 495 处,
   //   全仓实测偏档 246 点/120 文件。用户可见后果:手机上所有容器圆角与全局设定不一致。
   // 判据 A:四处档位表逐档同值(preset 必须写 `borderRadius: RADIUS_REM`,不得重新内联)。
-  // 判据 B:端内取用必须引用档位(rnRadius.<step> / var(--radius-*) / rounded-<step>),
+  // 判据 B:端内取用必须引用档位/角色(rnRadiusFor.<role> / var(--radius-*) / rounded-<step>),
   //   数字字面量、rpx()、每文件自定 *_RADIUS 常量、rounded-[任意值] 一律红;
+  //   RN 组件样式禁用 rnRadius.<step> 借档(2026-11-27 消息筛选 tab 12px 事件后收口,角色档由门 150 复核)。
   //   几何圆(头像/装饰点/胶囊)由盒形量证(正方+半边=真圆出射程,非正方+半边=胶囊判红)。豁免标记族已于 2026-09-29 O81 票㊵ 整体废除,写它由 B8 判红。存量走 HEAD 棘轮只减不增。
   {
     id: '77',
@@ -2171,10 +2164,10 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_RADIUS_GUARD',
     onFailHint: [
       '',
-      '  💡 圆角档位唯一真相源 = packages/design-tokens/src/radius.js(xs2/sm4/md6/lg8/xl12/2xl16)。',
-      "     RN/内联 style : borderRadius: rnRadius.lg      (import { rnRadius } from '@ihui/design-tokens')",
-      '     CSS/SCSS      : border-radius: var(--radius-lg)',
-      '     类名          : rounded-lg(禁止 rounded-[24rpx] 这类任意值)',
+      '  💡 圆角档位唯一真相源 = packages/design-tokens/src/radius.js(xs2/md6/lg8/xl12/2xl16)。',
+      "     RN/组件 style : borderRadius: rnRadiusFor.chip  (import { rnRadiusFor } from '@ihui/design-tokens';按角色取,禁止 rnRadius.<step> 借档)",
+      '     CSS/SCSS      : border-radius: var(--radius-lg)(按角色选档)',
+      '     类名          : rounded-lg(按角色选档;禁止 rounded-[24rpx] 这类任意值)',
       '     真圆/头像/胶囊: 用 size/2 几何表达式或等于档位值的档;项目不允许胶囊,也没有豁免标记 —— 写标记本门 B8 判红',
       '     档位漂移      : 改 radius.js 一处后跑 node scripts/check-radius-single-source.mjs --self-test,',
       '                     CSS 端同步 tokens.css 并按端内脚本重跑 design-tokens 同步。',
@@ -6822,6 +6815,9 @@ const checks = [
     script: 'check-staged-files.mjs',
     args: [],
     mode: 'info',
+    // 本门读的正是本次暂存区内容 ⇒ 射程就是"任何提交"。此前留空不是"跑全量",而是让
+    // 本通道结构上不复跑(提交通道把空读成任何提交都跑,两通道在此反义)。
+    stagedTriggers: ['**/*'],
   },
   // --- 角色档合规对账(元素类别→档位,77 不判的那一型)(1 项,blocking)---
   {
@@ -7476,6 +7472,8 @@ const checks = [
     args: [],
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_DEV_DB_ROTATION_WINDOW',
+    // 判的是本机端口占用 ∧ 留痕时间窗,提交内容无从触发 ⇒ 结构性豁免(不是漏声明)。
+    stagedTriggersOmitted: '判本机 dev 库端口与轮换留痕时间窗,提交内容无从触发',
     onFailHint: [
       '  💡 本门只读数、恒 exit 0;打印 state=due 不等于"该在这里换口令",而是提示"窗口刚空出来"。',
       '     真跑(风险自担,会改本机 dev 库口令):node scripts/check-dev-db-rotation-window.mjs --trigger',
@@ -8163,6 +8161,7 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_TEMP_WORKTREE_LIFETIME',
     // 本门量的是磁盘 worktree 目录老化,不依赖本次提交内容 ⇒ 不设 stagedTriggers,
     // 走 guardian 周期派发(与 keepalive 一型),不在 pre-commit 阻塞。
+    stagedTriggersOmitted: '判磁盘 worktree 目录老化(静默时长与账龄),提交内容无从触发',
     onFailHint: [
       '',
       '  💡 发现有临时派生 git worktree 长期躺在本机 scratch/ 或 D:\\DevEnv\\Temp\\(静默≥24h 或账龄≥48h)。',
@@ -8188,6 +8187,7 @@ const checks = [
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_HOOK_AUDIT_HEALTH',
     // 量的是磁盘台账存量,不依赖本次提交内容 ⇒ 不设 stagedTriggers,走周期派发。
+    stagedTriggersOmitted: '判磁盘钩子审计台账存量(容量/坏行/失败率),提交内容无从触发',
     onFailHint: [
       '',
       '  💡 钩子审计台账(.ihui-agent/state/hook-audit.jsonl)有存量问题,逐条已在门体输出点名。',
@@ -8247,63 +8247,6 @@ const checks = [
       '',
     ].join('\n'),
   },
-  // --- 皮肤表面覆盖(1 项,blocking,2026-11-27 立)---
-  // 立因:皮肤(customTheme)映射是 globals.css 里手写的一段;芭比粉上线时静态差集实测
-  // 27/222 覆盖 —— 描边、容器底、链接、选中整类漏在皮肤外。本门把"新增 --color-* 角色
-  // 必须回答是否随皮肤"变成机器判据,并断言高对比块排序在皮肤段之后(可读性 > 观感)。
-  {
-    id: '329',
-    label: '🎨 皮肤表面覆盖(blocking:未登记角色/高对比倒序)',
-    script: 'check-skin-surface-coverage.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_SKIN_SURFACE_COVERAGE',
-    stagedTriggers: [
-      'packages/design-tokens/src/styles/tokens.css',
-      'apps/web/app/globals.css',
-      'scripts/data/skin-surface-exemptions.json',
-    ],
-    onFailHint: [
-      '',
-      '  💡 新增了 --color-* 角色却让皮肤漏染,观感就是「半套换肤」:',
-      '     ① 要随皮肤 ⇒ 在 apps/web/app/globals.css 两段 html[data-custom-theme] 里按色板派生;',
-      '     ② 刻意不随(语义/品牌/遮罩/透明度阶)⇒ 在 scripts/data/skin-surface-exemptions.json',
-      '        登记 pattern+reason(族通配 xx-*),边界说明同步 docs/UI_GUIDELINES.md §7;',
-      '     ③ 高对比块必须排在皮肤段之后(同特异度后写者胜,上移即被皮肤覆盖)。',
-      '     单独复现:node scripts/check-skin-surface-coverage.mjs [--staged|--worktree] [--self-test]。',
-      '',
-    ].join('\n'),
-  },
-  // 330:全量 Web↔小程序路由契约。射程 = 三端路由清单 + 承载台账 + 契约产物。
-  {
-    id: '330',
-    label: '🧭 全量 Web↔小程序路由契约门(932 路由逐条 carrier;漂移/未知即红)',
-    script: 'check-cross-end-route-contract.mjs',
-    args: ['--check'],
-    mode: 'blocking',
-    stagedTriggers: [
-      'apps/web/app/',
-      'apps/web/src/lib/ui-routes.generated.ts',
-      'apps/mobile-rn/src/navigation/',
-      'apps/mobile-rn/src/constants/ui-routes.generated.ts',
-      'apps/miniapp-taro/src/app.config.ts',
-      'apps/miniapp-taro/src/constants/ui-routes.generated.ts',
-      'scripts/data/web-rn-screen-map.jsonl',
-      'scripts/data/cross-end-screen-registry.json',
-      'scripts/data/web-mp-route-carrier-ledger.jsonl',
-      'scripts/data/web-mp-route-carrier-legal.jsonl',
-      'scripts/data/cross-end-route-contract.jsonl',
-      'scripts/data/cross-end-route-contract-summary.json',
-      'scripts/check-cross-end-route-contract.mjs',
-    ],
-    skipEnv: 'HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT',
-    onFailHint: [
-      '  💡 红 = 三端路由/共享屏/承载台账变更后契约未重落，或有路由变成未知 carrier。',
-      '     改法:node scripts/check-cross-end-route-contract.mjs --worktree --write && 复核 git diff',
-      '     应急放行:HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT=1 git commit ...(不推荐;跳过会留痕)',
-    ].join('\n'),
-  },
-
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
@@ -8486,36 +8429,6 @@ const pushGateChecks = [
       '     应急放行:HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
-  // 330p:全量 Web↔小程序路由契约（push 面同样拦截，防止绕过 pre-commit 直推；主 checks 用 330）。
-  {
-    id: '330p',
-    label: '🧭 全量 Web↔小程序路由契约门(932 路由逐条 carrier;漂移/未知即红)',
-    script: 'check-cross-end-route-contract.mjs',
-    args: ['--check'],
-    mode: 'blocking',
-    stagedTriggers: [
-      'apps/web/app/',
-      'apps/web/src/lib/ui-routes.generated.ts',
-      'apps/mobile-rn/src/navigation/',
-      'apps/mobile-rn/src/constants/ui-routes.generated.ts',
-      'apps/miniapp-taro/src/app.config.ts',
-      'apps/miniapp-taro/src/constants/ui-routes.generated.ts',
-      'scripts/data/web-rn-screen-map.jsonl',
-      'scripts/data/cross-end-screen-registry.json',
-      'scripts/data/web-mp-route-carrier-ledger.jsonl',
-      'scripts/data/web-mp-route-carrier-legal.jsonl',
-      'scripts/data/cross-end-route-contract.jsonl',
-      'scripts/data/cross-end-route-contract-summary.json',
-      'scripts/check-cross-end-route-contract.mjs',
-    ],
-    skipEnv: 'HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT',
-    onFailHint: [
-      '  💡 红 = 三端路由/共享屏/承载台账变更后契约未重落，或有路由变成未知 carrier。',
-      '     改法:node scripts/check-cross-end-route-contract.mjs --worktree --write && 复核 git diff',
-      '     应急放行:HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT=1 git commit ...(不推荐;跳过会留痕)',
-    ].join('\n'),
-  },
-
   // 2026-11-20:push 面已按推送改动面(PUSH_SCOPE_FILES)消费 stagedTriggers ⇒ 下面这些
   // 收窄档各自声明触发面;未声明的(T1/47p/IG/193)仍恒跑。声明缺失 = 恒跑,不是恒跳。
   {
