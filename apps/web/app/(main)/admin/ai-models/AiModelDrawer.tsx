@@ -222,7 +222,7 @@ export function AiModelDrawer({ configId, row, governance, onClose }: Props) {
               <Empty text="该配置在所选窗口内没有模型调用。" />
             ) : (
               <div className="overflow-x-auto rounded-md border border-border">
-                <Table className="min-w-[720px] [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
+                <Table className="min-w-[860px] [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="min-w-[220px]">模型</TableHead>

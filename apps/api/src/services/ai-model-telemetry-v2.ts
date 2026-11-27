@@ -60,6 +60,85 @@ export function sanitizeTelemetryErrorMessage(raw: unknown): string | null {
   return redactCredentialText(text).slice(0, 2000)
 }
 
+/**
+ * 决定一条调用流水归属到哪个配置模型 key:
+ * 1) 配置里存在精确同名模型时优先精确匹配(保护 qwen/qwen3-32b 这类真实斜杠模型);
+ * 2) 否则只在配置确实存在裸名时,剥离与当前 provider 一致的前缀;
+ * 3) 两者都不命中则保留原始名。
+ */
+export function resolveTelemetryAttributionKey(
+  raw: unknown,
+  providerCode: string,
+  configuredIds: ReadonlySet<string>,
+): string {
+  const exact = String(raw ?? '').trim()
+  if (!exact) return ''
+  if (configuredIds.has(exact)) return exact
+  // 反向兼容:配置登记的是 "provider/模型"(真实斜杠模型),日志只记裸名时也不能漏配。
+  if (providerCode && configuredIds.has(`${providerCode}/${exact}`)) {
+    return `${providerCode}/${exact}`
+  }
+  const normalized = normalizeTelemetryModelName(exact, providerCode)
+  return configuredIds.has(normalized) ? normalized : exact
+}
+
+export interface TelemetryCallAggregate {
+  calls?: unknown
+  tokens?: unknown
+  errors?: unknown
+  retryableErrors?: unknown
+  authErrors?: unknown
+  rateLimitErrors?: unknown
+  serverErrors?: unknown
+  timeoutErrors?: unknown
+  clientErrors?: unknown
+  pricedCalls?: unknown
+  costCents?: unknown
+  p95LatencyMs?: unknown
+  ttftP95Ms?: unknown
+  lastCallAt?: unknown
+}
+
+/** 合并同模型多行日志:计数/成本求和,错误分项逐项求和,延迟取保守最大值。 */
+export function mergeTelemetryCallAggregates<T extends TelemetryCallAggregate>(
+  previous: T,
+  row: TelemetryCallAggregate,
+): T & { errorBreakdown: ErrorBreakdown } {
+  const previousLast = previous.lastCallAt ? new Date(previous.lastCallAt as string).getTime() : 0
+  const currentLast = row.lastCallAt ? new Date(row.lastCallAt as string).getTime() : 0
+  const previousBreakdown = asBreakdown(previous)
+  const currentBreakdown = asBreakdown(row)
+  return {
+    ...previous,
+    calls: toSafeCount(previous.calls) + toSafeCount(row.calls),
+    tokens: toSafeCount(previous.tokens) + toSafeCount(row.tokens),
+    errors: toSafeCount(previous.errors) + toSafeCount(row.errors),
+    retryableErrors: toSafeCount(previous.retryableErrors) + toSafeCount(row.retryableErrors),
+    errorBreakdown: {
+      auth: previousBreakdown.auth + currentBreakdown.auth,
+      rateLimit: previousBreakdown.rateLimit + currentBreakdown.rateLimit,
+      server: previousBreakdown.server + currentBreakdown.server,
+      timeout: previousBreakdown.timeout + currentBreakdown.timeout,
+      client: previousBreakdown.client + currentBreakdown.client,
+      other: previousBreakdown.other + currentBreakdown.other,
+    },
+    pricedCalls: toSafeCount(previous.pricedCalls) + toSafeCount(row.pricedCalls),
+    costCents:
+      round1(
+        (toNullableNumber(previous.costCents) ?? 0) + (toNullableNumber(row.costCents) ?? 0),
+      ) ?? 0,
+    p95LatencyMs: Math.max(
+      toNullableNumber(previous.p95LatencyMs) ?? 0,
+      toNullableNumber(row.p95LatencyMs) ?? 0,
+    ),
+    ttftP95Ms: Math.max(
+      toNullableNumber(previous.ttftP95Ms) ?? 0,
+      toNullableNumber(row.ttftP95Ms) ?? 0,
+    ),
+    lastCallAt: currentLast > previousLast ? row.lastCallAt : previous.lastCallAt,
+  }
+}
+
 export interface ErrorBreakdown {
   auth: number
   rateLimit: number
@@ -551,7 +630,6 @@ export async function collectAiModelModelsTelemetryV2(
   // 而 ai_model_config_models.model_id 只存裸模型名。若直接按字符串匹配,
   // 抽屉会显示"调用 16 次但每个模型都未调用"(8890 真机已复现)。
   // 只剥掉与当前配置 provider_code 完全一致的首段,避免误伤 qwen/qwen3 这类真实斜杠模型。
-  const normalizeModel = (raw: unknown): string => normalizeTelemetryModelName(raw, providerCode)
 
   // 模型行可能一个调用都没有。只查日志会让"已配置但未跑过"的模型从抽屉里消失,
   // 因此把配置的模型行作为左表,日志聚合作为右表;日志里多出来的别名保留在末尾。
@@ -566,40 +644,33 @@ export async function collectAiModelModelsTelemetryV2(
     .where(eq(aiModelConfigModels.configId, configId))
     .orderBy(aiModelConfigModels.sortOrder)
 
-  const logByModel = new Map<string, (typeof rows)[number]>()
+  // 只有配置里确实存在裸名时,才把 "provider/裸名" 归并过去;若配置本身就叫
+  // "qwen/qwen3-32b",日志同名的精确匹配优先,避免把真实斜杠模型剥成裸名后
+  // 与同一配置下的裸名行撞 key(展示翻倍)。
+  const configuredIds = new Set(configuredRows.map((row) => String(row.modelId)))
+  const attributionKey = (raw: unknown): string =>
+    resolveTelemetryAttributionKey(raw, providerCode, configuredIds)
+
+  type RawLogRow = (typeof rows)[number]
+  type MergedLogRow = RawLogRow & { errorBreakdown: ErrorBreakdown }
+  const mergeLogRows = (previous: MergedLogRow, row: RawLogRow): MergedLogRow =>
+    mergeTelemetryCallAggregates(previous, row)
+
+  const logByModel = new Map<string, MergedLogRow>()
   for (const row of rows) {
-    const key = normalizeModel(row.model)
+    const key = attributionKey(row.model)
     const previous = logByModel.get(key)
-    if (!previous) {
-      logByModel.set(key, row)
-      continue
-    }
-    const previousLast = previous.lastCallAt ? new Date(previous.lastCallAt).getTime() : 0
-    const currentLast = row.lastCallAt ? new Date(row.lastCallAt).getTime() : 0
-    logByModel.set(key, {
-      ...previous,
-      calls: toSafeCount(previous.calls) + toSafeCount(row.calls),
-      tokens: toSafeCount(previous.tokens) + toSafeCount(row.tokens),
-      errors: toSafeCount(previous.errors) + toSafeCount(row.errors),
-      pricedCalls: toSafeCount(previous.pricedCalls) + toSafeCount(row.pricedCalls),
-      costCents: (toNullableNumber(previous.costCents) ?? 0) + (toNullableNumber(row.costCents) ?? 0),
-      p95LatencyMs: Math.max(
-        toNullableNumber(previous.p95LatencyMs) ?? 0,
-        toNullableNumber(row.p95LatencyMs) ?? 0,
-      ),
-      ttftP95Ms: Math.max(
-        toNullableNumber(previous.ttftP95Ms) ?? 0,
-        toNullableNumber(row.ttftP95Ms) ?? 0,
-      ),
-      lastCallAt: currentLast > previousLast ? row.lastCallAt : previous.lastCallAt,
-    })
+    logByModel.set(
+      key,
+      previous ? mergeLogRows(previous, row) : { ...row, errorBreakdown: asBreakdown(row) },
+    )
   }
   const consumed = new Set<string>()
   const models: ModelTelemetryV2[] = configuredRows.map((row) => {
     const model = String(row.modelId)
-    const attributionKey = normalizeModel(model)
-    consumed.add(attributionKey)
-    const log = logByModel.get(attributionKey)
+    const key = attributionKey(model)
+    consumed.add(key)
+    const log = logByModel.get(key)
     const calls = toSafeCount(log?.calls)
     const errors = toSafeCount(log?.errors)
     const p95LatencyMs = round0(toNullableNumber(log?.p95LatencyMs))
@@ -622,9 +693,24 @@ export async function collectAiModelModelsTelemetryV2(
     }
   })
 
+  // 未匹配到配置的日志也要按同一个归一化 key 合并;否则同一模型的两个原始行
+  // 会各带部分计数出现两次,总量不丢但展示会分裂。
+  const unmatchedByKey = new Map<string, { model: string; row: MergedLogRow }>()
   for (const row of rows) {
-    const model = String(row.model)
-    if (consumed.has(normalizeModel(model))) continue
+    const key = attributionKey(row.model)
+    if (consumed.has(key)) continue
+    const current = unmatchedByKey.get(key)
+    if (current) {
+      current.row = mergeLogRows(current.row, row)
+    } else {
+      unmatchedByKey.set(key, {
+        model: String(row.model),
+        row: { ...row, errorBreakdown: asBreakdown(row) },
+      })
+    }
+  }
+
+  for (const { model, row } of unmatchedByKey.values()) {
     const calls = toSafeCount(row.calls)
     const errors = toSafeCount(row.errors)
     const p95LatencyMs = round0(toNullableNumber(row.p95LatencyMs))

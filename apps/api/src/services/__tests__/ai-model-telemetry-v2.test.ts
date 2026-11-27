@@ -7,7 +7,9 @@ import { describe, expect, it } from 'vitest'
 import {
   alignTelemetryBucketStart,
   fillTelemetrySeries,
+  mergeTelemetryCallAggregates,
   normalizeTelemetryModelName,
+  resolveTelemetryAttributionKey,
   resolveTelemetryWindow,
   sanitizeTelemetryErrorMessage,
   telemetryBucketCount,
@@ -89,9 +91,7 @@ describe('fillTelemetrySeries', () => {
 
 describe('normalizeTelemetryModelName', () => {
   it('剥离与当前 provider_code 一致的首段', () => {
-    expect(normalizeTelemetryModelName('agnes/agnes-3.0-flash', 'agnes')).toBe(
-      'agnes-3.0-flash',
-    )
+    expect(normalizeTelemetryModelName('agnes/agnes-3.0-flash', 'agnes')).toBe('agnes-3.0-flash')
   })
 
   it('只剥一次且大小写不敏感,保留真实模型主体的斜杠', () => {
@@ -105,9 +105,79 @@ describe('normalizeTelemetryModelName', () => {
   })
 })
 
+describe('resolveTelemetryAttributionKey', () => {
+  it('配置只有裸名时,provider/裸名 归并到裸名', () => {
+    const ids = new Set(['agnes-3.0-flash'])
+    expect(resolveTelemetryAttributionKey('agnes/agnes-3.0-flash', 'agnes', ids)).toBe(
+      'agnes-3.0-flash',
+    )
+  })
+
+  it('配置本身是真实斜杠模型时,精确同名优先,不剥前缀', () => {
+    const ids = new Set(['qwen/qwen3-32b'])
+    expect(resolveTelemetryAttributionKey('qwen/qwen3-32b', 'qwen', ids)).toBe('qwen/qwen3-32b')
+  })
+
+  it('同配置裸名+前缀名并存时,各自精确归属,不互相撞 key', () => {
+    const ids = new Set(['qwen3-32b', 'qwen/qwen3-32b'])
+    expect(resolveTelemetryAttributionKey('qwen/qwen3-32b', 'qwen', ids)).toBe('qwen/qwen3-32b')
+    expect(resolveTelemetryAttributionKey('qwen3-32b', 'qwen', ids)).toBe('qwen3-32b')
+  })
+
+  it('配置未命中的日志保留原名,空模型归一为空串', () => {
+    const ids = new Set(['agnes-3.0-flash'])
+    expect(resolveTelemetryAttributionKey('openai/gpt-4o', 'agnes', ids)).toBe('openai/gpt-4o')
+    expect(resolveTelemetryAttributionKey(null, 'agnes', ids)).toBe('')
+  })
+  it('配置为真实斜杠名而日志只记裸名时仍归并', () => {
+    const configured = new Set(['qwen/qwen3-32b'])
+    expect(resolveTelemetryAttributionKey('qwen3-32b', 'qwen', configured)).toBe('qwen/qwen3-32b')
+  })
+})
+
+describe('mergeTelemetryCallAggregates', () => {
+  it('同模型两行合并时计数/成本守恒,错误分项逐项相加', () => {
+    const merged = mergeTelemetryCallAggregates(
+      {
+        calls: 2,
+        tokens: 10,
+        errors: 1,
+        authErrors: 1,
+        retryableErrors: 1,
+        pricedCalls: 1,
+        costCents: 0.1,
+        p95LatencyMs: 1200,
+        lastCallAt: '2026-11-27T03:00:00.000Z',
+      },
+      {
+        calls: 3,
+        tokens: 20,
+        errors: 2,
+        rateLimitErrors: 2,
+        retryableErrors: 2,
+        pricedCalls: 2,
+        costCents: 0.2,
+        p95LatencyMs: 800,
+        lastCallAt: '2026-11-27T04:00:00.000Z',
+      },
+    )
+    expect(merged).toMatchObject({
+      calls: 5,
+      tokens: 30,
+      errors: 3,
+      retryableErrors: 3,
+      pricedCalls: 3,
+      errorBreakdown: { auth: 1, rateLimit: 2 },
+      lastCallAt: '2026-11-27T04:00:00.000Z',
+    })
+    expect(merged.costCents).toBe(0.3)
+  })
+})
+
 describe('sanitizeTelemetryErrorMessage', () => {
   it('错误串中的密钥/URL userinfo 先脱敏再返回', () => {
-    const raw = '401 Authorization: Bearer sk-live-abcdef1234567890 https://user:pass@example.com/v1'
+    const raw =
+      '401 Authorization: Bearer sk-live-abcdef1234567890 https://user:pass@example.com/v1'
     const safe = sanitizeTelemetryErrorMessage(raw)
     expect(safe).not.toContain('sk-live-abcdef1234567890')
     expect(safe).not.toContain('user:pass')

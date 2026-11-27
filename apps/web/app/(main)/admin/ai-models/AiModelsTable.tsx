@@ -83,7 +83,7 @@ function RuntimeCell({
         <div className="whitespace-nowrap">
           <span className="font-medium">
             {t('telemetry.cellCalls', {
-              count: formatNumber(metric.calls),
+              count: formatCompact(metric.calls, locale),
               tokens: formatCompact(metric.tokens, locale),
             })}
           </span>
@@ -143,10 +143,12 @@ export function AiModelsTable({
 }: Props) {
   const t = useTranslations('adminAiModels')
   const scrollRef = useRef<HTMLDivElement>(null)
+  // 只在行集合变化(筛选/翻页)时归零横向滚动;mutation 后 refetch 是同一批行,
+  // 若依赖 list 引用会导致用户刚拖到右侧又被弹回行首。
+  const scrollResetKey = list.map((item) => item.id).join('|')
   useEffect(() => {
-    // 切换筛选/翻页后把横向位置收回左侧,避免用户看到"行首被裁掉"的错觉。
     scrollRef.current?.scrollTo({ left: 0 })
-  }, [list])
+  }, [scrollResetKey])
   // 同名不同端点(典型:Qoder 的 gateway 反代行与 openapi 上游登记行)只靠 Base URL 区分,
   // 在名称下补一行 host,避免用户看成两条重复配置。
   const nameCounts = new Map<string, number>()

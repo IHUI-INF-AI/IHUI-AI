@@ -47,12 +47,16 @@ vi.mock('../../services/ai-model-telemetry-v2.js', () => ({
   }),
   collectAiModelModelsTelemetryV2: vi.fn(async (configId: unknown, window: unknown) => {
     serviceCalls.models.push([configId, window])
-    return { configId, window, models: [] }
+    return {
+      configId,
+      window,
+      models: [{ model: 'agnes-3.0-flash', tokens: 1234, promptTokens: 900 }],
+    }
   }),
   collectRecentAiModelCalls: vi.fn(
     async (configId: unknown, model: unknown, window: unknown, limit: unknown) => {
       serviceCalls.calls.push([configId, model, window, limit])
-      return []
+      return [{ model: 'agnes/agnes-3.0-flash', tokens: 1234, costCents: 0.2 }]
     },
   ),
 }))
@@ -60,7 +64,7 @@ vi.mock('../../services/ai-model-telemetry-v2.js', () => ({
 vi.mock('../../services/ai-model-governance.js', () => ({
   collectAiModelGovernance: vi.fn(async () => {
     serviceCalls.governance += 1
-    return { summary: { configs: 0 }, issues: [], byConfig: {}, byProvider: {} }
+    return { summary: { configs: 0 }, issues: [], byConfig: {}, byProvider: {}, tokenBudget: 1234 }
   }),
 }))
 
@@ -130,6 +134,8 @@ describe('admin ai-model telemetry routes', () => {
     })
     expect(ok.statusCode).toBe(200)
     expect(serviceCalls.models).toEqual([[59, '7d']])
+    const body = ok.json() as { data?: { models?: Array<{ tokens?: unknown }> } }
+    expect(body.data?.models?.[0]?.tokens).toBe(1234)
   })
 
   it('calls 透传 model / limit,且 limit 上限 100', async () => {
@@ -139,6 +145,8 @@ describe('admin ai-model telemetry routes', () => {
     })
     expect(ok.statusCode).toBe(200)
     expect(serviceCalls.calls).toEqual([[59, 'qoder/auto', '1h', 3]])
+    const body = ok.json() as { data?: Array<{ tokens?: unknown; costCents?: unknown }> }
+    expect(body.data?.[0]).toMatchObject({ tokens: 1234, costCents: 0.2 })
 
     const bad = await app.inject({
       method: 'GET',
@@ -150,8 +158,9 @@ describe('admin ai-model telemetry routes', () => {
   it('health 静态段不会被 /:id 参数路由吃掉', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/admin/ai-model-config/health' })
     expect(res.statusCode).toBe(200)
-    const body = res.json() as { data?: { shadowed?: boolean } }
+    const body = res.json() as { data?: { shadowed?: boolean; tokenBudget?: unknown } }
     expect(body.data?.shadowed).toBeUndefined()
+    expect(body.data?.tokenBudget).toBe(1234)
     expect(serviceCalls.governance).toBe(1)
   })
 })
