@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { Check, Loader2, MessageSquare, RotateCcw, Send, Trash2, X } from 'lucide-react'
+import { Check, Loader2, MessageSquare, RefreshCw, RotateCcw, Send, Trash2, X } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 
 import { fetchApi } from '@/lib/api'
@@ -237,17 +237,29 @@ export function DocumentAnnotationsPanel({
             </p>
           ) : null}
         </div>
-        {onClose ? (
+        <div className="flex shrink-0 items-center gap-1">
           <Button
             variant="ghost"
             size="sm"
-            onClick={onClose}
-            aria-label="关闭批注面板"
-            title="关闭批注面板"
+            onClick={() => void load()}
+            disabled={loading}
+            aria-label="刷新批注"
+            title="刷新批注"
           >
-            <X className="h-4 w-4" />
+            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
           </Button>
-        ) : null}
+          {onClose ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              aria-label="关闭批注面板"
+              title="关闭批注面板"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <div className="shrink-0 space-y-1.5 border-b border-stroke-subtle p-3">
