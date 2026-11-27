@@ -1371,6 +1371,29 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
       .where(eq(chatMessages.conversationId, input.conversationId))
     const maxTurn = Number(turnRows[0]?.maxTurn ?? 0)
     const role = input.role ?? 'user'
+    // 2026-11-27(A4 顺序倒置根治·第二层):旧客户端/旧缓存仍可能在本轮助手已落库后,
+    // 再用**不带 id** 的 POST 补写一次同文用户消息(生产实测:助手 16.530、重复 user
+    // 16.573,默认 UUID、turn+1,界面变成 user→assistant→user)。带 id 的补写由上面的
+    // 幂等挡住;不带 id 的只能在服务端按"紧邻助手之前的同文用户"折叠。窗口取 2s:
+    // 人类不可能在收到回复后 2 秒内手打同一段话重发,而竞态重复实测只差 43ms。
+    if (role === 'user' && !input.id) {
+      const tail = await tx
+        .select()
+        .from(chatMessages)
+        .where(eq(chatMessages.conversationId, input.conversationId))
+        .orderBy(desc(chatMessages.createdAt), desc(chatMessages.id))
+        .limit(2)
+      const last = tail[0]
+      const beforeLast = tail[1]
+      if (
+        last?.role === 'assistant' &&
+        beforeLast?.role === 'user' &&
+        beforeLast.content === input.content
+      ) {
+        const ageMs = Date.now() - new Date(beforeLast.createdAt).getTime()
+        if (ageMs >= 0 && ageMs <= 2_000) return beforeLast
+      }
+    }
     // 2026-11-27(A4 顺序倒置根治):助手回复优先钉在**它回答的那条消息**的 turn 上。
     // 普通发送锚 userMessageId(用户消息),regenerate 锚 parentMessageId(版本族根)。
     // 只读 max 仍有一个窗口:回调到达前用户又发了一条,回复会被挂到后一轮 —— 消息都在,
