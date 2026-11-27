@@ -29859,11 +29859,12 @@
     "accentAmber": "앰버",
     "accentRose": "로즈"
   ,
-    "presetBuiltinPink": "핑크",
+    "presetBuiltinPink": "체리 핑크",
     "presetBuiltinPinkDesc": "부드러운 핑크 배경과 로즈 포인트. 라이트/다크 모두 지원",
-    "themeModeLabel": "밝기",
     "themeSkinLabel": "테마 색상",
-    "themeSkinDefault": "기본"},
+    "themeSkinDefault": "시스템",
+    "themeSkinPearl": "펄 화이트",
+    "themeSkinObsidian": "옵시디언 블랙"},
   "checkinAssistant": {
     "taskPanelTitle": "태스크 패널",
     "taskPanelNoAccount": "계정 미연결",

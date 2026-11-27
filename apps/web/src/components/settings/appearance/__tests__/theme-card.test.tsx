@@ -3,10 +3,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 统一主题卡(2026-11-27)
+ * 统一主题卡(2026-11-27 三字主题色版)
  *
- * 验证「一张卡切全部」:明暗走 next-themes、主题色(默认/粉色)走 appearance store 的 customTheme,
- * 粉色 = 粉色皮肤色板 + 玫瑰主色,切回默认只关 customTheme、不动排版配置。
+ * 验证「一行选完」:随系统 / 珍珠白 / 曜石黑 = 中性皮肤 + next-themes 明暗档,
+ * 樱花粉 = 粉色皮肤色板 + 玫瑰主色(亮暗自适应);切回中性只关 customTheme、不动排版配置。
  */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -37,13 +37,14 @@ afterEach(() => {
 })
 
 describe('ThemeCard(统一主题)', () => {
-  it('点击粉色主题色:开启粉色皮肤并选中玫瑰主色,不碰排版字段', () => {
+  it('点击樱花粉:开启粉色皮肤并选中玫瑰主色,亮暗自适应,不碰排版字段', () => {
     render(<ThemeCard />)
     fireEvent.click(screen.getByTestId('appearance-skin-pink'))
     const state = useAppearanceStore.getState()
     expect(state.customTheme.enabled).toBe(true)
     expect(isPinkSkin(state.customTheme)).toBe(true)
     expect(state.accentColor).toBe('rose')
+    expect(hoisted.setTheme).toHaveBeenLastCalledWith('system')
     expect(state.uiScale).toBe(APPEARANCE_DEFAULTS.uiScale)
     expect(state.fontFamily).toBe(APPEARANCE_DEFAULTS.fontFamily)
     for (const mode of ['light', 'dark'] as const) {
@@ -53,24 +54,24 @@ describe('ThemeCard(统一主题)', () => {
     }
   })
 
-  it('粉色选中后再点默认:只关闭自定义主题,排版配置原样保留', () => {
+  it('粉色选中后再点珍珠白:关闭自定义主题、切浅色,排版配置原样保留', () => {
     useAppearanceStore.getState().update({ uiScale: 1.1 })
     render(<ThemeCard />)
     fireEvent.click(screen.getByTestId('appearance-skin-pink'))
-    fireEvent.click(screen.getByTestId('appearance-skin-default'))
+    fireEvent.click(screen.getByTestId('appearance-skin-pearl'))
     const state = useAppearanceStore.getState()
     expect(state.customTheme.enabled).toBe(false)
     expect(state.accentColor).toBe('default')
+    expect(hoisted.setTheme).toHaveBeenLastCalledWith('light')
     expect(state.uiScale).toBe(1.1)
   })
 
-  it('明暗三种模式直接写 next-themes', () => {
+  it('曜石黑与随系统:中性皮肤 + 对应明暗档', () => {
     render(<ThemeCard />)
-    fireEvent.click(screen.getByTestId('appearance-mode-dark'))
+    fireEvent.click(screen.getByTestId('appearance-skin-obsidian'))
     expect(hoisted.setTheme).toHaveBeenLastCalledWith('dark')
-    fireEvent.click(screen.getByTestId('appearance-mode-light'))
-    expect(hoisted.setTheme).toHaveBeenLastCalledWith('light')
-    fireEvent.click(screen.getByTestId('appearance-mode-system'))
+    expect(useAppearanceStore.getState().customTheme.enabled).toBe(false)
+    fireEvent.click(screen.getByTestId('appearance-skin-system'))
     expect(hoisted.setTheme).toHaveBeenLastCalledWith('system')
   })
 })

@@ -4,28 +4,23 @@
 'use client'
 
 /**
- * ThemeCard — 主题(2026-11-27 统一版)
+ * ThemeCard — 主题(2026-11-27 三字主题色版)
  *
- * 明暗(跟随系统/浅色/深色)与主题色(默认/粉色)收在同一张卡里 —— 设置页只有这一处能切主题。
- * 主题色走既有 customTheme 通道(粉色 = 亮/暗两套色板,跟随上面的明暗),不新增第二套主题系统。
- * 主色档(accent)不再单列:粉色等皮肤自带主色,细调走下方「自定义主题」。
+ * 主题色 = 随系统 / 珍珠白 / 曜石黑 / 樱花粉,一行选完:前三个是中性皮肤的明暗档
+ * (随系统跟随设备、珍珠白固定浅色、曜石黑固定深色),樱花粉 = 粉色皮肤(亮暗自适应)。
+ * 主题色走既有 customTheme 通道(粉色 = 亮/暗两套色板),不新增第二套主题系统。
+ * 细调仍走下方「自定义主题」。
  */
 
 import * as React from 'react'
 import { useTheme } from 'next-themes'
 import { useTranslations } from 'next-intl'
-import { Monitor, Moon, Palette, Sun } from 'lucide-react'
+import { Monitor, Palette } from 'lucide-react'
 
 import { useAppearanceStore } from '@/stores/appearance-settings'
 import { PINK_SKIN, isPinkSkin } from '@/lib/theme-skins'
 
 import { OptionGrid, SectionCard } from './controls'
-
-const MODES = [
-  { key: 'system' as const, icon: Monitor, labelKey: 'themeSystem' },
-  { key: 'light' as const, icon: Sun, labelKey: 'themeLight' },
-  { key: 'dark' as const, icon: Moon, labelKey: 'themeDark' },
-]
 
 /** 选中/未选中按钮的同一套外观(与设置页其他单选组一致) */
 const BTN = {
@@ -35,7 +30,6 @@ const BTN = {
 
 export function ThemeCard() {
   const t = useTranslations('appearanceSettings')
-  const tm = useTranslations('settings')
   const config = useAppearanceStore()
   const { theme, setTheme } = useTheme()
   // useTheme 在 SSR/首帧是 undefined,水合后才拿到真值;先按未挂载渲染避免不一致
@@ -44,6 +38,76 @@ export function ThemeCard() {
 
   const pinkActive = isPinkSkin(config.customTheme)
   const neutralActive = !config.customTheme.enabled
+  const systemActive = neutralActive && mounted && theme === 'system'
+  const pearlActive = neutralActive && mounted && theme === 'light'
+  const obsidianActive = neutralActive && mounted && theme === 'dark'
+
+  const applyNeutral = () => {
+    config.update({
+      accentColor: 'default',
+      customTheme: { ...config.customTheme, enabled: false },
+    })
+  }
+
+  const skins = [
+    {
+      id: 'system',
+      label: t('themeSkinDefault'),
+      active: systemActive,
+      onClick: () => {
+        applyNeutral()
+        setTheme('system')
+      },
+      swatch: <Monitor className="h-4 w-4 shrink-0" aria-hidden="true" />,
+    },
+    {
+      id: 'pearl',
+      label: t('themeSkinPearl'),
+      active: pearlActive,
+      onClick: () => {
+        applyNeutral()
+        setTheme('light')
+      },
+      swatch: (
+        <span
+          className="block h-4 w-4 shrink-0 rounded-full bg-white ring-1 ring-black/20"
+          aria-hidden="true"
+        />
+      ),
+    },
+    {
+      id: 'obsidian',
+      label: t('themeSkinObsidian'),
+      active: obsidianActive,
+      onClick: () => {
+        applyNeutral()
+        setTheme('dark')
+      },
+      swatch: (
+        <span
+          className="block h-4 w-4 shrink-0 rounded-full ring-1 ring-black/40"
+          style={{ background: '#141416' }}
+          aria-hidden="true"
+        />
+      ),
+    },
+    {
+      id: 'pink',
+      label: t('presetBuiltinPink'),
+      active: pinkActive,
+      onClick: () => {
+        config.update({ accentColor: 'rose', customTheme: { ...PINK_SKIN } })
+        setTheme('system')
+      },
+      swatch: (
+        <span
+          className="block h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10"
+          style={{ background: 'linear-gradient(135deg, #f9a8c8, #c23a72)' }}
+          aria-hidden="true"
+        />
+      ),
+    },
+  ]
 
   return (
     <SectionCard
@@ -53,65 +117,22 @@ export function ThemeCard() {
       testId="appearance-theme"
     >
       <div className="space-y-1.5">
-        <span className="text-body font-medium">{t('themeModeLabel')}</span>
-        <div role="radiogroup" aria-label={t('themeModeLabel')} className="grid grid-cols-3 gap-2">
-          {MODES.map(({ key, icon: Icon, labelKey }) => {
-            const active = mounted && theme === key
-            return (
-              <button
-                key={key}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => setTheme(key)}
-                data-testid={`appearance-mode-${key}`}
-                className={`flex items-center justify-center gap-2 rounded-sm border px-2 py-2 text-body transition-colors ${active ? BTN.active : BTN.idle}`}
-              >
-                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="whitespace-nowrap font-medium">{tm(labelKey)}</span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
         <span className="text-body font-medium">{t('themeSkinLabel')}</span>
         <div role="radiogroup" aria-label={t('themeSkinLabel')} className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            role="radio"
-            aria-checked={neutralActive}
-            onClick={() =>
-              config.update({
-                accentColor: 'default',
-                customTheme: { ...config.customTheme, enabled: false },
-              })
-            }
-            data-testid="appearance-skin-default"
-            className={`flex items-center gap-2 rounded-sm border px-2 py-2 text-body transition-colors ${neutralActive ? BTN.active : BTN.idle}`}
-          >
-            <span
-              className="block h-4 w-4 shrink-0 rounded-full bg-foreground ring-1 ring-black/10"
-              aria-hidden="true"
-            />
-            <span className="whitespace-nowrap font-medium">{t('themeSkinDefault')}</span>
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={pinkActive}
-            onClick={() => config.update({ accentColor: 'rose', customTheme: { ...PINK_SKIN } })}
-            data-testid="appearance-skin-pink"
-            className={`flex items-center gap-2 rounded-sm border px-2 py-2 text-body transition-colors ${pinkActive ? BTN.active : BTN.idle}`}
-          >
-            <span
-              className="block h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10"
-              style={{ background: 'linear-gradient(135deg, #f9a8c8, #c23a72)' }}
-              aria-hidden="true"
-            />
-            <span className="whitespace-nowrap font-medium">{t('presetBuiltinPink')}</span>
-          </button>
+          {skins.map((skin) => (
+            <button
+              key={skin.id}
+              type="button"
+              role="radio"
+              aria-checked={skin.active}
+              onClick={skin.onClick}
+              data-testid={`appearance-skin-${skin.id}`}
+              className={`flex items-center gap-2 rounded-sm border px-2 py-2 text-body transition-colors ${skin.active ? BTN.active : BTN.idle}`}
+            >
+              {skin.swatch}
+              <span className="whitespace-nowrap font-medium">{skin.label}</span>
+            </button>
+          ))}
         </div>
         {pinkActive ? (
           <p className="text-label text-muted-foreground">{t('presetBuiltinPinkDesc')}</p>

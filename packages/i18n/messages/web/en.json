@@ -29562,11 +29562,12 @@
     "accentAmber": "Amber",
     "accentRose": "Rose"
   ,
-    "presetBuiltinPink": "Pink",
+    "presetBuiltinPink": "Cherry Pink",
     "presetBuiltinPinkDesc": "Soft pink surfaces with rose accents, tuned for both light and dark",
-    "themeModeLabel": "Light / dark",
     "themeSkinLabel": "Theme color",
-    "themeSkinDefault": "Default"},
+    "themeSkinDefault": "System",
+    "themeSkinPearl": "Pearl White",
+    "themeSkinObsidian": "Obsidian Black"},
   "checkinAssistant": {
     "taskPanelTitle": "Task Panel",
     "taskPanelNoAccount": "No Account Linked",
