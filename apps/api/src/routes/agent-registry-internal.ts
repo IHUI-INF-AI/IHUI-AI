@@ -173,11 +173,16 @@ export async function agentRegistryInternalRoutes(server: FastifyInstance): Prom
       includeDeleted: query.includeDeleted ?? true,
       limit: query.limit,
     })
+    const version = items.reduce((max, item) => {
+      const parsed = Date.parse(item.updatedAt)
+      return Number.isFinite(parsed) ? Math.max(max, parsed) : max
+    }, 0)
     return reply.send(
       withRequestId(
         request,
         success({
           items,
+          version,
           serverTime: new Date().toISOString(),
           updatedAfter: query.updatedAfter ?? null,
         }),

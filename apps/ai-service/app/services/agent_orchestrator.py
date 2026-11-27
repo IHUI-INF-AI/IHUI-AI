@@ -28,7 +28,10 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .agent_definition import RuntimeAgentDefinition
 
 from ..core.executor_switch import guard_loop_v2_pilot, take_loop_v2_handoff
 from ..core.llm_gateway import llm_gateway
@@ -48,6 +51,7 @@ from ..core.permission_mode import (
 from ..core.permission_mode import (
     tool_allowed_by_policy as _tool_allowed_by_policy,
 )
+from .agent_resolver import AgentResolveError
 from .mcp_server import mcp_server
 from .memory import memory_store
 from .prompt_registry import prompt_registry
@@ -92,6 +96,10 @@ class AgentStepResult:
     iterations: int = 0
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     error: str | None = None
+    error_code: str | None = None
+    definition_id: str | None = None
+    definition_version: int | None = None
+    prompt_hash: str | None = None
 
 
 @dataclass
@@ -300,12 +308,33 @@ class AgentRegistry:
 class AgentOrchestrator:
     """多智能体编排器。"""
 
-    def __init__(self, registry: AgentRegistry | None = None) -> None:
+    def __init__(
+        self,
+        registry: AgentRegistry | None = None,
+        definition_provider: Callable[[str], RuntimeAgentDefinition] | None = None,
+    ) -> None:
         self._registry = registry or AgentRegistry()
+        self._definition_provider = definition_provider
 
     @property
     def registry(self) -> AgentRegistry:
         return self._registry
+
+    def _get_runtime(self, agent_name: str) -> RuntimeAgentDefinition | None:
+        """有 provider 时走注册表快照；provider 抛错就交给 invoke 转为明确失败。"""
+        if self._definition_provider is None:
+            return None
+        return self._definition_provider(agent_name)
+
+    def _get_agent(self, agent_name: str) -> AgentDefinition | None:
+        try:
+            runtime = self._get_runtime(agent_name)
+        except AgentResolveError as exc:
+            logger.warning("[orchestrator] 定义解析失败 agent=%s code=%s", agent_name, exc.code)
+            return None
+        if runtime is not None:
+            return runtime.to_legacy()
+        return self._registry.get(agent_name)
 
     # =========================================================================
     # Single agent invoke
@@ -336,7 +365,20 @@ class AgentOrchestrator:
                                 **绝不**在本处再猜一个方向。
         """
         start = time.monotonic()
-        agent = self._registry.get(agent_name)
+        runtime: RuntimeAgentDefinition | None
+        try:
+            runtime = self._get_runtime(agent_name)
+        except AgentResolveError as exc:
+            return AgentStepResult(
+                agent_name=agent_name,
+                input=user_input,
+                output="",
+                status="failed",
+                duration_ms=round((time.monotonic() - start) * 1000, 2),
+                error=exc.message,
+                error_code=exc.code,
+            )
+        agent = runtime.to_legacy() if runtime is not None else self._get_agent(agent_name)
         if not agent:
             return AgentStepResult(
                 agent_name=agent_name,
@@ -345,8 +387,9 @@ class AgentOrchestrator:
                 status="failed",
                 duration_ms=round((time.monotonic() - start) * 1000, 2),
                 error=f"Agent 不存在: {agent_name}",
+                error_code="AGENT_NOT_FOUND",
             )
-        return await self._run_agent(
+        result = await self._run_agent(
             agent,
             user_input,
             session_id,
@@ -357,6 +400,11 @@ class AgentOrchestrator:
             tool_allow=tool_allow,
             tool_deny=tool_deny,
         )
+        if runtime is not None:
+            result.definition_id = runtime.id
+            result.definition_version = runtime.version
+            result.prompt_hash = runtime.prompt_hash
+        return result
 
     # =========================================================================
     # Pipeline(串行)
@@ -567,7 +615,7 @@ class AgentOrchestrator:
             round_idx: int, prev_text: str, agent_name: str,
         ) -> tuple[AgentStepResult, dict[str, Any], dict[str, Any]]:
             """单 agent 单轮发言(供并行 gather 调用)。返回 (step_result, trace_item, round_record)。"""
-            agent = self._registry.get(agent_name)
+            agent = self._get_agent(agent_name)
             if not agent:
                 step_r = AgentStepResult(
                     agent_name=agent_name, input="", output="",
@@ -733,7 +781,7 @@ class AgentOrchestrator:
 
         # 第 1 阶段:并行生成方案
         async def _gen(idx: int, agent_name: str) -> tuple[int, str, AgentStepResult]:
-            agent = self._registry.get(agent_name)
+            agent = self._get_agent(agent_name)
             if not agent:
                 r = AgentStepResult(
                     agent_name=agent_name, input="", output="",
@@ -790,7 +838,7 @@ class AgentOrchestrator:
         n_proposals = len(proposals)
 
         async def _vote(voter_name: str) -> tuple[str, int]:
-            agent = self._registry.get(voter_name)
+            agent = self._get_agent(voter_name)
             if not agent:
                 return voter_name, -1
             user_input = (
@@ -891,7 +939,7 @@ class AgentOrchestrator:
 
         proposer_name = agents[0]
         critic_names = agents[1:]
-        proposer = self._registry.get(proposer_name)
+        proposer = self._get_agent(proposer_name)
 
         if not proposer:
             return OrchestrationResult(
@@ -937,7 +985,7 @@ class AgentOrchestrator:
             async def _critique(
                 critic_name: str, current_proposal: str = current_proposal
             ) -> AgentStepResult:
-                agent = self._registry.get(critic_name)
+                agent = self._get_agent(critic_name)
                 if not agent:
                     return AgentStepResult(
                         agent_name=critic_name, input="", output="",
@@ -1147,7 +1195,7 @@ class AgentOrchestrator:
                 st = subtask_map[sub_task_id]
                 decision = decision_map.get(sub_task_id)
                 agent_name = decision.assignedAgent if decision else st.recommendedAgentType
-                agent = self._registry.get(agent_name)
+                agent = self._get_agent(agent_name)
                 if agent is None:
                     return AgentStepResult(
                         agent_name=agent_name,
@@ -1280,7 +1328,7 @@ class AgentOrchestrator:
 
         # 3. 每个 agent 依次处理(可读黑板 + 请求协助)
         for _idx, agent_name in enumerate(agents):
-            agent = self._registry.get(agent_name)
+            agent = self._get_agent(agent_name)
             if not agent:
                 step_results.append(AgentStepResult(
                     agent_name=agent_name, input="", output="",
@@ -1433,7 +1481,7 @@ class AgentOrchestrator:
                 task_cb = _task_cb
 
             # 先检查 agent 是否存在(不占用 semaphore,失败不影响其他 task)
-            if not self._registry.get(name):
+            if not self._get_agent(name):
                 return {
                     "name": name,
                     "task": task_desc,

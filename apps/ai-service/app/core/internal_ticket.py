@@ -85,6 +85,7 @@ INTERNAL_TICKET_SCOPES: frozenset[str] = frozenset(
         "memory",  # /api/memory
         "self-evolution",  # clawdbot 自进化回写
         "registry-sync",  # 注册表漂移检测
+        "agent-registry",  # 总管智能体注册表快照/解析/运行账本回写
         # ── X-Internal-Secret 族票据化(2026-11-06)新增用途 ──
         "knowledge-card",  # ai-service 经验抽取写卡
         "skills-market",  # clawdbot 自进化发布 skill 到市场
