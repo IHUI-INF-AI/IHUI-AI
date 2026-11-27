@@ -277,7 +277,7 @@ async function parseWithExceljs(
   const workbook = new Workbook()
   // exceljs .d.ts 在全局声明了 `interface Buffer extends ArrayBuffer`,与 Node.js 的 Buffer(extends Uint8Array)类型冲突
   // 运行时完全兼容(Node Buffer 是 Uint8Array 子类,exceljs 内部用 Buffer.isBuffer / instanceof Uint8Array 检测)
-  // @ts-expect-error exceljs Buffer(extends ArrayBuffer) vs Node Buffer(extends Uint8Array) 类型冲突,运行时兼容
+  // exceljs Buffer(extends ArrayBuffer) vs Node Buffer(extends Uint8Array) 类型冲突,运行时兼容
   await workbook.xlsx.load(buffer)
   const sheets: Array<{ name: string; matrix: string[][] }> = []
   for (const ws of workbook.worksheets) {
