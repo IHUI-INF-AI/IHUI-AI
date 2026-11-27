@@ -35,6 +35,7 @@ import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
 
 import type { Model } from './types'
+import { RelayMeteredPanel, isMeteredRelay } from './RelayMeteredPrice'
 
 interface Props {
   model: Model | null
@@ -95,6 +96,7 @@ export function ModelDetailDialog({
   const outputPrice =
     model.outputPrice ?? (typeof model.inputPrice === 'number' ? model.inputPrice * 3 : undefined)
   const isOutputEstimated = outputPrice !== undefined && model.outputPrice === undefined
+  const isMetered = isMeteredRelay(model)
   const vendorLabel = resolveVendorDisplayName(model.provider, tChat)
   const description = model.description ? t(model.description) : t('market.defaultDescription')
 
@@ -201,29 +203,37 @@ export function ModelDetailDialog({
               icon={<Zap className="h-3.5 w-3.5" />}
               label={t('market.inputPrice')}
               value={
-                typeof model.inputPrice !== 'number'
+                isMetered
                   ? '—'
-                  : model.inputPrice === 0
-                    ? t('free')
-                    : `${formatUsd(model.inputPrice)}${t('perMillion')}`
+                  : typeof model.inputPrice !== 'number'
+                    ? '—'
+                    : model.inputPrice === 0
+                      ? t('free')
+                      : `${formatUsd(model.inputPrice)}${t('perMillion')}`
               }
             />
             <DetailStat
               icon={<Gift className="h-3.5 w-3.5" />}
               label={t('market.outputPrice')}
               value={
-                typeof outputPrice !== 'number'
+                isMetered
                   ? '—'
-                  : outputPrice === 0
-                    ? t('free')
-                    : `${formatUsd(outputPrice)}${isOutputEstimated ? '*' : ''}${t('perMillion')}`
+                  : typeof outputPrice !== 'number'
+                    ? '—'
+                    : outputPrice === 0
+                      ? t('free')
+                      : `${formatUsd(outputPrice)}${isOutputEstimated ? '*' : ''}${t('perMillion')}`
               }
               hint={isOutputEstimated ? t('detail.estimatedHint') : undefined}
             />
           </div>
 
+          {/* 媒体/动态成本模型:按单位或实际成本展示,禁止 0 渲染成“免费” */}
+          {model.relayPublic && isMetered && <RelayMeteredPanel model={model} />}
+
           {/* P0-5g 中转站定价区(模型已上架中转即显示,倍率=1 也展示;价格与卡片同源) */}
           {model.relayPublic &&
+            !isMetered &&
             (typeof relayInputPrice === 'number' || typeof relayOutputPrice === 'number') && (
               <div className="rounded-md border border-sky-200 bg-sky-50/60 px-3 py-2.5 dark:border-sky-900 dark:bg-sky-950/20">
                 <div className="flex items-center gap-1.5 text-[11px] font-medium text-sky-800 dark:text-sky-300 [&>span]:translate-y-[var(--text-vcenter-offset)]">

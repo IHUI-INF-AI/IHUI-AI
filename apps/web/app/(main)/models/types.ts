@@ -135,6 +135,14 @@ export interface Model {
   relayPriceMultiplier?: number
   /** 中转站展示名(为空时用 name/id) */
   relayDisplayName?: string
+  /** 中转站计费模式(2026-11-27):token 之外的媒体/动态成本不能按 token 价展示 */
+  relayBillingMode?: 'token' | 'per_call' | 'per_image' | 'per_video' | 'dynamic_cost'
+  /** 媒体单位售价(分):per_image=分/张,per_video=分/次或分/秒 */
+  relayPerUnitPriceCents?: number
+  /** per_video 计价单位:call=按次,second=按秒 */
+  relayVideoUnit?: 'call' | 'second' | null
+  /** per_call 三档售价(分/次,已乘倍率) */
+  relayTieredCallPricesCents?: { le256k: number; mid: number; gt512k: number } | null
   // --- 价格对比字段(2026-09-16 立,对齐同类中转站的官方价/实付价对照) ---
   /** 官方/上游参考输入价(分/千 token) */
   relayOfficialInputPricePer1k?: number

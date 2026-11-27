@@ -61,6 +61,13 @@ import {
 } from '@ihui/shared'
 
 import { ModelDetailDialog } from './ModelDetailDialog'
+import {
+  RelayMeteredInline,
+  RelayMeteredPanel,
+  RelayMeteredSummary,
+  isMeteredRelay,
+  relayComparablePrice,
+} from './RelayMeteredPrice'
 import { QuickKeyDialog } from './QuickKeyDialog'
 import { getFavoriteModelIds, toggleFavoriteModel, SORT_KEY, QUICK_FILTER_KEY } from './helpers'
 import type { Model, QuickFilter, SortKey, ViewMode } from './types'
@@ -168,7 +175,8 @@ export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
       if (filter === 'all') return true
       switch (filter) {
         case 'free':
-          return m.inputPrice === 0
+          // 媒体/动态成本模型可能没有 token 标价(0),但它们不是免费模型。
+          return m.inputPrice === 0 && !isMeteredRelay(m)
         case 'longContext':
           return m.contextLength >= 200000
         case 'reasoning':
@@ -230,14 +238,16 @@ export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
       case 'priceAsc':
         return arr.sort(
           (a, b) =>
-            (a.inputPrice ?? Number.POSITIVE_INFINITY) -
-              (b.inputPrice ?? Number.POSITIVE_INFINITY) || a.name.localeCompare(b.name, 'zh-CN'),
+            (relayComparablePrice(a) ?? a.inputPrice ?? Number.POSITIVE_INFINITY) -
+              (relayComparablePrice(b) ?? b.inputPrice ?? Number.POSITIVE_INFINITY) ||
+            a.name.localeCompare(b.name, 'zh-CN'),
         )
       case 'priceDesc':
         return arr.sort(
           (a, b) =>
-            (b.inputPrice ?? Number.NEGATIVE_INFINITY) -
-              (a.inputPrice ?? Number.NEGATIVE_INFINITY) || a.name.localeCompare(b.name, 'zh-CN'),
+            (relayComparablePrice(b) ?? b.inputPrice ?? Number.NEGATIVE_INFINITY) -
+              (relayComparablePrice(a) ?? a.inputPrice ?? Number.NEGATIVE_INFINITY) ||
+            a.name.localeCompare(b.name, 'zh-CN'),
         )
       case 'contextDesc':
         return arr.sort((a, b) => b.contextLength - a.contextLength)
@@ -266,7 +276,10 @@ export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
     [sorted, visibleCount],
   )
 
-  const freeTotal = React.useMemo(() => list.filter((m) => m.inputPrice === 0).length, [list])
+  const freeTotal = React.useMemo(
+    () => list.filter((m) => m.inputPrice === 0 && !isMeteredRelay(m)).length,
+    [list],
+  )
   const highlightTotal = React.useMemo(() => list.filter((m) => m.highlight).length, [list])
   const favoriteTotal = React.useMemo(
     () => list.filter((m) => favoriteIds.has(m.id)).length,
@@ -671,38 +684,42 @@ function ModelCardGrid({
         </span>
       </div>
 
-      {/* 价格 — 横向一排,容器包裹(输入价 + 输出价) */}
-      <div className="rounded-md bg-muted/50 px-2 py-1.5 text-label">
-        <div className="flex items-center justify-between [&>span]:translate-y-[var(--text-vcenter-offset)]">
-          <span className="inline-flex items-center gap-1 text-muted-foreground">
-            <Zap className="h-3 w-3" />
-            {t('market.inputPrice')}
-          </span>
-          <span className="font-medium text-foreground" suppressHydrationWarning>
-            {typeof model.inputPrice !== 'number'
-              ? '—'
-              : model.inputPrice === 0
-                ? t('free')
-                : formatUsd(model.inputPrice)}
-            {typeof model.inputPrice === 'number' && (
-              <span className="ml-1 text-muted-foreground">{t('perMillion')}</span>
-            )}
-          </span>
+      {/* 价格 — token 模型展示输入/输出价;媒体/动态成本模型展示单位价,避免 0 被当成免费 */}
+      {isMeteredRelay(model) ? (
+        <RelayMeteredSummary model={model} />
+      ) : (
+        <div className="rounded-md bg-muted/50 px-2 py-1.5 text-label">
+          <div className="flex items-center justify-between [&>span]:translate-y-[var(--text-vcenter-offset)]">
+            <span className="inline-flex items-center gap-1 text-muted-foreground">
+              <Zap className="h-3 w-3" />
+              {t('market.inputPrice')}
+            </span>
+            <span className="font-medium text-foreground" suppressHydrationWarning>
+              {typeof model.inputPrice !== 'number'
+                ? '—'
+                : model.inputPrice === 0
+                  ? t('free')
+                  : formatUsd(model.inputPrice)}
+              {typeof model.inputPrice === 'number' && (
+                <span className="ml-1 text-muted-foreground">{t('perMillion')}</span>
+              )}
+            </span>
+          </div>
+          <div className="mt-1 flex items-center justify-between [&>span]:translate-y-[var(--text-vcenter-offset)]">
+            <span className="text-muted-foreground">{t('market.outputPrice')}</span>
+            <span className="font-medium text-foreground" suppressHydrationWarning>
+              {typeof outputPrice !== 'number'
+                ? '—'
+                : outputPrice === 0
+                  ? t('free')
+                  : formatUsd(outputPrice)}
+              {typeof outputPrice === 'number' && (
+                <span className="ml-1 text-muted-foreground">{t('perMillion')}</span>
+              )}
+            </span>
+          </div>
         </div>
-        <div className="mt-1 flex items-center justify-between [&>span]:translate-y-[var(--text-vcenter-offset)]">
-          <span className="text-muted-foreground">{t('market.outputPrice')}</span>
-          <span className="font-medium text-foreground" suppressHydrationWarning>
-            {typeof outputPrice !== 'number'
-              ? '—'
-              : outputPrice === 0
-                ? t('free')
-                : formatUsd(outputPrice)}
-            {typeof outputPrice === 'number' && (
-              <span className="ml-1 text-muted-foreground">{t('perMillion')}</span>
-            )}
-          </span>
-        </div>
-      </div>
+      )}
 
       {/* 中转站价格对比(2026-09-16 立):官方价 vs 实付价 + 倍率 + 缓存读写价 */}
       {model.relayPublic && <RelayPriceCompare model={model} />}
@@ -910,17 +927,23 @@ function ModelCardList({
             <Cpu className="h-3 w-3" />
             {formatContext(model.contextLength)}
           </span>
-          <span className="inline-flex items-center gap-0.5" suppressHydrationWarning>
-            <Zap className="h-3 w-3" />
-            {typeof model.inputPrice !== 'number'
-              ? '—'
-              : model.inputPrice === 0
-                ? t('free')
-                : formatUsd(model.inputPrice)}
-            {typeof model.inputPrice === 'number' && (
-              <span className="text-muted-foreground/70">/{t('perMillion').replace('/', '')}</span>
-            )}
-          </span>
+          {isMeteredRelay(model) ? (
+            <RelayMeteredInline model={model} />
+          ) : (
+            <span className="inline-flex items-center gap-0.5" suppressHydrationWarning>
+              <Zap className="h-3 w-3" />
+              {typeof model.inputPrice !== 'number'
+                ? '—'
+                : model.inputPrice === 0
+                  ? t('free')
+                  : formatUsd(model.inputPrice)}
+              {typeof model.inputPrice === 'number' && (
+                <span className="text-muted-foreground/70">
+                  /{t('perMillion').replace('/', '')}
+                </span>
+              )}
+            </span>
+          )}
           {model.releasedAt && (
             <span className="inline-flex items-center gap-0.5">
               <Calendar className="h-3 w-3" />
@@ -1182,6 +1205,8 @@ function toYuanPerMillion(centsPer1k: number): number {
  */
 function RelayPriceCompare({ model }: { model: Model }) {
   const t = useTranslations('models')
+  // 媒体/动态成本模型没有 token 单价,不能走“标准价/实付价”这一套 token 展示。
+  if (isMeteredRelay(model)) return <RelayMeteredPanel model={model} />
   const officialIn = model.relayOfficialInputPricePer1k ?? 0
   const paidIn = model.relayEffectiveInputPricePer1k ?? model.relayInputPricePer1k ?? 0
   const paidOut = model.relayEffectiveOutputPricePer1k ?? model.relayOutputPricePer1k ?? 0

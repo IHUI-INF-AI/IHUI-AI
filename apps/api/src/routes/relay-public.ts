@@ -49,9 +49,9 @@ interface PublicRelayModelItem {
   inputPricePer1k: number
   /** 计费基础输出价(分/千 token) */
   outputPricePer1k: number
-  /** 官方/上游参考输入价(分/千 token,来自 aiModelConfigModels,仅作对比锚点) */
+  /** 官方/标准参考输入价(分/千 token;token 模式等于计费基础价,非 token 模式保留配置锚点) */
   officialInputPricePer1k: number
-  /** 官方/上游参考输出价(分/千 token) */
+  /** 官方/标准参考输出价(分/千 token) */
   officialOutputPricePer1k: number
   /** 中转站定价倍率(1.0=原价,1.2=加价 20%) */
   relayPriceMultiplier: number
@@ -79,8 +79,8 @@ interface PublicRelayModelItem {
   longContextThresholdTokens: number | null
   /** 推理输出倍率(仅 completionTokens 分量);null = 未配置(= 同价) */
   reasoningOutputMultiplier: number | null
-  /** 计费模式(2026-09-13):token(默认)| per_call(按次三档)| per_image(按张)| per_video(按次/按秒) */
-  billingMode: 'token' | 'per_call' | 'per_image' | 'per_video'
+  /** 计费模式(2026-09-13):token(默认)| per_call(按次三档)| per_image(按张)| per_video(按次/按秒)| dynamic_cost(按实际成本) */
+  billingMode: 'token' | 'per_call' | 'per_image' | 'per_video' | 'dynamic_cost'
   /** 单位售价(分):per_image=分/张;per_video=分/次或分/秒(videoUnit);其余 0 */
   relayPerUnitPriceCents: number
   /** per_video 计价单位:'call'(按次)|'second'(按秒);非 per_video 为 null */
@@ -218,7 +218,8 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
         if (seenModelIds.has(key)) continue
         seenModelIds.add(key)
         const multiplier = Math.max(0, toNumber(r.relayPriceMultiplier, 1))
-        // 官方/上游参考价来自配置表,只作“官方价”对比锚点。
+        // 官方/标准参考价必须与计费基础价同源,否则 UI 上“官价 × 倍率”≠ 实付价。
+        // token 模式用 ai_pricing 最新 token 行;无精确行时回退配置价,两边同值。
         const configInput = Math.max(0, toNumber(r.inputPricePer1k, 0))
         const configOutput = Math.max(0, toNumber(r.outputPricePer1k, 0))
         const p = pricingMap.get(key)
@@ -251,8 +252,9 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
           contextLength: toNumber(r.contextLength, 0),
           inputPricePer1k: inputBase,
           outputPricePer1k: outputBase,
-          officialInputPricePer1k: configInput,
-          officialOutputPricePer1k: configOutput,
+          // 2026-11-27:官方/标准参考价与计费基础价同值,保证“标准价 × 倍率 = 实付价”。
+          officialInputPricePer1k: inputBase,
+          officialOutputPricePer1k: outputBase,
           relayPriceMultiplier: multiplier,
           // 2026-09-13: 价格列已 numeric,小数分价是常态;Math.round 会把 0.0126 抹成 0
           relayInputPricePer1k: inputBase * multiplier,

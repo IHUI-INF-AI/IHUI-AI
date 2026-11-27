@@ -27,7 +27,9 @@ interface RelayPublicItem {
   modelId: string
   relayPriceMultiplier: number
   relayDisplayName?: string | null
-  /** 官方/上游参考价(分/千 token) */
+  /** 计费模式:token / per_call / per_image / per_video / dynamic_cost */
+  billingMode?: 'token' | 'per_call' | 'per_image' | 'per_video' | 'dynamic_cost'
+  /** 官方/标准参考价(分/千 token) */
   officialInputPricePer1k?: number
   officialOutputPricePer1k?: number
   /** 中转站实付价(分/千 token) */
@@ -36,6 +38,12 @@ interface RelayPublicItem {
   /** 缓存读/写实付价(分/千 token) */
   relayCacheReadPricePer1k?: number
   relayCacheWritePricePer1k?: number
+  /** 媒体单位售价(分):per_image=分/张,per_video=分/次或分/秒 */
+  relayPerUnitPriceCents?: number
+  /** per_video 计价单位 */
+  videoUnit?: 'call' | 'second' | null
+  /** per_call 三档售价(分/次,已乘倍率) */
+  relayTieredCallPricesCents?: { le256k: number; mid: number; gt512k: number } | null
   /** 当前生效的分时倍率(1 = 无高峰加价) */
   peakMultiplier?: number
   /** 含分时倍率的实付价 */
@@ -49,6 +57,10 @@ interface RelayPublicItem {
 interface RelayMeta {
   multiplier: number
   displayName?: string | null
+  billingMode: 'token' | 'per_call' | 'per_image' | 'per_video' | 'dynamic_cost'
+  perUnitPriceCents: number
+  videoUnit: 'call' | 'second' | null
+  tieredCallPricesCents: { le256k: number; mid: number; gt512k: number } | null
   officialInputPricePer1k: number
   officialOutputPricePer1k: number
   relayInputPricePer1k: number
@@ -95,6 +107,10 @@ export async function fetchModels(): Promise<Model[]> {
         relayMap.set(it.modelId, {
           multiplier,
           displayName: it.relayDisplayName ?? null,
+          billingMode: it.billingMode ?? 'token',
+          perUnitPriceCents: it.relayPerUnitPriceCents ?? 0,
+          videoUnit: it.videoUnit ?? null,
+          tieredCallPricesCents: it.relayTieredCallPricesCents ?? null,
           officialInputPricePer1k: officialIn,
           officialOutputPricePer1k: officialOut,
           // 老后端未返回实付价时按"基础价 × 倍率"就地折算,保证展示不退化为 0
@@ -126,6 +142,10 @@ export async function fetchModels(): Promise<Model[]> {
         relayPublic: !!relay,
         relayPriceMultiplier: relay?.multiplier ?? 1,
         relayDisplayName: relay?.displayName ?? undefined,
+        relayBillingMode: relay?.billingMode ?? 'token',
+        relayPerUnitPriceCents: relay?.perUnitPriceCents ?? 0,
+        relayVideoUnit: relay?.videoUnit ?? null,
+        relayTieredCallPricesCents: relay?.tieredCallPricesCents ?? null,
         // 2026-09-16 价格对比字段(仅在 relayPublic 为真时有意义)
         relayOfficialInputPricePer1k: relay?.officialInputPricePer1k,
         relayOfficialOutputPricePer1k: relay?.officialOutputPricePer1k,
