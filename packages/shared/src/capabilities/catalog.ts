@@ -11,7 +11,7 @@
  *
  * 口径说明（避免把设计写成现状）：
  * - `status: agent-ready` 仅给已经在 `apps/ai-service/app/tools/__all__` 里导出、
- *   Agent 真能调用的工具；当前 16 条。
+ *   Agent 真能调用的工具；当前 17 条。
  * - `status: ui-only` 表示有页面/接口，但 Agent 还调不动。
  * - `status: planned` 表示只有产品位，尚未落地。
  * - `sla.p95Ms` 是目标值，不是实测值；`price` 只标计费方式，不写具体点数，
@@ -20,13 +20,7 @@
  */
 
 export type CapabilityDomain =
-  | 'content'
-  | 'publish'
-  | 'account'
-  | 'media'
-  | 'knowledge'
-  | 'education'
-  | 'tool'
+  'content' | 'publish' | 'account' | 'media' | 'knowledge' | 'education' | 'tool'
 
 export type CapabilityStatus = 'agent-ready' | 'ui-only' | 'planned'
 
@@ -67,7 +61,10 @@ export interface Capability {
 }
 
 const SLA_NOTE = '目标值，未实测'
-const METERED = { mode: 'metered', note: '按模型点数计费，倍率以 /api/pricing/models 为准' } as const
+const METERED = {
+  mode: 'metered',
+  note: '按模型点数计费，倍率以 /api/pricing/models 为准',
+} as const
 const FREE = { mode: 'free', note: '不扣点数；平台侧限额另计' } as const
 
 const WEB = ['web'] as const
@@ -129,6 +126,58 @@ export const CAPABILITY_CATALOG: readonly Capability[] = [
     surfaces: WEB_AGENT,
     agentTool: 'generate_content',
     uiHref: '/ai-generation',
+  },
+  {
+    id: 'content.pipeline',
+    verb: 'prepare',
+    title: '一句话到草稿',
+    description: '一次完成查账号、出稿、合规自检与落草稿；不通过不落库，仍待人确认',
+    domain: 'content',
+    inputSchema: inputSchema(['brief', 'platforms'], {
+      brief: str('一句话需求'),
+      platforms: strArray('目标平台 id 数组'),
+      tone: str('语气，可空'),
+      format: str('md/html，默认 md'),
+      profile: str('合规预设档，默认 ihui_koubo'),
+      min_chars: { type: 'integer', description: '正文最少字符数' },
+      max_chars: { type: 'integer', description: '正文最多字符数' },
+      title_chars: { type: 'integer', description: '标题精确字数' },
+      hashtag_count: { type: 'integer', description: '话题词精确个数' },
+      require_ai_disclosure: { type: 'boolean', description: '是否要求 AI 标识' },
+    }),
+    outputSchema: outputSchema({
+      title: str('标题'),
+      content: str('成稿正文'),
+      hashtags: strArray('话题词数组'),
+      charCount: { type: 'integer', description: '正文字符数' },
+      withinRange: { type: 'boolean', description: '是否落在字数区间' },
+      targets: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            platform: { type: 'string', description: '平台 id' },
+            account_id: { type: 'integer', description: '账号 id' },
+          },
+          required: ['platform', 'account_id'],
+        },
+        description: '命中的平台/账号目标',
+      },
+      contentCheck: { type: 'object', description: '合规自检明细' },
+      taskId: str('草稿任务 id'),
+      status: str('draft'),
+      confirm: { type: 'object', description: '人工确认入口' },
+    }),
+    price: METERED,
+    permissionScope: 'user',
+    idempotencyKey: 'content.pipeline:{userId}:{briefHash}:{platforms}',
+    sla: { p95Ms: 45000, note: SLA_NOTE },
+    owner: 'apps/ai-service/app/tools/pipeline_tools.py',
+    audit: 'standard',
+    status: 'agent-ready',
+    surfaces: WEB_AGENT,
+    agentTool: 'prepare_publish_draft',
+    uiHref: '/start',
   },
   {
     id: 'content.compliance',
@@ -464,7 +513,11 @@ export const CAPABILITY_CATALOG: readonly Capability[] = [
       limit: { type: 'integer', description: '最多返回多少条，默认 50' },
     }),
     outputSchema: outputSchema({
-      items: { type: 'array', items: { type: 'object' }, description: '任务摘要（不含完整正文/凭据）' },
+      items: {
+        type: 'array',
+        items: { type: 'object' },
+        description: '任务摘要（不含完整正文/凭据）',
+      },
       count: { type: 'integer', description: '返回条数' },
     }),
     price: FREE,
