@@ -347,7 +347,7 @@ if (!remoteHead) {
       `   仅有跟踪 ref 残值 ${String(remoteResolution.stale).slice(0, 11)} —— §5b 规定它不足以判定收敛,不拿它算"未 push"数量`,
     )
   }
-  console.error('   出路:恢复 origin 可达后重跑 node scripts/check-push-sync.mjs;确需跳过本次检查用 HUSKY_SKIP_PUSH_SYNC=1(不推荐)')
+  console.error('   出路:恢复 origin 可达后重跑 node scripts/check-push-sync.mjs;双远端收尾用 node scripts/git-push-converge.mjs --branch main;确需跳过本次检查用 HUSKY_SKIP_PUSH_SYNC=1(不推荐)')
   process.exit(2)
 }
 
@@ -658,12 +658,15 @@ console.error(`${C.dim}  - HUSKY_SKIP_PUSH=1 跳过 / push 网络失败 / 凭据
 console.error(`${C.dim}  - agent 用 --no-verify 跳过所有钩子${C.reset}`)
 console.error(`${C.dim}  - pre-push typecheck 阻塞 / RunCommand 工具失联${C.reset}`)
 console.error('')
-console.error(`${C.green}修复方法(任选其一):${C.reset}`)
+console.error(`${C.green}修复方法:${C.reset}`)
 console.error(
-  `  ${C.green}① 自动 push:${C.reset} ${C.cyan}node scripts/git-push-guard.mjs${C.reset}`,
+  `  ${C.green}① 双远端收敛(唯一收尾出口):${C.reset} ${C.cyan}node scripts/git-push-converge.mjs --branch ${currentBranch}${C.reset}`,
 )
 console.error(
-  `  ${C.green}② 手动 push:${C.reset} ${C.cyan}git push origin ${currentBranch}${C.reset}`,
+  `  ${C.green}② 复核两边逐 sha 相等:${C.reset} ${C.cyan}node scripts/check-remote-parity.mjs --branch ${currentBranch}${C.reset}`,
+)
+console.error(
+  `  ${C.dim}禁止只推 origin 或只推 gitee 后宣称完成(2026-11-27 机主令)。${C.reset}`,
 )
 console.error(
   `  ${C.green}③ 紧急跳过(不推荐):${C.reset} ${C.cyan}HUSKY_SKIP_PUSH_SYNC=1 git commit ...${C.reset}`,
