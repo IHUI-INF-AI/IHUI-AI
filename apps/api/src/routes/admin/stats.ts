@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { db } from '../../db/index.js'
 import { success, error } from '../../utils/response.js'
 import { encryptJSON, decryptJSON, isEncryptedPayload } from '../../utils/crypto.js'
+import { RELAY_PROVIDERS } from '../../services/relay-account-format.js'
 import {
   roles,
   users,
@@ -17,6 +18,8 @@ import {
   productIdentities,
   statisticsSnapshots,
   aiModelConfig,
+  aiModelConfigModels,
+  llmCallLogs,
   systemConfigs,
   // P3-1 三聚合统计端点所需表
   examPapers,
@@ -35,7 +38,7 @@ import {
   visitLogs,
   userRoles,
 } from '@ihui/database'
-import { eq, ilike, desc, sql, and, gte, lte, lt, notInArray } from 'drizzle-orm'
+import { eq, ilike, desc, sql, and, gte, lte, lt, notInArray, exists, notExists } from 'drizzle-orm'
 import { paginationSchema, idParamSchema, registerCrud, fields } from './_shared.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
@@ -66,6 +69,14 @@ export function toSafeMoneyInt(value: unknown): number {
   }
   return truncated
 }
+
+/**
+ * 号池反代平台白名单的 Set 视图。
+ * 直接 `RELAY_PROVIDERS.includes(row.providerCode)` 会因字面量联合类型收窄而报错;
+ * Set 保持单一真相源,同时让列表接口能给前端一个明确的 isRelayProvider 标记,
+ * 不依赖 `name` 里有没有手写“(反代)”。
+ */
+const RELAY_PROVIDER_SET: ReadonlySet<string> = new Set(RELAY_PROVIDERS)
 
 const statsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
@@ -118,10 +129,34 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
   // GET 不返回 apiKeyEnc,仅返回 hasApiKey 布尔;POST/PUT 接收 body.apiKey 明文加密入库
 
   server.get('/ai-model-config', async (request, reply) => {
-    const q = paginationSchema.safeParse(request.query)
+    const q = paginationSchema
+      .merge(
+        z.object({
+          provider: z.string().trim().max(64).optional(),
+          enabled: z.enum(['true', 'false']).optional(),
+          public: z.enum(['true', 'false']).optional(),
+        }),
+      )
+      .safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
-    const { page, pageSize, search } = q.data
-    const where = search ? ilike(aiModelConfig.name, `%${search}%`) : undefined
+    const { page, pageSize, search, provider, enabled, public: relayPublic } = q.data
+    const conditions = []
+    if (search) conditions.push(ilike(aiModelConfig.name, `%${search}%`))
+    if (provider) conditions.push(eq(aiModelConfig.providerCode, provider))
+    if (enabled) conditions.push(eq(aiModelConfig.enabled, enabled === 'true'))
+    if (relayPublic) {
+      const publicModels = db
+        .select({ one: sql`1` })
+        .from(aiModelConfigModels)
+        .where(
+          and(
+            eq(aiModelConfigModels.configId, aiModelConfig.id),
+            eq(aiModelConfigModels.isRelayPublic, true),
+          ),
+        )
+      conditions.push(relayPublic === 'true' ? exists(publicModels) : notExists(publicModels))
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined
     const rows = await db
       .select({
         id: aiModelConfig.id,
@@ -155,7 +190,11 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
           .from(aiModelConfig)
           .where(where)
       )[0]?.c ?? 0
-    return reply.send(success({ list: rows, total, page, pageSize }))
+    const list = rows.map((row) => ({
+      ...row,
+      isRelayProvider: RELAY_PROVIDER_SET.has(row.providerCode),
+    }))
+    return reply.send(success({ list, total, page, pageSize }))
   })
 
   server.get('/ai-model-config/:id', async (request, reply) => {
@@ -255,6 +294,30 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     const id = Number(p.data.id)
+    // 父行删除前先看引用:模型行/调用流水还挂在这条配置上时直接删会留下孤儿,
+    // 或让历史遥测失去归属;这与"配置可归档(停用)"的产品语义冲突,先拒绝并给出处置建议。
+    const [modelCount, callCount] = await Promise.all([
+      db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(aiModelConfigModels)
+        .where(eq(aiModelConfigModels.configId, id)),
+      db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(llmCallLogs)
+        .where(eq(llmCallLogs.configId, id)),
+    ])
+    const models = modelCount[0]?.c ?? 0
+    const calls = callCount[0]?.c ?? 0
+    if (models > 0 || calls > 0) {
+      return reply
+        .status(409)
+        .send(
+          error(
+            409,
+            `配置仍被引用(${models} 条模型行 / ${calls} 条调用流水);请先迁移模型或停用归档,不能直接删除父行`,
+          ),
+        )
+    }
     const removed = await db
       .delete(aiModelConfig)
       .where(eq(aiModelConfig.id, id))

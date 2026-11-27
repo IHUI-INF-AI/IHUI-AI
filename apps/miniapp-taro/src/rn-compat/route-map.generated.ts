@@ -72,6 +72,7 @@ export const RN_ROUTE_MAP: Record<string, string> = {
   CircleChat: '/pkg-user/circle-chat/index',
   CircleCreate: '/pkg-user/circle-create/index',
   CircleDetail: '/pkg-user/circle-detail/index',
+  CircleIndex: '/pkg-user/circle-index/index',
   CircleMember: '/pkg-user/circle-member/index',
   CirclePost: '/pkg-content/circle-post/index',
   CloudRun: '/pkg-user/cloud-runs/index',

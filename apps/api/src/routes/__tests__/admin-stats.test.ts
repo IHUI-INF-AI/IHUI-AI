@@ -405,5 +405,35 @@ describe('Admin Stats 三聚合端点(dashboard/revenue/users)', () => {
     expect(body.data.byRole).toEqual([])
     expect(body.data.byRegion).toEqual([])
   })
+
+  it('ai-model-config 列表:按 RELAY_PROVIDERS 增加 isRelayProvider,不依赖 name 后缀', async () => {
+    pushResult([
+      {
+        id: 60,
+        name: 'Trae 账号池',
+        providerCode: 'trae',
+        baseUrl: 'https://trae-api-cn.mchost.guru',
+      },
+      { id: 56, name: 'OpenAI', providerCode: 'openai', baseUrl: 'https://api.openai.com/v1' },
+    ])
+    pushResult([{ c: 2 }])
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/ai-model-config?page=1&pageSize=10',
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.code).toBe(0)
+    expect(body.data.total).toBe(2)
+    expect(
+      body.data.list.map((r: { providerCode: string; isRelayProvider: boolean }) => [
+        r.providerCode,
+        r.isRelayProvider,
+      ]),
+    ).toEqual([
+      ['trae', true],
+      ['openai', false],
+    ])
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

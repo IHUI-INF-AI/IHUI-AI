@@ -2341,7 +2341,6 @@ export function HomeScreen() {
             // 单按钮显示当前模型/「自动」,点击直接弹全量模型列表;8 分类 chips 平铺已废)
             onOpenModelSelect={() => openModelModal()}
             selectedModelName={selectedModel?.name ?? null}
-            selectedModelVendor={selectedModel ? inferVendor(selectedModel.name) : null}
             onClearModel={handleClearModel}
             onOpenModelConfig={() => setShowModelConfig(true)}
             // D43 票③ RN 大输入框挂载位(2026-10-23 强制令到终态的顺延格,与 ChatScreen

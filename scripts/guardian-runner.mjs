@@ -53,6 +53,14 @@ import { rootGuardDeclarationPairing } from './lib/root-guard-declaration-pairin
 
 // === 检查配置(按 mode 分组;项数与分级见 `--help`,勿在此写死数字——写死必然过期) ===
 
+/*
+2026-11-27 门号迁移留痕: 329/329p 全量 Web↔小程序路由契约门 → 330/330p;
+以下三行为迁移前逐字原行,保留以证明不是静默删除:
+  // 329:全量 Web↔小程序路由契约。射程 = 三端路由清单 + 承载台账 + 契约产物。
+  // 329p:全量 Web↔小程序路由契约（push 面同样拦截，防止绕过 pre-commit 直推；主 checks 用 329）。
+    id: '329p',
+*/
+
 const checks = [
   // --- blocking(项数见 --help) ---
   {
@@ -8269,6 +8277,36 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // 330:全量 Web↔小程序路由契约。射程 = 三端路由清单 + 承载台账 + 契约产物。
+  {
+    id: '330',
+    label: '🧭 全量 Web↔小程序路由契约门(932 路由逐条 carrier;漂移/未知即红)',
+    script: 'check-cross-end-route-contract.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/web/app/',
+      'apps/web/src/lib/ui-routes.generated.ts',
+      'apps/mobile-rn/src/navigation/',
+      'apps/mobile-rn/src/constants/ui-routes.generated.ts',
+      'apps/miniapp-taro/src/app.config.ts',
+      'apps/miniapp-taro/src/constants/ui-routes.generated.ts',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'scripts/data/cross-end-screen-registry.json',
+      'scripts/data/web-mp-route-carrier-ledger.jsonl',
+      'scripts/data/web-mp-route-carrier-legal.jsonl',
+      'scripts/data/cross-end-route-contract.jsonl',
+      'scripts/data/cross-end-route-contract-summary.json',
+      'scripts/check-cross-end-route-contract.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT',
+    onFailHint: [
+      '  💡 红 = 三端路由/共享屏/承载台账变更后契约未重落，或有路由变成未知 carrier。',
+      '     改法:node scripts/check-cross-end-route-contract.mjs --worktree --write && 复核 git diff',
+      '     应急放行:HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
@@ -8451,6 +8489,36 @@ const pushGateChecks = [
       '     应急放行:HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
+  // 330p:全量 Web↔小程序路由契约（push 面同样拦截，防止绕过 pre-commit 直推；主 checks 用 330）。
+  {
+    id: '330p',
+    label: '🧭 全量 Web↔小程序路由契约门(932 路由逐条 carrier;漂移/未知即红)',
+    script: 'check-cross-end-route-contract.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/web/app/',
+      'apps/web/src/lib/ui-routes.generated.ts',
+      'apps/mobile-rn/src/navigation/',
+      'apps/mobile-rn/src/constants/ui-routes.generated.ts',
+      'apps/miniapp-taro/src/app.config.ts',
+      'apps/miniapp-taro/src/constants/ui-routes.generated.ts',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'scripts/data/cross-end-screen-registry.json',
+      'scripts/data/web-mp-route-carrier-ledger.jsonl',
+      'scripts/data/web-mp-route-carrier-legal.jsonl',
+      'scripts/data/cross-end-route-contract.jsonl',
+      'scripts/data/cross-end-route-contract-summary.json',
+      'scripts/check-cross-end-route-contract.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT',
+    onFailHint: [
+      '  💡 红 = 三端路由/共享屏/承载台账变更后契约未重落，或有路由变成未知 carrier。',
+      '     改法:node scripts/check-cross-end-route-contract.mjs --worktree --write && 复核 git diff',
+      '     应急放行:HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+
   // 2026-11-20:push 面已按推送改动面(PUSH_SCOPE_FILES)消费 stagedTriggers ⇒ 下面这些
   // 收窄档各自声明触发面;未声明的(T1/47p/IG/193)仍恒跑。声明缺失 = 恒跑,不是恒跳。
   {

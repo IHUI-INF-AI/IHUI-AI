@@ -51,11 +51,14 @@ import { NavChrome } from '../components/NavChrome'
 type Route = RouteProp<RootStackParamList, 'TopicList'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-/** /topics 列表项(对齐 miniapp topic/list TopicItem) */
+/** /topics 列表项(对齐后端 topic-queries 的 title/coverImage；兼容旧 name/coverUrl) */
 interface TopicItem {
   id: string | number
-  name: string
-  count: number
+  title?: string
+  coverImage?: string
+  name?: string
+  count?: number
+  lessonCount?: number
   coverUrl?: string
   description?: string
   participantCount?: number
@@ -119,14 +122,18 @@ export function TopicListScreen() {
   const onSubmitSearch = () => setKeyword(searchText.trim())
 
   const goTopic = (item: TopicItem) => {
+    const title = item.title ?? item.name ?? ''
     if (from === 'create') {
       // 对齐小程序 eventCenter.trigger(TOPIC_EVENT, name) + navigateBack:函数 params 直接回传
-      onPickTopic?.(item.name ?? '')
+      onPickTopic?.(title)
       navigation.goBack()
       return
     }
     navigation.navigate('TopicDetail', { id: String(item.id) })
   }
+
+  const topicTitle = (item: TopicItem) => item.title ?? item.name ?? ''
+  const topicCover = (item: TopicItem) => item.coverImage ?? item.coverUrl
 
   const tabs: Array<{ key: TabKey; label: string }> = [
     { key: 'recommend', label: t('topic.list.recommend') },
@@ -141,12 +148,12 @@ export function TopicListScreen() {
       style={styles.cardSlot}
       onPress={() => goTopic(item)}
       accessibilityRole="button"
-      accessibilityLabel={item.name}
+      accessibilityLabel={topicTitle(item)}
     >
       {({ pressed }) => (
         <View style={[styles.card, pressed ? styles.cardPressed : null]}>
-          {item.coverUrl ? (
-            <Image source={{ uri: item.coverUrl }} style={styles.cover} />
+          {topicCover(item) ? (
+            <Image source={{ uri: topicCover(item) as string }} style={styles.cover} />
           ) : (
             <View style={[styles.cover, styles.coverFallback]}>
               <Text style={styles.coverHash}>{'#'}</Text>
@@ -155,7 +162,7 @@ export function TopicListScreen() {
           <View style={styles.cardBody}>
             <Text style={styles.name} numberOfLines={1}>
               {'#'}
-              {item.name}
+              {topicTitle(item)}
             </Text>
             {item.description ? (
               <Text style={styles.desc} numberOfLines={1}>
@@ -166,7 +173,9 @@ export function TopicListScreen() {
               <Text style={styles.meta}>
                 {t('topic.list.participants', { n: item.participantCount ?? 0 })}
               </Text>
-              <Text style={styles.meta}>{t('topic.list.posts', { n: item.count ?? 0 })}</Text>
+              <Text style={styles.meta}>
+                {t('topic.list.posts', { n: item.count ?? item.lessonCount ?? 0 })}
+              </Text>
             </View>
           </View>
           <ChevronRight size={18} color={tk.text.secondary} />

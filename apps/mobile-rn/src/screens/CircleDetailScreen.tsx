@@ -11,7 +11,11 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
-import { CircleDetailScreen as SharedCircleDetailScreen, type CircleDetailItem } from '@ihui/rn-app'
+import {
+  CircleDetailScreen as SharedCircleDetailScreen,
+  type CircleDetailItem,
+  type CirclePostItem,
+} from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -27,6 +31,24 @@ interface ApiCircle {
   createdAt?: string
 }
 
+interface ApiPost {
+  id: string
+  title: string
+  content?: string | null
+  authorName?: string | null
+  replyCount: number
+  createdAt: string
+}
+
+interface CircleRes {
+  circle: ApiCircle
+}
+
+interface PostsRes {
+  list: ApiPost[]
+  total: number
+}
+
 type Route = RouteProp<RootStackParamList, 'CircleDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -37,23 +59,45 @@ export function CircleDetailScreen() {
   const navigation = useNavigation<NavigationProp>()
   const { id } = route.params
   const [circle, setCircle] = useState<CircleDetailItem | null>(null)
+  const [posts, setPosts] = useState<CirclePostItem[]>([])
+  const [postsLoading, setPostsLoading] = useState(true)
+  const [postsError, setPostsError] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [joining, setJoining] = useState(false)
 
   const load = useCallback(async () => {
     setError('')
+    setPostsError('')
     try {
-      const res = await fetchApi<ApiCircle>(`/api/circles/${encodeURIComponent(id)}`)
-      if (res.success && res.data) {
-        setCircle({ ...res.data, createdAt: res.data.createdAt ?? '' })
+      const [circleRes, postsRes] = await Promise.all([
+        fetchApi<CircleRes>(`/api/circles/${encodeURIComponent(id)}`),
+        fetchApi<PostsRes>(`/api/circles/${encodeURIComponent(id)}/posts`, {
+          params: { page: 1, pageSize: 20 },
+        }),
+      ])
+      if (circleRes.success) {
+        const circlePayload = circleRes.data?.circle
+        if (circlePayload) {
+          setCircle({ ...circlePayload, createdAt: circlePayload.createdAt ?? '' })
+        } else {
+          setError(apiFailureToText(circleRes, t('circleDetail.loadFailed')))
+        }
       } else {
-        setError(apiFailureToText(res, t('circleDetail.loadFailed')))
+        setError(apiFailureToText(circleRes, t('circleDetail.loadFailed')))
+      }
+      if (postsRes.success && postsRes.data) {
+        setPosts(postsRes.data.list ?? [])
+      } else {
+        setPosts([])
+        setPostsError(apiFailureToText(postsRes, t('circleDetail.loadFailed')))
       }
     } catch {
       setError(t('circleDetail.loadFailed'))
+      setPostsError(t('circleDetail.loadFailed'))
     } finally {
       setLoading(false)
+      setPostsLoading(false)
     }
   }, [id, t])
 
@@ -101,9 +145,17 @@ export function CircleDetailScreen() {
         error={error}
         onJoin={onJoin}
         onLeave={onLeave}
-        onPressPost={() => navigation.navigate('PostCreate', { circleId: circle?.id ?? id })}
+        onPressPost={() =>
+          navigation.navigate('CirclePost', {
+            circleId: circle?.id ?? id,
+            circleName: circle?.name,
+          })
+        }
         onPressMembers={() => navigation.navigate('CircleMember', { circleId: circle?.id ?? id })}
         onBack={() => navigation.goBack()}
+        posts={posts}
+        postsLoading={postsLoading}
+        postsError={postsError}
         onRetry={() => {
           void load()
         }}

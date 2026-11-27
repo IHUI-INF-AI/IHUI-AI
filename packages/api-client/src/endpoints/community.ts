@@ -105,10 +105,12 @@ export async function getCircles(
   return fetchApi<PageData<Circle>>(`/circles${buildQs(query)}`)
 }
 
-export async function getCircleById(
-  id: string,
-): Promise<ApiResult<{ circle: Circle; posts: CirclePost[] }>> {
-  return fetchApi<{ circle: Circle; posts: CirclePost[] }>(`/circles/${encodeURIComponent(id)}`)
+/**
+ * GET /circles/:id 的回包是 **`{ circle }` 信封**,不是裸 circle,也不带 posts;
+ * 帖子必须另走 GET /circles/:id/posts。
+ */
+export async function getCircleById(id: string): Promise<ApiResult<{ circle: Circle }>> {
+  return fetchApi<{ circle: Circle }>(`/circles/${encodeURIComponent(id)}`)
 }
 
 /**

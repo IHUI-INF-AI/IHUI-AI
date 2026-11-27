@@ -4,9 +4,9 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, desc, sql, and, gte, lte, ilike } from 'drizzle-orm'
+import { eq, desc, sql, and, gte, lte, ilike, inArray } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import { userMargins, tokenFlows, users } from '@ihui/database'
+import { userMargins, tokenFlows, users, withdrawalFlows } from '@ihui/database'
 import { requireAuth, requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { generateOrderNumber } from '../utils/crypto-random.js'
@@ -19,6 +19,7 @@ import {
   exchangeWalletToPoints,
   WalletExchangeError,
 } from '../services/wallet-points-exchange-service.js'
+import { projectBankCards } from '../services/bank-card-projection.js'
 
 /**
  * 钱包路由 — /api/wallet/*
@@ -72,10 +73,26 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAuth)
 
   // GET /bank-cards - 银行卡列表(G-962 B8;mobile-rn BankCardScreen 消费 data 数组)
-  // 数据源待接:库内无 bank_cards 表,提现账户目前落在 commission 的 accountInfo jsonb 上,
-  // 与"已绑定银行卡列表"不是同一形态。此处先返回真实空态止 404,不伪造卡片数据。
-  server.get('/bank-cards', async (_request, reply) => {
-    return reply.send(success([]))
+  // 数据源:withdrawal_flows.account_info 的只读投影(不建表/不迁移,不伪造绑卡)。
+  // 只回传掩码卡号;同一卡号去重取最新;无历史提现账户时返回真实空态。
+  server.get('/bank-cards', async (request, reply) => {
+    const userId = request.userId!
+    const rows = await dbRead
+      .select({
+        method: withdrawalFlows.method,
+        accountInfo: withdrawalFlows.accountInfo,
+        createdAt: withdrawalFlows.createdAt,
+      })
+      .from(withdrawalFlows)
+      .where(
+        and(
+          eq(withdrawalFlows.userId, userId),
+          inArray(withdrawalFlows.method, ['bank', 'bank_card']),
+        ),
+      )
+      .orderBy(desc(withdrawalFlows.createdAt))
+      .limit(100)
+    return reply.send(success(projectBankCards(rows, userId)))
   })
 
   // GET /balance

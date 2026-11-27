@@ -554,6 +554,48 @@ export interface CircleDetailItem {
   createdAt: string
 }
 
+/** 圈子广场列表项(平台注入,字段对齐 /api/circles 的 group 行) */
+export interface CircleListItem {
+  id: string
+  name: string
+  description?: string
+  coverImage?: string | null
+  memberCount: number
+  postCount: number
+  /** 当前用户是否已加入(服务端可选下发;缺省按未加入展示) */
+  isJoined?: boolean
+  createdAt?: string
+}
+
+/** 圈子广场共享屏 props(取数/导航全部由宿主注入) */
+export interface CircleListScreenProps extends ListPaginationProps {
+  t: TFunction
+  title: string
+  items: CircleListItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onPressItem: (item: CircleListItem) => void
+  onCreatePost: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  hideHeader?: boolean
+  contentBottomPadding?: number
+  /** 无更多数据(页脚显示"没有更多了") */
+  noMore?: boolean
+}
+
+/** 圈子帖子列表项(圈子详情内的 group 帖子) */
+export interface CirclePostItem {
+  id: string
+  title: string
+  content?: string | null
+  authorName?: string | null
+  replyCount: number
+  createdAt: string
+}
+
 /** CircleDetailScreen props */
 export interface CircleDetailScreenProps {
   t: TFunction
@@ -565,6 +607,10 @@ export interface CircleDetailScreenProps {
   onPressPost: () => void
   onPressMembers: () => void
   onBack: () => void
+  /** 圈子帖子列表(web /circles/[id] 同口径:圈子头下必须有帖子列表) */
+  posts?: CirclePostItem[]
+  postsLoading?: boolean
+  postsError?: string
   colorScheme?: 'light' | 'dark'
 }
 

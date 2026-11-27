@@ -11,7 +11,7 @@
  *   取词/主题 = config/rn-shell-replace-plugin.ts 按发起上下文换到端内真相源。
  * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。
  */
-import ThemeRoot from '@/components/ThemeRoot'
+import RnShellPage from '@/components/RnShellPage'
 import { NotificationProvider } from '@ihui/shared/notifications/notification-store'
 import { HomeScreen as HomeScreenShell } from '@rn-shells/HomeScreen'
 import { View } from '@tarojs/components'
@@ -19,11 +19,11 @@ import { View } from '@tarojs/components'
 export default function HomePage() {
   return (
     <View className="rn-home-viewport">
-      <ThemeRoot>
+      <RnShellPage>
         <NotificationProvider>
           <HomeScreenShell />
         </NotificationProvider>
-      </ThemeRoot>
+      </RnShellPage>
     </View>
   )
 }

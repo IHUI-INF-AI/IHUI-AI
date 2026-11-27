@@ -70,6 +70,26 @@
       "inputs": ["scripts/check-web-mp-route-carriers.mjs"]
     },
     {
+      "id": "329",
+      "label": "全量 Web↔小程序路由契约",
+      "script": "scripts/check-cross-end-route-contract.mjs",
+      "args": ["--check"],
+      "paths": ["full"],
+      "inputs": [
+        "scripts/check-cross-end-route-contract.mjs",
+        "scripts/data/web-rn-screen-map.jsonl",
+        "scripts/data/cross-end-screen-registry.json",
+        "scripts/data/web-mp-route-carrier-ledger.jsonl",
+        "scripts/data/web-mp-route-carrier-legal.jsonl",
+        "scripts/data/cross-end-route-contract.jsonl",
+        "scripts/data/cross-end-route-contract-summary.json",
+        "scripts/data/cross-end-route-contract-rn-only-review.json",
+        "scripts/data/miniapp-mirror-verdicts.jsonl",
+        "scripts/data/cross-end-mini-own-manual.json",
+        "apps/miniapp-taro/src/app.config.ts"
+      ]
+    },
+    {
       "id": "302p",
       "label": "跨端一致性漂移",
       "script": "scripts/check-cross-end-parity-drift.mjs",

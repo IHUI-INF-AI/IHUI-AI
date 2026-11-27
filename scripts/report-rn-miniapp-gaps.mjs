@@ -330,7 +330,7 @@ if (stats.ledgerGenerated > 0) {
   )
   lines.push(
     `> 「真待补 ${stats.hooksPending}」只说明台账里没有未裁决条目,**不等于三端功能 100% 对齐**:` +
-      `${stats.hooksBlocked} 条 blocked 是真实存在的结构/端点缺口,需产品决策后才动得;` +
+      `${stats.hooksBlocked === 0 ? '当前没有未裁决的 blocked 结构/端点缺口；' : `${stats.hooksBlocked} 条 blocked 是真实存在的结构/端点缺口,需产品决策后才动得；`}` +
       `覆盖率本身也不等于功能对齐(§0.3「造好没装车 = 没有」)。` +
       `旧版把全部 ${stats.ledgerGenerated} 条一律派单,是另一种失真,故本单只按台账已写明的结论分桶。`,
   )

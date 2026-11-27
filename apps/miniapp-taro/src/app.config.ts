@@ -207,6 +207,7 @@ export default defineAppConfig({
         'chat-workbench/index',
         'pdf-tools-hub/index',
         'circle-create/index',
+        'circle-index/index',
         'circle-detail/index',
         'ranking-detail/index',
         'identity-verify/index',
