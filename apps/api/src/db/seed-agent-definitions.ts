@@ -58,6 +58,8 @@ interface BuiltinPromptSeed {
   role?: string
   /** 工具面缺省为空；master 落三件套 */
   tools?: string[]
+  /** 提示词来源；内置角色缺省为 prompt_registry.py，master 为 master.md */
+  source?: string
 }
 
 /** 种子只接管这些字段;model/skills/budget/... 保持库里既有值,避免覆盖管理员配置 */
@@ -251,7 +253,7 @@ function buildSeedRow(seed: BuiltinPromptSeed, isDispatchable: boolean): SeedRow
     isDispatchable,
     marketAgentId: null,
     metadata: {
-      source: 'apps/ai-service/app/services/prompt_registry.py',
+      source: seed.source ?? 'apps/ai-service/app/services/prompt_registry.py',
       promptName: seed.name,
       seed: 'agent-registry-v1',
     },
@@ -364,6 +366,7 @@ async function main(): Promise<void> {
       description: '总管:唯一有管理权限的常驻主智能体人格(不可被派发为 worker)',
       role: 'custom',
       tools: MASTER_TOOLS,
+      source: 'apps/ai-service/app/agents/master.md',
       content,
     }
   })()

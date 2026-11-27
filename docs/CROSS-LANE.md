@@ -177,13 +177,24 @@
   由数据线调整种子验收口径(表结构本身不限制条数)。
 - 影响任务: P1-06、P2-01。
 
-### 4. master 提示词尚未就绪
+### 4. master 提示词与种子（已收口，2026-11-28）
 
-- 谁: F1(ma-db,feat/ma-db)
-- 为什么: `apps/ai-service/app/prompts/master.md` 当前不存在,`--include-master` 走跳过分支并明说,
-  没有写入任何占位提示词;因此库里暂无 `master` 定义(唯一 `is_dispatchable=false` 的内置位)。
-- 建议改法: P3-01/P3-02 落 `master.md` 后,由数据线重跑
-  `pnpm --filter @ihui/api exec tsx src/db/seed-agent-definitions.ts --include-master`;
-  种子幂等,只会新增 master,不改 10 个内置。
-- 影响任务: P3-01、P3-02、P3-03。
+- 谁: P3 / W1
+- 现状: `apps/ai-service/app/agents/master.md` 已落；种子路径改到 `app/agents/master.md`，
+  master 单独 `displayName=总管`、`role=custom`、`tools=agent_registry,agent_ops,master_memory`。
+- 实测: `ihui_agent_test_fresh` 上 `--include-master` 连跑两次幂等；库里 master
+  `scope=system / is_builtin=true / is_dispatchable=false / role=custom / tools=3`。
+- 注意: 管理字段新增 `tools`，重跑会覆盖 master 三件套与 10 个内置的空工具面；
+  管理员若手工给内置角色加过工具，重跑种子会清空，需在管理台重加。
+
+### 5. P3/W1 本轮落点与没落点
+
+- 已落: `master_tools` 三工具 + MCP 159/159；`master.md` + `master_profile.py`；
+  `POST /api/v1/ai/master/chat` 固定人格/三工具；`conversation.chat` 可选 `system_prompt`；
+  `apps/web` `/master` 页 + 侧栏入口 + 五语言 `masterConsole`；
+  注册表失效订阅接 FastAPI lifespan；客户端进程代次 `invalidate_all`。
+- 没落: `agent_ops` 仍只实现 single 派发；parallel/pipeline/debate/vote/critique/decomposed/team/recursive
+  留 P4-02；stop/retry/cancel 明确未实现；`master_memory` team/agent 作用域未开；
+  `/master` 页只有管理台，聊天入口仍走 `/api/v1/ai/master/chat`（web 代理与聊天面板未接）。
+- 没落原因: 不把"能管"和"能跑九模式"混成一次交付；single 先打通真运行账本，其余模式在 P4 逐模式验收。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
