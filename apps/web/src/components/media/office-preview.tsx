@@ -153,6 +153,8 @@ export function xlsxColumnRef(col: number): string {
 export const OFFICE_REVIEW_MAX_BLOCKS = 20
 export const OFFICE_REVIEW_MAX_CHARS = 30_000
 const OFFICE_REVIEW_BLOCK_CHARS = 6_000
+/** 一个 block 最多覆盖的段落数;否则 118 段会被并成 1 块,pin 只能落在第 1 段,失去定位价值。 */
+const OFFICE_REVIEW_MAX_BLOCK_PARAGRAPHS = 8
 
 /**
  * DOCX 段落 → 可定位 block。docx-preview 没有页码,段落序号就是它与正文、pin 的唯一共同坐标。
@@ -187,7 +189,11 @@ export function buildDocxReviewBlocks(
     if (!text) continue
     lastNonEmpty = i
     if (!buffer.length) start = i
-    if (buffer.length && chars + text.length > OFFICE_REVIEW_BLOCK_CHARS) {
+    if (
+      buffer.length &&
+      (buffer.length >= OFFICE_REVIEW_MAX_BLOCK_PARAGRAPHS ||
+        chars + text.length > OFFICE_REVIEW_BLOCK_CHARS)
+    ) {
       flush(i)
       start = i
     }
@@ -511,11 +517,14 @@ function DocxBody({
     const container = ref.current
     if (!container || rendered === 0) return
     const markers: { marker: HTMLElement; paragraph: HTMLElement; position: string }[] = []
+    const paragraphPinCounts = new Map<HTMLElement, number>()
     const paragraphs = Array.from(container.querySelectorAll('p'))
     for (const pin of annotationPins) {
       if (pin.kind !== 'docx' || !pin.paragraph) continue
       const paragraph = paragraphs[pin.paragraph - 1]
       if (!paragraph) continue
+      const pinSlot = paragraphPinCounts.get(paragraph) ?? 0
+      paragraphPinCounts.set(paragraph, pinSlot + 1)
       const position = paragraph.style.position
       if (getComputedStyle(paragraph).position === 'static') paragraph.style.position = 'relative'
       const marker = document.createElement('button')
@@ -528,7 +537,7 @@ function DocxBody({
       marker.style.cssText = [
         'position:absolute',
         'right:2px',
-        'top:2px',
+        `top:${2 + pinSlot * 18}px`,
         'z-index:2',
         'display:inline-flex',
         'align-items:center',

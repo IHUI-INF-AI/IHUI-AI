@@ -336,6 +336,13 @@ describe('OfficePreview 渲染面', () => {
     expect(xlsxRangeStart('A2:C9')).toEqual({ row: 2, col: 0 })
     expect(xlsxRangeStart('')).toBeNull()
 
+    const manyParagraphs = buildDocxReviewBlocks(
+      Array.from({ length: 10 }, (_, index) => `第 ${index + 1} 段合同条款足够长，必须保留段落定位。`),
+    )
+    expect(manyParagraphs.blocks).toHaveLength(2)
+    expect(manyParagraphs.blocks[0]!.anchor).toMatchObject({ paragraph: 1, paragraphEnd: 8 })
+    expect(manyParagraphs.blocks[1]!.anchor).toMatchObject({ paragraph: 9, paragraphEnd: 10 })
+
     const workbook = buildXlsxWorkbookReviewBlocks([
       { sheet: '表A', rows: [['标题', '值'], ['A', '1']], total: 2 },
       { sheet: '表B', rows: [['标题2', '值2'], ['B', '2']], total: 3 },
