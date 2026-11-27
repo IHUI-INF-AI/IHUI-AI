@@ -39,6 +39,7 @@ vi.mock('../../plugins/auth.js', () => ({
   authenticate: vi.fn(async (request: { userId?: string }) => {
     request.userId = state.tokenUserId
   }),
+  hasHumanJwtCredential: vi.fn(() => true),
 }))
 
 vi.mock('../../db/community-queries.js', () => ({
@@ -49,6 +50,7 @@ vi.mock('../../db/community-queries.js', () => ({
   findCirclePosts: vi.fn(async () => []),
   findCircles: vi.fn(async () => []),
   findPostById: vi.fn(async () => state.post),
+  parseCircleIdentifier: vi.fn((raw: string) => ({ kind: 'slug', value: raw })),
   updatePost: vi.fn(),
 }))
 
@@ -104,6 +106,7 @@ vi.mock('../../db/index.js', () => {
 })
 
 import { db } from '../../db/index.js'
+import { findCircleByIdOrSlug, findCircles } from '../../db/community-queries.js'
 import circlesRoutes from '../community/circles.js'
 
 const COMMENT_URL = `/api/circles/posts/${POST_ID}/comment`
@@ -228,5 +231,61 @@ describe('F-332 /circles/posts/:id/comment', () => {
     })
     expect(res.statusCode).toBe(400)
     expect(db.insert).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /circles 读面 isJoined', () => {
+  let app: FastifyInstance
+
+  beforeAll(async () => {
+    app = Fastify({ logger: false })
+    await app.register(circlesRoutes, { prefix: '/api' })
+    await app.ready()
+  })
+
+  afterAll(async () => {
+    await app.close()
+  })
+
+  it('把登录主体交给查询层,并原样返回 isJoined 行', async () => {
+    state.tokenUserId = ME
+    vi.mocked(findCircles).mockResolvedValue({
+      list: [{ id: 'circle-1', name: '前端圈子', isJoined: true }],
+      total: 1,
+    } as never)
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/circles?page=1&pageSize=10',
+      headers: { authorization: 'Bearer test-token' },
+    })
+
+    expect(res.statusCode, res.body).toBe(200)
+    expect(vi.mocked(findCircles)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(findCircles)).toHaveBeenCalledWith(expect.objectContaining({ viewerId: ME }))
+    expect(res.json().data.list[0]?.isJoined).toBe(true)
+  })
+
+  it('详情也把登录主体交给查询层,并原样返回 isJoined', async () => {
+    state.tokenUserId = ME
+    vi.mocked(findCircleByIdOrSlug).mockResolvedValue({
+      id: 'circle-1',
+      name: '前端圈子',
+      isPublished: true,
+      isJoined: true,
+    } as never)
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/circles/circle-1',
+      headers: { authorization: 'Bearer test-token' },
+    })
+
+    expect(res.statusCode, res.body).toBe(200)
+    expect(vi.mocked(findCircleByIdOrSlug)).toHaveBeenCalledWith(
+      'circle-1',
+      expect.objectContaining({ viewerId: ME, publishedOnly: true }),
+    )
+    expect(res.json().data.circle.isJoined).toBe(true)
   })
 })
