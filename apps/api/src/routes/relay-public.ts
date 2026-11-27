@@ -179,6 +179,10 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
       const tokenPricingMap = new Map<string, (typeof pricingRows)[number]>()
       for (const p of pricingRows) {
         const k = normalizeModelId(p.modelId)
+        // 计费侧 queryPricingRows 用 eq(aiPricing.modelId, normalizeModelId(model)),
+        // 是大小写敏感精确匹配;这里必须同样只认 model_id === 归一名的行。
+        // 否则 CohereLabs/... 与 coherelabs/... 两套大小写存量会取错价。
+        if (p.modelId !== k) continue
         if (!pricingMap.has(k)) pricingMap.set(k, p)
         if ((p.billingMode ?? 'token') === 'token' && !tokenPricingMap.has(k)) {
           tokenPricingMap.set(k, p)
