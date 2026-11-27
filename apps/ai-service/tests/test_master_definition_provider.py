@@ -96,3 +96,29 @@ async def test_prepare_provider_wraps_unavailable() -> None:
             FakeClient(_snapshot(), error=ValueError("boom")),  # type: ignore[arg-type]
             user_id="user-1",
         )
+
+
+@pytest.mark.asyncio
+async def test_invalidation_newer_version_refetches_once() -> None:
+    snapshots = iter(
+        [
+            _snapshot(),
+            build_snapshot(version=9, definitions=[_runtime("def-9")], tombstones=[], fetched_at=2.0),
+        ]
+    )
+
+    class SequenceClient(FakeClient):
+        async def get_snapshot(self, *, force: bool = False):  # type: ignore[no-untyped-def]
+            self.calls += 1
+            return next(snapshots)
+
+    client = SequenceClient(_snapshot())
+    provider = AgentDefinitionProvider(client, user_id="user-1")
+    await provider.prepare()
+    assert provider.snapshot is not None and provider.snapshot.version == 5
+
+    assert await provider.apply_invalidation(6, ["def-1"]) is True
+    assert provider.snapshot is not None and provider.snapshot.version == 9
+
+    assert await provider.apply_invalidation(9, ["def-9"]) is False
+    assert client.calls == 2

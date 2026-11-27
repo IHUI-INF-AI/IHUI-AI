@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from typing import Any
 
@@ -17,6 +18,8 @@ from ..core.internal_ticket import InternalServiceCredentialError
 from .agent_definition import RuntimeAgentDefinition
 from .agent_registry_client import AgentRegistryClient
 from .agent_resolver import AgentResolveError, AgentResolver, RegistrySnapshot
+
+logger = logging.getLogger(__name__)
 
 
 class AgentDefinitionProvider:
@@ -53,6 +56,21 @@ class AgentDefinitionProvider:
         self._snapshot = snapshot
         self._resolver = AgentResolver(self._user_id, self._team_ids, snapshot)
         return snapshot
+
+    async def apply_invalidation(
+        self, version: int, changed_ids: Sequence[str] = ()
+    ) -> bool:
+        """收到 Redis `ihui:agent-registry:v1:changed` 后调用；低版本/同版本忽略。"""
+        current = self._snapshot
+        if version <= (current.version if current else 0):
+            return False
+        await self.prepare(force=True)
+        logger.info(
+            "[agent-registry] 失效通知已应用 version=%s changed=%s",
+            version,
+            list(changed_ids),
+        )
+        return True
 
     def resolve(self, ref: str) -> RuntimeAgentDefinition:
         if self._resolver is None:

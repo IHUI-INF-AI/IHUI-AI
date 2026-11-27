@@ -60,6 +60,10 @@ import {
   listRunArtifacts,
 } from '../services/agent-registry-runs-service.js'
 import { runIdempotent } from '../services/agent-registry-idempotency.js'
+import {
+  publishAgentRegistryChanged,
+  snapshotVersionFromUpdatedAt,
+} from '../services/agent-registry-invalidation.js'
 
 const uuidSchema = z.string().uuid('必须是 UUID')
 const nameSchema = z.string().min(1).max(64)
@@ -211,6 +215,21 @@ function withRequestId<T>(request: FastifyRequest, data: T): T & { requestId: st
   return { ...data, requestId: request.id }
 }
 
+async function notifyRegistryChanged(
+  request: FastifyRequest,
+  action: string,
+  data: unknown,
+): Promise<void> {
+  const record =
+    data !== null && typeof data === 'object' ? (data as Record<string, unknown>) : {}
+  const id = typeof record.id === 'string' ? record.id : undefined
+  await publishAgentRegistryChanged(request.server, {
+    version: snapshotVersionFromUpdatedAt(record.updatedAt),
+    ids: id ? [id] : [],
+    action,
+  })
+}
+
 /**
  * 灰度开关（01 §11.1）。默认开启，只有显式 `false` 才关闭：
  * 这不是 rollout 默认，而是本仓已经上线服务的 kill switch 口径 ——
@@ -272,6 +291,7 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
     const body = parseOrThrow(createDefinitionSchema, request.body)
     return runIdempotent(request.server, request, reply, 'definitions.create', async () => {
       const created = await createAgentDefinition(actor, body as CreateAgentDefinitionInput)
+      await notifyRegistryChanged(request, 'definition.created', created)
       return {
         statusCode: 201,
         body: withRequestId(request, success(created)),
@@ -295,6 +315,7 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
       params.id,
       body as UpdateAgentDefinitionInput,
     )
+    await notifyRegistryChanged(request, 'definition.updated', updated)
     return reply.send(withRequestId(request, success(updated)))
   })
 
@@ -304,6 +325,7 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
     const body = parseOrThrow(cloneDefinitionSchema, request.body ?? {})
     return runIdempotent(request.server, request, reply, 'definitions.clone', async () => {
       const cloned = await cloneAgentDefinition(actor, params.id, body as CloneAgentDefinitionInput)
+      await notifyRegistryChanged(request, 'definition.cloned', cloned)
       return {
         statusCode: 201,
         body: withRequestId(request, success(cloned)),
@@ -317,6 +339,7 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
     const body = parseOrThrow(enableSchema, request.body)
     return runIdempotent(request.server, request, reply, 'definitions.enable', async () => {
       const updated = await setAgentDefinitionEnabled(actor, params.id, true, body.ifVersion)
+      await notifyRegistryChanged(request, 'definition.enabled', updated)
       return { statusCode: 200, body: withRequestId(request, success(updated)) }
     })
   })
@@ -327,6 +350,7 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
     const body = parseOrThrow(enableSchema, request.body)
     return runIdempotent(request.server, request, reply, 'definitions.disable', async () => {
       const updated = await setAgentDefinitionEnabled(actor, params.id, false, body.ifVersion)
+      await notifyRegistryChanged(request, 'definition.disabled', updated)
       return { statusCode: 200, body: withRequestId(request, success(updated)) }
     })
   })
@@ -366,6 +390,7 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
       if ('requiresApproval' in result) {
         return { statusCode: 428, body: withRequestId(request, success(result)) }
       }
+      await notifyRegistryChanged(request, 'definition.rolled_back', result)
       return { statusCode: 200, body: withRequestId(request, success(result)) }
     })
   })
@@ -402,6 +427,7 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
     const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
     return runIdempotent(request.server, request, reply, 'definitions.restore', async () => {
       const restored = await restoreAgentDefinition(actor, params.id)
+      await notifyRegistryChanged(request, 'definition.restored', restored)
       return { statusCode: 200, body: withRequestId(request, success(restored)) }
     })
   })
@@ -431,6 +457,7 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
     const body = parseOrThrow(approveSchema, request.body)
     return runIdempotent(request.server, request, reply, 'approvals.approve', async () => {
       const result = await approveApproval(actor, params.id, body.typedName, body.reason)
+      await notifyRegistryChanged(request, 'approval.approved', result)
       return { statusCode: 200, body: withRequestId(request, success(result)) }
     })
   })
