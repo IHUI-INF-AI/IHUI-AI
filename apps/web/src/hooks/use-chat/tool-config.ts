@@ -4,6 +4,8 @@
 
 import { useChatStore } from '@/stores/chat'
 import type { ChatStore } from '@/stores/chat-pane-context'
+// 工具结果里的 URL 与粘贴预览共用同一份边界判据(中文紧跟/全角标点必须截断在主机处)
+import { detectPastedUrl } from '@/hooks/use-link-preview'
 import { createAppControlToolSelector } from '@ihui/shared/utils/app-control-intent'
 
 /** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
@@ -736,8 +738,8 @@ export function extractToolUrl(args?: Record<string, unknown>, result?: unknown)
     if (typeof fromArgs === 'string' && /^https?:\/\//i.test(fromArgs)) return fromArgs
   }
   if (typeof result === 'string') {
-    const match = result.match(/https?:\/\/[^\s"'<>]+/i)
-    if (match) return match[0]
+    // 与链接预览同一判据:工具结果常是"标题+URL+中文正文"连写,正则式提前截断会吞正文
+    return detectPastedUrl(result)
   } else if (result && typeof result === 'object') {
     const obj = result as Record<string, unknown>
     const fromResult = (obj.url as string) || (obj.href as string) || (obj.link as string)
