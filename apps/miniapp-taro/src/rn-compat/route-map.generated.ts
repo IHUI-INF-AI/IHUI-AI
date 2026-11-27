@@ -97,6 +97,7 @@ export const RN_ROUTE_MAP: Record<string, string> = {
   CustomerService: '/pkg-mirror/customer-service/index',
   DevEnter: '/pkg-ai/developer/index',
   Developer: '/pkg-ai/dev-enter/cover/index',
+  Devices: '/pkg-user/devices/index',
   Distribution: '/pages/distribution/index',
   DistributionOrderList: '/pages/distribution/order-list/index',
   EarnCommission: '/pages/distribution/plan/index',

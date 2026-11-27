@@ -34,6 +34,23 @@ import { fetchApi } from '@/lib/api'
 /** 后端探测总时限(3s)。客户端传输层超时略放宽,让后端能把自己的"未判定(超时)"送达。 */
 export const LINK_PREVIEW_PROBE_TIMEOUT_MS = 3000
 export const LINK_PREVIEW_TRANSPORT_TIMEOUT_MS = 5000
+/** 未判定自动重试的等待间隔:给目标站的瞬时限流/冷启动留出恢复窗口。 */
+export const LINK_PREVIEW_RETRY_DELAY_MS = 800
+
+/**
+ * 这些"未判定"是瞬时的,值得在同一张卡上自动再试一次:
+ * 目标站/CDN 偶发超时、网络抖动、探测请求根本没送达。
+ * 401/403(登录)、429(限流)、SSRF 拦截、格式非法不重试 —— 重试也不会变好,只会拖长等待。
+ */
+function isTransientProbeFailure(reason: string): boolean {
+  return (
+    reason === 'timeout' ||
+    reason === 'network_error' ||
+    reason === 'probe_error' ||
+    reason === 'probe_request_failed' ||
+    /^http_5\d\d$/u.test(reason)
+  )
+}
 
 /** 三态封闭的预览状态(loading 之外三态与后端 UrlPreviewProbeResult 一一对应)。 */
 export type LinkPreviewStatus = 'loading' | 'ok' | 'unavailable' | 'undetermined'
@@ -197,27 +214,38 @@ export function useLinkPreview(): UseLinkPreviewReturn {
 
     // fire-and-forget:同步与异步都不向调用方抛(预览失败不阻止发送的结构性前提)。
     void (async () => {
-      try {
-        const res = await fetchApi<UrlPreviewData>(
-          `/api/url-preview/preview?url=${encodeURIComponent(url)}`,
-          { timeoutMs: LINK_PREVIEW_TRANSPORT_TIMEOUT_MS },
-        )
-        if (res.success) {
-          const data = res.data
-          if (data.status === 'ok') {
-            finish({
-              status: 'ok',
-              url,
-              ...(data.title ? { title: data.title } : {}),
-              ...(data.description ? { description: data.description } : {}),
-              ...(data.icon ? { icon: data.icon } : {}),
-            })
-          } else if (data.status === 'unavailable') {
-            finish({ status: 'unavailable', url, reason: data.reason ?? 'unknown' })
-          } else {
-            finish({ status: 'undetermined', url, reason: data.reason ?? 'unknown' })
+      type AttemptOutcome = { next: LinkPreviewState; retryable: boolean }
+
+      const attempt = async (): Promise<AttemptOutcome> => {
+        try {
+          const res = await fetchApi<UrlPreviewData>(
+            `/api/url-preview/preview?url=${encodeURIComponent(url)}`,
+            { timeoutMs: LINK_PREVIEW_TRANSPORT_TIMEOUT_MS },
+          )
+          if (res.success) {
+            const data = res.data
+            if (data.status === 'ok') {
+              return {
+                next: {
+                  status: 'ok',
+                  url,
+                  ...(data.title ? { title: data.title } : {}),
+                  ...(data.description ? { description: data.description } : {}),
+                  ...(data.icon ? { icon: data.icon } : {}),
+                },
+                retryable: false,
+              }
+            }
+            const reason = data.reason ?? 'unknown'
+            return {
+              next: {
+                status: data.status,
+                url,
+                reason,
+              },
+              retryable: data.status === 'undetermined' && isTransientProbeFailure(reason),
+            }
           }
-        } else {
           // 传输层失败(4xx/5xx/网络)——我们没判定成,标"未判定"而非"读不到"。
           // 2026-11-27 实报:401 原样报成"网络不可达",把"没登录"误导成"站点连不上",
           // 排查方向整个跑偏。这里按状态码给出可分辨的 reason,文案仍走卡片既有映射。
@@ -229,11 +257,29 @@ export function useLinkPreview(): UseLinkPreviewReturn {
                 : typeof res.status === 'number' && res.status >= 500
                   ? `http_${res.status}`
                   : 'probe_request_failed'
-          finish({ status: 'undetermined', url, reason })
+          return {
+            next: { status: 'undetermined', url, reason },
+            retryable: isTransientProbeFailure(reason),
+          }
+        } catch {
+          return {
+            next: { status: 'undetermined', url, reason: 'probe_error' },
+            retryable: true,
+          }
         }
-      } catch {
-        finish({ status: 'undetermined', url, reason: 'probe_error' })
       }
+
+      let outcome = await attempt()
+      // 2026-11-27 实报:偶发一次 3s 超时会把卡片钉死在"网络不可达",用户只能重贴一次。
+      // 后端不缓存 undetermined,所以这里等一个短窗口后原地再试一次;仍失败才落卡。
+      if (outcome.retryable && seqRef.current === mySeq) {
+        await new Promise((resolve) => setTimeout(resolve, LINK_PREVIEW_RETRY_DELAY_MS))
+        if (seqRef.current === mySeq) outcome = await attempt()
+      }
+      if (seqRef.current !== mySeq) return
+      // 两次都未判定 ⇒ 解除该 URL 的"只探一次"记账,让用户再粘一次仍能重新探测。
+      if (outcome.next.status === 'undetermined') probedUrlsRef.current.delete(url)
+      finish(outcome.next)
     })()
   }, [])
 
