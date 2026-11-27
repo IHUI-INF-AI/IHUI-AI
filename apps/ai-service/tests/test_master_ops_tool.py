@@ -158,6 +158,56 @@ def _run_handler(definitions: list[dict[str, Any]], calls: list[tuple[str, str, 
 
 
 @pytest.mark.asyncio
+async def test_dispatch_team_aggregates_contributors(monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    from app.services.agent_teams import TeamContributor, TeamOrchestrator
+
+    definitions = [
+        _raw_definition("11111111-1111-4111-8111-111111111111", "team-a"),
+        _raw_definition("22222222-2222-4222-8222-222222222222", "team-b"),
+    ]
+    calls: list[tuple[str, str, dict[str, Any]]] = []
+    captured: dict[str, Any] = {}
+
+    async def fake_round(self, **kwargs):  # type: ignore[no-untyped-def]
+        captured.update(kwargs)
+        return SimpleNamespace(
+            round_id="round-test",
+            round_index=0,
+            round_count=1,
+            strategy=kwargs["strategy"],
+            succeeded=2,
+            failed=0,
+            contributors=[
+                TeamContributor(name=kwargs["tasks"][0]["name"], task="a", status="completed", output="甲完成"),
+                TeamContributor(name=kwargs["tasks"][1]["name"], task="b", status="completed", output="乙完成"),
+            ],
+            aggregate={"merged_text": "甲完成\n乙完成", "recommendation": "可以合并"},
+            summary_context="summary",
+        )
+
+    monkeypatch.setattr(TeamOrchestrator, "run_round", fake_round)
+    envelope = await _tool(_run_handler(definitions, calls)).handle(
+        {
+            "action": "dispatch",
+            "mode": "team",
+            "definitionId": definitions[0]["id"],
+            "goal": "一起完成方案",
+            "strategy": "consensus",
+            "agents": [{"definitionId": d["id"]} for d in definitions],
+        },
+        user_id="user-1",
+    )
+
+    assert envelope["ok"] is True
+    assert envelope["data"]["runStatus"] == "succeeded"
+    assert captured["strategy"] == "consensus"
+    assert [task["name"] for task in captured["tasks"]] == [d["id"] for d in definitions]
+    assert len(envelope["data"]["steps"]) == 2
+
+
+@pytest.mark.asyncio
 async def test_parallel_requires_participants() -> None:
     envelope = await _tool(lambda _r: httpx.Response(200, json={"code": 0})).handle(
         {"action": "dispatch", "definitionId": "def-1", "goal": "做一件小事", "mode": "parallel"},

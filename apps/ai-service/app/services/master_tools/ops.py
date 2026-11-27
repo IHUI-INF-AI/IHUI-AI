@@ -80,13 +80,18 @@ INPUT_SCHEMA: dict[str, Any] = {
         },
         "goal": {"type": "string", "maxLength": 8000},
         "maxRounds": {"type": "integer", "minimum": 1, "maximum": 6, "description": "debate/critique 轮次"},
+        "strategy": {
+            "type": "string",
+            "enum": ["merge", "best_of", "consensus"],
+            "description": "team 模式的聚合策略，默认 merge",
+        },
         "constraints": {"type": "array", "items": {"type": "string"}, "maxItems": 16},
         "deliverables": {"type": "array", "items": {"type": "string"}, "maxItems": 16},
         "budget": {"type": "object"},
         "agents": {
             "type": "array",
             "maxItems": 9,
-            "description": "parallel/debate/vote/critique 的参与者；每项必须有 definitionId 或 name",
+            "description": "parallel/debate/vote/critique/team 的参与者；每项必须有 definitionId 或 name",
             "items": {
                 "type": "object",
                 "additionalProperties": False,
@@ -128,10 +133,10 @@ INPUT_SCHEMA: dict[str, Any] = {
 }
 
 DESCRIPTION = (
-    "查看和控制智能体运行：dispatch 支持 single / parallel / pipeline / debate / vote / critique，"
+    "查看和控制智能体运行：dispatch 支持 single / parallel / pipeline / debate / vote / critique / team，"
     "会创建父 run、真实执行并写步骤事件；run_list/run_get/run_logs/run_artifacts/run_stats 可查；"
     "run_pause/run_resume/run_talk 可操作当前实例的在飞会话，health 查运行时；"
-    "decomposed/team/recursive 与 stop/retry/cancel 尚未接线，会明确报未实现。"
+    "decomposed/recursive 与 stop/retry/cancel 尚未接线，会明确报未实现。"
 )
 
 _ALLOWED_ARGS = frozenset(INPUT_SCHEMA["properties"].keys())
@@ -181,6 +186,42 @@ def _resolve_dispatchable(provider: Any, ref: str) -> Any:
 
 def _truncate(text: str, limit: int = 4000) -> str:
     return text if len(text) <= limit else text[:limit] + f"\n…[截断 {len(text) - limit} 字符]"
+
+
+def _team_round_to_orchestration(rr: Any) -> Any:
+    """把 TeamRoundResult 归一成 OrchestrationResult，复用父 run 的落账与返回形状。"""
+    from ..agent_orchestrator import AgentStepResult, OrchestrationResult
+
+    steps = [
+        AgentStepResult(
+            agent_name=contributor.name,
+            input="",
+            output=contributor.output,
+            status=contributor.status,
+            duration_ms=contributor.duration_ms,
+            error=contributor.error,
+        )
+        for contributor in rr.contributors
+    ]
+    merged = str(rr.aggregate.get("merged_text") or rr.summary_context or "")
+    recommendation = str(rr.aggregate.get("recommendation") or "")
+    if recommendation:
+        merged = f"{merged}\n\n建议:{recommendation}" if merged else recommendation
+    return OrchestrationResult(
+        orchestration_id=rr.round_id,
+        steps=steps,
+        final_output=merged,
+        status="completed" if rr.failed == 0 else "failed",
+        total_duration_ms=round(sum(step.duration_ms for step in steps), 2),
+        trace=[
+            {
+                "round": rr.round_index,
+                "strategy": rr.strategy,
+                "succeeded": rr.succeeded,
+                "failed": rr.failed,
+            }
+        ],
+    )
 
 
 def _legacy_secret() -> str:
@@ -333,12 +374,12 @@ class AgentOpsTool:
         from ..run_ledger import RunLedgerClient
 
         mode = str(payload.get("mode") or "single")
-        if mode in ("parallel", "pipeline", "debate", "vote", "critique"):
+        if mode in ("parallel", "pipeline", "debate", "vote", "critique", "team"):
             return await self._dispatch_multi(payload, mode=mode, user_id=user_id)
         if mode != "single":
             raise OpsToolError(
                 "AGENT_MODE_NOT_IMPLEMENTED",
-                f"dispatch 当前支持 single / parallel / pipeline / debate / vote / critique，"
+                f"dispatch 当前支持 single / parallel / pipeline / debate / vote / critique / team，"
                 f"拒绝把 {mode} 当成已执行",
                 details={"mode": mode},
             )
@@ -452,7 +493,7 @@ class AgentOpsTool:
         await provider.prepare()
 
         resolved = [_resolve_dispatchable(provider, ref) for ref in refs]
-        if mode in ("debate", "vote", "critique"):
+        if mode in ("debate", "vote", "critique", "team"):
             # 这三个模式内部直接 _run_agent，不经过 invoke 的白名单校验；在父 run 建账前补上。
             from ..agent_resolver import AgentResolveError
 
@@ -518,6 +559,17 @@ class AgentOpsTool:
                     f"{mode} 至少需要 2 个参与者",
                 )
             agent_ids = [definition.id for definition in resolved]
+            team_tasks = [
+                {
+                    "name": definition.id,
+                    "task": (
+                        str(item.get("goal") or "").strip()
+                        if isinstance(item, dict) and str(item.get("goal") or "").strip()
+                        else goal
+                    ),
+                }
+                for item, definition in zip(items, resolved, strict=True)
+            ]
 
         run_id = str(uuid.uuid4())
         trace_id = f"tr_{uuid.uuid4().hex}"
@@ -566,13 +618,23 @@ class AgentOpsTool:
                 )
             elif mode == "vote":
                 result = await orchestrator.run_vote(agent_ids, goal, session_id=f"{run_id}-session")
-            else:
+            elif mode == "critique":
                 result = await orchestrator.run_critique(
                     agent_ids,
                     goal,
                     max_rounds=int(payload.get("maxRounds") or 2),
                     session_id=f"{run_id}-session",
                 )
+            else:
+                from ..agent_teams import TeamOrchestrator
+
+                team = await TeamOrchestrator(orchestrator=orchestrator).run_round(
+                    objective=goal,
+                    tasks=team_tasks,
+                    strategy=str(payload.get("strategy") or "merge"),  # type: ignore[arg-type]
+                    max_concurrency=min(len(team_tasks), 5),
+                )
+                result = _team_round_to_orchestration(team)
         except Exception as error:  # noqa: BLE001 -- 失败也要把父 run 收口
             await ledger.update_run(
                 run_id,
