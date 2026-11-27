@@ -18,7 +18,7 @@ import { BackButton } from '@/components/common'
 import { StatsCards } from './StatsCards'
 import { FilterBar } from './FilterBar'
 import { TaskCard } from './TaskCard'
-import { normalizeHistoryStatusFilter } from './history-helpers'
+import { normalizeHistoryStatusFilter, normalizeHistoryTaskFocus } from './history-helpers'
 
 interface Target {
   platform: string
@@ -69,6 +69,7 @@ export default function HistoryPage() {
   const [filterPlatform, setFilterPlatform] = React.useState<string>('all')
   const [filterStatus, setFilterStatus] = React.useState<string>('all')
   const [expanded, setExpanded] = React.useState<Set<number>>(new Set())
+  const [focusTaskId, setFocusTaskId] = React.useState<string | null>(null)
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -92,10 +93,39 @@ export default function HistoryPage() {
   }, [load])
 
   // /start 的“待确认草稿/失败待处理”卡带 ?status= 进来；未知值回退 all。
+  // 一句话出稿成功后的“去确认”还会带 ?task=，这里一起收，避免用户到了列表再翻。
   React.useEffect(() => {
-    const next = normalizeHistoryStatusFilter(new URLSearchParams(window.location.search).get('status'))
-    setFilterStatus(next)
+    const params = new URLSearchParams(window.location.search)
+    setFilterStatus(normalizeHistoryStatusFilter(params.get('status')))
+    setFocusTaskId(normalizeHistoryTaskFocus(params.get('task')))
   }, [])
+
+  const focusedTask = React.useMemo(() => {
+    if (!focusTaskId) return null
+    return (
+      tasks.find(
+        (task) => (task.taskId && task.taskId === focusTaskId) || String(task.id) === focusTaskId,
+      ) ?? null
+    )
+  }, [focusTaskId, tasks])
+
+  // 定位到具体草稿：自动展开；若它不在当前状态筛选里，先退回 all 保证可见。
+  React.useEffect(() => {
+    if (loading || !focusedTask) return
+    setExpanded((prev) => {
+      if (prev.has(focusedTask.id)) return prev
+      const next = new Set(prev)
+      next.add(focusedTask.id)
+      return next
+    })
+    setFilterStatus((prev) => (prev === 'all' || focusedTask.status === prev ? prev : 'all'))
+    const timer = window.setTimeout(() => {
+      document
+        .getElementById(`publish-task-${focusedTask.id}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 80)
+    return () => window.clearTimeout(timer)
+  }, [loading, focusedTask])
 
   function toggle(id: number) {
     setExpanded((prev) => {
@@ -137,13 +167,20 @@ export default function HistoryPage() {
       ) : (
         <div className="space-y-2">
           {filtered.map((task) => (
-            <TaskCard
+            <div
               key={task.id}
-              task={task}
-              expanded={expanded.has(task.id)}
-              onToggle={toggle}
-              onChanged={() => void load()}
-            />
+              id={`publish-task-${task.id}`}
+              className={
+                focusedTask?.id === task.id ? 'rounded-lg ring-2 ring-primary/30' : undefined
+              }
+            >
+              <TaskCard
+                task={task}
+                expanded={expanded.has(task.id)}
+                onToggle={toggle}
+                onChanged={() => void load()}
+              />
+            </div>
           ))}
         </div>
       )}
