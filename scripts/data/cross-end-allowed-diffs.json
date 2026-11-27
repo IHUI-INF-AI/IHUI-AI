@@ -1853,7 +1853,8 @@
       "owner": "cross-end-ui",
       "expires": "2027-06-30",
       "count": 7,
-      "reason": "2026-11-26 复核:RN 端 7px 纵向内边距共 7 处命中,设计档位表无 7px 档(4/8/12)。系 Uniapp 移植期半像素级手调,先按「存量只减不增」登记防新增;样式基准落地后统一并入 8px 档或令牌。像素零变化。"
+      "reason": "2026-11-26 复核:RN 端 7px 纵向内边距共 7 处命中,设计档位表无 7px 档(4/8/12)。系 Uniapp 移植期半像素级手调,先按「存量只减不增」登记防新增;样式基准落地后统一并入 8px 档或令牌。像素零变化。",
+      "evidence": "check-cross-end-ui-parity --json: RN:spacing:paddingVertical tier=7 diffCount=7; source apps/mobile-rn/src (Modal/Sheet paddingVertical:7), mini side uses 8/12 tiers"
     },
     {
       "component": "RN:spacing:paddingBottom",
@@ -1862,7 +1863,8 @@
       "owner": "cross-end-ui",
       "expires": "2027-06-30",
       "count": 2,
-      "reason": "2026-11-26 复核:96px 为底部停靠栏让位高度(玻璃 TabBar 浮起区,tabBarDockSpacer 一族),web 无对应概念。属端内合法几何,登记而非改值。"
+      "reason": "2026-11-26 复核:96px 为底部停靠栏让位高度(玻璃 TabBar 浮起区,tabBarDockSpacer 一族),web 无对应概念。属端内合法几何,登记而非改值。",
+      "evidence": "check-cross-end-ui-parity --json: RN:spacing:paddingBottom tier=96 diffCount=2; source apps/mobile-rn/src/components/TabBar.tsx tabBarDockSpacer (glass TabBar reserved dock height), web has no equivalent"
     },
     {
       "component": "RN:radius:borderRadius",
@@ -1871,7 +1873,8 @@
       "owner": "cross-end-ui",
       "expires": "2027-06-30",
       "count": 2,
-      "reason": "2026-11-26 复核:3px 圆角用于 24–28px 级小徽标/小方块,web 取 4px 档;按设备密度取整的差异,登记。"
+      "reason": "2026-11-26 复核:3px 圆角用于 24–28px 级小徽标/小方块,web 取 4px 档;按设备密度取整的差异,登记。",
+      "evidence": "check-cross-end-ui-parity --json: RN:radius:borderRadius tier=3 diffCount=2; source apps/mobile-rn/src small badge/square (24-28px) where web uses 4px tier"
     },
     {
       "component": "RN:spacing:paddingVertical",
@@ -1880,7 +1883,8 @@
       "owner": "cross-end-ui",
       "expires": "2027-06-30",
       "count": 1,
-      "reason": "2026-11-26 复核:15px 纵向内边距=胶囊按钮 7.5px 上下取整,web 用 14/16 档;RN 逻辑像素取整值,登记。"
+      "reason": "2026-11-26 复核:15px 纵向内边距=胶囊按钮 7.5px 上下取整,web 用 14/16 档;RN 逻辑像素取整值,登记。",
+      "evidence": "check-cross-end-ui-parity --json: RN:spacing:paddingVertical tier=15 diffCount=1; source apps/mobile-rn/src capsule button (7.5px*2 rounded), web uses 14/16 tiers"
     },
     {
       "component": "RN:spacing:gap",
@@ -1889,7 +1893,8 @@
       "owner": "cross-end-ui",
       "expires": "2027-06-30",
       "count": 1,
-      "reason": "2026-11-26 复核:7px 间距为 RN 逻辑像素取整,web 无 7 档;登记,待样式基准统一。"
+      "reason": "2026-11-26 复核:7px 间距为 RN 逻辑像素取整,web 无 7 档;登记,待样式基准统一。",
+      "evidence": "check-cross-end-ui-parity --json: RN:spacing:gap tier=7 diffCount=1; source apps/mobile-rn/src logical-pixel rounding, web has no 7 tier"
     },
     {
       "component": "RN:spacing:paddingHorizontal",
@@ -1898,7 +1903,8 @@
       "owner": "cross-end-ui",
       "expires": "2027-06-30",
       "count": 1,
-      "reason": "2026-11-26 复核:18px 横向内边距,web 用 16/20 档;Uniapp 移植遗留,登记防新增。"
+      "reason": "2026-11-26 复核:18px 横向内边距,web 用 16/20 档;Uniapp 移植遗留,登记防新增。",
+      "evidence": "check-cross-end-ui-parity --json: RN:spacing:paddingHorizontal tier=18 diffCount=1; source apps/mobile-rn/src Uniapp-port legacy horizontal padding, web uses 16/20 tiers"
     },
     {
       "component": "RN:radius:borderRadius",
@@ -1907,7 +1913,8 @@
       "owner": "cross-end-ui",
       "expires": "2027-06-30",
       "count": 1,
-      "reason": "2026-11-26 复核:5px 圆角对应 web 6px 档的 RN 取整,登记。"
+      "reason": "2026-11-26 复核:5px 圆角对应 web 6px 档的 RN 取整,登记。",
+      "evidence": "check-cross-end-ui-parity --json: RN:radius:borderRadius tier=5 diffCount=1; source apps/mobile-rn/src rounded card vs web 6px tier"
     }
   ]
 }

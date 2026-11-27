@@ -18,6 +18,13 @@ import { getTopBarMetrics } from '@/utils/system-info'
 
 export default function RnShellPage({ children }: PropsWithChildren) {
   const { statusBarHeight } = getTopBarMetrics()
-  return <ThemeRoot style={{ paddingTop: statusBarHeight }}>{children}</ThemeRoot>
+  // RN 屏 root 普遍是 `flex:1` 的 shell。ThemeRoot 默认高度 auto 时,flex:1 子项在
+  // 小程序里会折叠成 0 高(Agent/Share 这类整屏脚手架会白屏);给一个确定高度
+  // 再把状态栏 padding 计入盒内,子屏才能像 RN 一样填满视口。
+  return (
+    <ThemeRoot style={{ height: '100vh', boxSizing: 'border-box', paddingTop: statusBarHeight }}>
+      {children}
+    </ThemeRoot>
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -74,11 +74,18 @@ export function AgentDetailScreen({
         <Text style={styles.label}>{t('agentDetail.rating')}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Star size={14} color={tk.warning.amberText} fill={tk.warning.amberText} />
-          <Text style={styles.value}>{item.rating.toFixed(1)}</Text>
+          <Text style={styles.value}>
+            {(typeof item.rating === 'number' && Number.isFinite(item.rating)
+              ? item.rating
+              : 0
+            ).toFixed(1)}
+          </Text>
         </View>
         <Text style={styles.label}>{t('agent.fieldPrice')}</Text>
         <Text style={styles.price}>
-          {item.isFree ? t('agentDetail.free') : `¥${item.price.toFixed(2)}`}
+          {item.isFree
+            ? t('agentDetail.free')
+            : `¥${(typeof item.price === 'number' && Number.isFinite(item.price) ? item.price : 0).toFixed(2)}`}
         </Text>
       </View>
       {onStartChat ? (
