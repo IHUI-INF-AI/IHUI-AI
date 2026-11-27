@@ -22,15 +22,32 @@
  *  - GET  /subagents/:id/messages      → AgentMessage[]
  */
 
-/** Agent 角色(对齐 API Zod agentRole enum) */
-export type AgentRole = 'researcher' | 'coder' | 'reviewer' | 'architect' | 'debugger'
+import type { OrchestrationModeInput } from '../agent-registry/contracts'
 
-/** SubagentRole 别名(原 types/subagent-dispatch.ts 命名,保持向后兼容) */
-export type SubagentRole = AgentRole
+/**
+ * 5 值旧派单角色。
+ * @deprecated P0-03/V2-08（2026-11-27）：新代码用 contracts 的 `AgentRole`（10 内置 + custom）。
+ * 保留本别名只为 apps/api 的 `Record<SubagentRole, ...>` 穷尽表、apps/web 的
+ * `Record<AgentRole, ...>` 图标/配色表与 5 值派单请求体继续编译；
+ * 它不是新注册表契约，新增角色一律走 contracts。
+ */
+export type SubagentRole = 'researcher' | 'coder' | 'reviewer' | 'architect' | 'debugger'
 
-/** 编排模式(对齐 API Zod orchestration enum) */
-export type OrchestrationMode =
-  'pipeline' | 'parallel' | 'debate' | 'vote' | 'critique' | 'decomposed' | 'with_communication'
+/**
+ * Agent 角色（历史 5 值）。
+ * @deprecated 历史 5 值联合，仅为 apps/web / apps/api 的穷尽映射表保持形状；
+ * 注册表契约的 `AgentRole`（10 内置 + custom）在
+ * `../agent-registry/contracts` 里，barrel 以 `AgentRegistryRole` 暴露。
+ */
+export type AgentRole = SubagentRole
+
+/**
+ * 编排模式兼容层。
+ * @deprecated 规范集是 contracts 的 9 模式；本类型额外容纳历史别名
+ * `decompose` / `with_communication`，仅用于旧请求体与 UI 选项继续编译。
+ * 落库/派发前必须 `normalizeOrchestrationMode()`，不得把别名写进 `agent_runs.mode`。
+ */
+export type OrchestrationMode = OrchestrationModeInput
 
 /** 优先级(对齐 API Zod priority enum) */
 export type DispatchPriority = 'low' | 'normal' | 'high' | 'urgent'
@@ -61,7 +78,7 @@ export type ExtendedDispatchStatus =
 /** DAG 节点定义 */
 export interface DagNode {
   id: string
-  agentRole: AgentRole
+  agentRole: SubagentRole
   task: string
 }
 
@@ -110,7 +127,7 @@ export interface SubagentDispatchInput {
   verifyCommands?: string[]
   constraints: string
   deliverables: string
-  agentRole?: AgentRole
+  agentRole?: SubagentRole
   orchestration?: OrchestrationMode
   retry?: RetryConfig
   dag?: DagDefinition
@@ -162,7 +179,7 @@ export interface SubagentDispatch {
   id: string
   goal: string
   status: DispatchStatus
-  agentRole?: AgentRole
+  agentRole?: SubagentRole
   orchestration?: OrchestrationMode
   priority?: DispatchPriority
   affectedFiles: string[]
@@ -236,7 +253,7 @@ export interface SubagentResumeResult {
 /** Swarm 拓扑节点 */
 export interface SwarmNode {
   id: string
-  agentRole: AgentRole
+  agentRole: SubagentRole
   status: DispatchStatus
   task: string
 }
