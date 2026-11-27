@@ -155,6 +155,7 @@ describe('DocumentAnnotationsPanel', () => {
 
     expect(received).toHaveLength(1)
     expect(received[0]?.source).toBe('ai-finding')
+    expect(received[0]?.paneId).toBeNull()
     expect(received[0]?.anchor).toEqual({ kind: 'pdf', page: 2 })
     expect(received[0]?.page).toBe(2)
     expect(received[0]?.text).toContain('PDF 第 2 页 · AI 全文')

@@ -417,6 +417,9 @@ export default function DocumentsPage() {
     const handler = (event: Event): void => {
       const detail = (event as CustomEvent<AnchorReferenceDetail>).detail
       if (!detail?.anchor || typeof detail.text !== 'string') return
+      // 「交给主 AI」是 AI 结论回主对话的通道,不是人工“添加到任务”;
+      // 若旁路落库会制造一条与 AI 线程重复的人类署名批注。
+      if (detail.source === 'ai-finding') return
       const note = detail.note?.trim() || detail.text.replace(/^\[[^\]]*\]\s*/, '').trim()
       if (!note) return
       const close = detail.text.startsWith('[') ? detail.text.indexOf(']') : -1

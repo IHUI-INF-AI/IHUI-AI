@@ -16,6 +16,7 @@ import {
   type DocumentAnnotationRecord,
 } from '@/lib/document-annotations'
 import { emitAnchorReference } from '@/components/chat/annotation-anchor'
+import { useOptionalPaneId } from '@/stores/chat-pane-context'
 import type { AnnotationAnchor } from '@ihui/shared/chat/annotation-anchors'
 import { cn } from '@/lib/utils'
 
@@ -75,6 +76,7 @@ export function DocumentAnnotationsPanel({
   const [replyBody, setReplyBody] = React.useState('')
   const [replyBusy, setReplyBusy] = React.useState(false)
   const asideRef = React.useRef<HTMLElement>(null)
+  const paneId = useOptionalPaneId()
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -393,6 +395,7 @@ export function DocumentAnnotationsPanel({
                           text: `[${root.label || 'AI 预审'}] ${root.body.slice(0, 1200)}\n\n请基于这条 AI 预审意见,给出可执行的修订方案,并指出需要补充的证据。`,
                           anchor: rawAnchor as unknown as AnnotationAnchor,
                           source: 'ai-finding',
+                          paneId,
                           page: typeof rawAnchor.page === 'number' ? rawAnchor.page : undefined,
                           slide: typeof rawAnchor.slide === 'number' ? rawAnchor.slide : undefined,
                           element:
