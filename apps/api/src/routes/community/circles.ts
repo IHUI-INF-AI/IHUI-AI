@@ -105,7 +105,12 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { page, pageSize, search } = parsed.data
-      const { list, total } = await findCircles({ page, pageSize, search })
+      const { list, total } = await findCircles({
+        page,
+        pageSize,
+        search,
+        viewerId: request.userId,
+      })
       return reply.send(success({ list, total, page, pageSize }))
     },
   )
@@ -159,7 +164,10 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       // F-330 可见性闸:对外详情只认 isPublished=true 的圈子;管理员绕过以便管理端查看。
       // 非管理员命中隐藏圈子一律 404(不暴露存在性);第二段判定防查询口径漂移。
       const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
-      const circle = await findCircleByIdOrSlug(parsed.data.id, { publishedOnly: !isAdmin })
+      const circle = await findCircleByIdOrSlug(parsed.data.id, {
+        publishedOnly: !isAdmin,
+        viewerId: request.userId,
+      })
       if (!circle || (!isAdmin && !circle.isPublished)) {
         return reply.status(404).send(error(404, '圈子不存在'))
       }

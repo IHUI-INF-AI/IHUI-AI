@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, asc, sql, ilike, or, type SQL } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, ilike, or, getTableColumns, type SQL } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
 import { isUuidString } from '../utils/uuid.js'
 import {
@@ -27,6 +27,30 @@ interface ListCirclesOpts {
   page: number
   pageSize: number
   search?: string
+  /** 当前登录主体;缺省(匿名)时 isJoined 恒 false。 */
+  viewerId?: string
+}
+
+/** 圈子行 + 当前主体是否在册(status=1);前端共用 group 口径依赖这枚字段。 */
+export type CircleWithJoin = Circle & { isJoined: boolean }
+
+/**
+ * 圈子读面统一列:基础列 + `isJoined` 相关子查询。
+ * 不 left join circle_members,避免同圈多成员行把列表放大;唯一键 (circle_id,user_id)
+ * 已在 schema 约束,EXISTS 只判在册关系。
+ */
+export function circleSelectColumns(viewerId: string | undefined) {
+  return {
+    ...getTableColumns(circles),
+    isJoined: viewerId
+      ? sql<boolean>`EXISTS (
+          SELECT 1 FROM ${circleMembers}
+          WHERE ${circleMembers.circleId} = ${circles.id}
+            AND ${circleMembers.userId} = ${viewerId}
+            AND ${circleMembers.status} = 1
+        )`
+      : sql<boolean>`false`,
+  }
 }
 
 /**
@@ -34,7 +58,7 @@ interface ListCirclesOpts {
  */
 export async function findCircles(
   opts: ListCirclesOpts,
-): Promise<{ list: Circle[]; total: number }> {
+): Promise<{ list: CircleWithJoin[]; total: number }> {
   const conds = [eq(circles.isPublished, true)]
   if (opts.search) {
     const kw = `%${opts.search}%`
@@ -44,7 +68,7 @@ export async function findCircles(
 
   const [list, totalRows] = await Promise.all([
     dbRead
-      .select()
+      .select(circleSelectColumns(opts.viewerId))
       .from(circles)
       .where(where)
       .orderBy(desc(circles.postCount), desc(circles.createdAt))
@@ -68,27 +92,37 @@ export async function findCircles(
  */
 export interface FindCircleOpts {
   publishedOnly?: boolean
+  /** 当前登录主体;缺省(匿名)时 isJoined 恒 false。 */
+  viewerId?: string
 }
 
 export async function findCircleById(
   id: string,
   opts: FindCircleOpts = {},
-): Promise<Circle | undefined> {
+): Promise<CircleWithJoin | undefined> {
   const where = opts.publishedOnly
     ? and(eq(circles.id, id), eq(circles.isPublished, true))
     : eq(circles.id, id)
-  const rows = await dbRead.select().from(circles).where(where).limit(1)
+  const rows = await dbRead
+    .select(circleSelectColumns(opts.viewerId))
+    .from(circles)
+    .where(where)
+    .limit(1)
   return rows[0]
 }
 
 export async function findCircleBySlug(
   slug: string,
   opts: FindCircleOpts = {},
-): Promise<Circle | undefined> {
+): Promise<CircleWithJoin | undefined> {
   const where = opts.publishedOnly
     ? and(eq(circles.slug, slug), eq(circles.isPublished, true))
     : eq(circles.slug, slug)
-  const rows = await dbRead.select().from(circles).where(where).limit(1)
+  const rows = await dbRead
+    .select(circleSelectColumns(opts.viewerId))
+    .from(circles)
+    .where(where)
+    .limit(1)
   return rows[0]
 }
 
