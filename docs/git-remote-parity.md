@@ -28,6 +28,8 @@ node scripts/git-push-converge.mjs --branch main
 
 该器默认自动纳入本仓已配置的 `origin` 与 `gitee`，逐仓推送/核验，最后调用 `check-remote-parity.mjs` 做三方逐 sha 复核；任何一边不一致即 exit 1。
 
+推送前还必须对全部远端做只读预检：任一边 `UNREACHABLE` / `BEHIND` / `DIVERGED` 时，本轮**一枚远端都不推**；推送中途失败立即停止，不再推剩余远端。这样不会出现“origin 推成功、gitee 失败”或反过来的单腿现场。
+
 等价入口：
 
 ```bash
