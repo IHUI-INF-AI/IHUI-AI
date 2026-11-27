@@ -107,7 +107,15 @@ export async function GET() {
       console.error('[desktop-feed] v2 烘焙快照结构非法，已回退 legacy feed')
     } else {
       const version = DESKTOP_FEED_V2.version
-      return Response.json(DESKTOP_FEED_V2, {
+      // 迁移期双兼容（2026-11-27）：0.1.93 及更老的 Windows 客户端仍走 Tauri 安装器
+      // （只认 `platforms`，且要求每项带 size/sha256）。v2 feed 不带 platforms 会让这批
+      // 用户看不到任何更新；同版本时把 legacy 安装器条目并进 v2 响应，v2 客户端仍优先
+      // 读 `payload`（launcher Feed::payload_for），两条链互不干扰。
+      const merged =
+        isValidPayload(DESKTOP_LATEST) && DESKTOP_LATEST.version === version
+          ? { ...DESKTOP_FEED_V2, platforms: DESKTOP_LATEST.platforms }
+          : DESKTOP_FEED_V2
+      return Response.json(merged, {
         headers: {
           'Cache-Control': 'public, max-age=300',
           'X-Desktop-Feed-Version': version,
