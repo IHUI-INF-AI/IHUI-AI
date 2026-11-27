@@ -20,12 +20,14 @@ import { useToast } from '@/hooks/use-toast'
 import { BackButton } from '@/components/common'
 import { Button, StatCard, StatGrid } from '@ihui/ui-react'
 import { MonitorCard, type MonitorItem } from './MonitorCard'
+import { AcceptancePanel } from './AcceptancePanel'
 
 export default function MonitorPage() {
   const t = useTranslations('publishMonitor')
   const toast = useToast()
   const [items, setItems] = React.useState<MonitorItem[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [retrying, setRetrying] = React.useState(false)
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -49,6 +51,29 @@ export default function MonitorPage() {
   const failed = items.filter((i) => i.status === 'failed').length
   const unverified = items.filter((i) => i.style_check && !i.style_check.passed).length
 
+  async function autoRetryFailed() {
+    if (retrying) return
+    setRetrying(true)
+    try {
+      const r = await apiOrThrow<{
+        attempted?: ReadonlyArray<{ task_id: string }>
+        skipped?: ReadonlyArray<{ task_id: string; reason: string }>
+      }>('/api/publish/monitor/auto-retry', {
+        method: 'POST',
+        body: JSON.stringify({ limit: 5 }),
+      })
+      toast.success(
+        `自动重试 ${r.attempted?.length ?? 0} 个任务`,
+        `跳过 ${r.skipped?.length ?? 0} 个（登录失效或已重试过）`,
+      )
+      await load()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setRetrying(false)
+    }
+  }
+
   return (
     <div className="px-4 space-y-4">
       <BackButton />
@@ -58,6 +83,19 @@ export default function MonitorPage() {
           <StatCard label={t('summaryFailed')} value={failed} variant="danger" />
           <StatCard label={t('summaryUnverified')} value={unverified} variant="warning" />
         </StatGrid>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void autoRetryFailed()}
+          disabled={retrying || loading}
+        >
+          {retrying ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" />
+          )}
+          自动重试失败
+        </Button>
         <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
           {loading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -67,6 +105,8 @@ export default function MonitorPage() {
           {loading ? t('refreshing') : t('refresh')}
         </Button>
       </div>
+
+      <AcceptancePanel />
 
       {loading ? (
         <div className="flex items-center justify-center py-8">

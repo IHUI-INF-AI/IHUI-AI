@@ -913,5 +913,19 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
   server.post('/publish/monitor/refresh-metrics', async (request, reply) => {
     await proxyToAiService(request, reply, '/monitor/refresh-metrics')
   })
+
+  // 2026-11-28:指标汇总与失败自愈(ai-service /monitor/metrics-summary、/monitor/auto-retry)
+  server.get('/publish/monitor/metrics-summary', async (request, reply) => {
+    const qs = request.url.split('?')[1] ?? ''
+    await proxyToAiService(
+      request,
+      reply,
+      qs ? `/monitor/metrics-summary?${qs}` : '/monitor/metrics-summary',
+    )
+  })
+
+  server.post('/publish/monitor/auto-retry', async (request, reply) => {
+    await proxyToAiService(request, reply, '/monitor/auto-retry')
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -73,6 +73,25 @@ interface AiServiceHistoryResponse {
   list?: AiServiceTask[]
 }
 
+interface AiServiceMetricsSummary {
+  totals?: { views: number; likes: number; comments: number; shares: number }
+  platforms?: Array<{
+    platform: string
+    items: number
+    views: number
+    likes: number
+    comments: number
+    shares: number
+  }>
+  trend?: Array<{
+    date: string
+    views: number
+    likes: number
+    comments: number
+    shares: number
+  }>
+}
+
 /**
  * 解析转发给 ai-service 的鉴权头。
  * 2026-08-17 P0 修复:浏览器同源请求靠 auth_token cookie 认证(无 Authorization header),
@@ -273,9 +292,11 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/publish/analytics/overview', async (request, reply) => {
     const period = parsePeriod(request.query)
     const authHeader = resolveAuthHeader(request)
-    const [statsRes, histRes] = await Promise.all([
+    const days = Number(period.replace('d', ''))
+    const [statsRes, histRes, metricsRes] = await Promise.all([
       fetchAiService<AiServiceStats>('/stats', authHeader),
       fetchAiService<AiServiceHistoryResponse>('/tasks?limit=200', authHeader),
+      fetchAiService<AiServiceMetricsSummary>(`/monitor/metrics-summary?days=${days}`, authHeader),
     ])
     if (!histRes) {
       return reply.send(
@@ -287,6 +308,7 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
           trend: [],
           platformDistribution: [],
           failureReasons: [],
+          metrics: metricsRes ?? null,
         }),
       )
     }
@@ -312,6 +334,7 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
         trend: buildTrend(tasks),
         platformDistribution: buildPlatformDistribution(tasks),
         failureReasons: buildFailureReasons(tasks),
+        metrics: metricsRes ?? null,
       }),
     )
   })

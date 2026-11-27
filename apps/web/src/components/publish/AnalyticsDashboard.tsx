@@ -19,6 +19,30 @@ import { splitDisplayNameParts } from '@/lib/publish/display-name'
 
 export type AnalyticsPeriod = '7d' | '30d' | '90d'
 
+export interface AnalyticsMetricsSummary {
+  readonly totals: {
+    readonly views: number
+    readonly likes: number
+    readonly comments: number
+    readonly shares: number
+  }
+  readonly platforms: ReadonlyArray<{
+    readonly platform: string
+    readonly items: number
+    readonly views: number
+    readonly likes: number
+    readonly comments: number
+    readonly shares: number
+  }>
+  readonly trend: ReadonlyArray<{
+    readonly date: string
+    readonly views: number
+    readonly likes: number
+    readonly comments: number
+    readonly shares: number
+  }>
+}
+
 export interface AnalyticsOverview {
   readonly totalPublished: number
   readonly successRate: number
@@ -31,6 +55,8 @@ export interface AnalyticsOverview {
     readonly color: string
   }>
   readonly failureReasons: ReadonlyArray<{ readonly reason: string; readonly count: number }>
+  /** 互动指标汇总(publish_metrics 回流),无采集数据时为 null */
+  readonly metrics?: AnalyticsMetricsSummary | null
 }
 
 export interface AccountHealth {
@@ -122,6 +148,41 @@ export function AnalyticsDashboard({
           value={overview ? String(overview.activeAccounts) : '-'}
         />
       </div>
+
+      {/* 互动指标(指标回流) */}
+      {overview?.metrics ? (
+        <Card>
+          <CardContent className="min-[640px]:p-3 p-3">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-label font-medium text-muted-foreground">
+                互动数据（来自已发布内容最新快照）
+              </h3>
+              <span className="text-label text-muted-foreground">
+                {overview.metrics.platforms.length} 个平台有采集
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
+              <StatCard label="阅读 / 播放" value={String(overview.metrics.totals.views)} />
+              <StatCard label="点赞" value={String(overview.metrics.totals.likes)} />
+              <StatCard label="评论" value={String(overview.metrics.totals.comments)} />
+              <StatCard label="转发" value={String(overview.metrics.totals.shares)} />
+            </div>
+            {overview.metrics.platforms.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {overview.metrics.platforms.map((p) => (
+                  <Badge key={p.platform} variant="secondary" className="text-label">
+                    {p.platform} · {p.views} 阅读 / {p.likes} 赞 / {p.comments} 评
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-label text-muted-foreground">
+                还没有指标快照，去「发布监测」页对已发布内容点一次刷新指标。
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* 趋势图 + 平台分布 */}
       <div className="grid grid-cols-1 gap-3 tablet-min-[1024px]:grid-cols-3">

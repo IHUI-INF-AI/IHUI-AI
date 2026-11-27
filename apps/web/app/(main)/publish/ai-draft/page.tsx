@@ -70,6 +70,14 @@ export default function AiDraftPage() {
   const [generating, setGenerating] = React.useState(false)
   const [result, setResult] = React.useState<PrepareDraftResult | null>(null)
 
+  // /start 命令栏把原话用 ?q= 带过来；只在输入框还空的时候回填，绝不覆盖用户已有草稿。
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    const seeded = new URLSearchParams(window.location.search).get('q')?.trim()
+    if (!seeded) return
+    setBrief((prev) => (prev ? prev : seeded))
+  }, [])
+
   React.useEffect(() => {
     if (!allow) return
     let cancelled = false

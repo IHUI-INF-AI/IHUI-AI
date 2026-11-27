@@ -2058,6 +2058,10 @@ class MonitorRefreshMetricsRequest(BaseModel):
     task_id: str
 
 
+class AutoRetryRequest(BaseModel):
+    limit: int = Field(5, ge=1, le=20)
+
+
 async def _account_id_for_task(conn: asyncpg.Connection, task_id: str, platform: str) -> int | None:
     """从 publish_tasks.targets 取该平台对应的 account_id。"""
     row = await conn.fetchrow("SELECT targets FROM publish_tasks WHERE task_id=$1", task_id)
@@ -2234,4 +2238,177 @@ async def monitor_refresh_metrics(body: MonitorRefreshMetricsRequest, request: R
     await collect_metrics(body.task_id, platform, content_id, credentials, account_id)
     latest = await latest_metrics(body.task_id, platform)
     return _wrap_ok(latest)
+
+
+@router.get("/monitor/metrics-summary")
+async def monitor_metrics_summary(
+    days: int = Query(30, ge=1, le=365),
+    request: Request = None,  # type: ignore[assignment]
+) -> dict[str, Any]:
+    """按平台汇总最新指标快照(用户维度),供分析页合并展示。"""
+    user_id = _get_user_id(request)
+    conn = await _get_conn()
+    try:
+        rows = await conn.fetch(
+            """
+            WITH latest AS (
+              SELECT DISTINCT ON (task_id, platform)
+                     task_id, platform, views, likes, comments, shares, collected_at
+              FROM publish_metrics
+              ORDER BY task_id, platform, collected_at DESC
+            )
+            SELECT l.platform,
+                   count(*)::int AS items,
+                   COALESCE(SUM(l.views), 0)::bigint AS views,
+                   COALESCE(SUM(l.likes), 0)::bigint AS likes,
+                   COALESCE(SUM(l.comments), 0)::bigint AS comments,
+                   COALESCE(SUM(l.shares), 0)::bigint AS shares
+            FROM latest l JOIN publish_tasks t ON t.task_id = l.task_id
+            WHERE t.user_id = $1
+              AND l.collected_at >= NOW() - make_interval(days => $2)
+            GROUP BY l.platform
+            ORDER BY views DESC
+            """,
+            user_id, days,
+        )
+        trend_rows = await conn.fetch(
+            """
+            WITH daily AS (
+              SELECT DISTINCT ON (task_id, platform, date_trunc('day', collected_at))
+                     task_id, platform, views, likes, comments, shares,
+                     date_trunc('day', collected_at) AS d
+              FROM publish_metrics
+              ORDER BY task_id, platform, date_trunc('day', collected_at), collected_at DESC
+            )
+            SELECT d::date AS date,
+                   COALESCE(SUM(views), 0)::bigint AS views,
+                   COALESCE(SUM(likes), 0)::bigint AS likes,
+                   COALESCE(SUM(comments), 0)::bigint AS comments,
+                   COALESCE(SUM(shares), 0)::bigint AS shares
+            FROM daily JOIN publish_tasks t ON t.task_id = daily.task_id
+            WHERE t.user_id = $1 AND d >= NOW() - make_interval(days => $2)
+            GROUP BY d ORDER BY d
+            """,
+            user_id, days,
+        )
+    finally:
+        await conn.close()
+
+    platforms = [
+        {
+            "platform": r["platform"],
+            "items": r["items"],
+            "views": int(r["views"]),
+            "likes": int(r["likes"]),
+            "comments": int(r["comments"]),
+            "shares": int(r["shares"]),
+        }
+        for r in rows
+    ]
+    totals = {
+        "views": sum(p["views"] for p in platforms),
+        "likes": sum(p["likes"] for p in platforms),
+        "comments": sum(p["comments"] for p in platforms),
+        "shares": sum(p["shares"] for p in platforms),
+    }
+    return _wrap_ok({
+        "days": days,
+        "totals": totals,
+        "platforms": platforms,
+        "trend": [
+            {
+                "date": r["date"].isoformat(),
+                "views": int(r["views"]),
+                "likes": int(r["likes"]),
+                "comments": int(r["comments"]),
+                "shares": int(r["shares"]),
+            }
+            for r in trend_rows
+        ],
+    })
+
+
+@router.post("/monitor/auto-retry")
+async def monitor_auto_retry(body: AutoRetryRequest, request: Request) -> dict[str, Any]:
+    """失败自愈:对失败任务做有界自动重试(每任务最多 1 次,登录失效类跳过)。"""
+    user_id = _get_user_id(request)
+    conn = await _get_conn()
+    attempts: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    try:
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS publish_auto_retry (
+                task_id TEXT PRIMARY KEY,
+                attempts INTEGER DEFAULT 1,
+                last_at TIMESTAMPTZ DEFAULT NOW()
+            )
+            """
+        )
+        rows = await conn.fetch(
+            """
+            SELECT task_id, results, error
+            FROM publish_tasks
+            WHERE user_id = $1 AND status = 'failed'
+            ORDER BY finished_at DESC NULLS LAST
+            LIMIT $2
+            """,
+            user_id, body.limit,
+        )
+        for r in rows:
+            task_id = r["task_id"]
+            task_results = _json_or_raw(r["results"])
+            if not isinstance(task_results, list):
+                task_results = []
+            failed = [
+                x for x in task_results if isinstance(x, dict) and not x.get("success")
+            ]
+            if not failed:
+                skipped.append({"task_id": task_id, "reason": "no_failed_results"})
+                continue
+            auth_blocked = any(
+                x.get("error_kind") == "auth_required"
+                or (isinstance(x.get("challenge"), dict) and x["challenge"].get("type") == "reauth")
+                for x in failed
+            )
+            if auth_blocked:
+                skipped.append({"task_id": task_id, "reason": "auth_required"})
+                continue
+            seen = await conn.fetchval(
+                "SELECT attempts FROM publish_auto_retry WHERE task_id = $1", task_id
+            )
+            if seen:
+                skipped.append({"task_id": task_id, "reason": "already_auto_retried"})
+                continue
+            platforms = sorted(
+                {str(x.get("platform")) for x in failed if x.get("platform")}
+            )
+            await conn.execute(
+                "INSERT INTO publish_auto_retry (task_id, attempts) VALUES ($1, 1) "
+                "ON CONFLICT (task_id) DO UPDATE SET attempts = publish_auto_retry.attempts + 1, last_at = NOW()",
+                task_id,
+            )
+            attempts.append({"task_id": task_id, "platforms": platforms})
+    finally:
+        await conn.close()
+
+    results: list[dict[str, Any]] = []
+    for item in attempts:
+        try:
+            res = await publish_scheduler.retry_platforms(item["task_id"], item["platforms"] or None)
+            results.append({
+                "task_id": item["task_id"],
+                "platforms": item["platforms"],
+                "ok": bool(res.get("ok")),
+                "error": res.get("error"),
+            })
+        except Exception as e:
+            logger.exception("[auto-retry] task=%s failed", item["task_id"])
+            results.append({
+                "task_id": item["task_id"],
+                "platforms": item["platforms"],
+                "ok": False,
+                "error": f"{type(e).__name__}: {e}",
+            })
+    return _wrap_ok({"attempted": results, "skipped": skipped})
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

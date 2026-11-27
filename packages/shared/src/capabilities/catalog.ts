@@ -177,7 +177,7 @@ export const CAPABILITY_CATALOG: readonly Capability[] = [
     status: 'agent-ready',
     surfaces: WEB_AGENT,
     agentTool: 'prepare_publish_draft',
-    uiHref: '/start',
+    uiHref: '/publish/ai-draft',
   },
   {
     id: 'content.compliance',

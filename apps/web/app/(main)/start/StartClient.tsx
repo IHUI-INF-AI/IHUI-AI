@@ -14,17 +14,17 @@ import {
   Image as ImageIcon,
   PenLine,
   Send,
-  Sparkles,
   Users,
   Wrench,
   type LucideIcon,
 } from 'lucide-react'
 
-import { Button, Card, CardContent } from '@ihui/ui-react'
+import { Card, CardContent } from '@ihui/ui-react'
+import { CAPABILITY_COUNT } from '@ihui/shared/capabilities'
 
+import { StartCommandBar } from '@/components/start/start-command-bar'
 import { START_SERVICES, type StartServiceIcon } from '@/config/start-services'
 import { fetchApi } from '@/lib/api'
-import { useAiPanelStore } from '@/stores/ai-panel'
 
 const ICONS: Record<StartServiceIcon, LucideIcon> = {
   pen: PenLine,
@@ -38,7 +38,6 @@ const ICONS: Record<StartServiceIcon, LucideIcon> = {
 }
 
 export default function StartClient() {
-  const openPanel = useAiPanelStore((s) => s.openPanel)
   const [queue, setQueue] = React.useState<{
     draft: number
     scheduled: number
@@ -80,15 +79,7 @@ export default function StartClient() {
         <p className="mt-3 text-body leading-relaxed text-muted-foreground">
           内容、发布、数据、账号，一条链路从头做到尾。不想说，就从下面挑一件。
         </p>
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <Button size="lg" onClick={openPanel} className="gap-2">
-            <Sparkles className="h-4 w-4" aria-hidden />
-            和 AI 说一句话
-          </Button>
-          <span className="text-caption text-muted-foreground">
-            不用先挑模型，直接说你要什么
-          </span>
-        </div>
+        <StartCommandBar />
       </section>
 
       {queue && (
@@ -156,6 +147,22 @@ export default function StartClient() {
               </Link>
             )
           })}
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <Link
+            href="/assets"
+            className="inline-flex items-center gap-1 text-caption text-muted-foreground transition-colors hover:text-foreground"
+          >
+            我的资产（账号·任务·素材·收益）
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          </Link>
+          <Link
+            href="/capability-market"
+            className="inline-flex items-center gap-1 text-caption text-muted-foreground transition-colors hover:text-foreground"
+          >
+            查看全部能力（{CAPABILITY_COUNT} 项）
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          </Link>
         </div>
       </section>
     </div>
