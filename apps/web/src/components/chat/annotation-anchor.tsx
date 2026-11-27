@@ -37,10 +37,7 @@ export const ADD_TEXT_REFERENCE_EVENT = 'ihui:add-text-reference'
 
 /** 注事件采集来源(XLSX 单元格选区 / DOCX 文本选区 / PDF 文本选区 / PPTX 元素点击)。 */
 export type AnchorReferenceSource =
-  | 'xlsx-selection'
-  | 'docx-selection'
-  | 'pdf-selection'
-  | 'pptx-element'
+  'xlsx-selection' | 'docx-selection' | 'pdf-selection' | 'pptx-element' | 'ai-finding'
 
 /**
  * `ihui:add-text-reference` 的 D91 扩展 detail。

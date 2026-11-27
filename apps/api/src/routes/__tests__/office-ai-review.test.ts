@@ -149,4 +149,63 @@ describe('POST /api/office/review AI 预审', () => {
     expect(res.statusCode).toBe(502)
     expect(res.json().message).toContain('结构化')
   })
+
+  it('全文预审按 block 定位,保留跨页结论并丢弃越界 block', async () => {
+    aiServiceFetchMock.mockResolvedValueOnce(
+      llmResponse([
+        {
+          block: 2,
+          title: '第 2 页缺少兜底',
+          severity: 'high',
+          detail: '正文承诺标识不依赖服务端,但第 2 页没有说明兜底。',
+          evidence: '客户端渲染层直接输出',
+          suggestion: '补充兜底策略。',
+        },
+        {
+          block: 9,
+          title: '越界结论',
+          severity: 'low',
+          detail: '这条不应通过。',
+          evidence: '',
+          suggestion: '',
+        },
+      ]),
+    )
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/office/review',
+      payload: {
+        title: '合规材料.pdf',
+        blocks: [
+          { anchor: { kind: 'pdf', page: 1 }, text: '第一页正文,说明标识覆盖范围。' },
+          { anchor: { kind: 'pdf', page: 2 }, text: '第二页正文,说明客户端渲染层直接输出标识。' },
+        ],
+      },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const body = res.json()
+    expect(body.data.scope).toBe('document')
+    expect(body.data.promptVersion).toBe('ai-review-v2')
+    expect(body.data.findings).toHaveLength(1)
+    expect(body.data.findings[0]).toMatchObject({ block: 2, title: '第 2 页缺少兜底' })
+  })
+
+  it('全文片段超限直接 400,不调用模型', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/office/review',
+      payload: {
+        title: '超长文档.pdf',
+        blocks: [
+          { anchor: { kind: 'pdf', page: 1 }, text: 'x'.repeat(12_000) },
+          { anchor: { kind: 'pdf', page: 2 }, text: 'x'.repeat(12_000) },
+          { anchor: { kind: 'pdf', page: 3 }, text: 'x'.repeat(12_000) },
+        ],
+      },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(aiServiceFetchMock).not.toHaveBeenCalled()
+  })
 })

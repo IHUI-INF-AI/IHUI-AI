@@ -418,10 +418,7 @@ async function writeAnnotationStore(store: DocumentAnnotationStore): Promise<voi
 // 后写覆盖先写，表现为“刚发的评论消失”。多实例部署时仍应迁移到数据库事务。
 const annotationLocks = new Map<string, Promise<void>>()
 
-async function withAnnotationLock<T>(
-  documentId: string,
-  task: () => Promise<T>,
-): Promise<T> {
+async function withAnnotationLock<T>(documentId: string, task: () => Promise<T>): Promise<T> {
   const previous = annotationLocks.get(documentId) ?? Promise.resolve()
   let release!: () => void
   const gate = new Promise<void>((resolve) => {
@@ -647,13 +644,13 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
           .digest('hex')
         if (store.annotations.some((item) => item.aiKey === aiKey)) continue
         const bodyText = [
-          finding.severity === 'high' ? '【高】' : finding.severity === 'low' ? '【低】' : '【中】',
-          finding.title,
-          '',
+          `${finding.severity === 'high' ? '【高】' : finding.severity === 'low' ? '【低】' : '【中】'}${finding.title}`,
           finding.detail,
-          finding.evidence ? `\n\n证据: ${finding.evidence}` : '',
-          finding.suggestion ? `\n\n建议: ${finding.suggestion}` : '',
-        ].join('')
+          finding.evidence ? `证据: ${finding.evidence}` : '',
+          finding.suggestion ? `建议: ${finding.suggestion}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n\n')
         const row: StoredDocumentAnnotation = {
           id: randomUUID(),
           parentId: null,
@@ -731,9 +728,7 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
       // 删回复只删这一条；删主批注才把整条线程(所有回复)一起清掉。
       store.annotations = target.parentId
         ? store.annotations.filter((item) => item.id !== target.id)
-        : store.annotations.filter(
-            (item) => item.id !== target.id && item.parentId !== target.id,
-          )
+        : store.annotations.filter((item) => item.id !== target.id && item.parentId !== target.id)
       await writeAnnotationStore(store)
     })
     return reply.send(success({ id }))

@@ -384,6 +384,8 @@ interface ReviewFinding {
   suggestion: string
   /** PPTX 场景下命中的版式元素名;PDF 不返回。 */
   element?: string
+  /** 全文预审时命中的 block 序号(1 起);单片段模式不返回。 */
+  block?: number
 }
 
 interface ReviewElement {
@@ -391,14 +393,48 @@ interface ReviewElement {
   text: string
 }
 
+interface ReviewBlock {
+  anchor: Record<string, unknown>
+  text: string
+  elements: ReviewElement[]
+}
+
 interface ReviewInput {
   title: string
   anchor: Record<string, unknown> | null
   text: string
   elements: ReviewElement[]
+  blocks: ReviewBlock[]
 }
 
 function reviewPrompt(input: ReviewInput): string {
+  if (input.blocks.length > 0) {
+    return [
+      '你是 IHUI AI 的文档预审官。现在给你的是同一份文档的多个位置,请通读全文而不是逐段写摘要。',
+      '你的任务不是复述内容,而是找出会影响决策、合规、执行或协作的问题。',
+      '优先找:跨位置的前后矛盾、口径不一致、缺失的关键要素、风险承诺、无法执行的步骤、需要人工确认的假设。',
+      '只依据给定内容,不要补充文档之外的事实。每条结论必须有原文证据;证据必须是某个 block 中的短句。',
+      `文档:${input.title}`,
+      `全文共 ${input.blocks.length} 个位置。请在 findings 中用 block 标明该结论所在的位置(1-${input.blocks.length}),不要把不同位置的问题混在一条里。`,
+      'block 内如果带元素名,只有需要落到具体版式元素时才填 element;element 必须原样来自该 block 的元素列表。',
+      '输出严格 JSON,不要 Markdown 代码围栏,不要解释:',
+      '{"findings":[{"block":1,"title":"不超过30字","severity":"high|medium|low","detail":"问题是什么、为什么重要","evidence":"原文短句","suggestion":"可直接执行的处理建议","element":"可选,仅版式元素场景"}]}',
+      `最多 ${Math.min(6, input.blocks.length * 2)} 条;没有实质问题时返回 {"findings":[]}。`,
+      '',
+      ...input.blocks.map((block, index) => {
+        const lines = [
+          `<block index="${index + 1}" anchor="${JSON.stringify(block.anchor)}">`,
+          block.text,
+        ]
+        if (block.elements.length > 0) {
+          lines.push('elements:', ...block.elements.map((item) => `- ${item.name}: ${item.text}`))
+        }
+        lines.push('</block>')
+        return lines.join('\n')
+      }),
+    ].join('\n')
+  }
+
   const elementLines = input.elements.map((item) => `- ${item.name}: ${item.text}`)
   return [
     '你是 IHUI AI 的文档预审官。你的任务不是写摘要,而是找出会影响决策、合规、执行或协作的问题。',
@@ -424,16 +460,20 @@ function reviewPrompt(input: ReviewInput): string {
     .join('\n')
 }
 
-function normalizeReviewFindings(raw: unknown, allowedElements: ReviewElement[]): ReviewFinding[] {
-  const list =
-    Array.isArray(raw)
-      ? raw
-      : raw && typeof raw === 'object' && Array.isArray((raw as { findings?: unknown }).findings)
-        ? ((raw as { findings: unknown[] }).findings)
-        : []
+function normalizeReviewFindings(
+  raw: unknown,
+  allowedElements: ReviewElement[],
+  blockCount = 0,
+): ReviewFinding[] {
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === 'object' && Array.isArray((raw as { findings?: unknown }).findings)
+      ? (raw as { findings: unknown[] }).findings
+      : []
   const names = new Set(allowedElements.map((item) => item.name))
   const out: ReviewFinding[] = []
-  for (const item of list.slice(0, 4)) {
+  const limit = blockCount > 0 ? Math.min(6, blockCount * 2) : 4
+  for (const item of list.slice(0, limit)) {
     if (!item || typeof item !== 'object') continue
     const value = item as Record<string, unknown>
     const title = typeof value.title === 'string' ? value.title.trim() : ''
@@ -447,6 +487,12 @@ function normalizeReviewFindings(raw: unknown, allowedElements: ReviewElement[])
         : 'medium'
     const element = typeof value.element === 'string' ? value.element.trim() : ''
     if (element && !names.has(element)) continue
+    let block: number | undefined
+    if (blockCount > 0) {
+      const n = typeof value.block === 'number' ? value.block : Number(value.block)
+      if (!Number.isInteger(n) || n < 1 || n > blockCount) continue
+      block = n
+    }
     out.push({
       title: title.slice(0, 60),
       severity,
@@ -454,6 +500,7 @@ function normalizeReviewFindings(raw: unknown, allowedElements: ReviewElement[])
       evidence: evidence.slice(0, 300),
       suggestion: suggestion.slice(0, 500),
       ...(element ? { element } : {}),
+      ...(block !== undefined ? { block } : {}),
     })
   }
   return out
@@ -476,7 +523,7 @@ async function callReviewLlm(
         { role: 'user', content: reviewPrompt(input) },
       ],
       temperature: 0.15,
-      max_tokens: 1400,
+      max_tokens: input.blocks.length > 0 ? 1800 : 1400,
     }),
     timeoutMs: AI_TIMEOUT_MS,
   })
@@ -502,7 +549,14 @@ async function callReviewLlm(
   } catch {
     throw new Error('AI_BAD_JSON')
   }
-  return { findings: normalizeReviewFindings(parsed, input.elements), model: json.model }
+  return {
+    findings: normalizeReviewFindings(
+      parsed,
+      input.blocks.length > 0 ? input.blocks.flatMap((block) => block.elements) : input.elements,
+      input.blocks.length,
+    ),
+    model: json.model,
+  }
 }
 
 async function readReviewInput(
@@ -511,6 +565,49 @@ async function readReviewInput(
 ): Promise<ReviewInput | null> {
   const body = (request.body ?? {}) as Record<string, unknown>
   const title = typeof body.title === 'string' ? body.title.trim().slice(0, 160) : '文档片段'
+  const rawBlocks = Array.isArray(body.blocks)
+    ? body.blocks
+        .slice(0, 20)
+        .map((item) => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+          const value = item as Record<string, unknown>
+          const text = typeof value.text === 'string' ? value.text.trim() : ''
+          if (text.length < 10) return null
+          const anchor =
+            value.anchor && typeof value.anchor === 'object' && !Array.isArray(value.anchor)
+              ? (value.anchor as Record<string, unknown>)
+              : null
+          if (!anchor) return null
+          const elements = Array.isArray(value.elements)
+            ? value.elements
+                .slice(0, 12)
+                .map((element) => {
+                  if (!element || typeof element !== 'object' || Array.isArray(element)) {
+                    return null
+                  }
+                  const parsed = element as Record<string, unknown>
+                  const name =
+                    typeof parsed.name === 'string' ? parsed.name.trim().slice(0, 120) : ''
+                  const elementText =
+                    typeof parsed.text === 'string' ? parsed.text.trim().slice(0, 1000) : ''
+                  return name && elementText ? { name, text: elementText } : null
+                })
+                .filter((element): element is ReviewElement => element !== null)
+            : []
+          return { anchor, text: text.slice(0, 12_000), elements }
+        })
+        .filter((item): item is ReviewBlock => item !== null)
+    : []
+
+  if (rawBlocks.length > 0) {
+    const totalChars = rawBlocks.reduce((sum, block) => sum + block.text.length, 0)
+    if (totalChars > 30_000) {
+      reply.status(400).send(error(400, '全文片段超过 AI 预审上限,请分批审阅'))
+      return null
+    }
+    return { title, anchor: null, text: '', elements: [], blocks: rawBlocks }
+  }
+
   const text = typeof body.text === 'string' ? body.text.trim() : ''
   if (text.length < 20) {
     reply.status(400).send(error(400, '片段太短,无法进行 AI 预审'))
@@ -532,7 +629,7 @@ async function readReviewInput(
         })
         .filter((item): item is ReviewElement => item !== null)
     : []
-  return { title, anchor, text: text.slice(0, 12_000), elements }
+  return { title, anchor, text: text.slice(0, 12_000), elements, blocks: [] }
 }
 
 export const officeAiRoutes: FastifyPluginAsync = async (server) => {
@@ -541,7 +638,13 @@ export const officeAiRoutes: FastifyPluginAsync = async (server) => {
     if (!input) return
     try {
       const result = await callReviewLlm(request, input)
-      return reply.send(success({ ...result, promptVersion: 'ai-review-v1' }))
+      return reply.send(
+        success({
+          ...result,
+          promptVersion: input.blocks.length > 0 ? 'ai-review-v2' : 'ai-review-v1',
+          scope: input.blocks.length > 0 ? 'document' : 'fragment',
+        }),
+      )
     } catch (err) {
       if (err instanceof AiServiceTimeoutError) {
         return reply.status(504).send(error(504, 'AI 预审超时,请稍后重试'))

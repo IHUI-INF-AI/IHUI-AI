@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowRightLeft,
+  CreditCard,
 } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
@@ -58,6 +59,7 @@ const PAGE_SIZE = 20
 
 export default function WalletPage() {
   const t = useTranslations('wallet')
+  const tb = useTranslations('bankCard')
   const locale = useLocale()
   const queryClient = useQueryClient()
   const [page, setPage] = React.useState(1)
@@ -184,6 +186,12 @@ export default function WalletPage() {
               <Button variant="outline">
                 <ArrowDownToLine className="h-4 w-4" />
                 {t('withdraw')}
+              </Button>
+            </Link>
+            <Link href="/wallet/bank-cards">
+              <Button variant="outline">
+                <CreditCard className="h-4 w-4" />
+                {tb('title')}
               </Button>
             </Link>
           </div>
