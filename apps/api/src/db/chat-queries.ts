@@ -1371,12 +1371,15 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
       .where(eq(chatMessages.conversationId, input.conversationId))
     const maxTurn = Number(turnRows[0]?.maxTurn ?? 0)
     const role = input.role ?? 'user'
-    // 2026-11-27(A4 顺序倒置根治·第二层):旧客户端/旧缓存仍可能在本轮助手已落库后,
-    // 再用**不带 id** 的 POST 补写一次同文用户消息(生产实测:助手 16.530、重复 user
-    // 16.573,默认 UUID、turn+1,界面变成 user→assistant→user)。带 id 的补写由上面的
-    // 幂等挡住;不带 id 的只能在服务端按"紧邻助手之前的同文用户"折叠。窗口取 2s:
-    // 人类不可能在收到回复后 2 秒内手打同一段话重发,而竞态重复实测只差 43ms。
-    if (role === 'user' && !input.id) {
+    // 2026-11-28(A4 顺序倒置根治·第二层加固):版本混杂时,客户端补写既可能不带 id,
+    // 也可能带一个与网关 barrier 不同的 id;两种都会在助手落库后到达,表现为
+    // assistant 后紧跟一条同文 user(turn+1,界面变成 user→assistant→user)。
+    // 不再要求 input.id 为空:同 id 已由上方幂等挡掉,不同 id 在这里按"最后一次写入
+    // 的时间"折叠——最近一条是 assistant 且它前面是同文 user,或最近一条本身就是
+    // 同文 user,只要最近写入发生在 3s 内,就视为同一轮补写并返回既有行。
+    // 窗口从"前一条 user 的落库时间"改为"最后一条消息的落库时间":真实一轮模型耗时
+    // 可能超过 2s,用前一条 user 计时会漏掉流尾补写(生产实测 2.35s)。
+    if (role === 'user') {
       const tail = await tx
         .select()
         .from(chatMessages)
@@ -1385,13 +1388,18 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
         .limit(2)
       const last = tail[0]
       const beforeLast = tail[1]
-      if (
-        last?.role === 'assistant' &&
-        beforeLast?.role === 'user' &&
-        beforeLast.content === input.content
-      ) {
-        const ageMs = Date.now() - new Date(beforeLast.createdAt).getTime()
-        if (ageMs >= 0 && ageMs <= 2_000) return beforeLast
+      const lastAgeMs = last
+        ? Date.now() - new Date(last.createdAt).getTime()
+        : Number.POSITIVE_INFINITY
+      if (lastAgeMs >= 0 && lastAgeMs <= 3_000) {
+        if (last?.role === 'user' && last.content === input.content) return last
+        if (
+          last?.role === 'assistant' &&
+          beforeLast?.role === 'user' &&
+          beforeLast.content === input.content
+        ) {
+          return beforeLast
+        }
       }
     }
     // 2026-11-27(A4 顺序倒置根治):助手回复优先钉在**它回答的那条消息**的 turn 上。
