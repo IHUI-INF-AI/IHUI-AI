@@ -14,6 +14,7 @@ import { z } from 'zod'
 
 const mocks = vi.hoisted(() => ({
   fetchWithTimeout: vi.fn(),
+  chargeMediaPoints: vi.fn(async () => ({ deducted: 5, shortfall: 0 })),
   createTask: vi.fn((userId: string, vendor: string, type: string, payload: unknown) => ({
     taskId: 'internal-1',
     userId,
@@ -30,7 +31,16 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../src/plugins/ws-helpers.js', () => ({
   wsUpgradeRequiresCredential: () => () => undefined,
 }))
-vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn() , createBlacklist: vi.fn(() => ({ async has() { return false }, async add() {}, async revoke() {} })) }))
+vi.mock('@ihui/auth', () => ({
+  verifyAccessToken: vi.fn(),
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
+}))
 vi.mock('jose', () => ({
   SignJWT: class {
     setProtectedHeader() {
@@ -50,9 +60,6 @@ vi.mock('jose', () => ({
     }
   },
 }))
-vi.mock('drizzle-orm', () => ({
-  sql: Object.assign((s: TemplateStringsArray) => ({ sql: s.join('') }), { raw: (x: string) => x }),
-}))
 vi.mock('../src/utils/swagger.js', () => ({ buildSchema: (o: unknown) => o }))
 vi.mock('../src/utils/crypto-random.js', () => ({ generateCompactId: () => 'gen-id' }))
 vi.mock('../src/utils/n8n-env.js', () => ({
@@ -64,10 +71,24 @@ vi.mock('../src/db/index.js', () => ({
   registerPoolTrackerCleanup: vi.fn(),
   db: {
     execute: vi.fn(async () => ({})),
-    select: vi.fn(),
+    select: vi.fn(() => ({
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([]),
+    })),
     insert: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+  },
+  dbRead: {
+    execute: vi.fn(async () => ({})),
+    select: vi.fn(() => ({
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([]),
+    })),
   },
 }))
 vi.mock('../src/db/video-task-queries.js', () => ({
@@ -95,6 +116,10 @@ vi.mock('../src/routes/ai-vendors/_shared.js', () => ({
   genId: (p: string) => `${p}-id`,
 }))
 vi.mock('../src/config/body-limits.js', () => ({ MEDIA_BASE64_BODY_LIMIT: 1024 }))
+vi.mock('../src/services/media-billing.js', () => ({
+  ensureMediaPointsBalance: vi.fn(async () => true),
+  chargeMediaPoints: mocks.chargeMediaPoints,
+}))
 
 import { toolsVendorRoutes } from '../src/routes/ai-vendors/proxy-tools.js'
 
@@ -149,6 +174,7 @@ beforeEach(() => {
   process.env.KLING_SECRET_KEY = 'sk'
   mocks.fetchWithTimeout.mockReset()
   deductTokens.mockReset().mockResolvedValue({ balance: 8500 })
+  mocks.chargeMediaPoints.mockClear()
 })
 
 const SUCCEED = {
@@ -168,8 +194,14 @@ describe('F-119 轮询幂等扣费', () => {
       )
       expect(reply.statusCode).toBe(200)
     }
-    expect(deductTokens).toHaveBeenCalledTimes(1)
-    expect(deductTokens).toHaveBeenCalledWith('u1', 1500, 'kling_lip_sync')
+    expect(mocks.chargeMediaPoints).toHaveBeenCalledTimes(1)
+    expect(mocks.chargeMediaPoints).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'u1' }),
+      'kling-lip-sync',
+      'video',
+      5,
+      expect.stringContaining(taskId),
+    )
   })
 })
 
@@ -184,7 +216,7 @@ describe('F-119 任务归属', () => {
     )
     expect(reply.statusCode).toBe(404)
     expect(mocks.fetchWithTimeout).not.toHaveBeenCalled()
-    expect(deductTokens).not.toHaveBeenCalled()
+    expect(mocks.chargeMediaPoints).not.toHaveBeenCalled()
   })
 
   it('未知 taskId → 404', async () => {

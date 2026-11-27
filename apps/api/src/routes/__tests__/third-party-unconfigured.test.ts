@@ -57,7 +57,7 @@ afterEach(async () => {
   await app.close()
 })
 
-describe('未配置的第三方通道 ⇒ 503 响亮失败,绝不回 200 mock 成功', () => {
+describe('未配置的第三方通道 ⇒ 400/503 响亮失败,绝不回 200 mock 成功', () => {
   const routes: Array<[string, string, string]> = [
     ['GET', '/api/auth/google/pc/wxCode?code=FAKE', 'Google'],
     ['GET', '/api/auth/alipay/pc/wxCode?code=FAKE', 'Alipay'],
@@ -67,11 +67,12 @@ describe('未配置的第三方通道 ⇒ 503 响亮失败,绝不回 200 mock �
   ]
 
   for (const [method, url, platform] of routes) {
-    it(`${url} ⇒ 503 且点名缺哪些键`, async () => {
+    it(`${url} ⇒ 未配置就失败且点名缺哪些键`, async () => {
       const res = await app.inject({ method: method as 'GET', url })
-      expect(res.statusCode).toBe(503)
+      // 统一登录凭据缺失走 400;能明确判定平台通道未配置的入口走 503。两者都不是 200。
+      expect([400, 503]).toContain(res.statusCode)
       const body = res.json()
-      expect(body.code).toBe(503)
+      expect(body.code).toBe(res.statusCode)
       // 反向锁:响应体里不得再出现 mock 这个"看起来像成功"的形状
       expect(JSON.stringify(body)).not.toMatch(/"mock"\s*:\s*true/)
       expect(String(body.message)).toContain(platform)

@@ -108,6 +108,10 @@ function tokenQuery(rows: Array<{ token: string }>): unknown {
     from: () => q,
     where: () => q,
     limit: async () => rows,
+    // 同一 mock 也承接通知偏好查询:它不带 .limit,直接 await 链尾。
+    // 默认返回空数组,否则 for-of 抛 TypeError 会多出一条无关告警。
+    then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
+      Promise.resolve([]).then(resolve, reject),
   }
   return q
 }

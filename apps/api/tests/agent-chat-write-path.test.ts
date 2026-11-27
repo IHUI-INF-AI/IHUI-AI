@@ -321,6 +321,16 @@ vi.mock('../src/db/index.js', async () => {
   return { db: api, dbRead: api }
 })
 
+// 计费不是本用例的被测面:只验证写路径只追加、不截断,预扣/结算直接放行。
+vi.mock('../src/services/ai-points-billing.js', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    ensureLlmPointsBalance: async () => true,
+    settleLlmPointsUsage: async () => ({ points: 0, deducted: 0, shortfall: 0 }),
+  }
+})
+
 import { mobileChatRoutes } from '../src/routes/mobile-chat-routes.js'
 
 const AGENT_ID = '11111111-1111-4111-8111-111111111111'

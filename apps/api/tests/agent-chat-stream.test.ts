@@ -80,6 +80,16 @@ vi.mock('../src/db/agent-chat-queries.js', () => ({
   }),
 }))
 
+// 计费不是本用例的被测面:只验证 SSE 流协议与落库一致性,预扣/结算直接放行。
+vi.mock('../src/services/ai-points-billing.js', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    ensureLlmPointsBalance: async () => true,
+    settleLlmPointsUsage: async () => ({ points: 0, deducted: 0, shortfall: 0 }),
+  }
+})
+
 // 只供 loadPublishedAgent 的 select 链;其它表在本用例里不碰。
 vi.mock('../src/db/index.js', () => {
   const agentRow = {

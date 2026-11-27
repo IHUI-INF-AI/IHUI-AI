@@ -149,6 +149,9 @@ CREATE TABLE chat_conversations (
   -- drizzle schema 也登记了它。演练 DDL 必须逐列对齐,否则路由 SELECT 该列时
   -- 整条插入/查询 500 —— 演练库"少一列"不等于"生产没有这一列"。
   share_token_expires_at timestamp with time zone,
+  -- 2026-11-24 统一会话来源列(source=web/rn/miniapp, source_ref 指小程序历史行)
+  source varchar(16) NOT NULL DEFAULT 'web',
+  source_ref varchar(64),
   history_projection_state jsonb
 );
 CREATE INDEX ix_chat_conversations_user_last_message ON chat_conversations (user_id, last_message_at);
