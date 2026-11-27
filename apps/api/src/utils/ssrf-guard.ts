@@ -332,7 +332,13 @@ const SAFE_FETCH_MAX_REDIRECTS = 5
 export async function safeFetch(
   rawUrl: string,
   init: RequestInit = {},
-  opts?: { allowPrivate?: boolean; allowCustomPort?: boolean; maxRedirects?: number },
+  opts?: {
+    allowPrivate?: boolean
+    allowCustomPort?: boolean
+    maxRedirects?: number
+    /** 调用方显式提供的出站 dispatcher(如 LLM_PROXY_URL 的 ProxyAgent);仍逐跳校验目标 URL。 */
+    dispatcher?: Dispatcher
+  },
 ): Promise<Response> {
   const maxRedirects = opts?.maxRedirects ?? SAFE_FETCH_MAX_REDIRECTS
   let currentUrl = rawUrl
@@ -345,7 +351,8 @@ export async function safeFetch(
     const res = (await undiciFetch(currentUrl, {
       ...currentInit,
       redirect: 'manual',
-      dispatcher: ssrfGuardedDispatcher({ allowPrivate: opts?.allowPrivate }),
+      dispatcher:
+        opts?.dispatcher ?? ssrfGuardedDispatcher({ allowPrivate: opts?.allowPrivate }),
     })) as unknown as Response
     const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null
     if (!location) return res
@@ -384,7 +391,7 @@ export async function safeFetch(
 
 import { lookup as guardedDnsLookupAll } from 'node:dns/promises'
 import type { LookupFunction } from 'node:net'
-import { Agent as UndiciAgent, fetch as undiciFetch } from 'undici'
+import { Agent as UndiciAgent, fetch as undiciFetch, type Dispatcher } from 'undici'
 
 export interface SsrfLookupOptions {
   all?: boolean
