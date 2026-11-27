@@ -6,7 +6,7 @@ import { aizhsUrl } from '@/constants/icon-urls'
 import { TAB_BAR_OCCUPIED_PX, TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
 import ScrollJumpButton, { pxToTaroRpx, scrollJumpInsetRpx } from '@/components/ScrollJumpButton'
 import { useTt, t } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text, Image, Input } from '@tarojs/components'
 import Taro, {
   useDidShow,
   usePullDownRefresh,
@@ -19,16 +19,14 @@ import { useState, useCallback, useRef } from 'react'
 import NavBar from '@/components/NavBar'
 import Carousel from '@/components/Carousel'
 import DrawerComponent from '@/components/DrawerComponent'
-import InputArea from '@/components/InputArea'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
-import AgentListPanel from '@/components/AgentListPanel'
 import ThemeRoot from '@/components/ThemeRoot'
 import { getUserInfo } from '@/utils/auth'
 import { FloatBox, EmptyState, PayPopup } from '@/components'
 import type { PayInfo } from '@/components'
 import { requestPayment } from '@/platform/pay'
-import { chooseImages } from '@/utils/upload-image'
 import { getTopBarMetrics } from '@/utils/system-info'
+import { WEB_BASE_URL } from '@/constants/web-portal'
 import LineIcon from '@/components/LineIcon'
 import RecentAgents from './components/RecentAgents'
 import MyAgents from './components/MyAgents'
@@ -47,6 +45,23 @@ import './index.css'
 import { onToast } from '@/host/on-toast'
 import { openDrawerLabel, openDrawerMenu } from '@/utils/drawer-actions'
 
+/**
+ * 分类接口的 icon 是语义图标名(code/edit/image/book/megaphone),不是图片 URL。
+ * web/RN 旧实现曾把它当图源,渲染出 16px 空白占位;三端现统一只渲染文字胶囊。
+ */
+
+/**
+ * 后端静态素材字段(agents.avatar / banner.coverUrl)返回站内相对路径,
+ * 小程序 <Image> 不会按页面 origin 解析,必须拼到 Web 站点底座;绝对 URL 原样透传。
+ * 与 RN 端 resolveWebAssetUrl 同一口径(静态资源由站点根直出,不是 /api)。
+ */
+function resolveCommunityAssetUrl(raw?: string | null): string {
+  const path = raw?.trim()
+  if (!path) return ''
+  if (/^(https?:|data:|wxfile:)/i.test(path)) return path
+  return `${WEB_BASE_URL.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
+}
+
 /* ============ 类型定义 ============ */
 
 interface AgentItem {
@@ -54,6 +69,9 @@ interface AgentItem {
   agentName: string
   agentAvatar: string
   agentDescription: string
+  agentCover?: string
+  /** 后端分类主键;分类胶囊按它本地筛选(此前按分类名筛,但列表映射把分类名全写成了“全部” ⇒ 一点分类就空) */
+  categoryId?: string
   agentMainCategory: Array<{ name: string }>
   userNickname: string
   userAvatar: string
@@ -123,10 +141,8 @@ export default function Community() {
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [searchKeyword, setSearchKeyword] = useState('')
-  const [showSearch, setShowSearch] = useState(false)
-  const [categories, setCategories] = useState<CategoryItem[]>([
-    { id: 'all', name: tt('common.all', '全部'), url: '', butUrl: '' },
-  ])
+  const [showSearch, setShowSearch] = useState(true)
+  const [categories, setCategories] = useState<CategoryItem[]>([])
   const [showCategoryPopup, setShowCategoryPopup] = useState(false)
   const [showDrawer, setShowDrawer] = useState(false)
   // 服务弹窗(二维码名片,对齐原项目 isServicePopupVisible)
@@ -136,7 +152,7 @@ export default function Community() {
   const [payInfo, setPayInfo] = useState<PayInfo | null>(null)
   const purchasingAgentRef = useRef<AgentInfo | null>(null)
   const [showBackTop, setShowBackTop] = useState(false)
-  const [fenleiActive, setFenleiActive] = useState<number[]>([0])
+  const [fenleiActive, setFenleiActive] = useState<number[]>([])
   const [drawerGroupedData, setDrawerGroupedData] = useState<DrawerModelGroup[]>([])
   const [drawerUserinfo, setDrawerUserinfo] = useState<DrawerUserInfo>({
     avatar: '',
@@ -172,6 +188,8 @@ export default function Community() {
           id: a.id || String(idx),
           agentName: a.name || '',
           agentAvatar: a.avatar || '',
+          agentCover: a.cover || '',
+          categoryId: a.categoryId || '',
           agentDescription: a.desc || '',
           agentMainCategory: [{ name: tt('common.all', '全部') }],
           userNickname: tt('community.text2', '智汇AI'),
@@ -246,8 +264,19 @@ export default function Community() {
       if (Array.isArray(homeRes?.banner) && homeRes.banner.length > 0) {
         setBanners(
           homeRes.banner.map((b) => ({
-            img: b.coverUrl || '',
+            // /content/home 的 banner 字段是 imageUrl(web 同源读取),coverUrl 只在
+            // 另一条列表接口出现。此前只读 coverUrl ⇒ 小程序 banner 永远无图,
+            // 只剩一块灰底 + 文案;这里按 web 的优先级补齐三种字段。
+            img: resolveCommunityAssetUrl(
+              (b as typeof b & { imageUrl?: string; image?: string; cover?: string }).coverUrl ||
+                (b as typeof b & { imageUrl?: string }).imageUrl ||
+                (b as typeof b & { image?: string }).image ||
+                (b as typeof b & { cover?: string }).cover,
+            ),
             title: b.title,
+            // Banner API 的副标题字段在类型里缺席、运行时存在(web 端同源读取 description);
+            // 不补这一行,小程序 banner 就永远比 web 少一行文案层级。
+            subtitle: (b as typeof b & { description?: string }).description || '',
             link: b.link,
           })),
         )
@@ -310,22 +339,25 @@ export default function Community() {
   const loadCategories = useCallback(async () => {
     try {
       const catRes = await api.getAgentCategories()
-      const rawList = extractList(catRes) as Array<{ id?: string; name?: string }>
-      const catList: CategoryItem[] = [
-        { id: 'all', name: tt('common.all', '全部'), url: '', butUrl: '' },
-        ...rawList.map((c, idx) => ({
-          id: c.id || String(idx),
-          name: c.name || '',
-          url: '',
-          butUrl: '',
-        })),
-      ]
+      // 分类行的真实主键是 `categoryId`(`id` 在本接口返回 null);智能体行也带
+      // `categoryId`,两侧必须同源,否则分类胶囊选中后按 UUID 比不到任何智能体(空列表)。
+      const rawList = extractList(catRes) as Array<{
+        id?: string | null
+        categoryId?: string | null
+        name?: string
+      }>
+      const catList: CategoryItem[] = rawList.map((c, idx) => ({
+        id: c.categoryId || c.id || String(idx),
+        name: c.name || '',
+        url: '',
+        butUrl: '',
+      }))
       setCategories(catList)
     } catch {
-      // 降级:只保留"全部"
-      setCategories([{ id: 'all', name: tt('common.all', '全部'), url: '', butUrl: '' }])
+      // 降级:分类为空,页面隐藏分类区块(不再合成一个与 web 不一致的「全部」胶囊)
+      setCategories([])
     }
-  }, [tt])
+  }, [])
 
   // G-933 冷启动门控：下面三支是个性化数据 —— loadHistoryChat → GET /api/ai/history
   // (ai-user-model-chat.ts:448 处理器用 request.userId!，插件级 preHandler :246，前缀 /api/ai
@@ -392,30 +424,43 @@ export default function Community() {
     }
   }
 
+  /**
+   * 关键词 + 分类组合筛选的唯一入口。
+   *
+   * 旧实现两处各筛各的：提交搜索只认关键词、点分类只认分类，先搜后点分类会把
+   * 搜索词丢掉，反之亦然；web/RN 都是一次查询同时带 keyword + categoryId。
+   * 全量列表已在内存（getAgentList 一次 pageSize=200），这里按同一条件组合过滤。
+   * 有任一筛选时一次展示全部命中项并关闭分页，避免 loadMore 把未筛选项追加回来。
+   */
+  function applyListFilters(keyword: string, categoryId: string | null) {
+    const kw = keyword.trim()
+    const filtered = fullAgentList.filter(
+      (a) =>
+        (!categoryId || a.categoryId === categoryId) &&
+        (!kw || a.agentName.includes(kw) || a.agentDescription.includes(kw)),
+    )
+    const hasFilter = !!categoryId || !!kw
+    setPage(1)
+    setAgentList(hasFilter ? filtered : filtered.slice(0, PAGE_SIZE))
+    setHasMore(!hasFilter && filtered.length > PAGE_SIZE)
+  }
+
   function onSearch(value: string) {
     const keyword = value.replace(/[,.!?;:。，！？；：'"（）【】《》]+/g, '')
     setSearchKeyword(keyword)
-    if (!keyword) {
-      setAgentList(fullAgentList)
-    } else {
-      setAgentList(
-        fullAgentList.filter(
-          (a) => a.agentName.includes(keyword) || a.agentDescription.includes(keyword),
-        ),
-      )
-    }
+    const activeIndex = fenleiActive[0]
+    const activeCategoryId =
+      activeIndex === undefined ? null : (categories[activeIndex]?.id ?? null)
+    applyListFilters(keyword, activeCategoryId)
   }
 
   function onCategorySelect(catId: string) {
     setShowCategoryPopup(false)
-    setPage(1)
-    setHasMore(true)
-    if (catId === 'all') {
-      setAgentList(fullAgentList)
-    } else {
-      const catName = categories.find((c) => c.id === catId)?.name || ''
-      setAgentList(fullAgentList.filter((a) => a.agentMainCategory.some((c) => c.name === catName)))
-    }
+    const categoryId = catId === 'all' ? null : catId
+    const index = categoryId ? categories.findIndex((c) => c.id === categoryId) : -1
+    // 分类胶囊/弹层/搜索组合态共用这一份选中真相，避免两个入口各自维护 active。
+    setFenleiActive(index >= 0 ? [index] : [])
+    applyListFilters(searchKeyword, categoryId)
   }
 
   function backToTop() {
@@ -588,7 +633,11 @@ export default function Community() {
   }
 
   function handleFenleiBtnClick(index: number, item: CategoryItem) {
-    setFenleiActive([index])
+    // 与 web 一致:没有合成「全部」胶囊。再次点击已选中的分类 = 取消筛选,回到全量列表。
+    if (fenleiActive.includes(index)) {
+      onCategorySelect('all')
+      return
+    }
     onCategorySelect(item.id)
   }
 
@@ -612,7 +661,8 @@ export default function Community() {
     id: a.id,
     name: a.agentName,
     description: a.agentDescription,
-    avatar: a.agentAvatar,
+    avatar: resolveCommunityAssetUrl(a.agentAvatar),
+    cover: resolveCommunityAssetUrl(a.agentCover || ''),
     category: a.agentMainCategory[0]?.name,
     useCount: a.usageCount,
     isVipExclusive: false,
@@ -653,17 +703,18 @@ export default function Community() {
         />
 
         <View className="community-main-container" style={{ color: 'var(--color-foreground)' }}>
-          {/* FloatBox 浮动组件 — 对齐原项目放在 main-container 内第一层 */}
-          <FloatBox />
+          {/* FloatBox 浮动组件 — 对齐原项目放在 main-container 内第一层；
+              社区页首屏卡片密集，默认收起，避免三个悬浮按钮压住智能体卡片 */}
+          <FloatBox defaultOpen={false} onService={() => setShowServicePopup(true)} />
 
-          {/* 固定导航栏(fixed z-index:999,对齐原项目)。不参与文档流的占位不用第二枚
-              同形 NavBar 充数 —— 它只是"状态栏 top + 行高 height+8"这一档高度,与注入的
-              --app-top-bar-height 同一取数(NavBar ai-home 的 leading/rowStyle 同式),
-              用 spacer 承接即可,避免同一棵 UI 在页内出现两次。 */}
+          {/* 固定导航栏(fixed z-index:999,对齐原项目)。占位只做一次:
+              下面 content-area 的 padding-top 已经等于 --app-top-bar-height,
+              再插一个同高 spacer 会把标题推到屏高 1/5 处(实测 top=186,内容区 top=91)。
+              这里删除 spacer,由 content-area 的 padding 单独承接。 */}
           <View style={{ position: 'fixed', left: 0, top: 0, right: 0, zIndex: 999 }}>
             <NavBar
               variant="ai-home"
-              title={tt('community.m1', 'A I 应用商店')}
+              title=""
               showFenLei
               showSearch
               onFenLeiClick={handleFenLeiClick}
@@ -671,7 +722,6 @@ export default function Community() {
               onSearchClick={handleSearchClick}
             />
           </View>
-          <View style={{ height: appTopBarHeight }} />
 
           {/* mask — 分类弹层遮罩(对齐原项目) */}
           {showCategoryPopup ? (
@@ -713,29 +763,75 @@ export default function Community() {
           {/* 页面内容(对齐原项目 padding: var(--app-top-bar-height) 20rpx 40rpx) */}
           <View
             className="community-content-area"
-            style={{ padding: 'var(--app-top-bar-height) 20rpx 40rpx' }}
+            style={{ padding: 'var(--app-top-bar-height) 32rpx 40rpx' }}
           >
-            {/* 轮播图(对齐原项目 gradient-border + carousel-inner) */}
-            <View className="community-carousel-wrapper" style={{ margin: '18rpx 0 0 0' }}>
-              <View className="community-carousel-gradient">
-                <View className="community-carousel-inner">
-                  <Carousel items={banners} autoplay interval={3000} onItemClick={onBannerClick} />
-                </View>
+            {/* 标题 + 副标题 + 帖子入口(对齐 web / 共享屏首屏:标题右侧是帖子按钮) */}
+            <View
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: rpx(24),
+                padding: `${rpx(32)} 0 0`,
+              }}
+            >
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text
+                  style={{
+                    display: 'block',
+                    fontSize: taroType.display.fontSize,
+                    lineHeight: taroType.display.lineHeight,
+                    fontWeight: 700,
+                    color: 'var(--color-foreground)',
+                  }}
+                >
+                  {tt('community.title', '智汇AI')}
+                </Text>
+                <Text
+                  style={{
+                    display: 'block',
+                    marginTop: rpx(8),
+                    fontSize: taroType.body.fontSize,
+                    lineHeight: taroType.body.lineHeight,
+                    color: 'var(--color-muted-foreground)',
+                  }}
+                >
+                  {tt('community.subtitle', '智能体社区：发现并用好每一个 AI')}
+                </Text>
+              </View>
+              <View
+                ariaRole="button"
+                ariaLabel={tt('community.posts', '帖子')}
+                hoverClass="opacity-60"
+                onClick={() => Taro.navigateTo({ url: '/pkg-content/community/create/index' })}
+                style={{
+                  flexShrink: 0,
+                  height: rpx(68),
+                  marginTop: rpx(8),
+                  padding: `0 ${rpx(24)}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: rpx(12),
+                  borderRadius: rpx(12),
+                  border: '2rpx solid var(--color-border)',
+                  background: 'var(--color-card)',
+                  boxSizing: 'border-box',
+                }}
+              >
+                <LineIcon name="plus" size={32} color="var(--color-foreground)" />
+                <Text
+                  style={{ fontSize: taroType.body.fontSize, color: 'var(--color-foreground)' }}
+                >
+                  {tt('community.posts', '帖子')}
+                </Text>
               </View>
             </View>
 
-            {/* 客服按钮(对齐原项目服务弹窗入口)*/}
-            <View
-              style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: rpx(10) }}
-              onClick={() => setShowServicePopup(true)}
-              hoverClass="opacity-60"
-            >
-              <Text style={{ fontSize: taroType.label.fontSize, color: 'var(--color-primary)' }}>
-                {tt('wallet.recharge.fail.contactService', '联系客服')}
-              </Text>
-            </View>
-
-            {/* InputArea 搜索框(对齐原项目 showSearchBox 条件渲染)+ 语音/图片按钮 */}
+            {/* 搜索行:与 web / RN 共享屏同构(输入框 + 圆形搜索按钮),顺序也对齐
+                (标题 → 搜索 → 轮播 → 分类 → 最近使用 → 推荐),去掉 InputArea 的
+                附件/发送按钮,避免小程序端搜索框比另两端多出一排控件 */}
             {showSearch ? (
               <View
                 className="community-search-area"
@@ -743,55 +839,278 @@ export default function Community() {
                   display: 'flex',
                   flexDirection: 'row',
                   alignItems: 'center',
-                  gap: rpx(12),
+                  gap: '8px',
+                  marginTop: '8px',
                 }}
               >
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <InputArea
-                    value={searchKeyword}
-                    placeholder={tt('community.m3', '请输入查找的智能体名称')}
-                    onInput={handleSearchInput}
-                    onSend={handleSearchSend}
-                    variant="default"
+                <View
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    height: '40px',
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    paddingLeft: '36px',
+                    paddingRight: '76px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-card)',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <LineIcon
+                    name="search"
+                    size={32}
+                    color="var(--color-muted-foreground)"
+                    style={{ position: 'absolute', left: '12px', top: '12px' }}
                   />
+                  <Input
+                    value={searchKeyword}
+                    placeholder={tt('community.m3', '搜索智能体')}
+                    placeholderStyle="color: var(--color-muted-foreground)"
+                    confirmType="search"
+                    onInput={(e) => handleSearchInput(e.detail.value)}
+                    onConfirm={() => handleSearchSend(searchKeyword)}
+                    style={{
+                      flex: 1,
+                      fontSize: taroType.body.fontSize,
+                      color: 'var(--color-foreground)',
+                    }}
+                  />
+                  <View
+                    style={{
+                      position: 'absolute',
+                      right: rpx(8),
+                      top: 0,
+                      bottom: 0,
+                      display: 'flex',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: rpx(4),
+                    }}
+                  >
+                    <View
+                      ariaRole="button"
+                      ariaLabel={tt('community.search13', '语音搜索请在完整版使用')}
+                      hoverClass="opacity-60"
+                      onClick={() =>
+                        onToast(tt('community.search13', '语音搜索请在完整版使用'), {
+                          kind: 'info',
+                        })
+                      }
+                      style={{
+                        width: '32px',
+                        height: '40px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <LineIcon name="mic" size={32} color="var(--color-muted-foreground)" />
+                    </View>
+                    <View
+                      ariaRole="button"
+                      ariaLabel={tt('community.search14', '图片搜索请在完整版使用')}
+                      hoverClass="opacity-60"
+                      onClick={() =>
+                        onToast(tt('community.search14', '图片搜索请在完整版使用'), {
+                          kind: 'info',
+                        })
+                      }
+                      style={{
+                        width: '32px',
+                        height: '40px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <LineIcon name="image" size={32} color="var(--color-muted-foreground)" />
+                    </View>
+                  </View>
                 </View>
-                {/* 语音输入按钮(对齐原项目 tools/index.vue L894-1277。
-                 语音搜索需端侧录音+STT 链路,当前仅聊天输入框接入;小程序端暂不提供,
-                  统一提示该能力在完整版提供,避免「开发中」误导) */}
-                <LineIcon
+                <View
                   ariaRole="button"
-                  ariaLabel={tt('community.search13', '语音搜索请在完整版使用')}
-                  size={40}
-                  name="mic"
-                  color="var(--color-muted-foreground)"
-                  style={{ padding: rpx(8), flexShrink: 0 }}
-                  onClick={() => {
-                    onToast(tt('community.search13', '语音搜索请在完整版使用'), { kind: 'info' })
+                  ariaLabel={tt('common.search', '搜索')}
+                  hoverClass="opacity-60"
+                  onClick={() => handleSearchSend(searchKeyword)}
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '20px',
+                    background: 'var(--color-foreground)',
                   }}
-                />
-                {/* 图片搜索按钮(对齐原项目 handleIconClick L1113-1207。
-                 后端无图搜智能体接口,小程序端仅保留入口,提示在完整版提供) */}
-                <LineIcon
-                  ariaRole="button"
-                  ariaLabel={tt('taskStatus.toolImageSearch', '图片搜索')}
-                  size={40}
-                  name="search"
-                  color="var(--color-muted-foreground)"
-                  style={{ padding: rpx(8), flexShrink: 0 }}
-                  onClick={async () => {
-                    try {
-                      await chooseImages(1)
-                      onToast(tt('community.search14', '图片搜索请在完整版使用'), { kind: 'info' })
-                    } catch {
-                      // 用户取消或失败,静默
-                    }
-                  }}
-                />
+                >
+                  <LineIcon name="search" size={32} color="var(--color-background)" />
+                </View>
               </View>
             ) : null}
 
-            {/* RecentAgents 最近使用(对齐原项目, v-if recentAgents.length > 0) */}
-            {recentAgents.length > 0 ? <RecentAgents recentAgents={recentAgents} /> : null}
+            {/* 轮播图(对齐原项目 gradient-border + carousel-inner) */}
+            {banners.length > 0 ? (
+              <View
+                className="community-carousel-wrapper"
+                style={{ margin: '24px 0 0 0', height: '128px' }}
+              >
+                <View className="community-carousel-gradient">
+                  <View className="community-carousel-inner">
+                    <Carousel
+                      items={banners}
+                      autoplay
+                      interval={3000}
+                      height={128}
+                      variant="banner"
+                      onItemClick={onBannerClick}
+                    />
+                  </View>
+                </View>
+              </View>
+            ) : null}
+
+            {/* 分类:标题 + 常驻胶囊(对齐 web / 共享屏;原实现只在弹层里,这里补常驻入口) */}
+            {categories.length > 0 ? (
+              <View style={{ marginTop: '24px' }}>
+                <Text
+                  style={{
+                    display: 'block',
+                    fontSize: '20px',
+                    lineHeight: '28px',
+                    fontWeight: 600,
+                    color: 'var(--color-foreground)',
+                  }}
+                >
+                  {tt('community.categories', '分类')}
+                </Text>
+                <View
+                  className="community-category-row"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    width: '100%',
+                    marginTop: '12px',
+                  }}
+                >
+                  {categories.map((c, index) => {
+                    const active = fenleiActive.includes(index)
+                    return (
+                      <View
+                        key={c.id}
+                        className="community-category-chip"
+                        hoverClass="opacity-60"
+                        onClick={() => handleFenleiBtnClick(index, c)}
+                        style={{
+                          flexShrink: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          height: '30px',
+                          padding: '0 12px',
+                          borderRadius: rpx(999),
+                          border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                          background: active ? 'var(--color-primary)' : 'var(--color-card)',
+                          boxSizing: 'border-box',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: taroType.body.fontSize,
+                            lineHeight: taroType.body.lineHeight,
+                            color: active
+                              ? 'var(--color-primary-foreground)'
+                              : 'var(--color-foreground)',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {c.name}
+                        </Text>
+                      </View>
+                    )
+                  })}
+                </View>
+              </View>
+            ) : null}
+
+            {/* 客服入口只保留 FloatBox 展开后的服务按钮:原先夹在分类与最近使用之间的
+                「联系客服」文字链在 web/RN 都没有,且把纵向节奏断开,已删除。 */}
+
+            {/* RecentAgents 最近使用(对齐原项目, v-if recentAgents.length > 0);
+                无记录时对齐 web / 共享屏:保留标题并显示空态文案,而不是整块消失 */}
+            {recentAgents.length > 0 ? (
+              <View style={{ marginTop: '24px' }}>
+                <RecentAgents recentAgents={recentAgents} />
+              </View>
+            ) : (
+              <View style={{ marginTop: '24px' }}>
+                <View
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Text
+                    style={{
+                      display: 'block',
+                      fontSize: '20px',
+                      lineHeight: '28px',
+                      fontWeight: 600,
+                      color: 'var(--color-foreground)',
+                    }}
+                  >
+                    {tt('communityRecentAgents.text1', '最近使用')}
+                  </Text>
+                  <View
+                    hoverClass="opacity-60"
+                    onClick={() =>
+                      Taro.navigateTo({
+                        url: '/pkg-content/category-detail/index',
+                        fail: () =>
+                          onToast(tt('community.detail16', '分类详情页未配置'), { kind: 'error' }),
+                      })
+                    }
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: rpx(4),
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: taroType.body.fontSize,
+                        color: 'var(--color-muted-foreground)',
+                      }}
+                    >
+                      {tt('common.more', '更多')}
+                    </Text>
+                    <LineIcon
+                      name="chevron-right"
+                      size={32}
+                      color="var(--color-muted-foreground)"
+                    />
+                  </View>
+                </View>
+                <Text
+                  style={{
+                    display: 'block',
+                    marginTop: '12px',
+                    fontSize: taroType.body.fontSize,
+                    lineHeight: taroType.body.lineHeight,
+                    color: 'var(--color-muted-foreground)',
+                  }}
+                >
+                  {tt('community.recentEmpty', '还没有使用记录，去挑一个智能体吧')}
+                </Text>
+              </View>
+            )}
 
             {/* MyAgents 我的智能体(对齐原项目, v-if myAgents.length > 0) */}
             {myAgents.length > 0 ? <MyAgents myAgents={myAgents} /> : null}
@@ -801,12 +1120,6 @@ export default function Community() {
               <View className="community-agent-list-header">
                 <Text className="community-agent-list-title">
                   {tt('community.text15', '智能体推荐')}
-                </Text>
-                <Text
-                  className="community-agent-list-posts"
-                  onClick={() => Taro.navigateTo({ url: '/pkg-content/community/create/index' })}
-                >
-                  {tt('community.posts', '帖子')}
                 </Text>
                 <View
                   className="community-agent-list-more"
@@ -820,16 +1133,172 @@ export default function Community() {
                   hoverClass="opacity-60"
                 >
                   <Text>{tt('common.more', '更多')}</Text>
-                  <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
+                  <LineIcon name="chevron-right" size={32} color="var(--color-muted-foreground)" />
                 </View>
               </View>
-              <AgentListPanel
-                visible
-                agents={agentInfoList}
-                loading={loading}
-                onSelect={onAgentListSelect}
-                onPurchase={handlePurchase}
-              />
+
+              {/* 推荐卡:双列封面卡(对齐 web / 共享屏的封面 + 名称 + 描述 + 免费徽标);
+                  小屏两列,保留头像做大图占位,避免再退回单列横条列表 */}
+              {loading && agentInfoList.length === 0 ? (
+                <View style={{ padding: `${rpx(24)} 0` }}>
+                  <Text
+                    style={{
+                      fontSize: taroType.body.fontSize,
+                      color: 'var(--color-muted-foreground)',
+                    }}
+                  >
+                    {tt('common.loading', '加载中…')}
+                  </Text>
+                </View>
+              ) : null}
+              {agentInfoList.length > 0 ? (
+                <View
+                  className="community-agent-grid"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                    justifyContent: 'space-between',
+                    rowGap: px(16),
+                    marginTop: rpx(24),
+                  }}
+                >
+                  {agentInfoList.map((a) => (
+                    <View
+                      key={a.id}
+                      className="community-agent-card"
+                      hoverClass="opacity-60"
+                      onClick={() =>
+                        a.vipType === 4 ? void handlePurchase(a) : onAgentListSelect(a)
+                      }
+                      style={{
+                        width: `calc(50% - ${px(7)})`,
+                        minHeight: px(266),
+                        display: 'flex',
+                        flexDirection: 'column',
+                        borderRadius: rnRadius.lg,
+                        border: `1px solid var(--color-border)`,
+                        background: 'var(--color-card)',
+                        overflow: 'hidden',
+                        boxSizing: 'border-box',
+                      }}
+                    >
+                      <View
+                        className="community-card-cover"
+                        style={{
+                          height: px(128),
+                          flexShrink: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'var(--color-muted)',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {a.cover ? (
+                          <Image
+                            src={a.cover}
+                            mode="aspectFill"
+                            style={{ width: '100%', height: '100%' }}
+                          />
+                        ) : a.avatar ? (
+                          <View
+                            style={{
+                              width: px(64),
+                              height: px(64),
+                              borderRadius: px(14),
+                              overflow: 'hidden',
+                              background: 'var(--color-card)',
+                            }}
+                          >
+                            <Image
+                              src={a.avatar}
+                              mode="aspectFill"
+                              style={{ width: '100%', height: '100%' }}
+                            />
+                          </View>
+                        ) : (
+                          <View
+                            style={{
+                              width: px(64),
+                              height: px(64),
+                              borderRadius: px(32),
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              background: 'var(--color-card)',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontSize: px(24),
+                                fontWeight: 700,
+                                color: 'var(--color-foreground)',
+                              }}
+                            >
+                              {(a.name || '?').trim().charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <View
+                        className="community-card-body"
+                        style={{
+                          flex: 1,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          padding: px(12),
+                        }}
+                      >
+                        <Text
+                          className="community-line-clamp-2 community-card-title"
+                          style={{
+                            minHeight: px(44),
+                            fontSize: px(16),
+                            lineHeight: px(22),
+                            fontWeight: 600,
+                            color: 'var(--color-foreground)',
+                          }}
+                        >
+                          {a.name}
+                        </Text>
+                        <Text
+                          className="community-line-clamp-2 community-card-desc"
+                          style={{
+                            marginTop: px(6),
+                            minHeight: px(36),
+                            fontSize: px(13),
+                            lineHeight: px(18),
+                            color: 'var(--color-muted-foreground)',
+                          }}
+                        >
+                          {a.description || ''}
+                        </Text>
+                        <Text
+                          className="community-card-price"
+                          style={{
+                            alignSelf: 'flex-start',
+                            marginTop: 'auto',
+                            padding: `${px(2)} ${px(6)}`,
+                            borderRadius: px(4),
+                            background: a.price
+                              ? 'var(--color-muted)'
+                              : 'var(--color-success-light)',
+                            fontSize: px(12),
+                            lineHeight: px(16),
+                            fontWeight: 600,
+                            color: a.price
+                              ? 'var(--color-primary)'
+                              : 'var(--color-success-deep-text)',
+                          }}
+                        >
+                          {a.price ? `¥${(a.price / 100).toFixed(0)}` : tt('common.free', '免费')}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
               {/* 错误优先于空态:失败时给出可点的重试出口,否则本页看不到任何反馈。
                   样式复用本页既有的 community-empty/community-empty-text,不新造样式 */}
               {!loading && loadError ? (

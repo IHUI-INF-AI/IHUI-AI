@@ -11,6 +11,7 @@ import {
   carouselIndicatorWrapStyle,
   carouselDotStyle,
 } from '@ihui/shared/ui/carousel-spec'
+import { COMMUNITY_BANNER_FALLBACK_TONES } from '@ihui/shared/ui/community-banner-spec'
 import { useAutoPlay } from '@ihui/shared'
 import type { CarouselItem } from '@ihui/types'
 import { rpx } from '@/utils/rpx'
@@ -41,8 +42,8 @@ export interface CarouselProps {
   height?: number | string
   onItemClick?: (item: CarouselItem, index: number) => void
   className?: string
-  /** 样式变体:'default'(通用,默认)/ 'course'(课程专用,叠加标题+价格) */
-  variant?: 'default' | 'course'
+  /** 样式变体:'default'(通用,默认)/ 'course'(课程专用,叠加标题+价格)/ 'banner'(社区运营位,底部左对齐文案) */
+  variant?: 'default' | 'course' | 'banner'
   /** course variant 专用:与 items 同长的元数据数组,覆盖在轮播图上 */
   courseMeta?: CourseMetaItem[]
 }
@@ -81,6 +82,8 @@ export default function Carousel({
    * 键取 uri 而非下标:换一批数据后同一 uri 仍应继续被摘除,下标会错位。
    * 注意:img 本就是空串的项**不进这一格** —— 它走下方既有的「无图兜底文案卡」,
    * 那是有意设计的文字形态(pkg-ai/ai/agent.tsx 三张营销卡就靠它),不是失败态。
+   * 2026-11-27 增补:社区 `variant='banner'` 是例外 —— 图源失败仍保留该项(hasImg
+   * 转 false),走品牌渐变 + 标题/副标题兜底,不能让营销位从页面上消失。
    */
   const [failedSources, setFailedSources] = useState<ReadonlySet<string>>(NO_FAILED_SOURCES)
   const markSourceFailed = useCallback((uri: string) => {
@@ -91,8 +94,13 @@ export default function Carousel({
     () =>
       items
         .map((item, sourceIndex) => ({ item, sourceIndex }))
-        .filter(({ item }) => !item.img || !failedSources.has(item.img)),
-    [items, failedSources],
+        .filter(({ item }) =>
+          // banner 是社区营销位:图源失败时不能整项摘掉,否则国内网络下 picsum
+          // 全灭会只剩一格无字灰块。这里保留该项,由 hasImg=false 走品牌渐变 + 文案兜底;
+          // 其余变体继续沿用「失败即摘项」的既有语义。
+          variant === 'banner' ? true : !item.img || !failedSources.has(item.img),
+        ),
+    [items, failedSources, variant],
   )
 
   const { current, setCurrent } = useAutoPlay(slides.length, interval, autoplay)
@@ -125,7 +133,11 @@ export default function Carousel({
      */
     return (
       <View
-        className={cn('w-full overflow-hidden rounded-2xl bg-muted', className)}
+        className={cn(
+          'w-full overflow-hidden bg-muted',
+          variant === 'banner' ? 'rounded-lg' : 'rounded-2xl',
+          className,
+        )}
         style={{ height: heightStyle }}
       />
     )
@@ -142,7 +154,11 @@ export default function Carousel({
     // 不同层取值,跨端对账门只配组件文件因而配不到真值,用户实拍的"两端不一样"长期无人看守。
     // 调用点不得再各写一档,那等于把本行的单点声明绕开。
     <View
-      className={cn('relative w-full overflow-hidden rounded-2xl bg-muted', className)}
+      className={cn(
+        'relative w-full overflow-hidden bg-muted',
+        variant === 'banner' ? 'rounded-lg' : 'rounded-2xl',
+        className,
+      )}
       style={{ height: heightStyle }}
     >
       <ScrollView
@@ -170,9 +186,13 @@ export default function Carousel({
             //        linear-gradient，与 web 端 bg-muted/bg-card 亮色兜底同族，两端一致）；
             //        ② 不再内联深色科技风 solid/gradient（曾致微信端深色残留，2026-09-03 已删，
             //        与 app.css .carousel-fallback-* 亮色定义保持一致）。
-            const hasImg = !!item.img
+            const hasImg = !!item.img && !failedSources.has(item.img)
             const FALLBACK_COUNT = 3
             const fbIndex = index % FALLBACK_COUNT
+            const fallbackTone =
+              variant === 'banner'
+                ? COMMUNITY_BANNER_FALLBACK_TONES[fbIndex % COMMUNITY_BANNER_FALLBACK_TONES.length]
+                : undefined
             return (
               <View
                 key={index}
@@ -180,19 +200,21 @@ export default function Carousel({
                 className={
                   hasImg
                     ? 'relative'
-                    : `relative carousel-fallback carousel-fallback-$(fbIndex)`.replace(
-                        '$(fbIndex)',
-                        String(fbIndex),
-                      )
+                    : `relative carousel-fallback carousel-fallback-$(fbIndex)${
+                        variant === 'banner' ? ' community-banner-fallback' : ''
+                      }`.replace('$(fbIndex)', String(fbIndex))
                 }
                 style={{
                   width: itemWidth ? toUnit(itemWidth) : `${100 / total}%`,
                   // 修复:H5 ScrollView 内 h-full (100%) 继承高度不稳定,导致渐变背景 h=0。
                   // 显式设置高度,保证 banner 的渐变/纯色完整铺满可见区域。
-                  // 背景色/渐变全部由 className 的 .carousel-fallback-* 提供(亮色 token),
-                  // 不再内联深色兜底(2026-09-03 与 web 亮色一致化)。
+                  // 2026-11-27:社区 banner 用深色三档打底(`community-banner-fallback`
+                  // + `carousel-fallback-0/1/2`),图片未解码/未命中时先显示品牌深色,
+                  // 解码完成再由 <Image> 覆盖;这里给同色 inline 兜底,避免 H5 样式序列化
+                  // 丢失时闪一帧灰底。
                   height: heightStyle,
                   flex: '0 0 auto',
+                  backgroundColor: fallbackTone,
                 }}
                 onClick={() => onItemClick?.(item, sourceIndex)}
                 hoverClass="opacity-60"
@@ -206,7 +228,76 @@ export default function Carousel({
                     onError={() => markSourceFailed(item.img)}
                   />
                 ) : null}
-                {!hasImg && (item.title || item.subtitle) ? (
+                {!hasImg && variant === 'banner' ? (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      right: '-22px',
+                      top: '-26px',
+                      width: '88px',
+                      height: '88px',
+                      borderRadius: '44px',
+                      borderWidth: '1px',
+                      borderStyle: 'solid',
+                      borderColor: 'rgba(255,255,255,0.16)',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                ) : null}
+                {!hasImg && variant === 'banner' ? (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      right: '30px',
+                      top: '26px',
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '23px',
+                      borderWidth: '1px',
+                      borderStyle: 'solid',
+                      borderColor: 'rgba(255,255,255,0.12)',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                ) : null}
+                {!hasImg && variant === 'banner' ? (
+                  <Text
+                    style={{
+                      position: 'absolute',
+                      right: '36rpx',
+                      top: '18rpx',
+                      fontSize: '72rpx',
+                      fontWeight: 600,
+                      color: '#ffffff',
+                      opacity: 0.16,
+                    }}
+                  >
+                    ✦
+                  </Text>
+                ) : null}
+                {variant === 'banner' && (item.title || item.subtitle) ? (
+                  // 社区 banner 与 web / RN 同形:文案压在底部左侧,不走默认变体的居中兜底。
+                  // 图存在时同样叠这一层 —— 否则小程序有图 banner 会连标题一起消失。
+                  <View
+                    className={cn(
+                      'absolute bottom-0 left-0 right-0 px-md pb-sm pt-sm',
+                      hasImg &&
+                        'bg-gradient-to-t from-[var(--color-black-60)] via-[var(--color-black-20)] to-transparent',
+                    )}
+                  >
+                    {item.title ? (
+                      <Text className="block text-body font-semibold line-clamp-1 text-[var(--color-white-98)]">
+                        {item.title}
+                      </Text>
+                    ) : null}
+                    {item.subtitle ? (
+                      <Text className="mt-xs block text-caption line-clamp-1 text-[var(--color-white-80)]">
+                        {item.subtitle}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : null}
+                {!hasImg && variant !== 'banner' && (item.title || item.subtitle) ? (
                   // 守门 128:整块「无图兜底文案」(p-4/text-xl/mb-2/text-sm 折出 16/20/8/14)是
                   // 小程序端独有渲染 —— RN 同名文件不渲染逐项兜底,无同一元素可对照。
                   // 数字刻意留在类名里可见、不入 spec、不改走函数(裁决与禁假绿依据见
@@ -261,7 +352,7 @@ export default function Carousel({
           })}
         </View>
       </ScrollView>
-      {total > 1 && (
+      {total > 1 && variant !== 'banner' && (
         <View style={carouselIndicatorWrapStyle(toUnit)}>
           {/* 指示点两态的档与 RN 同一份落点:活跃 16×6 取 md、非活跃 6×6 取 sm(此前两端声明不同档) */}
           {/* 透明命中层承接点击与按压反馈,把可点区扩到 weapp 最小热区;圆点视觉尺寸仍唯一取 carouselDotStyle */}

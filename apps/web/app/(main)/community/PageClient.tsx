@@ -11,12 +11,15 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Bot, ChevronRight, Clock3, ImageIcon, Loader2, Mic, Plus, Search } from 'lucide-react'
 import { toast } from 'sonner'
+import { COMMUNITY_BANNER_FALLBACK_TONES } from '@ihui/shared/ui/community-banner-spec'
 
 import { AgentGrid } from '../agents/AgentGrid'
 import { fetchAgents, fetchCategories } from '../agents/helpers'
 import type { Agent } from '../agents/types'
 import { useAgent } from '@/hooks/use-agent'
 import { apiOrThrow as api } from '@/lib/api'
+import { toMediaImageUrl } from '@/lib/media-proxy'
+import { cn } from '@/lib/utils'
 
 interface BannerRow {
   id?: string | number
@@ -54,7 +57,7 @@ function AvatarDot({ src, name }: { src?: string | null; name: string }) {
   if (src) {
     return (
       <Image
-        src={src}
+        src={toMediaImageUrl(src)}
         alt={name}
         width={32}
         height={32}
@@ -70,6 +73,87 @@ function AvatarDot({ src, name }: { src?: string | null; name: string }) {
   )
 }
 
+function CommunityBannerCard({
+  banner,
+  fallbackLabel,
+  index,
+}: {
+  banner: BannerRow
+  fallbackLabel: string
+  index: number
+}) {
+  const [imageFailed, setImageFailed] = React.useState(false)
+  const img = toMediaImageUrl(banner.image || banner.imageUrl || banner.cover || '')
+  const hasImage = !!img && !imageFailed
+  const href = banner.linkUrl || banner.link || banner.url || '/agents'
+  const fallbackTone =
+    COMMUNITY_BANNER_FALLBACK_TONES[index % COMMUNITY_BANNER_FALLBACK_TONES.length]
+
+  return (
+    <Link
+      href={href}
+      className="group relative flex h-32 w-60 shrink-0 flex-col justify-end overflow-hidden rounded-lg border border-border bg-muted"
+      style={{
+        backgroundColor: fallbackTone,
+        ...(hasImage ? {} : { borderColor: 'rgba(255,255,255,0.18)' }),
+      }}
+    >
+      {!hasImage ? (
+        <>
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -right-6 -top-7 h-24 w-24 rounded-full border border-white/15"
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute right-9 top-7 h-12 w-12 rounded-full border border-white/10"
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute right-3 top-1 z-10 select-none text-4xl font-semibold text-white/15"
+          >
+            ✦
+          </span>
+        </>
+      ) : null}
+      {/* 只有真的解码成功才走「图 + 白字 + 底部压暗」;代理 502 / CSP 拦截时
+          onError 把这张卡切成品牌深色底 + 白字 + 同心圆纹理,不再留下半截黑色遮罩。 */}
+      {hasImage ? (
+        <Image
+          src={img}
+          alt=""
+          fill
+          unoptimized
+          loading="eager"
+          sizes="240px"
+          onError={() => setImageFailed(true)}
+          className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+        />
+      ) : null}
+      {hasImage ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage:
+              'linear-gradient(to top, rgba(0,0,0,0.66) 0%, rgba(0,0,0,0.34) 46%, rgba(0,0,0,0.06) 100%)',
+          }}
+        />
+      ) : null}
+      <span className="absolute inset-x-0 bottom-0 px-3 pb-2 pt-2">
+        <span className="block truncate text-body font-semibold text-white">
+          {banner.title || fallbackLabel}
+        </span>
+        {banner.description ? (
+          <span className="mt-0.5 block truncate text-caption text-white/80">
+            {banner.description}
+          </span>
+        ) : null}
+      </span>
+    </Link>
+  )
+}
+
 export default function CommunityPageClient() {
   const t = useTranslations('community')
   const ta = useTranslations('agent')
@@ -77,6 +161,7 @@ export default function CommunityPageClient() {
 
   const [keyword, setKeyword] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
+  const [activeCategoryId, setActiveCategoryId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     const tm = setTimeout(() => setDebounced(keyword.trim()), 300)
@@ -89,8 +174,9 @@ export default function CommunityPageClient() {
   })
 
   const agentsQuery = useQuery({
-    queryKey: ['community', 'agents', debounced],
-    queryFn: () => fetchAgents({ page: 1, keyword: debounced, categoryId: 'all' }),
+    queryKey: ['community', 'agents', debounced, activeCategoryId],
+    queryFn: () =>
+      fetchAgents({ page: 1, keyword: debounced, categoryId: activeCategoryId ?? 'all' }),
   })
 
   const bannerQuery = useQuery({
@@ -124,14 +210,14 @@ export default function CommunityPageClient() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-4">
       <header className="space-y-2">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-title font-semibold text-foreground">{t('title')}</h1>
+            <h1 className="text-display font-bold text-foreground">{t('title')}</h1>
             <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
           </div>
           <Link
             href="/plaza/new"
-            className="ui-control inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-body text-foreground transition-colors hover:bg-secondary/60"
+            className="ui-control mt-1 inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-body text-foreground transition-colors hover:bg-secondary/60"
           >
             <Plus className="h-4 w-4" />
             {t('posts')}
@@ -139,111 +225,97 @@ export default function CommunityPageClient() {
         </div>
         {/* 对齐小程序 pages/community 的 InputArea:右侧两个入口只提示「完整版使用」,
             不假装可点(小程序端同一句提示,web 端不另造交互) */}
-        <div className="relative block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="ui-control h-10 w-full rounded-md border border-border bg-card pl-9 pr-24 text-body text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          <span className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
-            <button
-              type="button"
-              onClick={() => toast.info(t('voiceHint'))}
-              title={t('voiceHint')}
-              aria-label={t('voiceHint')}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            >
-              <Mic className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => toast.info(t('imageHint'))}
-              title={t('imageHint')}
-              aria-label={t('imageHint')}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            >
-              <ImageIcon className="h-4 w-4" />
-            </button>
-          </span>
+        <div className="flex items-center gap-2">
+          <div className="relative block min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder={t('searchPlaceholder')}
+              className="ui-control h-10 w-full rounded-md border border-border bg-card pl-9 pr-[76px] text-body text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => toast.info(t('voiceHint'))}
+                title={t('voiceHint')}
+                aria-label={t('voiceHint')}
+                className="flex h-10 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <Mic className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => toast.info(t('imageHint'))}
+                title={t('imageHint')}
+                aria-label={t('imageHint')}
+                className="flex h-10 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <ImageIcon className="h-4 w-4" />
+              </button>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setKeyword((k) => k.trim())}
+            aria-label={t('searchPlaceholder')}
+            className="ui-control flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-90"
+          >
+            <Search className="h-4 w-4" />
+          </button>
         </div>
       </header>
 
       {banners.length > 0 ? (
         <section aria-label={t('banners')} className="flex gap-3 overflow-x-auto pb-1">
-          {banners.slice(0, 6).map((b, i) => {
-            const img = b.image || b.imageUrl || b.cover || ''
-            const href = b.linkUrl || b.link || b.url || '/agents'
-            return (
-              <Link
-                key={b.id ?? i}
-                href={href}
-                className="group relative flex h-36 w-72 shrink-0 flex-col justify-end overflow-hidden rounded-lg border border-border bg-secondary"
-              >
-                {/* 用背景图而非 <Image>:远程图未加载时保留渐变底,不出现破图图标 */}
-                {img ? (
-                  <span
-                    aria-hidden
-                    className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-[1.03]"
-                    style={{ backgroundImage: `url("${img}")` }}
-                  />
-                ) : (
-                  <span
-                    aria-hidden
-                    className="absolute inset-0 bg-gradient-to-br from-primary/25 via-secondary to-background"
-                  />
-                )}
-                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-2 pt-6">
-                  <span className="block text-body font-medium text-white">
-                    {b.title || t('banners')}
-                  </span>
-                  {b.description ? (
-                    <span className="mt-0.5 block truncate text-caption text-white/80">
-                      {b.description}
-                    </span>
-                  ) : null}
-                </span>
-              </Link>
-            )
-          })}
+          {banners.slice(0, 6).map((b, i) => (
+            <CommunityBannerCard
+              key={b.id ?? i}
+              banner={b}
+              fallbackLabel={t('banners')}
+              index={i}
+            />
+          ))}
         </section>
       ) : null}
 
       {categories.length > 0 ? (
-        <section className="space-y-2">
-          <h2 className="text-heading font-medium text-foreground">{t('categories')}</h2>
+        <section className="space-y-3">
+          <h2 className="text-heading font-semibold text-foreground">{t('categories')}</h2>
           <div className="flex flex-wrap gap-2">
-            {categories.slice(0, 12).map((c) => (
-              <Link
-                key={c.categoryId}
-                href={`/agents/categories/${c.categoryId}`}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-body text-foreground transition-colors hover:bg-secondary/60"
-              >
-                {/* 小程序分类胶囊带 fenlei_icon 图标;接口 Category.icon 有值就同屏显示,空值退回纯文字 */}
-                {c.icon ? (
-                  <Image
-                    src={c.icon}
-                    alt=""
-                    width={16}
-                    height={16}
-                    unoptimized
-                    className="h-4 w-4 shrink-0 rounded-xs object-cover"
-                  />
-                ) : null}
-                {c.name}
-              </Link>
-            ))}
+            {categories.slice(0, 12).map((c) => {
+              const active = activeCategoryId === c.categoryId
+              return (
+                <button
+                  key={c.categoryId}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() =>
+                    setActiveCategoryId((prev) => (prev === c.categoryId ? null : c.categoryId))
+                  }
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-body transition-colors',
+                    active
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-card text-foreground hover:bg-secondary/60',
+                  )}
+                >
+                  {/* 分类接口的 icon 是语义名(code/edit/...),不是图片 URL;
+                      旧实现塞进 <img> 会留下 16px 空白占位,这里只渲染文字,与小程序一致 */}
+                  {c.name}
+                </button>
+              )
+            })}
           </div>
         </section>
       ) : null}
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-heading font-medium text-foreground">{t('recent')}</h2>
+          <h2 className="text-heading font-semibold text-foreground">{t('recent')}</h2>
           <Link
             href="/agents"
-            className="inline-flex items-center text-body text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1 text-body text-muted-foreground hover:text-foreground"
           >
             {tc('more')}
             <ChevronRight className="h-4 w-4" />
@@ -255,7 +327,7 @@ export default function CommunityPageClient() {
             {ta('loading')}
           </div>
         ) : recent.length > 0 ? (
-          <div className="flex gap-3 overflow-x-auto pb-1">
+          <div className="flex gap-2 overflow-x-auto pb-1">
             {recent.map((r, i) => {
               const id = String(r.agentId || r.id || '')
               const name = r.name || t('unknownAgent')
@@ -285,10 +357,10 @@ export default function CommunityPageClient() {
       {myLoading || myAgents.length > 0 ? (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-heading font-medium text-foreground">{t('myAgents')}</h2>
+            <h2 className="text-heading font-semibold text-foreground">{t('myAgents')}</h2>
             <Link
               href="/agents/my"
-              className="inline-flex items-center text-body text-muted-foreground hover:text-foreground"
+              className="inline-flex items-center gap-1 text-body text-muted-foreground hover:text-foreground"
             >
               {tc('more')}
               <ChevronRight className="h-4 w-4" />
@@ -318,10 +390,10 @@ export default function CommunityPageClient() {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-heading font-medium text-foreground">{t('recommended')}</h2>
+          <h2 className="text-heading font-semibold text-foreground">{t('recommended')}</h2>
           <Link
             href="/agents"
-            className="inline-flex items-center text-body text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1 text-body text-muted-foreground hover:text-foreground"
           >
             {tc('more')}
             <ChevronRight className="h-4 w-4" />

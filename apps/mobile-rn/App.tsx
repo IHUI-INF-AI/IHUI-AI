@@ -69,6 +69,10 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
   // ChatTools)的顶色是各自定稿,翻默认会把它们推给白档。
   Home: (t) => t.surface.bg,
   HomeMain: (t) => t.surface.bg,
+  // 2026-11-27 主 Tab 底栏改组后,PlazaMain / NewsMain 从 RootStack 下移为 MainTabs 屏;
+  // 两屏仍渲染 NavBar,根部取 surface.bg,状态栏 inset 带必须同档(nav-chrome-route-parity 现读锁住)。
+  PlazaMain: (t) => t.surface.bg,
+  NewsMain: (t) => t.surface.bg,
   // SecurityCenter(2026-10-21 补录):他人落库该屏时注册了路由却漏登记本表,
   // 屏内确实渲染 <NavBar> ⇒ 按上表判据取 surface.bg 档(与 Home/Settings 同档)。
   SecurityCenter: (t) => t.surface.bg,

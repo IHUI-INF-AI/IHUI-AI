@@ -24,16 +24,14 @@ import TabBar, { type TabBarKey } from '../components/TabBar'
 import { tabBarScrollReserve } from '../components/TabBar.styles'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import type { MainStackParamList } from '../navigation/tab-utils'
 
-type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'LiveMain'>
-type RootNav = NativeStackNavigationProp<RootStackParamList>
+type RootNav = NativeStackNavigationProp<RootStackParamList, 'Live'>
 
 export function LiveScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
-  const navigation = useNavigation<NavigationProp>()
-  const rootNav = navigation.getParent<RootNav>()
+  const navigation = useNavigation<RootNav>()
+  const rootNav = navigation
   // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
   const insets = useSafeAreaInsets()
   const tabBarBlurTargetRef = useRef<View>(null)
@@ -106,19 +104,19 @@ export function LiveScreen() {
   const handleTabChange = (key: TabBarKey): void => {
     switch (key) {
       case 'aiShop':
-        navigation.navigate('AiMain')
+        navigation.navigate('Main', { screen: 'AiMain' })
         break
       case 'home':
-        navigation.navigate('HomeMain')
+        navigation.navigate('Main', { screen: 'HomeMain' })
         break
       case 'mine':
-        navigation.navigate('ProfileMain')
+        navigation.navigate('Main', { screen: 'ProfileMain' })
         break
       case 'plaza':
-        rootNav?.navigate('Plaza')
+        navigation.navigate('Main', { screen: 'PlazaMain' })
         break
       case 'news':
-        rootNav?.navigate('News')
+        navigation.navigate('Main', { screen: 'NewsMain' })
         break
     }
   }
