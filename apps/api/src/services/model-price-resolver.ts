@@ -932,7 +932,12 @@ async function applyOfficialEntry(
           set ${priceCols}
               ${costCols}
               metadata = coalesce(metadata, '{}'::jsonb) || '${meta}'::jsonb,
-              is_relay_public = case when enabled then true else is_relay_public end,
+              -- 连通测试已判 failed 的模型不得因价格回填自动重新公开；停用行同时收回公开标记
+              is_relay_public = case
+                when not enabled then false
+                when last_test_status = 'failed' then false
+                else true
+              end,
               updated_at = now()
         where lower(model_id) = '${modelId.replace(/'/g, "''")}'`,
     ),

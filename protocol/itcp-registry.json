@@ -1,0 +1,3060 @@
+{
+  "schema": "itcp-registry/v0.1",
+  "source": {
+    "generatedBy": "scripts/itcp-export.mjs",
+    "toolFiles": 125,
+    "registeredTools": 127,
+    "declaredTools": 127,
+    "skippedNonLiteral": 3
+  },
+  "tools": [
+    {
+      "name": "ai_list_endpoints",
+      "file": "apps/cli/src/tools/ai-bridge.ts",
+      "line": 145,
+      "declared": true,
+      "contractForm": "contractFor",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "ai.route.read",
+        "riskLevel": "read",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 65536,
+        "providerVisibleLimitBytes": 32768,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "ai_describe_endpoint",
+      "file": "apps/cli/src/tools/ai-bridge.ts",
+      "line": 205,
+      "declared": true,
+      "contractForm": "contractFor",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "ai.route.read",
+        "riskLevel": "read",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 65536,
+        "providerVisibleLimitBytes": 32768,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "ai_read",
+      "file": "apps/cli/src/tools/ai-bridge.ts",
+      "line": 244,
+      "declared": true,
+      "contractForm": "contractFor",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "ai.route.read",
+        "riskLevel": "read",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 65536,
+        "providerVisibleLimitBytes": 32768,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "ai_write",
+      "file": "apps/cli/src/tools/ai-bridge.ts",
+      "line": 259,
+      "declared": true,
+      "contractForm": "contractFor",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "ai.route.write",
+        "riskLevel": "write",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 65536,
+        "providerVisibleLimitBytes": 32768,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "ai_delete",
+      "file": "apps/cli/src/tools/ai-bridge.ts",
+      "line": 288,
+      "declared": true,
+      "contractForm": "contractFor",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "ai.route.dangerous",
+        "riskLevel": "dangerous",
+        "effectScope": "network",
+        "requiresApproval": true,
+        "alwaysAsk": true
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 65536,
+        "providerVisibleLimitBytes": 32768,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "ai_task_template_create",
+      "file": "apps/cli/src/tools/ai-task-template-tools.ts",
+      "line": 60,
+      "declared": true,
+      "contractForm": "constant-ref",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "api.invoke.write",
+        "riskLevel": "write",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 65536,
+        "providerVisibleLimitBytes": 32768,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "ai_task_run",
+      "file": "apps/cli/src/tools/ai-task-template-tools.ts",
+      "line": 105,
+      "declared": true,
+      "contractForm": "constant-ref",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "api.invoke.write",
+        "riskLevel": "write",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 65536,
+        "providerVisibleLimitBytes": 32768,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "api_list_endpoints",
+      "file": "apps/cli/src/tools/api-bridge.ts",
+      "line": 169,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "api.catalog.list",
+        "riskLevel": "read",
+        "effectScope": "none",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 32768,
+        "providerVisibleLimitBytes": 16384,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "api_describe_endpoint",
+      "file": "apps/cli/src/tools/api-bridge.ts",
+      "line": 232,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "api.catalog.describe",
+        "riskLevel": "read",
+        "effectScope": "none",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 32768,
+        "providerVisibleLimitBytes": 16384,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "api_read",
+      "file": "apps/cli/src/tools/api-bridge.ts",
+      "line": 293,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "api.invoke.get",
+        "riskLevel": "read",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 65536,
+        "providerVisibleLimitBytes": 32768,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "api_write",
+      "file": "apps/cli/src/tools/api-bridge.ts",
+      "line": 325,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "api.invoke.write",
+        "riskLevel": "write",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 65536,
+        "providerVisibleLimitBytes": 32768,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "api_delete",
+      "file": "apps/cli/src/tools/api-bridge.ts",
+      "line": 376,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "api.invoke.delete",
+        "riskLevel": "dangerous",
+        "effectScope": "network",
+        "requiresApproval": true,
+        "alwaysAsk": true
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 65536,
+        "providerVisibleLimitBytes": 32768,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "ask_user_question",
+      "file": "apps/cli/src/tools/ask-user.ts",
+      "line": 101,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "user.ask",
+        "riskLevel": "read",
+        "effectScope": "ask-user",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_page_snapshot",
+      "file": "apps/cli/src/tools/browser-page.ts",
+      "line": 240,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "browser.page.snapshot",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_page_click",
+      "file": "apps/cli/src/tools/browser-page.ts",
+      "line": 289,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "browser.page.click",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_page_type",
+      "file": "apps/cli/src/tools/browser-page.ts",
+      "line": 331,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "browser.page.type",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_page_select",
+      "file": "apps/cli/src/tools/browser-page.ts",
+      "line": 393,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "browser.page.select",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_page_hover",
+      "file": "apps/cli/src/tools/browser-page.ts",
+      "line": 447,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "browser.page.hover",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_page_press_key",
+      "file": "apps/cli/src/tools/browser-page.ts",
+      "line": 489,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "browser.page.pressKey",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_page_pick_at_point",
+      "file": "apps/cli/src/tools/browser-page.ts",
+      "line": 542,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "browser.page.pickAtPoint",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_page_scroll",
+      "file": "apps/cli/src/tools/browser-page.ts",
+      "line": 604,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "browser.page.scroll",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_page_wait_for",
+      "file": "apps/cli/src/tools/browser-page.ts",
+      "line": 667,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "browser.page.waitFor",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_page_drag",
+      "file": "apps/cli/src/tools/browser-page.ts",
+      "line": 731,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "browser.page.drag",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_navigate",
+      "file": "apps/cli/src/tools/browser.ts",
+      "line": 765,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "browser.navigate",
+        "riskLevel": "write",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_snapshot",
+      "file": "apps/cli/src/tools/browser.ts",
+      "line": 816,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "browser.snapshot",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_screenshot",
+      "file": "apps/cli/src/tools/browser.ts",
+      "line": 854,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "browser.screenshot",
+        "riskLevel": "write",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_click",
+      "file": "apps/cli/src/tools/browser.ts",
+      "line": 916,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "browser.click",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_type",
+      "file": "apps/cli/src/tools/browser.ts",
+      "line": 1027,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "browser.type",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_press_key",
+      "file": "apps/cli/src/tools/browser.ts",
+      "line": 1152,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "browser.pressKey",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_evaluate",
+      "file": "apps/cli/src/tools/browser.ts",
+      "line": 1224,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "browser.evaluate",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_get_bounding_box",
+      "file": "apps/cli/src/tools/browser.ts",
+      "line": 1296,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "browser.getBoundingBox",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_get_state",
+      "file": "apps/cli/src/tools/browser.ts",
+      "line": 1364,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "browser.getState",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_get_attribute",
+      "file": "apps/cli/src/tools/browser.ts",
+      "line": 1444,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "browser.getAttribute",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "browser_close",
+      "file": "apps/cli/src/tools/browser.ts",
+      "line": 1508,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "browser.close",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "read_file",
+      "file": "apps/cli/src/tools/builtins.ts",
+      "line": 668,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "fs.read",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 32768,
+        "providerVisibleLimitBytes": 16384,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "list_dir",
+      "file": "apps/cli/src/tools/builtins.ts",
+      "line": 983,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "fs.listDir",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 32768,
+        "providerVisibleLimitBytes": 16384,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "grep",
+      "file": "apps/cli/src/tools/builtins.ts",
+      "line": 1123,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "search.grep",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 32768,
+        "providerVisibleLimitBytes": 16384,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "glob",
+      "file": "apps/cli/src/tools/builtins.ts",
+      "line": 1234,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "search.glob",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 32768,
+        "providerVisibleLimitBytes": 16384,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "run_command",
+      "file": "apps/cli/src/tools/builtins.ts",
+      "line": 1499,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "cmd.run",
+        "riskLevel": "dangerous",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "list_background_tasks",
+      "file": "apps/cli/src/tools/builtins.ts",
+      "line": 1690,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "task.list",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 32768,
+        "providerVisibleLimitBytes": 16384,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "get_command_output",
+      "file": "apps/cli/src/tools/builtins.ts",
+      "line": 1727,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "task.output",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 32768,
+        "providerVisibleLimitBytes": 16384,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "wait_command",
+      "file": "apps/cli/src/tools/builtins.ts",
+      "line": 1785,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "task.wait",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 32768,
+        "providerVisibleLimitBytes": 16384,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "kill_command",
+      "file": "apps/cli/src/tools/builtins.ts",
+      "line": 1868,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "task.kill",
+        "riskLevel": "dangerous",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "clipboard_read",
+      "file": "apps/cli/src/tools/clipboard.ts",
+      "line": 302,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "clipboard.read",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "clipboard_write",
+      "file": "apps/cli/src/tools/clipboard.ts",
+      "line": 351,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "clipboard.write",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "clipboard_token",
+      "file": "apps/cli/src/tools/clipboard.ts",
+      "line": 403,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "clipboard.token",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "clipboard_rich_read",
+      "file": "apps/cli/src/tools/clipboard.ts",
+      "line": 441,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "clipboard.richRead",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "clipboard_rich_write",
+      "file": "apps/cli/src/tools/clipboard.ts",
+      "line": 486,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "clipboard.richWrite",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "codegraph",
+      "file": "apps/cli/src/tools/codegraph.ts",
+      "line": 390,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "codegraph.build",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "goto_definition",
+      "file": "apps/cli/src/tools/codegraph.ts",
+      "line": 520,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "codegraph.def",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "find_references",
+      "file": "apps/cli/src/tools/codegraph.ts",
+      "line": 609,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "codegraph.refs",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "debug_launch",
+      "file": "apps/cli/src/tools/debug.ts",
+      "line": 423,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "debug.launch",
+        "riskLevel": "dangerous",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "debug_attach",
+      "file": "apps/cli/src/tools/debug.ts",
+      "line": 519,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "debug.attach",
+        "riskLevel": "dangerous",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "debug_set_breakpoints",
+      "file": "apps/cli/src/tools/debug.ts",
+      "line": 601,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "debug.setBreakpoints",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "debug_continue",
+      "file": "apps/cli/src/tools/debug.ts",
+      "line": 672,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "debug.continue",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "debug_step",
+      "file": "apps/cli/src/tools/debug.ts",
+      "line": 728,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "debug.step",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "debug_get_stack_trace",
+      "file": "apps/cli/src/tools/debug.ts",
+      "line": 790,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "debug.stackTrace",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "debug_get_variables",
+      "file": "apps/cli/src/tools/debug.ts",
+      "line": 859,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "debug.variables",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "debug_eval",
+      "file": "apps/cli/src/tools/debug.ts",
+      "line": 950,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "debug.eval",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "debug_disconnect",
+      "file": "apps/cli/src/tools/debug.ts",
+      "line": 1008,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "debug.disconnect",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "debug_list_sessions",
+      "file": "apps/cli/src/tools/debug.ts",
+      "line": 1057,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "debug.listSessions",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "get_diagnostics",
+      "file": "apps/cli/src/tools/diagnostics.ts",
+      "line": 94,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "diag.get",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "fetch_url",
+      "file": "apps/cli/src/tools/fetch-url.ts",
+      "line": 111,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "net.fetchUrl",
+        "riskLevel": "read",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "batch_edit",
+      "file": "apps/cli/src/tools/file-batch-edit.ts",
+      "line": 511,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "fs.batchEdit",
+        "riskLevel": "write",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "batch_undo",
+      "file": "apps/cli/src/tools/file-batch-edit.ts",
+      "line": 875,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "fs.batchUndo",
+        "riskLevel": "dangerous",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "batch_preview",
+      "file": "apps/cli/src/tools/file-batch-edit.ts",
+      "line": 1008,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "fs.batchPreview",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "write_file",
+      "file": "apps/cli/src/tools/file-edit.ts",
+      "line": 235,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "fs.write",
+        "riskLevel": "write",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "edit_file",
+      "file": "apps/cli/src/tools/file-edit.ts",
+      "line": 459,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "fs.edit",
+        "riskLevel": "write",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "delete_file",
+      "file": "apps/cli/src/tools/file-edit.ts",
+      "line": 629,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "fs.delete",
+        "riskLevel": "dangerous",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_branch_create",
+      "file": "apps/cli/src/tools/git-advanced.ts",
+      "line": 29,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "git.branch.create",
+        "riskLevel": "write",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_branch_switch",
+      "file": "apps/cli/src/tools/git-advanced.ts",
+      "line": 74,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "git.branch.switch",
+        "riskLevel": "write",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_branch_delete",
+      "file": "apps/cli/src/tools/git-advanced.ts",
+      "line": 120,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "git.branch.delete",
+        "riskLevel": "dangerous",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_branch_list",
+      "file": "apps/cli/src/tools/git-advanced.ts",
+      "line": 170,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "git.branch.list",
+        "riskLevel": "read",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_merge",
+      "file": "apps/cli/src/tools/git-advanced.ts",
+      "line": 210,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "git.merge",
+        "riskLevel": "dangerous",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_rebase",
+      "file": "apps/cli/src/tools/git-advanced.ts",
+      "line": 266,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "git.rebase",
+        "riskLevel": "dangerous",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_stash_push",
+      "file": "apps/cli/src/tools/git-advanced.ts",
+      "line": 321,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "git.stash.push",
+        "riskLevel": "write",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_stash_pop",
+      "file": "apps/cli/src/tools/git-advanced.ts",
+      "line": 366,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "git.stash.pop",
+        "riskLevel": "write",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_stash_list",
+      "file": "apps/cli/src/tools/git-advanced.ts",
+      "line": 410,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "git.stash.list",
+        "riskLevel": "read",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_conflict_status",
+      "file": "apps/cli/src/tools/git-advanced.ts",
+      "line": 441,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "git.conflict.status",
+        "riskLevel": "read",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_conflict_resolve",
+      "file": "apps/cli/src/tools/git-advanced.ts",
+      "line": 476,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "git.conflict.resolve",
+        "riskLevel": "write",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_tag_create",
+      "file": "apps/cli/src/tools/git-advanced.ts",
+      "line": 533,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "git.tag.create",
+        "riskLevel": "write",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_tag_list",
+      "file": "apps/cli/src/tools/git-advanced.ts",
+      "line": 586,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "git.tag.list",
+        "riskLevel": "read",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_remote_add",
+      "file": "apps/cli/src/tools/git-advanced.ts",
+      "line": 622,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "git.remote.add",
+        "riskLevel": "write",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_remote_list",
+      "file": "apps/cli/src/tools/git-advanced.ts",
+      "line": 666,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "git.remote.list",
+        "riskLevel": "read",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_status",
+      "file": "apps/cli/src/tools/git.ts",
+      "line": 28,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "git.status",
+        "riskLevel": "read",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_diff",
+      "file": "apps/cli/src/tools/git.ts",
+      "line": 64,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "git.diff",
+        "riskLevel": "read",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 32768,
+        "providerVisibleLimitBytes": 16384,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "git_log",
+      "file": "apps/cli/src/tools/git.ts",
+      "line": 111,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "git.log",
+        "riskLevel": "read",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 32768,
+        "providerVisibleLimitBytes": 16384,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "git_add",
+      "file": "apps/cli/src/tools/git.ts",
+      "line": 154,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "git.add",
+        "riskLevel": "write",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 8192,
+        "providerVisibleLimitBytes": 4096,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "git_commit",
+      "file": "apps/cli/src/tools/git.ts",
+      "line": 331,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "git.commit",
+        "riskLevel": "dangerous",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 8192,
+        "providerVisibleLimitBytes": 4096,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "gh_pr_create",
+      "file": "apps/cli/src/tools/github-pr.ts",
+      "line": 155,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "gh.pr.create",
+        "riskLevel": "write",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "gh_pr_list",
+      "file": "apps/cli/src/tools/github-pr.ts",
+      "line": 212,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "gh.pr.list",
+        "riskLevel": "read",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "gh_pr_view",
+      "file": "apps/cli/src/tools/github-pr.ts",
+      "line": 253,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "gh.pr.view",
+        "riskLevel": "read",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "gh_pr_review",
+      "file": "apps/cli/src/tools/github-pr.ts",
+      "line": 292,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "gh.pr.review",
+        "riskLevel": "write",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "gh_pr_merge",
+      "file": "apps/cli/src/tools/github-pr.ts",
+      "line": 340,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "gh.pr.merge",
+        "riskLevel": "dangerous",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "gh_pr_comment",
+      "file": "apps/cli/src/tools/github-pr.ts",
+      "line": 390,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "gh.pr.comment",
+        "riskLevel": "write",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "gh_pr_close",
+      "file": "apps/cli/src/tools/github-pr.ts",
+      "line": 434,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "gh.pr.close",
+        "riskLevel": "write",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "gh_pr_reopen",
+      "file": "apps/cli/src/tools/github-pr.ts",
+      "line": 481,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "gh.pr.reopen",
+        "riskLevel": "write",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "gh_pr_checkout",
+      "file": "apps/cli/src/tools/github-pr.ts",
+      "line": 522,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "gh.pr.checkout",
+        "riskLevel": "write",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "gh_issue_create",
+      "file": "apps/cli/src/tools/github-pr.ts",
+      "line": 567,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "gh.issue.create",
+        "riskLevel": "write",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "gh_issue_list",
+      "file": "apps/cli/src/tools/github-pr.ts",
+      "line": 622,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "gh.issue.list",
+        "riskLevel": "read",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "gh_release_create",
+      "file": "apps/cli/src/tools/github-pr.ts",
+      "line": 671,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "gh.release.create",
+        "riskLevel": "dangerous",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "lsp_workspace_symbol",
+      "file": "apps/cli/src/tools/lsp-workspace.ts",
+      "line": 164,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "lsp.workspaceSymbol",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "lsp_rename_symbol",
+      "file": "apps/cli/src/tools/lsp-workspace.ts",
+      "line": 249,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "lsp.rename",
+        "riskLevel": "write",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "lsp_code_actions",
+      "file": "apps/cli/src/tools/lsp-workspace.ts",
+      "line": 358,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "lsp.codeActions",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "lsp_goto_definition",
+      "file": "apps/cli/src/tools/lsp.ts",
+      "line": 786,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "lsp.def",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "lsp_find_references",
+      "file": "apps/cli/src/tools/lsp.ts",
+      "line": 857,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "lsp.refs",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "lsp_diagnostics",
+      "file": "apps/cli/src/tools/lsp.ts",
+      "line": 930,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "lsp.diagnostics",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "lsp_hover",
+      "file": "apps/cli/src/tools/lsp.ts",
+      "line": 999,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "lsp.hover",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "lsp_server_status",
+      "file": "apps/cli/src/tools/lsp.ts",
+      "line": 1077,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "lsp.serverStatus",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "memory_recall",
+      "file": "apps/cli/src/tools/memory.ts",
+      "line": 215,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "memory.recall",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "memory_save",
+      "file": "apps/cli/src/tools/memory.ts",
+      "line": 285,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "memory.save",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "memory_dream",
+      "file": "apps/cli/src/tools/memory.ts",
+      "line": 368,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "memory.dream",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "memory_forget",
+      "file": "apps/cli/src/tools/memory.ts",
+      "line": 418,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "memory.forget",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "run_tests",
+      "file": "apps/cli/src/tools/run-tests.ts",
+      "line": 147,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "test.run",
+        "riskLevel": "dangerous",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "dispatch_subagent",
+      "file": "apps/cli/src/tools/subagent.ts",
+      "line": 287,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "agent.dispatch",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "spawn_parallel",
+      "file": "apps/cli/src/tools/subagent.ts",
+      "line": 877,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "agent.spawnParallel",
+        "riskLevel": "dangerous",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "terminal_open",
+      "file": "apps/cli/src/tools/terminal.ts",
+      "line": 247,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "term.open",
+        "riskLevel": "dangerous",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "terminal_send",
+      "file": "apps/cli/src/tools/terminal.ts",
+      "line": 366,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "term.send",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "terminal_read",
+      "file": "apps/cli/src/tools/terminal.ts",
+      "line": 445,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "term.read",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 32768,
+        "providerVisibleLimitBytes": 16384,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "terminal_resize",
+      "file": "apps/cli/src/tools/terminal.ts",
+      "line": 500,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "term.resize",
+        "riskLevel": "read",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 32768,
+        "providerVisibleLimitBytes": 16384,
+        "previewBytes": 4096
+      }
+    },
+    {
+      "name": "terminal_close",
+      "file": "apps/cli/src/tools/terminal.ts",
+      "line": 554,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "term.close",
+        "riskLevel": "write",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "terminal_exec_sandboxed",
+      "file": "apps/cli/src/tools/terminal.ts",
+      "line": 598,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "term.execSandboxed",
+        "riskLevel": "dangerous",
+        "effectScope": "system",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "todo_write",
+      "file": "apps/cli/src/tools/todo-write.ts",
+      "line": 155,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "todo.write",
+        "riskLevel": "write",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "todo_read",
+      "file": "apps/cli/src/tools/todo-write.ts",
+      "line": 248,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "todo_read",
+        "riskLevel": "read",
+        "effectScope": "workspace",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 72000,
+        "providerVisibleLimitBytes": 72000,
+        "previewBytes": 3600
+      }
+    },
+    {
+      "name": "web_search",
+      "file": "apps/cli/src/tools/web-search.ts",
+      "line": 159,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "read",
+      "permission": {
+        "permissionKey": "net.webSearch",
+        "riskLevel": "read",
+        "effectScope": "network",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 16384,
+        "providerVisibleLimitBytes": 8192,
+        "previewBytes": 2048
+      }
+    },
+    {
+      "name": "exit_worktree",
+      "file": "apps/cli/src/tools/worktree-tools-exit.ts",
+      "line": 31,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "dangerous",
+      "permission": {
+        "permissionKey": "exit_worktree",
+        "riskLevel": "dangerous",
+        "effectScope": "repository",
+        "requiresApproval": true,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 8000,
+        "providerVisibleLimitBytes": 8000,
+        "previewBytes": 2000
+      }
+    },
+    {
+      "name": "enter_worktree",
+      "file": "apps/cli/src/tools/worktree-tools.ts",
+      "line": 24,
+      "declared": true,
+      "contractForm": "literal",
+      "dangerLevel": "write",
+      "permission": {
+        "permissionKey": "enter_worktree",
+        "riskLevel": "write",
+        "effectScope": "repository",
+        "requiresApproval": false,
+        "alwaysAsk": null
+      },
+      "shape": {
+        "visibleToProvider": true
+      },
+      "resultBudget": {
+        "policy": "truncate",
+        "inlineLimitBytes": 8000,
+        "providerVisibleLimitBytes": 8000,
+        "previewBytes": 2000
+      }
+    }
+  ]
+}
