@@ -156,7 +156,7 @@ describe('probeUrl 三态封闭', () => {
   })
 
   it('纯中文 IDN 主机不被误伤(punycode 后可正常探测)', async () => {
-    const fetchImpl = vi.fn(async () => htmlResponse(OK_HTML))
+    const fetchImpl = vi.fn(async (_input: string | URL | Request) => htmlResponse(OK_HTML))
     const result = await probeUrl('https://例子.com/', {
       fetchImpl,
       resolveForbidden: resolveAllowed,
@@ -177,6 +177,44 @@ describe('probeUrl 三态封闭', () => {
     })
     expect(result.status).toBe('ok')
     expect(result).not.toHaveProperty('title')
+    expect(result).not.toHaveProperty('icon')
+  })
+
+  it('ok 携带站点图标:相对 href 按落点解析,大尺寸 apple-touch-icon 优先', async () => {
+    const html =
+      '<html><head><title>T</title>' +
+      '<link rel="icon" sizes="32x32" href="/fav-32.png">' +
+      '<link rel="apple-touch-icon" sizes="180x180" href="/apple.png">' +
+      '</head><body></body></html>'
+    const fetchImpl = vi.fn(async () => htmlResponse(html))
+    const result = await probeUrl('https://example.com/page', {
+      fetchImpl,
+      resolveForbidden: resolveAllowed,
+    })
+    expect(result).toMatchObject({ status: 'ok', icon: 'https://example.com/apple.png' })
+  })
+
+  it('重定向落点是图标解析基准(相对 href 不按原始 URL)', async () => {
+    const html = '<html><head><title>T</title><link rel="icon" href="/i.png"></head></html>'
+    const fetchImpl = vi.fn(async (input: string | URL | Request) =>
+      String(input).startsWith('https://final.example.com')
+        ? htmlResponse(html)
+        : new Response(null, { status: 301, headers: { location: 'https://final.example.com/x' } }),
+    )
+    const result = await probeUrl('http://example.com/', {
+      fetchImpl,
+      resolveForbidden: resolveAllowed,
+    })
+    expect(result).toMatchObject({ status: 'ok', icon: 'https://final.example.com/i.png' })
+  })
+
+  it('页面没有 icon 声明 ⇒ 回落 /favicon.ico 绝对地址', async () => {
+    const fetchImpl = vi.fn(async () => htmlResponse(OK_HTML))
+    const result = await probeUrl('https://example.com/', {
+      fetchImpl,
+      resolveForbidden: resolveAllowed,
+    })
+    expect(result).toMatchObject({ icon: 'https://example.com/favicon.ico' })
   })
 
   it('重定向手动跟随:301 → 落点取标题(逐跳探测)', async () => {

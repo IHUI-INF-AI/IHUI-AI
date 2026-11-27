@@ -50,7 +50,7 @@ const PROBE_UA =
 
 /** 三态封闭的探测结果(unavailable 与 undetermined 严禁合并)。 */
 export type UrlPreviewProbeResult =
-  | { status: 'ok'; url: string; title?: string; description?: string }
+  | { status: 'ok'; url: string; title?: string; description?: string; icon?: string }
   | { status: 'unavailable'; url: string; reason: string }
   | { status: 'undetermined'; url: string; reason: string }
 
@@ -170,6 +170,59 @@ function extractMetaContent(
 }
 
 // ─────────────────────────────────────────────────────────────
+// 站点图标提取(2026-11-27 立):卡片要有真实站点图标,而不是字母块兜底。
+// 只在已读到的 HTML 头部里挑 href,不在这里下载图标字节(字节交给
+// /api/media/image 同源代理,SSRF 闸门与白名单类型是同一道)。
+// ─────────────────────────────────────────────────────────────
+
+/** 取一个 `<link>` 标签上的属性值,兼容双引号/单引号/裸值。 */
+function linkAttr(tag: string, name: string): string | undefined {
+  const m = new RegExp(`${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, 'i').exec(tag)
+  return m?.[1] ?? m?.[2] ?? m?.[3]
+}
+
+/**
+ * 按优先级挑站点图标:apple-touch-icon / 大尺寸 icon / 普通 icon / shortcut icon,
+ * 都没有才回落 `/favicon.ico`。相对 href 以**重定向后的落点**为基准解析。
+ * 只放行 http(s);`mask-icon`(SVG 单色)与 data: 跳过 —— 媒体代理不接受 SVG。
+ */
+export function extractIconUrl(html: string, baseUrl: string): string | undefined {
+  let best: { url: string; score: number } | undefined
+  for (const tag of html.match(/<link\b[^>]*>/gi) ?? []) {
+    const rel = (linkAttr(tag, 'rel') ?? '').toLowerCase()
+    if (!rel.includes('icon') || rel.includes('mask-icon')) continue
+    const href = linkAttr(tag, 'href')
+    if (!href) continue
+    let abs: URL
+    try {
+      abs = new URL(decodeHtmlEntities(href.trim()), baseUrl)
+    } catch {
+      continue
+    }
+    if (abs.protocol !== 'http:' && abs.protocol !== 'https:') continue
+    if (abs.toString().length > 2048) continue
+
+    const sizes = (linkAttr(tag, 'sizes') ?? '').toLowerCase()
+    let score = 1
+    if (rel.includes('apple-touch-icon')) score += 2
+    if (rel.split(/\s+/).includes('icon')) score += 1
+    if (sizes === 'any') {
+      score += 1
+    } else {
+      const dim = /(\d+)x(\d+)/.exec(sizes)
+      if (dim) score += Math.min(2, Math.floor(Number(dim[1]) / 64))
+    }
+    if (!best || score > best.score) best = { url: abs.toString(), score }
+  }
+  if (best) return best.url
+  try {
+    return new URL('/favicon.ico', baseUrl).toString()
+  } catch {
+    return undefined
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // 探测主体:单次出口,重定向手动跟随(逐跳 SSRF 复检),共享 3s 时限
 // ─────────────────────────────────────────────────────────────
 
@@ -279,6 +332,7 @@ export async function probeUrl(
       }
       const html = await readHead(res, maxBytes)
       if (html === null) return undetermined('read_error')
+      const icon = extractIconUrl(html, current.toString())
       return {
         status: 'ok',
         url: rawUrl,
@@ -286,6 +340,7 @@ export async function probeUrl(
         ...(extractMetaContent(html, 'description')
           ? { description: extractMetaContent(html, 'description') }
           : {}),
+        ...(icon ? { icon } : {}),
       }
     }
     if (res.status === 404 || res.status === 410 || res.status >= 500) {

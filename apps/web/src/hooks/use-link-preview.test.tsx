@@ -38,6 +38,7 @@ const okEnvelope = {
     url: 'https://example.com/',
     title: 'Example Domain',
     description: 'For use in examples.',
+    icon: 'https://example.com/favicon.ico',
   },
 } as const
 
@@ -103,6 +104,7 @@ describe('useLinkPreview 三态映射(票面验收 ①)', () => {
     expect(result.current.preview).toMatchObject({
       title: 'Example Domain',
       description: 'For use in examples.',
+      icon: 'https://example.com/favicon.ico',
     })
   })
 

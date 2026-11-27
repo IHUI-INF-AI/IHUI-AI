@@ -37,7 +37,7 @@ import type { LinkPreviewState } from '@/hooks/use-link-preview'
 function renderCard(preview: LinkPreviewState | null) {
   const onDismiss = vi.fn()
   const utils = render(<LinkPreviewCard preview={preview} onDismiss={onDismiss} />)
-  return { onDismiss, unmount: utils.unmount }
+  return { onDismiss, unmount: utils.unmount, container: utils.container }
 }
 
 describe('LinkPreviewCard 三态区别化(票面验收 ①)', () => {
@@ -63,6 +63,26 @@ describe('LinkPreviewCard 三态区别化(票面验收 ①)', () => {
   it('ok 无标题 → 回落主机名(不误报读不到)', () => {
     renderCard({ status: 'ok', url: 'https://docs.example.com/x' })
     expect(screen.getByText('docs.example.com')).toBeTruthy()
+  })
+
+  it('ok 带站点图标 → 经同源媒体代理加载;图标失败回落字母块', () => {
+    const { container } = renderCard({
+      status: 'ok',
+      url: 'https://example.com/',
+      title: 'Example Domain',
+      icon: 'https://cdn.example.com/fav.png',
+    })
+    const img = container.querySelector('img')
+    expect(img).toBeTruthy()
+    expect(img?.getAttribute('src')).toBe(
+      `/api/media/image?url=${encodeURIComponent('https://cdn.example.com/fav.png')}`,
+    )
+    expect(img?.getAttribute('referrerpolicy')).toBe('no-referrer')
+
+    // 图标 404/被拦时不能空着:回落站点字母块 E。
+    fireEvent.error(img as HTMLImageElement)
+    expect(container.querySelector('img')).toBeNull()
+    expect(screen.getByText('E')).toBeTruthy()
   })
 
   it('unavailable 与 undetermined 文案严格区别', () => {

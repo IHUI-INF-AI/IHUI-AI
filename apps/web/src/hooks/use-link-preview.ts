@@ -43,6 +43,8 @@ export interface LinkPreviewState {
   url: string
   title?: string
   description?: string
+  /** 站点图标绝对地址(ok 态可能携带;由卡片经同源媒体代理加载)。 */
+  icon?: string
   /** 机器可判原因(unavailable/undetermined 携带;ok 缺省)。 */
   reason?: string
 }
@@ -53,6 +55,7 @@ interface UrlPreviewData {
   url: string
   title?: string
   description?: string
+  icon?: string
   reason?: string
 }
 
@@ -207,6 +210,7 @@ export function useLinkPreview(): UseLinkPreviewReturn {
               url,
               ...(data.title ? { title: data.title } : {}),
               ...(data.description ? { description: data.description } : {}),
+              ...(data.icon ? { icon: data.icon } : {}),
             })
           } else if (data.status === 'unavailable') {
             finish({ status: 'unavailable', url, reason: data.reason ?? 'unknown' })
