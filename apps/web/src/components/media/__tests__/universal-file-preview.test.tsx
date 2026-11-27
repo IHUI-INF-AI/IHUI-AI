@@ -12,16 +12,22 @@ vi.mock('next-intl', () => ({
 }))
 
 vi.mock('../FilePreview', () => ({
-  FilePreview: ({ type, name }: { type: string; name: string }) =>
+  FilePreview: ({ type, name, ext }: { type: string; name: string; ext?: string }) =>
     React.createElement('div', {
       'data-testid': 'file-preview-stub',
       'data-type': type,
       'data-name': name,
+      'data-ext': ext ?? '',
     }),
 }))
 
 vi.mock('../office-preview', () => ({
   SUPPORTED_EXTS: new Set(['docx', 'xlsx', 'xls', 'pptx']),
+  OfficePreview: ({ ext }: { ext: string }) =>
+    React.createElement('div', {
+      'data-testid': 'office-preview-stub',
+      'data-ext': ext,
+    }),
 }))
 
 vi.mock('../office-convert-preview', () => ({
@@ -51,6 +57,9 @@ describe('UniversalFilePreview 扩展名判据', () => {
     const stub = screen.getByTestId('file-preview-stub')
     expect(stub.getAttribute('data-type')).toBe('office')
     expect(stub.getAttribute('data-name')).toBe('季度报告.docx')
+    // 关键回归:blob 地址没有后缀,FilePreview 不能再从 url 猜 ext,否则 OfficePreview
+    // 会收到空 ext 并显示“该文件类型不支持预览”。扩展名必须原样传到底。
+    expect(stub.getAttribute('data-ext')).toBe('docx')
   })
 
   it('blob 地址 + 旧版 .doc 文件名 → 服务端转换预览', () => {
