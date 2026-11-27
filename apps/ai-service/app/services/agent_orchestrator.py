@@ -392,6 +392,12 @@ class AgentOrchestrator:
                 {"definitionId": runtime.id, "tools": denied},
             )
 
+    def validate_dispatch_definition(
+        self, runtime: RuntimeAgentDefinition, tool_deny: list[str] | None = None
+    ) -> None:
+        """给不走 `invoke` 的编排模式（debate/vote/critique）复用的派发前校验。"""
+        self._validate_definition_tools(runtime, tool_deny=tool_deny)
+
     # =========================================================================
     # Single agent invoke
     # =========================================================================

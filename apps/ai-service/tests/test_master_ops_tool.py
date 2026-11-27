@@ -37,7 +37,66 @@ async def test_run_get_reads_result() -> None:
 
 
 @pytest.mark.asyncio
-async def test_parallel_requires_participants() -> None:
+async def test_decomposed_mode_still_explicitly_rejected() -> None:
+    envelope = await _tool(lambda _r: httpx.Response(200, json={"code": 0})).handle(
+        {"action": "dispatch", "definitionId": "def-1", "goal": "拆掉它", "mode": "decomposed"},
+        user_id="user-1",
+    )
+
+    assert envelope["ok"] is False
+    assert envelope["error"]["code"] == "AGENT_MODE_NOT_IMPLEMENTED"
+
+
+@pytest.mark.asyncio
+async def test_dispatch_debate_wires_agents_and_rounds(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services.agent_orchestrator import (
+        AgentOrchestrator,
+        AgentStepResult,
+        OrchestrationResult,
+    )
+
+    definitions = [
+        _raw_definition("11111111-1111-4111-8111-111111111111", "debater-a"),
+        _raw_definition("22222222-2222-4222-8222-222222222222", "debater-b"),
+    ]
+    calls: list[tuple[str, str, dict[str, Any]]] = []
+    captured: dict[str, Any] = {}
+
+    async def fake_debate(self, agents, topic, *args, **kwargs):  # type: ignore[no-untyped-def]
+        captured.update({"agents": agents, "topic": topic, **kwargs})
+        return OrchestrationResult(
+            orchestration_id="orch-test",
+            steps=[
+                AgentStepResult(
+                    agent_name=agents[0], input=topic, output="正方", status="completed"
+                ),
+                AgentStepResult(
+                    agent_name=agents[1], input=topic, output="反方", status="completed"
+                ),
+            ],
+            final_output="综合：两边都有理",
+            status="completed",
+            total_duration_ms=12.0,
+        )
+
+    monkeypatch.setattr(AgentOrchestrator, "run_debate", fake_debate)
+    envelope = await _tool(_run_handler(definitions, calls)).handle(
+        {
+            "action": "dispatch",
+            "mode": "debate",
+            "definitionId": definitions[0]["id"],
+            "goal": "要不要上四天工作制",
+            "maxRounds": 2,
+            "agents": [{"definitionId": d["id"]} for d in definitions],
+        },
+        user_id="user-1",
+    )
+
+    assert envelope["ok"] is True
+    assert captured["agents"] == [d["id"] for d in definitions]
+    assert captured["topic"] == "要不要上四天工作制"
+    assert captured["max_rounds"] == 2
+    assert len(envelope["data"]["steps"]) == 2
     envelope = await _tool(lambda _r: httpx.Response(200, json={"code": 0})).handle(
         {"action": "dispatch", "definitionId": "def-1", "goal": "做一件小事", "mode": "parallel"},
         user_id="user-1",
@@ -96,6 +155,17 @@ def _run_handler(definitions: list[dict[str, Any]], calls: list[tuple[str, str, 
         return httpx.Response(404, json={"code": 404, "message": "not found"})
 
     return handler
+
+
+@pytest.mark.asyncio
+async def test_parallel_requires_participants() -> None:
+    envelope = await _tool(lambda _r: httpx.Response(200, json={"code": 0})).handle(
+        {"action": "dispatch", "definitionId": "def-1", "goal": "做一件小事", "mode": "parallel"},
+        user_id="user-1",
+    )
+
+    assert envelope["ok"] is False
+    assert envelope["error"]["code"] == "AGENT_DISPATCH_INPUT_MISSING"
 
 
 @pytest.mark.asyncio

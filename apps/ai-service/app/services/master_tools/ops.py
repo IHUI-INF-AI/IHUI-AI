@@ -79,13 +79,14 @@ INPUT_SCHEMA: dict[str, Any] = {
             ],
         },
         "goal": {"type": "string", "maxLength": 8000},
+        "maxRounds": {"type": "integer", "minimum": 1, "maximum": 6, "description": "debate/critique 轮次"},
         "constraints": {"type": "array", "items": {"type": "string"}, "maxItems": 16},
         "deliverables": {"type": "array", "items": {"type": "string"}, "maxItems": 16},
         "budget": {"type": "object"},
         "agents": {
             "type": "array",
             "maxItems": 9,
-            "description": "parallel 模式的参与者；每项必须有 definitionId 或 name，goal 可覆盖父目标",
+            "description": "parallel/debate/vote/critique 的参与者；每项必须有 definitionId 或 name",
             "items": {
                 "type": "object",
                 "additionalProperties": False,
@@ -127,10 +128,10 @@ INPUT_SCHEMA: dict[str, Any] = {
 }
 
 DESCRIPTION = (
-    "查看和控制智能体运行：dispatch 支持 single / parallel / pipeline，会创建父 run、"
-    "真实执行并写步骤事件；run_list/run_get/run_logs/run_artifacts/run_stats 可查；"
+    "查看和控制智能体运行：dispatch 支持 single / parallel / pipeline / debate / vote / critique，"
+    "会创建父 run、真实执行并写步骤事件；run_list/run_get/run_logs/run_artifacts/run_stats 可查；"
     "run_pause/run_resume/run_talk 可操作当前实例的在飞会话，health 查运行时；"
-    "debate/vote/critique/decomposed/team/recursive 与 stop/retry/cancel 尚未接线，会明确报未实现。"
+    "decomposed/team/recursive 与 stop/retry/cancel 尚未接线，会明确报未实现。"
 )
 
 _ALLOWED_ARGS = frozenset(INPUT_SCHEMA["properties"].keys())
@@ -332,12 +333,13 @@ class AgentOpsTool:
         from ..run_ledger import RunLedgerClient
 
         mode = str(payload.get("mode") or "single")
-        if mode in ("parallel", "pipeline"):
+        if mode in ("parallel", "pipeline", "debate", "vote", "critique"):
             return await self._dispatch_multi(payload, mode=mode, user_id=user_id)
         if mode != "single":
             raise OpsToolError(
                 "AGENT_MODE_NOT_IMPLEMENTED",
-                f"dispatch 当前支持 single / parallel / pipeline，拒绝把 {mode} 当成已执行",
+                f"dispatch 当前支持 single / parallel / pipeline / debate / vote / critique，"
+                f"拒绝把 {mode} 当成已执行",
                 details={"mode": mode},
             )
         ref = str(payload.get("definitionId") or payload.get("name") or "").strip()
@@ -414,18 +416,19 @@ class AgentOpsTool:
     async def _dispatch_multi(
         self, payload: dict[str, Any], *, mode: str, user_id: str
     ) -> dict[str, Any]:
-        """parallel / pipeline 的父 run + 子步骤执行；子步骤共用父 run 的账本。"""
+        """多参与者模式的父 run + 子步骤执行；debate/vote/critique 复用同一父账本。"""
         from ..agent_definition_provider import AgentDefinitionProvider
         from ..agent_orchestrator import AgentOrchestrator, to_run_registry_status
         from ..agent_registry_client import AgentRegistryClient
         from ..run_ledger import RunLedgerClient
 
         goal = str(payload.get("goal") or "").strip()
-        items = payload.get("agents") if mode == "parallel" else payload.get("steps")
+        items_key = "steps" if mode == "pipeline" else "agents"
+        items = payload.get(items_key)
         if not isinstance(items, list) or not items:
             raise OpsToolError(
                 "AGENT_DISPATCH_INPUT_MISSING",
-                f"{mode} 需要非空 {'agents' if mode == 'parallel' else 'steps'}",
+                f"{mode} 需要非空 {items_key}",
             )
         if len(items) > 9:
             raise OpsToolError("AGENT_DISPATCH_INPUT_INVALID", "一次最多 9 个参与者/步骤")
@@ -449,6 +452,20 @@ class AgentOpsTool:
         await provider.prepare()
 
         resolved = [_resolve_dispatchable(provider, ref) for ref in refs]
+        if mode in ("debate", "vote", "critique"):
+            # 这三个模式内部直接 _run_agent，不经过 invoke 的白名单校验；在父 run 建账前补上。
+            from ..agent_resolver import AgentResolveError
+
+            validator = AgentOrchestrator(definition_provider=provider)
+            for definition in resolved:
+                try:
+                    validator.validate_dispatch_definition(definition)
+                except AgentResolveError as error:
+                    raise OpsToolError(
+                        error.code,
+                        error.message,
+                        details=error.details,
+                    ) from error
         parent_ref = str(payload.get("definitionId") or payload.get("name") or "").strip() or refs[0]
         parent = _resolve_dispatchable(provider, parent_ref)
 
@@ -476,7 +493,7 @@ class AgentOpsTool:
                 }
                 for item, definition in zip(items, resolved, strict=True)
             ]
-        else:
+        elif mode == "pipeline":
             if not goal:
                 raise OpsToolError("AGENT_DISPATCH_INPUT_MISSING", "pipeline 需要顶层 goal 作为初始输入")
             steps = [
@@ -490,6 +507,17 @@ class AgentOpsTool:
                 }
                 for item, definition in zip(items, resolved, strict=True)
             ]
+        else:
+            if not goal:
+                raise OpsToolError(
+                    "AGENT_DISPATCH_INPUT_MISSING", f"{mode} 需要顶层 goal 作为讨论/投票/批判主题"
+                )
+            if len(resolved) < 2:
+                raise OpsToolError(
+                    "AGENT_DISPATCH_INPUT_INVALID",
+                    f"{mode} 至少需要 2 个参与者",
+                )
+            agent_ids = [definition.id for definition in resolved]
 
         run_id = str(uuid.uuid4())
         trace_id = f"tr_{uuid.uuid4().hex}"
@@ -525,9 +553,25 @@ class AgentOpsTool:
                 result = await orchestrator.run_parallel(
                     agent_inputs, session_id=f"{run_id}-session"
                 )
-            else:
+            elif mode == "pipeline":
                 result = await orchestrator.run_pipeline(
                     steps, initial_input=goal, session_id=f"{run_id}-session"
+                )
+            elif mode == "debate":
+                result = await orchestrator.run_debate(
+                    agent_ids,
+                    goal,
+                    max_rounds=int(payload.get("maxRounds") or 3),
+                    session_id=f"{run_id}-session",
+                )
+            elif mode == "vote":
+                result = await orchestrator.run_vote(agent_ids, goal, session_id=f"{run_id}-session")
+            else:
+                result = await orchestrator.run_critique(
+                    agent_ids,
+                    goal,
+                    max_rounds=int(payload.get("maxRounds") or 2),
+                    session_id=f"{run_id}-session",
                 )
         except Exception as error:  # noqa: BLE001 -- 失败也要把父 run 收口
             await ledger.update_run(
