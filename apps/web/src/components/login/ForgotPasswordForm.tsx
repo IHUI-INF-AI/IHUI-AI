@@ -26,7 +26,7 @@ const emailSchema = z.email()
 export function ForgotPasswordForm() {
   const t = useTranslations('auth')
   // Turnstile 上下文(包裹在 LoginWithTurnstile 内时有值;独立渲染时为 null,发码请求自动省略)
-  const { token: turnstileToken } = useTurnstile()
+  const { token: turnstileToken, reset: resetTurnstile, enabled: turnstileEnabled } = useTurnstile()
   const [method, setMethod] = React.useState<'phone' | 'email'>('phone')
 
   const [phone, setPhone] = React.useState('')
@@ -61,6 +61,12 @@ export function ForgotPasswordForm() {
         turnstileToken: turnstileToken ?? undefined,
       })
       if (!r.success) {
+        // 2026-11-28:发码闸升级(同 IP 超阈值)时，原先只会看到"请求过于频繁,请稍后再试"
+        // —— 而这张卡片现在自带人机验证控件，能真做。给出可执行的下一步，别让用户以为是死限流。
+        if (r.errorCode === 'challenge_required' && turnstileEnabled) {
+          setError('请先完成人机验证，再点一次发送')
+          return
+        }
         setError(r.error || t('registerFailed'))
         return
       }
@@ -69,6 +75,9 @@ export function ForgotPasswordForm() {
     } catch {
       setError(t('registerFailed'))
     } finally {
+      // 2026-11-28:发码闸对"带了 token 的请求"必做 siteverify —— 无论成功失败，
+      // 这枚 token 都已被核销。不换新票，60 秒后点「重新发送」会带着废票被判 429。
+      if (turnstileToken) resetTurnstile()
       setSending(false)
     }
   }

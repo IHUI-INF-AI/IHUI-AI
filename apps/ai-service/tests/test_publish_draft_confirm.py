@@ -83,6 +83,22 @@ async def test_confirm_draft_moves_to_scheduled(monkeypatch, req):
     assert conn.closed is True
 
 
+async def test_confirm_draft_passes_scheduled_at(monkeypatch, req):
+    when = datetime(2026, 11, 29, 1, 30, tzinfo=UTC)
+    conn = FakeConn(_draft_task(), {"task_id": "pub-1", "status": "scheduled", "scheduled_at": when})
+
+    async def fake_conn():
+        return conn
+
+    monkeypatch.setattr(publish_router, "_get_conn", fake_conn)
+    monkeypatch.setattr(publish_router, "run_preflight", _fake_preflight_ok)
+
+    body = SimpleNamespace(scheduled_at=when)
+    res = await publish_router.confirm_draft("pub-1", req, body)
+    assert res["data"]["scheduledAt"] == when.isoformat()
+    assert conn.update_args[1] is when
+
+
 async def test_confirm_draft_rejects_non_draft(monkeypatch, req):
     conn = FakeConn(_draft_task(status="scheduled"))
 

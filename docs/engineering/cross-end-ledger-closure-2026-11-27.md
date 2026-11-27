@@ -134,4 +134,9 @@ BankCard 原先只有 `withdrawal_flows.account_info` 的只读投影，没有�
 - **连带产物**：`apps/mobile-rn/src/navigation/linking.screens.generated.ts` 同步重生成 301/301 行（240 屏 + 60 alias）；`apps/web/src/lib/ui-routes.generated.ts` 无变化（945 条）。
 - **真机**：本机无 adb / Android 模拟器 / iOS Simulator / 微信开发者工具，无法产出 RN、小程序真机截图；替代验收为 `pnpm --filter @ihui/miniapp-taro build:weapp` exit 0 + 共享屏单测 4/4 + Web E2E 1/1，真机项保留为环境受限。
 
+### 生产部署与新版 E2E 复验（2026-11-28）
+- **部署**：`node scripts/prod-deploy-now.mjs --no-wait` 投递 marker；deploy-loop 于 **01:33:51** 完成 `HEAD=d0a5f97e4a`，web 蓝绿 8851/8852、api 蓝绿 8842/8843，8801/8802 `/api/health` 均 200；部署后功能验收 `fail=0`（`writeback_403` 为 undetermined，未当通过）。
+- **新版复验**：同一 `wallet-bank-cards.spec.ts` 在 8801 重跑 **3 passed / 17.4s**（2 条 auth setup + 1 条用例）；用已登录 storageState 直查 DOM：`testid_bank_name=1 holder=1 number=1 save=1`，证明部署产物已含 5 个 testID，不是兜底选择器假绿。
+- **口径**：production 当前为 `d0a5f97e`；`origin/main` 已推进到 `d722e37d`（后续仅并行聊天输入/文档改动），下一次部署自然带上，不影响本轮 BankCard 证据。
+
 > 本轮提交：`d0a5f97e`（12 文件：E2E/testID、提现选卡、OpenAPI、934 行路由契约、RN linking、本文档）；`origin/main` 已推送。

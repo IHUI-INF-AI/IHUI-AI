@@ -67,7 +67,7 @@ export function RegisterAccountForm({
 }: RegisterAccountFormProps) {
   const t = useTranslations('auth')
   // Turnstile 上下文(包裹在 LoginWithTurnstile 内时有值;独立渲染时为 null,发码请求自动省略)
-  const { token: turnstileToken } = useTurnstile()
+  const { token: turnstileToken, reset: resetTurnstile, enabled: turnstileEnabled } = useTurnstile()
   const setMode = useLoginDialogStore((s) => s.setMode)
   const isPhone = accountType === 'phone'
 
@@ -140,6 +140,12 @@ export function RegisterAccountForm({
             turnstileToken: turnstileToken ?? undefined,
           })
         : await sendEmailCode(account, 'register')
+      // 2026-11-28:发码闸升级(同 IP 超阈值)时原先只会显示"请求过于频繁,请稍后再试"。
+      // 这张卡片现在自带人机验证控件，能真做 —— 给出可执行的下一步。
+      if (!r.success && r.errorCode === 'challenge_required' && turnstileEnabled) {
+        setServerError('请先完成人机验证，再点一次发送')
+        return
+      }
       // 类型契约对齐:把 api-client 的 ApiResult<{ sent: boolean }> 映射为 @ihui/shared 的 SendCodeApiResult
       const sendCodeResult: SendCodeApiResult = r.success
         ? { success: true }
@@ -154,6 +160,9 @@ export function RegisterAccountForm({
     } catch {
       setServerError(t('registerFailed'))
     } finally {
+      // 2026-11-28:phone 发码带了 token ⇒ 发码闸必做 siteverify，这枚 token 已作废。
+      // 换成新票，60 秒后点「重新发送」才不会拿着废票被 429。
+      if (isPhone && turnstileToken) resetTurnstile()
       setSendingCode(false)
     }
   }

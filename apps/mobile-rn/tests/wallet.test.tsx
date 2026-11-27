@@ -191,6 +191,10 @@ describe('WithdrawScreen 提现流程', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.unstubAllGlobals()
+    alertCallbacks.length = 0
+    // WithdrawScreen 挂载即拉余额 + 已绑定卡列表；未显式 mock 时给稳定的空成功响应。
+    apiMocks.getBalance.mockResolvedValue({ success: true, data: mockBalance })
+    apiMocks.fetchApi.mockResolvedValue({ success: true, data: [] })
   })
 
   it('金额无效(非数字):显示 amountInvalid', async () => {
@@ -230,18 +234,26 @@ describe('WithdrawScreen 提现流程', () => {
 
     const input = getByPlaceholderText('withdraw.amountPlaceholder') as HTMLInputElement
     fireEvent.change(input, { target: { value: '100' } })
+    fireEvent.change(getByPlaceholderText('请输入收款账户'), {
+      target: { value: '4111111111111111' },
+    })
     fireEvent.click(getByText('withdraw.submit'))
     await waitFor(() => expect(alertCallbacks.length).toBeGreaterThanOrEqual(1))
     alertCallbacks[alertCallbacks.length - 1]!()
 
     await waitFor(() => expect(getByText('withdraw.success')).toBeTruthy())
-    expect(apiMocks.fetchApi).toHaveBeenCalledTimes(1)
-    const [url, init] = apiMocks.fetchApi.mock.calls[0]!
+    const withdrawCall = apiMocks.fetchApi.mock.calls.find(([url]) =>
+      String(url).includes('/wallet/withdraw'),
+    )
+    expect(withdrawCall).toBeTruthy()
+    const [url, init] = withdrawCall!
     expect(url).toContain('/wallet/withdraw')
     expect(init.method).toBe('POST')
     const body = JSON.parse(init.body)
     // XUI-014:输入 100 元 ⇒ 后端分单位 10000 分(旧实现直接送 100,实提缩水 100 倍)
     expect(body.amount).toBe(10000)
+    expect(body.accountType).toBe('bank')
+    expect(body.account).toBe('4111111111111111')
   })
 
   it('XUI-014:余额按分→元展示,提现金额按元→分提交', async () => {
@@ -259,12 +271,17 @@ describe('WithdrawScreen 提现流程', () => {
 
     const input = getByPlaceholderText('withdraw.amountPlaceholder') as HTMLInputElement
     fireEvent.change(input, { target: { value: '100' } })
+    fireEvent.change(getByPlaceholderText('请输入收款账户'), {
+      target: { value: '4111111111111111' },
+    })
     fireEvent.click(getByText('withdraw.submit'))
     await waitFor(() => expect(alertCallbacks.length).toBeGreaterThanOrEqual(1))
     alertCallbacks[alertCallbacks.length - 1]!()
 
     await waitFor(() => expect(getByText('withdraw.success')).toBeTruthy())
-    const [, init] = apiMocks.fetchApi.mock.calls.at(-1)!
+    const [, init] = apiMocks.fetchApi.mock.calls.find(([url]) =>
+      String(url).includes('/wallet/withdraw'),
+    )!
     expect(JSON.parse(init.body).amount).toBe(10000)
   })
 
@@ -275,6 +292,9 @@ describe('WithdrawScreen 提现流程', () => {
 
     const input = getByPlaceholderText('withdraw.amountPlaceholder') as HTMLInputElement
     fireEvent.change(input, { target: { value: '100' } })
+    fireEvent.change(getByPlaceholderText('请输入收款账户'), {
+      target: { value: '4111111111111111' },
+    })
     fireEvent.click(getByText('withdraw.submit'))
     await waitFor(() => expect(alertCallbacks.length).toBeGreaterThanOrEqual(1))
     alertCallbacks[alertCallbacks.length - 1]!()
@@ -289,6 +309,9 @@ describe('WithdrawScreen 提现流程', () => {
 
     const input = getByPlaceholderText('withdraw.amountPlaceholder') as HTMLInputElement
     fireEvent.change(input, { target: { value: '100' } })
+    fireEvent.change(getByPlaceholderText('请输入收款账户'), {
+      target: { value: '4111111111111111' },
+    })
     fireEvent.click(getByText('withdraw.submit'))
     await waitFor(() => expect(alertCallbacks.length).toBeGreaterThanOrEqual(1))
     alertCallbacks[alertCallbacks.length - 1]!()
@@ -296,10 +319,43 @@ describe('WithdrawScreen 提现流程', () => {
     await waitFor(() => expect(getByText('withdraw.failed')).toBeTruthy())
   })
 
-  it('银行卡片号可选:不填也能提交', async () => {
+  it('未选卡且未填账户:阻止提交并提示', async () => {
     apiMocks.fetchApi.mockResolvedValue({ success: true })
 
     const { getByPlaceholderText, getByText } = render(<WithdrawScreen />)
+
+    const amountInput = getByPlaceholderText('withdraw.amountPlaceholder') as HTMLInputElement
+    fireEvent.change(amountInput, { target: { value: '50' } })
+    fireEvent.click(getByText('withdraw.submit'))
+
+    await waitFor(() => expect(getByText('withdraw.bankCardPlaceholder')).toBeTruthy())
+    expect(alertCallbacks).toHaveLength(0)
+    expect(
+      apiMocks.fetchApi.mock.calls.filter(([url]) => String(url).includes('/wallet/withdraw')),
+    ).toHaveLength(0)
+  })
+
+  it('已绑定默认卡:自动选中并只提交 bankCardId', async () => {
+    apiMocks.fetchApi.mockImplementation((url: string) => {
+      if (String(url).includes('/wallet/bank-cards')) {
+        return Promise.resolve({
+          success: true,
+          data: [
+            {
+              id: 'card-1',
+              number: '**** **** **** 1111',
+              holder: '张三',
+              bankName: '测试银行',
+              isDefault: true,
+            },
+          ],
+        })
+      }
+      return Promise.resolve({ success: true })
+    })
+
+    const { getByPlaceholderText, getByText } = render(<WithdrawScreen />)
+    await waitFor(() => expect(getByText(/测试银行/)).toBeTruthy())
 
     const amountInput = getByPlaceholderText('withdraw.amountPlaceholder') as HTMLInputElement
     fireEvent.change(amountInput, { target: { value: '50' } })
@@ -308,8 +364,12 @@ describe('WithdrawScreen 提现流程', () => {
     alertCallbacks[alertCallbacks.length - 1]!()
 
     await waitFor(() => expect(getByText('withdraw.success')).toBeTruthy())
-    const body = JSON.parse(apiMocks.fetchApi.mock.calls[0]![1].body)
-    expect(body.bankCardId).toBeUndefined()
+    const [, init] = apiMocks.fetchApi.mock.calls.find(([url]) =>
+      String(url).includes('/wallet/withdraw'),
+    )!
+    const body = JSON.parse(init.body)
+    expect(body).toMatchObject({ amount: 5000, accountType: 'bank', bankCardId: 'card-1' })
+    expect(body.account).toBeUndefined()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -146,9 +146,9 @@ node scripts/sync-itcp-package.mjs --check                   # 独立包与源�
 - **零件齐**：`tool-call-scheduler.ts`（零 import；批内 `Promise.all`、批间串行、结果保序；上限默认 10 / 硬顶 64 / `IHUI_MAX_PARALLEL_TOOL_CALLS` 可覆盖，每批开始重读）、`tool-exec-budget-policy.ts`（零 import，墙钟预算第二轴）、`tool-executor.ts`（只 import `./index.js`，native 薄封装 + ptc 只读绑定接缝）、`tool-registration.ts`（import `./index.js` + `../audit.js`）。
 - **接线已完成**（工作树）：`apps/cli/src/commands/agent.ts:3414` 已是 `executeToolCallsInBatches(...)`，`:57-58` 两个 import，`:273` / `:951` `maxParallelToolCalls?: number`。
 - **测试齐**：`tool-call-scheduler.test.ts` 8 条 + `tool-parallelism-cost-guard.test.ts` 8 条（mock `streamChat` 的端到端）。
-- **HEAD 仍是"全并行、无上限"**：`agent.ts:3152` 是裸 `Promise.all(toolCalls.map(...))`。同一份能力，HEAD 是无上限版、工作树是有上限版——差别只在极端枚数下的自我保护，常规 1–8 枚时两者行为等价（一批即跑完）。
-
-**为什么不能拆件入库**：`ptc-tool.ts` 的相对导入指向 `ptc-executor.ts` / `tool-executor.ts`，`agent.ts` 重构版与 `index.ts` / `permissions.ts` 的 MM 版互为前提；拆任何一件都会让 HEAD 编译断裂。**整链交付的验收判据**：`tsc --noEmit` EXIT=0 + 上述 16 条 + 契约面 90 条，缺一不算完成。
+- **已于 2026-11-28 整链落地**（本节原判"HEAD 仍是全并行无上限"已过期）：`agent.ts:3421` 实际调用 `executeToolCallsInBatches(...)`，文件内已**无**裸 `Promise.all(toolCalls...)`；`:57-58` 两个 import，`:275` / `:958` 两处 `maxParallelToolCalls?: number`；四个零件 `tool-call-scheduler.ts` / `tool-exec-budget-policy.ts` / `tool-executor.ts` / `tool-registration.ts` 全部在 HEAD。
+- **验证状态（2026-11-28 实测，16/16 绿）**：`tests/tool-call-scheduler.test.ts` **8 passed**；`tests/tool-parallelism-cost-guard.test.ts` **8 passed**（8 条端到端：3 个 100ms 工具并发峰值=3 而非串行 1、单工具退化 Promise.all 单元素、`onToolCall`/`onToolResult` 保序、`maxCostUsd=0` 立即 `budget_limited`、成本按累计而非单次估算、未设预算不触发）。期间出现过一次 `Cannot find package '@ihui/types'`（`packages/agent-sdk/dist/contract.js` 引用），**复跑即消失**——是 workspace junction 的 dist 缓存未就绪，不是代码缺陷。已确认跑通，不是猜的。
+- **历史：11-27 夜为什么不能拆件入库**：`ptc-tool.ts` 的相对导入指向 `ptc-executor.ts` / `tool-executor.ts`，`agent.ts` 重构版与 `index.ts` / `permissions.ts` 的 MM 版互为前提，拆任何一件都会让当时的 HEAD 编译断裂。所以当时选择整链一次性交付。**这个判断是对的**——11-28 整链搬完，`agent.ts` 一次到位，没有留下半截状态。
 
 **为什么这一节必须写**：这条链完工却没有登记、没有租约（`PROJECT_PLAN.md` 搜 `W4` / `parallel` 零命中，`lock-lease.json` 只有一枚 safe-commit 锁）。它被反复误读成"缺并行""差接线""在别人票上"——本票自己就误读了三次（见第四节第 6 条）。登记它，是为了下一个接手的人不必重新考古。
 
@@ -236,5 +236,32 @@ n/a 唯一一条是 B3-10（硬件专用键盘钩子），取证文档自己写�
 3. `git update-ref refs/heads/main <merge>` + `git push origin/gitee` 。
 
 这一步把"三端逐 sha 同源"从"必须停手等别人"变成"可以继续往前走"。
+
+## 十、可证收口核验与两个未决问题结案（2026-11-28）
+
+执行计划第七节把"完成"定义成三条同时成立：复核器状态迁移、该条自带测试全绿、`tsc --noEmit` / Python 导入检查 EXIT=0。前两条已逐条落过，第三条此前只对零散文件跑过，**没有整包核验**。本节补上，并顺带结掉第九节留下的两个未决问题。
+
+**验收纪律第 3 条，逐项实测**：
+
+| 检查面 | 命令 | 读数 |
+|---|---|---|
+| Python 导入（本轮 9 个落点模块） | `.venv\Scripts\python.exe -c "import <m>"` × 9 | **9/9 EXIT=0** |
+| CLI 源码类型面 | `node node_modules\typescript\bin\tsc --noEmit`（工作目录 `apps/cli`） | **rc=0，零错误** |
+| CLI 测试类型面 | `node node_modules\typescript\bin\tsc -p tsconfig.tests.json --noEmit` | 117 条**存量红**，分布在 `route-tools-params` / `session-search` / `spawn-parallel-budget` / `subagent-journal` / `tool-contract-approval-baseline` / `tool-host-mcp` / `update-apply` 等他人文件；**本轮两个测试文件（`watchdog-restart.test.ts`、`history-clean.test.ts`）0 条** |
+
+测试类型面整体不是绿的，这点必须照实写：117 条错误没有一条属于本轮落点，但"不属于我"不等于"绿"。整包源码面 rc=0 是硬的，测试面只能做到"归因清楚"。
+
+**复核器与棘轮（当次读数）**：`node scripts/deep-native-audit.mjs` → **present 43 / partial 0 / absent 0 / n/a 1**；`--check` → 绿，44 条无退档，rc=0。三端逐 sha：HEAD = origin = gitee = `918682bfa0750b15d80dedb3538487ce3a247dea`。
+
+**未决问题一：`test_output_ring.py` 的 `REPO_ROOT` 是否算错一层 —— 结案：怀疑不成立。**
+该文件 192 行，全文**没有** `REPO_ROOT`、没有 `parents`、没有 `Path(__file__)`、没有 `skip`。它不是"靠相对层级锚到仓根再断言 Rust 源码"的那种测试，天然不存在差一层的问题。第九节据此推断"可能像 `test_checkpoint_message_lookup.py` 一样错一层"，是把同类文件的形态套到了一个形态不同的文件上 —— 这本身又是一次"按名字猜判据"的失误，只是这次错在怀疑而不是错在结论。
+
+**未决问题二：`checkpoint_rewind.py` 头部双份 provenance 水印是否触发某门 —— 结案：水印现在只有 1 份。**
+`Select-String 'IHUI-AI-PROVENANCE'` 计数 = 1，唯一一处在第 3 行。第九节登记"两份重复水印"时读数是对的，之后并行会话重落该文件时把重复那份覆盖掉了。结论：无重复水印可查，也就无所谓触发门。
+
+**conformance 默认档仍是 `unknown`，本节不结案，只把阻塞点钉死。**
+`scripts/check-tool-contract-declared.mjs` 工作树/索引 blob `1def0f9bc` ≠ HEAD blob `54bd98bfa`，暂存 156 行新增（类型声明体过滤、死桩视图过滤、第三方动态装配三件套），逻辑自洽且带自检引用，看着是完整的一票。但 `git status` 显示**索引里同时躺着 239 个文件**（多会话在途：`apps/api` 路由与钱包、`apps/cli/src/tools/*` 一批、`apps/ai-service` purpose 路由…）。`git commit` 会把这 239 个无关在途改动一并发布，**这比 conformance 报 `unknown` 危险得多**。
+
+所以这一项的处置是：**继续报 `unknown`，不抢提交**。`unknown` 是这道门在"两代不一致"时的正确输出 —— 它明确说"我没判定"，而不是冒充通过。`--worktree-body` 档已给出能力侧真读数（注册 129 / 无契约 0 / 棘轮余量 0 / 契约摘除 0 / 翻缺省 0 / 自检 52 通过 0 失败）。等那个会话自己提交，默认档自然转 `ok`；在那之前，任何"手动改降级逻辑让它变绿"的做法都是把未判定写成通过。
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
