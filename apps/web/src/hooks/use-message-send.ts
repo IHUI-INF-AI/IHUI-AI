@@ -16,6 +16,7 @@ import { formatFileSize } from '@/config/downloads.config'
 import {
   CHAT_ATTACHMENT_MAX_FILES,
   CHAT_ATTACHMENT_MAX_SIZE_BYTES,
+  canSendReferences,
   type AttachmentRejection,
   type ReferenceItem,
 } from '@/hooks/use-message-references'
@@ -430,6 +431,16 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
   /** 实际发送逻辑(2026-07-25 立,危险命令检测拆分):供 submit / toast action 复用 */
   const doSend = React.useCallback(
     async (text: string, refs: ReferenceItem[]): Promise<boolean> => {
+      // 2026-11-27 立:发送闸不能只靠按钮 disabled。文件引用处于 uploading/error 时,
+      // Enter、快捷键、排队出队与 handoff 自动发送都可能绕过按钮;这里统一拒绝,
+      // 否则消息会只带 `> 📎 文件名` 落库,模型把它当工作区路径去 read_file 并失败。
+      const refsGate = canSendReferences(refs)
+      if (!refsGate.canSend) {
+        toast.error(
+          t(refsGate.blockingReason === 'uploading' ? 'attachUploading' : 'attachUploadFailed'),
+        )
+        return false
+      }
       // 附件作为引用文本随消息发送:图片用 markdown image 语法,视频用 video 标签,
       // 文本引用(超长粘贴 chip)用 fenced code block 内联全文(矩阵 A #19 合同,
       // 2026-09-15 修复:恢复被 48228f5937a 弄丢的 0eabb157844 原始分支——
