@@ -218,7 +218,7 @@ export function SidebarUserRow({
     setLocale(code)
   }
 
-  // 主题:与设置页「主题」卡同一份四选一(随系统/珍珠白/曜石黑/樱花粉),
+  // 主题:与设置页「主题」卡同一份四选一(随系统/珍珠白/曜石黑/芭比粉),
   // 生效判定与写入都走 theme-skins 的共享实现 —— 菜单只是同一开关的快捷入口。
   const skinChoice = resolveSkinChoice(appearance.customTheme, theme)
   const skinOptions = [

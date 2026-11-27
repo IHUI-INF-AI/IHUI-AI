@@ -6,7 +6,7 @@
  * 统一主题卡(2026-11-27 三字主题色版)
  *
  * 验证「一行选完」:随系统 / 珍珠白 / 曜石黑 = 中性皮肤 + next-themes 明暗档,
- * 樱花粉 = 粉色皮肤色板 + 玫瑰主色(亮暗自适应);切回中性只关 customTheme、不动排版配置。
+ * 芭比粉 = 粉色皮肤色板 + 玫瑰主色(固定亮档);切回中性只关 customTheme、不动排版配置。
  */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -37,14 +37,14 @@ afterEach(() => {
 })
 
 describe('ThemeCard(统一主题)', () => {
-  it('点击樱花粉:开启粉色皮肤并选中玫瑰主色,亮暗自适应,不碰排版字段', () => {
+  it('点击芭比粉:开启粉色皮肤并选中玫瑰主色,固定亮档,不碰排版字段', () => {
     render(<ThemeCard />)
     fireEvent.click(screen.getByTestId('appearance-skin-pink'))
     const state = useAppearanceStore.getState()
     expect(state.customTheme.enabled).toBe(true)
     expect(isPinkSkin(state.customTheme)).toBe(true)
     expect(state.accentColor).toBe('rose')
-    expect(hoisted.setTheme).toHaveBeenLastCalledWith('system')
+    expect(hoisted.setTheme).toHaveBeenLastCalledWith('light')
     expect(state.uiScale).toBe(APPEARANCE_DEFAULTS.uiScale)
     expect(state.fontFamily).toBe(APPEARANCE_DEFAULTS.fontFamily)
     for (const mode of ['light', 'dark'] as const) {

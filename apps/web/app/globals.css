@@ -602,6 +602,9 @@ html[data-custom-theme='true'] {
   --color-primary: var(--custom-light-primary);
   --color-primary-foreground: var(--custom-light-primary-foreground);
   --color-primary-foreground-rgb: var(--custom-light-primary-foreground-rgb);
+  /* 2026-11-27:皮肤需染整站,品牌 CTA 实底跟随皮肤主色(默认档仍是 tokens.css 的黑白反转)。 */
+  --color-cta: var(--custom-light-primary);
+  --color-cta-foreground: var(--custom-light-primary-foreground);
   --color-brand-accent-deep: color-mix(in srgb, var(--custom-light-primary) 72%, black);
   --color-background: var(--custom-light-background);
   --color-foreground: var(--custom-light-foreground);
@@ -646,6 +649,9 @@ html.dark[data-custom-theme='true'] {
   --color-primary: var(--custom-dark-primary);
   --color-primary-foreground: var(--custom-dark-primary-foreground);
   --color-primary-foreground-rgb: var(--custom-dark-primary-foreground-rgb);
+  /* 同亮档:皮肤下 CTA 实底跟随皮肤主色 */
+  --color-cta: var(--custom-dark-primary);
+  --color-cta-foreground: var(--custom-dark-primary-foreground);
   --color-brand-accent-deep: color-mix(in srgb, var(--custom-dark-primary) 72%, white);
   --color-background: var(--custom-dark-background);
   --color-foreground: var(--custom-dark-foreground);

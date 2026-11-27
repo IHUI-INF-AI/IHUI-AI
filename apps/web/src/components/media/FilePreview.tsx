@@ -86,6 +86,11 @@ interface FilePreviewProps {
   url: string
   type?: 'pdf' | 'office' | 'image' | 'text' | '3d' | 'auto'
   name?: string
+  /**
+   * 归一化扩展名(小写、不带点)。鉴权取字节后 url 是 blob:,地址本身没有后缀;
+   * 文档中心/统一查看器必须把调用方已知的扩展名显式带进来,否则 Office 会被判 unsupported。
+   */
+  ext?: string
   className?: string
   /**
    * D64 ②(2026-09-24 立):同组图片列表。长度 > 1 时图片预览出现**翻页**(上一张/下一张)
@@ -103,21 +108,23 @@ export function FilePreview({
   url,
   type = 'auto',
   name,
+  ext,
   className,
   gallery,
   galleryIndex,
   onGalleryIndexChange,
 }: FilePreviewProps) {
+  const normalizedExt = ext?.replace(/^\./, '').toLowerCase() ?? ''
   const detectedType = React.useMemo(() => {
     if (type !== 'auto') return type
-    const ext = url.split('.').pop()?.toLowerCase()
+    const ext = normalizedExt || previewExtFromHref(url)
     if (ext === 'pdf') return 'pdf'
     if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext ?? '')) return 'office'
     if (['glb', 'gltf', 'obj', 'stl'].includes(ext ?? '')) return '3d'
     if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext ?? '')) return 'image'
     if (['txt', 'md', 'json', 'csv', 'log'].includes(ext ?? '')) return 'text'
     return 'text'
-  }, [url, type])
+  }, [url, type, normalizedExt])
 
   if (detectedType === 'image') {
     return (
@@ -144,7 +151,13 @@ export function FilePreview({
     // view.officeapps.live.com 的 src 参数外发给微软 —— 原 OfficeViewer 分支
     // 会在渲染时自动发起第三方请求,而老格式确有其上传入口(聊天附件 accept
     // 与后端 EXT_MIME_MAP 均收),外发面必须收口。
-    return <OfficePreview src={url} ext={previewExtFromHref(url)} className={className} />
+    return (
+      <OfficePreview
+        src={url}
+        ext={normalizedExt || previewExtFromHref(url)}
+        className={className}
+      />
+    )
   }
 
   if (detectedType === '3d') {

@@ -84,7 +84,15 @@ export function UniversalFilePreview({ src, name, ext, className }: UniversalFil
           />
         )
       }
-      return <FilePreview url={src} type="office" name={displayName} className={className} />
+      return (
+        <FilePreview
+          url={src}
+          type="office"
+          name={displayName}
+          ext={resolvedExt}
+          className={className}
+        />
+      )
     case 'delimited':
       return (
         <DelimitedFilePreview
