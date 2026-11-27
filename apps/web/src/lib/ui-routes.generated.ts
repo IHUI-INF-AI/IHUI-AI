@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 0e975d42b5afc5f015037a8ae361b33ce8f63729
-// inputsSha256: eecb5de070c5d6a6b8a1dba45a23a6ae98d374717d8dd913031e4e460b970a1c
+// sourceCommit: f2be21b2448bcb8f9556ed0de1901cf25c28bc9c
+// inputsSha256: 023700c1d4ca75015e65a1c4ba18d2ba70393af77fac84c1d078a6b2f5645885
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -632,7 +632,7 @@
 // input: apps/web/app/(main)/favorites/page.tsx 386d9ef8da26780282ff4e3f68728b56214d9a260e7a8169133e1fc3a02c809e
 // input: apps/web/app/(main)/feature-center/agents/page.tsx 8061ad27c1795c013da7d168b483178fead4209b2af66bc138956f84bba1c11e
 // input: apps/web/app/(main)/feature-center/apis/page.tsx 9368bba9ee1c022511a6be9d9fb11cb3200060aacc30a8558deed530895fec19
-// input: apps/web/app/(main)/feature-center/documents/page.tsx 2f4d7944088b857ff90c31eade9383de83b5c8ba1d3b1b35dcbd6b230e89883c
+// input: apps/web/app/(main)/feature-center/documents/page.tsx c240f90fe622e12bb1e15bca41faaef58a4db118a05c78ec1e3a059433bba348
 // input: apps/web/app/(main)/feature-center/models/page.tsx 14d57835b609844558e1a9e29d07e134b0e34c49cc73734424998dd1ce5350e1
 // input: apps/web/app/(main)/feature-center/page.tsx 824e9140d9b9a05c71bef2c4834d7171e8658b434a258475a5db70adf5065e97
 // input: apps/web/app/(main)/feature-center/sdks/page.tsx f69a1995239d6ce1d043574bf60b4ceadf9ee5c2fdaed6645c15df4427919f1e
@@ -851,6 +851,7 @@
 // input: apps/web/app/(main)/spec/page.tsx 228ebb57dfbc55df3cf4da82d7007b1d10fae2adeaeac7e0fd3a0753164b52a2
 // input: apps/web/app/(main)/spec/templates/page.tsx 523741f9b7659d5b19d0011d6a146ac13e771bce41082a2b194564e4279827f9
 // input: apps/web/app/(main)/sponsor/page.tsx e1d0251b33321dc4220e68baad4ac5a70aff6eff218c8a4fa22c42412098556d
+// input: apps/web/app/(main)/start/page.tsx 70cf5021fe091187baa913e60e94af53597094ded206a2a55972525a1e33569f
 // input: apps/web/app/(main)/stock/page.tsx 629aacfa216ef66c25e5b250dcdd3ff7bf2313d1a49dce806ce46b919ba27259
 // input: apps/web/app/(main)/student/certificates/page.tsx 3d70199b693738782f22df922eee7ac6ba53ea2e473438910ceebe4a129e8b86
 // input: apps/web/app/(main)/student/my-articles/page.tsx 6ec2e8a3e5daccfdb6cb25d0390547cad4ca20e0d280f95fb2e7b230c89efe44
@@ -925,7 +926,8 @@
 // input: apps/web/app/(main)/vip/page.tsx 285855e29506ec485bd93537f9a76bb16eca5307f960388c97ca051f9b55c27b
 // input: apps/web/app/(main)/vip/trader/page.tsx cb646ee9c2e6df0bdafeb293467c8b14253e7be2b9cf2a8977f3e33688f2a404
 // input: apps/web/app/(main)/voices/page.tsx 5e07a22d300fe46b32bd20cc86eb299d3b1aec06a450c34ce0a2f9aef95de907
-// input: apps/web/app/(main)/wallet/page.tsx b93712b7f8577f344afb2cf1232a2ff320ce38629fbdc17b207c0df5ed6a18cd
+// input: apps/web/app/(main)/wallet/bank-cards/page.tsx 2d55243adec5423b4b08e5b6a7315f24d4c9978591624231cdab3f9b8e98c824
+// input: apps/web/app/(main)/wallet/page.tsx 70125038966604c2b5d7728ff4aa93c64d10a4011cb2877a85d1e2f0d846a49b
 // input: apps/web/app/(main)/wallet/recharge/fail/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
 // input: apps/web/app/(main)/wallet/recharge/page.tsx d8a6e5398125764a49e9f74049dd0405b5dd21735854e51628c8300254942d1c
 // input: apps/web/app/(main)/wallet/recharge/success/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
@@ -966,7 +968,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx bf75df2bfcad093f6ec6405984b9a3fa2e7cba0c353f405066f6809c382bceca
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-27T10:51:06.455Z
+// generatedAt: 2026-11-27T12:38:57.783Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1819,6 +1821,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/spec/generate', param: false, group: 'spec' },
   { path: '/spec/templates', param: false, group: 'spec' },
   { path: '/sponsor', param: false, group: 'sponsor' },
+  { path: '/start', param: false, group: 'start' },
   { path: '/status', param: false, group: 'status' },
   { path: '/stock', param: false, group: 'stock' },
   { path: '/student', param: false, group: 'student' },
@@ -1895,6 +1898,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/vip/trader', param: false, group: 'vip' },
   { path: '/voices', param: false, group: 'voices' },
   { path: '/wallet', param: false, group: 'wallet' },
+  { path: '/wallet/bank-cards', param: false, group: 'wallet' },
   { path: '/wallet/recharge', param: false, group: 'wallet' },
   { path: '/wallet/recharge/fail', param: false, group: 'wallet' },
   { path: '/wallet/recharge/success', param: false, group: 'wallet' },
