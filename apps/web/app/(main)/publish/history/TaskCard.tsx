@@ -15,7 +15,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronDown, ChevronUp, ExternalLink, Loader2 } from 'lucide-react'
-import { Button, Card, CardContent } from '@ihui/ui-react'
+import { Button, Card, CardContent, Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
@@ -60,10 +60,20 @@ export interface TaskCardProps {
   readonly onChanged?: () => void
 }
 
+interface DraftDetail {
+  readonly title?: string | null
+  readonly format?: string | null
+  readonly content?: {
+    readonly text?: string | null
+    readonly file_path?: string | null
+  }
+}
+
 const STATUS_LABEL: Record<string, string> = {
   success: '成功',
   failed: '失败',
   pending: '待处理',
+  draft: '草稿',
   running: '运行中',
   skipped: '跳过',
 }
@@ -72,6 +82,7 @@ const STATUS_STYLE: Record<string, string> = {
   success: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   failed: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
   pending: 'bg-muted text-muted-foreground',
+  draft: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
   running: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   skipped: 'bg-muted text-muted-foreground',
 }
@@ -97,10 +108,49 @@ function fmtDuration(ms?: number): string {
 export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps) {
   const t = useTranslations('publish')
   const toast = useToast()
-  const [acting, setActing] = React.useState<'cancel' | 'retry' | null>(null)
+  const [acting, setActing] = React.useState<'cancel' | 'retry' | 'confirm' | null>(null)
+  const [draftPreview, setDraftPreview] = React.useState<string | null>(null)
+  const [previewLoading, setPreviewLoading] = React.useState(false)
+  const [editing, setEditing] = React.useState(false)
+  const [editTitle, setEditTitle] = React.useState(task.title)
+  const [editText, setEditText] = React.useState('')
+  const [editError, setEditError] = React.useState<string | null>(null)
+  const [saving, setSaving] = React.useState(false)
   const statusKey = task.status in STATUS_STYLE ? task.status : 'pending'
   const targets = task.targets ?? []
   const platforms = task.platforms ?? []
+  const editTextEnabled = task.format === 'md' || task.format === 'html' || !task.format
+  // 草稿展开时拉一次详情,让确认前能看到正文;不展开不请求。
+  React.useEffect(() => {
+    if (!expanded || task.status !== 'draft' || !task.taskId) return
+    let cancelled = false
+    setPreviewLoading(true)
+    void fetchApi<DraftDetail>(`/api/publish/tasks/${task.taskId}`)
+      .then((r) => {
+        if (cancelled || !r.success) return
+        const text = r.data?.content?.text?.trim()
+        const file = r.data?.content?.file_path
+        setDraftPreview(text || (file ? `文件: ${file}` : null))
+        setEditTitle(r.data?.title?.trim() || task.title)
+        setEditText(text ?? '')
+      })
+      .catch(() => {
+        if (!cancelled) setDraftPreview(null)
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [expanded, task.status, task.taskId, task.title])
+
+  React.useEffect(() => {
+    if (!expanded) {
+      setEditing(false)
+      setEditError(null)
+    }
+  }, [expanded])
   // 2026-08-17:有真实单平台结果(platforms)时优先用它统计/渲染,否则回退 targets
   const usePlatforms = platforms.length > 0
   const completed = usePlatforms
@@ -113,24 +163,64 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
   const running = task.status === 'running' || task.status === 'pending'
   const canCancel = task.status === 'running' || task.status === 'pending'
   const canRetry = task.status === 'failed' || task.status === 'partial'
+  const canConfirm = task.status === 'draft'
 
-  async function handleAction(action: 'cancel' | 'retry') {
+  async function handleAction(action: 'cancel' | 'retry' | 'confirm') {
     if (!task.taskId) return
+    if (action === 'confirm' && !window.confirm(t('history.confirmPrompt'))) return
     setActing(action)
+    const label =
+      action === 'cancel'
+        ? t('history.cancel')
+        : action === 'retry'
+          ? t('history.retry')
+          : t('history.confirm')
     try {
       const r = await fetchApi<unknown>(`/api/publish/tasks/${task.taskId}/${action}`, {
         method: 'POST',
       })
       if (!r.success) {
-        toast.error(r.error || (action === 'cancel' ? t('history.cancel') : t('history.retry')))
+        toast.error(r.error || label)
         return
       }
-      toast.success(action === 'cancel' ? t('history.cancel') : t('history.retry'))
+      toast.success(action === 'confirm' ? t('history.confirmed') : label)
       onChanged?.()
     } catch (e) {
       toast.error((e as Error).message)
     } finally {
       setActing(null)
+    }
+  }
+
+  async function handleSaveDraft() {
+    if (!task.taskId || saving) return
+    const nextTitle = editTitle.trim()
+    if (!nextTitle) {
+      setEditError(t('history.titleRequired'))
+      return
+    }
+    setSaving(true)
+    setEditError(null)
+    try {
+      const payload: { title: string; text?: string } = { title: nextTitle }
+      if (editTextEnabled) payload.text = editText
+      const r = await fetchApi<unknown>(`/api/publish/tasks/${task.taskId}/draft`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      })
+      if (!r.success) {
+        setEditError(r.error || t('history.saveFailed'))
+        return
+      }
+      if (editTextEnabled) setDraftPreview(editText.trim() || null)
+      setEditTitle(nextTitle)
+      setEditing(false)
+      toast.success(t('history.saved'))
+      onChanged?.()
+    } catch (e) {
+      setEditError((e as Error).message)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -261,13 +351,111 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
                 </div>
               </>
             )}
+            {task.status === 'draft' && (
+              <div className="space-y-1">
+                <div className="text-muted-foreground">{t('history.draftPreview')}</div>
+                {previewLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                ) : (
+                  <pre className="thin-scroll max-h-40 overflow-auto whitespace-pre-wrap rounded bg-background p-2 text-[10px]">
+                    {draftPreview || t('history.draftNoText')}
+                  </pre>
+                )}
+              </div>
+            )}
+            {task.status === 'draft' && editing && (
+              <div className="space-y-2 rounded-md border border-input bg-background p-3">
+                <label
+                  className="block text-label text-muted-foreground"
+                  htmlFor={`draft-title-${task.id}`}
+                >
+                  {t('history.editTitle')}
+                </label>
+                <Input
+                  id={`draft-title-${task.id}`}
+                  value={editTitle}
+                  maxLength={500}
+                  disabled={saving}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                />
+                {editTextEnabled ? (
+                  <>
+                    <label
+                      className="block text-label text-muted-foreground"
+                      htmlFor={`draft-text-${task.id}`}
+                    >
+                      {t('history.editText')}
+                    </label>
+                    <textarea
+                      id={`draft-text-${task.id}`}
+                      value={editText}
+                      disabled={saving}
+                      rows={5}
+                      onChange={(e) => setEditText(e.target.value)}
+                      className="thin-scroll flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+                    />
+                  </>
+                ) : (
+                  <p className="text-label text-muted-foreground">{t('history.fileEditHint')}</p>
+                )}
+                {editError && (
+                  <p role="alert" className="text-label text-rose-600 dark:text-rose-400">
+                    {editError}
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  <Button size="sm" disabled={saving} onClick={() => void handleSaveDraft()}>
+                    {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                    {saving ? t('history.saving') : t('history.saveDraft')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={saving}
+                    onClick={() => {
+                      setEditing(false)
+                      setEditError(null)
+                    }}
+                  >
+                    {t('history.cancelEdit')}
+                  </Button>
+                </div>
+              </div>
+            )}
             {task.error && (
               <pre className="thin-scroll max-h-32 overflow-auto rounded bg-rose-50 p-2 text-[10px] text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
                 {task.error}
               </pre>
             )}
-            {(canCancel || canRetry) && (
+            {(canCancel || canRetry || canConfirm) && (
               <div className="flex items-center gap-2 pt-1">
+                {canConfirm && !editing && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!task.taskId || acting !== null || saving}
+                    onClick={() => {
+                      setEditing(true)
+                      setEditError(null)
+                    }}
+                  >
+                    {t('history.editDraft')}
+                  </Button>
+                )}
+                {canConfirm && (
+                  <Button
+                    size="sm"
+                    disabled={!task.taskId || acting !== null}
+                    onClick={() => void handleAction('confirm')}
+                  >
+                    {acting === 'confirm' ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Loader2 className="h-3 w-3 opacity-0" />
+                    )}
+                    {t('history.confirm')}
+                  </Button>
+                )}
                 {canCancel && (
                   <Button
                     size="sm"

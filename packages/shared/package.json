@@ -153,6 +153,16 @@
       "import": "./src/chat/*.ts",
       "default": "./src/chat/*.ts"
     },
+    "./capabilities": {
+      "types": "./src/capabilities/index.ts",
+      "import": "./src/capabilities/index.ts",
+      "default": "./src/capabilities/index.ts"
+    },
+    "./capabilities/*": {
+      "types": "./src/capabilities/*.ts",
+      "import": "./src/capabilities/*.ts",
+      "default": "./src/capabilities/*.ts"
+    },
     "./notifications": {
       "types": "./src/notifications/index.ts",
       "import": "./src/notifications/index.ts",

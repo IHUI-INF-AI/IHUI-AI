@@ -10263,6 +10263,45 @@ from ..tools import (  # noqa: E402
     generate_chart as _generate_chart,
 )
 
+# 2026-11-27(超级 App 第一条真链路):内容出稿。走 llm_gateway auto,不绑厂商;
+# stub/空回复一律结构化失败,不返回假稿。
+from ..tools import (  # noqa: E402
+    generate_content as _generate_content,
+)
+
+# 2026-11-27(超级 App 内容链路第三步):发布前合规自检。本地确定性规则,
+# 不调模型、不扣点数;阻断项与风险项逐条回传,不改稿。
+from ..tools import (  # noqa: E402
+    precheck_content as _precheck_content,
+)
+
+# 2026-11-27(超级 App 发布链路只读段):账号清单 + 发布前预检。
+# 只读数据库与本地适配器,不解密凭据、不创建发布任务、不打开浏览器。
+from ..tools import (  # noqa: E402
+    list_publish_accounts as _list_publish_accounts,
+)
+from ..tools import (  # noqa: E402
+    list_publish_tasks as _list_publish_tasks,
+)
+from ..tools import (  # noqa: E402
+    publish_preflight as _publish_preflight,
+)
+from ..tools import (  # noqa: E402
+    create_publish_draft as _create_publish_draft,
+)
+from ..tools import (  # noqa: E402
+    get_publish_stats as _get_publish_stats,
+)
+from ..tools import (  # noqa: E402
+    get_publish_task as _get_publish_task,
+)
+from ..tools import (  # noqa: E402
+    get_publish_acceptance as _get_publish_acceptance,
+)
+from ..tools import (  # noqa: E402
+    update_publish_draft as _update_publish_draft,
+)
+
 # PROJECT_PLAN #81 最小一环:报表模板生成器(report_tools,同 chart 的零依赖路线)
 from ..tools import (  # noqa: E402
     generate_report as _generate_report,
@@ -16213,6 +16252,419 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        # 2026-11-27(超级 App 第一条真链路):内容出稿。走 llm_gateway auto,
+        # 不绑定单一厂商;stub/空回复一律结构化失败,不返回假稿。
+        name="generate_content",
+        description=(
+            "生成中文内容初稿:根据一句话主题产出标题、正文与话题词,按平台语气改写,"
+            "并遵守字数/标题字数/话题词个数约束。适用于口播稿、图文、公众号、小红书等初稿。"
+            "只写稿,不发布;需要发布请接着调用 precheck_content 自检。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "brief": {"type": "string", "description": "主题/需求,一句话"},
+                "platform": {
+                    "type": "string",
+                    "description": "目标平台,如 douyin/xiaohongshu/wechat,可空",
+                },
+                "tone": {"type": "string", "description": "语气,如口语/专业/温和,可空"},
+                "min_chars": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 20000,
+                    "description": "正文最少字符数,默认 0",
+                },
+                "max_chars": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20000,
+                    "description": "正文最多字符数,默认 3000",
+                },
+                "title_chars": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 60,
+                    "description": "标题精确字数,0=不约束;智汇AI口播标准为 16",
+                },
+                "hashtag_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 30,
+                    "description": "话题词精确个数,0=不约束;智汇AI标准为 5",
+                },
+            },
+            "required": ["brief"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 2026-11-27(超级 App 内容链路第三步):发布前合规自检。纯本地规则,
+        # 不调模型;只判定不改稿,阻断项 ok=false。
+        name="precheck_content",
+        description=(
+            "发布前检查内容是否可发:标题是否带#与长度、正文字数区间、话题词数量与格式、"
+            "绝对化/医疗/金融承诺、硬引导、占位符。只检查不改稿,返回阻断项与风险项;"
+            "内容生成后先调用它,ok=true 再进入发布。"
+            "做智汇AI口播/矩阵稿时传 profile=ihui_koubo(470-490字/标题16字/5话题词);"
+            "不含涉政涉黄涉暴词库。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "content": {"type": "string", "description": "待检查的正文"},
+                "title": {"type": "string", "description": "标题,可空;默认要求有标题"},
+                "hashtags": {
+                    "anyOf": [
+                        {"type": "string"},
+                        {"type": "array", "items": {"type": "string"}},
+                    ],
+                    "description": "话题词,字符串用空格/逗号分隔,或直接传数组",
+                },
+                "platform": {"type": "string", "description": "目标平台,如 douyin/xiaohongshu,可空"},
+                "profile": {
+                    "type": "string",
+                    "enum": ["generic", "ihui_koubo"],
+                    "description": "预设档:generic 通用;ihui_koubo=470-490字/标题16字/5话题词",
+                },
+                "min_chars": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 20000,
+                    "description": "正文最少字符数,0=不查",
+                },
+                "max_chars": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 20000,
+                    "description": "正文最多字符数,0=不查",
+                },
+                "title_length": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 120,
+                    "description": "标题精确字数,0=不查;用户标准为 16",
+                },
+                "hashtag_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 30,
+                    "description": "话题词精确个数,0=不查;用户标准为 5",
+                },
+                "require_title": {
+                    "type": "boolean",
+                    "description": "是否必须有标题,默认 true",
+                },
+                "require_ai_disclosure": {
+                    "type": "boolean",
+                    "description": "是否要求 AI 生成标识,默认 false",
+                },
+            },
+            "required": ["content"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 2026-11-27(发布链路只读段):账号清单。只回传状态,不回传凭据。
+        name="list_publish_accounts",
+        description=(
+            "列出当前用户已接入的平台账号、启用状态与登录态。只读:不读取/不解密凭据,"
+            "不打开浏览器。发布前先用它选 account_id,再调 publish_preflight。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "platform": {"type": "string", "description": "只看某个平台,如 douyin/xiaohongshu,可空"},
+                "status": {"type": "string", "description": "只看某个账号状态,如 active/disabled,可空"},
+                "include_disabled": {"type": "boolean", "description": "是否包含禁用账号,默认 true"},
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 500,
+                    "description": "最多返回多少个,默认 100",
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 2026-11-27(发布链路只读段):发布前预检。先内容合规,再账号/适配器/格式。
+        # 不创建任务;真正发布必须由人在 /publish 页面确认。
+        name="publish_preflight",
+        description=(
+            "发布前预检(只读,不创建任务):先做内容合规检查,再逐账号检查状态/凭据/适配器/"
+            "格式/文件。targets 里的 account_id 从 list_publish_accounts 取。"
+            "返回每个账号的 ok/code/message/nextAction;全部通过才允许进入人工发布确认。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "发布标题"},
+                "format": {
+                    "type": "string",
+                    "enum": ["md", "docx", "html", "pdf", "image", "video"],
+                    "description": "内容格式",
+                },
+                "text": {"type": "string", "description": "md/html 正文;docx/pdf/image/video 可空"},
+                "file_path": {"type": "string", "description": "docx/pdf/image/video 文件路径,可空"},
+                "cover_path": {"type": "string", "description": "封面图路径,可空"},
+                "images": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "正文引用图片路径,最多 20 张",
+                },
+                "targets": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 25,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "platform": {"type": "string", "description": "平台 id"},
+                            "account_id": {"type": "integer", "description": "账号 id,从 list_publish_accounts 取"},
+                        },
+                        "required": ["platform"],
+                        "additionalProperties": False,
+                    },
+                    "description": "要预检的平台/账号组合",
+                },
+                "profile": {
+                    "type": "string",
+                    "enum": ["generic", "ihui_koubo"],
+                    "description": "内容自检预设档:generic 通用;ihui_koubo=470-490字/标题16字/5话题词",
+                },
+                "hashtags": {
+                    "anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}],
+                    "description": "话题词,字符串或数组,可空",
+                },
+                "min_chars": {"type": "integer", "minimum": 0, "maximum": 20000, "description": "正文最少字符数,0=不查"},
+                "max_chars": {"type": "integer", "minimum": 0, "maximum": 20000, "description": "正文最多字符数,0=不查"},
+                "title_length": {"type": "integer", "minimum": 0, "maximum": 120, "description": "标题精确字数,0=不查"},
+                "hashtag_count": {"type": "integer", "minimum": 0, "maximum": 30, "description": "话题词精确个数,0=不查"},
+                "require_ai_disclosure": {"type": "boolean", "description": "是否要求 AI 生成标识,默认 false"},
+            },
+            "required": ["title", "format", "targets"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 2026-11-27(草稿闸门):Agent 只能落 draft,真实发布必须由人在发布历史点确认。
+        name="create_publish_draft",
+        description=(
+            "把一条已写好的内容存成发布草稿:先跑内容合规与账号/适配器预检,"
+            "通过后写入 status=draft,不执行、不排期、不调用平台 API。"
+            "返回 taskId;用户必须到 /publish/history 展开草稿并点“确认发布”才会进调度。"
+            "targets 必须显式给 account_id。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "minLength": 1, "maxLength": 500, "description": "发布标题"},
+                "format": {
+                    "type": "string",
+                    "enum": ["md", "docx", "html", "pdf", "image", "video"],
+                    "description": "内容格式",
+                },
+                "text": {"type": "string", "description": "md/html 正文,可空"},
+                "file_path": {"type": "string", "description": "docx/pdf/image/video 文件路径,必须在上传目录内"},
+                "cover_path": {"type": "string", "description": "封面图路径,可空"},
+                "images": {"type": "array", "items": {"type": "string"}, "description": "正文图片,最多 20 张"},
+                "targets": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 25,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "platform": {"type": "string", "description": "平台 id"},
+                            "account_id": {"type": "integer", "minimum": 1, "description": "账号 id,必填"},
+                        },
+                        "required": ["platform", "account_id"],
+                        "additionalProperties": False,
+                    },
+                    "description": "平台/账号组合,必须显式指定 account_id",
+                },
+                "profile": {
+                    "type": "string",
+                    "enum": ["generic", "ihui_koubo"],
+                    "description": "内容自检预设档:generic 通用;ihui_koubo=470-490字/标题16字/5话题词",
+                },
+                "hashtags": {
+                    "anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}],
+                    "description": "话题词,字符串或数组,可空",
+                },
+                "min_chars": {"type": "integer", "minimum": 0, "maximum": 20000},
+                "max_chars": {"type": "integer", "minimum": 0, "maximum": 20000},
+                "title_length": {"type": "integer", "minimum": 0, "maximum": 120},
+                "hashtag_count": {"type": "integer", "minimum": 0, "maximum": 30},
+                "require_ai_disclosure": {"type": "boolean"},
+                "idempotency_key": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "description": "幂等键,重复同内容同目标时返回原草稿;不传按内容哈希生成",
+                },
+            },
+            "required": ["title", "format", "targets"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 2026-11-27(草稿编辑闸门):原地改 draft,重新预检,仍不执行、不排期。
+        name="update_publish_draft",
+        description=(
+            "原地修改一条发布草稿:只接受 status=draft 的任务,按显式字段合并,"
+            "没给的字段保留原值。修改后重新跑内容合规与账号/适配器预检;不通过则库里的"
+            "原草稿保持不变。成功也仍是 draft,必须由人在 /publish/history 点“确认发布”。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "要修改的草稿任务 id",
+                },
+                "title": {"type": "string", "minLength": 1, "maxLength": 500, "description": "新标题;不给则保留"},
+                "format": {
+                    "type": "string",
+                    "enum": ["md", "docx", "html", "pdf", "image", "video"],
+                    "description": "新格式;不给则保留",
+                },
+                "text": {"type": "string", "description": "新正文;空串表示清空,不给则保留"},
+                "file_path": {"type": "string", "description": "新文件路径,必须在上传目录内;空串表示清空"},
+                "cover_path": {"type": "string", "description": "新封面路径;空串表示清空"},
+                "images": {"type": "array", "items": {"type": "string"}, "description": "新正文图片,最多 20 张;不给则保留"},
+                "targets": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 25,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "platform": {"type": "string", "description": "平台 id"},
+                            "account_id": {"type": "integer", "minimum": 1, "description": "账号 id,必填"},
+                        },
+                        "required": ["platform", "account_id"],
+                        "additionalProperties": False,
+                    },
+                    "description": "新平台/账号组合;不给则保留原目标",
+                },
+                "profile": {
+                    "type": "string",
+                    "enum": ["generic", "ihui_koubo"],
+                    "description": "重新预检时使用的内容自检预设档,可空",
+                },
+                "hashtags": {
+                    "anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}],
+                    "description": "重新预检时使用的话题词,可空",
+                },
+                "min_chars": {"type": "integer", "minimum": 0, "maximum": 20000},
+                "max_chars": {"type": "integer", "minimum": 0, "maximum": 20000},
+                "title_length": {"type": "integer", "minimum": 0, "maximum": 120},
+                "hashtag_count": {"type": "integer", "minimum": 0, "maximum": 30},
+                "require_ai_disclosure": {"type": "boolean"},
+            },
+            "required": ["task_id"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 2026-11-27(平台验收矩阵):只读回答"这个平台为什么发不出去、还缺什么"。
+        name="get_publish_acceptance",
+        description=(
+            "读取当前用户的发布能力验收矩阵:每个平台分开算适配器是否齐、账号登录是否有效、"
+            "历史里有没有真实发布成功且有公开 URL/内容 ID 的证据。状态从 verified 到"
+            "no_adapter,配 nextAction。只读,不触发平台请求、不解密凭据、不修改账号。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "platform": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "description": "只看一个平台,如 douyin;不传返回全部",
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 2026-11-27(发布数据回收):只读统计,给 Agent 回答"最近发得怎么样"。
+        name="get_publish_stats",
+        description=(
+            "汇总最近 N 天的发布情况:任务总数/成功/失败/部分成功/取消/运行中/定时,"
+            "各平台发布成功次数、失败次数、平均耗时、成功率,以及播放/点赞/评论/转发的"
+            "最新快照汇总。只读,不触发采集、不发布。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 365,
+                    "description": "统计最近多少天,默认 30",
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 2026-11-27(发布任务队列):Agent 回答"有哪些草稿待确认/哪些失败了"。
+        name="list_publish_tasks",
+        description=(
+            "列出当前用户的发布任务队列:taskId、标题、格式、状态、目标账号、正文前 200 字、"
+            "错误摘要与时间。可按 status/days/limit 过滤;只读,不返回完整正文/凭据,"
+            "不触发发布。草稿仍需人工确认。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "draft",
+                        "scheduled",
+                        "running",
+                        "success",
+                        "failed",
+                        "partial",
+                        "cancelled",
+                    ],
+                    "description": "只看一种状态,不传返回全部",
+                },
+                "days": {"type": "integer", "minimum": 1, "maximum": 365, "description": "最近多少天,默认 30"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 200, "description": "最多返回多少条,默认 50"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 2026-11-27(发布闭环诊断):单任务只读详情。确认后失败时,Agent 靠它回答"为什么失败"。
+        name="get_publish_task",
+        description=(
+            "按 taskId 读取一条发布任务:状态、正文/文件、目标账号、逐平台成功/失败、"
+            "失败原因、播放/互动快照,以及下一步建议。只读:按 taskId+当前用户校验归属,"
+            "不回传 userId/凭据,不触发发布或指标采集。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "发布任务 id,从 create_publish_draft 或发布历史取",
+                },
+            },
+            "required": ["task_id"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         # G3 Beyond-Coding 泛化:对话可产出五类交付物(html_report/slides/sheet/doc/video_ref)。
         # 路由身份(__user_id/__session_id)由 call_tool 宿主注入覆盖,LLM 不可控(同
         # request_business_form 的纪律);message_id 是**源转录锚点**(产物挂在哪条消息),
@@ -18608,6 +19060,17 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "proactive_suggestion": _tool_proactive_suggestion,
     # ===== P0 新增工具(2026-09-01,竞品对齐:图表生成 + 文档解析)=====
     "generate_chart": _generate_chart,
+    # 2026-11-27(超级 App 第一条真链路):内容出稿(标题+正文,auto 模型路由)
+    "generate_content": _generate_content,
+    "precheck_content": _precheck_content,
+    "list_publish_accounts": _list_publish_accounts,
+    "list_publish_tasks": _list_publish_tasks,
+    "publish_preflight": _publish_preflight,
+    "create_publish_draft": _create_publish_draft,
+    "get_publish_stats": _get_publish_stats,
+    "get_publish_task": _get_publish_task,
+    "get_publish_acceptance": _get_publish_acceptance,
+    "update_publish_draft": _update_publish_draft,
     # PROJECT_PLAN #81 最小一环:报表模板生成器(2026-09-28,与 chart 共用产物基础设施)
     "generate_report": _generate_report,
     # 财务部板块插件(RP-46,2026-11-12):AI 一键代账 / AI 一键报税(分阶段+实时进度回显)

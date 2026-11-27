@@ -10,6 +10,7 @@ export const vueToNextRedirects = [
   { source: '/privacy-policy', destination: '/agreement/privacy-policy', permanent: true },
   { source: '/terms', destination: '/agreement/user-agreement', permanent: true },
   { source: '/user-agreement', destination: '/agreement/user-agreement', permanent: true },
+  // 2026-11-27 超级 App 入口收口:/start 已是真页(app/(main)/start),不再走重定向。
   { source: '/admin/user-management', destination: '/admin/users', permanent: true },
   { source: '/admin/refund-audit', destination: '/admin/refund', permanent: true },
   { source: '/admin/course-management', destination: '/admin/edu/course', permanent: true },

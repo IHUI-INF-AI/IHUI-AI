@@ -483,6 +483,36 @@ describe('publish-routes — 13 平台发布 adapter 可用性', () => {
       expect(unknown.canPublish).toBe(false)
     })
 
+    it('PATCH 草稿编辑透传 taskId、body 与鉴权头', async () => {
+      const { server, handlers } = buildMockServer()
+      await publishRoutes(server, {})
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Map([['content-type', 'application/json']]),
+        text: async () => JSON.stringify({ code: 0, data: { taskId: 'task-9', status: 'draft' } }),
+      } as unknown as Response)
+
+      const handler = handlers.get('PATCH /publish/tasks/:taskId/draft')
+      const reply = makeReply()
+      const req = makeRequest({ title: '改后的标题' }, {}, { authorization: 'Bearer jwt-xxx' })
+      req.params = { taskId: 'task-9' }
+      req.method = 'PATCH'
+
+      await handler!(req, reply)
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      const [url, opts] = mockFetch.mock.calls[0]!
+      expect(url).toContain('/api/publish/tasks/task-9/draft')
+      expect((opts as { method: string }).method).toBe('PATCH')
+      expect((opts as { body: string }).body).toBe(JSON.stringify({ title: '改后的标题' }))
+      expect((opts as { headers: { authorization: string } }).headers.authorization).toBe(
+        'Bearer jwt-xxx',
+      )
+      expect((reply.sentPayload as { data: { status: string } }).data.status).toBe('draft')
+    })
+
     it('非 dryRun 请求正常转发 ai-service(调用 fetch)', async () => {
       const { server, handlers } = buildMockServer()
       await publishRoutes(server, {})

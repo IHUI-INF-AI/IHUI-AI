@@ -153,7 +153,11 @@ import {
 } from '@ihui/shared/chat/question-response'
 
 import { apiFailureToText, logger, toFriendlyOr } from '@ihui/shared/utils'
-import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
+import {
+  FALLBACK_MODELS as SHARED_FALLBACK_MODELS,
+  isDeadFallbackModelId,
+  toUserFriendlyMessage,
+} from '@ihui/shared'
 // 按子路径取:RN 的 vitest 把 `@ihui/shared/utils` 父别名指向测试替身,父入口取不到本模块
 import { isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils/finish-reason'
 // D3(2026-11-12 修"RN 流式逐 token 全量 setState 卡顿"):打字机合帧泵三端同源(同一条子路径纪律)
@@ -1161,10 +1165,17 @@ export function ChatScreen() {
     fetchModels()
       .then((res) => {
         if (cancelled) return
-        const list = res?.models?.length ? res.models : FALLBACK_MODELS
+        // 2026-11-27 止血:后端目录若还残留 ihui/* 等死档,先剔掉再选默认 ——
+        // 避免"列表拉到了,默认却是一条必失败的档";剔空则退回兜底(auto 哨兵)。
+        const fetched = (res?.models ?? []).filter((m) => !isDeadFallbackModelId(m.id))
+        const list = fetched.length ? fetched : FALLBACK_MODELS
         setModels(list)
         const def =
-          res.default && list.some((m) => m.id === res.default) ? res.default : list[0]!.id
+          res.default &&
+          !isDeadFallbackModelId(res.default) &&
+          list.some((m) => m.id === res.default)
+            ? res.default
+            : list[0]!.id
         setModel(def)
       })
       .catch(() => {

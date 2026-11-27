@@ -55,8 +55,68 @@ from .credentials_crypto import decrypt
 from .db_write_guard import log_db_write_failure
 from .image_uploader import process_external_images
 from .platform_rules import truncate_to_platform, validate_content
+from .web_fallback import get_web_fallback
 
 logger = get_logger(__name__)
+
+_AUTH_FAILURE_MARKERS = (
+    "login", "signin", "sign in", "unauthorized", "401", "403",
+    "cookie expired", "cookie 已过期", "请先登录", "登录失效", "登录态失效",
+    "登录态已失效", "重新登录",
+    "redirected to login", "not logged in", "未登录",
+)
+_CAPTCHA_MARKERS = ("验证码", "captcha", "slider", "滑块", "人机", "turnstile")
+_QUOTA_MARKERS = ("配额", "quota", "还能发 0", "次数已用完", "limit reached")
+
+
+def _classify_failure(
+    result: PublishResult,
+    platform: str,
+    account_id: int | None,
+) -> None:
+    """给失败结果补 error_kind/challenge;成功结果不写。"""
+    if result.success:
+        return
+    msg = (result.error_message or "").lower()
+    if result.error_kind:
+        return
+    if any(m.lower() in msg for m in _AUTH_FAILURE_MARKERS):
+        result.error_kind = "auth_required"
+        result.challenge = {
+            "type": "reauth",
+            "platform": platform,
+            "accountId": account_id,
+            "action": "打开账号池,完成该平台重新登录/扫码,然后调 /publish/tasks/{id}/resume",
+        }
+        return
+    if any(m.lower() in msg for m in _CAPTCHA_MARKERS):
+        result.error_kind = "captcha_required"
+        result.challenge = {
+            "type": "captcha",
+            "platform": platform,
+            "accountId": account_id,
+            "action": "人工完成验证码/滑块后,调 /publish/tasks/{id}/resume",
+        }
+        return
+    if any(m.lower() in msg for m in _QUOTA_MARKERS):
+        result.error_kind = "quota"
+        result.challenge = {
+            "type": "confirm",
+            "platform": platform,
+            "accountId": account_id,
+            "action": "平台今日配额不足,等配额恢复或换账号",
+        }
+        return
+    if "实名" in msg or "认证" in msg or "审核" in msg:
+        result.error_kind = "account_blocked"
+        result.challenge = {
+            "type": "confirm",
+            "platform": platform,
+            "accountId": account_id,
+            "action": "账号实名/审核未通过,处理后再发",
+        }
+        return
+    result.error_kind = "unknown"
 
 
 def _command_tag_count(tag: str | None) -> int:
@@ -200,10 +260,24 @@ class PublishScheduler:
                 finished_at TIMESTAMPTZ,
                 results JSONB,
                 error TEXT,
+                idempotency_key VARCHAR(128),
+                request_hash VARCHAR(64),
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
             """
+        )
+        # 旧表增量迁移:CREATE TABLE IF NOT EXISTS 不会给已存在的表补列。
+        await conn.execute(
+            "ALTER TABLE publish_tasks ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(128)"
+        )
+        await conn.execute(
+            "ALTER TABLE publish_tasks ADD COLUMN IF NOT EXISTS request_hash VARCHAR(64)"
+        )
+        await conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_publish_tasks_idem "
+            "ON publish_tasks(user_id, idempotency_key) "
+            "WHERE idempotency_key IS NOT NULL"
         )
         await conn.execute(
             """
@@ -235,6 +309,16 @@ class PublishScheduler:
         await conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_publish_history_task_id ON publish_history(task_id)"
         )
+
+    async def ensure_tables(self) -> None:
+        """公开的建表入口;路由需要在提交前查幂等键时复用。"""
+        conn = await self._get_conn()
+        if conn is None:
+            return
+        try:
+            await self._ensure_tables(conn)
+        finally:
+            await conn.close()
 
     # ===== 轮询循环 =====
 
@@ -357,13 +441,20 @@ class PublishScheduler:
         content: PublishContent,
         targets: list[dict[str, Any]],  # [{'platform': 'wordpress', 'account_id': 123, 'config': {...}}]
         scheduled_at: datetime | None = None,
+        idempotency_key: str | None = None,
+        request_hash: str | None = None,
+        as_draft: bool = False,
     ) -> dict[str, Any]:
         """提交发布任务。
 
         scheduled_at 为空 → 立即执行
         scheduled_at 非空 → 写入 DB,等待调度器轮询触发
+        as_draft=True → 只落一条 status='draft' 的任务,不执行、不排期;
+        必须由人工调确认接口后才会进入调度。
+        idempotency_key 非空 → 同 key + 同 request_hash 只落一条,重复调用返回原任务
         """
         # 持久化到 DB
+        persisted = False
         conn = await self._get_conn()
         if conn is not None:
             try:
@@ -376,12 +467,15 @@ class PublishScheduler:
                     "images": content.images,
                     "extra": content.extra,
                 }
-                status = "scheduled" if scheduled_at else "pending"
-                await conn.execute(
+                status = "draft" if as_draft else ("scheduled" if scheduled_at else "pending")
+                inserted = await conn.fetchrow(
                     """
-                    INSERT INTO publish_tasks (task_id, user_id, title, format, content, targets, status, scheduled_at)
-                    VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8)
-                    ON CONFLICT (task_id) DO UPDATE SET updated_at=NOW()
+                    INSERT INTO publish_tasks
+                        (task_id, user_id, title, format, content, targets, status,
+                         scheduled_at, idempotency_key, request_hash)
+                    VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10)
+                    ON CONFLICT DO NOTHING
+                    RETURNING task_id, status
                     """,
                     task_id,
                     user_id,
@@ -391,11 +485,67 @@ class PublishScheduler:
                     json.dumps(targets, ensure_ascii=False),
                     status,
                     scheduled_at,
+                    idempotency_key,
+                    request_hash,
                 )
+                if inserted is None and idempotency_key:
+                    existing = await conn.fetchrow(
+                        """
+                        SELECT task_id, status, request_hash, scheduled_at, created_at
+                        FROM publish_tasks
+                        WHERE user_id=$1 AND idempotency_key=$2
+                        ORDER BY id DESC LIMIT 1
+                        """,
+                        user_id,
+                        idempotency_key,
+                    )
+                    if existing and existing["request_hash"] and existing["request_hash"] != request_hash:
+                        return {
+                            "ok": False,
+                            "status": "conflict",
+                            "error": "idempotency_conflict",
+                            "task_id": existing["task_id"],
+                        }
+                    if existing:
+                        return {
+                            "ok": True,
+                            "task_id": existing["task_id"],
+                            "status": existing["status"],
+                            "idempotent_replay": True,
+                            "scheduled_at": existing["scheduled_at"].isoformat() if existing["scheduled_at"] else None,
+                            "created_at": existing["created_at"].isoformat() if existing["created_at"] else None,
+                        }
+                    # 唯一索引冲突但查不到旧行:宁可报错,不静默吞掉。
+                    return {"ok": False, "status": "conflict", "error": "idempotency_conflict"}
+                if inserted is None:
+                    existing_task = await conn.fetchrow(
+                        "SELECT task_id, status, created_at FROM publish_tasks WHERE task_id=$1",
+                        task_id,
+                    )
+                    if existing_task:
+                        return {
+                            "ok": True,
+                            "task_id": existing_task["task_id"],
+                            "status": existing_task["status"],
+                            "idempotent_replay": True,
+                            "created_at": existing_task["created_at"].isoformat() if existing_task["created_at"] else None,
+                        }
+                if inserted is not None:
+                    persisted = True
             except Exception as e:
                 logger.warning("[publish.scheduler] db persist failed: %s: %s", type(e).__name__, e)
             finally:
                 await conn.close()
+
+        if as_draft:
+            if not persisted:
+                return {
+                    "ok": False,
+                    "task_id": task_id,
+                    "status": "failed",
+                    "error": "draft_persist_failed",
+                }
+            return {"ok": True, "task_id": task_id, "status": "draft"}
 
         if scheduled_at:
             return {"ok": True, "task_id": task_id, "status": "scheduled", "scheduled_at": scheduled_at.isoformat()}
@@ -482,6 +632,8 @@ class PublishScheduler:
                     "published_url": r.published_url,
                     "platform_content_id": r.platform_content_id,
                     "error_message": r.error_message,
+                    "error_kind": r.error_kind,
+                    "challenge": r.challenge,
                     "duration_ms": r.duration_ms,
                 }
                 for r in results
@@ -566,6 +718,12 @@ class PublishScheduler:
             # 2026-08-17:失败也写 history,保证任务详情 platforms 完整
             await self._write_history(task_id, user_id, result)
             return result
+
+        # 原生适配器缺 API 凭据、但网页 cookie 有效时,切到网页版发布兜底。
+        fallback = get_web_fallback(platform, adapter, credentials)
+        if fallback is not None:
+            adapter = fallback
+            adapter.db_account_id = account_id
 
         # 进度通知
         try:
@@ -738,6 +896,13 @@ class PublishScheduler:
                         result = PublishResult(
                             success=False, platform=platform,
                             error_message=err_msg,
+                            error_kind="auth_required",
+                            challenge={
+                                "type": "reauth",
+                                "platform": platform,
+                                "accountId": account_id,
+                                "action": "完成该平台重新登录后,调 /publish/tasks/{id}/resume",
+                            },
                         )
                         await self._write_history(task_id, user_id, result)
                         try:
@@ -788,6 +953,19 @@ class PublishScheduler:
                 # （2026-09-27 实测：16 个账号在 UA 维度命中 3 组，第二篇推广文就是这样被拦下的）。
                 # 查不到主人的键（字段哈希档 / legacy 档）一律照旧计入 —— 保守方向不能反。
                 owner_by_row = await self._load_account_owners()
+                # 账号删除/重建后,旧键仍留在设备图谱里,会被当成"另一个账号与本账号同设备"
+                # 误判高危并冷却 1h(2026-11-26 实测:头条号被 xiaohongshu_db27、
+                # qq_legacy-... 两个幽灵键拦下,risk=100)。归属表查到了才清,查不到不动。
+                if owner_by_row:
+                    try:
+                        from .anti_risk.device_graph_guard import get_device_graph_guard
+
+                        await get_device_graph_guard().prune_orphan_bindings(set(owner_by_row))
+                    except Exception as e:  # noqa: BLE001
+                        logger.warning(
+                            "[publish.scheduler] 清理幽灵设备绑定失败(不影响发布): %s: %s",
+                            type(e).__name__, e,
+                        )
 
                 def _owner_of(key: str, _m: dict[str, str] = owner_by_row) -> str | None:
                     rid = row_id_from_account_id(key)
@@ -909,6 +1087,21 @@ class PublishScheduler:
             )
         elapsed = int((datetime.now(UTC) - started).total_seconds() * 1000)
         result.duration_ms = elapsed
+        _classify_failure(result, platform, account_id)
+
+        # 发布器刚撞到登录失效 → 立即回写账号池,不等下一轮 45–60 分钟体检。
+        if not result.success and account_id is not None:
+            try:
+                from .session_keeper import mark_publish_auth_failure
+
+                await mark_publish_auth_failure(
+                    int(account_id), platform, result.error_message or "",
+                )
+            except Exception as e:  # noqa: BLE001 —— 状态回写失败不能吞掉发布结果
+                logger.warning(
+                    "[publish.scheduler] %s account %s 发布失败回写状态异常: %s",
+                    platform, account_id, e,
+                )
 
         # ===== 发布后存活监测 + 自动修复重提(2026-09-15 新增)=====
         # 内容平台(知乎等)会在发布后数分钟内做内容风控,营销外链类内容被静默移除。
