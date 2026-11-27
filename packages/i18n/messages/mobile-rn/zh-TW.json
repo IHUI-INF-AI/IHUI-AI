@@ -350,12 +350,7 @@
     "googleNotConfigured": "Google 登入未配置，請在 .env 設定 EXPO_PUBLIC_GOOGLE_CLIENT_ID。",
     "sdkPending": "{name} 登入請使用網頁端,移動端暫未集成原生 SDK。\n您也可以使用\"智匯AI網頁授權登入\"按鈕跳轉網頁端授權。",
     "agree": "同意",
-    "agreeTermsTitle": "確認同意服務條款",
-    "loginFailed": "登入失敗,請重試",
-    "wechatOneClick": "微信一鍵登入",
-    "webAuthLogin": "網頁授權登入",
-    "login": "登入",
-    "passwordLogin": "密碼登入"
+    "agreeTermsTitle": "確認同意服務條款"
   },
   "loginCountry": {
     "cn": "中國",
@@ -958,13 +953,7 @@
     },
     "loadFailed": "載入失敗",
     "admissionAhead": "前面還有 {n} 位",
-    "hookFailureTitle": "Hook 執行失敗:{name}",
-    "questionSubmitting": "提交中…",
-    "questionSubmit": "提交",
-    "questionWithdraw": "撤回",
-    "questionAnswer": "回答",
-    "questionNoSession": "無法定位會話,此題無法作答",
-    "questionFailed": "提交失敗,請重試"
+    "hookFailureTitle": "Hook 執行失敗:{name}"
   },
   "settings": {
     "title": "設定",
@@ -1556,7 +1545,7 @@
     "loadFailed": "載入模型失敗",
     "output": "輸出",
     "perCall": "每次",
-    "priceUnit": "¥{price}/M",
+    "priceUnit": "價格",
     "providerTotal": "供應商共 {count} 個模型",
     "selectProviderLabel": "選擇供應商",
     "title": "模型廣場",
@@ -1821,25 +1810,7 @@
     "empty": "暫無銀行卡",
     "default": "預設",
     "holder": "持卡人",
-    "loadFailed": "載入銀行卡失敗",
-    "add": "新增銀行卡",
-    "bankName": "開戶銀行",
-    "bankNamePlaceholder": "如：招商銀行",
-    "number": "卡號",
-    "numberPlaceholder": "12–19 位銀行卡號",
-    "holderPlaceholder": "持卡人姓名",
-    "setDefault": "設為預設",
-    "formDefault": "設為預設卡",
-    "formIncomplete": "請填寫開戶銀行、持卡人和卡號",
-    "invalidNumber": "請輸入 12–19 位有效卡號",
-    "addFailed": "新增失敗，請檢查卡號是否有效或已存在",
-    "deleteFailed": "刪除失敗，請重試",
-    "setDefaultFailed": "設定預設失敗，請重試",
-    "deleteConfirm": "確認刪除這張銀行卡？",
-    "deleting": "刪除中...",
-    "saving": "儲存中...",
-    "readOnly": "唯讀",
-    "readOnlyHint": "歷史提現帳戶，僅展示"
+    "loadFailed": "載入銀行卡失敗"
   },
   "cart": {
     "title": "購物車",
@@ -1910,9 +1881,7 @@
     "enroll": "立即報名",
     "pay": "支付 ¥{amount}",
     "lessons": "課程目錄",
-    "completed": "已學完",
-    "learning": "學習中",
-    "locked": "未解鎖"
+    "completed": "已學完"
   },
   "courseEnroll": {
     "title": "報名課程",
@@ -2560,16 +2529,13 @@
       "article": "文章",
       "post": "貼文",
       "note": "筆記",
-      "agent": "智慧體"
+      "agent": "智慧體",
+      "user": "用戶",
+      "project": "項目",
+      "file": "檔案"
     }
   },
   "apiKeys": {
-    "copied": "已複製",
-    "subtitle": "建立金鑰後即可在第三方應用呼叫開放介面，權限依最小化授予。",
-    "permissionsRequired": "至少選擇一項權限",
-    "callsTotal": "累計呼叫 {times} 次",
-    "rateLimitLabel": "速率上限（每分鐘）",
-    "rateLimitPerMinute": "每分鐘 {rateLimit} 次",
     "title": "API 金鑰",
     "createTitle": "建立金鑰",
     "nameLabel": "名稱",
@@ -4300,6 +4266,8 @@
     "hide": "隱藏",
     "hiding": "正在隱藏…",
     "hideFailed": "這條動態未隱藏，請重試。",
+    "deleting": "正在刪除…",
+    "deleteFailed": "這條通知未刪除，請重試。",
     "restore": "恢復",
     "restoring": "正在恢復…",
     "restoreFailed": "這條動態未恢復，請重試。",
@@ -4790,6 +4758,7 @@
     "hrMyPerf": "我的績效",
     "hrMyTraining": "我的培訓",
     "hrMyExpense": "我的報銷",
+    "publishAccountPool": "發布帳號池",
     "news": "資訊",
     "learnTopic": "課程專題",
     "kbSearch": "知識庫檢索",
@@ -7551,7 +7520,7 @@
     "currentBundle": "目前執行:{{bundle}}",
     "bundleEmbedded": "內建套件",
     "bundleOta": "熱更新",
-    "readyBody": "更新已下載完成，點「立即更新」立即生效",
+    "readyBody": "更新已下載完成，點「更新」立即生效",
     "installingHint": "應用程式會自動重新啟動，通常只需幾秒",
     "restartNow": "立即重新啟動",
     "apkTitle": "發現新版本 {{version}}",
@@ -7716,26 +7685,6 @@
       "eraseCard": "數據擦除"
     },
     "groups": {
-      "error": "操作失敗",
-      "description": "群組描述",
-      "groupNameRequired": "群組名稱不能為空",
-      "deleteTitle": "刪除群組",
-      "confirmDelete": "確定刪除該群組？",
-      "createGroup": "創建群組",
-      "groupName": "群組名稱",
-      "edit": "編輯",
-      "save": "保存",
-      "allGroups": "全部群組",
-      "empty": "暫無群組，點擊右上角創建",
-      "custom": "自定義",
-      "members": "成員數",
-      "createdAt": "創建時間",
-      "owner": "群主",
-      "membersUnavailable": "後端未提供成員清單介面,此處僅顯示成員數",
-      "userId": "用戶 ID",
-      "addMember": "添加成員",
-      "memberList": "成員管理",
-      "delete": "刪除",
       "title": "我的群組"
     },
     "stt": {
@@ -7800,7 +7749,6 @@
   },
   "hrAttendance": {
     "title": "人事部 · 考勤",
-    "checkIn": "簽到",
     "tabDepartments": "部門",
     "tabEmployees": "員工",
     "tabRule": "考勤規則",
@@ -8032,10 +7980,5 @@
       "btnConfirm": "聯絡顧問"
     },
     "closeA11y": "關閉介紹彈窗"
-  },
-  "chatRoom": {
-    "incompleteUserInfo": "使用者資訊不完整,請重新登入",
-    "wechatOnly": "微信檔案請在小程式內傳送",
-    "cannotOpenLink": "無法開啟該連結"
   }
 }

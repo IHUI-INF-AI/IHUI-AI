@@ -350,12 +350,7 @@
     "googleNotConfigured": "Google login is not configured; set EXPO_PUBLIC_GOOGLE_CLIENT_ID in .env.",
     "sdkPending": "{name} login is only available on the web; the native SDK is not integrated on mobile.\nYou can use the “IHUI AI web authorized login” button to authorize in the browser.",
     "agree": "Agree",
-    "agreeTermsTitle": "Agree to the Terms of Service",
-    "loginFailed": "Login failed, please try again",
-    "wechatOneClick": "One-click WeChat Login",
-    "webAuthLogin": "Sign in via web authorization",
-    "login": "Login",
-    "passwordLogin": "Password login"
+    "agreeTermsTitle": "Agree to the Terms of Service"
   },
   "loginCountry": {
     "cn": "China",
@@ -958,13 +953,7 @@
     },
     "loadFailed": "Failed to load",
     "admissionAhead": "{n} ahead of you",
-    "hookFailureTitle": "Hook execution failed: {name}",
-    "questionSubmitting": "Submitting…",
-    "questionSubmit": "Submit",
-    "questionWithdraw": "Withdraw",
-    "questionAnswer": "Answer",
-    "questionNoSession": "Cannot locate the session, so this question cannot be answered",
-    "questionFailed": "Submission failed, please retry"
+    "hookFailureTitle": "Hook execution failed: {name}"
   },
   "settings": {
     "title": "Settings",
@@ -1556,7 +1545,7 @@
     "loadFailed": "Failed to load models",
     "output": "Output",
     "perCall": "Per call",
-    "priceUnit": "¥{price}/M",
+    "priceUnit": "Price",
     "providerTotal": "{count} models from providers",
     "selectProviderLabel": "Choose provider",
     "title": "Model Plaza",
@@ -1821,25 +1810,7 @@
     "empty": "No bank cards yet",
     "default": "Default",
     "holder": "Cardholder",
-    "loadFailed": "Failed to load bank cards",
-    "add": "Add bank card",
-    "bankName": "Bank",
-    "bankNamePlaceholder": "e.g. China Merchants Bank",
-    "number": "Card number",
-    "numberPlaceholder": "12–19 digit card number",
-    "holderPlaceholder": "Cardholder name",
-    "setDefault": "Set as default",
-    "formDefault": "Set as default card",
-    "formIncomplete": "Enter bank, cardholder and card number",
-    "invalidNumber": "Enter a valid 12–19 digit card number",
-    "addFailed": "Failed to add. Check the card number or duplicates",
-    "deleteFailed": "Failed to delete. Try again",
-    "setDefaultFailed": "Failed to set default. Try again",
-    "deleteConfirm": "Delete this bank card?",
-    "deleting": "Deleting...",
-    "saving": "Saving...",
-    "readOnly": "Read-only",
-    "readOnlyHint": "Historical payout account, view only"
+    "loadFailed": "Failed to load bank cards"
   },
   "cart": {
     "title": "Cart",
@@ -1910,9 +1881,7 @@
     "enroll": "Enroll Now",
     "pay": "Pay ¥{amount}",
     "lessons": "Lessons",
-    "completed": "Completed",
-    "learning": "In progress",
-    "locked": "Locked"
+    "completed": "Completed"
   },
   "courseEnroll": {
     "title": "Enroll in Courses",
@@ -2560,16 +2529,13 @@
       "article": "Article",
       "post": "Post",
       "note": "Note",
-      "agent": "Agent"
+      "agent": "Agent",
+      "user": "User",
+      "project": "Project",
+      "file": "File"
     }
   },
   "apiKeys": {
-    "copied": "Copied",
-    "subtitle": "Create a key to call the open API from third-party apps. Grant only the permissions you need.",
-    "permissionsRequired": "Select at least one permission",
-    "callsTotal": "{times} calls total",
-    "rateLimitLabel": "Rate limit (per minute)",
-    "rateLimitPerMinute": "{rateLimit} / min",
     "title": "API Keys",
     "createTitle": "Create key",
     "nameLabel": "Name",
@@ -4300,6 +4266,8 @@
     "hide": "Hide",
     "hiding": "Hiding…",
     "hideFailed": "This update couldn’t be hidden. Please try again.",
+    "deleting": "Deleting…",
+    "deleteFailed": "This notification couldn’t be deleted. Please try again.",
     "restore": "Restore",
     "restoring": "Restoring…",
     "restoreFailed": "This update couldn’t be restored. Please try again.",
@@ -4790,6 +4758,7 @@
     "hrMyPerf": "My performance",
     "hrMyTraining": "My training",
     "hrMyExpense": "My expenses",
+    "publishAccountPool": "Publish Account Pool",
     "news": "News",
     "learnTopic": "Topic Lessons",
     "kbSearch": "Knowledge Search",
@@ -7551,7 +7520,7 @@
     "currentBundle": "Currently running: {{bundle}}",
     "bundleEmbedded": "Built-in bundle",
     "bundleOta": "Hot update",
-    "readyBody": "Update downloaded. Tap Update Now to apply it now.",
+    "readyBody": "Update downloaded. Tap Update to apply it now.",
     "installingHint": "The app restarts automatically — usually within seconds.",
     "restartNow": "Restart now",
     "apkTitle": "New version {{version}} available",
@@ -7716,26 +7685,6 @@
       "eraseCard": "Data Erasure"
     },
     "groups": {
-      "error": "Failed",
-      "description": "Description",
-      "groupNameRequired": "Group name is required",
-      "deleteTitle": "Delete group",
-      "confirmDelete": "Delete this group?",
-      "createGroup": "Create Group",
-      "groupName": "Group name",
-      "edit": "Edit",
-      "save": "Save",
-      "allGroups": "All groups",
-      "empty": "No groups yet. Create your first group",
-      "custom": "Custom",
-      "members": "Members",
-      "createdAt": "Created at",
-      "owner": "Owner",
-      "membersUnavailable": "The backend exposes no member list endpoint, so only the member count is shown.",
-      "userId": "User ID",
-      "addMember": "Add member",
-      "memberList": "Members",
-      "delete": "Delete",
       "title": "My Groups"
     },
     "stt": {
@@ -7800,7 +7749,6 @@
   },
   "hrAttendance": {
     "title": "HR · Attendance",
-    "checkIn": "Check in",
     "tabDepartments": "Departments",
     "tabEmployees": "Employees",
     "tabRule": "Attendance Rules",
@@ -8032,10 +7980,5 @@
       "btnConfirm": "Contact advisor"
     },
     "closeA11y": "Close introduction popup"
-  },
-  "chatRoom": {
-    "incompleteUserInfo": "User information is incomplete, please sign in again",
-    "wechatOnly": "WeChat files can only be sent in the mini program",
-    "cannotOpenLink": "Cannot open this link"
   }
 }

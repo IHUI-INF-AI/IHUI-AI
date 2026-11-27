@@ -350,12 +350,7 @@
     "googleNotConfigured": "Google 로그인 미설정. .env 에 EXPO_PUBLIC_GOOGLE_CLIENT_ID 를 설정하세요.",
     "sdkPending": "{name} 로그인은 웹에서만 가능합니다. 모바일에는 네이티브 SDK가 미통합입니다.\n“智汇AI 웹 인증 로그인” 버튼으로 웹 인증으로 이동할 수 있습니다.",
     "agree": "동의",
-    "agreeTermsTitle": "서비스 약관 동의 확인",
-    "loginFailed": "로그인 실패, 다시 시도해 주세요",
-    "wechatOneClick": "WeChat 원클릭 로그인",
-    "webAuthLogin": "웹 인증 로그인",
-    "login": "로그인",
-    "passwordLogin": "비밀번호 로그인"
+    "agreeTermsTitle": "서비스 약관 동의 확인"
   },
   "loginCountry": {
     "cn": "중국",
@@ -958,13 +953,7 @@
     },
     "loadFailed": "불러오기 실패",
     "admissionAhead": "앞에 {n}건 있습니다",
-    "hookFailureTitle": "Hook 실행 실패: {name}",
-    "questionSubmitting": "제출 중…",
-    "questionSubmit": "제출",
-    "questionWithdraw": "철회",
-    "questionAnswer": "답변",
-    "questionNoSession": "세션을 찾을 수 없어 이 질문에 답할 수 없습니다",
-    "questionFailed": "제출에 실패했습니다. 다시 시도하세요"
+    "hookFailureTitle": "Hook 실행 실패: {name}"
   },
   "settings": {
     "title": "설정",
@@ -1556,7 +1545,7 @@
     "loadFailed": "모델 불러오기 실패",
     "output": "출력",
     "perCall": "회당",
-    "priceUnit": "¥{price}/M",
+    "priceUnit": "가격",
     "providerTotal": "공급사의 모델 {count}개",
     "selectProviderLabel": "공급사 선택",
     "title": "모델 플라자",
@@ -1821,25 +1810,7 @@
     "empty": "등록된 은행 카드가 없습니다",
     "default": "기본",
     "holder": "카드 소유자",
-    "loadFailed": "은행 계좌 불러오기 실패",
-    "add": "은행 카드 추가",
-    "bankName": "은행명",
-    "bankNamePlaceholder": "예: 초상은행",
-    "number": "카드 번호",
-    "numberPlaceholder": "12~19자리 카드 번호",
-    "holderPlaceholder": "카드 소유자 이름",
-    "setDefault": "기본으로 설정",
-    "formDefault": "기본 카드로 설정",
-    "formIncomplete": "은행명, 소유자, 카드 번호를 입력하세요",
-    "invalidNumber": "유효한 12~19자리 카드 번호를 입력하세요",
-    "addFailed": "추가 실패. 카드 번호 또는 중복을 확인하세요",
-    "deleteFailed": "삭제 실패. 다시 시도하세요",
-    "setDefaultFailed": "기본 설정 실패. 다시 시도하세요",
-    "deleteConfirm": "이 은행 카드를 삭제할까요?",
-    "deleting": "삭제 중...",
-    "saving": "저장 중...",
-    "readOnly": "읽기 전용",
-    "readOnlyHint": "과거 출금 계좌, 보기 전용"
+    "loadFailed": "은행 계좌 불러오기 실패"
   },
   "cart": {
     "title": "장바구니",
@@ -1910,9 +1881,7 @@
     "enroll": "지금 신청",
     "pay": "¥{amount} 결제",
     "lessons": "강좌 목차",
-    "completed": "수강 완료",
-    "learning": "학습 중",
-    "locked": "잠김"
+    "completed": "수강 완료"
   },
   "courseEnroll": {
     "title": "강좌 신청",
@@ -2560,16 +2529,13 @@
       "article": "게시글",
       "post": "게시물",
       "note": "노트",
-      "agent": "에이전트"
+      "agent": "에이전트",
+      "user": "사용자",
+      "project": "프로젝트",
+      "file": "파일"
     }
   },
   "apiKeys": {
-    "copied": "복사되었습니다",
-    "subtitle": "타사 앱에서 API를 호출할 키를 만듭니다. 권한은 최소한으로 부여하세요.",
-    "permissionsRequired": "권한을 하나 이상 선택하세요",
-    "callsTotal": "누적 {times}회",
-    "rateLimitLabel": "속도 제한(분당)",
-    "rateLimitPerMinute": "분당 {rateLimit}회",
     "title": "API 키",
     "createTitle": "키 만들기",
     "nameLabel": "이름",
@@ -4300,6 +4266,8 @@
     "hide": "숨기기",
     "hiding": "숨기는 중…",
     "hideFailed": "이 업데이트를 숨기지 않았습니다. 다시 시도해 주세요.",
+    "deleting": "삭제 중…",
+    "deleteFailed": "이 알림을 삭제하지 못했습니다. 다시 시도해 주세요.",
     "restore": "복원",
     "restoring": "복원 중…",
     "restoreFailed": "이 업데이트를 복원하지 않았습니다. 다시 시도해 주세요.",
@@ -4789,7 +4757,8 @@
   "webViewPortal": {
     "hrMyPerf": "내 성과",
     "hrMyTraining": "내 교육",
-    "hrMyExpense": "내 경비 정산",
+    "hrMyExpense": "내 경비",
+    "publishAccountPool": "게정 계정 풀",
     "news": "뉴스",
     "learnTopic": "주제 강의",
     "kbSearch": "지식 검색",
@@ -7551,7 +7520,7 @@
     "currentBundle": "현재 실행 중: {{bundle}}",
     "bundleEmbedded": "내장 패키지",
     "bundleOta": "핫 업데이트",
-    "readyBody": "업데이트 다운로드가 완료되었습니다. 「지금 업데이트」를 누르면 바로 적용됩니다.",
+    "readyBody": "업데이트 다운로드가 완료되었습니다. 「업데이트」를 누르면 바로 적용됩니다.",
     "installingHint": "앱이 자동으로 다시 시작되며 보통 몇 초면 됩니다.",
     "restartNow": "지금 다시 시작",
     "apkTitle": "새 버전 {{version}} 사용 가능",
@@ -7716,26 +7685,6 @@
       "eraseCard": "데이터 삭제"
     },
     "groups": {
-      "error": "실패",
-      "description": "설명",
-      "groupNameRequired": "그룹 이름은 필수입니다",
-      "deleteTitle": "그룹 삭제",
-      "confirmDelete": "이 그룹을 삭제할까요?",
-      "createGroup": "그룹 만들기",
-      "groupName": "그룹 이름",
-      "edit": "편집",
-      "save": "저장",
-      "allGroups": "전체 그룹",
-      "empty": "아직 그룹이 없습니다",
-      "custom": "사용자 지정",
-      "members": "멤버 수",
-      "createdAt": "생성 시간",
-      "owner": "소유자",
-      "membersUnavailable": "백엔드에 멤버 목록 API가 없어 멤버 수만 표시합니다",
-      "userId": "사용자 ID",
-      "addMember": "멤버 추가",
-      "memberList": "멤버 관리",
-      "delete": "삭제",
       "title": "내 그룹"
     },
     "stt": {
@@ -7800,7 +7749,6 @@
   },
   "hrAttendance": {
     "title": "인사부 · 근태",
-    "checkIn": "체크인",
     "tabDepartments": "부서",
     "tabEmployees": "직원",
     "tabRule": "근태 규칙",
@@ -8032,10 +7980,5 @@
       "btnConfirm": "어드바이저 문의"
     },
     "closeA11y": "소개 팝업 닫기"
-  },
-  "chatRoom": {
-    "incompleteUserInfo": "사용자 정보가 불완전합니다. 다시 로그인하세요",
-    "wechatOnly": "위챗 파일은 미니프로그램에서만 전송할 수 있습니다",
-    "cannotOpenLink": "이 링크를 열 수 없습니다"
   }
 }

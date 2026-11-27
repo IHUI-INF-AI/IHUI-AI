@@ -350,12 +350,7 @@
     "googleNotConfigured": "Googleログイン未設定。.env で EXPO_PUBLIC_GOOGLE_CLIENT_ID を設定してください。",
     "sdkPending": "{name}ログインはWeb版のみ対応。モバイルにはネイティブSDKが未統合です。\n「智汇AI Web権限ログイン」ボタンでブラウザ認証に進めます。",
     "agree": "同意",
-    "agreeTermsTitle": "サービス条項への同意確認",
-    "loginFailed": "ログインに失敗しました。もう一度お試しください",
-    "wechatOneClick": "WeChatワンタップログイン",
-    "webAuthLogin": "Web認証ログイン",
-    "login": "ログイン",
-    "passwordLogin": "パスワードログイン"
+    "agreeTermsTitle": "サービス条項への同意確認"
   },
   "loginCountry": {
     "cn": "中国",
@@ -958,13 +953,7 @@
     },
     "loadFailed": "読み込みに失敗しました",
     "admissionAhead": "前に {n} 件あります",
-    "hookFailureTitle": "Hook の実行に失敗:{name}",
-    "questionSubmitting": "送信中…",
-    "questionSubmit": "送信",
-    "questionWithdraw": "取り消し",
-    "questionAnswer": "回答",
-    "questionNoSession": "セッションを特定できないため、この質問には回答できません",
-    "questionFailed": "送信に失敗しました。再試行してください"
+    "hookFailureTitle": "Hook の実行に失敗:{name}"
   },
   "settings": {
     "title": "設定",
@@ -1556,7 +1545,7 @@
     "loadFailed": "モデルの読み込みに失敗",
     "output": "出力",
     "perCall": "1 回あたり",
-    "priceUnit": "¥{price}/M",
+    "priceUnit": "価格",
     "providerTotal": "プロバイダーから {count} モデル",
     "selectProviderLabel": "プロバイダーを選択",
     "title": "モデルプラザ",
@@ -1821,25 +1810,7 @@
     "empty": "銀行カードはまだありません",
     "default": "デフォルト",
     "holder": "カード名義人",
-    "loadFailed": "銀行口座の読み込みに失敗",
-    "add": "銀行カードを追加",
-    "bankName": "銀行名",
-    "bankNamePlaceholder": "例：招商銀行",
-    "number": "カード番号",
-    "numberPlaceholder": "12〜19桁のカード番号",
-    "holderPlaceholder": "カード名義人",
-    "setDefault": "デフォルトに設定",
-    "formDefault": "デフォルトカードに設定",
-    "formIncomplete": "銀行名・名義人・カード番号を入力してください",
-    "invalidNumber": "有効な12〜19桁のカード番号を入力してください",
-    "addFailed": "追加に失敗しました。カード番号または重複を確認してください",
-    "deleteFailed": "削除に失敗しました。再試行してください",
-    "setDefaultFailed": "デフォルト設定に失敗しました。再試行してください",
-    "deleteConfirm": "この銀行カードを削除しますか？",
-    "deleting": "削除中...",
-    "saving": "保存中...",
-    "readOnly": "読み取り専用",
-    "readOnlyHint": "過去の出金口座のため表示のみ"
+    "loadFailed": "銀行口座の読み込みに失敗"
   },
   "cart": {
     "title": "カート",
@@ -1910,9 +1881,7 @@
     "enroll": "今すぐ申し込む",
     "pay": "¥{amount} を支払う",
     "lessons": "コース目次",
-    "completed": "修了済み",
-    "learning": "学習中",
-    "locked": "ロック中"
+    "completed": "修了済み"
   },
   "courseEnroll": {
     "title": "コース申込",
@@ -2560,16 +2529,13 @@
       "article": "記事",
       "post": "投稿",
       "note": "ノート",
-      "agent": "エージェント"
+      "agent": "エージェント",
+      "user": "ユーザー",
+      "project": "プロジェクト",
+      "file": "ファイル"
     }
   },
   "apiKeys": {
-    "copied": "コピーしました",
-    "subtitle": "サードパーティアプリから API を呼び出すためのキーを作成します。権限は必要最小限に。",
-    "permissionsRequired": "権限を1つ以上選択してください",
-    "callsTotal": "累計 {times} 回",
-    "rateLimitLabel": "レート上限（毎分）",
-    "rateLimitPerMinute": "毎分 {rateLimit} 回",
     "title": "API キー",
     "createTitle": "キーを作成",
     "nameLabel": "名前",
@@ -3846,7 +3812,7 @@
     "paid": "有料",
     "searchPlaceholder": "エージェントを検索",
     "title": "エージェント市場",
-    "uses": "使用回数"
+    "uses": "利用回数"
   },
   "agentReviewList": {
     "author": "著者",
@@ -4300,6 +4266,8 @@
     "hide": "非表示",
     "hiding": "非表示にしています…",
     "hideFailed": "このアクティビティを非表示にできませんでした。もう一度お試しください。",
+    "deleting": "削除しています…",
+    "deleteFailed": "この通知を削除できませんでした。もう一度お試しください。",
     "restore": "復元",
     "restoring": "復元しています…",
     "restoreFailed": "このアクティビティを復元できませんでした。もう一度お試しください。",
@@ -4787,9 +4755,10 @@
     "loadFailed": "読み込み失敗"
   },
   "webViewPortal": {
-    "hrMyPerf": "自分の評価",
-    "hrMyTraining": "自分の研修",
-    "hrMyExpense": "自分の経費精算",
+    "hrMyPerf": "マイ査定",
+    "hrMyTraining": "マイ研修",
+    "hrMyExpense": "自分の経費",
+    "publishAccountPool": "発行アカウントプール",
     "news": "ニュース",
     "learnTopic": "テーマ講座",
     "kbSearch": "ナレッジ検索",
@@ -7551,7 +7520,7 @@
     "currentBundle": "現在実行中:{{bundle}}",
     "bundleEmbedded": "内蔵パッケージ",
     "bundleOta": "ホットアップデート",
-    "readyBody": "更新のダウンロードが完了しました。「今すぐ更新」をタップするとすぐに反映されます。",
+    "readyBody": "更新のダウンロードが完了しました。「更新」をタップするとすぐに反映されます。",
     "installingHint": "アプリは自動的に再起動します（通常は数秒）。",
     "restartNow": "今すぐ再起動",
     "apkTitle": "新しいバージョン {{version}} があります",
@@ -7716,26 +7685,6 @@
       "eraseCard": "データ消去"
     },
     "groups": {
-      "error": "失敗",
-      "description": "説明",
-      "groupNameRequired": "グループ名は必須です",
-      "deleteTitle": "グループを削除",
-      "confirmDelete": "このグループを削除しますか？",
-      "createGroup": "グループ作成",
-      "groupName": "グループ名",
-      "edit": "編集",
-      "save": "保存",
-      "allGroups": "すべてのグループ",
-      "empty": "グループはまだありません",
-      "custom": "カスタム",
-      "members": "メンバー数",
-      "createdAt": "作成日時",
-      "owner": "オーナー",
-      "membersUnavailable": "バックエンドにメンバー一覧 API がないため、メンバー数のみ表示します",
-      "userId": "ユーザーID",
-      "addMember": "メンバー追加",
-      "memberList": "メンバー管理",
-      "delete": "削除",
       "title": "マイグループ"
     },
     "stt": {
@@ -7800,7 +7749,6 @@
   },
   "hrAttendance": {
     "title": "人事部 · 勤怠",
-    "checkIn": "チェックイン",
     "tabDepartments": "部門",
     "tabEmployees": "従業員",
     "tabRule": "勤怠ルール",
@@ -8032,10 +7980,5 @@
       "btnConfirm": "アドバイザーに連絡"
     },
     "closeA11y": "紹介ポップアップを閉じる"
-  },
-  "chatRoom": {
-    "incompleteUserInfo": "ユーザー情報が不完全です。再度ログインしてください",
-    "wechatOnly": "WeChatファイルはミニプログラム内でのみ送信できます",
-    "cannotOpenLink": "このリンクを開けません"
   }
 }

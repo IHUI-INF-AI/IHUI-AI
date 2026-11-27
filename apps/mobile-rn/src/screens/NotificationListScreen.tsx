@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
   archiveNotification,
+  deleteNotification,
   getNotifications,
   markNotificationRead,
   restoreNotification,
@@ -109,6 +110,22 @@ export function NotificationListScreen() {
     await load()
   }
 
+  /** 详情抽屉内的删除:物理删除后关抽屉并重取列表,失败保留抽屉并显式标红。 */
+  const removeNotice = async (id: string) => {
+    setStatus(id, { text: t('notificationList.deleting'), tone: 'muted', pending: true })
+    const res = await deleteNotification(id)
+    if (!res.success) {
+      setStatus(id, {
+        text: t('notificationList.deleteFailed'),
+        tone: 'destructive',
+      })
+      return
+    }
+    setNoticeDetail(null)
+    setStatus(id, undefined)
+    await load()
+  }
+
   // 点击通知行 = 打开全文抽屉 + 未读标已读(2026-11-27 三端统一口径;
   // 此前已读行点下去完全没有反馈,用户以为列表卡死)。
   const handlePressItem = async (item: NotificationListItem) => {
@@ -159,6 +176,7 @@ export function NotificationListScreen() {
         visible={noticeDetail !== null}
         detail={noticeDetail}
         onClose={() => setNoticeDetail(null)}
+        onDelete={(detail) => void removeNotice(detail.id)}
         onCopy={(detail) => {
           Clipboard.setString(noticeDetailCopyText(detail))
         }}

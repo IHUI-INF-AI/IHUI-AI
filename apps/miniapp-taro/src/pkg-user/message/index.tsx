@@ -19,6 +19,7 @@ import {
   get,
   post,
   patch,
+  del,
   getNotificationPreferences,
   updateNotificationPreferences,
   type NotificationPreferences,
@@ -245,8 +246,22 @@ export default function MessageIndex() {
     [],
   )
 
-  const setTabUnread = useCallback((key: string, count: number | undefined) => {
-    setTabs((prev) =>
+  /** 删除当前站内消息:与 Web/RN 同一条 DELETE /notifications/:id;成功后关抽屉并同步本地列表。 */
+  const deleteNotice = useCallback(
+    async (detail: NoticeDetailData) => {
+      try {
+        await del(`/notifications/${encodeURIComponent(detail.id)}`)
+        setNoticeDetail(null)
+        setList((prev) => prev.filter((room) => room.id !== detail.id))
+        setSystemList((prev) => prev.filter((item) => item.id !== detail.id))
+      } catch {
+        onToast(t('common.failed'), { kind: 'error' })
+      }
+    },
+    [t],
+  )
+
+  const setTabUnread = useCallback((key: string, count: number | undefined) => {    setTabs((prev) =>
       prev.map((tab) => {
         if (tab.key !== key) return tab
         if (typeof count === 'number' && count > 0) return { ...tab, unread: count }
@@ -697,6 +712,7 @@ export default function MessageIndex() {
           visible
           detail={noticeDetail}
           onClose={() => setNoticeDetail(null)}
+          onDelete={(detail) => void deleteNotice(detail)}
           onCopy={(detail) => {
             void Taro.setClipboardData({ data: noticeDetailCopyText(detail) })
           }}

@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useParams } from 'next/navigation'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
+import { toast } from 'sonner'
 import { Loader2, Bell, Heart, Star, MessageSquare, Users, Mail } from 'lucide-react'
 import { apiOrThrow } from '@/lib/api'
 import { Avatar } from '@/components/data'
@@ -96,6 +97,7 @@ export default function MessageTypePage() {
   const t = useTranslations('messages')
   const tp = useTranslations('privateMessages')
   const tGate = useTranslations('chatHistory')
+  const tm = useTranslations('messageDetail')
   const tc = useTranslations('common')
   const { allow } = useAuthGate()
   const navigate = useNavigateWithProgress()
@@ -168,6 +170,21 @@ export default function MessageTypePage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['messages-type', type] })
       qc.invalidateQueries({ queryKey: ['unread-count'] })
+    },
+  })
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/notifications/${id}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      setDetail(null)
+      qc.invalidateQueries({ queryKey: ['messages-type', type] })
+      qc.invalidateQueries({ queryKey: ['unread-count'] })
+    },
+    onError: () => {
+      toast.error(tm('deleteFailed'))
     },
   })
 
@@ -282,6 +299,7 @@ export default function MessageTypePage() {
       <NoticeDetailDialog
         detail={detail}
         onClose={() => setDetail(null)}
+        onDelete={isPrivateLetter ? undefined : (id) => deleteMut.mutate(id)}
         onOpenSession={(sessionId) => {
           setDetail(null)
           setConversationId(sessionId)

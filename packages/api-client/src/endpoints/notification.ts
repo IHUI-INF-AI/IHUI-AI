@@ -111,6 +111,11 @@ export async function markAllNotificationsRead(): Promise<ApiResult<{ success: b
   return fetchApi<{ success: boolean }>('/api/notifications/read-all', { method: 'POST' })
 }
 
+/** 一键删除当前用户的全部通知(与服务端 DELETE /notifications 同义) */
+export async function deleteAllNotifications(): Promise<ApiResult<{ deletedCount: number }>> {
+  return fetchApi<{ deletedCount: number }>('/api/notifications', { method: 'DELETE' })
+}
+
 /** D195 隐藏(归档)一条通知:写归档时刻,不删行 */
 export async function archiveNotification(
   id: string,

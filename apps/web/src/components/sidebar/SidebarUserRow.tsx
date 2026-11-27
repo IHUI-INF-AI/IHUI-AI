@@ -15,25 +15,19 @@ import {
   Crown,
   LogOut,
   Bell,
+  Sun,
+  Moon,
+  Languages,
   Download,
   Coins,
   Check,
-  Info,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  Palette,
-  Gift,
-  UserPlus,
-  type LucideIcon,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useMounted } from '@/hooks/use-mounted'
 import { useLanguageStore, type Language } from '@/stores/language'
-import { useAppearanceStore } from '@/stores/appearance-settings'
-import { applySkinChoice, resolveSkinChoice } from '@/lib/theme-skins'
 import { useNotificationStore } from '@/stores/notification'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { useDownloadTrack } from '@ihui/shared/hooks'
@@ -46,10 +40,11 @@ import { Dropdown, Modal, type DropdownItem } from '@/components/feedback'
 import {
   NotificationCenter,
   NoticeDetailDialog,
+  NOTICE_TYPE_META,
   type NoticeItem,
   type PendingDecisionView,
 } from '@/components/feature-center'
-import { buildNoticeDetail } from '@ihui/shared/notifications'
+import { buildNoticeDetail, readNoticeSessionId } from '@ihui/shared/notifications'
 import { LANGUAGES } from './nav-data'
 import {
   getActiveCurrency,
@@ -60,22 +55,19 @@ import {
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import {
+  deleteAllNotifications,
+  deleteNotification,
   getNotifications,
+  getUnreadCount,
   listPendingDecisions,
   markAllNotificationsRead,
   markNotificationRead,
 } from '@ihui/api-client'
 
 /**
- * 从 WS 通知条目的业务载荷里读会话深链 id(G2 自动化结果推送,2026-10-30)。
- * 载荷来源:shared 的 transformWsNotification 把 `data.data` 原样透传为 `payload`;
- * 字段缺失/形态不对时返回 null(侧栏只是不渲染深链,不因此丢整条通知)。
+ * 2026-11-27:深链 id 判据已收口到 @ihui/shared/notifications(readNoticeSessionId),
+ * 与 RN/小程序/消息页共用一份实现,端内不再各写一版。
  */
-function readNoticeSessionId(payload: unknown): string | null {
-  if (!payload || typeof payload !== 'object') return null
-  const sid = (payload as Record<string, unknown>).sessionId
-  return typeof sid === 'string' && sid.length > 0 ? sid : null
-}
 
 /** 二级菜单里的消息时间:当天只显示时分,跨天显示日期(时区口径由 date-utils 统一)。 */
 function formatNoticeTime(iso: string): string {
@@ -83,37 +75,11 @@ function formatNoticeTime(iso: string): string {
   return day === formatDateOnly(new Date()) ? formatTimeOnly(iso) : day
 }
 
-/** 消息类型视觉档(飞书式列表行:左侧圆形类型图标 + 标题/摘要 + 右侧时间)。
- *  与 NotificationCenter 的 TYPE_META 同源同义,新增类型时两处一起改。 */
-const NOTICE_META: Record<NoticeItem['type'], { icon: LucideIcon; tone: string }> = {
-  info: { icon: Info, tone: 'bg-primary/10 text-primary' },
-  success: { icon: CheckCircle2, tone: 'bg-green-500/10 text-green-600 dark:text-green-400' },
-  warning: { icon: AlertTriangle, tone: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' },
-  error: { icon: XCircle, tone: 'bg-red-500/10 text-red-600 dark:text-red-400' },
-}
+/** 消息类型视觉档的唯一实现已上移到 feature-center 的 NOTICE_TYPE_META:
+ *  侧栏二级菜单、通知中心、详情弹窗三处共用,新增类型时只改一处。 */
 
 /** 展示货币选项(与 CurrencySwitcher 同源顺序;菜单里用子菜单 + 勾选表示当前项) */
 const CURRENCY_OPTIONS: CurrencyCode[] = ['USD', 'CNY', 'USDT']
-
-/** 外观子菜单的百分比档位 — 与设置页连续滑块共用同一字段,菜单只做快捷档(不新增状态)。
- *  文字大小 = 对话字号(chatFontScale),界面缩放 = 全站字号档(uiScale),两者互不覆盖。 */
-const CHAT_FONT_OPTIONS = [90, 100, 110, 125, 140] as const
-const UI_SCALE_OPTIONS = [90, 100, 110, 120, 130, 140] as const
-
-/** 字体 / 内容宽度档位:labelKey 与设置页 appearanceSettings 同源(改档位两端同时生效) */
-const FONT_OPTIONS = [
-  { value: 'system', labelKey: 'fontFamilySystem' },
-  { value: 'sans', labelKey: 'fontFamilySans' },
-  { value: 'serif', labelKey: 'fontFamilySerif' },
-  { value: 'mono', labelKey: 'fontFamilyMono' },
-] as const
-const CONTENT_WIDTH_OPTIONS = [
-  { value: 'narrow', labelKey: 'widthNarrow' },
-  { value: 'standard', labelKey: 'widthStandard' },
-  { value: 'wide', labelKey: 'widthWide' },
-  { value: 'xwide', labelKey: 'widthXWide' },
-  { value: 'full', labelKey: 'widthFull' },
-] as const
 
 /** 侧边栏底部用户区:头像 + 用户名 + 下拉菜单。
  *  2026-09-21 用户要求(Qoder 风格):原 SidebarActions 底部 5 按钮
@@ -128,8 +94,8 @@ export function SidebarUserRow({
 }) {
   const t = useTranslations('nav')
   const tc = useTranslations('common')
-  const ts = useTranslations('settings')
-  const ta = useTranslations('appearanceSettings')
+  const tt = useTranslations('themeToggle')
+  const tm = useTranslations('messageDetail')
   const navigate = useNavigateWithProgress()
   const user = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -142,14 +108,16 @@ export function SidebarUserRow({
     selectedDisplayCurrency === 'auto'
       ? effectiveDisplayCurrency === code
       : selectedDisplayCurrency === code
-  const { theme, setTheme } = useTheme()
-  // 外观偏好:菜单直接读写与设置页同一份 store(不落第二份状态)
-  const appearance = useAppearanceStore()
+  const { resolvedTheme, setTheme } = useTheme()
   const notifications = useNotificationStore((s) => s.notifications)
   const unreadCount = useNotificationStore((s) => s.unreadCount)
+  const unreadMessageCount = useNotificationStore((s) => s.unreadMessageCount)
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead)
   const markAsRead = useNotificationStore((s) => s.markAsRead)
   const hydrateNotifications = useNotificationStore((s) => s.hydrateNotifications)
+  const deleteByIds = useNotificationStore((s) => s.deleteByIds)
+  const clearAll = useNotificationStore((s) => s.clearAll)
+  const setUnreadCounts = useNotificationStore((s) => s.setUnreadCounts)
   const { trackClick } = useAnalytics()
   const trackDownload = useDownloadTrack()
   // 下载栏的版本号/落点改由运行期真值投影(/downloads.json);取不到时保持构建期底稿
@@ -157,6 +125,9 @@ export function SidebarUserRow({
   // hydration-safe: 首屏按"未登录"渲染,挂载后才显示真实态,避免 SSR/CSR 不一致
   const mounted = useMounted()
   const showAuthed = mounted && isAuthenticated
+  // hydration-safe: next-themes 的 theme 在 SSR 返回 undefined,未挂载时固定 Moon + "深色",
+  // 挂载后再切真实态(与原 SidebarActions 同策略)。
+  const isDark = mounted && resolvedTheme === 'dark'
   const [msgOpen, setMsgOpen] = React.useState(false)
   /** 2026-11-27 可视回归补:头像菜单必须受控关闭。
    *  Radix DropdownMenu 默认 modal=true，点二级菜单条目后若菜单还开着，
@@ -227,21 +198,14 @@ export function SidebarUserRow({
     setLocale(code)
   }
 
-  // 主题:与设置页「主题」卡同一份四选一(随系统/珍珠白/曜石黑/芭比粉),
-  // 生效判定与写入都走 theme-skins 的共享实现 —— 菜单只是同一开关的快捷入口。
-  const skinChoice = resolveSkinChoice(appearance.customTheme, theme)
-  const skinOptions = [
-    { id: 'system' as const, labelKey: 'themeSkinDefault' },
-    { id: 'pearl' as const, labelKey: 'themeSkinPearl' },
-    { id: 'obsidian' as const, labelKey: 'themeSkinObsidian' },
-    { id: 'pink' as const, labelKey: 'presetBuiltinPink' },
-  ] as const
-  const applySkin = (choice: (typeof skinOptions)[number]['id']) =>
-    applySkinChoice(choice, {
-      update: appearance.update,
-      setTheme,
-      customTheme: appearance.customTheme,
-    })
+  // 底层加固(承继自原 SidebarActions 2026-08-29):以 <html> 的 .dark class 为事实源取对立面,
+  // 彻底消灭 resolvedTheme 为 undefined / 状态滞后等一切时序极端情况。
+  const handleToggleTheme = () => {
+    const isDarkNow =
+      (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) ||
+      resolvedTheme === 'dark'
+    setTheme(isDarkNow ? 'light' : 'dark')
+  }
 
   // store 中的 NotificationItem 映射为 NotificationCenter 所需的 NoticeItem
   const noticeItems: NoticeItem[] = notifications.map((n) => ({
@@ -284,13 +248,63 @@ export function SidebarUserRow({
     void markNotificationRead(id).catch(() => {})
   }
 
+  /**
+   * 单条删除:先关详情、乐观移除,再落服务端。失败回滚整份快照并给出可见提示,
+   * 不能出现「弹窗关了、服务端还留着、刷新后消息又回来」的假成功。
+   */
+  const handleNoticeDelete = async (id: string) => {
+    const snapshot = useNotificationStore.getState().notifications
+    const snapshotUnread = useNotificationStore.getState().unreadCount
+    const wasUnread = snapshot.some((n) => n.id === id && !n.isRead)
+    setDetailNotice(null)
+    deleteByIds([id])
+    setUnreadCounts({
+      notifications: Math.max(0, snapshotUnread - (wasUnread ? 1 : 0)),
+      messages: unreadMessageCount,
+    })
+    try {
+      const res = await deleteNotification(id)
+      if (!res.success) throw new Error(res.error || 'delete notification failed')
+      // 角标以服务端为准,本地乐观值只负责即时反馈
+      void getUnreadCount()
+        .then((count) => {
+          if (!count.success) return
+          setUnreadCounts({
+            notifications: count.data.notification,
+            messages: count.data.message,
+          })
+        })
+        .catch(() => {})
+    } catch {
+      hydrateNotifications(snapshot)
+      setUnreadCounts({ notifications: snapshotUnread, messages: unreadMessageCount })
+      toast.error(tm('deleteFailed'))
+    }
+  }
+
+  /** 一键删除全部:与全部已读同一条双写口径,失败回滚整份列表与角标。 */
+  const handleDeleteAll = async () => {
+    const snapshot = useNotificationStore.getState().notifications
+    const snapshotUnread = useNotificationStore.getState().unreadCount
+    setDetailNotice(null)
+    clearAll()
+    try {
+      const res = await deleteAllNotifications()
+      if (!res.success) throw new Error(res.error || 'delete all notifications failed')
+    } catch {
+      hydrateNotifications(snapshot)
+      setUnreadCounts({ notifications: snapshotUnread, messages: unreadMessageCount })
+      toast.error(tm('deleteFailed'))
+    }
+  }
+
   // 2026-11-11 用户要求:悬停「站内消息」直接展开二级菜单显示消息内容,
   // 不必先点开完整通知弹窗。最多取最近 6 条(store 已是最新在前),
   // 点击条目 = 标记已读 + 打开全文弹窗(2026-11-27 用户口径:点消息必须能看到全文);
   // 底部「查看全部通知」进入完整通知中心。
   // 2026-11-11 二次改:列表行按飞书消息列表样式 —— 圆形类型图标 + 加粗标题/灰色摘要 + 右侧时间与未读红点。
   const messagePreviewItems: DropdownItem[] = noticeItems.slice(0, 6).map((n) => {
-    const Meta = NOTICE_META[n.type]
+    const Meta = NOTICE_TYPE_META[n.type]
     const Icon = Meta.icon
     return {
       key: `notice-${n.id}`,
@@ -343,245 +357,148 @@ export function SidebarUserRow({
     }
   })
 
-  /** 子菜单父项右侧的当前值:不展开也能看见"现在是什么档" */
-  const subValue = (value: string) => (
-    <span className="pr-1 text-label text-muted-foreground">{value}</span>
-  )
-  /** 子菜单选项的当前项勾选 */
-  const checkMark = (active: boolean) => (active ? <Check className="h-4 w-4" /> : null)
-
-  const fontFamilyLabelKey =
-    FONT_OPTIONS.find((o) => o.value === appearance.fontFamily)?.labelKey ?? 'fontFamilySystem'
-  const contentWidthLabelKey =
-    CONTENT_WIDTH_OPTIONS.find((o) => o.value === appearance.contentWidth)?.labelKey ??
-    'widthStandard'
-
-  // 工具项(2026-09-21 迁入):站内消息(未读徽标 + 二级菜单预览)/ 显示货币 / 下载客户端。
-  // 2026-11-27 用户要求照 Qoder 头像菜单整理:语言/明暗不再单列,统一收进「外观」子菜单。
-  const messagesItem: DropdownItem = {
-    key: 'messages',
-    label: t('messages'),
-    icon: Bell,
-    trailing:
-      unreadCount > 0 ? (
-        <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-medium text-white">
-          {unreadCount > 99 ? '99+' : unreadCount}
-        </span>
-      ) : null,
-    contentClassName: 'w-80 p-2',
-    // 空态也要保留「查看全部通知」入口 —— 绝不能因为没拉到条目就把整条消息入口做成死路。
-    children: [
-      ...(messagePreviewItems.length > 0
-        ? messagePreviewItems
-        : [
-            {
-              key: 'messages-empty',
-              // 不设 disabled:空态只是占位文案,禁用态的半透明反而更脏
-              itemClassName:
-                'cursor-default justify-center px-2.5 py-6 text-label text-muted-foreground focus:bg-transparent',
-              label: (
-                <span className="flex items-center gap-1.5">
-                  <Bell className="h-3.5 w-3.5" />
-                  {t('messagesEmpty')}
-                </span>
-              ),
-            } as DropdownItem,
-          ]),
-      {
-        key: 'messages-view-all',
-        // 底部入口做成整块分隔式 footer:去掉圆角与左侧内边距,顶部一条细分隔线
-        itemClassName:
-          'mt-1 justify-center rounded-none border-t border-stroke-default px-2.5 pt-2 text-label font-medium text-muted-foreground',
-        label: t('messagesViewAll'),
-        onSelect: () => {
-          setMenuOpen(false)
-          setMsgOpen(true)
+  // 原 SidebarActions 的 5 个工具项(除"设置"已有外,其余全部迁入):
+  // 站内消息(未读徽标 + 悬停二级菜单预览)/ 语言(子菜单,当前项勾选)/
+  // 下载客户端(子菜单,即将上线的平台 disabled)/ 主题切换(明暗一键切换)。
+  const actionItems: DropdownItem[] = [
+    {
+      key: 'messages',
+      label: t('messages'),
+      icon: Bell,
+      trailing:
+        unreadCount > 0 ? (
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-medium text-white">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        ) : null,
+      contentClassName: 'w-80 p-2',
+      // 空态也要保留「查看全部通知」入口 —— 绝不能因为没拉到条目就把整条消息入口做成死路。
+      children: [
+        ...(messagePreviewItems.length > 0
+          ? messagePreviewItems
+          : [
+              {
+                key: 'messages-empty',
+                // 不设 disabled:空态只是占位文案,禁用态的半透明反而更脏
+                itemClassName:
+                  'cursor-default justify-center px-2.5 py-6 text-label text-muted-foreground focus:bg-transparent',
+                label: (
+                  <span className="flex items-center gap-1.5">
+                    <Bell className="h-3.5 w-3.5" />
+                    {t('messagesEmpty')}
+                  </span>
+                ),
+              } as DropdownItem,
+            ]),
+        {
+          key: 'messages-view-all',
+          // 底部入口做成整块分隔式 footer:去掉圆角与左侧内边距,顶部一条细分隔线
+          itemClassName:
+            'mt-1 justify-center rounded-none border-t border-stroke-default px-2.5 pt-2 text-label font-medium text-muted-foreground',
+          label: t('messagesViewAll'),
+          onSelect: () => {
+            setMenuOpen(false)
+            setMsgOpen(true)
+          },
         },
-      },
-    ],
-  }
-
-  const currencyItem: DropdownItem = {
-    key: 'displayCurrency',
-    // 语言中立标签:币种代码本身就是通用写法,无需为 5 个语言包新增翻译键
-    label: 'USD / CNY / USDT',
-    icon: Coins,
-    children: CURRENCY_OPTIONS.map((code) => ({
-      key: `currency-${code}`,
-      label: code,
-      trailing: isCurrencyActive(code) ? <Check className="h-4 w-4" /> : null,
-      onSelect: () => setSelectedCurrency(code),
-    })),
-  }
-
-  const downloadItem: DropdownItem = {
-    key: 'downloadClient',
-    label: t('downloadClient'),
-    icon: Download,
-    children: DOWNLOADS.map((dl) => {
-      // 运行期真值优先,判据单源 = downloads-live-meta 的 liveEntryView(与详情页 mergeLiveMeta 同规则);
-      // 取不到时照旧用构建期底稿 —— 这条腿挂掉的可见表现必须是"版本号旧一格",不是"整栏点不动"
-      const liveView = liveEntryView(liveDownloads?.[dl.platform], dl.href)
-      const href = liveView.href
-      const version = liveView.version ?? dl.version
-      const available = isDownloadAvailable(dl.platform) || liveView.hasLiveAsset
-      const isExternal = isExternalDownloadHref(href)
-      return {
-        key: `download-${dl.platform}`,
-        icon: dl.icon,
-        disabled: !available,
+      ],
+    },
+    {
+      key: 'language',
+      label: t('language'),
+      icon: Languages,
+      children: LANGUAGES.map((lang) => ({
+        key: `lang-${lang.code}`,
         label: (
-          <span className="flex min-w-0 flex-col">
-            <span className="flex items-center gap-1.5">
-              <span className={cn('truncate', !available && 'text-muted-foreground')}>
-                {t(dl.labelKey)}
-              </span>
-              {version && available && (
-                <span className="shrink-0 rounded-md bg-muted px-1 py-px text-[9px] font-medium text-muted-foreground">
-                  v{version}
-                </span>
-              )}
-              {!available && (
-                <span className="shrink-0 rounded-md bg-amber-500/15 px-1 py-px text-[9px] font-medium text-amber-600 dark:text-amber-400">
-                  {t('downloadComingSoon')}
-                </span>
-              )}
+          <span className="flex items-center gap-2">
+            <span
+              data-lang-code={lang.code}
+              className="flex h-5 w-7 shrink-0 items-center justify-center rounded-md border border-border text-[10px] font-bold tracking-wide text-foreground"
+            >
+              {lang.badge}
             </span>
-            {dl.descKey && (
-              <span className="block truncate text-[11px] text-muted-foreground">
-                {t(dl.descKey)}
-              </span>
-            )}
+            <span>{lang.name}</span>
           </span>
         ),
-        onSelect: () => {
-          if (!available) return
-          trackClick(`download_${dl.platform}`, 'user_menu')
-          trackDownload(dl.platform, 'sidebar')
-          if (isExternal) {
-            window.open(href, '_blank', 'noopener,noreferrer')
-          } else {
-            navigate(href)
-            onCloseMobile()
-          }
-        },
-      }
-    }),
-  }
-
-  // 「外观」子菜单(Qoder 头像菜单整理,2026-11-27):
-  // 语言 / 明暗 / 主题色 / 字体 / 文字大小 / 界面缩放 / 内容宽度 全部收进这一处,
-  // 每项直接读写设置页同一份 store(不落第二份状态);底部留口直达完整外观设置页。
-  const appearanceItem: DropdownItem = {
-    key: 'appearance',
-    label: ts('appearance'),
-    icon: Palette,
-    // 二级项右侧带当前值,子菜单要比默认 10rem 宽一档,值才不会被挤断
-    contentClassName: 'min-w-[11.5rem]',
-    children: [
-      {
-        key: 'appearance-language',
-        label: t('language'),
-        trailing: subValue(LANGUAGES.find((l) => l.code === locale)?.name ?? locale),
-        children: LANGUAGES.map((lang) => ({
-          key: `lang-${lang.code}`,
+        trailing: locale === lang.code ? <Check className="h-4 w-4" /> : null,
+        onSelect: () => handleLocaleChange(lang.code),
+      })),
+    },
+    {
+      key: 'displayCurrency',
+      // 语言中立标签:币种代码本身就是通用写法,无需为 5 个语言包新增翻译键
+      label: 'USD / CNY / USDT',
+      icon: Coins,
+      children: CURRENCY_OPTIONS.map((code) => ({
+        key: `currency-${code}`,
+        label: code,
+        trailing: isCurrencyActive(code) ? <Check className="h-4 w-4" /> : null,
+        onSelect: () => setSelectedCurrency(code),
+      })),
+    },
+    {
+      key: 'downloadClient',
+      label: t('downloadClient'),
+      icon: Download,
+      children: DOWNLOADS.map((dl) => {
+        // 运行期真值优先,判据单源 = downloads-live-meta 的 liveEntryView(与详情页 mergeLiveMeta 同规则);
+        // 取不到时照旧用构建期底稿 —— 这条腿挂掉的可见表现必须是"版本号旧一格",不是"整栏点不动"
+        const liveView = liveEntryView(liveDownloads?.[dl.platform], dl.href)
+        const href = liveView.href
+        const version = liveView.version ?? dl.version
+        const available = isDownloadAvailable(dl.platform) || liveView.hasLiveAsset
+        const isExternal = isExternalDownloadHref(href)
+        return {
+          key: `download-${dl.platform}`,
+          icon: dl.icon,
+          disabled: !available,
           label: (
-            <span className="flex items-center gap-2">
-              <span
-                data-lang-code={lang.code}
-                className="flex h-5 w-7 shrink-0 items-center justify-center rounded-md border border-border text-[10px] font-bold tracking-wide text-foreground"
-              >
-                {lang.badge}
+            <span className="flex min-w-0 flex-col">
+              <span className="flex items-center gap-1.5">
+                <span className={cn('truncate', !available && 'text-muted-foreground')}>
+                  {t(dl.labelKey)}
+                </span>
+                {version && available && (
+                  <span className="shrink-0 rounded-md bg-muted px-1 py-px text-[9px] font-medium text-muted-foreground">
+                    v{version}
+                  </span>
+                )}
+                {!available && (
+                  <span className="shrink-0 rounded-md bg-amber-500/15 px-1 py-px text-[9px] font-medium text-amber-600 dark:text-amber-400">
+                    {t('downloadComingSoon')}
+                  </span>
+                )}
               </span>
-              <span>{lang.name}</span>
+              {dl.descKey && (
+                <span className="block truncate text-[11px] text-muted-foreground">
+                  {t(dl.descKey)}
+                </span>
+              )}
             </span>
           ),
-          trailing: checkMark(locale === lang.code),
-          onSelect: () => handleLocaleChange(lang.code),
-        })),
-      },
-      {
-        key: 'appearance-theme-skin',
-        label: ta('themeSkinLabel'),
-        trailing: subValue(
-          ta(skinOptions.find((o) => o.id === skinChoice)?.labelKey ?? 'themeSkinDefault'),
-        ),
-        children: skinOptions.map((opt) => ({
-          key: `theme-skin-${opt.id}`,
-          label: ta(opt.labelKey),
-          trailing: checkMark(skinChoice === opt.id),
-          onSelect: () => applySkin(opt.id),
-        })),
-      },
-      {
-        key: 'appearance-font-family',
-        label: ta('fontFamily'),
-        trailing: subValue(ta(fontFamilyLabelKey)),
-        children: FONT_OPTIONS.map((opt) => ({
-          key: `appearance-font-${opt.value}`,
-          label: ta(opt.labelKey),
-          trailing: checkMark(appearance.fontFamily === opt.value),
-          onSelect: () => appearance.update({ fontFamily: opt.value }),
-        })),
-      },
-      {
-        key: 'appearance-font-size',
-        label: t('fontSize'),
-        trailing: subValue(`${Math.round(appearance.chatFontScale * 100)}%`),
-        children: CHAT_FONT_OPTIONS.map((percent) => ({
-          key: `appearance-font-size-${percent}`,
-          label: ta('valuePercent', { value: percent }),
-          trailing: checkMark(Math.round(appearance.chatFontScale * 100) === percent),
-          onSelect: () => appearance.update({ chatFontScale: percent / 100 }),
-        })),
-      },
-      {
-        key: 'appearance-ui-scale',
-        label: ta('uiScale'),
-        trailing: subValue(`${Math.round(appearance.uiScale * 100)}%`),
-        children: UI_SCALE_OPTIONS.map((percent) => ({
-          key: `appearance-ui-scale-${percent}`,
-          label: ta('valuePercent', { value: percent }),
-          trailing: checkMark(Math.round(appearance.uiScale * 100) === percent),
-          onSelect: () => appearance.update({ uiScale: percent / 100 }),
-        })),
-      },
-      {
-        key: 'appearance-content-width',
-        label: ta('contentWidth'),
-        trailing: subValue(ta(contentWidthLabelKey)),
-        children: CONTENT_WIDTH_OPTIONS.map((opt) => ({
-          key: `appearance-width-${opt.value}`,
-          label: ta(opt.labelKey),
-          trailing: checkMark(appearance.contentWidth === opt.value),
-          onSelect: () => appearance.update({ contentWidth: opt.value }),
-        })),
-      },
-      {
-        key: 'appearance-more',
-        label: t('moreAppearanceSettings'),
-        itemClassName: 'mt-1',
-        onSelect: () => {
-          navigate('/settings/appearance')
-          onCloseMobile()
-        },
-      },
-    ],
-  }
-
-  const aboutItem: DropdownItem = {
-    key: 'about',
-    label: t('about'),
-    icon: Info,
-    onSelect: () => {
-      navigate('/about')
-      onCloseMobile()
+          onSelect: () => {
+            if (!available) return
+            trackClick(`download_${dl.platform}`, 'user_menu')
+            trackDownload(dl.platform, 'sidebar')
+            if (isExternal) {
+              window.open(href, '_blank', 'noopener,noreferrer')
+            } else {
+              navigate(href)
+              onCloseMobile()
+            }
+          },
+        }
+      }),
     },
-  }
+    {
+      key: 'themeToggle',
+      label: isDark ? tt('lightMode') : tt('darkMode'),
+      icon: isDark ? Sun : Moon,
+      onSelect: handleToggleTheme,
+    },
+  ]
 
-  // 菜单内容(Qoder 式分组,2026-11-27 用户要求整理):
-  // 用户头 → 账号动作(设置/个人中心/升级计划/权益中心/邀请好友) → 外观 →
-  // 工具(消息/货币/下载/关于) → 退出登录。组间用行距分区(项目禁分割线)。
+  // 菜单内容:已登录 = 用户信息头 + 个人中心/会员中心 + 工具项(消息/语言/下载/主题/设置) + 退出登录
   const userMenuItems: DropdownItem[] = [
     {
       key: 'header',
@@ -600,15 +517,6 @@ export function SidebarUserRow({
       ),
     },
     {
-      key: 'settings',
-      label: t('settings'),
-      icon: Settings,
-      onSelect: () => {
-        navigate('/settings')
-        onCloseMobile()
-      },
-    },
-    {
       key: 'profile',
       label: t('user'),
       icon: User,
@@ -619,58 +527,39 @@ export function SidebarUserRow({
     },
     {
       key: 'vip',
-      label: t('upgradePlan'),
+      label: t('vip'),
       icon: Crown,
       onSelect: () => {
         navigate('/vip')
         onCloseMobile()
       },
     },
+    ...actionItems,
     {
-      key: 'benefits',
-      label: t('benefitsCenter'),
-      icon: Gift,
+      key: 'settings',
+      label: t('settings'),
+      icon: Settings,
       onSelect: () => {
-        navigate('/member/benefits')
+        navigate('/settings')
         onCloseMobile()
       },
     },
-    {
-      key: 'invite',
-      label: t('inviteFriends'),
-      icon: UserPlus,
-      onSelect: () => {
-        navigate('/invitations')
-        onCloseMobile()
-      },
-    },
-    { ...appearanceItem, itemClassName: 'mt-1' },
-    { ...messagesItem, itemClassName: 'mt-1' },
-    currencyItem,
-    downloadItem,
-    aboutItem,
     {
       key: 'logout',
       label: tc('logout'),
       icon: LogOut,
       danger: true,
-      itemClassName: 'mt-1',
       onSelect: handleLogout,
     },
   ]
 
   // 未登录 = 同一套工具项 + 登录(替代原独立登录按钮的直接打开行为)
   const guestMenuItems: DropdownItem[] = [
-    appearanceItem,
-    { ...messagesItem, itemClassName: 'mt-1' },
-    currencyItem,
-    downloadItem,
-    aboutItem,
+    ...actionItems,
     {
       key: 'login',
       label: tc('login'),
       icon: LogIn,
-      itemClassName: 'mt-1',
       onSelect: () => {
         useLoginDialogStore.getState().open('login')
         onCloseMobile()
@@ -787,8 +676,6 @@ export function SidebarUserRow({
       <Dropdown
         align="start"
         side="top"
-        // 2026-11-27 整理:菜单项带"当前值"尾注,最窄 13.5rem 保证值不被截断
-        className="min-w-[13.5rem]"
         items={showAuthed ? userMenuItems : guestMenuItems}
         trigger={showAuthed ? userTrigger : loginTrigger}
         open={menuOpen}
@@ -806,6 +693,7 @@ export function SidebarUserRow({
         <NotificationCenter
           items={noticeItems}
           onMarkAllRead={handleMarkAllRead}
+          onDeleteAll={handleDeleteAll}
           pendingDecisions={pendingDecisions ?? undefined}
           onDecisionItemClick={handleDecisionItemClick}
           onSessionLinkClick={handleNoticeSessionLink}
@@ -834,6 +722,7 @@ export function SidebarUserRow({
             : null
         }
         onClose={() => setDetailNotice(null)}
+        onDelete={(id) => void handleNoticeDelete(id)}
         onOpenSession={(sessionId) => {
           setDetailNotice(null)
           handleNoticeSessionLink(sessionId)

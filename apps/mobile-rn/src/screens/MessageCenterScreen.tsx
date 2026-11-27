@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
   deleteConversation,
+  deleteNotification,
   fetchApi,
   markNotificationRead,
   setConversationPinned,
@@ -299,6 +300,25 @@ export function MessageCenterScreen() {
   )
 
   /**
+   * 删除站内消息:数据源是 /notifications,删除出口与 Web 同一条
+   * DELETE /api/notifications/:id。成功即从当前列表摘掉并关抽屉;失败显式喊出。
+   */
+  const handleDeleteNotice = useCallback(
+    async (detail: NoticeDetailData) => {
+      try {
+        const res = await deleteNotification(detail.id)
+        if (!res.success) throw new Error()
+        setItems((prev) => prev.filter((it) => it.id !== detail.id))
+        setTotal((prev) => Math.max(0, prev - 1))
+        setNoticeDetail(null)
+      } catch {
+        appAlert(t('messageCenter.title'), t('common.failed'))
+      }
+    },
+    [t],
+  )
+
+  /**
    * 删除会话:数据源就是 listConversations(chat_conversations),删除出口同源 =
    * @ihui/api-client deleteConversation(DELETE /api/chat/conversations/:id,级联删消息)。
    * 破坏性动作先经 appAlert(端内自绘确认层,非原生弹窗)二次确认,失败显式喊出。
@@ -408,6 +428,7 @@ export function MessageCenterScreen() {
         visible={noticeDetail !== null}
         detail={noticeDetail}
         onClose={() => setNoticeDetail(null)}
+        onDelete={(detail) => void handleDeleteNotice(detail)}
         onCopy={(detail) => {
           Clipboard.setString(noticeDetailCopyText(detail))
         }}

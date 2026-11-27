@@ -1,11 +1,12 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE).
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 
 import * as React from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { ArrowUpRight, Copy, Check } from 'lucide-react'
+import { ArrowUpRight, Copy, Check, Trash2 } from 'lucide-react'
 
 import type { NoticeDetailData } from '@ihui/types'
 import { noticeDetailCopyText } from '@ihui/shared/notifications'
@@ -20,6 +21,8 @@ export interface NoticeDetailDialogProps {
   onClose: () => void
   /** 「查看会话」:detail.sessionId 存在且传了回调才渲染入口 */
   onOpenSession?: (sessionId: string) => void
+  /** 删除本条:不传则不渲染删除入口(系统公告等只读消息不提供删除) */
+  onDelete?: (id: string) => void
 }
 
 /** 站内消息全文弹窗(2026-11-27 三端统一口径:单击消息 = 就地看全文)。
@@ -27,7 +30,12 @@ export interface NoticeDetailDialogProps {
  *  列表行只显示截断的标题/摘要,详情必须给出**完整正文**(换行保留、可滚动),
  *  并把「复制」「查看会话」放进弹层,而不是让用户点一下只看到"已读"状态变化。
  *  Web 端壳;RN/小程序共用 packages/app 的同字段 Sheet,数据投影三端共用 @ihui/shared。 */
-export function NoticeDetailDialog({ detail, onClose, onOpenSession }: NoticeDetailDialogProps) {
+export function NoticeDetailDialog({
+  detail,
+  onClose,
+  onOpenSession,
+  onDelete,
+}: NoticeDetailDialogProps) {
   const t = useTranslations('messageDetail')
   const tc = useTranslations('common')
   const locale = useLocale()
@@ -83,14 +91,28 @@ export function NoticeDetailDialog({ detail, onClose, onOpenSession }: NoticeDet
             {detail.content || t('notFound')}
           </div>
           <div className="flex items-center justify-between gap-2">
-            <Button variant="ghost" size="sm" onClick={handleCopy} disabled={!detail.content}>
-              {copied ? (
-                <Check className="mr-1 h-3.5 w-3.5" />
-              ) : (
-                <Copy className="mr-1 h-3.5 w-3.5" />
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="sm" onClick={handleCopy} disabled={!detail.content}>
+                {copied ? (
+                  <Check className="mr-1 h-3.5 w-3.5" />
+                ) : (
+                  <Copy className="mr-1 h-3.5 w-3.5" />
+                )}
+                {copied ? t('copied') : t('copy')}
+              </Button>
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => onDelete(detail.id)}
+                  data-testid="notice-detail-delete"
+                >
+                  <Trash2 className="mr-1 h-3.5 w-3.5" />
+                  {tc('delete')}
+                </Button>
               )}
-              {copied ? t('copied') : t('copy')}
-            </Button>
+            </div>
             <div className="flex items-center gap-2">
               {detail.sessionId && onOpenSession && (
                 <Button
@@ -112,3 +134,4 @@ export function NoticeDetailDialog({ detail, onClose, onOpenSession }: NoticeDet
     </Modal>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

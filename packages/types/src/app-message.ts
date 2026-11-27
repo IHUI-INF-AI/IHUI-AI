@@ -219,6 +219,8 @@ export interface NoticeDetailSheetProps {
   onCopy?: (detail: NoticeDetailData) => void
   /** 查看会话(detail.sessionId 存在时才渲染);不传则入口不渲染 */
   onOpenSession?: (sessionId: string) => void
+  /** 删除本条(平台实现删除出口);不传则不渲染删除按钮(只读公告不提供删除) */
+  onDelete?: (detail: NoticeDetailData) => void
   colorScheme?: 'light' | 'dark'
 }
 

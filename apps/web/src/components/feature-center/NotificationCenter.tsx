@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   XCircle,
   ArrowUpRight,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -47,6 +48,8 @@ export interface PendingDecisionView {
 export interface NotificationCenterProps {
   items: NoticeItem[]
   onMarkAllRead?: () => void
+  /** 一键删除当前列表全部通知;不传则不渲染入口(只读场景不提供破坏性动作) */
+  onDeleteAll?: () => void
   onClose?: () => void
   onItemClick?: (item: NoticeItem) => void
   /** D193:「我的待决策」聚合(传 undefined = 整区隐藏;传数组 = 展示,含空态) */
@@ -71,6 +74,7 @@ export const NOTICE_TYPE_META: Record<NoticeItem['type'], { icon: LucideIcon; to
 export function NotificationCenter({
   items,
   onMarkAllRead,
+  onDeleteAll,
   onClose,
   onItemClick,
   pendingDecisions,
@@ -106,6 +110,18 @@ export function NotificationCenter({
             <Button variant="ghost" size="sm" className="text-label" onClick={onMarkAllRead}>
               <CheckCheck className="mr-1 h-3.5 w-3.5" />
               全部已读
+            </Button>
+          )}
+          {onDeleteAll && items.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-label text-destructive hover:text-destructive"
+              onClick={onDeleteAll}
+              data-testid="notification-center-delete-all"
+            >
+              <Trash2 className="mr-1 h-3.5 w-3.5" />
+              {tm('deleteAll')}
             </Button>
           )}
           {onClose && (
