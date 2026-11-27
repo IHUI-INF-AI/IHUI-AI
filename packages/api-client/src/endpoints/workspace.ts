@@ -6,7 +6,7 @@ import type { ApiResult, ChangeRequestSnapshot, GitStatusSnapshot } from '@ihui/
 // 权限档 wire 拼写的唯一来源是共享类型(本包不再自抄一份,见 528 行附近)
 import type { PermissionModeWire as WorkspacePermissionMode } from '@ihui/types/permission-mode'
 
-import { fetchApi } from '../client.js'
+import { fetchApi, fetchRaw } from '../client.js'
 import { buildQs, type PageData } from '../utils.js'
 
 export interface Workspace {
@@ -256,6 +256,18 @@ export async function readFile(params: {
 }): Promise<ApiResult<{ content: string; lines: number; path: string }>> {
   return fetchApi<{ content: string; lines: number; path: string }>('/api/workspace/fs/read', {
     method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/**
+ * 读取工作区文件原始字节(2026-11-26,二进制预览)。
+ * 文本读仍走 `readFile`;这里只给图片/PDF/Office/音视频等"编辑器渲染不了"的档。
+ */
+export async function readFileRaw(params: { path: string; workspacePath: string }): Promise<Blob> {
+  return fetchRaw('/api/workspace/fs/raw', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   })
 }

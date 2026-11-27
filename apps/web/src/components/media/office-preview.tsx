@@ -18,6 +18,7 @@ import {
   type PreviewSourceText as SourceTextValue,
   type PreviewViewMode,
 } from './preview-view-switch'
+import { PptxPreview } from './pptx-visual'
 import type { WorkBook } from 'xlsx'
 import type * as XlsxTypes from 'xlsx'
 
@@ -25,7 +26,7 @@ import type * as XlsxTypes from 'xlsx'
  * OfficePreview — Office 消息内富预览(D41,2026-09-24 立)。
  *
  * 分发层在 markdown-stream 的 MarkdownLink(isOfficeLink 分支):非流式时把
- * docx/xlsx/pptx 链接升级为本组件(与 PdfEmbed/CsvPreview 同思路)。
+ * docx/xlsx/xls/pptx 链接升级为本组件(与 PdfEmbed/CsvPreview 同思路)。
  *
  * 四态(硬验收):
  *  - 可用:正常渲染
@@ -37,9 +38,9 @@ import type * as XlsxTypes from 'xlsx'
  *
  * 渲染实现(均为动态 import,不进主包):
  *  - docx → docx-preview.renderAsync(保真渲染)
- *  - xlsx → SheetJS 读工作簿,sheet 切换 tab + 前 N 行(默认 200)表格 + 选区行列号(只读)
- *  - pptx → jszip 解 XML 降级:逐 slide 提取 <a:t> 文本 + notesSlide 讲者备注,
- *           渲染为"文本+备注大纲"(任务已授权不做幻灯片视觉渲染)
+ *  - xlsx/xls → SheetJS 读工作簿,sheet 切换 tab + 前 N 行(默认 200)表格 + 选区行列号(只读)
+ *  - pptx → `pptx-visual` 解析 OOXML:按 slide 顺序还原文本框/图片/表格/背景,
+ *           并保留"文字大纲"作为兜底与辅助视图。任务不再只做文本大纲。
  */
 
 /** 超过该体积不自动加载,等用户点"加载预览"(默认 10MB)。 */
@@ -51,8 +52,8 @@ export const XLSX_PREVIEW_MAX_ROWS = 200
 
 /** 支持富预览的扩展名(小写、不带点)。
  *  D76(2026-09-24 立)导出供 artifact-turn-badge 分型判据 import 复用——
- *  docx/xlsx/pptx 三型的 kind 判据唯一真相源在此,禁止第二套。 */
-export const SUPPORTED_EXTS = new Set(['docx', 'xlsx', 'pptx'])
+ *  docx/xlsx/xls/pptx 四型的 kind 判据唯一真相源在此,禁止第二套。 */
+export const SUPPORTED_EXTS = new Set(['docx', 'xlsx', 'xls', 'pptx'])
 
 export type OfficePreviewStatus =
   'probing' | 'lazy' | 'loading' | 'ready' | 'too-large' | 'expired' | 'unsupported'
@@ -87,8 +88,8 @@ const OOXML_TEXT_PART_RE = /\.(xml|rels|txt)$/i
 /**
  * 从**已在手里的** ArrayBuffer 派生 OOXML 部件原文(docx/xlsx/pptx 同为 zip 容器)。
  *
- * 这里一次 fetch 都没有 —— jszip 只在内存字节上解包,`import('jszip')` 走 parsePptx 已建立的
- * 同一份模块缓存。切视图因此结构上不可能触发新取数,而不是"记得没写 fetch"。
+ * 这里一次 fetch 都没有 —— jszip 只在内存字节上解包,`import('jszip')` 走 pptx-visual
+ * 的 loadZip 已建立的同一份模块缓存。切视图因此结构上不可能触发新取数,而不是"记得没写 fetch"。
  */
 export async function extractOfficeSourceText(
   data: ArrayBuffer,
@@ -138,6 +139,79 @@ export function xlsxColumnRef(col: number): string {
     c = Math.floor(c / 26) - 1
   }
   return s
+}
+
+interface XlsxMergeSpan {
+  readonly rowSpan: number
+  readonly colSpan: number
+}
+
+/** ARGB / RGB 都归一成 CSS 可用色值;无法识别时交给上层忽略。 */
+function xlsxColor(value: string | undefined): string | undefined {
+  if (!value) return undefined
+  const hex = value.replace(/^#/, '').trim()
+  if (/^[0-9a-fA-F]{8}$/.test(hex)) return `#${hex.slice(-6)}`
+  if (/^[0-9a-fA-F]{6}$/.test(hex)) return `#${hex}`
+  return undefined
+}
+
+/** 单元格样式只在 SheetJS 真解析出 `s` 时生效;没有样式就完全沿用表格默认样式。 */
+export function xlsxCellCss(
+  cell: XlsxTypes.CellObject | undefined,
+): React.CSSProperties | undefined {
+  const style = cell?.s as
+    | {
+        fill?: { fgColor?: { rgb?: string } }
+        font?: { bold?: boolean; color?: { rgb?: string }; sz?: number }
+        alignment?: { horizontal?: string }
+      }
+    | undefined
+  if (!style) return undefined
+  const background = xlsxColor(style.fill?.fgColor?.rgb)
+  const color = xlsxColor(style.font?.color?.rgb)
+  const align = style.alignment?.horizontal
+  return {
+    backgroundColor: background,
+    color,
+    fontWeight: style.font?.bold ? 700 : undefined,
+    fontSize: style.font?.sz ? `${style.font.sz}px` : undefined,
+    textAlign: align === 'center' || align === 'right' ? align : undefined,
+  }
+}
+
+/** Excel 列宽优先用 px/wch,老式 width 单位按 7px 近似;只为可视对齐,不承诺像素级。 */
+function xlsxColumnWidths(sheet: XlsxTypes.WorkSheet | undefined): (string | undefined)[] {
+  const cols = sheet?.['!cols'] as
+    readonly { wpx?: number; wch?: number; width?: number }[] | undefined
+  if (!cols) return []
+  return cols.map((col) => {
+    if (typeof col?.wpx === 'number' && col.wpx > 0) return `${Math.round(col.wpx)}px`
+    if (typeof col?.wch === 'number' && col.wch > 0) return `${Math.round(col.wch)}ch`
+    if (typeof col?.width === 'number' && col.width > 0) return `${Math.round(col.width * 7)}px`
+    return undefined
+  })
+}
+
+/** 合并单元格索引:起点带 span,被覆盖格不再重复渲染。行号一律 1 基。 */
+function xlsxMergeMaps(merges: readonly XlsxTypes.Range[] | undefined): {
+  readonly starts: ReadonlyMap<string, XlsxMergeSpan>
+  readonly covered: ReadonlySet<string>
+} {
+  const starts = new Map<string, XlsxMergeSpan>()
+  const covered = new Set<string>()
+  for (const merge of merges ?? []) {
+    const rowSpan = merge.e.r - merge.s.r + 1
+    const colSpan = merge.e.c - merge.s.c + 1
+    if (rowSpan <= 0 || colSpan <= 0) continue
+    starts.set(`${merge.s.r + 1}:${merge.s.c}`, { rowSpan, colSpan })
+    for (let r = merge.s.r; r <= merge.e.r; r += 1) {
+      for (let c = merge.s.c; c <= merge.e.c; c += 1) {
+        if (r === merge.s.r && c === merge.s.c) continue
+        covered.add(`${r + 1}:${c}`)
+      }
+    }
+  }
+  return { starts, covered }
 }
 
 // eslint 的 consistent-type-imports 禁止 `typeof import('xlsx')` 这种 import() 类型标注;
@@ -271,7 +345,7 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
     setState(INITIAL_XLSX_STATE)
     loadXlsx()
       .then((mod) => {
-        const book = mod.read(data, { type: 'array' })
+        const book = mod.read(data, { type: 'array', cellStyles: true })
         const active = book.SheetNames[0] ?? ''
         if (cancelled) return
         setState((prev) => ({ ...prev, book, active }))
@@ -327,9 +401,17 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
 
   const header = state.rows[0] ?? []
   const bodyRows = state.rows.slice(1)
+  const sheet = state.book.Sheets[state.active]
+  const mergeMaps = xlsxMergeMaps(sheet?.['!merges'])
+  const columnWidths = xlsxColumnWidths(sheet)
   const selectedRef = state.selected
     ? `${xlsxColumnRef(state.selected.col)}${state.selected.row + 1}`
     : null
+  const selectedCell = selectedRef ? sheet?.[selectedRef] : undefined
+  const formulaText = selectedCell?.f ? `=${selectedCell.f}` : null
+  const valueText =
+    selectedCell?.w ??
+    (selectedCell?.v === undefined || selectedCell?.v === null ? '' : String(selectedCell.v))
 
   return (
     <div className="max-h-[420px] overflow-auto" data-testid="xlsx-grid">
@@ -369,35 +451,68 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
           )}
         </span>
       </div>
+      {selectedRef ? (
+        <div
+          className="flex items-center gap-2 border-b bg-background px-2 py-1 text-[10px]"
+          data-testid="xlsx-formula"
+        >
+          <span className="w-14 shrink-0 rounded bg-muted px-1 py-0.5 text-center tabular-nums">
+            {selectedRef}
+          </span>
+          <span className="min-w-0 truncate" data-testid="xlsx-formula-value">
+            {formulaText ?? valueText}
+          </span>
+        </div>
+      ) : null}
       <table className="w-full border-collapse text-label" data-testid="xlsx-table">
         <thead>
           <tr>
-            {header.map((h, i) => (
-              <th
-                key={`h-${i}`}
-                className="border border-border bg-muted/50 px-2 py-1 text-left font-medium"
-              >
-                {h}
-              </th>
-            ))}
+            {header.map((h, i) => {
+              if (mergeMaps.covered.has(`1:${i}`)) return null
+              const span = mergeMaps.starts.get(`1:${i}`)
+              const cell = sheet?.[`${xlsxColumnRef(i)}1`]
+              return (
+                <th
+                  key={`h-${i}`}
+                  colSpan={span?.colSpan}
+                  rowSpan={span?.rowSpan}
+                  style={{ ...xlsxCellCss(cell), width: columnWidths[i] }}
+                  className="border border-border bg-muted/50 px-2 py-1 text-left font-medium"
+                >
+                  {h}
+                </th>
+              )
+            })}
           </tr>
         </thead>
         <tbody>
           {bodyRows.map((r, ri) => (
             <tr key={`r-${ri}`}>
-              {r.map((c, ci) => (
-                <td
-                  key={`c-${ci}`}
-                  data-testid="xlsx-cell"
-                  onClick={() => {
-                    setAnchorCell({ sheet: state.active, range: `${xlsxColumnRef(ci)}${ri + 1}` })
-                    setState((prev) => ({ ...prev, selected: { row: ri + 1, col: ci } }))
-                  }}
-                  className="cursor-pointer border border-border px-2 py-1 hover:bg-muted/50"
-                >
-                  {c}
-                </td>
-              ))}
+              {r.map((c, ci) => {
+                const rowNo = ri + 2
+                if (mergeMaps.covered.has(`${rowNo}:${ci}`)) return null
+                const span = mergeMaps.starts.get(`${rowNo}:${ci}`)
+                const cell = sheet?.[`${xlsxColumnRef(ci)}${rowNo}`]
+                return (
+                  <td
+                    key={`c-${ci}`}
+                    data-testid="xlsx-cell"
+                    colSpan={span?.colSpan}
+                    rowSpan={span?.rowSpan}
+                    style={{ ...xlsxCellCss(cell), width: columnWidths[ci] }}
+                    onClick={() => {
+                      setAnchorCell({
+                        sheet: state.active,
+                        range: `${xlsxColumnRef(ci)}${ri + 1}`,
+                      })
+                      setState((prev) => ({ ...prev, selected: { row: ri + 1, col: ci } }))
+                    }}
+                    className="cursor-pointer border border-border px-2 py-1 hover:bg-muted/50"
+                  >
+                    {c}
+                  </td>
+                )
+              })}
             </tr>
           ))}
         </tbody>
@@ -411,98 +526,6 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
         />
       )}
     </div>
-  )
-}
-
-// ---------------------------------------------------------------- pptx ----
-
-interface PptxSlide {
-  readonly text: string
-  readonly notes: string | null
-}
-
-/** 逐 slide 提取 <a:t> 文本与 notesSlide 备注(按编号对齐,OOXML 实际以关系映射,
- *  但主流生成器编号一致,降级大纲可接受)。 */
-export async function parsePptx(buffer: ArrayBuffer): Promise<PptxSlide[]> {
-  const JSZip = (await import('jszip')).default
-  const zip = await JSZip.loadAsync(buffer)
-
-  const slidePaths: { n: number; path: string }[] = []
-  const notePaths = new Map<number, string>()
-  zip.forEach((relPath, file) => {
-    if (file.dir) return
-    const sm = /^ppt\/slides\/slide(\d+)\.xml$/.exec(relPath)
-    if (sm) slidePaths.push({ n: Number(sm[1]), path: relPath })
-    const nm = /^ppt\/notesSlides\/notesSlide(\d+)\.xml$/.exec(relPath)
-    if (nm) notePaths.set(Number(nm[1]), relPath)
-  })
-  slidePaths.sort((a, b) => a.n - b.n)
-
-  const slides: PptxSlide[] = []
-  for (const s of slidePaths) {
-    const file = zip.file(s.path)
-    if (!file) continue
-    const xml = await file.async('string')
-    const texts = [...xml.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map((m) => m[1])
-    let notes: string | null = null
-    const notePath = notePaths.get(s.n)
-    if (notePath) {
-      const noteFile = zip.file(notePath)
-      if (noteFile) {
-        const nxml = await noteFile.async('string')
-        const ntexts = [...nxml.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map((m) => m[1])
-        if (ntexts.length > 0) notes = ntexts.join(' ')
-      }
-    }
-    slides.push({ text: texts.join(' '), notes })
-  }
-  return slides
-}
-
-function PptxOutline({ data }: { data: ArrayBuffer }) {
-  const t = useTranslations('chat')
-  const [slides, setSlides] = React.useState<PptxSlide[] | null>(null)
-  const [failed, setFailed] = React.useState(false)
-
-  React.useEffect(() => {
-    let cancelled = false
-    setFailed(false)
-    parsePptx(data)
-      .then((s) => {
-        if (!cancelled) setSlides(s)
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [data])
-
-  if (failed) {
-    return <p className="p-3 text-label text-muted-foreground">{t('officeFailed')}</p>
-  }
-  if (!slides) {
-    return (
-      <p className="flex items-center gap-1.5 p-3 text-label text-muted-foreground">
-        <Loader2 className="h-3 w-3 animate-spin" />
-        {t('officeLoading')}
-      </p>
-    )
-  }
-  return (
-    <ol className="max-h-[420px] overflow-auto p-3 text-body" data-testid="pptx-outline">
-      {slides.map((s, i) => (
-        <li key={i} data-testid="pptx-slide" className="mb-2">
-          <p className="font-medium">{`#${i + 1} ${s.text || '—'}`}</p>
-          {s.notes && (
-            <p className="mt-0.5 text-label text-muted-foreground" data-testid="pptx-notes">
-              {t('pptxNotes')}: {s.notes}
-            </p>
-          )}
-        </li>
-      ))}
-    </ol>
   )
 }
 
@@ -562,6 +585,10 @@ export function OfficePreview({
         return
       }
       const buf = await res.arrayBuffer()
+      if (buf.byteLength > hardMax) {
+        setStatus('too-large')
+        return
+      }
       setData(buf)
       setStatus('ready')
     } catch {
@@ -572,6 +599,13 @@ export function OfficePreview({
   // 探针:HEAD 先行,拿到 content-length 再决定直接加载 / 懒加载 / 过大
   React.useEffect(() => {
     if (status !== 'probing') return
+    // 预览器(文档中心 / 项目文件 / IDE)交来的是 blob: 地址,已持有字节:
+    // blob URL 上的 HEAD 在部分浏览器不可用(会直接抛 TypeError),探测等于必然 expired。
+    // 直接 GET;体积阈值改在 arrayBuffer 之后按实际 byteLength 判(见 load)。
+    if (src.startsWith('blob:')) {
+      void load()
+      return
+    }
     let cancelled = false
     void (async () => {
       try {
@@ -628,7 +662,10 @@ export function OfficePreview({
       })
   }, [view, status, data, sourceMaxChars])
 
-  const sourceAvailability = officeSourceAvailability(status)
+  const sourceAvailability: PreviewSourceAvailability =
+    kind === 'xls'
+      ? { available: false, reason: 'previewSourceUnavailableUnsupported' }
+      : officeSourceAvailability(status)
 
   return (
     <div
@@ -699,10 +736,10 @@ export function OfficePreview({
             </p>
           )}
           {status === 'ready' && data && kind === 'docx' && <DocxBody data={data} />}
-          {status === 'ready' && data && kind === 'xlsx' && (
+          {status === 'ready' && data && (kind === 'xlsx' || kind === 'xls') && (
             <XlsxGrid data={data} maxRows={maxRows} />
           )}
-          {status === 'ready' && data && kind === 'pptx' && <PptxOutline data={data} />}
+          {status === 'ready' && data && kind === 'pptx' && <PptxPreview data={data} />}
         </>
       )}
     </div>

@@ -42,6 +42,7 @@ import { Tooltip } from '@/components/feedback'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { parseMarkdownFileLink } from '@/lib/markdown-file-link'
+import { previewKindOf } from '@/lib/file-preview-kind'
 import { openWorkspaceFileInIde } from '@/lib/workspace-file-open'
 // D129:点开图片的唯一出口(外链 window.open / 其余进工作面板);助手侧与用户气泡共用一份判断
 import { openImageSource } from '@/lib/open-image-source'
@@ -1017,24 +1018,32 @@ function MarkdownLink({
     return <span>{children}</span>
   }
 
+  // Office/数据/图片/音视频文件:统一按 lib/file-preview-kind 判型后交富预览或下载卡片,
+  // 不再只认 pdf/csv/tsv/docx/xlsx/pptx 六档(那会让 png/mp4/mp3 在 AI 面板里一路落到普通链接)。
+  const fileExt = (
+    hrefStr
+      .split('/')
+      .pop()
+      ?.split('?')[0]
+      ?.match(/\.([^.]+)$/)?.[1] ?? ''
+  ).toLowerCase()
+  const fileKind = previewKindOf(fileExt)
+  const previewable =
+    fileKind === 'pdf' ||
+    fileKind === 'delimited' ||
+    fileKind === 'image' ||
+    fileKind === 'video' ||
+    fileKind === 'audio' ||
+    fileKind === 'three' ||
+    (fileKind === 'office' && isOfficeLink(hrefStr))
+  if (!isStreaming && previewable && fileExt !== '') {
+    return <RichFilePreview href={hrefStr} ext={fileExt} />
+  }
+
   // Office/数据文件:渲染为下载卡片
   if (isOfficeLink(hrefStr)) {
     const fileName = hrefStr.split('/').pop()?.split('?')[0] ?? 'file'
     const ext = (fileName.match(/\.([^.]+)$/)?.[1] ?? '').toLowerCase()
-
-    // V3 #70:PDF/CSV/TSV 与 office 那一族的富预览统一走 file-preview 派发器
-    // (pdf = pdf.js 真渲染 + 页码/翻页/缩放;csv|tsv = 表头固定 + 列宽自适应 + 行数如实提示)
-    if (
-      !isStreaming &&
-      (ext === 'pdf' ||
-        ext === 'csv' ||
-        ext === 'tsv' ||
-        ext === 'docx' ||
-        ext === 'xlsx' ||
-        ext === 'pptx')
-    ) {
-      return <RichFilePreview href={hrefStr} ext={ext} />
-    }
 
     return (
       <a

@@ -112,6 +112,17 @@ const EXT_MIME_MAP: Record<string, string[]> = {
 export const ALLOWED_EXTENSIONS = Object.keys(EXT_MIME_MAP)
 
 /**
+ * 扩展名 → canonical MIME(本表首项)。
+ *
+ * 只供**回放/预览/下载**面取 Content-Type 用;准入判断仍必须走 `validateUploadFile`
+ * (它还要验 MIME 一致性 + 魔数 + 大小)。不在表里的档返回 undefined,调用侧自行兜底。
+ */
+export function canonicalMimeOfExtension(ext: string): string | undefined {
+  const key = ext.toLowerCase().replace(/^\./, '')
+  return EXT_MIME_MAP[key]?.[0]
+}
+
+/**
  * 提取小写无点扩展名。
  *
  * 2026-11-01 改为全函数(nullish ⇒ 空串):此前签名写 `string` 却真会收到 `null/undefined`

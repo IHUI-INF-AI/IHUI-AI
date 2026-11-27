@@ -159,6 +159,24 @@ describe('D60 发送可靠性状态族', () => {
     expect(useChatStore.getState().failedDraft).toBe('第二句')
   })
 
+  it('文档附件元数据随 user 消息落库透传(会话级续读的索引)', async () => {
+    mockSendMessage.mockResolvedValueOnce({ success: true, data: { message: {} } })
+    const attachments = [
+      {
+        fileId: '00000000-0000-4000-8000-000000000001',
+        name: '季度报告.docx',
+      },
+    ]
+    await persistMessageSafe('conv-1', '> 📎 季度报告.docx', 'user', { attachments })
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      'conv-1',
+      '> 📎 季度报告.docx',
+      'user',
+      { attachments },
+      undefined,
+    )
+  })
+
   it('过渡态声明:纯中文文案无码无状态→可重发兜底(中文兜底已删,词表落地后恢复精确分类)', async () => {
     mockSendMessage.mockResolvedValueOnce({ success: false, error: '会话已归档，无法写入' })
     const archivedZh = await persistMessageSafe('conv-1', '中文归档文案', 'user')

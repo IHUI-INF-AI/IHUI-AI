@@ -138,8 +138,9 @@ export function FilePreview({
 
   if (detectedType === 'office') {
     // 2026-11-01 隐私整改(老格式 Office 预览票):office 族一律交本地渲染器
-    // OfficePreview(docx/xlsx/pptx 本地真渲染;老 .doc/.xls/.ppt 本地无解,
-    // 由组件自身判「不支持 + 下载出口」)。默认路径**不再**把文件地址经
+    // OfficePreview(docx/xlsx/xls/pptx 本地真渲染;旧 .doc/.ppt 在
+    // `UniversalFilePreview` 层转服务端 LibreOffice → PDF,直接调用本组件时
+    // 仍由 OfficePreview 兜底给"不支持 + 下载出口")。默认路径**不再**把文件地址经
     // view.officeapps.live.com 的 src 参数外发给微软 —— 原 OfficeViewer 分支
     // 会在渲染时自动发起第三方请求,而老格式确有其上传入口(聊天附件 accept
     // 与后端 EXT_MIME_MAP 均收),外发面必须收口。

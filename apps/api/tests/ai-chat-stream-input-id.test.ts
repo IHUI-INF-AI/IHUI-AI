@@ -64,10 +64,12 @@ vi.mock('../src/config/index.js', () => ({
   },
 }))
 
-const { mockVerifyAccessToken, mockFindConversationById } = vi.hoisted(() => ({
-  mockVerifyAccessToken: vi.fn(),
-  mockFindConversationById: vi.fn(),
-}))
+const { mockVerifyAccessToken, mockFindConversationById, mockFindRecentUserAttachmentMessages } =
+  vi.hoisted(() => ({
+    mockVerifyAccessToken: vi.fn(),
+    mockFindConversationById: vi.fn(),
+    mockFindRecentUserAttachmentMessages: vi.fn(),
+  }))
 vi.mock('@ihui/auth', () => ({
   // 2026-11-11 fail-closed:getTokenBlacklist() 返回 null 即判已吊销 ⇒ 401。
   // 覆盖为内存假黑名单(has 恒 false),不回退生产 fail-closed 语义。
@@ -102,6 +104,7 @@ vi.mock('../src/db/chat-queries.js', () => ({
   createConversation: vi.fn(),
   findConversationsByUser: vi.fn(),
   findConversationById: mockFindConversationById,
+  findRecentUserAttachmentMessages: mockFindRecentUserAttachmentMessages,
   updateConversation: vi.fn(),
   deleteConversation: vi.fn(),
   deleteConversationsBatch: vi.fn(),
@@ -128,6 +131,16 @@ vi.mock('../src/db/chat-queries.js', () => ({
 vi.mock('../src/db/index.js', () => ({ db: {}, dbRead: {} }))
 const { mockRecordAiCost } = vi.hoisted(() => ({ mockRecordAiCost: vi.fn() }))
 vi.mock('../src/plugins/ai-cost.js', () => ({ recordAiCost: mockRecordAiCost }))
+const { mockBuildChatAttachmentContext } = vi.hoisted(() => ({
+  mockBuildChatAttachmentContext: vi.fn(),
+}))
+vi.mock('../src/services/chat-attachment-context.js', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    buildChatAttachmentContext: mockBuildChatAttachmentContext,
+  }
+})
 
 import { aiChatStreamRoutes } from '../src/routes/ai-chat-stream.js'
 
@@ -145,6 +158,8 @@ function mockUser() {
   // F-03(2026-11-08):/chat/stream 先核会话归属,非本人/查不到一律 404。
   // 归属查询走 chat-queries.findConversationById,本文件桩成"存在且属于当前用户"。
   mockFindConversationById.mockResolvedValue({ id: 'conv-owned', userId: USER_ID })
+  mockFindRecentUserAttachmentMessages.mockReset()
+  mockFindRecentUserAttachmentMessages.mockResolvedValue([])
 }
 
 /** 上游 admission 帧载荷(send-admission.ts 帧形状:事件名 admission,data 顶层平铺) */
@@ -238,6 +253,138 @@ describe('差距① 网关侧:inputId 上行 + admission 帧下行(/chat/stream)
       expect(res.statusCode).toBe(200)
       expect(capturedBodies).toHaveLength(1)
       expect('inputId' in capturedBodies[0]!).toBe(false)
+    } finally {
+      restore()
+    }
+  })
+
+  it('文档附件正文在网关侧注入本轮 user 消息,到达 ai-service', async () => {
+    mockUser()
+    mockBuildChatAttachmentContext.mockResolvedValue({
+      text: '<attached_files>\n### 文件：季度报告.docx\n<document>季度营收 1200 万</document>\n</attached_files>',
+      files: [{ name: '季度报告.docx', chars: 12, truncated: false }],
+    })
+    const { capturedBodies, restore } = mockAIServiceSSE()
+    try {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/ai/chat/stream',
+        headers: { authorization: USER_TOKEN },
+        body: {
+          messages: [{ role: 'user', content: '看看这份报告' }],
+          model: 'gpt-4o',
+          attachments: [
+            {
+              fileId: '00000000-0000-4000-8000-000000000001',
+              name: '季度报告.docx',
+            },
+          ],
+          metadata: { conversationId: 'conv-attach', messageId: 'msg-attach' },
+        },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(capturedBodies).toHaveLength(1)
+      const upstreamMessages = capturedBodies[0]!.messages as Array<{
+        role: string
+        content: string
+      }>
+      expect(upstreamMessages.at(-1)?.content).toContain('季度营收 1200 万')
+      expect(upstreamMessages.at(-1)?.content).toContain('<attached_files>')
+    } finally {
+      restore()
+    }
+  })
+
+  it('没有新增附件时从会话历史续读上一轮文件,并注入本轮 user 消息', async () => {
+    mockUser()
+    mockFindRecentUserAttachmentMessages.mockResolvedValue([
+      {
+        role: 'user',
+        metadata: {
+          attachments: [
+            {
+              fileId: '00000000-0000-4000-8000-000000000001',
+              name: '季度报告.docx',
+            },
+          ],
+        },
+      },
+    ])
+    mockBuildChatAttachmentContext.mockResolvedValue({
+      text: '<attached_files>\n### 文件：季度报告.docx\n<document>季度营收 1200 万</document>\n</attached_files>',
+      files: [{ name: '季度报告.docx', chars: 12, truncated: false }],
+    })
+    const { capturedBodies, restore } = mockAIServiceSSE()
+    try {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/ai/chat/stream',
+        headers: { authorization: USER_TOKEN },
+        body: {
+          messages: [{ role: 'user', content: '继续' }],
+          model: 'gpt-4o',
+          metadata: { conversationId: 'conv-history', messageId: 'msg-history' },
+        },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(mockFindRecentUserAttachmentMessages).toHaveBeenCalledWith('conv-history', 8)
+      expect(mockBuildChatAttachmentContext).toHaveBeenCalledWith(
+        USER_ID,
+        [{ fileId: '00000000-0000-4000-8000-000000000001', name: '季度报告.docx' }],
+        { source: 'conversation' },
+      )
+      const upstreamMessages = capturedBodies[0]!.messages as Array<{
+        role: string
+        content: string
+      }>
+      expect(upstreamMessages.at(-1)?.content).toContain('季度营收 1200 万')
+    } finally {
+      restore()
+    }
+  })
+
+  it('会话级附件索引优先,压缩换行后仍能续读', async () => {
+    mockUser()
+    mockFindConversationById.mockResolvedValue({
+      id: 'conv-registry',
+      userId: USER_ID,
+      metadata: {
+        recentAttachments: [
+          {
+            fileId: '00000000-0000-4000-8000-000000000002',
+            name: '年度预算.xlsx',
+          },
+        ],
+      },
+    })
+    mockBuildChatAttachmentContext.mockResolvedValue({
+      text: '<attached_files>\n### 文件：年度预算.xlsx\n<document>预算表正文</document>\n</attached_files>',
+      files: [{ name: '年度预算.xlsx', chars: 8, truncated: false }],
+    })
+    const { capturedBodies, restore } = mockAIServiceSSE()
+    try {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/ai/chat/stream',
+        headers: { authorization: USER_TOKEN },
+        body: {
+          messages: [{ role: 'user', content: '继续' }],
+          model: 'gpt-4o',
+          metadata: { conversationId: 'conv-registry', messageId: 'msg-registry' },
+        },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(mockFindRecentUserAttachmentMessages).not.toHaveBeenCalled()
+      expect(mockBuildChatAttachmentContext).toHaveBeenCalledWith(
+        USER_ID,
+        [{ fileId: '00000000-0000-4000-8000-000000000002', name: '年度预算.xlsx' }],
+        { source: 'conversation' },
+      )
+      const upstreamMessages = capturedBodies[0]!.messages as Array<{
+        role: string
+        content: string
+      }>
+      expect(upstreamMessages.at(-1)?.content).toContain('预算表正文')
     } finally {
       restore()
     }

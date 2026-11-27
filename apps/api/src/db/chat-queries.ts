@@ -739,9 +739,45 @@ export async function findMessagesCursor(
   return { messages, nextCursor, hasMore }
 }
 
-// =============================================================================
-// D35 长会话 turn 分片拉取(第一段数据面)
-// =============================================================================
+/**
+ * 取最近若干条“带文档附件元数据”的用户消息(2026-11-27 立,会话级文件上下文)。
+ *
+ * 只回用户消息,且只回 metadata.attachments 是非空数组的行:
+ * - 附件 fileId 由前端在用户消息落库时写入 metadata.attachments;
+ * - 网关在用户下一轮没有新增附件时,从这里找最近文件并重新提正文,
+ *   让“继续”类追问仍能读到原文件;
+ * - 用主库 db 而不是 dbRead:刚发送的 user 消息可能还在副本延迟窗口内。
+ *
+ * 这里不校验 fileId 归属(读面无 userId 参数);只做形状筛选,归属校验在
+ * chat-attachment-context 的 findUploadedFile(ownerId) 统一完成。
+ */
+export async function findRecentUserAttachmentMessages(
+  conversationId: string,
+  limit = 8,
+): Promise<ChatMessage[]> {
+  const safeLimit = Math.min(Math.max(limit, 1), 20)
+  const rows = await db
+    .select()
+    .from(chatMessages)
+    .where(
+      and(
+        eq(chatMessages.conversationId, conversationId),
+        eq(chatMessages.role, 'user'),
+        sql`jsonb_array_length(
+          case
+            when jsonb_typeof(${chatMessages.metadata}->'attachments') = 'array'
+            then ${chatMessages.metadata}->'attachments'
+            else '[]'::jsonb
+          end
+        ) > 0`,
+      ),
+    )
+    .orderBy(desc(chatMessages.createdAt), desc(chatMessages.id))
+    .limit(safeLimit)
+  // 与 findMessagesCursor 的返回口径一致:查询按 DESC 取“最新 N 条”,返回前反转成时间正序。
+  // collectPersistedAttachments 再从尾部向前扫,才能得到“新→旧”的优先级。
+  return rows.reverse()
+}
 
 export interface FindHistoryTurnPageOpts {
   /** 每页 turn 数;路由层已夹取,这里再兜底夹取 */

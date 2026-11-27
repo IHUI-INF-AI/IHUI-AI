@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
+import type { ChatAttachmentInput } from '@ihui/types'
 
 import { detectDangerousCommands } from '@/lib/dangerous-command-detector'
 import { analyzeCommandRisk } from '@ihui/shared/utils/command-risk'
@@ -65,7 +66,7 @@ export interface UseMessageSendParams {
   commitFileReference?: (file: File) => void
   /** 添加文本型引用(引用选中文本/代码片段,展示为 "> 📎 label" 参考块) */
   addTextReference: (text: string) => void
-  onSend: (content: string) => Promise<boolean> | boolean
+  onSend: (content: string, attachments?: ChatAttachmentInput[]) => Promise<boolean> | boolean
   inputCoreRef: React.RefObject<MessageSendInputCoreHandle | null>
   /** localStorage 草稿 key(发送成功后清空),由主组件传入以保证 key 来源单一 */
   draftKey: string
@@ -450,6 +451,17 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
         })
         .join('\n')
       const finalContent = attachmentMarkdown ? `${text}\n\n${attachmentMarkdown}` : text
+      // 2026-11-27 立:主对话附件不再只把文件名写进正文。文档类附件把上传得到的
+      // fileId 一并上行,由 API 侧按 fileId 取回原始字节、提正文后注入本轮 LLM 上下文;
+      // 图片/视频/文本引用已在正文内联,不重复走服务端解析。
+      const attachments: ChatAttachmentInput[] = refs
+        .filter((r) => r.type === 'file' && !!r.fileId)
+        .slice(0, 10)
+        .map((r) => ({
+          fileId: r.fileId as string,
+          name: r.label,
+          ...(r.size ? { size: r.size } : {}),
+        }))
       // D22 引用回复(2026-09-19 立,遵循统一工程规范):quotedMessage 非空时把被引用
       // 消息快照以 markdown 引用块附加到正文(用户/AI 分别标注),发送成功后清除;
       // 发送失败保留引用,便于用户重试时仍带上下文。
@@ -463,7 +475,10 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
         ].join('\n')
         contentWithQuote = contentWithQuote ? `${contentWithQuote}\n\n${quotedBlock}` : quotedBlock
       }
-      const ok = await onSend(contentWithQuote)
+      const ok =
+        attachments.length > 0
+          ? await onSend(contentWithQuote, attachments)
+          : await onSend(contentWithQuote)
       if (!ok) return false
       // D36:发送成功 → 推送原始用户文本到会话输入历史栈(与附件无关,仅文本)
       if (onSent) onSent(text)

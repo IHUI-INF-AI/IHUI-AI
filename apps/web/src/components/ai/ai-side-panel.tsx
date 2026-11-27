@@ -21,6 +21,7 @@ import { inferVendor } from '@/components/ai/vendor-infer'
 // 2026-11-23:面板 header 直接显示会话标题 —— 历史脏值(`**`/`(think)`)在这里会露给用户,
 // 显示前过共享层的纯文本净化(与生成侧/侧栏同一份规则)。
 import { DEFAULT_CONVERSATION_TITLE, plainTitleText } from '@ihui/shared'
+import type { ChatAttachmentInput } from '@ihui/types'
 import {
   Maximize2,
   Minimize2,
@@ -857,6 +858,17 @@ export function AISidePanel() {
     rejectAllDiffs,
     applyDiffSelection,
   } = useChat()
+
+  // 2026-11-27 立:MessageInput 的 onSend 第二参是「服务端提正文的文档附件」。
+  // 直接传 sendMessage 会把附件数组错当成 SendMessageOptions;这里做唯一适配,
+  // 主面板/浮窗两处输入区共用,避免两份接线漂移。
+  const sendMessageWithAttachments = React.useCallback(
+    (content: string, attachments?: ChatAttachmentInput[]) =>
+      attachments && attachments.length > 0
+        ? sendMessage(content, { attachments })
+        : sendMessage(content),
+    [sendMessage],
+  )
   const subAgentActivities = useChatStore((s) => s.subAgentActivities)
   const chatError = useChatStore((s) => s.error)
   // 「当前对话的模型」≠ 全局模型选择器(2026-11-11 用户报障):
@@ -2526,7 +2538,7 @@ export function AISidePanel() {
               {/* 输入区(直接渲染 MessageInput,无 MessageList)
                   floatHeader = 浮窗按钮(展开/停靠/最小化),并入输入卡片顶部工具栏右侧 */}
               <MessageInput
-                onSend={sendMessage}
+                onSend={sendMessageWithAttachments}
                 onStop={stop}
                 isStreaming={isStreaming}
                 placeholder={t('placeholder')}
@@ -2749,7 +2761,7 @@ export function AISidePanel() {
 
       {/* 输入区 */}
       <MessageInput
-        onSend={sendMessage}
+        onSend={sendMessageWithAttachments}
         onStop={stop}
         isStreaming={isStreaming}
         // 2026-11-16:ChatMode 手动入口已移除,placeholder 恒为默认值。
@@ -3211,7 +3223,9 @@ export function AISidePanel() {
                           onSelect={() => void monitorAllPipSessions()}
                         >
                           <LayoutGrid className={MENU_ITEM_ICON_CLASS} />
-                          <span className="truncate">{tc('pictureInPicture.monitorAllSessions')}</span>
+                          <span className="truncate">
+                            {tc('pictureInPicture.monitorAllSessions')}
+                          </span>
                         </DropdownMenu.Item>
                       )}
                       {pipSupported && isTauri() && (

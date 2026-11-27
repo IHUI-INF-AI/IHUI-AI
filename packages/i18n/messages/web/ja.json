@@ -14463,6 +14463,27 @@
       "count": "全 {count} 件"
     },
     "projectFiles": {
+      "aiHint": "このファイルを AI に直接渡して、全文の要約・要点の抽出・内容への質問ができます。",
+      "aiAnalyze": "AI 解説",
+      "aiAsk": "質問",
+      "aiClose": "AI 解説を閉じる",
+      "aiContinueChat": "チャットで続ける",
+      "aiContinuePrompt": "このファイルを読み、最も重要なポイントを3つ教えてください。",
+
+      "aiCopy": "コピー",
+      "aiCopied": "コピーしました",
+      "aiError": "AI 分析に失敗しました。再試行してください",
+      "aiKeypoints": "要点を抽出",
+      "aiQuestionPlaceholder": "このドキュメントについて質問…",
+      "aiReading": "AI がドキュメントを読んでいます…",
+      "aiSend": "質問を送信",
+      "aiSource": "{chars} 文字に基づく",
+      "aiStart": "要約を生成",
+      "aiSummary": "要約",
+      "aiTitle": "AI ドキュメントアシスタント",
+      "aiTooLarge": "20MB を超えるファイルは AI 分析に未対応です",
+      "aiTruncated": "長いドキュメントのため、冒頭と末尾を使用しました",
+      "aiUnsupported": "このファイル形式は AI テキスト分析に未対応です",
       "count": "全 {count} 件",
       "description": "プロジェクトワークスペースにアップロードしたファイルを元の形式でプレビュー",
       "download": "元のファイルをダウンロード",
@@ -31563,20 +31584,18 @@
     "marimba": "マリンバ",
     "chime": "チャイム",
     "knock": "ノック"
-  }
-,
+  },
   "adminAiModels": {
     "telemetry": {
-      "title": "モデル稼働モニタリング"
-    ,
-      "subtitle": "直近 60 分 · 呼び出しログ由来",
+      "title": "モデル稼働モニタリング",
+      "subtitle": "直近 60 分 · 実呼び出しログ(テスト除く)",
       "callsLabel": "直近 1 時間の呼び出し",
       "tokensLabel": "直近 1 時間の Token",
       "qpsLabel": "現在の QPS",
       "tpsLabel": "現在の Token/s",
       "errorLabel": "エラー率",
       "p95Label": "P95 レイテンシ",
-      "last5m": "直近 5 分の平均",
+      "last5m": "直近 5 分の平均 · 負荷",
       "activeConfigs": "{count} 件の設定にトラフィック",
       "attributed": "紐付け済み {pct}",
       "unattributed": "未紐付け {count} 件",
@@ -31597,5 +31616,33 @@
       "cellTip": "直近 1 時間：呼び出し {calls} 回、Token {tokens}、エラー {errors} 回、P95 {p95}、最終呼び出し {last}",
       "noLatency": "レイテンシ標本なし",
       "loadFailed": "稼働データの取得に失敗",
-      "retry": "再試行"}
-  }}
+      "retry": "再試行"
+    ,
+      "cellUnavailable": "稼働データを取得できません",
+      "grade": {
+        "column": "評価"
+      ,
+        "rubricTitle": "評価基準（直近60分）",
+        "rubricError": "エラー率：≤0.5% = 100点 · ≤1% = 90 · ≤2% = 78 · ≤5% = 60 · ≤10% = 30 · >10% = 0",
+        "rubricLatency": "エンドツーエンド P95：≤3s = 100点 · ≤8s = 88 · ≤15s = 70 · ≤30s = 40 · >30s = 10",
+        "rubricCombine": "総合スコアは2項目の低い方（短板が等級を決める）：≥90 優秀 · ≥75 良好 · ≥60 普通 · <60 不良",
+        "rubricSample": "直近1時間に20回以上の呼び出しとレイテンシサンプルが必要。満たさない場合は「データ不足」",
+        "rubricLoad": "QPS/TPS は負荷指標であり品質評価には含めない。業界共通の基準値はないため、プロジェクトの SLO に合わせて調整",
+        "tier": {
+          "excellent": "優秀"
+        ,
+          "good": "良好",
+          "fair": "普通",
+          "poor": "不良",
+          "insufficient": "データ不足"},
+        "score": "{score} 点",
+        "overall": "全体",
+        "tipDetail": "エラー率 {errorPct} · P95 {p95} · サンプル {calls} 回",
+        "tipShortBoard": "総合スコアは2項目の低い方で、短板が等級を決める",
+        "tipNeedSample": "直近1時間 {calls} 回の呼び出し。評価には20回以上が必要",
+        "tipNoLatency": "直近1時間 {calls} 回の呼び出しだが、有効なレイテンシサンプルがない",
+        "rubricLatencyNote": "P95 は生成完了までの時間を含むため、長い出力では Token 量と併せて解釈する"}}
+  ,
+    "providerRelay": "逆プロキシ",
+    "providerRelayHint": "アカウントプールのリバースプロキシで、転送は専用アダプターが処理します"}
+}

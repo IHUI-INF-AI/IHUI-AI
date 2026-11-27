@@ -74,13 +74,13 @@ describe('artifactKindOf 分型判据(D76/G-105)', () => {
     expect(artifactKindOf('年度表.XLSX')).toBe('spreadsheet')
   })
 
-  it('Office 三型判据与 D41 office-preview SUPPORTED_EXTS 对齐(禁第二套)', () => {
-    for (const ext of ['docx', 'xlsx', 'pptx']) {
+  it('Office 四型判据与 D41 office-preview SUPPORTED_EXTS 对齐(禁第二套)', () => {
+    for (const ext of ['docx', 'xlsx', 'xls', 'pptx']) {
       expect(SUPPORTED_EXTS.has(ext)).toBe(true)
       expect(artifactKindOf(`a.${ext}`)).not.toBe('file')
     }
-    // SUPPORTED_EXTS 只覆盖这三型:其余扩展名不允许混入分型判据
-    expect(SUPPORTED_EXTS.size).toBe(3)
+    // SUPPORTED_EXTS 只覆盖这四型:其余扩展名不允许混入分型判据
+    expect(SUPPORTED_EXTS.size).toBe(4)
     // 模块级对齐守卫:两表漂移时抛错
     expect(() => assertOfficeExtAlignment()).not.toThrow()
   })
@@ -161,8 +161,7 @@ describe('ArtifactTurnBadge / ArtifactKindBadge', () => {
     expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
     expect(onScroll).toHaveBeenCalledTimes(1)
     const detail = (onScroll.mock.calls[0]?.[0] as CustomEvent | undefined)?.detail as
-      | { messageId: string }
-      | undefined
+      { messageId: string } | undefined
     expect(detail?.messageId).toBe('a1')
     window.removeEventListener(SCROLL_TO_MESSAGE_EVENT, onScroll)
     scrollSpy.mockRestore()
@@ -174,8 +173,7 @@ describe('ArtifactTurnBadge / ArtifactKindBadge', () => {
     emitFocusArtifact('tmp/artifacts/report.xlsx')
     expect(onFocus).toHaveBeenCalledTimes(1)
     const detail = (onFocus.mock.calls[0]?.[0] as CustomEvent | undefined)?.detail as
-      | { path: string }
-      | undefined
+      { path: string } | undefined
     expect(detail?.path).toBe('tmp/artifacts/report.xlsx')
     window.removeEventListener(FOCUS_ARTIFACT_EVENT, onFocus)
   })
@@ -282,8 +280,12 @@ describe('ArtifactTurnNav step-back/step-forward(G-103 ③)', () => {
         />
       </div>,
     )
-    const spyA1 = vi.spyOn(document.querySelector('[data-message-id="a1"]') as HTMLElement, 'scrollIntoView').mockImplementation(() => {})
-    const spyA3 = vi.spyOn(document.querySelector('[data-message-id="a3"]') as HTMLElement, 'scrollIntoView').mockImplementation(() => {})
+    const spyA1 = vi
+      .spyOn(document.querySelector('[data-message-id="a1"]') as HTMLElement, 'scrollIntoView')
+      .mockImplementation(() => {})
+    const spyA3 = vi
+      .spyOn(document.querySelector('[data-message-id="a3"]') as HTMLElement, 'scrollIntoView')
+      .mockImplementation(() => {})
     // forward:第 0 个产物 turn(a1)→ 第 1 个(a3,无产物的 a2 被跳过)
     fireEvent.click(screen.getByTestId('artifact-step-forward'))
     expect(spyA3).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })

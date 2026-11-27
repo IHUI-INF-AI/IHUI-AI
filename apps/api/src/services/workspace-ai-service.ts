@@ -4275,6 +4275,20 @@ class FSBridge {
     return { content, lines: lines.length, path: params.path }
   }
 
+  /**
+   * 读取文件原始字节(2026-11-26,二进制预览:图片/PDF/Office/音视频等)。
+   * 越界与登记校验仍由 resolvePath 单点承载;预览面只加一道体积闸(64MB),
+   * 超限明确报错而不是把整个文件读进内存。
+   */
+  readBinary(params: { path: string; workspacePath: string }): { buffer: Buffer; size: number } {
+    const full = this.resolvePath(params.path, params.workspacePath)
+    if (!existsSync(full)) throw new Error(`文件不存在: ${params.path}`)
+    const st = statSync(full)
+    if (!st.isFile()) throw new Error('不是文件')
+    if (st.size > 64 * 1024 * 1024) throw new Error('文件过大(>64MB),无法在线预览')
+    return { buffer: readFileSync(full), size: st.size }
+  }
+
   write(params: { path: string; workspacePath: string; content: string; createDirs?: boolean }): {
     path: string
     size: number

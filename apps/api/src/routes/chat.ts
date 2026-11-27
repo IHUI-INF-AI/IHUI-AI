@@ -90,6 +90,7 @@ import { readCollabLock, resolveFloorGate } from '../db/chat-collab-write-querie
 // B02 第三切片(2026-10-25):resync 权威快照读(内容 + rev 同库同读,契约 §7 第 3 项)
 import { findChatSyncSnapshot } from '../db/chat-sync-rev-queries.js'
 import { success, error } from '../utils/response.js'
+import { collectPersistedAttachments } from '../services/chat-attachment-context.js'
 // 2026-11-23:标题纯文本净化的唯一实现在共享层(与入库/显示同源),本文件不重写规则
 import { plainTitleText } from '@ihui/shared'
 // D35(2026-10-31):metadata 九类只回摘要 —— 投影判据的唯一实现在 @ihui/shared/chat
@@ -1634,6 +1635,24 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       metadata: parsed.data.metadata,
       reasoning: parsed.data.reasoning,
     })
+
+    // 2026-11-27 立(会话级文件上下文):把本轮文档附件的 fileId 索引挂到会话 metadata。
+    // 只存“最近一次上传的附件数组”,不存正文;下一轮没有新附件时网关按 fileId 重新提正文。
+    // 这里放会话级而不是只靠 chat_messages.metadata:上下文压缩会把旧消息整行替换,
+    // 消息级 metadata 会随旧行一起消失,会话级索引仍能续读。
+    const messageAttachments = collectPersistedAttachments([
+      { role: parsed.data.role, metadata: parsed.data.metadata },
+    ])
+    if (messageAttachments.length > 0) {
+      void patchConversationMetadata(id, userId, { recentAttachments: messageAttachments }).catch(
+        (err: unknown) => {
+          request.log.warn(
+            { err: err instanceof Error ? err.message : String(err), conversationId: id },
+            '[chat-attachment] 会话附件索引写入失败(不阻塞消息落库)',
+          )
+        },
+      )
+    }
 
     // 票71(V2 #23)第二切片:消息面房间广播(多端/多标签实时同步)。
     // 与下面那条 pushNotification 的分工:后者是"去轮询"的失效信号(旧信封、无幂等键),

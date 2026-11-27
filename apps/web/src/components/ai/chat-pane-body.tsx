@@ -20,6 +20,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import type { ChatAttachmentInput } from '@ihui/types'
 import dynamic from 'next/dynamic'
 
 import { getConversation, getConversationHistory, getMessages } from '@ihui/api-client'
@@ -118,6 +119,14 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
     stop,
     setModel,
   } = useChat()
+  // 2026-11-27:与根面板同一适配,附件数组不进 SendMessageOptions 错位。
+  const sendMessageWithAttachments = React.useCallback(
+    (content: string, attachments?: ChatAttachmentInput[]) =>
+      attachments && attachments.length > 0
+        ? sendMessage(content, { attachments })
+        : sendMessage(content),
+    [sendMessage],
+  )
   const { applyDiff, rejectDiff, applyAllDiffs, rejectAllDiffs, applyDiffSelection } =
     useApplyDiff()
   const subAgentActivities = chatStore((s) => s.subAgentActivities)
@@ -559,7 +568,7 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
       <AiSidePanelTools />
 
       <MessageInput
-        onSend={sendMessage}
+        onSend={sendMessageWithAttachments}
         onStop={stop}
         isStreaming={isStreaming}
         placeholder={t('placeholder')}

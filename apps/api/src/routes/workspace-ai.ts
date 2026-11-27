@@ -19,6 +19,7 @@ import { PERMISSION_MODES, normalizePermissionMode } from '@ihui/types/permissio
 import { authenticate } from '../plugins/auth.js'
 import { recordAuditLog } from '../services/audit-log-service.js'
 import { success, error } from '../utils/response.js'
+import { canonicalMimeOfExtension } from '../utils/file-type-validator.js'
 import {
   swarmManager,
   subagentManager,
@@ -254,6 +255,44 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     try {
       const result = fsBridge.read(body)
       return reply.send(success(result))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  /**
+   * POST /fs/raw — 读取工作区文件原始字节(2026-11-26,IDE/工作区二进制预览)。
+   * 空值校验 + 权限闸与 /fs/read 同源;只换"回什么"(字节流而不是 UTF-8 文本)。
+   */
+  server.post('/fs/raw', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z.object({ path: z.string(), workspacePath: z.string() }).parse(request.body)
+    if (!body.path || !body.workspacePath)
+      return reply.status(400).send(error(400, 'path 和 workspacePath 不能为空'))
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.read',
+        args: { path: body.path },
+      })) !== null
+    )
+      return
+    try {
+      const { buffer } = fsBridge.readBinary(body)
+      const ext = body.path.split('.').pop()?.toLowerCase() ?? ''
+      const isHtml = ext === 'html' || ext === 'htm'
+      const mime = isHtml
+        ? 'text/plain; charset=utf-8'
+        : ext === 'svg'
+          ? 'image/svg+xml'
+          : (canonicalMimeOfExtension(ext) ?? 'application/octet-stream')
+      const res = reply
+        .header('Content-Type', mime)
+        .header('Content-Length', String(buffer.byteLength))
+        .header('X-Content-Type-Options', 'nosniff')
+      if (isHtml || ext === 'svg') res.header('Content-Security-Policy', 'sandbox')
+      return res.send(buffer)
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
     }
