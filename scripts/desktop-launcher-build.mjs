@@ -25,6 +25,8 @@ function run(args, cwd) {
     cwd,
     stdio: "inherit",
     shell: false,
+    // 后台静默:无控制台父进程(GUI/IDE/计划任务)派生 cargo 时不留可见黑窗
+    windowsHide: true,
     // 只有本脚本直接构建 Launcher 时才允许把 VERSION 资源嵌进 exe；
     // Tauri 构建把 launcher 当 path 依赖时不会有这个 env，避免 app 链接重复资源。
     env: { ...process.env, IHUI_LAUNCHER_EMBED_RESOURCE: "1" },
@@ -39,6 +41,7 @@ const metadata = spawnSync(cargo, ["metadata", "--format-version=1", "--no-deps"
   cwd: launcherDir,
   encoding: "utf8",
   shell: false,
+  windowsHide: true,
 });
 if (metadata.error) throw metadata.error;
 if (metadata.status !== 0) throw new Error(`cargo metadata exited ${metadata.status}`);
