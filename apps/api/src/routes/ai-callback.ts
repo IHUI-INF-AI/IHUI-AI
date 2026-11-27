@@ -228,6 +228,9 @@ const callbackSchema = z.object({
       // uuid 形态由 worker 侧 createMessage 的列类型兜底;此处只挡明显脏值。
       parentMessageId: z.string().min(1).optional(),
       siblingIndex: z.number().int().nonnegative().optional(),
+      // 2026-11-27(A4 顺序倒置根治):本轮用户消息 id,从回调 metadata 提出后走 job
+      // 顶层,worker 用它钉 turn;绝不落进 chat_messages.metadata(审计面零污染)。
+      userMessageId: z.string().uuid().optional(),
     })
     .optional(),
 })
@@ -300,6 +303,7 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
       // 缺省不写键 ⇒ worker 走普通 createMessage,存量回调形态零变化。
       const parentMessageId = metadata?.parentMessageId
       const siblingIndex = metadata?.siblingIndex
+      const userMessageId = metadata?.userMessageId
 
       if (!conversationId || !userId) {
         // 缺少关联键,无法处理,但仍返回 202 避免阻塞 AI service
@@ -364,6 +368,7 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
             // 票59(3/3):regenerate 新回复的版本族坐标(worker 侧交 createMessage 落两列)
             ...(parentMessageId ? { parentMessageId } : {}),
             ...(siblingIndex !== undefined ? { siblingIndex } : {}),
+            ...(userMessageId ? { userMessageId } : {}),
             // D24(2026-09-19 立):工具调用/终端任务随 metadata 落库
             // (chat_messages.metadata jsonb 列),恢复会话/回放/审计时还原工具卡与终端区。
             // 空数组不写 key:与"无工具调用"语义区分,避免 metadata 冗余。

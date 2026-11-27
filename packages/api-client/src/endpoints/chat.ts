@@ -693,13 +693,21 @@ export function sendMessage(
   role: ChatRole = 'user',
   metadata?: ChatMessageMetadata,
   reasoning?: string,
+  /** 可选:端侧占位消息 id(号池收尾补写用;不传 = DB 生成,存量行为不变) */
+  messageId?: string,
 ) {
   return fetchApi<{ message: ConversationMessage }>(
     `/api/chat/conversations/${encodeURIComponent(id)}/messages`,
     {
       method: 'POST',
       headers: acpMethodHeaders(ACP_METHODS.sessionPrompt),
-      body: JSON.stringify({ content, role, metadata, reasoning }),
+      body: JSON.stringify({
+        content,
+        role,
+        metadata,
+        reasoning,
+        ...(messageId ? { id: messageId } : {}),
+      }),
     },
   )
 }

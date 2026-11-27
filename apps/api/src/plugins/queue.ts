@@ -85,6 +85,8 @@ export interface AICallbackJobData {
   // 缺省 = 普通回复(与存量落库行为逐字一致)。
   parentMessageId?: string
   siblingIndex?: number
+  /** 2026-11-27(A4 顺序倒置根治):本轮用户消息 id;worker 用它把回复钉在同一 turn。 */
+  userMessageId?: string
 }
 
 /**

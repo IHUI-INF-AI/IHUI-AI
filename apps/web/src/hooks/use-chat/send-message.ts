@@ -757,6 +757,27 @@ export function createSendMessage(
     if (!isRegenerate) {
       userMessageId = store.addMessage({ role: 'user', content: text, model: roundModel })
     }
+
+    // 2026-11-27(A4 顺序倒置根治):用户消息此前只在 finally 落库,而助手消息由
+    // ai-service 回调在流结束时先写,两个请求竞争时助手行先拿到 createdAt。
+    // 这里把用户消息提前到准入回执/首个增量/流尾任一到达时立刻落库;finally 只做兜底。
+    // 同一轮只发一次(共享 promise);网关侧 createMessage 对同一 messageId 幂等。
+    let userPersistPromise: Promise<unknown> | null = null
+    const persistUserOnce = (): Promise<unknown> => {
+      if (isRegenerate || !userMessageId) return Promise.resolve()
+      if (!userPersistPromise) {
+        userPersistPromise = persistMessageSafe(
+          conversationId,
+          text,
+          'user',
+          attachmentMetadata,
+          undefined,
+          { messageId: userMessageId },
+          chatStore,
+        )
+      }
+      return userPersistPromise
+    }
     // 记录该消息生成时的工作区权限模式(2026-07-25 深化,深度遵循统一工程规范)
     // 模式用于消息气泡的徽章展示,让用户事后能识别"这条回答是基于哪种权限模式生成的"
     // 2026-08-31:未绑定工作区时读暂存模式
@@ -1051,7 +1072,11 @@ export function createSendMessage(
           if (userStopped) return
           turnHadReceipt = true
           // 流尾才证明服务端把这一轮跑完了。错误帧之后的 done 不得把失败洗成已收下。
-          if (!serverClosedWithError && admission.noteEvidence('done').changed) flushAdmission()
+          if (!serverClosedWithError && admission.noteEvidence('done').changed) {
+            flushAdmission()
+            // 空正文也照样落用户消息:助手回调随后落库,用户消息必须已经在它前面。
+            void persistUserOnce()
+          }
         },
         // P1-7(2026-09-13 立):会话级采样参数(高级参数面板),undefined = 用模型默认,
         // api-client 仅在字段存在时写入 body(见 client.ts streamChat body 构造)。
@@ -1079,6 +1104,10 @@ export function createSendMessage(
           conversationId,
           userId,
           messageId: assistantId,
+          // 2026-11-27(A4 顺序倒置根治):本轮用户消息 UUID + 原文随流上行。网关在
+          // 开流前先落用户消息,助手回调随后落库时 turn 序号天然在后;前端首个增量的
+          // 补写走 createMessage 幂等,不会重复插。regenerate 没有新用户消息,故 omit。
+          ...(userMessageId ? { userMessageId, userMessageContent: text } : {}),
           // 票59(3/3):sibling 坐标随流透传(网关 schema 声明 → ai-service 原样回显
           // → 回调端点提出进 job 顶层 → worker 交 createMessage 落两列)。
           // 非 version 流不写这两键:请求体逐字节与存量一致。
@@ -1091,7 +1120,11 @@ export function createSendMessage(
         inputId: admission.inputId,
         // Qoder 第 9 项:准入回执回调(api-client 分派后喂入;两格为并行会话固定接口,见桥类型注)。
         onSendAdmissionReceipt: (receipt) => {
-          if (admission.accept(receipt).changed) flushAdmission()
+          if (admission.accept(receipt).changed) {
+            flushAdmission()
+            // 服务端明确 accepted/queued ⇒ 本轮已被收下,用户消息先落库再等助手回调。
+            if (admissionCountsAsAccepted(admission.phase)) void persistUserOnce()
+          }
         },
         // 2026-11-16 用户定档:不再由用户选模式,固定 build 语义 = 全工具开放,
         // 由 AI 按任务自主决定是否写文件 / 执行命令。
@@ -1296,6 +1329,9 @@ export function createSendMessage(
             firstContentTokenReceived = true
             clearTimeout(timeout15sId)
             clearTimeout(timeout60sId)
+            // 第一段正文已经落地 ⇒ 服务端确实收下了这一轮;用户消息立刻落库,
+            // 不能等到 finally 才写(助手回调可能已经在写).
+            void persistUserOnce()
           }
           // Qoder 第 9 项:任意正文增量 = 上游已在产出(隐式证据,与 send-answer 同谱)。
           if (admission.noteEvidence('delta').changed) flushAdmission()
@@ -1318,6 +1354,8 @@ export function createSendMessage(
             clearTimeout(timeout15sId)
             // 推理增量 = 上游已在执行这一轮(与正文增量同一档证据)。
             if (admission.noteEvidence('delta').changed) flushAdmission()
+            // 推理先到、正文还没到:用户消息同样要抢在助手回调之前落库。
+            void persistUserOnce()
           }
           reasoningBatcher.batch(delta)
         },
@@ -1332,6 +1370,8 @@ export function createSendMessage(
             clearTimeout(timeout15sId)
             clearTimeout(timeout60sId)
             if (admission.noteEvidence('delta').changed) flushAdmission()
+            // 工具先于正文到达:同样先把用户消息落库。
+            void persistUserOnce()
           }
           createToolCallHandler(assistantId, chatStore)(event)
         },
@@ -1929,15 +1969,9 @@ export function createSendMessage(
       // 错误帧不算「收下」。只有 admitted/queued 才落库、才允许调用方清空输入框。
       const turnAccepted = admissionCountsAsAccepted(settled.phase) && !serverClosedWithError
       if (turnAccepted && !isRegenerate) {
-        void persistMessageSafe(
-          conversationId,
-          text,
-          'user',
-          attachmentMetadata,
-          undefined,
-          undefined,
-          chatStore,
-        )
+        // 兜底:若本轮直到流尾都没走到上面的提前落库(例如服务端只回 done 且没有任何
+        // 增量证据),这里补一次;已经提前落过则复用同一 promise,不重复写。
+        if (!userPersistPromise) void persistUserOnce()
       }
       if (!turnAccepted && !serverClosedWithError) {
         const drop = new Set([userMessageId, assistantId].filter((id): id is string => Boolean(id)))

@@ -94,6 +94,7 @@ const LABELS: StreamErrorLabelSet = {
 /** streamChat 被 mock 后可拨动的回调面(与 send-message.ts 传入的选项交叉)。 */
 interface StreamOptsProbe {
   inputId?: string
+  metadata?: { userMessageId?: string; userMessageContent?: string }
   onSendAdmissionReceipt?: (receipt: unknown) => void
   onError?: (msg: string, info?: { errorCode?: string }) => void
   onResponse?: () => void
@@ -405,6 +406,37 @@ describe('任务 2:主链准入跟踪器接线(inputId 上行 / 回执配对 / �
     expect(pane.getState().messages).toHaveLength(kept)
     expect(mockPersistMessage).not.toHaveBeenCalled()
     expect(mockToast.warning.mock.calls.some((c) => c[0] === 'P:unconfirmed')).toBe(true)
+  })
+
+  it('首个正文增量即落用户消息,且连续增量/流尾不重复写(防止助手回调先落库造成顺序倒置)', async () => {
+    const pane = makePane('adm-user-persist-early')
+    const send = createSendMessage(makeCtx(), pane)
+    let inDeltaCalls = -1
+
+    mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
+      const o = opts as StreamOptsProbe
+      // 顺序屏障的上行字段:网关必须能拿到用户消息 UUID + 原文,否则只能退回前端竞态。
+      expect(o.metadata?.userMessageId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      )
+      expect(o.metadata?.userMessageContent).toBe(TEXT)
+      o.onDelta?.('A4-')
+      // 关键时序断言:回调发生在本轮 streamChat 尚未返回时。
+      inDeltaCalls = mockPersistMessage.mock.calls.length
+      expect(inDeltaCalls).toBe(1)
+      const call = mockPersistMessage.mock.calls[0] as unknown[]
+      expect(call[0]).toBe(CONV)
+      expect(call[1]).toBe(TEXT)
+      expect(call[2]).toBe('user')
+      // 用户消息的端侧 UUID 必须随持久化上行,助手回调才能按会话时间线排到它后面。
+      expect(call[5]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+      o.onDelta?.('OK-2')
+      o.onDone?.()
+    })
+
+    await expect(send(TEXT)).resolves.toBe(true)
+    expect(inDeltaCalls).toBe(1)
+    expect(mockPersistMessage).toHaveBeenCalledTimes(1)
   })
 
   it('未确认撤回后同一段文字可以立刻再发,不会被待发送账本拦住', async () => {

@@ -182,8 +182,11 @@ let dbMod: { db: Database; dbClient: SqlClient } | null = null
 let chatQ: {
   createMessage: (input: {
     conversationId: string
+    id?: string
     role?: string
     content: string
+    userMessageId?: string
+    parentMessageId?: string
   }) => Promise<unknown>
 } | null = null
 let server: FastifyInstance | null = null
@@ -342,6 +345,73 @@ suite('O82 续四:turn_ordinal 并发双插(真库演练)', () => {
     expect(collisions, 'createMessage 并发双插撞号').toBe(0)
     expect(notConsecutive, 'createMessage 并发双插序号不连续').toBe(0)
   }, 300_000)
+
+  it('回归:同一 client messageId 重复 createMessage 幂等,不新增行/不推进 turn(网关先落、前端补写同一条)', async () => {
+    const conv = await newConversation()
+    const id = '11111111-1111-4111-8111-111111111111'
+    const first = await chatQ!.createMessage({
+      conversationId: conv,
+      id,
+      role: 'user',
+      content: 'same-client-id',
+    })
+    const second = await chatQ!.createMessage({
+      conversationId: conv,
+      id,
+      role: 'user',
+      content: 'same-client-id',
+    })
+    expect((first as { id?: string }).id).toBe(id)
+    expect((second as { id?: string }).id).toBe(id)
+    const rows = await dbMod!.db
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.conversationId, conv))
+    expect(rows).toHaveLength(1)
+    expect(Number(rows[0]!.turnOrdinal)).toBe(1)
+  }, 120_000)
+
+  it('回归:assistant 带 userMessageId 时钉在它回答的用户轮,不被后一条用户消息抢走', async () => {
+    const conv = await newConversation()
+    const u1 = (await chatQ!.createMessage({
+      conversationId: conv,
+      role: 'user',
+      content: 'first question',
+    })) as { id: string; turnOrdinal: number }
+    const u2 = (await chatQ!.createMessage({
+      conversationId: conv,
+      role: 'user',
+      content: 'second question arrived before callback',
+    })) as { id: string; turnOrdinal: number }
+    expect(u1.turnOrdinal).toBe(1)
+    expect(u2.turnOrdinal).toBe(2)
+
+    const a1 = (await chatQ!.createMessage({
+      conversationId: conv,
+      role: 'assistant',
+      content: 'answer to first',
+      userMessageId: u1.id,
+    })) as { id: string; turnOrdinal: number }
+    expect(a1.turnOrdinal).toBe(1)
+
+    // regenerate 的 sibling 也钉在版本族根的 turn;即使 u2 已经存在也不会被挂到 turn 2。
+    const sibling = (await chatQ!.createMessage({
+      conversationId: conv,
+      role: 'assistant',
+      content: 'answer to first, v2',
+      parentMessageId: a1.id,
+    })) as { turnOrdinal: number }
+    expect(sibling.turnOrdinal).toBe(1)
+
+    const rows = await dbMod!.db
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.conversationId, conv))
+    const byContent = new Map(rows.map((r) => [r.content, Number(r.turnOrdinal)]))
+    expect(byContent.get('answer to first')).toBe(1)
+    expect(byContent.get('first question')).toBe(1)
+    expect(byContent.get('second question arrived before callback')).toBe(2)
+  }, 120_000)
 
   it('回归:POST /messages/send 同会话并发双插 ordinal 必不同且连续', async () => {
     let collisions = 0

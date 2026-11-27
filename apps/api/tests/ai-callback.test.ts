@@ -118,6 +118,36 @@ describe('AI callback route', () => {
     await serverWithQueue.close()
   })
 
+  it('userMessageId 提到 job 顶层,不污染落库 metadata', async () => {
+    const serverWithQueue2 = Fastify({ logger: false })
+    const mockAdd = vi.fn().mockResolvedValue({ id: 'job-2' })
+    serverWithQueue2.decorate('aiCallbackQueue', stubCallbackQueue(mockAdd))
+    await serverWithQueue2.register(aiCallbackRoutes)
+    await serverWithQueue2.ready()
+
+    const userMessageId = '33333333-3333-4333-8333-333333333333'
+    const res = await serverWithQueue2.inject({
+      method: 'POST',
+      url: '/api/ai/callback',
+      headers: { 'x-internal-secret': 'test-secret' },
+      payload: {
+        content: 'AI 回复',
+        metadata: {
+          conversationId: 'conv-1',
+          userId: 'user-1',
+          messageId: 'msg-1',
+          userMessageId,
+        },
+      },
+    })
+    expect(res.statusCode).toBe(202)
+    const job = mockAdd.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(job.userMessageId).toBe(userMessageId)
+    expect(job.metadata).not.toHaveProperty('userMessageId')
+
+    await serverWithQueue2.close()
+  })
+
   it('POST /api/ai/callback 队列不可用时降级返回 202 + queued:false', async () => {
     const serverNoQueue = Fastify({ logger: false })
     // 不 decorate aiCallbackQueue
@@ -150,9 +180,7 @@ describe('AI callback route', () => {
     const serverQueueErr = Fastify({ logger: false })
     serverQueueErr.decorate(
       'aiCallbackQueue',
-      stubCallbackQueue(
-        vi.fn().mockRejectedValue(new Error('Redis connection refused')),
-      ),
+      stubCallbackQueue(vi.fn().mockRejectedValue(new Error('Redis connection refused'))),
     )
     await serverQueueErr.register(aiCallbackRoutes)
     await serverQueueErr.ready()
