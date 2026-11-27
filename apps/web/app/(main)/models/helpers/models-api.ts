@@ -73,6 +73,24 @@ interface RelayMeta {
   subscriptionPlans: string[]
 }
 
+/**
+ * 目录模型 id 与中转站 id 的厂商前缀不一致(如 `agnes/agnes-3.0-flash` / `pollinations/openai-fast`
+ * / `openrouter/gemini-2.5-flash-image`)。按最长后缀逐级回退匹配,避免已付费模型因 id 不匹配而
+ * 显示成「免费」或「—」。精确命中永远优先。
+ */
+export function relayLookupCandidates(modelId: string): string[] {
+  const segments = modelId.trim().toLowerCase().split('/').filter(Boolean)
+  return segments.map((_, index) => segments.slice(index).join('/'))
+}
+
+function findRelayMeta(map: Map<string, RelayMeta>, modelId: string): RelayMeta | undefined {
+  for (const key of relayLookupCandidates(modelId)) {
+    const hit = map.get(key)
+    if (hit) return hit
+  }
+  return undefined
+}
+
 export async function fetchModels(): Promise<Model[]> {
   try {
     // fetchApi 自动解包 { code, message, data } 信封并返回 data 字段;
@@ -104,7 +122,7 @@ export async function fetchModels(): Promise<Model[]> {
         const officialIn = it.officialInputPricePer1k ?? 0
         const officialOut = it.officialOutputPricePer1k ?? 0
         const peak = it.peakMultiplier ?? 1
-        relayMap.set(it.modelId, {
+        relayMap.set(it.modelId.trim().toLowerCase(), {
           multiplier,
           displayName: it.relayDisplayName ?? null,
           billingMode: it.billingMode ?? 'token',
@@ -129,7 +147,7 @@ export async function fetchModels(): Promise<Model[]> {
 
     const list: Model[] = r.data.models.map((m) => {
       const desc = MODEL_DESCRIPTIONS[m.id] ?? { description: '', features: [] }
-      const relay = relayMap.get(m.id)
+      const relay = findRelayMeta(relayMap, m.id)
       return {
         id: m.id,
         name: m.name,
