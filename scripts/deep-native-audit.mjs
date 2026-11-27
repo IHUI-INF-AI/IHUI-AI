@@ -100,7 +100,8 @@ const ENTRIES = [
   {
     id: 'P0-2', title: '反向守护进程拓扑',
     probes: [
-      { path: 'apps/cli/src/**/*.ts', pattern: 'start-daemon|daemon-started|handedOff', label: '握手符号' },
+      { path: 'apps/cli/src/daemon/supervisor.ts', pattern: 'DaemonSupervisorHandshake|HandoffVerdict|admitWorkerCommand', label: '握手状态机' },
+      { path: 'apps/cli/src/daemon/supervisor.ts', pattern: 'spawnDetachedSupervisor|WorkerTracker', label: 'detached 拉起与 worker 追踪' },
     ],
   },
   {
@@ -179,8 +180,7 @@ const ENTRIES = [
   {
     id: 'B3-01', title: '浏览器桥 native host',
     probes: [
-      { path: 'apps/desktop/src-tauri/src/native_connector_host.rs', label: 'host 模块' },
-      { path: 'apps/desktop/src-tauri/src/**/*.rs', pattern: 'connect_native|connectNative|allowed_origins', label: 'host 侧判据' },
+      { path: 'apps/desktop/src-tauri/src/bin/ihui_native_host.rs', pattern: 'write_frame|stdio|native_host', label: 'native host 帧协议' },
     ],
   },
   {
