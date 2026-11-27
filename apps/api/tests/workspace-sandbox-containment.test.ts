@@ -107,19 +107,24 @@ describe('R8 复评 F1:解释器仅 admin + 路径参数闸 + 同根约束', () 
     expect(r.stderr).toContain('参数路径越界')
   })
 
-  it('文件操作类参数路径在登记根内 ⇒ 照常执行(正向对照)', async () => {
-    const inside = join(scratchRoot, 'readable.txt')
-    const { writeFileSync } = await import('node:fs')
-    writeFileSync(inside, 'hello', 'utf-8')
-    // parseShellCommand 拒绝反斜杠(shell 元字符),参数路径用正斜杠形态
-    const insideFwd = inside.split(String.fromCharCode(92)).join('/')
-    const r = await sandboxExecutor.execute({
-      command: `cat ${insideFwd}`,
-      workspacePath: scratchRoot,
-    })
-    expect(r.exitCode).toBe(0)
-    expect(r.stdout).toContain('hello')
-  })
+  // cat/cp 正向对照只在 Unix 成立:Windows 无原生 cat/cp,execFile 会 ENOENT/挂起。
+  // 越界拒绝的负向用例仍跨平台跑,闸本身没有放宽。
+  it.skipIf(process.platform === 'win32')(
+    '文件操作类参数路径在登记根内 ⇒ 照常执行(正向对照)',
+    async () => {
+      const inside = join(scratchRoot, 'readable.txt')
+      const { writeFileSync } = await import('node:fs')
+      writeFileSync(inside, 'hello', 'utf-8')
+      // parseShellCommand 拒绝反斜杠(shell 元字符),参数路径用正斜杠形态
+      const insideFwd = inside.split(String.fromCharCode(92)).join('/')
+      const r = await sandboxExecutor.execute({
+        command: `cat ${insideFwd}`,
+        workspacePath: scratchRoot,
+      })
+      expect(r.exitCode).toBe(0)
+      expect(r.stdout).toContain('hello')
+    },
+  )
 
   it('R9 N1:组合长选项路径 operands 越界 ⇒ 拒绝(--target-directory 形态)', async () => {
     const r = await sandboxExecutor.execute({
@@ -139,7 +144,7 @@ describe('R8 复评 F1:解释器仅 admin + 路径参数闸 + 同根约束', () 
     expect(r.stderr).toContain('参数路径越界')
   })
 
-  it('R9 N1:纯旗标参数不受闸影响(正向对照)', async () => {
+  it.skipIf(process.platform === 'win32')('R9 N1:纯旗标参数不受闸影响(正向对照)', async () => {
     const inside = join(scratchRoot, 'f.txt')
     const { writeFileSync } = await import('node:fs')
     writeFileSync(inside, 'data', 'utf-8')

@@ -52,6 +52,15 @@ vi.mock('../src/db/social-queries.js', async (importOriginal) => ({
 vi.mock('../src/db/gamification-queries.js', async (importOriginal) => ({
   ...((await importOriginal()) as object),
   findUserPoints: async () => ({ points: 55 }),
+  // 个人中心读“永久 + 今日赠送”的可消费总额;夹具给今日赠送 0,避免落到真库 update。
+  ensureDailyCreditRow: async () => ({
+    points: 55,
+    dailyPoints: 0,
+    dailyPointsDate: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(
+      new Date(),
+    ),
+    reservedPoints: 0,
+  }),
 }))
 vi.mock('../src/db/statistics-queries.js', async (importOriginal) => ({
   ...((await importOriginal()) as object),
@@ -64,7 +73,9 @@ vi.mock('../src/db/index.js', () => ({
 }))
 
 // 被 mock 的模块在测试里要拿到"同一份桩",vi.mock 提升后只能靠动态 import
-async function withRoute(register: (app: FastifyInstance) => Promise<void>): Promise<FastifyInstance> {
+async function withRoute(
+  register: (app: FastifyInstance) => Promise<void>,
+): Promise<FastifyInstance> {
   const app = Fastify()
   await register(app)
   await app.ready()
@@ -117,7 +128,10 @@ describe('GET /api/user/token-balance 与 /api/statistics/user-center', () => {
       void a.register(statisticsRoutes, { prefix: '/api' })
     })
     // 请求侧塞一个别人的 id,也不得影响取数(认证 ≠ 授权那一型的复发防护)
-    const res = await app.inject({ method: 'GET', url: '/api/statistics/user-center?userId=' + OTHER_ID })
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/statistics/user-center?userId=' + OTHER_ID,
+    })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toEqual({
       courseCount: 12,

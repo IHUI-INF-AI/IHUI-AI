@@ -140,6 +140,20 @@ export async function issueSelfDeviceToken(input: {
   name: string
   os?: string | null
 }): Promise<{ deviceToken: string; device: Device }> {
+  // 同名已绑定指纹 = 这台机器已经用一次性配对码完成过“人机绑定”。
+  // 登录态自助签发若覆盖它,等于任何拿到 JWT 的会话都能替已配对机器换令牌,指纹防重放失效。
+  const existing = await db
+    .select({ id: devices.id, fingerprint: devices.fingerprint })
+    .from(devices)
+    .where(and(eq(devices.userId, input.userId), eq(devices.name, input.name)))
+    .limit(1)
+  if (existing[0]?.fingerprint) {
+    throw new AppError(
+      '同名设备已通过配对码绑定,不能自助换发令牌;请先吊销该设备后重新配对',
+      409,
+      'DEVICE_NAME_BOUND',
+    )
+  }
   const device = await registerDevice({
     userId: input.userId,
     name: input.name,

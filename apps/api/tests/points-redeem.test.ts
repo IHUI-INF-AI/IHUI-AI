@@ -56,6 +56,8 @@ import { otherRoutes as frontendStubOtherRoutes } from '../src/routes/other/inde
 
 const USER_ID = '00000000-0000-4000-8000-000000000001'
 const PREFIX = '/api'
+// 每日赠送按中国时区切日;夹具给出“今天已发放 0 赠送”的行,避免再走 update/回读分支。
+const TODAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date())
 
 function mockAuthed(userId: string = USER_ID) {
   mockAuthenticate.mockImplementation(
@@ -124,6 +126,9 @@ describe('points-redeem route — /api/points/redeem', () => {
           totalSpent: 0,
           level: 1,
           experience: 0,
+          dailyPoints: 0,
+          dailyPointsDate: TODAY,
+          reservedPoints: 0,
           updatedAt: new Date(),
         },
       ],
@@ -165,6 +170,9 @@ describe('points-redeem route — /api/points/redeem', () => {
           totalSpent: 0,
           level: 0,
           experience: 0,
+          dailyPoints: 0,
+          dailyPointsDate: TODAY,
+          reservedPoints: 0,
           updatedAt: new Date(),
         },
       ],

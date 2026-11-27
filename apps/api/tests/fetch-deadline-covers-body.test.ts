@@ -209,6 +209,12 @@ vi.mock('@ihui/auth', () => ({
   verifyAccessToken: vi.fn().mockResolvedValue({ sub: 'test-user' }),
 }))
 
+// 本套件只测出站 deadline / 响应体分流;媒体计费预扣与结算不是被测面,直接放行。
+vi.mock('../src/services/media-billing.js', () => ({
+  ensureMediaPointsBalance: vi.fn(async () => true),
+  chargeMediaPoints: vi.fn(async () => ({ deducted: 1, shortfall: 0 })),
+}))
+
 import { aiAudioRoutes } from '../src/routes/ai-audio.js'
 
 describe('G-815411:路由层把 deadline abort 与「空响应」分流(ai-audio 端到端)', () => {
@@ -284,6 +290,8 @@ describe('G-815411:路由层把 deadline abort 与「空响应」分流(ai-audio
 
   afterEach(() => {
     ;(globalThis as { fetch: unknown }).fetch = REAL_FETCH
+    // ①/④ 用 fake timers;若不带回真实时钟,后续 app.inject 会挂在永不推进的 setTimeout 上。
+    vi.useRealTimers()
   })
 
   /** 等 handler 真正跑到「注册 deadline 定时器」那一步(setImmediate 不在 fake 名单,真跑)。 */

@@ -66,6 +66,9 @@ vi.mock('../src/services/relay-billing-service.js', async (importOriginal) => {
       unitsApplied: 1,
     })),
     getSpendableCostBalance: vi.fn(async () => ({ unlimited: true, cents: 0 })),
+    // 本夹具的账本边界只到 recordCall:预扣/释放不打真库,直接视为无需冻结。
+    preDeductQuota: vi.fn(async () => null),
+    releasePreDeduction: vi.fn(async () => undefined),
   }
 })
 
