@@ -20540,7 +20540,12 @@
     "hrMyTraining": "我的培訓",
     "hrMyExpense": "我的報銷",
     "financeGroup": "財務部"
-  },
+  ,
+    "upgradePlan": "升級計劃",
+    "benefitsCenter": "權益中心",
+    "inviteFriends": "邀請好友",
+    "fontSize": "文字大小",
+    "moreAppearanceSettings": "更多外觀設定"},
   "news": {
     "allCategories": "全部分類",
     "backToList": "返回資訊",

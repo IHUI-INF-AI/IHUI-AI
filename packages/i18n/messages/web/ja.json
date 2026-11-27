@@ -20483,7 +20483,12 @@
     "hrMyTraining": "自分の研修",
     "hrMyExpense": "自分の経費",
     "financeGroup": "財務部"
-  },
+  ,
+    "upgradePlan": "アップグレードプラン",
+    "benefitsCenter": "特典センター",
+    "inviteFriends": "友達を招待",
+    "fontSize": "文字サイズ",
+    "moreAppearanceSettings": "外観設定をもっと見る"},
   "news": {
     "allCategories": "All categories",
     "backToList": "るリスト",

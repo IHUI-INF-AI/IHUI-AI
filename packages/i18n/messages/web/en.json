@@ -20380,7 +20380,12 @@
     "hrMyTraining": "My training",
     "hrMyExpense": "My expenses",
     "financeGroup": "Finance"
-  },
+  ,
+    "upgradePlan": "Upgrade plan",
+    "benefitsCenter": "Member benefits",
+    "inviteFriends": "Invite friends",
+    "fontSize": "Text size",
+    "moreAppearanceSettings": "More appearance settings"},
   "news": {
     "allCategories": "All Categories",
     "backToList": "Back to news",

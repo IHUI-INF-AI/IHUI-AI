@@ -20483,7 +20483,12 @@
     "hrMyTraining": "내 교육",
     "hrMyExpense": "내 경비",
     "financeGroup": "재무부"
-  },
+  ,
+    "upgradePlan": "업그레이드 플랜",
+    "benefitsCenter": "혜택 센터",
+    "inviteFriends": "친구 초대",
+    "fontSize": "글자 크기",
+    "moreAppearanceSettings": "모양 설정 더 보기"},
   "news": {
     "allCategories": "All categories",
     "backToList": "목록으로 돌아가기",
