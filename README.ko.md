@@ -2227,6 +2227,7 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-27**
+- 📚 문서:同步 Recent updates 自动段(含头像菜单三笔) (c80cc60397b)
 - 🐞 수정:头像菜单字号项与设置页同名(聊天字号) (506a560a639)
 - 🐞 수정:外观子菜单主题项对齐主题卡四选一（随系统/珍珠白/曜石黑/樱花粉） (eb69a5ac7c3)
 - 🚀 기능/개선:头像菜单按 Qoder 式分组整理，外观设置收进子菜单 (aeaa2bd2443)

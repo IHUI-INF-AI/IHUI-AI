@@ -99,6 +99,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-27**
+- 📚 Docs:同步 Recent updates 自动段(含头像菜单三笔) (c80cc60397b)
 - 🐞 Fix:头像菜单字号项与设置页同名(聊天字号) (506a560a639)
 - 🐞 Fix:外观子菜单主题项对齐主题卡四选一（随系统/珍珠白/曜石黑/樱花粉） (eb69a5ac7c3)
 - 🚀 Feature/Improvement:头像菜单按 Qoder 式分组整理，外观设置收进子菜单 (aeaa2bd2443)
