@@ -242,6 +242,14 @@ from ..core.retry_after import hint_from_error, resolve_retry_delay_s
 # P0-2 会话级污点 + 凭据保险库(2026-10-26,对标 nanoMuse Sentinel)
 from ..core.session_taint import TaintSource as _TaintSource
 
+# T1.3(2026-11-27):ITCP 契约注册表 —— Python 侧消费 protocol/itcp-registry.json 的唯一入口。
+# 判序与 TS packages/types/src/tool-contract.ts 的 humanApprovalMandated 逐字对齐。
+from ..core.tool_contract_registry import (
+    LookupState as _ContractLookupState,
+)
+from ..core.tool_contract_registry import (
+    load_registry as _load_tool_contract_registry,
+)
 # 第五遍对标(2026-11-14,DSH dsh-tool-call-timeout-policy):per-tool 超时预算。
 # 外层 wait_for 不得早于工具自己声明的 timeout/max_timeout 与 handler 内部超时
 # (run_command 120s / dispatch_subagent 300s / office_document 300s);
@@ -2987,6 +2995,11 @@ class AgentLoopV2:
                         " 取值必须为 'never' / 'on-request' / 'always' / 'deny'"
                     )
             self._approval_policies = dict(approval_policies)
+
+        # T1.3(2026-11-27):ITCP 工具契约注册表(读 protocol/itcp-registry.json 导出物)。
+        # 加载失败降成 unjudged,由查询侧按"未判定"处置 —— 不许读成"没有契约"。
+        # 只读一次、进程内复用;文件缺失时不抛异常(服务可正常启动,只是契约轴不生效)。
+        self._tool_contracts = _load_tool_contract_registry()
 
         # 批 39 接线:生命周期钩子运行时(可选注入;None = 不启用零行为变化)。
         self._hook_runtime = hook_runtime
@@ -9105,6 +9118,45 @@ class AgentLoopV2:
                         "taint_egress_gate",
                         "污点会话出网:该工具被会话级污点闸门抬升为需人工审批",
                     )
+
+        # T1.3(2026-11-27):ITCP 契约轴 —— 声明面要求人批 ⇒ 抬升,单向棘轮。
+        #
+        # 位置与污点闸门同型(安全地板),刻意**在所有会话级授权之后**:
+        # skill 授权、钩子 allow、bypassPermissions 说的是"这个会话不用问人";
+        # 契约说的是"这枚工具在声明面上必须问人",后者是更强的结论,不得被前者覆盖。
+        # 与 TS 侧同一判序(`apps/cli/src/tools/permissions.ts:165`
+        # `decision === 'allow' && humanApprovalMandated(...) ? 'ask' : decision`)。
+        #
+        # 不覆盖更强的否定:`_AxisDecision.FORBID` 与 `approval_policy=deny` 都已在前面的
+        # 出口 return(结构性禁止 > 契约 > 会话授权),此段只在"当前不打算问人"时接管。
+        # 不冒绿:注册表不可用(unjudged)时本段**不抬升也不放行**,维持宿主原判,
+        # 并在 decision_hint 里说明"契约面未判定"(留痕、可审计,不许读成"已核")。
+        _contract_lookup = self._tool_contracts.lookup(tc.name)
+        if _contract_lookup.state is _ContractLookupState.UNJUDGED:
+            self._decision_hints.setdefault(
+                tc.id,
+                (
+                    "itcp_contract_unjudged",
+                    f"ITCP 契约面未判定({_contract_lookup.reason or 'registry 不可用'}),本次按宿主原判",
+                ),
+            )
+        elif (
+            not needs_approval
+            and _contract_lookup.state is _ContractLookupState.DECLARED
+            and _contract_lookup.entry is not None
+            and _contract_lookup.entry.human_approval_mandated()
+        ):
+            needs_approval = True
+            self._decision_hints[tc.id] = (
+                "itcp_contract_requires_approval",
+                "ITCP 契约声明该工具必须人工审批(声明面硬约束,会话级授权不能绕过)",
+            )
+            logger.info(
+                "ITCP 契约抬升审批: tool=%s, risk=%s, session=%s",
+                tc.name,
+                (_contract_lookup.entry.permission or {}).get("riskLevel", "unknown"),
+                self._session_id or "",
+            )
 
         # 2026-11-14:Auto 档逐工具审查闸(对标 DSH experimental-auto-review)。
         # 只在「acceptEdits + 原本需人工审批 + 没有其它闸门留痕」时介入:
