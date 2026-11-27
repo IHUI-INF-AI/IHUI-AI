@@ -307,6 +307,11 @@
       "miniapp": "pkg-user/circle-detail/index"
     },
     {
+      "shared": "packages/app/src/features/circle-index/CircleIndexScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CircleIndexScreen.tsx",
+      "miniapp": "pkg-user/circle-index/index"
+    },
+    {
       "shared": "packages/app/src/features/circle-member/CircleMemberScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/CircleMemberScreen.tsx",
       "miniapp": "pkg-user/circle-member/index"
